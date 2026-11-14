@@ -348,8 +348,9 @@ async function judge(S){
     const n0 = aw.log.length;
     chk(await aw.box.show('c') === 'ok' && aw.log.slice(n0).join() === 'PATCH c hidden=false' && ons(aw) === '' && saw.on.size === 0, '  구경 중 치운 선물 → 서버에 «나옴» · ok · 화면엔 안 뜸(돌아오면 뜬다)');
     chk(await aw.box.show('a') === 'already' && aw.log.length === n0 + 1, '  구경 중 안 치운 선물 → already(요청 0)');
+    aw.srv.items.find((x) => x.id === 'c').hidden = false;   // 서버는 «나옴» 으로 받은 모양
     await aw.box.enterHome();
-    chk(onv(saw) === 'a,b,c' || ons(aw) === 'a,b', '  돌아오면(받기 성공) 목록이 생긴다');
+    chk(onv(saw) === 'a,b,c', '  돌아오면(받기 성공) 목록이 생긴다');
     /* 지우기 · ⭐ — 성공해야 바뀐다 */
     const dl = mk(S); const sd = scr(dl); await dl.box.enterHome(); dl.srv.auto = false;
     const dp = dl.box.remove('a'); await flush();

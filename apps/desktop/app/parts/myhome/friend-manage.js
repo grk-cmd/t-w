@@ -15,7 +15,7 @@
    ⚠️ firebaseAPI · document · window · confirm 은 예전처럼 전역 이름으로 쓴다(이 파일은 app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwFriendManage — 크로미움 내장 전역과 겹치는 이름(Scheduler 같은)을 쓰면 typeof 가드가 늘 통과한다(#103).
    검사: checks/sim-friend-manage-module.js — 만들 때 배선 · 받은 요청 · 일괄 수락 · 거절 · 보낸 요청 · 팝업 · 배지 · app.js 배선 · html 순서.
-         일괄 수락의 자리 계산 · 서브탭 클래스 공유는 sim-friend-manage 가, 선물함 표시 비우기는 sim-gift-star 가 이 파일을 읽어 본다. */
+         일괄 수락의 자리 계산 · 서브탭 클래스 공유는 sim-friend-manage 가, 선물함 표시 비우기는 sim-gift-box 가 이 파일을 읽어 본다. */
 (function(){
 
 function createFriendManage(deps){

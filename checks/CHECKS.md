@@ -83,7 +83,7 @@
 | **sim-char-z.js** | 225 | **92fb9efdb2c1** |
 | **sim-cfg-fit.js** | 281 | **3cef131e017d** |
 | **sim-chat-fly.js** | 360 | **b52fd913a6d7** |
-| **sim-bug-board.js** | 536 | **ca0ab68f7a9d** |
+| **sim-bug-board.js** | 536 | **a9ee4586e178** |
 | **sim-bug-api.js** | 305 | **7c6249d88a08** |
 | **sim-bug-no.js** | 210 | **695c5bfa74eb** |
 | **sim-bug-cleanup.js** | 191 | **7c41fc91c912** |
@@ -267,7 +267,7 @@
 | **sim-purikura-ui.js** | 277 | **b86950bf284f** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
 | **sim-guestbook.js** | 479 | **94932280a36a** |
-| **sim-friend-manage-module.js** | 278 | **37727977e889** |
+| **sim-friend-manage-module.js** | 278 | **fafc854c725f** |
 | **sim-pomodoro-module.js** | 251 | **fe9ad69f3e7b** |
 | **sim-myhome-sticker.js** | 422 | **bf3e0882810d** |
 | **sim-gacha.js** | 469 | **af5e38276dc6** |
@@ -287,7 +287,7 @@
 | **sim-playlist-api.js** | 307 | **f8441a9d1075** |
 | **sim-inbox-api.js** | 203 | **7287889a72e2** |
 | **sim-gift-api.js** | 324 | **01d972c569f0** |
-| **sim-gift-box.js** | 561 | **a1f719e39c78** |
+| **sim-gift-box.js** | 562 | **9923f03d7a73** |
 | **sim-mallang-module.js** | 358 | **233a70f03b8b** |
 | **sim-mallang-store.js** | 251 | **d97bf156706f** |
 | **sim-mail-feed.js** | 341 | **59150658f261** |
