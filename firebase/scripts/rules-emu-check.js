@@ -589,6 +589,24 @@ const GB_CASES = [
   ['방명록 — 이미 없는 글 지우기도 받아 준다(정리 update 에 이미 지운 id 가 섞여도 통째 거절 안 됨)', 'PATCH', '', { [GB('gone1')]: null, [GB('new1')]: null }, true, 'authGbO'],
 ];
 
+/* 👋 친구 요청 · 보낸 요청(미러) — 넣기 · 고치기 · 취소는 보낸 사람 본인만, 받는 사람은 수락 · 거절로 지우기만 */
+const FR_A = 'ufrsend0001', FR_B = 'ufrrecv0001', FR_X = 'ufrthird001';
+const FRQ = `friendRequests/${FR_B}/${FR_A}`, SFR = `sentFriendRequests/${FR_A}/${FR_B}`;
+const FR_SEND = { [FRQ]: { name: '민수', ts: 1 }, [SFR]: { ts: 1, toName: '지영' } };
+const FR_CASES = [
+  ['준비: 친구 요청 — 로그인 연결', 'PATCH', '', { [`userAuth/${FR_A}`]: 'authFrA', [`userAuth/${FR_B}`]: 'authFrB', [`userAuth/${FR_X}`]: 'authFrX' }, true, OWNER],
+  ['친구 요청 — 보낸 사람 본인이 요청 + 미러 한 번에', 'PATCH', '', FR_SEND, true, 'authFrA'],
+  ['친구 요청 — 남의 이름으로 보내기는 막힘', 'PATCH', '', FR_SEND, false, 'authFrX'],
+  ['친구 요청 — 받는 사람이 보낸 척 넣기는 막힘', 'PATCH', '', FR_SEND, false, 'authFrB'],
+  ['친구 요청 — 로그인 없이 묶인 사람 이름으로 보내기는 막힘', 'PATCH', '', FR_SEND, false],
+  ['친구 요청 — 남이 지우기는 막힘', 'PATCH', '', { [FRQ]: null, [SFR]: null }, false, 'authFrX'],
+  ['친구 요청 — 보낸 사람이 취소(두 칸)', 'PATCH', '', { [FRQ]: null, [SFR]: null }, true, 'authFrA'],
+  ['준비: 다시 보내기', 'PATCH', '', FR_SEND, true, 'authFrA'],
+  ['친구 요청 — 받는 사람이 거절(요청 + 상대 미러)', 'PATCH', '', { [FRQ]: null, [SFR]: null }, true, 'authFrB'],
+  ['친구 요청 — 이미 없는 칸 지우기는 받아 준다', 'PATCH', '', { [FRQ]: null, [SFR]: null }, true, 'authFrB'],
+  ['친구 요청 — 로그인에 안 묶인 옛 계정(userAuth 없음)은 예전처럼 보낸다(방명록 · 선물함과 같은 판정)', 'PATCH', '', { [`friendRequests/${FR_B}/ufrlegacy01`]: { name: '옛', ts: 1 }, [`sentFriendRequests/ufrlegacy01/${FR_B}`]: { ts: 1 } }, true],
+];
+
 const CASES = [
   ['준비: 폰 연결 키', 'PUT', `mobileKeys/${GOOD_U}`, KEY, true],
   ['준비: 신고하는 사람을 로그인에 묶기', 'PUT', `userAuth/${OWNED_U}`, 'authA', true, 'authA'],
@@ -652,6 +670,7 @@ const CASES = [
   ...BOT_CASES,
   ...BUG_VIS_CASES,
   ...GB_CASES,
+  ...FR_CASES,
 ];
 
 async function inner(){
