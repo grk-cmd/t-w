@@ -4,6 +4,7 @@
   40,
   5,
   4,
+  2,
   2
  ],
  "edges": [
@@ -115,10 +116,12 @@
   "room/roulette.js > room/dice-games.js",
   "room/roulette.js > room/tricks.js",
   "room/seat-camera.js > room/char-place.js",
+  "room/seat-label-drag.js > room/seat-pointer.js",
   "room/seat-layout.js > character/seat-panel.js",
   "room/seat-layout.js > room/char-place.js",
   "room/seat-layout.js > room/seat-camera.js",
   "room/seat-layout.js > room/seats.js",
+  "room/seat-pointer.js > room/seat-label-drag.js",
   "room/seats.js > character/seat-panel.js",
   "room/seats.js > room/seat-layout.js",
   "room/tricks.js > purikura/purikura-ui.js",

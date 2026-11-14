@@ -292,3 +292,15 @@ overheadMod.setSeatMenu((...a)=>seatMenuMod._seatCtxMenu(...a));   // 이름표 
   - 파츠 원본 투명도(`_baseOpacity` · `_baseTransparent`)는 **불투명할 때(op≥0.999) · 건드리기 전(`_opTouched` 없음)** 에만 잰다 — 숨은 동안 처음 만난 머티리얼의 0 이 원본으로 굳으면 머리가 영영 안 보인다(앱을 껐다 켜야 돌아옴).
   - `seat._bodyOff` 는 `hidden-seats.js` 가 읽는다(몸을 껐다는 표시 — 투명도 기준은 여기 한 곳). `userData._prevVisible` 은 파츠 `hides` 로 숨긴 mesh 가 풀릴 때 다시 보이지 않게 하는 기억이다.
   - 검사: `checks/sim-seat-opacity.js`(자리비움 풀림 사고 시나리오 — 이 파일의 본문을 떼어 돌린다) · `checks/sim-seat-opacity-mod.js`(자리비움 켜고 끄기 · 원본 투명도 기억 · 연결 · 깨 보기).
+
+## seat-pointer.js — 🖱 캔버스 누르기 · 끌기 · 흔들기 · 쓰다듬기 · 우클릭
+
+- **책임**: 캔버스 `contextmenu`(끄는 중 우클릭 = 그 자리 고정 · 조준 취소 · 좌석 메뉴) · `pointerdown`(좌석 잡기 · 조준 가로채기) · `pointermove`(흔들기 · 책상 끌기로 슬롯 옮기기 · 어지러움 누적) · `pointerup`(쓰다듬기 · 아이템 · 벤치 앉기 · 동물 얹기 · 어지러움 확정) · `pointercancel` · `blur` 안전망 · 이름표 끌기 시작(`_beginLabelSlotDrag`) · 전역 마우스 NDC. 끄는 중 상태 `drag` 의 주인. 앱 FSD 분리 M11 — app.js DRAG / PET 구역을 글 그대로 옮겼다.
+- **만드는 법**: `TwSeatPointer.createSeatPointer({ … 24개 })` — 값 13 · 함수 4 · 읽는 함수 6(`Presence` · `floatersMod` · `officeMode` · `roomSeatMode` · `seatMenuMod` · `suppressNextContextMenu`) · 쓰는 함수 1(`setSuppressNextContextMenu`). 만들 때 캔버스 · window 듣기를 한 번 건다.
+- **내보내는 것**: `ray` · `ndc` · `seatFromObject`(app.js 가 같은 이름 const 로 받아 다른 모듈 deps 에 넘긴다) · `drag()`(읽기만) · `mouseNdcX()` · `mouseNdcY()` · `_beginLabelSlotDrag`(이름표 끌기가 쓴다).
+- **함정**
+  - `pointerup` 본문은 `try/finally` 로 `drag = null` 을 보장한다 — 서버가 끊겨 `Presence.poke` 가 던지면 `drag` 가 남아 클릭 통과 판정 루프가 모든 mousemove 를 삼킨다(앱이 유령이 된다).
+  - 우클릭 메뉴는 preventDefault · 억제 깃발 · drag · 레이캐스트 · 회사원 모드 확인 **뒤**에 열어야 한다 — 앞에 붙이면 드래그 중 고정과 이동 확정이 깨진다.
+  - 옛 `typeof seats !== 'undefined'` 가드 하나는 걷었다(`seats` 는 이제 deps 값).
+  - 이름표 끌기 모듈(`seat-label-drag.js`)이 `beginDrag` 로 이 모듈의 `_beginLabelSlotDrag` 를 쓰고, 이 모듈이 `TwSeatLabelDrag.canGrabSeat` 를 부른다(순수 판단 한 줄) — 서로 부름이 `sim-dep-cycles` 기준선에 2건 올랐다. 이슈 #903.
+  - 검사: `checks/sim-seat-pointer.js`(듣기 · 우클릭 · 누르기 · 끌기 · 쓰다듬기 · 어지러움 · try/finally · 안전망 · 연결 · 깨 보기 · 가짜 THREE).

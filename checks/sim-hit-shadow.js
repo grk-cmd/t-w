@@ -138,7 +138,7 @@ function judgeWiring(drSrc, app, html){
   /* 3절 — app.js · html */
   const iMake = app.indexOf('const seatHitMod = TwSeatHitTargets.createSeatHitTargets({'), iShadow = app.indexOf('const hitShadow = TwHitShadow.createHitShadow();');
   const iDiag = app.indexOf('const runDiagMinuteMod = TwRunDiagMinute.createRunDiagMinute({'), iDR = app.indexOf('const desktopRunMod = TwDesktopRun.createDesktopRun({');
-  const iRay = app.indexOf('const ray=new THREE.Raycaster()'), iHid = app.indexOf('const hiddenSeatsMod = '), iOv = app.indexOf('const overheadMod = ');
+  const iRay = app.indexOf('const seatPointerMod = TwSeatPointer.createSeatPointer({'), iHid = app.indexOf('const hiddenSeatsMod = '), iOv = app.indexOf('const overheadMod = ');
   t(iShadow > 0 && iMake > iShadow && iDiag > iMake && iDR > iMake && iRay > 0 && iRay < iMake && iHid < iMake && iOv < iMake, '만드는 줄 — hitShadow → seatHitMod 가 1분 진단 · desktop-run 보다 먼저 · ray · 숨김 · 머리 위 모듈 뒤(TDZ 없음)');
   const blk = (k) => { const i = app.indexOf(k); return i < 0 ? '' : app.slice(i, app.indexOf('\n});', i)); };
   t(/\n  officeHidden: \(\)=>_officeHidden,\n  configHidden: \(\)=>_configHidesScene\(\),\n  isRunmode: \(\)=>document\.body\.classList\.contains\('runmode'\),/.test(blk('const seatHitMod')) && /\n  hitShadow: hitShadow,/.test(blk('const runDiagMinuteMod')) && /\n  hitShadow: hitShadow,/.test(blk('const desktopRunMod')) && /\n  seatHit: seatHitMod,/.test(blk('const desktopRunMod')) && /\n  noteBuild: \(\.\.\.a\)=>hitShadow\.build\(\.\.\.a\),/.test(blk('const seatHitMod')),

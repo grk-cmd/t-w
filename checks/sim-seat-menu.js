@@ -131,7 +131,7 @@ function wire(app, html, over) {
   t(mk.split('\n').map((l) => l.trim().split(':')[0]).join() === '_myHomeFriends,_premiumOn,hiddenSeatsMod,mhVisitMod,openCreator,reportMod,seatFriendReqMod,setUserStatus,toast,tricksMod,userStatus', '만드는 줄(가드 없이) · deps 11');
   t(/\}\);\noverheadMod\.setSeatMenu\(\(\.\.\.a\)=>seatMenuMod\._seatCtxMenu\(\.\.\.a\)\);/.test(app) && !/_seatCtxMenu: \(\.\.\.a\)=>/.test(app), '이름표 우클릭은 만드는 줄 바로 뒤 setSeatMenu 로 잇는다(이름표 deps 로 받지 않는다 — 순환)');
   t(/let _seatMenuFn = null;[^\n]*\nfunction setSeatMenu\(fn\)\{ _seatMenuFn = fn; \}/.test(over) && /if\(_seatMenuFn\) _seatMenuFn\(e, seat\);/.test(over), 'overhead.js — 갈고리로 받고 · 잇기 전이면 아무것도 안 한다');
-  t(/seatMenuMod\._seatCtxMenu\(e, seat\);/.test(A), '캔버스 우클릭은 seatMenuMod._seatCtxMenu');
+  t(/seatMenuMod\(\)\._seatCtxMenu\(e, seat\);/.test(strip(read('seat-pointer.js') || '')), '캔버스 우클릭은 seatMenuMod._seatCtxMenu(캔버스 듣기는 app.js 분리 M11 에서 room/seat-pointer.js 로 — 읽는 함수로 받는다)');
   const iM = html.indexOf('<script src="parts/room/seat-menu.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iM > 0 && iA > iM, 'html — room/seat-menu.js 를 app.js 보다 먼저 싣는다');
   return r;

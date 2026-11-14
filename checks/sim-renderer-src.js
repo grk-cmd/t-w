@@ -142,6 +142,7 @@ const MODULES = [
   { file: 'user-status.js', mod: 'userStatusMod', glob: 'TwUserStatus', sample: 'function setUserStatus(' },   // 0.12.4 app.js 분리 M9
   { file: 'seat-opacity.js', mod: 'seatOpacityMod', glob: 'TwSeatOpacity', sample: 'function setSeatOpacity(' },   // 0.12.4 app.js 분리 M10
   { file: 'seat-state.js', mod: 'seatStateMod', glob: 'TwSeatState', sample: 'function seatState(' },   // 0.12.4 app.js 분리 M10
+  { file: 'seat-pointer.js', mod: 'seatPointerMod', glob: 'TwSeatPointer', sample: 'function classifyHit(' },   // 0.12.4 app.js 분리 M11
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
