@@ -131,7 +131,8 @@ const breaks = [
   ['전역 이름 안 걺', m => m.replace('window.TwAdBanner = api;', ''), null, null],
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
-  ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const adBannerMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('adBannerMod.' + x)); if(n){ ls[i] = ls[i].replace('adBannerMod.' + n, n); return ls.join('\n'); } } return a; }, null],
+  /* app.js 에서 이 모듈의 이름을 부르는 곳이 지금은 없다(관리자 런처가 서버 길로 옮겨 감) — 옛 이름 그대로 부르는 줄을 끼워 넣어 본다 */
+  ['부르는 곳이 옛 이름', null, a => a + '\nrefreshAdBanner();', null],
   ['만들 때 던짐', m => m.replace('function createAdBanner(deps){', 'function createAdBanner(deps){ throw new Error("깨 봄");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){

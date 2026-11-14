@@ -1990,25 +1990,6 @@
       }
       return { ok:true, dryRun:false, removed, failed, ghosts };
     },
-    /* ★ 점검용 — 모든 멀티플레이 방을 즉시 종료(관리자 전용).
-       rooms 노드를 통째로 비우면, 각 방의 리스너가 '빈 방' 스냅샷을 받아 안에 있던 사람들이 자동으로 튕긴다.
-       (별도 강제 퇴장 신호가 필요 없음 — 기존 리스너 구조가 그대로 처리) */
-    async closeAllRooms(){
-      try{
-        const snap = await get(ref(db, 'rooms'));
-        const all = snap.val() || {};
-        const codes = Object.keys(all);
-        // ★ 방을 하나씩 삭제 — rooms 최상위 통째 remove는 규칙(상위 .write 없음)에 막히므로,
-        //   rooms/{code}별로 지운다(각 방은 $room 규칙의 삭제 허용으로 처리). 일부 실패해도 나머지는 진행.
-        let ok=0, fail=0;
-        await Promise.all(codes.map(async code=>{
-          try{ await remove(ref(db, `rooms/${code}`)); ok++; }
-          catch(_){ fail++; }
-        }));
-        await Promise.all(codes.map(code => remove(ref(db, `roomIndex/${code}`)).catch(()=>{})));   // 💰 요약 노드도 정리
-        return { ok:true, count: ok, failed: fail, codes };
-      }catch(e){ return { ok:false, error:String(e&&e.message||e) }; }
-    },
     // 🧹 관리자: 유령 방 일괄 청소 — 살아있는 멤버(90초 내 하트비트)가 하나도 없는데
     //   _meta/chatLog만 남은 방을 통째로 삭제. 정상 방(살아있는 멤버 있음)은 절대 안 건드림.
     async cleanGhostRooms(){
@@ -2170,19 +2151,7 @@
       return _subscribeCatalogKind('items', onChange);
     },
 
-    // ---- 광고 배너 ----
-    async publishAdBanner(slides){
-      await set(ref(db, 'catalog/adBanner'), slides);
-      return { ok:true };
-    },
-
-    /* ---- 게임 설정(관리자 전용) ----
-       동물 해금 레벨처럼 '앱을 새로 배포하지 않고 바꾸고 싶은 값'을 서버에 둔다.
-       광고 배너(catalog/adBanner)와 같은 방식 — 관리자가 저장하면 모든 유저에게 즉시 반영된다. */
-    async publishGameConfig(cfg){
-      await set(ref(db, 'catalog/gameConfig'), cfg);
-      return { ok:true };
-    },
+    /* ---- 게임 설정 ---- 동물 해금 레벨처럼 앱을 새로 배포하지 않고 바꾸고 싶은 값. 읽기만 있다 — 관리자 쓰기는 서버로 옮기는 중(admin/admin-launcher.js) */
     subscribeGameConfig(onChange){
       const r = ref(db, 'catalog/gameConfig');
       onValue(r, snap => onChange(snap.val() || {}));
@@ -2374,32 +2343,6 @@
       let bin = ''; const CHUNK = 0x8000;
       for(let i=0; i<bytes.length; i+=CHUNK) bin += String.fromCharCode.apply(null, bytes.subarray(i, i+CHUNK));
       return btoa(bin);
-    },
-    // ===== 📣 확성기 공지 (관리자 → 전체 유저 브로드캐스트, 1분간 유효) — 런처5 =====
-    // announce: { text, ts(발행 시각 ms), duration(ms) } — 발행 순간부터 duration 안이면 표시.
-    async publishAnnounce(text, durationMs){
-      await set(ref(db, 'announce/current'), { text: String(text||'').slice(0,140), ts: Date.now(), duration: +durationMs||60000 });
-      return { ok:true };
-    },
-    async clearAnnounce(){
-      await remove(ref(db, 'announce/current'));
-      return { ok:true };
-    },
-    // ===== 📰 업데이트 공지 (관리자가 발행 → 유저 앱 시작 시 팝업) =====
-    // updateNotice/current = { title, body, ts } — ts는 발행 시각(버전 구분자로도 씀).
-    //   유저가 "다시 보지 않기" 체크하면 localStorage에 그 ts를 기록해서 같은 ts면 스킵.
-    async publishUpdateNotice(title, body){
-      await set(ref(db, 'updateNotice/current'), {
-        title: String(title||'').slice(0,60),
-        body: String(body||'').slice(0,800),
-        ts: Date.now()
-      });
-      return { ok:true };
-    },
-    async clearUpdateNotice(){ await remove(ref(db, 'updateNotice/current')); return { ok:true }; },
-    async getUpdateNotice(){
-      const snap = await get(ref(db, 'updateNotice/current'));
-      return snap.val() || null;
     },
     /* ═══════════ 📩 수령함 (구 DM 자리) ═══════════
        받기 · 읽음 · 지우기 · 공지는 서버 API 로 옮겼다(myhome/inbox-api.js · launcher/notice-api.js).

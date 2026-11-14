@@ -65,7 +65,7 @@ async function judge(S){
     chk(Object.keys(r.broadcasts).sort().join() === 'l1,l2,p1', '고정 + 최신을 id 로 합친다(고정은 오래돼도 들어 있다)');
     chk(r.broadcasts.p1.tag === 'notice' && r.broadcasts.l1.tag === 'update' && r.broadcasts.l2.tag === 'reward', '  대문자 tag → 소문자(notice · update · reward)');
     chk(r.broadcasts.p1.pinned === true && r.broadcasts.l1.pinned === false && r.broadcasts.l1.ts === Date.parse('2026-10-30T01:00:00Z') && r.broadcasts.l1.version === 3 && r.broadcasts.l1.title === 'Tl1' && r.broadcasts.l1.body === 'Bl1', '  고정 · 시각(ms) · 판(version) · 제목 · 본문');
-    chk(r.updateNotice.title === '업데이트' && r.updateNotice.body === '본문' && r.updateNotice.ts === Date.parse('2026-10-29T00:00:00Z'), '업데이트 공지 — 시각은 ms(«다시 보지 않기» 가 같은 값으로 가른다)');
+    chk(r.updateNotice.id === 'u-1' && r.updateNotice.title === '업데이트' && r.updateNotice.body === '본문' && r.updateNotice.ts === Date.parse('2026-10-29T00:00:00Z'), '업데이트 공지 — id(관리자가 내릴 때 쓴다) · 시각은 ms(«다시 보지 않기» 가 같은 값으로 가른다)');
     chk(r.banner.length === 1 && r.banner[0].img === 'https://x/a.png' && r.banner[0].link === 'https://x/l', '배너 — imageUrl → img · linkUrl → link');
     chk(r.hasMore === false, '다음 쪽이 없으면 hasMore:false');
     const dup = mk(LIB, { get: board({ broadcasts: { pinned: [bc('same', 'NOTICE', { pinned: true })], latest: [bc('same', 'NOTICE', { pinned: true })], nextCursor: 'C' } }) });
