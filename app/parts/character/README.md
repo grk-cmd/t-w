@@ -375,3 +375,14 @@
   - 귀는 늦게 붙는다 — 이 좌석 머리 위에 이미 누가 타 있으면 그 «머리 꼭대기» 는 귀 없던 값이라 `onAttach` 가 다시 잰다.
   - 사람 기본 모델의 ear 본은 웨이트가 없어 본만 돌리면 안 움직인다 — 부착물 자체를 돌려야 해서 동물 귀 등록을 같이 쓴다.
   - 검사: `checks/sim-human-ear-attach.js`(가짜 귀 모듈 · 진짜 three 로 재질 · 등록 · 붙이기 · 실패 길 · 깨 보기).
+
+## part-anim.js — ▶ 파츠 · 책상 아이템 애니메이션 재생
+
+- **책임**: 파츠 클립 고르기(`_pickPartClip` — **실제로 움직이는** 클립이 이름보다 먼저, `idle` 정확 일치가 포함보다 먼저) · 귀 파츠 클립에서 까닥임이 맡은 본 트랙 걷기(`_stripPartClipOwnedTracks`) · 파츠 믹서 세우기 / 걷기(`_setupPartIdleAnim` · `_teardownPartIdleAnim`) · «활동 중에만 재생» 파츠(`updateActivePartPlayback`) · 아이템 idle 재생(`updateIdleItemPlayback`) · 손 본 따라가기(`updateItemHandTrackers`) · 아이템 눌러 재생(`playItemIdle`). 앱 FSD 분리 M4 — app.js BUILDERS 에서 글 그대로 옮겼다.
+- **만드는 법**: `const partAnimMod = TwPartAnim.createPartAnim({ isAdmin, seatState, seats, toast, userStatus })` — `isAdmin` · `userStatus` 는 다시 대입되는 let 이고 `seats` 는 더 아래에서 선언돼 읽는 함수(`()=>isAdmin` …)로 넘긴다. app.js 는 열두 이름을 옛 이름 const 로 받는다.
+- **내보내는 것**: `activeItemMixers`(매 프레임 돌릴 믹서 Set — `frame()` 이 돌린다) · `_idleItemPivots` · `_clipHasMotion` · `_pickPartClip` · `_partAnimNotice` · `_stripPartClipOwnedTracks` · `_setupPartIdleAnim` · `_teardownPartIdleAnim` · `updateActivePartPlayback` · `updateIdleItemPlayback` · `updateItemHandTrackers` · `playItemIdle`
+- **함정**
+  - 멈출 때 `stop()` 이 아니라 `paused = true` — stop 은 0프레임으로 되감아 파츠가 툭 튄다. 재생 판정은 `seatState(holder) === 'focus'` 일 때만(꾸미기 미리보기는 좌석이 아니라 늘 재생).
+  - 옛 글의 `typeof isAdmin` · `typeof seats` 는 읽는 함수로 바뀌며 걷었다(앱이 돌기 시작한 뒤에만 불리므로 같은 뜻).
+  - `_partAnimNotice` 는 첫 줄 `return` 으로 꺼져 있다(장착할 때마다 뜨던 토스트 잡음). 진단은 `console.log` 의 `[파츠 애니]` 로 본다.
+  - 검사: `checks/sim-part-anim.js`(진짜 three AnimationMixer · 클립 · 상태 표로 재생 판정 · 깨 보기).
