@@ -54,6 +54,10 @@ say('§1 상태 판정 순서');
   b.st.manual = null;
   b.doc.hidden = false;
 }
+{
+  const m = build(SRC).mod;
+  chk(m.FOCUS_MS === 1500 && m.SLEEP_MS === 8000 && m.PET_MS === 2200 && m.PEN_FOCUS_MS === 4000, '시간 상수 — 집중 1.5초 · 잠 8초 · 쓰다듬기 2.2초 · 펜 앱 4초(자세를 정하는 값)');
+}
 say('§1-2 창 포커스 · 게이트 · 입력 간격');
 {
   let b = build(SRC); let m = b.mod; const now = 100000;

@@ -248,8 +248,8 @@ say('── 3. 일부러 깨 보기');
   const R1b = fa && fb ? build(s1b) : null;
   chk(!!R1b && R1b.edges.has(fb + ' > ' + fa) && !R1b.cyc.includes(fb + ' > ' + fa), '한쪽으로만 부르면 순환이 아니다');
   /* attach 로 건 길 — 한쪽 모듈에 attach 로 다른 모듈을 걸면 간선으로 센다(deps 로만 보던 때는 안 보였다) */
-  const nameOf = (m) => [...R.instOf].find(([, x]) => x === m)?.[0];
-  const [na, nb] = [nameOf(R.instOf.get ? [...R.instOf.values()].find(m => m.rel === fa) : null), nameOf([...R.instOf.values()].find(m => m.rel === fb))];
+  const nameOf = (rel) => [...R.instOf].find(([, m]) => m.rel === rel)?.[0];
+  const [na, nb] = [nameOf(fa), nameOf(fb)];
   const s3 = SRCS.map(([r, t]) => [r, r === 'app.js' && na && nb ? t + '\n' + na + '.attachProbe({ probe: ()=>' + nb + '.x() });\n' : t]);
   const R3 = na && nb ? build(s3) : null;
   chk(!!R3 && R3.attach.includes(fa + ' > ' + fb), 'attach 로 건 길(' + fa + ' > ' + fb + ')을 새 길로 잡는다');

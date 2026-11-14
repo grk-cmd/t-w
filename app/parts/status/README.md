@@ -72,9 +72,10 @@
 
 - **책임**: `seatState(seat, now)` — 좌석 하나의 지금 상태 키(idle · focus · sleep · pet · shaking · dizzy · dance) 정하기. 활동 시각 `lastActivity`(타이핑 모션용 — 포커싱 게이트에 걸림) · `lastAnyInput`(자동 자리비움용 «실제 입력») · 창 포커스 · 펜 앱(집중 창 4초) · 투게더워킹 창이 맨 앞인지. `triggerPet`(쓰다듬기 시작 · 눈 깜빡임 펄스). 앱 FSD 분리 M10 — 만들 때 mousemove · keydown · wheel · visibilitychange · blur · focus 듣기를 한 번 건다.
 - **만드는 법**: `TwSeatState.createSeatState({ desktopMode, figureMode, focusGateSleep, focusLevelMod, seatPanelMod, userStatusMod })` — 앞 넷은 읽는 함수(app.js 가 다시 대입하거나 더 아래에서 선언), 뒤 둘은 값.
-- **내보내는 것**: `FOCUS_MS` · `SLEEP_MS` · `PET_MS` · `PEN_FOCUS_MS` · `focusWindowMs` · `activity` · `anyInput` · `seatState` · `triggerPet` · 시각 읽기 `lastActivity()` · `lastAnyInput()` · `penAppFocused()` · 쓰기 `setLastActivity` · `setLastAnyInput` · `setPenAppFocused` · `setSelfAppActive`(app.js 활성 앱 판정 · `desktop-run.js` 가 건다).
+- **내보내는 것**: `FOCUS_MS` · `SLEEP_MS` · `PET_MS` · `PEN_FOCUS_MS` · `focusWindowMs` · `activity` · `anyInput` · `seatState` · `triggerPet` · 시각 읽기 `lastActivity()` · `lastAnyInput()` · `penAppFocused()` · 쓰기 `setLastActivity` · `setLastAnyInput` · `setPenAppFocused` · `setSelfAppActive`(`setPenAppFocused` · `setSelfAppActive` 는 app.js `_applyActiveAppState` 가, `setLastActivity` · `setLastAnyInput` 은 `desktop-run.js` 가 건다).
 - **함정**
   - `lastActivity` 와 `lastAnyInput` 을 합치지 말 것 — 앞은 포커싱 게이트에 걸려 «타이핑 모션», 뒤는 어떤 앱을 쓰든 «사람이 만지고 있나».
   - 판정 순서가 곧 우선순위다(액자 고정 · 흔들기 · 어지러움 · 쓰다듬기 · 춤 · 자리비움 · 친구 상태 · 수동 · 창 포커스 · 게이트 · 폰 · 입력 간격). 흔들기 · 쓰다듬기는 자리비움보다 위다.
+  - `seatPanelMod.manual()` 을 읽고 좌석 패널이 `activity` · `triggerPet` 을 부르는 서로 부름은 M10 전 app.js 때와 같다(모두 부를 때 찾는 읽기). `sim-dep-cycles` 가 옛 이름 별칭을 못 따라가 못 본다 — 별칭 따라가기와 수동 상태 주인 옮기기는 따로 한다.
   - 옛 `lastZ`(선언만 있고 아무도 안 읽던 값)는 옮기지 않았다.
   - 검사: `checks/sim-seat-state.js`(판정 순서 · 시각 · 듣기 · 쓰다듬기 · 연결 · 깨 보기).
