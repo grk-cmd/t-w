@@ -624,9 +624,9 @@ function createMallang(deps){
 
   function spawnHearts(inst){
     const layer = document.getElementById('mlLayer'); if(!layer) return;
-    const n = 3 + Math.floor(Math.random()*3);
+    const hearts = 3 + Math.floor(Math.random()*3);
     const cx = inst.x + inst.w/2, cy = inst.y + inst.hh*0.3;
-    for(let i=0;i<n;i++){
+    for(let i=0;i<hearts;i++){
       const h = document.createElement('div');
       h.className = 'ml-heart'; h.textContent = ['💗','💖','💕','❤️'][Math.floor(Math.random()*4)];
       h.style.left = (cx + (Math.random()*40-20))+'px';
@@ -885,12 +885,12 @@ function createMallang(deps){
   // 친구 탭에 안 본 선물 개수 배지 — 값은 서버 unseenCount(받기 전 null 이면 그대로 둔다)
   function syncBadge(){
     const tab = document.querySelector('.mh-tab[data-tab="friend"]'); if(!tab) return;
-    const n = giftBox.box().unseenCount;
-    if(n === null) return;
+    const unseen = giftBox.box().unseenCount;
+    if(unseen === null) return;
     let badge = tab.querySelector('.ml-giftbadge');
-    if(n>0){
+    if(unseen>0){
       if(!badge){ badge = document.createElement('span'); badge.className='ml-giftbadge'; tab.appendChild(badge); injectBadgeStyle(); }
-      badge.textContent = '🎁'+n;
+      badge.textContent = '🎁'+unseen;
     } else if(badge){ badge.remove(); }
   }
   function injectBadgeStyle(){
