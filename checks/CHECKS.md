@@ -422,7 +422,7 @@
 | **sim-desk-visual.js** | 214 | **2428c62e17b8** |
 | **sim-desk-place.js** | 187 | **2de2d6fa296b** |
 | **sim-toast.js** | 174 | **25bd36f5c6a5** |
-| **sim-dot-render.js** | 229 | **8c16e6d94712** |
+| **sim-dot-render.js** | 234 | **b5eb7e473f84** |
 | **sim-ps1-dither.js** | 100 | **061d45e351ad** |
 | **sim-seat-camera.js** | 151 | **779e4e952938** |
 | **sim-ride-chain.js** | 54 | **7c397b3ae322** |

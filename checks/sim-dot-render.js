@@ -198,7 +198,12 @@ say('── 5. 켠 뒤 들어온 메쉬 · 텍스처 · 셰이더');
   const keyPlain = g.customProgramCacheKey();
   chk(keyPlain === b.customProgramCacheKey(), '  (준비) 켠 뒤 걸린 보통 재질 — 키가 보통 재질과 같다');
   g.onBeforeCompile = function hueLater(sh){ sh.hl = 1; };
-  chk(g.customProgramCacheKey() !== keyPlain, '훑기 전에 색조가 덮어써도 키가 바로 달라진다(보통 재질 셰이더를 받아 색조가 빠지지 않게)');
+  const keyHueOnly = g.customProgramCacheKey();
+  chk(keyHueOnly !== keyPlain, '훑기 전에 색조가 덮어써도 키가 바로 달라진다(보통 재질 셰이더를 받아 색조가 빠지지 않게)');
+  const h2 = mat(); mesh(h2); h2.onBeforeCompile = g.onBeforeCompile; D.applyPS1Shader(true);   // 색조 먼저 → PS1 인 다른 재질
+  D.applyPS1Shader(true);   // 훑기 — g 를 색조 위에 다시 감싼다
+  chk(g.customProgramCacheKey() !== keyHueOnly, '  다시 감싸면 키가 또 달라진다(«색조만 든» 셰이더를 계속 써서 PS1 이 빠지지 않게)');
+  chk(keyHueOnly !== h2.customProgramCacheKey() && g.customProgramCacheKey() === h2.customProgramCacheKey(), '  덮어쓴 동안의 키는 «색조 + PS1» 키와 다르고 · 다시 감싼 뒤엔 같다');
 
   /* 끌 때 — 그새 색조 셰이더가 덮어쓴 재질은 그 셰이더를 지우지 않는다 */
   const d = mat(); mesh(d); D.applyPS1Shader(true);

@@ -102,9 +102,10 @@ function applyPS1Shader(on){
         m.onBeforeCompile = hook;
         /* ⚠️ three 는 셰이더를 customProgramCacheKey(기본 = onBeforeCompile 글자)로 나눠 쓴다. 감싼 훅 글자는
            늘 같아서, 키에 원래 훅 글자를 넣지 않으면 염색(색조) 재질과 보통 재질이 한 셰이더를 나눠 써 염색이 빠진다.
-           키는 그릴 때마다 «지금 걸린 훅» 으로 — 켠 뒤 처음 색조를 걸면 색조 셰이더가 우리 훅을 덮어쓰는데,
-           켤 때 적어 둔 글자를 쓰면 보통 재질 셰이더를 받아 다음 훑기까지 색조가 안 보인다. */
-        m.customProgramCacheKey = ()=>PS1_CACHE_KEY + String((m.onBeforeCompile === hook ? prev : m.onBeforeCompile) || '');
+           켠 뒤 처음 색조를 걸면 색조 셰이더가 우리 훅을 덮어쓴다 — 그동안은 three 기본 키(그 훅 글자)를 낸다.
+           ⚠️ 켤 때 적어 둔 키를 쓰면 보통 재질 셰이더를 받아 색조가 빠지고, 접두사를 붙이면 다시 감싼 뒤 키가 같아
+              «색조만 든» 셰이더를 계속 써서 PS1 이 영영 안 걸린다. */
+        m.customProgramCacheKey = ()=>m.onBeforeCompile === hook ? PS1_CACHE_KEY + String(prev || '') : String(m.onBeforeCompile || '');
         _ps1Hooks.set(m, { hook, prev });
         m.userData._ps1Hooked = true;
         m.needsUpdate = true;   // 셰이더 재컴파일 유도
