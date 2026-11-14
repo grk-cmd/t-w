@@ -271,6 +271,8 @@ app.js 9,746 → 9,476줄(270줄) · 구역 167 → 130개. 남긴 빈 머리 �
 
 **0.12.4 — app.js 분리 M6**: 좌석 목록(`seats`) · `createSeat` · `removeSeat` · 고른 좌석 · 좌석 간격 저장을 `room/seats.js` 로 옮겼다(글 그대로 — 다시 대입되는 `selected` · `SPACING` · `MULTIPLAYER_SPACING` 는 읽는 · 쓰는 함수로 내놓고 app.js 는 `seatsMod.selected()` 로 읽는다). app.js 8,902 → 8,870줄.
 
+**0.12.4 — app.js 분리 M7**: 캐릭터 높이 · 깊이(`CHAR_Z` · `clampCharY` …) · 프로그램 이동 위치 · 크기의 모니터별 저장 · 끌기 한계(`clampDeskPan`) · 책상 반폭(`seatDeskHalfWidth`)을 `room/char-place.js` 로 옮겼다(글 그대로 — `seats` 는 읽는 함수, 줄 배치는 attach 알림, 다시 대입되는 여섯은 읽는 · 쓰는 함수). app.js 8,870 → 8,625줄.
+
 ## 구역 표 — `app/parts/app.js`
 
 | # | 줄 | 크기 | 목적 | 층 | 관련 모듈 | 씀 | 쓰임 | 비고 |

@@ -523,7 +523,7 @@ function wiring(app, html, tricks, chip, away, files, cm){
   const t = (ok, msg) => r.push([!!ok, msg]);
   const A = strip(app);
   t(/const bodyMeasureMod = TwBodyMeasure\.createBodyMeasure\(\{\n\}\);/.test(app), 'app.js 가 만든다(빈 deps)');
-  t(A.indexOf('const bodyMeasureMod') >= 0 && A.indexOf('const bodyMeasureMod') < A.indexOf('function _myPanHalfFrac('), '만드는 줄이 맨 앞(쓰는 함수들보다 먼저 — 부팅 중에 불려도 TDZ 없음)');
+  t(A.indexOf('const bodyMeasureMod') >= 0 && A.indexOf('const bodyMeasureMod') < A.indexOf('const charPlaceMod'), '만드는 줄이 맨 앞(쓰는 모듈 — _myPanHalfFrac 가 든 char-place — 보다 먼저 — 부팅 중에 불려도 TDZ 없음)');
   const iM = html.indexOf('<script src="parts/character/body-measure.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iM > 0 && iA > iM, 'html — body-measure.js 를 app.js 보다 먼저 싣는다');
   const fnBody = (src, name) => { const i = src.indexOf('function ' + name + '('); if(i < 0) return ''; const j = src.indexOf('\n}\n', i); return src.slice(i, j < 0 ? undefined : j); };
@@ -533,7 +533,8 @@ function wiring(app, html, tricks, chip, away, files, cm){
   t(/(?:^|[^.\w])measureBodyBox\(root, \{ excludeParts: true, visibleOnly: true, skipMeshes: headDecorMeshSet\(meshHost\)/.test(fnBody(C, 'measureHeadBoxNoParts')), 'measureHeadBoxNoParts → 파츠 · 숨김 · 장식 빼기');
   t(/(?:^|[^.\w])measureBodyBox\(root, \{ excludeParts: true \}\)/.test(fnBody(C, 'measureCharBox')) && !/\.traverse\(/.test(fnBody(C, 'measureCharBox')), 'measureCharBox → 파츠만 빼기');
   t(/(?:^|[^.\w])measureBodyBox\(root, \{ excludeParts: 'rigged', visibleOnly: true \}\)/.test(fnBody(C, 'measureUnderfootDepth')), "measureUnderfootDepth → 리깅만 빼기 · 숨김 빼기");
-  const pan = fnBody(A, '_myPanHalfFrac');
+  const CP = strip(files[Object.keys(files).find(f => /char-place\.js$/.test(f))] || '');   // _myPanHalfFrac 는 room/char-place.js(app.js 분리 M7)
+  const pan = fnBody(CP, '_myPanHalfFrac');
   t(/bodyMeasureMod\.measureBodyBox\(me\.group, \{[^}]*visibleOnly: true[^}]*\}\)/.test(pan) && !/\.traverse\(/.test(pan), '_myPanHalfFrac → measureBodyBox(손으로 도는 traverse 없음)');
   const glue = (name) => { const m = app.match(new RegExp('const ' + name + ' = [\\s\\S]*?\\n\\}\\);')); return m ? m[0] : ''; };
   const T = strip(tricks), probe = fnBody(T, '_flyProbeY');
