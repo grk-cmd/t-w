@@ -83,3 +83,13 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
   - 스위치가 없으면 옛 식과 한 픽셀도 다르면 안 된다 — 실행 창 크기가 바뀌면 `_winAlreadyIs` 억제가 깨져 창 조작이 다시 쏟아진다.
   - 띠로 띄우면 날아가기 · 위쪽 말풍선 · 끌기는 띠 밖으로 못 나간다(시험이라 그대로 둔다).
   - 검사: `checks/sim-run-rect.js` · `sim-overlay-gap.js`(세 자리가 이 함수를 거치는가) · `sim-fix-1008.js`([GPU] 줄).
+
+## reload-reset.js — 🪟 화면을 다시 불러오기 전에 창을 런처로
+
+- **책임**: 메인 창 화면이 다시 불러와질 때(렌더러가 죽어 다시 불러옴 · 화면이 스스로 다시 불러옴 등 어느 길이든) 창을 먼저 런처 크기로 되돌릴지 정한다(순수 판단 · main.js 가 require). 창 맞추기 자체는 main.js `_resetWindowForReload`.
+- **만드는 법**: main.js `_watchRendererHealth` 가 창마다 `ReloadReset.createReloadReset({ reset })` 한 벌.
+- **내놓는 것**: `onFinishLoad()`(did-finish-load) · `onStartNavigation({ isMainFrame, isSameDocument })`(did-start-navigation) · `beforeReload()`(렌더러 사망 길 — 다시 불러오지 않을 때도 덮인 채 두지 않게).
+- **함정**
+  - 처음 로드 · 하위 틀(유튜브 등) · 같은 문서 안(해시) 이동은 되돌리지 않는다.
+  - 한 로드 사이에는 한 번만 되돌린다 — 사망 길이 먼저 되돌리고 이어서 다시 불러와도 두 번 안 한다.
+  - 검사: `checks/sim-renderer-gone-reset.js`(죽음 · 화면 이동 차례를 가짜 창에서 실제로 돌림 · 깨 보기).

@@ -106,7 +106,7 @@
 | **sim-display-pick.js** | 171 | **547c17431d42** |
 | **sim-fix-1016b.js** | 84 | **55d2d7d90ae9** |
 | **sim-fix-1016.js** | 170 | **7724abcbddfe** |
-| **sim-gl-recover.js** | 88 | **e3705358c7eb** |
+| **sim-gl-recover.js** | 165 | **4e18581510ad** |
 | **sim-chat-copy.js** | 86 | **0e24f604f42f** |
 | **sim-chat-delete-log.js** | 90 | **d987e49be2b8** |
 | **sim-chat-log-persist.js** | 160 | **886c6f8cad51** |
@@ -455,7 +455,7 @@
 | **sim-part-ao-clean.js** | 128 | **f8bf7bb3709f** |
 | **sim-img-retry.js** | 117 | **144a66e6e8df** |
 | **sim-input-diag.js** | 148 | **09d9fb9484c8** |
-| **sim-renderer-gone-reset.js** | 114 | **d2807bd5dea6** |
+| **sim-renderer-gone-reset.js** | 137 | **d2cf1c49f44a** |
 | **sim-room-code-len.js** | 178 | **0dd3514b5e58** |
 | **sim-recent-rooms.js** | 216 | **521a6470e3ea** |
 | **sim-mh-pad-pos.js** | 164 | **e8746cd0fbc6** |
