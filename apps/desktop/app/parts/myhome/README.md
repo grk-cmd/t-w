@@ -435,6 +435,12 @@ const mallangMod = TwMallang.createMallang({
 - **함정**: 만들 때는 계정 칸을 읽지 않는다 — `ADV` 는 빈 기본값(`advDefault`)으로 서고 `MYHOME_DESKTOP.startBgSync(uid)` 가 계정 확인 뒤 계정 칸에서 읽어 채운다(서버 읽기는 안 한다 — 바탕화면은 마이홈을 열 때 상태 주인이 받는다)(`launcher/app-boot.js` desktopBg 칸). 시작 전 `advSave` 는 아무것도 안 한다(빈 기본값이 저장본을 덮지 못하게). 바탕화면 값은 상태 주인이 받으면 `onChange` 로 다시 칠한다— 옛 «고른 시각(`bgTs`)으로 기기끼리 맞추기» · `advBg` · `tw.advZ.v2` 의 `bg`·`hideFolders`·`folderPos` 칸은 읽지 않는다. `MYHOME_DESKTOP` 은 만들자마자 내놓으므로 다른 스크립트(`bookmark.js` 등)가 쓰기 전에 만들어져야 한다 → boot 는 `myhome-desktop.js` 바로 다음에 싣는다. boot 는 app.js 최상위 `accountStoreMod` 를 읽는다(app.js 가 먼저 실려야 한다).
 - 검사: `checks/sim-account-store.js`(저장 칸 고르기 — `advLoad` · `advSave` 를 떼어 계정 A/B 로 불러 본다), `sim-mhd-*` · `sim-folder-free.js`.
 
+### 🧟 좀아칼 옛 게임 코드 — `apps/desktop/archive/myhome-game-archive.js` (D2-6)
+
+- 사용자 결정(2026-11-14 · 설계 Q2): 게임은 **끄고 별도 파일로 보관**한다 — 지우지 않는다. `myhome-desktop.js` 에서 게임 문장(시뮬 · 캐릭터세팅 · 인벤토리 · 파티 · 전투 · 스토리 · 지도 · 칭호 · 세계관) 약 4,300줄과 게임 창 HTML · 이벤트 연결을 걷어 `createMyHomeGameArchive(deps)` 안에 글자 그대로 옮겼고, 바탕화면 쪽에서 걷어 낸 조각은 파일 맨 아래 줄 주석으로 남겼다.
+- **싣지 않는다** — html · smoke · 검사 어디도 읽지 않고 앱 묶음(electron-builder `files`)에도 안 들어간다(`apps/desktop/archive/`). 문법만 `node --check` 로 맞다. 다시 설계할 때 참고해 모듈로 새로 짠다(옛 코드는 `firebaseAPI.adv*` Firebase 를 직접 불렀다).
+- 바탕화면 쪽에 그대로 남은 것: 게임 저장 읽기 · 쓰기(`tw.advZ.v2` · `advLoad` · `advSave` — 지우지 않는다) · 게임 CSS 문자열(같은 `css` 안에 섞여 있다) · 외부 앱 등록(`window.MYHOME_DESKTOP`) · 방문 모드 훅.
+
 ## `myhome-desktop-boot.js` — 🖥️ 바탕화면을 만드는 한 줄
 
 - **책임**: `createMyHomeDesktop({ advStore: accountStoreMod })` 한 줄. 바탕화면은 app.js 뒤에 실리고 싣자마자 돌아야 해서, app.js 가 만든 계정 칸을 deps 로 넘기는 자리를 별도 파일로 둔다.

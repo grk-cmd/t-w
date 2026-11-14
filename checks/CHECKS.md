@@ -404,7 +404,7 @@
 | **sim-focus-api.js** | 192 | **e6cd91ab0c8f** |
 | **sim-guestbook-wiring.js** | 291 | **bb490da70859** |
 | **sim-dep-cycles.js** | 237 | **2cbd6d414f8e** |
-| **sim-domain-calls.js** | 157 | **673fc5f9779a** |
+| **sim-domain-calls.js** | 156 | **2eb96edff02d** |
 | **sim-room-state.js** | 58 | **ddcd7ec6a8ac** |
 | **sim-error-codes.js** | 110 | **5f949216e20f** |
 | **sim-myhome-state.js** | 87 | **3ad983f282ef** |
@@ -413,7 +413,7 @@
 | **sim-app-boot.js** | 165 | **c6ba2f71e149** |
 | **sim-net-ready.js** | 145 | **d592b8f454f2** |
 | **sim-myhome-hooks.js** | 99 | **ded7ee208327** |
-| **sim-demoji-catalog.js** | 80 | **36e4e0c7b848** |
+| **sim-demoji-catalog.js** | 78 | **51109652b2f6** |
 | **sim-hook-guards.js** | 75 | **cb32158c9f2b** |
 | **sim-typeof-guards.js** | 133 | **1332b275f74a** |
 | **sim-user-name.js** | 107 | **1bc605f8c264** |
@@ -455,7 +455,7 @@
 | **sim-rules-cutover.js** | 132 | **a2fb14fd5413** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |
 | **sim-label-measure.js** | 233 | **4e2cf4f6ba84** |
-| **sim-safe-html.js** | 741 | **0a4a4732be56** |
+| **sim-safe-html.js** | 734 | **f11bcf1c5ea2** |
 | **sim-release-notes.js** | 75 | **37e41b730e37** |
 | **sim-native-peek.js** | 168 | **10af633f27f9** |
 | **sim-seat-regions.js** | 170 | **4664178b0a43** |
