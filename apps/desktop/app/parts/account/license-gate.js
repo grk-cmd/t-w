@@ -170,7 +170,7 @@ async function _signupDoGoogle(){
   if(!g || !g.ok) return { ok:false, canceled:!!(g && (g.canceled || !g.reason || g.reason === '로그인이 취소됐어요')), reason:(g && g.reason) || '' };
   const p = _signupPendingEnsure();
   /* 🔑 처음 보는 구글이면 이 새 아이디에 묶기 전에 묻는다 — 예전 계정이 있는 사람이 다른 구글로 가입하는 실수를 막는다 */
-  const r = await firebaseAPI.authSignInWithGoogle(g.idToken, p.uid, (email)=>googleConfirmMod.ask(email, 'bind', p.code));
+  const r = await firebaseAPI.authSignInWithGoogle(g.idToken, p.uid, (email)=>googleConfirmMod.ask(email, 'signup', p.code));
   if(r && r.declined === 'other') return _signupDoGoogle();
   if(r && r.declined) return { ok:false, canceled:true, reason:'' };
   if(!r || !r.ok) return { ok:false, reason:(r && r.reason) || '구글 가입에 실패했어요' };

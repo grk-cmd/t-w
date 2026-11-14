@@ -371,10 +371,12 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
         authSignupBind: async uid => { log.push('bind:' + uid); return opt.bind || { ok:true, authUid:'ANON1' }; },
         setUserFriendCode: async (uid, code) => { log.push('mirror:' + uid + '=' + code); return true; },
         finishInviteSignup: async (c, t, uid) => { log.push('finish:' + uid); return { ok:true }; },
-        authSignInWithGoogle: async (tok, uid) => { log.push('google:' + uid); return opt.google ? opt.google(uid) : { ok:true, uid:'G1', email:'me@gmail.com', userCode:uid, bound:true }; },
+        authSignInWithGoogle: async (tok, uid, ask) => { log.push('google:' + uid);
+          if (opt.asks && ask){ const a = await ask('me@gmail.com'); if (a !== 'yes') return { ok:false, declined: a === 'other' ? 'other' : 'cancel' }; }
+          return opt.google ? opt.google(uid) : { ok:true, uid:'G1', email:'me@gmail.com', userCode:uid, bound:true }; },
         fetchAccountSnapshot: async u => { log.push('snap:' + u); return { userCode:u }; },
       };
-      const w = { firebaseAPI: api, companion: { signInWithGoogle: async () => opt.gcancel ? { ok:false } : { ok:true, idToken:'TOK' } } };
+      const w = { firebaseAPI: api, companion: { signInWithGoogle: async () => { log.push('gwin'); return opt.gcancel ? { ok:false } : { ok:true, idToken:'TOK' }; } }, answers: (opt.asks || []).slice() };
       Object.defineProperty(globalThis, 'firebaseAPI', { get: () => w.firebaseAPI, configurable: true });
       Object.defineProperty(globalThis, 'companion', { get: () => w.companion, configurable: true });
       const src3 = [
@@ -382,7 +384,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
         "const INVITE_TOKEN_KEY = 'tw.inviteToken'; const INVITE_PASS_KEY = 'tw.invitePassed'; const SIGNUP_PENDING_KEY = 'tw.signupPending';",
         "function _markInvitePassed(){ localStorage.setItem(INVITE_PASS_KEY, '1'); }",
         "async function _applyTransferSnapshot(s){ log.push('apply:' + (s && s.userCode)); }",
-        "const googleConfirmMod = { ask: async () => 'yes' };   // 🔑 묻는 창(google-confirm.js) — 늘 [이 계정에 연결]",
+        "const googleConfirmMod = { ask: async (e, mode, code) => { log.push('ask:' + mode + ':' + code); return window.answers.shift() || 'yes'; } };   // 🔑 묻는 창(google-confirm.js) — 답은 opt.asks 차례대로 · 없으면 [이 계정에 연결]",
         ...need.map(h => takeFn(APP, h)),
         'return { _signupDoPassword, _signupDoGoogle, _signupPendingEnsure, _signupPendingLoad };',
       ].join('\n');
@@ -442,7 +444,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
       const E = mkA({ store: { 'tw.inviteToken': TOKEN } });
       const p0 = E.A._signupPendingEnsure();
       const r = await E.A._signupDoGoogle();
-      chk(r.ok && !r.existing && E.log[0] === 'google:' + p0.uid, '★ 구글 가입: 가입 상태의 uid 를 결속에 건넨다');
+      chk(r.ok && !r.existing && E.log.find(x => x.startsWith('google:')) === 'google:' + p0.uid, '★ 구글 가입: 가입 상태의 uid 를 결속에 건넨다');
       chk(E.st['tw.myUserId'] === p0.uid && E.st['tw.myFriendCode'] === p0.code && E.st['tw.loginEmail'] === 'me@gmail.com', '구글 가입: uid · 코드 · 구글 이메일');
       chk(!E.log.some(x => x.startsWith('link') || x.startsWith('ensure')), '구글 가입엔 ④(비밀번호) · 익명 세션이 없다');
     }
@@ -458,6 +460,22 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
       E.A._signupPendingEnsure();
       const r = await E.A._signupDoGoogle();
       chk(!r.ok && r.canceled && !('tw.myUserId' in E.st) && !!E.A._signupPendingLoad(), '구글 창을 닫으면 조용히 · 가입 상태 그대로');
+    }
+    /* 🔑 처음 보는 구글로 가입 — 묻는 창(새 아이디를 보인다) · [다른 계정으로 로그인]이면 구글 창부터 다시 · 닫으면 취소 */
+    {
+      const E = mkA({ store: { 'tw.inviteToken': TOKEN }, asks: ['other', 'yes'] });
+      const p0 = E.A._signupPendingEnsure();
+      const r = await E.A._signupDoGoogle();
+      const seq = E.log.filter(x => /^(gwin|ask|google|claim)/.test(x));
+      chk(r.ok && seq.join(' → ') === ['gwin', 'google:' + p0.uid, 'ask:signup:' + p0.code, 'gwin', 'google:' + p0.uid, 'ask:signup:' + p0.code, 'claim:' + p0.code].join(' → '),
+        '★ [다른 계정으로 로그인] → 구글 창을 다시 열고 같은 새 아이디로 다시 묻는다 · 그다음 [이 계정에 연결]로 가입 (' + seq.join(' → ') + ')');
+    }
+    {
+      const E = mkA({ store: { 'tw.inviteToken': TOKEN }, asks: ['cancel'] });
+      E.A._signupPendingEnsure();
+      const r = await E.A._signupDoGoogle();
+      chk(!r.ok && r.canceled && !('tw.myUserId' in E.st) && !E.log.some(x => x.startsWith('claim')) && E.log.filter(x => x === 'gwin').length === 1 && !!E.A._signupPendingLoad(),
+        '★ 묻는 창을 닫으면 가입 취소 — 조용히 · 코드 선점 없음 · 창 다시 안 엶 · 가입 상태 그대로');
     }
   }
 
