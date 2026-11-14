@@ -354,3 +354,13 @@
   - 시간 상한은 사전 get 부터 저장까지 덮는다. 넘긴 뒤 늦게 committed 되면 `opt.onLate(값)` 로만 알린다(부르는 쪽이 사본에 합친다).
   - apply 는 재시도마다 다시 불린다 — 부작용 없이 값만 돌려줄 것(gacha.js 는 마지막 실행의 결과만 쓴다).
   - 검사: `checks/sim-gacha-tx.js`(연결 · 가짜 SDK · 깨 보기).
+
+## glow.js — ✨ 빛나는 스프라이트 · 재질 발광
+
+- **책임**: 오브젝트 옆에 반투명 원형 스프라이트를 깔고(`addGlowSprite`), 재질 emissive 를 밝히는(`applyGlowToMesh`) 규칙. 화면 전체 후처리(Bloom)는 이 앱(투명 배경 오버레이)과 안 맞아 쓰지 않는다. 앱 FSD 분리 M1 — app.js SETUP 에서 글 그대로 옮겼다.
+- **만드는 법**: `const glowMod = TwGlow.createGlow({});` — 받는 deps 없음(THREE 는 전역).
+- **내보내는 것**: `getGlowSpriteTexture()` · `addGlowSprite(obj)` · `applyGlowToMesh(mesh)` · `applyGlowEffect(obj)` · `GLOW_SIZE_MUL` · `GLOW_COLOR` · `GLOW_EMISSIVE_BOOST`
+- **함정**
+  - 지금 **부르는 곳이 없다** — 아이템 발광(`equipDeskItem` 의 `applyGlowEffect`)은 «발광 없는 게 나음» 요청으로 주석 처리돼 있다. 되살리려면 그 줄만.
+  - 스프라이트 텍스처는 첫 부름에 한 번만 만든다(캔버스 128×128 방사형 그라디언트).
+  - 검사: `checks/sim-glow.js`(진짜 three 오브젝트로 크기 · 자리 · 재질 · 실패 길 · 깨 보기).

@@ -1,5 +1,5 @@
 /* sim-gl-recover.js — 🧯 메인 캔버스 WebGL 연결 끊김 대응 검사 (제보 #11 · B-1114-5)
-   실행:  node sim-gl-recover.js   (gl-recover.js · gl-fail-notice.js · app.js · desk-companion-prototype.html · main.js · preload.js 와 같은 폴더에서)
+   실행:  node sim-gl-recover.js   (gl-recover.js · gl-fail-notice.js · stage.js · desk-companion-prototype.html · main.js · preload.js 와 같은 폴더에서)
 
    ★ 왜 이 검사가 있는가 — GPU 를 잃으면 three.js 는 돌아오기를 기다리기만 해서 캐릭터가 안 보인 채 남는다.
      화면만 다시 불러오면 WebGL 을 못 만들어 app.js 가 첫 줄에서 죽고 런처 바탕이 모니터를 덮었다(B-1114-5).
@@ -7,7 +7,7 @@
 
    §1 gl-recover.js 실행 — 끊김 → 6초 → 앱 다시 켜기 · 시각 기록 · 10분 안에 또면 안내 · 경계 · 두 번째 끊김 · 저장소 못 씀
    §2 gl-fail-notice.js 실행 — 렌더러 만들기 실패 → 안내 · 다시 던짐 · 한 번만 · 버튼 · E-SYS-05
-   §3 연결 — HTML 순서 · app.js 가 렌더러를 guard 로 만들고 같은 캔버스에 붙임 · localStorage · preload/main 통로
+   §3 연결 — HTML 순서 · stage.js(app.js 가 만든다)가 렌더러를 guard 로 만들고 같은 캔버스에 붙임 · localStorage · preload/main 통로
    §4 일부러 깨 보기 */
 'use strict';
 const fs = require('fs');
@@ -15,8 +15,8 @@ const say = console.log;
 let fail = 0;
 const chk = (ok, msg) => { if (!ok) fail++; say((ok ? '  ✓ ' : '  ✗ ') + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f, '../' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const GR = read('gl-recover.js'), GF = read('gl-fail-notice.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html'), MAIN = read('main.js'), PRE = read('preload.js');
-if (!GR || !GF || !APP || !HTML || !MAIN || !PRE) { say('  ? 원본 못 찾음 — gl-recover.js · gl-fail-notice.js · app.js · HTML · main.js · preload.js'); process.exit(2); }
+const GR = read('gl-recover.js'), GF = read('gl-fail-notice.js'), STAGE = read('stage.js'), HTML = read('desk-companion-prototype.html'), MAIN = read('main.js'), PRE = read('preload.js');
+if (!GR || !GF || !STAGE || !HTML || !MAIN || !PRE) { say('  ? 원본 못 찾음 — gl-recover.js · gl-fail-notice.js · stage.js · HTML · main.js · preload.js'); process.exit(2); }
 
 say('§1 gl-recover.js (실행)');
 const loadGR = (src) => { const mod = { exports: {} }; new Function('module', 'window', src)(mod, undefined); return mod.exports; };
@@ -130,9 +130,9 @@ say('§3 연결');
 const iG = HTML.indexOf('<script src="parts/shared/gl-recover.js"></script>'), iF = HTML.indexOf('<script src="parts/shared/gl-fail-notice.js"></script>');
 const iE = HTML.indexOf('<script src="parts/shared/error-codes.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
 chk(iG > 0 && iE > 0 && iF > iE && iA > iF && iA > iG, 'HTML — gl-recover · gl-fail-notice(error-codes 다음)를 app.js 보다 먼저 싣는다');
-const iN = APP.indexOf('const glFail = TwGlFailNotice.createGlFailNotice({'), iR = APP.indexOf('const renderer=glFail.guard(() => new THREE.WebGLRenderer({canvas,'), iW = APP.indexOf('GlRecover.createGlRecover({');
-chk(iN >= 0 && iR > iN && iW > iR && /\}\)\.attach\(canvas\);/.test(APP.slice(iW, iW + 900)), '★ app.js — 안내를 만들고 · 렌더러를 guard 로 만든 뒤 같은 캔버스에 붙인다');
-const blk = APP.slice(iW, iW + 900);
+const iN = STAGE.indexOf('const glFail = TwGlFailNotice.createGlFailNotice({'), iR = STAGE.indexOf('const renderer=glFail.guard(() => new THREE.WebGLRenderer({canvas,'), iW = STAGE.indexOf('GlRecover.createGlRecover({');
+chk(iN >= 0 && iR > iN && iW > iR && /\}\)\.attach\(canvas\);/.test(STAGE.slice(iW, iW + 900)), '★ stage.js(app.js 가 만든다) — 안내를 만들고 · 렌더러를 guard 로 만든 뒤 같은 캔버스에 붙인다');
+const blk = STAGE.slice(iW, iW + 900);
 chk(/relaunch: \(\) => companion\.relaunchApp\(\)/.test(blk) && /notice: \(\) => glFail\.show\('lost'\)/.test(blk) && /localStorage\.getItem\(k\)/.test(blk) && !/location\.reload/.test(blk), '  다시 켜기는 relaunchApp · 안내는 glFail.show · 시각은 localStorage(앱을 다시 켜도 남음) · 화면만 다시 불러오기 없음');
 chk(/relaunchApp\(\) \{\s*ipcRenderer\.send\('companion:relaunchApp'\)/.test(PRE) && /ipcMain\.on\('companion:relaunchApp'/.test(MAIN), 'preload · main — 앱 다시 켜기 통로(이미 있는 것)');
 chk(/diagNote\(msg\) \{\s*ipcRenderer\.send\('companion:diagNote'/.test(PRE), 'preload — diagNote 통로');

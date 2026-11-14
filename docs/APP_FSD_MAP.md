@@ -258,6 +258,9 @@ app.js 9,746 → 9,476줄(270줄) · 구역 167 → 130개. 남긴 빈 머리 �
 생성기 미리보기 · 동물 생성기의 빛 만들기를 `shared/light-tone.js` 의 `addRunLights` · `runLightInts` 로 묶었다(화면 그대로). `_mkFrontFill` 은 걷었고 `lightToneMod` 만드는 줄은 조명 상수 바로 뒤로 올렸다.
 종족 선택의 동물 카드는 옛 손 빛(0.95 · 1.0)이 실행 화면 몫과 달라 옮기면 카드가 어두워져서 남겼다(0.13 #826 은 이 카드를 바꿨다 — 보이는 변화).
 
+**0.12.4 — app.js 분리 M1**(설계 tw-docs `app-js-split.md` 4-2): SETUP 의 무대 만들기(렌더러 · 연결 끊김 감시 · 씬 · 카메라 · 바닥 · GLTF 로더)를 `shared/stage.js` 로, 발광 조각을 `character/glow.js` 로 옮겼다(동작 그대로 · 글 그대로).
+조명 상수 · `_fixGlbMatLighting`(T0 몫) · 화질 읽기(`_renderQuality` — 프레임 상한 몫) · 한글 진단 걸기 · 몸 재기 모듈 만들기는 app.js 에 남았다. `glow.js` 는 지금 부르는 곳이 없다. app.js 9,454 → 9,370줄.
+
 ## 구역 표 — `app/parts/app.js`
 
 | # | 줄 | 크기 | 목적 | 층 | 관련 모듈 | 씀 | 쓰임 | 비고 |
