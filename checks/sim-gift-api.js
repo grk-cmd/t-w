@@ -3,7 +3,7 @@
      서버 모양(slot 번호 · sentAt ISO · 숫자 칸)을 화면 모양으로 맞추는 곳 · 본문을 만드는 곳이 provider 하나라 실제로 불러서 판정한다.
    ・1절: 말랑이 칸 — 읽기(slot 차례로 · 빈 칸 · 못 읽음 던짐 · 모양 틀림 던짐) · 남의 집 · 저장 본문(0부터 다시 매김 · 4칸 상한) · 그림 올리기(형식 · 크기 · 바이트 그대로)
    ・2절: 선물함 — 줄 맞춤(sentAt → ms · 메시지 없음 → '') · 빈 선물함 ≠ 못 읽음 · 깨진 줄만 뺌 · 봤음 · ⭐ · 치움 · 지우기 경로 · 본문
-   ・3절: 보내기 — 오늘 보낸 수 · 그 집에 나온 선물 · 보내기 본문은 { requestId, slot, message? } 만 · 응답 모양
+   ・3절: 보내기 — 오늘 보낸 수 · 그 집에 나온 선물 · 보내기 본문은 { requestId, imageUrl, message? } 만 · 응답 모양
    ・4절: 주인 묶기 — 읽기 전 쓰기는 요청 0 · 진짜 api-client 위에서 토큰 주인이 바뀌면 요청 0 · reset 뒤 요청 0 · 남의 집 읽기는 주인을 남기지 않음
    ・5절: 오류 갈래(failOf — 진짜 api-errors.js 의 translate 로) — 안내 · 없는 선물 · 없는 사람 · 그 자리 번호 · 공통 · 409
    ・6절: 배선 — html · smoke 순서 · firebase 를 부르지 않음
@@ -190,35 +190,35 @@ async function judge(S){
     const r = await m.send('F1', { requestId: 'R1', mallang: { slot: 2, imageUrl: 'https://b/2.png', enabled: true }, message: '  안녕  ', fromName: '나', fromId: 'ME', date: '2026-11-12', imageUrl: 'https://evil' });
     const p = authed.log.find((x) => x.method === 'POST');
     chk(p.path === '/v1/gifts/F1' && 'expectOwner' in p.opts, '보내기 → POST /v1/gifts/{code} · 읽은 주인과 묶음');
-    chk(JSON.stringify(p.body) === '{"requestId":"R1","slot":2,"message":"안녕"}', '  본문은 { requestId, slot, message } 만 — 이름 · 내 코드 · 날짜 · 그림 주소를 싣지 않는다');
+    chk(JSON.stringify(p.body) === '{"requestId":"R1","imageUrl":"https://b/2.png","message":"안녕"}', '  본문은 { requestId, imageUrl(누른 칸의 그림 주소), message } 만 — 칸 번호 · 이름 · 내 코드 · 날짜를 싣지 않는다');
     chk(r.giftId === 'G9' && r.sentToday === 4 && r.dailyMax === 10, '  응답 { giftId, sentToday, dailyMax }');
-    const sb = (message) => G.sendBody({ requestId: 'R', mallang: { slot: 0 }, message });
+    const sb = (message) => G.sendBody({ requestId: 'R', mallang: { imageUrl: 'u' }, message });
     chk(!('message' in sb('   ')) && !('message' in sb(undefined)), '  메시지가 비면 칸을 싣지 않는다');
     chk(sb('x'.repeat(80)).message.length === 50, '  메시지는 UTF-16 50자까지');
     chk(sb('x'.repeat(49) + '😀').message === 'x'.repeat(49), '  50자 경계에 걸린 이모지는 반쪽을 남기지 않고 통째 뺀다(49자)');
     chk(sb('x'.repeat(48) + '😀z').message === 'x'.repeat(48) + '😀', '  경계 안에 다 들어가는 이모지는 남긴다(50자)');
     chk(sb('😀'.repeat(30)).message === '😀'.repeat(25), '  이모지만 — 짝 25개(50자)');
-    /* 칸 사이가 빈 응답(0 · 2) — 두 번째 칸을 보내면 본문 slot 은 2(화면 차례 1 이 아니다) */
+    /* 칸 사이가 빈 응답(0 · 2) — 두 번째 칸을 보내도 번호가 아니라 그 칸의 그림 주소가 간다 */
     const gap = mk(LIB, { 'GET /v1/me/mallangs': slotsRes([{ slot: 2, imageUrl: 'https://b/2.png', enabled: true }, { slot: 0, imageUrl: 'https://b/0.png', enabled: true }]),
       'POST /v1/gifts/F1': { giftId: 'G1', sentToday: 1, dailyMax: 10 } });
     const mine = await gap.m.fetchMine();
     await gap.m.send('F1', { requestId: 'R2', mallang: mine.slots[1] });
     const gp = gap.authed.log.find((x) => x.method === 'POST');
-    chk(gp && gp.body.slot === 2, '칸 사이가 빈 응답(0 · 2) — 두 번째 칸을 보내면 본문 slot 은 서버 번호 2');
+    chk(gp && gp.body.imageUrl === 'https://b/2.png' && !('slot' in gp.body), '칸 사이가 빈 응답(0 · 2) — 두 번째 칸을 보내면 본문은 그 칸의 imageUrl(번호는 싣지 않는다)');
     const n0 = gap.authed.log.length;
-    for(const [what, o] of [['칸 없음', { requestId: 'R' }], ['번호 없는 칸', { requestId: 'R', mallang: { imageUrl: 'u' } }], ['칸 번호 대신 숫자', { requestId: 'R', slot: 1 }], ['범위 밖', { requestId: 'R', mallang: { slot: 4 } }]]){
+    for(const [what, o] of [['칸 없음', { requestId: 'R' }], ['그림 주소 없는 칸', { requestId: 'R', mallang: { slot: 1 } }], ['칸 번호만', { requestId: 'R', slot: 1 }], ['빈 주소', { requestId: 'R', mallang: { imageUrl: '' } }]]){
       const e = await throws(() => gap.m.send('F1', o));
-      chk(e && e.code === 'BAD_SLOT', '  ' + what + ' → 요청 없이 BAD_SLOT(화면 차례로 메우지 않는다)');
+      chk(e && e.code === 'BAD_IMAGE', '  ' + what + ' → 요청 없이 BAD_IMAGE(번호로 메우지 않는다)');
     }
-    chk(gap.authed.log.length === n0, '  고른 칸이 없으면 요청 0');
+    chk(gap.authed.log.length === n0, '  그림 주소가 없으면 요청 0');
     const nope = mk(LIB, { 'POST /v1/gifts/F1': apiErr(429, 'GIFT_DAILY_LIMIT', '오늘은 더 보낼 수 없어요 (하루 10번)') });
-    chk((await throws(() => nope.m.send('F1', { requestId: 'R', mallang: { slot: 0 } }))).code === 'NOT_RECEIVED' && nope.authed.log.length === 0, '  받기 전엔 보내지 않는다(요청 0)');
+    chk((await throws(() => nope.m.send('F1', { requestId: 'R', mallang: { imageUrl: 'u' } }))).code === 'NOT_RECEIVED' && nope.authed.log.length === 0, '  받기 전엔 보내지 않는다(요청 0)');
     await nope.m.fetchMine();
-    const ne = await throws(() => nope.m.send('F1', { requestId: 'R', mallang: { slot: 0 } }));
+    const ne = await throws(() => nope.m.send('F1', { requestId: 'R', mallang: { imageUrl: 'u' } }));
     chk(ne && ne.code === 'GIFT_DAILY_LIMIT' && /10번/.test(ne.message), '  서버 거절은 코드 · 서버 문구 그대로');
     const bs = mk(LIB, { 'POST /v1/gifts/F1': { giftId: '' } });
     await bs.m.fetchMine();
-    chk((await throws(() => bs.m.send('F1', { requestId: 'R', mallang: { slot: 0 } }))).code === 'SHAPE', '  응답 모양이 틀리면 던진다');
+    chk((await throws(() => bs.m.send('F1', { requestId: 'R', mallang: { imageUrl: 'u' } }))).code === 'SHAPE', '  응답 모양이 틀리면 던진다');
     for(const bad of [{ count: -1, dailyMax: 10 }, { count: 1 }]){
       const e = await throws(() => mk(LIB, { 'GET /v1/me/gifts/sent-today': bad }).m.fetchSentToday());
       chk(e && e.code === 'SHAPE', '  오늘 보낸 수 모양 틀림(' + JSON.stringify(bad) + ') → 던짐(«0번 보냄» 으로 숨기지 않는다)');
@@ -271,7 +271,7 @@ async function judge(S){
     chk(G.failOf(apiErr(429, 'GIFT_DAILY_LIMIT', '하루 10번'), AE).message === '하루 10번', '  안내는 서버 문구를 그대로 돌려준다');
     chk(k(apiErr(404, 'GIFT_NOT_FOUND')) === 'gone', 'GIFT_NOT_FOUND → gone(안내 + 받기 한 번)');
     chk(k(apiErr(404, 'USER_NOT_FOUND')) === 'missing', 'USER_NOT_FOUND → missing(«없음» · 번호 없음)');
-    for(const [c, st] of [['GIFT_IMAGE_COPY_FAILED', 503], ['GIFT_MALLANG_INVALID', 400], ['GIFT_INVALID_STATE', 500], ['IMAGE_UPLOAD', 0], ['SHAPE', 0], ['BAD_SLOT', 0]]) chk(k(apiErr(st, c)) === 'site', c + ' → site(그 자리 E-GIFT 번호)');
+    for(const [c, st] of [['GIFT_IMAGE_COPY_FAILED', 503], ['GIFT_MALLANG_INVALID', 400], ['GIFT_INVALID_STATE', 500], ['IMAGE_UPLOAD', 0], ['SHAPE', 0], ['BAD_IMAGE', 0], ['GIFT_SLOT_CHANGED', 409]]) chk(k(apiErr(st, c)) === 'site', c + ' → site(그 자리 E-GIFT 번호)');
     chk(k(apiErr(503, '')) === 'site' && k(Object.assign(new Error('x'), { kind: 'unavailable' })) === 'site' && k(apiErr(400, 'SOMETHING_NEW')) === 'site', '닿지 못함 · 모르는 코드 → site(E-NET-07 · 08 이 아니라 그 자리 번호)');
     chk(k(apiErr(403, 'PREMIUM_REQUIRED')) === 'common' && k(apiErr(429, 'TOO_MANY_REQUESTS')) === 'common' && k(apiErr(401, 'AUTH_REQUIRED')) === 'common', '공통 코드 → common(E-NET 표)');
     chk(k(apiErr(409, 'CONCURRENT_UPDATE')) === 'conflict', 'CONCURRENT_UPDATE → conflict(다시 받기 · 알림)');
@@ -294,14 +294,14 @@ async function runAll(){
   await judge(S);
   say('── 7. 일부러 깨 보기');
   const breaks = [
-    ['보내기 본문에 이름을 실음', S.API.replace("const body = { requestId: str(o && o.requestId), slot };", "const body = { requestId: str(o && o.requestId), slot, fromName: o && o.fromName };"), '본문'],
+    ['보내기 본문에 이름을 실음', S.API.replace("const body = { requestId: str(o && o.requestId), imageUrl };", "const body = { requestId: str(o && o.requestId), imageUrl, fromName: o && o.fromName };"), '본문'],
     ['칸 번호를 다시 매기지 않음', S.API.replace("map((s, i) => ({ slot: i,", "map((s, i) => ({ slot: s.slot,"), '0부터'],
     ['못 읽음을 빈 선물함으로', S.API.replace("fetchBox: async () => need(boxOf(await readMine(PATHS.box))),", "fetchBox: async () => { try{ return need(boxOf(await readMine(PATHS.box))); }catch(_){ return { items: [] }; } },"), '던진다'],
     ['쓰기가 주인을 안 묶음', S.API.replace("try{ return await send({ expectOwner: owner }); }", "try{ return await send({}); }"), 'expectOwner'],
     ['읽기 전에도 보냄', S.API.replace("if(owner === undefined) throw codeError(NOT_RECEIVED_CODE, '받기 전에는 쓰지 않아요');", ""), '요청 0'],
     ['reset 이 늦은 읽기를 안 막음', S.API.replace("if(at === epoch) owner = who;", "owner = who;"), 'reset'],
     ['받은 칸이 서버 번호를 버림', S.API.replace("({ slot: s.slot, imageUrl: s.imageUrl, enabled: s.enabled })", "({ imageUrl: s.imageUrl, enabled: s.enabled })"), '서버 번호'],
-    ['보내기가 화면 차례로 메움', S.API.replace("if(!cnt(slot) || slot >= LIMITS.SLOTS) return undefined;\n  const body = { requestId: str(o && o.requestId), slot };", "const body = { requestId: str(o && o.requestId), slot: 1 };"), 'slot 2'],
+    ['보내기가 칸 번호를 싣고 주소를 버림', S.API.replace("const body = { requestId: str(o && o.requestId), imageUrl };", "const body = { requestId: str(o && o.requestId), slot: o.mallang.slot };"), 'imageUrl'],
     ['이모지 짝을 깨고 자름', S.API.replace("if(last >= 0xD800 && last <= 0xDBFF) t = t.slice(0, -1);", ""), '이모지 경계'],
     ['겹친 칸 번호를 받음', S.API.replace(" || seen.has(s.slot)", ""), '겹침'],
     ['칸을 slot 차례로 안 줄 세움', S.API.replace("list.sort((a, b) => a.slot - b.slot);", ""), 'slot 차례'],

@@ -75,8 +75,8 @@ function mkEnv(S, o){
     fetchSentToday: rec('fetchSentToday', async () => { if(srv.sentErr) throw srv.sentErr; return { count: srv.count, dailyMax: srv.dailyMax }; }),
     fetchVisible: rec('fetchVisible', async () => { if(srv.visErr) throw srv.visErr; return { items: [], visibleCount: srv.visible, recipientCap: srv.cap }; }),
     send: async (code, body) => {
-      sendBodies.push({ code, requestId: body.requestId, slot: body.mallang && body.mallang.slot, message: body.message });
-      log.push('api send ' + code + ' slot=' + (body.mallang && body.mallang.slot) + ' msg=' + (body.message || ''));
+      sendBodies.push({ code, requestId: body.requestId, imageUrl: body.mallang && body.mallang.imageUrl, slot: body.mallang && body.mallang.slot, message: body.message });
+      log.push('api send ' + code + ' img=' + (body.mallang && body.mallang.imageUrl) + ' msg=' + (body.message || ''));
       if(srv.hold) await new Promise(r => holds.push(r));
       if(srv.sendErr) throw srv.sendErr;
       srv.count++;
@@ -143,7 +143,7 @@ async function judge(S){
     await open(e);
     e.byId.mlGiftMsg.value = '  안녕  ';
     await click(e, 1);
-    chk(e.sendBodies.length === 1 && e.sendBodies[0].slot === 2 && e.sendBodies[0].code === 'F1' && /^[A-Za-z0-9_-]{8,64}$/.test(e.sendBodies[0].requestId), '고른 칸의 서버 번호(0 · 2 처럼 빌 수 있음) · 받는 사람 코드 · 요청 번호로 보낸다');
+    chk(e.sendBodies.length === 1 && e.sendBodies[0].imageUrl === 'https://x.example/m2.png' && e.sendBodies[0].code === 'F1' && /^[A-Za-z0-9_-]{8,64}$/.test(e.sendBodies[0].requestId), '누른 그림의 주소 · 받는 사람 코드 · 요청 번호로 보낸다(칸 번호가 아니라 주소)');
     chk(e.grid().classList.contains('off'), '보내는 동안 격자 전체가 흐리다');
     await click(e, 0);
     chk(e.sendBodies.length === 1, '  다른 칸을 눌러도 두 번째 요청은 나가지 않는다');
@@ -215,18 +215,27 @@ async function judge(S){
     n.mallangStore.mine();
     await n.mallangStore.add('data:image/png;base64,AAAA'); await flush();
     await click(n, 1);
-    chk(count(n.log, /^api send/) === 1 && n.sendBodies[0].slot === 1, '저장이 끝난 새 칸은 서버 번호로 보낸다');
+    chk(count(n.log, /^api send/) === 1 && n.sendBodies[0].imageUrl === 'https://x.example/new.png', '저장이 끝난 새 칸도 그 그림의 주소로 보낸다');
+    /* 낡은 칸 번호 — 번호가 아니라 눌린 그림의 주소가 간다 */
     const sv = mkEnv(S, { srv: { holdSave: true } });
     await open(sv);
     const rm = sv.mallangStore.remove(0); await flush();   // 지우기 저장이 가 있는 동안 — 화면 칸 번호와 서버 칸 번호가 어긋난다
     await click(sv, 0);
-    chk(count(sv.log, /^api send/) === 0 && sv.log.includes('toast 말랑이를 저장하는 중이에요 — 잠시 뒤에 다시 눌러 주세요'), '칸 지우기 저장 중에는 눌러도 요청 0(번호가 어긋나 다른 그림이 가지 않게)');
+    chk(sv.sendBodies.length === 1 && sv.sendBodies[0].imageUrl === 'https://x.example/m2.png', '칸 지우기 저장 중에도 눌린 그림(남은 칸)의 주소가 간다(낡은 번호 대신)');
     sv.saveHolds.shift()(); await rm; await flush();
     const sf = mkEnv(S, { srv: { saveErr: apiErr(503, 'X') } });
     await open(sf);
-    await sf.mallangStore.remove(0); await flush();   // 지우기 저장이 실패 — 서버는 그대로지만 화면 칸은 지워졌다(번호를 모른다)
+    await sf.mallangStore.remove(0); await flush();   // 지우기 저장이 실패 — 서버는 그대로지만 화면 칸은 지워졌다
     await click(sf, 0);
-    chk(count(sf.log, /^api send/) === 0, '칸 지우기 저장이 실패한 뒤에도 눌러도 요청 0(남은 칸의 서버 번호를 모른다 — 다른 그림이 가지 않게)');
+    chk(sf.sendBodies.length === 1 && sf.sendBodies[0].imageUrl === 'https://x.example/m2.png', '칸 지우기 저장이 실패한 뒤에도 눌린 그림의 주소가 간다');
+    const ls = mkEnv(S, { srv: { slots: [{ slot: 0, imageUrl: 'https://x.example/a.png', enabled: true }, { slot: 2, imageUrl: 'https://x.example/c.png', enabled: true }, { slot: 3, imageUrl: 'https://x.example/d.png', enabled: true }] } });
+    await open(ls); await click(ls, 2);
+    chk(ls.sendBodies[0].imageUrl === 'https://x.example/d.png', '서버 번호가 {0,2,3} 처럼 빈 칸이어도 눌린 그림의 주소가 간다');
+    const ch = mkEnv(S, { srv: { sendErr: apiErr(409, 'GIFT_SLOT_CHANGED', '그림이 바뀌었어요') } });
+    await open(ch);
+    const nMine = count(ch.log, /^api fetchMine/);
+    await click(ch, 0);
+    chk(ch.log.includes('error E-GIFT-08') && count(ch.log, /^api fetchMine/) === nMine + 1 && !ch.grid().classList.contains('off'), '서버가 «칸이 바뀜»(GIFT_SLOT_CHANGED) → E-GIFT-08 · 내 칸을 다시 받음 · 격자는 다시 켜짐');
     const closeFirst = mkEnv(S, { srv: { hold: true } });
     await open(closeFirst); await click(closeFirst, 0);
     closeFirst.byId.mlGift.querySelector('#mlGiftClose').fire('click');
@@ -279,29 +288,25 @@ process.on('unhandledRejection', () => { if(quiet) qfail++; else { fail++; conso
     const e = mkEnv(S); await open(e); await click(e, 0); await open(e); await click(e, 0);
     chk(e.sendBodies[0].requestId !== e.sendBodies[1].requestId, '새 번호');
   });
-  await run('칸 번호를 화면 차례로 바꾸면', { BOX: SRC0.BOX.replace("mallang: o && o.mallang,", "mallang: { slot: 0 },") }, async (S) => {
+  await run('칸 번호(인덱스)로 보내면', { BOX: SRC0.BOX.replace("mallang: o && o.mallang,", "mallang: { slot: 0, imageUrl: 'https://x.example/m0.png' },") }, async (S) => {
     const e = mkEnv(S); await open(e); await click(e, 1);
-    chk(e.sendBodies[0].slot === 2, '서버 번호');
+    chk(e.sendBodies[0].imageUrl === 'https://x.example/m2.png', '눌린 그림의 주소');
   });
-  await run('상대가 가득인데 안 막으면', { ML: SRC0.ML.replace("if(giftFull(p)){ toast('🎁 상대 마이홈이 가득", "if(false){ toast('🎁 상대 마이홈이 가득") }, async (S) => {
+  await run('칸이 바뀌었다는 답에 칸을 안 다시 받으면', { ML: SRC0.ML.replace("if(r.kind === 'changed') mallangStore.pullMine();", "") }, async (S) => {
+    const e = mkEnv(S, { srv: { sendErr: apiErr(409, 'GIFT_SLOT_CHANGED', 'x') } }); await open(e); const b = count(e.log, /^api fetchMine/); await click(e, 0);
+    chk(count(e.log, /^api fetchMine/) === b + 1, '다시 받음');
+  });
+  await run('상대가 가득인데 안 막으면', { ML: SRC0.ML.replace("if(why){ toast(why); return; }", "") }, async (S) => {
     const e = mkEnv(S, { srv: { visible: 30 } }); await open(e); await click(e, 0);
     chk(e.sendBodies.length === 0, '요청 0');
   });
-  await run('남은 수 실패가 보내기를 막으면', { ML: SRC0.ML.replace("if(giftRemain(p) === 0)", "if(giftRemain(p) === null || giftRemain(p) === 0)") }, async (S) => {
+  await run('남은 수 실패가 보내기를 막으면', { ML: SRC0.ML.replace("if(giftRemain(p) === 0) return", "if(giftRemain(p) === null || giftRemain(p) === 0) return") }, async (S) => {
     const e = mkEnv(S, { srv: { sentErr: apiErr(503, 'X') } }); await open(e); await click(e, 0);
     chk(e.sendBodies.length === 1, '보내기는 나감');
   });
   await run('안내 코드까지 번호로 띄우면', { BOX: SRC0.BOX.replace("if(f.kind === KIND.GUIDE) return { ok: false, kind: 'guide', message: f.message };", "") }, async (S) => {
     const e = mkEnv(S, { srv: { sendErr: apiErr(429, 'GIFT_DAILY_LIMIT', '서버문구') } }); await open(e); await click(e, 0);
     chk(!e.log.some((l) => l.startsWith('error')), '번호 0');
-  });
-  await run('저장 중에도 보내게 두면', { ML: SRC0.ML.replace("if(ms.saving || ms.load !== LOAD.READY || typeof item.slot !== 'number')", "if(false)") }, async (S) => {
-    const e = mkEnv(S, { srv: { holdSave: true } }); await open(e); e.mallangStore.remove(0); await flush(); await click(e, 0);
-    chk(e.sendBodies.length === 0, '요청 0');
-  });
-  await run('칸을 지운 뒤에도 옛 칸 번호를 들고 있으면', { STORE: SRC0.STORE.replace("map((s) => { const c = Object.assign({}, s); delete c.slot; return c; })", "map((s) => s)") }, async (S) => {
-    const e = mkEnv(S, { srv: { saveErr: apiErr(503, 'X') } }); await open(e); await e.mallangStore.remove(0); await flush(); await click(e, 0);
-    chk(e.sendBodies.length === 0, '요청 0');
   });
   await run('칸 저장 뒤 격자를 안 다시 그리면', { ML: SRC0.ML.replace("giftOff = mallangStore.onChange(()=>{ if(giftPop === p) renderGiftGrid(p); });", "giftOff = null;") }, async (S) => {
     const e = mkEnv(S); await open(e); const b = e.cells()[0]; await e.mallangStore.toggle(0); await flush();

@@ -3,8 +3,8 @@
      내 선물함(GET /v1/me/gifts) · 봤음(POST …/seen) · ⭐ · 치움(PATCH …/{id}) · 지우기(DELETE …/{id}) · 오늘 보낸 수(GET …/sent-today) ·
      그 집에 나온 선물(GET /v1/gifts/{userCode}) · 보내기(POST /v1/gifts/{userCode}).
      서버 모양(sentAt ISO)을 화면 모양(sentAt ms)으로 맞추는 곳은 여기뿐이다.
-     칸 번호: 받은 칸은 서버 slot 을 그대로 들고 있다(0~3 안에서 겹치지만 않고 0 · 2 처럼 빌 수 있다) — 보내기는 이 번호를 쓴다. 칸 저장(PUT)만 배열 차례로 0부터 다시 매긴다.
-   신원: 보낸 사람 · 내 칸은 서버가 토큰에서 정한다 — 본문에 내 코드 · 이름 · 날짜 · 그림 주소(보내기)를 싣지 않는다. 경로의 코드는 받는 사람 · 방문한 집(데이터 주소).
+     칸 번호: 받은 칸은 서버 slot 을 그대로 들고 있지만 보내기는 번호를 쓰지 않는다 — 칸 저장(PUT)이 배열 차례로 0부터 다시 매기므로 번호는 낡을 수 있다. 보내기는 누른 그림의 imageUrl 을 보내고 서버가 내 칸에서 찾는다.
+   신원: 보낸 사람 · 내 칸은 서버가 토큰에서 정한다 — 본문에 내 코드 · 이름 · 날짜를 싣지 않는다(보내기는 누른 그림의 주소만 싣는다). 경로의 코드는 받는 사람 · 방문한 집(데이터 주소).
    deps: authed — 로그인 API 통로(TwApi.authed — get(path, { auth, onOwner }) · post · put · patch · del(…, { expectOwner }) → Promise<data>)
          imageBytes — TwImageBytes(shared/image-bytes.js — inspect(dataUrl, { types, maxBytes }) → 올릴 바이트 판정)
          warn(...a)(진단 로그)
@@ -17,7 +17,7 @@
      markSeen() · star(id, on) · hide(id, on) · remove(id) → Promise<void>
      fetchSentToday() → Promise<{ count, dailyMax }>
      fetchVisible(userCode) → Promise<{ items:[{ id, imageUrl, message }], visibleCount, recipientCap }>
-     send(userCode, { requestId, mallang, message }) → Promise<{ giftId, sentToday, dailyMax }> — mallang 은 fetchMine 이 준 칸 하나(본문 slot = 그 칸의 서버 번호).
+     send(userCode, { requestId, mallang, message }) → Promise<{ giftId, sentToday, dailyMax }> — mallang 은 누른 칸({ imageUrl })(본문 imageUrl = 그 그림 주소 · 칸 번호는 보내지 않는다).
        requestId 는 부르는 쪽(TwRequestId pending)이 정한다. 메시지는 UTF-16 50자까지(이모지 짝을 깨지 않게 자른다).
      reset() — 읽은 토큰 주인 기억을 비운다(계정을 놓을 때)
    }
@@ -52,12 +52,13 @@ const IMAGE_UPLOAD_CODE = 'IMAGE_UPLOAD';
 const KIND = Object.freeze({ GUIDE: 'guide', GONE: 'gone', MISSING: 'missing', SITE: 'site', STALE: 'stale', CONFLICT: 'conflict', COMMON: 'common' });
 const row = (kind) => Object.freeze({ action: kind, notice: null });
 const ERRORS = Object.freeze({
+  GIFT_SLOT_CHANGED: row(KIND.SITE),   // 누른 그림이 지금 내 칸에 없다 — 번호는 E-GIFT-08 · 부르는 쪽(gift-box)이 칸을 다시 받게 한다
   GIFT_STAR_FULL: row(KIND.GUIDE), GIFT_STARRED: row(KIND.GUIDE), GIFT_SELF: row(KIND.GUIDE), GIFT_NOT_FRIEND: row(KIND.GUIDE),
   GIFT_NO_MALLANG: row(KIND.GUIDE), GIFT_DAILY_LIMIT: row(KIND.GUIDE), GIFT_RECIPIENT_FULL: row(KIND.GUIDE), GIFT_MESSAGE_INVALID: row(KIND.GUIDE),
   GIFT_NOT_FOUND: row(KIND.GONE),
   USER_NOT_FOUND: row(KIND.MISSING),
   GIFT_IMAGE_COPY_FAILED: row(KIND.SITE), GIFT_MALLANG_INVALID: row(KIND.SITE), GIFT_INVALID_STATE: row(KIND.SITE),
-  IMAGE_UPLOAD: row(KIND.SITE), SHAPE: row(KIND.SITE), BAD_SLOT: row(KIND.SITE),
+  IMAGE_UPLOAD: row(KIND.SITE), SHAPE: row(KIND.SITE), BAD_IMAGE: row(KIND.SITE),
   OWNER_CHANGED: row(KIND.STALE), NOT_RECEIVED: row(KIND.STALE),
 });
 const CONCURRENT_CODE = 'CONCURRENT_UPDATE';
@@ -137,12 +138,12 @@ function clip(text, n){
   if(last >= 0xD800 && last <= 0xDBFF) t = t.slice(0, -1);
   return t;
 }
-/* 보내기 본문 — 요청 번호 · 칸(고른 칸의 서버 번호) · 메시지만(보낸 사람 · 이름 · 날짜 · 그림 주소는 서버가 정한다).
-   칸 번호가 없으면 undefined — 화면 차례로 메우지 않는다(칸이 0 · 2 처럼 비면 다른 칸이 간다) */
+/* 보내기 본문 — 요청 번호 · 누른 그림의 주소(imageUrl) · 메시지만(보낸 사람 · 이름 · 날짜는 서버가 정한다).
+   칸 번호는 보내지 않는다 — 번호는 저장마다 바뀌어 낡을 수 있다. 그림 주소가 없으면 undefined(요청 0) */
 function sendBody(o){
-  const slot = o && isObj(o.mallang) ? o.mallang.slot : undefined;
-  if(!cnt(slot) || slot >= LIMITS.SLOTS) return undefined;
-  const body = { requestId: str(o && o.requestId), slot };
+  const imageUrl = o && isObj(o.mallang) ? o.mallang.imageUrl : undefined;
+  if(!nonEmpty(imageUrl)) return undefined;
+  const body = { requestId: str(o && o.requestId), imageUrl };
   const msg = clip(str(o && o.message).trim(), LIMITS.MESSAGE);
   if(msg) body.message = msg;
   return body;
@@ -199,7 +200,7 @@ function createGiftApi(deps){
     send: async (userCode, o) => {
       const code = needCode(userCode);
       const body = sendBody(o);
-      if(!body) throw codeError('BAD_SLOT', '보낼 말랑이 칸이 없어요');
+      if(!body) throw codeError('BAD_IMAGE', '보낼 말랑이 그림이 없어요');
       return need(sentOf(await write('보내기', (opts) => authed.post(PATHS.send(code), body, opts))));
     },
     reset: () => { epoch++; owner = undefined; },
