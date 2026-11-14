@@ -13,7 +13,7 @@
   ```
 - **확장할 때 고칠 자리**: 새 상태는 `USER_STATUSES` 에 한 줄(칩 메뉴 HTML 의 `data-st` 와 방 통신 칸도 같이). 동작 깃발(`forceSleep` · `opacity` · `idleTweak`)은 프레임 루프가 읽는다.
 - **함정**
-  - 내 상태 값(`userStatus`) · 풀이(`statusConfFor`) · 칩 반영 · 커스텀 저장(방에 알림)은 app.js 에 남았다 — 옮기면 상태칩(status-chip.js) · 포커스 공유(focus-share.js)와 순환이 생기고, room-sync.js 가 `window.setUserStatus` 전역을 부른다.
+  - 내 상태 값(`userStatus`) · 풀이(`statusConfFor`) · 칩 반영 · 커스텀 저장(방에 알림)은 아래 `user-status.js`(앱 FSD 분리 M9)에 있다. 상태칩(status-chip.js) · 포커스 공유(focus-share.js)와 순환이 생기지 않게 그 모듈은 `attachStatusHooks` 알림만 부르고, room-sync.js 가 부르는 `window.setUserStatus` 고리는 app.js 가 건다.
   - 이모지는 `slice(0,2)` — 코드유닛 2개라 겹친 이모지는 잘릴 수 있다(지금 동작).
   - 검사: `checks/sim-user-status-table.js`(4절 — 표 · 불러오기 · 자르기 · 깨진 값).
 
