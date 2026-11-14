@@ -396,6 +396,8 @@ async function _acctPreflight(uid, opt){
   return { ok:false, reason: items[0].reason, kind, items, timedOut };
 }
 
+/* 🧹 신원을 놓으면 이 기기는 빈 기기가 된다 — 계정에 딸린 것은 지우고, 기기 설정 · 카탈로그는 이 컴퓨터 것이라 남긴다.
+   ⚠️ 목록을 늘리거나 줄일 땐 항목마다 «다시 로그인하면 돌아오는가» 를 볼 것 — 돌아오는 길이 없으면 로그아웃이 곧 삭제가 된다. */
 /* 🧹 실제로 지운다 — localStorage 와 **메모리** 둘 다.
    [왜 메모리까지] 이 뒤 700ms 안에 재시작하지만, 그 사이 beforeunload 가 돈다
      (syncFocusTotalToServer('quit') · _chalSave). 메모리에 옛 값이 있으면 그 한 번이 지운 키를 도로 쓴다.

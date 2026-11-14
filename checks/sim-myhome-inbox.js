@@ -484,11 +484,10 @@ function wiring(MI, APP, HTML){
   const iKey = APP.indexOf("const INBOX_BC_READ_KEY = 'tw.inboxBcRead';"), iVisit = APP.indexOf('const friendVisit = window.TwFriendVisit ?'),
     iMk = APP.indexOf('TwMyHomeInbox.createMyHomeInbox('), iStrip = APP.indexOf('\nfunction _mhStripHtml('),
     iHead = APP.indexOf('/* ═══ 📩 수령함 상태 · 안 읽은 수 · 친구 탭 배지 ═══ */'), iSched = APP.indexOf('MhScheduler.createScheduler('),
-    iFHead = APP.indexOf('/* ═══ 👥 마이홈 친구 목록 · Ctrl+F 검색 ═══ */'), iGHead = APP.indexOf('/* ═══ 📩 수령함 · 💝 선물함 그리기 ═══ */'),
+    iFHead = APP.indexOf('/* ═══ 👥 마이홈 친구 목록 · Ctrl+F 검색 ═══ */'),
     iUI = APP.indexOf('/* ═══ 🏠 마이홈 창 버튼 연결(bindMyHomeUI) ═══ */');
-  chk(iSched > 0 && iHead > iSched && iKey > iHead && iStrip > iKey && iFHead > iStrip && iVisit > iFHead && iMk > iVisit && iGHead > iMk && iUI > iGHead,
-    '원래 자리 — 수령함 let 은 📩 수령함 상태 머리 아래 · 만드는 줄은 👥 친구 목록 머리 아래(🏠 놀러 가기 연결 바로 다음) · 📩 그리기 머리는 남김');
-  chk(/parts\/(?:myhome\/)?myhome-inbox\.js 로 옮겼다/.test(APP.slice(iGHead, iUI)) && !/^(?:function|const|let) /m.test(APP.slice(iGHead, iUI)), '  📩 그리기 머리 아래는 옮긴 곳 안내뿐(구역 번호가 밀리지 않게 머리만 남김)');
+  chk(iSched > 0 && iHead > iSched && iKey > iHead && iStrip > iKey && iFHead > iStrip && iVisit > iFHead && iMk > iVisit && iUI > iMk,
+    '원래 자리 — 수령함 let 은 📩 수령함 상태 머리 아래 · 만드는 줄은 👥 친구 목록 머리 아래(🏠 놀러 가기 연결 바로 다음) · 🏠 마이홈 창 버튼 연결 앞');
   chk(/^let _myInbox = \{\};/m.test(APP) && /^let _myInboxReady = false;/m.test(APP) && /^let _inboxBroadcast = \{\};/m.test(APP) && /_myInbox = msgs \|\| \{\};/.test(A) && /_inboxBroadcast = bc \|\| \{\};/.test(A),
     '  구독이 다시 대입하는 수령함 let 셋은 app.js 에(그래서 읽는 함수)');
   const call = (APP.match(/TwMyHomeInbox\.createMyHomeInbox\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';

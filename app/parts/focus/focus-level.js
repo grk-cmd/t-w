@@ -426,6 +426,8 @@ function formatHMS(sec){ sec=Math.max(0,Math.floor(sec));
   const h=String(Math.floor(sec/3600)).padStart(2,'0'), m=String(Math.floor((sec%3600)/60)).padStart(2,'0'), s=String(sec%60).padStart(2,'0');
   return h+':'+m+':'+s; }
 
+/* 📱 폰 · 태블릿 포커싱 — 기기 자동화(iOS 단축어 · MacroDroid)가 앱 열림 · 닫힘을 알리고 PC 가 판정한다.
+   MOBILE_MAX_ON_MS 는 «닫힘» 이 안 온 경우(방전 · 강제 종료)의 안전 상한이다. */
 const MOBILE_MAX_ON_MS = 4*60*60*1000;
 const MOBILE_KEY_LS = 'tw.mobileKey';   // { u, k } — 이 PC 가 만든 키. uid 가 다르면 없는 것으로 본다(계정 전환)
 const MOBILE_APP_MAX = 40;
