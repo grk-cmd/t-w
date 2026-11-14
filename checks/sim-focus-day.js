@@ -4,6 +4,7 @@
    ・2절: 서버 답 — 날이 같으면 이어 쌓고 · 다르면 0 · 옛 글자('2026-11-4')도 같은 날로 읽는다 · 답 전에는 계정 칸 값을 그대로 · 날 글자는 서버 값이 계정 칸에 남는다
    ・3절: 경계 뒤 새 날 답이 오기 전에 쌓은 초는 새 날로 센다 · 계정 놓기(null) 뒤엔 요청 없음
    ・4절: 앱 날짜 셈이 오늘 시간에 쓰이지 않는다(PC 시간대를 바꿔도 같다)
+   ・4-2절: 0.5초마다 더해도 값이 그대로면 칸에 쓰지 않는다(날 글자는 한 번) · 바뀌면 쓴다 · 칸이 비워졌으면 다시 쓴다
    ・5절: 일부러 깨 보기 */
 'use strict';
 const fs = require('fs');
@@ -20,10 +21,10 @@ const NEXT = { day: '2026-11-14', isoWeek: '2026-W46', dayEndsAt: END + 86400000
 
 function world(src, o){
   o = o || {};
-  const W = { now: END - 1000, asks: 0, store: new Map(Object.entries(o.store || {})) };
+  const W = { now: END - 1000, asks: 0, sets: 0, store: new Map(Object.entries(o.store || {})) };
   const ctx = { window: {}, Date: { now: () => W.now }, Math, String, Number, parseFloat, isFinite, RegExp };
   new Function('window', 'Date', 'Math', 'String', 'Number', 'parseFloat', 'isFinite', 'RegExp', src + '\nwindow.__api = window.TwFocusTotal;')(ctx.window, ctx.Date, Math, String, Number, parseFloat, isFinite, RegExp);
-  const store = { get: (k) => (W.store.has(k) ? W.store.get(k) : null), set: (k, v) => { W.store.set(k, String(v)); return true; } };
+  const store = { get: (k) => (W.store.has(k) ? W.store.get(k) : null), set: (k, v) => { W.sets++; W.store.set(k, String(v)); return true; } };
   W.mod = ctx.window.__api.createFocusTotal({ focusTotalStore: store });
   W.mod.onDayEnd(() => { W.asks++; });
   W.start = () => W.mod.startFocusTotal();
@@ -75,6 +76,19 @@ function judge(src){
   W.start(); W.mod.setServerDay(DAY); W.mod.setServerDay(null); W.now = END + 5000;
   chk(W.mod.serverDay() === null && W.mod._rolloverFocusToday() === 10 && W.asks === 0, '서버 날이 null 이면 경계를 따지지 않는다 · 요청 0');
 
+  say('── 4-2. 같은 값은 칸에 쓰지 않는다');
+  W = world(src, { store: { [SEC]: '0', [DATE]: '2026-11-13' } });
+  W.start(); W.mod.setServerDay(DAY);
+  W.sets = 0;
+  for(let i = 0; i < 10; i++){ W.now = END - 5000 + i * 500; W.mod.addFocusToday(0.5); }
+  chk(W.sets === 10 && W.store.get(SEC) === '5' && W.store.get(DATE) === '2026-11-13', '0.5초 틱 10번 — 초 칸만 10번 쓴다(예전 20번) · 날 글자 칸은 그대로 · 값은 예전과 같다 (' + W.sets + '번)');
+  W.sets = 0; W.mod.setServerDay(DAY);
+  chk(W.sets === 0, '서버 답이 같은 날 · 같은 초 → 쓰지 않는다');
+  W.mod.setServerDay(NEXT);
+  chk(W.sets === 2 && W.store.get(SEC) === '0' && W.store.get(DATE) === '2026-11-14', '날이 바뀌면 둘 다 쓴다 (' + W.sets + '번)');
+  W.store.delete(DATE); W.sets = 0; W.mod.addFocusToday(1);
+  chk(W.store.get(DATE) === '2026-11-14', '칸이 비워졌으면 값이 그대로여도 다시 쓴다(메모리 사본과 견주지 않는다)');
+
   say('── 4. 앱 날짜 셈 없음');
   W = world(src, { store: { [SEC]: '60', [DATE]: '2026-11-13' } });
   W.start(); W.mod.setServerDay(DAY);
@@ -102,7 +116,9 @@ const BREAKS = [
   ['새 날을 안 물음', "    dayEndFns.forEach((fn) =>", "    [].forEach((fn) =>"],
   ['다른 날 답에도 이어 쌓음', "if(_day && _day !== t.day){ _focusTodaySec = 0; }", ""],
   ['옛 날 글자를 못 읽음', "return m ? m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0') : null;", "return v ? String(v) : null;"],
-  ['날 글자를 계정 칸에 안 적음', "focusTotalStore.set(FOCUS_TODAY_DATE_KEY, _day || '');", ""],
+  ['날 글자를 계정 칸에 안 적음', "_setIfChanged(FOCUS_TODAY_DATE_KEY, _day || '');", ""],
+  ['같은 값도 다시 씀', "if(focusTotalStore.get(k) !== v) focusTotalStore.set(k, v);", "focusTotalStore.set(k, v);"],
+  ['메모리 사본과 견줌(칸이 비워져도 안 씀)', "if(focusTotalStore.get(k) !== v) focusTotalStore.set(k, v);", "if(!_wrote) _wrote = {}; if(_wrote[k] !== v){ _wrote[k] = v; focusTotalStore.set(k, v); }"],
   ['시작 전에도 쌓음', "if(!_focusTotalStarted || !(sec > 0)) return;", "if(!(sec > 0)) return;"],
 ];
 quiet = true;
