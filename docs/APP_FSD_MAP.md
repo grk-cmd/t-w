@@ -295,6 +295,8 @@ app.js 9,746 → 9,476줄(270줄) · 구역 167 → 130개. 남긴 빈 머리 �
 
 **0.12.4 — app.js 분리 M13 ~ M16**: 앱 모드(`launcher/app-mode.js`) · 회사원 · 피규어 모드 깃발(`launcher/office-mode.js`) · 설정 저장 헬퍼(`shared/ls-set.js`) · 몸짓(`character/rig-anim.js`) · 프레임 상한 · rAF 멈춤 감시(`launcher/frame-pace.js`)를 글 그대로 옮겼다(한 PR · 모듈 다섯). app.js 7,835 → 7,324줄.
 
+**0.12.4 — app.js 분리 M17 ~ M19**: `frame()` · `prev`(`launcher/frame-loop.js` — 좌석 한 명 몫 분리는 글이 달라져 R5 로 남김) · 플라잉체어(`room/flying-chair.js`) · 스티커 그리기(`myhome/myhome-sticker-render.js` — 다시 대입이 있어 읽는 · 쓰는 함수, F4 때 걷음) · 이동 모드 · 캐릭터 화면 좌표(`launcher/move-mode.js`)를 글 그대로 옮겼다. app.js 7,324 → 6,858줄.
+
 ## 구역 표 — `app/parts/app.js`
 
 | # | 줄 | 크기 | 목적 | 층 | 관련 모듈 | 씀 | 쓰임 | 비고 |

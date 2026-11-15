@@ -77,7 +77,8 @@ const zd = EDIT.slice(EDIT.indexOf("zone.addEventListener('mousedown'"), EDIT.in
 chk(/^const mhStickerRules = TwMyHomeStickerRules;/m.test(EDIT) && /mhStickerRules\.isLocked\(\(_myHomeData\(\)\.stickers\|\|\{\}\)\[el\.dataset\.sid\]\)\) return;/.test(zd), '★ 마이홈 스티커 끌기(편집모드 밖)도 잠긴 스티커는 안 잡는다');
 chk(/mhStickerRules\.hitsAddBtn\(stickerAddBtn\.getBoundingClientRect\(\), e\.clientX, e\.clientY\)/.test(EDIT), '  [+ 스티커] 버튼 통과는 hitsAddBtn 을 부른다(조건을 다시 쓰지 않음)');
 chk(/z: mhStickerRules\.nextZ\(_myHomeData\(\)\.stickers\),/.test(EDIT), '  새 스티커는 맨 앞 z');
-const rs = APP.slice(APP.indexOf('function renderMyHomeStickers(){'), APP.indexOf('function renderMyHomeStickers(){') + 1200);
+const SR = ['myhome-sticker-render.js', 'parts/myhome/myhome-sticker-render.js', 'app/parts/myhome/myhome-sticker-render.js'].map(read).find(Boolean) || '';   // 스티커 그리기는 myhome-sticker-render.js(M19)
+const rs = SR.slice(SR.indexOf('function renderMyHomeStickers(){'), SR.indexOf('function renderMyHomeStickers(){') + 1200);
 chk(/TwMyHomeStickerRules\.orderedIds\(data\)\.forEach\(sid=>/.test(rs) && !/Object\.keys\(data\)\.forEach\(sid=>/.test(rs), '★ 그리기는 z 순서(뒤 → 앞) — 키 순서로 그리지 않는다');
 chk(/TwMyHomeStickerRules\.isLocked\(s\)\) el\.classList\.add\('locked'\)/.test(rs) && /\.mh-sticker\.locked\{cursor:not-allowed;\}/.test(HTML), '  잠긴 스티커 표시(커서)');
 const iR = HTML.indexOf('<script src="parts/myhome/myhome-sticker-rules.js">');
