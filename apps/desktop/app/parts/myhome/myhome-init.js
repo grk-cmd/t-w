@@ -72,8 +72,8 @@ function onNewsChanged(e){
   });
 }
 
-/* 계정 확인을 통과한 뒤 한 번(launcher/app-boot.js) — code: 서버가 확인한 내 계정 코드 · me: 그 확인(GET /v2/me)의 답(접속 고정을 거기서 읽는다) */
-async function initMyHome(code, me){
+/* 계정 확인을 통과한 뒤 한 번(launcher/app-boot.js) — code: 서버가 확인한 내 계정 코드 · me: 그 확인(GET /v2/me)의 답(접속 고정을 거기서 읽는다) · session: 이번 로그인의 세션(받은 요청 구독 · 우편 구독을 맡긴다) */
+async function initMyHome(code, me, session){
   _waitForFirebaseAPI(async ()=>{
     const myId = code;
     /* 내 코드가 없으면 내 경로(presence · 프로필 · 친구 · 요청 · 우편)는 걸지 않는다 — 공지는 코드와 상관없이 따로 받는다(notice-feed).
@@ -99,7 +99,7 @@ async function initMyHome(code, me){
       //   ★ 이전에는 mhReqSection이 "친구 탭" 안에 있어서 유저가 그 탭을 열지 않으면 요청이 있는지도 모름.
       //     → 요청이 있으면 친구 탭 버튼에 (N) 뱃지 표시 + 마이홈 아이콘에도 자동 뱃지 → 눈에 띄게 함.
       {
-        friendRequests().watchReceived(myId, reqs=>{
+        session.on(friendRequests().watchReceived(myId, reqs=>{
           const prevIds = Object.keys(_myFriendRequests()||{});
           setMyFriendRequests(reqs || {});
           friendManage.renderFriendRequests();
@@ -116,10 +116,10 @@ async function initMyHome(code, me){
           if(myHomeOpen() && newIds.length && !friendManage.reqVisible()){
             friendManage.showFriendRequestPopup(newIds);
           }
-        }, e=>console.warn('[친구 요청] 받은 요청을 못 받음 — 알림이 오면 다시 받아요', e));
+        }, e=>console.warn('[친구 요청] 받은 요청을 못 받음 — 알림이 오면 다시 받아요', e)));   // 해제 함수는 세션이 쥔다(Firebase 길도 서버 길도 같다 — 이미 끝난 세션이면 바로 푼다)
       }
       // 📩 우편 받기 — 새 우편은 realtime 알림이 오면 다시 받는다(mail-feed.js). 계정이 바뀌면 앞 계정의 우편은 비운다.
-      mailFeed.start(myId);
+      mailFeed.start(myId, session);
       setMyHomeReady(true);
       const codeEl=document.getElementById('mhMyCode');
       if(codeEl){ const c=localStorage.getItem(MY_FRIEND_CODE_KEY); if(c) codeEl.textContent=c; }

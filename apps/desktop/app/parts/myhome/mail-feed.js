@@ -10,7 +10,7 @@
          notifyError — 오류 번호로 알리는 함수(TwErrorCodes.notify)
    내보냄: createMailFeed(deps) → {
      onChange(fn) → 해제 함수 — fn({ addedIds })(화면 다시 그리기 · 새 우편 토스트 — 받은 뒤 · 고친 뒤 · 처음 받은 판의 우편은 새 우편이 아니다) ·
-     start(uid) · stop() · refresh({ manual }?) → Promise<boolean>(받았나 — manual 은 «다시 시도» 를 눌렀다) · status() → 'idle'|'loading'|'ready'|'error' · items() → { id: 우편 } · unread() → 서버가 센 안 읽은 수 ·
+     start(uid, session) · stop() · refresh({ manual }?) → Promise<boolean>(받았나 — manual 은 «다시 시도» 를 눌렀다) · status() → 'idle'|'loading'|'ready'|'error' · items() → { id: 우편 } · unread() → 서버가 센 안 읽은 수 ·
      complete() → 오래된 우편까지 다 받았나 · busy() → 지금 받는 중인가 · STATUS(상태 이름 상수) · ready() → 한 번이라도 받았나 ·
      markRead(id) · markAllRead() → Promise<boolean> · remove(id) → Promise<boolean> · removeRead() → Promise<number|null>(서버가 한 번에 지운 통 수 — 못 지웠으면 null) · clearing() → 읽은 우편 지우는 중인가
    }
@@ -69,8 +69,15 @@ function createMailFeed(deps){
     return ok;
   }
 
-  function start(who){
+  /* 계정 확인 뒤 한 번 — 알림 구독 · 비우기를 세션에 맡긴다(세션마다 한 번). 세션이 끝나면 구독이 풀리고 stop 이 불린다 */
+  let boundSession = null;
+  function start(who, session){
     if(!who) return stop();
+    if(session !== boundSession){
+      boundSession = session;
+      session.on(deps.rt.on('notification', onNotification));
+      session.onReset(stop);
+    }
     if(who !== uid){ uid = who; reset(); }
     refresh();
   }
@@ -78,10 +85,10 @@ function createMailFeed(deps){
 
   /* 알림 — 새 우편(section 이 MAIL 이거나 없음) · 오래 끊겼다 붙음(resync). 서버는 새 알림이 생길 때만 알린다 —
      다른 기기에서 읽거나 지운 것은 다음에 받을 때 맞는다 */
-  deps.rt.on('notification', (n) => {
+  function onNotification(n){
     if(!uid) return;
     if(n && (n.resync || !n.section || n.section === SECTION_MAIL)) refresh();
-  });
+  }
 
   /* 한 번이라도 받은 뒤에만 고친다 — 받는 중에는 «모두 읽음» 이 아직 못 본 우편까지 덮으면 안 된다.
      나중에 다시 받다 실패해도 앞서 받아 둔 우편은 그대로 고칠 수 있다. */
