@@ -291,21 +291,20 @@ async function judge(S){
     chk(sf0.pushes.length === 1 && sf0.intervals === 1, '  ↳ 시작 함수가 첫 보내기 한 번 + 15초 인터벌 하나를 건다');
   }
 
-  say('── 6d. S-3b — 최근 쓴 캐릭터 색 · 지금 쓰는 상호작용 책상 · 동물 숨김 해금은 계정 칸에서 읽고 쓴다');
+  say('── 6d. S-3b — 최근 쓴 캐릭터 색 · 지금 쓰는 상호작용 책상은 계정 칸에서 읽고 쓴다');
   {
-    const S3B = ['tw.charColorHistory', 'tw.activeInteractionDesk', 'tw.animalCheatUnlock'];
-    chk(S3B.every((k) => M.MOVED_KEYS.includes(k) && M.ACCOUNT_KEYS.includes(k)), '★ 셋 모두 옮긴 표(MOVED_KEYS)에 있다 — 0.12 에서 올라온 PC 값이 계정 칸으로 간다');
+    const S3B = ['tw.charColorHistory', 'tw.activeInteractionDesk'];
+    chk(S3B.every((k) => M.MOVED_KEYS.includes(k) && M.ACCOUNT_KEYS.includes(k)), '★ 둘 모두 옮긴 표(MOVED_KEYS)에 있다 — 0.12 에서 올라온 PC 값이 계정 칸으로 간다');
     const st = mem(); const code = { v: null }; const s = mk(st, code);
     st.o['tw.charColorHistory'] = '["#ff0000","#00ff00"]'; st.o['tw.activeInteractionDesk'] = 'bench2'; st.o['tw.animalCheatUnlock'] = '1'; st.o['tw.chatFontSize'] = '14';
     const r = s.migrateLegacy(A); code.v = A;
-    chk(S3B.every((k) => r.moved.includes(k)) && s.get('tw.charColorHistory') === '["#ff0000","#00ff00"]' && s.get('tw.activeInteractionDesk') === 'bench2' && s.get('tw.animalCheatUnlock') === '1', '★ 옛 PC 값이 들어간 계정 칸에 같은 값으로 이어진다(잃지 않는다)');
-    chk(S3B.every((k) => !(k in st.o)) && st.o['tw.chatFontSize'] === '14', '  ↳ PC 칸에서는 지운다 · 기기 설정은 그대로');
+    chk(S3B.every((k) => r.moved.includes(k)) && s.get('tw.charColorHistory') === '["#ff0000","#00ff00"]' && s.get('tw.activeInteractionDesk') === 'bench2', '★ 옛 PC 값이 들어간 계정 칸에 같은 값으로 이어진다(잃지 않는다)');
+    chk(S3B.every((k) => !(k in st.o)) && st.o['tw.chatFontSize'] === '14' && st.o['tw.animalCheatUnlock'] === '1', '  ↳ PC 칸에서는 지운다 · 기기 설정은 그대로 · 동물 숨김 해금(animalCheatUnlock)은 카드가 처음 그릴 때 읽어 아직 PC 칸 — 옮기지 않는다(S-4a)');
     code.v = B;
     chk(S3B.every((k) => s.get(k) === null), '  ↳ 다른 계정(B)에게는 안 보인다');
     const noPc = (src, re) => !re.test(src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 '));
     chk(noPc(S.WARDROBE, /localStorage\.(get|set|remove)Item\(CHAR_RECENT_KEY/) && /accountStore\.get\(CHAR_RECENT_KEY\)/.test(S.WARDROBE) && /accountStore\.set\(CHAR_RECENT_KEY/.test(S.WARDROBE), '꾸미기 — 최근 쓴 색을 계정 칸에서 읽고 쓴다(PC 칸 직접 접근 0)');
     chk(noPc(S.IDESK, /localStorage\.(get|set|remove)Item\(ACTIVE_IDESK_KEY/) && /accountStore\.get\(ACTIVE_IDESK_KEY\)/.test(S.IDESK) && /accountStore\.set\(ACTIVE_IDESK_KEY/.test(S.IDESK) && /accountStore\.remove\(ACTIVE_IDESK_KEY\)/.test(S.IDESK), '상호작용 책상 — 지금 쓰는 책상 id 를 계정 칸에서 읽고 쓰고 지운다');
-    chk(noPc(S.CHARCODE, /localStorage\.getItem\('tw\.animalCheatUnlock'/) && /accountStore\.get\('tw\.animalCheatUnlock'\)/.test(S.CHARCODE) && noPc(S.ANIMAL, /localStorage\.(get|set|remove)Item\(CHEAT_KEY/) && /accountStoreMod\.get\(CHEAT_KEY\)/.test(S.ANIMAL) && /accountStoreMod\.set\(CHEAT_KEY/.test(S.ANIMAL), '동물 숨김 해금 — 캐릭터 코드 불러오기 · 동물 카드가 계정 칸에서 읽고 쓴다');
   }
 
   say('── 6c. migrateLegacy 를 부르는 곳 — 읽는 모듈보다 먼저 · 코드 없으면 안 함 · 로그아웃은 올리기 앞 · 지우기보다 앞');
@@ -392,13 +391,10 @@ const BREAKS = [
   ['STORE', "const CODE_RE = /^u[0-9a-z]{8,40}$/i;", "const CODE_RE = /^.*$/;", '코드 모양을 안 봄(점 · 슬래시)'],
   ['STORE', "if(!isAccountKey(key)) throw new Error('[계정 칸] 계정별 키가 아니다 — ' + key);", "", '모르는 키 · 기기 공용 키를 받음'],
   ['STORE', "if(have !== null) res.kept.push(k);", "if(false) res.kept.push(k);", '계정 칸 값을 덮어씀'],
-  ['STORE', "'tw.charColorHistory', 'tw.activeInteractionDesk', 'tw.animalCheatUnlock']);", "'tw.activeInteractionDesk', 'tw.animalCheatUnlock']);", '최근 캐릭터 색이 옮긴 표에서 빠짐'],
-  ['STORE', "'tw.charColorHistory', 'tw.activeInteractionDesk', 'tw.animalCheatUnlock']);", "'tw.charColorHistory', 'tw.animalCheatUnlock']);", '상호작용 책상이 옮긴 표에서 빠짐'],
-  ['STORE', "'tw.charColorHistory', 'tw.activeInteractionDesk', 'tw.animalCheatUnlock']);", "'tw.charColorHistory', 'tw.activeInteractionDesk']);", '동물 해금이 옮긴 표에서 빠짐'],
+  ['STORE', "'tw.charColorHistory', 'tw.activeInteractionDesk']);", "'tw.activeInteractionDesk']);", '최근 캐릭터 색이 옮긴 표에서 빠짐'],
+  ['STORE', "'tw.charColorHistory', 'tw.activeInteractionDesk']);", "'tw.charColorHistory']);", '상호작용 책상이 옮긴 표에서 빠짐'],
   ['WARDROBE', "accountStore.get(CHAR_RECENT_KEY)", "localStorage.getItem(CHAR_RECENT_KEY)", '최근 캐릭터 색을 PC 칸에서 읽음'],
   ['IDESK', "accountStore.set(ACTIVE_IDESK_KEY, id)", "localStorage.setItem(ACTIVE_IDESK_KEY, id)", '상호작용 책상을 PC 칸에 씀'],
-  ['CHARCODE', "accountStore.get('tw.animalCheatUnlock')", "localStorage.getItem('tw.animalCheatUnlock')", '캐릭터 코드가 동물 해금을 PC 칸에서 읽음'],
-  ['ANIMAL', "accountStoreMod.set(CHEAT_KEY,'1')", "localStorage.setItem(CHEAT_KEY,'1')", '동물 해금을 PC 칸에 씀'],
   ['STORE', "const todo = MOVED_KEYS.filter(k => !done.includes(k));", "const todo = MOVED_KEYS.slice();", '두 번 돎'],
   ['STORE', "try{ storage.removeItem(k); }catch(_){}\n      }\n      handled.push(k);", "}\n      handled.push(k);", '옮기고 PC 칸을 안 지움'],
   ['STORE', "catch(_){ continue; }   // 못 쓰면 옛 칸을 지우지 않고 다음에 다시", "catch(_){}", '못 써도 옛 칸을 지움'],

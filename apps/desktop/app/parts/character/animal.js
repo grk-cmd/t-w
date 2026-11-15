@@ -18,11 +18,11 @@ console.log('[동물] animal.js '+ANIMAL_VER);
 
 let UNLOCK_LEVEL = 50;   // ★ 기본값. 관리자가 서버(catalog/gameConfig)에서 바꾸면 아래 setter로 갱신된다.
 /* 🔓 숨김 해금 — 종족 선택창에서 L키를 누른 채 동물 카드를 연속 클릭하면 레벨 제한 없이 열린다.
-   한 번 해금되면 이 계정의 계정 칸에 남아 계속 유지된다. */
+   한 번 해금되면 localStorage에 남아 계속 유지된다. */
 const CHEAT_KEY = 'tw.animalCheatUnlock';
 const CHEAT_CLICKS = 10;
 let _lKeyDown=false, _cheatCount=0, _cheatLastAt=0;
-function _cheatUnlocked(){ try{ return accountStoreMod.get(CHEAT_KEY)==='1'; }catch(_){ return false; } }   // 🗂️ 계정 칸(app.js 의 accountStoreMod — 이 파일은 app.js 와 한 범위로 싣는다)
+function _cheatUnlocked(){ try{ return localStorage.getItem(CHEAT_KEY)==='1'; }catch(_){ return false; } }
 /* 🔓 한 번이라도 해금 조건을 만족했으면 그 뒤로는 계속 열려 있다.
    관리자가 이벤트로 해금 레벨을 낮췄다가 되돌려도, 그동안 조건을 만족했던 사람은 잠기지 않는다.
    ★ 표시를 남기는 건 '레벨을 실제로 달성한 경우'뿐이다. 관리자 권한은 원래 항상 열려 있으니
@@ -160,7 +160,7 @@ function initCard(){
         _cheatLastAt=now; _cheatCount++;
         if(_cheatCount >= CHEAT_CLICKS){
           _cheatCount=0;
-          try{ accountStoreMod.set(CHEAT_KEY,'1'); }catch(_){}
+          try{ localStorage.setItem(CHEAT_KEY,'1'); }catch(_){}
           initCard();   // 잠금 안내 문구 갱신
           toast('🔓 동물 캐릭터가 해금됐어요!');
           // ★ 이 경로도 '신규 생성'이다 — 아래 정상 경로와 동일하게 컨텍스트를 초기화하고

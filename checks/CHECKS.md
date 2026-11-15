@@ -345,7 +345,7 @@
 | **sim-room-sync.js** | 99 | **20fd5b5bfe59** |
 | **sim-status-chip.js** | 123 | **d9d9fc735d57** |
 | **sim-premium-assets.js** | 95 | **85f1b747f695** |
-| **sim-char-code.js** | 126 | **7f7d2cfd3c90** |
+| **sim-char-code.js** | 126 | **6af407976d28** |
 | **sim-dice-games.js** | 95 | **1debed57a729** |
 | **sim-program-settings.js** | 148 | **63ad8f3b844f** |
 | **sim-chat-prefs.js** | 95 | **26c68ca8bbfe** |
@@ -478,7 +478,7 @@
 | **sim-gift-img-retry.js** | 207 | **1053b262fc34** |
 | **sim-request-id.js** | 94 | **34021f461cd5** |
 | **sim-device-id.js** | 103 | **44a934497fba** |
-| **sim-account-store.js** | 445 | **f89991aac2b2** |
+| **sim-account-store.js** | 441 | **2f9e9800736c** |
 | **sim-api-errors.js** | 126 | **46fbbfebb0fc** |
 | **sim-rt-hub.js** | 500 | **2dcfa21ce5ca** |
 | **sim-rt-status-ui.js** | 245 | **a5503f36aa86** |
