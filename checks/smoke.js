@@ -339,6 +339,8 @@ PRELOAD.push('idle-gate.js');
 PRELOAD.push('skeleton-share.js');
 /* img-retry.js — 🖼 남의 그림 한 번 더 받을 주소(window.TwImgRetry). room-sync.js · animal.js · myhome-inbox.js · mallang.js 가 부를 때 읽는다. */
 PRELOAD.push('img-retry.js');
+PRELOAD.push('image-bytes.js', 'request-id.js');   // 🖼 data: 그림 → 바이트 판정 · 🔁 요청 번호 — schedule-api.js 가 app.js 에서 넘겨 받는다
+PRELOAD.push('schedule-api.js');   // 🌐 일정 · 디데이 서버 길 provider — app.js 가 로그인 통로를 넘겨 만든다
 /* scheduler.js — 📅 스케줄러 · 🔔 일정 알림(앱 FSD 1번). app.js 는 없어도 빈 껍데기로 돌지만, 그러면 모듈이 만들 때 하는 일
    (버튼 연결 · 알림 구독 · 자정 타이머)을 아무도 안 굴린다 — 여기서 같이 싣고 굴린다.
    ⚠️ 윗줄 모양은 sim-wd-ear.js 가 글자 그대로 본다 — 목록에 끼우지 말고 여기서 붙인다. */
