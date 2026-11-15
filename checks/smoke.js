@@ -749,6 +749,8 @@ PRELOAD.push('base-body.js');
 PRELOAD.push('part-xf.js');
 /* part-equip.js — 🎀 파츠 붙이기 · 떼기 · def 대조. app.js 가 원래 자리에서 createPartEquip 로 만든다. */
 PRELOAD.push('part-equip.js');
+/* run-boot.js — 🚀 켜는 차례 표. app.js 가 원래 자리에서 createRunBoot 로 만든다. */
+PRELOAD.push('run-boot.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

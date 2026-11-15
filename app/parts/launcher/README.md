@@ -176,3 +176,9 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - **만드는 법**: `TwWindowMode.createWindowMode({ … 12개 })` — 읽는 함수 하나(`creatorOpen`) · 쓰는 함수 하나(`setFocusGateSleep`) · 값 열. 원래 자리(데스크탑 실행 화면 구역 머리 앞)에서 만든다.
 - **내보내는 것**: `_applyActiveAppState` · `applyDesktopRunClass`(app.js 가 같은 이름 const 로) · `myHomeOpen()` · `setMyHomeOpen(v)`.
 - **함정**: `applyDesktopRunClass` 는 «누군가 불러줘야» 한다 — 오버레이를 여는 새 길이 생기면 여기도 부를 것. 여는 쪽 플래그가 아니라 화면(오버레이 `.on`)을 본다. 검사: `checks/sim-window-mode.js`.
+
+## run-boot.js — 🚀 켜는 차례 표
+
+- **책임**: app.js INIT 덩이의 차례를 표(`STEPS`) 한 곳으로 모은다 — 좌석 탭 → 앱 모드 → 관리자 UI → 라이선스 글 → 마이홈 시작 → 기본 몸 불러오기 → 프레임 루프 → 런처 루프 → 얼굴 복구 점검 → 창 크기 맞춤. 앱 FSD 분리 F3 · 0.13 `launcher/app-boot.js` 와 같은 모양(계정 없이 도는 몫만 — 계정 기능의 만들기 · 시작은 0.13 몫).
+- **만드는 법**: `TwRunBoot.createRunBoot({ starts, baseBody })` — `starts` 는 표에서 `baseBody` 를 뺀 아홉 이름마다 시작 함수 하나(없거나 남으면 만들 때 던진다), `baseBody` 는 `{ load, loadSkins, loadSlots, renderLauncher, onFailed }`. app.js 가 INIT 자리에서 만들고 `runBoot.begin()` 을 한 번 부른다.
+- **함정**: 만들 때는 일하지 않는다 — `begin` 이 부를 때만 돈다(두 번째 `begin` 은 아무것도 안 하고 false). 한 칸이 던져도 다음 칸은 돈다(예전엔 INIT 한 줄이 던지면 뒤 줄이 통째로 안 돌았다). 기본 몸을 못 읽으면(`load` 가 false) 안내(`E-SYS-08`)를 한 번 띄우고 대신 몸으로 이어 간다 · 읽다 던져도 런처는 그린다. INIT 위치를 옮기지 말 것 — 뒤에서 만드는 모듈(투게더룸 초대 UI · 서버 모듈 감시견)은 INIT 이 안 부른다. 검사: `checks/sim-run-boot.js`.

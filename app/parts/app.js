@@ -4920,23 +4920,36 @@ layoutSeats=function(){ _layoutSeats();
   applyDesktopRunClass(); };
 
 /* ============================================================ INIT */
-seatPanelMod.renderSeatTabs(); seatPanelMod.setManual(null); applyAppMode(); applyDesktopRunClass();
-if(typeof adminMode.refreshAdminVisibility==='function') adminMode.refreshAdminVisibility();   // 관리자 전용 UI는 기본 숨김 (관리자 모드 진입 시 노출)
-{ const lbl=document.getElementById('lcLicenseLbl'); if(lbl) lbl.textContent = isPremium ? '🔓 라이선스 등록됨' : '🔑 라이선스 등록'; }
-/* 🏠 마이홈 시작(내 접속 표시 · 프로필 · 친구 · 요청 · 우편 구독) — 모듈을 다 만든 뒤 여기서 한 번.
-   첫 일이 «Firebase 붙을 때까지 기다리기» 라, 부팅 중 어디서 불러도 실제 시작은 firebaseAPI 가 생긴 뒤다. */
-mhInitMod.initMyHome();
-loadBaseGLB().then(ok=>{ if(!ok) console.warn('기본 GLB 로드 실패 — 스탠드인 사용');
-  return Promise.all([loadSkins(), slotSaveMod.loadSlots()]); }).then(()=>{ renderLauncher(); }).catch(()=>renderLauncher());
-requestAnimationFrame(frame);
-launcherPrevMod.startLauncherLoop();
-/* 🛡️ 얼굴 자동 복구 주기 점검 — 위 repairBlankFaces 주석 참고.
-   ★ 렌더 루프(frame)에 넣지 않는다. 얼굴이 비는 상황은 대개 무거운 프로그램과 같이 돌 때라,
-     그때 프레임마다 도는 점검을 얹는 것은 방향이 반대다. 4초 간격이면 사용자가 «사라졌다»고
-     느끼기 전에 대개 돌아온다. */
-setInterval(()=>{ try{ faceHealMod.repairBlankFaces(); }catch(_){} }, faceHealMod.FACE_WATCH_MS);
+/* 🚀 켜는 차례는 launcher/run-boot.js 의 표 한 곳(F3) — 여기는 각 칸의 시작 함수를 이어 주고 begin 을 한 번 부른다.
+   ★ 모듈을 다 만든 뒤 여기서 한 번이어야 한다(만드는 줄이 INIT 앞에 있고, 뒤에서 만드는 모듈은 INIT 이 안 부른다). */
 function resize(){ layoutSeats(); if(launcherPrevMod.lRenderer()&&document.getElementById('launcher').classList.contains('on')) launcherPrevMod.sizeLauncherPreview(); }
-addEventListener('resize',resize); resize();
+const runBoot = TwRunBoot.createRunBoot({
+  starts: {
+    seatTabs: ()=>{ seatPanelMod.renderSeatTabs(); seatPanelMod.setManual(null); },
+    appMode: ()=>{ applyAppMode(); applyDesktopRunClass(); },
+    adminUi: ()=>{ if(typeof adminMode.refreshAdminVisibility==='function') adminMode.refreshAdminVisibility(); },   // 관리자 전용 UI는 기본 숨김 (관리자 모드 진입 시 노출)
+    licenseLabel: ()=>{ const lbl=document.getElementById('lcLicenseLbl'); if(lbl) lbl.textContent = isPremium ? '🔓 라이선스 등록됨' : '🔑 라이선스 등록'; },
+    /* 🏠 마이홈 시작(내 접속 표시 · 프로필 · 친구 · 요청 · 우편 구독) — 모듈을 다 만든 뒤 여기서 한 번.
+       첫 일이 «Firebase 붙을 때까지 기다리기» 라, 부팅 중 어디서 불러도 실제 시작은 firebaseAPI 가 생긴 뒤다. */
+    myHome: ()=>mhInitMod.initMyHome(),
+    frameLoop: ()=>{ requestAnimationFrame(frame); },
+    launcherLoop: ()=>launcherPrevMod.startLauncherLoop(),
+    /* 🛡️ 얼굴 자동 복구 주기 점검 — 위 repairBlankFaces 주석 참고.
+       ★ 렌더 루프(frame)에 넣지 않는다. 얼굴이 비는 상황은 대개 무거운 프로그램과 같이 돌 때라,
+         그때 프레임마다 도는 점검을 얹는 것은 방향이 반대다. 4초 간격이면 사용자가 «사라졌다»고
+         느끼기 전에 대개 돌아온다. */
+    faceHeal: ()=>{ setInterval(()=>{ try{ faceHealMod.repairBlankFaces(); }catch(_){} }, faceHealMod.FACE_WATCH_MS); },
+    resize: ()=>{ addEventListener('resize',resize); resize(); },
+  },
+  baseBody: {
+    load: ()=>loadBaseGLB(),
+    loadSkins: ()=>loadSkins(),
+    loadSlots: ()=>slotSaveMod.loadSlots(),
+    renderLauncher: ()=>renderLauncher(),
+    onFailed: ()=>TwErrorCodes.notify('E-SYS-08'),   // 기본 몸을 못 불러옴 — 안내 한 번 · 대신 몸으로 계속
+  },
+});
+runBoot.begin();
 /* ═══════════════ 🙋 투게더룸 친구 초대 ═══════════════ */
 /* 🙋 친구 고르기 창 · 초대 보내기 · 🚪 방 초대 받기(수락 / 거절 팝업 · 3분 자동 거절 · 작업표시줄 깜빡임)는
    parts/room-invite-ui.js 로 옮겼다(앱 FSD 10번 · docs/APP_FSD_MAP.md).

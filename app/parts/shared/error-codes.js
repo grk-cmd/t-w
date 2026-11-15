@@ -34,6 +34,7 @@ const CODES = {
   'E-SYS-05': { msg: '그래픽(3D)을 불러오지 못했어요 — 앱을 다시 켜 주세요', where: 'shared/gl-fail-notice.js — 메인 렌더러(WebGL)를 못 만듦 · 끊긴 3D 가 10분 안에 또 안 돌아옴(안내 창)' },
   'E-SYS-06': { msg: '3D 미리보기를 불러오지 못했어요 — 창을 닫고 다시 열어 주세요', where: 'shared/gl-context.js — 미리보기(런처 · 생성기 · 꾸미기 · 종족 고르기 · 동물 · 파츠 썸네일 · 스티커사진)의 3D 장치를 못 만듦. 그 창 안에 안내가 뜨고 앱은 계속 돈다' },
   'E-SYS-07': { msg: '3D 를 불러오지 못해 사진을 찍을 수 없어요 — 창을 닫고 다시 열어 주세요', where: 'purikura/purikura-ui.js — 스티커사진 방장의 3D 무대가 없을 때 「촬영 시작」(다른 참가자의 촬영은 막지 않음)' },
+  'E-SYS-08': { msg: '캐릭터 몸 파일을 불러오지 못했어요 — 앱을 다시 설치해 주세요', where: 'launcher/run-boot.js — 켤 때 기본 몸(window.BASE_GLB_B64)을 못 읽음(대신 몸으로 계속). 설치 파일이 깨졌을 수 있다' },
   'E-FR-01': { msg: '친구 요청을 수락하지 못했어요', where: 'myhome/friend-manage.js — 요청 팝업 · 받은 요청 [수락]' },
   'E-FR-02': { msg: '친구 요청을 거절하지 못했어요', where: 'myhome/friend-manage.js — 요청 팝업 · 받은 요청 [거절]' },
   'E-FR-03': { msg: '보낸 친구 요청을 취소하지 못했어요', where: 'myhome/friend-manage.js — 보낸 요청 [취소]' },
