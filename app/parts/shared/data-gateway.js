@@ -32,7 +32,7 @@ const ROUTE_MAX = 200;                          // 표 상한 — 원격 설정�
 const ROUTE_RE = /^[A-Za-z0-9_\-*]+(\/[A-Za-z0-9_\-*]+)*$/;   // 경로 앞부분 모양 — '.' · '$' · '#' · '[' · ']' 는 Firebase 키에도 못 쓴다
 const QUERY_KEYS = Object.freeze(['orderBy', 'limitToLast', 'limitToFirst', 'startAt', 'endAt', 'equalTo']);   // 서버로 보낼 수 있는 조건
 
-/* ── 서버 오류 번역표 — 서버 ApiResponse.code(ErrorType 이름) · 앱 통로 code → 앱 처리. 여기 한 곳에서만 정한다. ── */
+/* ── 서버 오류 번역표 — 서버 ApiResponse.code(ErrorType 이름) · 앱 통로 code → 앱 처리. 범용 통로(옛 길) 몫 — 새 기능의 공통 번역은 api-errors.js 한 곳이고, 이 표는 범용 통로를 걷을 때 같이 걷는다. ── */
 /* Firebase 길로(문구 없음): 서버가 아직 못 받는 · 닿지 못한 · 로그인 없음 · 묶이지 않은 계정 */
 const FALLBACK_CODES = Object.freeze(['RTDB_UNAVAILABLE', 'AUTH_REQUIRED', 'USER_CODE_NOT_BOUND', 'NETWORK', 'TIMEOUT', 'NO_API', 'NO_TOKEN', 'BACKOFF']);
 /* 부른 쪽에 오류로 — 번호는 error-codes.js 표(E-DATA). 모르는 code 는 안전하게 오류(UNKNOWN). */

@@ -22,7 +22,7 @@
      CSP connect-src https://*.together-working.com · *.togetherworking.duckdns.org 안이어야 한다(desk-companion-prototype.html). duckdns 는 옛 주소 — dev 시험 주소용으로만 남는다.
    Electron(file://)의 fetch 는 Origin 헤더 없이 나가고 CORS 를 보지 않는다 — 쿠키는 늘 보내지 않는다.
    앱 한 벌: TwApi.client(로그인 없는 읽기 · 쉬기 있음) · TwApi.authed(로그인 통로 — 토큰은 firebase-init 이 bindToken 으로 잇는다 · 쉬기 없음).
-   계정을 놓을 때는 authed.forgetSession() — 진행 중인 로그인 읽기 · 계정별 ETag 기억을 뗀다(account/login-flow.js logout).
+   계정을 놓는 쪽이 authed.forgetSession() 을 부르면 진행 중인 로그인 읽기 · 계정별 ETag 기억을 뗀다(0.12.4 는 아직 부르는 곳 없음 — 열쇠에 토큰 주인이 들어 있어 남의 값은 안 섞인다).
    classic script — maintenance-gate.js 다음 · remote-config.js · app.js 보다 먼저 싣는다(window.TwApi). Firebase 를 모른다. */
 (function(){
 'use strict';
