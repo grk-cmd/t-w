@@ -6,6 +6,8 @@ export interface OpsGroups {
   apiCache: IntGroup;
   roomFrame: IntGroup;
   roomTiming: IntGroup;
+  /** 하루 한도(가입 · 웹박수 · 선물) — API 판에만 있다. Firebase 판은 null. */
+  dailyLimits: IntGroup | null;
 }
 
 /** API 판에만 있는 카드 — Firebase 판은 null(그 일은 따로 한다: 점검은 런북, 방 서버 한 대 상한은 방 서버 화면). */

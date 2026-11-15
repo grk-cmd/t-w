@@ -31,6 +31,9 @@ const DEFAULTS: Record<string, unknown> = {
   'api.cacheSec': { config: 30, card: 60, ranking: 60 },
   'api.cors': [],
   'log.level': { api: 'info', realtime: 'info' },
+  'user.signupDailyMax': 2000,
+  'guestbook.clapDailyMax': 5,
+  'gift.dailySendMax': 10,
 };
 
 /** 설정 목록 · 한 키 쓰기 · 배너 · 카탈로그를 흉내 내는 가짜 서버. */
@@ -225,6 +228,29 @@ describe('서버 운영 설정', () => {
       { 'api.cacheSec/config': null },
     );
     expect(lastPut(s).body).toEqual({ version: 1, value: { config: 30, card: 60, ranking: 60 } });
+  });
+
+  it('하루 한도: 키마다 따로 읽고 쓴다 · 비운 칸은 그 키의 기본값', async () => {
+    const s = fakeServer();
+    s.other('gift.dailySendMax', 20);
+    const ops = createServerOpsConfigPort(s.api);
+    const group = ops.groups.dailyLimits!;
+    expect(await ops.getIntGroup(group)).toEqual({
+      'user.signupDailyMax': 2000,
+      'guestbook.clapDailyMax': 5,
+      'gift.dailySendMax': 20,
+    });
+    await ops.saveIntGroup(
+      group,
+      'settings.apiCache',
+      't',
+      {},
+      { 'daily/guestbook.clapDailyMax': 9, 'daily/gift.dailySendMax': null },
+    );
+    expect(s.puts.map((p) => [p.path, p.body])).toEqual([
+      ['/v2/admin/config/guestbook.clapDailyMax', { version: 0, value: 9 }],
+      ['/v2/admin/config/gift.dailySendMax', { version: 1, value: 10 }],
+    ]);
   });
 
   it('캐시 초 묶음은 서버 키 표를 따른다(랭킹이 있고 방 개수는 없다)', () => {

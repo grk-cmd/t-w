@@ -1,4 +1,4 @@
-export { ApiOpsCard, RoomServerTuningCard } from './ui/OpsConfigCards';
+export { ApiOpsCard, DailyLimitsCard, RoomServerTuningCard } from './ui/OpsConfigCards';
 export {
   checkCorsInput,
   checkIntGroup,

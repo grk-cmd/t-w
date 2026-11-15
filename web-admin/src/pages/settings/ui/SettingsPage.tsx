@@ -7,7 +7,7 @@ import { RoomConfigCard } from '@/features/settings/edit-room-config';
 import { useOpsConfigPort } from '@/entities/server/ops-config';
 import { MaintenanceCard } from '@/features/settings/edit-maintenance';
 import { ServerLimitsCard } from '@/features/settings/edit-server-limits';
-import { ApiOpsCard, RoomServerTuningCard } from '@/features/settings/edit-ops-config';
+import { ApiOpsCard, DailyLimitsCard, RoomServerTuningCard } from '@/features/settings/edit-ops-config';
 import { SignupFlagsCard } from '@/features/settings/toggle-signup-flags';
 
 export function SettingsPage() {
@@ -24,6 +24,7 @@ export function SettingsPage() {
       {serverLimits && <ServerLimitsCard />}
       <SignupFlagsCard />
       <RoomServerTuningCard />
+      <DailyLimitsCard />
       <ApiOpsCard />
       <div className="grid2">
         <MinVersionCard kind="room" />

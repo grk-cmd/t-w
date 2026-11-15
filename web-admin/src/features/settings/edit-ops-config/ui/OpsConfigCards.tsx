@@ -190,3 +190,23 @@ export function RoomServerTuningCard() {
     </section>
   );
 }
+
+/** 하루 한도 — 가입 · 웹박수 · 선물. 서버 설정 키가 있는 API 판에만 보인다(Firebase 판은 묶음이 null). */
+export function DailyLimitsCard() {
+  const { groups } = useOpsConfigPort();
+  if (!groups.dailyLimits) return null;
+  return (
+    <section className="card">
+      <h2>하루 한도</h2>
+      <p className="soft">
+        앱이 하루에 받는 가입 · 웹박수 · 선물 횟수예요. 서버를 다시 띄우지 않고 바뀌어요.
+      </p>
+      <IntGroupForm
+        title="하루 한도"
+        group={groups.dailyLimits}
+        action="settings.apiCache" // API 판은 서버가 기록을 남겨 이 값을 쓰지 않는다
+        apply="다음 요청부터"
+      />
+    </section>
+  );
+}
