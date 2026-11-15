@@ -343,12 +343,6 @@
           avatar: as.val() || null };
       }catch(e){ console.warn('[플레이리스트] 명함 읽기 실패', e); return null; }
     },
-    /* 🖼 프로필 사진 한 칸 — home 통째 대신(api-public-reads.js 가 API 명함을 먼저 보고, 못 받으면 여기). */
-    async fetchAvatar(uid){
-      try{ return (await get(ref(db, `users/${uid}/home/avatar`))).val() || null; }catch(_){ return null; }
-    },
-    /* 👥 명함 날것은 API 에만 있다 — api-public-reads.js 가 바꿔 끼운다. 그 전엔 거절(친구 포트가 옛 길 카드로). */
-    fetchUserCardApi(){ return Promise.reject(Object.assign(new Error('API 통로 없음'), { code: 'NO_API' })); },
     async lookupFriendCode(code){
       const snap = await get(ref(db, `friendCodes/${code}`));
       const v = snap.val();

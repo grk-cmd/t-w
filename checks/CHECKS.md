@@ -277,7 +277,7 @@
 | **sim-focus-progress.js** | 390 | **0195fe25d4c3** |
 | **sim-chat-window.js** | 565 | **9b933ee52a05** |
 | **sim-api-client.js** | 455 | **95f8f2d62950** |
-| **sim-api-public-reads.js** | 161 | **a852f043391c** |
+| **sim-api-public-reads.js** | 139 | **44372048389f** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
 | **sim-remote-config.js** | 372 | **1b5dcfbf856c** |
 | **sim-source-switch.js** | 128 | **26f7aff8e56a** |

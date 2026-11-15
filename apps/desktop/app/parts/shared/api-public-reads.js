@@ -1,5 +1,5 @@
 /*
- * 🌐 공개 읽기를 API 사본에서 먼저 (검사 sim-api-public-reads.js) — 명함 · 프로필 사진 · 랜덤 참여 후보.
+ * 🌐 공개 읽기를 API 사본에서 먼저 (검사 sim-api-public-reads.js) — 명함(fetchPlaylistCard) 하나.
  *
  * [왜] Firebase 요금은 내려받은 바이트다. t-w-server 가 같은 데이터의 읽기 전용 사본을 두고 «필요한 한 줄» 모양으로 내준다
  *   쓰기 원본은 그대로 Firebase.
@@ -7,18 +7,13 @@
  *   실패 = ApiError 무엇이든(닿지 못함 · 5xx · 503 *_NOT_READY · RTDB_UNAVAILABLE · 4xx) 또는 모양이 다른 응답.
  *   data:null 은 실패가 아니라 «없음» 이다 — 없는 사람의 명함은 Firebase 로 다시 가지 않는다. (파도타기는 로그인 길로 옮겼다 — status/playlist-api.js)
  *   화면 · 고르기 규칙은 바꾸지 않는다 — 돌려주는 모양이 원래 함수와 같다(부르는 쪽 playlist.js · app.js 는 모름).
- * [안 바꾸는 것] 정원 · 방 만들기 상한 검사(getRoomCounts · getRoomCount)는 Firebase 그대로.
- *   랜덤 참여 후보도 들어가기 전 확인(checkRoomCapacity)은 app.js 그대로.
  *
  * deps: api(TwApi.client — get(path)) · readCell(path) → Promise<값>(Firebase 한 칸 · 사진이 사본에 없을 때만)
- * wrap(firebaseAPI) — 위 함수들(fetchAvatar 포함)을 «API 먼저» 판으로 바꿔 끼운다. 원래 함수는 대체 길로 남는다.
- *   fetchUserCardApi(uid) 는 명함 날것만 단다(대체 길 없음 — 친구 포트가 넘어가기를 정한다).
+ * wrap(firebaseAPI) — fetchPlaylistCard 를 «API 먼저» 판으로 바꿔 끼운다. 원래 함수는 대체 길로 남는다.
  */
 export const API_PATHS = Object.freeze({
   card: (uid) => '/v2/users/' + encodeURIComponent(uid) + '/card',
-  randomRooms: '/v2/rooms/random',
 });
-export const RANDOM_ROOMS_MAX = 50;
 export const avatarPath = (uid) => 'users/' + uid + '/home/avatar';
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -53,7 +48,7 @@ export function createApiPublicReads(deps){
   function wrap(fb){
     if(!fb) return fb;
     const orig = {};
-    for(const k of ['fetchPlaylistCard', 'fetchAvatar', 'findRandomRooms']){
+    for(const k of ['fetchPlaylistCard']){
       orig[k] = (typeof fb[k] === 'function') ? fb[k].bind(fb) : null;
     }
 
@@ -63,33 +58,6 @@ export function createApiPublicReads(deps){
       catch(e){ warn('명함', e); return orig.fetchPlaylistCard(uid); }
       if(d !== null && !isObj(d)){ warn('명함 모양', null); return orig.fetchPlaylistCard(uid); }
       return cardOf(d, await avatarFrom(uid, d));
-    };
-
-    /* 👥 명함 날것만(API · Firebase 대체 길 없음) — 친구 포트(friends-api.js)가 부른다. 넘어가기는 포트가 정한다(source-switch).
-       data | null(없는 사람) · 실패는 던진다. */
-    fb.fetchUserCardApi = (uid) => apiCard(uid);
-
-    /* 🖼 프로필 사진 하나 — 예전엔 사진 하나 때문에 users/{uid}/home 을 통째로 받았다(게시글 · 스티커까지).
-       API 명함 → 못 받으면 원래 함수(Firebase home/avatar 한 칸 · firebase-init). 없으면 null. */
-    const avatarFb = (uid) => orig.fetchAvatar ? orig.fetchAvatar(uid) : Promise.resolve(readCell(avatarPath(uid))).then((v) => v || null, () => null);
-    fb.fetchAvatar = async (uid) => {
-      if(!uid) return null;
-      try{
-        const d = await apiCard(uid);
-        if(d === null) return null;
-        if(isObj(d)) return await avatarFrom(uid, d);
-      }catch(e){ warn('프로필 사진', e); }
-      return avatarFb(uid);
-    };
-
-    /* 🎲 랜덤 참여 후보 — 워킹룸만(투게더룸은 서버도 400). 들어가기 전 확인은 app.js 그대로. 빈 배열 = 후보 없음. */
-    if(orig.findRandomRooms) fb.findRandomRooms = async (limit) => {
-      const n = Math.max(1, Math.min(RANDOM_ROOMS_MAX, Math.floor(Number(limit) || RANDOM_ROOMS_MAX)));
-      try{
-        const d = await ask(API_PATHS.randomRooms + '?channel=workingroom&limit=' + n);
-        if(isObj(d) && Array.isArray(d.rooms)) return d.rooms.filter((c) => typeof c === 'string' && c && c.indexOf('SCRT-') !== 0).slice(0, n);
-      }catch(e){ warn('랜덤 참여 후보', e); }
-      return orig.findRandomRooms(limit);
     };
 
     return fb;
