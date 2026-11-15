@@ -60,7 +60,8 @@ function createChatRt(deps){
   const live = new Map();     // tab → Map(id → 줄)
   const subs = new Set();     // { room, tab, fn }
   const pendingSay = new Map();   // requestId → waiter
-  const pendingClear = [];        // { tab, done }
+  const pendingClear = new Map();  // rid → { tab, done } — 지우기 답 · 오류는 rid 로만 짝짓는다(순서 · 탭으로 추측하지 않는다)
+  let clearSeq = 0;
   const nowMs = deps.now || (() => Date.now());
   const timedOut = new Map();     // 방 · 글 모양 → { id, at } — requestId — 시간 초과로 끝난 것만(서버가 받았을 수 있어 같은 번호로 다시 보낸다)
 
@@ -77,18 +78,21 @@ function createChatRt(deps){
     if(box.size > LIVE_MAX){ const first = box.keys().next().value; box.delete(first); }
     return room;
   }
-  function deliver(m){
+  function deliver(m, rid){
     const room = keep(m);
     if(!room) return;
     for(const s of Array.from(subs)){
       if(s.room === room && s.tab === m.tab){ try{ s.fn(m); }catch(e){ warn('줄 알림 실패', e); } }
     }
-    if(m.sys === CLEAR_SYS){
-      for(let i = pendingClear.length - 1; i >= 0; i--){ if(pendingClear[i].tab === m.tab){ pendingClear[i].done({ ok: true }); pendingClear.splice(i, 1); } }
+    /* 내 chatClear 의 답은 rid 가 실린 사본뿐이다 — 남이 지운 CLEAR 줄에는 rid 가 없다(줄만 반영). 짝 없는 rid 는 낡은 답 */
+    if(m.sys === CLEAR_SYS && typeof rid === 'string'){
+      const c = pendingClear.get(rid);
+      if(c) c.done({ ok: true });
+      else warn('짝 없는 지우기 답의 rid 를 버립니다(줄은 반영) —', rid);
     }
   }
 
-  hub.onMessage('chatLine', (msg) => { const m = fromWire(msg && msg.line); if(m) deliver(m); });
+  hub.onMessage('chatLine', (msg) => { const m = fromWire(msg && msg.line); if(m) deliver(m, msg && msg.rid); });
   hub.onMessage('chatSaid', (msg) => {
     const m = fromWire(msg && msg.line);
     if(m) deliver(m);
@@ -102,8 +106,9 @@ function createChatRt(deps){
       if(w) w.done({ ok: false, code: msg.code });
       return;
     }
-    const c = pendingClear.shift();
-    if(c) c.done({ ok: false, code: msg.code });
+    const c = typeof msg.rid === 'string' ? pendingClear.get(msg.rid) : null;
+    if(!c){ warn('짝 없는 지우기 오류를 버립니다(rid 로만 짝짓는다) —', msg.code, msg.rid === undefined ? '없음' : msg.rid); return; }
+    c.done({ ok: false, code: msg.code });
   });
 
   /* 보내기 — chatSaid 를 기다린다(자동으로 다시 보내지 않는다). { ok, id, ts } · 거절 { ok:false, code }(CHAT_OFF · CHAT_TOO_FAST · timeout · notReady …)
@@ -144,11 +149,12 @@ function createChatRt(deps){
     if(!room || room !== deps.roomCode()) return Promise.resolve({ ok: false, code: 'notInRoom' });
     const tab = deps.tabFromWire(deps.historyTabOf(appTab)) || 'general';
     return new Promise((res) => {
+      const rid = 'c' + (++clearSeq).toString(36);   // 서버가 답 · 오류에 그대로 돌려준다(영숫자 1~16자)
       const c = { tab, done: null, timer: null };
-      c.done = (r) => { tClear(c.timer); res(r); };
-      c.timer = tSet(() => { const i = pendingClear.indexOf(c); if(i >= 0) pendingClear.splice(i, 1); res({ ok: false, code: 'timeout' }); }, CLEAR_WAIT_MS);
-      pendingClear.push(c);
-      if(!hub.send({ t: 'chatClear', tab: deps.historyTabOf(appTab) })){ pendingClear.splice(pendingClear.indexOf(c), 1); c.done({ ok: false, code: 'notReady' }); }
+      c.done = (r) => { tClear(c.timer); pendingClear.delete(rid); res(r); };
+      c.timer = tSet(() => { pendingClear.delete(rid); res({ ok: false, code: 'timeout' }); }, CLEAR_WAIT_MS);
+      pendingClear.set(rid, c);
+      if(!hub.send({ t: 'chatClear', tab: deps.historyTabOf(appTab), rid })) c.done({ ok: false, code: 'notReady' });
     });
   }
 
@@ -235,7 +241,7 @@ function createChatRt(deps){
   /* 계정이 바뀜 — 앞 계정의 줄 · 기다리던 요청 · 다시 보낼 번호를 비운다(session.onReset). 구독은 부르는 쪽(대화창)이 닫는다. */
   function reset(){
     for(const w of Array.from(pendingSay.values())){ try{ w.done({ ok: false, code: 'reset' }); }catch(_){} }
-    for(const c of pendingClear.splice(0)){ try{ c.done({ ok: false, code: 'reset' }); }catch(_){} }
+    for(const c of Array.from(pendingClear.values())){ try{ c.done({ ok: false, code: 'reset' }); }catch(_){} }
     live.clear(); liveRoom = null; subs.clear(); timedOut.clear();
   }
 

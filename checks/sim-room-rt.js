@@ -57,7 +57,16 @@ function mkWS(){
     close(code){ if(this.closed) return; this.closed = true; if(this.onclose) this.onclose({ code: (typeof code === 'number') ? code : 1000 }); }
     kill(code){ this.closed = true; if(this.onclose) this.onclose({ code }); }
     open(){ if(this.onopen) this.onopen(); }
-    msg(m){ if(this.onmessage) this.onmessage({ data: JSON.stringify(m) }); }
+    /* 서버는 join · meta 의 답 · 오류에 요청의 rid 를 그대로 돌려준다 — 시험이 rid 를 안 적은 welcome · join 오류 · meta 오류에는 마지막 요청의 rid 를 채운다(rid: null 이면 일부러 뺀다) */
+    msg(m){
+      m = Object.assign({}, m);
+      if(m.rid === null) delete m.rid;
+      else if(!('rid' in m)){
+        const src = (m.t === 'welcome' || (m.t === 'error' && m.ref === 'join')) ? this.lastOf('join') : (m.t === 'error' && m.ref === 'meta') ? this.lastOf('meta') : null;
+        if(src && src.rid !== undefined) m.rid = src.rid;
+      }
+      if(this.onmessage) this.onmessage({ data: JSON.stringify(m) });
+    }
     all(t){ return this.sent.filter((x) => x.t === t); }
     lastOf(t){ const a = this.all(t); return a[a.length - 1]; }
   }
@@ -242,6 +251,21 @@ async function judge(S){
     ws.msg({ t: 'error', code: 'full', ref: 'join' });
     const r = await settle(jp, e.clock);
     chk(r && r.ok === false && r.code === 'full' && e.rt.inRoom() === false, '정원 거절 → { ok:false, code:full } · 방 밖');
+    {
+      /* ★ welcome · join 오류도 rid 로만 — 지금 입장 요청이 아닌 rid 의 것은 버린다(앞 요청의 늦은 답) */
+      const e3 = mk(S); e3.hub.start(); const ws3 = await readyOn(e3);
+      const p3 = e3.rt.makeProvider({}, null); const jp3 = p3.join('WORK-AB12', Object.assign({}, ME), () => {}); await tick();
+      const jr = ws3.lastOf('join').rid;
+      chk(typeof jr === 'string' && /^[A-Za-z0-9_.:-]{1,16}$/.test(jr), '★ join 은 rid(영숫자 1~16자)를 싣는다');
+      ws3.msg({ t: 'welcome', rid: null, room: 'WORK-AB12', memberId: 'x', resume: 'R', resumed: false, members: {}, meta: META, music: null, musicSeq: -1, now: e3.clock.t });
+      ws3.msg({ t: 'welcome', rid: 'old1', room: 'WORK-AB12', memberId: 'x', resume: 'R', resumed: false, members: {}, meta: META, music: null, musicSeq: -1, now: e3.clock.t });
+      ws3.msg({ t: 'error', code: 'full', ref: 'join', rid: null }); ws3.msg({ t: 'error', code: 'full', ref: 'join', rid: 'old1' });
+      let d3 = false; jp3.then(() => { d3 = true; }); await tick();
+      chk(!d3 && e3.rt.inRoom(), '  ↳ rid 없는 · 낡은 rid 의 welcome · join 오류는 입장 대기를 끝내지 않는다');
+      ws3.msg({ t: 'welcome', rid: jr, room: 'WORK-AB12', memberId: 'm9', resume: 'R', resumed: false, members: {}, meta: META, music: null, musicSeq: -1, now: e3.clock.t });
+      const r3 = await settle(jp3, e3.clock);
+      chk(r3 && r3.ok === true && r3.memberId === 'm9', '  ↳ 맞는 rid 의 welcome 이 오면 입장');
+    }
     const J = await joined(S);
     J.ws.kill(1006); await tick(); await J.e.clock.advance(1000);
     const w2 = await readyOn(J.e);
@@ -255,7 +279,7 @@ async function judge(S){
     await tick();
     const mm = w2.lastOf('meta');
     chk(mm && mm.tabs && mm.tabs.S1 && mm.tabs.S1.name === '새이름' && !mm.tabs.s1 && mm.title === '제목', 'setMeta → meta{ tabs:{ S1 } · title }');
-    w2.msg({ t: 'meta', meta: Object.assign({}, META, { title: '제목', tabs: { S1: { name: '새이름', ts: 10 }, S2: META.tabs.S2 } }) });
+    w2.msg({ t: 'meta', rid: w2.lastOf('meta').rid, meta: Object.assign({}, META, { title: '제목', tabs: { S1: { name: '새이름', ts: 10 }, S2: META.tabs.S2 } }) });
     const mr = await settle(mp, J.e.clock);
     chk(mr && mr.ok === true, '  ↳ 바뀐 meta 가 오면 ok');
     const same = await settle(J.p.setMeta({ title: '제목' }), J.e.clock);
@@ -265,6 +289,27 @@ async function judge(S){
     w2.msg({ t: 'error', code: 'forbidden', ref: 'meta' });
     const fr = await settle(fp, J.e.clock);
     chk(fr && fr.ok === false && fr.code === 'forbidden', '  ↳ 거절은 { ok:false, code }');
+    /* ★ 답 · 오류는 rid 로만 짝짓는다 — rid 없는 meta(방 전원에게 가는 사본)는 상태만 바꾸고 내 요청을 끝내지 않는다 · 낡은 rid 는 버린다 */
+    {
+      const w0 = console.warn; let warns = 0; J.e.warns = J.e.warns || 0;
+      const mp2 = J.p.setMeta({ title: '둘째' }); await tick();
+      const rid2 = w2.lastOf('meta').rid;
+      w2.msg({ t: 'meta', rid: null, meta: Object.assign({}, META, { title: '둘째' }) });
+      let done2 = false; mp2.then(() => { done2 = true; }); await tick();
+      chk(!done2 && typeof rid2 === 'string' && /^[A-Za-z0-9_.:-]{1,16}$/.test(rid2), '★ meta 요청은 rid(영숫자 1~16자)를 싣고, rid 없는 meta 사본은 요청을 끝내지 않는다(내용이 같아도)');
+      w2.msg({ t: 'error', code: 'forbidden', ref: 'meta', rid: null }); await tick();
+      w2.msg({ t: 'error', code: 'forbidden', ref: 'meta', rid: 'zzz' }); await tick();
+      chk(!done2, '  ↳ rid 없는 · 모르는 rid 의 meta 오류는 낡은 것 — 버린다(첫 대기자에게 붙이지 않는다)');
+      w2.msg({ t: 'meta', rid: rid2, meta: Object.assign({}, META, { title: '둘째' }) });
+      const r2 = await settle(mp2, J.e.clock);
+      chk(r2 && r2.ok === true, '  ↳ 맞는 rid 의 meta 사본이 오면 그 요청이 ok');
+      const mpA = J.p.setMeta({ title: 'AAA' }); await tick(); const ridA = w2.lastOf('meta').rid;
+      const mpB = J.p.setMeta({ title: 'BBB' }); await tick(); const ridB = w2.lastOf('meta').rid;
+      w2.msg({ t: 'error', code: 'forbidden', ref: 'meta', rid: ridB });
+      const rB = await settle(mpB, J.e.clock);
+      let aDone = false; mpA.then(() => { aDone = true; }); await tick();
+      chk(rB.ok === false && rB.code === 'forbidden' && !aDone && ridA !== ridB, '★ 두 요청이 동시에 있어도 오류는 그 rid 의 요청만 실패시킨다(모든 대기자를 실패시키지 않는다)');
+    }
     const sp = J.p.sendMusic({ id: 'abcdefghijk', title: '곡', paused: false, seq: 3 }, 12);
     await tick();
     w2.msg({ t: 'error', code: 'stale', ref: 'music' });

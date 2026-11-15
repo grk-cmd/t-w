@@ -61,7 +61,7 @@ function mkHub(){
   const h = { onMessage(t, fn){ (fns[t] = fns[t] || []).push(fn); }, onState(){}, request: async () => null,
     state: () => 'ready', isReady: () => true, userCode: () => 'u_test',
     send(m){
-      if(m.t === 'join'){ sent.push({ how: 'join', payload: m.me }); realST(() => h.emit({ t: 'welcome', room: m.room, memberId: 'm_test', resume: 'R', resumed: false, members: {}, meta: null, music: null, musicSeq: -1, now: Date.now() }), 0); }
+      if(m.t === 'join'){ sent.push({ how: 'join', payload: m.me }); realST(() => h.emit({ t: 'welcome', rid: m.rid, room: m.room, memberId: 'm_test', resume: 'R', resumed: false, members: {}, meta: null, music: null, musicSeq: -1, now: Date.now() }), 0); }
       else if(m.t === 'def') sent.push({ how: 'update', payload: { def: m.def } });
       else if(m.t === 'leave') realST(() => h.emit({ t: 'left', memberId: 'm_test', reason: 'leave' }), 0);   // 나가기 확인 — 안 주면 1.5초 기다린다
       else sent.push({ how: m.t, payload: m });

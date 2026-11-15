@@ -91,7 +91,7 @@ function createFriendsPresenceRt(deps){
       status(WAITING);
     };
     w.offs.push(rt.onMessage('presence', (m) => {
-      if(w.dead || m.rid !== undefined) return;
+      if(w.dead) return;   // rid 가 붙은 presence(presenceGet 답)는 realtime-link 가 제 요청에 주거나 낡은 답으로 버린다 — 여기까지 오지 않는다
       const u = usersOf(m, w.want);
       if(!u) return;
       if(Object.keys(u).length) onChange(u);
