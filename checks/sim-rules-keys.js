@@ -137,8 +137,8 @@ const KIND = {
   '/roomInvites/$toId': 'user',
   '/roomInvites/$toId/$fromId': 'user',
   '/xmasLetters/$authUid/$lid': 'own',                  // 🎄 편지 칸 l1~l5
-  '/xmasReports/$key': 'own',
-  '/xmasReturned/$authUid/$lid': 'own',              // 🎄 반송된 편지 칸 l1~l5(본인은 지우기만)                       // 🎄 신고 대상 o-{트리}-{자리} · g-{받은 사람}-{번호}
+  '/xmasReports/$key': 'own',                       // 🎄 신고 대상 o-{트리}-{자리} · g-{받은 사람}-{번호}
+  '/xmasReturned/$authUid/$lid': 'own',             // 🎄 반송된 편지 칸 l1~l5(본인은 지우기만)
 };
 /* 검사 안 하는 변수 — 이유가 «관리자만» 이면 일반 사용자 · 로그인 안 한 쪽의 쓰기가 정말 막혔는지 아래에서 돌려 본다 */
 const SKIP = {

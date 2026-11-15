@@ -253,28 +253,42 @@ async function handleAdminRemove(db, request){
 /* ── 관리자 편지 반송 ── */
 const RETURN_REASONS = Object.freeze({ abuse: '욕설 · 비방', privacy: '개인정보', spam: '광고 · 도배', etc: '기타' });
 const RETURN_NOTE_MAX = 40;
+const RETURN_CUTOFF_MS = 60000;
 
 /**
- * 관리자 반송(호출형 xmasAdminReturn) — { uid, lid, reason, note? }. 관리자만 · 마감 전만.
- *   맡긴 편지를 지우고(칸이 비어 다시 쓸 수 있다) xmasReturned/{uid}/{lid} 에 사유 · 원래 글을 남긴다(본인이 고쳐 다시 쓰게).
+ * 관리자 반송(호출형 xmasAdminReturn) — { uid, lid, ts(관리자가 본 편지의 ts), reason, note? }. 관리자만 · 마감 1분 전까지 · 짝 짓기 전만.
+ *   관리자가 본 편지(ts)와 지금 칸이 같을 때만 지우고(칸이 비어 다시 쓸 수 있다) xmasReturned/{uid}/{lid} 에 사유 · 원래 글을 남긴다(본인이 고쳐 다시 쓰게).
  *   쓴 사람 알림함에 «편지가 반송됐어요» — 사유가 기타면 관리자가 적은 말을 같이.
  */
 async function handleAdminReturn(db, request, now){
   const uid = authUidOf(request);
   if ((await db.ref('admins/' + uid).get()).val() !== true) throw fail('permission-denied', '관리자만 쓸 수 있어요');
-  if (now >= LETTER_DEADLINE_MS) throw fail('failed-precondition', '편지 마감이 지나 반송할 수 없어요');
+  // 마감 1분 전부터 막는다 — 짝 짓기(마감 정각)가 편지를 읽은 뒤에 반송이 끝나 «배달된 편지에 반송 알림» 이 가는 틈을 닫는다(함수는 30초 안에 끝남)
+  if (now >= LETTER_DEADLINE_MS - RETURN_CUTOFF_MS) throw fail('failed-precondition', '편지 마감이 가까워 반송할 수 없어요');
+  if ((await db.ref('xmasMeta/matchedAt').get()).val() != null) throw fail('failed-precondition', '이미 편지를 나눠 보냈어요');
   const d = request.data || {};
-  if (typeof d.uid !== 'string' || !/^[A-Za-z0-9]{10,40}$/.test(d.uid) || !LETTER_ID_RE.test(String(d.lid))) throw fail('invalid-argument', '반송할 편지를 알 수 없어요');
-  if (!Object.prototype.hasOwnProperty.call(RETURN_REASONS, d.reason)) throw fail('invalid-argument', '반송 사유를 골라 주세요');
+  if (typeof d.uid !== 'string' || !/^[A-Za-z0-9]{10,40}$/.test(d.uid) || typeof d.lid !== 'string' || !LETTER_ID_RE.test(d.lid)) throw fail('invalid-argument', '반송할 편지를 알 수 없어요');
+  if (typeof d.reason !== 'string' || !Object.prototype.hasOwnProperty.call(RETURN_REASONS, d.reason)) throw fail('invalid-argument', '반송 사유를 골라 주세요');
+  if (!Number.isFinite(d.ts)) throw fail('invalid-argument', '반송할 편지를 다시 불러와 주세요');
   const note = d.reason === 'etc' ? cleanWord(d.note).slice(0, RETURN_NOTE_MAX) : '';
   if (d.reason === 'etc' && !note) throw fail('invalid-argument', '기타 사유를 적어 주세요');
   const path = 'xmasLetters/' + d.uid + '/' + d.lid;
-  const letter = (await db.ref(path).get()).val();
-  if (!letter || typeof letter.text !== 'string') throw fail('not-found', '이미 없는 편지예요');
+  /* 관리자가 본 그 편지(ts 가 같을 때)만 지운다 — 목록을 연 사이 쓴 사람이 같은 칸을 고쳐 다시 맡겼으면 보지 않은 새 글을 반송하지 않게.
+     트랜잭션이 지운 값을 그대로 반송 기록 · 알림에 쓴다(두 관리자가 동시에 눌러도 한 번만). */
+  let why = null, letter = null;
+  const tx = await db.ref(path).transaction((cur) => {
+    if (!cur || typeof cur.text !== 'string'){ why = 'gone'; return undefined; }
+    if (cur.ts !== d.ts){ why = 'changed'; return undefined; }
+    why = null; letter = cur; return null;
+  });
+  if (!tx.committed){
+    if (why === 'changed') throw fail('failed-precondition', '그새 고쳐 쓴 편지예요 — 다시 불러와 확인해 주세요');
+    throw fail('not-found', '이미 없는 편지예요');
+  }
   const ret = { reason: d.reason, ts: now, text: letter.text.slice(0, 500) };
   if (note) ret.note = note;
   if (letter.song && SONG_ID_RE.test(letter.song.id)) ret.song = { id: letter.song.id, title: String(letter.song.title || '').slice(0, 40) };
-  const w = { [path]: null, ['xmasReturned/' + d.uid + '/' + d.lid]: ret };
+  const w = { ['xmasReturned/' + d.uid + '/' + d.lid]: ret };
   const code = (await db.ref('authUsers/' + d.uid + '/userCode').get()).val();
   if (typeof code === 'string' && code){
     w['inbox/' + code + '/xmasret' + d.lid + now] = { tag: 'xmas', title: '편지가 반송됐어요', body: returnBody(d.reason, note), ts: now };
@@ -292,5 +306,5 @@ module.exports = {
   TREE_MAX, KINDS, WORD_MAX, IMG_PX, LETTER_DEADLINE_MS, EVENT_END_MS, INBOX_TITLE,
   BUSY_STALE_MS, pngSize, cleanWord, parseHang, nextSeat, liveBusy, matchLetters, lettersOf,
   handleHang, runMatch, handleAdminRemove,
-  RETURN_REASONS, handleAdminReturn, returnBody,
+  RETURN_REASONS, RETURN_CUTOFF_MS, handleAdminReturn, returnBody,
 };

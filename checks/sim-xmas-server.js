@@ -4,7 +4,7 @@
    ・2절 자리 잡기 — 트리당 300 · 다 차면 다음 트리 · 여럿이 동시에 걸어도 넘지 않음 · 바꾸기는 같은 자리 · 판 +1 · 끝난 뒤 거절 · 익명 거절
    ・3절 편지 짝 짓기 — 쓴 만큼 받음 · 자기 편지 안 받음 · 한 사람뿐이면 못 보냄 · 무작위 · 한 번만 · 알림함
    ・4절 관리자 지우기 — 관리자만 · 장식(주인 · 내 자리까지) · 받은 편지
-   ・4-2절 관리자 편지 반송 — 관리자만 · 마감 전 · 사유 넷 · 원래 글 남김 · 알림함 · 짝 짓기 제외
+   ・4-2절 관리자 편지 반송 — 관리자만 · 마감 1분 전까지 · 짝 짓기 전 · 사유 넷 · 관리자가 본 편지만(ts) · 동시에 한 번 · 원래 글 남김 · 알림함 · 짝 짓기 제외
    ・5절 규칙식 — 편지 본인 · 마감 · 5칸 · 모양 / 신고 본인 · 한 번 · 받은 사람만 / 트리 읽기 내 트리 · 지금 트리만 / 함수만 쓰는 칸
    ・6절 index.js 연결 · 일부러 깨 보기
    실제 서버 판정은 에뮬레이터(firebase/scripts/rules-emu-check.js)에서 본다. */
@@ -183,27 +183,40 @@ say('── 4-2절 관리자 편지 반송');
   const mk = () => fakeDb({ admins: { adm1: true }, authUsers: { uWri000001: { userCode: 'ucodewri001' } },
     xmasLetters: { uWri000001: { l2: { text: '나쁜 말', ts: 1, song: { id: 'abcdefghijk', title: '곡' } }, l3: { text: '괜찮은 글', ts: 1 } } } });
   let db = mk();
-  chk(await rejects(X.handleAdminReturn(db, req('notadmin01', { uid: 'uWri000001', lid: 'l2', reason: 'abuse' }), T0), 'permission-denied'), '관리자가 아니면 거절');
-  chk(await rejects(X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'abuse' }), X.LETTER_DEADLINE_MS), 'failed-precondition'), '마감(12/25 0시)부터는 반송 못 함');
-  chk(await rejects(X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'bad' }), T0), 'invalid-argument'), '모르는 사유 거절');
-  chk(await rejects(X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'etc', note: '  ' }), T0), 'invalid-argument'), '기타는 사유를 적어야');
-  chk(await rejects(X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l9', reason: 'abuse' }), T0), 'invalid-argument'), '편지 칸 모양이 틀리면 거절');
-  chk(await rejects(X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l1', reason: 'abuse' }), T0), 'not-found'), '없는 편지는 not-found');
-  const r = await X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'abuse' }), T0);
+  chk(await rejects(X.handleAdminReturn(db, req('notadmin01', { uid: 'uWri000001', lid: 'l2', reason: 'abuse', ts: 1 }), T0), 'permission-denied'), '관리자가 아니면 거절');
+  chk(await rejects(X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'abuse', ts: 1 }), X.LETTER_DEADLINE_MS), 'failed-precondition'), '마감(12/25 0시)부터는 반송 못 함');
+  chk(await rejects(X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'abuse', ts: 1 }), X.LETTER_DEADLINE_MS - X.RETURN_CUTOFF_MS), 'failed-precondition')
+    && !!db.get('xmasLetters/uWri000001/l2'), '  ↳ 마감 1분 전부터 막는다(짝 짓기 뒤에 반송이 끝나지 않게)');
+  chk(await rejects(X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: ['abuse'], ts: 1 }), T0), 'invalid-argument'), '사유가 글자가 아니면 거절');
+  chk(await rejects(X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'abuse' }), T0), 'invalid-argument'), '관리자가 본 편지 시각(ts)이 없으면 거절');
+  chk(await rejects(X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'bad', ts: 1 }), T0), 'invalid-argument'), '모르는 사유 거절');
+  chk(await rejects(X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'etc', note: '  ', ts: 1 }), T0), 'invalid-argument'), '기타는 사유를 적어야');
+  chk(await rejects(X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l9', reason: 'abuse', ts: 1 }), T0), 'invalid-argument'), '편지 칸 모양이 틀리면 거절');
+  chk(await rejects(X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l1', reason: 'abuse', ts: 1 }), T0), 'not-found'), '없는 편지는 not-found');
+  const r = await X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'abuse', ts: 1 }), T0);
   const ret = db.get('xmasReturned/uWri000001/l2');
   chk(r.ok && !db.get('xmasLetters/uWri000001/l2') && db.get('xmasLetters/uWri000001/l3'), '반송 — 그 편지만 맡긴 목록에서 빠진다(칸이 비어 다시 쓸 수 있음)');
   chk(ret && ret.reason === 'abuse' && ret.text === '나쁜 말' && ret.song.id === 'abcdefghijk' && ret.ts === T0 && !ret.note, '  ↳ 사유 · 원래 글 · 추천곡을 남긴다(고쳐 다시 쓰게)');
   const ib = db.get('inbox/ucodewri001/xmasretl2' + T0);
   chk(ib && ib.tag === 'xmas' && ib.title === '편지가 반송됐어요' && /욕설 · 비방/.test(ib.body) && /12월 24일 23:59/.test(ib.body), '  ↳ 알림함 «편지가 반송됐어요» · 사유 · 다시 쓰기 안내');
   db = mk();
-  await X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l3', reason: 'etc', note: '  전화번호가 들어 있어요 '.repeat(3) }), T0);
+  await X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l3', reason: 'etc', note: '  전화번호가 들어 있어요 '.repeat(3), ts: 1 }), T0);
   const r3 = db.get('xmasReturned/uWri000001/l3');
   chk(r3.note && r3.note.length <= 40 && r3.note.startsWith('전화번호') && /기타 — 전화번호/.test(db.get('inbox/ucodewri001/xmasretl3' + T0).body), '기타 — 관리자가 적은 말(40자까지)이 알림에 같이');
   const db7 = fakeDb({ admins: { adm1: true }, xmasLetters: { uNoCode001: { l1: { text: 'x', ts: 1 } } } });
-  const r7 = await X.handleAdminReturn(db7, req('adm1', { uid: 'uNoCode001', lid: 'l1', reason: 'spam' }), T0);
+  const r7 = await X.handleAdminReturn(db7, req('adm1', { uid: 'uNoCode001', lid: 'l1', reason: 'spam', ts: 1 }), T0);
   chk(r7.notified === false && db7.get('xmasReturned/uNoCode001/l1') && !db7.data.inbox, '친구코드가 없으면 알림만 건너뛴다(반송 표시는 남음)');
+  // 관리자가 본 뒤 쓴 사람이 같은 칸을 고쳐 다시 맡김 → 보지 않은 새 글은 반송하지 않는다
+  const dbC = mk(); dbC.data.xmasLetters.uWri000001.l2 = { text: '고친 글', ts: 5 };
+  chk(await rejects(X.handleAdminReturn(dbC, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'abuse', ts: 1 }), T0), 'failed-precondition')
+    && dbC.get('xmasLetters/uWri000001/l2').text === '고친 글' && !dbC.get('xmasReturned/uWri000001/l2') && !dbC.data.inbox, '그새 고쳐 다시 맡긴 편지는 반송하지 않는다(새 글 · 알림 그대로)');
+  const dbM = mk(); dbM.data.xmasMeta = { matchedAt: 1 };
+  chk(await rejects(X.handleAdminReturn(dbM, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'abuse', ts: 1 }), T0), 'failed-precondition'), '짝 짓기가 끝났으면 반송 못 함');
+  const dbD = mk();
+  const both = await Promise.allSettled([X.handleAdminReturn(dbD, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'abuse', ts: 1 }), T0), X.handleAdminReturn(dbD, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'spam', ts: 1 }), T0 + 1)]);
+  chk(both.filter(r => r.status === 'fulfilled').length === 1 && Object.keys(dbD.data.inbox.ucodewri001).length === 1, '두 관리자가 동시에 반송해도 한 번만 · 알림 한 통');
   // 반송된 편지는 짝 짓기에 안 들어간다
-  const db8 = mk(); await X.handleAdminReturn(db8, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'abuse' }), T0);
+  const db8 = mk(); await X.handleAdminReturn(db8, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'abuse', ts: 1 }), T0);
   chk(X.lettersOf(db8.get('xmasLetters')).every(l => l.text !== '나쁜 말'), '반송된 편지는 짝 짓기 대상에서 빠진다');
 }
 
