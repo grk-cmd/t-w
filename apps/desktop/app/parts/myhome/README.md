@@ -445,7 +445,7 @@ const mallangMod = TwMallang.createMallang({
 
 ## `myhome-desktop.js` — 🖥️ 마이홈 바탕화면 · 캐릭터세팅 창
 
-- **책임**: 마이홈 우측 미니 바탕화면(배경 색 · 이미지 · 폴더 · 작업표시줄)의 서버 공유 — 배경 · 폴더 숨기기 · 폴더 자리의 원본은 서버(`PUT /v2/me/myhome/desktop`)이고 상태 주인(`myhome-store.js` `setDesktop`)이 받고 저장한다. 좀비 어드벤처 코드는 꺼진 채 남아 있다(`ADV_GAME_OFF`).
+- **책임**: 마이홈 우측 미니 바탕화면(배경 색 · 이미지 · 폴더 · 작업표시줄)의 서버 공유 — 배경 · 폴더 숨기기 · 폴더 자리의 원본은 서버(`PUT /v2/me/myhome/desktop`)이고 상태 주인(`myhome-store.js` `setDesktop`)이 받고 저장한다. 좀비 어드벤처 코드는 `apps/desktop/archive/` 로 옮겼다.
 - **만드는 법**: `window.TwMyHomeDesktop.createMyHomeDesktop(deps)` — 만드는 줄은 `myhome-desktop-boot.js` 한 줄.
 - **deps**: `myhomeStore` — 상태 주인(지금 그리는 바탕화면은 `desktop()` 한 곳 — 구경 중이면 그 집 것(`openView` 가 페이지와 한 번에 받아 둔 값) · 아니면(미리보기 포함) 내 것. 고리 `FINISH_ARRANGE` 를 걸어 친구 집 · 미리보기로 들어가기 전에 옮기던 폴더 배치를 저장한다 · 바꾸려면 `setDesktop` · 그림은 `upload('desktop:bg')`). `advStore` — 게임 저장(꺼져 있음) 계정별 로컬 칸(`shared/account-store.js`). 바탕화면 저장(`tw.advZ.v2`, 옛 `v1` 읽기)을 계정마다 따로 둔다. 코드가 없거나 계정 확인 전(칸이 닫힘)이면 저장 0건 · 읽으면 기본 바탕화면. 계정을 놓은 틈에는 쓰기가 거절된다.
 - **내놓는 것**: `window.MYHOME_DESKTOP`(`addFolder` 등) — 북마크 책장 · 폴더 자유배치가 이걸로 붙는다. 나머지 app.js 전역(`getMyUserId` · `firebaseAPI` · `toast` · `FolderFree`)은 예전처럼 전역 이름으로 읽는다.
