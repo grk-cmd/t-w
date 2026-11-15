@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { countLicenses } from '@/entities/license';
-import { getUserCount } from '@/entities/user-count';
+import { getUserCount } from '@/entities/user-count/api/firebase';
 import { fakeDb } from '../shared/fakeDb';
 
 describe('전체 통계', () => {

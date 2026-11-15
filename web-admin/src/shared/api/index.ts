@@ -52,5 +52,6 @@ export { connectFirebase, isAdmin, type Firebase } from './firebase';
 export { queryClient } from './queryClient';
 export { ApiContext, useApi } from './useApi';
 export { useDb } from './useDb';
+export { useMyUid } from './useMyUid';
 export { useFiles } from './useFiles';
 export { useFunctions } from './useFunctions';

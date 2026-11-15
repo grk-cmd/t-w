@@ -1,5 +1,5 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useDb, withAudit, type Db } from '@/shared/api';
+// Firebase 판 — 지금 코드 그대로: metrics/usage/{날짜} · metrics/improvements 를 읽고 쓴다.
+import { withAudit, type Db } from '@/shared/api';
 import {
   cleanDraft,
   draftProblem,
@@ -8,22 +8,17 @@ import {
   type Improvement,
   type ImprovementDraft,
 } from '../model/improvement';
+import { METRICS_USAGE, toDayUsage, type DayUsage } from '../model/usage';
+import type { UsagePort } from './port';
 
-const KEY = ['usage', 'improvements'];
+/** 하루치 — 날짜 노드 하나(무리 넷 · 수백 바이트). metrics/usage 를 통째로 받지 않는다. */
+export async function getDayUsage(db: Db, date: string): Promise<DayUsage> {
+  return toDayUsage(date, await db.get<unknown>(`${METRICS_USAGE}/${date}`));
+}
 
 /** 기록 전부 — 릴리스마다 한 칸(수백 바이트)이라 통째로 받는다. */
 export async function getImprovements(db: Db): Promise<Improvement[]> {
   return toImprovements(await db.get<Record<string, unknown>>(METRICS_IMPROVEMENTS));
-}
-
-export function useImprovements() {
-  const db = useDb();
-  return useQuery({ queryKey: KEY, queryFn: () => getImprovements(db) });
-}
-
-export function useRefreshImprovements() {
-  const client = useQueryClient();
-  return () => client.invalidateQueries({ queryKey: KEY });
 }
 
 const newId = () => 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -50,4 +45,14 @@ export async function saveImprovement(
 export function deleteImprovement(db: Db, entry: Improvement): Promise<void> {
   const updates = { [`${METRICS_IMPROVEMENTS}/${entry.id}`]: null };
   return db.commit(withAudit(db, updates, 'improvements.delete', entry.version, entry.title));
+}
+
+export function createFirebaseUsagePort(db: Db): UsagePort {
+  return {
+    getDay: (date) => getDayUsage(db, date),
+    serverTimeOffset: () => db.serverTimeOffset(),
+    listImprovements: () => getImprovements(db),
+    saveImprovement: (draft, id) => saveImprovement(db, draft, id),
+    deleteImprovement: (entry) => deleteImprovement(db, entry),
+  };
 }

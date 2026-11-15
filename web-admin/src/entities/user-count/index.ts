@@ -1,1 +1,2 @@
-export { getUserCount, useUserCount } from './api/userCount';
+export { useUserCount } from './api/hooks';
+export { useUserCountPort, type UserCountPort } from './api/index';

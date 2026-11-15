@@ -8,7 +8,7 @@ import {
   whoLabel,
   type LogGroup,
 } from '@/entities/admin-log';
-import { useDb } from '@/shared/api';
+import { useMyUid } from '@/shared/api';
 import { errorMessage, formatDate, readPageSize, usePaging } from '@/shared/lib';
 import { Pager } from '@/shared/ui';
 import styles from './AdminLogList.module.css';
@@ -16,7 +16,7 @@ import styles from './AdminLogList.module.css';
 const LIST_KEY = 'adminLog';
 
 export function AdminLogList() {
-  const me = useDb().uid();
+  const me = useMyUid();
   const [group, setGroup] = useState<LogGroup>('all');
   const [limit, setLimit] = useState(() => readPageSize(LIST_KEY));
   const { data, error, isPlaceholderData } = useAdminLog(limit);

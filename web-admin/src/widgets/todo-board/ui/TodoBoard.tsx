@@ -26,7 +26,7 @@ import { useReleaseDownloads } from '@/entities/release';
 import { ApplyReleaseButton, ReleaseTplPanel } from '@/features/admin-todo/apply-release';
 import { TodoNotePanel } from '@/features/admin-todo/edit-note';
 import { DeleteTodoButton, TodoForm } from '@/features/admin-todo/edit-todo';
-import { useDb } from '@/shared/api';
+import { useMyUid } from '@/shared/api';
 import { errorMessage, formatDate, useHashParam, useHashSub } from '@/shared/lib';
 import styles from './TodoBoard.module.css';
 
@@ -128,7 +128,7 @@ function TodoCard({
 
 /** 📋 할 일 — 진행 중 → 할 일 → 완료(접어 둠). 전체를 한 번 받아 화면에서 거른다. */
 export function TodoBoard() {
-  const me = useDb().uid();
+  const me = useMyUid();
   const todos = useTodos();
   const refreshTodos = useRefreshTodos();
   const refreshNote = useRefreshTodoNote();

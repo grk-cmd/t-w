@@ -1,17 +1,13 @@
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useDb, type Db } from '@/shared/api';
 import { kstDateKey, kstDayStart, lastDateKeys } from '@/shared/lib';
-import { METRICS_USAGE, toDayUsage, USAGE_DAYS, type DayUsage } from '../model/usage';
+import { USAGE_DAYS, type DayUsage } from '../model/usage';
+import { useUsagePort } from './index';
 
 const DAY_KEY = ['usage', 'day'];
 const NOW_KEY = ['usage', 'serverNow'];
+const KEY = ['usage', 'improvements'];
 // 서버가 매시간 어제 · 오늘을 다시 적는다 — 둘만 몇 분 뒤 다시 받고, 그 전 날은 한 번 받으면 그대로 둔다.
 const RECENT_STALE_MS = 5 * 60 * 1000;
-
-/** 하루치 — 날짜 노드 하나(무리 넷 · 수백 바이트). metrics/usage 를 통째로 받지 않는다. */
-export async function getDayUsage(db: Db, date: string): Promise<DayUsage> {
-  return toDayUsage(date, await db.get<unknown>(`${METRICS_USAGE}/${date}`));
-}
 
 /** 받을 날 수 — 최근 days 일, 이번 달 1일이 그보다 앞이면(31일 달의 31일) 1일까지. */
 export function usageDayCount(nowMs: number, days: number = USAGE_DAYS): number {
@@ -23,14 +19,14 @@ export function usageDayCount(nowMs: number, days: number = USAGE_DAYS): number 
  * «오늘» 은 받은 시점의 서버 기준 시각으로 정한다.
  */
 export function useRecentUsage(days: number = USAGE_DAYS) {
-  const db = useDb();
+  const port = useUsagePort();
   const now = useServerNow();
   const dates = now.data === undefined ? [] : lastDateKeys(now.data, usageDayCount(now.data, days));
   const recent = new Set(dates.slice(-2));
   return useQueries({
     queries: dates.map((date) => ({
       queryKey: [...DAY_KEY, date],
-      queryFn: () => getDayUsage(db, date),
+      queryFn: () => port.getDay(date),
       staleTime: recent.has(date) ? RECENT_STALE_MS : Infinity,
     })),
     combine: (results) => ({
@@ -45,10 +41,10 @@ export function useRecentUsage(days: number = USAGE_DAYS) {
 
 /** 서버 기준 «지금»(받은 시점) — 날짜 칸을 고르는 기준. */
 export function useServerNow() {
-  const db = useDb();
+  const port = useUsagePort();
   return useQuery({
     queryKey: NOW_KEY,
-    queryFn: async () => Date.now() + (await db.serverTimeOffset()),
+    queryFn: async () => Date.now() + (await port.serverTimeOffset()),
   });
 }
 
@@ -57,13 +53,13 @@ export function useServerNow() {
  * data 는 날짜 → 사용량(다 받기 전엔 undefined).
  */
 export function useUsageDates(dates: readonly string[], today: string | undefined) {
-  const db = useDb();
+  const port = useUsagePort();
   const want = today === undefined ? [] : [...new Set(dates)].filter((d) => d <= today).sort();
   const recent = new Set(today === undefined ? [] : [today, kstDateKey(kstDayStart(today) - 1)]);
   return useQueries({
     queries: want.map((date) => ({
       queryKey: [...DAY_KEY, date],
-      queryFn: () => getDayUsage(db, date),
+      queryFn: () => port.getDay(date),
       staleTime: recent.has(date) ? RECENT_STALE_MS : Infinity,
     })),
     combine: (results) => ({
@@ -86,4 +82,14 @@ export function useRefreshRecentUsage() {
     if (now === undefined) return;
     for (const date of lastDateKeys(now, 2)) await client.invalidateQueries({ queryKey: [...DAY_KEY, date] });
   };
+}
+
+export function useImprovements() {
+  const port = useUsagePort();
+  return useQuery({ queryKey: KEY, queryFn: () => port.listImprovements() });
+}
+
+export function useRefreshImprovements() {
+  const client = useQueryClient();
+  return () => client.invalidateQueries({ queryKey: KEY });
 }

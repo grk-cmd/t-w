@@ -1,27 +1,25 @@
 import { useMutation } from '@tanstack/react-query';
 import {
-  deleteImprovement,
-  saveImprovement,
   useRefreshImprovements,
+  useUsagePort,
   type Improvement,
   type ImprovementDraft,
 } from '@/entities/metrics/usage';
-import { useDb } from '@/shared/api';
 
 export function useSaveImprovement() {
-  const db = useDb();
+  const port = useUsagePort();
   const refresh = useRefreshImprovements();
   return useMutation({
-    mutationFn: ({ draft, id }: { draft: ImprovementDraft; id?: string }) => saveImprovement(db, draft, id),
+    mutationFn: ({ draft, id }: { draft: ImprovementDraft; id?: string }) => port.saveImprovement(draft, id),
     onSuccess: refresh,
   });
 }
 
 export function useDeleteImprovement() {
-  const db = useDb();
+  const port = useUsagePort();
   const refresh = useRefreshImprovements();
   return useMutation({
-    mutationFn: (entry: Improvement) => deleteImprovement(db, entry),
+    mutationFn: (entry: Improvement) => port.deleteImprovement(entry),
     onSuccess: refresh,
   });
 }

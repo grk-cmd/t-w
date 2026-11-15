@@ -2,20 +2,18 @@ import { describe, expect, it } from 'vitest';
 import {
   BYTES_PER_GB,
   changePct,
-  deleteImprovement,
   fromKstInput,
-  getImprovements,
   improvementResult,
   improvementWindows,
   mbPerConnOf,
   monthlySaving,
   PRICES,
-  saveImprovement,
   toImprovements,
   toKstInput,
   windowStat,
   type DayUsage,
 } from '@/entities/metrics/usage';
+import { deleteImprovement, getImprovements, saveImprovement } from '@/entities/metrics/usage/api/firebase';
 import { auditsOf, fakeDb, withoutAudits } from '../shared/fakeDb';
 
 // 0.10.2 — 2026-10-05 17:44(서울)
