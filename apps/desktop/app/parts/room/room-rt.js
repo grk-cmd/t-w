@@ -176,6 +176,9 @@ function createRoomRt(deps){
   const STOPPED = { [S.OFF]: 'off', [S.UPDATE]: 'version', [S.AUTH_FAILED]: 'auth',
     [S.MAINTENANCE]: 'maintenance', [S.ACCOUNT_GONE]: 'accountGone', [S.CLOSED]: 'hubClosed' };
 
+  /* 요청 번호(rid) — 서버가 답 · 오류에 그대로 돌려준다(영숫자 _ . : - 1~16자). 답은 이 번호로만 짝짓는다 — 순서 · 종류로 추측하지 않는다. */
+  let ridSeq = 0;
+  const newRid = (p) => p + (++ridSeq).toString(36);
   let active = null;     // 방에 들어가 있거나 들어가는 중인 provider 의 속(P)
   let lingering = null;  // 나가기 확인(left)을 기다리는 provider — active 를 비운 뒤라 따로 잡아 둔다
   let downSince = null, noticeTimer = null, giveUpTimer = null;
@@ -296,6 +299,8 @@ function createRoomRt(deps){
       P.sent = Object.assign({}, P.current);
       P.defDirty = false;
     }
+    P.joinRid = newRid('j');   // 이 입장 요청의 번호 — welcome · 오류는 이 번호와 같아야 받는다(앞 요청의 늦은 답은 버린다)
+    msg.rid = P.joinRid;
     P.awaitingWelcome = true;
     P.sentAnyJoin = true;
     send(msg);
@@ -333,6 +338,7 @@ function createRoomRt(deps){
 
   function onError(P, m){
     if(m.ref === 'join'){
+      if(m.rid !== P.joinRid){ warn('낡은 입장 오류를 버립니다(rid 가 지금 입장 요청과 다름) —', m.code, m.rid === undefined ? '없음' : m.rid); return; }
       if(m.code === 'resumeFailed'){ sendJoin(P, true); return; }   // 자리가 없다 — 전체 상태로 다시
       P.awaitingWelcome = false;
       if(P.joinWaiter && !P.joined){ finishJoin(P, { ok: false, code: m.code }); return; }
@@ -340,8 +346,9 @@ function createRoomRt(deps){
       return;
     }
     if(m.ref === 'meta'){
-      const list = P.metaWaiters; P.metaWaiters = [];
-      for(const w of list) w.done({ ok: false, code: m.code });
+      const w = typeof m.rid === 'string' ? P.metaWaiters.find((x) => x.rid === m.rid) : null;
+      if(!w){ warn('짝 없는 meta 오류를 버립니다(rid 로만 짝짓는다) —', m.code, m.rid === undefined ? '없음' : m.rid); return; }
+      w.done({ ok: false, code: m.code });
       return;
     }
     if(m.ref === 'music'){
@@ -358,11 +365,6 @@ function createRoomRt(deps){
     if(!meta) return;
     const prev = P.meta;
     P.meta = meta;
-    const list = P.metaWaiters; P.metaWaiters = [];
-    for(const w of list){
-      if(metaMatches(meta, w.want)) w.done({ ok: true });
-      else P.metaWaiters.push(w);
-    }
     try{ if(P.hooks.onMeta) P.hooks.onMeta(meta, prev); }catch(_){}
   }
 
@@ -427,6 +429,7 @@ function createRoomRt(deps){
     switch(m.t){
       case 'welcome': {
         if(m.room !== P.room) return;
+        if(m.rid !== P.joinRid){ warn('낡은 welcome 을 버립니다(rid 가 지금 입장 요청과 다름) —', m.rid === undefined ? '없음' : m.rid); return; }
         const first = !P.joined;
         P.memberId = m.memberId;
         P.resume = m.resume || null;
@@ -514,9 +517,16 @@ function createRoomRt(deps){
         emit(P);
         return;
       }
-      case 'meta':
+      case 'meta': {
         setMeta(P, m.meta);
+        /* 내 meta 요청의 답은 rid 가 실린 사본뿐이다 — 방의 남은 사람에게 가는 meta 에는 rid 가 없다(상태만 바꾼다). 짝 없는 rid 는 낡은 답. */
+        if(typeof m.rid === 'string'){
+          const w = P.metaWaiters.find((x) => x.rid === m.rid);
+          if(w) w.done({ ok: true });
+          else warn('짝 없는 meta 답의 rid 를 버립니다(상태는 반영) —', m.rid);
+        }
         return;
+      }
       case 'music':
         setClock(P, m.now);
         setMusic(P, m.music, m.seq);
@@ -594,7 +604,7 @@ function createRoomRt(deps){
       inRoom: false, joined: false, leaving: false, leftNotified: false, awaitingWelcome: false, sentAnyJoin: false,
       current: {}, sent: {}, def: null, defDirty: false, held: { chat: [], poke: [] },
       members: {}, meta: null, defCache: {}, seq: 0,
-      changeCb: null, onPoked: null, joinWaiter: null, leaveWaiter: null, metaWaiters: [],
+      changeCb: null, onPoked: null, joinWaiter: null, joinRid: null, leaveWaiter: null, metaWaiters: [],
       stateTimer: null, expTimer: null, lastStateAt: -Infinity, noticed: false,
       music: undefined, musicSeq: -1, musicFns: [], musicWaiters: [], clockOff: null,
     };
@@ -658,14 +668,15 @@ function createRoomRt(deps){
         }
         if(!Object.keys(want).length || !canSend(P)) return Promise.resolve({ ok: false, code: 'notReady' });
         if(P.meta && metaMatches(P.meta, want)) return Promise.resolve({ ok: true });   // 이미 그 값 — 서버가 meta 를 안 보낼 수 있어 기다리면 시간 초과로 끝난다
-        const wire = Object.assign({ t: 'meta' }, want);
+        const rid = newRid('m');
+        const wire = Object.assign({ t: 'meta', rid }, want);
         if(want.tabs){
           wire.tabs = {};
           for(const id of Object.keys(want.tabs)) wire.tabs[TAB_WIRE[id]] = want.tabs[id];
         }
         return new Promise((res) => {
-          const w = { want, done: null, timer: null };
-          w.done = (r) => { tClear(w.timer); res(r); };
+          const w = { want, rid, done: null, timer: null };
+          w.done = (r) => { tClear(w.timer); const i = P.metaWaiters.indexOf(w); if(i >= 0) P.metaWaiters.splice(i, 1); res(r); };
           w.timer = tSet(() => {
             const i = P.metaWaiters.indexOf(w);
             if(i >= 0) P.metaWaiters.splice(i, 1);

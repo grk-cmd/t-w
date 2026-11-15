@@ -130,13 +130,13 @@ say('\n── 5. 스냅샷 순서 보장 (방 포트 room-rt.js)');
   /* 진짜 방 포트를 가짜 연결 위에 — def 를 푸는 시간을 일부러 어긋나게 만든다(낡은 스냅샷이 **늦게** 끝나는 상황이 사고의 조건) */
   const fns = {};
   const hub = { onMessage(t, fn){ (fns[t] = fns[t] || []).push(fn); }, onState(){}, request: async () => null,
-    state: () => 'ready', isReady: () => true, userCode: () => 'u_me', send: () => true };
+    state: () => 'ready', isReady: () => true, userCode: () => 'u_me', send: (m) => { if(m && m.t === 'join') hub.lastJoinRid = m.rid; return true; } };
   const emit = (m) => (fns[m.t] || []).forEach((f) => f(m));
   const rt = globalThis.TwRoomRt.createRoomRt({ hub, STATE: globalThis.TwRtHub.STATE });
   const delivered = [];
   const pv = rt.makeProvider({ deserializeDef: (d) => new Promise((r) => realST(() => r(d), (d && d.v === 1) ? 40 : 1)) }, null);
   const jp = pv.join('WORK-TEST', { def:{}, name:'나', state:'idle' }, (fr) => { delivered.push(fr); });
-  emit({ t: 'welcome', room: 'WORK-TEST', memberId: 'mMe', resume: 'R', resumed: false, members: { mB: { userCode: 'u_mB', name: 'B', state: 'idle', def: { v: 0 } } }, meta: null, music: null, musicSeq: -1, now: Date.now() });
+  emit({ t: 'welcome', rid: hub.lastJoinRid, room: 'WORK-TEST', memberId: 'mMe', resume: 'R', resumed: false, members: { mB: { userCode: 'u_mB', name: 'B', state: 'idle', def: { v: 0 } } }, meta: null, music: null, musicSeq: -1, now: Date.now() });
   await jp; await wait(10);
   // 낡은 스냅샷(def v1 — 느리게 풀림 · 예전 fly) → 새 스냅샷(def v2 — 빠르게 풀림 · dance) 순으로 들어온다
   emit({ t: 'def', memberId: 'mB', def: { v: 1 } });
