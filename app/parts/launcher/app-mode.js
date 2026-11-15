@@ -9,7 +9,11 @@
 
 function createAppMode(deps){
 const applyCharToSeat = deps.applyCharToSeat;
+const _bgmDestroy = deps._bgmDestroy;   // 함수 — window 고리(마이홈 편집 모듈이 건다)
+const _mhDsClose = deps._mhDsClose;   // 함수 — window 고리
 const applyDesktopRunClass = deps.applyDesktopRunClass;   // 함수
+const closeWardrobe = deps.closeWardrobe;   // 함수 — window 고리(꾸미기 모듈이 건다)
+const commitMyHomePage = deps.commitMyHomePage;   // 함수 — window 고리
 const createSeat = deps.createSeat;
 const curSlot = deps.curSlot;   // 읽는 함수
 const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
@@ -89,18 +93,18 @@ function backToLauncher(){
   //   (이 상태가 이어져서 이후 관리자 모드에서 꾸미기 아이콘이 안 먹히는 것처럼 보이던 문제도 같이 방지됨)
   //   💾 닫는 것이 곧 저장이라 closeWardrobe 로 닫는다 — 창만 숨기면 꾸민 것이 저장되지 않았다(설정 패널 «런처로» 버튼 길)
   const wp=document.getElementById('wardrobePanel');
-  if(wp && wp.classList.contains('on') && typeof window.closeWardrobe==='function'){ try{ window.closeWardrobe(); }catch(_){} }
+  if(wp && wp.classList.contains('on')){ try{ closeWardrobe(); }catch(_){} }
   if(wp) wp.classList.remove('on');
   const wdp=document.getElementById('wdPreviewPanel'); if(wdp) wdp.classList.remove('on');
   // ★ 마이홈도 동일한 이유로 닫음 — 켜진 채로 런처에 오면 그대로 남아 실행 화면 위에 겹쳐 보임.
   //   commitMyHomePage(true)로 저장까지 처리한 뒤 닫기.
   const mhOv=document.getElementById('myHomeOverlay');
   if(mhOv && mhOv.classList.contains('on')){
-    try{ window.commitMyHomePage(true); }catch(_){}
+    try{ commitMyHomePage(true); }catch(_){}
     mhOv.classList.remove('on'); setMyHomeOpen(false);
     _mhGbStopWatch();
-    window._bgmDestroy();
-    window._mhDsClose();
+    _bgmDestroy();
+    _mhDsClose();
   }
   renderLauncher();
   // 🕒 런처로 돌아오는 시점 = 이번 세션의 포커스 기록을 확정하기 좋은 경계.

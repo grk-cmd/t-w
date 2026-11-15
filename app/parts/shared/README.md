@@ -457,3 +457,8 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 조명은 여기 없다 — 조명 상수 · 재질 고치기는 app.js(T0 몫), 한 벌 만들기는 `light-tone.js addRunLights`. 메인 씬 빛은 app.js 가 만든 뒤 `key` 를 받는다.
   - 이 무대는 메인 창 하나다. 미리보기 창의 3D 장치 만들기는 따로(설계 F1 `gl-context.js`).
   - 검사: `checks/sim-stage.js`(옵션 · 배율 · 바닥 · 로더 · 실패 길 · 연결 · 깨 보기) · `sim-gl-recover.js` · `sim-frame-budget.js` 5절이 이 파일 글을 읽는다.
+
+## ls-set.js — 💾 작은 설정 저장(`_lsSet`)
+
+- **책임**: `_lsSet(key, val)` — `setItem` 뒤 `getItem` 으로 왕복 확인 · 실패하면 콘솔 경고 + 세션당 한 번 토스트 · 성공 true / 실패 false. 설정처럼 작은 값 전용(슬롯 · 파츠 · 책상 같은 큰 값은 각자 처리).
+- **만드는 법**: `TwLsSet.createLsSet({ toast })`. **내보내는 것**: `_lsSet`(app.js 는 같은 이름 const 로 받고 deps 에서 `(...a)=>_lsSet(...a)` 로 넘긴다). 검사: `checks/sim-ls-set.js`.

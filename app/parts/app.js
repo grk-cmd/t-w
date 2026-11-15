@@ -5500,8 +5500,12 @@ const applyCharToSeat = charApplyMod.applyCharToSeat;   // 옛 전역 이름
 /* 본문은 launcher/app-mode.js 로 옮겼다(앱 FSD · app.js 분리 M13). 원래 자리인 여기서 만든다 — «런처로» 버튼이 예전과 같은 때 걸린다.
    다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다. */
 const appModeMod = TwAppMode.createAppMode({
+  _bgmDestroy: (...a)=>window._bgmDestroy(...a),
+  _mhDsClose: (...a)=>window._mhDsClose(...a),
   applyCharToSeat: applyCharToSeat,
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
+  closeWardrobe: (...a)=>window.closeWardrobe(...a),
+  commitMyHomePage: (...a)=>window.commitMyHomePage(...a),
   createSeat: createSeat,
   curSlot: ()=>curSlot,
   focusLevelMod: ()=>focusLevelMod,

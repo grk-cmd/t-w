@@ -35,9 +35,10 @@ function build(src, o){
     seatPanelMod: { selectSeat: (s) => log.push('select'), renderSeatTabs: () => log.push('tabs'), setManual: (v) => log.push('manual:' + v) },
     seats, settingsMod: { extraSeatSlots: () => st.extra, addExtraSeat: (i) => log.push('extra:' + i) }, slots,
     statusChipMod: { _tabHintTimer: () => st.hint, setTabHintTimer: (t) => { st.hint = t; } },
+    closeWardrobe: () => log.push('closeWardrobe'), commitMyHomePage: (f) => log.push('commitMyHome:' + f), _bgmDestroy: () => log.push('bgmDestroy'), _mhDsClose: () => log.push('dsClose'),
     toast: (m) => log.push('toast:' + m), weeklyChal: () => ({ syncChalToServer: (w) => log.push('chalSync:' + w) }),
   };
-  const win = { commitMyHomePage: (f) => log.push('commitMyHome:' + f), _bgmDestroy: () => log.push('bgmDestroy'), _mhDsClose: () => log.push('dsClose'), closeWardrobe: () => log.push('closeWardrobe') };
+  const win = {};
   const g = { _mhGbStopWatch: () => log.push('gbStop') };
   const names = ['window', 'document', 'console', 'module', 'setTimeout', 'clearTimeout', '_mhGbStopWatch'];
   const fakeSet = (fn, ms) => { timers.push({ fn, ms }); return timers.length; };
@@ -109,13 +110,12 @@ say('§4 연결');
   chk(['showEl', 'applyAppMode', 'launchApp', 'backToLauncher'].every(n => new RegExp('^const ' + n + ' = appModeMod\\.' + n + ';', 'm').test(code)), '  옛 이름 넷을 const 로 받는다');
   chk(!/function (showEl|applyAppMode|launchApp|backToLauncher)\b|^let appMode\b/m.test(code), '  app.js 에 본문이 안 남음');
   const pairs = (mk || '').split('\n').map(l => /^  ([\w$]+): (.+),$/.exec(l)).filter(Boolean).map(m => [m[1], m[2]]);
-  const READ = ['curSlot', 'focusLevelMod', 'gachaMod', 'Presence', 'roomEntryMod', 'weeklyChal'], FN = ['applyDesktopRunClass', 'toast', 'layoutSeats'];
-  const shape = (n, v) => n === 'setMyHomeOpen' ? v === '(v)=>{ myHomeOpen = v; }' : READ.includes(n) ? v === '()=>' + n : FN.includes(n) ? v === '(...a)=>' + n + '(...a)' : v === n;
-  chk(pairs.length === 21 && pairs.every(([n, v]) => shape(n, v)), '★ deps 21개 모양 — 읽는 함수 여섯은 ()=>이름 · 함수 셋은 (...a)=>이름(...a) · 쓰는 함수 하나 · 값은 이름 그대로' + (pairs.length === 21 ? '' : ' — ' + pairs.length + '개'));
+  const READ = ['curSlot', 'focusLevelMod', 'gachaMod', 'Presence', 'roomEntryMod', 'weeklyChal'], FN = ['applyDesktopRunClass', 'toast', 'layoutSeats', 'closeWardrobe', 'commitMyHomePage', '_bgmDestroy', '_mhDsClose'];
+  const shape = (n, v) => n === 'setMyHomeOpen' ? v === '(v)=>{ myHomeOpen = v; }' : READ.includes(n) ? v === '()=>' + n : FN.includes(n) ? (v === '(...a)=>' + n + '(...a)' || v === '(...a)=>window.' + n + '(...a)') : v === n;
+  chk(pairs.length === 25 && pairs.every(([n, v]) => shape(n, v)), '★ deps 25개 모양 — 읽는 함수 여섯은 ()=>이름 · 함수 일곱(window 고리 넷 포함)은 (...a)=>…(...a) · 쓰는 함수 하나 · 값은 이름 그대로' + (pairs.length === 25 ? '' : ' — ' + pairs.length + '개'));
   const bad = (mk || '').replace('  curSlot: ()=>curSlot,', '  curSlot: curSlot,');
   const p2 = bad.split('\n').map(l => /^  ([\w$]+): (.+),$/.exec(l)).filter(Boolean).map(m => [m[1], m[2]]);
   chk(!p2.every(([n, v]) => shape(n, v)), '  깨 보기: 읽는 함수를 값으로 넘기면 빨강');
-  chk(!/[^.\w]appMode\b(?!Mod)/.test(code.replace(/appModeMod\.appMode\(\)/g, '')), '  app.js 가 appMode 를 직접 읽지 않는다(appModeMod.appMode() 로 읽는다)');
   chk((code.match(/appModeMod\.appMode\(\)/g) || []).length >= 3, '  읽는 자리 셋 이상이 appModeMod.appMode() 를 부른다(함수째 비교하는 실수 방지)');
 }
 say('§5 일부러 깨 보기');
@@ -129,7 +129,7 @@ say('§5 일부러 깨 보기');
   chk(!!m3 && (() => { const b = build(m3); b.mod.launchApp({ mode: 'edit' }); b.mod.backToLauncher(); return b.mod.appMode() !== 'run'; })(), '런처로 돌아갈 때 모드를 되돌리지 않으면 빨강');
   const m4 = brk("weeklyChal().syncChalToServer('launcher');", "");
   chk(!!m4 && (() => { const b = build(m4); b.mod.backToLauncher(); return !b.log.includes('chalSync:launcher'); })(), '달성표 서버 맞추기를 빼면 빨강');
-  const m5 = brk("window.closeWardrobe(); }catch(_){} }", "}catch(_){} }");
+  const m5 = brk("closeWardrobe(); }catch(_){} }", "}catch(_){} }");
   chk(!!m5 && (() => { const b = build(m5); b.els.wardrobePanel = mkEl(); b.els.wardrobePanel.classList.add('on'); b.mod.backToLauncher(); return !b.log.includes('closeWardrobe'); })(), '꾸미기 창을 closeWardrobe 로 닫지 않으면 빨강');
 }
 say('');

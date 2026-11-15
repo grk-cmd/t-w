@@ -293,6 +293,8 @@ app.js 9,746 → 9,476줄(270줄) · 구역 167 → 130개. 남긴 빈 머리 �
 
 **0.12.4 — app.js 분리 M12**: `applyCharToSeat` 묶음(좌석 파츠 비우기 · 리깅 xf 다시 굽기 · 동물 좌석 다시 빌드 · placeholder 클릭 판정 · 동물 귀 등록 · `applyCharToSeat`)을 `character/char-apply.js` 로 옮겼다(글 그대로 — 뒤에서 만들어지거나 다시 대입되는 일곱은 읽는 함수로 받고, `window.rebuildAnimalSeats` · `window.registerAnimalEar` 고리는 모듈이 만들 때 건다. 옛 `typeof seats` 가드 하나는 걷음). app.js 8,084 → 7,835줄.
 
+**0.12.4 — app.js 분리 M13 ~ M16**: 앱 모드(`launcher/app-mode.js`) · 회사원 · 피규어 모드 깃발(`launcher/office-mode.js`) · 설정 저장 헬퍼(`shared/ls-set.js`) · 몸짓(`character/rig-anim.js`) · 프레임 상한 · rAF 멈춤 감시(`launcher/frame-pace.js`)를 글 그대로 옮겼다(한 PR · 모듈 다섯). app.js 7,835 → 7324줄.
+
 ## 구역 표 — `app/parts/app.js`
 
 | # | 줄 | 크기 | 목적 | 층 | 관련 모듈 | 씀 | 쓰임 | 비고 |
