@@ -84,4 +84,4 @@
 
 - **책임**: 예전엔 app.js 다음 `<script>` 로 실려 app.js 맨 위 이름을 그냥 불렀다(R7). 지금은 `TwNoise.createNoise(deps)` 로 받는다 — app.js 보다 먼저 싣고(html), app.js 끝의 «화면 모듈 넷(M23)» 줄에서 INIT 뒤에 만든다(옛 «app.js 다음 script» 와 같은 때 · 같은 차례).
 - **받는 deps**: 값 `officeModeMod` · `seats` · `hiddenSeatsMod` · `Presence` · 함수 둘(`findMySeat` · `seatState`).
-- **함정**: 소리 자료(`noise-sounds.js`)를 이 모듈보다 먼저 싣는다. `_plSyncBgmBounds` · `_plApplyPos` 는 playlist.js 가 건 window 고리(typeof 가드)라 그대로다. 검사: `checks/sim-global-deps.js`(deps 없이 app.js 이름을 부르는 곳 0 · deps 짝 · 연결).
+- **함정**: 소리 자료(`noise-sounds.js`)를 이 모듈보다 먼저 싣는다. `_plSyncBgmBounds` · `_plApplyPos` 는 playlist.js 가 건 window 고리라 그대로다(noise.js 는 try 로 감싸 부른다). 검사: `checks/sim-global-deps.js`(deps 없이 app.js 이름을 부르는 곳 0 · deps 짝 · 연결).
