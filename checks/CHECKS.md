@@ -89,7 +89,7 @@
 | **sim-bug-cleanup.js** | 191 | **7c41fc91c912** |
 | **sim-bump-version.js** | 108 | **9c635d7b9caa** |
 | **sim-char-core-load.js** | 89 | **740ecf90c6f1** |
-| **sim-chat-history.js** | 248 | **13e828d41bc9** |
+| **sim-chat-history.js** | 248 | **78289bd9f86c** |
 | **sim-gamepad-activity.js** | 305 | **e4e1744a0113** |
 | **sim-mallang-hide.js** | 147 | **a97601090ee3** |
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
@@ -334,7 +334,7 @@
 | **sim-ride-bench.js** | 279 | **426a9d3c5c9f** |
 | **sim-part-paint.js** | 94 | **ccaa45183979** |
 | **sim-focus-level.js** | 128 | **246cbe6794dd** |
-| **sim-chat-ui.js** | 123 | **4b6844da655c** |
+| **sim-chat-ui.js** | 125 | **47205be91ea0** |
 | **sim-license-gate.js** | 340 | **78de89e312a3** |
 | **sim-account.js** | 174 | **fc65de1aa76e** |
 | **sim-wardrobe.js** | 229 | **4462198303e5** |

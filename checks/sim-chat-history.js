@@ -177,7 +177,7 @@ run().then(() => {
   const noWipe = [/function _onDeviceSessionLost\(\)\{[\s\S]{0,300}?twNav\.go\(twNav\.NAV\.LEAVE_ROOM\)\)/,   /* 창 열기 통로로 나간다 — 걸린 함수가 인자 없는 doLeaveRoom(모듈 순환 끊기 6) */
     /TwErrorCodes\.notify\('E-ROOM-10', code\); \}\s*Promise\.resolve\(doLeaveRoom\(\)\)/];
   chk(noWipe.every(re => re.test(APP)), '★ 튕김(다른 기기 로그인 · 서버 끊김 · 관리자 종료)은 안 지운다 — 다시 들어오면 이어진다');
-  chk(/firebaseAPI\.chatHistory\.open\(room, tab, _onList, \(\)=>\{ try\{ TwErrorCodes\.notify\('E-CHAT-02'\); \}catch\(_\)\{\} \}\)/.test(APP) && /firebaseAPI\.chatHistory\.clear\(room, (?:chatUiMod\(\)\.)?_chatMyTabId\(\)\)/.test(APP) && /chatHistory\.syncTabs\(room, _chatTabMeta\(\)\)/.test(APP) && /chatHistory\.wipeAll\(\)/.test(APP),
+  chk(/firebaseAPI\.chatHistory\.open\(room, tab, _onList, \(\)=>\{\s*if\(_chatReadRoom !== key\) return;/.test(APP) && /firebaseAPI\.chatHistory\.clear\(room, (?:chatUiMod\(\)\.)?_chatMyTabId\(\)\)/.test(APP) && /chatHistory\.syncTabs\(room, _chatTabMeta\(\)\)/.test(APP) && /chatHistory\.wipeAll\(\)/.test(APP),
     'app.js 배선 — 열기 · 방장 지우기 · 채널 정리 · 계정 놓기');
   /* 규칙 chatLog · _chatTab 색인은 0.13 앱이 안 쓴다(대화는 API · realtime) — 규칙을 걷는 묶음이 같이 걷는다 */
 
