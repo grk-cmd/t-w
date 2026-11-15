@@ -6906,10 +6906,11 @@ const reportMod = TwReport.createReport({
   getMyUserId: (...a)=>getMyUserId(...a),
   seatLabelName: (...a)=>overheadMod._seatLabelName(...a),
   awayUrlOk: (...a)=>awayPicMod._awayUrlOk(...a),
-  getDisplayName: (...a)=>getDisplayName(...a),
   reportHiddenSave: (...a)=>hiddenSeatsMod._reportHiddenSave(...a),
   reportHiddenUids: hiddenSeatsMod._reportHiddenUids,
-  myFriendCodeKey: MY_FRIEND_CODE_KEY,
+  reportApi: TwReportApi.createReportApi({ authed: TwApi.authed, errs: TwApiErrors }),
+  apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 const adminReport = TwAdminReport.createAdminReport({
   toast: (...a)=>toast(...a),
