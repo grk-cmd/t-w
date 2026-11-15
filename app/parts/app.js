@@ -5497,90 +5497,35 @@ const applyCharToSeat = charApplyMod.applyCharToSeat;   // 옛 전역 이름
      들어가는 순간 전부 자동으로 빠지고 방 나오면 다시 복원됨(실제 친구 좌석과 혼동 방지). */
 /* (앱 FSD 27번) 이 자리의 본문도 settings-panel.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
-let appMode='run';
-function showEl(id,on){const el=document.getElementById(id); if(el)el.style.display=on?'':'none';}
-function applyAppMode(){
-  const run=(appMode==='run');
-  showEl('seatEditor', appMode==='editseat');   // 좌석 슬라이더는 좌석 세팅 모드에서만
-  showEl('devFiles', false);                    // GLB 교체 등 dev 도구는 고객 화면에서 숨김
-  showEl('statePrev', !run);                    // 상태 미리보기는 편집 모드에서만
-  showEl('devHint', !run); showEl('runHint', run);
-  const t=document.getElementById('appTitle'), s=document.getElementById('appSub');
-  if(appMode==='editseat'){ t.textContent='🪑 좌석 세팅'; s.textContent='크기·높이·앞뒤·회전을 맞추세요 · 자동 저장'; }
-  else { t.textContent='🪴 책상 친구들'; s.textContent='짧게 클릭하면 쓰다듬 · 편집은 런처 ⚙'; }
-  applyDesktopRunClass();
-}
-function launchApp(opts){ opts=opts||{};
-  const myDef = slots[curSlot] || slots.find(Boolean);
-  if(!myDef){toast('먼저 캐릭터를 만들어 주세요');return;}
-  [...seats].forEach(s=>{scene.remove(s.group);overheadMod.removeSeatLabels(s);});seats.length=0;
-  const me=createSeat(); applyCharToSeat(me,myDef); me.slot=curSlot; me.isMe=true;
-  seatPanelMod.selectSeat(me);seatPanelMod.renderSeatTabs();seatPanelMod.setManual(null);
-  appMode = (opts.mode==='edit') ? 'editseat' : 'run';
-  applyAppMode();
-  document.getElementById('launcher').classList.remove('on');
-  if(Presence.active()){
-    roomEntryMod.syncFriendSeats(Presence.friendsObj());   // 초대된 친구 복원
-    /* 방에 있는 채로 런처에서 캐릭터를 고쳤거나(⚙ 캐릭터 수정 · 생성기 kind:'slot') 다른 칸을 골라 돌아왔으면
-       방에 나간 def 와 지금 def 가 다르다 — 생성기 kind:'slot' 저장은 슬롯에만 쓰고 방으로는 안 보낸다.
-       그대로 두면 내 화면만 바뀌고 남의 화면은 옛 모습이다. 캐릭터 교체(switchMainCharacter)와 같은 길로 보낸다.
-       슬롯 저장은 새 def 객체를 만들므로 같은 객체면 바뀐 것이 없다 — 런처만 다녀온 왕복은 아무것도 안 보낸다. */
-    if(Presence.myDef() !== myDef) Presence.updateDef(myDef);
-  }
-  else settingsMod.extraSeatSlots().forEach(i=>{ if(i!==curSlot && slots[i]) settingsMod.addExtraSeat(i); });   // 솔로모드 — 저장해둔 자리추가 좌석들 복원(주캐릭터 슬롯과 겹치면 제외 — 자기 복제 방지)
-  layoutSeats();
-  // 💡 상태칩 Tab 힌트 — run 모드로 들어올 때마다(런처 나갔다 다시 들어와도) 한 번만 안내.
-  //    칩이 지금 접혀(숨겨져) 있을 때만 의미 있으므로 그 경우에만 보여줌. Tab을 먼저 눌러 스스로 찾으면
-  //    위 keydown 핸들러가 이 타이머를 취소해서 뒤늦게 뜨지 않음.
-  if(statusChipMod._tabHintTimer()){ clearTimeout(statusChipMod._tabHintTimer()); statusChipMod.setTabHintTimer(null); }
-  if(appMode==='run'){
-    statusChipMod.setTabHintTimer(setTimeout(()=>{
-      statusChipMod.setTabHintTimer(null);
-      const chip=document.getElementById('myStatusChip');
-      if(document.body.classList.contains('runmode') && chip && chip.classList.contains('collapsed')) toast('상태칩이 안 보이면 Tab 키를 눌러보세요');
-    }, 1200));
-  }
-}
-function backToLauncher(){
-  if(statusChipMod._tabHintTimer()){ clearTimeout(statusChipMod._tabHintTimer()); statusChipMod.setTabHintTimer(null); }
-  // 🪑 방을 나가면 상호작용 책상 복원 플래그 리셋(다음 입장 때 저장값으로 다시 복원) +
-  //   내 좌석에 붙은 벤치 시각물 제거(장착 '저장'은 유지 — 재입장 시 복원됨).
-  rideBenchMod._resetIdeskRestore();
-  try{ const _me = seats.find(s=>s.isMe);
-    if(_me && _me.bench){ seats.filter(o=>o.seatedOn===_me).forEach(o=>{ try{ rideBenchMod.unmountBench(o); }catch(_){} });
-      _me.group.remove(_me.bench); _me.bench=null; _me.benchSlots=null; _me.benchDeskId=null; _me.benchOccupants={};
-      _me._benchOwnerSit=false; _me._benchSit=false; if(_me.desk) _me.desk.visible=true; }
-  }catch(_){}
-  appMode='run';
-  document.getElementById('launcher').classList.add('on');
-  // ★ 꾸미기 창이 켜진 채로 런처에 돌아가면 그대로 떠 있던 채 따라오던 문제 — 런처로 돌아갈 땐 항상 닫음.
-  //   (이 상태가 이어져서 이후 관리자 모드에서 꾸미기 아이콘이 안 먹히는 것처럼 보이던 문제도 같이 방지됨)
-  //   💾 닫는 것이 곧 저장이라 closeWardrobe 로 닫는다 — 창만 숨기면 꾸민 것이 저장되지 않았다(설정 패널 «런처로» 버튼 길)
-  const wp=document.getElementById('wardrobePanel');
-  if(wp && wp.classList.contains('on') && typeof window.closeWardrobe==='function'){ try{ window.closeWardrobe(); }catch(_){} }
-  if(wp) wp.classList.remove('on');
-  const wdp=document.getElementById('wdPreviewPanel'); if(wdp) wdp.classList.remove('on');
-  // ★ 마이홈도 동일한 이유로 닫음 — 켜진 채로 런처에 오면 그대로 남아 실행 화면 위에 겹쳐 보임.
-  //   commitMyHomePage(true)로 저장까지 처리한 뒤 닫기.
-  const mhOv=document.getElementById('myHomeOverlay');
-  if(mhOv && mhOv.classList.contains('on')){
-    try{ window.commitMyHomePage(true); }catch(_){}
-    mhOv.classList.remove('on'); myHomeOpen = false;
-    _mhGbStopWatch();
-    window._bgmDestroy();
-    window._mhDsClose();
-  }
-  renderLauncher();
-  // 🕒 런처로 돌아오는 시점 = 이번 세션의 포커스 기록을 확정하기 좋은 경계.
-  //   여기서만 서버와 맞추므로 쓰기 횟수가 적고(세션당 몇 번), 다른 기기의 기록도 이때 받아온다.
-  focusLevelMod.syncFocusTotalToServer('launcher');
-  // 👑 달성표도 같은 경계에서 맞춘다 — 다른 기기에서 체크한 오늘 항목이 여기서 따라온다.
-  weeklyChal.syncChalToServer('launcher');
-  // 🎰 가챠도 같은 경계에서. 셋 다 '다른 기기에서 쌓인 것을 받아오는' 같은 성격이라 한자리에 둔다.
-  gachaMod.syncGachaToServer('launcher');
-  applyDesktopRunClass();
-}
-document.getElementById('toLauncher').onclick=backToLauncher;
+/* 본문은 launcher/app-mode.js 로 옮겼다(앱 FSD · app.js 분리 M13). 원래 자리인 여기서 만든다 — «런처로» 버튼이 예전과 같은 때 걸린다.
+   다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다. */
+const appModeMod = TwAppMode.createAppMode({
+  applyCharToSeat: applyCharToSeat,
+  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
+  createSeat: createSeat,
+  curSlot: ()=>curSlot,
+  focusLevelMod: ()=>focusLevelMod,
+  gachaMod: ()=>gachaMod,
+  layoutSeats: (...a)=>layoutSeats(...a),
+  setMyHomeOpen: (v)=>{ myHomeOpen = v; },
+  overheadMod: overheadMod,
+  Presence: ()=>Presence,
+  renderLauncher: renderLauncher,
+  rideBenchMod: rideBenchMod,
+  roomEntryMod: ()=>roomEntryMod,
+  scene: scene,
+  seatPanelMod: seatPanelMod,
+  seats: seats,
+  settingsMod: settingsMod,
+  slots: slots,
+  statusChipMod: statusChipMod,
+  toast: (...a)=>toast(...a),
+  weeklyChal: ()=>weeklyChal,
+});
+const showEl = appModeMod.showEl;   // 옛 전역 이름
+const applyAppMode = appModeMod.applyAppMode;   // 옛 전역 이름
+const launchApp = appModeMod.launchApp;   // 옛 전역 이름
+const backToLauncher = appModeMod.backToLauncher;   // 옛 전역 이름
 
 /* ===================== 친구 초대 · 상태 공유 (Presence) =====================
    provider 인터페이스: join(room, me, onFriends) / update(state) / leave()
@@ -7457,7 +7402,7 @@ const focusLevelMod = TwFocusLevel.createFocusLevel({
   _focusTotalSec: ()=>_focusTotalSec,
   _myInbox: ()=>_myInbox,
   _myInboxReady: ()=>_myInboxReady,
-  appMode: ()=>appMode,
+  appMode: ()=>appModeMod.appMode(),
   findMySeat: (...a)=>findMySeat(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyLoginEmail: (...a)=>acctStateMod.getMyLoginEmail(...a),
@@ -7686,7 +7631,7 @@ const weeklyChal = TwWeeklyChallenge.createWeeklyChallenge({
   setGachaBonusLocal: (...a)=>gachaMod.setBonusLocal(...a),
   renderGachaInv: ()=>gachaMod.renderGachaInv(),
   gachaBonus: ()=>gachaMod.bonus(),
-  appMode: ()=>appMode,
+  appMode: ()=>appModeMod.appMode(),
   storageKey: CHAL_KEY,
 });
 
@@ -7719,7 +7664,7 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
   const mhOn = !!(mhOv && mhOv.classList.contains('on')) || myHomeOpen;
   const showMyHomeSized = mhOn && launcherOn;
   const config = launcherOn || creatorOpen;
-  const runOverlay = appMode==='run' && !config;
+  const runOverlay = appModeMod.appMode()==='run' && !config;
   document.body.classList.toggle('runmode', runOverlay);
   document.body.classList.toggle('config', config);   // 런처/생성기 열림 여부 — CSS에서 #scene 숨김에 사용
   if(typeof floor!=='undefined') floor.visible = !runOverlay;        // 투명 오버레이일 땐 바닥 숨김(데스크톱 비침)
