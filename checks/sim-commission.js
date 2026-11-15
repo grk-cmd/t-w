@@ -18,13 +18,13 @@ const MOD = ["commission.js","parts/character/commission.js","app/parts/characte
 if(!MOD){ say('  ? 원본 못 찾음 — commission.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_b64","_deriveKey","_unb64","toast"];
+const FN_DEPS = ["_b64","_deriveKey","_unb64","notifyError"];
 const VAL_DEPS = ["accountStore"];
 const GET_DEPS = [];
 const SET_DEPS = [];
-const EXPORTS = ["MAX_COMMISSION_BYTES","MAX_CUSTOM_ASSETS","MAX_CUSTOM_ITEMS","MAX_GLB_BYTES","catalogBacked","decryptCommission","encryptCommission","persistSavedAssets","loadLocal","resetLocal","savedDesks","setSavedDesks","savedItems","setSavedItems","unpackCommissionZip"];
+const EXPORTS = ["MAX_COMMISSION_BYTES","MAX_CUSTOM_ASSETS","MAX_CUSTOM_ITEMS","MAX_GLB_BYTES","catalogBacked","decryptCommission","encryptCommission","persistSavedAssets","loadLocalDesks","loadLocalItems","resetLocalDesks","resetLocalItems","savedDesks","setSavedDesks","savedItems","setSavedItems","unpackCommissionZip"];
 const MOVED = ["MAX_COMMISSION_BYTES","COMMISSION_TEX_SIZE","resizeImgBlobTo","unpackCommissionZip","encryptCommission","decryptCommission","SAVED_DESK_KEY","SAVED_ITEM_KEY","MAX_CUSTOM_ASSETS","MAX_CUSTOM_ITEMS","MAX_GLB_BYTES","savedDesks","savedItems","loadSavedAssets","persistSavedAssets"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  _b64: (...a)=>_b64(...a),","  _deriveKey: (...a)=>_deriveKey(...a),","  _unb64: (...a)=>_unb64(...a),","  toast: (...a)=>toast(...a),","  accountStore: accountStoreMod,"];
+const GLUE = ["  _b64: (...a)=>_b64(...a),","  _deriveKey: (...a)=>_deriveKey(...a),","  _unb64: (...a)=>_unb64(...a),","  notifyError: (...a)=>TwErrorCodes.notify(...a),","  accountStore: accountStoreMod,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -57,7 +57,7 @@ function judgeAll(mod, app, html){
   t(!err && out && typeof out === 'object', '만들 때 던지지 않는다' + (err ? ' — ' + String(err.message || err).slice(0, 80) : ''));
   const reentry = build.called.slice();
   t(!err && !reentry.length, '만들 때 deps 함수를 되부르지 않는다(만드는 도중엔 commissionMod 가 아직 없다)' + (reentry.length ? ' — ' + reentry.join(' · ') : ''));
-  t(!/^\}\);\n(?:\/\*[\s\S]*?\*\/\n)?loadSavedItemsIntoSession\(\);$/m.test(app.slice(app.indexOf('const commissionMod = '))) && /name: 'savedAssets',\n    load: \(\)=>\{ commissionMod\.loadLocal\(\); premiumMod\.loadLocal\(\); return loadSavedItemsIntoSession\(\)/.test(app), 'app.js — 저장 아이템 등록(loadSavedItemsIntoSession)은 만들 때가 아니라 확인 뒤 userLocal 칸(savedAssets)에서 부른다');
+  t(!/^\}\);\n(?:\/\*[\s\S]*?\*\/\n)?loadSavedItemsIntoSession\(\);$/m.test(app.slice(app.indexOf('const commissionMod = '))) && /name: 'savedItems',[^\n]*\n    load: \(\)=>\{ commissionMod\.loadLocalItems\(\); return loadSavedItemsIntoSession\(\)/.test(app), 'app.js — 저장 아이템 등록(loadSavedItemsIntoSession)은 만들 때가 아니라 확인 뒤 userLocal 칸(savedItems)에서 부른다');
   t(out && EXPORTS.every(n => n in out) && Object.keys(out).length === EXPORTS.length, '내놓는 이름 ' + EXPORTS.length + '개' + (EXPORTS.length ? ' — ' + EXPORTS.join(' · ') : ''));
   t(/window\.TwCommission = api;/.test(mod) && /module\.exports = api;/.test(mod), '전역 이름 TwCommission(Tw 접두사)');
   const A = strip(app.split('\n').filter(l => !l.includes('// 옛 전역 이름')).join('\n'));   // 옛 전역 이름 잇기 줄은 «남은 선언 · 옛 이름 부름» 이 아니다
@@ -83,24 +83,26 @@ say('── 2-2. 저장 목록 — 카탈로그 몫은 서버가 원본 · 코�
 function behave(mod){
   const cells = {}; let open = true; const toasts = [];
   const accountStore = { get: (k) => (open && k in cells) ? cells[k] : null, set: (k, v) => { if(!open) return false; cells[k] = String(v); return true; } };
-  const m = build(mod, { accountStore, toast: (x) => toasts.push(x) });
+  const m = build(mod, { accountStore, notifyError: (x) => toasts.push(x) });
   const r = {};
   const cat = { id: 'D-cat', fromCatalog: true, glbUrl: 'u', name: '카탈로그 책상' };
   m.setSavedDesks([cat]);   // 구독이 확인보다 먼저 왔다
   cells['tw.savedDesks'] = JSON.stringify([{ id: 'D-cat', fromCatalog: true, name: '옛 사본(덮으면 안 된다)' }, { id: 'D-mine', name: '내 책상', glb: 'AAAA' }]);
   cells['tw.savedItems'] = JSON.stringify([{ id: 'I-mine', name: '내 아이템' }, { id: 'I-old', fromCatalog: true }]);
-  m.loadLocal();
+  (m.loadLocalDesks(), m.loadLocalItems());
   r.load = m.savedDesks().map(d => d.id + ':' + (d.name || '')).join() === 'D-cat:카탈로그 책상,D-mine:내 책상' && m.savedItems().map(d => d.id).join() === 'I-mine';
   m.persistSavedAssets();
   r.persist = JSON.parse(cells['tw.savedDesks']).map(d => d.id).join() === 'D-mine' && JSON.parse(cells['tw.savedItems']).map(d => d.id).join() === 'I-mine' && !toasts.length;   // 카탈로그 몫은 쓰지 않는다
-  m.resetLocal();
+  (m.resetLocalDesks(), m.resetLocalItems());
   r.reset = m.savedDesks().map(d => d.id).join() === 'D-cat' && m.savedItems().length === 0;   // 이 계정 몫만 비운다 · 카탈로그 몫은 그대로
   open = false; m.setSavedDesks([{ id: 'D-x' }]); m.persistSavedAssets();
   r.closedLoud = toasts.length === 1;   // 계정 칸이 닫혀 있으면 조용히 넘기지 않고 알린다
-  open = false; cells['tw.savedDesks'] = '[{"id":"Z"}]'; m.setSavedDesks([]); m.loadLocal();
+  open = false; cells['tw.savedDesks'] = '[{"id":"Z"}]'; m.setSavedDesks([]); (m.loadLocalDesks(), m.loadLocalItems());
   r.closedRead = m.savedDesks().length === 0;   // 닫힌 칸은 읽기 null — 아무것도 채우지 않는다
   open = true; cells['tw.savedDesks'] = '{깨짐'; m.setSavedDesks([]);
-  try{ m.loadLocal(); r.corruptThrows = false; }catch(_){ r.corruptThrows = true; }   // 깨진 칸은 던진다 — 빈 목록으로 숨기지 않는다
+  cells['tw.savedItems'] = '[{"id":"I-ok","name":"x"}]'; m.setSavedItems([]);
+  try{ m.loadLocalDesks(); r.corruptThrows = false; }catch(_){ r.corruptThrows = true; }
+  m.loadLocalItems(); r.otherCellRead = m.savedItems().map(p => p.id).join() === 'I-ok';   // 책상 칸만 깨져도 아이템 칸은 읽힌다   // 깨진 칸은 던진다 — 빈 목록으로 숨기지 않는다
   return r;
 }
 {
@@ -108,6 +110,7 @@ function behave(mod){
   chk(R.load, '확인 뒤 읽기 — 카탈로그 몫(구독이 먼저 와 있음)은 덮지 않고 이 계정 몫만 더한다 · 옛 칸에 섞인 카탈로그 사본은 읽지 않는다');
   chk(R.persist, '쓰기 — 이 계정 몫(fromCatalog 아닌 것)만 계정 칸에 쓴다 · 카탈로그 몫은 쓰지 않는다');
   chk(R.reset, '세션이 끝나면 이 계정 몫만 비운다 · 카탈로그 몫은 그대로');
+  chk(R.otherCellRead === true, '한 칸(책상)이 깨져도 다른 칸(아이템)은 따로 읽힌다 — 안 읽힌 칸이 빈 목록으로 남아 다음 쓰기가 멀쩡한 칸을 지우지 않는다');
   chk(R.corruptThrows === true, '계정 칸 값이 깨져 있으면 던진다(빈 목록으로 숨기지 않아 다음 쓰기가 계정 몫을 지우지 않는다)');
   chk(R.closedLoud && R.closedRead, '계정 칸이 닫혀 있으면 — 쓰기는 알리고 읽기는 비워 둔다(조용히 옛 값을 쓰지 않는다)');
   const br = (from, to) => MOD.includes(from) ? behave(MOD.replace(from, to)) : null;
@@ -130,7 +133,7 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const commissionMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('commissionMod.' + x)); if(n){ ls[i] = ls[i].replace('commissionMod.' + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 deps 를 되부름', m => m.replace('function resetLocal(){', 'toast("깨 봄"); function resetLocal(){'), null, null],
+  ['만들 때 deps 를 되부름', m => m.replace('function resetLocalDesks(){', 'notifyError("깨 봄"); function resetLocalDesks(){'), null, null],
   ['확인 뒤 등록 줄 빠짐', null, a => a.replace('return loadSavedItemsIntoSession(); },', '},'), null],
   ['만들 때 던짐', m => m.replace('function createCommission(deps){', 'function createCommission(deps){ throw new Error("깨 봄");'), null, null],
 ];

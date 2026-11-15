@@ -30,6 +30,7 @@ const savedItems = deps.savedItems;   // 읽는 함수
 const seats = deps.seats;
 const slots = deps.slots;   // 읽는 함수
 const toast = deps.toast;
+const notifyError = deps.notifyError;
 const WD_DESK_TAB = '__desk_model__';
 function _wdLicenseDesks(){
   let list = null; try{ list = savedDesks(); }catch(_){ return []; }
@@ -445,7 +446,7 @@ function resetLocal(){ savedParts = savedParts.filter(p=>p.fromCatalog); }
 function _normPartRec(p){ if(p && p.gacha && !p.stackable) p.stackable = true; return p; }
 function persistSavedParts(){
   // 이 계정 몫(fromCatalog 아닌 것 — base64 glb 포함)만 계정 칸에 쓴다. 카탈로그 몫은 서버가 원본이고 오프라인 캐시는 catalog-cache.js 가 맡는다.
-  if(!accountStore.set(SAVED_PARTS_KEY, JSON.stringify(savedParts.filter(p=>!p.fromCatalog)))){ console.warn('[파츠] 계정 칸에 쓰지 못했어요'); toast('저장하지 못했어요 — 저장 공간과 로그인 상태를 확인해 주세요'); }
+  if(!accountStore.set(SAVED_PARTS_KEY, JSON.stringify(savedParts.filter(p=>!p.fromCatalog)))){ console.warn('[파츠] 계정 칸에 쓰지 못했어요'); notifyError('E-CHAR-24'); }
 }
 function partsInCat(cat){ return savedParts.filter(p=>p.cat===cat); }
 /* 🎰 카테고리 상한은 "꾸미기 창에 진열되는 파츠"의 상한이다.
