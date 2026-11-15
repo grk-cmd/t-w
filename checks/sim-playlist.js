@@ -624,7 +624,7 @@ async function behave(src){
     chk(m.st.playing === false && m.st.now === -1 && m.st.sets.length === 3, '  재생 표시도 st 로 읽는다(빈 프리셋이라 곡은 안 열림)');
     m.st.playing = false;
     chk(m.state().playing === false, '  📷 스티커사진이 쓰는 재생 재우기(st.playing = false)');
-    chk(['_plHasSavedPos', '_plApplyPos', '_plSyncBgmBounds'].every(n => typeof e.win[n] === 'function'), 'window 고리 셋 — 상태칩 팝업 자리 · noise.js 가 typeof 로 부른다');
+    chk(['_plHasSavedPos', '_plApplyPos', '_plSyncBgmBounds'].every(n => typeof e.win[n] === 'function'), 'window 고리 셋 — 상태칩 팝업 자리 · noise.js 가 try 로 감싸 부른다');
     chk(e.win._plHasSavedPos() === false, '  옮긴 자리가 없으면 false');
     e.byId.myPlHead.fire('pointerdown', { clientX: 510, clientY: 305, target: e.byId.myPlHead });
     e.doc.fire('pointermove', { clientX: 600, clientY: 400 }); e.doc.fire('pointerup', {});

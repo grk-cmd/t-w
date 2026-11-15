@@ -168,7 +168,7 @@
 | **sim-myhome-steps.js** | 127 | **ba55a9aea5d8** |
 | **sim-myhome-load.js** | 106 | **e6eb15f88375** |
 | **sim-fix-0923.js** | 297 | **522d07f95e45** |
-| **sim-noise.js** | 147 | **bfe54abd3532** |
+| **sim-noise.js** | 147 | **e5f0b1bfbfc1** |
 | **sim-mobile-focus.js** | 219 | **cea5e48561c1** |
 | **sim-figure-mode.js** | 159 | **706f14337eac** |
 | **sim-mac-0923.js** | 87 | **a46e56f3e317** |
@@ -183,7 +183,7 @@
 | **sim-pl-watchdog.js** | 412 | **4658ffafbd00** |
 | **sim-premium-desk.js** | 96 | **9911af6ac156** |
 | **sim-presence.js** | 243 | **3f5b1eb57bdc** |
-| **sim-light-tone.js** | 298 | **bc6aba412db9** |
+| **sim-light-tone.js** | 298 | **2f6e18fa1359** |
 | **sim-paint-geom.js** | 107 | **0c187cb7b3d7** |
 | **sim-seat-friend-req.js** | 117 | **89a8bcf81a45** |
 | **sim-seat-menu.js** | 167 | **8e644bfd709d** |
@@ -287,7 +287,7 @@
 | **sim-purikura-ui.js** | 295 | **3aaa3f555e6c** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
 | **sim-guestbook.js** | 294 | **177f4506d26a** |
-| **sim-friend-manage-module.js** | 309 | **8f437e468215** |
+| **sim-friend-manage-module.js** | 309 | **0ffe101b601e** |
 | **sim-pomodoro-module.js** | 228 | **87c30b512de0** |
 | **sim-myhome-sticker.js** | 414 | **b4fdafdd7d36** |
 | **sim-gacha.js** | 510 | **9491aa00bd7b** |
@@ -307,7 +307,7 @@
 | **sim-panel-fit.js** | 106 | **a5d15a6aadb1** |
 | **sim-myhome-inbox.js** | 616 | **0bf25b13cbe5** |
 | **sim-playlist-sync.js** | 169 | **d3dd85d9361c** |
-| **sim-playlist.js** | 807 | **983f0812d249** |
+| **sim-playlist.js** | 807 | **a836e403ed9a** |
 | **sim-ui-tokens.js** | 128 | **c4e31dbe90c9** |
 | **sim-upload-cache.js** | 84 | **131a3db7c1b1** |
 | **sim-desk-item-origin.js** | 104 | **c994d7c5152e** |

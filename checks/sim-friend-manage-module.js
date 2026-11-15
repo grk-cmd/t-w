@@ -10,7 +10,7 @@
    ・4절: 서브탭 · 📤 보낸 요청 — setTab · tab · 살아 있는 것만 · 죽은 미러 치우기 · 이름 조회(캐시) · 취소
    ・5절: 👋 팝업 · reqVisible — 마이홈이 열려 있고(myHomeOpen 은 읽는 함수) 친구 탭 · 받은 요청 서브탭일 때만 «보인다» · 팝업 수락 · 상한
    ・6절: app.js 배선 — 정의는 모듈에만 · createFriendManage 는 원래 자리 · deps 모양 · 부르는 곳 · 빈 껍데기 · html 순서 · 전역 이름
-   ・7절: 🐞 버그 제보 탭 — app.js 에 없고 bug-board-ui.js 끝(IIFE 밖 · 전역 그대로) · 링크 구독 · 관리자만 편집 · 링크 모양 · 공지는 그대로 실어 보냄
+   ・7절: 🐞 버그 제보 탭 — app.js 에 없고 bug-board-ui.js 끝(게시판 IIFE 밖 · createBugBoardUi 안 — 전역으로 남는 것은 window._bugReportLink) · 링크 구독 · 관리자만 편집 · 링크 모양 · 공지는 그대로 실어 보냄
    [실행] friend-manage.js · bug-board-ui.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다

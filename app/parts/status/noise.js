@@ -22,7 +22,7 @@
 
    [기댄 것 — app.js 가 createNoise(deps) 로 넘긴다(앱 FSD · M23)]
      deps: seats · seatState · findMySeat · hiddenSeatsMod(_seatHidden) · officeModeMod(officeMode()) · Presence
-     window 고리(typeof 가드): _plSyncBgmBounds · _plApplyPos
+     window 고리(try 로 감싸 부름): _plSyncBgmBounds · _plApplyPos
      ⚠️ app.js 가 INIT 을 마친 바로 뒤(옛 «app.js 다음 script» 와 같은 때)에 만든다 — 이 파일은 app.js 보다 먼저 싣는다.
 
    [소리 자료] parts/noise-sounds.js(window.TW_NOISE_SOUNDS · base64 WebM/Opus). 왜 base64 인지는 그 파일 머리 주석.

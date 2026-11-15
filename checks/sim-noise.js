@@ -59,7 +59,7 @@ const ctx = {
   hiddenSeatsMod:{ _seatHidden:(s)=> env.hidden.has(s) },   // 🙈 hidden-seats.js 가 내놓는 이름(app.js 의 hiddenSeatsMod)
   Presence:{ setNoise:(k)=>env.sent.push(k) },
 };
-ctx.officeModeMod = { officeMode: ()=>env.office };   // 회사원 모드 깃발은 launcher/office-mode.js 가 갖는다(noise.js 는 app.js 전역 officeModeMod 로 읽는다)
+ctx.officeModeMod = { officeMode: ()=>env.office };   // 회사원 모드 깃발은 launcher/office-mode.js 가 갖는다(noise.js 는 deps 로 받는다)
 ctx.window = ctx;
 ctx.window.addEventListener = (ev)=>env.listeners.push(ev);
 vm.createContext(ctx);
