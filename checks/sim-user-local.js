@@ -166,7 +166,7 @@ say('── 4. 일부러 깨 보기 — 빨강이 나야 한다');
     ['UL', 'start 가 load 를 안 부름', (m) => m.replace("for(const p of parts) run(p, 'load');", '')],
     ['UL', '세션이 끝나도 reset 을 안 부름', (m) => m.replace('session.onReset(() => { for(const p of parts.slice().reverse()) run(p, \'reset\'); });', '')],
     ['UL', 'reset 이 앞에서부터', (m) => m.replace('parts.slice().reverse()', 'parts.slice()')],
-    ['UL', '한 조각이 던지면 멈춤', (m) => m.replace("catch(e){ console.warn('[user-local] ' + p.name + ' ' + what + ' 실패', e); }", 'catch(e){ throw e; }')],
+    ['UL', '한 조각이 던지면 멈춤', (m) => m.replace("catch(e){ fail(e); }", 'catch(e){ throw e; }')],
     ['UL', '같은 이름을 받음', (m) => m.replace("if(new Set(names).size !== names.length) throw new Error('[user-local] 같은 이름의 조각이 둘이에요');", '')],
     ['DECO', '만들 때 계정 칸을 읽음', (m) => m.replace("let decoPartsVisible = true;", "let decoPartsVisible = (decoAccountStore.get('tw.decoParts') !== '0');")],
     ['EQ', 'reset 이 값을 안 되돌림', (m) => m.replace('resetLocal: ()=>{ seatEqualizeOn = false; }', 'resetLocal: ()=>{}')],

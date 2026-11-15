@@ -68,7 +68,8 @@ const MOVED_KEYS = Object.freeze(['tw.focusTodaySec', 'tw.focusTodayDate', 'tw.p
   'tw.curSlot', 'tw.extraSeatSlots', 'tw.decoParts', 'tw.seatEq', 'tw.emojiReactions',   // S-4a — 만들 때 읽던 보기 설정 깃발(launcher/user-local.js 가 확인 뒤 읽는다)
   'tw.charColorHistory', 'tw.activeInteractionDesk',
   'tw.myAdBannerImg', 'tw.secretRoomMusic', 'tw.annivView',
-  'tw.deskPresets', 'tw.animalPresets']);
+  'tw.deskPresets', 'tw.animalPresets',
+  'tw.savedDesks', 'tw.savedItems', 'tw.savedParts']);   // 코드로 추가한 책상 · 아이템 · 파츠(이 계정 몫 — 카탈로그 몫은 서버가 원본이라 옮기지 않고 읽을 때 거른다)
 /* 접두로 이미 계정 칸에서 읽고 쓰는 키 — migrateLegacy 가 PC 칸을 훑어 접두가 맞는 이름마다 옮긴다(최근 색 · 방명록 읽음 시각 · 채팅 탭 · 읽음 표시 · 입장 표시).
    ⚠️ ACCOUNT_KEY_PREFIXES 의 부분집합 — 서버가 세는 `tw.dailyPlay.` 는 옮기지 않는다. */
 const MOVED_KEY_PREFIXES = Object.freeze(['tw.mhRecentColors.', 'tw.mhGbLastRead:', 'tw.chatTab.', 'tw_chat_read:', 'tw_chat_join:']);

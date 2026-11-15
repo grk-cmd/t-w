@@ -17,7 +17,8 @@ function createUserLocal(deps){
   const names = parts.map(p => p.name);
   if(new Set(names).size !== names.length) throw new Error('[user-local] 같은 이름의 조각이 둘이에요');
   function run(p, what){
-    try{ p[what](); }catch(e){ console.warn('[user-local] ' + p.name + ' ' + what + ' 실패', e); }
+    const fail = (e) => console.warn('[user-local] ' + p.name + ' ' + what + ' 실패', e);
+    try{ const r = p[what](); if(r instanceof Promise) r.catch(fail); }catch(e){ fail(e); }
   }
   /** 계정 칸이 열린 뒤 한 번 — 조각마다 읽어 채우고, 세션이 끝나면 되돌리는 일을 세션에 맡긴다. */
   function start(session){

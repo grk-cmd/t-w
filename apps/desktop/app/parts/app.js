@@ -2884,7 +2884,9 @@ function _hsvToHex(h, sv, v){ return lightToneMod.toneCore.hsvToHex(h, sv, v); }
 /* 본문은 premium-assets.js 로 옮겼다(앱 FSD 37번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const premiumMod = TwPremiumAssets.createPremiumAssets({
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
+  accountStore: accountStoreMod,
   Presence: ()=>Presence,
   applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),
   cBase: ()=>crState.cBase,
@@ -6832,13 +6834,10 @@ const commissionMod = TwCommission.createCommission({
   _b64: (...a)=>codeCryptoMod._b64(...a),
   _deriveKey: (...a)=>codeCryptoMod._deriveKey(...a),
   _unb64: (...a)=>codeCryptoMod._unb64(...a),
-  toast: (...a)=>toast(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  accountStore: accountStoreMod,
 });
-/* ★ 앱을 켜자마자 최대한 일찍 저장된 아이템들의 GLB 파싱을 시작해둠(비동기) — 이게 늦게 끝나면, 그 사이에
-     캐릭터가 먼저 실행되면서 아직 customItems에 등록 안 된 아이템은 조용히 빠지는(=책상 위에서 사라지는)
-     타이밍 경쟁이 있었음("가끔 아이템이 사라지는" 원인). 최대한 앞당겨서 그 경쟁 창을 최소화함.
-   ⚠️ commissionMod 를 만든 **뒤**에 부른다 — 모듈 안에서 부르면 commissionMod 가 아직 없어 던진다. */
-loadSavedItemsIntoSession();
+/* 저장된 아이템(이 계정이 코드로 추가한 것)은 확인 뒤 계정 칸에서 읽는다(userLocal 칸 savedAssets) — 만들 때는 비어 있다. 카탈로그 아이템은 카탈로그 동기화가 등록한다. */
 /* 커스텀 아이템 레지스트리 (생성기 세션) */
 let customItems={};
 
@@ -6871,7 +6870,6 @@ const adminThumbs = TwAdminThumbs.createAdminThumbs({
   toast: (...a)=>toast(...a),
   wardrobeMod: wardrobeMod,
 });
-premiumMod.loadSavedParts();
 
 /* ═══ 💾 카탈로그 GLB 영구 캐시(IndexedDB) · URL 해결 ═══ */
 /* 본문은 shared/glb-idb-cache.js 로 옮겼다(구역 떼기 C · w2).
@@ -6968,13 +6966,15 @@ const deskItemsMod = TwDeskItems.createDeskItems({
 
 /* 저장된 모든 아이템 코드를 customItems에 등록 (생성기 진입 시 호출) */
 async function loadSavedItemsIntoSession(){
+  const failed=[];
   for(const rec of commissionMod.savedItems()){
     // ★ 이미 등록돼 있어도 건너뛰지 않고 항상 다시 불러옴 — 카탈로그에서 GLB가 교체됐을 때
     //   (관리자가 우클릭 수정 등) customItems가 옛날 것으로 캐시된 채 남아있으면 실시간 반영이 안 됨.
     try{ const buf=b64ToBuf(rec.glb); const {scene,animations}=await assetCodeMod.parseGlbFull(buf);
       deskItemsMod.registerCustomItem(rec.id, rec.name, rec.glb, scene, rec.icon||'', animations, rec.attachTo, rec.autoPlay, rec.defaultSize, rec.glow, rec.licenseOnly, rec.playMode);
-    }catch(_){}
+    }catch(e){ console.warn('[저장 아이템] 등록하지 못했어요 — ' + rec.id, e); failed.push(rec.id); }   // 한 개가 깨져도 나머지는 등록한다
   }
+  if(failed.length) TwErrorCodes.notify('E-CHAR-25', failed.join());   // 깨진 것은 사용자에게도 한 번 알린다
 }
 
 /* (구역 떼기 C · w2) 이 자리의 본문도 character/desk-visual.js 로 옮겼다 — 만드는 줄은 첫 자리. */
@@ -8334,6 +8334,12 @@ const userLocalMod = TwUserLocal.createUserLocal({ parts: [
   { name: 'playlistCur', load: ()=>plMod.loadLocal(), reset: ()=>{ plMod.st.cur = 0; } },
   { name: 'animal', load: ()=>window._animalLoadLocal(), reset: ()=>window._animalResetLocal() },
   { name: 'emojiReactions', load: ()=>floatersMod.loadLocal(), reset: ()=>floatersMod.resetLocal() },
+  /* 코드로 추가한 책상 · 아이템 · 파츠는 이 계정 몫 — 카탈로그 몫(서버가 원본)은 건드리지 않고 이 계정 몫만 더한다(commission.js loadLocalDesks · loadLocalItems · premium-assets.js loadLocal — 칸마다 따로). 아이템은 세션에 등록(GLB 파싱)까지 */
+  { name: 'savedDesks', load: ()=>commissionMod.loadLocalDesks(), reset: ()=>{ commissionMod.resetLocalDesks(); } },
+  { name: 'savedItems',   // 아이템은 세션에 등록(GLB 파싱)까지 — 비동기 실패는 user-local 이 경고한다
+    load: ()=>{ commissionMod.loadLocalItems(); return loadSavedItemsIntoSession(); },
+    reset: ()=>{ commissionMod.savedItems().filter(p=>!p.fromCatalog).forEach(p=>{ delete customItems[p.id]; }); commissionMod.resetLocalItems(); } },
+  { name: 'savedParts', load: ()=>premiumMod.loadLocal(), reset: ()=>premiumMod.resetLocal() },
 ] });
 
 /* 🚀 켜는 순서 한 곳(launcher/app-boot.js) — 계정 확인(license-gate.js)이 nav 로 «계정에 들어감» 을 알리면 옛 PC 값 옮기기 → realtime → 아래 차례대로 계정 기능을 시작한다.
