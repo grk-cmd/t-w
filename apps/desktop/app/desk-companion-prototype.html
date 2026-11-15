@@ -6677,12 +6677,18 @@
               <span id="acctMGoogleOk" style="font-size:10.5px;color:var(--win-ok,#2a7a3f);">연결됨</span>
               <button id="acctMGoogleLink" class="lc-btn" type="button" style="display:none;width:auto;margin-top:0;padding:3px 9px;font-size:11px;">연결하기</button>
             </div>
+            <!-- 🔁 지금 연결된 구글(가린 주소) · [바꾸기] — 글자 · 보이기는 account.js _acctMethodsRender · 비밀번호가 없으면 흐리게 -->
+            <div id="acctMGoogleRow2" style="display:none;align-items:center;justify-content:space-between;gap:8px;">
+              <span id="acctMGoogleMail" style="font-size:10.5px;color:var(--ink-soft);padding-left:22px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+              <button id="acctMGoogleChange" class="lc-btn" type="button" style="width:auto;margin-top:0;padding:3px 9px;font-size:11px;">바꾸기</button>
+            </div>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
               <span style="display:flex;align-items:center;gap:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg><span>친구 코드 <b id="acctMCode" style="font-family:'Courier New',monospace;">—</b></span></span>
               <span id="acctMPwState" style="font-size:10.5px;color:var(--ink-soft);">비밀번호 없음</span>
             </div>
           </div>
           <div id="acctMNote" style="display:none;margin-top:6px;font-size:10.5px;color:var(--ink-soft);line-height:1.55;">비밀번호를 만들면 구글 없이도 친구 코드로 로그인할 수 있어요.</div>
+          <div id="acctMGoogleChangeNote" style="display:none;margin-top:6px;font-size:10.5px;color:#B5624A;line-height:1.5;">구글을 바꾸려면 먼저 비밀번호를 만들어 주세요. 바꾸는 동안 로그인이 끊기지 않게 하려는 거예요.</div>
           <div id="acctMWarn" style="display:none;margin-top:6px;font-size:10.5px;color:#B5624A;line-height:1.5;">⚠ 구글이 연결돼 있지 않아요. 이 PC의 로그인이 풀린 채로 비밀번호를 잊으면 계정을 되찾을 수 없어요.</div>
           <div id="acctPwTitle" style="font-size:11px;font-weight:bold;color:var(--ink);margin:10px 0 5px;">비밀번호 만들기</div>
           <div style="background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);

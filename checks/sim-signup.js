@@ -955,14 +955,15 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
       chk(c5.ok && c5.relogged === false && A.L.change[0] === 'newpw1', 'C2 — 함수 통로 결과를 그대로 넘긴다');
 
       /* 그리기(가짜 DOM) */
-      const ids = ['acctMethods','acctMOff','acctPw1','acctPw2','acctPwMsg','acctMGoogleOk','acctMGoogleLink','acctMCode','acctMPwState','acctMNote','acctMWarn','acctPwTitle','acctPwL1','acctPwL2','acctPwBtn','acctPwHint'];
+      const ids = ['acctMethods','acctMOff','acctPw1','acctPw2','acctPwMsg','acctMGoogleOk','acctMGoogleLink','acctMCode','acctMPwState','acctMNote','acctMWarn','acctPwTitle','acctPwL1','acctPwL2','acctPwBtn','acctPwHint','acctMGoogleRow2','acctMGoogleMail','acctMGoogleChange','acctMGoogleChangeNote'];
       const runR = async (pv, logged, keep) => {
         const els = {}; ids.forEach(i => els[i] = { style:{ display:'' }, textContent:'', value:'x', disabled:true });
         const doc = { getElementById:i => els[i] || null };
         const w = { firebaseAPI:{ authReady: async () => {}, authProviders: () => pv } };
         Object.defineProperty(globalThis, 'firebaseAPI', { get: () => w.firebaseAPI, configurable: true });
         const ls = { getItem:k => (k === 'tw.myFriendCode' ? 'MATE-LOC1' : null) };
-        const f = (new Function('document', 'window', 'localStorage', "const MY_FRIEND_CODE_KEY='tw.myFriendCode'; let _acctMethodsLast=null; const getMyLoginEmail=()=>" + JSON.stringify(logged ? 'me@gmail.com' : null) + ';\n' + fMode + '\n' + fRender + '\nreturn _acctMethodsRender;'))(doc, w, ls);
+        const gcm = { maskEmail: e => (e ? String(e).slice(0, 2) + '***@' + String(e).split('@')[1] : '') };   // 🔁 가린 주소(google-confirm.js 가 본다)
+        const f = (new Function('document', 'window', 'localStorage', 'googleConfirmMod', "const MY_FRIEND_CODE_KEY='tw.myFriendCode'; let _acctMethodsLast=null; const getMyLoginEmail=()=>" + JSON.stringify(logged ? 'me@gmail.com' : null) + ';\n' + fMode + '\n' + fRender + '\nreturn _acctMethodsRender;'))(doc, w, ls, gcm);
         const m = await f(keep);
         return { m, e:els };
       };
@@ -970,6 +971,14 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
       chk(R.e.acctMethods.style.display === 'block' && R.e.acctPwTitle.textContent === '비밀번호 만들기' && R.e.acctPwBtn.textContent === '비밀번호 만들기' && R.e.acctPwL1.textContent === '비밀번호' && R.e.acctMPwState.textContent === '비밀번호 없음' && R.e.acctMNote.style.display === 'block' && R.e.acctPwHint.style.display === 'none' && R.e.acctMCode.textContent === 'MATE-LOC1', '★ C3 그림: 제목·버튼 «비밀번호 만들기» · «비밀번호 없음» · 안내 줄');
       chk(R.e.acctMGoogleOk.style.display === 'inline' && R.e.acctMGoogleLink.style.display === 'none' && R.e.acctMWarn.style.display === 'none', 'C3: 구글 연결됨 · 경고 없음');
       chk(R.e.acctPw1.value === '' && R.e.acctPw1.disabled === false && R.e.acctPwMsg.style.display === 'none', '탭을 열면 입력·안내를 비운다');
+      R = await runR({ google:true, googleEmail:'minty@gmail.com', password:false }, true);
+      chk(R.e.acctMGoogleRow2.style.display === 'flex' && R.e.acctMGoogleMail.textContent === '↳ mi***@gmail.com' && R.e.acctMGoogleChange.disabled === true && R.e.acctMGoogleChangeNote.style.display === 'block',
+        '★ 🔁 C3(비밀번호 없음): 지금 구글(가린 주소) · [바꾸기] 흐림 · «먼저 비밀번호를 만들어 주세요»');
+      R = await runR({ google:true, googleEmail:'minty@gmail.com', password:true, passwordEmail:'mate-9k2m@tw.local' }, true);
+      chk(R.e.acctMGoogleRow2.style.display === 'flex' && R.e.acctMGoogleChange.disabled === false && R.e.acctMGoogleChangeNote.style.display === 'none' && R.m.googleEmail === 'minty@gmail.com',
+        '★ 🔁 C2(비밀번호 있음 · 구글 있음): [바꾸기] 누를 수 있음 · 안내 없음');
+      R = await runR({ google:false, password:true, passwordEmail:'mate-9k2m@tw.local' }, true);
+      chk(R.e.acctMGoogleRow2.style.display === 'none' && R.e.acctMGoogleChangeNote.style.display === 'none', '  🔁 구글이 없으면 주소 줄 · [바꾸기] 없음([연결하기]만)');
       R = await runR({ google:false, password:true, passwordEmail:'mate-9k2m@tw.local' }, true);
       chk(R.e.acctPwTitle.textContent === '비밀번호 바꾸기' && R.e.acctPwL1.textContent === '새 비밀번호' && R.e.acctPwL2.textContent === '새 비밀번호 확인' && R.e.acctPwHint.style.display === 'block' && R.e.acctMPwState.textContent === '연결됨' && R.e.acctMCode.textContent === 'MATE-9K2M', '★ C2 그림: «비밀번호 바꾸기» · 새 비밀번호 · 안내 · 아이디 = 로그인 이메일');
       chk(R.e.acctMWarn.style.display === 'block' && R.e.acctMGoogleLink.style.display === 'inline-block' && R.e.acctMGoogleOk.style.display === 'none', '★ C2 구글 없음: 경고 + [연결하기]');

@@ -31,7 +31,7 @@
     getAuth, signInWithCredential, GoogleAuthProvider, signInWithEmailAndPassword,
     signInAnonymously, linkWithCredential, EmailAuthProvider, reauthenticateWithCredential,
     signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged,
-    getAdditionalUserInfo, deleteUser
+    getAdditionalUserInfo, deleteUser, unlink
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { firebaseConfig, FIREBASE_ENV } from "./firebase-config.js";
   import { createGhostHeal } from "./room/room-ghost-heal.js";
@@ -54,6 +54,7 @@
   import { createRoomServerGate } from "./room/room-server-gate.js";
   import { createApiPublicReads } from "./shared/api-public-reads.js";
   import { createAccountDelete } from "./account/account-delete-net.js";
+  import { createGoogleChange } from "./account/google-change-net.js";
   /* 🔐 [회원가입 C2 · 개정 14] Cloud Functions — 함수 `changePassword` 의 리전. RTDB(databaseURL)와 같은 asia-southeast1.
      ★ 함수 SDK 는 **위에서 import 하지 않는다** — 부를 때 동적으로 들여온다(authChangePassword). 모듈 머리에 두면
        그 한 줄이 못 받아졌을 때(오프라인 첫 부팅 · 캐시 없음) 이 파일 전체가 안 돌고 로그인·동기화가 통째로 죽는다.
@@ -4201,6 +4202,8 @@
       }
     },
     async authSignOut(){ if(auth){ try{ await fbSignOut(auth); }catch(_){} } },
+    /* 🔁 구글 계정 바꾸기(같은 계정 · 구글 연결만) — 순서 · 되돌리기는 google-change-net.js */
+    authChangeGoogle: createGoogleChange({ currentUser: () => auth && auth.currentUser, credential: t => GoogleAuthProvider.credential(t), reauth: reauthenticateWithCredential, unlink, link: linkWithCredential }).change,
 
     /* 🔐 [회원가입 설계 §7-C2·C3 · 개정 14] 로그인 수단 — 계정 탭이 «구글 · 친구 코드+비밀번호» 를 보이고 비밀번호를 만들거나 바꾼다.
        ★ 이 셋은 authSignOut **뒤**에 둔다 — sim-signup 5·6·9절이 authSignInWithFriendCode ~ authSignOut 을 떼어 본다(CHECKS §36 ★).
