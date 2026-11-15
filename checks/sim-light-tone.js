@@ -102,6 +102,15 @@ const OLD_RIGS = {
   '동물 카드(animal.js — 사람 카드와 같은 빛)': { opt: { keyPos: [0, 4, 0] }, old: (M, K, F, C) => [['amb', C, 0.95 * M, null], ['dir', C, 1.0 * M * K, [0, 4, 0]], ['dir', C, M * F, [0.5, 1.0, 3]]] },
   '썸네일(part-scene.js · 배율 0.83)': { opt: { keyPos: [1, 2.5, 2], mul: 0.83, frontFill: false }, old: (M, K, F, C) => [['amb', C, 0.95 * M * 0.83, null], ['dir', C, 1.0 * M * K * 0.83, [1, 2.5, 2]]] },
 };
+/* 자리마다 실제 파일에 적힌 addRunLights 옵션 — 기대값의 opt 와 글이 같아야 한다(옵션을 바꾸면 화면이 바뀐다) */
+const SITE_CALLS = [
+  ['app.js', 'lightToneMod.addRunLights(scene, { keyPos: [0, 5, 0], backBounce: true })'],
+  ['creator/race-picker.js', 'addRunLights(rScene, { keyPos: [0, 4, 0] })'],
+  ['launcher/launcher-preview.js', 'addRunLights(lScene, { keyPos: [0, 4, 0] })'],
+  ['character/wardrobe.js', 'addRunLights(wdScene, { keyPos: [0, 5, 0], backBounce: true })'],
+  ['purikura/purikura-ui.js', 'addRunLights(PK.scene, { keyPos: [1, 2.5, 2] })'],
+  ['character/part-scene.js', 'addRunLights(_thumbScene, { keyPos: THUMB_KEY_POS, mul: THUMB_LIGHT_MUL, frontFill: false })'],
+];
 function runLights(src, core = CORE) {
   const r = [];
   const t = (ok, msg) => r.push([!!ok, msg]);
@@ -140,10 +149,12 @@ function genLights(src, ani, core = CORE) {
     if (!w) { t(false, '만들 때 던짐'); continue; }
     const P = w.out.LIGHT_PRESET;
     const cases = [[P.b, P.e], [0.8, 0.5], [0, 0.46], [2, 1]];
+    /* 기본값(b · e)에서는 옛 식과 비트까지 같아야 한다(=== — 곱하는 차례가 달라 어긋나면 여기서 잡힌다) · 나머지는 1e-9 */
+    const exact = (() => { const b = P.b, e = P.e, li = w.out.runLightInts({ int: b * e }); return li.amb === 0.95 * b * e && li.key === 1.0 * b * e * KEY_MUL && li.front === 1.0 * b * e * F; })();
     const ok = cases.every(([b, e]) => { const li = w.out.runLightInts({ int: b * e }); return near(li.amb, 0.95 * b * e) && near(li.key, 1.0 * b * e * KEY_MUL) && near(li.front, 1.0 * b * e * F); });
     const added = [], lt = w.out.addRunLights({ add: (l) => added.push(l) }, { keyPos: [0, 4, 0] });
     const shape = JSON.stringify(added.map((l) => [l.kind, l.kind === 'amb' ? null : l.pos])) === JSON.stringify([['amb', null], ['dir', [0, 4, 0]], ['dir', [0.5, 1.0, 3]]]) && lt.amb === added[0] && lt.key === added[1] && lt.front === added[2];
-    t(ok && shape, '주광 ' + M + ' · 채움 ' + F + ' — 생성기 미리보기: 밝기 · 노출(기본 ' + P.b + '×' + P.e + ' · 0 · 큰 값)마다 세기가 옛 식과 같고, 만든 빛의 종류 · 자리 · 차례도 같다');
+    t(exact && ok && shape, '주광 ' + M + ' · 채움 ' + F + ' — 생성기 미리보기: 밝기 · 노출(기본 ' + P.b + '×' + P.e + ' 은 === · 0 · 큰 값)마다 세기가 옛 식과 같고, 만든 빛의 종류 · 자리 · 차례도 같다');
     const a2 = [];
     let lt2 = null, li2 = null; try { lt2 = w.out.addRunLights({ add: (l) => a2.push(l) }, OPT); li2 = w.out.runLightInts(OPT); } catch (_) { }
     t(OPT && lt2 && JSON.stringify(a2.map((l) => [l.kind, l.intensity, l.kind === 'amb' ? null : l.pos])) === JSON.stringify([['amb', 0.95, null], ['dir', 1, [0, 4, 0]]]) && lt2.front === null && li2.amb === 0.95 && li2.key === 1,
@@ -157,7 +168,10 @@ function rigWire(app, files) {
   const t = (ok, msg) => r.push([!!ok, msg]);
   const A = strip(app);
   const iMk = A.indexOf('const lightToneMod = TwLightTone.createLightTone('), iMain = A.indexOf('lightToneMod.addRunLights(scene, { keyPos: [0, 5, 0], backBounce: true })');
-  t(iMk > 0 && iMain > iMk && A.indexOf('const _MAIN_LIGHT_COL') < iMk, 'app.js — 조명 상수 뒤에서 lightToneMod 를 만들고 메인 씬 조명은 addRunLights 하나(정수리 위 · 뒤쪽 바운스)');
+  t(iMk > 0 && iMain > iMk && A.indexOf('const _MAIN_LIGHT_COL') < iMk && A.indexOf('const _FILL_LIGHT_MUL') < iMk, 'app.js — 조명 상수 뒤에서 lightToneMod 를 만들고 메인 씬 조명은 addRunLights 하나(정수리 위 · 뒤쪽 바운스)');
+  const all = Object.assign({ 'app.js': app }, files);
+  const miss = SITE_CALLS.filter(([f, call]) => !strip(all[f] || '').includes(call)).map(([f]) => f);
+  t(!miss.length, '자리마다 적힌 addRunLights 옵션이 위 기대값의 opt 와 같다' + (miss.length ? ' — 다름: ' + miss.join(', ') : ''));
   const hand = /new THREE\.(AmbientLight|DirectionalLight)\(\s*(_MAIN_LIGHT_COL|0xbcd0ff)|_mkFrontFill/;
   t(!hand.test(A), 'app.js 는 실행 화면 빛을 손으로 만들지 않는다(_mkFrontFill 도 없음)');
   for (const [f, src] of Object.entries(files)) {
@@ -243,11 +257,14 @@ breaks.push(
   ['정면 필 자리를 옮김', (m) => m.replace('const FRONT_FILL_POS = [0.5, 1.0, 3];', 'const FRONT_FILL_POS = [0, 1.0, 3];'), null, null],
   ['정면 필을 키보다 먼저 넣음(차례)', (m) => m.replace('  target.add(key);\n', '').replace('    target.add(front);\n  }', '    target.add(front);\n  }\n  target.add(key);'), null, null],
   ['메인 씬 조명을 손으로 다시 적음', null, (a) => a + '\nscene.add(new THREE.AmbientLight(_MAIN_LIGHT_COL, 0.95 * _MAIN_LIGHT_INT));', null],
+  ['메인 씬 뒤쪽 바운스를 뺌(옵션)', null, (a) => a.replace('lightToneMod.addRunLights(scene, { keyPos: [0, 5, 0], backBounce: true })', 'lightToneMod.addRunLights(scene, { keyPos: [0, 5, 0] })'), null],
 );
 const breaksMod = [
   ['꾸미기가 앰비언트를 손으로 다시 적음', 'character/wardrobe.js', (s) => s + '\nwdScene.add(new THREE.AmbientLight(_MAIN_LIGHT_COL, 1));'],
+  ['꾸미기 키 자리를 바꿈(옵션)', 'character/wardrobe.js', (s) => s.replace('addRunLights(wdScene, { keyPos: [0, 5, 0], backBounce: true })', 'addRunLights(wdScene, { keyPos: [0, 4, 0], backBounce: true })')],
   ['스티커사진이 조명 상수를 다시 받음', 'purikura/purikura-ui.js', (s) => s.replace('const addRunLights = deps.addRunLights;', 'const addRunLights = deps.addRunLights;\nconst _MAIN_LIGHT_COL = deps.mainLightCol;')],
   ['썸네일이 addRunLights 를 안 부름', 'character/part-scene.js', (s) => s.replace(/  addRunLights\(_thumbScene, [^\n]*\n/, '')],
+  ['썸네일에 정면 필이 켜짐(옵션)', 'character/part-scene.js', (s) => s.replace(', frontFill: false })', ' })')],
 ];
 const breaksGen = [
   ['생성기 미리보기가 앰비언트를 손으로 다시 만듦', 'cp', (x) => x.replace('setCScene(new THREE.Scene());', 'setCScene(new THREE.Scene());setCAmb(new THREE.AmbientLight(0xfdfbf7,0.95));')],

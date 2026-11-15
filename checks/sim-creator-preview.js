@@ -1,7 +1,7 @@
 /* ═══ 🧍 sim-creator-preview.js — 🧍 생성기 미리보기 모듈 (2026-10-16 신설 · C 구역 떼기 · w3) ═══════════════
    app.js 의 생성기 미리보기 3D 쪽 · 생성기 조명 을 parts/creator/creator-preview.js 로 옮겼다(글자 그대로 · 바뀐 줄 111 — 읽는 · 쓰는 함수로 바꾼 자리).
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(RIG_TURN · applyCreatorXform · applyStaticHandRest · clearCreatorItems · clearCreatorParts · clearHolderDeskItems · crFlatView · creatorLoop · ensureCreatorPreview · fitCreator · frameDeskCam · swapCreatorBaseToAnimal · swapCreatorBaseToCommission · swapCreatorBaseToDefault · updateCreatorCam · updateCreatorLights)
-   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 만드는 줄 · deps 82줄 그대로 · 부르는 곳은 creatorPrevMod.이름 · html(app.js 앞)
+   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 만드는 줄 · deps 81줄 그대로 · 부르는 곳은 creatorPrevMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    ・4절: 동작 — 가짜 DOM · deps 로 모듈을 만들어 입력 → 결과(경계값 포함)를 본다
    [실행] app.js · desk-companion-prototype.html · creator-preview.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
@@ -17,6 +17,9 @@ const MOD = ["creator-preview.js","parts/creator/creator-preview.js","app/parts/
 if(!MOD){ say('  ? 원본 못 찾음 — creator-preview.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
+/* 세기는 진짜 공용 조명(shared/light-tone.js)으로 — 키 배율 1.5 · 필 배율 0.4 를 넣어 만든 것(코어는 빌드 사본) */
+const LT_CORE_SRC = ['vendor/char-core/char-core.iife.js', 'app/vendor/char-core/char-core.iife.js'].map(f => require('path').resolve(f)).find(f => fs.existsSync(f));
+const LT_KEY15_FILL04 = require(['shared/light-tone.js','parts/shared/light-tone.js','app/parts/shared/light-tone.js'].map(f => require('path').resolve(f)).find(f => fs.existsSync(f))).createLightTone({ _FILL_LIGHT_MUL: 0.4, _KEY_LIGHT_MUL: 1.5, _MAIN_LIGHT_COL: null, _MAIN_LIGHT_INT: 1, _fixGlbMatLighting: () => {}, charCore: new Function(fs.readFileSync(LT_CORE_SRC, 'utf8') + '\nreturn TwCharCore;')() });
 const FN_DEPS = ["_setDeskMatColor","_sweepOrphanPartWrappers","addRunLights","allDeskItems","bindPaint","boneSide","buildCreatorBase","buildDesk","charFootFix","clampCharY","compositeFace","equipDeskItem","extractBonesInto","getCommissionScene","instantiateBase","isAnimalEditing","isCommissionEditing","measureCharBox","measureUnderfootDepth","mkFaceTex","normalizeModel","runLightInts","sizeFloorTo","skinColorFor","toast"];
 const VAL_DEPS = ["ANIMAL_HAND_REST","CHAR_Z","COMMISSION_SCALE_CORRECTION","CREATOR_LIGHT_SL","FLAT_EMISSIVE","LIGHT_PRESET","M","cBodyCenter","cFaceCenter","camTarget","deskItemOrigin","dispTex","matToneMod"];
 const GET_DEPS = ["BASE_SCENE","FOCUS_ARM_LIFT","HAND_REST","cAmb","cBase","cBodyDist","cBotColor","cCam","cDesk","cDeskColor","cDeskMat","cFaceDist","cFill","cFloor","cKey","cRenderer","cScene","cTopColor","cXform","camDist","camPitch","camYaw","crStep","creatorOpen","deskCamSaved","faceCamSaved","skinIndex"];
@@ -130,12 +133,14 @@ function colr(){ return { r: 0, g: 0, b: 0, h: null, setHSL(h, s, l){ this.h = [
 const light = () => ({ intensity: -1, color: colr() });
 function v3(x, y, z){ return { x: x || 0, y: y || 0, z: z || 0, set(a, b, c){ this.x = a; this.y = b; this.z = c; return this; }, clone(){ return v3(this.x, this.y, this.z); }, copy(o){ this.x = o.x; this.y = o.y; this.z = o.z; return this; } }; }
 const FAKE3 = { Color: function(){ return colr(); }, Euler: function(x){ this.x = x; }, Quaternion: function(){ this.setFromEuler = (e) => { this.x = e.x; return this; }; } };
+/* 세기는 진짜 공용 조명(shared/light-tone.js)으로 — 키 배율 1.5 · 필 배율 0.4 를 넣어 만든 것 */
+const LT_KEY15_FILL04 = require(['shared/light-tone.js','parts/shared/light-tone.js','app/parts/shared/light-tone.js'].map(f => require('path').resolve(f)).find(f => fs.existsSync(f))).createLightTone({ _FILL_LIGHT_MUL: 0.4, _KEY_LIGHT_MUL: 1.5, _MAIN_LIGHT_COL: null, _MAIN_LIGHT_INT: 1, _fixGlbMatLighting: () => {} });
 function rigC(o){
   o = o || {};
   const st = Object.assign({ amb: light(), key: light(), fill: light(), base: null, step: 2, dist: 2, yaw: 0, pitch: 0, face: null, desk: null, cam: null }, o);
   const calls = [];
   const target = v3(0, 1, 0);
-  const over = { LIGHT_PRESET: { b: 0.8, h: 0.1, e: 0.5 }, CREATOR_LIGHT_SL: { s: 0.3, l: 0.7 }, runLightInts: (o) => ({ amb: 0.95 * o.int, key: o.int * 1.5, front: o.int * 0.4, got: o }), FLAT_EMISSIVE: 0.35,
+  const over = { LIGHT_PRESET: { b: 0.8, h: 0.1, e: 0.5 }, CREATOR_LIGHT_SL: { s: 0.3, l: 0.7 }, runLightInts: LT_KEY15_FILL04.runLightInts, FLAT_EMISSIVE: 0.35,
     HAND_REST: () => -1.0, ANIMAL_HAND_REST: -0.3, FOCUS_ARM_LIFT: () => 0.25,
     cAmb: () => st.amb, cKey: () => st.key, cFill: () => st.fill, cBase: () => st.base, cCam: () => st.cam, crStep: () => st.step,
     camTarget: target, camDist: () => st.dist, camYaw: () => st.yaw, camPitch: () => st.pitch,

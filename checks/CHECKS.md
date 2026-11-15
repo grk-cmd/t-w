@@ -182,7 +182,7 @@
 | **sim-pl-watchdog.js** | 412 | **4658ffafbd00** |
 | **sim-premium-desk.js** | 96 | **9911af6ac156** |
 | **sim-presence.js** | 243 | **3f5b1eb57bdc** |
-| **sim-light-tone.js** | 281 | **2240049cb22b** |
+| **sim-light-tone.js** | 298 | **bc6aba412db9** |
 | **sim-paint-geom.js** | 107 | **0c187cb7b3d7** |
 | **sim-seat-friend-req.js** | 117 | **89a8bcf81a45** |
 | **sim-seat-menu.js** | 167 | **8e644bfd709d** |
@@ -248,7 +248,7 @@
 | **sim-creator-flow.js** | 196 | **24a3d06e5a4e** |
 | **sim-creator-save.js** | 230 | **ade3bb959cfc** |
 | **sim-commission-import.js** | 190 | **6c80a45a1abe** |
-| **sim-creator-preview.js** | 202 | **e7a2ed87c50e** |
+| **sim-creator-preview.js** | 207 | **fd0e918c7967** |
 | **sim-hover-poke.js** | 198 | **73e0f75e139b** |
 | **sim-pen-forward.js** | 140 | **ba3019815647** |
 | sim-village-addr.js | 53 | f72ef601abbb |
