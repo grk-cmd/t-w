@@ -34,7 +34,7 @@ function fakeDb(init){
   const db = {
     data, get, writes: 0,
     ref: (p = '') => ({
-      get: async () => ({ val: () => (p ? get(p) : data) }),
+      get: async () => { const at = JSON.parse(JSON.stringify(p ? get(p) : data)); return { val: () => at }; },   // 읽은 그 순간 값(진짜 RTDB 처럼 — 늦게 읽으면 동시 요청의 경쟁이 가려진다)
       update: async (w) => { db.writes++; for (const [k, v] of Object.entries(w)) set((p ? p + '/' : '') + k, v); },
       remove: async () => set(p, null),
       transaction: async (fn) => {
