@@ -349,7 +349,7 @@
 | **sim-dice-games.js** | 95 | **1debed57a729** |
 | **sim-program-settings.js** | 148 | **63ad8f3b844f** |
 | **sim-chat-prefs.js** | 95 | **26c68ca8bbfe** |
-| **sim-chat-read-on-send.js** | 245 | **83b6956e4f43** |
+| **sim-chat-read-on-send.js** | 261 | **6a90d4b2c955** |
 | **sim-rich-text.js** | 95 | **c8ee332ad595** |
 | **sim-win-stack.js** | 145 | **0137e9fde6ef** |
 | **sim-sfx.js** | 96 | **d24a22a1d75f** |

@@ -218,6 +218,21 @@ async function judgeAll(src){
       t(badge.textContent === '1', '7-2 다시 받으면 숫자로 돌아온다');
     } finally { console.warn = w0; }
   }
+  /* 7-3 — 채널 탭 숫자도 같다: 못 받으면 «?» · 다시 받으면 숫자 · 보는 탭 · 아직 안 받은 탭에는 «?» 가 없다 */
+  {
+    const w0 = console.warn; console.warn = () => {};
+    try{
+      const w = world(src, { store: { 'tw_chat_read:R1': 'T1000:-A', 'tw_chat_read:R1#s1': 'T1000:-A', 'tw_chat_join:R1': '' } });
+      w.ui.openChatWindow();
+      const tabSub = w.subs.filter((s) => !s.off && s.tab === 's1').pop();
+      const bar = () => String(w.els.chatTabs && w.els.chatTabs.innerHTML);
+      t(!!tabSub && !/ct-unread/.test(bar()), '7-3 아직 안 받은 탭에는 안 읽은 표시가 없다(? 도 숫자도 아님)');
+      tabSub.onFail(new Error('503'));
+      t(/ct-unread"[^>]*>\?</.test(bar()), '7-4 ★ 탭 구독이 실패하면 그 탭에 «?» 가 보인다');
+      tabSub.cb([{ id: '-A', ts: 1000, uid: 'u-x', name: '친구', text: '전' }, { id: '-D', ts: 2100, uid: 'u-x', name: '친구', text: '새 글' }]);
+      t(/ct-unread">1</.test(bar()) && !/\?</.test(bar()), '7-5 다시 받으면 «?» 가 숫자로 돌아온다');
+    } finally { console.warn = w0; }
+  }
   return r;
 }
 
@@ -226,6 +241,7 @@ async function judgeAll(src){
   rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1~5. 실제로 돌려 보기'); chk(ok, msg); });
   say('── 7. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
   const breaks = [
+    ['탭 실패를 «?» 로 그리지 않음', (s) => s.replace("const unk = t.id !== cur && _chatTabUnread[t.id] === null;", 'const unk = false;')],
     ['뱃지 실패를 알리지 않음(0 으로 보임)', (s) => s.replace("e => { console.warn('[대화] 안 읽은 수를 못 불러와 «?» 로 보여요', e); _setChatBadge(null); }", 'undefined')],
     ['기록을 못 열면 최근 줄 구독으로 돌림(예전 갈래)', (s) => s.replace('catch(e){ histFail(e); }', 'catch(e){ chatNet.subscribeLog(room, _onList, undefined, tab); }')],
     ['보낸 뒤 읽음 저장 빼기(예전)', (s) => s.replace('if(r && r.ok) _chatMarkSentRead(sendKey, r);', '')],
