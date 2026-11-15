@@ -18,7 +18,7 @@ const { analyze } = require(SCRIPT);
 
 const APP = 'app/parts/app.js', MOD = 'app/parts/room/x.js';
 const rows = (file, lines, from = 1) => lines.map((text, i) => ({ file, no: from + i, text }));
-const run = (removed, added, head = {}, base = {}) => analyze(removed, added, { headText: (f) => head[f] || null, baseText: (f) => base[f] || null });
+const run = (removed, added, head = {}, base = {}) => { const h = { [APP]: '  n: ()=>n,\n', ...head }; return analyze(removed, added, { headText: (f) => h[f] || null, baseText: (f) => base[f] || null }); };
 const kinds = (r) => Object.keys(r.kinds).sort().join(',');
 
 say('1. analyze(순수 함수)');
@@ -70,6 +70,30 @@ say('1. analyze(순수 함수)');
   chk(r5.violations.length === 0 && r6.violations.length === 1, 'html 은 script src 한 줄만 허용');
 }
 
+{
+  /* 숨기면 안 되는 고침 — 모두 허용 밖이어야 한다 */
+  const bad = (name, removed, added, head) => { const r = run(removed, added, head); chk(r.violations.length >= 1, '깨 보기: ' + name + ' → 허용 밖'); };
+  bad('deps 로 받았지만 읽는 함수가 아닌 이름의 함수 참조 → 호출', rows(APP, ['el.onclick = handler;']), rows(MOD, ['const handler = deps.handler;', 'el.onclick = handler();']));
+  bad('함수 참조 → xMod.go() 호출', rows(APP, ['el.onclick = go;']), rows(APP, ['el.onclick = xMod.go();'], 10));
+  bad('부르는 모듈 바꿈(aMod.f → bMod.f)', rows(APP, ['aMod.f(1);']), rows(APP, ['bMod.f(1);'], 10));
+  bad('밑줄 이름 → 다른 변수(_count → count)', rows(APP, ['_count = 5;']), rows(MOD, ['count = 5;']));
+  bad('밑줄 함수 → 다른 함수(_go → go)', rows(APP, ['_go(1);']), rows(MOD, ['go(1);']));
+  bad('가드 뜻 뒤집기(=== && 걷기)', rows(APP, ["if(typeof X === 'undefined' && X.f) f();"]), rows(MOD, ['if(X.f) f();']));
+  bad('가드 뜻 뒤집기(!== || 걷기)', rows(APP, ["if(typeof X !== 'undefined' || X.f) f();"]), rows(MOD, ['if(X.f) f();']));
+  bad('typeof 가드를 새로 더함', rows(APP, ['if(P.f) f();']), rows(MOD, ["if(typeof P!=='undefined' && P.f) f();"]));
+  bad('코드 뒤에 주석이 붙은 줄을 끼움', [], rows(MOD, ['leak(); /* 설명 */']));
+  bad('주석 앞에 코드가 붙은 줄', [], rows(MOD, ['/* 설명 */ leak();']));
+  bad('deps 줄 뒤에 코드를 붙임', [], rows(MOD, ['const a = deps.a; leak();']));
+  bad('다른 이름으로 deps 를 받음', [], rows(MOD, ['const a = deps.b;']));
+  bad('window.TwX 줄 뒤에 코드를 붙임', [], rows(MOD, ['window.TwX = { createX }; leak();']));
+  bad('window 에 새 전역 쓰기', [], rows(APP, ['window.isAdmin = true;'], 3), { [APP]: 'a\nb\nc\n' });
+  bad('한 줄짜리 만드는 줄 다음의 코드', [], rows(APP, ['leak();'], 2), { [APP]: 'const xMod = TwX.createX(opts);\nleak();\n});\n' });
+  bad('연결 블록 안에 문장을 끼움', [], rows(APP, ['  leak();'], 2), { [APP]: 'const xMod = TwX.createX({\n  leak();\n});\n' });
+  bad('return 블록 밑(꼬리 뒤)에 코드를 끼움', [], rows(MOD, ['leak();'], 5), { [MOD]: 'x\nreturn {\n  f,\n};\nleak();\n' });
+  const ok = analyze([], rows(MOD, ['setSizeFactor: (v)=>{ sizeFactor = v; },'], 3), { headText: (f) => (f === MOD ? 'x\nreturn {\n  setSizeFactor: (v)=>{ sizeFactor = v; },\n};\n' : null), baseText: () => null });
+  chk(ok.violations.length === 0, '모듈 꼬리의 쓰는 함수 칸 → scaffold');
+}
+
 say('2. 임시 git 저장소(진짜 diff · 종료 코드)');
 const sh = (cwd, cmd, args) => spawnSync(cmd, args, { cwd, encoding: 'utf8' });
 const gitc = (cwd, ...a) => sh(cwd, 'git', ['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', ...a]);
@@ -81,10 +105,12 @@ function repo(){
   gitc(d, 'add', '-A'); gitc(d, 'commit', '-qm', 'base');
   return d;
 }
-function moved(d, modLines, appLines){
+function moved(d, modLines, appLines, extra){
   fs.writeFileSync(path.join(d, MOD), modLines.join('\n') + '\n');
   fs.writeFileSync(path.join(d, APP), appLines.join('\n') + '\n');
-  fs.writeFileSync(path.join(d, 'checks.txt'), 'sim 같은 줄을 안 보는 파일\n');
+  fs.mkdirSync(path.join(d, 'checks'), { recursive: true });
+  fs.writeFileSync(path.join(d, 'checks/sim-x.txt'), 'sim 같은 줄을 안 보는 파일\n');
+  if (extra) fs.writeFileSync(path.join(d, extra), 'x\n');
   gitc(d, 'add', '-A'); gitc(d, 'commit', '-qm', 'move');
   const r = sh(d, 'node', [SCRIPT, 'HEAD~1', 'HEAD']);
   return { code: r.status, out: r.stdout + r.stderr };
@@ -114,6 +140,13 @@ const WIRE = ['let n = 0;', 'const xMod = TwX.createX({', '  n: ()=>n,', '});', 
   const d = repo();
   const r = moved(d, [...HEAD, 'function a(x){', '  return x + 1;', '}', 'function b(){', '  return n() + a(2);', '}', ...TAIL], ['let n = 0;', 'const xMod = TwX.createX({', '  n: ()=>n,', '});', 'start(); leak();']);
   chk(r.code === 1 && /leak/.test(r.out), '깨 보기: app.js 에 끼워 넣은 줄 → 종료 1');
+  fs.rmSync(d, { recursive: true, force: true });
+}
+
+{
+  const d = repo();
+  const r = moved(d, [...HEAD, 'function a(x){', '  return x + 1;', '}', 'function b(){', '  return n() + a(2);', '}', ...TAIL], WIRE, 'main.js');
+  chk(r.code === 1 && /main\.js/.test(r.out), '깨 보기: app 밖 파일(main.js)이 같이 바뀜 → 종료 1 · 파일 이름이 목록에');
   fs.rmSync(d, { recursive: true, force: true });
 }
 
