@@ -1,5 +1,19 @@
-import { notPorted } from '@/shared/api';
+// API 판 — 설정 키 `app.minVersion` · `room.minVersion`(문자열 또는 null). 서버가 «공개된 최신 릴리스보다 높으면» 거절한다.
+import { opsConfigClient, type Api } from '@/shared/api';
+import type { MinVersionKind } from '../model/minVersion';
 import type { MinVersionPort } from './port';
 
-// API 판은 D12-1b 에서 — 그때까지 부르면 «아직 API 판이 없어요».
-export const createServerMinVersionPort = (): MinVersionPort => notPorted('min-version');
+const KEY: Record<MinVersionKind, string> = { room: 'room.minVersion', app: 'app.minVersion' };
+
+export function createServerMinVersionPort(api: Api | null): MinVersionPort {
+  const config = opsConfigClient(api);
+  return {
+    async get(kind) {
+      const { effective } = await config.read(KEY[kind]);
+      return typeof effective === 'string' ? effective : null;
+    },
+    async save(kind, version) {
+      await config.update(KEY[kind], () => version.trim());
+    },
+  };
+}

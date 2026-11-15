@@ -3,7 +3,7 @@ import { useState } from 'react';
 import {
   flagConfirmText,
   SIGNUP_FLAG_META,
-  SIGNUP_FLAGS,
+  useSignupFlagPort,
   useSignupFlags,
   type SignupFlag,
 } from '@/entities/signup-flag';
@@ -19,6 +19,7 @@ export function SignupFlagsCard() {
   const env = useEnv();
   const { data: flags, error, isPending } = useSignupFlags();
   const save = useSetSignupFlag();
+  const { flags: shown } = useSignupFlagPort();
   const [message, setMessage] = useState<Message>(null);
 
   const toggle = (flag: SignupFlag, value: boolean) => {
@@ -43,7 +44,7 @@ export function SignupFlagsCard() {
       {error ? (
         <p className="msg err">{errorMessage(error, '불러오기 실패')}</p>
       ) : (
-        SIGNUP_FLAGS.map((flag) => {
+        shown.map((flag) => {
           const m = SIGNUP_FLAG_META[flag];
           return (
             <div key={flag} className={styles.item}>

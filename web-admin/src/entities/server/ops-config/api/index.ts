@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { pickBackend, useDb } from '@/shared/api';
+import { pickBackend, useApi, useDb } from '@/shared/api';
 import { createFirebaseOpsConfigPort } from './firebase';
 import type { OpsConfigPort } from './port';
 import { createServerOpsConfigPort } from './server';
@@ -7,14 +7,15 @@ import { createServerOpsConfigPort } from './server';
 /** 이 빌드의 판이 만든 «서버 운영 설정» 포트. */
 export function useOpsConfigPort(): OpsConfigPort {
   const db = useDb();
+  const api = useApi();
   return useMemo(
     () =>
       pickBackend<OpsConfigPort>({
         firebase: () => createFirebaseOpsConfigPort(db),
-        api: () => createServerOpsConfigPort(),
+        api: () => createServerOpsConfigPort(api),
       }),
-    [db],
+    [db, api],
   );
 }
 
-export type { OpsConfigPort } from './port';
+export type { MaintenanceControl, OpsConfigPort, OpsGroups, ServerLimitsControl } from './port';

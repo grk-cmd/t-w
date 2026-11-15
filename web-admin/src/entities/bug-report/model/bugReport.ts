@@ -2,7 +2,8 @@
 export interface BugReport {
   notice: string;
   link?: string;
-  ts: number;
+  /** 저장 시각 — Firebase 판만 준다(서버 설정 키에는 없다). */
+  ts?: number;
 }
 
 export const BUG_NOTICE_MAX = 600; // 규칙 bugReport/current .validate

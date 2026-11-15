@@ -1,6 +1,7 @@
 // Firebase 판 — 지금 코드 그대로: config/ 아래 운영 설정(정수 묶음 · 로그 수준 · CORS 출처)을 읽고 쓴다.
 import { withAudit, type AuditAction, type Db } from '@/shared/api';
 import {
+  API_CACHE,
   API_CORS_PATH,
   intGroupDetail,
   logLevelDetail,
@@ -8,6 +9,8 @@ import {
   parseCorsOrigins,
   parseIntGroup,
   parseLogLevels,
+  ROOM_FRAME,
+  ROOM_TIMING,
   type IntGroup,
   type IntValues,
   type LogLevel,
@@ -73,6 +76,9 @@ export function saveCorsOrigins(db: Db, before: string[], next: string[]): Promi
 
 export function createFirebaseOpsConfigPort(db: Db): OpsConfigPort {
   return {
+    groups: { apiCache: API_CACHE, roomFrame: ROOM_FRAME, roomTiming: ROOM_TIMING },
+    maintenance: null,
+    serverLimits: null,
     getIntGroup: (group) => getIntGroup(db, group),
     getLogLevels: () => getLogLevels(db),
     getCorsOrigins: () => getCorsOrigins(db),
