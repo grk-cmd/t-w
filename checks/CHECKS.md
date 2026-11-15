@@ -152,7 +152,7 @@
 | **sim-part-equip.js** | 134 | **2bfa1e861e1b** |
 | **sim-room-parity.js** | 111 | **737a33966e0d** ← **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 119 신규 · 🛰 방 짝 맞추기(정적) — app.js 가 방에 싣는 칸 ⊆ MEMBER_FIELDS ∪ {def, userId, chat, chatTab} · Firebase provider 메서드 ⊆ 서버 provider 메서드**
 | **sim-room-live-def.js** | 163 | **1f2b03e043c4** |
-| **sim-app-version.js** | 276 | **b17c563a0f2a** |
+| **sim-app-version.js** | 276 | **3b81e80eb540** |
 | **sim-update-flow.js** | 454 | **a05cced37048** |
 | **sim-maintenance-gate.js** | 364 | **1b59285f3272** |
 | **sim-invite-revoke.js** | 100 | **c6ce8535f35b** |
@@ -397,8 +397,8 @@
 | **sim-license-key.js** | 134 | **f1b85394a9e8** |
 | **sim-license-screen.js** | 418 | **6dfd3086a425** |
 | **sim-asset-code.js** | 96 | **1442b5b5b793** |
-| **sim-myhome-init.js** | 215 | **f893763763be** |
-| **sim-presence-lock.js** | 292 | **9bf0160d6cd7** |
+| **sim-myhome-init.js** | 220 | **b0976ab1e914** |
+| **sim-presence-lock.js** | 315 | **8afb8b1c0fd3** |
 | **sim-parts-paths.js** | 85 | **a1a5e4e7a80e** |
 | **sim-global-names.js** | 236 | **4da03342e299** |
 | **sim-guestbook-api.js** | 246 | **e73b45be2855** |

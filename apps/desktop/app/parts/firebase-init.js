@@ -199,7 +199,6 @@
      버전보다 presence 가 먼저 쓰였으면 받은 뒤 ver 만 update 하고 onDisconnect 도 ver 를 실어 다시 건다. */
   const _appVer = createAppVersion({
     getVersion: () => (window.companion && window.companion.getAppVersion) ? window.companion.getAppVersion() : null,
-    onReady: (ver) => { if(_presenceLive) _presenceLive.onVersion(ver); },
   });
   /* 🔌 내 접속 표시 한 벌 — 온라인 · 방 · 쓴 적 있음 · 구독 · ref 를 전부 이 객체가 쥔다(모듈 전역 없음).
      @param startOnline 처음 온라인 여부(Promise · 고정값을 읽은 뒤) — 첫 쓰기는 이것이 풀린 뒤에만, «오프라인 고정» 인데 «온라인» 이 한 번 보이지 않게. 없으면 온라인.
@@ -307,6 +306,7 @@
         try{ set(ref_, _appVer.withVer({ online:false, lastSeen: Date.now(), room:null, inRoom:false })).then(cancel, ()=>{}); }catch(_){}
       },
     };
+    _appVer.ready.then(v => { if(v) p.onVersion(v); });   // 버전이 presence 보다 늦게 오면 이 객체가 직접 받아 메운다(전역 포인터를 거치지 않는다)
     _presenceLive = p;
     return p;
   }

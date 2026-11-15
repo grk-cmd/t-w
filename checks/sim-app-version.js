@@ -69,7 +69,7 @@ const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nr
     chk(!/ref\(db,\s*`users\/\$\{[^}]+\}\/presence`\)\s*,/.test(CODE.replace(/get\(ref\(db,\s*`users\/\$\{[^}]+\}\/presence`\)\)/g, '')) && (CODE.match(/users\/\$\{[^}]+\}\/presence`/g) || []).length === 1,
       '  ↳ 접속 표시 ref 는 객체를 만드는 한 곳(ref_)뿐 — 거치지 않고 presence 를 직접 쓰는 곳은 없다');
     chk((FN.match(/st\.written = true;/g) || []).length === 2, '  ↳ 처음 쓰기 · 토글에서 «썼다» 표시');
-    chk(/onReady: \(ver\) => \{ if\(_presenceLive\) _presenceLive\.onVersion\(ver\); \},/.test(CODE), '★ 버전이 늦게 오면 — 지금 접속 표시 객체에게 알린다');
+    chk(/_appVer\.ready\.then\(v => \{ if\(v\) p\.onVersion\(v\); \}\);/.test(FN) && !/onReady/.test(CODE.slice(CODE.indexOf('const _appVer = createAppVersion('), CODE.indexOf('function _createMyPresence('))), '★ 버전이 늦게 오면 — 객체가 직접 받아 메운다(전역 포인터를 거치지 않는다)');
     const ready = (FN.match(/onVersion\(ver\)\{([\s\S]*?)\n      \},/) || [])[1] || '';
     chk(/if\(st\.dead \|\| !st\.written\) return;/.test(ready), '  ↳ presence 를 이미 썼을 때만 메운다(풀린 객체는 안 쓴다)');
     chk(/update\(ref_, \{ ver \}\)/.test(ready), '  ↳ ver 만 update(부분 쓰기 — online · room 은 그대로)');

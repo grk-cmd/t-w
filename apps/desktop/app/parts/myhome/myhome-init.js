@@ -28,6 +28,7 @@ const friendRequests = deps.friendRequests;   // 👋 친구 요청 포트(frien
 const friendsSub = deps.friendsSub;   // 👥 친구 목록 구독 한 벌(friends-sub.js) — 상태 · 자동 다시 걸기
 const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
+const getRoomCode = deps.getRoomCode;   // 지금 들어가 있는 방 코드(없으면 null) — 접속 표시를 만들 때 한 번 싣는다
 const inboxMod = deps.inboxMod;   // 읽는 함수
 const mailFeed = deps.mailFeed;   // 📩 내 우편 한 벌(mail-feed.js)
 const noticeFeed = deps.noticeFeed;   // 📢 공지 한 판(notice-feed.js)
@@ -94,6 +95,8 @@ async function initMyHome(code, me, session){
          객체 안에 계정 상태가 다 있어 계정 사이에 공유하는 값이 없다 — dispose 를 빠뜨리면 다음 계정이 만들 때 경고가 뜬다(firebase-init.js) */
       const presence = firebaseAPI.createMyPresence(myId, presenceLock.startOnlineFor(myId, me));   // 🔒 첫 쓰기는 고정값을 앉힌 뒤(presence-lock.js)
       session.presence = presence;
+      const room = getRoomCode();   // 접속 표시가 만들어지기 전에(느린 망) 이미 방에 들어갔으면 입장 알림은 지나갔다 — 지금 방을 싣는다
+      if(room) presence.setRoom(room);
       session.setInterval(()=>presence.touch(), PRESENCE_TOUCH_MS);
       session.onReset(()=>presence.dispose());
       /* 🖥️ 한 계정 한 기기 — 0.13 은 realtime 연결의 hello claim 이 정한다(login-flow.js goOnline · 밀리면 device-lost.js). */

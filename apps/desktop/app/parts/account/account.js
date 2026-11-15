@@ -233,8 +233,9 @@ function _wipeAccountLocal(){
    접속 표시 객체가 없을 수 있다 — 강제 로그아웃은 검문(«네트워크 없음»)에 걸려도 여기까지 온다. */
 const PRESENCE_OFF_WAIT_MS = 3000;   // 오프라인이면 쓰기가 안 끝난다 — 로그아웃을 이만큼만 붙잡는다
 function _presenceOff(){
+  if(sessionLost()) return Promise.resolve();   // 밀려난 기기는 쓰지 않는다 — 그 칸은 이긴 쪽 것
   const pr = getPresence();
-  if(!pr || sessionLost()) return Promise.resolve();
+  if(!pr){ console.warn('[접속 표시] 로그아웃 «꺼짐» 쓰기를 건너뛰었어요 — 지금 세션에 접속 표시가 없어요(세션 없음 · 마이홈 처음 준비 전)'); return Promise.resolve(); }
   let p = null;
   try{ p = pr.setState(false); }catch(_){}
   return Promise.race([Promise.resolve(p).catch(() => {}), new Promise(r => setTimeout(r, PRESENCE_OFF_WAIT_MS))]);

@@ -16,7 +16,7 @@ const P = (...a) => path.join(ROOT, ...a);
 const find = (rel) => fs.existsSync(P(rel)) ? P(rel) : path.join(__dirname, path.basename(rel));
 const A = 'apps/desktop/app/';
 const need = [A + 'parts/myhome/presence-lock.js', A + 'parts/firebase-init.js', A + 'desk-companion-prototype.html', A + 'parts/app.js',
-  A + 'parts/myhome/myhome-init.js', A + 'parts/myhome/myhome-ui.js', A + 'parts/shared/error-codes.js', 'firebase/firebase-database-rules.json', 'checks/smoke.js'];
+  A + 'parts/myhome/myhome-init.js', A + 'parts/myhome/myhome-ui.js', A + 'parts/account/account.js', A + 'parts/shared/error-codes.js', 'firebase/firebase-database-rules.json', 'checks/smoke.js'];
 const SRC = {};
 for(const r of need){ const f = find(r); if(!fs.existsSync(f)){ console.log('  ? 원본 못 찾음 — ' + r); process.exit(2); } SRC[r] = fs.readFileSync(f, 'utf8'); }
 const MOD = SRC[A + 'parts/myhome/presence-lock.js'], FBI = SRC[A + 'parts/firebase-init.js'];
@@ -234,7 +234,7 @@ async function gate(fbi){
     chk(iL > 0 && iA > iL, 'html — presence-lock.js 가 app.js 보다 먼저');
     chk((AP.match(/const presenceLockMod = TwPresenceLock\.createPresenceLock\(\{/g) || []).length === 1 && AP.indexOf('const presenceLockMod') < AP.indexOf('const mhInitMod')
       && /savePref: \(uid, p\)=>loginFlowMod\.patchMe\(\{ presencePref: \{ locked: p\.lock, online: p\.online \} \}\)\.then\(\(r\)=>\{ if\(!r\.ok\) throw r\.err; \}\),/.test(AP)
-      && /setPresence: \(\.\.\.a\)=>setMyPresenceState\(\.\.\.a\),/.test(AP) && /const setMyPresenceState = \(uid, online\)=>\{ const p = myPresence\(\); if\(p\) p\.setState\(online\); \};/.test(AP)
+      && /setPresence: \(\.\.\.a\)=>setMyPresenceState\(\.\.\.a\),/.test(AP)
       && /  setVisible: \(v\)=>presenceSelfMod\.setVisible\(v\),\n  startVisible: \(v\)=>presenceSelfMod\.start\(v\),/.test(AP) && AP.indexOf('const presenceSelfMod') < AP.indexOf('const presenceLockMod') && /  presenceLock: presenceLockMod,\n/.test(AP), 'app.js — 마이홈 처음 준비보다 먼저 만들고 deps 로 넘긴다');
     chk(/firebaseAPI\.createMyPresence\(myId, presenceLock\.startOnlineFor\(myId, me\)\);/.test(INIT), 'myhome-init — 처음 온라인 여부를 접속 표시를 만들 때 넘긴다(확인의 me 로)');
     chk(!/mhPresenceToggle/.test(UI) && !/setMyPresenceState/.test(UI), 'myhome-ui — 옛 토글 연결을 걷었다(두 벌이면 한 번 누름에 두 번 바뀐다)');
@@ -245,6 +245,29 @@ async function gate(fbi){
       '규칙 — 로그인한 본인만 읽기 · 쓰기(친구가 «숨긴 오프라인» 을 못 알아보게) · 세 칸 · 다른 칸 거부');
     chk(/'E-MH-13': \{ msg: '[^']+', where: 'myhome\/presence-lock\.js/.test(SRC[A + 'parts/shared/error-codes.js']), '오류 번호 E-MH-13 가 표에 있다');
     chk(SRC['checks/smoke.js'].indexOf("PRELOAD.push('presence-lock.js');") > 0, 'smoke PRELOAD 에 presence-lock.js');
+  }
+
+  say('── 4-2. 접속 표시 객체가 없을 때 — 조용히 버리지 않고 경고한다(app.js 길 · account.js «꺼짐»)');
+  {
+    const AP = SRC[A + 'parts/app.js'], AC = SRC[A + 'parts/account/account.js'];
+    const line = (head) => (AP.split('\n').find(l => l.startsWith(head)) || '');
+    const L = [line('const myPresence = '), line('const setMyPresenceState = '), line('const setMyPresenceRoom = ')];
+    const run = (lines, sess) => {
+      const warns = [], got = [];
+      const f = new Function('appBoot', 'console', lines.join('\n') + '\nreturn { setMyPresenceState, setMyPresenceRoom };');
+      const m = f({ getSession: () => sess }, { warn: (x) => warns.push(String(x)) });
+      m.setMyPresenceState('u', false); m.setMyPresenceRoom('COZY-1');
+      return { warns, got };
+    };
+    const pr = []; const p = { setState: (v) => pr.push('state:' + v), setRoom: (c) => pr.push('room:' + c) };
+    const okRun = L.every(Boolean) ? run(L, { presence: p }) : null;
+    chk(!!okRun && pr.join() === 'state:false,room:COZY-1' && okRun.warns.length === 0, '객체가 있으면 지금 세션의 객체로 간다(토글 · 방) — 경고 없음');
+    const noSess = L.every(Boolean) ? run(L, null) : null, noObj = L.every(Boolean) ? run(L, {}) : null;
+    chk(!!noSess && noSess.warns.length === 2 && noSess.warns.every(w => /접속 표시/.test(w)) && !!noObj && noObj.warns.length === 2, '★ 세션이 없거나 마이홈 처음 준비 전(객체 없음)이면 토글 · 방 쓰기를 버리며 경고한다(조용히 버리지 않는다)');
+    const mute = L.map(l => l.replace(/console\.warn\([^;]*\); /, ''));
+    const quiet = run(mute, null);
+    chk(mute.join() !== L.join() && quiet.warns.length === 0, '  깨 보기 — 경고를 빼면 위 ★ 가 빨강(경고 없이 버리는 모양이 판정에 잡힌다)');
+    chk(/function _presenceOff\(\)\{\n  if\(sessionLost\(\)\) return Promise\.resolve\(\);[^\n]*\n  const pr = getPresence\(\);\n  if\(!pr\)\{ console\.warn\('\[접속 표시\][^\n]*return Promise\.resolve\(\); \}/.test(AC), '로그아웃 «꺼짐» 쓰기도 객체가 없으면 경고하고 건너뛴다(밀려난 기기만 조용히 건너뜀 — 그 칸은 이긴 쪽 것)');
   }
 
   say('── 5. 깨 보기');

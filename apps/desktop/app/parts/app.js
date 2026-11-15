@@ -2053,8 +2053,9 @@ const presenceSelfMod = TwPresenceSelf.createPresenceSelf({   // 내 접속 표�
 });
 /* 🔌 지금 로그인 세션의 Firebase 접속 표시 한 벌(firebase-init createMyPresence — 마이홈 처음 준비가 만들어 세션에 건다). 세션이 없거나 아직 안 만들었으면 null */
 const myPresence = ()=>{ const s = appBoot.getSession(); return s ? s.presence : null; };
-const setMyPresenceState = (uid, online)=>{ const p = myPresence(); if(p) p.setState(online); };   // 친구 탭 온라인 토글 — 세션이 없거나 마이홈 처음 준비가 아직 안 걸었으면 쓸 곳이 없다
-const setMyPresenceRoom = (code)=>{ const p = myPresence(); if(p) p.setRoom(code); };   // 친구 목록의 «방 안» 표시
+/* 접속 표시 객체가 없으면(세션이 없거나 마이홈 처음 준비가 아직 안 걸었음) 쓸 곳이 없다 — 조용히 넘기지 않고 경고한다(검사 sim-presence-lock) */
+const setMyPresenceState = (uid, online)=>{ const p = myPresence(); if(!p){ console.warn('[접속 표시] 온라인 토글을 버렸어요 — 지금 세션에 접속 표시가 없어요(세션 없음 · 마이홈 처음 준비 전)'); return; } p.setState(online); };   // 친구 탭 온라인 토글
+const setMyPresenceRoom = (code)=>{ const p = myPresence(); if(!p){ console.warn('[접속 표시] 방 표시를 버렸어요 — 지금 세션에 접속 표시가 없어요(세션 없음 · 마이홈 처음 준비 전)'); return; } p.setRoom(code); };   // 친구 목록의 «방 안» 표시
 /* 🔒 친구 탭 온라인 토글 · 고정 — 처음 접속 표시는 마이홈 처음 준비가 계정 확인의 me 로 부른다 */
 const presenceLockMod = TwPresenceLock.createPresenceLock({
   getMyUserId: (...a)=>getMyUserId(...a),
@@ -2101,6 +2102,7 @@ const mhInitMod = TwMyHomeInit.createMyHomeInit({
   myHomeOpen: ()=>myHomeOpen,
   noticeFeed: noticeFeed,
   presenceLock: presenceLockMod,
+  getRoomCode: (...a)=>Presence.roomCode(...a),   // 접속 표시를 만들 때 이미 들어가 있는 방 코드(room-entry onJoined 는 입장 때 한 번뿐)
   toast: (...a)=>toast(...a),
   setMyFriendRequests: (v)=>{ _myFriendRequests = v; },
   setMyHomeFriends: (v)=>{ _myHomeFriends = v; },
