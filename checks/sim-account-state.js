@@ -53,9 +53,8 @@ function judge(mod, html, files, app) {
     st.markLeft('logout'); r.left = r.left && store['tw.leftNotice'] === 'logout' && st.takeLeft() === '로그아웃했어요' && !('tw.leftNotice' in store) && st.takeLeft() === null;
     st.markLeft('withdraw'); r.left = r.left && st.takeLeft() === '탈퇴했어요' && st.takeLeft() === null;
     let thr = false; try{ st.markLeft('gone'); }catch(_){ thr = true; }
-    store['tw.leftNotice'] = '몰라'; const w0 = console.warn; let warned = 0; console.warn = () => { warned++; };
-    const unk = st.takeLeft(); console.warn = w0;
-    r.left = r.left && thr && !('tw.leftNotice' in store) && unk === null && warned === 1;
+    store['tw.leftNotice'] = '몰라'; let unk = false; try{ st.takeLeft(); }catch(_){ unk = true; }
+    r.left = r.left && thr && unk && !('tw.leftNotice' in store) && st.takeLeft() === null;   // 모르는 값은 지우고 던진다 — 다음 켜기엔 또 던지지 않는다
   } catch (e) { r.err = String(e && e.message || e); }
   const order = [...html.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<script\b[^>]*\bsrc="parts\/([^"]+\.js)"/g)].map(m => m[1]);
   const at = order.indexOf('account/account-state.js');
@@ -83,7 +82,7 @@ chk(R.first && R.quiet, '프리미엄 «모름» — 확인 전 premiumKnown 은
 chk(R.prem && R.premSame, '프리미엄 — 같은 값이면 알림 없음 · 바뀌면 건 차례대로 한 번 · 값은 쓰는 함수로');
 chk(R.detach, '신원 놓음 — 처음 false · 쓰는 함수로 올린다');
 chk(R.rcNull && R.rc, '원격 설정 한 벌 — 없으면(검사 · 옛 html) null · 있으면 그 store');
-chk(R.left, '나감 안내(S-Q4) — markLeft 가 까닭을 적고 takeLeft 가 한 번만 읽고 지운다 · 없으면 null(짐작 없음) · 모르는 까닭은 던지거나(적을 때) 경고하고 지운다(읽을 때)');
+chk(R.left, '나감 안내(S-Q4) — markLeft 가 까닭을 적고 takeLeft 가 한 번만 읽고 지운다 · 없으면 null(짐작 없음) · 모르는 까닭은 적을 때도 읽을 때도 던진다(읽을 땐 지운 뒤)');
 chk(R.relaunch, '다시 켜기 — companion 이 없으면 대신 할 일을 부르고 false · 있으면 앱을 다시 켠다');
 
 say('── 2. 싣는 순서 · 거는 곳 · 바꾸는 곳');

@@ -56,7 +56,7 @@ const LOGIN_UID_KEY   = 'tw.loginAuthUid';  // Firebase Auth uid (디버그·대
 function getMyLoginEmail(){ try{ return localStorage.getItem(LOGIN_EMAIL_KEY) || null; }catch(_){ return null; } }
 const FRIEND_CODE_LOGIN_RE = /^[A-Z]{4}-[A-Z0-9]{4}$/;
 /* 🚪 로그아웃 · 탈퇴 뒤 다시 켠 로그인 화면이 한 번 보일 안내 — 까닭을 다시 켜기 건너로 **명시해** 넘긴다(짐작하지 않는다).
-   표시는 한 번짜리: markLeft 가 적고 takeLeft 가 읽으며 지운다. 표시가 없으면(서버가 내보냄 · 처음 켬 · 계정 맞춤 …) null — 안내 없음. */
+   표시는 한 번짜리: markLeft 가 적고 takeLeft 가 읽으며 지운다. 표시가 없으면(서버가 내보냄 · 처음 켬 · 계정 맞춤 …) null — 안내 없음. 모르는 값은 지우고 던진다. */
 const LEFT_NOTICE_KEY = 'tw.leftNotice';
 const LEFT_TEXT = Object.freeze({ logout: '로그아웃했어요', withdraw: '탈퇴했어요' });
 function markLeft(why){
@@ -67,7 +67,7 @@ function takeLeft(){
   const why = localStorage.getItem(LEFT_NOTICE_KEY);
   if(why === null) return null;
   localStorage.removeItem(LEFT_NOTICE_KEY);
-  if(!(why in LEFT_TEXT)){ console.warn('[계정] 알 수 없는 나감 표시를 지웠어요 — 안내 없음: ' + why); return null; }
+  if(!(why in LEFT_TEXT)) throw new Error('[계정] 알 수 없는 나감 표시예요(지웠어요): ' + why);   // markLeft 가 검사해 적으므로 있을 수 없는 값 — 숨기지 않고 던진다(지운 뒤라 다음 켜기엔 또 안 던진다)
   return LEFT_TEXT[why];
 }
 function _acctRelaunchAfterDetach(onFallback){
