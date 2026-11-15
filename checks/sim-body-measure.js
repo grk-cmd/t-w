@@ -19,7 +19,8 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for(const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f, f.split('/').pop()]) if(fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const MOD = read('character/body-measure.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html');
+const MOD = read('character/body-measure.js'), APP = read('app.js') + '\n' + (read('character/part-xf.js') || ''),   // 머리 공간 진단 · 머리 여유는 app.js 분리 T5 에서 part-xf.js 로 옮겼다(0.13 글 그대로)
+  HTML = read('desk-companion-prototype.html');
 const TRICKS = read('room/tricks.js'), CHIP = read('status/status-chip.js'), AWAY = read('room/away-pic.js'), CM = read('character/char-measure.js');
 const LCP = read('launcher/launcher-preview.js'), RIDE = read('room/ride-bench.js'), FSD = read('character/floor-snap-diag.js');
 if(!MOD || !APP || !HTML || !TRICKS || !CHIP || !AWAY || !CM || !LCP || !RIDE || !FSD){ say('  ? 원본 못 찾음 — body-measure.js · app.js · html · tricks.js · status-chip.js · away-pic.js · char-measure.js · launcher-preview.js · ride-bench.js · floor-snap-diag.js'); process.exit(2); }

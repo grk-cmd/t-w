@@ -15,7 +15,8 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f, path.basename(f)]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 const SRC = {
-  MOD: read('room/seat-refit.js'), APP: read('app.js'), CA: read('character/char-apply.js'),   // applyCharToSeat 는 app.js 분리 M12 에서 char-apply.js 로 옮겼다
+  MOD: read('room/seat-refit.js'), APP: read('app.js'), CA: read('character/char-apply.js'), PE: read('character/part-equip.js'),   // 파츠 떼기 · 대조는 app.js 분리 T6 에서 part-equip.js 로 옮겼다
+     // applyCharToSeat 는 app.js 분리 M12 에서 char-apply.js 로 옮겼다
   HTML: read('desk-companion-prototype.html'),
   WD: read('character/wardrobe.js'), RE: read('room/room-entry.js'), CS: read('character/catalog-sync.js'), AP: read('admin/admin-part-register.js'),
 };
@@ -76,7 +77,7 @@ async function judge(src) {
     b = build(src.MOD, list); b.m.requestRefit(A); await b.m.refitSeatAfterParts(A); await b.frame(); r.dropPending = b.log.join(',') === 'fit:A,ride:A';
     const list2 = [A]; b = build(src.MOD, list2); b.m.requestRefit(A); list2.length = 0; await b.frame(); r.leftSeat = b.log.length === 0;
     /* 진짜 app.js 떼기 함수 */
-    const body = ['_refitAfterUnequip', 'unequipPartFromSeat', 'unequipStackablePart'].map(n => grabFn(src.APP, n)).join('\n');
+    const body = ['_refitAfterUnequip', 'unequipPartFromSeat', 'unequipStackablePart'].map(n => grabFn(src.PE, n)).join('\n');
     const U = new Function('env', 'const asked = []; const seatRefitMod = { requestRefit: (s) => asked.push(s.n) };'
       + 'const _invalidatePendingEquip = () => {}, _disposeWrapperFromSeat = () => {}, _sweepOrphanPartWrappers = () => {};\n'
       + body + '\nreturn { unequipPartFromSeat, unequipStackablePart, asked };');
@@ -85,7 +86,7 @@ async function judge(src) {
     u = U(); u.unequipStackablePart({ n: 's2', stackedPartObjs: {} }, 'hat', 'board'); u.unequipPartFromSeat({ n: 's3' }, 'hat'); r.uNone = u.asked.length === 0;
     u = U(); u.unequipPartFromSeat({ n: 's4', equippedPartObjs: { hat: {} } }, 'hat'); u.unequipPartFromSeat({ n: 's5', stackedPartObjs: { hat: { a: {} } } }, 'hat'); u.unequipPartFromSeat({ n: 's6', stackedPartObjs: { hat: { a: {} } } }, 'hat', false);
     r.uPart = u.asked.join() === 's4,s5';   // 겹쳐 단 파츠를 두고 바꾸는 교체(false)는 뗀 것이 없으면 안 부른다
-    const U2 = new Function('const seatRefitMod = undefined;' + grabFn(src.APP, '_refitAfterUnequip') + '\nreturn _refitAfterUnequip;');
+    const U2 = new Function('const seatRefitMod = undefined;' + grabFn(src.PE, '_refitAfterUnequip') + '\nreturn _refitAfterUnequip;');
     try { U2()({ n: 'x' }); r.uSafe = true; } catch (_) { r.uSafe = false; }
   } catch (e) { r.err = String(e && e.message || e); }
   /* 2절 — 길마다 */
@@ -114,7 +115,7 @@ async function judge(src) {
   r.mkDeps = /^  requestFrame: \(\.\.\.a\)=>requestAnimationFrame\(\.\.\.a\),$/m.test(mk) && /^  seats: seats,$/m.test(mk);
   /* 떼는 길 — 가챠 회수 · 카탈로그 삭제 · 관리자 삭제는 떼기 함수를 부르고, 친구 화면 빼기는 pruneSeatPartsAgainstDef(→ 떼기 함수)를 지난다 */
   const GA = read('character/gacha.js') || '';
-  const pg = grabFn(GA, 'pruneUnownedGachaParts'), mc = grabFn(src.CS, 'mergeCatalogIntoSavedParts'), dp = grabFn(src.AP, 'deletePart'), pr = grabFn(src.APP, 'pruneSeatPartsAgainstDef');
+  const pg = grabFn(GA, 'pruneUnownedGachaParts'), mc = grabFn(src.CS, 'mergeCatalogIntoSavedParts'), dp = grabFn(src.AP, 'deletePart'), pr = grabFn(src.PE, 'pruneSeatPartsAgainstDef');
   r.paths = /unequipStackablePart\(s, h\.cat, h\.id\)/.test(pg) && /unequipPartFromSeat\(s, h\.cat\)/.test(pg)
     && /unequipPartFromSeat\(s,c\)/.test(mc) && /unequipStackablePart\(s, c, id\)/.test(dp) && /unequipPartFromSeat\(s, c\)/.test(dp)
     && /unequipPartFromSeat\(seat, cat, false\)/.test(pr) && /unequipStackablePart\(seat, cat, id\)/.test(pr) && /pruneSeatPartsAgainstDef\(s, fdef\)/.test(src.RE);
@@ -163,9 +164,9 @@ async function judge(src) {
     ['같은 프레임 여러 번 → 여러 번', { MOD: SRC.MOD.replace('  if(_frameAsked) return;\n', '') }, 'oneFrame'],
     ['떼자마자 바로 잼(다음 프레임 아님)', { MOD: SRC.MOD.replace('  requestFrame(_runPending);', '  _runPending();') }, 'oneFrame'],
     ['미리보기 좌석도 맞춤', { MOD: SRC.MOD.replace("  if(!seat || !seats.includes(seat)) return;", "  if(!seat) return;").replace("  list.forEach(seat => { if(seats.includes(seat)) refitSeatAfterParts(seat); });", "  list.forEach(seat => refitSeatAfterParts(seat));") }, 'onlySeats'],
-    ['겹쳐 단 파츠를 떼도 안 부름', { APP: SRC.APP.replace('  _sweepOrphanPartWrappers(seat);\n  _refitAfterUnequip(seat);\n}', '  _sweepOrphanPartWrappers(seat);\n}') }, 'uStack'],
-    ['카테고리를 떼도 안 부름', { APP: SRC.APP.replace('  if(removed) _refitAfterUnequip(seat);\n', '') }, 'uPart'],
-    ['모듈이 없을 때 떼기가 던짐', { APP: SRC.APP.replace('  try{ seatRefitMod.requestRefit(seat); }catch(_){}', '  seatRefitMod.requestRefit(seat);') }, 'uSafe'],
+    ['겹쳐 단 파츠를 떼도 안 부름', { PE: SRC.PE.replace('  _sweepOrphanPartWrappers(seat);\n  _refitAfterUnequip(seat);\n}', '  _sweepOrphanPartWrappers(seat);\n}') }, 'uStack'],
+    ['카테고리를 떼도 안 부름', { PE: SRC.PE.replace('  if(removed) _refitAfterUnequip(seat);\n', '') }, 'uPart'],
+    ['모듈이 없을 때 떼기가 던짐', { PE: SRC.PE.replace('  try{ seatRefitMod.requestRefit(seat); }catch(_){}', '  seatRefitMod.requestRefit(seat);') }, 'uSafe'],
     ['app.js 가 높이 다시 재기를 안 검', { APP: SRC.APP.replace(/\nseatRefitMod\.onRefitted\([^\n]*/, '') }, 'hook'],
     ['꾸미기 저장이 옛 줄로', { WD: SRC.WD.replace('await refitSeatAfterParts(mySeat, { wait: applyEquippedPartsToSeat(mySeat, def) });', 'await applyEquippedPartsToSeat(mySeat, def);\n  try{ if(mySeat && mySeat.gltfRoot) fitModel(mySeat); }catch(_){}') }, 'wdNow'],
     ['친구 파츠 변경이 옛 .then 으로', { RE: SRC.RE.replace(/refitSeatAfterParts\(s, \{ wait: applyEquippedPartsToSeat\(s, fdef\)[^\n]*/, 'applyEquippedPartsToSeat(s, fdef).then(()=>{ try{ if(s && s.charDef===fdef && s.gltfRoot){ fitModel(s); layoutSeats(); } }catch(_){} });') }, 're'],
