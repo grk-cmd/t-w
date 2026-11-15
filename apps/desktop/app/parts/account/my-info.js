@@ -19,6 +19,7 @@ const FOCUS_CYCLE_SEC = deps.FOCUS_CYCLE_SEC;   // 읽는 함수
 const FOCUS_LEVEL_CAP_HOURS = deps.FOCUS_LEVEL_CAP_HOURS;   // 읽는 함수
 const MY_FRIEND_CODE_KEY = deps.MY_FRIEND_CODE_KEY;
 const _acctRelaunchAfterDetach = deps._acctRelaunchAfterDetach;   // 🪪 신원을 놓은 뒤 앱 다시 켜기(account-state.js)
+const markLeft = deps.markLeft;   // 다시 켜기 건너로 «로그아웃했어요 · 탈퇴했어요» 까닭을 한 번짜리로 넘긴다(account-state.js)
 const closetMod = deps.closetMod;   // 읽는 함수 — 서버 원본 옷장(character/closet.js)
 const STAR_PALETTE = deps.STAR_PALETTE;   // 읽는 함수
 const USER_NAME_MAX = deps.USER_NAME_MAX;
@@ -537,6 +538,7 @@ function _miCodeLoad(){
       const dn = $('acctLogoutDone');    if(dn) dn.style.display = 'block';
       /* 자동으로 껐다 켠다 → 부팅 시 게이트가 돌아 시작 화면이 나온다.
          못 하는 판(구버전 앱)에서는 위 안내가 그대로 남아 수동 종료를 받는다. */
+      markLeft('logout');   // 다시 켠 로그인 화면이 «로그아웃했어요» 를 한 번 보인다
       _acctRelaunchAfterDetach(null);
     };
     const runLogout = async (btn, force) => {
@@ -618,6 +620,7 @@ function _miCodeLoad(){
       }
       if(dBox) dBox.style.display = 'none';
       const dn = $('acctDeleteDone'); if(dn) dn.style.display = 'block';
+      markLeft('withdraw');   // 다시 켠 로그인 화면이 «탈퇴했어요» 를 한 번 보인다
       _acctRelaunchAfterDetach(null);
     };
     const dQuit = $('acctDeleteQuit');

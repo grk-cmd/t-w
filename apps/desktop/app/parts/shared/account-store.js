@@ -34,6 +34,8 @@ const DEVICE_KEYS = Object.freeze([
   'tw.legacyCloset013',
   /* 이 PC 의 성질이거나 계정 코드를 정하기 전에 읽는 값 — 효과음 켜기(기기 설정) · 0.13 첫 실행을 끝낸 계정 코드 · 서버 확인 답 사본 · 그래픽 복구 시각 · 옛 값 옮기기 기록 */
   'tw.demojiSfx', 'tw.firstRun013', 'tw.me', 'tw.glRelaunchAt', 'tw.accountStoreMigrated',
+  /* 로그아웃 · 탈퇴 뒤 앱을 다시 켜면 로그인 화면에서 한 번 보일 안내의 까닭(logout · withdraw) — 신원을 놓은 뒤라 계정 칸이 아니라 기기 칸이고, 보이면 바로 지운다(account-state.js) */
+  'tw.leftNotice',
 ]);
 
 /* 계정별 — 그 사람의 기록 · 고른 것 · 보관 · 캐시. 아직 옛 PC 칸을 읽는 것도 포함(표 · 옮길 묶음은 shared/README.md). */
@@ -66,7 +68,8 @@ const MOVED_KEYS = Object.freeze(['tw.focusTodaySec', 'tw.focusTodayDate', 'tw.p
   'tw.curSlot', 'tw.extraSeatSlots', 'tw.decoParts', 'tw.seatEq', 'tw.emojiReactions',   // S-4a — 만들 때 읽던 보기 설정 깃발(launcher/user-local.js 가 확인 뒤 읽는다)
   'tw.charColorHistory', 'tw.activeInteractionDesk',
   'tw.myAdBannerImg', 'tw.secretRoomMusic', 'tw.annivView',
-  'tw.deskPresets', 'tw.animalPresets']);
+  'tw.deskPresets', 'tw.animalPresets',
+  'tw.savedDesks', 'tw.savedItems', 'tw.savedParts']);   // 코드로 추가한 책상 · 아이템 · 파츠(이 계정 몫 — 카탈로그 몫은 서버가 원본이라 옮기지 않고 읽을 때 거른다)
 /* 접두로 이미 계정 칸에서 읽고 쓰는 키 — migrateLegacy 가 PC 칸을 훑어 접두가 맞는 이름마다 옮긴다(최근 색 · 방명록 읽음 시각 · 채팅 탭 · 읽음 표시 · 입장 표시).
    ⚠️ ACCOUNT_KEY_PREFIXES 의 부분집합 — 서버가 세는 `tw.dailyPlay.` 는 옮기지 않는다. */
 const MOVED_KEY_PREFIXES = Object.freeze(['tw.mhRecentColors.', 'tw.mhGbLastRead:', 'tw.chatTab.', 'tw_chat_read:', 'tw_chat_join:']);

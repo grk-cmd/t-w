@@ -18,13 +18,13 @@ const MOD = ["license-gate.js","parts/account/license-gate.js","app/parts/accoun
 if(!MOD){ say('  ? 원본 못 찾음 — license-gate.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_loginDoFriendCode","_loginDoGoogle","_enterAccount","_wipeAccountLocal","notifyError","applyDeskCatalogRefToSeat","applyDeskItemsTo","getMyUserId","pruneUnownedLicenseAssets","refreshAccountTab","refreshCustomStatusMenuItem","refreshLicenseUI","renderCrItems","restoreLicenseHeldAssets","toast","_acctRelaunchAfterDetach","_rcStore"];
+const FN_DEPS = ["_loginDoFriendCode","_loginDoGoogle","_enterAccount","_wipeAccountLocal","notifyError","applyDeskCatalogRefToSeat","applyDeskItemsTo","getMyUserId","pruneUnownedLicenseAssets","refreshAccountTab","refreshCustomStatusMenuItem","refreshLicenseUI","renderCrItems","restoreLicenseHeldAssets","toast","_acctRelaunchAfterDetach","_rcStore","takeLeft"];
 const VAL_DEPS = ["DEFAULT_DESK_OVERRIDE_ID","loginFlowMod","userApiMod","inviteIds","twNav","seats","onPremiumChanged"];
 const GET_DEPS = ["FRIEND_CODE_LOGIN_RE","awayPicMod","creatorOpen","refreshLauncherPreview"];
 const SET_DEPS = [];
 const EXPORTS = ["INVITE_GRANT_MAX","_genLicenseKey","checkInviteGate","refreshInviteBtn"];
 const MOVED = ["_rcStore","inviteGateOn","INVITE_PASS_KEY","INVITE_TOKEN_KEY","_inviteTokenLoad","_inviteTokenFor","_inviteFinishPending","INVITE_GRANDFATHER_COUNT","INVITE_GRANT_MAX","_genInviteCode","SIGNUP_PENDING_KEY","_signupPendingLoad","_signupPendingSave","_signupPendingEnsure","_signupClaimCode","_signupFinishLocal","_signupDoPassword","_signupDoGoogle","existingSignupOn","_existingSignupCode","_existingSignupNeed","_existingSignupDoPassword","_existingSignupCheck","_showExistingSignup","_showSignupDone","_hideSignupDone","_needLoginNeed","_needLoginCheck","_showNeedLogin","checkInviteGate","_markInvitePassed","_showInviteGate","refreshInviteBtn","issueInviteAndShow","_inviteConfirmIssue","LICENSE_KEY_STORAGE","_setPremium","_genLicenseKey","verifyLicense","loadLicenseFromStorage","LICENSE_OPTOUT_KEY","_licenseSnapPushNow","_licenseSnapForPush","activateLicense","deactivateLicense","_refreshPremiumGatedUI"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  FRIEND_CODE_LOGIN_RE: ()=>acctStateMod.FRIEND_CODE_LOGIN_RE,","  _loginDoFriendCode: (...a)=>accountMod._loginDoFriendCode(...a),","  _loginDoGoogle: (...a)=>accountMod._loginDoGoogle(...a),","  _enterAccount: (...a)=>accountMod._enterAccount(...a),","  twNav: twNav,","  _wipeAccountLocal: (...a)=>accountMod._wipeAccountLocal(...a),","  notifyError: (...a)=>TwErrorCodes.notify(...a),","  loginFlowMod: loginFlowMod,","  userApiMod: userApiMod,","  inviteIds: TwRequestId.createPending(),","  applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),","  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),","  awayPicMod: ()=>awayPicMod,","  creatorOpen: ()=>creatorOpen,","  getMyUserId: (...a)=>getMyUserId(...a),","  pruneUnownedLicenseAssets: (...a)=>premiumMod.pruneUnownedLicenseAssets(...a),","  refreshAccountTab: (...a)=>accountMod.refreshAccountTab(...a),","  refreshCustomStatusMenuItem: (...a)=>refreshCustomStatusMenuItem(...a),","  refreshLauncherPreview: ()=>{ const lc=document.getElementById('launcher'); if(lc && lc.classList.contains('on') && slots[curSlot]) renderLauncher(); },","  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),","  renderCrItems: (...a)=>deskSetupMod.renderCrItems(...a),","  restoreLicenseHeldAssets: (...a)=>premiumMod.restoreLicenseHeldAssets(...a),","  seats: seats,","  toast: (...a)=>toast(...a),","  onPremiumChanged: acctStateMod.onPremiumChanged,","  _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),","  _rcStore: (...a)=>acctStateMod._rcStore(...a),"];
+const GLUE = ["  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  FRIEND_CODE_LOGIN_RE: ()=>acctStateMod.FRIEND_CODE_LOGIN_RE,","  _loginDoFriendCode: (...a)=>accountMod._loginDoFriendCode(...a),","  _loginDoGoogle: (...a)=>accountMod._loginDoGoogle(...a),","  _enterAccount: (...a)=>accountMod._enterAccount(...a),","  twNav: twNav,","  _wipeAccountLocal: (...a)=>accountMod._wipeAccountLocal(...a),","  notifyError: (...a)=>TwErrorCodes.notify(...a),","  loginFlowMod: loginFlowMod,","  userApiMod: userApiMod,","  inviteIds: TwRequestId.createPending(),","  applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),","  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),","  awayPicMod: ()=>awayPicMod,","  creatorOpen: ()=>creatorOpen,","  getMyUserId: (...a)=>getMyUserId(...a),","  pruneUnownedLicenseAssets: (...a)=>premiumMod.pruneUnownedLicenseAssets(...a),","  refreshAccountTab: (...a)=>accountMod.refreshAccountTab(...a),","  refreshCustomStatusMenuItem: (...a)=>refreshCustomStatusMenuItem(...a),","  refreshLauncherPreview: ()=>{ const lc=document.getElementById('launcher'); if(lc && lc.classList.contains('on') && slots[curSlot]) renderLauncher(); },","  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),","  renderCrItems: (...a)=>deskSetupMod.renderCrItems(...a),","  restoreLicenseHeldAssets: (...a)=>premiumMod.restoreLicenseHeldAssets(...a),","  seats: seats,","  toast: (...a)=>toast(...a),","  onPremiumChanged: acctStateMod.onPremiumChanged,","  _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),","  takeLeft: ()=>acctStateMod.takeLeft(),","  _rcStore: (...a)=>acctStateMod._rcStore(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -182,7 +182,7 @@ async function gateRows(src){
 /* ── 초대 게이트 안에서 로그인 · 가입이 끝난 뒤 «들어감» 알림 — 진짜 _showInviteGate 를 가짜 DOM 위에서 돌려 센다 ──
    how: 'google'(게이트 구글 로그인) · 'fc'(친구 코드 로그인) · 'signup-existing'(초대 코드 → 계정 만들기 → 이미 가입된 구글)
    같은 계정(switched:false)이면 «들어감» 한 번 · 게이트 닫음 · 약속 true, 계정이 바뀌면(switched:true) 알림 없이 다시 켜기 */
-async function gateLoginRun(src, how, switched){
+async function gateLoginRun(src, how, switched, left){
   const any = anything();
   const ev = [];
   const els = {};
@@ -195,6 +195,8 @@ async function gateLoginRun(src, how, switched){
   GET_DEPS.forEach(n => { deps[n] = () => any; });
   const ok = { ok: true, me, switched: !!switched };
   Object.assign(deps, {
+    takeLeft: () => left === undefined ? null : left,   // 로그아웃 · 탈퇴 뒤 다시 켠 켜기에서 읽은 안내 글(없으면 null)
+    toast: (m) => { ev.push('toast:' + m); },
     getMyUserId: () => null,
     FRIEND_CODE_LOGIN_RE: () => /^MATE-[A-Z0-9]{4}$/,
     _loginDoGoogle: async () => ok,
@@ -235,6 +237,12 @@ async function gateLoginRows(src){
     const sw = await gateLoginRun(src, how, true);
     t(!sw.ev.includes('entered') && sw.ev.includes('relaunch') && !sw.settled, name + ' · 계정이 바뀜 → 다시 켜기 · «들어감» 알림 없음');
   }
+  /* 🚪 [S-Q4] 로그아웃 · 탈퇴 뒤 다시 켠 켜기가 읽은 안내는 로그인 화면이 뜰 때 한 번 토스트로 보인다 — 없으면(null) 토스트 없음(짐작하지 않는다) */
+  for(const text of ['로그아웃했어요', '탈퇴했어요']){
+    const n = await gateLoginRun(src, 'google', false, text);
+    t(n.ev.split(',').filter(x => x === 'toast:' + text).length === 1 && n.ev.split(',').filter(x => x.startsWith('toast:')).length === 1, '로그인 화면 — 읽은 안내 «' + text + '» 를 토스트로 정확히 한 번');
+  }
+  { const n = await gateLoginRun(src, 'google', false); t(!n.ev.includes('toast'), '안내 표시가 없으면 토스트 없음(까닭을 짐작해 띄우지 않는다)'); }
   return r;
 }
 
@@ -310,6 +318,8 @@ for(const [name, fm, fh] of btnBreaks){
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
 const breaks = [
+  ['로그인 화면이 안내 토스트를 안 띄움', m => m.replace("if(_leftNotice){ toast(_leftNotice); _leftNotice = null; }", ''), null, null],
+  ['켤 때 안내 표시를 안 읽음', m => m.replace('_leftNotice = takeLeft();', ''), null, null],
   ['서버에 못 닿아도 로컬 모드처럼 들임', m => m.replace("if(c.state === 'local') return await _showOfflineGate();", "if(c.state === 'local') return true;"), null, null],
   ['오프라인 화면이 기다림을 안 검', m => m.replace("loginFlowMod.waitForServer((c)=>{", "(function(c){"), null, null],
   ['다시 시도 실패에 오류 번호 없음', m => m.replace("notifyError('E-ACC-03', r.reason);", ""), null, null],
