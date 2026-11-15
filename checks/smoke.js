@@ -725,6 +725,14 @@ PRELOAD.push('ls-set.js');
 PRELOAD.push('rig-anim.js');
 /* frame-pace.js — 🔋 프레임 상한 · rAF 멈춤 감시. app.js 가 원래 자리에서 createFramePace 로 만든다. */
 PRELOAD.push('frame-pace.js');
+/* frame-loop.js — 🎞 프레임 한 장(frame). app.js 가 원래 자리에서 createFrameLoop 로 만든다. */
+PRELOAD.push('frame-loop.js');
+/* flying-chair.js — 🪑 플라잉체어 — canFly · startFlight. app.js 가 원래 자리에서 createFlyingChair 로 만든다. */
+PRELOAD.push('flying-chair.js');
+/* myhome-sticker-render.js — 🎨 마이홈 스티커 그리기. app.js 가 원래 자리에서 createMyHomeStickerRender 로 만든다. */
+PRELOAD.push('myhome-sticker-render.js');
+/* move-mode.js — ✥ 프로그램 이동 모드 · 캐릭터 화면 좌표. app.js 가 원래 자리에서 createMoveMode 로 만든다. */
+PRELOAD.push('move-mode.js');
 /* cloth-visibility.js — 👕 옷 겹침 · 기본 메시 보이기. app.js 가 원래 자리에서 createClothVisibility 로 만든다. */
 PRELOAD.push('cloth-visibility.js');
 /* hue-tint.js — 🎨 색조 셰이더 이름 잇기. app.js 가 원래 자리에서 createHueTint 로 만든다. */
