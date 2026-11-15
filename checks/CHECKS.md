@@ -344,7 +344,7 @@
 | **sim-overhead.js** | 161 | **169c381103c3** |
 | **sim-room-sync.js** | 99 | **20fd5b5bfe59** |
 | **sim-status-chip.js** | 123 | **4251e46c8a7a** |
-| **sim-premium-assets.js** | 95 | **85f1b747f695** |
+| **sim-premium-assets.js** | 126 | **582b63fe8c74** |
 | **sim-char-code.js** | 126 | **6af407976d28** |
 | **sim-dice-games.js** | 95 | **1debed57a729** |
 | **sim-program-settings.js** | 148 | **63ad8f3b844f** |
@@ -364,7 +364,7 @@
 | **sim-myhome-diag.js** | 95 | **26738cf17aa4** |
 | **sim-myhome-visit.js** | 96 | **48b2a093c619** |
 | **sim-code-crypto.js** | 141 | **0234e006a868** |
-| **sim-commission.js** | 103 | **f2dfe500eb47** |
+| **sim-commission.js** | 141 | **f75edcff843d** |
 | **sim-exp-bar.js** | 98 | **cd3f1861cd05** |
 | **sim-chal-store.js** | 478 | **fcbc122da28e** |
 | **sim-focus-day.js** | 135 | **64502f3520bb** |
@@ -424,7 +424,7 @@
 | **sim-admin-thumbs.js** | 152 | **a364b1c70728** |
 | **sim-glb-idb-cache.js** | 172 | **fda2ba697435** |
 | **sim-catalog-glb.js** | 202 | **0a4643ef753c** |
-| **sim-catalog-sync.js** | 282 | **d94edeb793ac** |
+| **sim-catalog-sync.js** | 282 | **72d0feee2506** |
 | **sim-catalog-source.js** | 100 | **48a661048e45** |
 | **sim-desk-items.js** | 166 | **a1f0433d23a0** |
 | **sim-bgm-diag.js** | 300 | **b0b5757656bc** |
@@ -479,7 +479,7 @@
 | **sim-gift-img-retry.js** | 207 | **1053b262fc34** |
 | **sim-request-id.js** | 94 | **34021f461cd5** |
 | **sim-device-id.js** | 103 | **44a934497fba** |
-| **sim-account-store.js** | 622 | **b5ad44ee0bad** |
+| **sim-account-store.js** | 624 | **d65c22de53e9** |
 | **sim-api-errors.js** | 126 | **46fbbfebb0fc** |
 | **sim-rt-hub.js** | 525 | **4be17ca21cbc** |
 | **sim-rt-status-ui.js** | 245 | **64adff52d476** |

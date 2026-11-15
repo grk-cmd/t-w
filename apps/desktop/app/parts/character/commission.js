@@ -15,6 +15,7 @@ function createCommission(deps){
 const _b64 = deps._b64;
 const _deriveKey = deps._deriveKey;
 const _unb64 = deps._unb64;
+const accountStore = deps.accountStore;   // 🗂️ 계정별 칸(shared/account-store.js) — 코드로 추가한 책상 · 아이템은 이 계정 몫
 const toast = deps.toast;
 const MAX_COMMISSION_BYTES = 2 * 1024 * 1024;   // 2MB
 const COMMISSION_TEX_SIZE = 512;
@@ -95,26 +96,36 @@ async function decryptCommission(code, pass){
 const SAVED_DESK_KEY='tw.savedDesks', SAVED_ITEM_KEY='tw.savedItems';
 const MAX_CUSTOM_ASSETS=6, MAX_CUSTOM_ITEMS=50, MAX_GLB_BYTES=1024*1024;   // 1MB — 책상은 6개, 아이템은 요청에 따라 50개까지
 let savedDesks=[], savedItems=[];   // [{id, name, icon, glb(base64)}]
-function loadSavedAssets(){
-  try{ savedDesks=JSON.parse(localStorage.getItem(SAVED_DESK_KEY)||'[]'); }catch(_){ savedDesks=[]; }
-  try{ savedItems=JSON.parse(localStorage.getItem(SAVED_ITEM_KEY)||'[]'); }catch(_){ savedItems=[]; }
+/* 🗂️ 두 갈래 — ① 카탈로그 몫(fromCatalog · 서버가 원본 · 카탈로그 동기화가 채운다 · 이 PC 에 따로 저장하지 않는다 — 오프라인 캐시는 catalog-cache.js)
+   ② 이 계정 몫(코드로 추가한 책상 · 아이템 — 계정 칸). 계정 칸은 확인 전엔 닫혀 있어 만들 때는 비어 있고, 확인 뒤 loadLocal 이 ② 만 채운다.
+   ★ 로그인 때 읽은 값으로 ① 을 덮지 않는다 — 카탈로그 몫이 먼저 와 있으면(구독은 계정과 무관하게 먼저 돈다) 그대로 두고 ② 중 카탈로그에 같은 id 가 없는 것만 더한다. */
+function _readLocal(key){
+  let a = [];
+  try{ a = JSON.parse(accountStore.get(key) || '[]'); }catch(_){ a = []; }
+  return Array.isArray(a) ? a.filter(p=>p && p.id && !p.fromCatalog) : [];   // 옛 PC 칸에 섞여 있던 카탈로그 사본은 읽지 않는다(서버가 원본)
+}
+function _mergeLocal(cur, key){
+  const have = new Set(cur.map(p=>p.id));
+  return cur.concat(_readLocal(key).filter(p=>!have.has(p.id)));
+}
+function loadLocal(){
+  savedDesks = _mergeLocal(savedDesks, SAVED_DESK_KEY);
+  savedItems = _mergeLocal(savedItems, SAVED_ITEM_KEY);
+}
+/* 세션이 끝날 때 — 이 계정 몫만 비운다. 카탈로그 몫은 계정과 무관해 그대로 둔다 */
+function resetLocal(){
+  savedDesks = savedDesks.filter(p=>p.fromCatalog);
+  savedItems = savedItems.filter(p=>p.fromCatalog);
 }
 /* 카탈로그에서 다시 받을 수 있는 자산인가 — 그렇다면 GLB 바이트를 이 PC 저장소에 복사해 두지 않는다(필요할 때 resolveCatalogGlb).
    책상 프리셋(creator/desk-preset-store.js)도 이 판단을 쓴다 — 조건을 다시 쓰지 말 것. */
 function catalogBacked(rec){ return !!(rec && rec.fromCatalog && rec.glbUrl); }
+/* 이 계정 몫(fromCatalog 아닌 것)만 계정 칸에 쓴다 — 카탈로그 몫은 서버가 원본이라 쓰지 않는다. 계정 칸이 닫혀 있으면(확인 전 · 세션 끝) 쓰지 못하고 알린다. */
 function persistSavedAssets(){
-  const stripDesks = savedDesks.map(p=>{
-    if(catalogBacked(p)){ const clone={...p}; delete clone.glb; return clone; }
-    return p;
-  });
-  const stripItems = savedItems.map(p=>{
-    if(catalogBacked(p)){ const clone={...p}; delete clone.glb; return clone; }
-    return p;
-  });
-  try{ localStorage.setItem(SAVED_DESK_KEY,JSON.stringify(stripDesks)); }catch(_){ toast('저장 공간이 부족해요'); }
-  try{ localStorage.setItem(SAVED_ITEM_KEY,JSON.stringify(stripItems)); }catch(_){}
+  const okD = accountStore.set(SAVED_DESK_KEY, JSON.stringify(savedDesks.filter(p=>!p.fromCatalog)));
+  const okI = accountStore.set(SAVED_ITEM_KEY, JSON.stringify(savedItems.filter(p=>!p.fromCatalog)));
+  if(!okD || !okI) toast('저장 공간이 부족해요');
 }
-loadSavedAssets();
 
 return {
   MAX_COMMISSION_BYTES,
@@ -125,6 +136,8 @@ return {
   decryptCommission,
   encryptCommission,
   persistSavedAssets,
+  loadLocal,   // 🗂️ 확인 뒤 계정 칸에서 읽는다(launcher/user-local.js)
+  resetLocal,  // 세션이 끝날 때 이 계정 몫을 비운다
   savedDesks: ()=>savedDesks,   // 읽는 함수
   setSavedDesks: (v)=>{ savedDesks = v; },   // 쓰는 함수 — app.js 가 비운다
   savedItems: ()=>savedItems,   // 읽는 함수

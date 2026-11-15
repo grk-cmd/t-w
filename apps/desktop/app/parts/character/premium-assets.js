@@ -14,6 +14,7 @@
 function createPremiumAssets(deps){
 const DEFAULT_DESK_OVERRIDE_ID = deps.DEFAULT_DESK_OVERRIDE_ID;
 const Presence = deps.Presence;   // 읽는 함수
+const accountStore = deps.accountStore;   // 🗂️ 계정별 칸(shared/account-store.js) — 코드로 추가한 파츠는 이 계정 몫
 const applyDeskCatalogRefToSeat = deps.applyDeskCatalogRefToSeat;
 const cBase = deps.cBase;   // 읽는 함수
 const deskItemDef = deps.deskItemDef;
@@ -423,10 +424,16 @@ function removePartEntryInstance(e, idx){
   if(ins && idx-1 < ins.length){ ins.splice(idx-1, 1); }
 }
 let savedParts=[];   // [{id, cat, name, icon, glb(base64)}]
-function loadSavedParts(){
-  try{ savedParts=JSON.parse(localStorage.getItem(SAVED_PARTS_KEY)||'[]'); }catch(_){ savedParts=[]; }
-  if(Array.isArray(savedParts)) savedParts.forEach(_normPartRec); else savedParts=[];
+/* 🗂️ 카탈로그 몫(fromCatalog · 서버가 원본 · 카탈로그 동기화가 채운다)과 이 계정 몫(코드로 추가한 파츠 — 계정 칸)을 가른다(commission.js 와 같은 규칙).
+   ★ 로그인 때 읽은 값으로 카탈로그 몫을 덮지 않는다 — 카탈로그에 같은 id 가 없는 계정 몫만 더한다. */
+function loadLocal(){
+  let a = [];
+  try{ a = JSON.parse(accountStore.get(SAVED_PARTS_KEY) || '[]'); }catch(_){ a = []; }
+  a = Array.isArray(a) ? a.filter(p=>p && p.id && !p.fromCatalog) : [];   // 옛 PC 칸에 섞여 있던 카탈로그 사본은 읽지 않는다
+  const have = new Set(savedParts.map(p=>p.id));
+  savedParts = savedParts.concat(a.filter(p=>!have.has(p.id)).map(_normPartRec));
 }
+function resetLocal(){ savedParts = savedParts.filter(p=>p.fromCatalog); }
 /* 🎰 가챠 파츠는 **항상** 겹쳐 입는다(stackable) — 들어오는 입구 두 곳(로컬 캐시 · 카탈로그)에서 못박는다.
    [제보 2026-09-23] "보관함 모자를 끼웠다 뺐더니 원래 쓰던 기본 모자까지 같이 빠졌다."
    [원인] 등록(신규·수정)은 가챠면 stackable 을 강제한다(파츠 등록 핸들러 주석). 그런데 **그 규칙이 생기기
@@ -438,14 +445,8 @@ function loadSavedParts(){
    ⚠️ 관리자가 그 파츠를 한 번 다시 저장하면 카탈로그 값도 true 로 고쳐진다(buildPartPublishData). */
 function _normPartRec(p){ if(p && p.gacha && !p.stackable) p.stackable = true; return p; }
 function persistSavedParts(){
-  // ★ Storage 이관 후속: base64 glb는 로컬 저장 대상에서 제외 — 용량 폭탄(1MB×N개면 localStorage 5MB 한도 초과) 방지.
-  //   glbUrl만 저장하고 실제 GLB는 필요 시점(파츠 렌더/편집)에 Storage에서 fetch. 로컬-전용(fromCatalog=false)은
-  //   Storage에 없으므로 base64 그대로 저장(사용자가 직접 추가한 파츠).
-  const stripped = savedParts.map(p=>{
-    if(p.fromCatalog && p.glbUrl){ const clone={...p}; delete clone.glb; return clone; }
-    return p;
-  });
-  try{ localStorage.setItem(SAVED_PARTS_KEY,JSON.stringify(stripped)); }catch(_){ toast('저장 공간이 부족해요'); }
+  // 이 계정 몫(fromCatalog 아닌 것 — base64 glb 포함)만 계정 칸에 쓴다. 카탈로그 몫은 서버가 원본이고 오프라인 캐시는 catalog-cache.js 가 맡는다.
+  if(!accountStore.set(SAVED_PARTS_KEY, JSON.stringify(savedParts.filter(p=>!p.fromCatalog)))) toast('저장 공간이 부족해요');
 }
 function partsInCat(cat){ return savedParts.filter(p=>p.cat===cat); }
 /* 🎰 카테고리 상한은 "꾸미기 창에 진열되는 파츠"의 상한이다.
@@ -515,7 +516,8 @@ return {
   groupOfCat,
   isDeskPartCat,
   isGachaPart,
-  loadSavedParts,
+  loadLocal,    // 🗂️ 확인 뒤 계정 칸에서 읽는다(launcher/user-local.js)
+  resetLocal,   // 세션이 끝날 때 이 계정 몫을 비운다
   partAttachTarget,
   partCatInfo,
   partCatLimit,

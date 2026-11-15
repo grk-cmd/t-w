@@ -436,14 +436,14 @@ async function judge(S){
 
   say('── 6d. S-3e(일부) — 책상 프리셋 · 동물 프리셋은 계정 칸 위의 JSON 칸에서 읽고 쓴다');
   {
-    const S3E = ['tw.deskPresets', 'tw.animalPresets'];
+    const S3E = ['tw.deskPresets', 'tw.animalPresets', 'tw.savedDesks', 'tw.savedItems', 'tw.savedParts'];
     chk(S3E.every((k) => M.MOVED_KEYS.includes(k) && M.ACCOUNT_KEYS.includes(k)), '★ 둘 다 옮긴 표(MOVED_KEYS)에 있다 — 0.12 에서 올라온 PC 값이 계정 칸으로 간다');
     const st = mem(); const code = { v: null }; const s = mk(st, code);
     const deskP = JSON.stringify([{ name: '내 책상', deskGlb: 'GLB' }, null, null, null, null]), animP = JSON.stringify({ 1: { name: '토끼' } });
-    st.o['tw.deskPresets'] = deskP; st.o['tw.animalPresets'] = animP; st.o['tw.savedDesks'] = '[{"id":"d1"}]';
+    st.o['tw.deskPresets'] = deskP; st.o['tw.animalPresets'] = animP; st.o['tw.savedDesks'] = '[{"id":"d1"}]'; st.o['tw.savedItems'] = '[{"id":"i1"}]'; st.o['tw.savedParts'] = '[{"id":"p1"}]';
     const r = s.migrateLegacy(A); code.v = A;
-    chk(S3E.every((k) => r.moved.includes(k)) && s.get('tw.deskPresets') === deskP && s.get('tw.animalPresets') === animP, '★ 옛 PC 값이 들어간 계정 칸에 같은 값으로 이어진다(잃지 않는다)');
-    chk(S3E.every((k) => !(k in st.o)) && st.o['tw.savedDesks'] === '[{"id":"d1"}]', '  ↳ PC 칸에서는 지운다 · 아직 옮기지 않은 저장한 책상(S-3e 의 나머지)은 PC 칸에 그대로 — 옛 모듈이 아직 읽는다');
+    chk(S3E.every((k) => r.moved.includes(k)) && s.get('tw.deskPresets') === deskP && s.get('tw.animalPresets') === animP && s.get('tw.savedDesks') === '[{"id":"d1"}]' && s.get('tw.savedItems') === '[{"id":"i1"}]' && s.get('tw.savedParts') === '[{"id":"p1"}]', '★ 옛 PC 값이 들어간 계정 칸에 같은 값으로 이어진다(잃지 않는다)');
+    chk(S3E.every((k) => !(k in st.o)), '  ↳ PC 칸에서는 지운다 — 코드로 추가한 책상 · 아이템 · 파츠도 이 계정 칸으로(카탈로그 사본은 읽을 때 거른다 — commission.js · premium-assets.js)');
     /* 실물 json-store.js 를 계정 칸 위에 얹어 굴린다 — 닫힘 · 열림 · 다른 계정 */
     let J = null;
     try{ const w = {}; new Function('window', 'module', S.JSONSTORE)(w, undefined); J = w.TwJsonStore; }catch(_){}
@@ -569,8 +569,10 @@ const BREAKS = [
   ['CHATUI', "chatAccountStore.set(_chatJoinKeyOf(room), ''); }catch", "localStorage.setItem(_chatJoinKeyOf(room), ''); }catch", '채팅 입장 표시를 PC 칸에 씀'],
   ['MHEDIT', "myhomeEditAccountStore.get('tw.mhRecentColors.'+kind)", "localStorage.getItem('tw.mhRecentColors.'+kind)", '최근 색을 PC 칸에서 읽음'],
   ['APP', "createLastReadStore(accountStoreMod.asStorage())", "createLastReadStore(localStorage)", '방명록 읽음 시각을 PC 칸에 둠'],
-  ['STORE', "'tw.deskPresets', 'tw.animalPresets']);", "'tw.animalPresets']);", '책상 프리셋이 옮긴 표에서 빠짐'],
-  ['STORE', "'tw.deskPresets', 'tw.animalPresets']);", "'tw.deskPresets']);", '동물 프리셋이 옮긴 표에서 빠짐'],
+  ['STORE', "'tw.deskPresets', 'tw.animalPresets',\n  'tw.savedDesks'", "'tw.animalPresets',\n  'tw.savedDesks'", '책상 프리셋이 옮긴 표에서 빠짐'],
+  ['STORE', "'tw.deskPresets', 'tw.animalPresets',\n  'tw.savedDesks'", "'tw.deskPresets',\n  'tw.savedDesks'", '동물 프리셋이 옮긴 표에서 빠짐'],
+  ['STORE', "'tw.savedDesks', 'tw.savedItems', 'tw.savedParts']);   // 코드로", "'tw.savedItems', 'tw.savedParts']);   // 코드로", '저장한 책상이 옮긴 표에서 빠짐'],
+  ['STORE', "'tw.savedDesks', 'tw.savedItems', 'tw.savedParts']);   // 코드로", "'tw.savedDesks', 'tw.savedParts']);   // 코드로", '저장한 아이템이 옮긴 표에서 빠짐'],
   ['STORE', "setItem: (k, v) => { if(!set(k, v)) throw refused(k); }", "setItem: (k, v) => { set(k, v); }", '닫힌 계정 칸에 쓰고도 «저장됨» 으로 둠'],
   ['STORE', "if(all) handled.push(p);", "handled.push(p);", '못 옮긴 접두도 처리함에 올림'],
   ['STORE', "k.length > p.length && k.startsWith(p)) names.push(k)", "k.startsWith(p)) names.push(k)", '접두만 있는 이름도 옮김'],

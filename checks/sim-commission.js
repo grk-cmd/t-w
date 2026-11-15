@@ -19,12 +19,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — commission.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["_b64","_deriveKey","_unb64","toast"];
-const VAL_DEPS = [];
+const VAL_DEPS = ["accountStore"];
 const GET_DEPS = [];
 const SET_DEPS = [];
-const EXPORTS = ["MAX_COMMISSION_BYTES","MAX_CUSTOM_ASSETS","MAX_CUSTOM_ITEMS","MAX_GLB_BYTES","catalogBacked","decryptCommission","encryptCommission","persistSavedAssets","savedDesks","setSavedDesks","savedItems","setSavedItems","unpackCommissionZip"];
+const EXPORTS = ["MAX_COMMISSION_BYTES","MAX_CUSTOM_ASSETS","MAX_CUSTOM_ITEMS","MAX_GLB_BYTES","catalogBacked","decryptCommission","encryptCommission","persistSavedAssets","loadLocal","resetLocal","savedDesks","setSavedDesks","savedItems","setSavedItems","unpackCommissionZip"];
 const MOVED = ["MAX_COMMISSION_BYTES","COMMISSION_TEX_SIZE","resizeImgBlobTo","unpackCommissionZip","encryptCommission","decryptCommission","SAVED_DESK_KEY","SAVED_ITEM_KEY","MAX_CUSTOM_ASSETS","MAX_CUSTOM_ITEMS","MAX_GLB_BYTES","savedDesks","savedItems","loadSavedAssets","persistSavedAssets"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  _b64: (...a)=>_b64(...a),","  _deriveKey: (...a)=>_deriveKey(...a),","  _unb64: (...a)=>_unb64(...a),","  toast: (...a)=>toast(...a),"];
+const GLUE = ["  _b64: (...a)=>_b64(...a),","  _deriveKey: (...a)=>_deriveKey(...a),","  _unb64: (...a)=>_unb64(...a),","  toast: (...a)=>toast(...a),","  accountStore: accountStoreMod,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -33,7 +33,7 @@ function anything(){
   const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? (() => P) : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true });
   return P;
 }
-function build(src){
+function build(src, over){
   build.called = [];
   const any = anything();
   const deps = {};
@@ -46,7 +46,7 @@ function build(src){
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
     src + '\nreturn window.TwCommission;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
-  return api.createCommission(deps);
+  return api.createCommission(Object.assign(deps, over || {}));
 }
 
 function judgeAll(mod, app, html){
@@ -57,7 +57,7 @@ function judgeAll(mod, app, html){
   t(!err && out && typeof out === 'object', '만들 때 던지지 않는다' + (err ? ' — ' + String(err.message || err).slice(0, 80) : ''));
   const reentry = build.called.slice();
   t(!err && !reentry.length, '만들 때 deps 함수를 되부르지 않는다(만드는 도중엔 commissionMod 가 아직 없다)' + (reentry.length ? ' — ' + reentry.join(' · ') : ''));
-  t(/^\}\);\n(?:\/\*[\s\S]*?\*\/\n)?loadSavedItemsIntoSession\(\);$/m.test(app.slice(app.indexOf('const commissionMod = '))), 'app.js — 저장 아이템 등록(loadSavedItemsIntoSession)은 만드는 줄 바로 뒤에서 부른다');
+  t(!/^\}\);\n(?:\/\*[\s\S]*?\*\/\n)?loadSavedItemsIntoSession\(\);$/m.test(app.slice(app.indexOf('const commissionMod = '))) && /name: 'savedAssets',\n    load: \(\)=>\{ commissionMod\.loadLocal\(\); premiumMod\.loadLocal\(\); loadSavedItemsIntoSession\(\)/.test(app), 'app.js — 저장 아이템 등록(loadSavedItemsIntoSession)은 만들 때가 아니라 확인 뒤 userLocal 칸(savedAssets)에서 부른다');
   t(out && EXPORTS.every(n => n in out) && Object.keys(out).length === EXPORTS.length, '내놓는 이름 ' + EXPORTS.length + '개' + (EXPORTS.length ? ' — ' + EXPORTS.join(' · ') : ''));
   t(/window\.TwCommission = api;/.test(mod) && /module\.exports = api;/.test(mod), '전역 이름 TwCommission(Tw 접두사)');
   const A = strip(app.split('\n').filter(l => !l.includes('// 옛 전역 이름')).join('\n'));   // 옛 전역 이름 잇기 줄은 «남은 선언 · 옛 이름 부름» 이 아니다
@@ -79,6 +79,44 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 5) say('── 2. app.js 연결'); chk(ok, msg); });
+say('── 2-2. 저장 목록 — 카탈로그 몫은 서버가 원본 · 코드로 추가한 몫만 계정 칸(loadLocal · resetLocal · persist)');
+function behave(mod){
+  const cells = {}; let open = true; const toasts = [];
+  const accountStore = { get: (k) => (open && k in cells) ? cells[k] : null, set: (k, v) => { if(!open) return false; cells[k] = String(v); return true; } };
+  const m = build(mod, { accountStore, toast: (x) => toasts.push(x) });
+  const r = {};
+  const cat = { id: 'D-cat', fromCatalog: true, glbUrl: 'u', name: '카탈로그 책상' };
+  m.setSavedDesks([cat]);   // 구독이 확인보다 먼저 왔다
+  cells['tw.savedDesks'] = JSON.stringify([{ id: 'D-cat', fromCatalog: true, name: '옛 사본(덮으면 안 된다)' }, { id: 'D-mine', name: '내 책상', glb: 'AAAA' }]);
+  cells['tw.savedItems'] = JSON.stringify([{ id: 'I-mine', name: '내 아이템' }, { id: 'I-old', fromCatalog: true }]);
+  m.loadLocal();
+  r.load = m.savedDesks().map(d => d.id + ':' + (d.name || '')).join() === 'D-cat:카탈로그 책상,D-mine:내 책상' && m.savedItems().map(d => d.id).join() === 'I-mine';
+  m.persistSavedAssets();
+  r.persist = JSON.parse(cells['tw.savedDesks']).map(d => d.id).join() === 'D-mine' && JSON.parse(cells['tw.savedItems']).map(d => d.id).join() === 'I-mine' && !toasts.length;   // 카탈로그 몫은 쓰지 않는다
+  m.resetLocal();
+  r.reset = m.savedDesks().map(d => d.id).join() === 'D-cat' && m.savedItems().length === 0;   // 이 계정 몫만 비운다 · 카탈로그 몫은 그대로
+  open = false; m.setSavedDesks([{ id: 'D-x' }]); m.persistSavedAssets();
+  r.closedLoud = toasts.length === 1;   // 계정 칸이 닫혀 있으면 조용히 넘기지 않고 알린다
+  open = false; cells['tw.savedDesks'] = '[{"id":"Z"}]'; m.setSavedDesks([]); m.loadLocal();
+  r.closedRead = m.savedDesks().length === 0;   // 닫힌 칸은 읽기 null — 아무것도 채우지 않는다
+  return r;
+}
+{
+  const R = behave(MOD);
+  chk(R.load, '확인 뒤 읽기 — 카탈로그 몫(구독이 먼저 와 있음)은 덮지 않고 이 계정 몫만 더한다 · 옛 칸에 섞인 카탈로그 사본은 읽지 않는다');
+  chk(R.persist, '쓰기 — 이 계정 몫(fromCatalog 아닌 것)만 계정 칸에 쓴다 · 카탈로그 몫은 쓰지 않는다');
+  chk(R.reset, '세션이 끝나면 이 계정 몫만 비운다 · 카탈로그 몫은 그대로');
+  chk(R.closedLoud && R.closedRead, '계정 칸이 닫혀 있으면 — 쓰기는 알리고 읽기는 비워 둔다(조용히 옛 값을 쓰지 않는다)');
+  const br = (from, to) => MOD.includes(from) ? behave(MOD.replace(from, to)) : null;
+  const b1 = br("const have = new Set(cur.map(p=>p.id));\n  return cur.concat(_readLocal(key).filter(p=>!have.has(p.id)));", "return _readLocal(key);");
+  chk(b1 && !b1.load, '깨 보기 — 로그인 때 읽은 값으로 카탈로그 몫을 덮으면 빨강');
+  const b2 = br("p.id && !p.fromCatalog) : [];", "p.id) : [];");
+  chk(b2 && !b2.load, '깨 보기 — 옛 칸의 카탈로그 사본까지 읽으면 빨강');
+  const b3 = br("JSON.stringify(savedDesks.filter(p=>!p.fromCatalog))", "JSON.stringify(savedDesks)");
+  chk(b3 && !b3.persist, '깨 보기 — 카탈로그 몫까지 계정 칸에 쓰면 빨강');
+  const b4 = br("savedDesks = savedDesks.filter(p=>p.fromCatalog);", "savedDesks = [];");
+  chk(b4 && !b4.reset, '깨 보기 — 세션 끝에 카탈로그 몫까지 비우면 빨강');
+}
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/character/commission.js"></script>', '')],
@@ -89,8 +127,8 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const commissionMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('commissionMod.' + x)); if(n){ ls[i] = ls[i].replace('commissionMod.' + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 deps 를 되부름', m => m.replace('loadSavedAssets();\n\nreturn {', 'loadSavedAssets();\ntoast("깨 봄");\n\nreturn {'), null, null],
-  ['부팅 등록 줄 빠짐', null, a => a.replace('\nloadSavedItemsIntoSession();\n', '\n'), null],
+  ['만들 때 deps 를 되부름', m => m.replace('function resetLocal(){', 'toast("깨 봄"); function resetLocal(){'), null, null],
+  ['확인 뒤 등록 줄 빠짐', null, a => a.replace('loadSavedItemsIntoSession().catch((e)=>console.warn(\'[저장 아이템] 등록 실패\', e)); },', '},'), null],
   ['만들 때 던짐', m => m.replace('function createCommission(deps){', 'function createCommission(deps){ throw new Error("깨 봄");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
