@@ -68,7 +68,7 @@ function mkEl(tag, id){
 function mkEnv(opt){
   opt = opt || {};
   const env = { toasts: [], warns: [], esc: [], winL: {}, raf: [], subs: [], unsubs: 0, watch: 0, unwatch: 0,
-    closed: 0, configs: [], pause: 0, resume: 0, plPlaying: !!opt.plPlaying, plRender: 0, office: !!opt.office,
+    closed: 0, starts: 0, notices: [], configs: [], pause: 0, resume: 0, plPlaying: !!opt.plPlaying, plRender: 0, office: !!opt.office,
     room: opt.room === undefined ? 'ROOM1' : opt.room, audio: [], fbWrites: [], ls: Object.assign({}, opt.ls || {}), lsSets: [] };
   const els = {};
   const getEl = id => (opt.noDom ? null : (els[id] || (els[id] = mkEl('div', id))));
@@ -78,7 +78,8 @@ function mkEnv(opt){
     open: async (room, me) => { env.opened = { room, me }; return opt.openRes || { ok: true, slot: 0, host: true }; },
     watchQuota: cb => { env.watch++; env.quotaCb = cb; return () => { env.unwatch++; }; },
     setConfig: cfg => { env.configs.push(cfg); return Promise.resolve(true); },
-    hostSlot: () => 0, adoptSlots(){}, close(){ env.closed++; },
+    start: async () => { env.starts++; return { ok: true }; },
+    hostSlot: () => (opt.hostSlot === undefined ? 0 : opt.hostSlot), isHost: () => opt.isHost !== false, adoptSlots(){}, close(){ env.closed++; },
   });
   class FakeAudio { constructor(src){ this.src = src; this.paused = true; env.audio.push(this); }
     addEventListener(){} load(){} play(){ this.paused = false; return Promise.resolve(); } pause(){ this.paused = true; } }
@@ -90,7 +91,7 @@ function mkEnv(opt){
     requestAnimationFrame: fn => { env.raf.push(fn); return env.raf.length; }, cancelAnimationFrame(){},
     performance: { now: () => 1000 }, devicePixelRatio: 1, innerWidth: 1280, innerHeight: 800,
     Audio: FakeAudio, Image: class { constructor(){ this.onload = null; } }, URL: { createObjectURL: () => 'blob:x', revokeObjectURL(){} },
-    confirm: () => true, THREE: U(), TwGlContext: { make: () => U() },
+    confirm: () => true, THREE: U(), TwGlContext: { make: () => (opt.noGl ? null : U()) }, TwErrorCodes: { notify: (c) => env.notices.push(c) },
     localStorage: { getItem: (k) => (k in env.ls ? env.ls[k] : null) },
     companion: { pauseBgm(){ env.pause++; }, resumeBgm(){ env.resume++; } },
     firebaseAPI: {
@@ -109,7 +110,7 @@ function mkEnv(opt){
   /* 🎵 마이홈 BGM 고리(myhome-edit.js 가 부팅 때 고리판에 건다) — 여기선 마이홈 BGM 이 안 도는 판 */
   ctx.TwMyHomeHooks.on(ctx.TwMyHomeHooks.HOOK.BGM_PLAYING, () => false); ctx.TwMyHomeHooks.on(ctx.TwMyHomeHooks.HOOK.BGM_SET_PLAYING, () => {});
   vm.runInContext(SRC['pk-bgm.js'], ctx, { filename: 'pk-bgm.js' });   // 🎵 창 BGM(재생 · 끄기 기억) — purikura-ui.js 가 만들 때 부른다
-  vm.runInContext(MOD, ctx, { filename: 'purikura-ui.js' });
+  vm.runInContext(opt.mod || MOD, ctx, { filename: 'purikura-ui.js' });
   env.ctx = ctx; env.els = els;
   env.mk = () => ctx.TwPurikuraUi.createPurikuraUi({
     purikura: () => sess,
@@ -167,6 +168,23 @@ await sec('── 2. 문 — 자리를 잡기 전에 막는다', async () => {
   chk(e.toasts[0] === '자리가 다 찼어요 (4명까지)' && !ui.isOpen(), '자리가 다 찼으면 안내');
 });
 
+await sec('── 3-2. 3D 없는 방장 — 촬영 시작을 막고 안내만(E-SYS-07)', async () => {
+  const e = mkEnv({ noGl: true }); const ui = e.mk(); await ui.open();
+  const PK = ui.state();
+  chk(ui.isOpen() && PK.host === true && !PK.renderer, '3D 를 못 만들어도 창은 열린다(방장) — 무대는 없음');
+  await e.els.pkStartBtn.onclick({ stopPropagation(){} });
+  chk(e.starts === 0 && e.notices.join() === 'E-SYS-07' && PK.state !== 'shooting' && PK.shots.length === 0, '★ 촬영 시작을 눌러도 시작하지 않는다(정원 차감 start 안 부름) · 안내 번호 E-SYS-07 한 번 · 촬영 중이 아님');
+  const ok = mkEnv({}); const ui2 = ok.mk(); await ui2.open();
+  await ok.els.pkStartBtn.onclick({ stopPropagation(){} });
+  chk(ok.starts === 1 && ok.notices.length === 0, '3D 가 있는 방장은 예전처럼 시작한다(다른 사람 영향 없음)');
+  const g = mkEnv({ noGl: true, hostSlot: 3, isHost: false, openRes: { ok: true, slot: 1, host: false } }); const ui3 = g.mk(); await ui3.open();
+  await g.els.pkStartBtn.onclick({ stopPropagation(){} });
+  chk(g.starts === 0 && g.notices.length === 0, '방장이 아닌 참가자는 눌러도 아무 일 없고 안내도 없다(3D 없어도 로비 사용)');
+  const MUT = MOD.replace("if(!PK.renderer){ TwErrorCodes.notify('E-SYS-07'); return; }", '');
+  const m = mkEnv({ noGl: true, mod: MUT }); const um = m.mk(); await um.open(); let th = null;
+  try{ await m.els.pkStartBtn.onclick({ stopPropagation(){} }); }catch(err){ th = err; }
+  chk(MUT !== MOD && (m.starts === 1 || m.notices.length === 0), '깨 보기: 얼리 리턴을 지우면 3D 없는 방장도 시작해 버린다(정원 차감 start 가 불린다) → 빨강');
+});
 await sec('── 3. 열고 닫기 — 가짜 THREE · DOM 위에서', async () => {
   const e = mkEnv({ plPlaying: true }); const ui = e.mk();
   await ui.open();

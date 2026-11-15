@@ -280,7 +280,7 @@
 | **sim-asset-cards.js** | 151 | **4043cca67af1** |
 | **sim-scheduler.js** | 312 | **6d34e08cdd34** |
 | **sim-weekly-challenge.js** | 345 | **b7e524e4c5a5** |
-| **sim-purikura-ui.js** | 277 | **7a40aac7d032** |
+| **sim-purikura-ui.js** | 295 | **3aaa3f555e6c** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
 | **sim-guestbook.js** | 294 | **177f4506d26a** |
 | **sim-friend-manage-module.js** | 309 | **1a09c072d659** |
