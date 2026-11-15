@@ -518,7 +518,7 @@ async function judge(S){
 
   /* ── 5. myhome-init.js — 구독이 쓰기보다 먼저 ── */
   say('── 5. myhome-init.js — 친구 구독이 await 쓰기보다 먼저');
-  const body = ((S.MI.match(/async function initMyHome\(code, me\)\{([\s\S]*?)\nreturn \{/) || [])[1] || '').replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');   // 주석 속 «await» 글자는 빼고
+  const body = ((S.MI.match(/async function initMyHome\(code, me, session\)\{([\s\S]*?)\nreturn \{/) || [])[1] || '').replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');   // 주석 속 «await» 글자는 빼고
   const iStart = body.indexOf('friendsSub.start('), iAwait = body.search(/\bawait\b/);
   chk(iStart > 0 && iAwait > 0 && iStart < iAwait, 'friendsSub.start 가 첫 await 보다 앞');
   chk(!/firebaseAPI\.(subscribeMyFriends|watchMyFriendList)\(/.test(S.MI), '  친구 목록 구독은 friends-sub 로만 건다(두 벌로 걸지 않음)');

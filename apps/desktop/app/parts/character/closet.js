@@ -13,9 +13,9 @@
    실패(저장 · 옮기기 · 받기)는 오류 번호로 한 번만 알린다(E-CHAR-16~19) — 이어지는 같은 실패는 다시 안 띄운다.
    deps: closetApi · codec(slot-codec.js) · roomFaceCache{ load, save } · slots · CHAR_SLOT_MAX · slotSave{ applySlotObjs, lastOut, onSaved, pullForward, _relinkSeatsToSlots, slotsReplaced } ·
          getMyUserId · rtOn · toast · notifyError · renderLauncher · creatorOpen(읽는 함수) · migrate 에 쓰는 storage(localStorage)
-   내놓는 것: startCloset · pullCloset(notify) · state() · boxItems() · boxCount() · boxFull() · moveToBox(i) · boxToSlot(avatarId) · trashSlot(i) · trashBox(ids) ·
+   내놓는 것: startCloset(session) · useSession(session) · pullCloset(notify) · state() · boxItems() · boxCount() · boxFull() · moveToBox(i) · boxToSlot(avatarId) · trashSlot(i) · trashBox(ids) ·
      trashRows() · restore(trashId) · onChange(fn) · resetCloset() · legacyStep() · unsavedCount() · flushSlots() · waitFlush() · requireReady() · BOX_MAX · deleteWords() · reportFail(r)
-   ⚠️ 전역 이름은 TwCloset. 만들 때는 요청 · 구독 · 타이머를 하지 않는다 — 시작은 startCloset 한 번(app-boot).
+   ⚠️ 전역 이름은 TwCloset. 만들 때는 요청 · 구독 · 타이머를 하지 않는다 — 시작은 startCloset 한 번(app-boot — 구독 · 저장 모으기 타이머 · 비우기는 세션이 쥔다).
    검사: checks/sim-closet.js */
 (function(){
 
@@ -45,6 +45,7 @@ const known = new Array(CHAR_SLOT_MAX).fill(null);       // 칸마다 마지막�
 let load = 'idle';                                       // 'idle' | 'loading' | 'ready' | 'failed'
 const taken = new Set();   // 새 캐릭터를 올리려다 «그 칸에 이미 있다»(AVATAR_SLOT_TAKEN)고 거절당한 칸 — 다음 받기가 서버 캐릭터로 앉힌다
 let unsubRt = null;   // 서버 신호 구독 해제 함수 — 계정이 바뀌면 풀어 구독이 겹치지 않게
+let sess = null;      // 이번 로그인의 세션 — 저장 모으기 타이머를 맡긴다(세션이 끝나면 세션이 끈다)
 let started = false, gen = 0;
 let saveTimer = null, saveFailShown = false, busy = false;
 const changeFns = [];
@@ -185,9 +186,9 @@ function failNotice(e, onceKey){
   else notifyError('E-CHAR-17', e);
 }
 function scheduleSave(){
-  if(load !== 'ready') return;
-  if(saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => { saveTimer = null; flushSlots(); }, SAVE_DEBOUNCE_MS);
+  if(load !== 'ready' || !sess) return;
+  if(saveTimer) sess.clearTimeout(saveTimer);
+  saveTimer = sess.setTimeout(() => { saveTimer = null; flushSlots(); }, SAVE_DEBOUNCE_MS);
 }
 /* 바뀐 칸만 올린다. 빈 칸은 지우지 않는다(지우기는 휴지통 이동뿐). 이미지 복원에 실패한 칸은 건너뛴다(빈 그림이 서버에 굳지 않게).
    줄에 서서 돈다 — 옮기기 · 받기와 엇갈리지 않는다. @return 못 올린 칸이 있었나 */
@@ -436,16 +437,21 @@ function requireReady(){
 }
 
 /* ── 시작 · 비우기 ── */
-/* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 서버에서 받고 서버 신호(avatars)를 듣는다. 두 번 불려도 구독은 한 번. */
-function startCloset(){
+/* 이번 로그인의 세션을 건다 — 저장 모으기 타이머가 쓴다. startCloset 이 부른다(검사는 받기만 보려고 이것만 부르기도 한다) */
+function useSession(session){ sess = session; }
+/* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 서버에서 받고 서버 신호(avatars)를 듣는다. 두 번 불려도 구독은 한 번.
+   구독 · 비우기는 세션에 맡긴다 — 세션이 끝나면(dispose) 구독을 풀고 resetCloset 을 부른다. */
+function startCloset(session){
   if(started) return;
   started = true;
-  unsubRt = rtOn('avatars', () => { pullCloset(false); });
+  useSession(session);
+  unsubRt = session.on(rtOn('avatars', () => { pullCloset(false); }));
+  session.onReset(resetCloset);
   pullCloset(false);
 }
 /* 로그아웃 · 계정 바뀜 — 메모리를 비운다(이 PC 에 남는 캐릭터 저장본은 없다). 구독은 여기서 푼다. */
 function resetCloset(){
-  if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; }
+  if(saveTimer){ if(sess) sess.clearTimeout(saveTimer); saveTimer = null; }
   taken.clear(); heads = []; known.fill(null); load = 'idle'; gen++;
   saveFailShown = false; started = false; busy = false;
   laneTail = Promise.resolve(); queuedPull = null; queuedNotify = false; pullRunning = false; pullAgain = false; againNotify = false;   // 옛 계정 일은 gen 이 달라 스스로 끝난다 — 새 계정 일은 그것을 기다리지 않는다
@@ -524,7 +530,7 @@ async function legacyNow(uc, g, wipe, rawSlots, box, desk){
 }
 
 return {
-  startCloset, pullCloset, resetCloset, onChange,
+  startCloset, useSession, pullCloset, resetCloset, onChange,
   state: () => load,
   boxItems, boxCount, boxFull, BOX_MAX,
   moveToBox, boxToSlot, trashSlot, trashBox, trashRows, restore, reportFail,

@@ -191,14 +191,14 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 | 3 | focusLevel | 포커스 진척 받기 · 못 올린 집중 시간 올리기(`focusProgress.startFocus`) |
 | 4 | weeklyChal | 👑 달성표 오늘 진행을 계정 칸에서 읽고 이번 주 한 벌을 서버에서 받기(`weeklyChal.startChallenge` → `chal-store.startChal` — 세션을 받아 쓴다) |
 | 5 | pomodoro | 🍅 뽀모도로 설정 · 진행을 계정 칸에서 읽기(`pomodoro.startPomodoro`) |
-| 6 | gacha | 🎰 가챠(`startGacha`) |
-| 7 | closet | 🧬 옷장(슬롯 5칸 · 보관함 · 휴지통) 서버에서 받기(`startCloset`) |
-| 8 | mhInit | 🏠 마이홈 시작(`initMyHome(code, me)` — 접속 고정은 me 에서) |
+| 6 | gacha | 🎰 가챠(`startGacha(session)` — 구독 · 비우기를 세션에) |
+| 7 | closet | 🧬 옷장(슬롯 5칸 · 보관함 · 휴지통) 서버에서 받기(`startCloset(session)` — 구독 · 저장 타이머 · 비우기를 세션에) |
+| 8 | mhInit | 🏠 마이홈 시작(`initMyHome(code, me, session)` — 접속 고정은 me 에서 · 받은 요청 · 우편 구독과 친구 목록 · 접속 표시 비우기는 세션에) |
 | 9 | bugBadge | 🐞 버그제보 탭 «새 답변» 배지 한 번 받기 |
-| 10 | scheduler | 📅 일정 알림 받기(`startSchedule`) |
+| 10 | scheduler | 📅 일정 알림 받기(`startSchedule(session)` — 서버 신호 셋 · 자정 타이머 · 비우기를 세션에) |
 | 11 | roomInvite | 🙋 방 초대 받기(`startReceive`) |
 | 12 | desktopBg | 🖥️ 바탕화면 배경 맞추기(`MYHOME_DESKTOP.startBgSync`) |
-| 13 | playlist | 🎵 플레이리스트 받기(`plMod.pull`) |
+| 13 | playlist | 🎵 플레이리스트 받기(`plMod.start(session)` — 받기 다시 시도 · 올리기 모으기 타이머 · 비우기를 세션에) |
 | 14 | licensePremium | 🔑 프리미엄 판정 반영(서버 확인) · 라이선스 알림 받기 |
 | 15 | firstRun | 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기) |
 

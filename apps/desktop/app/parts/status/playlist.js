@@ -480,13 +480,17 @@ function _plServerShape(){
 const PL_PLAYING_DEFER_MS = 30000;   // 듣는 중 미루기 — 실패 재시도가 아니라 듣던 곡 보호
 const PL_NO_TOKEN = 'NO_TOKEN';   // api-client.js — 로그인 토큰이 아직 안 이어졌다
 const PL_MSG = Object.freeze({ loading: '불러오는 중…', failed: '못 불러왔어요 · ', retry: '다시 시도', merged: '다른 기기에서 바뀐 목록을 불러왔어요' });
+let _plSess = null;   // 이번 로그인의 세션 — 받기 다시 시도 · 올리기 3초 모으기 타이머를 맡긴다(세션이 끝나면 세션이 끈다)
 let _plPullT = null;
 let _plPullBusyUid = null;    // 이 계정으로 받는 중
 let _plPullFailed = false;    // 마지막 받기가 실패했다 — 창에 «못 불러왔어요» 를 보인다
 let _plPullMerged = false;    // 409 로 다시 받는 중이다 — 앉히고 나면 «다른 기기에서 바뀐…» 을 알린다
-function _plPullLater(ms){ clearTimeout(_plPullT); _plPullT = setTimeout(_plPull, ms); }
+/* 계정 몫 타이머 — 세션이 쥔다. 세션이 없으면(로그인 전) 걸지 않는다: 받기 · 올리기는 계정이 있어야 의미가 있다 */
+function _plTimeout(fn, ms){ return _plSess ? _plSess.setTimeout(fn, ms) : null; }
+function _plClear(h){ if(_plSess && h != null) _plSess.clearTimeout(h); }
+function _plPullLater(ms){ _plClear(_plPullT); _plPullT = _plTimeout(_plPull, ms); }
 async function _plPull(){
-  clearTimeout(_plPullT); _plPullT = null;   // 다시 시도 사슬은 하나만
+  _plClear(_plPullT); _plPullT = null;   // 다시 시도 사슬은 하나만
   const uid = getMyUserId();
   if(!uid) return;   // 로그인 전 — 서버 계정이 확인되면 켜는 순서 모듈이 부른다
   if(_plNow >= 0){ _plPullLater(PL_PLAYING_DEFER_MS); return; }   // 듣는 중이면 부르기 전에 미룬다(받아도 못 앉히는 헛 요청 없음)
@@ -518,7 +522,7 @@ async function _plPull(){
 }
 /* ☁️ 계정을 놓았다 · 다른 계정으로 이어받는다 — 목록을 비우고 새 계정 것을 받을 때까지 아무것도 올리지 않는다 */
 function _plReset(){
-  clearTimeout(_plPullT); _plPullT = null; clearTimeout(_plPubTimer); _plPubTimer = null;   // 걸려 있던 올리기 · 다시 올리기가 앞 계정 목록을 새 계정에 올리지 않게
+  _plClear(_plPullT); _plPullT = null; _plClear(_plPubTimer); _plPubTimer = null;   // 걸려 있던 올리기 · 다시 올리기가 앞 계정 목록을 새 계정에 올리지 않게
   _plFlushSent = false;
   _plGen++; _plPubBusy = false; _plPubAgain = false; _plSaveFailing = false;
   _plLoaded = false; _plPubSig = null; _plPullFailed = false; _plPullMerged = false; _plPullBusyUid = null;
@@ -546,9 +550,9 @@ function _plRetryOnOpen(){
 }
 function _plPublishIn(ms){
   _plFlushSent = false;
-  clearTimeout(_plPubTimer);
+  _plClear(_plPubTimer);
   const uid0 = getMyUserId();
-  _plPubTimer = setTimeout(()=>{ _plPubTimer = null; _plPublishNow(uid0); }, ms);
+  _plPubTimer = _plTimeout(()=>{ _plPubTimer = null; _plPublishNow(uid0); }, ms);
 }
 let _plPubDone = null;   // 보내는 중인 저장(+ 끝난 뒤 최신으로 한 번 더)이 끝나면 풀리는 약속 — 로그아웃 올리기가 기다린다
 function _plPublishNow(uid0){
@@ -590,10 +594,16 @@ function _plFlushPending(uid){
   if(!uid || _plFlushSent) return Promise.resolve();
   if(!_plSaveFailing && !_plPubTimer) return _plPubBusy ? _plPubDone : Promise.resolve();   // 새로 보낼 것은 없고 보내는 중인 것만 있으면 끝나기를 기다린다
   _plFlushSent = true;
-  clearTimeout(_plPubTimer); _plPubTimer = null;
+  _plClear(_plPubTimer); _plPubTimer = null;
   return _plPublishNow(uid);
 }
 window.addEventListener('beforeunload', ()=>{ _plFlushPending(getMyUserId()); });
+/* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 세션을 쥐고, 세션이 끝나면 비우게 걸고, 서버에서 목록을 받는다 */
+function _plStart(session){
+  _plSess = session;
+  session.onReset(()=>{ st.cur = 0; _plReset(); });
+  return _plPull();
+}
 
 /* 선택 표시만 갱신 — 전체 재생성을 하면 그 자리에 있던 행 element가 사라져서
    더블클릭(두 번째 클릭이 다른 element에 떨어짐)과 드래그가 같이 깨진다.
@@ -2032,6 +2042,7 @@ return {
   save: _plSave,                                   // 💾 기기 설정 저장 + 서버 저장(3초 debounce)
   flushPending: _plFlushPending,                   // 📤 못 올린 고침 한 번 올리기(uid) — 로그아웃 올리기(account.js)
   publish: _plPublish,                             // ☁️ 서버 저장만(3초 debounce)
+  start: _plStart,                                 // 🚀 계정 확인 뒤 한 번 — 세션을 쥐고 reset 을 걸고 받는다
   pull: _plPull,                                   // ☁️ 서버에서 내 목록 받기 — 계정 이어받기(못 읽으면 혼자 다시 하지 않음 — [다시 시도] · 창 열기)
   reset: _plReset,                                 // ☁️ 계정을 놓을 때 · 이어받기 시작 — 목록을 비우고 받기 전까지 올리지 않음
   normalizeSets: _plNormalizeSets,                 // 🎵 서버 값 관문(세 벌 · 16자 · 20곡)
