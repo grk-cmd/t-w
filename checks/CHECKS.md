@@ -227,6 +227,11 @@
 | **sim-seat-state.js** | 154 | **d88cad7215f7** |
 | **sim-seat-pointer.js** | 203 | **b28e4d892a5a** |
 | **sim-char-apply.js** | 200 | **52cf4fa5c3d8** |
+| **sim-app-mode.js** | 137 | **eef487a7aabd** |
+| **sim-office-mode.js** | 91 | **d956e66a4209** |
+| **sim-ls-set.js** | 52 | **ad74c91268cc** |
+| **sim-rig-anim.js** | 92 | **57328d0eb014** |
+| **sim-frame-pace.js** | 110 | **c009e265c097** |
 | **sim-cloth-visibility.js** | 108 | **ffb7f8625dc1** |
 | **sim-hue-tint.js** | 68 | **1347d75a264b** |
 | **sim-base-body.js** | 104 | **ce8a90cd1b21** |
