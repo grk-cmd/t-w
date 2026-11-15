@@ -38,8 +38,11 @@ function fakeDb(init){
       get: async () => { const at = JSON.parse(JSON.stringify(p ? get(p) : data)); return { val: () => at }; },   // 읽은 그 순간 값(진짜 RTDB 처럼 — 늦게 읽으면 동시 요청의 경쟁이 가려진다)
       update: async (w) => { db.writes++; for (const [k, v] of Object.entries(w)) set((p ? p + '/' : '') + k, v); },
       remove: async () => set(p, null),
+      /* 진짜 RTDB 처럼 — 첫 호출은 «들고 있던 값»(null). 돌려준 값이 서버 값과 다르면 서버 값으로 다시 부른다 · undefined 면 그만둔다 */
       transaction: async (fn) => {
-        const nv = fn(get(p) == null ? null : JSON.parse(JSON.stringify(get(p))));
+        const cur = () => (get(p) == null ? null : JSON.parse(JSON.stringify(get(p))));
+        let nv = fn(null);
+        if (nv !== undefined && get(p) != null) nv = fn(cur());
         if (nv === undefined) return { committed: false, snapshot: { val: () => get(p) } };
         set(p, nv); const at = JSON.parse(JSON.stringify(get(p))); return { committed: true, snapshot: { val: () => at } };   // 커밋한 그 값(진짜 RTDB 처럼)
       },
@@ -215,6 +218,9 @@ say('── 4-2절 관리자 편지 반송');
   const dbD = mk();
   const both = await Promise.allSettled([X.handleAdminReturn(dbD, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'abuse', ts: 1 }), T0), X.handleAdminReturn(dbD, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'spam', ts: 1 }), T0 + 1)]);
   chk(both.filter(r => r.status === 'fulfilled').length === 1 && Object.keys(dbD.data.inbox.ucodewri001).length === 1, '두 관리자가 동시에 반송해도 한 번만 · 알림 한 통');
+  // 깨 보기 — 첫 호출(null)에서 그만두는 트랜잭션은 늘 «없는 편지» 가 된다(위 반송 검사들이 잡는 모양)
+  { const dbB = mk(); const t = await dbB.ref('xmasLetters/uWri000001/l2').transaction((c) => (c ? null : undefined));
+    chk(!t.committed && !!dbB.get('xmasLetters/uWri000001/l2'), '깨 보기 — null 에서 그만두는 트랜잭션은 서버 값을 못 본다(가짜 DB 가 진짜처럼 null 부터 부른다)'); }
   // 반송된 편지는 짝 짓기에 안 들어간다
   const db8 = mk(); await X.handleAdminReturn(db8, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'abuse', ts: 1 }), T0);
   chk(X.lettersOf(db8.get('xmasLetters')).every(l => l.text !== '나쁜 말'), '반송된 편지는 짝 짓기 대상에서 빠진다');

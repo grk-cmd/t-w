@@ -275,13 +275,17 @@ async function handleAdminReturn(db, request, now){
   const path = 'xmasLetters/' + d.uid + '/' + d.lid;
   /* 관리자가 본 그 편지(ts 가 같을 때)만 지운다 — 목록을 연 사이 쓴 사람이 같은 칸을 고쳐 다시 맡겼으면 보지 않은 새 글을 반송하지 않게.
      트랜잭션이 지운 값을 그대로 반송 기록 · 알림에 쓴다(두 관리자가 동시에 눌러도 한 번만). */
+  /* ⚠️ RTDB 트랜잭션의 첫 호출은 «이 인스턴스가 들고 있던 값»(대개 null)이다 — null 에서 그만두면(undefined) 서버에 묻지도 않고
+     끝나 늘 «없는 편지» 가 된다. null 이면 null 을 돌려 서버 값으로 다시 불리게 한다(room-stats.js 같은 함정). */
   let why = null, letter = null;
   const tx = await db.ref(path).transaction((cur) => {
-    if (!cur || typeof cur.text !== 'string'){ why = 'gone'; return undefined; }
+    letter = null;
+    if (cur === null){ why = 'gone'; return null; }
+    if (typeof cur.text !== 'string'){ why = 'gone'; return undefined; }
     if (cur.ts !== d.ts){ why = 'changed'; return undefined; }
     why = null; letter = cur; return null;
   });
-  if (!tx.committed){
+  if (!tx.committed || !letter){
     if (why === 'changed') throw fail('failed-precondition', '그새 고쳐 쓴 편지예요 — 다시 불러와 확인해 주세요');
     throw fail('not-found', '이미 없는 편지예요');
   }
