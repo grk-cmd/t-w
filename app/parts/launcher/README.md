@@ -155,3 +155,9 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - **만드는 법**: `TwFramePace.createFramePace({ … 8개 })` — 읽는 함수 2(`_flyActive` · `creatorOpen`) · 함수 1(`frame`) · 쓰는 함수 1(`setRunLowered`) · 값 4. 원래 자리에서 만든다 — 타이머 · 듣기가 이때 걸린다.
 - **내보내는 것**: `_FB` · `_frameBudget` · `_runSlowWatch` · `_gpuTimer` · `_frameJsStats` · `_lowerRunQuality` · `_uiHot` · `_frameCap` · `_frameCapped` · `_lastRafAt`(읽는 함수) · `setLastRafAt`.
 - **함정**: `mousemove` 는 «손댐» 으로 세지 않는다(클릭 통과 중에도 들어와 30 ↔ 60 이 오르내림). `frame()`(app.js)이 rAF 가 실제로 온 시각을 `setLastRafAt` 으로 알린다. 검사: `checks/sim-frame-pace.js`.
+
+## `notice-api.js` · `notice-feed.js` — 📢 공지 읽기(서버 /v2/notices)
+**책임** — 📢 소식(알림함) · 📰 업데이트 공지 · 📢 런처 배너를 서버 한 번 읽기(`GET /v2/notices`)로 받는다. `notice-api.js` 는 서버 모양 → 화면 모양 맞춤(provider), `notice-feed.js` 는 받는 중 · 받음 · 못 받음과 받는 쪽 알림을 맡는다.
+**deps** — api(`createNoticeApi({ get })` · `get` 은 `TwApi.authed.get`) · notifyError. 만드는 곳은 app.js(마이홈 처음 준비 앞).
+**내놓는 것** — `start` · `refresh({ manual })` · `onChange` · `onceReady` · `broadcasts()` · `banner()` · `updateNotice()` · `status()` · `ready()`.
+**함정** — 서버가 «바뀌었다» 알리는 길이 이 판에 없어 켤 때 받은 판이 다음 `refresh()` 까지 간다. 못 받아도 혼자 다시 받지 않는다. 관리자 쓰기(소식 · 업데이트 공지 · 배너)는 아직 옛 길 · 확성기(`announce`)도 옛 구독이다.

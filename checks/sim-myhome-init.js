@@ -19,12 +19,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — myhome-init.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["_waitForFirebaseAPI","ensureMyFriendCode","getDisplayName","getMyUserId","toast"];
-const VAL_DEPS = ["MY_FRIEND_CODE_KEY","deviceLostMod","friendManage","friendsSub","mhScheduler"];
+const VAL_DEPS = ["MY_FRIEND_CODE_KEY","deviceLostMod","friendManage","friendsSub","mhScheduler","noticeFeed"];
 const GET_DEPS = ["_inboxBroadcast","_myFriendRequests","_myHomeFriends","_myHomeReady","_myInbox","_myInboxReady","focusLevelMod","inboxMod","myHomeOpen"];
 const SET_DEPS = ["_inboxBroadcast","_myFriendRequests","_myHomeFriends","_myHomeReady","_myInbox","_myInboxReady"];
 const EXPORTS = ["initMyHome"];
 const MOVED = ["_ownerWriteWarned","_warnOwnerWriteDenied","initMyHome"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,","  _inboxBroadcast: ()=>_inboxBroadcast,","  _myFriendRequests: ()=>_myFriendRequests,","  _myHomeFriends: ()=>_myHomeFriends,","  _myHomeReady: ()=>_myHomeReady,","  _myInbox: ()=>_myInbox,","  _myInboxReady: ()=>_myInboxReady,","  _waitForFirebaseAPI: (...a)=>_waitForFirebaseAPI(...a),","  deviceLostMod: deviceLostMod,","  ensureMyFriendCode: (...a)=>ensureMyFriendCode(...a),","  focusLevelMod: ()=>focusLevelMod,","  friendManage: friendManage,","  friendsSub: friendsSubMod,","  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  inboxMod: ()=>inboxMod,","  mhScheduler: mhScheduler,","  myHomeOpen: ()=>myHomeOpen,","  toast: (...a)=>toast(...a),","  setInboxBroadcast: (v)=>{ _inboxBroadcast = v; },","  setMyFriendRequests: (v)=>{ _myFriendRequests = v; },","  setMyHomeFriends: (v)=>{ _myHomeFriends = v; },","  setMyHomeReady: (v)=>{ _myHomeReady = v; },","  setMyInbox: (v)=>{ _myInbox = v; },","  setMyInboxReady: (v)=>{ _myInboxReady = v; },"];
+const GLUE = ["  noticeFeed: noticeFeed,","  MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,","  _inboxBroadcast: ()=>_inboxBroadcast,","  _myFriendRequests: ()=>_myFriendRequests,","  _myHomeFriends: ()=>_myHomeFriends,","  _myHomeReady: ()=>_myHomeReady,","  _myInbox: ()=>_myInbox,","  _myInboxReady: ()=>_myInboxReady,","  _waitForFirebaseAPI: (...a)=>_waitForFirebaseAPI(...a),","  deviceLostMod: deviceLostMod,","  ensureMyFriendCode: (...a)=>ensureMyFriendCode(...a),","  focusLevelMod: ()=>focusLevelMod,","  friendManage: friendManage,","  friendsSub: friendsSubMod,","  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  inboxMod: ()=>inboxMod,","  mhScheduler: mhScheduler,","  myHomeOpen: ()=>myHomeOpen,","  toast: (...a)=>toast(...a),","  setInboxBroadcast: (v)=>{ _inboxBroadcast = v; },","  setMyFriendRequests: (v)=>{ _myFriendRequests = v; },","  setMyHomeFriends: (v)=>{ _myHomeFriends = v; },","  setMyHomeReady: (v)=>{ _myHomeReady = v; },","  setMyInbox: (v)=>{ _myInbox = v; },","  setMyInboxReady: (v)=>{ _myInboxReady = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -84,6 +84,7 @@ async function callsWith(src, uid){
   SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
   let done; const fin = new Promise(r => { done = r; });
   deps.getMyUserId = () => uid;
+  deps.noticeFeed = { onChange: () => { calls.push('noticeFeed.onChange'); return () => {}; }, ready: () => false };
   deps.friendsSub = new Proxy({}, { get: (t, k) => (...a) => { calls.push('friendsSub.' + String(k) + '(' + (a.length ? String(a[0]) : '') + ')'); return any; } });
   deps._waitForFirebaseAPI = (cb) => { Promise.resolve(cb()).then(done, done); };
   const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
@@ -95,14 +96,14 @@ async function callsWith(src, uid){
 }
 const judgeNoUid = async (src) => {
   const none = await callsWith(src, null), mine = await callsWith(src, 'ME');
-  return none.join() === 'friendsSub.start(null),subscribeInboxBroadcast' && mine.filter(c => !c.startsWith('friendsSub.'))[0] === 'setMyPresenceOnline';   // 친구 목록은 «코드 없음» 으로 시작해 둬야 친구 탭이 «불러오는 중» 에 안 멈춘다   // 코드 있으면 첫 요청은 예전처럼 presence(가짜 await 는 안 풀려 그 뒤는 안 본다)
+  return none.join() === 'friendsSub.start(null),noticeFeed.onChange' && mine.filter(c => !c.startsWith('friendsSub.'))[0] === 'setMyPresenceOnline';   // 친구 목록은 «코드 없음» 으로 시작해 둬야 친구 탭이 «불러오는 중» 에 안 멈춘다   // 코드 있으면 첫 요청은 예전처럼 presence(가짜 await 는 안 풀려 그 뒤는 안 본다)
 };
 
 (async () => {
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
 say('── 2-2. 내 코드 없음 — 내 경로 요청 0');
-chk(await judgeNoUid(MOD), '내 코드 없음 → presence · 기기 · 프로필 · 친구 · 요청 · 우편 요청 0 · 친구 목록은 «코드 없음» 으로 시작(요청 없음) · 공용 공지 구독만 · 코드 있으면 presence 부터');
+chk(await judgeNoUid(MOD), '내 코드 없음 → presence · 기기 · 프로필 · 친구 · 요청 · 우편 요청 0 · 친구 목록은 «코드 없음» 으로 시작(요청 없음) · 공용 소식(공지 한 판) 받기만 · 코드 있으면 presence 부터');
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 {
   const m2 = MOD.replace(/\n *if\(!myId\)\{ friendsSub\.start\(null\); _subscribeInboxBroadcast\(\); return; \}[^\n]*/, '');

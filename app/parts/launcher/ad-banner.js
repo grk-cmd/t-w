@@ -13,6 +13,7 @@
 
 function createAdBanner(deps){
 const settingsMod = deps.settingsMod;
+const noticeFeed = deps.noticeFeed;   // 📢 공지 한 판(launcher/notice-feed.js)
 /* 광고 배너 — localStorage에 저장된 이미지/링크를 런처 하단에 표시. 관리자만 편집 가능. */
 const AD_BANNER_KEY = 'tw.adBanner';
 let _lcAdSlides=[], _lcAdIdx=0, _lcAdTimer=null;
@@ -49,23 +50,18 @@ try{
 }catch(_){}
 
 refreshAdBanner();
-// 🌐 서버 배너 구독 — 관리자가 게시한 배너를 모든 사용자가 받아 localStorage에 반영 후 다시 그림.
+// 🌐 서버 배너 — 공지 한 판(noticeFeed)을 받으면 localStorage 에 반영하고 다시 그린다. 못 받았으면 지난번 저장분을 그대로 쓴다.
 //   (표시 로직은 기존 localStorage 경로를 그대로 재사용 — 서버는 동기화만 담당)
-(function(){
-  const _sub = ()=>{
-    if(!(window.firebaseAPI && firebaseAPI.subscribeAdBanner)){ setTimeout(_sub, 500); return; }
-    firebaseAPI.subscribeAdBanner(slides=>{
-      try{
-        const arr = Array.isArray(slides) ? slides.filter(x=>x&&x.img) : [];
-        if(arr.length) localStorage.setItem(AD_BANNER_KEY, JSON.stringify(arr));
-        else localStorage.removeItem(AD_BANNER_KEY);
-      }catch(_){}
-      refreshAdBanner();
-      if(typeof settingsMod.refreshFsAdBanner==='function') settingsMod.refreshFsAdBanner();
-    });
-  };
-  _sub();
-})();
+noticeFeed.onChange(()=>{
+  if(!noticeFeed.ready()) return;
+  try{
+    const arr = noticeFeed.banner();
+    if(arr.length) localStorage.setItem(AD_BANNER_KEY, JSON.stringify(arr));
+    else localStorage.removeItem(AD_BANNER_KEY);
+  }catch(_){}
+  refreshAdBanner();
+  settingsMod.refreshFsAdBanner();
+});
 
 return {
   AD_BANNER_KEY,

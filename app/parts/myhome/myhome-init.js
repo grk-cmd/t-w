@@ -21,6 +21,7 @@ const _myInbox = deps._myInbox;   // 읽는 함수
 const _myInboxReady = deps._myInboxReady;   // 읽는 함수
 const _waitForFirebaseAPI = deps._waitForFirebaseAPI;
 const deviceLostMod = deps.deviceLostMod;
+const noticeFeed = deps.noticeFeed;   // 📢 공지 한 판(launcher/notice-feed.js)
 const ensureMyFriendCode = deps.ensureMyFriendCode;
 const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const friendManage = deps.friendManage;
@@ -46,24 +47,26 @@ function _warnOwnerWriteDenied(what, err){
   toast('🔑 이 PC의 로그인이 풀려 있어 변경 내용이 저장되지 않아요 — 앱을 다시 시작하면 로그인 화면이 나와요');
 }
 
-/* 📢 공용 공지 구독 — 내 코드가 없어도 건다(전체 대상이라 uid 가 필요 없다). */
+/* 📢 공용 소식 — 공지 한 판(noticeFeed)이 받을 때마다 받아 그린다. 내 코드가 없어도 건다(전체 대상이라 uid 가 필요 없다).
+   initMyHome 이 여러 번 불려도 한 번만 건다. 이미 받은 판이 있으면 바로 한 번 그린다(알림 없이). */
+let _inboxBroadcastBound = false;
+function _applyInboxBroadcast(notify, addedIds){
+  setInboxBroadcast(noticeFeed.broadcasts());
+  inboxMod().renderInbox();
+  mhScheduler.refreshBellBadge();
+  if(mhScheduler.isBellOpen()) mhScheduler.renderBellList();
+  if(!notify) return;
+  addedIds.forEach(id=>{
+    const m = _inboxBroadcast()[id];
+    const lbl = m.tag==='update' ? '🆕 업데이트' : m.tag==='reward' ? '📩 우편' : '📢 공지';
+    toast(`📩 ${lbl}: ${m.title||''}`);
+  });
+}
 function _subscribeInboxBroadcast(){
-  // 📢 공용 공지 구독 — 전체 대상 공지/업데이트 (개인 inbox와 합쳐서 표시)
-  if(firebaseAPI.subscribeInboxBroadcast){
-    firebaseAPI.subscribeInboxBroadcast(bc=>{
-      const prevIds = Object.keys(_inboxBroadcast()||{});
-      setInboxBroadcast(bc || {});
-      if(typeof inboxMod().renderInbox === 'function') inboxMod().renderInbox();
-      mhScheduler.refreshBellBadge();
-      if(mhScheduler.isBellOpen()) mhScheduler.renderBellList();
-      Object.keys(_inboxBroadcast()).forEach(id=>{
-        if(prevIds.includes(id)) return;
-        const m = _inboxBroadcast()[id];
-        const lbl = m.tag==='update' ? '🆕 업데이트' : m.tag==='reward' ? '📩 우편' : '📢 공지';
-        toast(`📩 ${lbl}: ${m.title||''}`);
-      });
-    });
-  }
+  if(_inboxBroadcastBound) return;
+  _inboxBroadcastBound = true;
+  noticeFeed.onChange((e)=>{ if(noticeFeed.ready()) _applyInboxBroadcast(true, e.addedIds); });
+  if(noticeFeed.ready()) _applyInboxBroadcast(false, []);
 }
 
 async function initMyHome(){

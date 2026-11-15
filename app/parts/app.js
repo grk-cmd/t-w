@@ -1730,7 +1730,12 @@ const friendsSubMod = TwFriendsSub.createFriendsSub({
   clearTimer: (id)=>clearTimeout(id),
   onUnload: (fn)=>window.addEventListener('beforeunload', fn),
 });
+/* 📢 공지 한 판(소식 · 업데이트 공지 · 런처 배너) — 서버(GET /v2/notices)가 원본. 읽기만 — 관리자 쓰기는 아직 옛 길(admin/admin-notice.js · admin-launcher.js).
+   받는 쪽(마이홈 소식 · 런처 배너 · 업데이트 공지 팝업)이 onChange · onceReady 를 걸고, 켜는 줄은 업데이트 공지 확인 자리(TwNetReady 뒤). */
+const noticeApi = TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path) });
+const noticeFeed = TwNoticeFeed.createNoticeFeed({ api: noticeApi, notifyError: (...a)=>TwErrorCodes.notify(...a) });
 const mhInitMod = TwMyHomeInit.createMyHomeInit({
+  noticeFeed: noticeFeed,
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
   _inboxBroadcast: ()=>_inboxBroadcast,
   _myFriendRequests: ()=>_myFriendRequests,
@@ -5869,6 +5874,7 @@ const launcherChromeMod = TwLauncherChrome.createLauncherChrome({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const adBannerMod = TwAdBanner.createAdBanner({
   settingsMod: settingsMod,
+  noticeFeed: noticeFeed,
 });
 /* 관리자 쪽(🛑 전체 방 종료 · 🧹 유령 방 청소 · ⚙️ 게임 설정 편집 · 📢 광고 배너 편집)은 admin/admin-launcher.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에.
    isAdmin · _gameCfg 는 다시 대입되는 let 이라 읽는 함수로 넘긴다. 사용자 쪽(배너 그리기 · 구독)은 바로 위 ad-banner.js(앱 FSD 43번).
@@ -5927,11 +5933,9 @@ const adminNotice = TwAdminNotice.createAdminNotice({
 });
 
 
-// 유저: 앱 시작 시 공지 확인 → 미표시 조건 아니면 팝업
-async function _checkUpdateNoticeOnStartup(){
-  if(!(window.firebaseAPI && firebaseAPI.getUpdateNotice)) return;
+// 유저: 공지 한 판(noticeFeed)을 처음 받았을 때 한 번 — 미표시 조건 아니면 팝업
+function _showUpdateNoticeOnce(notice){
   try{
-    const notice = await firebaseAPI.getUpdateNotice();
     if(!notice || !notice.ts) return;
     // "다시 보지 않기" 체크한 ts와 같으면 스킵
     const dismissedTs = parseInt(localStorage.getItem('tw.updateNoticeDismissedTs')||'0', 10);
@@ -5956,8 +5960,9 @@ async function _checkUpdateNoticeOnStartup(){
     document.getElementById('updateNoticeCloseX').onclick = close;
   }catch(_){}
 }
-// firebase 준비되면 한 번 실행
-TwNetReady.whenNetReady(()=>_checkUpdateNoticeOnStartup());
+noticeFeed.onceReady(_showUpdateNoticeOnce);
+// firebase 준비되면 공지 한 판을 받기 시작
+TwNetReady.whenNetReady(()=>noticeFeed.start());
 
 // ===== Phase 3: 관리자 카테고리 관리 =====
 /* 카테고리 관리 본문은 admin/admin-category.js, 뒤쪽의 라이선스 요청 · 발급 버튼 · 친구코드로 발급은 admin/admin-license.js 로 옮겼다.

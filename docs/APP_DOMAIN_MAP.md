@@ -79,7 +79,6 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `guestbook.js` · `scheduler.js` | 방명록 · 스케줄러 · 일정 알림 | fb 15 · 24 |
 | `myhome-desktop.js` · `folder-free.js` · `bookmark.js` · `mallang.js` | 마이홈 바탕화면 · 폴더 자유배치 · 북마크 책장 · 말랑이 | fb 98 · 27 |
 | `myhome-links.js` · `myhome-diag.js` | 본문 링크 · 클릭 진단(콘솔) | — |
-| `broadcast-cache.js` (ES) | 공용 공지(inboxBroadcast) 버전 확인 + 로컬 캐시 | (firebase-init 이 연결) |
 
 ### 4-1. 👥 `friends/` — 친구 데이터 포트 · provider (서버 이관 — 사용법은 `app/parts/friends/README.md`)
 
@@ -184,7 +183,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 ## 15. ③ 폴더로 나눌 때 — 같이 고칠 곳과 함정
 
 - **HTML `<script src>`**(`app/desk-companion-prototype.html`): 경로만 바꾸고 **싣는 순서는 그대로**(classic script 는 순서가 곧 의존).
-- **ES 모듈 import**: `firebase-init.js` 머리의 `import … from "./room-index.js"` 등 18줄, 그리고 모듈끼리(`broadcast-cache.js → catalog-cache.js` · `room-index.js → room-channel.js`). 폴더가 달라지면 `"./room/room-index.js"` · `"../room/…"` 로.
+- **ES 모듈 import**: `firebase-init.js` 머리의 `import … from "./room-index.js"` 등 18줄, 그리고 모듈끼리(`room-index.js → room-channel.js`). 폴더가 달라지면 `"./room/room-index.js"` · `"../room/…"` 로.
 - **⚠️ 검사가 못 잡는 자리**(→ `sim-parts-paths.js` 로 막음 · 폴더 1번): 검사 러너(`checks/run.js`)는 `app/parts/` 아래를 **평평하게 펴서** 돌린다. 그래서 실제 앱에서 `<script src>` · import 경로가 틀려도 검사는 초록이다. → 첫 폴더 PR 에서 «실제 폴더 기준으로 `<script src>` · 상대 import 가 다 있는 파일을 가리키는가» 를 보는 검사를 먼저 넣는다.
 - **파일 이름은 폴더가 달라도 겹치면 안 된다** — 러너가 이름으로 찾는다(겹치면 `flatDup` 로 알린다).
 - **소리 · 그림 파일**(`parts/click.mp3` 등)은 옮기지 않는다 — 코드 안 경로(`'parts/click.mp3'`)가 그대로 맞게.
