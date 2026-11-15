@@ -65,6 +65,30 @@ async function judge(S){
     chk(GONE.every((k) => !M.ACCOUNT_KEYS.includes(k) && !M.MOVED_KEYS.includes(k) && !M.DEVICE_KEYS.includes(k)), '★ 서버가 원본이 된 옛 키 여섯(누적 · 마크 · 별 색 · 해금 안내 기록 셋)은 표에 없다 — 첫 실행이 지운다(D5-2)');
     chk(M.ACCOUNT_KEYS.includes('tw.focusPendingSec') && !M.MOVED_KEYS.includes('tw.focusPendingSec'), '★ 못 올린 집중 시간 tw.focusPendingSec 은 계정별 표에 있다(새 키 — 옮길 옛 값은 없다)');
     chk(M.DEVICE_KEYS.includes('tw.deviceId') && M.DEVICE_KEYS.includes('tw.myUserId'), '기기 id · 계정 코드 자리는 기기 공용(계정 칸에 둘 수 없다)');
+    /* S-3a — 죽은 이름 걷기 · 기기 몫으로 정정 */
+    const PL_DEAD = ['tw.playlist', 'tw.playlistSets', 'tw.playlistTitle', 'tw.playlistBio', 'tw.playlistHomePublic', 'tw.playlistPrivate', 'tw.playlistEditTs', 'tw.playlistBackup'];
+    chk(PL_DEAD.every((k) => !M.ACCOUNT_KEYS.includes(k) && !M.DEVICE_KEYS.includes(k) && !M.MOVED_KEYS.includes(k)) && M.ACCOUNT_KEYS.includes('tw.playlistCur') && M.ACCOUNT_KEYS.includes('tw.secretRoomMusic'),
+      '★ 플레이리스트 옛 목록 이름 여덟은 표에 없다(서버가 원본 — 첫 실행이 지운다) · 지금 고른 목록 번호(playlistCur) · 시크릿룸 음악은 계정별');
+    chk(['tw.demojiSfx', 'tw.firstRun013', 'tw.me'].every((k) => M.DEVICE_KEYS.includes(k) && !M.ACCOUNT_KEYS.includes(k)), '★ 효과음 켜기(demojiSfx) · 첫 실행 끝낸 계정(firstRun013) · 서버 확인 답 사본(me)은 기기 공용 — 계정 칸에 둘 수 없다');
+    chk(M.ACCOUNT_KEYS.includes('tw.annivView'), 'tw.annivView(기념일 보기)는 계정별 표에 있다(아직 PC 칸을 읽는다 — 옮김은 S-3c)');
+  }
+
+  say('── 1b. 코드에 쓰인 tw. 이름은 모두 분류돼 있다');
+  {
+    /* 새 키를 쓰는 코드가 «기기 공용 / 계정별 / 접두 / 걷는 옛 키» 어디에도 안 올리면 빨강 — 계정 키가 PC 칸에 몰래 쌓이지 않게 */
+    const root = ['app/parts', 'parts', 'apps/desktop/app/parts'].find((d) => { try{ return fs.statSync(d).isDirectory(); }catch(_){ return false; } });
+    const files = [];
+    (function walk(d){ for(const e of fs.readdirSync(d, { withFileTypes: true })){ const p = d + '/' + e.name; if(e.isDirectory()){ if(e.name !== 'node_modules') walk(p); } else if(/\.(js|html)$/.test(e.name)) files.push(p); } })(root || '.');
+    const F = (() => { try{ const w = {}; new Function('window', 'module', pick(at('first-run-013.js', 'account')))(w, undefined); return w.TwFirstRun013; }catch(_){ return null; } })();
+    const legacy = F ? [].concat(F.LOGIN_LEGACY_KEYS, F.GACHA_LEGACY_KEYS, F.MALLANG_LEGACY_KEYS, F.MYHOME_LEGACY_KEYS, F.FOCUS_LEGACY_KEYS, [F.CHAL_LEGACY_KEY, F.MALLANG_LEGACY_PREFIX]) : [];
+    const closetSrc = pick(at('closet.js', 'character')) || '';
+    const closetLegacy = ['tw.charsLinked', 'tw.charsMoveFails'].filter((k) => closetSrc.includes("'" + k + "'"));   // D1 이 지우는 옛 캐릭터 키(closet.js LEGACY_KEY_PREFIXES)
+    const OTHER = ['tw.__probe', 'tw.u.', 'tw.recentRooms.'];   // 새 키 쓰기 시험(지움) · 계정 칸 이름 앞 · 이름에 계정 id 가 붙는 최근 방(room/recent-rooms.js — 서버에 안 올림)
+    const known = (k) => M.DEVICE_KEYS.includes(k) || M.isAccountKey(k) || M.ACCOUNT_KEY_PREFIXES.some((p) => k.startsWith(p)) || legacy.includes(k) || closetLegacy.includes(k) || OTHER.includes(k);
+    const bad = new Set();
+    for(const f of files){ const t = fs.readFileSync(f, 'utf8'); for(const m of t.matchAll(/['"`](tw[._][A-Za-z0-9_.:\-]+)/g)) if(!known(m[1])) bad.add(m[1] + ' ← ' + f.replace(/^.*parts\//, '')); }
+    chk(files.length > 50 && !!F, '원본 파일을 훑었다(' + files.length + '개)');
+    chk(!bad.size, '★ 코드에 쓰인 tw. 이름이 모두 기기 공용 · 계정별 · 접두 · 걷는 옛 키 중 하나에 있다' + (bad.size ? ' — ' + [...bad].join(' · ') : ''));
   }
 
   say('── 2. 계정 A / B 칸');
@@ -370,6 +394,9 @@ const BREAKS = [
   ['STORE', "return validCode(code) ? cellName(code, key) : null;\n  }\n  function closedFor(key){\n    if(opened !== null && opened === getAccountCode()) return false;", "return validCode(code) ? cellName(code, key) : key;\n  }\n  function closedFor(key){\n    return false;", '로그인 전에 PC 칸을 씀(열림 장치도 없는 모양)'],
   ['STORE', "const CODE_RE = /^u[0-9a-z]{8,40}$/i;", "const CODE_RE = /^.*$/;", '코드 모양을 안 봄(점 · 슬래시)'],
   ['STORE', "if(!isAccountKey(key)) throw new Error('[계정 칸] 계정별 키가 아니다 — ' + key);", "", '모르는 키 · 기기 공용 키를 받음'],
+  ['STORE', "'tw.demojiSfx', 'tw.firstRun013', 'tw.me', ", "'tw.firstRun013', 'tw.me', ", '효과음 켜기를 어느 표에도 안 올림'],
+  ['STORE', "'tw.playlistCur', 'tw.secretRoomMusic', 'tw.annivView',", "'tw.playlistSets', 'tw.playlistCur', 'tw.secretRoomMusic', 'tw.annivView',", '죽은 플레이리스트 이름을 표에 되살림'],
+  ['STORE', "'tw.playlistCur', 'tw.secretRoomMusic', 'tw.annivView',", "'tw.playlistCur', 'tw.secretRoomMusic',", '기념일 보기 키를 분류에서 뺌'],
   ['STORE', "if(have !== null) res.kept.push(k);", "if(false) res.kept.push(k);", '계정 칸 값을 덮어씀'],
   ['STORE', "const todo = MOVED_KEYS.filter(k => !done.includes(k));", "const todo = MOVED_KEYS.slice();", '두 번 돎'],
   ['STORE', "try{ storage.removeItem(k); }catch(_){}\n      }\n      handled.push(k);", "}\n      handled.push(k);", '옮기고 PC 칸을 안 지움'],
