@@ -22,7 +22,6 @@ const CUSTOM_STATUS_KEY = deps.CUSTOM_STATUS_KEY;
 const EXTRA_SEAT_KEY = deps.EXTRA_SEAT_KEY;
 const INBOX_BC_READ_KEY = deps.INBOX_BC_READ_KEY;
 const LICENSE_REQ_ID_KEY = 'tw.licenseReqId';   // 0.12 옛 요청 번호 — 요청 화면은 걷었고 남은 값만 지운다
-const MY_AD_BANNER_KEY = deps.MY_AD_BANNER_KEY;
 const MY_FRIEND_CODE_KEY = deps.MY_FRIEND_CODE_KEY;
 const MY_FRIEND_CODE_PREV_KEY = deps.MY_FRIEND_CODE_PREV_KEY;
 const MY_USER_ID_KEY = deps.MY_USER_ID_KEY;
@@ -132,19 +131,14 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
      지우면 그것으로 끝이다. 남의 캐릭터를 주워 가는 길은 restoreSlotsBackup 의 uid 대조로 막는다.
      (빠뜨린 것으로 보고 넣지 말 것 — 제보 3-7) */
   EXTRA_SEAT_KEY,              // 슬롯 번호 목록 — 슬롯이 사라지면 가리키는 곳이 없다
-  /* 플레이리스트 — 다시 로그인하면 서버 사본에서 받아온다.
+  /* 플레이리스트 — 목록은 서버가 원본이라 이 PC 에 두지 않는다(옛 목록 이름은 첫 실행이 지운다). 지금 고른 목록 번호만 남는다.
      볼륨·반복·미니미·창 위치는 기기 설정이라 남긴다. */
-  'tw.playlist', 'tw.playlistSets', 'tw.playlistCur', 'tw.playlistTitle', 'tw.playlistBio',
-  'tw.playlistHomePublic', 'tw.playlistPrivate',
-  'tw.secretRoomMusic',        // 🎧 내 시크릿룸을 같이 듣기로 열기 — 그 계정의 시크릿룸 설정이라 다음 사람에게 남기지 않는다
-  /* 고친 시각이 남으면 다음 계정의 서버 목록을 «이 기기가 나중» 으로 이겨 비운다 · 백업은 앞 계정 목록이다 */
-  'tw.playlistEditTs', 'tw.playlistBackup',
+  'tw.playlistCur',
   /* 프로필·읽음 표시 — 이름은 스냅샷(r.name), 나머지는 새로 쌓이면 된다. */
-  USER_NAME_KEY, CUSTOM_STATUS_KEY, 'tw.userStatus', 'tw.awayKind', MY_AD_BANNER_KEY,
+  USER_NAME_KEY, CUSTOM_STATUS_KEY, 'tw.userStatus', 'tw.awayKind',
   BELL_SEEN_KEY, INBOX_BC_READ_KEY, tricksMod.BONK_DAY_KEY,
 ];
-/* 접두어로 쌓이는 키(방마다 하나) — 목록에 못 적으므로 여기서 훑는다. */
-const ACCOUNT_LOCAL_KEY_PREFIXES = ['tw_chat_read:', 'tw_chat_join:'];
+/* 접두어로 쌓이는 키(방마다 하나)는 계정 칸으로 옮겼다(shared/account-store.js MOVED_KEY_PREFIXES) — 로그아웃이 지우지 않는다. 계정 칸은 칸 이름이 달라 다음 사람에게 섞이지 않는다. */
 
 /* 📤 지우기 전에 올린다 — 이 기기가 마지막으로 쌓은 것(≤10분치 시간·마지막 뽑기·저장한 캐릭터)을
    서버에 실어 보낸다. 실패는 여기서 판단하지 않는다 — 아래 검문(_acctPreflight)이 결과로 본다.
@@ -222,14 +216,6 @@ async function _acctPreflight(uid, opt){
 function _wipeAccountLocal(){
   setAcctDetached(true);
   for(const k of ACCOUNT_LOCAL_KEYS()){ try{ localStorage.removeItem(k); }catch(_){} }
-  try{
-    const drop = [];
-    for(let i = 0; i < localStorage.length; i++){
-      const k = localStorage.key(i);
-      if(k && ACCOUNT_LOCAL_KEY_PREFIXES.some(p => k.startsWith(p))) drop.push(k);
-    }
-    drop.forEach(k => { try{ localStorage.removeItem(k); }catch(_){} });
-  }catch(_){}
   /* 메모리 — 위 주석 참고. 각 값은 그 모듈의 «빈 기기» 초기값과 같다. */
   try{ setFocusTodaySec(0); }catch(_){}
   try{ if(window.firebaseAPI && firebaseAPI.chatHistory) firebaseAPI.chatHistory.wipeAll(); }catch(_){}   // 💬 이 PC 대화 저장(chat-history.js)

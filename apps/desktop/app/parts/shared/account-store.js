@@ -32,6 +32,8 @@ const DEVICE_KEYS = Object.freeze([
   'tw.invitePassed', 'tw.inviteToken', 'tw.signupPending', 'tw.licenseKey', 'tw.licenseOptOut', 'tw.licenseReqId',
   /* 0.13 첫 실행 — 옛 캐릭터를 이 PC 에서 이 계정으로 올렸다는 표시(값 = 계정 코드). 계정 칸이 열리기 전에 읽는 단계라 기기 공용 칸이다 */
   'tw.legacyCloset013',
+  /* 이 PC 의 성질이거나 계정 코드를 정하기 전에 읽는 값 — 효과음 켜기(기기 설정) · 0.13 첫 실행을 끝낸 계정 코드 · 서버 확인 답 사본 · 그래픽 복구 시각 · 옛 값 옮기기 기록 */
+  'tw.demojiSfx', 'tw.firstRun013', 'tw.me', 'tw.glRelaunchAt', 'tw.accountStoreMigrated',
 ]);
 
 /* 계정별 — 그 사람의 기록 · 고른 것 · 보관 · 캐시. 아직 옛 PC 칸을 읽는 것도 포함(표 · 옮길 묶음은 shared/README.md). */
@@ -47,8 +49,8 @@ const ACCOUNT_KEYS = Object.freeze([
   'tw.curSlot', 'tw.extraSeatSlots', 'tw.roomFaceUrls', 'tw.slotGlbUrls',
   'tw.savedDesks', 'tw.savedItems', 'tw.savedParts', 'tw.decoParts', 'tw.deskPresets', 'tw.animalPresets', 'tw.animalEverUnlocked',
   'tw.animalCheatUnlock', 'tw.charColorHistory', 'tw.seatEq', 'tw.activeInteractionDesk', 'tw.emojiReactions',
-  'tw.playlist', 'tw.playlistSets', 'tw.playlistCur', 'tw.playlistTitle', 'tw.playlistBio', 'tw.playlistHomePublic', 'tw.playlistPrivate',
-  'tw.playlistEditTs', 'tw.playlistBackup', 'tw.secretRoomMusic',
+  /* 플레이리스트 목록 · 한마디 · 공개는 서버가 원본이다(D10) — 이 PC 에는 «지금 고른 목록 번호» 와 시크릿룸 음악만 둔다(옛 목록 이름들은 첫 실행이 지운다) */
+  'tw.playlistCur', 'tw.secretRoomMusic', 'tw.annivView',
   'tw.userName', 'tw.customStatus', 'tw.userStatus', 'tw.awayKind', 'tw.awayImg', 'tw.awaySz', 'tw.myAdBannerImg',
   'tw.inboxBcRead', 'tw.bellSeenTs', 'tw.reportHidden', 'tw.mobileKey',
 ]);
@@ -59,7 +61,12 @@ const ACCOUNT_KEY_PREFIXES = Object.freeze([
 
 /* 이미 계정 칸에서 읽고 쓰는 키 — migrateLegacy 가 PC 칸에서 옮기는 대상. */
 const MOVED_KEYS = Object.freeze(['tw.focusTodaySec', 'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1',
+  'tw.charColorHistory', 'tw.activeInteractionDesk',
+  'tw.myAdBannerImg', 'tw.secretRoomMusic', 'tw.annivView',
   'tw.deskPresets', 'tw.animalPresets']);
+/* 접두로 이미 계정 칸에서 읽고 쓰는 키 — migrateLegacy 가 PC 칸을 훑어 접두가 맞는 이름마다 옮긴다(최근 색 · 방명록 읽음 시각 · 채팅 탭 · 읽음 표시 · 입장 표시).
+   ⚠️ ACCOUNT_KEY_PREFIXES 의 부분집합 — 서버가 세는 `tw.dailyPlay.` 는 옮기지 않는다. */
+const MOVED_KEY_PREFIXES = Object.freeze(['tw.mhRecentColors.', 'tw.mhGbLastRead:', 'tw.chatTab.', 'tw_chat_read:', 'tw_chat_join:']);
 
 function isAccountKey(key){
   if(typeof key !== 'string' || !key) return false;
@@ -129,29 +136,43 @@ function createAccountStore(deps){
      · 계정 칸에 이미 값이 있으면 덮지 않는다. 처리한 키는 PC 칸에서 지우고 «처리함» 목록에 올려 두 번 돌지 않는다.
      · 처리함 목록은 PC 칸 하나 — 나중 판이 MOVED_KEYS 에 키를 더하면 그 키만 새로 옮긴다.
      · 코드가 없거나 모양 밖이면 아무것도 하지 않는다(PC 칸 그대로).
+     · MOVED_KEY_PREFIXES 는 PC 칸을 훑어 접두가 맞는 이름마다 같은 규칙으로 옮긴다. 한 이름이라도 못 옮겼으면 그 접두는 «처리함» 에 올리지 않아 다음에 남은 것만 다시 옮긴다.
      @return {{ moved: string[], kept: string[], skipped: string|null }} moved = 옮김 · kept = 계정 칸 값이 있어 덮지 않음 */
   function migrateLegacy(code){
     const res = { moved: [], kept: [], skipped: null };
     if(!validCode(code)){ res.skipped = 'no-code'; return res; }
     const done = readMigrated();
     const todo = MOVED_KEYS.filter(k => !done.includes(k));
-    if(!todo.length){ res.skipped = 'already'; return res; }
+    const todoPrefixes = MOVED_KEY_PREFIXES.filter(p => !done.includes(p));
+    if(!todo.length && !todoPrefixes.length){ res.skipped = 'already'; return res; }
     const handled = [];
-    for(const k of todo){
+    /* 이름 하나를 옮긴다 — true = 끝냄(옮겼거나 계정 칸에 값이 있어 안 덮음 · PC 칸에 없음) · false = 저장소를 못 읽거나 못 써서 다음에 다시 */
+    const moveOne = (k) => {
       let old = null;
-      try{ old = storage.getItem(k); }catch(_){ continue; }   // 저장소를 못 읽으면 이 키는 다음에 다시
-      if(old !== null){
-        const cell = cellName(code, k);
-        let have = null;
-        try{ have = storage.getItem(cell); }catch(_){ continue; }
-        if(have !== null) res.kept.push(k);
-        else{
-          try{ storage.setItem(cell, old); }catch(_){ continue; }   // 못 쓰면 옛 칸을 지우지 않고 다음에 다시
-          res.moved.push(k);
-        }
-        try{ storage.removeItem(k); }catch(_){}
+      try{ old = storage.getItem(k); }catch(_){ return false; }   // 저장소를 못 읽으면 이 키는 다음에 다시
+      if(old === null) return true;
+      const cell = cellName(code, k);
+      let have = null;
+      try{ have = storage.getItem(cell); }catch(_){ return false; }
+      if(have !== null) res.kept.push(k);
+      else{
+        try{ storage.setItem(cell, old); }catch(_){ return false; }   // 못 쓰면 옛 칸을 지우지 않고 다음에 다시
+        res.moved.push(k);
       }
-      handled.push(k);
+      try{ storage.removeItem(k); }catch(_){}
+      return true;
+    };
+    for(const k of todo) if(moveOne(k)) handled.push(k);
+    for(const p of todoPrefixes){
+      let names = null;
+      try{
+        names = [];
+        for(let i = 0; i < storage.length; i++){ const k = storage.key(i); if(typeof k === 'string' && k.length > p.length && k.startsWith(p)) names.push(k); }   // 옮기며 지우면 번호가 밀리므로 이름부터 모은다
+      }catch(_){ names = null; }
+      if(names === null) continue;   // 저장소를 훑지 못하면 이 접두는 다음에 다시
+      let all = true;
+      for(const k of names) if(!moveOne(k)) all = false;
+      if(all) handled.push(p);
     }
     try{ storage.setItem(MIGRATED_KEY, JSON.stringify(done.concat(handled))); }catch(_){}
     return res;
@@ -160,7 +181,7 @@ function createAccountStore(deps){
   return { get, set, remove, open, close, migrateLegacy, asStorage };
 }
 
-const api = { CELL_PREFIX, MIGRATED_KEY, DEVICE_KEYS, ACCOUNT_KEYS, ACCOUNT_KEY_PREFIXES, MOVED_KEYS, isAccountKey, cellName, createAccountStore };
+const api = { CELL_PREFIX, MIGRATED_KEY, DEVICE_KEYS, ACCOUNT_KEYS, ACCOUNT_KEY_PREFIXES, MOVED_KEYS, MOVED_KEY_PREFIXES, isAccountKey, cellName, createAccountStore };
 if(typeof window !== 'undefined') window.TwAccountStore = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

@@ -27,14 +27,23 @@ const SRC0 = {
   APP: pick(['app.js', 'parts/app.js', 'app/parts/app.js']),
   HTML: pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html']),
   SMOKE: pick(['smoke.js']),
-  JSONSTORE: pick(at('json-store.js', 'shared')),
+  WARDROBE: pick(at('wardrobe.js', 'character')),
+  IDESK: pick(at('interaction-desk.js', 'room')),
+  CHARCODE: pick(at('char-code.js', 'character')),
   ANIMAL: pick(at('animal.js', 'character')),
+  SETTINGS: pick(at('settings-panel.js', 'launcher')),
+  ROOMENTRY: pick(at('room-entry.js', 'room')),
+  SCHED: pick(at('scheduler.js', 'myhome')),
+  CHATUI: pick(at('chat-ui.js', 'chat')),
+  MHEDIT: pick(at('myhome-edit.js', 'myhome')),
+  JSONSTORE: pick(at('json-store.js', 'shared')),
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 
 const mem = () => {
   const o = {};
-  return { o, getItem: (k) => (k in o ? o[k] : null), setItem: (k, v) => { o[k] = String(v); }, removeItem: (k) => { delete o[k]; } };
+  return { o, getItem: (k) => (k in o ? o[k] : null), setItem: (k, v) => { o[k] = String(v); }, removeItem: (k) => { delete o[k]; },
+    get length(){ return Object.keys(o).length; }, key: (i) => (Object.keys(o)[i] === undefined ? null : Object.keys(o)[i]) };   // Storage 처럼 length · key(i)
 };
 const A = 'uaaaaaaaa1', B = 'ubbbbbbbb2';
 const load = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwAccountStore; };
@@ -67,6 +76,30 @@ async function judge(S){
     chk(GONE.every((k) => !M.ACCOUNT_KEYS.includes(k) && !M.MOVED_KEYS.includes(k) && !M.DEVICE_KEYS.includes(k)), '★ 서버가 원본이 된 옛 키 여섯(누적 · 마크 · 별 색 · 해금 안내 기록 셋)은 표에 없다 — 첫 실행이 지운다(D5-2)');
     chk(M.ACCOUNT_KEYS.includes('tw.focusPendingSec') && !M.MOVED_KEYS.includes('tw.focusPendingSec'), '★ 못 올린 집중 시간 tw.focusPendingSec 은 계정별 표에 있다(새 키 — 옮길 옛 값은 없다)');
     chk(M.DEVICE_KEYS.includes('tw.deviceId') && M.DEVICE_KEYS.includes('tw.myUserId'), '기기 id · 계정 코드 자리는 기기 공용(계정 칸에 둘 수 없다)');
+    /* S-3a — 죽은 이름 걷기 · 기기 몫으로 정정 */
+    const PL_DEAD = ['tw.playlist', 'tw.playlistSets', 'tw.playlistTitle', 'tw.playlistBio', 'tw.playlistHomePublic', 'tw.playlistPrivate', 'tw.playlistEditTs', 'tw.playlistBackup'];
+    chk(PL_DEAD.every((k) => !M.ACCOUNT_KEYS.includes(k) && !M.DEVICE_KEYS.includes(k) && !M.MOVED_KEYS.includes(k)) && M.ACCOUNT_KEYS.includes('tw.playlistCur') && M.ACCOUNT_KEYS.includes('tw.secretRoomMusic'),
+      '★ 플레이리스트 옛 목록 이름 여덟은 표에 없다(서버가 원본 — 첫 실행이 지운다) · 지금 고른 목록 번호(playlistCur) · 시크릿룸 음악은 계정별');
+    chk(['tw.demojiSfx', 'tw.firstRun013', 'tw.me'].every((k) => M.DEVICE_KEYS.includes(k) && !M.ACCOUNT_KEYS.includes(k)), '★ 효과음 켜기(demojiSfx) · 첫 실행 끝낸 계정(firstRun013) · 서버 확인 답 사본(me)은 기기 공용 — 계정 칸에 둘 수 없다');
+    chk(M.ACCOUNT_KEYS.includes('tw.annivView'), 'tw.annivView(기념일 보기)는 계정별 표에 있다(아직 PC 칸을 읽는다 — 옮김은 S-3c)');
+  }
+
+  say('── 1b. 코드에 쓰인 tw. 이름은 모두 분류돼 있다');
+  {
+    /* 새 키를 쓰는 코드가 «기기 공용 / 계정별 / 접두 / 걷는 옛 키» 어디에도 안 올리면 빨강 — 계정 키가 PC 칸에 몰래 쌓이지 않게 */
+    const root = ['app/parts', 'parts', 'apps/desktop/app/parts'].find((d) => { try{ return fs.statSync(d).isDirectory(); }catch(_){ return false; } });
+    const files = [];
+    (function walk(d){ for(const e of fs.readdirSync(d, { withFileTypes: true })){ const p = d + '/' + e.name; if(e.isDirectory()){ if(e.name !== 'node_modules') walk(p); } else if(/\.(js|html)$/.test(e.name)) files.push(p); } })(root || '.');
+    const F = (() => { try{ const w = {}; new Function('window', 'module', pick(at('first-run-013.js', 'account')))(w, undefined); return w.TwFirstRun013; }catch(_){ return null; } })();
+    const legacy = F ? [].concat(F.LOGIN_LEGACY_KEYS, F.GACHA_LEGACY_KEYS, F.MALLANG_LEGACY_KEYS, F.MYHOME_LEGACY_KEYS, F.FOCUS_LEGACY_KEYS, [F.CHAL_LEGACY_KEY, F.MALLANG_LEGACY_PREFIX]) : [];
+    const closetSrc = pick(at('closet.js', 'character')) || '';
+    const closetLegacy = ['tw.charsLinked', 'tw.charsMoveFails'].filter((k) => closetSrc.includes("'" + k + "'"));   // D1 이 지우는 옛 캐릭터 키(closet.js LEGACY_KEY_PREFIXES)
+    const OTHER = ['tw.__probe', 'tw.u.', 'tw.recentRooms.'];   // 새 키 쓰기 시험(지움) · 계정 칸 이름 앞 · 이름에 계정 id 가 붙는 최근 방(room/recent-rooms.js — 서버에 안 올림)
+    const known = (k) => M.DEVICE_KEYS.includes(k) || M.isAccountKey(k) || M.ACCOUNT_KEY_PREFIXES.some((p) => k.startsWith(p)) || legacy.includes(k) || closetLegacy.includes(k) || OTHER.includes(k);
+    const bad = new Set();
+    for(const f of files){ const t = fs.readFileSync(f, 'utf8'); for(const m of t.matchAll(/['"`](tw[._][A-Za-z0-9_.:\-]+)/g)) if(!known(m[1])) bad.add(m[1] + ' ← ' + f.replace(/^.*parts\//, '')); }
+    chk(files.length > 50 && !!F, '원본 파일을 훑었다(' + files.length + '개)');
+    chk(!bad.size, '★ 코드에 쓰인 tw. 이름이 모두 기기 공용 · 계정별 · 접두 · 걷는 옛 키 중 하나에 있다' + (bad.size ? ' — ' + [...bad].join(' · ') : ''));
   }
 
   say('── 2. 계정 A / B 칸');
@@ -147,6 +180,73 @@ async function judge(S){
     chk(r.moved.length === 1 && r.moved[0] === 'tw.advZ.v2' && st.o['tw.focusTodaySec'] === '1', '이미 처리한 키는 건드리지 않고 새로 더해진 키만 옮긴다');
     st.o[MIG(M)] = '깨진 글'; st.o['tw.focusTodaySec'] = '3';
     chk(mk(st, { v: B }).migrateLegacy(B).moved.length >= 1, '처리함 표시가 깨졌으면 처음부터(값을 잃지 않는 쪽)');
+  }
+
+  say('── 5c. migrateLegacy — 접두 키(최근 색 · 방명록 읽음 시각 · 채팅 탭 · 읽음 · 입장 표시)');
+  {
+    chk(M.MOVED_KEY_PREFIXES.every((p) => M.ACCOUNT_KEY_PREFIXES.includes(p)) && !M.MOVED_KEY_PREFIXES.includes('tw.dailyPlay.'), '옮기는 접두는 계정별 접두표 안에 있다 · 서버가 세는 tw.dailyPlay. 는 옮기지 않는다');
+    const st = mem(); const code = { v: null }; const s = mk(st, code);
+    st.o['tw.chatTab.ROOM-1'] = 's1'; st.o['tw.mhRecentColors.fore'] = '["#fff"]'; st.o['tw.mhGbLastRead:uF1'] = '1700';
+    st.o['tw_chat_read:ROOM-1'] = 'T5:-a'; st.o['tw_chat_join:ROOM-1'] = ''; st.o['tw_chat_join:ROOM-2'] = 'T3:-b';
+    st.o['tw.dailyPlay.2026-11-15'] = '3'; st.o['tw.chatTabX'] = 'keep'; st.o['tw.deviceId'] = 'dev-12345678'; st.o['tw_chat_read:'] = 'bare';
+    const r0 = s.migrateLegacy(null);
+    chk(r0.skipped === 'no-code' && st.o['tw_chat_read:ROOM-1'] === 'T5:-a' && !(MIG(M) in st.o), '코드 없음 — 접두 키도 PC 칸 그대로 · 처리함 표시도 안 남김');
+    const r1 = s.migrateLegacy(A); code.v = A;
+    chk(r1.moved.length === 6 && ['tw.chatTab.ROOM-1', 'tw.mhRecentColors.fore', 'tw.mhGbLastRead:uF1', 'tw_chat_read:ROOM-1', 'tw_chat_join:ROOM-1', 'tw_chat_join:ROOM-2'].every((k) => r1.moved.includes(k)), '★ 접두가 맞는 이름마다 옮긴다(여섯)');
+    chk(s.get('tw.chatTab.ROOM-1') === 's1' && s.get('tw.mhRecentColors.fore') === '["#fff"]' && s.get('tw.mhGbLastRead:uF1') === '1700' && s.get('tw_chat_read:ROOM-1') === 'T5:-a' && s.get('tw_chat_join:ROOM-2') === 'T3:-b', '  ↳ 계정 칸에서 같은 값으로 읽힌다');
+    chk(s.get('tw_chat_join:ROOM-1') === '' && st.o['tw.u.' + A + '.tw_chat_join:ROOM-1'] === '', '★ 빈 글 값(입장 표시 «빈 방에 입장»)도 «없음(null)» 이 되지 않고 빈 글 그대로 옮겨진다');
+    chk(!Object.keys(st.o).some((k) => /^(tw\.chatTab\.|tw\.mhRecentColors\.|tw\.mhGbLastRead:|tw_chat_read:|tw_chat_join:)./.test(k)), '  ↳ PC 칸에서는 지운다(다음 계정이 주워 가지 못하게)');
+    chk(st.o['tw.dailyPlay.2026-11-15'] === '3' && st.o['tw.chatTabX'] === 'keep' && st.o['tw_chat_read:'] === 'bare' && st.o['tw.deviceId'] === 'dev-12345678', '  ↳ 접두가 아닌 이름 · 접두만 있는 이름 · 서버가 세는 값 · 기기 공용 값은 그대로');
+    st.o['tw_chat_read:ROOM-9'] = 'late'; st.o['tw.chatTab.ROOM-1'] = 'other';
+    const r2 = s.migrateLegacy(B);
+    chk(r2.skipped === 'already' && st.o['tw_chat_read:ROOM-9'] === 'late' && !Object.keys(st.o).some((k) => k.startsWith('tw.u.' + B + '.')), '★ 두 번 돌지 않는다 — 두 번째 계정에는 안 옮겨진다');
+  }
+  {
+    const st = mem(); const s = mk(st, { v: A });
+    st.o['tw_chat_read:R1'] = 'old'; st.o['tw.u.' + A + '.tw_chat_read:R1'] = 'mine'; st.o['tw_chat_read:R2'] = 'x';
+    const r = s.migrateLegacy(A);
+    chk(st.o['tw.u.' + A + '.tw_chat_read:R1'] === 'mine' && r.kept.includes('tw_chat_read:R1') && r.moved.includes('tw_chat_read:R2') && !('tw_chat_read:R1' in st.o), '★ 계정 칸에 이미 값이 있는 이름은 덮지 않고(PC 값은 치운다) 나머지는 옮긴다');
+  }
+  {
+    const st = mem(); const real = st.setItem;
+    st.o['tw_chat_read:R1'] = 'a'; st.o['tw_chat_read:R2'] = 'b'; st.o['tw.chatTab.R1'] = 't';
+    st.setItem = (k, v) => { if(k === 'tw.u.' + A + '.tw_chat_read:R2') throw new Error('quota'); real(k, v); };
+    const s = mk(st, { v: A });
+    const r = s.migrateLegacy(A);
+    chk(st.o['tw_chat_read:R2'] === 'b' && r.moved.includes('tw_chat_read:R1') && !('tw_chat_read:R1' in st.o), '★ 한 이름이 계정 칸에 못 써지면 그 이름의 PC 값은 지우지 않는다(나머지는 옮김)');
+    st.setItem = real;
+    const r2 = s.migrateLegacy(A);
+    chk(r2.moved.length === 1 && r2.moved[0] === 'tw_chat_read:R2' && st.o['tw.u.' + A + '.tw_chat_read:R2'] === 'b' && !('tw_chat_read:R2' in st.o), '  ↳ 접두를 «처리함» 에 올리지 않았으므로 다음에 남은 것만 다시 옮긴다(앞에 옮긴 것은 안 건드림)');
+  }
+  {
+    const st = mem(); st.o['tw_chat_read:R1'] = 'a'; st.o['tw.focusTodaySec'] = '5';
+    const noScan = { getItem: st.getItem, setItem: st.setItem, removeItem: st.removeItem, get length(){ throw new Error('denied'); }, key: () => null };   // 훑을 수 없는 저장소(length 를 읽으면 던짐)
+    const s = mk(noScan, { v: A });
+    const r = s.migrateLegacy(A);
+    chk(r.moved.includes('tw.focusTodaySec') && st.o['tw_chat_read:R1'] === 'a' && JSON.parse(st.o[MIG(M)] || '[]').every((k) => !M.MOVED_KEY_PREFIXES.includes(k)), '★ 저장소를 훑지 못하면 접두 키는 PC 칸에 그대로 · 처리함에도 안 올린다(다음에 다시)');
+  }
+  {
+    const st = mem(); const s = mk(st, { v: A });
+    s.migrateLegacy(A);   // 옛 판(이름만 있던 처리함)에서 올라온 PC — 이미 처리한 이름만 적혀 있고 접두는 없다
+    const st2 = mem(); st2.o[MIG(M)] = JSON.stringify(M.MOVED_KEYS.slice()); st2.o['tw.chatTab.R1'] = 's2'; st2.o['tw.focusTodaySec'] = '9';
+    const s2 = mk(st2, { v: A }); const r = s2.migrateLegacy(A);
+    chk(r.moved.length === 1 && r.moved[0] === 'tw.chatTab.R1' && st2.o['tw.focusTodaySec'] === '9', '★ 이름만 처리한 옛 처리함을 가진 PC — 이번에 더해진 접두만 새로 옮기고 이미 처리한 이름은 다시 안 본다');
+  }
+
+  say('── 5d. asStorage — 저장소를 값으로 받는 모듈(방명록 읽음 시각)용 Storage 모양');
+  {
+    const st = mem(); const code = { v: A }; const closed = M.createAccountStore({ storage: st, getAccountCode: () => code.v, isWriteLocked: () => false });
+    const w0 = console.warn; console.warn = () => {};
+    const sg = closed.asStorage();
+    let threw = null; try{ sg.setItem('tw.mhGbLastRead:uF1', '5'); }catch(e){ threw = e; }
+    chk(sg.getItem('tw.mhGbLastRead:uF1') === null && threw && threw.name === 'AccountStoreRefused' && !Object.keys(st.o).length, '닫혀 있으면 읽기 null · 쓰기는 AccountStoreRefused 를 던진다 · 저장소 0건');
+    closed.open(A);
+    sg.setItem('tw.mhGbLastRead:uF1', '5');
+    chk(sg.getItem('tw.mhGbLastRead:uF1') === '5' && st.o['tw.u.' + A + '.mhGbLastRead:uF1'] === '5' && !('tw.mhGbLastRead:uF1' in st.o), '열린 뒤에는 계정 칸에 쓰고 읽는다(PC 칸 0건)');
+    sg.removeItem('tw.mhGbLastRead:uF1');
+    let threw2 = false; try{ sg.getItem('tw.deviceId'); }catch(_){ threw2 = true; }
+    chk(sg.getItem('tw.mhGbLastRead:uF1') === null && threw2, '지우기도 된다 · 기기 공용 키는 던진다');
+    console.warn = w0;
   }
 
   say('── 6. 옮겨 쓰는 모듈');
@@ -289,6 +389,51 @@ async function judge(S){
     chk(sf0.pushes.length === 1 && sf0.intervals === 1, '  ↳ 시작 함수가 첫 보내기 한 번 + 15초 인터벌 하나를 건다');
   }
 
+  say('── 6d. S-3b — 최근 쓴 캐릭터 색 · 지금 쓰는 상호작용 책상은 계정 칸에서 읽고 쓴다');
+  {
+    const S3B = ['tw.charColorHistory', 'tw.activeInteractionDesk'];
+    chk(S3B.every((k) => M.MOVED_KEYS.includes(k) && M.ACCOUNT_KEYS.includes(k)), '★ 둘 모두 옮긴 표(MOVED_KEYS)에 있다 — 0.12 에서 올라온 PC 값이 계정 칸으로 간다');
+    const st = mem(); const code = { v: null }; const s = mk(st, code);
+    st.o['tw.charColorHistory'] = '["#ff0000","#00ff00"]'; st.o['tw.activeInteractionDesk'] = 'bench2'; st.o['tw.animalCheatUnlock'] = '1'; st.o['tw.chatFontSize'] = '14';
+    const r = s.migrateLegacy(A); code.v = A;
+    chk(S3B.every((k) => r.moved.includes(k)) && s.get('tw.charColorHistory') === '["#ff0000","#00ff00"]' && s.get('tw.activeInteractionDesk') === 'bench2', '★ 옛 PC 값이 들어간 계정 칸에 같은 값으로 이어진다(잃지 않는다)');
+    chk(S3B.every((k) => !(k in st.o)) && st.o['tw.chatFontSize'] === '14' && st.o['tw.animalCheatUnlock'] === '1', '  ↳ PC 칸에서는 지운다 · 기기 설정은 그대로 · 동물 숨김 해금(animalCheatUnlock)은 카드가 처음 그릴 때 읽어 아직 PC 칸 — 옮기지 않는다(S-4a)');
+    code.v = B;
+    chk(S3B.every((k) => s.get(k) === null), '  ↳ 다른 계정(B)에게는 안 보인다');
+    const noPc = (src, re) => !re.test(src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 '));
+    chk(noPc(S.WARDROBE, /localStorage\.(get|set|remove)Item\(CHAR_RECENT_KEY/) && /accountStore\.get\(CHAR_RECENT_KEY\)/.test(S.WARDROBE) && /accountStore\.set\(CHAR_RECENT_KEY/.test(S.WARDROBE), '꾸미기 — 최근 쓴 색을 계정 칸에서 읽고 쓴다(PC 칸 직접 접근 0)');
+    chk(noPc(S.IDESK, /localStorage\.(get|set|remove)Item\(ACTIVE_IDESK_KEY/) && /accountStore\.get\(ACTIVE_IDESK_KEY\)/.test(S.IDESK) && /accountStore\.set\(ACTIVE_IDESK_KEY/.test(S.IDESK) && /accountStore\.remove\(ACTIVE_IDESK_KEY\)/.test(S.IDESK), '상호작용 책상 — 지금 쓰는 책상 id 를 계정 칸에서 읽고 쓰고 지운다');
+  }
+
+  say('── 6d. S-3c — 내 배너 그림 · 시크릿룸 같이 듣기 · 기념일 보기는 계정 칸에서 읽고 쓴다');
+  {
+    const S3C = ['tw.myAdBannerImg', 'tw.secretRoomMusic', 'tw.annivView'];
+    chk(S3C.every((k) => M.MOVED_KEYS.includes(k) && M.ACCOUNT_KEYS.includes(k)), '★ 셋 모두 옮긴 표(MOVED_KEYS)에 있다 — 0.12 에서 올라온 PC 값이 계정 칸으로 간다');
+    const st = mem(); const code = { v: null }; const s = mk(st, code);
+    st.o['tw.myAdBannerImg'] = 'data:image/png;base64,AAAA'; st.o['tw.secretRoomMusic'] = '1'; st.o['tw.annivView'] = 'list'; st.o['tw.theme'] = 'dark';
+    const r = s.migrateLegacy(A); code.v = A;
+    chk(S3C.every((k) => r.moved.includes(k)) && s.get('tw.myAdBannerImg') === 'data:image/png;base64,AAAA' && s.get('tw.secretRoomMusic') === '1' && s.get('tw.annivView') === 'list', '★ 옛 PC 값이 들어간 계정 칸에 같은 값으로 이어진다(잃지 않는다)');
+    chk(S3C.every((k) => !(k in st.o)) && st.o['tw.theme'] === 'dark', '  ↳ PC 칸에서는 지운다 · 기기 설정(테마)은 그대로');
+    code.v = B;
+    chk(S3C.every((k) => s.get(k) === null), '  ↳ 다른 계정(B)에게는 안 보인다');
+    const noPc = (src, re) => !re.test(src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 '));
+    chk(noPc(S.SETTINGS, /localStorage\.(get|set|remove)Item\(MY_AD_BANNER_KEY/) && /settingsAccountStore\.get\(MY_AD_BANNER_KEY\)/.test(S.SETTINGS) && /settingsAccountStore\.set\(MY_AD_BANNER_KEY/.test(S.SETTINGS), '설정 — 내 배너 그림을 계정 칸에서 읽고 쓴다(PC 칸 직접 접근 0)');
+    chk(noPc(S.ROOMENTRY, /localStorage\.(get|set|remove)Item\(SECRET_MUSIC_KEY/) && /roomEntryAccountStore\.get\(SECRET_MUSIC_KEY\)/.test(S.ROOMENTRY) && /roomEntryAccountStore\.set\(SECRET_MUSIC_KEY/.test(S.ROOMENTRY), '방 입장 — 시크릿룸 같이 듣기 선택을 계정 칸에서 읽고 쓴다');
+    chk(noPc(S.SCHED, /localStorage\.(get|set|remove)Item\(ANNIV_VIEW_KEY/) && /scheduleAccountStore\.get\(ANNIV_VIEW_KEY\)/.test(S.SCHED) && /scheduleAccountStore\.set\(ANNIV_VIEW_KEY/.test(S.SCHED), '스케줄러 — 기념일 보기를 계정 칸에서 읽고 쓴다');
+    const wipe = (S.ACC.match(/const ACCOUNT_LOCAL_KEYS = \(\)=>\[[\s\S]*?\n\];/) || [''])[0];
+    chk(wipe && !/secretRoomMusic|MY_AD_BANNER_KEY|myAdBannerImg|annivView/.test(wipe), '로그아웃 지움 목록에 셋이 없다 — 계정 칸은 로그아웃해도 지우지 않는다(같은 계정이 돌아오면 이어진다)');
+  }
+
+  say('── 6d. 접두 키(S-3d)를 쓰는 모듈은 PC 칸을 직접 안 읽고 계정 칸을 거친다');
+  {
+    const pcKey = (src, re) => !re.test(src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 '));
+    chk(pcKey(S.CHATUI, /localStorage\.(get|set|remove)Item\((_chat(Join|Read)KeyOf|CHAT_TAB_LS_PREFIX)/) && /chatAccountStore\.get\(_chatReadKeyOf\(room\)\)/.test(S.CHATUI) && /chatAccountStore\.get\(_chatJoinKeyOf\(room\)\)/.test(S.CHATUI) && /chatAccountStore\.get\(CHAT_TAB_LS_PREFIX \+ room\)/.test(S.CHATUI),
+      '채팅창 — 읽음 표시(tw_chat_read:) · 입장 표시(tw_chat_join:) · 마지막 탭(tw.chatTab.)을 계정 칸에서 읽는다(localStorage 직접 읽기 0)');
+    chk(pcKey(S.MHEDIT, /localStorage\.(get|set|remove)Item\('tw\.mhRecentColors\./) && /myhomeEditAccountStore\.get\('tw\.mhRecentColors\.'\+kind\)/.test(S.MHEDIT) && /myhomeEditAccountStore\.set\('tw\.mhRecentColors\.'\+kind/.test(S.MHEDIT), '마이홈 글 서식 — 최근 쓴 색(tw.mhRecentColors.)을 계정 칸에서 읽고 쓴다');
+    chk(/createLastReadStore\(accountStoreMod\.asStorage\(\)\)/.test(S.APP) && !/createLastReadStore\(localStorage\)/.test(S.APP), '방명록 읽음 시각(tw.mhGbLastRead:) 저장소는 계정 칸(asStorage)을 넘긴다');
+    chk(!/ACCOUNT_LOCAL_KEY_PREFIXES/.test(S.ACC) && !/tw_chat_read:|tw_chat_join:/.test(S.ACC.replace(/\/\*[\s\S]*?\*\//g, ' ')), '로그아웃 지움 목록에서 접두 키 훑기를 걷었다 — 계정 칸으로 옮긴 키는 로그아웃이 지우지 않는다');
+  }
+
   say('── 6d. S-3e(일부) — 책상 프리셋 · 동물 프리셋은 계정 칸 위의 JSON 칸에서 읽고 쓴다');
   {
     const S3E = ['tw.deskPresets', 'tw.animalPresets'];
@@ -401,18 +546,42 @@ const BREAKS = [
   ['STORE', "return validCode(code) ? cellName(code, key) : null;\n  }\n  function closedFor(key){\n    if(opened !== null && opened === getAccountCode()) return false;", "return validCode(code) ? cellName(code, key) : key;\n  }\n  function closedFor(key){\n    return false;", '로그인 전에 PC 칸을 씀(열림 장치도 없는 모양)'],
   ['STORE', "const CODE_RE = /^u[0-9a-z]{8,40}$/i;", "const CODE_RE = /^.*$/;", '코드 모양을 안 봄(점 · 슬래시)'],
   ['STORE', "if(!isAccountKey(key)) throw new Error('[계정 칸] 계정별 키가 아니다 — ' + key);", "", '모르는 키 · 기기 공용 키를 받음'],
+  ['STORE', "'tw.demojiSfx', 'tw.firstRun013', 'tw.me', ", "'tw.firstRun013', 'tw.me', ", '효과음 켜기를 어느 표에도 안 올림'],
+  ['STORE', "'tw.playlistCur', 'tw.secretRoomMusic', 'tw.annivView',", "'tw.playlistSets', 'tw.playlistCur', 'tw.secretRoomMusic', 'tw.annivView',", '죽은 플레이리스트 이름을 표에 되살림'],
+  ['STORE', "'tw.playlistCur', 'tw.secretRoomMusic', 'tw.annivView',", "'tw.playlistCur', 'tw.secretRoomMusic',", '기념일 보기 키를 분류에서 뺌'],
   ['STORE', "if(have !== null) res.kept.push(k);", "if(false) res.kept.push(k);", '계정 칸 값을 덮어씀'],
-  ['STORE', "'tw.deskPresets', 'tw.animalPresets']);", "'tw.animalPresets']);", '책상 프리셋이 옮긴 표에서 빠짐'],
-  ['STORE', "'tw.deskPresets', 'tw.animalPresets']);", "'tw.deskPresets']);", '동물 프리셋이 옮긴 표에서 빠짐'],
-  ['STORE', "setItem: (k, v) => { if(!set(k, v)) throw refused(k); }", "setItem: (k, v) => { set(k, v); }", '닫힌 계정 칸에 쓰고도 «저장됨» 으로 둠'],
-  ['APP', "jsonStore: accountJsonStoreMod,", "jsonStore: TwJsonStore,", '책상 프리셋을 PC 칸 JSON 칸에 둠'],
-  ['ANIMAL', "accountJsonStoreMod.save(ANP_PRESET_KEY, o)", "TwJsonStore.save(ANP_PRESET_KEY, o)", '동물 프리셋을 PC 칸에 씀'],
+  ['STORE', "'tw.charColorHistory', 'tw.activeInteractionDesk',", "'tw.activeInteractionDesk',", '최근 캐릭터 색이 옮긴 표에서 빠짐'],
+  ['STORE', "'tw.charColorHistory', 'tw.activeInteractionDesk',", "'tw.charColorHistory',", '상호작용 책상이 옮긴 표에서 빠짐'],
+  ['WARDROBE', "accountStore.get(CHAR_RECENT_KEY)", "localStorage.getItem(CHAR_RECENT_KEY)", '최근 캐릭터 색을 PC 칸에서 읽음'],
+  ['IDESK', "accountStore.set(ACTIVE_IDESK_KEY, id)", "localStorage.setItem(ACTIVE_IDESK_KEY, id)", '상호작용 책상을 PC 칸에 씀'],
+  ['STORE', "'tw.myAdBannerImg', 'tw.secretRoomMusic', 'tw.annivView',", "'tw.secretRoomMusic', 'tw.annivView',", '내 배너 그림이 옮긴 표에서 빠짐'],
+  ['STORE', "'tw.myAdBannerImg', 'tw.secretRoomMusic', 'tw.annivView',", "'tw.myAdBannerImg', 'tw.annivView',", '시크릿룸 같이 듣기가 옮긴 표에서 빠짐'],
+  ['STORE', "'tw.myAdBannerImg', 'tw.secretRoomMusic', 'tw.annivView',", "'tw.myAdBannerImg', 'tw.secretRoomMusic',", '기념일 보기가 옮긴 표에서 빠짐'],
+  ['SETTINGS', "settingsAccountStore.get(MY_AD_BANNER_KEY)", "localStorage.getItem(MY_AD_BANNER_KEY)", '내 배너 그림을 PC 칸에서 읽음'],
+  ['ROOMENTRY', "roomEntryAccountStore.set(SECRET_MUSIC_KEY", "localStorage.setItem(SECRET_MUSIC_KEY", '시크릿룸 선택을 PC 칸에 씀'],
+  ['SCHED', "scheduleAccountStore.get(ANNIV_VIEW_KEY)", "localStorage.getItem(ANNIV_VIEW_KEY)", '기념일 보기를 PC 칸에서 읽음'],
+  ['ACC', "  USER_NAME_KEY, CUSTOM_STATUS_KEY, 'tw.userStatus', 'tw.awayKind',", "  USER_NAME_KEY, CUSTOM_STATUS_KEY, 'tw.userStatus', 'tw.awayKind', 'tw.annivView',", '로그아웃이 기념일 보기를 지움'],
   ['STORE', "const todo = MOVED_KEYS.filter(k => !done.includes(k));", "const todo = MOVED_KEYS.slice();", '두 번 돎'],
-  ['STORE', "try{ storage.removeItem(k); }catch(_){}\n      }\n      handled.push(k);", "}\n      handled.push(k);", '옮기고 PC 칸을 안 지움'],
-  ['STORE', "catch(_){ continue; }   // 못 쓰면 옛 칸을 지우지 않고 다음에 다시", "catch(_){}", '못 써도 옛 칸을 지움'],
   ['STORE', "'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.pomo'", "'tw.focusTodaySec', 'tw.pomo'", '옮긴 표에서 오늘 날짜 빠짐'],
   ['STORE', "'tw.pomo', 'tw.pomoRun', 'tw.mobileKey'", "'tw.mobileKey'", '옮긴 표에서 뽀모도로 키 빠짐'],
   ['STORE', "'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2'", "'tw.pomoRun', 'tw.advZ.v2'", '옮긴 표에서 폰 연결 키 빠짐'],
+  ['CHATUI', "chatAccountStore.get(_chatReadKeyOf(room))", "localStorage.getItem(_chatReadKeyOf(room))", '채팅 읽음 표시를 PC 칸에서 읽음'],
+  ['CHATUI', "chatAccountStore.set(_chatJoinKeyOf(room), ''); }catch", "localStorage.setItem(_chatJoinKeyOf(room), ''); }catch", '채팅 입장 표시를 PC 칸에 씀'],
+  ['MHEDIT', "myhomeEditAccountStore.get('tw.mhRecentColors.'+kind)", "localStorage.getItem('tw.mhRecentColors.'+kind)", '최근 색을 PC 칸에서 읽음'],
+  ['APP', "createLastReadStore(accountStoreMod.asStorage())", "createLastReadStore(localStorage)", '방명록 읽음 시각을 PC 칸에 둠'],
+  ['STORE', "'tw.deskPresets', 'tw.animalPresets']);", "'tw.animalPresets']);", '책상 프리셋이 옮긴 표에서 빠짐'],
+  ['STORE', "'tw.deskPresets', 'tw.animalPresets']);", "'tw.deskPresets']);", '동물 프리셋이 옮긴 표에서 빠짐'],
+  ['STORE', "setItem: (k, v) => { if(!set(k, v)) throw refused(k); }", "setItem: (k, v) => { set(k, v); }", '닫힌 계정 칸에 쓰고도 «저장됨» 으로 둠'],
+  ['STORE', "if(all) handled.push(p);", "handled.push(p);", '못 옮긴 접두도 처리함에 올림'],
+  ['STORE', "k.length > p.length && k.startsWith(p)) names.push(k)", "k.startsWith(p)) names.push(k)", '접두만 있는 이름도 옮김'],
+  ['STORE', "const todoPrefixes = MOVED_KEY_PREFIXES.filter(p => !done.includes(p));", "const todoPrefixes = [];", '접두 키를 안 옮김'],
+  ['STORE', "'tw.chatTab.', 'tw_chat_read:', 'tw_chat_join:']);", "'tw.chatTab.', 'tw_chat_read:']);", '입장 표시 접두가 옮길 표에서 빠짐'],
+  ['STORE', "const todo = MOVED_KEYS.filter(k => !done.includes(k));", "const todo = MOVED_KEYS.slice();", '두 번 돎'],
+  ['STORE', "try{ storage.removeItem(k); }catch(_){}\n      return true;", "return true;", '옮기고 PC 칸을 안 지움'],
+  ['STORE', "catch(_){ return false; }   // 못 쓰면 옛 칸을 지우지 않고 다음에 다시", "catch(_){}", '못 써도 옛 칸을 지움'],
+  ['APP', "jsonStore: accountJsonStoreMod,", "jsonStore: TwJsonStore,", '책상 프리셋을 PC 칸 JSON 칸에 둠'],
+  ['ANIMAL', "accountJsonStoreMod.save(ANP_PRESET_KEY, o)", "TwJsonStore.save(ANP_PRESET_KEY, o)", '동물 프리셋을 PC 칸에 씀'],
+  ['STORE', "const todo = MOVED_KEYS.filter(k => !done.includes(k));", "const todo = MOVED_KEYS.slice();", '두 번 돎'],
   ['STORE', "'tw.focusPendingSec',", "", '못 올린 집중 시간 키가 계정별 표에서 빠짐'],
   ['STORE', "  'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.advZ.v2', 'tw.advZ.v1',\n", "  'tw.focusTotalSec', 'tw.focusSyncedSec', 'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.advZ.v2', 'tw.advZ.v1',\n", '걷은 옛 누적 키가 표에 되살아남'],
   ['TOTAL', "_day = _normDay(focusTotalStore.get(FOCUS_TODAY_DATE_KEY));", "_day = _normDay(localStorage.getItem(FOCUS_TODAY_DATE_KEY));", '오늘치를 다시 PC 칸에서 읽음'],

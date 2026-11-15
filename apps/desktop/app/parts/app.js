@@ -1038,6 +1038,7 @@ const rideBenchMod = TwRideBench.createRideBench({
 /* 본문은 interaction-desk.js 로 옮겼다(앱 FSD 43번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const iDeskMod = TwInteractionDesk.createInteractionDesk({
+  accountStore: accountStoreMod,
   CIRCUS_ARM_DROP: rideTuneMod.CIRCUS_ARM_DROP,
   CIRCUS_LEG_LIFT: rideTuneMod.CIRCUS_LEG_LIFT,
   CIRCUS_LEG_STAND: rideTuneMod.CIRCUS_LEG_STAND,
@@ -1622,6 +1623,7 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
 /* 본문은 settings-panel.js 로 옮겼다(앱 FSD 27번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const settingsMod = TwSettingsPanel.createSettingsPanel({
+  settingsAccountStore: accountStoreMod,
   GAP_MAX: GAP_MAX,
   GAP_MIN: GAP_MIN,
   GAP_STEPS: GAP_STEPS,
@@ -1768,6 +1770,7 @@ const wdPanelMod = TwWardrobePanel.createWardrobePanel({
 /* 본문은 wardrobe.js 로 옮겼다(앱 FSD 29번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const wardrobeMod = TwWardrobe.createWardrobe({
+  accountStore: accountStoreMod,
   NO_DESK_ID: NO_DESK_ID,
   layoutSeats: (...a)=>layoutSeats(...a),
   ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
@@ -1941,6 +1944,7 @@ const scheduleApiMod = TwScheduleApi.createScheduleApi({   // 🌐 일정 · 디
   warn: (...a)=>console.warn(...a),
 });
 const mhScheduler = MhScheduler.createScheduler({
+  scheduleAccountStore: accountStoreMod,
   scheduleApi: scheduleApiMod,
   apiErrors: TwApiErrors.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
@@ -1982,7 +1986,7 @@ const friendManage = TwFriendManage.createFriendManage({
 let _myHomeReady = false;
 /* 포기하지 않는다 — SDK 를 실행 때 gstatic 에서 받아 느린 망이면 20초를 넘긴다(예전 20초 포기 → 친구 · 우편 구독이 영영 안 걸렸다). */
 function _waitForFirebaseAPI(cb){
-  TwNetReady.whenNetReady(()=>cb(), 'watchMyFriendList');
+  TwNetReady.whenNetReady(()=>cb());   // 준비 키(need)를 주지 않는다 — 키 이름을 걷은 메서드로 두면 «준비됨» 이 영영 안 온다
 }
 /* 🔇 소유권이 걸린 쓰기가 거부됐을 때 침묵을 깬다.
    [경위] 규칙을 게시한 뒤 users/{코드} 의 자기 소유 가지는 "주인이 없거나 나일 때"만 쓸 수 있다.
@@ -2496,6 +2500,7 @@ const mhLinksMod = TwMyHomeLinks.createMyHomeLinks({
    myHomeSticker · STICKER_* · DS_IMG_* 는 이 줄보다 앞에 선언되고 다시 대입되지 않는 const 라 값으로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
+  myhomeEditAccountStore: accountStoreMod,
   toast: (...a)=>toast(...a),
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
@@ -2541,7 +2546,7 @@ const guestbookFeed = TwGuestbookFeed.createGuestbookFeed({   // 🌐 방명록 
   rt: TwRtHub.store,
   rtState: TwRtHub.STATE,
   pending: TwRequestId.createPending(),
-  lastRead: TwGuestbookFeed.createLastReadStore(localStorage),
+  lastRead: TwGuestbookFeed.createLastReadStore(accountStoreMod.asStorage()),   // 🗂️ 읽음 시각은 이 계정 칸(닫혀 있으면 읽기 0 · 쓰기 안 됨)
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   translate: (e, table)=>TwApiErrors.translate(e, table),
   ACTION: TwApiErrors.ACTION,
@@ -2584,6 +2589,7 @@ function showChatBubble(seat, text){
 /* 본문은 chat-ui.js 로 옮겼다(앱 FSD 24번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const chatUiMod = TwChatUi.createChatUi({
+  chatAccountStore: accountStoreMod,
   demojiCatalog: demojiCatalog,
   CHAT_WIN_POS_KEY: ()=>CHAT_WIN_POS_KEY,
   Presence: ()=>Presence,
@@ -6242,6 +6248,7 @@ const roomInfoUi = TwRoomInfoUi.createRoomInfoUi({
 const roomLobbyProvider = TwRoomLobbyProvider.createRoomLobbyProvider({ apiGet: (p, o)=>TwApi.authed.get(p, o), peek: (code)=>TwRoomRt.store.peek(code),
   roomCode: ()=>(Presence.active() ? Presence.roomCode() : null), myUserId: ()=>getMyUserId(), now: ()=>Date.now() });
 const roomEntryMod = TwRoomEntry.createRoomEntry({
+  roomEntryAccountStore: accountStoreMod,
   EXP_CELLS: ()=>expBarMod.EXP_CELLS,
   FLOATER_BURST: floatersMod.FLOATER_BURST,
   Presence: Presence,
@@ -6404,7 +6411,6 @@ const accountMod = TwAccount.createAccount({
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   INBOX_BC_READ_KEY: INBOX_BC_READ_KEY,
-  MY_AD_BANNER_KEY: settingsMod.MY_AD_BANNER_KEY,
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
   MY_FRIEND_CODE_PREV_KEY: MY_FRIEND_CODE_PREV_KEY,
   MY_USER_ID_KEY: MY_USER_ID_KEY,

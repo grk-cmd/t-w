@@ -167,6 +167,7 @@ function mkEnv(opt){
   env.origRender = () => { env.origRenders++; };
   env.curRender = env.origRender;
   env.mk = () => ctx.TwMyHomeEdit.createMyHomeEdit({
+    myhomeEditAccountStore: { get: (k) => (k in env.ls ? env.ls[k] : null), set: (k, v) => { env.ls[k] = String(v); return true; }, remove: (k) => { delete env.ls[k]; return true; } },   // 계정 칸(S-3d) — 최근 색
     toast: (m) => env.toasts.push(m),
     asyncPrompt: async (o) => { env.prompts.push(o); return env.promptAns.length ? env.promptAns.shift() : null; },
     renderMyHomePage: () => { env.page++; },
@@ -570,10 +571,10 @@ await sec('── 9. app.js 배선', () => {
   const getters = ['myHomeData: ()=>_myHomeData(),', 'mhViewingUserId: ()=>_mhViewingUserId(),',
     'mhStickerDragDist: ()=>_mhStickerDragDist,', 'isPremium: ()=>isPremium,', 'isAdmin: ()=>isAdmin,', 'userNameMax: ()=>USER_NAME_MAX,'];
   const setters = ['setMhStickerDragDist: (v)=>{ _mhStickerDragDist = v; },'];
-  const vals = ['myhomeStore: myhomeStoreMod,', 'myHomeSticker,', 'stickerMax: STICKER_MAX,', 'stickerImgMaxW: STICKER_IMG_MAX_W,', 'dsImgMaxBgW: DS_IMG_MAX_BG_W,', 'dsImgMaxBgH: DS_IMG_MAX_BG_H,', 'dsImgMaxPanel: DS_IMG_MAX_PANEL,', 'dsImgQuality: DS_IMG_QUALITY,'];
+  const vals = ['myhomeEditAccountStore: accountStoreMod,', 'myhomeStore: myhomeStoreMod,', 'myHomeSticker,', 'stickerMax: STICKER_MAX,', 'stickerImgMaxW: STICKER_IMG_MAX_W,', 'dsImgMaxBgW: DS_IMG_MAX_BG_W,', 'dsImgMaxBgH: DS_IMG_MAX_BG_H,', 'dsImgMaxPanel: DS_IMG_MAX_PANEL,', 'dsImgQuality: DS_IMG_QUALITY,'];
   chk(deps.includes('installMacTip: (...a)=>TwMacTooltip.installChild(...a),'), '맥 말풍선은 shared/mac-tooltip.js 의 installChild 로 잇는다');
-  chk(deps.length === 32 && fnDeps.length === 17 && getters.every(g => deps.includes(g)) && setters.every(s => deps.includes(s)) && vals.every(v => deps.includes(v)),
-      'deps 32개 — 함수 17은 화살표 · 읽는 함수 6 · 쓰는 함수 1 · 앞에 선언된 const 8은 값(상태 주인 포함) (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
+  chk(deps.length === 33 && fnDeps.length === 17 && getters.every(g => deps.includes(g)) && setters.every(s => deps.includes(s)) && vals.every(v => deps.includes(v)),
+      'deps 33개 — 함수 17은 화살표 · 읽는 함수 6 · 쓰는 함수 1 · 앞에 선언된 const 9는 값(상태 주인 · 계정 칸 포함) (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
   const before = (n) => { const i = APP.search(new RegExp('^const ' + n + '\\s*=', 'm')); return i > 0 && i < iMk; };
   chk(['myhomeStoreMod', 'myHomeSticker', 'STICKER_MAX', 'STICKER_IMG_MAX_W', 'DS_IMG_MAX_BG_W', 'DS_IMG_MAX_BG_H', 'DS_IMG_MAX_PANEL', 'DS_IMG_QUALITY'].every(before), '  값으로 넘기는 것은 만드는 줄보다 앞에 선언된 const');
   chk(!before('USER_NAME_MAX') && APP.search(/^const USER_NAME_MAX\s*=/m) > iMk, '  ★ USER_NAME_MAX 는 만드는 줄보다 뒤 — 그래서 읽는 함수');

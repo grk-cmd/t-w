@@ -57,7 +57,7 @@ const K = {};
  'FOCUS_TODAY_DATE_KEY',
  'LICENSE_OPTOUT_KEY',   // (개정 238) 목록에 들어온 뒤 여기 없어 2절이 «?» 로 통째 안 돌았다
  'CUR_SLOT_KEY','EXTRA_SEAT_KEY',
- 'USER_NAME_KEY','CUSTOM_STATUS_KEY','MY_AD_BANNER_KEY','BELL_SEEN_KEY','INBOX_BC_READ_KEY','BONK_DAY_KEY',
+ 'USER_NAME_KEY','CUSTOM_STATUS_KEY','BELL_SEEN_KEY','INBOX_BC_READ_KEY','BONK_DAY_KEY',
 ].forEach(n => { K[n] = constVal(n); });
 const missingConst = Object.keys(K).filter(n => !K[n]);
 if(missingConst.length) huh('상수 값을 못 읽음: ' + missingConst.join(' '));
@@ -72,8 +72,7 @@ chk(!has('FOCUS_TODAY_SEC_KEY') && !has('FOCUS_TODAY_DATE_KEY') && !/focusTotalS
 chk(!has('GACHA_OWNED_KEY') && !has('GACHA_TS_KEY') && !has('GACHA_BONUS_KEY') && !/tw\.gacha/.test(listSrc), '④ 가챠는 서버가 원본이라 이 PC 에 지울 값이 없다(지움 목록에 없다)');
 chk(!has('LS_KEY') && !/deskFriends\./.test(listSrc), '② 캐릭터는 서버가 원본이라 이 PC 에 지울 슬롯 저장본·ts 가 없다(지움 목록에 없다)');
 chk(/'tw\.roomFaceUrls'/.test(listSrc) && /'tw\.slotGlbUrls'/.test(listSrc), '  업로드 캐시 둘 — users/{uid}/ 경로라 다른 uid 가 물려받으면 남의 Storage 를 가리킨다');
-chk(/'tw\.playlistSets'/.test(listSrc) && /'tw\.playlist'/.test(listSrc), '  플레이리스트 세 벌 + 옛 거울');
-chk(/'tw\.playlistEditTs'/.test(listSrc) && /'tw\.playlistBackup'/.test(listSrc), '  플레이리스트 옛 고친 시각 · 백업 키 — 예전 판이 남긴 것도 로그아웃에서 지운다');
+chk(!/'tw\.playlist(Sets|Title|Bio|HomePublic|Private|EditTs|Backup)?'/.test(listSrc) && /'tw\.playlistCur'/.test(listSrc), '  플레이리스트 목록은 서버가 원본이라 지움 목록에 옛 이름(목록 · 세 벌 · 한마디 · 공개 · 고친 시각 · 백업)이 없다 — 남은 옛 값은 첫 실행이 지운다(S-3a). 지금 고른 목록 번호만 남는다');
 /* 개정 56 (회원가입 설계 §6-②) — «버린 uid» 목록을 걷었다. 목록에서 빠지고, 예전 판이 남긴 값은 부팅에 한 번 지운다. */
 chk(!/MY_PREV_USER_IDS_KEY/.test(listSrc) && !/\bMY_PREV_USER_IDS_KEY\s*=/.test(SRC), '  «버린 uid» 목록은 걷었다 — 상수도 목록 항목도 없다 (개정 56)');
 chk(/try\{ localStorage\.removeItem\('tw\.myPrevUserIds'\); \}catch\(_\)\{\}/.test(SRC), '  ↳ 예전 판이 남긴 tw.myPrevUserIds 는 부팅에 한 번 지운다');
@@ -97,14 +96,13 @@ chk(!/getElementById\('acctUnlinkYes'\)/.test(SRC), '★ 연동 해제 입구가
 /* ── 2. 본문 실행 — 지움 · 남김 · 검문 ── */
 say('── 2. _detachAccountLocal — 지운 뒤 남은 키 · 기기 설정 · 메모리 · 검문');
 const fList = grabBlock(SRC, 'const ACCOUNT_LOCAL_KEYS = ()=>[', '\n];');
-const fPref = grabBlock(SRC, "const ACCOUNT_LOCAL_KEY_PREFIXES = [", "];");
 const fFlush = grabFn(SRC, '_acctFlushToServer', 'async function ');
 const fPre = grabFn(SRC, '_acctPreflight', 'async function ');
 const fWipe = /let _acctDetached = false;/.test(SRC) ? ('let _acctDetached = false;\n' + (grabFn(SRC, '_wipeAccountLocal') || '')) : null;
 const fDet = grabFn(SRC, '_detachAccountLocal', 'async function ');
 const tmo = [(SRC.match(/const ACCT_FLUSH_TIMEOUT_MS = \d+;/) || [])[0], (SRC.match(/const PRESENCE_OFF_WAIT_MS = \d+;/) || [])[0], grabFn(SRC, '_presenceOff')].every(Boolean)
   ? [(SRC.match(/const ACCT_FLUSH_TIMEOUT_MS = \d+;/) || [])[0], (SRC.match(/const PRESENCE_OFF_WAIT_MS = \d+;/) || [])[0], grabFn(SRC, '_presenceOff')].join('\n') : null;
-if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
+if(!fList || !fFlush || !fPre || !fWipe || !fDet || !tmo){
   huh('본문을 못 떼어 옴 — list:' + !!fList + ' flush:' + !!fFlush + ' pre:' + !!fPre + ' wipe:' + !!fWipe + ' det:' + !!fDet);
 }else{
   function mkEnv(o){
@@ -143,7 +141,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
       /* 🎵 플레이리스트는 playlist.js 모듈(앱 FSD 16번) — app.js 는 plMod.st(상태 묶음) · plMod.blankSets 로 쓴다. 메모리 칸은 위 let 이 대신한다 */
       "const getMyUserId=()=>'ME01'; const plMod={ flushPending:async(u)=>{ env.calls.push('flush:pl:'+(u||'')); }, blankSets:()=>[{name:'',items:[]},{name:'',items:[]},{name:'',items:[]}], reset:()=>{ env.plReset = (env.plReset || 0) + 1; _plSets = [{name:'',items:[]},{name:'',items:[]},{name:'',items:[]}]; _plBio = ''; _plHomePublic = false; _plPrivate = false; _plPubSig = null; }, st:" + PL_ST_MEM + " };",
     ].join('\n');
-    const body = [tmo, fList, fPref, fFlush, fPre, fWipe, env.det || fDet].join('\n');
+    const body = [tmo, fList, fFlush, fPre, fWipe, env.det || fDet].join('\n');
     const f = new Function('env', 'localStorage', 'window', decl + '\n' + body +
       "\nreturn { detach:_detachAccountLocal, wipe:_wipeAccountLocal, keys:ACCOUNT_LOCAL_KEYS, mem:()=>({ today:_focusTodaySec, extra:extraSeatSlots, sets:_plSets, sig:_plPubSig, detached:_acctDetached }) };");
     env.m = f(env, localStorage, window);
@@ -153,7 +151,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
   const fillA = e => {
     e.LS.setItem(K.MY_USER_ID_KEY, 'uA'); e.LS.setItem(K.LOGIN_EMAIL_KEY, 'a@x'); e.LS.setItem('tw.me', '{}');
     e.LS.setItem(K.LICENSE_KEY_STORAGE, 'LIC-A'); e.LS.setItem(K.FOCUS_TODAY_SEC_KEY, '60');
-    e.LS.setItem('tw.slotGlbUrls', '{}'); e.LS.setItem('tw.roomFaceUrls', '{"face:h":"https://st/u/A"}'); e.LS.setItem('tw.playlistSets', '[]'); e.LS.setItem('tw.playlistEditTs', '9000');
+    e.LS.setItem('tw.slotGlbUrls', '{}'); e.LS.setItem('tw.roomFaceUrls', '{"face:h":"https://st/u/A"}'); e.LS.setItem('tw.playlistCur', '2');
     e.LS.setItem(K.MY_FRIEND_CODE_PREV_KEY, '["MATE-OLD1"]'); e.LS.setItem(K.USER_NAME_KEY, 'A');
     e.LS.setItem('tw_chat_read:COZY-1', '5'); e.LS.setItem('tw_chat_join:COZY-1', '1');
     /* 기기 설정 — 남아야 한다 */
@@ -171,13 +169,13 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     chk(e.calls.indexOf('unsaved') > e.calls.lastIndexOf('flush:slots:logout') , '  검문(못 올린 고침 세기)은 올린 뒤에 온다');
     const left = e.m.keys().filter(k => e.LS.getItem(k) !== null);
     chk(left.length === 0, '★ 목록의 키가 하나도 안 남았다' + (left.length ? ' — 남음: ' + left.join(' ') : ''));
-    chk(e.LS.getItem('tw_chat_read:COZY-1') === null && e.LS.getItem('tw_chat_join:COZY-1') === null, '  방별 읽음·입장 표시(접두어 키)도 지웠다');
+    chk(e.LS.getItem('tw_chat_read:COZY-1') === '5' && e.LS.getItem('tw_chat_join:COZY-1') === '1' && !/ACCOUNT_LOCAL_KEY_PREFIXES/.test(SRC), '  ★ 방별 읽음·입장 표시(접두어 키)는 계정 칸으로 옮겼다(S-3d) — 로그아웃이 PC 칸 이름을 훑어 지우지 않는다(옮긴 뒤엔 PC 칸에 없다)');
     chk(e.LS.getItem('tw.theme') === 'dark' && e.LS.getItem('tw.playlistVol') === '40' && e.LS.getItem('tw.savedParts') === '[]' && e.LS.getItem('tw.deskPresets') === '[]',
         '★ 테마·볼륨·카탈로그·프리셋은 남았다 (이 컴퓨터의 것)');
     const m = e.m.mem();
     chk(m.today === 0 && e.calls.includes('gacha:reset'), '★ 메모리도 비웠다 — 오늘치 = 0 · 가챠는 gachaMod.resetMemory');
     chk(e.calls.includes('closet:reset') && m.extra.length === 0 && m.sig === null && m.sets.every(s => !s.items.length), '  옷장 메모리·추가 좌석·플레이리스트 지문 초기화');
-    chk(e.plReset === 1 && e.LS.getItem('tw.playlistEditTs') === null, '  ☁️ 플레이리스트를 비우고 받기 전까지 안 올림(plMod.reset) · 옛 고친 시각 키도 지움');
+    chk(e.plReset === 1 && e.LS.getItem('tw.playlistCur') === null, '  ☁️ 플레이리스트를 비우고 받기 전까지 안 올림(plMod.reset) · 지금 고른 목록 번호도 지움');
     chk(m.detached === true, '  _acctDetached 가 섰다 (3절의 근거)');
 
     /* ② 슬롯 push 가 거부된 기기 — 아무것도 안 지운다 */
@@ -200,7 +198,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
       "let _focusTodaySec=0;\n" +
       "let extraSeatSlots=[];\n" +
       "let _plSets=[], _plCur=0, _plBio='', _plHomePublic=false, _plPrivate=false, _plPubSig=null; const getMyUserId=()=>'ME01'; const plMod={ flushPending:async(u)=>{ env.calls.push('flush:pl:'+(u||'')); }, blankSets:()=>[], st:" + PL_ST_MEM + " };\n" +
-      [tmo, fList, fPref, fFlush, fPre, fWipe, fDet].join('\n') + "\nreturn _detachAccountLocal;");
+      [tmo, fList, fFlush, fPre, fWipe, fDet].join('\n') + "\nreturn _detachAccountLocal;");
     const FB_MIN = { deviceSessionLost: () => false, setMyPresenceState: () => Promise.resolve() };   // 늘 있는 둘 — 검문 뒤 presence «꺼짐» 이 부른다
     const lsOf = env => ({ getItem:k=>env.ls.has(k)?env.ls.get(k):null, setItem:(k,v)=>env.ls.set(k,String(v)), removeItem:k=>env.ls.delete(k), key:i=>Array.from(env.ls.keys())[i]||null, get length(){ return env.ls.size; } });
     let env4 = { ls: new Map([[K.MY_USER_ID_KEY, 'uA']]), unsent: 3600 };
