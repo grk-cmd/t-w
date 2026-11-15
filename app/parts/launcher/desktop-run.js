@@ -1,6 +1,6 @@
 /* desktop-run.js — 🖥️ 데스크탑 실행 화면 — 업데이트 배너 · 활성 앱 · 전역 입력 · 클릭 통과 · 하트비트
    app.js «🖥️ 데스크탑 실행 화면» 구역의 `if(desktopMode){…}` 덩이를 그대로 옮긴 모듈이다(앱 FSD 32번 — docs/APP_FSD_MAP.md).
-   만들 때 한 번 돈다(옛 자리에서 부팅 때 한 번 돌던 것과 같다). 창 크기 맞추기(applyDesktopRunClass) · layoutSeats 감싸기는 화면 핵심이라 app.js 에 남겼다. 동작은 옮기기 전과 같다.
+   만들 때 한 번 돈다(옛 자리에서 부팅 때 한 번 돌던 것과 같다). 창 크기 맞추기(applyDesktopRunClass) · 배치 뒤 창 크기 맞춤(seatLayoutMod.onLaidOut)은 화면 핵심이라 app.js 에 남겼다. 동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 18줄 —
      _charBoundsLatest · _penAppFocused · _twMoveSeenAt · drag · focusGateSleep · lastActivity · lastAnyInput · moveMode 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setTwMoveSeenAt · setLastActivity · setLastAnyInput(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.

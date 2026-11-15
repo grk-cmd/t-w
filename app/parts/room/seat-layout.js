@@ -8,7 +8,7 @@
      MULTIPLAYER_SPACING · SPACING · deskPanX · deskPanY · roomSeatMode · seatCameraMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setCachedRowCenter · setCachedRowSpan · setDeskPanX · setDeskPanY(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 4개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: layoutSeatRow — app.js 는 seatLayoutMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: layoutAndNotify · onLaidOut · seatHalfWidth · slotIndexAt — app.js 는 seatLayoutMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwSeatLayout — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-seat-layout.js */
