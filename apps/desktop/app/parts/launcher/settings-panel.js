@@ -5,7 +5,7 @@
      MULTIPLAYER_SPACING · Presence · SPACING · _moveModeJustToggled · chipHorizontal · curSlot · decoPartsVisible · dotRenderEnabled · emojiReactionsEnabled · focusCharScale · isPremium · moveMode · nameplateEnabled · roomSeatMode · seatEqualizeOn · slots · wardrobeMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setMULTIPLAYER_SPACING · setSPACING · setMoveModeJustToggled · setChipHorizontal · setCurSlot · setDecoPartsVisible · setDotRenderEnabled · setEmojiReactionsEnabled · setFocusCharScale · setMoveMode · setNameplateEnabled · setRoomSeatMode · setSeatEqualizeOn(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 24개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: EXTRA_SEAT_KEY · MY_AD_BANNER_KEY · _saveExtraSeatSlots · addExtraSeat · applyExtraSeatForMode · extraSeatSlots · loadAdBannerSlides · refreshFsAdBanner · renderCharSlots — app.js 는 settingsMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: EXTRA_SEAT_KEY · MY_AD_BANNER_KEY · _saveExtraSeatSlots · loadExtraSeatSlots · addExtraSeat · applyExtraSeatForMode · extraSeatSlots · loadAdBannerSlides · refreshFsAdBanner · renderCharSlots — app.js 는 settingsMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwSettingsPanel — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-settings-panel.js */
@@ -645,14 +645,15 @@ function refreshFsAdBanner(){
 })();
 
 const EXTRA_SEAT_KEY = 'tw.extraSeatSlots';   // 저장 형식: JSON 배열, 예 [1,2]
-let extraSeatSlots = [];
-(function _loadExtraSeatSlots(){
+let extraSeatSlots = [];   // 만들 때는 비어 있다 — 계정 칸은 확인 전엔 닫혀 있다. 확인 뒤 loadExtraSeatSlots 가 읽는다(launcher/user-local.js)
+function loadExtraSeatSlots(){
+  extraSeatSlots = [];
   try{
-    const raw = localStorage.getItem(EXTRA_SEAT_KEY);
+    const raw = settingsAccountStore.get(EXTRA_SEAT_KEY);
     if(raw){ const arr=JSON.parse(raw); if(Array.isArray(arr)) extraSeatSlots = arr.filter(n=>Number.isInteger(n)); }
   }catch(e){}
-})();
-function _saveExtraSeatSlots(){ try{ localStorage.setItem(EXTRA_SEAT_KEY, JSON.stringify(extraSeatSlots)); }catch(e){} }
+}
+function _saveExtraSeatSlots(){ try{ settingsAccountStore.set(EXTRA_SEAT_KEY, JSON.stringify(extraSeatSlots)); }catch(e){} }
 
 // 저장된 def를 가진 아이템의 desk item(화분/머그컵/책 등)을 전부 제거 — 캐릭터 교체 시 이전 캐릭터의
 // 책상 아이템이 새 캐릭터에 그대로 남아있는 걸 방지(applyDeskItemsTo는 "새 def에 있는 것만" 추가할 뿐
@@ -892,6 +893,7 @@ return {
   EXTRA_SEAT_KEY,
   MY_AD_BANNER_KEY,
   _saveExtraSeatSlots,
+  loadExtraSeatSlots,   // 확인 뒤 계정 칸에서 읽는다(launcher/user-local.js) — 비우기는 setExtraSeatSlots([])
   addExtraSeat,
   applyExtraSeatForMode,
   extraSeatSlots: ()=>extraSeatSlots,   // 읽는 함수

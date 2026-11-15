@@ -181,7 +181,7 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 
 **책임** — 모듈이 «만들 때» 계정 값을 PC 칸에서 읽으면 로그인 전에 앞 사람 값이 메모리에 올라온다. 그래서 모듈은 처음 값(기본값)으로 만들고, 계정 칸이 열린 뒤 이 칸(`app-boot` STEPS 맨 앞 `userLocal`)이 조각마다 `load` 를 불러 채운다. 세션이 끝나면(`session.onReset`) `reset` 을 거꾸로 불러 처음 값으로 되돌린다.
 **만드는 법** — `TwUserLocal.createUserLocal({ parts: [{ name, load, reset }] })`(app.js 한 곳). 조각이 던져도 다음 조각은 돈다. 조각을 더할 때: 그 모듈이 `loadLocal` · `resetLocal` 을 내놓고 app.js 의 목록에 한 줄 + `MOVED_KEYS` 에 키(옛 PC 값이 들어간 계정 칸으로 옮겨진다). 읽은 값이 화면에 걸려 있으면 `load` 에서 다시 그린다.
-**지금 조각** — `seatEq`(좌석 평준화) · `decoParts`(꾸미기 파츠 보이기) · `emojiReactions`(반응 이모지).
+**지금 조각** — `seatEq`(좌석 평준화) · `decoParts`(꾸미기 파츠 보이기) · `curSlot`(지금 고른 캐릭터 칸 — app.js) · `extraSeats`(자리 추가 슬롯 — `settings-panel.js`) · `emojiReactions`(반응 이모지).
 검사: `checks/sim-user-local.js`.
 
 ## `app-boot.js` — 🚀 켜는 순서 한 곳
@@ -193,7 +193,7 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 **차례 표(`STEPS`) — 이 순서가 정본이다**
 | # | 이름 | 시작하는 것 |
 |---|---|---|
-| 1 | userLocal | 🗂️ 이 계정이 이 PC 에서 고른 것(꾸미기 파츠 보이기 · 좌석 평준화 · 반응 이모지 …)을 계정 칸에서 읽어 채움(`user-local.js` — 모듈은 처음 값으로 만들고 여기서 `loadLocal` · 세션이 끝나면 `resetLocal`) |
+| 1 | userLocal | 🗂️ 이 계정이 이 PC 에서 고른 것(현재 슬롯 · 자리 추가 슬롯 · 꾸미기 파츠 보이기 · 좌석 평준화 · 반응 이모지 …)을 계정 칸에서 읽어 채움(`user-local.js` — 모듈은 처음 값으로 만들고 여기서 `loadLocal` · 세션이 끝나면 `resetLocal`) |
 | 2 | focusTotal | 포커스 누적 읽기(계정 칸) — 오늘치(`startFocusTotal`) |
 | 3 | focusShare | 📊 오늘 기록 전시 첫 보내기 · 15초 확인(`startFocusShare` — 오늘치가 읽힌 뒤) |
 | 4 | focusLevel | 포커스 진척 받기 · 못 올린 집중 시간 올리기(`focusProgress.startFocus`) |

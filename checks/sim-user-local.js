@@ -4,6 +4,7 @@
      계정 칸이 열린 뒤 한 칸이 읽어 채우고, 세션이 끝나면 처음 값으로 되돌려야 «A 로그인 → 로그아웃 → B 로그인» 에서 A 의 값이 B 화면에 안 보인다.
    ・1절: user-local.js 를 실제로 돌려 — start 가 조각마다 load 를 한 번씩(차례대로) · 세션이 끝나면 reset 을 거꾸로 · 한 조각이 던져도 다음은 돈다 · 모양이 틀린 조각 · 같은 이름은 만들 때 던진다
    ・2절: 조각으로 건 모듈(꾸미기 파츠 보이기 · 좌석 평준화 · 반응 이모지)을 실제로 돌려 — 만들 때 계정 칸 읽기 0번 · load 가 읽는다 · reset 이 처음 값 · A 값이 B 로 안 넘어간다
+   ・2b절: 현재 슬롯(app.js _loadCurSlot) · 자리 추가 슬롯(settings-panel.js loadExtraSeatSlots)을 가짜 계정 칸 위에서 돌려 — 만들 때 읽기 0 · load 가 읽음 · 범위 밖 · 깨진 값은 처음 값
    ・3절: 연결 — app.js 의 starts 맨 앞이 userLocal · 조각 목록 · 키가 옮긴 표(MOVED_KEYS)에 있다 · 모듈 소스가 PC 칸(localStorage)을 직접 읽지 않는다
    ・4절: 일부러 깨 보기 */
 'use strict';
@@ -14,7 +15,7 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f]) { try { return fs.readFileSync(c, 'utf8'); } catch (_) {} } return null; };
 const SRC = {
   UL: read('launcher/user-local.js'), APP: read('app.js'), STORE: read('shared/account-store.js'),
-  DECO: read('character/deco-parts-visibility.js'), EQ: read('character/seat-equalize.js'), FLT: read('room/floaters.js'), SET: read('launcher/settings-panel.js'),
+  DECO: read('character/deco-parts-visibility.js'), EQ: read('character/seat-equalize.js'), FLT: read('room/floaters.js'), SET: read('launcher/settings-panel.js'), ACC: read('account/account.js'),
 };
 for (const k of Object.keys(SRC)) if (!SRC[k]) { say('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
@@ -95,19 +96,47 @@ judge(SRC.UL).forEach(([ok, m]) => chk(ok, m));
 say('── 2. 조각으로 건 모듈을 실제로 돌려 본다');
 { let rows; try { rows = judgeMods(SRC); } catch (e) { rows = [[false, '모듈 실행이 던짐 — ' + e.message]]; } rows.forEach(([ok, m]) => chk(ok, m)); }
 
-say('── 3. 연결');
+function judgeConn(S) {
+  const r = []; const t = (ok, msg) => r.push([!!ok, msg]);
+/* 2b. 현재 슬롯 · 자리 추가 슬롯 */
 {
-  const starts = (SRC.APP.match(/const appBoot = TwAppBoot\.createAppBoot\(\{[\s\S]*?\n {2}starts: \{\n([\s\S]*?)\n {2}\},\n\}\);/) || [])[1] || '';
-  chk(/^ {4}userLocal: \(code, me, session\)=>userLocalMod\.start\(session\),\n {4}focusTotal:/.test(starts), 'app.js 의 starts 맨 앞이 userLocal — 모든 계정 기능보다 먼저 읽는다');
-  const parts = (SRC.APP.match(/const userLocalMod = TwUserLocal\.createUserLocal\(\{ parts: \[([\s\S]*?)\n\] \}\);/) || [])[1] || '';
-  const names = [...parts.matchAll(/\{ name: '(\w+)'/g)].map((m) => m[1]);
-  chk(['seatEq', 'decoParts', 'emojiReactions'].every((n) => names.includes(n)), 'app.js 의 조각 목록 — ' + names.join(' · '));
-  const moved = (SRC.STORE.match(/const MOVED_KEYS = Object\.freeze\(\[([\s\S]*?)\]\);/) || [])[1] || '';
-  chk(['tw.decoParts', 'tw.seatEq', 'tw.emojiReactions'].every((k) => moved.includes("'" + k + "'")), '세 키가 옮긴 표(MOVED_KEYS)에 있다 — 0.12 의 PC 값이 들어간 계정 칸으로 간다');
-  const noPc = (src, re) => !re.test(strip(src));
-  chk(noPc(SRC.DECO, /localStorage/) && noPc(SRC.EQ, /localStorage/) && noPc(SRC.FLT, /localStorage/), '세 모듈이 PC 칸(localStorage)을 직접 읽거나 쓰지 않는다');
-  chk(noPc(SRC.SET, /localStorage\.(get|set|remove)Item\('tw\.(decoParts|seatEq|emojiReactions)'/) && /settingsAccountStore\.set\('tw\.decoParts'/.test(SRC.SET) && /settingsAccountStore\.set\('tw\.seatEq'/.test(SRC.SET) && /settingsAccountStore\.set\('tw\.emojiReactions'/.test(SRC.SET), '설정 창이 세 값을 계정 칸에 쓴다(PC 칸 0)');
+  const fnText = (S.APP.match(/function _loadCurSlot\(\)\{[^\n]*\n/) || [''])[0].replace(/\/\/.*$/, '');
+  const exSrc = (S.SET.match(/function loadExtraSeatSlots\(\)\{[\s\S]*?\n\}\n/) || [''])[0];
+  t(!!fnText && !!exSrc, '원본에서 _loadCurSlot · loadExtraSeatSlots 를 찾았다');
+  const mkCur = (store) => new Function('accountStoreMod', 'CUR_SLOT_KEY', 'CHAR_SLOT_MAX', fnText + '\nreturn _loadCurSlot;')({ get: (k) => (k in store ? store[k] : null) }, 'tw.curSlot', 5);
+  t(mkCur({ 'tw.curSlot': '3' })() === 3 && mkCur({})() === 0 && mkCur({ 'tw.curSlot': '9' })() === 0 && mkCur({ 'tw.curSlot': '-1' })() === 0 && mkCur({ 'tw.curSlot': 'x' })() === 0, '_loadCurSlot — 계정 칸 값 · 없으면 0 · 범위 밖(9 · -1) · 깨진 값은 0');
+  const runEx = (store) => { const o = new Function('settingsAccountStore', 'EXTRA_SEAT_KEY', 'let extraSeatSlots = [];\n' + exSrc + '\nreturn { load: loadExtraSeatSlots, get: () => extraSeatSlots, put: (v) => { extraSeatSlots = v; } };')({ get: (k) => (k in store ? store[k] : null) }, 'tw.extraSeatSlots'); return o; };
+  const e1 = runEx({ 'tw.extraSeatSlots': '[1,2,"x",3.5]' }); e1.load();
+  t(e1.get().join() === '1,2', 'loadExtraSeatSlots — 정수만 앉힌다(문자 · 소수 제외)');
+  const e2 = runEx({ 'tw.extraSeatSlots': '{깨짐' }); e2.put([4]); e2.load();
+  t(e2.get().length === 0, '  깨진 JSON · 없는 값이면 앞에 있던 것도 비우고 빈 목록(앞 계정 값이 남지 않는다)');
 }
+
+/* 3. 연결 */
+{
+  const starts = (S.APP.match(/const appBoot = TwAppBoot\.createAppBoot\(\{[\s\S]*?\n {2}starts: \{\n([\s\S]*?)\n {2}\},\n\}\);/) || [])[1] || '';
+  t(/^ {4}userLocal: \(code, me, session\)=>userLocalMod\.start\(session\),\n {4}focusTotal:/.test(starts), 'app.js 의 starts 맨 앞이 userLocal — 모든 계정 기능보다 먼저 읽는다');
+  const parts = (S.APP.match(/const userLocalMod = TwUserLocal\.createUserLocal\(\{ parts: \[([\s\S]*?)\n\] \}\);/) || [])[1] || '';
+  const names = [...parts.matchAll(/\{ name: '(\w+)'/g)].map((m) => m[1]);
+  t(['seatEq', 'decoParts', 'emojiReactions'].every((n) => names.includes(n)), 'app.js 의 조각 목록 — ' + names.join(' · '));
+  const moved = (S.STORE.match(/const MOVED_KEYS = Object\.freeze\(\[([\s\S]*?)\]\);/) || [])[1] || '';
+  t(['tw.decoParts', 'tw.seatEq', 'tw.emojiReactions'].every((k) => moved.includes("'" + k + "'")), '세 키가 옮긴 표(MOVED_KEYS)에 있다 — 0.12 의 PC 값이 들어간 계정 칸으로 간다');
+  const noPc = (src, re) => !re.test(strip(src));
+  t(['tw.curSlot', 'tw.extraSeatSlots'].every((k) => moved.includes("'" + k + "'")), '현재 슬롯 · 자리 추가 슬롯도 옮긴 표(MOVED_KEYS)에 있다');
+  t(/^let curSlot=0;/m.test(S.APP) && /function _loadCurSlot\(\)\{[^\n]*accountStoreMod\.get\(CUR_SLOT_KEY\)/.test(S.APP) && /function saveCurSlot\(\)\{[^\n]*accountStoreMod\.set\(CUR_SLOT_KEY/.test(S.APP) && noPc(S.APP, /localStorage\.(get|set|remove)Item\(CUR_SLOT_KEY/),
+    '현재 슬롯 — 만들 때 0 · 계정 칸에서 읽고 쓴다(PC 칸 0)');
+  t(/\{ name: 'curSlot', load: \(\)=>\{ curSlot = _loadCurSlot\(\); \}, reset: \(\)=>\{ curSlot = 0; \}/.test(parts) && /\{ name: 'extraSeats', load: \(\)=>settingsMod\.loadExtraSeatSlots\(\), reset: \(\)=>settingsMod\.setExtraSeatSlots\(\[\]\)/.test(parts), '조각 curSlot · extraSeats — load 가 읽고 reset 이 처음 값');
+  t(!/\(function _loadExtraSeatSlots\(\)/.test(S.SET) && /settingsAccountStore\.get\(EXTRA_SEAT_KEY\)/.test(S.SET) && /settingsAccountStore\.set\(EXTRA_SEAT_KEY/.test(S.SET) && noPc(S.SET, /localStorage\.(get|set|remove)Item\(EXTRA_SEAT_KEY/), '자리 추가 슬롯 — 만들 때 읽지 않고(즉시 실행 걷음) 계정 칸에서 읽고 쓴다');
+  const wipe = (S.ACC.match(/const ACCOUNT_LOCAL_KEYS = \(\)=>\[[\s\S]*?\n\];/) || [''])[0];
+  t(wipe && !/CUR_SLOT_KEY|EXTRA_SEAT_KEY|tw\.curSlot|tw\.extraSeatSlots/.test(strip(wipe)), '로그아웃 지움 목록에 둘이 없다 — 계정 칸은 로그아웃해도 지우지 않는다(같은 계정이 돌아오면 이어진다)');
+  t(noPc(S.DECO, /localStorage/) && noPc(S.EQ, /localStorage/) && noPc(S.FLT, /localStorage/), '세 모듈이 PC 칸(localStorage)을 직접 읽거나 쓰지 않는다');
+  t(noPc(S.SET, /localStorage\.(get|set|remove)Item\('tw\.(decoParts|seatEq|emojiReactions)'/) && /settingsAccountStore\.set\('tw\.decoParts'/.test(S.SET) && /settingsAccountStore\.set\('tw\.seatEq'/.test(S.SET) && /settingsAccountStore\.set\('tw\.emojiReactions'/.test(S.SET), '설정 창이 세 값을 계정 칸에 쓴다(PC 칸 0)');
+}
+  return r;
+}
+
+say('── 2b~3. 현재 슬롯 · 자리 추가 슬롯 · 연결');
+judgeConn(SRC).forEach(([ok, m]) => chk(ok, m));
 
 say('── 4. 일부러 깨 보기 — 빨강이 나야 한다');
 {
@@ -120,17 +149,22 @@ say('── 4. 일부러 깨 보기 — 빨강이 나야 한다');
     ['DECO', '만들 때 계정 칸을 읽음', (m) => m.replace("let decoPartsVisible = true;", "let decoPartsVisible = (decoAccountStore.get('tw.decoParts') !== '0');")],
     ['EQ', 'reset 이 값을 안 되돌림', (m) => m.replace('resetLocal: ()=>{ seatEqualizeOn = false; }', 'resetLocal: ()=>{}')],
     ['FLT', 'loadLocal 이 읽지 않음', (m) => m.replace("emojiReactionsEnabled = (floatersAccountStore.get(EMOJI_REACTIONS_KEY) !== '0');", '')],
+    ['APP', 'starts 에서 userLocal 이 빠짐', (m) => m.replace('    userLocal: (code, me, session)=>userLocalMod.start(session),\n', '')],
+    ['APP', '현재 슬롯을 만들 때 읽음', (m) => m.replace('let curSlot=0;', 'let curSlot=_loadCurSlot();')],
+    ['APP', '현재 슬롯을 PC 칸에서 읽음', (m) => m.replace('accountStoreMod.get(CUR_SLOT_KEY)', 'localStorage.getItem(CUR_SLOT_KEY)')],
+    ['APP', '현재 슬롯 조각이 값을 안 채움', (m) => m.replace('load: ()=>{ curSlot = _loadCurSlot(); }', 'load: ()=>{}')],
+    ['SET', '자리 추가 슬롯을 PC 칸에서 읽음', (m) => m.replace('settingsAccountStore.get(EXTRA_SEAT_KEY)', 'localStorage.getItem(EXTRA_SEAT_KEY)')],
+    ['SET', '자리 추가 슬롯이 앞 값을 안 비움', (m) => m.replace('function loadExtraSeatSlots(){\n  extraSeatSlots = [];', 'function loadExtraSeatSlots(){')],
+    ['ACC', '로그아웃이 현재 슬롯을 지움', (m) => m.replace("  'tw.slotGlbUrls', 'tw.roomFaceUrls',", "  CUR_SLOT_KEY, 'tw.slotGlbUrls', 'tw.roomFaceUrls',")],
     ['DECO', 'PC 칸을 읽음', (m) => m.replace("decoAccountStore.get(DECO_PARTS_KEY)", "localStorage.getItem(DECO_PARTS_KEY)")],
   ];
   for (const [k, name, fm] of breaks) {
     const bad = Object.assign({}, SRC); bad[k] = fm(SRC[k]);
     if (bad[k] === SRC[k]) { chk(false, name + ' — 바꿀 글을 못 찾음'); continue; }
     let red = false;
-    try { red = judge(bad.UL).concat(judgeMods(bad)).some(([ok]) => !ok); } catch (_) { red = true; }
+    try { red = judge(bad.UL).concat(judgeMods(bad), judgeConn(bad)).some(([ok]) => !ok); } catch (_) { red = true; }
     chk(red, name);
   }
-  const app2 = SRC.APP.replace('    userLocal: (code, me, session)=>userLocalMod.start(session),\n', '');
-  chk(!/^ {4}userLocal: /m.test(app2), '깨 보기 — app.js starts 에서 userLocal 이 빠지면 연결 판정이 빨강(위 3절 첫 줄 정규식이 못 찾는다)');
 }
 
 say(pass + ' · ' + fail);

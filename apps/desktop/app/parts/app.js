@@ -4491,8 +4491,8 @@ const _faceEverDrawn  = new Array(CHAR_SLOT_MAX).fill(false);
 const _blinkEverDrawn = new Array(CHAR_SLOT_MAX).fill(false);
 let _blankFaceConfirmed = false;   // 생성기에서 «비운 채 저장»을 확인한 직후, 바로 뒤 saveSlots 1회만 소비
 const CUR_SLOT_KEY='tw.curSlot';
-function _loadCurSlot(){ try{ const v=parseInt(localStorage.getItem(CUR_SLOT_KEY),10); if(v>=0&&v<CHAR_SLOT_MAX) return v; }catch(e){} return 0; }
-function saveCurSlot(){ try{ localStorage.setItem(CUR_SLOT_KEY, String(curSlot)); }catch(e){} }
+function _loadCurSlot(){ try{ const v=parseInt(accountStoreMod.get(CUR_SLOT_KEY),10); if(v>=0&&v<CHAR_SLOT_MAX) return v; }catch(e){} return 0; }   // 계정 칸 — 확인 뒤(userLocal 조각 curSlot)에만 부른다
+function saveCurSlot(){ try{ accountStoreMod.set(CUR_SLOT_KEY, String(curSlot)); }catch(e){} }
 /* 🪑 책상 크기 슬라이더의 **기본값** — 흩어져 있던 0.175 리터럴의 단 하나의 출처.
    [왜 상수가 필요해졌나] '책상 위' 파츠가 이 슬라이더를 따라 커지고 작아지는 것을 끊으면서
      "무엇을 기준으로 안 따라가는가"를 정해야 했다. 답이 이 값이다 — 슬라이더가 기본값일 때가
@@ -4507,7 +4507,7 @@ const DESK_SCALE_DEFAULT = 0.175;
 const crState = TwCreatorState.createCreatorState({
   DESK_SCALE_DEFAULT: DESK_SCALE_DEFAULT,
 });
-let curSlot=_loadCurSlot();
+let curSlot=0;   // 만들 때는 읽지 않는다(계정 칸은 확인 전엔 닫혀 있다) — 확인 뒤 userLocal 의 curSlot 조각이 _loadCurSlot 로 채운다
 /* 🙂 얼굴 · 피부 그림판(512 캔버스 · 대칭축 · 피부 5종 · 피부 위에 그림 얹기 · «완전히 비었나» 판정)은 캐릭터 코어(packages/char-core/src/face.ts · #434).
    ⚠️ «비었나» 의 true 에는 저장을 막는 힘이 있다 — 판정할 수 없으면 false(코어 주석 · sim-face-loss). 피부 그림 불러오기(loadSkins)는 앱 몫 —
    불러온 그림은 skinCanvases 같은 칸에 넣는다(얼굴 자동 복구도 같은 배열). */
@@ -6407,9 +6407,7 @@ TwOssLicenses.createOssLicenses({ document, window, links: [document.getElementB
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const accountMod = TwAccount.createAccount({
   BELL_SEEN_KEY: BELL_SEEN_KEY,
-  CUR_SLOT_KEY: CUR_SLOT_KEY,
   CUSTOM_STATUS_KEY: userStatusTableMod.CUSTOM_STATUS_KEY,
-  EXTRA_SEAT_KEY: settingsMod.EXTRA_SEAT_KEY,
   accountLegacyStore: accountStoreMod,
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
@@ -8303,6 +8301,8 @@ const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
 const userLocalMod = TwUserLocal.createUserLocal({ parts: [
   { name: 'seatEq', load: ()=>{ seatEqMod.loadLocal(); if(seatEqMod.seatEqualizeOn()) layoutSeats(); }, reset: ()=>{ const was = seatEqMod.seatEqualizeOn(); seatEqMod.resetLocal(); if(was) layoutSeats(); } },
   { name: 'decoParts', load: ()=>{ decoPartsMod.loadLocal(); if(!decoPartsMod.decoPartsVisible()) seats.forEach(s=>applyClothVisibility(s)); }, reset: ()=>{ const was = decoPartsMod.decoPartsVisible(); decoPartsMod.resetLocal(); if(!was) seats.forEach(s=>applyClothVisibility(s)); } },
+  { name: 'curSlot', load: ()=>{ curSlot = _loadCurSlot(); }, reset: ()=>{ curSlot = 0; } },   // 런처는 이어서 받는 옷장(closet 칸)이 다 받은 뒤 그린다
+  { name: 'extraSeats', load: ()=>settingsMod.loadExtraSeatSlots(), reset: ()=>settingsMod.setExtraSeatSlots([]) },
   { name: 'emojiReactions', load: ()=>floatersMod.loadLocal(), reset: ()=>floatersMod.resetLocal() },
 ] });
 
