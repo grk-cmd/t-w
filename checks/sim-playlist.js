@@ -782,6 +782,17 @@ async function behave(src){
       chk(e.count('fetchMine') === 2 && m.state().loaded, '  다음 로그인(새 세션)은 시작이 다시 돈다 — 받기 한 번 더');
     }
     {
+      /* ★ 세션은 선택이 아니다 — 시작(start) 전에 올리기 타이머를 걸면 조용히 안 걸지 않고 던진다(시작 순서가 틀린 것) */
+      const e = mkEnv({ noGatePull: true }); e.srv = srvOf(2, 'n'); const m = e.mk(); await flush();
+      let threw = null; try{ oneMore(m); m.save(); }catch(x){ threw = x; }
+      chk(threw && /세션이 없어요/.test(String(threw.message)) && e.timers.filter(t => !t.every && t.at - e.t === 3000).length === 0, '★ 세션 없이 올리기 예약을 하면 던진다 — 조용히 안 걸지 않는다(타이머 0)');
+      /* 깨 보기 — 세션 없을 때 조용히 null 로 넘기게 되돌리면 위가 빨강 */
+      const bad = (SRC['playlist.js'] || '').replace("function _plTimeout(fn, ms){ return _plSession().setTimeout(fn, ms); }", "function _plTimeout(fn, ms){ return _plSess ? _plSess.setTimeout(fn, ms) : null; }");
+      const eb = mkEnv({ noGatePull: true, src: bad }); eb.srv = srvOf(2, 'n'); const mb = eb.mk(); await flush();
+      let threwB = false; try{ oneMore(mb); mb.save(); }catch(_){ threwB = true; }
+      chk(bad !== SRC['playlist.js'] && !threwB, '  깨 보기: 세션 없으면 null 로 넘기게 하면 «던진다» 가 빨강');
+    }
+    {
       const e = E(); e.srv = srvOf(2, 'n'); const m = await e.mk();
       e.saveRes = 'failed'; oneMore(m); m.save(); await e.advance(3100);
       m.reset();
