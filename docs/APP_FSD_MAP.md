@@ -302,6 +302,8 @@ app.js 9,746 → 9,476줄(270줄) · 구역 167 → 130개. 남긴 빈 머리 �
 
 **0.12.4 — app.js 분리 T5**: 파츠 저작 오프셋 · 머리 높이 보정 · xf 적용 구역(367줄)을 `character/part-xf.js` 로 옮겼다(0.13 app.js 글 그대로 — 계산 본문은 코어 `createParts` 를 부르는 한 줄 · 코어 파츠는 app.js 가 만들어 넘김).
 
+**0.12.4 — app.js 분리 T6**: 파츠 붙이기 · 떼기 · def 대조 · 한꺼번에 입히기 · 본 찾기(약 780줄)를 `character/part-equip.js` 로 옮겼다(0.13 app.js 글 그대로 — 복제 · 재질 · 리깅 다시 묶기 · wrapper 는 코어 `createParts` 호출. 0.12.4 의 #830 `shareSkeletons` 두 줄은 0.13 글에도 있어 그대로).
+
 ## 구역 표 — `app/parts/app.js`
 
 | # | 줄 | 크기 | 목적 | 층 | 관련 모듈 | 씀 | 쓰임 | 비고 |

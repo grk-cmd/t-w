@@ -153,6 +153,7 @@ const MODULES = [
   { file: 'hue-tint.js', mod: 'hueTintMod', glob: 'TwHueTint', sample: 'function applyHueTint(' },   // 0.12.4 app.js 분리 T1
   { file: 'base-body.js', mod: 'baseBodyMod', glob: 'TwBaseBody', sample: 'function instantiateBase(' },   // 0.12.4 app.js 분리 T2
   { file: 'part-xf.js', mod: 'partXfMod', glob: 'TwPartXf', sample: 'function applyPartXf(' },   // 0.12.4 app.js 분리 T5
+  { file: 'part-equip.js', mod: 'partEquipMod', glob: 'TwPartEquip', sample: 'async function equipPartOnSeat(' },   // 0.12.4 app.js 분리 T6
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');

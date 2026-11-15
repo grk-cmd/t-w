@@ -449,3 +449,9 @@
 - **책임**: 파츠를 캐릭터 본에 붙일 때의 저작 오프셋(`_computePartAuthorOffset` — 바인드 자세 역행렬 `_charBoneBindInverses` 로 환산) · 머리 계열 파츠 실측 진단(`_diagPartHeadSpace`) · 동물 머리 파츠 세로 보정(`_computeAnimalHeadDy` · `_headTopAboveBone` · `_baseHeadTopAboveBone`) · 옛 보정 판별(`_isLegacyAuthorCompensation`) · wrapper 에 xf 적용(`_applyXfToWrapper` · `applyPartXf` — 본체 · 다중 파츠 extras · stackable · 책상 위 파츠 바닥 맞춤). 앱 FSD 분리 T5 — 0.13 app.js 글 그대로. 계산 본문은 코어 `createParts`(`packages/char-core/src/parts.ts`).
 - **만드는 법**: `TwPartXf.createPartXf({ partsCore, PART_DEFAULT_OFFSET, premiumMod, partPaintMod, lightToneMod, bodyMeasureMod, charMeasureMod, instantiateBase })` — 값 7 · 함수 1. 코어 파츠(`partsCore = TwCharCore.createParts({…})`)는 app.js 가 모듈보다 먼저 만들어 넘긴다(`part-equip.js` 도 받는다). app.js 는 밖에서 부르는 여섯 이름을 const 로 받는다.
 - **함정**: `_computePartAuthorOffset` 의 `bb` 는 `equipPartOnSeat`(`part-equip.js`)가 피봇용으로 만든 것과 «같은» 박스여야 한다 — 한쪽만 고치면 피봇과 실제 위치가 어긋난다. 검사: `checks/sim-part-xf.js`.
+
+## part-equip.js — 🎀 파츠 붙이기 · 떼기 · def 대조
+
+- **책임**: 꾸미기 파츠를 좌석 본에 붙이는 일의 좌석 몫 — `equipPartOnSeat`(옷 겹침 정리 · GLB 받기 · 리깅 판정 · 장착 차례 · 귀 까닥임 · 애니메이션 · 진단) · 떼기(`unequipPartFromSeat` · `unequipStackablePart` · 비동기 장착 무효화 `_invalidatePendingEquip` · 유령 wrapper 청소 `_sweepOrphanPartWrappers` · 다시 맞추기 요청) · 좌석과 def 대조(`pruneSeatPartsAgainstDef`) · 저장된 파츠 한꺼번에 입히기(`applyEquippedPartsToSeat`) · 본 찾기(`extractBonesInto`). 앱 FSD 분리 T6 — 0.13 app.js 글 그대로(복제 · 재질 · _col · _pic · 리깅 다시 묶기 · wrapper 는 코어 `createParts` 호출).
+- **만드는 법**: `TwPartEquip.createPartEquip({ … })` — 21개(값 5 · 옛 이름으로 받은 part-xf · cloth-visibility · part-anim 함수 · 함수 2 · 읽는 함수 `partSceneMod`). app.js 가 `part-xf.js` 와 옷 겹침 뒤에서 만들고 밖에서 부르는 아홉 이름을 const 로 받는다.
+- **함정**: 해제는 먼저 `_invalidatePendingEquip` 으로 번호를 올려야 늦게 도착한 장착이 스스로 멈춘다(유령 파츠 방어). `pruneSeatPartsAgainstDef` 의 파츠 정보 조회 실패는 «없음» 이 아니라 «유지» 다(착용 파츠 증발 사고). `skelShare.shareSkeletons` 두 줄(#830 — 본체 · 다중 파츠 사본)을 지우지 말 것(`sim-skeleton-share`). 검사: `checks/sim-part-equip-mod.js`.
