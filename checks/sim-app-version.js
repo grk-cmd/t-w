@@ -133,14 +133,18 @@ const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nr
       av: grab(CODE, 'const _appVer = createAppVersion('),
       on: grab(CODE, 'setMyPresenceOnline(userId, startOnline){'),
       st: grab(CODE, 'setMyPresenceState(userId, online){'),
+      bind: grab(CODE, 'function _presenceBind('),
+      rel: grab(CODE, 'function _presenceRelease('),
+      touch: grab(CODE, 'touchMyPresence(){'),
+      reset: grab(CODE, 'resetMyPresence(){'),
     };
-    chk(Object.values(SRC).every(Boolean), '_syncPresenceRoom · _appVer · setMyPresenceOnline · setMyPresenceState 를 찾았다');
+    chk(Object.values(SRC).every(Boolean), '_syncPresenceRoom · _appVer · setMyPresenceOnline · setMyPresenceState · 묶기 · 풀기 · 한 번 찍기를 찾았다');
     const tick = async (n = 6) => { for(let i = 0; i < n; i++) await new Promise(r => setImmediate(r)); };
     const defer = () => { let res, rej; const p = new Promise((a, b) => { res = a; rej = b; }); return { p, res, rej }; };
     // 서버 흉내: set 은 통째 · update 는 합치기 · onDisconnect payload 는 따로 적어 둔다
     const mkWorld = (opts) => {
       const o = Object.assign({ src: SRC, createAppVersion: mod.createAppVersion }, opts);
-      const w = { log: [], node: null, od: null, connected: [], ticks: [] };
+      const w = { log: [], node: null, od: null, connected: [] };
       const save = (kind, v) => { const val = JSON.parse(JSON.stringify(v)); w.log.push({ kind, v: val });
         if(kind === 'set') w.node = val; else if(kind === 'update') w.node = Object.assign({}, w.node || {}, val);
         else if(kind === 'od') w.od = val;
@@ -152,14 +156,14 @@ const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nr
         ref: (d, p) => ({ p }),
         set: (r, v) => save('set', v), update: (r, v) => save('update', v),
         onDisconnect: () => ({ set: (v) => save('od', v), cancel: () => Promise.resolve() }),
-        onValue: (r, cb) => { if(r.p === '.info/connected') w.connected.push(cb); },
-        setInterval: (fn) => { w.ticks.push(fn); return 1; },
+        onValue: (r, cb) => { if(r.p === '.info/connected') w.connected.push(cb); return () => {}; },
         _whenAuthReady: () => o.auth,
       };
       vm.createContext(c);
       vm.runInContext('let _myPresenceRef = null, _presenceRoom = null, _presenceOnline = true, _presenceInRoom = false;\n'
-        + 'let _presenceWritten = false;\n' + o.src.sync + '\n' + o.src.av + ');\n'
-        + 'this.api = {' + o.src.on + ',\n' + o.src.st + ',\n_syncPresenceRoom };', c);
+        + 'let _presenceWritten = false, _presenceUid = null, _presenceGen = 0, _presenceUnwatch = null;\n' + o.src.sync + '\n' + o.src.av + ');\n'
+        + o.src.bind + '\n' + o.src.rel + '\n'
+        + 'this.api = {' + o.src.on + ',\n' + o.src.st + ',\n' + o.src.touch + ',\n' + o.src.reset + ',\n_syncPresenceRoom };', c);
       w.api = c.api;
       w.connect = () => w.connected.forEach(cb => cb({ val: () => true }));
       return w;
@@ -182,7 +186,7 @@ const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nr
       const midLog = w.log.length;
       if(ctl.ver) { ctl.ver(); await tick(); }
       if(!ctl.authFirst){ ctl.auth.res(); await tick(); }
-      w.ticks.forEach(f => f()); await tick();
+      w.api.touchMyPresence(); await tick();   // 6시간 틱(타이머는 세션이 쥔다 — myhome-init)
       return { beforeVer, midLog };
     };
 

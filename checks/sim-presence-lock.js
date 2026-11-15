@@ -145,21 +145,23 @@ async function gate(fbi){
   const grab = (src, head) => { const i = src.indexOf(head); if(i < 0) return null; let k = src.indexOf('{', i), d = 0;
     for(; k < src.length; k++){ if(src[k] === '{') d++; else if(src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return null; };
   const on = grab(fbi, 'setMyPresenceOnline(userId, startOnline){'), st = grab(fbi, 'setMyPresenceState(userId, online){');
-  if(!on || !st) return null;
+  const reset = grab(fbi, 'resetMyPresence(){'), bind = grab(fbi, 'function _presenceBind('), rel = grab(fbi, 'function _presenceRelease('), touch = grab(fbi, 'touchMyPresence(){');
+  if(!on || !st || !bind || !rel || !touch || !reset) return null;
   const mk = (preset) => {
-    const w = { log: [], connected: [], ticks: [] };
+    const w = { log: [], connected: [], paths: [], cancelled: [], unwatched: 0 };
     const c = {
       Date: { now: () => 1 }, Promise, db: {},
       ref: (d, p) => ({ p }),
-      set: (r, v) => { w.log.push(['set', v.online]); return Promise.resolve(); }, update: (r, v) => { w.log.push(['update', v.online]); return Promise.resolve(); },
-      onDisconnect: () => ({ set: (v) => { w.log.push(['od', v.online]); return Promise.resolve(); } }),
-      onValue: (r, cb) => { if(r.p === '.info/connected') w.connected.push(cb); },
-      setInterval: (fn) => { w.ticks.push(fn); return 1; }, _whenAuthReady: () => Promise.resolve(),
+      set: (r, v) => { w.log.push(['set', v.online]); w.paths.push(r.p); return Promise.resolve(); }, update: (r, v) => { w.log.push(['update', v.online]); return Promise.resolve(); },
+      onDisconnect: (r) => ({ set: (v) => { w.log.push(['od', v.online]); return Promise.resolve(); }, cancel: () => { w.cancelled.push(r.p); return Promise.resolve(); } }),
+      onValue: (r, cb) => { if(r.p === '.info/connected'){ w.connected.push(cb); return () => { w.unwatched++; }; } },
+      _whenAuthReady: () => Promise.resolve(),
       _appVer: { ready: Promise.resolve(), withVer: (x) => x },
     };
     vm.createContext(c);
-    vm.runInContext('let _myPresenceRef = null, _presenceRoom = null, _presenceOnline = ' + (preset === false ? 'false' : 'true') + ', _presenceInRoom = false, _presenceWritten = false;\n'
-      + 'this.api = {' + on + ',\n' + st + ', ref: () => _myPresenceRef };', c);
+    vm.runInContext('let _myPresenceRef = null, _presenceRoom = null, _presenceOnline = ' + (preset === false ? 'false' : 'true') + ', _presenceInRoom = false, _presenceWritten = false, _presenceUid = null, _presenceGen = 0, _presenceUnwatch = null;\n'
+      + bind + '\n' + rel + '\n'
+      + 'this.api = {' + on + ',\n' + st + ',\n' + touch + ',\n' + reset + ', ref: () => _myPresenceRef };', c);
     w.api = c.api; w.connect = () => w.connected.forEach(cb => cb({ val: () => true }));
     return w;
   };
@@ -167,10 +169,10 @@ async function gate(fbi){
   let res; let w = mk();
   w.api.setMyPresenceOnline('u1', new Promise(a => { res = a; }));
   const reg = !!w.api.ref();
-  w.connect(); w.ticks.forEach(f => f()); await tick();
+  w.connect(); w.api.touchMyPresence(); await tick();
   const before = w.log.filter(e => e[0] === 'set' || e[1] === true).length;
   res(false); await tick();
-  w.ticks.forEach(f => f()); await tick();
+  w.api.touchMyPresence(); await tick();
   r.wait = reg && before === 0 && w.log.some(e => e[0] === 'set') && w.log.every(e => e[1] !== true);
   w = mk(); w.api.setMyPresenceOnline('u1', Promise.resolve(true)); await tick();
   r.onTrue = w.log.filter(e => e[0] === 'set').every(e => e[1] === true) && w.log.some(e => e[0] === 'set');
@@ -178,6 +180,29 @@ async function gate(fbi){
   const keepOff = w.log.some(e => e[0] === 'set') && w.log.filter(e => e[0] === 'set').every(e => e[1] === false);
   w = mk(); w.api.setMyPresenceOnline('u1', Promise.reject(new Error('x'))); await tick();
   r.noArg = keepOff && w.log.some(e => e[0] === 'set' && e[1] === true);
+  /* 계정이 바뀐다 — 앞 사람이 «오프라인» 으로 꺼 둔 채 로그아웃해도 다음 사람은 온라인으로 시작 · 앞 사람의 onDisconnect 는 취소 · 구독은 풀림 · 앞 계정 칸에는 더 쓰지 않는다 */
+  w = mk(); w.api.setMyPresenceOnline('u1', Promise.resolve(true)); await tick();
+  w.api.setMyPresenceState('u1', false); await tick();
+  w.api.resetMyPresence(); await tick();
+  const afterReset = w.api.ref() === null && w.unwatched === 1 && w.cancelled.join() === 'users/u1/presence';
+  w.log.length = 0; w.paths.length = 0;
+  w.api.setMyPresenceOnline('u2', Promise.resolve(true)); await tick();
+  w.connect(); w.api.touchMyPresence(); await tick();
+  r.switchUser = afterReset && w.paths.length > 0 && w.paths.every(p => p === 'users/u2/presence')
+    && w.log.filter(e => e[0] === 'set').every(e => e[1] === true) && w.log.some(e => e[0] === 'set');
+  /* 로그인이 풀리기 전에 다른 계정이 부르면(reset 없이) 같은 길 — 앞 계정 것을 풀고 새로 묶는다 · 같은 계정이 또 부르면 아무 일 없음 */
+  w = mk(); w.api.setMyPresenceOnline('u1', Promise.resolve(true)); await tick();
+  w.api.setMyPresenceOnline('u1', Promise.resolve(true)); await tick();
+  const dup = w.connected.length === 1;
+  w.api.setMyPresenceOnline('u2', Promise.resolve(true)); await tick();
+  r.rebind = dup && w.unwatched === 1 && w.connected.length === 2 && w.api.ref().p === 'users/u2/presence';
+  /* 앞 계정 몫으로 기다리던 첫 쓰기는 풀린 뒤 새 계정 칸에 쓰지 않는다 — 새 계정이 «🔒 오프라인» 이면 앞 계정의 늦은 쓰기가 «온라인» 으로 보이게 하면 안 된다 */
+  let late, res2; w = mk(); w.api.setMyPresenceOnline('u1', new Promise(a => { late = a; })); w.api.resetMyPresence();
+  w.api.setMyPresenceOnline('u2', new Promise(a => { res2 = a; }));
+  late(true); await tick();
+  const noEarly = w.log.every(e => e[1] !== true);
+  res2(false); await tick();
+  r.lateDropped = noEarly && w.log.some(e => e[0] === 'set' && e[1] === false) && w.log.every(e => e[1] !== true);
   return r;
 }
 
@@ -201,6 +226,9 @@ async function gate(fbi){
     chk(G.wait, '처음 값이 풀리기 전엔 쓰지 않는다(재접속 신호 · 6시간 lastSeen 이 먼저 와도) · 등록은 바로 · «🔒 오프라인» 이면 어느 쓰기에도 online:true 없음');
     chk(G.onTrue, '  처음 값이 온라인이면 예전처럼 온라인');
     chk(G.noArg, '  처음 값이 없으면(밀려난 뒤 다시 걸기) 지금 값 그대로 · 처음 값이 실패해도 쓴다');
+    chk(G.switchUser, '★ 계정이 바뀐다 — 앞 사람이 «오프라인» 으로 꺼 둔 채 나가도 다음 사람은 온라인으로 시작 · 앞 계정 onDisconnect 취소 · 접속 구독 해제 · 앞 계정 칸에 더 쓰지 않는다');
+    chk(G.rebind, '  같은 계정이 또 부르면 구독 하나 · 다른 계정이 부르면 앞 계정 것을 풀고 새로 묶는다');
+    chk(G.lateDropped, '  앞 계정 몫으로 기다리던 첫 쓰기는 풀린 뒤 쓰지 않는다');
   }
 
   say('── 4. 배선');
@@ -247,6 +275,15 @@ async function gate(fbi){
     chk(g2 && !g2.wait, '6시간 lastSeen 에 online:true 를 섞으면 3절이 빨강');
     const g1 = FBI.includes("const _armPresence = ()=>gate.then(()=>{") ? await gate(FBI.replace("const _armPresence = ()=>gate.then(()=>{", "const _armPresence = ()=>Promise.resolve().then(()=>{")) : null;
     chk(g1 && !g1.wait, '첫 쓰기가 처음 값을 안 기다리면 3절이 빨강');
+    const gb = async (from, to) => FBI.includes(from) ? gate(FBI.replace(from, to)) : null;
+    const g3 = await gb("_presenceOnline = true; _presenceInRoom = false; _presenceWritten = false;", "_presenceInRoom = false; _presenceWritten = false;");
+    chk(g3 && !g3.switchUser, '풀 때 «온라인» 으로 되돌리지 않으면(앞 사람의 오프라인이 다음 사람에게 넘어감) 3절이 빨강');
+    const g4 = await gb("if(!_myPresenceRef || gen !== _presenceGen) return;", "if(!_myPresenceRef) return;");
+    chk(g4 && !g4.lateDropped, '앞 계정 몫 쓰기를 가르지 않으면 3절이 빨강');
+    const g5 = await gb("const cancel = ()=>{ try{ onDisconnect(r).cancel(); }catch(_){} };", "const cancel = ()=>{};");
+    chk(g5 && !g5.switchUser, '앞 계정 onDisconnect 를 취소하지 않으면 3절이 빨강');
+    const g6 = await gb("if(_presenceUnwatch){ try{ _presenceUnwatch(); }catch(_){} _presenceUnwatch = null; }", "");
+    chk(g6 && !g6.switchUser, '접속 구독을 풀지 않으면 3절이 빨강');
   }
 
   say('');

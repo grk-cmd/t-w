@@ -224,7 +224,7 @@ const next = mhPreset.apply(_myHomeData(), p, keys); myhomeStore.setDesign({ the
 
 **내놓는 것** — `startOnlineFor(uid, me)` → 처음 온라인 여부(동기). `me` 는 계정 확인(`GET /v2/me`)의 답이고 거기 `presencePref` 에서 고정값을 앉힌다. myhome-init 이 `firebaseAPI.setMyPresenceOnline(myId, 이것)` 으로 넘긴다. 순수 `normalize(v)` · `startOnline(pref)`.
 
-**함정** — 첫 접속 쓰기는 firebase-init `setMyPresenceOnline` 이 이 값이 정해진 뒤에만 한다(재접속 신호가 먼저 와도) — 오프라인 고정인데 «온라인» 이 한 번 보이지 않게. 등록(`_myPresenceRef`)은 바로 한다 — 기기 세션이 밀릴 때 놓는 순서가 그대로이게.
+**함정** — 첫 접속 쓰기는 firebase-init `setMyPresenceOnline` 이 이 값이 정해진 뒤에만 한다(재접속 신호가 먼저 와도) — 오프라인 고정인데 «온라인» 이 한 번 보이지 않게. 등록(`_myPresenceRef`)은 바로 한다 — 기기 세션이 밀릴 때 놓는 순서가 그대로이게. 계정이 바뀌면(세션 비우기 → `resetMyPresence`) 앞 사람이 껐던 «오프라인» · 방 · onDisconnect 가 다음 사람에게 넘어가지 않는다.
 계정 확인을 통과한 뒤에만 시작하니(`launcher/app-boot.js`) 고정값을 따로 읽거나 기다리지 않는다 — 이 PC 사본 · 읽기 시한 · 늦게 온 값 바로잡기는 없다. 받기 전에 사용자가 누르면 누른 값은 지키고 고정 여부는 받은 값을 따른다(받은 값이 고정이면 누른 값을 새 고정값으로 저장).
 고정 안 한 토글은 저장하지 않는다(예전과 같다). 다른 PC 에서 바꾼 고정값은 켜져 있는 PC 에 바로 오지 않는다(다음 실행부터).
 `presencePref` 는 `users/*`(공개 읽기) 밖 — 친구가 «숨긴 오프라인» 을 알아보지 않게 로그인한 본인만 읽고 쓴다.

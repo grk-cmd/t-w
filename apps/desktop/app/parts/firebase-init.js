@@ -158,6 +158,30 @@
   const _svNow = () => Date.now() + _svTimeOffset;
   let _myPresenceRef = null, _presenceRoom = null, _presenceOnline = true, _presenceInRoom = false;
   let _presenceWritten = false;   // presence 를 한 번이라도 set 했는가 — 버전이 늦게 오면 그때만 메운다
+  let _presenceUid = null;        // 접속 표시가 묶인 계정 — 다른 계정이 부르면 앞 계정 것을 풀고 새로 묶는다
+  let _presenceGen = 0;           // 묶을 때마다 올린다 — 앞 계정 몫으로 기다리던 쓰기가 새 계정 칸에 쓰지 않게
+  let _presenceUnwatch = null;    // `.info/connected` 구독 해제
+  /* 🔌 접속 표시를 계정에 묶는다. 같은 계정이면 false(이미 묶임) · 다른 계정이면 앞 계정 것을 풀고 새로 묶어 true.
+     풀기: 구독 · 대기 중 쓰기를 끊고, 앞 계정을 «꺼짐» 으로 쓴 뒤 그 계정의 onDisconnect 를 취소한다 —
+     앱을 다시 켜지 않으므로 연결이 닫히지 않는다 · 취소하지 않으면 뒤에 앞 계정이 다른 기기에서 켠 접속 표시를 이 앱이 닫을 때 꺼 버린다.
+     값(방 · 온라인 · 쓴 적 있음)도 빈 기기로 — 앞 사람이 껐던 «오프라인» 이 다음 사람에게 넘어가지 않게. */
+  function _presenceRelease(){
+    const r = _myPresenceRef, wrote = _presenceWritten, wasOnline = _presenceOnline;
+    _presenceGen++;
+    if(_presenceUnwatch){ try{ _presenceUnwatch(); }catch(_){} _presenceUnwatch = null; }
+    _myPresenceRef = null; _presenceUid = null; _presenceRoom = null; _presenceOnline = true; _presenceInRoom = false; _presenceWritten = false;
+    if(!r || !wrote) return;
+    const cancel = ()=>{ try{ onDisconnect(r).cancel(); }catch(_){} };
+    if(!wasOnline){ cancel(); return; }
+    try{ set(r, _appVer.withVer({ online:false, lastSeen: Date.now(), room:null, inRoom:false })).then(cancel, ()=>{}); }catch(_){}   // 못 써도(오프라인) onDisconnect 는 남겨 둔다 — 연결이 닫힐 때 서버가 꺼 준다
+  }
+  function _presenceBind(userId){
+    if(_myPresenceRef && _presenceUid === userId) return false;
+    if(_myPresenceRef) _presenceRelease();
+    _presenceUid = userId;
+    _myPresenceRef = ref(db, `users/${userId}/presence`);
+    return true;
+  }
   // 방 입장/퇴장 시 presence에 현재 방 코드를 같이 기록 — 친구 목록의 "온라인 · COZY-9K2M" 배지에 쓰임
   /* 🔒 단, **시크릿룸 코드는 기기 밖으로 내보내지 않는다.**
      [왜 화면에서 가리는 게 아니라 여기서 막나] presence 는 친구라면 누구나 읽는 노드다. 화면에서만
@@ -394,8 +418,8 @@
     },
     // 온라인 상태 등록 — onDisconnect로 앱이 꺼지거나 튕기면 자동으로 offline 처리됨.
     setMyPresenceOnline(userId, startOnline){
-      if(_myPresenceRef) return;   // 중복 등록 방지
-      _myPresenceRef = ref(db, `users/${userId}/presence`);
+      if(!_presenceBind(userId)) return;   // 같은 계정이 또 부르면 중복 등록 방지 · 다른 계정이면 앞 계정 것을 풀고 새로 묶는다
+      const gen = _presenceGen;
       /* 🔒 startOnline — 처음 온라인 여부(Promise · 고정값을 읽은 뒤). 쓰기는 이것이 풀린 뒤에만 — 오프라인 고정인데 «온라인» 이 한 번 보이지 않게.
          없으면(밀려난 뒤 다시 걸기) 지금 값 그대로. 등록(_myPresenceRef)은 바로 한다 — 기기 세션이 밀릴 때 놓는 순서가 그대로이게 */
       const gate = Promise.resolve(startOnline).then(v=>{ if(v === false) _presenceOnline = false; }).catch(()=>{});
@@ -405,7 +429,7 @@
            수동으로 오프라인 해 둔 사람을 네트워크가 한 번 끊겼다는 이유로
            온라인으로 되돌리면 안 된다(setMyPresenceState 가 이 값을 세운다). */
       const _armPresence = ()=>gate.then(()=>{
-        if(!_myPresenceRef) return;
+        if(!_myPresenceRef || gen !== _presenceGen) return;   // 그 사이 계정이 바뀌었으면 앞 계정 몫은 쓰지 않는다
         onDisconnect(_myPresenceRef).set(_appVer.withVer({ online:false, lastSeen: Date.now() }));
         set(_myPresenceRef, _appVer.withVer({
           online: _presenceOnline, lastSeen: Date.now(),
@@ -439,9 +463,10 @@
          · room·inRoom 도 함께 복구된다. onDisconnect 가 set 이라 그 둘이 날아가는데,
            예전에는 방 안에 있어도 재접속 뒤 "온라인 · COZY-…" 배지가 사라진 채로 남았다. */
       try{
-        onValue(ref(db, '.info/connected'), s=>{ if(s.val() === true) _armPresence(); });
+        _presenceUnwatch = onValue(ref(db, '.info/connected'), s=>{ if(s.val() === true) _armPresence(); });
       }catch(_){}
-      /* 🕒 lastSeen 을 6시간마다 새로 찍는다.
+    },
+    /* 🕒 lastSeen 을 6시간마다 새로 찍는다 — 타이머는 세션이 쥔다(myhome-init.js · 로그아웃하면 같이 멈춘다). 이 함수는 한 번 찍을 뿐.
          [왜] onDisconnect 의 payload 는 **등록 시점에 고정**된다. 즉 앱을 끄면 '앱을 켠 시각'이
            lastSeen 으로 남고, 켜 두는 동안에는 아무도 갱신하지 않는다.
            그러면 앱을 8일 내리 켜 둔 사람의 lastSeen 이 8일 전이 되어, 매일 쓰는 사람인데도
@@ -449,18 +474,18 @@
            개정 56 에서 걷었다).
          ⚠️ 주기를 짧게 잡을 이유가 없다. 이 값은 '며칠 단위'로만 쓰이므로 6시간이면 충분하고,
            유저당 하루 4번의 아주 작은 쓰기로 끝난다. */
-      try{
-        setInterval(()=>{
-          if(!_myPresenceRef) return;
-          try{ update(_myPresenceRef, _appVer.withVer({ lastSeen: Date.now() })); }catch(_){}
-        }, 6 * 60 * 60 * 1000);
-      }catch(_){}
+    touchMyPresence(){
+      if(!_myPresenceRef) return;
+      try{ update(_myPresenceRef, _appVer.withVer({ lastSeen: Date.now() })); }catch(_){}
     },
+    /* 접속 표시를 놓는다 — 세션이 끝날 때(myhome-init.js onReset). 앞 계정 것을 풀고 빈 기기로(_presenceRelease). */
+    resetMyPresence(){ _presenceRelease(); },
     // 온라인 표시 수동 토글 — false면 친구 목록에서 오프라인으로 보임(앱은 계속 실행됨).
     setMyPresenceState(userId, online){
+      if(_myPresenceRef && _presenceUid !== userId) _presenceRelease();   // 다른 계정이 부르면 앞 계정 것은 풀고 시작
       _presenceOnline = !!online;
       if(!_myPresenceRef){
-        _myPresenceRef = ref(db, `users/${userId}/presence`);
+        _presenceBind(userId);
         onDisconnect(_myPresenceRef).set(_appVer.withVer({ online:false, lastSeen: Date.now() }));
       }
       _presenceWritten = true;
