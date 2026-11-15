@@ -433,7 +433,7 @@
 | **sim-ride-measure.js** | 188 | **83e35751526e** |
 | **sim-ride-tuning.js** | 124 | **6889f9df66be** |
 | **sim-char-measure.js** | 167 | **c1ee503be3b6** |
-| **sim-body-measure.js** | 654 | **d28c79ab0184** |
+| **sim-body-measure.js** | 655 | **961377b318b4** |
 | **sim-glow.js** | 99 | **395a5af3c3c0** |
 | **sim-stage.js** | 149 | **f69053b60915** |
 | **sim-floor-snap-diag.js** | 142 | **3aa611d6946d** |
