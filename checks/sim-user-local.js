@@ -15,7 +15,7 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f]) { try { return fs.readFileSync(c, 'utf8'); } catch (_) {} } return null; };
 const SRC = {
   UL: read('launcher/user-local.js'), APP: read('app.js'), STORE: read('shared/account-store.js'),
-  DECO: read('character/deco-parts-visibility.js'), EQ: read('character/seat-equalize.js'), FLT: read('room/floaters.js'), SET: read('launcher/settings-panel.js'), ACC: read('account/account.js'), HID: read('room/hidden-seats.js'), UST: read('status/user-status-table.js'), PRES: read('room/presence.js'),
+  DECO: read('character/deco-parts-visibility.js'), EQ: read('character/seat-equalize.js'), FLT: read('room/floaters.js'), SET: read('launcher/settings-panel.js'), ACC: read('account/account.js'), HID: read('room/hidden-seats.js'), UST: read('status/user-status-table.js'), PRES: read('room/presence.js'), ANI: read('character/animal.js'), PL: read('status/playlist.js'), CC: read('character/char-code.js'),
 };
 for (const k of Object.keys(SRC)) if (!SRC[k]) { say('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
@@ -144,8 +144,13 @@ function judgeConn(S) {
   t(noPc(S.APP, /localStorage\.(get|set|remove)Item\(('tw\.userStatus'|userStatusTableMod\.CUSTOM_STATUS_KEY)/) && /accountStoreMod\.set\('tw\.userStatus'/.test(S.APP) && /accountStoreMod\.get\('tw\.userStatus'\)/.test(S.APP) && /accountStoreMod\.set\(userStatusTableMod\.CUSTOM_STATUS_KEY/.test(S.APP), 'app.js — 상태 · 커스텀 상태를 계정 칸에서 읽고 쓴다(PC 칸 0)');
   t(noPc(S.PRES, /localStorage\.(get|set|remove)Item/) && /presenceAccountStore\.get\('tw\.userStatus'\)/.test(S.PRES) && /presenceAccountStore\.set\(AWAY_KIND_KEY/.test(S.PRES) && !/\(function _restoreBootStatus\(\)/.test(S.PRES), 'Presence — 켤 때 상태 복원이 만들 때(즉시 실행)가 아니라 restoreBootStatus 이고 계정 칸을 쓴다(PC 칸 0)');
   t(noPc(S.HID, /localStorage\.(get|set|remove)Item/) && noPc(S.UST, /localStorage\.(get|set|remove)Item/), '숨긴 사람 · 커스텀 상태 모듈이 PC 칸을 안 읽는다');
+  t(/\{ name: 'playlistCur', load: \(\)=>plMod\.loadLocal\(\), reset: \(\)=>\{ plMod\.st\.cur = 0; \} \}/.test(parts) && /\{ name: 'animal', load: \(\)=>window\._animalLoadLocal\(\), reset: \(\)=>window\._animalResetLocal\(\) \}/.test(parts), '조각 playlistCur · animal — load 가 읽고 reset 이 처음 값');
+  t(['tw.playlistCur', 'tw.animalCheatUnlock', 'tw.animalEverUnlocked'].every((k) => moved.includes("'" + k + "'")), '플레이리스트 고른 번호 · 동물 해금 기록 둘도 옮긴 표(MOVED_KEYS)에 있다');
+  t(noPc(S.PL, /localStorage\.(get|set|remove)Item\('tw\.playlistCur'/) && /playlistAccountStore\.get\('tw\.playlistCur'\)/.test(S.PL) && /playlistAccountStore\.set\('tw\.playlistCur'/.test(S.PL) && /_plSets = _plBlankSets\(\);\n    _plCur = 0; _plNowSet = 0;/.test(S.PL), '플레이리스트 — 고른 목록 번호는 만들 때 0 · 계정 칸에서 읽고 쓴다(PC 칸 0)');
+  t(noPc(S.ANI, /localStorage\.(get|set|remove)Item\((CHEAT_KEY|EVER_KEY)/) && /accountStoreMod\.get\(CHEAT_KEY\)/.test(S.ANI) && /accountStoreMod\.get\(EVER_KEY\)/.test(S.ANI) && /accountStoreMod\.set\(CHEAT_KEY/.test(S.ANI) && /accountStoreMod\.set\(EVER_KEY/.test(S.ANI) && /window\._animalLoadLocal = function/.test(S.ANI) && /window\._animalResetLocal = function/.test(S.ANI) && /_localLoaded = true;\s*\n\s*initCard\(\);/.test(S.ANI), '동물 카드 — 해금 기록 둘을 계정 칸에서 읽고 쓴다 · loadLocal 이 카드를 다시 그린다(PC 칸 0)');
+  t(noPc(S.CC, /localStorage\.getItem\('tw\.animalCheatUnlock'\)/), '캐릭터 코드 불러오기도 PC 칸의 숨김 해금을 안 읽는다');
   const wipe = (S.ACC.match(/const ACCOUNT_LOCAL_KEYS = \(\)=>\[[\s\S]*?\n\];/) || [''])[0];
-  t(wipe && !/CUR_SLOT_KEY|EXTRA_SEAT_KEY|CUSTOM_STATUS_KEY|tw\.(curSlot|extraSeatSlots|userStatus|customStatus|awayKind|reportHidden)/.test(strip(wipe)), '로그아웃 지움 목록에 이 PR 이 옮긴 키가 없다 — 계정 칸은 로그아웃해도 지우지 않는다(같은 계정이 돌아오면 이어진다)');
+  t(wipe && !/CUR_SLOT_KEY|EXTRA_SEAT_KEY|CUSTOM_STATUS_KEY|tw\.(curSlot|extraSeatSlots|userStatus|customStatus|awayKind|reportHidden|playlistCur)/.test(strip(wipe)), '로그아웃 지움 목록에 이 PR 이 옮긴 키가 없다 — 계정 칸은 로그아웃해도 지우지 않는다(같은 계정이 돌아오면 이어진다)');
   t(noPc(S.DECO, /localStorage/) && noPc(S.EQ, /localStorage/) && noPc(S.FLT, /localStorage/), '세 모듈이 PC 칸(localStorage)을 직접 읽거나 쓰지 않는다');
   t(noPc(S.SET, /localStorage\.(get|set|remove)Item\('tw\.(decoParts|seatEq|emojiReactions)'/) && /settingsAccountStore\.set\('tw\.decoParts'/.test(S.SET) && /settingsAccountStore\.set\('tw\.seatEq'/.test(S.SET) && /settingsAccountStore\.set\('tw\.emojiReactions'/.test(S.SET), '설정 창이 세 값을 계정 칸에 쓴다(PC 칸 0)');
 }
@@ -181,6 +186,11 @@ say('── 4. 일부러 깨 보기 — 빨강이 나야 한다');
     ['HID', '숨긴 사람 load 가 앞 값을 안 비움', (m) => m.replace('  _reportHiddenUids.clear();\n  try{ const _rh', '  try{ const _rh')],
     ['UST', '커스텀 상태를 PC 칸에서 읽음', (m) => m.replace('statusAccountStore.get(CUSTOM_STATUS_KEY)', 'localStorage.getItem(CUSTOM_STATUS_KEY)')],
     ['ACC', '로그아웃이 상태를 지움', (m) => m.replace("  USER_NAME_KEY,   //", "  USER_NAME_KEY, 'tw.userStatus',   //")],
+    ['PL', '고른 목록 번호를 만들 때 읽음', (m) => m.replace('_plCur = 0; _plNowSet = 0;', "_plCur = _plSetIdx(playlistAccountStore.get('tw.playlistCur')); _plNowSet = _plCur;")],
+    ['PL', '고른 목록 번호를 PC 칸에 씀', (m) => m.replace("playlistAccountStore.set('tw.playlistCur'", "localStorage.setItem('tw.playlistCur'")],
+    ['ANI', '동물 해금 기록을 PC 칸에서 읽음', (m) => m.replace("accountStoreMod.get(CHEAT_KEY)", "localStorage.getItem(CHEAT_KEY)")],
+    ['ANI', '동물 해금 loadLocal 이 카드를 안 그림', (m) => m.replace("_localLoaded = true;\n  initCard();", "_localLoaded = true;")],
+    ['CC', '캐릭터 코드가 PC 칸 해금을 읽음', (m) => m.replace("else _ok = (_lv >= _ulv) || isAdmin();", "else _ok = (_lv >= _ulv) || isAdmin() || localStorage.getItem('tw.animalCheatUnlock')==='1';")],
     ['DECO', 'PC 칸을 읽음', (m) => m.replace("decoAccountStore.get(DECO_PARTS_KEY)", "localStorage.getItem(DECO_PARTS_KEY)")],
   ];
   for (const [k, name, fm] of breaks) {

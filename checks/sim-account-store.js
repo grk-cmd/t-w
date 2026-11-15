@@ -397,7 +397,7 @@ async function judge(S){
     st.o['tw.charColorHistory'] = '["#ff0000","#00ff00"]'; st.o['tw.activeInteractionDesk'] = 'bench2'; st.o['tw.animalCheatUnlock'] = '1'; st.o['tw.chatFontSize'] = '14';
     const r = s.migrateLegacy(A); code.v = A;
     chk(S3B.every((k) => r.moved.includes(k)) && s.get('tw.charColorHistory') === '["#ff0000","#00ff00"]' && s.get('tw.activeInteractionDesk') === 'bench2', '★ 옛 PC 값이 들어간 계정 칸에 같은 값으로 이어진다(잃지 않는다)');
-    chk(S3B.every((k) => !(k in st.o)) && st.o['tw.chatFontSize'] === '14' && st.o['tw.animalCheatUnlock'] === '1', '  ↳ PC 칸에서는 지운다 · 기기 설정은 그대로 · 동물 숨김 해금(animalCheatUnlock)은 카드가 처음 그릴 때 읽어 아직 PC 칸 — 옮기지 않는다(S-4a)');
+    chk(S3B.every((k) => !(k in st.o)) && st.o['tw.chatFontSize'] === '14' && !('tw.animalCheatUnlock' in st.o) && s.get('tw.animalCheatUnlock') === '1', '  ↳ PC 칸에서는 지운다 · 기기 설정은 그대로 · 동물 숨김 해금(animalCheatUnlock)은 S-4a 가 옮겼다 — 다음 절');
     code.v = B;
     chk(S3B.every((k) => s.get(k) === null), '  ↳ 다른 계정(B)에게는 안 보인다');
     const noPc = (src, re) => !re.test(src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 '));

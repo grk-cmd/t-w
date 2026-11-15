@@ -181,7 +181,7 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 
 **책임** — 모듈이 «만들 때» 계정 값을 PC 칸에서 읽으면 로그인 전에 앞 사람 값이 메모리에 올라온다. 그래서 모듈은 처음 값(기본값)으로 만들고, 계정 칸이 열린 뒤 이 칸(`app-boot` STEPS 맨 앞 `userLocal`)이 조각마다 `load` 를 불러 채운다. 세션이 끝나면(`session.onReset`) `reset` 을 거꾸로 불러 처음 값으로 되돌린다.
 **만드는 법** — `TwUserLocal.createUserLocal({ parts: [{ name, load, reset }] })`(app.js 한 곳). 조각이 던져도 다음 조각은 돈다. 조각을 더할 때: 그 모듈이 `loadLocal` · `resetLocal` 을 내놓고 app.js 의 목록에 한 줄 + `MOVED_KEYS` 에 키(옛 PC 값이 들어간 계정 칸으로 옮겨진다). 읽은 값이 화면에 걸려 있으면 `load` 에서 다시 그린다.
-**지금 조각** — `seatEq`(좌석 평준화) · `decoParts`(꾸미기 파츠 보이기) · `curSlot`(지금 고른 캐릭터 칸 — app.js) · `extraSeats`(자리 추가 슬롯 — `settings-panel.js`) · `status`(상태 · 커스텀 상태 · 켤 때 자리비움 복원 — app.js · `room/presence.js` `restoreBootStatus`) · `reportHidden`(신고로 숨긴 사람 — `room/hidden-seats.js`) · `emojiReactions`(반응 이모지).
+**지금 조각** — `seatEq`(좌석 평준화) · `decoParts`(꾸미기 파츠 보이기) · `curSlot`(지금 고른 캐릭터 칸 — app.js) · `extraSeats`(자리 추가 슬롯 — `settings-panel.js`) · `status`(상태 · 커스텀 상태 · 켤 때 자리비움 복원 — app.js · `room/presence.js` `restoreBootStatus`) · `reportHidden`(신고로 숨긴 사람 — `room/hidden-seats.js`) · `playlistCur`(고른 플레이리스트 번호 — `status/playlist.js`) · `animal`(동물 숨김 해금 기록 — `character/animal.js`) · `emojiReactions`(반응 이모지).
 검사: `checks/sim-user-local.js`.
 
 ## `app-boot.js` — 🚀 켜는 순서 한 곳

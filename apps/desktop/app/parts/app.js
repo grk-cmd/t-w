@@ -1523,6 +1523,7 @@ const demojiPalMod = TwDemojiPalette.createDemojiPalette({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const playlistApiMod = TwPlaylistApi.createPlaylistApi({ authed: TwApi.authed, random: ()=>Math.random(), warn: (...a)=>console.warn(...a) });   // 🌐 플레이리스트 서버 길(/v2/me/playlist · /v2/playlists/…)
 const plMod = TwPlaylist.createPlaylist({
+  playlistAccountStore: accountStoreMod,
   playlistApi: playlistApiMod,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   toast: (...a)=>toast(...a),
@@ -8309,6 +8310,8 @@ const userLocalMod = TwUserLocal.createUserLocal({ parts: [
   { name: 'reportHidden', load: ()=>hiddenSeatsMod.loadReportHidden(), reset: ()=>hiddenSeatsMod._reportHiddenUids.clear() },
   { name: 'curSlot', load: ()=>{ curSlot = _loadCurSlot(); }, reset: ()=>{ curSlot = 0; } },   // 런처는 이어서 받는 옷장(closet 칸)이 다 받은 뒤 그린다
   { name: 'extraSeats', load: ()=>settingsMod.loadExtraSeatSlots(), reset: ()=>settingsMod.setExtraSeatSlots([]) },
+  { name: 'playlistCur', load: ()=>plMod.loadLocal(), reset: ()=>{ plMod.st.cur = 0; } },
+  { name: 'animal', load: ()=>window._animalLoadLocal(), reset: ()=>window._animalResetLocal() },
   { name: 'emojiReactions', load: ()=>floatersMod.loadLocal(), reset: ()=>floatersMod.resetLocal() },
 ] });
 
