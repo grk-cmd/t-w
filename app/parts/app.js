@@ -1636,7 +1636,7 @@ const mhStLayoutMod = TwMyHomeStickerLayout.createMyHomeStickerLayout({
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
   renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers(...a),
 });
-/* 본문은 myhome/myhome-sticker-render.js 로 옮겼다(앱 FSD · app.js 분리 M19). renderMyHomeStickers 는 마이홈 편집 묶음이 감싸 다시 대입하므로 읽는 · 쓰는 함수로 다룬다. */
+/* 본문은 myhome/myhome-sticker-render.js 로 옮겼다(앱 FSD · app.js 분리 M19). 그린 뒤 할 일은 onRendered 알림에 건다(마이홈 편집 묶음이 삭제 버튼 자동 저장을 건다). */
 const stickerRenderMod = TwMyHomeStickerRender.createMyHomeStickerRender({
   mhPageMod: mhPageMod,
   mhStateMod: mhStateMod,
@@ -1646,7 +1646,7 @@ const stickerRenderMod = TwMyHomeStickerRender.createMyHomeStickerRender({
 
 /* 🎨 스티커 관리 창 · 스티커 편집모드 · 드래그 · 회전 · 크기는 parts/myhome-sticker.js 로 옮겼다(앱 FSD 7번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(#stMgrClose · #stMgrBringAll 버튼 연결)이 예전과 같은 때 돈다.
-   함수 deps 는 화살표로 감싼다(부를 때 찾게) — renderMyHomeStickers 는 아래 마이홈 페이지 편집 묶음(myhome-edit.js)이 감싸 다시 대입하고,
+   함수 deps 는 화살표로 감싼다(부를 때 찾게) — renderMyHomeStickers 는 다시 대입되지 않고(그린 뒤 할 일은 알림),
    commitMyHomePage 는 그 묶음이 window 에 거는 이름이다. _myHomeData · _mhViewingUserId · _mhStickerEditSid 는 다시 대입되는 let 이라
    읽는 함수로, _mhStickerEditSid · _mhStickerDragDist 를 바꾸는 것은 쓰는 함수로 넘긴다(둘 다 renderMyHomeStickers 가 읽는다 — _mhStickerEditSid 는 myhome-sticker-layout.js 에, _mhStickerDragDist 는 app.js 에).
    STICKER_* 는 이 줄보다 앞에 선언되고 다시 대입되지 않는 const 라 값으로. 부르는 곳은 myHomeSticker.이름(전부 마이홈을 연 뒤에 돈다).

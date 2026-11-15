@@ -6,7 +6,6 @@
 ## seat-camera.js — 🎥 좌석 줄 카메라 · 캔버스 맞춤
 
 - **책임**: 좌석 줄(가운데 x · 폭)을 받아 메인 카메라(거리 · 각도 · 화각 · 화면 밀기)와 캔버스 크기(CSS · 렌더 버퍼)를 맞춘다. 두 갈래 — 실행 화면(`body.desktop.runmode` · 화면 전체 캔버스 · 이동 오프셋 · 도트 렌더)과 런처 미리보기(작은 캔버스 · 화각 34도).
-- **배치한 뒤 알림**(F4) `layoutAndNotify()`(app.js 의 `layoutSeats()` 가 부른다) = `layoutSeatRow()` 뒤에 `onLaidOut(fn)` 으로 건 일을 거는 차례대로 부른다 — app.js 가 데스크탑 창 크기 맞춤(`resizeWidget` · `applyDesktopRunClass`)을 건다(옛: `layoutSeats` 를 감싸 다시 대입). `layoutSeatRow` 가 일찍 끝나도 알림은 간다.
 - **만드는 법**(app.js «🪑 좌석 배치» 구역 자리):
   ```js
   const seatCameraMod = TwSeatCamera.createSeatCamera({
@@ -107,12 +106,14 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
     setDeskPanX: (v)=>{ deskPanX = v; }, setDeskPanY: (v)=>{ deskPanY = v; },
     setCachedRowCenter: (v)=>{ _cachedRowCenter = v; }, setCachedRowSpan: (v)=>{ _cachedRowSpan = v; },
   });
-  function layoutSeats(){ seatLayoutMod.layoutSeatRow(); }   // 이름은 app.js 에 남긴다(아래 함정)
+  function layoutSeats(){ seatLayoutMod.layoutAndNotify(); }   // 이름은 app.js 에 남긴다(모든 부르는 곳이 이 이름을 본다)
+  seatLayoutMod.onLaidOut(()=>{ /* 데스크탑 창 크기 맞춤 */ });
   ```
-- **내보내는 것**: `layoutSeatRow()` — 직접 부르지 말고 app.js 의 `layoutSeats()` 를 부른다(좌석이 늘거나 줄 때 · 책상 크기가 바뀔 때 · 창 크기가 바뀔 때).
+- **내보내는 것**: `layoutSeatRow()`(계산만) · `layoutAndNotify()`(계산 뒤 알림 — app.js 의 `layoutSeats()` 가 부른다. 좌석이 늘거나 줄 때 · 책상 크기가 바뀔 때 · 창 크기가 바뀔 때) · `onLaidOut(fn)` · `seatHalfWidth(s)` · `slotIndexAt(x, seat)`.
+- **배치한 뒤 알림**(F4) `layoutAndNotify()`(app.js 의 `layoutSeats()` 가 부른다) = `layoutSeatRow()` 뒤에 `onLaidOut(fn)` 으로 건 일을 거는 차례대로 부른다 — app.js 가 데스크탑 창 크기 맞춤(`resizeWidget` · `applyDesktopRunClass`)을 건다(옛: `layoutSeats` 를 감싸 다시 대입). `layoutSeatRow` 가 일찍 끝나도 알림은 간다.
 - **확장할 때 고칠 자리**: 줄 폭 하한 `ROW_SPAN_MIN` · 간격 값은 seats.js 의 `SPACING` · `MULTIPLAYER_SPACING`(설정 창이 바꾼다) · 책상 반폭 재기는 app.js `seatDeskHalfWidth` · 고정 규칙은 `seat-pin.js`.
 - **함정**
-  - app.js 맨 아래 «데스크탑 창 크기» 가 `layoutSeats` 를 감싸 **다시 대입**한다(앱 FSD 32번). 그래서 본문 이름은 `layoutSeatRow` 이고 app.js 에 `layoutSeats` 를 남긴다 — 모듈 안에서 `layoutSeatRow` 를 직접 부르면 창 크기 맞춤이 빠진다.
+  - 모듈 안에서 `layoutSeatRow` 를 직접 부르면 알림(데스크탑 창 크기 맞춤)이 빠진다 — 밖에서는 app.js 의 `layoutSeats()` 만 부른다.
   - `seats` 배열의 순서 · 내용은 안 바꾼다(좌석 탭 · 슬롯 드래그가 인덱스를 쓴다). 올라탄 좌석은 계산에서만 뺀다.
   - 1번 자리부터 책상 반폭에 줌 상한(1.1)이 걸리는 지금 동작은 `CONFIRM.md` 에 적어 둠(`seatDeskHalfWidth(s, i)` 가 인덱스를 forZoom 으로 넘김 — 몸 폭 규칙을 넣으면서도 그대로 뒀다).
   - 검사: `checks/sim-seat-layout.js`(4절 — 혼자 · 셋 · 친구 간격 · 올라탄 좌석 · 고정 · 오프셋 · 폭 0 · 빈 목록 · 책상 없는 좌석 몸 자리 · 🚫 책상 없음 표시).

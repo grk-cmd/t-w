@@ -287,7 +287,7 @@
 | **sim-guestbook.js** | 294 | **177f4506d26a** |
 | **sim-friend-manage-module.js** | 309 | **1a09c072d659** |
 | **sim-pomodoro-module.js** | 228 | **87c30b512de0** |
-| **sim-myhome-sticker.js** | 415 | **166cc704ce85** |
+| **sim-myhome-sticker.js** | 414 | **b4fdafdd7d36** |
 | **sim-gacha.js** | 510 | **9491aa00bd7b** |
 | **sim-myhome-edit.js** | 616 | **a7714a942054** |
 | **sim-room-invite-ui.js** | 371 | **a1751a4aebda** |
@@ -434,7 +434,7 @@
 | **sim-ps1-dither.js** | 100 | **061d45e351ad** |
 | **sim-seat-camera.js** | 151 | **779e4e952938** |
 | **sim-ride-chain.js** | 54 | **7c397b3ae322** |
-| **sim-seat-layout.js** | 345 | **bc6a0821327b** |
+| **sim-seat-layout.js** | 345 | **e883824d08c2** |
 | **sim-seat-refit.js** | 184 | **fcb254a6d319** |
 | **sim-seat-equalize.js** | 169 | **adf87881fdd8** |
 | **sim-seat-eq-clamp.js** | 162 | **f5b4fca886a6** |

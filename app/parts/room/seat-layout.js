@@ -1,9 +1,8 @@
 /* seat-layout.js — 🪑 좌석 줄 배치 — 책상 폭을 재서 좌석마다 자리(targetX)를 잡고 줄 가운데 · 폭을 카메라에 넘긴다
    책임: 좌석 줄 자리 계산 하나 — 평준화 반영 → 맨 오른쪽 고정 → 이동 오프셋 다시 검사 → 책상(작거나 없으면 · 🚫 «책상 없음» 이면 캐릭터 몸 + 여유)과 책상 사이 여백을 일정하게 targetX → 줄 가운데 · 폭을 캐시하고 카메라 모듈에 넘김.
    받는 deps: seats(값) · _rideBottom(ride-chain.js) · syncSeatEqualize · renderSeatTabs · clampDeskPan · seatDeskHalfWidth · measureCharBox(함수) · roomSeatMode · deskPanX/Y · SPACING · MULTIPLAYER_SPACING · seatCameraMod(읽는 함수) · setDeskPanX/Y · setCachedRowCenter/Span(쓰는 함수).
-   내보내는 것: layoutSeatRow() — app.js 의 layoutSeats() 가 부른다 · seatHalfWidth(s) — 좌석 반폭(같은 규칙 · 평준화 가두기가 받는다) · slotIndexAt(x, seat) — 책상 끌기가 그 좌석을 넣을 번호(칸마다 설 자리를 셈해 x 에서 가장 가까운 칸).
-   ⚠️ 이름이 layoutSeats 가 아닌 까닭: app.js 맨 아래 «데스크탑 창 크기» 가 layoutSeats 를 감싸 다시 대입한다(앱 FSD 32번). 그래서 app.js 에 같은 이름의 얇은 함수를 남겨 두고,
-      모든 부르는 곳 · 다른 모듈 deps 는 예전처럼 그 이름을 본다 — 감싼 판이 그대로 불린다.
+   내보내는 것: layoutAndNotify() — app.js 의 layoutSeats() 가 부른다(layoutSeatRow() 뒤에 onLaidOut 알림) · onLaidOut(fn) — 배치 뒤 할 일 걸기 · layoutSeatRow() — 계산만 · seatHalfWidth(s) — 좌석 반폭(같은 규칙 · 평준화 가두기가 받는다) · slotIndexAt(x, seat) — 책상 끌기가 그 좌석을 넣을 번호(칸마다 설 자리를 셈해 x 에서 가장 가까운 칸).
+   ⚠️ app.js 에 같은 이름의 얇은 layoutSeats() 를 남겨 둔다 — 모든 부르는 곳 · 다른 모듈 deps 가 그 이름을 본다. 데스크탑 창 크기 맞춤은 onLaidOut 에 건다.
    app.js «🪑 좌석 배치(layoutSeats) · 카메라 · 도트 텍스처 필터» 구역의 layoutSeats 본문을 그대로 옮겼다(구역 떼기 C · w1). 동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 함수 이름만 layoutSeats → layoutSeatRow · 옛 이야기형 주석은 «왜 · 함정» 으로 줄임). 바뀐 코드 줄은 6줄 — rideBenchMod._rideBottom 을 _rideBottom(ride-chain.js 를 deps 로 — 올라타기 모듈과 순환을 안 만들게)으로 부르고,
      MULTIPLAYER_SPACING · SPACING · deskPanX · deskPanY · roomSeatMode · seatCameraMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setCachedRowCenter · setCachedRowSpan · setDeskPanX · setDeskPanY(…).
