@@ -1442,6 +1442,8 @@ const chipPopupsMod = TwChipPopups.createChipPopups({
 /* 본문은 win-stack.js 로 옮겼다(앱 FSD 42번). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const winStackMod = TwWinStack.createWinStack({
+  closers: ()=>windowClosers,
+  backToLauncher: (...a)=>backToLauncher(...a),
 });
 
 /* ═══ 📐 상태칩 팝업 · 입력창 자리 계산 · 캐릭터 실측 ═══ */
@@ -6143,6 +6145,15 @@ function launchApp(opts){ opts=opts||{};
     }, 1200));
   }
 }
+/* 🪟 «모두 닫기»(winStackMod.closeAll)가 닫는, ESC 스택에 안 태운 창 — 창마다 여닫는 길이 달라 한 줄씩. 새 창을 만들면 여기에 줄을 더한다(안 더하면 로그아웃 뒤 로그인 화면 위에 남는다).
+   마이홈 · 꾸미기 창 · 런처 화면은 backToLauncher 가 닫는다(winStackMod.closeAll 이 맨 끝에 부른다). ESC 스택에 태운 창(설정 · 알림 · 플레이리스트 · 포커스기록 · 마이홈 …)은 표에 넣지 않는다. */
+const windowClosers = [
+  { key:'chat', isOpen: ()=>{ const o = document.getElementById('chatOverlay'); return !!o && o.style.display === 'block'; }, close: ()=>chatUiMod.closeChatWindow() },
+  { key:'gacha', isOpen: ()=>gachaMod.isInvOpen() || gachaMod.isDrawOpen(), close: ()=>gachaMod.closeGachaInv() },
+  { key:'creator', isOpen: ()=>creatorOpen, close: ()=>creatorFlowMod.closeCreator() },
+  { key:'myInfo', isOpen: ()=>myInfoMod._miIsOpen(), close: ()=>myInfoMod.closeMyInfo() },
+  { key:'idesk', isOpen: ()=>rideBenchMod.isIdeskOpen(), close: ()=>rideBenchMod.closeIdeskInventory() },
+];
 function backToLauncher(){
   if(statusChipMod._tabHintTimer()){ clearTimeout(statusChipMod._tabHintTimer()); statusChipMod.setTabHintTimer(null); }
   // 🪑 방을 나가면 상호작용 책상 복원 플래그 리셋(다음 입장 때 저장값으로 다시 복원) +
