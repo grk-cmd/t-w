@@ -490,9 +490,13 @@ let _plPullT = null;
 let _plPullBusyUid = null;    // 이 계정으로 받는 중
 let _plPullFailed = false;    // 마지막 받기가 실패했다 — 창에 «못 불러왔어요» 를 보인다
 let _plPullMerged = false;    // 409 로 다시 받는 중이다 — 앉히고 나면 «다른 기기에서 바뀐…» 을 알린다
-/* 계정 몫 타이머 — 세션이 쥔다. 세션이 없으면(로그인 전) 걸지 않는다: 받기 · 올리기는 계정이 있어야 의미가 있다 */
-function _plTimeout(fn, ms){ return _plSess ? _plSess.setTimeout(fn, ms) : null; }
-function _plClear(h){ if(_plSess && h != null) _plSess.clearTimeout(h); }
+/* 계정 몫 타이머 — 세션이 쥔다. 세션은 _plStart 가 받는다 — 그 전에 부르면 시작 순서가 틀린 것이라 던진다(조용히 안 걸지 않는다) */
+function _plSession(){
+  if(!_plSess) throw new Error('[playlist] 세션이 없어요 — _plStart(session) 보다 먼저 타이머를 걸었어요');
+  return _plSess;
+}
+function _plTimeout(fn, ms){ return _plSession().setTimeout(fn, ms); }
+function _plClear(h){ if(h != null) _plSession().clearTimeout(h); }
 function _plPullLater(ms){ _plClear(_plPullT); _plPullT = _plTimeout(_plPull, ms); }
 async function _plPull(){
   _plClear(_plPullT); _plPullT = null;   // 다시 시도 사슬은 하나만

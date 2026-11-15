@@ -514,7 +514,7 @@ function _refreshSecretRoomUI(){
     if(mr) mr.style.display = s ? '' : 'none';
     if(mc) mc.checked = _secretMusicOn();
     if(s && inp && !inp.value) inp.value=s.code.replace(/^SCRT-/,'');
-  }).catch(()=>{});
+  }).catch(e=>{ console.warn('[방] 내 시크릿룸 칸을 그리지 못했어요', e); });
 }
 let _hoppingRoom = false;   // 🎲 방 갈아타기 중(아래 doHopRandomRoom) — refreshInviteUI 도 읽어서 여기 둔다
 let _wasInRoom = false;   // 방 안 → 밖으로 바뀐 순간을 잡는다(모달이 열린 채 나가면 로비가 다시 읽어야 한다)
@@ -543,10 +543,10 @@ function refreshInviteUI(){ const on=Presence.active();
   // 모달이 열린 채 방을 나왔으면 로비가 이제 보인다 — 방 안에서 열었을 땐 안 읽었으니 지금 읽게 알린다
   if(left && document.getElementById('inviteOverlay').classList.contains('on')) twNav.go(twNav.NAV.ROOM_LOBBY);
 }
-/* 🔒 내 시크릿룸이 이 코드인가 — { code, name, expiresAt } | null(로비와 같은 한 곳 · 세션에 한 번 읽는다) */
+/* 🔒 내 시크릿룸이 이 코드인가 — { code, name, expiresAt } | null(로비와 같은 한 곳 · 로그인마다 한 번 읽는다).
+   null 은 «내 방이 아니다» 뿐이다 — 읽기가 실패하면 던진다(실패를 «내 방 아님» 으로 바꾸면 주인이 손님으로 들어가 방을 못 연다) */
 async function _mySecretRoomOf(code){
-  let s = null;
-  try{ s = await mySecretRoom(); }catch(_){ s = null; }
+  const s = await mySecretRoom();
   return (s && s.code === code) ? s : null;
 }
 /* 📅 내 시크릿룸 기간이 7일 안으로 남았으면 들어가기 전에 한 번 알린다 — 그냥 안 되는 날이 오는 것보다 낫다 */
@@ -566,7 +566,15 @@ async function startRoom(code){
   const creating = !!window._pendingRoomChannel && !isSecret;
   let srOpen, mineSecret = null;
   if(isSecret){
-    const mine = await _mySecretRoomOf(code);
+    let mine;
+    try{ mine = await _mySecretRoomOf(code); }
+    catch(e){   // 내 방인지 모른다 — 손님으로 들어가지 않고 멈춘다
+      console.warn('[방] 내 시크릿룸을 읽지 못해 입장을 멈춥니다 —', code, e);
+      TwErrorCodes.notify('E-ROOM-08', e);
+      _clearPendingCreate();
+      refreshInviteUI();
+      return;
+    }
     if(mine){
       mineSecret = mine;
       srOpen = _secretOpenFields(true);   // 주인이면 create{ music } 를 늘 싣는다 — 서버는 방이 없을 때만 보고, music 은 주인이 연 때만 받는다(PROTOCOL 4-2)

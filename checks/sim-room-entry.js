@@ -193,7 +193,7 @@ async function flow(src, o){
   }, { get: (t, k) => (k in t ? t[k] : any) });
   deps.roomRt = { makeProvider: (h, po) => ({ create: (po && po.create) || null }), peek: async (c) => { log.peeks.push(c); return o.peek === undefined ? { exists: false, count: 0 } : o.peek; },
     random: async () => (o.random === undefined ? [] : o.random), isReady: () => true, myCode: () => 'u1' };
-  deps.mySecretRoom = async () => o.mySecret || null;
+  deps.mySecretRoom = async () => { if(o.mySecretFail) throw new Error('secret-room read failed'); return o.mySecret || null; };
   deps.toast = (m) => { log.toasts.push(m); };
   deps.slots = [{ skin: 1 }]; deps.curSlot = () => 0;
   deps.roomSettings = RS;
@@ -234,6 +234,12 @@ const flowRows = async (src) => {
     t(f.log.peeks.length === 0 && f.log.starts[0].create === null, '  남의 시크릿룸이면 들여다보지 않고 create 없이(입장 판정은 서버)');
     f = await flow(src, { results: [{ ok: false, code: 'secretClosed' }], run: (m) => m.startRoom('SCRT-AB12') });
     t(f.log.toasts.includes('없는 시크릿룸이거나 이용 기간이 끝났어요'), '  서버 secretClosed → 안내');
+    /* ★ 내 방인지 읽다 실패 — «내 방 아님» 으로 바꿔 손님으로 들어가지 않고, 오류 번호를 알리고 입장을 멈춘다 */
+    { const w0 = console.warn; let warned = 0; console.warn = () => { warned++; };
+      f = await flow(src, { mySecretFail: true, run: (m) => m.startRoom('SCRT-AB12') }); console.warn = w0;
+      t(f.log.starts.length === 0 && f.log.errs.join() === 'E-ROOM-08' && warned >= 1, '★ 내 시크릿룸 읽기가 실패하면 입장을 멈춘다(start 0) · E-ROOM-08 · console.warn — 손님으로 들어가지 않는다'); }
+    f = await flow(src, { mySecret: null, run: (m) => m.startRoom('SCRT-AB12') });
+    t(f.log.starts.length === 1 && f.log.errs.length === 0, '  진짜 «내 방 없음»(null)은 그대로 손님으로 들어간다(입장 판정은 서버)');
   }catch(e){ t(false, '흐름이 던짐 — ' + String(e && e.message || e).slice(0, 120)); }
   return r;
 };
@@ -264,6 +270,8 @@ globalThis.__rsCheck = (async () => {
   chk(broke.some(([ok]) => !ok), '깨 보기: 빈 방 접두어 옮기기를 빼면 입장 흐름이 빨강');
   const broke2 = await flowRows(MOD.replace("srOpen = _secretOpenFields(true);", "srOpen = undefined;"));
   chk(broke2.some(([ok]) => !ok), '깨 보기: 시크릿룸 «주인이 연다» 를 빼면 입장 흐름이 빨강');
+  const broke3 = await flowRows(MOD.replace("  const s = await mySecretRoom();\n  return (s && s.code === code) ? s : null;", "  let s = null;\n  try{ s = await mySecretRoom(); }catch(_){ s = null; }\n  return (s && s.code === code) ? s : null;"));
+  chk(broke3.some(([ok]) => !ok), '깨 보기: 읽기 실패를 «내 방 아님» 으로 삼키면 입장 흐름이 빨강');
 })();
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/room/room-entry.js"></script>', '')],

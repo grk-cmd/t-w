@@ -119,6 +119,23 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
     const t2 = mkP(P_SRC, { get: { '/v2/me/secret-room': () => { if(fails-- > 0) throw new Error('net'); return { code: 'SCRT-ABCD' }; } } });
     let threw = false; try{ await t2.pv.mySecretRoom(); }catch(_){ threw = true; }
     chk(threw && (await t2.pv.mySecretRoom()) !== null, '  못 읽었으면 기억하지 않고 다음에 다시 읽는다');
+    /* ★ 주인은 세션 — 읽는 동안 계정이 바뀌면(reset) A 의 답은 B 에게 돌아가지 않고 던진다 · reset 뒤에는 새로 읽는다 */
+    {
+      let release; const gate = new Promise((r) => { release = r; });
+      let who = 'A'; const warns = []; const w0 = console.warn; console.warn = (...a) => warns.push(a.join(' '));
+      const log2 = { n: 0 };
+      const pv2 = classic(P_SRC, 'TwRoomLobbyProvider').createRoomLobbyProvider({ apiGet: async () => { log2.n++; const mine = who; if(mine === 'A') await gate; return { code: mine === 'A' ? 'SCRT-AAAA' : 'SCRT-BBBB' }; },
+        peek: async () => null, roomCode: () => null, myUserId: () => who, now: () => now });
+      const readA = pv2.mySecretRoom();
+      who = 'B'; pv2.reset();
+      const readB = pv2.mySecretRoom();
+      release();
+      let aErr = null, a = null; try{ a = await readA; }catch(e){ aErr = e; }
+      const b = await readB; console.warn = w0;
+      chk(aErr && a === null && b && b.code === 'SCRT-BBBB' && warns.length === 1, '★ 읽는 중 계정이 바뀌면(reset) A 의 답은 던진다(console.warn) · B 는 새로 읽은 B 의 답');
+      who = 'C'; const again = await pv2.mySecretRoom();
+      chk(again.code === 'SCRT-BBBB' && log2.n === 2, '  uid 가 달라져도 스스로 비우지 않는다 — 비우는 것은 reset(session.onReset) 뿐');
+    }
     chk(await mkP(P_SRC, {}).pv.secretGuests('SCRT-ABCD') === 2, '★ 손님 수 — peek 으로(들어가지 않고 보기)');
     chk(await mkP(P_SRC, { inRoom: 'SCRT-ABCD', peek: { exists: true, count: 3 } }).pv.secretGuests('SCRT-ABCD') === 2, '  내가 그 방 안이면 나를 뺀다');
     chk(await mkP(P_SRC, { peek: { exists: false, count: 0 } }).pv.secretGuests('SCRT-ABCD') === 0 && await mkP(P_SRC, { peek: null }).pv.secretGuests('SCRT-ABCD') === null, '  없는 방 0 · 못 물으면 null');
@@ -246,9 +263,14 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
     chk(noFail.cardsFrom(null, { now, cap: 10 }).state !== 'failed', '못 읽음을 빈 목록으로 뭉개면 1절 «failed» 가 빨강');
     const noMe = P_SRC.replace("e.count - (roomCode() === code ? 1 : 0)", "e.count");
     chk(noMe !== P_SRC && (await mkP(noMe, { inRoom: 'SCRT-ABCD', peek: { exists: true, count: 3 } }).pv.secretGuests('SCRT-ABCD')) !== 2, '나를 빼지 않으면 2절 «손님 수» 가 빨강');
-    const noMemo = P_SRC.replace("  if(!owned || owned.uid !== uid){", "  if(true){");
+    const noMemo = P_SRC.replace("  if(!owned){", "  if(true){");
     const tm = mkP(noMemo, { get: { '/v2/me/secret-room': { code: 'SCRT-ABCD' } } }); await tm.pv.mySecretRoom(); await tm.pv.mySecretRoom();
     chk(noMemo !== P_SRC && tm.log.gets.length !== 1, '한 번만 읽기를 빼면 2절 «계정마다 한 번» 이 빨강');
+    const noGen = P_SRC.replace("if(g !== gen){", "if(false){");
+    { let rel; const gt = new Promise((r) => { rel = r; }); let who = 'A';
+      const pv3 = classic(noGen, 'TwRoomLobbyProvider').createRoomLobbyProvider({ apiGet: async () => { await gt; return { code: 'SCRT-AAAA' }; }, peek: async () => null, roomCode: () => null, myUserId: () => who, now: () => now });
+      const rd = pv3.mySecretRoom(); who = 'B'; pv3.reset(); rel(); let ok = true; try{ await rd; }catch(_){ ok = false; }
+      chk(noGen !== P_SRC && ok, '세대 확인을 빼면 2절 «읽는 중 계정이 바뀌면 던진다» 가 빨강'); }
     const noCap = model(M_SRC.replace('const max = roomCap({ max: r.max }, cap);', 'const max = Number.isInteger(r.max) ? r.max : cap;'));
     chk(noCap.cardsFrom(node, { now, cap: 10 }).list.find((c) => c.code === 'WORK-FF66').max !== 10, '정원 규칙(roomCap)을 안 거치면 1절 «정원보다 큰 max» 가 빨강');
   }
