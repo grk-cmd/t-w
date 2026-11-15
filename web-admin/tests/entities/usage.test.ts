@@ -3,7 +3,6 @@ import {
   byteUnit,
   BYTES_PER_GB,
   formatUsd,
-  getDayUsage,
   monthEstimate,
   overAverage,
   toDayUsage,
@@ -11,6 +10,7 @@ import {
   usageStats,
   type DayUsage,
 } from '@/entities/metrics/usage';
+import { getDayUsage } from '@/entities/metrics/usage/api/firebase';
 import { fakeDb } from '../shared/fakeDb';
 
 const day = (date: string, sentBytes: number | null, at = 0): DayUsage => ({

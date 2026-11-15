@@ -1,4 +1,5 @@
-export { getDayMetrics, getRecentMetrics, useRecentMetrics, useRefreshTodayMetrics } from './api/metrics';
+export { useRecentMetrics, useRefreshTodayMetrics } from './api/hooks';
+export { useMetricsPort, type MetricsPort } from './api/index';
 export {
   hasIpRecord,
   hasRecord,

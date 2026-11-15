@@ -1,4 +1,5 @@
-export { listAdminLog, useAdminLog, useRefreshAdminLog, type AdminLogPage } from './api/adminLog';
+export { useAdminLog, useRefreshAdminLog } from './api/hooks';
+export { useAdminLogPort, type AdminLogPage, type AdminLogPort } from './api/index';
 export {
   ACTION_LABEL,
   actionLabel,

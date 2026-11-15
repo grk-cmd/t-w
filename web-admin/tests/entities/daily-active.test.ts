@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  getDayMetrics,
-  getRecentMetrics,
   kstDateKey,
   lastDateKeys,
   metricsSummary,
@@ -12,6 +10,7 @@ import {
   uniqueUsers,
   type DayMetrics,
 } from '@/entities/metrics/daily-active';
+import { getDayMetrics, getRecentMetrics } from '@/entities/metrics/daily-active/api/firebase';
 import { fakeDb } from '../shared/fakeDb';
 
 const day = (date: string, users: string[] = [], visits = 0, ipVisitors = 0, pings = 0): DayMetrics => ({

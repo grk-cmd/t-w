@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { actionLabel, inGroup, listAdminLog, toLogEntries, whoLabel } from '@/entities/admin-log';
+import { actionLabel, inGroup, toLogEntries, whoLabel } from '@/entities/admin-log';
+import { listAdminLog } from '@/entities/admin-log/api/firebase';
 import { fakeDb } from '../shared/fakeDb';
 
 const line = (at: number, action = 'room.close') => ({ at, by: 'uadmin123', action, target: 'T' });

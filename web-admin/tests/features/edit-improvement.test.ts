@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ACTION_LABEL, LOG_GROUPS } from '@/entities/admin-log';
-import { draftProblem, saveImprovement } from '@/entities/metrics/usage';
+import { draftProblem } from '@/entities/metrics/usage';
+import { saveImprovement } from '@/entities/metrics/usage/api/firebase';
 import { draftOf, emptyForm, formOf, hasVersion, SEED_0_10_2 } from '@/features/metrics/edit-improvement';
 import { fakeDb, withoutAudits } from '../shared/fakeDb';
 
