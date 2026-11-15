@@ -146,7 +146,7 @@ else{
     const W = { x: 300, y: 200, width: 380, height: 680, res: false, top: false }; const log = [];
     const D = { workArea: wa, workAreaSize: { width: wa.width, height: wa.height } };
     const f = new Function('MhPadPos', 'W', 'D', 'log', 'zoom',
-      'let uiZoom = zoom, _mhPad = { x: 0, y: 0 }, _mhPadApplied = { x: 0, y: 0 }, _isConfigMode = true, _ovSkipped = 0, _curMode = "launcher", _lastIgnoreRequested = true, _sysPromptFront = false, _mhPadApplied2 = 0;\n'
+      'let uiZoom = zoom, _mhPad = { x: 0, y: 0 }, _mhPadApplied = { x: 0, y: 0 }, _isConfigMode = true, _ovSkipped = 0, _curMode = "launcher", _lastIgnoreRequested = true, _sysPromptFront = false;\n'
       + 'const MH_PAD_MAX = 400; const savedPos = {}; const UI_ZOOM_MIN = 0.2, UI_ZOOM_MAX = 2.0;\n'
       + 'const MODE_SIZE = { launcher:{ w:380, h:680 }, creator:{ w:740, h:620 }, animal:{ w:860, h:440 }, myhome:{ w:800, h:580 } };\n'
       + 'const screen = { getDisplayMatching: () => D, getDisplayNearestPoint: () => D }; const getRunDisplay = () => D;\n'
@@ -205,8 +205,6 @@ if(MhP && harness){
   chk(!!m2 && (() => { const h = harness({ x: 0, y: 0, width: 3840, height: 2160 }, 1, fnsOf(m2)); h.f.apply(true, 'myhome', { x: 0, y: 0 }); return h.f.mode() !== 'myhome'; })(), '받은 모드를 덮어쓰면 빨강');
   const m3 = mutate("function _resetWindowForReload(){\n  if(!mainWindow || mainWindow.isDestroyed()) return;\n  _applyConfigMode(true, 'launcher');", "function _resetWindowForReload(){\n  if(!mainWindow || mainWindow.isDestroyed()) return;");
   chk(!!m3 && (() => { const h = harness({ x: 0, y: 0, width: 1920, height: 1040 }, 1, fnsOf(m3)); h.f.apply(false, 'run'); h.f.reset(); return h.f.mode() !== 'launcher'; })(), '다시 불러오기가 런처로 안 되돌리면 빨강');
-  const m4 = MAIN + '\nfunction sizeToMode(w, h){ return null; }\n';
-  chk(/\bsizeToMode\b/.test(m4.replace(/\/\*[\s\S]*?\*\//g, ' ')), '크기로 모드를 되짚는 함수를 되살리면 정적 검사가 잡는 모양이다(3절 첫 판정)');
 }
 
 /* ── 4. 런처 HTML ── */

@@ -502,7 +502,7 @@ function applyUiZoom(op, why){
   const next = _zoomStep(uiZoom, op);
   const changed = next !== uiZoom;
   /* 📐 지금 런처·생성기·마이홈 창이면 그 모드를 **줌을 바꾸기 전에** 읽어 둔다 — 창 크기가 옛 줌 기준이라
-     바꾼 뒤에 읽으면 안 된다(지금은 받은 모드 _curMode 라 같지만 순서는 그대로). (typeof — sim-ui-zoom 이 이 함수만 오려 돌린다) */
+     (typeof — sim-ui-zoom 이 이 함수만 오려 돌린다) */
   const _cfgM = (changed && typeof _cfgModeForZoom === 'function') ? _cfgModeForZoom() : null;
   uiZoom = next;
   if(mainWindow && !mainWindow.isDestroyed()){

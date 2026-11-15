@@ -3,7 +3,7 @@
      렌더러 줌이 안쪽 내용만 키우고 창은 그대로였다(마이홈 760px × 120% = 912 DIP > 창 800).
    ・1절: 크기를 정하는 네 자리가 _modeSize(MODE_SIZE × 줌)를 지난다 · 하한 20%
    ・2절: main.js 함수 원문(_clampZoom · _zoomStep · applyUiZoom · _modeSize · _cfgModeForZoom · _refitConfigForZoom ·
-          _fitConfigRect · sizeToMode)을 가짜 창·화면 위에서 돌린다 — 줌 120% → 마이홈 창 960×696 · 다시 100% → 800×580 ·
+          _fitConfigRect · _configModeNow)을 가짜 창·화면 위에서 돌린다 — 줌 120% → 마이홈 창 960×696 · 다시 100% → 800×580 ·
           작업영역보다 커지면 줄인다 · 실행 화면(run)이면 창을 안 건드린다 · 줄어든 창도 같은 모드로 알아본다
    [실행] main.js 가 있는 폴더에서. */
 'use strict';
