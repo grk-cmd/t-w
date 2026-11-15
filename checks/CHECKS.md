@@ -464,6 +464,7 @@
 | **sim-idle-gate.js** | 105 | **24c85a444592** |
 | **sim-skeleton-share.js** | 236 | **0a26e8a1e723** |
 | **sim-app-wiring.js** | 130 | **28b14e6e9990** |
+| **sim-move-verbatim.js** | 121 | **898f2954cc4b** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 
