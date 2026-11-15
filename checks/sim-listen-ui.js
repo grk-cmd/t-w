@@ -198,7 +198,7 @@ say('── 3. DJ');
   await flush();
   t.tick(); t.tick();
   await flush();
-  chk(t.prov.writes.length === 1, '  쓰기가 막히면 1초 tick 마다 다시 쓰지 않는다(잠깐 기다림)');
+  chk(t.prov.writes.length === 1 && !/RETRY_MS|retryAt/.test(SRC), '★ R4 — 쓰기가 막히면 저절로 다시 쓰지 않는다(5초 자동 다시 걷음) — 사람이 ⏭ 를 누르거나 서버가 새 곡 신호를 줄 때까지');
   t.st.writeOk = true;
   t.el('lsSkip').click();
   await flush();
@@ -390,13 +390,13 @@ say('── 8. 이어 붙인 곳');
     const mkOpen = (src, on) => new Function('localStorage', "const SECRET_MUSIC_KEY = 'tw.secretRoomMusic';\n" + fnOf(src, 'function _secretMusicOn(') + '\n' + fnOf(src, 'function _secretOpenFields(') + '\nreturn _secretOpenFields;')(
       { getItem: (k) => (k === 'tw.secretRoomMusic' && on ? '1' : null) });
     const open1 = mkOpen(RE, true), open0 = mkOpen(RE, false);
-    chk(open1(true, 0).music === true && open0(true, 0).music === false && open1(false, 0) === undefined && open1(true, 2) === undefined && open1(true, null) === undefined,
-      '★ 시크릿룸: 주인이 빈 방(0명)을 열 때만 같이 듣기를 정한다 — 손님 · 사람 있음 · 인원 모름(null)은 안 건드린다(듣던 곡이 지워지지 않게)');
-    chk(/srOpen = _secretOpenFields\(true, pk \? \(pk\.exists \? pk\.count : 0\) : null\);/.test(RE)
+    chk(open1(true).music === true && open0(true).music === false && open1(false) === undefined,
+      '★ 시크릿룸: 주인이면 같이 듣기 선택을 늘 싣고 손님이면 싣지 않는다 — 빈 방을 여는 때인지는 서버가 가른다(create 는 방이 없을 때만 · music 은 주인이 연 때만 — R2)');
+    chk(/srOpen = _secretOpenFields\(true\);/.test(RE) && !/roomRt\.peek\(code\)/.test(RE)
       && /roomSettings\.serverJoinCreate\(creating, [^\n]*, srOpen\);/.test(RE),
-      '  내 시크릿룸일 때만 · 인원은 peek(없는 방 0 · 못 물음 null) → create { channel: togetherroom, music }');
-    const broken = mkOpen(RE.replace('(isOwner && othersCount === 0)', '(isOwner && othersCount <= 0)'), true);
-    chk(broken(true, null) !== undefined, '«인원 모름(null)» 거르기를 무르면(<= 0) 위 판정이 빨강');
+      '  내 시크릿룸일 때만 · 방 인원을 peek 으로 묻지 않는다(요청 −1) → create { channel: togetherroom, music }');
+    const broken = mkOpen(RE.replace('return isOwner ? { music: _secretMusicOn() } : undefined;', 'return { music: _secretMusicOn() };'), true);
+    chk(broken(false) !== undefined, '«손님은 안 싣는다» 거르기를 무르면 위 판정이 빨강');
   }
   chk(/const SECRET_MUSIC_KEY = 'tw\.secretRoomMusic';/.test(RE) && /'tw\.secretRoomMusic',/.test(ACC), '  F1 칸은 이 기기에 기억 · 로그아웃 때 지움(account.js)');
   chk(/music: !!\(settings && settings\.music\) \};/.test(RE), '  방 만들기: 고른 값에 music');

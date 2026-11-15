@@ -6,7 +6,7 @@
    ・2절: 친구 고르기 창 — 방 없으면 안 열림(안내) · 친구 없음 안내 · 온라인 먼저 이름순 · 사진(data:image · http 만) · 🏠 · 10줄 넘으면 스크롤 · 닫기
    ・3절: 초대 보내기 — 보낸 값 · 완료 · 실패 · 연결 없음 · 🏠 다른 방 친구는 첫 클릭은 알리기만
    ・4절: 창 끌기 — 손떨림(3px 미만)은 무시 · 화면 안으로 가둠 · ✕ 위는 끌기 아님 · 더블클릭 가운데로 · 다시 열면 가둠
-   ・5절: 받기 — 오래된 초대(10분)는 지움 · 가장 최근 하나 · 수락이면 나간 뒤 그 방으로 · 거절 · 3분 지나면 거절 · 떠 있는 동안 새 초대 안 띄움 ·
+   ・5절: 받기 — 오래됨은 앱이 PC 시계로 가르지 않음(서버가 10분 보관) · 가장 최근 하나 · 수락이면 나간 뒤 그 방으로 · 거절 · 3분 지나면 거절 · 떠 있는 동안 새 초대 안 띄움 ·
            작업표시줄 깜빡임은 팝업과 수명을 같이 · done 은 한 번만
    ・6절: app.js 배선 — 정의는 모듈에만 · 만드는 곳 한 곳 · 원래 자리(INIT 뒤 · 🛰 감시견 앞) · deps 모양(함수는 화살표 · let 은 읽는 함수 · const 는 값) ·
            빈 껍데기 · html 순서 · 전역 이름
@@ -281,15 +281,18 @@ await sec('── 5. 방 초대 받기', async () => {
   const cb = e.subs[0].cb;
   cb(null); cb({});
   chk(e.ctx.document.body.children.length === 0 && !e.api.busy(), '빈 초대함이면 아무것도 안 뜬다');
-  cb({ old: { ts: e.now - 11 * 60 * 1000, fromName: '옛', roomCode: 'OLD' } });
-  await flush();
-  chk(e.ctx.document.body.children.length === 0 && JSON.stringify(e.cleared) === JSON.stringify([['ME', 'old']]), '10분 지난 초대는 띄우지 않고 지운다');
-  e.cleared = [];
+  {
+    /* R5 — 앱은 PC 시계로 «오래된 초대» 를 가르지 않는다(보낸 쪽 시계가 어긋나면 방금 온 초대를 버린다). 오래된 것은 서버가 10분 보관 뒤 안 보낸다. */
+    const o = mkEnv({ active: true }); o.mk();
+    o.subs[0].cb({ old: { ts: o.now - 11 * 60 * 1000, fromName: '옛', roomCode: 'OLD' } });
+    await flush();
+    chk(o.ctx.document.body.children.length === 1 && o.api.busy() && o.cleared.length === 0, '★ ts 가 11분 전이어도 앱은 버리지 않는다(서버가 10분 보관 · PC 시계로 가르지 않는다)');
+  }
   cb({ x: { ts: e.now - 9 * 60 * 1000, fromName: '<b>가</b>', roomCode: 'RX' }, y: { ts: e.now - 1000, fromName: '나비', roomCode: 'RY' } });
   const ov = e.popup();
   chk(e.ctx.document.body.children.length === 1 && ov.className === 'app-popup-ov' && e.api.busy(), '팝업 하나 · app-popup-ov · busy');
   const box = ov.children[0];
-  chk(/<b>나비<\/b> 님이 함께하자고/.test(box.innerHTML), '가장 최근 초대(나비)를 띄운다 · 9분 된 것은 아직 안 버린다');
+  chk(/<b>나비<\/b> 님이 함께하자고/.test(box.innerHTML), '가장 최근 초대(나비)를 띄운다');
   chk(/pointer-events:none/.test(ov.style.cssText) && /^pointer-events:auto;/.test(box.style.cssText), '  껍데기는 클릭 통과 · 상자만 받는다');
   chk(JSON.stringify(e.flashes) === '[true]', '  작업표시줄 깜빡임 켬');
   chk(box.querySelector('[data-a="left"]').textContent === '⏳ 3:00 안에 응답이 없으면 자동으로 거절돼요', '  남은 시간 3:00');

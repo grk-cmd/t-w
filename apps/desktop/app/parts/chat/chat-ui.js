@@ -1056,7 +1056,6 @@ function _renderChatText(rawText){
 const CHAT_EMOJI_RUN_MAX = 3;       // 같은 이모티콘을 연달아 붙여 쓸 수 있는 최대 개수
 const CHAT_SAME_RUN_MAX  = 3;       // 같은 내용을 연달아 보낼 수 있는 최대 횟수
 const CHAT_SAME_COOL_MS  = 10000;   // 그 뒤 같은 내용을 다시 보낼 수 있을 때까지
-const CHAT_BURST_N = 8, CHAT_BURST_MS = 5000;   // 5초에 8줄까지
 const CHAT_OUT_MAX = 1200;
 /* 서버가 줄을 거절한 까닭(chatSay error code) → 안내. 그 밖은 «전송에 실패했어요» */
 const CHAT_SAY_REFUSED = Object.freeze({
@@ -1064,7 +1063,7 @@ const CHAT_SAY_REFUSED = Object.freeze({
   CHAT_OFF: '🔇 방장이 채팅을 껐어요 — 😊 🎲 💣 와 /80 · /150 은 쓸 수 있어요',
   CHAT_TEXT_INVALID: '보낼 수 없는 글이에요 — 너무 길거나 비어 있어요',
 });
-let _chatSameText='', _chatSameCount=0, _chatSameAt=0, _chatSendTimes=[];
+let _chatSameText='', _chatSameCount=0, _chatSameAt=0;
 /* 같은 이모티콘이 연달아 몇 개 붙었는가 — 사이에 글자가 하나라도 있으면 연속이 끊긴다.
    (공백만 있는 것은 붙여 쓴 것으로 본다. `/ㅋㅋ /ㅋㅋ /ㅋㅋ /ㅋㅋ` 로 우회되면 규칙이 없는 것과 같다.) */
 function _emojiRunTooLong(outText){
@@ -1084,8 +1083,7 @@ function _chatBlockReason(text, outText){
   if(_emojiRunTooLong(outText)) return '😊 같은 이모티콘은 '+CHAT_EMOJI_RUN_MAX+'개까지만!';
   if(outText.length > CHAT_OUT_MAX) return '😊 이모티콘이 너무 많아요';
   const now = Date.now();
-  _chatSendTimes = _chatSendTimes.filter(t => now - t < CHAT_BURST_MS);
-  if(_chatSendTimes.length >= CHAT_BURST_N) return '⏳ 조금 천천히 보내주세요';
+  /* 5초 8줄 막기는 서버가 한다(CHAT_TOO_FAST — 거절되면 CHAT_SAY_REFUSED 가 «조금 천천히» 를 안내한다) — 앱이 따로 세지 않는다 */
   if(text === _chatSameText){
     if(_chatSameCount >= CHAT_SAME_RUN_MAX && now - _chatSameAt < CHAT_SAME_COOL_MS)
       return '⏳ 같은 내용은 '+CHAT_SAME_RUN_MAX+'번까지만!';
@@ -1097,7 +1095,6 @@ function _chatNoteSent(text){
   if(text === _chatSameText && now - _chatSameAt < CHAT_SAME_COOL_MS) _chatSameCount++;
   else { _chatSameText = text; _chatSameCount = 1; }
   _chatSameAt = now;
-  _chatSendTimes.push(now);
 }
 // 대화창에서 메시지 전송 (Enter)
 function _sendChatWindowMsg(){
