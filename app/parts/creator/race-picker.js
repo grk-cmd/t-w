@@ -25,7 +25,9 @@ let rRenderer=null, rScene=null, rCam=null, rChar=null;
 function initRacePreview(){
   if(rRenderer) return;
   const cv=document.getElementById('raceHumanCv');
-  rRenderer=new THREE.WebGLRenderer({canvas:cv,antialias:false,alpha:true});   // antialias 끔 — 도트 느낌 선명하게
+  const r=TwGlContext.make(cv,{canvas:cv,antialias:false,alpha:true},'preview',{ label:'종족 선택', retry:()=>{ initRacePreview(); renderRacePreview(); } });   // antialias 끔 — 도트 느낌 선명하게
+  if(!r) return;
+  rRenderer=r;
   rRenderer.setPixelRatio(1);
   rRenderer.outputEncoding=THREE.sRGBEncoding;
   cv.style.imageRendering='pixelated';

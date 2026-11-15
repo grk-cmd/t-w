@@ -3,7 +3,7 @@
   "files": {
     "app.js": {
       "cap": 6706,
-      "lines": 6506,
+      "lines": 6507,
       "sections": [
         "SETUP",
         "기본 캐릭터 GLB (임베드) — face/cloth_upper/cloth_lower + 리깅",
