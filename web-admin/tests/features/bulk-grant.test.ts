@@ -4,20 +4,18 @@ import { strToU8, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import {
   decodeCsv,
-  grantRow,
   issuedIndex,
   judge,
-  lookupRows,
   mapRows,
   parseCsv,
   readXlsx,
   resultSheet,
   rowNote,
-  runBulkGrant,
   wasIssued,
   writeXlsx,
   type PlanRow,
 } from '@/features/license/bulk-grant';
+import { grantRow, lookupRows, runBulkGrant } from '@/features/license/bulk-grant/api/firebase';
 import { fakeDb, withoutAudits } from '../shared/fakeDb';
 
 const buf = (u8: Uint8Array) => u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength) as ArrayBuffer;

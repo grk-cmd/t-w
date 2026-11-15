@@ -1,0 +1,172 @@
+// Firebase 판 — 지금 코드 그대로: 읽기 확인 · 새 코드 쓰기 → 옛 코드 만료 → 사용자 칸 → 수령함 → 기록(한 묶음 아님).
+import { sendInboxMessage } from '@/entities/inbox';
+import {
+  expireSecretRoom,
+  genSecretCode,
+  getSecretRoomPub,
+  getUserSecretRoom,
+  hasConfusingChars,
+  isUserId,
+  issueSecretRoom,
+  overwriteWarning,
+  parseMonths,
+  parseWantCode,
+  periodText,
+  planExpiry,
+  SECRET_PREFIX,
+  setUserSecretRoom,
+  staleReason,
+} from '@/entities/secret-room';
+import { findUserByFriendCode, getUserFriendCode, getUserLastSeen, getUserName } from '@/entities/user';
+import { auditAfter, isPermissionDenied, type Db } from '@/shared/api';
+import { secretRoomMessage } from '../model/grantSecretRoom';
+import type {
+  GrantResult,
+  GrantSecretRoomPort,
+  PrepareResult,
+  SecretGrantInput,
+  SecretGrantPlan,
+} from './port';
+
+const AUTO_CODE_TRIES = 5;
+
+/**
+ * 발급 전 확인 — 읽기만 한다(열쇠가 필요 없다). 앱이 «한 번 경고하고 같은 버튼을 다시 누르면 진행» 하던 두 게이트
+ * (오래된 계정 · 이미 발급된 코드)를 warnings 로 돌려준다.
+ */
+export async function prepareSecretGrant(
+  db: Db,
+  input: SecretGrantInput,
+  now: number = Date.now(),
+  genCode: () => string = genSecretCode,
+): Promise<PrepareResult> {
+  const raw = input.target.trim();
+  if (!raw) return { ok: false, error: '친구코드 또는 유저 코드를 입력해 주세요' };
+  const months = parseMonths(input.months);
+  if (!months.ok) return months;
+  const wanted = parseWantCode(input.want);
+  if (!wanted.ok) return wanted;
+
+  // 유저 코드를 직접 받으면 friendCodes 를 거치지 않는다 — 계정 이전으로 코드가 옛 uid 를 가리킬 때 우회하는 길이다.
+  const direct = isUserId(raw);
+  let uid = raw;
+  let friendCode = '';
+  if (!direct) {
+    const user = await findUserByFriendCode(db, raw).catch(() => null);
+    if (!user) return { ok: false, error: '해당 친구코드를 가진 유저를 찾을 수 없어요' };
+    uid = user.uid;
+    friendCode = user.code;
+  }
+  const name = (await getUserName(db, uid)) ?? '';
+  const who = `${uid}${name ? ` (${name})` : ''}`;
+  const warnings: string[] = [];
+
+  // 유저 코드를 직접 넣은 경우는 관리자가 후원자에게 확인한 값이라 묻지 않는다.
+  if (!direct) {
+    const [lastSeen, mirror] = await Promise.all([getUserLastSeen(db, uid), getUserFriendCode(db, uid)]);
+    const reason = staleReason(lastSeen, mirror, friendCode, now);
+    if (reason)
+      warnings.push(
+        `이 친구코드는 ${who} 를 가리키는데, ${reason}. 계정 이전으로 코드가 어긋난 계정일 수 있어요 — ` +
+          '후원자에게 유저 코드(u…)를 받아 넣는 편이 안전해요.',
+      );
+  }
+
+  let code = '';
+  let prev = null;
+  if (wanted.want) {
+    code = SECRET_PREFIX + wanted.want;
+    prev = await getSecretRoomPub(db, code);
+    if (prev?.owner) warnings.push(overwriteWarning(code, prev, uid, months.months, now));
+  } else {
+    for (let i = 0; i < AUTO_CODE_TRIES && !code; i++) {
+      const candidate = genCode();
+      if (!(await getSecretRoomPub(db, candidate))?.owner) code = candidate;
+    }
+    if (!code) return { ok: false, error: '코드 생성에 실패했어요 — 다시 시도해 주세요' };
+  }
+
+  const { expMs, mode } = planExpiry(prev, uid, months.months, now);
+  return {
+    ok: true,
+    plan: {
+      uid,
+      name,
+      code,
+      months: months.months,
+      expMs,
+      mode,
+      confusing: hasConfusingChars(wanted.want),
+      warnings,
+    },
+  };
+}
+
+/**
+ * 발급 — 앱과 같은 순서: 새 코드 쓰기 → 옛 코드 만료 → 사용자 칸에 코드 기록 → 수령함.
+ * 한 묶음으로 보내지 않는다. 새 코드가 써진 뒤의 단계는 실패해도 되돌리지 않고 결과에 알린다
+ * (사용자 칸은 규칙상 관리자가 못 쓰는 경우가 있고, 그때도 발급은 유효하다).
+ */
+export async function grantSecretRoom(
+  db: Db,
+  plan: SecretGrantPlan,
+  key: string,
+  now: number = Date.now(),
+): Promise<GrantResult> {
+  try {
+    await issueSecretRoom(db, plan.code, { uid: plan.uid, name: plan.name }, key, plan.expMs, now);
+  } catch (error) {
+    return { ok: false, denied: isPermissionDenied(error) };
+  }
+
+  // 코드를 바꿔 주면 옛 코드가 살아남아 시크릿룸이 둘이 된다. 사용자 칸을 덮기 전에 옛 코드를 읽어 둔다.
+  let expiredOld = '';
+  let expireFailed = '';
+  try {
+    const old = await getUserSecretRoom(db, plan.uid);
+    // 같은 코드면 연장이다. 그새 다른 사람에게 재발급된 옛 코드는 남의 방이라 손대지 않는다.
+    if (old && old !== plan.code && (await getSecretRoomPub(db, old))?.owner === plan.uid) {
+      try {
+        if (await expireSecretRoom(db, old, key, now)) expiredOld = old;
+        else expireFailed = old;
+      } catch {
+        expireFailed = old;
+      }
+    }
+  } catch {
+    expireFailed = '?';
+  }
+
+  const linked = await setUserSecretRoom(db, plan.uid, plan.code);
+  let sent = false;
+  try {
+    await sendInboxMessage(db, plan.uid, secretRoomMessage(plan.code, plan.expMs, expiredOld));
+    sent = true;
+  } catch {
+    sent = false;
+  }
+  const period = periodText(plan.months, plan.expMs, plan.mode);
+  // 여러 번 나눠 쓰는 동작이라 한 묶음에 넣을 수 없다 — 새 코드가 써진 뒤 따로 남긴다.
+  await auditAfter(
+    db,
+    'license.secretRoom',
+    plan.code,
+    `${period}${expiredOld ? ` · 옛 ${expiredOld} 만료` : ''}`,
+  );
+  return {
+    ok: true,
+    code: plan.code,
+    period,
+    sent,
+    linked,
+    expiredOld,
+    expireFailed,
+  };
+}
+
+export function createFirebaseGrantSecretRoomPort(db: Db): GrantSecretRoomPort {
+  return {
+    prepare: (input) => prepareSecretGrant(db, input),
+    grant: (plan, key) => grantSecretRoom(db, plan, key),
+  };
+}

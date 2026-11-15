@@ -1,14 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { patchLicenseRows, refreshLicenses } from '@/entities/license';
-import { useDb } from '@/shared/api';
-import { removeKeys, revokeKeys } from './revokeKeys';
+import { useRevokeKeyPort } from '../api';
 
 // 쓴 뒤 받아 둔 목록에 먼저 반영하고(API 사본은 몇 초 늦다), 사본이 따라오면 다시 읽는다.
-function useKeysMutation(write: typeof revokeKeys, change: 'revoked' | 'removed') {
-  const db = useDb();
+function useKeysMutation(act: 'revoke' | 'remove', change: 'revoked' | 'removed') {
+  const port = useRevokeKeyPort();
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (keys: string[]) => write(db, keys),
+    mutationFn: (keys: string[]) => port[act](keys),
     onSuccess: (_n, keys) => {
       patchLicenseRows(client, keys, change);
       refreshLicenses(client);
@@ -17,11 +16,11 @@ function useKeysMutation(write: typeof revokeKeys, change: 'revoked' | 'removed'
 }
 
 export function useRevokeKeys() {
-  return useKeysMutation(revokeKeys, 'revoked');
+  return useKeysMutation('revoke', 'revoked');
 }
 
 export function useRemoveKeys() {
-  return useKeysMutation(removeKeys, 'removed');
+  return useKeysMutation('remove', 'removed');
 }
 
 // 한 개도 여러 개와 같은 길(한 묶음 + 기록 한 줄)로 보낸다.

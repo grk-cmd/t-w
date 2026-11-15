@@ -1,15 +1,9 @@
 import { useState, type KeyboardEvent } from 'react';
 import { MONTHS_MAX } from '@/entities/secret-room';
-import { useDb } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
-import {
-  grantSecretRoom,
-  prepareSecretGrant,
-  type GrantResult,
-  type SecretGrantInput,
-  type SecretGrantPlan,
-} from '../model/grantSecretRoom';
+import { useGrantSecretRoomPort } from '../api';
+import type { GrantResult, SecretGrantInput, SecretGrantPlan } from '../api/port';
 import styles from './SecretRoomCard.module.css';
 
 type Message = { text: string; error: boolean } | null;
@@ -33,7 +27,7 @@ function resultMessage(r: Extract<GrantResult, { ok: true }>, plan: SecretGrantP
  * 쿼리 캐시(useMutation 변수)에도 남지 않게 직접 부른다.
  */
 export function SecretRoomCard() {
-  const db = useDb();
+  const port = useGrantSecretRoomPort();
   const toast = useToast();
   const [input, setInput] = useState<SecretGrantInput>({ target: '', want: '', months: '' });
   const [secret, setSecret] = useState('');
@@ -48,7 +42,7 @@ export function SecretRoomCard() {
   };
 
   const execute = async (plan: SecretGrantPlan) => {
-    const r = await grantSecretRoom(db, plan, secret.trim());
+    const r = await port.grant(plan, secret.trim());
     if (!r.ok) {
       setMessage({
         text: r.denied ? '발급 열쇠가 맞지 않아요' : '발급하지 못했어요',
@@ -72,7 +66,7 @@ export function SecretRoomCard() {
     try {
       let plan = confirmed;
       if (!plan) {
-        const prepared = await prepareSecretGrant(db, input);
+        const prepared = await port.prepare(input);
         if (!prepared.ok) return setMessage({ text: prepared.error, error: true });
         plan = prepared.plan;
         if (plan.warnings.length) {

@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
-import { useDb, type Db } from '@/shared/api';
+// Firebase 판 — 지금 코드 그대로: 시크릿룸 읽기 · 발급 · 만료 · 사용자 칸 기록.
+import type { Db } from '@/shared/api';
 import { OWNER_NAME_MAX, type SecretRoomPub } from '../model/secretRoom';
+import type { SecretRoomPort } from './port';
 
 // secretRooms/{코드} 쓰기는 admins 가 아니라 발급 열쇠로 막혀 있다(규칙: newData.k === srKey/v, srKey 는 아무도 못 읽음).
 // 열쇠는 부르는 쪽이 화면 입력에서 바로 넘긴다 — 여기서도 어디에 남기지 않는다.
@@ -67,11 +68,6 @@ export async function getUserSecretRoomInfo(
   return { code, pub: await getSecretRoomPub(db, code) };
 }
 
-export function useUserSecretRoom(uid: string) {
-  const db = useDb();
-  return useQuery({ queryKey: ['userSecretRoom', uid], queryFn: () => getUserSecretRoomInfo(db, uid) });
-}
-
 /** 받는 앱의 참여 화면이 이 값으로 코드를 채운다. 규칙상 계정에 연결된 사용자 칸은 관리자도 못 쓴다 — 실패하면 false. */
 export async function setUserSecretRoom(db: Db, uid: string, code: string): Promise<boolean> {
   try {
@@ -80,4 +76,8 @@ export async function setUserSecretRoom(db: Db, uid: string, code: string): Prom
   } catch {
     return false;
   }
+}
+
+export function createFirebaseSecretRoomPort(db: Db): SecretRoomPort {
+  return { ofUser: (uid) => getUserSecretRoomInfo(db, uid) };
 }

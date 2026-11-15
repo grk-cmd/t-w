@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLoadAllLicenses, useRefreshLicenses } from '@/entities/license';
-import { useDb, useEnv, withProdMark } from '@/shared/api';
+import { useRefreshLicenses } from '@/entities/license';
+import { useEnv, withProdMark } from '@/shared/api';
 import { copyText, usePaging } from '@/shared/lib';
 import { Pager, useToast } from '@/shared/ui';
+import { useBulkGrantPort } from '../api';
 import { downloadBytes, readSheetFile, writeXlsx, type Grid } from '../lib/sheet';
-import { lookupRows, runBulkGrant } from '../model/bulkGrant';
 import {
   isActionable,
-  issuedIndex,
   judge,
   mapRows,
   MAX_ROWS,
@@ -57,10 +56,9 @@ function Chip({ st, text }: { st: RowStatus | RowResult; text?: string }) {
 }
 
 export function BulkGrantCard() {
-  const db = useDb();
+  const port = useBulkGrantPort();
   const env = useEnv();
   const toast = useToast();
-  const loadAllLicenses = useLoadAllLicenses();
   const refreshLicenses = useRefreshLicenses();
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -117,16 +115,10 @@ export function BulkGrantCard() {
       return;
     }
     const head = `${file.name} · ${data.length}행${cut ? ` (앞 ${MAX_ROWS}행만)` : ''}`;
-    // 발급 이력은 RTDB 통째 목록이 있어야 본다 — 화면을 열 때가 아니라 파일을 고른 뒤에만 받는다(받아 둔 게 있으면 그대로).
-    // 못 받으면 «발급한 적 있음» 판정만 빠진다.
-    let issued: IssuedIndex | null = null;
-    try {
-      issued = issuedIndex(await loadAllLicenses());
-    } catch {
-      issued = null;
-    }
+    // 발급 이력은 파일을 고른 뒤에만 받는다(화면을 열 때가 아니라). 못 받으면 «발급한 적 있음» 판정만 빠진다.
+    const issued = await port.issued();
     setInfo(`${head} · 확인 중…`);
-    const planned = await lookupRows(db, data, (n, total) => setInfo(`${head} · 확인 중… ${n}/${total}`));
+    const planned = await port.lookup(data, (n, total) => setInfo(`${head} · 확인 중… ${n}/${total}`));
     setSheet({ fileName: file.name, grid, map: { ...map, data }, cut, issued });
     setLooked(planned);
     setInfo(head + (issued ? '' : ' · ⚠ 발급 이력 확인 못 함'));
@@ -148,7 +140,7 @@ export function BulkGrantCard() {
       return;
     setPhase('running');
     setProgress({ done: 0, total: todo.length });
-    const result = await runBulkGrant(db, rows, (n, total) => setProgress({ done: n, total }));
+    const result = await port.run(rows, (n, total) => setProgress({ done: n, total }));
     setDone(result);
     setPhase('done');
     refreshLicenses();

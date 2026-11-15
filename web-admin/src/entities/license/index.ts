@@ -1,20 +1,22 @@
 export {
-  createLicense,
-  fetchLicensePage,
-  fetchLicenseStats,
-  listLicenses,
-  newLicenseWrite,
-  patchLicenseRows,
   refreshLicenses,
-  removeLicensesWrite,
-  revokeLicensesWrite,
+  patchLicenseRows,
   useLicensePage,
   useLicenses,
   useLicenseStats,
   useLoadAllLicenses,
   useRefreshLicenses,
   useReloadLicenses,
-} from './api/license';
+} from './api/hooks';
+export { useLicensePort, type LicensePort } from './api/index';
+// 쓰기 내용 · 통째 읽기 — features/license/* 의 Firebase 판과 사용자 화면(D12-8a 에서 포트로)이 쓴다. D12-Z 에서 걷는다.
+export {
+  createLicense,
+  listLicenses,
+  newLicenseWrite,
+  removeLicensesWrite,
+  revokeLicensesWrite,
+} from './api/firebase';
 export {
   countLicenses,
   filterLicenses,

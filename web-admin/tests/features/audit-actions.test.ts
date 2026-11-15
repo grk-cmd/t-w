@@ -5,10 +5,15 @@ import { sendBroadcast } from '@/entities/inbox/api/firebase';
 import { createLicense } from '@/entities/license';
 import { closeRooms } from '@/entities/room';
 import { deleteEntries } from '@/features/catalog/delete-entries';
-import { approveRequest, approveRequests, rejectRequest } from '@/features/license/approve-request';
-import { grantRow, type PlanRow } from '@/features/license/bulk-grant';
-import { grantByFriendCode } from '@/features/license/grant-by-code';
-import { removeKeys, revokeKeys } from '@/features/license/revoke-key';
+import {
+  approveRequest,
+  approveRequests,
+  rejectRequest,
+} from '@/features/license/approve-request/api/firebase';
+import type { PlanRow } from '@/features/license/bulk-grant';
+import { grantRow } from '@/features/license/bulk-grant/api/firebase';
+import { grantByFriendCode } from '@/features/license/grant-by-code/api/firebase';
+import { removeKeys, revokeKeys } from '@/features/license/revoke-key/api/firebase';
 import { closeAllRooms } from '@/entities/room/api/firebase';
 import {
   createInviteCodes,

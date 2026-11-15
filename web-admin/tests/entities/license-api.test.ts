@@ -1,8 +1,6 @@
 import { QueryClient } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  fetchLicensePage,
-  fetchLicenseStats,
   patchLicenseRows,
   refreshLicenses,
   rowFromApi,
@@ -12,6 +10,7 @@ import {
   type LicensePageView,
   type LicenseStatsView,
 } from '@/entities/license';
+import { fetchLicensePage, fetchLicenseStats } from '@/entities/license/api/firebase';
 import { ApiError, type Api, type ApiParams } from '@/shared/api';
 import { unusedWrites } from '../shared/fakeApi';
 

@@ -1,8 +1,10 @@
+// Firebase 판 — 지금 코드 그대로: 키 · 요청 승인 · 수령함 · 기록을 한 묶음으로 쓴다.
 import { inboxMessageWrite, licenseGrantMessage } from '@/entities/inbox';
 import { newLicenseWrite } from '@/entities/license';
 import { approvedWrite, removeRequestWrite, type LicenseRequest } from '@/entities/license-request';
 import { findUserByFriendCode } from '@/entities/user';
 import { maskKey, withAudit, type Db } from '@/shared/api';
+import type { ApproveRequestPort, BulkResult } from './port';
 
 // 기록의 대상은 친구코드 — 신청자 이름은 남기지 않는다. 친구코드 없이 온 옛 신청은 신청 id.
 const requestTarget = (req: LicenseRequest) => req.friendCode || req.id;
@@ -40,12 +42,6 @@ export function rejectRequest(db: Db, req: LicenseRequest): Promise<void> {
   return db.commit(withAudit(db, removeRequestWrite(req.id), 'license.reject', requestTarget(req)));
 }
 
-export interface BulkResult {
-  issued: number;
-  failed: number;
-  notDelivered: number;
-}
-
 // 한 건씩 차례로 — 하나가 실패해도 나머지는 계속한다. 실패한 건은 아무것도 쓰이지 않는다.
 export async function approveRequests(
   db: Db,
@@ -63,4 +59,12 @@ export async function approveRequests(
     }
   }
   return result;
+}
+
+export function createFirebaseApproveRequestPort(db: Db): ApproveRequestPort {
+  return {
+    approve: (req) => approveRequest(db, req),
+    approveAll: (reqs) => approveRequests(db, reqs),
+    reject: (req) => rejectRequest(db, req),
+  };
 }

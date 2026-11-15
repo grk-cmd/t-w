@@ -1,8 +1,19 @@
+// Firebase 판 — 지금 코드 그대로: 친구코드 조회 · 행마다 키 + 수령함 메시지 + 기록을 한 묶음으로 쓴다.
 import { inboxMessageWrite, licenseGrantMessage } from '@/entities/inbox';
-import { newLicenseWrite } from '@/entities/license';
+import { newLicenseWrite, type License } from '@/entities/license';
 import { findUserByFriendCode, getUserName } from '@/entities/user';
 import { maskKey, withAudit, type Db } from '@/shared/api';
-import { CODE_RE, normalizeCode, rowNote, type BaseStatus, type PlanRow, type SheetRow } from './rows';
+import {
+  CODE_RE,
+  issuedIndex,
+  normalizeCode,
+  rowNote,
+  type BaseStatus,
+  type IssuedIndex,
+  type PlanRow,
+  type SheetRow,
+} from '../model/rows';
+import type { BulkGrantPort } from './port';
 
 const LOOKUP_BATCH = 5;
 
@@ -94,4 +105,22 @@ export async function runBulkGrant(
     onProgress?.(++done, todo);
   }
   return out;
+}
+
+export function createFirebaseBulkGrantPort(
+  db: Db,
+  loadAll: () => Promise<Record<string, License>>,
+): BulkGrantPort {
+  return {
+    // 발급 이력은 통째 목록의 메모로 본다 — 못 받으면 «발급한 적 있음» 판정만 빠진다.
+    async issued(): Promise<IssuedIndex | null> {
+      try {
+        return issuedIndex(await loadAll());
+      } catch {
+        return null;
+      }
+    },
+    lookup: (data, onProgress) => lookupRows(db, data, onProgress),
+    run: (rows, onProgress) => runBulkGrant(db, rows, onProgress),
+  };
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { addMonths } from '@/entities/secret-room';
-import { grantSecretRoom, prepareSecretGrant, secretRoomMessage } from '@/features/license/grant-secret-room';
+import { secretRoomMessage } from '@/features/license/grant-secret-room';
+import { grantSecretRoom, prepareSecretGrant } from '@/features/license/grant-secret-room/api/firebase';
 import { fakeDb, withoutAudits } from '../shared/fakeDb';
 
 const NOW = new Date(2026, 4, 10, 12).getTime();
