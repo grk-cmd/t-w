@@ -61,7 +61,7 @@ function zoomFlow(src, movedFires){
   if(parts.some(x => !x)) return null;
   const E = { win: null, moved: movedFires };
   const api = new Function('MhPadPos', 'E',
-    'let uiZoom = 1, _mhPad = { x: 120, y: 60 }, _mhPadApplied = { x: 0, y: 0 }; const savedPos = {}; const _fittedSize = {};\n'
+    'let uiZoom = 1, _mhPad = { x: 120, y: 60 }, _mhPadApplied = { x: 0, y: 0 }; const savedPos = {};\n'
     + 'const MODE_SIZE = { launcher:{ w:380, h:680 }, myhome:{ w:800, h:580 } };\n'
     + 'const WA = { x: 0, y: 0, width: 3840, height: 2160 }; const screen = { getDisplayMatching: () => ({ workArea: WA }) };\n'
     + 'const _noteApplied = () => {}, _diagLog = () => {};\n'
@@ -83,23 +83,23 @@ const zoomSteady = (r) => !!r && r.afterZoom === '180,140' && r.afterMenu === '1
 
 /* main.js 의 실제 _applyConfigMode 를 돌린다 — 렌더러가 여백을 보낼 때마다(스티커 놓음 · 메뉴 누름) 한 번씩 부른다.
    매 호출 뒤 마이홈 자리(창 x + (창 너비 − 마이홈 너비) / 2)가 사용자가 끌어 둔 500 그대로인지, 창 너비에 그때 여백이 들었는지 본다. */
-const ANAMES = ['_applyConfigMode', '_fitConfigRect', '_modeSize', '_mhPadDip', '_mhPadOf', '_rememberPos', 'sizeToMode'];
+const ANAMES = ['_applyConfigMode', '_fitConfigRect', '_modeSize', '_mhPadDip', '_mhPadOf', '_rememberPos', '_configModeNow'];
 function applyFlow(src, movedFires){
   const parts = ANAMES.map(n => grabFn(src, n));
   if(parts.some(x => !x)) return null;
   const api = new Function('MhPadPos', 'MOVED',
     'let uiZoom = 1, _mhPad = { x: 0, y: 0 }, _mhPadApplied = { x: 0, y: 0 }, _isConfigMode = true, _ovSkipped = 0;\n'
-    + 'const MH_PAD_MAX = 400, SIZE_MATCH_TOL = 3; const savedPos = {}; const _fittedSize = {};\n'
+    + 'const MH_PAD_MAX = 400; const savedPos = {}; let _curMode = "launcher";\n'
     + 'const MODE_SIZE = { launcher:{ w:380, h:680 }, creator:{ w:740, h:620 }, animal:{ w:860, h:440 }, myhome:{ w:800, h:580 } };\n'
     + 'const WA = { x: 0, y: 0, width: 3840, height: 2160 }; const D = { workArea: WA, workAreaSize: { width: 3840, height: 2160 } };\n'
     + 'const screen = { getDisplayMatching: () => D, getDisplayNearestPoint: () => D }; const getRunDisplay = () => D; const overlay = {};\n'
     + 'let W = { x: 300, y: 200, width: 380, height: 680, res: false };\n'
     + 'const _winAlreadyIs = (r) => W.x === r.x && W.y === r.y && W.width === r.width && W.height === r.height; const _noteApplied = () => {};\n'
     + 'const mainWindow = { getBounds: () => ({ x: W.x, y: W.y, width: W.width, height: W.height }), isResizable: () => W.res, setResizable(v){ W.res = v; }, setAlwaysOnTop(){},\n'
-    + '  setBounds(r){ Object.assign(W, r); if(MOVED){ const m = sizeToMode(W.width, W.height); if(m) _rememberPos(m, W); } } };\n'
+    + '  setBounds(r){ Object.assign(W, r); if(MOVED){ const m = _configModeNow(); if(m) _rememberPos(m, W); } } };\n'
     + parts.join('\n')
     + '\nreturn { call: (px) => _applyConfigMode(true, "myhome", { x: px, y: 0 }),\n'
-    + '  drag: (x) => { W.x = x; const m = sizeToMode(W.width, W.height); if(m) _rememberPos(m, W); },\n'
+    + '  drag: (x) => { W.x = x; const m = _configModeNow(); if(m) _rememberPos(m, W); },\n'
     + '  at: () => ({ mh: W.x + (W.width - 800) / 2, w: W.width }) };')(P, movedFires);
   api.call(0); api.drag(500);
   const rows = [];

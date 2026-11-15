@@ -307,26 +307,13 @@ function _launcherPosOf(v){
   return (ok(v.x) && ok(v.y)) ? { x: Math.round(v.x), y: Math.round(v.y) } : null;
 }
 
-// 현재 창 크기가 어느 모드에 해당하는지 판별 (launcher/creator 크기가 다르므로 크기로 구분 가능)
-// ★ 정확히 같은 픽셀이 아니라 오차범위(TOL) 안이면 매칭 — 디스플레이 배율(125%/150% 등)에서
-//   setBounds→getBounds를 오가며 1~2px 반올림 오차가 생기는 경우가 있어서, 그 오차 때문에
-//   sizeToMode가 null을 반환해 "creator로 갈 때 현재 위치 유지" 로직이 깨지고 화면 중앙으로
-//   튀어버리는 문제가 있었음(캐릭터 생성 버튼만 눌러도 이 경로를 타서 재현됨).
-const SIZE_MATCH_TOL = 3;
-/* 📐 [2026-09-15 제보 1·2] 모드별로 **실제로 맞춘 크기**. MODE_SIZE 보다 작을 수 있다 — 아래
-     _fitConfigRect 가 작업영역에 안 들어가는 창을 줄였을 때. sizeToMode 는 이 값도 그 모드로
-     인정해야 한다. 안 그러면 줄어든 런처를 옮겨도 'moved' 가 위치를 안 남기고, creator 진입이
-     «run 에서 왔다» 로 오판해 중앙으로 튄다. */
-const _fittedSize = {};   // mode → { w, h }
-function sizeToMode(w, h){
-  const close = (a,b) => Math.abs(a-b) <= SIZE_MATCH_TOL;
-  for(const m of ['launcher','creator','animal','myhome']){
-    const sz = MODE_SIZE[m], fit = _fittedSize[m];
-    if(!(close(w, sz.w) || (fit && close(w, fit.w)))) continue;
-    if(close(h, sz.h) || (fit && close(h, fit.h))) return m;
-  }
-  return null;
-}
+/* 🪟 창 모드 — 렌더러가 보낸 모드('launcher' | 'creator' | 'animal' | 'myhome' | 'run') **한 값**. 창 크기를 보고 되짚지 않는다.
+   [왜] 예전엔 «지금 창이 어느 모드 크기인가» 를 크기(허용 오차 · 줄인 크기 표 · 줌)로 되짚었다. 작업영역이 작아 줄인 창이나
+     OS 가 깎은 창은 놓치고, 작은 모니터에서는 실행 화면 크기가 런처 크기와 같아져 실행 화면을 런처로 읽었다.
+   ★ 받은 모드는 _applyConfigMode 가 맨 먼저 적는다. 다시 불러오기(_resetWindowForReload)도 같은 통로로 런처가 된다.
+   ⚠️ 모드를 크기에서 구하는 길을 새로 만들지 말 것(sim-cfg-fit 이 getBounds 로 모드를 정하는 글을 찾는다). */
+let _curMode = 'launcher';
+function _configModeNow(){ return _curMode === 'run' ? null : _curMode; }   // 런처 · 생성기 · 동물 · 마이홈이면 그 모드, 실행 화면이면 null
 
 /* ═══ 📐 [2026-09-15 제보 1·2] 런처 창이 잘린 채 뜬다 (첫 부팅 · 주모니터 변경) ═══════════
    [증상] 런처(380×680 고정)가 위 또는 아래가 잘린 채 뜨고, 실행 모드로 들어가면 정상.
@@ -341,8 +328,7 @@ function sizeToMode(w, h){
      ・위치: 기억한 자리가 있으면 그 자리가 **있는 모니터**(getDisplayMatching)의 작업영역 안으로
        클램프. 사용자가 다른 모니터로 옮겨 둔 자리를 원래 모니터로 끌어오지 않기 위해서다.
        기억이 없으면 준 display 의 중앙.
-     ・줄인 크기는 _fittedSize 에 남긴다(sizeToMode 가 본다). 작업영역이 다시 커지면 min 이
-       원래 크기를 돌려주므로 따로 복구 코드가 없다.
+     ・작업영역이 다시 커지면 min 이 원래 크기를 돌려주므로 따로 복구 코드가 없다.
    ✅ 받는 쪽: 런처 HTML 이 창보다 긴 카드를 스크롤할 수 있어야 한다(#launcher overflow · .lc-card margin:auto). */
 function _fitConfigRect(mode, sz, display, remembered){
   let wa = display.workArea;
@@ -355,7 +341,6 @@ function _fitConfigRect(mode, sz, display, remembered){
   let y = remembered ? remembered.y : Math.round(wa.y + (wa.height - h) / 2);
   x = Math.max(wa.x, Math.min(x, wa.x + wa.width  - w));
   y = Math.max(wa.y, Math.min(y, wa.y + wa.height - h));
-  _fittedSize[mode] = { w, h };
   return { x, y, width: w, height: h };
 }
 
@@ -516,8 +501,7 @@ function _zoomStep(cur, op){
 function applyUiZoom(op, why){
   const next = _zoomStep(uiZoom, op);
   const changed = next !== uiZoom;
-  /* 📐 지금 런처·생성기·마이홈 창이면 그 모드를 **줌을 바꾸기 전에** 읽어 둔다 — 창 크기가 옛 줌 기준이라
-     바꾼 뒤에는 sizeToMode 가 못 알아본다. (typeof — sim-ui-zoom 이 이 함수만 오려 돌린다) */
+  /* 📐 지금 런처·생성기·마이홈 창이면 그 모드를 줌을 바꾸기 전에 읽어 둔다(_curMode — 줌 뒤 다시 맞출 때 쓴다). (typeof — sim-ui-zoom 이 이 함수만 오려 돌린다) */
   const _cfgM = (changed && typeof _cfgModeForZoom === 'function') ? _cfgModeForZoom() : null;
   uiZoom = next;
   if(mainWindow && !mainWindow.isDestroyed()){
@@ -535,8 +519,8 @@ function applyUiZoom(op, why){
      CSS px × 줌으로 커지는데 창은 그대로라, 마이홈(760px)이 120% 에서 912 DIP 가 되어 800 짜리 창에서 잘렸다.
      내리면 반대로 창 안에 빈 테두리가 남았다. 실행 화면(run)은 전체화면이라 무관하다.
    [대응] 창 크기를 정하는 자리가 전부 _modeSize(mode) 를 지난다 = MODE_SIZE × 줌. 작업영역보다 크면
-     _fitConfigRect 가 늘 하던 대로 줄이고, 그 실제 크기를 _fittedSize 에 남기므로 sizeToMode 가 줌 걸린 창도
-     같은 모드로 알아본다(sizeToMode 는 안 고쳤다 — _fittedSize 를 이미 본다 · sim-cfg-fit 3절).
+     _fitConfigRect 가 늘 하던 대로 줄인다. 모드는 받은 값(_curMode)이라 줌 걸린 창도
+     같은 모드다(sim-cfg-fit 3절).
    ★ 줌을 바꾸는 순간에도 맞춘다(_refitConfigForZoom) — 좌상단을 그대로 두고 크기만 바꾼 뒤 작업영역 안으로 민다. */
 /* 🎨 [2026-10-11 제보] 마이홈 스티커가 창 밖으로 나가 있으면 런처에서 그만큼 잘렸다(실행 화면은 전체화면이라 보임).
    렌더러가 «창 밖으로 나간 만큼» 을 CSS px 로 보내 오면(setConfigMode 셋째 인자) 마이홈 창을 양쪽으로 그만큼 넓힌다.
@@ -569,8 +553,7 @@ function _modeSize(mode){
 function _cfgModeForZoom(){
   try{
     if(!_isConfigMode || !mainWindow || mainWindow.isDestroyed()) return null;
-    const b = mainWindow.getBounds();
-    return sizeToMode(b.width, b.height);
+    return _configModeNow();
   }catch(_){ return null; }
 }
 function _refitConfigForZoom(m){
@@ -1967,6 +1950,8 @@ const CONFIG_HEIGHT = MODE_SIZE.launcher.h;
 /* config 모드(런처 · 생성기 · 마이홈) ↔ run 모드(캐릭터 실행) 창 맞추기 — 렌더러 요청(companion:setConfigMode)과
    렌더러가 죽어 다시 불러올 때(_resetWindowForReload) 같이 쓴다. mode: 'launcher' | 'creator' | 'myhome' | 'animal' | 'run' */
 function _applyConfigMode(isConfig, mode, extra){
+  const prevMode = _curMode;   // creator 로 들어올 때 «지금 config 창인가(그 자리를 잇는다) · 실행 화면인가(중앙)» 판단용
+  _curMode = isConfig ? (MODE_SIZE[mode] ? mode : 'launcher') : 'run';   // 🪟 창 모드 한 값(위 _curMode 주석)
   _isConfigMode = !!isConfig;   // ★ 안전장치는 전체화면 오버레이(run)에서만 동작해야 함
   if (!mainWindow) return;
   // ★ 마이홈은 "런처가 지금 떠 있는 모니터" 기준으로 중앙 계산 — 캐릭터 실행용 모니터(getRunDisplay)와
@@ -1996,14 +1981,13 @@ function _applyConfigMode(isConfig, mode, extra){
     //   이전 creator 세션의 좌표로 되돌아가지 않게). launcher → creator, run → creator 전환 모두 대응.
     if(mode==='creator'){
       const b = mainWindow.getBounds();
-      // 현재가 launcher/creator/myhome 크기면 그 좌상단을 그대로. run(전체화면)이면 그 모니터 중앙으로.
-      const curMode = sizeToMode(b.width, b.height);
-      if(curMode){ remembered = { x: b.x, y: b.y }; }
-      else       { remembered = null; }   // run에서 진입한 경우엔 아래 중앙 계산 사용
+      // 직전이 config 창(런처/생성기/동물/마이홈)이면 그 좌상단을 그대로. run(전체화면)이면 그 모니터 중앙으로.
+      if(prevMode !== 'run'){ remembered = { x: b.x, y: b.y }; }
+      else                  { remembered = null; }   // run에서 진입한 경우엔 아래 중앙 계산 사용
       savedPos[mode] = remembered;
     } else if(mode==='myhome'){
       // ★ 마이홈 위치 기억(요청사항) — 유저가 옮겨둔 위치가 있으면 거기로, 없으면(첫 열기) 런처가 있는
-      //   모니터 중앙. 'moved' 핸들러가 sizeToMode('myhome')로 위치를 계속 기록해줌.
+      //   모니터 중앙. 'moved' 핸들러가 받은 모드(_curMode)로 위치를 계속 기록해줌.
       remembered = savedPos.myhome || null;
       const padDip = _mhPadDip();
       remembered = MhPadPos.placeOf(remembered, padDip);   // 기억은 여백 없는 자리('moved') — 지금 여백만큼 왼쪽 위로
@@ -2696,11 +2680,11 @@ function createWindow() {
   });
 
   // 네이티브 드래그(app-region:drag)로 창이 실제 움직였을 때 위치 기억 — 런처/생성기 모드 각각.
-  // (run 모드=전체화면 크기일 때는 해당 없음 — sizeToMode가 null 반환)
+  // (run 모드=전체화면일 때는 해당 없음 — _configModeNow 가 null)
   mainWindow.on('moved', () => {
     if (!mainWindow) return;
     const b = mainWindow.getBounds();
-    const m = sizeToMode(b.width, b.height);
+    const m = _configModeNow();
     if (m) {
       _rememberPos(m, b);
     }
@@ -3687,11 +3671,11 @@ function createWindow() {
     saveSettings();   // ★ 재시작해도 유지되도록 즉시 저장
     if(mainWindow && !mainWindow.isDestroyed()){
       const b = mainWindow.getBounds();
-      const curMode = sizeToMode(b.width, b.height);   // 'launcher'|'creator'|null(=run 크기)
+      const curMode = _configModeNow();   // 'launcher'|'creator'|'animal'|'myhome'|null(=실행 화면)
       const wa = target.workArea;
       if(curMode){
         // 런처/생성기: 선택 모니터 중앙으로 옮기고 그 위치를 새 기준으로 저장
-        /* 📐 줌 걸린 크기로, 작업영역에 맞춰 — 직접 setBounds 하면 _fittedSize 가 안 남아 다음 sizeToMode 가 못 알아본다. */
+        /* 📐 줌 걸린 크기로, 작업영역에 맞춰(_fitConfigRect). */
         const mvc = _fitConfigRect(curMode, _modeSize(curMode), target, null);
         mainWindow.setBounds(mvc);
         _rememberPos(curMode, mvc);
@@ -3937,7 +3921,7 @@ function createWindow() {
       if(_isConfigMode){
         try{
           const b = mainWindow.getBounds();
-          const m = sizeToMode(b.width, b.height);
+          const m = _configModeNow();
           if(!m) return;
           const rect = _fitConfigRect(m, _modeSize(m), screen.getDisplayMatching(b), { x: b.x, y: b.y });
           if(_sameRect(rect, b)) return;
