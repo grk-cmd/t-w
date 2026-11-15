@@ -223,7 +223,8 @@ say('── 3. 깨 보기 — 옛 «바로 재기» 로 되돌리면 빨강');
 
 say('── 4. 배선');
 {
-  const fr = APP.slice(APP.indexOf('function frame(now, manual){'));
+  const FLM = ['frame-loop.js', 'parts/launcher/frame-loop.js', 'app/parts/launcher/frame-loop.js'].map(read).find(Boolean) || '';   // frame() 은 launcher/frame-loop.js(M17)
+  const fr = FLM.slice(FLM.indexOf('function frame(now, manual){'));
   const iCap = fr.indexOf('if(_frameCapped(now)){'), iBeg = fr.indexOf('overheadMod.beginLabelFrame();'), iSeats = fr.indexOf('seats.forEach(seat=>{');
   chk(iCap > 0 && iBeg > iCap && iBeg < iSeats, '★ frame() — 상한 검사 뒤 · 좌석 라벨보다 먼저 beginLabelFrame(빠지면 캔버스 사각형이 영영 안 바뀐다)');
   const hL = HTML.indexOf('<script src="parts/room/label-measure.js">'), hO = HTML.indexOf('<script src="parts/room/overhead.js">');
