@@ -300,6 +300,8 @@ app.js 9,746 → 9,476줄(270줄) · 구역 167 → 130개. 남긴 빈 머리 �
 
 **0.12.4 — app.js 분리 T2**: 기본 몸 구역(`bodyCore` 만들기 · `loadBaseGLB` · `instantiateBase` · 커미션 GLB 캐시 · `normalizeModel`)을 `character/base-body.js` 로 옮겼다(0.13 app.js 글 그대로 — #830 `shareSkeletons` 줄도 0.13 글에 있다. 안 읽히던 `measureBaseGeometry` · `calcMeshBox` · `BASE_MESH_*` 와 `let BASE_SCENE · BASE_ANIMS` 는 걷고 코어 `bodyCore.baseScene()` · `baseAnims()` 로 읽음).
 
+**0.12.4 — app.js 분리 T5**: 파츠 저작 오프셋 · 머리 높이 보정 · xf 적용 구역(367줄)을 `character/part-xf.js` 로 옮겼다(0.13 app.js 글 그대로 — 계산 본문은 코어 `createParts` 를 부르는 한 줄 · 코어 파츠는 app.js 가 만들어 넘김).
+
 ## 구역 표 — `app/parts/app.js`
 
 | # | 줄 | 크기 | 목적 | 층 | 관련 모듈 | 씀 | 쓰임 | 비고 |
