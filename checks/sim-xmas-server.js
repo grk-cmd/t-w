@@ -4,6 +4,7 @@
    ・2절 자리 잡기 — 트리당 300 · 다 차면 다음 트리 · 여럿이 동시에 걸어도 넘지 않음 · 바꾸기는 같은 자리 · 판 +1 · 끝난 뒤 거절 · 익명 거절
    ・3절 편지 짝 짓기 — 쓴 만큼 받음 · 자기 편지 안 받음 · 한 사람뿐이면 못 보냄 · 무작위 · 한 번만 · 알림함
    ・4절 관리자 지우기 — 관리자만 · 장식(주인 · 내 자리까지) · 받은 편지
+   ・4-2절 관리자 편지 반송 — 관리자만 · 마감 전 · 사유 넷 · 원래 글 남김 · 알림함 · 짝 짓기 제외
    ・5절 규칙식 — 편지 본인 · 마감 · 5칸 · 모양 / 신고 본인 · 한 번 · 받은 사람만 / 트리 읽기 내 트리 · 지금 트리만 / 함수만 쓰는 칸
    ・6절 index.js 연결 · 일부러 깨 보기
    실제 서버 판정은 에뮬레이터(firebase/scripts/rules-emu-check.js)에서 본다. */
@@ -176,6 +177,36 @@ say('── 4절 관리자 지우기');
   chk(await rejects(X.handleAdminRemove(db, req('adm1', { tree: 'x' })), 'invalid-argument'), '대상이 틀리면 거절');
 }
 
+say('── 4-2절 관리자 편지 반송');
+{
+  const T0 = X.LETTER_DEADLINE_MS - 3600000;
+  const mk = () => fakeDb({ admins: { adm1: true }, authUsers: { uWri000001: { userCode: 'ucodewri001' } },
+    xmasLetters: { uWri000001: { l2: { text: '나쁜 말', ts: 1, song: { id: 'abcdefghijk', title: '곡' } }, l3: { text: '괜찮은 글', ts: 1 } } } });
+  let db = mk();
+  chk(await rejects(X.handleAdminReturn(db, req('notadmin01', { uid: 'uWri000001', lid: 'l2', reason: 'abuse' }), T0), 'permission-denied'), '관리자가 아니면 거절');
+  chk(await rejects(X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'abuse' }), X.LETTER_DEADLINE_MS), 'failed-precondition'), '마감(12/25 0시)부터는 반송 못 함');
+  chk(await rejects(X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'bad' }), T0), 'invalid-argument'), '모르는 사유 거절');
+  chk(await rejects(X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'etc', note: '  ' }), T0), 'invalid-argument'), '기타는 사유를 적어야');
+  chk(await rejects(X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l9', reason: 'abuse' }), T0), 'invalid-argument'), '편지 칸 모양이 틀리면 거절');
+  chk(await rejects(X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l1', reason: 'abuse' }), T0), 'not-found'), '없는 편지는 not-found');
+  const r = await X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'abuse' }), T0);
+  const ret = db.get('xmasReturned/uWri000001/l2');
+  chk(r.ok && !db.get('xmasLetters/uWri000001/l2') && db.get('xmasLetters/uWri000001/l3'), '반송 — 그 편지만 맡긴 목록에서 빠진다(칸이 비어 다시 쓸 수 있음)');
+  chk(ret && ret.reason === 'abuse' && ret.text === '나쁜 말' && ret.song.id === 'abcdefghijk' && ret.ts === T0 && !ret.note, '  ↳ 사유 · 원래 글 · 추천곡을 남긴다(고쳐 다시 쓰게)');
+  const ib = db.get('inbox/ucodewri001/xmasretl2' + T0);
+  chk(ib && ib.tag === 'xmas' && ib.title === '편지가 반송됐어요' && /욕설 · 비방/.test(ib.body) && /12월 24일 23:59/.test(ib.body), '  ↳ 알림함 «편지가 반송됐어요» · 사유 · 다시 쓰기 안내');
+  db = mk();
+  await X.handleAdminReturn(db, req('adm1', { uid: 'uWri000001', lid: 'l3', reason: 'etc', note: '  전화번호가 들어 있어요 '.repeat(3) }), T0);
+  const r3 = db.get('xmasReturned/uWri000001/l3');
+  chk(r3.note && r3.note.length <= 40 && r3.note.startsWith('전화번호') && /기타 — 전화번호/.test(db.get('inbox/ucodewri001/xmasretl3' + T0).body), '기타 — 관리자가 적은 말(40자까지)이 알림에 같이');
+  const db7 = fakeDb({ admins: { adm1: true }, xmasLetters: { uNoCode001: { l1: { text: 'x', ts: 1 } } } });
+  const r7 = await X.handleAdminReturn(db7, req('adm1', { uid: 'uNoCode001', lid: 'l1', reason: 'spam' }), T0);
+  chk(r7.notified === false && db7.get('xmasReturned/uNoCode001/l1') && !db7.data.inbox, '친구코드가 없으면 알림만 건너뛴다(반송 표시는 남음)');
+  // 반송된 편지는 짝 짓기에 안 들어간다
+  const db8 = mk(); await X.handleAdminReturn(db8, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'abuse' }), T0);
+  chk(X.lettersOf(db8.get('xmasLetters')).every(l => l.text !== '나쁜 말'), '반송된 편지는 짝 짓기 대상에서 빠진다');
+}
+
 say('── 5절 규칙식');
 {
   function snap(tree, p){
@@ -248,6 +279,13 @@ say('── 5절 규칙식');
     && RULES.xmasGot.$authUid['.write'] === false && RULES.xmasGotFrom['.write'] === false && RULES.xmasOwners['.write'] === false, '함수만 쓰는 칸은 앱이 못 쓴다');
   chk(/admins/.test(RULES.xmasOwners['.read']) && /admins/.test(RULES.xmasGotFrom['.read']) && !RULES.xmasOwners.$t['.read'], '건 사람 · 보낸 사람은 관리자만 읽는다');
   chk(/auth\.uid === \$authUid/.test(RULES.xmasGot.$authUid['.read']) && /auth\.uid === \$authUid/.test(RULES.xmasMine.$authUid['.read']), '받은 편지 · 내 자리는 본인만 읽는다');
+  const RT = RULES.xmasReturned.$authUid.$lid;
+  const retW = (uid, owner, after) => run(RT['.write'], { root: { xmasReturned: { [owner]: { l2: { reason: 'abuse', ts: 1, text: 'x' } } } }, after,
+    path: 'xmasReturned/' + owner + '/l2', auth: au(uid), now: T, vars: { $authUid: owner, $lid: 'l2' } });
+  chk(retW('uMe0000001', 'uMe0000001', {}), '반송 표시 — 본인이 지운다(다시 쓰면 앱이 걷음)');
+  chk(!retW('uMe0000001', 'uMe0000001', { xmasReturned: { uMe0000001: { l2: { reason: 'abuse', ts: 2, text: 'y' } } } }), '  ↳ 본인도 만들거나 고치지는 못한다(함수만)');
+  chk(!retW('uOther0001', 'uMe0000001', {}), '  ↳ 남이 지우기는 막힘');
+  chk(/auth\.uid === \$authUid/.test(RULES.xmasReturned.$authUid['.read']) && /admins/.test(RULES.xmasReturned['.read']), '반송 표시 읽기 — 본인 · 관리자');
   const inboxTag = RULES.inbox.$uid.$msgId['.validate'];
   chk(/\|xmas\)/.test(inboxTag), '알림함에 xmas 꼬리표 — 앱이 읽음 표시를 쓸 수 있게');
   chk(String(L['.write']).includes(String(X.LETTER_DEADLINE_MS)) && String(R['.write']).includes(String(X.EVENT_END_MS)), '규칙의 마감 · 끝 시각이 함수와 같은 숫자');
@@ -256,6 +294,7 @@ say('── 5절 규칙식');
   chk(/exports\.xmasHang = onCall\(/.test(FX) && /require\('\.\/xmas'\)\.handleHang\(/.test(FX), 'xmasHang 연결');
   chk(/exports\.xmasMatch = onSchedule\(\{ schedule: '0 0 25 12 \*', timeZone: 'Asia\/Seoul'/.test(FX) && /runMatch\(/.test(FX), 'xmasMatch — 12/25 0시 서울');
   chk(/exports\.xmasAdminRemove = onCall\(/.test(FX) && /handleAdminRemove\(/.test(FX), 'xmasAdminRemove 연결');
+  chk(/exports\.xmasAdminReturn = onCall\(/.test(FX) && /handleAdminReturn\(/.test(FX), 'xmasAdminReturn 연결');
   chk(!/^const .*require\('firebase-admin\/database'\)/m.test(FX), 'firebase-admin/database 를 맨 위에서 읽지 않는다');
   // 깨 보기 — 짝 짓기를 «밀지 않게» 바꾸면 자기 편지를 받는다
   const broken = (authors) => authors.slice();

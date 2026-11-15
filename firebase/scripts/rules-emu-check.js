@@ -640,6 +640,13 @@ const XMAS_CASES = [
   ['신고 — 받은 편지는 받은 사람만', 'PUT', 'xmasReports/g-authXa00000-1/authXa00000', { ts: TS, note: '욕설' }, true, 'authXa00000'],
   ['신고 — 남이 받은 편지는 막힘', 'PUT', 'xmasReports/g-authXa00000-1/authXb00000', { ts: TS }, false, 'authXb00000'],
   ['신고 — 목록 읽기는 관리자만', 'GET', 'xmasReports', null, false, 'authXa00000'],
+  ['준비: 반송된 편지 표시(함수가 씀)', 'PUT', 'xmasReturned/authXa00000/l3', { reason: 'abuse', ts: 1, text: 'x' }, true, OWNER],
+  ['반송 표시 — 본인 읽기', 'GET', 'xmasReturned/authXa00000', null, true, 'authXa00000'],
+  ['반송 표시 — 남이 읽기 막힘', 'GET', 'xmasReturned/authXa00000', null, false, 'authXb00000'],
+  ['반송 표시 — 본인도 고치기는 막힘', 'PUT', 'xmasReturned/authXa00000/l3', { reason: 'spam', ts: 2, text: 'y' }, false, 'authXa00000'],
+  ['반송 표시 — 남이 지우기 막힘', 'DELETE', 'xmasReturned/authXa00000/l3', null, false, 'authXb00000'],
+  ['반송 표시 — 본인이 지우기(다시 씀)', 'DELETE', 'xmasReturned/authXa00000/l3', null, true, 'authXa00000'],
+  ['반송 표시 — 본인도 새로 만들기는 막힘', 'PUT', 'xmasReturned/authXa00000/l4', { reason: 'abuse', ts: 1, text: 'x' }, false, 'authXa00000'],
   ['알림함 — xmas 꼬리표 읽음 표시', 'PUT', 'inbox/uxmasinbox01/xmas2026', { tag: 'xmas', title: '익명의 편지가 왔어요 🎄', body: 'b', ts: 1, read: true }, true],
 ];
 
