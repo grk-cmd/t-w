@@ -31,7 +31,7 @@
   - 검사: `checks/sim-realtime-link.js`(공통부) · `checks/sim-rt-hub.js` · `checks/sim-room-rt.js`(연결 하나 · 방 포트가 이 위에서 그대로 도는지).
 
 ## rt-hub.js — realtime 연결 하나(pv 3 · classic script `window.TwRtHub`)
-- 책임: 로그인 뒤 늘 붙어 있는 웹소켓 하나 — `hello { pv:3, token, ver, deviceId, session, claim? }` · `ready{ userCode, graceMs }` · 닫힘 번호 표 · 작별(`bye`) · 살아 있음 확인(`ping`) · 알림(`notify`) → 건 함수 표 · 오래 끊겼다 붙으면 한 번씩 다시 받기. 방 · 친구 · 알림함 같은 «무엇» 은 모른다.
+- 책임: 로그인 뒤 늘 붙어 있는 웹소켓 하나 — `hello { pv:3, token, ver, deviceId, session, claim? }`(`session` 은 연결마다 새로 뽑는 값 — `stop` · `bye` · `quit` 뒤 처음 `start` 가 새로 뽑고, 다시 붙기 · 토큰 갱신 · «여기서 계속»은 같은 값) · `ready{ userCode, graceMs }` · 닫힘 번호 표 · 작별(`bye`) · 살아 있음 확인(`ping`) · 알림(`notify`) → 건 함수 표 · 오래 끊겼다 붙으면 한 번씩 다시 받기. 방 · 친구 · 알림함 같은 «무엇» 은 모른다.
 - 켜기 · 끄기: `TwRtHub.store.start({ claim })`(로그인 · 가입 확인 뒤 — B 묶음 · 멈춘 뒤 [다시 연결]은 `claim:false`) · `bye(why)`(로그아웃 `logout` · 탈퇴 `withdraw` · 계정 바꾸기 `switch` — 방 leave 는 부르는 쪽이 먼저 · bye 뒤 서버 닫힘 1초 기다림 · Promise) · `stop()`(작별 없이 끄기). 앱 끄기는 `quit()`(bye{quit} 뒤 바로 닫음 — 실릴 때 beforeunload 에 건다).
 - 닫힘 번호: `CLOSE_CODES`(서버 `protocol/closeCodes.ts` 와 같은 이름 · 값) → `closeAction(code)` 한 곳(설계 04-realtime-disconnect 4-D-2). 다시 붙기 — 1006(번호 없음) · 1009 · 4005 · 4008 · 모르는 1000번대 · 1001(첫 시도 0~30초 흩고 ready 35초 기다림) · 4001 한 번(새 토큰). 멈춤 — 1000 끝 · 4001 두 번(ready 전 error auth 도 셈) · 4003 · 4004 · 4006 · 4007 · 모르는 4000번대. 멈춘 뒤엔 사용자 누름 · 서버 신호로만 `start`.
 - 살아 있음: `checkAlive()` — 깨어남(main powerMonitor `resume` · `unlock-screen` → preload `companion.onWake`) · 창 `online` 때(실릴 때 건다). ready 면 `ping` → 5초 안에 `pong` 이 없으면 끊고 다시 붙기 · 다시 붙는 중이면 기다림을 건너뛰고 지금. 주기 ping 은 없다(서버 몫).

@@ -145,7 +145,7 @@ async function judge(S){
         msg(m){ if(this.onmessage) this.onmessage({ data: JSON.stringify(m) }); }
       }
       const hub = H.createRtHub({ createLink: L.createRealtimeLink, WebSocket: FakeWS, url: () => 'wss://x', getToken: async () => 't', getVersion: async () => '0.13.0',
-        deviceId: () => 'd', session: 's', now: () => clock.t, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout, random: () => 0.5, log: { warn(){} } });
+        deviceId: () => 'd', newSession: () => 's', now: () => clock.t, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout, random: () => 0.5, log: { warn(){} } });
       const band = { shown: null, press: null, show(v, p){ this.shown = v; this.press = p; }, hide(){ this.shown = null; } };
       U.createRtStatusUi({ rt: hub, inRoom: () => false, band, notifyError: (c) => log.push('err:' + c), toLogin: () => log.push('toLogin'), withdrawing: () => false,
         forceUpdate: () => log.push('update'), maintenance: () => log.push('maint'), setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout });

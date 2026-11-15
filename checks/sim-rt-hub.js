@@ -70,15 +70,16 @@ function mk(S, tokenOk){
   const clock = mkClock();
   const { FakeWS, socks } = mkWS();
   const forces = [];
+  const nSess = { n: 0, ids: [] };   // 새 세션 id 를 뽑은 횟수 — 연결(로그인)마다 하나
   const hub = H.createRtHub({
     createLink: L.createRealtimeLink, WebSocket: FakeWS, url: () => 'wss://realtime.together-working.com',
     getToken: async (force) => { forces.push(!!force); if(!tokenOk()) throw new Error('offline'); return 'tok' + forces.length; },
-    getVersion: async () => '0.13.0', deviceId: () => 'dev-0001', session: 'sess01',
+    getVersion: async () => '0.13.0', deviceId: () => 'dev-0001', newSession: () => { const s = 'sess0' + (++nSess.n); nSess.ids.push(s); return s; },
     now: () => clock.t, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout, random: () => 0.5, log: { warn(){} },
   });
   const states = [];
   hub.onState((s) => states.push(s));
-  return { H, L, hub, clock, socks, forces, states, last: () => socks[socks.length - 1] };
+  return { H, L, hub, clock, socks, forces, states, nSess, last: () => socks[socks.length - 1] };
 }
 async function waitNewSock(e, n0){   // 새로 만든 · 아직 안 닫힌 소켓이 생길 때까지 시계를 조금씩
   for(let i = 0; i < 400 && (e.socks.length <= n0 || e.last().closed); i++) await e.clock.advance(250);
@@ -279,7 +280,7 @@ async function judge(S){
       const spread = []; for(const v of rnd){
         const c = mkClock(); const { FakeWS, socks } = mkWS();
         const hb = Hx.createRtHub({ createLink: L.createRealtimeLink, WebSocket: FakeWS, url: () => 'wss://x', getToken: async () => 't', getVersion: async () => '0.13.0',
-          deviceId: () => 'd', session: 's', now: () => c.t, setTimeout: c.setTimeout, clearTimeout: c.clearTimeout, random: () => v, log: { warn(){} } });
+          deviceId: () => 'd', newSession: () => 's', now: () => c.t, setTimeout: c.setTimeout, clearTimeout: c.clearTimeout, random: () => v, log: { warn(){} } });
         hb.start(); await tick(); socks[0].open(); await tick(); socks[0].msg({ t: 'ready', pv: 3, now: 0, userCode: 'u', graceMs: 20000 }); await tick();
         socks[0].kill(1001); await tick();
         let at = null; for(let i = 0; i < 400 && at == null; i++){ await c.advance(100); if(socks.length > 1) at = i * 100 + 100; }
@@ -338,6 +339,26 @@ async function judge(S){
       chk(JSON.stringify(w.all('bye')) === '[{"t":"bye","why":"quit"}]' && w.closed && e.hub.state() === 'off', 'quit(beforeunload) — bye{quit} 를 보내고 기다리지 않고 닫는다');
       e.hub.quit();
       chk(w.all('bye').length === 1, '  ↳ 두 번 불러도 한 번');
+    }
+    { /* 세션 id — 연결(로그인)마다 새로 · 다시 붙기 · «여기서 계속» 은 같은 값(S-4b) */
+      const e = mk(S); e.hub.start(); const w1 = await readyOn(e);
+      const sid1 = w1.all('hello')[0].session;
+      w1.kill(1006); await tick(); await e.clock.advance(1000); const w2 = e.last(); await readyOn(e);
+      chk(w2.all('hello')[0].session === sid1 && e.nSess.ids.length === 1, '세션 id — 다시 붙기 hello 는 같은 값(새로 안 뽑는다)');
+      let p = e.hub.bye('logout'); await tick(); e.last().kill(1000); await p;
+      e.hub.start(); const w3 = await readyOn(e);
+      const sid2 = w3.all('hello')[0].session;
+      chk(sid2 !== sid1 && e.nSess.ids.length === 2, '  ↳ bye(로그아웃) 뒤 다시 켜면(다음 로그인) 새 세션 id · hello 가 앞과 다르다');
+      e.hub.stop(); e.hub.start(); const w4 = await readyOn(e);
+      chk(w4.all('hello')[0].session !== sid2 && e.nSess.ids.length === 3, '  ↳ stop(계정이 없어 끈 연결) 뒤 켜도 새 세션 id');
+      e.hub.quit(); e.hub.start(); const w5 = await readyOn(e);
+      chk(w5.all('hello')[0].session === e.nSess.ids[3] && e.nSess.ids.length === 4, '  ↳ quit 뒤 켜도 새 세션 id');
+      w5.msg({ t: 'sessionLost' }); w5.kill(4004); await tick();
+      chk(e.hub.state() === 'sessionLost', '  (밀림 — 멈춤)');
+      e.hub.start({ claim: true }); const w6 = await readyOn(e);
+      chk(w6.all('hello')[0].session === w5.all('hello')[0].session && e.nSess.ids.length === 4 && w6.all('hello')[0].claim === true, '  ↳ «여기서 계속»(밀린 뒤 claim start)은 같은 세션 id — 새로 안 뽑는다');
+      const w7e = mk(S); w7e.hub.start(); const a = await readyOn(w7e); w7e.hub.bye('switch'); await tick(); w7e.last().kill(1000); await tick(); w7e.hub.start(); const b = await readyOn(w7e);
+      chk(a.all('hello')[0].session !== b.all('hello')[0].session, '  ↳ A → B(bye 뒤 start) — 두 연결의 session 이 다르다(서버가 «같은 세션 + 다른 사람» 을 4001 로 보지 않게)');
     }
     { /* ping — ready 일 때만 · 5초 안에 pong 없으면 끊고 다시 */
       const e = mk(S); e.hub.start(); const w = await readyOn(e);
@@ -445,6 +466,10 @@ await judge(SRC0);
 
 say('── 7. 일부러 깨 보기');
 const BREAKS = [
+  ['HUB', "    started = false; lostAt = null; userCode = null; sessionId = null;\n    clearPong();\n    if(link) link.close();", "    started = false; lostAt = null; userCode = null;\n    clearPong();\n    if(link) link.close();", 'stop 이 세션 id 를 안 비움(다음 로그인이 앞 id 를 씀)'],
+  ['HUB', "    started = false; lostAt = null; userCode = null; sessionId = null;\n    clearPong();\n    if(!link.send", "    started = false; lostAt = null; userCode = null;\n    clearPong();\n    if(!link.send", 'bye 가 세션 id 를 안 비움(로그아웃 뒤 같은 id)'],
+  ['HUB', "    started = false; sessionId = null;\n    clearPong();\n    link.send({ t: 'bye', why: BYE_WHY.QUIT });", "    started = false;\n    clearPong();\n    link.send({ t: 'bye', why: BYE_WHY.QUIT });", 'quit 이 세션 id 를 안 비움'],
+  ['HUB', "    if(sessionId === null) sessionId = sessionIdOf(deps.newSession());", "    sessionId = sessionIdOf(deps.newSession());", '시작마다 새 id(다시 붙기 · 여기서 계속도 바뀜)'],
   ['HUB', "        if(phase === 'open' && claimNext) o.claim = true;", "        o.claim = true;", '다시 붙기 · 토큰 갱신에도 claim(밀려난 앱이 남을 밈)'],
   ['HUB', "    authFails = 0; claimNext = false;", "    authFails = 0;", '다시 붙을 때 또 차지'],
   ['HUB', "    if(gap != null && gap > graceOf(m)) resync();", "    if(gap != null) resync();", '짧게 끊겨도 다 다시 받음(몰림)'],

@@ -4,7 +4,8 @@
    [연결] start({ claim }) — hello { pv:3, token, ver, deviceId, session, claim? } → ready{ userCode, graceMs }. 사고로 끊기면 다시 붙는다
      (realtime-link.js 백오프 1 · 2 · 4 · 8 · 15초 ±50%). 토큰은 만료 5분 전 같은 연결로 hello(link 가 한다).
      claim 은 앱을 켤 때 · «여기서 계속» 의 첫 hello 에만 — 다시 붙기 · 토큰 갱신에는 싣지 않는다(밀려난 앱이 되살아나 남을 밀지 않게).
-     session 은 이번 실행의 값(저장 안 함) · deviceId 는 device-id.js(API 머리 X-Device-Id 와 같은 값).
+     session 은 로그인(연결)마다 새로 뽑는 값(저장 안 함) — stop · bye · quit 뒤 처음 start 가 새로 뽑고, 다시 붙기 · 토큰 갱신 · «여기서 계속»(멈춤 뒤 start)은 같은 값이다. 서버는 «갱신 hello 의 사람 · 기기 · 세션이 다르면 4001» 이라 같은 렌더러에서 A → B 로 바뀔 때 연결도 id 도 새것이어야 한다.
+     deviceId 는 device-id.js(API 머리 X-Device-Id 와 같은 값).
    [닫힘 번호] CLOSE_CODES(서버 protocol/closeCodes.ts 와 같은 이름 · 값) → closeAction 한 곳(설계 04-realtime-disconnect 4-D-2).
      다시 붙는 것은 사고(1006 · 1009 · 4005 · 4008 · 모르는 1000번대 · 1001 은 첫 시도를 흩고 오래 기다림)뿐. 멈추는 번호 뒤엔
      사용자 누름 · 서버 신호(점검 해제)로만 start 를 다시 부른다(자동 재시도 없음). 4001 은 새 토큰으로 한 번 더 — ready 전 error auth 도 같게 센다.
@@ -76,11 +77,11 @@ function realtimeUrlFor(env, storage){
   }catch(_){}
   return REALTIME_URLS.dev;
 }
-/* 세션 id — 서버 규칙 영숫자 _ - 1~32 · 이번 실행에만 */
+/* 세션 id — 서버 규칙 영숫자 _ - 1~32 · 연결(로그인)마다 새로 */
 const sessionIdOf = (uuid) => String(uuid).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 32);
 
 /** @param {{ createLink: Function, WebSocket: Function | null, url: () => string | null, getToken: (force: boolean) => Promise<string | null>,
- *   getVersion: () => (string | Promise<string>), deviceId: () => string, session: string,
+ *   getVersion: () => (string | Promise<string>), deviceId: () => string, newSession: () => string,   // newSession — 연결마다 새 세션 id 를 뽑는다(stop · bye · quit 뒤 처음 start 에서)
  *   now?: () => number, setTimeout?: Function, clearTimeout?: Function, random?: () => number, log?: { warn: Function } }} deps */
 function createRtHub(deps){
   const now = deps.now || (() => Date.now());
@@ -90,6 +91,7 @@ function createRtHub(deps){
   const stateFns = [];
   let link = null;
   let started = false, claimNext = false, authFails = 0, lostAt = null, sawSessionLost = false;
+  let sessionId = null;   // 이 연결의 세션 id — start 가 비어 있을 때 뽑고, 연결을 끝낸 stop · bye · quit 이 비운다(다음 로그인은 새 id)
   let state = STATE.OFF, userCode = null, lastClose = null;
   let pongTimer = null;
   let byeDone = null;   // bye 뒤 서버 닫힘을 기다리는 쪽 — { timer, res }
@@ -171,7 +173,7 @@ function createRtHub(deps){
       getToken: (force) => deps.getToken(force), getVersion: () => deps.getVersion(),
       pv: PV,
       helloFields: (phase) => {
-        const o = { deviceId: deps.deviceId(), session: deps.session };
+        const o = { deviceId: deps.deviceId(), session: sessionId };
         if(phase === 'open' && claimNext) o.claim = true;
         return o;
       },
@@ -186,6 +188,7 @@ function createRtHub(deps){
   function start(o){
     if(started) return;
     if(!link) link = makeLink();
+    if(sessionId === null) sessionId = sessionIdOf(deps.newSession());   // 끝낸 연결 뒤 첫 start — 새 로그인은 새 세션 id
     started = true; authFails = 0; sawSessionLost = false;
     claimNext = !(o && o.claim === false);
     setState(STATE.CONNECTING);
@@ -193,7 +196,7 @@ function createRtHub(deps){
   }
   /* 끄기 — 로그아웃 · 계정을 놓을 때. 다시 켜면 처음부터(놓친 알림 메우기 없음 — 그때는 화면을 새로 받는다). */
   function stop(){
-    started = false; lostAt = null; userCode = null;
+    started = false; lostAt = null; userCode = null; sessionId = null;
     clearPong();
     if(link) link.close();
     setState(STATE.OFF);
@@ -202,7 +205,7 @@ function createRtHub(deps){
      ready 가 아니면(인증 전 · 끊긴 중) 보낼 곳이 없으니 바로 끈다. 돌려주는 것: 끝나면 풀리는 Promise(던지지 않는다). */
   function bye(why){
     if(!started || !link){ stop(); return Promise.resolve(); }
-    started = false; lostAt = null; userCode = null;
+    started = false; lostAt = null; userCode = null; sessionId = null;
     clearPong();
     if(!link.send({ t: 'bye', why })){ link.close(); setState(STATE.OFF); return Promise.resolve(); }
     return new Promise((res) => {
@@ -212,7 +215,7 @@ function createRtHub(deps){
   /* 앱 끄기(beforeunload) — bye{quit} 를 보내고 기다리지 않고 닫는다(못 가면 서버는 1006 → 유예). */
   function quit(){
     if(!started || !link) return;
-    started = false;
+    started = false; sessionId = null;
     clearPong();
     link.send({ t: 'bye', why: BYE_WHY.QUIT });
     link.close();
@@ -280,7 +283,7 @@ if(typeof window !== 'undefined'){
     getToken: (force) => need().getToken(force),
     getVersion: () => need().getVersion(),
     deviceId: () => window.TwDeviceId.store.get(),
-    session: sessionIdOf(window.TwRequestId.newId()),
+    newSession: () => window.TwRequestId.newId(),
   });
   /* firebase-init.js 가 한 번 — { createLink(realtime-link.js), getToken(force), getVersion() } */
   hub.bind = (o) => { bound = o; };
