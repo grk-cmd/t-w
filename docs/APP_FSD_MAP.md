@@ -298,7 +298,7 @@ app.js 9,746 → 9,476줄(270줄) · 구역 167 → 130개. 남긴 빈 머리 �
 
 **0.12.4 — app.js 분리 T1**: 색조 셰이더 구역(100줄 → 0.13 의 이름 잇기 여섯 줄)을 `shared/hue-tint.js` 로 옮겼다(0.13 app.js 글 그대로 — 셰이더 본문은 코어 `tone.ts`).
 
-**0.12.4 — app.js 분리 T2**: 기본 몸 구역(`bodyCore` 만들기 · `loadBaseGLB` · `instantiateBase` · 커미션 GLB 캐시 · `normalizeModel`)을 `character/base-body.js` 로 옮겼다(0.13 app.js 글 그대로 — 단 0.12.4 의 #830 `shareSkeletons` 줄은 남김. 안 읽히던 `measureBaseGeometry` · `calcMeshBox` · `BASE_MESH_*` 와 `let BASE_SCENE · BASE_ANIMS` 는 걷고 코어 `bodyCore.baseScene()` · `baseAnims()` 로 읽음).
+**0.12.4 — app.js 분리 T2**: 기본 몸 구역(`bodyCore` 만들기 · `loadBaseGLB` · `instantiateBase` · 커미션 GLB 캐시 · `normalizeModel`)을 `character/base-body.js` 로 옮겼다(0.13 app.js 글 그대로 — #830 `shareSkeletons` 줄도 0.13 글에 있다. 안 읽히던 `measureBaseGeometry` · `calcMeshBox` · `BASE_MESH_*` 와 `let BASE_SCENE · BASE_ANIMS` 는 걷고 코어 `bodyCore.baseScene()` · `baseAnims()` 로 읽음).
 
 ## 구역 표 — `app/parts/app.js`
 

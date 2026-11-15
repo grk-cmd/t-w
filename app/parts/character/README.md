@@ -440,4 +440,4 @@
 
 - **책임**: 사람 몸(기본 GLB) 읽기 · 복제 · 크기는 캐릭터 코어(`createBody`)가 하고, 이 모듈은 코어 몸 만들기 · 몸 모델 자산(`window.BASE_GLB_B64`) 공급(`loadBaseGLB`) · 복제 뒤 같은 뼈대 하나로(`instantiateBase`) · 커미션 GLB 파싱 캐시(`getCommissionScene`) · 얼굴 텍스처(`mkFaceTex`) · 크기(`normalizeModel`). 앱 FSD 분리 T2 — 0.13 app.js 글 그대로(옛 `measureBaseGeometry` · `calcMeshBox` · `BASE_MESH_*` 는 선언만 있고 안 읽혀 코어로 걷음).
 - **만드는 법**: `TwBaseBody.createBaseBody({ loader, skelShare, _fixGlbMatLighting, setFaceMap, applyLightPreset, assetCodeMod })` — 값 2 · 함수 3 · 읽는 함수 1(`assetCodeMod`). app.js 가 원래 자리에서 만들고 아홉 이름을 const 로 받는다. 몸 장면 · 애니메이션은 `bodyCore.baseScene()` · `baseAnims()`.
-- **함정**: 0.13 에 없는 0.12.4 의 #830 줄(`skelShare.shareSkeletons`)이 `instantiateBase` 안에 있다 — 지우면 몸 복제마다 Skeleton 이 따로 생긴다(`sim-skeleton-share`). 몸 모델이 아직 안 읽혔으면 `baseScene()` 은 없음 — 부르는 쪽(`_baseHeadTopAboveBone` 등)이 그 값을 본다. 검사: `checks/sim-base-body.js`.
+- **함정**: #830 줄(`skelShare.shareSkeletons`)이 `instantiateBase` 안에 있다 — 지우면 몸 복제마다 Skeleton 이 따로 생긴다(`sim-skeleton-share`). 몸 모델이 아직 안 읽혔으면 `baseScene()` 은 없음 — 부르는 쪽(`_baseHeadTopAboveBone` 등)이 그 값을 본다. 검사: `checks/sim-base-body.js`.
