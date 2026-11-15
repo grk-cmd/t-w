@@ -62,7 +62,8 @@ const ACCOUNT_KEY_PREFIXES = Object.freeze([
 /* 이미 계정 칸에서 읽고 쓰는 키 — migrateLegacy 가 PC 칸에서 옮기는 대상. */
 const MOVED_KEYS = Object.freeze(['tw.focusTodaySec', 'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1',
   'tw.charColorHistory', 'tw.activeInteractionDesk',
-  'tw.myAdBannerImg', 'tw.secretRoomMusic', 'tw.annivView']);
+  'tw.myAdBannerImg', 'tw.secretRoomMusic', 'tw.annivView',
+  'tw.deskPresets', 'tw.animalPresets']);
 /* 접두로 이미 계정 칸에서 읽고 쓰는 키 — migrateLegacy 가 PC 칸을 훑어 접두가 맞는 이름마다 옮긴다(최근 색 · 방명록 읽음 시각 · 채팅 탭 · 읽음 표시 · 입장 표시).
    ⚠️ ACCOUNT_KEY_PREFIXES 의 부분집합 — 서버가 세는 `tw.dailyPlay.` 는 옮기지 않는다. */
 const MOVED_KEY_PREFIXES = Object.freeze(['tw.mhRecentColors.', 'tw.mhGbLastRead:', 'tw.chatTab.', 'tw_chat_read:', 'tw_chat_join:']);

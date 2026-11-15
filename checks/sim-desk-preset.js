@@ -209,8 +209,8 @@ function wire(app, html) {
   const t = (ok, msg) => r.push([!!ok, msg]);
   const A = strip(app);
   t(!/function captureDeskPreset\b|function applyDeskPreset\b|function renderDeskPresetSlots\b|function loadDeskPresets\b|const PRESET_KEY\b/.test(A), 'app.js 에 옮긴 선언이 안 남았다');
-  t(/const deskPresetStoreMod = TwDeskPresetStore\.createDeskPresetStore\(\{\n  jsonStore: TwJsonStore,\n  notifyError: \(\.\.\.a\)=>TwErrorCodes\.notify\(\.\.\.a\),\n  isCatalogDesk: \(id\)=>commissionMod\.catalogBacked\(commissionMod\.savedDesks\(\)\.find\(d=>d\.id===id\)\),\n\}\);/.test(app),
-    '저장 만드는 줄(가드 없이) · deps 는 jsonStore · notifyError · isCatalogDesk(카탈로그 판단은 commission.js catalogBacked 한 곳)');
+  t(/const deskPresetStoreMod = TwDeskPresetStore\.createDeskPresetStore\(\{\n  jsonStore: accountJsonStoreMod,\n  notifyError: \(\.\.\.a\)=>TwErrorCodes\.notify\(\.\.\.a\),\n  isCatalogDesk: \(id\)=>commissionMod\.catalogBacked\(commissionMod\.savedDesks\(\)\.find\(d=>d\.id===id\)\),\n\}\);/.test(app),
+    '저장 만드는 줄(가드 없이) · deps 는 jsonStore(계정 칸 위 — S-3e) · notifyError · isCatalogDesk(카탈로그 판단은 commission.js catalogBacked 한 곳)');
   const mk = (app.match(/const deskPresetMod = TwDeskPreset\.createDeskPreset\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
   t(mk.split('\n').length === 29 && /  NO_DESK_ID: NO_DESK_ID,/.test(mk) && /  hideDeskBody: \(\.\.\.a\)=>deskVisualMod\.hideDeskBody\(\.\.\.a\),/.test(mk) && /  crState: crState,/.test(mk) && /  deskPresetStoreMod: deskPresetStoreMod,/.test(mk) && app.indexOf('const deskPresetStoreMod =') < app.indexOf('const deskPresetMod ='), '프리셋 만드는 줄(가드 없이) · deps 28 · 저장 모듈을 먼저 만든다');
   const iS = html.indexOf('<script src="parts/creator/desk-preset-store.js"></script>'), iM = html.indexOf('<script src="parts/creator/desk-preset.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');

@@ -722,11 +722,11 @@ function _applyEarAdj(side){
 function applyEars(){ _attachEar('L'); _attachEar('R'); }
 const ANP_PRESET_KEY='tw.animalPresets';
 function _loadPresets(){
-  const r = TwJsonStore.load(ANP_PRESET_KEY, {});
+  const r = accountJsonStoreMod.load(ANP_PRESET_KEY, {});   // 🗂️ 계정 칸 위의 JSON 칸(app.js)
   if(!r.ok){ console.warn(TwJsonStore.diagLine('load', ANP_PRESET_KEY, r)); TwErrorCodes.notify('E-CHAR-05', r.err); }
   return r.list;
 }
-function _savePresets(o){ return TwJsonStore.save(ANP_PRESET_KEY, o); }   // 읽기 · 쓰기는 shared/json-store.js 한 곳
+function _savePresets(o){ return accountJsonStoreMod.save(ANP_PRESET_KEY, o); }   // 읽기 · 쓰기는 shared/json-store.js 한 곳(계정 칸 위)
 /* 저장 성공 안내는 실제로 써진 뒤에만 — 실패면 이유 · 번호를 띄운다(사람 책상 프리셋과 같은 모양). */
 function _presetSaveNotice(res, slot, okMsg){
   if(res.ok){ toast(okMsg); return; }
