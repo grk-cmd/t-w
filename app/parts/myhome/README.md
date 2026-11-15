@@ -235,3 +235,9 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 - **만드는 법**: `TwMyHomeStickerRender.createMyHomeStickerRender({ mhPageMod, mhStateMod, mhStLayoutMod, myHomeSticker })` — `myHomeSticker` 만 읽는 함수(뒤에서 만들어짐).
 - **내보내는 것**: `renderMyHomeStickers()`(그리고 «그린 뒤» 알림을 부른다) · `onRendered(fn)`(그린 뒤 할 일을 거는 자리 — 마이홈 편집 묶음이 삭제 버튼 자동 저장을 건다).
 - **함정**: 옛 «함수를 감싸 다시 대입» 은 걷었다(F4). 마이홈 탭이 아니라 일찍 끝나도 알림은 부른 횟수만큼 간다(옛 감싸개와 같다). 검사: `checks/sim-myhome-sticker-render.js`.
+
+## myhome-desktop.js — 🏠 마이홈 바탕화면
+
+- **책임**: 예전엔 app.js 다음 `<script>` 로 실려 app.js 맨 위 이름을 그냥 불렀다(R7). 지금은 `TwMyHomeDesktop.createMyHomeDesktop(deps)` 로 받는다 — app.js 보다 먼저 싣고(html), app.js 끝의 «화면 모듈 넷(M23)» 줄에서 INIT 뒤에 만든다(옛 «app.js 다음 script» 와 같은 때 · 같은 차례).
+- **받는 deps**: 값 `focusLevelMod` · 함수 셋(`getMyUserId` · `getDisplayName` · `toast`) · 읽는 함수 셋(`_focusTotalSec` · `isPremium` · `isAdmin`).
+- **함정**: `folder-free.js` 를 먼저 싣는다. `mallang.js` · `bookmark.js` 는 `MYHOME_DESKTOP` 이 만들어진 뒤라 app.js 뒤에 그대로 둔다(그 둘의 app.js 이름 3개씩은 남은 몫). 검사: `checks/sim-global-deps.js`(deps 없이 app.js 이름을 부르는 곳 0 · deps 짝 · 연결).

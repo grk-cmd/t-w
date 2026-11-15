@@ -454,3 +454,9 @@
 - **책임**: 꾸미기 파츠를 좌석 본에 붙이는 일의 좌석 몫 — `equipPartOnSeat`(옷 겹침 정리 · GLB 받기 · 리깅 판정 · 장착 차례 · 귀 까닥임 · 애니메이션 · 진단) · 떼기(`unequipPartFromSeat` · `unequipStackablePart` · 비동기 장착 무효화 `_invalidatePendingEquip` · 유령 wrapper 청소 `_sweepOrphanPartWrappers` · 다시 맞추기 요청) · 좌석과 def 대조(`pruneSeatPartsAgainstDef`) · 저장된 파츠 한꺼번에 입히기(`applyEquippedPartsToSeat`) · 본 찾기(`extractBonesInto`). 앱 FSD 분리 T6 — 0.13 app.js 글 그대로(복제 · 재질 · _col · _pic · 리깅 다시 묶기 · wrapper 는 코어 `createParts` 호출).
 - **만드는 법**: `TwPartEquip.createPartEquip({ … })` — 21개(값 5 · 옛 이름으로 받은 part-xf · cloth-visibility · part-anim 함수 · 함수 2 · 읽는 함수 `partSceneMod`). app.js 가 `part-xf.js` 와 옷 겹침 뒤에서 만들고 밖에서 부르는 아홉 이름을 const 로 받는다.
 - **함정**: 해제는 먼저 `_invalidatePendingEquip` 으로 번호를 올려야 늦게 도착한 장착이 스스로 멈춘다(유령 파츠 방어). `pruneSeatPartsAgainstDef` 의 파츠 정보 조회 실패는 «없음» 이 아니라 «유지» 다(착용 파츠 증발 사고). `skelShare.shareSkeletons` 두 줄(#830 — 본체 · 다중 파츠 사본)을 지우지 말 것(`sim-skeleton-share`). 검사: `checks/sim-part-equip-mod.js`.
+
+## animal.js — 🐾 동물 생성기 · 동물 카드
+
+- **책임**: 예전엔 app.js 다음 `<script>` 로 실려 app.js 맨 위 이름을 그냥 불렀다(R7). 지금은 `TwAnimal.createAnimal(deps)` 로 받는다 — app.js 보다 먼저 싣고(html), app.js 끝의 «화면 모듈 넷(M23)» 줄에서 INIT 뒤에 만든다(옛 «app.js 다음 script» 와 같은 때 · 같은 차례).
+- **받는 deps**: 값 `lightToneMod` · `loader` · `focusLevelMod` · `ANIMAL_HAND_REST` · `partPaintMod` · `slots`(제자리 고침 — 다시 대입 안 됨) · `slotSaveMod` · `Presence` · `LIGHT_PRESET` · 함수 아홉(`normalizeModel` · `toast` · `bindHold` · `applyDesktopRunClass` · `renderLauncher` · `applyCharToSeat` · `layoutSeats` · `openCreator` · `saveCurSlot`) · 읽는 함수 넷(`isAdmin` · `curSlot` · `creatorMode` · `creatorOpen`) · 쓰는 함수 둘(`setCurSlot` · `setCreatorOpen`).
+- **함정**: `curSlot` · `creatorOpen` 은 이 모듈이 바꾸는 app.js 의 let 이라 쓰는 함수로만 바꾼다. 자료(`animal-glb.js` · `ears-glb.js`)는 이 모듈보다 먼저 싣는다. 검사: `checks/sim-global-deps.js`(deps 없이 app.js 이름을 부르는 곳 0 · deps 짝 · 연결).

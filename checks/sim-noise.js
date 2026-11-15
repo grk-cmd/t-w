@@ -1,7 +1,7 @@
 /* ═══ 🌙 sim-noise.js — 백색소음 (2026-09-23 · 개정 64 신설 · handoff-2026-09-23-noise §4) ═══════════════════
    [무엇을 지키나]
    ・1절: 마크업 — 플레이리스트 창 음악 줄 바로 아래 · 칸 넷(끄기 포함) · 전용 슬라이더 · 남의 소리 체크 · ▼ 접기 ·
-          회사원 안내 · 미니미에서 숨김 · <script> 순서(app.js 뒤 · 자료 → 재생기).
+          회사원 안내 · 미니미에서 숨김 · <script> 순서(자료 → 재생기 → app.js — app.js 가 끝에서 만든다).
    ・2절: 합성 규칙(«합치기» 확정) — 1명 50 · 2명 70 · 3명+ 90 · 내 소리 100 · 남의 소리 종류 기준 3겹 · 회사원 무음 ·
           체크를 끄면 내 소리만 · 멈춤/잠 자세는 무음 · 모르는 종류는 버림.
    ・3절: 좌석 읽기 — focus 만 · 숨긴 사람 제외 · 자리추가 판(findMySeat) · 회사원 모드.
@@ -41,7 +41,7 @@ say('── 1. 마크업');
   const iVol = HTML.indexOf('  #myPlaylistBox .plVol{'), iNzV = HTML.indexOf('#myPlNoise .plVol.nzVol{max-width:none;}');
   chk(iVol > 0 && iNzV > iVol, '백색소음 슬라이더는 62px 상한을 푼다(뒤에서)');
   const sApp = HTMLC.indexOf('<script src="parts/app.js">'), sSnd = HTMLC.indexOf('<script src="parts/status/noise-sounds.js">'), sNz = HTMLC.indexOf('<script src="parts/status/noise.js">');
-  chk(sApp > 0 && sSnd > sApp && sNz > sSnd, '<script> 순서 — app.js → noise-sounds.js → noise.js');
+  chk(sApp > 0 && sSnd > 0 && sNz > sSnd && sApp > sNz, '<script> 순서 — noise-sounds.js → noise.js → app.js(app.js 가 끝에서 createNoise 로 만든다 — M23)');
   chk((HTMLC.match(/parts\/(?:status\/)?noise\.js/g) || []).length === 1 && (HTMLC.match(/parts\/(?:status\/)?noise-sounds\.js/g) || []).length === 1, '두 파일 모두 한 번씩만 실린다');
 }
 
@@ -59,12 +59,13 @@ const ctx = {
   hiddenSeatsMod:{ _seatHidden:(s)=> env.hidden.has(s) },   // 🙈 hidden-seats.js 가 내놓는 이름(app.js 의 hiddenSeatsMod)
   Presence:{ setNoise:(k)=>env.sent.push(k) },
 };
-ctx.officeModeMod = { officeMode: ()=>env.office };   // 회사원 모드 깃발은 launcher/office-mode.js 가 갖는다(noise.js 는 app.js 전역 officeModeMod 로 읽는다)
+ctx.officeModeMod = { officeMode: ()=>env.office };   // 회사원 모드 깃발은 launcher/office-mode.js 가 갖는다(noise.js 는 deps 로 받는다)
 ctx.window = ctx;
 ctx.window.addEventListener = (ev)=>env.listeners.push(ev);
 vm.createContext(ctx);
 vm.runInContext(SND, ctx, { filename:'noise-sounds.js' });
 vm.runInContext(NZ, ctx, { filename:'noise.js' });
+ctx.TwNoise.createNoise({ officeModeMod: ctx.officeModeMod, seats: ctx.seats, findMySeat: (...a)=>ctx.findMySeat(...a), seatState: (...a)=>ctx.seatState(...a), hiddenSeatsMod: ctx.hiddenSeatsMod, Presence: ctx.Presence });   // app.js 끝의 만드는 줄과 같다(M23)
 const N = ctx.TW_NOISE;
 
 say('── 2. 합성 규칙 («합치기»)');

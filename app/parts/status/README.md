@@ -79,3 +79,9 @@
   - `seatPanelMod.manual()` 을 읽고 좌석 패널이 `activity` · `triggerPet` 을 부르는 서로 부름은 M10 전 app.js 때와 같다(모두 부를 때 찾는 읽기). `sim-dep-cycles` 가 옛 이름 별칭을 못 따라가 못 본다 — 별칭 따라가기와 수동 상태 주인 옮기기는 따로 한다.
   - 옛 `lastZ`(선언만 있고 아무도 안 읽던 값)는 옮기지 않았다.
   - 검사: `checks/sim-seat-state.js`(판정 순서 · 시각 · 듣기 · 쓰다듬기 · 연결 · 깨 보기).
+
+## noise.js — 🌙 백색소음
+
+- **책임**: 예전엔 app.js 다음 `<script>` 로 실려 app.js 맨 위 이름을 그냥 불렀다(R7). 지금은 `TwNoise.createNoise(deps)` 로 받는다 — app.js 보다 먼저 싣고(html), app.js 끝의 «화면 모듈 넷(M23)» 줄에서 INIT 뒤에 만든다(옛 «app.js 다음 script» 와 같은 때 · 같은 차례).
+- **받는 deps**: 값 `officeModeMod` · `seats` · `hiddenSeatsMod` · `Presence` · 함수 둘(`findMySeat` · `seatState`).
+- **함정**: 소리 자료(`noise-sounds.js`)를 이 모듈보다 먼저 싣는다. `_plSyncBgmBounds` · `_plApplyPos` 는 playlist.js 가 건 window 고리라 그대로다(noise.js 는 try 로 감싸 부른다). 검사: `checks/sim-global-deps.js`(deps 없이 app.js 이름을 부르는 곳 0 · deps 짝 · 연결).

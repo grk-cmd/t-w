@@ -206,7 +206,7 @@ function wire(app, html) {
   t(!/^const (TONE_FRONT_TOTAL|FLAT_EMISSIVE|PART_TEX_FLAT|ITEM_SOLID_FLAT)\b|function _applyPartMatTone\b|function _setDeskMatColor\b/m.test(A), 'app.js 에 옮긴 선언이 안 남았다');
   const mk = (app.match(/const lightToneMod = TwLightTone\.createLightTone\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
   t(mk.split('\n').map((l) => l.trim()).join('|') === '_FILL_LIGHT_MUL: _FILL_LIGHT_MUL,|_KEY_LIGHT_MUL: _KEY_LIGHT_MUL,|_MAIN_LIGHT_COL: _MAIN_LIGHT_COL,|_MAIN_LIGHT_INT: _MAIN_LIGHT_INT,|_fixGlbMatLighting: (...a)=>_fixGlbMatLighting(...a),|charCore: TwCharCore,', '만드는 줄(가드 없이) · deps 6');
-  t(/^const LIGHT_PRESET = lightToneMod\.LIGHT_PRESET;\s+\/\/ 옛 전역 이름/m.test(app), '옛 전역 이름 LIGHT_PRESET 한 줄(animal.js 가 읽는다)');
+  t(/^const LIGHT_PRESET = lightToneMod\.LIGHT_PRESET;\s+\/\/ 옛 전역 이름/m.test(app), '옛 전역 이름 LIGHT_PRESET 한 줄(app.js 안에서 쓴다 — animal.js 는 deps 로 받는다)');
   t(['MAIN_LIGHT_INT', 'KEY_LIGHT_MUL', 'FILL_LIGHT_MUL'].every((n) => new RegExp('^const _' + n + ' = TwCharCore\\.' + n + ';', 'm').test(app)), 'app.js 조명 상수 셋은 코어 값(숫자를 다시 적지 않는다 — 웹 생성기와 한 벌)');
   t(/^function _fixGlbMatLighting\(m\)\{\n  TwCharCore\.fixMatLighting\(m, /m.test(app), 'app.js 재질 고치기는 코어 fixMatLighting(콘솔 한 줄만 앱 몫)');
   t(/^  CREATOR_LIGHT_SL: lightToneMod\.CREATOR_LIGHT_SL,$/m.test(app) && /^  LIGHT_PRESET: lightToneMod\.LIGHT_PRESET,$/m.test(app) && !/TwCharCore\.(CREATOR_LIGHT_SL|LIGHT_PRESET)\b/.test(app), '생성기 미리보기 빛 숫자 둘은 lightToneMod 한 길로(코어를 따로 바로 받지 않는다)');

@@ -183,6 +183,9 @@ function joinRenderer(app){
   if(typeof app !== 'string') return app;
   /* 옛 전역 이름 잇기 줄(«// 옛 전역 이름» 표지)은 먼저 지운다 — «mod.» 를 떼면 자기 자신을 부르는 함수가 된다(자리 계산 전에) */
   app = app.split('\n').filter(l => !l.includes('// 옛 전역 이름')).join('\n');
+  /* app.js 끝의 «화면 모듈 넷(M23)» 만드는 줄은 옛 app.js 글에 없던 것(옛엔 그 파일들이 app.js 다음 script) — 옮기기 전 글이 아니므로 뗀다 */
+  const iM23 = app.indexOf('/* 🧩 app.js 를 마친 뒤 만드는 화면 모듈 넷(앱 FSD · M23)'), eM23 = iM23 >= 0 ? app.indexOf('  LIGHT_PRESET: LIGHT_PRESET,\n});', iM23) : -1;
+  if(iM23 >= 0) app = app.slice(0, iM23) + (eM23 > 0 ? app.slice(eM23 + '  LIGHT_PRESET: LIGHT_PRESET,\n});'.length) : '');   // 블록 끝까지만 — 그 아래에 줄이 붙으면 남는다
   /* 다른 모듈 만드는 줄의 쓰는 함수가 옮긴 모듈의 쓰는 함수를 거치면(«setX: (v)=>{ mod.setX(v); },») 옛 모양 «x = v» 로 먼저 돌린다 —
      그래야 아래 ②에서 그 모듈 본문의 setX(…) 도 «x = …» 로 되살아난다 */
   const allSet = {};
