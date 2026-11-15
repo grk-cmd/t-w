@@ -166,6 +166,8 @@ export function existingRoomWarning(
     return months
       ? `⚠️ ${mine.code} 는 지금 영구예요. 그대로 발급하면 영구가 풀리고 지금부터 ${months}개월 기간제로 바뀝니다.`
       : `${mine.code} 는 지금 영구예요. 영구를 그대로 둡니다.`;
+  if (months === 0)
+    return `⚠️ ${mine.code} 는 지금 ${formatDay(mine.expiresAt)} 까지 기간제예요. 영구로 발급하면 기간제가 풀리고 영구로 바뀝니다.`;
   return `${mine.code} 는 이미 이 사람의 방이에요(현재 기간 ${formatDay(mine.expiresAt)} 까지${now > mine.expiresAt ? ', 이미 만료' : ''}). 그대로 발급하면 ${now > mine.expiresAt ? '지금부터 다시 시작합니다.' : '남은 기간에 이어붙입니다.'}`;
 }
 

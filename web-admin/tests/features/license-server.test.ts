@@ -424,6 +424,9 @@ describe('시크릿룸 발급 — API 판', () => {
     expect(await warn(mine({ expiresAt: '2099-01-01T00:00:00Z' }), { want: 'MINE', months: '3' })).toEqual([
       expect.stringContaining('남은 기간에 이어붙입니다'),
     ]);
+    expect(await warn(mine({ expiresAt: '2099-01-01T00:00:00Z' }), { want: 'MINE', months: '' })).toEqual([
+      expect.stringContaining('영구로 발급하면 기간제가 풀리고'),
+    ]);
     expect(await warn(mine(), { want: 'NEW1', months: '3' })).toEqual([
       expect.stringMatching(/SCRT-NEW1 로 발급하면 SCRT-MINE 는 바로 끝나고/),
     ]);
