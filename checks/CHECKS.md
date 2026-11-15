@@ -501,7 +501,7 @@
 | **sim-room-rt.js** | 364 | **19243ed66e49** |
 | **sim-chat-rt.js** | 222 | **eed374898aaa** |
 | **sim-room-invite-rt.js** | 85 | **aaf5c3f73ec3** |
-| **sim-purikura-rt.js** | 444 | **6b2045d0fb36** |
+| **sim-purikura-rt.js** | 458 | **24a5cf75951c** |
 | **sim-env-diag.js** | 174 | **8da31de26ec8** |
 | **sim-gpu-timer.js** | 170 | **2aed586a367c** |
 | **sim-run-cost-diag.js** | 163 | **75186f43715b** |
