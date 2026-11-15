@@ -87,9 +87,9 @@ function createXmasTree(deps){
     const key = new THREE.DirectionalLight(0xfff1d6, 0.9); key.position.set(3, 6, 5); scene.add(key);
     const snap = { value: new THREE.Vector2(160, 120) };
     const tree = new THREE.Group(); scene.add(tree);
-    const pine = ps1Snap(new THREE.MeshLambertMaterial({ color: '#2f7a4a', flatShading: true }), snap);
+    const pine = ps1Snap(new THREE.MeshLambertMaterial({ color: '#2f7a4a' }), snap);
     rules.TIERS.forEach(t => { const m = new THREE.Mesh(new THREE.ConeGeometry(t.r, t.h, 8, 1), pine); m.position.y = t.y + t.h / 2; tree.add(m); });
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, 0.8, 6), ps1Snap(new THREE.MeshLambertMaterial({ color: '#6b4a2e', flatShading: true }), snap));
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, 0.8, 6), ps1Snap(new THREE.MeshLambertMaterial({ color: '#6b4a2e' }), snap));
     trunk.position.y = 0.3; tree.add(trunk);
     const top = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), ps1Snap(new THREE.MeshBasicMaterial({ color: '#f2c14e' }), snap));
     top.position.y = 4.85; tree.add(top);
@@ -156,11 +156,12 @@ function createXmasTree(deps){
     const v = S.sel.getWorldPosition(_v()).project(S.cam);
     onSay({ word: S.sel.userData.word, x: (v.x + 1) / 2 * S.canvas.clientWidth, y: (1 - v.y) / 2 * S.canvas.clientHeight });
   }
-  function hitAt(cx, cy){
+  /** 누른 자리의 장식 · 몸통 — 누르기는 내 장식(늘 앞)을 먼저, othersOnly(신고)면 남의 장식만 */
+  function hitAt(cx, cy, othersOnly){
     const r = S.canvas.getBoundingClientRect();
     S.ray.setFromCamera(new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1), S.cam);
     const hits = S.ray.intersectObjects(S.tree.children.filter(o => o.isSprite));
-    const h = hits.find(x => x.object.userData.mine) || hits[0];
+    const h = othersOnly ? hits.find(x => !x.object.userData.mine) : (hits.find(x => x.object.userData.mine) || hits[0]);
     return { orn: h ? h.object : null, trunk: !h && S.ray.intersectObjects(S.tree.children.filter(o => o.isMesh)).length > 0 };
   }
 
@@ -199,6 +200,7 @@ function createXmasTree(deps){
     });
     const end = (e) => {
       S.drag = null; c.classList.remove('drag');
+      if (e && e.button !== 0){ downAt = null; return; }   // 우클릭은 신고(contextmenu) 몫 — 한마디 라벨을 같이 띄우지 않는다
       if (!downAt || !e || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) >= 5){ downAt = null; return; }
       downAt = null;
       const h = hitAt(e.clientX, e.clientY);
@@ -220,8 +222,8 @@ function createXmasTree(deps){
     // 우클릭 = 장식 신고(이름은 안 보이니 장식 자리로 신고 — 관리자는 건 사람을 본다)
     on('contextmenu', (e) => {
       e.preventDefault();
-      const h = hitAt(e.clientX, e.clientY);
-      if (h.orn && !h.orn.userData.mine && onReport) onReport(h.orn.userData.slot);
+      const o = hitAt(e.clientX, e.clientY, true).orn;   // 신고는 남의 장식만 — 내 장식이 앞에 겹쳐도 뒤의 것을 고른다
+      if (o && onReport) onReport(o.userData.slot);
     });
   }
 

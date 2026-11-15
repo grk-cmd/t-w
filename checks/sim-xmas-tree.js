@@ -2,7 +2,7 @@
    실행: node checks/run.js sim-xmas-tree
    ・1절 기본 장식 그림 — 종류가 서버 · 규칙과 같다 · 다섯 가지 모두 16칸에 점을 찍는다 · 모르는 종류는 null
    ・2절 수명 — 닫을 때 rAF 를 멈추고 텍스처 · 지오메트리 · 렌더러 · 렌더 타깃을 버린다(창마다 WebGL 컨텍스트)
-   ・3절 그리기 약속 — 장식은 화면 크기 고정 · 내 장식은 늘 앞 · 반짝임은 규칙(blinkOpacity) · 자리는 규칙(slotPositions)
+   ・3절 그리기 약속 — 장식은 화면 크기 고정 · 내 장식은 늘 앞 · 반짝임은 규칙(blinkOpacity) · 자리는 규칙(slotPositions) · 우클릭 신고는 남의 장식만
    실제 그림은 브라우저에서 앱 three r128 로 그려 확인했다(PR 본문). */
 'use strict';
 const fs = require('fs');
@@ -43,6 +43,9 @@ chk(/rules\.blinkOpacity\(t - s\.userData\.blinkAt\)/.test(SRC) && /rules\.slotP
 chk(/rules\.createShake\(\)/.test(SRC) && /rules\.createTaps\(\)/.test(SRC), '흔들기 · 10번 누르기도 규칙 모듈');
 chk(!/localStorage|firebaseAPI|fetch\(/.test(SRC), '저장 · 서버를 모른다(떨어진 장식은 이 화면에서만)');
 chk(/ps1Dither\.BAYER4/.test(SRC), 'PS1 디더 표는 shared/ps1-dither.js 한 벌');
+chk(/if \(e && e\.button !== 0\)\{ downAt = null; return; \}/.test(SRC), '우클릭은 한마디 라벨을 띄우지 않는다(신고 창만)');
+chk(/hitAt\(e\.clientX, e\.clientY, true\)\.orn/.test(SRC) && /othersOnly \? hits\.find\(x => !x\.object\.userData\.mine\)/.test(SRC), '신고는 남의 장식만 — 내 장식이 앞에 겹쳐도 뒤의 것을 고른다');
+chk(!/MeshLambertMaterial\(\{[^}]*flatShading/.test(SRC), 'Lambert 에 없는 flatShading 을 넘기지 않는다(콘솔 경고)');
 
 say(`\n${fail ? '✗' : '✓'} ${pass} 통과 · ${fail} 실패`);
 process.exit(fail ? 1 : 0);

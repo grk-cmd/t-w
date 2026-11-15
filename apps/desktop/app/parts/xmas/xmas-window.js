@@ -2,20 +2,21 @@
    책임: 런처 [크리스마스] 버튼(1월 1일 0시 — 서버 시각 — 부터 숨김) · 창 열고 닫기 · 내 트리 불러오기(그림은 판이 달라진 자리만) ·
      장식 고르기 · 내 그림 올리기(64px PNG) · 한마디 · 장식 달기 · 바꾸기(5초 간격) · «트리가 다 찼어요» · 장식 신고 · 한마디 라벨.
    3D 는 xmas-tree.js, 서버는 net(firebaseAPI.xmas — 늦게 붙으므로 부를 때 찾는다), 규칙은 rules(TwXmasRules).
-   ★ 그림 사본은 이 PC(localStorage tw.xmasImg.{트리})에 판과 함께 둔다 — 다시 열 때 판이 같은 그림은 받지 않는다.
+   ★ 그림 사본은 이 PC 의 GLB 영구 캐시(IndexedDB)에 «트리/자리@판» 키로 — 다시 열 때 판이 같은 그림은 받지 않는다.
+     ⚠️ localStorage 에 두지 말 것 — 트리 하나가 수 MB 라 앱 전체가 같이 쓰는 한도를 먹어 캐릭터 저장 등이 실패한다.
    ★ 남이 쓴 한마디는 textContent 로만 넣는다.
    classic script(window.TwXmasWindow) — app.js 보다 먼저 싣는다. app.js 가 `createXmasWindow(deps)` 한 번 — 밖에서 부르는 이름 없음(런처 버튼이 연다). */
 (function(){
 'use strict';
 
-const IMG_CACHE_KEY = 'tw.xmasImg.';
+const IMG_CACHE_KEY = 'xmasimg:';   // GLB 영구 캐시(IndexedDB) 키 머리 — 'xmasimg:{트리}/{자리}@{판}' (판이 키에 있어 옛 판은 안 쓰이고 45일 뒤 치워진다)
 const IMG_DATA_MAX = 15000;     // 서버 상한(16000)보다 조금 아래 — 넘으면 더 작게 줄인다
 const FETCH_PAR = 6;
 
 /**
  * @param {{ doc?:Document, win?:Window, THREE:any, ps1Dither:any, rules:any, treeMod:any, net:()=>any, serverNow:()=>number,
  *           notifyError:(code:string, err?:any)=>void, toast:(msg:string)=>void, escRegisterWindow:Function,
- *           onSizeChange:()=>void, onReady:(fn:()=>void)=>void, storage?:Storage }} deps
+ *           onSizeChange:()=>void, onReady:(fn:()=>void)=>void, idbGet:(k:string)=>Promise<string|null>, idbPut:(k:string, v:string)=>any }} deps
  */
 function createXmasWindow(deps){
   const doc = deps.doc || document;
@@ -25,11 +26,12 @@ function createXmasWindow(deps){
   const serverNow = deps.serverNow;
   const notifyError = deps.notifyError;
   const toast = deps.toast;
-  const storage = deps.storage || win.localStorage;
+  const idbGet = deps.idbGet;
+  const idbPut = deps.idbPut;
   const $ = (id) => doc.getElementById(id);
 
   const ov = $('xmasOverlay'), btn = $('lcXmas');
-  if (!ov || !btn) return { open(){}, close(){}, refreshButton(){} };   // 이 html 판에는 창이 없다(옛 판 · 검사 껍데기)
+  if (!ov || !btn) throw new Error('xmas-window: #xmasOverlay · #lcXmas 가 html 에 없다');
   const tree = deps.treeMod.createXmasTree({ THREE: deps.THREE, rules, ps1Dither: deps.ps1Dither, doc, win });
 
   let treeNo = 0, mine = null, ornList = [], chosen = { kind: 'star', img: null }, lastHangAt = NaN, busy = false, seq = 0;
@@ -110,9 +112,8 @@ function createXmasWindow(deps){
     fr.readAsDataURL(f);
   });
 
-  /* ── 그림 사본(이 PC) ── */
-  function cacheGet(t){ try { return JSON.parse(storage.getItem(IMG_CACHE_KEY + t) || '{}') || {}; } catch (_) { return {}; } }
-  function cacheSet(t, m){ try { storage.setItem(IMG_CACHE_KEY + t, JSON.stringify(m)); } catch (_) { /* 꽉 찼으면 사본 없이 — 다음에 다시 받는다 */ } }
+  /* ── 그림 사본(이 PC · IndexedDB) ── */
+  const imgKey = (t, s, v) => IMG_CACHE_KEY + t + '/' + s + '@' + v;
   /** 서버에서 받은 그림(남이 올린 값) — 이미지 data URL 만 받는다 */
   function loadImage(d){
     const src = TwSafeHtml.safeUrl(d, 'image');
@@ -134,22 +135,25 @@ function createXmasWindow(deps){
     const tr = await n.tree(treeNo);
     if (my !== seq || !ov.classList.contains('on')) return;
     if (!tr.ok){ setState('트리를 불러오지 못했어요.'); notifyError('E-XMAS-01', tr.err); return; }
-    const cache = cacheGet(treeNo);
-    const have = {}; for (const s of Object.keys(cache)) have[s] = cache[s] && cache[s].v;
+    // 지금 판의 사본이 있는 자리는 받지 않는다 — 판이 «다른» 자리만(rules.changedImgSlots)
+    const cache = {}, have = {};
+    const imgSlots = Object.keys(tr.o).filter(s => tr.o[s] && tr.o[s].k === 'img');
+    await Promise.all(imgSlots.map(s => Promise.resolve(idbGet(imgKey(treeNo, s, tr.o[s].v))).then(d => { if (d){ cache[s] = d; have[s] = tr.o[s].v; } }, () => {})));
     const need = rules.changedImgSlots(tr.o, have);
     for (let i = 0; i < need.length; i += FETCH_PAR){
       const got = await Promise.all(need.slice(i, i + FETCH_PAR).map(s => n.img(treeNo, s).then(r => [s, r])));
-      for (const [s, r] of got) if (r.ok && r.d) cache[s] = { v: r.v, d: r.d };
+      for (const [s, r] of got){
+        if (!r.ok || !r.d) continue;
+        cache[s] = r.d;
+        if (Number.isInteger(r.v)) idbPut(imgKey(treeNo, s, r.v), r.d);   // 받은 판 그대로의 키로(그새 바뀌었으면 다음에 그 판으로 다시 받는다)
+      }
     }
-    if (my !== seq || !ov.classList.contains('on')) return;
-    for (const s of Object.keys(cache)) if (!tr.o[s] || tr.o[s].k !== 'img') delete cache[s];   // 지워졌거나 기본 장식으로 바뀐 자리
-    cacheSet(treeNo, cache);
     const list = [];
     for (const s of Object.keys(tr.o)){
       const e = tr.o[s]; if (!e) continue;
       const slot = Number(s);
       const isMine = !!(mine && mine.s === slot);
-      const img = e.k === 'img' && cache[s] ? await loadImage(cache[s].d) : null;
+      const img = e.k === 'img' && cache[s] ? await loadImage(cache[s]) : null;
       list.push({ slot, k: e.k, img, word: typeof e.w === 'string' ? e.w : '', mine: isMine, blink: isMine && !!blinkMine });
     }
     if (my !== seq || !ov.classList.contains('on')) return;
@@ -176,6 +180,7 @@ function createXmasWindow(deps){
       if (r.code === 'aborted') toast('장식을 거는 중이에요. 잠시 뒤 다시 눌러 주세요.');
       else if (r.code === 'failed-precondition') toast('크리스마스 이벤트가 끝났어요.');
       else if (r.code === 'invalid-argument') toast(r.msg || '장식을 걸 수 없어요.');
+      else if (r.code === 'unauthenticated' || r.code === 'permission-denied') toast('로그인한 뒤 장식을 걸 수 있어요.');
       else notifyError('E-XMAS-02', r.err);
       return;
     }

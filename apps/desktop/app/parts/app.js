@@ -2118,12 +2118,13 @@ const demojiPalMod = TwDemojiPalette.createDemojiPalette({
    함수 deps 는 화살표로 감싼다(부를 때 찾게). _myHomeLoaded · _myHomeData · _myHomeFriends 는 이 줄보다 뒤에 선언되고 다시 대입되는 let 이라 읽는 함수로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 /* 👍 플레이리스트 반응 — 플레이리스트보다 먼저 만든다(만들 때 소개칸을 그리며 부른다). 서버는 firebaseAPI.playlistLike(늦게 붙어서 부를 때 찾는다) */
-/* 🎄 크리스마스 창(일회성 · 다음 업데이트에서 걷는다) — 서버는 firebaseAPI.xmas(늦게 붙음) · 런처 [🎄 크리스마스] 가 연다 · 창 크기는 applyDesktopRunClass */
-TwXmasWindow.createXmasWindow({ THREE, ps1Dither: TwPs1Dither, rules: TwXmasRules, treeMod: TwXmasTree, net: ()=>firebaseAPI.xmas, serverNow: ()=>firebaseAPI.serverNow(),
-  onReady: (fn)=>TwNetReady.whenNetReady(fn, 'serverNow'), notifyError: (...a)=>TwErrorCodes.notify(...a), toast: (...a)=>toast(...a),
-  escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a), onSizeChange: ()=>applyDesktopRunClass() });
 const plLikeUi = TwPlaylistLikeUi.createPlaylistLikeUi({ likeRules: TwPlaylistLike, net: ()=>firebaseAPI.playlistLike,
   getMyUserId: (...a)=>getMyUserId(...a), notifyError: (...a)=>TwErrorCodes.notify(...a) });
+/* 🎄 크리스마스 창(일회성 · 다음 업데이트에서 걷는다) — 서버는 firebaseAPI.xmas(늦게 붙음) · 런처 [🎄 크리스마스] 가 연다 · 창 크기는 applyDesktopRunClass · 그림 사본은 GLB 영구 캐시(IndexedDB · 45일)에 */
+TwXmasWindow.createXmasWindow({ THREE, ps1Dither: TwPs1Dither, rules: TwXmasRules, treeMod: TwXmasTree, net: ()=>firebaseAPI.xmas, serverNow: ()=>firebaseAPI.serverNow(),
+  onReady: (fn)=>TwNetReady.whenNetReady(fn, 'serverNow'), notifyError: (...a)=>TwErrorCodes.notify(...a), toast: (...a)=>toast(...a),
+  escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a), onSizeChange: ()=>applyDesktopRunClass(),
+  idbGet: (k)=>glbIdbMod._glbIdbGet(k), idbPut: (k, v)=>glbIdbMod._glbIdbPut(k, v) });
 const plMod = TwPlaylist.createPlaylist({
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),

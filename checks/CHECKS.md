@@ -445,8 +445,8 @@
 | **sim-xmas-server.js** | 332 | **747e95535831** |
 | **sim-xmas-net.js** | 98 | **38181b4ae498** |
 | **sim-xmas-rules.js** | 74 | **6b54ac374440** |
-| **sim-xmas-tree.js** | 48 | **efa01a7dcb92** |
-| **sim-xmas-window.js** | 173 | **a407745c8b02** |
+| **sim-xmas-tree.js** | 51 | **0d4a04e1115d** |
+| **sim-xmas-window.js** | 182 | **f0c4bfc4e9c8** |
 | **sim-rules-src.js** | 78 | **12241e59c87b** |
 | **sim-rules-drift.js** | 175 | **2782c5c73084** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |

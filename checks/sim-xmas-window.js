@@ -1,7 +1,7 @@
 /* sim-xmas-window.js — 🎄 크리스마스 창(parts/xmas/xmas-window.js · 일회성)을 가짜 화면 · 가짜 서버로 돌려 본다
    실행: node checks/run.js sim-xmas-window
    ・1절 런처 버튼 — 서버 시각 전엔 숨김 · 이벤트 중 보임 · 1월 1일 0시부터 숨고 열린 창도 닫힘
-   ・2절 열기 · 불러오기 — 내 트리(없으면 지금 트리) · 그림은 판이 다른 자리만 받고 이 PC 에 사본 · 다시 열면 안 받음 · 내 장식 표시 · 걸린 수
+   ・2절 열기 · 불러오기 — 내 트리(없으면 지금 트리) · 그림은 판이 다른 자리만 받고 IndexedDB 에 «트리/자리@판» 사본(localStorage 는 쓰면 던진다) · 다시 열면 안 받음 · 내 장식 표시 · 걸린 수
    ・3절 장식 달기 — 고른 장식 · 한마디 다듬기 · 보던 트리 번호 · 다 찼으면 «다른 트리로 이동» · 5초 간격 · 실패 갈래
    ・4절 신고 — 확인창 · 내 트리 · 자리 · 이미 신고 · 실패 코드
    ・5절 실패 · 닫기 — 못 불러옴(E-XMAS-01) · 닫은 뒤 늦게 온 답은 버림 · 끝난 뒤 열기 막기
@@ -42,10 +42,10 @@ function world(opts){
   const els = {}; IDS.forEach(i => { els[i] = el(i === 'xmasHang' || /Btn|Yes|No|Ok/.test(i) ? 'button' : 'div', i); });
   ['xmasRep', 'xmasFull', 'xmasSay', 'xmasState'].forEach(i => { els[i].hidden = true; });
   const doc = { getElementById: (i) => els[i] || null, createElement: (t) => el(t) };
-  const store = {}; const storage = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } };
+  const store = {}; const idbGet = async (k) => (k in store ? store[k] : null); const idbPut = (k, v) => { store[k] = v; };   // GLB 영구 캐시(IndexedDB) 흉내
   const timers = [];
   class Img { set src(v){ this._src = v; Promise.resolve().then(() => (this.onload && this.onload())); } get src(){ return this._src; } }
-  const win = { localStorage: storage, Image: Img, setInterval: (fn, ms) => timers.push([fn, ms]), innerWidth: 1000, innerHeight: 800, URL: {}, FileReader: function(){} };
+  const win = { localStorage: { getItem(){ throw new Error('localStorage 를 쓰면 안 된다'); }, setItem(){ throw new Error('localStorage 를 쓰면 안 된다'); } }, Image: Img, setInterval: (fn, ms) => timers.push([fn, ms]), innerWidth: 1000, innerHeight: 800, URL: {}, FileReader: function(){} };
   const T = { opened: 0, closed: 0, lists: [], onSay: null, onReport: null };
   const treeMod = { baseCanvas: () => null, createXmasTree: () => ({
     open: () => { T.opened++; }, close: () => { T.closed++; }, setOrnaments: (l) => { T.lists.push(l); },
@@ -59,7 +59,7 @@ function world(opts){
     hang: async (d) => { N.calls.push('hang'); N.lastHang = d; return N.hangRet || { ok: true, tree: N.data.cur, slot: 0, moved: false, changed: false }; },
     reportOrnament: async (t, s) => { N.calls.push('report:' + t + '/' + s); return o.repRet || { ok: true }; },
   };
-  const api = W.createXmasWindow({ doc, win, THREE: {}, ps1Dither: {}, rules: R, treeMod, net: () => net, serverNow: () => S.now, storage,
+  const api = W.createXmasWindow({ doc, win, THREE: {}, ps1Dither: {}, rules: R, treeMod, net: () => net, serverNow: () => S.now, idbGet, idbPut,
     notifyError: (c) => S.errs.push(c), toast: (m) => S.toasts.push(m), escRegisterWindow: (x) => S.escs.push(x),
     onSizeChange: () => { S.size++; }, onReady: (fn) => { S.ready = fn; } });
   return { api, els, T, S, N, store, timers };
@@ -93,12 +93,14 @@ say('── 2절 열기 · 불러오기');
   chk(L.length === 3 && L.find(x => x.slot === 4).mine === true && L.filter(x => x.mine).length === 1, '내 장식 하나만 mine');
   chk(L.find(x => x.slot === 0).word === '메리' && L.find(x => x.slot === 0).img === null && L.find(x => x.slot === 7).img, '한마디 · 기본 장식은 그림 없음 · 내 그림은 Image');
   chk(w.els.xmasCount.textContent === '트리 #2 · 3/300' && w.els.xmasHang.textContent === '내 장식 바꾸기', '걸린 수 · 단추 «내 장식 바꾸기»');
-  chk(JSON.parse(w.store['tw.xmasImg.2'])[7].v === 5, '그림 사본을 이 PC 에 판과 함께 둔다');
+  chk(w.store['xmasimg:2/7@5'] === PNG('B') && w.store['xmasimg:2/4@2'] === PNG('A'), '그림 사본을 IndexedDB 에 «트리/자리@판» 키로(localStorage 는 안 씀)');
   w.api.close(); w.N.calls.length = 0;
   data.trees[2][7].v = 6; data.imgs[2][7] = { v: 6, d: PNG('C') }; data.trees[2][4] = { k: 'gift', v: 3 };
   w.api.open(); await settle();
   chk(w.N.calls.join() === 'where,tree:2,img:2/7', '다시 열면 판이 바뀐 자리만 받는다 — ' + w.N.calls.join(' · '));
-  chk(!(4 in JSON.parse(w.store['tw.xmasImg.2'])), '기본 장식으로 바뀐 자리의 그림 사본은 지운다');
+  chk(w.store['xmasimg:2/7@6'] === PNG('C') && w.store['xmasimg:2/7@5'] === PNG('B'), '새 판은 새 키로 — 옛 판 키는 쓰이지 않고 캐시가 45일 뒤 치운다');
+  const L2 = w.T.lists[w.T.lists.length - 1];
+  chk(L2.find(x => x.slot === 4).img === null, '기본 장식으로 바뀐 자리는 그림 없이(사본을 안 쓴다)');
   const w2 = world({ data: { cur: 5, mine: null, trees: { 5: {} }, imgs: {} } }); w2.S.ready(); w2.api.open(); await settle();
   chk(w2.N.calls.join() === 'where,tree:5' && w2.els.xmasHang.textContent === '내 장식 달기' && /첫 장식/.test(w2.els.xmasState.textContent), '아직 안 걸었으면 지금 트리(5) 미리 보기 · 빈 트리 안내');
 }
@@ -115,7 +117,7 @@ say('── 3절 장식 달기');
   const n = w.N.calls.filter(c => c === 'hang').length;
   await w.els.xmasHang.onclick();
   chk(w.N.calls.filter(c => c === 'hang').length === n && /초 뒤에 다시/.test(w.S.toasts.pop()), '5초 안에 또 누르면 보내지 않고 안내');
-  for (const [code, want] of [['aborted', /거는 중/], ['failed-precondition', /끝났어요/], ['invalid-argument', /쓸 수 없는 말|걸 수 없어요/]]) {
+  for (const [code, want] of [['aborted', /거는 중/], ['failed-precondition', /끝났어요/], ['invalid-argument', /쓸 수 없는 말|걸 수 없어요/], ['unauthenticated', /로그인한 뒤/], ['permission-denied', /로그인한 뒤/]]) {
     const w2 = world({ hangRet: { ok: false, code, msg: code === 'invalid-argument' ? '쓸 수 없는 말이 들어 있어요' : '' } }); w2.S.ready(); w2.api.open(); await settle();
     await w2.els.xmasHang.onclick();
     chk(want.test(w2.S.toasts.pop() || '') && !w2.S.errs.length, '실패 ' + code + ' — 안내 문구(오류 코드 아님)');
@@ -153,6 +155,13 @@ say('── 5절 실패 · 닫기');
   chk(!w3.T.opened && /끝났어요/.test(w3.S.toasts.pop()), '이벤트가 끝났으면 열지 않는다');
 }
 
+say('── 5-2절 창 마크업이 없으면 던진다(조용히 넘어가지 않음)');
+{
+  let threw = false;
+  try { W.createXmasWindow({ doc: { getElementById: () => null }, win: {}, rules: R, treeMod: {}, net: () => ({}), serverNow: () => 0 }); } catch (e) { threw = /xmasOverlay/.test(e.message); }
+  chk(threw, '#xmasOverlay · #lcXmas 가 없으면 이름을 대고 던진다');
+}
+
 say('── 6절 한마디 라벨 · 깨 보기');
 {
   const w = world(); w.S.ready(); w.api.open(); await settle();
@@ -163,7 +172,7 @@ say('── 6절 한마디 라벨 · 깨 보기');
   chk(/TwSafeHtml\.safeUrl\(d, 'image'\)/.test(SRC), '받은 그림 주소는 safeUrl(image) 로 거른다');
   // 깨 보기 — 2절 «판이 바뀐 자리만» 이 사본을 안 보면 잡히는지
   const wb = world({ data: { cur: 1, mine: null, trees: { 1: { 3: { k: 'img', v: 1 } } }, imgs: { 1: { 3: { v: 1, d: PNG('Z') } } } } }); wb.S.ready();
-  wb.api.open(); await settle(); wb.api.close(); wb.N.calls.length = 0; wb.store['tw.xmasImg.1'] = '{}';
+  wb.api.open(); await settle(); wb.api.close(); wb.N.calls.length = 0; delete wb.store['xmasimg:1/3@1'];
   wb.api.open(); await settle();
   chk(wb.N.calls.includes('img:1/3'), '깨 보기 — 사본이 없으면 다시 받는다(사본을 안 보면 2절이 빨강)');
 }
