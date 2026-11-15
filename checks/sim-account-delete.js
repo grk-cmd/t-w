@@ -482,6 +482,8 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
     chk(/delMode\(true\)/.test(M) && /delMode\(false\)/.test(M) && /classList\.toggle\('acct-deleting'/.test(M), '  ↳ [회원 탈퇴]가 켜고 [취소]가 끈다');
     chk(/classList\.contains\('acct-deleting'\)[^\n]*dc\.click\(\)/.test(strip(MI)), '  ↳ 탭을 옮기면 열린 안내를 접는다(돌아왔을 때 계정 탭이 사라진 채로 남지 않게)');
     chk(/_loginDoDeleteAccount\(dWord\.value\)/.test(M) && /_acctRelaunchAfterDetach\(null\)/.test(M.split('_loginDoDeleteAccount(dWord.value)')[1] || ''), '성공하면 완료 안내 → 앱 다시 켜기');
+    { const after = M.split('_loginDoDeleteAccount(dWord.value)')[1] || ''; const iFail = after.indexOf('return;'), iMark = after.indexOf("markLeft('withdraw')"), iRe = after.indexOf('_acctRelaunchAfterDetach(null)');
+      chk(iFail >= 0 && iFail < iMark && iMark < iRe, '★ [S-Q4] 탈퇴가 서버에서 끝나면(실패 갈래는 return 으로 먼저 빠진다) 다시 켜기 **전에** 까닭(withdraw)을 적어 넘긴다 — 로그인 화면이 «탈퇴했어요» 를 한 번 보인다'); }
     if (WA_AUDIT != null && WA_LOG != null) chk(/'account\.selfDelete'/.test(WA_AUDIT) && /'account\.selfDelete': '/.test(WA_LOG), '웹 관리자 작업 기록이 «account.selfDelete» 를 안다');
     else say('  · 웹 관리자 폴더가 없는 자리(러너) — 작업 기록 이름 검사는 저장소에서 돈다');
     const CODE = strip(FX);

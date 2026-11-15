@@ -5253,6 +5253,7 @@ const licenseGateMod = TwLicenseGate.createLicenseGate({
   toast: (...a)=>toast(...a),
   onPremiumChanged: acctStateMod.onPremiumChanged,
   _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),
+  takeLeft: ()=>acctStateMod.takeLeft(),
   _rcStore: (...a)=>acctStateMod._rcStore(...a),
 });
 
@@ -6526,6 +6527,7 @@ const myInfoMod = TwMyInfo.createMyInfo({
   setCurSlot: (v)=>{ curSlot = v; },
   closetMod: ()=>closetMod,
   _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),
+  markLeft: (...a)=>acctStateMod.markLeft(...a),
 });
 /* (앱 FSD 17번) 이 자리의 본문도 my-info.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 

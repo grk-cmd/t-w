@@ -48,6 +48,14 @@ function judge(mod, html, files, app) {
     let fell = 0; r.relaunch = st._acctRelaunchAfterDetach(() => { fell++; }) === false && fell === 1;
     let relaunched = 0; win.companion = { relaunchApp: () => { relaunched++; } };
     r.relaunch = r.relaunch && st._acctRelaunchAfterDetach(() => {}) === true && relaunched === 1;
+    /* 🚪 나감 안내 — 한 번짜리: 적고 → 읽으면 글을 주고 지운다 · 없으면 null · 모르는 까닭은 적지 못하고(던짐) 읽을 땐 경고하고 지운 뒤 null */
+    r.left = st.takeLeft() === null && !('tw.leftNotice' in store);
+    st.markLeft('logout'); r.left = r.left && store['tw.leftNotice'] === 'logout' && st.takeLeft() === '로그아웃했어요' && !('tw.leftNotice' in store) && st.takeLeft() === null;
+    st.markLeft('withdraw'); r.left = r.left && st.takeLeft() === '탈퇴했어요' && st.takeLeft() === null;
+    let thr = false; try{ st.markLeft('gone'); }catch(_){ thr = true; }
+    store['tw.leftNotice'] = '몰라'; const w0 = console.warn; let warned = 0; console.warn = () => { warned++; };
+    const unk = st.takeLeft(); console.warn = w0;
+    r.left = r.left && thr && !('tw.leftNotice' in store) && unk === null && warned === 1;
   } catch (e) { r.err = String(e && e.message || e); }
   const order = [...html.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<script\b[^>]*\bsrc="parts\/([^"]+\.js)"/g)].map(m => m[1]);
   const at = order.indexOf('account/account-state.js');
@@ -75,6 +83,7 @@ chk(R.first && R.quiet, '프리미엄 «모름» — 확인 전 premiumKnown 은
 chk(R.prem && R.premSame, '프리미엄 — 같은 값이면 알림 없음 · 바뀌면 건 차례대로 한 번 · 값은 쓰는 함수로');
 chk(R.detach, '신원 놓음 — 처음 false · 쓰는 함수로 올린다');
 chk(R.rcNull && R.rc, '원격 설정 한 벌 — 없으면(검사 · 옛 html) null · 있으면 그 store');
+chk(R.left, '나감 안내(S-Q4) — markLeft 가 까닭을 적고 takeLeft 가 한 번만 읽고 지운다 · 없으면 null(짐작 없음) · 모르는 까닭은 던지거나(적을 때) 경고하고 지운다(읽을 때)');
 chk(R.relaunch, '다시 켜기 — companion 이 없으면 대신 할 일을 부르고 false · 있으면 앱을 다시 켠다');
 
 say('── 2. 싣는 순서 · 거는 곳 · 바꾸는 곳');
@@ -93,6 +102,8 @@ chk(!judge(MOD.replace('  _premiumKnown = true;\n', ''), HTML, FILES, APP).first
 chk(!judge(MOD.replace("const LOGIN_EMAIL_KEY = 'tw.loginEmail';", "const LOGIN_EMAIL_KEY = 'tw.loginMail';"), HTML, FILES, APP).keys, '저장 키 글자가 바뀌면 빨강');
 const extra = FILES.map(([f, t]) => [f, f === 'myhome/guestbook.js' ? t + '\nonPremiumChanged(()=>{});\n' : t]);
 chk(judge(MOD, HTML, extra, APP).onPrem.includes('myhome/guestbook.js'), '다른 파일이 프리미엄 알림을 걸면 빨강(거는 곳을 여기 적고 이유를 주석에)');
+chk(!judge(MOD.replace("  localStorage.removeItem(LEFT_NOTICE_KEY);\n", ''), HTML, FILES, APP).left, '읽고도 표시를 안 지우면 빨강(다음 켜기에 또 보인다)');
+chk(!judge(MOD.replace("  localStorage.setItem(LEFT_NOTICE_KEY, why);", ''), HTML, FILES, APP).left, '까닭을 안 적으면 빨강');
 chk(!judge(MOD, HTML, FILES, APP + '\nacctStateMod.setAcctDetached(false);\n').detachWriters, 'app.js 다른 자리에서 신원 놓음을 바꾸면 빨강');
 
 say('\n' + (fail ? '✗ 통과 ' + pass + ' · 실패 ' + fail : '전부 통과 ✅ ' + pass + ' — 계정 핵심 상태는 account-state.js 한 곳'));

@@ -279,6 +279,8 @@ if(!fList || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     const uiBlk = grabBlock(SRC, "let _logoutFails = 0;", "if(forceBtn) forceBtn.onclick") || '';
     chk(!!uiBlk && /_logoutFails >= 2\) showForce\(true\)/.test(uiBlk), '★ [그래도 로그아웃] 은 **두 번째 실패에서만** 열린다 — 첫 실패엔 «다시 시도» 뿐');
     chk(/runLogout\(forceBtn, true\)/.test(uiBlk + 'if(forceBtn) forceBtn.onclick = () => runLogout(forceBtn, true);') && /_loginDoLogout\(force \? \{ force:true \}/.test(uiBlk), '  강제 버튼은 바로 실행한다(확인 한 번 더 없음 — 버튼 자체가 두 번째에만 나온다)');
+    const afterBlk = grabBlock(SRC, 'const afterLogout = () => {', '    const runLogout') || '';
+    chk(/markLeft\('logout'\);[\s\S]*_acctRelaunchAfterDetach\(null\)/.test(afterBlk), '★ [S-Q4] 로그아웃이 끝나면 다시 켜기 **전에** 까닭(logout)을 적어 넘긴다 — 로그인 화면이 «로그아웃했어요» 를 한 번 보인다');
     chk(/kind === 'timeout'/.test(uiBlk) && /kind === 'unknown'/.test(uiBlk) && /kind === 'offline'/.test(uiBlk), '  타임아웃·확인 못 함·오프라인·거부가 **다른 문구**다');
     chk(/resetLogoutBox\(\)/.test(uiBlk) && /lBtn\.onclick[\s\S]{0,80}resetLogoutBox\(\)/.test(uiBlk), '  확인 상자를 열 때마다 횟수·버튼·강제를 처음으로 되돌린다');
     let html = ''; try{ html = require('fs').readFileSync('desk-companion-prototype.html', 'utf8'); }catch(_){}
