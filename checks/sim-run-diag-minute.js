@@ -23,7 +23,7 @@ const GLUE = ['  Presence: Presence,', '  _FB: _FB,', '  _bodyHidden: (...a)=>hi
   '  _frameJsStats: _frameJsStats,', '  _gpuTimer: _gpuTimer,', '  _renderQuality: ()=>_renderQuality,', '  _runLowered: ()=>_runLowered,', '  canvas: canvas,', '  hitShadow: hitShadow,', '  key: key,',
   '  renderer: renderer,', '  runCost: runCost,', '  scene: scene,', '  seats: seats,'];
 const MAKE = 'const runDiagMinuteMod = TwRunDiagMinute.createRunDiagMinute({';
-const DECLS = ['const hitShadow = TwHitShadow.createHitShadow();', 'const _FB = FrameBudget;', 'const _frameBudget = ', 'const _gpuTimer = ', 'const _frameJsStats = ', 'const runCost = TwRunCostDiag.page;', 'const Presence = ', 'const hiddenSeatsMod = '];   // 값으로 넘기는 것 — 만드는 줄보다 먼저
+const DECLS = ['const hitShadow = TwHitShadow.createHitShadow();', 'const _FB = ', 'const _frameBudget = ', 'const _gpuTimer = ', 'const _frameJsStats = ', 'const runCost = TwRunCostDiag.page;', 'const Presence = ', 'const hiddenSeatsMod = '];   // 값으로 넘기는 것 — 만드는 줄보다 먼저
 
 /* 가짜 환경에서 만들고 타이머를 손으로 한 번씩 돌린다. noFB = 프레임 상한 모듈 없음(_frameBudget null) */
 function build(src, opt){
@@ -119,7 +119,7 @@ const breaks = [
   ['지도 몫을 실행 화면일 때만 비움', m => m.replace('    const hitMapMin = hitShadow.take();\n', '').replace("    if(!(window.companion && companion.diagNote)) return;\n", "    if(!(window.companion && companion.diagNote)) return;\n    const hitMapMin = hitShadow.take();\n"), null, null],
   ['그림자 조건 빠짐', m => m.replace('cost.casters = key.castShadow ? TwGpuTimer.countCasters(scene) : 0;', 'cost.casters = TwGpuTimer.countCasters(scene);'), null, null],
   ['app.js 에 1분 타이머가 다시 생김', null, a => a + '\nsetInterval(()=>{}, 60000);', null],
-  ['만드는 줄이 값 선언보다 앞', null, a => { const i = a.indexOf('/* 🩺 1분 진단 줄'), j = a.indexOf('\n});', a.indexOf(MAKE)) + 4; const blk = a.slice(i, j); const rest = a.slice(0, i) + a.slice(j); const k = rest.indexOf('const _FB = FrameBudget;'); return rest.slice(0, k) + blk + '\n' + rest.slice(k); }, null],
+  ['만드는 줄이 값 선언보다 앞', null, a => { const i = a.indexOf('/* 🩺 1분 진단 줄'), j = a.indexOf('\n});', a.indexOf(MAKE)) + 4; const blk = a.slice(i, j); const rest = a.slice(0, i) + a.slice(j); const k = rest.indexOf('const _FB = '); return rest.slice(0, k) + blk + '\n' + rest.slice(k); }, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   let m2 = MOD, a2 = SRC, h2 = HTML;

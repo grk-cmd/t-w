@@ -59,7 +59,7 @@ const ctx = {
   hiddenSeatsMod:{ _seatHidden:(s)=> env.hidden.has(s) },   // 🙈 hidden-seats.js 가 내놓는 이름(app.js 의 hiddenSeatsMod)
   Presence:{ setNoise:(k)=>env.sent.push(k) },
 };
-Object.defineProperty(ctx, 'officeMode', { get:()=>env.office, enumerable:true });
+ctx.officeModeMod = { officeMode: ()=>env.office };   // 회사원 모드 깃발은 launcher/office-mode.js 가 갖는다(noise.js 는 app.js 전역 officeModeMod 로 읽는다)
 ctx.window = ctx;
 ctx.window.addEventListener = (ev)=>env.listeners.push(ev);
 vm.createContext(ctx);
@@ -102,7 +102,7 @@ say('── 3. 좌석 읽기');
   r = N.mix(N._gather(env.now)); chk(!r.page, '내가 focus 가 아니면(잠·춤·쓰다듬기) 내 소리 없음');
   env.states.set(me, 'focus'); env.states.set(a, 'focus');
   env.hidden.add(b); r = N.mix(N._gather(env.now)); chk(r.pencil === 0.5, '🙈 숨긴 사람의 소리는 안 듣는다'); env.hidden.clear();
-  env.office = true; r = N.mix(N._gather(env.now)); chk(Object.keys(r).length === 0, '회사원 모드 전역(officeMode)을 읽는다'); env.office = false;
+  env.office = true; r = N.mix(N._gather(env.now)); chk(Object.keys(r).length === 0, '회사원 모드 깃발(officeModeMod.officeMode())을 읽는다'); env.office = false;
   me.isMe = false; ctx.findMySeat = ()=> me; r = N.mix(N._gather(env.now)); chk(r.page === 1, '내 좌석은 findMySeat 기준(자리추가 판)'); me.isMe = true;
   N.setKind('bogus'); chk(N.kind() === '' && env.sent[env.sent.length - 1] === '', '모르는 값으로 고르면 끄기로');
   chk(env.intervals === 1 && /const NZ_TICK_MS = 100;/.test(NZC), '틱 하나 · 100ms(페이드인 0.1초를 지킬 만큼)');

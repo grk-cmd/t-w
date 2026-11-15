@@ -146,7 +146,7 @@ chk(iM > 0 && iA > iM && HTML.includes('<script type="module" src="parts/firebas
 chk(/PRELOAD\.push\('run-cost-diag\.js'\)/.test(SMOKE), 'smoke PRELOAD 에 run-cost-diag.js');
 chk(/const runCost = TwRunCostDiag\.page;/.test(APP) && /setInterval\(runCost\.timed\('hb', \(\)=>\{[\s\S]{0,2500}?companion\.setCharBounds\([\s\S]{0,1500}?\}\), 100\);/.test(APPJ), '하트비트(100ms)를 통째로 잰다');
 chk(/const _tSeat = performance\.now\(\);\s*seats\.forEach\(/.test(APP) && /runCost\.since\('seat', _tSeat\)/.test(APP), '좌석 반복을 잰다');
-chk(/const _tDraw = performance\.now\(\);\s*if\(!_officeHidden[^\n]*renderer\.render\(scene,camera\)[^\n]*\n\s*runCost\.since\('render', _tDraw\);/.test(APP), '그리기를 잰다');
+chk(/const _tDraw = performance\.now\(\);\s*if\(!officeModeMod\._officeHidden\(\)[^\n]*renderer\.render\(scene,camera\)[^\n]*\n\s*runCost\.since\('render', _tDraw\);/.test(APP), '그리기를 잰다');
 chk(/runCost\.since\('frame', _frameT0\)/.test(APP), '한 장 전체를 잰다');
 const iTake = APPJ.indexOf('run = runCost.take()'), iRun = APPJ.indexOf("if(!document.body.classList.contains('runmode')) return;", APPJ.indexOf('takeMinute(t)'));
 const iLine = APPJ.indexOf('companion.diagNote(TwRunCostDiag.line(run, TwRunCostDiag.countSeats(seats, _bodyHidden), TwRunCostDiag.roomKind(Presence.roomCode(), window._activeChannel, !!Presence.serverProvider())))');

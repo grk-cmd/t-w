@@ -21,7 +21,7 @@
    [전파] 방 payload 에 문자열 한 칸(noise) — Presence.setNoise. 상태는 이미 흐른다. 규칙 변경 없음.
 
    [기댄 것 — 전부 app.js 의 전역(클래식 스크립트 최상위 let/const/function)]
-     seats · seatState · findMySeat · hiddenSeatsMod._seatHidden · officeMode · Presence · _plSyncBgmBounds · _plApplyPos
+     seats · seatState · findMySeat · hiddenSeatsMod._seatHidden · officeModeMod.officeMode() · Presence · _plSyncBgmBounds · _plApplyPos
      ⚠️ 이 파일은 app.js **뒤에** 실려야 한다(html 의 <script> 순서). 없으면 조용히 아무것도 안 한다.
 
    [소리 자료] parts/noise-sounds.js(window.TW_NOISE_SOUNDS · base64 WebM/Opus). 왜 base64 인지는 그 파일 머리 주석.
@@ -84,7 +84,7 @@
   }
 
   /* ── 지금 방 상태 읽기 ──────────────────────────────────────────────── */
-  function _office(){ try{ return !!officeMode; }catch(_){ return false; } }   // let TDZ 대비(_chatSfxOfficeLock 과 같은 이유)
+  function _office(){ try{ return !!officeModeMod.officeMode(); }catch(_){ return false; } }   // 모듈 안 let 을 읽는 함수로 읽는다 — 아직 안 만들어졌으면 던지므로 꺼짐으로 본다
   function gather(now){
     const inp = { office:_office(), mine:{ kind:nzKind, focus:false }, others:[], withOthers:nzOthers };
     let list = null;

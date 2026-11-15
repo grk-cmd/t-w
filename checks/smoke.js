@@ -714,6 +714,16 @@ PRELOAD.push('seat-state.js');
 PRELOAD.push('seat-pointer.js');
 /* char-apply.js — 🧬 캐릭터 def 를 좌석에 입히기. app.js 가 원래 자리에서 createCharApply 로 만든다. */
 PRELOAD.push('char-apply.js');
+/* app-mode.js — 🖥 런처 ↔ 실행 화면 전환(앱 모드). app.js 가 원래 자리에서 createAppMode 로 만든다. */
+PRELOAD.push('app-mode.js');
+/* office-mode.js — 🏢 데스크탑 · 피규어 · 회사원 모드 깃발. app.js 가 원래 자리에서 createOfficeMode 로 만든다. */
+PRELOAD.push('office-mode.js');
+/* ls-set.js — 💾 작은 설정 저장 — 남았는지 왕복 확인. app.js 가 원래 자리에서 createLsSet 로 만든다. */
+PRELOAD.push('ls-set.js');
+/* rig-anim.js — 🕺 몸짓 — 자세 목표 · 뼈 움직이기 · 클립. app.js 가 원래 자리에서 createRigAnim 로 만든다. */
+PRELOAD.push('rig-anim.js');
+/* frame-pace.js — 🔋 프레임 상한 · rAF 멈춤 감시. app.js 가 원래 자리에서 createFramePace 로 만든다. */
+PRELOAD.push('frame-pace.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
