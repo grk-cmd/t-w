@@ -723,6 +723,14 @@ PRELOAD.push('ls-set.js');
 PRELOAD.push('rig-anim.js');
 /* frame-pace.js — 🔋 프레임 상한 · rAF 멈춤 감시. app.js 가 원래 자리에서 createFramePace 로 만든다. */
 PRELOAD.push('frame-pace.js');
+/* frame-loop.js — 🎞 프레임 한 장(frame). app.js 가 원래 자리에서 createFrameLoop 로 만든다. */
+PRELOAD.push('frame-loop.js');
+/* flying-chair.js — 🪑 플라잉체어 — canFly · startFlight. app.js 가 원래 자리에서 createFlyingChair 로 만든다. */
+PRELOAD.push('flying-chair.js');
+/* myhome-sticker-render.js — 🎨 마이홈 스티커 그리기. app.js 가 원래 자리에서 createMyHomeStickerRender 로 만든다. */
+PRELOAD.push('myhome-sticker-render.js');
+/* move-mode.js — ✥ 프로그램 이동 모드 · 캐릭터 화면 좌표. app.js 가 원래 자리에서 createMoveMode 로 만든다. */
+PRELOAD.push('move-mode.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
