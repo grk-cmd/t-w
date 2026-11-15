@@ -1044,13 +1044,13 @@ const statusChipMod = TwStatusChip.createStatusChip({
   CUSTOM_STATUS_MAXLEN: userStatusTableMod.CUSTOM_STATUS_MAXLEN,
   Presence: ()=>Presence,
   _CHIP_POPUPS: chipPopupsMod._CHIP_POPUPS,
-  _charBadWhy: ()=>_charBadWhy,
-  _charBoundsLatest: ()=>_charBoundsLatest,
+  _charBadWhy: ()=>moveModeMod._charBadWhy(),
+  _charBoundsLatest: ()=>moveModeMod._charBoundsLatest(),
   _charProjSane: (...a)=>_charProjSane(...a),
   _closeChipPopups: (...a)=>chipPopupsMod._closeChipPopups(...a),
   _danceCmdCooldownAt: ()=>iDeskMod._danceCmdCooldownAt(),
   _lowestDanceReq: (...a)=>iDeskMod._lowestDanceReq(...a),
-  _moveModeJustToggled: ()=>_moveModeJustToggled,
+  _moveModeJustToggled: ()=>moveModeMod._moveModeJustToggled(),
   _officeHidden: ()=>officeModeMod._officeHidden(),
   _pickUnlockedDance: (...a)=>iDeskMod._pickUnlockedDance(...a),
   _premiumOn: (...a)=>_premiumOn(...a),
@@ -1061,7 +1061,7 @@ const statusChipMod = TwStatusChip.createStatusChip({
   clickPolicy: TwClickThroughPolicy,
   customStatusConf: ()=>userStatusTableMod.customStatusConf(),
   measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
-  moveMode: ()=>moveMode,
+  moveMode: ()=>moveModeMod.moveMode(),
   overheadMod: ()=>overheadMod,
   renderer: renderer,
   rideBenchMod: rideBenchMod,
@@ -1071,11 +1071,11 @@ const statusChipMod = TwStatusChip.createStatusChip({
   startMyDance: (...a)=>iDeskMod.startMyDance(...a),
   toast: (...a)=>toast(...a),
   userStatus: ()=>userStatusMod.userStatus(),
-  setCharBadWhy: (v)=>{ _charBadWhy = v; },
-  setCharBoundsLatest: (v)=>{ _charBoundsLatest = v; },
+  setCharBadWhy: (v)=>{ moveModeMod.setCharBadWhy(v); },
+  setCharBoundsLatest: (v)=>{ moveModeMod.setCharBoundsLatest(v); },
   setDanceCmdCooldownAt: (v)=>{ iDeskMod.setDanceCmdCooldownAt(v); },
-  setMoveModeJustToggled: (v)=>{ _moveModeJustToggled = v; },
-  setMoveMode: (v)=>{ moveMode = v; },
+  setMoveModeJustToggled: (v)=>{ moveModeMod.setMoveModeJustToggled(v); },
+  setMoveMode: (v)=>{ moveModeMod.setMoveMode(v); },
 });
 /* 저장된 상태 · 커스텀 상태 불러오기 → 칩 첫 그리기 → 이 모니터 캐릭터 크기 복원.
    ⚠️ statusChipMod 를 만든 **뒤**에 부른다 — 모듈 안에서 부르면 refreshMyStatusUI 가 아직 없는 statusChipMod 를 읽어
@@ -1160,62 +1160,27 @@ TwBgmDiag.createBgmDiag({ companion: window.companion });   // 🔍 플레이리
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const lvTierMod = TwLvTier.createLvTier({
 });
-/* ═══ 🩺 렌더러 생존 신호 · 캐릭터 화면 좌표 ═══ */
-// ── 스마트 감지용 throttle timestamp (companion.setCharBounds 호출 제한) ──
-//   초당 60번 IPC보다 100ms 간격이 훨씬 가볍고, 판정 정확도는 그대로 유지됨(사람 마우스 이동 속도 대비 충분).
-/* ── 🩺 렌더러 생존 신호 (main.js '클릭 고착 안전장치'가 이걸 본다) ─────────────────
-   main은 companion.setCharBounds 가 4초 끊기면 "렌더러가 멈췄다"고 판단해 클릭을 통과로
-   **강제 전환**한다(main.js _guardStuckClickCapture).
-
-   [문제] 그 신호를 updateMyStatusChipPosition 안에서 보내고 있었는데, 그 함수는
-     ・내 좌석이 아직 없거나(!me — 방 입장/좌석 재구성 순간)
-     ・런처/생성기/프로그램 이동 중
-   이면 맨 위에서 return 한다. 그래서 **렌더러가 멀쩡히 살아 있는데도** 신호가 끊기고,
-   4초 뒤 통과로 전환된다. 커서를 캐릭터에 올려 겨우 되돌려도 또 4초 뒤에 같은 일이 반복된다
-   — 제보된 "조금 조작하고 나면 금방 다시 클릭이 뒤로 뚫린다"의 형태가 정확히 이것이다.
-   (창은 포커스를 못 얻으므로 focus 이벤트 복구 통로도 안 열린다)
-
-   [대응] 신호를 rAF 루프에서 떼어내 타이머로 옮긴다. 이제 이 신호의 의미는
-   "캐릭터가 그려지고 있는가"가 아니라 "렌더러의 이벤트 루프가 살아 있는가"이며,
-   그게 원래 안전장치가 알고 싶어 하던 것이다.
-   ⚠️ 좌표는 마지막으로 계산된 값을 그대로 재사용한다(펜 근접 판정 정확도는 그대로).
-     캐릭터가 없으면 화면 밖 좌표 + 반경 0 으로 보내 근접 판정에는 절대 안 걸리게 한다. */
-let _charBoundsLatest = null;
-/* 🧭 [2026-09-01] 위 값이 못 믿을 상태일 때의 이유 한 줄 (하트비트에 얹어 main 진단 기록으로 보낸다).
-   null 이면 정상. 문자열은 구간이 시작될 때 한 번만 만든다 — 만드는 자리는 updateMyStatusChipPosition. */
-let _charBadWhy = null;
-/* 투영 결과가 쓸 만한가. run 오버레이는 화면을 통째로 덮으므로, 내 캐릭터가 화면 한 장 밖으로
-   나가 있다는 값은 클릭 통과 판정에 쓸 수 없는 값이다(그 자리에 클릭할 방법이 없다).
-   ⚠️ 여기서 걸러진 값은 '보류'가 되지 그 자체로 고쳐지지는 않는다. 화면 안이면서 틀린 값은
-     이 문지기를 그냥 통과한다 — 문지기는 폭주만 막는다. */
-function _charProjSane(x, y, h){
-  if(!isFinite(x) || !isFinite(y) || !isFinite(h)) return false;
-  const mw = Math.max(1, innerWidth), mh = Math.max(1, innerHeight);
-  if(h > mh * 2) return false;                     // 화면 두 장보다 큰 캐릭터는 없다
-  return x > -mw && x < mw * 2 && y > -mh && y < mh * 2;
-}
-/* 🩺 mousemove 도착 시각(벽시계). 아래 하트비트에 실어 main 으로 보낸다.
-   [왜 필요한가] main 의 기존 생존 신호(_lastCharBoundsAt)는 **이벤트 루프가 살아 있는가**만 말해준다.
-     그런데 실제 사고는 "렌더러는 멀쩡한데 mousemove 만 안 오는" 형태로 난다 —
-     Electron 의 forward 전달이 Windows 에서 끊기는 확인된 상류 버그가 있다
-     (electron#30808 · #33281). 그러면 마지막 판정값이 그대로 굳는데, 그 값이 하필
-     '클릭 받는 중'이면 전체화면 투명 오버레이가 계속 클릭을 가로챈다.
-   ⚠️ 아래 _noteChannelAlive() 가 이 값을 갱신한다. 그쪽을 지우면 이 신호도 같이 죽는다. */
-let _twMoveSeenAt = 0;
+/* 본문은 launcher/move-mode.js 로 옮겼다(앱 FSD · app.js 분리 M19). 이동 모드 깃발 · 캐릭터 화면 좌표 값의 주인이다 — 듣기가 예전과 같은 때 걸린다. 다시 대입되는 값은 읽는 · 쓰는 함수로 다룬다. */
+const moveModeMod = TwMoveMode.createMoveMode({
+  charPlaceMod: charPlaceMod,
+  clampDeskPan: clampDeskPan,
+  layoutSeats: (...a)=>layoutSeats(...a),
+  saveCharPos: saveCharPos,
+  statusChipMod: statusChipMod,
+  toast: (...a)=>toast(...a),
+});
+const _charProjSane = moveModeMod._charProjSane;   // 옛 전역 이름
 const runCost = TwRunCostDiag.page;   // 🩺 1분 [비용] 줄 — 그리기 밖 시간(shared/run-cost-diag.js)
 /* 본문(창 보임 구독 · 100ms 타이머)은 launcher/heartbeat.js 로 옮겼다 — 만들 때 한 번 돈다. */
 const heartbeatMod = TwHeartbeat.createHeartbeat({
-  _charBadWhy: ()=>_charBadWhy,
-  _charBoundsLatest: ()=>_charBoundsLatest,
-  _twMoveSeenAt: ()=>_twMoveSeenAt,
+  _charBadWhy: ()=>moveModeMod._charBadWhy(),
+  _charBoundsLatest: ()=>moveModeMod._charBoundsLatest(),
+  _twMoveSeenAt: ()=>moveModeMod._twMoveSeenAt(),
   otherSeatCircles: (...a)=>statusChipMod.otherSeatCircles(...a),
   runCost: runCost,
 });
 /* ═══ ⚙ 설정 패널 — 포커싱 어플 · 화면 표시 · 캐릭터 크기 · 탭 · 광고 배너 ═══ */
 /* ⚙ 설정 패널 — 포커싱 어플 슬롯 / 캐릭터 크기 / 프로그램 이동 */
-let moveMode=false;   // "프로그램 이동" 진행 중 여부 (true면 캐릭터가 마우스를 따라다니다 클릭으로 확정)
-let _suppressNextContextMenu=false;   // 이동 모드를 우클릭으로 확정한 직후, 뒤이어 뜨는 contextmenu 1회를 무시하기 위한 플래그
-let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMode가 시작점을 새로 잡게 함
 /* 본문은 settings-panel.js 로 옮겼다(앱 FSD 27번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const settingsMod = TwSettingsPanel.createSettingsPanel({
@@ -1226,7 +1191,7 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   Presence: ()=>Presence,
   SPACING: ()=>seatsMod.SPACING(),
   _chatEsc: (...a)=>_chatEsc(...a),
-  _moveModeJustToggled: ()=>_moveModeJustToggled,
+  _moveModeJustToggled: ()=>moveModeMod._moveModeJustToggled(),
   _updateRoomCountUI: (...a)=>roomEntryMod._updateRoomCountUI(...a),
   allDeskItems: (...a)=>deskItemsMod.allDeskItems(...a),
   applyCharToSeat: (...a)=>applyCharToSeat(...a),
@@ -1247,7 +1212,7 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   focusCharScale: ()=>charPlaceMod.focusCharScale(),
   isPremium: ()=>isPremium,
   layoutSeats: (...a)=>layoutSeats(...a),
-  moveMode: ()=>moveMode,
+  moveMode: ()=>moveModeMod.moveMode(),
   nameplateEnabled: ()=>overheadMod.nameplateEnabled(),
   plMod: plMod,
   refreshCharScaleForCurrentDisplay: (...a)=>refreshCharScaleForCurrentDisplay(...a),
@@ -1268,14 +1233,14 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   wardrobeMod: ()=>wardrobeMod,
   setMULTIPLAYER_SPACING: (v)=>{ seatsMod.setMULTIPLAYER_SPACING(v); },
   setSPACING: (v)=>{ seatsMod.setSPACING(v); },
-  setMoveModeJustToggled: (v)=>{ _moveModeJustToggled = v; },
+  setMoveModeJustToggled: (v)=>{ moveModeMod.setMoveModeJustToggled(v); },
   setChipHorizontal: (v)=>{ overheadMod.setChipHorizontal(v); },
   setCurSlot: (v)=>{ curSlot = v; },
   setDecoPartsVisible: (v)=>{ decoPartsMod.setDecoPartsVisible(v); },
   setDotRenderEnabled: (v)=>{ dotRenderEnabled = v; },
   setEmojiReactionsEnabled: (v)=>{ floatersMod.setEmojiReactionsEnabled(v); },
   setFocusCharScale: (v)=>{ charPlaceMod.setFocusCharScale(v); },
-  setMoveMode: (v)=>{ moveMode = v; },
+  setMoveMode: (v)=>{ moveModeMod.setMoveMode(v); },
   setNameplateEnabled: (v)=>{ overheadMod.setNameplateEnabled(v); },
   setRoomSeatMode: (v)=>{ roomSeatMode = v; },
   setSeatEqualizeOn: (v)=>{ seatEqMod.setSeatEqualizeOn(v); },
@@ -1297,47 +1262,6 @@ const focusLog = TwFocusLog.createFocusLog({
   focusSessionSec: ()=>focusTotalMod._focusSessionSec(),
   figureMode: ()=>officeModeMod.figureMode(),
 });
-/* ═══ ✥ 프로그램 이동 모드 ═══ */
-/* 프로그램 이동 모드 — 마우스를 따라 화면 전체(카메라 pan)가 이동, 클릭하면 확정.
-   카메라 각도는 고정한 채 평행이동만 하므로 앵글이 안 흔들리고, 상태칩도 camera 기준 재계산이라 정확히 따라옴.
-   deskPanX/Y는 화면 비율(단위 없음) — 마우스 이동 픽셀 ÷ 창 크기. 실행 화면 캔버스 = 창 크기라 월드 환산 없이 1:1 로 따라온다. */
-(function bindMoveMode(){
-  let startClientX=0, startClientY=0, startPanX=0, startPanY=0;
-  let _moveStarted=false;
-  window.addEventListener('mousemove', e=>{
-    if(!moveMode) return;
-    if(!_moveStarted || _moveModeJustToggled){
-      _moveStarted=true; _moveModeJustToggled=false;
-      startClientX=e.clientX; startClientY=e.clientY; startPanX=charPlaceMod.deskPanX(); startPanY=charPlaceMod.deskPanY();
-      return;
-    }
-    const dxPix = e.clientX - startClientX, dyPix = e.clientY - startClientY;
-    // 픽셀 이동량을 캔버스 크기 대비 "비율"로 변환 — 캐릭터 크기(focusCharScale)가 바뀌어도 위치 비율이 안 틀어짐.
-    // run 모드는 canvasW===innerWidth, canvasH===innerHeight. 마우스 오른쪽/아래 → 캐릭터도 화면상 오른쪽/아래로 보이게 부호 반전.
-    let nx = startPanX - dxPix/Math.max(1, innerWidth);
-    let ny = startPanY + dyPix/Math.max(1, innerHeight);
-    const _clamped = clampDeskPan(nx, ny);
-    charPlaceMod.setDeskPanX(_clamped.x);
-    charPlaceMod.setDeskPanY(_clamped.y);
-    layoutSeats();
-    statusChipMod.updateMyStatusChipPosition();   // 렌더 루프(frame) 대기 없이 즉시 갱신 — 도트렌더 등으로 프레임이 느려져도 상태칩은 안 밀리게
-  });
-  window.addEventListener('pointerdown', e=>{
-    if(!moveMode) return;
-    moveMode=false; _moveStarted=false;
-    const moveBtn=document.getElementById('fsMoveBtn'); const moveHint=document.getElementById('fsMoveHint');
-    if(moveBtn){ moveBtn.classList.remove('active'); moveBtn.textContent='프로그램 이동'; }
-    if(moveHint) moveHint.style.display='none';
-    const myMove=document.getElementById('myMoveBtn'); if(myMove) myMove.classList.remove('on');   // 상태칩의 이동 버튼 시각적 활성 해제
-    // 우클릭으로 확정한 경우, 바로 뒤이어 뜨는 contextmenu 이벤트가 캐릭터 우클릭 동작(런처 이동 등)으로
-    // 이어지지 않게 한 번 억제 — 안 그러면 확정 클릭이 그 자리의 캐릭터를 우클릭한 걸로도 처리돼버림.
-    if(e.button===2) _suppressNextContextMenu = true;
-    saveCharPos();   // ★ 껐다 켜도 유지되게 위치 확정 시 저장
-    statusChipMod.updateMyStatusChipPosition();   // 상태칩 즉시 재표시
-    toast('위치가 확정됐어요');
-  }, true);   // capture: 클릭통과 로직보다 먼저 잡아서 이동 확정
-  // 이동 시작 트리거는 moveBtn 클릭 시점(bindFocusSettings)에서 moveMode=true로 바뀌자마자 다음 mousemove에서 자동 시작됨
-})();
 
 /* ═══ ⌨️ 함수키 단축키(F1 ~ F4) ═══ */
 /* 본문은 fn-keys.js 로 옮겼다(앱 FSD 43번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
@@ -1783,7 +1707,7 @@ const myHomeUiMod = TwMyHomeUi.createMyHomeUi({
   myHomeOpen: ()=>myHomeOpen,
   myHomeSticker: ()=>myHomeSticker,
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
-  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
+  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers()(...a),
   toast: (...a)=>toast(...a),
   setMyHomeOpen: (v)=>{ myHomeOpen = v; },
   twNav: twNav,
@@ -1852,7 +1776,7 @@ const mhPageMod = TwMyHomePage.createMyHomePage({
   getMyUserId: (...a)=>getMyUserId(...a),
   mhStateMod: mhStateMod,
   myHomeUiMod: myHomeUiMod,
-  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
+  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers()(...a),
   richTextMod: richTextMod,
 });
 /* ═══ ✏️ 인앱 프롬프트(asyncPrompt) ═══ */
@@ -1867,108 +1791,15 @@ const mhStLayoutMod = TwMyHomeStickerLayout.createMyHomeStickerLayout({
   _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
   _myHomeData: ()=>mhStateMod._myHomeData(),
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
-  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
+  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers()(...a),
 });
-function renderMyHomeStickers(){
-  const zone=document.getElementById('mhStickerZone'); if(!zone) return;
-  // 스티커는 '마이홈' 탭에서만 표시 — 친구/스케줄러/버그제보 탭에서는 감춤
-  //   (예전엔 친구 탭만 숨겼는데, 스케줄러 탭에도 스티커가 따라오던 문제 수정)
-  const activeTab = document.querySelector('#myHomeTabs .mh-tab.on');
-  const onHomeTab = activeTab && activeTab.dataset.tab === 'home';
-  zone.classList.toggle('hidden', !onHomeTab);
-  if(!onHomeTab){ mhStLayoutMod._mhFitWindowSafe(); myHomeSticker.editEnd(); return; }
-
-  const data = mhStLayoutMod._mhStickersData();
-  const canEdit = mhStLayoutMod._mhCanEditStickers();
-  zone.innerHTML='';
-  TwMyHomeStickerRules.orderedIds(data).forEach(sid=>{   // 🎨 z 순서대로(뒤 → 앞) — 관리 창 ▲▼
-    const s=data[sid];
-    const el=document.createElement('div'); el.className='mh-sticker';
-    if(canEdit && TwMyHomeStickerRules.isLocked(s)) el.classList.add('locked');   // 🔒 끌리지 않음 표시
-    const stSrc = s.img && TwSafeHtml.safeUrl(s.img, 'image');   // 친구 홈 구경에서는 남의 스티커 — 허용된 그림 주소만
-    if(s.img){ const im=document.createElement('img'); if(stSrc) im.src=stSrc; im.draggable=false; el.appendChild(im); }
-    else {
-      // ✨ 이모지도 애니메이션을 걸려면 안쪽 요소가 필요하다(바깥 div는 크기·회전이 이미 쓰고 있음).
-      const sp=document.createElement('span'); sp.className='st-emoji'; sp.textContent=s.emoji||'⭐';
-      el.appendChild(sp); el.classList.add('emoji');
-    }
-    if(s.anim) el.classList.add('a-'+s.anim);
-    if(s.animSpd) el.classList.add('spd-'+s.animSpd);
-    el.style.left=(s.x||0)+'px'; el.style.top=(s.y||0)+'px'; el.dataset.sid=sid;
-    // 새 스티커는 원본 비율(w/h)을 가짐. 옛 스티커는 w/h가 없으므로 CSS 기본(40×40 정사각) 유지.
-    if(s.w && s.h){
-      const baseW = Math.min(s.w, mhStLayoutMod.STICKER_BASE * 2.2);   // 화면상 기본 표시 폭(size=1일 때)
-      el.style.width  = baseW + 'px';
-      el.style.height = Math.round(baseW * (s.h / s.w)) + 'px';
-    }
-    const alpha = (typeof s.alpha==='number') ? Math.max(0, Math.min(1, s.alpha)) : 1;
-    const tf = mhStLayoutMod._mhStickerTransform(s);
-    if(tf) el.style.transform = tf;
-    if(alpha !== 1) el.style.opacity = String(alpha);
-
-    if(sid === mhStLayoutMod._mhStickerEditSid() && canEdit) el.classList.add('editing');
-
-    if(s.link){
-      el.classList.add('linked'); el.title = canEdit ? (s.link + '  (우클릭: 편집)') : s.link;
-      el.addEventListener('click', e=>{
-        if(e.target.classList.contains('mh-sticker-del')) return;
-        if(e.target.classList.contains('mh-sticker-anim')) return;
-        if(el.classList.contains('editing')) return;      // 편집 중엔 링크 안 엶
-        if(mhPageMod._mhStickerDragDist()>5) return;                  // 방금 드래그했으면 링크 안 엶
-        if(window.companion && companion.openBrowser) companion.openBrowser(s.link);
-        else window.open(s.link, '_blank');
-      });
-    } else if(canEdit){
-      el.title = '우클릭: 편집';
-    }
-
-    // 우클릭 → 편집모드 진입 (본인만)
-    el.addEventListener('contextmenu', e=>{
-      e.preventDefault(); e.stopPropagation();
-      if(!canEdit) return;
-      myHomeSticker.editStart(sid);
-    });
-
-    if(canEdit){
-      // 삭제 버튼 (편집모드에서만 보임)
-      const del=document.createElement('div'); del.className='mh-sticker-del'; del.textContent='×';
-      del.onclick=e=>{
-        e.stopPropagation();
-        delete mhStateMod._myHomeData().stickers[sid];
-        myHomeSticker.editEnd();
-        renderMyHomeStickers(); commitMyHomePage(true);
-      };
-      el.appendChild(del);
-
-      // ✨ 움직임 버튼 — 삭제(×) 옆. 더블클릭은 드래그 처리와 겹쳐 안 잡혀서 버튼 방식으로.
-      const anim=document.createElement('div'); anim.className='mh-sticker-anim'; anim.textContent='✨';
-      anim.title='움직임 고르기';
-      anim.onclick=e=>{ e.stopPropagation(); mhStLayoutMod._mhOpenStickerAnim(sid); };
-      el.appendChild(anim);
-
-      // 크기 조절 핸들 (편집모드에서만 보임)
-      const handle=document.createElement('div'); handle.className='mh-sticker-handle';
-      myHomeSticker.bindResize(handle, sid);
-      el.appendChild(handle);
-
-      // 회전 핸들 + 각도 라벨 + 회전 초기화 버튼
-      const rotLbl=document.createElement('div'); rotLbl.className='mh-sticker-rotlbl';
-      rotLbl.textContent = Math.round(s.rot||0) + '°';
-      el.appendChild(rotLbl);
-
-      const rot=document.createElement('div'); rot.className='mh-sticker-rot';
-      rot.title='드래그해서 회전 (3° 단위)';
-      myHomeSticker.bindRotate(rot, sid, rotLbl);
-      el.appendChild(rot);
-
-
-      // 드래그로 이동 (편집모드에서만)
-      myHomeSticker.bindDrag(el, sid);
-    }
-    zone.appendChild(el);
-  });
-  mhStLayoutMod._mhFitWindowSafe();   // 🎨 런처 마이홈이면 창 밖으로 나간 스티커만큼 창을 넓힌다
-}
+/* 본문은 myhome/myhome-sticker-render.js 로 옮겼다(앱 FSD · app.js 분리 M19). renderMyHomeStickers 는 마이홈 편집 묶음이 감싸 다시 대입하므로 읽는 · 쓰는 함수로 다룬다. */
+const stickerRenderMod = TwMyHomeStickerRender.createMyHomeStickerRender({
+  mhPageMod: mhPageMod,
+  mhStateMod: mhStateMod,
+  mhStLayoutMod: mhStLayoutMod,
+  myHomeSticker: ()=>myHomeSticker,
+});
 
 /* 🎨 스티커 관리 창 · 스티커 편집모드 · 드래그 · 회전 · 크기는 parts/myhome-sticker.js 로 옮겼다(앱 FSD 7번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(#stMgrClose · #stMgrBringAll 버튼 연결)이 예전과 같은 때 돈다.
@@ -1982,7 +1813,7 @@ const myHomeSticker = TwMyHomeSticker.createMyHomeSticker({
   toast: (...a)=>toast(...a),
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   commitMyHomePage: (...a)=>commitMyHomePage(...a),
-  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
+  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers()(...a),
   mhStickerOutOfView: (...a)=>mhStLayoutMod._mhStickerOutOfView(...a),
   mhClampStickerPos: (...a)=>mhStLayoutMod._mhClampStickerPos(...a),
   mhStickerDispSize: (...a)=>mhStLayoutMod._mhStickerDispSize(...a),
@@ -2021,9 +1852,9 @@ const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
   homeUploadCache: uploadCacheMod,
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
-  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
-  getRenderMyHomeStickers: ()=>renderMyHomeStickers,
-  setRenderMyHomeStickers: (f)=>{ renderMyHomeStickers = f; },
+  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers()(...a),
+  getRenderMyHomeStickers: ()=>stickerRenderMod.renderMyHomeStickers(),
+  setRenderMyHomeStickers: (f)=>{ stickerRenderMod.setRenderMyHomeStickers(f); },
   mhSaveRT: (...a)=>richTextMod._mhSaveRT(...a),
   mhUpdateRTCount: (...a)=>richTextMod._mhUpdateRTCount(...a),
   mhClampStickerPos: (...a)=>mhStLayoutMod._mhClampStickerPos(...a),
@@ -2599,9 +2430,9 @@ const seatPointerMod = TwSeatPointer.createSeatPointer({
   seatMenuMod: ()=>seatMenuMod,
   seatPanelMod: seatPanelMod,
   seats: seats,
-  setSuppressNextContextMenu: (v)=>{ _suppressNextContextMenu = v; },
+  setSuppressNextContextMenu: (v)=>{ moveModeMod.setSuppressNextContextMenu(v); },
   sfxMod: sfxMod,
-  suppressNextContextMenu: ()=>_suppressNextContextMenu,
+  suppressNextContextMenu: ()=>moveModeMod._suppressNextContextMenu(),
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
   triggerPet: triggerPet,
@@ -6927,12 +6758,12 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const desktopRunMod = TwDesktopRun.createDesktopRun({
   _applyActiveAppState: (...a)=>_applyActiveAppState(...a),
-  _charBoundsLatest: ()=>_charBoundsLatest,
+  _charBoundsLatest: ()=>moveModeMod._charBoundsLatest(),
   _officeHidden: ()=>officeModeMod._officeHidden(),
   _penAppFocused: ()=>seatStateMod.penAppFocused(),
   _skipFlyingRigs: (...a)=>hiddenSeatsMod._skipFlyingRigs(...a),
   _skipHiddenDesk: (...a)=>hiddenSeatsMod._skipHiddenDesk(...a),
-  _twMoveSeenAt: ()=>_twMoveSeenAt,
+  _twMoveSeenAt: ()=>moveModeMod._twMoveSeenAt(),
   activity: (...a)=>activity(...a),
   anyInput: (...a)=>anyInput(...a),
   backToLauncher: (...a)=>backToLauncher(...a),
@@ -6944,11 +6775,11 @@ const desktopRunMod = TwDesktopRun.createDesktopRun({
   hitShadow: hitShadow,
   lastActivity: ()=>seatStateMod.lastActivity(),
   lastAnyInput: ()=>seatStateMod.lastAnyInput(),
-  moveMode: ()=>moveMode,
+  moveMode: ()=>moveModeMod.moveMode(),
   ray: ray,
   renderer: renderer,
   seats: seats,
-  setTwMoveSeenAt: (v)=>{ _twMoveSeenAt = v; },
+  setTwMoveSeenAt: (v)=>{ moveModeMod.setTwMoveSeenAt(v); },
   setLastActivity: (v)=>{ seatStateMod.setLastActivity(v); },
   setLastAnyInput: (v)=>{ seatStateMod.setLastAnyInput(v); },
   runCost: runCost,   // 🩺 통과 판정 시간(1분 [비용] 줄)
