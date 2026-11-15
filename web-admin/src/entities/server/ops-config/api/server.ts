@@ -28,7 +28,35 @@ const SERVER_GROUPS: OpsGroups = {
     ],
   },
   roomFrame: { ...ROOM_FRAME, path: 'room.frame' },
-  roomTiming: { ...ROOM_TIMING, path: 'room.timing' },
+  // 방 타이밍 — 서버에는 아홉 칸이 있다. Firebase 판 화면의 세 칸에 나머지 여섯 칸(앱 · 방 서버가 읽는 값)을 더했다.
+  roomTiming: {
+    path: 'room.timing',
+    fields: [
+      { key: 'joinWaitMs', label: '입장 대기', min: 3000, max: 60_000, def: 10_000, unit: 'ms' },
+      {
+        key: 'clientGiveUpMs',
+        label: '앱이 다시 붙기를 포기하는 시간',
+        min: 15_000,
+        max: 600_000,
+        def: 90_000,
+        unit: 'ms',
+      },
+      { key: 'graceMs', label: '끊긴 뒤 자리를 붙잡는 시간', min: 0, max: 600_000, def: 20_000, unit: 'ms' },
+      { key: 'pingIntervalMs', label: 'ping 주기', min: 1000, max: 120_000, def: 25_000, unit: 'ms' },
+      { key: 'refreshMs', label: '설정 다시 읽기', min: 5000, max: 600_000, def: 60_000, unit: 'ms' },
+      ...ROOM_TIMING.fields,
+      { key: 'chatBatchMs', label: '채팅 묶음 간격', min: 0, max: 1000, def: 200, unit: 'ms' },
+    ],
+  },
+  // 하루 한도 — 키마다 따로(서버 설정 키 `user.signupDailyMax` · `guestbook.clapDailyMax` · `gift.dailySendMax`). 묶음의 칸 이름이 키 이름이다.
+  dailyLimits: {
+    path: 'daily',
+    fields: [
+      { key: 'user.signupDailyMax', label: '가입 하루 상한', min: 1, max: 100_000, def: 2000, unit: '명' },
+      { key: 'guestbook.clapDailyMax', label: '웹박수 하루 횟수', min: 1, max: 100, def: 5, unit: '번' },
+      { key: 'gift.dailySendMax', label: '선물 하루 보내기', min: 1, max: 100, def: 10, unit: '번' },
+    ],
+  },
 };
 
 const object = (v: unknown): Record<string, unknown> =>
@@ -45,6 +73,14 @@ export function createServerOpsConfigPort(api: Api | null): OpsConfigPort {
   return {
     groups: SERVER_GROUPS,
     async getIntGroup(group) {
+      if (group === SERVER_GROUPS.dailyLimits) {
+        // 키마다 따로인 묶음 — 칸 이름이 키 이름이다.
+        const rows = await Promise.all(group.fields.map((f) => config.read(f.key)));
+        return parseIntGroup(
+          group,
+          Object.fromEntries(group.fields.map((f, i) => [f.key, rows[i].effective])),
+        );
+      }
       return parseIntGroup(group, (await config.read(keyOf(group))).effective);
     },
     async getLogLevels() {
@@ -55,6 +91,14 @@ export function createServerOpsConfigPort(api: Api | null): OpsConfigPort {
     },
     async saveIntGroup(group, _action, _target, _before, updates) {
       if (!Object.keys(updates).length) return;
+      if (group === SERVER_GROUPS.dailyLimits) {
+        // 키마다 한 번씩 — 비운 칸(null)은 그 키의 기본값으로
+        for (const [path, value] of Object.entries(updates)) {
+          const key = fieldOf(path);
+          await config.update(key, (_current, defaults) => value ?? defaults);
+        }
+        return;
+      }
       await config.update(keyOf(group), (current, defaults) => {
         const next = { ...object(current) };
         for (const [path, value] of Object.entries(updates)) {
