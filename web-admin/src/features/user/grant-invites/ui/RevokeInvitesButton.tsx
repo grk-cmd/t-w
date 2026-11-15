@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useEnv, withProdMark } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import type { GrantScope } from '../model/grantInvites';
-import { useLoadAllUserIds, useRevokeInvites } from '../model/useGrantInvites';
+import { useCountAllTargets, useRevokeInvites } from '../model/useGrantInvites';
 import { InviteDialog } from './InviteDialog';
 import styles from './InviteDialog.module.css';
 
@@ -12,19 +12,21 @@ const CONFIRM_WORD = '전체 회수';
 interface Props {
   scope: GrantScope;
   uids: string[];
-  /** 대상을 누를 때 받는다(전체) — 있으면 uids 대신 쓴다. */
-  load?: () => Promise<string[]>;
+  /** 대상 수를 누를 때 센다(전체) — 서버가 처리할 때 세는 판은 null. */
+  countAll?: () => Promise<number | null>;
   /** 회수를 마치고 창을 닫을 때 — 선택 회수는 선택을 비운다. */
   onDone?: () => void;
 }
 
-function RevokeInvitesButton({ scope, uids, load, onDone }: Props) {
+function RevokeInvitesButton({ scope, uids, countAll, onDone }: Props) {
   const env = useEnv();
-  const revoke = useRevokeInvites(scope);
+  const revoke = useRevokeInvites();
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState('');
   // 창을 연 순간의 대상 — 도는 중에 선택이 바뀌어도 진행 표시가 흔들리지 않게.
   const [targets, setTargets] = useState<string[]>([]);
+  // 전체 대상 수 — 서버가 처리할 때 세는 판은 null.
+  const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<unknown>(null);
   const all = scope === 'all';
@@ -33,17 +35,20 @@ function RevokeInvitesButton({ scope, uids, load, onDone }: Props) {
     setTyped('');
     revoke.reset();
     setLoadError(null);
-    if (load) {
+    if (countAll) {
       setLoading(true);
       try {
-        setTargets(await load());
+        setTotal(await countAll());
       } catch (e) {
-        setTargets([]);
+        setTotal(0);
         setLoadError(e);
       } finally {
         setLoading(false);
       }
-    } else setTargets(uids);
+    } else {
+      setTargets(uids);
+      setTotal(uids.length);
+    }
     setOpen(true);
   };
 
@@ -54,26 +59,26 @@ function RevokeInvitesButton({ scope, uids, load, onDone }: Props) {
 
   const r = revoke.data;
   const running = revoke.isPending;
-  const ready = !running && targets.length > 0 && (!all || typed.trim() === CONFIRM_WORD);
+  const ready = !running && total !== 0 && (!all || typed.trim() === CONFIRM_WORD);
 
   return (
     <>
       <button
         type="button"
         className={all ? 'btn danger' : 'btn'}
-        disabled={loading || (!load && !uids.length)}
+        disabled={loading || (!countAll && !uids.length)}
         onClick={() => void show()}
       >
         {all ? (loading ? '대상 읽는 중…' : '전체 초대권 회수') : `선택 초대권 회수 (${uids.length})`}
       </button>
       <InviteDialog
         open={open}
-        title={withProdMark(env, all ? '전체 사용자 초대권 회수' : `선택한 ${targets.length}명 초대권 회수`)}
+        title={withProdMark(env, all ? '전체 사용자 초대권 회수' : `선택한 ${total}명 초대권 회수`)}
         locked={running}
         onClose={close}
       >
         <p>
-          대상 <b>{targets.length}명</b>의 남은 초대권을 <b>0장</b>으로 바꿔요.
+          대상 <b>{total === null ? '전체 사용자' : `${total}명`}</b>의 남은 초대권을 <b>0장</b>으로 바꿔요.
         </p>
         <ul className={styles.rules}>
           <li>
@@ -117,7 +122,8 @@ function RevokeInvitesButton({ scope, uids, load, onDone }: Props) {
         {r && (
           <p className="msg">
             {r.stopped ? '멈춤 · ' : '완료 · '}
-            {r.revoked}명에게서 {r.taken}장 회수 · {r.skipped}명 건너뜀
+            {r.revoked}명{r.taken === null ? '' : `에게서 ${r.taken}장`} 회수
+            {r.skipped === null ? '' : ` · ${r.skipped}명 건너뜀`}
             {r.failed ? ` · ${r.failed}명 실패` : ''}
           </p>
         )}
@@ -138,9 +144,11 @@ function RevokeInvitesButton({ scope, uids, load, onDone }: Props) {
               type="button"
               className={`btn ${styles.dangerFill}`}
               disabled={!ready}
-              onClick={() => revoke.mutate({ uids: targets })}
+              onClick={() =>
+                revoke.mutate({ target: all ? { kind: 'all' } : { kind: 'picked', uids: targets } })
+              }
             >
-              {running ? '회수 중…' : `${targets.length}명 초대권 0장으로`}
+              {running ? '회수 중…' : `${total === null ? '전체' : `${total}명`} 초대권 0장으로`}
             </button>
           )}
         </div>
@@ -152,7 +160,7 @@ function RevokeInvitesButton({ scope, uids, load, onDone }: Props) {
 const NO_UIDS: string[] = [];
 
 export function RevokeInvitesAllButton() {
-  return <RevokeInvitesButton scope="all" uids={NO_UIDS} load={useLoadAllUserIds()} />;
+  return <RevokeInvitesButton scope="all" uids={NO_UIDS} countAll={useCountAllTargets()} />;
 }
 
 export function RevokeInvitesSelectedButton({ uids, onDone }: { uids: string[]; onDone: () => void }) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createInviteCode, genInviteCode, INVITE_CODE_RE } from '@/entities/invite';
-import { createInviteCodes } from '@/features/user/grant-invites';
+import { createInviteCodes } from '@/features/user/grant-invites/api/firebase';
 import { fakeDb, withoutAudits } from '../shared/fakeDb';
 
 describe('초대 코드', () => {

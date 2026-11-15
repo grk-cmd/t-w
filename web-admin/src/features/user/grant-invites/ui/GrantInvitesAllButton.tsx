@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useEnv, withProdMark } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
-import { useGrantInvitesAll, useLoadAllUserIds } from '../model/useGrantInvites';
+import { useCountAllTargets, useGrantInvitesAll } from '../model/useGrantInvites';
 import { CountStepper, InviteDialog } from './InviteDialog';
 import styles from './InviteDialog.module.css';
 
@@ -11,11 +11,12 @@ const CONFIRM_WORD = '전체 지급';
 export function GrantInvitesAllButton() {
   const env = useEnv();
   // 대상은 단추를 눌렀을 때만 받는다(friendCodes 통째) — 화면을 열기만 해서 받지 않게.
-  const loadUids = useLoadAllUserIds();
-  const [uids, setUids] = useState<string[]>([]);
+  const countAll = useCountAllTargets();
+  // 서버가 처리할 때 세는 판은 null — 그때는 대상 수를 미리 보이지 않는다.
+  const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<unknown>(null);
-  const grant = useGrantInvitesAll('all');
+  const grant = useGrantInvitesAll();
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(1);
   const [typed, setTyped] = useState('');
@@ -27,9 +28,9 @@ export function GrantInvitesAllButton() {
     setLoadError(null);
     setLoading(true);
     try {
-      setUids(await loadUids());
+      setTotal(await countAll());
     } catch (e) {
-      setUids([]);
+      setTotal(0);
       setLoadError(e);
     } finally {
       setLoading(false);
@@ -52,7 +53,7 @@ export function GrantInvitesAllButton() {
         onClose={() => setOpen(false)}
       >
         <p>
-          대상 <b>{uids.length}명</b>{' '}
+          대상 <b>{total === null ? '전체 사용자' : `${total}명`}</b>{' '}
           <span className="soft">· 초대 정보가 없는 계정 · 이미 999장인 계정은 빼고 줘요</span>
         </p>
         <CountStepper value={count} onChange={setCount} />
@@ -82,7 +83,8 @@ export function GrantInvitesAllButton() {
         {r && (
           <p className="msg">
             {r.stopped ? '멈춤 · ' : '완료 · '}
-            {r.granted}명 지급 · {r.skipped}명 건너뜀{r.failed ? ` · ${r.failed}명 실패` : ''}
+            {r.granted}명 지급{r.skipped === null ? '' : ` · ${r.skipped}명 건너뜀`}
+            {r.failed ? ` · ${r.failed}명 실패` : ''}
           </p>
         )}
         {!!loadError && <p className="msg err">{errorMessage(loadError, '대상 사용자를 읽지 못했어요')}</p>}
@@ -103,10 +105,10 @@ export function GrantInvitesAllButton() {
             <button
               type="button"
               className="btn primary"
-              disabled={running || !uids.length || typed.trim() !== CONFIRM_WORD}
-              onClick={() => grant.mutate({ uids, count })}
+              disabled={running || total === 0 || typed.trim() !== CONFIRM_WORD}
+              onClick={() => grant.mutate({ target: { kind: 'all' }, count })}
             >
-              {running ? '지급 중…' : `${uids.length}명에게 ${count}장씩 지급`}
+              {running ? '지급 중…' : `${total === null ? '전체' : `${total}명`}에게 ${count}장씩 지급`}
             </button>
           )}
         </div>

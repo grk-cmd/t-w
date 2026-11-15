@@ -10,7 +10,7 @@ import {
   toGroupInvites,
   type GroupInvite,
 } from '@/entities/invite';
-import { createGroupInviteCode, setGroupInviteStopped } from '@/features/user/grant-invites';
+import { createGroupInviteCode, setGroupInviteStopped } from '@/features/user/grant-invites/api/firebase';
 import { auditsOf, fakeDb, NOW, withoutAudits } from '../shared/fakeDb';
 
 const T = Date.parse('2026-10-22T03:00:00Z'); // 서울 10-22 12:00

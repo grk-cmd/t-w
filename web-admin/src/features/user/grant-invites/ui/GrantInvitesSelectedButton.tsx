@@ -14,7 +14,7 @@ interface Props {
 // 한 명 지급(grantInvites)을 전체 지급과 같은 방식(20명씩 동시에)으로 고른 사람에게만 돌린다.
 export function GrantInvitesSelectedButton({ uids, onDone }: Props) {
   const env = useEnv();
-  const grant = useGrantInvitesAll('selected');
+  const grant = useGrantInvitesAll();
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(1);
   // 창을 연 순간의 대상 — 도는 중에 선택이 바뀌어도 진행 표시가 흔들리지 않게.
@@ -63,7 +63,8 @@ export function GrantInvitesSelectedButton({ uids, onDone }: Props) {
         {r && (
           <p className="msg">
             {r.stopped ? '멈춤 · ' : '완료 · '}
-            {r.granted}명 지급 · {r.skipped}명 건너뜀{r.failed ? ` · ${r.failed}명 실패` : ''}
+            {r.granted}명 지급{r.skipped === null ? '' : ` · ${r.skipped}명 건너뜀`}
+            {r.failed ? ` · ${r.failed}명 실패` : ''}
           </p>
         )}
         {grant.error && <p className="msg err">{errorMessage(grant.error, '지급을 시작하지 못했어요')}</p>}
@@ -82,7 +83,7 @@ export function GrantInvitesSelectedButton({ uids, onDone }: Props) {
               type="button"
               className="btn primary"
               disabled={running || !targets.length}
-              onClick={() => grant.mutate({ uids: targets, count })}
+              onClick={() => grant.mutate({ target: { kind: 'picked', uids: targets }, count })}
             >
               {running ? '지급 중…' : `${targets.length}명에게 ${count}장씩 지급`}
             </button>

@@ -20,7 +20,7 @@ import {
   grantInvites,
   grantInvitesAll,
   revokeInvitesAll,
-} from '@/features/user/grant-invites';
+} from '@/features/user/grant-invites/api/firebase';
 import { dismissReportsMany, takeDownAwayImg } from '@/features/user/moderate-report';
 import { auditsOf, fakeDb, type Write } from '../shared/fakeDb';
 import { fakeFiles } from '../shared/fakeFiles';

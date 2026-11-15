@@ -1,18 +1,21 @@
-import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useDb, type Db } from '@/shared/api';
+// Firebase 판 — 지금 코드 그대로: 초대권 · 초대 코드를 RTDB 에서 읽고 쓴다(트랜잭션).
+import type { Db } from '@/shared/api';
 import {
   addInvites,
   genInviteCode,
   INVITE_ISSUER_ADMIN,
   INVITES_LEFT_MAX,
   type InviteRecord,
-  toIssuedInvites,
-  type IssuedInvite,
 } from '../model/invite';
-
-const invitesLeftKey = (uid: string) => ['invitesLeft', uid];
-const USER_INVITE = 'userInvite';
-const userInviteKey = (uid: string) => [USER_INVITE, uid];
+import {
+  GROUP_INVITE_NOTE_MAX,
+  isGroupMaxUses,
+  toGroupInvites,
+  type GroupInvite,
+  type GroupInviteDraft,
+  type GroupInviteRecord,
+} from '../model/groupInvite';
+import type { InvitePort } from './port';
 
 /** 초대권 칸이 없으면 null — 규칙이 «없던 칸은 0 으로만 만들 수 있다» 고 해서 지급 대상이 아니다. */
 export async function getInvitesLeft(db: Db, uid: string): Promise<number | null> {
@@ -58,59 +61,6 @@ export async function clearInvitesLeft(db: Db, uid: string): Promise<ClearInvite
   return { ok: true, before: seen.before };
 }
 
-/** 한 사람 몫 한 칸 — 지급 창을 열 때만 읽는다. */
-export function useInvitesLeft(uid: string, enabled: boolean) {
-  const db = useDb();
-  return useQuery({ queryKey: invitesLeftKey(uid), queryFn: () => getInvitesLeft(db, uid), enabled });
-}
-
-/** 한 명에게 지급한 뒤 — 지급 창의 장수와 목록의 가입 칸을 함께 맞춘다. */
-export function useSetInvitesLeftCache() {
-  const client = useQueryClient();
-  return (uid: string, value: number) => {
-    client.setQueryData(invitesLeftKey(uid), value);
-    client.setQueryData<UserInvite | null>(userInviteKey(uid), (cur) =>
-      cur ? { ...cur, invitesLeft: value } : cur,
-    );
-  };
-}
-
-/** 여러 명에게 지급한 뒤 — 받아 둔 가입 칸을 버려 보이는 줄만 다시 읽게 한다. */
-export function useForgetUserInvites() {
-  const client = useQueryClient();
-  return () => client.invalidateQueries({ queryKey: [USER_INVITE] });
-}
-
-export interface UserInvite {
-  /** 가입(처음 통과)한 시각(ms). */
-  joinedAt: number | null;
-  /** 초대 코드를 준 사람. null 이면 초대장 제도 전부터 쓰던 기존 사용자(처음 한 번 5장). */
-  invitedBy: string | null;
-  invitesLeft: number | null;
-}
-
-/** users/{uid}/invite 세 칸. 칸이 없으면 null — 아직 게이트를 안 지난(옛 앱) 사용자. */
-export async function getUserInvite(db: Db, uid: string): Promise<UserInvite | null> {
-  const v = await db.get<{ joinedAt?: unknown; invitedBy?: unknown; invitesLeft?: unknown }>(
-    `users/${uid}/invite`,
-  );
-  if (!v || typeof v !== 'object') return null;
-  return {
-    joinedAt: typeof v.joinedAt === 'number' ? v.joinedAt : null,
-    invitedBy: typeof v.invitedBy === 'string' && v.invitedBy ? v.invitedBy : null,
-    invitesLeft: typeof v.invitesLeft === 'number' ? v.invitesLeft : null,
-  };
-}
-
-/** 목록 칸과 기간 검색이 같은 캐시를 쓰도록 한 곳에서 만든다. */
-export const userInviteQuery = (db: Db, uid: string) =>
-  queryOptions({ queryKey: userInviteKey(uid), queryFn: () => getUserInvite(db, uid) });
-
-/** 화면에 보이는 줄만 읽고 캐시에 남긴다. */
-export function useUserInvite(uid: string) {
-  return useQuery(userInviteQuery(useDb(), uid));
-}
-
 /**
  * 새 초대 코드 하나. invites 는 규칙상 누구나 덮어쓸 수 있어, 이미 있는 코드면 쓰지 않도록 트랜잭션으로 «없을 때만» 만든다.
  * 겹치면 새 코드로 몇 번 더 해 본다.
@@ -132,17 +82,45 @@ export async function createInviteCode(
 }
 
 /**
- * 이 사람이 만든 초대 코드 — 규칙의 invites ".indexOn": ["issuedBy"] 로 그 사람 몫만 받는다(통째 받기 금지).
- * 관리자가 만든 코드는 issuedBy 가 'admin' 이라 여기 나오지 않는다.
+ * 새 여러 명 코드 하나. 앱은 invites/{code} 를 먼저 보고 없을 때만 groupInvites 를 보니,
+ * 한 명짜리와 이름이 겹치면 이 코드가 가려진다 — 양쪽 다 비었을 때만 만든다.
  */
-export async function listIssuedInvites(db: Db, uid: string): Promise<IssuedInvite[]> {
-  return toIssuedInvites(
-    await db.getEqual<{ createdAt?: unknown; usedBy?: unknown }>('invites', 'issuedBy', uid),
-  );
+export async function createGroupInvite(
+  db: Db,
+  draft: GroupInviteDraft,
+  now = Date.now(),
+  gen: () => string = genInviteCode,
+): Promise<string> {
+  if (!isGroupMaxUses(draft.maxUses)) throw new Error(`인원이 범위를 벗어났어요: ${draft.maxUses}`);
+  if (draft.expiresAt !== null && draft.expiresAt <= now) throw new Error('마감 날짜가 이미 지났어요');
+  const note = draft.note.trim().slice(0, GROUP_INVITE_NOTE_MAX);
+  const record: GroupInviteRecord = {
+    issuedBy: INVITE_ISSUER_ADMIN,
+    createdAt: now,
+    maxUses: draft.maxUses,
+    usedCount: 0,
+    ...(draft.expiresAt !== null ? { expiresAt: draft.expiresAt } : {}),
+    ...(note ? { note } : {}),
+  };
+  for (let i = 0; i < 5; i++) {
+    const code = gen();
+    if ((await db.get(`invites/${code}`)) !== null) continue;
+    const r = await db.transaction<GroupInviteRecord>(`groupInvites/${code}`, (current) =>
+      current === null ? record : undefined,
+    );
+    if (r.committed) return code;
+  }
+  throw new Error('초대 코드가 계속 겹쳐요');
 }
 
-/** 상세 창을 열 때만. */
-export function useIssuedInvites(uid: string) {
-  const db = useDb();
-  return useQuery({ queryKey: ['issuedInvites', uid], queryFn: () => listIssuedInvites(db, uid) });
+/** 관리자만 읽는 목록 — 코드 수는 적고 칸이 작아 통째로 받는다(들어온 사람 칸은 따로 있어 안 딸려 온다). */
+export async function listGroupInvites(db: Db): Promise<GroupInvite[]> {
+  return toGroupInvites(await db.get<Record<string, Record<string, unknown> | null>>('groupInvites'));
+}
+
+export function createFirebaseInvitePort(db: Db): InvitePort {
+  return {
+    groups: () => listGroupInvites(db),
+    invitesLeft: (uid) => getInvitesLeft(db, uid),
+  };
 }

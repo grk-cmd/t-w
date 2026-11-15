@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  grantInvites,
-  grantInvitesAll,
-  revokeInvitesAll,
-  uniqueUserIds,
-} from '@/features/user/grant-invites';
+import { grantInvites, grantInvitesAll, revokeInvitesAll } from '@/features/user/grant-invites/api/firebase';
+import { uniqueUserIds } from '@/features/user/grant-invites';
 import { fakeDb, withoutAudits } from '../shared/fakeDb';
 
 const left = (uid: string) => `users/${uid}/invite/invitesLeft`;
