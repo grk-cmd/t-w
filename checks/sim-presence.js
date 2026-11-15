@@ -7,7 +7,7 @@
    ・3절: 방 입장 · payload — join 칸 · 방 코드 돌려줌 · friends 콜백 · 같은 값은 다시 안 보냄 · 거르기(소음 · 그림 크기 · 이름)
    ・4절: 채팅 · poke · 나가기 — 140자 · 탭 · 날리기 칸 · poke 중복 / 지난 값 거르기 · 쓰다듬기 · stop
    ・5절: 자동 자리비움 — 20분 무반응이면 away(auto) · 돌아오면 직전 상태 · 밥 · 게임은 건너뜀 · 손으로 고르면 manual
-   ・6절: app.js 연결 — 옮긴 선언이 app.js 에 안 남음 · deps 20줄 · 옛 전역 이름 한 줄 · html(app.js 앞) · smoke · 되살리기 도우미
+   ・6절: app.js 연결 — 옮긴 선언이 app.js 에 안 남음 · deps 16줄 · 옛 전역 이름 한 줄 · html(app.js 앞) · smoke · 되살리기 도우미
    ・7절: 일부러 깨 보기 */
 'use strict';
 const fs = require('fs');
@@ -20,9 +20,9 @@ const SMOKE = read('smoke.js') || read('checks/smoke.js'), RSRC = read('sim-rend
 if (!MOD || !APP || !HTML) { say('  ? 원본 못 찾음 — presence.js · app.js · desk-companion-prototype.html'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ['getMyUserId', 'toast', 'triggerPet'];
+const FN_DEPS = ['toast', 'triggerPet'];
 const VAL_DEPS = ['USER_STATUSES', 'chatUiMod', 'floatersMod', 'iDeskMod', 'roomSyncMod', 'seats', 'tricksMod'];
-const GET_DEPS = ['awayPicMod', 'customStatusConf', 'expBarMod', 'focusLevelMod', 'focusShareMod', 'isAdmin', 'isPremium', 'lastAnyInput', 'roomEntryMod', 'roomNet'];
+const GET_DEPS = ['awayPicMod', 'customStatusConf', 'expBarMod', 'focusLevelMod', 'focusShareMod', 'lastAnyInput', 'roomEntryMod'];
 const STATUSES = { meal: 1, gaming: 1, away: 1, custom: 1, busy: 1 };
 
 /* 가짜 세상 — 모듈을 만들고 무엇이 불렸는지 적는다. o 로 저장값 · 유휴 시간 등을 바꾼다 */
@@ -34,13 +34,13 @@ function world(src, o = {}) {
   const env = { idleSec: 0, now: 1000, mobile: false };
   const me = { isMe: true };
   const deps = {
-    getMyUserId: () => 'u1', toast: (m) => log.toasts.push(m), triggerPet: () => { log.pets++; },
+    toast: (m) => log.toasts.push(m), triggerPet: () => { log.pets++; },
     USER_STATUSES: STATUSES,
     chatUiMod: { _chatTabOut: () => null },
     floatersMod: { _myPetLocalAt: () => -1e9, MY_PET_ECHO_MS: 800, FLOATER_BURST: 0, spawnFloater: () => {} },
     iDeskMod: { DANCE_MOVES: [{ style: 'sway', dur: 6000 }] },
     roomSyncMod: { _autoExitCancel: () => { log.exitCancel++; }, _autoExitWarn: () => { log.exitWarn++; }, AUTO_EXIT_AFTER_AWAY_MS: 6 * 3600e3, AUTO_EXIT_WARN_MS: 60e3,
-      _srvNow: () => 5000, POKE_SKEW_MS: 60000, _pokeFresh: (ts) => ts > 1000, ensureRoomFaceUrls: async () => {}, makeFirebaseProvider: () => provider },
+      _srvNow: () => 5000, POKE_SKEW_MS: 60000, _pokeFresh: (ts) => ts > 1000, ensureRoomFaceUrls: async () => {} },
     seats: [me],
     tricksMod: { _myFlyCoolUntil: () => 0, applyRemoteFly: () => {}, applyRemoteBonk: () => {} },
     awayPicMod: () => ({ _awayUrlOk: (u) => typeof u === 'string' && u.startsWith('https://ok/'), awayImgUrl: () => '', _awaySzOk: (n) => n === 60 || n === 80 || n === 100, awayImgSz: () => 80, AWAY_PIC_SCREEN_PX: () => 80 }),
@@ -48,9 +48,9 @@ function world(src, o = {}) {
     expBarMod: () => ({ myExpCells: () => 3 }),
     focusLevelMod: () => ({ getFocusLevel: () => 7, myStarOut: () => ({ cyc: 0, clv: 7, starC: '' }), _mobileOn: () => env.mobile, _mobileRoomLabel: () => null }),
     focusShareMod: () => ({ _focusShowConf: () => o.focusShow || null, _focusShowMarkSent: () => {} }),
-    isAdmin: () => false, isPremium: () => !!o.premium, lastAnyInput: () => 0,
-    roomNet: () => (o.noApi ? undefined : {}),   // 데이터 provider — 전역 firebaseAPI 는 일부러 비워 둔다(모듈이 roomNet 만 보는지)
-    roomEntryMod: () => ({ _waitFirebaseApi: async () => {}, NET_READY_WAIT_MS: 1, _mockRoomAllowed: () => !!o.mockOk, makeMockProvider: () => provider }),
+    lastAnyInput: () => 0,
+    /* provider 를 안 넘긴 start 는 가짜 방(개발 표식)일 때만 — 여기서는 기본으로 허용해 같은 가짜 provider 를 쓴다(o.mockOk:false 로 막아 본다) */
+    roomEntryMod: () => ({ _mockRoomAllowed: () => o.mockOk !== false, makeMockProvider: () => provider }),
   };
   let pokeCb = null;
   const provider = {
@@ -97,9 +97,9 @@ async function behave(src) {
   w = world(src, { focusShow: { emo: '🕒', text: '오늘 1:00' } });
   const ret = await w.P.start('ROOM1', { d: 1 }, '', (fr) => w.log.changes.push(fr));
   const j = w.log.joins[0];
-  t(ret === 'ROOM1' && w.P.active() && w.P.roomCode() === 'ROOM1', 'Firebase 방은 방 코드를 돌려주고 active · roomCode 가 선다');
-  t(j && j.payload.name === '나' && j.payload.level === 7 && j.payload.userId === 'u1' && j.payload.awaySz === 80 && j.payload.noise === '' && j.payload.lic === false && j.payload.awayImg === '',
-    'join payload — 이름 없으면 «나» · 레벨 · userId · 그림 크기 80 · 소음 빈 값 · lic · awayImg');
+  t(ret && ret.ok === true && w.P.active() && w.P.roomCode() === 'ROOM1', '들어가면 { ok:true } · active · roomCode 가 선다');
+  t(j && j.payload.name === '나' && j.payload.level === 7 && !('userId' in j.payload) && j.payload.awaySz === 80 && j.payload.noise === '' && !('lic' in j.payload) && j.payload.awayImg === '',
+    'join payload — 이름 없으면 «나» · 레벨 · 그림 크기 80 · 소음 빈 값 · awayImg · userId · lic 는 싣지 않는다(서버가 토큰 · 라이선스로 안다)');
   t(j && j.payload.userStatus === 'custom' && j.payload.customStatus.text === '오늘 1:00', '상태가 없으면 오늘 기록 전시를 custom 칸으로 싣는다');
   t(w.P.friendsObj().f1 && w.log.changes.length === 1, 'friends 콜백 → friendsObj · onChange');
   t(w.P.myDef().d === 1, 'myDef — 방에 보낸 def');
@@ -157,10 +157,10 @@ async function behave(src) {
   const nU = w.log.updates.length; w.P.setNoise('page');
   t(w.log.updates.length === nU, '방 밖에서는 보내지 않는다');
 
-  /* 서버가 준비 안 됨 · 가짜 방 막힘 */
-  const w2 = world(src, { noApi: true });
+  /* provider 없음 · 가짜 방 막힘 */
+  const w2 = world(src, { mockOk: false });
   const r2 = await w2.P.start('R2', {}, '나');
-  t(r2 === undefined && !w2.P.active() && w2.log.toasts.length === 1 && w2.log.joins.length === 0, '데이터 provider(roomNet) 없음 · 가짜 방 막힘 → 들어가지 않고 알린다');
+  t(r2 && r2.ok === false && r2.code === 'noProvider' && !w2.P.active() && w2.log.joins.length === 0, 'provider 없음 · 가짜 방 막힘 → 들어가지 않는다({ ok:false, code:noProvider })');
   const w3 = world(src, { joinRes: Promise.resolve({ ok: false, code: 'full' }) });
   const r3 = await w3.P.start('R3', {}, '나', null, { provider: w3.provider });
   t(r3 && r3.ok === false && r3.code === 'full' && !w3.P.active(), '방 서버 입장 실패 → { ok:false, code } · 방 밖');
@@ -195,7 +195,7 @@ function wire(app, html) {
   const kindOf = (l) => { const m = /^  ([\w$]+): (\(\.\.\.a\)=>|\(\)=>)?/.exec(l); return m ? m[1] + '|' + (m[2] === '(...a)=>' ? 'fn' : m[2] === '()=>' ? 'get' : 'val') : '?' + l; };
   const want = [...FN_DEPS.map((n) => n + '|fn'), ...VAL_DEPS.map((n) => n + '|val'), ...GET_DEPS.map((n) => n + '|get')].sort();
   const got = mk ? mk.split('\n').map(kindOf).sort() : [];
-  t(got.length === 20 && want.every((k, i) => got[i] === k), '만드는 줄(가드 없이) · deps 20개 — 함수 3 · 값 7 · 읽는 함수 10');
+  t(got.length === 16 && want.every((k, i) => got[i] === k), '만드는 줄(가드 없이) · deps 16개 — 함수 2 · 값 7 · 읽는 함수 7');
   t(/^const Presence = presenceMod\.Presence;\s+\/\/ 옛 전역 이름/m.test(app) && app.indexOf('const Presence = presenceMod.Presence;') > app.indexOf('const presenceMod = TwPresence.createPresence('), '옛 전역 이름 한 줄(만드는 줄 바로 뒤)');
   t(!/presenceMod\.Presence\b/.test(A.replace('const Presence = presenceMod.Presence;', '')), 'app.js 나머지는 Presence.이름 그대로(presenceMod.Presence 를 직접 부르지 않는다)');
   const iM = html.indexOf('<script src="parts/room/presence.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
@@ -224,7 +224,7 @@ function wire(app, html) {
     ['20분을 21분으로', (m) => m.replace('const AUTO_AWAY_MS = 20 * 60 * 1000;', 'const AUTO_AWAY_MS = 21 * 60 * 1000;'), null, null],
     ['밥 · 게임 예외 없앰', (m) => m.replace("myUserStatus === 'meal' || myUserStatus === 'gaming'", 'false'), null, null],
     ['manual 기록 무시', (m) => m.replace("if(rec && rec.k === 'manual') return;", ''), null, null],
-    ['provider 대신 전역 firebaseAPI 를 봄', (m) => m.replace('if(!roomNet() && !roomEntryMod()', 'if(!window.firebaseAPI && !roomEntryMod()'), null, null],
+    ['provider 없이 가짜 방으로 떨어짐', (m) => m.replace('if(!_srv && !roomEntryMod()._mockRoomAllowed()){', 'if(false){'), null, null],
     ['만들 때 던짐', (m) => m.replace('function createPresence(deps){', 'function createPresence(deps){ throw new Error("깨 봄");'), null, null],
     ['app.js 에 본문이 남음', null, (a) => a + '\nconst Presence=(()=>{ return {}; })();', null],
     /* presence 를 만드는 줄 안의 것을 지운다 — 같은 deps 줄이 다른 모듈(seat-panel 등)을 만드는 줄에도 있다 */

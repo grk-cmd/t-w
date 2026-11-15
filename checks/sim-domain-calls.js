@@ -27,6 +27,8 @@ const SHARED = 'shared';
 /* 일부러 여러 도메인이 바로 읽게 만든 것 — 이름 → why. 세지 않는다 */
 const EXEMPT = {
   TwMyHomeHooks: { why: '마이홈 고리판 — 다른 파일이 HOOK 이름으로 부르게 만든 순환 끊기 판(CLAUDE.md 구조 표 myhome-hooks.js)' },
+  TwRtHub: { why: 'realtime 연결 하나 — 방 · 대화 · 사진 · 친구 접속이 같은 웹소켓 하나(서버 규약 pv 2)를 쓰도록 만든 공용 연결(realtime/rt-hub.js store)' },
+  TwRoomRt: { why: '방 포트 — 같은 연결 위의 대화 · 사진 포트가 «지금 방» · 대화 탭 이름(s1↔S1)을 같은 한 벌로 읽는다(room/room-rt.js store · tabToWire)' },
   _activeChannel: { why: '방 공용 상태 — room-state.js 가 처음 값을 두고 여러 모듈이 읽는 값(sim-room-state.js)' },
 };
 

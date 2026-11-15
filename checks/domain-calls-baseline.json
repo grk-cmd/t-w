@@ -14,7 +14,7 @@
   "myhome/myhome-inbox.js": 1,
   "myhome/myhome-init.js": 1,
   "room/presence.js": 1,
-  "room/room-entry.js": 3,
+  "room/room-entry.js": 2,
   "status/noise.js": 1,
   "status/status-chip.js": 1
  }

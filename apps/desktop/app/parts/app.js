@@ -925,7 +925,8 @@ const tricksMod = TwTricks.createTricks({
   creatorOpen: ()=>creatorOpen,
   flySeed: (...a)=>flySeed(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
-  getMyUserId: (...a)=>getMyUserId(...a),
+  myCode: ()=>TwRoomRt.store.myCode(),
+  chatNet: TwChatRt.store,
   measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
   ndc: ()=>ndc,
   officeMode: ()=>officeMode,
@@ -2151,7 +2152,7 @@ const chatPrefsMod = TwChatPrefs.createChatPrefs({
   _chatSfxPools: sfxMod._chatSfxPools,
   chatUiMod: ()=>chatUiMod,
   getDisplayName: (...a)=>getDisplayName(...a),
-  getMyUserId: (...a)=>getMyUserId(...a),
+  myCode: ()=>TwRoomRt.store.myCode(),
   officeMode: ()=>officeMode,
   seats: seats,
   toast: (...a)=>toast(...a),
@@ -2638,6 +2639,8 @@ const chatUiMod = TwChatUi.createChatUi({
   focusLevelMod: ()=>focusLevelMod,
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
+  chatNet: TwChatRt.store,
+  myCode: ()=>TwRoomRt.store.myCode(),
   isAdmin: ()=>isAdmin,
   isDanceUnlocked: (...a)=>iDeskMod.isDanceUnlocked(...a),
   officeMode: ()=>officeMode,
@@ -2680,7 +2683,7 @@ const chatLockMod = TwChatLock.createChatLock({
   Presence: ()=>Presence,
   chatPrefsMod: chatPrefsMod,
   chatUiMod: chatUiMod,
-  getMyUserId: (...a)=>getMyUserId(...a),
+  myCode: ()=>TwRoomRt.store.myCode(),
   roomState: TwRoomState,
 });
 /* ═══════════════ 🎲 주사위 ═══════════════ */
@@ -2695,33 +2698,29 @@ const diceMod = TwDiceGames.createDiceGames({
   flySeed: (...a)=>flySeed(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
+  chatNet: TwChatRt.store,
   officeMode: ()=>officeMode,
   showChatBubble: (...a)=>showChatBubble(...a),
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
 });
-/* 📷 스티커사진 계층(parts/purikura/purikura-net.js)으로 가는 유일한 입구.
-   ★ 왜 한 곳으로 모으나 — 이 계층은 THREE 도 DOM 도 안 보는 «요금을 정하는 층»이라
-     app.js 여기저기서 직접 makeSession 을 부르기 시작하면 세션이 여러 개가 되고,
-     구독도 정원 읽기도 사람 수만큼 늘어난다. 입구가 하나면 그 일이 구조적으로 안 생긴다.
-   ⚠️ firebase-init.js 는 type="module" 이라 이 파일보다 **늦게** 돈다 —
-     부팅 직후에는 firebaseAPI.pkGet 이 아직 없을 수 있다. 그래서 «부를 때마다» 확인하고,
-     성공한 뒤에만 기억한다(못 만든 것을 기억해 두면 영영 안 붙는다).
-   ⚠️ 구버전 HTML 에는 parts/purikura/purikura-net.js 가 없다 — 그때는 null 이고 부르는 쪽이 안내한다. */
+/* 📷 스티커사진 세션 포트(parts/purikura/purikura-rt.js)로 가는 유일한 입구 — 세션은 하나(콜백도 한 벌).
+   ⚠️ 창이 닫혀 있는 동안에도 콜백은 살아 있다 — 각 핸들러가 PK.open · PK.listening 을 먼저 본다. */
 let _pkSession = null;
 function _purikura(){
   if(_pkSession) return _pkSession;
-  if(typeof Purikura === 'undefined' || !Purikura || !Purikura.makeSession) return null;
-  if(typeof firebaseAPI === 'undefined' || !firebaseAPI || !firebaseAPI.pkGet) return null;
-  /* 콜백은 여기서 한 번만 물린다 — 세션이 하나뿐이므로 구독도 하나뿐이다.
-     ⚠️ 창이 닫혀 있는 동안에도 콜백은 살아 있다. 그래서 각 핸들러가 PK.open 을 먼저 본다. */
-  try{ _pkSession = Purikura.makeSession(firebaseAPI, {
-        onPeers: p => { purikuraUi.onPeers(p); },          // 화면 쪽은 parts/purikura/purikura-ui.js
-        onMeta : m => { purikuraUi.onMeta(m); },
-        onEvent: (slot, ev) => { purikuraUi.onPeerEvent(slot, ev); },
-        onShot : s => { purikuraUi.onShot(s); }
-      }); }
-  catch(e){ console.warn('[스티커사진] 세션 생성 실패', e); return null; }
+  _pkSession = TwPurikuraRt.createPhotoSession({
+    hub: TwRtHub.store, api: TwApi.authed, P: Purikura,
+    serverNow: ()=>{ const p = Presence.serverProvider(); return p ? p.serverNow() : Date.now(); },
+    onPeers: p => { purikuraUi.onPeers(p); },          // 화면 쪽은 parts/purikura/purikura-ui.js
+    onMeta : m => { purikuraUi.onMeta(m); },
+    onEvent: (slot, ev) => { purikuraUi.onPeerEvent(slot, ev); },
+    onShot : s => { purikuraUi.onShot(s); },
+    onSlots: o => { purikuraUi.onSlots(o); },
+    onFrames: o => { purikuraUi.onFrames(o); },
+    onRefused: o => { purikuraUi.onRefused(o); },
+    onLateStart: () => { purikuraUi.onLateStart(); },
+  });
   return _pkSession;
 }
 
@@ -2729,13 +2728,12 @@ function _purikura(){
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(_pkWire: 버튼 · 창 끌기 · ⎋ 사다리 등록)이 예전과 같은 때 돈다.
    함수 deps 는 화살표로 감싼다(부를 때 찾게). officeMode · _plPlaying(playlist.js 상태 — plMod.st.playing) 은 다시 대입되는 let 이고, Presence · SPINE_AXIS · HEAD_AXIS ·
    HAND_REST · SHAKE_ARM_DROOP 은 이 줄보다 뒤에 선언되는 const 라(지금 읽으면 TDZ) 읽는 함수로 넘긴다.
-   세션 입구 _purikura() 는 위에 그대로 — 콜백은 purikuraUi.onPeers · onMeta · onPeerEvent · onShot 으로 들어간다.
+   세션 입구 _purikura() 는 위에 그대로 — 콜백은 purikuraUi.onPeers · onMeta · onPeerEvent · onShot · onSlots · onFrames · onRefused · onLateStart 로 들어간다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const purikuraUi = TwPurikuraUi.createPurikuraUi({
   purikura: ()=>_purikura(),
   toast: (...a)=>toast(...a),
-  getMyUserId: ()=>getMyUserId(),
-  getDisplayName: ()=>getDisplayName(),
+  myCode: ()=>TwRoomRt.store.myCode(),
   bringWinToFront: (...a)=>winStackMod.bringWinToFront(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   plRender: (...a)=>plMod.render(...a),
@@ -6217,13 +6215,9 @@ const presenceMod = TwPresence.createPresence({
   floatersMod: floatersMod,
   focusLevelMod: ()=>focusLevelMod,
   focusShareMod: ()=>focusShareMod,
-  getMyUserId: (...a)=>getMyUserId(...a),
   iDeskMod: iDeskMod,
-  isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
   lastAnyInput: ()=>lastAnyInput,
   roomEntryMod: ()=>roomEntryMod,
-  roomNet: ()=>window.firebaseAPI,
   roomSyncMod: roomSyncMod,
   seats: seats,
   toast: (...a)=>toast(...a),
@@ -6236,25 +6230,21 @@ const Presence = presenceMod.Presence;   // 옛 전역 이름 — app.js · 다�
 /* (앱 FSD 35번) 이 자리의 본문도 room-sync.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
 /* ═══ 🛰 방 서버 provider (관리자 스위치 · 기본 꺼짐) ═══════════════════════════════
-   방 통신을 Firebase 대신 웹소켓 방 서버로. 실제 구현은 parts/room-server-net.js 이고 여기는 화면 쪽 연결만 한다.
-   누가 · 어느 서버로 가는지는 parts/room-server-gate.js(원격 설정 roomServer · roomDir). 꺼져 있으면(기본) 전원 Firebase.
-   ★ 서버 방에서는 정원 · 같은 계정 중복 · 호스트 승계 · 해산 · 120초 생존 판정을 서버가 한다.
-     그래서 firebase-init joinRoom 의 그 판정들(자기 퇴장 · _maybeSucceedHost · 💓 roomAlive 하트비트)은 이 길에서 아예 돌지 않는다.
-   ★ 채팅 기록(chatLog) · 스티커사진(_photo) · 친구 목록의 접속 정보는 1단계에서는 Firebase 그대로다. */
+   방 통신은 parts/room/room-rt.js 방 포트 하나(realtime 연결 위 · TwRoomRt.store). 정원 · 중복 접속 · 승계 · 해산 · 채널 · 시크릿룸 입장은 서버가 판정한다. */
 /* 본문은 room-entry.js 로 옮겼다(앱 FSD 33번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 // 🎧 같이 듣기 — 방 입장 모듈의 «방이 바뀜»(들어감 · 나감 · meta) 알림에 sync 를 건다(room/listen-ui.js · 설계 docs/LISTEN_TOGETHER.md)
 const listenUi = TwListenUi.createListenUi({
   model: TwListenModel,
-  provider: TwListenProvider.createListenProvider({ api: ()=>window.firebaseAPI, server: ()=>Presence.serverProvider(), model: TwListenModel }),
+  provider: TwListenProvider.createListenProvider({ server: ()=>Presence.serverProvider(), model: TwListenModel }),
   companion: ()=>window.companion,
   roomCode: ()=>(Presence.active() ? Presence.roomCode() : null),
   meta: ()=>window._roomMetaCache,
   isSecretRoom: ()=>TwRoomState.isSecretCode(Presence.active() ? Presence.roomCode() : null),
-  myId: ()=>getMyUserId(),
-  memberIds: ()=>Object.values(Presence.friendsObj() || {}).map(f=>f && f.userId).filter(u=>u && u !== getMyUserId()),
+  myId: ()=>TwRoomRt.store.myCode(),
+  memberIds: ()=>Object.values(Presence.friendsObj() || {}).map(f=>f && f.userId).filter(u=>u && u !== TwRoomRt.store.myCode()),
   nameOf: (uid)=>{
-    if(uid === getMyUserId()) return getDisplayName();
+    if(uid === TwRoomRt.store.myCode()) return getDisplayName();
     const f = Object.values(Presence.friendsObj() || {}).find(x=>x && x.userId === uid);
     return (f && f.name) || '(이름 없음)';
   },
@@ -6270,15 +6260,16 @@ const roomInfoUi = TwRoomInfoUi.createRoomInfoUi({
   roomSettings: TwRoomSettings,
   bannedWords: TwBannedWords,
   rcStore: ()=>acctStateMod._rcStore(),
-  isHost: ()=>TwRoomState.isHost(window._roomMetaCache, getMyUserId()),   // 판정은 채팅 잠금과 같은 한 곳(room-state.js)
+  isHost: ()=>TwRoomState.isHost(window._roomMetaCache, TwRoomRt.store.myCode()),   // 판정은 채팅 잠금과 같은 한 곳(room-state.js)
   isSecretRoom: ()=>TwRoomState.isSecretCode(Presence.active() ? Presence.roomCode() : null),
   roomCode: ()=>(Presence.active() ? Presence.roomCode() : null),
   meta: ()=>window._roomMetaCache,
-  saveInfo: (room, info)=>(Presence.serverProvider() ? Presence.serverProvider().setMeta(info) : window.firebaseAPI.setRoomInfo(room, info)),   // 방 서버 방은 서버 meta
+  saveInfo: (room, info)=>(Presence.serverProvider() ? Presence.serverProvider().setMeta(info) : Promise.resolve({ ok:false, code:'notInRoom' })),   // 방 포트 meta(방장만 · 서버가 판정)
   notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 // 🗂️ 방 목록 로비 · F1 시크릿룸 칸이 같이 읽는 provider — 방 입장 모듈보다 먼저(room/room-lobby-provider.js)
-const roomLobbyProvider = TwRoomLobbyProvider.createRoomLobbyProvider({ api: ()=>window.firebaseAPI, apiGet: (p, o)=>window.firebaseAPI.apiGetAuthed(p, o), myUserId: ()=>getMyUserId(), now: ()=>Date.now() });
+const roomLobbyProvider = TwRoomLobbyProvider.createRoomLobbyProvider({ apiGet: (p, o)=>TwApi.authed.get(p, o), peek: (code)=>TwRoomRt.store.peek(code),
+  roomCode: ()=>(Presence.active() ? Presence.roomCode() : null), myUserId: ()=>getMyUserId(), now: ()=>Date.now() });
 const roomEntryMod = TwRoomEntry.createRoomEntry({
   EXP_CELLS: ()=>expBarMod.EXP_CELLS,
   FLOATER_BURST: floatersMod.FLOATER_BURST,
@@ -6298,7 +6289,7 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   deserializeDefFromNetwork: (...a)=>roomSyncMod.deserializeDefFromNetwork(...a),
   focusLevelMod: ()=>focusLevelMod,
   getDisplayName: (...a)=>getDisplayName(...a),
-  getMyUserId: (...a)=>getMyUserId(...a),
+  myCode: ()=>TwRoomRt.store.myCode(),
   isAdmin: ()=>isAdmin,
   isPremium: ()=>isPremium,
   layoutSeats: (...a)=>layoutSeats(...a),
@@ -6327,6 +6318,8 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   mySecretRoom: ()=>roomLobbyProvider.mySecretRoom(),
   paintRoomInfo: ()=>roomInfoUi.paint(),
   roomSettings: TwRoomSettings,
+  roomRt: TwRoomRt.store,
+  setPresenceRoom: (...a)=>firebaseAPI.setPresenceRoom(...a),   // 친구 목록의 «방 안» 표시 — Firebase 접속 표시가 걷힐 때(접속 상태 묶음) 같이 걷는다
   runCost: runCost,   // 🩺 좌석 맞춤 시간(1분 [비용] 줄)
 });
 roomEntryMod.onRoomChanged(()=>listenUi.sync());   // 🎧 같이 듣기가 방 입장 모듈을 몰라도 되게(위층이 건다)
@@ -6343,7 +6336,6 @@ const roomCreateUi = TwRoomCreateUi.createRoomCreateUi({
   maxPeople: ()=>maxPeople(),
   isLicensed: ()=>roomEntryMod._myRoomLicensed(),
   onCreate: (ch, settings)=>roomEntryMod.doCreateRoomInChannel(ch, settings),
-  serverRoomLikely: ()=>roomEntryMod.roomServerCheck(),
 });
 // 🗂️ 방 목록 로비 — 목록 사본 · 내 시크릿룸은 provider 로만 읽는다(room/room-lobby-*.js)
 TwRoomLobbyUi.createRoomLobbyUi({
@@ -7506,6 +7498,7 @@ function frame(now, manual){
   updateActivePartPlayback();   // ▶ 파츠: animMode='active'인 것만 활동 중 재생/일시정지
   if(activeItemMixers.size) activeItemMixers.forEach(m=>m.update(dt));   // 클릭으로 재생 중인 아이템 idle 애니메이션 업데이트
   seatEqClampMod._clampSeatDeskParts(now);   // 🪑 평준화 중 «책상 위» 파츠를 자기 자리 안으로(띄엄띄엄 — seat-slot.js)
+  const _myRoomCode = TwRoomRt.store.myCode();   // 방 서버의 내 코드 — 프레임에 한 번
   const _djNow = listenUi.djId();   // 🎧 이름표 «DJ» 딱지 — 프레임에 한 번(좌석마다 방 사람 목록을 다시 만들지 않게)
   const _tSeat = performance.now();
   seats.forEach(seat=>{
@@ -7693,7 +7686,7 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
     else if(seat.isMe){
       const st = focusLevelMod.myFocusShow(), lv = !focusProgressMod.isReady() ? null : (st ? st.lv : focusLevelMod.getFocusLevel());   // 서버 답 전 · 실패면 레벨 · 바를 그리지 않는다
       expBarMod.updateSeatExpBar(seat, lv, expBarMod.myExpCells(), st);
-      overheadMod.setSeatNamePlate(seat, lv, getDisplayName(), st, !!getMyUserId() && _djNow === getMyUserId());
+      overheadMod.setSeatNamePlate(seat, lv, getDisplayName(), st, !!_myRoomCode && _djNow === _myRoomCode);
     }
     else if(seat.namePlateEl){ seat.namePlateEl.style.display='none'; if(seat.expBarEl) seat.expBarEl.style.display='none'; }   // 주캐릭터였다가 자리추가로 바뀐 좌석 — 이전 이름표가 남아있지 않게 숨김
     /* 💬 말풍선 — ★ 반드시 이름표·경험치 바 **뒤에** 갱신한다.
@@ -8313,8 +8306,7 @@ addEventListener('resize',resize); resize();
 const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
   toast: (...a)=>toast(...a),
   escHtml: (...a)=>escHtml(...a),
-  getMyUserId: (...a)=>getMyUserId(...a),
-  getDisplayName: (...a)=>getDisplayName(...a),
+  invites: TwRoomInviteRt.store,
   startRoom: (...a)=>roomEntryMod.startRoom(...a),
   doLeaveRoom: (...a)=>roomEntryMod.doLeaveRoom(...a),
   friendInRoom: (...a)=>inboxMod.friendInRoom(...a),
@@ -8350,7 +8342,13 @@ const appBoot = TwAppBoot.createAppBoot({
     gift: (code, me, session)=>{ session.on(giftBoxMod.listen()); session.onReset(()=>{ giftBoxMod.reset(); mallangStoreMod.reset(); mallangMod.reset(); }); },   // 🎁 서버 신호 `gifts` 만 건다(요청 0 — 받기는 마이홈을 열 때)
     bugBadge: ()=>bugBoardUi.start(),
     scheduler: ()=>mhScheduler.startSchedule(),
-    roomInvite: ()=>roomInviteUi.startReceive(),
+    /* 🙋 방 초대 받기 — 방 쪽 포트(대화 · 방 목록 · 스티커사진)는 사용자가 들어갈 때 시작해 STEPS 칸이 없다. 대신 계정이 바뀔 때 비우는 일(session.onReset)을 여기서 한 곳에 모은다.
+       license 알림(발급 · 연장 · 코드 바꿈 · 끝남) → 읽어 둔 내 시크릿룸을 버려 다음에 다시 읽는다(관리자가 발급한 방이 다시 실행 없이 보이게). */
+    roomInvite: (code, me, session)=>{
+      roomInviteUi.startReceive(session);
+      session.on(TwRtHub.store.on('license', ()=>roomLobbyProvider.reset()));
+      session.onReset(()=>{ TwChatRt.store.reset(); roomLobbyProvider.reset(); if(_pkSession) _pkSession.reset(); });
+    },
     desktopBg: (code)=>window.MYHOME_DESKTOP.startBgSync(code),
     playlist: ()=>plMod.pull(),
     licensePremium: (code, me)=>licensePremiumMod.start(me),

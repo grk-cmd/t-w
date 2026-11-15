@@ -2,12 +2,11 @@
    app.js «🛰 방 접속 상태(Presence)» 구역 본문을 그대로 옮긴 모듈이다(C 구역 떼기 w4). 동작은 옮기기 전과 같다.
    ・책임: 지금 방(provider · room · friends)과 내가 방에 보내는 값(상태 · 레벨 · 자리비움 그림 · 소음 · 채팅 …)을 한 곳에서 들고 보낸다.
      20분 무반응 자동 자리비움 · 6시간 자동 퇴장 시계도 내 상태(myUserStatus)를 같이 써서 이 안에 있다.
-   ・받는 deps 20 — 함수 3(getMyUserId · toast · triggerPet)은 화살표, 다시 대입되거나 뒤에서 선언되는 9개
-     (awayPicMod · customStatusConf · expBarMod · focusLevelMod · focusShareMod · isAdmin · isPremium · lastAnyInput · roomEntryMod)는 읽는 함수 — 이름() 으로 읽는다.
-     roomNet 도 읽는 함수 — 데이터 provider(지금은 app.js 가 window.firebaseAPI 를 넘긴다). 준비 확인 · Firebase 방 provider 고르기에만 쓴다.
+   ・받는 deps 16 — 함수 2(toast · triggerPet)는 화살표, 다시 대입되거나 뒤에서 선언되는 7개
+     (awayPicMod · customStatusConf · expBarMod · focusLevelMod · focusShareMod · lastAnyInput · roomEntryMod)는 읽는 함수 — 이름() 으로 읽는다.
+   ・방 통신은 start 가 받는 provider(room-rt.js 방 포트) 하나 — 신원(userId) · 프리미엄(lic)은 싣지 않는다(서버가 토큰 · 라이선스로 안다).
    ・내놓는 것: { Presence } — app.js 가 «const Presence = presenceMod.Presence;» 한 줄로 옛 전역 이름을 잇는다(app.js 의 54곳 · animal.js · noise.js 가 Presence.이름 으로 부른다).
-   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 읽는 함수 자리와 roomNet 줄 · 파일 위 상수 · 옛 이야기형 주석 줄이기뿐.
-   ⚠️ firebaseAPI 는 직접 보지 않는다(roomNet 으로만). document · window · localStorage · companion 은 예전처럼 전역 이름으로 쓴다. 전역 setUserStatus 는 꼭 window. 으로(안쪽 같은 이름이 가린다).
+   ⚠️ firebaseAPI 는 보지 않는다. document · window · localStorage · companion 은 예전처럼 전역 이름으로 쓴다. 전역 setUserStatus 는 꼭 window. 으로(안쪽 같은 이름이 가린다).
    ⚠️ 전역 이름은 TwPresence — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-presence.js */
 (function(){
@@ -21,13 +20,9 @@ const expBarMod = deps.expBarMod;   // 읽는 함수
 const floatersMod = deps.floatersMod;
 const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const focusShareMod = deps.focusShareMod;   // 읽는 함수
-const getMyUserId = deps.getMyUserId;
 const iDeskMod = deps.iDeskMod;
-const isAdmin = deps.isAdmin;   // 읽는 함수
-const isPremium = deps.isPremium;   // 읽는 함수
 const lastAnyInput = deps.lastAnyInput;   // 읽는 함수
 const roomEntryMod = deps.roomEntryMod;   // 읽는 함수
-const roomNet = deps.roomNet;   // 읽는 함수 — 데이터 provider, 준비 전이면 없음
 const roomSyncMod = deps.roomSyncMod;
 const seats = deps.seats;
 const toast = deps.toast;
@@ -172,16 +167,8 @@ const Presence=(()=>{
   }
   _scheduleAutoAwayTick();   // 첫 틱 예약 (이후 틱마다 현재 상태에 맞는 주기로 스스로 재예약)
 
-  /* ★ 방장 승계용 — 내가 프리미엄 방을 만들/이어받을 자격이 있는지(self-report).
-     승계는 '채팅 켜짐' 정도의 권한이라 위조 위험이 낮아 클라이언트 보고로 충분(위험도 낮은 선택).
-     라이선스(isPremium) 또는 관리자면 true. */
-  function _myLicenseFlag(){
-    try{ return !!(typeof isPremium()!=='undefined' && isPremium()) || !!(typeof isAdmin()!=='undefined' && isAdmin()); }
-    catch(_){ return false; }
-  }
-  /* opts.provider — 방 서버 provider(makeServerProvider). 주면 입장 결과를 기다려 { ok, code, others, meta } 를 돌려준다.
-     opts.hooks — Firebase 방이 알릴 곳(room-entry _firebaseRoomHooks) — makeFirebaseProvider 로 넘긴다.
-     안 주면 예전 그대로(Firebase · 가짜 방) — 돌려주는 값도 예전처럼 방 코드다. */
+  /* opts.provider — 방 포트 provider(room-entry makeRoomProvider · room-rt.js). 입장 결과를 기다려 { ok, code, others, meta } 를 돌려준다.
+     없으면 가짜 방(개발 표식 tw.mockRoom=1)일 때만 — 가짜 캐릭터가 실제 방으로 새지 않게. 그 밖은 { ok:false, code:'noProvider' }. */
   async function start(roomCode, def, name, changeCb, opts){
     if(provider) await stop();   // 이미 연결돼있는데 다시 시작하면(연결끊기 없이 재접속 등) 이전 접속 삭제가 끝난 뒤에 새로 join — 안 그러면 옛 항목이 아직 안 지워진 채로 남아 자기 자신이 중복으로 보일 수 있음
     room=roomCode; myDef=def; myName=name||'나'; myLevel=focusLevelMod().getFocusLevel(); _lvKey=''; onChange=changeCb||onChange; friends={};
@@ -193,24 +180,19 @@ const Presence=(()=>{
     }
     // 🏊 얼굴 PNG를 Storage에 올려 URL 준비 — 실패해도 dataURL 병행 전송이라 입장엔 지장 없음
     try{ await roomSyncMod.ensureRoomFaceUrls(myDef); }catch(_){}
-    /* firebaseAPI(모듈 스크립트) 준비를 기다린다(최대 NET_READY_WAIT_MS). 그래도 없으면 들어가지 않고 알린다.
-       ⚠️ 가짜 방(makeMockProvider)으로 떨어지면 남의 가짜 캐릭터가 뜬다 — 가짜 방은 개발 표식(tw.mockRoom=1)일 때만. */
-    if(!roomNet()) await roomEntryMod()._waitFirebaseApi(roomEntryMod().NET_READY_WAIT_MS);
-    if(!roomNet() && !roomEntryMod()._mockRoomAllowed()){
+    const _srv = (opts && opts.provider) || null;
+    if(!_srv && !roomEntryMod()._mockRoomAllowed()){
       room = null; provider = null; friends = {}; if(onChange) onChange({});
-      try{ toast('서버 연결이 아직 준비되지 않았어요 — 잠시 뒤 다시 들어가 주세요'); }catch(_){}
-      console.warn('[방] firebaseAPI 가 준비되지 않아 입장을 멈췄다(가짜 방으로 떨어지지 않음)');
-      return;
+      console.warn('[방] provider 없이 입장을 불렀다 — 멈춤(가짜 방으로 떨어지지 않음)');
+      return { ok:false, code:'noProvider' };
     }
-    const _srv = (opts && opts.provider) || null;   // 🛰 방 서버 provider(_startRoomOnServer) — 없으면 아래 줄 그대로
-    if(_srv) provider = _srv;
-    else provider = roomNet() ? roomSyncMod.makeFirebaseProvider(opts && opts.hooks) : roomEntryMod().makeMockProvider();
+    provider = _srv || roomEntryMod().makeMockProvider();
     try{ myAwayImg = awayPicMod()._awayUrlOk(awayPicMod().awayImgUrl()) ? awayPicMod().awayImgUrl() : ''; }catch(_){ myAwayImg = ''; }   // 🫧 입장 때 한 번
     try{ myAwaySz = awayPicMod()._awaySzOk(awayPicMod().awayImgSz()) ? awayPicMod().awayImgSz() : awayPicMod().AWAY_PIC_SCREEN_PX(); }catch(_){ myAwaySz = awayPicMod().AWAY_PIC_SCREEN_PX(); }
     try{ myFocusShow = focusShareMod()._focusShowConf(); focusShareMod()._focusShowMarkSent(myFocusShow); }catch(_){ myFocusShow = null; }   // 📊 입장 때 한 번 — 입장 페이로드에 싣고 5분 시계를 여기서 시작
     try{ myNoise = (window.TW_NOISE && TW_NOISE.kind) ? TW_NOISE.kind() : ''; }catch(_){ myNoise = ''; }   // 🌙 입장 때 한 번
     const _st0 = _statusOut();
-    const _joinRes = provider.join(room, {def:myDef,name:myName,awaySz:myAwaySz,state:myState,userStatus:_st0.userStatus,customStatus:_st0.customStatus,level:myLevel, ...focusLevelMod().myStarOut(),mobile:focusLevelMod()._mobileRoomLabel(),userId:getMyUserId(), noise:myNoise, lic:_myLicenseFlag(), awayImg:myAwayImg}, fr=>{ friends=fr; if(onChange)onChange(friends); },
+    const _joinRes = provider.join(room, {def:myDef,name:myName,awaySz:myAwaySz,state:myState,userStatus:_st0.userStatus,customStatus:_st0.customStatus,level:myLevel, ...focusLevelMod().myStarOut(),mobile:focusLevelMod()._mobileRoomLabel(), noise:myNoise, awayImg:myAwayImg}, fr=>{ friends=fr; if(onChange)onChange(friends); },
       // 다른 사람이 내 캐릭터를 쓰다듬거나 흔들었을 때 — 내 화면의 'me' 좌석에 그 반응을 그대로 재생
       p=>{ const me=seats.find(s=>s.isMe); if(!me||!p) return;
         /* 🛰 같은 알림을 두 번 재생하지 않고, 지나간 알림은 아예 보지 않는다 — poke 자리는 마지막 값을 들고 있어
@@ -243,15 +225,13 @@ const Presence=(()=>{
           }
         }
       });
-    if(_srv){
-      const r = await _joinRes;
-      if(!(r && r.ok)){
-        if(provider === _srv){ provider = null; room = null; friends = {}; if(onChange) onChange({}); }
-        return { ok:false, code:(r && r.code) || 'fail' };
-      }
-      return r;
+    if(!_srv) return { ok:true, others:Object.keys(friends).length, meta:null };   // 가짜 방
+    const r = await _joinRes;
+    if(!(r && r.ok)){
+      if(provider === _srv){ provider = null; room = null; friends = {}; if(onChange) onChange({}); }
+      return { ok:false, code:(r && r.code) || 'fail' };
     }
-    return room;
+    return r;
   }
   // 매 update마다 함께 보내는 공통 페이로드 (✨ customStatus 포함 — 친구 화면에서 커스텀 문구를 보여주기 위함)
   /* 🐾 올라타기·탑쌓기 공유 — '내가 바로 아래 누구 위에 타고 있는가' 하나만 보낸다.
@@ -339,7 +319,7 @@ const Presence=(()=>{
     myFocusShow = v;
     if(provider && provider.update) provider.update(_basePayload());
   }
-  function _basePayload(){ const _st=_statusOut(); return {state:myState, userStatus:_st.userStatus, customStatus:_st.customStatus, level:myLevel, exp:_myExpCells(), ...focusLevelMod().myStarOut(), awaySz:myAwaySz, lic:_myLicenseFlag(), awayImg:myAwayImg, ridingOn:_myRidingOn(), seatedOn:_mySeatedOn(), bench:_myBench(), mobile:focusLevelMod()._mobileRoomLabel(), danceStyle:_myDanceStyle(), tab:chatUiMod._chatTabOut(), flyCool:_myFlyCool(), noise:myNoise}; }
+  function _basePayload(){ const _st=_statusOut(); return {state:myState, userStatus:_st.userStatus, customStatus:_st.customStatus, level:myLevel, exp:_myExpCells(), ...focusLevelMod().myStarOut(), awaySz:myAwaySz, awayImg:myAwayImg, ridingOn:_myRidingOn(), seatedOn:_mySeatedOn(), bench:_myBench(), mobile:focusLevelMod()._mobileRoomLabel(), danceStyle:_myDanceStyle(), tab:chatUiMod._chatTabOut(), flyCool:_myFlyCool(), noise:myNoise}; }
   /* 올라타기/하차 직후 즉시 반영 — 상태 틱을 기다리면 상대 화면에 몇 초 늦게 나타난다. */
   function broadcastRide(){ try{ if(provider && provider.update) provider.update(_basePayload()); }catch(_){} }
   function setState(s){ if(s===myState)return; myState=s; if(provider&&provider.update)provider.update(_basePayload()); }

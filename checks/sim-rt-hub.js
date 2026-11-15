@@ -395,6 +395,7 @@ async function judge(S){
     const H = loadHub(S.HUB);
     const mem = (o) => ({ getItem: (k) => (k in o ? o[k] : null) });
     chk(H.realtimeUrlFor('prod', mem({ 'tw.realtimeUrl': 'ws://127.0.0.1:8787' })) === 'wss://realtime.together-working.com', '운영 앱은 늘 운영 주소(시험 주소 무시)');
+    chk(H.REALTIME_URLS.dev === 'ws://127.0.0.1:8787' && H.DEV_URL_RE.test(H.REALTIME_URLS.dev), '  dev 기본은 이 PC 로컬 8787(dev 용 공개 이름은 없다) · 시험 주소 규칙 안');
     chk(H.realtimeUrlFor('dev', mem({})) === H.REALTIME_URLS.dev && H.realtimeUrlFor('dev', mem({ 'tw.realtimeUrl': 'ws://127.0.0.1:8787' })) === 'ws://127.0.0.1:8787'
       && H.realtimeUrlFor('dev', mem({ 'tw.realtimeUrl': 'wss://evil.example' })) === H.REALTIME_URLS.dev && H.realtimeUrlFor('dev', mem({ 'tw.realtimeUrl': 'ws://127.0.0.1:9999' })) === H.REALTIME_URLS.dev,
       '  ↳ dev 앱만 tw.realtimeUrl(묶음 안 wss · 로컬 8787) · 밖은 무시');
@@ -478,7 +479,7 @@ const BREAKS = [
   ['LINK', "    if(want && !ws) open(waitMs);", "    if(want && !ws) open();", '정한 ready 기다림을 안 씀'],
   ['HUB', "    if(!kindFns.has(kind)) throw new Error('[realtime] 모르는 알림 종류 — ' + kind);", "    if(!kindFns.has(kind)) kindFns.set(kind, []);", '모르는 이름을 조용히 받음'],
   ['HUB', "    if(link) link.close();\n    setState(STATE.OFF);", "    setState(STATE.OFF);", 'stop 이 연결을 안 닫음'],
-  ['LINK', "    const base = (deps.pv >= 2) ? { t: 'hello', pv: deps.pv, token: tk, ver: helloVer } : ", "    const base = (deps.pv >= 2) ? { t: 'hello', pv: deps.pv, token: tk, userId: helloUid, ver: helloVer } : ", 'pv 2 hello 에 userId(서버가 모르는 칸 — badRequest)'],
+  ['LINK', "const base = { t: 'hello', pv: deps.pv, token: tk, ver: helloVer };", "const base = { t: 'hello', pv: deps.pv, token: tk, userId: 'u1', ver: helloVer };", 'pv 2 hello 에 userId(서버가 모르는 칸 — badRequest)'],
   ['HTML', '<script src="parts/realtime/rt-hub.js"></script>', '', 'html 에 안 실음'],
   ['FI', "  window.TwRtHub.store.bind({ createLink: createRealtimeLink, getToken: _getIdToken, getVersion: () => _appVer.ready });", '', 'firebase-init 이 bind 안 함'],
 ];

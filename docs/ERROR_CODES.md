@@ -23,6 +23,7 @@
 | `ROOM` | 방 입장 · 나가기 · 방 목록 |
 | `CHAT` | 채팅 |
 | `CHAR` | 캐릭터 · 꾸미기 · 가챠 |
+| `PK` | 스티커사진 |
 | `FOCUS` | 포커스 · 레벨 |
 | `PL` | 플레이리스트 |
 | `LIC` | 라이선스 · 프리미엄 |
@@ -75,7 +76,14 @@
 | `E-ROOM-04` | 방 설정을 저장하지 못했어요 | `room/room-info-ui.js` — 방 안 [방 설정] 제목 · 공개 쓰기(`setRoomInfo`) 실패 |
 | `E-ROOM-05` | 같이 듣기 곡을 바꾸지 못했어요 | `room/listen-ui.js` — DJ 의 곡 칸(`rooms/{방}/_music`) 쓰기 실패 |
 | `E-ROOM-06` | 이 곡은 여기서 틀 수 없어요 | `room/listen-ui.js` — 재생 창이 곡을 못 틂(유튜브 재생 불가 · 지역 제한) |
-| `E-ROOM-07` | 같이 듣기를 불러오지 못했어요 | `room/listen-ui.js` — 곡 칸(`rooms/{방}/_music`) 구독 거부 |
+| `E-ROOM-08` | 방에 들어가지 못했어요 — 잠시 후 다시 눌러 주세요 | `room/room-entry.js` — 입장 판정이 아닌 실패(unavailable · timeout · off · 모르는 code) |
+| `E-ROOM-09` | 초대를 보내지 못했어요 — 잠시 후 다시 눌러 주세요 | `room/room-invite-ui.js` — 초대 보내기 실패(친구 아님 같은 까닭 있는 거절은 안내 문구) |
+| `E-ROOM-10` | 서버 연결이 끊겨 방에서 나왔어요 — 다시 들어와 주세요 | `room/room-entry.js` — 방 안에서 90초 넘게 못 붙어 방을 놓음(onLost unreachable) |
+| `E-CHAT-01` | 대화를 보내지 못했어요 — 다시 보내 주세요 | `chat/chat-ui.js · room/dice-games.js · room/tricks.js` — chatSay 실패(거절 까닭이 있는 것은 안내 문구) |
+| `E-CHAT-02` | 지난 대화를 불러오지 못했어요 | `chat/chat-rt.js subscribeSince` — 지난 기록 GET 실패(대화창을 열 때 · 방 안 다시 연결 때만 알림) |
+| `E-CHAT-03` | 대화 기록을 지우지 못했어요 | `chat/chat-prefs.js` — 방장 [지우기] 실패 |
+| `E-CHAT-04` | 내 이모티콘을 불러오지 못했어요 | `chat/chat-rt.js getEmojis` — 내 이모티콘 8칸 GET 실패(빈 칸으로 그리지 않고 칸을 잠근다) |
+| `E-CHAT-05` | 이모티콘을 저장하지 못했어요 | `chat/chat-ui.js` — 이모티콘 등록 · 삭제 실패(putEmoji · deleteEmoji) |
 | `E-CHAR-01` | 프리셋을 저장하지 못했어요 | `creator/desk-preset.js` — 생성기 📐 책상 프리셋 저장 · 비우기(`tw.deskPresets`) |
 | `E-CHAR-02` | 프리셋을 읽지 못했어요 | `creator/desk-preset-store.js` — 책상 프리셋 읽기 해석 실패 |
 | `E-CHAR-03` | 프리셋의 책상 모델을 불러오지 못했어요 | `creator/desk-preset.js` — 프리셋 적용 중 책상 GLB 해석 실패 |
@@ -152,6 +160,11 @@
 | `E-GB-05` | 폭죽은 이모지 한 글자예요 | `myhome/guestbook-feed.js` — 폭죽 바꾸기를 서버가 거절(`GUESTBOOK_EMOJI_INVALID`) |
 | `E-GB-06` | 웹박수 이미지로 쓸 수 없는 그림이에요 — png · jpg · webp 그림으로 다시 골라 주세요 | `myhome/guestbook-feed.js` — 박수 그림을 서버가 거절(`IMAGE_INVALID` · `UNSUPPORTED_MEDIA_TYPE` · `GUESTBOOK_IMAGE_INVALID`) 또는 형식이 맞지 않아 올리기 전에 걸러냄 |
 | `E-GB-07` | 웹박수 그림이 너무 커요 — 512KB 이하로 다시 골라 주세요 | `myhome/guestbook-feed.js` — 박수 그림이 상한(512KB)을 넘음(`PAYLOAD_TOO_LARGE` — 올리기 전 걸러냄 포함) |
+| `E-PK-01` | 스티커사진 정원을 확인하지 못했어요 — 잠시 뒤에 다시 눌러 주세요 | `purikura/purikura-ui.js` — 📷 를 눌렀을 때 `GET /v2/rooms/photo-quota` 실패(닿지 못함 · 답 모양이 틀림) |
+| `E-PK-02` | 스티커사진 자리를 잡지 못했어요 — 잠시 뒤에 다시 눌러 주세요 | `purikura/purikura-ui.js` — 자리 잡기(`photoOpen`) 시간 초과 · 연결 없음 · 서버 오류(촬영 중 · 자리 없음 · 방 밖은 안내만) |
+| `E-PK-03` | 촬영을 시작하지 못했어요 — 잠시 뒤에 다시 눌러 주세요 | `purikura/purikura-ui.js` — [촬영 시작](`photoStart`) 실패: 정원을 못 물음 · 방장이 바뀜 · 방 밖 · 연결 없음 · 시간 초과(정원을 다 쓴 것은 안내만 — 까닭 문구는 `purikura-rt.js` `START_MESSAGES`) |
+| `E-PK-04` | 방 설정을 바꾸지 못했어요 — 방장이 바뀌었을 수 있어요 | `purikura/purikura-ui.js` — 방장 일(설정 · 필터 · 카메라 · 컷 · 셔터)을 서버가 거절(`ROOM_PHOTO_NOT_HOST` 등 · 세션 포트 `onRefused`) |
+| `E-PK-05` | 프레임을 방에 알리지 못했어요 — 나한테만 보여요 | `purikura/purikura-ui.js` — 프레임 주소(`photoFrame`)를 서버가 거절(우리 버킷 · `purikura/{방}/{방장 userCode}/` 경로가 아님) |
 | `E-NET-01` | 로그인이 풀렸어요 — 다시 로그인해 주세요 | `shared/api-errors.js` — 공통 `AUTH_REQUIRED` · 토큰 없음(`NO_TOKEN`) |
 | `E-NET-02` | 이 작업을 할 권한이 없어요 | `shared/api-errors.js` — 공통 `ACCESS_DENIED` |
 | `E-NET-03` | 프리미엄에서 쓸 수 있는 기능이에요 | `shared/api-errors.js` — 공통 `PREMIUM_REQUIRED`(이 기기 판정 — `X-Device-Id`) |
@@ -171,3 +184,4 @@
 | `E-DATA-02` | 요청 모양이 맞지 않아 처리하지 못했어요 | 0.13 · 범용 데이터 통로(`data-gateway.js`)를 걷음 — 서버 오류는 `api-errors.js`(E-NET) · 옛: 서버 범용 통로 `INVALID_REQUEST` |
 | `E-DATA-03` | 다른 곳에서 먼저 바뀌었어요 — 다시 시도해 주세요 | 0.13 · 범용 데이터 통로(`data-gateway.js`)를 걷음 — 서버 오류는 `api-errors.js`(E-NET) · 옛: 서버 범용 통로 `CONCURRENT_UPDATE` |
 | `E-DATA-04` | 서버에서 처리하지 못했어요 — 잠시 후 다시 시도해 주세요 | 0.13 · 범용 데이터 통로(`data-gateway.js`)를 걷음 — 서버 오류는 `api-errors.js`(E-NET) · 옛: 서버 범용 통로 모르는 code |
+| `E-ROOM-07` | 같이 듣기를 불러오지 못했어요 — 방에 다시 들어와 주세요 | 0.13 · 같이 듣기 곡 칸을 realtime 으로 옮겨 구독 거부 길이 없어짐 · 옛: `room/listen-ui.js` 곡 칸 구독 거부 |

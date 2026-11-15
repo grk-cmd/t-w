@@ -40,7 +40,8 @@ const canvas = deps.canvas;
 const creatorOpen = deps.creatorOpen;   // 읽는 함수
 const flySeed = deps.flySeed;
 const getDisplayName = deps.getDisplayName;
-const getMyUserId = deps.getMyUserId;
+const myCode = deps.myCode;   // 방 서버의 내 코드 — 방장 · 내 좌석 · 내가 때린 것 판정은 이 값(TwRoomRt.store.myCode)
+const chatNet = deps.chatNet;   // 💬 대화 포트(chat-rt.js) — 기록 줄은 서버가 문장을 만든다
 const measureBodyBox = deps.measureBodyBox;
 const ndc = deps.ndc;   // 읽는 함수
 const officeMode = deps.officeMode;   // 읽는 함수
@@ -170,20 +171,16 @@ function throwFlyAt(seat, quiet){
   try{ if(typeof Presence()!=='undefined' && Presence().active()) Presence().poke(seat.friendId, 'fly:' + seed); }
   catch(_){ toast('전송에 실패했어요'); return; }
   if(quiet) return;                            // 깜짝쇼로 던진 것 — 기록을 남기면 예고가 된다
-  const target = (_seatLabelName(seat) || '누군가');
-  _flyChatLog(getDisplayName() + '님이 ' + target + '님을 날려버렸어요.💥💥');
+  /* 기록 줄 — 날린 사람(userCode)만 보내면 서버가 문장을 만든다(«○○님이 ○○님을 날려버렸어요.💥💥») · 상대 코드를 모르면 남기지 않는다 */
+  const room = (typeof Presence()!=='undefined' && Presence().roomCode) ? Presence().roomCode() : null;
+  if(room && seat.friendUserId) Promise.resolve(chatNet.sendGame(room, { fly: seat.friendUserId })).then(r=>{ if(r && r.ok === false) TwErrorCodes.notify('E-CHAT-01', r.code); }, ()=>{});
 }
 
-/* 대화 기록 한 줄 — 🎲 주사위와 같은 경로(sendChatLog).
-   ⚠️ 조사는 붙이지 않고 "님이/님을"로 통일한다. 받침 판정 함수를 새로 만들 필요가 없고,
-     이모지가 섞인 닉네임에서도 안 깨진다. */
+/* 대화 기록 한 줄(내 이름의 글 — 룰렛 · 쉬어가기 안내). 서버 기록 줄(game)이 없는 문장이라 글로 보낸다(chat-rt.js sendText · #일반).
+   ⚠️ 조사는 붙이지 않고 "님이/님을"로 통일한다 — 이모지가 섞인 닉네임에서도 안 깨진다. */
 function _flyChatLog(text){
-  try{
-    const room = (typeof Presence()!=='undefined' && Presence().roomCode) ? Presence().roomCode() : null;
-    if(room && window.firebaseAPI && firebaseAPI.sendChatLog){
-      firebaseAPI.sendChatLog(room, { uid:getMyUserId(), name:getDisplayName(), text });
-    }
-  }catch(_){}
+  const room = (typeof Presence()!=='undefined' && Presence().roomCode) ? Presence().roomCode() : null;
+  if(room) Promise.resolve(chatNet.sendText(room, text, 'general')).then(r=>{ if(r && r.ok === false) TwErrorCodes.notify('E-CHAT-01', r.code); }, ()=>{});
 }
 
 /* 방송을 받아 실제로 날린다 — 던진 사람 화면 포함 전원이 이 경로를 탄다.
@@ -435,7 +432,7 @@ const BONK_BUBBLE_IMG  = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABg
 function _bonkHitterSeat(hitterUid){
   if(!hitterUid) return null;
   try{
-    if(hitterUid === getMyUserId()) return seats.find(s=>s.isMe) || null;
+    if(hitterUid === myCode()) return seats.find(s=>s.isMe) || null;
     return seats.find(s=>s.friendUserId === hitterUid) || null;
   }catch(_){ return null; }
 }
@@ -485,7 +482,7 @@ function bonkSeat(seat){
   const c = canBonk(seat);
   if(!c.ok){ if(!c.quiet && c.why) toast(c.why); return false; }
   _bonkUse();
-  const myUid = getMyUserId();
+  const myUid = myCode();
   _bonkPlay(seat, myUid);                     // ★ 즉시 로컬 재생 — 왕복을 기다리지 않는다
   /* 전파 — 새 RTDB 필드를 만들지 않는다. poke 는 규칙 파일이 이미 통과시키는 경로다.
      ⚠️ 방에 혼자이거나 방 밖이면 보낼 곳이 없다 → 로컬 재생만 하고 조용히 넘어간다(pet 과 같은 규약). */
@@ -505,7 +502,7 @@ function bonkSeat(seat){
      재생했으므로 건너뛴다 — 안 그러면 한 번 때린 게 두 번 보인다. */
 function applyRemoteBonk(seat, payload){
   const hitterUid = String(payload || '').slice(5);   // 'bonk:' 다음
-  try{ if(hitterUid && hitterUid === getMyUserId()) return; }catch(_){}
+  try{ if(hitterUid && hitterUid === myCode()) return; }catch(_){}
   _bonkPlay(seat, hitterUid);
 }
 

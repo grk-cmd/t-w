@@ -1,16 +1,15 @@
 /*
- * realtime-link.js — realtime 서버(웹소켓) 연결 공통부. 옛 방 연결(room/room-server-net.js · pv 1)과 늘 붙는 연결 하나(realtime/rt-hub.js · pv 3)가 같이 쓴다.
+ * realtime-link.js — realtime 서버(웹소켓) 연결 공통부. 늘 붙는 연결 하나(realtime/rt-hub.js · pv 3)가 쓴다(방 · 대화 · 사진은 그 위의 포트).
  * 책임: 열기 · hello(인증) · ready 기다리기 · 토큰 갱신 · 다시 붙기 백오프 · rid 요청과 답 짝짓기 · 쉬면 닫기 · 못 붙은 주소 잠깐 쉬기.
  *   방 · 친구처럼 «무엇을 주고받는지» 는 모른다 — 연결 위의 메시지는 hooks.onMessage 로 넘기고, 끊기면 hooks.onClosed 로 알린다.
  *   다시 붙을지 · 언제 포기할지도 부르는 쪽이 정한다(scheduleReconnect 를 부르면 그때 백오프로 붙는다).
- * Firebase 를 직접 부르지 않는다 — 토큰 · 버전 · userId 는 deps 로 받는다. 아무것도 import 하지 않는다.
+ * Firebase 를 직접 부르지 않는다 — 토큰 · 버전은 deps 로 받는다. 아무것도 import 하지 않는다.
  *
  * deps: WebSocket, enabled() → bool, target() → 붙을 주소 | null, switchOk() → 주소가 바뀌었을 때 지금 연결을 닫아도 되나,
- *       getToken(force) → Promise<문자열 | null>, getUserId() → 문자열 | null, getVersion() → 문자열 | Promise,
- *       pv(통신 규약 판 — 2 부터 hello 에 userId 를 싣지 않는다 · 신원은 토큰뿐) ·
+ *       getToken(force) → Promise<문자열 | null>, getVersion() → 문자열 | Promise,
+ *       pv(통신 규약 판 — hello 에 userId 를 싣지 않는다 · 신원은 토큰뿐) ·
  *       helloExtra(hello 선택 칸 객체 — 없으면 안 싣는다) · helloFields(phase: 'open' | 'refresh') → 객체(연결마다 · 갱신마다 달라지는 칸 — 있으면 helloExtra 대신),
- *       requestKinds(rid 로 묻는 요청 t 목록) · answers({ 답 t: 요청 t }) · reflessKind(ref 없는 badRequest 를 받을 요청 t | null) ·
- *       ridless(rid 없는 답을 같은 종류의 가장 먼저 보낸 요청에 줄까 — 옛 서버용),
+ *       requestKinds(rid 로 묻는 요청 t 목록) · answers({ 답 t: 요청 t }),
  *       idleCloseMs(0 이면 쉬어도 안 닫음) · busy() → 쉬면 닫기를 미룰까 · reconnectWanted() → 다시 붙기 타이머가 울렸을 때 붙을까,
  *       hooks: { onReady(readyMsg), onMessage(m), onClosed(wasReady, fatal, closeCode) } — closeCode 는 웹소켓 닫힘 번호(4001 · 4004 …) | null,
  *       now · setTimeout · clearTimeout · random · log 는 검사용(기본 전역).
@@ -53,12 +52,10 @@ export function createRealtimeLink(deps){
   const hooks = deps.hooks || {};
   const requestKinds = deps.requestKinds || [];
   const answers = deps.answers || {};
-  const reflessKind = deps.reflessKind || null;
-  const ridless = deps.ridless !== false;
   const idleCloseMs = deps.idleCloseMs || 0;
 
   let ws = null, gen = 0, opening = false, ready = false, fatal = null, closeCode = null;
-  let token = null, helloUid = null, helloVer = null, forceToken = false, authRetried = false;
+  let token = null, helloVer = null, forceToken = false, authRetried = false;
   let tokenTimer = null, idleTimer = null, reconnectTimer = null, connectTimer = null, attempt = 0;
   let readyWaiters = [];
   let failAt = -Infinity, failCode = null, failUrl = null, curUrl = null;
@@ -73,7 +70,7 @@ export function createRealtimeLink(deps){
   }
   function hello(tk, phase){
     const extra = deps.helloFields ? deps.helloFields(phase) : deps.helloExtra;
-    const base = (deps.pv >= 2) ? { t: 'hello', pv: deps.pv, token: tk, ver: helloVer } : { t: 'hello', pv: deps.pv, token: tk, userId: helloUid, ver: helloVer };
+    const base = { t: 'hello', pv: deps.pv, token: tk, ver: helloVer };
     return Object.assign(base, extra || {});
   }
 
@@ -97,15 +94,14 @@ export function createRealtimeLink(deps){
     const my = ++gen;
     fatal = null; closeCode = null;
     const force = forceToken; forceToken = false;
-    let tk = null, ver = null, uid = null;
+    let tk = null, ver = null;
     try{ tk = await deps.getToken(force); }catch(_){ tk = null; }
     try{ ver = await deps.getVersion(); }catch(_){ ver = null; }
-    try{ uid = deps.getUserId(); }catch(_){ uid = null; }
     opening = false;
     if(my !== gen) return;
-    // 로그인 토큰이 없으면 서버가 받아 주지 않는다. 옛 판(pv 1)은 userId 도 싣는다.
-    if(!tk || (deps.pv < 2 && !uid)){ fatal = 'auth'; closed(); return; }
-    token = tk; helloUid = uid; helloVer = (typeof ver === 'string' && ver) ? ver : '0.0.0';
+    // 로그인 토큰이 없으면 서버가 받아 주지 않는다.
+    if(!tk){ fatal = 'auth'; closed(); return; }
+    token = tk; helloVer = (typeof ver === 'string' && ver) ? ver : '0.0.0';
     let sock;
     try{ curUrl = target(); sock = new deps.WebSocket(curUrl); }catch(_){ fatal = 'connect'; closed(); return; }
     ws = sock;
@@ -248,12 +244,9 @@ export function createRealtimeLink(deps){
       });
     });
   }
-  // 답 하나 → 기다리던 요청. rid 가 없는 답(rid 를 모르는 옛 서버)만 같은 종류 중 가장 먼저 보낸 것에 준다(ridless 일 때).
-  function takeWaiter(kind, rid){
-    if(typeof rid === 'string') return reqWaiters.get(rid) || null;
-    if(!ridless) return null;
-    for(const w of reqWaiters.values()){ if(w.kind === kind) return w; }
-    return null;
+  // 답 하나 → 기다리던 요청. rid 가 없는 답은 밀어 주는 메시지라 요청이 가져가지 않는다.
+  function takeWaiter(rid){
+    return typeof rid === 'string' ? (reqWaiters.get(rid) || null) : null;
   }
 
   // ── 받은 메시지 ─────────────────────────────────────────────────────
@@ -282,14 +275,18 @@ export function createRealtimeLink(deps){
         return;
       }
       if(m.code === 'auth' && m.ref === 'hello') return;   // 갱신 실패 — 만료 뒤 서버가 끊으면 재연결이 새 토큰을 받는다
+      /* rid 를 실어 보낸 요청의 오류(서버는 photoOpen · photoStart · roomInvite 의 오류에 rid 를 돌려준다) — 그 rid 의 요청이 오류 메시지(t:'error' · code)를 받는다. */
+      if(typeof m.rid === 'string'){
+        const w = reqWaiters.get(m.rid);
+        if(w){ w.done(m); return; }
+        toHook(m); return;   // 짝이 없는(이미 시간 초과로 지워진) rid 의 늦은 오류 — 다른 요청을 실패로 끝내지 않는다
+      }
       /* 묻기 요청이 거절됐다 — 오류에는 rid 가 없어서 그 종류 중 가장 먼저 보낸 것을 실패로 끝낸다.
-         새 요청을 모르는 옛 서버는 ref 없이 badRequest 를 준다(모르는 t) — 그건 reflessKind 의 것으로 본다.
          unavailable 은 서버가 그 요청에 필요한 값을 못 받음(예: presenceGet 의 친구 목록) — 같은 종류의 가장 먼저 보낸 것 하나만 실패로. */
-      if((m.code === 'badRequest' && (requestKinds.indexOf(m.ref) >= 0 || !m.ref))
+      if((m.code === 'badRequest' && requestKinds.indexOf(m.ref) >= 0)
         || (m.code === 'unavailable' && requestKinds.indexOf(m.ref) >= 0)){
-        const kind = m.ref || reflessKind;
         let w = null;
-        if(kind){ for(const x of reqWaiters.values()){ if(x.kind === kind){ w = x; break; } } }
+        for(const x of reqWaiters.values()){ if(x.kind === m.ref){ w = x; break; } }
         if(w){ w.done(null); return; }
       }
       toHook(m);
@@ -297,7 +294,7 @@ export function createRealtimeLink(deps){
     }
     const kind = answers[m.t];
     if(kind){
-      const w = takeWaiter(kind, m.rid);
+      const w = takeWaiter(m.rid);
       if(w && w.kind === kind){ w.done(m); return; }
     }
     toHook(m);

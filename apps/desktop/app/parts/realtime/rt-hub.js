@@ -30,9 +30,9 @@ const KINDS = Object.freeze(['friends', 'friendRequests', 'card', 'notification'
 const ROOM_TYPES = Object.freeze(['welcome', 'joined', 'left', 'patch', 'def', 'chat', 'poked', 'meta', 'music', 'disband', 'random', 'peek',
   'chatSaid', 'chatLine', 'photoWelcome', 'photoSlots', 'photoMeta', 'photoFrames', 'photoStarted', 'photoPos', 'photoEvent', 'photoShot']);
 /* 그 밖에 받는 메시지 — ready · notify 는 허브가 먼저 쓴다 */
-const MESSAGE_TYPES = Object.freeze(ROOM_TYPES.concat(['presence', 'roomInvited', 'mobileFocus', 'announce', 'sessionLost', 'error']));
-const REQUEST_KINDS = Object.freeze(['presenceGet', 'random', 'peek']);
-const ANSWERS = Object.freeze({ presence: 'presenceGet', random: 'random', peek: 'peek' });
+const MESSAGE_TYPES = Object.freeze(ROOM_TYPES.concat(['presence', 'roomInvited', 'roomInviteSent', 'mobileFocus', 'announce', 'sessionLost', 'error']));
+const REQUEST_KINDS = Object.freeze(['presenceGet', 'random', 'peek', 'roomInvite']);
+const ANSWERS = Object.freeze({ presence: 'presenceGet', random: 'random', peek: 'peek', roomInviteSent: 'roomInvite' });
 /* 서버 close 코드 표 — 정본 t-w-server realtime/src/protocol/closeCodes.ts(PROTOCOL.md 7-1). 이름 · 값을 그대로 옮긴다. 4002 는 걷은 번호(다시 쓰지 않음). */
 const CLOSE_CODES = Object.freeze({ bye: 1000, restart: 1001, tooLarge: 1009, auth: 4001, protocol: 4003, sessionLost: 4004,
   unavailable: 4005, maintenance: 4006, accountGone: 4007, helloTimeout: 4008 });
@@ -63,8 +63,9 @@ const RESTART_READY_WAIT_MS = 35000;   // 그 연결의 ready 기다림 — 서�
 const BYE_WAIT_MS = 1000;        // bye 뒤 서버의 닫힘(1000)을 기다리는 시간 — 못 받으면 앱이 닫는다
 const PONG_WAIT_MS = 5000;       // 깨어남 · online 때 보낸 ping 의 답 기다림
 
-/* 붙을 주소 — 운영 · dev 앱. dev 앱만 tw.realtimeUrl(같은 묶음의 wss · 로컬 8787)로 바꿀 수 있다. CSP connect-src 안이어야 한다. */
-const REALTIME_URLS = Object.freeze({ prod: 'wss://realtime.together-working.com', dev: 'wss://realtime-dev.together-working.com' });
+/* 붙을 주소 — 운영 · dev 앱. dev 서버는 이 PC 로컬(dev 용 공개 이름은 없다)이라 dev 기본은 로컬 8787 —
+   dev 앱만 tw.realtimeUrl(같은 묶음의 wss · 로컬 8787)로 바꿀 수 있다. CSP connect-src 안이어야 한다(ws://127.0.0.1:8787 은 이미 열려 있다). */
+const REALTIME_URLS = Object.freeze({ prod: 'wss://realtime.together-working.com', dev: 'ws://127.0.0.1:8787' });
 const DEV_URL_KEY = 'tw.realtimeUrl';
 const DEV_URL_RE = /^(?:wss:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:together-working\.com|togetherworking\.duckdns\.org)|ws:\/\/(?:127\.0\.0\.1|localhost):8787)$/;
 function realtimeUrlFor(env, storage){
@@ -167,14 +168,14 @@ function createRtHub(deps){
   function makeLink(){
     return deps.createLink({
       WebSocket: deps.WebSocket, enabled: () => started, target: () => deps.url(), switchOk: () => true,
-      getToken: (force) => deps.getToken(force), getUserId: () => null, getVersion: () => deps.getVersion(),
+      getToken: (force) => deps.getToken(force), getVersion: () => deps.getVersion(),
       pv: PV,
       helloFields: (phase) => {
         const o = { deviceId: deps.deviceId(), session: deps.session };
         if(phase === 'open' && claimNext) o.claim = true;
         return o;
       },
-      requestKinds: REQUEST_KINDS.slice(), answers: Object.assign({}, ANSWERS), reflessKind: null, ridless: false,
+      requestKinds: REQUEST_KINDS.slice(), answers: Object.assign({}, ANSWERS),
       idleCloseMs: 0, busy: () => true, reconnectWanted: () => started,
       hooks: { onReady, onMessage: onServerMessage, onClosed },
       now: deps.now, setTimeout: deps.setTimeout, clearTimeout: deps.clearTimeout, random: deps.random, log: deps.log,

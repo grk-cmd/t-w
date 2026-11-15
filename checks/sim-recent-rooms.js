@@ -163,7 +163,7 @@ say('── 4. 연결');
 function wire(s){
   const out = [];
   const w = (ok, msg) => out.push([!!ok, msg]);
-  w((s.entry.match(/toast\('방에 연결됐어요: '\+code\);\n(?:  _clearPendingCreate\(\);\n)?  _roomJoined\(code\);/g) || []).length === 2, 'room-entry — «연결됐어요» 두 곳(방 서버 · Firebase) 모두 알림');
+  w((s.entry.match(/toast\('방에 연결됐어요: '\+code\);\n(?:  _clearPendingCreate\(\);\n)?  _roomJoined\(code\);/g) || []).length === 1, 'room-entry — «연결됐어요» 자리(방 포트 하나)에서 알림');
   w(/function onRoomJoined\(fn\)\{ _roomJoinedFns\.push\(fn\); \}/.test(s.entry) && /\n  onRoomJoined,/.test(s.entry) && !/TwRecentRooms|recentRooms/.test(s.entry), '  알림 걸기를 내놓고 · 최근 방 모듈은 모른다');
   w(!/CODE_RE|[A-Z]\]\{4\}/.test(s.mod), 'recent-rooms — 방 코드 모양을 다시 쓰지 않는다(room-entry isRoomCode 를 받는다)');
   w(/const recentRooms = TwRecentRooms\.createRecentRooms\(\{ storage: localStorage, getMyUserId: [^\n]*isRoomCode: roomEntryMod\.isRoomCode \}\);/.test(s.app) && /roomEntryMod\.onRoomJoined\(\(code, meta\)=>recentRooms\.record\(code, TwRoomSettings\.displayTitle\(meta && meta\.title, meta && meta\.hostName,\n  TwBannedWords\.cleanBannedList\(acctStateMod\._rcStore\(\)\.bannedWords\(\)\), TwBannedWords\)\.text\)\);/.test(s.app), 'app.js — 기록을 «연결됨» 알림에 건다(제목은 displayTitle 한 곳 · 방 안 제목 칸과 같이 금칙어 거름)');
@@ -195,8 +195,7 @@ for (const [k, from, to, why] of BREAKS) {
   chk((await judge(s2)).some(([ok]) => !ok), why + ' → 빨강');
 }
 const WB = [
-  ['entry', "  _clearPendingCreate();\n  _roomJoined(code);\n", "  _clearPendingCreate();\n", '방 서버 길에서 알림을 빠뜨림'],
-  ['entry', "  refreshInviteUI(); toast('방에 연결됐어요: '+code);\n  _roomJoined(code);\n", "  refreshInviteUI(); toast('방에 연결됐어요: '+code);\n", 'Firebase 길에서 알림을 빠뜨림'],
+  ['entry', "  _clearPendingCreate();\n  _roomJoined(code);\n", "  _clearPendingCreate();\n", '입장한 뒤 알림을 빠뜨림'],
   ['app', 'joinRoom: (code)=>roomEntryMod.joinRoom(code) });', 'joinRoom: (code)=>{} });', 'UI 가 입장을 안 함'],
   ['app', ",\n  TwBannedWords.cleanBannedList(acctStateMod._rcStore().bannedWords()), TwBannedWords).text));", ").text));", '최근 방 제목이 금칙어를 안 거름'],
 ];

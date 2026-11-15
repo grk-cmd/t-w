@@ -23,10 +23,8 @@ const probe = `
 ;globalThis.__P = {
   seats,
   sync: f=>syncFriendSeats(f),
-  provider: ()=>makeFirebaseProvider(),
   idFp: d=>_charIdentityFingerprint(d),
   deskFp: d=>_deskStateFingerprint(d),
-  setDeser: fn=>{ deserializeDefFromNetwork = fn; },
 };`;
 
 const say = console.log; console.log = ()=>{}; console.warn = ()=>{};
@@ -124,38 +122,34 @@ say('\n── 4. 진짜 새 poke 는 여전히 정상 재생');
   chk(!!w.B.fly, '새로 던진 폭탄은 그대로 날아간다');
 }
 
-say('\n── 5. 스냅샷 순서 보장 (makeFirebaseProvider)');
+say('\n── 5. 스냅샷 순서 보장 (방 포트 room-rt.js)');
 {
-  let delivered = [];
-  const api = {
-    joinRoom(room, payload, onFriends){ api._onFriends = onFriends; },
-    updateMe(){}, poke(){}, pokeSelf(){}, leaveRoom(){ return Promise.resolve(); },
-  };
-  globalThis.window = globalThis.window || globalThis;
-  const prevApi = window.firebaseAPI;
-  window.firebaseAPI = api; globalThis.firebaseAPI = api;
-
-  /* def 푸는 시간을 일부러 어긋나게 만든다 — 낡은 스냅샷이 **늦게** 끝나는 상황이 사고의 조건이다 */
-  let call = 0;
-  P.setDeser(d=>new Promise(r=>realST(()=>r(d), (++call === 1) ? 40 : 1)));
-
-  const pv = P.provider();
-  pv.join('TEST', { def:{}, name:'나' }, fr=>{ delivered.push(fr); });
-
-  // 낡은 스냅샷(느리게 풀림) → 새 스냅샷(빠르게 풀림) 순으로 던진다
-  const slow = api._onFriends(snap({ mB:{type:'fly:222', ts:T0-900} }));
+  /* 진짜 방 포트를 가짜 연결 위에 — def 를 푸는 시간을 일부러 어긋나게 만든다(낡은 스냅샷이 **늦게** 끝나는 상황이 사고의 조건) */
+  const fns = {};
+  const hub = { onMessage(t, fn){ (fns[t] = fns[t] || []).push(fn); }, onState(){}, request: async () => null,
+    state: () => 'ready', isReady: () => true, userCode: () => 'u_me', send: () => true };
+  const emit = (m) => (fns[m.t] || []).forEach((f) => f(m));
+  const rt = globalThis.TwRoomRt.createRoomRt({ hub, STATE: globalThis.TwRtHub.STATE });
+  const delivered = [];
+  const pv = rt.makeProvider({ deserializeDef: (d) => new Promise((r) => realST(() => r(d), (d && d.v === 1) ? 40 : 1)) }, null);
+  const jp = pv.join('WORK-TEST', { def:{}, name:'나', state:'idle' }, (fr) => { delivered.push(fr); });
+  emit({ t: 'welcome', room: 'WORK-TEST', memberId: 'mMe', resume: 'R', resumed: false, members: { mB: { userCode: 'u_mB', name: 'B', state: 'idle', def: { v: 0 } } }, meta: null, music: null, musicSeq: -1, now: Date.now() });
+  await jp; await wait(10);
+  // 낡은 스냅샷(def v1 — 느리게 풀림 · 예전 fly) → 새 스냅샷(def v2 — 빠르게 풀림 · dance) 순으로 들어온다
+  emit({ t: 'def', memberId: 'mB', def: { v: 1 } });
+  emit({ t: 'poked', from: 'mX', to: 'mB', type: 'fly:222', ts: T0 - 900 });
   await wait(5);
-  const fast = api._onFriends(snap({ mB:{type:'dance:sway', ts:T0+10} }));
-  await Promise.all([slow, fast]);
-  await wait(20);
-
-  const last = delivered[delivered.length-1];
+  emit({ t: 'def', memberId: 'mB', def: { v: 2 } });
+  emit({ t: 'poked', from: 'mX', to: 'mB', type: 'dance:sway', ts: T0 + 10 });
+  await wait(80);
+  const last = delivered[delivered.length - 1];
   chk(delivered.length >= 1, '스냅샷이 전달된다 (' + delivered.length + '건)');
-  chk(!!last && last.mB && last.mB.poke && last.mB.poke.type === 'dance:sway',
+  chk(!!last && last.mB && last.mB.poke && last.mB.poke.type === 'dance:sway' && last.mB.def && last.mB.def.v === 2,
       '마지막으로 전달된 것이 **새** 스냅샷이다 (낡은 것이 덮어쓰지 않는다)');
-
-  window.firebaseAPI = prevApi; globalThis.firebaseAPI = prevApi;
+  chk(!delivered.some((f, i) => i > 0 && f.mB && f.mB.def && f.mB.def.v === 1 && f.mB.poke && f.mB.poke.type === 'fly:222'),
+      '  ↳ 늦게 풀린 낡은 스냅샷(fly)은 아예 넘기지 않는다');
 }
 
 say(fail ? '\n✗ 실패 ' + fail + '건' : '\n✓ 전부 통과');
+process.exit(fail ? 1 : 0);   // 앱이 건 타이머(방 포트 · 화면)가 남아도 끝낸다
 })();

@@ -53,7 +53,7 @@ function mk(o, src){
   comp.onBgmMode = (f) => { comp.cb.mode = f; };
   comp.onBgmClosed = (f) => { comp.cb.closed = f; };
   const prov = { subs: [], writes: [], unsubs: 0,
-    subscribe(room, cb, onErr){ cb(undefined); prov.subs.push({ room, cb, onErr }); return () => { prov.unsubs++; }; },
+    subscribe(room, cb){ cb(undefined); prov.subs.push({ room, cb }); return () => { prov.unsubs++; }; },
     async write(room, m){
       prov.writes.push([room, m]);
       /* 방 서버 흉내(o.srvSeq) — realtime Room.ts 처럼 마지막으로 받은 차례를 기억하고(지워도 남음) 그보다 크지 않으면 stale */
@@ -324,12 +324,6 @@ say('── 6. 실패 번호');
   t.push(null);
   await flush();
   chk(t.errs.indexOf('E-ROOM-05') >= 0, '★ DJ 의 쓰기가 막히면 E-ROOM-05');
-  t = mk();
-  t.ui.sync();
-  t.prov.subs[0].onErr('denied');
-  t.el('listenBox').classList.remove('hidden');
-  t.ui.sync();
-  chk(t.errs.indexOf('E-ROOM-07') >= 0 && t.el('lsMsg').textContent === '같이 듣기를 불러오지 못했어요', '★ 구독이 거부되면 E-ROOM-07 · 창에도 «못 불러옴»(«틀 곡 없음» 과 다르다)');
 }
 
 say('── 7. 창 글 · DJ 딱지');
@@ -374,15 +368,15 @@ say('── 8. 이어 붙인 곳');
 {
   const iL = APP.indexOf('const listenUi = TwListenUi.createListenUi({'), iRe = APP.indexOf('const roomEntryMod = TwRoomEntry.createRoomEntry({');
   chk(iL > 0 && iRe > iL && /\nroomEntryMod\.onRoomChanged\(\(\)=>listenUi\.sync\(\)\);/.test(APP) && !/listenUi\.connect/.test(APP), 'app.js: 방 입장 모듈보다 먼저 만들고 · 방 입장 모듈의 «방이 바뀜» 알림에 sync 를 건다(방 입장은 같이 듣기를 모른다)');
-  chk(/function _roomChanged\(\)\{ paintRoomInfo\(\); _roomChangedFns\.forEach\(f => f\(\)\); \}/.test(RE) && (RE.match(/\b_roomChanged\(\);/g) || []).length === 3, '  room-entry: 들어감 · 나감 · meta 세 곳이 알림을 보낸다');
+  chk(/function _roomChanged\(\)\{ paintRoomInfo\(\); _roomChangedFns\.forEach\(f => f\(\)\); \}/.test(RE) && (RE.match(/\b_roomChanged\(\);/g) || []).length === 2, '  room-entry: 들어감 · 나감(refreshInviteUI) · meta 두 곳이 알림을 보낸다');
   chk(/closeChipPopups: \(id\)=>chipPopupsMod\._closeChipPopups\(id\)/.test(APP), '  app.js: 상태칩 «한 번에 하나» 닫기를 넘긴다');
-  chk(/provider: TwListenProvider\.createListenProvider\(\{ api: \(\)=>window\.firebaseAPI, server: \(\)=>Presence\.serverProvider\(\), model: TwListenModel \}\)/.test(APP) && /stopPersonal: \(\)=>plMod\.stopIfPlaying\(\)/.test(APP), '  provider(방 서버 방이면 서버 provider) · 내 플레이리스트 멈추기');
+  chk(/provider: TwListenProvider\.createListenProvider\(\{ server: \(\)=>Presence\.serverProvider\(\), model: TwListenModel \}\)/.test(APP) && /stopPersonal: \(\)=>plMod\.stopIfPlaying\(\)/.test(APP), '  provider(지금 방의 방 포트 provider) · 내 플레이리스트 멈추기');
   chk(/stopIfPlaying: \(\)=>\{ if\(_plNow < 0\) return false; _plStop\(\); return true; \}/.test(PL), 'playlist.js: 나고 있을 때만 멈추고 true');
   const fr = (APP.match(/\nfunction frame\(now, manual\)\{[\s\S]*?\n\}\n/) || [''])[0];
   const iDj = fr.indexOf('const _djNow = listenUi.djId();'), iLoop = fr.indexOf('  seats.forEach(seat=>{');
   chk(iDj > 0 && iLoop > iDj && (fr.match(/listenUi\.djId\(\)/g) || []).length === 1, '이름표 «🎧 DJ» — DJ 판정은 프레임에 한 번, 좌석 줄 앞에서(좌석마다 방 사람 목록을 다시 만들지 않게)');
   chk(/setSeatNamePlate\(seat, lv, seat\.friendName\|\|'\(이름 없음\)', st, !!seat\.friendUserId && _djNow === seat\.friendUserId\)/.test(APP)
-    && /setSeatNamePlate\(seat, lv, getDisplayName\(\), st, !!getMyUserId\(\) && _djNow === getMyUserId\(\)\)/.test(APP), '  남 · 나 둘 다 그 값으로(내 코드가 없으면 null===null 로 켜지지 않게)');
+    && /setSeatNamePlate\(seat, lv, getDisplayName\(\), st, !!_myRoomCode && _djNow === _myRoomCode\)/.test(APP), '  남 · 나 둘 다 그 값으로(내 코드가 없으면 null===null 로 켜지지 않게)');
   chk(/function setSeatNamePlate\(seat, level, name, star, dj\)/.test(OH) && /\+ \(dj \? '\|dj' : ''\)/.test(OH) && /b\.className = 'np-dj'; b\.textContent = '🎧 DJ';/.test(OH), '  overhead.js: 딱지는 열쇠에 들어가 바뀔 때만 다시 그린다');
   const chip = HTML.slice(HTML.indexOf('<div id="myStatusChip"'), HTML.indexOf('<!-- 캐릭터 머리 위 설정 패널'));
   chk(['listenBox', 'lsClose', 'lsTitle', 'lsDj', 'lsBar', 'lsNow', 'lsLen', 'lsMsg', 'lsRetry', 'lsCtl', 'lsPrev', 'lsPlay', 'lsSkip', 'lsNext', 'lsVol', 'lsMute', 'lsEdit', 'lsHint'].every(id => chip.indexOf('id="' + id + '"') > 0),
@@ -391,25 +385,22 @@ say('── 8. 이어 붙인 곳');
   chk(iM > 0 && iU > iM && iA > iU && HTML.indexOf('parts/room/listen-provider.js') > iM, '  html: model · provider · 창을 app.js 앞에 싣는다');
   chk(/id="rcMusic"/.test(HTML) && /id="fsSecretMusicRow"[\s\S]{0,80}id="fsSecretMusic"/.test(HTML), '  방 만들기 «🎧 같이 듣기 방» · F1 «내 시크릿룸을 같이 듣기로 열기» 칸');
   {
-    /* 시크릿룸 «연다» 판정 — room-entry 의 두 함수를 떼어 실제로 굴린다(Firebase 길 · 방 서버 길이 같은 함수) */
+    /* 시크릿룸 «연다» 판정 — room-entry 의 두 함수를 떼어 실제로 굴린다 */
     const fnOf = (src, head) => { const i = src.indexOf(head); return i < 0 ? '' : src.slice(i, src.indexOf('\n', i)); };
     const mkOpen = (src, on) => new Function('localStorage', "const SECRET_MUSIC_KEY = 'tw.secretRoomMusic';\n" + fnOf(src, 'function _secretMusicOn(') + '\n' + fnOf(src, 'function _secretOpenFields(') + '\nreturn _secretOpenFields;')(
       { getItem: (k) => (k === 'tw.secretRoomMusic' && on ? '1' : null) });
     const open1 = mkOpen(RE, true), open0 = mkOpen(RE, false);
     chk(open1(true, 0).music === true && open0(true, 0).music === false && open1(false, 0) === undefined && open1(true, 2) === undefined && open1(true, null) === undefined,
       '★ 시크릿룸: 주인이 빈 방(0명)을 열 때만 같이 듣기를 정한다 — 손님 · 사람 있음 · 인원 모름(null)은 안 건드린다(듣던 곡이 지워지지 않게)');
-    chk(/const _srOpen = _secretOpenFields\(_iAmSrOwner, _roomCount\);/.test(RE) && /setRoomChannel\(code, 'togetherroom', _secretOwner, undefined, _srOpen\)/.test(RE)
-      && /const srOpen = ctx\.isSecret \? _secretOpenFields\(ctx\.iAmSecretOwner, others\) : undefined;/.test(RE)
-      && /roomSettings\.serverJoinCreate\(creating, [^\n]*, srOpen\);/.test(RE) && /iAmSecretOwner:_iAmSrOwner/.test(RE),
-      '  Firebase 길(_meta)과 방 서버 길(create { channel: togetherroom, music })이 같은 판정 함수를 부른다');
-    chk(/if\(pk && pk\.exists\) others = pk\.count;/.test(RE) && /if\(fb === 0\) others = 0;/.test(RE) && /let others = null;/.test(RE),
-      '  방 서버 길의 인원 — 서버 방이 있으면 그 사람 수 · 없고 Firebase 도 0명이면 0 · 주소록 방(따라가기) · 못 셈은 null');
+    chk(/srOpen = _secretOpenFields\(true, pk \? \(pk\.exists \? pk\.count : 0\) : null\);/.test(RE)
+      && /roomSettings\.serverJoinCreate\(creating, [^\n]*, srOpen\);/.test(RE),
+      '  내 시크릿룸일 때만 · 인원은 peek(없는 방 0 · 못 물음 null) → create { channel: togetherroom, music }');
     const broken = mkOpen(RE.replace('(isOwner && othersCount === 0)', '(isOwner && othersCount <= 0)'), true);
     chk(broken(true, null) !== undefined, '«인원 모름(null)» 거르기를 무르면(<= 0) 위 판정이 빨강');
   }
   chk(/const SECRET_MUSIC_KEY = 'tw\.secretRoomMusic';/.test(RE) && /'tw\.secretRoomMusic',/.test(ACC), '  F1 칸은 이 기기에 기억 · 로그아웃 때 지움(account.js)');
   chk(/music: !!\(settings && settings\.music\) \};/.test(RE), '  방 만들기: 고른 값에 music');
-  chk(/subscribeRoomMusic\(room, cb, onErr\)/.test(FI) && /async setRoomMusic\(room, music\)/.test(FI), '  firebase-init: 곡 칸 구독 · 쓰기(sim-listen-provider 가 자세히)');
+  chk(!/subscribeRoomMusic|setRoomMusic/.test(FI), '  firebase-init 에 곡 칸(Firebase _music) 길이 없다 — 곡은 방 포트 music 하나(sim-listen-provider 가 자세히)');
 }
 
 say('── 9. 깨 보기');

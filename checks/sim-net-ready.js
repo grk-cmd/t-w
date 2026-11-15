@@ -4,7 +4,7 @@
      서버 이관 때 준비 신호를 갈아 끼울 자리가 이 파일 하나뿐이려면, 이벤트에 직접 귀를 대는 곳이 다시 생기면 안 된다.
    ・1절: whenNetReady — 준비면 바로(기다리지 않음) · 아니면 once 로 한 번 · need(함수 이름)가 없으면 기다림 · 신호 뒤 부름
    ・2절: onNetReady(once 없음 — 두 번 오면 두 번) · waitNetReady(ms) — 신호면 true · 시간이 다 되면 그때 연결 유무 · 한 번만 풀림
-   ・3절: firebase-ready 에 직접 addEventListener 하는 곳 0곳(이 모듈 빼고) · 쓰는 파일 열한 곳이 TwNetReady 를 부른다 · html 순서 · smoke PRELOAD
+   ・3절: firebase-ready 에 직접 addEventListener 하는 곳 0곳(이 모듈 빼고) · 쓰는 파일(USERS)이 TwNetReady 를 부른다 · html 순서 · smoke PRELOAD
    ・4절: 일부러 깨 보기 */
 'use strict';
 const fs = require('fs');
@@ -17,8 +17,8 @@ const MOD = read('shared/net-ready.js'), HTML = read('desk-companion-prototype.h
 if (!MOD || !HTML || !SMOKE) { say('  ? 원본 못 찾음 — net-ready.js · desk-companion-prototype.html · smoke.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 /* TwNetReady 를 부르는 파일(묶을 때의 15곳 — app.js 넷 · room-entry 둘 · 나머지 하나씩) */
-const USERS = ['app.js', 'launcher/ad-banner.js', 'room/room-entry.js', 'room/room-invite-ui.js', 'room/room-sync.js',
-  'character/catalog-source.js', 'myhome/scheduler.js'];   // overhead.js · my-info.js · bug-board-ui.js 는 0.13 에서 기다릴 일이 없어졌다
+const USERS = ['app.js', 'launcher/ad-banner.js', 'room/room-entry.js', 'room/room-sync.js',
+  'character/catalog-source.js', 'myhome/scheduler.js'];   // overhead.js · my-info.js · bug-board-ui.js · room-invite-ui.js(초대는 realtime 연결로 온다)는 0.13 에서 기다릴 일이 없어졌다
 const EVT_RE = /addEventListener\(\s*['"`]firebase-ready['"`]/;
 
 /* 가짜 window — 귀(once 표시) · 타이머는 손으로 */

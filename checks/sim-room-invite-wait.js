@@ -37,7 +37,7 @@ chk(/data-a="left"/.test(grab('showRoomInvitePopup')), '남은 시간 줄');
 
 say('── 3. 오래된 초대');
 chk(/const ROOM_INVITE_STALE_MS = 10 \* 60 \* 1000;/.test(SRC), '오래됨 문턱 10분(보낸 쪽 시계 오차 여유)');
-chk(/_now - invites\[id\]\.ts > ROOM_INVITE_STALE_MS/.test(R) && /clearRoomInvite\(myId, id\)/.test(R), '오래된 초대는 띄우지 않고 지운다');
+chk(/_now - got\[id\]\.ts > ROOM_INVITE_STALE_MS/.test(R) && /invites\.clear\(id\)/.test(R), '오래된 초대는 띄우지 않고 지운다');
 chk(!/_now - invites\[id\]\.ts > ROOM_INVITE_WAIT_MS/.test(R), '3분으로 버리지 않는다(시계 오차로 새 초대를 버리게 된다)');
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

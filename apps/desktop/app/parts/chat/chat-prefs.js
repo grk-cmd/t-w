@@ -31,7 +31,7 @@ const _chatRoomCode = deps._chatRoomCode;
 const _chatSfxPools = deps._chatSfxPools;
 const chatUiMod = deps.chatUiMod;   // 읽는 함수
 const getDisplayName = deps.getDisplayName;
-const getMyUserId = deps.getMyUserId;
+const myCode = deps.myCode;   // 방 서버의 내 코드 — 방장 · 내 좌석 · 내가 때린 것 판정은 이 값(TwRoomRt.store.myCode)
 const officeMode = deps.officeMode;   // 읽는 함수
 const seats = deps.seats;
 const toast = deps.toast;
@@ -228,8 +228,8 @@ function _chatDelOpen(){
 async function _chatDelRun(){
   const room = _chatRoomCode();
   if(!room){ _chatDelClose(); return; }
-  if(!(window.firebaseAPI && firebaseAPI.clearChatLog)){
-    _chatDelClose(); toast('이 기능은 앱을 재시작한 후에 사용할 수 있어요'); return;
+  if(!(window.firebaseAPI && firebaseAPI.chatHistory)){
+    _chatDelClose(); toast('서버에 연결된 뒤 지울 수 있어요'); return;
   }
   const ok = document.getElementById('chatDelOk');
   /* 서버 왕복을 기다리는 동안 버튼을 잠근다 — 두 번 눌러도 두 번 지울 뿐이라 해는 없지만,
@@ -237,15 +237,14 @@ async function _chatDelRun(){
      ⚠️ 낙관적 반영은 하지 않는다([채팅 켜짐]과 다른 점). 지우기는 되돌릴 수 없어서,
        실패했는데 화면만 빈 상태가 제일 위험하다 — 서버가 지웠다고 답한 뒤에 비운다. */
   if(ok){ ok.disabled = true; ok.textContent = '지우는 중…'; }
-  const _ch = firebaseAPI.chatHistory;   // 💬 지우기 표시 줄까지 남겨 각자 PC 저장도 비운다(chat-history.js clear)
-  const r = await (_ch ? _ch.clear(room, chatUiMod()._chatMyTabId()) : firebaseAPI.clearChatLog(room, chatUiMod()._chatMyTabId()));   // 지금 보는 탭만
+  const r = await firebaseAPI.chatHistory.clear(room, chatUiMod()._chatMyTabId());   // 지금 보는 탭만 — 서버가 지우기 표시 줄을 방 전원에 보내 각자 PC 저장도 비워진다
   if(!(r && r.ok)){
     if(ok){ ok.disabled = false; ok.textContent = '삭제'; }
-    toast('지우지 못했어요 — 네트워크나 권한을 확인해 주세요');
+    TwErrorCodes.notify('E-CHAT-03', r && r.code);
     return;
   }
   _chatDelClose();
-  /* 화면은 subscribeChatLog 가 빈 목록을 물고 오면서 저절로 빈다. 다만 그게 오기 전까지
+  /* 화면은 지우기 표시 줄이 오면서 저절로 빈다. 다만 그게 오기 전까지
      방금 지운 대화가 남아 있으면 "안 지워졌나?" 로 읽히므로, 내 화면만 먼저 비워 둔다. */
   try{ chatUiMod()._renderChatLog([]); }catch(_){}
   toast('🗑 대화 기록을 지웠어요');
@@ -265,15 +264,15 @@ async function _chatOffToggleClick(){
   if(!_chatIsSecretRoom()) return;
   if(!_chatIsHost()){ toast('방장만 켜고 끌 수 있어요'); return; }
   const room = _chatRoomCode(); if(!room) return;
-  const _sp = (Presence().serverProvider && Presence().serverProvider()) || null;   // 🛰 서버 방이면 meta 를 서버로
-  if(!_sp && !(window.firebaseAPI && firebaseAPI.setRoomChatOff)){ toast('이 기능은 앱을 재시작한 후에 사용할 수 있어요'); return; }
+  const _sp = (Presence().serverProvider && Presence().serverProvider()) || null;   // 🛰 방 포트 meta(방장만 · 서버가 판정)
+  if(!_sp){ toast('서버에 연결된 뒤 바꿀 수 있어요'); return; }
   const next = !_chatOffOn();
   /* 서버 왕복을 기다리지 않고 먼저 반영한다 — 아무 반응이 없으면 두 번 누르고, 그러면 원위치가 된다.
      실패하면 되돌리고 이유를 말한다. */
   const prev = window._roomMetaCache;
   try{ window._roomMetaCache = Object.assign({}, prev || {}, { chatOff: next }); }catch(_){}
   _chatOffRefreshUI();
-  const r = _sp ? await _sp.setMeta({ chatOff: next }) : await firebaseAPI.setRoomChatOff(room, next);
+  const r = await _sp.setMeta({ chatOff: next });
   if(!(r && r.ok)){
     try{ window._roomMetaCache = prev; }catch(_){}
     _chatOffRefreshUI();
@@ -297,7 +296,7 @@ function _refreshChatMembers(){
       // 💬 「이 채널」 — 내 탭에 있는 사람만(구버전 · 탭 칸이 없는 사람은 #일반)
       if(!st.isMe && chatUiMod()._chatTabResolve(st.chatTabId || 'general') !== chatUiMod()._chatMyTabId()) continue;
       if(st.isMe){
-        names.push({ name:getDisplayName(), isHost:(hostUserId && getMyUserId()===hostUserId) });
+        names.push({ name:getDisplayName(), isHost:(hostUserId && myCode()===hostUserId) });
       }else if(st.friendName){
         names.push({ name:st.friendName, isHost:(hostUserId && st.friendUserId===hostUserId) });
       }

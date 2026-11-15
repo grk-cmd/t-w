@@ -354,7 +354,7 @@ section('검사 8 · firebaseAPI 호출-정의 계약 (파일 버전 어긋남 �
 _callers = {}
 # scheduler.js — app.js 에서 옮긴 📅 스케줄러 · 🔔 일정 알림(앱 FSD 1번). 빼면 일정 · D-day 호출이 이 검사의 시야에서 사라진다.
 # weekly-challenge.js — 👑 달성표(앱 FSD 2번). 0.13 에서 서버 길(chal-store.js)로 옮겨 firebaseAPI 를 더는 안 부른다.
-# purikura-ui.js — 📷 스티커사진 창(앱 FSD 3번). pkOnValue · pkUpdate · pkUploadFrame · serverNow 를 부른다.
+# purikura-ui.js — 📷 스티커사진 창(앱 FSD 3번). 0.13 — 세션은 서버라 firebaseAPI 로는 pkUploadFrame(프레임 Storage 올리기) · serverNow 만 부른다.
 # guestbook.js — 📖 방명록(앱 FSD 4번). 0.13 에서 서버 길(guestbook-api.js · guestbook-feed.js)로 옮겨 firebaseAPI 를 더는 안 부른다.
 # friend-manage.js — 👥 친구 관리(앱 FSD 5번). acceptFriendRequest · rejectFriendRequest · getSentFriendRequests · isFriendRequestAlive · pruneSentFriendRequest · cancelFriendRequest · getUserNameById 를 부른다.
 # bug-board-ui.js — 🐞 버그 제보 탭. 서버 길(bug-api.js)로 받고 쓰며 firebaseAPI 를 더는 부르지 않는다(오픈카톡 기본 링크 setBugReport · subscribeBugReport 도 서버 설정 bug.report 로 옮겼다).

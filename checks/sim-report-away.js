@@ -36,7 +36,7 @@ say('── 1. 자리비움 그림');
   const ok = new Function(grabFn('_awayUrlOk') + '; return _awayUrlOk;')();
   chk(ok(OK_URL) && !ok('https://evil.example/x.png') && !ok('data:image/png;base64,AA') && !ok(null) && !ok(OK_URL + 'x'.repeat(500)), 'URL 은 Storage 주소 · 500자 이하만');
   chk(/s\.remoteAwayImg=_awayUrlOk\(friends\[id\]\.awayImg\)/.test(CODE), '받는 쪽도 Storage 주소만 받는다');
-  chk(/awayImg:myAwayImg, ridingOn:/.test(CODE) && /lic:_myLicenseFlag\(\), awayImg:myAwayImg\}/.test(CODE), '평소 · 입장 페이로드에 awayImg');
+  chk(/awayImg:myAwayImg, ridingOn:/.test(CODE) && /noise:myNoise, awayImg:myAwayImg\}/.test(CODE), '평소 · 입장 페이로드에 awayImg');
   /* _awayPicFor 떼어 와 돌림 */
   const env = { office: false, st: 'ok', mine: OK_URL };
   const pic = new Function('env', `
