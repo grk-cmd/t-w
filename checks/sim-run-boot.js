@@ -2,7 +2,7 @@
    [왜] app.js INIT 덩이의 차례가 «파일 안 자리» 였다. 표 한 곳으로 모았다 — 0.13 의 sim-app-boot 와 같은 틀.
    ・1절: 차례 표 그대로(순서) · 만들 때 일하지 않음 · 표에 없는 이름 · 남는 이름 · baseBody 를 starts 로 주기 · 기본 몸 칸이 비면 던짐
    ・2절: begin — 표 순서대로 한 번씩 · 두 번 부르면 두 번째는 안 함(false · 경고) · 한 칸이 던져도 다음 칸은 돈다(비동기 거절 포함)
-   ・3절: 기본 몸 — 읽기 → 피부 · 슬롯 → 런처 그리기 · 못 읽으면(false) 안내 한 번 뒤 이어 감 · 읽다 던져도 런처는 그린다(안내 없음) · 피부 읽기가 던져도 런처는 그린다
+   ・3절: 기본 몸 — 읽기 → 피부 · 슬롯 → 런처 그리기 · 못 읽으면(false) 안내 한 번 뒤 이어 감 · 읽다 던지면 안내 한 번 뒤 런처만 그린다 · 피부 읽기가 던져도 런처는 그린다
    ・4절: 연결(html 순서 · app.js 가 표의 이름 그대로 이어 begin 한 번 · 옛 INIT 줄이 안 남음 · 안내는 E-SYS-08 · 번호가 표에 있음) · 5절: 일부러 깨 보기
    [실행] 러너 스테이징 또는 저장소 루트에서. */
 'use strict';
@@ -72,7 +72,7 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
     const bad = mk(SRC, { loadOk: false }); bad.boot.begin(); await tick(); await tick();
     chk(bad.log.filter((x) => ['load', 'failed', 'skins', 'slots', 'render'].includes(x)).join() === 'load,failed,skins,slots,render', '★ 못 읽으면(false) 안내 한 번 뒤 대신 몸으로 이어 간다(피부 · 슬롯 · 런처)'); bad.restore();
     const thr = mk(SRC, { loadThrows: true }); thr.boot.begin(); await tick(); await tick();
-    chk(thr.log.includes('render') && !thr.log.includes('failed'), '읽다 던져도 런처는 그린다(예전 catch)'); thr.restore();
+    chk(thr.log.filter((x) => x === 'failed').length === 1 && thr.log.includes('render') && !thr.log.includes('skins'), '★ 읽다 던지면 안내 한 번 · 피부 · 슬롯 없이 런처는 그린다'); thr.restore();
     const sk = mk(SRC, { skinsThrow: true }); sk.boot.begin(); await tick(); await tick();
     chk(sk.log.includes('render'), '피부 읽기가 던져도 런처는 그린다'); sk.restore();
   }

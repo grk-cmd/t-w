@@ -4,10 +4,10 @@
    ・계정 없이 도는 몫만 다룬다(계정 기능의 만들기 · 시작은 0.13 의 app-boot.js 몫 — 겹치지 않게).
    ・starts 의 이름이 STEPS 와 어긋나면(없거나 남으면) 만들 때 던진다. baseBody 는 이 모듈이 직접 돌린다(아래).
    ・begin 을 두 번 부르면 두 번째는 아무것도 안 하고 false(콘솔 경고).
-   ・한 칸이 던져도 다음 칸은 돈다(예전엔 INIT 한 줄이 던지면 뒤 줄이 통째로 안 돌았다).
+   ・한 칸이 던져도 다음 칸은 돈다.
    ⚠️ 모듈은 만들 때 일하지 않는다 — begin 이 부를 때만 돈다. 만드는 줄을 옮기면 차례가 바뀌던 옛 모양과 다르다.
-   ★ 기본 몸 불러오기(baseBody): 못 불러오면(앱에 든 파일이라 드물다 — 설치가 깨졌을 때) 안내를 한 번 띄우고(onBaseBodyFailed) 대신 몸으로 계속 간다.
-     불러온 뒤 피부 · 슬롯을 읽고 런처를 그린다. 어느 단계가 던져도 런처는 그린다(예전 catch 와 같다). */
+   ★ 기본 몸 불러오기(baseBody): 못 불러오면(읽기가 false 이거나 던짐 — 앱에 든 파일이라 드물다, 설치가 깨졌을 때) 안내를 한 번 띄우고(onFailed) 대신 몸으로 계속 간다.
+     불러온 뒤 피부 · 슬롯을 읽고 런처를 그린다. 어느 단계가 던져도 런처는 그린다. */
 (function(){
 'use strict';
 
@@ -51,12 +51,13 @@ const baseBody = deps.baseBody;
   }
 
   let began = false;
-  /* 기본 몸 → 피부 · 슬롯 → 런처. 몸을 못 읽어도(false) 안내만 하고 이어 간다 · 어느 단계가 던져도 런처는 그린다 */
+  /* 기본 몸 → 피부 · 슬롯 → 런처. 몸을 못 읽으면(false) · 읽다 던져도 안내를 한 번 하고, 던진 쪽은 피부 · 슬롯 없이 런처만 그린다.
+     피부 · 슬롯 읽기가 던져도 런처는 그린다. */
   function runBaseBody(){
     return baseBody.load().then(ok=>{
       if(!ok) baseBody.onFailed();
       return Promise.all([baseBody.loadSkins(), baseBody.loadSlots()]);
-    }).then(()=>{ baseBody.renderLauncher(); }).catch(()=>baseBody.renderLauncher());
+    }, e=>{ baseBody.onFailed(); throw e; }).then(()=>{ baseBody.renderLauncher(); }).catch(()=>baseBody.renderLauncher());
   }
   /* 한 칸이 던져도 다음 칸은 돈다 */
   function guard(label, fn){
