@@ -186,7 +186,8 @@ function failNotice(e, onceKey){
   else notifyError('E-CHAR-17', e);
 }
 function scheduleSave(){
-  if(load !== 'ready' || !sess) return;
+  if(load !== 'ready') return;
+  if(!sess) throw new Error('[closet] 세션이 없어요 — 옷장을 받은 뒤에는 세션이 있어야 해요(startCloset/useSession)');
   if(saveTimer) sess.clearTimeout(saveTimer);
   saveTimer = sess.setTimeout(() => { saveTimer = null; flushSlots(); }, SAVE_DEBOUNCE_MS);
 }
@@ -451,7 +452,7 @@ function startCloset(session){
 }
 /* 로그아웃 · 계정 바뀜 — 메모리를 비운다(이 PC 에 남는 캐릭터 저장본은 없다). 구독은 여기서 푼다. */
 function resetCloset(){
-  if(saveTimer){ if(sess) sess.clearTimeout(saveTimer); saveTimer = null; }
+  if(saveTimer){ sess.clearTimeout(saveTimer); saveTimer = null; }
   taken.clear(); heads = []; known.fill(null); load = 'idle'; gen++;
   saveFailShown = false; started = false; busy = false;
   laneTail = Promise.resolve(); queuedPull = null; queuedNotify = false; pullRunning = false; pullAgain = false; againNotify = false;   // 옛 계정 일은 gen 이 달라 스스로 끝난다 — 새 계정 일은 그것을 기다리지 않는다
