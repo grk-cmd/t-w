@@ -134,3 +134,24 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
   - 처음 로드 · 해시 이동(did-navigate-in-page)은 되돌리지 않는다.
   - 한 로드 사이에는 한 번만 되돌린다 — 사망 길이 먼저 되돌리고 이어서 다시 불러와도 두 번 안 한다.
   - 검사: `checks/sim-renderer-gone-reset.js`(죽음 · 다시 불러오기 · 막힐 이동의 시작 차례를 가짜 창에서 실제로 돌림 · 깨 보기).
+
+## app-mode.js — 🖥 런처 ↔ 실행 화면 전환
+
+- **책임**: `appMode`(run · editseat) · `applyAppMode`(좌석 슬라이더 · 상태 미리보기 · 제목 · 창 크기 맞춤 부르기) · `launchApp`(내 좌석 다시 만들기 · 방 친구 복원 · 방에 나간 def 와 달라졌을 때만 새 def 를 방에 보냄 · 솔로 자리 추가 복원 · Tab 힌트) · `backToLauncher`(꾸미기 · 마이홈 닫아 저장 · 포커스 · 달성표 · 가챠 서버 맞추기) · «런처로» 버튼.
+- **만드는 법**: `TwAppMode.createAppMode({ … 21개 })` — 읽는 함수 6(`curSlot` · `focusLevelMod` · `gachaMod` · `Presence` · `roomEntryMod` · `weeklyChal`) · 함수 3(`applyDesktopRunClass` · `toast` · `layoutSeats`) · 쓰는 함수 1(`setMyHomeOpen`) · 값 11. 원래 자리(설정 패널 «캐릭터» 탭 안내 뒤)에서 만든다.
+- **내보내는 것**: `appMode`(읽는 함수 — app.js 는 `appModeMod.appMode()`) · `showEl` · `applyAppMode` · `launchApp` · `backToLauncher`.
+- **함정**: `layoutSeats` 는 맨 아래에서 감싸 다시 대입되므로 `(...a)=>layoutSeats(...a)` 로 넘긴다(값으로 넘기면 감싸기 전 함수가 굳는다). 검사: `checks/sim-app-mode.js`.
+
+## office-mode.js — 🏢 데스크탑 · 피규어 · 회사원 모드 깃발
+
+- **책임**: `desktopMode` · `figureMode` · `officeMode`(저장 키 `tw.figureMode` · `tw.officeMode`) · `setOfficeHidden`(body.office-hidden · ■ 버튼 표시 · 칩 팝업 닫기) · `refreshOfficeChipUI` · 상태칩 ■ 우클릭 연결 · `window.__officeDiag`(읽기만).
+- **만드는 법**: `TwOfficeMode.createOfficeMode({ chipPopupsMod })` — 값 하나. 원래 자리(데스크탑 모드 구역)에서 만든다.
+- **내보내는 것**: `desktopMode` · `FIGURE_MODE_KEY` · `OFFICE_MODE_KEY` · `refreshOfficeChipUI`(값 · 함수) · `figureMode` · `officeMode` · `_officeHidden`(읽는 함수) · `setFigureMode` · `setOfficeMode`(쓰는 함수).
+- **함정**: 만들 때 깃발을 읽고 `refreshOfficeChipUI()` 를 부른다 — 깃발을 최상위에서 읽는 app.js 줄(`focusGateSleep` 등)은 만드는 줄 아래에 둔다(TDZ — `checks/smoke.js` 가 잡는다). 검사: `checks/sim-office-mode.js`.
+
+## frame-pace.js — 🔋 프레임 상한 · rAF 멈춤 감시
+
+- **책임**: `FrameBudget` 만들기 · «자동» 화질 감시 · `_gpuTimer`(1분 `[프레임]` 줄 꼬리) · `_uiHot`(손댐 상한 해제) · `_fbIsBusy`(입력칸 · 꾸미기 · 춤 · 생성기 — 0.5초에 한 번만 DOM 을 봄) · `_frameCap` · `_frameCapped` · rAF 가 1초 넘게 안 오면 타이머가 `frame()` 을 대신 돌림 · 포커스 · 손댐 듣기.
+- **만드는 법**: `TwFramePace.createFramePace({ … 8개 })` — 읽는 함수 2(`_flyActive` · `creatorOpen`) · 함수 1(`frame`) · 쓰는 함수 1(`setRunLowered`) · 값 4. 원래 자리에서 만든다 — 타이머 · 듣기가 이때 걸린다.
+- **내보내는 것**: `_FB` · `_frameBudget` · `_runSlowWatch` · `_gpuTimer` · `_frameJsStats` · `_lowerRunQuality` · `_uiHot` · `_frameCap` · `_frameCapped` · `_lastRafAt`(읽는 함수) · `setLastRafAt`.
+- **함정**: `mousemove` 는 «손댐» 으로 세지 않는다(클릭 통과 중에도 들어와 30 ↔ 60 이 오르내림). `frame()`(app.js)이 rAF 가 실제로 온 시각을 `setLastRafAt` 으로 알린다. 검사: `checks/sim-frame-pace.js`.

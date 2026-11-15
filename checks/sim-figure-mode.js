@@ -54,6 +54,7 @@ function applyEnv(fnSrc){
   vm.createContext(ctx);
   vm.runInContext(`
     let lastActivity = 0, figureMode = false, focusGateSleep = true, _penAppFocused = false, _selfAppActive = false;
+    const officeModeMod = { figureMode: () => figureMode };   // 깃발은 launcher/office-mode.js 가 갖고 app.js 는 읽는 함수로 읽는다
     function focusWindowMs(){ return 1500; }
     const seatStateMod = { lastActivity: () => lastActivity, setSelfAppActive: (v) => { _selfAppActive = v; }, setPenAppFocused: (v) => { _penAppFocused = v; } };   // 활동 시각 · 깃발은 status/seat-state.js 가 갖는다
     const focusLevelMod = { _mobileOn: () => env.mob, addFocusSeconds: (d) => { env.added += d; } };
@@ -143,9 +144,9 @@ if(SS && AP && SLEEP_M){
   say('── 3. 깨 보기');
   const ssOld = SS.replace(/if\(idle>SLEEP_MS && !\(desktopMode\(\) && figureMode\(\)\)\)return 'sleep';/, "if(idle>SLEEP_MS)return 'sleep';");
   chk(ssOld !== SS && !sec1(ssOld, true), '피규어 모드 조건을 빼면(옛 모양) 1절이 빨강');
-  const apOld = AP.replace(/if\(!figureMode && _focusWasActive/, 'if(_focusWasActive');
+  const apOld = AP.replace(/if\(!officeModeMod\.figureMode\(\) && _focusWasActive/, 'if(_focusWasActive');
   chk(apOld !== AP && !sec2(apOld, true), '쌓기 조건에서 피규어 모드를 빼면(옛 모양) 2절이 빨강');
-  const apChal = AP.replace(/if\(!figureMode && dt>0 && dt<30 && !pcNotFocusing\) weeklyChal/, 'if(dt>0 && dt<30 && !pcNotFocusing) weeklyChal');
+  const apChal = AP.replace(/if\(!officeModeMod\.figureMode\(\) && dt>0 && dt<30 && !pcNotFocusing\) weeklyChal/, 'if(dt>0 && dt<30 && !pcNotFocusing) weeklyChal');
   chk(apChal !== AP && !sec2(apChal, true), '달성표 조건에서 피규어 모드를 빼면(옛 모양) 2절이 빨강');
   const ssSelf = SS.replace(/\n  if\(desktopMode\(\) && focusGateSleep\(\) && _selfAppActive\)[^\n]*/, '');
   chk(ssSelf !== SS && !sec4(ssSelf, AP, true), '투게더워킹 창 줄을 빼면(옛 모양) 4절이 빨강');

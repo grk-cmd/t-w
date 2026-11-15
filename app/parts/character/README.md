@@ -420,3 +420,10 @@
   - 커미션 GLB 가 캐시에 없으면 파싱만 걸고 `return` 한다. 그 앞에서 책상 배율 · z 를 한 번 맞춰 두는 까닭(한 화면 옛 z 로 그려짐)이 주석에 있다 — 순서를 바꾸지 말 것.
   - `seat._animalBuilt` 는 조건 밖에서 갱신한다 — 안 그러면 동물 GLB 파싱 전 인간 폴백일 때 직전 캐릭터의 판정이 남는다.
   - 검사: `checks/sim-char-apply.js`(파츠 비우기 · 리깅 xf · 귀 등록 · window 고리 · 입히기 갈래 · 깨 보기).
+
+## rig-anim.js — 🕺 몸짓
+
+- **책임**: `STATES` · `targetFor`(상태 → 허리 · 호흡 · 눈 · 팔 목표) · `animateRig`(좌석 한 명의 뼈를 지금 시각에 맞춰 움직임 — 타자 · 잠 · 흔들림 · 어지러움 · 춤 · 귀 까닥임 · 클릭 반응) · `setClip`(믹서 클립) · 뼈대 상수 · `boneSide` · `setBone`.
+- **만드는 법**: `TwRigAnim.createRigAnim({ … 6개 })` — 모두 값(`ANIMAL_HAND_REST` · `camera` · `iDeskMod` · `rideTuneMod` · `seatPointerMod` · `userStatusMod`). 원래 자리에서 만든다.
+- **내보내는 것**: 상수 · 함수 열둘을 같은 이름 const 로 받는다(`lerp` 포함 — 다른 구역이 쓴다).
+- **함정**: 부호(`SPINE_AXIS` 등)와 각도 상수는 움직임 방향을 정한다 — 숫자를 바꾸면 자세가 뒤집힌다. 검사: `checks/sim-rig-anim.js`.
