@@ -210,7 +210,7 @@
 | **sim-sysinput.js** | 397 | **bdf06e31afdb** |
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 130 | **4ddd42809f74** |
-| **sim-zoom-window.js** | 73 | **ecf4adfabc81** |
+| **sim-zoom-window.js** | 73 | **af1c0f53687b** |
 | **sim-z-layers.js** | 168 | **75e6e7bd9f39** |
 | **sim-no-default-menu.js** | 95 | **0f1c5f7e0d75** |
 | **sim-ops-hot-config.js** | 163 | **6e732dcece07** |

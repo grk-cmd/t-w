@@ -60,7 +60,7 @@ chk(t.api.mode() === 'launcher', '  줄인 창도 런처다');
 t = mk({ config: false, mode: 'run', bounds: { x: 0, y: 0, width: 1920, height: 1028 } });
 t.api.zoom('in');
 chk(t.E.sets === 0, '실행 화면(전체화면)에서는 창을 안 건드린다');
-/* 실행 화면 크기가 런처 크기와 같은 작은 모니터 — 크기로 되짚던 때는 실행 화면을 런처로 읽어 창을 건드렸다 */
+/* 실행 화면 크기가 런처 크기와 같은 작은 모니터 — 줌은 옛 코드도 실행 화면을 건드리지 않았다(옛 오판은 moved · 모니터 옮기기 쪽 — sim-cfg-fit) */
 t = mk({ config: false, mode: 'run', bounds: { x: 0, y: 0, width: 380, height: 680 } });
 t.api.zoom('in');
 chk(t.E.sets === 0, '★ 실행 화면(받은 모드 run)은 창이 런처 크기여도 건드리지 않는다');
