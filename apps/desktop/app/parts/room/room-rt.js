@@ -252,7 +252,7 @@ function createRoomRt(deps){
   }
   /* 들어가지 않고 방 보기 — { exists, count, channel, secret } · 못 물으면 null. count 는 유예 중 자리까지. */
   function peek(room){
-    return Promise.resolve(hub.request({ t: 'peek', room: String(room || '') })).then((m) => (m ? {
+    return Promise.resolve(hub.request({ t: 'peek', room: String(room || '') })).then((m) => ((m && m.t === 'peek') ? {
       exists: m.exists === true, count: m.count | 0,
       channel: (CHANNELS.indexOf(m.channel) >= 0) ? m.channel : null,
       secret: m.secret === true,

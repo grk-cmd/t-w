@@ -196,6 +196,17 @@ async function up(env){
         chk((await pa) !== null && !e.log.msgs.some((m) => m.rid === rids[1]), '  ↳ 다른 요청은 그대로 제 답을 받는다 · 오류는 onMessage 로 새지 않는다');
       }else chk(false, '보낸 요청 둘을 못 찾음');
     }
+    {
+      /* 짝 없는 rid 의 늦은 오류는 다른 대기 요청을 건드리지 않는다 */
+      const pw = e.link.request({ t: 'presenceGet', ids: ['w1'] }, (m) => m);
+      await tick();
+      ws.msg({ t: 'error', code: 'badRequest', ref: 'presenceGet', rid: 'zz-old' });
+      await tick();
+      const still = await Promise.race([pw, new Promise((r) => setTimeout(() => r('__wait'), 20))]);
+      chk(still === '__wait' && e.log.msgs.some((m) => m.rid === 'zz-old'), '★ 지워진 rid 의 늦은 오류는 onMessage 로 — 같은 종류의 다른 대기 요청을 실패로 끝내지 않는다');
+      ws.msg({ t: 'presence', users: {}, full: true, rid: ws.sent.filter((x) => x.t === 'presenceGet').pop().rid });
+      await pw;
+    }
     for(const [ok, msg] of await unavailableCase(M)) chk(ok, msg);
     const brokenSrc = SRC.split("\n        || (m.code === 'unavailable' && requestKinds.indexOf(m.ref) >= 0)").join('');
     const MB = new Function('Buffer', brokenSrc.replace(/^export (const|function|async function) /gm, '$1 ') + '\nreturn {' + names.join(',') + '};')(Buffer);

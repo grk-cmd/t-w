@@ -279,6 +279,7 @@ export function createRealtimeLink(deps){
       if(typeof m.rid === 'string'){
         const w = reqWaiters.get(m.rid);
         if(w){ w.done(m); return; }
+        toHook(m); return;   // 짝이 없는(이미 시간 초과로 지워진) rid 의 늦은 오류 — 다른 요청을 실패로 끝내지 않는다
       }
       /* 묻기 요청이 거절됐다 — 오류에는 rid 가 없어서 그 종류 중 가장 먼저 보낸 것을 실패로 끝낸다.
          unavailable 은 서버가 그 요청에 필요한 값을 못 받음(예: presenceGet 의 친구 목록) — 같은 종류의 가장 먼저 보낸 것 하나만 실패로. */

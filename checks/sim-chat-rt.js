@@ -37,10 +37,11 @@ function mk(S, o){
     del: async (path) => { dels.push(path); return null; },
   };
   let room = o.room === undefined ? 'PLAY-AB12' : o.room, rid = 0;
-  const c = C.createChatRt({ hub, api, roomCode: () => room, historyTabOf: R.historyTabOf, tabFromWire: R.tabFromWire, newRequestId: () => 'req-' + String(++rid).padStart(4, '0'),
+  let nowFn = () => Date.now();
+  const c = C.createChatRt({ hub, api, roomCode: () => room, now: () => nowFn(), historyTabOf: R.historyTabOf, tabFromWire: R.tabFromWire, newRequestId: () => 'req-' + String(++rid).padStart(4, '0'),
     setTimeout: (f, ms) => { const h = { f, ms }; timers.push(h); return h; }, clearTimeout: (h) => { const i = timers.indexOf(h); if(i >= 0) timers.splice(i, 1); }, log: { warn(){} } });
   const fire = () => { const t = timers.shift(); if(t) t.f(); };
-  return { C, R, c, emit, sent, gets, puts, dels, timers, fire, setRoom: (r) => { room = r; } };
+  return { setNow: (f) => { nowFn = f; }, C, R, c, emit, sent, gets, puts, dels, timers, fire, setRoom: (r) => { room = r; } };
 }
 const LINE = (id, o) => Object.assign({ id, tab: 'GENERAL', kind: 'TEXT', userCode: 'u2', name: '친구', text: '안녕', ts: '2026-10-29T01:00:00.000Z' }, o || {});
 
@@ -74,6 +75,15 @@ async function judge(S){
     chk((await within(p2b)).ok === true, '  이번엔 답이 와서 끝');
     e.c.sendText('PLAY-AB12', '다시', 'general');
     chk(e.sent[2].requestId !== e.sent[0].requestId, '  끝난 뒤의 같은 글은 새 requestId(다른 글을 보내는 것)');
+    e = mk(S);
+    const pr1 = e.c.sendText('PLAY-AB12', '같은 글', 'general'); e.fire(); await within(pr1);
+    e.setRoom('PLAY-CD34'); e.c.sendText('PLAY-CD34', '같은 글', 'general');
+    chk(e.sent[1].requestId !== e.sent[0].requestId, '★ 방이 바뀐 뒤의 같은 글은 새 requestId(옛 방의 줄이 성공으로 돌아오지 않게)');
+    e = mk(S);
+    let clk = 1000; e.setNow(() => clk);
+    const pr2 = e.c.sendText('PLAY-AB12', '오래전', 'general'); e.fire(); await within(pr2);
+    clk += 61000; e.c.sendText('PLAY-AB12', '오래전', 'general');
+    chk(e.sent[1].requestId !== e.sent[0].requestId, '★ 한참(60초) 지난 뒤의 같은 글은 새 requestId');
     e = mk(S);
     const p2c = e.c.sendText('PLAY-AB12', '가', 'general'); e.fire(); await within(p2c);
     e.c.sendText('PLAY-AB12', '나', 'general');
@@ -185,7 +195,9 @@ await judge(SRC0);
 say('── 7. 일부러 깨 보기');
 const BREAKS = [
   ['CR', "timer = tSet(() => w.done({ ok: false, code: 'timeout' }), SAY_WAIT_MS);", "timer = tSet(() => { w.done({ ok: false, code: 'timeout' }); hub.send(msg); }, SAY_WAIT_MS);", '못 받으면 자동으로 다시 보냄'],
-  ['CR', "const requestId = timedOut.get(key) || deps.newRequestId();", "const requestId = deps.newRequestId();", '다시 누른 같은 글에 새 requestId'],
+  ['CR', "const requestId = (prev && nowMs() - prev.at <= RETRY_TTL_MS) ? prev.id : deps.newRequestId();", "const requestId = deps.newRequestId();", '다시 누른 같은 글에 새 requestId'],
+  ['CR', "const key = String(deps.roomCode() || '') + '\\n' + JSON.stringify(body);", "const key = JSON.stringify(body);", '방이 달라도 같은 글이면 옛 requestId'],
+  ['CR', "(prev && nowMs() - prev.at <= RETRY_TTL_MS)", "(prev)", '한참 지나도 옛 requestId'],
   ['CR', "        if(!closed && onFail){ try{ onFail(e); }catch(_){} }", "        if(!closed && onReady) onReady();", '못 받아도 «다 받음» 으로 끝냄'],
   ['CR', "const d = await api.get(EMOJI_PATH, { auth: true });", "const d = await api.get(EMOJI_PATH, { auth: true }).catch(() => null);", '이모티콘 못 받음을 삼킴(빈 표)'],
   ['CR', "            at = p.lines[p.lines.length - 1].ts;", "            at = since;", '쪽 넘김이 같은 자리를 다시 받음'],

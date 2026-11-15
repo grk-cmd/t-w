@@ -160,7 +160,7 @@
 | `E-GB-05` | 폭죽은 이모지 한 글자예요 | `myhome/guestbook-feed.js` — 폭죽 바꾸기를 서버가 거절(`GUESTBOOK_EMOJI_INVALID`) |
 | `E-GB-06` | 웹박수 이미지로 쓸 수 없는 그림이에요 — png · jpg · webp 그림으로 다시 골라 주세요 | `myhome/guestbook-feed.js` — 박수 그림을 서버가 거절(`IMAGE_INVALID` · `UNSUPPORTED_MEDIA_TYPE` · `GUESTBOOK_IMAGE_INVALID`) 또는 형식이 맞지 않아 올리기 전에 걸러냄 |
 | `E-GB-07` | 웹박수 그림이 너무 커요 — 512KB 이하로 다시 골라 주세요 | `myhome/guestbook-feed.js` — 박수 그림이 상한(512KB)을 넘음(`PAYLOAD_TOO_LARGE` — 올리기 전 걸러냄 포함) |
-| `E-PK-01` | 스티커사진 정원을 확인하지 못했어요 — 잠시 뒤에 다시 눌러 주세요 | `purikura/purikura-ui.js` — 📷 를 눌렀을 때 `GET /v1/rooms/photo-quota` 실패(닿지 못함 · 답 모양이 틀림) |
+| `E-PK-01` | 스티커사진 정원을 확인하지 못했어요 — 잠시 뒤에 다시 눌러 주세요 | `purikura/purikura-ui.js` — 📷 를 눌렀을 때 `GET /v2/rooms/photo-quota` 실패(닿지 못함 · 답 모양이 틀림) |
 | `E-PK-02` | 스티커사진 자리를 잡지 못했어요 — 잠시 뒤에 다시 눌러 주세요 | `purikura/purikura-ui.js` — 자리 잡기(`photoOpen`) 시간 초과 · 연결 없음 · 서버 오류(촬영 중 · 자리 없음 · 방 밖은 안내만) |
 | `E-PK-03` | 촬영을 시작하지 못했어요 — 잠시 뒤에 다시 눌러 주세요 | `purikura/purikura-ui.js` — [촬영 시작](`photoStart`) 실패: 정원을 못 물음 · 방장이 바뀜 · 방 밖 · 연결 없음 · 시간 초과(정원을 다 쓴 것은 안내만 — 까닭 문구는 `purikura-rt.js` `START_MESSAGES`) |
 | `E-PK-04` | 방 설정을 바꾸지 못했어요 — 방장이 바뀌었을 수 있어요 | `purikura/purikura-ui.js` — 방장 일(설정 · 필터 · 카메라 · 컷 · 셔터)을 서버가 거절(`ROOM_PHOTO_NOT_HOST` 등 · 세션 포트 `onRefused`) |

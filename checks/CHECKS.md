@@ -392,7 +392,7 @@
 | **sim-outside-close.js** | 95 | **2e61ab5a3e9c** |
 | **sim-wardrobe-panel.js** | 95 | **1070574caf86** |
 | **sim-race-picker.js** | 99 | **a7878b17f66a** |
-| **sim-realtime-link.js** | 418 | **3edc2fb9a92d** |
+| **sim-realtime-link.js** | 429 | **e3e6ffa3fdae** |
 | **sim-lv-tier.js** | 96 | **ba1de093723c** |
 | **sim-theme.js** | 96 | **1f4b87d7c9d7** |
 | **sim-license-ui.js** | 96 | **65a051e081d7** |
@@ -501,7 +501,7 @@
 | **sim-myhome-store.js** | 629 | **cbeeada94f57** |
 | **sim-myhome-wire.js** | 122 | **a6c458b30715** |
 | **sim-room-rt.js** | 364 | **19243ed66e49** |
-| **sim-chat-rt.js** | 210 | **92dc28e3f0ca** |
+| **sim-chat-rt.js** | 222 | **eed374898aaa** |
 | **sim-room-invite-rt.js** | 85 | **aaf5c3f73ec3** |
 | **sim-purikura-rt.js** | 444 | **6b2045d0fb36** |
 | **sim-env-diag.js** | 174 | **8da31de26ec8** |

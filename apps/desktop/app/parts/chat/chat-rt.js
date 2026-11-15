@@ -13,6 +13,7 @@
 'use strict';
 
 const SAY_WAIT_MS = 5000;        // chatSaid 를 기다리는 시간 — 넘으면 실패(timeout). 자동으로 다시 보내지 않는다
+const RETRY_TTL_MS = 60000;      // 시간 초과로 끝난 글의 requestId 를 다시 쓰는 시간 — 서버의 같은 requestId 중복 방지 보관 안(지나면 새 글로 본다)
 const RETRY_KEEP = 20;           // 시간 초과로 끝난 글의 requestId 를 들고 있는 개수 — 사용자가 같은 글을 다시 보낼 때 같은 번호를 쓴다
 const CLEAR_WAIT_MS = 5000;      // 방장 지우기 — 지우기 표시 줄을 기다리는 시간
 const PAGE_LIMIT = 100;          // 한 번에 받는 줄 수(서버 기본과 같다 · 상한 300)
@@ -60,7 +61,8 @@ function createChatRt(deps){
   const subs = new Set();     // { room, tab, fn }
   const pendingSay = new Map();   // requestId → waiter
   const pendingClear = [];        // { tab, done }
-  const timedOut = new Map();     // 글 모양 → requestId — 시간 초과로 끝난 것만(서버가 받았을 수 있어 같은 번호로 다시 보낸다)
+  const nowMs = deps.now || (() => Date.now());
+  const timedOut = new Map();     // 방 · 글 모양 → { id, at } — requestId — 시간 초과로 끝난 것만(서버가 받았을 수 있어 같은 번호로 다시 보낸다)
 
   function liveOf(tab){
     if(!live.has(tab)) live.set(tab, new Map());
@@ -107,8 +109,9 @@ function createChatRt(deps){
   /* 보내기 — chatSaid 를 기다린다(자동으로 다시 보내지 않는다). { ok, id, ts } · 거절 { ok:false, code }(CHAT_OFF · CHAT_TOO_FAST · timeout · notReady …)
      시간 초과 뒤 사용자가 같은 글을 다시 보내면 같은 requestId — 서버가 이미 받았다면 처음 줄을 돌려준다. */
   function say(body){
-    const key = JSON.stringify(body);
-    const requestId = timedOut.get(key) || deps.newRequestId();
+    const key = String(deps.roomCode() || '') + '\n' + JSON.stringify(body);   // 방이 다르면 같은 글도 다른 글이다
+    const prev = timedOut.get(key);
+    const requestId = (prev && nowMs() - prev.at <= RETRY_TTL_MS) ? prev.id : deps.newRequestId();
     timedOut.delete(key);
     const msg = Object.assign({ t: 'chatSay', requestId }, body);
     return new Promise((res) => {
@@ -116,7 +119,7 @@ function createChatRt(deps){
       const w = { done: null };
       w.done = (r) => {
         tClear(timer); pendingSay.delete(requestId);
-        if(r && r.code === 'timeout'){ timedOut.set(key, requestId); if(timedOut.size > RETRY_KEEP) timedOut.delete(timedOut.keys().next().value); }
+        if(r && r.code === 'timeout'){ timedOut.set(key, { id: requestId, at: nowMs() }); if(timedOut.size > RETRY_KEEP) timedOut.delete(timedOut.keys().next().value); }
         res(r);
       };
       pendingSay.set(requestId, w);
