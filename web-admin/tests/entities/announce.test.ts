@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { announceRemaining, clearAnnounce, getAnnounce, publishAnnounce } from '@/entities/notice/announce';
+import { announceRemaining } from '@/entities/notice/announce';
+import { clearAnnounce, getAnnounce, publishAnnounce } from '@/entities/notice/announce/api/firebase';
 import { fakeDb, withoutAudits, NOW } from '../shared/fakeDb';
 
 describe('확성기 공지', () => {

@@ -6,10 +6,10 @@ import { describe, expect, it } from 'vitest';
 // 톱니 — 두 판 갈아 끼우기(D12)가 끝나는 날까지 «포트 밖 직접 호출» 과 «API 판이 없는 포트» 가 늘지 않게 센다.
 // 줄이는 PR 은 기준선도 같이 낮춘다(늘리는 PR 은 빨강). 마지막 D12-*a 뒤 TOOTH_1 = 0 · 마지막 D12-*b 뒤 TOOTH_2 = 0.
 
-/** 톱니 1 기준선 — D12-1a 뒤(설정 묶음을 포트 뒤로 옮김: 107 → 91). */
-const TOOTH_1_BASELINE = 91;
+/** 톱니 1 기준선 — D12-2a 뒤(공지 · 방 묶음을 포트 뒤로 옮김: 91 → 80). */
+const TOOTH_1_BASELINE = 80;
 /** 톱니 2 기준선 — `notPorted(` 를 적은 포트 수. */
-const TOOTH_2_BASELINE = 0;
+const TOOTH_2_BASELINE = 4;
 
 const SRC = join(process.cwd(), 'src');
 
@@ -28,7 +28,7 @@ const isPortSide = (path: string) =>
   path.startsWith('shared/api/') || /\/api\/(firebase|index)\.ts$/.test(path);
 
 /** Firebase 판에만 있는 화면 — 포트 없이 지금 코드 그대로 두었다가 Firebase 판과 같이 걷는다. */
-const FIREBASE_ONLY: string[] = [];
+const FIREBASE_ONLY: string[] = ['features/room/clean-ghost-rooms/'];
 
 const DIRECT = /\b(useDb|useFiles|useFunctions|viaApiOr|withAudit)\b/;
 

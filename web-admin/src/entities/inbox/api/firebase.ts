@@ -1,28 +1,13 @@
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
-import { isIndexMissing, isPermissionDenied, useDb, withAudit, type Db } from '@/shared/api';
-import {
-  BROADCAST_ROOT,
-  sortBroadcasts,
-  withBroadcastVersion,
-  type InboxBroadcast,
-  type RawBroadcast,
-} from '../model/broadcast';
+// Firebase 판 — 지금 코드 그대로: inboxBroadcast 를 읽고 쓰고, 공지 버전(inboxBroadcastMeta)을 같은 묶음에 올린다.
+import { countTarget, isIndexMissing, isPermissionDenied, withAudit, type Db } from '@/shared/api';
+import { BROADCAST_ROOT, sortBroadcasts, withBroadcastVersion, type RawBroadcast } from '../model/broadcast';
+import { BROADCAST_PAGE, type BroadcastPage, type BroadcastPort } from './port';
 import { INBOX_BODY_MAX, INBOX_TAG_LABEL, INBOX_TITLE_MAX, type InboxMessage } from '../model/message';
 
-const BROADCAST_KEY = ['inboxBroadcast'];
 const ROOT = BROADCAST_ROOT;
 
 function broadcastId(): string {
   return 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-}
-
-/** 받을 개수를 주지 않을 때 받는 최근 공지 수. */
-export const BROADCAST_PAGE = 30;
-
-export interface BroadcastPage {
-  items: InboxBroadcast[];
-  /** 최근 n 개를 꽉 채워 받았다 — 더 오래된 공지가 남아 있을 수 있다. */
-  hasMore: boolean;
 }
 
 /**
@@ -47,21 +32,6 @@ function splitBroadcasts(all: Record<string, RawBroadcast>, n: number) {
   const recent = [...entries].sort(([, a], [, b]) => (a.ts ?? 0) - (b.ts ?? 0)).slice(-n);
   const pinned = entries.filter(([, b]) => b.pinned === true);
   return [Object.fromEntries(recent), Object.fromEntries(pinned)] as const;
-}
-
-export function useBroadcasts(n = BROADCAST_PAGE) {
-  const db = useDb();
-  return useQuery({
-    queryKey: [...BROADCAST_KEY, n],
-    queryFn: () => listBroadcasts(db, n),
-    // 더 받는 동안 지금 목록을 둔 채 받는다.
-    placeholderData: keepPreviousData,
-  });
-}
-
-export function useRefreshBroadcasts() {
-  const client = useQueryClient();
-  return () => client.invalidateQueries({ queryKey: BROADCAST_KEY });
 }
 
 /** 공용 공지 한 통을 쓸 내용. 고정이 아니면 pinned 키를 아예 두지 않는다(앱과 같은 모양). */
@@ -111,4 +81,42 @@ export function broadcastsPinnedWrite(ids: readonly string[], pinned: boolean): 
 
 export function deleteBroadcastsWrite(ids: readonly string[]): Record<string, null> {
   return Object.fromEntries(ids.map((id) => [`${ROOT}/${id}`, null]));
+}
+
+// 하나든 여럿이든 기록은 한 줄 — 하나면 그 id, 여럿이면 개수.
+const idsTarget = (ids: readonly string[]) => (ids.length === 1 ? ids[0] : `${ids.length}개`);
+const idsDetail = (ids: readonly string[]) => (ids.length === 1 ? undefined : countTarget(ids));
+
+/** 고정을 바꾼다 — 관리자만 쓰는 노드라 한 묶음으로, 하나라도 막히면 아무것도 바뀌지 않는다(기록도). 공지 버전도 같은 묶음(broadcastCommit). */
+export async function setBroadcastsPinned(db: Db, ids: readonly string[], pinned: boolean): Promise<number> {
+  if (ids.length)
+    await broadcastCommit(
+      db,
+      withAudit(
+        db,
+        broadcastsPinnedWrite(ids, pinned),
+        pinned ? 'notice.pin' : 'notice.unpin',
+        idsTarget(ids),
+        idsDetail(ids),
+      ),
+    );
+  return ids.length;
+}
+
+export async function deleteBroadcasts(db: Db, ids: readonly string[]): Promise<number> {
+  if (ids.length)
+    await broadcastCommit(
+      db,
+      withAudit(db, deleteBroadcastsWrite(ids), 'notice.broadcastDelete', idsTarget(ids), idsDetail(ids)),
+    );
+  return ids.length;
+}
+
+export function createFirebaseBroadcastPort(db: Db): BroadcastPort {
+  return {
+    list: (n) => listBroadcasts(db, n),
+    send: (message, pinned) => sendBroadcast(db, message, pinned),
+    setPinned: (ids, pinned) => setBroadcastsPinned(db, ids, pinned),
+    remove: (ids) => deleteBroadcasts(db, ids),
+  };
 }

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { checkUpdateNotice } from '@/entities/notice/update-notice';
 import {
-  checkUpdateNotice,
   clearUpdateNotice,
   getUpdateNotice,
   publishUpdateNotice,
-} from '@/entities/notice/update-notice';
+} from '@/entities/notice/update-notice/api/firebase';
 import { fakeDb, withoutAudits, NOW } from '../shared/fakeDb';
 
 describe('업데이트 공지', () => {

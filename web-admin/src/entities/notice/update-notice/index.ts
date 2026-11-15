@@ -1,10 +1,5 @@
-export {
-  clearUpdateNotice,
-  getUpdateNotice,
-  publishUpdateNotice,
-  useRefreshUpdateNotice,
-  useUpdateNotice,
-} from './api/updateNotice';
+export { useRefreshUpdateNotice, useUpdateNotice } from './api/hooks';
+export { useUpdateNoticePort, type UpdateNoticePort } from './api/index';
 export {
   checkUpdateNotice,
   NOTICE_BODY_MAX,

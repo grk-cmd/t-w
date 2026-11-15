@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { BROADCAST_META, broadcastCommit, sendBroadcast, withBroadcastVersion } from '@/entities/inbox';
-import { deleteBroadcasts, setBroadcastsPinned } from '@/features/notice/manage-broadcast';
+import { BROADCAST_META, withBroadcastVersion } from '@/entities/inbox';
+import {
+  broadcastCommit,
+  deleteBroadcasts,
+  sendBroadcast,
+  setBroadcastsPinned,
+} from '@/entities/inbox/api/firebase';
 import type { Db } from '@/shared/api';
 import { fakeDb, NOW } from '../shared/fakeDb';
 

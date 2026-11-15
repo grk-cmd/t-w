@@ -1,13 +1,12 @@
 import { useMutation } from '@tanstack/react-query';
-import { sendBroadcast, useRefreshBroadcasts, type InboxMessage } from '@/entities/inbox';
-import { useDb } from '@/shared/api';
+import { useBroadcastPort, useRefreshBroadcasts, type InboxMessage } from '@/entities/inbox';
 
 export function useSendBroadcast() {
-  const db = useDb();
+  const port = useBroadcastPort();
   const refresh = useRefreshBroadcasts();
   return useMutation({
     mutationFn: ({ message, pinned }: { message: InboxMessage; pinned: boolean }) =>
-      sendBroadcast(db, message, pinned),
+      port.send(message, pinned),
     onSuccess: refresh,
   });
 }
