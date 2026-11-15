@@ -139,7 +139,7 @@
 | **sim-room-live-def.js** | 150 | **1349d6997af1** |
 | **sim-app-version.js** | 308 | **62235f6b38d0** |
 | **sim-app-version-gate.js** | 194 | **8dfeadb17e87** |
-| **sim-app-version-sync.js** | 137 | **b8a33d7a7c9c** |
+| **sim-app-version-sync.js** | 138 | **afd5c3e042ad** |
 | **sim-maintenance-gate.js** | 212 | **9cc18d48902a** |
 | **sim-invite-account.js** | 80 | **a6c43e555063** |
 | **sim-invite-revoke.js** | 100 | **c6ce8535f35b** |

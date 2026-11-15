@@ -476,14 +476,14 @@
   /* 🌐 로그인이 필요한 API 통로 — api-client.js 가 만든 한 벌(TwApi.authed · 쉬기 없음). 여기서는 ID 토큰 출처만 잇는다. */
   window.TwApi.bindToken(_getIdToken);
   const _authApi = window.TwApi.authed;
-  /* 🔄 계정 판 맞추기(account/app-version-sync.js) — 로그인 복원이 끝난 뒤 이 판을 서버에 알린다. 로그인이 없으면 알리지 않는다. 더 새 판을 쓰는 기기가 있으면 최소 버전과 같은 업데이트 화면. */
+  /* 🔄 계정 판 맞추기(account/app-version-sync.js) — 로그인 복원이 끝난 뒤 이 판을 서버에 알린다. 로그인이 없거나 가입 전(익명) 로그인이면 알리지 않는다. 더 새 판을 쓰는 기기가 있으면 최소 버전과 같은 업데이트 화면. */
   const _verSync = window.TwAppVersionSync.createAppVersionSync({
     authed: _authApi,
     getVersion: () => _appVer.ready,
     block: (my, highest) => { _verGate.blockForAccount(my, highest); },
     warn: (...a) => console.warn(...a),
   });
-  _whenAuthReady().then(() => { if(auth && auth.currentUser) return _verSync.report(); });
+  _whenAuthReady().then(() => { if(auth && auth.currentUser && !auth.currentUser.isAnonymous) return _verSync.report(); });
   /* 🚪 범용 통로의 서버 쪽 — 로그인 통로(_authApi · ID 토큰 · 내 코드). 실패는 던지기만 — Firebase 로 넘기기는 통로(serverFirst)가 한다. */
   function _gwPost(path, body){
     if(!_authApi) return Promise.reject(Object.assign(new Error('API 통로 없음'), { code: 'NO_API' }));

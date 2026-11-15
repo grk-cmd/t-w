@@ -98,7 +98,7 @@ function judge(S){
       const i = code.indexOf('window.TwAppVersionSync.createAppVersionSync({'), j = code.indexOf('const _authApi = window.TwApi.authed;');
       const blk = i >= 0 ? code.slice(i, code.indexOf('});', i) + 3) : '';
       chk(i > j && j > 0 && /authed: _authApi/.test(blk) && /getVersion: \(\) => _appVer\.ready/.test(blk) && /block: \(my, highest\) => \{ _verGate\.blockForAccount\(my, highest\); \}/.test(blk), '  로그인 통로(_authApi) · 앱 판 · 게이트 막기를 잇는다');
-      chk(/_whenAuthReady\(\)\.then\(\(\) => \{ if\(auth && auth\.currentUser\) return _verSync\.report\(\); \}\);/.test(code), '★ 로그인 복원이 끝난 뒤 · 로그인이 있을 때만 알린다(한 번)');
+      chk(/_whenAuthReady\(\)\.then\(\(\) => \{ if\(auth && auth\.currentUser && !auth\.currentUser\.isAnonymous\) return _verSync\.report\(\); \}\);/.test(code), '★ 로그인 복원이 끝난 뒤 · 로그인이 있고 익명이 아닐 때만 알린다(한 번 — 가입 전 로그인에는 요청 0)');
       chk(!/setInterval\([^)]*_verSync|_verSync\.report\(\)[^;]*setTimeout/.test(code), '  다시 보내는 타이머가 없다(다음에 켤 때 다시)');
       chk(!/config\/minAppVer/.test(strip(S.SYNC)) && !/firebaseAPI|import\(|localStorage/.test(strip(S.SYNC)), 'app-version-sync.js 는 Firebase · 저장소를 모른다');
     }
@@ -116,7 +116,8 @@ function judge(S){
     ['SYNC', "typeof data.behind !== 'boolean' || ", "", '글자 behind 를 믿는다'],
     ['SYNC', "if(typeof my !== 'string' || !VER_RE.test(my)) return", "if(false) return", '판을 몰라도 알린다'],
     ['SYNC', "catch(e){ warn(", "catch(e){ block(my, 'x'); warn(", '못 닿으면 막는다'],
-    ['FI', "if(auth && auth.currentUser) return _verSync.report();", "return _verSync.report();", '로그인 없어도 알린다'],
+    ['FI', "if(auth && auth.currentUser && !auth.currentUser.isAnonymous) return _verSync.report();", "return _verSync.report();", '로그인 없어도 알린다'],
+    ['FI', " && !auth.currentUser.isAnonymous", "", '익명 로그인에도 알린다'],
     ['FI', "_whenAuthReady().then(() => { if(auth", "Promise.resolve().then(() => { if(auth", '로그인 복원을 안 기다린다'],
     ['HTML', '<script src="parts/account/app-version-sync.js"></script>', '', 'html 에 안 싣는다'],
   ];
