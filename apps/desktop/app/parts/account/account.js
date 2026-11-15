@@ -138,8 +138,7 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
   USER_NAME_KEY, CUSTOM_STATUS_KEY, 'tw.userStatus', 'tw.awayKind',
   BELL_SEEN_KEY, INBOX_BC_READ_KEY, tricksMod.BONK_DAY_KEY,
 ];
-/* 접두어로 쌓이는 키(방마다 하나) — 목록에 못 적으므로 여기서 훑는다. */
-const ACCOUNT_LOCAL_KEY_PREFIXES = ['tw_chat_read:', 'tw_chat_join:'];
+/* 접두어로 쌓이는 키(방마다 하나)는 계정 칸으로 옮겼다(shared/account-store.js MOVED_KEY_PREFIXES) — 로그아웃이 지우지 않는다. 계정 칸은 칸 이름이 달라 다음 사람에게 섞이지 않는다. */
 
 /* 📤 지우기 전에 올린다 — 이 기기가 마지막으로 쌓은 것(≤10분치 시간·마지막 뽑기·저장한 캐릭터)을
    서버에 실어 보낸다. 실패는 여기서 판단하지 않는다 — 아래 검문(_acctPreflight)이 결과로 본다.
@@ -217,14 +216,6 @@ async function _acctPreflight(uid, opt){
 function _wipeAccountLocal(){
   setAcctDetached(true);
   for(const k of ACCOUNT_LOCAL_KEYS()){ try{ localStorage.removeItem(k); }catch(_){} }
-  try{
-    const drop = [];
-    for(let i = 0; i < localStorage.length; i++){
-      const k = localStorage.key(i);
-      if(k && ACCOUNT_LOCAL_KEY_PREFIXES.some(p => k.startsWith(p))) drop.push(k);
-    }
-    drop.forEach(k => { try{ localStorage.removeItem(k); }catch(_){} });
-  }catch(_){}
   /* 메모리 — 위 주석 참고. 각 값은 그 모듈의 «빈 기기» 초기값과 같다. */
   try{ setFocusTodaySec(0); }catch(_){}
   try{ if(window.firebaseAPI && firebaseAPI.chatHistory) firebaseAPI.chatHistory.wipeAll(); }catch(_){}   // 💬 이 PC 대화 저장(chat-history.js)

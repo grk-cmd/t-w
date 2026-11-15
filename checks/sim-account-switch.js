@@ -96,14 +96,13 @@ chk(!/getElementById\('acctUnlinkYes'\)/.test(SRC), '★ 연동 해제 입구가
 /* ── 2. 본문 실행 — 지움 · 남김 · 검문 ── */
 say('── 2. _detachAccountLocal — 지운 뒤 남은 키 · 기기 설정 · 메모리 · 검문');
 const fList = grabBlock(SRC, 'const ACCOUNT_LOCAL_KEYS = ()=>[', '\n];');
-const fPref = grabBlock(SRC, "const ACCOUNT_LOCAL_KEY_PREFIXES = [", "];");
 const fFlush = grabFn(SRC, '_acctFlushToServer', 'async function ');
 const fPre = grabFn(SRC, '_acctPreflight', 'async function ');
 const fWipe = /let _acctDetached = false;/.test(SRC) ? ('let _acctDetached = false;\n' + (grabFn(SRC, '_wipeAccountLocal') || '')) : null;
 const fDet = grabFn(SRC, '_detachAccountLocal', 'async function ');
 const tmo = [(SRC.match(/const ACCT_FLUSH_TIMEOUT_MS = \d+;/) || [])[0], (SRC.match(/const PRESENCE_OFF_WAIT_MS = \d+;/) || [])[0], grabFn(SRC, '_presenceOff')].every(Boolean)
   ? [(SRC.match(/const ACCT_FLUSH_TIMEOUT_MS = \d+;/) || [])[0], (SRC.match(/const PRESENCE_OFF_WAIT_MS = \d+;/) || [])[0], grabFn(SRC, '_presenceOff')].join('\n') : null;
-if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
+if(!fList || !fFlush || !fPre || !fWipe || !fDet || !tmo){
   huh('본문을 못 떼어 옴 — list:' + !!fList + ' flush:' + !!fFlush + ' pre:' + !!fPre + ' wipe:' + !!fWipe + ' det:' + !!fDet);
 }else{
   function mkEnv(o){
@@ -142,7 +141,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
       /* 🎵 플레이리스트는 playlist.js 모듈(앱 FSD 16번) — app.js 는 plMod.st(상태 묶음) · plMod.blankSets 로 쓴다. 메모리 칸은 위 let 이 대신한다 */
       "const getMyUserId=()=>'ME01'; const plMod={ flushPending:async(u)=>{ env.calls.push('flush:pl:'+(u||'')); }, blankSets:()=>[{name:'',items:[]},{name:'',items:[]},{name:'',items:[]}], reset:()=>{ env.plReset = (env.plReset || 0) + 1; _plSets = [{name:'',items:[]},{name:'',items:[]},{name:'',items:[]}]; _plBio = ''; _plHomePublic = false; _plPrivate = false; _plPubSig = null; }, st:" + PL_ST_MEM + " };",
     ].join('\n');
-    const body = [tmo, fList, fPref, fFlush, fPre, fWipe, env.det || fDet].join('\n');
+    const body = [tmo, fList, fFlush, fPre, fWipe, env.det || fDet].join('\n');
     const f = new Function('env', 'localStorage', 'window', decl + '\n' + body +
       "\nreturn { detach:_detachAccountLocal, wipe:_wipeAccountLocal, keys:ACCOUNT_LOCAL_KEYS, mem:()=>({ today:_focusTodaySec, extra:extraSeatSlots, sets:_plSets, sig:_plPubSig, detached:_acctDetached }) };");
     env.m = f(env, localStorage, window);
@@ -170,7 +169,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     chk(e.calls.indexOf('unsaved') > e.calls.lastIndexOf('flush:slots:logout') , '  검문(못 올린 고침 세기)은 올린 뒤에 온다');
     const left = e.m.keys().filter(k => e.LS.getItem(k) !== null);
     chk(left.length === 0, '★ 목록의 키가 하나도 안 남았다' + (left.length ? ' — 남음: ' + left.join(' ') : ''));
-    chk(e.LS.getItem('tw_chat_read:COZY-1') === null && e.LS.getItem('tw_chat_join:COZY-1') === null, '  방별 읽음·입장 표시(접두어 키)도 지웠다');
+    chk(e.LS.getItem('tw_chat_read:COZY-1') === '5' && e.LS.getItem('tw_chat_join:COZY-1') === '1' && !/ACCOUNT_LOCAL_KEY_PREFIXES/.test(SRC), '  ★ 방별 읽음·입장 표시(접두어 키)는 계정 칸으로 옮겼다(S-3d) — 로그아웃이 PC 칸 이름을 훑어 지우지 않는다(옮긴 뒤엔 PC 칸에 없다)');
     chk(e.LS.getItem('tw.theme') === 'dark' && e.LS.getItem('tw.playlistVol') === '40' && e.LS.getItem('tw.savedParts') === '[]' && e.LS.getItem('tw.deskPresets') === '[]',
         '★ 테마·볼륨·카탈로그·프리셋은 남았다 (이 컴퓨터의 것)');
     const m = e.m.mem();
@@ -199,7 +198,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
       "let _focusTodaySec=0;\n" +
       "let extraSeatSlots=[];\n" +
       "let _plSets=[], _plCur=0, _plBio='', _plHomePublic=false, _plPrivate=false, _plPubSig=null; const getMyUserId=()=>'ME01'; const plMod={ flushPending:async(u)=>{ env.calls.push('flush:pl:'+(u||'')); }, blankSets:()=>[], st:" + PL_ST_MEM + " };\n" +
-      [tmo, fList, fPref, fFlush, fPre, fWipe, fDet].join('\n') + "\nreturn _detachAccountLocal;");
+      [tmo, fList, fFlush, fPre, fWipe, fDet].join('\n') + "\nreturn _detachAccountLocal;");
     const FB_MIN = { deviceSessionLost: () => false, setMyPresenceState: () => Promise.resolve() };   // 늘 있는 둘 — 검문 뒤 presence «꺼짐» 이 부른다
     const lsOf = env => ({ getItem:k=>env.ls.has(k)?env.ls.get(k):null, setItem:(k,v)=>env.ls.set(k,String(v)), removeItem:k=>env.ls.delete(k), key:i=>Array.from(env.ls.keys())[i]||null, get length(){ return env.ls.size; } });
     let env4 = { ls: new Map([[K.MY_USER_ID_KEY, 'uA']]), unsent: 3600 };

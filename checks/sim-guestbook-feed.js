@@ -338,7 +338,7 @@ async function judge(S){
     let ok = true; try{ lr2.set('A', 1); chk(lr2.get('A') === 0, '  저장소가 막혀 있어도 던지지 않는다'); }catch(_){ ok = false; }
     chk(ok, '  (저장소 오류를 삼킨다)');
     const a = S.APP.replace(/\/\*[\s\S]*?\*\//g, ' ');
-    chk(/TwGuestbookFeed\.createGuestbookFeed\(\{[\s\S]*?rt: TwRtHub\.store,[\s\S]*?rtState: TwRtHub\.STATE,[\s\S]*?pending: TwRequestId\.createPending\(\)[\s\S]*?lastRead: TwGuestbookFeed\.createLastReadStore\(localStorage\)/.test(a), 'app.js — 실제 realtime · 요청 번호 · 이 PC 기억을 넘겨 만든다');
+    chk(/TwGuestbookFeed\.createGuestbookFeed\(\{[\s\S]*?rt: TwRtHub\.store,[\s\S]*?rtState: TwRtHub\.STATE,[\s\S]*?pending: TwRequestId\.createPending\(\)[\s\S]*?lastRead: TwGuestbookFeed\.createLastReadStore\(accountStoreMod\.asStorage\(\)\)/.test(a), 'app.js — 실제 realtime · 요청 번호 · 이 계정 칸의 기억(S-3d)을 넘겨 만든다');
     const hub = { exports: {} }; new Function('module', 'window', HUB_SRC)(hub, undefined);
     const known = new Set([RT.READY, RT.OFF, RT.CONNECTING, RT.RETRYING, ...STOPPED]);
     const hubStates = Object.values(hub.exports.STATE);
