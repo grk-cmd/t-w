@@ -3,19 +3,21 @@ import { ACTION_LABEL } from '@/entities/admin-log';
 import {
   API_CACHE,
   API_CORS_RE,
-  getCorsOrigins,
-  getIntGroup,
-  getLogLevels,
   parseCorsOrigins,
   parseIntField,
   parseIntGroup,
   RESTART_NOTE,
   ROOM_FRAME,
   ROOM_TIMING,
+} from '@/entities/server/ops-config';
+import {
+  getCorsOrigins,
+  getIntGroup,
+  getLogLevels,
   saveCorsOrigins,
   saveIntGroup,
   saveLogLevels,
-} from '@/entities/server/ops-config';
+} from '@/entities/server/ops-config/api/firebase';
 import {
   checkCorsInput,
   checkIntGroup,

@@ -1,13 +1,12 @@
 import { useMutation } from '@tanstack/react-query';
-import { saveChatKeep, useRefreshChatKeep, type ChatKeep } from '@/entities/room';
-import { useDb } from '@/shared/api';
+import { useRefreshChatKeep, useRoomPort, type ChatKeep } from '@/entities/room';
 
 export function useSaveChatKeep() {
-  const db = useDb();
+  const port = useRoomPort();
   const refresh = useRefreshChatKeep();
   return useMutation({
     mutationFn: ({ before, updates }: { before: ChatKeep; updates: Record<string, number | null> }) =>
-      saveChatKeep(db, before, updates),
+      port.saveChatKeep(before, updates),
     onSuccess: refresh,
   });
 }

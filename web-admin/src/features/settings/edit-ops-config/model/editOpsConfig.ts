@@ -8,9 +8,7 @@ import {
   logLevelChanges,
   logLevelDetail,
   parseIntField,
-  saveCorsOrigins,
-  saveIntGroup,
-  saveLogLevels,
+  useOpsConfigPort,
   useRefreshOpsConfig,
   type IntGroup,
   type IntValues,
@@ -18,7 +16,7 @@ import {
   type LogLevels,
   type LogTarget,
 } from '@/entities/server/ops-config';
-import { useDb, type AuditAction } from '@/shared/api';
+import type { AuditAction } from '@/shared/api';
 
 type Check<T> = { ok: true; next: T } | { ok: false; error: string };
 
@@ -93,30 +91,31 @@ export const corsConfirmText = (next: string[]) =>
     : 'API CORS 허용 출처를 비워요 — 서버 env(CORS_ALLOWED_ORIGINS) 목록으로 돌아가요.';
 
 export function useSaveIntGroup(group: IntGroup, action: AuditAction, target: string) {
-  const db = useDb();
+  const port = useOpsConfigPort();
   const refresh = useRefreshOpsConfig();
   return useMutation({
     mutationFn: ({ before, updates }: { before: IntValues; updates: Record<string, number | null> }) =>
-      saveIntGroup(db, group, action, target, before, updates),
+      port.saveIntGroup(group, action, target, before, updates),
     onSuccess: refresh,
   });
 }
 
 export function useSaveLogLevels() {
-  const db = useDb();
+  const port = useOpsConfigPort();
   const refresh = useRefreshOpsConfig();
   return useMutation({
     mutationFn: ({ before, updates }: { before: LogLevels; updates: Record<string, LogLevel | null> }) =>
-      saveLogLevels(db, before, updates),
+      port.saveLogLevels(before, updates),
     onSuccess: refresh,
   });
 }
 
 export function useSaveCorsOrigins() {
-  const db = useDb();
+  const port = useOpsConfigPort();
   const refresh = useRefreshOpsConfig();
   return useMutation({
-    mutationFn: ({ before, next }: { before: string[]; next: string[] }) => saveCorsOrigins(db, before, next),
+    mutationFn: ({ before, next }: { before: string[]; next: string[] }) =>
+      port.saveCorsOrigins(before, next),
     onSuccess: refresh,
   });
 }

@@ -1,17 +1,5 @@
-export {
-  getCorsOrigins,
-  getIntGroup,
-  getLogLevels,
-  logLevelChanges,
-  logLevelDetail,
-  saveCorsOrigins,
-  saveIntGroup,
-  saveLogLevels,
-  useCorsOrigins,
-  useIntGroup,
-  useLogLevels,
-  useRefreshOpsConfig,
-} from './api/opsConfig';
+export { useCorsOrigins, useIntGroup, useLogLevels, useRefreshOpsConfig } from './api/hooks';
+export { useOpsConfigPort, type OpsConfigPort } from './api/index';
 export {
   API_CACHE,
   API_CORS_MAX,
@@ -22,6 +10,8 @@ export {
   intGroupDetail,
   isCorsOrigin,
   isLogLevel,
+  logLevelChanges,
+  logLevelDetail,
   LOG_LEVEL_PATH,
   LOG_LEVELS,
   LOG_TARGETS,

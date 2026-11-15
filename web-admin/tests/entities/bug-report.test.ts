@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { checkBugReport, getBugReport, saveBugReport } from '@/entities/bug-report';
+import { checkBugReport } from '@/entities/bug-report';
+import { getBugReport, saveBugReport } from '@/entities/bug-report/api/firebase';
 import { fakeDb, withoutAudits, NOW } from '../shared/fakeDb';
 
 describe('버그 제보 탭', () => {

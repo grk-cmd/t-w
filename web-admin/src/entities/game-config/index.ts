@@ -1,9 +1,5 @@
-export {
-  getAnimalUnlockLevel,
-  saveAnimalUnlockLevel,
-  useAnimalUnlockLevel,
-  useRefreshAnimalUnlockLevel,
-} from './api/gameConfig';
+export { useAnimalUnlockLevel, useRefreshAnimalUnlockLevel } from './api/hooks';
+export { useGameConfigPort, type GameConfigPort } from './api/index';
 export {
   DEFAULT_ANIMAL_UNLOCK_LEVEL,
   parseUnlockLevel,

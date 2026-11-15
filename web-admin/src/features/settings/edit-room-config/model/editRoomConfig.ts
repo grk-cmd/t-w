@@ -9,12 +9,10 @@ import {
   ROOM_TOTAL_LIMIT_MIN,
   roomLimitChanges,
   roomMaxPeopleOf,
-  saveRoomLimits,
-  saveRoomMaxPeople,
   useRefreshRoomConfig,
+  useRoomPort,
   type Channel,
 } from '@/entities/room';
-import { useDb } from '@/shared/api';
 
 export type RoomLimitInputs = Record<Channel, string>;
 type Saved = Record<Channel, number | null> | null | undefined;
@@ -54,21 +52,21 @@ export function roomMaxPeopleConfirmText(saved: number | null | undefined, next:
 }
 
 export function useSaveRoomLimits() {
-  const db = useDb();
+  const port = useRoomPort();
   const refresh = useRefreshRoomConfig();
   return useMutation({
     mutationFn: ({ saved, next }: { saved: Saved; next: Record<Channel, number> }) =>
-      saveRoomLimits(db, saved, next),
+      port.saveLimits(saved, next),
     onSuccess: refresh,
   });
 }
 
 export function useSaveRoomMaxPeople() {
-  const db = useDb();
+  const port = useRoomPort();
   const refresh = useRefreshRoomConfig();
   return useMutation({
     mutationFn: ({ saved, next }: { saved: number | null | undefined; next: number }) =>
-      saveRoomMaxPeople(db, saved, next),
+      port.saveMaxPeople(saved, next),
     onSuccess: refresh,
   });
 }

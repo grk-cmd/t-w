@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { getAnimalUnlockLevel, parseUnlockLevel, saveAnimalUnlockLevel } from '@/entities/game-config';
+import { parseUnlockLevel } from '@/entities/game-config';
+import { getAnimalUnlockLevel, saveAnimalUnlockLevel } from '@/entities/game-config/api/firebase';
 import { fakeDb, withoutAudits } from '../shared/fakeDb';
 
 describe('게임 설정', () => {

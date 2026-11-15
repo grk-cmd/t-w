@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  buildSlides,
-  getAdBanner,
-  isPreviewable,
-  saveAdBanner,
-  slideProblem,
-  toSlides,
-} from '@/entities/ad-banner';
+import { buildSlides, isPreviewable, slideProblem, toSlides } from '@/entities/ad-banner';
+import { getAdBanner, saveAdBanner } from '@/entities/ad-banner/api/firebase';
 import { fakeDb, withoutAudits } from '../shared/fakeDb';
 
 describe('광고 배너', () => {

@@ -1,13 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import rulesText from '../../../firebase-database-rules.json?raw';
-import {
-  compareVersion,
-  getMinVersion,
-  MIN_VERSION_MAX,
-  MIN_VERSIONS,
-  minVersionProblem,
-  saveMinVersion,
-} from '@/entities/min-version';
+import { compareVersion, MIN_VERSION_MAX, MIN_VERSIONS, minVersionProblem } from '@/entities/min-version';
+import { getMinVersion, saveMinVersion } from '@/entities/min-version/api/firebase';
 import { ACTION_LABEL } from '@/entities/admin-log';
 import { AUDIT_ACTIONS } from '@/shared/api';
 import { fakeDb } from '../shared/fakeDb';
