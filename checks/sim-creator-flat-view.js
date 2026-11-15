@@ -77,7 +77,7 @@ sec('── 3. app.js 배선', () => {
   chk(/const crFlatView = \(typeof CreatorFlatView === 'undefined'\) \? null : CreatorFlatView\.createCreatorFlatView\(/.test(A), '모듈이 없어도 생성기는 켜진다');
   chk(/onChange: \(\)=>updateCreatorLights\(\)/.test(A) && /getElementById\('cpFlat'\)\.addEventListener\('click', \(\)=>crFlatView\.toggle\(\)\)/.test(A), '버튼을 누르면 켬/끔 → 조명을 다시 맞춘다');
   chk(/if\(crFlatView\) crFlatView\.show\(draw\);/.test(grab('gotoStep')), '단계가 바뀌면 그리기 단계(2 · 3)에서만 보인다');
-  chk(/creatorOpen=true;\s*if\(crFlatView\) crFlatView\.set\(false\);/.test(A), '생성기를 열 때마다 꺼진 채로 시작');
+  chk(/creatorOpen\s*=\s*true;\s*if\(crFlatView\) crFlatView\.set\(false\);/.test(A), '생성기를 열 때마다 꺼진 채로 시작');
   chk(/hotkeyLetter\(e\)==='l' && isDrawStep\(\) && crFlatView && !e\.ctrlKey && !e\.metaKey && !e\.altKey/.test(A) && /crFlatView\.toggle\(\);/.test(A), 'L 키 — 그리기 단계에서만 · 조합키 · 글 입력 중엔 무시');
   chk(!/LIGHT_PRESET\.\w+\s*=|TONE_FRONT_TOTAL\s*=[^=]*crFlat/.test(A), '실행 화면 조명 상수는 건드리지 않는다');
 });

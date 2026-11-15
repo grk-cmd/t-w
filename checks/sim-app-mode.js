@@ -111,12 +111,13 @@ say('§4 연결');
   chk(!/function (showEl|applyAppMode|launchApp|backToLauncher)\b|^let appMode\b/m.test(code), '  app.js 에 본문이 안 남음');
   const pairs = (mk || '').split('\n').map(l => /^  ([\w$]+): (.+),$/.exec(l)).filter(Boolean).map(m => [m[1], m[2]]);
   const READ = ['curSlot', 'focusLevelMod', 'gachaMod', 'Presence', 'roomEntryMod', 'weeklyChal'], FN = ['applyDesktopRunClass', 'toast', 'layoutSeats', 'closeWardrobe', 'commitMyHomePage', '_bgmDestroy', '_mhDsClose'];
-  const shape = (n, v) => n === 'setMyHomeOpen' ? v === '(v)=>{ myHomeOpen = v; }' : READ.includes(n) ? v === '()=>' + n : FN.includes(n) ? (v === '(...a)=>' + n + '(...a)' || v === '(...a)=>window.' + n + '(...a)') : v === n;
+  const shape = (n, v) => n === 'setMyHomeOpen' ? (v === '(v)=>{ myHomeOpen = v; }' || v === '(v)=>{ windowModeMod.setMyHomeOpen(v); }') : READ.includes(n) ? v === '()=>' + n : FN.includes(n) ? (v === '(...a)=>' + n + '(...a)' || v === '(...a)=>window.' + n + '(...a)') : v === n;
   chk(pairs.length === 25 && pairs.every(([n, v]) => shape(n, v)), '★ deps 25개 모양 — 읽는 함수 여섯은 ()=>이름 · 함수 일곱(window 고리 넷 포함)은 (...a)=>…(...a) · 쓰는 함수 하나 · 값은 이름 그대로' + (pairs.length === 25 ? '' : ' — ' + pairs.length + '개'));
   const bad = (mk || '').replace('  curSlot: ()=>curSlot,', '  curSlot: curSlot,');
   const p2 = bad.split('\n').map(l => /^  ([\w$]+): (.+),$/.exec(l)).filter(Boolean).map(m => [m[1], m[2]]);
   chk(!p2.every(([n, v]) => shape(n, v)), '  깨 보기: 읽는 함수를 값으로 넘기면 빨강');
-  chk((code.match(/appModeMod\.appMode\(\)/g) || []).length >= 3, '  읽는 자리 셋 이상이 appModeMod.appMode() 를 부른다(함수째 비교하는 실수 방지)');
+  const WM = (read('launcher/window-mode.js') || '').replace(/\/\*[\s\S]*?\*\//g, ' ');
+  chk((code.match(/appModeMod\.appMode\(\)/g) || []).length >= 2 && /appModeMod\.appMode\(\)==='run'/.test(WM), '  읽는 자리(app.js · window-mode.js)가 appModeMod.appMode() 를 부른다(함수째 비교하는 실수 방지)');
 }
 say('§5 일부러 깨 보기');
 {

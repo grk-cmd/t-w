@@ -313,3 +313,17 @@ deskSetupMod.setHooks({
 - `bindHold`(꾹 누르면 반복)는 animal.js 가 전역으로 읽어서 app.js 에 남겼다.
 
 검사: `checks/sim-desk-setup.js`.
+
+## creator-open.js — 🧍 생성기 여는 입구 · 런처 다시 그리기
+
+- **책임**: `openCreator(mode)` — 3D 미리보기를 먼저 만들고(못 만들면 아무것도 안 바꾸고 돌아감 — F1) · 꾸미기 창을 닫아 저장하고 · 모드와 «런처에서 왔는지» 를 기억하고 · 동물 편집은 동물 생성기로 돌려보내고 · 새로 열 때 그림 레이어 · 색 · 크기 · 책상 · 아이템을 세운다 · `renderLauncher()` — 런처 미리보기 · 칸 번호 · 빈 칸 · 톱니 · 연동 띠를 다시 맞춘다.
+- **만드는 법**: `TwCreatorOpen.createCreatorOpen({ … 46개 })` — 읽는 함수 열여섯 · 쓰는 함수 셋(`setCreatorMode` · `setCreatorOpen` · `setCustomItems`) · 함수 둘 + window 고리 하나(`closeWardrobe`) · 값 나머지. 원래 자리에서 만든다.
+- **내보내는 것**: `openCreator` · `renderLauncher`(app.js 가 같은 이름 const 로).
+- **함정**: 여러 모듈이 부르는 연결 자리라 deps 가 많다 — 생성기 · 런처 모듈로 더 나누면 슬롯 · 라이선스 모듈과 순환이 생긴다. 검사: `checks/sim-creator-open.js`.
+
+## creator-canvas.js — 🎨 생성기 그림판
+
+- **책임**: 되돌리기 기록(`histF` · `histB` · `redoF` · `redoB` · `pushHistory` · undo · redo) · `actC` · `blit`(피부 위에 그림을 얹어 합성 텍스처 갱신) · `bindPaint`(미리보기 위 마우스 그리기) · 붓 색 · 크기 · 도구 줄 · 대칭 · 지우기 · 도장 단추 · 표정 ↔ 감은눈 복사 · 카메라 키 · 옷 색 입력 · 색 스와치 · 피부 스와치 · `loadSkins`.
+- **만드는 법**: `TwCreatorCanvas.createCreatorCanvas({ … 21개 })` — 읽는 함수 다섯 · 함수 셋(`bindHold` · `toast` · window 고리 `openCharColorPicker`) · 값. 원래 자리에서 만든다 — 단추 · 입력 듣기가 이때 걸린다.
+- **내보내는 것**: `_crDropEraser` · `histF` · `histB` · `redoF` · `redoB` · `isDrawStep` · `actC` · `blit` · `pushHistory` · `bindPaint` · `swEl` · `_syncCrColorSwatches` · `loadSkins`.
+- **함정**: 얼굴 합성(`compositeFace`) · 몸 만들기(`buildCreatorBase` · `defToBase`)는 일부러 남겼다(T7 몫). 표정 복사는 감은눈을 안 그렸으면 막는다(표정이 통째로 지워지므로). 검사: `checks/sim-creator-canvas.js`.

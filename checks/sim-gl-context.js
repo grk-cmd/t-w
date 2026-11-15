@@ -96,7 +96,7 @@ say('§3 연결');
   chk(early2.length > 0, '  깨 보기: 가드를 창 바꾸기 뒤로 옮기면 빨강(앞서 바꾼 줄이 잡힌다)');
   const PU = read('purikura/purikura-ui.js');
   chk(!/retry:\(\)=>\{ _pkBuildStage/.test(PU), '스티커사진 — 루프를 못 거는 [다시 시도] 는 두지 않는다(무대 없는 방장의 촬영은 사용자 결정 대기 — PR 본문)');
-  chk(read('app.js').includes('if(!creatorPrevMod.ensureCreatorPreview()) return;'), 'app.js openCreator — 3D 를 못 만들면 열지 않는다');
+  chk((read('creator/creator-open.js') || '').includes('if(!creatorPrevMod.ensureCreatorPreview()) return;'), 'creator-open.js openCreator — 3D 를 못 만들면 열지 않는다');
   const iG = HTML.indexOf('<script src="parts/shared/gl-context.js">'), iS = HTML.indexOf('<script src="parts/shared/stage.js">'), iA = HTML.indexOf('<script src="parts/app.js">');
   chk(iG > 0 && iG < iA && iG < iS, 'html — gl-context.js 를 stage.js · app.js 보다 먼저 싣는다');
   chk(/'E-SYS-06': \{ msg: '3D 미리보기를/.test(ERR), '실패 번호 E-SYS-06 이 표에 있다');
