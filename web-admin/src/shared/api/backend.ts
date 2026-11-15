@@ -71,6 +71,24 @@ export const refreshOnConflict = (refresh: () => unknown) => (error: unknown) =>
   if (isPortError(error, 'conflict')) void refresh();
 };
 
+/**
+ * `api` 마다 포트를 하나만 만든다 — 훅을 부르는 곳마다 따로 만들면 포트가 들고 있는 상태(마지막에 본 version · 캐시 · 보낸 것)가
+ * 읽는 훅과 쓰는 훅에 나뉘어 버린다. `api` 가 없으면(주소 없음) 하나만 둔다.
+ */
+export function perApi<T>(make: (api: Api | null) => T): (api: Api | null) => T {
+  const made = new WeakMap<Api, T>();
+  let none: T | undefined;
+  return (api) => {
+    if (!api) return (none ??= make(null));
+    let port = made.get(api);
+    if (port === undefined) {
+      port = make(api);
+      made.set(api, port);
+    }
+    return port;
+  };
+}
+
 /** API 판 호출 한 번 — 서버 오류를 포트 실패(`PortError`)로 바꿔 던진다. `api` 가 없으면(주소 없음) «주소 없음». */
 export async function portCall<T>(
   api: Api | null,

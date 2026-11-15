@@ -1,7 +1,7 @@
 // API 판 — 열린 방 보기 · 닫기. `GET /v2/admin/rooms` 한 번이 «지금 열린 방 전부(시크릿룸 · 사람 포함)» 라서
 // Firebase 판의 roomIndex · rooms · 멤버 읽기를 이 한 응답으로 채운다(방은 realtime 메모리라 유령 · 마지막 신호가 없다).
 // 닫기 `POST /v2/admin/rooms/close { codes ≤500 }` 또는 `{ all: true }` → `{ closed, missing }`.
-import { adminPath, portCall, type Api } from '@/shared/api';
+import { adminPath, perApi, portCall, type Api } from '@/shared/api';
 import type { Channel, LiveRoom, RoomIndexEntry, RoomProbe, RoomStats } from '../model/room';
 import { toRoomPerson } from '../model/room';
 import type { RoomPort } from './port';
@@ -55,7 +55,7 @@ function parse(data: unknown, receivedAt: number): Listing {
   return { at: Number.isNaN(at) ? receivedAt : at, receivedAt, rooms, counts };
 }
 
-export function createServerRoomBoard(api: Api | null): BoardPort {
+function build(api: Api | null): BoardPort {
   let cached: Listing | null = null;
   let loading: Promise<Listing> | null = null;
 
@@ -75,6 +75,7 @@ export function createServerRoomBoard(api: Api | null): BoardPort {
   }
 
   async function closeBy(body: { codes: string[] } | { all: true }): Promise<string[]> {
+    cached = null; // 일부만 닫히고 실패해도 목록은 다시 받는다
     const done = await portCall(
       api,
       (a) => a.send<{ closed?: unknown }>('POST', `${PATH}/close`, { body }),
@@ -127,3 +128,6 @@ export function createServerRoomBoard(api: Api | null): BoardPort {
     closeAll: () => closeBy({ all: true }),
   };
 }
+
+/** `api` 마다 하나 — 목록 캐시를 읽는 쪽 · 닫는 쪽이 같이 쓴다. */
+export const createServerRoomBoard = perApi(build);

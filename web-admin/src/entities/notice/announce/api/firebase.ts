@@ -21,6 +21,7 @@ export function clearAnnounce(db: Db): Promise<void> {
 
 export function createFirebaseAnnouncePort(db: Db): AnnouncePort {
   return {
+    readsCurrent: true,
     get: () => getAnnounce(db),
     publish: (text) => publishAnnounce(db, text),
     clear: () => clearAnnounce(db),

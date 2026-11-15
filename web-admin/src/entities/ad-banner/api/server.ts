@@ -1,6 +1,6 @@
 // API 판 — `GET · PUT /v2/admin/notices/launcher-banner`. 읽을 때 받은 `version` 을 저장에 싣는다(그 사이 다른 관리자가 고쳤으면 409).
 // 서버 칸 이름은 `imageUrl` · `linkUrl`(없으면 null) — 화면 칸(`img` · `link`)으로 바꿔 준다.
-import { adminPath, NO_API_TEXT, PortError, toPortError, type Api } from '@/shared/api';
+import { adminPath, NO_API_TEXT, PortError, toPortError, type Api, perApi } from '@/shared/api';
 import type { AdSlide } from '../model/adBanner';
 import type { AdBannerPort } from './port';
 
@@ -11,7 +11,7 @@ interface Banner {
 
 const PATH = adminPath('/notices/launcher-banner');
 
-export function createServerAdBannerPort(api: Api | null): AdBannerPort {
+function build(api: Api | null): AdBannerPort {
   let version: number | null = null;
 
   async function load(): Promise<AdSlide[]> {
@@ -50,3 +50,6 @@ export function createServerAdBannerPort(api: Api | null): AdBannerPort {
     },
   };
 }
+
+/** `api` 마다 하나 — 읽는 훅 · 쓰는 훅이 같은 포트(같은 version · 기억)를 쓴다. */
+export const createServerAdBannerPort = perApi(build);

@@ -1,7 +1,7 @@
 // API 판 — `GET /v2/notices`(고정 + 최신 30) · `GET /v2/notices/broadcasts?cursor&limit`(더 보기) ·
 // `POST /v2/admin/notices/broadcasts` · `PATCH · DELETE …/broadcasts/{id}` · `POST …/broadcasts/bulk`.
 // 고정 · 내리기는 읽을 때 받은 `version` 을 싣는다(그 사이 다른 관리자가 고쳤으면 409 → conflict).
-import { adminPath, PortError, portCall, type Api } from '@/shared/api';
+import { adminPath, PortError, portCall, type Api, perApi } from '@/shared/api';
 import { createPayloadRequestId } from '@/shared/lib';
 import type { InboxBroadcast } from '../model/broadcast';
 import type { InboxMessage, InboxTag } from '../model/message';
@@ -53,7 +53,7 @@ function toBroadcast(w: Wire): InboxBroadcast | null {
 const rows = (list: Wire[] | undefined) =>
   (list ?? []).map(toBroadcast).filter((b): b is InboxBroadcast => b !== null);
 
-export function createServerBroadcastPort(api: Api | null): BroadcastPort {
+function build(api: Api | null): BroadcastPort {
   const versions = new Map<string, number>();
   const once = createPayloadRequestId();
 
@@ -157,3 +157,6 @@ export function createServerBroadcastPort(api: Api | null): BroadcastPort {
     },
   };
 }
+
+/** `api` 마다 하나 — 읽는 훅 · 쓰는 훅이 같은 포트(같은 version · 기억)를 쓴다. */
+export const createServerBroadcastPort = perApi(build);

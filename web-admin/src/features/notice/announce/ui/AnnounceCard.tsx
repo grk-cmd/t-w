@@ -3,6 +3,7 @@ import {
   announceRemaining,
   ANNOUNCE_TEXT_MAX,
   useAnnounce,
+  useAnnouncePort,
   useRefreshAnnounce,
   useServerTimeOffset,
 } from '@/entities/notice/announce';
@@ -13,6 +14,7 @@ import styles from './AnnounceCard.module.css';
 
 export function AnnounceCard() {
   const toast = useToast();
+  const { readsCurrent } = useAnnouncePort();
   const { data: announce, error } = useAnnounce();
   const { data: offset = 0 } = useServerTimeOffset();
   const refresh = useRefreshAnnounce();
@@ -63,7 +65,13 @@ export function AnnounceCard() {
       <div className={styles.current}>
         {error && errorMessage(error, '현재 공지를 불러오지 못했어요')}
         {!error && announce === undefined && '불러오는 중…'}
-        {announce === null && <span className="soft">보낸 공지가 없어요</span>}
+        {announce === null && (
+          <span className="soft">
+            {readsCurrent
+              ? '보낸 공지가 없어요'
+              : '이 화면에서 보낸 공지가 없어요 — 다른 곳에서 보낸 공지는 여기서 보이지 않지만 끌 수 있어요'}
+          </span>
+        )}
         {announce && (
           <>
             <b className={live ? styles.live : 'soft'}>
@@ -89,7 +97,7 @@ export function AnnounceCard() {
         <button
           type="button"
           className="btn danger"
-          disabled={!announce || clear.isPending}
+          disabled={(!announce && readsCurrent) || clear.isPending}
           onClick={onClear}
         >
           {clear.isPending ? '끄는 중…' : '지금 끄기'}

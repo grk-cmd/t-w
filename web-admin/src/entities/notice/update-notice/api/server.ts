@@ -1,6 +1,6 @@
 // API 판 — 읽기 `GET /v2/notices` 의 `updateNotice`(없으면 null) · 올리기 `POST /v2/admin/notices/update-notices { requestId, title, body }` ·
 // 내리기 `DELETE …/update-notices/{id}`(지금 것이 아니라 본 id 로 — 그 사이 새 공지가 오면 엉뚱한 것을 내리지 않게).
-import { adminPath, PortError, portCall, type Api } from '@/shared/api';
+import { adminPath, PortError, portCall, type Api, perApi } from '@/shared/api';
 import { createPayloadRequestId } from '@/shared/lib';
 import { NOTICE_BODY_MAX, NOTICE_TITLE_MAX, type UpdateNotice } from '../model/updateNotice';
 import type { UpdateNoticePort } from './port';
@@ -14,7 +14,7 @@ interface Wire {
   publishedAt?: unknown;
 }
 
-export function createServerUpdateNoticePort(api: Api | null): UpdateNoticePort {
+function build(api: Api | null): UpdateNoticePort {
   const once = createPayloadRequestId();
   let seenId: string | null = null;
 
@@ -63,3 +63,6 @@ export function createServerUpdateNoticePort(api: Api | null): UpdateNoticePort 
     },
   };
 }
+
+/** `api` 마다 하나 — 읽는 훅 · 쓰는 훅이 같은 포트(같은 version · 기억)를 쓴다. */
+export const createServerUpdateNoticePort = perApi(build);

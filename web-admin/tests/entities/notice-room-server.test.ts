@@ -299,3 +299,53 @@ describe('요청 번호 — 내용이 같을 때만 남긴다', () => {
     expect(seen.slice(3)).toEqual(['id-2', 'id-3']);
   });
 });
+
+describe('같은 API 에는 포트가 하나 — 읽는 훅 · 쓰는 훅이 같은 상태를 쓴다', () => {
+  it('한쪽이 목록을 읽고 다른 쪽이 고정하면 읽은 version 이 간다', async () => {
+    const s = fake({
+      'GET /v2/notices': () => ({
+        broadcasts: { pinned: [], latest: [wire('a', { version: 9 })], nextCursor: null },
+      }),
+      'PATCH /v2/admin/notices/broadcasts/a': () => undefined,
+    });
+    await createServerBroadcastPort(s.api).list();
+    await createServerBroadcastPort(s.api).setPinned(['a'], true);
+    expect(s.calls.at(-1)?.body).toEqual({ version: 9, pinned: true });
+  });
+
+  it('확성기: 보낸 쪽과 읽는 쪽이 같은 기억을 보고, 현재 값을 못 읽는 판은 끄기를 늘 연다', async () => {
+    const s = fake({ 'POST /v2/admin/notices/announcements': () => undefined });
+    await createServerAnnouncePort(s.api).publish('안내');
+    expect(await createServerAnnouncePort(s.api).get()).toMatchObject({ text: '안내' });
+    expect(createServerAnnouncePort(s.api).readsCurrent).toBe(false);
+  });
+
+  it('방: 닫으면 목록 캐시가 바로 비워진다', async () => {
+    let listed = 0;
+    const s = fake({
+      'GET /v2/admin/rooms': () => {
+        listed += 1;
+        return { at: '2026-11-20T03:00:00Z', rooms: [], counts: {} };
+      },
+      'POST /v2/admin/rooms/close': () => ({ closed: ['A'], missing: [] }),
+    });
+    await createServerRoomPort(s.api).getCodes();
+    await createServerRoomPort(s.api).close(['A']);
+    await createServerRoomPort(s.api).getCodes();
+    expect(listed).toBe(2);
+  });
+
+  it('묶음: 모르는 id 가 뒤에 있으면 요청을 한 번도 보내지 않고 conflict', async () => {
+    const ids = Array.from({ length: 101 }, (_, i) => `b${i}`);
+    const s = fake({
+      'GET /v2/notices': () => ({
+        broadcasts: { pinned: [], latest: ids.slice(0, 100).map((id) => wire(id)), nextCursor: null },
+      }),
+    });
+    const port = createServerBroadcastPort(s.api);
+    await port.list(100);
+    const error = await port.remove(ids).catch((e: unknown) => e);
+    expect(isPortError(error, 'conflict')).toBe(true);
+    expect(s.calls.filter((c) => c.method === 'POST')).toHaveLength(0);
+  });
+});
