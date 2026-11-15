@@ -114,93 +114,25 @@ const _syncHumanEarRig = humanEarAttachMod._syncHumanEarRig;   // 옛 전역 이
 const _attachHumanEars = humanEarAttachMod._attachHumanEars;   // 옛 전역 이름
 
 /* ===== 기본 캐릭터 GLB (임베드) — face/cloth_upper/cloth_lower + 리깅 ===== */
-let BASE_SCENE=null, BASE_ANIMS=[];
-function b64ToBuf(b64){const bin=atob(b64);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;}
-function loadBaseGLB(){return new Promise(res=>{
-  if(!window.BASE_GLB_B64||window.BASE_GLB_B64.indexOf('@@')===0){res(false);return;}
-  loader.parse(b64ToBuf(window.BASE_GLB_B64),'',gltf=>{
-    BASE_SCENE=gltf.scene; BASE_ANIMS=gltf.animations||[];
-    BASE_SCENE.traverse(o=>{if(o.isMesh){o.frustumCulled=false;
-      const m=o.material,nm=(m&&m.name||'').toLowerCase();
-      // 피부 1번(skin0)은 skin-data.js의 face1.png를 쓰므로 GLB 원본 텍스처로 덮어쓰지 않음
-      }});
-    measureBaseGeometry();   // 기본 시각 영역 측정 — 커미션 GLB 자동 매칭 기준값
-    res(true);
-  }, e=>{console.warn('base GLB parse fail',e);res(false);});
-});}
-/* 스킨드 메시 인스턴스 복제 (각 캐릭터가 독립 스켈레톤+머티리얼) */
+/* 몸 모델 공급 · 복제 · 크기는 character/base-body.js(코어 몸 포함) — 아래 const 는 옛 이름이다. */
 const skelShare = TwSkeletonShare;
-function instantiateBase(customScene){
-  const src = customScene || BASE_SCENE;
-  if(!src||!THREE.SkeletonUtils)return null;
-  const root=THREE.SkeletonUtils.clone(src);
-  skelShare.shareSkeletons(skelShare.skinnedMeshesOf(root));   // 복제가 메시마다 Skeleton 을 따로 만든다 — 같은 뼈대는 하나로
-  let faceMat=null,upMat=null,loMat=null,faceMesh=null,upMesh=null,loMesh=null;
-  // 커미션 캐릭터에 미리 씌워진 파츠(안경/모자/탈/한벌옷/날개/손) — 메쉬(또는 재질) 이름으로 자동 인식.
-  // 꾸미기에서 같은 카테고리 파츠를 장착하면 이 메쉬가 숨겨지고, 해제하면 다시 보임(applyClothVisibility에서 처리).
-  let glassesMesh=null, hatMesh=null, hatMat=null, maskMesh=null, onepieceMesh=null, wingMesh=null, handLMesh=null, handRMesh=null, capeMesh=null;
-  /* ★ 조명 평탄화(applyLightPresetToInstance)는 "이름으로 분류된" 파츠뿐 아니라 **모든 메쉬**에
-     똑같이 적용해야 함 — 커미션 캐릭터가 위 카테고리에 안 걸리는 이름(몸통/신발/머리카락 등)의 메쉬를
-     쓰면 그 부분만 조명 처리를 못 받아 다른 부분과 톤이 달라 보이던 문제의 원인이었음.
-     ⚠️ 예전에는 `cm.map` 이 있는 재질만 담았다. 텍스처 없는 메쉬는 emissive 를 0 으로 둔 채
-        앰비언트(0.57)만 받는데, 받는 쪽은 0.92 라 화면상 199 대 246(255 기준)이다 —
-        같은 흰색을 지정해도 한쪽만 회색으로 읽힌다. 파츠 경로는 원래부터 텍스처 유무를 안 가렸으니,
-        "파츠는 쨍한데 캐릭터 옷만 어둡다"가 바로 이 차이였다. 이제 전부 담는다. */
-  const litMats=[];
-  root.traverse(o=>{ if(o.isMesh){ o.castShadow=true;o.receiveShadow=false;o.frustumCulled=false;
-    const cm=o.material&&o.material.clone?o.material.clone():o.material; o.material=cm;
-      const nm=(cm&&cm.name||'').toLowerCase();
-      const meshName=(o.name||'').toLowerCase();
-      if(cm){ litMats.push(cm); _fixGlbMatLighting(cm); }   // 텍스처 유무·이름 분류와 무관하게 전부 조명 평탄화 대상
-      // 텍스처(머티리얼 이름)가 없어도, 메쉬 이름이 'head'면 생성창 스킨 타겟으로 잡습니다.
-      // ★ 메쉬 이름 분류 — 짧고 흔한 단어(hat, cap, wing, left 등)는 부분 문자열 매칭이면 오탐지가 잘 나서
-      //   (예: "landscape"에 "cap"이 있어 하의가 모자로 잘못 분류) 정규식 단어 경계로 잡음.
-      //   긴/명확한 단어(glass, dress 등)는 부분 문자열도 안전.
-      const has = (str, word)=> new RegExp('(?:^|[^a-z])'+word+'(?:$|[^a-z])','i').test(str);
-      const hasBoth = word => has(nm, word) || has(meshName, word);
-      if(nm.includes('face') || meshName.includes('head')){faceMat=cm;faceMesh=o;}
-    else if(!upMesh && (nm.includes('upper')||nm.includes('up_cloth')||nm.includes('up_clothes'))){upMat=cm;upMesh=o;}
-    else if(!loMesh && (nm.includes('lower')||nm.includes('low_cloth')||nm.includes('low_clothes'))){loMat=cm;loMesh=o;}
-    else if(!glassesMesh && (nm.includes('glass')||meshName.includes('glass'))){glassesMesh=o;}
-    else if(!capeMesh && hasBoth('cape')){capeMesh=o;}   // ★ 첫 매치만 채택 — lower의 재질이 'cape'로 이름 붙은 케이스에서 뒤에 만난 걸로 덮어쓰지 않게(요청사항)
-    else if(!hatMesh && (hasBoth('hat')||hasBoth('cap'))){hatMesh=o;hatMat=cm;}
-    else if(!maskMesh && hasBoth('mask')){maskMesh=o;}
-    else if(!onepieceMesh && (nm.includes('dress')||meshName.includes('dress'))){onepieceMesh=o;}
-    else if(!wingMesh && hasBoth('wing')){wingMesh=o;}
-    else if(!handLMesh && hasBoth('left')){handLMesh=o;}
-    else if(!handRMesh && hasBoth('right')){handRMesh=o;} }});
-  return {root,faceMat,upMat,loMat,faceMesh,upMesh,loMesh,glassesMesh,hatMesh,hatMat,maskMesh,onepieceMesh,wingMesh,handLMesh,handRMesh,capeMesh,litMats};
-}
-/* 커미션 GLB 파싱 캐시: base64 → THREE.Scene */
-const commSceneCache = new Map();
-async function getCommissionScene(glbB64){
-  if(commSceneCache.has(glbB64)) return commSceneCache.get(glbB64);
-  const buf = b64ToBuf(glbB64);
-  const scene = await assetCodeMod.parseGlbBytes(buf);
-  commSceneCache.set(glbB64, scene);
-  return scene;
-}
-function mkFaceTex(canvas){const t=new THREE.CanvasTexture(canvas);t.flipY=false;t.encoding=THREE.sRGBEncoding;t.needsUpdate=true;return t;}
-// ★ 커미션(유료 제작) 캐릭터 크기 보정 — 블렌더에서 기본 캐릭터와 비슷한 크기로 맞춰 내보내도
-//   실제로는 더 작게 들어오는 경우가 있어서(GLB에 안 보이는 여분 메쉬/본이 섞여 바운딩박스가 커지는 등)
-//   경험적으로 보정하는 배율. 1.15 = 15% 키움. 필요하면 이 숫자만 조절.
-const COMMISSION_SCALE_CORRECTION = 1;   // ★ 테스트용으로 일시적으로 보정 없음(1)으로 설정 — 원래 값은 1.15, 되돌리려면 이 숫자만 1.15로 바꾸면 됨
-function normalizeModel(group,targetH,isComm){
-  group.updateMatrixWorld(true);
-  
-  // 기본 캐릭터용 원본 계산
-  const box=new THREE.Box3().setFromObject(group);
-  const size=box.getSize(new THREE.Vector3()), c=box.getCenter(new THREE.Vector3());
-  let s=targetH/(size.y||1);
-  if(isComm) s *= COMMISSION_SCALE_CORRECTION;   // 커미션 캐릭터만 추가 보정
-  let posX = -c.x*s, posY = -box.min.y*s, posZ = -c.z*s;
-
-  // 표준 리그 통합: 커미션도 base와 동일하게 자기 박스 기준(BASE_SCENE 덮어쓰기 제거)
-  
-  group.scale.setScalar(s);
-  group.position.set(posX, posY, posZ);
-  return s;
-}
+const baseBodyMod = TwBaseBody.createBaseBody({
+  loader: loader,
+  skelShare: skelShare,
+  _fixGlbMatLighting: (...a)=>_fixGlbMatLighting(...a),
+  setFaceMap: (...a)=>matToneMod.setFaceMap(...a),
+  applyLightPreset: (...a)=>matToneMod.applyLightPresetToInstance(...a),
+  assetCodeMod: ()=>assetCodeMod,
+});
+const bodyCore = baseBodyMod.bodyCore;   // 옛 전역 이름
+const b64ToBuf = baseBodyMod.b64ToBuf;   // 옛 전역 이름
+const loadBaseGLB = baseBodyMod.loadBaseGLB;   // 옛 전역 이름
+const instantiateBase = baseBodyMod.instantiateBase;   // 옛 전역 이름
+const commSceneCache = baseBodyMod.commSceneCache;   // 옛 전역 이름
+const getCommissionScene = baseBodyMod.getCommissionScene;   // 옛 전역 이름
+const mkFaceTex = baseBodyMod.mkFaceTex;   // 옛 전역 이름
+const COMMISSION_SCALE_CORRECTION = baseBodyMod.COMMISSION_SCALE_CORRECTION;   // 옛 전역 이름
+const normalizeModel = baseBodyMod.normalizeModel;   // 옛 전역 이름
 /* ============================================================ BUILDERS */
 /* ▶ 파츠 · 아이템 애니메이션 재생(character/part-anim.js) — 아래 const 는 옛 전역 이름이다. */
 const partAnimMod = TwPartAnim.createPartAnim({
@@ -2349,12 +2281,12 @@ const chatWindowMod = TwChatWindow.createChatWindow({
 const hueTintMod = TwHueTint.createHueTint({
   lightToneMod: lightToneMod,
 });
-const _rgbHexToHsv = hueTintMod._rgbHexToHsv;   // 옛 이름
-const isHueTintMesh = hueTintMod.isHueTintMesh;   // 옛 이름
-const _ensureHueUniforms = hueTintMod._ensureHueUniforms;   // 옛 이름
-const _hueOBC = hueTintMod._hueOBC;   // 옛 이름
-const applyHueTint = hueTintMod.applyHueTint;   // 옛 이름
-const _hsvToHex = hueTintMod._hsvToHex;   // 옛 이름
+const _rgbHexToHsv = hueTintMod._rgbHexToHsv;   // 옛 전역 이름
+const isHueTintMesh = hueTintMod.isHueTintMesh;   // 옛 전역 이름
+const _ensureHueUniforms = hueTintMod._ensureHueUniforms;   // 옛 전역 이름
+const _hueOBC = hueTintMod._hueOBC;   // 옛 전역 이름
+const applyHueTint = hueTintMod.applyHueTint;   // 옛 전역 이름
+const _hsvToHex = hueTintMod._hsvToHex;   // 옛 전역 이름
 
 /* ═══ 🪑 [2026-09-18] 라이선스 전용 책상을 꾸미기창 «책상» 탭으로 옮긴다 ════════════════════
    [왜 옮기나] 전용 책상은 생성기 5단계에서 미보유자에게도 목록에 계속 보였고, 눌러도 토스트만
@@ -3959,35 +3891,6 @@ function buildFacePatchGeo(R,half,seg){
     const z=Math.sqrt(Math.max(0.0001,R*R-x*x-y*y)); pos.setZ(i,z);}
   pos.needsUpdate=true; geo.computeVertexNormals(); return geo;
 }
-/* 메쉬 geometry boundingBox만 union해서 그룹의 *진짜 메쉬 영역* 박스 계산 (본 영향 0). 커미션 GLB 정렬용 */
-function calcMeshBox(group){
-  const box=new THREE.Box3(), tmp=new THREE.Box3();
-  group.updateMatrixWorld(true);
-  group.traverse(o=>{
-    if(o.isMesh && o.geometry){
-      if(!o.geometry.boundingBox) o.geometry.computeBoundingBox();
-      if(o.geometry.boundingBox){
-        tmp.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld);
-        box.union(tmp);
-      }
-    }
-  });
-  return box;
-}
-
-/* 기본 GLB의 시각 영역 (BASE_SCENE 로드 후 1회 측정) — 커미션 GLB를 *기본과 동일한 위치·키*로 정렬할 때 사용 */
-let BASE_MESH_MIN_Y=null, BASE_MESH_HEIGHT=null;
-function measureBaseGeometry(){
-  const inst = instantiateBase();
-  if(!inst || !inst.root) return;
-  normalizeModel(inst.root, 1.4);   // defToBase의 일반 경로와 동일한 정규화
-  inst.root.updateMatrixWorld(true);
-  const box = calcMeshBox(inst.root);
-  if(!box.isEmpty()){
-    BASE_MESH_MIN_Y = box.min.y;
-    BASE_MESH_HEIGHT = box.max.y - box.min.y;
-  }
-}
 
 function defToBase(def, customScene){
   // 🐾 동물 캐릭터 — animal.js가 전담 조립(전신 페인트 텍스처·귀 포함). 실패(모듈 미로드 등) 시 인간 폴백.
@@ -4732,7 +4635,7 @@ const cFaceCenter=new THREE.Vector3(0,1.2,0), cBodyCenter=new THREE.Vector3(0,0.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const creatorPrevMod = TwCreatorPreview.createCreatorPreview({
   ANIMAL_HAND_REST: ANIMAL_HAND_REST,
-  BASE_SCENE: ()=>BASE_SCENE,
+  BASE_SCENE: ()=>bodyCore.baseScene(),
   CHAR_Z: CHAR_Z,
   COMMISSION_SCALE_CORRECTION: COMMISSION_SCALE_CORRECTION,
   CREATOR_LIGHT_SL: lightToneMod.CREATOR_LIGHT_SL,
@@ -5140,7 +5043,7 @@ const launcherCtlMod = TwLauncherControls.createLauncherControls({
 /* 본문은 race-picker.js 로 옮겼다(앱 FSD 48번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const racePickerMod = TwRacePicker.createRacePicker({
-  BASE_SCENE: ()=>BASE_SCENE,
+  BASE_SCENE: ()=>bodyCore.baseScene(),
   CHAR_SLOT_MAX: CHAR_SLOT_MAX,
   addRunLights: (...a)=>lightToneMod.addRunLights(...a),
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
@@ -5198,7 +5101,7 @@ const charApplyMod = TwCharApply.createCharApply({
   applyPartXf: (...a)=>applyPartXf(...a),
   assetCodeMod: ()=>assetCodeMod,
   b64ToBuf: (...a)=>b64ToBuf(...a),
-  BASE_ANIMS: ()=>BASE_ANIMS,
+  BASE_ANIMS: ()=>bodyCore.baseAnims(),
   clampCharY: clampCharY,
   commSceneCache: commSceneCache,
   compositeFace: (...a)=>compositeFace(...a),

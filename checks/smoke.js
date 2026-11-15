@@ -728,6 +728,8 @@ PRELOAD.push('frame-pace.js');
 PRELOAD.push('cloth-visibility.js');
 /* hue-tint.js — 🎨 색조 셰이더 이름 잇기. app.js 가 원래 자리에서 createHueTint 로 만든다. */
 PRELOAD.push('hue-tint.js');
+/* base-body.js — 🧍 기본 몸 모델 공급 · 복제 · 크기. app.js 가 원래 자리에서 createBaseBody 로 만든다. */
+PRELOAD.push('base-body.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
