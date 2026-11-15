@@ -39,21 +39,21 @@ function topNames(src){
   });
   return top;
 }
-/* 파일 안에 선언이 없는 이름(= 바깥에서 부르는 이름) 중 app.js 맨 위 이름 */
+/* 이름마다 «어느 범위의 것인가» 를 타입 검사기로 따라가, 파일 안 어디에도 선언이 없어 바깥(app.js 맨 위)으로 가는 이름만 모은다 —
+   다른 함수의 지역 선언 때문에 가려지지 않는다. 가상 파일 하나만 읽고(noLib · noResolve) 선언이 안 잡히면 바깥으로 본다. */
 function freeTop(src, top){
-  const sf = ts.createSourceFile('m.js', src, ts.ScriptTarget.Latest, true), declared = new Set(), used = {};
-  const bind = (x) => { if(ts.isIdentifier(x)) declared.add(x.text); else if(x.elements) x.elements.forEach(e => e.name && bind(e.name)); };
+  const FN = 'm.js', sf = ts.createSourceFile(FN, src, ts.ScriptTarget.Latest, true);
+  const opts = { allowJs: true, noLib: true, noResolve: true, target: ts.ScriptTarget.Latest };
+  const host = { getSourceFile: (f) => (f === FN ? sf : undefined), getDefaultLibFileName: () => 'lib.d.ts', writeFile(){}, getCurrentDirectory: () => '/', getDirectories: () => [], fileExists: (f) => f === FN, readFile: () => '', getCanonicalFileName: (f) => f, useCaseSensitiveFileNames: () => true, getNewLine: () => '\n' };
+  const checker = ts.createProgram([FN], opts, host).getTypeChecker(), used = {};
   (function walk(n){
-    if((ts.isFunctionDeclaration(n) || ts.isClassDeclaration(n)) && n.name) declared.add(n.name.text);
-    if(ts.isVariableDeclaration(n) || ts.isParameter(n)) bind(n.name);
-    if(ts.isCatchClause(n) && n.variableDeclaration) bind(n.variableDeclaration.name);
-    ts.forEachChild(n, walk);
-  })(sf);
-  (function walk(n){
-    if(ts.isIdentifier(n)){
+    if(ts.isIdentifier(n) && top.has(n.text)){
       const p = n.parent;
       const prop = (ts.isPropertyAccessExpression(p) && p.name === n) || (ts.isPropertyAssignment(p) && p.name === n) || (ts.isMethodDeclaration(p) && p.name === n) || ts.isPropertySignature(p) || (ts.isBindingElement(p) && p.propertyName === n);
-      if(!prop && top.has(n.text) && !declared.has(n.text)) used[n.text] = (used[n.text] || 0) + 1;
+      if(!prop){
+        const sym = ts.isShorthandPropertyAssignment(p) ? checker.getShorthandAssignmentValueSymbol(p) : checker.getSymbolAtLocation(n);
+        if(!sym) used[n.text] = (used[n.text] || 0) + 1;
+      }
     }
     ts.forEachChild(n, walk);
   })(sf);
@@ -69,6 +69,14 @@ for(const m of MODS){
 {
   const m = MODS[1], broke = SRC[m.file].replace('const toast = deps.toast;', '');
   chk(broke !== SRC[m.file] && freeTop(broke, TOP).includes('toast'), '깨 보기: deps 로 받는 줄을 빼면 빨강');
+}
+
+{
+  /* 깨 보기 둘째: 한 함수의 지역 선언이 다른 함수의 «deps 없이 부름» 을 가리지 못한다 */
+  const demo = 'function a(){ let toast = 0; return toast; }\nfunction b(){ return toast("x"); }\nfunction c({ toast }){ return toast; }\nfunction d(){ return { toast }; }';
+  const got = freeTop(demo, new Set(['toast']));
+  chk(got.includes('toast'), '깨 보기: 다른 함수에 같은 이름 지역이 있어도 deps 없이 부른 곳은 잡는다');
+  chk(freeTop('function a(){ let toast = 0; return toast; }', new Set(['toast'])).length === 0, '  지역 선언만 있으면 0');
 }
 
 console.log('§2 deps 짝');

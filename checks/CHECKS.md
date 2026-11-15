@@ -333,7 +333,7 @@
 | **sim-admin-mode.js** | 133 | **437afbc7bb20** |
 | **sim-report.js** | 187 | **36300b555eba** |
 | **sim-my-info.js** | 98 | **5f6f1de826c8** |
-| **sim-renderer-src.js** | 297 | **5fb9c7264594** |
+| **sim-renderer-src.js** | 298 | **d8739a728d38** |
 | **sim-chars.js** | 94 | **f9cca0b353e7** |
 | **sim-slot-sync-mod.js** | 94 | **a2485a292a4e** |
 | **sim-away-pic.js** | 94 | **02105f2b9019** |
@@ -406,7 +406,7 @@
 | **sim-myhome-init.js** | 132 | **08675e1a7c4f** |
 | **sim-parts-paths.js** | 84 | **2810fc3f9073** |
 | **sim-global-names.js** | 236 | **4da03342e299** |
-| **sim-global-deps.js** | 115 | **835991ad3a19** |
+| **sim-global-deps.js** | 123 | **916393471ae6** |
 | **sim-dep-cycles.js** | 268 | **5d63af5d3339** |
 | **sim-domain-calls.js** | 157 | **8b9f85e7d696** |
 | **sim-room-state.js** | 58 | **ddcd7ec6a8ac** |
