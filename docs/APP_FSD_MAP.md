@@ -296,6 +296,8 @@ app.js 9,746 → 9,476줄(270줄) · 구역 167 → 130개. 남긴 빈 머리 �
 **0.12.4 — app.js 분리 M13 ~ M16**: 앱 모드(`launcher/app-mode.js`) · 회사원 · 피규어 모드 깃발(`launcher/office-mode.js`) · 설정 저장 헬퍼(`shared/ls-set.js`) · 몸짓(`character/rig-anim.js`) · 프레임 상한 · rAF 멈춤 감시(`launcher/frame-pace.js`)를 글 그대로 옮겼다(한 PR · 모듈 다섯). app.js 7,835 → 7,324줄.
 **0.12.4 — app.js 분리 T4**: 옷 겹침(`_unequipClothCat` · `applyClothVisibility`)을 `character/cloth-visibility.js` 로 옮겼다(글 그대로 — 0.13 이 이 구역을 안 바꿨다. deps 는 `decoPartsMod` · `premiumMod` · `rideBenchMod` · `unequipPartFromSeat`).
 
+**0.12.4 — app.js 분리 T1**: 색조 셰이더 구역(100줄 → 0.13 의 이름 잇기 여섯 줄)을 `shared/hue-tint.js` 로 옮겼다(0.13 app.js 글 그대로 — 셰이더 본문은 코어 `tone.ts`).
+
 ## 구역 표 — `app/parts/app.js`
 
 | # | 줄 | 크기 | 목적 | 층 | 관련 모듈 | 씀 | 쓰임 | 비고 |

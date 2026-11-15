@@ -2345,114 +2345,16 @@ const chatWindowMod = TwChatWindow.createChatWindow({
 });
 
 /* ═══ 🎨 텍스처 파츠 색조 셰이더 ═══ */
-/* 🎨 텍스처 파츠 색조 변경 ─────────────────────────────────────────────────
-   _col 메쉬 중 텍스처(map)가 있는 것은 material.color를 갈아끼우면 "텍스처 × 색" 곱셈이 되어
-   무늬가 어두워지고 탁해진다. 그래서 텍스처가 있으면 색을 덮어쓰는 대신 셰이더에서 '색조(Hue)만'
-   회전시킨다 — 명암·무늬·질감(밝기 V)은 원본 그대로 두고 색상만 바뀐다.
-     ・채도(S)는 중립(0)을 가운데 두고 양쪽으로 간다 — 오른쪽은 원본과 고른 값 중 진한 쪽을
-       따라가고(흑백 텍스처에도 색이 입혀진다), 왼쪽은 원본 채도를 곱해서 낮춘다(끝 = 회색).
-     ・emissiveMap이 map과 같은 텍스처를 쓰므로 emissive 쪽에도 같은 변환을 넣어야 색이 어긋나지 않는다.
-   ※ 셰이더 주입이라 렌더 결과는 실제 실행에서 눈으로 확인 필요. */
-const _HUE_GLSL = `
-vec3 twRgb2Hsv(vec3 c){
-  vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
-  vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
-  vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
-  float d = q.x - min(q.w, q.y);
-  float e = 1.0e-10;
-  return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
-}
-vec3 twHsv2Rgb(vec3 c){
-  vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
-  vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-  return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-}
-vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
-  vec3 hsv = twRgb2Hsv(rgb);
-  hsv.x = hue;
-  /* 채도는 양쪽으로 간다. sat = 0 이 중립(원본 채도 그대로, 예전 동작과 동일).
-     ・양수(0~1): max(원본, sat*0.9) — 진한 쪽을 따라간다. 흑백 텍스처에 색을 입히는 길.
-     ・음수(-1~0): 원본에 (1+sat) 을 곱해 내린다. sat=-1 이면 채도 0 = 완전 회색.
-     ⚠️ 음수 쪽을 max() 로 처리하면 절대 안 내려간다 — 슬라이더를 왼쪽 끝까지 밀어도
-        회색이 안 되던 원인이 그것이었다(원본 채도가 늘 이겨서). */
-  hsv.y = (sat >= 0.0) ? max(hsv.y, sat * 0.9) : hsv.y * (1.0 + sat);
-  hsv.y = clamp(hsv.y, 0.0, 1.0);
-  /* 밝기는 '덮어쓰기'가 아니라 '배율'이다 — 픽셀마다 다른 원본 명암(hsv.z)에 곱해야
-     무늬와 그림자가 살아 있는 채로 전체가 밝아지거나 어두워진다.
-     val=1.0 이 중립(예전 동작과 완전히 동일). */
-  hsv.z = clamp(hsv.z * val, 0.0, 1.0);
-  return twHsv2Rgb(hsv);
-}
-`;
-function _rgbHexToHsv(hex){
-  const c = new THREE.Color(hex);
-  const hsl = {}; c.getHSL(hsl);
-  // getHSL은 HSL이라 HSV의 S/V로 환산
-  const v = hsl.l + hsl.s * Math.min(hsl.l, 1 - hsl.l);
-  const s = (v === 0) ? 0 : 2 * (1 - hsl.l / v);
-  return { h: hsl.h, s: Math.min(1, Math.max(0, s)), v };
-}
-/* 이 메쉬를 색조 모드로 쓸 수 있는가 = _col이면서 텍스처가 있는가 */
-function isHueTintMesh(mesh){
-  return !!(mesh && mesh.material && mesh.material.map);
-}
-function _ensureHueUniforms(mat){
-  if(mat.userData && mat.userData._hueU) return mat.userData._hueU;
-  mat.userData = mat.userData || {};
-  const u = { uHue:{value:0}, uSat:{value:0}, uVal:{value:1}, uOn:{value:0} };
-  mat.userData._hueU = u;
-  mat.onBeforeCompile = _hueOBC(u);
-  mat.needsUpdate = true;
-  return u;
-}
-/* 🎨 색조 셰이더 주입 함수 — u(유니폼 묶음)를 클로저로 잡는다.
-   ★ [2026-10-02 제보 #8] _ensureHueUniforms 에서 떼어 냈다. 스티커사진 무대(_pkCloneChar)가 재질을
-     m.clone() 하면 THREE r128 의 Material.copy 는 onBeforeCompile 을 **복사하지 않는다**(userData 는
-     JSON 값만 복사). 그래서 사본은 원본 텍스처색으로 그려졌다 — 텍스처 파츠(노비 모자·목도리)만
-     염색이 빠지고 단색 파츠는 멀쩡했던 이유다. 사본에 같은 주입을 다시 걸려면 이 함수가 따로 있어야 한다. */
-function _hueOBC(u){
-  return (shader)=>{
-    // ★ 같은 객체 참조를 넘겨야 이후 .value 변경이 렌더에 반영된다.
-    shader.uniforms.uHue = u.uHue; shader.uniforms.uSat = u.uSat; shader.uniforms.uVal = u.uVal; shader.uniforms.uOn = u.uOn;
-    shader.fragmentShader = 'uniform float uHue;\nuniform float uSat;\nuniform float uVal;\nuniform float uOn;\n'
-      + _HUE_GLSL + shader.fragmentShader;
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <map_fragment>',
-      '#include <map_fragment>\n  if(uOn > 0.5){ diffuseColor.rgb = twHueShift(diffuseColor.rgb, uHue, uSat, uVal); }'
-    );
-    // emissiveMap도 같은 텍스처라 함께 돌려야 색이 어긋나지 않음
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <emissivemap_fragment>',
-      '#include <emissivemap_fragment>\n  if(uOn > 0.5){ totalEmissiveRadiance = twHueShift(totalEmissiveRadiance, uHue, uSat, uVal); }'
-    );
-  };
-}
-/* hex=null이면 색조 해제(원본 텍스처 그대로).
-   hsvOpt = {h(0~1), s(0~1), v(배율, 1=중립)} 가 있으면 그쪽이 우선이다.
-   ⚠️ **없을 때 v 를 hex 에서 뽑아 쓰면 안 된다.** 예전에 저장된 색조 값은 밝기를 무시하던 시절에
-      고른 것이라(팔레트에서 고른 색은 대부분 V<1), 지금 와서 hex 의 V 를 배율로 쓰면 이미 저장된
-      파츠가 일제히 어두워진다. 그래서 hex 만 있는 옛 데이터는 v=1(중립)로 고정한다. */
-function applyHueTint(mesh, hex, hsvOpt){
-  if(!mesh || !mesh.material || !mesh.material.map) return false;
-  const u = _ensureHueUniforms(mesh.material);
-  if(!hex && !hsvOpt){ u.uOn.value = 0; return true; }
-  if(hsvOpt){
-    u.uHue.value = hsvOpt.h || 0;
-    u.uSat.value = (hsvOpt.s == null) ? 0 : hsvOpt.s;
-    u.uVal.value = (hsvOpt.v == null) ? 1 : hsvOpt.v;
-  }else{
-    const hsv = _rgbHexToHsv(hex);
-    u.uHue.value = hsv.h; u.uSat.value = hsv.s; u.uVal.value = 1;
-  }
-  u.uOn.value = 1;
-  return true;
-}
-/* 슬라이더 값 → 스와치·플랫 메쉬용 hex. 저장은 colorHSV 가 진짜 값이고 hex 는 표시용 사본이다. */
-function _hsvToHex(h, sv, v){
-  const c = new THREE.Color();
-  c.setHSL(h, Math.max(0, Math.min(1, sv)), Math.max(0, Math.min(1, 0.5 * (v==null?1:v))));
-  return '#' + c.getHexString();
-}
+/* 🎨 색조 셰이더 이름 잇기(shared/hue-tint.js) — 본문은 캐릭터 코어. 아래 const 는 옛 이름이다. */
+const hueTintMod = TwHueTint.createHueTint({
+  lightToneMod: lightToneMod,
+});
+const _rgbHexToHsv = hueTintMod._rgbHexToHsv;   // 옛 이름
+const isHueTintMesh = hueTintMod.isHueTintMesh;   // 옛 이름
+const _ensureHueUniforms = hueTintMod._ensureHueUniforms;   // 옛 이름
+const _hueOBC = hueTintMod._hueOBC;   // 옛 이름
+const applyHueTint = hueTintMod.applyHueTint;   // 옛 이름
+const _hsvToHex = hueTintMod._hsvToHex;   // 옛 이름
 
 /* ═══ 🪑 [2026-09-18] 라이선스 전용 책상을 꾸미기창 «책상» 탭으로 옮긴다 ════════════════════
    [왜 옮기나] 전용 책상은 생성기 5단계에서 미보유자에게도 목록에 계속 보였고, 눌러도 토스트만
