@@ -1877,6 +1877,8 @@ function _pkPaintDots(){
    각자 자기 타이머로 세면 기기마다 1~2초씩 어긋나 늦은 사람은 셔터 뒤에도 움직인다. */
 async function _pkStart(){
   const pk = _purikura(); if(!pk || !PK.host) return;
+  /* 방장이 3D 를 못 만들었으면(무대 없음) 시작하지 않는다 — 셔터(_pkCapture)가 무대를 읽어 던지면 넷의 촬영이 멈춘다. 정원도 차감하기 전에 막는다 */
+  if(!PK.renderer){ TwErrorCodes.notify('E-SYS-07'); return; }
   const sb = _pkEl('pkStartBtn'); if(sb) sb.disabled = true;
   const r = await pk.start();                 // takeQuota 가 여기서 돈다 — 정원 차감은 이 순간이다
   if(!r || !r.ok){
