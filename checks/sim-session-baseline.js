@@ -159,7 +159,9 @@ async function runAB(){
   const want = [
     ['gacha', /gacha: \(code, me, session\)=>gachaMod\.startGacha\(session\)/],
     ['closet', /closet: \(code, me, session\)=>closetMod\.startCloset\(session\)/],
-    ['mhInit', /mhInit: \(code, me, session\)=>\{ session\.onReset\(\(\)=>\{ friendsSubMod\.stop\(\); presenceSelfMod\.reset\(\); \}\); return mhInitMod\.initMyHome\(code, me, session\); \}/],
+    ['mhInit', /mhInit: \(code, me, session\)=>\{ session\.onReset\(\(\)=>\{ friendsSubMod\.stop\(\); presenceSelfMod\.reset\(\); myhomeStoreMod\.reset\(\); bookshelfStoreMod\.reset\(\); \}\); return mhInitMod\.initMyHome\(code, me, session\); \}/],
+    ['focusTotal', /focusTotal: \(code, me, session\)=>\{ session\.onReset\(\(\)=>focusTotalMod\.setFocusTodaySec\(0\)\); focusTotalMod\.startFocusTotal\(\); \}/],
+    ['bugBadge', /bugBadge: \(code, me, session\)=>\{ session\.onReset\(\(\)=>bugBoardUi\.reset\(\)\); return bugBoardUi\.start\(\); \}/],
     ['scheduler', /scheduler: \(code, me, session\)=>mhScheduler\.startSchedule\(session\)/],
     ['playlist', /playlist: \(code, me, session\)=>plMod\.start\(session\)/],
     ['licensePremium', /licensePremium: \(code, me, session\)=>\{ session\.onReset\(\(\)=>licensePremiumMod\.reset\(\)\); return licensePremiumMod\.start\(me\); \}/],

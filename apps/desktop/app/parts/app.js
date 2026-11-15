@@ -8329,7 +8329,7 @@ const appBoot = TwAppBoot.createAppBoot({
   goOnline: ()=>loginFlowMod.goOnline(),
   starts: {
     userLocal: (code, me, session)=>userLocalMod.start(session),
-    focusTotal: ()=>focusTotalMod.startFocusTotal(),
+    focusTotal: (code, me, session)=>{ session.onReset(()=>focusTotalMod.setFocusTodaySec(0)); focusTotalMod.startFocusTotal(); },   // 오늘치 메모리는 세션이 끝나면 0 으로
     focusShare: ()=>focusShareMod.startFocusShare(),
     focusLevel: (code, me, session)=>{ focusProgressMod.startFocus(code, me, session); focusLevelMod.startMobile(code, me, session); },
     weeklyChal: (code, me, session)=>weeklyChal.startChallenge(code, me, session),
@@ -8337,9 +8337,9 @@ const appBoot = TwAppBoot.createAppBoot({
     gacha: (code, me, session)=>gachaMod.startGacha(session),
     closet: (code, me, session)=>closetMod.startCloset(session),
     /* 🏠 마이홈 시작 — 받은 친구 요청 구독 · 우편 구독은 initMyHome 이 세션에 건다. 친구 목록 구독(friendsSub) · 내 접속 표시 구독(presenceSelf)은 시작이 다른 곳(마이홈 · 접속 고정)이라 비우기만 여기서 건다 */
-    mhInit: (code, me, session)=>{ session.onReset(()=>{ friendsSubMod.stop(); presenceSelfMod.reset(); }); return mhInitMod.initMyHome(code, me, session); },
+    mhInit: (code, me, session)=>{ session.onReset(()=>{ friendsSubMod.stop(); presenceSelfMod.reset(); myhomeStoreMod.reset(); bookshelfStoreMod.reset(); }); return mhInitMod.initMyHome(code, me, session); },   // 내 홈 · 책장 메모리도 세션이 끝나면 비운다(늦게 온 답은 gen 으로 버린다)
     gift: (code, me, session)=>{ session.on(giftBoxMod.listen()); session.onReset(()=>{ giftBoxMod.reset(); mallangStoreMod.reset(); mallangMod.reset(); }); },   // 🎁 서버 신호 `gifts` 만 건다(요청 0 — 받기는 마이홈을 열 때)
-    bugBadge: ()=>bugBoardUi.start(),
+    bugBadge: (code, me, session)=>{ session.onReset(()=>bugBoardUi.reset()); return bugBoardUi.start(); },   // 배지 · 목록 · 쓰던 글은 세션이 끝나면 비운다
     scheduler: (code, me, session)=>mhScheduler.startSchedule(session),
     /* 🙋 방 초대 받기 — 방 쪽 포트(대화 · 방 목록 · 스티커사진)는 사용자가 들어갈 때 시작해 STEPS 칸이 없다. 대신 계정이 바뀔 때 비우는 일(session.onReset)을 여기서 한 곳에 모은다.
        license 알림(발급 · 연장 · 코드 바꿈 · 끝남) → 읽어 둔 내 시크릿룸을 버려 다음에 다시 읽는다(관리자가 발급한 방이 다시 실행 없이 보이게). */
