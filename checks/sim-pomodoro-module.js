@@ -186,8 +186,8 @@ await sec('── 7. app.js 배선', () => {
   const code = strip(APP);
   chk(!/function _pomo\w*\(|\b(var|let|const) (_pomoRun|_pomoCfg|POMO_KEY|POMO_RUN_KEY|POMO_PRESETS)\b|bindPomo/.test(code), '뽀모 정의는 app.js 에 없다(모듈에만)');
   chk(/window\.TwPomodoro = api/.test(MOD) && (code.match(/TwPomodoro\.createPomodoro\(/g) || []).length === 1, '모듈은 window.TwPomodoro · createPomodoro 는 한 곳');
-  const iMk = APP.indexOf('TwPomodoro.createPomodoro('), iPrev = APP.indexOf('TwWeeklyChallenge.createWeeklyChallenge('), iNext = APP.indexOf('let myHomeOpen = false;');
-  chk(iPrev > 0 && iMk > iPrev && iNext > iMk, '원래 자리 — 👑 달성표 연결 뒤 · myHomeOpen 앞');
+  const iMk = APP.indexOf('TwPomodoro.createPomodoro('), iPrev = APP.indexOf('TwWeeklyChallenge.createWeeklyChallenge('), iNext = APP.indexOf('/* ═══ 🖥️ 데스크탑 실행 화면 — 창 크기');
+  chk(iPrev > 0 && iMk > iPrev && iNext > iMk, '원래 자리 — 👑 달성표 연결 뒤 · 🖥️ 데스크탑 실행 화면 구역 머리 앞(myHomeOpen 은 window-mode.js 로 옮김)');
   /* 📊 오늘 기록 전시(_focusShowConf · bindFocusShow)는 focus-share.js 로 옮겼다(앱 FSD 45번) — 모듈 안 차례와, 그 모듈 만드는 줄이 뽀모 만드는 줄보다 앞인지 본다 */
   const FS = read('focus-share.js') || '';
   const inApp = APP.includes('function _focusShowConf(');

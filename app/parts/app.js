@@ -1330,7 +1330,7 @@ const friendManage = TwFriendManage.createFriendManage({
   giftStat: (...a)=>inboxMod.giftStat(...a),
   renderGiftBox: (...a)=>inboxMod.renderGiftBox(...a),
   inboxTimeStr: (...a)=>inboxMod.inboxTimeStr(...a),
-  myHomeOpen: ()=>myHomeOpen,
+  myHomeOpen: ()=>windowModeMod.myHomeOpen(),
   myHomeFriends: ()=>_myHomeFriends,
   myFriendRequests: ()=>_myFriendRequests,
   friendMax: FRIEND_MAX,
@@ -1424,7 +1424,7 @@ const mhInitMod = TwMyHomeInit.createMyHomeInit({
   getMyUserId: (...a)=>getMyUserId(...a),
   inboxMod: ()=>inboxMod,
   mhScheduler: mhScheduler,
-  myHomeOpen: ()=>myHomeOpen,
+  myHomeOpen: ()=>windowModeMod.myHomeOpen(),
   toast: (...a)=>toast(...a),
   setInboxBroadcast: (v)=>{ _inboxBroadcast = v; },
   setMyFriendRequests: (v)=>{ _myFriendRequests = v; },
@@ -1548,12 +1548,12 @@ const myHomeUiMod = TwMyHomeUi.createMyHomeUi({
   isAdmin: ()=>isAdmin,
   loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),
   mhScheduler: mhScheduler,
-  myHomeOpen: ()=>myHomeOpen,
+  myHomeOpen: ()=>windowModeMod.myHomeOpen(),
   myHomeSticker: ()=>myHomeSticker,
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
   renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers()(...a),
   toast: (...a)=>toast(...a),
-  setMyHomeOpen: (v)=>{ myHomeOpen = v; },
+  setMyHomeOpen: (v)=>{ windowModeMod.setMyHomeOpen(v); },
   twNav: twNav,
 });
 /* 👥 친구 목록이 보이는 동안만 friends-sub 에 «열림» — 마이홈을 여닫는 길이 여럿이라(열기 · 친구 홈 구경 · 런처 복귀 · 단축키) 두 칸의 class 를 지켜본다. */
@@ -1576,11 +1576,11 @@ const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({
   getMyUserId: (...a)=>getMyUserId(...a),
   loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),
   mhScheduler: mhScheduler,
-  myHomeOpen: ()=>myHomeOpen,
+  myHomeOpen: ()=>windowModeMod.myHomeOpen(),
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
   toast: (...a)=>toast(...a),
   setSchedDdaysVisitUnsub: (v)=>{ _schedDdaysVisitUnsub = v; },
-  setMyHomeOpen: (v)=>{ myHomeOpen = v; },
+  setMyHomeOpen: (v)=>{ windowModeMod.setMyHomeOpen(v); },
   _myHomeData: ()=>mhStateMod._myHomeData(),
   _myHomeLoaded: ()=>mhStateMod._myHomeLoaded(),
   _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
@@ -3730,27 +3730,6 @@ const deskPresetMod = TwDeskPreset.createDeskPreset({
 //   그래서 불러올 때마다 이 범위로 확실히 clamp함.
 const DESK_SCALE_MIN = 0.05, DESK_SCALE_MAX = 0.3;
 function clampDeskScale(v){ return Math.max(DESK_SCALE_MIN, Math.min(DESK_SCALE_MAX, v)); }
-function _crDropEraser(){ if(crState.crPaintTool) crState.crPaintTool.dropEraser(); else crState.eraser=false; }
-const histF=[], histB=[];
-const redoF=[], redoB=[];
-function isDrawStep(){return crState.crStep===2||crState.crStep===3;}
-function activeFace(){return crState.crStep===3?'blink':'face';}
-function actC(){return activeFace()==='blink'?blinkC:faceC;}
-function curHist(){return activeFace()==='blink'?histB:histF;}
-function curRedo(){return activeFace()==='blink'?redoB:redoF;}
-function blit(){const x=dispC.getContext('2d');x.clearRect(0,0,CANVAS_SZ,CANVAS_SZ);
-  x.drawImage(skinCanvasFor(crState.skinIndex),0,0);          // 베이스 피부(지워지지 않는 원본)
-  x.drawImage(crState.crStep===3?blinkC:faceC,0,0);           // 그림 레이어
-  dispTex.needsUpdate=true;}
-function pushHistory(){const h=curHist();try{h.push(actC().getContext('2d').getImageData(0,0,CANVAS_SZ,CANVAS_SZ));}catch(e){}if(h.length>30)h.shift();
-  curRedo().length=0;   // 새 액션 → redo 스택 폐기 (표준 동작)
-}
-function undo(){const h=curHist();if(!h.length)return;
-  try{const cur=actC().getContext('2d').getImageData(0,0,CANVAS_SZ,CANVAS_SZ); const rs=curRedo(); rs.push(cur); if(rs.length>30)rs.shift();}catch(e){}
-  actC().getContext('2d').putImageData(h.pop(),0,0);blit();}
-function redo(){const rs=curRedo();if(!rs.length)return;
-  try{const cur=actC().getContext('2d').getImageData(0,0,CANVAS_SZ,CANVAS_SZ); curHist().push(cur); if(curHist().length>30)curHist().shift();}catch(e){}
-  actC().getContext('2d').putImageData(rs.pop(),0,0);blit();}
 /* 본문은 shared/paint-geom.js 로 옮겼다(C 구역 떼기 w4). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const paintGeomMod = TwPaintGeom.createPaintGeom({
@@ -3784,299 +3763,43 @@ const crStampMod = TwCrStamp.createCrStamp({
   pushHistory: (...a)=>pushHistory(...a),
   toast: (...a)=>toast(...a),
 });
-function bindPaint(){const cv=document.getElementById('creatorPreview');
-  cv.addEventListener('contextmenu',e=>e.preventDefault());
-  cv.addEventListener('pointerdown',e=>{
-    // 🖱️ 우클릭: 드래그하면 카메라 회전, 움직임 없이 떼면 기존처럼 스포이드(그리기 단계에서만).
-    //   어느 단계에서든 우클릭 드래그로 캐릭터를 돌려볼 수 있음 — 동물 생성기와 통일된 조작.
-    if(e.button===2){ crState._rcOrbit={x:e.clientX,y:e.clientY,moved:false}; cv.setPointerCapture(e.pointerId); return; }
-    if(!isDrawStep())return;
-    // 도장 편집 중에는 캔버스 클릭으로 그리지 않음(오버레이 조작 우선)
-    if(crState.stampMode) return;
-    if(e.button!==0)return;
-    const act=crState.crPaintTool?crState.crPaintTool.pointerAction(e):'stroke';
-    if(act!=='stroke'){ paintStrokeMod.bucketFromEvent(e, act==='fillErase'); return; }   // 🪣 한 번 누르면 끝 — 끌기 획이 아니다
-    if(crState.crStep===3)crState.blinkEdited=true;pushHistory();crState.painting=true;paintStrokeMod._paintBreak();crState._pLastScr=null;paintStrokeMod.paintFromEvent(e);cv.setPointerCapture(e.pointerId);   // 🩹 #12 — 새 획: 솔기·쪼개기 기억도 비운다
-  });
-  cv.addEventListener('pointermove',e=>{
-    if(crState._rcOrbit){
-      const dx=e.clientX-crState._rcOrbit.x, dy=e.clientY-crState._rcOrbit.y;
-      if(crState._rcOrbit.moved || Math.abs(dx)+Math.abs(dy)>4){
-        crState._rcOrbit.moved=true;
-        crState.camYaw += wardrobeMod.ORBIT_DRAG_DIR * dx*0.012;   // 오른쪽 드래그 = 앵글도 오른쪽으로 (부호는 ORBIT_DRAG_DIR 한 곳에서 관리 — 꾸미기 미리보기와 동일)
-        crState.camPitch = Math.max(-0.6, Math.min(1.0, crState.camPitch + dy*0.008));
-        creatorPrevMod.updateCreatorCam();
-        crState._rcOrbit.x=e.clientX; crState._rcOrbit.y=e.clientY;
-      }
-      return;
-    }
-    /* 🖌 커서 = 지금 도구(붓 + · 페인트통 · 지우개). 단계 이동(gotoStep)이 crosshair 로 되돌려도 움직이면 다시 맞는다. */
-    if(crState.crPaintTool && isDrawStep() && !crState.stampMode){ const cu=crState.crPaintTool.cursor(); if(cv.style.cursor!==cu) cv.style.cursor=cu; }
-    if(!crState.painting)return;
-    const evs=(typeof e.getCoalescedEvents==='function')?e.getCoalescedEvents():null;
-    /* 🖊️ [Mac 제보 2026-09-23] "표정을 그리면 선이 위아래로 튄다."
-       getCoalescedEvents 의 점들은 **마지막 것이 이 이벤트 자신**이어야 한다(규격). 그런데 환경에 따라
-       (mac · 확대/축소 · 투명 창) 묶인 점이 다른 좌표계로 오면, 진짜 점과 어긋난 점이 번갈아 찍혀 선이 지그재그로 튄다.
-       ★ 마지막 묶인 점이 이 이벤트와 2px 안일 때만 믿는다. 아니면 이 이벤트 하나만 쓴다(조금 덜 매끄럽지만 튀지 않는다). */
-    const _cLast = (evs && evs.length) ? evs[evs.length-1] : null;
-    const _cOk = !!(_cLast && Math.abs(_cLast.clientX - e.clientX) <= 2 && Math.abs(_cLast.clientY - e.clientY) <= 2);
-    if(_cOk){ for(const ce of evs) paintStrokeMod.paintFromEvent(ce); }
-    else paintStrokeMod.paintFromEvent(e);
-  });
-  cv.addEventListener('pointerup',(e)=>{
-    if(crState._rcOrbit){
-      const was=crState._rcOrbit; crState._rcOrbit=null;
-      // 움직이지 않고 뗀 우클릭 = 기존 스포이드 동작 그대로
-      if(!was.moved && isDrawStep() && !crState.stampMode){ if(crState.crStep===3)crState.blinkEdited=true; paintStrokeMod.eyedropFromEvent(e); }
-      return;
-    }
-    crState.painting=false;crState.lastPX=crState.lastPY=null;crState.lastSX=crState.lastSY=null;
-  });
-  cv.addEventListener('wheel',e=>{e.preventDefault();crState.camDist=Math.max(0.4,Math.min(7,crState.camDist*(e.deltaY>0?1.12:0.89)));creatorPrevMod.updateCreatorCam();},{passive:false});
-  // 드래그앤드롭: 이미지 파일을 캔버스에 떨어뜨리면 도장으로 불러옴
-  cv.addEventListener('dragover',e=>{e.preventDefault();});
-  cv.addEventListener('drop',e=>{e.preventDefault(); if(!isDrawStep())return;
-    const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) crStampMod.loadStampFromFile(f);
-  });
-  crStampMod.bindStampOverlay();
-}
-addEventListener('keydown',e=>{
-  if(!creatorOpen)return;
-  // Ctrl+Shift+Z = redo (Ctrl+Z보다 먼저 체크 — shift 조합이 더 구체적)
-  if((e.ctrlKey||e.metaKey)&&e.shiftKey&&hotkeyLetter(e)==='z'){e.preventDefault();redo();return;}
-  if((e.ctrlKey||e.metaKey)&&hotkeyLetter(e)==='z'){e.preventDefault();undo();return;}
-  // Delete: 표정 그리기 단계에서 전체 지우기 (clearBtn과 동일 동작). input/textarea에 포커스면 무시.
-  if(e.key==='Delete' && isDrawStep()){
-    const tag=(e.target&&e.target.tagName||'').toLowerCase();
-    if(tag==='input'||tag==='textarea')return;
-    e.preventDefault();
-    pushHistory();
-    actC().getContext('2d').clearRect(0,0,CANVAS_SZ,CANVAS_SZ);
-    blit();
-  }
-  // C: 지우개 ON/OFF 토글 (포토샵식). modifier가 있으면 무시 (Ctrl+C 복사 등과 충돌 회피)
-  if(hotkeyLetter(e)==='c' && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
-    const tag=(e.target&&e.target.tagName||'').toLowerCase();
-    if(tag==='input'||tag==='textarea')return;
-    e.preventDefault();
-    if(crState.crPaintTool) crState.crPaintTool.toggleEraser();   // 지우개 ↔ 붓 — eraser 변수와 버튼 표시는 도구 줄(onChange)이 맞춘다
-  }
-  // B 붓 · G 페인트통 · E 지우개 (paint-tools.js — 한글 상태 맥도 hotkeyLetter 로 같은 키)
-  if(crState.crPaintTool && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
-    const tag=(e.target&&e.target.tagName||'').toLowerCase();
-    if(tag!=='input' && tag!=='textarea' && crState.crPaintTool.handleKey(e)) e.preventDefault();
-  }
-  // X: 좌우 대칭 ON/OFF 토글
-  if(hotkeyLetter(e)==='x' && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
-    const tag=(e.target&&e.target.tagName||'').toLowerCase();
-    if(tag==='input'||tag==='textarea')return;
-    e.preventDefault();
-    const sb=document.getElementById('symBtn');
-    if(sb) sb.click();
-  }
-  // L: 원색 보기(조명 끄고 칠한 색 그대로) 켬/끔
-  if(hotkeyLetter(e)==='l' && isDrawStep() && creatorPrevMod.crFlatView && !e.ctrlKey && !e.metaKey && !e.altKey){
-    const tag=(e.target&&e.target.tagName||'').toLowerCase();
-    if(tag==='input'||tag==='textarea')return;
-    e.preventDefault();
-    creatorPrevMod.crFlatView.toggle();
-  }
-  // Z: 도장 모드 ON/OFF 토글 (찍기는 Enter 또는 ✓ 버튼)
-  if(hotkeyLetter(e)==='z' && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
-    const tag=(e.target&&e.target.tagName||'').toLowerCase();
-    if(tag==='input'||tag==='textarea')return;
-    e.preventDefault();
-    crStampMod.setStampMode(!crState.stampMode);
-  }
-  // Enter: 도장 편집 중이면 찍기 (✓ 버튼과 동일)
-  if(e.key==='Enter' && crState.stampMode && crState.stampImg){
-    const tag=(e.target&&e.target.tagName||'').toLowerCase();
-    if(tag==='input'||tag==='textarea'||tag==='button')return;   // 버튼 포커스 중엔 무시(스페이스/엔터로 버튼 활성화)
-    e.preventDefault();
-    crStampMod.commitStamp();
-  }
-  // ESC: 도장 편집 중이면 취소(박지 않고 빠져나옴)
-  if(e.key==='Escape' && crState.stampMode){
-    e.preventDefault();
-    crStampMod.cancelStamp();
-  }
+/* 본문은 creator/creator-canvas.js 로 옮겼다(앱 FSD · app.js 분리 M20). 생성기 그림판(되돌리기 · 그리기 · 붓 · 카메라 키 · 색 · 피부)의 주인이다 — 듣기가 예전과 같은 때 걸린다. 뒤에서 선언되는 값은 읽는 함수로 다룬다. */
+const creatorCanvasMod = TwCreatorCanvas.createCreatorCanvas({
+  openCharColorPicker: (...a)=>window.openCharColorPicker(...a),
+  bindHold: (...a)=>bindHold(...a),
+  blinkC: blinkC,
+  camTarget: ()=>camTarget,
+  CANVAS_SZ: CANVAS_SZ,
+  cBodyCenter: ()=>cBodyCenter,
+  cFaceCenter: ()=>cFaceCenter,
+  creatorOpen: ()=>creatorOpen,
+  creatorPrevMod: ()=>creatorPrevMod,
+  crStampMod: crStampMod,
+  crState: crState,
+  dispC: dispC,
+  dispTex: dispTex,
+  faceC: faceC,
+  newCanvas: newCanvas,
+  paintStrokeMod: paintStrokeMod,
+  SKIN_COLORS: SKIN_COLORS,
+  skinCanvases: skinCanvases,
+  skinCanvasFor: skinCanvasFor,
+  toast: (...a)=>toast(...a),
+  wardrobeMod: wardrobeMod,
 });
-const swEl=document.getElementById('brushColors');
-['#333333','#ffffff','#e0607a','#5a8fd8','#e0a050'].forEach((c,i)=>{const s=document.createElement('span');
-  s.className='sw'+(i===0?' on':'');s.style.background=c;
-  s.onclick=()=>{crState.brushColor=c;_crDropEraser();[...swEl.children].forEach(x=>x.classList.toggle('on',x===s));};
-  swEl.appendChild(s);});
-document.getElementById('brushCustom').addEventListener('input',e=>{crState.brushColor=e.target.value;_crDropEraser();
-  [...swEl.children].forEach(x=>x.classList.remove('on'));});
-/* 🎨 [2026-10-02 제보] "자유 색으로 칠하다 기본 칩을 눌렀다가, 아까 그 자유 색으로 돌아가려고 칸을 다시
-   눌러도 그 색이 안 잡힌다." — <input type="color"> 는 **값이 바뀔 때만** input/change 를 보낸다.
-   같은 색 그대로 창을 닫으면 이벤트가 없어서 브러시가 기본 칩 색에 머물렀다.
-   ⇒ 칸을 누르는 순간 지금 들어 있는 색(=마지막 자유 색·스포이드 색)을 바로 브러시로 잡는다.
-     창은 평소처럼 열리고, 거기서 색을 바꾸면 위 input 이 그대로 이어받는다. */
-document.getElementById('brushCustom').addEventListener('click',e=>{crState.brushColor=e.target.value;_crDropEraser();
-  [...swEl.children].forEach(x=>x.classList.remove('on'));});
-document.getElementById('brushSize').addEventListener('input',e=>crState.brushSize=+e.target.value);
-/* 🖌 도구 줄 — 붓 · 페인트통 · 지우개. eraser 변수(paintAt 이 본다)는 여기서만 맞춘다.
-   붓이 아닌 도구를 고르면 도장 모드를 닫는다(예전 «지우개와 도장은 동시 사용 X» 와 같은 이유 — 도장 중엔 캔버스 클릭이 안 칠한다). */
-if(typeof PaintTools!=='undefined'){
-  crState.crPaintTool=PaintTools.createPaintTools({ doc:document, uvFill:UvFill,
-    hotkeyLetter:hotkeyLetter,
-    onChange:(t)=>{ crState.eraser=(t==='eraser'); if(t!=='brush' && crState.stampMode) crStampMod.setStampMode(false);
-      const cv=document.getElementById('creatorPreview'); if(cv && isDrawStep() && !crState.stampMode) cv.style.cursor=crState.crPaintTool.cursor(); } });
-  crState.crPaintTool.mount(document.getElementById('crToolSeg'));
-}
-document.getElementById('symBtn').addEventListener('click',e=>{crState.symmetry=!crState.symmetry;e.target.classList.toggle('on',crState.symmetry);});
-document.getElementById('clearBtn').addEventListener('click',()=>{pushHistory();actC().getContext('2d').clearRect(0,0,CANVAS_SZ,CANVAS_SZ);blit();});
-/* 도장 모드 + 파일 입력 + 슬라이더 */
-document.getElementById('stampBtn').addEventListener('click',()=>crStampMod.setStampMode(!crState.stampMode));
-document.getElementById('stampLoad').addEventListener('click',()=>document.getElementById('stampFile').click());
-document.getElementById('stampFile').addEventListener('change',e=>{
-  const f=e.target.files&&e.target.files[0]; if(f) crStampMod.loadStampFromFile(f);
-  e.target.value='';
-});
-document.getElementById('stampApply').addEventListener('click',()=>crStampMod.commitStamp());
-document.getElementById('stampCancel').addEventListener('click',()=>crStampMod.cancelStamp());
-/* ↺ 초기화 — 크기·회전·위치를 처음 불러온 상태로. 도장이 미리보기 밖으로 나가 손잡이를 못 잡게 됐을 때의
-   유일한 복구 통로라, 오버레이가 아니라 **항상 제자리에 있는 패널**에 둔다. */
-{ const sr=document.getElementById('stampReset');
-  if(sr) sr.addEventListener('click', ()=>{ crStampMod.resetStampPlacement(true); }); }
-document.getElementById('blinkResetBtn').addEventListener('click',()=>{ if(crState.crStep!==3)return;
-  pushHistory();   // 되돌리기 가능하게
-  const bx=blinkC.getContext('2d'); bx.clearRect(0,0,CANVAS_SZ,CANVAS_SZ); bx.drawImage(faceC,0,0); crState.blinkEdited=false; blit(); });
-/* 🙂 감은눈 → 표정 (2단계). 위 ⟳ 표정 복사의 **반대 방향**이다.
-   ⚠️ 두 버튼은 대칭이 아니다 — 그 차이가 아래 두 줄의 이유다.
-     · 감은눈은 표정에서 **파생된다**(gotoStep 의 `n===3 && !blinkEdited` 자동 복사). 그래서
-       ⟳ 표정 복사는 "파생 상태로 되돌리기"이고 blinkEdited=false 로 되돌린다.
-     · 표정은 원본이다. 여기서 blinkEdited 를 건드리면 3단계에 들어가는 순간 감은눈이 표정으로
-       다시 덮여서, 방금 가져온 그림이 사라진다. **손대지 않는다.**
-   ⚠️ 감은눈을 한 번도 안 고쳤으면 그 캔버스는 비어 있다(신규 캐릭터는 3단계에 들어가야 채워진다).
-     그대로 복사하면 표정이 통째로 지워지므로 막는다. 버튼도 gotoStep 에서 같이 잠근다.
-   ★ 확인을 묻지 않는다 — pushHistory 를 먼저 하므로 [↶ 되돌리기]와 Ctrl+Z 로 되돌아온다.
-     그게 이 창의 관례고, 팝업을 하나 더 띄우는 것보다 손이 덜 간다. */
-document.getElementById('faceCopyBlinkBtn').addEventListener('click',()=>{ if(crState.crStep!==2)return;
-  if(!crState.blinkEdited){ toast('아직 감은눈을 그린 적이 없어요 — 3단계에서 먼저 그려주세요'); return; }
-  pushHistory();   // 표정은 원본이라 덮어쓰기 전에 반드시 되돌릴 자리를 남긴다
-  const fx=faceC.getContext('2d'); fx.clearRect(0,0,CANVAS_SZ,CANVAS_SZ); fx.drawImage(blinkC,0,0); blit(); });
-document.getElementById('undoBtn').addEventListener('click',undo);
-const ROT_STEP=Math.PI/12;   // 15°
-// ★ 버튼을 꾹 누르면 연속으로 이동하도록(bindHold, 기존 아이템 위치조작 버튼과 동일한 방식) 변경.
-// ◀▶ 버튼·←→ 키도 우클릭 드래그와 같은 부호를 써야 한다 — 안 그러면 같은 창에서 조작끼리 반대로 돈다.
-bindHold(document.getElementById('cpLeft'), ()=>{crState.camYaw-=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;creatorPrevMod.updateCreatorCam();});
-bindHold(document.getElementById('cpRight'), ()=>{crState.camYaw+=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;creatorPrevMod.updateCreatorCam();});
-bindHold(document.getElementById('cpUp'), ()=>{camTarget.y+=0.12;creatorPrevMod.updateCreatorCam();});
-bindHold(document.getElementById('cpDown'), ()=>{camTarget.y-=0.12;creatorPrevMod.updateCreatorCam();});
-// ★ 키보드 방향키로도 동일하게 조작 — 생성기가 열려있을 때만 동작, 꾹 누르면 버튼처럼 연속 이동.
-//   입력창(텍스트 필드 등)에 포커스 중이면 방향키 원래 용도(커서 이동)를 방해하지 않도록 건너뜀.
-function bindCamKey(key, fn){
-  let iv=null, delayTimer=null;
-  const stop=()=>{ if(iv){clearInterval(iv);iv=null;} if(delayTimer){clearTimeout(delayTimer);delayTimer=null;} };
-  document.addEventListener('keydown', e=>{
-    if(!creatorOpen || e.key!==key) return;
-    const tag=(e.target&&e.target.tagName||'').toLowerCase();
-    if(tag==='input'||tag==='textarea') return;
-    e.preventDefault();
-    if(e.repeat) return;   // OS 자체 반복은 무시 — 버튼과 똑같은 리듬(350ms 뒤 60ms 간격)으로만 반복
-    fn();
-    delayTimer=setTimeout(()=>{ iv=setInterval(fn,60); },350);
-  });
-  document.addEventListener('keyup', e=>{ if(e.key===key) stop(); });
-}
-bindCamKey('ArrowLeft',  ()=>{crState.camYaw-=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;creatorPrevMod.updateCreatorCam();});
-bindCamKey('ArrowRight', ()=>{crState.camYaw+=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;creatorPrevMod.updateCreatorCam();});
-bindCamKey('ArrowUp',    ()=>{camTarget.y+=0.12;creatorPrevMod.updateCreatorCam();});
-bindCamKey('ArrowDown',  ()=>{camTarget.y-=0.12;creatorPrevMod.updateCreatorCam();});
-document.getElementById('cpReset').addEventListener('click',()=>{
-  // 현재 단계 그룹의 저장된 카메라를 비우고 그 그룹의 기본 카메라로 되돌림
-  if(crState.crStep<=3){          // 표정·감은눈 그룹
-    crState.faceCamSaved=null;
-    if(cFaceCenter){ camTarget.copy(cFaceCenter); crState.camDist=crState.cFaceDist; crState.camYaw=0; crState.camPitch=0.0; }
-  } else if(crState.crStep>=5){   // 책상·좌석 그룹
-    crState.deskCamSaved=null;
-    creatorPrevMod.frameDeskCam(false);
-  } else {                // 4단계(전신 색상) — 단독
-    camTarget.copy(cBodyCenter); crState.camDist=crState.cBodyDist; crState.camYaw=0; crState.camPitch=0.04;
-  }
-  creatorPrevMod.updateCreatorCam();
-});
-document.getElementById('topColor').addEventListener('input',e=>{crState.cTopColor=e.target.value;if(crState.cBase&&crState.cBase.upMat)crState.cBase.upMat.color.set(crState.cTopColor);if(crState.cBase&&crState.cBase.hatMat)crState.cBase.hatMat.color.set(crState.cTopColor);creatorPrevMod.updateCreatorLights();});
-document.getElementById('botColor').addEventListener('input',e=>{crState.cBotColor=e.target.value;if(crState.cBase&&crState.cBase.loMat)crState.cBase.loMat.color.set(crState.cBotColor);creatorPrevMod.updateCreatorLights();});
-// ★ 런처8: 생성기의 세 컬러픽커에 꾸미기와 동일한 커스텀 팝업을 얹음 — 최근 5색 공유(localStorage 'tw.charColorHistory').
-//   네이티브 <input type="color">는 상태 저장 그릇으로만 남기고 클릭 시 우리 팝업을 대신 띄움.
-const _crColorSw = [];   // 색 입력칸 ↔ 보이는 스와치 짝 (아래 _syncCrColorSwatches 가 쓴다)
-(function bindCreatorCustomColorPickers(){
-  // ★ 런처8: 네이티브 <input type="color">를 숨기고, 그 앞에 눈에 보이는 스와치 버튼을 만들어
-  //   커스텀 팝업만 뜨게 함. (mousedown/click preventDefault로도 못 막는 환경 대비 — 아예 클릭이
-  //   input에 닿지 않게 하는 것이 가장 확실)
-  const bind = (id)=>{
-    const inp=document.getElementById(id); if(!inp) return;
-    if(inp.dataset.customBound) return;   // 이미 붙었다 — 스와치를 두 개 만들지 않는다
-    inp.dataset.customBound = '1';
-    inp.style.display='none';
-    const btn=document.createElement('button'); btn.type='button';
-    btn.className='cr-color-sw';
-    btn.style.cssText='width:46px;height:26px;border-radius:13px;border:1px solid rgba(0,0,0,.12);'
-      +'cursor:pointer;padding:0;vertical-align:middle;';
-    btn.style.background = TwSafeHtml.cssColor(inp.value || '#888888');
-    inp.parentNode.insertBefore(btn, inp);
-    btn.addEventListener('click', e=>{
-      e.preventDefault(); e.stopPropagation();
-      if(typeof window.openCharColorPicker !== 'function') return;
-      window.openCharColorPicker(btn, inp.value, (c)=>{
-        inp.value = c; btn.style.background = TwSafeHtml.cssColor(c);
-        inp.dispatchEvent(new Event('input', {bubbles:true}));
-      });
-    });
-    /* ⚠️ [제보] "옷 색을 바꾸고 수정하러 들어가면 팔레트만 기본색으로 돌아간다."
-       원래 의도는 아래 한 줄이었다 — "외부에서 inp.value 가 갱신되면 스와치도 따라온다".
-       그런데 **`inp.value = …` 는 input 이벤트를 발생시키지 않는다.** 프로그램이 값을 넣는 경우
-       (생성기 재진입 등)에는 이 줄이 한 번도 안 돌고, 스와치는 bind 시점의 HTML 기본값
-       (#9dba8a·#d98e73)에 그대로 멈춰 있다. 진짜 input 요소는 display:none 이라 보이지도 않는다.
-       ★ cTopColor·3D 미리보기·저장은 전부 정상이었다 — 어긋난 것은 스와치 «표시»뿐이라
-         "미리보기는 맞는데 팔레트만 기본색"이라는 제보 문구가 정확히 그 모양이다.
-       ★ 그래서 이벤트에 기대지 않고 **직접 맞추는 창구**(_syncCrColorSwatches)를 둔다.
-         change 도 함께 듣는다 — 브라우저 기본 색상 선택기는 input 없이 change 만 주는 경우가 있다. */
-    inp.addEventListener('input',  ()=>{ btn.style.background = TwSafeHtml.cssColor(inp.value); });
-    inp.addEventListener('change', ()=>{ btn.style.background = TwSafeHtml.cssColor(inp.value); });
-    _crColorSw.push({ inp, btn });
-  };
-  bind('topColor');
-  bind('botColor');
-  bind('deskColor');
-})();
-/* 색 스와치를 지금 값으로 다시 칠한다. 값을 프로그램이 넣은 뒤에는 반드시 이걸 부른다.
-   ★ 요소가 셋뿐이라 비용이 없다 — 잊어버리기 쉬운 자리(단계 이동)에서도 그냥 한 번 더 부른다.
-     "부르는 것을 잊어서 또 어긋나는" 쪽이 실제로 일어난 사고라, 싸게 여러 번 부르는 편을 택했다. */
-function _syncCrColorSwatches(){
-  try{ _crColorSw.forEach(o=>{ if(o.inp && o.btn) o.btn.style.background = TwSafeHtml.cssColor(o.inp.value); }); }catch(_){}
-}
-const skinRow=document.getElementById('skinRow');
-const skinSwatchEls=[];
-SKIN_COLORS.forEach((c,i)=>{const s=document.createElement('button');s.className='skin-sw'+(i===0?' on':'');s.style.background=c;
-  s.onclick=()=>{crState.skinIndex=i;[...skinRow.children].forEach((x,j)=>x.classList.toggle('on',j===i));blit();};   // 스킨은 face 텍스처 베이스로 합성됨
-  skinRow.appendChild(s);skinSwatchEls.push(s);});
-/* 스와치 대표색을 캔버스에서 추출 (평평한 피부 영역 샘플) */
-function swatchColorFromCanvas(cv){try{const p=cv.getContext('2d').getImageData(Math.floor(CANVAS_SZ*0.8),Math.floor(CANVAS_SZ*0.8),1,1).data;return 'rgb('+p[0]+','+p[1]+','+p[2]+')';}catch(e){return null;}}
-function refreshSkinSwatch(i){const col=swatchColorFromCanvas(skinCanvasFor(i));if(col&&skinSwatchEls[i])skinSwatchEls[i].style.background=col;}
-/* 내장된 피부 PNG를 skin[0..4]에 로드 (skin-data.js의 window.SKIN_PNGS) */
-function loadSkins(){const pngs=window.SKIN_PNGS||{};
-  /* ★ 예전엔 실패를 통째로 삼켰다(onerror에서 그냥 resolve). skin-data.js가 로드되지 않았거나 이미지가
-       깨져도 아무 표시 없이 넘어가고, 피부는 초기 단색 채움 상태로 남는다 — 화면상 '피부 텍스처가 없는'
-       상태가 되는데 원인을 알 방법이 없었다(특정 유저만 겪는 제보를 진단하기 어려웠던 이유).
-       실패를 콘솔에 남기고, 전부 실패하면 사용자에게도 알린다. */
-  if(!window.SKIN_PNGS || !Object.keys(pngs).length){
-    console.warn('[피부] skin-data.js의 SKIN_PNGS를 찾지 못했습니다 — 피부 텍스처 없이 단색으로 표시됩니다. 빌드에 skin-data.js가 포함됐는지 확인하세요.');
-    try{ toast('피부 텍스처를 불러오지 못했어요 — 프로그램을 다시 설치해 주세요'); }catch(_){}
-    return Promise.resolve();
-  }
-  let failed=0, total=Object.keys(pngs).length;
-  return Promise.all(Object.keys(pngs).map(k=>new Promise(res=>{const idx=+k;const img=new Image();
-    img.onload=()=>{try{const cv=newCanvas();cv.getContext('2d').drawImage(img,0,0,CANVAS_SZ,CANVAS_SZ);skinCanvases[idx]=cv;refreshSkinSwatch(idx);
-    }catch(e){ failed++; console.warn('[피부] skin['+idx+'] 처리 실패', e); }res();};
-    img.onerror=()=>{ failed++; console.warn('[피부] skin['+idx+'] 이미지 로드 실패'); res(); };
-    img.src=pngs[k];}))).then(()=>{
-      if(failed) console.warn('[피부] '+failed+'/'+total+'개 실패 — 해당 피부는 단색으로 표시됩니다.');
-      if(failed >= total){ try{ toast('피부 텍스처를 불러오지 못했어요 — 프로그램을 다시 설치해 주세요'); }catch(_){} }
-    });}
+const _crDropEraser = creatorCanvasMod._crDropEraser;   // 옛 전역 이름
+const histF = creatorCanvasMod.histF;   // 옛 전역 이름
+const histB = creatorCanvasMod.histB;   // 옛 전역 이름
+const redoF = creatorCanvasMod.redoF;   // 옛 전역 이름
+const redoB = creatorCanvasMod.redoB;   // 옛 전역 이름
+const isDrawStep = creatorCanvasMod.isDrawStep;   // 옛 전역 이름
+const actC = creatorCanvasMod.actC;   // 옛 전역 이름
+const blit = creatorCanvasMod.blit;   // 옛 전역 이름
+const pushHistory = creatorCanvasMod.pushHistory;   // 옛 전역 이름
+const bindPaint = creatorCanvasMod.bindPaint;   // 옛 전역 이름
+const swEl = creatorCanvasMod.swEl;   // 옛 전역 이름
+const _syncCrColorSwatches = creatorCanvasMod._syncCrColorSwatches;   // 옛 전역 이름
+const loadSkins = creatorCanvasMod.loadSkins;   // 옛 전역 이름
 document.getElementById('crNext').addEventListener('click',()=>creatorFlowMod.gotoStep(Math.min(6,crState.crStep+1)));
 // 🐾 동물이 책상(5)에서 [이전] 을 누르면 gotoStep 이 동물 생성기로 돌려보낸다(1~4는 사람용 단계).
 document.getElementById('crPrev').addEventListener('click',()=>creatorFlowMod.gotoStep(Math.max(1,crState.crStep-1)));
@@ -4510,148 +4233,57 @@ const creatorFlowMod = TwCreatorFlow.createCreatorFlow({
   setCreatorOpen: (v)=>{ creatorOpen = v; },
 });
 creatorFlowMod.onItemsStep(()=>deskSetupMod.renderCrItems());   // 5단계 아이템 목록 — 구독으로 잇는다(creator-flow ↔ desk-setup 순환 없게)
-/* 생성기 여는 입구 — 동물 생성기 · 종족 선택창 · 친구 추가 · 런처가 부르고, 동물이면 동물 생성기로 되돌리는 연결 자리라 app.js 에 둔다
-   (creator-flow.js 로 옮기면 animal.js ↔ 생성기 모듈 순환이 생긴다). 3D 는 creatorPrevMod · 단계는 creatorFlowMod. */
-function openCreator(mode){
-  if(!creatorPrevMod.ensureCreatorPreview()) return;   // 3D 를 못 만들면 열지 않는다(안내 · 실패 번호는 gl-context 가 냄)
-  // ★ 꾸미기 창이 켜진 채로 생성기를 열면 같은 종류의 "떠 있는 채 안 닫힘" 문제가 생길 수 있어 미리 닫음(저장하며 — backToLauncher 와 같다).
-  const wp=document.getElementById('wardrobePanel');
-  if(wp && wp.classList.contains('on') && typeof window.closeWardrobe==='function'){ try{ window.closeWardrobe(); }catch(_){} }
-  if(wp) wp.classList.remove('on');
-  const wdp=document.getElementById('wdPreviewPanel'); if(wdp) wdp.classList.remove('on');
-  creatorMode=mode||{kind:'slot',edit:false};
-  // ★ 진입 시점에 런처 화면이 보이고 있었는지 기록 — 아래에서 launcher의 'on'을 강제로 뺄 것이므로,
-  //   완료/닫기 시 이 값을 보고 되돌려야 함(안 그러면 런처에서 우클릭 수정 후 완료 눌렀을 때 화면이 통째로 사라짐).
-  creatorMode.cameFromLauncher = document.getElementById('launcher').classList.contains('on');
-  let src=null;
-  if(creatorMode.kind==='slot'&&creatorMode.edit) src=slots[creatorMode.slot];
-  if(creatorMode.kind==='seat') src=creatorMode.seat.charDef;
-  crState.currentCreatorDef = src;   // 커미션 여부 등 판정용 (gotoStep·잠금에서 사용)
-  // 🐾 동물 편집은 모양(동물 생성기)부터 — 거기서 [다음 → 책상·좌석] 이 fromAnimal 을 달고 다시 이리로 온다
-  if(_editRoute && _editRoute.entryRoute(src, creatorMode)==='animal' && reopenAnimalFromCreator('face')) return;
-  faceC.getContext('2d').clearRect(0,0,CANVAS_SZ,CANVAS_SZ);blinkC.getContext('2d').clearRect(0,0,CANVAS_SZ,CANVAS_SZ);
-  histF.length=0;histB.length=0;redoF.length=0;redoB.length=0;
-  if(src){faceC.getContext('2d').drawImage(src.face,0,0);blinkC.getContext('2d').drawImage(src.blink,0,0);crState.cTopColor=src.top;crState.cBotColor=src.bot;crState.skinIndex=src.skin||0;}
-  else{crState.cTopColor='#9dba8a';crState.cBotColor='#d98e73';crState.skinIndex=0;}
-  if(crState.cBase) crState.cBase.charDef = src;   // applyPartXf가 파츠별 위치/크기(xf)를 찾을 때 필요 — 실제 파츠 부착은 베이스 재구성 이후(swapCreatorBaseTo* 다음)에 함
-  crState.blinkEdited=!!src;   // 편집이면 기존 감은눈 유지, 신규면 3단계에서 표정을 복사해 시작
-  document.getElementById('topColor').value=crState.cTopColor;document.getElementById('botColor').value=crState.cBotColor;
-  _syncCrColorSwatches();   // ★ value 대입은 input 이벤트를 안 낸다 — 스와치는 여기서 직접 맞춘다
-  [...document.getElementById('skinRow').children].forEach((x,j)=>x.classList.toggle('on',j===crState.skinIndex));
-  if(crState.cBase){ if(crState.cBase.upMat)crState.cBase.upMat.color.set(crState.cTopColor); if(crState.cBase.loMat)crState.cBase.loMat.color.set(crState.cBotColor); if(crState.cBase.hatMat)crState.cBase.hatMat.color.set(crState.cTopColor); }
-  creatorPrevMod.updateCreatorLights();   // 수정 진입 시에도 emissive 톤 갱신
-  /* 🧍 높이는 살리고 앞뒤는 죽인다 — z 는 폐기된 값이라 옛 저장본이 무엇을 갖고 있든 0 으로 읽는다.
-     ★ 이 함수 말고도 읽는 자리가 넷 더 있다(applyCharToSeat · 런처 미리보기 · 꾸미기 미리보기 ·
-       프리셋 로드). 전부 0 으로 죽여야 "어느 화면에서만 옛 앞뒤가 살아 있는" 상태가 안 생긴다. */
-  crState.cXform = (src&&src.xf) ? {s:src.xf.s, y:clampCharY(src.xf.y), z:0, rot:src.xf.rot} : {s:0.7,y:0,z:0,rot:0};
-  // ★ 방어: 예전 저장 데이터에 xf.s가 없거나 0이면 cXform.s가 0이 되어 fitCreator에서 캐릭터 크기가
-  //   0으로 계산되던 버그(첫 진입 시 캐릭터 축소 원인). 유효한 값(>0)이 아니면 기본 슬라이더 중간값으로.
-  if(!(typeof crState.cXform.s==='number' && isFinite(crState.cXform.s) && crState.cXform.s>0)) crState.cXform.s = 0.7;
-  crState.cXform.y = clampCharY(crState.cXform.y);   // 🧍 NaN·음수·상한 초과를 한 곳에서 정리
-  crState.cXform.z = 0;                      // 🚫 폐기
-  if(typeof crState.cXform.rot!=='number' || !isFinite(crState.cXform.rot)) crState.cXform.rot = 0;
-  crState.faceCamSaved=null; crState.deskCamSaved=null;
-  crState.cDeskColor = (src&&src.deskColor) || '#c9a36a';
-  if(crState.cDeskMat) crState.cDeskMat.color.set(crState.cDeskColor);
-  customItems={}; crState.cDeskTemplate=null; crState.cDeskGlbB64=null; crState.cDeskScale=clampDeskScale((src&&src.deskScale)||DESK_SCALE_DEFAULT);
-  crState.cDeskPos = (src && src.deskPos) ? {x:+src.deskPos.x||0, y:+src.deskPos.y||0, z:+src.deskPos.z||0} : {x:0,y:0,z:0};   // 세션 커스텀 에셋 초기화(기본은 슬라이더 중간값, 범위 벗어난 옛날 값은 clamp)
-  crState.cDeskLenX = (src&&src.deskLenX) || 1;
-  const lenEl=document.getElementById('deskLenX'); if(lenEl) lenEl.value=crState.cDeskLenX;
-  crState.activeCustomDeskId=null;
-  if(crState.cDesk){ deskPlaceMod.setCreatorDeskScale(crState.cDeskScale); deskPlaceMod.setDeskPos(crState.cDesk, crState.cDeskPos); crXformMod.updateDeskPosNum(); }
-  if(crState.cBase){ creatorPrevMod.applyCreatorXform(); creatorPrevMod.clearCreatorItems(); creatorPrevMod.clearCreatorParts();   /* 🪑 이전 세션의 '책상 위' 파츠까지 걷어낸다(아래 applyEquippedPartsToSeat 가 다시 붙인다) */
-    if(crState.cDesk)crState.cDesk.userData.deskScale=crState.cDeskScale; deskVisualMod.swapDeskVisual(crState.cDesk,null);
-    (async()=>{
-      if(src&&src.deskCatalogId===NO_DESK_ID){ crState.activeCustomDeskId=NO_DESK_ID; deskVisualMod.hideDeskBody(crState.cDesk); }
-      else if(src&&src.deskCatalogId){
-        const m=commissionMod.savedDesks().find(d=>d.id===src.deskCatalogId);
-        /* 🔒 [2026-09-15] 라이선스가 빠진 뒤 남은 전용 책상 참조는 생성기에 싣지 않는다 — 실으면 저장 때
-           deskCatalogId 가 다시 굳어 실행 화면에서 매번 기본 책상으로 떨어지는 상태가 이어진다. 기본 책상으로 열린다. */
-        if(m && m.licenseOnly && !isPremium && !isAdmin){ toast('🔒 "'+(m.name||'이 책상')+'"은(는) 라이선스 보유자만 사용할 수 있어요 — 기본 책상으로 열어요'); }
-        else if(m){
-          if(!m.glb && m.glbUrl){
-            try{ await catalogGlbMod.resolveCatalogGlb(m); }catch(_){}
-          }
-          try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(m.glb)); crState.cDeskGlbB64=m.glb; crState.cDeskTemplate=sc; crState.activeCustomDeskId=m.id;
-            deskVisualMod.swapDeskVisual(crState.cDesk,sc); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); }catch(e){}
-        }
-      } else if(src&&src.deskGlb){ crState.cDeskGlbB64=src.deskGlb; try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(src.deskGlb)); crState.cDeskTemplate=sc; deskVisualMod.swapDeskVisual(crState.cDesk,sc); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor);
-        const m=commissionMod.savedDesks().find(d=>d.glb===src.deskGlb); if(m) crState.activeCustomDeskId=m.id;
-      }catch(e){} } else {
-        const ov=commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);
-        if(ov){
-          if(!ov.glb && ov.glbUrl){
-            try{ await catalogGlbMod.resolveCatalogGlb(ov); }catch(_){}
-          }
-          try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)); deskVisualMod.swapDeskVisual(crState.cDesk,sc,true); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor);
-            // ★ 코드베이스의 다른 swapDeskVisual 호출부(8381·8399·8407·9241·13717·13720·13721)는 전부
-            //   직후에 setCreatorDeskScale로 크기를 다시 먹인다. 이 '기본 책상 override' 분기만 빠져 있어서
-            //   교체 전 스케일 상태에 의존하고 있었다 — 실행 경로(applyDeskCatalogRefToSeat)와 동일하게 맞춤.
-            deskPlaceMod.setCreatorDeskScale(crState.cDeskScale);
-          }catch(e){ console.warn('[생성기] 기본 책상 GLB 파싱 실패', e); }
-        }
-      }
-      if(src&&src.customItems){ for(const id in src.customItems){ const c=src.customItems[id]; try{ const {scene:sc,animations}=await assetCodeMod.parseGlbFull(b64ToBuf(c.glb)); deskItemsMod.registerCustomItem(id,c.name,c.glb,sc,c.icon||'',animations);}catch(e){} } }
-      await loadSavedItemsIntoSession();   // localStorage에 저장된 아이템 모두 customItems에 등록
-      if(src&&src.deskItems) applyDeskItemsTo(crState.cBase, src.deskItems);
-      if(crState.crStep===5) deskSetupMod.renderCrItems();
-      // 런처4-2: 페이지 전환 시 활성 아이템 없으면 기즈모 숨김 (등록/삭제/재렌더 후 잔상 방지)
-      if(crState.crStep===5) crXformMod.attachItemGizmoToActive();
-      // ★ 커스텀 책상 GLB가 이 시점에야 로드 완료됨(비동기) — 그 전에 이미 한 번 계산된 카메라 프레이밍은
-      //   기본 책상 크기 기준이라, 실제 책상 크기(스케일 값 자체는 정상)와 화면에 보이는 줌이 어긋나 보이던
-      //   원인. 로드가 다 끝난 지금 시점에 책상/좌석 화면이면 카메라를 다시 계산해서 맞춤.
-      if(crState.crStep===5||crState.crStep===6){ creatorPrevMod.fitCreator('app'); creatorPrevMod.frameDeskCam(false); }   // 아이템도 비동기로 늦게 붙을 수 있어 크기·카메라 둘 다 다시 계산
-    })();
-  }
-  document.getElementById('creatorOverlay').classList.add('on');document.getElementById('launcher').classList.remove('on');
-  creatorOpen=true;
-  if(creatorPrevMod.crFlatView) creatorPrevMod.crFlatView.set(false);   // 지난번에 켜 둔 원색 보기를 다음 열기로 끌고 오지 않는다
-  // 커미션 캐릭터면 책상 세팅(5단계)부터 진입 + cBase의 베이스 GLB를 커미션 GLB로 교체
-      if(src && src.animal){
-        creatorFlowMod.gotoStep(_editRoute ? _editRoute.deskStep(creatorMode) : 5);   // 🐾 동물 생성기 «좌석 세팅» 으로 왔으면 6
-        creatorPrevMod.swapCreatorBaseToAnimal(src).then(()=>{
-          if(crState.cBase) creatorPrevMod.fitCreator('app');
-          // 진단(임시) — 실행 쪽과 같은 조건(책상 GLB 비동기 로드 완료 후)에서 재야 비교가 성립한다.
-          /* 🐾 착용 파츠 부착 — 이 한 줄이 **이 가지에만 빠져 있었다.**
-             커미션(아래)·기본(그 아래) 두 가지는 베이스 교체 직후 applyEquippedPartsToSeat 을 부르는데
-             동물만 안 불러서, 생성기 미리보기에 동물 몸만 서고 모자·안경·책상 위 파츠가 전부 안 보였다
-             (제보: "동물 캐릭터 수정하면 적용한 파츠가 안 나온다"). 실행 화면(applyCharToSeat)과
-             꾸미기 미리보기(refreshWdPreviewChar)는 각자 부르고 있어서 생성기에서만 나던 증상이다.
-             ★ 순서가 중요하다 — swapCreatorBaseToAnimal 이 extractBonesInto 로 부착점을 다시 뽑은
-               **뒤**여야 한다. 그 전에 부르면 옛 인간 본에 붙었다가 베이스와 함께 사라진다.
-             ★ 부착이 끝난 뒤 fitCreator 를 한 번 더 — 파츠가 바운딩박스를 늘리므로(커미션 가지와 같은 이유). */
-          if(crState.cBase && src.equippedParts){
-            applyEquippedPartsToSeat(crState.cBase, src).then(()=>{
-              if(crState.cBase) creatorPrevMod.fitCreator(crState.crStep<=4 ? 'edit' : 'app');
-            });
-          }
-        });
-      } else if(src && src.isCommission){
-        creatorFlowMod.gotoStep(5);
-        creatorPrevMod.swapCreatorBaseToCommission(src).then(()=>{
-          if(crState.cBase && src.equippedParts){
-            applyEquippedPartsToSeat(crState.cBase, src).then(()=>{
-              // ★ 파츠가 비동기로 늦게 붙는데, 그 전에 이미 계산돼서 굳어버린 크기(fitCreator)가 그대로
-              //   남아있던 문제 — 부착이 끝난 시점에 지금 스텝에 맞는 모드로 다시 계산해서 맞춤.
-              if(crState.cBase) creatorPrevMod.fitCreator(crState.crStep<=4 ? 'edit' : 'app');
-            });
-          }
-        });
-      } else {
-        // 💡 기다릴 필요 없이 즉시 뼈대 복구 후 1단계로 진입합니다.
-        creatorPrevMod.swapCreatorBaseToDefault(); 
-        if(crState.cBase && src && src.equippedParts){
-          applyEquippedPartsToSeat(crState.cBase, src).then(()=>{
-            // ★ 파츠가 붙은 뒤 다시 계산 — 파츠(망토·귀 등)가 캐릭터 바운딩박스를 늘려서 refSize.y가
-            //   달라짐. 첫 진입 때 파츠가 아직 안 붙은 상태로 계산된 크기가 작게 나오던 원인.
-            if(crState.cBase) creatorPrevMod.fitCreator(crState.crStep<=4 ? 'edit' : 'app');
-          });
-        }
-        creatorFlowMod.gotoStep(1);
-      }
-      requestAnimationFrame(creatorPrevMod.creatorLoop);
-      applyDesktopRunClass();
-}
+/* 본문은 creator/creator-open.js 로 옮겼다(앱 FSD · app.js 분리 M21). 생성기 여는 입구 · 런처 다시 그리기의 주인이다. 뒤에서 선언되는 값은 읽는 · 쓰는 함수로 다룬다. */
+const creatorOpenMod = TwCreatorOpen.createCreatorOpen({
+  closeWardrobe: (...a)=>window.closeWardrobe(...a),
+  _editRoute: _editRoute,
+  _syncCrColorSwatches: _syncCrColorSwatches,
+  applyDeskItemsTo: applyDeskItemsTo,
+  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
+  applyEquippedPartsToSeat: applyEquippedPartsToSeat,
+  assetCodeMod: ()=>assetCodeMod,
+  b64ToBuf: b64ToBuf,
+  blinkC: blinkC,
+  CANVAS_SZ: CANVAS_SZ,
+  catalogGlbMod: ()=>catalogGlbMod,
+  CHAR_SLOT_MAX: CHAR_SLOT_MAX,
+  clampCharY: clampCharY,
+  clampDeskScale: clampDeskScale,
+  commissionMod: ()=>commissionMod,
+  creatorFlowMod: creatorFlowMod,
+  creatorMode: ()=>creatorMode,
+  setCreatorMode: (v)=>{ creatorMode = v; },
+  setCreatorOpen: (v)=>{ creatorOpen = v; },
+  creatorPrevMod: creatorPrevMod,
+  crState: crState,
+  crXformMod: crXformMod,
+  curSlot: ()=>curSlot,
+  setCustomItems: (v)=>{ customItems = v; },
+  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
+  DESK_SCALE_DEFAULT: DESK_SCALE_DEFAULT,
+  deskItemsMod: ()=>deskItemsMod,
+  deskPlaceMod: ()=>deskPlaceMod,
+  deskSetupMod: deskSetupMod,
+  deskVisualMod: ()=>deskVisualMod,
+  faceC: faceC,
+  histB: histB,
+  histF: histF,
+  isAdmin: ()=>isAdmin,
+  isPremium: ()=>isPremium,
+  launcherCtlMod: ()=>launcherCtlMod,
+  launcherPrevMod: ()=>launcherPrevMod,
+  licenseGateMod: licenseGateMod,
+  loadSavedItemsIntoSession: (...a)=>loadSavedItemsIntoSession(...a),
+  NO_DESK_ID: NO_DESK_ID,
+  redoB: redoB,
+  redoF: redoF,
+  reopenAnimalFromCreator: reopenAnimalFromCreator,
+  slots: slots,
+  slotSyncMod: ()=>slotSyncMod,
+  toast: (...a)=>toast(...a),
+});
+const openCreator = creatorOpenMod.openCreator;   // 옛 전역 이름
+const renderLauncher = creatorOpenMod.renderLauncher;   // 옛 전역 이름
 
 /* (C 구역 떼기 · w3) 이 자리의 본문도 creator/creator-preview.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* (C 구역 떼기 · w3) 이 자리의 본문도 creator/creator-flow.js 로 옮겼다 — 만드는 줄은 첫 자리. */
@@ -4747,19 +4379,6 @@ const launcherPrevMod = TwLauncherPreview.createLauncherPreview({
   slots: slots,
   swapDeskVisual: (...a)=>deskVisualMod.swapDeskVisual(...a),
 });
-/* 런처 다시 그리기 — 여러 모듈이 부르는 연결 자리라 app.js 에 둔다(launcher-preview.js 로 옮기면 슬롯 · 라이선스 모듈과 순환이 생긴다). */
-function renderLauncher(){
-  launcherPrevMod.ensureLauncherPreview();
-  // 🎟️ 런처를 열 때마다 초대장 버튼 상태 갱신 (invite 노드 삭제/지급 등 외부 변화 반영)
-  licenseGateMod.refreshInviteBtn();
-  const def=slots[curSlot];
-  document.getElementById('lcCount').textContent='('+(curSlot+1)+'/'+CHAR_SLOT_MAX+')';
-  document.getElementById('lcEmpty').style.display=def?'none':'flex';
-  document.getElementById('lcGear').style.display=def?'block':'none';
-  document.getElementById('lcPreview').style.display=def?'block':'none';
-  /* #lcLoad([내 정보]) · lcCreate(HTML 에서 늘 disabled)는 여기서 토글하지 않는다. */
-  launcherPrevMod.sizeLauncherPreview();launcherPrevMod.setLauncherChar(def);launcherCtlMod.closeGearMenu();
-  try{ slotSyncMod._slotsRenderBand(); }catch(_){}}   // 🛟 연동 띠(3-7-2 A안)
 
 /* ═══ 🎛️ 런처 컨트롤 — 슬롯 넘기기 · 톱니 메뉴 · 삭제 · 보관함 이동 ═══ */
 /* 본문은 launcher/launcher-controls.js 로 옮겼다(C 구역 떼기 · w3). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
@@ -4898,7 +4517,7 @@ const appModeMod = TwAppMode.createAppMode({
   focusLevelMod: ()=>focusLevelMod,
   gachaMod: ()=>gachaMod,
   layoutSeats: (...a)=>layoutSeats(...a),
-  setMyHomeOpen: (v)=>{ myHomeOpen = v; },
+  setMyHomeOpen: (v)=>{ windowModeMod.setMyHomeOpen(v); },
   overheadMod: overheadMod,
   Presence: ()=>Presence,
   renderLauncher: renderLauncher,
@@ -6309,36 +5928,6 @@ const expBarMod = TwExpBar.createExpBar({
 });
 
 /* ═══ 🖥️ 활성 앱 판정(_applyActiveAppState) ═══ */
-let _focusLastTick=performance.now(), _focusWasActive=false;
-function _applyActiveAppState(state){
-  if(!state) return;
-  const now=performance.now(), dt=(now-_focusLastTick)/1000; _focusLastTick=now;
-  // 직전 폴링 시점에 "등록된 포커스 앱을 실제로 쓰고 있었다"면 그 사이 흐른 시간만큼 누적.
-  // dt가 비정상적으로 크면(창 최소화·컴퓨터 절전 등으로 폴링이 끊겼던 경우) 오차 누적 방지로 건너뜀.
-  // ★ 기록 정지 기준 = 캐릭터가 idle로 바뀌는 순간(FOCUS_MS). 예전엔 sleep(SLEEP_MS=8초) 기준이라
-  //   손을 뗀 뒤 캐릭터가 이미 idle인데도 8초까진 기록이 계속 쌓였다. 이제 마지막 입력 후 FOCUS_MS가
-  //   지나 캐릭터가 '집중(focus) 포즈'를 벗어나면(=idle 진입) 즉시 누적을 멈춘다.
-  //   → "실제로 입력하며 집중하는 동안"만 시간이 쌓임. 입력이 재개되면 다음 폴링부터 다시 누적.
-  /* 📱 폰 켜짐이면 PC 입력 조건을 건너뛴다 — PC 입력이 없는 게 정상이라 그대로 두면 한 초도 안 쌓인다(요구: PC 와 똑같이). */
-  const mobOn = focusLevelMod._mobileOn();
-  const pcNotFocusing = (now - seatStateMod.lastActivity()) > focusWindowMs();
-  const notFocusingNow = mobOn ? false : pcNotFocusing;
-  /* 🧸 피규어 모드면 쌓지 않는다 — 직전 폴링 값(_focusWasActive)이 아니라 지금 값을 봐서, 켠 순간부터 멈춘다. */
-  if(!officeModeMod.figureMode() && _focusWasActive && !notFocusingNow && dt>0 && dt<30) focusLevelMod.addFocusSeconds(dt);
-  /* 👑 달성표 🎯집중 — "오늘 그 앱을 몇 초 썼나"를 같은 dt 로 여기서 센다.
-     ★ 새 타이머를 만들지 않는 이유: dt 는 _focusLastTick 을 소비해서 나온다. 밖에서 따로 재면
-       같은 구간을 두 번 세거나 서로 _focusLastTick 을 리셋해서 둘 다 틀린다.
-     ★ _focusWasActive(=등록된 포커스 앱이 활성)를 조건에 안 거는 이유: 그건 평생 누적치용 게이트다.
-       달성표는 사용자가 고른 exe 하나만 보므로, 그 앱이 포커싱 어플 슬롯에서 빠져도 계속 세야 한다. */
-  if(!officeModeMod.figureMode() && dt>0 && dt<30 && !pcNotFocusing) weeklyChal.focusTick(state, dt);   // 📱 폰 시간은 안 넣는다(exe 기준 · 이번 범위 밖)
-  /* 이 기기의 플랫폼 접두사를 main 이 보낸 키에서 배운다 — 렌더러가 스스로 판단하지 않는다.
-     구버전 main 은 key 를 안 보내므로 null 로 남고, 그때는 플랫폼 판정을 아예 안 한다. */
-  if(state.key) weeklyChal.setKeyPlatform(String(state.key).split(':')[0] || null);
-  seatStateMod.setSelfAppActive(!!state.isSelf);   // 구버전 main 은 안 보낸다 — 그때는 예전처럼 잔다
-  seatStateMod.setPenAppFocused(!!state.isPenApp);   // 🖊️ 펜 앱이면 기록 창을 4초로 넓힘(focusWindowMs)
-  focusGateSleep = officeModeMod.figureMode() ? false : (mobOn ? false : (state.hasAnyRegistered ? !state.isFocusedAppRegistered : true));
-  _focusWasActive = !!(state.hasAnyRegistered && state.isFocusedAppRegistered) || mobOn;
-}
 
 /* ═══ 👑 달성표 · 🍅 뽀모도로 모듈 연결 ═══ */
 /* 👑 달성표(주간 규칙 · 기록 · 화면) — parts/weekly-challenge.js 로 옮겼다(앱 FSD 2번 · docs/APP_FSD_MAP.md).
@@ -6377,31 +5966,23 @@ const pomodoro = TwPomodoro.createPomodoro({
 });
 
 /* ═══ 🖥️ 데스크탑 실행 화면 — 창 크기 · 업데이트 배너 · 전역 입력 · 클릭 통과 · 하트비트 ═══ */
-let myHomeOpen = false;   // ★ 마이홈 팝업이 "런처에서" 열려있는지 — 이때만 창 크기를 생성기처럼 키움
-                          //   (실행 화면은 이미 전체화면이라 그 안에서 여는 건 그대로 둬도 잘 맞음)
-function applyDesktopRunClass(){ if(!desktopMode) return;
-  const launcherOn = document.getElementById('launcher').classList.contains('on');
-  /* 🪟 **여는 쪽 플래그가 아니라 화면을 본다.** 예전엔 myHomeOpen 만 봤는데, 그 플래그를 세우는
-     자리가 셋(open · openFriendHomeView · 런처 복귀)이라 한 곳만 어긋나도 창 크기가 갈렸다.
-     실제로 openFriendHomeView 가 이 함수를 안 불러서 마이홈이 380px 창 밖으로 나갔다(제보).
-     오버레이의 .on 이 곧 "지금 마이홈이 떠 있다"이므로 그걸 직접 본다 — 새 진입 경로가 생겨도
-     플래그를 세우는 것을 잊었다는 이유로 창 크기가 틀리는 일이 없어진다.
-     ⚠️ 그래도 이 함수는 **누군가 불러줘야** 한다. 오버레이를 여는 새 경로를 만들면 여기도 부를 것. */
-  const mhOv = document.getElementById('myHomeOverlay');
-  const mhOn = !!(mhOv && mhOv.classList.contains('on')) || myHomeOpen;
-  const showMyHomeSized = mhOn && launcherOn;
-  const config = launcherOn || creatorOpen;
-  const runOverlay = appModeMod.appMode()==='run' && !config;
-  document.body.classList.toggle('runmode', runOverlay);
-  document.body.classList.toggle('config', config);   // 런처/생성기 열림 여부 — CSS에서 #scene 숨김에 사용
-  if(typeof floor!=='undefined') floor.visible = !runOverlay;        // 투명 오버레이일 땐 바닥 숨김(데스크톱 비침)
-  key.castShadow = FrameBudget.castShadowFor(runOverlay);   // 바닥이 없으니 그림자도 안 만든다(frame-budget.js)
-  // 화면 종류에 따라 창 크기가 달라야 함: 생성기는 넓게, 마이홈(런처에서 열렸을 때)도 넓게, 런처는 카드 크기, 실행은 전체화면
-  const mode = creatorOpen ? 'creator' : (showMyHomeSized ? 'myhome' : (launcherOn ? 'launcher' : 'run'));
-  // 🎨 런처 마이홈 — 창 밖으로 나간 스티커만큼 창을 넓혀 달라고 같이 보낸다(_mhStickerOverhang)
-  const extra = (mode === 'myhome') ? mhStLayoutMod._mhStickerOverhang() : null;
-  if(window.companion&&companion.setConfigMode) companion.setConfigMode(config, mode, extra);
-}
+/* 본문은 launcher/window-mode.js 로 옮겼다(앱 FSD · app.js 분리 M22). 활성 앱 판정 · 창 모드(마이홈 열림 · applyDesktopRunClass)의 주인이다 — 판단은 옛 그대로. 다시 대입되거나 뒤에서 선언되는 값은 읽는 · 쓰는 함수로 다룬다. */
+const windowModeMod = TwWindowMode.createWindowMode({
+  appModeMod: appModeMod,
+  creatorOpen: ()=>creatorOpen,
+  desktopMode: desktopMode,
+  floor: floor,
+  setFocusGateSleep: (v)=>{ focusGateSleep = v; },
+  focusLevelMod: focusLevelMod,
+  focusWindowMs: focusWindowMs,
+  key: key,
+  mhStLayoutMod: mhStLayoutMod,
+  officeModeMod: officeModeMod,
+  seatStateMod: seatStateMod,
+  weeklyChal: weeklyChal,
+});
+const _applyActiveAppState = windowModeMod._applyActiveAppState;   // 옛 전역 이름
+const applyDesktopRunClass = windowModeMod.applyDesktopRunClass;   // 옛 전역 이름
 /* 본문은 desktop-run.js 로 옮겼다(앱 FSD 32번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const desktopRunMod = TwDesktopRun.createDesktopRun({

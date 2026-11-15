@@ -169,3 +169,10 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - **만드는 법**: `TwMoveMode.createMoveMode({ … 6개 })` — 값 넷 · 함수 둘(`layoutSeats` · `toast`). 원래 자리에서 만든다 — 듣기가 이때 걸린다.
 - **내보내는 것**: `_charProjSane`(함수) · 값 여섯은 읽는 함수 `이름()` + 쓰는 함수 `set이름(v)`.
 - **함정**: 확정 pointerdown 은 capture 로 클릭 통과 로직보다 먼저 잡는다. 검사: `checks/sim-move-mode.js`.
+
+## window-mode.js — 🪟 창 모드 정하기 · 활성 앱 판정
+
+- **책임**: `_applyActiveAppState`(포커싱 어플 폴링 결과로 누적 시간 · 게이트 · 달성표 · 자기 창 · 펜 앱을 갱신) · `myHomeOpen`(마이홈이 런처에서 열려 있는가) · `applyDesktopRunClass`(화면을 보고 `runmode` · `config` 클래스 · 바닥 · 그림자를 정하고 main 에 창 모드 creator · myhome · launcher · run 을 보낸다). 판단은 옛 그대로(F2 의 바탕).
+- **만드는 법**: `TwWindowMode.createWindowMode({ … 12개 })` — 읽는 함수 하나(`creatorOpen`) · 쓰는 함수 하나(`setFocusGateSleep`) · 값 열. 원래 자리(데스크탑 실행 화면 구역 머리 앞)에서 만든다.
+- **내보내는 것**: `_applyActiveAppState` · `applyDesktopRunClass`(app.js 가 같은 이름 const 로) · `myHomeOpen()` · `setMyHomeOpen(v)`.
+- **함정**: `applyDesktopRunClass` 는 «누군가 불러줘야» 한다 — 오버레이를 여는 새 길이 생기면 여기도 부를 것. 여는 쪽 플래그가 아니라 화면(오버레이 `.on`)을 본다. 검사: `checks/sim-window-mode.js`.

@@ -13,7 +13,7 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const APP = read('app.js');
 if(!APP){ say('  ? 원본 못 찾음 — app.js'); process.exit(2); }
-const SRC = APP;   // _applyActiveAppState 는 app.js 에 그대로 있다 — 옮기기 전 글(joinRenderer)은 deps 이름을 되돌려 이 판과 안 맞는다
+const SRC = read('window-mode.js') || read('parts/launcher/window-mode.js') || read('app/parts/launcher/window-mode.js');   // _applyActiveAppState 는 launcher/window-mode.js(M22)로 옮겼다 — deps 이름 그대로 읽는다
 const SSRC = read('seat-state.js') || read('parts/status/seat-state.js') || read('app/parts/status/seat-state.js');   // seatState 는 app.js 분리 M10 에서 status/seat-state.js 로 옮겼다
 if(!SSRC){ say('  ? 원본 못 찾음 — seat-state.js'); process.exit(2); }
 
@@ -54,6 +54,7 @@ function applyEnv(fnSrc){
   vm.createContext(ctx);
   vm.runInContext(`
     let lastActivity = 0, figureMode = false, focusGateSleep = true, _penAppFocused = false, _selfAppActive = false;
+    const setFocusGateSleep = (v) => { focusGateSleep = v; };   // 게이트는 쓰는 함수로 바꾼다(window-mode.js)
     const officeModeMod = { figureMode: () => figureMode };   // 깃발은 launcher/office-mode.js 가 갖고 app.js 는 읽는 함수로 읽는다
     function focusWindowMs(){ return 1500; }
     const seatStateMod = { lastActivity: () => lastActivity, setSelfAppActive: (v) => { _selfAppActive = v; }, setPenAppFocused: (v) => { _penAppFocused = v; } };   // 활동 시각 · 깃발은 status/seat-state.js 가 갖는다

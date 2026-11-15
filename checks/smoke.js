@@ -725,6 +725,12 @@ PRELOAD.push('ls-set.js');
 PRELOAD.push('rig-anim.js');
 /* frame-pace.js — 🔋 프레임 상한 · rAF 멈춤 감시. app.js 가 원래 자리에서 createFramePace 로 만든다. */
 PRELOAD.push('frame-pace.js');
+/* window-mode.js — 🪟 창 모드 정하기 · 활성 앱 판정. app.js 가 원래 자리에서 createWindowMode 로 만든다. */
+PRELOAD.push('window-mode.js');
+/* creator-open.js — 🧍 생성기 여는 입구 · 런처 다시 그리기. app.js 가 원래 자리에서 createCreatorOpen 로 만든다. */
+PRELOAD.push('creator-open.js');
+/* creator-canvas.js — 🎨 생성기 그림판. app.js 가 원래 자리에서 createCreatorCanvas 로 만든다. */
+PRELOAD.push('creator-canvas.js');
 /* frame-loop.js — 🎞 프레임 한 장(frame). app.js 가 원래 자리에서 createFrameLoop 로 만든다. */
 PRELOAD.push('frame-loop.js');
 /* flying-chair.js — 🪑 플라잉체어 — canFly · startFlight. app.js 가 원래 자리에서 createFlyingChair 로 만든다. */
