@@ -18,12 +18,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — floaters.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = [];
-const VAL_DEPS = ["ANIMAL_RUN_SCALE","scene"];
+const VAL_DEPS = ["ANIMAL_RUN_SCALE","floatersAccountStore","scene"];
 const GET_DEPS = ["focusCharScale"];
 const SET_DEPS = [];
-const EXPORTS = ["FLOATER_BASE_SCALE","FLOATER_BURST","FLOATER_RISE","MY_PET_ECHO_MS","MY_PET_SEND_GAP_MS","_myPetLocalAt","setMyPetLocalAt","_myPetSentAt","setMyPetSentAt","emojiReactionsEnabled","setEmojiReactionsEnabled","floaters","spawnFloater"];
+const EXPORTS = ["FLOATER_BASE_SCALE","FLOATER_BURST","FLOATER_RISE","MY_PET_ECHO_MS","MY_PET_SEND_GAP_MS","_myPetLocalAt","setMyPetLocalAt","_myPetSentAt","setMyPetSentAt","emojiReactionsEnabled","setEmojiReactionsEnabled","loadLocal","resetLocal","floaters","spawnFloater"];
 const MOVED = ["floaters","spriteChar","_floaterWP","emojiReactionsEnabled","FLOATER_BASE_SCALE","FLOATER_SPREAD_X","FLOATER_DRIFT_X","FLOATER_RISE","FLOATER_HEAD_Y","FLOATER_BURST","MY_PET_SEND_GAP_MS","MY_PET_ECHO_MS","_myPetSentAt","_myPetLocalAt","_floaterK","spawnFloater"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,","  focusCharScale: ()=>focusCharScale,","  scene: scene,"];
+const GLUE = ["  floatersAccountStore: accountStoreMod,","  ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,","  focusCharScale: ()=>focusCharScale,","  scene: scene,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */

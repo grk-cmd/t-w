@@ -17,9 +17,6 @@ const BELL_SEEN_KEY = deps.BELL_SEEN_KEY;
 const asyncPrompt = deps.asyncPrompt;   // 비밀번호 다시 확인 창(shared/async-prompt.js — secret · validate 옵션)
 const notifyError = deps.notifyError;
 const accountLegacyStore = deps.accountLegacyStore;   // 🗂️ 계정별 칸 — 로그아웃 때 아직 PC 칸에 남은 옛 값을 지우기 전에 옮기려고 migrateLegacy 만 부른다
-const CUR_SLOT_KEY = deps.CUR_SLOT_KEY;
-const CUSTOM_STATUS_KEY = deps.CUSTOM_STATUS_KEY;
-const EXTRA_SEAT_KEY = deps.EXTRA_SEAT_KEY;
 const INBOX_BC_READ_KEY = deps.INBOX_BC_READ_KEY;
 const LICENSE_REQ_ID_KEY = 'tw.licenseReqId';   // 0.12 옛 요청 번호 — 요청 화면은 걷었고 남은 값만 지운다
 const MY_FRIEND_CODE_KEY = deps.MY_FRIEND_CODE_KEY;
@@ -124,18 +121,16 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
   LICENSE_REQ_ID_KEY,   // 🎫 옛 값 지움
   /* 오늘치 · 못 올린 집중 시간은 계정별 칸(shared/account-store.js)이라 여기서 지우지 않는다 — 계정을 바꾸면 다른 칸이 열린다. */
   /* 캐릭터는 서버가 원본이라 이 PC 에 지울 저장본이 없다. 올리기 캐시 둘은 users/{uid}/ 경로의 URL 이라
-     **다른 uid 가 물려받으면 남의 Storage 를 가리킨다** — 반드시 같이 지운다. */
-  CUR_SLOT_KEY, 'tw.slotGlbUrls', 'tw.roomFaceUrls',
+     **다른 uid 가 물려받으면 남의 Storage 를 가리킨다** — 반드시 같이 지운다. 지금 슬롯 · 자리 추가 슬롯은 계정 칸(S-4a)이라 여기 없다. */
+  'tw.slotGlbUrls', 'tw.roomFaceUrls',
   /* ⚠️ SLOTS_BAK_KEY(덮어쓰기 직전 백업)는 **일부러 빼 두었다.** 위 ⚠️ 의 「돌아오는 길이 없는
      항목을 여기 넣으면 로그아웃이 곧 삭제」가 그 이유다 — 백업은 정의상 서버에 없는 것이라
      지우면 그것으로 끝이다. 남의 캐릭터를 주워 가는 길은 restoreSlotsBackup 의 uid 대조로 막는다.
      (빠뜨린 것으로 보고 넣지 말 것 — 제보 3-7) */
-  EXTRA_SEAT_KEY,              // 슬롯 번호 목록 — 슬롯이 사라지면 가리키는 곳이 없다
-  /* 플레이리스트 — 목록은 서버가 원본이라 이 PC 에 두지 않는다(옛 목록 이름은 첫 실행이 지운다). 지금 고른 목록 번호만 남는다.
+  /* 플레이리스트 — 목록은 서버가 원본이라 이 PC 에 두지 않는다(옛 목록 이름은 첫 실행이 지운다). 지금 고른 목록 번호는 계정 칸(S-4a)이라 여기 없다.
      볼륨·반복·미니미·창 위치는 기기 설정이라 남긴다. */
-  'tw.playlistCur',
   /* 프로필·읽음 표시 — 이름은 스냅샷(r.name), 나머지는 새로 쌓이면 된다. */
-  USER_NAME_KEY, CUSTOM_STATUS_KEY, 'tw.userStatus', 'tw.awayKind',
+  USER_NAME_KEY,   // 커스텀 상태 · 상태 · 자리비움 종류는 계정 칸(S-4a)이라 여기 없다
   BELL_SEEN_KEY, INBOX_BC_READ_KEY, tricksMod.BONK_DAY_KEY,
 ];
 /* 접두어로 쌓이는 키(방마다 하나)는 계정 칸으로 옮겼다(shared/account-store.js MOVED_KEY_PREFIXES) — 로그아웃이 지우지 않는다. 계정 칸은 칸 이름이 달라 다음 사람에게 섞이지 않는다. */

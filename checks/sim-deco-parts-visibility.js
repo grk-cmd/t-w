@@ -19,12 +19,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — deco-parts-visibility.js'); process.exi
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = [];
-const VAL_DEPS = [];
+const VAL_DEPS = ["decoAccountStore"];
 const GET_DEPS = ["premiumMod"];
 const SET_DEPS = [];
-const EXPORTS = ["applyDecoPartsVisibility","decoPartsVisible","setDecoPartsVisible"];
+const EXPORTS = ["applyDecoPartsVisibility","decoPartsVisible","setDecoPartsVisible","loadLocal","resetLocal"];
 const MOVED = ["decoPartsVisible","_decoWrapperShow","applyDecoPartsVisibility"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  premiumMod: ()=>premiumMod,"];
+const GLUE = ["  decoAccountStore: accountStoreMod,","  premiumMod: ()=>premiumMod,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -102,8 +102,12 @@ say('── 4. 동작 — 꾸미기 파츠 숨기기');
     if(typeof MOD === 'string' && MOD){
       const win = {};
       new Function('window', 'module', 'localStorage', MOD)(win, undefined, ls);
-      const m = win.TwDecoPartsVisibility.createDecoPartsVisibility({ premiumMod: () => premiumMod });
-      return { apply: m.applyDecoPartsVisibility, isOn: () => m.decoPartsVisible(), set: (v) => m.setDecoPartsVisible(v) };
+      /* 계정 칸은 확인 뒤에야 읽힌다 — 만들 때는 읽지 않고(읽으면 reads 가 올라간다) loadLocal 이 읽는다 */
+      const reads = [];
+      const m = win.TwDecoPartsVisibility.createDecoPartsVisibility({ premiumMod: () => premiumMod, decoAccountStore: { get: (k) => { reads.push(k); return ls.getItem(k); }, set: () => true } });
+      const made = reads.length;
+      m.loadLocal();
+      return { apply: m.applyDecoPartsVisibility, isOn: () => m.decoPartsVisible(), set: (v) => m.setDecoPartsVisible(v), reset: () => m.resetLocal(), readsAtMake: made, reads };
     }
     const a = SRC.indexOf('/* 🎁 꾸미기 파츠 표시'), b = SRC.indexOf('\n}\n', SRC.indexOf('function applyDecoPartsVisibility(seat){')) + 3;
     return new Function('premiumMod', 'localStorage', SRC.slice(a, b) + '\nreturn { apply: applyDecoPartsVisibility, isOn: () => decoPartsVisible, set: (v) => { decoPartsVisible = v; } };')(premiumMod, ls);
@@ -114,7 +118,8 @@ say('── 4. 동작 — 꾸미기 파츠 숨기기');
       { userData: { __twPartWrap: true, cat: 'zzz' }, visible: true }, { userData: {}, visible: true }, { visible: true }];
     return { objs, group: { traverse: (cb) => objs.forEach(cb) } };
   };
-  chk(mk({}, CATS).isOn() === true && mk({ 'tw.decoParts': '0' }, CATS).isOn() === false && mk({ 'tw.decoParts': '1' }, CATS).isOn() === true, '깃발 — 기본 켜짐 · 저장값 0 이면 꺼짐');
+  chk(mk({}, CATS).isOn() === true && mk({ 'tw.decoParts': '0' }, CATS).isOn() === false && mk({ 'tw.decoParts': '1' }, CATS).isOn() === true, '깃발 — 기본 켜짐 · 계정 칸 값 0 이면 꺼짐(확인 뒤 loadLocal 이 읽은 뒤)');
+  { const k = mk({ 'tw.decoParts': '0' }, CATS); chk(k.readsAtMake === 0 && k.reads.join() === 'tw.decoParts', '  만들 때는 계정 칸을 읽지 않는다(0번) — loadLocal 이 한 번 읽는다'); k.reset(); chk(k.isOn() === true, '  세션이 끝나면(resetLocal) 처음 값(켜짐)으로'); }
   let D = mk({}, CATS), S = seatOf();
   S.objs.forEach(o => { o.visible = false; }); D.apply(S);
   chk(S.objs.slice(0, 3).every(o => o.visible === true) && S.objs[3].visible === false && S.objs[4].visible === false, '켬 — 파츠 wrapper 는 모두 보이게 · wrapper 가 아닌 것은 안 건드린다');

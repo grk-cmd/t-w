@@ -84,7 +84,7 @@ const IDS = ['myPlBtn', 'myPlaylistBox', 'myPlHead', 'myPlTitle', 'myPlClose', '
   'myPlNick', 'myPlLv', 'myPlAva', 'myPlHeadAva', 'myPlPubWrap', 'myPlPub', 'myPlHint', 'myPlBioView', 'myPlBioEdit', 'myPlNow'];
 function mkEnv(o){
   o = o || {};
-  const env = { refreshed: [], onRefresh: null, t: 1000000, timers: [], tid: 0, calls: [], toasts: [], store: new Map(Object.entries(o.store || {})), esc: [], prompts: (o.prompts || []).slice(),
+  const env = { acctReads: [], refreshed: [], onRefresh: null, t: 1000000, timers: [], tid: 0, calls: [], toasts: [], store: new Map(Object.entries(o.store || {})), esc: [], prompts: (o.prompts || []).slice(),
     titles: o.titles || {}, cards: {}, rand: 0.5, front: [], chipClosed: [], reposition: 0, home: [], friends: o.friends || {}, cb: {}, warns: [], errors: [], errArgs: [] };
   const byId = {};
   const doc = {
@@ -167,7 +167,11 @@ function mkEnv(o){
       closeChipPopups: (id) => env.chipClosed.push(id), repositionOpenChipPopups: () => { env.reposition++; },
       bringWinToFront: (id) => env.front.push(id), escRegisterWindow: (w) => env.esc.push(w), escEditable: (t) => !!(t && t.tagName === 'INPUT'),
       playlistApi, notifyError: (c, err) => { env.errors.push(c); env.errArgs.push(err); },
+      /* 계정 칸 — 같은 store 위에(이 검사는 키 이름으로만 본다). 만들 때는 읽지 않고 확인 뒤 loadLocal 이 읽는다(아래) */
+      playlistAccountStore: { get: (k) => { env.acctReads.push(k); return env.store.has(k) ? env.store.get(k) : null; }, set: (k, v) => { env.store.set(k, String(v)); return true; } },
     }, extra || {}));
+    env.madeReads = env.acctReads.length;
+    env.m.loadLocal();   // 확인 뒤(userLocal 칸) — 고른 목록 번호를 계정 칸에서 읽는다
     if(!o.noGatePull) env.m.start(env.session);   // 서버 계정이 확인된 뒤 켜는 차례(app-boot 의 playlist)가 한 번 부르는 것과 같다 — 만들 때는 받지 않는다
     return env.m;
   };
@@ -209,6 +213,7 @@ async function behave(src){
   {
     const e0 = mkEnv({ src, store: { 'tw.playlistSets': setsOf(songs(1)) } }); const m0 = e0.mk();
     chk(m0.state().sets.every(x => !x.items.length), '★ 이 기기에 옛 목록 키(tw.playlistSets)가 있어도 읽지 않는다');
+    chk(e0.madeReads === 0 && e0.acctReads.join() === 'tw.playlistCur', '★ 만들 때는 계정 칸을 읽지 않는다(0번) — 확인 뒤 loadLocal 이 고른 목록 번호를 한 번 읽는다');
   }
   {
     const e = E({ store: { 'tw.playlist': JSON.stringify(songs(2)), 'tw.playlistTitle': '옛 이름', 'tw.playlistLoopMode': '3', 'tw.playlistVol': '250', 'tw.playlistHomePublic': 'true', 'tw.playlistPrivate': '1', 'tw.playlistCur': '9' } });
@@ -945,9 +950,9 @@ function wiring(PL, APP, HTML){
     ['myFocusShow', 'myFocusShow'], ['starFromRemote', 'starFromRemote'], ['lvBadgeClass', 'lvBadgeClass'], ['lvStarBadgeClass', 'lvStarBadgeClass'], ['lvStarStr', 'lvStarStr'],
     ['starPaint', '_starPaint'], ['openFriendHomeView', 'openFriendHomeView'], ['closeChipPopups', '_closeChipPopups'], ['repositionOpenChipPopups', '_repositionOpenChipPopups'],
     ['bringWinToFront', 'bringWinToFront'], ['escRegisterWindow', 'escRegisterWindow'], ['escEditable', '_escEditable'], ['friendsRefreshPresence', 'friendsSubMod.refreshPresence']];
-  const want = fnNames.map(([k, f]) => k + ': (...a)=>' + f + '(...a),').concat(['myhomeAvatar: ()=>myhomeStoreMod.avatar(),', 'myHomeFriends: ()=>_myHomeFriends,', 'playlistApi: playlistApiMod,', 'notifyError: (...a)=>TwErrorCodes.notify(...a),']);
+  const want = fnNames.map(([k, f]) => k + ': (...a)=>' + f + '(...a),').concat(['playlistAccountStore: accountStoreMod,', 'myhomeAvatar: ()=>myhomeStoreMod.avatar(),', 'myHomeFriends: ()=>_myHomeFriends,', 'playlistApi: playlistApiMod,', 'notifyError: (...a)=>TwErrorCodes.notify(...a),']);
   const miss = want.filter(w => !deps.includes(w));
-  chk(deps.length === 22 && !miss.length, 'deps 22개 — 함수 19는 화살표 · 다시 대입되는 let 하나는 읽는 함수 · 내 사진은 마이홈 상태 주인 · 서버 길 provider (' + deps.length + (miss.length ? ' · 없음 ' + miss[0] : '') + ')');
+  chk(deps.length === 23 && !miss.length, 'deps 23개 — 함수 19는 화살표 · 다시 대입되는 let 하나는 읽는 함수 · 내 사진은 마이홈 상태 주인 · 서버 길 provider · 계정 칸 (' + deps.length + (miss.length ? ' · 없음 ' + miss[0] : '') + ')');
   const decl = (n) => APP.indexOf('\nlet ' + n + ' = ');
   chk(['_myHomeFriends'].every(n => decl(n) > iMk), '  _myHomeFriends 는 만드는 줄보다 뒤에 선언 — 값이면 TDZ');
   const usedIn = (re) => [...new Set((A.match(re) || []).map(s => s.split('.').pop()))];
@@ -1049,8 +1054,9 @@ async function runAll(PL, APP, HTML){
     ['PL', '  _plClear(_plPullT); _plPullT = null;   // 다시 시도 사슬은 하나만', '  _plPullT = null;', '다시 받기 사슬이 갈라짐'],
     ['PL', '  _plSets = _plNormalizeSets(srv.sets);\n  _plCur', '  _plSets = srv.sets;\n  _plCur', '서버 값을 관문 없이 앉힘'],
     ['PL', '  _plPrivate = !!srv.private;\n', '', '서버의 비공개를 안 받음'],
-    ['PL', "    localStorage.setItem('tw.playlistCur', String(_plCur));", "    localStorage.setItem('tw.playlistCur', String(_plCur)); localStorage.setItem('tw.playlistSets', JSON.stringify(_plSets));", '목록을 이 기기에도 씀'],
-    ['PL', "    _plSets = _plBlankSets();\n    _plCur = _plSetIdx(localStorage.getItem('tw.playlistCur'));", "    _plSets = _plNormalizeSets(JSON.parse(localStorage.getItem('tw.playlistSets') || 'null'));\n    _plCur = _plSetIdx(localStorage.getItem('tw.playlistCur'));", '이 기기 옛 목록을 읽음'],
+    ['PL', "    playlistAccountStore.set('tw.playlistCur', String(_plCur));", "    playlistAccountStore.set('tw.playlistCur', String(_plCur)); localStorage.setItem('tw.playlistSets', JSON.stringify(_plSets));", '목록을 이 기기에도 씀'],
+    ['PL', "    _plSets = _plBlankSets();\n    _plCur = 0; _plNowSet = 0;", "    _plSets = _plNormalizeSets(JSON.parse(localStorage.getItem('tw.playlistSets') || 'null'));\n    _plCur = 0; _plNowSet = 0;", '이 기기 옛 목록을 읽음'],
+    ['PL', "    _plCur = 0; _plNowSet = 0;   // 고른 목록 번호는", "    _plCur = _plSetIdx(playlistAccountStore.get('tw.playlistCur')); _plNowSet = _plCur;   // 고른 목록 번호는", '고른 목록 번호를 만들 때 읽음'],
     ['APP', "  try{ plMod.st.cur = 0; plMod.reset(); }", "  try{ plMod.st.cur = 0; }", '로그아웃이 목록을 안 비움'],
     ['PL', "  if(sig === _plPubSig) return;\n  const gen", "  const gen", '안 바뀌어도 서버에 씀'],
     ['PL', "  if(!_plLoaded || getMyUserId() !== uid0) return Promise.resolve();\n  if(_plPubBusy)", "  if(getMyUserId() !== uid0) return Promise.resolve();\n  if(_plPubBusy)", '받기 전에 서버에 올림'],

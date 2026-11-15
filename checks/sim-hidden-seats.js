@@ -19,12 +19,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — hidden-seats.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["seatFromObject"];
-const VAL_DEPS = ["seats"];
+const VAL_DEPS = ["hiddenAccountStore","seats"];
 const GET_DEPS = ["_flyActive"];
 const SET_DEPS = [];
-const EXPORTS = ["_bodyHidden","_clearHiddenSeats","_hiddenSeatIds","_hitsSkipHidden","_partSkipped","_preferVisibleHit","_reportHiddenSave","_reportHiddenUids","_seatHidden","_skipFlyingRigs","_skipHiddenDesk","_skipUnhittable"];
+const EXPORTS = ["_bodyHidden","_clearHiddenSeats","_hiddenSeatIds","_hitsSkipHidden","_partSkipped","_preferVisibleHit","_reportHiddenSave","loadReportHidden","_reportHiddenUids","_seatHidden","_skipFlyingRigs","_skipHiddenDesk","_skipUnhittable"];
 const MOVED = ["_hiddenSeatIds","REPORT_HIDDEN_KEY","REPORT_HIDDEN_MAX","_reportHiddenUids","_reportHiddenSave","_seatHidden","_hitInHiddenDesk","_skipHiddenDesk","_hitInFlyingRig","_skipFlyingRigs","_hitVisible","_preferVisibleHit","_hitsSkipHidden","_clearHiddenSeats"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  _flyActive: ()=>_flyActive,","  seatFromObject: (...a)=>seatFromObject(...a),","  seats: seats,"];
+const GLUE = ["  hiddenAccountStore: accountStoreMod,","  _flyActive: ()=>_flyActive,","  seatFromObject: (...a)=>seatFromObject(...a),","  seats: seats,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */

@@ -636,6 +636,7 @@ try{ window.ANIMAL_RUN_SCALE = ANIMAL_RUN_SCALE; }catch(_){}
 /* 본문은 character/seat-equalize.js 로 옮겼다(구역 떼기 C · w1).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const seatEqMod = TwSeatEqualize.createSeatEqualize({
+  seatEqAccountStore: accountStoreMod,
   ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
   clampCharY: (...a)=>clampCharY(...a),
   findMySeat: (...a)=>findMySeat(...a),
@@ -649,6 +650,7 @@ let roomSeatMode = window.TwSeatPin ? TwSeatPin.loadMode(localStorage) : 'row'; 
 /* 본문은 character/deco-parts-visibility.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const decoPartsMod = TwDecoPartsVisibility.createDecoPartsVisibility({
+  decoAccountStore: accountStoreMod,
   premiumMod: ()=>premiumMod,
 });
 /* (구역 떼기 C · w1) 이 자리의 본문도 character/seat-equalize.js 로 옮겼다 — 만드는 줄은 첫 자리. */
@@ -783,6 +785,7 @@ function flySeed(){ return (Math.random() * 0xFFFFFFFF) >>> 0; }
 /* 본문은 hidden-seats.js 로 옮겼다(앱 FSD 43번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const hiddenSeatsMod = TwHiddenSeats.createHiddenSeats({
+  hiddenAccountStore: accountStoreMod,
   _flyActive: ()=>_flyActive,
   seatFromObject: (...a)=>seatFromObject(...a),
   seats: seats,
@@ -1339,6 +1342,7 @@ document.getElementById('sRot').addEventListener('input',e=>{selected.userRot=+e
 /* 본문은 status/user-status-table.js 로 옮겼다(구역 떼기 C · w1).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const userStatusTableMod = TwUserStatusTable.createUserStatusTable({
+  statusAccountStore: accountStoreMod,
 });
 
 /* isPremium은 파일 뒷부분에서 let으로 선언됨 — 초기화 시점(이 위치)에서 참조하면 TDZ ReferenceError가 남.
@@ -1352,7 +1356,7 @@ function saveCustomStatusConf(emo, text){
     emo: (emo || '').slice(0,2),            // 비워두면 이모지 없이 문구만 표시
     text: (text || '').slice(0, userStatusTableMod.CUSTOM_STATUS_MAXLEN),
   });
-  try{ localStorage.setItem(userStatusTableMod.CUSTOM_STATUS_KEY, JSON.stringify(userStatusTableMod.customStatusConf())); }catch(e){}
+  try{ accountStoreMod.set(userStatusTableMod.CUSTOM_STATUS_KEY, JSON.stringify(userStatusTableMod.customStatusConf())); }catch(e){}
   // 지금 커스텀 상태를 쓰고 있다면 즉시 반영(말풍선/이모지 갱신) + 친구에게도 전파
   if(typeof Presence!=='undefined' && Presence.setCustomStatus) Presence.setCustomStatus(userStatusTableMod.customStatusConf());
   refreshCustomStatusMenuItem();
@@ -1381,12 +1385,13 @@ let userStatus=null;
 function setUserStatus(v){
   if(!v || !userStatusTableMod.USER_STATUSES[v]) v=null;
   userStatus=v;
-  try{ localStorage.setItem('tw.userStatus', v||''); }catch(e){}
+  try{ accountStoreMod.set('tw.userStatus', v||''); }catch(e){}
   refreshMyStatusUI();
   if(typeof Presence!=='undefined' && Presence.setUserStatus) Presence.setUserStatus(v);
 }
 function loadUserStatusFromStorage(){
-  try{ const v=localStorage.getItem('tw.userStatus'); if(v && userStatusTableMod.USER_STATUSES[v]) userStatus=v; }catch(e){}
+  userStatus=null;   // 확인 전에 자동 자리비움이 바꿨을 수 있다 — 계정 칸 값만 믿는다
+  try{ const v=accountStoreMod.get('tw.userStatus'); if(v && userStatusTableMod.USER_STATUSES[v]) userStatus=v; }catch(e){}
 }
 function refreshMyStatusUI(){
   const btn=document.getElementById('myStatusChipBtn'); if(!btn)return;
@@ -1480,11 +1485,11 @@ const statusChipMod = TwStatusChip.createStatusChip({
   setMoveModeJustToggled: (v)=>{ _moveModeJustToggled = v; },
   setMoveMode: (v)=>{ moveMode = v; },
 });
-/* 저장된 상태 · 커스텀 상태 불러오기 → 칩 첫 그리기 → 이 모니터 캐릭터 크기 복원.
+/* 칩 첫 그리기 → 이 모니터 캐릭터 크기 복원. 저장된 상태 · 커스텀 상태는 만들 때가 아니라 확인 뒤에 읽는다(userLocal 의 status 조각 — 계정 칸).
    ⚠️ statusChipMod 를 만든 **뒤**에 부른다 — 모듈 안에서 부르면 refreshMyStatusUI 가 아직 없는 statusChipMod 를 읽어
    던지고(상태를 저장해 둔 사람만), 그 뒤 app.js 가 통째로 멈춘다. 칩 버튼 · 메뉴가 없는 화면은 예전처럼 건너뛴다. */
 if(document.getElementById('myStatusChipBtn') && document.getElementById('myStatusMenu')){
-  userStatusTableMod.loadCustomStatusFromStorage(); loadUserStatusFromStorage(); refreshMyStatusUI();
+  refreshMyStatusUI();
   refreshCharScaleForCurrentDisplay();
   refreshCustomStatusMenuItem();
 }
@@ -1518,6 +1523,7 @@ const demojiPalMod = TwDemojiPalette.createDemojiPalette({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const playlistApiMod = TwPlaylistApi.createPlaylistApi({ authed: TwApi.authed, random: ()=>Math.random(), warn: (...a)=>console.warn(...a) });   // 🌐 플레이리스트 서버 길(/v2/me/playlist · /v2/playlists/…)
 const plMod = TwPlaylist.createPlaylist({
+  playlistAccountStore: accountStoreMod,
   playlistApi: playlistApiMod,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   toast: (...a)=>toast(...a),
@@ -3384,6 +3390,7 @@ window.addEventListener('mousemove', e=>{
 /* 본문은 floaters.js 로 옮겼다(앱 FSD 46번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const floatersMod = TwFloaters.createFloaters({
+  floatersAccountStore: accountStoreMod,
   ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
   focusCharScale: ()=>focusCharScale,
   scene: scene,
@@ -4488,8 +4495,8 @@ const _faceEverDrawn  = new Array(CHAR_SLOT_MAX).fill(false);
 const _blinkEverDrawn = new Array(CHAR_SLOT_MAX).fill(false);
 let _blankFaceConfirmed = false;   // 생성기에서 «비운 채 저장»을 확인한 직후, 바로 뒤 saveSlots 1회만 소비
 const CUR_SLOT_KEY='tw.curSlot';
-function _loadCurSlot(){ try{ const v=parseInt(localStorage.getItem(CUR_SLOT_KEY),10); if(v>=0&&v<CHAR_SLOT_MAX) return v; }catch(e){} return 0; }
-function saveCurSlot(){ try{ localStorage.setItem(CUR_SLOT_KEY, String(curSlot)); }catch(e){} }
+function _loadCurSlot(){ try{ const v=parseInt(accountStoreMod.get(CUR_SLOT_KEY),10); if(v>=0&&v<CHAR_SLOT_MAX) return v; }catch(e){} return 0; }   // 계정 칸 — 확인 뒤(userLocal 조각 curSlot)에만 부른다
+function saveCurSlot(){ try{ accountStoreMod.set(CUR_SLOT_KEY, String(curSlot)); }catch(e){} }
 /* 🪑 책상 크기 슬라이더의 **기본값** — 흩어져 있던 0.175 리터럴의 단 하나의 출처.
    [왜 상수가 필요해졌나] '책상 위' 파츠가 이 슬라이더를 따라 커지고 작아지는 것을 끊으면서
      "무엇을 기준으로 안 따라가는가"를 정해야 했다. 답이 이 값이다 — 슬라이더가 기본값일 때가
@@ -4504,7 +4511,7 @@ const DESK_SCALE_DEFAULT = 0.175;
 const crState = TwCreatorState.createCreatorState({
   DESK_SCALE_DEFAULT: DESK_SCALE_DEFAULT,
 });
-let curSlot=_loadCurSlot();
+let curSlot=0;   // 만들 때는 읽지 않는다(계정 칸은 확인 전엔 닫혀 있다) — 확인 뒤 userLocal 의 curSlot 조각이 _loadCurSlot 로 채운다
 /* 🙂 얼굴 · 피부 그림판(512 캔버스 · 대칭축 · 피부 5종 · 피부 위에 그림 얹기 · «완전히 비었나» 판정)은 캐릭터 코어(packages/char-core/src/face.ts · #434).
    ⚠️ «비었나» 의 true 에는 저장을 막는 힘이 있다 — 판정할 수 없으면 false(코어 주석 · sim-face-loss). 피부 그림 불러오기(loadSkins)는 앱 몫 —
    불러온 그림은 skinCanvases 같은 칸에 넣는다(얼굴 자동 복구도 같은 배열). */
@@ -6184,6 +6191,7 @@ function maxPeople(){ const s = acctStateMod._rcStore(); return s ? s.maxPeople(
 /* 본문은 room/presence.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const presenceMod = TwPresence.createPresence({
+  presenceAccountStore: accountStoreMod,
   USER_STATUSES: userStatusTableMod.USER_STATUSES,
   awayPicMod: ()=>awayPicMod,
   chatUiMod: chatUiMod,
@@ -6404,9 +6412,6 @@ TwOssLicenses.createOssLicenses({ document, window, links: [document.getElementB
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const accountMod = TwAccount.createAccount({
   BELL_SEEN_KEY: BELL_SEEN_KEY,
-  CUR_SLOT_KEY: CUR_SLOT_KEY,
-  CUSTOM_STATUS_KEY: userStatusTableMod.CUSTOM_STATUS_KEY,
-  EXTRA_SEAT_KEY: settingsMod.EXTRA_SEAT_KEY,
   accountLegacyStore: accountStoreMod,
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
@@ -8295,6 +8300,21 @@ const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
   presence: Presence,
 });
 
+/* 🗂️ 이 계정이 이 PC 에서 고른 것 — 모듈은 처음 값으로 만들고, 계정 칸이 열린 뒤(app-boot 의 userLocal 칸) 여기서 읽어 채운다. 세션이 끝나면 처음 값으로 되돌린다(launcher/user-local.js).
+   조각을 더할 때: 그 모듈이 loadLocal · resetLocal 을 내놓고 여기 한 줄. 읽은 값이 화면에 걸려 있으면 load 에서 다시 그린다. */
+const userLocalMod = TwUserLocal.createUserLocal({ parts: [
+  { name: 'seatEq', load: ()=>{ seatEqMod.loadLocal(); if(seatEqMod.seatEqualizeOn()) layoutSeats(); }, reset: ()=>{ const was = seatEqMod.seatEqualizeOn(); seatEqMod.resetLocal(); if(was) layoutSeats(); } },
+  { name: 'decoParts', load: ()=>{ decoPartsMod.loadLocal(); if(!decoPartsMod.decoPartsVisible()) seats.forEach(s=>applyClothVisibility(s)); }, reset: ()=>{ const was = decoPartsMod.decoPartsVisible(); decoPartsMod.resetLocal(); if(!was) seats.forEach(s=>applyClothVisibility(s)); } },
+  { name: 'status', load: ()=>{ userStatusTableMod.loadCustomStatusFromStorage(); loadUserStatusFromStorage(); Presence.restoreBootStatus(); refreshMyStatusUI(); refreshCustomStatusMenuItem(); },
+    reset: ()=>{ userStatusTableMod.setCustomStatusConf({ emo:'', text:'' }); userStatus = null; Presence.resetBootStatus(); refreshMyStatusUI(); refreshCustomStatusMenuItem(); } },
+  { name: 'reportHidden', load: ()=>hiddenSeatsMod.loadReportHidden(), reset: ()=>hiddenSeatsMod._reportHiddenUids.clear() },
+  { name: 'curSlot', load: ()=>{ curSlot = _loadCurSlot(); }, reset: ()=>{ curSlot = 0; } },   // 런처는 이어서 받는 옷장(closet 칸)이 다 받은 뒤 그린다
+  { name: 'extraSeats', load: ()=>settingsMod.loadExtraSeatSlots(), reset: ()=>settingsMod.setExtraSeatSlots([]) },
+  { name: 'playlistCur', load: ()=>plMod.loadLocal(), reset: ()=>{ plMod.st.cur = 0; } },
+  { name: 'animal', load: ()=>window._animalLoadLocal(), reset: ()=>window._animalResetLocal() },
+  { name: 'emojiReactions', load: ()=>floatersMod.loadLocal(), reset: ()=>floatersMod.resetLocal() },
+] });
+
 /* 🚀 켜는 순서 한 곳(launcher/app-boot.js) — 계정 확인(license-gate.js)이 nav 로 «계정에 들어감» 을 알리면 옛 PC 값 옮기기 → realtime → 아래 차례대로 계정 기능을 시작한다.
    ⚠️ 차례 표는 app-boot.js STEPS — 여기 starts 는 그 이름마다 하나씩(빠지거나 남으면 만들 때 던진다). 계정 기능을 새로 만들면 만들 때 일하지 말고 여기에 건다. */
 const appBoot = TwAppBoot.createAppBoot({
@@ -8308,6 +8328,7 @@ const appBoot = TwAppBoot.createAppBoot({
   }),
   goOnline: ()=>loginFlowMod.goOnline(),
   starts: {
+    userLocal: (code, me, session)=>userLocalMod.start(session),
     focusTotal: ()=>focusTotalMod.startFocusTotal(),
     focusShare: ()=>focusShareMod.startFocusShare(),
     focusLevel: (code, me, session)=>{ focusProgressMod.startFocus(code, me, session); focusLevelMod.startMobile(code, me, session); },

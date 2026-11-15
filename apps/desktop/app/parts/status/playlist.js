@@ -30,6 +30,7 @@
 
 function createPlaylist(deps){
 const toast = deps.toast;
+const playlistAccountStore = deps.playlistAccountStore;   // 🗂️ 계정별 칸(shared/account-store.js) — «지금 고른 목록 번호» 는 이 계정이 이 PC 에서 고른 것
 const notifyError = deps.notifyError;   // 사용자에게 보이는 실패 — 번호 표(shared/error-codes.js)
 const getMyUserId = deps.getMyUserId;
 const getDisplayName = deps.getDisplayName;
@@ -400,8 +401,7 @@ function _plLoad(){
   try{
     /* 목록 · 한마디 · 공개 · 비공개는 서버가 원본이다(_plPull) — 이 기기에는 읽을 것이 없다. 보는 프리셋 번호와 아래 기기 설정만 읽는다. */
     _plSets = _plBlankSets();
-    _plCur = _plSetIdx(localStorage.getItem('tw.playlistCur'));
-    _plNowSet = _plCur;   // 부팅 직후엔 재생 중인 것이 없다 — 둘을 맞춰 두고 시작한다
+    _plCur = 0; _plNowSet = 0;   // 고른 목록 번호는 만들 때 읽지 않는다(계정 칸은 확인 전엔 닫혀 있다) — 확인 뒤 _plLoadLocal 이 읽는다
     /* 반복 — 저장은 켬/끔과 종류 두 개다. 옛 저장에서 순서대로 이어받는다:
          tw.playlistLoopKind/On (지금)  →  tw.playlistLoopMode (네 상태 한 축)  →  tw.playlistLoop (켬/끔)
        이어받지 않으면 이미 반복을 켜둔 사람이 업데이트 뒤 조용히 꺼진 채로 쓰게 된다. */
@@ -424,6 +424,11 @@ function _plLoad(){
     _plVol = isFinite(_v) ? Math.max(0, Math.min(100, _v)) : 80;
     _plMini = localStorage.getItem('tw.playlistMini') === '1';
   }catch(_){ _plSets = _plBlankSets(); _plCur = 0; _plNowSet = 0; }
+}
+/* 확인 뒤 한 번 — 이 계정이 고른 목록 번호를 계정 칸에서 읽는다(launcher/user-local.js 의 playlistCur 조각). 부팅 직후엔 재생 중인 것이 없다 — 둘을 맞춰 둔다 */
+function _plLoadLocal(){
+  try{ _plCur = _plSetIdx(playlistAccountStore.get('tw.playlistCur')); }catch(_){ _plCur = 0; }
+  _plNowSet = _plCur;
 }
 /* 저장값을 **믿지 않고** 항상 세 벌 · 이름 16자 · 곡 20개 안으로 깎는다.
    ★ 여기가 유일한 관문이다 — 서버에서 받은 목록(_plPull)은 반드시 이 함수를 지난다. 남이 만든 노드나
@@ -452,7 +457,7 @@ function _plNormalizeSets(raw){
 /* 이 기기 설정(보는 프리셋 · 반복 · 음량 · 미니미)만 저장하고, 목록 · 한마디 · 공개는 서버에 올린다(_plPublish — 안 바뀌었으면 건너뜀) */
 function _plSave(){
   try{
-    localStorage.setItem('tw.playlistCur', String(_plCur));
+    playlistAccountStore.set('tw.playlistCur', String(_plCur));
     localStorage.setItem('tw.playlistLoopOn', _plOn ? '1' : '0');
     localStorage.setItem('tw.playlistLoopKind', String(_plKind));
     // 옛 키도 같이 써 둔다 — 이전 버전으로 되돌아가도 "반복이 꺼진 채"가 되지 않는다.
@@ -2042,6 +2047,7 @@ return {
   save: _plSave,                                   // 💾 기기 설정 저장 + 서버 저장(3초 debounce)
   flushPending: _plFlushPending,                   // 📤 못 올린 고침 한 번 올리기(uid) — 로그아웃 올리기(account.js)
   publish: _plPublish,                             // ☁️ 서버 저장만(3초 debounce)
+  loadLocal: _plLoadLocal,                         // 🗂️ 확인 뒤 계정 칸에서 고른 목록 번호 읽기(launcher/user-local.js) — 비우기는 st.cur = 0
   start: _plStart,                                 // 🚀 계정 확인 뒤 한 번 — 세션을 쥐고 reset 을 걸고 받는다
   pull: _plPull,                                   // ☁️ 서버에서 내 목록 받기 — 계정 이어받기(못 읽으면 혼자 다시 하지 않음 — [다시 시도] · 창 열기)
   reset: _plReset,                                 // ☁️ 계정을 놓을 때 · 이어받기 시작 — 목록을 비우고 받기 전까지 올리지 않음

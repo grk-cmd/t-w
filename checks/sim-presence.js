@@ -3,11 +3,11 @@
    ★ 왜 이 검사가 있는가 — Presence 는 39개 구역이 쓰는 방 핵심 상태다. app.js 에서 모듈로 옮겼으니(C 구역 떼기 w4)
      «방에 무엇을 보내는가 · 언제 안 보내는가 · 자동 자리비움이 언제 걸리고 풀리는가» 를 입력 → 출력으로 고정한다.
    ・1절: 만들 때 — 가짜 deps 위에서 던지지 않고 { Presence } 하나를 내놓는다 · 첫 자동 자리비움 틱을 예약한다
-   ・2절: 부팅 상태 되살리기 — tw.userStatus · tw.awayKind(자동 / 수동 / 기록 없음 / 모르는 값)
+   ・2절: 부팅 상태 되살리기 — 만들 때는 계정 칸을 읽지 않고 확인 뒤 restoreBootStatus 가 읽는다 · tw.userStatus · tw.awayKind(자동 / 수동 / 기록 없음 / 모르는 값) · resetBootStatus
    ・3절: 방 입장 · payload — join 칸 · 방 코드 돌려줌 · friends 콜백 · 같은 값은 다시 안 보냄 · 거르기(소음 · 그림 크기 · 이름)
    ・4절: 채팅 · poke · 나가기 — 140자 · 탭 · 날리기 칸 · poke 중복 / 지난 값 거르기 · 쓰다듬기 · stop
    ・5절: 자동 자리비움 — 20분 무반응이면 away(auto) · 돌아오면 직전 상태 · 밥 · 게임은 건너뜀 · 손으로 고르면 manual
-   ・6절: app.js 연결 — 옮긴 선언이 app.js 에 안 남음 · deps 16줄 · 옛 전역 이름 한 줄 · html(app.js 앞) · smoke · 되살리기 도우미
+   ・6절: app.js 연결 — 옮긴 선언이 app.js 에 안 남음 · deps 17줄 · 옛 전역 이름 한 줄 · html(app.js 앞) · smoke · 되살리기 도우미
    ・7절: 일부러 깨 보기 */
 'use strict';
 const fs = require('fs');
@@ -21,13 +21,13 @@ if (!MOD || !APP || !HTML) { say('  ? 원본 못 찾음 — presence.js · app.j
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ['toast', 'triggerPet'];
-const VAL_DEPS = ['USER_STATUSES', 'chatUiMod', 'floatersMod', 'iDeskMod', 'roomSyncMod', 'seats', 'tricksMod'];
+const VAL_DEPS = ['USER_STATUSES', 'presenceAccountStore', 'chatUiMod', 'floatersMod', 'iDeskMod', 'roomSyncMod', 'seats', 'tricksMod'];
 const GET_DEPS = ['awayPicMod', 'customStatusConf', 'expBarMod', 'focusLevelMod', 'focusShareMod', 'lastAnyInput', 'roomEntryMod'];
 const STATUSES = { meal: 1, gaming: 1, away: 1, custom: 1, busy: 1 };
 
 /* 가짜 세상 — 모듈을 만들고 무엇이 불렸는지 적는다. o 로 저장값 · 유휴 시간 등을 바꾼다 */
 function world(src, o = {}) {
-  const log = { updates: [], joins: [], pokes: [], toasts: [], pets: 0, leaves: 0, exitCancel: 0, exitWarn: 0, winStatus: [], changes: [] };
+  const log = { reads: [], updates: [], joins: [], pokes: [], toasts: [], pets: 0, leaves: 0, exitCancel: 0, exitWarn: 0, winStatus: [], changes: [] };
   const store = Object.assign({}, o.store || {});
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const timers = [];
@@ -36,6 +36,7 @@ function world(src, o = {}) {
   const deps = {
     toast: (m) => log.toasts.push(m), triggerPet: () => { log.pets++; },
     USER_STATUSES: STATUSES,
+    presenceAccountStore: { get: (k) => { log.reads.push(k); return ls.getItem(k); }, set: (k, v) => { ls.setItem(k, v); return true; }, remove: (k) => { ls.removeItem(k); return true; } },   // 계정 칸 — 만들 때는 읽지 않는다(2절)
     chatUiMod: { _chatTabOut: () => null },
     floatersMod: { _myPetLocalAt: () => -1e9, MY_PET_ECHO_MS: 800, FLOATER_BURST: 0, spawnFloater: () => {} },
     iDeskMod: { DANCE_MOVES: [{ style: 'sway', dur: 6000 }] },
@@ -75,23 +76,24 @@ async function behave(src) {
   try { w = world(src); } catch (e) { err = e; }
   t(!err && w && Object.keys(w.out).join() === 'Presence', '만들 때 던지지 않고 { Presence } 하나를 내놓는다' + (err ? ' — ' + String(err.message || err).slice(0, 80) : ''));
   if (!w) return r;
-  const API = ['start', 'setState', 'setUserStatus', 'setCustomStatus', 'setFocusShow', 'setAwayImg', 'setAwaySz', 'setNoise', 'setLevel', 'setName', 'poke', 'pokeSelf', 'updateDef', 'sendChat', 'stop', 'broadcastRide', 'broadcastNow', 'active', 'roomCode', 'friendsObj', 'myDef', 'serverProvider'];
+  const API = ['restoreBootStatus', 'resetBootStatus', 'start', 'setState', 'setUserStatus', 'setCustomStatus', 'setFocusShow', 'setAwayImg', 'setAwaySz', 'setNoise', 'setLevel', 'setName', 'poke', 'pokeSelf', 'updateDef', 'sendChat', 'stop', 'broadcastRide', 'broadcastNow', 'active', 'roomCode', 'friendsObj', 'myDef', 'serverProvider'];
   t(API.every((n) => typeof w.P[n] === 'function'), 'Presence 의 함수 ' + API.length + '개');
   t(w.timers.length === 1 && w.timers[0][1] === 60000, '첫 자동 자리비움 틱을 60초 뒤로 예약한다');
   t(w.P.active() === false && w.P.roomCode() === null && w.P.serverProvider() === null, '처음엔 방 밖(active false · roomCode null)');
 
   /* 2. 부팅 상태 되살리기 — 상태는 join payload 의 userStatus 로 본다 */
-  const bootOf = async (store) => { const x = world(src, { store }); await x.P.start('R1', {}, '나'); return { x, st: x.log.joins[0].payload.userStatus, tick: x.timers[x.timers.length - 1][1] }; };
+  const bootOf = async (store) => { const x = world(src, { store }); const made = x.log.reads.length; x.P.restoreBootStatus(); await x.P.start('R1', {}, '나'); return { x, made, st: x.log.joins[0].payload.userStatus, tick: x.timers[x.timers.length - 1][1] }; };   // 상태는 만들 때가 아니라 확인 뒤 restoreBootStatus 가 계정 칸에서 읽는다
   let b = await bootOf({ 'tw.userStatus': 'away' });
-  t(b.st === 'away' && b.x.timers[0][1] === 5000, '저장된 away · 종류 기록 없음 → 자동으로 본다(복귀 감시 5초 틱)');
+  t(b.st === 'away' && b.x.timers[b.x.timers.length - 1][1] === 5000 && b.made === 0, '저장된 away · 종류 기록 없음 → 자동으로 본다(복귀 감시 5초 틱) · 만들 때 계정 칸 읽기 0번');
   b = await bootOf({ 'tw.userStatus': 'away', 'tw.awayKind': JSON.stringify({ k: 'manual' }) });
-  t(b.st === 'away' && b.x.timers[0][1] === 60000, '손으로 고른 away(manual) → 그대로 · 평소 60초 틱');
+  t(b.st === 'away' && b.x.timers[b.x.timers.length - 1][1] === 60000, '손으로 고른 away(manual) → 그대로 · 평소 60초 틱');
   b = await bootOf({ 'tw.userStatus': 'meal' });
-  t(b.st === 'meal' && b.x.timers[0][1] === 60000, '저장된 meal → 그대로 되살린다');
+  t(b.st === 'meal' && b.x.timers[b.x.timers.length - 1][1] === 60000, '저장된 meal → 그대로 되살린다');
   b = await bootOf({ 'tw.userStatus': 'zzz' });
   t(b.st === null, '모르는 상태 값은 버린다(null)');
   b = await bootOf({});
   t(b.st === null, '저장값이 없으면 null');
+  { const x = world(src, { store: { 'tw.userStatus': 'meal' } }); x.P.restoreBootStatus(); x.P.resetBootStatus(); await x.P.start('R1', {}, '나'); t(x.log.joins[0].payload.userStatus === null, '세션이 끝나면(resetBootStatus) 되살린 상태를 비운다 — 다음 계정 입장에 안 실린다'); }
 
   /* 3. 방 입장 · payload */
   w = world(src, { focusShow: { emo: '🕒', text: '오늘 1:00' } });
@@ -195,7 +197,7 @@ function wire(app, html) {
   const kindOf = (l) => { const m = /^  ([\w$]+): (\(\.\.\.a\)=>|\(\)=>)?/.exec(l); return m ? m[1] + '|' + (m[2] === '(...a)=>' ? 'fn' : m[2] === '()=>' ? 'get' : 'val') : '?' + l; };
   const want = [...FN_DEPS.map((n) => n + '|fn'), ...VAL_DEPS.map((n) => n + '|val'), ...GET_DEPS.map((n) => n + '|get')].sort();
   const got = mk ? mk.split('\n').map(kindOf).sort() : [];
-  t(got.length === 16 && want.every((k, i) => got[i] === k), '만드는 줄(가드 없이) · deps 16개 — 함수 2 · 값 7 · 읽는 함수 7');
+  t(got.length === 17 && want.every((k, i) => got[i] === k), '만드는 줄(가드 없이) · deps 17개 — 함수 2 · 값 8 · 읽는 함수 7');
   t(/^const Presence = presenceMod\.Presence;\s+\/\/ 옛 전역 이름/m.test(app) && app.indexOf('const Presence = presenceMod.Presence;') > app.indexOf('const presenceMod = TwPresence.createPresence('), '옛 전역 이름 한 줄(만드는 줄 바로 뒤)');
   t(!/presenceMod\.Presence\b/.test(A.replace('const Presence = presenceMod.Presence;', '')), 'app.js 나머지는 Presence.이름 그대로(presenceMod.Presence 를 직접 부르지 않는다)');
   const iM = html.indexOf('<script src="parts/room/presence.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
@@ -223,6 +225,7 @@ function wire(app, html) {
     ['poke 중복 거르기 없앰', (m) => m.replace('if(_pts <= _myPokeSeenTs) return;', ''), null, null],
     ['20분을 21분으로', (m) => m.replace('const AUTO_AWAY_MS = 20 * 60 * 1000;', 'const AUTO_AWAY_MS = 21 * 60 * 1000;'), null, null],
     ['밥 · 게임 예외 없앰', (m) => m.replace("myUserStatus === 'meal' || myUserStatus === 'gaming'", 'false'), null, null],
+    ['만들 때 상태를 읽음', (m) => m.replace('function resetBootStatus(){', 'restoreBootStatus();\n  function resetBootStatus(){'), null, null],
     ['manual 기록 무시', (m) => m.replace("if(rec && rec.k === 'manual') return;", ''), null, null],
     ['provider 없이 가짜 방으로 떨어짐', (m) => m.replace('if(!_srv && !roomEntryMod()._mockRoomAllowed()){', 'if(false){'), null, null],
     ['만들 때 던짐', (m) => m.replace('function createPresence(deps){', 'function createPresence(deps){ throw new Error("깨 봄");'), null, null],

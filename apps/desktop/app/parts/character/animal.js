@@ -22,17 +22,20 @@ let UNLOCK_LEVEL = 50;   // ★ 기본값. 관리자가 서버(catalog/gameConfi
 const CHEAT_KEY = 'tw.animalCheatUnlock';
 const CHEAT_CLICKS = 10;
 let _lKeyDown=false, _cheatCount=0, _cheatLastAt=0;
-function _cheatUnlocked(){ try{ return localStorage.getItem(CHEAT_KEY)==='1'; }catch(_){ return false; } }
+/* 🗂️ 해금 기록 둘(CHEAT_KEY · EVER_KEY)은 이 계정이 얻은 것이라 계정 칸에 둔다(accountStoreMod — app.js). 계정 칸은 확인 전엔 닫혀 있어 처음 그릴 때(init)는 읽지 않고,
+   확인 뒤 launcher/user-local.js 의 조각이 window._animalLoadLocal 로 읽어 앉히고 카드 잠금 띠를 다시 그린다. 세션이 끝나면 window._animalResetLocal 이 비운다. */
+let _cheatOn=false, _everOn=false, _localLoaded=false;
+function _cheatUnlocked(){ return _cheatOn; }
 /* 🔓 한 번이라도 해금 조건을 만족했으면 그 뒤로는 계속 열려 있다.
    관리자가 이벤트로 해금 레벨을 낮췄다가 되돌려도, 그동안 조건을 만족했던 사람은 잠기지 않는다.
    ★ 표시를 남기는 건 '레벨을 실제로 달성한 경우'뿐이다. 관리자 권한은 원래 항상 열려 있으니
      굳이 영구 표시를 남기지 않는다(권한이 사라지면 원래 상태로 돌아가는 게 맞다).
    ※ 레벨 자체가 기기별로 저장되는 값이라, 이 표시도 같은 기준(기기별)으로 남는다. */
 const EVER_KEY = 'tw.animalEverUnlocked';
-function _everUnlocked(){ try{ return localStorage.getItem(EVER_KEY)==='1'; }catch(_){ return false; } }
+function _everUnlocked(){ return _everOn; }
 function _unlockOk(){
   if(myLevel() >= UNLOCK_LEVEL){
-    try{ localStorage.setItem(EVER_KEY,'1'); }catch(_){}   // 조건 만족 시점에 표시를 남김
+    if(!_everOn){ _everOn=true; if(_localLoaded){ try{ accountStoreMod.set(EVER_KEY,'1'); }catch(_){} } }   // 조건 만족 시점에 표시를 남김(계정 칸이 열린 뒤에만 적는다)
     return true;
   }
   return admin() || _cheatUnlocked() || _everUnlocked();
@@ -160,7 +163,7 @@ function initCard(){
         _cheatLastAt=now; _cheatCount++;
         if(_cheatCount >= CHEAT_CLICKS){
           _cheatCount=0;
-          try{ localStorage.setItem(CHEAT_KEY,'1'); }catch(_){}
+          _cheatOn=true; try{ accountStoreMod.set(CHEAT_KEY,'1'); }catch(_){}
           initCard();   // 잠금 안내 문구 갱신
           toast('🔓 동물 캐릭터가 해금됐어요!');
           // ★ 이 경로도 '신규 생성'이다 — 아래 정상 경로와 동일하게 컨텍스트를 초기화하고
@@ -1855,6 +1858,15 @@ window._setAnimalUnlockLevel = function(lv){
 };
 window._animalUnlocked = function(){
   try{ return _unlockOk(); }catch(_){ return false; }
+};
+/* 🗂️ 확인 뒤 계정 칸에서 해금 기록을 읽어 앉히고 카드를 다시 그린다 · 세션이 끝나면 비운다(launcher/user-local.js 의 animal 조각) */
+window._animalLoadLocal = function(){
+  _cheatOn = (accountStoreMod.get(CHEAT_KEY)==='1'); _everOn = (accountStoreMod.get(EVER_KEY)==='1'); _localLoaded = true;
+  initCard();   // 잠금 띠 · 안내 문구를 지금 값으로
+};
+window._animalResetLocal = function(){
+  _cheatOn = false; _everOn = false; _localLoaded = false;
+  initCard();
 };
 window.reopenAnimalCreator=function(def, opts){
   // 어디서 돌아왔는지 기억 — 저장 시 원본 def에 병합하고, 좌석 편집이면 그 좌석에 직접 반영한다.

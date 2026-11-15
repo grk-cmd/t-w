@@ -177,30 +177,38 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 - 관리자 편집 창(`admin/`)은 아직 Firebase 로 쓴다 — 서버 길로 옮기기 전에는 거기서 올린 확성기 · 업데이트 공지 · 배너가 앱에 안 보인다(관리자 묶음 몫).
 검사: `checks/sim-notice-api.js` · `checks/sim-notice-feed.js`(입력 → 출력 · 상태 · 409 · 깨 보기) · `checks/sim-ad-banner.js`(배너 그리기).
 
+## `user-local.js` — 🗂️ 이 계정이 이 PC 에서 고른 것을 확인 뒤에 읽는 한 칸
+
+**책임** — 모듈이 «만들 때» 계정 값을 PC 칸에서 읽으면 로그인 전에 앞 사람 값이 메모리에 올라온다. 그래서 모듈은 처음 값(기본값)으로 만들고, 계정 칸이 열린 뒤 이 칸(`app-boot` STEPS 맨 앞 `userLocal`)이 조각마다 `load` 를 불러 채운다. 세션이 끝나면(`session.onReset`) `reset` 을 거꾸로 불러 처음 값으로 되돌린다.
+**만드는 법** — `TwUserLocal.createUserLocal({ parts: [{ name, load, reset }] })`(app.js 한 곳). 조각이 던져도 다음 조각은 돈다. 조각을 더할 때: 그 모듈이 `loadLocal` · `resetLocal` 을 내놓고 app.js 의 목록에 한 줄 + `MOVED_KEYS` 에 키(옛 PC 값이 들어간 계정 칸으로 옮겨진다). 읽은 값이 화면에 걸려 있으면 `load` 에서 다시 그린다.
+**지금 조각** — `seatEq`(좌석 평준화) · `decoParts`(꾸미기 파츠 보이기) · `curSlot`(지금 고른 캐릭터 칸 — app.js) · `extraSeats`(자리 추가 슬롯 — `settings-panel.js`) · `status`(상태 · 커스텀 상태 · 켤 때 자리비움 복원 — app.js · `room/presence.js` `restoreBootStatus`) · `reportHidden`(신고로 숨긴 사람 — `room/hidden-seats.js`) · `playlistCur`(고른 플레이리스트 번호 — `status/playlist.js`) · `animal`(동물 숨김 해금 기록 — `character/animal.js`) · `emojiReactions`(반응 이모지).
+검사: `checks/sim-user-local.js`.
+
 ## `app-boot.js` — 🚀 켜는 순서 한 곳
 
-**책임** — 0.13 의 켜는 순서를 한 줄로 고정한다. ① 계정 없이 돌아도 되는 것(창 · 테마 · 그리기 · 입력 · 원격 설정 · 점검 · 카탈로그 · 백색소음)은 바로 → ② 계정 확인(`license-gate.js checkInviteGate` → `login-flow.js confirm`) → 서버 계정으로 이 PC 맞추기(`account.js _enterAccount`) → ③ 안 바뀐 계정이면 게이트가 `twNav.go(NAV.ACCOUNT_ENTERED, me)` 로 알리고, 이 모듈이 한 번 — **옛 PC 값 옮기기(`migrateLegacy(그 코드)`) → 로그인 세션 만들기 + 계정 칸 열기(`session.openStore()` → `accountStore.open` — 열기 전엔 읽기 null · 쓰기 거절 + 경고) → realtime 연결(`goOnline`) → 계정 기능 시작**. 로그인 필요 · 가입 필요 · 서버 안 됨이면 ③ 은 안 돈다. 계정이 바뀌었으면(`switched`) 앱을 다시 켜고, 다시 켠 뒤 새로 돈다. 로그아웃 차례(멈추기 → 올리기 → 지우기 → 다시 켜기)는 `account.js` 한 곳에 그대로 있다.
+**책임** — 0.13 의 켜는 순서를 한 줄로 고정한다. ① 계정 없이 돌아도 되는 것(창 · 테마 · 그리기 · 입력 · 원격 설정 · 점검 · 카탈로그 · 백색소음)은 바로 → ② 계정 확인(`license-gate.js checkInviteGate` → `login-flow.js confirm`) → 서버 계정으로 이 PC 맞추기(`account.js _enterAccount`) → ③ 안 바뀐 계정이면 게이트가 `twNav.go(NAV.ACCOUNT_ENTERED, me)` 로 알리고, 이 모듈이 한 번 — **옛 PC 값 옮기기(`migrateLegacy(그 코드)`) → 로그인 세션 만들기 + 계정 칸 열기(`session.openStore()` → `accountStore.open` — 열기 전엔 읽기 null · 쓰기 거절 + 경고) → realtime 연결(`goOnline`) → 계정 기능 시작(맨 앞 `userLocal` 이 계정 칸에서 고른 것을 읽어 채운다)**. 로그인 필요 · 가입 필요 · 서버 안 됨이면 ③ 은 안 돈다. 계정이 바뀌었으면(`switched`) 앱을 다시 켜고, 다시 켠 뒤 새로 돈다. 로그아웃 차례(멈추기 → 올리기 → 지우기 → 다시 켜기)는 `account.js` 한 곳에 그대로 있다.
 
 **만드는 법** — app.js 가 계정 기능 모듈을 다 만든 뒤(`roomInviteUi` 다음) `TwAppBoot.createAppBoot({ twNav, migrateLegacy, newSession, goOnline, starts })`(`newSession(me)` 는 `TwSession.createSession` — `shared/session.js`). `starts` 는 `STEPS` 의 이름마다 함수 하나(없거나 남으면 만들 때 던진다 — 한 기능을 빼먹을 수 없다). 각 함수는 `(code, me, session)` 을 받는다 — `session` 은 이번 로그인의 세션(**지금은 받아 쓰는 기능이 없다**).
 
 **차례 표(`STEPS`) — 이 순서가 정본이다**
 | # | 이름 | 시작하는 것 |
 |---|---|---|
-| 1 | focusTotal | 포커스 누적 읽기(계정 칸) — 오늘치(`startFocusTotal`) |
-| 2 | focusShare | 📊 오늘 기록 전시 첫 보내기 · 15초 확인(`startFocusShare` — 오늘치가 읽힌 뒤) |
-| 3 | focusLevel | 포커스 진척 받기 · 못 올린 집중 시간 올리기(`focusProgress.startFocus`) |
-| 4 | weeklyChal | 👑 달성표 오늘 진행을 계정 칸에서 읽고 이번 주 한 벌을 서버에서 받기(`weeklyChal.startChallenge` → `chal-store.startChal` — 세션을 받아 쓴다) |
-| 5 | pomodoro | 🍅 뽀모도로 설정 · 진행을 계정 칸에서 읽기(`pomodoro.startPomodoro`) |
-| 6 | gacha | 🎰 가챠(`startGacha(session)` — 구독 · 비우기를 세션에) |
-| 7 | closet | 🧬 옷장(슬롯 5칸 · 보관함 · 휴지통) 서버에서 받기(`startCloset(session)` — 구독 · 저장 타이머 · 비우기를 세션에) |
-| 8 | mhInit | 🏠 마이홈 시작(`initMyHome(code, me, session)` — 접속 고정은 me 에서 · 받은 요청 · 우편 구독과 친구 목록 · 접속 표시 비우기는 세션에) |
-| 9 | bugBadge | 🐞 버그제보 탭 «새 답변» 배지 한 번 받기 |
-| 10 | scheduler | 📅 일정 알림 받기(`startSchedule(session)` — 서버 신호 셋 · 자정 타이머 · 비우기를 세션에) |
-| 11 | roomInvite | 🙋 방 초대 받기(`startReceive`) |
-| 12 | desktopBg | 🖥️ 바탕화면 배경 맞추기(`MYHOME_DESKTOP.startBgSync`) |
-| 13 | playlist | 🎵 플레이리스트 받기(`plMod.start(session)` — 받기 다시 시도 · 올리기 모으기 타이머 · 비우기를 세션에) |
-| 14 | licensePremium | 🔑 프리미엄 판정 반영(서버 확인) · 라이선스 알림 받기 |
-| 15 | firstRun | 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기) |
+| 1 | userLocal | 🗂️ 이 계정이 이 PC 에서 고른 것(현재 슬롯 · 자리 추가 슬롯 · 상태 · 숨긴 사람 · 꾸미기 파츠 보이기 · 좌석 평준화 · 반응 이모지 …)을 계정 칸에서 읽어 채움(`user-local.js` — 모듈은 처음 값으로 만들고 여기서 `loadLocal` · 세션이 끝나면 `resetLocal`) |
+| 2 | focusTotal | 포커스 누적 읽기(계정 칸) — 오늘치(`startFocusTotal`) |
+| 3 | focusShare | 📊 오늘 기록 전시 첫 보내기 · 15초 확인(`startFocusShare` — 오늘치가 읽힌 뒤) |
+| 4 | focusLevel | 포커스 진척 받기 · 못 올린 집중 시간 올리기(`focusProgress.startFocus`) |
+| 5 | weeklyChal | 👑 달성표 오늘 진행을 계정 칸에서 읽고 이번 주 한 벌을 서버에서 받기(`weeklyChal.startChallenge` → `chal-store.startChal` — 세션을 받아 쓴다) |
+| 6 | pomodoro | 🍅 뽀모도로 설정 · 진행을 계정 칸에서 읽기(`pomodoro.startPomodoro`) |
+| 7 | gacha | 🎰 가챠(`startGacha(session)` — 구독 · 비우기를 세션에) |
+| 8 | closet | 🧬 옷장(슬롯 5칸 · 보관함 · 휴지통) 서버에서 받기(`startCloset(session)` — 구독 · 저장 타이머 · 비우기를 세션에) |
+| 9 | mhInit | 🏠 마이홈 시작(`initMyHome(code, me, session)` — 접속 고정은 me 에서 · 받은 요청 · 우편 구독과 친구 목록 · 접속 표시 비우기는 세션에) |
+| 10 | bugBadge | 🐞 버그제보 탭 «새 답변» 배지 한 번 받기 |
+| 11 | scheduler | 📅 일정 알림 받기(`startSchedule(session)` — 서버 신호 셋 · 자정 타이머 · 비우기를 세션에) |
+| 12 | roomInvite | 🙋 방 초대 받기(`startReceive`) |
+| 13 | desktopBg | 🖥️ 바탕화면 배경 맞추기(`MYHOME_DESKTOP.startBgSync`) |
+| 14 | playlist | 🎵 플레이리스트 받기(`plMod.start(session)` — 받기 다시 시도 · 올리기 모으기 타이머 · 비우기를 세션에) |
+| 15 | licensePremium | 🔑 프리미엄 판정 반영(서버 확인) · 라이선스 알림 받기 |
+| 16 | firstRun | 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기) |
 
 **내놓는 것** — `begin(me)`(보통은 nav 로 불린다) · `getSession()`(들어가기 전·못 열었으면 null). 두 번 불러도 두 번째는 아무것도 안 하고 `false`(콘솔 경고). 한 칸이 던져도(동기 · 비동기) 다음 칸은 돈다.
 

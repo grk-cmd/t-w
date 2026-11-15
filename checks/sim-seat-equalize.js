@@ -19,12 +19,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — seat-equalize.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["clampCharY","findMySeat","fitModel","setDeskPos","setDeskScale","syncSeatDeskZ"];
-const VAL_DEPS = ["ANIMAL_RUN_SCALE","seats"];
+const VAL_DEPS = ["ANIMAL_RUN_SCALE","seatEqAccountStore","seats"];
 const GET_DEPS = [];
 const SET_DEPS = [];
-const EXPORTS = ["charLiftWorld","seatEqK","seatEqualizeOn","setSeatEqualizeOn","seatScale","syncSeatEqualize"];
+const EXPORTS = ["charLiftWorld","seatEqK","seatEqualizeOn","setSeatEqualizeOn","loadLocal","resetLocal","seatScale","syncSeatEqualize"];
 const MOVED = ["seatEqualizeOn","seatEqK","seatScale","charLiftWorld","_eqSyncing","syncSeatEqualize"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,","  clampCharY: (...a)=>clampCharY(...a),","  findMySeat: (...a)=>findMySeat(...a),","  fitModel: (...a)=>fitModel(...a),","  seats: seats,","  setDeskPos: (...a)=>setDeskPos(...a),","  setDeskScale: (...a)=>setDeskScale(...a),","  syncSeatDeskZ: (...a)=>syncSeatDeskZ(...a),"];
+const GLUE = ["  seatEqAccountStore: accountStoreMod,","  ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,","  clampCharY: (...a)=>clampCharY(...a),","  findMySeat: (...a)=>findMySeat(...a),","  fitModel: (...a)=>fitModel(...a),","  seats: seats,","  setDeskPos: (...a)=>setDeskPos(...a),","  setDeskScale: (...a)=>setDeskScale(...a),","  syncSeatDeskZ: (...a)=>syncSeatDeskZ(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -115,7 +115,12 @@ say('── 4. 동작 — 배율 k · seatScale · charLiftWorld · syncSeatEqua
       const win = {};
       new Function('window', 'module', 'localStorage', MOD)(win, undefined, ls);
       const deps = {}; for(const k of ['seats', 'ANIMAL_RUN_SCALE', 'findMySeat', 'clampCharY', 'fitModel', 'setDeskScale', 'setDeskPos', 'syncSeatDeskZ']) deps[k] = V[k];
+      const reads = [];
+      deps.seatEqAccountStore = { get: (k) => { reads.push(k); return ls.getItem(k); }, set: () => true };   // 계정 칸 — 만들 때는 읽지 않고 loadLocal 이 읽는다
       const m = win.TwSeatEqualize.createSeatEqualize(deps);
+      const made = reads.length;
+      m.loadLocal();
+      V.eqReads = { made, reads }; V.eqReset = () => m.resetLocal();
       api = { seatEqK: m.seatEqK, seatScale: m.seatScale, charLiftWorld: m.charLiftWorld, syncSeatEqualize: m.syncSeatEqualize, on: (v) => m.setSeatEqualizeOn(v), isOn: () => m.seatEqualizeOn() };
     } else {
       const a = SRC.indexOf('let seatEqualizeOn = false;'), a2 = SRC.indexOf('\n', SRC.indexOf('try{ seatEqualizeOn =', a)) + 1;
@@ -127,7 +132,8 @@ say('── 4. 동작 — 배율 k · seatScale · charLiftWorld · syncSeatEqua
   }
   const desk = (n, o) => Object.assign({ n, userData: {} }, o || {});
   let T = mk({});
-  chk(T.api.isOn() === false && mk({ 'tw.seatEq': '1' }).api.isOn() === true && mk({ 'tw.seatEq': '0' }).api.isOn() === false, '깃발 — 기본 꺼짐 · 저장값 tw.seatEq=1 이면 켜짐');
+  chk(T.api.isOn() === false && mk({ 'tw.seatEq': '1' }).api.isOn() === true && mk({ 'tw.seatEq': '0' }).api.isOn() === false, '깃발 — 기본 꺼짐 · 계정 칸 값 tw.seatEq=1 이면 켜짐(확인 뒤 loadLocal 이 읽은 뒤)');
+  { const k = mk({ 'tw.seatEq': '1' }); chk(k.V.eqReads.made === 0 && k.V.eqReads.reads.join() === 'tw.seatEq', '  만들 때는 계정 칸을 읽지 않는다(0번) — loadLocal 이 한 번 읽는다'); k.V.eqReset(); chk(k.api.isOn() === false, '  세션이 끝나면(resetLocal) 처음 값(꺼짐)으로'); }
   const me = { n: 'me', isMe: true, userScale: 1.2 }, big = { n: 'big', userScale: 2.4 }, bad = { n: 'bad', userScale: 0 }, nan = { n: 'nan', userScale: NaN };
   T.seats.push(me, big, bad, nan);
   chk(T.api.seatEqK(big) === 1 && T.api.seatScale(big) === 2.4 && T.api.seatScale(bad) === 1 && T.api.seatScale(nan) === 1 && T.api.seatScale(null) === 1, '꺼짐 — k 1 · 실효 크기 = 저장값(0 · NaN · 없음은 1)');
