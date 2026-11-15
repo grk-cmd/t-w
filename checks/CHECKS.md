@@ -452,7 +452,7 @@
 | **sim-release-notes.js** | 75 | **37e41b730e37** |
 | **sim-mallang-gift.js** | 75 | **4e210440f918** |
 | **sim-room-face-load.js** | 217 | **d619e9556ab2** |
-| **sim-part-ao-clean.js** | 122 | **535053a793ff** |
+| **sim-part-ao-clean.js** | 128 | **8e04843bb818** |
 | **sim-img-retry.js** | 81 | **ae3ae329553c** |
 | **sim-input-diag.js** | 148 | **09d9fb9484c8** |
 | **sim-renderer-gone-reset.js** | 139 | **9072d225458e** |
