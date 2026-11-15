@@ -19,7 +19,7 @@ const glFail = TwGlFailNotice.createGlFailNotice({
   note: (m) => { if(window.companion && companion.diagNote) companion.diagNote(m); },
   relaunch: () => companion.relaunchApp(), quit: () => companion.quitApp(),
 });
-const renderer=glFail.guard(() => new THREE.WebGLRenderer({canvas,antialias:_renderAA,alpha:true,premultipliedAlpha:false,logarithmicDepthBuffer:true}));renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const renderer=TwGlContext.make(canvas,{canvas,antialias:_renderAA,alpha:true,premultipliedAlpha:false,logarithmicDepthBuffer:true},'main',{ guard: glFail.guard });renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setClearColor(0x000000, 0);   // 항상 투명 배경으로 클리어 (Electron 투명창 흰 화면 예방)
 /* 🧯 메인 캔버스 WebGL 연결 끊김 — 기록하고, 6초 안에 안 돌아오면 앱을 다시 켠다 · 10분 안에 또면 안내(parts/gl-recover.js · B-1114-5).
    three.js 자기 리스너가 먼저 붙어 preventDefault 를 하므로 여기는 기록 · 시간 재기만 한다.

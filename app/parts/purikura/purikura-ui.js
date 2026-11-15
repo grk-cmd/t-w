@@ -844,7 +844,9 @@ function _pkPaintSlots(){
 function _pkBuildStage(){
   if(PK.renderer) return;
   const cv = _pkEl('pkStage');
-  PK.renderer = new THREE.WebGLRenderer({canvas:cv, antialias:true, preserveDrawingBuffer:true});
+  const r = TwGlContext.make(cv, {canvas:cv, antialias:true, preserveDrawingBuffer:true}, 'preview', { label:'스티커사진' });
+  if(!r) return;
+  PK.renderer = r;
   PK.renderer.setPixelRatio(Math.min(devicePixelRatio,2));
   PK.renderer.outputEncoding = THREE.sRGBEncoding;
   PK.renderer.setClearColor(0xffffff, 1);       // 뒷배경이 정하기 전의 기본값 — _pkApplyBg 가 덮는다

@@ -203,5 +203,20 @@ function skel(){ const mk = (name) => ({ isBone: true, name, quaternion: { got: 
   r.api.clearCreatorItems(); chk(r.calls.some(c => c[0] === 'originClear'), '책상 아이템 걷기 — 처음 자리 기록도 비운다');
   const r2 = rigC({ base: null }); r2.api.clearCreatorParts(); chk(!r2.calls.length, '미리보기가 없으면 아무것도 안 한다'); }
 
+
+say('── 7. 3D 를 못 만들 때(gl-context 가 null) — false 를 돌려주고 아무것도 안 세운다');
+{
+  const run = (mod, make) => { const calls = []; let r = null; const set = (v) => calls.push('setCRenderer');
+    const api = build(mod, { cRenderer: () => r, setCRenderer: (v) => { r = v; calls.push('setCRenderer'); }, setCScene: () => calls.push('setCScene') }, { TwGlContext: { make: (...a) => { calls.push('make'); return make(); } }, document: { getElementById: () => ({}) } });
+    let out, threw = null; try{ out = api.ensureCreatorPreview(); }catch(e){ threw = e; }
+    return { out, calls, threw, again: (() => { try{ return api.ensureCreatorPreview(); }catch(_){ return 'threw'; } })() };
+  };
+  const bad = run(MOD, () => null);
+  chk(!bad.threw && bad.out === false && !bad.calls.includes('setCRenderer') && !bad.calls.includes('setCScene'), 'make 가 null → ensureCreatorPreview 는 false · 렌더러 · 씬을 세우지 않는다(던지지 않는다)');
+  chk(bad.calls.filter(c => c === 'make').length === 2 && bad.again === false, '다시 불러도 그대로 false(못 만든 채로 굳지 않고 부를 때마다 다시 만들어 본다)');
+  const broken = run(MOD.replace('if(!r) return false;', ''), () => null);
+  chk(broken.threw || broken.out !== false || broken.calls.includes('setCRenderer'), '깨 보기: if(!r) return false 를 빼면 빨강');
+}
+
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);
