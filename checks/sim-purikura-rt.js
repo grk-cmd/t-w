@@ -32,13 +32,15 @@ const WIRE = {
   events: ['jump', 'pose', 'blink'], posRe: /^-?[0-9]+,-?[0-9]+(,-?[0-9]+,-?[0-9]+,-?[0-9]+)?$/, posMax: 24, frameMax: 512,
   camH: [0.5, 2.6], camP: [0, 26], slots: 4,
 };
+const RID_RE = /^[A-Za-z0-9_.:-]{1,16}$/;   // 서버 rid 모양(PROTOCOL 1장)
 const onlyKeys = (o, ks) => Object.keys(o).every((k) => ks.indexOf(k) >= 0);
 const isInt = (v, a, b) => Number.isInteger(v) && v >= a && v <= b;
 /* 서버가 받는 모양이면 null, 아니면 이유 */
 function wireProblem(m){
   switch(m.t){
-    case 'photoOpen': return onlyKeys(m, ['t', 'fx']) && (m.fx === undefined || isInt(m.fx, 0, 99)) ? null : 'photoOpen 모양';
-    case 'photoLeave': case 'photoStart': case 'photoDone': return onlyKeys(m, ['t']) ? null : m.t + ' 모양';
+    case 'photoOpen': return onlyKeys(m, ['t', 'fx', 'rid']) && (m.fx === undefined || isInt(m.fx, 0, 99)) && RID_RE.test(m.rid) ? null : 'photoOpen 모양';
+    case 'photoStart': return onlyKeys(m, ['t', 'rid']) && RID_RE.test(m.rid) ? null : 'photoStart 모양';
+    case 'photoLeave': case 'photoDone': return onlyKeys(m, ['t']) ? null : m.t + ' 모양';
     case 'photoConfig': {
       const ks = ['orient', 'cuts', 'basic', 'bg', 'filter', 'camH', 'camP'];
       if(!onlyKeys(m, ['t'].concat(ks)) || !ks.every((k) => k in m)) return 'photoConfig 칸';
@@ -80,7 +82,15 @@ function mk(S, o){
     onPeers: (v) => cb.peers.push(JSON.stringify(v)), onMeta: (v) => cb.meta.push(v), onEvent: (s, e) => cb.event.push([s, e]),
     onShot: (v) => cb.shot.push(v), onSlots: (v) => cb.slots.push(JSON.stringify(v)), onFrames: (v) => cb.frames.push(JSON.stringify(v)), onRefused: (v) => cb.refused.push(v), onLateStart: () => cb.late.push(1),
   });
-  const emit = (m) => (fns[m.t] || []).forEach((f) => f(m));
+  /* 서버는 photoOpen · photoStart 의 답에 그 요청의 rid 를 돌려준다 — rid 를 안 적은 답은 «가장 최근 그 요청의 rid» 를 달아 보낸다(늦은 답은 rid 를 직접 적는다) */
+  const lastRid = (t) => { for(let i = sent.length - 1; i >= 0; i--) if(sent[i].t === t) return sent[i].rid; return undefined; };
+  const emit = (m) => {
+    if(m.rid === undefined){
+      const t = m.t === 'photoWelcome' ? 'photoOpen' : m.t === 'photoStarted' ? 'photoStart' : (m.t === 'error' && (m.ref === 'photoOpen' || m.ref === 'photoStart')) ? m.ref : null;
+      if(t && lastRid(t) !== undefined && !m.noRid) m = Object.assign({}, m, { rid: lastRid(t) });
+    }
+    (fns[m.t] || []).forEach((f) => f(m));
+  };
   return { R, P, sess, hub, st, sent, timers, cb, gets, warns, states, kinds, fns, emit,
     notify: () => (kinds.photoQuota || []).forEach((f) => f({ kind: 'photoQuota', resync: false })),
     drop: () => { st.ready = false; states.forEach((f) => f('retrying')); },
@@ -128,16 +138,16 @@ async function judge(S){
   e.fireTimer(e.R.OPEN_WAIT_MS); await p3;
   chk(settled && settled.reason === 'timeout' && e.last().t === 'photoLeave', '답이 안 오면 timeout + 서버에 자리를 놓는다(늦게 온 welcome 이 남의 자리를 막지 않게)');
   e.emit(WELCOME()); chk(e.sess.mySlot() === -1 && !e.sess.isHost(), '  늦게 온 photoWelcome 은 버린다');
-  e = mk(S); const q1 = e.sess.open('ROOM1', { userCode: 'uA' }); e.fireTimer(e.R.OPEN_WAIT_MS); await q1;
+  e = mk(S); const q1 = e.sess.open('ROOM1', { userCode: 'uA' }); const rid1 = e.sent[0].rid; e.fireTimer(e.R.OPEN_WAIT_MS); await q1;
   let q2res = null; const q2 = e.sess.open('ROOM1', { userCode: 'uA' }).then((r) => { q2res = r; });
-  e.emit(WELCOME({ slots: [{ userCode: 'uZ', name: '첫 답', fx: 1 }, null, null, null], meta: META({ host: 'uZ' }) })); await tick();
-  chk(q2res === null && e.sess.mySlot() === -1, '★ 시간 초과 뒤 다시 열면 — 첫 요청의 늦은 photoWelcome 을 두 번째 답으로 받지 않는다(차례대로 짝지음)');
+  e.emit(WELCOME({ rid: rid1, slots: [{ userCode: 'uZ', name: '첫 답', fx: 1 }, null, null, null], meta: META({ host: 'uZ' }) })); await tick();
+  chk(q2res === null && e.sess.mySlot() === -1, '★ 시간 초과 뒤 다시 열면 — 첫 요청의 늦은 photoWelcome(첫 rid)을 두 번째 답으로 받지 않는다(rid 짝짓기)');
   e.emit(WELCOME()); await q2;
   chk(q2res.ok === true && e.sess.mySlot() === 0, '  두 번째 답에서 자리를 잡는다');
-  e = mk(S); const q3 = e.sess.open('ROOM1', { userCode: 'uA' }); e.fireTimer(e.R.OPEN_WAIT_MS); await q3;
+  e = mk(S); const q3 = e.sess.open('ROOM1', { userCode: 'uA' }); const rid3 = e.sent[0].rid; e.fireTimer(e.R.OPEN_WAIT_MS); await q3;
   let q4res = null; const q4 = e.sess.open('ROOM1', { userCode: 'uA' }).then((r) => { q4res = r; });
-  e.emit({ t: 'error', code: 'ROOM_PHOTO_BUSY', ref: 'photoOpen' }); await tick();
-  chk(q4res === null, '  첫 요청의 늦은 거절도 두 번째 요청을 끝내지 않는다');
+  e.emit({ t: 'error', code: 'ROOM_PHOTO_BUSY', ref: 'photoOpen', rid: rid3 }); await tick();
+  chk(q4res === null, '  첫 요청의 늦은 거절(첫 rid)도 두 번째 요청을 끝내지 않는다');
   e.emit(WELCOME()); await q4; chk(q4res.ok === true, '  두 번째 답은 정상으로 받는다');
   e = mk(S); const q5 = e.sess.open('ROOM1', { userCode: 'uA' }); e.fireTimer(e.R.OPEN_WAIT_MS); await q5; e.drop(); e.st.ready = true;
   const q6 = e.sess.open('ROOM1', { userCode: 'uA' }); e.emit(WELCOME()); chk((await q6).ok === true, '  연결이 끊겼다 붙으면 줄을 비운다(끊긴 연결에는 늦은 답이 오지 않는다)');
@@ -242,11 +252,13 @@ async function judge(S){
   chk(new Set(Object.values(e.R.START_MESSAGES)).size >= 4 && Object.values(e.R.START_MESSAGES).every((s) => typeof s === 'string' && s.length > 8), '까닭 문구는 비지 않고 서로 다르다(닫힘은 날짜가 들어가 따로)');
   e = await opened(S); const pt = e.sess.start(); e.fireTimer(e.R.START_WAIT_MS); r = await pt;
   chk(r.reason === 'timeout' && !!r.message, '답이 안 오면 timeout + 까닭');
+  const ridS1 = e.sent.filter((m) => m.t === 'photoStart')[0].rid;
   const pt2 = e.sess.start();
-  e.emit({ t: 'photoStarted', nth: 1, left: 399 });
+  chk(e.sent.filter((m) => m.t === 'photoStart')[1].rid !== ridS1, '  시작마다 다른 rid');
+  e.emit({ t: 'photoStarted', nth: 1, left: 399, rid: ridS1 });
   chk(e.cb.late.length === 1, '★ 시간 초과 뒤 늦게 photoStarted 가 오면(서버는 촬영 시작 · 정원 씀) 방장 화면이 이어 가도록 onLateStart 를 한 번 부른다');
   e.emit({ t: 'photoStarted', nth: 2, left: 398 });
-  chk((await pt2).ok === true && pt2 !== undefined && e.cb.late.length === 1, '  시간 초과 뒤에는 다시 누를 수 있고, 늦은 답이 다음 요청의 답으로 읽히지 않는다(답은 보낸 순서대로 짝지음)');
+  chk((await pt2).ok === true && pt2 !== undefined && e.cb.late.length === 1, '  시간 초과 뒤에는 다시 누를 수 있고, 늦은 답(첫 rid)이 다음 요청의 답으로 읽히지 않는다(rid 짝짓기)');
   e = await opened(S); const pt3 = e.sess.start(); e.fireTimer(e.R.START_WAIT_MS); await pt3;
   e.emit({ t: 'photoMeta', meta: META({ state: 'shooting', startedAt: 5 }) }); e.emit({ t: 'photoStarted', nth: 3, left: 397 });
   chk(e.cb.late.length === 1, '★ 시간 초과 뒤 photoMeta 가 shooting 이면 그때 이어 간다 — 뒤따르는 photoStarted 로 두 번 부르지 않는다');
@@ -279,9 +291,10 @@ async function judge(S){
   e.emit({ t: 'photoMeta', meta: META({ state: 'shooting' }) });
   chk(e.cb.late.length === 0, '  자리를 잃은(방 밖 답) 뒤 다시 열어도 옛 시작 stale 이 남아 이어 가지 않는다');
   e = await opened(S); const ps5 = e.sess.start(); e.fireTimer(e.R.START_WAIT_MS); await ps5;
-  const ps6 = e.sess.start(); e.emit({ t: 'error', code: 'ROOM_PHOTO_NOT_HOST', ref: 'photoStart' });
+  const ridP1 = e.sent.filter((m) => m.t === 'photoStart')[0].rid;
+  const ps6 = e.sess.start(); e.emit({ t: 'error', code: 'ROOM_PHOTO_NOT_HOST', ref: 'photoStart', rid: ridP1 });
   e.emit({ t: 'photoStarted', nth: 4, left: 396 });
-  chk((await ps6).ok === true && e.cb.late.length === 0, '  늦게 다시 누른 시작의 오류가 먼저 와도 줄 순서대로 짝지어 끝내 이어진다');
+  chk((await ps6).ok === true && e.cb.late.length === 0, '  옛 시작(옛 rid)의 늦은 오류가 먼저 와도 새 시작을 끝내지 않는다 — 새 시작은 제 rid 의 답으로 이어진다');
   e = await opened(S, { mk: {} }); e.hub.send = () => false; r = await e.sess.start();
   chk(r.reason === 'notReady' && /연결된 뒤/.test(r.message), '연결이 없으면 notReady');
   e = await opened(S, { me: 'uB', welcome: { slot: 1, slots: [{ userCode: 'uA', name: 'a', fx: 1 }, { userCode: 'uB', name: 'b', fx: 1 }, null, null], meta: META({ host: 'uA' }) } });
@@ -401,23 +414,24 @@ process.on('exit', (c) => { if(!finished && c === 0){ console.log('✗ 검사가
     ['RT', "const hostSend = (msg) => Promise.resolve(isHost() ? !!hub.send(msg) : false);", "const hostSend = (msg) => Promise.resolve(!!hub.send(msg));", '방장 아니어도 보냄'],
     ['RT', "if(!P.cutAllowed(cfg.orient, cfg.cuts)) return Promise.resolve(false);", "", '세로 2컷을 안 거름'],
     ['RT', "function setCut(i, atMs){ return hostSend({ t: 'photoCut', i: i | 0, at: atMs === 0 ? 0 : 1 }); }", "function setCut(i, atMs){ return hostSend({ t: 'photoCut', i: i | 0, at: atMs }); }", '앱 시계를 서버에 실음'],
-    ['RT', "if(liveOf(startQ)) return Promise.resolve(startFail('error'));", "", '촬영 시작을 겹쳐 보냄'],
-    ['RT', "if(!o || o.stale) return;", "if(!o) return;", '늦은 welcome 을 다음 요청의 답으로 받음'],
-    ['RT', "const was = inSession || !!liveOf(openQ);", "const was = inSession;", '자리 잡는 중 닫아도 photoLeave 를 안 보냄'],
-    ['RT', "    for(const e of startQ.slice()) if(!e.stale) settle(startQ, e, startFail('error'));\n    startQ.length = 0;", "", 'close 가 시작 줄을 안 비움'],
-    ['RT', "    for(const e of openQ) if(!e.stale){ e.stale = true;", "    for(const e of openQ) if(false){ e.stale = true;", 'close 가 기다리던 open 을 stale 로 안 돌림'],
+    ['RT', "if(liveOf('start')) return Promise.resolve(startFail('error'));", "", '촬영 시작을 겹쳐 보냄'],
+    ['RT', "const o = (typeof m.rid === 'string') ? pending.get(m.rid) : null;", "const o = Array.from(pending.values()).find((x) => x.kind === 'open') || null;", 'welcome 을 rid 가 아니라 «지금 기다리는 open» 에 짝지음'],
+    ['RT', "const was = inSession || !!liveOf('open');", "const was = inSession;", '자리 잡는 중 닫아도 photoLeave 를 안 보냄'],
+    ['RT', "      pending.delete(e.rid); tClear(e.timer);\n      if(!e.stale) e.res(e.kind === 'open' ? { ok: false, reason: 'error' } : startFail('error'));", "      tClear(e.timer);\n      if(!e.stale) e.res(e.kind === 'open' ? { ok: false, reason: 'error' } : startFail('error'));", 'close 가 기다리던 요청을 안 지움(늦은 답이 되살아남)'],
     ['RT', "  function lose(){\n    dropWaiting();", "  function lose(){", '자리를 잃어도 시작 줄을 안 비움'],
-    ['RT', "const nextAnswer = (q) => q.shift() || null;", "const nextAnswer = (q) => q.find((e) => !e.stale) || null;", '늦은 답을 보낸 순서로 짝짓지 않음'],
-    ['RT', "if(h.stale){ if(inSession && isHost()) lateStart(h); return; }", "if(h.stale) return;", '늦은 photoStarted 로 이어 가지 않음'],
+    ['RT', "const h = (typeof m.rid === 'string') ? pending.get(m.rid) : null;   // rid 는", "const h = Array.from(pending.values()).find((x) => x.kind === 'start' && !x.stale) || null;   // rid 는", 'photoStarted 를 rid 가 아니라 «지금 기다리는 start» 에 짝지음'],
+    ['RT', "const w = (typeof m.rid === 'string') ? pending.get(m.rid) : null;   // rid 달린 오류는", "const w = Array.from(pending.values()).find((x) => x.kind === (m.ref === 'photoOpen' ? 'open' : 'start')) || null;   // rid 달린 오류는", '오류를 rid 가 아니라 «지금 기다리는 것» 에 짝지음'],
+    ['RT', "const newRid = () => 'p' + (++ridSeq).toString(36);", "const newRid = () => 'p1';", '요청마다 같은 rid'],
+    ['RT', "if(h.stale){ pending.delete(h.rid); if(inSession && isHost()) lateStart(h); return; }", "if(h.stale){ pending.delete(h.rid); return; }", '늦은 photoStarted 로 이어 가지 않음'],
     ['RT', "if(meta && meta.state === 'shooting' && isHost()) lateStart();", "", 'shooting 판으로 이어 가지 않음'],
     ['RT', "    e.fired = true;\n", "", '이어 가기를 두 번 부름'],
-    ['RT', "openQ.length = 0; startQ.length = 0;", "", '끊긴 뒤 줄을 안 비움'],
+    ['RT', "if(!e.stale) e.res(e.kind === 'open' ? { ok: false, reason: 'notReady' }", "if(false) e.res(e.kind === 'open' ? { ok: false, reason: 'notReady' }", '끊겨도 기다리던 요청을 안 풂'],
     ['RT', "ROOM_PHOTO_QUOTA_UNAVAILABLE: 'unavailable'", "ROOM_PHOTO_QUOTA_UNAVAILABLE: 'closed'", '정원 못 묻기를 닫힘으로 읽음'],
     ['RT', "reason === 'closed' ? P.closedMessage(lastReopenAt) : (START_MESSAGES[reason] || START_MESSAGES.error)", "P.closedMessage(lastReopenAt)", '모든 시작 실패를 «문 닫음» 으로'],
     ['RT', "if(!hub.send({ t: 'photoPos', p: P.encPos(wx, d, gz, gp, yaw) })) return false;\n    lastSent = { wx, d, t };", "lastSent = { wx, d, t };\n    hub.send({ t: 'photoPos', p: P.encPos(wx, d, gz, gp, yaw) });", '못 보낸 좌표를 보낸 것으로 기억'],
     ['RT', "if(t - lastSent.t < P.SEND_MIN_MS) return false;", "", '10Hz 상한 없음'],
     ['RT', "if(lastSent.wx !== null && Math.abs(wx - lastSent.wx) < P.DEAD_X && Math.abs(d - lastSent.d) < P.DEAD_D) return false;", "", '안 움직여도 보냄'],
-    ['RT', "    if(hub.isReady()) return;\n    for(const e of openQ", "    return;\n    for(const e of openQ", '연결 끊김을 모름'],
+    ['RT', "    if(hub.isReady()) return;\n    for(const e of Array.from(pending", "    return;\n    for(const e of Array.from(pending", '연결 끊김을 모름'],
     ['RT', "    if(m.code === 'notInRoom'){ lose(); return; }", "", '방 밖 답에도 자리를 안 버림'],
     ['RT', "if(inSession && HOST_REFS.indexOf(m.ref) >= 0) onRefused", "if(false) onRefused", '방장 일 거절을 삼킴'],
     ['RT', "if(!d || typeof d !== 'object' || !(d.cap > 0) || typeof d.left !== 'number' || !isFinite(d.left) || msOf(d.reopenAt) === null) throw", "if(!d) throw", '정원 답 검사 약화'],
