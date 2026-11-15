@@ -126,7 +126,7 @@ function mkEnv(o){
     env.t = end;
   };
   const api = o.noApi ? undefined : {   // 옛 길에 남은 것 — 명함 읽기뿐
-    fetchPlaylistCard: async (uid) => { env.calls.push('card ' + uid); return env.cards[uid] || null; },
+    fetchPlaylistCard: async (uid) => { env.calls.push('card ' + uid); if(env.cardFail) throw new Error('card down'); return env.cards[uid] || null; },
   };
   /* 🌐 서버 길 provider(playlist-api.js)의 가짜 — 모양은 진짜와 같다(내 목록 / 저장 / 무작위 / 남의 목록). 막히면(noApi) 던진다 */
   const down = async () => { throw new Error('서버 길 막힘'); };
@@ -864,6 +864,16 @@ async function behave(src){
     chk(e.errors.join() === 'E-PL-02,E-PL-02' && e.errArgs[1] instanceof Error && e.toasts.length === 0, '  친구 지목 파도타기도 같은 번호로 알린다');
   }
 
+  {
+    /* 명함(서버 사본)을 못 받으면 Firebase 로 물러나지 않고 번호로 알린다 — 내 명함 첫 읽기 */
+    const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); e.cardFail = true; const m = await e.mk();
+    e.byId.myPlBtn.fire('click'); await flush(); await flush();
+    chk(e.errors.includes('E-PL-03') && e.errArgs[e.errors.indexOf('E-PL-03')] instanceof Error, '★ 명함을 못 받으면 E-PL-03 으로 알린다(원인 오류를 넘긴다) — 조용히 비우지 않는다');
+    const e2 = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m2 = await e2.mk();
+    e2.byId.myPlBtn.fire('click'); await flush(); await flush();
+    chk(!e2.errors.includes('E-PL-03'), '  받았으면 알리지 않는다');
+  }
+
   say('── 6. 🐕 재생 감시견');
   {
     const e = E({ store: { 'tw.playlistSets': setsOf(songs(3)), 'tw.playlistLoopKind': '0', 'tw.playlistLoopOn': '1' } }); const m = await e.mk();
@@ -1085,6 +1095,7 @@ async function runAll(PL, APP, HTML){
     ['PL', "['myPlAdd', _plCanEdit() && _plMine().length < PL_MAX]", "['myPlAdd', !_plReadOnly() && _plMine().length < PL_MAX]", '받기 전에 ＋ 가 켜져 있음'],
     ['PL', "  if(_plNow >= 0){ _plPullLater(PL_PLAYING_DEFER_MS); return; }   // 듣는 중이면 부르기 전에", "  if(false){ _plPullLater(PL_PLAYING_DEFER_MS); return; }   // 듣는 중이면 부르기 전에", '듣는 중에도 서버를 부름(헛 GET)'],
     ['PL', "  if(_plPullBusyUid === uid) return;  ", "  if(false) return;  ", '받는 중에 다시 받기가 겹침'],
+    ['PL', "  }catch(e){ notifyError('E-PL-03', e); }   // 못 받음", "  }catch(_){}   // 못 받음", '내 명함을 못 받아도 알리지 않음'],
     ['PL', "    if(!_plSaveFailing){ _plSaveFailing = true; notifyError('E-PL-01'); }", "    notifyError('E-PL-01');", '저장 실패를 이어지는 동안 되풀이해서 알림'],
     ['PL', "    if(!_plSaveFailing){ _plSaveFailing = true; notifyError('E-PL-01'); }", "    _plSaveFailing = true;", '저장 실패를 알리지 않음'],
     ['PL', "    if(!_plSaveFailing){ _plSaveFailing = true; notifyError('E-PL-01'); }\n", "    if(!_plSaveFailing){ _plSaveFailing = true; notifyError('E-PL-01'); }\n    _plPublishIn(30000);\n", '저장 실패 뒤 혼자 다시 올림'],

@@ -56,7 +56,7 @@ function world(src, opts){
   };
   const fb = {};
   let opened = null;          // 대화창 본문 구독(chatHistory.open)
-  fb.chatHistory = { open: (room, tab, onList) => { opened = { room, tab, onList }; return () => {}; } };
+  fb.chatHistory = { open: (room, tab, onList, onFail) => { if(opts.openThrows) throw new Error('chatHistory 없음'); opened = { room, tab, onList, onFail }; return () => {}; } };
   const win = { _activeChannel: 2, _roomMetaCache: { tabs: { s1: { name: '잡담', ts: 1 } } }, firebaseAPI: fb };
   const tabsApi = new Function('window', 'module', TABS + '\nreturn window.ChatTabs;')(win, undefined);
   win.ChatTabs = tabsApi;
@@ -67,7 +67,7 @@ function world(src, opts){
   const deps = new Proxy({
     chatAccountStore: { get: (k) => ls.getItem(k), set: (k, v) => { ls.setItem(k, v); return true; }, remove: (k) => { ls.removeItem(k); return true; } },   // 계정 칸(S-3d) — 읽음 · 입장 표시 · 탭 기억
     Presence: () => presence, _chatRoomCode: () => room, _chatOffOn: () => false, _parseDanceCmdChain: () => null,
-    officeMode: () => false, findMySeat: () => null, getMyUserId: () => ME, myCode: () => ME, chatNet, getDisplayName: () => '나', toast(){},
+    officeMode: () => false, findMySeat: () => null, getMyUserId: () => ME, myCode: () => ME, chatNet, chatHistory: () => fb.chatHistory, getDisplayName: () => '나', toast(){},
     _chatEsc: (s) => String(s), escHtml: (s) => String(s),
     _chatLogCache: () => cache, setChatLogCache: (v) => { cache = v; }, _chatLogUnsub: () => null, setChatLogUnsub(){},
     CHAT_WIN_POS_KEY: () => 'tw.chatWinPos', bringWinToFront(){}, demojiCatalog: { DIR: '', LIST: [], BY_ID: {}, BY_CMD: {} }, seats: [], _myHomeData: () => null, isAdmin: () => false,
@@ -189,6 +189,21 @@ async function judgeAll(src){
     w.sends.length && await w.reply(0, { ok: true, id: '-F', ts: 6000 });
     t(w.readOf('R1') === 'T6000:-F', '5-2 그래서 날리기로 보낸 줄까지도 읽음');
   }
+  /* 6절 — 지난 기록을 못 받으면 «못 불러왔어요 + [다시 시도]» — 다른 길(subscribeLog)로 돌리지 않는다(#910) */
+  {
+    const errs = []; const warns = []; const g0 = globalThis.TwErrorCodes, w0 = console.warn;
+    globalThis.TwErrorCodes = { notify: (c) => { if(c === 'E-CHAT-02') errs.push(c); } }; console.warn = (...a) => warns.push(a.join(' '));
+    try{
+      const w = world(src, { openThrows: true, store: { 'tw_chat_join:R1': '' } });
+      w.ui.openChatWindow();
+      t(errs.join() === 'E-CHAT-02' && warns.length >= 1 && /data-hist-retry/.test(String(w.els.chatMessages.innerHTML)) && w.subs.filter((s) => s.limit === undefined).length === 0, '6-1 ★ 기록 모듈이 열다 던져도 «못 불러왔어요 + [다시 시도]» + E-CHAT-02 + console.warn — 최근 줄 구독(subscribeLog)으로 돌리지 않는다');
+      errs.length = 0;
+      const w2 = world(src, { store: { 'tw_chat_join:R1': '' } });
+      w2.ui.openChatWindow();
+      const op = w2.opened(); op.onFail(new Error('서버 503'));
+      t(errs.join() === 'E-CHAT-02' && /data-hist-retry/.test(String(w2.els.chatMessages.innerHTML)), '6-2 서버에서 못 받으면(onFail) 같은 안내 · E-CHAT-02');
+    } finally { globalThis.TwErrorCodes = g0; console.warn = w0; }
+  }
   return r;
 }
 
@@ -197,6 +212,7 @@ async function judgeAll(src){
   rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1~5. 실제로 돌려 보기'); chk(ok, msg); });
   say('── 7. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
   const breaks = [
+    ['기록을 못 열면 최근 줄 구독으로 돌림(예전 갈래)', (s) => s.replace('catch(e){ histFail(e); }', 'catch(e){ chatNet.subscribeLog(room, _onList, undefined, tab); }')],
     ['보낸 뒤 읽음 저장 빼기(예전)', (s) => s.replace('if(r && r.ok) _chatMarkSentRead(sendKey, r);', '')],
     ['앞으로만 빼기 — 늘 덮기', (s) => s.replace(/(function _chatMarkSentRead\(key, sent\)\{[\s\S]*?)if\(!old \|\| !CHAT_MARK_RE\.test\(old\) \|\| _chatIsAfter\(sent, old\)\) /, '$1')],
     ['지금 탭에 저장(보낸 탭 아님)', (s) => s.replace('_chatMarkSentRead(sendKey, r)', '_chatMarkSentRead(_chatMarkKey(room, _chatMyTabId()), r)')],

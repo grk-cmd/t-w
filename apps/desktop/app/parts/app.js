@@ -2631,6 +2631,7 @@ const chatUiMod = TwChatUi.createChatUi({
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   chatNet: TwChatRt.store,
+  chatHistory: ()=>firebaseAPI.chatHistory,   // 💬 대화 기록(chat-history.js) — firebase-init 이 만든 것
   myCode: ()=>TwRoomRt.store.myCode(),
   isAdmin: ()=>isAdmin,
   isDanceUnlocked: (...a)=>iDeskMod.isDanceUnlocked(...a),
