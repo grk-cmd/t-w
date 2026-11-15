@@ -33,6 +33,7 @@
 | `E-SYS-05` | 그래픽(3D)을 불러오지 못했어요 — 앱을 다시 켜 주세요 | `shared/gl-fail-notice.js` — 메인 렌더러(WebGL)를 못 만듦 · 끊긴 3D 가 10분 안에 또 안 돌아옴(안내 창). 02~04 는 0.14.0 이 먼저 썼다 |
 | `E-SYS-06` | 3D 미리보기를 불러오지 못했어요 — 창을 닫고 다시 열어 주세요 | `shared/gl-context.js` — 미리보기 3D 장치를 못 만듦(그 창 안에 안내 · 앱은 계속) |
 | `E-SYS-07` | 3D 를 불러오지 못해 사진을 찍을 수 없어요 — 창을 닫고 다시 열어 주세요 | `purikura/purikura-ui.js` — 방장의 3D 무대가 없을 때 「촬영 시작」 |
+| `E-SYS-08` | 캐릭터 몸 파일을 불러오지 못했어요 — 앱을 다시 설치해 주세요 | `launcher/run-boot.js` — 켤 때 기본 몸을 못 읽음(대신 몸으로 계속 · 설치 파일이 깨졌을 수 있다) |
 | `E-FR-01` | 친구 요청을 수락하지 못했어요 | `myhome/friend-manage.js` — 요청 팝업 · 받은 요청 [수락] |
 | `E-FR-02` | 친구 요청을 거절하지 못했어요 | `myhome/friend-manage.js` — 요청 팝업 · 받은 요청 [거절] |
 | `E-FR-03` | 보낸 친구 요청을 취소하지 못했어요 | `myhome/friend-manage.js` — 보낸 요청 [취소] |
@@ -68,6 +69,7 @@
 | `E-NET-06` | 요청 모양이 맞지 않아 처리하지 못했어요 | `shared/api-errors.js` — 공통 INVALID_REQUEST · METHOD_NOT_ALLOWED · UNSUPPORTED_MEDIA_TYPE · PAYLOAD_TOO_LARGE |
 | `E-NET-07` | 서버에 닿지 못했어요 — 인터넷 연결을 확인하고 다시 해 주세요 | `shared/api-errors.js` — 닿지 못함(네트워크 · 시간 초과 · 5xx · 사본 없음) |
 | `E-NET-08` | 서버에서 처리하지 못했어요 — 잠시 뒤 다시 해 주세요 | `shared/api-errors.js` — 표에 없는 code(기능 표 · 공통 표 둘 다 없음) |
+| `E-RPT-01` | 신고하지 못했어요 — 잠시 뒤 다시 해 주세요 | `support/report.js` — 신고 창 [신고] 서버 쓰기 실패(`POST /v2/reports` — 기능 갈래(`report-api.js` `failOf`)도 공통 code(`api-errors.js`)도 아닌 실패 · 숨기지 않고 [신고] 다시 켬 · 다시 보내지 않음) |
 
 ## 걷은 번호
 (아직 없음)
