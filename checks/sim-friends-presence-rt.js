@@ -136,13 +136,13 @@ async function judge(S){
     p2.catch(() => {});
     await tick();
     const q = ws.all('presenceGet')[3];
-    ws.msg({ t: 'error', code: 'badRequest', ref: 'presenceGet' });
+    ws.msg({ t: 'error', code: 'badRequest', ref: 'presenceGet', rid: q.rid });
     let threw = null; try{ await p2; }catch(err){ threw = err; }
     chk(q && threw, '★ 서버가 거절하면 던진다(빈 값이 아니다 — 실패와 «없음» 을 가른다)');
     const pu = prt.readPresence(['x1']);
     pu.catch(() => {});
     await tick();
-    ws.msg({ t: 'error', code: 'unavailable', ref: 'presenceGet' });
+    ws.msg({ t: 'error', code: 'unavailable', ref: 'presenceGet', rid: ws.all('presenceGet').pop().rid });
     let threwU = null; try{ await pu; }catch(err){ threwU = err; }
     chk(!!threwU, '★ 서버가 친구 목록을 못 받음(unavailable · ref presenceGet) → 바로 던진다(«친구 없음» 빈 값이 아니다)');
     const p3 = prt.readPresence(ids(150, 'v')).catch((err) => { throw err; });
@@ -175,7 +175,7 @@ async function judge(S){
     ws.msg({ t: 'presence', users: { f9: { online: true } } });
     chk(got.length === 2, '  ↳ 듣지 않는 친구의 소식은 넘기지 않음(빈 넘기기도 없음)');
     ws.msg({ t: 'presence', users: { f1: { online: false } }, rid: 'q99' });
-    chk(got.length === 2, '★ rid 가 붙은 presence(시간 초과 뒤 늦게 온 presenceGet 답)는 듣기 값이 아니라 버린다');
+    chk(got.length === 2, '★ rid 가 붙은 presence(시간 초과 뒤 늦게 온 presenceGet 답)는 듣기 값이 아니라 버린다(realtime-link 가 낡은 답으로 버림)');
     // 끊겼다 붙음 — 서버의 듣기는 연결에 묶여 있어 다시 보낸다
     ws.kill(1006); await tick();
     chk(st.join() === 'waiting,live,waiting', '★ 끊기면 waiting(연결을 스스로 다시 붙이는 중) — 오류 아님');
@@ -222,8 +222,8 @@ async function judge(S){
     const st = [], got = [];
     prt.watchPresence(['f1'], (u) => got.push(u), (s) => st.push(s));
     chk(prt.retryWatch() === false && ws.all('watch').length === 1, 'retryWatch — 받는 중(waiting)이면 아무 일 없음(요청 0)');
-    ws.msg({ t: 'error', code: 'unavailable', ref: 'presenceGet' });
-    chk(st.join() === 'waiting', '  ↳ 다른 요청(presenceGet)의 거절은 듣기 상태를 바꾸지 않는다');
+    ws.msg({ t: 'error', code: 'unavailable', ref: 'poke' });
+    chk(st.join() === 'waiting', '  ↳ 다른 요청(poke)의 거절은 듣기 상태를 바꾸지 않는다');
     ws.msg({ t: 'error', code: 'unavailable', ref: 'watch' });
     chk(st.join() === 'waiting,failed' && got.length === 0, '★ unavailable(ref watch) → failed(live 아님 — «친구 없음 · 모두 오프라인» 으로 굳지 않는다)');
     await e.clock.advance(120000);
@@ -318,7 +318,6 @@ const BREAKS = [
   ['PRT', 'chunk(want, PRESENCE_IDS_MAX).map(', '[want].map(', '100명을 넘겨도 나누지 않음'],
   ['PRT', 'const want = Array.from(new Set((ids || []).filter(Boolean)));', 'const want = (ids || []);', '겹침 · 빈 값을 안 거름'],
   ['PRT', "if(!u) throw new Error('접속 상태를 받지 못했어요');", 'if(!u) continue;', '못 받아도 빈 값으로 «받음»'],
-  ['PRT', 'if(w.dead || m.rid !== undefined) return;', 'if(w.dead) return;', '늦게 온 presenceGet 답을 듣기 값으로 씀'],
   ['PRT', 'w.offs.push(rt.onState(() => { if(!w.dead) w.ask(); }));', '', '다시 붙어도 watch 를 안 보냄'],
   ['PRT', 'if(m.full === true) status(LIVE);', '', '처음 전체를 받아도 live 가 안 됨'],
   ['PRT', "if(rt.isReady()) rt.send({ t: 'unwatch' });", '', '풀어도 unwatch 를 안 보냄'],

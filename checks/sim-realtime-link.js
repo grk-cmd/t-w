@@ -87,28 +87,31 @@ function mk(o = {}){
     now: () => clock.t, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout,
     // 0.5 = 흩기 없음(아래 백오프 시험이 정확한 초를 본다) · 흩기 시험은 o.random 으로 끝값을 준다
     random: o.random || (() => 0.5),
-    log: { warn(){} },
+    log: { warn(){ log.warns = (log.warns || 0) + 1; } },
   });
   return { link, clock, socks, log, st, setUrl: (u) => { url = u; } };
 }
-/* unavailable(ref) — 서버가 그 요청에 필요한 값을 못 받음. error 엔 rid 가 없어 같은 종류의 가장 먼저 보낸 요청 하나만 실패, 나머지는 그대로 답을 기다린다. */
+/* unavailable(ref · rid) — 서버가 그 요청에 필요한 값을 못 받음. error 에 그 요청의 rid 가 실려 와 그 요청만 실패 · 나머지는 그대로 답을 기다린다. rid 없는 오류는 낡은 것 — 버린다. */
 async function unavailableCase(Mod){
   const out = [];
-  const e = mk({ ridless: false, M: Mod });
+  const e = mk({ M: Mod });
   const { ws } = await up(e);
   const p1 = e.link.request({ t: 'presenceGet', ids: ['a'] }, (m) => m);
   const p2 = e.link.request({ t: 'presenceGet', ids: ['b'] }, (m) => m);
   let r1 = 'pending', r2 = 'pending';
   p1.then((v) => { r1 = v; }); p2.then((v) => { r2 = v; });
   await tick();
-  ws.msg({ t: 'error', code: 'unavailable', ref: 'presenceGet' });
-  await tick();
-  out.push([r1 === null && r2 === 'pending', '★ unavailable(ref presenceGet) → 가장 먼저 보낸 요청 하나만 바로 null(4초 기다리지 않음) · 다음 요청은 그대로']);
-  out.push([!e.log.msgs.some((m) => m.t === 'error'), '  ↳ 짝지은 error 는 onMessage 로 다시 안 간다']);
   const sent = ws.sent.filter((m) => m.t === 'presenceGet');
-  ws.msg({ t: 'presence', users: { b: { online: true } }, rid: sent[1] && sent[1].rid });
+  ws.msg({ t: 'error', code: 'unavailable', ref: 'presenceGet' });   // rid 없음 — 어느 요청의 것인지 모른다
   await tick();
-  out.push([r2 && r2.users && r2.users.b, '  ↳ 다음 요청은 제 rid 답을 받는다']);
+  out.push([r1 === 'pending' && r2 === 'pending' && !e.log.msgs.some((m) => m.t === 'error'), '★ rid 없는 unavailable(ref presenceGet) 은 어느 요청에도 붙이지 않고 버린다(onMessage 로도 안 보냄)']);
+  ws.msg({ t: 'error', code: 'unavailable', ref: 'presenceGet', rid: sent[1].rid });
+  await tick();
+  out.push([r2 && r2.t === 'error' && r2.code === 'unavailable' && r1 === 'pending', '★ unavailable(ref · rid) → 그 rid 의 요청(둘째)만 바로 오류 메시지(4초 기다리지 않음) · 첫째는 그대로(먼저 보낸 것이 아니라 제 짝)']);
+  out.push([!e.log.msgs.some((m) => m.t === 'error'), '  ↳ 짝지은 error 는 onMessage 로 다시 안 간다']);
+  ws.msg({ t: 'presence', users: { a: { online: true } }, rid: sent[0].rid });
+  await tick();
+  out.push([r1 && r1.users && r1.users.a, '  ↳ 첫째 요청은 제 rid 답을 받는다']);
   ws.msg({ t: 'error', code: 'unavailable', ref: 'watch' });
   await tick();
   out.push([e.log.msgs.some((m) => m.t === 'error' && m.ref === 'watch'), '  ↳ 요청 종류가 아닌 ref(watch) 의 unavailable 은 onMessage 로(듣는 쪽이 받는다)']);
@@ -172,15 +175,30 @@ async function up(env){
 
     const p3 = e.link.request({ t: 'presenceGet', ids: ['b'] }, (m) => m);
     await tick();
-    ws.msg({ t: 'error', code: 'badRequest', ref: 'presenceGet' });
-    chk(await p3 === null, 'badRequest(ref) → 그 종류 가장 먼저 보낸 요청이 null');
+    const rid3 = ws.last('presenceGet').rid;
+    ws.msg({ t: 'error', code: 'badRequest', ref: 'presenceGet', rid: rid3 });
+    const r3 = await p3;
+    chk(r3 && r3.t === 'error' && r3.code === 'badRequest', 'badRequest(ref · rid) → 그 rid 의 요청이 오류 메시지를 받는다');
     const p4 = e.link.request({ t: 'presenceGet', ids: ['c'] }, (m) => m);
     await tick();
-    ws.msg({ t: 'error', code: 'badRequest' });   // ref 없는 오류는 어느 요청의 것인지 모른다 — 요청을 끝내지 않고 onMessage 로
+    ws.msg({ t: 'error', code: 'badRequest' });   // ref 도 rid 도 없는 오류는 어느 요청의 것인지 모른다 — 요청을 끝내지 않고 onMessage 로
     await tick();
     chk(e.log.msgs.some((m) => m.t === 'error' && m.code === 'badRequest'), 'ref 없는 badRequest 는 요청이 가져가지 않고 onMessage 로');
-    ws.msg({ t: 'error', code: 'badRequest', ref: 'presenceGet' });
-    chk(await p4 === null, '  ↳ 그 요청은 ref 가 있는 오류로만 끝난다');
+    const w0 = e.log.warns || 0;
+    ws.msg({ t: 'error', code: 'badRequest', ref: 'presenceGet' });   // rid 없는 요청 종류의 오류 — 낡은 답. 추측해 붙이지 않고 버린다
+    await tick();
+    const still4 = await Promise.race([p4, new Promise((r) => setTimeout(() => r('__wait'), 20))]);
+    chk(still4 === '__wait' && (e.log.warns || 0) > w0 && !e.log.msgs.some((m) => m.t === 'error' && m.ref === 'presenceGet' && m.rid === undefined), '★ rid 없는 요청 종류(ref presenceGet)의 오류는 낡은 것 — 대기 중인 요청에 붙이지 않고 버린다(warn) · onMessage 로도 안 보낸다');
+    ws.msg({ t: 'error', code: 'badRequest', ref: 'presenceGet', rid: ws.last('presenceGet').rid });
+    const r4 = await p4;
+    chk(r4 && r4.t === 'error', '  ↳ 그 요청은 제 rid 의 오류로만 끝난다');
+    {
+      /* 짝 없는 rid 의 늦은 답(presence)은 밀어 주는 메시지로 새지 않고 버린다 */
+      const n0 = e.log.msgs.length;
+      ws.msg({ t: 'presence', users: { late: {} }, full: true, rid: 'old-1' });
+      await tick();
+      chk(e.log.msgs.length === n0, '★ 짝 없는 rid 의 낡은 답은 버린다(onMessage 로 안 감 · 다른 요청에 안 붙음)');
+    }
 
     {
       /* rid 를 실어 보낸 요청의 오류(서버: photoOpen · photoStart · roomInvite 의 오류에 rid) — 그 rid 의 요청이 오류 메시지를 받는다(가장 먼저 보낸 것이 아니라 제 짝) */
@@ -208,9 +226,9 @@ async function up(env){
       await pw;
     }
     for(const [ok, msg] of await unavailableCase(M)) chk(ok, msg);
-    const brokenSrc = SRC.split("\n        || (m.code === 'unavailable' && requestKinds.indexOf(m.ref) >= 0)").join('');
+    const brokenSrc = SRC.split("if(requestKinds.indexOf(m.ref) >= 0){   // rid 요청 종류의 오류인데").join("if(false){   // rid 요청 종류의 오류인데");
     const MB = new Function('Buffer', brokenSrc.replace(/^export (const|function|async function) /gm, '$1 ') + '\nreturn {' + names.join(',') + '};')(Buffer);
-    chk(brokenSrc !== SRC && (await unavailableCase(MB)).some(([ok]) => !ok), '  깨 보기 — unavailable 갈래를 빼면 위 판정이 빨강');
+    chk(brokenSrc !== SRC && (await unavailableCase(MB)).some(([ok]) => !ok), '  깨 보기 — rid 없는 오류를 버리는 갈래를 빼면 위 판정이 빨강');
 
     const p5 = e.link.request({ t: 'presenceGet', ids: ['d'] }, (m) => m);
     await e.clock.advance(4001);

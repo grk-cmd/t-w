@@ -147,14 +147,24 @@ async function judge(S){
   try{
     let e = mk(S);
     const p = e.c.clear('PLAY-AB12', 's2');
-    chk(e.sent[0] && e.sent[0].t === 'chatClear' && e.sent[0].tab === 'S2', 'chatClear{ tab S2 }');
-    e.emit({ t: 'chatLine', line: LINE('c1', { kind: 'CLEAR', tab: 'S2' }) });
-    chk((await within(p)).ok === true, '  지우기 표시 줄이 오면 ok(앱이 표시 줄을 따로 쓰지 않는다)');
+    chk(e.sent[0] && e.sent[0].t === 'chatClear' && e.sent[0].tab === 'S2' && /^[A-Za-z0-9_.:-]{1,16}$/.test(e.sent[0].rid), 'chatClear{ tab S2 · rid(영숫자 1~16자) }');
+    const cr = e.sent[0].rid;
+    e.emit({ t: 'chatLine', line: LINE('c0', { kind: 'CLEAR', tab: 'S2' }) });   // rid 없는 CLEAR 줄 = 남(방장)이 지운 방송 사본 — 내 요청을 끝내지 않는다
+    let doneEarly = false; p.then(() => { doneEarly = true; }); await tick();
+    chk(!doneEarly, '★ rid 없는 지우기 표시 줄은 내 요청을 끝내지 않는다(탭이 같아도 — 추측하지 않는다)');
+    e.emit({ t: 'chatLine', line: LINE('c1', { kind: 'CLEAR', tab: 'S2' }), rid: cr });
+    chk((await within(p)).ok === true, '  내 rid 의 지우기 표시 줄이 오면 ok');
     e = mk(S);
     const p2 = e.c.clear('PLAY-AB12', 'general');
-    e.emit({ t: 'error', code: 'CHAT_NOT_HOST', ref: 'chatClear' });
-    const r = await within(p2);
-    chk(r.ok === false && r.code === 'CHAT_NOT_HOST', '  방장이 아니면 { ok:false, code:CHAT_NOT_HOST }');
+    const p2b = e.c.clear('PLAY-AB12', 'general');
+    const rb = e.sent[1].rid;
+    e.emit({ t: 'error', code: 'CHAT_NOT_HOST', ref: 'chatClear' });   // rid 없음 — 어느 요청의 것인지 모른다(첫 대기자에게 붙이지 않는다)
+    e.emit({ t: 'error', code: 'CHAT_NOT_HOST', ref: 'chatClear', rid: 'zzzz' });
+    let early = false, firstDone = false; p2.then(() => { early = true; firstDone = true; }); p2b.then(() => { early = true; }); await tick();
+    chk(!early, '★ rid 없는 · 모르는 rid 의 지우기 오류는 낡은 것 — 첫 대기자에게 붙이지 않는다');
+    e.emit({ t: 'error', code: 'CHAT_NOT_HOST', ref: 'chatClear', rid: rb });
+    const r = await within(p2b);
+    chk(r.ok === false && r.code === 'CHAT_NOT_HOST' && !firstDone, '  제 rid 의 오류는 그 요청만 { ok:false, code:CHAT_NOT_HOST } 로 끝낸다(둘째만 — 먼저 보낸 첫째가 아니다)');
   }catch(err){ chk(false, '4절 던짐 — ' + err.message); }
 
   say('── 5. 최근 줄 · 이모티콘');
@@ -213,6 +223,7 @@ const BREAKS = [
   ['CR', "if(!closed && onFail){ try{ onFail(e); }catch(err){ warn('최근 줄 실패 처리 실패', err); } } });", "});", '최근 줄 못 받음을 알리지 않음(0 으로 보임)'],
   ['CR', "const d = await api.get(EMOJI_PATH, { auth: true });", "const d = await api.get(EMOJI_PATH, { auth: true }).catch(() => null);", '이모티콘 못 받음을 삼킴(빈 표)'],
   ['CR', "            at = p.lines[p.lines.length - 1].ts;", "            at = since;", '쪽 넘김이 같은 자리를 다시 받음'],
+  ['CR', "    const c = typeof msg.rid === 'string' ? pendingClear.get(msg.rid) : null;", "    const c = pendingClear.values().next().value;", '지우기 오류를 첫 대기자에게 붙임(rid 로 짝짓지 않음)'],
   ['CR', "  if(line.kind === 'CLEAR') m.sys = CLEAR_SYS;", "", '지우기 표시 줄을 모름'],
   ['CR', "    if(game && game.dice) body.tab = deps.historyTabOf(appTab);   // 날리기는 늘 #일반(서버)", "    body.tab = deps.historyTabOf(appTab);", '날리기에도 탭'],
   ['CR', "      for(const e of ((d && Array.isArray(d.slots)) ? d.slots : [])){", "      for(const e of ((d && Array.isArray(d.emojis)) ? d.emojis : [])){", '이모티콘 칸 이름이 서버와 다름'],

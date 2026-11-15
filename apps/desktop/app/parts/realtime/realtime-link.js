@@ -275,19 +275,16 @@ export function createRealtimeLink(deps){
         return;
       }
       if(m.code === 'auth' && m.ref === 'hello') return;   // 갱신 실패 — 만료 뒤 서버가 끊으면 재연결이 새 토큰을 받는다
-      /* rid 를 실어 보낸 요청의 오류(서버는 photoOpen · photoStart · roomInvite 의 오류에 rid 를 돌려준다) — 그 rid 의 요청이 오류 메시지(t:'error' · code)를 받는다. */
+      /* rid 를 실어 보낸 요청의 오류 — 그 rid 의 요청이 오류 메시지(t:'error' · code)를 받는다. 짝이 없는 rid 는 다른 모듈(방 · 대화)의 요청일 수 있어 훅으로 넘긴다.
+         ★ 짝을 «추측» 하지 않는다(같은 종류의 먼저 보낸 요청에 붙이기 없음) — 서버가 모든 오류에 rid 를 돌려준다(PROTOCOL rid). */
       if(typeof m.rid === 'string'){
         const w = reqWaiters.get(m.rid);
         if(w){ w.done(m); return; }
-        toHook(m); return;   // 짝이 없는(이미 시간 초과로 지워진) rid 의 늦은 오류 — 다른 요청을 실패로 끝내지 않는다
+        toHook(m); return;
       }
-      /* 묻기 요청이 거절됐다 — 오류에는 rid 가 없어서 그 종류 중 가장 먼저 보낸 것을 실패로 끝낸다.
-         unavailable 은 서버가 그 요청에 필요한 값을 못 받음(예: presenceGet 의 친구 목록) — 같은 종류의 가장 먼저 보낸 것 하나만 실패로. */
-      if((m.code === 'badRequest' && requestKinds.indexOf(m.ref) >= 0)
-        || (m.code === 'unavailable' && requestKinds.indexOf(m.ref) >= 0)){
-        let w = null;
-        for(const x of reqWaiters.values()){ if(x.kind === m.ref){ w = x; break; } }
-        if(w){ w.done(null); return; }
+      if(requestKinds.indexOf(m.ref) >= 0){   // rid 요청 종류의 오류인데 rid 가 없다 — 옛 서버 · 낡은 답. 짝을 추측하지 않고 버린다
+        try{ (deps.log || console).warn('[realtime] rid 없는 오류를 버립니다(짝을 추측하지 않음) —', m.code, m.ref); }catch(_){}
+        return;
       }
       toHook(m);
       return;
@@ -296,6 +293,10 @@ export function createRealtimeLink(deps){
     if(kind){
       const w = takeWaiter(m.rid);
       if(w && w.kind === kind){ w.done(m); return; }
+      if(typeof m.rid === 'string'){   // 짝 없는 rid(시간 초과로 지워진 요청의 늦은 답) — 낡은 답이라 버린다. 다른 요청에 붙이지도, 밀어 주는 메시지로 넘기지도 않는다
+        try{ (deps.log || console).warn('[realtime] 짝 없는 rid 의 낡은 답을 버립니다 —', m.t, m.rid); }catch(_){}
+        return;
+      }
     }
     toHook(m);
   }
