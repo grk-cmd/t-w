@@ -76,7 +76,7 @@
 | **audit.py** | 930 | **4651a9bff167** |
 | **sim-session.js** | 221 | **37c9ae623d30** |
 | **sim-session-baseline.js** | 187 | **efaefb7f384c** |
-| **smoke.js** | 797 | **0373bc3f940d** |
+| **smoke.js** | 793 | **6e1b10908252** |
 | **sim-account-switch.js** | 309 | **30e2060e20e7** |
 | **sim-admin-rules.js** | 410 | **d23c593b6d06** || · 아래 칸 · 쓰기 없음** · **개정 163 1절 관리자 서버 봇(apiBots) — admins · licenses 읽기만 · 봇 명단 잠김** · **개정 129 7절 할 일 공용 메모(adminTodoNote) — 관리자만 · rev + 1 · 0~2000자 · 서버 시각** · **개정 127 7절 할 일 종류(type) feat · bug · 없어도 됨** · **개정 126 1절 config/releaseAnswerTpl 관리자만 · 7절 릴리스 답변 템플릿 1~1000자 글자 · 지우기 관리자만 · 읽기 관리자만** · **개정 123 7절 할 일 릴리스 버전(release) 모양 · 20자 · 없어도 됨** · **개정 118 7절 관리자 할 일(adminTodos) — 관리자만 · rev + 1 만(덮어쓰기 막기) · 작업자는 관리자 uid · 제보 id 모양 · 관리자 이름(adminNames) 본인 칸만** · **개정 99 1절 metrics/improvements 관리자 쓰기 · 모양(버전 · 제목 · 항목 20개 · 적용 일수 0~30)** · **개정 95 1절 config/bugDailyMax 관리자만** · **개정 87 1절 config/minAppVer 관리자만** · **2026-10-08 1절 bugBoard/ans/pub · ans/prv 관리자만 · 2절 버그제보 글쓰기(본인 uid · 본인 코드 · 새 글만) · 👍 본인 표시 하나** · **2026-10-07 3절 metrics(접속 지표) 읽기 관리자만 · 쓰기 규칙 없음** · **2026-10-06 1절 inboxBroadcastMeta 관리자만** · **2026-10-06 1절 catalogMeta/$kind 관리자만** · **2026-10-05 6절 관리자 작업 기록(adminLog) — 규칙식을 굴려 관리자만 · 새로 쓰기만 · by · 서버 시각 · 길이 · 90일 지난 것만 지우기 · invites 목록 관리자 읽기(issuedBy 색인) · 코드 하나는 누구나** · **2026-10-04 licenseRequests 친구코드(선택 · MATE/COZY 형식) · accountSnap 목록 관리자 읽기** · **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
 | **sim-char-foot.js** | 142 | **17f2aa70cc31** |
@@ -95,13 +95,13 @@
 | **sim-mallang-hide.js** | 147 | **a97601090ee3** |
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
 | **sim-seat-label-drag.js** | 91 | **6a4daf86e439** |
-| **sim-friend-requests.js** | 186 | **0c07f0861342** |
+| **sim-friend-requests.js** | 170 | **39737b624809** |
 | **sim-friend-visit.js** | 115 | **c33a7fed1e41** |
-| **sim-friends-sub.js** | 702 | **aef57c95d9c4** |
-| **sim-friends-port.js** | 463 | **de0a28eb206e** |
+| **sim-friends-sub.js** | 702 | **a74540aa2896** |
+| **sim-friends-port.js** | 325 | **2130fd1ee084** |
 | **sim-friends-presence-rt.js** | 358 | **b2c59182bc84** |
 | **sim-social-api.js** | 275 | **3c3a4c43d6fa** |
-| **sim-friend-profile-live.js** | 248 | **b8c76edb7734** |
+| **sim-friend-profile-live.js** | 216 | **ea0967a796fb** |
 | **sim-second-instance.js** | 226 | **65e5433c9fed** |
 | **sim-wd-parts-persist.js** | 91 | **7d3d3b5f0b66** ← **개정 342 장착 줄을 refitSeatAfterParts 안에서 찾는다(판정 무변경)** · **개정 244 열린 초안 주인은 꾸미기 relinkDraftSrc 를 onSeatRelinked 로 같이 돌림 · 걸려 있는지 판정 1 추가** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 155 신규 · 💾 꾸미기 · 가챠 파츠 재부팅 초기화 — _relinkSeatsToSlots 실행(같은 칸 · 비운 칸 · 남의 좌석 · 열린 초안) · 받는 두 곳 배선 · 저장이 파츠 받기보다 먼저 · 숨기기 전 closeWardrobe · 종료 때 저장**
 | **sim-name-guard.js** | 42 | **9c89831d5c23** |
@@ -157,14 +157,14 @@
 | **sim-maintenance-gate.js** | 364 | **1b59285f3272** |
 | **sim-invite-revoke.js** | 100 | **c6ce8535f35b** |
 | **sim-room-invite-wait.js** | 44 | **2327a1043182** |
-| **sim-friend-manage.js** | 279 | **71aa2f379e75** |
+| **sim-friend-manage.js** | 278 | **586e34dbb750** |
 | **sim-gacha-prune.js** | 176 | **caaafe40eb06** |
 | **sim-gacha-api.js** | 133 | **547d10be5393** |
 | **sim-gacha-race.js** | 124 | **1f0427b99f71** |
 | **sim-ghost-cache-sync.js** | 366 | **30ab1365b0d8** |
 | **sim-click-through-policy.js** | 312 | **c8a07dca8eaa** |
 | **sim-heartbeat-policy.js** | 251 | **b3c8bdfbc2a0** |
-| **sim-catalog-cache.js** | 391 | **d3aeaf1eb1fc** |
+| **sim-catalog-cache.js** | 384 | **e4b2b4e50cb3** |
 | **sim-friend-code-keep.js** | 180 | **395ddad5a770** |
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
 | **sim-key-input.js** | 71 | **3116fd7dd8fb** |
@@ -268,7 +268,7 @@
 | **sim-purikura-ui.js** | 360 | **cc367465acc0** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
 | **sim-guestbook.js** | 479 | **94932280a36a** |
-| **sim-friend-manage-module.js** | 278 | **fafc854c725f** |
+| **sim-friend-manage-module.js** | 273 | **52ededfed981** |
 | **sim-pomodoro-module.js** | 251 | **fe9ad69f3e7b** |
 | **sim-myhome-sticker.js** | 422 | **bf3e0882810d** |
 | **sim-gacha.js** | 490 | **afa8bdc8a698** |
@@ -278,10 +278,9 @@
 | **sim-focus-progress.js** | 390 | **0195fe25d4c3** |
 | **sim-chat-window.js** | 565 | **9b933ee52a05** |
 | **sim-api-client.js** | 455 | **95f8f2d62950** |
-| **sim-api-public-reads.js** | 161 | **a852f043391c** |
+| **sim-api-public-reads.js** | 139 | **44372048389f** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
 | **sim-remote-config.js** | 372 | **1b5dcfbf856c** |
-| **sim-source-switch.js** | 128 | **26f7aff8e56a** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
 | **sim-myhome-inbox.js** | 766 | **0c88f8bb0962** |
 | **sim-playlist.js** | 1110 | **551ea80190da** |

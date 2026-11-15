@@ -1,9 +1,9 @@
 /* ═══ 🌐 sim-api-public-reads.js — 공개 읽기를 API 사본에서 먼저(api-public-reads.js) ═══════════════
-   [왜] 명함 · 사진 · 랜덤 참여 후보를 API 에서 먼저 읽고, 못 받으면 지금 Firebase 길 그대로.
+   [왜] 명함을 API 에서 먼저 읽고, 못 받으면 지금 Firebase 길 그대로.
    1. (파도타기는 로그인 길로 옮겼다 — sim-playlist-api.js. 이 모듈에 파도타기가 남지 않았는지만 본다)
-   2. 명함 · 사진 — avatarUrl · avatarInline(그때만 Firebase 한 칸) · 실패 → 원래 함수 / Firebase 한 칸 · 명함 날것(fetchUserCardApi — 대체 길 없음)
+   2. 명함 — avatarUrl · avatarInline(그때만 Firebase 한 칸) · 실패 → 원래 함수. 사진 하나(fetchAvatar) · 명함 날것(fetchUserCardApi) · 랜덤 참여 후보(findRandomRooms)는 부르는 곳이 없어 걷었다
    3. 랭킹 — 걷었다: 순위 통로(fetchMyRank · fetchLeaderboardTop)를 달지 않고 /v2/leaderboard 를 묻지 않는다
-   4. 랜덤 참여 후보(워킹룸 · SCRT 빼기 · 빈 배열 = 없음) · 방 개수(정원 검사)는 API 를 거치지 않고 늘 Firebase
+   4. 방 개수(정원 검사)는 API 를 거치지 않고 늘 Firebase · 걷은 이름(fetchAvatar · fetchUserCardApi · findRandomRooms)을 달지 않는다
    5. 실패 종류 — 닿지 못함 · 503 *_NOT_READY · RTDB_UNAVAILABLE · 400 · API 없음 모두 Firebase 길
    6. 배선 — firebase-init(import · firebase-ready 전에 wrap) · app.js 사진 두 곳 · 모듈은 import 없음
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
@@ -41,7 +41,6 @@ function mkFb(){
   const fb = {
     async fetchPlaylistCard(u){ log.push(['card', u]); return { name: 'FB', level: 3, avatar: 'fb.png', FB: 1 }; },
     async getRoomCounts(){ log.push(['counts']); return { total: 1, workingroom: 1, togetherroom: 0, FB: 1 }; },
-    async findRandomRooms(n){ log.push(['rooms', n]); return ['WORK-FBFB']; },
     getMyHome(){ throw new Error('home 통째 읽기는 쓰지 않는다'); },
   };
   return { fb, log };
@@ -76,21 +75,6 @@ const CARD = { name: '라온', level: 12, cyc: 1, clv: 3, starC: 'gold', avatarU
     chk(cf.FB === 1 && log.join() === 'card,uDown', '  ↳ 못 받으면 원래 함수(profile + home/avatar)');
     await fb.fetchPlaylistCard('uBad');
     chk(log.length === 2 && log[1][1] === 'uBad', '  ↳ 모양이 틀려도 원래 함수');
-    api.calls.length = 0;
-    chk(JSON.stringify(await fb.fetchUserCardApi('uA')) === JSON.stringify(CARD) && api.calls.join() === '/v2/users/uA/card', '★ 명함 날것(fetchUserCardApi · 친구 포트용) — GET /v2/users/{uid}/card 의 data 그대로');
-    chk((await fb.fetchUserCardApi('uZ')) === null, '  ↳ 없는 사람(data:null) → null');
-    let ue = null; try{ await fb.fetchUserCardApi('uDown'); }catch(e){ ue = e; }
-    chk(ue && ue.code === 'NETWORK' && log.length === 2, '  ↳ 못 받으면 던진다 · Firebase 대체 길 없음(넘어가기는 친구 포트가 정한다)');
-    cells = [];
-    chk((await fb.fetchAvatar('uA')) === 'https://img/av.png' && cells.length === 0, '★ 사진 하나(fetchAvatar) — 명함의 avatarUrl · home 통째 읽기 없음');
-    chk((await fb.fetchAvatar('uZ')) === null && cells.length === 0, '  ↳ 없는 사람 → null');
-    const av = await fb.fetchAvatar('uDown');
-    chk(av === 'data:image/png;base64,AAA' && cells.join() === 'users/uDown/home/avatar', '★ API 를 못 받으면 Firebase home/avatar 한 칸(예전 home 통째보다 작다)');
-    chk((await fb.fetchAvatar(null)) === null, '  ↳ 코드가 없으면 null');
-    const o = mkFb(); const oc = [];
-    o.fb.fetchAvatar = async (u) => { oc.push(u); return 'fb-av'; };
-    M.createApiPublicReads({ api: mkApi(() => ERR('unavailable', 0, 'NETWORK')), readCell: async () => 'cell' }).wrap(o.fb);
-    chk((await o.fb.fetchAvatar('uQ')) === 'fb-av' && oc.join() === 'uQ', '  ↳ firebase-init 의 원래 fetchAvatar 가 있으면 그것이 대체 길');
   }
 
   say('── 3. 랭킹 — 걷었다');
@@ -105,20 +89,16 @@ const CARD = { name: '라온', level: 12, cyc: 1, clv: 3, starC: 'gold', avatarU
     chk(!('fetchMyRank' in bare.fb) && !('fetchLeaderboardTop' in bare.fb), '  ↳ 없던 순위 함수를 새로 달지 않는다');
   }
 
-  say('── 4. 방 개수 · 랜덤 참여 후보');
+  say('── 4. 방 개수 · 걷은 이름');
   {
-    const api = mkApi((p) => p.startsWith('/v2/rooms/random') ? { rooms: ['WORK-AAAA', 'SCRT-BBBB', 7, 'WORK-CCCC'] } : new Error('?'));
+    const api = mkApi(() => new Error('?'));
     const { fb, log } = mkFb();
     M.createApiPublicReads({ api }).wrap(fb);
     const full = await fb.getRoomCounts();
     chk(full.FB === 1 && api.calls.length === 0 && log.length === 1, '★ 방 개수(정원 · 만들기 상한 검사)는 감싸지 않는다 — API 를 묻지 않고 늘 Firebase');
-    chk(!('roomCount' in M.API_PATHS), '  방 개수 API 길은 쓰지 않는다(채널 카드 숫자는 방 목록 로비로 바뀌었다)');
-    const r = await fb.findRandomRooms(12);
-    chk(api.calls.includes('/v2/rooms/random?channel=workingroom&limit=12') && r.join() === 'WORK-AAAA,WORK-CCCC', '★ 랜덤 참여 후보 — 워킹룸만 · limit · SCRT- · 이상한 값 빼기(들어가기 전 확인은 app.js 그대로)');
-    const e = mkFb(); M.createApiPublicReads({ api: mkApi(() => ({ rooms: [] })) }).wrap(e.fb);
-    chk((await e.fb.findRandomRooms(12)).length === 0 && e.log.length === 0, '  ↳ 빈 배열 = 후보 없음(Firebase 로 다시 가지 않음)');
-    const d = mkFb(); M.createApiPublicReads({ api: mkApi(() => ERR('request', 400, 'BAD_CHANNEL')) }).wrap(d.fb);
-    chk((await d.fb.findRandomRooms(12))[0] === 'WORK-FBFB' && d.log[0][1] === 12, '  ↳ 못 받으면(400 포함) 원래 함수(roomIndex)');
+    chk(!('roomCount' in M.API_PATHS) && !('randomRooms' in M.API_PATHS) && !('RANDOM_ROOMS_MAX' in M), '  방 개수 · 랜덤 참여 후보 API 길은 쓰지 않는다(방 목록은 realtime)');
+    chk(!('fetchAvatar' in fb) && !('fetchUserCardApi' in fb) && !('findRandomRooms' in fb), '★ 걷은 이름(fetchAvatar · fetchUserCardApi · findRandomRooms)을 새로 달지 않는다');
+    chk(!/fetchAvatar|fetchUserCardApi|findRandomRooms/.test(strip(SRC)) && !/fetchAvatar|fetchUserCardApi|findRandomRooms/.test(strip(FI)), '  ↳ 모듈 · firebase-init 글에 걷은 이름이 없다');
   }
 
   say('── 5. 실패 종류 — 모두 Firebase 길');
@@ -135,10 +115,10 @@ const CARD = { name: '라온', level: 12, cyc: 1, clv: 3, starC: 'gold', avatarU
     chk(ok, '★ 닿지 못함 · 시간 초과 · 쉬는 중 · 503 *_NOT_READY · RTDB_UNAVAILABLE · 400 · 401 · 그 밖 오류 → 원래 Firebase 함수 그대로');
     const { fb, log } = mkFb();
     M.createApiPublicReads({ api: null }).wrap(fb);
-    chk((await fb.fetchPlaylistCard('u')).FB === 1 && (await fb.findRandomRooms(3))[0] === 'WORK-FBFB' && log.length === 2, '  ↳ API 통로가 없어도(TwApi 없음) 원래 함수');
+    chk((await fb.fetchPlaylistCard('u')).FB === 1 && log.length === 1, '  ↳ API 통로가 없어도(TwApi 없음) 원래 함수');
     const keep = mkFb(); const before = keep.fb.getMyHome;
     M.createApiPublicReads({ api: null }).wrap(keep.fb);
-    chk(keep.fb.getMyHome === before && typeof keep.fb.fetchAvatar === 'function', '  ↳ 다른 함수는 건드리지 않고 fetchAvatar 를 더한다');
+    chk(keep.fb.getMyHome === before && Object.keys(keep.fb).join() === 'fetchPlaylistCard,getRoomCounts,getMyHome', '  ↳ 다른 함수는 건드리지 않고 새 이름을 더하지도 않는다');
   }
 
   say('── 6. 배선');
@@ -151,8 +131,6 @@ const CARD = { name: '라온', level: 12, cyc: 1, clv: 3, starC: 'gold', avatarU
     const s1 = takeFn(a, 'async function _refreshChatProfile('), s2 = takeFn(a, 'async function _miRenderAvatar(');
     const line = /await ensureMyHome\(\{ site: 'quiet' \}\)/;
     chk(!!s1 && !!s2 && line.test(s1) && line.test(s2) && !/getMyHome/.test(s1 + s2), '★ app.js 사진 두 곳(대화창 · 내 정보) — 내 홈 상태 주인에서 읽는다(home 통째 읽기 길 없음)');
-    const fa = takeFn(fi, 'async fetchAvatar(uid){') || '';
-    chk(/get\(ref\(db, `users\/\$\{uid\}\/home\/avatar`\)\)/.test(fa) && !/home`\)/.test(fa) && !/fetchMyRank|fetchLeaderboardTop|setLeaderboardSec/.test(fi), 'firebase-init — fetchAvatar 는 home/avatar 한 칸(통째 아님) · 순위 통로 없음');
     chk(!/^\s*import\s/m.test(SRC) && !/firebase\/|gstatic|getDatabase|fetch\(/.test(strip(SRC)), 'api-public-reads.js 는 아무것도 import 하지 않는다(API · Firebase 는 deps)');
   }
 

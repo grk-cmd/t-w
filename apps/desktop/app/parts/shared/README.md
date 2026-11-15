@@ -203,14 +203,6 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **확장**: 새 업로드 캐시가 생기면 상한 상수를 여기에 더하고 같은 함수를 부른다 — 쓰는 모듈에 «넘치면 비우기» · «동시 업로드 막기» 를 다시 쓰지 않는다.
 - **함정**: 키 순서가 «오래 안 쓴 순» 이다 — 조회해서 쓰면 `touch`, 저장은 `merge` 뒤에. 옛 해시(`h2` 로 시작하지 않는) 항목은 조회에 쓰지 않는다(같은 해시가 같은 그림이라는 보장이 없다).
 - **검사**: `checks/sim-upload-cache.js`.
-## `source-switch.js` — 🎚️ 기능별 받는 곳(0.13 — 한 길만 돌려주는 얇은 자리)
-
-- **책임**: 0.13 서버 설정(`GET /v2/config`)에는 기능 스위치가 없다. 기능마다 «지금 도는 한 길» 을 고정 표 `ONE_WAY` 로 돌려주고(`pick`), 서버 길이 있는 기능은 «서버 먼저 → 못 받으면 옛 길» 을 한 벌로 돌린다(`serverFirst`).
-- **표**: `friends` 서버 먼저 · `catalog` 서버 먼저 · `gacha` 앱이 뽑기 — 옛 판의 «스위치 칸 없음» 기본값과 같다(동작 그대로). 방은 `room/room-server-gate.js` 가 늘 Firebase 방을 돌려준다(같은 까닭의 얇은 자리).
-- **걷는 차례**: 기능 묶음이 그 기능을 API · realtime 길로 갈아 끼우면 부르는 줄(app.js · firebase-init.js 의 `pick` · `serverFirst`)을 걷고 표에서 한 줄을 지운다. 표가 비면 파일을 지운다. 새 기능을 더하지 않는다.
-- **함정**: 서버 함수가 «값은 왔는데 못 쓴다» 면 던지지 말고 `SKIP` 을 돌려준다 — 실패 알림 없이 옛 길로 간다. 옛 길 오류는 숨기지 않고 그대로 던진다.
-- 검사: `checks/sim-source-switch.js`.
-
 ## json-store.js — 💾 localStorage JSON 칸 읽기 · 쓰기 한 곳
 
 - **책임**: 한 키의 JSON 을 읽고(해석) 쓴다. 실패를 삼키지 않고 결과 `{ ok, err, bytes }` 로 돌려준다 — 부르는 쪽이 알릴 수 있게.
