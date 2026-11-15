@@ -76,7 +76,7 @@
 | **sim-char-foot.js** | 142 | **17f2aa70cc31** |
 | **sim-char-identity.js** | 188 | **9aa1d07d92b1** |
 | **sim-char-z.js** | 225 | **92fb9efdb2c1** |
-| **sim-cfg-fit.js** | 205 | **8cbd0ffb44a9** |
+| **sim-cfg-fit.js** | 283 | **e3c984cd8b65** |
 | **sim-chat-fly.js** | 360 | **b52fd913a6d7** |
 | **sim-bug-board.js** | 503 | **e39ef0fefceb** |
 | **sim-bug-no.js** | 159 | **afeda1efa43f** |
@@ -210,7 +210,7 @@
 | **sim-sysinput.js** | 397 | **bdf06e31afdb** |
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 130 | **4ddd42809f74** |
-| **sim-zoom-window.js** | 68 | **c130cf5b9af3** |
+| **sim-zoom-window.js** | 73 | **7c4ef7206f8f** |
 | **sim-z-layers.js** | 168 | **75e6e7bd9f39** |
 | **sim-no-default-menu.js** | 95 | **0f1c5f7e0d75** |
 | **sim-ops-hot-config.js** | 163 | **6e732dcece07** |
@@ -466,7 +466,7 @@
 | **sim-input-diag.js** | 148 | **09d9fb9484c8** |
 | **sim-renderer-gone-reset.js** | 139 | **9072d225458e** |
 | **sim-room-code-len.js** | 87 | **f0578d075c5e** |
-| **sim-mh-pad-pos.js** | 164 | **e8746cd0fbc6** |
+| **sim-mh-pad-pos.js** | 164 | **260e17077454** |
 | **sim-mh-bg-url.js** | 133 | **0713ca44ff81** |
 | **sim-gift-img-retry.js** | 190 | **ce37377a809e** |
 | **sim-gift-save.js** | 137 | **f7be455180d5** |

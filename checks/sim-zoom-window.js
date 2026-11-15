@@ -25,44 +25,49 @@ chk(/const mvc = _fitConfigRect\(curMode, _modeSize\(curMode\), target, null\);/
 chk(!/_fitConfigRect\([^,()]+,\s*MODE_SIZE[.\[]/.test(MAIN), 'MODE_SIZE 를 줌 없이 크기로 바로 넘기는 자리가 없다(둘째 인자)');
 
 say('── 2. 실제로 돌려 본다');
-const names = ['_clampZoom', '_zoomStep', 'applyUiZoom', '_modeSize', '_cfgModeForZoom', '_refitConfigForZoom', '_fitConfigRect', 'sizeToMode', '_sameRect', '_rememberPos', '_mhPadDip'];
+const names = ['_clampZoom', '_zoomStep', 'applyUiZoom', '_modeSize', '_cfgModeForZoom', '_refitConfigForZoom', '_fitConfigRect', '_configModeNow', '_sameRect', '_rememberPos', '_mhPadDip'];
 const src = names.map(grab);
 chk(src.every(Boolean), '함수 ' + names.length + '개를 찾았다');
 if(!src.every(Boolean)){ say('  · 못 찾은 함수: ' + names.filter((n, i) => !src[i]).join(', ') + ' — 2절을 건너뛴다'); say(`\n✗ 통과 ${pass} · 실패 ${fail}`); process.exit(1); }
 const consts = (MAIN.match(/const UI_ZOOM_MIN = [\d.]+, UI_ZOOM_MAX = [\d.]+, UI_ZOOM_STEP = [\d.]+;/) || [''])[0];
 const mk = (cfg, wa) => {
-  const E = { bounds: Object.assign({}, cfg.bounds), sets: 0, cfg: cfg.config };
+  const E = { bounds: Object.assign({}, cfg.bounds), sets: 0, cfg: cfg.config, mode: cfg.mode };
   const WA = wa || { x: 0, y: 0, width: 1920, height: 1040 };
   const win = { isDestroyed: () => false, getBounds: () => Object.assign({}, E.bounds),
     setBounds: (r) => { E.bounds = Object.assign({}, r); E.sets++; }, setResizable(){},
     webContents: { setZoomFactor(){}, send(){} } };
   const scr = { getDisplayMatching: () => ({ workArea: WA }) };
   const f = new Function('mainWindow', 'screen', 'E', 'MhPadPos',
-    'let uiZoom = 1; let _isConfigMode = E.cfg; const savedPos = {}; const _fittedSize = {}; const SIZE_MATCH_TOL = 3; let _mhPad = { x: 0, y: 0 }; let _mhPadApplied = { x: 0, y: 0 };\n'
+    'let uiZoom = 1; let _isConfigMode = E.cfg; let _curMode = E.mode; const savedPos = {}; let _mhPad = { x: 0, y: 0 }; let _mhPadApplied = { x: 0, y: 0 };\n'
     + 'const MODE_SIZE = { launcher:{ w:380, h:680 }, creator:{ w:740, h:620 }, animal:{ w:860, h:440 }, myhome:{ w:800, h:580 } };\n'
     + consts + '\nconst saveSettings=()=>{}; const _diagLog=()=>{}; const _noteApplied=()=>{}; let _onUiZoomChanged=null;\n'
     + src.join('\n') + '\nreturn { zoom: (op) => applyUiZoom(op, "t"), fit: _fitConfigRect, ms: _modeSize, mode: () => _cfgModeForZoom() };');
   return { api: f(win, scr, E, require('./mh-pad-pos.js')), E };
 };
-let t = mk({ config: true, bounds: { x: 100, y: 50, width: 800, height: 580 } });
+let t = mk({ config: true, mode: 'myhome', bounds: { x: 100, y: 50, width: 800, height: 580 } });
 t.api.zoom('in'); t.api.zoom('in');
 chk(t.E.bounds.width === 960 && t.E.bounds.height === 696, '마이홈 + 줌 120% → 창 960×696 (지금 ' + t.E.bounds.width + '×' + t.E.bounds.height + ')');
 chk(t.E.bounds.x === 100 && t.E.bounds.y === 50, '  좌상단은 그대로');
-chk(t.api.mode() === 'myhome', '  커진 창도 마이홈으로 알아본다(_fittedSize)');
+chk(t.api.mode() === 'myhome', '  커진 창도 마이홈이다(받은 모드 — 크기로 되짚지 않는다)');
 t.api.zoom('reset');
 chk(t.E.bounds.width === 800 && t.E.bounds.height === 580, '  초기화 → 800×580');
 for(let i = 0; i < 20; i++) t.api.zoom('out');
 chk(t.E.bounds.width === 160 && t.E.bounds.height === 116, '  하한 20% → 160×116');
-t = mk({ config: true, bounds: { x: 0, y: 0, width: 380, height: 680 } }, { x: 0, y: 0, width: 1280, height: 680 });
+t = mk({ config: true, mode: 'launcher', bounds: { x: 0, y: 0, width: 380, height: 680 } }, { x: 0, y: 0, width: 1280, height: 680 });
 t.api.zoom(1.5);
 chk(t.E.bounds.width === 570 && t.E.bounds.height === 680, '런처 + 150% · 작업영역 높이 680 → 570×680 으로 줄여 맞춤');
-chk(t.api.mode() === 'launcher', '  줄인 창도 런처로 알아본다');
-t = mk({ config: false, bounds: { x: 0, y: 0, width: 1920, height: 1028 } });
+chk(t.api.mode() === 'launcher', '  줄인 창도 런처다');
+t = mk({ config: false, mode: 'run', bounds: { x: 0, y: 0, width: 1920, height: 1028 } });
 t.api.zoom('in');
 chk(t.E.sets === 0, '실행 화면(전체화면)에서는 창을 안 건드린다');
-t = mk({ config: true, bounds: { x: 0, y: 0, width: 1234, height: 567 } });
+/* 실행 화면 크기가 런처 크기와 같은 작은 모니터 — 크기로 되짚던 때는 실행 화면을 런처로 읽어 창을 건드렸다 */
+t = mk({ config: false, mode: 'run', bounds: { x: 0, y: 0, width: 380, height: 680 } });
 t.api.zoom('in');
-chk(t.E.sets === 0, '어느 모드 크기도 아닌 창이면 안 건드린다');
+chk(t.E.sets === 0, '★ 실행 화면(받은 모드 run)은 창이 런처 크기여도 건드리지 않는다');
+/* OS 가 깎은 크기여도 받은 모드가 런처면 그 모드로 다시 맞춘다 */
+t = mk({ config: true, mode: 'launcher', bounds: { x: 0, y: 0, width: 380, height: 640 } });
+t.api.zoom('in');
+chk(t.E.sets === 1 && t.E.bounds.width === 418 && t.api.mode() === 'launcher', '★ 크기가 어긋난 런처(받은 모드)도 줌 때 그 모드 크기로 맞춘다(지금 ' + t.E.bounds.width + '×' + t.E.bounds.height + ')');
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

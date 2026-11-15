@@ -309,6 +309,8 @@ app.js 9,746 → 9,476줄(270줄) · 구역 167 → 130개. 남긴 빈 머리 �
 
 **0.12.4 — app.js 분리 M20 ~ M22**: 생성기 그림판(`creator/creator-canvas.js` — 얼굴 합성 · 몸 만들기는 T7 몫이라 남김) · `openCreator` · `renderLauncher`(`creator/creator-open.js`) · 활성 앱 판정 · 창 모드 정하기(`launcher/window-mode.js` — 판단 그대로, F2 의 바탕)를 글 그대로 옮겼다. app.js 6,972 → 6,087줄(base 기준).
 
+**0.12.4 — app.js 분리 F2**: 창 모드를 한 값으로 모았다. `main.js` 는 렌더러가 보낸 모드(`launcher` · `creator` · `animal` · `myhome` · `run`)를 `_curMode` 로 기억하고 창 크기로 되짚지 않는다(`sizeToMode` · 허용 오차 · 줄인 크기 표 `_fittedSize` 걷음). 다시 불러오기 전 되돌리기는 `_applyConfigMode(true, 'launcher')` 한 줄로 같은 통로를 지난다. 화면 쪽 주인은 `launcher/window-mode.js`(M22).
+
 ## 구역 표 — `app/parts/app.js`
 
 | # | 줄 | 크기 | 목적 | 층 | 관련 모듈 | 씀 | 쓰임 | 비고 |
