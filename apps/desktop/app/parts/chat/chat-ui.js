@@ -13,6 +13,7 @@
 
 function createChatUi(deps){
 const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js)
+const accountStore = deps.accountStore;   // 🗂️ 계정별 칸(shared/account-store.js) — 읽음 표시 · 입장 표시 · 마지막 탭은 이 계정이 이 PC 에서 본 것이라 계정 칸에 둔다(닫혀 있으면 읽기 null · 쓰기 거절)
 const demojiCatalog = deps.demojiCatalog;   // 😊 기본 이모티콘 목록(demoji-catalog.js)
 const CHAT_WIN_POS_KEY = deps.CHAT_WIN_POS_KEY;   // 읽는 함수
 const Presence = deps.Presence;   // 읽는 함수
@@ -252,7 +253,7 @@ function sendMyChat(text, fly, flyColor, flySize, tab){
 
 /* 🔖 «여기까지 읽음» 구분선 — 이 PC localStorage 에만 둔다(서버 · 남에게 안 보임).
    창을 열 때 저장된 키로 구분선을 고정하고, 닫을 때 마지막 메시지를 읽음으로 적는다. */
-const CHAT_READ_KEY_PREFIX = 'tw_chat_read:';
+const CHAT_READ_KEY_PREFIX = 'tw_chat_read:';   // 계정 칸 키(접두)
 let _chatReadMarker  = null;    // 이번 세션의 구분선 기준 키 (창을 여는 순간 고정)
 let _chatReadRoom    = null;    // 마커를 저장할 방 코드 (방을 옮겨도 안전하게 열 때 캡처)
 let _chatJumpToUnread = false;  // 연 직후 첫 렌더에서 맨 아래가 아니라 구분선으로 스크롤
@@ -284,7 +285,7 @@ const CHAT_JOIN_KEY_PREFIX = 'tw_chat_join:';
 function _chatJoinKeyOf(room){ return CHAT_JOIN_KEY_PREFIX + (room || '_'); }
 function _chatJoinCut(room){
   if(!room) return null;
-  try{ return localStorage.getItem(_chatJoinKeyOf(room)); }catch(_){ return null; }
+  try{ return accountStore.get(_chatJoinKeyOf(room)); }catch(_){ return null; }
 }
 /* 그 방 목록을 처음 받은 순간 1회 — 이미 표식이 있으면 아무것도 안 한다.
    ⚠️ 부르는 자리는 **대화 목록이 실제로 도착하는 곳**이어야 한다(방에 들어간 순간이 아니라).
@@ -303,11 +304,11 @@ function _noteChatJoin(room, list){
      ★ 새로 설치한 사람에게는 읽음 마커도 없으므로 아무 영향이 없다.
      ⚠️ ''(빈 방·옛 이용자)와 null(아직 안 들어와 봄)의 구분은 그대로 지킨다. */
   if(_loadChatReadMarker(room)){
-    try{ localStorage.setItem(_chatJoinKeyOf(room), ''); }catch(_){}
+    try{ accountStore.set(_chatJoinKeyOf(room), ''); }catch(_){}
     return;
   }
   const last = (list||[])[(list||[]).length-1];
-  try{ localStorage.setItem(_chatJoinKeyOf(room), _chatMsgKey(last) || ''); }catch(_){}
+  try{ accountStore.set(_chatJoinKeyOf(room), _chatMsgKey(last) || ''); }catch(_){}
 }
 /* 입장 이후만 남긴다 — 화면과 기록 저장이 **같은 목록**을 보게 하는 것이 목적이다.
    (아래 _chatVisibleRows 의 '지우기'와 달리, 이건 파일로 저장해도 안 딸려 나가야 한다) */
@@ -342,11 +343,11 @@ function _chatClearUndo(){
 }
 function _chatReadKeyOf(room){ return CHAT_READ_KEY_PREFIX + (room || '_'); }
 function _loadChatReadMarker(room){
-  try{ return localStorage.getItem(_chatReadKeyOf(room)) || null; }catch(_){ return null; }
+  try{ return accountStore.get(_chatReadKeyOf(room)) || null; }catch(_){ return null; }
 }
 function _saveChatReadMarker(room, key){
   if(!room || !key) return;
-  try{ localStorage.setItem(_chatReadKeyOf(room), key); }catch(_){}
+  try{ accountStore.set(_chatReadKeyOf(room), key); }catch(_){}
 }
 /* 🔖 읽음 표시 — «T<서버 시각>:<id>». 순서를 대화 기록과 같은 기준(ts → id, chat-history.js chatOrder)으로 잰다.
    예전엔 «마지막 메시지 id» 를 저장하고 «id > 표시» 로 셌다. 목록은 ts 순인데 push id 는 보낸 사람 PC 시계로 만들어져
@@ -587,10 +588,10 @@ async function _refreshChatProfile(){
 let _chatMyTab = 'general';
 let _chatTabRoom = null;          // _chatMyTab 이 어느 방 것인가 — 방이 바뀌면 그 방의 기억한 탭으로
 const CHAT_TAB_LS_PREFIX = 'tw.chatTab.';   // + 방 코드 → 마지막에 보던 탭 id (#일반이면 지운다)
-function _chatTabLoad(room){ try{ return (room && localStorage.getItem(CHAT_TAB_LS_PREFIX + room)) || 'general'; }catch(_){ return 'general'; } }
+function _chatTabLoad(room){ try{ return (room && accountStore.get(CHAT_TAB_LS_PREFIX + room)) || 'general'; }catch(_){ return 'general'; } }
 function _chatTabSave(room, id){
   if(!room) return;
-  try{ if(id && id !== 'general') localStorage.setItem(CHAT_TAB_LS_PREFIX + room, id); else localStorage.removeItem(CHAT_TAB_LS_PREFIX + room); }catch(_){}
+  try{ if(id && id !== 'general') accountStore.set(CHAT_TAB_LS_PREFIX + room, id); else accountStore.remove(CHAT_TAB_LS_PREFIX + room); }catch(_){}
 }
 /* 방이 바뀌었으면 그 방에서 기억한 탭으로 — 창을 열 때 · 탭 id 를 물을 때(창을 열기 전 말풍선 · presence 도 같은 탭을 보게) */
 function _chatTabSyncRoom(room){

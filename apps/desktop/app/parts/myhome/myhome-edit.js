@@ -25,6 +25,7 @@
 
 function createMyHomeEdit(deps){
 const toast = deps.toast;
+const accountStore = deps.accountStore;                      // 🗂️ 계정별 칸(shared/account-store.js) — 최근 쓴 색은 이 계정이 이 PC 에서 고른 것
 const myhomeStore = deps.myhomeStore;                          // 🏠 상태 주인(myhome-store.js) — 값은 여기 동작 함수로만 고친다
 const asyncPrompt = deps.asyncPrompt;                    // ✏️ 인앱 프롬프트(글 서식 링크 · 이미지 · 스티커 링크 · BGM)
 const renderMyHomePage = deps.renderMyHomePage;          // 🏠 마이홈 페이지 다시 그리기(프로필 사진 바꾼 뒤) — app.js
@@ -141,14 +142,14 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
       sel.removeAllRanges(); sel.addRange(r);
     }
   }
-  // 최근 사용 색 5개 저장(localStorage). foreColor/hiliteColor 각각 히스토리 유지.
+  // 최근 사용 색 5개 저장(계정 칸). foreColor/hiliteColor 각각 히스토리 유지.
   function _mhLoadRecentColors(kind){
-    try{ return JSON.parse(localStorage.getItem('tw.mhRecentColors.'+kind)||'[]'); }catch(_){ return []; }
+    try{ return JSON.parse(accountStore.get('tw.mhRecentColors.'+kind)||'[]'); }catch(_){ return []; }
   }
   function _mhPushRecentColor(kind, hex){
     let arr=_mhLoadRecentColors(kind).filter(c=>c.toLowerCase()!==hex.toLowerCase());
     arr.unshift(hex); arr=arr.slice(0,5);
-    try{ localStorage.setItem('tw.mhRecentColors.'+kind, JSON.stringify(arr)); }catch(_){}
+    try{ accountStore.set('tw.mhRecentColors.'+kind, JSON.stringify(arr)); }catch(_){}
   }
   // 기본 팔레트 (자주 쓰이는 색 24개)
   const _MH_PALETTE = [

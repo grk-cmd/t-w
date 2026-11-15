@@ -27,12 +27,15 @@ const SRC0 = {
   APP: pick(['app.js', 'parts/app.js', 'app/parts/app.js']),
   HTML: pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html']),
   SMOKE: pick(['smoke.js']),
+  CHATUI: pick(at('chat-ui.js', 'chat')),
+  MHEDIT: pick(at('myhome-edit.js', 'myhome')),
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 
 const mem = () => {
   const o = {};
-  return { o, getItem: (k) => (k in o ? o[k] : null), setItem: (k, v) => { o[k] = String(v); }, removeItem: (k) => { delete o[k]; } };
+  return { o, getItem: (k) => (k in o ? o[k] : null), setItem: (k, v) => { o[k] = String(v); }, removeItem: (k) => { delete o[k]; },
+    get length(){ return Object.keys(o).length; }, key: (i) => (Object.keys(o)[i] === undefined ? null : Object.keys(o)[i]) };   // Storage 처럼 length · key(i)
 };
 const A = 'uaaaaaaaa1', B = 'ubbbbbbbb2';
 const load = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwAccountStore; };
@@ -145,6 +148,57 @@ async function judge(S){
     chk(r.moved.length === 1 && r.moved[0] === 'tw.advZ.v2' && st.o['tw.focusTodaySec'] === '1', '이미 처리한 키는 건드리지 않고 새로 더해진 키만 옮긴다');
     st.o[MIG(M)] = '깨진 글'; st.o['tw.focusTodaySec'] = '3';
     chk(mk(st, { v: B }).migrateLegacy(B).moved.length >= 1, '처리함 표시가 깨졌으면 처음부터(값을 잃지 않는 쪽)');
+  }
+
+  say('── 5c. migrateLegacy — 접두 키(최근 색 · 방명록 읽음 시각 · 채팅 탭 · 읽음 · 입장 표시)');
+  {
+    chk(M.MOVED_KEY_PREFIXES.every((p) => M.ACCOUNT_KEY_PREFIXES.includes(p)) && !M.MOVED_KEY_PREFIXES.includes('tw.dailyPlay.'), '옮기는 접두는 계정별 접두표 안에 있다 · 서버가 세는 tw.dailyPlay. 는 옮기지 않는다');
+    const st = mem(); const code = { v: null }; const s = mk(st, code);
+    st.o['tw.chatTab.ROOM-1'] = 's1'; st.o['tw.mhRecentColors.fore'] = '["#fff"]'; st.o['tw.mhGbLastRead:uF1'] = '1700';
+    st.o['tw_chat_read:ROOM-1'] = 'T5:-a'; st.o['tw_chat_join:ROOM-1'] = ''; st.o['tw_chat_join:ROOM-2'] = 'T3:-b';
+    st.o['tw.dailyPlay.2026-11-15'] = '3'; st.o['tw.chatTabX'] = 'keep'; st.o['tw.deviceId'] = 'dev-12345678'; st.o['tw_chat_read:'] = 'bare';
+    const r0 = s.migrateLegacy(null);
+    chk(r0.skipped === 'no-code' && st.o['tw_chat_read:ROOM-1'] === 'T5:-a' && !(MIG(M) in st.o), '코드 없음 — 접두 키도 PC 칸 그대로 · 처리함 표시도 안 남김');
+    const r1 = s.migrateLegacy(A); code.v = A;
+    chk(r1.moved.length === 6 && ['tw.chatTab.ROOM-1', 'tw.mhRecentColors.fore', 'tw.mhGbLastRead:uF1', 'tw_chat_read:ROOM-1', 'tw_chat_join:ROOM-1', 'tw_chat_join:ROOM-2'].every((k) => r1.moved.includes(k)), '★ 접두가 맞는 이름마다 옮긴다(여섯)');
+    chk(s.get('tw.chatTab.ROOM-1') === 's1' && s.get('tw.mhRecentColors.fore') === '["#fff"]' && s.get('tw.mhGbLastRead:uF1') === '1700' && s.get('tw_chat_read:ROOM-1') === 'T5:-a' && s.get('tw_chat_join:ROOM-2') === 'T3:-b', '  ↳ 계정 칸에서 같은 값으로 읽힌다');
+    chk(s.get('tw_chat_join:ROOM-1') === '' && st.o['tw.u.' + A + '.tw_chat_join:ROOM-1'] === '', '★ 빈 글 값(입장 표시 «빈 방에 입장»)도 «없음(null)» 이 되지 않고 빈 글 그대로 옮겨진다');
+    chk(!Object.keys(st.o).some((k) => /^(tw\.chatTab\.|tw\.mhRecentColors\.|tw\.mhGbLastRead:|tw_chat_read:|tw_chat_join:)./.test(k)), '  ↳ PC 칸에서는 지운다(다음 계정이 주워 가지 못하게)');
+    chk(st.o['tw.dailyPlay.2026-11-15'] === '3' && st.o['tw.chatTabX'] === 'keep' && st.o['tw_chat_read:'] === 'bare' && st.o['tw.deviceId'] === 'dev-12345678', '  ↳ 접두가 아닌 이름 · 접두만 있는 이름 · 서버가 세는 값 · 기기 공용 값은 그대로');
+    st.o['tw_chat_read:ROOM-9'] = 'late'; st.o['tw.chatTab.ROOM-1'] = 'other';
+    const r2 = s.migrateLegacy(B);
+    chk(r2.skipped === 'already' && st.o['tw_chat_read:ROOM-9'] === 'late' && !Object.keys(st.o).some((k) => k.startsWith('tw.u.' + B + '.')), '★ 두 번 돌지 않는다 — 두 번째 계정에는 안 옮겨진다');
+  }
+  {
+    const st = mem(); const s = mk(st, { v: A });
+    st.o['tw_chat_read:R1'] = 'old'; st.o['tw.u.' + A + '.tw_chat_read:R1'] = 'mine'; st.o['tw_chat_read:R2'] = 'x';
+    const r = s.migrateLegacy(A);
+    chk(st.o['tw.u.' + A + '.tw_chat_read:R1'] === 'mine' && r.kept.includes('tw_chat_read:R1') && r.moved.includes('tw_chat_read:R2') && !('tw_chat_read:R1' in st.o), '★ 계정 칸에 이미 값이 있는 이름은 덮지 않고(PC 값은 치운다) 나머지는 옮긴다');
+  }
+  {
+    const st = mem(); const real = st.setItem;
+    st.o['tw_chat_read:R1'] = 'a'; st.o['tw_chat_read:R2'] = 'b'; st.o['tw.chatTab.R1'] = 't';
+    st.setItem = (k, v) => { if(k === 'tw.u.' + A + '.tw_chat_read:R2') throw new Error('quota'); real(k, v); };
+    const s = mk(st, { v: A });
+    const r = s.migrateLegacy(A);
+    chk(st.o['tw_chat_read:R2'] === 'b' && r.moved.includes('tw_chat_read:R1') && !('tw_chat_read:R1' in st.o), '★ 한 이름이 계정 칸에 못 써지면 그 이름의 PC 값은 지우지 않는다(나머지는 옮김)');
+    st.setItem = real;
+    const r2 = s.migrateLegacy(A);
+    chk(r2.moved.length === 1 && r2.moved[0] === 'tw_chat_read:R2' && st.o['tw.u.' + A + '.tw_chat_read:R2'] === 'b' && !('tw_chat_read:R2' in st.o), '  ↳ 접두를 «처리함» 에 올리지 않았으므로 다음에 남은 것만 다시 옮긴다(앞에 옮긴 것은 안 건드림)');
+  }
+  {
+    const st = mem(); st.o['tw_chat_read:R1'] = 'a'; st.o['tw.focusTodaySec'] = '5';
+    const noScan = { getItem: st.getItem, setItem: st.setItem, removeItem: st.removeItem, get length(){ throw new Error('denied'); }, key: () => null };   // 훑을 수 없는 저장소(length 를 읽으면 던짐)
+    const s = mk(noScan, { v: A });
+    const r = s.migrateLegacy(A);
+    chk(r.moved.includes('tw.focusTodaySec') && st.o['tw_chat_read:R1'] === 'a' && JSON.parse(st.o[MIG(M)] || '[]').every((k) => !M.MOVED_KEY_PREFIXES.includes(k)), '★ 저장소를 훑지 못하면 접두 키는 PC 칸에 그대로 · 처리함에도 안 올린다(다음에 다시)');
+  }
+  {
+    const st = mem(); const s = mk(st, { v: A });
+    s.migrateLegacy(A);   // 옛 판(이름만 있던 처리함)에서 올라온 PC — 이미 처리한 이름만 적혀 있고 접두는 없다
+    const st2 = mem(); st2.o[MIG(M)] = JSON.stringify(M.MOVED_KEYS.slice()); st2.o['tw.chatTab.R1'] = 's2'; st2.o['tw.focusTodaySec'] = '9';
+    const s2 = mk(st2, { v: A }); const r = s2.migrateLegacy(A);
+    chk(r.moved.length === 1 && r.moved[0] === 'tw.chatTab.R1' && st2.o['tw.focusTodaySec'] === '9', '★ 이름만 처리한 옛 처리함을 가진 PC — 이번에 더해진 접두만 새로 옮기고 이미 처리한 이름은 다시 안 본다');
   }
 
   say('── 6. 옮겨 쓰는 모듈');
@@ -287,6 +341,16 @@ async function judge(S){
     chk(sf0.pushes.length === 1 && sf0.intervals === 1, '  ↳ 시작 함수가 첫 보내기 한 번 + 15초 인터벌 하나를 건다');
   }
 
+  say('── 6d. 접두 키(S-3d)를 쓰는 모듈은 PC 칸을 직접 안 읽고 계정 칸을 거친다');
+  {
+    const pcKey = (src, re) => !re.test(src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 '));
+    chk(pcKey(S.CHATUI, /localStorage\.(get|set|remove)Item\((_chat(Join|Read)KeyOf|CHAT_TAB_LS_PREFIX)/) && /accountStore\.get\(_chatReadKeyOf\(room\)\)/.test(S.CHATUI) && /accountStore\.get\(_chatJoinKeyOf\(room\)\)/.test(S.CHATUI) && /accountStore\.get\(CHAT_TAB_LS_PREFIX \+ room\)/.test(S.CHATUI),
+      '채팅창 — 읽음 표시(tw_chat_read:) · 입장 표시(tw_chat_join:) · 마지막 탭(tw.chatTab.)을 계정 칸에서 읽는다(localStorage 직접 읽기 0)');
+    chk(pcKey(S.MHEDIT, /localStorage\.(get|set|remove)Item\('tw\.mhRecentColors\./) && /accountStore\.get\('tw\.mhRecentColors\.'\+kind\)/.test(S.MHEDIT) && /accountStore\.set\('tw\.mhRecentColors\.'\+kind/.test(S.MHEDIT), '마이홈 글 서식 — 최근 쓴 색(tw.mhRecentColors.)을 계정 칸에서 읽고 쓴다');
+    chk(/createLastReadStore\(accountStoreMod\.asStorage\(\)\)/.test(S.APP) && !/createLastReadStore\(localStorage\)/.test(S.APP), '방명록 읽음 시각(tw.mhGbLastRead:) 저장소는 계정 칸(asStorage)을 넘긴다');
+    chk(!/ACCOUNT_LOCAL_KEY_PREFIXES/.test(S.ACC) && !/tw_chat_read:|tw_chat_join:/.test(S.ACC.replace(/\/\*[\s\S]*?\*\//g, ' ')), '로그아웃 지움 목록에서 접두 키 훑기를 걷었다 — 계정 칸으로 옮긴 키는 로그아웃이 지우지 않는다');
+  }
+
   say('── 6c. migrateLegacy 를 부르는 곳 — 읽는 모듈보다 먼저 · 코드 없으면 안 함 · 로그아웃은 올리기 앞 · 지우기보다 앞');
   {
     // ① 부팅 — app.js 의 그 줄을 실물 글로 뽑아 진짜 계정 칸 위에서 돌린다
@@ -371,12 +435,21 @@ const BREAKS = [
   ['STORE', "const CODE_RE = /^u[0-9a-z]{8,40}$/i;", "const CODE_RE = /^.*$/;", '코드 모양을 안 봄(점 · 슬래시)'],
   ['STORE', "if(!isAccountKey(key)) throw new Error('[계정 칸] 계정별 키가 아니다 — ' + key);", "", '모르는 키 · 기기 공용 키를 받음'],
   ['STORE', "if(have !== null) res.kept.push(k);", "if(false) res.kept.push(k);", '계정 칸 값을 덮어씀'],
+  ['CHATUI', "accountStore.get(_chatReadKeyOf(room))", "localStorage.getItem(_chatReadKeyOf(room))", '채팅 읽음 표시를 PC 칸에서 읽음'],
+  ['CHATUI', "accountStore.set(_chatJoinKeyOf(room), ''); }catch", "localStorage.setItem(_chatJoinKeyOf(room), ''); }catch", '채팅 입장 표시를 PC 칸에 씀'],
+  ['MHEDIT', "accountStore.get('tw.mhRecentColors.'+kind)", "localStorage.getItem('tw.mhRecentColors.'+kind)", '최근 색을 PC 칸에서 읽음'],
+  ['APP', "createLastReadStore(accountStoreMod.asStorage())", "createLastReadStore(localStorage)", '방명록 읽음 시각을 PC 칸에 둠'],
+  ['ACC', "/* 접두어로 쌓이는 키(방마다 하나)는 계정 칸으로", "const ACCOUNT_LOCAL_KEY_PREFIXES = ['tw_chat_read:'];\n/* 접두어로 쌓이는 키(방마다 하나)는 계정 칸으로", '로그아웃이 접두 키를 다시 지움'],
+  ['STORE', "if(all) handled.push(p);", "handled.push(p);", '못 옮긴 접두도 처리함에 올림'],
+  ['STORE', "k.length > p.length && k.startsWith(p)) names.push(k)", "k.startsWith(p)) names.push(k)", '접두만 있는 이름도 옮김'],
+  ['STORE', "const todoPrefixes = MOVED_KEY_PREFIXES.filter(p => !done.includes(p));", "const todoPrefixes = [];", '접두 키를 안 옮김'],
+  ['STORE', "'tw.chatTab.', 'tw_chat_read:', 'tw_chat_join:']);", "'tw.chatTab.', 'tw_chat_read:']);", '입장 표시 접두가 옮길 표에서 빠짐'],
   ['STORE', "const todo = MOVED_KEYS.filter(k => !done.includes(k));", "const todo = MOVED_KEYS.slice();", '두 번 돎'],
-  ['STORE', "try{ storage.removeItem(k); }catch(_){}\n      }\n      handled.push(k);", "}\n      handled.push(k);", '옮기고 PC 칸을 안 지움'],
-  ['STORE', "catch(_){ continue; }   // 못 쓰면 옛 칸을 지우지 않고 다음에 다시", "catch(_){}", '못 써도 옛 칸을 지움'],
-  ['STORE', "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", "'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", '옮긴 표에서 오늘 날짜 빠짐'],
-  ['STORE', "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", "'tw.focusTodayDate', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", '옮긴 표에서 뽀모도로 키 빠짐'],
-  ['STORE', "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", '옮긴 표에서 폰 연결 키 빠짐'],
+  ['STORE', "try{ storage.removeItem(k); }catch(_){}\n      return true;", "return true;", '옮기고 PC 칸을 안 지움'],
+  ['STORE', "catch(_){ return false; }   // 못 쓰면 옛 칸을 지우지 않고 다음에 다시", "catch(_){}", '못 써도 옛 칸을 지움'],
+  ['STORE', "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n/* 접두", "'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n/* 접두", '옮긴 표에서 오늘 날짜 빠짐'],
+  ['STORE', "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n/* 접두", "'tw.focusTodayDate', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n/* 접두", '옮긴 표에서 뽀모도로 키 빠짐'],
+  ['STORE', "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n/* 접두", "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.advZ.v2', 'tw.advZ.v1']);\n/* 접두", '옮긴 표에서 폰 연결 키 빠짐'],
   ['STORE', "'tw.focusPendingSec',", "", '못 올린 집중 시간 키가 계정별 표에서 빠짐'],
   ['STORE', "  'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.advZ.v2', 'tw.advZ.v1',\n", "  'tw.focusTotalSec', 'tw.focusSyncedSec', 'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.advZ.v2', 'tw.advZ.v1',\n", '걷은 옛 누적 키가 표에 되살아남'],
   ['TOTAL', "_day = _normDay(focusTotalStore.get(FOCUS_TODAY_DATE_KEY));", "_day = _normDay(localStorage.getItem(FOCUS_TODAY_DATE_KEY));", '오늘치를 다시 PC 칸에서 읽음'],
