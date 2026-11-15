@@ -129,6 +129,7 @@ function mkEnv(opt){
     dispose(){ this.subs.splice(0).reverse().forEach(u => u()); this.resets.splice(0).reverse().forEach(r => r()); } };   // 가짜 세션 — 타이머는 위 가짜로(손으로 돌린다) · 구독 해제 · 비우기 훅은 모아 두고 dispose 가 부른다
   const g = { viewing: null, friends: opt.friends || {} };
   const S = win.MhScheduler.createScheduler({
+    scheduleAccountStore: { get: k => ls.has(k) ? ls.get(k) : null, set: (k, v) => { ls.set(k, String(v)); return true; }, remove: k => { ls.delete(k); return true; } },   // 계정 칸(S-3c) — 기념일 보기
     scheduleApi, apiErrors, notifyError: (code) => { errs.push(code); return true; },
     rtOn: (kind, fn) => { (rt[kind] = rt[kind] || []).push(fn); return noop; },
     getMyUserId: () => ('uid' in opt ? opt.uid : 'me1'),
