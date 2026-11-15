@@ -8,6 +8,7 @@
 
 function createCreatorCanvas(deps){
 const bindHold = deps.bindHold;   // 함수
+const openCharColorPicker = deps.openCharColorPicker;   // 함수 — window 고리(캐릭터 색 고르기 창이 건다)
 const blinkC = deps.blinkC;
 const camTarget = deps.camTarget;   // 읽는 함수
 const CANVAS_SZ = deps.CANVAS_SZ;
@@ -284,8 +285,7 @@ const _crColorSw = [];   // 색 입력칸 ↔ 보이는 스와치 짝 (아래 _s
     inp.parentNode.insertBefore(btn, inp);
     btn.addEventListener('click', e=>{
       e.preventDefault(); e.stopPropagation();
-      if(typeof window.openCharColorPicker !== 'function') return;
-      window.openCharColorPicker(btn, inp.value, (c)=>{
+      openCharColorPicker(btn, inp.value, (c)=>{
         inp.value = c; btn.style.background = TwSafeHtml.cssColor(c);
         inp.dispatchEvent(new Event('input', {bubbles:true}));
       });

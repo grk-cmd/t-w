@@ -11,6 +11,7 @@ const _editRoute = deps._editRoute;
 const _syncCrColorSwatches = deps._syncCrColorSwatches;
 const applyDeskItemsTo = deps.applyDeskItemsTo;
 const applyDesktopRunClass = deps.applyDesktopRunClass;   // 읽는 함수
+const closeWardrobe = deps.closeWardrobe;   // 함수 — window 고리(꾸미기 모듈이 건다)
 const applyEquippedPartsToSeat = deps.applyEquippedPartsToSeat;
 const assetCodeMod = deps.assetCodeMod;   // 읽는 함수
 const b64ToBuf = deps.b64ToBuf;
@@ -58,7 +59,7 @@ function openCreator(mode){
   if(!creatorPrevMod.ensureCreatorPreview()) return;   // 3D 를 못 만들면 열지 않는다(안내 · 실패 번호는 gl-context 가 냄)
   // ★ 꾸미기 창이 켜진 채로 생성기를 열면 같은 종류의 "떠 있는 채 안 닫힘" 문제가 생길 수 있어 미리 닫음(저장하며 — backToLauncher 와 같다).
   const wp=document.getElementById('wardrobePanel');
-  if(wp && wp.classList.contains('on') && typeof window.closeWardrobe==='function'){ try{ window.closeWardrobe(); }catch(_){} }
+  if(wp && wp.classList.contains('on')){ try{ closeWardrobe(); }catch(_){} }
   if(wp) wp.classList.remove('on');
   const wdp=document.getElementById('wdPreviewPanel'); if(wdp) wdp.classList.remove('on');
   setCreatorMode(mode||{kind:'slot',edit:false});

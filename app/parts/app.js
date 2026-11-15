@@ -4026,6 +4026,7 @@ const crStampMod = TwCrStamp.createCrStamp({
 });
 /* 본문은 creator/creator-canvas.js 로 옮겼다(앱 FSD · app.js 분리 M20). 생성기 그림판(되돌리기 · 그리기 · 붓 · 카메라 키 · 색 · 피부)의 주인이다 — 듣기가 예전과 같은 때 걸린다. 뒤에서 선언되는 값은 읽는 함수로 다룬다. */
 const creatorCanvasMod = TwCreatorCanvas.createCreatorCanvas({
+  openCharColorPicker: (...a)=>window.openCharColorPicker(...a),
   bindHold: (...a)=>bindHold(...a),
   blinkC: blinkC,
   camTarget: ()=>camTarget,
@@ -4495,6 +4496,7 @@ const creatorFlowMod = TwCreatorFlow.createCreatorFlow({
 creatorFlowMod.onItemsStep(()=>deskSetupMod.renderCrItems());   // 5단계 아이템 목록 — 구독으로 잇는다(creator-flow ↔ desk-setup 순환 없게)
 /* 본문은 creator/creator-open.js 로 옮겼다(앱 FSD · app.js 분리 M21). 생성기 여는 입구 · 런처 다시 그리기의 주인이다. 뒤에서 선언되는 값은 읽는 · 쓰는 함수로 다룬다. */
 const creatorOpenMod = TwCreatorOpen.createCreatorOpen({
+  closeWardrobe: (...a)=>window.closeWardrobe(...a),
   _editRoute: _editRoute,
   _syncCrColorSwatches: _syncCrColorSwatches,
   applyDeskItemsTo: applyDeskItemsTo,

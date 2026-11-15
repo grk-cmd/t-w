@@ -152,6 +152,9 @@ const MODULES = [
   { file: 'cloth-visibility.js', mod: 'clothVisMod', glob: 'TwClothVisibility', sample: 'function applyClothVisibility(' },   // 0.12.4 app.js 분리 T4
   { file: 'hue-tint.js', mod: 'hueTintMod', glob: 'TwHueTint', sample: 'function applyHueTint(' },   // 0.12.4 app.js 분리 T1
   { file: 'base-body.js', mod: 'baseBodyMod', glob: 'TwBaseBody', sample: 'function instantiateBase(' },   // 0.12.4 app.js 분리 T2
+  { file: 'window-mode.js', mod: 'windowModeMod', glob: 'TwWindowMode', sample: 'function applyDesktopRunClass(' },   // 0.12.4 app.js 분리 M22
+  { file: 'creator-open.js', mod: 'creatorOpenMod', glob: 'TwCreatorOpen', sample: 'function openCreator(' },   // 0.12.4 app.js 분리 M21
+  { file: 'creator-canvas.js', mod: 'creatorCanvasMod', glob: 'TwCreatorCanvas', sample: 'function bindPaint(' },   // 0.12.4 app.js 분리 M20
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
