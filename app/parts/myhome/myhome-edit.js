@@ -22,7 +22,7 @@
    ⚠️ document · window · companion · firebaseAPI · localStorage 는 예전처럼 전역 이름으로 쓴다(이 파일은 app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwMyHomeEdit — 크로미움 내장 전역과 겹치는 이름(Scheduler 같은)을 쓰면 typeof 가드가 늘 통과한다(#103).
    검사: checks/sim-myhome-edit.js — 만들 때 배선 · 자동저장(관람 · 계정 바뀜 · 불러오기 전) · 글 서식 · 닉네임 · 게시글 제목 ·
-         BGM · 배경 · 테마 · 디자인 스튜디오 · 프리셋 · 스티커 끌기 · renderMyHomeStickers 감싸기 · app.js 배선 · html 순서. */
+         BGM · 배경 · 테마 · 디자인 스튜디오 · 프리셋 · 스티커 끌기 · renderMyHomeStickers 그린 뒤 알림 · app.js 배선 · html 순서. */
 (function(){
 
 function createMyHomeEdit(deps){

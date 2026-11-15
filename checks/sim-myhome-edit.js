@@ -2,7 +2,7 @@
    app.js 의 마이홈 페이지 편집 묶음(옛 bindMyHomePage — 자동저장 · 프로필 사진 · 글 서식 · 새 스티커 붙이기 · 스티커 끌기 ·
    닉네임 · 게시글 제목 · 🎵 BGM · 바깥 배경 · 테마 · 👑 디자인 스튜디오 · 프리셋)을 parts/myhome/myhome-edit.js 로 옮겼다.
    동작은 그대로여야 한다 — 여기서는 «옮긴 것» 을 가짜 DOM 위에서 통째로 굴린다.
-   ・1절: 만들 때 — 싣기만 하면 window.TwMyHomeEdit 뿐 · 만들면 window 고리 · BGM 창 구독 · renderMyHomeStickers 감싸기 ·
+   ・1절: 만들 때 — 싣기만 하면 window.TwMyHomeEdit 뿐 · 만들면 window 고리 · BGM 창 구독 · renderMyHomeStickers 그린 뒤 알림 ·
           app.js 뒤쪽 const(USER_NAME_MAX)는 만들 때 읽지 않는다 · DOM 이 없어도 서지 않는다
    ・2절: 자동저장 — 관람 중 · 불러오기 전 · 계정 바뀜(불러온 상태 무효) 이면 안 쓴다 · 쓰면 글 두 칸을 담아 saveMyHome · 거부 이유 · 경고 · 실패
    ・3절: 프로필 사진 · 글 서식 툴바(굵게 · 링크 — http 만) · 색 팝업(HEX · 최근 색 · 초기화)
@@ -363,7 +363,7 @@ await sec('── 4. 새 스티커 · 스티커 끌기 · 삭제 저장', async 
   };
   const brokeSrc = MOD.replace('if(e.button || !go || !passToAdd(e)) return;', 'if(e.button || !passToAdd(e)) return;');
   chk(await dropOnBtn() === 0 && brokeSrc !== MOD && await dropOnBtn(brokeSrc) === 1, '  깨 보기 — 누른 자리를 안 보면 놓기만으로 관리 창이 열린다(빨강)');
-  /* 감싼 renderMyHomeStickers — 삭제 버튼에 저장 한 번 더 */
+  /* 그린 뒤 알림 — 삭제 버튼에 저장 한 번 더 */
   const del = mkEl(e, 'button'); let orig = 0; del.onclick = () => { orig++; }; e.dels = [del];
   e.renderedFns[0]();
   del.onclick({}); await flush();

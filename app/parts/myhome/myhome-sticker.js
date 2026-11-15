@@ -16,7 +16,7 @@
          두 let 은 app.js 의 renderMyHomeStickers 가 읽고(편집 표시 · 드래그 직후 링크 안 엶), 마이홈 페이지 편집 묶음도
          _mhStickerDragDist 를 쓰므로 app.js 에 두고 쓰는 함수로 받는다.
    ★ renderMyHomeStickers · commitMyHomePage 는 화살표로 받는다 — renderMyHomeStickers 는 app.js 의 마이홈 페이지 편집 묶음이
-     나중에 감싸 다시 대입하고(삭제 버튼에 자동 저장을 붙인다), commitMyHomePage 는 그 묶음이 window 에 거는 이름이다.
+     나중에 그린 뒤 알림(onRendered)에 삭제 버튼 자동 저장을 걸고, commitMyHomePage 는 그 묶음이 window 에 거는 이름이다.
      부를 때 찾아야 예전과 같은 함수를 부른다.
    ★ 밖으로 내놓는 이름은 반환값이다(open · close · render · bringIn · editStart · editEnd · bindDrag · bindRotate · bindResize).
      부르는 곳(app.js 의 renderMyHomeStickers · 마이홈 닫기 · [+ 스티커] · 새 스티커 붙이기)은 전부 사용자가 마이홈을 연 뒤에 돌므로
@@ -33,7 +33,7 @@ function createMyHomeSticker(deps){
 const toast = deps.toast;
 const asyncPrompt = deps.asyncPrompt;                    // ✏️ 인앱 프롬프트(🔗 링크 바꾸기)
 const commitMyHomePage = deps.commitMyHomePage;          // 💾 자동 저장 — app.js 마이홈 페이지 편집 묶음이 window 에 건다
-const renderMyHomeStickers = deps.renderMyHomeStickers;  // 🎨 스티커 다시 그리기 — app.js(마이홈 페이지 편집 묶음이 감싸 다시 대입한다)
+const renderMyHomeStickers = deps.renderMyHomeStickers;  // 🎨 스티커 다시 그리기 — app.js(부를 때 찾는다)
 const _mhStickerOutOfView = deps.mhStickerOutOfView;     // 📐 스티커 자리 · 크기 도우미 — app.js(마이홈 페이지 그리기)
 const _mhClampStickerPos = deps.mhClampStickerPos;
 const _mhStickerDispSize = deps.mhStickerDispSize;

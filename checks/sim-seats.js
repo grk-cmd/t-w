@@ -109,7 +109,7 @@ say('§5 연결');
   chk(iS > 0 && iA > iS, 'html — seats.js 를 app.js 보다 먼저 싣는다');
   const code = APP.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
   chk(/const seatsMod = TwSeats\.createSeats\(\{[\s\S]*?scene: scene,\s*\}\);/.test(code) && !/createSeats\(\{[^}]*seatPanelMod/.test(code), 'app.js — 위층(seatPanelMod · layoutSeats)은 deps 로 넘기지 않는다(순환 막기)');
-  chk(/seatsMod\.attach\(\{[\s\S]*?layoutSeats: \(\)=>layoutSeats\(\),[\s\S]*?renderSeatTabs:[\s\S]*?selectSeat:[\s\S]*?\}\);/.test(code) && code.indexOf('seatsMod.attach') > code.indexOf('const seatPanelMod'), '  알림은 seatPanelMod 를 만든 뒤 attach 로 걸고 layoutSeats 는 부를 때 찾는다(뒤에서 감싸 다시 대입됨)');
+  chk(/seatsMod\.attach\(\{[\s\S]*?layoutSeats: \(\)=>layoutSeats\(\),[\s\S]*?renderSeatTabs:[\s\S]*?selectSeat:[\s\S]*?\}\);/.test(code) && code.indexOf('seatsMod.attach') > code.indexOf('const seatPanelMod'), '  알림은 seatPanelMod 를 만든 뒤 attach 로 걸고 layoutSeats 는 부를 때 찾는다(뒤에서 정의됨)');
   chk(['seats', 'GAP_MIN', 'GAP_MAX', 'GAP_STEPS', 'saveGap', 'createSeat'].every(n => new RegExp('^const ' + n + ' = seatsMod\\.' + n + ';', 'm').test(code)), '  옛 이름 여섯을 const 로 받는다');
   chk(!/\blet (selected|SPACING|MULTIPLAYER_SPACING)\b|function (createSeat|removeSeat|saveGap|_loadGap)\b/.test(code) && !/(?<![\w$.])(selected|SPACING|MULTIPLAYER_SPACING) *=[^=]/.test(code), '  app.js 에 좌석 목록 코드 · 다시 대입되는 let 이 남아 있지 않다');
   chk(!/(?<![\w$.'"])selected(?![\w$'"]) *[.)\]=;,]/.test(code.replace(/seatsMod\.selected\(\)/g, '')), '  고른 좌석은 어디서나 seatsMod.selected() 로 읽는다');

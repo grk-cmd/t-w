@@ -220,8 +220,8 @@
 | **sim-desk-build.js** | 100 | **0de2a23692c7** |
 | **sim-part-anim.js** | 177 | **849cae964607** |
 | **sim-desk-item-equip.js** | 212 | **6f7c86609c6d** |
-| **sim-seats.js** | 135 | **82ad9d0bf277** |
-| **sim-char-place.js** | 181 | **eada09f979ef** |
+| **sim-seats.js** | 135 | **2648d31e6ff2** |
+| **sim-char-place.js** | 181 | **0ef82979bff9** |
 | **sim-fit-model.js** | 162 | **ef5b499a4519** |
 | **sim-user-status.js** | 178 | **f7a4242b2242** |
 | **sim-seat-opacity-mod.js** | 84 | **d509bc1008a1** |
@@ -289,7 +289,7 @@
 | **sim-pomodoro-module.js** | 228 | **87c30b512de0** |
 | **sim-myhome-sticker.js** | 414 | **b4fdafdd7d36** |
 | **sim-gacha.js** | 510 | **9491aa00bd7b** |
-| **sim-myhome-edit.js** | 616 | **a7714a942054** |
+| **sim-myhome-edit.js** | 616 | **48ed37ab9aae** |
 | **sim-room-invite-ui.js** | 371 | **a1751a4aebda** |
 | **sim-focus-log.js** | 309 | **6659b62cc6c5** |
 | **sim-chat-window.js** | 565 | **9b933ee52a05** |
