@@ -17,6 +17,8 @@
 window.__winPosResetters = window.__winPosResetters || [];
 
 function createWinStack(deps){
+const backToLauncher = deps.backToLauncher;   // 마이홈 · 꾸미기 창을 저장하며 닫고 런처 화면으로(app.js)
+const closers = deps.closers;   // 읽는 함수 — ESC 스택에 안 태운 창의 [{ key, isOpen, close }] (app.js — 창마다 여닫는 길이 달라 표로 받는다)
 
 /* 🪟 창 앞뒤(z-index) — **누른 창이 맨 앞으로 온다.**
 
@@ -184,7 +186,36 @@ document.addEventListener('keydown', e=>{
   _escSync();                           // 관찰 콜백을 기다리지 않고 즉시 반영 — 연타가 빠를 때를 위해
 }, true);
 
+/* 🪟 모두 닫기 — 로그아웃 · 탈퇴 · 계정 바뀜(launcher/app-boot.js end)이 부른다. 앱을 다시 켜지 않으므로 앞 사람이 열어 둔 창이 로그인 화면 위에 남지 않게 한다.
+   ① ESC 스택에 태운 창을 꼭대기부터 하나씩 닫는다 ② 스택에 안 태운 창(closers 표)을 열려 있는 것만 닫는다.
+   ★ 조용히 넘기지 않는다 — 닫는 함수가 던지거나 닫았는데 그대로 열려 있으면 경고하고 남은 창을 계속 닫는다(한 창이 못 닫혀도 나머지는 닫힌다).
+   ③ 끝으로 backToLauncher — 마이홈 · 꾸미기 창(저장하며 닫음)을 닫고 런처 화면으로.
+   @return 닫으려다 못 닫은 창 key 목록(없으면 빈 배열) */
+const CLOSE_ALL_MAX = 32;   // ESC 스택 되풀이 상한 — 한 창이 닫히지 않을 때 끝없이 돌지 않게
+function closeAll(){
+  const stuck = [];
+  for(let n = 0; n < CLOSE_ALL_MAX; n++){
+    const w = _escTop();
+    if(!w) break;
+    try{ w.close(); }catch(e){ console.warn('[창] 모두 닫기 — ' + w.key + ' 을(를) 닫다 던졌어요', e); }
+    _escSync();
+    if(_escTop() === w){ console.warn('[창] 모두 닫기 — ' + w.key + ' 이(가) 닫히지 않았어요'); stuck.push(w.key); break; }
+  }
+  closers().forEach(c=>{
+    let open = false;
+    try{ open = !!c.isOpen(); }catch(e){ console.warn('[창] 모두 닫기 — ' + c.key + ' 열림 확인 실패', e); stuck.push(c.key); return; }
+    if(!open) return;
+    try{ c.close(); }catch(e){ console.warn('[창] 모두 닫기 — ' + c.key + ' 을(를) 닫다 던졌어요', e); stuck.push(c.key); return; }
+    let still = false;
+    try{ still = !!c.isOpen(); }catch(_){}
+    if(still){ console.warn('[창] 모두 닫기 — ' + c.key + ' 이(가) 닫히지 않았어요'); stuck.push(c.key); }
+  });
+  try{ backToLauncher(); }catch(e){ console.warn('[창] 모두 닫기 — 런처로 돌아가다 던졌어요', e); stuck.push('launcher'); }
+  return stuck;
+}
+
 return {
+  closeAll,
   _escEditable,
   bringWinToFront,
   escRegisterWindow,

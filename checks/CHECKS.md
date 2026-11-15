@@ -331,7 +331,7 @@
 | **sim-away-pic.js** | 94 | **02105f2b9019** |
 | **sim-myhome-ui.js** | 133 | **22172287752c** |
 | **sim-tricks.js** | 94 | **0d7b8a1c2080** |
-| **sim-ride-bench.js** | 279 | **426a9d3c5c9f** |
+| **sim-ride-bench.js** | 279 | **0078bf2bf95b** |
 | **sim-part-paint.js** | 94 | **ccaa45183979** |
 | **sim-focus-level.js** | 128 | **246cbe6794dd** |
 | **sim-chat-ui.js** | 126 | **4ce92ac94c0d** |
@@ -351,7 +351,7 @@
 | **sim-chat-prefs.js** | 95 | **26c68ca8bbfe** |
 | **sim-chat-read-on-send.js** | 214 | **24d8cf0193b1** |
 | **sim-rich-text.js** | 95 | **c8ee332ad595** |
-| **sim-win-stack.js** | 96 | **e7f9bf9ab745** |
+| **sim-win-stack.js** | 141 | **fad1a0724bdc** |
 | **sim-sfx.js** | 96 | **d24a22a1d75f** |
 | **sim-face-heal.js** | 231 | **f18793ed8378** |
 | **sim-slot-save.js** | 183 | **48d93b48c8dc** |
