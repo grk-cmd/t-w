@@ -505,7 +505,7 @@
 | **sim-purikura-rt.js** | 458 | **24a5cf75951c** |
 | **sim-env-diag.js** | 174 | **8da31de26ec8** |
 | **sim-gpu-timer.js** | 170 | **2aed586a367c** |
-| **sim-run-cost-diag.js** | 163 | **75186f43715b** |
+| **sim-run-cost-diag.js** | 163 | **f6ad37507975** |
 | **sim-heartbeat.js** | 87 | **f470ff5cf8b3** |
 | **sim-run-diag-minute.js** | 132 | **22f5e396c651** |
 | **sim-hit-map.js** | 159 | **227daad5d26e** |

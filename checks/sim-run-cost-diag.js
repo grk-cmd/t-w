@@ -16,8 +16,8 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { for (const c of [f, 'parts/' + f, 'parts/shared/' + f, 'parts/room/' + f, 'parts/launcher/' + f, 'app/' + f, 'app/parts/' + f, 'app/parts/shared/' + f, 'app/parts/room/' + f, 'app/parts/launcher/' + f, 'checks/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 const MOD = read('run-cost-diag.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html'), SMOKE = read('smoke.js');
 const APPJ = APP && require('./sim-renderer-src.js').joinRenderer(APP);   // 하트비트 · 1분 진단 줄은 모듈(heartbeat.js · run-diag-minute.js)로 옮겼다 — «옮기기 전 app.js 글» 로 되살려 읽는다(판정 무변경)
-const RUN = read('desktop-run.js'), ENTRY = read('room-entry.js'), NET = read('room-server-net.js'), FBI = read('firebase-init.js');
-if (!MOD || !APP || !HTML || !SMOKE || !RUN || !ENTRY || !NET || !FBI) { say('  ? 원본 못 찾음 — run-cost-diag.js · app.js · html · smoke.js · desktop-run.js · room-entry.js · room-server-net.js · firebase-init.js'); process.exit(2); }
+const RUN = read('desktop-run.js'), ENTRY = read('room-entry.js'), NET = read('room-rt.js'), FBI = read('firebase-init.js');
+if (!MOD || !APP || !HTML || !SMOKE || !RUN || !ENTRY || !NET || !FBI) { say('  ? 원본 못 찾음 — run-cost-diag.js · app.js · html · smoke.js · desktop-run.js · room-entry.js · room-rt.js · firebase-init.js'); process.exit(2); }
 const load = (src) => { const w = {}; new Function('window', 'module', 'performance', src)(w, undefined, { now: () => 0 }); return w.TwRunCostDiag; };
 const near = (a, b) => Math.abs(a - b) < 1e-9;
 
@@ -155,7 +155,7 @@ const iFrame = APPJ.indexOf('companion.diagNote(_FB.diagLine(m) + TwGpuTimer.suf
 chk(iLine > iRun && iFrame > iLine && iFrame - iLine < 400, '[비용] 줄은 [프레임] 줄과 같은 조건(실행 화면 — 창을 내려도 runmode 그대로)에서 바로 앞에 적는다');
 chk(/const runCost = deps\.runCost;/.test(RUN) && /_hitPerf\.maxMs = d;\s*runCost\.add\('hit', d\);/.test(RUN), '통과 판정 — 기존 _hitPerf 자리에서 더한다');
 chk(/const syncFriendSeatsTimed = runCost\.timed\('sync', syncFriendSeats\);/.test(ENTRY) && /syncFriendSeatsTimed\(friends\)/.test(ENTRY) && /syncFriendSeats: syncFriendSeatsTimed,/.test(ENTRY), '좌석 맞춤 — 부르는 곳 둘(provider 변경 · app.js 복원)이 잰 것을 부른다');
-chk(/function presenceChanged\(friends\)\{\n  runCost\.count\('recv'\);/.test(ENTRY) && !/notePatch/.test(NET) && !/TwRunCostDiag/.test(FBI), '수신 — 두 길(방 서버 · Firebase)이 함께 지나는 presenceChanged 입구에서 센다(방 서버 · firebase-init 연결 없음)');
+chk(/function presenceChanged\(friends\)\{\n  runCost\.count\('recv'\);/.test(ENTRY) && !/notePatch/.test(NET) && !/TwRunCostDiag/.test(FBI), '수신 — 두 길(방 서버 · Firebase)이 함께 지나는 presenceChanged 입구에서 센다(방 realtime 포트 room-rt.js · firebase-init 연결 없음)');
 chk(/runCost: runCost,/.test(APP.slice(APP.indexOf('TwRoomEntry.createRoomEntry({'), APP.indexOf('});', APP.indexOf('TwRoomEntry.createRoomEntry({')))) && /runCost: runCost,/.test(APP.slice(APP.indexOf('TwDesktopRun.createDesktopRun({'), APP.indexOf('});', APP.indexOf('TwDesktopRun.createDesktopRun({')))), 'room-entry · desktop-run 에 deps 로 넘긴다');
 
 say('');
