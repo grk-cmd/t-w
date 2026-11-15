@@ -99,8 +99,10 @@ export function createServerBroadcastPort(api: Api | null): BroadcastPort {
     let ok = 0;
     let failed = 0;
     let conflict = false;
-    for (let i = 0; i < ids.length; i += BULK_MAX) {
-      const items = ids.slice(i, i + BULK_MAX).map((id) => ({ id, version: versionOf(id) }));
+    // 요청을 보내기 전에 version 을 다 모은다 — 중간에 모자라서 앞 묶음 결과만 남는 일이 없게.
+    const all = ids.map((id) => ({ id, version: versionOf(id) }));
+    for (let i = 0; i < all.length; i += BULK_MAX) {
+      const items = all.slice(i, i + BULK_MAX);
       const result = await portCall(
         api,
         (a) => a.send<BulkRow[]>('POST', `${BASE}/bulk`, { body: { action, items } }),
