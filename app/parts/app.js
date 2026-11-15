@@ -1498,7 +1498,7 @@ const friendManage = TwFriendManage.createFriendManage({
   giftStat: (...a)=>inboxMod.giftStat(...a),
   renderGiftBox: (...a)=>inboxMod.renderGiftBox(...a),
   inboxTimeStr: (...a)=>inboxMod.inboxTimeStr(...a),
-  myHomeOpen: ()=>myHomeOpen,
+  myHomeOpen: ()=>windowModeMod.myHomeOpen(),
   myHomeFriends: ()=>_myHomeFriends,
   myFriendRequests: ()=>_myFriendRequests,
   friendMax: FRIEND_MAX,
@@ -1592,7 +1592,7 @@ const mhInitMod = TwMyHomeInit.createMyHomeInit({
   getMyUserId: (...a)=>getMyUserId(...a),
   inboxMod: ()=>inboxMod,
   mhScheduler: mhScheduler,
-  myHomeOpen: ()=>myHomeOpen,
+  myHomeOpen: ()=>windowModeMod.myHomeOpen(),
   toast: (...a)=>toast(...a),
   setInboxBroadcast: (v)=>{ _inboxBroadcast = v; },
   setMyFriendRequests: (v)=>{ _myFriendRequests = v; },
@@ -1716,12 +1716,12 @@ const myHomeUiMod = TwMyHomeUi.createMyHomeUi({
   isAdmin: ()=>isAdmin,
   loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),
   mhScheduler: mhScheduler,
-  myHomeOpen: ()=>myHomeOpen,
+  myHomeOpen: ()=>windowModeMod.myHomeOpen(),
   myHomeSticker: ()=>myHomeSticker,
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
   renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
   toast: (...a)=>toast(...a),
-  setMyHomeOpen: (v)=>{ myHomeOpen = v; },
+  setMyHomeOpen: (v)=>{ windowModeMod.setMyHomeOpen(v); },
   twNav: twNav,
 });
 /* 👥 친구 목록이 보이는 동안만 friends-sub 에 «열림» — 마이홈을 여닫는 길이 여럿이라(열기 · 친구 홈 구경 · 런처 복귀 · 단축키) 두 칸의 class 를 지켜본다. */
@@ -1744,11 +1744,11 @@ const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({
   getMyUserId: (...a)=>getMyUserId(...a),
   loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),
   mhScheduler: mhScheduler,
-  myHomeOpen: ()=>myHomeOpen,
+  myHomeOpen: ()=>windowModeMod.myHomeOpen(),
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
   toast: (...a)=>toast(...a),
   setSchedDdaysVisitUnsub: (v)=>{ _schedDdaysVisitUnsub = v; },
-  setMyHomeOpen: (v)=>{ myHomeOpen = v; },
+  setMyHomeOpen: (v)=>{ windowModeMod.setMyHomeOpen(v); },
   _myHomeData: ()=>mhStateMod._myHomeData(),
   _myHomeLoaded: ()=>mhStateMod._myHomeLoaded(),
   _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
@@ -5159,7 +5159,7 @@ const appModeMod = TwAppMode.createAppMode({
   focusLevelMod: ()=>focusLevelMod,
   gachaMod: ()=>gachaMod,
   layoutSeats: (...a)=>layoutSeats(...a),
-  setMyHomeOpen: (v)=>{ myHomeOpen = v; },
+  setMyHomeOpen: (v)=>{ windowModeMod.setMyHomeOpen(v); },
   overheadMod: overheadMod,
   Presence: ()=>Presence,
   renderLauncher: renderLauncher,
@@ -6775,36 +6775,6 @@ const expBarMod = TwExpBar.createExpBar({
 });
 
 /* ═══ 🖥️ 활성 앱 판정(_applyActiveAppState) ═══ */
-let _focusLastTick=performance.now(), _focusWasActive=false;
-function _applyActiveAppState(state){
-  if(!state) return;
-  const now=performance.now(), dt=(now-_focusLastTick)/1000; _focusLastTick=now;
-  // 직전 폴링 시점에 "등록된 포커스 앱을 실제로 쓰고 있었다"면 그 사이 흐른 시간만큼 누적.
-  // dt가 비정상적으로 크면(창 최소화·컴퓨터 절전 등으로 폴링이 끊겼던 경우) 오차 누적 방지로 건너뜀.
-  // ★ 기록 정지 기준 = 캐릭터가 idle로 바뀌는 순간(FOCUS_MS). 예전엔 sleep(SLEEP_MS=8초) 기준이라
-  //   손을 뗀 뒤 캐릭터가 이미 idle인데도 8초까진 기록이 계속 쌓였다. 이제 마지막 입력 후 FOCUS_MS가
-  //   지나 캐릭터가 '집중(focus) 포즈'를 벗어나면(=idle 진입) 즉시 누적을 멈춘다.
-  //   → "실제로 입력하며 집중하는 동안"만 시간이 쌓임. 입력이 재개되면 다음 폴링부터 다시 누적.
-  /* 📱 폰 켜짐이면 PC 입력 조건을 건너뛴다 — PC 입력이 없는 게 정상이라 그대로 두면 한 초도 안 쌓인다(요구: PC 와 똑같이). */
-  const mobOn = focusLevelMod._mobileOn();
-  const pcNotFocusing = (now - seatStateMod.lastActivity()) > focusWindowMs();
-  const notFocusingNow = mobOn ? false : pcNotFocusing;
-  /* 🧸 피규어 모드면 쌓지 않는다 — 직전 폴링 값(_focusWasActive)이 아니라 지금 값을 봐서, 켠 순간부터 멈춘다. */
-  if(!officeModeMod.figureMode() && _focusWasActive && !notFocusingNow && dt>0 && dt<30) focusLevelMod.addFocusSeconds(dt);
-  /* 👑 달성표 🎯집중 — "오늘 그 앱을 몇 초 썼나"를 같은 dt 로 여기서 센다.
-     ★ 새 타이머를 만들지 않는 이유: dt 는 _focusLastTick 을 소비해서 나온다. 밖에서 따로 재면
-       같은 구간을 두 번 세거나 서로 _focusLastTick 을 리셋해서 둘 다 틀린다.
-     ★ _focusWasActive(=등록된 포커스 앱이 활성)를 조건에 안 거는 이유: 그건 평생 누적치용 게이트다.
-       달성표는 사용자가 고른 exe 하나만 보므로, 그 앱이 포커싱 어플 슬롯에서 빠져도 계속 세야 한다. */
-  if(!officeModeMod.figureMode() && dt>0 && dt<30 && !pcNotFocusing) weeklyChal.focusTick(state, dt);   // 📱 폰 시간은 안 넣는다(exe 기준 · 이번 범위 밖)
-  /* 이 기기의 플랫폼 접두사를 main 이 보낸 키에서 배운다 — 렌더러가 스스로 판단하지 않는다.
-     구버전 main 은 key 를 안 보내므로 null 로 남고, 그때는 플랫폼 판정을 아예 안 한다. */
-  if(state.key) weeklyChal.setKeyPlatform(String(state.key).split(':')[0] || null);
-  seatStateMod.setSelfAppActive(!!state.isSelf);   // 구버전 main 은 안 보낸다 — 그때는 예전처럼 잔다
-  seatStateMod.setPenAppFocused(!!state.isPenApp);   // 🖊️ 펜 앱이면 기록 창을 4초로 넓힘(focusWindowMs)
-  focusGateSleep = officeModeMod.figureMode() ? false : (mobOn ? false : (state.hasAnyRegistered ? !state.isFocusedAppRegistered : true));
-  _focusWasActive = !!(state.hasAnyRegistered && state.isFocusedAppRegistered) || mobOn;
-}
 
 /* ═══ 👑 달성표 · 🍅 뽀모도로 모듈 연결 ═══ */
 /* 👑 달성표(주간 규칙 · 기록 · 화면) — parts/weekly-challenge.js 로 옮겼다(앱 FSD 2번 · docs/APP_FSD_MAP.md).
@@ -6843,31 +6813,23 @@ const pomodoro = TwPomodoro.createPomodoro({
 });
 
 /* ═══ 🖥️ 데스크탑 실행 화면 — 창 크기 · 업데이트 배너 · 전역 입력 · 클릭 통과 · 하트비트 ═══ */
-let myHomeOpen = false;   // ★ 마이홈 팝업이 "런처에서" 열려있는지 — 이때만 창 크기를 생성기처럼 키움
-                          //   (실행 화면은 이미 전체화면이라 그 안에서 여는 건 그대로 둬도 잘 맞음)
-function applyDesktopRunClass(){ if(!desktopMode) return;
-  const launcherOn = document.getElementById('launcher').classList.contains('on');
-  /* 🪟 **여는 쪽 플래그가 아니라 화면을 본다.** 예전엔 myHomeOpen 만 봤는데, 그 플래그를 세우는
-     자리가 셋(open · openFriendHomeView · 런처 복귀)이라 한 곳만 어긋나도 창 크기가 갈렸다.
-     실제로 openFriendHomeView 가 이 함수를 안 불러서 마이홈이 380px 창 밖으로 나갔다(제보).
-     오버레이의 .on 이 곧 "지금 마이홈이 떠 있다"이므로 그걸 직접 본다 — 새 진입 경로가 생겨도
-     플래그를 세우는 것을 잊었다는 이유로 창 크기가 틀리는 일이 없어진다.
-     ⚠️ 그래도 이 함수는 **누군가 불러줘야** 한다. 오버레이를 여는 새 경로를 만들면 여기도 부를 것. */
-  const mhOv = document.getElementById('myHomeOverlay');
-  const mhOn = !!(mhOv && mhOv.classList.contains('on')) || myHomeOpen;
-  const showMyHomeSized = mhOn && launcherOn;
-  const config = launcherOn || creatorOpen;
-  const runOverlay = appModeMod.appMode()==='run' && !config;
-  document.body.classList.toggle('runmode', runOverlay);
-  document.body.classList.toggle('config', config);   // 런처/생성기 열림 여부 — CSS에서 #scene 숨김에 사용
-  if(typeof floor!=='undefined') floor.visible = !runOverlay;        // 투명 오버레이일 땐 바닥 숨김(데스크톱 비침)
-  key.castShadow = FrameBudget.castShadowFor(runOverlay);   // 바닥이 없으니 그림자도 안 만든다(frame-budget.js)
-  // 화면 종류에 따라 창 크기가 달라야 함: 생성기는 넓게, 마이홈(런처에서 열렸을 때)도 넓게, 런처는 카드 크기, 실행은 전체화면
-  const mode = creatorOpen ? 'creator' : (showMyHomeSized ? 'myhome' : (launcherOn ? 'launcher' : 'run'));
-  // 🎨 런처 마이홈 — 창 밖으로 나간 스티커만큼 창을 넓혀 달라고 같이 보낸다(_mhStickerOverhang)
-  const extra = (mode === 'myhome') ? mhStLayoutMod._mhStickerOverhang() : null;
-  if(window.companion&&companion.setConfigMode) companion.setConfigMode(config, mode, extra);
-}
+/* 본문은 launcher/window-mode.js 로 옮겼다(앱 FSD · app.js 분리 M22). 활성 앱 판정 · 창 모드(마이홈 열림 · applyDesktopRunClass)의 주인이다 — 판단은 옛 그대로. 다시 대입되거나 뒤에서 선언되는 값은 읽는 · 쓰는 함수로 다룬다. */
+const windowModeMod = TwWindowMode.createWindowMode({
+  appModeMod: appModeMod,
+  creatorOpen: ()=>creatorOpen,
+  desktopMode: desktopMode,
+  floor: floor,
+  setFocusGateSleep: (v)=>{ focusGateSleep = v; },
+  focusLevelMod: focusLevelMod,
+  focusWindowMs: focusWindowMs,
+  key: key,
+  mhStLayoutMod: mhStLayoutMod,
+  officeModeMod: officeModeMod,
+  seatStateMod: seatStateMod,
+  weeklyChal: weeklyChal,
+});
+const _applyActiveAppState = windowModeMod._applyActiveAppState;   // 옛 전역 이름
+const applyDesktopRunClass = windowModeMod.applyDesktopRunClass;   // 옛 전역 이름
 /* 본문은 desktop-run.js 로 옮겼다(앱 FSD 32번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const desktopRunMod = TwDesktopRun.createDesktopRun({
