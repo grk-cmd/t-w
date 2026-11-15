@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { removeKeys, removeTargets, revokeKeys, revokeTargets } from '@/features/license/revoke-key';
+import { removeKeys, revokeKeys } from '@/features/license/revoke-key/api/firebase';
+import { removeTargets, revokeTargets } from '@/features/license/revoke-key';
 import { fakeDb, withoutAudits, NOW } from '../shared/fakeDb';
 
 const selected = [

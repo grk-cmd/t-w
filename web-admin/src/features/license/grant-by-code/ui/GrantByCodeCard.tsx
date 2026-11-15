@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { errorMessage } from '@/shared/lib';
-import { useGrantByFriendCode } from '../model/grantByFriendCode';
+import { useGrantByFriendCode } from '../model/useGrantByFriendCode';
 
 type Message = { text: string; error: boolean } | null;
 

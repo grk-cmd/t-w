@@ -6,10 +6,10 @@ import { describe, expect, it } from 'vitest';
 // 톱니 — 두 판 갈아 끼우기(D12)가 끝나는 날까지 «포트 밖 직접 호출» 과 «API 판이 없는 포트» 가 늘지 않게 센다.
 // 줄이는 PR 은 기준선도 같이 낮춘다(늘리는 PR 은 빨강). 마지막 D12-*a 뒤 TOOTH_1 = 0 · 마지막 D12-*b 뒤 TOOTH_2 = 0.
 
-/** 톱니 1 기준선 — D12-3a 뒤(지표 · 기록 묶음을 포트 뒤로 옮김: 80 → 72). */
-const TOOTH_1_BASELINE = 72;
+/** 톱니 1 기준선 — D12-4a 뒤(라이선스 묶음을 포트 뒤로 옮김: 72 → 59). */
+const TOOTH_1_BASELINE = 59;
 /** 톱니 2 기준선 — `notPorted(` 를 적은 포트 수. */
-const TOOTH_2_BASELINE = 0;
+const TOOTH_2_BASELINE = 10;
 
 const SRC = join(process.cwd(), 'src');
 

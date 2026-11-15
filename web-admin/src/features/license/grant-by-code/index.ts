@@ -1,2 +1,2 @@
-export { grantByFriendCode, type GrantResult } from './model/grantByFriendCode';
+export type { GrantResult } from './api/port';
 export { GrantByCodeCard } from './ui/GrantByCodeCard';

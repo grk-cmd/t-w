@@ -1,3 +1,6 @@
+export { useUserSecretRoom } from './api/hooks';
+export { useSecretRoomPort, type SecretRoomPort } from './api/index';
+// 발급 · 만료 · 사용자 칸 기록 — features/license/grant-secret-room 의 Firebase 판이 쓴다. D12-Z 에서 걷는다.
 export {
   expireSecretRoom,
   getSecretRoomPub,
@@ -5,8 +8,7 @@ export {
   getUserSecretRoomInfo,
   issueSecretRoom,
   setUserSecretRoom,
-  useUserSecretRoom,
-} from './api/secretRoom';
+} from './api/firebase';
 export {
   addMonths,
   formatDay,
