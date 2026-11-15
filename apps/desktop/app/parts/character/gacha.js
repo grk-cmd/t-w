@@ -289,10 +289,11 @@ async function pullGacha(notify){
   }
 }
 /* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 서버에서 받고, 서버 신호를 듣는다. 두 번 불려도 구독은 한 번. */
-function startGacha(){
+function startGacha(session){
   if(_gachaStarted) return;
   _gachaStarted = true;
-  _unsubRt = rtOn('collection', ()=>{ pullGacha(false); });
+  _unsubRt = session.on(rtOn('collection', ()=>{ pullGacha(false); }));
+  session.onReset(resetGacha);   // 세션이 끝나면 구독을 풀고(위) 메모리를 비운다
   pullGacha(false);
 }
 /* 로그아웃 · 계정 바뀜 — 메모리를 비우고 서버 신호 구독을 푼다(이 PC 에 남는 가챠 값은 없다). */

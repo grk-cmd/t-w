@@ -150,6 +150,8 @@ function mkEnv(opt){
     syncPartRegGachaLock: () => {},
     deletePart: (id) => { env.deleted.push(id); env.saved = env.saved.filter(p => p.id !== id); },
   });
+  m.session = { unsubs: [], resets: [], on(u){ this.unsubs.push(u); return u; }, onReset(fn){ this.resets.push(fn); },
+    dispose(){ this.unsubs.splice(0).reverse().forEach(u => u()); this.resets.splice(0).reverse().forEach(r => r()); } };   // 가짜 세션 — dispose 가 구독 해제 · 비우기 훅을 부른다
   return m; };
   env.runTimers = (max) => { let n = 0; while(env.timers.length && n++ < (max || 50)){ env.timers.sort((a, b) => a.ms - b.ms); const t = env.timers.shift(); t.fn(); } };
   return env;
@@ -174,10 +176,10 @@ await sec('── 1. 만들 때 · 시작', async () => {
   chk(e.gsLoads === 0 && !Object.keys(e.rt).length && !e.timers.length && !e.intervals.length && e.ls.size === 0,
       '만들 때는 요청 · 서버 신호 구독 · 타이머 · 저장소 쓰기가 0 — 계정 확인 뒤 startGacha 가 한다');
   chk(M.state.load() === 'idle' && JSON.stringify(M.owned()) === '{}', '  시작 전에는 «받지 않음»(idle) · 보유분은 빈 값');
-  M.startGacha(); await flush();
+  M.startGacha(M.session); await flush();
   chk(e.gsLoads === 1 && e.rt.collection && e.rt.collection.length === 1 && M.state.load() === 'ready' && M.gachaCount('a') === 1, 'startGacha — 서버에서 한 번 받고 서버 신호(collection)를 듣는다');
   chk(!e.timers.length && !e.intervals.length, '  주기 타이머 · 부팅 지연 타이머가 없다');
-  M.startGacha(); await flush();
+  M.startGacha(M.session); await flush();
   chk(e.gsLoads === 1 && e.rt.collection.length === 1, '  두 번 불러도 받기 · 구독은 한 번');
   chk(typeof e.els.gachaInvClose.onclick === 'function' && typeof e.els.gachaGoDraw.onclick === 'function' && typeof e.els.gachaDraw1.onclick === 'function'
       && typeof e.els.gachaDraw5.onclick === 'function' && typeof e.els.gachaBackInv.onclick === 'function' && typeof e.els.gachaDrawClose.onclick === 'function', '창 버튼 연결(✕ 둘 · 뽑으러 가기 · 1회 · 5연속 · 보관함으로)');
@@ -186,7 +188,7 @@ await sec('── 1. 만들 때 · 시작', async () => {
   chk(Array.isArray(e.ctx.__winPosResetters) && e.ctx.__winPosResetters.length === 1, '🪟 창 위치 초기화 목록에 한 자리');
   const e4 = mkEnv({ noDom: true }); let ok = true; try{ e4.mk(); }catch(_){ ok = false; }
   chk(ok && !e4.docL.keydown && !e4.ctx.openGachaInv, 'DOM 이 없으면 창 연결 없이 조용히 넘어간다');
-  const e5 = mkEnv({ uid: null }); e5.gs = ST({}); const M5 = e5.mk(); M5.startGacha(); await flush();
+  const e5 = mkEnv({ uid: null }); e5.gs = ST({}); const M5 = e5.mk(); M5.startGacha(M5.session); await flush();
   chk(e5.gsLoads === 0 && M5.state.load() === 'idle', '내 코드가 없으면 받지 않는다(요청 0)');
 });
 
@@ -264,7 +266,7 @@ await sec('── 4. 받기 — 상태 · 실패 · 경합 · 신호 · 회수',
   /* 받은 뒤 한 번 실패해도 알던 값은 그대로 */
   e.gsLoadFail = true; res = await M.pullGacha(false);
   chk(res === 'failed' && M.state.load() === 'ready' && M.gachaCount('a') === 2, '받은 뒤 한 번 못 받아도 알던 값 · ready 는 그대로');
-  e = mkEnv({ saved: [G('a')] }); e.gs = ST({}); e.mk().startGacha(); await flush();
+  e = mkEnv({ saved: [G('a')] }); e.gs = ST({}); (() => { const g = e.mk(); g.startGacha(g.session); })(); await flush();
   chk(e.gsLoads === 1, '(참고) 빈 보유분 응답은 성공 — 빈 목록 ≠ 못 받음');
   /* 받는 사이 뽑기가 끝나면 늦게 온 옛 상태로 덮지 않는다 */
   e = mkEnv({ saved: [G('a')] }); M = await ready(e, ST({ a: 1 }));
@@ -284,12 +286,16 @@ await sec('── 4. 받기 — 상태 · 실패 · 경합 · 신호 · 회수',
   e.gsHold = null; release(); await p1; await flush(); await flush();
   chk(e.gsLoads === 2, '  끝나면 삼켜진 요청을 한 번 더 받는다');
   /* 서버 신호 */
-  e = mkEnv({ saved: [G('a')] }); e.gs = ST({ a: 1 }); M = e.mk(); M.startGacha(); await flush();
+  e = mkEnv({ saved: [G('a')] }); e.gs = ST({ a: 1 }); M = e.mk(); M.startGacha(M.session); await flush();
   e.gs = ST({ a: 3 }); e.rt.collection[0]({ kind: 'collection' }); await flush();
   chk(e.gsLoads === 2 && M.gachaCount('a') === 3, '서버 신호(collection) — 다시 받아 그 값으로');
   chk(typeof M.refreshAfterReward === 'undefined', '달성표 보상 뒤 따로 다시 받지 않는다 — 서버가 보너스 장부를 쓰면 collection 신호가 온다(위 줄)');
   M.resetMemory(); chk(e.unsubs === 1, '로그아웃 지우기 — 서버 신호 구독을 푼다(계정이 바뀌면 구독이 겹치지 않는다)');
-  M.startGacha(); chk(e.rt.collection.length === 2, '  다시 시작하면 새로 건다');
+  M.startGacha(M.session); chk(e.rt.collection.length === 2, '  다시 시작하면 새로 건다');
+  /* 세션 — 구독 · 비우기는 세션이 쥔다(S-2): 세션이 끝나면 구독을 풀고 보유분 메모리를 비운다 */
+  { const e6 = mkEnv({ saved: [G('a')] }); e6.gs = ST({ a: 1 }); const M6 = e6.mk(); M6.startGacha(M6.session); await flush();
+    M6.session.dispose(); chk(e6.unsubs >= 1 && M6.state.load() === 'idle' && M6.gachaCount('a') === 0, '★ 세션이 끝나면(dispose) 서버 신호 구독을 풀고 메모리를 비운다 — 로그아웃이 따로 부르지 않아도');
+    M6.startGacha(M6.session); await flush(); chk(e6.gsLoads === 2 && M6.state.load() === 'ready', '  다음 로그인(새 세션)은 시작이 다시 돈다 — 받기 한 번 더'); }
   /* 미보유 파츠 회수 — 받은 뒤에만 */
   e = mkEnv({ saved: [G('g'), { id: 'n', cat: 'hat' }] });
   const seat = { remote: false, charDef: { equippedParts: { hat: [{ id: 'g' }, { id: 'n' }] } }, stackedPartObjs: { hat: { g: {} } } };
@@ -451,7 +457,7 @@ await sec('── 7. app.js 배선', () => {
   chk(!/[^.\w$](activeWdAdj|isAdmin|savedParts|PART_CATS|wdDraftDef)\s*=[^=]/.test(m.replace(/const (activeWdAdj|isAdmin|savedParts|PART_CATS|wdDraftDef) = deps\.\w+;/g, '')), '모듈은 app.js 의 let 에 직접 쓰지 않는다(쓰는 함수로)');
   const calls = ['gachaMod.toggleGachaInv();', 'gachaMod.isInvOpen()', 'gachaMod.isDrawOpen()', 'gachaMod.pruneUnownedGachaParts();', 'gachaMod.selId()',
     'gachaMod.isGachaPart(', 'gachaMod.isGachaColorUnlocked(', 'gachaMod.gachaCount(', 'gachaMod.DUPES_FOR_COLOR', 'gachaMod.sceneHasColorGroup(',
-    'gachaMod.renderGachaInv();', 'gachaMod.resetMemory();', 'gachaMod.startGacha()'];
+    'gachaMod.renderGachaInv();', 'gachaMod.resetMemory();', 'gachaMod.startGacha('];
   const callCode = code + '\n' + strip(PREG).replace(/gachaMod\(\)/g, 'gachaMod');   // 파츠 등록 창(admin-part-register.js)이 부르는 곳까지
   const miss = calls.filter(c => !callCode.includes(c));
   chk(!miss.length && (callCode.match(/gachaMod\.isGachaPart\(/g) || []).length === 5 && (callCode.match(/gachaMod\.pruneUnownedGachaParts\(\)/g) || []).length === 4,

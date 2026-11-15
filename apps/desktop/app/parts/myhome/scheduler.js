@@ -1438,7 +1438,7 @@ function renderBellList(){
 })();
 
 /* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 오늘 일정 · 알림 받기 · 서버 신호 걸기 · 자정 넘김 확인 */
-function startSchedule(){
+function startSchedule(session){
   // 오늘 일정 · 친구 태그 알림 받기 — 네트워크가 준비되면 한 번
   const sub = ()=>{
     if(!getMyUserId()) return;   // 내 코드가 없으면 받지 않는다
@@ -1449,28 +1449,29 @@ function startSchedule(){
 
   /* 서버가 «내 일정 · 보드가 바뀌었다»(다른 기기에서 고침) · «알림이 왔다» 고 알리면 다시 받는다. 오래 끊겼다 붙을 때(resync)도 같다.
      알림은 데이터 없이 «바뀌었다» 만 온다 — 값은 우리가 다시 받는다. 관람 중이면 달력은 친구 것이라 건드리지 않는다. */
-  rtOn('schedule', ()=>{
+  session.on(rtOn('schedule', ()=>{
     if(!getMyUserId()) return;
     _boardLoad(true);
     if(!viewingUserId() && _schedYM) loadMonth(true);
     _bellLoadToday();
-  });
+  }));
   /* 구경 중인 친구의 일정이 바뀌었다는 알림(내용 없음) — 지금 보는 친구일 때만 달력 · 보드를 다시 받는다.
      오래 끊겼다 붙을 때(resync)는 알림에 친구가 없다 — 지금 구경 중인 친구(없으면 요청 0)를 한 번 다시 받는다 */
-  rtOn('friendSchedule', (n)=>{
+  session.on(rtOn('friendSchedule', (n)=>{
     if(!getMyUserId() || !n) return;
     const friend = n.resync ? _visitFriend : n.subject;
     if(!friend) return;
     refreshVisit(friend);
-  });
-  rtOn('notification', (n)=>{
+  }));
+  session.on(rtOn('notification', (n)=>{
     if(!getMyUserId()) return;
     if(n && (n.resync || n.section === 'BELL')) _bellLoadNotices();
-  });
+  }));
+  session.onReset(reset);   // 세션이 끝나면 일정 · 디데이 · 알림 메모리를 비운다
 
   // 날짜가 바뀌면(자정 넘김) 오늘 일정을 새 날짜로 다시 받는다
   let _bellDay = _todayYMD();
-  setInterval(()=>{
+  session.setInterval(()=>{
     const now = _todayYMD();
     if(now !== _bellDay){
       _bellDay = now;

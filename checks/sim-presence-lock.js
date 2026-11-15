@@ -189,9 +189,9 @@ async function gate(fbi){
   {
     const AP = SRC[A + 'parts/app.js'], LF = fs.readFileSync(find(A + 'parts/account/login-flow.js'), 'utf8');
     chk(!/loadPref/.test(AP) && !/firstConfirm/.test(AP) && !/firstConfirm/.test(LF), '★ 접속 고정을 따로 읽거나(loadPref) 첫 확인을 기다리는(firstConfirm) 길이 없다');
-    chk(/mhInit: \(code, me\)=>mhInitMod\.initMyHome\(code, me\),/.test(AP), '  app-boot 차례가 마이홈 시작에 코드 · 확인의 me 를 넘긴다');
-    const old = AP.replace('mhInit: (code, me)=>mhInitMod.initMyHome(code, me),', 'mhInit: ()=>mhInitMod.initMyHome(),');
-    chk(!/mhInit: \(code, me\)=>mhInitMod\.initMyHome\(code, me\),/.test(old), '깨 보기 — me 를 안 넘기는 모양이면 빨강');
+    chk(/mhInit: \(code, me, session\)=>\{[^\n]*mhInitMod\.initMyHome\(code, me, session\);/.test(AP), '  app-boot 차례가 마이홈 시작에 코드 · 확인의 me 를 넘긴다');
+    const old = AP.replace('return mhInitMod.initMyHome(code, me, session); }', 'return mhInitMod.initMyHome(); }');
+    chk(!/mhInit: \(code, me, session\)=>\{[^\n]*mhInitMod\.initMyHome\(code, me, session\);/.test(old), '깨 보기 — me 를 안 넘기는 모양이면 빨강');
   }
 
   say('── 3. 첫 쓰기 미루기 (setMyPresenceOnline 을 실제로 돌린다)');
