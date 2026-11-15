@@ -387,8 +387,8 @@ say('── 8. 이어 붙인 곳');
   {
     /* 시크릿룸 «연다» 판정 — room-entry 의 두 함수를 떼어 실제로 굴린다 */
     const fnOf = (src, head) => { const i = src.indexOf(head); return i < 0 ? '' : src.slice(i, src.indexOf('\n', i)); };
-    const mkOpen = (src, on) => new Function('localStorage', "const SECRET_MUSIC_KEY = 'tw.secretRoomMusic';\n" + fnOf(src, 'function _secretMusicOn(') + '\n' + fnOf(src, 'function _secretOpenFields(') + '\nreturn _secretOpenFields;')(
-      { getItem: (k) => (k === 'tw.secretRoomMusic' && on ? '1' : null) });
+    const mkOpen = (src, on) => new Function('accountStore', "const SECRET_MUSIC_KEY = 'tw.secretRoomMusic';\n" + fnOf(src, 'function _secretMusicOn(') + '\n' + fnOf(src, 'function _secretOpenFields(') + '\nreturn _secretOpenFields;')(
+      { get: (k) => (k === 'tw.secretRoomMusic' && on ? '1' : null) });
     const open1 = mkOpen(RE, true), open0 = mkOpen(RE, false);
     chk(open1(true).music === true && open0(true).music === false && open1(false) === undefined,
       '★ 시크릿룸: 주인이면 같이 듣기 선택을 늘 싣고 손님이면 싣지 않는다 — 빈 방을 여는 때인지는 서버가 가른다(create 는 방이 없을 때만 · music 은 주인이 연 때만 — R2)');
@@ -398,7 +398,7 @@ say('── 8. 이어 붙인 곳');
     const broken = mkOpen(RE.replace('return isOwner ? { music: _secretMusicOn() } : undefined;', 'return { music: _secretMusicOn() };'), true);
     chk(broken(false) !== undefined, '«손님은 안 싣는다» 거르기를 무르면 위 판정이 빨강');
   }
-  chk(/const SECRET_MUSIC_KEY = 'tw\.secretRoomMusic';/.test(RE) && /'tw\.secretRoomMusic',/.test(ACC), '  F1 칸은 이 기기에 기억 · 로그아웃 때 지움(account.js)');
+  chk(/const SECRET_MUSIC_KEY = 'tw\.secretRoomMusic';/.test(RE) && /accountStore\.get\(SECRET_MUSIC_KEY\)/.test(RE) && /accountStore\.set\(SECRET_MUSIC_KEY/.test(RE) && !/secretRoomMusic/.test(ACC), '  F1 칸은 이 PC 의 계정 칸에 기억 · 로그아웃이 지우지 않는다(S-3c — 계정 칸은 같은 계정이 돌아오면 이어진다)');
   chk(/music: !!\(settings && settings\.music\) \};/.test(RE), '  방 만들기: 고른 값에 music');
   chk(!/subscribeRoomMusic|setRoomMusic/.test(FI), '  firebase-init 에 곡 칸(Firebase _music) 길이 없다 — 곡은 방 포트 music 하나(sim-listen-provider 가 자세히)');
 }

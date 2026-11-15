@@ -16,6 +16,7 @@
 (function(){
 
 function createScheduler(deps){
+const accountStore = deps.accountStore;         // 🗂️ 계정별 칸(shared/account-store.js) — 기념일 보기는 이 계정이 이 PC 에서 고른 것
 const twNav = deps.twNav;                       // 🧭 창 열기 통로(nav.js) — 🏠 마이홈 열기
 const scheduleApi = deps.scheduleApi;           // 🌐 일정 · 디데이 · 알림 서버 길(schedule-api.js)
 const apiErrors = deps.apiErrors;               // 🧭 서버 오류 → 할 일 · 오류 번호(TwApiErrors.store)
@@ -316,15 +317,15 @@ function renderDdays(){
 }
 
 /* 📌 기념일 보기 — 'tile'(정사각 카드) | 'list'(제목이 다 보이는 줄).
-   보는 사람의 취향이라 이 PC 에만 둔다 — 친구 마이홈을 구경할 때도 내가 고른 보기로 보인다. */
+   보는 사람의 취향이라 이 PC 의 그 계정 칸에만 둔다 — 친구 마이홈을 구경할 때도 내가 고른 보기로 보인다. */
 const ANNIV_VIEW_KEY = 'tw.annivView';
 /* 모르는 값 · 빈 값은 타일형 — 고른 적 없는 사람은 화면이 예전 그대로다. */
 function _annivViewOf(raw){ return raw === 'list' ? 'list' : 'tile'; }
 function _annivView(){
-  try{ return _annivViewOf(localStorage.getItem(ANNIV_VIEW_KEY)); }catch(e){ return 'tile'; }
+  try{ return _annivViewOf(accountStore.get(ANNIV_VIEW_KEY)); }catch(e){ return 'tile'; }
 }
 function _setAnnivView(v){
-  try{ localStorage.setItem(ANNIV_VIEW_KEY, _annivViewOf(v)); }catch(e){}
+  try{ accountStore.set(ANNIV_VIEW_KEY, _annivViewOf(v)); }catch(e){}
   renderAnnivCards();
 }
 function _syncAnnivViewBtns(view){

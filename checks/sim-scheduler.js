@@ -127,6 +127,7 @@ function mkEnv(opt){
   const apiErrors = errMod.TwApiErrors.createApiErrors({ notifyError: (code) => { errs.push(code); return true; } });
   const g = { viewing: null, friends: opt.friends || {} };
   const S = win.MhScheduler.createScheduler({
+    accountStore: { get: k => ls.has(k) ? ls.get(k) : null, set: (k, v) => { ls.set(k, String(v)); return true; }, remove: k => { ls.delete(k); return true; } },   // 계정 칸(S-3c) — 기념일 보기
     scheduleApi, apiErrors, notifyError: (code) => { errs.push(code); return true; },
     rtOn: (kind, fn) => { (rt[kind] = rt[kind] || []).push(fn); return noop; },
     getMyUserId: () => ('uid' in opt ? opt.uid : 'me1'),

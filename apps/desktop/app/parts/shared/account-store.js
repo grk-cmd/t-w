@@ -49,7 +49,7 @@ const ACCOUNT_KEYS = Object.freeze([
   'tw.animalCheatUnlock', 'tw.charColorHistory', 'tw.seatEq', 'tw.activeInteractionDesk', 'tw.emojiReactions',
   'tw.playlist', 'tw.playlistSets', 'tw.playlistCur', 'tw.playlistTitle', 'tw.playlistBio', 'tw.playlistHomePublic', 'tw.playlistPrivate',
   'tw.playlistEditTs', 'tw.playlistBackup', 'tw.secretRoomMusic',
-  'tw.userName', 'tw.customStatus', 'tw.userStatus', 'tw.awayKind', 'tw.awayImg', 'tw.awaySz', 'tw.myAdBannerImg',
+  'tw.userName', 'tw.customStatus', 'tw.userStatus', 'tw.awayKind', 'tw.awayImg', 'tw.awaySz', 'tw.myAdBannerImg', 'tw.annivView',
   'tw.inboxBcRead', 'tw.bellSeenTs', 'tw.reportHidden', 'tw.mobileKey',
 ]);
 /* 이름 뒤에 방 · 친구 · 종류가 붙는 키 */
@@ -58,7 +58,8 @@ const ACCOUNT_KEY_PREFIXES = Object.freeze([
 ]);
 
 /* 이미 계정 칸에서 읽고 쓰는 키 — migrateLegacy 가 PC 칸에서 옮기는 대상. */
-const MOVED_KEYS = Object.freeze(['tw.focusTodaySec', 'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);
+const MOVED_KEYS = Object.freeze(['tw.focusTodaySec', 'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1',
+  'tw.myAdBannerImg', 'tw.secretRoomMusic', 'tw.annivView']);
 
 function isAccountKey(key){
   if(typeof key !== 'string' || !key) return false;

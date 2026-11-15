@@ -12,6 +12,7 @@
 (function(){
 
 function createSettingsPanel(deps){
+const accountStore = deps.accountStore;   // 🗂️ 계정별 칸(shared/account-store.js) — 내 배너 그림은 이 계정이 이 PC 에서 고른 것
 const GAP_MAX = deps.GAP_MAX;
 const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판(myhome-hooks.js) — 줌이 바뀌면 마이홈 BGM 창 자리도 다시 보낸다
 const GAP_MIN = deps.GAP_MIN;
@@ -600,7 +601,7 @@ function refreshFsAdBanner(){
   const img=document.getElementById('fsAdBannerImg'); if(!img) return;
   if(_fsAdTimer){ clearInterval(_fsAdTimer); _fsAdTimer=null; }
   try{
-    const mine = localStorage.getItem(MY_AD_BANNER_KEY);
+    const mine = accountStore.get(MY_AD_BANNER_KEY);
     const mineSrc = TwSafeHtml.safeUrl(mine, 'image');
     if(mineSrc){ img.src=mineSrc; img.style.display='block'; return; }   // 개인 이미지는 고정 하나(슬라이드 아님)
   }catch(e){}
@@ -632,7 +633,7 @@ function refreshFsAdBanner(){
     const f=e.target.files[0]; if(!f) return;
     const reader=new FileReader();
     reader.onload=()=>{
-      try{ localStorage.setItem(MY_AD_BANNER_KEY, reader.result); refreshFsAdBanner(); toast('배너 이미지를 등록했어요'); }
+      try{ if(!accountStore.set(MY_AD_BANNER_KEY, reader.result)) throw new Error('not saved'); refreshFsAdBanner(); toast('배너 이미지를 등록했어요'); }
       catch(err){ toast('저장 공간이 부족해요'); }
     };
     reader.readAsDataURL(f);

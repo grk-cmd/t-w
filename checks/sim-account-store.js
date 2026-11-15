@@ -27,6 +27,9 @@ const SRC0 = {
   APP: pick(['app.js', 'parts/app.js', 'app/parts/app.js']),
   HTML: pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html']),
   SMOKE: pick(['smoke.js']),
+  SETTINGS: pick(at('settings-panel.js', 'launcher')),
+  ROOMENTRY: pick(at('room-entry.js', 'room')),
+  SCHED: pick(at('scheduler.js', 'myhome')),
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 
@@ -287,6 +290,25 @@ async function judge(S){
     chk(sf0.pushes.length === 1 && sf0.intervals === 1, '  ↳ 시작 함수가 첫 보내기 한 번 + 15초 인터벌 하나를 건다');
   }
 
+  say('── 6d. S-3c — 내 배너 그림 · 시크릿룸 같이 듣기 · 기념일 보기는 계정 칸에서 읽고 쓴다');
+  {
+    const S3C = ['tw.myAdBannerImg', 'tw.secretRoomMusic', 'tw.annivView'];
+    chk(S3C.every((k) => M.MOVED_KEYS.includes(k) && M.ACCOUNT_KEYS.includes(k)), '★ 셋 모두 옮긴 표(MOVED_KEYS)에 있다 — 0.12 에서 올라온 PC 값이 계정 칸으로 간다');
+    const st = mem(); const code = { v: null }; const s = mk(st, code);
+    st.o['tw.myAdBannerImg'] = 'data:image/png;base64,AAAA'; st.o['tw.secretRoomMusic'] = '1'; st.o['tw.annivView'] = 'list'; st.o['tw.theme'] = 'dark';
+    const r = s.migrateLegacy(A); code.v = A;
+    chk(S3C.every((k) => r.moved.includes(k)) && s.get('tw.myAdBannerImg') === 'data:image/png;base64,AAAA' && s.get('tw.secretRoomMusic') === '1' && s.get('tw.annivView') === 'list', '★ 옛 PC 값이 들어간 계정 칸에 같은 값으로 이어진다(잃지 않는다)');
+    chk(S3C.every((k) => !(k in st.o)) && st.o['tw.theme'] === 'dark', '  ↳ PC 칸에서는 지운다 · 기기 설정(테마)은 그대로');
+    code.v = B;
+    chk(S3C.every((k) => s.get(k) === null), '  ↳ 다른 계정(B)에게는 안 보인다');
+    const noPc = (src, re) => !re.test(src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 '));
+    chk(noPc(S.SETTINGS, /localStorage\.(get|set|remove)Item\(MY_AD_BANNER_KEY/) && /accountStore\.get\(MY_AD_BANNER_KEY\)/.test(S.SETTINGS) && /accountStore\.set\(MY_AD_BANNER_KEY/.test(S.SETTINGS), '설정 — 내 배너 그림을 계정 칸에서 읽고 쓴다(PC 칸 직접 접근 0)');
+    chk(noPc(S.ROOMENTRY, /localStorage\.(get|set|remove)Item\(SECRET_MUSIC_KEY/) && /accountStore\.get\(SECRET_MUSIC_KEY\)/.test(S.ROOMENTRY) && /accountStore\.set\(SECRET_MUSIC_KEY/.test(S.ROOMENTRY), '방 입장 — 시크릿룸 같이 듣기 선택을 계정 칸에서 읽고 쓴다');
+    chk(noPc(S.SCHED, /localStorage\.(get|set|remove)Item\(ANNIV_VIEW_KEY/) && /accountStore\.get\(ANNIV_VIEW_KEY\)/.test(S.SCHED) && /accountStore\.set\(ANNIV_VIEW_KEY/.test(S.SCHED), '스케줄러 — 기념일 보기를 계정 칸에서 읽고 쓴다');
+    const wipe = (S.ACC.match(/const ACCOUNT_LOCAL_KEYS = \(\)=>\[[\s\S]*?\n\];/) || [''])[0];
+    chk(wipe && !/secretRoomMusic|MY_AD_BANNER_KEY|myAdBannerImg|annivView/.test(wipe), '로그아웃 지움 목록에 셋이 없다 — 계정 칸은 로그아웃해도 지우지 않는다(같은 계정이 돌아오면 이어진다)');
+  }
+
   say('── 6c. migrateLegacy 를 부르는 곳 — 읽는 모듈보다 먼저 · 코드 없으면 안 함 · 로그아웃은 올리기 앞 · 지우기보다 앞');
   {
     // ① 부팅 — app.js 의 그 줄을 실물 글로 뽑아 진짜 계정 칸 위에서 돌린다
@@ -371,12 +393,19 @@ const BREAKS = [
   ['STORE', "const CODE_RE = /^u[0-9a-z]{8,40}$/i;", "const CODE_RE = /^.*$/;", '코드 모양을 안 봄(점 · 슬래시)'],
   ['STORE', "if(!isAccountKey(key)) throw new Error('[계정 칸] 계정별 키가 아니다 — ' + key);", "", '모르는 키 · 기기 공용 키를 받음'],
   ['STORE', "if(have !== null) res.kept.push(k);", "if(false) res.kept.push(k);", '계정 칸 값을 덮어씀'],
+  ['STORE', "'tw.myAdBannerImg', 'tw.secretRoomMusic', 'tw.annivView']);", "'tw.secretRoomMusic', 'tw.annivView']);", '내 배너 그림이 옮긴 표에서 빠짐'],
+  ['STORE', "'tw.myAdBannerImg', 'tw.secretRoomMusic', 'tw.annivView']);", "'tw.myAdBannerImg', 'tw.annivView']);", '시크릿룸 같이 듣기가 옮긴 표에서 빠짐'],
+  ['STORE', "'tw.myAdBannerImg', 'tw.secretRoomMusic', 'tw.annivView']);", "'tw.myAdBannerImg', 'tw.secretRoomMusic']);", '기념일 보기가 옮긴 표에서 빠짐'],
+  ['SETTINGS', "accountStore.get(MY_AD_BANNER_KEY)", "localStorage.getItem(MY_AD_BANNER_KEY)", '내 배너 그림을 PC 칸에서 읽음'],
+  ['ROOMENTRY', "accountStore.set(SECRET_MUSIC_KEY", "localStorage.setItem(SECRET_MUSIC_KEY", '시크릿룸 선택을 PC 칸에 씀'],
+  ['SCHED', "accountStore.get(ANNIV_VIEW_KEY)", "localStorage.getItem(ANNIV_VIEW_KEY)", '기념일 보기를 PC 칸에서 읽음'],
+  ['ACC', "  USER_NAME_KEY, CUSTOM_STATUS_KEY, 'tw.userStatus', 'tw.awayKind',", "  USER_NAME_KEY, CUSTOM_STATUS_KEY, 'tw.userStatus', 'tw.awayKind', 'tw.annivView',", '로그아웃이 기념일 보기를 지움'],
   ['STORE', "const todo = MOVED_KEYS.filter(k => !done.includes(k));", "const todo = MOVED_KEYS.slice();", '두 번 돎'],
   ['STORE', "try{ storage.removeItem(k); }catch(_){}\n      }\n      handled.push(k);", "}\n      handled.push(k);", '옮기고 PC 칸을 안 지움'],
   ['STORE', "catch(_){ continue; }   // 못 쓰면 옛 칸을 지우지 않고 다음에 다시", "catch(_){}", '못 써도 옛 칸을 지움'],
-  ['STORE', "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", "'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", '옮긴 표에서 오늘 날짜 빠짐'],
-  ['STORE', "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", "'tw.focusTodayDate', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", '옮긴 표에서 뽀모도로 키 빠짐'],
-  ['STORE', "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", '옮긴 표에서 폰 연결 키 빠짐'],
+  ['STORE', "'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.pomo'", "'tw.focusTodaySec', 'tw.pomo'", '옮긴 표에서 오늘 날짜 빠짐'],
+  ['STORE', "'tw.pomo', 'tw.pomoRun', 'tw.mobileKey'", "'tw.mobileKey'", '옮긴 표에서 뽀모도로 키 빠짐'],
+  ['STORE', "'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2'", "'tw.pomoRun', 'tw.advZ.v2'", '옮긴 표에서 폰 연결 키 빠짐'],
   ['STORE', "'tw.focusPendingSec',", "", '못 올린 집중 시간 키가 계정별 표에서 빠짐'],
   ['STORE', "  'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.advZ.v2', 'tw.advZ.v1',\n", "  'tw.focusTotalSec', 'tw.focusSyncedSec', 'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.advZ.v2', 'tw.advZ.v1',\n", '걷은 옛 누적 키가 표에 되살아남'],
   ['TOTAL', "_day = _normDay(focusTotalStore.get(FOCUS_TODAY_DATE_KEY));", "_day = _normDay(localStorage.getItem(FOCUS_TODAY_DATE_KEY));", '오늘치를 다시 PC 칸에서 읽음'],
