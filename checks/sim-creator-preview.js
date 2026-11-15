@@ -133,8 +133,6 @@ function colr(){ return { r: 0, g: 0, b: 0, h: null, setHSL(h, s, l){ this.h = [
 const light = () => ({ intensity: -1, color: colr() });
 function v3(x, y, z){ return { x: x || 0, y: y || 0, z: z || 0, set(a, b, c){ this.x = a; this.y = b; this.z = c; return this; }, clone(){ return v3(this.x, this.y, this.z); }, copy(o){ this.x = o.x; this.y = o.y; this.z = o.z; return this; } }; }
 const FAKE3 = { Color: function(){ return colr(); }, Euler: function(x){ this.x = x; }, Quaternion: function(){ this.setFromEuler = (e) => { this.x = e.x; return this; }; } };
-/* 세기는 진짜 공용 조명(shared/light-tone.js)으로 — 키 배율 1.5 · 필 배율 0.4 를 넣어 만든 것 */
-const LT_KEY15_FILL04 = require(['shared/light-tone.js','parts/shared/light-tone.js','app/parts/shared/light-tone.js'].map(f => require('path').resolve(f)).find(f => fs.existsSync(f))).createLightTone({ _FILL_LIGHT_MUL: 0.4, _KEY_LIGHT_MUL: 1.5, _MAIN_LIGHT_COL: null, _MAIN_LIGHT_INT: 1, _fixGlbMatLighting: () => {} });
 function rigC(o){
   o = o || {};
   const st = Object.assign({ amb: light(), key: light(), fill: light(), base: null, step: 2, dist: 2, yaw: 0, pitch: 0, face: null, desk: null, cam: null }, o);
