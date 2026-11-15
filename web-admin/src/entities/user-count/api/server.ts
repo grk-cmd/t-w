@@ -1,5 +1,18 @@
-import { notPorted } from '@/shared/api';
+// API 판 — `GET /v2/admin/metrics/totals` 의 `users`(가입자 수).
+import { adminPath, perApi, portCall, type Api } from '@/shared/api';
 import type { UserCountPort } from './port';
 
-// API 판은 D12-3b 에서 — 그때까지 부르면 «아직 API 판이 없어요».
-export const createServerUserCountPort = (): UserCountPort => notPorted('user-count');
+function build(api: Api | null): UserCountPort {
+  return {
+    async get() {
+      const totals = await portCall(
+        api,
+        (a) => a.get<{ users?: unknown }>(adminPath('/metrics/totals')),
+        '가입자 수를 불러오지 못했어요',
+      );
+      return typeof totals.users === 'number' ? totals.users : 0;
+    },
+  };
+}
+
+export const createServerUserCountPort = perApi(build);

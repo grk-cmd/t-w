@@ -28,6 +28,8 @@ export interface ImprovementDraft {
 
 export interface Improvement extends ImprovementDraft {
   id: string;
+  /** 서버 판의 낙관적 잠금 번호 — 고치기 · 지우기에 싣는다. Firebase 판은 없다. */
+  revision?: number;
 }
 
 const isText = (v: unknown, max: number): v is string =>

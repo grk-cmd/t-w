@@ -4,6 +4,7 @@ import {
   inGroup,
   LOG_GROUPS,
   useAdminLog,
+  useAdminLogPort,
   useRefreshAdminLog,
   whoLabel,
   type LogGroup,
@@ -17,6 +18,7 @@ const LIST_KEY = 'adminLog';
 
 export function AdminLogList() {
   const me = useMyUid();
+  const { groups } = useAdminLogPort();
   const [group, setGroup] = useState<LogGroup>('all');
   const [limit, setLimit] = useState(() => readPageSize(LIST_KEY));
   const { data, error, isPlaceholderData } = useAdminLog(limit);
@@ -42,7 +44,7 @@ export function AdminLogList() {
         </button>
       </div>
       <div className={styles.chips}>
-        {LOG_GROUPS.map((g) => (
+        {LOG_GROUPS.filter((g) => groups.includes(g.id)).map((g) => (
           <button
             key={g.id}
             type="button"
@@ -67,7 +69,7 @@ export function AdminLogList() {
               {e.detail && <span className="note">{e.detail}</span>}
             </span>
             <small className="soft" title={e.by}>
-              {whoLabel(e.by, me)}
+              {e.byName && e.by !== me ? e.byName : whoLabel(e.by, me)}
             </small>
           </div>
         ))}
