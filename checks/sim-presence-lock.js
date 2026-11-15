@@ -1,8 +1,8 @@
-/* sim-presence-lock.js — 🔒 친구 탭 온라인 고정(myhome/presence-lock.js) · 첫 쓰기 미루기(firebase-init setMyPresenceOnline) · 규칙(presencePref)
+/* sim-presence-lock.js — 🔒 친구 탭 온라인 고정(myhome/presence-lock.js) · 첫 쓰기 미루기(firebase-init createMyPresence) · 규칙(presencePref)
    ・1절: normalize · startOnline — 고정했을 때만 고른 값 · 틀린 모양은 «고정 없음 · 온라인»
    ・2절: 모듈을 가짜 DOM 으로 실제로 돌린다 — 켤 때 계정 확인의 me 에서 고정값 · 받기 전 누름은 덮지 않음 ·
           고정 중 토글만 저장 · 🔒 누르면 지금 값으로 저장 · 로그인 없음 · 저장 실패는 E-MH-13
-   ・3절: setMyPresenceOnline 을 실제로 돌린다 — 처음 값이 풀리기 전엔 쓰지 않음(재접속 신호가 먼저 와도) · 오프라인 고정이면 첫 쓰기부터 false ·
+   ・3절: 접속 표시 객체(_createMyPresence)를 실제로 돌린다 — 처음 값이 풀리기 전엔 쓰지 않음(재접속 신호가 먼저 와도) · 오프라인 고정이면 첫 쓰기부터 false ·
           처음 값이 없으면(밀려난 뒤 다시 걸기) 지금 값 · 등록(_myPresenceRef)은 바로
    ・4절: 배선 — html 버튼 · 싣는 순서 · app.js · myhome-init · myhome-ui 옛 토글 걷음 · 규칙 · 오류 번호 · smoke
    ・5절: 깨 보기 */
@@ -217,9 +217,9 @@ async function gate(fbi){
     chk(!/mhInit: \(code, me, session\)=>\{[^\n]*mhInitMod\.initMyHome\(code, me, session\);/.test(old), '깨 보기 — me 를 안 넘기는 모양이면 빨강');
   }
 
-  say('── 3. 첫 쓰기 미루기 (setMyPresenceOnline 을 실제로 돌린다)');
+  say('── 3. 첫 쓰기 미루기 (_createMyPresence 를 실제로 돌린다)');
   const G = await gate(FBI);
-  chk(!!G, 'setMyPresenceOnline(userId, startOnline) · setMyPresenceState 를 찾았다');
+  chk(!!G, '_createMyPresence 를 찾았다');
   if(G){
     chk(G.wait, '처음 값이 풀리기 전엔 쓰지 않는다(재접속 신호 · 6시간 lastSeen 이 먼저 와도) · «🔒 오프라인» 이면 어느 쓰기에도 online:true 없음');
     chk(G.onTrue, '  처음 값이 온라인이면 예전처럼 온라인');
