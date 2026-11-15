@@ -94,6 +94,12 @@ async function judge(mod, html, smoke, files) {
 const SRCS = [...HTML.matchAll(/<script(?: type="module")? src="parts\/([^"]+\.js)"/g)].map(m => m[1]);
 const FILES = SRCS.map(f => [f, read(f)]).filter(([, t]) => t);
 const R = await judge(MOD, HTML, SMOKE, FILES);
+/* need 키(whenNetReady(cb, '이름') · isNetReady('이름'))로 기다리는 이름은 firebase-init 의 firebaseAPI 에 실제로 있어야 한다 — 걷은 메서드 이름을 키로 남기면 «준비됨» 이 영영 안 와서
+   그 뒤 시작이 멈춘다(E-0 에서 watchMyFriendList 가 그랬다) */
+const FI_SRC = (FILES.find(([f]) => /firebase-init\.js$/.test(f)) || [])[1] || read('firebase-init.js') || '';
+const NEEDS = [];
+for(const [f, t] of FILES) for(const m of t.matchAll(/whenNetReady\([^;\n]*?,\s*'(\w+)'\s*\)|isNetReady\('(\w+)'\)/g)) NEEDS.push([f, m[1] || m[2]]);
+const NEED_MISSING = NEEDS.filter(([, n]) => !new RegExp('(^|\\n)\\s*(async\\s+)?' + n + '\\s*\\(').test(FI_SRC));
 
 say('── 1. whenNetReady');
 chk(!R.err && R.event, '준비 신호 이름은 firebase-ready 한 곳(NET_READY_EVENT)' + (R.err ? ' — ' + R.err : ''));
@@ -111,6 +117,7 @@ chk(R.waitSignal, '  신호가 오면 true · 시간 제한은 받은 ms 그대�
 chk(R.waitTimeout && R.waitSettleOnce, '  시간이 다 되면 false · 그 뒤 신호는 아무 일도 안 함(한 번만 풀림)');
 chk(R.waitTimeoutLate, '  시간이 다 될 때 연결이 생겨 있으면 true');
 say('── 3. 쓰는 곳 · 싣는 순서');
+chk(FI_SRC.length > 0 && !NEED_MISSING.length, '★ 준비 키(need)로 기다리는 이름은 firebaseAPI 에 실제로 있다(' + NEEDS.length + '곳)' + (NEED_MISSING.length ? ' — 없음 ' + NEED_MISSING.map(([f, n]) => f + ':' + n).join(' · ') : ''));
 chk(!R.direct.length, 'firebase-ready 에 직접 addEventListener 하는 곳 0곳(이 모듈 빼고)' + (R.direct.length ? ' — ' + R.direct.join(' · ') : ''));
 chk(!R.notUsing.length, '쓰는 파일 ' + USERS.length + '곳이 TwNetReady 로 기다린다' + (R.notUsing.length ? ' — 빠짐 ' + R.notUsing.join(' · ') : ''));
 chk(!R.late.length && R.firstBeforeApp, 'html — net-ready.js 를 쓰는 모듈 · app.js 보다 먼저 싣는다' + (R.late.length ? ' — ' + R.late.join(' · ') : ''));

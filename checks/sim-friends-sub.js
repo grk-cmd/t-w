@@ -617,7 +617,7 @@ const BREAKS = [
   ['FS', "  if(!_detailsTried || !_myId) return;", "  if(!_myId) return;", '첫 목록 받기 중에도 한 명씩 물음'],
   ['FS', "_details = _keepKnown(v || {});", "_details = v || {};", '다시 받은 목록이 새 친구 이름을 지움'],
   ['FB', '    async lookupFriendCode(code){', '    async getMyFriendList(myId){ return (await get(ref(db, `users/${myId}/friends`))).val(); },\n    async lookupFriendCode(code){', '옛 친구 목록 읽기를 firebaseAPI 에 다시 둠'],
-  ['APP', "  TwNetReady.whenNetReady(()=>cb(), 'watchMyFriendList');", "  setTimeout(()=>_waitForFirebaseAPI(cb), 500);", '예전 폴링으로 되돌림'],
+  ['APP', "  TwNetReady.whenNetReady(()=>cb());   // 준비 키(need)를 주지 않는다", "  setTimeout(()=>_waitForFirebaseAPI(cb), 500);", '예전 폴링으로 되돌림'],
   ['NET', "  window.addEventListener(NET_READY_EVENT, cb, { once:true });", "  window.addEventListener(NET_READY_EVENT, cb, { once:false });", 'once 를 뺌'],
   ['MI', '      friendsSub.start(myId,', '      await Promise.resolve();\n      friendsSub.start(myId,', '구독을 await 뒤로'],
   ['UI', '    if(!_fr) return;\n', '', '판정용 목록을 못 읽어도 보냄'],
