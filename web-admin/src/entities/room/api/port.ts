@@ -3,6 +3,8 @@ import type { Channel, LiveRooms, RoomIndexEntry, RoomProbe, RoomStats } from '.
 
 /** 방 쪽 — 원격 설정(전체 방 상한 · 정원 · 대화 보관 일수)과 열린 방 보기 · 닫기. */
 export interface RoomPort {
+  /** 이 판에서 되는 화면 일 — 유령 방 청소(Firebase 판 전용) · 방의 «마지막 신호» 칸(방이 realtime 메모리인 API 판에는 없다). */
+  readonly features: { ghostCleanup: boolean; lastSeen: boolean };
   /** 채널별 전체 방 상한 — 칸이 없으면 null(앱 · 방 서버는 기본값). */
   getLimits(): Promise<Record<Channel, number | null>>;
   /** 방 하나 정원 — 서버에 정해 둔 값. 없거나 범위 밖이면 null. */

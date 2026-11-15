@@ -31,14 +31,16 @@ export {
 export { REPLICA_LAG_MS, shouldFallback, viaApiOr, type ApiFallback } from './legacyFallback';
 export {
   isPortError,
+  NO_API_TEXT,
   notPorted,
   pickBackend,
   PortError,
+  portCall,
   refreshOnConflict,
   toPortError,
   type PortErrorKind,
 } from './backend';
-export { NO_API_TEXT, opsConfigClient, type OpsConfigClient, type OpsSetting } from './opsConfig';
+export { opsConfigClient, type OpsConfigClient, type OpsSetting } from './opsConfig';
 export { API_ERROR_TEXT, apiErrorText, CONFLICT_TEXT } from './errorText';
 export { isIndexMissing, isPermissionDenied, type Db, type LastRange } from './db';
 export type { Files } from './files';

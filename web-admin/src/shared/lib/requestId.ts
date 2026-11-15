@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { ApiError } from '../api/api';
+import { PortError } from '../api/backend';
 
 /** 서버가 받는 요청 번호 모양. */
 export const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
@@ -37,6 +38,7 @@ export function usePendingRequestId(): PendingRequestId {
 
 /** 서버가 이 요청에 답했는가 — 닿지 못한 것(네트워크 · 시간 초과 · 5xx)만 «답 못 받음». */
 function serverAnswered(error: unknown): boolean {
+  if (error instanceof PortError) return error.kind !== 'unreachable';
   return error instanceof ApiError && error.kind !== 'unavailable';
 }
 
@@ -54,4 +56,25 @@ export async function sendWithRequestId<T>(
     if (serverAnswered(error)) pending.settle();
     throw error;
   }
+}
+
+/**
+ * 한 곳에서 여러 내용을 보내는 쓰기용 — 같은 내용을 다시 보낼 때만 같은 요청 번호를 쓴다.
+ * 닿지 못해 답을 못 받았으면 번호를 남기고, 서버가 답하면(성공 · 거절) 버린다. 내용이 바뀌면 새 번호.
+ */
+export function createPayloadRequestId(make: () => string = newRequestId) {
+  let last: { key: string; id: string } | null = null;
+  return async function send<T>(payload: unknown, run: (requestId: string) => Promise<T>): Promise<T> {
+    const key = JSON.stringify(payload);
+    const id = last?.key === key ? last.id : make();
+    last = { key, id };
+    try {
+      const result = await run(id);
+      last = null;
+      return result;
+    } catch (error) {
+      if (serverAnswered(error)) last = null;
+      throw error;
+    }
+  };
 }
