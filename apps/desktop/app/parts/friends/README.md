@@ -1,63 +1,35 @@
 # app/parts/friends — 친구 데이터 포트 · provider 사용법
 
-층: 화면(myhome-inbox · room-invite-ui …) → 도메인(`myhome/friends-sub.js`) → **포트(`friends-port.js`)** → provider(firebase 옛 길 · api · **realtime 접속 상태**).
-화면 · 도메인은 Firebase · API 를 모른다. provider 를 갈아 끼우면 위층은 그대로다.
+층: 화면(myhome-inbox · room-invite-ui …) → 도메인(`myhome/friends-sub.js`) → **포트(`friends-port.js`)** → provider(서버 api · **realtime 접속 상태**).
+화면 · 도메인은 API 를 모른다. provider 를 갈아 끼우면 위층은 그대로다.
 
 ## friends-port.js — 친구 데이터 포트
 - 책임: 친구 목록 받기(`listFriends`) · 목록(추가 · 삭제) 듣기(`watchList`) · 접속 상태 듣기(`watchPresence`) · 프로필 듣기(`watchProfile`) 를 provider 로 잇는다.
-  목록 받기 · 친구 한 명 받기(`readFriend`) · 프로필 새로 읽기(`readProfile`)는 **api 먼저 → 못 받으면 옛 길(firebase)**. 목록 듣기 · 프로필 듣기 · 끊기(`removeFriend`)는 받는 곳이 서버면 api · 아니면 옛 길 — 하나만. 접속 상태(듣기 · 읽기)는 **realtime provider 하나**(`friends-presence-rt.js`) — 옛 길로 넘어가지 않는다.
-- 고르기: 받는 곳은 `shared/source-switch.js`(기능 `'friends'`)가 고르고 넘어가기도 그 `serverFirst` 한 벌이다. 스위치는 원격 설정 `sources.friends`(웹 관리자 «🎚️ 기능 스위치» · 쓰기 원본 Firebase `config/sources/friends`), 칸이 없으면 옛 `flags.friendsApi`(기본 켜짐). api provider 가 없으면 실패가 아니라 바로 옛 길.
-  끄면 api 를 부르지도 않고 옛 길만. 비율 · 단계 켜기는 없다.
+  전부 **서버 provider(api) 한 길** — 못 받으면 던진다(옛 Firebase 길로 물러나지 않는다). 접속 상태(듣기 · 읽기)는 **realtime provider 하나**(`friends-presence-rt.js`).
 - 만드는 법(app.js):
   ```js
   const friendsPortMod = TwFriendsPort.createFriendsPort({
-    firebase: friendsFirebaseMod,   // 옛 길 provider
-    api: friendsApiMod,             // api provider(없으면 null — 옛 길만)
-    source: ()=>TwSourceSwitch.store.pick('friends'),
-    serverFirst: TwSourceSwitch.serverFirst,
-    warn: (...a)=>console.warn(...a),
+    presence: friendsPresenceRtMod,   // realtime provider(접속 상태)
+    api: friendsApiMod,               // 서버 provider
   });
   ```
 - 내보내는 것:
   - `listFriends(myId, opts)` → Promise<{ 친구id: 친구 }> — `opts.idsOnly` 면 id · addedAt 만 있으면 된다(판정용).
-  - `readFriend(fid)` → Promise<친구 | null> — 켠 뒤 새로 생긴 친구 한 명의 이름 · 레벨 · 사진(friends-sub 가 늘어난 id 만 부른다 · 목록 전체를 다시 받지 않게). null = 모름(없는 사람 · 옛 길도 못 읽음).
+  - `readFriend(fid)` → Promise<친구 | null> — 켠 뒤 새로 생긴 친구 한 명의 이름 · 레벨 · 사진(friends-sub 가 늘어난 id 만 부른다 · 목록 전체를 다시 받지 않게). null = 모름(없는 사람).
   - `watchList(myId, onChange, onError)` → 해제 함수 — onChange({ 친구id: { addedAt, … } }).
-  - `removeFriend(myId, fid)` → Promise — 친구 끊기(서버면 `DELETE /v2/me/friends/{code}` · 아니면 옛 길). 쓰기라 옛 길로 넘기지 않고 못 하면 던진다.
+  - `removeFriend(myId, fid)` → Promise — 친구 끊기(`DELETE /v2/me/friends/{code}`). 못 하면 던진다.
   - `watchPresence(myId, ids, onChange, onStatus)` → 해제 함수 — onChange({ 친구id: { online, lastSeen, room, inRoom } }) · onStatus(`'waiting'` | `'live'` | `'failed'`) · `retryPresence()` → 듣기가 못 받음이면 한 번 다시. 목록이 열려 있는 동안만 건다(friends-sub.js).
   - `readPresence(ids)` → Promise<{ 친구id: 접속 상태 }> — 목록이 닫혀 있을 때 그 친구들만 요청 하나로(놀러 가기 · 파도타기 친구 고르기). 못 받으면 던진다.
   - `watchProfile(myId, ids, onChange)` → 해제 함수 — onChange({ 친구id: { name, level, cyc, clv, starC } }). 접속 상태와 같은 조건 · 같은 수명(목록이 열려 있는 동안 · friends-sub.js).
-  - `readProfile(fid)` → Promise<프로필> — 한 번 새로 읽기(10분 기억 안 씀). 목록이 닫혀 있을 때 그 친구 마이홈 구경(friends-sub `refreshProfile`).
-  - `lastSource()` → `'api'` · `'firebase'` · null — 마지막 목록 받기가 어디서 왔나(진단).
+  - `readProfile(fid)` → Promise<프로필> — 한 번 새로 읽기. 목록이 닫혀 있을 때 그 친구 마이홈 구경(friends-sub `refreshProfile`).
   - 친구 하나의 모양: `{ addedAt, name, level, cyc, clv, starC, bio, avatar, online, lastSeen, room, inRoom }` — 없는 칸은 그 provider 가 모르는 값.
 - 쓰는 예: friends-sub.js deps — `subscribe: (...a)=>friendsPortMod.watchList(...a)` · `fetchOnce: (id)=>friendsPortMod.listFriends(id, { idsOnly:true })` · `readFriend: (...a)=>friendsPortMod.readFriend(...a)`.
-- 확장할 때: 새 provider 는 같은 세 함수를 가진 객체로 만들고 포트 deps 에 더한다. 화면 쪽은 고치지 않는다.
+- 확장할 때: provider 를 갈아 끼우려면 같은 함수를 가진 객체로 만들어 포트 deps 에 넘긴다. 화면 쪽은 고치지 않는다.
 - 함정: 포트 위(도메인 · 화면)에서 `firebaseAPI` 친구 함수를 직접 부르지 않는다(sim-friends-port 3절이 센다).
-
-## friends-firebase.js — 옛 길 provider(Firebase · 나중에 걷음)
-- 책임: firebase-init.js 의 친구 함수를 포트 모양으로 바꾼다. firebaseAPI 를 직접 부르지 않고 app.js 가 deps 로 잇는다.
-  **상시 구독은 목록(users/{나}/friends) 하나뿐** — 소개 · 사진은 목록을 열 때 한 번(`getFriendCard` · 10분 안이면 다시 안 읽음),
-  프로필(이름 · 레벨 · 회차)은 목록이 열려 있는 동안만 친구별로(`watchFriendProfile`). 접속 상태는 realtime 으로 옮겨 이 파일에 없다. 예전 친구별 4개 상시 구독(subscribeMyFriends)은 없앴다.
-  프로필은 규칙상 작은 칸 여섯뿐(name ≤20자 · level · cyc · clv · starC · updatedAt — 그 밖은 `.validate: false`)이라 통째로 듣는다. 들은 값은 카드 기억에도 얹는다(다시 열 때 옛 이름이 안 돌아오게).
-- 만드는 법(app.js):
-  ```js
-  const friendsFirebaseMod = TwFriendsFirebase.createFriendsFirebase({
-    getList: (...a)=>firebaseAPI.getMyFriendList(...a),          // users/{나}/friends 한 번
-    watchList: (...a)=>firebaseAPI.watchMyFriendList(...a),      // 목록 구독 하나(추가 · 삭제)
-    getCard: (...a)=>firebaseAPI.getFriendCard(...a),            // 프로필 · 소개 · 사진 세 칸 한 번
-    watchProfile: (...a)=>firebaseAPI.watchFriendProfile(...a),  // 친구 한 명 profile 구독(목록이 열려 있는 동안)
-    getProfile: (...a)=>firebaseAPI.getFriendProfile(...a),      // 친구 한 명 profile 한 번(마이홈 구경)
-    setTimer: (fn, ms)=>setTimeout(fn, ms), clearTimer: (id)=>clearTimeout(id), now: ()=>Date.now(),
-  });
-  ```
-- `readFriend(fid)` — 친구 한 명 카드(`getFriendCard`). 목록 받기와 같은 10분 기억을 쓴다 · 못 읽으면 지난 카드 · 없으면 null.
-- 순수: `cardOf(raw)`(이름 · 레벨 · 회차 · 소개 · 사진) · `profileOf(raw)`(이름 · 레벨 · 회차 — cardOf 와 같은 거르기) · 상수 `PROFILE_BATCH_MS`(50) · `CARD_KEEP_MS`(10분).
-- 함정:
-  - 프로필 콜백은 친구 수만큼 한꺼번에 온다 — 50ms 창에 한 번만 넘긴다(스로틀 · 뒷날). 디바운스로 바꾸면 계속 오는 동안 영영 안 그린다.
-  - 검사: `checks/sim-friends-port.js`(2-1절이 친구 n명 → 평소 1개 · 목록 열면 1 + n 을 센다) · `checks/sim-friend-profile-live.js`(이름이 바뀌면 목록 · 마이홈 구경 값이 바뀌는지).
 
 ## friends-api.js — 서버 provider(`social-api.js` 위 — 친구 목록 + 명함 → 친구 칸 · 알림)
 - 책임: 포트가 부르는 모양 하나로 서버 친구 데이터를 낸다. 서버 길(경로 · 모양 맞춤 · 오류 갈래)은 `social-api.js`, 여기는 «목록 + 명함 → 친구 칸» 합치기와 realtime 알림(`friends` · `card`)을 받으면 다시 받기뿐이다.
-  다시 묻지 않는다 — 못 받으면 던지거나(`listFriends` · `readFriend` · `readProfile` → 포트가 옛 길로) `onError` 로 알린다(`watchList` → friends-sub 가 «못 불러옴» · 목록을 다시 열 때 다시).
+  다시 묻지 않는다 — 못 받으면 던지거나(`listFriends` · `readFriend` · `readProfile`) `onError` 로 알린다(`watchList` → friends-sub 가 «못 불러옴» · 목록을 다시 열 때 다시).
 - 내보내는 것: `listFriends(myId, opts)`(목록 1번 + 명함 한 묶음 · `opts.idsOnly` 면 명함 없이 addedAt 만) · `readFriend(fid)`(친구 아님 · 명함 없음 → `null`) ·
   `watchList(myId, onChange, onError)`(처음 한 번 + `friends` 알림 · resync 마다 · 받기는 한 번에 하나 — 겹치면 끝난 뒤 한 번 더) · `watchProfile(myId, ids, onChange)`(처음 한 번 + `card` 알림은 듣는 친구 한 명만 · resync 는 전부) ·
   `readProfile(fid)`(명함 없으면 던짐) · `removeFriend(fid)`(이미 친구가 아니면 끝난 것으로 봄). 해제 함수는 알림 걸기도 푼다.
@@ -68,7 +40,6 @@
   ```
 - 친구 하나: `{ addedAt, name, level, cyc, clv, starC, bio, avatar }`. 명함이 있는데 이름이 비면 «(이름 없음)» · 명함이 아예 없는 친구는 이름 칸을 덮지 않는다(friends-sub 의 `'...'`). 접속 상태는 realtime(`friends-presence-rt.js`).
   «마지막 접속»(`lastSeenAt`)은 화면에 안 쓴다(설계 D3-Q1 «안 넣음»).
-- 포트의 고르기: 목록 · 한 명 · 프로필 새로 읽기는 서버 먼저 → 못 받으면 옛 길. **듣기와 끊기(쓰기)는 고른 길 하나** — 받는 곳이 서버면 이 provider · 아니면 옛 길. 쓰기는 옛 길로 넘기지 않는다(두 곳에 갈라 쓰지 않게).
 - 옛 provider(5초 제한 · 1초 · 3초 뒤 다시 묻기 · `X-User-Code` 머리 · 옛 응답 모양 `{ friends:[{ id }] }` · 공개 명함 `fetchUserCardApi`)는 걷었다.
 - 검사: `checks/sim-friends-port.js` 2-2절.
 
@@ -87,13 +58,12 @@
   - 마지막 접속(`lastSeenAt`)은 데이터에만 싣는다 — 화면에 쓰지 않는다(설계 D3-Q1 «안 넣음»).
   - 검사: `checks/sim-social-api.js`(가짜 통로 · 진짜 api-client · 진짜 api-errors · 깨 보기).
 
-## friend-requests-port.js · friend-requests-api.js · friend-requests-firebase.js — 👋 친구 요청(0.13)
-- 층: 화면(friend-manage · myhome-ui · seat-friend-req · myhome-init) → **포트**(`friend-requests-port.js`) → provider(서버 `friend-requests-api.js` · 옛 길 `friend-requests-firebase.js`). 화면은 Firebase · API 를 모른다.
-- 고르기: 친구 목록과 같은 스위치(`pick('friends')`). 받는 곳이 서버고 서버 provider 가 있으면 서버, 아니면 옛 길 — **하나만**. 쓰기(수락 · 거절 · 취소 · 보내기)는 못 해도 옛 길로 넘기지 않는다.
+## friend-requests-port.js · friend-requests-api.js — 👋 친구 요청(0.13)
+- 층: 화면(friend-manage · myhome-ui · seat-friend-req · myhome-init) → **포트**(`friend-requests-port.js`) → 서버 provider(`friend-requests-api.js`). 화면은 API 를 모른다.
+- 서버 한 길 — 쓰기(수락 · 거절 · 취소 · 보내기)도 읽기도 못 하면 던진다(옛 Firebase 길로 물러나지 않는다).
 - 포트가 내보내는 것: `watchReceived(myId, onChange, onError)`(→ 해제 함수 · `{ 보낸이id: { name, ts } }`) · `listSent(myId)`(`{ 받는이id: { ts, toName? } }`) · `accept` · `reject`(못 하면 던짐) · `cancel` · `send(myId, toId, myName, toName, toCode)`(→ `{ ok, reason? }` · reason `already` · `self` · 서버 코드) · `lookupName(uid)` · `lookupFriendCode(code)`.
 - 서버 provider: 받은 요청은 처음 한 번 + `friendRequests` 알림(· resync)마다 다시 받고 상대 이름은 명함(`fetchCards`)으로 얹는다. 받는 중 알림이 여럿 와도 요청은 하나. 이름을 못 받아도 요청은 그린다. 보낼 때 이름 · 코드는 안 싣는다(서버가 안다).
-- 옛 길 provider: 📤 보낸 요청 미러를 읽고 한 건씩 살아 있는지 확인해 죽은 것은 빼고 치운다(전엔 friend-manage 안에 있던 몫).
-- 만드는 법: app.js `friendRequestsFirebaseMod` · `friendRequestsApiMod`(`social: socialApiMod`, `rt: TwRtHub.store`) · `friendRequestsPortMod`. 화면 deps 는 `()=>friendRequestsPortMod`(읽는 함수) — 만드는 줄이 화면 모듈보다 뒤다.
+- 만드는 법: app.js `friendRequestsApiMod`(`social: socialApiMod`, `rt: TwRtHub.store`) · `friendRequestsPortMod`. 화면 deps 는 `()=>friendRequestsPortMod`(읽는 함수) — 만드는 줄이 화면 모듈보다 뒤다.
 - 친구코드(MATE-XXXX)로 찾기: `GET /v2/users?friendCode=`(`social-api.js findByFriendCode`) — 없으면 `null`.
 - 검사: `checks/sim-friend-requests.js`.
 

@@ -623,18 +623,14 @@ PRELOAD.push('wardrobe-panel.js');
 /* lv-tier.js — 레벨 티어(앱 FSD 48번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLvTier 를 같이 굴린다. */
 PRELOAD.push('lv-tier.js');
 /* friends-sub.js — 친구 목록 구독 한 벌(상태 · 자동 다시 걸기). 같은 까닭 — app.js 가 원래 자리에서 부르는 createFriendsSub 를 같이 굴린다. */
-/* friends-firebase.js · friends-api.js · friends-port.js — 친구 데이터 provider · 포트. 같은 까닭 — app.js 가 원래 자리에서 부르는 create 를 같이 굴린다. */
-PRELOAD.push('friends-firebase.js');
+/* friends-api.js · friends-port.js — 친구 데이터 provider · 포트. 같은 까닭 — app.js 가 원래 자리에서 부르는 create 를 같이 굴린다. */
 PRELOAD.push('friends-api.js');
-PRELOAD.push('friend-requests-firebase.js');
 PRELOAD.push('friend-requests-api.js');
 PRELOAD.push('friend-requests-port.js');
 PRELOAD.push('social-api.js');   // 👥 친구 · 요청 · 명함 서버 길 provider — app.js 가 만든다(socialApiMod)
 PRELOAD.push('friends-presence-rt.js');
 PRELOAD.push('presence-self.js');
 PRELOAD.push('friends-port.js');
-/* source-switch.js — 기능별 받는 곳 고르기(서버 / 파이어베이스). app.js 가 친구 포트를 만들 때 TwSourceSwitch.serverFirst 를 넘긴다. */
-PRELOAD.push('source-switch.js');
 PRELOAD.push('friends-sub.js');
 PRELOAD.push('presence-lock.js');   // 🔒 친구 탭 온라인 고정 — app.js 가 만든다
 /* myhome-init.js — 마이홈 처음 준비(앱 FSD 44번 남은 몫). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeInit 를 같이 굴린다. */

@@ -20,10 +20,10 @@ let pass = 0, fail = 0, done = false;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['friend-manage.js', 'friend-requests-firebase.js', 'bug-board-ui.js', 'app.js', 'desk-companion-prototype.html', 'net-ready.js'];   // net-ready.js — 🛰 네트워크 준비 기다리기(버그 제보 탭이 TwNetReady.whenNetReady 를 부른다)
+const need = ['friend-manage.js', 'bug-board-ui.js', 'app.js', 'desk-companion-prototype.html', 'net-ready.js'];   // net-ready.js — 🛰 네트워크 준비 기다리기(버그 제보 탭이 TwNetReady.whenNetReady 를 부른다)
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
-const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['friend-manage.js'], FRF = SRC['friend-requests-firebase.js'], BUG = SRC['bug-board-ui.js'];
+const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['friend-manage.js'], BUG = SRC['bug-board-ui.js'];
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const flush = async (n = 12) => { for(let i = 0; i < n; i++) await new Promise(r => setImmediate(r)); };
 
@@ -81,8 +81,6 @@ function mkEnv(opt){
       acceptFriendRequest: async (me, from) => { if(env.failAccept) throw new Error('x'); env.accepted.push(me + '<' + from); },
       rejectFriendRequest: async (me, from) => { if(env.failReject) throw new Error('x'); env.rejected.push(me + '<' + from); },
       getSentFriendRequests: async (me) => JSON.parse(JSON.stringify(env.sent)),
-      isFriendRequestAlive: async (to, me) => env.alive[to] !== false,
-      pruneSentFriendRequest: (me, to) => { env.pruned.push(to); },
       cancelFriendRequest: async (me, to) => { env.canceled.push(to); return { ok: env.cancelOk !== false }; },
       getUserNameById: async (uid) => { env.lookups.push(uid); return env.names[uid] || null; },
     },
@@ -90,7 +88,6 @@ function mkEnv(opt){
   ctx.window = ctx;
   vm.createContext(ctx);
   vm.runInContext(MOD, ctx, { filename: 'friend-manage.js' });
-  vm.runInContext(FRF, ctx, { filename: 'friend-requests-firebase.js' });   // 👋 요청 포트 뒤 옛 길 provider — 진짜 모듈에 가짜 firebaseAPI 를 잇는다
   env.ctx = ctx; env.els = els; env.q = q; env.body = body;
   env.mk = () => ctx.TwFriendManage.createFriendManage({
     getMyUserId: () => env.me,
@@ -103,13 +100,11 @@ function mkEnv(opt){
     myHomeFriends: () => env.friends,
     myFriendRequests: () => env.reqs,
     friendMax: opt.max || 5,
-    requests: () => {
+    requests: () => {   // 👋 요청 포트 모양의 가짜 서버 provider — 뒤의 가짜 서버(firebaseAPI 자리)를 그대로 잇는다
       const f = ctx.firebaseAPI || {};
-      return ctx.TwFriendRequestsFirebase.createFriendRequestsFirebase({
-        getSent: (...a) => f.getSentFriendRequests(...a), isAlive: (...a) => f.isFriendRequestAlive(...a), prune: (...a) => f.pruneSentFriendRequest(...a),
+      return { listSent: (...a) => f.getSentFriendRequests(...a),
         accept: (...a) => f.acceptFriendRequest(...a), reject: (...a) => f.rejectFriendRequest(...a), cancel: (...a) => f.cancelFriendRequest(...a),
-        getName: (...a) => f.getUserNameById(...a),
-      });
+        lookupName: (...a) => f.getUserNameById(...a) };
     },
     friendsForCheck: () => { env.checks = (env.checks || 0) + 1; return Promise.resolve(env.checkFail ? null : env.friends); },
   });
@@ -185,11 +180,11 @@ await sec('── 4. 서브탭 · 📤 보낸 요청', async () => {
   fm.setTab('gift'); fm.renderFriendManage();
   chk(fm.tab() === 'gift' && e.giftBox === 1 && e.q['#mhFmTabs .mh-ibx-tab[data-fm="gift"]'].classList.contains('on'), '선물함 서브탭 — renderGiftBox · on 표시');
   chk(e.gift.length === 0, '  선물함에서는 표시를 안 비운다');
-  e.sent = { x: { ts: 1, toName: '지수', toCode: 'MATE-1' }, y: { ts: 2 }, z: { ts: 3, toCode: 'MATE-3' } };
-  e.alive = { x: true, y: true, z: false }; e.names = { y: '도윤' };
+  e.sent = { x: { ts: 1, toName: '지수', toCode: 'MATE-1' }, y: { ts: 2 } };
+  e.names = { y: '도윤' };
   fm.setTab('sent'); fm.renderFriendManage(); await flush();
   chk(e.gift.join() === '', '보낸 요청 서브탭 — 선물함 표시를 비운다(_giftStat(\'\'))');
-  chk(e.pruned.join() === 'z' && list.children.length === 2, '살아 있는 것만 · 죽은 미러는 치운다');
+  chk(list.children.length === 2, '포트가 준 보낸 요청을 그대로 그린다(죽은 미러 거르기는 서버가 한다)');
   const nm0 = list.children[0].children[0].children[0], nm1 = list.children[1].children[0].children[0];
   chk(nm1.children.map(c => c.textContent).join('') === '지수 (MATE-1)' && nm1.children[1].className === 'mh-req-code', '이름표 — 닉네임 (코드), 코드는 .mh-req-code');
   chk(nm0.textContent === '도윤' && e.lookups.join() === 'y', '이름이 없던 줄은 뒤늦게 조회해 채운다(최근 것이 위)');

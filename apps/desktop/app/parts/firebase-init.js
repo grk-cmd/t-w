@@ -255,8 +255,6 @@
       api: (window.TwApi && window.TwApi.client) || null,
       shouldFallback: window.TwApi && window.TwApi.shouldFallback,
       firebaseGet: (kind) => get(ref(db, 'catalog/' + kind)),
-      source: () => window.TwSourceSwitch.store.pick('catalog'),   // 받는 곳 — 원격 설정 sources.catalog(없으면 늘 서버 먼저)
-      serverFirst: window.TwSourceSwitch.serverFirst, SKIP: window.TwSourceSwitch.SKIP,
     }),
   });
   /* 카탈로그 쓰기는 전부 여기를 지난다 — 같은 다중 경로 update 로 catalogMeta/{종류} 버전(서버 시각)도 올린다.
@@ -683,7 +681,7 @@
       if(_dead && _listOff){ try{ _listOff(); }catch(_){} }   // onValue 가 돌아오기 전에 실패가 왔으면 지금 푼다
       return teardown;
     },
-    /* 친구 한 명의 이름 · 레벨 · 소개 · 사진 한 번 읽기 → 날것 { profile, bio, avatar }(거르기는 friends-firebase.js cardOf) · 💰 home 통째가 아니라 bio · avatar 두 칸만 */
+    /* 친구 한 명의 이름 · 레벨 · 소개 · 사진 한 번 읽기 → 날것 { profile, bio, avatar } · 💰 home 통째가 아니라 bio · avatar 두 칸만 */
     async getFriendCard(fid){
       const [p, b, a] = await Promise.all([`users/${fid}/profile`, `users/${fid}/home/bio`, `users/${fid}/home/avatar`].map(path => get(ref(db, path))));
       return { profile: p.val(), bio: b.val(), avatar: a.val() };

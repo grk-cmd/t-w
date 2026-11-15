@@ -2001,51 +2001,20 @@ const deviceLostMod = TwDeviceLost.createDeviceLost({
 /* ═══ 🏠 마이홈 열기(initMyHome) · 소유자 쓰기 거부 안내 ═══ */
 /* 본문은 myhome-init.js 로 옮겼다(앱 FSD 44번 남은 몫). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
-/* 👥 친구 데이터는 포트(friends/friends-port.js) 하나로 — 그 뒤 provider 가 Firebase(옛 길)를 안다. friends-sub · 화면은 Firebase 를 모른다. */
-const friendsFirebaseMod = TwFriendsFirebase.createFriendsFirebase({
-  getList: (...a)=>firebaseAPI.getMyFriendList(...a),
-  watchList: (...a)=>firebaseAPI.watchMyFriendList(...a),
-  getCard: (...a)=>firebaseAPI.getFriendCard(...a),
-  watchProfile: (...a)=>firebaseAPI.watchFriendProfile(...a),   // 친구 한 명 프로필 구독 — 목록이 열려 있는 동안만
-  getProfile: (...a)=>firebaseAPI.getFriendProfile(...a),       // 같은 칸 한 번 — 마이홈 구경
-  remove: (...a)=>firebaseAPI.removeFriend(...a),               // 친구 끊기(옛 길)
-  setTimer: (fn, ms)=>setTimeout(fn, ms),
-  clearTimer: (id)=>clearTimeout(id),
-  now: ()=>Date.now(),
-});
+/* 👥 친구 데이터는 포트(friends/friends-port.js) 하나로 — 그 뒤 서버 provider(friends-api.js)가 있다. friends-sub · 화면은 서버 길을 모른다. */
 const socialApiMod = TwSocialApi.createSocialApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) });   // 🌐 친구 · 친구 요청 · 명함 서버 길(social-api.js)
 const friendsApiMod = TwFriendsApi.createFriendsApi({
   social: socialApiMod,
   rt: TwRtHub.store,   // 알림 friends · card 를 받으면 다시 받는다
   warn: (...a)=>console.warn(...a),
 });
-/* 👋 친구 요청 — 포트 하나(friends/friend-requests-port.js) 뒤에 옛 길(Firebase) · 서버 provider. 받는 곳은 친구 목록과 같은 스위치('friends') */
-const friendRequestsFirebaseMod = TwFriendRequestsFirebase.createFriendRequestsFirebase({
-  subscribe: (...a)=>firebaseAPI.subscribeFriendRequests(...a),
-  getSent: (...a)=>firebaseAPI.getSentFriendRequests(...a),
-  isAlive: (...a)=>firebaseAPI.isFriendRequestAlive(...a),
-  prune: (...a)=>firebaseAPI.pruneSentFriendRequest(...a),
-  accept: (...a)=>firebaseAPI.acceptFriendRequest(...a),
-  reject: (...a)=>firebaseAPI.rejectFriendRequest(...a),
-  cancel: (...a)=>firebaseAPI.cancelFriendRequest(...a),
-  send: (...a)=>firebaseAPI.sendFriendRequest(...a),
-  getName: (...a)=>firebaseAPI.getUserNameById(...a),
-  lookupCode: (...a)=>firebaseAPI.lookupFriendCode(...a),
-});
+/* 👋 친구 요청 — 포트 하나(friends/friend-requests-port.js) 뒤에 서버 provider */
 const friendRequestsApiMod = TwFriendRequestsApi.createFriendRequestsApi({ social: socialApiMod, rt: TwRtHub.store, warn: (...a)=>console.warn(...a) });
-const friendRequestsPortMod = TwFriendRequestsPort.createFriendRequestsPort({
-  firebase: friendRequestsFirebaseMod,
-  api: friendRequestsApiMod,
-  source: ()=>TwSourceSwitch.store.pick('friends'),
-});
+const friendRequestsPortMod = TwFriendRequestsPort.createFriendRequestsPort({ api: friendRequestsApiMod });
 const friendsPresenceRtMod = TwFriendsPresenceRt.createFriendsPresenceRt({ rt: TwRtHub.store });   // 친구 접속 상태 — realtime 연결 하나(presenceGet · watch)
 const friendsPortMod = TwFriendsPort.createFriendsPort({
-  firebase: friendsFirebaseMod,
   presence: friendsPresenceRtMod,
   api: friendsApiMod,
-  source: ()=>TwSourceSwitch.store.pick('friends'),   // 받는 곳 — 원격 설정 sources.friends(없으면 옛 flags.friendsApi) · 고르기는 shared/source-switch.js
-  serverFirst: TwSourceSwitch.serverFirst,
-  warn: (...a)=>console.warn(...a),
 });
 const friendsSubMod = TwFriendsSub.createFriendsSub({
   subscribe: (...a)=>friendsPortMod.watchList(...a),

@@ -166,11 +166,8 @@ for (const fn of ['getSentFriendRequests', 'isFriendRequestAlive', 'pruneSentFri
   chk(HTML.includes('async ' + fn + '('), fn + '() 가 정의돼 있다');
 const sentFn = (SRC.match(/async function renderSentRequests[\s\S]*?\n\}/) || [''])[0];
 chk(!!sentFn, 'renderSentRequests() 를 찾았다');
-/* 한 건씩 살아 있는지 확인 · 죽은 미러 치우기는 옛 길 provider(friend-requests-firebase.js)로 옮겼다 — 목록은 포트 listSent 한 곳으로 읽는다 */
-let FRFSRC = null; try{ FRFSRC = fs.readFileSync('friend-requests-firebase.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — friend-requests-firebase.js'); process.exit(2); }
+/* 보낸 요청은 서버 provider(friend-requests-api.js)가 주는 것을 요청 포트 listSent 한 곳으로 읽는다 */
 chk(sentFn.includes('requests().listSent('), '보낸 요청 목록은 요청 포트 listSent 한 곳으로 읽는다');
-chk(FRFSRC.includes('deps.isAlive(toId, myId)'), '옛 길 provider 가 목록을 만들 때 한 건씩 살아 있는지 확인한다');
-chk(FRFSRC.includes('deps.prune(myId, toId)'), '죽은 미러는 서버에서도 치운다 (자가 치유)');
 chk(!/onValue|subscribe/.test(sentFn),
     '보낸 요청은 **구독이 아니다** (상시 구독을 늘리면 친구 100명 상한의 근거가 무너진다)');
 // 확인 실패를 '죽음'으로 보면 멀쩡한 요청이 사라진다 — catch 가 true 를 돌려주는지
@@ -213,7 +210,10 @@ const probe = `
   setFriends: f => { _myHomeFriends = f; },
   picked:     () => friendManage.picked,
   setTab:     t => { friendManage.setTab(t); },
+  stubReqApi: o => Object.assign(friendRequestsApiMod, o),   /* 요청 포트가 쥔 서버 provider 의 쓰기를 가짜로 — 서버 길의 끝(로그인 통로)까지는 안 간다 */
 };`;
+
+let accepted = [];
 
 const _log = console.log, _warn = console.warn;
 console.log = () => {}; console.warn = () => {};
@@ -226,14 +226,13 @@ chk(F.real, 'app.js 가 friend-manage.js 의 진짜 모듈을 만들었다 (빈 
 
 /* 서버 스텁 — ⚠ **수락해도 _myHomeFriends 를 그 자리에서 늘리지 않는다.**
    실제로도 구독 콜백이 와야 늘어난다. 이 시차가 바로 이 검사가 재현하려는 함정이다. */
-let accepted = [];
 const stubApi = {
   acceptFriendRequest: async (me, from) => { accepted.push(from); },
   rejectFriendRequest: async () => {},
 };
+F.stubReqApi({ accept: async (me, from) => { await stubApi.acceptFriendRequest(me, from); }, reject: async (me, from) => { await stubApi.rejectFriendRequest(me, from); } });
 globalThis.firebaseAPI = stubApi;
-/* 👋 요청 포트는 받는 곳 스위치로 서버 · 옛 길을 고른다 — 이 검사는 옛 길(firebaseAPI 스텁)로 고정한다(자리 계산은 길과 무관) */
-if (globalThis.TwSourceSwitch) globalThis.TwSourceSwitch.store.pick = () => 'firebase';
+/* 👋 요청 포트는 서버 provider 한 길 — 이 검사는 서버 provider 를 가짜(firebaseAPI 스텁 위)로 바꿔 끼운다(자리 계산은 길과 무관) */
 if (globalThis.window) globalThis.window.firebaseAPI = stubApi;
 
 // 자리 1칸만 남긴다

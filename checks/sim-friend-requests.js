@@ -1,9 +1,9 @@
-/* ═══ 👋 sim-friend-requests.js — 친구 요청 포트 · 서버 provider · 옛 길 provider (0.13 앱 묶음 D3 친구 요청) ═══
-   [왜] 받은 요청 · 보낸 요청 · 수락 · 거절 · 취소 · 보내기 · 친구코드 찾기를 서버 길(social-api.js)로 부른다. 받는 곳(서버 · 옛 길)은 포트 한 곳이 고르고,
-     쓰기는 못 해도 옛 길로 넘기지 않는다. 알림(friendRequests)을 받으면 다시 받는다.
-   ・1절: 포트 — 서버면 서버 provider · 아니면 옛 길 · provider 가 없으면 옛 길 · 쓰기는 갈라 쓰지 않음
+/* ═══ 👋 sim-friend-requests.js — 친구 요청 포트 · 서버 provider (0.13 앱 묶음 D3 친구 요청) ═══
+   [왜] 받은 요청 · 보낸 요청 · 수락 · 거절 · 취소 · 보내기 · 친구코드 찾기를 서버 길(social-api.js)로 부른다. 서버 한 길이고(옛 Firebase 길 provider · 받는 곳 고르기는 걷었다 — D13 E-2),
+     못 하면 던진다. 알림(friendRequests)을 받으면 다시 받는다.
+   ・1절: 포트 — 여덟 가지 모두 서버 provider · 못 하면 던진다
    ・2절: 서버 provider — 받은 요청 { 보낸이: { name, ts } } · 이름 못 받아도 요청은 그림 · 알림 · 한 번에 하나 · 해제 · 보낸 요청 · 수락 · 거절 · 취소/보내기 결과(already · self)
-   ・3절: 옛 길 provider — 보낸 요청은 살아 있는 것만 · 죽은 미러는 치움
+   ・3절: (옛 길 provider 는 걷었다 — 없는지만 본다)
    ・4절: 친구코드 찾기(social-api) — 0/1명 · 모양 틀림 던짐
    ・5절: 일부러 깨 보기
    [실행] 러너 스테이징(평면)에서. */
@@ -18,39 +18,35 @@ const at = (f, dir) => [f, 'parts/' + dir + '/' + f, 'app/parts/' + dir + '/' + 
 const SRC0 = {
   PORT: pick(at('friend-requests-port.js', 'friends')),
   API: pick(at('friend-requests-api.js', 'friends')),
-  FB: pick(at('friend-requests-firebase.js', 'friends')),
   SOC: pick(at('social-api.js', 'friends')),
   HTML: pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html']),
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
+const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const load = (src, name) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w[name]; };
 const flush = async () => { for(let i = 0; i < 12; i++) await Promise.resolve(); };
 const T = (d) => '2026-11-' + d + 'T00:00:00Z';
 
 async function judge(S){
-  let P, A, F, SOC;
-  try{ P = load(S.PORT, 'TwFriendRequestsPort'); A = load(S.API, 'TwFriendRequestsApi'); F = load(S.FB, 'TwFriendRequestsFirebase'); SOC = load(S.SOC, 'TwSocialApi'); }
+  let P, A, SOC;
+  try{ P = load(S.PORT, 'TwFriendRequestsPort'); A = load(S.API, 'TwFriendRequestsApi'); SOC = load(S.SOC, 'TwSocialApi'); }
   catch(e){ chk(false, '싣다 던짐 — ' + e.message); return; }
 
-  say('── 1. 포트 — 받는 곳이 서버면 서버 provider · 아니면 옛 길(하나만)');
+  say('── 1. 포트 — 서버 provider 한 길');
   {
     const names = ['watchReceived', 'listSent', 'accept', 'reject', 'cancel', 'send', 'lookupName', 'lookupFriendCode'];
     const mk = (tag, log, fail) => Object.fromEntries(names.map((n) => [n, async (...a) => { log.push(tag + ':' + n); if(fail) throw new Error('x'); return tag; }]));
     const run = async (o) => {
       const log = [];
-      const port = P.createFriendRequestsPort({ firebase: mk('fb', log), api: o.noApi ? null : mk('api', log, o.apiFail), source: () => o.src || 'server' });
+      const port = P.createFriendRequestsPort({ api: mk('api', log, o.apiFail) });
       const res = [];
       for(const n of names){ try{ res.push(await port[n]('ME', 'x', 'y', 'z', 'w')); }catch(e){ res.push('throw'); } }
       return { log, res };
     };
     let r = await run({});
     chk(r.log.every((x) => x.startsWith('api:')) && r.log.length === 8, '★ 서버면 여덟 가지 모두 서버 provider');
-    r = await run({ src: 'firebase' });
-    chk(r.log.every((x) => x.startsWith('fb:')), '★ 받는 곳이 파이어베이스면 모두 옛 길');
-    r = await run({ noApi: true });
-    chk(r.log.every((x) => x.startsWith('fb:')), '  ↳ 서버 provider 가 없으면 옛 길');
     r = await run({ apiFail: true });
-    chk(r.log.every((x) => x.startsWith('api:')) && r.res.every((x) => x === 'throw'), '★ 서버가 못 하면 던진다 — 옛 길로 갈라 쓰지 않는다');
+    chk(r.log.every((x) => x.startsWith('api:')) && r.res.every((x) => x === 'throw'), '★ 서버가 못 하면 던진다 — 옛 길(Firebase)로 물러나지 않는다');
   }
 
   say('── 2. 서버 provider');
@@ -118,18 +114,8 @@ async function judge(S){
     chk((await k.api.lookupFriendCode('MATE-AAAA')) === 'uAAA' && (await k.api.lookupFriendCode('MATE-ZZZZ')) === null, '친구코드 찾기 — 서버 길로');
   }
 
-  say('── 3. 옛 길 provider — 보낸 요청은 살아 있는 것만');
-  {
-    const pruned = [];
-    const fb = F.createFriendRequestsFirebase({
-      getSent: async () => ({ x: { ts: 1 }, y: { ts: 2 } }), isAlive: async (to) => to !== 'y', prune: (me, to) => pruned.push(to),
-      subscribe: (me, cb) => { cb(null); return () => {}; }, accept(){}, reject(){}, cancel(){}, send(){}, getName(){}, lookupCode(){},
-    });
-    const l = await fb.listSent('ME');
-    chk(Object.keys(l).join() === 'x' && pruned.join() === 'y', '죽은 미러(y)는 목록에서 빼고 서버에서도 치운다');
-    let v; fb.watchReceived('ME', (x) => { v = x; }, () => {});
-    chk(v && typeof v === 'object' && !Object.keys(v).length, '받은 요청 값이 비면(null) {} 로');
-  }
+  say('── 3. 옛 길 provider 는 없다');
+  chk(!/firebase|source/i.test(strip(S.PORT)), '포트가 Firebase · 받는 곳 고르기를 모른다');
 
   say('── 4. 친구코드 찾기(social-api)');
   {
@@ -147,7 +133,7 @@ async function judge(S){
   {
     const h = S.HTML;
     const i = (n) => h.indexOf('<script src="parts/friends/' + n + '">'), a = h.indexOf('<script src="parts/app.js">');
-    chk(i('friend-requests-firebase.js') > 0 && i('friend-requests-api.js') > 0 && i('friend-requests-port.js') > 0 && i('friend-requests-port.js') < a && i('social-api.js') < i('friend-requests-api.js'), 'html — 요청 provider · 포트를 app.js 보다 먼저(social-api.js 다음)');
+    chk(i('friend-requests-firebase.js') < 0 && i('friend-requests-api.js') > 0 && i('friend-requests-port.js') > 0 && i('friend-requests-port.js') < a && i('social-api.js') < i('friend-requests-api.js'), 'html — 요청 provider · 포트를 app.js 보다 먼저(social-api.js 다음)');
   }
 }
 
@@ -155,16 +141,14 @@ async function judge(S){
 await judge(SRC0);
 say('── 6. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const BREAKS = [
-  ['PORT', "(deps.api && deps.source() === 'server')", "(deps.api)", '받는 곳을 안 봄'],
-  ['PORT', "(deps.api && deps.source() === 'server') ? deps.api : deps.firebase", "deps.api ? deps.api : deps.firebase", '받는 곳을 안 봄(2)'],
+  ['PORT', "const pick = () => deps.api;", "const pick = () => ({ watchReceived(){}, listSent(){}, accept(){}, reject(){}, cancel(){}, send(){}, lookupName(){}, lookupFriendCode(){} });", '서버 provider 를 안 씀'],
+  ['PORT', "const pick = () => deps.api;", "const pick = () => deps.api || deps.firebase;", '옛 길로 물러남'],
   ['API', "    const off = rt.on('friendRequests', () => { run(); });", "    const off = () => {};", '알림을 안 건다'],
   ['API', "      if(flying){ again = true; return; }", "      if(flying){ return; }", '받는 중 알림을 버림'],
   ['API', "    return () => { dead = true; off(); };", "    return () => { };", '풀어도 알림이 남음'],
   ['API', "catch(e){ warn('[친구 요청] 이름을 못 받음", "catch(e){ throw e; warn('[친구 요청] 이름을 못 받음", '이름 실패로 요청까지 못 그림'],
   ['API', "const REASON = { SOCIAL_ALREADY_FRIEND: 'already', SOCIAL_SELF: 'self' };", "const REASON = {};", '이미 친구 · 나 구분 없음'],
   ['API', "ts: x.requestedAt };\n        onChange", "ts: 0 };\n        onChange", '받은 시각을 버림'],
-  ['FB', "      else if(deps.prune) deps.prune(myId, toId);", "      else {}", '죽은 미러를 안 치움'],
-  ['FB', "if(ok) out[toId] = raw[toId];", "out[toId] = raw[toId];", '죽은 미러도 보임'],
   ['SOC', "    if(!Array.isArray(d)) throw shapeError();\n    const u", "    const u", '친구코드 모양 틀림을 안 던짐'],
   ['SOC', "{ auth: true });\n    if(!Array.isArray(d))", "{});\n    if(!Array.isArray(d))", '친구코드 찾기가 토큰 없이'],
 ];
