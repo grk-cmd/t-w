@@ -65,7 +65,7 @@ export function createApiPublicReads(deps){
       return cardOf(d, await avatarFrom(uid, d));
     };
 
-    /* 👥 명함 날것만(API · Firebase 대체 길 없음) — 친구 포트(friends-api.js)가 부른다. 넘어가기는 포트가 정한다(source-switch).
+    /* 👥 명함 날것만(API · Firebase 대체 길 없음) — 친구 포트(friends-api.js)가 부른다.
        data | null(없는 사람) · 실패는 던진다. */
     fb.fetchUserCardApi = (uid) => apiCard(uid);
 
