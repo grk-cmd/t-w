@@ -253,21 +253,6 @@ describe('서버 운영 설정', () => {
     ]);
   });
 
-  it('방 타이밍은 서버의 아홉 칸을 다 보이고 · Firebase 판에는 하루 한도 묶음이 없다', () => {
-    const ops = createServerOpsConfigPort(fakeServer().api);
-    expect(ops.groups.roomTiming.fields.map((f) => f.key)).toEqual([
-      'joinWaitMs',
-      'clientGiveUpMs',
-      'graceMs',
-      'pingIntervalMs',
-      'refreshMs',
-      'roomStatsRefreshMs',
-      'statsLogMs',
-      'restoreWindowMs',
-      'chatBatchMs',
-    ]);
-  });
-
   it('캐시 초 묶음은 서버 키 표를 따른다(랭킹이 있고 방 개수는 없다)', () => {
     const ops = createServerOpsConfigPort(fakeServer().api);
     expect(ops.groups.apiCache.fields.map((f) => f.key)).toEqual(['config', 'card', 'ranking']);

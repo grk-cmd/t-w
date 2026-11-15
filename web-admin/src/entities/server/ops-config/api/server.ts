@@ -28,26 +28,7 @@ const SERVER_GROUPS: OpsGroups = {
     ],
   },
   roomFrame: { ...ROOM_FRAME, path: 'room.frame' },
-  // 방 타이밍 — 서버에는 아홉 칸이 있다. Firebase 판 화면의 세 칸에 나머지 여섯 칸(앱 · 방 서버가 읽는 값)을 더했다.
-  roomTiming: {
-    path: 'room.timing',
-    fields: [
-      { key: 'joinWaitMs', label: '입장 대기', min: 3000, max: 60_000, def: 10_000, unit: 'ms' },
-      {
-        key: 'clientGiveUpMs',
-        label: '앱이 다시 붙기를 포기하는 시간',
-        min: 15_000,
-        max: 600_000,
-        def: 90_000,
-        unit: 'ms',
-      },
-      { key: 'graceMs', label: '끊긴 뒤 자리를 붙잡는 시간', min: 0, max: 600_000, def: 20_000, unit: 'ms' },
-      { key: 'pingIntervalMs', label: 'ping 주기', min: 1000, max: 120_000, def: 25_000, unit: 'ms' },
-      { key: 'refreshMs', label: '설정 다시 읽기', min: 5000, max: 600_000, def: 60_000, unit: 'ms' },
-      ...ROOM_TIMING.fields,
-      { key: 'chatBatchMs', label: '채팅 묶음 간격', min: 0, max: 1000, def: 200, unit: 'ms' },
-    ],
-  },
+  roomTiming: { ...ROOM_TIMING, path: 'room.timing' },
   // 하루 한도 — 키마다 따로(서버 설정 키 `user.signupDailyMax` · `guestbook.clapDailyMax` · `gift.dailySendMax`). 묶음의 칸 이름이 키 이름이다.
   dailyLimits: {
     path: 'daily',
