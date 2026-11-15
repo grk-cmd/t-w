@@ -210,8 +210,8 @@ const RCM = require(path.resolve(where('remote-config.js')));
       'firebase-init.js 가 store.start 로 앱 공통 API 통로(TwApi.client) · realtime 알림(TwRtHub.store)을 잇는다');
     chk(!/fallbackRead/.test(fi) && !/store\.watch/.test(fi) && !/'config\/(?!maintenance)/.test(fi) && !/ref\(db, 'config'\)/.test(fi), '  ↳ Firebase config 비상 읽기 · 구독 · 박힌 경로 없음(점검 칸만 — maintenance-gate.js)');
     chk(!/createAppVersionGate|MIN_APP_VER_WAIT_MS/.test(fi), '  ↳ 앱 최소 버전 판정은 firebase-init 에 없다 — 켜는 흐름(shared/update-flow.js)이 원격 설정 첫 답으로 한다(sim-update-flow.js)');
-    chk(!/getMinRoomVer/.test(fi) && /try\{ await s\.refresh\(\{ maxAgeMs: ROOM_VER_MAX_AGE_MS \}\); \}catch\(_\)\{\}\s*const min = s\.minRoomVer\(\);/.test(strip(APP)) && /const ROOM_VER_MAX_AGE_MS = 60 \* 1000;/.test(APP),
-      '  ↳ 방 입장 최소 버전 — 방 입장(room-entry)이 store 를 바로 본다 · 1분 넘었으면 다시 묻고 API 값(못 받으면 null = 통과)');
+    chk(!/getMinRoomVer/.test(fi) && !/_ensureRoomVersionOk|ROOM_VER_MAX_AGE_MS|minRoomVer\(\)/.test(strip(APP)),
+      '  ↳ 방 입장 최소 버전 — 앱이 입장 때 원격 설정을 다시 받아 따로 판정하지 않는다(서버가 join 을 version 으로 거절 — R1)');
     chk(!/window\.MAX_PEOPLE/.test(fi) && !/_capturedMeta/.test(fi), '  ↳ firebase-init 에 정원 판정이 없다(정원 · 자기 퇴장은 서버 — window.MAX_PEOPLE 안 씀)');
     chk(!/^\s*import\s/m.test(RC) && !/gstatic|getDatabase|require\(|fallbackRead/.test(strip(RC)), 'remote-config.js 는 Firebase 를 모른다(import · 비상 읽기 없음)');
   }

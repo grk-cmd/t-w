@@ -500,9 +500,9 @@ function _srFmtDate(ms){
 /* 🎧 «내 시크릿룸을 같이 듣기로 열기» — 이 기기에 기억(한 계정 한 기기 · 로그아웃 때 지움 account.js). 주인이 빈 방을 열 때 _meta.music 으로 쓴다. */
 const SECRET_MUSIC_KEY = 'tw.secretRoomMusic';
 function _secretMusicOn(){ try{ return localStorage.getItem(SECRET_MUSIC_KEY) === '1'; }catch(_){ return false; } }
-/* 🎧 시크릿룸을 «연다» = 주인이 아무도 없는 방에 들어갈 때만 — 그때만 같이 듣기를 정한다(Firebase 길 · 방 서버 길이 같은 판정).
-   손님이 들어올 때마다 정하면 듣던 곡이 지워진다 · 인원을 못 셌으면(null) 정하지 않는다. → { music } | undefined */
-function _secretOpenFields(isOwner, othersCount){ return (isOwner && othersCount === 0) ? { music: _secretMusicOn() } : undefined; }
+/* 🎧 시크릿룸을 «연다» — 주인이 들어갈 때 같이 듣기 선택을 늘 싣는다. 비어 있는 방을 여는 때인지는 서버가 가른다(join.create 는 방이 없을 때만 보고,
+   시크릿룸 music 은 주인이 연 때만 받는다 — 손님이 먼저 열면 같이 듣기가 아니고, 이미 열린 방의 듣던 곡은 지워지지 않는다). → { music } | undefined */
+function _secretOpenFields(isOwner){ return isOwner ? { music: _secretMusicOn() } : undefined; }
 { const c=document.getElementById('fsSecretMusic'); if(c) c.addEventListener('change', ()=>{ try{ localStorage.setItem(SECRET_MUSIC_KEY, c.checked ? '1' : '0'); }catch(_){} }); }
 function _refreshSecretRoomUI(){
   const w=document.getElementById('fsInviteSecretWrap'); const inp=document.getElementById('fsInviteSecretCode');
@@ -542,31 +542,6 @@ function refreshInviteUI(){ const on=Presence.active();
   // 모달이 열린 채 방을 나왔으면 로비가 이제 보인다 — 방 안에서 열었을 땐 안 읽었으니 지금 읽게 알린다
   if(left && document.getElementById('inviteOverlay').classList.contains('on')) twNav.go(twNav.NAV.ROOM_LOBBY);
 }
-// 🚪 버전 게이트 — semver "a" < "b" 이면 true. (숫자 3파트 비교, 누락은 0)
-function _verLt(a,b){
-  const pa=String(a).split('.').map(n=>parseInt(n,10)||0);
-  const pb=String(b).split('.').map(n=>parseInt(n,10)||0);
-  for(let i=0;i<3;i++){ if((pa[i]||0)<(pb[i]||0)) return true; if((pa[i]||0)>(pb[i]||0)) return false; }
-  return false;
-}
-/* 방 입장 허용 여부 — 내 앱 버전 < 원격 설정 room.minVersion 이면 막고 안내(서버도 같은 값으로 join 을 version 으로 거절한다 — 여기는 먼저 알려 주는 몫).
-   웹/개발 환경(companion 없음)이나 조회 실패는 통과(오탐 방지). */
-const ROOM_VER_MAX_AGE_MS = 60 * 1000;   // 입장 때 원격 설정이 이보다 오래됐으면 한 번 더 묻는다
-async function _ensureRoomVersionOk(){
-  try{
-    if(!(window.companion && companion.getAppVersion)) return true;
-    const my  = await companion.getAppVersion();
-    const s = _rcStore();
-    if(!s) return true;
-    try{ await s.refresh({ maxAgeMs: ROOM_VER_MAX_AGE_MS }); }catch(_){}
-    const min = s.minRoomVer();
-    if(my && min && _verLt(my, min)){
-      toast(ROOM_LOST_MSG.version);
-      return false;
-    }
-  }catch(_){ /* 조회 실패는 통과 */ }
-  return true;
-}
 /* 🔒 내 시크릿룸이 이 코드인가 — { code, name, expiresAt } | null(로비와 같은 한 곳 · 세션에 한 번 읽는다) */
 async function _mySecretRoomOf(code){
   let s = null;
@@ -575,27 +550,25 @@ async function _mySecretRoomOf(code){
 }
 /* 📅 내 시크릿룸 기간이 7일 안으로 남았으면 들어가기 전에 한 번 알린다 — 그냥 안 되는 날이 오는 것보다 낫다 */
 const SECRET_EXPIRY_WARN_DAYS = 7;
-function _warnSecretExpiry(expiresAt){
-  if(!(typeof expiresAt === 'number' && expiresAt > Date.now())) return;
-  const left = Math.ceil((expiresAt - Date.now()) / 86400000);
+function _warnSecretExpiry(expiresAt, nowMs){
+  if(!(typeof expiresAt === 'number' && expiresAt > nowMs)) return;
+  const left = Math.ceil((expiresAt - nowMs) / 86400000);
   if(left <= SECRET_EXPIRY_WARN_DAYS) toast('🔒 이 시크릿룸은 ' + left + '일 뒤 만료돼요 (' + _srFmtDate(expiresAt) + ')');
 }
 async function startRoom(code){
   if(window._deviceSessionLost){ toast('다른 기기에서 이 계정을 쓰는 중이에요 — «여기서 계속 쓰기» 를 누르면 이 PC 로 가져와요'); return; }   // 🖥️ 한 계정 한 기기
-  if(!(await _ensureRoomVersionOk())) return;   // 🚪 구버전 방 입장 차단(생성·참여·초대수락 공통 길목)
   const myDef=slots[curSlot()]||slots.find(Boolean);
   if(!myDef){ toast('먼저 내 캐릭터를 만들어 주세요'); return; }
   /* 🔒 시크릿룸 — 발급 · 기간 · 정원(방장은 정원 밖) · 방장 고정은 서버가 판정한다(secretClosed · full).
      여기서는 «내 방을 아무도 없을 때 연다» 만 가른다 — 그때만 같이 듣기를 정한다(서버는 시크릿룸 create 에서 music 만 본다). */
   const isSecret = /^SCRT-/.test(code);
   const creating = !!window._pendingRoomChannel && !isSecret;
-  let srOpen;
+  let srOpen, mineSecret = null;
   if(isSecret){
     const mine = await _mySecretRoomOf(code);
     if(mine){
-      _warnSecretExpiry(mine.expiresAt);
-      const pk = await roomRt.peek(code);
-      srOpen = _secretOpenFields(true, pk ? (pk.exists ? pk.count : 0) : null);
+      mineSecret = mine;
+      srOpen = _secretOpenFields(true);   // 주인이면 create{ music } 를 늘 싣는다 — 서버는 방이 없을 때만 보고, music 은 주인이 연 때만 받는다(PROTOCOL 4-2)
     }
   }
   // 방 만들기 창이 고른 값 — 공개는 두 채널 모두 · 제목 · 최대 인원 · 같이 듣기(방장 이름은 서버가 정한다)
@@ -626,6 +599,10 @@ async function startRoom(code){
   refreshInviteUI(); toast('방에 연결됐어요: '+code);
   _clearPendingCreate();
   _roomJoined(code);
+  if(mineSecret){   // 만료 안내는 서버 시각으로 견준다(PC 시계가 틀린 사람에게 어긋나지 않게) — 방 서버 시각은 들어간 뒤에 맞춰진다
+    const sp = Presence.serverProvider();
+    _warnSecretExpiry(mineSecret.expiresAt, sp ? sp.serverNow() : Date.now());
+  }
   settingsMod.applyExtraSeatForMode();   // 멀티모드 진입 — 자리추가 좌석은 자동으로 뺀다
 }
 document.getElementById('lcInvite').onclick=()=>{ refreshInviteUI(); document.getElementById('inviteOverlay').classList.add('on'); };

@@ -339,7 +339,7 @@ room-entry 는 이 모듈을 모른다 — «방에 연결됨» 알림(`onRoomJo
 **책임**
 - `room-lobby-model.js`(순수 · 정원은 `TwRoomSettings.roomCap` — room-settings.js 뒤에 싣는다) — 채널 목록(`{ at, rooms: { 코드: { t, n, max, hn, mu, since } } }` — provider 가 API 답을 이 모양으로 바꾼다) → 카드 · 상태(`failed` 못 읽음 · `missing` 칸 없음 · `stale` 3분 넘게 그대로 · `ok`) · 정렬(입장 가능 → 인원 많은 순 → 오래 열린 순) · «빈자리 있는 방» 거르기 · 번호 · 쪽(12장) · 빠른시작 고르기.
 - `room-lobby-provider.js` — 로비가 읽는 것 한 곳: `listRooms(채널)`(API `GET /v2/rooms/lobby?channel=` — realtime 서버가 지금 연 공개 방 · 못 받거나 모양이 틀리면 `null`) · `mySecretRoom()`(`GET /v2/me/secret-room` → `{ code, name, expiresAt }` — 계정마다 한 번 읽고 기억 · 만료 전만) · `secretGuests(코드)`(손님 수 — 방 포트 `peek` · 내가 그 방 안이면 나를 뺀다 · 로비 줄만 부른다). F1 «멀티모드» 탭의 시크릿룸 칸 · 방 입장(내 시크릿룸이면 비었을 때 같이 듣기로 연다)도 deps `mySecretRoom` 으로 같은 판정을 쓴다.
-- `room-lobby-ui.js` — 방 찾기 · 만들기 모달 안 `#lobbyMain`: 탭 · 거르기 · 카드(위 띠 «입장 가능» / «가득 참») · 쪽 · [방 만들기] · [빠른시작] · 아래 줄 방 코드 칸과 [입장](room-entry 가 건다 — 빈 칸이면 «방 코드를 입력하세요» 만 · 랜덤 입장은 [빠른시작] 하나) · «내 시크릿룸» 줄. 모달을 열 때 · [새로 고침] · 열려 있는 동안 60초마다만 읽는다 — 방 안이면(모달이 «연결된 방» 화면) 읽지 않는다.
+- `room-lobby-ui.js` — 방 찾기 · 만들기 모달 안 `#lobbyMain`: 탭 · 거르기 · 카드(위 띠 «입장 가능» / «가득 참») · 쪽 · [방 만들기] · [빠른시작] · 아래 줄 방 코드 칸과 [입장](room-entry 가 건다 — 빈 칸이면 «방 코드를 입력하세요» 만 · 랜덤 입장은 [빠른시작] 하나) · «내 시크릿룸» 줄. 모달을 열 때 · [새로 고침] · 탭을 바꿀 때만 읽는다(주기 갱신 없음) — 방 안이면(모달이 «연결된 방» 화면) 읽지 않는다.
 
 **만드는 법** — provider 는 방 입장 모듈보다 먼저(F1 시크릿룸 칸이 같이 쓴다) · 화면은 방 만들기 창 바로 뒤:
 
@@ -359,10 +359,9 @@ TwRoomLobbyUi.createRoomLobbyUi({
 
 **함정**
 - 카드는 `textContent` 로만 그린다 — 남이 쓴 제목 · 닉네임이 HTML 로 읽히면 안 된다(검사가 `innerHTML` 을 막는다).
-- 못 읽음(null)과 빈 목록을 가른다 — 못 읽으면 «못 불러왔어요» + `E-ROOM-03`(사람이 누른 불러오기만 · 60초 갱신은 조용히).
+- 못 읽음(null)과 빈 목록을 가른다 — 못 읽으면 «못 불러왔어요» + `E-ROOM-03`(모달 열기 · 새로 고침 · 탭 바꾸기 — 모두 사람이 한 일).
 - 탭을 빨리 바꾸면 늦게 온 답을 버린다(`seq`) — 지우면 투게더룸 탭에 워킹룸 목록이 그려진다.
-- 목록 숫자는 최대 1분 늦다 — 들어갈 때는 입장 검사가 정원을 다시 본다(목록으로 막지 않는다).
-- 60초 타이머는 모달이 닫혔으면(닫기 · 바깥 클릭 · ESC · 입장) 다음 차례에 스스로 멈춘다 — 닫기 버튼에만 기대지 않는다.
+- 목록 숫자는 읽은 때의 것이다 — 들어갈 때는 입장 검사가 정원을 다시 본다(목록으로 막지 않는다).
 - 방 안에서 모달을 열면 로비는 안 읽는다. 모달이 열린 채 방을 나오면(나가기 · 해산 · 정원 초과) room-entry `refreshInviteUI` 가 «방 안 → 밖» 순간에 `twNav.go(NAV.ROOM_LOBBY)` 로 알리고, 로비가 그때 읽는다 — 서로의 모듈을 부르지 않게 창 열기 통로를 쓴다.
 - 방 만들기 창의 [방 만들기](`doCreateRoomInChannel`)도 같은 깃발을 입장이 끝날 때까지 쥔다 — 빨리 두 번 누르면 «방에 들어가는 중» 안내(0.12.3 은 조용히 버림 · 0.13 은 사용자 확인으로 안내) · 창은 먼저 닫혀 친 제목은 남지 않는다.
 - 카드 · [빠른시작] · «내 시크릿룸» 입장은 room-entry `joinRoom` 으로 — «입장 중» 깃발(`_joiningRoom`) 하나를 코드 칸 [입장] · F1 칸 · 🕘 최근 방과 같이 쓴다. 로비에 따로 깃발을 두지 않는다(두면 서로를 못 막는다). 입장 중에 또 누르면 «방에 들어가는 중이에요 — 잠시만 기다려 주세요» 토스트(`_joinBusy` 한 곳).
@@ -419,7 +418,7 @@ roomEntryMod.onRoomChanged(()=>listenUi.sync());
 - 책임: 초대 보내기 `roomInvite{ to }` · 받기 `roomInvited{ from, fromName, room, ts }` · 지우기 `roomInviteClear{ from }`. 방 코드 · 보낸 이름은 서버가 채운다 · 친구가 아니면 `ROOM_INVITE_NOT_FRIEND` · 한 쌍에 하나 · 10분 보관(로그인 뒤 붙으면 남은 초대를 서버가 다시 보낸다).
 - 만드는 법: classic script(`window.TwRoomInviteRt`) — `rt-hub.js` 다음 · app.js 보다 먼저. 앱 한 벌 `TwRoomInviteRt.store` 를 `room-invite-ui.js` 가 deps `invites` 로 받는다.
 - 내놓는 것: `send(to)` → `{ ok }` | `{ ok:false, code }` · `onInvites(fn)`(지금 것을 바로 한 번 · `{ 보낸 사람: { fromName, roomCode, ts } }`) · `clear(from)`.
-- 함정: 보내기는 성공 답이 없다 — 1.5초 안에 오류(ref `roomInvite`)가 없으면 보낸 것으로 본다 · 오류에 누구 것인지 칸이 없어 한 번에 하나씩 보낸다. 받는 사람은 userCode — 친구 목록이 userCode 로 바뀌어야(친구 묶음) 맞는 사람에게 간다.
+- 함정: 보내기는 rid 요청이다 — 성공은 서버 `roomInviteSent` · 실패는 같은 rid 의 `error`(`ROOM_INVITE_NOT_FRIEND` 등) · 답이 안 오면 `timeout`(조용하다고 성공으로 보지 않는다). 앱은 받은 초대의 `ts` 를 PC 시계와 견주지 않는다(서버가 10분 보관 · 남은 것만 다시 보낸다). 받는 사람은 userCode — 친구 목록이 userCode 로 바뀌어야(친구 묶음) 맞는 사람에게 간다.
 - 검사: `checks/sim-room-invite-rt.js`.
 
 ## desk-build.js — 🪑 기본 책상 · 소품 · 대신 몸 만들기
