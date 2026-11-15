@@ -114,7 +114,7 @@
 | **sim-desk-part-scale.js** | 83 | **8a0a59ffb09a** |
 | **sim-desk-preset.js** | 255 | **5fc9adc1798a** |
 | **sim-json-store.js** | 209 | **05d6cff00a2f** |
-| **sim-desk-setup.js** | 245 | **41a20643d835** |
+| **sim-desk-setup.js** | 245 | **2fd8579ffce0** |
 | sim-dom-boot.js | 83 | 927ab53ecc44 |
 | sim-exp-bar-color.js | 135 | 4142ee5559d6 |
 | **sim-face-loss.js** | 317 | **921e471b80b1** |
@@ -418,7 +418,7 @@
 | **sim-myhome-hooks.js** | 99 | **a7ccbffbc7b3** |
 | **sim-demoji-catalog.js** | 80 | **36e4e0c7b848** |
 | **sim-hook-guards.js** | 77 | **0e8ccbe59d09** |
-| **sim-typeof-guards.js** | 133 | **a0247b58f400** |
+| **sim-typeof-guards.js** | 133 | **7f5696f5b81a** |
 | **sim-user-name.js** | 92 | **74e9a7a6d03a** |
 | **sim-part-scene.js** | 215 | **81ae3f394347** |
 | **sim-admin-thumbs.js** | 152 | **a364b1c70728** |

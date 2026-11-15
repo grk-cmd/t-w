@@ -190,7 +190,7 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
   - sink · 앞뒤 보정은 대상 크기 1 기준이고 쓰는 쪽이 × 대상 userScale 한다 — 작은 크기에서 맞춘 값을 박지 말 것.
   - 1층(팔 걸치기)과 2층+(발로 딛기)은 앞뒤 보정 부호가 반대라 상수가 따로다(`RIDE_Z_DEPTH_K_ON_ANIMAL` · `CIRCUS_Z_DEPTH_K_ON_ANIMAL`).
   - 임시 객체는 공유된다 — 값을 들고 있으려면 `clone()`.
-  - 동물 팔 기본각 `ANIMAL_HAND_REST` 는 animal.js 가 전역으로 읽어 app.js 에 남겼다.
+  - 동물 팔 기본각 `ANIMAL_HAND_REST` 는 app.js 에 남아 있다(animal.js 는 deps 로 받는다).
   - 검사: `checks/sim-ride-tuning.js`(4절 — 값 표 50개가 옮기기 전과 같다 · 임시 객체가 따로따로 · 값 범위).
 
 ## seat-refit.js — 🪑 파츠 구성이 바뀐 뒤 좌석 다시 맞추기
