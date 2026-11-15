@@ -233,5 +233,5 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 
 - **책임**: `renderMyHomeStickers` — 마이홈 탭에서만 스티커 영역을 보이고 z 순서대로 요소(이미지 · 이모지 · 움직임 · 크기 · 회전 · 링크 · 편집 핸들)를 다시 그린다. 친구 홈 구경에서는 허용된 그림 주소만.
 - **만드는 법**: `TwMyHomeStickerRender.createMyHomeStickerRender({ mhPageMod, mhStateMod, mhStLayoutMod, myHomeSticker })` — `myHomeSticker` 만 읽는 함수(뒤에서 만들어짐).
-- **내보내는 것**: `renderMyHomeStickers()`(읽는 함수 — 값이 아니라 부를 때마다 읽는다) · `setRenderMyHomeStickers(f)`.
-- **함정**: 마이홈 편집 묶음이 이 함수를 감싸 다시 대입한다 — 그래서 값으로 잡아 두면 감싸기 전 함수가 굳는다. 다시 대입을 걷는 일은 F4. 검사: `checks/sim-myhome-sticker-render.js`.
+- **내보내는 것**: `renderMyHomeStickers()`(그리고 «그린 뒤» 알림을 부른다) · `onRendered(fn)`(그린 뒤 할 일을 거는 자리 — 마이홈 편집 묶음이 삭제 버튼 자동 저장을 건다).
+- **함정**: 옛 «함수를 감싸 다시 대입» 은 걷었다(F4). 마이홈 탭이 아니라 일찍 끝나도 알림은 부른 횟수만큼 간다(옛 감싸개와 같다). 검사: `checks/sim-myhome-sticker-render.js`.

@@ -143,8 +143,16 @@ function layoutSeatRow(){
   seatCameraMod().applyCameraAndCanvas(rowCenter, rowSpan);
 }
 
+/* 좌석을 배치한 뒤 위층이 할 일(데스크탑 창 크기 맞춤 등)은 알림으로 건다 — 옛 «layoutSeats 를 감싸 다시 대입» 을 갚는다(F4).
+   layoutSeatRow 가 일찍 끝나도 알림은 부른 횟수만큼 간다(옛 감싸개와 같다). 거는 차례대로 부른다. */
+const laidOutFns = [];
+function onLaidOut(fn){ laidOutFns.push(fn); }
+function layoutAndNotify(){ layoutSeatRow(); laidOutFns.forEach(fn=>fn()); }
+
 return {
   layoutSeatRow,
+  layoutAndNotify,
+  onLaidOut,
   seatHalfWidth,
   slotIndexAt,
 };

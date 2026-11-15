@@ -6,6 +6,7 @@
 ## seat-camera.js — 🎥 좌석 줄 카메라 · 캔버스 맞춤
 
 - **책임**: 좌석 줄(가운데 x · 폭)을 받아 메인 카메라(거리 · 각도 · 화각 · 화면 밀기)와 캔버스 크기(CSS · 렌더 버퍼)를 맞춘다. 두 갈래 — 실행 화면(`body.desktop.runmode` · 화면 전체 캔버스 · 이동 오프셋 · 도트 렌더)과 런처 미리보기(작은 캔버스 · 화각 34도).
+- **배치한 뒤 알림**(F4) `layoutAndNotify()`(app.js 의 `layoutSeats()` 가 부른다) = `layoutSeatRow()` 뒤에 `onLaidOut(fn)` 으로 건 일을 거는 차례대로 부른다 — app.js 가 데스크탑 창 크기 맞춤(`resizeWidget` · `applyDesktopRunClass`)을 건다(옛: `layoutSeats` 를 감싸 다시 대입). `layoutSeatRow` 가 일찍 끝나도 알림은 간다.
 - **만드는 법**(app.js «🪑 좌석 배치» 구역 자리):
   ```js
   const seatCameraMod = TwSeatCamera.createSeatCamera({
