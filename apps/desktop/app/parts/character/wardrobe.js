@@ -12,6 +12,7 @@
 (function(){
 
 function createWardrobe(deps){
+const accountStore = deps.accountStore;   // 🗂️ 계정별 칸(shared/account-store.js) — 최근 쓴 색은 이 계정이 이 PC 에서 고른 것
 const ANIMAL_RUN_SCALE = deps.ANIMAL_RUN_SCALE;
 const CHAR_Z = deps.CHAR_Z;
 const baseFlatOf = deps.baseFlatOf;   // 재질 플랫 배율 읽기(shared/light-tone.js)
@@ -1144,15 +1145,15 @@ function buildFreeColorPicker(anchorHex, onPick){
   const svWrap=document.createElement('div'); svWrap.className='wd-sv-wrap'; svWrap.appendChild(svCanvas); svWrap.appendChild(cursor);
   const hueSlider=document.createElement('input'); hueSlider.type='range'; hueSlider.min=0; hueSlider.max=360; hueSlider.step=1; hueSlider.className='wd-hue-slider'; hueSlider.value=Math.round(h);
 
-  // ★ 런처8: 최근 사용 색 5개 (생성기+꾸미기 공용, 마이홈 팔레트와는 별도) — localStorage에 저장.
+  // ★ 런처8: 최근 사용 색 5개 (생성기+꾸미기 공용, 마이홈 팔레트와는 별도) — 계정 칸에 저장.
   const CHAR_RECENT_KEY = 'tw.charColorHistory';
-  function loadRecent(){ try{ return JSON.parse(localStorage.getItem(CHAR_RECENT_KEY)||'[]'); }catch(_){ return []; } }
+  function loadRecent(){ try{ return JSON.parse(accountStore.get(CHAR_RECENT_KEY)||'[]'); }catch(_){ return []; } }
   function saveRecent(hex){
     hex = (hex||'').toLowerCase(); if(!/^#[0-9a-f]{6}$/.test(hex)) return;
     let arr = loadRecent().filter(c=>c!==hex);
     arr.unshift(hex);
     arr = arr.slice(0,5);
-    try{ localStorage.setItem(CHAR_RECENT_KEY, JSON.stringify(arr)); }catch(_){}
+    try{ accountStore.set(CHAR_RECENT_KEY, JSON.stringify(arr)); }catch(_){}
     renderRecent();
   }
   const recentRow=document.createElement('div'); recentRow.className='wd-recent-row';

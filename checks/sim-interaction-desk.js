@@ -18,12 +18,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — interaction-desk.js'); process.exit(2);
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["toast"];
-const VAL_DEPS = ["CIRCUS_ARM_DROP","CIRCUS_LEG_LIFT","CIRCUS_LEG_STAND","RIDE_MAX_STACK","RIDE_SNAP_DIST","_rideTmp","_rideWP","rideBenchMod","seats","tricksMod"];
+const VAL_DEPS = ["accountStore","CIRCUS_ARM_DROP","CIRCUS_LEG_LIFT","CIRCUS_LEG_STAND","RIDE_MAX_STACK","RIDE_SNAP_DIST","_rideTmp","_rideWP","rideBenchMod","seats","tricksMod"];
 const GET_DEPS = ["Presence","focusLevelMod","isAdmin"];
 const SET_DEPS = [];
 const EXPORTS = ["DANCE_MOVES","IDESK_ENABLED","INTERACTION_DESKS","TRICK_IN_S","TRICK_SPIN_S","TRICK_TURBO_STYLE","_danceCmdCooldownAt","setDanceCmdCooldownAt","_deskDefById","_lowestDanceReq","_parseDanceCmdChain","_pickUnlockedDance","_rideDenyToastAt","setRideDenyToastAt","_trickArmBase","_trickArmSpread","_trickEaseIn","_trickLegPose","_trickTurns","findRideTarget","getActiveInteractionDeskId","isDanceUnlocked","isDeskUnlocked","setActiveInteractionDeskId","startMyDance"];
 const MOVED = ["INTERACTION_DESKS","IDESK_ENABLED","DANCE_MOVES","TRICK_IN_S","TRICK_SPIN_S","TRICK_OUT_S","TRICK_TURNS","TRICK_TURBO_STYLE","TRICK_TURBO_MULT","_trickTurns","TRICK_LEG_SIDE","TRICK_ARM_LIFT","TRICK_ARM_SPREAD","_trickArmBase","_trickArmSpread","_trickEaseIn","_trickLegPose","_danceByCmd","_parseDanceCmdChain","_danceCmdCooldownAt","isDanceUnlocked","_pickUnlockedDance","_lowestDanceReq","startMyDance","_deskDefById","isDeskUnlocked","ACTIVE_IDESK_KEY","getActiveInteractionDeskId","setActiveInteractionDeskId","_rideDenyToastAt","findRideTarget"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  CIRCUS_ARM_DROP: CIRCUS_ARM_DROP,","  CIRCUS_LEG_LIFT: CIRCUS_LEG_LIFT,","  CIRCUS_LEG_STAND: CIRCUS_LEG_STAND,","  Presence: ()=>Presence,","  RIDE_MAX_STACK: RIDE_MAX_STACK,","  RIDE_SNAP_DIST: RIDE_SNAP_DIST,","  _rideTmp: _rideTmp,","  _rideWP: _rideWP,","  focusLevelMod: ()=>focusLevelMod,","  isAdmin: ()=>isAdmin,","  rideBenchMod: rideBenchMod,","  seats: seats,","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,"];
+const GLUE = ["  accountStore: accountStoreMod,","  CIRCUS_ARM_DROP: CIRCUS_ARM_DROP,","  CIRCUS_LEG_LIFT: CIRCUS_LEG_LIFT,","  CIRCUS_LEG_STAND: CIRCUS_LEG_STAND,","  Presence: ()=>Presence,","  RIDE_MAX_STACK: RIDE_MAX_STACK,","  RIDE_SNAP_DIST: RIDE_SNAP_DIST,","  _rideTmp: _rideTmp,","  _rideWP: _rideWP,","  focusLevelMod: ()=>focusLevelMod,","  isAdmin: ()=>isAdmin,","  rideBenchMod: rideBenchMod,","  seats: seats,","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */

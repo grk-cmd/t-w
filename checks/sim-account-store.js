@@ -27,6 +27,10 @@ const SRC0 = {
   APP: pick(['app.js', 'parts/app.js', 'app/parts/app.js']),
   HTML: pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html']),
   SMOKE: pick(['smoke.js']),
+  WARDROBE: pick(at('wardrobe.js', 'character')),
+  IDESK: pick(at('interaction-desk.js', 'room')),
+  CHARCODE: pick(at('char-code.js', 'character')),
+  ANIMAL: pick(at('animal.js', 'character')),
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 
@@ -311,6 +315,22 @@ async function judge(S){
     chk(sf0.pushes.length === 1 && sf0.intervals === 1, '  ↳ 시작 함수가 첫 보내기 한 번 + 15초 인터벌 하나를 건다');
   }
 
+  say('── 6d. S-3b — 최근 쓴 캐릭터 색 · 지금 쓰는 상호작용 책상은 계정 칸에서 읽고 쓴다');
+  {
+    const S3B = ['tw.charColorHistory', 'tw.activeInteractionDesk'];
+    chk(S3B.every((k) => M.MOVED_KEYS.includes(k) && M.ACCOUNT_KEYS.includes(k)), '★ 둘 모두 옮긴 표(MOVED_KEYS)에 있다 — 0.12 에서 올라온 PC 값이 계정 칸으로 간다');
+    const st = mem(); const code = { v: null }; const s = mk(st, code);
+    st.o['tw.charColorHistory'] = '["#ff0000","#00ff00"]'; st.o['tw.activeInteractionDesk'] = 'bench2'; st.o['tw.animalCheatUnlock'] = '1'; st.o['tw.chatFontSize'] = '14';
+    const r = s.migrateLegacy(A); code.v = A;
+    chk(S3B.every((k) => r.moved.includes(k)) && s.get('tw.charColorHistory') === '["#ff0000","#00ff00"]' && s.get('tw.activeInteractionDesk') === 'bench2', '★ 옛 PC 값이 들어간 계정 칸에 같은 값으로 이어진다(잃지 않는다)');
+    chk(S3B.every((k) => !(k in st.o)) && st.o['tw.chatFontSize'] === '14' && st.o['tw.animalCheatUnlock'] === '1', '  ↳ PC 칸에서는 지운다 · 기기 설정은 그대로 · 동물 숨김 해금(animalCheatUnlock)은 카드가 처음 그릴 때 읽어 아직 PC 칸 — 옮기지 않는다(S-4a)');
+    code.v = B;
+    chk(S3B.every((k) => s.get(k) === null), '  ↳ 다른 계정(B)에게는 안 보인다');
+    const noPc = (src, re) => !re.test(src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 '));
+    chk(noPc(S.WARDROBE, /localStorage\.(get|set|remove)Item\(CHAR_RECENT_KEY/) && /accountStore\.get\(CHAR_RECENT_KEY\)/.test(S.WARDROBE) && /accountStore\.set\(CHAR_RECENT_KEY/.test(S.WARDROBE), '꾸미기 — 최근 쓴 색을 계정 칸에서 읽고 쓴다(PC 칸 직접 접근 0)');
+    chk(noPc(S.IDESK, /localStorage\.(get|set|remove)Item\(ACTIVE_IDESK_KEY/) && /accountStore\.get\(ACTIVE_IDESK_KEY\)/.test(S.IDESK) && /accountStore\.set\(ACTIVE_IDESK_KEY/.test(S.IDESK) && /accountStore\.remove\(ACTIVE_IDESK_KEY\)/.test(S.IDESK), '상호작용 책상 — 지금 쓰는 책상 id 를 계정 칸에서 읽고 쓰고 지운다');
+  }
+
   say('── 6c. migrateLegacy 를 부르는 곳 — 읽는 모듈보다 먼저 · 코드 없으면 안 함 · 로그아웃은 올리기 앞 · 지우기보다 앞');
   {
     // ① 부팅 — app.js 의 그 줄을 실물 글로 뽑아 진짜 계정 칸 위에서 돌린다
@@ -398,12 +418,16 @@ const BREAKS = [
   ['STORE', "'tw.playlistCur', 'tw.secretRoomMusic', 'tw.annivView',", "'tw.playlistSets', 'tw.playlistCur', 'tw.secretRoomMusic', 'tw.annivView',", '죽은 플레이리스트 이름을 표에 되살림'],
   ['STORE', "'tw.playlistCur', 'tw.secretRoomMusic', 'tw.annivView',", "'tw.playlistCur', 'tw.secretRoomMusic',", '기념일 보기 키를 분류에서 뺌'],
   ['STORE', "if(have !== null) res.kept.push(k);", "if(false) res.kept.push(k);", '계정 칸 값을 덮어씀'],
+  ['STORE', "'tw.charColorHistory', 'tw.activeInteractionDesk']);", "'tw.activeInteractionDesk']);", '최근 캐릭터 색이 옮긴 표에서 빠짐'],
+  ['STORE', "'tw.charColorHistory', 'tw.activeInteractionDesk']);", "'tw.charColorHistory']);", '상호작용 책상이 옮긴 표에서 빠짐'],
+  ['WARDROBE', "accountStore.get(CHAR_RECENT_KEY)", "localStorage.getItem(CHAR_RECENT_KEY)", '최근 캐릭터 색을 PC 칸에서 읽음'],
+  ['IDESK', "accountStore.set(ACTIVE_IDESK_KEY, id)", "localStorage.setItem(ACTIVE_IDESK_KEY, id)", '상호작용 책상을 PC 칸에 씀'],
   ['STORE', "const todo = MOVED_KEYS.filter(k => !done.includes(k));", "const todo = MOVED_KEYS.slice();", '두 번 돎'],
   ['STORE', "try{ storage.removeItem(k); }catch(_){}\n      }\n      handled.push(k);", "}\n      handled.push(k);", '옮기고 PC 칸을 안 지움'],
   ['STORE', "catch(_){ continue; }   // 못 쓰면 옛 칸을 지우지 않고 다음에 다시", "catch(_){}", '못 써도 옛 칸을 지움'],
-  ['STORE', "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", "'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", '옮긴 표에서 오늘 날짜 빠짐'],
-  ['STORE', "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", "'tw.focusTodayDate', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", '옮긴 표에서 뽀모도로 키 빠짐'],
-  ['STORE', "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", '옮긴 표에서 폰 연결 키 빠짐'],
+  ['STORE', "'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.pomo'", "'tw.focusTodaySec', 'tw.pomo'", '옮긴 표에서 오늘 날짜 빠짐'],
+  ['STORE', "'tw.pomo', 'tw.pomoRun', 'tw.mobileKey'", "'tw.mobileKey'", '옮긴 표에서 뽀모도로 키 빠짐'],
+  ['STORE', "'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2'", "'tw.pomoRun', 'tw.advZ.v2'", '옮긴 표에서 폰 연결 키 빠짐'],
   ['STORE', "'tw.focusPendingSec',", "", '못 올린 집중 시간 키가 계정별 표에서 빠짐'],
   ['STORE', "  'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.advZ.v2', 'tw.advZ.v1',\n", "  'tw.focusTotalSec', 'tw.focusSyncedSec', 'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.advZ.v2', 'tw.advZ.v1',\n", '걷은 옛 누적 키가 표에 되살아남'],
   ['TOTAL', "_day = _normDay(focusTotalStore.get(FOCUS_TODAY_DATE_KEY));", "_day = _normDay(localStorage.getItem(FOCUS_TODAY_DATE_KEY));", '오늘치를 다시 PC 칸에서 읽음'],
