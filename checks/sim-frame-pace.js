@@ -89,12 +89,12 @@ say('§4 연결');
   const code = stripC(APP);
   const pairs = depPairs(APP, 'framePaceMod', 'TwFramePace', 'createFramePace');
   const READ = ['_flyActive', 'creatorOpen'], FN = ['frame'];
-  const shape = (n, v) => n === 'setRunLowered' ? v === '(v)=>{ _runLowered = v; }' : READ.includes(n) ? v === '()=>' + n : FN.includes(n) ? v === '(...a)=>' + n + '(...a)' : v === n;
+  const shape = (n, v) => n === 'setRunLowered' ? v === '(v)=>{ _runLowered = v; }' : n === '_flyActive' ? v === '()=>flyChairMod._flyActive()' : READ.includes(n) ? v === '()=>' + n : FN.includes(n) ? v === '(...a)=>' + n + '(...a)' : v === n;
   chk(!!pairs && pairs.length === 8 && pairs.every(([n, v]) => shape(n, v)), '★ deps 8개 모양 — 읽는 함수 둘 · 함수 하나(frame) · 쓰는 함수 하나 · 값 넷');
   const bad = pairs ? pairs.map(([n, v]) => n === 'creatorOpen' ? [n, 'creatorOpen'] : [n, v]) : [];
   chk(!bad.every(([n, v]) => shape(n, v)), '  깨 보기: 읽는 함수를 값으로 넘기면 빨강');
   chk(['_FB', '_frameBudget', '_runSlowWatch', '_gpuTimer', '_frameJsStats', '_lowerRunQuality', '_uiHot', '_frameCap', '_frameCapped'].every(n => new RegExp('^const ' + n + ' = framePaceMod\\.' + n + ';', 'm').test(code)), '  옛 이름 아홉을 const 로 받는다');
-  chk(/framePaceMod\.setLastRafAt\(now\)/.test(code) && !/^\s*_lastRafAt\s*=/m.test(code), '  frame() 이 rAF 시각을 setLastRafAt 으로 알린다(직접 대입이 안 남음)');
+  chk(/framePaceMod\.setLastRafAt\(now\)/.test(stripC(read('launcher/frame-loop.js'))) && !/^\s*_lastRafAt\s*=/m.test(code), '  frame()(launcher/frame-loop.js)이 rAF 시각을 setLastRafAt 으로 알린다(직접 대입이 안 남음)');
   chk(!/function (_uiHot|_frameCap|_frameCapped|_fbIsBusy|_lowerRunQuality)\b/.test(code), '  본문이 app.js 에 안 남음');
 }
 say('§5 일부러 깨 보기');

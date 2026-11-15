@@ -22,7 +22,7 @@ const VAL_DEPS = ['runCost'];
 const GET_DEPS = ['_charBadWhy', '_charBoundsLatest', '_twMoveSeenAt'];
 const EXPORTS = [];
 const MOVED = ['_hbWinShown'];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ['  _charBadWhy: ()=>_charBadWhy,', '  _charBoundsLatest: ()=>_charBoundsLatest,', '  _twMoveSeenAt: ()=>_twMoveSeenAt,', '  otherSeatCircles: (...a)=>statusChipMod.otherSeatCircles(...a),', '  runCost: runCost,'];
+const GLUE = ['  _charBadWhy: ()=>moveModeMod._charBadWhy(),', '  _charBoundsLatest: ()=>moveModeMod._charBoundsLatest(),', '  _twMoveSeenAt: ()=>moveModeMod._twMoveSeenAt(),', '  otherSeatCircles: (...a)=>statusChipMod.otherSeatCircles(...a),', '  runCost: runCost,'];
 const MAKE = 'const heartbeatMod = TwHeartbeat.createHeartbeat({';
 
 /* 만들 때 건 것(구독 · 타이머)을 센다 — 타이머는 돌리지 않는다(돌려 보는 것은 sim-heartbeat-policy 2절) */
@@ -69,7 +69,7 @@ rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i =
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/launcher/heartbeat.js"></script>', '')],
-  ['deps 하나 빠짐', null, a => a.replace('\n  _twMoveSeenAt: ()=>_twMoveSeenAt,\n  otherSeatCircles', '\n  otherSeatCircles'), null],
+  ['deps 하나 빠짐', null, a => a.replace('\n  _twMoveSeenAt: ()=>moveModeMod._twMoveSeenAt(),\n  otherSeatCircles', '\n  otherSeatCircles'), null],
   ['전역 이름 안 걺', m => m.replace('window.TwHeartbeat = api;', ''), null, null],
   ['만들 때 던짐', m => m.replace('function createHeartbeat(deps){', 'function createHeartbeat(deps){ throw new Error("깨 봄");'), null, null],
   ['타이머 주기 바뀜', m => m.replace('}), 100);', '}), 1000);'), null, null],

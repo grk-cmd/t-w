@@ -12,7 +12,7 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const SRC = read('app.js'), HTML = read('desk-companion-prototype.html');
+const SRC = (read('app.js') || '') + '\n' + (['frame-loop.js', 'parts/launcher/frame-loop.js', 'app/parts/launcher/frame-loop.js'].map(read).find(Boolean) || ''), HTML = read('desk-companion-prototype.html');
 if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
 const MOD = ["seat-eq-clamp.js","parts/character/seat-eq-clamp.js","app/parts/character/seat-eq-clamp.js"].map(read).find(Boolean);
 if(!MOD){ say('  ? 원본 못 찾음 — seat-eq-clamp.js'); process.exit(2); }

@@ -14,7 +14,8 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'parts/shared/' + f, 'parts/room/' + f, 'parts/launcher/' + f, 'app/' + f, 'app/parts/' + f, 'app/parts/shared/' + f, 'app/parts/room/' + f, 'app/parts/launcher/' + f, 'checks/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const MOD = read('run-cost-diag.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html'), SMOKE = read('smoke.js');
+const FLR = (() => { for(const c of ['frame-loop.js', 'parts/launcher/frame-loop.js', 'app/parts/launcher/frame-loop.js']) { const t = read(c); if(t) return t; } return ''; })();   // frame() 은 launcher/frame-loop.js(M17)
+const MOD = read('run-cost-diag.js'), APP = (read('app.js') || '') + '\n' + FLR, HTML = read('desk-companion-prototype.html'), SMOKE = read('smoke.js');
 const APPJ = APP && require('./sim-renderer-src.js').joinRenderer(APP);   // 하트비트 · 1분 진단 줄은 모듈(heartbeat.js · run-diag-minute.js)로 옮겼다 — «옮기기 전 app.js 글» 로 되살려 읽는다(판정 무변경)
 const RUN = read('desktop-run.js'), ENTRY = read('room-entry.js'), NET = read('room-server-net.js'), FBI = read('firebase-init.js');
 if (!MOD || !APP || !HTML || !SMOKE || !RUN || !ENTRY || !NET || !FBI) { say('  ? 원본 못 찾음 — run-cost-diag.js · app.js · html · smoke.js · desktop-run.js · room-entry.js · room-server-net.js · firebase-init.js'); process.exit(2); }
@@ -146,7 +147,7 @@ chk(iM > 0 && iA > iM && HTML.includes('<script type="module" src="parts/firebas
 chk(/PRELOAD\.push\('run-cost-diag\.js'\)/.test(SMOKE), 'smoke PRELOAD 에 run-cost-diag.js');
 chk(/const runCost = TwRunCostDiag\.page;/.test(APP) && /setInterval\(runCost\.timed\('hb', \(\)=>\{[\s\S]{0,2500}?companion\.setCharBounds\([\s\S]{0,1500}?\}\), 100\);/.test(APPJ), '하트비트(100ms)를 통째로 잰다');
 chk(/const _tSeat = performance\.now\(\);\s*seats\.forEach\(/.test(APP) && /runCost\.since\('seat', _tSeat\)/.test(APP), '좌석 반복을 잰다');
-chk(/const _tDraw = performance\.now\(\);\s*if\(!officeModeMod\._officeHidden\(\)[^\n]*renderer\.render\(scene,camera\)[^\n]*\n\s*runCost\.since\('render', _tDraw\);/.test(APP), '그리기를 잰다');
+chk(/const _tDraw = performance\.now\(\);\s*if\(!officeModeMod\(\)\._officeHidden\(\)[^\n]*renderer\.render\(scene,camera\)[^\n]*\n\s*runCost\.since\('render', _tDraw\);/.test(APP), '그리기를 잰다');
 chk(/runCost\.since\('frame', _frameT0\)/.test(APP), '한 장 전체를 잰다');
 const iTake = APPJ.indexOf('run = runCost.take()'), iRun = APPJ.indexOf("if(!document.body.classList.contains('runmode')) return;", APPJ.indexOf('takeMinute(t)'));
 const iLine = APPJ.indexOf('companion.diagNote(TwRunCostDiag.line(run, TwRunCostDiag.countSeats(seats, _bodyHidden), TwRunCostDiag.roomKind(Presence.roomCode(), window._activeChannel, !!Presence.serverProvider())))');

@@ -446,64 +446,24 @@ function _collapseRideTower(bottomSeat, now){
   }catch(e){ console.warn('[묘기] 와해 처리 실패', e); }
 }
 /* 🎪 탑마다 sleep 인원을 세어 흔들림/와해를 판정한다. */
-/* ═══════════════════════════ 🪑 플라잉체어 ═══════════════════════════
-   💣 를 누르면 캐릭터가 자리에서 튀어나가 화면 가장자리에 튕기다 돌아온다.
-
-   ★ 의자·책상은 자리에 남고 **캐릭터(rig)만** 날아간다.
-     seat.group 에는 책상(desk)과 캐릭터(rig)가 함께 들어 있다. group 을 옮기면 책상까지
-     따라가고, layoutSeats 가 잡아 둔 자리(targetX)와도 싸우게 된다. 그래서 rig 만 건드린다.
-     — 흔들기(beingShaken)가 이미 같은 방식이다.
-
-   ★ 벽 판정은 **화면 좌표(NDC)** 로 한다. 월드 좌표로 경계를 잡으면 카메라 줌이 인원수마다
-     달라지므로(applyCameraAndCanvas) 2명일 때와 8명일 때 튕기는 자리가 달라진다.
-     매 프레임 캐릭터를 카메라에 투영해서 화면 밖으로 나가려 할 때만 속도를 뒤집는다.
-
-   ★ 아래 경계(yLo)만 시작 위치 기준으로 잡는다. 위·좌·우는 화면 끝이지만 아래로는 책상 줄이
-     있어서, 화면 끝까지 내려가면 남의 책상을 뚫고 지나간다.
-
-   ★ 궤적은 **시드 하나로 정해진다.** 지금은 내 화면에서만 도는 로컬 기능이지만, 남에게
-     전파할 때 {from,to,seed} 만 실어 보내면 모든 화면이 같은 궤적을 그린다.
-     ⚠️ 그래서 이 안에서 Math.random() 을 부르면 안 된다 — 반드시 _flyRng(seed) 를 쓸 것.
-
-   ⚠️ 이름표·경험치 바는 seat.group 기준으로 찍히므로 **책상 자리에 그대로 남는다.**
-     흔들기도 같은 동작이라 일부러 맞춰 뒀다. 캐릭터를 따라가게 하려면 setSeatNamePlate 의
-     기준을 group → rig 로 바꿔야 하는데, 그건 흔들기·올라타기 표시까지 같이 바뀌는 변경이다. */
-const FLY_MS        = 10000;   // 비행 시간(ms)
-const FLY_SPEED     = 9.5;     // 기준 속도(월드 단위/초). 좌석 하나가 대략 1.7 단위다
-const FLY_SPEED_VAR = 0.2;     // 개체차 ±20% — 시드에서 뽑는다(Math.random 아님)
-/* 발사 각도(수평에서 잰 도) — **사선 대역만** 쓴다.
-   위쪽 반원 전체에서 뽑으면 90°에 가까운 각이 섞여 "위로 솟았다 그대로 내려오는" 판이 나오고,
-   0°에 가까운 각은 옆으로만 미끄러진다. 둘 다 튕기는 맛이 없어서 가운데 대역만 남겼다. */
-const FLY_ANG_MIN   = 32;
-const FLY_ANG_MAX   = 58;
-const FLY_SPIN      = 3.2;     // 회전 속도(라디안/초)
-const FLY_EDGE_X    = 0.90;    // 좌우 벽(NDC)
-const FLY_EDGE_TOP  = 0.90;    // 위 벽(NDC)
-const FLY_DROP      = 0.18;    // 아래 벽 = 시작 지점보다 이만큼만 아래(NDC). 책상 줄을 안 뚫게
-const FLY_RETURN_MS = 450;     // 자리로 돌아오는 시간
-const FLY_DIZZY_MS  = 2500;    // 착지 후 어지러움 — 흔들기 dizzy 와 같은 값
-/* 🎯 남을 날리기 — 해금·연속·쉬는 시간
-   ★ 연속 횟수를 세는 것은 **맞는 쪽**이다. 던지는 쪽에서 세면 B·C·D 가 각각 따로 세어
-     "방 인원이 A 를 연속 3번" 이라는 규칙 자체가 성립하지 않는다.
-   ⚠️ FLY_STREAK_MS('연속'이 무엇으로 끊기는가)는 **아직 확정된 규칙이 아니다.** 지금은
-     시간으로만 끊는다. "다른 사람이 맞으면 초기화" 안은 넣지 않았다 — 그러려면 방 전원의
-     피격을 각자가 알아야 해서 전파가 한 겹 더 늘어난다. 30초를 써 보고 정할 것. */
-const FLY_MIN_LEVEL = 100;     // 💣 해금 레벨 (포커싱 어플로 쌓은 레벨)
-const FLY_STREAK    = 3;       // 이만큼 연속으로 맞으면 쉬어간다
-const FLY_STREAK_MS = 30000;   // 마지막 피격 후 이 시간이 지나면 연속이 끊긴다
-const FLY_COOL_MS   = 60000;   // 쉬는 시간 — 이 동안은 표적이 되지 않는다
-
-/* 시드 난수(mulberry32) — 같은 시드면 언제 어디서 돌려도 같은 수열 */
-function _flyRng(seed){
-  let a = seed >>> 0;
-  return function(){
-    a |= 0; a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-function flySeed(){ return (Math.random() * 0xFFFFFFFF) >>> 0; }
+/* 본문은 room/flying-chair.js 로 옮겼다(앱 FSD · app.js 분리 M18). 비행 상수 · canFly · startFlight · _flyActive 의 주인이다. 뒤에서 선언되는 값은 함수로 넘긴다. */
+const flyChairMod = TwFlyingChair.createFlyingChair({
+  seats: seats,
+  toast: (...a)=>toast(...a),
+});
+const FLY_MS = flyChairMod.FLY_MS;   // 옛 전역 이름
+const FLY_EDGE_X = flyChairMod.FLY_EDGE_X;   // 옛 전역 이름
+const FLY_EDGE_TOP = flyChairMod.FLY_EDGE_TOP;   // 옛 전역 이름
+const FLY_DROP = flyChairMod.FLY_DROP;   // 옛 전역 이름
+const FLY_RETURN_MS = flyChairMod.FLY_RETURN_MS;   // 옛 전역 이름
+const FLY_DIZZY_MS = flyChairMod.FLY_DIZZY_MS;   // 옛 전역 이름
+const FLY_MIN_LEVEL = flyChairMod.FLY_MIN_LEVEL;   // 옛 전역 이름
+const FLY_STREAK = flyChairMod.FLY_STREAK;   // 옛 전역 이름
+const FLY_STREAK_MS = flyChairMod.FLY_STREAK_MS;   // 옛 전역 이름
+const FLY_COOL_MS = flyChairMod.FLY_COOL_MS;   // 옛 전역 이름
+const flySeed = flyChairMod.flySeed;   // 옛 전역 이름
+const canFly = flyChairMod.canFly;   // 옛 전역 이름
+const startFlight = flyChairMod.startFlight;   // 옛 전역 이름
 
 /* ═══ 🙈 워킹룸 캐릭터 숨기기 (2026-09-23 · handoff-2026-09-21-features §5) ═══════════════════
    상대 캐릭터 우클릭 → «🙈 숨기기». **내 화면에서만 · 그 방에 있는 동안만 · 워킹룸(채널 1)에서만.**
@@ -518,15 +478,10 @@ function flySeed(){ return (Math.random() * 0xFFFFFFFF) >>> 0; }
 /* 본문은 hidden-seats.js 로 옮겼다(앱 FSD 43번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const hiddenSeatsMod = TwHiddenSeats.createHiddenSeats({
-  _flyActive: ()=>_flyActive,
+  _flyActive: ()=>flyChairMod._flyActive(),
   seatFromObject: (...a)=>seatFromObject(...a),
   seats: seats,
 });
-/* 지금 날고 있는 좌석 수. frame() 의 비포커스 프레임 상한(FrameBudget.FPS_UNFOCUSED)을 비행 동안만
-   비켜 가는 데 쓴다 — 20fps 로는 빠르게 튕기는 움직임이 뚝뚝 끊겨 보인다.
-   ★ seats 를 매 프레임 훑지 않고 세어 두는 이유: 이 값은 상한 검사보다 **먼저** 읽히고,
-     그 검사는 rAF 가 올 때마다(초 60회) 돈다. */
-let _flyActive = 0;
 
 
 /* ═══ 🛰 poke 신선도 ═══════════════════════════════════════════════════
@@ -564,53 +519,6 @@ const roomSyncMod = TwRoomSync.createRoomSync({
   toast: (...a)=>toast(...a),
   diagNote: (...a)=>{ if(window.companion && companion.diagNote) companion.diagNote(...a); },   // 브라우저 미리보기 · 검사엔 companion 이 없다
 });
-/* 지금 이 좌석을 날릴 수 있는가. 여기서 걸러지는 것이 곧 규칙이다.
-   ★ 막는 이유가 전부 "그 좌석의 위치를 이미 다른 코드가 매 프레임 정하고 있다"는 것이다.
-     올라타기(_updateRideChains)·벤치·흔들기가 그렇다. 둘이 같이 돌면 캐릭터가 두 좌표
-     사이에서 떨린다. */
-/* 🗼 allowTower — [2026-09-23 요청 · A안] 룰렛·🎲 로 **나를** 날릴 때는 탑 안에 있어도 된다.
-   날리기 **직전에** 탑에서 뺀다(_rideLeaveTower · applyRemoteFly). 탑 계산과 비행이 같이 도는 일은 여전히 없다.
-   ★ 💣(남을 겨눔)은 지금처럼 막는다 — 표적 판정(_flyTargetCheck)은 이 인자를 안 넘긴다. */
-function canFly(seat, allowTower){
-  if(!seat)                                    return {ok:false, why:'좌석이 없어요'};
-  if(seat.fly)                                 return {ok:false, why:'이미 날아가는 중이에요'};
-  if(seat.isPlaceholder)                       return {ok:false, why:'아직 캐릭터가 없어요'};
-  if(seat.inPreview)                           return {ok:false, why:'미리보기 중에는 안 돼요'};
-  if(seat.beingShaken || seat.pinned)          return {ok:false, why:'지금은 날릴 수 없어요'};
-  if(!allowTower && (seat.ridingOn || seats.some(s=>s.ridingOn===seat)))
-                                               return {ok:false, why:'올라타 있는 동안에는 못 날아가요'};
-  if(seat.seatedOn || seat._benchOwnerSit)     return {ok:false, why:'벤치에 앉아 있을 땐 못 날아가요'};
-  return {ok:true};
-}
-
-/* 날리기 시작. seed 를 안 주면 새로 뽑는다(전파할 때는 뽑은 값을 같이 실어 보낼 것).
-   quiet=true 면 실패해도 토스트를 안 띄운다 — 남의 화면에서 재생하는 경로에서 쓴다.
-   (던진 사람의 화면에도 같은 방송이 돌아오는데, 거기서 "이미 날아가는 중" 토스트가 뜨면 곤란하다) */
-function startFlight(seat, seed, quiet){
-  const c = canFly(seat);
-  if(!c.ok){ if(!quiet) toast(c.why); return false; }
-  seed = (seed == null) ? flySeed() : (seed >>> 0);
-  const r = _flyRng(seed);
-  /* 방향만 무작위이고 **속력은 항상 spd** 다.
-     예전엔 전방위에서 각도를 뽑고 위로 뜨는 힘을 따로 더했는데, 아래로 뽑힌 각도에서 두 항이
-     서로 상쇄돼 실제 속력이 절반 이하로 떨어졌다 — 어떤 판은 휙 날고 어떤 판은 굼떴다. */
-  const side = (r() < 0.5) ? -1 : 1;                                     // 왼쪽/오른쪽
-  const deg  = FLY_ANG_MIN + r() * (FLY_ANG_MAX - FLY_ANG_MIN);          // 수평에서 잰 올라가는 각
-  const ang  = deg * Math.PI / 180;
-  const spd  = FLY_SPEED * (1 - FLY_SPEED_VAR + r() * FLY_SPEED_VAR * 2);
-  seat.fly = {
-    seed, t0: performance.now(), dur: FLY_MS, phase: 'air',
-    x: 0, y: 0,
-    vx: side * Math.cos(ang) * spd,
-    vy: Math.sin(ang) * spd,                     // 대역이 위쪽이라 언제나 양수
-    spin: (r() < 0.5 ? -1 : 1) * FLY_SPIN * (0.7 + r() * 0.6),
-    yLo: null,                                   // 아래 경계 — 첫 프레임에 시작 위치를 재서 정한다
-    probeY: null,                                // 몸통 중심 높이 — 첫 프레임에 실측
-    fromX: 0, fromY: 0, backAt: 0
-  };
-  _flyActive++;
-  return true;
-}
 
 
 /* ═══ 💃💥 깜짝쇼 ═══════════════════════════════════════════════════
@@ -650,7 +558,7 @@ const tricksMod = TwTricks.createTricks({
   FLY_STREAK_MS: FLY_STREAK_MS,
   Presence: ()=>Presence,
   _bonkSnd: ()=>sfxMod._bonkSnd,
-  _flyActive: ()=>_flyActive,
+  _flyActive: ()=>flyChairMod._flyActive(),
   _hitsSkipHidden: (...a)=>hiddenSeatsMod._hitsSkipHidden(...a),
   _premiumOn: (...a)=>_premiumOn(...a),
   _rideIsAbove: (...a)=>rideBenchMod._rideIsAbove(...a),
@@ -679,7 +587,7 @@ const tricksMod = TwTricks.createTricks({
   spawnFloater: (...a)=>floatersMod.spawnFloater(...a),
   startFlight: (...a)=>startFlight(...a),
   toast: (...a)=>toast(...a),
-  setFlyActive: (v)=>{ _flyActive = v; },
+  setFlyActive: (v)=>{ flyChairMod.setFlyActive(v); },
 });
 
 /* ═══ 🔊 효과음 공장(_mkSndPool) — 때리기 · 클릭음 · 채팅 · 뽀모도로 알림음 풀 ═══ */
@@ -980,13 +888,13 @@ const statusChipMod = TwStatusChip.createStatusChip({
   CUSTOM_STATUS_MAXLEN: userStatusTableMod.CUSTOM_STATUS_MAXLEN,
   Presence: ()=>Presence,
   _CHIP_POPUPS: chipPopupsMod._CHIP_POPUPS,
-  _charBadWhy: ()=>_charBadWhy,
-  _charBoundsLatest: ()=>_charBoundsLatest,
+  _charBadWhy: ()=>moveModeMod._charBadWhy(),
+  _charBoundsLatest: ()=>moveModeMod._charBoundsLatest(),
   _charProjSane: (...a)=>_charProjSane(...a),
   _closeChipPopups: (...a)=>chipPopupsMod._closeChipPopups(...a),
   _danceCmdCooldownAt: ()=>iDeskMod._danceCmdCooldownAt(),
   _lowestDanceReq: (...a)=>iDeskMod._lowestDanceReq(...a),
-  _moveModeJustToggled: ()=>_moveModeJustToggled,
+  _moveModeJustToggled: ()=>moveModeMod._moveModeJustToggled(),
   _officeHidden: ()=>officeModeMod._officeHidden(),
   _pickUnlockedDance: (...a)=>iDeskMod._pickUnlockedDance(...a),
   _premiumOn: (...a)=>_premiumOn(...a),
@@ -997,7 +905,7 @@ const statusChipMod = TwStatusChip.createStatusChip({
   clickPolicy: TwClickThroughPolicy,
   customStatusConf: ()=>userStatusTableMod.customStatusConf(),
   measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
-  moveMode: ()=>moveMode,
+  moveMode: ()=>moveModeMod.moveMode(),
   overheadMod: ()=>overheadMod,
   renderer: renderer,
   rideBenchMod: rideBenchMod,
@@ -1007,11 +915,11 @@ const statusChipMod = TwStatusChip.createStatusChip({
   startMyDance: (...a)=>iDeskMod.startMyDance(...a),
   toast: (...a)=>toast(...a),
   userStatus: ()=>userStatusMod.userStatus(),
-  setCharBadWhy: (v)=>{ _charBadWhy = v; },
-  setCharBoundsLatest: (v)=>{ _charBoundsLatest = v; },
+  setCharBadWhy: (v)=>{ moveModeMod.setCharBadWhy(v); },
+  setCharBoundsLatest: (v)=>{ moveModeMod.setCharBoundsLatest(v); },
   setDanceCmdCooldownAt: (v)=>{ iDeskMod.setDanceCmdCooldownAt(v); },
-  setMoveModeJustToggled: (v)=>{ _moveModeJustToggled = v; },
-  setMoveMode: (v)=>{ moveMode = v; },
+  setMoveModeJustToggled: (v)=>{ moveModeMod.setMoveModeJustToggled(v); },
+  setMoveMode: (v)=>{ moveModeMod.setMoveMode(v); },
 });
 /* 저장된 상태 · 커스텀 상태 불러오기 → 칩 첫 그리기 → 이 모니터 캐릭터 크기 복원.
    ⚠️ statusChipMod 를 만든 **뒤**에 부른다 — 모듈 안에서 부르면 refreshMyStatusUI 가 아직 없는 statusChipMod 를 읽어
@@ -1096,62 +1004,27 @@ TwBgmDiag.createBgmDiag({ companion: window.companion });   // 🔍 플레이리
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const lvTierMod = TwLvTier.createLvTier({
 });
-/* ═══ 🩺 렌더러 생존 신호 · 캐릭터 화면 좌표 ═══ */
-// ── 스마트 감지용 throttle timestamp (companion.setCharBounds 호출 제한) ──
-//   초당 60번 IPC보다 100ms 간격이 훨씬 가볍고, 판정 정확도는 그대로 유지됨(사람 마우스 이동 속도 대비 충분).
-/* ── 🩺 렌더러 생존 신호 (main.js '클릭 고착 안전장치'가 이걸 본다) ─────────────────
-   main은 companion.setCharBounds 가 4초 끊기면 "렌더러가 멈췄다"고 판단해 클릭을 통과로
-   **강제 전환**한다(main.js _guardStuckClickCapture).
-
-   [문제] 그 신호를 updateMyStatusChipPosition 안에서 보내고 있었는데, 그 함수는
-     ・내 좌석이 아직 없거나(!me — 방 입장/좌석 재구성 순간)
-     ・런처/생성기/프로그램 이동 중
-   이면 맨 위에서 return 한다. 그래서 **렌더러가 멀쩡히 살아 있는데도** 신호가 끊기고,
-   4초 뒤 통과로 전환된다. 커서를 캐릭터에 올려 겨우 되돌려도 또 4초 뒤에 같은 일이 반복된다
-   — 제보된 "조금 조작하고 나면 금방 다시 클릭이 뒤로 뚫린다"의 형태가 정확히 이것이다.
-   (창은 포커스를 못 얻으므로 focus 이벤트 복구 통로도 안 열린다)
-
-   [대응] 신호를 rAF 루프에서 떼어내 타이머로 옮긴다. 이제 이 신호의 의미는
-   "캐릭터가 그려지고 있는가"가 아니라 "렌더러의 이벤트 루프가 살아 있는가"이며,
-   그게 원래 안전장치가 알고 싶어 하던 것이다.
-   ⚠️ 좌표는 마지막으로 계산된 값을 그대로 재사용한다(펜 근접 판정 정확도는 그대로).
-     캐릭터가 없으면 화면 밖 좌표 + 반경 0 으로 보내 근접 판정에는 절대 안 걸리게 한다. */
-let _charBoundsLatest = null;
-/* 🧭 [2026-09-01] 위 값이 못 믿을 상태일 때의 이유 한 줄 (하트비트에 얹어 main 진단 기록으로 보낸다).
-   null 이면 정상. 문자열은 구간이 시작될 때 한 번만 만든다 — 만드는 자리는 updateMyStatusChipPosition. */
-let _charBadWhy = null;
-/* 투영 결과가 쓸 만한가. run 오버레이는 화면을 통째로 덮으므로, 내 캐릭터가 화면 한 장 밖으로
-   나가 있다는 값은 클릭 통과 판정에 쓸 수 없는 값이다(그 자리에 클릭할 방법이 없다).
-   ⚠️ 여기서 걸러진 값은 '보류'가 되지 그 자체로 고쳐지지는 않는다. 화면 안이면서 틀린 값은
-     이 문지기를 그냥 통과한다 — 문지기는 폭주만 막는다. */
-function _charProjSane(x, y, h){
-  if(!isFinite(x) || !isFinite(y) || !isFinite(h)) return false;
-  const mw = Math.max(1, innerWidth), mh = Math.max(1, innerHeight);
-  if(h > mh * 2) return false;                     // 화면 두 장보다 큰 캐릭터는 없다
-  return x > -mw && x < mw * 2 && y > -mh && y < mh * 2;
-}
-/* 🩺 mousemove 도착 시각(벽시계). 아래 하트비트에 실어 main 으로 보낸다.
-   [왜 필요한가] main 의 기존 생존 신호(_lastCharBoundsAt)는 **이벤트 루프가 살아 있는가**만 말해준다.
-     그런데 실제 사고는 "렌더러는 멀쩡한데 mousemove 만 안 오는" 형태로 난다 —
-     Electron 의 forward 전달이 Windows 에서 끊기는 확인된 상류 버그가 있다
-     (electron#30808 · #33281). 그러면 마지막 판정값이 그대로 굳는데, 그 값이 하필
-     '클릭 받는 중'이면 전체화면 투명 오버레이가 계속 클릭을 가로챈다.
-   ⚠️ 아래 _noteChannelAlive() 가 이 값을 갱신한다. 그쪽을 지우면 이 신호도 같이 죽는다. */
-let _twMoveSeenAt = 0;
+/* 본문은 launcher/move-mode.js 로 옮겼다(앱 FSD · app.js 분리 M19). 이동 모드 깃발 · 캐릭터 화면 좌표 값의 주인이다 — 듣기가 예전과 같은 때 걸린다. 다시 대입되는 값은 읽는 · 쓰는 함수로 다룬다. */
+const moveModeMod = TwMoveMode.createMoveMode({
+  charPlaceMod: charPlaceMod,
+  clampDeskPan: clampDeskPan,
+  layoutSeats: (...a)=>layoutSeats(...a),
+  saveCharPos: saveCharPos,
+  statusChipMod: statusChipMod,
+  toast: (...a)=>toast(...a),
+});
+const _charProjSane = moveModeMod._charProjSane;   // 옛 전역 이름
 const runCost = TwRunCostDiag.page;   // 🩺 1분 [비용] 줄 — 그리기 밖 시간(shared/run-cost-diag.js)
 /* 본문(창 보임 구독 · 100ms 타이머)은 launcher/heartbeat.js 로 옮겼다 — 만들 때 한 번 돈다. */
 const heartbeatMod = TwHeartbeat.createHeartbeat({
-  _charBadWhy: ()=>_charBadWhy,
-  _charBoundsLatest: ()=>_charBoundsLatest,
-  _twMoveSeenAt: ()=>_twMoveSeenAt,
+  _charBadWhy: ()=>moveModeMod._charBadWhy(),
+  _charBoundsLatest: ()=>moveModeMod._charBoundsLatest(),
+  _twMoveSeenAt: ()=>moveModeMod._twMoveSeenAt(),
   otherSeatCircles: (...a)=>statusChipMod.otherSeatCircles(...a),
   runCost: runCost,
 });
 /* ═══ ⚙ 설정 패널 — 포커싱 어플 · 화면 표시 · 캐릭터 크기 · 탭 · 광고 배너 ═══ */
 /* ⚙ 설정 패널 — 포커싱 어플 슬롯 / 캐릭터 크기 / 프로그램 이동 */
-let moveMode=false;   // "프로그램 이동" 진행 중 여부 (true면 캐릭터가 마우스를 따라다니다 클릭으로 확정)
-let _suppressNextContextMenu=false;   // 이동 모드를 우클릭으로 확정한 직후, 뒤이어 뜨는 contextmenu 1회를 무시하기 위한 플래그
-let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMode가 시작점을 새로 잡게 함
 /* 본문은 settings-panel.js 로 옮겼다(앱 FSD 27번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const settingsMod = TwSettingsPanel.createSettingsPanel({
@@ -1162,7 +1035,7 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   Presence: ()=>Presence,
   SPACING: ()=>seatsMod.SPACING(),
   _chatEsc: (...a)=>_chatEsc(...a),
-  _moveModeJustToggled: ()=>_moveModeJustToggled,
+  _moveModeJustToggled: ()=>moveModeMod._moveModeJustToggled(),
   _updateRoomCountUI: (...a)=>roomEntryMod._updateRoomCountUI(...a),
   allDeskItems: (...a)=>deskItemsMod.allDeskItems(...a),
   applyCharToSeat: (...a)=>applyCharToSeat(...a),
@@ -1183,7 +1056,7 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   focusCharScale: ()=>charPlaceMod.focusCharScale(),
   isPremium: ()=>isPremium,
   layoutSeats: (...a)=>layoutSeats(...a),
-  moveMode: ()=>moveMode,
+  moveMode: ()=>moveModeMod.moveMode(),
   nameplateEnabled: ()=>overheadMod.nameplateEnabled(),
   plMod: plMod,
   refreshCharScaleForCurrentDisplay: (...a)=>refreshCharScaleForCurrentDisplay(...a),
@@ -1204,14 +1077,14 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   wardrobeMod: ()=>wardrobeMod,
   setMULTIPLAYER_SPACING: (v)=>{ seatsMod.setMULTIPLAYER_SPACING(v); },
   setSPACING: (v)=>{ seatsMod.setSPACING(v); },
-  setMoveModeJustToggled: (v)=>{ _moveModeJustToggled = v; },
+  setMoveModeJustToggled: (v)=>{ moveModeMod.setMoveModeJustToggled(v); },
   setChipHorizontal: (v)=>{ overheadMod.setChipHorizontal(v); },
   setCurSlot: (v)=>{ curSlot = v; },
   setDecoPartsVisible: (v)=>{ decoPartsMod.setDecoPartsVisible(v); },
   setDotRenderEnabled: (v)=>{ dotRenderEnabled = v; },
   setEmojiReactionsEnabled: (v)=>{ floatersMod.setEmojiReactionsEnabled(v); },
   setFocusCharScale: (v)=>{ charPlaceMod.setFocusCharScale(v); },
-  setMoveMode: (v)=>{ moveMode = v; },
+  setMoveMode: (v)=>{ moveModeMod.setMoveMode(v); },
   setNameplateEnabled: (v)=>{ overheadMod.setNameplateEnabled(v); },
   setRoomSeatMode: (v)=>{ roomSeatMode = v; },
   setSeatEqualizeOn: (v)=>{ seatEqMod.setSeatEqualizeOn(v); },
@@ -1233,47 +1106,6 @@ const focusLog = TwFocusLog.createFocusLog({
   focusSessionSec: ()=>focusTotalMod._focusSessionSec(),
   figureMode: ()=>officeModeMod.figureMode(),
 });
-/* ═══ ✥ 프로그램 이동 모드 ═══ */
-/* 프로그램 이동 모드 — 마우스를 따라 화면 전체(카메라 pan)가 이동, 클릭하면 확정.
-   카메라 각도는 고정한 채 평행이동만 하므로 앵글이 안 흔들리고, 상태칩도 camera 기준 재계산이라 정확히 따라옴.
-   deskPanX/Y는 화면 비율(단위 없음) — 마우스 이동 픽셀 ÷ 창 크기. 실행 화면 캔버스 = 창 크기라 월드 환산 없이 1:1 로 따라온다. */
-(function bindMoveMode(){
-  let startClientX=0, startClientY=0, startPanX=0, startPanY=0;
-  let _moveStarted=false;
-  window.addEventListener('mousemove', e=>{
-    if(!moveMode) return;
-    if(!_moveStarted || _moveModeJustToggled){
-      _moveStarted=true; _moveModeJustToggled=false;
-      startClientX=e.clientX; startClientY=e.clientY; startPanX=charPlaceMod.deskPanX(); startPanY=charPlaceMod.deskPanY();
-      return;
-    }
-    const dxPix = e.clientX - startClientX, dyPix = e.clientY - startClientY;
-    // 픽셀 이동량을 캔버스 크기 대비 "비율"로 변환 — 캐릭터 크기(focusCharScale)가 바뀌어도 위치 비율이 안 틀어짐.
-    // run 모드는 canvasW===innerWidth, canvasH===innerHeight. 마우스 오른쪽/아래 → 캐릭터도 화면상 오른쪽/아래로 보이게 부호 반전.
-    let nx = startPanX - dxPix/Math.max(1, innerWidth);
-    let ny = startPanY + dyPix/Math.max(1, innerHeight);
-    const _clamped = clampDeskPan(nx, ny);
-    charPlaceMod.setDeskPanX(_clamped.x);
-    charPlaceMod.setDeskPanY(_clamped.y);
-    layoutSeats();
-    statusChipMod.updateMyStatusChipPosition();   // 렌더 루프(frame) 대기 없이 즉시 갱신 — 도트렌더 등으로 프레임이 느려져도 상태칩은 안 밀리게
-  });
-  window.addEventListener('pointerdown', e=>{
-    if(!moveMode) return;
-    moveMode=false; _moveStarted=false;
-    const moveBtn=document.getElementById('fsMoveBtn'); const moveHint=document.getElementById('fsMoveHint');
-    if(moveBtn){ moveBtn.classList.remove('active'); moveBtn.textContent='프로그램 이동'; }
-    if(moveHint) moveHint.style.display='none';
-    const myMove=document.getElementById('myMoveBtn'); if(myMove) myMove.classList.remove('on');   // 상태칩의 이동 버튼 시각적 활성 해제
-    // 우클릭으로 확정한 경우, 바로 뒤이어 뜨는 contextmenu 이벤트가 캐릭터 우클릭 동작(런처 이동 등)으로
-    // 이어지지 않게 한 번 억제 — 안 그러면 확정 클릭이 그 자리의 캐릭터를 우클릭한 걸로도 처리돼버림.
-    if(e.button===2) _suppressNextContextMenu = true;
-    saveCharPos();   // ★ 껐다 켜도 유지되게 위치 확정 시 저장
-    statusChipMod.updateMyStatusChipPosition();   // 상태칩 즉시 재표시
-    toast('위치가 확정됐어요');
-  }, true);   // capture: 클릭통과 로직보다 먼저 잡아서 이동 확정
-  // 이동 시작 트리거는 moveBtn 클릭 시점(bindFocusSettings)에서 moveMode=true로 바뀌자마자 다음 mousemove에서 자동 시작됨
-})();
 
 /* ═══ ⌨️ 함수키 단축키(F1 ~ F4) ═══ */
 /* 본문은 fn-keys.js 로 옮겼다(앱 FSD 43번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
@@ -1719,7 +1551,7 @@ const myHomeUiMod = TwMyHomeUi.createMyHomeUi({
   myHomeOpen: ()=>myHomeOpen,
   myHomeSticker: ()=>myHomeSticker,
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
-  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
+  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers()(...a),
   toast: (...a)=>toast(...a),
   setMyHomeOpen: (v)=>{ myHomeOpen = v; },
   twNav: twNav,
@@ -1788,7 +1620,7 @@ const mhPageMod = TwMyHomePage.createMyHomePage({
   getMyUserId: (...a)=>getMyUserId(...a),
   mhStateMod: mhStateMod,
   myHomeUiMod: myHomeUiMod,
-  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
+  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers()(...a),
   richTextMod: richTextMod,
 });
 /* ═══ ✏️ 인앱 프롬프트(asyncPrompt) ═══ */
@@ -1803,108 +1635,15 @@ const mhStLayoutMod = TwMyHomeStickerLayout.createMyHomeStickerLayout({
   _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
   _myHomeData: ()=>mhStateMod._myHomeData(),
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
-  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
+  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers()(...a),
 });
-function renderMyHomeStickers(){
-  const zone=document.getElementById('mhStickerZone'); if(!zone) return;
-  // 스티커는 '마이홈' 탭에서만 표시 — 친구/스케줄러/버그제보 탭에서는 감춤
-  //   (예전엔 친구 탭만 숨겼는데, 스케줄러 탭에도 스티커가 따라오던 문제 수정)
-  const activeTab = document.querySelector('#myHomeTabs .mh-tab.on');
-  const onHomeTab = activeTab && activeTab.dataset.tab === 'home';
-  zone.classList.toggle('hidden', !onHomeTab);
-  if(!onHomeTab){ mhStLayoutMod._mhFitWindowSafe(); myHomeSticker.editEnd(); return; }
-
-  const data = mhStLayoutMod._mhStickersData();
-  const canEdit = mhStLayoutMod._mhCanEditStickers();
-  zone.innerHTML='';
-  TwMyHomeStickerRules.orderedIds(data).forEach(sid=>{   // 🎨 z 순서대로(뒤 → 앞) — 관리 창 ▲▼
-    const s=data[sid];
-    const el=document.createElement('div'); el.className='mh-sticker';
-    if(canEdit && TwMyHomeStickerRules.isLocked(s)) el.classList.add('locked');   // 🔒 끌리지 않음 표시
-    const stSrc = s.img && TwSafeHtml.safeUrl(s.img, 'image');   // 친구 홈 구경에서는 남의 스티커 — 허용된 그림 주소만
-    if(s.img){ const im=document.createElement('img'); if(stSrc) im.src=stSrc; im.draggable=false; el.appendChild(im); }
-    else {
-      // ✨ 이모지도 애니메이션을 걸려면 안쪽 요소가 필요하다(바깥 div는 크기·회전이 이미 쓰고 있음).
-      const sp=document.createElement('span'); sp.className='st-emoji'; sp.textContent=s.emoji||'⭐';
-      el.appendChild(sp); el.classList.add('emoji');
-    }
-    if(s.anim) el.classList.add('a-'+s.anim);
-    if(s.animSpd) el.classList.add('spd-'+s.animSpd);
-    el.style.left=(s.x||0)+'px'; el.style.top=(s.y||0)+'px'; el.dataset.sid=sid;
-    // 새 스티커는 원본 비율(w/h)을 가짐. 옛 스티커는 w/h가 없으므로 CSS 기본(40×40 정사각) 유지.
-    if(s.w && s.h){
-      const baseW = Math.min(s.w, mhStLayoutMod.STICKER_BASE * 2.2);   // 화면상 기본 표시 폭(size=1일 때)
-      el.style.width  = baseW + 'px';
-      el.style.height = Math.round(baseW * (s.h / s.w)) + 'px';
-    }
-    const alpha = (typeof s.alpha==='number') ? Math.max(0, Math.min(1, s.alpha)) : 1;
-    const tf = mhStLayoutMod._mhStickerTransform(s);
-    if(tf) el.style.transform = tf;
-    if(alpha !== 1) el.style.opacity = String(alpha);
-
-    if(sid === mhStLayoutMod._mhStickerEditSid() && canEdit) el.classList.add('editing');
-
-    if(s.link){
-      el.classList.add('linked'); el.title = canEdit ? (s.link + '  (우클릭: 편집)') : s.link;
-      el.addEventListener('click', e=>{
-        if(e.target.classList.contains('mh-sticker-del')) return;
-        if(e.target.classList.contains('mh-sticker-anim')) return;
-        if(el.classList.contains('editing')) return;      // 편집 중엔 링크 안 엶
-        if(mhPageMod._mhStickerDragDist()>5) return;                  // 방금 드래그했으면 링크 안 엶
-        if(window.companion && companion.openBrowser) companion.openBrowser(s.link);
-        else window.open(s.link, '_blank');
-      });
-    } else if(canEdit){
-      el.title = '우클릭: 편집';
-    }
-
-    // 우클릭 → 편집모드 진입 (본인만)
-    el.addEventListener('contextmenu', e=>{
-      e.preventDefault(); e.stopPropagation();
-      if(!canEdit) return;
-      myHomeSticker.editStart(sid);
-    });
-
-    if(canEdit){
-      // 삭제 버튼 (편집모드에서만 보임)
-      const del=document.createElement('div'); del.className='mh-sticker-del'; del.textContent='×';
-      del.onclick=e=>{
-        e.stopPropagation();
-        delete mhStateMod._myHomeData().stickers[sid];
-        myHomeSticker.editEnd();
-        renderMyHomeStickers(); commitMyHomePage(true);
-      };
-      el.appendChild(del);
-
-      // ✨ 움직임 버튼 — 삭제(×) 옆. 더블클릭은 드래그 처리와 겹쳐 안 잡혀서 버튼 방식으로.
-      const anim=document.createElement('div'); anim.className='mh-sticker-anim'; anim.textContent='✨';
-      anim.title='움직임 고르기';
-      anim.onclick=e=>{ e.stopPropagation(); mhStLayoutMod._mhOpenStickerAnim(sid); };
-      el.appendChild(anim);
-
-      // 크기 조절 핸들 (편집모드에서만 보임)
-      const handle=document.createElement('div'); handle.className='mh-sticker-handle';
-      myHomeSticker.bindResize(handle, sid);
-      el.appendChild(handle);
-
-      // 회전 핸들 + 각도 라벨 + 회전 초기화 버튼
-      const rotLbl=document.createElement('div'); rotLbl.className='mh-sticker-rotlbl';
-      rotLbl.textContent = Math.round(s.rot||0) + '°';
-      el.appendChild(rotLbl);
-
-      const rot=document.createElement('div'); rot.className='mh-sticker-rot';
-      rot.title='드래그해서 회전 (3° 단위)';
-      myHomeSticker.bindRotate(rot, sid, rotLbl);
-      el.appendChild(rot);
-
-
-      // 드래그로 이동 (편집모드에서만)
-      myHomeSticker.bindDrag(el, sid);
-    }
-    zone.appendChild(el);
-  });
-  mhStLayoutMod._mhFitWindowSafe();   // 🎨 런처 마이홈이면 창 밖으로 나간 스티커만큼 창을 넓힌다
-}
+/* 본문은 myhome/myhome-sticker-render.js 로 옮겼다(앱 FSD · app.js 분리 M19). renderMyHomeStickers 는 마이홈 편집 묶음이 감싸 다시 대입하므로 읽는 · 쓰는 함수로 다룬다. */
+const stickerRenderMod = TwMyHomeStickerRender.createMyHomeStickerRender({
+  mhPageMod: mhPageMod,
+  mhStateMod: mhStateMod,
+  mhStLayoutMod: mhStLayoutMod,
+  myHomeSticker: ()=>myHomeSticker,
+});
 
 /* 🎨 스티커 관리 창 · 스티커 편집모드 · 드래그 · 회전 · 크기는 parts/myhome-sticker.js 로 옮겼다(앱 FSD 7번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(#stMgrClose · #stMgrBringAll 버튼 연결)이 예전과 같은 때 돈다.
@@ -1918,7 +1657,7 @@ const myHomeSticker = TwMyHomeSticker.createMyHomeSticker({
   toast: (...a)=>toast(...a),
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   commitMyHomePage: (...a)=>commitMyHomePage(...a),
-  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
+  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers()(...a),
   mhStickerOutOfView: (...a)=>mhStLayoutMod._mhStickerOutOfView(...a),
   mhClampStickerPos: (...a)=>mhStLayoutMod._mhClampStickerPos(...a),
   mhStickerDispSize: (...a)=>mhStLayoutMod._mhStickerDispSize(...a),
@@ -1957,9 +1696,9 @@ const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
   homeUploadCache: uploadCacheMod,
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
-  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
-  getRenderMyHomeStickers: ()=>renderMyHomeStickers,
-  setRenderMyHomeStickers: (f)=>{ renderMyHomeStickers = f; },
+  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers()(...a),
+  getRenderMyHomeStickers: ()=>stickerRenderMod.renderMyHomeStickers(),
+  setRenderMyHomeStickers: (f)=>{ stickerRenderMod.setRenderMyHomeStickers(f); },
   mhSaveRT: (...a)=>richTextMod._mhSaveRT(...a),
   mhUpdateRTCount: (...a)=>richTextMod._mhUpdateRTCount(...a),
   mhClampStickerPos: (...a)=>mhStLayoutMod._mhClampStickerPos(...a),
@@ -2437,9 +2176,9 @@ const seatPointerMod = TwSeatPointer.createSeatPointer({
   seatMenuMod: ()=>seatMenuMod,
   seatPanelMod: seatPanelMod,
   seats: seats,
-  setSuppressNextContextMenu: (v)=>{ _suppressNextContextMenu = v; },
+  setSuppressNextContextMenu: (v)=>{ moveModeMod.setSuppressNextContextMenu(v); },
   sfxMod: sfxMod,
-  suppressNextContextMenu: ()=>_suppressNextContextMenu,
+  suppressNextContextMenu: ()=>moveModeMod._suppressNextContextMenu(),
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
   triggerPet: triggerPet,
@@ -5037,11 +4776,10 @@ const setBone = rigAnimMod.setBone;   // 옛 전역 이름
 const animateRig = rigAnimMod.animateRig;   // 옛 전역 이름
 const setClip = rigAnimMod.setClip;   // 옛 전역 이름
 
-let prev=performance.now();
 /* 본문은 launcher/frame-pace.js 로 옮겼다(앱 FSD · app.js 분리 M16). 원래 자리인 여기서 만든다 — 타이머 · 포커스 듣기가 예전과 같은 때 걸린다.
    다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다. */
 const framePaceMod = TwFramePace.createFramePace({
-  _flyActive: ()=>_flyActive,
+  _flyActive: ()=>flyChairMod._flyActive(),
   setRunLowered: (v)=>{ _runLowered = v; },
   creatorOpen: ()=>creatorOpen,
   frame: (...a)=>frame(...a),
@@ -5098,265 +4836,61 @@ const runDiagMinuteMod = TwRunDiagMinute.createRunDiagMinute({
   scene: scene,
   seats: seats,
 });
-function frame(now, manual){
-  if(!manual) framePaceMod.setLastRafAt(now);   // 브라우저가 실제로 rAF를 불러준 시각(아래 감시 장치가 씀)
-  /* 상한(_frameCapped → FrameBudget) — 최대 60 · 포커스 있어도 손 안 대면 30 · 다른 창을 보는 중이면 20
-     ★ 🪑 플라잉체어가 도는 동안은 60 으로 올린다. 20fps 에서는 dt 가 프레임당 0.05초로
-       고정돼 빠르게 튕기는 캐릭터가 한 칸씩 순간이동하듯 끊겨 보인다(평소 앉아 있는 모션은
-       느려서 20fps 로도 티가 안 났다). 최대 10초짜리 한시적 예외다. */
-  if(_frameCapped(now)){
-    if(!manual) requestAnimationFrame(frame);
-    return;
-  }
-  const _frameT0 = performance.now();
-  _gpuTimer.poll();
-  const dt=Math.min((now-prev)/1000,0.05);prev=now;
-  overheadMod.beginLabelFrame();   // 라벨이 쓰는 캔버스 사각형을 이번 프레임에 한 번만 잰다(room/label-measure.js)
-  updateIdleItemPlayback();   // 어플 8: 자리비움 감지로 아이템 재생/정지 자동 전환
-  updateActivePartPlayback();   // ▶ 파츠: animMode='active'인 것만 활동 중 재생/일시정지
-  if(activeItemMixers.size) activeItemMixers.forEach(m=>m.update(dt));   // 클릭으로 재생 중인 아이템 idle 애니메이션 업데이트
-  seatEqClampMod._clampSeatDeskParts(now);   // 🪑 평준화 중 «책상 위» 파츠를 자기 자리 안으로(띄엄띄엄 — seat-slot.js)
-  const _tSeat = performance.now();
-  seats.forEach(seat=>{
-    const state=seatState(seat,now);
-    if(seat.isMe && Presence.active()){ Presence.setState(seat.pinned ? 'idle' : state); Presence.setLevel(focusLevelMod.getFocusLevel()); }   // 액자 고정은 상대에겐 평상시로
-    if(seat.remote && seat._lastTab!==seat.remoteState){ seat._lastTab=seat.remoteState; seatPanelMod.renderSeatTabs(); }  // 탭 상태 이모지 갱신
-    const tg=targetFor(state),k=1-Math.pow(seat.smooth,dt);
-    /* 활동 상태(userStatus): 본인=userStatus, 친구=remoteUserStatus */
-    const us = seat.remote ? seat.remoteUserStatus : (seat.isMe ? userStatusMod.userStatus() : null);
-    /* 🔥 빡일중: idle뿐 아니라 focus(타이핑) 상태도 더 격렬하게.
-       idle은 spine 숙임 유지 + 호흡 진폭 거의 0 (안 흔들림). focus는 타이핑 빠르게. */
-    if(us==='grind'){
-      if(state==='idle'){
-        tg.slumpY=-0.10; tg.breSpd=2.0; tg.breAmp=0.004; tg.leanX=0.09;
-        // tg.arm = 1; 을 지워서 평소(idle)에는 가만히 모니터를 응시하도록 되돌립니다.
-      } else if(state==='focus'){
-        tg.slumpY=-0.10; tg.breSpd=7.0; 
-        tg.leanX=0.25;   // ★ 타이핑(focus)을 할 때 허리(spine)를 앞으로 푹 숙이게 만듭니다. (더 깊이 숙이려면 0.35 등으로 올려보세요!)
-      }
-    } else if(us==='meal' && state!=='shaking' && state!=='pet'){
-      // 🍚 밥 먹는 중: 마우스/타이핑 등 활동 감지와 무관하게(직접 쓰다듬거나 흔드는 중이 아니면 항상)
-      //   먹는 모션만 보이게 함(요청사항) — 상체(spine)는 가만히 두고, 머리만 빠르게 까딱이는 건
-      //   animateRig()의 head 본 처리에서 별도로 담당(아래 us==='meal' 분기 참고).
-      tg.slumpY=-0.05;   // 고개 숙임 정도 — 더 숙이려면 음수로 더 크게(예: -0.08)
-      tg.leanX=0;        // ★ 상체(spine)는 움직이지 않게 — 머리만 까딱이길 원하셔서 몸 기울임은 뺌
-      tg.breSpd=2.0;
-      tg.breAmp=0.004;   // ★ 숨쉬기로 인한 상체 흔들림도 최소화(거의 정지) — grind의 idle과 동일 수준
-    }
-    for(const kk in seat.pose) seat.pose[kk]=lerp(seat.pose[kk],tg[kk],k);
-    /* slide to slot — group은 슬롯 위치만, rig는 흔들기 중이 아니면 항상 원점으로 복귀 */
-    if(seat.inPreview){ seat.group.position.set(0,0,0); seat.rig.position.set(0,0,0); }
-    else if(seat._benchOwnerSit && seat.bench && seat.benchSlots && seat.benchSlots[0]){
-      // 🪑 벤치 주인 owner-sit — 자기 벤치(자기 group의 자식)의 slot_0 로컬 위치로 rig를 보낸다.
-      //   group을 옮기면 슬롯도 같이 움직여 순환하므로, group은 원래 자리(targetX) 유지 + rig만 슬롯으로.
-      //   ★ 단, 흔들기/고정 중에는 rig 강제를 멈춰서 흔들기가 먹히게 함(놓으면 다시 슬롯으로 수렴).
-      const kSlide = Math.min(1, dt * 15);
-      seat.group.position.x = lerp(seat.group.position.x, seat.targetX, kSlide);
-      if(!seat.beingShaken && !seat.pinned){
-        const s0 = seat.benchSlots[0];   // 벤치가 group 원점에 있으므로 s0.position이 곧 group 기준 로컬 오프셋
-        const SIT_DROP = 0.28;
-        seat.rig.position.x = lerp(seat.rig.position.x, s0.position.x, kSlide);
-        seat.rig.position.y = lerp(seat.rig.position.y, s0.position.y - SIT_DROP, kSlide);
-        seat.rig.position.z = lerp(seat.rig.position.z, s0.position.z, kSlide);
-      }
-    }
-    else if(seat.seatedOn && !seats.includes(seat.seatedOn)){ rideBenchMod.unmountBench(seat); }   // 🪑 벤치 주인이 방을 나감 → 자동 하차
-    else if(seat.seatedOn){ /* 위치는 _updateRideChains의 벤치 처리에서 슬롯 기준으로 배치 */ }
-    else if(seat.ridingOn && !seats.includes(seat.ridingOn)){ rideBenchMod.unmountRide(seat); }   // 태운 대상이 방을 나감 → 자동 하차
-    /* 🐾 **이미 잘못 얹혀 있는 좌석을 내린다.** mountRide 의 새 검사는 '앞으로 얹히는 것'만 막는다 —
-       그 검사가 없던 때 얹혀서 지금 화면에 남아 있는 것(제보 사진)은 스스로 안 내려온다.
-       ★ 동물 GLB 가 뒤늦게 파싱되면 rebuildAnimalSeats → applyCharToSeat 가 정리해 주지만,
-         파싱이 끝내 실패하면 그 경로가 영영 안 온다. 그 경우를 여기서 받는다.
-       ⚠️ _animalBuilt 는 조립 결과라 undefined(모델 없음)일 수 있다 — false 일 때만 내린다.
-         mountRide 와 같은 기준이어야 내렸다 얹혔다 하는 깜빡임이 안 생긴다. */
-    else if(seat.ridingOn && (!(seat.charDef && seat.charDef.animal) || seat._animalBuilt === false)){
-      rideBenchMod.unmountRide(seat);
-    }
-    else if(seat.ridingOn){ /* 위치는 아래 _updateRideChains에서 체인 순서대로 일괄 처리 */ }
-    else {
-      const kSlide = Math.min(1, dt * 15);   // 슬롯/좌석 복귀 속도. 프레임당 비율(~24%@60fps). 약 0.4초 수렴
-      // group.x는 슬롯 이동 중이 아닐 때만 lerp
-      if(!(seatPointerMod.drag()&&seatPointerMod.drag().seat===seat&&seatPointerMod.drag().moved&&seatPointerMod.drag().mode==='slot')){
-        seat.group.position.x = lerp(seat.group.position.x, seat.targetX, kSlide);
-      }
-      // rig.x/z는 shake 중이 아니면 항상 정상 위치로 lerp (rig 기본은 x=0, z=CHAR_Z)
-      // 정상 상태에선 lerp(현재, 정상, k)가 현재≈정상이라 사실상 비용 없음
-      if(!seat.beingShaken && !seat.pinned){
-        seat.rig.position.x = lerp(seat.rig.position.x, 0, kSlide);
-        seat.rig.position.z = lerp(seat.rig.position.z, seatCharZ(seat), kSlide);
-      }
-    }
-    /* rig transforms */
-    seat.swayPhase+=dt*0.8;
-    /* idle 좌우 미세 sway — 빡일중일 땐 진폭을 0.02→0.005로 거의 제거 (집중 자세 고정 느낌) */
-    const _swayAmp = (us==='grind' || us==='meal') ? 0.005 : 0.02;
-    if(state==='shaking' && seatPointerMod.drag() && seatPointerMod.drag().seat===seat){
-      // 흔들기 중: 마우스 가로 속도에 따라 캐릭터를 좌우로 기울임 (±0.55rad 한도)
-      const tilt = Math.max(-0.55, Math.min(0.55, -seatPointerMod.drag().velX * 0.06));
-      seat.rig.rotation.z = lerp(seat.rig.rotation.z, tilt, 0.35);
-    } else if(state==='idle'){
-      seat.rig.rotation.z = Math.sin(seat.swayPhase)*_swayAmp;
-    } else {
-      seat.rig.rotation.z = lerp(seat.rig.rotation.z, 0, k);
-    }
-    seat.rig.rotation.y=seat.pose.turnY;   // 기본 -0.28은 모델에 들어가 있음(센터링 정확)
-    const lift=(seatPointerMod.drag()&&seatPointerMod.drag().seat===seat&&seatPointerMod.drag().moved&&seatPointerMod.drag().mode==='slot')?0.12:0;
-    if(seat.beingShaken){
-      /* shake 중 — pointermove가 rig.position을 직접 제어, 덮어쓰지 않음 */
-    } else if(seat.pinned){
-      /* 액자 고정 — 그 자리 그대로, 위치 lerp 안 함 */
-    } else if(now-seat.petStart<seatStateMod.PET_MS){const e=now-seat.petStart;seat.rig.position.y=Math.sin(e*0.016)*0.07*Math.exp(-e*0.0026)+lift;}
-    else seat.rig.position.y=lerp(seat.rig.position.y,lift,k);
-    seat.breathePhase+=dt*seat.pose.breSpd;
-
-const clipped=!seat.isPlaceholder&&seat.mixer;
-    const rigged=!seat.isPlaceholder&&!seat.mixer&&seat.hasRig;
-    if(clipped){
-      seat.rig.rotation.x=lerp(seat.rig.rotation.x,0,k); 
-      { const _bs=seatEqMod.seatScale(seat); seat.bodyWrap.scale.set(_bs,_bs,_bs); }   // [수정] 강제 1,1,1 초기화 방지 (🪑 평준화 배율 포함)
-      seat.bodyWrap.position.y=0;
-      setClip(seat,state); if(!hiddenSeatsMod._bodyHidden(seat)) seat.mixer.update(dt);   // 몸이 안 보이면(자리비움 · 숨김) 뼈대 계산을 건너뛴다
-    } else if(rigged){
-      seat.rig.rotation.x=lerp(seat.rig.rotation.x,0,k); 
-      { const _bs=seatEqMod.seatScale(seat); seat.bodyWrap.scale.set(_bs,_bs,_bs); }   // [수정] 강제 1,1,1 초기화 방지 (🪑 평준화 배율 포함)
-      seat.bodyWrap.position.y=0;
-      if(!hiddenSeatsMod._bodyHidden(seat)) animateRig(seat,now,state);
-    } else {
-      seat.rig.rotation.x=seat.pose.leanX;
-      const breathe=1+Math.sin(seat.breathePhase)*seat.pose.breAmp;
-      // [수정] 기본 숨쉬기 애니메이션에 userScale을 곱해서 크기 유지
-      /* ⚠️ 여기는 **매 프레임** bodyWrap.scale 을 다시 쓴다. raw userScale 로 두면 fitModel 이 얹은
-         평준화 배율이 다음 프레임에 곧바로 지워진다 — 좌석 크기를 읽는 자리는 예외 없이 seatScale(). */
-      const _bs = seatEqMod.seatScale(seat);
-      seat.bodyWrap.scale.set(
-        (1/Math.sqrt(breathe)) * _bs, 
-        breathe * _bs, 
-        (1/Math.sqrt(breathe)) * _bs
-      );
-      // dizzy면 추가 슬럼프(고정값)로 얼굴을 더 내림. 부드럽게 수렴.
-      // ★ _dizzyTarget은 animateRig() 안에서만 선언된 지역변수라 여기(rig 없는 폴백 캐릭터 분기)에서
-      //   그대로 쓰면 ReferenceError. 같은 계산식을 이 분기 안에서 직접 계산해야 함.
-      const _dizzyTargetHere = (state==='dizzy') ? 0 : 0;   // DIZZY_EXTRA_SLUMP와 동일(현재 0) — animateRig와 값 일치시킴
-      seat._dizzyAdjCur = (seat._dizzyAdjCur==null) ? _dizzyTargetHere : lerp(seat._dizzyAdjCur, _dizzyTargetHere, k);
-      seat.bodyWrap.position.y=seat.pose.slumpY + seat._dizzyAdjCur;
-    }
-    /* 🪄 때리기 스쿼시 — 위 **세 분기(clipped·rigged·폴백)가 각자 써 놓은 scale 에 곱한다.**
-       ⚠️ 분기 안이 아니라 분기 밖에서 한 번 부르는 것이 요점이다. 분기마다 복사하면 한 곳을
-         빠뜨려 "어떤 캐릭터는 납작해지고 어떤 건 안 되는" 증상이 나고, 증상만 보면 원인을 못 찾는다.
-       ⚠️ 여기보다 아래에서 bodyWrap.scale 을 다시 쓰는 코드가 생기면 이 곱셈이 지워진다. */
-    tricksMod._bonkFrame(seat, now);
-    /* blink */
-    TwBlinkTiming.scheduleBlinks(seat.blink,now); const ca=TwBlinkTiming.eyeClose(seat.blink,now);   // 깜빡임 시간표는 blink-timing.js
-    if(seat.isPlaceholder){
-      const ey=Math.max(0.06,seat.pose.eyeOpen*(1-ca*0.95));
-      seat.placeholder.eyeL.scale.y=ey; seat.placeholder.eyeR.scale.y=ey;
-      if(seat.pose.arm>0.02){seat.placeholder.armL.position.y=0.10+Math.abs(Math.sin(seat.breathePhase*4.5))*0.05*seat.pose.arm;
-        seat.placeholder.armR.position.y=0.10+Math.abs(Math.sin(seat.breathePhase*4.5+1.6))*0.05*seat.pose.arm;}
-      else{seat.placeholder.armL.position.y=lerp(seat.placeholder.armL.position.y,0.10,k);seat.placeholder.armR.position.y=lerp(seat.placeholder.armR.position.y,0.10,k);}
-    } else if(seat.faceMat&&seat.blinkTex){
-      // blink는 "지금 빠르게 흔드는 중"일 때만 — lastFastT 기준 (느린 드래그는 lastFastT가 안 찍힘)
-      // 정신차리기: 빠르게 흔든 뒤(dizzy>30) 멈춘 지 300~1300ms — 고개 좌우 흔들며 다시 눈 감음
-      // ⚠ now는 rAF 타임스탬프, lastFastT/lastMoveT는 performance.now() — 시계 캡처 시점이 달라
-      //    합쳐진 pointermove가 rAF 직전에 찍히면 (now - lastFastT)가 잠깐 음수가 됨 → 0으로 클램프
-      const _moveAgo = seatPointerMod.drag() && seatPointerMod.drag().seat===seat && seatPointerMod.drag().lastMoveT ? Math.max(0, now - seatPointerMod.drag().lastMoveT) : -1;
-      const _fastAgo = seatPointerMod.drag() && seatPointerMod.drag().seat===seat && seatPointerMod.drag().lastFastT ? Math.max(0, now - seatPointerMod.drag().lastFastT) : -1;
-      const recentlyFast = _fastAgo >= 0 && _fastAgo < 220;   // 220ms 안에 빠른 흔들기가 있었으면 (반전 구간 흔들림 보정)
-      const isRecovering = (state==='shaking') && seatPointerMod.drag() && seatPointerMod.drag().seat===seat
-        && seatPointerMod.drag().dizzy > 30 && _moveAgo > 300 && _moveAgo < 1300;
-      const shakingHard = (state==='shaking') && recentlyFast && seatPointerMod.drag() && seatPointerMod.drag().seat===seat;
-      const wantClosed=(state==='sleep')||(state==='pet')||(state==='dizzy')||shakingHard||isRecovering||(ca>TwBlinkTiming.SHUT_AT);
-      if(wantClosed!==seat.blink.closed){seat.blink.closed=wantClosed;matToneMod.setFaceMap(seat.faceMat, wantClosed?seat.blinkTex:seat.faceMapOrig);}
-    }
-    if(state==='sleep' && us!=='away' && us!=='meal' && now-(seat._lastZ||0)>900){seat._lastZ=now;floatersMod.spawnFloater('Z','#7fa8e0',seat);}
-    if(state==='dizzy' && now-(seat._lastDizzy||0)>520){seat._lastDizzy=now;floatersMod.spawnFloater('💫','#f5a94f',seat);}
-
-    /* 활동 상태 시각화 — 책상 위 이모지(모두), 머리 위 텍스트 말풍선(모두), 영혼 투명도(자리비움) */
-    //   ✨ statusConfFor: 커스텀 상태(프리미엄)는 등록한 이모지/문구로 해석됨 (본인=내 등록값, 친구=전파받은 값).
-    /* 📱 머리 위 «📱 앱» — 사용자가 고른 상태가 있으면 그게 먼저 · 없으면 🕒 오늘 기록보다 먼저(보내는 쪽 _statusOut 과 같은 순서). */
-    const _mobApp = focusLevelMod._seatMobileApp(seat);
-    const _conf = (_mobApp && !us) ? null : statusConfFor(seat, us);
-    /* 🙈 숨긴 좌석 — 캐릭터 · 머리 위 말풍선 · 책상 위 상태 이모지. 매 프레임 판정(_hiddenSeatIds 주석). */
-    const _hidden = hiddenSeatsMod._seatHidden(seat);
-    if(seat.rig && seat.rig.visible === _hidden) seat.rig.visible = !_hidden;
-    /* 🫧 자리비움 그림 — 자리비움 · 안 숨김 · 회사원 모드 아님 · 그림이 실제로 올라왔을 때만 캐릭터 자리에 선다.
-       그땐 책상 위 🫧 를 안 띄운다(그림이 곧 자리비움 표시). 못 불러오면 예전 모양(🫧) 그대로. */
-    const _awayPic = awayPicMod._awayPicFor(seat, us, _hidden);
-    awayPicMod._awayImgFrame(seat, _awayPic, now);
-    statusChipMod.setSeatDeskEmoji(seat,  (_conf && us!=='grind' && !_hidden && !_awayPic) ? _conf.emo : null);   // 빡일중은 책상에 🔥 안 뜨게(다른 상태는 그대로)
-    // 💬 채팅 말풍선 — 보낸 지 CHAT_BUBBLE_MS 안이면 상태 말풍선 대신 채팅 내용을 잠깐 띄움(그 뒤엔 자동으로 상태 말풍선으로 복귀).
-    //   (📢 확성기는 제거됨 → 커스텀 상태로 대체. 상태 말풍선이 곧 "지금 뭐 하는지"를 보여줌.)
-    setSeatOpacity(seat, (_conf && _conf.opacity!=null) ? _conf.opacity : 1);
-    // 머리 위 레벨/이름 이름표 — 나 자신과 친구(멀티모드) 둘 다. 설정에서 끄면 setSeatNamePlate 내부에서 안 보이게 처리.
-    // ⭐ 발밑 경험치 바도 같은 자리에서 갱신한다. 이름표를 끄면 바도 같이 숨는다(updateSeatExpBar 내부 처리).
-    //    상대 좌석의 진행도(seat.friendExp)는 프리즌스 하트비트로 들어온다. 구버전 상대는 undefined라
-    //    null을 넘겨 바를 안 그린다 — 0%로 그리면 "레벨업 직후"로 오해된다.
-    /* ⚠️ 순서 주의 — 경험치 바가 **먼저**, 이름표가 나중이다(NAMEPLATE_BELOW_EXPBAR 주석 참고).
-       이름표가 바 아래로 비키려면 바의 '이번 프레임' 위치를 알아야 한다. 예전 순서(이름표 → 바)
-       그대로 두면 한 프레임 전 값을 보게 되어, 캐릭터가 움직일 때 이름표가 바를 파고든다. */
-    /* 🌟 회차면 표시 레벨은 **이번 바퀴** 레벨이고 별이 붙는다. 해금 레벨(getFocusLevel · friendLevel)은 표시에만 안 쓴다 (개정 70). */
-    if(seat.remote){
-      const st = seat.friendStar || null, lv = st ? st.lv : (seat.friendLevel||1);
-      expBarMod.updateSeatExpBar(seat, lv, (seat.friendExp==null ? null : seat.friendExp), st);
-      overheadMod.setSeatNamePlate(seat, lv, seat.friendName||'(이름 없음)', st);
-    }
-    else if(seat.isMe){
-      const st = focusLevelMod.myFocusShow(), lv = st ? st.lv : focusLevelMod.getFocusLevel();
-      expBarMod.updateSeatExpBar(seat, lv, expBarMod.myExpCells(), st);
-      overheadMod.setSeatNamePlate(seat, lv, getDisplayName(), st);
-    }
-    else if(seat.namePlateEl){ seat.namePlateEl.style.display='none'; if(seat.expBarEl) seat.expBarEl.style.display='none'; }   // 주캐릭터였다가 자리추가로 바뀐 좌석 — 이전 이름표가 남아있지 않게 숨김
-    /* 💬 말풍선 — ★ 반드시 이름표·경험치 바 **뒤에** 갱신한다.
-       반전 배치(캐릭터가 화면 위)에서는 이름표·바·말풍선이 전부 발밑 한 자리에 쌓이는데,
-       비켜주는 쪽은 말풍선 하나다(서로 비키면 매 프레임 서로를 밀어내며 흘러내린다).
-       비키려면 위 두 요소의 **이번 프레임 위치**를 알아야 하는데, 예전엔 말풍선이 먼저 돌아서
-       한 프레임 전 값을 봤다 — 바가 그 사이에 움직이면 그대로 겹친 채로 남았다.
-       ⚠️ 이 세 줄의 순서를 바꾸지 말 것. 순서가 곧 배치 규칙이다.
-       (📢 확성기는 제거됨 → 커스텀 상태로 대체. 상태 말풍선이 곧 "지금 뭐 하는지"를 보여줌.) */
-    /* 🏢 회사원 모드 — 상태 말풍선은 아예 안 뜬다(요청: 말풍선이 잠긴다).
-       채팅만 머리 위 한 줄 라벨로 작게 남는다 — 모양 전환은 setSeatHeadBubble 이 담당한다.
-       ⚠️ 이 세 갈래를 호출부에서 정하는 이유: '무엇을 보여줄지'는 여기가, '어떻게 보여줄지'는
-          setSeatHeadBubble 이 정한다. 안쪽에서 상태/채팅을 다시 구분하려 들면 판정이 두 곳으로 갈린다. */
-    const _chatting = !!(seat.chatBubbleUntil && now < seat.chatBubbleUntil);
-    if(_hidden){ overheadMod.setSeatHeadBubble(seat, null); }   // 🙈 캐릭터 없이 말풍선만 뜨지 않게
-    else if(officeModeMod.officeMode()){ overheadMod.setSeatHeadBubble(seat, _chatting ? seat.chatBubbleText : null); }
-    else if(_chatting){ overheadMod.setSeatHeadBubble(seat, seat.chatBubbleText); }
-    // 💭 상태 갈래만 '생각 말풍선'(동그라미 꼬리). 채팅은 뾰족 꼬리 그대로다.
-    else{ overheadMod.setSeatHeadBubble(seat, _conf ? _conf.label : focusLevelMod._mobileBubbleText(_mobApp), true); }
-    updateItemHandTrackers(seat);   // 책상 아이템 안의 hand_L/hand_R 지점을 이번 프레임 손 위치로 갱신
-  });
-
-  /* selected ring follows selected seat */
-// if(selected){selRing.position.x=lerp(selRing.position.x,selected.group.position.x,1-Math.pow(0.001,dt));selRing.visible=true;}
-  /* state bar shows selected seat */
-  runCost.since('seat', _tSeat);
-  if(seatsMod.selected()){const st=seatState(seatsMod.selected(),now);const sc=STATES[st]||STATES.idle;seatPanelMod.dot.style.background=sc.color;seatPanelMod.stateLabel.textContent=sc.label;}
-
-  for(let i=floatersMod.floaters.length-1;i>=0;i--){const f=floatersMod.floaters[i];f.userData.life+=dt;const p=f.userData.life/f.userData.dur;
-    f.position.y+=dt*(f.userData.rise!=null?f.userData.rise:floatersMod.FLOATER_RISE);f.position.x+=f.userData.vx*dt;
-    // 생애 60%까진 진하게 유지하다 마지막 40%에서만 빠르게 사라지게 — 오래 반투명 상태로 떠있으면서 탁해 보이는 구간을 최소화
-    f.material.opacity=Math.max(0, p<0.6 ? 0.95 : 0.95*(1-(p-0.6)/0.4));
-    f.scale.setScalar((f.userData.base!=null?f.userData.base:floatersMod.FLOATER_BASE_SCALE)*(1+p*0.4));
-    if(p>=1){scene.remove(f);floatersMod.floaters.splice(i,1);}}
-
-  rideBenchMod._checkCircusBalance(now);   // 🎪 묘기 균형 판정(흔들림 → 와해)
-  rideBenchMod._updateRideChains(now);   // 🐾 올라탄(탑쌓기 포함) 좌석 위치를 아래층→위층 순으로 확정
-  tricksMod._updateFlyingSeats(now, dt);   // 🪑 플라잉체어 — 날고 있는 캐릭터의 rig 좌표를 마지막에 덮어쓴다
-  try{ awayPicMod._awayImgFollow(); }catch(_){}   // 🩹 자리비움 그림이 rig 를 매 프레임 따라간다(비행 버벅임) — _awayImgFollow 주석
-  dotRenderMod.sweepIfOn(now);   // 🕹️ 도트 켬 동안 켠 뒤 들어온 메쉬 · 텍스처에도 도트를 건다(0.5초에 한 번)
-  if(desktopMode){ renderer.clear(); }   // 투명 클리어 강제 — 프레임 사이 흰 잔상 방지
-  /* 🍎 설정(런처) 화면에서는 #scene 이 display:none 이다(body.desktop.config) — 안 보이는 화면을 그리지 않는다.
-     상태 계산은 위에서 그대로 돈다(돌아왔을 때 튀지 않게). 런처는 자기 루프(launcherLoop)가 따로 그린다. */
-  /* 회사원 모드로 화면을 숨긴 동안도 그리지 않는다 — 안 보이는 3D 가 포토샵 등과 그래픽 카드를 나눠 쓰지 않게 */
-  const _tDraw = performance.now();
-  if(!officeModeMod._officeHidden() && !_configHidesScene()){ _gpuTimer.begin(); renderer.render(scene,camera); _gpuTimer.end(); }
-  runCost.since('render', _tDraw);
-  seatHitMod.markRendered();   // 🗺️ 히트 맵 — 그린 장 표시만(지도는 판정이 찾을 때 만든다)
-  statusChipMod.updateMyStatusChipPosition();   // 본인 상태 칩 위치를 자기 좌석 발 밑에 맞춤
-  if(_renderQuality === FrameBudget.QUALITY.AUTO && document.body.classList.contains('runmode') && _runSlowWatch.note(now, _frameCap(now))) _lowerRunQuality();
-  _frameJsStats.add(performance.now() - _frameT0);
-  runCost.since('frame', _frameT0);
-  if(!manual) requestAnimationFrame(frame);
-}
+/* 본문은 launcher/frame-loop.js 로 옮겼다(앱 FSD · app.js 분리 M17). 원래 자리인 여기서 만든다 — 만들기만 하고 부르지 않는다(첫 부름은 INIT 의 requestAnimationFrame(frame)).
+   뒤에서 선언되거나 다시 대입되는 값은 읽는 함수로 넘긴다. */
+const frameLoopMod = TwFrameLoop.createFrameLoop({
+  _configHidesScene: _configHidesScene,
+  _frameCap: _frameCap,
+  _frameCapped: _frameCapped,
+  _frameJsStats: _frameJsStats,
+  _gpuTimer: _gpuTimer,
+  _lowerRunQuality: _lowerRunQuality,
+  _renderQuality: ()=>_renderQuality,
+  _runSlowWatch: _runSlowWatch,
+  activeItemMixers: activeItemMixers,
+  animateRig: animateRig,
+  awayPicMod: ()=>awayPicMod,
+  camera: camera,
+  desktopMode: ()=>desktopMode,
+  dotRenderMod: dotRenderMod,
+  expBarMod: ()=>expBarMod,
+  floatersMod: floatersMod,
+  focusLevelMod: ()=>focusLevelMod,
+  framePaceMod: framePaceMod,
+  getDisplayName: getDisplayName,
+  hiddenSeatsMod: hiddenSeatsMod,
+  lerp: lerp,
+  matToneMod: matToneMod,
+  officeModeMod: ()=>officeModeMod,
+  overheadMod: overheadMod,
+  Presence: Presence,
+  renderer: renderer,
+  rideBenchMod: rideBenchMod,
+  runCost: runCost,
+  scene: scene,
+  seatCharZ: seatCharZ,
+  seatEqClampMod: seatEqClampMod,
+  seatEqMod: seatEqMod,
+  seatHitMod: seatHitMod,
+  seatPanelMod: seatPanelMod,
+  seatPointerMod: seatPointerMod,
+  seats: seats,
+  seatsMod: seatsMod,
+  seatState: seatState,
+  seatStateMod: seatStateMod,
+  setClip: setClip,
+  setSeatOpacity: setSeatOpacity,
+  STATES: STATES,
+  statusChipMod: statusChipMod,
+  statusConfFor: statusConfFor,
+  targetFor: targetFor,
+  tricksMod: tricksMod,
+  updateActivePartPlayback: updateActivePartPlayback,
+  updateIdleItemPlayback: updateIdleItemPlayback,
+  updateItemHandTrackers: updateItemHandTrackers,
+  userStatusMod: userStatusMod,
+});
+const frame = frameLoopMod.frame;   // 옛 전역 이름
 
 /* ============================================================ 데스크탑(Electron) 모드 */
 /* 본문은 launcher/office-mode.js 로 옮겼다(앱 FSD · app.js 분리 M14). 원래 자리인 여기서 만든다 — 깃발을 읽고 상태칩 우클릭을 거는 때가 예전과 같다.
@@ -5768,12 +5302,12 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const desktopRunMod = TwDesktopRun.createDesktopRun({
   _applyActiveAppState: (...a)=>_applyActiveAppState(...a),
-  _charBoundsLatest: ()=>_charBoundsLatest,
+  _charBoundsLatest: ()=>moveModeMod._charBoundsLatest(),
   _officeHidden: ()=>officeModeMod._officeHidden(),
   _penAppFocused: ()=>seatStateMod.penAppFocused(),
   _skipFlyingRigs: (...a)=>hiddenSeatsMod._skipFlyingRigs(...a),
   _skipHiddenDesk: (...a)=>hiddenSeatsMod._skipHiddenDesk(...a),
-  _twMoveSeenAt: ()=>_twMoveSeenAt,
+  _twMoveSeenAt: ()=>moveModeMod._twMoveSeenAt(),
   activity: (...a)=>activity(...a),
   anyInput: (...a)=>anyInput(...a),
   backToLauncher: (...a)=>backToLauncher(...a),
@@ -5785,11 +5319,11 @@ const desktopRunMod = TwDesktopRun.createDesktopRun({
   hitShadow: hitShadow,
   lastActivity: ()=>seatStateMod.lastActivity(),
   lastAnyInput: ()=>seatStateMod.lastAnyInput(),
-  moveMode: ()=>moveMode,
+  moveMode: ()=>moveModeMod.moveMode(),
   ray: ray,
   renderer: renderer,
   seats: seats,
-  setTwMoveSeenAt: (v)=>{ _twMoveSeenAt = v; },
+  setTwMoveSeenAt: (v)=>{ moveModeMod.setTwMoveSeenAt(v); },
   setLastActivity: (v)=>{ seatStateMod.setLastActivity(v); },
   setLastAnyInput: (v)=>{ seatStateMod.setLastAnyInput(v); },
   runCost: runCost,   // 🩺 통과 판정 시간(1분 [비용] 줄)

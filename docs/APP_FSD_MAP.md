@@ -303,6 +303,7 @@ app.js 9,746 → 9,476줄(270줄) · 구역 167 → 130개. 남긴 빈 머리 �
 **0.12.4 — app.js 분리 T5**: 파츠 저작 오프셋 · 머리 높이 보정 · xf 적용 구역(367줄)을 `character/part-xf.js` 로 옮겼다(0.13 app.js 글 그대로 — 계산 본문은 코어 `createParts` 를 부르는 한 줄 · 코어 파츠는 app.js 가 만들어 넘김).
 
 **0.12.4 — app.js 분리 T6**: 파츠 붙이기 · 떼기 · def 대조 · 한꺼번에 입히기 · 본 찾기(약 780줄)를 `character/part-equip.js` 로 옮겼다(0.13 app.js 글 그대로 — 복제 · 재질 · 리깅 다시 묶기 · wrapper 는 코어 `createParts` 호출. 0.12.4 의 #830 `shareSkeletons` 두 줄은 0.13 글에도 있어 그대로).
+**0.12.4 — app.js 분리 M17 ~ M19**: `frame()` · `prev`(`launcher/frame-loop.js` — 좌석 한 명 몫 분리는 글이 달라져 R5 로 남김) · 플라잉체어(`room/flying-chair.js`) · 스티커 그리기(`myhome/myhome-sticker-render.js` — 다시 대입이 있어 읽는 · 쓰는 함수, F4 때 걷음) · 이동 모드 · 캐릭터 화면 좌표(`launcher/move-mode.js`)를 글 그대로 옮겼다. app.js 7,324 → 6,858줄.
 
 ## 구역 표 — `app/parts/app.js`
 

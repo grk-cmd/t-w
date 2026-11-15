@@ -304,3 +304,9 @@ overheadMod.setSeatMenu((...a)=>seatMenuMod._seatCtxMenu(...a));   // 이름표 
   - 옛 `typeof seats !== 'undefined'` 가드 하나는 걷었다(`seats` 는 이제 deps 값).
   - 이름표 끌기 모듈(`seat-label-drag.js`)이 `beginDrag` 로 이 모듈의 `_beginLabelSlotDrag` 를 쓰고, 이 모듈이 `TwSeatLabelDrag.canGrabSeat` 를 부른다(순수 판단 한 줄) — 서로 부름이 `sim-dep-cycles` 기준선에 2건 올랐다. 이슈 #903.
   - 검사: `checks/sim-seat-pointer.js`(듣기 · 우클릭 · 누르기 · 끌기 · 쓰다듬기 · 어지러움 · try/finally · 안전망 · 연결 · 깨 보기 · 가짜 THREE).
+
+## flying-chair.js — 🪑 플라잉체어
+
+- **책임**: `FLY_*` 상수 · `_flyRng`(시드 난수 — 같은 시드면 같은 궤적) · `flySeed` · `canFly`(막는 까닭 일곱 — 올라탄 좌석은 `allowTower` 면 허용) · `startFlight`(`seat.fly` 를 채우고 `_flyActive` 를 올림) · `_flyActive`(지금 날고 있는 좌석 수 — 프레임 상한이 비행 동안만 비켜 간다).
+- **만드는 법**: `TwFlyingChair.createFlyingChair({ seats, toast })`. **내보내는 것**: 상수 · `flySeed` · `canFly` · `startFlight`(app.js 가 같은 이름 const 로) · `_flyActive()` · `setFlyActive(v)`.
+- **함정**: `Math.random()` 은 `flySeed` 한 곳뿐이다(검사가 센다). 비행을 매 프레임 움직이는 쪽은 `tricks.js` · 프레임 루프. 검사: `checks/sim-flying-chair.js`.
