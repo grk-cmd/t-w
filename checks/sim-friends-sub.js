@@ -526,7 +526,7 @@ async function judge(S){
     const any = new Proxy(function(){}, { get: (t, k) => k === 'then' ? undefined : any, apply: () => any });
     const hang = new Promise(() => {});
     const starts = [], renders = [];
-    const fbApi = new Proxy({}, { get: (t, k) => k === 'setMyPresenceOnline' ? (() => { throw new Error('presence 던짐'); }) : (() => hang) });
+    const fbApi = new Proxy({}, { get: (t, k) => k === 'createMyPresence' ? (() => { throw new Error('presence 던짐'); }) : (() => hang) });
     const win = {};
     const mod = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'console', S.MI + '\nreturn window.TwMyHomeInit;')(win, any, { getItem: () => null }, fbApi, { warn(){}, log(){} });
     const m = mod.createMyHomeInit({
@@ -537,7 +537,7 @@ async function judge(S){
       inboxMod: () => ({ renderMyHomeFriendList: () => renders.push('list') }), mhScheduler: any, myHomeOpen: () => false, toast: () => {},
       setInboxBroadcast(){}, setMyFriendRequests(){}, setMyHomeFriends: (v) => renders.push(['set', v]), setMyHomeReady(){}, setMyInbox(){}, setMyInboxReady(){},
     });
-    m.initMyHome('ME', {});
+    m.initMyHome('ME', {}, { alive: () => true, on: (u) => u, setInterval(){}, onReset(){} });
     chk(starts.length === 1 && starts[0].id === 'ME', '프로필 쓰기 · 코드 확보가 영영 안 끝나고 presence 가 던져도 친구 구독은 걸린다');
     if(starts[0]){
       starts[0].onF({ f1: {} });

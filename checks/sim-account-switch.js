@@ -119,12 +119,12 @@ if(!fList || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     };
     const firebaseAPI = env.apiOn ? {
       releaseDeviceSession: async () => { env.calls.push('release'); },
-      setMyPresenceState: (uid, on) => { env.calls.push('presence:' + uid + ':' + on); return env.presenceHang ? new Promise(() => {}) : Promise.resolve(); },
       deviceSessionLost: () => !!env.lost,
     } : null;
     const window = { firebaseAPI };
     const decl = Object.keys(K).map(n => 'const ' + n + " = '" + K[n] + "';").join('\n') + "\nconst ME_CACHE_KEY = 'tw.me';\n" + [
       "const sessionLost=()=>!!env.lost;   /* 다른 기기에 밀렸나 */",
+      "const getPresence=()=>env.apiOn ? { setState:(on)=>{ env.calls.push('presence:'+env.LS.getItem(MY_USER_ID_KEY)+':'+on); return env.presenceHang ? new Promise(()=>{}) : Promise.resolve(); } } : null;   /* 지금 세션의 접속 표시 한 벌 */",
       "const accountLegacyStore={ migrateLegacy:(c)=>{ env.calls.push('migrate:'+c); return {}; } };",
       "const flushFocus=async()=>{ env.calls.push('flush:focus:logout'); }; const unsentSec=()=>env.unsent;",
       "const gachaMod={ resetMemory(){ env.calls.push('gacha:reset'); } };",
@@ -191,14 +191,14 @@ if(!fList || !fFlush || !fPre || !fWipe || !fDet || !tmo){
        여기선 **못 올린 몫이 남은 채**(쓰기가 거부된 기기)로 돌린다. */
     const g = new Function('env', 'localStorage', 'window',
       Object.keys(K).map(n => 'const ' + n + " = '" + K[n] + "';").join('\n') + '\n' +
-      "const accountLegacyStore={ migrateLegacy:()=>({}) }; const sessionLost=()=>false; const ME_CACHE_KEY='tw.me';\n" +
+      "const accountLegacyStore={ migrateLegacy:()=>({}) }; const sessionLost=()=>false; const getPresence=()=>({ setState:()=>Promise.resolve() }); const ME_CACHE_KEY='tw.me';\n" +
       "const flushFocus=async()=>{}; const unsentSec=()=>env.unsent; const setFocusTodaySec=()=>{}; const gachaMod={ resetMemory(){} }; const weeklyChal={ flush:async()=>{} }; const closetMod=()=>({ flushSlots:async()=>{}, unsavedCount:()=>0, resetCloset(){} });\n" +
       "const clearTimeout=()=>{}; const setTimeout=()=>0;\n" +
       "let _focusTodaySec=0;\n" +
       "let extraSeatSlots=[];\n" +
       "let _plSets=[], _plCur=0, _plBio='', _plHomePublic=false, _plPrivate=false, _plPubSig=null; const getMyUserId=()=>'ME01'; const plMod={ flushPending:async(u)=>{ env.calls.push('flush:pl:'+(u||'')); }, blankSets:()=>[], st:" + PL_ST_MEM + " };\n" +
       [tmo, fList, fFlush, fPre, fWipe, fDet].join('\n') + "\nreturn _detachAccountLocal;");
-    const FB_MIN = { deviceSessionLost: () => false, setMyPresenceState: () => Promise.resolve() };   // 늘 있는 둘 — 검문 뒤 presence «꺼짐» 이 부른다
+    const FB_MIN = { deviceSessionLost: () => false };
     const lsOf = env => ({ getItem:k=>env.ls.has(k)?env.ls.get(k):null, setItem:(k,v)=>env.ls.set(k,String(v)), removeItem:k=>env.ls.delete(k), key:i=>Array.from(env.ls.keys())[i]||null, get length(){ return env.ls.size; } });
     let env4 = { ls: new Map([[K.MY_USER_ID_KEY, 'uA']]), unsent: 3600 };
     r = await g(env4, lsOf(env4), { firebaseAPI: FB_MIN })();
@@ -242,7 +242,7 @@ if(!fList || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     e = mkEnv({ apiOn: false }); fillA(e);
     r = await e.m.detach({ force: true });
     chk(r && r.ok === true && e.LS.getItem(K.MY_USER_ID_KEY) === null, '  firebaseAPI 가 없는 강제 로그아웃도 «꺼짐» 쓰기에서 던지지 않고 지운다');
-    const noOff = fDet.replace('if(uid) await _presenceOff(uid);', '');
+    const noOff = fDet.replace('if(uid) await _presenceOff();', '');
     e = mkEnv({ det: noOff }); fillA(e);
     await e.m.detach();
     chk(noOff !== fDet && !e.calls.includes('presence:uA:false'), '  깨 보기 — «꺼짐» 쓰기를 빼면 위 ★ 가 빨강(그 판정이 이 줄을 본다)');

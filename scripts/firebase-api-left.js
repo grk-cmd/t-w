@@ -35,7 +35,7 @@ const BUNDLES = [
   [/^(auth|getIdToken|apiGetAuthed|serverNow)/, '남김(Auth)'],
   [/^(upload|deleteStorage)/, '남김(Storage 올리기)'],
   [/Friend|friend|Playlist|UserNameById/, 'D2/D3 친구'],
-  [/^(setMyPresence|setPresenceRoom|setMyProfile|setAway|getAway)/, 'D3 접속'],
+  [/^(createMyPresence|setMyProfile|setAway|getAway)/, 'D3 접속'],
   [/Room|room|Ghost/, 'C 방'],
   [/Invite|invite/, 'D7/D11 초대'],
   [/License|license/, 'D8 라이선스'],
