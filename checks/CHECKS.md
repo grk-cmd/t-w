@@ -349,7 +349,7 @@
 | **sim-dice-games.js** | 95 | **1debed57a729** |
 | **sim-program-settings.js** | 148 | **63ad8f3b844f** |
 | **sim-chat-prefs.js** | 95 | **26c68ca8bbfe** |
-| **sim-chat-read-on-send.js** | 230 | **9e594009e33d** |
+| **sim-chat-read-on-send.js** | 245 | **83b6956e4f43** |
 | **sim-rich-text.js** | 95 | **c8ee332ad595** |
 | **sim-win-stack.js** | 145 | **0137e9fde6ef** |
 | **sim-sfx.js** | 96 | **d24a22a1d75f** |
@@ -500,7 +500,7 @@
 | **sim-myhome-store.js** | 629 | **cbeeada94f57** |
 | **sim-myhome-wire.js** | 122 | **a6c458b30715** |
 | **sim-room-rt.js** | 364 | **8e7119496345** |
-| **sim-chat-rt.js** | 222 | **eed374898aaa** |
+| **sim-chat-rt.js** | 234 | **6a93501e9fcd** |
 | **sim-room-invite-rt.js** | 85 | **aaf5c3f73ec3** |
 | **sim-purikura-rt.js** | 458 | **24a5cf75951c** |
 | **sim-env-diag.js** | 174 | **8da31de26ec8** |

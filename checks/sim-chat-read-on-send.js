@@ -52,7 +52,7 @@ function world(src, opts){
   const subs = [];           // chatNet.subscribeLog 부름 — { room, cb, limit, tab }
   const chatNet = {
     sendText: (room, text, tab) => new Promise((resolve) => sends.push({ room, msg: { text }, tab, resolve })),
-    subscribeLog: (room, cb, limit, tab) => { const s = { room, cb, limit, tab, off: false }; subs.push(s); return () => { s.off = true; }; },
+    subscribeLog: (room, cb, limit, tab, onFail) => { const s = { room, cb, limit, tab, onFail, off: false }; subs.push(s); return () => { s.off = true; }; },
   };
   const fb = {};
   let opened = null;          // 대화창 본문 구독(chatHistory.open)
@@ -204,6 +204,20 @@ async function judgeAll(src){
       t(errs.join() === 'E-CHAT-02' && /data-hist-retry/.test(String(w2.els.chatMessages.innerHTML)), '6-2 서버에서 못 받으면(onFail) 같은 안내 · E-CHAT-02');
     } finally { globalThis.TwErrorCodes = g0; console.warn = w0; }
   }
+  /* 7절 — 안 읽은 수를 못 불러오면 0(다 읽음)이 아니라 «?» 로 보인다 */
+  {
+    const w0 = console.warn; const warns = []; console.warn = (...a) => warns.push(a.join(' '));
+    try{
+      const w = world(src, { store: { 'tw_chat_read:R1': 'T1000:-A' } });
+      w.ui._syncChatBadgeSub(true);
+      const sub = w.subs.filter((s) => !s.off && s.limit === 30 && s.tab === undefined).pop();
+      sub.onFail(new Error('503'));
+      const badge = w.els.myChatBadge;
+      t(badge.textContent === '?' && badge.classList.contains('on') && warns.length >= 1, '7-1 ★ 뱃지 구독이 실패하면 «?» 로 보인다(0 으로 지우지 않는다) + console.warn');
+      sub.cb([{ id: '-A', ts: 1000, uid: 'u-x', name: '친구', text: '전' }, { id: '-D', ts: 2100, uid: 'u-x', name: '친구', text: '새 글' }]);
+      t(badge.textContent === '1', '7-2 다시 받으면 숫자로 돌아온다');
+    } finally { console.warn = w0; }
+  }
   return r;
 }
 
@@ -212,6 +226,7 @@ async function judgeAll(src){
   rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1~5. 실제로 돌려 보기'); chk(ok, msg); });
   say('── 7. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
   const breaks = [
+    ['뱃지 실패를 알리지 않음(0 으로 보임)', (s) => s.replace("e => { console.warn('[대화] 안 읽은 수를 못 불러와 «?» 로 보여요', e); _setChatBadge(null); }", 'undefined')],
     ['기록을 못 열면 최근 줄 구독으로 돌림(예전 갈래)', (s) => s.replace('catch(e){ histFail(e); }', 'catch(e){ chatNet.subscribeLog(room, _onList, undefined, tab); }')],
     ['보낸 뒤 읽음 저장 빼기(예전)', (s) => s.replace('if(r && r.ok) _chatMarkSentRead(sendKey, r);', '')],
     ['앞으로만 빼기 — 늘 덮기', (s) => s.replace(/(function _chatMarkSentRead\(key, sent\)\{[\s\S]*?)if\(!old \|\| !CHAT_MARK_RE\.test\(old\) \|\| _chatIsAfter\(sent, old\)\) /, '$1')],
