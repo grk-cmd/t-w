@@ -97,7 +97,7 @@
 | **sim-seat-label-drag.js** | 91 | **6a4daf86e439** |
 | **sim-friend-requests.js** | 170 | **39737b624809** |
 | **sim-friend-visit.js** | 115 | **c33a7fed1e41** |
-| **sim-friends-sub.js** | 702 | **a74540aa2896** |
+| **sim-friends-sub.js** | 642 | **736cc9a7e189** |
 | **sim-friends-port.js** | 325 | **2130fd1ee084** |
 | **sim-friends-presence-rt.js** | 358 | **b2c59182bc84** |
 | **sim-social-api.js** | 275 | **3c3a4c43d6fa** |
@@ -157,7 +157,7 @@
 | **sim-maintenance-gate.js** | 364 | **1b59285f3272** |
 | **sim-invite-revoke.js** | 100 | **c6ce8535f35b** |
 | **sim-room-invite-wait.js** | 44 | **2327a1043182** |
-| **sim-friend-manage.js** | 278 | **586e34dbb750** |
+| **sim-friend-manage.js** | 251 | **5849b1a8292c** |
 | **sim-gacha-prune.js** | 176 | **caaafe40eb06** |
 | **sim-gacha-api.js** | 133 | **547d10be5393** |
 | **sim-gacha-race.js** | 124 | **1f0427b99f71** |
@@ -413,7 +413,7 @@
 | **sim-account-state.js** | 99 | **f15e0c15e7f6** |
 | **sim-nav.js** | 91 | **dd38c03ae96c** |
 | **sim-app-boot.js** | 165 | **b02199009ffe** |
-| **sim-net-ready.js** | 145 | **1c70b540ba84** |
+| **sim-net-ready.js** | 152 | **bb0f49abe53a** |
 | **sim-myhome-hooks.js** | 99 | **ded7ee208327** |
 | **sim-demoji-catalog.js** | 78 | **51109652b2f6** |
 | **sim-hook-guards.js** | 75 | **cb32158c9f2b** |

@@ -1980,7 +1980,7 @@ const friendManage = TwFriendManage.createFriendManage({
 let _myHomeReady = false;
 /* 포기하지 않는다 — SDK 를 실행 때 gstatic 에서 받아 느린 망이면 20초를 넘긴다(예전 20초 포기 → 친구 · 우편 구독이 영영 안 걸렸다). */
 function _waitForFirebaseAPI(cb){
-  TwNetReady.whenNetReady(()=>cb(), 'watchMyFriendList');
+  TwNetReady.whenNetReady(()=>cb());   // 준비 키(need)를 주지 않는다 — 키 이름을 걷은 메서드로 두면 «준비됨» 이 영영 안 온다
 }
 /* 🔇 소유권이 걸린 쓰기가 거부됐을 때 침묵을 깬다.
    [경위] 규칙을 게시한 뒤 users/{코드} 의 자기 소유 가지는 "주인이 없거나 나일 때"만 쓸 수 있다.

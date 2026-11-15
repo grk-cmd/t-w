@@ -180,7 +180,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - `whenNetReady(cb, need)` — 준비면 바로 `cb()`, 아니면 신호에 `{ once:true }` 로 한 번. `need`(함수 이름 글)를 주면 «`firebaseAPI` 에 그 함수까지 있을 때» 만 바로 부른다.
   ```js
   TwNetReady.whenNetReady(()=>_bindRoomInviteReceiver());
-  TwNetReady.whenNetReady(()=>cb(), 'watchMyFriendList');
+  TwNetReady.whenNetReady(()=>cb());   // 준비 키(need)를 주지 않는다 — 키 이름을 걷은 메서드로 두면 «준비됨» 이 영영 안 온다
   ```
 - `onNetReady(cb)` — 신호가 올 때마다(once 없음). 예전에 once 없이 걸던 두 곳(overhead 공지 구독 · room-sync 다시 연결 알림)만 쓴다.
 - `waitNetReady(ms)` — `Promise<boolean>`: 신호가 오면 `true`, `ms` 가 지나면 그때 연결 유무. room-entry `_waitFirebaseApi`(방 입장 10초)가 쓴다.

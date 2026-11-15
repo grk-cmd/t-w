@@ -156,7 +156,6 @@
   let _svTimeOffset = 0;
   try{ onValue(ref(db, '.info/serverTimeOffset'), s => { _svTimeOffset = s.val() || 0; }); }catch(e){}
   const _svNow = () => Date.now() + _svTimeOffset;
-  let _myFriendsOff = null;   // 지금 걸린 watchMyFriendList 의 해제 함수 — 동시에 하나만(새로 걸면 앞의 것을 푼다)
   let _myPresenceRef = null, _presenceRoom = null, _presenceOnline = true, _presenceInRoom = false;
   let _presenceWritten = false;   // presence 를 한 번이라도 set 했는가 — 버전이 늦게 오면 그때만 메운다
   // 방 입장/퇴장 시 presence에 현재 방 코드를 같이 기록 — 친구 목록의 "온라인 · COZY-9K2M" 배지에 쓰임
@@ -351,10 +350,6 @@
        그래서 코드를 발급/되찾을 때마다 users/{uid}/friendCode 에 거울을 하나 둔다.
        ★ 이게 있어야 **새 PC**에서 옛 코드를 알 수 있다. 로컬 기록은 그 기기에만 있으니
          기기를 갈아타면 통째로 사라진다 — 계정을 따라오는 곳은 서버뿐이다. */
-    async setUserFriendCode(uid, code){
-      try{ await set(ref(db, `users/${uid}/friendCode`), String(code)); return true; }
-      catch(e){ console.warn('[친추코드] 계정에 코드 기록 실패', e); return false; }
-    },
     async getUserFriendCode(uid){
       try{ const s = await get(ref(db, `users/${uid}/friendCode`)); const v = s.val(); return (typeof v === 'string' && v) ? v : null; }
       catch(e){ return null; }
@@ -539,189 +534,12 @@
       try{ await deleteObject(_stRef(storage, url)); }catch(_){}
     },
 
-    /* ═══════════ 👋 친구 요청 (수락/거절) ═══════════
-       스키마: friendRequests/{받는사람}/{보낸사람} = { name, ts }
-       흐름: 코드 입력 → 상대에게 요청 기록 → 상대가 수락하면 그때 양방향 friends 추가 */
-
-    // 친구 요청 보내기
-    /* toName·toCode 는 **보낸 요청 목록에 보여줄 이름표**다(없어도 동작한다).
-       스키마상 상대 프로필을 나중에 다시 못 찾는 게 아니라, 목록을 열 때마다 상대 프로필을
-       또 읽지 않으려고 보낼 때 한 번 적어두는 것이다. */
-    async sendFriendRequest(fromId, toId, fromName, toName, toCode){
-      console.log('[친구요청 발송] fromId=', fromId, 'toId=', toId, 'name=', fromName);
-      if(fromId === toId){ console.log('[친구요청] 실패: self'); return { ok:false, reason:'self' }; }
-      const already = await get(ref(db, `users/${fromId}/friends/${toId}`));
-      if(already.exists()){ console.log('[친구요청] 실패: 이미 친구'); return { ok:false, reason:'already' }; }
-      /* 📤 진짜 요청과 **내 쪽 미러**를 한 번에 쓴다.
-         스키마가 friendRequests/{받는사람}/{보낸사람} 이라 "내가 보낸 것"을 서버에서 못 찾는다.
-         그래서 sentFriendRequests/{나}/{상대} 에 같은 사실을 한 벌 더 적어 목록을 만든다.
-         ⚠️ update() 한 번으로 **둘 다 되거나 둘 다 안 되게** 한다. 나눠 쓰면 미러만 남거나
-           요청만 남는 반쪽 상태가 생기고, 그건 화면에서 구분이 안 된다. */
-      const now = Date.now();
-      const mirror = { ts: now };
-      if(toName) mirror.toName = String(toName).slice(0,20);
-      if(toCode) mirror.toCode = String(toCode).slice(0,12);
-      try{
-        await update(ref(db), {
-          [`friendRequests/${toId}/${fromId}`]: { name: fromName || '(이름 없음)', ts: now },
-          [`sentFriendRequests/${fromId}/${toId}`]: mirror,
-        });
-        console.log('[친구요청] 서버 저장 성공: friendRequests/'+toId+'/'+fromId+' (+미러)');
-      }catch(e){
-        console.error('[친구요청] 서버 저장 실패:', e);
-        return { ok:false, reason:'save_failed' };
-      }
-      return { ok:true };
-    },
-
-    /* 📤 내가 보낸 요청 목록 → { [상대id]: {ts, toName?, toCode?} }
-       ⚠️ **이 목록만 믿으면 안 된다.** 상대가 구버전으로 수락하면 진짜 요청은 사라지는데
-         미러는 남는다(그쪽 코드에 미러를 지우는 줄이 없으므로). 그래서 호출 측이
-         isFriendRequestAlive() 로 한 건씩 확인하고, 죽은 것은 pruneSentFriendRequest() 로 치운다. */
-    async getSentFriendRequests(myId){
-      try{ const s = await get(ref(db, `sentFriendRequests/${myId}`)); return s.val() || {}; }
-      catch(e){ return {}; }
-    },
-    /* 그 요청이 상대 쪽에 아직 살아 있는가 — friendRequests/$toId 는 .read 가 열려 있어 읽을 수 있다.
-       한 건짜리 get 이라 목록을 열 때만 몇 번 도는 비용이다(구독이 아니다). */
-    async isFriendRequestAlive(toId, myId){
-      try{ const s = await get(ref(db, `friendRequests/${toId}/${myId}`)); return s.exists(); }
-      catch(e){ return true; }   // 못 읽었으면 살아 있다고 본다 — 멀쩡한 요청을 지우는 쪽이 더 나쁘다
-    },
-    // 죽은 미러 한 줄 치우기 (자가 치유 — 화면에서 사라지는 것과 별개로 서버도 정리한다)
-    async pruneSentFriendRequest(myId, toId){
-      try{ await remove(ref(db, `sentFriendRequests/${myId}/${toId}`)); }catch(_){}
-    },
-    /* 📤 보낸 요청 취소 — 진짜 요청과 미러를 한 번에 지운다.
-       ⚠️ friendRequests/{상대}/{나} 는 **남의 노드**지만 $fromId 에 .write:true 가 있어 지울 수 있고,
-         RTDB 는 지우는 쓰기에 .validate 를 아예 평가하지 않는다(그래서 hasChildren 이 안 막는다). */
-    async cancelFriendRequest(myId, toId){
-      try{
-        await update(ref(db), {
-          [`friendRequests/${toId}/${myId}`]: null,
-          [`sentFriendRequests/${myId}/${toId}`]: null,
-        });
-        return { ok:true };
-      }catch(e){ return { ok:false }; }
-    },
-    // 나에게 온 친구 요청 실시간 구독 → onChange({ [fromId]: {name, ts} })
-    subscribeFriendRequests(myId, onChange){
-      console.log('[친구요청 구독 시작] myId=', myId);
-      const reqRef = ref(db, `friendRequests/${myId}`);
-      const unsub = onValue(reqRef, snap => {
-        const v = snap.val() || {};
-        console.log('[친구요청 수신] 개수=', Object.keys(v).length, v);
-        onChange(v);
-      });
-      return ()=>{ try{ unsub(); }catch(_){} };
-    },
-    // 요청 수락 → 양방향 friends 추가 + 요청 삭제 (한 번에 처리해서 중간 상태가 안 생기게)
-    async acceptFriendRequest(myId, fromId){
-      const now = Date.now();
-      await update(ref(db), {
-        [`users/${myId}/friends/${fromId}`]: { addedAt: now },
-        [`users/${fromId}/friends/${myId}`]: { addedAt: now },
-        [`friendRequests/${myId}/${fromId}`]: null,
-        // 📤 보낸 쪽 미러도 같이 치운다 — 안 지우면 상대 화면에 '기다리는 중'이 영영 남는다
-        [`sentFriendRequests/${fromId}/${myId}`]: null,
-      });
-      return { ok:true };
-    },
-    // 요청 거절 → 요청만 삭제 (상대에겐 따로 알리지 않음). 미러는 여기서도 같이 치운다.
-    async rejectFriendRequest(myId, fromId){
-      await update(ref(db), {
-        [`friendRequests/${myId}/${fromId}`]: null,
-        [`sentFriendRequests/${fromId}/${myId}`]: null,
-      });
-      return { ok:true };
-    },
-
-    // 양방향 친구 추가 — 코드로 찾은 상대 userId를 서로의 friends 목록에 동시에 기록(승인 절차 없음, 방 코드와 같은 방식).
-    async addFriendMutual(myId, friendId){
-      if(myId===friendId) return { ok:false, reason:'self' };
-      const now = Date.now();
-      await update(ref(db), {
-        [`users/${myId}/friends/${friendId}`]: { addedAt: now },
-        [`users/${friendId}/friends/${myId}`]: { addedAt: now },
-      });
-      return { ok:true };
-    },
-    async removeFriend(myId, friendId){
-      await update(ref(db), {
-        [`users/${myId}/friends/${friendId}`]: null,
-        [`users/${friendId}/friends/${myId}`]: null,
-      });
-    },
-    // 내 친구 목록 한 번 읽기 — users/{나}/friends 만({친구id: {addedAt}}). 판정용 · 부르는 곳은 friends-sub.js 한 곳(중복 조회 방지).
-    async getMyFriendList(myId){
-      const snap = await get(ref(db, `users/${myId}/friends`));
-      return snap.val() || {};
-    },
-    /* 내 친구 목록 실시간 구독 — users/{나}/friends 하나만({친구id:{addedAt}}). 실시간은 추가 · 삭제뿐이다:
-       이름 · 레벨 · 소개 · 사진은 목록을 열 때 한 번(getFriendCard · 서버 먼저 — friends/friends-port.js), 프로필은 목록이 열려 있는 동안만(watchFriendProfile), 접속 상태는 realtime(friends/friends-presence-rt.js).
-       onError(err) — 거부 · 끊기면 한 번(다시 걸기는 부르는 쪽 · friends-sub.js). @return 해제 함수. ⚠️ 동시에 하나만 — 새로 걸면 앞의 것을 먼저 푼다. */
-    watchMyFriendList(myId, onChange, onError){
-      if(_myFriendsOff) _myFriendsOff();
-      let _dead = false, _listOff = null;
-      const teardown = ()=>{
-        if(_dead) return;
-        _dead = true;
-        if(_listOff){ try{ _listOff(); }catch(_){} }
-        if(_myFriendsOff === teardown) _myFriendsOff = null;
-      };
-      _myFriendsOff = teardown;
-      _listOff = onValue(ref(db, `users/${myId}/friends`), snap=>{
-        if(_dead) return;
-        onChange(snap.val() || {});
-      }, err=>{
-        teardown();
-        console.warn('[친구 목록] 구독이 끊겼어요', err);
-        if(onError) onError(err);
-      });
-      if(_dead && _listOff){ try{ _listOff(); }catch(_){} }   // onValue 가 돌아오기 전에 실패가 왔으면 지금 푼다
-      return teardown;
-    },
-    /* 친구 한 명의 이름 · 레벨 · 소개 · 사진 한 번 읽기 → 날것 { profile, bio, avatar } · 💰 home 통째가 아니라 bio · avatar 두 칸만 */
-    async getFriendCard(fid){
-      const [p, b, a] = await Promise.all([`users/${fid}/profile`, `users/${fid}/home/bio`, `users/${fid}/home/avatar`].map(path => get(ref(db, path))));
-      return { profile: p.val(), bio: b.val(), avatar: a.val() };
-    },
-    /* 친구 한 명의 프로필(이름 · 레벨 · 회차) — 구독은 목록이 열려 있는 동안만(friends-sub.js · @return 해제 함수), 한 번 읽기는 목록이 닫혀 있을 때 마이홈 구경.
-       💰 규칙상 작은 칸 여섯뿐(name ≤20자 · level · cyc · clv · starC · updatedAt)이고 쓰기는 켤 때 · 이름 · 레벨이 바뀔 때만이다. */
-    watchFriendProfile(fid, onChange){ const off = onValue(ref(db, `users/${fid}/profile`), snap=>onChange(snap.val())); return ()=>{ try{ off(); }catch(_){} }; },
-    async getFriendProfile(fid){ return (await get(ref(db, `users/${fid}/profile`))).val(); },
     // (마이홈 페이지)
     // 읽기 · 쓰기 · 그림 올리기는 서버 API(myhome/myhome-api.js · 상태 주인 myhome-store.js)로 옮겼다 — 여기 남은 길 없음(getMyHome · saveMyHome · _myHomeLimits 걷음).
     // ===== 방명록 / 웹박수 =====
     // 읽기 · 쓰기 · 박수 · 폭죽 · 그림은 서버 API(myhome/guestbook-api.js)로 옮겼다 — 여기 남은 길 없음.
-    /* ===== 🔒 시크릿룸 (후원자 전용 고정 투게더룸) =====
-       secretRooms/{SCRT-XXXX} = { pub:{owner, name, ts}, k }
-
-       이 프로젝트 RTDB에는 인증이 없고 관리자 모드도 클라이언트 판정이라(ADMIN_PASS_HASH가
-       배포본에 그대로 들어 있다) "관리자 UI에서만 쓴다"는 보호가 되지 않는다. 그래서 발급을
-       서버 규칙으로 막는다:
-         · 쓰기 조건  — newData.k === root.srKey/v
-         · srKey 는 .read 가 없어 클라이언트가 절대 못 읽는다(규칙은 읽을 수 있다)
-         · pub 만 .read:true — 입장 검증에 필요한 owner/name/ts 만 공개, 열쇠 k 는 비공개
-       ⇒ 관리자 화면을 열어도 열쇠를 모르면 서버가 발급을 거부한다 = 정원 밖 투게더룸 우회 차단.
-
-       ⚠️ 열쇠는 config 밑에 두면 안 된다 — config 는 .read:true 이고 읽기 권한은 아래로
-          캐스케이드되며 하위에서 취소할 수 없다(1-7의 반대 방향). 반드시 별도 최상위 노드.
-       ⚠️ 삭제(remove)는 newData 가 없어 k 검사를 통과할 수 없다 — 규칙상 이 노드는 지울 수 없다.
-          그래서 '못 들어가게 하는 것'은 삭제가 아니라 set() 으로 한다(expireSecretRoom).
-       🗑️ revokeSecretRoom(owner 를 빈 문자열로 만들어 회수) 은 폐기됐다. 입장 문구가
-          "없는 시크릿룸 코드예요" 로 나가 거짓말이 되고, owner 가 사라져 같은 코드로 재발급하는
-          연장 경로가 끊기며, 누구 것이었는지 기록도 날아간다. 만료로 내리는 편이 전부 낫다. */
-    async getSecretRoomPub(code){
-      try{ const s = await get(ref(db, `secretRooms/${code}/pub`)); return s.val() || null; }
-      catch(_){ return null; }
-    },
+    // 🔒 시크릿룸 — 발급 · 만료 · 조회는 전부 서버 API 다(Firebase 길 없음).
     /* 발급 · 만료 처리는 서버(POST /v2/admin/secret-rooms · 앱 admin/admin-license-bulk.js)가 한다 — Firebase 로 쓰던 issueSecretRoom · expireSecretRoom 은 D8-5 에서 걷었다. */
-    // 후원자 본인 코드 조회 — 참여 화면이 "내 시크릿룸"을 자동으로 펼치고 채워넣는 데 쓴다.
-    async getMySecretRoom(userId){
-      try{ const s = await get(ref(db, `users/${userId}/secretRoom`)); return s.val() || null; }
-      catch(_){ return null; }
-    },
     // ---- 라이선스 (관리자 직접 발급 방식) ----
     // licenses/{key} = { valid:true, note, createdAt, redeemedAt|null, redeemedBy|null(기기 식별용, 선택) }
 
