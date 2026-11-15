@@ -47,10 +47,14 @@ export {
   wireArray,
   wireBool,
   wireError,
+  wireNullableNumber,
   wireNullableString,
+  wireNullableTime,
   wireNumber,
   wireObject,
+  wireOmittable,
   wireString,
+  wireTime,
 } from './wire';
 export { opsConfigClient, type OpsConfigClient, type OpsSetting } from './opsConfig';
 export { API_ERROR_TEXT, apiErrorText, CONFLICT_TEXT, rowCodeText } from './errorText';
