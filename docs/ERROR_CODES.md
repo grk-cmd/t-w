@@ -68,6 +68,7 @@
 | `E-NET-06` | 요청 모양이 맞지 않아 처리하지 못했어요 | `shared/api-errors.js` — 공통 INVALID_REQUEST · METHOD_NOT_ALLOWED · UNSUPPORTED_MEDIA_TYPE · PAYLOAD_TOO_LARGE |
 | `E-NET-07` | 서버에 닿지 못했어요 — 인터넷 연결을 확인하고 다시 해 주세요 | `shared/api-errors.js` — 닿지 못함(네트워크 · 시간 초과 · 5xx · 사본 없음) |
 | `E-NET-08` | 서버에서 처리하지 못했어요 — 잠시 뒤 다시 해 주세요 | `shared/api-errors.js` — 표에 없는 code(기능 표 · 공통 표 둘 다 없음) |
+| `E-RPT-01` | 신고하지 못했어요 — 잠시 뒤 다시 해 주세요 | `support/report.js` — 신고 창 [신고] 서버 쓰기 실패(`POST /v2/reports` — 기능 갈래(`report-api.js` `failOf`)도 공통 code(`api-errors.js`)도 아닌 실패 · 숨기지 않고 [신고] 다시 켬 · 다시 보내지 않음) |
 
 ## 걷은 번호
 (아직 없음)

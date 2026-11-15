@@ -75,8 +75,7 @@ say('── 2. 신고하기');
   chk(/REPORT_KINDS\.forEach/.test(dlg) && /\{ k:'char'[\s\S]*\{ k:'away'[\s\S]*\{ k:'nick'[\s\S]*\{ k:'etc'/.test(CODE), '사유 넷: 캐릭터 · 자리비움 그림 · 닉네임 · 기타');
   chk(/etc\.maxLength = 40/.test(dlg) && /r\.type = 'radio'/.test(dlg), '라디오 · 기타는 40자');
   chk(/const off = \(kd\.k === 'away' && !hasAway\)/.test(dlg) && /hasAway = _awayUrlOk\(seat\.remoteAwayImg\)/.test(dlg), '그림 없는 사람은 자리비움 줄 잠김');
-  chk(/reportUser\(target, me, \{ kind:picked, note:txt, nick:[^}]*code4:_myCode4\(\) \}\)/.test(dlg), '신고자 정보 = 닉네임 + 코드 뒷자리 4 + 사유뿐');
-  chk(/String\(localStorage\.getItem\(MY_FRIEND_CODE_KEY\) \|\| ''\)\.slice\(-4\)/.test(CODE), '코드 뒷자리 4자리');
+  chk(/reportApi\.file\(target, picked, txt\)/.test(dlg) && !/nick|code4|MY_FRIEND_CODE_KEY/.test(dlg), '신고 본문 = 대상 · 사유 · 글뿐(내 이름 · 코드는 서버가 토큰에서 정함)');
   chk(/_reportHiddenUids\.add\(target\); _reportHiddenSave\(\);/.test(dlg), '신고하면 내 화면에서 숨김');
   const rows = new Function(`var REPORT_ADMIN_MIN = 3; ${grabFn('_reportAdminRows')} return _reportAdminRows;`)();
   const all = { uA:{ r1:{kind:'away',ts:1}, r2:{kind:'nick',ts:3}, r3:{kind:'etc',note:'x',ts:2} }, uB:{ r1:{kind:'char',ts:1}, r2:{kind:'char',ts:2} },
