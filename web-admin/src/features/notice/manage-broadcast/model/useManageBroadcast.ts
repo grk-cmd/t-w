@@ -29,7 +29,8 @@ export function usePinBroadcasts() {
   return useMutation({
     mutationFn: ({ ids, pinned }: { ids: string[]; pinned: boolean }) => port.setPinned(ids, pinned),
     onSuccess: refresh,
-    onError: refreshOnConflict(refresh),
+    // 일부만 된 묶음(고정 20개 넘침 등)도 목록을 다시 받아 된 줄을 보인다
+    onError: () => void refresh(),
   });
 }
 
@@ -39,6 +40,7 @@ export function useDeleteBroadcasts() {
   return useMutation({
     mutationFn: (ids: string[]) => port.remove(ids),
     onSuccess: refresh,
-    onError: refreshOnConflict(refresh),
+    // 일부만 된 묶음(고정 20개 넘침 등)도 목록을 다시 받아 된 줄을 보인다
+    onError: () => void refresh(),
   });
 }

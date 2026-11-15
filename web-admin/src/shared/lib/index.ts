@@ -39,6 +39,7 @@ export {
   type VersionParts,
 } from './versionParts';
 export {
+  createPayloadRequestId,
   createPendingRequestId,
   newRequestId,
   REQUEST_ID_PATTERN,

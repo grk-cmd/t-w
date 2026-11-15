@@ -1,6 +1,6 @@
 // API 판 — 카탈로그의 레벨 해금 줄 `ANIMAL_CHARACTER / animal`. 읽기 `GET /v2/admin/catalog` 의 `unlocks[]` ·
 // 쓰기 `PUT /v2/admin/catalog/unlocks/ANIMAL_CHARACTER/animal { version, level, label }`(label 은 읽은 그대로 돌려 보낸다).
-import { adminPath, NO_API_TEXT, PortError, toPortError, type Api } from '@/shared/api';
+import { adminPath, NO_API_TEXT, PortError, toPortError, type Api, perApi } from '@/shared/api';
 import type { GameConfigPort } from './port';
 
 export const ANIMAL_UNLOCK = { kind: 'ANIMAL_CHARACTER', key: 'animal' } as const;
@@ -14,7 +14,7 @@ interface Unlock {
   version?: unknown;
 }
 
-export function createServerGameConfigPort(api: Api | null): GameConfigPort {
+function build(api: Api | null): GameConfigPort {
   let seen: { version: number; label: string } | null = null;
 
   async function load(): Promise<number | null> {
@@ -63,3 +63,6 @@ export function createServerGameConfigPort(api: Api | null): GameConfigPort {
     },
   };
 }
+
+/** `api` 마다 하나 — 읽는 훅 · 쓰는 훅이 같은 포트(같은 version · 기억)를 쓴다. */
+export const createServerGameConfigPort = perApi(build);

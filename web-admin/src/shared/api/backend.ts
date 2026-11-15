@@ -1,6 +1,6 @@
 // 포트 하나 · 구현 둘(Firebase 판 · API 판) 을 고르는 도우미. 화면은 포트만 부르고 판을 모른다.
 import { BACKEND, type Backend } from '@/shared/config';
-import { ApiError } from './api';
+import { ApiError, type Api } from './api';
 import { apiErrorText } from './errorText';
 
 /**
@@ -8,6 +8,8 @@ import { apiErrorText } from './errorText';
  * `conflict` 는 API 판만 낸다(Firebase 판은 지금처럼 마지막 쓰기가 이긴다).
  */
 export type PortErrorKind = 'unreachable' | 'denied' | 'notFound' | 'conflict' | 'invalid';
+
+export const NO_API_TEXT = '이 환경에는 API 주소가 없어요 — 빌드 값 VITE_API_BASE_URL 로 정해 주세요';
 
 export class PortError extends Error {
   readonly kind: PortErrorKind;
@@ -68,3 +70,35 @@ export function notPorted<T extends object>(name: string): T {
 export const refreshOnConflict = (refresh: () => unknown) => (error: unknown) => {
   if (isPortError(error, 'conflict')) void refresh();
 };
+
+/**
+ * `api` 마다 포트를 하나만 만든다 — 훅을 부르는 곳마다 따로 만들면 포트가 들고 있는 상태(마지막에 본 version · 캐시 · 보낸 것)가
+ * 읽는 훅과 쓰는 훅에 나뉘어 버린다. `api` 가 없으면(주소 없음) 하나만 둔다.
+ */
+export function perApi<T>(make: (api: Api | null) => T): (api: Api | null) => T {
+  const made = new WeakMap<Api, T>();
+  let none: T | undefined;
+  return (api) => {
+    if (!api) return (none ??= make(null));
+    let port = made.get(api);
+    if (port === undefined) {
+      port = make(api);
+      made.set(api, port);
+    }
+    return port;
+  };
+}
+
+/** API 판 호출 한 번 — 서버 오류를 포트 실패(`PortError`)로 바꿔 던진다. `api` 가 없으면(주소 없음) «주소 없음». */
+export async function portCall<T>(
+  api: Api | null,
+  call: (api: Api) => Promise<T>,
+  fallback = '서버에 연결하지 못했어요',
+): Promise<T> {
+  if (!api) throw new PortError('unreachable', NO_API_TEXT);
+  try {
+    return await call(api);
+  } catch (error) {
+    throw toPortError(error, fallback);
+  }
+}

@@ -1,18 +1,18 @@
 // API 판 — 설정 키 `room.limits` · `room.maxPeople` · `chat.keepDays`. 서버는 칸이 비면 기본값을 값으로 돌려준다(null 이 없다).
 // 칸을 비우는 저장(= 기본값 따르기)은 그 칸에 기본값을 써서 보낸다. 값이 여럿인 키는 받은 값에 고친 칸만 바꿔 통째로 보낸다.
-import { notPorted, opsConfigClient, type Api } from '@/shared/api';
+import { opsConfigClient, type Api } from '@/shared/api';
 import { CHAT_KEEP_PATH, parseChatKeep } from '../model/chatKeep';
 import type { Channel } from '../model/room';
 import { parseRoomLimits, isRoomMaxPeople } from '../model/roomConfig';
 import type { RoomPort } from './port';
+import { createServerRoomBoard } from './serverBoard';
 
 const object = (v: unknown): Record<string, unknown> =>
   v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
 
 export function createServerRoomPort(api: Api | null): RoomPort {
   const config = opsConfigClient(api);
-  // 방 보기 · 닫기는 D12-2b 에서 — 그때까지 부르면 «아직 API 판이 없어요».
-  const board: RoomPort = notPorted('room');
+  const board = createServerRoomBoard(api);
   return {
     async getLimits() {
       return parseRoomLimits((await config.read('room.limits')).effective);
@@ -33,14 +33,8 @@ export function createServerRoomPort(api: Api | null): RoomPort {
     async getChatKeep() {
       return parseChatKeep((await config.read('chat.keepDays')).effective);
     },
-    getIndex: () => board.getIndex(),
-    getCodes: () => board.getCodes(),
-    probeRooms: (codes, withSeen) => board.probeRooms(codes, withSeen),
-    getStats: () => board.getStats(),
-    getLive: () => board.getLive(),
-    serverTimeOffset: () => board.serverTimeOffset(),
-    close: (codes) => board.close(codes),
-    closeAll: () => board.closeAll(),
+    ...board,
+    features: { ghostCleanup: false, lastSeen: false },
     async saveChatKeep(_before, updates) {
       await config.update('chat.keepDays', (current, defaults) => {
         const next = { ...object(current) };

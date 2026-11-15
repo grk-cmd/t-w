@@ -1,7 +1,7 @@
 // API 판 — 서버 운영 설정(`/v2/admin/config`) 통로. 설정 화면은 카드마다 자기 키를 묻는데, 서버는 목록 한 번에 다 준다.
 // 그래서 목록을 한 번 받아 짧게 들고 있고(여러 카드가 한꺼번에 열려도 요청은 한 번), 저장은 «그 키를 마지막에 본 version» 으로 건다.
 import { adminPath, type Api } from './api';
-import { PortError, toPortError } from './backend';
+import { NO_API_TEXT, PortError, toPortError } from './backend';
 
 /** 서버가 준 설정 한 칸. `value` 가 null 이면 저장한 값이 없어 `default` 를 쓴다. */
 interface Row {
@@ -31,7 +31,6 @@ export interface OpsConfigClient {
 
 const LIST_FRESH_MS = 2000;
 const PATH = adminPath('/config');
-export const NO_API_TEXT = '이 환경에는 API 주소가 없어요 — 빌드 값 VITE_API_BASE_URL 로 정해 주세요';
 
 const settingOf = (row: Row): OpsSetting => ({
   key: row.key,
