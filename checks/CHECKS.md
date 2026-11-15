@@ -256,7 +256,7 @@
 | **sim-wheel-kick.js** | 97 | **cdd5b36aa254** |
 | **sim-admin-active.js** | 155 | **100afda315c1** |
 | **sim-room-order.js** | 28 | **d6f26bfee760** |
-| **sim-deco-parts.js** | 67 | **c017ce7764fc** |
+| **sim-deco-parts.js** | 67 | **9a57b2ad6201** |
 | **sim-mhd-envsub.js** | 39 | **da0fcdb35c23** |
 | **sim-font-hangul.js** | 54 | **1124dfc9f983** |
 | **sim-app-size.js** | 127 | **f4d91c399857** |

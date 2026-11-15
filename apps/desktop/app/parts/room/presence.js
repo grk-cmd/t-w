@@ -397,7 +397,7 @@ const Presence=(()=>{
     provider=null; room=null; friends={}; if(onChange)onChange({});
     return p;   // 호출부에서 await하면 서버에 삭제가 반영된 뒤에 재접속하도록 할 수 있음
   }
-  return { restoreBootStatus, resetBootStatus, start, setState, setUserStatus, setCustomStatus, setFocusShow, setAwayImg, setAwaySz, setNoise, setLevel, setName, poke, pokeSelf, updateDef, sendChat, stop, broadcastRide,
+  return { start, restoreBootStatus, resetBootStatus, setState, setUserStatus, setCustomStatus, setFocusShow, setAwayImg, setAwaySz, setNoise, setLevel, setName, poke, pokeSelf, updateDef, sendChat, stop, broadcastRide,
            /* 🪑 상태 변화를 지금 당장 방에 실어 보낸다(같은 _basePayload). 쉬는 시간처럼
               "다음 상태 틱까지 기다리면 늦는" 값이 생겼을 때 부른다. */
            broadcastNow: broadcastRide,
