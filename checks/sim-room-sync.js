@@ -36,13 +36,14 @@ function anything(){
   const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? (() => P) : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true });
   return P;
 }
-function build(src){
+function build(src, over){
   const any = anything();
   const deps = {};
   FN_DEPS.forEach(n => { deps[n] = () => any; });
   VAL_DEPS.forEach(n => { deps[n] = any; });
   GET_DEPS.forEach(n => { deps[n] = () => any; });
   SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
+  Object.assign(deps, over || {});
   const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
@@ -78,6 +79,29 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
+say('── 2-2. 서버 시각 — 모르면 null · 기기 시계로 대신하지 않는다');
+const clockOf = (src, sp) => build(src, { Presence: () => ({ serverProvider: () => sp }) });
+const pokeRows = (src) => {
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  const w0 = console.warn; let warns = 0; console.warn = () => { warns++; };
+  try{
+    const outside = clockOf(src, null);
+    t(outside._srvNow() === null && outside._pokeFresh(Date.now()) === false && warns === 1, '★ 방 밖 · 시계 모름 — _srvNow() null · 알림 ts 는 기기 시계와 견주지 않고 버린다(console.warn)');
+    const inRoom = clockOf(src, { serverNow: () => 100000 });
+    t(inRoom._srvNow() === 100000 && inRoom._pokeFresh(90000) === true && inRoom._pokeFresh(60000) === false && inRoom._pokeFresh(160001) === false && inRoom._pokeFresh(0) === true, '  방 안 — 서버 시각으로 견준다(30초 안 · 앞서도 60초까지) · ts 없는 값은 그대로 받는다');
+    const unsynced = clockOf(src, { serverNow: () => null });
+    t(unsynced._srvNow() === null && unsynced._pokeFresh(1) === false, '  방 안이지만 시계를 아직 못 맞췄으면 null · 버린다');
+  }catch(e){ t(false, '던짐 — ' + String(e && e.message || e).slice(0, 100)); }
+  console.warn = w0;
+  return r;
+};
+pokeRows(MOD).forEach(([ok, msg]) => chk(ok, msg));
+{
+  const broke = MOD.replace('return sp ? sp.serverNow() : null;', 'return sp ? sp.serverNow() : Date.now();');
+  chk(broke !== MOD && pokeRows(broke).some(([ok]) => !ok), '깨 보기: 방 밖에서 기기 시계로 되돌리면 2-2절이 빨강');
+}
+
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/room/room-sync.js"></script>', '')],

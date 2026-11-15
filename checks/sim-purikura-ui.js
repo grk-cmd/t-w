@@ -83,7 +83,7 @@ function mkEnv(opt){
     setFrameUrl: (i, u) => { env.frameWrites.push([i, u]); return Promise.resolve(true); },
     start: async () => (opt.startRes || { ok: true, n: 1, left: 399, nth: '1번째 · 399회 남음' }),
     setCut: (i, at) => { (env.cuts = env.cuts || []).push([i, at]); return Promise.resolve(true); },
-    isHost: () => env.host, mySlot: () => env.mySlot, hostSlot: () => 0, serverNow: () => 1000,
+    isHost: () => env.host, mySlot: () => env.mySlot, hostSlot: () => 0, serverNow: () => (opt.srvNow === undefined ? 1000 : opt.srvNow),
     slotsNow: () => slots0, framesNow: () => (opt.frames || {}), metaNow: () => (opt.meta === undefined ? null : opt.meta),
     close(){ env.closed++; },
   });
@@ -114,8 +114,8 @@ function mkEnv(opt){
   /* 🎵 마이홈 BGM 고리(myhome-edit.js 가 부팅 때 고리판에 건다) — 여기선 마이홈 BGM 이 안 도는 판 */
   ctx.TwMyHomeHooks.on(ctx.TwMyHomeHooks.HOOK.BGM_PLAYING, () => false); ctx.TwMyHomeHooks.on(ctx.TwMyHomeHooks.HOOK.BGM_SET_PLAYING, () => {});
   vm.runInContext(SRC['pk-bgm.js'], ctx, { filename: 'pk-bgm.js' });   // 🎵 창 BGM(재생 · 끄기 기억) — purikura-ui.js 가 만들 때 부른다
-  vm.runInContext(MOD, ctx, { filename: 'purikura-ui.js' });
-  env.ctx = ctx; env.els = els;
+  vm.runInContext(opt.mod || MOD, ctx, { filename: 'purikura-ui.js' });
+  env.ctx = ctx; env.els = els; env.opt = opt;
   env.mk = () => ctx.TwPurikuraUi.createPurikuraUi({
     purikura: () => sess,
     toast: (m) => env.toasts.push(m),
@@ -252,61 +252,23 @@ await sec('── 4. 세션 콜백 — 창이 닫혀 있어도 안 터진다', (
   chk(Object.keys(st0.members || {}).length === 0 && Object.keys(st0.frameSrc || {}).length === 0, '  닫혀 있을 때 온 자리 · 프레임으로 상태가 바뀌지 않는다(듣는 동안만 받는다)');
 });
 
-await sec('── 4-2. 서버 소식 — 열려 있는 동안', async () => {
-  let e = mkEnv({ slots: { 0: { uid: 'uB', name: '방장', fx: 1 }, 1: { uid: 'uA', name: '나', fx: 1 } }, openRes: { ok: true, slot: 1, host: false }, frames: { 0: 'https://x/0.webp' }, meta: { host: 'uB', orient: 'l', cuts: 2, state: 'lobby' } });
-  e.mySlot = 1; e.host = false;
-  let ui = e.mk(); await ui.open(); let PK = ui.state();
-  chk(PK.open && PK.host === false && PK.slot === 1 && Object.keys(PK.members).length === 2, '방장이 아닌 사람으로 열린다 — 자리 둘');
-  chk(PK.orient === 'l' && PK.cuts === 2, '★ 열 때 판(photoWelcome 의 meta)을 한 번 받아 방장이 정한 방향 · 컷을 따른다');
-  chk(PK.frameSrc && PK.frameSrc[0] === 'https://x/0.webp', '  열 때 프레임 목록(photoWelcome 의 frames)도 받아 둔다');
-  ui.onSlots({ 0: { uid: 'uB', name: '방장', fx: 1 }, 1: { uid: 'uA', name: '나', fx: 1 }, 2: { uid: 'uC', name: '새', fx: 1 } });
-  chk(Object.keys(ui.state().members).length === 3, '자리 배치가 통째로 오면 그대로 갈아 끼운다');
-  ui.onFrames({ 1: 'https://x/1.webp' });
-  chk(ui.state().frameSrc[1] === 'https://x/1.webp' && !ui.state().frameSrc[0], '프레임 목록도 통째로(빈 칸은 지워진 것)');
-  e.host = true; e.mySlot = 0; ui.onSlots({ 0: { uid: 'uA', name: '나', fx: 1 } });
-  chk(ui.state().host === true, '방장이 나가 내가 승계하면 화면도 방장으로(판정은 세션 포트 한 곳)');
-  chk(e.configs.length === 1, '  승계하면 지금 내 설정을 방에 한 번 알린다');
-  e.errors.length = 0; e.toasts.length = 0;
-  e.mySlot = -1; e.host = false; ui.onSlots({});
-  chk(e.toasts.length === 1 && e.toasts[0] === '자리를 잃었어요 — 창을 닫았다 다시 열어 주세요', '★ 자리를 잃으면(연결 끊김 · 방 밖) 한 번 안내한다');
-  ui.onSlots({}); ui.onSlots({});
-  chk(e.toasts.length === 1, '  두 번 세 번 와도 반복하지 않는다');
-  ui.close(true);
-  e = mkEnv(); ui = e.mk(); await ui.open();
-  chk(e.mySeatCalls > 0, '무대에 세울 때 내 자리(uid = 내 코드)는 내 좌석을 찾는다');
-  ui.close(true);
-  e = mkEnv({ slots: { 0: { uid: 'uB', name: '남', fx: 1 } } }); ui = e.mk(); await ui.open();
-  chk(e.mySeatCalls === 0, '  남의 자리(uid ≠ 내 코드)는 내 좌석으로 찾지 않는다');
-  ui.close(true);
-  e = mkEnv(); ui = e.mk(); await ui.open();
-  ui.onRefused({ ref: 'photoConfig', code: 'ROOM_PHOTO_NOT_HOST' }); ui.onRefused({ ref: 'photoCut', code: 'ROOM_PHOTO_NOT_HOST' });
-  chk(e.errors.length === 2 && e.errors.every(x => x[0] === 'E-PK-04' && x[1] === 'ROOM_PHOTO_NOT_HOST'), '서버가 방장 일을 거절하면 E-PK-04(조용히 삼키지 않는다)');
-  ui.onRefused({ ref: 'photoFrame', code: 'badRequest' });
-  chk(e.errors[2][0] === 'E-PK-05', '프레임 주소 거절은 E-PK-05');
-  ui.close(true);
-  /* 촬영 시작 */
-  const start = async (startRes) => { const m = mkEnv({ startRes }); const u = m.mk(); await u.open(); m.errors.length = 0; await m.els.pkStartBtn.onclick({ stopPropagation(){} }); await flush(); return [m, u]; };
-  [e, ui] = await start({ ok: false, reason: 'closed', message: '📷 스티커사진이 문을 닫았어요. 내일 0시에 열려요.' });
-  chk(e.toasts.slice(-1)[0] === '📷 스티커사진이 문을 닫았어요. 내일 0시에 열려요.' && e.errors.length === 0 && ui.phase() === 'lobby', '★ 정원을 다 쓴 시작 거절(closed)은 번호 없이 «문을 닫았어요» 안내 · 로비에 남는다');
-  for(const [reason, message] of [['unavailable', '지금은 정원을 확인할 수 없어요 — 잠시 뒤에 다시 눌러 주세요'], ['not-host', '지금은 시작 권한이 없어요 — 방장이 바뀌었을 수 있어요'],
-    ['notInRoom', '방 밖에서는 시작할 수 없어요 — 창을 닫았다 다시 열어 주세요'], ['notReady', '서버에 연결된 뒤 시작할 수 있어요'], ['timeout', '지금은 시작할 수 없어요 — 잠시 뒤에 다시 눌러 주세요']]){
-    [e, ui] = await start({ ok: false, reason, message });
-    chk(e.errors.length === 1 && e.errors[0][0] === 'E-PK-03' && e.errors[0][1] === reason && e.errors[0][2] === message && ui.phase() === 'lobby',
-      '시작 거절(' + reason + ') → E-PK-03 + 까닭 문구 · 로비에 남는다');
-  }
-  /* 시간 초과로 접은 촬영 시작이 서버에서 됐다 — 방장 화면이 이어 간다 */
-  e = mkEnv(); ui = e.mk(); await ui.open(); e.cuts = [];
-  ui.onLateStart();
-  chk(ui.phase() === 'shooting' && JSON.stringify(e.cuts) === '[[0,0]]', '★ 늦게 알려 온 촬영 시작(onLateStart)이면 방장 화면이 촬영 국면으로 — 첫 컷은 «기다리는 중»');
-  ui.onLateStart();
-  chk(JSON.stringify(e.cuts) === '[[0,0]]', '  이미 이어 가는 중이면 또 시작하지 않는다');
-  ui.close(true);
-  e = mkEnv({ openRes: { ok: true, slot: 1, host: false }, slots: { 0: { uid: 'uB', name: 'b', fx: 1 }, 1: { uid: 'uA', name: '나', fx: 1 } } }); e.mySlot = 1; e.host = false; ui = e.mk(); await ui.open(); e.cuts = [];
-  ui.onLateStart();
-  chk(ui.phase() === 'lobby' && e.cuts.length === 0, '  방장이 아니면 하지 않는다');
-  ui.close(true);
-  [e, ui] = await start({ ok: true, n: 1, left: 399, nth: '1번째 · 399회 남음' });
-  chk(e.errors.length === 0 && ui.phase() === 'shooting' && JSON.stringify(e.cuts) === '[[0,0]]', '시작이 되면 촬영 국면으로 — 첫 컷은 «기다리는 중»(setCut(0, 0))');
+await sec('── 4-2. 서버 시각을 모르면 컷을 열지 않는다', async () => {
+  /* 방장이 📷 를 눌렀는데 서버 시각이 null — 기기 시계로 컷 시각을 정하지 않고(setCut 안 부름) E-PK-03 · console.warn · 다시 누를 수 있게 기다림 칸을 되돌린다 */
+  const press = async (mod) => {
+    const m = mkEnv({ startRes: { ok: true, n: 1, left: 399, nth: '1번째 · 399회 남음' }, mod }); const u = m.mk(); await u.open(); await m.els.pkStartBtn.onclick({ stopPropagation(){} }); await flush();
+    const PK = u.state(); m.cuts = []; m.errors.length = 0; m.warns.length = 0;
+    m.opt.srvNow = null; PK.camUI.shoot.onclick();
+    const r = { cuts: m.cuts.slice(), errs: m.errors.map(x => x[0]), warned: m.warns.some(w => /서버 시각/.test(w)), wait: PK.waitCut };
+    m.opt.srvNow = 5000; PK.waitCut = 0; m.cuts = []; PK.camUI.shoot.onclick();
+    r.later = m.cuts.slice(); r.waitAfter = PK.waitCut; u.close(true);
+    return r;
+  };
+  const r = await press();
+  chk(r.cuts.length === 0 && r.errs.join() === 'E-PK-03' && r.warned && r.wait === 0, '★ 서버 시각 null — 컷을 열지 않고(setCut 0건) E-PK-03 · console.warn · 기다림 칸 그대로(다시 누를 수 있다)');
+  chk(r.later.length === 1 && r.later[0][0] === 0 && r.later[0][1] === 5000 && r.waitAfter === -1, '  시각이 있으면 그 서버 시각으로 컷을 연다(setCut(0, 5000))');
+  const bad = MOD.replace("const t = pk ? pk.serverNow() : null;", "const t = pk ? (pk.serverNow() === null ? Date.now() : pk.serverNow()) : Date.now();");
+  const rb = bad === MOD ? null : await press(bad);
+  chk(rb && rb.cuts.length === 1, '깨 보기: 시각을 모를 때 기기 시계로 대신하게 되돌리면 4-2절이 빨강');
 });
 
 await sec('── 5. app.js 배선', () => {

@@ -155,7 +155,7 @@ function makeMockProvider(){
       }, 3500);
     },
     update(payload){ /* 로컬 시연: 내 상태는 가짜 친구에게 전달되지 않음 (Firebase 단계에서 push) */ },
-    poke(targetId, type){ if(fr[targetId]){ fr[targetId].poke={type, ts:Date.now()}; if(cb) cb(Object.assign({},fr)); } },
+    poke(targetId, type){ if(fr[targetId]){ fr[targetId].poke={type}; if(cb) cb(Object.assign({},fr)); } },
     // 🪄 로컬 시연에는 내 노드가 없다 — 자기 때리기는 로컬 재생으로 이미 끝나 있으므로 그냥 넘긴다
     pokeSelf(type){},
     leave(){ if(timer)clearInterval(timer); timer=null; fr={}; }
@@ -602,7 +602,9 @@ async function startRoom(code){
   _roomJoined(code);
   if(mineSecret){   // 만료 안내는 서버 시각으로 견준다(PC 시계가 틀린 사람에게 어긋나지 않게) — 방 서버 시각은 들어간 뒤에 맞춰진다
     const sp = Presence.serverProvider();
-    _warnSecretExpiry(mineSecret.expiresAt, sp ? sp.serverNow() : Date.now());
+    const srvMs = sp ? sp.serverNow() : null;
+    if(srvMs === null) console.warn('[방] 서버 시각을 몰라 시크릿룸 만료 안내를 건너뜁니다');   // PC 시계로 대신하지 않는다
+    else _warnSecretExpiry(mineSecret.expiresAt, srvMs);
   }
   settingsMod.applyExtraSeatForMode();   // 멀티모드 진입 — 자리추가 좌석은 자동으로 뺀다
 }

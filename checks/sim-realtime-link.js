@@ -70,7 +70,7 @@ function mk(o = {}){
     target: () => url,
     switchOk: () => st.switchOk,
     getToken: async (force) => { log.tokens.push(!!force); return ('token' in o) ? o.token : 'tok' + log.tokens.length; },
-    getVersion: async () => '0.11.4',
+    getVersion: o.getVersion || (async () => '0.11.4'),
     pv: 2,
     helloExtra: o.helloExtra,
     helloFields: o.helloFields,
@@ -87,7 +87,7 @@ function mk(o = {}){
     now: () => clock.t, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout,
     // 0.5 = 흩기 없음(아래 백오프 시험이 정확한 초를 본다) · 흩기 시험은 o.random 으로 끝값을 준다
     random: o.random || (() => 0.5),
-    log: { warn(){} },
+    log: { warn: (...a) => { log.warns = (log.warns || 0) + 1; } },
   });
   return { link, clock, socks, log, st, setUrl: (u) => { url = u; } };
 }
@@ -145,6 +145,19 @@ async function up(env){
     const e2 = mk();
     const { ws: w2 } = await up(e2);
     chk(!('scope' in w2.last('hello')), '  ↳ helloExtra 가 없으면 선택 칸을 싣지 않는다(방 연결 모양 그대로)');
+    /* ★ 앱 버전을 못 읽으면 가짜 버전('0.0.0')으로 연결하지 않는다 — 소켓을 열지 않고 version 으로 끝 · console.warn · onClosed(false, version) */
+    for(const [why, gv] of [['null', async () => null], ['빈 글', async () => ''], ['던짐', async () => { throw new Error('no companion'); }]]){
+      const ev = mk({ getVersion: gv });
+      const rv = await ev.link.ensureReady();
+      chk(rv.ok === false && rv.code === 'version' && ev.socks.length === 0 && JSON.stringify(ev.log.closed) === '[[false,"version"]]' && ev.log.warns === 1, '★ 버전을 못 읽음(' + why + ') — 소켓 안 열고 version 으로 끝 · onClosed(false, version) · console.warn(가짜 버전을 보내지 않는다)');
+    }
+    {
+      const fake = SRC.replace("if(typeof ver !== 'string' || !ver){", "if(false){").replace('token = tk; helloVer = ver;', "token = tk; helloVer = (typeof ver === 'string' && ver) ? ver : '0.0.0';");
+      const MF = new Function('Buffer', fake.replace(/^export (const|function|async function) /gm, '$1 ') + '\nreturn {' + names.join(',') + '};')(Buffer);
+      const ef = mk({ M: MF, getVersion: async () => null });
+      ef.link.ensureReady(); await new Promise((r) => setImmediate(r)); await new Promise((r) => setImmediate(r));
+      chk(fake !== SRC && ef.socks.length === 1, '  깨 보기 — 가짜 버전으로 되돌리면 위 판정이 빨강');
+    }
     const e3 = mk({ token: null });
     const r3 = await e3.link.ensureReady();
     chk(r3.ok === false && r3.code === 'auth' && e3.socks.length === 0 && JSON.stringify(e3.log.closed) === '[[false,"auth"]]', '토큰이 없으면 소켓을 열지 않고 auth 로 끝 · onClosed(false, auth)');

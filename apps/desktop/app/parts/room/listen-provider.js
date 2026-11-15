@@ -7,7 +7,7 @@
 /**
  * @param {{
  *   server: () => ({ onMusic(fn: (m: object|null) => void): () => void, sendMusic(m: object|null, pos?: number): Promise<{ ok: boolean, code?: string }>,
- *                    serverNow(): number, lastMusicSeq(): number }|null),   // 지금 방의 provider · 방 밖이면 null
+ *                    serverNow(): number|null, lastMusicSeq(): number }|null),   // 지금 방의 provider · 방 밖이면 null
  *   model: { wirePos(m: object, now: number): number },   // TwListenModel — 위치 계산 · 상한은 그 한 곳
  * }} deps
  */
@@ -26,7 +26,9 @@ function subscribe(room, cb){
 async function write(room, m){
   const sp = server();
   if(!room || !sp) return { ok: false, err: 'notInRoom' };
-  const r = await sp.sendMusic(m || null, m ? model.wirePos(m, sp.serverNow()) : 0);
+  const t = m ? sp.serverNow() : 0;
+  if(m && t === null){ console.warn('[같이 듣기] 서버 시각을 몰라 곡을 쓰지 못합니다'); return { ok: false, err: 'noClock' }; }
+  const r = await sp.sendMusic(m || null, m ? model.wirePos(m, t) : 0);
   return (r && r.ok) ? { ok: true } : { ok: false, err: (r && r.code) || 'error' };
 }
 /** 칸이 비었을 때 새 곡의 앞 차례 — 서버는 지운 뒤에도 마지막 차례를 기억해 그보다 커야 받는다 · 방 밖이면 -1. */
@@ -34,10 +36,10 @@ function lastSeq(){
   const sp = server();
   return sp ? sp.lastMusicSeq() : -1;
 }
-/** 서버 시각(ms) — 방 포트가 welcome · music 의 now 로 맞춘 시계 · 방 밖이면 기기 시계 */
+/** 서버 시각(ms) — 방 포트가 welcome · music 의 now 로 맞춘 시계 · 방 밖이거나 아직 못 맞췄으면 null(기기 시계로 대신하지 않는다) */
 function now(){
   const sp = server();
-  return sp ? sp.serverNow() : Date.now();
+  return sp ? sp.serverNow() : null;
 }
 
 return { subscribe, write, now, lastSeq };

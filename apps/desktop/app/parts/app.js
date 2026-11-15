@@ -2694,7 +2694,7 @@ function _purikura(){
   if(_pkSession) return _pkSession;
   _pkSession = TwPurikuraRt.createPhotoSession({
     hub: TwRtHub.store, api: TwApi.authed, P: Purikura,
-    serverNow: ()=>{ const p = Presence.serverProvider(); return p ? p.serverNow() : Date.now(); },
+    serverNow: ()=>{ const p = Presence.serverProvider(); return p ? p.serverNow() : null; },   // 방 밖 · 시계를 못 맞춤 = null(PC 시계로 대신하지 않는다)
     onPeers: p => { purikuraUi.onPeers(p); },          // 화면 쪽은 parts/purikura/purikura-ui.js
     onMeta : m => { purikuraUi.onMeta(m); },
     onEvent: (slot, ev) => { purikuraUi.onPeerEvent(slot, ev); },

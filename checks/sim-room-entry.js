@@ -190,6 +190,7 @@ async function flow(src, o){
     start: async (code, def, name, cb, opts) => { log.starts.push({ code, create: opts && opts.provider && opts.provider.create }); const r = results.shift() || { ok: true, others: 1, meta: { channel: 'workingroom' } }; active = !!r.ok; return r; },
     stop: async () => { log.stops++; active = false; },
     active: () => active, roomCode: () => null,
+    serverProvider: () => (o.srvNow === undefined ? any : { serverNow: () => o.srvNow }),
   }, { get: (t, k) => (k in t ? t[k] : any) });
   deps.roomRt = { makeProvider: (h, po) => ({ create: (po && po.create) || null }), peek: async (c) => { log.peeks.push(c); return o.peek === undefined ? { exists: false, count: 0 } : o.peek; },
     random: async () => (o.random === undefined ? [] : o.random), isReady: () => true, myCode: () => 'u1' };

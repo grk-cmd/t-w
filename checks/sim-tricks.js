@@ -32,13 +32,14 @@ function anything(){
   const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? (() => P) : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true });
   return P;
 }
-function build(src){
+function build(src, over){
   const any = anything();
   const deps = {};
   FN_DEPS.forEach(n => { deps[n] = () => any; });
   VAL_DEPS.forEach(n => { deps[n] = any; });
   GET_DEPS.forEach(n => { deps[n] = () => any; });
   SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
+  Object.assign(deps, over || {});
   const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
@@ -90,5 +91,30 @@ for(const [name, fm, fa, fh] of breaks){
   let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
-say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
-process.exit(fail ? 1 : 0);
+say('── 4. 날리기 기록 — 못 보내면 번호로 알린다(조용히 삼키지 않는다)');
+(async () => {
+  const rows = async (src) => {
+    const r = []; const t = (ok, msg) => r.push([!!ok, msg]);
+    const errs = []; globalThis.TwErrorCodes = { notify: (c) => errs.push(c) };
+    const rej = () => Promise.reject(new Error('net'));
+    const m = build(src, { Presence: () => ({ active: () => true, poke(){}, roomCode: () => 'R1' }), chatNet: { sendGame: rej, sendText: rej }, flySeed: () => 7, toast(){} });
+    m._flyChatLog('기록');
+    for(let i = 0; i < 6; i++) await Promise.resolve();
+    t(errs.join() === 'E-CHAT-01', '★ 글 기록(sendText)이 거절되면(던짐) E-CHAT-01 로 알린다 — 삼키지 않는다');
+    const errs2 = []; globalThis.TwErrorCodes = { notify: (c, e) => errs2.push(c + ':' + (e && e.code)) };
+    const m2 = build(src, { Presence: () => ({ active: () => true, poke(){}, roomCode: () => 'R1' }), chatNet: { sendGame: async () => ({ ok: false, code: 'X' }), sendText: async () => ({ ok: true }) }, flySeed: () => 7, toast(){} });
+    m2._flyChatLog('기록');
+    for(let i = 0; i < 6; i++) await Promise.resolve();
+    const errs3 = []; globalThis.TwErrorCodes = { notify: (c, e) => errs3.push(c + ':' + e) };
+    const m3 = build(src, { Presence: () => ({ active: () => true, poke(){}, roomCode: () => 'R1' }), chatNet: { sendGame: async () => ({ ok: true }), sendText: async () => ({ ok: false, code: 'X' }) }, flySeed: () => 7, toast(){} });
+    m3._flyChatLog('기록');
+    for(let i = 0; i < 6; i++) await Promise.resolve();
+    t(errs3.join() === 'E-CHAT-01:X' && errs2.length === 0, '  거절 답({ ok:false, code })은 그 code 로 알린다 · 성공은 조용');
+    return r;
+  };
+  (await rows(MOD)).forEach(([ok, msg]) => chk(ok, msg));
+  const bad = MOD.split(".catch(e=>{ TwErrorCodes.notify('E-CHAT-01', e); });").join(".then(null, ()=>{});");
+  chk(bad !== MOD && (await rows(bad)).some(([ok]) => !ok), '깨 보기: 거절을 다시 삼키게 하면 4절이 빨강');
+  say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
+  process.exit(fail ? 1 : 0);
+})().catch((e) => { console.error(e); process.exit(1); });

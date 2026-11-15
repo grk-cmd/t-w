@@ -197,7 +197,15 @@ function _pkEl(id){ return document.getElementById(id); }
 function _pkP(){ return (typeof Purikura !== 'undefined') ? Purikura : null; }
 
 /* 서버 시각(세션 포트 — 방 포트 시계) — 카운트다운 · 필터 잠금이 모두 이 값에서 센다 */
-function _pkNow(){ const pk = _purikura(); return pk ? pk.serverNow() : Date.now(); }
+/* 서버 시각(ms) — 모르면 null(방 밖 · 시계를 못 맞춤 — PC 시계로 대신하지 않는다). 부르는 곳이 null 을 다룬다 · 경고는 모르는 동안 한 번 */
+let _pkClockWarned = false;
+function _pkNow(){
+  const pk = _purikura();
+  const t = pk ? pk.serverNow() : null;
+  if(t === null){ if(!_pkClockWarned){ _pkClockWarned = true; console.warn('[스티커사진] 서버 시각을 몰라요'); } }
+  else _pkClockWarned = false;
+  return t;
+}
 /* 자리 잡기가 안 된 까닭(세션 포트 reason) → 안내. 이 셋은 «실패» 가 아니라 지금 상태라 번호 없이 알린다. 그 밖(timeout · notReady · error)은 E-PK-02 */
 const PK_OPEN_REFUSED = Object.freeze({
   busy: '📷 지금 촬영 중이에요 — 끝나면 들어갈 수 있어요',
@@ -488,6 +496,7 @@ function _pkFilterLocked(){
   if(PK.cutIdx < 0 || !PK.cutAt) return false;
   if(PK.frozen) return true;                    // 셔터가 이미 터졌다 — 이번 컷은 끝났다
   const now = _pkNow();
+  if(now === null) return true;                 // 시각을 모르면 풀어 두지 않는다 — 잠근 채로 둔다(필터는 셔터 직전에 바뀌면 안 된다)
   const left = Math.max(0, PK_COUNT_SEC - Math.floor((now - PK.cutAt)/1000));
   return left <= PK_FILTER_LOCK_SEC;
 }
@@ -1931,6 +1940,7 @@ function _pkNextCut(i){                       // 방장 전용 — 다음 컷을
   if(i >= PK.cuts){ _pkFinish(); return; }
   const pk = _purikura();
   const at = _pkNow();
+  if(at === null){ PK.waitCut = i; TwErrorCodes.notify('E-PK-03'); return; }   // 서버 시각 없이 컷을 열지 않는다(카운트다운이 서버 시각에서 센다) — 다시 눌러 열 수 있게 기다림 칸을 되돌린다
   if(pk) pk.setCut(i, at);
   _pkRunCountdown(i, at);
 }
@@ -1951,6 +1961,7 @@ function _pkRunCountdown(i, at){
   clearInterval(PK.timer);
   PK.timer = setInterval(()=>{
     const now = _pkNow();
+    if(now === null) return;   // 시각을 모르는 동안은 세지 않고 기다린다(경고는 _pkNow 가 한 번)
     const left = Math.max(0, PK_COUNT_SEC - Math.floor((now - PK.cutAt)/1000));
     const ce = _pkEl('pkCount');
     if(ce){ ce.textContent = String(left); ce.classList.toggle('hot', left <= 3); }
