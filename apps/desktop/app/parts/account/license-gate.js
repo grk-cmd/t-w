@@ -38,6 +38,7 @@ const seats = deps.seats;
 const toast = deps.toast;
 const onPremiumChanged = deps.onPremiumChanged;
 const _acctRelaunchAfterDetach = deps._acctRelaunchAfterDetach;
+const takeLeft = deps.takeLeft;   // 로그아웃 · 탈퇴 뒤 다시 켠 켜기에서 한 번 읽고 지우는 안내 글(account-state.js) — 없으면 null
 const _rcStore = deps._rcStore;   // 원격 설정 한 벌(account-state.js)
 function inviteGateOn(){ const s = _rcStore(); return s ? s.inviteGate() : true; }
 const INVITE_GRANT_MAX = 3;                 // 관리자가 한 번에 지급할 수 있는 최대 초대권 수
@@ -48,7 +49,9 @@ const BYE_SWITCH = 'switch';                // realtime 작별 까닭(rt-hub.js 
    local  → 서버에 닿지 못함 · 점검 — «서버에 연결할 수 없어요» 화면(로컬 모드 없음 · 서버가 원본). [다시 시도] · realtime ready 가 계정을 다시 묻고, 닿으면 위와 같이.
    signup → 로그인은 됐는데 서버에 계정이 없다(가입 전 · 탈퇴 · 관리자가 지움) — 이 PC 계정 몫을 지우고 게이트.
    login  → 게이트(초대 코드 · 구글 · 친구 코드 로그인). 로그인 없이 쓰는 길은 없다(ADR-0006). */
+let _leftNotice = null;   // 이번 켜기에서 읽은 안내 — 로그인 화면이 뜰 때 한 번 보이고 비운다
 async function checkInviteGate(){
+  _leftNotice = takeLeft();
   return await _afterConfirm(await loginFlowMod.confirm());
 }
 async function _afterConfirm(c){
@@ -160,6 +163,7 @@ function _showInviteGate(){
     const msg = document.getElementById('inviteGateMsg');
     if(!ov || !inp || !ok){ resolve(false); return; }   // 마크업이 없으면 못 들어간다(로그인 없이 쓰는 길 없음)
     ov.style.display = 'flex';
+    if(_leftNotice){ toast(_leftNotice); _leftNotice = null; }   // 로그아웃 · 탈퇴 뒤 다시 켠 첫 로그인 화면에서 한 번
     let wantGoogle = false;   // 초대 코드 전에 구글을 눌렀는데 가입 기록이 없었다 — 코드가 통과하면 구글 가입으로 바로 간다
     setTimeout(()=>inp.focus(), 50);
     const close = ()=>{ try{ ov.style.display = 'none'; }catch(_){} try{ refreshAccountTab(); }catch(_){} };

@@ -12,7 +12,7 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const SRC = _MI_JOIN(read('app.js')), ML = read('mallang.js'), AN = read('animal.js');
+const SRC = _MI_JOIN(read('app.js')), ML = read('mallang.js'), AN = read('animal.js'), PA = read('premium-assets.js');   // loadLocal 은 여러 모듈에 있어 이 모듈 글에서 따로 뽑는다
 if(!SRC || !ML){ say('  ? 원본 못 찾음 — app.js · mallang.js'); process.exit(2); }
 /* 📷 스티커사진 무대(_pkCloneChar)는 parts/purikura-ui.js 로 옮겼다(앱 FSD 3번) — 4절은 그 파일을 본다 */
 const PU = read('purikura-ui.js');
@@ -28,7 +28,7 @@ say('── 1. 🎰 가챠 = stackable · 숫자키 맵');
   chk(N({ id:'g', gacha:true, stackable:false }).stackable === true, '옛 가챠 파츠(stackable:false) → true');
   chk(N({ id:'n', stackable:false }).stackable === false, '일반 파츠는 그대로');
   /* 입구 두 곳은 글 모양이 아니라 진짜 함수를 돌려 본다 — 합치기 규칙을 옮겨도 판정이 안 깨지게 */
-  const IN = new Function('localStorage', 'document', [
+  const IN = new Function('accountStore', 'document', [
     "const SAVED_PARTS_KEY = 'tw.savedParts', CATALOG_ORDER_LAST = 9999; let savedParts = [];",
     'const log = [], seats = [];',
     'const persistSavedParts = () => {}, applyClothVisibility = () => {}, unequipPartFromSeat = () => {}, fitModel = () => {}, layoutSeats = () => {};',
@@ -37,15 +37,15 @@ say('── 1. 🎰 가챠 = stackable · 숫자키 맵');
     'const gachaMod = { pruneUnownedGachaParts: () => {} }, partEntryXf = (e) => e && e.xf;',
     "const partEntryId = (e) => typeof e === 'string' ? e : (e && e.id), entriesForCat = (def, c) => [].concat(def.equippedParts[c]);",
     'const equipPartOnSeat = (s, cat, rec, opt) => { log.push([rec.id, opt.stackableXf]); };',
-    ['_normPartRec', 'loadSavedParts', 'mergeCatalogList', 'mergeCatalogIntoSavedParts'].map(n => grab(SRC, n)).join('\n'),
-    'return { load: loadSavedParts, merge: mergeCatalogIntoSavedParts, parts: () => savedParts, seats, log };',
+    ['_normPartRec', 'mergeCatalogList', 'mergeCatalogIntoSavedParts'].map(n => grab(SRC, n)).join('\n') + '\n' + grab(PA, 'loadLocal'),
+    'return { load: loadLocal, merge: mergeCatalogIntoSavedParts, parts: () => savedParts, seats, log };',
   ].join('\n'));
   const doc = { getElementById: () => null };
   const old = [{ id:'g1', cat:'hat', gacha:true, stackable:false }, { id:'n1', cat:'hat', stackable:false }];
-  let E = IN({ getItem: () => JSON.stringify(old) }, doc);
+  let E = IN({ get: () => JSON.stringify(old) }, doc);
   E.load();
-  chk(E.parts().find(p => p.id === 'g1').stackable === true && E.parts().find(p => p.id === 'n1').stackable === false, '입구 ① 로컬 캐시(loadSavedParts) — 옛 가챠 기록을 읽으면 stackable · 일반 파츠는 그대로');
-  E = IN({ getItem: () => '[]' }, doc);
+  chk(E.parts().find(p => p.id === 'g1').stackable === true && E.parts().find(p => p.id === 'n1').stackable === false, '입구 ① 계정 칸 읽기(loadLocal) — 옛 가챠 기록을 읽으면 stackable · 일반 파츠는 그대로');
+  E = IN({ get: () => '[]' }, doc);
   E.seats.push({ charDef:{ equippedParts:{ hat:[{ id:'hat0', xf:{} }, { id:'g2', xf:{ y:1 } }] } } });
   E.merge({ g2:{ cat:'hat', gacha:true, stackable:false }, n2:{ cat:'hat', stackable:false } });
   const g2 = E.parts().find(p => p.id === 'g2');

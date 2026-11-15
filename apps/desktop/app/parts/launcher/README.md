@@ -193,7 +193,7 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 **차례 표(`STEPS`) — 이 순서가 정본이다**
 | # | 이름 | 시작하는 것 |
 |---|---|---|
-| 1 | userLocal | 🗂️ 이 계정이 이 PC 에서 고른 것(현재 슬롯 · 자리 추가 슬롯 · 상태 · 숨긴 사람 · 꾸미기 파츠 보이기 · 좌석 평준화 · 반응 이모지 …)을 계정 칸에서 읽어 채움(`user-local.js` — 모듈은 처음 값으로 만들고 여기서 `loadLocal` · 세션이 끝나면 `resetLocal`) |
+| 1 | userLocal | 🗂️ 이 계정이 이 PC 에서 고른 것(현재 슬롯 · 자리 추가 슬롯 · 상태 · 숨긴 사람 · 꾸미기 파츠 보이기 · 좌석 평준화 · 반응 이모지 · 코드로 추가한 책상 · 아이템 · 파츠(`savedDesks` · `savedItems` · `savedParts` — 칸마다 따로 읽는다) …)을 계정 칸에서 읽어 채움(`user-local.js` — 모듈은 처음 값으로 만들고 여기서 `loadLocal` · 세션이 끝나면 `resetLocal`) |
 | 2 | focusTotal | 포커스 누적 읽기(계정 칸) — 오늘치(`startFocusTotal`) |
 | 3 | focusShare | 📊 오늘 기록 전시 첫 보내기 · 15초 확인(`startFocusShare` — 오늘치가 읽힌 뒤) |
 | 4 | focusLevel | 포커스 진척 받기 · 못 올린 집중 시간 올리기(`focusProgress.startFocus`) |

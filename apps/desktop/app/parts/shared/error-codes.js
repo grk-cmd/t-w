@@ -99,6 +99,8 @@ const CODES = {
   'E-CHAR-21': { msg: '옮기지 못했어요 — 잠시 뒤 다시 눌러 주세요', where: 'character/closet.js — 슬롯 · 보관함 · 휴지통 · 복원 요청을 서버가 못 함 (reportFail err)' },
   'E-CHAR-22': { msg: '캐릭터 그림을 받지 못했어요 — 네트워크를 확인해 주세요', where: 'character/closet.js — 슬롯에 올릴 때 그림 받기 실패 (reportFail img)' },
   'E-CHAR-23': { msg: '다른 기기에서 그 칸에 캐릭터가 먼저 생겨 저장하지 못했어요 — 서버 것을 받았어요', where: 'character/closet.js — 새 캐릭터 만들기가 AVATAR_SLOT_TAKEN 으로 거절됨(다른 기기가 그 칸을 채움 · 서버 캐릭터를 받아 앉힘)' },
+  'E-CHAR-24': { msg: '저장하지 못했어요 — 저장 공간과 로그인 상태를 확인해 주세요', where: 'character/commission.js · character/premium-assets.js — 코드로 추가한 책상 · 아이템 · 파츠를 계정 칸에 쓰지 못함(칸이 닫혀 있거나 잠겼거나 저장 공간 부족)' },
+  'E-CHAR-25': { msg: '저장한 아이템 일부를 불러오지 못했어요', where: 'app.js loadSavedItemsIntoSession — 확인 뒤 계정 몫 아이템 GLB 등록 실패(깨진 것만 빠지고 나머지는 등록)' },
   'E-CHAR-19': { msg: '입을 수 없는 물건이 있어 저장하지 못했어요 — 그 파츠를 벗어 주세요', where: 'character/closet.js — 서버 착용 검사에 걸림 (AVATAR_ITEM_NOT_USABLE)' },
   'E-MH-04': { msg: '일정을 불러오지 못했어요 — 인터넷 연결을 확인하고 안내 글자를 눌러 다시 시도해 주세요', where: 'myhome/scheduler.js — 달력 · 기념일 · D-day · 오늘 일정 · 친구 태그 알림 받기 실패(이어지는 동안 한 번만)' },
   'E-MH-05': { msg: '카드 그림을 올리지 못해 저장하지 않았어요 — 다시 눌러 주세요', where: 'myhome/scheduler.js — 기념일 카드 그림 올리기 실패 · 서버가 그림 주소를 거절(IMAGE_UPLOAD · SCHEDULE_INVALID_IMAGE_URL)' },

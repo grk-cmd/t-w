@@ -165,6 +165,17 @@ async function judge(S){
     await tick();
     e.emit({ t: 'chatLine', line: LINE('a3', { ts: 3 }) });
     chk(e.gets[0][0].indexOf('limit=2') > 0 && seen[0] === 'a1,a2' && seen[1] === 'a2,a3', '최근 n 줄 목록 — 새 줄이 오면 앞을 밀어낸다(안 읽은 수 세기)');
+    {
+      /* 최근 줄 못 받음 — 부르는 쪽이 «모름» 으로 그리도록 onFail 을 한 번 부른다(조용히 빈 목록 · 0 으로 두지 않는다) */
+      const f = mk(S); const fails = [], lists = [];
+      f.c.subscribeLog('PLAY-AB12', (l) => lists.push(l), 30, 'general', (err) => fails.push(err));
+      await tick();
+      chk(fails.length === 1 && fails[0] instanceof Error && lists.length === 0, '★ 최근 줄을 못 받으면 onFail(오류) 한 번 · cb 는 안 부른다(0 줄로 그리지 않는다)');
+      const g = mk(S); let closedFail = 0;
+      const off = g.c.subscribeLog('PLAY-AB12', () => {}, 30, 'general', () => { closedFail++; }); off();
+      await tick();
+      chk(closedFail === 0, '  끊은 구독은 실패를 알리지 않는다');
+    }
     e = mk(S, { get: { slots: [{ slot: 0, cmd: 'ㅋㅋ', imageUrl: 'https://x/0.png', animated: false }, { slot: 3, cmd: 'gif', imageUrl: 'https://x/3.gif', animated: true }, { slot: 'x' }] } });
     const em = await e.c.getEmojis();
     chk(em[0].cmd === 'ㅋㅋ' && em[0].url === 'https://x/0.png' && em[3].gif === true && Object.keys(em).length === 2 && e.gets[0][0] === '/v2/me/emojis', '★ GET /v2/me/emojis 의 slots → { 칸: { cmd, url, gif } }(대화창이 읽던 모양)');
@@ -199,6 +210,7 @@ const BREAKS = [
   ['CR', "const key = String(deps.roomCode() || '') + '\\n' + JSON.stringify(body);", "const key = JSON.stringify(body);", '방이 달라도 같은 글이면 옛 requestId'],
   ['CR', "(prev && nowMs() - prev.at <= RETRY_TTL_MS)", "(prev)", '한참 지나도 옛 requestId'],
   ['CR', "        if(!closed && onFail){ try{ onFail(e); }catch(_){} }", "        if(!closed && onReady) onReady();", '못 받아도 «다 받음» 으로 끝냄'],
+  ['CR', "if(!closed && onFail){ try{ onFail(e); }catch(err){ warn('최근 줄 실패 처리 실패', err); } } });", "});", '최근 줄 못 받음을 알리지 않음(0 으로 보임)'],
   ['CR', "const d = await api.get(EMOJI_PATH, { auth: true });", "const d = await api.get(EMOJI_PATH, { auth: true }).catch(() => null);", '이모티콘 못 받음을 삼킴(빈 표)'],
   ['CR', "            at = p.lines[p.lines.length - 1].ts;", "            at = since;", '쪽 넘김이 같은 자리를 다시 받음'],
   ['CR', "  if(line.kind === 'CLEAR') m.sys = CLEAR_SYS;", "", '지우기 표시 줄을 모름'],

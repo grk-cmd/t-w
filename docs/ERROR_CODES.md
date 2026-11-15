@@ -107,6 +107,8 @@
 | `E-CHAR-21` | 옮기지 못했어요 — 잠시 뒤 다시 눌러 주세요 | `character/closet.js` — 같은 요청을 서버가 못 함(그 밖의 오류) |
 | `E-CHAR-22` | 캐릭터 그림을 받지 못했어요 — 네트워크를 확인해 주세요 | `character/closet.js` — 보관함에서 슬롯에 올릴 때 그림 받기 실패 |
 | `E-CHAR-23` | 다른 기기에서 그 칸에 캐릭터가 먼저 생겨 저장하지 못했어요 — 서버 것을 받았어요 | `character/closet.js` — 새 캐릭터 만들기가 `AVATAR_SLOT_TAKEN` 으로 거절됨 · 서버 캐릭터를 받아 앉힌다 |
+| `E-CHAR-24` | 저장하지 못했어요 — 저장 공간과 로그인 상태를 확인해 주세요 | `character/commission.js` · `character/premium-assets.js` — 코드로 추가한 책상 · 아이템 · 파츠를 계정 칸에 쓰지 못함(칸이 닫혀 있거나 잠겼거나 저장 공간 부족) |
+| `E-CHAR-25` | 저장한 아이템 일부를 불러오지 못했어요 | `app.js loadSavedItemsIntoSession` — 확인 뒤 계정 몫 아이템 GLB 등록 실패(깨진 것만 빠지고 나머지는 등록) |
 | `E-PL-01` | 플레이리스트를 저장하지 못했어요 — 고치거나 창을 다시 열면 다시 올려요 | `status/playlist.js` — 내 목록 서버 저장 실패(`_plPublishNow` · `saveMine` failed — 이어지는 동안 한 번만 알림 · 혼자 다시 올리지 않음 — 다음 고침 · 창 열기 · 끌 때 · 로그아웃 때 한 번) |
 | `E-PL-02` | 파도타기는 인터넷 연결이 필요해요 | `status/playlist.js` — 🌊 파도타기 무작위 · 친구 지목에서 목록을 못 불러옴(`_plPeek` · `_plPeekFriend` — `fetchRandom` · `fetchOf` 던짐) |
 | `E-PL-03` | 명함을 못 받았어요 — 이름 · 사진이 비어 보일 수 있어요 | `status/playlist.js` — 명함(`fetchPlaylistCard` · 서버 사본) 받기 실패(내 명함 첫 읽기 · 파도타기로 건너간 순간 — Firebase 로 물러나지 않음) |

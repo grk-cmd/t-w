@@ -450,6 +450,8 @@ function _syncChatMinBadge(){
 }
 function _setChatBadge(n){
   const el=document.getElementById('myChatBadge'); if(!el) return;
+  if(n === null){ el.textContent='?'; el.title='안 읽은 대화 수를 못 불러왔어요'; el.classList.add('on'); return; }   // 모름 — 0(다 읽음)과 다르게 보인다
+  el.title='';
   if(!n || n<=0){ el.classList.remove('on'); el.textContent=''; return; }
   el.textContent = (n >= CHAT_BADGE_LIMIT) ? (CHAT_BADGE_LIMIT+'+') : String(n);
   el.classList.add('on');
@@ -476,7 +478,7 @@ function _startChatBadgeSub(room){
     let n=0;
     (list||[]).forEach(m => { if(_chatIsAfter(m, marker)) n++; });
     _setChatBadge(n);
-  }, CHAT_BADGE_LIMIT);
+  }, CHAT_BADGE_LIMIT, undefined, e => { console.warn('[대화] 안 읽은 수를 못 불러와 «?» 로 보여요', e); _setChatBadge(null); });
 }
 /* 매 프레임 호출되는 칩 갱신에서 불림 — 방/창 상태가 바뀔 때만 실제로 구독을 갈아끼운다. */
 function _syncChatBadgeSub(enabled){
@@ -690,7 +692,7 @@ function _chatTabUnreadStart(room){
       if(!mark && last){ mark = _chatMarkOf(last); _saveChatReadMarker(key, mark); }
       _chatTabUnread[t.id] = mark ? list.filter(m => _chatIsAfter(m, mark)).length : 0;
       _chatTabsRender();
-    }, CHAT_TAB_UNREAD_LIMIT, t.id));
+    }, CHAT_TAB_UNREAD_LIMIT, t.id, e => { console.warn('[대화] #' + t.id + ' 안 읽은 수를 못 불러와 «?» 로 보여요', e); _chatTabUnread[t.id] = null; _chatTabsRender(); }));
   });
 }
 function _chatSwitchTab(id){
@@ -744,10 +746,11 @@ function _chatTabsRender(){
   const host = _chatIsHost();
   const h = tabs.map(t => {
     if(_chatTabEdit && _chatTabEdit.mode === 'rename' && _chatTabEdit.id === t.id) return _chatTabEditHtml(t.name);
+    const unk = t.id !== cur && _chatTabUnread[t.id] === null;   // 못 불러옴 — «?» (0 이 아니다)
     const un = t.id === cur ? 0 : (_chatTabUnread[t.id] || 0);
     return '<span class="ct-tab' + (t.id === cur ? ' on' : '') + '" data-tab="' + escHtml(t.id) + '" title="#' + escHtml(t.name) + '">' +
       '<span class="ct-name">#' + escHtml(t.name) + '</span><span class="ct-n">' + Number(cnt[t.id] || 0) + '</span>' +
-      (un ? '<span class="ct-unread">' + (un >= CHAT_TAB_UNREAD_LIMIT ? CHAT_TAB_UNREAD_LIMIT + '+' : Number(un)) + '</span>' : '') + '</span>';
+      (unk ? '<span class="ct-unread" title="안 읽은 수를 못 불러왔어요">?</span>' : un ? '<span class="ct-unread">' + (un >= CHAT_TAB_UNREAD_LIMIT ? CHAT_TAB_UNREAD_LIMIT + '+' : Number(un)) + '</span>' : '') + '</span>';
   });
   if(_chatTabEdit && _chatTabEdit.mode === 'add') h.push(_chatTabEditHtml(''));
   else if(ChatTabs.canAdd(host, _chatTabMeta())) h.push('<span class="ct-add" title="채널 추가 (방장)">+</span>');
