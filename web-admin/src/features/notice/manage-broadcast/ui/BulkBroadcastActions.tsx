@@ -21,10 +21,10 @@ export function BulkBroadcastActions({ broadcasts, onDone }: Props) {
 
   // 지운 줄과 함께 이 막대가 내려갈 수 있어 호출별 콜백 대신 결과를 기다려 알린다.
   const onPin = async (pinned: boolean) => {
-    const ids = pinned ? toPin : toUnpin;
-    if (!confirm(`선택한 ${ids.length}개를 ${pinned ? '맨 위에 고정' : '고정 해제'}할까요?`)) return;
+    const items = pinned ? toPin : toUnpin;
+    if (!confirm(`선택한 ${items.length}개를 ${pinned ? '맨 위에 고정' : '고정 해제'}할까요?`)) return;
     try {
-      const n = await pin.mutateAsync({ ids, pinned });
+      const n = await pin.mutateAsync({ items, pinned });
       toast(pinned ? `${n}개 고정했어요` : `${n}개 고정을 풀었어요`);
       onDone();
     } catch (e) {
@@ -33,15 +33,17 @@ export function BulkBroadcastActions({ broadcasts, onDone }: Props) {
   };
 
   const onDelete = async () => {
-    const ids = broadcasts.map((b) => b.id);
     if (
       !confirm(
-        withProdMark(env, `선택한 ${ids.length}개를 모든 사람의 수령함에서 지울까요? 되돌릴 수 없어요.`),
+        withProdMark(
+          env,
+          `선택한 ${broadcasts.length}개를 모든 사람의 수령함에서 지울까요? 되돌릴 수 없어요.`,
+        ),
       )
     )
       return;
     try {
-      toast(`${await remove.mutateAsync(ids)}개 삭제했어요`);
+      toast(`${await remove.mutateAsync(broadcasts)}개 삭제했어요`);
       onDone();
     } catch (e) {
       toast(errorMessage(e, '삭제하지 못했어요. 지운 공지는 없어요'));

@@ -2,8 +2,8 @@ import { useMemo, type ReactNode } from 'react';
 import {
   hasIpRecord,
   hasRecord,
-  metricsSummary,
   seriesStats,
+  useMetricsSummary,
   useRecentMetrics,
   useRefreshTodayMetrics,
   type DayMetrics,
@@ -31,7 +31,7 @@ function stats(
 export function MetricsDashboard() {
   const metrics = useRecentMetrics();
   const refresh = useRefreshTodayMetrics();
-  const summary = useMemo(() => (metrics.data ? metricsSummary(metrics.data) : null), [metrics.data]);
+  const { summary, error: summaryError } = useMetricsSummary(metrics.data);
   const newestFirst = useMemo(() => (summary ? [...summary.days].reverse() : []), [summary]);
   const ip = stats(summary, (d) => d.ipVisitors, hasIpRecord);
   const visits = stats(summary, (d) => d.visits, hasRecord);
@@ -42,8 +42,8 @@ export function MetricsDashboard() {
     first === undefined ? '' : first ? ` · ${first}부터 기록` : ' · 기록이 아직 없음';
 
   const body = (render: (days: DayMetrics[]) => ReactNode) =>
-    metrics.error ? (
-      <p className="warn">{errorMessage(metrics.error, '지표를 불러오지 못했어요')}</p>
+    metrics.error || summaryError ? (
+      <p className="warn">{errorMessage(metrics.error ?? summaryError, '지표를 불러오지 못했어요')}</p>
     ) : !summary ? (
       <p className="soft">불러오는 중…</p>
     ) : (

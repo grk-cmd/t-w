@@ -15,8 +15,8 @@ export interface BroadcastPort {
   /** 최근 `n` 개 + 고정 공지. */
   list(n?: number): Promise<BroadcastPage>;
   send(message: InboxMessage, pinned: boolean): Promise<void>;
-  /** 고정을 바꾼다. 한 묶음으로 — 하나라도 막히면 아무것도 바뀌지 않는다. 바꾼 개수를 돌려준다. */
-  setPinned(ids: readonly string[], pinned: boolean): Promise<number>;
+  /** 고정을 바꾼다 — 화면이 읽은 공지(번호 `version` 포함) 그대로 넘긴다. 그 사이 바뀐 줄이 있으면 `conflict`. 한 묶음으로 — 하나라도 막히면 아무것도 바뀌지 않는다. 바꾼 개수를 돌려준다. */
+  setPinned(items: readonly InboxBroadcast[], pinned: boolean): Promise<number>;
   /** 내린다. 한 묶음으로 — 하나라도 막히면 아무것도 바뀌지 않는다. 내린 개수를 돌려준다. */
-  remove(ids: readonly string[]): Promise<number>;
+  remove(items: readonly InboxBroadcast[]): Promise<number>;
 }

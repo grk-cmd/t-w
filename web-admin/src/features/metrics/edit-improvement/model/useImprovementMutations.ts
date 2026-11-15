@@ -10,7 +10,8 @@ export function useSaveImprovement() {
   const port = useUsagePort();
   const refresh = useRefreshImprovements();
   return useMutation({
-    mutationFn: ({ draft, id }: { draft: ImprovementDraft; id?: string }) => port.saveImprovement(draft, id),
+    mutationFn: ({ draft, entry }: { draft: ImprovementDraft; entry?: Improvement }) =>
+      port.saveImprovement(draft, entry),
     onSuccess: refresh,
   });
 }

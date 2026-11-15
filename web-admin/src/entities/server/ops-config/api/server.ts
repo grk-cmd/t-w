@@ -1,21 +1,46 @@
 // API 판 — 설정 키 `api.cacheSec` · `room.frame` · `room.timing` · `log.level` · `api.cors`, 그리고 API 판에만 있는 `app.maintenance` · `room.serverLimits`.
-// 정수 묶음 칸을 비운 저장(= 기본값 따르기)은 그 칸에 기본값을 써서 보낸다. 값이 여럿인 키는 받은 값에 고친 칸만 바꿔 통째로 보낸다.
-import { opsConfigClient, type Api } from '@/shared/api';
+// 값이 여럿인 키는 화면이 읽은 값에 고친 칸만 바꿔 통째로 보낸다(칸을 비우면 그 칸에 기본값). 하루 한도는 키 하나가 값 하나라
+// 키마다 따로 저장하고, 비우면 `DELETE …?version=` 으로 값을 비워 기본값을 따르게 한다.
+// 읽은 번호(`version`)는 화면이 들고 있다가 저장에 돌려준다 — 포트는 기억하지 않는다.
 import {
+  opsConfigClient,
+  PortError,
+  wireArray,
+  wireBool,
+  wireError,
+  wireNullableString,
+  wireNumber,
+  wireObject,
+  wireString,
+  type Api,
+  type Versioned,
+} from '@/shared/api';
+import {
+  isLogLevel,
   LOG_LEVEL_PATH,
+  LOG_TARGETS,
   MAINTENANCE_MESSAGE_MAX,
-  parseCorsOrigins,
-  parseIntGroup,
-  parseLogLevels,
   ROOM_FRAME,
   ROOM_TIMING,
-  SERVER_LIMIT_CHANNELS,
-  SERVER_LIMIT_DEFAULT,
   type IntGroup,
+  type IntValues,
+  type LogLevels,
   type Maintenance,
   type ServerLimits,
 } from '../model/opsConfig';
 import type { OpsConfigPort, OpsGroups } from './port';
+
+/** 값 하나짜리 키를 칸 하나인 묶음으로 — 칸 이름은 `value`, 묶음의 `path` 가 키 이름이다. */
+function dailyLimit(
+  key: string,
+  label: string,
+  min: number,
+  max: number,
+  def: number,
+  unit: string,
+): IntGroup {
+  return { path: key, fields: [{ key: 'value', label, min, max, def, unit }] };
+}
 
 /** 서버 칸 이름이 길 이름이다 — 묶음의 `path` 에 키 이름을 적어 두고 `<키>/<칸>` 으로 쓴다. */
 const SERVER_GROUPS: OpsGroups = {
@@ -29,109 +54,133 @@ const SERVER_GROUPS: OpsGroups = {
   },
   roomFrame: { ...ROOM_FRAME, path: 'room.frame' },
   roomTiming: { ...ROOM_TIMING, path: 'room.timing' },
-  // 하루 한도 — 키마다 따로(서버 설정 키 `user.signupDailyMax` · `guestbook.clapDailyMax` · `gift.dailySendMax`). 묶음의 칸 이름이 키 이름이다.
-  dailyLimits: {
-    path: 'daily',
-    fields: [
-      { key: 'user.signupDailyMax', label: '가입 하루 상한', min: 1, max: 100_000, def: 2000, unit: '명' },
-      { key: 'guestbook.clapDailyMax', label: '웹박수 하루 횟수', min: 1, max: 100, def: 5, unit: '번' },
-      { key: 'gift.dailySendMax', label: '선물 하루 보내기', min: 1, max: 100, def: 10, unit: '번' },
-    ],
-  },
+  // 하루 한도 — 서버 설정 키 `user.signupDailyMax` · `guestbook.clapDailyMax` · `gift.dailySendMax`. 키 하나 = 묶음 하나 = 저장 한 번.
+  dailyLimits: [
+    dailyLimit('user.signupDailyMax', '가입 하루 상한', 1, 100_000, 2000, '명'),
+    dailyLimit('guestbook.clapDailyMax', '웹박수 하루 횟수', 1, 100, 5, '번'),
+    dailyLimit('gift.dailySendMax', '선물 하루 보내기', 1, 100, 10, '번'),
+  ],
 };
 
-const object = (v: unknown): Record<string, unknown> =>
-  v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
+type Raw = NonNullable<Versioned<unknown>['raw']>;
+
+/** 화면이 읽을 때 붙인 통째 값 — 없으면 이 판의 읽기를 거치지 않은 것이라 코드 실수다. */
+function rawOf(from: Versioned<unknown>, key: string): Raw {
+  if (!from.raw) throw new PortError('invalid', `읽은 값이 이 판의 것이 아니에요 (${key})`);
+  return from.raw;
+}
 
 /** `<키>/<칸>` → 칸 이름. */
 const fieldOf = (path: string) => path.slice(path.lastIndexOf('/') + 1);
 
+/** 묶음의 칸마다 숫자여야 한다 — 서버는 비운 칸에도 기본값을 값으로 준다. */
+function intsOf(group: IntGroup, effective: unknown): IntValues {
+  const o = wireObject(effective, group.path);
+  return Object.fromEntries(group.fields.map((f) => [f.key, wireNumber(o[f.key], `${group.path}.${f.key}`)]));
+}
+
+function logLevelsOf(effective: unknown): LogLevels {
+  const o = wireObject(effective, 'log.level');
+  const out: LogLevels = {};
+  for (const { key } of LOG_TARGETS) {
+    const v = o[key];
+    if (!isLogLevel(v)) throw wireError(`log.level.${key}`, 'debug · info · warn · error');
+    out[key] = v;
+  }
+  return out;
+}
+
+function maintenanceOf(effective: unknown): Maintenance {
+  const o = wireObject(effective, 'app.maintenance');
+  return {
+    on: wireBool(o.on, 'app.maintenance.on'),
+    endsAt: wireNullableString(o.endsAt, 'app.maintenance.endsAt'),
+    message: wireNullableString(o.message, 'app.maintenance.message'),
+  };
+}
+
+function serverLimitsOf(effective: unknown): ServerLimits {
+  const o = wireObject(effective, 'room.serverLimits');
+  return {
+    workingroom: wireNumber(o.workingroom, 'room.serverLimits.workingroom'),
+    togetherroom: wireNumber(o.togetherroom, 'room.serverLimits.togetherroom'),
+  };
+}
+
 export function createServerOpsConfigPort(api: Api | null): OpsConfigPort {
   const config = opsConfigClient(api);
-  // 묶음 밖의 칸(방 타이밍의 나머지 여섯 칸 등)은 받은 값 그대로 둔다.
-  const keyOf = (group: IntGroup) => group.path;
+
+  /** 키 하나를 읽어 `parse` 한 값에 번호 · 통째 값을 붙인다. */
+  async function read<T>(key: string, parse: (effective: unknown) => T): Promise<Versioned<T>> {
+    const { effective, default: defaults, version } = await config.read(key);
+    return { value: parse(effective), version, raw: { effective, defaults } };
+  }
 
   return {
     groups: SERVER_GROUPS,
-    async getIntGroup(group) {
-      if (group === SERVER_GROUPS.dailyLimits) {
-        // 키마다 따로인 묶음 — 칸 이름이 키 이름이다.
-        const rows = await Promise.all(group.fields.map((f) => config.read(f.key)));
-        return parseIntGroup(
-          group,
-          Object.fromEntries(group.fields.map((f, i) => [f.key, rows[i].effective])),
-        );
-      }
-      return parseIntGroup(group, (await config.read(keyOf(group))).effective);
-    },
-    async getLogLevels() {
-      return parseLogLevels((await config.read('log.level')).effective);
-    },
-    async getCorsOrigins() {
-      return parseCorsOrigins((await config.read('api.cors')).effective);
-    },
-    async saveIntGroup(group, _action, _target, _before, updates) {
-      if (!Object.keys(updates).length) return;
-      if (group === SERVER_GROUPS.dailyLimits) {
-        // 키마다 한 번씩 — 비운 칸(null)은 그 키의 기본값으로
-        for (const [path, value] of Object.entries(updates)) {
-          const key = fieldOf(path);
-          await config.update(key, (_current, defaults) => value ?? defaults);
-        }
+    getIntGroup: (group) =>
+      read(group.path, (effective) =>
+        // 하루 한도는 키 하나가 숫자 하나 — 칸 이름 `value` 로 담는다.
+        SERVER_GROUPS.dailyLimits?.includes(group)
+          ? { value: wireNumber(effective, group.path) }
+          : intsOf(group, effective),
+      ),
+    getLogLevels: () => read('log.level', logLevelsOf),
+    getCorsOrigins: () =>
+      read('api.cors', (effective) =>
+        wireArray(effective, 'api.cors').map((o, i) => wireString(o, `api.cors[${i}]`)),
+      ),
+    async saveIntGroup(group, _action, _target, from, updates) {
+      const changed = Object.entries(updates);
+      if (!changed.length) return;
+      if (SERVER_GROUPS.dailyLimits?.includes(group)) {
+        // 키 하나 = 저장 한 번 — 여러 키를 이어 보내면 앞 것만 저장되고 뒤 것이 실패하는 일이 생긴다.
+        if (changed.length !== 1) throw new PortError('invalid', '하루 한도는 한 번에 한 가지만 저장해요');
+        const [[, value]] = changed;
+        if (value === null) await config.clear(group.path, from.version);
+        else await config.write(group.path, from.version, value);
         return;
       }
-      await config.update(keyOf(group), (current, defaults) => {
-        const next = { ...object(current) };
-        for (const [path, value] of Object.entries(updates)) {
-          const field = fieldOf(path);
-          next[field] = value ?? object(defaults)[field];
-        }
-        return next;
-      });
+      const { effective, defaults } = rawOf(from, group.path);
+      const next = { ...wireObject(effective, group.path) };
+      const fallback = wireObject(defaults, `${group.path} 기본값`);
+      for (const [path, value] of changed) {
+        const field = fieldOf(path);
+        next[field] = value ?? wireNumber(fallback[field], `${group.path} 기본값의 ${field}`);
+      }
+      await config.write(group.path, from.version, next);
     },
-    async saveLogLevels(_before, updates) {
+    async saveLogLevels(from, updates) {
       if (!Object.keys(updates).length) return;
-      await config.update('log.level', (current, defaults) => {
-        const next = { ...object(current) };
-        for (const [path, value] of Object.entries(updates)) {
-          const target = path.slice(LOG_LEVEL_PATH.length + 1);
-          next[target] = value ?? object(defaults)[target];
-        }
-        return next;
-      });
+      const { effective, defaults } = rawOf(from, 'log.level');
+      const next = { ...wireObject(effective, 'log.level') };
+      const fallback = wireObject(defaults, 'log.level 기본값');
+      for (const [path, value] of Object.entries(updates)) {
+        const target = path.slice(LOG_LEVEL_PATH.length + 1);
+        next[target] = value ?? wireString(fallback[target], `log.level 기본값의 ${target}`);
+      }
+      await config.write('log.level', from.version, next);
     },
-    async saveCorsOrigins(_before, next) {
-      await config.update('api.cors', () => next);
+    async saveCorsOrigins(from, next) {
+      await config.write('api.cors', from.version, next);
     },
     maintenance: {
-      async get() {
-        const v = object((await config.read('app.maintenance')).effective);
-        return {
-          on: v.on === true,
-          endsAt: typeof v.endsAt === 'string' ? v.endsAt : null,
-          message: typeof v.message === 'string' ? v.message : null,
-        };
-      },
-      async save(next: Maintenance) {
-        await config.update('app.maintenance', () => ({
+      get: () => read('app.maintenance', maintenanceOf),
+      async save(from, next: Maintenance) {
+        await config.write('app.maintenance', from.version, {
           on: next.on,
           endsAt: next.endsAt,
           message: next.message?.trim().slice(0, MAINTENANCE_MESSAGE_MAX) || null,
-        }));
+        });
       },
     },
     serverLimits: {
-      async get(): Promise<ServerLimits> {
-        const v = object((await config.read('room.serverLimits')).effective);
-        const pick = (ch: (typeof SERVER_LIMIT_CHANNELS)[number]) =>
-          typeof v[ch] === 'number' ? (v[ch] as number) : SERVER_LIMIT_DEFAULT;
-        return { workingroom: pick('workingroom'), togetherroom: pick('togetherroom') };
-      },
-      async save(next) {
-        await config.update('room.serverLimits', () => ({
+      get: () => read('room.serverLimits', serverLimitsOf),
+      async save(from, next) {
+        await config.write('room.serverLimits', from.version, {
           workingroom: next.workingroom,
           togetherroom: next.togetherroom,
-        }));
+        });
       },
     },
   };

@@ -38,9 +38,21 @@ export {
   PortError,
   portCall,
   refreshOnConflict,
+  resetPortState,
   toPortError,
   type PortErrorKind,
 } from './backend';
+export { unversioned, type Versioned } from './versioned';
+export {
+  WIRE_SHAPE_CODE,
+  wireArray,
+  wireBool,
+  wireError,
+  wireNullableString,
+  wireNumber,
+  wireObject,
+  wireString,
+} from './wire';
 export { opsConfigClient, type OpsConfigClient, type OpsSetting } from './opsConfig';
 export { API_ERROR_TEXT, apiErrorText, CONFLICT_TEXT } from './errorText';
 export { isIndexMissing, isPermissionDenied, type Db, type LastRange } from './db';

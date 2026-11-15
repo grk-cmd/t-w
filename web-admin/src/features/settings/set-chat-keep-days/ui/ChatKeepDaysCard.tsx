@@ -23,13 +23,15 @@ type Drafts = Partial<Record<ChatKeepKind, string>>;
 /** config/chatKeepDays — 함수 chatExpire 가 매시간 읽어 그 일수가 지난 대화를 지운다. 앱 릴리스 없이 옛 앱에도 적용된다. */
 export function ChatKeepDaysCard() {
   const env = useEnv();
-  const { data: saved = {}, error, isPending } = useChatKeep();
+  const { data: from, error, isPending } = useChatKeep();
+  const saved = from?.value ?? {};
   const save = useSaveChatKeep();
   const [drafts, setDrafts] = useState<Drafts>({});
   const [message, setMessage] = useState<Message>(null);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    if (!from) return;
     const next: Partial<Record<ChatKeepKind, number | null>> = {};
     for (const [kind, text] of Object.entries(drafts) as [ChatKeepKind, string][]) {
       const v = parseKeepInput(text);
@@ -64,7 +66,7 @@ export function ChatKeepDaysCard() {
     )
       return;
     save.mutate(
-      { before: saved, updates },
+      { from, updates },
       {
         onSuccess: () => {
           setDrafts({});

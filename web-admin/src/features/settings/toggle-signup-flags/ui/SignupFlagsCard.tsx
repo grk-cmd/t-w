@@ -17,15 +17,17 @@ type Message = { text: string; error: boolean } | null;
 // config/flags — 앱이 가입 화면에서 읽는 스위치. 칸이 없으면 켜진 것으로 본다.
 export function SignupFlagsCard() {
   const env = useEnv();
-  const { data: flags, error, isPending } = useSignupFlags();
+  const { data: from, error, isPending } = useSignupFlags();
+  const flags = from?.value;
   const save = useSetSignupFlag();
   const { flags: shown } = useSignupFlagPort();
   const [message, setMessage] = useState<Message>(null);
 
   const toggle = (flag: SignupFlag, value: boolean) => {
+    if (!from) return;
     if (!confirm(withProdMark(env, flagConfirmText(flag, value)))) return;
     save.mutate(
-      { flag, value },
+      { flag, from, value },
       {
         onSuccess: () =>
           setMessage({

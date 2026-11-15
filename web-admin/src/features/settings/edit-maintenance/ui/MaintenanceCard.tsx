@@ -16,7 +16,8 @@ type Message = { text: string; error: boolean } | null;
 // 점검 안내 — 서버 설정 키 app.maintenance. 앱은 GET /v2/config 의 maintenance 로 읽는다. API 판에만 있다.
 export function MaintenanceCard() {
   const env = useEnv();
-  const { data: saved, error, isPending } = useMaintenance();
+  const { data: from, error, isPending } = useMaintenance();
+  const saved = from?.value;
   const save = useSaveMaintenance();
   const [draft, setDraft] = useState<MaintenanceDraft | null>(null);
   const [message, setMessage] = useState<Message>(null);
@@ -24,20 +25,23 @@ export function MaintenanceCard() {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!saved) return;
+    if (!from || !saved) return;
     const r = checkMaintenance(saved, form);
     if (!r.ok) return setMessage({ text: r.error, error: true });
     if (!confirm(withProdMark(env, maintenanceConfirmText(r.next)))) return;
-    save.mutate(r.next, {
-      onSuccess: () => {
-        setDraft(null);
-        setMessage({ text: r.next.on ? '저장 · 점검 안내 켜짐' : '저장 · 점검 안내 꺼짐', error: false });
+    save.mutate(
+      { from, next: r.next },
+      {
+        onSuccess: () => {
+          setDraft(null);
+          setMessage({ text: r.next.on ? '저장 · 점검 안내 켜짐' : '저장 · 점검 안내 꺼짐', error: false });
+        },
+        onError: (err) => {
+          setDraft(null);
+          setMessage({ text: errorMessage(err, '저장 실패'), error: true });
+        },
       },
-      onError: (err) => {
-        setDraft(null);
-        setMessage({ text: errorMessage(err, '저장 실패'), error: true });
-      },
-    });
+    );
   };
 
   return (

@@ -1,5 +1,12 @@
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { lastDateKeys, METRICS_DAYS, type DayMetrics } from '../model/metrics';
+import { useMemo } from 'react';
+import {
+  lastDateKeys,
+  METRICS_DAYS,
+  metricsSummary,
+  type DayMetrics,
+  type MetricsSummary,
+} from '../model/metrics';
 import { useMetricsPort } from './index';
 
 const DAY_KEY = ['metrics', 'day'];
@@ -45,4 +52,20 @@ export function useRefreshTodayMetrics() {
     if (now !== undefined)
       await client.invalidateQueries({ queryKey: [...DAY_KEY, ...lastDateKeys(now, 1)] });
   };
+}
+
+/** 받은 날들로 요약을 낸다 — 판이 WAU · MAU 를 구하지 못하면 `error` 로 알린다(0 이나 빈 값으로 덮지 않는다). */
+export function useMetricsSummary(days: DayMetrics[] | undefined): {
+  summary: MetricsSummary | null;
+  error: Error | null;
+} {
+  const port = useMetricsPort();
+  return useMemo(() => {
+    if (!days) return { summary: null, error: null };
+    try {
+      return { summary: metricsSummary(days, port.activeUsers(days)), error: null };
+    } catch (error) {
+      return { summary: null, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  }, [days, port]);
 }

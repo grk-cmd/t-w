@@ -13,15 +13,9 @@ export function useCloseAllRooms() {
   return useMutation({ mutationFn: () => port.closeAll(), onSettled: refresh });
 }
 
-/** 고른 방들을 한 묶음으로 닫는다 — 하나라도 규칙에 막히면 아무 방도 지워지지 않는다. */
+/** 고른 방들을 닫는다 — 한 번에 닫을 수 있는 수(`closeMax`)를 넘으면 포트가 막는다. */
 export function useCloseSelectedRooms() {
   const port = useRoomPort();
   const refresh = useRefreshRooms();
-  return useMutation({
-    mutationFn: async (codes: string[]) => {
-      await port.close(codes);
-      return codes.length;
-    },
-    onSettled: refresh,
-  });
+  return useMutation({ mutationFn: (codes: string[]) => port.close(codes), onSettled: refresh });
 }

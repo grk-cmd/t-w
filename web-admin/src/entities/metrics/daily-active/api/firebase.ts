@@ -1,6 +1,13 @@
 // Firebase 판 — 지금 코드 그대로: metrics/daily · summary 를 읽는다.
 import type { Db } from '@/shared/api';
-import { METRICS_DAILY, METRICS_SUMMARY, toDaySummary, toVisits, type DayMetrics } from '../model/metrics';
+import {
+  METRICS_DAILY,
+  METRICS_SUMMARY,
+  toDaySummary,
+  toVisits,
+  type ActiveUsers,
+  type DayMetrics,
+} from '../model/metrics';
 import type { MetricsPort } from './port';
 
 /**
@@ -36,10 +43,22 @@ export function getRecentMetrics(db: Db, dates: readonly string[]): Promise<DayM
   return Promise.all(dates.map((date) => getDayMetrics(db, date, date === today)));
 }
 
+export function uniqueUsers(days: readonly DayMetrics[]): number {
+  const all = new Set<string>();
+  for (const d of days) for (const u of d.users) all.add(u);
+  return all.size;
+}
+
+/** Firebase 판은 서버 숫자가 없다 — 받아 둔 날들의 사용자 목록을 합쳐 센다(7일 · 30일). */
+export function activeUsersOf(days: readonly DayMetrics[]): ActiveUsers {
+  return { wau: uniqueUsers(days.slice(-7)), mau: uniqueUsers(days.slice(-30)) };
+}
+
 export function createFirebaseMetricsPort(db: Db): MetricsPort {
   return {
     getDay: (date, isToday) => getDayMetrics(db, date, isToday),
     getRecent: (dates) => getRecentMetrics(db, dates),
+    activeUsers: activeUsersOf,
     serverTimeOffset: () => db.serverTimeOffset(),
   };
 }

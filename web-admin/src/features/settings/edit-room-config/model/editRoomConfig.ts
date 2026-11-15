@@ -13,7 +13,7 @@ import {
   useRoomPort,
   type Channel,
 } from '@/entities/room';
-import { refreshOnConflict } from '@/shared/api';
+import { refreshOnConflict, type Versioned } from '@/shared/api';
 
 export type RoomLimitInputs = Record<Channel, string>;
 type Saved = Record<Channel, number | null> | null | undefined;
@@ -56,8 +56,13 @@ export function useSaveRoomLimits() {
   const port = useRoomPort();
   const refresh = useRefreshRoomConfig();
   return useMutation({
-    mutationFn: ({ saved, next }: { saved: Saved; next: Record<Channel, number> }) =>
-      port.saveLimits(saved, next),
+    mutationFn: ({
+      from,
+      next,
+    }: {
+      from: Versioned<Record<Channel, number | null>>;
+      next: Record<Channel, number>;
+    }) => port.saveLimits(from, next),
     onSuccess: refresh,
     onError: refreshOnConflict(refresh),
   });
@@ -67,8 +72,8 @@ export function useSaveRoomMaxPeople() {
   const port = useRoomPort();
   const refresh = useRefreshRoomConfig();
   return useMutation({
-    mutationFn: ({ saved, next }: { saved: number | null | undefined; next: number }) =>
-      port.saveMaxPeople(saved, next),
+    mutationFn: ({ from, next }: { from: Versioned<number | null>; next: number }) =>
+      port.saveMaxPeople(from, next),
     onSuccess: refresh,
     onError: refreshOnConflict(refresh),
   });

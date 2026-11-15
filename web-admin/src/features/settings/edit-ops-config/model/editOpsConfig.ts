@@ -16,7 +16,7 @@ import {
   type LogLevels,
   type LogTarget,
 } from '@/entities/server/ops-config';
-import { refreshOnConflict, type AuditAction } from '@/shared/api';
+import { refreshOnConflict, type AuditAction, type Versioned } from '@/shared/api';
 
 type Check<T> = { ok: true; next: T } | { ok: false; error: string };
 
@@ -94,8 +94,8 @@ export function useSaveIntGroup(group: IntGroup, action: AuditAction, target: st
   const port = useOpsConfigPort();
   const refresh = useRefreshOpsConfig();
   return useMutation({
-    mutationFn: ({ before, updates }: { before: IntValues; updates: Record<string, number | null> }) =>
-      port.saveIntGroup(group, action, target, before, updates),
+    mutationFn: ({ from, updates }: { from: Versioned<IntValues>; updates: Record<string, number | null> }) =>
+      port.saveIntGroup(group, action, target, from, updates),
     onSuccess: refresh,
     onError: refreshOnConflict(refresh),
   });
@@ -105,8 +105,13 @@ export function useSaveLogLevels() {
   const port = useOpsConfigPort();
   const refresh = useRefreshOpsConfig();
   return useMutation({
-    mutationFn: ({ before, updates }: { before: LogLevels; updates: Record<string, LogLevel | null> }) =>
-      port.saveLogLevels(before, updates),
+    mutationFn: ({
+      from,
+      updates,
+    }: {
+      from: Versioned<LogLevels>;
+      updates: Record<string, LogLevel | null>;
+    }) => port.saveLogLevels(from, updates),
     onSuccess: refresh,
     onError: refreshOnConflict(refresh),
   });
@@ -116,8 +121,8 @@ export function useSaveCorsOrigins() {
   const port = useOpsConfigPort();
   const refresh = useRefreshOpsConfig();
   return useMutation({
-    mutationFn: ({ before, next }: { before: string[]; next: string[] }) =>
-      port.saveCorsOrigins(before, next),
+    mutationFn: ({ from, next }: { from: Versioned<string[]>; next: string[] }) =>
+      port.saveCorsOrigins(from, next),
     onSuccess: refresh,
     onError: refreshOnConflict(refresh),
   });

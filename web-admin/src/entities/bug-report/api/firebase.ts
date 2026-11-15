@@ -1,5 +1,5 @@
 // Firebase 판 — 지금 코드 그대로: bugReport/current 를 읽고 쓴다.
-import { withAudit, type Db } from '@/shared/api';
+import { unversioned, withAudit, type Db } from '@/shared/api';
 import { BUG_LINK_MAX, BUG_NOTICE_MAX, type BugReport } from '../model/bugReport';
 import type { BugReportPort } from './port';
 
@@ -23,7 +23,7 @@ export function saveBugReport(db: Db, notice: string, link: string): Promise<voi
 
 export function createFirebaseBugReportPort(db: Db): BugReportPort {
   return {
-    get: () => getBugReport(db),
-    save: (notice, link) => saveBugReport(db, notice, link),
+    get: async () => unversioned(await getBugReport(db)),
+    save: (_from, notice, link) => saveBugReport(db, notice, link),
   };
 }

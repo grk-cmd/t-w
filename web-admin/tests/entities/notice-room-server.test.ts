@@ -114,12 +114,13 @@ describe('소식 포트 — API 판', () => {
       ],
     });
     const port = createServerBroadcastPort(s.api);
-    await port.list();
-    expect(await port.setPinned(['a'], true)).toBe(1);
+    const { items } = await port.list();
+    const [a, b] = [items.find((x) => x.id === 'a')!, items.find((x) => x.id === 'b')!];
+    expect(await port.setPinned([a], true)).toBe(1);
     expect(s.calls.at(-1)).toMatchObject({ body: { version: 7, pinned: true } });
-    expect(await port.remove(['b'])).toBe(1);
+    expect(await port.remove([b])).toBe(1);
     expect(s.calls.at(-1)).toMatchObject({ query: { version: 2 } });
-    expect(await port.setPinned(['a', 'b'], false)).toBe(2);
+    expect(await port.setPinned([a, b], false)).toBe(2);
     expect(s.calls.at(-1)).toMatchObject({
       body: {
         action: 'UNPIN',
@@ -142,18 +143,76 @@ describe('소식 포트 — API 판', () => {
       ],
     });
     const port = createServerBroadcastPort(s.api);
-    await port.list();
-    const error = await port.remove(['a', 'b']).catch((e: unknown) => e);
+    const { items } = await port.list();
+    const error = await port.remove(items).catch((e: unknown) => e);
     expect(isPortError(error, 'conflict')).toBe(true);
     expect((error as Error).message).toBe('1개 됨 · 1개 안 됨');
   });
 
-  it('목록에 없는 id 를 고정하려 하면 conflict(목록이 낡았다)', async () => {
+  it('번호가 없는 줄(읽지 않은 줄)로는 요청을 보내지 않고 던진다', async () => {
     const s = fake({});
+    const row = { id: 'x', tag: 'notice' as const, title: '', body: '', ts: 0, pinned: false };
     const error = await createServerBroadcastPort(s.api)
-      .setPinned(['x'], true)
+      .setPinned([row], true)
       .catch((e: unknown) => e);
+    expect(isPortError(error, 'invalid')).toBe(true);
+    expect(s.calls).toHaveLength(0);
+  });
+
+  it('옛 화면이 든 줄(옛 version)로 고정하면 서버가 409 → conflict, 덮어쓰지 않는다', async () => {
+    const s = fake({
+      'GET /v2/notices': () => ({
+        broadcasts: { pinned: [], latest: [wire('a', { version: 1 })], nextCursor: null },
+      }),
+      'PATCH /v2/admin/notices/broadcasts/a': () => {
+        throw new ApiError('request', 409, 'CONCURRENT_UPDATE', '겹침');
+      },
+    });
+    const port = createServerBroadcastPort(s.api);
+    const { items } = await port.list();
+    const error = await port.setPinned(items, true).catch((e: unknown) => e);
     expect(isPortError(error, 'conflict')).toBe(true);
+    expect(s.calls.at(-1)).toMatchObject({ body: { version: 1 } }); // 포트가 새 번호를 따로 읽어 얹지 않는다
+  });
+
+  it('version 이 없는 응답 줄은 0 이나 빈 값으로 덮지 않고 던진다', async () => {
+    const s = fake({
+      'GET /v2/notices': () => ({
+        broadcasts: { pinned: [], latest: [wire('a', { version: undefined })], nextCursor: null },
+      }),
+    });
+    const error = await createServerBroadcastPort(s.api)
+      .list()
+      .catch((e: unknown) => e);
+    expect(isPortError(error, 'invalid')).toBe(true);
+  });
+});
+
+describe('소식 — 공지 줄의 칸이 틀리면 던진다', () => {
+  it('태그 · 제목 · 시각 · pinned 가 틀린 줄을 버리거나 기본값으로 덮지 않는다', async () => {
+    for (const bad of [{ tag: 'OTHER' }, { title: 3 }, { publishedAt: 'x' }, { pinned: 'yes' }, { id: 7 }]) {
+      const s = fake({
+        'GET /v2/notices': () => ({ broadcasts: { pinned: [], latest: [wire('a', bad)], nextCursor: null } }),
+      });
+      const error = await createServerBroadcastPort(s.api)
+        .list()
+        .catch((e: unknown) => e);
+      expect(isPortError(error, 'invalid')).toBe(true);
+    }
+  });
+
+  it('묶음 결과가 목록이 아니거나 줄의 ok 가 참 · 거짓이 아니면 던진다', async () => {
+    for (const result of [{}, [{ id: 'a' }]]) {
+      const s = fake({
+        'GET /v2/notices': () => ({
+          broadcasts: { pinned: [], latest: [wire('a'), wire('b')], nextCursor: null },
+        }),
+        'POST /v2/admin/notices/broadcasts/bulk': () => result,
+      });
+      const port = createServerBroadcastPort(s.api);
+      const { items } = await port.list();
+      expect(isPortError(await port.remove(items).catch((e: unknown) => e), 'invalid')).toBe(true);
+    }
   });
 });
 
@@ -173,41 +232,58 @@ describe('확성기 · 업데이트 공지 — API 판', () => {
     expect(await port.get()).toBeNull();
   });
 
-  it('업데이트 공지: 읽은 id 로 내린다 · 없으면 notFound', async () => {
+  it('업데이트 공지: 화면이 읽은 공지의 id 로 내린다 · 이미 내려갔으면 서버가 notFound', async () => {
     let current: unknown = { id: 'u-1', title: '새 버전', body: '내용', publishedAt: '2026-11-20T03:00:00Z' };
     const s = fake({
       'GET /v2/notices': () => ({ updateNotice: current }),
       'DELETE /v2/admin/notices/update-notices/u-1': () => {
+        if (current === null) throw new ApiError('notFound', 404, 'NOTICE_NOT_FOUND', '없음');
         current = null;
       },
     });
     const port = createServerUpdateNoticePort(s.api);
-    expect(await port.get()).toEqual({
+    const read = await port.get();
+    expect(read).toEqual({
+      id: 'u-1',
       title: '새 버전',
       body: '내용',
       ts: Date.parse('2026-11-20T03:00:00Z'),
     });
-    await port.clear();
+    await port.clear(read!);
     expect(s.calls.at(-1)?.path).toBe('/v2/admin/notices/update-notices/u-1');
-    const error = await port.clear().catch((e: unknown) => e);
+    const error = await port.clear(read!).catch((e: unknown) => e);
     expect(isPortError(error, 'notFound')).toBe(true);
   });
 
-  it('업데이트 공지 올리기: 응답의 id 를 기억한다', async () => {
-    const s = fake({
-      'POST /v2/admin/notices/update-notices': () => ({
-        id: 'u-2',
-        title: 't',
-        body: 'b',
-        publishedAt: '2026-11-20T03:00:00Z',
-      }),
-      'DELETE /v2/admin/notices/update-notices/u-2': () => undefined,
-    });
+  it('업데이트 공지: 읽지 않고(id 없이) 내리려 하면 요청 없이 던진다 · 읽기 전에 먼저 읽지도 않는다', async () => {
+    const s = fake({});
+    const error = await createServerUpdateNoticePort(s.api)
+      .clear({ title: 't', body: 'b', ts: 1 })
+      .catch((e: unknown) => e);
+    expect(isPortError(error, 'invalid')).toBe(true);
+    expect(s.calls).toHaveLength(0);
+  });
+
+  it('업데이트 공지: 칸이 틀리면 빈 글로 덮지 않고 던진다 · updateNotice 칸이 없어도 던진다', async () => {
+    for (const bad of [
+      { updateNotice: { id: 'u', title: 3, body: 'b', publishedAt: '2026-11-20T03:00:00Z' } },
+      { updateNotice: { id: 'u', title: 't', body: 'b', publishedAt: 'nope' } },
+      {},
+    ]) {
+      const s = fake({ 'GET /v2/notices': () => bad });
+      const error = await createServerUpdateNoticePort(s.api)
+        .get()
+        .catch((e: unknown) => e);
+      expect(isPortError(error, 'invalid')).toBe(true);
+    }
+  });
+
+  it('업데이트 공지 올리기: 요청 번호만 보내고 id 는 기억하지 않는다', async () => {
+    const s = fake({ 'POST /v2/admin/notices/update-notices': () => undefined });
     const port = createServerUpdateNoticePort(s.api);
     await port.publish(' 제목 ', ' 본문 ');
     expect(s.calls[0].body).toMatchObject({ title: '제목', body: '본문' });
-    await port.clear();
-    expect(s.calls.at(-1)?.path).toBe('/v2/admin/notices/update-notices/u-2');
+    expect(s.calls).toHaveLength(1);
   });
 });
 
@@ -224,7 +300,6 @@ describe('방 포트 — API 판', () => {
         members: [{ userCode: 'u1', name: '가' }],
       },
       { code: 'SCRT-ZZ', channel: 'togetherroom', secret: true, open: false, host: null, members: [] },
-      { code: '깨진줄', channel: 'nope' },
     ],
     counts: { workingroom: 1, togetherroom: 1 },
   };
@@ -250,7 +325,7 @@ describe('방 포트 — API 판', () => {
     expect(port.features).toEqual({ ghostCleanup: false, lastSeen: false });
   });
 
-  it('닫기: 500개씩 나눠 보내고, 전체는 all: true', async () => {
+  it('닫기: 500개까지 한 번에, 전체는 all: true', async () => {
     const s = fake({
       'GET /v2/admin/rooms': () => listing,
       'POST /v2/admin/rooms/close': (c) =>
@@ -259,11 +334,11 @@ describe('방 포트 — API 판', () => {
           : { closed: [], missing: [] },
     });
     const port = createServerRoomPort(s.api);
-    const codes = Array.from({ length: 501 }, (_, i) => `R${i}`);
+    const codes = Array.from({ length: 500 }, (_, i) => `R${i}`);
     await port.close(codes);
     const closes = s.calls.filter((c) => c.path.endsWith('/close'));
-    expect(closes.map((c) => (c.body as { codes: string[] }).codes.length)).toEqual([500, 1]);
-    expect(await port.closeAll()).toEqual(['ABC123', 'SCRT-ZZ']);
+    expect(closes.map((c) => (c.body as { codes: string[] }).codes.length)).toEqual([500]);
+    expect(await port.closeAll()).toEqual({ closed: ['ABC123', 'SCRT-ZZ'], missing: [] });
     expect(s.calls.at(-1)?.body).toEqual({ all: true });
   });
 
@@ -301,15 +376,15 @@ describe('요청 번호 — 내용이 같을 때만 남긴다', () => {
 });
 
 describe('같은 API 에는 포트가 하나 — 읽는 훅 · 쓰는 훅이 같은 상태를 쓴다', () => {
-  it('한쪽이 목록을 읽고 다른 쪽이 고정하면 읽은 version 이 간다', async () => {
+  it('읽은 줄의 version 이 고정 요청에 실려 간다(포트는 따로 기억하지 않는다)', async () => {
     const s = fake({
       'GET /v2/notices': () => ({
         broadcasts: { pinned: [], latest: [wire('a', { version: 9 })], nextCursor: null },
       }),
       'PATCH /v2/admin/notices/broadcasts/a': () => undefined,
     });
-    await createServerBroadcastPort(s.api).list();
-    await createServerBroadcastPort(s.api).setPinned(['a'], true);
+    const { items } = await createServerBroadcastPort(s.api).list();
+    await createServerBroadcastPort(s.api).setPinned(items, true);
     expect(s.calls.at(-1)?.body).toEqual({ version: 9, pinned: true });
   });
 
@@ -325,7 +400,7 @@ describe('같은 API 에는 포트가 하나 — 읽는 훅 · 쓰는 훅이 같
     const s = fake({
       'GET /v2/admin/rooms': () => {
         listed += 1;
-        return { at: '2026-11-20T03:00:00Z', rooms: [], counts: {} };
+        return { at: '2026-11-20T03:00:00Z', rooms: [], counts: { workingroom: 0, togetherroom: 0 } };
       },
       'POST /v2/admin/rooms/close': () => ({ closed: ['A'], missing: [] }),
     });
@@ -335,17 +410,65 @@ describe('같은 API 에는 포트가 하나 — 읽는 훅 · 쓰는 훅이 같
     expect(listed).toBe(2);
   });
 
-  it('묶음: 모르는 id 가 뒤에 있으면 요청을 한 번도 보내지 않고 conflict', async () => {
-    const ids = Array.from({ length: 101 }, (_, i) => `b${i}`);
+  it('묶음: 번호 없는 줄이 뒤에 있으면 요청을 한 번도 보내지 않고 던진다', async () => {
     const s = fake({
       'GET /v2/notices': () => ({
-        broadcasts: { pinned: [], latest: ids.slice(0, 100).map((id) => wire(id)), nextCursor: null },
+        broadcasts: {
+          pinned: [],
+          latest: Array.from({ length: 100 }, (_, i) => wire(`b${i}`)),
+          nextCursor: null,
+        },
       }),
     });
     const port = createServerBroadcastPort(s.api);
-    await port.list(100);
-    const error = await port.remove(ids).catch((e: unknown) => e);
-    expect(isPortError(error, 'conflict')).toBe(true);
+    const { items } = await port.list(100);
+    const stray = { id: 'zz', tag: 'notice' as const, title: '', body: '', ts: 0, pinned: false };
+    const error = await port.remove([...items, stray]).catch((e: unknown) => e);
+    expect(isPortError(error, 'invalid')).toBe(true);
     expect(s.calls.filter((c) => c.method === 'POST')).toHaveLength(0);
+  });
+});
+
+describe('방 닫기 · 목록 — 결과를 그대로 알리고 모양이 틀리면 던진다', () => {
+  const listing = { at: '2026-11-20T03:00:00Z', rooms: [], counts: {} };
+
+  it('close 는 서버가 준 { closed, missing } 을 그대로 돌려준다', async () => {
+    const s = fake({ 'POST /v2/admin/rooms/close': () => ({ closed: ['A'], missing: ['B'] }) });
+    expect(await createServerRoomPort(s.api).close(['A', 'B'])).toEqual({ closed: ['A'], missing: ['B'] });
+  });
+
+  it('500개를 넘기면 나눠 보내지 않고 요청 없이 던진다', async () => {
+    const s = fake({});
+    const port = createServerRoomPort(s.api);
+    expect(port.closeMax).toBe(500);
+    const error = await port.close(Array.from({ length: 501 }, (_, i) => `R${i}`)).catch((e: unknown) => e);
+    expect(isPortError(error, 'invalid')).toBe(true);
+    expect(s.calls).toHaveLength(0);
+  });
+
+  it('closed · missing 가 목록이 아니면 빈 목록으로 덮지 않고 던진다', async () => {
+    const s = fake({ 'POST /v2/admin/rooms/close': () => ({ closed: 'A' }) });
+    const error = await createServerRoomPort(s.api)
+      .close(['A'])
+      .catch((e: unknown) => e);
+    expect(isPortError(error, 'invalid')).toBe(true);
+  });
+
+  it('방 목록의 칸이 틀리면(채널 · 참여자 이름) 그 방을 빼거나 빈 이름으로 두지 않고 던진다', async () => {
+    const room = { code: 'A', channel: 'workingroom', secret: false, open: true, host: null, members: [] };
+    const bad = [
+      { ...listing, rooms: [{ ...room, channel: 'x' }] },
+      { ...listing, rooms: [{ ...room, members: [{ userCode: 'u', name: 3 }] }] },
+      { ...listing, at: 'nope' },
+      { ...listing, counts: { workingroom: 'many', togetherroom: 1 } },
+      { ...listing, counts: { workingroom: 1 } },
+    ];
+    for (const wire of bad) {
+      const s = fake({ 'GET /v2/admin/rooms': () => wire });
+      const error = await createServerRoomPort(s.api)
+        .getCodes()
+        .catch((e: unknown) => e);
+      expect(isPortError(error, 'invalid')).toBe(true);
+    }
   });
 });

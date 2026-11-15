@@ -1,5 +1,5 @@
 // Firebase 판 — 지금 코드 그대로: config/flags 의 두 칸을 읽고 쓴다.
-import { withAudit, type Db } from '@/shared/api';
+import { unversioned, withAudit, type Db } from '@/shared/api';
 import { flagPath, parseFlag, SIGNUP_FLAGS, type SignupFlag, type SignupFlags } from '../model/signupFlag';
 import type { SignupFlagPort } from './port';
 
@@ -18,7 +18,7 @@ export function setSignupFlag(db: Db, flag: SignupFlag, value: boolean): Promise
 export function createFirebaseSignupFlagPort(db: Db): SignupFlagPort {
   return {
     flags: SIGNUP_FLAGS,
-    get: () => getSignupFlags(db),
-    set: (flag, value) => setSignupFlag(db, flag, value),
+    get: async () => unversioned(await getSignupFlags(db)),
+    set: (flag, _from, value) => setSignupFlag(db, flag, value),
   };
 }

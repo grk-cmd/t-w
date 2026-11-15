@@ -1,5 +1,5 @@
 // API 판 — 설정 키 `app.minVersion` · `room.minVersion`(문자열 또는 null). 서버가 «공개된 최신 릴리스보다 높으면» 거절한다.
-import { opsConfigClient, type Api } from '@/shared/api';
+import { opsConfigClient, wireNullableString, type Api } from '@/shared/api';
 import type { MinVersionKind } from '../model/minVersion';
 import type { MinVersionPort } from './port';
 
@@ -9,11 +9,11 @@ export function createServerMinVersionPort(api: Api | null): MinVersionPort {
   const config = opsConfigClient(api);
   return {
     async get(kind) {
-      const { effective } = await config.read(KEY[kind]);
-      return typeof effective === 'string' ? effective : null;
+      const { effective, version } = await config.read(KEY[kind]);
+      return { value: wireNullableString(effective, KEY[kind]), version };
     },
-    async save(kind, version) {
-      await config.update(KEY[kind], () => version.trim());
+    async save(kind, from, version) {
+      await config.write(KEY[kind], from.version, version.trim());
     },
   };
 }

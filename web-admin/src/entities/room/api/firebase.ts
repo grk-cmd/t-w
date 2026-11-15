@@ -1,6 +1,6 @@
 // Firebase 판 — 지금 코드 그대로: config/roomLimits · roomMaxPeople · chatKeepDays 를 읽고 쓰고,
 // roomIndex · rooms · roomStats 로 방 목록을 만들고 방을 닫는다(방 서버 목록만 API 에서 받는다).
-import { countTarget, withAudit, type Api, type AuditAction, type Db } from '@/shared/api';
+import { countTarget, unversioned, withAudit, type Api, type AuditAction, type Db } from '@/shared/api';
 import { CHAT_KEEP_PATH, chatKeepDetail, parseChatKeep, type ChatKeep } from '../model/chatKeep';
 import {
   allRoomCodes,
@@ -188,19 +188,24 @@ export async function closeAllRooms(db: Db): Promise<string[]> {
 export function createFirebaseRoomPort(db: Db, api: Api | null): RoomPort {
   return {
     features: { ghostCleanup: true, lastSeen: true },
-    getLimits: () => getRoomLimits(db),
-    getMaxPeople: () => getRoomMaxPeople(db),
-    saveLimits: (before, next) => saveRoomLimits(db, before, next),
-    saveMaxPeople: (before, next) => saveRoomMaxPeople(db, before, next),
-    getChatKeep: () => getChatKeep(db),
-    saveChatKeep: (before, updates) => saveChatKeep(db, before, updates),
+    closeMax: null,
+    getLimits: async () => unversioned(await getRoomLimits(db)),
+    getMaxPeople: async () => unversioned(await getRoomMaxPeople(db)),
+    saveLimits: (from, next) => saveRoomLimits(db, from.value, next),
+    saveMaxPeople: (from, next) => saveRoomMaxPeople(db, from.value, next),
+    getChatKeep: async () => unversioned(await getChatKeep(db)),
+    saveChatKeep: (from, updates) => saveChatKeep(db, from.value, updates),
     getIndex: () => getRoomIndex(db),
     getCodes: () => getRoomCodes(db),
     probeRooms: (codes, withSeen) => probeRooms(db, codes, withSeen),
     getStats: () => db.get<RoomStats>('roomStats'),
     getLive: () => getLiveRooms(api),
     serverTimeOffset: () => db.serverTimeOffset(),
-    close: (codes) => closeRooms(db, [...codes]),
-    closeAll: () => closeAllRooms(db),
+    // Firebase 판은 줄을 지우기만 한다 — 없던 방을 가려내지 않아 `missing` 은 늘 빈 목록이다.
+    close: async (codes) => {
+      await closeRooms(db, [...codes]);
+      return { closed: [...codes], missing: [] };
+    },
+    closeAll: async () => ({ closed: await closeAllRooms(db), missing: [] }),
   };
 }

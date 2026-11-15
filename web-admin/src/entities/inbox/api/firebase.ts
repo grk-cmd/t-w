@@ -116,7 +116,16 @@ export function createFirebaseBroadcastPort(db: Db): BroadcastPort {
   return {
     list: (n) => listBroadcasts(db, n),
     send: (message, pinned) => sendBroadcast(db, message, pinned),
-    setPinned: (ids, pinned) => setBroadcastsPinned(db, ids, pinned),
-    remove: (ids) => deleteBroadcasts(db, ids),
+    setPinned: (items, pinned) =>
+      setBroadcastsPinned(
+        db,
+        items.map((b) => b.id),
+        pinned,
+      ),
+    remove: (items) =>
+      deleteBroadcasts(
+        db,
+        items.map((b) => b.id),
+      ),
   };
 }

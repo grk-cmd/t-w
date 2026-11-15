@@ -1,68 +1,54 @@
 // API 판 — 카탈로그의 레벨 해금 줄 `ANIMAL_CHARACTER / animal`. 읽기 `GET /v2/admin/catalog` 의 `unlocks[]` ·
-// 쓰기 `PUT /v2/admin/catalog/unlocks/ANIMAL_CHARACTER/animal { version, level, label }`(label 은 읽은 그대로 돌려 보낸다).
-import { adminPath, NO_API_TEXT, PortError, toPortError, type Api, perApi } from '@/shared/api';
+// 쓰기 `PUT /v2/admin/catalog/unlocks/ANIMAL_CHARACTER/animal { version, level, label }`.
+// `label` 은 읽은 그대로 돌려 보낸다 — 읽은 줄의 `version` · `label` 은 화면이 들고 있다가(`raw.effective` = label) 저장에 싣는다.
+import {
+  adminPath,
+  perApi,
+  PortError,
+  portCall,
+  wireArray,
+  wireNumber,
+  wireObject,
+  wireString,
+  type Api,
+  type Versioned,
+} from '@/shared/api';
 import type { GameConfigPort } from './port';
 
 export const ANIMAL_UNLOCK = { kind: 'ANIMAL_CHARACTER', key: 'animal' } as const;
-const FALLBACK_LABEL = '동물 캐릭터';
-
-interface Unlock {
-  kind?: unknown;
-  key?: unknown;
-  level?: unknown;
-  label?: unknown;
-  version?: unknown;
-}
 
 function build(api: Api | null): GameConfigPort {
-  let seen: { version: number; label: string } | null = null;
-
-  async function load(): Promise<number | null> {
-    if (!api) throw new PortError('unreachable', NO_API_TEXT);
-    try {
-      const catalog = await api.get<{ unlocks?: Unlock[] }>(adminPath('/catalog'));
-      const row = (catalog.unlocks ?? []).find(
-        (u) => u.kind === ANIMAL_UNLOCK.kind && u.key === ANIMAL_UNLOCK.key,
-      );
-      if (!row) {
-        seen = null;
-        return null;
-      }
-      seen = {
-        version: typeof row.version === 'number' ? row.version : 0,
-        label: typeof row.label === 'string' && row.label ? row.label : FALLBACK_LABEL,
-      };
-      return typeof row.level === 'number' ? row.level : null;
-    } catch (error) {
-      throw toPortError(error, '해금 레벨을 불러오지 못했어요');
-    }
-  }
-
   return {
-    getAnimalUnlockLevel: load,
-    async saveAnimalUnlockLevel(level) {
-      if (!api) throw new PortError('unreachable', NO_API_TEXT);
-      if (seen === null) await load();
-      try {
-        const saved = await api.send<Unlock>(
-          'PUT',
-          adminPath(`/catalog/unlocks/${ANIMAL_UNLOCK.kind}/${ANIMAL_UNLOCK.key}`),
-          {
-            body: { version: seen?.version ?? 0, level, label: seen?.label ?? FALLBACK_LABEL },
-          },
-        );
-        seen = {
-          version: typeof saved?.version === 'number' ? saved.version : (seen?.version ?? 0) + 1,
-          label: seen?.label ?? FALLBACK_LABEL,
-        };
-      } catch (error) {
-        const failure = toPortError(error, '저장하지 못했어요');
-        if (failure.kind === 'conflict') seen = null;
-        throw failure;
-      }
+    async getAnimalUnlockLevel() {
+      const catalog = wireObject(
+        await portCall(api, (a) => a.get<unknown>(adminPath('/catalog')), '해금 레벨을 불러오지 못했어요'),
+        '카탈로그',
+      );
+      const rows = wireArray(catalog.unlocks, '카탈로그의 unlocks').map((u, i) =>
+        wireObject(u, `unlocks[${i}]`),
+      );
+      const row = rows.find((u) => u.kind === ANIMAL_UNLOCK.kind && u.key === ANIMAL_UNLOCK.key);
+      if (!row) throw new PortError('notFound', '서버에 동물 해금 줄이 없어요');
+      const unlock: Versioned<number | null> = {
+        value: wireNumber(row.level, '동물 해금 레벨'),
+        version: wireNumber(row.version, '동물 해금 줄의 version'),
+        raw: { effective: wireString(row.label, '동물 해금 줄의 label'), defaults: null },
+      };
+      return unlock;
+    },
+    async saveAnimalUnlockLevel(from, level) {
+      const label = from.raw?.effective;
+      if (!from.raw) throw new PortError('invalid', '읽은 값이 이 판의 것이 아니에요 (동물 해금)');
+      await portCall(
+        api,
+        (a) =>
+          a.send('PUT', adminPath(`/catalog/unlocks/${ANIMAL_UNLOCK.kind}/${ANIMAL_UNLOCK.key}`), {
+            body: { version: from.version, level, label },
+          }),
+        '저장하지 못했어요',
+      );
     },
   };
 }
 
-/** `api` 마다 하나 — 읽는 훅 · 쓰는 훅이 같은 포트(같은 version · 기억)를 쓴다. */
 export const createServerGameConfigPort = perApi(build);

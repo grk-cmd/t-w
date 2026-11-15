@@ -18,7 +18,8 @@ interface Props {
 /** 한 노드 아래 정수 칸 묶음 — 손댄 칸만 쓴다 · 빈 칸은 지움(서버 기본값). */
 export function IntGroupForm({ title, group, action, apply }: Props) {
   const env = useEnv();
-  const { data: saved = {}, error, isPending } = useIntGroup(group);
+  const { data: from, error, isPending } = useIntGroup(group);
+  const saved = from?.value ?? {};
   const save = useSaveIntGroup(group, action, title);
   const [drafts, setDrafts] = useState<Partial<Record<string, string>>>({});
   const [message, setMessage] = useState<Message>(null);
@@ -26,11 +27,12 @@ export function IntGroupForm({ title, group, action, apply }: Props) {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    if (!from) return;
     const r = checkIntGroup(group, saved, drafts);
     if (!r.ok) return setMessage({ text: r.error, error: true });
     if (!confirm(withProdMark(env, intGroupConfirmText(title, group, saved, r.next, apply)))) return;
     save.mutate(
-      { before: saved, updates: r.next },
+      { from, updates: r.next },
       {
         onSuccess: () => {
           setDrafts({});

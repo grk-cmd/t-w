@@ -1,5 +1,5 @@
 // Firebase 판 — 지금 코드 그대로: config/minRoomVer · minAppVer 를 읽고 쓴다.
-import { withAudit, type Db } from '@/shared/api';
+import { unversioned, withAudit, type Db } from '@/shared/api';
 import { MIN_VERSIONS, type MinVersionKind } from '../model/minVersion';
 import type { MinVersionPort } from './port';
 
@@ -23,7 +23,7 @@ export function saveMinVersion(
 
 export function createFirebaseMinVersionPort(db: Db): MinVersionPort {
   return {
-    get: (kind) => getMinVersion(db, kind),
-    save: (kind, version, before) => saveMinVersion(db, kind, version, before),
+    get: async (kind) => unversioned(await getMinVersion(db, kind)),
+    save: (kind, from, version) => saveMinVersion(db, kind, version, from.value),
   };
 }

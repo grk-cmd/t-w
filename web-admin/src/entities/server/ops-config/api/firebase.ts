@@ -1,5 +1,5 @@
 // Firebase 판 — 지금 코드 그대로: config/ 아래 운영 설정(정수 묶음 · 로그 수준 · CORS 출처)을 읽고 쓴다.
-import { withAudit, type AuditAction, type Db } from '@/shared/api';
+import { unversioned, withAudit, type AuditAction, type Db } from '@/shared/api';
 import {
   API_CACHE,
   API_CORS_PATH,
@@ -79,12 +79,12 @@ export function createFirebaseOpsConfigPort(db: Db): OpsConfigPort {
     groups: { apiCache: API_CACHE, roomFrame: ROOM_FRAME, roomTiming: ROOM_TIMING, dailyLimits: null },
     maintenance: null,
     serverLimits: null,
-    getIntGroup: (group) => getIntGroup(db, group),
-    getLogLevels: () => getLogLevels(db),
-    getCorsOrigins: () => getCorsOrigins(db),
-    saveIntGroup: (group, action, target, before, updates) =>
-      saveIntGroup(db, group, action, target, before, updates),
-    saveLogLevels: (before, updates) => saveLogLevels(db, before, updates),
-    saveCorsOrigins: (before, next) => saveCorsOrigins(db, before, next),
+    getIntGroup: async (group) => unversioned(await getIntGroup(db, group)),
+    getLogLevels: async () => unversioned(await getLogLevels(db)),
+    getCorsOrigins: async () => unversioned(await getCorsOrigins(db)),
+    saveIntGroup: (group, action, target, from, updates) =>
+      saveIntGroup(db, group, action, target, from.value, updates),
+    saveLogLevels: (from, updates) => saveLogLevels(db, from.value, updates),
+    saveCorsOrigins: (from, next) => saveCorsOrigins(db, from.value, next),
   };
 }

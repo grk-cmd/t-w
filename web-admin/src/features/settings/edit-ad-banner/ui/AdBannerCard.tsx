@@ -8,6 +8,7 @@ import {
   useRefreshAdBanner,
   type AdSlide,
 } from '@/entities/ad-banner';
+import type { Versioned } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import { useSaveAdBanner } from '../model/useSaveAdBanner';
 import styles from './AdBannerCard.module.css';
@@ -27,11 +28,12 @@ function Preview({ img }: { img: string }) {
 }
 
 interface FormProps {
-  saved: AdSlide[];
+  from: Versioned<AdSlide[]>;
   setMessage: (message: Message) => void;
 }
 
-function AdBannerForm({ saved, setMessage }: FormProps) {
+function AdBannerForm({ from, setMessage }: FormProps) {
+  const saved = from.value;
   const save = useSaveAdBanner();
   const [slots, setSlots] = useState<AdSlide[]>(() =>
     Array.from({ length: AD_SLOTS }, (_, i) => saved[i] ?? { img: '', link: '' }),
@@ -54,7 +56,7 @@ function AdBannerForm({ saved, setMessage }: FormProps) {
     if (!confirm(ask)) return;
     // 저장이 끝나면 다시 받은 값으로 이 폼이 새로 마운트된다(key) — mutate 콜백은 그때 사라지므로 결과를 기다려 위 카드에 남긴다.
     try {
-      await save.mutateAsync(slides);
+      await save.mutateAsync({ from, slides });
       setMessage({
         text: slides.length ? `게시했어요 · ${slides.length}장` : '배너를 숨겼어요',
         error: false,
@@ -113,7 +115,7 @@ export function AdBannerCard() {
       {error && <p className="msg err">{errorMessage(error, '불러오지 못했어요')}</p>}
       {!error && !data && <p className="soft">불러오는 중…</p>}
       {/* 다시 받은 값으로 입력 칸을 새로 채운다 */}
-      {data && <AdBannerForm key={JSON.stringify(data)} saved={data} setMessage={setMessage} />}
+      {data && <AdBannerForm key={JSON.stringify(data)} from={data} setMessage={setMessage} />}
       {message && <p className={message.error ? 'msg err' : 'msg'}>{message.text}</p>}
     </section>
   );

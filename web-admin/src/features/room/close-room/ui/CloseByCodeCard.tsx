@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { normalizeRoomCode } from '@/entities/room';
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
+import { closeOneText } from '../model/closeRoom';
 import { useCloseRoom } from '../model/useCloseRoom';
 
 // 목록에 있는 방은 목록에서 닫는다. 목록을 받기 전이거나 코드만 아는 방을 여기서 닫는다.
@@ -15,8 +16,8 @@ export function CloseByCodeCard() {
     if (!code) return;
     if (!confirm(`${code} 방을 종료할까요? 안에 있던 사람은 방에서 튕겨 나가요.`)) return;
     close.mutate(code, {
-      onSuccess: () => {
-        toast(`${code} 방을 종료했어요`);
+      onSuccess: (result) => {
+        toast(closeOneText(code, result));
         setInput('');
       },
       onError: (e) => toast(errorMessage(e, '종료하지 못했어요')),

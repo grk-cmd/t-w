@@ -16,7 +16,8 @@ type Message = { text: string; error: boolean } | null;
 // 방 서버 한 대가 맡을 수 있는 채널별 방 수 — 서버 설정 키 room.serverLimits. API 판에만 있다(Firebase 판은 방 서버 화면에서 고친다).
 export function ServerLimitsCard() {
   const env = useEnv();
-  const { data: saved, error, isPending } = useServerLimits();
+  const { data: from, error, isPending } = useServerLimits();
+  const saved = from?.value;
   const save = useSaveServerLimits();
   const [draft, setDraft] = useState<ServerLimitInputs | null>(null);
   const [message, setMessage] = useState<Message>(null);
@@ -27,20 +28,23 @@ export function ServerLimitsCard() {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!saved) return;
+    if (!from || !saved) return;
     const r = checkServerLimits(saved, inputs);
     if (!r.ok) return setMessage({ text: r.error, error: true });
     if (!confirm(withProdMark(env, serverLimitsConfirmText(saved, r.next)))) return;
-    save.mutate(r.next, {
-      onSuccess: () => {
-        setDraft(null);
-        setMessage({ text: '저장 · 방 서버가 다음에 설정을 읽은 뒤부터', error: false });
+    save.mutate(
+      { from, next: r.next },
+      {
+        onSuccess: () => {
+          setDraft(null);
+          setMessage({ text: '저장 · 방 서버가 다음에 설정을 읽은 뒤부터', error: false });
+        },
+        onError: (err) => {
+          setDraft(null);
+          setMessage({ text: errorMessage(err, '저장 실패'), error: true });
+        },
       },
-      onError: (err) => {
-        setDraft(null);
-        setMessage({ text: errorMessage(err, '저장 실패'), error: true });
-      },
-    });
+    );
   };
 
   return (
