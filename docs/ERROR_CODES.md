@@ -80,7 +80,7 @@
 | `E-ROOM-09` | 초대를 보내지 못했어요 — 잠시 후 다시 눌러 주세요 | `room/room-invite-ui.js` — 초대 보내기 실패(친구 아님 같은 까닭 있는 거절은 안내 문구) |
 | `E-ROOM-10` | 서버 연결이 끊겨 방에서 나왔어요 — 다시 들어와 주세요 | `room/room-entry.js` — 방 안에서 90초 넘게 못 붙어 방을 놓음(onLost unreachable) |
 | `E-CHAT-01` | 대화를 보내지 못했어요 — 다시 보내 주세요 | `chat/chat-ui.js · room/dice-games.js · room/tricks.js` — chatSay 실패(거절 까닭이 있는 것은 안내 문구) |
-| `E-CHAT-02` | 지난 대화를 불러오지 못했어요 | `chat/chat-rt.js subscribeSince` — 지난 기록 GET 실패(대화창을 열 때 · 방 안 다시 연결 때만 알림) |
+| `E-CHAT-02` | 지난 대화를 불러오지 못했어요 | `chat/chat-rt.js subscribeSince` — 지난 기록 GET 실패(대화창을 열 때 · 방 안 다시 연결 때만 알림 · 안 읽은 수 구독 실패는 방마다 한 번) |
 | `E-CHAT-03` | 대화 기록을 지우지 못했어요 | `chat/chat-prefs.js` — 방장 [지우기] 실패 |
 | `E-CHAT-04` | 내 이모티콘을 불러오지 못했어요 | `chat/chat-rt.js getEmojis` — 내 이모티콘 8칸 GET 실패(빈 칸으로 그리지 않고 칸을 잠근다) |
 | `E-CHAT-05` | 이모티콘을 저장하지 못했어요 | `chat/chat-ui.js` — 이모티콘 등록 · 삭제 실패(putEmoji · deleteEmoji) |
