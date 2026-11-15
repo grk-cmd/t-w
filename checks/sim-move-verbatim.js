@@ -94,6 +94,12 @@ say('1. analyze(순수 함수)');
   bad('늦게 부르는 감싸개 이름의 함수 참조 → 호출', rows(APP, ['window.addEventListener("resize", layoutSeats);']), rows(MOD, ['const layoutSeats = deps.layoutSeats;', 'window.addEventListener("resize", layoutSeats());']), wrapHead);
   bad('대입 자리의 접두사 붙임(count = 1 → xMod.count = 1)', rows(APP, ['count = 1;']), rows(APP, ['xMod.count = 1;'], 10));
   bad('다른 이름 가드 걷기', rows(APP, ["if(typeof A!=='undefined' && B) go();"]), rows(MOD, ['if(B) go();']));
+  bad('이름이 부분만 겹치는 가드 걷기(seat / seats)', rows(APP, ["if(typeof seat!=='undefined' && seats.length) go();"]), rows(MOD, ['if(seats.length) go();']));
+  bad('이름이 부분만 겹치는 가드 걷기(A / AB)', rows(APP, ["if(typeof A==='undefined' || AB.x) return;"]), rows(MOD, ['if(AB.x) return;']));
+  bad('setter 와 한 줄에 있는 다른 변수의 밑줄 떼기', rows(APP, ['_x = v; _ready = 1;']), rows(MOD, ['setX(v); ready = 1;']));
+  bad('setter 줄의 비교 변수 밑줄 떼기', rows(APP, ['if(_ok===true) _x = v;']), rows(MOD, ['if(ok===true) setX(v);']));
+  const okSet = run(rows(APP, ['_x = v;']), rows(MOD, ['setX(v);']));
+  chk(okSet.violations.length === 0 && okSet.kinds.setter === 1, '(바탕) _x = v → setX(v) 는 setter 로 허용');
   const ok = analyze([], rows(MOD, ['setSizeFactor: (v)=>{ sizeFactor = v; },'], 3), { headText: (f) => (f === MOD ? 'x\nreturn {\n  setSizeFactor: (v)=>{ sizeFactor = v; },\n};\n' : null), baseText: () => null });
   chk(ok.violations.length === 0, '모듈 꼬리의 쓰는 함수 칸 → scaffold');
 }

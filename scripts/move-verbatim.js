@@ -143,8 +143,9 @@ function analyze(removed, added, ctx){
   const RULES = {
     /* typeof 로 본 이름이 남은 식에 쓰일 때만 걷는다(다른 이름 가드를 걷으면 부르는 조건이 바뀐다) */
     'guard-drop': { side: 'R', fn: (s) => {
-      const keep = (re) => (str) => str.replace(re, (m, n, off, whole) => (whole.slice(off + m.length).includes(n) ? '' : m));
-      let x = s.replace(/(?<![\w$])\(typeof (\w+) ?!==? ?'undefined' ?&& ?([^()]*)\)/g, (m, n, rest) => (rest.includes(n) ? rest : m));
+      const word = (str, n) => new RegExp('(?<![\\w$])' + n.replace(/\$/g, '\\$') + '(?![\\w$])').test(str);   // 낱말 경계로(seat 와 seats 는 다른 이름)
+      const keep = (re) => (str) => str.replace(re, (m, n, off, whole) => (word(whole.slice(off + m.length), n) ? '' : m));
+      let x = s.replace(/(?<![\w$])\(typeof (\w+) ?!==? ?'undefined' ?&& ?([^()]*)\)/g, (m, n, rest) => (word(rest, n) ? rest : m));
       x = keep(/\(typeof (\w+) ?!==? ?'undefined'\) ?&& ?/g)(x);
       x = keep(/typeof (\w+) ?!==? ?'undefined' ?&& ?/g)(x);
       x = keep(/\(typeof (\w+) ?===? ?'undefined'\) ?\|\| ?/g)(x);
@@ -162,7 +163,10 @@ function analyze(removed, added, ctx){
   };
   const R_SIDE = {
     'hook-call': (r, a) => r.replace(new RegExp('\\b[\\w$]*Mod\\.(' + IDENT + ')', 'g'), (m, n) => (a.includes('Hooks.' + n) || a.includes('hooks.' + n) ? n : m)),
-    'setter': (r) => r.replace(/\s*(=+)\s*/g, '$1').replace(/\b_([a-z][\w$]*)(?==)/g, '$1'),      // `_x = v` ↔ setX(v)
+    'setter': (r, a) => {      // `_x = v` ↔ setX(v) — 밑줄은 A 의 setX 가 가리키는 이름의 대입(`_x =`, 비교 `==` 아님)에서만 뗀다
+      const names = new Set([...a.matchAll(SETTER)].map((m) => m[1][0].toLowerCase() + m[1].slice(1)));
+      return r.replace(/\b_([A-Za-z][\w$]*)(?=\s*=(?!=))/g, (m, n) => (names.has(n) ? n : m)).replace(/\s*(=+)\s*/g, '$1');
+    },
     'read-fn': (r, a) => r.replace(/\b_([A-Za-z][\w$]*)\b/g, (m, n) => (getters.has(n) && a.includes(n + '()') && !a.includes(m) ? n : m)),    // `_x` ↔ x()
   };
   const ORDER = ['guard-drop', 'read-fn', 'call-rename', 'hook-call', 'setter'];
