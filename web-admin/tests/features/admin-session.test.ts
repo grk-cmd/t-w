@@ -126,6 +126,20 @@ describe('관리자 확인 — 판마다 다른 것', () => {
     expect(noName.sent).toEqual([]);
   });
 
+  it('API 판: «관리자다» 하고 모양이 틀린 답이면 통과시키지 않는다', async () => {
+    for (const me of [null, 'ok', [], { name: 3, version: 1 }, { name: '가나' }, { version: 1 }]) {
+      const check = await createServerAuthPort(fakeApi(() => me).api).checkAdmin(USER);
+      expect(check.state).toBe('unreachable');
+      expect((check as Exclude<AdminCheck, { state: 'admin' }>).message).toContain('약속과 달라요');
+    }
+    // 이름이 아직 없을 때 서버는 null 을 준다(문서가 약속한 null) — 이름을 채운다
+    const none = fakeApi(() => ({ name: null, version: 2 }));
+    expect(await createServerAuthPort(none.api).checkAdmin(USER)).toEqual({ state: 'admin' });
+    expect(none.sent).toEqual([
+      { method: 'PATCH', path: '/v2/admin/admins/me', body: { version: 2, name: '구글 이름' } },
+    ]);
+  });
+
   it('API 판: 이름 저장이 실패해도 관리자다', async () => {
     const api: Api = {
       get: async <T>() => ({ name: '', version: 1 }) as T,

@@ -32,7 +32,6 @@ export { REPLICA_LAG_MS, shouldFallback, viaApiOr, type ApiFallback } from './le
 export {
   isPortError,
   NO_API_TEXT,
-  notPorted,
   perApi,
   pickBackend,
   PortError,
@@ -54,7 +53,7 @@ export {
   wireString,
 } from './wire';
 export { opsConfigClient, type OpsConfigClient, type OpsSetting } from './opsConfig';
-export { API_ERROR_TEXT, apiErrorText, CONFLICT_TEXT } from './errorText';
+export { API_ERROR_TEXT, apiErrorText, CONFLICT_TEXT, rowCodeText } from './errorText';
 export { isIndexMissing, isPermissionDenied, type Db, type LastRange } from './db';
 export type { Files } from './files';
 export { callErrorMessage, FUNCTIONS_REGION, type Functions } from './functions';

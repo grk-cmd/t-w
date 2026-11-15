@@ -15,12 +15,15 @@ export class PortError extends Error {
   readonly kind: PortErrorKind;
   /** 서버 `code`(API 판). 없으면 ''. */
   readonly code: string;
+  /** 서버 실패 봉투의 `items`(겹친 시크릿룸 목록 같은 덧붙임). 없으면 null. */
+  readonly items: unknown;
 
-  constructor(kind: PortErrorKind, message: string, code = '') {
+  constructor(kind: PortErrorKind, message: string, code = '', items: unknown = null) {
     super(message);
     this.name = 'PortError';
     this.kind = kind;
     this.code = code;
+    this.items = items;
   }
 }
 
@@ -34,33 +37,22 @@ export function toPortError(error: unknown, fallback = '서버에 연결하지 �
   if (!(error instanceof ApiError)) return new PortError('unreachable', text);
   switch (error.kind) {
     case 'auth':
-      return new PortError('denied', text, error.code);
+      return new PortError('denied', text, error.code, error.items);
     case 'notFound':
-      return new PortError('notFound', text, error.code);
+      return new PortError('notFound', text, error.code, error.items);
     case 'request':
-      return new PortError(error.status === 409 ? 'conflict' : 'invalid', text, error.code);
+      return new PortError(error.status === 409 ? 'conflict' : 'invalid', text, error.code, error.items);
     default: // unavailable · notReady
-      return new PortError('unreachable', text, error.code);
+      return new PortError('unreachable', text, error.code, error.items);
   }
 }
 
 /**
  * 판마다 만드는 함수를 적고, 그 판의 것 하나만 부른다(다른 판 공장은 부르지 않는다).
- * 한쪽을 빼먹으면 타입 오류 — 아직 못 쓴 판은 `notPorted` 로 적는다.
+ * 한쪽을 빼먹으면 타입 오류.
  */
 export function pickBackend<T>(makers: Record<Backend, () => T>, backend: Backend = BACKEND): T {
   return makers[backend]();
-}
-
-/**
- * 아직 이 판이 없는 포트 — 만들 때는 던지지 않고, 어떤 일이든 부르면 «이 화면은 아직 API 판이 없어요» 로 실패한다.
- * 톱니 2(`tests/app/backend-ratchet.test.ts`)가 이 이름을 센다.
- */
-export function notPorted<T extends object>(name: string): T {
-  const fail = () => {
-    throw new PortError('unreachable', `이 화면은 아직 API 판이 없어요 (${name})`);
-  };
-  return new Proxy({} as T, { get: (_target, prop) => (prop === 'then' ? undefined : fail) });
 }
 
 /**

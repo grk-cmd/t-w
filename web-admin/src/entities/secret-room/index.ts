@@ -17,6 +17,7 @@ export {
   isUserId,
   MONTHS_MAX,
   overwriteWarning,
+  OWNER_NAME_MAX,
   parseMonths,
   parseWantCode,
   periodText,
@@ -25,7 +26,9 @@ export {
   secretRoomState,
   staleReason,
   STALE_DAYS,
+  takenWarning,
   type ExpiryMode,
   type SecretRoomPub,
   type SecretRoomState,
+  type TakenRoom,
 } from './model/secretRoom';

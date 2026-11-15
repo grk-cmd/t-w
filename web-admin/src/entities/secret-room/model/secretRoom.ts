@@ -2,7 +2,8 @@
 export interface SecretRoomPub {
   owner: string;
   name?: string;
-  ts: number;
+  /** 발급 시각(ms). API 판 읽기는 주지 않는다 — 입장 게이트도 화면도 쓰지 않는 칸이다. */
+  ts?: number;
   /** 이용 기간이 끝나는 시각(ms). 없으면 영구. */
   exp?: number;
 }
@@ -125,6 +126,27 @@ export function overwriteWarning(
   else
     effect = months ? `⚠️ 영구가 풀리고 지금부터 ${months}개월 기간제로 바뀝니다.` : '영구를 그대로 둡니다.';
   return `${code} 는 이미 ${taken.owner} 에게 발급돼 있어요${current}. 그대로 발급하면 ${effect}`;
+}
+
+/** 그 코드를 지금 가진 방 — `LICENSE_SECRET_ROOM_CODE_TAKEN`(409)의 `items` 한 줄. `expiresAt` 없음 = 영구, `endedAt` 있음 = 끝난 방. */
+export interface TakenRoom {
+  secretRoomId: string;
+  ownerUserCode: string;
+  expiresAt: number | null;
+  endedAt: number | null;
+}
+
+/** 남이 가진 코드를 넘겨받기 전에 한 번 더 묻는 문구 — API 판은 발급 답에서 알게 된다. */
+export function takenWarning(code: string, rooms: readonly TakenRoom[], now: number): string {
+  const state = (r: TakenRoom) => {
+    if (r.endedAt !== null) return '이미 끝난 방';
+    if (r.expiresAt === null) return '영구';
+    return now > r.expiresAt
+      ? `${formatDay(r.expiresAt)} 까지였고 이미 만료`
+      : `${formatDay(r.expiresAt)} 까지`;
+  };
+  const who = rooms.map((r) => `${r.ownerUserCode}(${state(r)})`).join(' · ');
+  return `${code} 는 이미 ${who} 에게 발급돼 있어요. 그대로 발급하면 그 방은 끝나고 이 사람에게 넘어갑니다.`;
 }
 
 export type SecretRoomState =

@@ -1,13 +1,8 @@
-// Firebase 판 — 지금 코드 그대로: 계정 요약을 통째로 받는다.
+// Firebase 판 — 계정 요약(accountSnap) 통째 읽기. 사용자 표(features/user/user-rows)가 쓴다.
+// API 판에는 이 읽기가 없다 — 사용자 줄(`GET /v2/admin/users`)이 로그인 방식 · 가입일을 이미 싣는다(D12-8a).
 import type { Db } from '@/shared/api';
 import type { AccountSnap } from '../model/account';
-import type { AccountPort } from './port';
 
-// 한 명에 100바이트 남짓이라 통째로 받는다. users 노드는 마이홈 · 캐릭터까지 딸려 와 이렇게 받으면 안 된다.
 export async function listAccountSnaps(db: Db): Promise<Record<string, AccountSnap>> {
   return (await db.get<Record<string, AccountSnap>>('accountSnap')) ?? {};
-}
-
-export function createFirebaseAccountPort(db: Db): AccountPort {
-  return { list: () => listAccountSnaps(db) };
 }

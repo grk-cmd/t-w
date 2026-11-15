@@ -11,8 +11,8 @@ const selected = [
 
 describe('선택 회수 · 삭제', () => {
   it('회수 대상은 살아 있는 키, 삭제 대상은 회수된 키만', () => {
-    expect(revokeTargets(selected)).toEqual(['A', 'C']);
-    expect(removeTargets(selected)).toEqual(['B']);
+    expect(revokeTargets(selected).map((k) => k.key)).toEqual(['A', 'C']);
+    expect(removeTargets(selected).map((k) => k.key)).toEqual(['B']);
   });
 
   it('회수 — 여러 키를 한 묶음으로 쓴다', async () => {

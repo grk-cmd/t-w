@@ -18,8 +18,9 @@ export async function approveRequest(
   req: LicenseRequest,
   genKey?: () => string,
 ): Promise<{ key: string; delivered: boolean }> {
-  const user = await findUserByFriendCode(db, req.friendCode);
-  const { key, write } = newLicenseWrite(db, `요청: ${req.name} · 친구코드 ${req.friendCode}`, genKey);
+  const friendCode = req.friendCode ?? '';
+  const user = await findUserByFriendCode(db, friendCode);
+  const { key, write } = newLicenseWrite(db, `요청: ${req.name} · 친구코드 ${friendCode}`, genKey);
   const updates = {
     ...write,
     ...approvedWrite(db, req.id, key),
@@ -48,7 +49,7 @@ export async function approveRequests(
   reqs: LicenseRequest[],
   genKey?: () => string,
 ): Promise<BulkResult> {
-  const result: BulkResult = { issued: 0, failed: 0, notDelivered: 0 };
+  const result = { issued: 0, failed: 0, notDelivered: 0 };
   for (const req of reqs) {
     try {
       const { delivered } = await approveRequest(db, req, genKey);
@@ -63,7 +64,7 @@ export async function approveRequests(
 
 export function createFirebaseApproveRequestPort(db: Db): ApproveRequestPort {
   return {
-    approve: (req) => approveRequest(db, req),
+    approve: async (req) => ({ delivered: (await approveRequest(db, req)).delivered }),
     approveAll: (reqs) => approveRequests(db, reqs),
     reject: (req) => rejectRequest(db, req),
   };

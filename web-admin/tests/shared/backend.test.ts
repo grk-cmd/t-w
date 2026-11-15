@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { notPorted, perApi, pickBackend, PortError, resetPortState, toPortError } from '@/shared/api';
+import { perApi, pickBackend, resetPortState, toPortError } from '@/shared/api';
 import type { Api } from '@/shared/api';
 import { ApiError } from '@/shared/api';
 import { BACKENDS, parseBackend } from '@/shared/config';
@@ -26,19 +26,6 @@ describe('pickBackend', () => {
   });
 });
 
-describe('notPorted', () => {
-  it('만들 때는 던지지 않고, 어떤 일이든 부르면 PortError', () => {
-    const port = notPorted<{ list(): Promise<string[]> }>('license');
-    expect(() => port.list()).toThrow(PortError);
-    expect(() => port.list()).toThrow(/아직 API 판이 없어요 \(license\)/);
-  });
-
-  it('await 해도 then 으로 오해받지 않는다', async () => {
-    const port = notPorted<object>('x');
-    await expect(Promise.resolve(port)).resolves.toBe(port);
-  });
-});
-
 describe('toPortError', () => {
   it('서버 오류를 포트 실패 다섯 갈래로 옮긴다', () => {
     const kind = (e: ApiError) => toPortError(e).kind;
@@ -51,6 +38,14 @@ describe('toPortError', () => {
     expect(toPortError(new TypeError('x')).kind).toBe('unreachable');
     const known = toPortError(new ApiError('request', 409, 'CONCURRENT_UPDATE', ''));
     expect(known.code).toBe('CONCURRENT_UPDATE');
+  });
+
+  it('실패 봉투의 items 를 그대로 싣는다', () => {
+    const items = [{ secretRoomId: 'r1' }];
+    expect(toPortError(new ApiError('request', 409, 'LICENSE_SECRET_ROOM_CODE_TAKEN', '', items)).items).toBe(
+      items,
+    );
+    expect(toPortError(new ApiError('request', 400, 'X', '')).items).toBeNull();
   });
 });
 

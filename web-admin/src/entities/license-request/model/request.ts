@@ -2,7 +2,10 @@
 export interface LicenseRequest {
   id: string;
   name: string;
-  friendCode: string;
+  /** Firebase 판 — 요청이 적어 온 친구코드. API 판 요청에는 없다(`userCode` 로 가린다). */
+  friendCode?: string;
+  /** API 판 — 요청한 사람의 사용자 코드. Firebase 판은 없다. */
+  userCode?: string;
   requestedAt: number;
   /** 요청한 앱의 버전 — 0.11.0 부터. 옛 앱은 null. */
   ver?: string | null;

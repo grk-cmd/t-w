@@ -14,7 +14,7 @@ export function useLicensePort(): LicensePort {
     () =>
       pickBackend<LicensePort>({
         firebase: () => createFirebaseLicensePort(db, api, client),
-        api: () => createServerLicensePort(),
+        api: () => createServerLicensePort(api),
       }),
     [db, api, client],
   );

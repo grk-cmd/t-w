@@ -35,6 +35,8 @@ export interface PlanRow {
   code: string;
   uid: string | null;
   name: string;
+  /** API 판 — 미리 보기가 알려 준 «이미 유효한 키가 있는 사람». Firebase 판은 없다(발급 메모 표로 가른다). */
+  hasLicense?: boolean;
   base: BaseStatus;
   st: RowStatus;
   dupOf?: number;
@@ -106,13 +108,16 @@ export function issuedIndex(all: Record<string, { note?: string }>): IssuedIndex
   return { full, tail };
 }
 
+/** 이 행의 사람이 이미 받았나 — 판마다 알아내는 길이 다르다(`BulkGrantPort.issued`). */
+export type IssuedCheck = (row: PlanRow) => boolean;
+
 export function wasIssued(index: IssuedIndex | null, code: string): boolean {
   if (!index || !code) return false;
   return index.full.has(code) || index.tail.has(code.replace(/^(MATE|COZY)-/, ''));
 }
 
 /** 옵션에 따라 상태를 다시 매긴다 — 조회는 다시 하지 않는다. */
-export function judge(rows: PlanRow[], options: JudgeOptions, issued: IssuedIndex | null): PlanRow[] {
+export function judge(rows: PlanRow[], options: JudgeOptions, issued: IssuedCheck | null): PlanRow[] {
   const seen = new Map<string, number>();
   return rows.map((row) => {
     const r: PlanRow = { ...row, st: row.base, dupOf: undefined };
@@ -121,7 +126,7 @@ export function judge(rows: PlanRow[], options: JudgeOptions, issued: IssuedInde
     const first = seen.get(r.code);
     if (options.dupFirst && first !== undefined) return { ...r, st: 'dup', dupOf: first };
     if (first === undefined) seen.set(r.code, r.line);
-    if (!options.reissue && wasIssued(issued, r.code)) r.st = 'issued';
+    if (!options.reissue && issued?.(r)) r.st = 'issued';
     return r;
   });
 }
