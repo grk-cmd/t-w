@@ -91,7 +91,6 @@
 | **sim-char-core-load.js** | 89 | **740ecf90c6f1** |
 | **sim-chat-history.js** | 248 | **13e828d41bc9** |
 | **sim-gamepad-activity.js** | 305 | **e4e1744a0113** |
-| **sim-chat-last-by-ts.js** | 84 | **175e88989b35** |
 | **sim-mallang-hide.js** | 147 | **a97601090ee3** |
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
 | **sim-seat-label-drag.js** | 91 | **6a4daf86e439** |
@@ -164,7 +163,6 @@
 | **sim-ghost-cache-sync.js** | 366 | **30ab1365b0d8** |
 | **sim-click-through-policy.js** | 312 | **c8a07dca8eaa** |
 | **sim-heartbeat-policy.js** | 251 | **b3c8bdfbc2a0** |
-| **sim-ghost-heal.js** | 88 | **918a9097dda9** |
 | **sim-catalog-cache.js** | 391 | **d3aeaf1eb1fc** |
 | **sim-friend-code-keep.js** | 180 | **395ddad5a770** |
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
