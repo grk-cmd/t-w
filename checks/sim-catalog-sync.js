@@ -193,7 +193,7 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
     await W.subs.items({ i3: { name: 'c' }, i2: { order: 2 }, i1: { order: 1 } }); await flush();
     chk(W.st.items.map(r => r.id).join() === 'i1,i2,i3,local' && W.st.items.slice(0, 3).every(r => r.fromCatalog) && !W.st.items[0].old, '아이템 — 카탈로그 order 순(없으면 뒤) · 카탈로그 판으로 덮고 · 로컬 전용은 뒤에 남긴다');
     chk(has(W.log, 'equipDeskItem:A:gone:false') && !('gone' in W.raw.customItems) && 'i1' in W.raw.customItems, '  관리자가 지운 아이템은 올려 둔 좌석에서 내리고 customItems 에서도 지운다');
-    chk(idx(W.log, 'resolveAll') < idx(W.log, 'setItems') && idx(W.log, 'persistAssets') < idx(W.log, 'loadSession') && idx(W.log, 'loadSession') < idx(W.log, 'clearHolder:A'), '  GLB 해결 → 합치기 → 저장 → 세션 등록을 기다린 뒤 좌석 다시 적용(크기 0.8 고정 회귀 방지)');
+    chk(idx(W.log, 'resolveAll') < idx(W.log, 'setItems') && idx(W.log, 'setItems') < idx(W.log, 'loadSession') && idx(W.log, 'loadSession') < idx(W.log, 'clearHolder:A') && !has(W.log, 'persistAssets'), '  GLB 해결 → 합치기 → 세션 등록을 기다린 뒤 좌석 다시 적용(크기 0.8 고정 회귀 방지) · 카탈로그 몫은 이 계정 칸에 쓰지 않는다(저장 0)');
     chk(has(W.log, 'applyDeskItems:A') && has(W.log, 'clearHolder:B') && !has(W.log, 'applyDeskItems:B') && has(W.log, 'licPrune') && !has(W.log, 'renderCrItems'), '  def 에 아이템이 있는 좌석만 다시 올리고 · 라이선스 접기 · 생성기가 닫혀 있으면 카드 안 그림');
     W = load({ creatorOpen: true, cBase: { __n: 'cBase', deskItems: { i1: {}, nope: {}, x: null } }, customItems: { i1: { id: 'i1' } }, licThrows: true });
     await W.subs.items({ i1: {} }); await flush();
@@ -227,7 +227,7 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
     W = load({ seats: [sP, sQ], parts: [{ id: 'gone', fromCatalog: true }, { id: 'loc', cat: 'hat' }], launcherOn: true, wdOn: true });
     await W.subs.parts({ p1: { cat: 'hat', order: 2 }, s1: { cat: 'deco', stackable: true, order: 1 }, s2: { cat: 'deco', stackable: true } }); await flush();
     chk(W.st.parts.map(r => r.id).join() === 's1,p1,s2,loc' && W.st.parts[0].norm && W.st.parts[0].fromCatalog, '파츠 — _normPartRec 로 다듬어 order 순 · 로컬 전용 남김');
-    chk(!('bag' in sP.charDef.equippedParts) && has(W.log, 'unequip:P:bag') && idx(W.log, 'persistParts') > idx(W.log, 'setParts'), '  지워진 파츠는 좌석에서 벗기고 저장');
+    chk(!('bag' in sP.charDef.equippedParts) && has(W.log, 'unequip:P:bag') && !has(W.log, 'persistParts'), '  지워진 파츠는 좌석에서 벗긴다 · 카탈로그 몫은 이 계정 칸에 쓰지 않는다(저장 0)');
     chk(has(W.log, 'equipPart:P:hat:p1:-') && has(W.log, 'equipPart:P:deco:s1:XF') && !W.log.some(x => x.startsWith('equipPart:P:deco:s2')), '  안 붙은 파츠만 다시 붙인다(겹쳐 다는 파츠는 자기 xf 로 · 이미 붙은 것은 건너뜀)');
     chk(has(W.log, 'fit:P') && has(W.log, 'layout') && has(W.log, 'remeasure:P') && !has(W.log, 'remeasure:Q') && !has(W.log, 'fit:Q'), '  새로 붙은 좌석만 바닥 다시 맞춤 · 올라타기 머리 높이는 파츠를 단 좌석마다 다시 잰다(파츠 없는 좌석은 건너뜀)');
     chk(has(W.log, 'renderLauncher') && has(W.log, 'refreshWd') && has(W.log, 'renderWd') && has(W.log, 'gachaPrune'), '  런처 · 꾸미기 미리보기가 열려 있으면 다시 그리고 · 꾸미기 창 · 가챠 회수');
