@@ -65,7 +65,7 @@ function world(src, opts){
   let room = ROOM;
   const presence = { roomCode: () => room, active: () => false, sendChat(){}, serverProvider: () => null };
   const deps = new Proxy({
-    accountStore: { get: (k) => ls.getItem(k), set: (k, v) => { ls.setItem(k, v); return true; }, remove: (k) => { ls.removeItem(k); return true; } },   // 계정 칸(S-3d) — 읽음 · 입장 표시 · 탭 기억
+    chatAccountStore: { get: (k) => ls.getItem(k), set: (k, v) => { ls.setItem(k, v); return true; }, remove: (k) => { ls.removeItem(k); return true; } },   // 계정 칸(S-3d) — 읽음 · 입장 표시 · 탭 기억
     Presence: () => presence, _chatRoomCode: () => room, _chatOffOn: () => false, _parseDanceCmdChain: () => null,
     officeMode: () => false, findMySeat: () => null, getMyUserId: () => ME, myCode: () => ME, chatNet, getDisplayName: () => '나', toast(){},
     _chatEsc: (s) => String(s), escHtml: (s) => String(s),

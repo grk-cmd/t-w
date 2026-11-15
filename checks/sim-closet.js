@@ -75,6 +75,20 @@ function mkServer(opt){
   return srv;
 }
 
+/* 가짜 세션 — 타이머는 env.timers 로(예전과 같이 손으로 돌린다) · 구독 해제 함수와 비우기 훅은 모아 두고 dispose 가 부른다 */
+function fakeSession(env){
+  const unsubs = [], resets = [];
+  return {
+    unsubs, resets,
+    setTimeout: (fn, ms) => { env.timers.push({ fn, ms }); return env.timers.length; },
+    clearTimeout: (t) => { env.timers[t - 1] = null; },
+    on: (u) => { unsubs.push(u); return u; },
+    onReset: (fn) => { resets.push(fn); },
+    dispose(){ unsubs.splice(0).reverse().forEach(u => u()); resets.splice(0).reverse().forEach(r => r()); },
+  };
+}
+/* 만든 옷장에 세션을 붙인다 — 받기만 보는 검사도 저장 타이머가 세션에 걸리게(시작을 부르지 않아도) */
+function withSession(env, C){ C.session = fakeSession(env); C.useSession(C.session); return C; }
 function mkEnv(opt){
   const o = opt || {};
   const env = { timers: [], errs: [], toasts: [], renders: 0, replaced: 0, rt: {}, uid: o.uid === null ? null : 'u1', creator: false, caches: 0, uploads: [], ls: new Map(o.ls || []), relinked: [] };
@@ -102,12 +116,12 @@ function mkEnv(opt){
     _slotFromServerObj: async (def) => { env.fromEntered = true; if(env.fromHold) await env.fromHold; if(env.fromFail || (env.failSkin && def.skin === env.failSkin)) throw new Error('그림 받기 실패'); return Object.assign({}, def); },
   };
   const Mod = loadMod(SRC, env);
-  env.mk = () => Mod.createCloset({
+  env.mk = () => withSession(env, Mod.createCloset({
     CHAR_SLOT_MAX: 5, closetApi: srv.api, codec: env.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots, slotSave: env.slotSave,
     getMyUserId: () => env.uid, rtOn: (k, fn) => { (env.rt[k] = env.rt[k] || []).push(fn); env.subs = (env.subs || 0) + 1; return () => { env.rt[k] = env.rt[k].filter(x => x !== fn); env.unsubs = (env.unsubs || 0) + 1; }; }, toast: (m) => env.toasts.push(m),
     notifyError: (c, e) => env.errs.push(c), renderLauncher: () => { env.renders++; }, creatorOpen: () => env.creator,
     storage: { getItem: (k) => env.ls.has(k) ? env.ls.get(k) : null, setItem: (k, v) => env.ls.set(k, String(v)), removeItem: (k) => env.ls.delete(k), key: (i) => [...env.ls.keys()][i] || null, get length(){ return env.ls.size; } },
-  });
+  }));
   env.runTimers = async () => { const ts = env.timers.filter(Boolean); env.timers.length = 0; for(const t of ts){ t.fn(); await flush(); await flush(); await flush(); } };
   return env;
 }
@@ -120,11 +134,11 @@ await sec('── 1. 만들 때 · 시작', async () => {
   const e = mkEnv({ slots: ['a', 'b'] });
   const C = e.mk();
   chk(e.srv.calls.length === 0 && !Object.keys(e.rt).length && !e.timers.length && e.ls.size === 0 && C.state() === 'idle', '만들 때는 요청 · 서버 신호 구독 · 타이머 · 저장소 접근이 0 — 계정 확인 뒤 startCloset 이 한다');
-  C.startCloset(); await flush(); await flush();
+  C.startCloset(C.session); await flush(); await flush();
   chk(e.srv.calls.join() === 'load' && e.rt.avatars.length === 1 && C.state() === 'ready' && !e.timers.length, 'startCloset — 서버에서 한 번 받고 서버 신호(avatars)를 듣는다 · 주기 타이머 없음');
-  C.startCloset(); await flush();
+  C.startCloset(C.session); await flush();
   chk(e.srv.calls.join() === 'load' && e.rt.avatars.length === 1, '  두 번 불러도 받기 · 구독은 한 번');
-  const e2 = mkEnv({ uid: null, slots: ['a'] }); const C2 = e2.mk(); C2.startCloset(); await flush();
+  const e2 = mkEnv({ uid: null, slots: ['a'] }); const C2 = e2.mk(); C2.startCloset(C2.session); await flush();
   chk(e2.srv.calls.length === 0 && C2.state() === 'idle', '내 코드가 없으면 받지 않는다(요청 0)');
 });
 
@@ -195,7 +209,7 @@ await sec('── 2. 받기', async () => {
     chk(!e.errs.length, '  그 뒤 서버 신호 받기가 실패해도 묻지 않은 번호를 띄우지 않는다');
     delete e.srv.fail.load; }
   /* 서버 신호 */
-  C.startCloset(); await flush(); await flush();
+  C.startCloset(C.session); await flush(); await flush();
   e.srv.calls.length = 0; e.rt.avatars[0]({ kind: 'avatars' }); await flush(); await flush();
   chk(e.srv.calls.join() === 'load', '서버 신호(avatars) — 다시 받는다');
 });
@@ -509,10 +523,18 @@ await sec('── 5. 계정 바뀜', async () => {
   chk(C.test.known().every(k => k === null) && C.state() === 'idle', '지우는 사이 나간 쓰기의 답은 새 계정 기억에 적히지 않는다');
   e.edit(0, { skin: 'after' });
   chk(e.timers.filter(Boolean).length === 0, '비운 뒤에는 쓰기를 예약하지 않는다(다시 받기 전)');
-  C.startCloset(); await flush(); await flush();
+  C.startCloset(C.session); await flush(); await flush();
   chk(C.state() === 'ready' && e.rt.avatars.length === 1, '다시 시작하면 받고 서버 신호를 건다');
-  C.resetCloset(); C.startCloset(); await flush(); await flush();
+  C.resetCloset(); C.startCloset(C.session); await flush(); await flush();
   chk(e.rt.avatars.length === 1 && e.subs === 2 && e.unsubs === 1, '★ 계정이 바뀌면(reset) 서버 신호 구독을 풀고 새로 건다 — 구독이 겹치지 않는다');
+  /* 세션 — 구독 · 저장 타이머 · 비우기는 세션이 쥔다(S-2): 세션이 끝나면 다 풀리고, 다음 로그인(새 세션)은 처음부터 한 번씩 */
+  { const e3 = mkEnv({ slots: ['a'] }); const C3 = e3.mk(); const S1 = C3.session;
+    C3.startCloset(S1); await flush(); await flush(); e3.edit(0, { skin: 'q' });
+    chk(S1.unsubs.length === 1 && S1.resets.length === 1 && e3.timers.filter(Boolean).length === 1, '★ 시작은 구독 · 비우기를 세션에 맡기고 저장 모으기 타이머도 세션 것이다');
+    S1.dispose();
+    chk(e3.timers.filter(Boolean).length === 0 && !e3.rt.avatars.length && C3.state() === 'idle', '  세션이 끝나면 타이머 · 구독이 0 이고 메모리가 비었다');
+    const S2 = fakeSession(e3); C3.startCloset(S2); await flush(); await flush();
+    chk(e3.rt.avatars.length === 1 && e3.srv.calls.filter(c => c === 'load').length === 2 && C3.state() === 'ready', '  다음 로그인(새 세션)은 구독 한 번 · 받기 한 번으로 다시 시작한다'); }
 });
 
 await sec('── 5-2. 그림을 받는 사이 계정을 놓음', async () => {
@@ -554,7 +576,7 @@ await sec('── 6. 0.13 첫 실행 올리기', async () => {
   {
     const e2 = mkEnv({ slots: [], ls }); const C2 = e2.mk();
     let rel; e2.srv.loadHold = new Promise(rs => { rel = rs; });
-    C2.startCloset();
+    C2.startCloset(C2.session);
     const pr = C2.legacyStep();
     await flush();
     chk(!e2.srv.calls.some(c => c.startsWith('legacySync')), '받기가 도는 중에 불리면 기다린다(먼저 올리지 않는다)');
@@ -573,9 +595,9 @@ await sec('── 6. 0.13 첫 실행 올리기', async () => {
 
 await sec('── 7. 깨 보기', async () => {
   const broke = (from, to) => { const s = SRC.replace(from, to); return s === SRC ? null : s; };
-  const run = async (src, fn) => { const e = mkEnv({ slots: ['a', 'b'], box: ['x'] }); const M = loadMod(src, e); e.mk = () => M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e.srv.api, codec: e.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e.slots, slotSave: e.slotSave,
+  const run = async (src, fn) => { const e = mkEnv({ slots: ['a', 'b'], box: ['x'] }); const M = loadMod(src, e); e.mk = () => withSession(e, M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e.srv.api, codec: e.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e.slots, slotSave: e.slotSave,
     getMyUserId: () => e.uid, rtOn: (k, f) => { (e.rt[k] = e.rt[k] || []).push(f); return () => {}; }, toast: (m) => e.toasts.push(m), notifyError: (c) => e.errs.push(c), renderLauncher: () => {}, creatorOpen: () => e.creator,
-    storage: { getItem: (k) => e.ls.has(k) ? e.ls.get(k) : null, setItem: (k, v) => e.ls.set(k, String(v)), removeItem: (k) => e.ls.delete(k), key: (i) => [...e.ls.keys()][i] || null, get length(){ return e.ls.size; } } }); return fn(e); };
+    storage: { getItem: (k) => e.ls.has(k) ? e.ls.get(k) : null, setItem: (k, v) => e.ls.set(k, String(v)), removeItem: (k) => e.ls.delete(k), key: (i) => [...e.ls.keys()][i] || null, get length(){ return e.ls.size; } } })); return fn(e); };
   let S = broke("async function flushNow(){\n  if(load !== 'ready') return false;", "async function flushNow(){");
   chk(S && await run(S, async (e) => { const C = e.mk(); e.edit(0, { skin: 'q' }); await C.flushSlots(); return e.srv.calls.some(c => c.startsWith('create') || c.startsWith('update')); }), '받기 전 쓰기 막이를 빼면 3절이 빨강이 된다');
   S = broke("await closetApi.update(id, k.version, so)", "await closetApi.update(k.avatarId, 0, so)");
@@ -599,11 +621,13 @@ await sec('── 7. 깨 보기', async () => {
   S = broke("if(!k && here && !taken.has(i)) continue;", "if(!k && here) continue;");
   chk(S && await run(S, async (e) => { const C = e.mk(); await C.pullCloset(false); e.edit(2, { skin: 'mine' }); e.srv.api.create = async (slot) => { e.srv.avatars.push(HEAD('other', 'SLOT', slot, 1)); e.srv.slots[slot] = 'other'; e.srv.defs.other = { skin: 'other' }; throw apiErr('request', 'AVATAR_SLOT_TAKEN'); }; await e.runTimers(); await flush(); await flush(); await flush(); return !e.slots[2] || e.slots[2].skin !== 'other'; }), 'SLOT_TAKEN 에 서버 것으로 안 앉히면 영영 저장되지 않는다 — 빨강');
   S = broke("if(unsubRt){ unsubRt(); unsubRt = null; }", "");
-  chk(S && await run(S, async (e) => { const C = e.mk(); C.startCloset(); await flush(); C.resetCloset(); C.startCloset(); await flush(); return e.rt.avatars.length > 1; }), '구독을 안 풀면 계정이 바뀔 때 구독이 겹친다 — 5절이 빨강이 된다');
+  chk(S && await run(S, async (e) => { const C = e.mk(); C.startCloset(C.session); await flush(); C.resetCloset(); C.startCloset(C.session); await flush(); return e.rt.avatars.length > 1; }), '구독을 안 풀면 계정이 바뀔 때 구독이 겹친다 — 5절이 빨강이 된다');
+  S = broke("  session.onReset(resetCloset);\n", "");
+  chk(S && await run(S, async (e) => { const C = e.mk(); C.startCloset(C.session); await flush(); await flush(); C.session.dispose(); return C.state() !== 'idle'; }), '세션에 비우기를 안 걸면 세션이 끝나도 옛 계정 옷장이 남는다 — 5절이 빨강이 된다');
   S = broke("    else pullCloset(false);\n    return { ok: true, avatarId: r.avatarId };", "    return { ok: true, avatarId: r.avatarId };");
   chk(S && await run(S, async (e) => { const C = e.mk(); await C.pullCloset(false); e.srv.calls.length = 0; await C.restore('t9'); await flush(); return !e.srv.calls.includes('load'); }), '복원 뒤 옷장을 다시 받지 않으면(머리가 없다) 4절이 빨강이 된다');
   S = broke("return inLane(() => legacyNow(uc, g, wipe, rawSlots, box, desk));", "return legacyNow(uc, g, wipe, rawSlots, box, desk);");
-  chk(S && await run(S, async (e) => { e.ls.set('deskFriends.slots.v1', JSON.stringify([{ skin: 1 }])); const C = e.mk(); let rel; e.srv.loadHold = new Promise(r => { rel = r; }); C.startCloset(); const p = C.legacyStep(); await flush(); e.srv.loadHold = null; rel(); const rr = await p; return rr.ok === false; }), '받기를 기다리지 않으면 첫 실행 올리기가 영영 멈춘다 — 6절이 빨강이 된다');
+  chk(S && await run(S, async (e) => { e.ls.set('deskFriends.slots.v1', JSON.stringify([{ skin: 1 }])); const C = e.mk(); let rel; e.srv.loadHold = new Promise(r => { rel = r; }); C.startCloset(C.session); const p = C.legacyStep(); await flush(); e.srv.loadHold = null; rel(); const rr = await p; return rr.ok === false; }), '받기를 기다리지 않으면 첫 실행 올리기가 영영 멈춘다 — 6절이 빨강이 된다');
   const stripRun = async (src) => { const e = mkEnv({ slots: ['a'] }); e.srv.defs.a = { skin: 'a', gacha: 'g1' }; e.afterApply = () => { if(e.slots[0] && e.slots[0].gacha){ e.afterApply = null; e.edit(0, { skin: 'a' }); } };
     const M = loadMod(src, e); const C = M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e.srv.api, codec: e.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e.slots, slotSave: e.slotSave, getMyUserId: () => 'u1', rtOn: () => () => {}, toast(){}, notifyError(){}, renderLauncher(){}, creatorOpen: () => false,
       storage: { getItem: () => null, setItem(){}, removeItem(){}, key: () => null, length: 0 } });

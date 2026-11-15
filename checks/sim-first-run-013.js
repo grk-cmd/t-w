@@ -131,6 +131,10 @@ async function judge(S){
     }
     chk(['tw.inviteToken', 'tw.signupPending', 'tw.invitePassed'].every((k) => F.LOGIN_LEGACY_KEYS.indexOf(k) >= 0) && F.LOGIN_LEGACY_KEYS.indexOf('tw.deviceId') < 0 && F.LOGIN_LEGACY_KEYS.indexOf('tw.me') < 0,
       '  ↳ 옛 가입 · 초대 키만 — 기기 id · 내 계정 사본은 안 지움');
+    /* S-3a — 플레이리스트 옛 목록 이름 여덟은 읽는 곳이 없어 로그아웃 지움 목록에서 뺐다 — 남은 옛 값은 여기서 지운다. 지금 고른 목록 번호 · 기기 설정은 안 지운다 */
+    const plDead = ['tw.playlist', 'tw.playlistSets', 'tw.playlistTitle', 'tw.playlistBio', 'tw.playlistHomePublic', 'tw.playlistPrivate', 'tw.playlistEditTs', 'tw.playlistBackup'];
+    chk(plDead.every((k) => F.LOGIN_LEGACY_KEYS.indexOf(k) >= 0) && ['tw.playlistCur', 'tw.playlistVol', 'tw.playlistPos'].every((k) => F.LOGIN_LEGACY_KEYS.indexOf(k) < 0),
+      '  ↳ 플레이리스트 옛 목록 이름 여덟을 지운다(S-3a) — 지금 고른 목록 번호 · 볼륨 · 창 자리는 안 지움');
   }
 
   say('── 6. 배선');
@@ -309,7 +313,9 @@ const BREAKS = [
   ['FR', "    if(running) return running;", "", '두 번 동시에 돎'],
   ['FR', "  for(const n of STEPS) if(typeof deps.steps[n] !== 'function') throw new Error('[0.13 첫 실행] 단계 없음 — ' + n);", "", '빠진 단계를 조용히'],
   ['FR', "function pendingStep(name){ return async () => ({ ok: false, pending: true,", "function pendingStep(name){ return async () => ({ ok: true, pending: true,", '기다림 자리가 통과'],
-  ['FR', "const LOGIN_LEGACY_KEYS = Object.freeze(['tw.inviteToken', 'tw.signupPending', 'tw.invitePassed', 'tw.myFriendCodePrev']);", "const LOGIN_LEGACY_KEYS = Object.freeze(['tw.inviteToken', 'tw.signupPending', 'tw.invitePassed', 'tw.myFriendCodePrev', 'tw.deviceId']);", '기기 id 를 지움'],
+  ['FR', "'tw.myFriendCodePrev',\n  'tw.playlist', ", "'tw.myFriendCodePrev', 'tw.deviceId',\n  'tw.playlist', ", '기기 id 를 지움'],
+  ['FR', "'tw.playlist', 'tw.playlistSets', ", "'tw.playlistSets', ", '플레이리스트 옛 목록 이름을 덜 지움'],
+  ['FR', "'tw.playlistBio', 'tw.playlistHomePublic'", "'tw.playlistBio', 'tw.playlistCur', 'tw.playlistHomePublic'", '지금 고른 목록 번호를 지움'],
   ['FR', "delta = Math.floor(total - synced);", "delta = Math.floor(total);", '마크를 안 빼고 누적 전체를 올림'],
   ['FR', "if(isFinite(total) && isFinite(synced)){ delta = Math.floor(total - synced); break; }", "if(isFinite(total)){ delta = Math.floor(total - (synced || 0)); break; }", '마크가 없어도 올림'],
   ['FR', "if(!r || r.ok !== true) return { ok: false, reason: '포커스 옛 누적 올리기 실패", "if(false) return { ok: false, reason: '포커스 옛 누적 올리기 실패", '올리기 실패해도 지움'],

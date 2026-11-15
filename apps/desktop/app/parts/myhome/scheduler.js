@@ -16,6 +16,7 @@
 (function(){
 
 function createScheduler(deps){
+const scheduleAccountStore = deps.scheduleAccountStore;         // 🗂️ 계정별 칸(shared/account-store.js) — 기념일 보기는 이 계정이 이 PC 에서 고른 것
 const twNav = deps.twNav;                       // 🧭 창 열기 통로(nav.js) — 🏠 마이홈 열기
 const scheduleApi = deps.scheduleApi;           // 🌐 일정 · 디데이 · 알림 서버 길(schedule-api.js)
 const apiErrors = deps.apiErrors;               // 🧭 서버 오류 → 할 일 · 오류 번호(TwApiErrors.store)
@@ -316,15 +317,15 @@ function renderDdays(){
 }
 
 /* 📌 기념일 보기 — 'tile'(정사각 카드) | 'list'(제목이 다 보이는 줄).
-   보는 사람의 취향이라 이 PC 에만 둔다 — 친구 마이홈을 구경할 때도 내가 고른 보기로 보인다. */
+   보는 사람의 취향이라 이 PC 의 그 계정 칸에만 둔다 — 친구 마이홈을 구경할 때도 내가 고른 보기로 보인다. */
 const ANNIV_VIEW_KEY = 'tw.annivView';
 /* 모르는 값 · 빈 값은 타일형 — 고른 적 없는 사람은 화면이 예전 그대로다. */
 function _annivViewOf(raw){ return raw === 'list' ? 'list' : 'tile'; }
 function _annivView(){
-  try{ return _annivViewOf(localStorage.getItem(ANNIV_VIEW_KEY)); }catch(e){ return 'tile'; }
+  try{ return _annivViewOf(scheduleAccountStore.get(ANNIV_VIEW_KEY)); }catch(e){ return 'tile'; }
 }
 function _setAnnivView(v){
-  try{ localStorage.setItem(ANNIV_VIEW_KEY, _annivViewOf(v)); }catch(e){}
+  try{ scheduleAccountStore.set(ANNIV_VIEW_KEY, _annivViewOf(v)); }catch(e){}
   renderAnnivCards();
 }
 function _syncAnnivViewBtns(view){
@@ -1438,7 +1439,7 @@ function renderBellList(){
 })();
 
 /* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 오늘 일정 · 알림 받기 · 서버 신호 걸기 · 자정 넘김 확인 */
-function startSchedule(){
+function startSchedule(session){
   // 오늘 일정 · 친구 태그 알림 받기 — 네트워크가 준비되면 한 번
   const sub = ()=>{
     if(!getMyUserId()) return;   // 내 코드가 없으면 받지 않는다
@@ -1449,28 +1450,29 @@ function startSchedule(){
 
   /* 서버가 «내 일정 · 보드가 바뀌었다»(다른 기기에서 고침) · «알림이 왔다» 고 알리면 다시 받는다. 오래 끊겼다 붙을 때(resync)도 같다.
      알림은 데이터 없이 «바뀌었다» 만 온다 — 값은 우리가 다시 받는다. 관람 중이면 달력은 친구 것이라 건드리지 않는다. */
-  rtOn('schedule', ()=>{
+  session.on(rtOn('schedule', ()=>{
     if(!getMyUserId()) return;
     _boardLoad(true);
     if(!viewingUserId() && _schedYM) loadMonth(true);
     _bellLoadToday();
-  });
+  }));
   /* 구경 중인 친구의 일정이 바뀌었다는 알림(내용 없음) — 지금 보는 친구일 때만 달력 · 보드를 다시 받는다.
      오래 끊겼다 붙을 때(resync)는 알림에 친구가 없다 — 지금 구경 중인 친구(없으면 요청 0)를 한 번 다시 받는다 */
-  rtOn('friendSchedule', (n)=>{
+  session.on(rtOn('friendSchedule', (n)=>{
     if(!getMyUserId() || !n) return;
     const friend = n.resync ? _visitFriend : n.subject;
     if(!friend) return;
     refreshVisit(friend);
-  });
-  rtOn('notification', (n)=>{
+  }));
+  session.on(rtOn('notification', (n)=>{
     if(!getMyUserId()) return;
     if(n && (n.resync || n.section === 'BELL')) _bellLoadNotices();
-  });
+  }));
+  session.onReset(reset);   // 세션이 끝나면 일정 · 디데이 · 알림 메모리를 비운다
 
   // 날짜가 바뀌면(자정 넘김) 오늘 일정을 새 날짜로 다시 받는다
   let _bellDay = _todayYMD();
-  setInterval(()=>{
+  session.setInterval(()=>{
     const now = _todayYMD();
     if(now !== _bellDay){
       _bellDay = now;

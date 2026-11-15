@@ -1036,6 +1036,7 @@ const rideBenchMod = TwRideBench.createRideBench({
 /* 본문은 interaction-desk.js 로 옮겼다(앱 FSD 43번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const iDeskMod = TwInteractionDesk.createInteractionDesk({
+  accountStore: accountStoreMod,
   CIRCUS_ARM_DROP: rideTuneMod.CIRCUS_ARM_DROP,
   CIRCUS_LEG_LIFT: rideTuneMod.CIRCUS_LEG_LIFT,
   CIRCUS_LEG_STAND: rideTuneMod.CIRCUS_LEG_STAND,
@@ -1620,6 +1621,7 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
 /* 본문은 settings-panel.js 로 옮겼다(앱 FSD 27번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const settingsMod = TwSettingsPanel.createSettingsPanel({
+  settingsAccountStore: accountStoreMod,
   GAP_MAX: GAP_MAX,
   GAP_MIN: GAP_MIN,
   GAP_STEPS: GAP_STEPS,
@@ -1766,6 +1768,7 @@ const wdPanelMod = TwWardrobePanel.createWardrobePanel({
 /* 본문은 wardrobe.js 로 옮겼다(앱 FSD 29번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const wardrobeMod = TwWardrobe.createWardrobe({
+  accountStore: accountStoreMod,
   NO_DESK_ID: NO_DESK_ID,
   layoutSeats: (...a)=>layoutSeats(...a),
   ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
@@ -1939,6 +1942,7 @@ const scheduleApiMod = TwScheduleApi.createScheduleApi({   // 🌐 일정 · 디
   warn: (...a)=>console.warn(...a),
 });
 const mhScheduler = MhScheduler.createScheduler({
+  scheduleAccountStore: accountStoreMod,
   scheduleApi: scheduleApiMod,
   apiErrors: TwApiErrors.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
@@ -1980,7 +1984,7 @@ const friendManage = TwFriendManage.createFriendManage({
 let _myHomeReady = false;
 /* 포기하지 않는다 — SDK 를 실행 때 gstatic 에서 받아 느린 망이면 20초를 넘긴다(예전 20초 포기 → 친구 · 우편 구독이 영영 안 걸렸다). */
 function _waitForFirebaseAPI(cb){
-  TwNetReady.whenNetReady(()=>cb(), 'watchMyFriendList');
+  TwNetReady.whenNetReady(()=>cb());   // 준비 키(need)를 주지 않는다 — 키 이름을 걷은 메서드로 두면 «준비됨» 이 영영 안 온다
 }
 /* 🔇 소유권이 걸린 쓰기가 거부됐을 때 침묵을 깬다.
    [경위] 규칙을 게시한 뒤 users/{코드} 의 자기 소유 가지는 "주인이 없거나 나일 때"만 쓸 수 있다.
@@ -2494,7 +2498,7 @@ const mhLinksMod = TwMyHomeLinks.createMyHomeLinks({
    myHomeSticker · STICKER_* · DS_IMG_* 는 이 줄보다 앞에 선언되고 다시 대입되지 않는 const 라 값으로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
-  accountStore: accountStoreMod,
+  myhomeEditAccountStore: accountStoreMod,
   toast: (...a)=>toast(...a),
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
@@ -2583,7 +2587,7 @@ function showChatBubble(seat, text){
 /* 본문은 chat-ui.js 로 옮겼다(앱 FSD 24번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const chatUiMod = TwChatUi.createChatUi({
-  accountStore: accountStoreMod,
+  chatAccountStore: accountStoreMod,
   demojiCatalog: demojiCatalog,
   CHAT_WIN_POS_KEY: ()=>CHAT_WIN_POS_KEY,
   Presence: ()=>Presence,
@@ -6242,6 +6246,7 @@ const roomInfoUi = TwRoomInfoUi.createRoomInfoUi({
 const roomLobbyProvider = TwRoomLobbyProvider.createRoomLobbyProvider({ apiGet: (p, o)=>TwApi.authed.get(p, o), peek: (code)=>TwRoomRt.store.peek(code),
   roomCode: ()=>(Presence.active() ? Presence.roomCode() : null), myUserId: ()=>getMyUserId(), now: ()=>Date.now() });
 const roomEntryMod = TwRoomEntry.createRoomEntry({
+  roomEntryAccountStore: accountStoreMod,
   EXP_CELLS: ()=>expBarMod.EXP_CELLS,
   FLOATER_BURST: floatersMod.FLOATER_BURST,
   Presence: Presence,
@@ -6404,7 +6409,6 @@ const accountMod = TwAccount.createAccount({
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   INBOX_BC_READ_KEY: INBOX_BC_READ_KEY,
-  MY_AD_BANNER_KEY: settingsMod.MY_AD_BANNER_KEY,
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
   MY_FRIEND_CODE_PREV_KEY: MY_FRIEND_CODE_PREV_KEY,
   MY_USER_ID_KEY: MY_USER_ID_KEY,
@@ -8307,12 +8311,13 @@ const appBoot = TwAppBoot.createAppBoot({
     focusLevel: (code, me, session)=>{ focusProgressMod.startFocus(code, me, session); focusLevelMod.startMobile(code, me, session); },
     weeklyChal: (code, me, session)=>weeklyChal.startChallenge(code, me, session),
     pomodoro: (code, me, session)=>pomodoro.startPomodoro(code, me, session),
-    gacha: ()=>gachaMod.startGacha(),
-    closet: ()=>closetMod.startCloset(),
-    mhInit: (code, me)=>mhInitMod.initMyHome(code, me),
+    gacha: (code, me, session)=>gachaMod.startGacha(session),
+    closet: (code, me, session)=>closetMod.startCloset(session),
+    /* 🏠 마이홈 시작 — 받은 친구 요청 구독 · 우편 구독은 initMyHome 이 세션에 건다. 친구 목록 구독(friendsSub) · 내 접속 표시 구독(presenceSelf)은 시작이 다른 곳(마이홈 · 접속 고정)이라 비우기만 여기서 건다 */
+    mhInit: (code, me, session)=>{ session.onReset(()=>{ friendsSubMod.stop(); presenceSelfMod.reset(); }); return mhInitMod.initMyHome(code, me, session); },
     gift: (code, me, session)=>{ session.on(giftBoxMod.listen()); session.onReset(()=>{ giftBoxMod.reset(); mallangStoreMod.reset(); mallangMod.reset(); }); },   // 🎁 서버 신호 `gifts` 만 건다(요청 0 — 받기는 마이홈을 열 때)
     bugBadge: ()=>bugBoardUi.start(),
-    scheduler: ()=>mhScheduler.startSchedule(),
+    scheduler: (code, me, session)=>mhScheduler.startSchedule(session),
     /* 🙋 방 초대 받기 — 방 쪽 포트(대화 · 방 목록 · 스티커사진)는 사용자가 들어갈 때 시작해 STEPS 칸이 없다. 대신 계정이 바뀔 때 비우는 일(session.onReset)을 여기서 한 곳에 모은다.
        license 알림(발급 · 연장 · 코드 바꿈 · 끝남) → 읽어 둔 내 시크릿룸을 버려 다음에 다시 읽는다(관리자가 발급한 방이 다시 실행 없이 보이게). */
     roomInvite: (code, me, session)=>{
@@ -8321,8 +8326,8 @@ const appBoot = TwAppBoot.createAppBoot({
       session.onReset(()=>{ TwChatRt.store.reset(); roomLobbyProvider.reset(); if(_pkSession) _pkSession.reset(); });
     },
     desktopBg: (code)=>window.MYHOME_DESKTOP.startBgSync(code),
-    playlist: ()=>plMod.pull(),
-    licensePremium: (code, me)=>licensePremiumMod.start(me),
+    playlist: (code, me, session)=>plMod.start(session),
+    licensePremium: (code, me, session)=>{ session.onReset(()=>licensePremiumMod.reset()); return licensePremiumMod.start(me); },   // 알림 구독 해제 함수는 모듈이 쥐고 reset 이 푼다 — 세션이 끝나면 reset 을 부른다
     firstRun: ()=>firstRunMod.run().catch((e)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', e)),
   },
 });

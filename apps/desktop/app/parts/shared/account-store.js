@@ -32,6 +32,8 @@ const DEVICE_KEYS = Object.freeze([
   'tw.invitePassed', 'tw.inviteToken', 'tw.signupPending', 'tw.licenseKey', 'tw.licenseOptOut', 'tw.licenseReqId',
   /* 0.13 첫 실행 — 옛 캐릭터를 이 PC 에서 이 계정으로 올렸다는 표시(값 = 계정 코드). 계정 칸이 열리기 전에 읽는 단계라 기기 공용 칸이다 */
   'tw.legacyCloset013',
+  /* 이 PC 의 성질이거나 계정 코드를 정하기 전에 읽는 값 — 효과음 켜기(기기 설정) · 0.13 첫 실행을 끝낸 계정 코드 · 서버 확인 답 사본 · 그래픽 복구 시각 · 옛 값 옮기기 기록 */
+  'tw.demojiSfx', 'tw.firstRun013', 'tw.me', 'tw.glRelaunchAt', 'tw.accountStoreMigrated',
 ]);
 
 /* 계정별 — 그 사람의 기록 · 고른 것 · 보관 · 캐시. 아직 옛 PC 칸을 읽는 것도 포함(표 · 옮길 묶음은 shared/README.md). */
@@ -47,8 +49,8 @@ const ACCOUNT_KEYS = Object.freeze([
   'tw.curSlot', 'tw.extraSeatSlots', 'tw.roomFaceUrls', 'tw.slotGlbUrls',
   'tw.savedDesks', 'tw.savedItems', 'tw.savedParts', 'tw.decoParts', 'tw.deskPresets', 'tw.animalPresets', 'tw.animalEverUnlocked',
   'tw.animalCheatUnlock', 'tw.charColorHistory', 'tw.seatEq', 'tw.activeInteractionDesk', 'tw.emojiReactions',
-  'tw.playlist', 'tw.playlistSets', 'tw.playlistCur', 'tw.playlistTitle', 'tw.playlistBio', 'tw.playlistHomePublic', 'tw.playlistPrivate',
-  'tw.playlistEditTs', 'tw.playlistBackup', 'tw.secretRoomMusic',
+  /* 플레이리스트 목록 · 한마디 · 공개는 서버가 원본이다(D10) — 이 PC 에는 «지금 고른 목록 번호» 와 시크릿룸 음악만 둔다(옛 목록 이름들은 첫 실행이 지운다) */
+  'tw.playlistCur', 'tw.secretRoomMusic', 'tw.annivView',
   'tw.userName', 'tw.customStatus', 'tw.userStatus', 'tw.awayKind', 'tw.awayImg', 'tw.awaySz', 'tw.myAdBannerImg',
   'tw.inboxBcRead', 'tw.bellSeenTs', 'tw.reportHidden', 'tw.mobileKey',
 ]);
@@ -58,7 +60,9 @@ const ACCOUNT_KEY_PREFIXES = Object.freeze([
 ]);
 
 /* 이미 계정 칸에서 읽고 쓰는 키 — migrateLegacy 가 PC 칸에서 옮기는 대상. */
-const MOVED_KEYS = Object.freeze(['tw.focusTodaySec', 'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);
+const MOVED_KEYS = Object.freeze(['tw.focusTodaySec', 'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1',
+  'tw.charColorHistory', 'tw.activeInteractionDesk',
+  'tw.myAdBannerImg', 'tw.secretRoomMusic', 'tw.annivView']);
 /* 접두로 이미 계정 칸에서 읽고 쓰는 키 — migrateLegacy 가 PC 칸을 훑어 접두가 맞는 이름마다 옮긴다(최근 색 · 방명록 읽음 시각 · 채팅 탭 · 읽음 표시 · 입장 표시).
    ⚠️ ACCOUNT_KEY_PREFIXES 의 부분집합 — 서버가 세는 `tw.dailyPlay.` 는 옮기지 않는다. */
 const MOVED_KEY_PREFIXES = Object.freeze(['tw.mhRecentColors.', 'tw.mhGbLastRead:', 'tw.chatTab.', 'tw_chat_read:', 'tw_chat_join:']);

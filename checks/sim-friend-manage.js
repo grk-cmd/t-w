@@ -140,41 +140,14 @@ if (RULES) {
       'friendRequests/$toId 가 읽기 가능하다 (존재 확인이 성립하는 근거)');
 }
 
-// 미러를 건드리는 자리를 전부 찾아, 각각이 진짜 요청과 짝지어 움직이는지 본다
-const apiFns = ['sendFriendRequest', 'acceptFriendRequest', 'rejectFriendRequest', 'cancelFriendRequest'];
-/* 함수 본문 잘라내기 — 정규식으로 중괄호를 세지 않는다(본문에 중괄호가 잔뜩이라 반드시 틀린다).
-   `async 이름(` 부터 그 뒤 처음 나오는 4칸 들여쓰기 `},` 까지가 한 메서드다. */
-function apiBody(fn){
-  const i = HTML.indexOf('async ' + fn + '(');
-  if (i < 0) return '';
-  const j = HTML.indexOf('\n    },', i);
-  return j < 0 ? '' : HTML.slice(i, j);
-}
-for (const fn of apiFns) {
-  const body = apiBody(fn);
-  chk(!!body, fn + '() 를 찾았다');
-  if (!body) continue;
-  chk(body.includes('sentFriendRequests/'), '  ' + fn + ' 가 미러를 함께 건드린다');
-  chk(body.includes('friendRequests/${'), '  ' + fn + ' 가 진짜 요청도 함께 건드린다');
-  /* ⚠️ 한 번의 update() 여야 한다. set/remove 를 두 번 나눠 부르면 사이에서 실패했을 때
-       한쪽만 남는다 — 화면에서 구분이 안 되는 반쪽 상태다. */
-  chk(/await update\(ref\(db\)/.test(body), '  ' + fn + ' 가 update() 한 번으로 둘을 함께 쓴다');
-}
-
-// 존재 확인 3종 세트가 실제로 있고, app.js 가 그걸 쓰는가
-for (const fn of ['getSentFriendRequests', 'isFriendRequestAlive', 'pruneSentFriendRequest'])
-  chk(HTML.includes('async ' + fn + '('), fn + '() 가 정의돼 있다');
+/* 미러를 쓰는 Firebase 길(sendFriendRequest · accept · reject · cancel · 존재 확인 3종)은 firebaseAPI 에서 걷었다 —
+   요청은 서버 provider(friend-requests-api.js)가 맡는다. 규칙 쪽 확인(위)과 app.js 쪽 확인(아래)만 남긴다. */
 const sentFn = (SRC.match(/async function renderSentRequests[\s\S]*?\n\}/) || [''])[0];
 chk(!!sentFn, 'renderSentRequests() 를 찾았다');
 /* 보낸 요청은 서버 provider(friend-requests-api.js)가 주는 것을 요청 포트 listSent 한 곳으로 읽는다 */
 chk(sentFn.includes('requests().listSent('), '보낸 요청 목록은 요청 포트 listSent 한 곳으로 읽는다');
 chk(!/onValue|subscribe/.test(sentFn),
     '보낸 요청은 **구독이 아니다** (상시 구독을 늘리면 친구 100명 상한의 근거가 무너진다)');
-// 확인 실패를 '죽음'으로 보면 멀쩡한 요청이 사라진다 — catch 가 true 를 돌려주는지
-const aliveFn = apiBody('isFriendRequestAlive');
-chk(/catch\s*\([^)]*\)\s*\{\s*return true/.test(aliveFn),
-    '확인이 실패하면 살아 있는 것으로 본다 (멀쩡한 요청을 지우지 않는다)');
-
 say('');
 
 /* ── §2. 런타임 ──────────────────────────────────────────────────── */

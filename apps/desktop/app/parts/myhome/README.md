@@ -129,7 +129,7 @@ mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));   // 받은 뒤 화면 · �
 ```
 
 **내놓는 것** — `inbox-api`: `fetchMail(uid)` → `{ items:{id: 우편}, unread, complete }` · `markRead` · `markAllRead` · `remove` → `'ok'|'stale'|'failed'`.
-`mail-feed`: `start(uid)`(계정이 바뀌면 앞 계정 우편을 비우고 새로 받는다) · `stop()` · `refresh({ manual }?)`(`manual` = «다시 시도» · 알림함 열기 — 못 받으면 오류 번호) · `status()` · `items()` · `unread()` · `ready()` · `complete()` · `markRead(id)` · `markAllRead()` · `remove(id)` · `removeRead()`(서버가 읽은 우편을 한 번에 지운다 → 지운 수 · 못 지웠으면 null · 성공하면 서버에서 다시 받음 · 지우는 중 또 부르면 건너뜀) · `clearing()` · `onChange(fn)`.
+`mail-feed`: `start(uid, session)`(계정이 바뀌면 앞 계정 우편을 비우고 새로 받는다 · 알림 구독 해제와 `stop` 은 세션이 쥔다 — 끝난 세션이면 시작하지 않는다) · `stop()` · `refresh({ manual }?)`(`manual` = «다시 시도» · 알림함 열기 — 못 받으면 오류 번호) · `status()` · `items()` · `unread()` · `ready()` · `complete()` · `markRead(id)` · `markAllRead()` · `remove(id)` · `removeRead()`(서버가 읽은 우편을 한 번에 지운다 → 지운 수 · 못 지웠으면 null · 성공하면 서버에서 다시 받음 · 지우는 중 또 부르면 건너뜀) · `clearing()` · `onChange(fn)`.
 부르는 곳: `myhome-init.js`(켜기 · 받은 뒤 화면) · `myhome-inbox.js`(그리기 · 누름) · `focus-level.js`(해금 안내를 이미 받았는지 — `_myInbox` · `_myInboxReady` 는 `mailFeed.items()` · `ready()`).
 
 **오류 번호** — `E-MH-08`(받기 실패 · **사용자가 연 · 누른 받기(알림함 열기 · «다시 시도»)에서만** · 이어지는 동안 한 번 — 켤 때 · 새 우편 알림으로 자동 받다 실패하면 번호 없이 못 받음 상태만) · `E-MH-10`(읽음) · `E-MH-11`(지우기). 계정이 바뀌는 중(`stale`)은 번호 없이 버린다.

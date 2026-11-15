@@ -38,7 +38,7 @@ say("· §4 '처음 입장한 사람은 이전 기록을 못 본다' — 담당�
 chk(/const CHAT_JOIN_KEY_PREFIX = 'tw_chat_join:'/.test(SRC),
     '입장 컷 저장 키가 있다 (이 PC 저장소의 계정 칸 — 재부팅해도 남는다)');
 const joinCut = (SRC.match(/function _chatJoinCut\(room\)\{[\s\S]*?\n\}/) || [''])[0];
-chk(/accountStore\.get/.test(joinCut), '입장 컷을 저장소(이 계정 칸 — S-3d)에서 읽는다 (세션 변수가 아니다)');
+chk(/chatAccountStore\.get/.test(joinCut), '입장 컷을 저장소(이 계정 칸 — S-3d)에서 읽는다 (세션 변수가 아니다)');
 
 const note = (SRC.match(/function _noteChatJoin\(room, list\)\{[\s\S]*?\n\}/) || [''])[0];
 chk(/_chatJoinCut\(room\) !== null\) return;/.test(note),

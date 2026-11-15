@@ -16,8 +16,10 @@
 
 const DONE_KEY = 'tw.firstRun013';
 const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'legacySync', 'licenseKey', 'focus', 'chal']);   // ④ 지우기는 맨 끝 — 따로 두지 않는다
-/* 로그인 단계가 «이제 지워도 된다» 고 돌려주는 0.12 계정 키 — 서버가 가입 · 초대 · 친구코드를 맡으면서 아무도 안 읽는다 */
-const LOGIN_LEGACY_KEYS = Object.freeze(['tw.inviteToken', 'tw.signupPending', 'tw.invitePassed', 'tw.myFriendCodePrev']);
+/* 로그인 단계가 «이제 지워도 된다» 고 돌려주는 0.12 계정 키 — 서버가 가입 · 초대 · 친구코드를 맡으면서 아무도 안 읽는다.
+   뒤 여덟은 플레이리스트 옛 목록 이름 — 서버가 원본이 되어(D10) 읽는 곳이 없다(S-3a. 로그아웃 지움 목록에서도 뺐으므로 남은 옛 값은 여기서 지운다) */
+const LOGIN_LEGACY_KEYS = Object.freeze(['tw.inviteToken', 'tw.signupPending', 'tw.invitePassed', 'tw.myFriendCodePrev',
+  'tw.playlist', 'tw.playlistSets', 'tw.playlistTitle', 'tw.playlistBio', 'tw.playlistHomePublic', 'tw.playlistPrivate', 'tw.playlistEditTs', 'tw.playlistBackup']);
 
 /* 0.12 가챠가 이 PC 에 남긴 키 — 0.13 은 서버가 원본이라 올릴 것 없이 지우기만 한다(이 PC 에만 있던 뽑기는 올리지 않는다) */
 const GACHA_LEGACY_KEYS = Object.freeze(['tw.gachaOwned', 'tw.gachaOwnedTs', 'tw.gachaBonus']);

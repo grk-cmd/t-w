@@ -92,16 +92,16 @@ chk(/chatHistory\.clear\(room, (?:chatUiMod\(\)\.)?_chatMyTabId\(\)\)/.test(APP)
   chk(pre === 'tw.chatTab.' && src.every(Boolean), '기억 키는 tw. 접두사(tw.chatTab.<방>) · 읽기 · 쓰기 · 방 맞추기 셋');
   const store = {};
   const LS = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
-  const accountStore = { get: k => LS.getItem(k), set: (k, v) => { LS.setItem(k, v); return true; }, remove: k => { LS.removeItem(k); return true; } };   // 계정 칸(S-3d)
-  const T = new Function('accountStore', 'let _chatMyTab = "general", _chatTabRoom = null; const CHAT_TAB_LS_PREFIX = ' + JSON.stringify(pre) + ';\n' + src.join('\n')
-    + '\nreturn { sync: _chatTabSyncRoom, save: _chatTabSave, cur: () => _chatMyTab, set: v => { _chatMyTab = v; } };')(accountStore);
+  const chatAccountStore = { get: k => LS.getItem(k), set: (k, v) => { LS.setItem(k, v); return true; }, remove: k => { LS.removeItem(k); return true; } };   // 계정 칸(S-3d)
+  const T = new Function('chatAccountStore', 'let _chatMyTab = "general", _chatTabRoom = null; const CHAT_TAB_LS_PREFIX = ' + JSON.stringify(pre) + ';\n' + src.join('\n')
+    + '\nreturn { sync: _chatTabSyncRoom, save: _chatTabSave, cur: () => _chatMyTab, set: v => { _chatMyTab = v; } };')(chatAccountStore);
   T.sync('ROOM-A'); const t0 = T.cur();
   T.save('ROOM-A', 's1'); T.set('s1');
   T.sync('ROOM-A'); const t1 = T.cur();
   T.sync('ROOM-B'); const t2 = T.cur();
   // 재부팅 — 메모리는 비고 localStorage 만 남는다
-  const T2 = new Function('accountStore', 'let _chatMyTab = "general", _chatTabRoom = null; const CHAT_TAB_LS_PREFIX = ' + JSON.stringify(pre) + ';\n' + src.join('\n')
-    + '\nreturn { sync: _chatTabSyncRoom, cur: () => _chatMyTab };')(accountStore);
+  const T2 = new Function('chatAccountStore', 'let _chatMyTab = "general", _chatTabRoom = null; const CHAT_TAB_LS_PREFIX = ' + JSON.stringify(pre) + ';\n' + src.join('\n')
+    + '\nreturn { sync: _chatTabSyncRoom, cur: () => _chatMyTab };')(chatAccountStore);
   T2.sync('ROOM-A'); const t3 = T2.cur();
   T.save('ROOM-A', 'general');
   chk(t0 === 'general' && t1 === 's1' && t2 === 'general' && t3 === 's1', '★ 처음은 #일반 · 같은 방이면 그대로 · 다른 방은 그 방 기억(#일반) · 재부팅해도 마지막 탭(s1)');

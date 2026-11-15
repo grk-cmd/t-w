@@ -125,8 +125,11 @@ function mkEnv(opt){
   });
   const errMod = {}; new Function('window', 'module', SRC['api-errors.js'])(errMod, undefined);
   const apiErrors = errMod.TwApiErrors.createApiErrors({ notifyError: (code) => { errs.push(code); return true; } });
+  const session = { subs: [], resets: [], setInterval, on(u){ this.subs.push(u); return u; }, onReset(fn){ this.resets.push(fn); },
+    dispose(){ this.subs.splice(0).reverse().forEach(u => u()); this.resets.splice(0).reverse().forEach(r => r()); } };   // 가짜 세션 — 타이머는 위 가짜로(손으로 돌린다) · 구독 해제 · 비우기 훅은 모아 두고 dispose 가 부른다
   const g = { viewing: null, friends: opt.friends || {} };
   const S = win.MhScheduler.createScheduler({
+    scheduleAccountStore: { get: k => ls.has(k) ? ls.get(k) : null, set: (k, v) => { ls.set(k, String(v)); return true; }, remove: k => { ls.delete(k); return true; } },   // 계정 칸(S-3c) — 기념일 보기
     scheduleApi, apiErrors, notifyError: (code) => { errs.push(code); return true; },
     rtOn: (kind, fn) => { (rt[kind] = rt[kind] || []).push(fn); return noop; },
     getMyUserId: () => ('uid' in opt ? opt.uid : 'me1'),
@@ -139,9 +142,9 @@ function mkEnv(opt){
     bellSeenKey: 'tw.bellSeenTs',
     twNav: opt.twNav || { go(){}, NAV: {} },
   });
-  if(!opt.noStart) S.startSchedule();   // 계정 확인 뒤 app-boot 가 한 번 부르는 시작(만들 때는 받기 · 신호 · 타이머가 없다)
+  if(!opt.noStart) S.startSchedule(session);   // 계정 확인 뒤 app-boot 가 한 번 부르는 시작(만들 때는 받기 · 신호 · 타이머가 없다)
   const calls = (m, re) => authed.log.filter(x => x.method === m && re.test(x.path));
-  return { S, scheduleApi, win, els, ls, timers, toasts, errs, escWins, winListeners, g, st, routes, authed, rt, calls, el: id => document.getElementById(id) };
+  return { S, session, scheduleApi, win, els, ls, timers, toasts, errs, escWins, winListeners, g, st, routes, authed, rt, calls, el: id => document.getElementById(id) };
 }
 const gridCards = (E) => E.el('mhDdayGrid').children.filter(c => c.classList.contains('mh-dcard') && !c.classList.contains('add'));
 const dayCells = (E) => E.el('mhSchedGrid').children.filter(c => !c.classList.contains('out'));
@@ -206,8 +209,10 @@ await sec('── 2. 만들 때', async () => {
   await tick();
   chk(Z.authed.log.length === 0 && Object.keys(Z.rt).length === 0 && Z.timers.length === 0 && (Z.winListeners['firebase-ready'] || []).length === 0,
     '만들기만 하면 요청 0 · 서버 신호 0 · 타이머 0 · firebase-ready 기다림 0 — 계정 확인 뒤 startSchedule 이 건다');
-  Z.S.startSchedule(); await tick();
+  Z.S.startSchedule(Z.session); await tick();
   chk(Z.authed.log.length > 0 && Object.keys(Z.rt).sort().join() === 'friendSchedule,notification,schedule' && Z.timers.length === 1 && Z.timers[0].ms === 60000, 'startSchedule — 알림 · 일정 받기 · 서버 신호 셋 · 자정 확인 1분 타이머');
+  chk(Z.session.subs.length === 3 && Z.session.resets.length === 1, '★ 서버 신호 셋의 해제 함수 · 비우기(reset)는 세션이 쥔다 — 버리지 않는다(S-2)');
+  Z.session.dispose(); chk(Z.session.subs.length === 0 && Z.session.resets.length === 0, '  세션이 끝나면 다 풀리고 비운다(dispose)');
 });
 
 await sec('── 2-2. 내 코드 없음 — 요청 0', async () => {

@@ -167,7 +167,7 @@ function mkEnv(opt){
   env.origRender = () => { env.origRenders++; };
   env.curRender = env.origRender;
   env.mk = () => ctx.TwMyHomeEdit.createMyHomeEdit({
-    accountStore: { get: (k) => (k in env.ls ? env.ls[k] : null), set: (k, v) => { env.ls[k] = String(v); return true; }, remove: (k) => { delete env.ls[k]; return true; } },   // 계정 칸(S-3d) — 최근 색
+    myhomeEditAccountStore: { get: (k) => (k in env.ls ? env.ls[k] : null), set: (k, v) => { env.ls[k] = String(v); return true; }, remove: (k) => { delete env.ls[k]; return true; } },   // 계정 칸(S-3d) — 최근 색
     toast: (m) => env.toasts.push(m),
     asyncPrompt: async (o) => { env.prompts.push(o); return env.promptAns.length ? env.promptAns.shift() : null; },
     renderMyHomePage: () => { env.page++; },
@@ -571,7 +571,7 @@ await sec('── 9. app.js 배선', () => {
   const getters = ['myHomeData: ()=>_myHomeData(),', 'mhViewingUserId: ()=>_mhViewingUserId(),',
     'mhStickerDragDist: ()=>_mhStickerDragDist,', 'isPremium: ()=>isPremium,', 'isAdmin: ()=>isAdmin,', 'userNameMax: ()=>USER_NAME_MAX,'];
   const setters = ['setMhStickerDragDist: (v)=>{ _mhStickerDragDist = v; },'];
-  const vals = ['accountStore: accountStoreMod,', 'myhomeStore: myhomeStoreMod,', 'myHomeSticker,', 'stickerMax: STICKER_MAX,', 'stickerImgMaxW: STICKER_IMG_MAX_W,', 'dsImgMaxBgW: DS_IMG_MAX_BG_W,', 'dsImgMaxBgH: DS_IMG_MAX_BG_H,', 'dsImgMaxPanel: DS_IMG_MAX_PANEL,', 'dsImgQuality: DS_IMG_QUALITY,'];
+  const vals = ['myhomeEditAccountStore: accountStoreMod,', 'myhomeStore: myhomeStoreMod,', 'myHomeSticker,', 'stickerMax: STICKER_MAX,', 'stickerImgMaxW: STICKER_IMG_MAX_W,', 'dsImgMaxBgW: DS_IMG_MAX_BG_W,', 'dsImgMaxBgH: DS_IMG_MAX_BG_H,', 'dsImgMaxPanel: DS_IMG_MAX_PANEL,', 'dsImgQuality: DS_IMG_QUALITY,'];
   chk(deps.includes('installMacTip: (...a)=>TwMacTooltip.installChild(...a),'), '맥 말풍선은 shared/mac-tooltip.js 의 installChild 로 잇는다');
   chk(deps.length === 33 && fnDeps.length === 17 && getters.every(g => deps.includes(g)) && setters.every(s => deps.includes(s)) && vals.every(v => deps.includes(v)),
       'deps 33개 — 함수 17은 화살표 · 읽는 함수 6 · 쓰는 함수 1 · 앞에 선언된 const 9는 값(상태 주인 · 계정 칸 포함) (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');

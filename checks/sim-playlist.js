@@ -168,9 +168,11 @@ function mkEnv(o){
       bringWinToFront: (id) => env.front.push(id), escRegisterWindow: (w) => env.esc.push(w), escEditable: (t) => !!(t && t.tagName === 'INPUT'),
       playlistApi, notifyError: (c, err) => { env.errors.push(c); env.errArgs.push(err); },
     }, extra || {}));
-    if(!o.noGatePull) env.m.pull();   // 서버 계정이 확인된 뒤 게이트(license-gate.js)가 deps 로 한 번 부르는 것과 같다 — 만들 때는 받지 않는다
+    if(!o.noGatePull) env.m.start(env.session);   // 서버 계정이 확인된 뒤 켜는 차례(app-boot 의 playlist)가 한 번 부르는 것과 같다 — 만들 때는 받지 않는다
     return env.m;
   };
+  /* 가짜 세션 — 타이머는 위 가짜 시계로(예전과 같이 손으로 돌린다) · 비우기 훅은 모아 두고 dispose 가 부른다 */
+  env.session = { resets: [], setTimeout: setTimeout_, clearTimeout: clearTimeout_, onReset(fn){ this.resets.push(fn); }, dispose(){ this.resets.splice(0).reverse().forEach(r => r()); } };
   env.last = (p) => env.calls.filter(c => c.indexOf(p) === 0).slice(-1)[0];
   env.count = (p) => env.calls.filter(c => c.indexOf(p) === 0).length;
   return env;
@@ -763,6 +765,17 @@ async function behave(src){
       await quit(h);
       chk(h.count('publish') === 0, '★ 로그인 전(내 코드 없음)이면 요청 0');
     }
+    // ⑪-3 세션(S-2) — 올리기 3초 모으기 타이머 · 비우기를 세션이 쥔다: 세션이 끝나면 예약이 0 · 목록이 비고 · 다음 로그인(새 세션)은 다시 받는다
+    {
+      const e = E(); e.srv = srvOf(2, 'n'); const m = await e.mk();
+      oneMore(m); m.save();
+      chk(e.timers.filter(t => !t.every && t.at - e.t === 3000).length === 1 && e.session.resets.length === 1, '★ 올리기 3초 모으기는 세션 타이머 · 비우기는 세션 훅이다');
+      e.session.dispose();
+      await e.advance(4000);
+      chk(e.count('publish') === 0 && !m.state().loaded && e.timers.filter(t => !t.every).length === 0, '  세션이 끝나면(dispose) 걸린 올리기가 사라지고 목록 상태가 비었다 — 한 시간이 지나도 요청 0');
+      m.start(e.session); await flush(); await flush();
+      chk(e.count('fetchMine') === 2 && m.state().loaded, '  다음 로그인(새 세션)은 시작이 다시 돈다 — 받기 한 번 더');
+    }
     {
       const e = E(); e.srv = srvOf(2, 'n'); const m = await e.mk();
       e.saveRes = 'failed'; oneMore(m); m.save(); await e.advance(3100);
@@ -1024,7 +1037,7 @@ async function runAll(PL, APP, HTML){
     ['PL', "  if(!uid || _plFlushSent) return Promise.resolve();", "  if(_plFlushSent) return Promise.resolve();", '로그인 전에도 끌 때 요청'],
     ['PL', "  if(!uid || _plFlushSent) return Promise.resolve();", "  if(!uid) return Promise.resolve();", '끄기 알림마다 또 올림'],
     ['PL', "  if(!_plSaveFailing && !_plPubTimer) return", "  if(!_plSaveFailing) return", '고친 뒤 모으는 중에 끄면 안 올림(로그아웃 포함)'],
-    ['PL', "  _plFlushSent = false;\n  clearTimeout(_plPubTimer);", "  clearTimeout(_plPubTimer);", '새로 고쳐도 올리기 허락이 안 풀림'],
+    ['PL', "  _plFlushSent = false;\n  _plClear(_plPubTimer);", "  _plClear(_plPubTimer);", '새로 고쳐도 올리기 허락이 안 풀림'],
     ['PL', "return _plPubBusy ? _plPubDone : Promise.resolve();", "return Promise.resolve();", '로그아웃 올리기가 보내는 중인 저장을 안 기다림'],
     ['PL', "if(again) await _plPublishNow(uid0);", "if(again) _plPublishNow(uid0);", '기다림이 보내는 중 고친 뒤 한 번을 안 기다림'],
     ['PL', "  if(_plPubBusy){ _plPubAgain = true; return _plPubDone; }", "  if(_plPubBusy){ _plPubAgain = true; return Promise.resolve(); }", '보내는 중이면 기다림 약속을 안 돌려줌'],
@@ -1033,7 +1046,7 @@ async function runAll(PL, APP, HTML){
     ['PL', "_plLoadMyCard(); _plRetryOnOpen(); _plRender(); }", "_plLoadMyCard(); _plRender(); }", '창 열기가 다시 시도를 안 부름'],
     ['PL', '  if(getMyUserId() !== uid) return;   // 기다리는 사이 계정이 바뀌었다', '', '받는 사이 계정이 바뀌어도 앞 계정 것을 앉힘'],
     ['PL', '  _plLoaded = false; _plPubSig = null;', '  _plPubSig = null;', '계정을 놓아도 받은 상태가 남음'],
-    ['PL', '  clearTimeout(_plPullT); _plPullT = null;   // 다시 시도 사슬은 하나만', '  _plPullT = null;', '다시 받기 사슬이 갈라짐'],
+    ['PL', '  _plClear(_plPullT); _plPullT = null;   // 다시 시도 사슬은 하나만', '  _plPullT = null;', '다시 받기 사슬이 갈라짐'],
     ['PL', '  _plSets = _plNormalizeSets(srv.sets);\n  _plCur', '  _plSets = srv.sets;\n  _plCur', '서버 값을 관문 없이 앉힘'],
     ['PL', '  _plPrivate = !!srv.private;\n', '', '서버의 비공개를 안 받음'],
     ['PL', "    localStorage.setItem('tw.playlistCur', String(_plCur));", "    localStorage.setItem('tw.playlistCur', String(_plCur)); localStorage.setItem('tw.playlistSets', JSON.stringify(_plSets));", '목록을 이 기기에도 씀'],
