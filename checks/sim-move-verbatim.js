@@ -90,6 +90,10 @@ say('1. analyze(순수 함수)');
   bad('한 줄짜리 만드는 줄 다음의 코드', [], rows(APP, ['leak();'], 2), { [APP]: 'const xMod = TwX.createX(opts);\nleak();\n});\n' });
   bad('연결 블록 안에 문장을 끼움', [], rows(APP, ['  leak();'], 2), { [APP]: 'const xMod = TwX.createX({\n  leak();\n});\n' });
   bad('return 블록 밑(꼬리 뒤)에 코드를 끼움', [], rows(MOD, ['leak();'], 5), { [MOD]: 'x\nreturn {\n  f,\n};\nleak();\n' });
+  const wrapHead = { [APP]: '  layoutSeats: ()=>layoutSeats(),\n  n: ()=>n,\n' };
+  bad('늦게 부르는 감싸개 이름의 함수 참조 → 호출', rows(APP, ['window.addEventListener("resize", layoutSeats);']), rows(MOD, ['const layoutSeats = deps.layoutSeats;', 'window.addEventListener("resize", layoutSeats());']), wrapHead);
+  bad('대입 자리의 접두사 붙임(count = 1 → xMod.count = 1)', rows(APP, ['count = 1;']), rows(APP, ['xMod.count = 1;'], 10));
+  bad('다른 이름 가드 걷기', rows(APP, ["if(typeof A!=='undefined' && B) go();"]), rows(MOD, ['if(B) go();']));
   const ok = analyze([], rows(MOD, ['setSizeFactor: (v)=>{ sizeFactor = v; },'], 3), { headText: (f) => (f === MOD ? 'x\nreturn {\n  setSizeFactor: (v)=>{ sizeFactor = v; },\n};\n' : null), baseText: () => null });
   chk(ok.violations.length === 0, '모듈 꼬리의 쓰는 함수 칸 → scaffold');
 }

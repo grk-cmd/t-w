@@ -18,7 +18,8 @@
      call-rename 부르는 곳의 이름 바꿈(fn( → xMod.fn( · 알림 고리 hooks.fn()
      script-tag  html · checks/smoke.js 의 script 한 줄 · PRELOAD 한 줄
    README(*.md) · checks/ · docs/ 는 줄을 보지 않는다. 그 밖 파일(main.js · functions/ 등)이 바뀌면 파일 이름을 찍고 허용 밖으로 친다.
-   한계: 줄 순서가 바뀐 것과 `})` 같은 문장부호만 있는 줄은 못 잡는다 — 블록 경계가 옮겨진 곳은 사람이 본다. */
+   한계(사람이 볼 몫): 줄 순서가 바뀐 것 · `})` 같은 문장부호만 있는 줄 · 연결 블록 / 모듈 꼬리 칸에 바로 부르는 식이 든 것 · `*` 로 시작하는 줄 ·
+   이름이 `set` 으로 시작하는 아무 메서드 · 읽기 자리(대입이 아닌)의 `x` → `xMod.x` · 새 모듈을 html 에 안 싣는 것(smoke 검사 몫). */
 'use strict';
 const { execFileSync } = require('child_process');
 
@@ -124,25 +125,39 @@ function analyze(removed, added, ctx){
   /* 2) 고침 종류로 짝. 규칙은 한쪽에만 건다 — 더한 줄(A)에 건 규칙이 줄을 실제로 바꿀 때만 쓴다
         (규칙이 아무것도 안 바꾸면 옛 줄만 고쳐져 «다른 줄» 을 숨긴다). guard-drop 만 지운 줄(R)에 건다. */
   const getters = new Set();      // `이름: ()=>…` 로 읽는 함수를 내놓는 이름 — 다시 대입되는 let 을 읽는 자리
-  const scanGetters = (text) => { for (const m of (text || '').matchAll(new RegExp('(?:^|[\\s,{(])(' + IDENT + ')\\s*:\\s*\\(\\)\\s*=>', 'gm'))) getters.add(m[1]); };
+  /* 몸이 «그 이름을 읽기만» 인 칸만 센다(`x: ()=>x` · `x: ()=>_x` · `x: ()=>xMod.x()`). `x: ()=>x(…)` 같은 늦게 부르는 감싸개는 함수라서 뺀다 */
+  const scanGetters = (text) => {
+    for (const m of (text || '').matchAll(new RegExp('(?:^|[\\s,{(])(' + IDENT + ')\\s*:\\s*\\(\\)\\s*=>\\s*([^,\\n]*)', 'gm'))){
+      const key = m[1], body = m[2].trim().replace(/\s*\/\/.*$/, '');
+      if (new RegExp('^_?' + key.replace(/\$/g, '\\$') + '$').test(body) || new RegExp('^' + IDENT + 'Mod\\.' + key.replace(/\$/g, '\\$') + '\\(\\)$').test(body)) getters.add(key);
+    }
+  };
   scanGetters(ctx.headText('app/parts/app.js'));
   for (const a of add) scanGetters(a.key);
   const depNames = new Set();
   for (const a of add){ const n = depsLine(a.key); if (n) depNames.add(n); }
   const READ = new RegExp('(?<!function )\\b(?:([\\w$]*(?:Mod|Hooks|hooks))\\.)?(' + IDENT + ')\\(\\)(?!\\s*\\{)', 'g');
   const SETTER = new RegExp('\\b(?:[\\w$]*(?:Mod|Hooks|hooks)\\.)?set([A-Z][\\w$]*)\\(([^()]*)\\)', 'g');
+  /* 접두사를 떼는 자리가 대입 칸이면(xMod.count = 1) 모듈 객체에 쓰는 것이라 뜻이 다르다 */
+  const isWrite = (whole, at) => /^\s*(?:[-+*\/%&|^]?=(?!=)|\+\+|--)/.test(whole.slice(at));
   const RULES = {
-    'guard-drop': { side: 'R', fn: (s) => s
-      .replace(/(?<![\w$])\(typeof \w+ ?!==? ?'undefined' ?&& ?([^()]*)\)/g, '$1')
-      .replace(/\(typeof \w+ ?!==? ?'undefined'\) ?&& ?/g, '').replace(/typeof \w+ ?!==? ?'undefined' ?&& ?/g, '')
-      .replace(/\(typeof \w+ ?===? ?'undefined'\) ?\|\| ?/g, '').replace(/typeof \w+ ?===? ?'undefined' ?\|\| ?/g, '')
-      .replace(/if\(typeof \w+ ?!==? ?'undefined'\) ?/g, '') },
+    /* typeof 로 본 이름이 남은 식에 쓰일 때만 걷는다(다른 이름 가드를 걷으면 부르는 조건이 바뀐다) */
+    'guard-drop': { side: 'R', fn: (s) => {
+      const keep = (re) => (str) => str.replace(re, (m, n, off, whole) => (whole.slice(off + m.length).includes(n) ? '' : m));
+      let x = s.replace(/(?<![\w$])\(typeof (\w+) ?!==? ?'undefined' ?&& ?([^()]*)\)/g, (m, n, rest) => (rest.includes(n) ? rest : m));
+      x = keep(/\(typeof (\w+) ?!==? ?'undefined'\) ?&& ?/g)(x);
+      x = keep(/typeof (\w+) ?!==? ?'undefined' ?&& ?/g)(x);
+      x = keep(/\(typeof (\w+) ?===? ?'undefined'\) ?\|\| ?/g)(x);
+      x = keep(/typeof (\w+) ?===? ?'undefined' ?\|\| ?/g)(x);
+      x = keep(/if\(typeof (\w+) ?!==? ?'undefined'\) ?/g)(x);
+      return x;
+    } },
     /* foo → foo() · foo → xMod.foo() : 읽는 함수로 내놓은 이름만. 옛 줄에 이미 그 모양이 있으면 건드리지 않는다 */
     'read-fn': { side: 'A', fn: (s, r) => s.replace(READ, (m, mod, n) => (!r.includes(m) && getters.has(n) && (mod || depNames.has(n)) ? (mod ? mod + '.' + n : n) : m)) },
     /* foo( → xMod.foo( : 옛 줄에 없던 접두사만 뗀다(aMod.f → bMod.f 같은 부르는 모듈 바꿈은 못 숨긴다) */
-    'call-rename': { side: 'A', fn: (s, r) => s.replace(new RegExp('\\b([\\w$]*(?:Mod|Hooks|hooks))\\.(' + IDENT + ')', 'g'), (m, pre, n) => (r.includes(m) ? m : n)) },
+    'call-rename': { side: 'A', fn: (s, r) => s.replace(new RegExp('\\b([\\w$]*(?:Mod|Hooks|hooks))\\.(' + IDENT + ')', 'g'), (m, pre, n, off, whole) => (r.includes(m) || isWrite(whole, off + m.length) ? m : n)) },
     /* 알림 고리: xMod.f( → xHooks.f( — 부르는 이름은 그대로, 부르는 곳만 고리로 */
-    'hook-call': { side: 'A', fn: (s, r) => s.replace(new RegExp('\\b[\\w$]*[Hh]ooks\\.(' + IDENT + ')', 'g'), (m, n) => (r.includes(m) ? m : n)) },
+    'hook-call': { side: 'A', fn: (s, r) => s.replace(new RegExp('\\b[\\w$]*[Hh]ooks\\.(' + IDENT + ')', 'g'), (m, n, off, whole) => (r.includes(m) || isWrite(whole, off + m.length) ? m : n)) },
     'setter': { side: 'A', fn: (s) => { const x = s.replace(SETTER, (m, n, v) => n[0].toLowerCase() + n.slice(1) + '=' + v); return x === s ? s : x.replace(/\s*(=+)\s*/g, '$1'); } },
   };
   const R_SIDE = {
@@ -254,7 +269,7 @@ function main(){
   const res = analyze(removed, added, { headText, baseText });
   const out = (s) => console.log(s);
   out(`그대로 옮긴 줄: ${res.moved}`);
-  const order = ['guard-drop', 'comment', 'scaffold', 'wiring', 'read-fn', 'setter', 'call-rename', 'script-tag'];
+  const order = ['guard-drop', 'comment', 'scaffold', 'wiring', 'read-fn', 'setter', 'call-rename', 'hook-call', 'script-tag'];
   out('허용 종류별 줄 수: ' + (order.filter((k) => res.kinds[k]).map((k) => `${k} ${res.kinds[k]}`).join(' · ') || '없음'));
   /* 줄을 안 보는 파일 — README · 문서 · 검사(checks/)만 허용. 그 밖 파일이 바뀌면 «옮기기» 가 아니다 */
   const OK_OTHER = (f) => /\.md$/.test(f) || /^checks\//.test(f) || /^docs\//.test(f);
