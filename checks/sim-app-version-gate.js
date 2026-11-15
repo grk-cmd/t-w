@@ -2,6 +2,7 @@
  * 앱 최소 버전(원격 설정 minVersion.app · API) — 이 앱이 낮으면 «업데이트해 주세요» 로 앱 전체를 막는가.
  * 1. app-version-gate.js 비교 — 숫자 비교(0.10.0 > 0.9.8) · 꼬리 무시 · 모르는 값으로는 안 막음
  * 2. 게이트를 그대로 돌린다 — 낮으면 막음 · 같거나 높으면 · 값 없음 · 읽기 실패 · 시간 초과 · 버전 모름은 안 막음
+ * 2-2. 계정 판 맞추기로 막기 — 같은 화면 · 다른 문구 · 이미 막혔으면 그대로 · 모르는 판은 안 막음
  * 3. 단추 — 받기 끝(재시작 설치) · 맥(릴리스 열기) · 받는 중(누를 수 없음) · 실패(다시 시도) · 링크(다운로드 페이지) · 막기 전에 온 상태 기억
  * 4. 화면 — 닫기 없음 · textContent 만 · id 가 app.js 클릭 통과 목록에 있음
  * 5. 연결 — firebase-init 가 원격 설정의 첫 답(API 값만 · 못 받으면 null)으로 게이트를 켠다 · main/preload 다시 확인 채널 · 다운로드 주소 = package.json 저장소
@@ -78,6 +79,22 @@ function fakeUi(){ const shown = []; return { shown, show: (v) => shown.push(v),
   chk(!t.r.blocked, '  ↳ 버전 조회가 던져도 안 막는다');
   t = await run('0.10.2', '0.10.3', { companion: null, ui: null });
   chk(t.r.blocked, '  ↳ companion · 화면이 없어도 판정은 한다(깨지지 않는다)');
+
+  say('── 2-2. 계정 판 맞추기로 막기 — blockForAccount');
+  {
+    const mkG = (min) => { const ui = fakeUi(), comp = fakeCompanion(); return { ui, comp, g: createAppVersionGate({ readMin: () => min, getVersion: () => '0.12.3', companion: comp, ui }) }; };
+    let x = mkG(null); await x.g.start();
+    chk(x.g.blockForAccount('0.12.3', '0.12.4') === true && x.g.isBlocked() && x.ui.shown.length === 1, '★ 더 새 판을 쓰는 기기가 있으면 같은 화면으로 막는다');
+    const v = x.ui.shown[0];
+    chk(v.title === '업데이트해 주세요' && /다른 PC/.test(v.body) && /0\.12\.4/.test(v.body) && /0\.12\.3/.test(v.body), '  ↳ 문구 — 다른 PC 에서 쓰는 판(0.12.4) · 이 PC 판(0.12.3)');
+    chk(!/더 이상 쓸 수 없어요/.test(v.body), '  ↳ 최소 버전 문구(«더 이상 쓸 수 없어요»)와 다르다');
+    x.comp.calls.length = 0; x.g.press('button');
+    chk(x.comp.calls[0] && x.comp.calls[0][0] === 'open', '  ↳ 단추 · 링크는 최소 버전 화면과 같은 업데이트 길');
+    x = mkG('0.12.4'); await x.g.start();
+    chk(x.g.blockForAccount('0.12.3', '0.12.5') === false && x.ui.shown.length === 1 && !/다른 PC/.test(x.ui.shown[0].body), '★ 이미 최소 버전으로 막혔으면 그 화면을 둔다(두 번 띄우지 않는다)');
+    x = mkG(null); await x.g.start();
+    chk(x.g.blockForAccount('abc', '0.12.4') === false && x.g.blockForAccount('0.12.3', '') === false && !x.g.isBlocked() && x.ui.shown.length === 0, '★ 판 글자를 못 읽으면 막지 않는다');
+  }
 
   say('── 3. 단추');
   t = await run('0.10.2', '0.10.3');
