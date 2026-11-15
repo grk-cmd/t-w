@@ -16,7 +16,7 @@ import {
   type LogLevels,
   type LogTarget,
 } from '@/entities/server/ops-config';
-import type { AuditAction } from '@/shared/api';
+import { refreshOnConflict, type AuditAction } from '@/shared/api';
 
 type Check<T> = { ok: true; next: T } | { ok: false; error: string };
 
@@ -97,6 +97,7 @@ export function useSaveIntGroup(group: IntGroup, action: AuditAction, target: st
     mutationFn: ({ before, updates }: { before: IntValues; updates: Record<string, number | null> }) =>
       port.saveIntGroup(group, action, target, before, updates),
     onSuccess: refresh,
+    onError: refreshOnConflict(refresh),
   });
 }
 
@@ -107,6 +108,7 @@ export function useSaveLogLevels() {
     mutationFn: ({ before, updates }: { before: LogLevels; updates: Record<string, LogLevel | null> }) =>
       port.saveLogLevels(before, updates),
     onSuccess: refresh,
+    onError: refreshOnConflict(refresh),
   });
 }
 
@@ -117,5 +119,6 @@ export function useSaveCorsOrigins() {
     mutationFn: ({ before, next }: { before: string[]; next: string[] }) =>
       port.saveCorsOrigins(before, next),
     onSuccess: refresh,
+    onError: refreshOnConflict(refresh),
   });
 }

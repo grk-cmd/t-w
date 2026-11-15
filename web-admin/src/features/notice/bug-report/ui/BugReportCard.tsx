@@ -62,7 +62,9 @@ export function BugReportCard() {
         {!error && report === undefined && '불러오는 중…'}
         {report === null && '저장된 값 없음 · 기본 글 · [제보하기] 꺼짐'}
         {report &&
-          `마지막 저장 · ${formatDate(report.ts)}${report.link ? '' : ' · 링크 없음 · [제보하기] 꺼짐'}`}
+          `${report.ts === undefined ? '' : `마지막 저장 · ${formatDate(report.ts)}`}${
+            report.link ? '' : `${report.ts === undefined ? '' : ' · '}링크 없음 · [제보하기] 꺼짐`
+          }`}
       </p>
       <textarea
         className={styles.textarea}

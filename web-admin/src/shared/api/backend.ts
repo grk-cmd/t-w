@@ -60,3 +60,11 @@ export function notPorted<T extends object>(name: string): T {
   };
   return new Proxy({} as T, { get: (_target, prop) => (prop === 'then' ? undefined : fail) });
 }
+
+/**
+ * 저장이 `conflict`(다른 곳에서 먼저 고침)로 실패하면 그 화면의 값을 다시 받는다 — 서버가 덮지 않으므로 화면이 새 값을 보고 다시 결정한다.
+ * Firebase 판은 `conflict` 를 내지 않아 아무 일도 하지 않는다.
+ */
+export const refreshOnConflict = (refresh: () => unknown) => (error: unknown) => {
+  if (isPortError(error, 'conflict')) void refresh();
+};

@@ -17,6 +17,7 @@ export function setSignupFlag(db: Db, flag: SignupFlag, value: boolean): Promise
 
 export function createFirebaseSignupFlagPort(db: Db): SignupFlagPort {
   return {
+    flags: SIGNUP_FLAGS,
     get: () => getSignupFlags(db),
     set: (flag, value) => setSignupFlag(db, flag, value),
   };

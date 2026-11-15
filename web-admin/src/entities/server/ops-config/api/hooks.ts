@@ -23,3 +23,23 @@ export function useRefreshOpsConfig() {
   const client = useQueryClient();
   return () => client.invalidateQueries({ queryKey: OPS_KEY });
 }
+
+/** API 판에만 있는 «점검 안내» — Firebase 판은 포트에 없어 묻지 않는다. */
+export function useMaintenance() {
+  const { maintenance } = useOpsConfigPort();
+  return useQuery({
+    queryKey: [...OPS_KEY, 'maintenance'],
+    queryFn: () => (maintenance as NonNullable<typeof maintenance>).get(),
+    enabled: maintenance !== null,
+  });
+}
+
+/** API 판에만 있는 «방 서버 한 대의 채널별 방 상한». */
+export function useServerLimits() {
+  const { serverLimits } = useOpsConfigPort();
+  return useQuery({
+    queryKey: [...OPS_KEY, 'serverLimits'],
+    queryFn: () => (serverLimits as NonNullable<typeof serverLimits>).get(),
+    enabled: serverLimits !== null,
+  });
+}

@@ -1,13 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import {
-  API_CACHE,
   API_CORS_MAX,
   LOG_LEVELS,
   LOG_TARGETS,
-  ROOM_FRAME,
-  ROOM_TIMING,
   useCorsOrigins,
   useLogLevels,
+  useOpsConfigPort,
   type LogLevel,
   type LogTarget,
 } from '@/entities/server/ops-config';
@@ -154,6 +152,7 @@ function LogLevelForm() {
 
 /** API 서버가 읽는 칸 — CORS · 공개 캐시 · 로그 수준. 쓰는 곳은 이 화면뿐, 읽는 곳은 t-w-server(봇 계정 · 방 서버). */
 export function ApiOpsCard() {
+  const { groups } = useOpsConfigPort();
   return (
     <section className="card">
       <h2>서버 운영 설정</h2>
@@ -161,7 +160,7 @@ export function ApiOpsCard() {
       <CorsForm />
       <IntGroupForm
         title="공개 캐시 초"
-        group={API_CACHE}
+        group={groups.apiCache}
         action="settings.apiCache"
         apply="5초 안 · 다음 응답부터(이미 받은 캐시는 그 시간까지)"
       />
@@ -172,18 +171,19 @@ export function ApiOpsCard() {
 
 /** 방 서버가 읽는 칸 — 프레임 상한 · 타이밍(config/roomServer/{frame,timing}). 키 없이 공개 읽기. */
 export function RoomServerTuningCard() {
+  const { groups } = useOpsConfigPort();
   return (
     <section className="card">
       <h2>방 서버 상한 · 타이밍</h2>
       <IntGroupForm
         title="방 서버 프레임 상한"
-        group={ROOM_FRAME}
+        group={groups.roomFrame}
         action="roomServer.frame"
         apply="방 서버가 다음에 설정을 읽은 뒤 프레임부터"
       />
       <IntGroupForm
         title="방 서버 타이밍"
-        group={ROOM_TIMING}
+        group={groups.roomTiming}
         action="roomServer.timing"
         apply="방 서버가 다음에 설정을 읽은 뒤 바퀴부터(되살리기 창은 다음 재시작부터)"
       />
