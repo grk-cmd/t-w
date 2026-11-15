@@ -1,7 +1,7 @@
 /* part-xf.js — 🎀 파츠 저작 오프셋 · xf 적용(앱 FSD · app.js 분리 T5)
    app.js «캐릭터 본의 바인드 자세 역행렬 · 저작 오프셋 · 머리 높이 보정 · xf 적용» 구역을 0.13 app.js 글 그대로 옮긴 모듈이다. 계산 본문은 캐릭터 코어(createParts)가 하고 여기는 앱 몫(진단 로그 · 동물 머리 보정 · 옛 이름 잇기)이다.
    ・책임: _charBoneBindInverses · _computePartAuthorOffset · _diagPartHeadSpace(머리 계열 파츠 실측 진단) · _measureBodyBoxInLocal · _headTopAboveBone · _baseHeadTopAboveBone · _computeAnimalHeadDy(동물 머리 파츠 세로 보정) · _isLegacyAuthorCompensation · _applyXfToWrapper · applyPartXf(wrapper 와 다중 파츠 extras 에 저장된 xf 를 반영).
-   ・받는 deps 7 — 값 partsCore(app.js 가 만든 코어 파츠) · PART_DEFAULT_OFFSET · premiumMod · partPaintMod · lightToneMod · bodyMeasureMod · charMeasureMod · 함수 instantiateBase.
+   ・받는 deps 8 — 값 partsCore(app.js 가 만든 코어 파츠) · PART_DEFAULT_OFFSET · premiumMod · partPaintMod · lightToneMod · bodyMeasureMod · charMeasureMod · 함수 instantiateBase.
    ・내놓는 것: 위 열 이름 가운데 밖에서 부르는 여섯(_computePartAuthorOffset · _diagPartHeadSpace · _computeAnimalHeadDy · _isLegacyAuthorCompensation · _applyXfToWrapper · applyPartXf) — app.js 는 같은 이름 const 로 받는다.
    ⚠️ _computePartAuthorOffset 의 bb 는 equipPartOnSeat 가 피봇용으로 만든 것과 «같은» 박스여야 한다(part-equip.js) — 한쪽만 고치면 피봇과 실제 위치가 어긋난다.
    검사: checks/sim-part-xf.js */
