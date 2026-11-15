@@ -414,6 +414,7 @@
 | **sim-nav.js** | 91 | **dd38c03ae96c** |
 | **sim-app-boot.js** | 166 | **c9c8c9ab8e59** |
 | **sim-user-local.js** | 207 | **d076599742e2** |
+| **sim-saved-lists-wiring.js** | 91 | **38b630d814d6** |
 | **sim-net-ready.js** | 152 | **bb0f49abe53a** |
 | **sim-myhome-hooks.js** | 99 | **ded7ee208327** |
 | **sim-demoji-catalog.js** | 78 | **51109652b2f6** |

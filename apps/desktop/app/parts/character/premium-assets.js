@@ -153,7 +153,7 @@ const SAVED_PARTS_KEY='tw.savedParts';
    칸이 넘치면 스크롤된다. 즉 이 숫자는 레이아웃 제약이 아니라 순수한 정책값이라 자유롭게 올린다.
    ⚠️ 다만 "+ 코드로 추가"(커미션 파츠)는 GLB를 **localStorage에 base64로 통째로** 넣는다(파츠당 최대 1.3MB).
      관리자 등록분은 Storage에 올라가고 로컬엔 URL만 남아 무해하지만, 코드로 받은 파츠를 이 상한까지
-     꽉 채우면 localStorage(약 10MB)가 먼저 터진다 — persistSavedParts의 '저장 공간이 부족해요'가 그 신호다. */
+     꽉 채우면 localStorage(약 10MB)가 먼저 터진다 — persistSavedParts 가 쓰기를 못 하면 E-CHAR-24 로 알린다 — 그 신호다. */
 const MAX_PARTS_PER_CAT=30;
 /* 🎰 가챠 파츠는 꾸미기 창의 진열 칸을 안 쓴다(보관함 스크롤 목록에만 뜬다) — 그래서 상한이 따로다.
    시즌이 4개라 시즌당 10개꼴. ⚠️ 뽑기 풀이 커지면 특정 파츠가 나올 확률이 그만큼 낮아진다 —
@@ -441,7 +441,7 @@ function resetLocal(){ savedParts = savedParts.filter(p=>p.fromCatalog); }
      그러면 toggleEquip 이 그 파츠를 «일반 파츠»로 보고 **같은 칸의 기존 일반 모자를 def 에서 빼고 갈아 끼운다.**
      가챠 모자가 기본 모자를 덮고 있어서 끼울 때는 티가 안 나고, 뺄 때 둘 다 없어진 것으로 보인다.
    ★ 읽는 자리(rec.stackable 을 보는 곳이 열 군데가 넘는다)를 고치지 않고 들어오는 입구에서 값을 맞춘다 —
-     등록이 이미 지키는 약속과 같은 값이므로 새 규칙이 아니다. 확인 뒤 userLocal 칸(savedAssets)이 좌석을 세우기 **전에** 부른다(loadLocal).
+     등록이 이미 지키는 약속과 같은 값이므로 새 규칙이 아니다. 확인 뒤 userLocal 칸(savedParts)이 좌석을 세우기 **전에** 부른다(loadLocal).
    ⚠️ 관리자가 그 파츠를 한 번 다시 저장하면 카탈로그 값도 true 로 고쳐진다(buildPartPublishData). */
 function _normPartRec(p){ if(p && p.gacha && !p.stackable) p.stackable = true; return p; }
 function persistSavedParts(){
