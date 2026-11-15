@@ -194,12 +194,15 @@ document.addEventListener('keydown', e=>{
 const CLOSE_ALL_MAX = 32;   // ESC 스택 되풀이 상한 — 한 창이 닫히지 않을 때 끝없이 돌지 않게
 function closeAll(){
   const stuck = [];
+  const skip = new Set();   // 못 닫은 창 key — 다음 바퀴에서 건너뛰어 그 아래 창이 계속 닫히게
   for(let n = 0; n < CLOSE_ALL_MAX; n++){
-    const w = _escTop();
-    if(!w) break;
-    try{ w.close(); }catch(e){ console.warn('[창] 모두 닫기 — ' + w.key + ' 을(를) 닫다 던졌어요', e); }
     _escSync();
-    if(_escTop() === w){ console.warn('[창] 모두 닫기 — ' + w.key + ' 이(가) 닫히지 않았어요'); stuck.push(w.key); break; }
+    const key = _escOrder.slice().reverse().find(k => !skip.has(k));
+    const w = key === undefined ? null : _escWins.find(x => x.key === key);
+    if(!w) break;
+    try{ w.close(); }catch(e){ console.warn('[창] 모두 닫기 — ' + w.key + ' 을(를) 닫다 던졌어요', e); skip.add(w.key); stuck.push(w.key); continue; }
+    _escSync();
+    if(_escOrder.indexOf(w.key) >= 0){ console.warn('[창] 모두 닫기 — ' + w.key + ' 이(가) 닫히지 않았어요'); skip.add(w.key); stuck.push(w.key); }
   }
   closers().forEach(c=>{
     let open = false;

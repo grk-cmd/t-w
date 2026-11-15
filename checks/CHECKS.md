@@ -351,7 +351,7 @@
 | **sim-chat-prefs.js** | 95 | **26c68ca8bbfe** |
 | **sim-chat-read-on-send.js** | 214 | **24d8cf0193b1** |
 | **sim-rich-text.js** | 95 | **c8ee332ad595** |
-| **sim-win-stack.js** | 141 | **fad1a0724bdc** |
+| **sim-win-stack.js** | 145 | **0137e9fde6ef** |
 | **sim-sfx.js** | 96 | **d24a22a1d75f** |
 | **sim-face-heal.js** | 231 | **f18793ed8378** |
 | **sim-slot-save.js** | 183 | **48d93b48c8dc** |

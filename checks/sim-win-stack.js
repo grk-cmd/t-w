@@ -93,6 +93,8 @@ function behave(mod){
     const a = run([['A'], ['B']], [['chat'], ['gacha', null, false], ['creator']]);
     r.all = a.stuck.length === 0 && a.log.join() === 'esc:B,esc:A,row:chat,row:creator,launcher' && a.warns.length === 0;   // 꼭대기(나중에 연 것)부터 · 안 열린 창은 건드리지 않음 · 런처가 맨 끝
     const b = run([['A', 'stuck'], ['B']], [['chat', 'stuck'], ['gacha'], ['creator', 'throw']]);
+    const top = run([['A'], ['B', 'throw'], ['C', 'stuck']], []);   // 꼭대기(C 안 닫힘 · B 던짐) 아래의 A 도 닫힌다
+    r.belowClosed = top.log.includes('esc:A') && top.stuck.includes('C') && top.stuck.includes('B') && !top.stuck.includes('A') && top.warns.length >= 2;
     r.loud = b.stuck.join() === 'A,chat,creator' || b.stuck.join() === 'chat,creator,A' || (b.stuck.includes('chat') && b.stuck.includes('creator') && b.stuck.includes('A'));
     r.loudWarn = b.warns.length >= 3 && b.warns.every(w => /모두 닫기/.test(w));
     r.goesOn = b.log.includes('row:gacha') && b.log[b.log.length - 1] === 'launcher' && b.rows[1].open === false;   // 한 창이 못 닫혀도 나머지는 닫힌다 · 런처는 늘 끝에
@@ -105,7 +107,7 @@ function behave(mod){
   const R = behave(MOD);
   chk(R.all, '열린 창만 닫는다 — ESC 스택은 꼭대기부터 · 표의 창은 열려 있는 것만 · 런처로 돌아가기가 맨 끝');
   chk(R.loud && R.loudWarn, '★ 닫히지 않거나 던진 창은 조용히 넘기지 않는다 — 경고하고 돌려주는 key 목록에 든다');
-  chk(R.goesOn, '  한 창이 못 닫혀도 나머지는 계속 닫고 런처로 돌아간다');
+  chk(R.goesOn && R.belowClosed, '  한 창이 못 닫혀도 나머지는 계속 닫고 런처로 돌아간다 — ESC 스택 꼭대기가 던지거나 안 닫혀도 그 아래 창이 닫힌다');
   chk(R.noStack, '  ESC 스택에 태운 창이 없어도 돈다');
 }
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
@@ -124,8 +126,10 @@ const breaks = [
   const br = (from, to) => MOD.includes(from) ? behave(MOD.replace(from, to)) : null;
   const b1 = br("try{ backToLauncher(); }catch(e){", "try{ }catch(e){");
   chk(b1 && !b1.all, '깨 보기 — 런처로 돌아가기를 빼면 빨강');
-  const b2 = br("console.warn('[창] 모두 닫기 — ' + w.key + ' 이(가) 닫히지 않았어요'); stuck.push(w.key); break;", "break;");
+  const b2 = br("console.warn('[창] 모두 닫기 — ' + w.key + ' 이(가) 닫히지 않았어요'); skip.add(w.key); stuck.push(w.key); }", "skip.add(w.key); }");
   chk(b2 && !b2.loud, '깨 보기 — 닫히지 않은 ESC 창을 경고 없이 넘기면 빨강');
+  const b5 = br("skip.add(w.key); stuck.push(w.key); continue; }", "break; }");
+  chk(b5 && !b5.belowClosed, '깨 보기 — 꼭대기 창이 던졌을 때 멈추면(아래 창이 열린 채 남음) 빨강');
   const b3 = br("    if(still){ console.warn('[창] 모두 닫기 — ' + c.key + ' 이(가) 닫히지 않았어요'); stuck.push(c.key); }", "");
   chk(b3 && !b3.loud, '깨 보기 — 닫았는데 열려 있는 표의 창을 못 알아채면 빨강');
   const b4 = br("if(!open) return;\n    try{ c.close(); }", "try{ c.close(); }");
