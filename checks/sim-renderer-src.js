@@ -149,6 +149,9 @@ const MODULES = [
   { file: 'ls-set.js', mod: 'lsSetMod', glob: 'TwLsSet', sample: 'function _lsSet(' },   // 0.12.4 app.js 분리 M14
   { file: 'rig-anim.js', mod: 'rigAnimMod', glob: 'TwRigAnim', sample: 'function animateRig(' },   // 0.12.4 app.js 분리 M15
   { file: 'frame-pace.js', mod: 'framePaceMod', glob: 'TwFramePace', sample: 'function _frameCap(' },   // 0.12.4 app.js 분리 M16
+  { file: 'cloth-visibility.js', mod: 'clothVisMod', glob: 'TwClothVisibility', sample: 'function applyClothVisibility(' },   // 0.12.4 app.js 분리 T4
+  { file: 'hue-tint.js', mod: 'hueTintMod', glob: 'TwHueTint', sample: 'function applyHueTint(' },   // 0.12.4 app.js 분리 T1
+  { file: 'base-body.js', mod: 'baseBodyMod', glob: 'TwBaseBody', sample: 'function instantiateBase(' },   // 0.12.4 app.js 분리 T2
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
