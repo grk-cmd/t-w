@@ -1344,44 +1344,6 @@
       }
     },
 
-
-    /* ===== 🧟 좀비 어드벤처 파티 시스템 — 은퇴(stub) =====
-       게임은 adventure-zombie.js(현 myhome-desktop.js)의 ADV_GAME_OFF 스위치로 이미 꺼져 있고,
-       유저가 들어갈 경로도 없다. 그래서 실제 RTDB 접근부(parties / partyInvites / mergeRequests /
-       advGame)를 전부 걷어냈다.
-
-       ⚠️ 왜 '삭제'가 아니라 '빈 껍데기'인가 —
-         게임 코드의 firebaseAPI.adv* 호출 66곳 중 11곳은 fbReady() 게이트 밖에 있다(파티 초대·
-         전투 구독 계열). 게임 창이 열리지 않으니 실행될 일은 없지만 정적으로 증명되지는 않는다.
-         메서드를 없애버리면 만에 하나 그 경로가 돌 때 TypeError로 마이홈이 통째로 죽는다.
-         껍데기로 두면 그 위험 없이 DB 경로 참조만 사라진다(audit 검사7이 이 참조를 본다).
-
-       ⚠️ 구독 계열(advWatch*)은 반드시 '해지 함수'를 돌려줘야 한다 —
-         호출부가 unsub()을 그대로 부르기 때문에 null을 주면 그 자리에서 TypeError가 난다.
-
-       게임을 되살리려면: 이 블록을 git 히스토리에서 복원 + ADV_GAME_OFF=false +
-       firebase-database-rules.json 에 parties/partyInvites/mergeRequests/advGame 규칙 부활. */
-    async advGetFriends(){ return {}; },
-    async advCreateParty(){ return null; },
-    advWatchParty(){ return ()=>{}; },
-    async advSendInvite(){ return { ok:false, reason:'서비스 종료' }; },
-    async advClearInvite(){},
-    async advJoinParty(){ return { ok:false, reason:'서비스 종료' }; },
-    async advUpdateMember(){},
-    async advLeaveParty(){ return { ok:true }; },
-    async advDisbandParty(){ return { ok:true }; },
-    async advSetDeparted(){ return { ok:true }; },
-    async advSetAtCamp(){ return { ok:true }; },
-    async advSendGameChat(){ return { ok:true }; },
-    advWatchGameChat(){ return ()=>{}; },
-    async advWriteCombat(){ return { ok:true }; },
-    advWatchCombat(){ return ()=>{}; },
-    async advWriteGauge(){ return { ok:true }; },
-    advWatchGauge(){ return ()=>{}; },
-    async advWriteCoord(){ return { ok:true }; },
-    advWatchCoords(){ return ()=>{}; },
-    async advFindLeaderParty(){ return null; },
-
     /* 📷 스티커사진 — 세션 · 정원은 세션 포트(purikura/purikura-rt.js). 여기는 프레임 그림 올리기만 남았다. */
     /* 🖼 올린 프레임을 Storage 에 올리고 **URL 만** 돌려준다.
        ★ 왜 _uploadDataUrlIfNeeded 를 안 쓰나 — 그쪽은 업로드가 실패하면 **dataURL 을 그대로
