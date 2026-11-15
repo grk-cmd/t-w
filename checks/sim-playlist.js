@@ -718,7 +718,7 @@ function wiring(PL, APP, HTML){
     '  상태칩 팝업 자리(만드는 줄보다 위에 선언)는 window 고리 + typeof 로');
   const iI = HTML.indexOf('<script src="parts/myhome/myhome-inbox.js"></script>'), iP = HTML.indexOf('<script src="parts/status/playlist.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>'),
     iN = HTML.indexOf('<script src="parts/status/noise.js"></script>');
-  chk(iI > 0 && iP > iI && iA > iP && iN > iA, 'html — playlist.js 를 app.js 보다 먼저(myhome-inbox.js 뒤) · noise.js 는 app.js 뒤');
+  chk(iI > 0 && iP > iI && iA > iP && iN > 0 && iN < iA, 'html — playlist.js 를 app.js 보다 먼저(myhome-inbox.js 뒤) · noise.js 도 app.js 보다 먼저(M23 — app.js 가 끝에서 만든다)');
   chk(/TwPlaylist/.test(PL) && !/window\.(Playlist|PlayList)\s*=/.test(PL) && !/\bplMod\b/.test(HTML.replace(/<!--[\s\S]*?-->/g, '')), '전역 이름은 Tw 접두사 · 연결 상수(plMod)는 DOM id 와 겹치지 않는다');
 }
 

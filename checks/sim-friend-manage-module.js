@@ -259,7 +259,7 @@ await sec('── 7. 🐞 버그 제보 탭 — bug-board-ui.js 끝', async () =
   chk(iI > 0 && iB > iI, '  게시판 IIFE 뒤(밖)에 있다');
   const iBU = HTML.indexOf('<script src="parts/support/bug-board-ui.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   const iFB = HTML.indexOf('<script type="module" src="parts/firebase-init.js"></script>');
-  chk(iBU > iA && iFB > 0, 'html — bug-board-ui.js 는 app.js 뒤 · firebase-init.js 는 module(classic 스크립트가 다 돈 뒤에 돈다 → firebase-ready 를 놓치지 않는다)');
+  chk(iBU > 0 && iBU < iA && iFB > 0, 'html — bug-board-ui.js 는 app.js 보다 먼저(app.js 끝에서 만든다 — M23) · firebase-init.js 는 module(classic 스크립트가 다 돈 뒤에 돈다 → firebase-ready 를 놓치지 않는다)');
   /* 굴려 보기 — 게시판 IIFE 는 DOMContentLoaded 를 기다리게 두고(loading), 끝의 버그 제보 탭만 돈다 */
   const env = { toasts: [], saved: [], L: {}, admin: false };
   const els = {};
@@ -272,11 +272,11 @@ await sec('── 7. 🐞 버그 제보 탭 — bug-board-ui.js 끝', async () =
     _saveFailMsg: (e, fb) => 'F:' + fb,
     escHtml: (s) => s,
   };
-  Object.defineProperty(ctx, 'isAdmin', { get: () => env.admin });
   ctx.window = ctx;
   vm.createContext(ctx);
   vm.runInContext(SRC['net-ready.js'], ctx, { filename: 'net-ready.js' });
   vm.runInContext(BUG, ctx, { filename: 'bug-board-ui.js' });
+  ctx.TwBugBoardUi.createBugBoardUi({ escHtml: (...a) => ctx.escHtml(...a), isAdmin: () => env.admin, getDisplayName: () => '이름', getMyUserId: () => 'me', toast: (...a) => ctx.toast(...a), _saveFailMsg: (...a) => ctx._saveFailMsg(...a) });   // app.js 끝의 만드는 줄과 같다(M23)
   chk(typeof ctx._bugReportLink === 'function' && ctx._bugReportLink() === '', 'window._bugReportLink — 아직 안 받았으면 빈 문자열');
   chk(typeof env.L['firebase-ready'] === 'function', 'firebaseAPI 가 아직 없으면 firebase-ready 를 기다린다');
   let subCb = null;

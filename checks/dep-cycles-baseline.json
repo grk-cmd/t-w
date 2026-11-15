@@ -88,7 +88,6 @@
   "myhome/bookmark.js > myhome/myhome-desktop.js",
   "myhome/friend-manage.js > launcher/window-mode.js",
   "myhome/friend-manage.js > myhome/myhome-inbox.js",
-  "myhome/myhome-desktop.js > focus/focus-level.js",
   "myhome/myhome-desktop.js > myhome/bookmark.js",
   "myhome/myhome-edit.js > account/user-name.js",
   "myhome/myhome-edit.js > myhome/myhome-page.js",

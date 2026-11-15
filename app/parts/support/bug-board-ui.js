@@ -6,8 +6,15 @@
    ★ 탭 배지 = 내 글 중 lastReplyTs > bugSeen[id] 개수. 글을 열면 bugSeen[id] = 지금.
    ★ 글쓴이 답글 — 내 글 상세 맨 아래 칸. 답글과 함께 상태(확인 중 · 해결 안 됨 · 해결 완료)를 고를 수 있다.
      관리자 목록에는 운영자 답변보다 늦은 글쓴이 답글이 있으면 «✍ 글쓴이 답글».
-   ⚠️ app.js 뒤에 싣는다 — isAdmin · toast · escHtml · getMyUserId · getDisplayName 을 그대로 쓴다.
+   ⚠️ app.js 가 createBugBoardUi(deps) 로 만든다(앱 FSD · M23) — isAdmin(읽는 함수) · toast · escHtml · getMyUserId · getDisplayName 을 deps 로 받는다. app.js 보다 먼저 싣는다.
    ⚠️ 확인창·메뉴를 따로 띄우지 않는다(전부 탭 안 화면). alert/confirm 금지(audit 검사 4). */
+function createBugBoardUi(deps){
+const isAdmin = deps.isAdmin;   // 읽는 함수
+const escHtml = deps.escHtml;
+const getDisplayName = deps.getDisplayName;
+const getMyUserId = deps.getMyUserId;
+const toast = deps.toast;
+const _saveFailMsg = deps._saveFailMsg;
 (function(){
   'use strict';
   const $ = (id) => document.getElementById(id);
@@ -16,7 +23,7 @@
   const esc = (s) => escHtml(String(s == null ? '' : s));
   const linked = (s) => TwSafeHtml.linkify(s);   // 본문 · 답변 · 답글 — 주소는 눌러서 기본 브라우저로(아래 bbDetailView 클릭)
   const myUid = () => { try{ return firebaseAPI.authCurrentUid(); }catch(_){ return null; } };
-  const admin = () => (typeof isAdmin !== 'undefined') && !!isAdmin;
+  const admin = () => !!isAdmin();
   const who = () => ({ name: getDisplayName(), code: getMyUserId(), isAdmin: admin() });
 
   let filter = 'all', cursors = [null], nextCursor = null;
@@ -400,7 +407,7 @@
 
 /* ↓ app.js 에서 옮긴 🐞 버그 제보 탭(오픈카톡 기본 링크) — 앱 FSD 5번 · docs/APP_FSD_MAP.md.
    ★ 글자 그대로(들여쓰기도) 옮겼다. 위 게시판 IIFE 밖 맨 앞 칸이라 예전처럼 전역 이름(_bugReportConf · window._bugReportLink)이다.
-   ★ 이 파일은 app.js 뒤에 싣지만 firebase-init.js(type="module")보다 앞이라 «firebase-ready» 를 기다리는 구독 시작 때가 예전과 같다.
+   ★ app.js 가 INIT 을 마친 바로 뒤에 만들고 firebase-init.js(type="module")보다 앞이라 «firebase-ready» 를 기다리는 구독 시작 때가 예전과 같다.
      버튼 연결도 사람이 누를 수 있기 전에 끝난다. window._bugReportLink 는 위 답변 칸의 [💬 오픈카톡] 이 누를 때 부른다.
    ⚠️ app.js 의 isAdmin · toast · _saveFailMsg 를 그대로 쓴다(위 게시판과 같은 방식). */
 /* ═══════════════════ 🐞 버그 제보 탭 — 오픈카톡 기본 링크 ═══════════════════
@@ -428,7 +435,7 @@ window._bugReportLink = ()=> (_bugReportConf && _bugReportConf.link) || '';
 
   if(editBtn){
     editBtn.addEventListener('click', ()=>{
-      if(!isAdmin) return;   // .admin-only로 숨겨져 있지만 한 번 더 확인
+      if(!isAdmin()) return;   // .admin-only로 숨겨져 있지만 한 번 더 확인
       if(form && form.style.display !== 'none'){ closeForm(); return; }
       if(linkIn) linkIn.value = window._bugReportLink();
       showMsg('', false);
@@ -440,7 +447,7 @@ window._bugReportLink = ()=> (_bugReportConf && _bugReportConf.link) || '';
 
   if(saveBtn){
     saveBtn.addEventListener('click', async ()=>{
-      if(!isAdmin){ toast('관리자만 수정할 수 있어요'); return; }
+      if(!isAdmin()){ toast('관리자만 수정할 수 있어요'); return; }
       if(!window.firebaseAPI || !firebaseAPI.setBugReport){ toast('네트워크 연결이 필요해요'); return; }
       const link = (linkIn ? linkIn.value : '').trim();
       if(link && !/^https:\/\/open\.kakao\.com\//.test(link)){ showMsg('오픈카톡 링크는 https://open.kakao.com/ 으로 시작해야 해요', true); return; }
@@ -464,3 +471,6 @@ window._bugReportLink = ()=> (_bugReportConf && _bugReportConf.link) || '';
   };
   TwNetReady.whenNetReady(sub);
 })();
+}
+
+window.TwBugBoardUi = { createBugBoardUi };

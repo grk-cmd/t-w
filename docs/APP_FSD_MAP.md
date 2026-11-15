@@ -311,6 +311,8 @@ app.js 9,746 → 9,476줄(270줄) · 구역 167 → 130개. 남긴 빈 머리 �
 
 **0.12.4 — app.js 분리 T7**: 얼굴 · 피부 캔버스 · 사람 몸 만들기(`newCanvas` · `compositeFace` · `defToBase` 등 약 110줄)를 `creator/creator-face.js` 로 옮겼다(0.13 app.js 글 그대로 — 본문은 코어 `createFace` · `createBody.assemble` 호출. `defToBase` 의 `onRoot` 에 #830 `shareSkeletons` 가 있다).
 
+**0.12.4 — app.js 분리 M23**: app.js 다음 `<script>` 로 실려 app.js 전역을 그냥 부르던 넷(`character/animal.js` · `myhome/myhome-desktop.js` · `support/bug-board-ui.js` · `status/noise.js`)을 `createXxx(deps)` 로 바꿨다. app.js 보다 먼저 싣고 app.js 끝(INIT 뒤)에서 만든다(옛 차례 그대로). deps 는 값 · 함수 · 읽는 함수 · 쓰는 함수(`curSlot` · `creatorOpen` 은 이 모듈이 바꾼다). 남은 몫: `myhome/mallang.js` · `myhome/bookmark.js` 의 app.js 이름 3개씩.
+
 **0.12.4 — app.js 분리 F2**: 창 모드를 한 값으로 모았다. `main.js` 는 렌더러가 보낸 모드(`launcher` · `creator` · `animal` · `myhome` · `run`)를 `_curMode` 로 기억하고 창 크기로 되짚지 않는다(`sizeToMode` · 허용 오차 · 줄인 크기 표 `_fittedSize` 걷음). 다시 불러오기 전 되돌리기는 `_applyConfigMode(true, 'launcher')` 한 줄로 같은 통로를 지난다. 화면 쪽 주인은 `launcher/window-mode.js`(M22).
 
 **0.12.4 — app.js 분리 F3**: app.js 바닥 INIT 덩이(좌석 탭 · 앱 모드 · 관리자 UI · 라이선스 글 · 마이홈 시작 · 기본 몸 불러오기 · 프레임 루프 · 런처 루프 · 얼굴 복구 점검 · 창 크기 맞춤)를 `launcher/run-boot.js` 의 차례 표로 옮겼다(0.13 `app-boot.js` 모양 — 표에 없는 이름 · 남는 이름은 만들 때 던지고 `begin` 은 한 번). 기본 몸을 못 불러오면 안내 한 번(`E-SYS-08`) 뒤 대신 몸으로 이어 간다.
