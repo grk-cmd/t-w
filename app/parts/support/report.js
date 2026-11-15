@@ -29,8 +29,9 @@ var REPORT_KINDS = [
   { k:'etc',  label:'기타', sub:'', short:'기타' },
 ];
 var _reportOv = null, _reportEsc = null;
-/* 실패 갈래(report-api.js failOf) → 안내 문구. self 는 창을 열 때 이미 막아 조용히 닫기만 · common 은 공통 표 · 그 밖은 E-RPT-01 */
+/* 실패 갈래(report-api.js failOf) → 안내 문구. login · noAwayImage · noteRequired 는 안내 문구만 · self 는 창을 열 때 이미 막아 조용히 닫기만 · common 은 공통 표 · 그 밖은 E-RPT-01 */
 const FAIL_TEXT = {
+  login: '로그인한 뒤에 신고할 수 있어요',
   noAwayImage: '그 분의 자리비움 그림이 이미 없어요',
   noteRequired: '사유를 적어 주세요',
 };

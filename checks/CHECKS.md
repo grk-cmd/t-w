@@ -316,7 +316,7 @@
 | **sim-admin-users-launcher.js** | 160 | **e7b57f3e1e66** |
 | **sim-admin-asset.js** | 129 | **6ecb2dc8ed96** |
 | **sim-admin-mode.js** | 133 | **437afbc7bb20** |
-| **sim-report.js** | 184 | **33ddd3da2d69** |
+| **sim-report.js** | 187 | **36300b555eba** |
 | **sim-my-info.js** | 98 | **5f6f1de826c8** |
 | **sim-renderer-src.js** | 282 | **3d182b49bc93** |
 | **sim-chars.js** | 94 | **f9cca0b353e7** |

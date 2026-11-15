@@ -2,7 +2,7 @@
    app.js «🚩 신고하기» 를 report.js(신고 창 · 공용 도우미 · 팝업 칸)와 admin/admin-report.js(관리자 신고 목록)로 나눠 옮겼다.
    신고 규칙 · 문구는 sim-report-away.js 가 본다. 여기서는 모듈 모양 · 팝업 칸 나눠 쓰기 · app.js 연결을 본다 — 가짜 DOM 위에서 굴린다.
    ・1절: report.js — 내놓는 이름 · 정보 없는 좌석 · 나 자신 · 기타는 글 필요 · 신고 = POST /v2/reports { target, kind, note? }(내 이름 · 코드 없음) · 숨김 · 창 닫힘 ·
-          실패 = 숨김 0 + 번호(공통 code 는 E-NET · 그 밖 E-RPT-01) + [신고] 다시 켬 + 다시 안 보냄 · REPORT_NO_AWAY_IMAGE · REPORT_NOTE_REQUIRED = 안내 · REPORT_SELF = 조용히 닫음
+          실패 = 숨김 0 + 번호(로그인 안 됨 = 옛 문구 · 그 밖 공통 code 는 E-NET · 그 밖 E-RPT-01) + [신고] 다시 켬 + 다시 안 보냄 · REPORT_NO_AWAY_IMAGE · REPORT_NOTE_REQUIRED = 안내 · REPORT_SELF = 조용히 닫음
    ・2절: admin-report.js — 관리자 아니면 안 염(다시 대입된 isAdmin) · 열면 신고 창이 닫히고 팝업 칸을 이어받음 · ESC 로 닫힘 · rows
    ・3절: app.js 연결 — 본문이 안 남음 · 빈 껍데기 둘(관리자 목록은 report.js 없으면 안 만듦) · deps · 원래 자리 · 메뉴는 reportMod.openDialog · html
    ・4절: 일부러 깨 보기
@@ -92,7 +92,9 @@ async function judgeAll(rep, adm, app, html){
   t(posts().length === 1 && !B.hidden.has('u9') && !go.disabled && !ov1.removed && B.calls.filter(c => c[0] === 'notify').length === 1 && B.calls.find(c => c[0] === 'notify')[1] === 'E-NET-07',
     '닿지 못함 — 숨기지 않음 · [신고] 다시 켬 · 공통 번호 E-NET-07 한 번 · 요청 한 번(자동 재시도 없음)');
   st.fail = ApiErr('auth', 401, 'AUTH_REQUIRED'); B.calls.length = 0; await go.onclick();
-  t(B.calls.filter(c => c[0] === 'notify').map(c => c[1]).join() === 'E-NET-01' && !B.hidden.has('u9'), '로그인이 풀림 — 공통 번호 E-NET-01(옛 «로그인한 뒤에 신고» 문구 대신)');
+  t(B.calls.some(c => c[0] === 'toast' && c[1] === '로그인한 뒤에 신고할 수 있어요') && !B.calls.some(c => c[0] === 'notify') && !B.hidden.has('u9') && !go.disabled, '로그인 안 됨(AUTH_REQUIRED) — 옛 문구 «로그인한 뒤에 신고할 수 있어요» · 번호 없음 · 숨김 0');
+  st.fail = ApiErr('auth', 0, 'NO_TOKEN'); B.calls.length = 0; await go.onclick();
+  t(B.calls.some(c => c[0] === 'toast' && c[1] === '로그인한 뒤에 신고할 수 있어요') && !B.calls.some(c => c[0] === 'notify'), '  ↳ 토큰 없음(NO_TOKEN)도 같은 문구');
   st.fail = ApiErr('request', 400, 'SOMETHING_NEW'); B.calls.length = 0; await go.onclick();
   t(B.calls.filter(c => c[0] === 'notify').map(c => c[1]).join() === 'E-RPT-01' && !go.disabled, '표에 없는 서버 오류 — E-RPT-01 · [신고] 다시 켬');
   st.fail = ApiErr('request', 409, 'REPORT_NO_AWAY_IMAGE'); B.calls.length = 0; await go.onclick();
@@ -162,6 +164,7 @@ async function judgeAll(rep, adm, app, html){
     ['신고 뒤에 안 숨김', { rep: s => s.replace('_reportHiddenUids.add(target); _reportHiddenSave();', '_reportHiddenSave();') }],
     ['실패해도 숨김', { rep: s => s.replace("      return;\n    }\n    _reportHiddenUids.add(target);", "    }\n    _reportHiddenUids.add(target);") }],
     ['사유 이름 → 서버 이름 표가 틀림', { rapi: s => s.replace("etc: 'ETC'", "etc: 'OTHER'") }],
+    ['로그인 안 됨을 옛 문구로 안 보임', { rapi: s => s.replace('  AUTH_REQUIRED: row(FAIL.LOGIN),\n', '') }],
     ['모르는 서버 오류에 번호 없음', { rep: s => s.replace("else notifyError('E-RPT-01', e);", "else{}") }],
     ['보내기 전 검사 없음(빈 대상도 보냄)', { rapi: s => s.replace("if(typeof target !== 'string' || !target) throw invalid('대상 없음');", '') }],
     ['관리자 목록이 팝업 칸을 안 이어받음', { adm: s => s.replace('document.body.appendChild(ov); setReportOv(ov);', 'document.body.appendChild(ov);') }],

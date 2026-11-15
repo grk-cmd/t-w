@@ -19,11 +19,13 @@ const NOTE_MAX = 40;   // 서버 상한과 같다 — 넘기면 서버가 거절
 const INVALID_CODE = 'INVALID';   // 보내기 전에 막은 틀린 값(요청 0)
 
 /* 실패의 갈래 — self = 나 신고(창이 이미 막음) · noAwayImage = 그 사람 그림이 이미 없음 · noteRequired = 기타인데 글 없음
-   · common = 공통 code · 닿지 못함(공통 표 api-errors.js 가 다룬다) · site = 그 밖(신고 창의 번호) */
-const FAIL = Object.freeze({ SELF: 'self', NO_AWAY_IMAGE: 'noAwayImage', NOTE_REQUIRED: 'noteRequired', COMMON: 'common', SITE: 'site' });
+   · login = 로그인 안 됨(토큰 없음 · 로그인 풀림 — 옛 문구 «로그인한 뒤에 신고할 수 있어요» 를 지킨다) · common = 공통 code · 닿지 못함(공통 표 api-errors.js 가 다룬다) · site = 그 밖(신고 창의 번호) */
+const FAIL = Object.freeze({ LOGIN: 'login', SELF: 'self', NO_AWAY_IMAGE: 'noAwayImage', NOTE_REQUIRED: 'noteRequired', COMMON: 'common', SITE: 'site' });
 const row = (kind) => Object.freeze({ action: kind, notice: null });
 /* 서버 code(계약) → 갈래. TwApiErrors.translate 에 넘기는 기능 표 — 공통 표보다 먼저 본다 */
 const ERRORS = Object.freeze({
+  NO_TOKEN: row(FAIL.LOGIN),
+  AUTH_REQUIRED: row(FAIL.LOGIN),
   REPORT_SELF: row(FAIL.SELF),
   REPORT_NO_AWAY_IMAGE: row(FAIL.NO_AWAY_IMAGE),
   REPORT_NOTE_REQUIRED: row(FAIL.NOTE_REQUIRED),
