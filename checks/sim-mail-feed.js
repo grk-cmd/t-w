@@ -45,8 +45,8 @@ function mkEnv(){
   };
   const rt = { on: (kind, fn) => { env.handlers[kind] = fn; env.rtOn = (env.rtOn || 0) + 1; return () => { env.rtOff = (env.rtOff || 0) + 1; if(env.handlers[kind] === fn) delete env.handlers[kind]; }; } };
   /* 가짜 세션 — 구독 해제 함수 · 비우기 훅을 모아 두고 dispose 가 부른다(세션마다 새로 만든다) */
-  const newSession = () => ({ subs: [], resets: [], on(u){ this.subs.push(u); return u; }, onReset(fn){ this.resets.push(fn); },
-    dispose(){ this.subs.splice(0).reverse().forEach(u => u()); this.resets.splice(0).reverse().forEach(r => r()); } });
+  const newSession = () => ({ subs: [], resets: [], dead: false, alive(){ return !this.dead; }, on(u){ this.subs.push(u); return u; }, onReset(fn){ this.resets.push(fn); },
+    dispose(){ this.dead = true; this.subs.splice(0).reverse().forEach(u => u()); this.resets.splice(0).reverse().forEach(r => r()); } });
   return { env, api, rt, newSession, session: newSession() };
 }
 function mk(src){
@@ -105,6 +105,9 @@ async function judge(S){
     e3.feed.start('A01', e3.feed.session); await tick(); e3.feed.start('B02', e3.feed.session); await tick();
     g3.release(); await tick(); await tick(); await tick(); await tick();
     chk(e3.feed.busy() === false && Object.keys(e3.feed.items()).join() === 'B02', '받는 중 계정이 바뀌어 앞 계정 응답이 버려진 뒤에도 false(새 계정 우편만)');
+    const e4 = mk(LIB); e4.feed.session.dispose();
+    e4.feed.start('ME01', e4.feed.session); await tick();
+    chk(e4.env.fetches.length === 0 && e4.feed.items && Object.keys(e4.feed.items()).length === 0, '★ 시작하기 전에 세션이 끝났으면(로그아웃 · 계정 바뀜) 앞 계정 우편을 받지 않는다 — 요청 0');
   }
 
   say('── 2. 알림');

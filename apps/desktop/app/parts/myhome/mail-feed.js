@@ -73,6 +73,7 @@ function createMailFeed(deps){
   let boundSession = null;
   function start(who, session){
     if(!who) return stop();
+    if(!session.alive()) return;   // 시작하기 전에 세션이 끝났다(로그아웃 · 계정 바뀜) — 앞 계정 우편을 다시 받지 않는다
     if(session !== boundSession){
       boundSession = session;
       session.on(deps.rt.on('notification', onNotification));

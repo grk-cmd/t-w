@@ -291,7 +291,7 @@
 | **sim-gift-box.js** | 562 | **ddc5d4a2c9cc** |
 | **sim-mallang-module.js** | 353 | **7abaed34d9b0** |
 | **sim-mallang-store.js** | 251 | **44ab2dc587eb** |
-| **sim-mail-feed.js** | 358 | **d620475daf7e** |
+| **sim-mail-feed.js** | 361 | **2bcd1eeabc34** |
 | **sim-notice-api.js** | 159 | **0d412e593953** |
 | **sim-admin-api.js** | 190 | **b2da532886b6** |
 | **sim-admin-notice.js** | 212 | **034a00b92986** |
