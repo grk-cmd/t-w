@@ -30,19 +30,19 @@
 ## mat-tone.js — 💡 재질 톤
 
 - **책임**: 캐릭터 재질 두 가지 손질 — 얼굴 텍스처 갈아끼우기(`setFaceMap` · 🐾 동물 귀 함께) · 생성기와 같은 평탄 조명(`applyLightPresetToInstance` — 텍스처 색을 emissive 로 평탄화).
-  DOM · 씬 없이 재질 객체만 만진다.
-- **만드는 법**: `TwMatTone.createMatTone({ FLAT_EMISSIVE })` — 평탄 조명 배율(값) 하나만 받는다.
+  사람 몫(얼굴 맵 · 평탄 조명)은 캐릭터 코어 `tone.ts` 를 부르고, 🐾 동물 귀 깜빡임만 여기에 있다(웹은 사람만이라 동물은 앱 몫). DOM · 씬 없이 재질 객체만 만진다.
+- **만드는 법**: `TwMatTone.createMatTone({ tone: lightToneMod.toneCore })` — 코어 재질 톤(light-tone.js 가 만든 것) 하나만 받는다.
 - **내놓는 것**:
   ```js
   matToneMod.setFaceMap(seat.faceMat, seat.blinkTex);      // 깜빡임 · 졸기 · 런처 · 복제 무대 — 귀도 같이 감긴다
   matToneMod.applyLightPresetToInstance(inst);             // 좌석 · 런처 · 종족 선택창 · 생성기가 새 모델을 올린 직후
   ```
   다른 모듈은 deps 로 받는다(`setFaceMap: (...a)=>matToneMod.setFaceMap(...a)`).
-- **확장할 때**: 이름으로 갈리는 재질이 늘면(예: 새 기본 메쉬) `applyLightPresetToInstance` 의 face/up/lo/hat 줄과 같은 모양으로 더하고, 나머지는 `inst.litMats` 가 받는다.
+- **확장할 때**: 이름으로 갈리는 재질이 늘면(예: 새 기본 메쉬) 코어 `packages/char-core/src/tone.ts` 의 `applyLightPresetToInstance` face/up/lo/hat 줄과 같은 모양으로 더하고, 나머지는 `inst.litMats` 가 받는다.
   동물 귀 말고도 얼굴과 함께 갈아야 하는 재질이 생기면 `userData` 등록표를 늘린다(호출부에 넣지 않는다).
 - **함정**: 깜빡임 스왑은 전부 `setFaceMap` 을 지나야 한다 — 호출부에서 `mat.map` 을 직접 갈면 귀만 뜬 채 남는다.
   텍스처 없는 메쉬도 평탄화해야 한다(건너뛰면 같은 흰색이 회색으로 보인다).
-- **검사**: `checks/sim-mat-tone.js` — 모듈 모양 · 연결 · 깨 보기 + 가짜 재질로 입력 → 결과(맵 · emissiveMap 동기화 · 귀 감김/뜸 · 같은 그림이면 안 감 · 빠진 재질 건너뛰기 · 평탄화 배율 · 텍스처 없는 메쉬 · 색 없는 재질 · FLAT_EMISSIVE 0).
+- **검사**: `checks/sim-mat-tone.js` — 코어 빌드 사본으로 만든 진짜 톤으로 돈다 · 모듈 모양 · 연결 · 깨 보기 + 가짜 재질로 입력 → 결과(맵 · emissiveMap 동기화 · 귀 감김/뜸 · 같은 그림이면 안 감 · 빠진 재질 건너뛰기 · 평탄화 배율 · 텍스처 없는 메쉬 · 색 없는 재질 · FLAT_EMISSIVE 0).
 
 
 ## catalog-source.js — 🔌 카탈로그 데이터 provider(서버 이관)
@@ -427,3 +427,30 @@
 - **만드는 법**: `TwRigAnim.createRigAnim({ … 6개 })` — 모두 값(`ANIMAL_HAND_REST` · `camera` · `iDeskMod` · `rideTuneMod` · `seatPointerMod` · `userStatusMod`). 원래 자리에서 만든다.
 - **내보내는 것**: 상수 · 함수 열둘을 같은 이름 const 로 받는다(`lerp` 포함 — 다른 구역이 쓴다).
 - **함정**: 부호(`SPINE_AXIS` 등)와 각도 상수는 움직임 방향을 정한다 — 숫자를 바꾸면 자세가 뒤집힌다. 검사: `checks/sim-rig-anim.js`.
+
+## cloth-visibility.js — 👕 옷 겹침
+
+- **책임**: `_unequipClothCat`(옷 카테고리 충돌 정리 — def 는 안 건드림) · `applyClothVisibility`(착용 파츠의 `hides` 로 기본 상 · 하의 · 모자 · 안경 · 날개 · 손 메시를 보이거나 숨김). 앱 FSD 분리 T4 — app.js 글을 그대로 옮겼다(0.13 app.js 의 같은 글).
+- **만드는 법**: `TwClothVisibility.createClothVisibility({ decoPartsMod, premiumMod, rideBenchMod, unequipPartFromSeat })` — 값 3 · 함수 1. app.js 가 원래 자리(파츠 붙이기 · 떼기 바로 앞)에서 만들고 두 이름을 const 로 받는다.
+- **함정**
+  - 자리비움 중(`mesh.userData._prevVisible` 있음)에는 `visible` 을 직접 쓰지 않고 `_prevVisible` 에 적는다 — `setSeatOpacity`(`room/seat-opacity.js`)와 같은 한 표식이다.
+  - 끝의 `rideBenchMod._remeasureRideHeadTop(seat)` 가 «기본 메시 가시성이 확정된 순간» 의 머리 꼭대기 재측정이다 — `unequipPartFromSeat` 안으로 옮기지 말 것(그 함수가 끝난 뒤에 이 함수가 가시성을 되돌린다).
+  - 검사: `checks/sim-cloth-visibility.js`.
+
+## base-body.js — 🧍 기본 몸 모델 공급 · 복제 · 크기
+
+- **책임**: 사람 몸(기본 GLB) 읽기 · 복제 · 크기는 캐릭터 코어(`createBody`)가 하고, 이 모듈은 코어 몸 만들기 · 몸 모델 자산(`window.BASE_GLB_B64`) 공급(`loadBaseGLB`) · 복제 뒤 같은 뼈대 하나로(`instantiateBase`) · 커미션 GLB 파싱 캐시(`getCommissionScene`) · 얼굴 텍스처(`mkFaceTex`) · 크기(`normalizeModel`). 앱 FSD 분리 T2 — 0.13 app.js 글 그대로(옛 `measureBaseGeometry` · `calcMeshBox` · `BASE_MESH_*` 는 선언만 있고 안 읽혀 코어로 걷음).
+- **만드는 법**: `TwBaseBody.createBaseBody({ loader, skelShare, _fixGlbMatLighting, setFaceMap, applyLightPreset, assetCodeMod })` — 값 2 · 함수 3 · 읽는 함수 1(`assetCodeMod`). app.js 가 원래 자리에서 만들고 아홉 이름을 const 로 받는다. 몸 장면 · 애니메이션은 `bodyCore.baseScene()` · `baseAnims()`.
+- **함정**: #830 줄(`skelShare.shareSkeletons`)이 `instantiateBase` 안에 있다 — 지우면 몸 복제마다 Skeleton 이 따로 생긴다(`sim-skeleton-share`). 몸 모델이 아직 안 읽혔으면 `baseScene()` 은 없음 — 부르는 쪽(`_baseHeadTopAboveBone` 등)이 그 값을 본다. 검사: `checks/sim-base-body.js`.
+
+## part-xf.js — 🎀 파츠 저작 오프셋 · xf 적용
+
+- **책임**: 파츠를 캐릭터 본에 붙일 때의 저작 오프셋(`_computePartAuthorOffset` — 바인드 자세 역행렬 `_charBoneBindInverses` 로 환산) · 머리 계열 파츠 실측 진단(`_diagPartHeadSpace`) · 동물 머리 파츠 세로 보정(`_computeAnimalHeadDy` · `_headTopAboveBone` · `_baseHeadTopAboveBone`) · 옛 보정 판별(`_isLegacyAuthorCompensation`) · wrapper 에 xf 적용(`_applyXfToWrapper` · `applyPartXf` — 본체 · 다중 파츠 extras · stackable · 책상 위 파츠 바닥 맞춤). 앱 FSD 분리 T5 — 0.13 app.js 글 그대로. 계산 본문은 코어 `createParts`(`packages/char-core/src/parts.ts`).
+- **만드는 법**: `TwPartXf.createPartXf({ partsCore, PART_DEFAULT_OFFSET, premiumMod, partPaintMod, lightToneMod, bodyMeasureMod, charMeasureMod, instantiateBase })` — 값 7 · 함수 1. 코어 파츠(`partsCore = TwCharCore.createParts({…})`)는 app.js 가 모듈보다 먼저 만들어 넘긴다(`part-equip.js` 도 받는다). app.js 는 밖에서 부르는 여섯 이름을 const 로 받는다.
+- **함정**: `_computePartAuthorOffset` 의 `bb` 는 `equipPartOnSeat`(`part-equip.js`)가 피봇용으로 만든 것과 «같은» 박스여야 한다 — 한쪽만 고치면 피봇과 실제 위치가 어긋난다. 검사: `checks/sim-part-xf.js`.
+
+## part-equip.js — 🎀 파츠 붙이기 · 떼기 · def 대조
+
+- **책임**: 꾸미기 파츠를 좌석 본에 붙이는 일의 좌석 몫 — `equipPartOnSeat`(옷 겹침 정리 · GLB 받기 · 리깅 판정 · 장착 차례 · 귀 까닥임 · 애니메이션 · 진단) · 떼기(`unequipPartFromSeat` · `unequipStackablePart` · 비동기 장착 무효화 `_invalidatePendingEquip` · 유령 wrapper 청소 `_sweepOrphanPartWrappers` · 다시 맞추기 요청) · 좌석과 def 대조(`pruneSeatPartsAgainstDef`) · 저장된 파츠 한꺼번에 입히기(`applyEquippedPartsToSeat`) · 본 찾기(`extractBonesInto`). 앱 FSD 분리 T6 — 0.13 app.js 글 그대로(복제 · 재질 · _col · _pic · 리깅 다시 묶기 · wrapper 는 코어 `createParts` 호출).
+- **만드는 법**: `TwPartEquip.createPartEquip({ … })` — 21개(값 5 · 옛 이름으로 받은 part-xf · cloth-visibility · part-anim 함수 · 함수 2 · 읽는 함수 `partSceneMod`). app.js 가 `part-xf.js` 와 옷 겹침 뒤에서 만들고 밖에서 부르는 아홉 이름을 const 로 받는다.
+- **함정**: 해제는 먼저 `_invalidatePendingEquip` 으로 번호를 올려야 늦게 도착한 장착이 스스로 멈춘다(유령 파츠 방어). `pruneSeatPartsAgainstDef` 의 파츠 정보 조회 실패는 «없음» 이 아니라 «유지» 다(착용 파츠 증발 사고). `skelShare.shareSkeletons` 두 줄(#830 — 본체 · 다중 파츠 사본)을 지우지 말 것(`sim-skeleton-share`). 검사: `checks/sim-part-equip-mod.js`.

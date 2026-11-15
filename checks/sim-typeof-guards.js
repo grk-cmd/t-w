@@ -37,7 +37,6 @@ const EXEMPT = {
   _inviteGatePass: { why: '초대 게이트 창을 열 때만 걸린다' },
   __anpSetEarSide: { why: '동물 미리보기 창을 열 때만 걸린다' },
   __anpGoTab: { why: '동물 미리보기 창을 열 때만 걸린다' },
-  closeWardrobe: { files: ['app.js'], why: '옷장을 열기 전엔 없다 — app.js 의 생성기 열기 두 곳' },
   CreatorFlatView: { why: '생성기 평면 보기 모듈 — 없으면 null 로 두고 그 기능만 끈다' },
   DeskItemOrigin: { why: '책상 아이템 원점 모듈 — 없으면 null' },
   SeatSlot: { why: '좌석 칸 모듈 — 없으면 null' },
@@ -125,9 +124,9 @@ say('── 3. 가짜 입력으로 깨 보기');
   chk(compare(judge([['a.js', "if(typeof window.foo==='function') window.foo();\n"]]).counts, { 'a.js': 2 }).down.length === 1, '줄면 기준선을 내리라고 빨강');
   const env = judge([['d.js', "if(typeof window !== 'undefined' && typeof module !== 'undefined' && typeof require === 'function'){}\n/* typeof hid==='function' */\n"]]);
   chk(!env.total, '환경 검사(window · module · require)와 주석 안은 안 센다');
-  const ex = judge([['app.js', "if(typeof window.buildAnimalBase==='function'){}\nif(typeof window.closeWardrobe==='function'){}\nif(typeof HumanEar === 'undefined'){}\n"], ['x.js', "if(typeof window.closeWardrobe==='function'){}\n"]]);
-  chk(!ex.counts['app.js'] && ex.exempt.buildAnimalBase === 1 && ex.exempt.HumanEar === 1, '예외 이름은 안 센다');
-  chk(ex.counts['x.js'] === 1, '파일이 정해진 예외(closeWardrobe → app.js)는 다른 파일에선 센다');
+  const ex = judge([['app.js', "if(typeof window.buildAnimalBase==='function'){}\nif(typeof cb==='function'){}\nif(typeof HumanEar === 'undefined'){}\n"], ['character/catalog-source.js', "if(typeof cb==='function'){}\n"]]);
+  chk(ex.counts['app.js'] === 1 && ex.exempt.buildAnimalBase === 1 && ex.exempt.HumanEar === 1 && !ex.counts['character/catalog-source.js'], '예외 이름은 안 센다(파일이 정해진 예외 cb 는 그 파일에서만)');
+  chk(ex.counts['app.js'] === 1, '파일이 정해진 예외(cb → catalog-source.js)는 다른 파일(app.js)에선 센다');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

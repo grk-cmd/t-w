@@ -14,7 +14,7 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f, f.split('/').pop()]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const MOD = read('creator/creator-xform.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html');
+const MOD = read('creator/creator-xform.js'), APP = read('app.js') + '\n' + (['creator/creator-canvas.js','creator/creator-open.js','launcher/window-mode.js'].map(f => read(f) || read(f.split('/').pop()) || '').join('\n')), HTML = read('desk-companion-prototype.html');
 if (!MOD || !APP || !HTML) { say('  ? 원본 못 찾음 — creator-xform.js · app.js · desk-companion-prototype.html'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 

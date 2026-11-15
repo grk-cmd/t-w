@@ -1,6 +1,6 @@
 /* ═══ 💡 sim-creator-flat-view.js — 표정 그리기 «원색 보기» (2026-10-09 신설 · 시안 A) ═══════════════════
    제보: 표정에 흰색 같은 밝은 색을 칠하면 조명 때문에 칠했는지 알기 어렵다.
-   ・1절: flatAmbient — 앰비언트 + FLAT_EMISSIVE = 1 (app.js 의 조명 예산 상수로 직접 계산)
+   ・1절: flatAmbient — 앰비언트 + FLAT_EMISSIVE = 1 (캐릭터 코어 빌드 사본의 조명 예산으로 계산)
    ・2절: 버튼 상태 — 켬/끔 · aria-pressed · 글 표시 · 그리기 단계 밖이면 숨기고 끔
    ・3절: app.js 배선 — 방향광 0 · 흰빛 앰비언트 · 단계 · 열 때 끔 · L 키 · 모듈 없어도 켜짐
    ・4절: html — 버튼 · 표시 · 단축키 안내 · 스크립트 순서
@@ -23,18 +23,17 @@ SRC['app.js'] = _joinRenderer(SRC['app.js']);
 const win = {};
 new Function('window', 'module', SRC['creator-flat-view.js'])(win, undefined);
 const M = win.CreatorFlatView;
-const APP = SRC['app.js'],   // 위에서 되살린 글 — 조명 예산 상수(shared/light-tone.js · C 구역 떼기 w4)도 함께 펼쳐진다
+const APP = SRC['app.js'],   // 위에서 되살린 글
       HTML = SRC['desk-companion-prototype.html'], ANI = SRC['animal.js'];
 /* 절마다 따로 — 옛 코드(모듈 없음)에 대면 멈추지 않고 그 절을 빨강 하나로 센다 */
 const sec = (title, fn) => { say(title); try{ fn(); }catch(e){ chk(false, '이 절을 못 돌았다 — ' + e.message); } };
 
 sec('── 1. flatAmbient', () => {
-  const num = (re) => { const m = APP.match(re); return m ? Function('return (' + m[1] + ');')() : NaN; };
-  const MAIN = num(/const _MAIN_LIGHT_INT = ([0-9.\s*]+);/);
-  const FILL = num(/const _FILL_LIGHT_MUL = ([0-9.]+);/);
-  const TOTAL = num(/const TONE_FRONT_TOTAL = ([0-9.]+);/);
-  const FE = Math.max(0, TOTAL - 0.95 * MAIN - MAIN * FILL);
-  chk(FE > 0 && FE < 1, `준비 — app.js 조명 예산에서 FLAT_EMISSIVE = ${FE.toFixed(4)}`);
+  /* 조명 예산은 캐릭터 코어(lighting.ts) — 앱이 싣는 빌드 사본으로 계산한다 */
+  const coreSrc = ['vendor/char-core/char-core.iife.js', 'app/vendor/char-core/char-core.iife.js'].map(read).find(Boolean);
+  const core = new Function(coreSrc + '\nreturn TwCharCore;')();
+  const FE = core.flatEmissive(core.MAIN_LIGHT_INT, core.FILL_LIGHT_MUL, core.TONE_FRONT_TOTAL);
+  chk(FE > 0 && FE < 1 && FE === core.FLAT_EMISSIVE, `준비 — 코어 조명 예산에서 FLAT_EMISSIVE = ${FE.toFixed(4)}`);
   chk(Math.abs(M.flatAmbient(FE) + FE - 1) < 1e-9, '앰비언트 + emissive = 1 — 칠한 텍스처 값이 그대로 나온다');
   chk(M.flatAmbient(1.4) === 0 && M.flatAmbient(NaN) === 1 && M.flatAmbient(0) === 1, 'emissive 가 1 을 넘거나 망가진 값이어도 음수 · NaN 을 내지 않는다');
 });
@@ -78,7 +77,7 @@ sec('── 3. app.js 배선', () => {
   chk(/const crFlatView = \(typeof CreatorFlatView === 'undefined'\) \? null : CreatorFlatView\.createCreatorFlatView\(/.test(A), '모듈이 없어도 생성기는 켜진다');
   chk(/onChange: \(\)=>updateCreatorLights\(\)/.test(A) && /getElementById\('cpFlat'\)\.addEventListener\('click', \(\)=>crFlatView\.toggle\(\)\)/.test(A), '버튼을 누르면 켬/끔 → 조명을 다시 맞춘다');
   chk(/if\(crFlatView\) crFlatView\.show\(draw\);/.test(grab('gotoStep')), '단계가 바뀌면 그리기 단계(2 · 3)에서만 보인다');
-  chk(/creatorOpen=true;\s*if\(crFlatView\) crFlatView\.set\(false\);/.test(A), '생성기를 열 때마다 꺼진 채로 시작');
+  chk(/creatorOpen\s*=\s*true;\s*if\(crFlatView\) crFlatView\.set\(false\);/.test(A), '생성기를 열 때마다 꺼진 채로 시작');
   chk(/hotkeyLetter\(e\)==='l' && isDrawStep\(\) && crFlatView && !e\.ctrlKey && !e\.metaKey && !e\.altKey/.test(A) && /crFlatView\.toggle\(\);/.test(A), 'L 키 — 그리기 단계에서만 · 조합키 · 글 입력 중엔 무시');
   chk(!/LIGHT_PRESET\.\w+\s*=|TONE_FRONT_TOTAL\s*=[^=]*crFlat/.test(A), '실행 화면 조명 상수는 건드리지 않는다');
 });

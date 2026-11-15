@@ -318,8 +318,8 @@ await sec('── 7. app.js 배선', () => {
   chk(!/function _chal\w+\(|\blet chalRec\b|const CHAL_PHASE\b|function syncChalToServer\(/.test(code), '달성표 정의는 app.js 에 없다(모듈에만)');
   chk(/function _chalTick\(/.test(MOD) && /function syncChalToServer\(/.test(MOD) && /window\.TwWeeklyChallenge = api/.test(MOD), '모듈이 정의 · window.TwWeeklyChallenge');
   chk((code.match(/TwWeeklyChallenge\.createWeeklyChallenge\(/g) || []).length === 1, 'createWeeklyChallenge 는 한 곳');
-  const iMk = code.indexOf('TwWeeklyChallenge.createWeeklyChallenge('), iAct = code.indexOf('function _applyActiveAppState('), iPomo = APP.indexOf('TwPomodoro.createPomodoro(');   // 🍅 뽀모도로는 pomodoro.js 로(앱 FSD 6번) — 그 자리의 연결 줄
-  chk(iAct > 0 && iMk > iAct && strip(APP.slice(0, iPomo)).length >= iMk, '원래 자리 — 활성 앱 판정 뒤 · 🍅 뽀모도로 앞');
+  const iMk = code.indexOf('TwWeeklyChallenge.createWeeklyChallenge('), iAct = APP.indexOf('👑 달성표 · 🍅 뽀모도로 모듈 연결') >= 0 ? code.indexOf('const CHAL_KEY') : -1, iPomo = APP.indexOf('TwPomodoro.createPomodoro(');   // 🍅 뽀모도로는 pomodoro.js 로(앱 FSD 6번) — 그 자리의 연결 줄
+  chk(iAct > 0 && iMk > iAct && strip(APP.slice(0, iPomo)).length >= iMk, '원래 자리 — 달성표 구역(CHAL_KEY) 뒤 · 🍅 뽀모도로 앞(활성 앱 판정은 window-mode.js 로 옮겨 이 뒤로 내려갔다)');
   chk(/const CHAL_KEY = 'tw\.chal';/.test(APP) && !/'tw\.chal'/.test(strip(MOD)) && /storageKey: CHAL_KEY/.test(APP), 'CHAL_KEY 는 app.js(계정 전환 지움 목록) — 모듈은 deps 로');
   chk(/weeklyChal\.syncChalToServer\('launcher'\)/.test(code) && /call\(weeklyChal\.syncChalToServer, 'logout'\)/.test(code) && /weeklyChal\.resetMemory\(\)/.test(code)
     && /!pcNotFocusing\) weeklyChal\.focusTick\(state, dt\)/.test(code) && /weeklyChal\.setKeyPlatform\(/.test(code) && /weeklyChal\.open\(false\)/.test(strip(POMO)) && /weeklyChal: weeklyChal,/.test(code),

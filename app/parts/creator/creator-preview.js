@@ -17,6 +17,7 @@ const ANIMAL_HAND_REST = deps.ANIMAL_HAND_REST;
 const BASE_SCENE = deps.BASE_SCENE;   // 읽는 함수
 const CHAR_Z = deps.CHAR_Z;
 const COMMISSION_SCALE_CORRECTION = deps.COMMISSION_SCALE_CORRECTION;
+const CREATOR_LIGHT_SL = deps.CREATOR_LIGHT_SL;   // 생성기 빛 채도 · 명도(코어 — 웹 생성기와 같다)
 const FLAT_EMISSIVE = deps.FLAT_EMISSIVE;
 const FOCUS_ARM_LIFT = deps.FOCUS_ARM_LIFT;   // 읽는 함수
 const HAND_REST = deps.HAND_REST;   // 읽는 함수
@@ -105,7 +106,7 @@ function updateCreatorLights(){ if(!cAmb()||!cKey())return;
   const li=runLightInts({ int: b*e });   // 세기 예산 = 밝기(strength) × 노출(조명 페이드) — 몫은 실행 화면과 같다(shared/light-tone.js)
   cAmb().intensity=li.amb; cKey().intensity=li.key;
   if(cFill()) cFill().intensity=li.front;
-  const col=new THREE.Color().setHSL(h,0.45,0.85);           // 색상(color)
+  const col=new THREE.Color().setHSL(h,CREATOR_LIGHT_SL.s,CREATOR_LIGHT_SL.l);   // 색상(color)
   cKey().color.copy(col); cAmb().color.copy(col); if(cFill()) cFill().color.copy(col);
   /* 💡 원색 보기 — 방향광을 끄고 흰빛 앰비언트 + emissive 합을 1 로. 칠한 색이 그대로 보인다(creator-flat-view.js). */
   if(crFlatView && crFlatView.isOn()){
@@ -157,8 +158,11 @@ function applyStaticHandRest(root, isAnimal, typing) {
   if (handR) handR.quaternion.multiply(_bq);
 }
 function ensureCreatorPreview(){
-  if(cRenderer())return;
-  setCRenderer(new THREE.WebGLRenderer({canvas:document.getElementById('creatorPreview'),antialias:true,alpha:true,preserveDrawingBuffer:true}));
+  if(cRenderer())return true;
+  const cvEl=document.getElementById('creatorPreview');
+  const r=TwGlContext.make(cvEl,{canvas:cvEl,antialias:true,alpha:true,preserveDrawingBuffer:true},'preview',{ label:'생성기' });
+  if(!r) return false;
+  setCRenderer(r);
   cRenderer().setPixelRatio(Math.min(devicePixelRatio,2));cRenderer().outputEncoding=THREE.sRGBEncoding;cRenderer().toneMapping=THREE.NoToneMapping;cRenderer().setSize(222,300,false);
   setCScene(new THREE.Scene());
   /* ★ 실행 화면과 같은 빛 한 벌(앰비언트 · 정수리 키 · 정면 필). 정면 필이 없으면 옷 앞면이 앰비언트만 받아
@@ -206,6 +210,7 @@ const cFloorGeo = new THREE.BoxGeometry(1, 1, 1);
   updateCreatorCam();
   updateCreatorLights();   // 미리보기가 열리는 순간 emissive 톤 즉시 반영(1~3단계에서도 적용)
   bindPaint();
+  return true;
 }
 function creatorLoop(){if(!creatorOpen())return;cRenderer().render(cScene(),cCam());requestAnimationFrame(creatorLoop);}
 const RIG_TURN=-0.28;   // 앱 좌석이 매 프레임 적용하는 기본 바라보는 각도 (미리보기도 동일하게)

@@ -294,7 +294,8 @@ g.scrollTo = () => {}; g.getSelection = () => ({ toString: () => '', removeAllRa
   if (!htmlPath) return;
   const html = fs.readFileSync(htmlPath, 'utf8').replace(/<!--[\s\S]*?-->/g, '');
   /* app.js **보다 먼저** 실리는 파일만 — 진짜 앱에서도 app.js 를 싣는 순간 뒤 파일의 이름은 아직 없다 */
-  const all = [...html.matchAll(/<script\b([^>]*)\bsrc="parts\/([^"]+\.js)"/g)].filter(m => !/type="module"/.test(m[1])).map(m => m[2]);
+  /* vendor/char-core/ 는 우리 코어 빌드 사본이라 같이 싣는다(three 같은 바깥 라이브러리는 스텁이 맡는다) */
+  const all = [...html.matchAll(/<script\b([^>]*)\bsrc="(?:parts\/([^"]+\.js)|(vendor\/char-core\/[^"]+\.js))"/g)].filter(m => !/type="module"/.test(m[1])).map(m => m[2] || m[3]);
   const iApp = all.findIndex(s => /(^|\/)app\.js$/.test(s));
   const srcs = all.slice(0, iApp < 0 ? 0 : iApp);
   /* app.js 가 아직 «typeof 이름 === 'undefined' 면 빈 껍데기» 로 받는 모듈은 싣지 않는다 — 실으면 검사마다 따로 다루던 그 갈래가 바뀐다 */
@@ -687,6 +688,7 @@ PRELOAD.push('desk-place.js');
 /* body-measure.js — 캐릭터 몸 박스 재기 한 규칙. app.js 가 맨 앞(SETUP)에서 createBodyMeasure 로 만든다. */
 PRELOAD.push('body-measure.js');
 /* stage.js — 🎬 3D 무대 한 벌(렌더러 · 씬 · 카메라 · 바닥 · GLTF 로더). app.js 가 맨 앞(SETUP)에서 createStage 로 만든다 — 가짜 THREE 로 같이 굴린다. */
+PRELOAD.push('gl-context.js');
 PRELOAD.push('stage.js');
 /* glow.js — ✨ 빛나는 스프라이트 · 재질 발광. app.js 가 SETUP 에서 createGlow 로 만든다. */
 PRELOAD.push('glow.js');
@@ -723,6 +725,30 @@ PRELOAD.push('ls-set.js');
 PRELOAD.push('rig-anim.js');
 /* frame-pace.js — 🔋 프레임 상한 · rAF 멈춤 감시. app.js 가 원래 자리에서 createFramePace 로 만든다. */
 PRELOAD.push('frame-pace.js');
+/* window-mode.js — 🪟 창 모드 정하기 · 활성 앱 판정. app.js 가 원래 자리에서 createWindowMode 로 만든다. */
+PRELOAD.push('window-mode.js');
+/* creator-open.js — 🧍 생성기 여는 입구 · 런처 다시 그리기. app.js 가 원래 자리에서 createCreatorOpen 로 만든다. */
+PRELOAD.push('creator-open.js');
+/* creator-canvas.js — 🎨 생성기 그림판. app.js 가 원래 자리에서 createCreatorCanvas 로 만든다. */
+PRELOAD.push('creator-canvas.js');
+/* frame-loop.js — 🎞 프레임 한 장(frame). app.js 가 원래 자리에서 createFrameLoop 로 만든다. */
+PRELOAD.push('frame-loop.js');
+/* flying-chair.js — 🪑 플라잉체어 — canFly · startFlight. app.js 가 원래 자리에서 createFlyingChair 로 만든다. */
+PRELOAD.push('flying-chair.js');
+/* myhome-sticker-render.js — 🎨 마이홈 스티커 그리기. app.js 가 원래 자리에서 createMyHomeStickerRender 로 만든다. */
+PRELOAD.push('myhome-sticker-render.js');
+/* move-mode.js — ✥ 프로그램 이동 모드 · 캐릭터 화면 좌표. app.js 가 원래 자리에서 createMoveMode 로 만든다. */
+PRELOAD.push('move-mode.js');
+/* cloth-visibility.js — 👕 옷 겹침 · 기본 메시 보이기. app.js 가 원래 자리에서 createClothVisibility 로 만든다. */
+PRELOAD.push('cloth-visibility.js');
+/* hue-tint.js — 🎨 색조 셰이더 이름 잇기. app.js 가 원래 자리에서 createHueTint 로 만든다. */
+PRELOAD.push('hue-tint.js');
+/* base-body.js — 🧍 기본 몸 모델 공급 · 복제 · 크기. app.js 가 원래 자리에서 createBaseBody 로 만든다. */
+PRELOAD.push('base-body.js');
+/* part-xf.js — 🎀 파츠 저작 오프셋 · xf 적용. app.js 가 원래 자리에서 createPartXf 로 만든다. */
+PRELOAD.push('part-xf.js');
+/* part-equip.js — 🎀 파츠 붙이기 · 떼기 · def 대조. app.js 가 원래 자리에서 createPartEquip 로 만든다. */
+PRELOAD.push('part-equip.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

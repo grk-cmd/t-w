@@ -155,3 +155,24 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - **만드는 법**: `TwFramePace.createFramePace({ … 8개 })` — 읽는 함수 2(`_flyActive` · `creatorOpen`) · 함수 1(`frame`) · 쓰는 함수 1(`setRunLowered`) · 값 4. 원래 자리에서 만든다 — 타이머 · 듣기가 이때 걸린다.
 - **내보내는 것**: `_FB` · `_frameBudget` · `_runSlowWatch` · `_gpuTimer` · `_frameJsStats` · `_lowerRunQuality` · `_uiHot` · `_frameCap` · `_frameCapped` · `_lastRafAt`(읽는 함수) · `setLastRafAt`.
 - **함정**: `mousemove` 는 «손댐» 으로 세지 않는다(클릭 통과 중에도 들어와 30 ↔ 60 이 오르내림). `frame()`(app.js)이 rAF 가 실제로 온 시각을 `setLastRafAt` 으로 알린다. 검사: `checks/sim-frame-pace.js`.
+
+## frame-loop.js — 🎞 프레임 한 장
+
+- **책임**: `frame(now, manual)`(rAF 콜백)과 `prev` — rAF 시각 알림 · 프레임 상한 건너뜀 · dt · 좌석마다(상태 판정 → 자세 → 올라타기 · 벤치 · 자리비움 → 라벨 · 경험치 바 · 이름표 · 말풍선) · 3D 그리기 · 히트 맵 표시 · 상태칩 위치 · 비용 재기.
+- **만드는 법**: `TwFrameLoop.createFrameLoop({ … 50개 })` — 읽는 함수 여섯(`_renderQuality` · `awayPicMod` · `desktopMode` · `expBarMod` · `focusLevelMod` · `officeModeMod`) · 나머지는 값. 원래 자리에서 만든다 — 만들기만 하고 부르지 않는다.
+- **내보내는 것**: `frame` — app.js 는 같은 이름 const 로 받는다. 첫 `requestAnimationFrame(frame)` 은 app.js INIT, 타이머 대행은 `frame-pace.js`.
+- **함정**: 좌석 한 명 몫(`seat-frame`)을 따로 떼는 일은 글 그대로 옮기기로는 안 된다(`continue` → `return` 등) — R5 로 남김. 이름표는 경험치 바 뒤 · 말풍선은 이름표 뒤 순서를 바꾸지 말 것. 검사: `checks/sim-frame-loop.js`.
+
+## move-mode.js — ✥ 프로그램 이동 모드 · 🩺 캐릭터 화면 좌표
+
+- **책임**: `moveMode` · `_moveModeJustToggled` · `_suppressNextContextMenu` 깃발 · `bindMoveMode`(mousemove 로 카메라 pan 이동 · pointerdown(capture)으로 확정 · 위치 저장) · `_charBoundsLatest` · `_charBadWhy` · `_charProjSane` · `_twMoveSeenAt`(하트비트로 main 에 보냄).
+- **만드는 법**: `TwMoveMode.createMoveMode({ … 6개 })` — 값 넷 · 함수 둘(`layoutSeats` · `toast`). 원래 자리에서 만든다 — 듣기가 이때 걸린다.
+- **내보내는 것**: `_charProjSane`(함수) · 값 여섯은 읽는 함수 `이름()` + 쓰는 함수 `set이름(v)`.
+- **함정**: 확정 pointerdown 은 capture 로 클릭 통과 로직보다 먼저 잡는다. 검사: `checks/sim-move-mode.js`.
+
+## window-mode.js — 🪟 창 모드 정하기 · 활성 앱 판정
+
+- **책임**: `_applyActiveAppState`(포커싱 어플 폴링 결과로 누적 시간 · 게이트 · 달성표 · 자기 창 · 펜 앱을 갱신) · `myHomeOpen`(마이홈이 런처에서 열려 있는가) · `applyDesktopRunClass`(화면을 보고 `runmode` · `config` 클래스 · 바닥 · 그림자를 정하고 main 에 창 모드 creator · myhome · launcher · run 을 보낸다). 판단은 옛 그대로(F2 의 바탕).
+- **만드는 법**: `TwWindowMode.createWindowMode({ … 12개 })` — 읽는 함수 하나(`creatorOpen`) · 쓰는 함수 하나(`setFocusGateSleep`) · 값 열. 원래 자리(데스크탑 실행 화면 구역 머리 앞)에서 만든다.
+- **내보내는 것**: `_applyActiveAppState` · `applyDesktopRunClass`(app.js 가 같은 이름 const 로) · `myHomeOpen()` · `setMyHomeOpen(v)`.
+- **함정**: `applyDesktopRunClass` 는 «누군가 불러줘야» 한다 — 오버레이를 여는 새 길이 생기면 여기도 부를 것. 여는 쪽 플래그가 아니라 화면(오버레이 `.on`)을 본다. 검사: `checks/sim-window-mode.js`.

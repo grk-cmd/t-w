@@ -252,7 +252,9 @@ const WD_PREVIEW_DESK_NUDGE = {x:0, y:0, z:0};
 function ensureWdPreview(){
   if(wdRenderer) return;
   const canvas=document.getElementById('wdPreviewCanvas'); if(!canvas) return;
-  wdRenderer=new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+  const r=TwGlContext.make(canvas,{canvas, antialias:true, alpha:true},'preview',{ label:'꾸미기', retry:()=>{ refreshWdPreviewChar(); } });
+  if(!r) return;
+  wdRenderer=r;
   wdRenderer.setPixelRatio(Math.min(devicePixelRatio,2));
   wdRenderer.outputEncoding=THREE.sRGBEncoding;
   wdScene=new THREE.Scene();

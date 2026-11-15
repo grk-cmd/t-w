@@ -215,8 +215,9 @@ say('── 5. 켠 뒤 들어온 메쉬 · 텍스처 · 셰이더');
   const n3 = scene.n; D.sweepIfOn(9000);
   chk(scene.n === n3, '  끈 뒤에는 훑지 않는다');
 
-  const frameSrc = (SRC.match(/\nfunction frame\(now, manual\)\{[\s\S]*?\n\}\n/) || [''])[0];
-  chk(/\n  dotRenderMod\.sweepIfOn\(now\);/.test(frameSrc), 'app.js 프레임 루프가 dotRenderMod.sweepIfOn(now) 를 부른다');
+  const frameSrc = (read('frame-loop.js') || read('launcher/frame-loop.js') || '').match(/\nfunction frame\(now, manual\)\{[\s\S]*?\n\}\n/);
+  const fsText = frameSrc ? frameSrc[0] : '';
+  chk(/\n  dotRenderMod\.sweepIfOn\(now\);/.test(fsText), '프레임 루프(launcher/frame-loop.js)가 dotRenderMod.sweepIfOn(now) 를 부른다');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

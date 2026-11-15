@@ -63,7 +63,9 @@
 ## `light-tone.js` — 💡 재질 톤(조명 예산 · emissive) · 실행 화면 조명 한 벌
 
 **책임** — 화면 밝기의 손잡이 하나(`TONE_FRONT_TOTAL` — 카메라를 보는 흰 면이 받는 빛의 총합)에서 플랫 조명 몫(`FLAT_EMISSIVE`)을 계산하고,
-파츠 · 아이템 · 책상 재질에 같은 규칙으로 emissive 를 얹는다. 재질 톤을 정하는 곳은 여기 하나다.
+아이템 · 책상 재질에 같은 규칙으로 emissive 를 얹는다. 캐릭터 · 파츠 재질 톤(파츠 톤 · baseFlat · 얼굴 맵 · 몸 평탄 조명 · 색조)은 캐릭터 코어 `tone.ts` 이고,
+여기서 `FLAT_EMISSIVE` 로 코어 톤을 만들어 `toneCore` 로 내놓는다(앱의 다른 곳은 그것을 deps 로 받는다).
+숫자(`LIGHT_PRESET` · `CREATOR_LIGHT_SL` · `TONE_FRONT_TOTAL` · 조명 배율)와 플랫 몫 계산식 · 재질 고치기(`fixMatLighting`)는 캐릭터 코어 `lighting.ts` 한 벌 — 웹 생성기도 같은 것을 쓴다.
 실행 화면 조명(앰비언트 · 키 · 뒤쪽 냉색 바운스 · 정면 필)을 씬에 넣는 것도 여기 한 벌(`addRunLights`) — 메인 씬 · 종족 선택 · 런처 · 꾸미기 · 스티커사진 · 썸네일 · 생성기 미리보기 · 동물 생성기 · 종족 선택의 동물 카드가 모두 부른다. 세기를 슬라이더로 다시 정하는 생성기는 `runLightInts` 로 세기를 읽는다(몫 숫자를 곳마다 다시 적지 않게).
 
 **만드는 법** — app.js 💡 조명 상수 바로 뒤(메인 씬 조명이 바로 아래에서 쓴다):
@@ -73,8 +75,9 @@ const lightToneMod = TwLightTone.createLightTone({
   _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,                       // 값 — 채움광 배율(app.js 조명 상수)
   _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,                         // 값 — 키(위) 배율
   _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,                       // 값 — 빛 색(거의 백색)
-  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,                       // 값 — 주광 세기(= LIGHT_PRESET.b × e)
-  _fixGlbMatLighting: (...a)=>_fixGlbMatLighting(...a),   // 함수 — metalness 1 재질 눕히기
+  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,                       // 값 — 주광 세기(코어 MAIN_LIGHT_INT = LIGHT_PRESET.b × e)
+  _fixGlbMatLighting: (...a)=>_fixGlbMatLighting(...a),   // 함수 — metalness 1 재질 눕히기(코어 fixMatLighting + 콘솔 한 줄)
+  charCore: TwCharCore,                                   // 캐릭터 코어 — createTone 으로 toneCore 를 만든다
 });
 const LIGHT_PRESET = lightToneMod.LIGHT_PRESET;   // 옛 전역 이름(animal.js)
 ```
@@ -83,26 +86,27 @@ const LIGHT_PRESET = lightToneMod.LIGHT_PRESET;   // 옛 전역 이름(animal.js
 
 | 이름 | 뜻 |
 |---|---|
-| `LIGHT_PRESET` | 생성기 · 미리보기 조명 프리셋 `{b, h, e}` |
+| `LIGHT_PRESET` | 생성기 · 미리보기 조명 프리셋 `{b, h, e}`(코어 — 얼려 있다) |
+| `CREATOR_LIGHT_SL` | 생성기 미리보기 빛의 채도 · 명도 `{s, l}`(코어 — 색상은 `LIGHT_PRESET.h`) |
 | `TONE_FRONT_TOTAL` | 밝기 손잡이(1.0 = 텍스처 값 그대로) |
 | `FLAT_EMISSIVE` | `max(0, 총합 − 0.95×주광 − 주광×채움)` — 조명이 받고 남는 몫 |
-| `_applyPartMatTone(m)` | 파츠 재질 — map 이 있으면 emissiveMap 도 · emissive = 색 × 플랫 · `userData.baseFlat` |
+| `toneCore` | 캐릭터 코어 재질 톤(`createTone`) — matToneMod · partsCore 가 deps 로 받는다 |
+| `_applyPartMatTone(m)` | 파츠 재질 — 코어 `toneCore.applyPartMatTone`(map 이 있으면 emissiveMap 도 · emissive = 색 × 플랫 · `userData.baseFlat`) |
 | `_applyItemMatTone(m)` | 아이템 · 책상 GLB 재질 — GLB 의 emissive 를 덮어쓴다 · emissiveIntensity 는 1 로 |
 | `_setDeskMatColor(m, color)` | 책상 색 바꾸기 — baseFlat 으로 emissive 다시 계산(없으면 처음 심는다) |
 | `addRunLights(target, opt)` | 실행 화면 조명을 `target` 에 넣는다 — `opt.keyPos`(필수) · `mul`(썸네일 광량 배율, 기본 1) · `int` · `keyMul`(`runLightInts` 와 같다) · `backBounce`(뒤쪽 냉색 바운스) · `frontFill`(기본 켬). `{ amb, key, back, front }` 를 돌려준다(키 그림자는 부르는 쪽이 건다) |
 | `runLightInts(opt)` | 세 빛의 세기 `{ amb, key, front }` — `opt.int`(세기 예산, 기본 주광) · `mul`(광량 배율, 기본 1) · `keyMul`(키 배율, 기본 `_KEY_LIGHT_MUL`). `addRunLights` 도 같은 옵션을 받는다 |
 | `runLightAt1()` | 배율 1 일 때 앰비언트 + 키 세기 합 — 썸네일이 광량 배율을 계산할 때 |
-| `baseFlatOf(mat)` | 재질에 심은 플랫 배율(baseFlat), 없으면 공용 기준 `FLAT_EMISSIVE` — 색을 다시 칠하는 곳(아이템 · 꾸미기 · 생성기)은 모두 이것으로 읽는다. 0 도 심은 값 |
+| `baseFlatOf(mat)` | 코어 `toneCore.baseFlatOf` — 재질에 심은 플랫 배율(baseFlat), 없으면 공용 기준 `FLAT_EMISSIVE` — 색을 다시 칠하는 곳(아이템 · 꾸미기 · 생성기)은 모두 이것으로 읽는다. 0 도 심은 값 |
 
 ```js
 lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 색은 꼭 이 함수로(color.set 직접 금지)
 ```
 
-**확장할 때 고칠 자리** — 화면이 밝다 / 어둡다 → `TONE_FRONT_TOTAL` 하나만. 파츠만 · 아이템만 톤을 달리해야 하면 `PART_TEX_FLAT` · `ITEM_SOLID_FLAT` 줄에 숫자를.
+**확장할 때 고칠 자리** — 화면이 밝다 / 어둡다 → 코어 `packages/char-core/src/lighting.ts` 의 `TONE_FRONT_TOTAL` 하나만(코어를 빌드해 앱 사본까지 같은 커밋에). 아이템만 톤을 달리해야 하면 `ITEM_SOLID_FLAT` 줄에, 파츠만이면 코어 `packages/char-core/src/tone.ts` 의 `PART_TEX_FLAT` 줄에 숫자를.
 
 **함정**
 - «baseFlat 이 있으면 그 값, 없으면 …» 판단을 부르는 쪽에 다시 쓰지 않는다 — `baseFlatOf` 를 부른다(곳마다 쓰면 대체값이 갈라진다 · `sim-light-tone` 이 잡는다).
-- `LIGHT_PRESET.e` 를 바꾸면 app.js 위쪽 `_MAIN_LIGHT_INT`(= b × e, 숫자로 적힘)도 같이 — 한쪽만 고치면 생성기와 실행 화면 밝기가 갈라진다.
 - 1.16 을 넘기면 측면도 잘려 밝아지지 않고 계조만 사라진다.
 - 실행 화면을 닮은 새 미리보기 씬은 빛을 손으로 만들지 말고 `addRunLights` 를 deps 로 받아 부른다(손으로 적으면 예산이 바뀔 때 그 화면만 톤이 달라진다 · `sim-light-tone` 7절이 잡는다).
 - 재질 색을 바꾸는 새 코드는 `color.set` 만 하지 말고 baseFlat 으로 emissive 를 다시 계산해야 한다(책상은 `_setDeskMatColor`).
@@ -465,7 +469,18 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 이 무대는 메인 창 하나다. 미리보기 창의 3D 장치 만들기는 따로(설계 F1 `gl-context.js`).
   - 검사: `checks/sim-stage.js`(옵션 · 배율 · 바닥 · 로더 · 실패 길 · 연결 · 깨 보기) · `sim-gl-recover.js` · `sim-frame-budget.js` 5절이 이 파일 글을 읽는다.
 
+## gl-context.js — 🧯 3D 장치를 만드는 단 한 곳
+
+- **책임**: `make(canvas, opts, role, extra)` — `new THREE.WebGLRenderer` 를 부르는 유일한 자리. `'main'` 은 만들기를 `extra.guard`(메인 무대의 `glFail.guard`)에 맡겨 옛 동작(안내 뒤 멈춤) 그대로. `'preview'` 는 못 만들면 던지지 않고 `null` 을 돌려주고, 실패 번호 `E-SYS-06` 로 알리고, 그 캔버스를 감싼 칸 안에 «3D 미리보기를 불러오지 못했어요 · [다시 시도]» 를 그린다(`extra.retry` 가 있을 때만 단추). 다시 만들어 성공하면 옛 안내를 지운다.
+- **쓰는 법**: 전역 `TwGlContext.make(...)`(classic script — stage · 미리보기 모듈이 전역으로 부른다). 부르는 쪽은 맨 앞에서 `if(!r) return`. 못 만든 채로 이어도 안전한지(그 창을 여는 함수가 renderer 를 읽는 곳)를 같이 본다 — 생성기는 `ensureCreatorPreview` 가 false 를 돌려 `openCreator` 가 열지 않는다.
+- **함정**: 개발용 `app/fx-preview.html` 만 직접 만든다. 새 3D 장치는 여기를 거친다(검사 `sim-gl-context.js` 가 이 파일 밖의 `new THREE.WebGLRenderer` 를 빨강으로). 화면에 안 붙은 캔버스(파츠 썸네일)는 안내 칸이 없어 번호만 낸다. 검사: `checks/sim-gl-context.js`.
 ## ls-set.js — 💾 작은 설정 저장(`_lsSet`)
 
 - **책임**: `_lsSet(key, val)` — `setItem` 뒤 `getItem` 으로 왕복 확인 · 실패하면 콘솔 경고 + 세션당 한 번 토스트 · 성공 true / 실패 false. 설정처럼 작은 값 전용(슬롯 · 파츠 · 책상 같은 큰 값은 각자 처리).
 - **만드는 법**: `TwLsSet.createLsSet({ toast })`. **내보내는 것**: `_lsSet`(app.js 는 같은 이름 const 로 받고 deps 에서 `(...a)=>_lsSet(...a)` 로 넘긴다). 검사: `checks/sim-ls-set.js`.
+
+## hue-tint.js — 🎨 텍스처 파츠 색조 셰이더 이름 잇기
+
+- **책임**: 텍스처가 있는 파츠의 색을 «텍스처 × 색» 곱셈 대신 셰이더에서 색조(Hue)만 돌리는 일의 옛 이름 여섯(`_rgbHexToHsv` · `isHueTintMesh` · `_ensureHueUniforms` · `_hueOBC` · `applyHueTint` · `_hsvToHex`)을 캐릭터 코어(`createTone`)로 잇는다. 앱 FSD 분리 T1 — 0.13 app.js 글 그대로. 본문(셰이더 · HSV 환산)은 코어 `tone.ts` 한 곳.
+- **만드는 법**: `TwHueTint.createHueTint({ lightToneMod })` — 값 하나(`lightToneMod.toneCore` 를 읽는다). app.js 가 «색조 셰이더» 자리에서 만들고 여섯 이름을 const 로 받는다(꾸미기 · 도트 · 스티커사진이 부른다).
+- **함정**: r128 `Material.copy` 는 `onBeforeCompile` 을 복사하지 않는다 — 재질을 복제한 쪽은 `_hueOBC` 로 다시 건다. 검사: `checks/sim-hue-tint.js`.

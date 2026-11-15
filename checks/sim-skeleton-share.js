@@ -17,8 +17,8 @@ const path = require('path');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
-const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['skeleton-share.js', 'app.js', 'base-glb.js', 'animal-glb.js', 'desk-companion-prototype.html', 'smoke.js'];
+const read = (f) => { for(const c of [f, 'parts/' + f, 'app/parts/' + f, path.basename(f)]) { try{ return fs.readFileSync(c, 'utf8'); }catch(_){ } } return null; };
+const need = ['skeleton-share.js', 'character/base-body.js', 'app.js', 'base-glb.js', 'animal-glb.js', 'desk-companion-prototype.html', 'smoke.js'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const vendor = ['vendor/three', '.'].find(d => fs.existsSync(path.join(d, 'three.min.js')) && fs.existsSync(path.join(d, 'GLTFLoader.js')) && fs.existsSync(path.join(d, 'SkeletonUtils.js')));
@@ -117,10 +117,15 @@ say('── 1. sameRig 경계');
   chk(SS.skinnedMeshesOf(null).length === 0, 'skinnedMeshesOf(null) → 빈 목록');
 }
 
-say('── 2. 기본 몸 — app.js instantiateBase 그대로');
-const instSrc = grab(SRC['app.js'], 'instantiateBase');
-chk(!!instSrc, 'app.js 에서 instantiateBase 를 찾았다');
-const mkInst = (S) => new Function('THREE', 'BASE_SCENE', 'skelShare', '_fixGlbMatLighting', instSrc + '\nreturn instantiateBase;')(THREE, BASE, S, () => {});
+say('── 2. 기본 몸 — character/base-body.js instantiateBase 그대로(코어 몸 + 뼈대 하나로)');
+const instSrc = grab(SRC['character/base-body.js'], 'instantiateBase');
+chk(!!instSrc, 'base-body.js 에서 instantiateBase 를 찾았다');
+/* 복제는 진짜 코어 몸(빌드 사본)으로 — 몸 모델은 위에서 읽은 기본 GLB */
+const CORE_SRC = ['vendor/char-core/char-core.iife.js', 'app/vendor/char-core/char-core.iife.js'].map(read).find(Boolean);
+const bodyCore = new Function('THREE', CORE_SRC + '\nreturn TwCharCore;')(THREE).createBody({ THREE, gltf: new THREE.GLTFLoader(), fixMatLighting(){}, setFaceMap(){}, applyLightPreset(){} });
+const _b64 = Buffer.from(win.BASE_GLB_B64, 'base64');
+chk(await bodyCore.loadBase(_b64.buffer.slice(_b64.byteOffset, _b64.byteOffset + _b64.byteLength)), '코어 몸이 기본 GLB 를 읽었다');
+const mkInst = (S) => new Function('bodyCore', 'skelShare', instSrc + '\nreturn instantiateBase;')(bodyCore, S);
 const noShare = { shareSkeletons: () => 0, skinnedMeshesOf: SS.skinnedMeshesOf };   // 옛 동작(함께 쓰지 않음)
 const oldInst = mkInst(noShare)(), newInst = mkInst(SS)();
 chk(skinned(newInst.root).length === 4, '기본 몸 스킨 메시 4개(face · hat · lower · upper) — ' + skinned(newInst.root).map(m => m.name).join(','));

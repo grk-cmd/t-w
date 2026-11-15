@@ -228,3 +228,10 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 **함정** — Windows 는 `setBounds` 뒤 `'moved'` 가 안 온다. 창 좌상단(여백 포함)을 기억하면 같은 여백으로 다시 불릴 때(메뉴 누름) 옛 자리로 돌아간다 — 여백 없는 자리로 기억해야 `'moved'` 가 오든 안 오든 같다.
 
 검사: `checks/sim-mh-pad-pos.js` (함수 · 놓는 흐름 — `'moved'` 오는 OS · 안 오는 OS · 깨 보기).
+
+## myhome-sticker-render.js — 🎨 마이홈 스티커 그리기
+
+- **책임**: `renderMyHomeStickers` — 마이홈 탭에서만 스티커 영역을 보이고 z 순서대로 요소(이미지 · 이모지 · 움직임 · 크기 · 회전 · 링크 · 편집 핸들)를 다시 그린다. 친구 홈 구경에서는 허용된 그림 주소만.
+- **만드는 법**: `TwMyHomeStickerRender.createMyHomeStickerRender({ mhPageMod, mhStateMod, mhStLayoutMod, myHomeSticker })` — `myHomeSticker` 만 읽는 함수(뒤에서 만들어짐).
+- **내보내는 것**: `renderMyHomeStickers()`(읽는 함수 — 값이 아니라 부를 때마다 읽는다) · `setRenderMyHomeStickers(f)`.
+- **함정**: 마이홈 편집 묶음이 이 함수를 감싸 다시 대입한다 — 그래서 값으로 잡아 두면 감싸기 전 함수가 굳는다. 다시 대입을 걷는 일은 F4. 검사: `checks/sim-myhome-sticker-render.js`.

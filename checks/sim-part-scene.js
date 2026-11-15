@@ -17,6 +17,7 @@ if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-proto
 const MOD = ["part-scene.js","parts/character/part-scene.js","app/parts/character/part-scene.js"].map(read).find(Boolean);
 /* 썸네일 조명은 실행 화면 조명 한 벌(shared/light-tone.js addRunLights) — 4절은 진짜 모듈을 가짜 THREE 위에서 만들어 넘긴다 */
 const LT_SRC = ["light-tone.js","parts/shared/light-tone.js","app/parts/shared/light-tone.js"].map(read).find(Boolean);
+const CORE_SRC = ["char-core.iife.js","vendor/char-core/char-core.iife.js","app/vendor/char-core/char-core.iife.js"].map(read).find(Boolean);
 if(!MOD){ say('  ? 원본 못 찾음 — part-scene.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
@@ -141,10 +142,11 @@ say('── 4. 동작 — 파싱 캐시 · 썸네일');
     const doc = { createElement: () => ({ width: 0, height: 0 }) };
     let api;
     if(!PREMOVE){
+      const charCore = new Function(CORE_SRC + '\nreturn TwCharCore;')();
       const lw = {}; new Function('window', 'module', 'THREE', LT_SRC)(lw, undefined, Object.assign({ Color: class {} }, THREE_));
-      const lt = lw.TwLightTone.createLightTone({ _MAIN_LIGHT_COL: raw._MAIN_LIGHT_COL, _MAIN_LIGHT_INT: raw._MAIN_LIGHT_INT, _KEY_LIGHT_MUL: raw._KEY_LIGHT_MUL, _FILL_LIGHT_MUL: 0.3, _fixGlbMatLighting: () => {} });
+      const lt = lw.TwLightTone.createLightTone({ _MAIN_LIGHT_COL: raw._MAIN_LIGHT_COL, _MAIN_LIGHT_INT: raw._MAIN_LIGHT_INT, _KEY_LIGHT_MUL: raw._KEY_LIGHT_MUL, _FILL_LIGHT_MUL: 0.3, _fixGlbMatLighting: () => {}, charCore });
       const deps = Object.assign({}, raw, { isAdmin: () => raw.isAdmin, gachaMod: () => raw.gachaMod, addRunLights: lt.addRunLights, runLightAt1: lt.runLightAt1 });
-      const w = {}; new Function('window', 'module', 'THREE', 'document', MOD)(w, undefined, THREE_, doc);
+      const w = {}; new Function('window', 'module', 'THREE', 'document', 'TwGlContext', MOD)(w, undefined, THREE_, doc, { make: (cv, o) => new THREE_.WebGLRenderer(o) });
       api = w.TwPartScene.createPartScene(deps);
       w.firebaseAPI = win.firebaseAPI;
       /* 모듈은 window 전역에 콘솔 함수를 건다 — 같은 window 를 다시 쓴다 */
