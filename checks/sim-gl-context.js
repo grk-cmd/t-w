@@ -85,8 +85,15 @@ say('§3 연결');
     chk(!!t && n >= 1 && /'preview'/.test(t) && (t.match(/if\(!r\) ?return(?: false)?;/g) || []).length >= n, f + ' — preview 로 만들고 못 만들면 돌아간다(' + n + '곳)');
   }
   chk((read('shared/stage.js') || '').includes("TwGlContext.make(canvas,{canvas,antialias:_renderAA,alpha:true,premultipliedAlpha:false,logarithmicDepthBuffer:true},'main',{ guard: glFail.guard })"), 'stage.js — 메인은 main 역할 + glFail.guard 로(옛 동작 그대로)');
-  const AN = read('character/animal.js'), iMk = AN.indexOf("'동물 생성기'"), iOpen = AN.indexOf('creatorOpen = true;', AN.indexOf('function openPreview'));
-  chk(iMk > 0 && iOpen > iMk && /if\(!openPreview\(\)\) return;/.test(AN), '동물 생성기 — 3D 를 창 · 런처 · 창 크기를 바꾸기 전에 만들고, 못 만들면 false 로 돌아가 부르는 쪽도 멈춘다');
+  const AN = read('character/animal.js');
+  const oStart = AN.indexOf('function openPreview(){'), oEnd = AN.indexOf('\nfunction ', oStart + 10);
+  const OB = AN.slice(oStart, oEnd), iRet = OB.indexOf('if(!r) return false;');
+  const MUT = ['_syncAnimalStages();', 'creatorOpen = true;', "classList.remove('on')", "setConfigMode(true, 'animal')", "classList.add('animal-creator')", "addEventListener('keydown', onPanKey)", "overlay.style.display='flex'", 'requestAnimationFrame(tick)', 'tick();'];
+  const early = MUT.filter(m => OB.indexOf(m) >= 0 && OB.indexOf(m) < iRet);
+  chk(oStart > 0 && iRet > 0 && OB.indexOf("TwGlContext.make(cv,") > 0 && OB.indexOf("TwGlContext.make(cv,") < iRet && !early.length && /if\(!openPreview\(\)\) return;/.test(AN), '동물 생성기 — 3D 를 못 만들면 false 로 돌아가는 줄(if(!r) return false)이 창 · 런처 · 창 크기 · 키 · 그리기를 바꾸는 줄보다 앞에 있다' + (early.length ? ' — 앞서 바꿈: ' + early.join(' · ') : ''));
+  const OB2 = OB.replace('if(!r) return false;', 'if(!r) { /* moved */ }').replace('overlay.style.display=\'flex\';', 'if(!renderer) return false; overlay.style.display=\'flex\';');
+  const early2 = MUT.filter(m => OB2.indexOf(m) >= 0 && OB2.indexOf(m) < OB2.indexOf('if(!renderer) return false;'));
+  chk(early2.length > 0, '  깨 보기: 가드를 창 바꾸기 뒤로 옮기면 빨강(앞서 바꾼 줄이 잡힌다)');
   const PU = read('purikura/purikura-ui.js');
   chk(!/retry:\(\)=>\{ _pkBuildStage/.test(PU), '스티커사진 — 루프를 못 거는 [다시 시도] 는 두지 않는다(무대 없는 방장의 촬영은 사용자 결정 대기 — PR 본문)');
   chk(read('app.js').includes('if(!creatorPrevMod.ensureCreatorPreview()) return;'), 'app.js openCreator — 3D 를 못 만들면 열지 않는다');
