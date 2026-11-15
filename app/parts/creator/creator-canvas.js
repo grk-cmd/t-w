@@ -2,7 +2,7 @@
    app.js 의 생성기 그림판 구역(되돌리기 기록 · blit · bindPaint · 붓 색 · 도구 줄 · 도장 · 되돌리기 버튼 · 카메라 키 · 옷 색 · 색 스와치 · 피부 스와치 · 피부 PNG 불러오기)을 글 그대로 옮긴 모듈이다. 동작은 옛 자리와 같다.
    ・책임: histF · histB · redoF · redoB · pushHistory · undo · redo(되돌리기 · 다시 하기) · actC(지금 그리는 캔버스) · blit(합성 텍스처 갱신) · bindPaint(미리보기 위 마우스 그리기 연결) · 붓 색 · 크기 · 도구 줄 · 대칭 · 지우기 · 도장 단추 · 표정 ↔ 감은눈 복사 · 카메라 키(bindCamKey) · 옷 색 입력 · _syncCrColorSwatches · 피부 스와치(swEl · skinRow) · loadSkins(내장 피부 PNG 를 skin[0..4] 에).
    ・내놓는 것: _crDropEraser · histF · histB · redoF · redoB · isDrawStep · actC · blit · pushHistory · bindPaint · swEl · _syncCrColorSwatches · loadSkins(값 · 함수 — app.js 는 같은 이름 const 로 받는다).
-   ⚠️ 얼굴 합성(compositeFace) · 몸 만들기(buildCreatorBase · defToBase)는 일부러 남겼다 — 얼굴 · 몸 모듈(T7)이 따로 맡는다. 모듈을 만들 때 버튼 · 입력 듣기가 한 번 걸린다(옛 자리와 같은 때).
+   ⚠️ 얼굴 합성(compositeFace) · 몸 만들기(buildCreatorBase · defToBase)는 creator-face.js(T7)가 맡는다. 모듈을 만들 때 버튼 · 입력 듣기가 한 번 걸린다(옛 자리와 같은 때).
    검사: checks/sim-creator-canvas.js */
 (function(){
 

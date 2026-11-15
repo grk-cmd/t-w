@@ -2446,115 +2446,29 @@ const crState = TwCreatorState.createCreatorState({
   DESK_SCALE_DEFAULT: DESK_SCALE_DEFAULT,
 });
 let curSlot=_loadCurSlot();
-const CANVAS_SZ=512;
-const FACE_SYM_SUM=0.36;                 // 얼굴 UV 좌우 대칭축(u0≈0.18) → 미러 u' = 0.36 - u
-const SYM_PX=FACE_SYM_SUM*CANVAS_SZ;     // 픽셀 기준 미러 합
-/* ⚠️ 첫 getContext 에 willReadFrequently 를 건다 — CPU 쪽 캔버스라 그래픽 리셋(GPU 프로세스 재시작)에도 내용이 안 지워진다.
-   GPU 쪽이면 피부 · 얼굴 캔버스가 통째로 비어 캐릭터가 투명해진다. 같은 캔버스의 다음 getContext('2d') 는 이 컨텍스트를 돌려준다. */
-function newCanvas(){const c=document.createElement('canvas');c.width=c.height=CANVAS_SZ;try{c.getContext('2d',{willReadFrequently:true});}catch(_){}return c;}
-/* 🛡️ [얼굴 영구 소실 방어 · 판정] 그림 레이어가 **완전히 비었는지** 싸게 본다.
-   [경위] 제보 — 아무것도 안 건드렸는데 실행 중에 얼굴이 사라지고, 꺼다 켜도 그대로였다.
-     def.face 는 살아 있는 캔버스라 loadSlots 의 _imgBroken 표식이 붙지 않고,
-     _slotImgToDataUrl 은 «캔버스냐»만 보지 «비었냐»는 안 봤다. 그래서 런타임에 내용이 날아간
-     캔버스가 두 검사를 다 통과해 **빈 PNG 로 굳어 원본을 덮었다.** 그게 영구 소실의 마지막 구멍이다.
-   ★ 512² 를 통째로 getImageData 하면 1MB 를 읽는다 — saveSlots 는 슬라이더를 끄는 동안
-     계속 불린다. 32² 로 줄여 그린 뒤 알파만 훑는다(1/256 비용).
-     축소는 «평균»이라 1px 선 하나도 알파가 0 이 되지 않는다 — 얇은 그림을 비었다고 오판하지 않는다.
-   ★ 판정할 수 없으면(캔버스가 아님·오염된 캔버스 등) **false** 를 돌려준다.
-     이 함수의 true 에는 저장을 막는 힘이 있으므로, «모르겠으면 비지 않았다» 쪽이 안전하다. */
-const _BLANK_PROBE_SZ=32;
-let _blankProbeCv=null;
-function _isBlankDraw(cv){
-  try{
-    if(!cv || typeof cv.getContext!=='function' || !cv.width || !cv.height) return false;
-    if(!_blankProbeCv){ _blankProbeCv=document.createElement('canvas'); _blankProbeCv.width=_blankProbeCv.height=_BLANK_PROBE_SZ; }
-    const x=_blankProbeCv.getContext('2d',{willReadFrequently:true});
-    x.clearRect(0,0,_BLANK_PROBE_SZ,_BLANK_PROBE_SZ);
-    x.drawImage(cv,0,0,_BLANK_PROBE_SZ,_BLANK_PROBE_SZ);
-    const d=x.getImageData(0,0,_BLANK_PROBE_SZ,_BLANK_PROBE_SZ).data;
-    for(let i=3;i<d.length;i+=4) if(d[i]!==0) return false;
-    return true;
-  }catch(_){ return false; }
-}
-function snapCanvas(src){const c=newCanvas();c.getContext('2d').drawImage(src,0,0);return c;}
-/* 피부색 5종 — skin[0]은 face1.png(기본), 1~4는 skin-data.js의 window.SKIN_PNGS PNG 텍스처. 로드는 loadSkins()에서 */
-const SKIN_COLORS=['#FFE0BD','#F1C898','#E0AC69','#C68642','#8D5524'];
-const skinCanvases=SKIN_COLORS.map(c=>{const cv=newCanvas();const x=cv.getContext('2d');x.fillStyle=c;x.fillRect(0,0,CANVAS_SZ,CANVAS_SZ);return cv;});
-function skinCanvasFor(i){return skinCanvases[i]||skinCanvases[0];}
-function skinColorFor(i){return SKIN_COLORS[i]||SKIN_COLORS[0];}
-/* 베이스 피부 텍스처 위에 그림 레이어를 얹어 한 장으로 합성(지워도 피부는 남음) */
-/* ⚠️ 아래 okType 가드는 **크래시 방지지 수정이 아니다.** 그림 레이어가 없으면 피부만 칠하고
-   넘어가므로 화면에는 "얼굴이 지워지고 피부색만 남은" 상태가 나온다 — 제보로 들어온 그 증상이
-   바로 이 줄의 결과다. 그래서 조용히 넘어가지 않고 한 번은 콘솔에 남긴다(같은 세션에서 도배되지
-   않게 1회). 진짜 고칠 곳은 여기가 아니라 def.face 가 비는 경로(loadSlots / deserializeDefFromNetwork)다. */
-let _faceSkipWarned = false;
-function compositeFace(skinIdx,drawCv){const cv=newCanvas();const x=cv.getContext('2d');x.drawImage(skinCanvasFor(skinIdx),0,0);
-  const okType = drawCv instanceof HTMLCanvasElement || drawCv instanceof HTMLImageElement;
-  if(okType) x.drawImage(drawCv,0,0);   // 문자열(dataURL 복원 실패 등) 등 잘못된 값이면 건너뜀 — 스킨만이라도 정상 표시(크래시 방지)
-  else if(!_faceSkipWarned){
-    _faceSkipWarned = true;
-    console.warn('[얼굴] 그림 레이어가 캔버스/이미지가 아니라 건너뜁니다 — 피부색만 보입니다. 받은 값:',
-      Object.prototype.toString.call(drawCv), drawCv);
-  }
-  return cv;}
-function charDef(skin,face,blink,top,bot){return {type:'creator',skin,face,blink,top,bot};}
-
-/* --- base body builder (내장 스탠드인. 실제 제품에선 리깅된 베이스 GLB로 교체) --- */
-function buildCreatorBase(fTex,bTex,skinColor,top,bot){
-  const g=new THREE.Group();
-  const skin=new THREE.MeshStandardMaterial({color:skinColor,roughness:0.85});
-  const topMat=new THREE.MeshStandardMaterial({color:top,roughness:0.85});       // cloth_upper(상의)
-  const botMat=new THREE.MeshStandardMaterial({color:bot,roughness:0.85});       // cloth_lower(하의)
-  const lower=new THREE.Mesh(new THREE.SphereGeometry(0.4,28,28),botMat); lower.scale.set(1,0.7,0.9); lower.position.y=0.4; lower.castShadow=true; g.add(lower);
-  const upper=new THREE.Mesh(new THREE.SphereGeometry(0.44,28,28),topMat); upper.scale.set(1,0.92,0.92); upper.position.y=0.72; upper.castShadow=true; g.add(upper);
-  [-0.42,0.42].forEach(x=>{const a=new THREE.Mesh(new THREE.SphereGeometry(0.13,16,16),topMat); a.scale.set(0.7,0.7,1.1); a.position.set(x,0.64,0.2); a.castShadow=true; g.add(a);});
-  const head=new THREE.Group(); head.position.y=1.18; g.add(head);
-  const hm=new THREE.Mesh(new THREE.SphereGeometry(0.42,32,32),skin); hm.castShadow=true; head.add(hm);
-  const faceMat=new THREE.MeshStandardMaterial({map:fTex,roughness:0.7,polygonOffset:true,polygonOffsetFactor:-2}); faceMat.name='Face';   // face 텍스처(피부+그림 합성)
-  const face=new THREE.Mesh(buildFacePatchGeo(0.421,0.27,22),faceMat); head.add(face);
-  return {group:g,faceMat,topMat,botMat,skinMat:skin,face,fT:fTex,bT:bTex};
-}
-/* 머리 앞면을 감싸는 곡면 패치(데칼). 평면 UV라 그린 캔버스가 얼굴에 그대로 박혀 보임.
-   실제 제품: 베이스 GLB의 'face' 머티리얼 map = 합성 캔버스 (별도 패치 불필요) */
-function buildFacePatchGeo(R,half,seg){
-  const geo=new THREE.PlaneGeometry(half*2,half*2,seg,seg);
-  const pos=geo.attributes.position;
-  for(let i=0;i<pos.count;i++){const x=pos.getX(i),y=pos.getY(i);
-    const z=Math.sqrt(Math.max(0.0001,R*R-x*x-y*y)); pos.setZ(i,z);}
-  pos.needsUpdate=true; geo.computeVertexNormals(); return geo;
-}
-
-function defToBase(def, customScene){
-  // 🐾 동물 캐릭터 — animal.js가 전담 조립(전신 페인트 텍스처·귀 포함). 실패(모듈 미로드 등) 시 인간 폴백.
-  if(def && def.animal && typeof window.buildAnimalBase==='function'){
-    const ab=window.buildAnimalBase(def);
-    if(ab) return ab;
-  }
-  const fT=mkFaceTex(compositeFace(def.skin,def.face)), bT=mkFaceTex(compositeFace(def.skin,def.blink));
-  const inst=instantiateBase(customScene);
-  if(inst){
-    matToneMod.setFaceMap(inst.faceMat, fT);
-    if(!def.isCommission){
-      if(inst.upMat)inst.upMat.color.set(def.top); if(inst.loMat)inst.loMat.color.set(def.bot);
-      if(inst.hatMat&&inst.hatMat.color)inst.hatMat.color.set(def.top);   // 🎩 기본 모자는 상의색을 따라감
-    }
-    matToneMod.applyLightPresetToInstance(inst);   // 생성기·메인과 같은 톤(emissive)
-    normalizeModel(inst.root, 1.4, def.isCommission);
-    _attachHumanEars(inst.root, def);
-    const wrap=new THREE.Group(); wrap.add(inst.root);
-    // ★ upMesh/loMesh/glassesMesh 등(꾸미기 파츠 장착 시 베이크된 메쉬를 자동으로 숨기는 데 필요한 참조)이
-    //   지금까지 반환값에서 빠져있었음 — 이 함수를 쓰는 쪽(꾸미기 미리보기 등)에서 applyClothVisibility가
-    //   아무 메쉬도 못 찾아서 옷이 안 사라지던 근본 원인. inst가 이미 갖고 있는 값을 그대로 같이 반환함.
-    return {group:wrap, root:inst.root, faceMat:inst.faceMat, upMat:inst.upMat, loMat:inst.loMat, fT, bT,
-      faceMesh:inst.faceMesh, upMesh:inst.upMesh, loMesh:inst.loMesh, glassesMesh:inst.glassesMesh,
-      hatMesh:inst.hatMesh, hatMat:inst.hatMat, maskMesh:inst.maskMesh, onepieceMesh:inst.onepieceMesh, wingMesh:inst.wingMesh,
-      handLMesh:inst.handLMesh, handRMesh:inst.handRMesh, capeMesh:inst.capeMesh};
-  }
-  // 폴백: 내장 스탠드인
-  const b=buildCreatorBase(fT,bT,skinColorFor(def.skin),def.top,def.bot);
-  return {group:b.group, root:b.group, faceMat:b.faceMat, fT, bT};
-}
-
+/* 본문은 creator/creator-face.js 로 옮겼다(앱 FSD · app.js 분리 T7) — 얼굴 · 피부 캔버스 · 몸 만들기. 코어를 부르는 얇은 이름이다. */
+const creatorFaceMod = TwCreatorFace.createCreatorFace({
+  bodyCore: bodyCore,
+  mkFaceTex: mkFaceTex,
+  skelShare: skelShare,
+  COMMISSION_SCALE_CORRECTION: COMMISSION_SCALE_CORRECTION,
+  _attachHumanEars: (...a)=>_attachHumanEars(...a),
+  animalBuilder: ()=>window.buildAnimalBase,
+});
+const CANVAS_SZ = creatorFaceMod.CANVAS_SZ;   // 옛 전역 이름
+const FACE_SYM_SUM = creatorFaceMod.FACE_SYM_SUM;   // 옛 전역 이름
+const SYM_PX = creatorFaceMod.SYM_PX;   // 옛 전역 이름
+const newCanvas = creatorFaceMod.newCanvas;   // 옛 전역 이름
+const _isBlankDraw = creatorFaceMod._isBlankDraw;   // 옛 전역 이름
+const snapCanvas = creatorFaceMod.snapCanvas;   // 옛 전역 이름
+const SKIN_COLORS = creatorFaceMod.SKIN_COLORS;   // 옛 전역 이름
+const skinCanvases = creatorFaceMod.skinCanvases;   // 옛 전역 이름
+const skinCanvasFor = creatorFaceMod.skinCanvasFor;   // 옛 전역 이름
+const skinColorFor = creatorFaceMod.skinColorFor;   // 옛 전역 이름
+const compositeFace = creatorFaceMod.compositeFace;   // 옛 전역 이름
+const charDef = creatorFaceMod.charDef;   // 옛 전역 이름
+const buildCreatorBase = creatorFaceMod.buildCreatorBase;   // 옛 전역 이름
+const defToBase = creatorFaceMod.defToBase;   // 옛 전역 이름
 /* --- 캐릭터에 직접 페인팅 (3D) + 단계형 + 양파껍질 + 되돌리기 --- */
 const faceC=newCanvas(), blinkC=newCanvas();      // 저장 레이어(깨끗한 원본)
 const dispC=newCanvas();                          // 모델에 보이는 합성 텍스처(양파껍질 포함)
