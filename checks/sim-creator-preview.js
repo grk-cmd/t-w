@@ -19,7 +19,9 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/
 
 /* 세기는 진짜 공용 조명(shared/light-tone.js)으로 — 키 배율 1.5 · 필 배율 0.4 를 넣어 만든 것(코어는 빌드 사본) */
 const LT_CORE_SRC = ['vendor/char-core/char-core.iife.js', 'app/vendor/char-core/char-core.iife.js'].map(f => require('path').resolve(f)).find(f => fs.existsSync(f));
+globalThis.THREE = { Color: function(){} };   // light-tone.js 가 만들 때 코어 톤에 THREE 를 넘긴다(아래 한 번만 쓰고 지운다)
 const LT_KEY15_FILL04 = require(['shared/light-tone.js','parts/shared/light-tone.js','app/parts/shared/light-tone.js'].map(f => require('path').resolve(f)).find(f => fs.existsSync(f))).createLightTone({ _FILL_LIGHT_MUL: 0.4, _KEY_LIGHT_MUL: 1.5, _MAIN_LIGHT_COL: null, _MAIN_LIGHT_INT: 1, _fixGlbMatLighting: () => {}, charCore: new Function(fs.readFileSync(LT_CORE_SRC, 'utf8') + '\nreturn TwCharCore;')() });
+delete globalThis.THREE;
 const FN_DEPS = ["_setDeskMatColor","_sweepOrphanPartWrappers","addRunLights","allDeskItems","bindPaint","boneSide","buildCreatorBase","buildDesk","charFootFix","clampCharY","compositeFace","equipDeskItem","extractBonesInto","getCommissionScene","instantiateBase","isAnimalEditing","isCommissionEditing","measureCharBox","measureUnderfootDepth","mkFaceTex","normalizeModel","runLightInts","sizeFloorTo","skinColorFor","toast"];
 const VAL_DEPS = ["ANIMAL_HAND_REST","CHAR_Z","COMMISSION_SCALE_CORRECTION","CREATOR_LIGHT_SL","FLAT_EMISSIVE","LIGHT_PRESET","M","cBodyCenter","cFaceCenter","camTarget","deskItemOrigin","dispTex","matToneMod"];
 const GET_DEPS = ["BASE_SCENE","FOCUS_ARM_LIFT","HAND_REST","cAmb","cBase","cBodyDist","cBotColor","cCam","cDesk","cDeskColor","cDeskMat","cFaceDist","cFill","cFloor","cKey","cRenderer","cScene","cTopColor","cXform","camDist","camPitch","camYaw","crStep","creatorOpen","deskCamSaved","faceCamSaved","skinIndex"];

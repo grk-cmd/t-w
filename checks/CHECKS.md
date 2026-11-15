@@ -248,7 +248,7 @@
 | **sim-creator-flow.js** | 196 | **24a3d06e5a4e** |
 | **sim-creator-save.js** | 230 | **ade3bb959cfc** |
 | **sim-commission-import.js** | 190 | **6c80a45a1abe** |
-| **sim-creator-preview.js** | 205 | **ba2f28db247c** |
+| **sim-creator-preview.js** | 207 | **e058cdf9689d** |
 | **sim-hover-poke.js** | 198 | **73e0f75e139b** |
 | **sim-pen-forward.js** | 140 | **ba3019815647** |
 | sim-village-addr.js | 53 | f72ef601abbb |
