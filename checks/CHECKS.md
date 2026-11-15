@@ -287,7 +287,7 @@
 | **sim-purikura-ui.js** | 295 | **3aaa3f555e6c** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
 | **sim-guestbook.js** | 294 | **177f4506d26a** |
-| **sim-friend-manage-module.js** | 309 | **fd0af0a757a2** |
+| **sim-friend-manage-module.js** | 309 | **8f437e468215** |
 | **sim-pomodoro-module.js** | 228 | **87c30b512de0** |
 | **sim-myhome-sticker.js** | 414 | **b4fdafdd7d36** |
 | **sim-gacha.js** | 510 | **9491aa00bd7b** |

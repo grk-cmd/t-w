@@ -406,10 +406,10 @@ const _saveFailMsg = deps._saveFailMsg;
 })();
 
 /* ↓ app.js 에서 옮긴 🐞 버그 제보 탭(오픈카톡 기본 링크) — 앱 FSD 5번 · docs/APP_FSD_MAP.md.
-   ★ 글자 그대로(들여쓰기도) 옮겼다. 위 게시판 IIFE 밖 맨 앞 칸이라 예전처럼 전역 이름(_bugReportConf · window._bugReportLink)이다.
+   ★ 글자 그대로(들여쓰기도) 옮겼다. 위 게시판 IIFE 밖 칸이다. 전역으로 남은 이름은 window._bugReportLink 하나(_bugReportConf 는 createBugBoardUi 안 값).
    ★ app.js 가 INIT 을 마친 바로 뒤에 만들고 firebase-init.js(type="module")보다 앞이라 «firebase-ready» 를 기다리는 구독 시작 때가 예전과 같다.
      버튼 연결도 사람이 누를 수 있기 전에 끝난다. window._bugReportLink 는 위 답변 칸의 [💬 오픈카톡] 이 누를 때 부른다.
-   ⚠️ app.js 의 isAdmin · toast · _saveFailMsg 를 그대로 쓴다(위 게시판과 같은 방식). */
+   ⚠️ isAdmin(읽는 함수) · toast · _saveFailMsg 는 deps 로 받는다(위 게시판과 같은 방식). */
 /* ═══════════════════ 🐞 버그 제보 탭 — 오픈카톡 기본 링크 ═══════════════════
    게시판 화면은 parts/bug-board-ui.js 다. 여기는 bugReport/current 만 맡는다.
    ★ 예전 공지(notice)는 첫 공지글로 옮겨졌다(bug-board.js migrateNotice). current.link 는

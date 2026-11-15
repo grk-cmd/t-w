@@ -16,7 +16,7 @@
    🧟 좀비 텍스트 어드벤처: 시뮬/캐릭터세팅/인벤토리 창.
 
    ★ 설계 방침 (핸드오프 준수)
-   · app.js와 파일 분리 — app.js에는 _mhApplyVisitUI 훅 1줄만.
+   · app.js와 파일 분리 — app.js 끝에서 createMyHomeDesktop(deps) 로 만든다(M23). 방문 UI 훅 _advApplyVisitUI 는 이 파일이 window 에 건다.
    · 엔진 ↔ 콘텐츠 분리 — ADV_WORLD(스탯명/아이템/씬)만 교체하면 다른 장르 확장 가능.
    · 저장: localStorage(tw.advZ.v2 확장). 이미지(배경/프로필)만 Firebase Storage.
    · 모든 창은 #mhRoomPreview 내부 absolute — 화이트리스트 추가 불필요. confirm() 미사용.

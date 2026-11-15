@@ -2772,7 +2772,7 @@ const assetImportMod = TwAssetImport.createAssetImport({
 });
 assetImportMod.onPartAdded(()=>wardrobeMod.renderWardrobe());   // 파츠를 넣으면 꾸미기 창을 다시 그린다(꾸미기가 이 창을 열기도 해서 deps 대신 구독)
 /* 본문은 shared/light-tone.js 로 옮겼다(C 구역 떼기 w4) — 만드는 줄은 💡 조명 상수 바로 뒤(메인 씬 조명이 쓴다). */
-const LIGHT_PRESET = lightToneMod.LIGHT_PRESET;   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 읽는다(도메인 단계에서 걷는다)
+const LIGHT_PRESET = lightToneMod.LIGHT_PRESET;   // 옛 전역 이름 — app.js 안에서 쓴다(animal.js 는 deps 로 받는다)
 
 /* ===== 관리자 모드 =====
    진입: Ctrl(Mac 은 ⌘) 누른 채로 후원 · 캐릭터 생성 · 꾸미기 · 광고배너 중 하나를 한 번 클릭 → 비밀번호 창(bindAdminTrigger)
@@ -3385,7 +3385,7 @@ const presenceMod = TwPresence.createPresence({
   tricksMod: tricksMod,
   triggerPet: (...a)=>triggerPet(...a),
 });
-const Presence = presenceMod.Presence;   // 옛 전역 이름 — app.js · 다른 모듈(animal.js · noise.js)이 Presence.이름 으로 부른다(도메인 단계에서 deps 로 바꾸고 걷는다)
+const Presence = presenceMod.Presence;   // 옛 전역 이름 — app.js 와 아직 전역으로 읽는 모듈이 Presence.이름 으로 부른다(animal.js · noise.js 는 deps 로 받는다)
 
 /* ═══ 📦 방으로 보내는 def — 직렬화 · 얼굴 URL · 델타 전송 · Firebase provider ═══ */
 /* (앱 FSD 35번) 이 자리의 본문도 room-sync.js 로 옮겼다 — 만드는 줄은 첫 자리. */

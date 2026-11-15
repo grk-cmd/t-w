@@ -255,7 +255,7 @@ await sec('── 7. 🐞 버그 제보 탭 — bug-board-ui.js 끝', async () =
   const code = strip(APP);
   chk(!/bindBugReport|_bugReportConf|_bugReportLink|subscribeBugReport|setBugReport|mhBugEditBtn/.test(code), 'app.js 에 버그 제보 탭 코드가 없다');
   const iI = BUG.indexOf('})();\n\n/* ↓ app.js 에서 옮긴'), iB = BUG.indexOf('(function bindBugReport(){');
-  chk(iB > 0 && /^let _bugReportConf = null;/m.test(BUG) && /^window\._bugReportLink = /m.test(BUG), 'bug-board-ui.js 맨 앞 칸 — 전역 이름 그대로(_bugReportConf · window._bugReportLink)');
+  chk(iB > 0 && /^let _bugReportConf = null;/m.test(BUG) && /^window\._bugReportLink = /m.test(BUG), 'bug-board-ui.js 게시판 뒤 칸 — _bugReportConf · window._bugReportLink(전역으로 남는 것은 window._bugReportLink)');
   chk(iI > 0 && iB > iI, '  게시판 IIFE 뒤(밖)에 있다');
   const iBU = HTML.indexOf('<script src="parts/support/bug-board-ui.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   const iFB = HTML.indexOf('<script type="module" src="parts/firebase-init.js"></script>');
