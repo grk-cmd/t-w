@@ -11,4 +11,4 @@
 - 검사: `checks/sim-chat-rt.js`.
 
 ## `chat-ui.js` — 대화창 화면
-- 지난 기록은 deps `chatHistory`(읽는 함수 — `chat-history.js` 의 `open` · `syncTabs`) 한 길로 받는다. 기록 모듈이 없거나 열다 던지거나 서버에서 못 받으면 같은 «지난 대화를 불러오지 못했어요 + [다시 시도]» 줄 + `E-CHAT-02` + `console.warn` — 다른 길(최근 줄 구독 `subscribeLog`)로 돌리지 않는다. `subscribeLog` 는 안 읽은 수 세기(뱃지 · 탭 숫자)에만 쓴다 — 그쪽 실패는 `subscribeLog(…, onFail)` 로 알려 와 뱃지 · 탭 숫자를 «?»(모름 — 0 이 아니다)로 보이고 `console.warn` 을 남긴다. 다시 받으면 숫자로 돌아온다.
+- 지난 기록은 deps `chatHistory`(읽는 함수 — `chat-history.js` 의 `open` · `syncTabs`) 한 길로 받는다. 기록 모듈이 없거나 열다 던지거나 서버에서 못 받으면 같은 «지난 대화를 불러오지 못했어요 + [다시 시도]» 줄 + `E-CHAT-02` + `console.warn` — 다른 길(최근 줄 구독 `subscribeLog`)로 돌리지 않는다. `subscribeLog` 는 안 읽은 수 세기(뱃지 · 탭 숫자)에만 쓴다 — 그쪽 실패는 `subscribeLog(…, onFail)` 로 알려 와 뱃지 · 탭 숫자를 «?»(모름 — 0 이 아니다)로 보이고 `console.warn` 을 남기며 `E-CHAT-02` 를 방마다 한 번 알린다. 다시 받으면 숫자로 돌아온다.

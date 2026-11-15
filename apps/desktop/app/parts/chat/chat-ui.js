@@ -460,6 +460,14 @@ function _stopChatBadgeSub(){
   if(_chatBadgeUnsub){ try{ _chatBadgeUnsub(); }catch(_){} _chatBadgeUnsub=null; }
   _chatBadgeRoom = null;
 }
+/* 안 읽은 수를 못 불러옴 — 숫자 자리는 «?» 로 두고(0 아님) E-CHAT-02 는 방마다 한 번만 알린다(뱃지 · 탭 구독이 한꺼번에 실패해도 여러 번 안 띄운다) */
+let _chatUnreadNotifiedRoom = null;
+function _chatUnreadFailed(room, what, e){
+  console.warn('[대화] ' + what + ' 안 읽은 수를 못 불러와 «?» 로 보여요', e);
+  if(_chatUnreadNotifiedRoom === room) return;
+  _chatUnreadNotifiedRoom = room;
+  TwErrorCodes.notify('E-CHAT-02', e);
+}
 function _startChatBadgeSub(room){
   if(!room) return;
   _stopChatBadgeSub();
@@ -478,7 +486,7 @@ function _startChatBadgeSub(room){
     let n=0;
     (list||[]).forEach(m => { if(_chatIsAfter(m, marker)) n++; });
     _setChatBadge(n);
-  }, CHAT_BADGE_LIMIT, undefined, e => { console.warn('[대화] 안 읽은 수를 못 불러와 «?» 로 보여요', e); _setChatBadge(null); });
+  }, CHAT_BADGE_LIMIT, undefined, e => { _chatUnreadFailed(room, '', e); _setChatBadge(null); });
 }
 /* 매 프레임 호출되는 칩 갱신에서 불림 — 방/창 상태가 바뀔 때만 실제로 구독을 갈아끼운다. */
 function _syncChatBadgeSub(enabled){
@@ -692,7 +700,7 @@ function _chatTabUnreadStart(room){
       if(!mark && last){ mark = _chatMarkOf(last); _saveChatReadMarker(key, mark); }
       _chatTabUnread[t.id] = mark ? list.filter(m => _chatIsAfter(m, mark)).length : 0;
       _chatTabsRender();
-    }, CHAT_TAB_UNREAD_LIMIT, t.id, e => { console.warn('[대화] #' + t.id + ' 안 읽은 수를 못 불러와 «?» 로 보여요', e); _chatTabUnread[t.id] = null; _chatTabsRender(); }));
+    }, CHAT_TAB_UNREAD_LIMIT, t.id, e => { _chatUnreadFailed(room, '#' + t.id, e); _chatTabUnread[t.id] = null; _chatTabsRender(); }));
   });
 }
 function _chatSwitchTab(id){
