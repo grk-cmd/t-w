@@ -12,6 +12,7 @@
 (function(){
 
 function createCharCode(deps){
+const accountStore = deps.accountStore;   // 🗂️ 계정별 칸(shared/account-store.js) — 동물 숨김 해금 표시는 이 계정이 이 PC 에서 얻은 것
 const CHAR_SLOT_MAX = deps.CHAR_SLOT_MAX;
 const applyCharToSeat = deps.applyCharToSeat;
 const closeGearMenu = deps.closeGearMenu;
@@ -101,7 +102,7 @@ async function importCloneCode(v, p, forceSlot){
     let _ok;
     if(typeof window._animalUnlocked === 'function') _ok = window._animalUnlocked();
     else{
-      let _cheat=false; try{ _cheat = localStorage.getItem('tw.animalCheatUnlock')==='1'; }catch(_){}
+      let _cheat=false; try{ _cheat = accountStore.get('tw.animalCheatUnlock')==='1'; }catch(_){}
       _ok = (_lv >= _ulv) || isAdmin() || _cheat;
     }
     if(!_ok){ toast('🔒 동물 캐릭터는 Lv.'+_ulv+' 달성 후 불러올 수 있어요 (현재 Lv.'+_lv+')'); return false; }
