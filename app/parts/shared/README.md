@@ -63,7 +63,9 @@
 ## `light-tone.js` — 💡 재질 톤(조명 예산 · emissive) · 실행 화면 조명 한 벌
 
 **책임** — 화면 밝기의 손잡이 하나(`TONE_FRONT_TOTAL` — 카메라를 보는 흰 면이 받는 빛의 총합)에서 플랫 조명 몫(`FLAT_EMISSIVE`)을 계산하고,
-파츠 · 아이템 · 책상 재질에 같은 규칙으로 emissive 를 얹는다. 재질 톤을 정하는 곳은 여기 하나다.
+아이템 · 책상 재질에 같은 규칙으로 emissive 를 얹는다. 캐릭터 · 파츠 재질 톤(파츠 톤 · baseFlat · 얼굴 맵 · 몸 평탄 조명 · 색조)은 캐릭터 코어 `tone.ts` 이고,
+여기서 `FLAT_EMISSIVE` 로 코어 톤을 만들어 `toneCore` 로 내놓는다(앱의 다른 곳은 그것을 deps 로 받는다).
+숫자(`LIGHT_PRESET` · `CREATOR_LIGHT_SL` · `TONE_FRONT_TOTAL` · 조명 배율)와 플랫 몫 계산식 · 재질 고치기(`fixMatLighting`)는 캐릭터 코어 `lighting.ts` 한 벌 — 웹 생성기도 같은 것을 쓴다.
 실행 화면 조명(앰비언트 · 키 · 뒤쪽 냉색 바운스 · 정면 필)을 씬에 넣는 것도 여기 한 벌(`addRunLights`) — 메인 씬 · 종족 선택 · 런처 · 꾸미기 · 스티커사진 · 썸네일 · 생성기 미리보기 · 동물 생성기 · 종족 선택의 동물 카드가 모두 부른다. 세기를 슬라이더로 다시 정하는 생성기는 `runLightInts` 로 세기를 읽는다(몫 숫자를 곳마다 다시 적지 않게).
 
 **만드는 법** — app.js 💡 조명 상수 바로 뒤(메인 씬 조명이 바로 아래에서 쓴다):
@@ -73,8 +75,9 @@ const lightToneMod = TwLightTone.createLightTone({
   _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,                       // 값 — 채움광 배율(app.js 조명 상수)
   _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,                         // 값 — 키(위) 배율
   _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,                       // 값 — 빛 색(거의 백색)
-  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,                       // 값 — 주광 세기(= LIGHT_PRESET.b × e)
-  _fixGlbMatLighting: (...a)=>_fixGlbMatLighting(...a),   // 함수 — metalness 1 재질 눕히기
+  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,                       // 값 — 주광 세기(코어 MAIN_LIGHT_INT = LIGHT_PRESET.b × e)
+  _fixGlbMatLighting: (...a)=>_fixGlbMatLighting(...a),   // 함수 — metalness 1 재질 눕히기(코어 fixMatLighting + 콘솔 한 줄)
+  charCore: TwCharCore,                                   // 캐릭터 코어 — createTone 으로 toneCore 를 만든다
 });
 const LIGHT_PRESET = lightToneMod.LIGHT_PRESET;   // 옛 전역 이름(animal.js)
 ```
@@ -83,26 +86,27 @@ const LIGHT_PRESET = lightToneMod.LIGHT_PRESET;   // 옛 전역 이름(animal.js
 
 | 이름 | 뜻 |
 |---|---|
-| `LIGHT_PRESET` | 생성기 · 미리보기 조명 프리셋 `{b, h, e}` |
+| `LIGHT_PRESET` | 생성기 · 미리보기 조명 프리셋 `{b, h, e}`(코어 — 얼려 있다) |
+| `CREATOR_LIGHT_SL` | 생성기 미리보기 빛의 채도 · 명도 `{s, l}`(코어 — 색상은 `LIGHT_PRESET.h`) |
 | `TONE_FRONT_TOTAL` | 밝기 손잡이(1.0 = 텍스처 값 그대로) |
 | `FLAT_EMISSIVE` | `max(0, 총합 − 0.95×주광 − 주광×채움)` — 조명이 받고 남는 몫 |
-| `_applyPartMatTone(m)` | 파츠 재질 — map 이 있으면 emissiveMap 도 · emissive = 색 × 플랫 · `userData.baseFlat` |
+| `toneCore` | 캐릭터 코어 재질 톤(`createTone`) — matToneMod · partsCore 가 deps 로 받는다 |
+| `_applyPartMatTone(m)` | 파츠 재질 — 코어 `toneCore.applyPartMatTone`(map 이 있으면 emissiveMap 도 · emissive = 색 × 플랫 · `userData.baseFlat`) |
 | `_applyItemMatTone(m)` | 아이템 · 책상 GLB 재질 — GLB 의 emissive 를 덮어쓴다 · emissiveIntensity 는 1 로 |
 | `_setDeskMatColor(m, color)` | 책상 색 바꾸기 — baseFlat 으로 emissive 다시 계산(없으면 처음 심는다) |
 | `addRunLights(target, opt)` | 실행 화면 조명을 `target` 에 넣는다 — `opt.keyPos`(필수) · `mul`(썸네일 광량 배율, 기본 1) · `int` · `keyMul`(`runLightInts` 와 같다) · `backBounce`(뒤쪽 냉색 바운스) · `frontFill`(기본 켬). `{ amb, key, back, front }` 를 돌려준다(키 그림자는 부르는 쪽이 건다) |
 | `runLightInts(opt)` | 세 빛의 세기 `{ amb, key, front }` — `opt.int`(세기 예산, 기본 주광) · `mul`(광량 배율, 기본 1) · `keyMul`(키 배율, 기본 `_KEY_LIGHT_MUL`). `addRunLights` 도 같은 옵션을 받는다 |
 | `runLightAt1()` | 배율 1 일 때 앰비언트 + 키 세기 합 — 썸네일이 광량 배율을 계산할 때 |
-| `baseFlatOf(mat)` | 재질에 심은 플랫 배율(baseFlat), 없으면 공용 기준 `FLAT_EMISSIVE` — 색을 다시 칠하는 곳(아이템 · 꾸미기 · 생성기)은 모두 이것으로 읽는다. 0 도 심은 값 |
+| `baseFlatOf(mat)` | 코어 `toneCore.baseFlatOf` — 재질에 심은 플랫 배율(baseFlat), 없으면 공용 기준 `FLAT_EMISSIVE` — 색을 다시 칠하는 곳(아이템 · 꾸미기 · 생성기)은 모두 이것으로 읽는다. 0 도 심은 값 |
 
 ```js
 lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 색은 꼭 이 함수로(color.set 직접 금지)
 ```
 
-**확장할 때 고칠 자리** — 화면이 밝다 / 어둡다 → `TONE_FRONT_TOTAL` 하나만. 파츠만 · 아이템만 톤을 달리해야 하면 `PART_TEX_FLAT` · `ITEM_SOLID_FLAT` 줄에 숫자를.
+**확장할 때 고칠 자리** — 화면이 밝다 / 어둡다 → 코어 `packages/char-core/src/lighting.ts` 의 `TONE_FRONT_TOTAL` 하나만(코어를 빌드해 앱 사본까지 같은 커밋에). 아이템만 톤을 달리해야 하면 `ITEM_SOLID_FLAT` 줄에, 파츠만이면 코어 `packages/char-core/src/tone.ts` 의 `PART_TEX_FLAT` 줄에 숫자를.
 
 **함정**
 - «baseFlat 이 있으면 그 값, 없으면 …» 판단을 부르는 쪽에 다시 쓰지 않는다 — `baseFlatOf` 를 부른다(곳마다 쓰면 대체값이 갈라진다 · `sim-light-tone` 이 잡는다).
-- `LIGHT_PRESET.e` 를 바꾸면 app.js 위쪽 `_MAIN_LIGHT_INT`(= b × e, 숫자로 적힘)도 같이 — 한쪽만 고치면 생성기와 실행 화면 밝기가 갈라진다.
 - 1.16 을 넘기면 측면도 잘려 밝아지지 않고 계조만 사라진다.
 - 실행 화면을 닮은 새 미리보기 씬은 빛을 손으로 만들지 말고 `addRunLights` 를 deps 로 받아 부른다(손으로 적으면 예산이 바뀔 때 그 화면만 톤이 달라진다 · `sim-light-tone` 7절이 잡는다).
 - 재질 색을 바꾸는 새 코드는 `color.set` 만 하지 말고 baseFlat 으로 emissive 를 다시 계산해야 한다(책상은 `_setDeskMatColor`).
@@ -248,6 +252,13 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - presence 첫 쓰기(로그인 뒤)는 `ready` 를 기다린다 — «unknown» 으로 쓰고 메우는 쓰기를 줄인다. 그 전에 `.info/connected` 가 먼저 오면 그쪽이 «unknown» 으로 쓰고, 받은 뒤 `onReady` 가 메운다.
 
 검사: `checks/sim-app-version.js` (1절 모듈 · 2절 쓰는 자리 · 3절 규칙 · 5절 presence 쓰기를 실제로 돌림 — 평소 · 늦게 옴 · 못 받음 · companion 없음 · 영영 안 옴 · 오프라인 · 규칙 판정 · 깨 보기 3).
+
+## `api-client.js` · `api-errors.js` — 🌐 서버 API(/v2) 통로 · 오류 번역표
+**책임** — 앱이 우리 서버(`/v2`)와 말하는 길 한 벌. 시간 제한 · 봉투 풀기 · 실패 모양(`ApiError`) · 토큰 붙이기를 기능마다 따로 만들지 않는다. `TwApi.client`(로그인 없는 읽기 · 쉬기 있음) · `TwApi.authed`(로그인 통로 — 읽기 · `post` · `put` · `patch` · `del` · 쉬기 없음). 토큰은 `firebase-init.js` 가 `TwApi.bindToken` 으로 잇는다.
+**provider 자리** — 도메인 모듈은 `firebaseAPI` 를 부르지 않고 `*-api.js`(예: `support/report-api.js`) 한 파일의 함수만 부른다. 그 파일이 경로 · 본문 모양 · 서버 code 를 알고 `TwApi.authed` 를 deps 로 받는다.
+**실패** — 옛 Firebase 길로 넘어가지 않는다. 실패는 던지고, 부르는 쪽이 `TwApiErrors.translate` 로 갈래를 잡아 `TwErrorCodes.notify('E-영역-번호')` 로 보인다. 자동 재시도 없음(사용자가 버튼을 다시 누르는 것만).
+**두 번역표** — `data-gateway.js` 의 `ERROR_NOTICES`(E-DATA)는 범용 통로(옛 길) 몫이고 새 기능은 `api-errors.js`(E-NET)만 쓴다. 범용 통로를 걷을 때 앞의 표도 같이 걷는다.
+**함정** — 공개 읽기 통로(`api-public-reads.js` · `shouldFallback`)는 옛 길이 남은 동안만 쓰고 새 코드는 쓰지 않는다. 쓰기(`post` 등)는 로그인이 기본이다.
 
 ## `maintenance-gate.js` — 🛠 서버 점검 창
 

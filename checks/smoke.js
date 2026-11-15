@@ -294,7 +294,8 @@ g.scrollTo = () => {}; g.getSelection = () => ({ toString: () => '', removeAllRa
   if (!htmlPath) return;
   const html = fs.readFileSync(htmlPath, 'utf8').replace(/<!--[\s\S]*?-->/g, '');
   /* app.js **보다 먼저** 실리는 파일만 — 진짜 앱에서도 app.js 를 싣는 순간 뒤 파일의 이름은 아직 없다 */
-  const all = [...html.matchAll(/<script\b([^>]*)\bsrc="parts\/([^"]+\.js)"/g)].filter(m => !/type="module"/.test(m[1])).map(m => m[2]);
+  /* vendor/char-core/ 는 우리 코어 빌드 사본이라 같이 싣는다(three 같은 바깥 라이브러리는 스텁이 맡는다) */
+  const all = [...html.matchAll(/<script\b([^>]*)\bsrc="(?:parts\/([^"]+\.js)|(vendor\/char-core\/[^"]+\.js))"/g)].filter(m => !/type="module"/.test(m[1])).map(m => m[2] || m[3]);
   const iApp = all.findIndex(s => /(^|\/)app\.js$/.test(s));
   const srcs = all.slice(0, iApp < 0 ? 0 : iApp);
   /* app.js 가 아직 «typeof 이름 === 'undefined' 면 빈 껍데기» 로 받는 모듈은 싣지 않는다 — 실으면 검사마다 따로 다루던 그 갈래가 바뀐다 */
