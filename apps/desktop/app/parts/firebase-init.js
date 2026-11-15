@@ -285,7 +285,7 @@
         const _secret = typeof code === 'string' && code.indexOf('SCRT-') === 0;
         st.room = (_secret ? null : (code || null));
         st.inRoom = !!code;
-        if(st.online) update(ref_, _appVer.withVer({ room: st.room, inRoom: st.inRoom, lastSeen: Date.now() }));
+        if(st.online && st.written) update(ref_, _appVer.withVer({ room: st.room, inRoom: st.inRoom, lastSeen: Date.now() }));   // 아직 안 썼으면(첫 쓰기 전) 첫 쓰기 body 가 이 방을 싣는다
       },
       /* 앱 버전이 presence 보다 늦게 왔을 때 — 이미 썼으면 ver 만 메우고 onDisconnect 도 진짜 버전으로 다시 건다 */
       onVersion(ver){

@@ -193,6 +193,10 @@ async function gate(fbi){
   w = mk(); let late; const L = w.create('u1', new Promise(a => { late = a; })); L.dispose();
   w.connect(); L.setState(true); L.setRoom('X'); L.touch(); late(true); await tick();
   r.afterDispose = w.log.length === 0;
+  /* 첫 쓰기 전에 방이 정해지면 따로 update 하지 않고 첫 쓰기 body 가 싣는다(인증 복원 전 거부 · 오프라인 고정인데 노드에 room 이 붙는 것을 막는다) */
+  w = mk(); let g2; const R = w.create('u1', new Promise(a => { g2 = a; })); R.setRoom('COZY-1'); await tick();
+  const noEarlyUpdate = w.log.length === 0; g2(true); await tick();
+  r.roomFirst = noEarlyUpdate && w.log.some(e => e[0] === 'set');
   /* 풀지 않고 새로 만들면(세션이 끝날 때 dispose 를 빠뜨림) 숨기지 않고 경고 — 정상 흐름(dispose 뒤)에는 경고가 없다 */
   w = mk(); w.create('u1', Promise.resolve(true)); w.create('u2', Promise.resolve(true)); await tick();
   r.warnsLeak = w.warns.length === 1 && /풀리지 않았어요/.test(w.warns[0]);
@@ -221,6 +225,7 @@ async function gate(fbi){
     chk(G.onTrue, '  처음 값이 온라인이면 예전처럼 온라인');
     chk(G.noArg && G.fresh, '  처음 값이 실패하거나 없으면 온라인으로 쓴다');
     chk(G.switchUser, '★ 계정이 바뀐다 — 앞 사람이 «오프라인» 으로 꺼 둔 채 나가도 다음 사람은 온라인으로 시작 · 앞 계정 onDisconnect 취소 · 접속 구독 해제 · 다음 사람은 자기 칸에만 쓴다(앞 계정 칸 0)');
+    chk(G.roomFirst, '  첫 쓰기 전의 방 표시는 따로 쓰지 않는다 — 첫 쓰기가 싣는다');
     chk(G.afterDispose, '★ 풀린(dispose) 객체는 토글 · 방 · 한 번 찍기 · 재접속 신호 · 기다리던 첫 쓰기 모두 버린다');
     chk(G.warnsLeak, '★ 앞 객체를 풀지 않고 새로 만들면 숨기지 않고 경고한다(세션이 끝날 때 dispose 를 빠뜨린 버그)');
     chk(G.noWarnClean, '  정상(dispose 뒤 새로 만듦)에는 경고가 없다');
@@ -260,10 +265,15 @@ async function gate(fbi){
       return { warns, got };
     };
     const pr = []; const p = { setState: (v) => pr.push('state:' + v), setRoom: (c) => pr.push('room:' + c) };
-    const okRun = L.every(Boolean) ? run(L, { presence: p }) : null;
+    const okRun = L.every(Boolean) ? run(L, { presence: p, alive: () => true }) : null;
     chk(!!okRun && pr.join() === 'state:false,room:COZY-1' && okRun.warns.length === 0, '객체가 있으면 지금 세션의 객체로 간다(토글 · 방) — 경고 없음');
-    const noSess = L.every(Boolean) ? run(L, null) : null, noObj = L.every(Boolean) ? run(L, {}) : null;
+    const noSess = L.every(Boolean) ? run(L, null) : null, noObj = L.every(Boolean) ? run(L, { alive: () => true }) : null;
+    const dead = L.every(Boolean) ? run(L, { presence: p, alive: () => false }) : null;
     chk(!!noSess && noSess.warns.length === 2 && noSess.warns.every(w => /접속 표시/.test(w)) && !!noObj && noObj.warns.length === 2, '★ 세션이 없거나 마이홈 처음 준비 전(객체 없음)이면 토글 · 방 쓰기를 버리며 경고한다(조용히 버리지 않는다)');
+    chk(!!dead && dead.warns.length === 2 && pr.length === 2, '★ 끝난 세션(alive 거짓)의 풀린 객체는 «없음» 으로 본다 — 쓰기를 조용히 버리지 않고 경고한다(객체에 쓰지도 않는다)');
+    const deadLive = L.map(l => l.replace('(s && s.alive()) ? s.presence : null', 's ? s.presence : null'));
+    const leak = run(deadLive, { presence: p, alive: () => false });
+    chk(deadLive.join() !== L.join() && leak.warns.length === 0, '  깨 보기 — 끝난 세션을 가리지 않으면 위 ★ 가 빨강');
     const mute = L.map(l => l.replace(/console\.warn\([^;]*\); /, ''));
     const quiet = run(mute, null);
     chk(mute.join() !== L.join() && quiet.warns.length === 0, '  깨 보기 — 경고를 빼면 위 ★ 가 빨강(경고 없이 버리는 모양이 판정에 잡힌다)');
