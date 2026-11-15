@@ -441,7 +441,7 @@
 | **sim-user-status-table.js** | 125 | **8727d9f8adac** |
 | **sim-chip-popups.js** | 128 | **e58ffad1803b** |
 | **sim-rules-keys.js** | 336 | **e8bf8207fc1a** |
-| **sim-xmas-server.js** | 257 | **52ce570e8060** |
+| **sim-xmas-server.js** | 274 | **49ff610c0f76** |
 | **sim-rules-src.js** | 78 | **12241e59c87b** |
 | **sim-rules-drift.js** | 175 | **2782c5c73084** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |

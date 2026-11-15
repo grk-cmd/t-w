@@ -23,6 +23,7 @@ const PNG_PREFIX = 'data:image/png;base64,';
 // 한국 시간 — 편지 마감 12/24 23:59:59.999 · 이벤트 끝(버튼 숨김 · 장식 막음) 1/1 0시. 규칙의 숫자와 같다.
 const LETTER_DEADLINE_MS = 1798124400000;   // 2026-12-25T00:00:00+09:00
 const EVENT_END_MS = 1798729200000;          // 2027-01-01T00:00:00+09:00
+const BUSY_STALE_MS = 60000;            // «거는 중» 표시가 이보다 오래면 빈 칸으로 — 함수가 시간 초과로 끝나 표시만 남아도 영영 막히지 않게
 const INBOX_TITLE = '익명의 편지가 왔어요 🎄';
 const INBOX_BODY = '크리스마스 창에서 [편지 열람]을 눌러 보세요.';
 
@@ -97,16 +98,16 @@ async function handleHang(db, request, now, deps){
   const preview = request.data && Number.isInteger(request.data.preview) ? request.data.preview : null;
   const mineRef = db.ref('xmasMine/' + uid);
   const mine = (await mineRef.get()).val();
-  if (mine && mine.busy) throw fail('aborted', '장식을 거는 중이에요 — 잠시 뒤 다시 눌러 주세요');
+  if (liveBusy(mine, now)) throw fail('aborted', '장식을 거는 중이에요 — 잠시 뒤 다시 눌러 주세요');
   if (mine && Number.isInteger(mine.t) && Number.isInteger(mine.s)){
-    const oRef = db.ref('xmasTrees/' + mine.t + '/o/' + mine.s);
-    const prev = (await oRef.get()).val();
-    const v = (prev && Number.isInteger(prev.v) ? prev.v : 0) + 1;
+    // 판은 트랜잭션으로 올린다 — 같은 사람이 바꾸기를 동시에 두 번 보내도 판이 겹치지 않아 남의 앱이 새 그림을 받는다
+    const vr = await db.ref('xmasTrees/' + mine.t + '/o/' + mine.s + '/v').transaction((v) => (Number.isInteger(v) ? v : 0) + 1);
+    const v = vr.snapshot.val();
     await db.ref().update(writesFor(mine.t, mine.s, orn, v, null));
     return { tree: mine.t, slot: mine.s, moved: false, changed: true };
   }
-  // 처음 — 내 자리를 «거는 중» 으로 잡아 두고(동시 두 번 막기) 트리 자리를 받는다
-  const claim = await mineRef.transaction((cur) => (cur == null ? { busy: true } : undefined));
+  // 처음 — 내 자리를 «거는 중» 으로 잡아 두고(동시 두 번 막기) 트리 자리를 받는다. 오래된 표시는 빈 칸처럼
+  const claim = await mineRef.transaction((cur) => (cur == null || isStaleBusy(cur, now) ? { busy: now } : undefined));
   if (!claim.committed) throw fail('aborted', '장식을 거는 중이에요 — 잠시 뒤 다시 눌러 주세요');
   try {
     const r = await db.ref('xmasMeta').transaction((m) => { const n = nextSeat(m); delete n.seat; return n; });
@@ -120,6 +121,10 @@ async function handleHang(db, request, now, deps){
     throw e;
   }
 }
+
+/** «거는 중» 표시 — 시각이 BUSY_STALE_MS 안이면 아직 거는 중, 지났거나 시각이 없으면(옛 모양) 오래된 것 */
+function liveBusy(m, now){ return !!(m && m.busy && Number.isFinite(m.busy) && now - m.busy < BUSY_STALE_MS); }
+function isStaleBusy(m, now){ return !!(m && m.busy && !liveBusy(m, now)); }
 
 /** 장식 한 자리의 쓰기 묶음 — owner 가 있으면 처음 걸기(주인 · 내 자리도 같이) */
 function writesFor(t, s, orn, v, owner){
@@ -247,6 +252,6 @@ async function handleAdminRemove(db, request){
 
 module.exports = {
   TREE_MAX, KINDS, WORD_MAX, IMG_PX, LETTER_DEADLINE_MS, EVENT_END_MS, INBOX_TITLE,
-  pngSize, cleanWord, parseHang, nextSeat, matchLetters, lettersOf,
+  BUSY_STALE_MS, pngSize, cleanWord, parseHang, nextSeat, liveBusy, matchLetters, lettersOf,
   handleHang, runMatch, handleAdminRemove,
 };

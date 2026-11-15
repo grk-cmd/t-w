@@ -94,8 +94,22 @@ say('── 2절 자리 잡기');
   chk(await rejects(X.handleHang(db, req('authCCCC0001', { kind: 'star' }, 'anonymous'), NOW), 'permission-denied'), '익명 로그인 거절');
   chk(await rejects(X.handleHang(db, req('authCCCC0001', { kind: 'star' }), X.EVENT_END_MS), 'failed-precondition'), '1월 1일 0시부터 거절');
   // 같은 사람이 처음 걸기를 동시에 두 번
-  const db2 = fakeDb({ xmasMine: { authDDDD0001: { busy: true } } });
-  chk(await rejects(X.handleHang(db2, req('authDDDD0001', { kind: 'star' }), NOW), 'aborted'), '거는 중에 또 보내면 다시 눌러 달라고(자리 두 개 안 잡음)');
+  const dbTwice = fakeDb();
+  const two = await Promise.allSettled([X.handleHang(dbTwice, req('authDDDD0002', { kind: 'star' }), NOW), X.handleHang(dbTwice, req('authDDDD0002', { kind: 'bulb' }), NOW)]);
+  chk(two.filter(r => r.status === 'fulfilled').length === 1 && two.some(r => r.status === 'rejected' && r.reason.httpsCode === 'aborted') && dbTwice.get('xmasMeta').cnt === 1,
+    '같은 사람이 처음 걸기를 동시에 두 번 — 하나만 통과 · 자리 1개');
+  const db2 = fakeDb({ xmasMine: { authDDDD0001: { busy: NOW - 1000 } } });
+  chk(await rejects(X.handleHang(db2, req('authDDDD0001', { kind: 'star' }), NOW), 'aborted'), '거는 중(1초 전)에 또 보내면 다시 눌러 달라고(자리 두 개 안 잡음)');
+  const db4 = fakeDb({ xmasMine: { authDDDD0003: { busy: NOW - X.BUSY_STALE_MS } }, xmasMeta: { cur: 1, cnt: 7 } });
+  const r4 = await X.handleHang(db4, req('authDDDD0003', { kind: 'star' }), NOW);
+  chk(r4.tree === 1 && r4.slot === 7 && db4.get('xmasMine/authDDDD0003').s === 7, '«거는 중» 이 60초 넘게 남았으면(함수가 시간 초과로 끝남) 다시 걸 수 있다');
+  const db5 = fakeDb({ xmasMine: { authDDDD0004: { busy: true } } });
+  chk((await X.handleHang(db5, req('authDDDD0004', { kind: 'star' }), NOW)).slot === 0, '  ↳ 시각이 없는 옛 표시도 오래된 것으로');
+  chk(X.liveBusy({ busy: NOW - X.BUSY_STALE_MS + 1 }, NOW) && !X.liveBusy({ busy: NOW - X.BUSY_STALE_MS }, NOW), '  ↳ 경계 — 60초 직전은 거는 중 · 60초부터 오래됨');
+  // 바꾸기를 동시에 두 번 — 판이 겹치지 않는다
+  const db6 = fakeDb({ xmasMine: { authDDDD0005: { t: 1, s: 2 } }, xmasTrees: { 1: { o: { 2: { k: 'star', v: 4 } } } } });
+  await Promise.all([X.handleHang(db6, req('authDDDD0005', { kind: 'img', img: png(8, 8) }), NOW), X.handleHang(db6, req('authDDDD0005', { kind: 'img', img: png(9, 9) }), NOW)]);
+  chk(db6.get('xmasTrees/1/o/2').v === 6 && db6.get('xmasImg/1/2').v === 6, '바꾸기를 동시에 두 번 — 판이 4 → 5 → 6 (겹치지 않음 · 그림 칸도 같은 판)');
   // 자리 잡기 실패 → 거는 중 표시 걷기
   const db3 = fakeDb();
   const orig = db3.ref; db3.ref = (p) => { const r = orig(p); if (p === 'xmasMeta') r.transaction = async () => ({ committed: false }); return r; };
@@ -246,6 +260,9 @@ say('── 5절 규칙식');
   // 깨 보기 — 짝 짓기를 «밀지 않게» 바꾸면 자기 편지를 받는다
   const broken = (authors) => authors.slice();
   chk(broken(['a', 'b']).some((r, i) => r === ['a', 'b'][i]), '깨 보기 — 밀지 않으면 자기 편지를 받는다(위 검사가 잡는 모양)');
+  // 깨 보기 — «거는 중» 을 시각 없이 보면(옛 모양) 오래된 표시가 영영 막는다
+  const brokenLive = (m) => !!(m && m.busy);
+  chk(brokenLive({ busy: NOW - X.BUSY_STALE_MS * 100 }) && !X.liveBusy({ busy: NOW - X.BUSY_STALE_MS * 100 }, NOW), '깨 보기 — 시각을 안 보면 오래된 «거는 중» 이 영영 막는다(위 검사가 잡는 모양)');
   // 깨 보기 — 규칙 마감을 지우면 마감 뒤 쓰기가 통과한다
   const L2 = Object.assign({}, L, { '.write': String(L['.write']).replace(/ && now < \d+/, '') });
   const env = { root: {}, after: { xmasLetters: { uMe0000001: { l1: good } } }, path: 'xmasLetters/uMe0000001/l1', auth: au('uMe0000001'), now: X.LETTER_DEADLINE_MS + 1, vars: { $authUid: 'uMe0000001', $lid: 'l1' } };
