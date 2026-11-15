@@ -7,7 +7,7 @@ import {
   useRefreshOpsConfig,
   type ServerLimits,
 } from '@/entities/server/ops-config';
-import { refreshOnConflict } from '@/shared/api';
+import { refreshOnConflict, type Versioned } from '@/shared/api';
 
 export type ServerLimitInputs = Record<keyof ServerLimits, string>;
 type Check<T> = { ok: true; next: T } | { ok: false; error: string };
@@ -47,7 +47,8 @@ export function useSaveServerLimits() {
   const { serverLimits } = useOpsConfigPort();
   const refresh = useRefreshOpsConfig();
   return useMutation({
-    mutationFn: (next: ServerLimits) => (serverLimits as NonNullable<typeof serverLimits>).save(next),
+    mutationFn: ({ from, next }: { from: Versioned<ServerLimits>; next: ServerLimits }) =>
+      (serverLimits as NonNullable<typeof serverLimits>).save(from, next),
     onSuccess: refresh,
     onError: refreshOnConflict(refresh),
   });

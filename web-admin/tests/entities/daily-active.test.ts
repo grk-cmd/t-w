@@ -7,11 +7,21 @@ import {
   hasRecord,
   toDaySummary,
   toVisits,
-  uniqueUsers,
   type DayMetrics,
 } from '@/entities/metrics/daily-active';
-import { getDayMetrics, getRecentMetrics } from '@/entities/metrics/daily-active/api/firebase';
+import {
+  activeUsersOf,
+  getDayMetrics,
+  getRecentMetrics,
+  uniqueUsers,
+} from '@/entities/metrics/daily-active/api/firebase';
 import { fakeDb } from '../shared/fakeDb';
+
+const PAIR = [
+  { date: '2026-10-06', users: [], dau: 0, visits: 0, ipVisitors: 0, pings: 0 },
+  { date: '2026-10-07', users: [], dau: 0, visits: 0, ipVisitors: 0, pings: 0 },
+] as DayMetrics[];
+const ZERO = { wau: 0, mau: 0 };
 
 const day = (date: string, users: string[] = [], visits = 0, ipVisitors = 0, pings = 0): DayMetrics => ({
   date,
@@ -49,7 +59,7 @@ describe('요약', () => {
     days[28] = day(dates[28], ['ua0000001', 'uc0000001'], 5); // 어제
     days[29] = day(dates[29], ['uc0000001', 'ud0000001'], 9); // 오늘
 
-    const s = metricsSummary(days)!;
+    const s = metricsSummary(days, activeUsersOf(days))!;
     expect(s.today.users).toHaveLength(2);
     expect(s.today.visits).toBe(9);
     expect(s.yesterday?.users).toHaveLength(2);
@@ -60,24 +70,23 @@ describe('요약', () => {
   });
 
   it('기록이 없으면 firstDate · ipFirstDate 는 null, 빈 목록이면 요약도 null', () => {
-    expect(metricsSummary([day('2026-10-06'), day('2026-10-07')])!.firstDate).toBeNull();
-    expect(metricsSummary([day('2026-10-06'), day('2026-10-07')])!.ipFirstDate).toBeNull();
-    expect(metricsSummary([])).toBeNull();
+    expect(metricsSummary(PAIR, activeUsersOf(PAIR))!.firstDate).toBeNull();
+    expect(metricsSummary(PAIR, activeUsersOf(PAIR))!.ipFirstDate).toBeNull();
+    expect(metricsSummary([], ZERO)).toBeNull();
   });
 
   it('첫 기록 날짜는 범위 안에서 기록이 처음 있는 날 — 방문 수만 있어도', () => {
-    expect(
-      metricsSummary([day('2026-10-05'), day('2026-10-06', [], 2), day('2026-10-07', ['ua0000001'], 1)])!
-        .firstDate,
-    ).toBe('2026-10-06');
+    const three = [day('2026-10-05'), day('2026-10-06', [], 2), day('2026-10-07', ['ua0000001'], 1)];
+    expect(metricsSummary(three, activeUsersOf(three))!.firstDate).toBe('2026-10-06');
   });
 
   it('IP 기준 첫 기록 날짜는 로그인 기준과 따로 — IP 기록이 늦게 시작해도', () => {
-    const s = metricsSummary([
+    const week = [
       day('2026-10-05', ['ua0000001'], 1),
       day('2026-10-06', [], 0, 0, 2),
       day('2026-10-07', ['ua0000001'], 1, 4, 6),
-    ])!;
+    ];
+    const s = metricsSummary(week, activeUsersOf(week))!;
     expect(s.firstDate).toBe('2026-10-05');
     expect(s.ipFirstDate).toBe('2026-10-06');
     expect(s.today.ipVisitors).toBe(4);
@@ -86,7 +95,8 @@ describe('요약', () => {
 
   it('요약만 있는 날(사용자 목록 없음)도 기록이 있는 날로 본다', () => {
     const only: DayMetrics = { date: '2026-10-06', users: [], dau: 3, visits: 5, ipVisitors: 4, pings: 7 };
-    expect(metricsSummary([day('2026-10-05'), only, day('2026-10-07')])!.firstDate).toBe('2026-10-06');
+    const three = [day('2026-10-05'), only, day('2026-10-07')];
+    expect(metricsSummary(three, activeUsersOf(three))!.firstDate).toBe('2026-10-06');
   });
 
   it('합집합은 같은 사람을 한 번만 센다', () => {

@@ -19,7 +19,8 @@ interface Draft {
 
 export function BugReportCard() {
   const toast = useToast();
-  const { data: report, error } = useBugReport();
+  const { data: from, error } = useBugReport();
+  const report = from?.value;
   const refresh = useRefreshBugReport();
   const save = useSaveBugReport();
   // 저장된 적이 없으면 앱이 보여 주는 기본 글에서 시작한다.
@@ -31,15 +32,19 @@ export function BugReportCard() {
   const edit = (patch: Partial<Draft>) => setDraft({ ...form, ...patch });
 
   const onSave = () => {
+    if (!from) return;
     const problem = checkBugReport(form.notice, form.link);
     if (problem) return toast(problem);
-    save.mutate(form, {
-      onSuccess: () => {
-        setDraft(null);
-        toast('버그 제보 공지를 저장했어요');
+    save.mutate(
+      { from, ...form },
+      {
+        onSuccess: () => {
+          setDraft(null);
+          toast('버그 제보 공지를 저장했어요');
+        },
+        onError: (e) => toast(errorMessage(e, '저장하지 못했어요')),
       },
-      onError: (e) => toast(errorMessage(e, '저장하지 못했어요')),
-    });
+    );
   };
 
   return (
@@ -83,7 +88,7 @@ export function BugReportCard() {
           value={form.link}
           onChange={(e) => edit({ link: e.target.value })}
         />
-        <button type="button" className="btn primary" disabled={save.isPending} onClick={onSave}>
+        <button type="button" className="btn primary" disabled={save.isPending || !from} onClick={onSave}>
           {save.isPending ? '저장 중…' : '저장'}
         </button>
       </div>

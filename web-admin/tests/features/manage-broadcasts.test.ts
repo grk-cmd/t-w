@@ -16,8 +16,8 @@ const b = (id: string, pinned: boolean): InboxBroadcast => ({
 describe('선택 공지', () => {
   it('고정 · 해제는 상태가 바뀌는 것만 고른다', () => {
     const list = [b('a', true), b('b', false), b('c', false)];
-    expect(pinTargets(list, true)).toEqual(['b', 'c']);
-    expect(pinTargets(list, false)).toEqual(['a']);
+    expect(pinTargets(list, true).map((b) => b.id)).toEqual(['b', 'c']);
+    expect(pinTargets(list, false).map((b) => b.id)).toEqual(['a']);
   });
 
   it('고정은 pinned: true, 해제는 키를 지운다 — 한 묶음, 기록은 묶음마다 한 줄', async () => {

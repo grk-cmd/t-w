@@ -27,7 +27,8 @@ type Message = { text: string; error: boolean } | null;
 /** config/apiCors — API 관리자 경로의 브라우저 허용 출처(줄마다 하나). 공개 GET · 앱 경로는 모든 출처라 여기와 상관없다. */
 function CorsForm() {
   const env = useEnv();
-  const { data: saved = [], error, isPending } = useCorsOrigins();
+  const { data: from, error, isPending } = useCorsOrigins();
+  const saved = from?.value ?? [];
   const save = useSaveCorsOrigins();
   const [draft, setDraft] = useState<string | null>(null);
   const [message, setMessage] = useState<Message>(null);
@@ -35,11 +36,12 @@ function CorsForm() {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    if (!from) return;
     const r = checkCorsInput(saved, text);
     if (!r.ok) return setMessage({ text: r.error, error: true });
     if (!confirm(withProdMark(env, corsConfirmText(r.next)))) return;
     save.mutate(
-      { before: saved, next: r.next },
+      { from, next: r.next },
       {
         onSuccess: () => {
           setDraft(null);
@@ -85,18 +87,20 @@ function CorsForm() {
 /** config/logLevel/{api,realtime} — 빈 값 = 서버 기본(info). */
 function LogLevelForm() {
   const env = useEnv();
-  const { data: saved = {}, error, isPending } = useLogLevels();
+  const { data: from, error, isPending } = useLogLevels();
+  const saved = from?.value ?? {};
   const save = useSaveLogLevels();
   const [drafts, setDrafts] = useState<Partial<Record<LogTarget, LogLevel | ''>>>({});
   const [message, setMessage] = useState<Message>(null);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    if (!from) return;
     const r = checkLogLevels(saved, drafts);
     if (!r.ok) return setMessage({ text: r.error, error: true });
     if (!confirm(withProdMark(env, logLevelConfirmText(saved, r.next)))) return;
     save.mutate(
-      { before: saved, updates: r.next },
+      { from, updates: r.next },
       {
         onSuccess: () => {
           setDrafts({});
@@ -201,12 +205,16 @@ export function DailyLimitsCard() {
       <p className="soft">
         앱이 하루에 받는 가입 · 웹박수 · 선물 횟수예요. 서버를 다시 띄우지 않고 바뀌어요.
       </p>
-      <IntGroupForm
-        title="하루 한도"
-        group={groups.dailyLimits}
-        action="settings.apiCache" // API 판은 서버가 기록을 남겨 이 값을 쓰지 않는다
-        apply="다음 요청부터"
-      />
+      {/* 키 하나 = 저장 한 번 — 칸마다 따로 읽고 따로 저장한다. */}
+      {groups.dailyLimits.map((group) => (
+        <IntGroupForm
+          key={group.path}
+          title={group.fields[0].label}
+          group={group}
+          action="settings.apiCache" // API 판은 서버가 기록을 남겨 이 값을 쓰지 않는다
+          apply="다음 요청부터"
+        />
+      ))}
     </section>
   );
 }

@@ -1,7 +1,7 @@
 // API 판 — 사용량 `GET /v2/admin/metrics/usage?days=`(날마다 `{ storage, hosting }` · 오늘은 `today`) ·
 // 개선 기록 `GET · POST /v2/admin/metrics/improvements` · `PUT /{id}`(version) · `DELETE /{id}?version=`.
 // 서버는 DB · 함수 사용량을 재지 않는다(설계 R9) — 그 무리는 늘 null. 개선 기록의 `release` 가 화면의 `version`(릴리스 이름)이다.
-import { adminPath, perApi, PortError, portCall, type Api } from '@/shared/api';
+import { adminPath, perApi, PortError, portCall, wireNumber, type Api } from '@/shared/api';
 import { createPayloadRequestId, offsetFromServerToday } from '@/shared/lib';
 import {
   cleanDraft,
@@ -85,7 +85,6 @@ function parseUsage(wire: UsageWire, receivedAt: number): Range {
 function build(api: Api | null): UsagePort {
   let cached: Range | null = null;
   let loading: Promise<Range> | null = null;
-  const revisions = new Map<string, number>();
   const once = createPayloadRequestId();
 
   function range(): Promise<Range> {
@@ -110,9 +109,7 @@ function build(api: Api | null): UsagePort {
       adoptDays: w.adoptDays,
     });
     if (!record) return null;
-    const revision = typeof w.version === 'number' ? w.version : undefined;
-    if (revision !== undefined) revisions.set(record.id, revision);
-    return revision === undefined ? record : { ...record, revision };
+    return { ...record, revision: wireNumber(w.version, `개선 기록 ${record.id} 의 version`) };
   }
 
   const body = (d: ImprovementDraft) => ({
@@ -123,10 +120,11 @@ function build(api: Api | null): UsagePort {
     adoptDays: d.adoptDays,
   });
 
-  const revisionOf = (id: string): number => {
-    const r = revisions.get(id);
-    if (r === undefined) throw new PortError('conflict', '목록이 낡았어요 — 새로 받아왔어요');
-    return r;
+  /** 화면이 읽은 줄의 번호 — API 판 목록은 늘 싣는다. 없으면 이 판의 읽기를 거치지 않은 줄이라 코드 실수다. */
+  const revisionOf = (entry: Improvement): number => {
+    if (entry.revision === undefined)
+      throw new PortError('invalid', `읽은 개선 기록에 번호가 없어요 (${entry.id})`);
+    return entry.revision;
   };
 
   return {
@@ -162,12 +160,13 @@ function build(api: Api | null): UsagePort {
         '개선 기록을 불러오지 못했어요',
       );
     },
-    async saveImprovement(draft, id) {
+    async saveImprovement(draft, existing) {
       const d = cleanDraft(draft);
       const problem = draftProblem(d);
       if (problem) throw new Error(problem);
-      if (id) {
-        const version = revisionOf(id);
+      if (existing) {
+        const { id } = existing;
+        const version = revisionOf(existing);
         await portCall(api, (a) =>
           a.send('PUT', `${IMPROVEMENTS}/${encodeURIComponent(id)}`, { body: { version, ...body(d) } }),
         );
@@ -183,7 +182,7 @@ function build(api: Api | null): UsagePort {
       return typeof saved?.id === 'string' ? saved.id : '';
     },
     async deleteImprovement(entry) {
-      const version = revisionOf(entry.id);
+      const version = revisionOf(entry);
       await portCall(api, (a) =>
         a.send('DELETE', `${IMPROVEMENTS}/${encodeURIComponent(entry.id)}`, { query: { version } }),
       );
@@ -191,5 +190,5 @@ function build(api: Api | null): UsagePort {
   };
 }
 
-/** `api` 마다 하나 — 목록을 읽은 훅 · 고치는 훅이 같은 version(revision) 을 쓴다. */
+/** `api` 마다 하나 — 날마다 받은 사용량(2초)과 보낸 요청 번호만 들고 있고, 개선 기록의 `revision` 은 화면이 읽은 줄에 실려 온다. */
 export const createServerUsagePort = perApi(build);

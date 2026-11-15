@@ -1,7 +1,7 @@
 // API 판 — `GET /v2/notices`(고정 + 최신 30) · `GET /v2/notices/broadcasts?cursor&limit`(더 보기) ·
 // `POST /v2/admin/notices/broadcasts` · `PATCH · DELETE …/broadcasts/{id}` · `POST …/broadcasts/bulk`.
 // 고정 · 내리기는 읽을 때 받은 `version` 을 싣는다(그 사이 다른 관리자가 고쳤으면 409 → conflict).
-import { adminPath, PortError, portCall, type Api, perApi } from '@/shared/api';
+import { adminPath, PortError, portCall, wireNumber, type Api, perApi } from '@/shared/api';
 import { createPayloadRequestId } from '@/shared/lib';
 import type { InboxBroadcast } from '../model/broadcast';
 import type { InboxMessage, InboxTag } from '../model/message';
@@ -46,7 +46,7 @@ function toBroadcast(w: Wire): InboxBroadcast | null {
     body: typeof w.body === 'string' ? w.body : '',
     ts: Number.isNaN(at) ? 0 : at,
     pinned: w.pinned === true,
-    version: typeof w.version === 'number' ? w.version : undefined,
+    version: wireNumber(w.version, `공지 ${w.id} 의 version`),
   };
 }
 
@@ -54,7 +54,6 @@ const rows = (list: Wire[] | undefined) =>
   (list ?? []).map(toBroadcast).filter((b): b is InboxBroadcast => b !== null);
 
 function build(api: Api | null): BroadcastPort {
-  const versions = new Map<string, number>();
   const once = createPayloadRequestId();
 
   async function list(n = BROADCAST_PAGE): Promise<BroadcastPage> {
@@ -76,31 +75,29 @@ function build(api: Api | null): BroadcastPort {
           recent += more.length;
           cursor = typeof page.nextCursor === 'string' && more.length ? page.nextCursor : null;
         }
-        versions.clear();
-        for (const b of items) if (b.version !== undefined) versions.set(b.id, b.version);
         return { items, hasMore: cursor !== null };
       },
       '공지를 불러오지 못했어요',
     );
   }
 
-  const versionOf = (id: string): number => {
-    const v = versions.get(id);
-    if (v === undefined) throw new PortError('conflict', '목록이 낡았어요 — 새로 받아왔어요');
-    return v;
+  /** 화면이 읽은 공지의 번호 — API 판 목록은 늘 번호를 싣는다. 없으면 이 판의 읽기를 거치지 않은 줄이라 코드 실수다. */
+  const versionOf = (b: InboxBroadcast): number => {
+    if (b.version === undefined) throw new PortError('invalid', `읽은 공지에 번호가 없어요 (${b.id})`);
+    return b.version;
   };
 
   /** 줄마다 결과가 오는 묶음 — 안 된 줄이 있으면 «n개 됨 · m개 안 됨» 으로 던진다(남은 줄은 화면이 다시 받는다). */
   async function bulk(
     action: 'PIN' | 'UNPIN' | 'DELETE',
-    ids: readonly string[],
+    targets: readonly InboxBroadcast[],
     fallback: string,
   ): Promise<number> {
     let ok = 0;
     let failed = 0;
     let conflict = false;
     // 요청을 보내기 전에 version 을 다 모은다 — 중간에 모자라서 앞 묶음 결과만 남는 일이 없게.
-    const all = ids.map((id) => ({ id, version: versionOf(id) }));
+    const all = targets.map((b) => ({ id: b.id, version: versionOf(b) }));
     for (let i = 0; i < all.length; i += BULK_MAX) {
       const items = all.slice(i, i + BULK_MAX);
       const result = await portCall(
@@ -133,30 +130,32 @@ function build(api: Api | null): BroadcastPort {
         portCall(api, (a) => a.send('POST', BASE, { body: { requestId, ...body } }), '보내지 못했어요'),
       );
     },
-    async setPinned(ids, pinned) {
-      if (!ids.length) return 0;
-      if (ids.length === 1) {
-        const id = ids[0];
+    async setPinned(items, pinned) {
+      if (!items.length) return 0;
+      if (items.length === 1) {
+        const [item] = items;
         await portCall(api, (a) =>
-          a.send('PATCH', `${BASE}/${encodeURIComponent(id)}`, { body: { version: versionOf(id), pinned } }),
+          a.send('PATCH', `${BASE}/${encodeURIComponent(item.id)}`, {
+            body: { version: versionOf(item), pinned },
+          }),
         );
         return 1;
       }
-      return bulk(pinned ? 'PIN' : 'UNPIN', ids, '고정을 바꾸지 못했어요');
+      return bulk(pinned ? 'PIN' : 'UNPIN', items, '고정을 바꾸지 못했어요');
     },
-    async remove(ids) {
-      if (!ids.length) return 0;
-      if (ids.length === 1) {
-        const id = ids[0];
+    async remove(items) {
+      if (!items.length) return 0;
+      if (items.length === 1) {
+        const [item] = items;
         await portCall(api, (a) =>
-          a.send('DELETE', `${BASE}/${encodeURIComponent(id)}`, { query: { version: versionOf(id) } }),
+          a.send('DELETE', `${BASE}/${encodeURIComponent(item.id)}`, { query: { version: versionOf(item) } }),
         );
         return 1;
       }
-      return bulk('DELETE', ids, '내리지 못했어요');
+      return bulk('DELETE', items, '내리지 못했어요');
     },
   };
 }
 
-/** `api` 마다 하나 — 읽는 훅 · 쓰는 훅이 같은 포트(같은 version · 기억)를 쓴다. */
+/** `api` 마다 하나 — 보낸 요청 번호(같은 내용을 다시 보낼 때)만 들고 있고, 공지의 `version` 은 화면이 읽은 줄에 실려 온다. */
 export const createServerBroadcastPort = perApi(build);

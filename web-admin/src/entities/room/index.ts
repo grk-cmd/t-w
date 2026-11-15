@@ -50,7 +50,7 @@ export {
   type RoomStatsSummary,
 } from './model/room';
 export { useRefreshRoomConfig, useRoomLimits, useRoomMaxPeople } from './api/roomConfig';
-export { useRoomPort, type RoomPort } from './api/index';
+export { useRoomPort, type CloseResult, type RoomPort } from './api/index';
 export {
   isRoomMaxPeople,
   isRoomTotalLimit,

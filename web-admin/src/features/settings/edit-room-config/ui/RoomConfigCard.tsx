@@ -29,7 +29,8 @@ type Message = { text: string; error: boolean } | null;
 // 채널별 전체 방 상한 — config/roomLimits. 방 서버 한 대 보호용 상한(방 서버 페이지)과 다르다.
 function RoomLimitsForm() {
   const env = useEnv();
-  const { data: saved, error, isPending } = useRoomLimits();
+  const { data: from, error, isPending } = useRoomLimits();
+  const saved = from?.value;
   const save = useSaveRoomLimits();
   const [draft, setDraft] = useState<RoomLimitInputs | null>(null);
   const [message, setMessage] = useState<Message>(null);
@@ -40,11 +41,12 @@ function RoomLimitsForm() {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    if (!from) return;
     const r = checkRoomLimits(saved, inputs);
     if (!r.ok) return setMessage({ text: r.error, error: true });
     if (!confirm(withProdMark(env, roomLimitsConfirmText(saved, r.next)))) return;
     save.mutate(
-      { saved, next: r.next },
+      { from, next: r.next },
       {
         onSuccess: () => {
           setDraft(null);
@@ -96,7 +98,8 @@ function RoomLimitsForm() {
 // 방 하나 정원 — config/roomMaxPeople.
 function RoomMaxPeopleForm() {
   const env = useEnv();
-  const { data: saved, error, isPending } = useRoomMaxPeople();
+  const { data: from, error, isPending } = useRoomMaxPeople();
+  const saved = from?.value;
   const save = useSaveRoomMaxPeople();
   const [draft, setDraft] = useState<string | null>(null);
   const [message, setMessage] = useState<Message>(null);
@@ -104,11 +107,12 @@ function RoomMaxPeopleForm() {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    if (!from) return;
     const r = checkRoomMaxPeople(saved, value);
     if (!r.ok) return setMessage({ text: r.error, error: true });
     if (!confirm(withProdMark(env, roomMaxPeopleConfirmText(saved, r.next)))) return;
     save.mutate(
-      { saved, next: r.next },
+      { from, next: r.next },
       {
         onSuccess: () => {
           setDraft(null);

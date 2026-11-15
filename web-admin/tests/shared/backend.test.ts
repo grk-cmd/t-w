@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { notPorted, pickBackend, PortError, toPortError } from '@/shared/api';
+import { notPorted, perApi, pickBackend, PortError, resetPortState, toPortError } from '@/shared/api';
+import type { Api } from '@/shared/api';
 import { ApiError } from '@/shared/api';
 import { BACKENDS, parseBackend } from '@/shared/config';
 
@@ -50,5 +51,21 @@ describe('toPortError', () => {
     expect(toPortError(new TypeError('x')).kind).toBe('unreachable');
     const known = toPortError(new ApiError('request', 409, 'CONCURRENT_UPDATE', ''));
     expect(known.code).toBe('CONCURRENT_UPDATE');
+  });
+});
+
+describe('perApi — 로그아웃하면 포트 상태를 버린다', () => {
+  const api = {} as Api;
+
+  it('같은 api 에는 포트 하나, resetPortState 뒤에는 새 포트(받아 둔 상태 · 보낸 요청 번호가 이어지지 않는다)', () => {
+    const make = perApi((a) => ({ a, state: [] as string[] }));
+    const first = make(api);
+    first.state.push('이전 계정이 본 것');
+    expect(make(api)).toBe(first);
+    expect(make(null)).toBe(make(null));
+    resetPortState();
+    const second = make(api);
+    expect(second).not.toBe(first);
+    expect(second.state).toEqual([]);
   });
 });

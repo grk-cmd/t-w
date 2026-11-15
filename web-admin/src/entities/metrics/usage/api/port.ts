@@ -11,7 +11,10 @@ export interface UsagePort {
   serverTimeOffset(): Promise<number>;
   /** 개선 기록 전부. */
   listImprovements(): Promise<Improvement[]>;
-  /** 새로 적거나(id 없음) 고친다. 값이 받을 수 없는 것이면 쓰지 않고 던진다. 쓴 id 를 돌려준다. */
-  saveImprovement(draft: ImprovementDraft, id?: string): Promise<string>;
+  /**
+   * 새로 적거나(`existing` 없음) 고친다 — 고칠 때는 화면이 읽은 줄(번호 `revision` 포함)을 그대로 넘긴다. 그 사이 바뀌었으면 `conflict`.
+   * 값이 받을 수 없는 것이면 쓰지 않고 던진다. 쓴 id 를 돌려준다.
+   */
+  saveImprovement(draft: ImprovementDraft, existing?: Improvement): Promise<string>;
   deleteImprovement(entry: Improvement): Promise<void>;
 }

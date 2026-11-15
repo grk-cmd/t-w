@@ -25,7 +25,7 @@ export interface DayMetrics {
   ipVisitors: number;
   /** 앱 실행 수(로그인 안 한 사람 포함) */
   pings: number;
-  /** 서버가 «오늘» 줄에 실어 주는 최근 7일 · 30일 고유 사용자(API 판) — 있으면 `users` 로 세지 않고 이 값을 쓴다. */
+  /** 서버가 «오늘» 줄에 실어 주는 최근 7일 · 30일 고유 사용자(API 판 전용) — `activeUsers` 가 읽는다. */
   wau?: number;
   mau?: number;
 }
@@ -53,24 +53,24 @@ export interface MetricsSummary {
   days: DayMetrics[];
 }
 
-export function uniqueUsers(days: readonly DayMetrics[]): number {
-  const all = new Set<string>();
-  for (const d of days) for (const u of d.users) all.add(u);
-  return all.size;
-}
-
 export const hasRecord = (d: DayMetrics) => d.dau > 0 || d.users.length > 0 || d.visits > 0;
 export const hasIpRecord = (d: DayMetrics) => d.ipVisitors > 0 || d.pings > 0;
 
+/** 최근 7일 · 30일 고유 사용자 — 어떻게 구하는지는 판이 안다(Firebase 판은 사용자 목록의 합집합, API 판은 서버가 준 값). */
+export interface ActiveUsers {
+  wau: number;
+  mau: number;
+}
+
 /** days 는 오래된 날 → 오늘 순(lastDateKeys 순서). 비어 있으면 null. */
-export function metricsSummary(days: readonly DayMetrics[]): MetricsSummary | null {
+export function metricsSummary(days: readonly DayMetrics[], active: ActiveUsers): MetricsSummary | null {
   if (!days.length) return null;
   const n = days.length;
   return {
     today: days[n - 1],
     yesterday: n > 1 ? days[n - 2] : null,
-    wau: days[n - 1].wau ?? uniqueUsers(days.slice(-7)),
-    mau: days[n - 1].mau ?? uniqueUsers(days.slice(-30)),
+    wau: active.wau,
+    mau: active.mau,
     firstDate: days.find(hasRecord)?.date ?? null,
     ipFirstDate: days.find(hasIpRecord)?.date ?? null,
     days: [...days],

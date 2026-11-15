@@ -5,7 +5,7 @@ import {
   useRefreshOpsConfig,
   type Maintenance,
 } from '@/entities/server/ops-config';
-import { refreshOnConflict } from '@/shared/api';
+import { refreshOnConflict, type Versioned } from '@/shared/api';
 
 /** 입력 칸 — 시각은 `<input type="datetime-local">` 의 값(이 브라우저의 시간대) 그대로. */
 export interface MaintenanceDraft {
@@ -65,7 +65,8 @@ export function useSaveMaintenance() {
   const { maintenance } = useOpsConfigPort();
   const refresh = useRefreshOpsConfig();
   return useMutation({
-    mutationFn: (next: Maintenance) => (maintenance as NonNullable<typeof maintenance>).save(next),
+    mutationFn: ({ from, next }: { from: Versioned<Maintenance>; next: Maintenance }) =>
+      (maintenance as NonNullable<typeof maintenance>).save(from, next),
     onSuccess: refresh,
     onError: refreshOnConflict(refresh),
   });

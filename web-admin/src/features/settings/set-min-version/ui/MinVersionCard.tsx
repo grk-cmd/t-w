@@ -25,11 +25,11 @@ const HINTS: Record<MinVersionKind, string | null> = {
 export function MinVersionCard({ kind }: { kind: MinVersionKind }) {
   const env = useEnv();
   const meta = MIN_VERSIONS[kind];
-  const { data: current, error, isPending } = useMinVersion(kind);
+  const { data: from, error, isPending } = useMinVersion(kind);
   const releases = useReleaseDownloads();
   const latest = releases.data?.[0]?.version ?? null;
   const save = useSaveMinVersion(kind);
-  const before = current ?? null;
+  const before = from?.value ?? null;
   // 고치기 전에는 지금 값을 그대로 보여 준다.
   const [draft, setDraft] = useState<VersionParts | null>(null);
   const [message, setMessage] = useState<Message>(null);
@@ -43,6 +43,7 @@ export function MinVersionCard({ kind }: { kind: MinVersionKind }) {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    if (!from) return;
     const problem = minVersionProblem(kind, next, before, latest);
     if (problem) return setMessage({ text: problem, error: true });
     const lower = before !== null && compareVersion(next, before) < 0;
@@ -51,7 +52,7 @@ export function MinVersionCard({ kind }: { kind: MinVersionKind }) {
       : `${meta.title}: ${before ?? '제한 없음'} → ${next} — ${next} 보다 낮은 앱은 ${meta.blocked}.`;
     if (!confirm(withProdMark(env, text))) return;
     save.mutate(
-      { version: next, before },
+      { from, version: next },
       {
         onSuccess: () => {
           setMessage({ text: `저장했어요 · ${next}`, error: false });
@@ -72,7 +73,7 @@ export function MinVersionCard({ kind }: { kind: MinVersionKind }) {
       ) : (
         <>
           <p className={styles.now}>
-            지금 <code className="key">{isPending ? '…' : (current ?? '제한 없음')}</code>
+            지금 <code className="key">{isPending ? '…' : (before ?? '제한 없음')}</code>
             <span className="soft">최신 릴리스 {latest ?? (releases.isLoading ? '…' : '확인 못 함')}</span>
           </p>
           <form className={styles.row} onSubmit={submit}>

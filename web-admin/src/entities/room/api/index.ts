@@ -18,4 +18,4 @@ export function useRoomPort(): RoomPort {
   );
 }
 
-export type { RoomPort } from './port';
+export type { CloseResult, RoomPort } from './port';

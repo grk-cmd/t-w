@@ -1,5 +1,5 @@
 // Firebase 판 — 지금 코드 그대로: catalog/gameConfig 를 읽고 쓴다.
-import { withAudit, type Db } from '@/shared/api';
+import { unversioned, withAudit, type Db } from '@/shared/api';
 import type { GameConfigPort } from './port';
 
 const PATH = 'catalog/gameConfig';
@@ -18,7 +18,7 @@ export function saveAnimalUnlockLevel(db: Db, level: number): Promise<void> {
 
 export function createFirebaseGameConfigPort(db: Db): GameConfigPort {
   return {
-    getAnimalUnlockLevel: () => getAnimalUnlockLevel(db),
-    saveAnimalUnlockLevel: (level) => saveAnimalUnlockLevel(db, level),
+    getAnimalUnlockLevel: async () => unversioned(await getAnimalUnlockLevel(db)),
+    saveAnimalUnlockLevel: (_from, level) => saveAnimalUnlockLevel(db, level),
   };
 }

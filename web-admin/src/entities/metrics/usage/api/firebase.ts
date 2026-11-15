@@ -53,7 +53,7 @@ export function createFirebaseUsagePort(db: Db): UsagePort {
     getDay: (date) => getDayUsage(db, date),
     serverTimeOffset: () => db.serverTimeOffset(),
     listImprovements: () => getImprovements(db),
-    saveImprovement: (draft, id) => saveImprovement(db, draft, id),
+    saveImprovement: (draft, existing) => saveImprovement(db, draft, existing?.id),
     deleteImprovement: (entry) => deleteImprovement(db, entry),
   };
 }

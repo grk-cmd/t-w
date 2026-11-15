@@ -1,6 +1,6 @@
 import type { User } from 'firebase/auth';
 import { useCallback, useEffect, useState } from 'react';
-import { queryClient, type Firebase } from '@/shared/api';
+import { queryClient, resetPortState, type Firebase } from '@/shared/api';
 import { useAuthPort, type AdminCheck } from '../api';
 
 /**
@@ -31,6 +31,7 @@ export function useAdminSession(fb: Firebase): AdminSessionControl {
     const unsubscribe = fb.onAuth(async (user) => {
       if (!user) {
         queryClient.clear(); // 다음에 들어오는 계정에게 이전 계정이 받은 목록을 보이지 않는다
+        resetPortState(); // 포트가 들고 있던 상태도 같이 버린다
         setSession((s) => (s.state === 'signedOut' ? s : { state: 'signedOut' }));
         return;
       }

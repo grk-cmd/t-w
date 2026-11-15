@@ -31,7 +31,7 @@ export function ImprovementForm({ entry, onDone }: { entry?: Improvement; onDone
     }
     setError(null);
     save.mutate(
-      { draft: r.draft, id: entry?.id },
+      { draft: r.draft, entry },
       {
         onSuccess: () => {
           toast(entry ? '수정 완료' : '추가 완료');

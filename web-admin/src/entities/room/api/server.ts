@@ -1,49 +1,69 @@
 // API 판 — 설정 키 `room.limits` · `room.maxPeople` · `chat.keepDays`. 서버는 칸이 비면 기본값을 값으로 돌려준다(null 이 없다).
-// 칸을 비우는 저장(= 기본값 따르기)은 그 칸에 기본값을 써서 보낸다. 값이 여럿인 키는 받은 값에 고친 칸만 바꿔 통째로 보낸다.
-import { opsConfigClient, type Api } from '@/shared/api';
-import { CHAT_KEEP_PATH, parseChatKeep } from '../model/chatKeep';
+// 칸을 비우는 저장(= 기본값 따르기)은 그 칸에 기본값을 써서 보낸다. 값이 여럿인 키는 화면이 읽은 값에 고친 칸만 바꿔 통째로 보낸다.
+// 읽은 번호(`version`)는 화면이 들고 있다가 저장에 돌려준다 — 포트는 기억하지 않는다.
+import { opsConfigClient, PortError, wireNumber, wireObject, type Api, type Versioned } from '@/shared/api';
+import { CHAT_KEEP_PATH, type ChatKeep } from '../model/chatKeep';
 import type { Channel } from '../model/room';
-import { parseRoomLimits, isRoomMaxPeople } from '../model/roomConfig';
-import type { RoomPort } from './port';
+import { CLOSE_MAX, type RoomPort } from './port';
 import { createServerRoomBoard } from './serverBoard';
 
-const object = (v: unknown): Record<string, unknown> =>
-  v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
+type Raw = NonNullable<Versioned<unknown>['raw']>;
+
+/** 화면이 읽을 때 붙인 통째 값 — 없으면 이 판의 읽기를 거치지 않은 것이라 코드 실수다. */
+function rawOf(from: Versioned<unknown>, key: string): Raw {
+  if (!from.raw) throw new PortError('invalid', `읽은 값이 이 판의 것이 아니에요 (${key})`);
+  return from.raw;
+}
 
 export function createServerRoomPort(api: Api | null): RoomPort {
   const config = opsConfigClient(api);
   const board = createServerRoomBoard(api);
   return {
     async getLimits() {
-      return parseRoomLimits((await config.read('room.limits')).effective);
+      const { effective, default: defaults, version } = await config.read('room.limits');
+      const o = wireObject(effective, 'room.limits');
+      const value: Record<Channel, number> = {
+        workingroom: wireNumber(o.workingroom, 'room.limits.workingroom'),
+        togetherroom: wireNumber(o.togetherroom, 'room.limits.togetherroom'),
+      };
+      return { value, version, raw: { effective, defaults } };
     },
     async getMaxPeople() {
-      const { effective } = await config.read('room.maxPeople');
-      return isRoomMaxPeople(effective) ? effective : null;
+      const { effective, default: defaults, version } = await config.read('room.maxPeople');
+      return { value: wireNumber(effective, 'room.maxPeople'), version, raw: { effective, defaults } };
     },
-    async saveLimits(_before, next: Record<Channel, number>) {
-      await config.update('room.limits', () => ({
+    async saveLimits(from, next) {
+      await config.write('room.limits', from.version, {
         workingroom: next.workingroom,
         togetherroom: next.togetherroom,
-      }));
+      });
     },
-    async saveMaxPeople(_before, next) {
-      await config.update('room.maxPeople', () => next);
+    async saveMaxPeople(from, next) {
+      await config.write('room.maxPeople', from.version, next);
     },
     async getChatKeep() {
-      return parseChatKeep((await config.read('chat.keepDays')).effective);
+      const { effective, default: defaults, version } = await config.read('chat.keepDays');
+      const value: ChatKeep = Object.fromEntries(
+        Object.entries(wireObject(effective, 'chat.keepDays')).map(([k, d]) => [
+          k,
+          wireNumber(d, `chat.keepDays.${k}`),
+        ]),
+      );
+      return { value, version, raw: { effective, defaults } };
     },
     ...board,
     features: { ghostCleanup: false, lastSeen: false },
-    async saveChatKeep(_before, updates) {
-      await config.update('chat.keepDays', (current, defaults) => {
-        const next = { ...object(current) };
-        for (const [path, value] of Object.entries(updates)) {
-          const kind = path.slice(CHAT_KEEP_PATH.length + 1);
-          next[kind] = value ?? object(defaults)[kind];
-        }
-        return next;
-      });
+    closeMax: CLOSE_MAX,
+    async saveChatKeep(from, updates) {
+      const { effective, defaults } = rawOf(from, 'chat.keepDays');
+      const base = wireObject(effective, 'chat.keepDays');
+      const fallback = wireObject(defaults, 'chat.keepDays 기본값');
+      const next = { ...base };
+      for (const [path, value] of Object.entries(updates)) {
+        const kind = path.slice(CHAT_KEEP_PATH.length + 1);
+        next[kind] = value ?? fallback[kind];
+      }
+      await config.write('chat.keepDays', from.version, next);
     },
   };
 }

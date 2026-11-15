@@ -71,13 +71,29 @@ export const refreshOnConflict = (refresh: () => unknown) => (error: unknown) =>
   if (isPortError(error, 'conflict')) void refresh();
 };
 
+/** `perApi` 가 만든 포트 보관함을 비우는 함수들 — 로그아웃 때 한꺼번에 부른다. */
+const portStores: Array<() => void> = [];
+
 /**
- * `api` 마다 포트를 하나만 만든다 — 훅을 부르는 곳마다 따로 만들면 포트가 들고 있는 상태(마지막에 본 version · 캐시 · 보낸 것)가
+ * 로그아웃 — 포트가 들고 있던 상태(받아 둔 목록 · 진행 중 요청 · 다시 보낼 요청 번호)를 모두 버린다.
+ * 다음에 들어오는 계정이 이전 계정의 상태를 이어받지 않게 한다. 이미 만들어진 포트는 화면과 함께 사라진다.
+ */
+export function resetPortState(): void {
+  for (const reset of portStores) reset();
+}
+
+/**
+ * `api` 마다 포트를 하나만 만든다 — 훅을 부르는 곳마다 따로 만들면 포트가 들고 있는 상태(받아 둔 목록 · 보낸 것)가
  * 읽는 훅과 쓰는 훅에 나뉘어 버린다. `api` 가 없으면(주소 없음) 하나만 둔다.
+ * 읽은 값의 `version` 은 포트가 아니라 화면이 들고 있다 — 포트 상태는 로그아웃(`resetPortState`)에 모두 버려진다.
  */
 export function perApi<T>(make: (api: Api | null) => T): (api: Api | null) => T {
-  const made = new WeakMap<Api, T>();
+  let made = new WeakMap<Api, T>();
   let none: T | undefined;
+  portStores.push(() => {
+    made = new WeakMap<Api, T>();
+    none = undefined;
+  });
   return (api) => {
     if (!api) return (none ??= make(null));
     let port = made.get(api);

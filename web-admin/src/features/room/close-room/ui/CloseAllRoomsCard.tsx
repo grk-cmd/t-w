@@ -3,7 +3,7 @@ import { allRoomCodes, isSecretRoom, useRoomCodes, useRoomIndex } from '@/entiti
 import { useEnv, withProdMark } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
-import { CLOSE_ALL_WORD, isCloseAllConfirmed } from '../model/closeRoom';
+import { CLOSE_ALL_WORD, closeResultText, isCloseAllConfirmed } from '../model/closeRoom';
 import { useCloseAllRooms } from '../model/useCloseRoom';
 
 export function CloseAllRoomsCard() {
@@ -22,8 +22,8 @@ export function CloseAllRoomsCard() {
     const ask = `방 ${all.length}개를 모두 종료할까요? (시크릿룸 ${secret}개 포함)\n안에 있던 사람은 방에서 튕겨 나가요.`;
     if (!confirm(withProdMark(env, ask))) return;
     closeAll.mutate(undefined, {
-      onSuccess: (closed) => {
-        toast(closed.length ? `방 ${closed.length}개를 종료했어요` : '종료할 방이 없어요');
+      onSuccess: (result) => {
+        toast(closeResultText(result));
         setTyped('');
       },
       onError: (e) => toast(errorMessage(e, '종료하지 못했어요. 지운 방은 없어요')),

@@ -1,7 +1,7 @@
 // API 판 — `GET /v2/admin/admins/me` 한 번으로 서버가 토큰의 uid 로 가린다(403 이면 관리자가 아님).
 // 서버에 닿지 못하면 관리자 화면을 열지 않는다. 이름이 비었으면 로그인 이름으로 한 번 채운다(실패해도 로그인은 그대로).
 import { cleanAdminName } from '@/entities/admin/name';
-import { adminPath, ApiError, apiErrorText, type Api } from '@/shared/api';
+import { adminPath, ApiError, apiErrorText, wireNumber, type Api } from '@/shared/api';
 import type { AdminCheck, AuthPort, AuthUser } from './port';
 
 /** `GET /v2/admin/admins/me` 의 답. */
@@ -39,7 +39,7 @@ export function createServerAuthPort(api: Api | null): AuthPort {
     if (!name.trim() && wanted) {
       try {
         await api.send('PATCH', ME_PATH, {
-          body: { version: typeof me.version === 'number' ? me.version : 0, name: wanted },
+          body: { version: wireNumber(me.version, '관리자 정보의 version'), name: wanted },
         });
       } catch (error) {
         console.warn('[admin] 이름을 저장하지 못했어요', error);

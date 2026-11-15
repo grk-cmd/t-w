@@ -88,7 +88,7 @@ function TotalCount({ healthUrl }: { healthUrl: string | null }) {
       ) : (
         <span className="grow">
           {CHANNELS.map((ch) => {
-            const lim = totalLimitOf(limits.data, ch);
+            const lim = totalLimitOf(limits.data?.value, ch);
             const live = !ledgerHasServer && healthUrl && h.data ? h.data[ch] : undefined;
             const srv = live ?? s.server?.[ch];
             const fb = s[ch] - ledgerSrv(ch);

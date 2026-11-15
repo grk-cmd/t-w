@@ -1,5 +1,5 @@
 // Firebase 판 — 지금 코드 그대로: catalog/adBanner 를 읽고 쓴다.
-import { withAudit, type Db } from '@/shared/api';
+import { unversioned, withAudit, type Db } from '@/shared/api';
 import { toSlides, type AdSlide } from '../model/adBanner';
 import type { AdBannerPort } from './port';
 
@@ -16,7 +16,7 @@ export function saveAdBanner(db: Db, slides: AdSlide[]): Promise<void> {
 
 export function createFirebaseAdBannerPort(db: Db): AdBannerPort {
   return {
-    get: () => getAdBanner(db),
-    save: (slides) => saveAdBanner(db, slides),
+    get: async () => unversioned(await getAdBanner(db)),
+    save: (_from, slides) => saveAdBanner(db, slides),
   };
 }

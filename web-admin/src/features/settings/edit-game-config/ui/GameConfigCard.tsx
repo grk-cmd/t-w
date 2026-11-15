@@ -13,7 +13,8 @@ import styles from './GameConfigCard.module.css';
 type Message = { text: string; error: boolean } | null;
 
 export function GameConfigCard() {
-  const { data: saved, error, isPending } = useAnimalUnlockLevel();
+  const { data: from, error, isPending } = useAnimalUnlockLevel();
+  const saved = from?.value;
   const save = useSaveUnlockLevel();
   const current = saved ?? DEFAULT_ANIMAL_UNLOCK_LEVEL;
   // 고치기 전에는 지금 값을 그대로 보여 준다. 저장되면 다시 서버 값을 따른다.
@@ -23,6 +24,7 @@ export function GameConfigCard() {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    if (!from) return;
     const level = parseUnlockLevel(value);
     if (level === null) {
       setMessage({ text: `${UNLOCK_LEVEL_MIN}~${UNLOCK_LEVEL_MAX} 사이 숫자를 넣어 주세요`, error: true });
@@ -34,13 +36,16 @@ export function GameConfigCard() {
     }
     if (!confirm(`동물 해금 레벨을 Lv.${current} → Lv.${level} 로 바꿀까요? 모든 사용자에게 바로 반영돼요.`))
       return;
-    save.mutate(level, {
-      onSuccess: () => {
-        setMessage({ text: `저장했어요 · Lv.${level}`, error: false });
-        setDraft(null);
+    save.mutate(
+      { from, level },
+      {
+        onSuccess: () => {
+          setMessage({ text: `저장했어요 · Lv.${level}`, error: false });
+          setDraft(null);
+        },
+        onError: (err) => setMessage({ text: errorMessage(err, '저장하지 못했어요'), error: true }),
       },
-      onError: (err) => setMessage({ text: errorMessage(err, '저장하지 못했어요'), error: true }),
-    });
+    );
   };
 
   return (
