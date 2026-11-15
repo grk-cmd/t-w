@@ -427,3 +427,11 @@
 - **만드는 법**: `TwRigAnim.createRigAnim({ … 6개 })` — 모두 값(`ANIMAL_HAND_REST` · `camera` · `iDeskMod` · `rideTuneMod` · `seatPointerMod` · `userStatusMod`). 원래 자리에서 만든다.
 - **내보내는 것**: 상수 · 함수 열둘을 같은 이름 const 로 받는다(`lerp` 포함 — 다른 구역이 쓴다).
 - **함정**: 부호(`SPINE_AXIS` 등)와 각도 상수는 움직임 방향을 정한다 — 숫자를 바꾸면 자세가 뒤집힌다. 검사: `checks/sim-rig-anim.js`.
+## cloth-visibility.js — 👕 옷 겹침
+
+- **책임**: `_unequipClothCat`(옷 카테고리 충돌 정리 — def 는 안 건드림) · `applyClothVisibility`(착용 파츠의 `hides` 로 기본 상 · 하의 · 모자 · 안경 · 날개 · 손 메시를 보이거나 숨김). 앱 FSD 분리 T4 — app.js 글을 그대로 옮겼다(0.13 app.js 의 같은 글).
+- **만드는 법**: `TwClothVisibility.createClothVisibility({ decoPartsMod, premiumMod, rideBenchMod, unequipPartFromSeat })` — 값 3 · 함수 1. app.js 가 원래 자리(파츠 붙이기 · 떼기 바로 앞)에서 만들고 두 이름을 const 로 받는다.
+- **함정**
+  - 자리비움 중(`mesh.userData._prevVisible` 있음)에는 `visible` 을 직접 쓰지 않고 `_prevVisible` 에 적는다 — `setSeatOpacity`(`room/seat-opacity.js`)와 같은 한 표식이다.
+  - 끝의 `rideBenchMod._remeasureRideHeadTop(seat)` 가 «기본 메시 가시성이 확정된 순간» 의 머리 꼭대기 재측정이다 — `unequipPartFromSeat` 안으로 옮기지 말 것(그 함수가 끝난 뒤에 이 함수가 가시성을 되돌린다).
+  - 검사: `checks/sim-cloth-visibility.js`.
