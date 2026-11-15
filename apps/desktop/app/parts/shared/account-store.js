@@ -118,10 +118,11 @@ function createAccountStore(deps){
     try{ storage.removeItem(cell); return true; }catch(_){ return false; }
   }
 
-  /* 접두 키를 쓰는 모듈에 Storage 모양(getItem · setItem · removeItem)으로 보여 준다 — 모듈이 저장소를 값으로 받는 자리(방명록 읽음 시각 저장소)용.
-     닫혀 있으면 읽기 null · 쓰기는 조용히 안 됨(get · set 과 같다). 계정별 키가 아니면 get · set 처럼 던진다. */
+  /* Storage 모양(getItem · setItem · removeItem)으로 보여 준다 — 저장소를 값으로 받는 모듈용(JSON 칸 json-store.js · 방명록 읽음 시각).
+     닫혀 있으면 읽기 null · 쓰기는 던진다(진짜 Storage 가 못 쓸 때 던지는 것과 같게 — 받는 쪽이 «저장 못 함» 을 안다). 계정별 키가 아니면 get · set 처럼 던진다. */
   function asStorage(){
-    return { getItem: (k) => get(k), setItem: (k, v) => { set(k, v); }, removeItem: (k) => { remove(k); } };
+    const refused = (k) => { const e = new Error('[계정 칸] 쓰지 못했다 — ' + k); e.name = 'AccountStoreRefused'; return e; };
+    return { getItem: (k) => get(k), setItem: (k, v) => { if(!set(k, v)) throw refused(k); }, removeItem: (k) => { if(!remove(k)) throw refused(k); } };
   }
   function readMigrated(){
     try{ const a = JSON.parse(storage.getItem(MIGRATED_KEY) || '[]'); return Array.isArray(a) ? a : []; }catch(_){ return []; }

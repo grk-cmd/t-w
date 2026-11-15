@@ -201,6 +201,22 @@ async function judge(S){
     chk(r.moved.length === 1 && r.moved[0] === 'tw.chatTab.R1' && st2.o['tw.focusTodaySec'] === '9', '★ 이름만 처리한 옛 처리함을 가진 PC — 이번에 더해진 접두만 새로 옮기고 이미 처리한 이름은 다시 안 본다');
   }
 
+  say('── 5d. asStorage — 저장소를 값으로 받는 모듈(방명록 읽음 시각)용 Storage 모양');
+  {
+    const st = mem(); const code = { v: A }; const closed = M.createAccountStore({ storage: st, getAccountCode: () => code.v, isWriteLocked: () => false });
+    const w0 = console.warn; console.warn = () => {};
+    const sg = closed.asStorage();
+    let threw = null; try{ sg.setItem('tw.mhGbLastRead:uF1', '5'); }catch(e){ threw = e; }
+    chk(sg.getItem('tw.mhGbLastRead:uF1') === null && threw && threw.name === 'AccountStoreRefused' && !Object.keys(st.o).length, '닫혀 있으면 읽기 null · 쓰기는 AccountStoreRefused 를 던진다 · 저장소 0건');
+    closed.open(A);
+    sg.setItem('tw.mhGbLastRead:uF1', '5');
+    chk(sg.getItem('tw.mhGbLastRead:uF1') === '5' && st.o['tw.u.' + A + '.mhGbLastRead:uF1'] === '5' && !('tw.mhGbLastRead:uF1' in st.o), '열린 뒤에는 계정 칸에 쓰고 읽는다(PC 칸 0건)');
+    sg.removeItem('tw.mhGbLastRead:uF1');
+    let threw2 = false; try{ sg.getItem('tw.deviceId'); }catch(_){ threw2 = true; }
+    chk(sg.getItem('tw.mhGbLastRead:uF1') === null && threw2, '지우기도 된다 · 기기 공용 키는 던진다');
+    console.warn = w0;
+  }
+
   say('── 6. 옮겨 쓰는 모듈');
   {
     // 실물 focus-total.js — 계정마다 다른 오늘치
@@ -440,6 +456,7 @@ const BREAKS = [
   ['MHEDIT', "accountStore.get('tw.mhRecentColors.'+kind)", "localStorage.getItem('tw.mhRecentColors.'+kind)", '최근 색을 PC 칸에서 읽음'],
   ['APP', "createLastReadStore(accountStoreMod.asStorage())", "createLastReadStore(localStorage)", '방명록 읽음 시각을 PC 칸에 둠'],
   ['ACC', "/* 접두어로 쌓이는 키(방마다 하나)는 계정 칸으로", "const ACCOUNT_LOCAL_KEY_PREFIXES = ['tw_chat_read:'];\n/* 접두어로 쌓이는 키(방마다 하나)는 계정 칸으로", '로그아웃이 접두 키를 다시 지움'],
+  ['STORE', "setItem: (k, v) => { if(!set(k, v)) throw refused(k); }", "setItem: (k, v) => { set(k, v); }", '닫힌 계정 칸에 쓰고도 «저장됨» 으로 둠'],
   ['STORE', "if(all) handled.push(p);", "handled.push(p);", '못 옮긴 접두도 처리함에 올림'],
   ['STORE', "k.length > p.length && k.startsWith(p)) names.push(k)", "k.startsWith(p)) names.push(k)", '접두만 있는 이름도 옮김'],
   ['STORE', "const todoPrefixes = MOVED_KEY_PREFIXES.filter(p => !done.includes(p));", "const todoPrefixes = [];", '접두 키를 안 옮김'],
