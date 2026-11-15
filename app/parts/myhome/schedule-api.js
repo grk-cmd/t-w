@@ -15,7 +15,7 @@
      fetchBoardOf(userCode) → 같은 모양(공개한 장만).
      saveBoard(uid, ddays, tag) → Promise<ddays> — 보드를 통째로 보낸다. tag = { id, userCodes }(이번에 저장한 한 장에 대해 알릴 친구) 또는 null. 새 장은 id 가 UUID 가 아닌 임시 열쇠.
      orderedIds(ddays, kind) → 그 종류의 열쇠를 «order → 만든 순» 으로(순수 — 화면과 저장이 같은 순서를 쓴다)
-     reset() — 읽은 판 · 토큰 주인 기억을 비운다(계정을 놓을 때)
+     reset() — 읽은 판 · 토큰 주인 기억을 비운다(0.12.4 는 계정이 바뀌면 앱을 다시 켜서 부르는 곳이 없다)
    }
      순수: itemOf · monthOf · ddayOf · boardOf · boardBody · orderedIds · PATHS · LIMITS (TwScheduleApi 위)
    ⚠️ 보드는 판(version)으로 겹친 고침을 가른다 — 저장은 «마지막으로 읽은 판» 을 실어 보내고, 다른 기기가 먼저 저장했으면(409 CONCURRENT_UPDATE) 판을 버려 다시 받기 전엔 쓰지 못하게 한다. 409 에 판을 다시 읽어 한 번 더 보내지 않는다.

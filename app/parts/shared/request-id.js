@@ -6,7 +6,7 @@
    [쓰는 법] 한 번 보내고 끝나는 일: body.requestId = TwRequestId.newId().
      다시 보낼 수 있는 일: const ids = TwRequestId.createPending(); ids.idFor(키) — 같은 키는 settle(키) 하기 전까지 같은 번호.
        답을 받았으면(성공이든 서버가 거절했든) settle(키), 닿지 못해 다시 보낼 거면 settle 하지 않고 다시 idFor(키).
-   classic script — 쓰는 모듈(device-id.js · api 를 부르는 provider) · app.js 보다 먼저 싣는다(window.TwRequestId). 아무것도 부르지 않는다. */
+   classic script — 쓰는 모듈(api 를 부르는 provider) · app.js 보다 먼저 싣는다(window.TwRequestId). 아무것도 부르지 않는다. */
 (function(){
 'use strict';
 

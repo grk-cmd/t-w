@@ -139,6 +139,7 @@ function mkEnv(opt){
     bellSeenKey: 'tw.bellSeenTs',
     twNav: opt.twNav || { go(){}, NAV: {} },
   });
+  if(!opt.noToday) S.loadToday();   // 마이홈 시작(myhome-init)이 로그인 복원 뒤 부르는 것 — 만들 때는 받지 않는다
   const calls = (m, re) => authed.log.filter(x => x.method === m && re.test(x.path));
   return { S, notice, removed, scheduleApi, win, els, ls, timers, toasts, errs, escWins, winListeners, g, st, routes, authed, calls, el: id => document.getElementById(id) };
 }
@@ -168,20 +169,22 @@ await sec('── 1. 셈', async () => {
 });
 
 await sec('── 2. 만들 때', async () => {
-  const E = mkEnv({ routes: { 'GET /v2/me/schedules': [item('t1', TODAY, '병원')] } });
+  const E = mkEnv({ noToday: true, routes: { 'GET /v2/me/schedules': [item('t1', TODAY, '병원')] } });
   await tick();
-  chk(E.notice.uid === 'me1' && typeof E.notice.cb === 'function' && E.calls('GET', new RegExp('^/v2/me/schedules\\?month=' + YM + '$')).length === 1,
-      '네트워크가 준비돼 있으면 바로 — 친구 태그 알림(예전 길 schedNotices)을 구독하고 이번 달 일정을 한 번 받는다(스케줄러 탭을 안 열어도)');
+  chk(E.notice.uid === 'me1' && typeof E.notice.cb === 'function' && E.authed.log.length === 0,
+      '네트워크가 준비돼 있으면 바로 — 친구 태그 알림(예전 길 schedNotices)을 구독한다. 서버 요청은 0 — 로그인 복원 전이라 토큰이 없다');
+  E.S.loadToday(); await tick();
+  chk(E.calls('GET', new RegExp('^/v2/me/schedules\\?month=' + YM + '$')).length === 1, '  오늘 일정은 마이홈 시작이 loadToday 를 부를 때 이번 달 일정을 한 번 받는다(스케줄러 탭을 안 열어도)');
   chk(E.calls('GET', /ddays/).length === 0, '  디데이 보드는 로그인 뒤 받는다(loadBoard) — 만들 때는 안 받는다');
   chk(E.calls('GET', /notifications/).length === 0, '  서버 알림함은 부르지 않는다 — 태그 알림 받기는 예전 길');
   chk(E.timers.some(x => x.ms === 60 * 1000), '자정 넘김 — 1분마다 날짜를 본다');
   chk(E.escWins.length === 1 && E.escWins[0].key === 'bell' && E.escWins[0].el === E.el('bellWin'), 'ESC 로 닫히는 창에 🔔 알림창 등록');
   chk(typeof E.win._closeBellWin === 'function', 'window._closeBellWin — 칩 팝업 닫기가 부른다');
   chk(Array.isArray(E.win.__winPosResetters) && E.win.__winPosResetters.length === 1, '🪟 창 위치 초기화 목록에 🔔 자리');
-  const L = mkEnv({ noApi: true });
+  const L = mkEnv({ noApi: true, noToday: true });
   await tick();
   chk(L.authed.log.length === 0 && (L.winListeners['firebase-ready'] || []).length === 1, '네트워크가 아직이면 firebase-ready 를 기다린다 — 그 전엔 요청 0');
-  const N = mkEnv({ only: [] });
+  const N = mkEnv({ only: [], noToday: true });
   await tick();
   chk(N.authed.log.length === 0 && N.escWins.length === 0, 'DOM 이 없으면(창 요소 없음) 아무것도 걸지 않는다 — 예전처럼 조용히');
 });
@@ -191,7 +194,7 @@ await sec('── 2-2. 내 코드 없음 — 요청 0', async () => {
     /* 서버 길(provider)에도 «내 코드 없음 → 던짐» 이 있다 — 모듈 쪽 확인만 보려고 그것은 걷고 돌린다 */
     const apiSrc = SRC['schedule-api.js'].replace(/\n *if\(!uid\) throw codeError\('NO_USER'[^\n]*/g, '');
     const E = mkEnv({ uid: null, src, apiSrc });
-    E.S.renderSchedCalendar(); E.S.loadBoard();
+    E.S.renderSchedCalendar(); E.S.loadBoard(); E.S.loadToday();
     E.timers.forEach(x => { if(x.ms === 60 * 1000) x.fn(); });
     await tick();
     return E.authed.log.length === 0 && !E.notice.cb;
@@ -614,11 +617,12 @@ await sec('── 8. app.js 배선 · html', async () => {
   const bare = APP.split('\n').filter(l => /(^|[^.\w])(refreshBellBadge|renderBellList|renderDdays|renderSchedCalendar|loadMonth|_bellWinOpen)\((?!\)\{\})/.test(l));
   chk(bare.length === 0, '부르는 곳은 전부 mhScheduler.이름 — 옛 전역 이름 호출이 안 남았다' + (bare.length ? ' (' + bare[0].trim().slice(0, 80) + ')' : ''));
   const INIT = strip(SRC['myhome-init.js']), VISIT = strip(SRC['myhome-visit.js']);
-  chk(/mhScheduler\.loadBoard\(\)/.test(INIT) && !/subscribeDdays/.test(INIT), '로그인 뒤 — 내 보드 받기(loadBoard)');
+  chk(/mhScheduler\.loadBoard\(\);\s*mhScheduler\.loadToday\(\)/.test(INIT) && !/subscribeDdays/.test(INIT), '로그인 뒤 — 내 보드 받기(loadBoard)');
   chk((VISIT.match(/mhScheduler\.startVisit\(friendId\)/g) || []).length === 1 && (VISIT.match(/mhScheduler\.endVisit\(\)/g) || []).length === 1 && !/subscribeDdays|_schedDdaysVisitUnsub|setDdaysVisit/.test(VISIT), '관람 시작 · 끝 → startVisit · endVisit (구독 끊기 장치 없음)');
   chk(/if\(tab\.dataset\.tab==='scheduler'\)\{\s*mhScheduler\.renderSchedCalendar\(\); mhScheduler\.renderDdays\(\);/.test(APP), '[스케줄러] 탭 → 달력 · D-day 그리기');
   const a = HTML.indexOf('<script src="parts/myhome/scheduler.js"></script>'), b = HTML.indexOf('<script src="parts/app.js"></script>'), s = HTML.indexOf('<script src="parts/myhome/schedule-api.js"></script>');
   chk(s > 0 && s < a && a > 0 && b > a, 'html — schedule-api.js → scheduler.js → app.js 순서');
+  chk(['mhSchedPublicHint', 'mhDdayPublicHint'].every(id => HTML.includes('id="' + id + '"')), 'html — 태그 공개 안내 칸 둘(mhSchedPublicHint · mhDdayPublicHint)이 있다 — 가짜 DOM 이 못 잡는 빈틈')
   chk(!/window\.Scheduler\s*=/.test(MOD) && !/\b(?:const|let|var)\s+scheduler\b/.test(APP) && !/typeof Scheduler\s*===/.test(APP),
       '내장 전역 이름(Scheduler · scheduler)을 안 쓴다 — window.MhScheduler · mhScheduler');
 });
@@ -653,6 +657,10 @@ await sec('── 9. 일부러 깨 보기 (빨강이 나야 한다)', async () =
     quiet = false;
     chk(qfail > 0, '깨 보기 — ' + label + ' → 빨강');
   };
+  await broken('부팅 때(로그인 복원 전) 오늘 일정을 받는다', (x) => x.replace("    _bellSubscribeNotices();\n  };", "    _bellSubscribeNotices();\n    _bellLoadToday();\n  };"), async (src) => {
+    const E = mkEnv({ src, noToday: true }); await tick();
+    chk(E.authed.log.length === 0, 'x');
+  });
   await broken('뱃지가 만든 시각 없이 오늘 일정 개수를 센다', (x) => x.replace("_bellTodayItems.filter(it => (it.ts||0) > seen).length", "_bellTodayItems.length"), async (src) => {
     const SEEN = Date.now() - 3600 * 1000;
     const E = mkEnv({ src, routes: { 'GET /v2/me/schedules': [item('a', TODAY, 'a', 'PRIVATE', 1, SEEN - 1)] } });

@@ -18,7 +18,7 @@
 
 function createScheduler(deps){
 const twNav = deps.twNav;                       // 🧭 창 열기 통로(nav.js) — 🏠 마이홈 열기
-const scheduleApi = deps.scheduleApi;           // 🌐 일정 · 디데이 · 알림 서버 길(schedule-api.js)
+const scheduleApi = deps.scheduleApi;           // 🌐 일정 · 디데이 서버 길(schedule-api.js)
 const apiErrors = deps.apiErrors;               // 🧭 서버 오류 → 할 일 · 오류 번호(TwApiErrors.store)
 const notifyError = deps.notifyError;           // 사용자에게 보이는 실패 — 번호 표(shared/error-codes.js)
 const getMyUserId = deps.getMyUserId;
@@ -115,7 +115,7 @@ function _daysBetween(aYMD, bYMD){
 }
 
 /* 보는 달 받기 — 달을 옮길 때마다 다시 받는다. 👀 관람 중이면 친구의 달력(서버가 공개한 일정만).
-   quiet 는 서버가 «바뀌었다» 고 알려서 조용히 다시 받는 것 — 받는 동안 화면을 비우지 않고, 못 받아도 있던 값을 둔다. */
+   quiet 는 409 · 순서 저장 실패 뒤 조용히 다시 받는 것 — 받는 동안 화면을 비우지 않고, 못 받아도 있던 값을 둔다. */
 async function loadMonth(quiet){
   const friend = viewingUserId();
   const owner = friend || getMyUserId();
@@ -577,7 +577,7 @@ function _ddayOrderedIds(kind){
 
 /* ═══ 🎂 내 보드 받기 · 저장 — 한 줄로 세운다 ═══
    받기와 저장이 겹치면 늦게 끝난 쪽이 최신 값을 덮을 수 있다. 그래서 둘 다 _boardChain 에 이어 붙여 한 번에 하나만 돈다 —
-   저장은 돌 차례가 되었을 때의 _schedDdays(그 사이 서버가 알려 받은 값 · 먼저 끝난 저장의 결과)에서 시작한다. */
+   저장은 돌 차례가 되었을 때의 _schedDdays(먼저 끝난 저장의 결과)에서 시작한다. */
 function _boardRun(fn){
   const run = _boardChain.then(fn);
   _boardChain = run.catch(()=>{});
@@ -1416,11 +1416,11 @@ function renderBellList(){
   });
   // ★ 바깥 클릭으로는 닫히지 않음 (포커싱 기록창과 동일) — document 클릭 핸들러를 일부러 두지 않음.
 
-  /* 🚀 만들 때 한 번 — 태그 알림 구독 · 오늘 일정 받기(네트워크가 준비되면) · 자정 넘김이면 오늘 일정을 다시 받는다 */
+  /* 🚀 만들 때 한 번 — 태그 알림 구독(네트워크가 준비되면) · 자정 넘김이면 오늘 일정을 다시 받는다.
+     ⚠️ 오늘 일정 받기는 여기서 하지 않는다 — firebase-ready 는 로그인 복원보다 먼저라 토큰이 없다. 마이홈 시작(loadToday)이 보드와 함께 받는다. */
   const sub = ()=>{
     if(!getMyUserId()) return;   // 내 코드가 없으면 받지 않는다
     _bellSubscribeNotices();
-    _bellLoadToday();
   };
   TwNetReady.whenNetReady(sub);
 
@@ -1465,6 +1465,7 @@ return {
   renderSchedCalendar,                  // 마이홈 [스케줄러] 탭을 열 때
   renderDdays,                          // 관람 시작/끝 · 탭을 열 때
   loadBoard: ()=>_boardLoad(false),     // 로그인 뒤 — 내 디데이 보드 받기
+  loadToday: _bellLoadToday,            // 로그인 뒤 — 🔔 오늘 내 일정 받기
   startVisit: loadVisit,                // 친구 홈 구경 시작 — 달력 · 보드를 친구 것으로
   endVisit,                             // 구경 끝 — 내 것으로
   refreshBellBadge,                     // 수령함 · 공지가 바뀌었을 때
