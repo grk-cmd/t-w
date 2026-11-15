@@ -1442,6 +1442,8 @@ const chipPopupsMod = TwChipPopups.createChipPopups({
 /* 본문은 win-stack.js 로 옮겼다(앱 FSD 42번). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const winStackMod = TwWinStack.createWinStack({
+  closers: ()=>windowClosers,
+  backToLauncher: (...a)=>backToLauncher(...a),
 });
 
 /* ═══ 📐 상태칩 팝업 · 입력창 자리 계산 · 캐릭터 실측 ═══ */
@@ -2051,13 +2053,18 @@ const presenceSelfMod = TwPresenceSelf.createPresenceSelf({   // 내 접속 표�
   rt: TwRtHub.store,
   onUnload: (fn)=>window.addEventListener('beforeunload', fn),   // friends-sub stop 과 같은 자리 — 계정을 놓으면 보이기 값을 비운다
 });
+/* 🔌 지금 로그인 세션의 Firebase 접속 표시 한 벌(firebase-init createMyPresence — 마이홈 처음 준비가 만들어 세션에 건다). 세션이 없거나 아직 안 만들었으면 null */
+const myPresence = ()=>{ const s = appBoot.getSession(); return (s && s.alive()) ? s.presence : null; };   // 끝난 세션의 풀린 객체는 «없음» 으로 본다 — 풀린 객체가 쓰기를 조용히 버리지 않고 아래 경고가 뜨게
+/* 접속 표시 객체가 없으면(세션이 없거나 마이홈 처음 준비가 아직 안 걸었음) 쓸 곳이 없다 — 조용히 넘기지 않고 경고한다(검사 sim-presence-lock) */
+const setMyPresenceState = (uid, online)=>{ const p = myPresence(); if(!p){ console.warn('[접속 표시] 온라인 토글을 버렸어요 — 지금 세션에 접속 표시가 없어요(세션 없음 · 마이홈 처음 준비 전)'); return; } p.setState(online); };   // 친구 탭 온라인 토글
+const setMyPresenceRoom = (code)=>{ const p = myPresence(); if(!p){ console.warn('[접속 표시] 방 표시를 버렸어요 — 지금 세션에 접속 표시가 없어요(세션 없음 · 마이홈 처음 준비 전)'); return; } p.setRoom(code); };   // 친구 목록의 «방 안» 표시
 /* 🔒 친구 탭 온라인 토글 · 고정 — 처음 접속 표시는 마이홈 처음 준비가 계정 확인의 me 로 부른다 */
 const presenceLockMod = TwPresenceLock.createPresenceLock({
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   savePref: (uid, p)=>loginFlowMod.patchMe({ presencePref: { locked: p.lock, online: p.online } }).then((r)=>{ if(!r.ok) throw r.err; }),
-  setPresence: (...a)=>firebaseAPI.setMyPresenceState(...a),
+  setPresence: (...a)=>setMyPresenceState(...a),
   setVisible: (v)=>presenceSelfMod.setVisible(v),
   startVisible: (v)=>presenceSelfMod.start(v),
 });
@@ -2097,6 +2104,7 @@ const mhInitMod = TwMyHomeInit.createMyHomeInit({
   myHomeOpen: ()=>myHomeOpen,
   noticeFeed: noticeFeed,
   presenceLock: presenceLockMod,
+  getRoomCode: (...a)=>TwRoomRt.store.roomCode(...a),   // 접속 표시를 만들 때 «입장이 끝난» 방 코드(room-entry onJoined 는 입장 때 한 번뿐 · 입장 중인 방은 넣지 않는다)
   toast: (...a)=>toast(...a),
   setMyFriendRequests: (v)=>{ _myFriendRequests = v; },
   setMyHomeFriends: (v)=>{ _myHomeFriends = v; },
@@ -6138,6 +6146,15 @@ function launchApp(opts){ opts=opts||{};
     }, 1200));
   }
 }
+/* 🪟 «모두 닫기»(winStackMod.closeAll)가 닫는, ESC 스택에 안 태운 창 — 창마다 여닫는 길이 달라 한 줄씩. 새 창을 만들면 여기에 줄을 더한다(안 더하면 로그아웃 뒤 로그인 화면 위에 남는다).
+   마이홈 · 꾸미기 창 · 런처 화면은 backToLauncher 가 닫는다(winStackMod.closeAll 이 맨 끝에 부른다). ESC 스택에 태운 창(설정 · 알림 · 플레이리스트 · 포커스기록 · 마이홈 …)은 표에 넣지 않는다. */
+const windowClosers = [
+  { key:'chat', isOpen: ()=>{ const o = document.getElementById('chatOverlay'); return !!o && o.style.display === 'block'; }, close: ()=>chatUiMod.closeChatWindow() },
+  { key:'gacha', isOpen: ()=>gachaMod.isInvOpen() || gachaMod.isDrawOpen(), close: ()=>gachaMod.closeGachaInv() },
+  { key:'creator', isOpen: ()=>creatorOpen, close: ()=>creatorFlowMod.closeCreator() },
+  { key:'myInfo', isOpen: ()=>myInfoMod._miIsOpen(), close: ()=>myInfoMod.closeMyInfo() },
+  { key:'idesk', isOpen: ()=>rideBenchMod.isIdeskOpen(), close: ()=>rideBenchMod.closeIdeskInventory() },
+];
 function backToLauncher(){
   if(statusChipMod._tabHintTimer()){ clearTimeout(statusChipMod._tabHintTimer()); statusChipMod.setTabHintTimer(null); }
   // 🪑 방을 나가면 상호작용 책상 복원 플래그 리셋(다음 입장 때 저장값으로 다시 복원) +
@@ -6306,7 +6323,7 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   paintRoomInfo: ()=>roomInfoUi.paint(),
   roomSettings: TwRoomSettings,
   roomRt: TwRoomRt.store,
-  setPresenceRoom: (...a)=>firebaseAPI.setPresenceRoom(...a),   // 친구 목록의 «방 안» 표시 — Firebase 접속 표시가 걷힐 때(접속 상태 묶음) 같이 걷는다
+  setPresenceRoom: (...a)=>setMyPresenceRoom(...a),   // 친구 목록의 «방 안» 표시 — Firebase 접속 표시가 걷힐 때(접속 상태 묶음) 같이 걷는다
   runCost: runCost,   // 🩺 좌석 맞춤 시간(1분 [비용] 줄)
 });
 roomEntryMod.onRoomChanged(()=>listenUi.sync());   // 🎧 같이 듣기가 방 입장 모듈을 몰라도 되게(위층이 건다)
@@ -6451,6 +6468,7 @@ const accountMod = TwAccount.createAccount({
   ME_CACHE_KEY: TwLoginFlow.ME_CACHE_KEY,
   userApiMod: userApiMod,
   sessionLost: ()=>TwRtHub.store.state() === TwRtHub.STATE.SESSION_LOST,
+  getPresence: (...a)=>myPresence(...a),
 });
 /* ═══ 🪪 [내 정보] — 런처 화면 전환 (CHECKS 개정 48 · 사용자 결정 · 회원가입 설계 §7 B2 · C4 · D · G) ═══════════════
    런처 [내 정보](#lcLoad)를 누르면 **런처 카드 안의 페이지(#lcMyInfo)가 제목줄 아래를 덮는다** — 따로 창도 겹창도 아니다. ◀ 로 돌아간다.
@@ -8330,7 +8348,7 @@ const appBoot = TwAppBoot.createAppBoot({
   goOnline: ()=>loginFlowMod.goOnline(),
   starts: {
     userLocal: (code, me, session)=>userLocalMod.start(session),
-    focusTotal: ()=>focusTotalMod.startFocusTotal(),
+    focusTotal: (code, me, session)=>{ session.onReset(()=>focusTotalMod.setFocusTodaySec(0)); focusTotalMod.startFocusTotal(); },   // 오늘치 메모리는 세션이 끝나면 0 으로
     focusShare: ()=>focusShareMod.startFocusShare(),
     focusLevel: (code, me, session)=>{ focusProgressMod.startFocus(code, me, session); focusLevelMod.startMobile(code, me, session); },
     weeklyChal: (code, me, session)=>weeklyChal.startChallenge(code, me, session),
@@ -8338,9 +8356,9 @@ const appBoot = TwAppBoot.createAppBoot({
     gacha: (code, me, session)=>gachaMod.startGacha(session),
     closet: (code, me, session)=>closetMod.startCloset(session),
     /* 🏠 마이홈 시작 — 받은 친구 요청 구독 · 우편 구독은 initMyHome 이 세션에 건다. 친구 목록 구독(friendsSub) · 내 접속 표시 구독(presenceSelf)은 시작이 다른 곳(마이홈 · 접속 고정)이라 비우기만 여기서 건다 */
-    mhInit: (code, me, session)=>{ session.onReset(()=>{ friendsSubMod.stop(); presenceSelfMod.reset(); }); return mhInitMod.initMyHome(code, me, session); },
+    mhInit: (code, me, session)=>{ session.onReset(()=>{ friendsSubMod.stop(); presenceSelfMod.reset(); myhomeStoreMod.reset(); bookshelfStoreMod.reset(); }); return mhInitMod.initMyHome(code, me, session); },   // 내 홈 · 책장 메모리도 세션이 끝나면 비운다(늦게 온 답은 gen 으로 버린다)
     gift: (code, me, session)=>{ session.on(giftBoxMod.listen()); session.onReset(()=>{ giftBoxMod.reset(); mallangStoreMod.reset(); mallangMod.reset(); }); },   // 🎁 서버 신호 `gifts` 만 건다(요청 0 — 받기는 마이홈을 열 때)
-    bugBadge: ()=>bugBoardUi.start(),
+    bugBadge: (code, me, session)=>{ session.onReset(()=>bugBoardUi.reset()); return bugBoardUi.start(); },   // 배지 · 목록 · 쓰던 글은 세션이 끝나면 비운다
     scheduler: (code, me, session)=>mhScheduler.startSchedule(session),
     /* 🙋 방 초대 받기 — 방 쪽 포트(대화 · 방 목록 · 스티커사진)는 사용자가 들어갈 때 시작해 STEPS 칸이 없다. 대신 계정이 바뀔 때 비우는 일(session.onReset)을 여기서 한 곳에 모은다.
        license 알림(발급 · 연장 · 코드 바꿈 · 끝남) → 읽어 둔 내 시크릿룸을 버려 다음에 다시 읽는다(관리자가 발급한 방이 다시 실행 없이 보이게). */

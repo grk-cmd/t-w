@@ -1209,6 +1209,8 @@ return {
   mountRide,
   restoreInteractionDesk,
   toggleIdeskInventory,
+  closeIdeskInventory,                   // 🪟 모두 닫기(win-stack closeAll — app.js 창 표)
+  isIdeskOpen: _ideskOpen,
   unmountBench,
   unmountRide,
 };

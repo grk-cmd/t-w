@@ -57,21 +57,23 @@ const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nr
     chk(/import \{ createAppVersion \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?app-version\.js";/.test(CODE), 'app-version.js 를 불러온다');
     chk(/getVersion: \(\) => \(window\.companion && window\.companion\.getAppVersion\) \? window\.companion\.getAppVersion\(\) : null/.test(CODE),
       '★ companion 이 없으면 getAppVersion 을 부르지 않는다');
-    // presence ref 로 하는 set · onDisconnect().set 을 모두 찾는다 — 하나라도 ver 없이 쓰면 그 순간 버전이 지워진다.
-    const sets = [...CODE.matchAll(/(?:onDisconnect\(_myPresenceRef\)\.set|[^.\w]set)\(\s*_myPresenceRef\s*,?|onDisconnect\(_myPresenceRef\)\.set\(/g)];
-    const odSets = [...CODE.matchAll(/onDisconnect\(_myPresenceRef\)\.set\(([^\n]*)/g)].map(m => m[1]);
-    const plainSets = [...CODE.matchAll(/[^.\w]set\(_myPresenceRef,\s*([^\n]*)/g)].map(m => m[1]);
-    chk(sets.length >= 4 && odSets.length >= 3 && plainSets.length >= 2,
+    // presence ref(ref_) 로 하는 set · onDisconnect().set 을 모두 찾는다 — 하나라도 ver 없이 쓰면 그 순간 버전이 지워진다.
+    const FN = (CODE.match(/function _createMyPresence\([\s\S]*?\n  \}\n/) || [''])[0];
+    const odSets = [...FN.matchAll(/onDisconnect\(ref_\)\.set\(([^\n]*)/g)].map(m => m[1]);
+    const plainSets = [...FN.matchAll(/[^.\w]set\(ref_,\s*([^\n]*)/g)].map(m => m[1]);
+    chk(odSets.length >= 3 && plainSets.length >= 3,
       `presence 를 통째로 쓰는 자리 — onDisconnect().set ${odSets.length} · set ${plainSets.length}`);
-    chk(odSets.every(s => /^_appVer\.withVer\(/.test(s)), '★ onDisconnect().set 전부 ver 를 싣는다 — 꺼진 뒤에도 버전이 남는다');
-    chk(plainSets.every(s => /^_appVer\.withVer\(/.test(s)), '★ set 전부 ver 를 싣는다');
-    chk(!/ref\(db,\s*`users\/\$\{[^}]+\}\/presence`\)\s*,/.test(CODE.replace(/get\(ref\(db,\s*`users\/\$\{[^}]+\}\/presence`\)\)/g, '')),
-      '  ↳ _myPresenceRef 를 거치지 않고 presence 를 직접 쓰는 곳은 없다');
-    chk((CODE.match(/_presenceWritten = true;/g) || []).length === plainSets.length, '  ↳ set 하는 자리마다 «썼다» 표시');
-    const ready = (CODE.match(/onReady: \(ver\) => \{([\s\S]*?)\n    \},/) || [])[1] || '';
-    chk(/if\(!_myPresenceRef \|\| !_presenceWritten\) return;/.test(ready), '★ 버전이 늦게 오면 — presence 를 이미 썼을 때만 메운다');
-    chk(/update\(_myPresenceRef, \{ ver \}\)/.test(ready), '  ↳ ver 만 update(부분 쓰기 — online · room 은 그대로)');
-    chk(/onDisconnect\(_myPresenceRef\)\.set\(_appVer\.withVer\(/.test(ready), '  ↳ onDisconnect 도 ver 를 실어 다시 건다');
+    chk(/const offPayload = \(\)=>_appVer\.withVer\(/.test(FN) && /const body = \(\)=>_appVer\.withVer\(/.test(FN), '  ↳ 꺼짐 · 지금 상태 payload 를 만드는 두 자리가 withVer 를 거친다');
+    chk(odSets.every(s => /^(offPayload\(\)|_appVer\.withVer\()/.test(s)), '★ onDisconnect().set 전부 ver 를 싣는다 — 꺼진 뒤에도 버전이 남는다');
+    chk(plainSets.every(s => /^(body\(\)|_appVer\.withVer\()/.test(s)), '★ set 전부 ver 를 싣는다');
+    chk(!/ref\(db,\s*`users\/\$\{[^}]+\}\/presence`\)\s*,/.test(CODE.replace(/get\(ref\(db,\s*`users\/\$\{[^}]+\}\/presence`\)\)/g, '')) && (CODE.match(/users\/\$\{[^}]+\}\/presence`/g) || []).length === 1,
+      '  ↳ 접속 표시 ref 는 객체를 만드는 한 곳(ref_)뿐 — 거치지 않고 presence 를 직접 쓰는 곳은 없다');
+    chk((FN.match(/st\.written = true;/g) || []).length === 2, '  ↳ 처음 쓰기 · 토글에서 «썼다» 표시');
+    chk(/_appVer\.ready\.then\(v => \{ if\(v\) p\.onVersion\(v\); \}\);/.test(FN) && !/onReady/.test(CODE.slice(CODE.indexOf('const _appVer = createAppVersion('), CODE.indexOf('function _createMyPresence('))), '★ 버전이 늦게 오면 — 객체가 직접 받아 메운다(전역 포인터를 거치지 않는다)');
+    const ready = (FN.match(/onVersion\(ver\)\{([\s\S]*?)\n      \},/) || [])[1] || '';
+    chk(/if\(st\.dead \|\| !st\.written\) return;/.test(ready), '  ↳ presence 를 이미 썼을 때만 메운다(풀린 객체는 안 쓴다)');
+    chk(/update\(ref_, \{ ver \}\)/.test(ready), '  ↳ ver 만 update(부분 쓰기 — online · room 은 그대로)');
+    chk(/onDisconnect\(ref_\)\.set\(offPayload\(\)\)/.test(ready), '  ↳ onDisconnect 도 ver 를 실어 다시 건다');
   }
 
   say('── 3. 규칙 — 실제로 굴린다');
@@ -129,18 +131,16 @@ const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nr
     const grab = (src, head) => { const i = src.indexOf(head); if(i < 0) return null; let k = src.indexOf('{', i), d = 0;
       for(; k < src.length; k++){ if(src[k] === '{') d++; else if(src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return null; };
     const SRC = {
-      sync: grab(CODE, 'function _syncPresenceRoom('),
       av: grab(CODE, 'const _appVer = createAppVersion('),
-      on: grab(CODE, 'setMyPresenceOnline(userId, startOnline){'),
-      st: grab(CODE, 'setMyPresenceState(userId, online){'),
+      fn: grab(CODE, 'function _createMyPresence('),
     };
-    chk(Object.values(SRC).every(Boolean), '_syncPresenceRoom · _appVer · setMyPresenceOnline · setMyPresenceState 를 찾았다');
+    chk(Object.values(SRC).every(Boolean), '_appVer · _createMyPresence 를 찾았다');
     const tick = async (n = 6) => { for(let i = 0; i < n; i++) await new Promise(r => setImmediate(r)); };
     const defer = () => { let res, rej; const p = new Promise((a, b) => { res = a; rej = b; }); return { p, res, rej }; };
     // 서버 흉내: set 은 통째 · update 는 합치기 · onDisconnect payload 는 따로 적어 둔다
     const mkWorld = (opts) => {
       const o = Object.assign({ src: SRC, createAppVersion: mod.createAppVersion }, opts);
-      const w = { log: [], node: null, od: null, connected: [], ticks: [] };
+      const w = { log: [], node: null, od: null, connected: [] };
       const save = (kind, v) => { const val = JSON.parse(JSON.stringify(v)); w.log.push({ kind, v: val });
         if(kind === 'set') w.node = val; else if(kind === 'update') w.node = Object.assign({}, w.node || {}, val);
         else if(kind === 'od') w.od = val;
@@ -152,15 +152,13 @@ const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nr
         ref: (d, p) => ({ p }),
         set: (r, v) => save('set', v), update: (r, v) => save('update', v),
         onDisconnect: () => ({ set: (v) => save('od', v), cancel: () => Promise.resolve() }),
-        onValue: (r, cb) => { if(r.p === '.info/connected') w.connected.push(cb); },
-        setInterval: (fn) => { w.ticks.push(fn); return 1; },
+        onValue: (r, cb) => { if(r.p === '.info/connected') w.connected.push(cb); return () => {}; },
+        console: { warn(){} },
         _whenAuthReady: () => o.auth,
       };
       vm.createContext(c);
-      vm.runInContext('let _myPresenceRef = null, _presenceRoom = null, _presenceOnline = true, _presenceInRoom = false;\n'
-        + 'let _presenceWritten = false;\n' + o.src.sync + '\n' + o.src.av + ');\n'
-        + 'this.api = {' + o.src.on + ',\n' + o.src.st + ',\n_syncPresenceRoom };', c);
-      w.api = c.api;
+      vm.runInContext('let _presenceLive = null;\n' + o.src.av + ');\n' + o.src.fn + '\nthis.create = _createMyPresence;', c);
+      w.create = c.create;
       w.connect = () => w.connected.forEach(cb => cb({ val: () => true }));
       return w;
     };
@@ -172,17 +170,17 @@ const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nr
 
     // 시나리오: 켜기 → 연결 → (버전) → 로그인 → 방 들어가기 → 수동 오프라인 · 온라인 → 6시간 틱
     const play = async (w, ctl) => {
-      w.api.setMyPresenceOnline('U1');
+      const pr = w.create('U1');
       w.connect(); await tick();
       const beforeVer = w.log.length;
       if(ctl.authFirst){ ctl.auth.res(); await tick(); }
-      w.api._syncPresenceRoom('COZY-AB12'); await tick();
-      w.api.setMyPresenceState('U1', false); await tick();
-      w.api.setMyPresenceState('U1', true); await tick();
+      pr.setRoom('COZY-AB12'); await tick();
+      pr.setState(false); await tick();
+      pr.setState(true); await tick();
       const midLog = w.log.length;
       if(ctl.ver) { ctl.ver(); await tick(); }
       if(!ctl.authFirst){ ctl.auth.res(); await tick(); }
-      w.ticks.forEach(f => f()); await tick();
+      pr.touch(); await tick();   // 6시간 틱(타이머는 세션이 쥔다 — myhome-init)
       return { beforeVer, midLog };
     };
 
@@ -223,11 +221,11 @@ const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nr
       chk(leaks(w) === 0 && w.log.length > 0 && w.log.every(e => e.v.ver === UNK) && w.node.online === true && w.node.ver === UNK && w.od.ver === UNK,
         `★ ${name}: 모든 쓰기 · onDisconnect 에 «모름» ver — 지금 앱이 옛 앱으로 막히지 않는다` + (hang ? '(연결 쪽이 씀)' : ''));
     }
-    // ⑥ 수동 토글이 맨 먼저(setMyPresenceOnline 전) · 오프라인 쓰기
+    // ⑥ 수동 토글이 맨 먼저(처음 쓰기 전 — 로그인 · 버전을 기다리는 중) · 오프라인 쓰기
     {
       const auth = defer(), v = defer();
       const w = mkWorld({ companion: companion(() => v.p), auth: auth.p });
-      w.api.setMyPresenceState('U1', false); await tick();
+      w.create('U1').setState(false); await tick();
       chk(leaks(w) === 0 && w.log.length === 2 && w.log.every(e => e.v.ver === UNK && e.v.online === false && (e.kind === 'od' || e.v.inRoom === false)),
         '★ 오프라인 쓰기(inRoom:false 포함)도 ver 를 싣는다 — ver 없는 오프라인 + inRoom 은 규칙이 거절');
     }
@@ -258,18 +256,18 @@ const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nr
     }
     {
       const auth = defer(), v = defer();
-      const src = Object.assign({}, SRC, { sync: SRC.sync.replace('_appVer.withVer({ room', '({ room') });
+      const src = Object.assign({}, SRC, { fn: SRC.fn.replace('update(ref_, _appVer.withVer({ room', 'update(ref_, ({ room') });
       const w = mkWorld({ src, companion: companion(() => v.p), auth: auth.p });
       await play(w, { auth, authFirst: true, ver: () => v.res('0.11.3') });
-      chk(src.sync !== SRC.sync && leaks(w) > 0, '깨 보기: 방 바꿀 때 update 에서 ver 를 빼면 잡힌다');
+      chk(src.fn !== SRC.fn && leaks(w) > 0, '깨 보기: 방 바꿀 때 update 에서 ver 를 빼면 잡힌다');
     }
     {
       const auth = defer(), v = defer();
-      const src = Object.assign({}, SRC, { on: SRC.on.replace('.then(() => _appVer.ready)', '') });
+      const src = Object.assign({}, SRC, { fn: SRC.fn.replace('.then(() => _appVer.ready)', '') });
       const w = mkWorld({ src, companion: companion(() => v.p), auth: auth.p });
       const r = await play(w, { auth, authFirst: true, ver: () => v.res('0.11.3') });
       const preSets = w.log.slice(0, r.midLog).filter(e => e.kind === 'set').length;
-      chk(src.on !== SRC.on && preSets !== 3, `깨 보기: 버전 기다리기를 빼면 처음 쓰기가 버전보다 먼저 나간다(받기 전 set ${preSets})`);
+      chk(src.fn !== SRC.fn && preSets !== 3, `깨 보기: 버전 기다리기를 빼면 처음 쓰기가 버전보다 먼저 나간다(받기 전 set ${preSets})`);
     }
   }
 
