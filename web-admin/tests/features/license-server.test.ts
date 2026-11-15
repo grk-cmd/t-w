@@ -331,13 +331,14 @@ describe('시크릿룸 발급 — API 판', () => {
   it('발급 — 친구코드 · 이름 · 개월 수만 보내고 끝나는 날은 서버가 준 것을 쓴다', async () => {
     const s = fakeApiOf({
       'POST /v2/admin/licenses/preview': () => [found()],
+      'GET /v2/admin/secret-rooms': () => [],
       'POST /v2/admin/secret-rooms': () => roomAnswer(),
     });
     const { port, r } = await prepared(s, { want: 'wxyz' });
     if (!r.ok) throw new Error('확인이 통과해야 해요');
     expect(r.plan.warnings).toEqual([]);
     const result = await port.grant(r.plan);
-    expect(s.calls[1].body).toMatchObject({
+    expect(s.calls[2].body).toMatchObject({
       friendCode: 'MATE-AB12',
       code: 'SCRT-WXYZ',
       name: '철수',
@@ -351,13 +352,14 @@ describe('시크릿룸 발급 — API 판', () => {
   it('영구는 months: null · 코드를 비우면 code 를 보내지 않는다', async () => {
     const s = fakeApiOf({
       'POST /v2/admin/licenses/preview': () => [found()],
+      'GET /v2/admin/secret-rooms': () => [],
       'POST /v2/admin/secret-rooms': () => roomAnswer({ expiresAt: null }),
     });
     const { port, r } = await prepared(s, { months: '' });
     if (!r.ok) throw new Error('확인이 통과해야 해요');
     const result = await port.grant(r.plan);
-    expect(s.calls[1].body).not.toHaveProperty('code');
-    expect(s.calls[1].body).toMatchObject({ months: null });
+    expect(s.calls[2].body).not.toHaveProperty('code');
+    expect(s.calls[2].body).toMatchObject({ months: null });
     expect(result.ok && result.period).toBe('영구');
   });
 
@@ -365,6 +367,7 @@ describe('시크릿룸 발급 — API 판', () => {
     let takeover = false;
     const s = fakeApiOf({
       'POST /v2/admin/licenses/preview': () => [found()],
+      'GET /v2/admin/secret-rooms': () => [],
       'POST /v2/admin/secret-rooms': ({ body }) => {
         takeover = (body as { confirmTakeover: boolean }).confirmTakeover;
         if (!takeover)
@@ -390,9 +393,47 @@ describe('시크릿룸 발급 — API 판', () => {
     expect(ids[0]).not.toBe(ids[1]);
   });
 
+  it('이미 방이 있는 사람 — 연장 · 영구 해제 · 코드 바꿈을 경고로 알린다', async () => {
+    const mine = (over: object = {}) => ({
+      secretRoomId: 'm1',
+      code: 'SCRT-MINE',
+      ownerUserCode: 'u1',
+      ownerName: '철수',
+      name: '철수',
+      expiresAt: null,
+      endedAt: null,
+      version: 1,
+      ...over,
+    });
+    const warn = async (room: object, over: { want?: string; months?: string }) => {
+      const s = fakeApiOf({
+        'POST /v2/admin/licenses/preview': () => [found()],
+        'GET /v2/admin/secret-rooms': () => [
+          mine({ secretRoomId: 'old', code: null, endedAt: '2026-01-01T00:00:00Z' }),
+          room,
+        ],
+      });
+      const { r } = await prepared(s, over);
+      if (!r.ok) throw new Error('확인이 통과해야 해요');
+      expect(s.calls[1].query).toEqual({ friendCode: 'MATE-AB12' });
+      return r.plan.warnings;
+    };
+    expect(await warn(mine(), { want: 'mine', months: '3' })).toEqual([
+      expect.stringContaining('영구가 풀리고'),
+    ]);
+    expect(await warn(mine({ expiresAt: '2099-01-01T00:00:00Z' }), { want: 'MINE', months: '3' })).toEqual([
+      expect.stringContaining('남은 기간에 이어붙입니다'),
+    ]);
+    expect(await warn(mine(), { want: 'NEW1', months: '3' })).toEqual([
+      expect.stringMatching(/SCRT-NEW1 로 발급하면 SCRT-MINE 는 바로 끝나고/),
+    ]);
+    expect(await warn(mine(), { months: '3' })).toEqual([expect.stringContaining('새 코드 로 발급하면')]);
+  });
+
   it('겹침이 아닌 실패는 던진다', async () => {
     const s = fakeApiOf({
       'POST /v2/admin/licenses/preview': () => [found()],
+      'GET /v2/admin/secret-rooms': () => [],
       'POST /v2/admin/secret-rooms': () => {
         throw new ApiError('request', 409, 'CONCURRENT_UPDATE', '');
       },

@@ -1,7 +1,8 @@
 // API 판 — 받는 사람 확인 `POST /v2/admin/licenses/preview { friendCodes: [코드] }`(쓰는 것 없음 · 이름을 방 이름으로 쓴다),
-// 발급 `POST /v2/admin/secret-rooms { requestId, friendCode, code?, name, months?, confirmTakeover }` — 끝나는 날 · 이어붙임 · 옛 방 끝내기 · 우편은 서버가 한다.
+// 이미 방이 있는 사람은 `GET /secret-rooms?friendCode=` 로 읽어 연장 · 코드 바꿈을 미리 알린다. 발급 `POST /v2/admin/secret-rooms { requestId, friendCode, code?, name, months?, confirmTakeover }` — 끝나는 날 · 이어붙임 · 옛 방 끝내기 · 우편은 서버가 한다.
 // 남이 가진 코드면 409 `LICENSE_SECRET_ROOM_CODE_TAKEN` 의 `items` 로 알려 주고, 확인받은 뒤 `confirmTakeover: true` 로 다시 보낸다.
 import {
+  existingRoomWarning,
   formatDay,
   hasConfusingChars,
   OWNER_NAME_MAX,
@@ -9,6 +10,7 @@ import {
   parseWantCode,
   SECRET_PREFIX,
   isUserId,
+  toRoomRow,
   type TakenRoom,
 } from '@/entities/secret-room';
 import {
@@ -81,14 +83,37 @@ function build(api: Api | null): GrantSecretRoomPort {
       const o = wireObject(row, '미리 보기 줄');
       if (!wireBool(o.found, '미리 보기 줄의 found'))
         return { ok: false, error: '해당 친구코드를 가진 유저를 찾을 수 없어요' };
+      const friendCode = wireString(o.friendCode, '미리 보기 줄의 friendCode');
+      const wantCode = wanted.want ? SECRET_PREFIX + wanted.want : '';
+      // 서버는 이미 방이 있는 사람에게 연장 · 코드 바꿈을 조용히 한다 — 먼저 그 사람의 방을 읽어 알린다.
+      const rooms = await portCall(
+        api,
+        async (a) => wireArray(await a.get<unknown>(ROOMS, { friendCode }), '시크릿룸 목록').map(toRoomRow),
+        '그 사람의 시크릿룸을 확인하지 못했어요',
+      );
+      const open = rooms.filter((r) => r.endedAt === null);
+      if (open.length > 1) throw wireError('시크릿룸 목록', '열린 방 하나');
+      const warnings: string[] = [];
+      if (open.length === 1) {
+        const [mine] = open;
+        if (mine.code === null) throw wireError(`시크릿룸 ${mine.id} 의 code`, '열린 방의 글자');
+        warnings.push(
+          existingRoomWarning(
+            { code: mine.code, expiresAt: mine.expiresAt },
+            wantCode,
+            months.months,
+            Date.now(),
+          ),
+        );
+      }
       const plan: ServerSecretPlan = {
         via: 'server',
-        friendCode: wireString(o.friendCode, '미리 보기 줄의 friendCode'),
+        friendCode,
         name: wireString(o.name, '미리 보기 줄의 name').slice(0, OWNER_NAME_MAX),
-        code: wanted.want ? SECRET_PREFIX + wanted.want : '',
+        code: wantCode,
         months: months.months,
         confusing: hasConfusingChars(wanted.want),
-        warnings: [],
+        warnings,
         takeover: false,
       };
       return { ok: true, plan };
