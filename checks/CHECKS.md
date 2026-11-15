@@ -84,7 +84,7 @@
 | **sim-char-z.js** | 225 | **92fb9efdb2c1** |
 | **sim-cfg-fit.js** | 281 | **48bc1e357f4b** |
 | **sim-chat-fly.js** | 360 | **b52fd913a6d7** |
-| **sim-bug-board.js** | 536 | **72c44e167ddc** |
+| **sim-bug-board.js** | 536 | **6f1be9a73b49** |
 | **sim-bug-api.js** | 305 | **89942cf7127a** |
 | **sim-bug-no.js** | 210 | **695c5bfa74eb** |
 | **sim-bug-cleanup.js** | 191 | **7c41fc91c912** |
