@@ -7178,34 +7178,11 @@ const desktopMode = officeModeMod.desktopMode;   // 옛 전역 이름
 const FIGURE_MODE_KEY = officeModeMod.FIGURE_MODE_KEY;   // 옛 전역 이름
 const OFFICE_MODE_KEY = officeModeMod.OFFICE_MODE_KEY;   // 옛 전역 이름
 const refreshOfficeChipUI = officeModeMod.refreshOfficeChipUI;   // 옛 전역 이름
-/* 💾 설정을 저장하고 **실제로 남았는지 확인한다** — 조용한 실패를 없애기 위한 것이다.
-
-   [왜 필요한가] localStorage 쓰기는 이 파일에서 99곳이고 그중 58곳이 `catch(e){}` 로 비어 있다.
-     이 앱은 얼굴 PNG·커미션 GLB 까지 로컬에 넣으므로 저장 공간이 실제로 찬다
-     (persistSavedParts·persistSavedDesks 의 '저장 공간이 부족해요' 가 그 신호다).
-     꽉 차면 **새 키는 만들어지지 않는데 화면에는 아무 표시도 안 난다** — 그러면
-     "설정을 켜도 다시 켜면 꺼져 있다"가 되고, 제보에는 원인이 하나도 안 실린다.
-     같은 증상이 일부 사용자에게서만 나는 것도 이 성질과 맞는다(그 기기만 저장이 꽉 찼다).
-   ★ 왕복 확인까지 한다 — setItem 이 던지지 않고도 값이 안 남는 환경이 있다.
-   ⚠️ 안내는 **세션당 한 번**이다. 토글을 누를 때마다 뜨면 그것대로 못 쓴다.
-   ⚠️ 이 헬퍼는 '설정' 같은 작은 값 전용이다. 슬롯·파츠·책상처럼 큰 값은 실패했을 때
-     할 일이 다르므로(직전 저장값 보존 등) 각자의 처리를 그대로 둔다. */
-let _lsWarned = false;
-function _lsSet(key, val){
-  const s = String(val);
-  try{
-    localStorage.setItem(key, s);
-    if(localStorage.getItem(key) !== s) throw new Error('값이 남지 않음');
-    return true;
-  }catch(e){
-    console.warn('[저장] ' + key + ' 저장 실패 — 이 설정은 앱을 껐다 켜면 사라집니다', e);
-    if(!_lsWarned){
-      _lsWarned = true;
-      try{ toast('⚠ 설정을 저장하지 못했어요 — 저장 공간이 가득 찼을 수 있어요'); }catch(_){}
-    }
-    return false;
-  }
-}
+/* 본문은 shared/ls-set.js 로 옮겼다(앱 FSD · app.js 분리 M14). 설정 저장 헬퍼 — 쓰는 곳은 deps 로 `_lsSet` 을 받는다. */
+const lsSetMod = TwLsSet.createLsSet({
+  toast: toast,
+});
+const _lsSet = lsSetMod._lsSet;   // 옛 전역 이름
 
 /* 포커싱 어플 게이트 — true면 자동 idle/focus 판정을 sleep으로 강제(=잠듦).
    등록된 앱이 하나도 없으면 항상 true, 등록된 앱이 있으면 "그 앱이 지금 활성 상태"일 때만 false.
