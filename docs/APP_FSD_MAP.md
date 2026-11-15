@@ -294,6 +294,11 @@ app.js 9,746 → 9,476줄(270줄) · 구역 167 → 130개. 남긴 빈 머리 �
 **0.12.4 — app.js 분리 M12**: `applyCharToSeat` 묶음(좌석 파츠 비우기 · 리깅 xf 다시 굽기 · 동물 좌석 다시 빌드 · placeholder 클릭 판정 · 동물 귀 등록 · `applyCharToSeat`)을 `character/char-apply.js` 로 옮겼다(글 그대로 — 뒤에서 만들어지거나 다시 대입되는 일곱은 읽는 함수로 받고, `window.rebuildAnimalSeats` · `window.registerAnimalEar` 고리는 모듈이 만들 때 건다. 옛 `typeof seats` 가드 하나는 걷음). app.js 8,084 → 7,835줄.
 
 **0.12.4 — app.js 분리 M13 ~ M16**: 앱 모드(`launcher/app-mode.js`) · 회사원 · 피규어 모드 깃발(`launcher/office-mode.js`) · 설정 저장 헬퍼(`shared/ls-set.js`) · 몸짓(`character/rig-anim.js`) · 프레임 상한 · rAF 멈춤 감시(`launcher/frame-pace.js`)를 글 그대로 옮겼다(한 PR · 모듈 다섯). app.js 7,835 → 7,324줄.
+**0.12.4 — app.js 분리 T4**: 옷 겹침(`_unequipClothCat` · `applyClothVisibility`)을 `character/cloth-visibility.js` 로 옮겼다(글 그대로 — 0.13 이 이 구역을 안 바꿨다. deps 는 `decoPartsMod` · `premiumMod` · `rideBenchMod` · `unequipPartFromSeat`).
+
+**0.12.4 — app.js 분리 T1**: 색조 셰이더 구역(100줄 → 0.13 의 이름 잇기 여섯 줄)을 `shared/hue-tint.js` 로 옮겼다(0.13 app.js 글 그대로 — 셰이더 본문은 코어 `tone.ts`).
+
+**0.12.4 — app.js 분리 T2**: 기본 몸 구역(`bodyCore` 만들기 · `loadBaseGLB` · `instantiateBase` · 커미션 GLB 캐시 · `normalizeModel`)을 `character/base-body.js` 로 옮겼다(0.13 app.js 글 그대로 — #830 `shareSkeletons` 줄도 0.13 글에 있다. 안 읽히던 `measureBaseGeometry` · `calcMeshBox` · `BASE_MESH_*` 와 `let BASE_SCENE · BASE_ANIMS` 는 걷고 코어 `bodyCore.baseScene()` · `baseAnims()` 로 읽음).
 
 **0.12.4 — app.js 분리 M17 ~ M19**: `frame()` · `prev`(`launcher/frame-loop.js` — 좌석 한 명 몫 분리는 글이 달라져 R5 로 남김) · 플라잉체어(`room/flying-chair.js`) · 스티커 그리기(`myhome/myhome-sticker-render.js` — 다시 대입이 있어 읽는 · 쓰는 함수, F4 때 걷음) · 이동 모드 · 캐릭터 화면 좌표(`launcher/move-mode.js`)를 글 그대로 옮겼다. app.js 7,324 → 6,858줄.
 

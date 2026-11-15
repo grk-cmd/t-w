@@ -473,3 +473,9 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 - **책임**: `_lsSet(key, val)` — `setItem` 뒤 `getItem` 으로 왕복 확인 · 실패하면 콘솔 경고 + 세션당 한 번 토스트 · 성공 true / 실패 false. 설정처럼 작은 값 전용(슬롯 · 파츠 · 책상 같은 큰 값은 각자 처리).
 - **만드는 법**: `TwLsSet.createLsSet({ toast })`. **내보내는 것**: `_lsSet`(app.js 는 같은 이름 const 로 받고 deps 에서 `(...a)=>_lsSet(...a)` 로 넘긴다). 검사: `checks/sim-ls-set.js`.
+
+## hue-tint.js — 🎨 텍스처 파츠 색조 셰이더 이름 잇기
+
+- **책임**: 텍스처가 있는 파츠의 색을 «텍스처 × 색» 곱셈 대신 셰이더에서 색조(Hue)만 돌리는 일의 옛 이름 여섯(`_rgbHexToHsv` · `isHueTintMesh` · `_ensureHueUniforms` · `_hueOBC` · `applyHueTint` · `_hsvToHex`)을 캐릭터 코어(`createTone`)로 잇는다. 앱 FSD 분리 T1 — 0.13 app.js 글 그대로. 본문(셰이더 · HSV 환산)은 코어 `tone.ts` 한 곳.
+- **만드는 법**: `TwHueTint.createHueTint({ lightToneMod })` — 값 하나(`lightToneMod.toneCore` 를 읽는다). app.js 가 «색조 셰이더» 자리에서 만들고 여섯 이름을 const 로 받는다(꾸미기 · 도트 · 스티커사진이 부른다).
+- **함정**: r128 `Material.copy` 는 `onBeforeCompile` 을 복사하지 않는다 — 재질을 복제한 쪽은 `_hueOBC` 로 다시 건다. 검사: `checks/sim-hue-tint.js`.

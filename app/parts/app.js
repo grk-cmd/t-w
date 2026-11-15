@@ -114,93 +114,25 @@ const _syncHumanEarRig = humanEarAttachMod._syncHumanEarRig;   // 옛 전역 이
 const _attachHumanEars = humanEarAttachMod._attachHumanEars;   // 옛 전역 이름
 
 /* ===== 기본 캐릭터 GLB (임베드) — face/cloth_upper/cloth_lower + 리깅 ===== */
-let BASE_SCENE=null, BASE_ANIMS=[];
-function b64ToBuf(b64){const bin=atob(b64);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;}
-function loadBaseGLB(){return new Promise(res=>{
-  if(!window.BASE_GLB_B64||window.BASE_GLB_B64.indexOf('@@')===0){res(false);return;}
-  loader.parse(b64ToBuf(window.BASE_GLB_B64),'',gltf=>{
-    BASE_SCENE=gltf.scene; BASE_ANIMS=gltf.animations||[];
-    BASE_SCENE.traverse(o=>{if(o.isMesh){o.frustumCulled=false;
-      const m=o.material,nm=(m&&m.name||'').toLowerCase();
-      // 피부 1번(skin0)은 skin-data.js의 face1.png를 쓰므로 GLB 원본 텍스처로 덮어쓰지 않음
-      }});
-    measureBaseGeometry();   // 기본 시각 영역 측정 — 커미션 GLB 자동 매칭 기준값
-    res(true);
-  }, e=>{console.warn('base GLB parse fail',e);res(false);});
-});}
-/* 스킨드 메시 인스턴스 복제 (각 캐릭터가 독립 스켈레톤+머티리얼) */
+/* 몸 모델 공급 · 복제 · 크기는 character/base-body.js(코어 몸 포함) — 아래 const 는 옛 이름이다. */
 const skelShare = TwSkeletonShare;
-function instantiateBase(customScene){
-  const src = customScene || BASE_SCENE;
-  if(!src||!THREE.SkeletonUtils)return null;
-  const root=THREE.SkeletonUtils.clone(src);
-  skelShare.shareSkeletons(skelShare.skinnedMeshesOf(root));   // 복제가 메시마다 Skeleton 을 따로 만든다 — 같은 뼈대는 하나로
-  let faceMat=null,upMat=null,loMat=null,faceMesh=null,upMesh=null,loMesh=null;
-  // 커미션 캐릭터에 미리 씌워진 파츠(안경/모자/탈/한벌옷/날개/손) — 메쉬(또는 재질) 이름으로 자동 인식.
-  // 꾸미기에서 같은 카테고리 파츠를 장착하면 이 메쉬가 숨겨지고, 해제하면 다시 보임(applyClothVisibility에서 처리).
-  let glassesMesh=null, hatMesh=null, hatMat=null, maskMesh=null, onepieceMesh=null, wingMesh=null, handLMesh=null, handRMesh=null, capeMesh=null;
-  /* ★ 조명 평탄화(applyLightPresetToInstance)는 "이름으로 분류된" 파츠뿐 아니라 **모든 메쉬**에
-     똑같이 적용해야 함 — 커미션 캐릭터가 위 카테고리에 안 걸리는 이름(몸통/신발/머리카락 등)의 메쉬를
-     쓰면 그 부분만 조명 처리를 못 받아 다른 부분과 톤이 달라 보이던 문제의 원인이었음.
-     ⚠️ 예전에는 `cm.map` 이 있는 재질만 담았다. 텍스처 없는 메쉬는 emissive 를 0 으로 둔 채
-        앰비언트(0.57)만 받는데, 받는 쪽은 0.92 라 화면상 199 대 246(255 기준)이다 —
-        같은 흰색을 지정해도 한쪽만 회색으로 읽힌다. 파츠 경로는 원래부터 텍스처 유무를 안 가렸으니,
-        "파츠는 쨍한데 캐릭터 옷만 어둡다"가 바로 이 차이였다. 이제 전부 담는다. */
-  const litMats=[];
-  root.traverse(o=>{ if(o.isMesh){ o.castShadow=true;o.receiveShadow=false;o.frustumCulled=false;
-    const cm=o.material&&o.material.clone?o.material.clone():o.material; o.material=cm;
-      const nm=(cm&&cm.name||'').toLowerCase();
-      const meshName=(o.name||'').toLowerCase();
-      if(cm){ litMats.push(cm); _fixGlbMatLighting(cm); }   // 텍스처 유무·이름 분류와 무관하게 전부 조명 평탄화 대상
-      // 텍스처(머티리얼 이름)가 없어도, 메쉬 이름이 'head'면 생성창 스킨 타겟으로 잡습니다.
-      // ★ 메쉬 이름 분류 — 짧고 흔한 단어(hat, cap, wing, left 등)는 부분 문자열 매칭이면 오탐지가 잘 나서
-      //   (예: "landscape"에 "cap"이 있어 하의가 모자로 잘못 분류) 정규식 단어 경계로 잡음.
-      //   긴/명확한 단어(glass, dress 등)는 부분 문자열도 안전.
-      const has = (str, word)=> new RegExp('(?:^|[^a-z])'+word+'(?:$|[^a-z])','i').test(str);
-      const hasBoth = word => has(nm, word) || has(meshName, word);
-      if(nm.includes('face') || meshName.includes('head')){faceMat=cm;faceMesh=o;}
-    else if(!upMesh && (nm.includes('upper')||nm.includes('up_cloth')||nm.includes('up_clothes'))){upMat=cm;upMesh=o;}
-    else if(!loMesh && (nm.includes('lower')||nm.includes('low_cloth')||nm.includes('low_clothes'))){loMat=cm;loMesh=o;}
-    else if(!glassesMesh && (nm.includes('glass')||meshName.includes('glass'))){glassesMesh=o;}
-    else if(!capeMesh && hasBoth('cape')){capeMesh=o;}   // ★ 첫 매치만 채택 — lower의 재질이 'cape'로 이름 붙은 케이스에서 뒤에 만난 걸로 덮어쓰지 않게(요청사항)
-    else if(!hatMesh && (hasBoth('hat')||hasBoth('cap'))){hatMesh=o;hatMat=cm;}
-    else if(!maskMesh && hasBoth('mask')){maskMesh=o;}
-    else if(!onepieceMesh && (nm.includes('dress')||meshName.includes('dress'))){onepieceMesh=o;}
-    else if(!wingMesh && hasBoth('wing')){wingMesh=o;}
-    else if(!handLMesh && hasBoth('left')){handLMesh=o;}
-    else if(!handRMesh && hasBoth('right')){handRMesh=o;} }});
-  return {root,faceMat,upMat,loMat,faceMesh,upMesh,loMesh,glassesMesh,hatMesh,hatMat,maskMesh,onepieceMesh,wingMesh,handLMesh,handRMesh,capeMesh,litMats};
-}
-/* 커미션 GLB 파싱 캐시: base64 → THREE.Scene */
-const commSceneCache = new Map();
-async function getCommissionScene(glbB64){
-  if(commSceneCache.has(glbB64)) return commSceneCache.get(glbB64);
-  const buf = b64ToBuf(glbB64);
-  const scene = await assetCodeMod.parseGlbBytes(buf);
-  commSceneCache.set(glbB64, scene);
-  return scene;
-}
-function mkFaceTex(canvas){const t=new THREE.CanvasTexture(canvas);t.flipY=false;t.encoding=THREE.sRGBEncoding;t.needsUpdate=true;return t;}
-// ★ 커미션(유료 제작) 캐릭터 크기 보정 — 블렌더에서 기본 캐릭터와 비슷한 크기로 맞춰 내보내도
-//   실제로는 더 작게 들어오는 경우가 있어서(GLB에 안 보이는 여분 메쉬/본이 섞여 바운딩박스가 커지는 등)
-//   경험적으로 보정하는 배율. 1.15 = 15% 키움. 필요하면 이 숫자만 조절.
-const COMMISSION_SCALE_CORRECTION = 1;   // ★ 테스트용으로 일시적으로 보정 없음(1)으로 설정 — 원래 값은 1.15, 되돌리려면 이 숫자만 1.15로 바꾸면 됨
-function normalizeModel(group,targetH,isComm){
-  group.updateMatrixWorld(true);
-  
-  // 기본 캐릭터용 원본 계산
-  const box=new THREE.Box3().setFromObject(group);
-  const size=box.getSize(new THREE.Vector3()), c=box.getCenter(new THREE.Vector3());
-  let s=targetH/(size.y||1);
-  if(isComm) s *= COMMISSION_SCALE_CORRECTION;   // 커미션 캐릭터만 추가 보정
-  let posX = -c.x*s, posY = -box.min.y*s, posZ = -c.z*s;
-
-  // 표준 리그 통합: 커미션도 base와 동일하게 자기 박스 기준(BASE_SCENE 덮어쓰기 제거)
-  
-  group.scale.setScalar(s);
-  group.position.set(posX, posY, posZ);
-  return s;
-}
+const baseBodyMod = TwBaseBody.createBaseBody({
+  loader: loader,
+  skelShare: skelShare,
+  _fixGlbMatLighting: (...a)=>_fixGlbMatLighting(...a),
+  setFaceMap: (...a)=>matToneMod.setFaceMap(...a),
+  applyLightPreset: (...a)=>matToneMod.applyLightPresetToInstance(...a),
+  assetCodeMod: ()=>assetCodeMod,
+});
+const bodyCore = baseBodyMod.bodyCore;   // 옛 전역 이름
+const b64ToBuf = baseBodyMod.b64ToBuf;   // 옛 전역 이름
+const loadBaseGLB = baseBodyMod.loadBaseGLB;   // 옛 전역 이름
+const instantiateBase = baseBodyMod.instantiateBase;   // 옛 전역 이름
+const commSceneCache = baseBodyMod.commSceneCache;   // 옛 전역 이름
+const getCommissionScene = baseBodyMod.getCommissionScene;   // 옛 전역 이름
+const mkFaceTex = baseBodyMod.mkFaceTex;   // 옛 전역 이름
+const COMMISSION_SCALE_CORRECTION = baseBodyMod.COMMISSION_SCALE_CORRECTION;   // 옛 전역 이름
+const normalizeModel = baseBodyMod.normalizeModel;   // 옛 전역 이름
 /* ============================================================ BUILDERS */
 /* ▶ 파츠 · 아이템 애니메이션 재생(character/part-anim.js) — 아래 const 는 옛 전역 이름이다. */
 const partAnimMod = TwPartAnim.createPartAnim({
@@ -2084,114 +2016,16 @@ const chatWindowMod = TwChatWindow.createChatWindow({
 });
 
 /* ═══ 🎨 텍스처 파츠 색조 셰이더 ═══ */
-/* 🎨 텍스처 파츠 색조 변경 ─────────────────────────────────────────────────
-   _col 메쉬 중 텍스처(map)가 있는 것은 material.color를 갈아끼우면 "텍스처 × 색" 곱셈이 되어
-   무늬가 어두워지고 탁해진다. 그래서 텍스처가 있으면 색을 덮어쓰는 대신 셰이더에서 '색조(Hue)만'
-   회전시킨다 — 명암·무늬·질감(밝기 V)은 원본 그대로 두고 색상만 바뀐다.
-     ・채도(S)는 중립(0)을 가운데 두고 양쪽으로 간다 — 오른쪽은 원본과 고른 값 중 진한 쪽을
-       따라가고(흑백 텍스처에도 색이 입혀진다), 왼쪽은 원본 채도를 곱해서 낮춘다(끝 = 회색).
-     ・emissiveMap이 map과 같은 텍스처를 쓰므로 emissive 쪽에도 같은 변환을 넣어야 색이 어긋나지 않는다.
-   ※ 셰이더 주입이라 렌더 결과는 실제 실행에서 눈으로 확인 필요. */
-const _HUE_GLSL = `
-vec3 twRgb2Hsv(vec3 c){
-  vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
-  vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
-  vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
-  float d = q.x - min(q.w, q.y);
-  float e = 1.0e-10;
-  return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
-}
-vec3 twHsv2Rgb(vec3 c){
-  vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
-  vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-  return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-}
-vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
-  vec3 hsv = twRgb2Hsv(rgb);
-  hsv.x = hue;
-  /* 채도는 양쪽으로 간다. sat = 0 이 중립(원본 채도 그대로, 예전 동작과 동일).
-     ・양수(0~1): max(원본, sat*0.9) — 진한 쪽을 따라간다. 흑백 텍스처에 색을 입히는 길.
-     ・음수(-1~0): 원본에 (1+sat) 을 곱해 내린다. sat=-1 이면 채도 0 = 완전 회색.
-     ⚠️ 음수 쪽을 max() 로 처리하면 절대 안 내려간다 — 슬라이더를 왼쪽 끝까지 밀어도
-        회색이 안 되던 원인이 그것이었다(원본 채도가 늘 이겨서). */
-  hsv.y = (sat >= 0.0) ? max(hsv.y, sat * 0.9) : hsv.y * (1.0 + sat);
-  hsv.y = clamp(hsv.y, 0.0, 1.0);
-  /* 밝기는 '덮어쓰기'가 아니라 '배율'이다 — 픽셀마다 다른 원본 명암(hsv.z)에 곱해야
-     무늬와 그림자가 살아 있는 채로 전체가 밝아지거나 어두워진다.
-     val=1.0 이 중립(예전 동작과 완전히 동일). */
-  hsv.z = clamp(hsv.z * val, 0.0, 1.0);
-  return twHsv2Rgb(hsv);
-}
-`;
-function _rgbHexToHsv(hex){
-  const c = new THREE.Color(hex);
-  const hsl = {}; c.getHSL(hsl);
-  // getHSL은 HSL이라 HSV의 S/V로 환산
-  const v = hsl.l + hsl.s * Math.min(hsl.l, 1 - hsl.l);
-  const s = (v === 0) ? 0 : 2 * (1 - hsl.l / v);
-  return { h: hsl.h, s: Math.min(1, Math.max(0, s)), v };
-}
-/* 이 메쉬를 색조 모드로 쓸 수 있는가 = _col이면서 텍스처가 있는가 */
-function isHueTintMesh(mesh){
-  return !!(mesh && mesh.material && mesh.material.map);
-}
-function _ensureHueUniforms(mat){
-  if(mat.userData && mat.userData._hueU) return mat.userData._hueU;
-  mat.userData = mat.userData || {};
-  const u = { uHue:{value:0}, uSat:{value:0}, uVal:{value:1}, uOn:{value:0} };
-  mat.userData._hueU = u;
-  mat.onBeforeCompile = _hueOBC(u);
-  mat.needsUpdate = true;
-  return u;
-}
-/* 🎨 색조 셰이더 주입 함수 — u(유니폼 묶음)를 클로저로 잡는다.
-   ★ [2026-10-02 제보 #8] _ensureHueUniforms 에서 떼어 냈다. 스티커사진 무대(_pkCloneChar)가 재질을
-     m.clone() 하면 THREE r128 의 Material.copy 는 onBeforeCompile 을 **복사하지 않는다**(userData 는
-     JSON 값만 복사). 그래서 사본은 원본 텍스처색으로 그려졌다 — 텍스처 파츠(노비 모자·목도리)만
-     염색이 빠지고 단색 파츠는 멀쩡했던 이유다. 사본에 같은 주입을 다시 걸려면 이 함수가 따로 있어야 한다. */
-function _hueOBC(u){
-  return (shader)=>{
-    // ★ 같은 객체 참조를 넘겨야 이후 .value 변경이 렌더에 반영된다.
-    shader.uniforms.uHue = u.uHue; shader.uniforms.uSat = u.uSat; shader.uniforms.uVal = u.uVal; shader.uniforms.uOn = u.uOn;
-    shader.fragmentShader = 'uniform float uHue;\nuniform float uSat;\nuniform float uVal;\nuniform float uOn;\n'
-      + _HUE_GLSL + shader.fragmentShader;
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <map_fragment>',
-      '#include <map_fragment>\n  if(uOn > 0.5){ diffuseColor.rgb = twHueShift(diffuseColor.rgb, uHue, uSat, uVal); }'
-    );
-    // emissiveMap도 같은 텍스처라 함께 돌려야 색이 어긋나지 않음
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <emissivemap_fragment>',
-      '#include <emissivemap_fragment>\n  if(uOn > 0.5){ totalEmissiveRadiance = twHueShift(totalEmissiveRadiance, uHue, uSat, uVal); }'
-    );
-  };
-}
-/* hex=null이면 색조 해제(원본 텍스처 그대로).
-   hsvOpt = {h(0~1), s(0~1), v(배율, 1=중립)} 가 있으면 그쪽이 우선이다.
-   ⚠️ **없을 때 v 를 hex 에서 뽑아 쓰면 안 된다.** 예전에 저장된 색조 값은 밝기를 무시하던 시절에
-      고른 것이라(팔레트에서 고른 색은 대부분 V<1), 지금 와서 hex 의 V 를 배율로 쓰면 이미 저장된
-      파츠가 일제히 어두워진다. 그래서 hex 만 있는 옛 데이터는 v=1(중립)로 고정한다. */
-function applyHueTint(mesh, hex, hsvOpt){
-  if(!mesh || !mesh.material || !mesh.material.map) return false;
-  const u = _ensureHueUniforms(mesh.material);
-  if(!hex && !hsvOpt){ u.uOn.value = 0; return true; }
-  if(hsvOpt){
-    u.uHue.value = hsvOpt.h || 0;
-    u.uSat.value = (hsvOpt.s == null) ? 0 : hsvOpt.s;
-    u.uVal.value = (hsvOpt.v == null) ? 1 : hsvOpt.v;
-  }else{
-    const hsv = _rgbHexToHsv(hex);
-    u.uHue.value = hsv.h; u.uSat.value = hsv.s; u.uVal.value = 1;
-  }
-  u.uOn.value = 1;
-  return true;
-}
-/* 슬라이더 값 → 스와치·플랫 메쉬용 hex. 저장은 colorHSV 가 진짜 값이고 hex 는 표시용 사본이다. */
-function _hsvToHex(h, sv, v){
-  const c = new THREE.Color();
-  c.setHSL(h, Math.max(0, Math.min(1, sv)), Math.max(0, Math.min(1, 0.5 * (v==null?1:v))));
-  return '#' + c.getHexString();
-}
+/* 🎨 색조 셰이더 이름 잇기(shared/hue-tint.js) — 본문은 캐릭터 코어. 아래 const 는 옛 이름이다. */
+const hueTintMod = TwHueTint.createHueTint({
+  lightToneMod: lightToneMod,
+});
+const _rgbHexToHsv = hueTintMod._rgbHexToHsv;   // 옛 전역 이름
+const isHueTintMesh = hueTintMod.isHueTintMesh;   // 옛 전역 이름
+const _ensureHueUniforms = hueTintMod._ensureHueUniforms;   // 옛 전역 이름
+const _hueOBC = hueTintMod._hueOBC;   // 옛 전역 이름
+const applyHueTint = hueTintMod.applyHueTint;   // 옛 전역 이름
+const _hsvToHex = hueTintMod._hsvToHex;   // 옛 전역 이름
 
 /* ═══ 🪑 [2026-09-18] 라이선스 전용 책상을 꾸미기창 «책상» 탭으로 옮긴다 ════════════════════
    [왜 옮기나] 전용 책상은 생성기 5단계에서 미보유자에게도 목록에 계속 보였고, 눌러도 토스트만
@@ -2976,86 +2810,15 @@ async function equipPartOnSeat(seat, cat, rec, opts){
        올라탄 좌석이 없으면 _remeasureRideHeadTop 이 즉시 빠져나온다(비용이 없다). */
   try{ rideBenchMod._remeasureRideHeadTop(seat); }catch(_){}
 }
-/* 옷 카테고리만 해제 (def는 안 건드림 — 충돌 정리 내부용) */
-function _unequipClothCat(seat, cat){
-  unequipPartFromSeat(seat, cat);
-  if(seat.charDef && seat.charDef.equippedParts) delete seat.charDef.equippedParts[cat];
-}
-/* 착용된 파츠에 따라 캐릭터 원본 메시들의 visible 토글.
-   ★ 모든 파츠의 rec.hides 배열을 참조 (getRecHides로 sentinel/Firebase 객체 정규화).
-     hides가 명시적이면(빈 배열 포함) 그대로 사용, 옛 파츠(hides 자체 없음)만 관례 기본값 fallback. */
-function applyClothVisibility(seat){
-  if(!seat) return;
-  decoPartsMod.applyDecoPartsVisibility(seat);   // 🎁 꾸미기 파츠 표시 설정 — 부착·해제·좌석 재조립 뒤 늘 이 함수를 지나므로 여기서 같이 맞춘다
-  /* 🎁 꺼짐이면 «파츠 없음» 으로 센다 — 파츠가 숨기던 기본 메시(머리카락·기본 상의)를 되돌리기 위해서다.
-     ⚠️ 책상 위 파츠는 hides 를 안 가지므로 여기서 빼도 달라지는 게 없다. */
-  const eq = (decoPartsMod.decoPartsVisible() ? (seat.charDef && seat.charDef.equippedParts) : null) || {};
-  const hidden = { top:false, bottom:false, onepiece:false, cape:false,
-                   glasses:false, hat:false, mask:false, wing:false, handL:false, handR:false };
-  // eq에 있는 모든 카테고리의 모든 파츠(stackable 배열 포함) 순회
-  for(const cat in eq){
-    const entries = premiumMod.entriesForCat(seat.charDef, cat);
-    entries.forEach(entry=>{
-      const id = premiumMod.partEntryId(entry);
-      const rec = premiumMod.savedParts().find(p=>p.id===id);
-      if(!rec) return;
-      const explicitHides = premiumMod.getRecHides(rec);   // null = 옛 파츠, [] 이상 = 관리자 명시
-      let hides;
-      if(explicitHides !== null){
-        hides = explicitHides;   // 관리자가 명시 → 그대로 (빈 배열이면 아무것도 안 숨김)
-      } else {
-        // 하위호환: hides 필드가 아예 없는 옛 파츠는 카테고리별 관례 기본값
-        if(cat==='onepiece') hides = ['top','bottom','onepiece'];
-        else if(cat==='cape') hides = [];   // 망토는 원래 겉옷처럼 덮어씀
-        else if(cat in hidden) hides = [cat];   // 기본: 자기 부위만 숨김
-        else hides = [];
-      }
-      hides.forEach(h=>{ if(h in hidden) hidden[h] = true; });
-    });
-  }
-  /* ★ 자리비움 등으로 지금 숨겨져 있는 동안에는 visible 을 **직접 쓰면 안 된다.**
-       그 상태에서 setSeatOpacity 는 원래 값을 mesh.userData._prevVisible 에 맡겨 두고
-       visible 을 false 로 눌러 둔 것이다. 여기서 visible 을 바꿔 봐야
-         ① 다음 프레임에 다시 false 로 덮이고
-         ② 깨어날 때는 _prevVisible(=옷을 바꾸기 **전** 값)으로 복원된다.
-       그래서 "자리비움 중에 상의를 벗었는데, 돌아오니 기본 상의가 그대로 숨어 있다" 같은
-       어긋남이 남는다. 숨은 동안에는 '깨어나면 이래야 한다'를 _prevVisible 쪽에 적는다.
-     ⚠️ _prevVisible 이 undefined = 지금 안 숨겨져 있다는 뜻이다(setSeatOpacity 가 복원하면서 지운다).
-        그 판정을 여기서 다시 만들지 말 것 — 두 함수가 같은 한 표식을 봐야 갈라지지 않는다. */
-  const _setVis = (mesh, v)=>{
-    if(!mesh) return;
-    if(mesh.userData._prevVisible !== undefined) mesh.userData._prevVisible = v;   // 숨은 중 — 복원값을 갱신
-    else mesh.visible = v;
-  };
-  _setVis(seat.upMesh,       !hidden.top);
-  _setVis(seat.loMesh,       !hidden.bottom);
-  _setVis(seat.onepieceMesh, !hidden.onepiece);
-  _setVis(seat.capeMesh,     !hidden.cape);
-  _setVis(seat.glassesMesh,  !hidden.glasses);
-  _setVis(seat.hatMesh,      !hidden.hat);
-  _setVis(seat.maskMesh,     !hidden.mask);
-  _setVis(seat.wingMesh,     !hidden.wing);
-  _setVis(seat.handLMesh,    !hidden.handL);
-  _setVis(seat.handRMesh,    !hidden.handR);
-  /* 🎩 [제보] 모자 쓴 캐릭터 머리에 동물을 얹어 둔 뒤 **모자를 벗으면 동물이 파묻힌다** —
-       맨머리로 얹었을 때보다도 더 낮게 들어간다.
-     [기전] measureHeadBoxNoParts 는 **숨은 메쉬를 제외한다**(`p.visible === false` → skip).
-       모자의 rec.hides 가 머리카락 같은 기본 메쉬를 숨기므로, 모자를 쓴 채 잰 머리 꼭대기는
-       실제 실루엣보다 낮다 — **맨머리보다도 낮다.** 그 값이 캐시로 굳은 뒤 모자를 벗으면
-       머리카락이 다시 보이는데 아무도 다시 재지 않아, 동물이 그 머리카락 속에 잠긴다.
-     [왜 여기인가] 재측정을 부르는 자리가 셋 있었는데(equipPartOnSeat · 귀 부착 · 파츠 메타 지연)
-       **전부 «붙는» 쪽이다. 빼는 쪽에는 없었다.**
-       그렇다고 unequipPartFromSeat 에 넣으면 안 된다 — 그 함수가 끝난 **뒤에** 이 함수가
-       가시성을 되돌리므로, 거기서 재면 여전히 숨은 상태로 재게 된다(고치려는 그 버그 그대로다).
-       이 함수의 끝이 곧 «기본 메쉬 가시성이 확정된 순간»이고, 붙이든 빼든 모든 경로가 여기를 지난다.
-     ★ 올라탄 좌석이 없으면 _remeasureRideHeadTop 이 riders.length 검사에서 즉시 빠져나온다 —
-       미리보기 좌석(wdPreviewBase 등)까지 이 함수를 부르지만 비용이 없다.
-     ⚠️ equipPartOnSeat 경로에서는 이 훅과 22243 의 훅이 둘 다 돈다. 그쪽은 **부착이 끝난 뒤**라야
-       rideTop 파츠의 꼭대기(_headTopPart)를 제대로 잡으므로 지우면 안 된다. 여기 것은 그보다
-       이른 시점이라 파츠 값이 아직 null 일 수 있고, 뒤이어 22243 이 덮는다. 순서가 그렇게 맞다.
-     ⚠️ 매 프레임 재는 방식으로 바꾸지 말 것 — 이름표·말풍선이 이 높이를 보고 자리를 잡는다. */
-  try{ rideBenchMod._remeasureRideHeadTop(seat); }catch(_){}
-}
+/* 👕 옷 겹침(character/cloth-visibility.js) — 아래 const 는 옛 전역 이름이다. */
+const clothVisMod = TwClothVisibility.createClothVisibility({
+  decoPartsMod: decoPartsMod,
+  premiumMod: premiumMod,
+  rideBenchMod: rideBenchMod,
+  unequipPartFromSeat: (...a)=>unequipPartFromSeat(...a),
+});
+const _unequipClothCat = clothVisMod._unequipClothCat;   // 옛 전역 이름
+const applyClothVisibility = clothVisMod.applyClothVisibility;   // 옛 전역 이름
 /* ★ 파츠 카테고리별 "기본 부착 위치" 미세조정 표 — 여기 숫자만 조절하면 해당 카테고리 파츠가
    장착됐을 때 시작 위치가 전부 한 번에 맞춰짐(사용자가 우클릭해서 개별 조정한 값은 이 위에 별도로
    더해지므로 서로 영향 안 줌). x=좌우, y=위아래, z=앞뒤(양수=카메라 쪽/앞, 음수=뒤).
@@ -3867,35 +3630,6 @@ function buildFacePatchGeo(R,half,seg){
     const z=Math.sqrt(Math.max(0.0001,R*R-x*x-y*y)); pos.setZ(i,z);}
   pos.needsUpdate=true; geo.computeVertexNormals(); return geo;
 }
-/* 메쉬 geometry boundingBox만 union해서 그룹의 *진짜 메쉬 영역* 박스 계산 (본 영향 0). 커미션 GLB 정렬용 */
-function calcMeshBox(group){
-  const box=new THREE.Box3(), tmp=new THREE.Box3();
-  group.updateMatrixWorld(true);
-  group.traverse(o=>{
-    if(o.isMesh && o.geometry){
-      if(!o.geometry.boundingBox) o.geometry.computeBoundingBox();
-      if(o.geometry.boundingBox){
-        tmp.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld);
-        box.union(tmp);
-      }
-    }
-  });
-  return box;
-}
-
-/* 기본 GLB의 시각 영역 (BASE_SCENE 로드 후 1회 측정) — 커미션 GLB를 *기본과 동일한 위치·키*로 정렬할 때 사용 */
-let BASE_MESH_MIN_Y=null, BASE_MESH_HEIGHT=null;
-function measureBaseGeometry(){
-  const inst = instantiateBase();
-  if(!inst || !inst.root) return;
-  normalizeModel(inst.root, 1.4);   // defToBase의 일반 경로와 동일한 정규화
-  inst.root.updateMatrixWorld(true);
-  const box = calcMeshBox(inst.root);
-  if(!box.isEmpty()){
-    BASE_MESH_MIN_Y = box.min.y;
-    BASE_MESH_HEIGHT = box.max.y - box.min.y;
-  }
-}
 
 function defToBase(def, customScene){
   // 🐾 동물 캐릭터 — animal.js가 전담 조립(전신 페인트 텍스처·귀 포함). 실패(모듈 미로드 등) 시 인간 폴백.
@@ -4640,7 +4374,7 @@ const cFaceCenter=new THREE.Vector3(0,1.2,0), cBodyCenter=new THREE.Vector3(0,0.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const creatorPrevMod = TwCreatorPreview.createCreatorPreview({
   ANIMAL_HAND_REST: ANIMAL_HAND_REST,
-  BASE_SCENE: ()=>BASE_SCENE,
+  BASE_SCENE: ()=>bodyCore.baseScene(),
   CHAR_Z: CHAR_Z,
   COMMISSION_SCALE_CORRECTION: COMMISSION_SCALE_CORRECTION,
   CREATOR_LIGHT_SL: lightToneMod.CREATOR_LIGHT_SL,
@@ -5048,7 +4782,7 @@ const launcherCtlMod = TwLauncherControls.createLauncherControls({
 /* 본문은 race-picker.js 로 옮겼다(앱 FSD 48번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const racePickerMod = TwRacePicker.createRacePicker({
-  BASE_SCENE: ()=>BASE_SCENE,
+  BASE_SCENE: ()=>bodyCore.baseScene(),
   CHAR_SLOT_MAX: CHAR_SLOT_MAX,
   addRunLights: (...a)=>lightToneMod.addRunLights(...a),
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
@@ -5106,7 +4840,7 @@ const charApplyMod = TwCharApply.createCharApply({
   applyPartXf: (...a)=>applyPartXf(...a),
   assetCodeMod: ()=>assetCodeMod,
   b64ToBuf: (...a)=>b64ToBuf(...a),
-  BASE_ANIMS: ()=>BASE_ANIMS,
+  BASE_ANIMS: ()=>bodyCore.baseAnims(),
   clampCharY: clampCharY,
   commSceneCache: commSceneCache,
   compositeFace: (...a)=>compositeFace(...a),
