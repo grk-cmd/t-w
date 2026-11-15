@@ -193,8 +193,8 @@ function createChatRt(deps){
     return () => { closed = true; subs.delete(sub); };
   }
 
-  /** 최근 limit 줄 목록 구독(안 읽은 수 세기) — 처음에 받고 · 새 줄마다 cb(정렬된 목록). 반환: 끊는 함수. */
-  function subscribeLog(room, cb, limit, appTab){
+  /** 최근 limit 줄 목록 구독(안 읽은 수 세기) — 처음에 받고 · 새 줄마다 cb(정렬된 목록). 처음 받기가 실패하면 onFail(오류) 한 번 — 부르는 쪽이 «모름» 으로 그린다(0 으로 그리지 않는다). 반환: 끊는 함수. */
+  function subscribeLog(room, cb, limit, appTab, onFail){
     const tab = deps.tabFromWire(deps.historyTabOf(appTab)) || 'general';
     const n = Math.max(1, Math.min(PAGE_LIMIT, (limit | 0) || PAGE_LIMIT));
     const box = new Map();
@@ -206,7 +206,7 @@ function createChatRt(deps){
     };
     const sub = { room, tab, fn: (m) => { box.set(m.id, m); emit(); } };
     subs.add(sub);
-    page(room, appTab, null, n).then((p) => { if(closed) return; p.lines.forEach((m) => box.set(m.id, m)); emit(); }, (e) => { warn('최근 줄을 못 받음', (e && (e.code || e.message)) || e); });
+    page(room, appTab, null, n).then((p) => { if(closed) return; p.lines.forEach((m) => box.set(m.id, m)); emit(); }, (e) => { warn('최근 줄을 못 받음', (e && (e.code || e.message)) || e); if(!closed && onFail){ try{ onFail(e); }catch(err){ warn('최근 줄 실패 처리 실패', err); } } });
     return () => { closed = true; subs.delete(sub); };
   }
 
