@@ -31,11 +31,12 @@ function createGlContext(deps){
     box.className = NOTICE_CLASS;
     box.setAttribute('data-for', canvas.id || '');
     box.setAttribute('role', 'alert');
-    box.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px;text-align:center;font-size:12px;line-height:1.4;background:var(--win-face);color:var(--win-ink,#000);z-index:5;';
+    box.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px;text-align:center;font-size:12px;line-height:1.4;background:var(--win-face,#c0c0c0);color:var(--win-ink,#000);z-index:5;pointer-events:none;';   // 상자는 클릭을 아래로 보낸다(런처의 빈 칸 · 미리보기 클릭 · 종족 카드)
     const t = doc.createElement('div'); t.textContent = TEXT.body; box.appendChild(t);
     if(retry){
       const b = doc.createElement('button'); b.type = 'button'; b.textContent = TEXT.retry;
-      b.addEventListener('click', () => { box.remove(); retry(); });
+      b.style.cssText = 'pointer-events:auto;';
+      b.addEventListener('click', (e) => { e.stopPropagation(); box.remove(); retry(); });
       box.appendChild(b);
     }
     if(p.style && !p.style.position){ try{ if(doc.defaultView && doc.defaultView.getComputedStyle(p).position === 'static') p.style.position = 'relative'; }catch(_){} }

@@ -844,7 +844,7 @@ function _pkPaintSlots(){
 function _pkBuildStage(){
   if(PK.renderer) return;
   const cv = _pkEl('pkStage');
-  const r = TwGlContext.make(cv, {canvas:cv, antialias:true, preserveDrawingBuffer:true}, 'preview', { label:'스티커사진', retry:()=>{ _pkBuildStage(); } });
+  const r = TwGlContext.make(cv, {canvas:cv, antialias:true, preserveDrawingBuffer:true}, 'preview', { label:'스티커사진' });
   if(!r) return;
   PK.renderer = r;
   PK.renderer.setPixelRatio(Math.min(devicePixelRatio,2));
@@ -2079,6 +2079,11 @@ function _pkOnShot(s){
 function _pkCapture(){
   const P = _pkP(), spec = P.frameSpec(PK.orient, PK.cuts);
   const st = P.stageSize(PK.orient, PK.cuts);
+  if(!PK.renderer){   // 무대(3D)를 못 만든 사람이 방장이어도 촬영이 멈추지 않게 — 흰 컷으로 이어 간다
+    const blank = document.createElement('canvas'); blank.width = spec[0]; blank.height = spec[1];
+    const bg = blank.getContext('2d'); bg.fillStyle = '#fff'; bg.fillRect(0, 0, blank.width, blank.height);
+    return blank.toDataURL('image/png');
+  }
   const pr = PK.renderer.getPixelRatio();
   try{
     PK.renderer.setPixelRatio(1);

@@ -853,6 +853,13 @@ function loadModel(){
 
 function openPreview(){
   buildOverlay();
+  /* 3D 장치를 먼저 만든다 — 못 만들면 창 · 런처 · 창 크기를 하나도 안 바꾸고 돌아간다(사람 생성기와 같은 모양) */
+  if(!renderer){
+    const cv=overlay.querySelector('#anpCv');
+    const r=TwGlContext.make(cv,{canvas:cv,antialias:true,alpha:true},'preview',{ label:'동물 생성기' });
+    if(!r) return false;
+    renderer=r;
+  }
   _syncAnimalStages();   // 위 «책상 세팅» · «좌석 세팅» — 편집 컨텍스트(_editSrcDef · _editSeat · _targetSlot)를 정한 뒤 불린다
   // ★ 창 크기 모드 전환 — 데스크탑 창은 creatorOpen 여부로 크기가 결정됨(런처 380×680 / 생성기 740×620).
   //   이걸 안 켜면 런처 크기(380px)에 갇혀 오른쪽 패널이 세로로 짓눌림.
@@ -873,11 +880,7 @@ function openPreview(){
   window.addEventListener('keydown', onPanKey);
   overlay.style.display='flex';
   console.log('[동물] 창 크기 확인 — innerWidth:', innerWidth, 'innerHeight:', innerHeight, '(기대: 860×440)');
-  if(!renderer){
-    const cv=overlay.querySelector('#anpCv');
-    const r=TwGlContext.make(cv,{canvas:cv,antialias:true,alpha:true},'preview',{ label:'동물 생성기' });
-    if(!r) return;
-    renderer=r;
+  if(!scene){
     // 인간 생성기(ensureCreatorPreview)와 동일한 설정 — 해상도·색감이 똑같이 보이게
     renderer.setPixelRatio(Math.min(devicePixelRatio,2));
     renderer.outputEncoding=THREE.sRGBEncoding;
@@ -923,6 +926,7 @@ function openPreview(){
     renderer.render(scene,cam);
   };
   cancelAnimationFrame(raf); tick();
+  return true;
 }
 /* 미리보기 조명 — 원색 보기면 방향광을 끄고 앰비언트를 흰빛으로(emissive 와 합이 1). */
 function applyPreviewLights(){
@@ -1866,7 +1870,7 @@ window.reopenAnimalCreator=function(def, opts){
   _targetSlot = null;   // ★ 재편집은 원본이 꽂힌 칸을 따라가야 하므로 [＋] 타깃을 비운다
   _editSeat = (typeof creatorMode!=='undefined' && creatorMode && creatorMode.kind==='seat') ? creatorMode.seat : null;
   const _fromLauncher = !!(typeof creatorMode!=='undefined' && creatorMode && creatorMode.cameFromLauncher);
-  openPreview();   // 창 열기(모델 로드 등)
+  if(!openPreview()) return;   // 창 열기(모델 로드 등) — 3D 를 못 만들면 아무것도 안 바꾸고 돌아간다
   // ★ openPreview는 '지금 런처가 켜져 있나'로 _prevLauncherOn을 정하는데, 이 경로는 인간 생성기가 이미 런처를
   //   꺼둔 상태라 항상 false가 된다. 그러면 closePreview가 런처를 복원하지 않고 → 뒤이은 openCreator의
   //   cameFromLauncher도 false → [완료] 후 closeCreator가 renderLauncher()를 안 불러서 런처가 옛 모습 그대로 남았음.
