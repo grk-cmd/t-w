@@ -344,7 +344,7 @@
 | **sim-overhead.js** | 161 | **169c381103c3** |
 | **sim-room-sync.js** | 99 | **20fd5b5bfe59** |
 | **sim-status-chip.js** | 123 | **4251e46c8a7a** |
-| **sim-premium-assets.js** | 126 | **582b63fe8c74** |
+| **sim-premium-assets.js** | 129 | **e2b00028d8cd** |
 | **sim-char-code.js** | 126 | **6af407976d28** |
 | **sim-dice-games.js** | 95 | **1debed57a729** |
 | **sim-program-settings.js** | 148 | **63ad8f3b844f** |
@@ -364,7 +364,7 @@
 | **sim-myhome-diag.js** | 95 | **26738cf17aa4** |
 | **sim-myhome-visit.js** | 96 | **48b2a093c619** |
 | **sim-code-crypto.js** | 141 | **0234e006a868** |
-| **sim-commission.js** | 141 | **f75edcff843d** |
+| **sim-commission.js** | 144 | **bf76163f0374** |
 | **sim-exp-bar.js** | 98 | **cd3f1861cd05** |
 | **sim-chal-store.js** | 478 | **fcbc122da28e** |
 | **sim-focus-day.js** | 135 | **64502f3520bb** |
@@ -413,7 +413,7 @@
 | **sim-account-state.js** | 99 | **f15e0c15e7f6** |
 | **sim-nav.js** | 91 | **dd38c03ae96c** |
 | **sim-app-boot.js** | 166 | **c9c8c9ab8e59** |
-| **sim-user-local.js** | 207 | **42323577c296** |
+| **sim-user-local.js** | 207 | **d076599742e2** |
 | **sim-net-ready.js** | 152 | **bb0f49abe53a** |
 | **sim-myhome-hooks.js** | 99 | **ded7ee208327** |
 | **sim-demoji-catalog.js** | 78 | **51109652b2f6** |

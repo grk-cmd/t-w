@@ -90,17 +90,20 @@ function behave(mod){
   r.reset = m.savedParts().map(p => p.id).join() === 'P-cat';
   open = false; m.persistSavedParts();
   r.closedLoud = toasts.length === 1;
+  open = true; cells['tw.savedParts'] = '{깨짐';
+  try{ m.loadLocal(); r.corruptThrows = false; }catch(_){ r.corruptThrows = true; }   // 깨진 칸은 던진다 — 빈 목록으로 숨기지 않는다
   return r;
 }
 {
   const R = behave(MOD);
   chk(R.load, '확인 뒤 읽기 — 카탈로그 몫(구독이 먼저 와 있음)은 덮지 않고 이 계정 몫만 더한다 · 옛 칸에 섞인 카탈로그 사본은 읽지 않는다');
   chk(R.persist, '쓰기 — 이 계정 몫만 계정 칸에 쓴다 · 카탈로그 몫은 쓰지 않는다');
+  chk(R.corruptThrows === true, '계정 칸 값이 깨져 있으면 던진다(빈 목록으로 숨기지 않는다)');
   chk(R.reset && R.closedLoud, '세션이 끝나면 이 계정 몫만 비운다 · 계정 칸이 닫혀 있으면 쓰기를 알린다');
   const br = (from, to) => MOD.includes(from) ? behave(MOD.replace(from, to)) : null;
   const b1 = br("savedParts = savedParts.concat(a.filter(p=>!have.has(p.id)).map(_normPartRec));", "savedParts = a.map(_normPartRec);");
   chk(b1 && !b1.load, '깨 보기 — 로그인 때 읽은 값으로 카탈로그 몫을 덮으면 빨강');
-  const b2 = br("p && p.id && !p.fromCatalog)", "p && p.id)");
+  const b2 = br("JSON.parse(raw).filter(p=>!p.fromCatalog)", "JSON.parse(raw)");
   chk(b2 && !b2.load, '깨 보기 — 옛 칸의 카탈로그 사본까지 읽으면 빨강');
   const b3 = br("JSON.stringify(savedParts.filter(p=>!p.fromCatalog))", "JSON.stringify(savedParts)");
   chk(b3 && !b3.persist, '깨 보기 — 카탈로그 몫까지 계정 칸에 쓰면 빨강');

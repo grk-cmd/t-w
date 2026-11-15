@@ -6967,7 +6967,7 @@ async function loadSavedItemsIntoSession(){
     //   (관리자가 우클릭 수정 등) customItems가 옛날 것으로 캐시된 채 남아있으면 실시간 반영이 안 됨.
     try{ const buf=b64ToBuf(rec.glb); const {scene,animations}=await assetCodeMod.parseGlbFull(buf);
       deskItemsMod.registerCustomItem(rec.id, rec.name, rec.glb, scene, rec.icon||'', animations, rec.attachTo, rec.autoPlay, rec.defaultSize, rec.glow, rec.licenseOnly, rec.playMode);
-    }catch(_){}
+    }catch(e){ console.warn('[저장 아이템] 등록하지 못했어요 — ' + rec.id, e); }   // 한 개가 깨져도 나머지는 등록한다 · 깨진 것은 드러낸다
   }
 }
 
@@ -8330,7 +8330,7 @@ const userLocalMod = TwUserLocal.createUserLocal({ parts: [
   { name: 'emojiReactions', load: ()=>floatersMod.loadLocal(), reset: ()=>floatersMod.resetLocal() },
   /* 코드로 추가한 책상 · 아이템 · 파츠는 이 계정 몫 — 카탈로그 몫(서버가 원본)은 건드리지 않고 이 계정 몫만 더한다(commission.js loadLocal). 아이템은 세션에 등록(GLB 파싱)까지 */
   { name: 'savedAssets',
-    load: ()=>{ commissionMod.loadLocal(); premiumMod.loadLocal(); loadSavedItemsIntoSession().catch((e)=>console.warn('[저장 아이템] 등록 실패', e)); },
+    load: ()=>{ commissionMod.loadLocal(); premiumMod.loadLocal(); return loadSavedItemsIntoSession(); },   // 비동기 실패는 user-local 이 경고한다
     reset: ()=>{ commissionMod.savedItems().filter(p=>!p.fromCatalog).forEach(p=>{ delete customItems[p.id]; }); commissionMod.resetLocal(); premiumMod.resetLocal(); } },
 ] });
 

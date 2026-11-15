@@ -5,7 +5,7 @@
      바꾼 이름 없음.
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 5개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: MAX_COMMISSION_BYTES · MAX_CUSTOM_ASSETS · MAX_CUSTOM_ITEMS · MAX_GLB_BYTES · decryptCommission · encryptCommission · persistSavedAssets · savedDesks · savedItems · unpackCommissionZip — app.js 는 commissionMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: loadLocal · resetLocal · MAX_COMMISSION_BYTES · MAX_CUSTOM_ASSETS · MAX_CUSTOM_ITEMS · MAX_GLB_BYTES · decryptCommission · encryptCommission · persistSavedAssets · savedDesks · savedItems · unpackCommissionZip — app.js 는 commissionMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwCommission — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-commission.js */
@@ -100,9 +100,9 @@ let savedDesks=[], savedItems=[];   // [{id, name, icon, glb(base64)}]
    ② 이 계정 몫(코드로 추가한 책상 · 아이템 — 계정 칸). 계정 칸은 확인 전엔 닫혀 있어 만들 때는 비어 있고, 확인 뒤 loadLocal 이 ② 만 채운다.
    ★ 로그인 때 읽은 값으로 ① 을 덮지 않는다 — 카탈로그 몫이 먼저 와 있으면(구독은 계정과 무관하게 먼저 돈다) 그대로 두고 ② 중 카탈로그에 같은 id 가 없는 것만 더한다. */
 function _readLocal(key){
-  let a = [];
-  try{ a = JSON.parse(accountStore.get(key) || '[]'); }catch(_){ a = []; }
-  return Array.isArray(a) ? a.filter(p=>p && p.id && !p.fromCatalog) : [];   // 옛 PC 칸에 섞여 있던 카탈로그 사본은 읽지 않는다(서버가 원본)
+  const raw = accountStore.get(key);   // 비어 있으면 null(저장한 적 없음). 깨진 값이면 JSON.parse 가 던진다 — 숨기지 않는다(user-local 이 경고)
+  if(raw === null) return [];
+  return JSON.parse(raw).filter(p=>!p.fromCatalog);   // 옛 PC 칸에 섞여 있던 카탈로그 사본은 읽지 않는다(서버가 원본)
 }
 function _mergeLocal(cur, key){
   const have = new Set(cur.map(p=>p.id));
@@ -124,7 +124,7 @@ function catalogBacked(rec){ return !!(rec && rec.fromCatalog && rec.glbUrl); }
 function persistSavedAssets(){
   const okD = accountStore.set(SAVED_DESK_KEY, JSON.stringify(savedDesks.filter(p=>!p.fromCatalog)));
   const okI = accountStore.set(SAVED_ITEM_KEY, JSON.stringify(savedItems.filter(p=>!p.fromCatalog)));
-  if(!okD || !okI) toast('저장 공간이 부족해요');
+  if(!okD || !okI){ console.warn('[코드로 추가] 계정 칸에 쓰지 못했어요 — 책상 ' + okD + ' · 아이템 ' + okI); toast('저장하지 못했어요 — 저장 공간과 로그인 상태를 확인해 주세요'); }
 }
 
 return {

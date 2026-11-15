@@ -5,7 +5,7 @@
      DESK_SCALE_DEFAULT · DESK_SCALE_MAX · DESK_SCALE_MIN · Presence · cBase · isAdmin · isPremium · savedDesks · savedItems · slots 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 16개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: DESK_LICENSE_HOLD · ITEM_LICENSE_HOLD · MAX_GACHA_PARTS_PER_CAT · MAX_PARTS_PER_CAT · PART_CATS · PART_GROUPS · WD_DESK_TAB · _licenseLockedDeskId · _normPartRec · _wdLicenseDesks · addEntryToCat · addPartEntryInstance · catEquippedIds · customPartCats · defaultPartXf · entriesForCat · findEntryById · firstEntryForCat · getRecHides · groupOfCat · isDeskPartCat · isGachaPart · loadSavedParts · partAttachTarget · partCatInfo · partCatLimit · partCatOverrides · partEntryId · partEntryInstanceCount · partEntryInstances · partEntryXf · partsInCat · partsInCatFor · partsInGroup · persistSavedParts · pruneUnownedLicenseAssets · rebuildPartCats · removeEntryFromCat · removePartEntryInstance · reorderSavedPart · restoreLicenseHeldAssets · savedParts · setPartEntryInstanceXf · toHidesForSave — app.js 는 premiumMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: loadLocal · resetLocal · DESK_LICENSE_HOLD · ITEM_LICENSE_HOLD · MAX_GACHA_PARTS_PER_CAT · MAX_PARTS_PER_CAT · PART_CATS · PART_GROUPS · WD_DESK_TAB · _licenseLockedDeskId · _normPartRec · _wdLicenseDesks · addEntryToCat · addPartEntryInstance · catEquippedIds · customPartCats · defaultPartXf · entriesForCat · findEntryById · firstEntryForCat · getRecHides · groupOfCat · isDeskPartCat · isGachaPart · loadSavedParts · partAttachTarget · partCatInfo · partCatLimit · partCatOverrides · partEntryId · partEntryInstanceCount · partEntryInstances · partEntryXf · partsInCat · partsInCatFor · partsInGroup · persistSavedParts · pruneUnownedLicenseAssets · rebuildPartCats · removeEntryFromCat · removePartEntryInstance · reorderSavedPart · restoreLicenseHeldAssets · savedParts · setPartEntryInstanceXf · toHidesForSave — app.js 는 premiumMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwPremiumAssets — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-premium-assets.js */
@@ -427,9 +427,8 @@ let savedParts=[];   // [{id, cat, name, icon, glb(base64)}]
 /* 🗂️ 카탈로그 몫(fromCatalog · 서버가 원본 · 카탈로그 동기화가 채운다)과 이 계정 몫(코드로 추가한 파츠 — 계정 칸)을 가른다(commission.js 와 같은 규칙).
    ★ 로그인 때 읽은 값으로 카탈로그 몫을 덮지 않는다 — 카탈로그에 같은 id 가 없는 계정 몫만 더한다. */
 function loadLocal(){
-  let a = [];
-  try{ a = JSON.parse(accountStore.get(SAVED_PARTS_KEY) || '[]'); }catch(_){ a = []; }
-  a = Array.isArray(a) ? a.filter(p=>p && p.id && !p.fromCatalog) : [];   // 옛 PC 칸에 섞여 있던 카탈로그 사본은 읽지 않는다
+  const raw = accountStore.get(SAVED_PARTS_KEY);   // 비어 있으면 null(저장한 적 없음). 깨진 값이면 JSON.parse 가 던진다 — 숨기지 않는다(user-local 이 경고)
+  const a = raw === null ? [] : JSON.parse(raw).filter(p=>!p.fromCatalog);   // 옛 PC 칸에 섞여 있던 카탈로그 사본은 읽지 않는다
   const have = new Set(savedParts.map(p=>p.id));
   savedParts = savedParts.concat(a.filter(p=>!have.has(p.id)).map(_normPartRec));
 }
@@ -441,12 +440,12 @@ function resetLocal(){ savedParts = savedParts.filter(p=>p.fromCatalog); }
      그러면 toggleEquip 이 그 파츠를 «일반 파츠»로 보고 **같은 칸의 기존 일반 모자를 def 에서 빼고 갈아 끼운다.**
      가챠 모자가 기본 모자를 덮고 있어서 끼울 때는 티가 안 나고, 뺄 때 둘 다 없어진 것으로 보인다.
    ★ 읽는 자리(rec.stackable 을 보는 곳이 열 군데가 넘는다)를 고치지 않고 들어오는 입구에서 값을 맞춘다 —
-     등록이 이미 지키는 약속과 같은 값이므로 새 규칙이 아니다. 부팅 때 좌석을 세우기 **전에** 돈다(loadSavedParts).
+     등록이 이미 지키는 약속과 같은 값이므로 새 규칙이 아니다. 확인 뒤 userLocal 칸(savedAssets)이 좌석을 세우기 **전에** 부른다(loadLocal).
    ⚠️ 관리자가 그 파츠를 한 번 다시 저장하면 카탈로그 값도 true 로 고쳐진다(buildPartPublishData). */
 function _normPartRec(p){ if(p && p.gacha && !p.stackable) p.stackable = true; return p; }
 function persistSavedParts(){
   // 이 계정 몫(fromCatalog 아닌 것 — base64 glb 포함)만 계정 칸에 쓴다. 카탈로그 몫은 서버가 원본이고 오프라인 캐시는 catalog-cache.js 가 맡는다.
-  if(!accountStore.set(SAVED_PARTS_KEY, JSON.stringify(savedParts.filter(p=>!p.fromCatalog)))) toast('저장 공간이 부족해요');
+  if(!accountStore.set(SAVED_PARTS_KEY, JSON.stringify(savedParts.filter(p=>!p.fromCatalog)))){ console.warn('[파츠] 계정 칸에 쓰지 못했어요'); toast('저장하지 못했어요 — 저장 공간과 로그인 상태를 확인해 주세요'); }
 }
 function partsInCat(cat){ return savedParts.filter(p=>p.cat===cat); }
 /* 🎰 카테고리 상한은 "꾸미기 창에 진열되는 파츠"의 상한이다.
