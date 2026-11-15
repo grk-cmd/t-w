@@ -108,7 +108,9 @@ let _rcR=null,_rcS=null,_rcC=null,_rcChar=null;
 function renderAnimalCardThumb(){
   const cv=document.getElementById('raceAnimalCv'); if(!cv||typeof THREE==='undefined'||!window.ANIMAL_GLB_B64) return;
   if(!_rcR){
-    _rcR=new THREE.WebGLRenderer({canvas:cv,antialias:false,alpha:true});   // 인간 카드와 동일 — 도트 느낌
+    const r=TwGlContext.make(cv,{canvas:cv,antialias:false,alpha:true},'preview',{ label:'동물 카드', retry:()=>{ renderAnimalCardThumb(); } });   // 인간 카드와 동일 — 도트 느낌
+    if(!r) return;
+    _rcR=r;
     _rcR.setPixelRatio(1); _rcR.outputEncoding=THREE.sRGBEncoding;
     cv.style.imageRendering='pixelated';
     _rcS=new THREE.Scene();
@@ -873,7 +875,9 @@ function openPreview(){
   console.log('[동물] 창 크기 확인 — innerWidth:', innerWidth, 'innerHeight:', innerHeight, '(기대: 860×440)');
   if(!renderer){
     const cv=overlay.querySelector('#anpCv');
-    renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true});
+    const r=TwGlContext.make(cv,{canvas:cv,antialias:true,alpha:true},'preview',{ label:'동물 생성기' });
+    if(!r) return;
+    renderer=r;
     // 인간 생성기(ensureCreatorPreview)와 동일한 설정 — 해상도·색감이 똑같이 보이게
     renderer.setPixelRatio(Math.min(devicePixelRatio,2));
     renderer.outputEncoding=THREE.sRGBEncoding;

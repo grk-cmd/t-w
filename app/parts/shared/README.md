@@ -457,3 +457,9 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 조명은 여기 없다 — 조명 상수 · 재질 고치기는 app.js(T0 몫), 한 벌 만들기는 `light-tone.js addRunLights`. 메인 씬 빛은 app.js 가 만든 뒤 `key` 를 받는다.
   - 이 무대는 메인 창 하나다. 미리보기 창의 3D 장치 만들기는 따로(설계 F1 `gl-context.js`).
   - 검사: `checks/sim-stage.js`(옵션 · 배율 · 바닥 · 로더 · 실패 길 · 연결 · 깨 보기) · `sim-gl-recover.js` · `sim-frame-budget.js` 5절이 이 파일 글을 읽는다.
+
+## gl-context.js — 🧯 3D 장치를 만드는 단 한 곳
+
+- **책임**: `make(canvas, opts, role, extra)` — `new THREE.WebGLRenderer` 를 부르는 유일한 자리. `'main'` 은 만들기를 `extra.guard`(메인 무대의 `glFail.guard`)에 맡겨 옛 동작(안내 뒤 멈춤) 그대로. `'preview'` 는 못 만들면 던지지 않고 `null` 을 돌려주고, 실패 번호 `E-SYS-06` 로 알리고, 그 캔버스를 감싼 칸 안에 «3D 미리보기를 불러오지 못했어요 · [다시 시도]» 를 그린다(`extra.retry` 가 있을 때만 단추). 다시 만들어 성공하면 옛 안내를 지운다.
+- **쓰는 법**: 전역 `TwGlContext.make(...)`(classic script — stage · 미리보기 모듈이 전역으로 부른다). 부르는 쪽은 맨 앞에서 `if(!r) return`. 못 만든 채로 이어도 안전한지(그 창을 여는 함수가 renderer 를 읽는 곳)를 같이 본다 — 생성기는 `ensureCreatorPreview` 가 false 를 돌려 `openCreator` 가 열지 않는다.
+- **함정**: 개발용 `app/fx-preview.html` 만 직접 만든다. 새 3D 장치는 여기를 거친다(검사 `sim-gl-context.js` 가 이 파일 밖의 `new THREE.WebGLRenderer` 를 빨강으로). 화면에 안 붙은 캔버스(파츠 썸네일)는 안내 칸이 없어 번호만 낸다. 검사: `checks/sim-gl-context.js`.

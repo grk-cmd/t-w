@@ -35,6 +35,7 @@ const extractBonesInto = deps.extractBonesInto;
 const getCommissionScene = deps.getCommissionScene;
 const measureBodyBox = deps.measureBodyBox;
 const registerCustomItem = deps.registerCustomItem;
+const renderLauncher = deps.renderLauncher;   // 함수
 const scene = deps.scene;
 const setDeskPos = deps.setDeskPos;
 const setDeskScale = deps.setDeskScale;
@@ -51,7 +52,10 @@ const PS1_PIXEL_SCALE = 0.55;   // 런처 미리보기 도트 느낌 배율 — 
 function ensureLauncherPreview(){
   if(lRenderer)return;
   // PS1/도트 느낌: antialias 끄고, 낮은 내부 해상도로 렌더한 뒤 CSS(image-rendering:pixelated)로 확대.
-  lRenderer=new THREE.WebGLRenderer({canvas:document.getElementById('lcPreview'),antialias:false,alpha:true});
+  const lcCv=document.getElementById('lcPreview');
+  const r=TwGlContext.make(lcCv,{canvas:lcCv,antialias:false,alpha:true},'preview',{ label:'런처', retry:()=>{ renderLauncher(); } });
+  if(!r)return;
+  lRenderer=r;
   lRenderer.setPixelRatio(1);lRenderer.outputEncoding=THREE.sRGBEncoding;
   document.getElementById('lcPreview').style.imageRendering='pixelated';
   lScene=new THREE.Scene();
@@ -74,7 +78,7 @@ function _lcBodyBox(group){
 /* 🖼️ 크기의 기준은 캔버스 자신이 아니라 감싼 .lc-preview-wrap 이다.
    ⚠️ 캔버스에 px 를 다시 박지 말 것 — 박은 값을 clientWidth 가 다시 돌려줘 크기가 굳는다(잘리거나 한쪽에 쏠린다).
      크기는 CSS(width/height:100%)가 정하고, 내부 렌더 해상도만 setSize(...,false) 로 따로 잡는다(도트 느낌). */
-function sizeLauncherPreview(){const c=document.getElementById('lcPreview');
+function sizeLauncherPreview(){if(!lRenderer)return;const c=document.getElementById('lcPreview');
   const wrap=c.parentElement;   // .lc-preview-wrap — 실제 표시 칸. 테두리를 뺀 안쪽 크기를 쓴다.
   const w=(wrap&&wrap.clientWidth)||c.clientWidth||260, h=(wrap&&wrap.clientHeight)||c.clientHeight||228;
   const d=Math.max(1,lScaleHint||1);
@@ -142,7 +146,7 @@ function _lcThumbTake(){
   }catch(e){ try{ console.warn('[런처] 섬네일 찍기 실패', e); }catch(_){} }
   finally{ try{ lChar.group.position.y = y; }catch(_){} }
 }
-function setLauncherChar(def){_lcThumbJob=null;if(lChar){lScene.remove(lChar.group);lChar=null;}
+function setLauncherChar(def){_lcThumbJob=null;if(!lRenderer)return;if(lChar){lScene.remove(lChar.group);lChar=null;}
   if(lHolder){ allDeskItems().forEach(d=>{ if(lHolder.deskItems[d.id]) equipDeskItem(lHolder,d,false); });
     swapDeskVisual(lHolder.desk,null); }
   if(!def)return;
