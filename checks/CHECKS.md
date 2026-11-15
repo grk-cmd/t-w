@@ -121,8 +121,8 @@
 | **sim-def-send.js** | 221 | **8360b435b958** |
 | **sim-desk-floor-clamp.js** | 206 | **b59a0d2a44b2** |
 | **sim-desk-part-scale.js** | 83 | **8a0a59ffb09a** |
-| **sim-desk-preset.js** | 254 | **4e52596b7549** |
-| **sim-json-store.js** | 209 | **05d6cff00a2f** |
+| **sim-desk-preset.js** | 254 | **40c3a0e49634** |
+| **sim-json-store.js** | 209 | **667a88619187** |
 | **sim-desk-setup.js** | 249 | **3ee3a3a98cf5** |
 | sim-dom-boot.js | 83 | 927ab53ecc44 |
 | sim-exp-bar-color.js | 135 | 4142ee5559d6 |
@@ -478,7 +478,7 @@
 | **sim-gift-img-retry.js** | 207 | **1053b262fc34** |
 | **sim-request-id.js** | 94 | **34021f461cd5** |
 | **sim-device-id.js** | 103 | **44a934497fba** |
-| **sim-account-store.js** | 417 | **e77774a71198** |
+| **sim-account-store.js** | 453 | **1fcfaa2eb6fa** |
 | **sim-api-errors.js** | 126 | **46fbbfebb0fc** |
 | **sim-rt-hub.js** | 500 | **2dcfa21ce5ca** |
 | **sim-rt-status-ui.js** | 245 | **a5503f36aa86** |

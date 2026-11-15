@@ -58,7 +58,8 @@ const ACCOUNT_KEY_PREFIXES = Object.freeze([
 ]);
 
 /* 이미 계정 칸에서 읽고 쓰는 키 — migrateLegacy 가 PC 칸에서 옮기는 대상. */
-const MOVED_KEYS = Object.freeze(['tw.focusTodaySec', 'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);
+const MOVED_KEYS = Object.freeze(['tw.focusTodaySec', 'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1',
+  'tw.deskPresets', 'tw.animalPresets']);
 
 function isAccountKey(key){
   if(typeof key !== 'string' || !key) return false;
@@ -115,6 +116,12 @@ function createAccountStore(deps){
     try{ storage.removeItem(cell); return true; }catch(_){ return false; }
   }
 
+  /* Storage 모양(getItem · setItem · removeItem)으로 보여 준다 — 저장소를 값으로 받는 모듈용(JSON 칸 json-store.js · 방명록 읽음 시각).
+     닫혀 있으면 읽기 null · 쓰기는 던진다(진짜 Storage 가 못 쓸 때 던지는 것과 같게 — 받는 쪽이 «저장 못 함» 을 안다). 계정별 키가 아니면 get · set 처럼 던진다. */
+  function asStorage(){
+    const refused = (k) => { const e = new Error('[계정 칸] 쓰지 못했다 — ' + k); e.name = 'AccountStoreRefused'; return e; };
+    return { getItem: (k) => get(k), setItem: (k, v) => { if(!set(k, v)) throw refused(k); }, removeItem: (k) => { if(!remove(k)) throw refused(k); } };
+  }
   function readMigrated(){
     try{ const a = JSON.parse(storage.getItem(MIGRATED_KEY) || '[]'); return Array.isArray(a) ? a : []; }catch(_){ return []; }
   }
@@ -150,7 +157,7 @@ function createAccountStore(deps){
     return res;
   }
 
-  return { get, set, remove, open, close, migrateLegacy };
+  return { get, set, remove, open, close, migrateLegacy, asStorage };
 }
 
 const api = { CELL_PREFIX, MIGRATED_KEY, DEVICE_KEYS, ACCOUNT_KEYS, ACCOUNT_KEY_PREFIXES, MOVED_KEYS, isAccountKey, cellName, createAccountStore };

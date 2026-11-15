@@ -320,6 +320,8 @@ function getMyUserId(){
 }
 /* 🗂️ 계정별 로컬 칸 한 벌 — 계정 코드는 부를 때마다 getMyUserId 로 읽는다(shared/account-store.js). 쓰는 모듈에는 deps 로, 마이홈 바탕화면(myhome-desktop.js)은 이 전역 이름으로 받는다. */
 const accountStoreMod = TwAccountStore.createAccountStore({ storage: localStorage, getAccountCode: getMyUserId, isWriteLocked: ()=>acctStateMod._acctDetached() });
+/* 🗂️ JSON 칸 읽기 · 쓰기(shared/json-store.js)를 계정 칸 위에 얹은 한 벌 — 책상 · 동물 프리셋이 쓴다(닫혀 있으면 읽기 null · 쓰기는 «저장 못 함» 결과). animal.js 는 이 전역 이름으로 받는다. */
+const accountJsonStoreMod = TwJsonStore.createJsonStore({ storage: ()=>accountStoreMod.asStorage() });
 /* 🪪 uid 를 **기록하는** 한 입구 — 서버가 돌려준 계정 코드만 적는다(account.js _enterAccount). 성공하면 true. */
 function _setMyUserId(uid){
   if(typeof uid !== 'string' || !/^u[0-9a-z]{8,40}$/i.test(uid)) return false;
@@ -4555,7 +4557,7 @@ function reopenAnimalFromCreator(tab){
 /* 🗂 책상 · 좌석 세팅 프리셋(5칸 · 모든 캐릭터 칸 공용) — 저장은 creator/desk-preset-store.js, 담기 · 적용 · 칸 화면은 creator/desk-preset.js(C 구역 떼기 w4).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const deskPresetStoreMod = TwDeskPresetStore.createDeskPresetStore({
-  jsonStore: TwJsonStore,
+  jsonStore: accountJsonStoreMod,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   isCatalogDesk: (id)=>commissionMod.catalogBacked(commissionMod.savedDesks().find(d=>d.id===id)),
 });

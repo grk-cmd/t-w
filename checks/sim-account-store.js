@@ -27,6 +27,8 @@ const SRC0 = {
   APP: pick(['app.js', 'parts/app.js', 'app/parts/app.js']),
   HTML: pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html']),
   SMOKE: pick(['smoke.js']),
+  JSONSTORE: pick(at('json-store.js', 'shared')),
+  ANIMAL: pick(at('animal.js', 'character')),
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 
@@ -287,6 +289,35 @@ async function judge(S){
     chk(sf0.pushes.length === 1 && sf0.intervals === 1, '  ↳ 시작 함수가 첫 보내기 한 번 + 15초 인터벌 하나를 건다');
   }
 
+  say('── 6d. S-3e(일부) — 책상 프리셋 · 동물 프리셋은 계정 칸 위의 JSON 칸에서 읽고 쓴다');
+  {
+    const S3E = ['tw.deskPresets', 'tw.animalPresets'];
+    chk(S3E.every((k) => M.MOVED_KEYS.includes(k) && M.ACCOUNT_KEYS.includes(k)), '★ 둘 다 옮긴 표(MOVED_KEYS)에 있다 — 0.12 에서 올라온 PC 값이 계정 칸으로 간다');
+    const st = mem(); const code = { v: null }; const s = mk(st, code);
+    const deskP = JSON.stringify([{ name: '내 책상', deskGlb: 'GLB' }, null, null, null, null]), animP = JSON.stringify({ 1: { name: '토끼' } });
+    st.o['tw.deskPresets'] = deskP; st.o['tw.animalPresets'] = animP; st.o['tw.savedDesks'] = '[{"id":"d1"}]';
+    const r = s.migrateLegacy(A); code.v = A;
+    chk(S3E.every((k) => r.moved.includes(k)) && s.get('tw.deskPresets') === deskP && s.get('tw.animalPresets') === animP, '★ 옛 PC 값이 들어간 계정 칸에 같은 값으로 이어진다(잃지 않는다)');
+    chk(S3E.every((k) => !(k in st.o)) && st.o['tw.savedDesks'] === '[{"id":"d1"}]', '  ↳ PC 칸에서는 지운다 · 아직 옮기지 않은 저장한 책상(S-3e 의 나머지)은 PC 칸에 그대로 — 옛 모듈이 아직 읽는다');
+    /* 실물 json-store.js 를 계정 칸 위에 얹어 굴린다 — 닫힘 · 열림 · 다른 계정 */
+    let J = null;
+    try{ const w = {}; new Function('window', 'module', S.JSONSTORE)(w, undefined); J = w.TwJsonStore; }catch(_){}
+    const st2 = mem(); const code2 = { v: A }; const closed = M.createAccountStore({ storage: st2, getAccountCode: () => code2.v, isWriteLocked: () => false });
+    const w0 = console.warn; console.warn = () => {};
+    const js = J.createJsonStore({ storage: () => closed.asStorage() });
+    const rd0 = js.load('tw.animalPresets', {}), wr0 = js.save('tw.animalPresets', { 1: { name: 'x' } });
+    chk(rd0.ok === true && JSON.stringify(rd0.list) === '{}' && wr0.ok === false && wr0.err && wr0.err.name === 'AccountStoreRefused' && !Object.keys(st2.o).length, '★ 계정 칸이 닫힌 동안(확인 전) 프리셋 읽기는 빈 칸 · 쓰기는 «저장 못 함» 결과 — PC 칸에는 아무것도 안 쓴다');
+    closed.open(A);
+    const wr1 = js.save('tw.animalPresets', { 1: { name: '토끼' } }), rd1 = js.load('tw.animalPresets', {});
+    chk(wr1.ok === true && rd1.list[1].name === '토끼' && ('tw.u.' + A + '.animalPresets' in st2.o) && !('tw.animalPresets' in st2.o), '  ↳ 열린 뒤에는 계정 칸에 저장되고 같은 값으로 읽힌다');
+    code2.v = B; closed.open(B);
+    chk(js.load('tw.animalPresets', {}).list[1] === undefined, '  ↳ 다른 계정(B)에게는 안 보인다');
+    console.warn = w0;
+    const noPc = (src, re) => !re.test(src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 '));
+    chk(/const accountJsonStoreMod = TwJsonStore\.createJsonStore\(\{ storage: \(\)=>accountStoreMod\.asStorage\(\) \}\);/.test(S.APP) && /createDeskPresetStore\(\{\n  jsonStore: accountJsonStoreMod,/.test(S.APP), 'app.js — 계정 칸 위 JSON 칸 한 벌을 만들어 책상 프리셋 저장에 넘긴다');
+    chk(noPc(S.ANIMAL, /TwJsonStore\.(load|save)\(ANP_PRESET_KEY/) && /accountJsonStoreMod\.load\(ANP_PRESET_KEY/.test(S.ANIMAL) && /accountJsonStoreMod\.save\(ANP_PRESET_KEY/.test(S.ANIMAL), '동물 카드 — 프리셋 읽기 · 쓰기가 계정 칸 위의 JSON 칸을 쓴다');
+  }
+
   say('── 6c. migrateLegacy 를 부르는 곳 — 읽는 모듈보다 먼저 · 코드 없으면 안 함 · 로그아웃은 올리기 앞 · 지우기보다 앞');
   {
     // ① 부팅 — app.js 의 그 줄을 실물 글로 뽑아 진짜 계정 칸 위에서 돌린다
@@ -371,12 +402,17 @@ const BREAKS = [
   ['STORE', "const CODE_RE = /^u[0-9a-z]{8,40}$/i;", "const CODE_RE = /^.*$/;", '코드 모양을 안 봄(점 · 슬래시)'],
   ['STORE', "if(!isAccountKey(key)) throw new Error('[계정 칸] 계정별 키가 아니다 — ' + key);", "", '모르는 키 · 기기 공용 키를 받음'],
   ['STORE', "if(have !== null) res.kept.push(k);", "if(false) res.kept.push(k);", '계정 칸 값을 덮어씀'],
+  ['STORE', "'tw.deskPresets', 'tw.animalPresets']);", "'tw.animalPresets']);", '책상 프리셋이 옮긴 표에서 빠짐'],
+  ['STORE', "'tw.deskPresets', 'tw.animalPresets']);", "'tw.deskPresets']);", '동물 프리셋이 옮긴 표에서 빠짐'],
+  ['STORE', "setItem: (k, v) => { if(!set(k, v)) throw refused(k); }", "setItem: (k, v) => { set(k, v); }", '닫힌 계정 칸에 쓰고도 «저장됨» 으로 둠'],
+  ['APP', "jsonStore: accountJsonStoreMod,", "jsonStore: TwJsonStore,", '책상 프리셋을 PC 칸 JSON 칸에 둠'],
+  ['ANIMAL', "accountJsonStoreMod.save(ANP_PRESET_KEY, o)", "TwJsonStore.save(ANP_PRESET_KEY, o)", '동물 프리셋을 PC 칸에 씀'],
   ['STORE', "const todo = MOVED_KEYS.filter(k => !done.includes(k));", "const todo = MOVED_KEYS.slice();", '두 번 돎'],
   ['STORE', "try{ storage.removeItem(k); }catch(_){}\n      }\n      handled.push(k);", "}\n      handled.push(k);", '옮기고 PC 칸을 안 지움'],
   ['STORE', "catch(_){ continue; }   // 못 쓰면 옛 칸을 지우지 않고 다음에 다시", "catch(_){}", '못 써도 옛 칸을 지움'],
-  ['STORE', "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", "'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", '옮긴 표에서 오늘 날짜 빠짐'],
-  ['STORE', "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", "'tw.focusTodayDate', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", '옮긴 표에서 뽀모도로 키 빠짐'],
-  ['STORE', "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", '옮긴 표에서 폰 연결 키 빠짐'],
+  ['STORE', "'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.pomo'", "'tw.focusTodaySec', 'tw.pomo'", '옮긴 표에서 오늘 날짜 빠짐'],
+  ['STORE', "'tw.pomo', 'tw.pomoRun', 'tw.mobileKey'", "'tw.mobileKey'", '옮긴 표에서 뽀모도로 키 빠짐'],
+  ['STORE', "'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2'", "'tw.pomoRun', 'tw.advZ.v2'", '옮긴 표에서 폰 연결 키 빠짐'],
   ['STORE', "'tw.focusPendingSec',", "", '못 올린 집중 시간 키가 계정별 표에서 빠짐'],
   ['STORE', "  'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.advZ.v2', 'tw.advZ.v1',\n", "  'tw.focusTotalSec', 'tw.focusSyncedSec', 'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.advZ.v2', 'tw.advZ.v1',\n", '걷은 옛 누적 키가 표에 되살아남'],
   ['TOTAL', "_day = _normDay(focusTotalStore.get(FOCUS_TODAY_DATE_KEY));", "_day = _normDay(localStorage.getItem(FOCUS_TODAY_DATE_KEY));", '오늘치를 다시 PC 칸에서 읽음'],
