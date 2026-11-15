@@ -560,7 +560,7 @@ const BREAKS = [
   ['SETTINGS', "settingsAccountStore.get(MY_AD_BANNER_KEY)", "localStorage.getItem(MY_AD_BANNER_KEY)", '내 배너 그림을 PC 칸에서 읽음'],
   ['ROOMENTRY', "roomEntryAccountStore.set(SECRET_MUSIC_KEY", "localStorage.setItem(SECRET_MUSIC_KEY", '시크릿룸 선택을 PC 칸에 씀'],
   ['SCHED', "scheduleAccountStore.get(ANNIV_VIEW_KEY)", "localStorage.getItem(ANNIV_VIEW_KEY)", '기념일 보기를 PC 칸에서 읽음'],
-  ['ACC', "  USER_NAME_KEY, CUSTOM_STATUS_KEY, 'tw.userStatus', 'tw.awayKind',", "  USER_NAME_KEY, CUSTOM_STATUS_KEY, 'tw.userStatus', 'tw.awayKind', 'tw.annivView',", '로그아웃이 기념일 보기를 지움'],
+  ['ACC', "  USER_NAME_KEY,   // 커스텀 상태 · 상태 · 자리비움 종류는 계정 칸(S-4a)이라 여기 없다\n", "  USER_NAME_KEY, 'tw.annivView',   // 커스텀 상태 · 상태 · 자리비움 종류는 계정 칸(S-4a)이라 여기 없다\n", '로그아웃이 기념일 보기를 지움'],
   ['STORE', "const todo = MOVED_KEYS.filter(k => !done.includes(k));", "const todo = MOVED_KEYS.slice();", '두 번 돎'],
   ['STORE', "'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.pomo'", "'tw.focusTodaySec', 'tw.pomo'", '옮긴 표에서 오늘 날짜 빠짐'],
   ['STORE', "'tw.pomo', 'tw.pomoRun', 'tw.mobileKey'", "'tw.mobileKey'", '옮긴 표에서 뽀모도로 키 빠짐'],

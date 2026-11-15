@@ -15,7 +15,7 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f]) { try { return fs.readFileSync(c, 'utf8'); } catch (_) {} } return null; };
 const SRC = {
   UL: read('launcher/user-local.js'), APP: read('app.js'), STORE: read('shared/account-store.js'),
-  DECO: read('character/deco-parts-visibility.js'), EQ: read('character/seat-equalize.js'), FLT: read('room/floaters.js'), SET: read('launcher/settings-panel.js'), ACC: read('account/account.js'),
+  DECO: read('character/deco-parts-visibility.js'), EQ: read('character/seat-equalize.js'), FLT: read('room/floaters.js'), SET: read('launcher/settings-panel.js'), ACC: read('account/account.js'), HID: read('room/hidden-seats.js'), UST: read('status/user-status-table.js'), PRES: read('room/presence.js'),
 };
 for (const k of Object.keys(SRC)) if (!SRC[k]) { say('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
@@ -87,6 +87,18 @@ function judgeMods(S) {
   t(deco.decoPartsVisible() === true && eq.seatEqualizeOn() === false && flt.emojiReactionsEnabled() === true, '★ A → B: B 의 계정 칸에 값이 없으면 A 가 고른 것이 아니라 처음 값이다(A 값이 안 넘어간다)');
   st.setCode('A'); deco.loadLocal(); eq.loadLocal(); flt.loadLocal();
   t(deco.decoPartsVisible() === false && eq.seatEqualizeOn() === true && flt.emojiReactionsEnabled() === false, '  ↳ 다시 A: A 의 값이 돌아온다');
+  /* 신고로 숨긴 사람 · 커스텀 상태 문구 */
+  const st2 = fakeStore();
+  st2.cells.A['tw.reportHidden'] = JSON.stringify(['uxx1', 'uxx2', 7]); st2.cells.A['tw.customStatus'] = JSON.stringify({ emo: '🐱', text: '회의 중' });
+  const hid = run(S.HID, 'TwHiddenSeats').createHiddenSeats({ hiddenAccountStore: st2, _flyActive: () => false, seatFromObject: () => null, seats: [] });
+  const ust = run(S.UST, 'TwUserStatusTable').createUserStatusTable({ statusAccountStore: st2 });
+  t(st2.reads.length === 0 && hid._reportHiddenUids.size === 0 && ust.customStatusConf().text === '', '★ 숨긴 사람 · 커스텀 상태도 만들 때 계정 칸을 읽지 않는다(0번) — 빈 값으로 선다');
+  hid.loadReportHidden(); ust.loadCustomStatusFromStorage();
+  t(hid._reportHiddenUids.has('uxx1') && hid._reportHiddenUids.has('uxx2') && hid._reportHiddenUids.size === 2 && ust.customStatusConf().text === '회의 중', 'load — A 의 숨긴 사람(글자만) · 커스텀 상태 문구를 읽어 앉힌다');
+  hid._reportHiddenSave();
+  t(JSON.parse(st2.cells.A['tw.reportHidden']).join() === 'uxx1,uxx2', '숨긴 사람 저장은 계정 칸으로(A 칸)');
+  st2.setCode('B'); hid.loadReportHidden();
+  t(hid._reportHiddenUids.size === 0, '★ A → B: B 칸에 값이 없으면 A 의 숨긴 사람이 비워진다(남지 않는다)');
   return r;
 }
 function any0() { return { add() {}, remove() {} }; }
@@ -127,8 +139,13 @@ function judgeConn(S) {
     '현재 슬롯 — 만들 때 0 · 계정 칸에서 읽고 쓴다(PC 칸 0)');
   t(/\{ name: 'curSlot', load: \(\)=>\{ curSlot = _loadCurSlot\(\); \}, reset: \(\)=>\{ curSlot = 0; \}/.test(parts) && /\{ name: 'extraSeats', load: \(\)=>settingsMod\.loadExtraSeatSlots\(\), reset: \(\)=>settingsMod\.setExtraSeatSlots\(\[\]\)/.test(parts), '조각 curSlot · extraSeats — load 가 읽고 reset 이 처음 값');
   t(!/\(function _loadExtraSeatSlots\(\)/.test(S.SET) && /settingsAccountStore\.get\(EXTRA_SEAT_KEY\)/.test(S.SET) && /settingsAccountStore\.set\(EXTRA_SEAT_KEY/.test(S.SET) && noPc(S.SET, /localStorage\.(get|set|remove)Item\(EXTRA_SEAT_KEY/), '자리 추가 슬롯 — 만들 때 읽지 않고(즉시 실행 걷음) 계정 칸에서 읽고 쓴다');
+  t(/\{ name: 'status', load: \(\)=>\{ userStatusTableMod\.loadCustomStatusFromStorage\(\); loadUserStatusFromStorage\(\); Presence\.restoreBootStatus\(\);/.test(parts) && /reset: \(\)=>\{ userStatusTableMod\.setCustomStatusConf\(\{ emo:'', text:'' \}\); userStatus = null; Presence\.resetBootStatus\(\);/.test(parts) && /\{ name: 'reportHidden', load: \(\)=>hiddenSeatsMod\.loadReportHidden\(\), reset: \(\)=>hiddenSeatsMod\._reportHiddenUids\.clear\(\)/.test(parts), '조각 status · reportHidden — load 가 읽고 reset 이 비운다');
+  t(['tw.userStatus', 'tw.customStatus', 'tw.awayKind', 'tw.reportHidden'].every((k) => moved.includes("'" + k + "'")), '상태 · 커스텀 상태 · 자리비움 종류 · 숨긴 사람도 옮긴 표(MOVED_KEYS)에 있다');
+  t(noPc(S.APP, /localStorage\.(get|set|remove)Item\(('tw\.userStatus'|userStatusTableMod\.CUSTOM_STATUS_KEY)/) && /accountStoreMod\.set\('tw\.userStatus'/.test(S.APP) && /accountStoreMod\.get\('tw\.userStatus'\)/.test(S.APP) && /accountStoreMod\.set\(userStatusTableMod\.CUSTOM_STATUS_KEY/.test(S.APP), 'app.js — 상태 · 커스텀 상태를 계정 칸에서 읽고 쓴다(PC 칸 0)');
+  t(noPc(S.PRES, /localStorage\.(get|set|remove)Item/) && /presenceAccountStore\.get\('tw\.userStatus'\)/.test(S.PRES) && /presenceAccountStore\.set\(AWAY_KIND_KEY/.test(S.PRES) && !/\(function _restoreBootStatus\(\)/.test(S.PRES), 'Presence — 켤 때 상태 복원이 만들 때(즉시 실행)가 아니라 restoreBootStatus 이고 계정 칸을 쓴다(PC 칸 0)');
+  t(noPc(S.HID, /localStorage\.(get|set|remove)Item/) && noPc(S.UST, /localStorage\.(get|set|remove)Item/), '숨긴 사람 · 커스텀 상태 모듈이 PC 칸을 안 읽는다');
   const wipe = (S.ACC.match(/const ACCOUNT_LOCAL_KEYS = \(\)=>\[[\s\S]*?\n\];/) || [''])[0];
-  t(wipe && !/CUR_SLOT_KEY|EXTRA_SEAT_KEY|tw\.curSlot|tw\.extraSeatSlots/.test(strip(wipe)), '로그아웃 지움 목록에 둘이 없다 — 계정 칸은 로그아웃해도 지우지 않는다(같은 계정이 돌아오면 이어진다)');
+  t(wipe && !/CUR_SLOT_KEY|EXTRA_SEAT_KEY|CUSTOM_STATUS_KEY|tw\.(curSlot|extraSeatSlots|userStatus|customStatus|awayKind|reportHidden)/.test(strip(wipe)), '로그아웃 지움 목록에 이 PR 이 옮긴 키가 없다 — 계정 칸은 로그아웃해도 지우지 않는다(같은 계정이 돌아오면 이어진다)');
   t(noPc(S.DECO, /localStorage/) && noPc(S.EQ, /localStorage/) && noPc(S.FLT, /localStorage/), '세 모듈이 PC 칸(localStorage)을 직접 읽거나 쓰지 않는다');
   t(noPc(S.SET, /localStorage\.(get|set|remove)Item\('tw\.(decoParts|seatEq|emojiReactions)'/) && /settingsAccountStore\.set\('tw\.decoParts'/.test(S.SET) && /settingsAccountStore\.set\('tw\.seatEq'/.test(S.SET) && /settingsAccountStore\.set\('tw\.emojiReactions'/.test(S.SET), '설정 창이 세 값을 계정 칸에 쓴다(PC 칸 0)');
 }
@@ -156,6 +173,14 @@ say('── 4. 일부러 깨 보기 — 빨강이 나야 한다');
     ['SET', '자리 추가 슬롯을 PC 칸에서 읽음', (m) => m.replace('settingsAccountStore.get(EXTRA_SEAT_KEY)', 'localStorage.getItem(EXTRA_SEAT_KEY)')],
     ['SET', '자리 추가 슬롯이 앞 값을 안 비움', (m) => m.replace('function loadExtraSeatSlots(){\n  extraSeatSlots = [];', 'function loadExtraSeatSlots(){')],
     ['ACC', '로그아웃이 현재 슬롯을 지움', (m) => m.replace("  'tw.slotGlbUrls', 'tw.roomFaceUrls',", "  CUR_SLOT_KEY, 'tw.slotGlbUrls', 'tw.roomFaceUrls',")],
+    ['APP', '상태를 PC 칸에서 읽음', (m) => m.replace("accountStoreMod.get('tw.userStatus')", "localStorage.getItem('tw.userStatus')")],
+    ['APP', '상태 조각이 Presence 복원을 안 부름', (m) => m.replace('Presence.restoreBootStatus(); refreshMyStatusUI();', 'refreshMyStatusUI();')],
+    ['PRES', '상태 복원을 즉시 실행으로 되돌림', (m) => m.replace('function restoreBootStatus(){', '(function _restoreBootStatus(){').replace('function resetBootStatus(){', '})();\n  function resetBootStatus(){')],
+    ['PRES', '자리비움 종류를 PC 칸에 씀', (m) => m.replace('presenceAccountStore.set(AWAY_KIND_KEY', 'localStorage.setItem(AWAY_KIND_KEY')],
+    ['HID', '숨긴 사람을 만들 때 읽음', (m) => m.replace("const _reportHiddenUids = new Set();", "const _reportHiddenUids = new Set(); try{ JSON.parse(hiddenAccountStore.get('tw.reportHidden') || '[]').forEach(u=>_reportHiddenUids.add(u)); }catch(_){}")],
+    ['HID', '숨긴 사람 load 가 앞 값을 안 비움', (m) => m.replace('  _reportHiddenUids.clear();\n  try{ const _rh', '  try{ const _rh')],
+    ['UST', '커스텀 상태를 PC 칸에서 읽음', (m) => m.replace('statusAccountStore.get(CUSTOM_STATUS_KEY)', 'localStorage.getItem(CUSTOM_STATUS_KEY)')],
+    ['ACC', '로그아웃이 상태를 지움', (m) => m.replace("  USER_NAME_KEY,   //", "  USER_NAME_KEY, 'tw.userStatus',   //")],
     ['DECO', 'PC 칸을 읽음', (m) => m.replace("decoAccountStore.get(DECO_PARTS_KEY)", "localStorage.getItem(DECO_PARTS_KEY)")],
   ];
   for (const [k, name, fm] of breaks) {

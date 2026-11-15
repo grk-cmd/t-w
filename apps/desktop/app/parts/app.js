@@ -785,6 +785,7 @@ function flySeed(){ return (Math.random() * 0xFFFFFFFF) >>> 0; }
 /* 본문은 hidden-seats.js 로 옮겼다(앱 FSD 43번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const hiddenSeatsMod = TwHiddenSeats.createHiddenSeats({
+  hiddenAccountStore: accountStoreMod,
   _flyActive: ()=>_flyActive,
   seatFromObject: (...a)=>seatFromObject(...a),
   seats: seats,
@@ -1341,6 +1342,7 @@ document.getElementById('sRot').addEventListener('input',e=>{selected.userRot=+e
 /* 본문은 status/user-status-table.js 로 옮겼다(구역 떼기 C · w1).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const userStatusTableMod = TwUserStatusTable.createUserStatusTable({
+  statusAccountStore: accountStoreMod,
 });
 
 /* isPremium은 파일 뒷부분에서 let으로 선언됨 — 초기화 시점(이 위치)에서 참조하면 TDZ ReferenceError가 남.
@@ -1354,7 +1356,7 @@ function saveCustomStatusConf(emo, text){
     emo: (emo || '').slice(0,2),            // 비워두면 이모지 없이 문구만 표시
     text: (text || '').slice(0, userStatusTableMod.CUSTOM_STATUS_MAXLEN),
   });
-  try{ localStorage.setItem(userStatusTableMod.CUSTOM_STATUS_KEY, JSON.stringify(userStatusTableMod.customStatusConf())); }catch(e){}
+  try{ accountStoreMod.set(userStatusTableMod.CUSTOM_STATUS_KEY, JSON.stringify(userStatusTableMod.customStatusConf())); }catch(e){}
   // 지금 커스텀 상태를 쓰고 있다면 즉시 반영(말풍선/이모지 갱신) + 친구에게도 전파
   if(typeof Presence!=='undefined' && Presence.setCustomStatus) Presence.setCustomStatus(userStatusTableMod.customStatusConf());
   refreshCustomStatusMenuItem();
@@ -1383,12 +1385,13 @@ let userStatus=null;
 function setUserStatus(v){
   if(!v || !userStatusTableMod.USER_STATUSES[v]) v=null;
   userStatus=v;
-  try{ localStorage.setItem('tw.userStatus', v||''); }catch(e){}
+  try{ accountStoreMod.set('tw.userStatus', v||''); }catch(e){}
   refreshMyStatusUI();
   if(typeof Presence!=='undefined' && Presence.setUserStatus) Presence.setUserStatus(v);
 }
 function loadUserStatusFromStorage(){
-  try{ const v=localStorage.getItem('tw.userStatus'); if(v && userStatusTableMod.USER_STATUSES[v]) userStatus=v; }catch(e){}
+  userStatus=null;   // 확인 전에 자동 자리비움이 바꿨을 수 있다 — 계정 칸 값만 믿는다
+  try{ const v=accountStoreMod.get('tw.userStatus'); if(v && userStatusTableMod.USER_STATUSES[v]) userStatus=v; }catch(e){}
 }
 function refreshMyStatusUI(){
   const btn=document.getElementById('myStatusChipBtn'); if(!btn)return;
@@ -1482,11 +1485,11 @@ const statusChipMod = TwStatusChip.createStatusChip({
   setMoveModeJustToggled: (v)=>{ _moveModeJustToggled = v; },
   setMoveMode: (v)=>{ moveMode = v; },
 });
-/* 저장된 상태 · 커스텀 상태 불러오기 → 칩 첫 그리기 → 이 모니터 캐릭터 크기 복원.
+/* 칩 첫 그리기 → 이 모니터 캐릭터 크기 복원. 저장된 상태 · 커스텀 상태는 만들 때가 아니라 확인 뒤에 읽는다(userLocal 의 status 조각 — 계정 칸).
    ⚠️ statusChipMod 를 만든 **뒤**에 부른다 — 모듈 안에서 부르면 refreshMyStatusUI 가 아직 없는 statusChipMod 를 읽어
    던지고(상태를 저장해 둔 사람만), 그 뒤 app.js 가 통째로 멈춘다. 칩 버튼 · 메뉴가 없는 화면은 예전처럼 건너뛴다. */
 if(document.getElementById('myStatusChipBtn') && document.getElementById('myStatusMenu')){
-  userStatusTableMod.loadCustomStatusFromStorage(); loadUserStatusFromStorage(); refreshMyStatusUI();
+  refreshMyStatusUI();
   refreshCharScaleForCurrentDisplay();
   refreshCustomStatusMenuItem();
 }
@@ -6187,6 +6190,7 @@ function maxPeople(){ const s = acctStateMod._rcStore(); return s ? s.maxPeople(
 /* 본문은 room/presence.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const presenceMod = TwPresence.createPresence({
+  presenceAccountStore: accountStoreMod,
   USER_STATUSES: userStatusTableMod.USER_STATUSES,
   awayPicMod: ()=>awayPicMod,
   chatUiMod: chatUiMod,
@@ -6407,7 +6411,6 @@ TwOssLicenses.createOssLicenses({ document, window, links: [document.getElementB
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const accountMod = TwAccount.createAccount({
   BELL_SEEN_KEY: BELL_SEEN_KEY,
-  CUSTOM_STATUS_KEY: userStatusTableMod.CUSTOM_STATUS_KEY,
   accountLegacyStore: accountStoreMod,
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
@@ -8301,6 +8304,9 @@ const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
 const userLocalMod = TwUserLocal.createUserLocal({ parts: [
   { name: 'seatEq', load: ()=>{ seatEqMod.loadLocal(); if(seatEqMod.seatEqualizeOn()) layoutSeats(); }, reset: ()=>{ const was = seatEqMod.seatEqualizeOn(); seatEqMod.resetLocal(); if(was) layoutSeats(); } },
   { name: 'decoParts', load: ()=>{ decoPartsMod.loadLocal(); if(!decoPartsMod.decoPartsVisible()) seats.forEach(s=>applyClothVisibility(s)); }, reset: ()=>{ const was = decoPartsMod.decoPartsVisible(); decoPartsMod.resetLocal(); if(!was) seats.forEach(s=>applyClothVisibility(s)); } },
+  { name: 'status', load: ()=>{ userStatusTableMod.loadCustomStatusFromStorage(); loadUserStatusFromStorage(); Presence.restoreBootStatus(); refreshMyStatusUI(); refreshCustomStatusMenuItem(); },
+    reset: ()=>{ userStatusTableMod.setCustomStatusConf({ emo:'', text:'' }); userStatus = null; Presence.resetBootStatus(); refreshMyStatusUI(); refreshCustomStatusMenuItem(); } },
+  { name: 'reportHidden', load: ()=>hiddenSeatsMod.loadReportHidden(), reset: ()=>hiddenSeatsMod._reportHiddenUids.clear() },
   { name: 'curSlot', load: ()=>{ curSlot = _loadCurSlot(); }, reset: ()=>{ curSlot = 0; } },   // 런처는 이어서 받는 옷장(closet 칸)이 다 받은 뒤 그린다
   { name: 'extraSeats', load: ()=>settingsMod.loadExtraSeatSlots(), reset: ()=>settingsMod.setExtraSeatSlots([]) },
   { name: 'emojiReactions', load: ()=>floatersMod.loadLocal(), reset: ()=>floatersMod.resetLocal() },

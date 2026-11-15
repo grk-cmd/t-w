@@ -13,6 +13,7 @@
 
 function createPresence(deps){
 const USER_STATUSES = deps.USER_STATUSES;
+const presenceAccountStore = deps.presenceAccountStore;   // 🗂️ 계정별 칸(shared/account-store.js) — 켤 때 상태 복원 · 자리비움 종류는 이 계정이 이 PC 에서 남긴 것
 const awayPicMod = deps.awayPicMod;   // 읽는 함수
 const chatUiMod = deps.chatUiMod;
 const customStatusConf = deps.customStatusConf;   // 읽는 함수
@@ -82,23 +83,27 @@ const Presence=(()=>{
   const AWAY_KIND_KEY = 'tw.awayKind';
   function _saveAwayKind(kind, pre){
     try{
-      if(kind) localStorage.setItem(AWAY_KIND_KEY, JSON.stringify({ k: kind, pre: pre || null }));
-      else localStorage.removeItem(AWAY_KIND_KEY);
+      if(kind) presenceAccountStore.set(AWAY_KIND_KEY, JSON.stringify({ k: kind, pre: pre || null }));
+      else presenceAccountStore.remove(AWAY_KIND_KEY);
     }catch(_){}
   }
-  (function _restoreBootStatus(){
+  /* 켤 때 상태 복원 — 만들 때가 아니라 확인 뒤(launcher/user-local.js 의 status 조각)에 계정 칸에서 읽는다. 세션이 끝나면 resetBootStatus 로 비운다. */
+  function restoreBootStatus(){
+    resetBootStatus();
     let v = null;
-    try{ v = localStorage.getItem('tw.userStatus') || null; }catch(_){}
+    try{ v = presenceAccountStore.get('tw.userStatus') || null; }catch(_){}
     if(!v || !USER_STATUSES[v]) return;
     myUserStatus = v;
     if(v !== 'away') return;
     let rec = null;
-    try{ rec = JSON.parse(localStorage.getItem(AWAY_KIND_KEY) || 'null'); }catch(_){}
+    try{ rec = JSON.parse(presenceAccountStore.get(AWAY_KIND_KEY) || 'null'); }catch(_){}
     if(rec && rec.k === 'manual') return;   // 손으로 고른 자리비움 — 그대로 둔다
     _autoAwayApplied = true;
     _preAutoAwayStatus = (rec && rec.pre && USER_STATUSES[rec.pre] && rec.pre !== 'away') ? rec.pre : null;
     _autoAwayAt = Date.now();
-  })();
+    _scheduleAutoAwayTick();   // 자동 자리비움이면 복귀 감시를 촘촘히(5초) — 만들 때 예약한 첫 틱(60초)을 갈아 끼운다
+  }
+  function resetBootStatus(){ myUserStatus = null; _autoAwayApplied = false; _preAutoAwayStatus = null; _autoAwayAt = 0; }
   // 유휴 시간(ms) — OS의 powerMonitor 값이 있으면 그걸 우선 사용(마우스 "이동"까지 포함되어 가장 정확).
   //   IPC가 없거나 실패하면 렌더러가 직접 기록한 lastAnyInput(클릭·키 입력)으로 폴백.
   async function _idleMs(){
@@ -392,7 +397,7 @@ const Presence=(()=>{
     provider=null; room=null; friends={}; if(onChange)onChange({});
     return p;   // 호출부에서 await하면 서버에 삭제가 반영된 뒤에 재접속하도록 할 수 있음
   }
-  return { start, setState, setUserStatus, setCustomStatus, setFocusShow, setAwayImg, setAwaySz, setNoise, setLevel, setName, poke, pokeSelf, updateDef, sendChat, stop, broadcastRide,
+  return { restoreBootStatus, resetBootStatus, start, setState, setUserStatus, setCustomStatus, setFocusShow, setAwayImg, setAwaySz, setNoise, setLevel, setName, poke, pokeSelf, updateDef, sendChat, stop, broadcastRide,
            /* 🪑 상태 변화를 지금 당장 방에 실어 보낸다(같은 _basePayload). 쉬는 시간처럼
               "다음 상태 틱까지 기다리면 늦는" 값이 생겼을 때 부른다. */
            broadcastNow: broadcastRide,

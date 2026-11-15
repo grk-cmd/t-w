@@ -19,12 +19,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — user-status-table.js'); process.exit(2)
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = [];
-const VAL_DEPS = [];
+const VAL_DEPS = ["statusAccountStore"];
 const GET_DEPS = [];
 const SET_DEPS = [];
 const EXPORTS = ["CUSTOM_STATUS_KEY","CUSTOM_STATUS_MAXLEN","USER_STATUSES","customStatusConf","setCustomStatusConf","loadCustomStatusFromStorage"];
 const MOVED = ["USER_STATUSES","CUSTOM_STATUS_KEY","CUSTOM_STATUS_MAXLEN","customStatusConf","loadCustomStatusFromStorage"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = [];
+const GLUE = ["  statusAccountStore: accountStoreMod,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -100,7 +100,7 @@ say('── 4. 동작 — 상태 표 · 커스텀 상태 저장값');
     const ls = { getItem: (k) => (k in store ? store[k] : null) };
     if(typeof MOD === 'string' && MOD){
       const win = {}; new Function('window', 'module', 'localStorage', MOD)(win, undefined, ls);
-      const m = win.TwUserStatusTable.createUserStatusTable({});
+      const m = win.TwUserStatusTable.createUserStatusTable({ statusAccountStore: { get: (k) => ls.getItem(k) } });   // 계정 칸 — 확인 뒤 loadCustomStatusFromStorage 가 읽는다
       return Object.assign({}, m, { cs: () => m.customStatusConf() });
     }
     const a = SRC.indexOf('const USER_STATUSES = {'), a2 = SRC.indexOf('\n};\n', a) + 4;

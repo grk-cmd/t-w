@@ -61,6 +61,7 @@ const ACCOUNT_KEY_PREFIXES = Object.freeze([
 
 /* 이미 계정 칸에서 읽고 쓰는 키 — migrateLegacy 가 PC 칸에서 옮기는 대상. */
 const MOVED_KEYS = Object.freeze(['tw.focusTodaySec', 'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1',
+  'tw.userStatus', 'tw.customStatus', 'tw.awayKind', 'tw.reportHidden',
   'tw.curSlot', 'tw.extraSeatSlots', 'tw.decoParts', 'tw.seatEq', 'tw.emojiReactions',   // S-4a — 만들 때 읽던 보기 설정 깃발(launcher/user-local.js 가 확인 뒤 읽는다)
   'tw.charColorHistory', 'tw.activeInteractionDesk',
   'tw.myAdBannerImg', 'tw.secretRoomMusic', 'tw.annivView',

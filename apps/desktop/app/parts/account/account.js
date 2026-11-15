@@ -17,7 +17,6 @@ const BELL_SEEN_KEY = deps.BELL_SEEN_KEY;
 const asyncPrompt = deps.asyncPrompt;   // 비밀번호 다시 확인 창(shared/async-prompt.js — secret · validate 옵션)
 const notifyError = deps.notifyError;
 const accountLegacyStore = deps.accountLegacyStore;   // 🗂️ 계정별 칸 — 로그아웃 때 아직 PC 칸에 남은 옛 값을 지우기 전에 옮기려고 migrateLegacy 만 부른다
-const CUSTOM_STATUS_KEY = deps.CUSTOM_STATUS_KEY;
 const INBOX_BC_READ_KEY = deps.INBOX_BC_READ_KEY;
 const LICENSE_REQ_ID_KEY = 'tw.licenseReqId';   // 0.12 옛 요청 번호 — 요청 화면은 걷었고 남은 값만 지운다
 const MY_FRIEND_CODE_KEY = deps.MY_FRIEND_CODE_KEY;
@@ -132,7 +131,7 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
      볼륨·반복·미니미·창 위치는 기기 설정이라 남긴다. */
   'tw.playlistCur',
   /* 프로필·읽음 표시 — 이름은 스냅샷(r.name), 나머지는 새로 쌓이면 된다. */
-  USER_NAME_KEY, CUSTOM_STATUS_KEY, 'tw.userStatus', 'tw.awayKind',
+  USER_NAME_KEY,   // 커스텀 상태 · 상태 · 자리비움 종류는 계정 칸(S-4a)이라 여기 없다
   BELL_SEEN_KEY, INBOX_BC_READ_KEY, tricksMod.BONK_DAY_KEY,
 ];
 /* 접두어로 쌓이는 키(방마다 하나)는 계정 칸으로 옮겼다(shared/account-store.js MOVED_KEY_PREFIXES) — 로그아웃이 지우지 않는다. 계정 칸은 칸 이름이 달라 다음 사람에게 섞이지 않는다. */
