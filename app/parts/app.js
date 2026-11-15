@@ -720,9 +720,8 @@ const seatLayoutMod = TwSeatLayout.createSeatLayout({
   setDeskPanX: (v)=>{ charPlaceMod.setDeskPanX(v); },
   setDeskPanY: (v)=>{ charPlaceMod.setDeskPanY(v); },
 });
-/* layoutSeats 는 이 이름 그대로 app.js 에 둔다 — 맨 아래 «데스크탑 창 크기» 가 감싸 다시 대입하고(앱 FSD 32번),
-   부르는 곳 · 다른 모듈 deps 는 이 이름을 본다(감싼 판이 불린다). */
-function layoutSeats(){ seatLayoutMod.layoutSeatRow(); }
+/* layoutSeats 는 이 이름 그대로 app.js 에 둔다 — 부르는 곳 · 다른 모듈 deps 가 이 이름을 본다. 배치한 뒤 할 일(데스크탑 창 크기 맞춤)은 아래에서 알림(onLaidOut)에 건다. */
+function layoutSeats(){ seatLayoutMod.layoutAndNotify(); }
 /* 파츠 구성이 바뀐 뒤 좌석 다시 맞추기 한 벌(room/seat-refit.js) — 꾸미기 저장 · 친구 파츠 변경 · 좌석 다시 짓기 · 카탈로그 · 관리자 등록이 같이 부른다. */
 const seatRefitMod = TwSeatRefit.createSeatRefit({
   fitModel: (...a)=>fitModel(...a),
@@ -808,7 +807,7 @@ const seatPanelMod = TwSeatPanel.createSeatPanel({
   triggerPet: (...a)=>triggerPet(...a),
   setSelected: (v)=>{ seatsMod.setSelected(v); },
 });
-/* 🪑 좌석 목록이 위층(줄 배치 · 좌석 탭 · 좌석 고르기)을 부르지 않게 알림을 건다 — layoutSeats 는 뒤에서 감싸 다시 대입되므로 부를 때 찾는다. createSeat · removeSeat 보다 먼저. */
+/* 🪑 좌석 목록이 위층(줄 배치 · 좌석 탭 · 좌석 고르기)을 부르지 않게 알림을 건다 — layoutSeats 는 아래에서 정의되므로 부를 때 찾는다. createSeat · removeSeat 보다 먼저. */
 seatsMod.attach({
   layoutSeats: ()=>layoutSeats(),
   renderSeatTabs: ()=>seatPanelMod.renderSeatTabs(),
@@ -1551,7 +1550,7 @@ const myHomeUiMod = TwMyHomeUi.createMyHomeUi({
   myHomeOpen: ()=>windowModeMod.myHomeOpen(),
   myHomeSticker: ()=>myHomeSticker,
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
-  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers()(...a),
+  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers(...a),
   toast: (...a)=>toast(...a),
   setMyHomeOpen: (v)=>{ windowModeMod.setMyHomeOpen(v); },
   twNav: twNav,
@@ -1620,7 +1619,7 @@ const mhPageMod = TwMyHomePage.createMyHomePage({
   getMyUserId: (...a)=>getMyUserId(...a),
   mhStateMod: mhStateMod,
   myHomeUiMod: myHomeUiMod,
-  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers()(...a),
+  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers(...a),
   richTextMod: richTextMod,
 });
 /* ═══ ✏️ 인앱 프롬프트(asyncPrompt) ═══ */
@@ -1635,9 +1634,9 @@ const mhStLayoutMod = TwMyHomeStickerLayout.createMyHomeStickerLayout({
   _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
   _myHomeData: ()=>mhStateMod._myHomeData(),
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
-  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers()(...a),
+  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers(...a),
 });
-/* 본문은 myhome/myhome-sticker-render.js 로 옮겼다(앱 FSD · app.js 분리 M19). renderMyHomeStickers 는 마이홈 편집 묶음이 감싸 다시 대입하므로 읽는 · 쓰는 함수로 다룬다. */
+/* 본문은 myhome/myhome-sticker-render.js 로 옮겼다(앱 FSD · app.js 분리 M19). 그린 뒤 할 일은 onRendered 알림에 건다(마이홈 편집 묶음이 삭제 버튼 자동 저장을 건다). */
 const stickerRenderMod = TwMyHomeStickerRender.createMyHomeStickerRender({
   mhPageMod: mhPageMod,
   mhStateMod: mhStateMod,
@@ -1647,7 +1646,7 @@ const stickerRenderMod = TwMyHomeStickerRender.createMyHomeStickerRender({
 
 /* 🎨 스티커 관리 창 · 스티커 편집모드 · 드래그 · 회전 · 크기는 parts/myhome-sticker.js 로 옮겼다(앱 FSD 7번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(#stMgrClose · #stMgrBringAll 버튼 연결)이 예전과 같은 때 돈다.
-   함수 deps 는 화살표로 감싼다(부를 때 찾게) — renderMyHomeStickers 는 아래 마이홈 페이지 편집 묶음(myhome-edit.js)이 감싸 다시 대입하고,
+   함수 deps 는 화살표로 감싼다(부를 때 찾게) — renderMyHomeStickers 는 다시 대입되지 않고(그린 뒤 할 일은 알림),
    commitMyHomePage 는 그 묶음이 window 에 거는 이름이다. _myHomeData · _mhViewingUserId · _mhStickerEditSid 는 다시 대입되는 let 이라
    읽는 함수로, _mhStickerEditSid · _mhStickerDragDist 를 바꾸는 것은 쓰는 함수로 넘긴다(둘 다 renderMyHomeStickers 가 읽는다 — _mhStickerEditSid 는 myhome-sticker-layout.js 에, _mhStickerDragDist 는 app.js 에).
    STICKER_* 는 이 줄보다 앞에 선언되고 다시 대입되지 않는 const 라 값으로. 부르는 곳은 myHomeSticker.이름(전부 마이홈을 연 뒤에 돈다).
@@ -1657,7 +1656,7 @@ const myHomeSticker = TwMyHomeSticker.createMyHomeSticker({
   toast: (...a)=>toast(...a),
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   commitMyHomePage: (...a)=>commitMyHomePage(...a),
-  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers()(...a),
+  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers(...a),
   mhStickerOutOfView: (...a)=>mhStLayoutMod._mhStickerOutOfView(...a),
   mhClampStickerPos: (...a)=>mhStLayoutMod._mhClampStickerPos(...a),
   mhStickerDispSize: (...a)=>mhStLayoutMod._mhStickerDispSize(...a),
@@ -1687,8 +1686,7 @@ const mhLinksMod = TwMyHomeLinks.createMyHomeLinks({
      예전과 같은 때 돈다. 바깥에서 부르는 이름은 예전처럼 window 에 걸린다(commitMyHomePage · _mhApplyBg · _mhApplyTheme · _bgmDestroy 등).
    함수 deps 는 화살표로 감싼다(부를 때 찾게). _myHomeData · _mhViewingUserId · _myHomeLoaded · _myHomeUid · _mhStickerDragDist ·
    isPremium · isAdmin 은 다시 대입되는 let 이라 읽는 함수로, _myHomeLoaded · _mhStickerDragDist 를 바꾸는 것은 쓰는 함수로 넘긴다.
-   USER_NAME_MAX 는 이 줄보다 뒤에 선언되는 const 라(TDZ) 읽는 함수로. renderMyHomeStickers 는 모듈이 감싸 다시 대입한다 —
-   감싸기 전 함수는 getRenderMyHomeStickers 로 주고, 감싼 함수는 setRenderMyHomeStickers 로 받는다.
+   USER_NAME_MAX 는 이 줄보다 뒤에 선언되는 const 라(TDZ) 읽는 함수로. 스티커를 그린 뒤 할 일은 알림(onStickersRendered)에 건다.
    myHomeSticker · STICKER_* · DS_IMG_* 는 이 줄보다 앞에 선언되고 다시 대입되지 않는 const 라 값으로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
@@ -1696,9 +1694,8 @@ const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
   homeUploadCache: uploadCacheMod,
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
-  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers()(...a),
-  getRenderMyHomeStickers: ()=>stickerRenderMod.renderMyHomeStickers(),
-  setRenderMyHomeStickers: (f)=>{ stickerRenderMod.setRenderMyHomeStickers(f); },
+  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers(...a),
+  onStickersRendered: (...a)=>stickerRenderMod.onRendered(...a),
   mhSaveRT: (...a)=>richTextMod._mhSaveRT(...a),
   mhUpdateRTCount: (...a)=>richTextMod._mhUpdateRTCount(...a),
   mhClampStickerPos: (...a)=>mhStLayoutMod._mhClampStickerPos(...a),
@@ -4911,14 +4908,13 @@ const desktopRunMod = TwDesktopRun.createDesktopRun({
   runCost: runCost,   // 🩺 통과 판정 시간(1분 [비용] 줄)
   seatHit: seatHitMod,   // 🗺️ 히트 맵 새 판정 — 그림자 운행
 });
-/* 좌석 배치 후 데스크탑 창 크기를 펫에 맞춤 */
-const _layoutSeats=layoutSeats;
-layoutSeats=function(){ _layoutSeats();
+/* 좌석 배치 후 데스크탑 창 크기를 펫에 맞춤 — 배치 알림에 건다(옛: layoutSeats 를 감싸 다시 대입) */
+seatLayoutMod.onLaidOut(()=>{
   if(desktopMode&&window.companion&&companion.resizeWidget){
     const config=document.getElementById('launcher').classList.contains('on')||creatorOpen;
     if(!config){ const c=document.getElementById('scene'); companion.resizeWidget(parseInt(c.style.width)||320, (parseInt(c.style.height)||240)+28); }
   }
-  applyDesktopRunClass(); };
+  applyDesktopRunClass(); });
 
 /* ============================================================ INIT */
 /* 🚀 켜는 차례는 launcher/run-boot.js 의 표 한 곳(F3) — 여기는 각 칸의 시작 함수를 이어 주고 begin 을 한 번 부른다.

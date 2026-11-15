@@ -19,7 +19,7 @@ let pass = 0, fail = 0, done = false;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-/* myhome-edit.js — 마이홈 페이지 편집 묶음(앱 FSD 7-2). renderMyHomeStickers 를 감싸 다시 대입하고 [+ 스티커] · 새 스티커 붙이기가 여기서 부른다. */
+/* myhome-edit.js — 마이홈 페이지 편집 묶음(앱 FSD 7-2). 그린 뒤 알림(onStickersRendered)에 삭제 버튼 자동 저장을 걸고 [+ 스티커] · 새 스티커 붙이기가 여기서 부른다. */
 const need = ['myhome-sticker.js', 'app.js', 'desk-companion-prototype.html', 'myhome-edit.js', 'myhome-sticker-rules.js'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
@@ -326,9 +326,8 @@ await sec('── 6. app.js 배선', () => {
   ];
   const bad = want.map((re, i) => re.test(deps[i] || '') ? null : (i + ':' + (deps[i] || '없음'))).filter(Boolean);
   chk(deps.length === want.length && !bad.length, 'deps 18개 — 함수는 화살표 · let 은 읽는 / 쓰는 함수 · const 는 값 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
-  /* ★ renderMyHomeStickers 는 마이홈 페이지 편집 묶음(myhome-edit.js)이 감싸 다시 대입한다 — 값으로 받으면 감싼 쪽(삭제 버튼 자동 저장)을 못 부른다.
-       대입은 app.js 의 연결 줄(setRenderMyHomeStickers)이 하고, 그 연결은 이 모듈을 만드는 줄보다 뒤다. */
-  chk(/_setRenderMyHomeStickers\(function\(\)\{ origRenderStickers\(\);/.test(EDIT) && APP.indexOf('setRenderMyHomeStickers: (f)=>{ renderMyHomeStickers = f; },') > iMk, '  renderMyHomeStickers 는 만드는 줄 뒤에 다시 대입된다 — 그래서 화살표');
+  /* ★ renderMyHomeStickers 는 다시 대입되지 않는다 — 그린 뒤 할 일(삭제 버튼 자동 저장)은 알림에 건다. */
+  chk(/onStickersRendered\(function\(\)\{/.test(EDIT) && !/setRenderMyHomeStickers/.test(APP), '  renderMyHomeStickers 는 다시 대입되지 않는다 — 그린 뒤 할 일은 알림(onStickersRendered)에 건다');
   const consts = ['STICKER_MAX', 'STICKER_BASE', 'STICKER_ROT_SNAP'].map(n => APP.indexOf('const ' + n + ' = '));
   chk(consts.every(i => i > 0 && i < iMk) && !/\bSTICKER_(MAX|BASE|ROT_SNAP)\s*=[^=]/.test(code.replace(/const STICKER_(MAX|BASE|ROT_SNAP) = /g, '')), '  STICKER_* 는 만드는 줄보다 앞 · 다시 대입되지 않는다');
   chk(/let _mhStickerEditSid = null;/.test(APP) && /let _mhStickerDragDist = 0;/.test(APP) && /if\(sid === _mhStickerEditSid && canEdit\)/.test(APP) && /if\(_mhStickerDragDist>5\) return;/.test(APP), '  두 let 은 app.js 에 남아 renderMyHomeStickers 가 읽는다');
@@ -376,7 +375,7 @@ await sec('── 7. 런처에서도 창 밖 스티커가 그 자리에 보이�
   hidden = true;
   chk(JSON.stringify(F.over()) === '{"x":0,"y":0}', '  마이홈 탭이 아니면(스티커 안 그림) 0');
   // 그리기 · 핸들 — 안으로 당기지 않는다
-  const rd = (APP.match(/function renderMyHomeStickers\(\)\{[\s\S]*?\n\}/) || [''])[0];
+  const rd = (APP.match(/function drawMyHomeStickers\(\)\{[\s\S]*?\n\}/) || [''])[0];
   const rz = (MOD.match(/function _mhBindStickerResize\([\s\S]*?\n\}/) || [''])[0];
   const rt = (MOD.match(/function _mhBindStickerRotate\([\s\S]*?\n\}/) || [''])[0];
   chk(/el\.style\.left=\(s\.x\|\|0\)\+'px'; el\.style\.top=\(s\.y\|\|0\)\+'px';/.test(rd) && !/_mhClampStickerPos/.test(rd) && !/_mhClampStickerPos/.test(rz + rt),

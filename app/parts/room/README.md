@@ -106,12 +106,14 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
     setDeskPanX: (v)=>{ deskPanX = v; }, setDeskPanY: (v)=>{ deskPanY = v; },
     setCachedRowCenter: (v)=>{ _cachedRowCenter = v; }, setCachedRowSpan: (v)=>{ _cachedRowSpan = v; },
   });
-  function layoutSeats(){ seatLayoutMod.layoutSeatRow(); }   // 이름은 app.js 에 남긴다(아래 함정)
+  function layoutSeats(){ seatLayoutMod.layoutAndNotify(); }   // 이름은 app.js 에 남긴다(모든 부르는 곳이 이 이름을 본다)
+  seatLayoutMod.onLaidOut(()=>{ /* 데스크탑 창 크기 맞춤 */ });
   ```
-- **내보내는 것**: `layoutSeatRow()` — 직접 부르지 말고 app.js 의 `layoutSeats()` 를 부른다(좌석이 늘거나 줄 때 · 책상 크기가 바뀔 때 · 창 크기가 바뀔 때).
+- **내보내는 것**: `layoutSeatRow()`(계산만) · `layoutAndNotify()`(계산 뒤 알림 — app.js 의 `layoutSeats()` 가 부른다. 좌석이 늘거나 줄 때 · 책상 크기가 바뀔 때 · 창 크기가 바뀔 때) · `onLaidOut(fn)` · `seatHalfWidth(s)` · `slotIndexAt(x, seat)`.
+- **배치한 뒤 알림**(F4) `layoutAndNotify()`(app.js 의 `layoutSeats()` 가 부른다) = `layoutSeatRow()` 뒤에 `onLaidOut(fn)` 으로 건 일을 거는 차례대로 부른다 — app.js 가 데스크탑 창 크기 맞춤(`resizeWidget` · `applyDesktopRunClass`)을 건다(옛: `layoutSeats` 를 감싸 다시 대입). `layoutSeatRow` 가 일찍 끝나도 알림은 간다.
 - **확장할 때 고칠 자리**: 줄 폭 하한 `ROW_SPAN_MIN` · 간격 값은 seats.js 의 `SPACING` · `MULTIPLAYER_SPACING`(설정 창이 바꾼다) · 책상 반폭 재기는 app.js `seatDeskHalfWidth` · 고정 규칙은 `seat-pin.js`.
 - **함정**
-  - app.js 맨 아래 «데스크탑 창 크기» 가 `layoutSeats` 를 감싸 **다시 대입**한다(앱 FSD 32번). 그래서 본문 이름은 `layoutSeatRow` 이고 app.js 에 `layoutSeats` 를 남긴다 — 모듈 안에서 `layoutSeatRow` 를 직접 부르면 창 크기 맞춤이 빠진다.
+  - 모듈 안에서 `layoutSeatRow` 를 직접 부르면 알림(데스크탑 창 크기 맞춤)이 빠진다 — 밖에서는 app.js 의 `layoutSeats()` 만 부른다.
   - `seats` 배열의 순서 · 내용은 안 바꾼다(좌석 탭 · 슬롯 드래그가 인덱스를 쓴다). 올라탄 좌석은 계산에서만 뺀다.
   - 1번 자리부터 책상 반폭에 줌 상한(1.1)이 걸리는 지금 동작은 `CONFIRM.md` 에 적어 둠(`seatDeskHalfWidth(s, i)` 가 인덱스를 forZoom 으로 넘김 — 몸 폭 규칙을 넣으면서도 그대로 뒀다).
   - 검사: `checks/sim-seat-layout.js`(4절 — 혼자 · 셋 · 친구 간격 · 올라탄 좌석 · 고정 · 오프셋 · 폭 0 · 빈 목록 · 책상 없는 좌석 몸 자리 · 🚫 책상 없음 표시).
@@ -198,7 +200,7 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
   ```js
   const seatRefitMod = TwSeatRefit.createSeatRefit({
     fitModel: (...a)=>fitModel(...a),
-    layoutSeats: (...a)=>layoutSeats(...a),   // 맨 아래 «데스크탑 창 크기» 가 다시 대입하므로 화살표로
+    layoutSeats: (...a)=>layoutSeats(...a),   // 부를 때 찾게 화살표로
     requestFrame: (...a)=>requestAnimationFrame(...a),
     seats: seats,                              // 다음 프레임 맞추기는 실행 화면 좌석만
   });
@@ -276,7 +278,7 @@ overheadMod.setSeatMenu((...a)=>seatMenuMod._seatCtxMenu(...a));   // 이름표 
 ## char-place.js — 🧍 캐릭터 높이 · 깊이 · 자리 · 크기 저장 · 끌기 한계 · 책상 반폭
 
 - **책임**: 캐릭터 기본 앞뒤 자리 `CHAR_Z` · 높이 상한 `CHAR_Y_MAX` · `clampCharY` · `seatCharZ` / 프로그램 이동 위치(`deskPanX` · `deskPanY` — localStorage `tw.deskPan`)의 저장 · 복원 · 안전 범위 `clampDeskPan`(실측 여백 `_myPanHalfFrac` · 없으면 폴백 0.02) / 실행 화면 캐릭터 크기 `focusCharScale` 의 모니터별 저장 · 복원(`tw.focusCharScale` — 디스플레이 id → 해상도 지문 → default 세 겹) · `refreshCharScaleForCurrentDisplay` / 책상 반폭 실측 `seatDeskHalfWidth` / 동물 실행 크기 `ANIMAL_RUN_SCALE`. 앱 FSD 분리 M7 — app.js 에서 글 그대로 옮겼다.
-- **만드는 법**: `TwCharPlace.createCharPlace({ camera, bodyMeasureMod, seats })` 뒤 `charPlaceMod.attachLayout({ layoutSeats })` — `seats` 는 더 아래에서 만들어져 읽는 함수. 줄 배치는 위층(`seat-layout`)이라 deps 로 부르면 모듈 순환이 되므로 app.js 가 알림만 건다(`layoutSeats` 는 뒤에서 다시 대입돼 부를 때 찾는다). app.js 는 옛 이름 열하나를 const 로 받고, `window.ANIMAL_RUN_SCALE`(animal.js 가 읽는 고리)도 app.js 가 건다.
+- **만드는 법**: `TwCharPlace.createCharPlace({ camera, bodyMeasureMod, seats })` 뒤 `charPlaceMod.attachLayout({ layoutSeats })` — `seats` 는 더 아래에서 만들어져 읽는 함수. 줄 배치는 위층(`seat-layout`)이라 deps 로 부르면 모듈 순환이 되므로 app.js 가 알림만 건다(`layoutSeats` 는 뒤에서 정의돼 부를 때 찾는다). app.js 는 옛 이름 열하나를 const 로 받고, `window.ANIMAL_RUN_SCALE`(animal.js 가 읽는 고리)도 app.js 가 건다.
 - **내보내는 것**: `CHAR_Z` · `CHAR_Y_MAX` · `clampCharY` · `seatCharZ` · `BASE_PXW` · `ANIMAL_RUN_SCALE` · `saveCharPos` · `saveCharScale` · `refreshCharScaleForCurrentDisplay` · `clampDeskPan` · `seatDeskHalfWidth` · `attachLayout` + 다시 대입되는 여섯(`sizeFactor` · `deskPanX` · `deskPanY` · `focusCharScale` · `_cachedRowCenter` · `_cachedRowSpan`)의 읽는 · 쓰는 함수(`이름()` / `set이름(v)`) — app.js 는 `charPlaceMod.deskPanX()` 로 읽는다.
 - **함정**
   - 크기는 id · 지문 · default 세 곳에 같이 쓴다 — id 하나만 쓰면 재부팅 · 드라이버 갱신으로 id 가 바뀌는 순간 저장값이 미아가 된다.

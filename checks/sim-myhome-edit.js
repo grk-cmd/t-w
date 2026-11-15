@@ -2,7 +2,7 @@
    app.js 의 마이홈 페이지 편집 묶음(옛 bindMyHomePage — 자동저장 · 프로필 사진 · 글 서식 · 새 스티커 붙이기 · 스티커 끌기 ·
    닉네임 · 게시글 제목 · 🎵 BGM · 바깥 배경 · 테마 · 👑 디자인 스튜디오 · 프리셋)을 parts/myhome/myhome-edit.js 로 옮겼다.
    동작은 그대로여야 한다 — 여기서는 «옮긴 것» 을 가짜 DOM 위에서 통째로 굴린다.
-   ・1절: 만들 때 — 싣기만 하면 window.TwMyHomeEdit 뿐 · 만들면 window 고리 · BGM 창 구독 · renderMyHomeStickers 감싸기 ·
+   ・1절: 만들 때 — 싣기만 하면 window.TwMyHomeEdit 뿐 · 만들면 window 고리 · BGM 창 구독 · renderMyHomeStickers 그린 뒤 알림 ·
           app.js 뒤쪽 const(USER_NAME_MAX)는 만들 때 읽지 않는다 · DOM 이 없어도 서지 않는다
    ・2절: 자동저장 — 관람 중 · 불러오기 전 · 계정 바뀜(불러온 상태 무효) 이면 안 쓴다 · 쓰면 글 두 칸을 담아 saveMyHome · 거부 이유 · 경고 · 실패
    ・3절: 프로필 사진 · 글 서식 툴바(굵게 · 링크 — http 만) · 색 팝업(HEX · 최근 색 · 초기화)
@@ -161,8 +161,7 @@ function mkEnv(opt){
     asyncPrompt: async (o) => { env.prompts.push(o); return env.promptAns.length ? env.promptAns.shift() : null; },
     renderMyHomePage: () => { env.page++; },
     renderMyHomeStickers: (...a) => env.curRender(...a),
-    getRenderMyHomeStickers: () => env.curRender,
-    setRenderMyHomeStickers: (f) => { env.curRender = f; env.wrapped = (env.wrapped || 0) + 1; },
+    onStickersRendered: (f) => { env.renderedFns = env.renderedFns || []; env.renderedFns.push(f); },
     mhSaveRT: (el, max) => 'RT:' + el.id + ':' + max,
     mhUpdateRTCount: (id) => env.rt.push(id),
     mhClampStickerPos: (s) => { s.x = Math.max(0, Math.min(500, s.x || 0)); s.y = Math.max(0, Math.min(300, s.y || 0)); env.clamped = (env.clamped || 0) + 1; },
@@ -216,7 +215,7 @@ await sec('── 1. 만들 때', () => {
   chk(e.H.call(e.K.BGM_PLAYING) === false, '  고리판으로 물으면 같은 묶음이 답한다(처음엔 BGM 이 안 나는 중)');
   chk(e.ctx.commitMyHomePage === M.commit && e.ctx._mhApplyTheme === M.applyTheme && e.ctx._bgmDestroy === M.bgmDestroy && e.ctx._mhOpenColorPopup === M.openColorPopup, '  고리와 반환값은 같은 함수');
   chk(typeof e.compCb.onBgmClosed === 'function' && typeof e.compCb.onBgmMode === 'function', 'BGM 창 닫힘 · 주인 바뀜을 구독한다');
-  chk(e.wrapped === 1 && e.curRender !== e.origRender, 'renderMyHomeStickers 를 감싸 다시 대입한다(한 번)');
+  chk((e.renderedFns || []).length === 1, '스티커를 그린 뒤 할 일을 알림에 한 번 건다(renderMyHomeStickers 를 감싸 다시 대입하지 않는다)');
   chk(typeof e.els.mhAvatarBig._L.click[0] === 'function' && e.els.mhBioBox._L.blur.length === 1 && e.els.mhPostBox._L.input.length === 1, '  사진 · 글 두 칸 · 툴바를 잇는다');
   const n = mkEnv({ noDom: true, noCompanion: true }); let ok = true; try{ n.mk(); }catch(x){ ok = x.message; }
   chk(ok === true, 'DOM · companion 이 없어도 만들 때 서지 않는다' + (ok === true ? '' : ' — ' + ok));
@@ -364,11 +363,11 @@ await sec('── 4. 새 스티커 · 스티커 끌기 · 삭제 저장', async 
   };
   const brokeSrc = MOD.replace('if(e.button || !go || !passToAdd(e)) return;', 'if(e.button || !passToAdd(e)) return;');
   chk(await dropOnBtn() === 0 && brokeSrc !== MOD && await dropOnBtn(brokeSrc) === 1, '  깨 보기 — 누른 자리를 안 보면 놓기만으로 관리 창이 열린다(빨강)');
-  /* 감싼 renderMyHomeStickers — 삭제 버튼에 저장 한 번 더 */
+  /* 그린 뒤 알림 — 삭제 버튼에 저장 한 번 더 */
   const del = mkEl(e, 'button'); let orig = 0; del.onclick = () => { orig++; }; e.dels = [del];
-  e.curRender();
+  e.renderedFns[0]();
   del.onclick({}); await flush();
-  chk(e.origRenders === 1 && orig === 1 && e.saveCount() === 2, '감싼 함수 — 옛 함수를 부르고, 삭제 버튼은 옛 처리 뒤 저장 한 번 더');
+  chk(orig === 1 && e.saveCount() === 2, '그린 뒤 알림 — 삭제 버튼은 옛 처리 뒤 저장 한 번 더');
 });
 
 await sec('── 5. 닉네임 · 게시글 제목', async () => {
@@ -577,19 +576,19 @@ await sec('── 9. app.js 배선', () => {
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
   const fnDeps = deps.filter(l => /^\w+: \(\.\.\.a\)=>[\w$.]+\(\.\.\.a\),$/.test(l));   // [\w$.] — ytVideoId 는 playlist.js 의 plMod.ytVideoId(앱 FSD 16번)
   const getters = ['myHomeData: ()=>_myHomeData,', 'mhViewingUserId: ()=>_mhViewingUserId,', 'myHomeLoaded: ()=>_myHomeLoaded,', 'myHomeUid: ()=>_myHomeUid,',
-    'mhStickerDragDist: ()=>_mhStickerDragDist,', 'isPremium: ()=>isPremium,', 'isAdmin: ()=>isAdmin,', 'userNameMax: ()=>USER_NAME_MAX,', 'getRenderMyHomeStickers: ()=>renderMyHomeStickers,'];
-  const setters = ['setMyHomeLoaded: (v)=>{ _myHomeLoaded = v; },', 'setMhStickerDragDist: (v)=>{ _mhStickerDragDist = v; },', 'setRenderMyHomeStickers: (f)=>{ renderMyHomeStickers = f; },'];
+    'mhStickerDragDist: ()=>_mhStickerDragDist,', 'isPremium: ()=>isPremium,', 'isAdmin: ()=>isAdmin,', 'userNameMax: ()=>USER_NAME_MAX,'];
+  const setters = ['setMyHomeLoaded: (v)=>{ _myHomeLoaded = v; },', 'setMhStickerDragDist: (v)=>{ _mhStickerDragDist = v; },'];
   const vals = ['homeUploadCache: uploadCacheMod,', 'myHomeSticker,', 'stickerMax: STICKER_MAX,', 'stickerImgMaxW: STICKER_IMG_MAX_W,', 'dsImgMaxBgW: DS_IMG_MAX_BG_W,', 'dsImgMaxBgH: DS_IMG_MAX_BG_H,', 'dsImgMaxPanel: DS_IMG_MAX_PANEL,', 'dsImgQuality: DS_IMG_QUALITY,'];
   chk(deps.includes('installMacTip: (...a)=>TwMacTooltip.installChild(...a),'), '맥 말풍선은 shared/mac-tooltip.js 의 installChild 로 잇는다');
-  chk(deps.length === 37 && fnDeps.length === 17 && getters.every(g => deps.includes(g)) && setters.every(s => deps.includes(s)) && vals.every(v => deps.includes(v)),
-      'deps 37개 — 함수 17은 화살표 · 읽는 함수 9 · 쓰는 함수 3 · 앞에 선언된 const 8은 값 (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
+  chk(deps.length === 36 && fnDeps.length === 18 && getters.every(g => deps.includes(g)) && setters.every(s => deps.includes(s)) && vals.every(v => deps.includes(v)),
+      'deps 36개 — 함수 18은 화살표(알림 거는 onStickersRendered 포함) · 읽는 함수 8 · 쓰는 함수 2 · 앞에 선언된 const 8은 값 (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
   const before = (n) => { const i = APP.search(new RegExp('^const ' + n + '\\s*=', 'm')); return i > 0 && i < iMk; };
   chk(['uploadCacheMod', 'myHomeSticker', 'STICKER_MAX', 'STICKER_IMG_MAX_W', 'DS_IMG_MAX_BG_W', 'DS_IMG_MAX_BG_H', 'DS_IMG_MAX_PANEL', 'DS_IMG_QUALITY'].every(before), '  값으로 넘기는 것은 만드는 줄보다 앞에 선언된 const');
   chk(!before('USER_NAME_MAX') && APP.search(/^const USER_NAME_MAX\s*=/m) > iMk, '  ★ USER_NAME_MAX 는 만드는 줄보다 뒤 — 그래서 읽는 함수');
   const m = strip(MOD);
   chk(!/[^.\w$](_myHomeData|_mhViewingUserId|_myHomeLoaded|_myHomeUid|_mhStickerDragDist|isPremium|isAdmin|USER_NAME_MAX|renderMyHomeStickers)\s*=[^=]/.test(m.replace(/const (_myHomeData|_mhViewingUserId|_myHomeLoaded|_myHomeUid|_mhStickerDragDist|isPremium|isAdmin|USER_NAME_MAX|renderMyHomeStickers) = deps\.\w+;/g, '')), '모듈은 app.js 의 let 에 직접 쓰지 않는다(쓰는 함수로)');
   chk(!/[^.\w$](_myHomeData|_mhViewingUserId|_myHomeLoaded|_myHomeUid|isPremium|isAdmin|USER_NAME_MAX)(?!\s*\()(?![\w$])/.test(m.replace(/const (_myHomeData|_mhViewingUserId|_myHomeLoaded|_myHomeUid|isPremium|isAdmin|USER_NAME_MAX) = deps\.\w+;/g, '')), '  읽을 때는 늘 함수로 부른다(값을 붙들지 않는다)');
-  chk(/const origRenderStickers = _getRenderMyHomeStickers\(\);/.test(MOD) && /_setRenderMyHomeStickers\(function\(\)\{ origRenderStickers\(\);/.test(MOD), '★ 감싸기 전 함수는 값으로 받는다 — 화살표로 받으면 감싼 함수가 자기를 부른다');
+  chk(/onStickersRendered\(function\(\)\{\s*document\.querySelectorAll\('\.mh-sticker-del'\)/.test(MOD) && !/_setRenderMyHomeStickers|_getRenderMyHomeStickers/.test(MOD), '★ 삭제 버튼 자동 저장은 «그린 뒤» 알림에 건다 — 함수를 감싸 다시 대입하지 않는다');
   const off = (APP.match(/const MYHOME_EDIT_OFF = \{([\s\S]*?)\};/) || [])[1] || '';
   chk(!/\bMYHOME_EDIT_OFF\b/.test(APP), '빈 껍데기 MYHOME_EDIT_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   chk(HOOKS.every(n => new RegExp('window\\.' + n + '\\s*=').test(m)), 'window 고리는 모듈이 예전 이름으로 건다(' + HOOKS.length + '개)');

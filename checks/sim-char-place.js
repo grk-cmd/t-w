@@ -152,7 +152,7 @@ say('§3 모니터 바뀜');
   const iC = HTML.indexOf('<script src="parts/room/char-place.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iC > 0 && iA > iC, 'html — char-place.js 를 app.js 보다 먼저 싣는다');
   const code = APP.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
-  chk(/const charPlaceMod = TwCharPlace\.createCharPlace\(\{[\s\S]*?seats: \(\)=>seats,[\s\S]*?\}\);\s*charPlaceMod\.attachLayout\(\{\s*layoutSeats: \(\)=>layoutSeats\(\),\s*\}\);/.test(code), 'app.js — seats 는 읽는 함수 · 줄 배치는 attach 알림(layoutSeats 는 뒤에서 다시 대입돼 부를 때 찾는다)');
+  chk(/const charPlaceMod = TwCharPlace\.createCharPlace\(\{[\s\S]*?seats: \(\)=>seats,[\s\S]*?\}\);\s*charPlaceMod\.attachLayout\(\{\s*layoutSeats: \(\)=>layoutSeats\(\),\s*\}\);/.test(code), 'app.js — seats 는 읽는 함수 · 줄 배치는 attach 알림(layoutSeats 는 뒤에서 정의돼 부를 때 찾는다)');
   const names = ['CHAR_Z', 'CHAR_Y_MAX', 'clampCharY', 'seatCharZ', 'BASE_PXW', 'ANIMAL_RUN_SCALE', 'saveCharPos', 'saveCharScale', 'refreshCharScaleForCurrentDisplay', 'clampDeskPan', 'seatDeskHalfWidth'];
   chk(names.every(n => new RegExp('^const ' + n + ' = charPlaceMod\\.' + n + ';', 'm').test(code)), '  옛 이름 열하나를 const 로 받는다');
   chk(/window\.ANIMAL_RUN_SCALE = ANIMAL_RUN_SCALE/.test(code), '  animal.js 가 읽는 window.ANIMAL_RUN_SCALE 은 app.js 가 건다');

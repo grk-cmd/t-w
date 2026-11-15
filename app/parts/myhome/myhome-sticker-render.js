@@ -1,8 +1,7 @@
 /* myhome-sticker-render.js — 🎨 마이홈 스티커 그리기(앱 FSD · app.js 분리 M19)
    app.js 의 renderMyHomeStickers 를 글 그대로 옮긴 모듈이다. 동작은 옛 자리와 같다.
    ・책임: renderMyHomeStickers — 마이홈 탭에서만 스티커 영역을 보이고, 데이터 순서(z)대로 스티커 요소(이미지 · 이모지 · 애니 · 크기 · 회전 · 편집 핸들)를 다시 그린다.
-   ・내놓는 것: renderMyHomeStickers(읽는 함수 — 마이홈 페이지 편집 묶음(myhome-edit.js)이 이 함수를 감싸 다시 대입하므로 값이 아니라 부를 때마다 읽는다) · setRenderMyHomeStickers(쓰는 함수 — 감싸 다시 대입하는 자리).
-   ⚠️ 다시 대입을 걷는 일은 F4 몫이다 — 그때까지 app.js 는 `stickerRenderMod.renderMyHomeStickers()` 로 읽는다.
+   ・내놓는 것: renderMyHomeStickers(그리고 알림을 부른다) · onRendered(fn)(그린 뒤 할 일을 거는 자리 — 마이홈 편집 묶음이 삭제 버튼 자동 저장을 건다).
    검사: checks/sim-myhome-sticker-render.js */
 (function(){
 
@@ -11,7 +10,7 @@ const mhPageMod = deps.mhPageMod;
 const mhStateMod = deps.mhStateMod;
 const mhStLayoutMod = deps.mhStLayoutMod;
 const myHomeSticker = deps.myHomeSticker;   // 읽는 함수
-function renderMyHomeStickers(){
+function drawMyHomeStickers(){
   const zone=document.getElementById('mhStickerZone'); if(!zone) return;
   // 스티커는 '마이홈' 탭에서만 표시 — 친구/스케줄러/버그제보 탭에서는 감춤
   //   (예전엔 친구 탭만 숨겼는데, 스케줄러 탭에도 스티커가 따라오던 문제 수정)
@@ -112,9 +111,15 @@ function renderMyHomeStickers(){
   mhStLayoutMod._mhFitWindowSafe();   // 🎨 런처 마이홈이면 창 밖으로 나간 스티커만큼 창을 넓힌다
 }
 
+/* 그린 뒤 위층이 할 일(삭제 버튼에 자동 저장 붙이기 등)은 알림으로 건다 — 옛 «renderMyHomeStickers 를 감싸 다시 대입» 을 갚는다(F4).
+   마이홈 탭이 아니라 일찍 끝나도 알림은 부른 횟수만큼 간다(옛 감싸개와 같다). 삭제 버튼 안의 다시 그리기도 이 함수를 거친다. */
+const renderedFns = [];
+function onRendered(fn){ renderedFns.push(fn); }
+function renderMyHomeStickers(){ drawMyHomeStickers(); renderedFns.forEach(fn=>fn()); }
+
 return {
-  renderMyHomeStickers: ()=>renderMyHomeStickers,
-  setRenderMyHomeStickers: (v)=>{ renderMyHomeStickers = v; },
+  renderMyHomeStickers,
+  onRendered,
 };
 }
 

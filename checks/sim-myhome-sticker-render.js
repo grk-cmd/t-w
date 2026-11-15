@@ -2,7 +2,7 @@
    ・1절: 마이홈 탭이 아니면 숨기고 편집을 끝낸 채 돌아감 · 영역이 없으면 아무 일 없음
    ・2절: 그리기 — 순서대로 요소 · 이미지는 허용된 주소만 · 이모지 기본 ⭐ · 애니 · 크기 · 투명도 · 변형 · 편집 중 · 링크
    ・3절: 편집 가능이면 ×(삭제 → 다시 그림 · 저장) · ✨ · 핸들 · 각도 · 못 하면 없음 · 우클릭
-   ・4절: 다시 대입 — 편집 묶음이 감싸 대입하는 setRenderMyHomeStickers 가 삭제 버튼 안 부름에 반영됨
+   ・4절: 그린 뒤 알림 — 거는 차례 · 일찍 끝나도 부름 · 삭제 버튼 안의 다시 그리기도 거침
    ・5절: 연결 — 읽는 · 쓰는 함수 · 옛 자리
    ・6절: 일부러 깨 보기 */
 'use strict';
@@ -42,17 +42,17 @@ function build(src, o){
 const kids = (b) => b.zone.children;
 say('§1 탭 · 영역');
 {
-  let b = build(SRC, { noZone: true }); b.mod.renderMyHomeStickers()();
+  let b = build(SRC, { noZone: true }); b.mod.renderMyHomeStickers();
   chk(b.log.length === 0, '스티커 영역이 없으면 아무 일 없음');
-  b = build(SRC, { tab: 'friends', data: { a: {} } }); b.mod.renderMyHomeStickers()();
+  b = build(SRC, { tab: 'friends', data: { a: {} } }); b.mod.renderMyHomeStickers();
   chk(b.zone.classList.contains('hidden') && b.log.join() === 'fit,editEnd' && kids(b).length === 0, '마이홈 탭이 아니면 숨기고 창 맞춤 · 편집 끝냄 · 그리지 않음');
-  b = build(SRC, { tab: 'home', data: {} }); b.mod.renderMyHomeStickers()();
+  b = build(SRC, { tab: 'home', data: {} }); b.mod.renderMyHomeStickers();
   chk(!b.zone.classList.contains('hidden') && b.log.join() === 'fit', '마이홈 탭이면 보이고 다 그린 뒤 창 맞춤');
 }
 say('§2 그리기');
 {
   const data = { a: { img: 'https://x/a.png', x: 5, y: 6, w: 400, h: 200, rot: 30, alpha: 0.4 }, b: { emoji: '🍀', anim: 'bounce', animSpd: 'fast', locked: true }, c: { img: 'http://bad/c.png' }, d: { link: 'https://l' } };
-  const b = build(SRC, { tab: 'home', data, editSid: 'a', canEdit: true }); b.mod.renderMyHomeStickers()();
+  const b = build(SRC, { tab: 'home', data, editSid: 'a', canEdit: true }); b.mod.renderMyHomeStickers();
   const [A, B, C, D] = kids(b);
   chk(kids(b).length === 4 && A.dataset.sid === 'a' && D.dataset.sid === 'd', '데이터 순서대로 스티커 요소');
   chk(A.children[0].tag === 'img' && A.children[0].src === 'https://x/a.png' && A.children[0].draggable === false, '이미지는 허용된 주소(https)로');
@@ -62,14 +62,14 @@ say('§2 그리기');
   chk(A.style.transform === 'rotate(30deg)' && A.style.opacity === '0.4' && B.style.opacity === undefined, '변형 · 투명도(1 이면 안 건다)');
   chk(A.classList.contains('editing') && !B.classList.contains('editing'), '편집 중인 스티커만 editing');
   chk(D.classList.contains('linked') && D.title === 'https://l  (우클릭: 편집)', '링크 스티커 — linked · 안내(편집 가능이면 우클릭 편집 문구)');
-  const e = build(SRC, { tab: 'home', data: { z: {} }, canEdit: false }); e.mod.renderMyHomeStickers()();
+  const e = build(SRC, { tab: 'home', data: { z: {} }, canEdit: false }); e.mod.renderMyHomeStickers();
   const Z = kids(e)[0];
   chk(Z.children.length === 1 && Z.children[0].className === 'st-emoji' && Z.children[0].textContent === '⭐' && !Z.title, '편집 못 하면 이모지 기본 ⭐ · 편집 버튼 · 핸들 없음');
   chk(!Z.classList.contains('locked'), '편집 못 하면 잠금 표시도 안 한다');
 }
 say('§3 편집 가능');
 {
-  const b = build(SRC, { tab: 'home', data: { a: { x: 1, y: 2 } }, canEdit: true }); b.mod.renderMyHomeStickers()();
+  const b = build(SRC, { tab: 'home', data: { a: { x: 1, y: 2 } }, canEdit: true }); b.mod.renderMyHomeStickers();
   const A = kids(b)[0];
   const byC = (c) => A.children.find(x => x.className === c);
   const names = A.children.map(c => c.className).filter(c => c.startsWith('mh-sticker-'));
@@ -83,31 +83,35 @@ say('§3 편집 가능');
   b.log.length = 0;
   byC('mh-sticker-del').onclick({ stopPropagation(){} });
   chk(!('a' in b.data) && b.log.join() === 'editEnd,commit:true,fit' || (b.log[0] === 'editEnd' && b.log.includes('commit:true') && !('a' in b.data)), '× — 데이터에서 지우고 편집을 끝내고 다시 그려 저장한다');
-  const nb = build(SRC, { tab: 'home', data: { a: {} }, canEdit: false }); nb.mod.renderMyHomeStickers()(); nb.log.length = 0;
+  const nb = build(SRC, { tab: 'home', data: { a: {} }, canEdit: false }); nb.mod.renderMyHomeStickers(); nb.log.length = 0;
   kids(nb)[0]._l.contextmenu({ preventDefault(){}, stopPropagation(){} });
   chk(!nb.log.includes('editStart:a'), '편집 못 하는 사람(남의 홈)은 우클릭해도 편집이 안 열린다');
 }
 say('§3b 링크');
 {
   const mk = (extra) => build(SRC, Object.assign({ tab: 'home', data: { d: { link: 'https://l' } }, canEdit: false }, extra));
-  let b = mk({ companion: { openBrowser: (u) => b.log.push('browser:' + u) } }); b.mod.renderMyHomeStickers()();
+  let b = mk({ companion: { openBrowser: (u) => b.log.push('browser:' + u) } }); b.mod.renderMyHomeStickers();
   kids(b)[0]._l.click({ target: { classList: { contains: () => false } } });
   chk(b.log.includes('browser:https://l'), '링크 — 앱이면 기본 브라우저로');
-  b = mk({}); b.mod.renderMyHomeStickers()(); kids(b)[0]._l.click({ target: { classList: { contains: () => false } } });
+  b = mk({}); b.mod.renderMyHomeStickers(); kids(b)[0]._l.click({ target: { classList: { contains: () => false } } });
   chk(b.log.includes('open:https://l'), '  브라우저면 새 창');
-  b = mk({}); b.st.drag = 9; b.mod.renderMyHomeStickers()(); kids(b)[0]._l.click({ target: { classList: { contains: () => false } } });
+  b = mk({}); b.st.drag = 9; b.mod.renderMyHomeStickers(); kids(b)[0]._l.click({ target: { classList: { contains: () => false } } });
   chk(!b.log.includes('open:https://l'), '  방금 드래그했으면(5px 넘음) 링크를 안 연다');
 }
-say('§4 다시 대입');
+say('§4 그린 뒤 알림(F4 — 다시 대입을 갚음)');
 {
   const b = build(SRC, { tab: 'home', data: { a: {} }, canEdit: true }); const calls = [];
-  const orig = b.mod.renderMyHomeStickers();
-  b.mod.setRenderMyHomeStickers(() => calls.push('wrapped'));
-  chk(b.mod.renderMyHomeStickers() !== orig && b.mod.renderMyHomeStickers()() === 1 && calls[0] === 'wrapped', '쓰는 함수로 감싼 함수를 넣으면 읽는 함수가 그걸 돌려준다');
-  const b2 = build(SRC, { tab: 'home', data: { a: {} }, canEdit: true }); b2.mod.renderMyHomeStickers()(); let n = 0;
-  b2.mod.setRenderMyHomeStickers(() => { n++; });
+  b.mod.onRendered(() => calls.push('r1')); b.mod.onRendered(() => calls.push('r2'));
+  b.mod.renderMyHomeStickers();
+  chk(calls.join() === 'r1,r2' && kids(b).length === 1, '그린 뒤 거는 차례대로 한 번씩 부른다');
+  const b3 = build(SRC, { tab: 'friends', data: { a: {} } }); let k = 0; b3.mod.onRendered(() => k++); b3.mod.renderMyHomeStickers();
+  chk(k === 1, '★ 마이홈 탭이 아니라 일찍 끝나도 알림은 부른다(옛 감싸개와 같다)');
+  const b4 = build(SRC, { noZone: true }); let k4 = 0; b4.mod.onRendered(() => k4++); b4.mod.renderMyHomeStickers();
+  chk(k4 === 1, '스티커 영역이 없어도 알림은 부른다');
+  const b2 = build(SRC, { tab: 'home', data: { a: {} }, canEdit: true }); b2.mod.renderMyHomeStickers(); let n = 0;
+  b2.mod.onRendered(() => { n++; });
   kids(b2)[0].children.find(x => x.className === 'mh-sticker-del').onclick({ stopPropagation(){} });
-  chk(n === 1, '★ 삭제 버튼 안의 다시 그리기가 감싸 대입한 함수를 부른다(예전 전역 이름 대입과 같은 효과)');
+  chk(n === 1, '★ 삭제 버튼 안의 다시 그리기도 알림을 거친다(옛: 감싸 대입한 함수를 부름)');
 }
 say('§5 연결');
 {
@@ -116,18 +120,18 @@ say('§5 연결');
   const code = stripC(APP);
   const pairs = depPairs(APP, 'stickerRenderMod', 'TwMyHomeStickerRender', 'createMyHomeStickerRender');
   chk(!!pairs && pairs.length === 4 && pairs.find(p => p[0] === 'myHomeSticker')[1] === '()=>myHomeSticker' && pairs.filter(p => p[0] !== 'myHomeSticker').every(p => p[0] === p[1]), '★ deps 넷 — myHomeSticker 는 읽는 함수(뒤에서 만들어짐) · 나머지는 값');
-  chk(!/function renderMyHomeStickers\b/.test(code) && (code.match(/stickerRenderMod\.renderMyHomeStickers\(\)/g) || []).length >= 4 && /setRenderMyHomeStickers: \(f\)=>\{ stickerRenderMod\.setRenderMyHomeStickers\(f\); \}/.test(code), '본문이 app.js 에 안 남고 읽는 자리는 읽는 함수로, 대입은 쓰는 함수로');
+  chk(!/function renderMyHomeStickers\b/.test(code) && (code.match(/stickerRenderMod\.renderMyHomeStickers\(\.\.\.a\)/g) || []).length >= 4 && /onStickersRendered: \(\.\.\.a\)=>stickerRenderMod\.onRendered\(\.\.\.a\)/.test(code) && !/setRenderMyHomeStickers|getRenderMyHomeStickers/.test(code), '본문이 app.js 에 안 남고 부르는 자리는 그대로 부르고, 그린 뒤 할 일은 알림으로 건다(다시 대입 없음)');
 }
 say('§6 일부러 깨 보기');
 {
   const brk = (a, c) => { const m = SRC.replace(a, c); return m === SRC ? null : m; };
   const m1 = brk("zone.classList.toggle('hidden', !onHomeTab);", "");
-  chk(!!m1 && (() => { const b = build(m1, { tab: 'friends', data: {} }); b.mod.renderMyHomeStickers()(); return !b.zone.classList.contains('hidden'); })(), '탭 숨김을 빼면 빨강');
+  chk(!!m1 && (() => { const b = build(m1, { tab: 'friends', data: {} }); b.mod.renderMyHomeStickers(); return !b.zone.classList.contains('hidden'); })(), '탭 숨김을 빼면 빨강');
   const m2 = brk("TwSafeHtml.safeUrl(s.img, 'image')", "s.img");
-  chk(!!m2 && (() => { const b = build(m2, { tab: 'home', data: { c: { img: 'http://bad' } } }); b.mod.renderMyHomeStickers()(); return !!kids(b)[0].children[0].src; })(), '그림 주소를 거르지 않으면 빨강(남의 스티커)');
+  chk(!!m2 && (() => { const b = build(m2, { tab: 'home', data: { c: { img: 'http://bad' } } }); b.mod.renderMyHomeStickers(); return !!kids(b)[0].children[0].src; })(), '그림 주소를 거르지 않으면 빨강(남의 스티커)');
   const m3 = brk("if(mhPageMod._mhStickerDragDist()>5) return;", "");
-  chk(!!m3 && (() => { const b = build(m3, { tab: 'home', data: { d: { link: 'https://l' } } }); b.st.drag = 9; b.mod.renderMyHomeStickers()(); kids(b)[0]._l.click({ target: { classList: { contains: () => false } } }); return b.log.includes('open:https://l'); })(), '드래그 직후 링크 막기를 빼면 빨강');
+  chk(!!m3 && (() => { const b = build(m3, { tab: 'home', data: { d: { link: 'https://l' } } }); b.st.drag = 9; b.mod.renderMyHomeStickers(); kids(b)[0]._l.click({ target: { classList: { contains: () => false } } }); return b.log.includes('open:https://l'); })(), '드래그 직후 링크 막기를 빼면 빨강');
   const m4 = brk("if(!canEdit) return;\n      myHomeSticker().editStart(sid);", "myHomeSticker().editStart(sid);");
-  chk(!!m4 && (() => { const b = build(m4, { tab: 'home', data: { a: {} }, canEdit: false }); b.mod.renderMyHomeStickers()(); kids(b)[0]._l.contextmenu({ preventDefault(){}, stopPropagation(){} }); return b.log.includes('editStart:a'); })(), '남의 홈 편집 막기를 빼면 빨강');
+  chk(!!m4 && (() => { const b = build(m4, { tab: 'home', data: { a: {} }, canEdit: false }); b.mod.renderMyHomeStickers(); kids(b)[0]._l.contextmenu({ preventDefault(){}, stopPropagation(){} }); return b.log.includes('editStart:a'); })(), '남의 홈 편집 막기를 빼면 빨강');
 }
 say(''); say((fail ? '✗' : '✓') + ' 통과 ' + pass + ' · 실패 ' + fail); process.exit(fail ? 1 : 0);

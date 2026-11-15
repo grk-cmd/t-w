@@ -140,7 +140,7 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - **책임**: `appMode`(run · editseat) · `applyAppMode`(좌석 슬라이더 · 상태 미리보기 · 제목 · 창 크기 맞춤 부르기) · `launchApp`(내 좌석 다시 만들기 · 방 친구 복원 · 방에 나간 def 와 달라졌을 때만 새 def 를 방에 보냄 · 솔로 자리 추가 복원 · Tab 힌트) · `backToLauncher`(꾸미기 · 마이홈 닫아 저장 · 포커스 · 달성표 · 가챠 서버 맞추기) · «런처로» 버튼.
 - **만드는 법**: `TwAppMode.createAppMode({ … 21개 })` — 읽는 함수 6(`curSlot` · `focusLevelMod` · `gachaMod` · `Presence` · `roomEntryMod` · `weeklyChal`) · 함수 3(`applyDesktopRunClass` · `toast` · `layoutSeats`) · 쓰는 함수 1(`setMyHomeOpen`) · 값 11. 원래 자리(설정 패널 «캐릭터» 탭 안내 뒤)에서 만든다.
 - **내보내는 것**: `appMode`(읽는 함수 — app.js 는 `appModeMod.appMode()`) · `showEl` · `applyAppMode` · `launchApp` · `backToLauncher`.
-- **함정**: `layoutSeats` 는 맨 아래에서 감싸 다시 대입되므로 `(...a)=>layoutSeats(...a)` 로 넘긴다(값으로 넘기면 감싸기 전 함수가 굳는다). 검사: `checks/sim-app-mode.js`.
+- **함정**: `layoutSeats` 는 app.js 에서 이 모듈보다 뒤에 정의되므로 `(...a)=>layoutSeats(...a)` 로 넘긴다(부를 때 찾는다). 검사: `checks/sim-app-mode.js`.
 
 ## office-mode.js — 🏢 데스크탑 · 피규어 · 회사원 모드 깃발
 

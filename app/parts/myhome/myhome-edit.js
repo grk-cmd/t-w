@@ -13,9 +13,7 @@
        · _myHomeLoaded = false → _setMyHomeLoaded(false) · _mhStickerDragDist = x → _setMhStickerDragDist(x)(읽기는 _mhStickerDragDist())
          두 let 은 app.js 의 마이홈 불러오기 · renderMyHomeStickers(드래그 직후 링크 안 엶)가 같이 쓰므로 app.js 에 두고 쓰는 함수로 받는다.
        · USER_NAME_MAX → USER_NAME_MAX() — app.js 에서 이 묶음보다 한참 뒤에 선언되는 const 라 만들 때 값으로 넘기면 TDZ 다.
-       · renderMyHomeStickers 를 감싸 다시 대입하던 두 줄 — 옛 함수는 _getRenderMyHomeStickers() 로 받고, 감싼 함수는
-         _setRenderMyHomeStickers(…) 로 app.js 의 이름에 다시 넣는다(삭제 버튼에 자동 저장을 한 번 더 붙이는 것 그대로).
-         ⚠️ 옛 함수를 화살표(renderMyHomeStickers)로 잡으면 감싼 함수가 자기를 부르는 무한 재귀가 된다.
+       · renderMyHomeStickers 를 감싸 다시 대입하던 두 줄 — 스티커를 그린 뒤 할 일을 알림 onStickersRendered(fn)에 건다(삭제 버튼에 자동 저장을 한 번 더 붙이는 것 그대로).
    ★ 이 묶음이 window 에 거는 이름 — commitMyHomePage · _mhOpenColorPopup · _mhBeginNameEdit · _bgmDestroy · _mhApplyBg · _mhApplyTheme · _mhDsClose.
      app.js(마이홈 닫기)와 이 파일 안이 그 이름으로 부른다. 다른 마이홈 파일 · 설정 패널 · 스티커사진은 🪝 고리판(myhome-hooks.js)으로
      부른다 — 저장 · 배경 · 테마 · BGM(새로 고침 · 재생 중 · 표시) · BGM 창 · 스튜디오 닫기 · 닉네임 취소를 만들 때 고리판에도 건다(순환 끊기 8).
@@ -24,7 +22,7 @@
    ⚠️ document · window · companion · firebaseAPI · localStorage 는 예전처럼 전역 이름으로 쓴다(이 파일은 app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwMyHomeEdit — 크로미움 내장 전역과 겹치는 이름(Scheduler 같은)을 쓰면 typeof 가드가 늘 통과한다(#103).
    검사: checks/sim-myhome-edit.js — 만들 때 배선 · 자동저장(관람 · 계정 바뀜 · 불러오기 전) · 글 서식 · 닉네임 · 게시글 제목 ·
-         BGM · 배경 · 테마 · 디자인 스튜디오 · 프리셋 · 스티커 끌기 · renderMyHomeStickers 감싸기 · app.js 배선 · html 순서. */
+         BGM · 배경 · 테마 · 디자인 스튜디오 · 프리셋 · 스티커 끌기 · renderMyHomeStickers 그린 뒤 알림 · app.js 배선 · html 순서. */
 (function(){
 
 function createMyHomeEdit(deps){
@@ -32,9 +30,8 @@ const toast = deps.toast;
 const homeUploadCache = deps.homeUploadCache;            // 🗂️ 올린 자리 → URL 바꿔 넣기(shared/upload-cache.js applyUrlSwaps)
 const asyncPrompt = deps.asyncPrompt;                    // ✏️ 인앱 프롬프트(글 서식 링크 · 이미지 · 스티커 링크 · BGM)
 const renderMyHomePage = deps.renderMyHomePage;          // 🏠 마이홈 페이지 다시 그리기(프로필 사진 바꾼 뒤) — app.js
-const renderMyHomeStickers = deps.renderMyHomeStickers;  // 🎨 스티커 다시 그리기 — app.js(아래에서 감싸 다시 대입한다 — 부를 때 찾는다)
-const _getRenderMyHomeStickers = deps.getRenderMyHomeStickers;   // 감싸기 전 함수(값)
-const _setRenderMyHomeStickers = deps.setRenderMyHomeStickers;   // 감싼 함수를 app.js 의 이름에 다시 넣는다
+const renderMyHomeStickers = deps.renderMyHomeStickers;  // 🎨 스티커 다시 그리기 — app.js
+const onStickersRendered = deps.onStickersRendered;   // 스티커를 그린 뒤 할 일을 거는 알림(myhome-sticker-render.js)
 const _mhSaveRT = deps.mhSaveRT;                         // 📝 리치 텍스트 저장 · 글자 수 — app.js(마이홈 페이지 그리기)
 const _mhUpdateRTCount = deps.mhUpdateRTCount;
 const _mhClampStickerPos = deps.mhClampStickerPos;       // 📐 스티커를 창 안으로 — app.js
@@ -434,8 +431,7 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
     document.addEventListener('mouseup', ()=>{ if(dragSticker){ dragSticker=null; commitMyHomePage(true); } });
   }
   // 스티커 삭제 시에도 자동 저장(renderMyHomeStickers 안의 삭제 버튼 클릭 핸들러에서 호출)
-  const origRenderStickers = _getRenderMyHomeStickers();
-  _setRenderMyHomeStickers(function(){ origRenderStickers();
+  onStickersRendered(function(){
     document.querySelectorAll('.mh-sticker-del').forEach(d=>{
       const prevOnclick=d.onclick;
       d.onclick=e=>{ if(prevOnclick) prevOnclick(e); commitMyHomePage(true); };
