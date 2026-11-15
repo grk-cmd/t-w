@@ -28,14 +28,16 @@ const toast = deps.toast;
 const diagNote = deps.diagNote;   // 진단 기록(tw-mouse-diag.log) 한 줄 — 남의 그림을 못 받은 PC 를 제보 때 가른다
 const POKE_FRESH_MS = 30000;   // 이보다 오래된 알림은 재생하지 않는다
 const POKE_SKEW_MS  = 60000;   // 기기 시계가 서버보다 앞설 때의 여유(음수 나이 허용폭)
-/* 서버 시계 — 찌르기 ts 는 realtime 서버가 찍는다. 방 안이면 방 포트가 welcome · music 의 now 로 맞춘 시계, 방 밖이면 기기 시계. */
+/* 서버 시계 — 찌르기 ts 는 realtime 서버가 찍는다. 방 포트가 welcome · music 의 now 로 맞춘 시계 · 방 밖이거나 아직 못 맞췄으면 null(기기 시계로 대신하지 않는다). */
 function _srvNow(){
   const sp = Presence().serverProvider();
-  return sp ? sp.serverNow() : Date.now();
+  return sp ? sp.serverNow() : null;
 }
 function _pokeFresh(ts){
   if(!ts) return true;                       // 옛 클라이언트가 ts 없이 보낸 값 — 예전처럼 그냥 받는다
-  const age = _srvNow() - ts;
+  const t = _srvNow();
+  if(t === null){ console.warn('[방] 서버 시각을 몰라 알림 ts 를 견주지 못합니다 — 버립니다'); return false; }
+  const age = t - ts;
   return age <= POKE_FRESH_MS && age >= -POKE_SKEW_MS;
 }
 

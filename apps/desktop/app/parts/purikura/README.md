@@ -11,7 +11,7 @@
 ```js
 const session = TwPurikuraRt.createPhotoSession({
   hub: TwRtHub.store, api: TwApi.authed, P: Purikura,
-  serverNow: ()=>…,                       // 방 포트의 서버 시각 — 카운트다운 · 필터 잠금이 여기서 센다
+  serverNow: ()=>…,                       // 방 포트의 서버 시각 — 카운트다운 · 필터 잠금이 여기서 센다 · 모르면 null(PC 시계로 대신하지 않는다 — 컷을 열지 않고 E-PK-03)
   onPeers, onMeta, onEvent, onShot,       // 남의 좌표 · 판 · 사건 · 셔터
   onSlots, onFrames,                      // 자리 배치 · 프레임 목록 — 서버가 통째로 보내 준다
   onRefused,                              // 서버가 방장 일을 거절했다({ ref, code })

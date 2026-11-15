@@ -85,11 +85,11 @@ function _rollDice(){
   // 1) 말풍선 — 주사위 2개만(마커). setSeatHeadBubble이 주사위 마커만으로 된 텍스트를 SVG로 렌더.
   if(mySeat) showChatBubble(mySeat, dice2);
   // 💬 🎲 은 대화창 도구라 지금 보는 탭으로 간다(말풍선 · 기록 둘 다). 날아가는 것(willFly)은 방 전체 그대로.
-  const _tab = (typeof chatUiMod._chatMyTabId === 'function') ? chatUiMod._chatMyTabId() : 'general';
-  if(typeof Presence()!=='undefined' && Presence().active() && Presence().sendChat) Presence().sendChat(dice2, false, '', '', _tab);
+  const _tab = chatUiMod._chatMyTabId();
+  if(Presence().active()) Presence().sendChat(dice2, false, '', '', _tab);
   // 2) 대화 기록 — 눈 두 개만 보내면 서버가 문장(«○○님이 주사위 … 가 나왔습니다.»)을 만든다
-  const room=(typeof Presence()!=='undefined' && Presence().roomCode)?Presence().roomCode():null;
-  if(room) Promise.resolve(chatNet.sendGame(room, { dice: [n1, n2] }, _tab)).then(r=>{ if(r && r.ok === false) TwErrorCodes.notify('E-CHAT-01', r.code); }, ()=>{});   // 기록 줄 — 못 보내면 번호로 알린다
+  const room = Presence().roomCode();
+  if(room) Promise.resolve(chatNet.sendGame(room, { dice: [n1, n2] }, _tab)).then(r=>{ if(r && r.ok === false) TwErrorCodes.notify('E-CHAT-01', r.code); }).catch(e=>{ TwErrorCodes.notify('E-CHAT-01', e); });   // 기록 줄 — 못 보내면 번호로 알린다
   if(willFly) _selfFlyAfterDice();
 }
 

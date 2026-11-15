@@ -177,7 +177,7 @@ const Presence=(()=>{
   async function start(roomCode, def, name, changeCb, opts){
     if(provider) await stop();   // 이미 연결돼있는데 다시 시작하면(연결끊기 없이 재접속 등) 이전 접속 삭제가 끝난 뒤에 새로 join — 안 그러면 옛 항목이 아직 안 지워진 채로 남아 자기 자신이 중복으로 보일 수 있음
     room=roomCode; myDef=def; myName=name||'나'; myLevel=focusLevelMod().getFocusLevel(); _lvKey=''; onChange=changeCb||onChange; friends={};
-    _myPokeSeenTs = 0; _joinedAt = roomSyncMod._srvNow();   // 🛰 새 방 = 새 우편함. 들어오기 전 알림은 안 읽는다
+    _myPokeSeenTs = 0; _joinedAt = 0;   // 🛰 새 방 = 새 우편함. 들어온 서버 시각은 welcome 이 알려 준다(아래 join 결과 serverNow) — 그 전 알림은 안 읽는다
     // ✨ 앱 재시작 후 첫 접속 — localStorage에서 복원된 커스텀 상태 문구를 join 페이로드에 실어보냄
     //   (setCustomStatus를 거치지 않고 바로 join하는 경로라 여기서 한 번 동기화해줘야 친구 화면에 문구가 보임)
     if(typeof customStatusConf()!=='undefined' && customStatusConf() && customStatusConf().text){
@@ -207,7 +207,8 @@ const Presence=(()=>{
         if(_pts){
           if(_pts <= _myPokeSeenTs) return;                          // 같거나 뒤로 가는 값은 안 본다
           _myPokeSeenTs = _pts;
-          if(_joinedAt && _pts < _joinedAt - roomSyncMod.POKE_SKEW_MS) return;   // 내가 들어오기 전에 찍힌 값
+          if(!_joinedAt){ console.warn('[방] 들어온 서버 시각을 몰라 알림을 버립니다'); return; }   // welcome 의 now 가 없었다 — PC 시계로 대신하지 않는다
+          if(_pts < _joinedAt - roomSyncMod.POKE_SKEW_MS) return;   // 내가 들어오기 전에 찍힌 값
           if(!roomSyncMod._pokeFresh(_pts)) return;                              // 유통기한 지난 값
         }
         if(p.type==='pet'){
@@ -236,6 +237,8 @@ const Presence=(()=>{
       if(provider === _srv){ provider = null; room = null; friends = {}; if(onChange) onChange({}); }
       return { ok:false, code:(r && r.code) || 'fail' };
     }
+    if(typeof r.serverNow === 'number') _joinedAt = r.serverNow;   // 🛰 들어온 순간의 서버 시각 — 알림 ts(서버가 찍음)와 같은 시계
+    else console.warn('[방] 입장 결과에 서버 시각이 없어요 — 알림 ts 를 견줄 수 없습니다');
     return r;
   }
   // 매 update마다 함께 보내는 공통 페이로드 (✨ customStatus 포함 — 친구 화면에서 커스텀 문구를 보여주기 위함)

@@ -73,7 +73,7 @@ function quotaView(d, P){
 }
 
 /** @param {{ hub: { onMessage: Function, on: Function, onState: Function, send: Function, isReady: () => boolean },
- *    api: { get: Function }, P: object, serverNow: () => number, clock?: () => number, setTimeout?: Function, clearTimeout?: Function,
+ *    api: { get: Function }, P: object, serverNow: () => number|null, clock?: () => number, setTimeout?: Function, clearTimeout?: Function,
  *    onPeers?: Function, onMeta?: Function, onEvent?: Function, onShot?: Function, onSlots?: Function, onFrames?: Function, onRefused?: Function, onLateStart?: Function,
  *    warn?: Function }} deps */
 function createPhotoSession(deps){

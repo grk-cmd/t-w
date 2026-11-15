@@ -406,7 +406,7 @@ say('── 8. 이어 붙인 곳');
 say('── 9. 깨 보기');
 {
   {
-    const Bs = SRC.replace('write(model.makeMusic(items[i], me, now(), provider.lastSeq()));', 'write(model.makeMusic(items[i], me, now(), -1));');
+    const Bs = SRC.replace('write(model.makeMusic(items[i], me, t, provider.lastSeq()));', 'write(model.makeMusic(items[i], me, t, -1));');
     const t = mk({ meta: { host: 'me', music: true }, srvSeq: 4 }, Bs);
     t.ui.sync(); t.push(null); await flush();
     chk(Bs !== SRC && t.errs.join() === 'E-ROOM-05', '앞 차례를 -1 로 되돌리면 3-2절이 빨강(서버가 stale 로 거절 → E-ROOM-05)');

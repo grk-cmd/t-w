@@ -165,7 +165,7 @@ const CODES = {
   'E-GB-07': { msg: '웹박수 그림이 너무 커요 — 512KB 이하로 다시 골라 주세요', where: 'myhome/guestbook-feed.js — 박수 그림이 상한(512KB)을 넘음(PAYLOAD_TOO_LARGE — 올리기 전 걸러냄 포함)' },
   'E-PK-01': { msg: '스티커사진 정원을 확인하지 못했어요 — 잠시 뒤에 다시 눌러 주세요', where: 'purikura/purikura-ui.js — 📷 를 눌렀을 때 GET /v2/rooms/photo-quota 실패(닿지 못함 · 답 모양이 틀림)' },
   'E-PK-02': { msg: '스티커사진 자리를 잡지 못했어요 — 잠시 뒤에 다시 눌러 주세요', where: 'purikura/purikura-ui.js — 자리 잡기(photoOpen) 시간 초과 · 연결 없음 · 서버 오류(촬영 중 · 자리 없음 · 방 밖은 안내만)' },
-  'E-PK-03': { msg: '촬영을 시작하지 못했어요 — 잠시 뒤에 다시 눌러 주세요', where: 'purikura/purikura-ui.js — [촬영 시작](photoStart) 실패: 정원을 못 물음 · 방장이 바뀜 · 방 밖 · 연결 없음 · 시간 초과(정원을 다 쓴 것은 안내만 — 까닭 문구는 purikura-rt.js START_MESSAGES)' },
+  'E-PK-03': { msg: '촬영을 시작하지 못했어요 — 잠시 뒤에 다시 눌러 주세요', where: 'purikura/purikura-ui.js — [촬영 시작](photoStart) 실패: 정원을 못 물음 · 방장이 바뀜 · 방 밖 · 연결 없음 · 시간 초과 · 서버 시각을 몰라 컷을 못 엶(정원을 다 쓴 것은 안내만 — 까닭 문구는 purikura-rt.js START_MESSAGES)' },
   'E-PK-04': { msg: '방 설정을 바꾸지 못했어요 — 방장이 바뀌었을 수 있어요', where: 'purikura/purikura-ui.js — 방장 일(설정 · 필터 · 카메라 · 컷 · 셔터)을 서버가 거절(ROOM_PHOTO_NOT_HOST 등 · 세션 포트 onRefused)' },
   'E-PK-05': { msg: '프레임을 방에 알리지 못했어요 — 나한테만 보여요', where: 'purikura/purikura-ui.js — 프레임 주소(photoFrame)를 서버가 거절(우리 버킷 · purikura/{방}/{방장 userCode}/ 경로가 아님)' },
   'E-NET-01': { msg: '로그인이 풀렸어요 — 다시 로그인해 주세요', where: 'shared/api-errors.js — 공통 AUTH_REQUIRED · 토큰 없음(NO_TOKEN)' },

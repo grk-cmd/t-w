@@ -25,6 +25,8 @@ const probe = `
   sync: f=>syncFriendSeats(f),
   idFp: d=>_charIdentityFingerprint(d),
   deskFp: d=>_deskStateFingerprint(d),
+  /* 방 안 흉내 — 서버 시계는 방 포트가 맞춘다(방 밖 · 못 맞춤은 null 이라 알림을 버린다) */
+  inRoomClock: ()=>{ Presence.serverProvider = ()=>({ serverNow: ()=>Date.now() }); },
 };`;
 
 const say = console.log; console.log = ()=>{}; console.warn = ()=>{};
@@ -33,6 +35,7 @@ catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack 
 console.log = say;
 
 const P = globalThis.__P;
+P.inRoomClock();
 let fail = 0;
 const chk = (c, m) => { say((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };
 const wait = ms => new Promise(r=>realST(r, ms));

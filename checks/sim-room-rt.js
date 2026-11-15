@@ -116,12 +116,14 @@ async function joined(S, o){
   const hl = hooksLog();
   const p = e.rt.makeProvider(hl.h, { create: (o && o.create) || null });
   let friends = null;
+  const pre = p.serverNow();   // welcome 전 — 시계를 아직 모른다
   const jp = p.join('PLAY-AB12', Object.assign({}, ME), (f) => { friends = f; }, (pk) => { hl.L.push('poked:' + pk.type); });
   await tick();
+  const wt = e.clock.t;
   ws.msg({ t: 'welcome', room: 'PLAY-AB12', memberId: 'm1', resume: 'R1', resumed: false, members: MEMBERS, meta: META, music: null, musicSeq: -1, now: e.clock.t + 500 });
   const res = await settle(jp, e.clock);
   await tick();
-  return { e, p, ws, res, hl, get friends(){ return friends; } };
+  return { e, p, ws, res, hl, pre, wt, get friends(){ return friends; } };
 }
 
 async function judge(S){
@@ -139,6 +141,8 @@ async function judge(S){
       '  ↳ 친구 객체 — userId = userCode · 탭 s2 · 탭 말풍선은 chatTab(s1)');
     chk(J.hl.L.indexOf('joined:PLAY-AB12') >= 0 && J.e.rt.roomCode() === 'PLAY-AB12' && J.e.rt.myCode() === 'u1', '  ↳ onJoined · roomCode · myCode(ready.userCode)');
     chk(Math.abs(J.p.serverNow() - (J.e.clock.t + 500)) <= 1, '  ↳ welcome.now 로 서버 시계를 맞춘다');
+    chk(J.pre === null, '★ welcome 전에는 serverNow() 가 null — 기기 시계(0 보정)로 대신하지 않는다');
+    chk(J.res && typeof J.res.serverNow === 'number' && Math.abs(J.res.serverNow - (J.wt + 500)) <= 1, '  ↳ 입장 결과에 들어온 순간의 서버 시각(serverNow)을 싣는다(presence 의 «들어오기 전 알림» 기준)');
   }catch(err){ chk(false, '1절 던짐 — ' + err.message); }
 
   say('── 2. 연결 전 입장');
@@ -390,6 +394,8 @@ const BREAKS = [
   ['RT', "          if(m.reason === 'replaced'){", "          if(false){", '같은 계정이 자리를 가져가도 모름'],
   ['RT', "    if(id && src[w] && typeof src[w].name === 'string') tabs[id] = { name: src[w].name, ts: Number(src[w].ts) || 0 };", "    tabs[w] = src[w];", 'meta 탭 키를 서버 이름 그대로(앱 탭 목록이 빔)'],
   ['RT', "          }else if(m.reason === 'closed'){", "          }else if(false){", '관리자 종료를 모름'],
+  ['RT', "serverNow(){ return P.clockOff === null ? null : now() + P.clockOff; },", "serverNow(){ return now() + (P.clockOff || 0); },", '시계를 못 맞췄는데 기기 시계를 내놓음'],
+  ['RT', "meta: P.meta, serverNow: P.clockOff === null ? null : now() + P.clockOff }", "meta: P.meta }", '입장 결과에 서버 시각이 빠짐'],
   ['HTML', '<script src="parts/room/room-rt.js"></script>', '', 'html 에 안 실음'],
 ];
 const caught = [];

@@ -18,7 +18,7 @@ const VOL_RESEND_MS = [120, 300, 600, 1000, 1600, 2400];   // 새 페이지의 <
  * @param {{
  *   model: typeof window.TwListenModel,
  *   provider: { subscribe(room: string, cb: (m: object|null|undefined) => void): () => void,
- *               write(room: string, m: object|null): Promise<{ ok: boolean, err?: unknown }>, now(): number, lastSeq(): number },
+ *               write(room: string, m: object|null): Promise<{ ok: boolean, err?: unknown }>, now(): number|null, lastSeq(): number },
  *   companion: () => any,
  *   roomCode: () => string|null,
  *   meta: () => object|null,
@@ -73,7 +73,14 @@ function readNum(key, dflt){ try{ const v = parseInt(localStorage.getItem(key), 
 let vol = Math.max(0, Math.min(100, readNum(VOL_KEY, 80)));
 let muted = readNum(MUTE_KEY, 0) === 1;
 
-function now(){ return provider.now(); }
+let clockWarned = false;
+/* 서버 시각(ms) — 모르면 null(기기 시계로 대신하지 않는다). 부르는 곳은 null 이면 그 일을 건너뛴다 · 경고는 모르는 동안 한 번 */
+function now(){
+  const t = provider.now();
+  if(t === null){ if(!clockWarned){ clockWarned = true; console.warn('[같이 듣기] 서버 시각을 아직 몰라요'); } }
+  else clockWarned = false;
+  return t;
+}
 function djId(){ return room ? model.djOf(meta(), [myId()].concat(memberIds())) : null; }
 function amDj(){ const me = myId(); return !!me && djId() === me; }
 
@@ -94,8 +101,9 @@ function closePlayer(){
 function quietPersonal(){ if(stopPersonal()) selfCloses++; }
 function openPlayer(m){
   const c = companion();
+  const t = now(); if(t === null) return;
   c.setBgmLoop(false);   // 개인 «한 곡 반복» 이 남아 있으면 곡 끝 신호가 안 온다
-  c.openListenTrack('https://www.youtube.com/watch?v=' + m.id, m.title, Math.floor(model.posOf(m, now())));
+  c.openListenTrack('https://www.youtube.com/watch?v=' + m.id, m.title, Math.floor(model.posOf(m, t)));
   owner = 'listen'; openedKey = keyOf(m); playerPaused = false; lastSeekAt = Date.now();
   applyVolSoon();
 }
@@ -129,30 +137,33 @@ async function write(m){
 /** 다음(1) · 이전(-1) 곡 — 지금 곡이 옛 DJ 것이면 내 목록 첫 곡부터 · 내 목록이 비면 칸을 지운다(«틀 곡 없음») */
 async function advance(dir){
   if(!amDj() || !music || advancedSeq === music.seq) return;
+  const t = now(); if(t === null) return;
   const seq = music.seq;
   advancedSeq = seq;
   const items = djItems(), me = myId();
   const i = (music.by !== me) ? model.playableFrom(items, 0, 1)
           : model.playableFrom(items, model.stepIndex(items, music.id, dir), dir);
-  const ok = await write(i >= 0 ? model.makeMusic(items[i], me, now(), seq) : null);
+  const ok = await write(i >= 0 ? model.makeMusic(items[i], me, t, seq) : null);
   if(!ok && advancedSeq === seq) advancedSeq = -1;   // 못 썼으면 이 차례에서 다시 넘길 수 있게
 }
 /* 내가 DJ 일 때 해야 할 일 — 칸이 비었으면 첫 곡 · 옛 DJ 가 멈춘 채 나갔으면 다시 · 곡이 끝났는데 신호를 못 받았으면 다음 */
 function reconcileDj(){
   if(!room || music === undefined || writing || writeFailed || !amDj()) return;
+  const t = now(); if(t === null) return;
   const me = myId();
   if(music === null){
     const items = djItems(), i = model.playableFrom(items, 0, 1);
-    if(i >= 0) write(model.makeMusic(items[i], me, now(), provider.lastSeq()));   // 방 서버는 지운 뒤에도 차례를 기억한다
+    if(i >= 0) write(model.makeMusic(items[i], me, t, provider.lastSeq()));   // 방 서버는 지운 뒤에도 차례를 기억한다
     return;
   }
   // 옛 DJ 가 멈춘 채 나감 — 다시 틀며 쓴 사람을 나로 바꾼다(내가 다시 멈춘 곡을 또 풀지 않게)
-  if(music.paused && music.by !== me){ const m = model.resumed(music, now(), me); if(m) write(m); return; }
-  if(model.isEnded(music, now())) advance(1);
+  if(music.paused && music.by !== me){ const m = model.resumed(music, t, me); if(m) write(m); return; }
+  if(model.isEnded(music, t)) advance(1);
 }
 function togglePause(){
   if(!amDj() || !music) return;
-  const m = music.paused ? model.resumed(music, now(), myId()) : model.paused(music, now(), myId());
+  const t = now(); if(t === null) return;
+  const m = music.paused ? model.resumed(music, t, myId()) : model.paused(music, t, myId());
   if(m) write(m);
 }
 
@@ -167,9 +178,10 @@ function onSignal(kind){
   }
   const beat = model.parseBeat(kind);
   if(!beat) return;
-  if(model.needSeek(music, now(), beat) && Date.now() - lastSeekAt >= SEEK_GAP_MS){
+  const t = now();
+  if(t !== null && model.needSeek(music, t, beat) && Date.now() - lastSeekAt >= SEEK_GAP_MS){
     lastSeekAt = Date.now();
-    companion().bgmSeek(Math.floor(model.posOf(music, now())));
+    companion().bgmSeek(Math.floor(model.posOf(music, t)));
   }
   if(!beat.ad && amDj() && music.by === myId()){ const m = model.withDur(music, beat.dur); if(m) write(m); }
 }
@@ -250,7 +262,8 @@ function paintButton(){
 function fmt(sec){ const s = Math.max(0, Math.floor(sec)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 function paintTime(){
   if(!isOpen() || !music) return;
-  const p = model.posOf(music, now()), d = Number(music.dur) || 0;
+  const t = now(); if(t === null) return;
+  const p = model.posOf(music, t), d = Number(music.dur) || 0;
   $('lsNow').textContent = fmt(d > 0 ? Math.min(p, d) : p);
   $('lsLen').textContent = d > 0 ? fmt(d) : '';
   $('lsBar').style.width = (d > 0 ? Math.min(100, p / d * 100) : 0) + '%';
@@ -259,7 +272,8 @@ function paintTime(){
 function stateText(dj, me){
   if(music === undefined) return '불러오는 중…';
   if(lost) return '다른 음악을 틀고 있어 같이 듣기가 멈췄어요';
-  const ended = !!music && model.isEnded(music, now());
+  const t = now();
+  const ended = !!music && t !== null && model.isEnded(music, t);
   if(!dj && (!music || ended)) return isSecretRoom() ? 'DJ(방 주인)가 없어서 쉬는 중이에요' : 'DJ 가 없어서 쉬는 중이에요';
   if(!music) return dj === me ? '내 플레이리스트가 비어 있어요 — 곡을 담으면 바로 틀어요' : 'DJ 가 아직 곡을 고르지 않았어요';
   if(music.paused) return '⏸ DJ 가 잠시 멈췄어요';

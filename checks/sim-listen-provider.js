@@ -63,9 +63,16 @@ say('── 2. 방 밖');
   const got = [];
   P.subscribe('PLAY-AB12', (v) => got.push(v));
   const w = await P.write('PLAY-AB12', { id: 'aaaaaaaaaaa', seq: 1 });
-  const t0 = Date.now(), t = P.now();
   chk(got.length === 0 && w.ok === false && w.err === 'notInRoom', '구독 · 쓰기 안 함 · 쓰기는 { ok:false, err:notInRoom }');
-  chk(Math.abs(t - t0) < 1000 && P.lastSeq() === -1, '  시각은 기기 시계 · 앞 차례 -1');
+  chk(P.now() === null && P.lastSeq() === -1, '★ 서버 시각은 null(모른다) — 기기 시계로 대신하지 않는다 · 앞 차례 -1');
+  /* 방 안이어도 시계를 아직 못 맞췄으면(serverNow null) 시각도 null · 곡 쓰기는 보내지 않고 noClock */
+  let sent = 0; const spN = { onMusic: () => () => {}, sendMusic: async () => { sent++; return { ok: true }; }, serverNow: () => null, lastMusicSeq: () => -1 };
+  const PN = load(SRC).createListenProvider({ server: () => spN, model: MODEL });
+  const w0 = console.warn; let warned = 0; console.warn = () => { warned++; };
+  const wn = await PN.write('PLAY-AB12', { id: 'aaaaaaaaaaa', seq: 1 }); console.warn = w0;
+  chk(PN.now() === null && wn.ok === false && wn.err === 'noClock' && sent === 0 && warned === 1, '★ 방 안인데 시계를 못 맞췄으면 now() null · 쓰기는 보내지 않고 { err:noClock } + console.warn');
+  const wc = await PN.write('PLAY-AB12', null);
+  chk(wc.ok === true && sent === 1, '  지우기(null)는 시각이 필요 없어 그대로 보낸다');
 }
 
 say('── 3. 깨 보기');
@@ -77,6 +84,8 @@ say('── 3. 깨 보기');
   chk(got.length === 0, '«불러오는 중» 을 빼면 1절이 빨강');
   const B3 = load(SRC.replace('return sp ? sp.lastMusicSeq() : -1;', 'return -1;')).createListenProvider({ server: () => sp, model: MODEL });
   chk(B3.lastSeq() !== 6, '서버 마지막 차례를 안 내놓으면 1절 «앞 차례» 가 빨강');
+  const B4 = load(SRC.replace('return sp ? sp.serverNow() : null;', 'return sp ? sp.serverNow() : Date.now();')).createListenProvider({ server: () => null, model: MODEL });
+  chk(B4.now() !== null, '방 밖에서 기기 시계로 되돌리면 2절 «시각은 null» 이 빨강');
   const MB = (() => { const w = {}; new Function('window', need('listen-model.js').replace('return Math.min(MUSIC_POS_MAX, posOf(m, now));', 'return posOf(m, now);'))(w); return w.TwListenModel; })();
   chk(MB.wirePos({ paused: true, pos: 99999 }, 0) > 86400, '위치 상한을 빼면 1절 «0~86400 으로 자른다» 가 빨강');
 }

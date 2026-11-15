@@ -450,7 +450,7 @@ function createRoomRt(deps){
           P.joined = true;
           if(!P.expTimer) P.expTimer = iSet(() => checkExp(P), EXP_CHECK_MS);
           try{ if(P.hooks.onJoined) P.hooks.onJoined(P.room); }catch(_){}
-          finishJoin(P, { ok: true, memberId: m.memberId, others: Object.keys(mem).length, meta: P.meta });
+          finishJoin(P, { ok: true, memberId: m.memberId, others: Object.keys(mem).length, meta: P.meta, serverNow: P.clockOff === null ? null : now() + P.clockOff });   // serverNow — 들어온 순간의 서버 시각(presence 의 «들어오기 전 알림» 기준)
         }else if(m.resumed){
           /* 죽어 가던 소켓에 보낸 칸은 «보냄» 으로 적혔어도 서버에 안 닿았을 수 있다 — 지금 상태 전체를 한 번 다시 보낸다. */
           P.sent = {};
@@ -606,7 +606,7 @@ function createRoomRt(deps){
       members: {}, meta: null, defCache: {}, seq: 0,
       changeCb: null, onPoked: null, joinWaiter: null, joinRid: null, leaveWaiter: null, metaWaiters: [],
       stateTimer: null, expTimer: null, lastStateAt: -Infinity, noticed: false,
-      music: undefined, musicSeq: -1, musicFns: [], musicWaiters: [], clockOff: 0,
+      music: undefined, musicSeq: -1, musicFns: [], musicWaiters: [], clockOff: null,
     };
     return {
       kind: 'server',
@@ -725,7 +725,7 @@ function createRoomRt(deps){
           send(msg);
         });
       },
-      serverNow(){ return now() + P.clockOff; },   // welcome · music 의 now 로 맞춘 서버 시각(ms)
+      serverNow(){ return P.clockOff === null ? null : now() + P.clockOff; },   // welcome · music 의 now 로 맞춘 서버 시각(ms) · 아직 못 맞췄으면 null(PC 시계로 대신하지 않는다)
       lastMusicSeq(){ return P.musicSeq; },        // 서버가 마지막으로 받아들인 차례(곡이 비어도) · 모르면 -1
       memberId(){ return P.memberId; },
       roomMeta(){ return P.meta; },
