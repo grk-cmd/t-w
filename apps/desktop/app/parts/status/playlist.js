@@ -662,7 +662,7 @@ async function _plLoadMyCard(){
   try{
     const c = await firebaseAPI.fetchPlaylistCard(getMyUserId());
     if(c){ _plMyCard = c; _plRenderHead(); }
-  }catch(_){}
+  }catch(e){ notifyError('E-PL-03', e); }   // 못 받음 — 이름 · 사진이 빈 채로 그려진다(Firebase 로 물러나지 않는다)
 }
 function _plRenderHead(){
   const wrap = document.getElementById('myPlProfile');
@@ -1177,7 +1177,7 @@ function _plLoadViewCard(uid){
     _plViewCard = c;
     _plRenderHead();
     if(typeof requestAnimationFrame === 'function') requestAnimationFrame(_plSyncMarquee);
-  }).catch(()=>{});
+  }).catch(e=>{ if(_plView && _plView.uid === uid) notifyError('E-PL-03', e); });   // 못 받음 — 건너간 사람의 이름 · 사진이 빈 채로 둔다. 그 사이 또 건넜으면 조용히 버린다
 }
 /* ← 내 목록 — 보기만 되돌린다. 남의 곡을 틀던 중이면 **그 곡은 계속 난다**(_plNowView 유지). */
 function _plBack(){ _plView = null; _plViewCard = null; _plSel = -1; _plRender(); }

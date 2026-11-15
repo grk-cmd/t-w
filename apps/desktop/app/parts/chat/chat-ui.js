@@ -41,6 +41,7 @@ const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
 const chatNet = deps.chatNet;   // 💬 대화 포트(chat-rt.js — 보내기 · 지난 기록 · 이모티콘)
+const chatHistory = deps.chatHistory;   // 읽는 함수 — 💬 대화 기록(chat-history.js · 이 PC 화면 캐시 + 서버 지난 기록). 늘 있다 — 없으면 던져 «못 불러왔어요» 로 알린다
 const myCode = deps.myCode;   // 연결의 나(room-rt.js myCode) — 줄의 글쓴이(userCode)와 견준다
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const isDanceUnlocked = deps.isDanceUnlocked;
@@ -654,14 +655,18 @@ function _chatSubscribeTab(room){
   try{ _renderChatLog([]); }catch(_){}
   // 🚪 목록이 도착한 그 순간이 '입장'이다 — 처음이면 여기서 표식을 찍는다(_noteChatJoin 주석 참고).
   const _onList = list => { _noteChatJoin(key, list); _renderChatLog(list); };
-  // 💬 이 PC 화면 캐시 + 그 뒤만 이어 받기(chat-history.js · 길은 chat-rt.js) — 연결 모듈이 아직이면 최근 줄 구독
-  if(room && window.firebaseAPI && firebaseAPI.chatHistory) setChatLogUnsub(firebaseAPI.chatHistory.open(room, tab, _onList, ()=>{
+  // 💬 이 PC 화면 캐시 + 그 뒤만 이어 받기(chat-history.js · 길은 chat-rt.js) — 못 받으면 «못 불러왔어요 + [다시 시도]» (아래 histFail)
+  const histFail = (e)=>{
     if(_chatReadRoom !== key) return;   // 그 사이 탭 · 방을 옮겼다
     _chatHistFail = true;
-    try{ TwErrorCodes.notify('E-CHAT-02'); }catch(_){}
-    try{ _renderChatLog(_chatLogCache()); }catch(_){}   // 안내 줄을 그린다
-  }));
-  else if(room) setChatLogUnsub(chatNet.subscribeLog(room, _onList, undefined, tab));
+    console.warn('[대화] 지난 기록을 못 불러왔어요', e);
+    TwErrorCodes.notify('E-CHAT-02', e);
+    try{ _renderChatLog(_chatLogCache()); }catch(err){ console.warn('[대화] 안내 줄을 그리지 못했어요', err); }   // 안내 줄을 그린다
+  };
+  if(room){
+    try{ setChatLogUnsub(chatHistory().open(room, tab, _onList, histFail)); }
+    catch(e){ histFail(e); }   // 기록 모듈이 없거나 열다 던짐 — 다른 길로 돌리지 않고 같은 «못 불러옴» 으로
+  }
   _chatTabUnreadStart(room);
   _chatTabsRender();
 }
@@ -708,7 +713,7 @@ function _chatTabsOnMeta(){
   const sig = ChatTabs.list(_chatTabMeta()).map(t => t.id + ':' + t.name).join('|');
   _chatTabSyncRoom(room);
   /* 방 메타가 아직 안 왔으면(재부팅 직후) 탭 목록이 비어 보일 뿐이다 — 기억한 탭을 «지워졌다» 로 보지 않는다. */
-  if(window._roomMetaCache && room && window.firebaseAPI && firebaseAPI.chatHistory) firebaseAPI.chatHistory.syncTabs(room, _chatTabMeta()).catch(()=>{});   // 지운 채널의 PC 저장
+  if(window._roomMetaCache && room) chatHistory().syncTabs(room, _chatTabMeta()).catch(e=>{ console.warn('[대화] 지운 채널의 PC 저장을 정리하지 못했어요', e); });   // 지운 채널의 PC 저장
   const metaReady = !!window._roomMetaCache;
   if(metaReady && _chatMyTab !== 'general' && _chatTabResolve(_chatMyTab) === 'general'){
     _chatMyTab = 'general'; _chatTabSave(room, 'general');

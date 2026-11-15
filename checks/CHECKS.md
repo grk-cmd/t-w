@@ -90,7 +90,7 @@
 | **sim-bug-cleanup.js** | 191 | **7c41fc91c912** |
 | **sim-bump-version.js** | 108 | **9c635d7b9caa** |
 | **sim-char-core-load.js** | 89 | **740ecf90c6f1** |
-| **sim-chat-history.js** | 248 | **78289bd9f86c** |
+| **sim-chat-history.js** | 248 | **9542ec7a4746** |
 | **sim-gamepad-activity.js** | 305 | **e4e1744a0113** |
 | **sim-mallang-hide.js** | 147 | **a97601090ee3** |
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
@@ -278,12 +278,12 @@
 | **sim-focus-progress.js** | 390 | **0195fe25d4c3** |
 | **sim-chat-window.js** | 565 | **9b933ee52a05** |
 | **sim-api-client.js** | 455 | **95f8f2d62950** |
-| **sim-api-public-reads.js** | 139 | **44372048389f** |
+| **sim-api-public-reads.js** | 148 | **4d8620d1b68c** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
 | **sim-remote-config.js** | 372 | **1b5dcfbf856c** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
 | **sim-myhome-inbox.js** | 766 | **0c88f8bb0962** |
-| **sim-playlist.js** | 1116 | **2acca3f038c0** |
+| **sim-playlist.js** | 1127 | **7a3c5932547f** |
 | **sim-playlist-api.js** | 307 | **5312ff1915d3** |
 | **sim-inbox-api.js** | 203 | **302ad48aa944** |
 | **sim-gift-api.js** | 324 | **dc124fb72d02** |
@@ -334,7 +334,7 @@
 | **sim-ride-bench.js** | 279 | **426a9d3c5c9f** |
 | **sim-part-paint.js** | 94 | **ccaa45183979** |
 | **sim-focus-level.js** | 128 | **246cbe6794dd** |
-| **sim-chat-ui.js** | 126 | **4ce92ac94c0d** |
+| **sim-chat-ui.js** | 126 | **00b18f7fd6e1** |
 | **sim-license-gate.js** | 340 | **78de89e312a3** |
 | **sim-account.js** | 174 | **d80308ea6b7e** |
 | **sim-wardrobe.js** | 229 | **bada904416df** |
@@ -349,7 +349,7 @@
 | **sim-dice-games.js** | 95 | **1debed57a729** |
 | **sim-program-settings.js** | 148 | **63ad8f3b844f** |
 | **sim-chat-prefs.js** | 95 | **26c68ca8bbfe** |
-| **sim-chat-read-on-send.js** | 214 | **24d8cf0193b1** |
+| **sim-chat-read-on-send.js** | 230 | **9e594009e33d** |
 | **sim-rich-text.js** | 95 | **c8ee332ad595** |
 | **sim-win-stack.js** | 96 | **e7f9bf9ab745** |
 | **sim-sfx.js** | 96 | **d24a22a1d75f** |
