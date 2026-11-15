@@ -823,7 +823,7 @@ const tricksMod = TwTricks.createTricks({
   getMyUserId: (...a)=>getMyUserId(...a),
   measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
   ndc: ()=>ndc,
-  officeMode: ()=>officeMode,
+  officeMode: ()=>officeModeMod.officeMode(),
   purikuraUi: ()=>purikuraUi,
   ray: ()=>ray,
   seatCharZ: (...a)=>seatCharZ(...a),
@@ -842,7 +842,7 @@ const tricksMod = TwTricks.createTricks({
 /* 본문은 sfx.js 로 옮겼다(앱 FSD 42번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const sfxMod = TwSfx.createSfx({
-  officeMode: ()=>officeMode,
+  officeMode: ()=>officeModeMod.officeMode(),
 });
 /* ═══ 🗼 올라타기(탑) · 벤치 좌석 자리 잡기 ═══ */
 /* 탑 바닥 찾기는 room/ride-chain.js(순수) — 올라타기 · 좌석 줄 배치가 서로를 부르지 않고 같이 쓴다. */
@@ -1143,7 +1143,7 @@ const statusChipMod = TwStatusChip.createStatusChip({
   _danceCmdCooldownAt: ()=>iDeskMod._danceCmdCooldownAt(),
   _lowestDanceReq: (...a)=>iDeskMod._lowestDanceReq(...a),
   _moveModeJustToggled: ()=>_moveModeJustToggled,
-  _officeHidden: ()=>_officeHidden,
+  _officeHidden: ()=>officeModeMod._officeHidden(),
   _pickUnlockedDance: (...a)=>iDeskMod._pickUnlockedDance(...a),
   _premiumOn: (...a)=>_premiumOn(...a),
   _rollRoulette: (...a)=>rouletteMod._rollRoulette(...a),
@@ -1387,7 +1387,7 @@ const focusLog = TwFocusLog.createFocusLog({
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   focusTotalSec: ()=>_focusTotalSec,
   focusSessionSec: ()=>focusTotalMod._focusSessionSec(),
-  figureMode: ()=>figureMode,
+  figureMode: ()=>officeModeMod.figureMode(),
 });
 /* ═══ ✥ 프로그램 이동 모드 ═══ */
 /* 프로그램 이동 모드 — 마우스를 따라 화면 전체(카메라 pan)가 이동, 클릭하면 확정.
@@ -1792,7 +1792,7 @@ const chatPrefsMod = TwChatPrefs.createChatPrefs({
   chatUiMod: ()=>chatUiMod,
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
-  officeMode: ()=>officeMode,
+  officeMode: ()=>officeModeMod.officeMode(),
   seats: seats,
   toast: (...a)=>toast(...a),
 });
@@ -2218,7 +2218,7 @@ const chatUiMod = TwChatUi.createChatUi({
   getMyUserId: (...a)=>getMyUserId(...a),
   isAdmin: ()=>isAdmin,
   isDanceUnlocked: (...a)=>iDeskMod.isDanceUnlocked(...a),
-  officeMode: ()=>officeMode,
+  officeMode: ()=>officeModeMod.officeMode(),
   seats: seats,
   showChatBubble: (...a)=>showChatBubble(...a),
   startMyDance: (...a)=>iDeskMod.startMyDance(...a),
@@ -2272,7 +2272,7 @@ const diceMod = TwDiceGames.createDiceGames({
   flySeed: (...a)=>flySeed(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
-  officeMode: ()=>officeMode,
+  officeMode: ()=>officeModeMod.officeMode(),
   showChatBubble: (...a)=>showChatBubble(...a),
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
@@ -2318,7 +2318,7 @@ const purikuraUi = TwPurikuraUi.createPurikuraUi({
   plRender: (...a)=>plMod.render(...a),
   plPlaying: ()=>plMod.st.playing,
   setPlPlaying: v=>{ plMod.st.playing = v; },
-  officeMode: ()=>officeMode,
+  officeMode: ()=>officeModeMod.officeMode(),
   lsSet: (...a)=>_lsSet(...a),
   presence: ()=>Presence,
   addRunLights: (...a)=>lightToneMod.addRunLights(...a),
@@ -2363,7 +2363,7 @@ const rouletteMod = TwRoulette.createRoulette({
   diceMod: diceMod,
   findMySeat: (...a)=>findMySeat(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
-  officeMode: ()=>officeMode,
+  officeMode: ()=>officeModeMod.officeMode(),
   showChatBubble: (...a)=>showChatBubble(...a),
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
@@ -2426,7 +2426,7 @@ const chatWindowMod = TwChatWindow.createChatWindow({
   seats: seats,
   setFlyAiming: (...a)=>tricksMod.setFlyAiming(...a),
   flyAiming: ()=>tricksMod._flyAiming(),
-  officeMode: ()=>officeMode,
+  officeMode: ()=>officeModeMod.officeMode(),
   // 📷 스티커사진
   purikura: (...a)=>_purikura(...a),
   purikuraUi: purikuraUi,
@@ -2643,7 +2643,7 @@ const overheadMod = TwOverhead.createOverhead({
   focusLevelMod: ()=>focusLevelMod,
   getDisplayName: (...a)=>getDisplayName(...a),
   npStarFill: (...a)=>lvTierMod.npStarFill(...a),
-  officeMode: ()=>officeMode,
+  officeMode: ()=>officeModeMod.officeMode(),
   renderer: renderer,
   seatScale: (...a)=>seatEqMod.seatScale(...a),
   seats: seats,
@@ -2657,7 +2657,7 @@ const seatOpacityMod = TwSeatOpacity.createSeatOpacity({
 const setSeatOpacity = seatOpacityMod.setSeatOpacity;   // 옛 전역 이름
 const seatStateMod = TwSeatState.createSeatState({
   desktopMode: ()=>desktopMode,
-  figureMode: ()=>figureMode,
+  figureMode: ()=>officeModeMod.figureMode(),
   focusGateSleep: ()=>focusGateSleep,
   focusLevelMod: ()=>focusLevelMod,
   seatPanelMod: seatPanelMod,
@@ -2682,7 +2682,7 @@ const seatPointerMod = TwSeatPointer.createSeatPointer({
   hiddenSeatsMod: hiddenSeatsMod,
   iDeskMod: iDeskMod,
   layoutSeats: (...a)=>layoutSeats(...a),
-  officeMode: ()=>officeMode,
+  officeMode: ()=>officeModeMod.officeMode(),
   overheadMod: overheadMod,
   playItemIdle: (...a)=>playItemIdle(...a),
   rideBenchMod: rideBenchMod,
@@ -5606,7 +5606,7 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   layoutSeats: (...a)=>layoutSeats(...a),
   maxPeople: (...a)=>maxPeople(...a),
   myExpCells: (...a)=>expBarMod.myExpCells(...a),
-  officeMode: ()=>officeMode,
+  officeMode: ()=>officeModeMod.officeMode(),
   pruneSeatPartsAgainstDef: (...a)=>pruneSeatPartsAgainstDef(...a),
   refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),
   removeSeatLabels: (...a)=>overheadMod.removeSeatLabels(...a),
@@ -5672,9 +5672,9 @@ const progSettingsMod = TwProgramSettings.createProgramSettings({
   _focusShowPush: (...a)=>focusShareMod._focusShowPush(...a),
   _lsSet: (...a)=>_lsSet(...a),
   chatUiMod: chatUiMod,
-  figureMode: ()=>figureMode,
+  figureMode: ()=>officeModeMod.figureMode(),
   focusGateSleep: ()=>focusGateSleep,
-  officeMode: ()=>officeMode,
+  officeMode: ()=>officeModeMod.officeMode(),
   purikuraUi: purikuraUi,
   refreshCharScaleForCurrentDisplay: (...a)=>refreshCharScaleForCurrentDisplay(...a),
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
@@ -5682,9 +5682,9 @@ const progSettingsMod = TwProgramSettings.createProgramSettings({
   refreshThemeUI: (...a)=>themeUiMod.refreshThemeUI(...a),
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
-  setFigureMode: (v)=>{ figureMode = v; },
+  setFigureMode: (v)=>{ officeModeMod.setFigureMode(v); },
   setFocusGateSleep: (v)=>{ focusGateSleep = v; },
-  setOfficeMode: (v)=>{ officeMode = v; },
+  setOfficeMode: (v)=>{ officeModeMod.setOfficeMode(v); },
   twNav: twNav,
   renderQuality: ()=>_renderQuality,
   setRenderQuality: (v)=>{ _renderQuality = v; },
@@ -6881,7 +6881,7 @@ const seatHitMod = TwSeatHitTargets.createSeatHitTargets({
   camera: camera,
   ray: ray,
   canvasRect: (...a)=>overheadMod.canvasRect(...a),
-  officeHidden: ()=>_officeHidden,
+  officeHidden: ()=>officeModeMod._officeHidden(),
   configHidden: ()=>_configHidesScene(),
   isRunmode: ()=>document.body.classList.contains('runmode'),
   partSkipped: (...a)=>hiddenSeatsMod._partSkipped(...a),
@@ -7128,7 +7128,7 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
           setSeatHeadBubble 이 정한다. 안쪽에서 상태/채팅을 다시 구분하려 들면 판정이 두 곳으로 갈린다. */
     const _chatting = !!(seat.chatBubbleUntil && now < seat.chatBubbleUntil);
     if(_hidden){ overheadMod.setSeatHeadBubble(seat, null); }   // 🙈 캐릭터 없이 말풍선만 뜨지 않게
-    else if(officeMode){ overheadMod.setSeatHeadBubble(seat, _chatting ? seat.chatBubbleText : null); }
+    else if(officeModeMod.officeMode()){ overheadMod.setSeatHeadBubble(seat, _chatting ? seat.chatBubbleText : null); }
     else if(_chatting){ overheadMod.setSeatHeadBubble(seat, seat.chatBubbleText); }
     // 💭 상태 갈래만 '생각 말풍선'(동그라미 꼬리). 채팅은 뾰족 꼬리 그대로다.
     else{ overheadMod.setSeatHeadBubble(seat, _conf ? _conf.label : focusLevelMod._mobileBubbleText(_mobApp), true); }
@@ -7158,7 +7158,7 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
      상태 계산은 위에서 그대로 돈다(돌아왔을 때 튀지 않게). 런처는 자기 루프(launcherLoop)가 따로 그린다. */
   /* 회사원 모드로 화면을 숨긴 동안도 그리지 않는다 — 안 보이는 3D 가 포토샵 등과 그래픽 카드를 나눠 쓰지 않게 */
   const _tDraw = performance.now();
-  if(!_officeHidden && !_configHidesScene()){ _gpuTimer.begin(); renderer.render(scene,camera); _gpuTimer.end(); }
+  if(!officeModeMod._officeHidden() && !_configHidesScene()){ _gpuTimer.begin(); renderer.render(scene,camera); _gpuTimer.end(); }
   runCost.since('render', _tDraw);
   seatHitMod.markRendered();   // 🗺️ 히트 맵 — 그린 장 표시만(지도는 판정이 찾을 때 만든다)
   statusChipMod.updateMyStatusChipPosition();   // 본인 상태 칩 위치를 자기 좌석 발 밑에 맞춤
@@ -7169,9 +7169,15 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
 }
 
 /* ============================================================ 데스크탑(Electron) 모드 */
-const desktopMode = !!window.companion || /[?&]desktop=1/.test(location.search);
-/* ★ 피규어 모드 — 켜져 있으면 포커싱 어플 등록 여부 · 입력 유무와 무관하게 항상 깨어 있다(seatState).
-   대신 포커스 시간(레벨) · 👑 달성표 🎯집중은 쌓지 않는다(_applyActiveAppState) — 설정 화면 · 도움말이 그렇게 약속한다. */
+/* 본문은 launcher/office-mode.js 로 옮겼다(앱 FSD · app.js 분리 M14). 원래 자리인 여기서 만든다 — 깃발을 읽고 상태칩 우클릭을 거는 때가 예전과 같다.
+   뒤에서 선언되는 값은 읽는 함수로 넘긴다. 깃발을 최상위에서 읽는 코드는 이 줄 아래에 둔다(TDZ). */
+const officeModeMod = TwOfficeMode.createOfficeMode({
+  chipPopupsMod: chipPopupsMod,
+});
+const desktopMode = officeModeMod.desktopMode;   // 옛 전역 이름
+const FIGURE_MODE_KEY = officeModeMod.FIGURE_MODE_KEY;   // 옛 전역 이름
+const OFFICE_MODE_KEY = officeModeMod.OFFICE_MODE_KEY;   // 옛 전역 이름
+const refreshOfficeChipUI = officeModeMod.refreshOfficeChipUI;   // 옛 전역 이름
 /* 💾 설정을 저장하고 **실제로 남았는지 확인한다** — 조용한 실패를 없애기 위한 것이다.
 
    [왜 필요한가] localStorage 쓰기는 이 파일에서 99곳이고 그중 58곳이 `catch(e){}` 로 비어 있다.
@@ -7201,94 +7207,10 @@ function _lsSet(key, val){
   }
 }
 
-const FIGURE_MODE_KEY = 'tw.figureMode';
-let figureMode = (localStorage.getItem(FIGURE_MODE_KEY)==='1');
 /* 포커싱 어플 게이트 — true면 자동 idle/focus 판정을 sleep으로 강제(=잠듦).
    등록된 앱이 하나도 없으면 항상 true, 등록된 앱이 있으면 "그 앱이 지금 활성 상태"일 때만 false.
    (피규어 모드면 초기값부터 false로 시작 — 첫 폴링 전까지 잠깐 잠든 것처럼 보이는 지연 방지) */
-let focusGateSleep = !figureMode;
-/* 🏢 회사원 모드 — 켜면 남의 마이홈이 안 열리고 말풍선이 잠기며, 상태칩 ■ 버튼 우클릭으로
-   화면을 즉시 숨길 수 있다. (1-1 우클릭 차단 · 1-2 머리 위 라벨은 이후 단계)
-   ⚠️ 선언 자리를 figureMode 옆으로 잡은 이유 — app.js 는 최상위에서 값을 읽는 코드가 많아
-     선언 순서(TDZ)가 실제로 앱을 죽인 적이 있다. 이 값을 읽는 최상위 코드는 반드시
-     **이 줄 아래**에 있어야 한다(refreshOfficeModeUI 처럼 나중에 불리는 함수 안은 상관없다).
-     `node smoke.js` 가 그걸 잡는다. */
-const OFFICE_MODE_KEY = 'tw.officeMode';
-let officeMode = (localStorage.getItem(OFFICE_MODE_KEY)==='1');
-/* ■ 화면 숨김 — **세션 한정이라 저장하지 않는다.**
-   숨긴 채로 앱이 꺼졌다 켜지면 아무것도 없는 화면이 뜨는데, 그건 기능이 아니라 고장으로 읽힌다. */
-let _officeHidden = false;
-/* 숨길 대상을 JS 로 하나씩 지우지 않고 body 클래스 하나로 CSS 에 넘긴다 —
-   이 코드베이스에서 "선택자를 하나씩 나열하다 빠뜨림"은 반복된 실패 양상이고
-   (audit 검사 12·14·15 가 전부 그래서 생겼다), 새 요소가 생길 때마다 또 빠뜨린다. */
-function setOfficeHidden(on){
-  _officeHidden = !!on && officeMode;   // 회사원 모드가 꺼져 있으면 숨김 상태 자체가 성립 안 함
-  document.body.classList.toggle('office-hidden', _officeHidden);
-  const btn=document.getElementById('myStatusChipBtn');
-  if(btn){
-    /* ⚠️ .on 은 상태 메뉴가 열렸을 때 쓰는 눌린 표시다. 여기서 같이 쓰면 두 상태가 섞여
-       메뉴를 닫는 순간 숨김 표시까지 지워진다 — 전용 클래스를 쓴다. */
-    btn.classList.toggle('office-hiding', _officeHidden);
-    btn.title = _officeHidden ? '우클릭: 화면 다시 보이기'
-              : (officeMode ? '상태 (우클릭: 화면 숨기기)' : '상태');
-  }
-  /* 숨길 때 열려 있던 **칩 팝업**(상태·더보기·알림 등)은 닫는다 — 지나가는 것들이라 숨김을
-     푼 뒤에도 떠 있으면 오히려 거슬린다.
-     ⚠️ 창(설정·포커스 기록·마이홈 …)은 여기서 닫지 않는다. 그쪽은 CSS 의 body.office-hidden 이
-       display 만 끄므로 상태를 쥔 채 사라졌다가 그대로 돌아온다 — 하던 일이 날아가면 안 된다.
-       숨김 대상을 JS 로 나열하지 않는 이유는 CSS 쪽 주석 참고. */
-  if(_officeHidden){
-    /* force=true — 🎵 플레이리스트까지 닫는다. 이 창만은 예외로 남기면 안 된다:
-       재생 중이면 _plSyncBgmBounds 가 패널 자리를 main 에 계속 알려서, 화면을 숨겨도
-       유튜브 자식창이 그 자리에 그대로 떠 있게 된다(숨김이 안 된 것처럼 보인다). */
-    try{ chipPopupsMod._closeChipPopups(null, true); }catch(_){}
-    const sm=document.getElementById('myStatusMenu'); if(sm) sm.classList.add('hidden');
-  }
-}
-function refreshOfficeChipUI(){
-  if(!officeMode && _officeHidden) setOfficeHidden(false);   // 모드를 끄면 숨김도 반드시 풀린다
-  else setOfficeHidden(_officeHidden);                       // 툴팁 문구를 모드에 맞춰 다시 씀
-}
-/* 숨기기 진입점 = **상태칩 ■ 버튼 우클릭** 하나다.
-   ★ 예전엔 칩 그룹에 ▪ 전용 버튼을 하나 더 뒀는데, 그러려고 버튼이 일곱 개가 됐다.
-     숨겼을 때 남는 것이 그 ■ 버튼이므로, 되돌리는 손짓도 같은 자리에 두는 편이 자연스럽다.
-   ⚠️ 이 버튼은 #myStatusChip 안에 있어 클릭 통과 화이트리스트에 자동 포함된다 —
-     밖으로 옮기면 숨긴 순간 되돌릴 길이 사라진다(그때는 앱 재시작밖에 없다).
-   ⚠️ preventDefault 를 빼면 Electron 에서 기본 컨텍스트 메뉴가 같이 뜬다. */
-(function bindOfficeHideGesture(){
-  const btn=document.getElementById('myStatusChipBtn'); if(!btn) return;
-  btn.addEventListener('contextmenu', e=>{
-    e.preventDefault(); e.stopPropagation();
-    if(!officeMode) return;   // 회사원 모드가 꺼져 있으면 아무 일도 없다(토스트도 안 띄운다)
-    setOfficeHidden(!_officeHidden);
-  });
-})();
-refreshOfficeChipUI();   // ★ officeMode 선언 뒤에서만 부를 것 (위 TDZ 주석 참고)
-/* 🔎 회사원 모드 진단 — **일부 사용자에게서만** "켜도 안 켜진다"는 제보가 있고, 코드만 봐서는
-     어느 단계가 끊기는지 가릴 수가 없다(저장이 안 남는 것인지, 버튼이 안 붙은 것인지,
-     켜지긴 하는데 눈에 보이는 변화가 없는 것인지). 세 가지를 한 번에 찍는다.
-   ★ 런처/생성기 화면에서 F12 → `__officeDiag()`. 실행 화면은 창이 투명해 콘솔을 열기 어렵다
-     (__mouseDiag 를 같은 이유로 같은 방식으로 두었다 — 그쪽 주석 참고).
-   ⚠️ 진단만 한다. 여기서 상태를 고치지 말 것 — 고치면 그 다음 제보에서 원인이 또 지워진다. */
-window.__officeDiag = function(){
-  let 새키쓰기 = null;
-  try{
-    localStorage.setItem('tw.__probe', '1');
-    새키쓰기 = (localStorage.getItem('tw.__probe') === '1');
-    localStorage.removeItem('tw.__probe');
-  }catch(e){ 새키쓰기 = '실패: ' + ((e && e.name) || e); }
-  let used = 0;
-  try{ for(const k in localStorage){ const v = localStorage.getItem(k); if(v != null) used += (k.length + v.length) * 2; } }catch(_){}
-  return {
-    저장값       : (()=>{ try{ return localStorage.getItem(OFFICE_MODE_KEY); }catch(e){ return '읽기실패'; } })(),
-    메모리값     : officeMode,
-    새키쓰기     : 새키쓰기,          // false 또는 '실패:…' 면 저장 공간이 원인이다
-    저장사용량MB : (used / 1048576).toFixed(2),
-    토글버튼     : !!document.getElementById('progOfficeModeToggle'),
-    화면숨김중   : _officeHidden,
-    숨김클래스   : document.body.classList.contains('office-hidden'),
-  };
-};
+let focusGateSleep = !officeModeMod.figureMode();
 /* ===== 포커스 시간 누적 + 레벨 시스템 =====
    평생 누적 포커스 시간 1시간당 레벨 1 상승, 최대 999레벨(999시간 달성 시 더 안 늘어남).
    오늘 하루 누적은 [기록 열기] 팝업에 hh:mm:ss로 표시(자정 지나면 0으로 리셋, 레벨엔 영향 없음 — 평생 누적 별도). */
@@ -7313,7 +7235,7 @@ const focusShareMod = TwFocusShare.createFocusShare({
   Presence: Presence,
   _lsSet: (...a)=>_lsSet(...a),
   _rolloverFocusToday: (...a)=>focusTotalMod._rolloverFocusToday(...a),
-  officeMode: ()=>officeMode,
+  officeMode: ()=>officeModeMod.officeMode(),
   toast: (...a)=>toast(...a),
   userStatus: ()=>userStatusMod.userStatus(),
 });
@@ -7340,7 +7262,7 @@ const awayPicMod = TwAwayPic.createAwayPic({
   getMyUserId: (...a)=>getMyUserId(...a),
   measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
   measureHeadBoxNoParts: (...a)=>charMeasureMod.measureHeadBoxNoParts(...a),
-  officeMode: ()=>officeMode,
+  officeMode: ()=>officeModeMod.officeMode(),
   renderer: renderer,
   seats: seats,
   toast: (...a)=>toast(...a),
@@ -7597,19 +7519,19 @@ function _applyActiveAppState(state){
   const pcNotFocusing = (now - seatStateMod.lastActivity()) > focusWindowMs();
   const notFocusingNow = mobOn ? false : pcNotFocusing;
   /* 🧸 피규어 모드면 쌓지 않는다 — 직전 폴링 값(_focusWasActive)이 아니라 지금 값을 봐서, 켠 순간부터 멈춘다. */
-  if(!figureMode && _focusWasActive && !notFocusingNow && dt>0 && dt<30) focusLevelMod.addFocusSeconds(dt);
+  if(!officeModeMod.figureMode() && _focusWasActive && !notFocusingNow && dt>0 && dt<30) focusLevelMod.addFocusSeconds(dt);
   /* 👑 달성표 🎯집중 — "오늘 그 앱을 몇 초 썼나"를 같은 dt 로 여기서 센다.
      ★ 새 타이머를 만들지 않는 이유: dt 는 _focusLastTick 을 소비해서 나온다. 밖에서 따로 재면
        같은 구간을 두 번 세거나 서로 _focusLastTick 을 리셋해서 둘 다 틀린다.
      ★ _focusWasActive(=등록된 포커스 앱이 활성)를 조건에 안 거는 이유: 그건 평생 누적치용 게이트다.
        달성표는 사용자가 고른 exe 하나만 보므로, 그 앱이 포커싱 어플 슬롯에서 빠져도 계속 세야 한다. */
-  if(!figureMode && dt>0 && dt<30 && !pcNotFocusing) weeklyChal.focusTick(state, dt);   // 📱 폰 시간은 안 넣는다(exe 기준 · 이번 범위 밖)
+  if(!officeModeMod.figureMode() && dt>0 && dt<30 && !pcNotFocusing) weeklyChal.focusTick(state, dt);   // 📱 폰 시간은 안 넣는다(exe 기준 · 이번 범위 밖)
   /* 이 기기의 플랫폼 접두사를 main 이 보낸 키에서 배운다 — 렌더러가 스스로 판단하지 않는다.
      구버전 main 은 key 를 안 보내므로 null 로 남고, 그때는 플랫폼 판정을 아예 안 한다. */
   if(state.key) weeklyChal.setKeyPlatform(String(state.key).split(':')[0] || null);
   seatStateMod.setSelfAppActive(!!state.isSelf);   // 구버전 main 은 안 보낸다 — 그때는 예전처럼 잔다
   seatStateMod.setPenAppFocused(!!state.isPenApp);   // 🖊️ 펜 앱이면 기록 창을 4초로 넓힘(focusWindowMs)
-  focusGateSleep = figureMode ? false : (mobOn ? false : (state.hasAnyRegistered ? !state.isFocusedAppRegistered : true));
+  focusGateSleep = officeModeMod.figureMode() ? false : (mobOn ? false : (state.hasAnyRegistered ? !state.isFocusedAppRegistered : true));
   _focusWasActive = !!(state.hasAnyRegistered && state.isFocusedAppRegistered) || mobOn;
 }
 
@@ -7680,7 +7602,7 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
 const desktopRunMod = TwDesktopRun.createDesktopRun({
   _applyActiveAppState: (...a)=>_applyActiveAppState(...a),
   _charBoundsLatest: ()=>_charBoundsLatest,
-  _officeHidden: ()=>_officeHidden,
+  _officeHidden: ()=>officeModeMod._officeHidden(),
   _penAppFocused: ()=>seatStateMod.penAppFocused(),
   _skipFlyingRigs: (...a)=>hiddenSeatsMod._skipFlyingRigs(...a),
   _skipHiddenDesk: (...a)=>hiddenSeatsMod._skipHiddenDesk(...a),
