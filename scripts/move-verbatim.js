@@ -19,7 +19,8 @@
      script-tag  html · checks/smoke.js 의 script 한 줄 · PRELOAD 한 줄
    README(*.md) · checks/ · docs/ 는 줄을 보지 않는다. 그 밖 파일(main.js · functions/ 등)이 바뀌면 파일 이름을 찍고 허용 밖으로 친다.
    한계(사람이 볼 몫): 줄 순서가 바뀐 것 · `})` 같은 문장부호만 있는 줄 · 연결 블록 / 모듈 꼬리 칸에 바로 부르는 식이 든 것 · `*` 로 시작하는 줄 ·
-   이름이 `set` 으로 시작하는 아무 메서드 · 읽기 자리(대입이 아닌)의 `x` → `xMod.x` · 새 모듈을 html 에 안 싣는 것(smoke 검사 몫). */
+   이름이 `set` 으로 시작하는 아무 메서드 · 읽기 자리(대입이 아닌)의 `x` → `xMod.x` · 새 모듈을 html 에 안 싣는 것(smoke 검사 몫) ·
+   가드 이름이 속성 · 문자열 안 낱말로만 남은 식의 가드 걷기 · 한 줄에 같은 이름을 두 번 대입 · setter 인자 칸의 쉼표식 · 읽는 함수 이름을 `()` 없이 쓴 줄. */
 'use strict';
 const { execFileSync } = require('child_process');
 
