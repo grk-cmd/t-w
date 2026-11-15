@@ -138,6 +138,7 @@ const KIND = {
   '/roomInvites/$toId/$fromId': 'user',
   '/xmasLetters/$authUid/$lid': 'own',                  // 🎄 편지 칸 l1~l5
   '/xmasReports/$key': 'own',                       // 🎄 신고 대상 o-{트리}-{자리} · g-{받은 사람}-{번호}
+  '/xmasReturned/$authUid/$lid': 'own',             // 🎄 반송된 편지 칸 l1~l5(본인은 지우기만)
 };
 /* 검사 안 하는 변수 — 이유가 «관리자만» 이면 일반 사용자 · 로그인 안 한 쪽의 쓰기가 정말 막혔는지 아래에서 돌려 본다 */
 const SKIP = {
@@ -153,7 +154,7 @@ const SKIP = {
   '/xmasTrees/$t': 'closed', '/xmasTrees/$t/o/$s': 'closed', '/xmasImg/$t': 'closed', '/xmasImg/$t/$s': 'closed',
   '/xmasOwners/$t': 'closed', '/xmasOwners/$t/$s': 'closed', '/xmasMine/$authUid': 'closed',
   '/xmasGot/$authUid': 'closed', '/xmasGot/$authUid/$n': 'closed', '/xmasGotFrom/$authUid': 'closed', '/xmasGotFrom/$authUid/$n': 'closed',
-  '/xmasLetters/$authUid': 'self', '/xmasReports/$key/$authUid': 'self',
+  '/xmasLetters/$authUid': 'self', '/xmasReports/$key/$authUid': 'self', '/xmasReturned/$authUid': 'self',
   // 서버 상품 API 의 원본 — 서버 봇(apiBots)만 읽고 쓴다. 키(상품 id · 파일 해시) 모양은 서버가 검사한다
   '/products/$id': 'bot',
   '/listings/$id': 'bot',

@@ -15,7 +15,7 @@
    deleteMyAccount — 회원 탈퇴(호출형 · 로그인한 본인). 앱 [내 정보 › 계정 › 회원 탈퇴]가 부른다. 로직은 account-delete.js.
    adminResetPassword — 비밀번호 초기화(호출형 · 관리자만). 웹 관리자 사용자 상세가 부른다 — 무작위 임시 비밀번호 · 다른 PC 로그인 끊기 · 작업 기록. 로직은 password-reset.js.
    mobileLinkTrim — 폰 연결 주소에 낀 공백 떼기. mobileLink/{코드}/state 쓰기마다 코드에 공백이 있으면 정상 칸으로 옮긴다. 로직은 mobile-link-trim.js.
-   xmasHang · xmasMatch · xmasAdminRemove — 🎄 크리스마스 이벤트(일회성 · 1월 1일 전에 걷는다 · 이슈 #963). 장식 걸기 · 바꾸기 / 12/25 0시 편지 짝 짓기 / 관리자 지우기. 로직은 xmas.js.
+   xmasHang · xmasMatch · xmasAdminRemove · xmasAdminReturn — 🎄 크리스마스 이벤트(일회성 · 1월 1일 전에 걷는다 · 이슈 #963). 장식 걸기 · 바꾸기 / 12/25 0시 편지 짝 짓기 / 관리자 지우기 / 관리자 편지 반송. 로직은 xmas.js.
    chatLogDeleted · chatTabDeleted — 대화 기록(chatLog · _chatTab/{탭})이 통째로 지워지면 누가(authType · authId) · 몇 줄 · 표시 줄 유무를 로그에 남긴다(지우기는 막지 않음 · 글은 안 남김). 로직은 chat-delete-log.js.
 
    changePassword (호출형 · onCall)
@@ -408,6 +408,11 @@ exports.xmasMatch = onSchedule({ schedule: '0 0 25 12 *', timeZone: 'Asia/Seoul'
     const r = await require('./xmas').runMatch(getDatabase(), Date.now());
     console.log('[xmasMatch]', JSON.stringify(r));
   });
+// 관리자 편지 반송 — 마감 전 · 사유(욕설 · 개인정보 · 광고 · 기타) · 쓴 사람 알림함
+exports.xmasAdminReturn = onCall({ timeoutSeconds: 30, maxInstances: 2 }, xmasCall('xmasAdminReturn', async (request) => {
+  const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
+  return require('./xmas').handleAdminReturn(getDatabase(), request, Date.now());
+}));
 exports.xmasAdminRemove = onCall({ timeoutSeconds: 30, maxInstances: 2 }, xmasCall('xmasAdminRemove', async (request) => {
   const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
   return require('./xmas').handleAdminRemove(getDatabase(), request);
