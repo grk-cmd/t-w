@@ -3,7 +3,7 @@
  * 방 연결(room-server-net.js)이 이것 위에서 그대로 도는지는 sim-room-server-net.js 가 본다. 여기는 공통부만:
  * 1. 순수 — jwtExpMs · LINK_TIMING · import 없음
  * 2. 열기 · hello(선택 칸 helloExtra) · ready · 토큰 없음 → auth
- * 3. rid 요청 — answers 로 답 짝짓기 · rid 없는 답(ridless 켬/끔) · badRequest(ref · ref 없음) · unavailable(ref — 가장 먼저 보낸 하나만 · 깨 보기) · 시간 초과 · 끊기면 null
+ * 3. rid 요청 — answers 로 rid 로만 답 짝짓기 · rid 없는 답 · 모르는 rid 의 답은 warn 후 버림 · badRequest · unavailable(깨 보기) · 시간 초과 · 끊기면 null
  * 4. 끊김 → onClosed(wasReady, fatal) · 다시 붙기 백오프(reconnectWanted) · markAuthRetry → getToken(true)
  * 5. 토큰 갱신 hello 에도 선택 칸 · 쉬면 닫기(idleCloseMs · busy) · 못 붙은 주소 1분 쉼 · retry · 주소 바뀜(switchOk)
  * 6. firebase-init 연결 — import 하고 realtime 연결 하나(rt-hub)에 createLink 로 넘긴다

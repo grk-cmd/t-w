@@ -5,7 +5,7 @@
   다시 붙기 백오프(1 · 2 · 4 · 8 · 15초) · rid 요청과 답 짝짓기 · 쉬면 닫기 · 못 붙은 주소 1분 쉬기.
   무엇을 주고받는지(방 · 친구 접속 상태)는 모른다 — 연결 위의 메시지는 `hooks.onMessage`, 끊김은 `hooks.onClosed(wasReady, fatal)` 로 넘긴다.
   다시 붙을지 · 언제 포기할지는 부르는 쪽이 정한다(`scheduleReconnect()` 를 부르면 그때 백오프로 붙는다).
-- 쓰는 곳: `realtime/rt-hub.js`(pv 3 — 로그인 뒤 늘 붙는 연결 하나). 방은 그 위의 방 포트(`room/room-rt.js`)로 — 옛 방 연결(pv 1 · room-server-net.js)은 걷었다. pv 1 갈래(`userId` · `ridless` · `reflessKind`)는 쓰는 곳이 없어 다음에 걷는다.
+- 쓰는 곳: `realtime/rt-hub.js`(pv 3 — 로그인 뒤 늘 붙는 연결 하나). 방은 그 위의 방 포트(`room/room-rt.js`)로 — 옛 방 연결(pv 1 · room-server-net.js)은 걷었다.
 - pv 2 부터 hello 에 `userId` 를 싣지 않는다(서버는 모르는 칸을 `badRequest` 로 거절 · 신원은 토큰뿐). 연결마다 · 갱신마다 달라지는 칸은 `helloFields(phase)`(`'open'` · `'refresh'`).
 - `hooks.onReady(readyMsg)` · `hooks.onClosed(wasReady, fatal, closeCode)` — 닫힘 번호는 부르는 쪽이 판단한다. ready 전 `error` auth · protocol 은 먼저 끊되 서버가 실을 번호(4001 · 4003)를 넘긴다.
 - `scheduleReconnect({ delayMs, readyWaitMs })` — 백오프 대신 정한 시간 뒤 · 그 연결의 ready 기다림(서버 재시작 1001). `reconnectNow()` — 기다리는 다시 붙기를 지금 한 번(네트워크 돌아옴).
