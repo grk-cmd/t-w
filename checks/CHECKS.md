@@ -276,7 +276,7 @@
 | **sim-focus-log.js** | 309 | **d8430d3d3ae0** |
 | **sim-chat-window.js** | 565 | **9b933ee52a05** |
 | **sim-api-errors.js** | 126 | **46fbbfebb0fc** |
-| **sim-api-client.js** | 455 | **8212560265dc** |
+| **sim-api-client.js** | 450 | **dd544934b201** |
 | **sim-api-public-reads.js** | 189 | **20c9249609be** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
 | **sim-remote-config.js** | 522 | **afc466faf554** |

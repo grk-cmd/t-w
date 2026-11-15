@@ -6,7 +6,7 @@
    4. 쉬기 — unavailable 뒤 BACKOFF_MS 동안 묻지 않고 곧장 실패(BACKOFF) · 지나면 다시 · notReady · 성공은 쉬지 않음
    5. 캐시 · 같은 요청 하나로(로그인 읽기는 누구별) · 주소 없음
    6. 쓰기 — post · put · patch · del 방법 · 본문 · 로그인 기본 · 쓰기 시간 제한 · 204 · 쉬지 않음
-   7. 로그인 — 토큰 · X-Device-Id 머리 · 401 AUTH_REQUIRED 면 새 토큰으로 한 번만 · 가입 전(NOT_BOUND)은 다시 안 함 · 토큰 없음
+   7. 로그인 — 토큰 · X-Device-Id 머리 · 401 이어도 다시 보내지 않음(자동 재시도 없음) · 토큰 없음
    8. ETag — 기억 · If-None-Match · 304 면 기억 값 · 계정이 다르면 따로 · 계정을 놓을 때(forgetSession) 진행 중 로그인 읽기 · 기억을 뗌 · 상한 · 오류 봉투(items · Retry-After · 자원 없음 404)
    9. 모듈 — Firebase 모름 · window.TwApi · 앱 한 벌(client · authed · bindToken) 주소 · html 차례
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
@@ -213,15 +213,14 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
   say('── 7. 로그인');
   {
     const forces = [];
-    let n = 0;
-    const f = mkFetch((url, init) => (++n === 1 ? res(401, { success: false, code: 'AUTH_REQUIRED' }) : res(200, { success: true, data: init.headers.Authorization })));
-    const c = A.createApiClient({ baseUrl: PROD, fetch: f, getToken: async (force) => { forces.push(force); return force ? 'fresh' : 'old'; }, deviceId: () => 'dev-0001' });
+    const f = mkFetch((url, init) => res(200, { success: true, data: init.headers.Authorization }));
+    const c = A.createApiClient({ baseUrl: PROD, fetch: f, getToken: async (force) => { forces.push(force); return 'old'; }, deviceId: () => 'dev-0001' });
     const v = await c.get('/v2/me', { auth: true });
-    chk(v === 'Bearer fresh' && forces.join(',') === 'false,true' && f.calls.length === 2, '401 AUTH_REQUIRED(토큰이 막 끝남) → 새 토큰(force)으로 한 번만 다시(첫 토큰은 요청당 한 번만 받는다)');
+    chk(v === 'Bearer old' && forces.join(',') === 'false' && f.calls.length === 1, '로그인 읽기 — 토큰은 요청당 한 번만 받는다');
     chk(f.calls[0].init.headers['X-Device-Id'] === 'dev-0001' && A.DEVICE_HEADER === 'X-Device-Id', '  ↳ 로그인 요청에 이 기기 머리 X-Device-Id');
     const g = mkFetch(() => res(401, { success: false, code: 'AUTH_REQUIRED' }));
     const e2 = await err(A.createApiClient({ baseUrl: PROD, fetch: g, getToken: async () => 't' }).get('/x', { auth: true }));
-    chk(e2 && e2.kind === 'auth' && g.calls.length === 2, '  ↳ 다시 해도 401 이면 그대로 auth(두 번까지만)');
+    chk(e2 && e2.kind === 'auth' && g.calls.length === 1, '★ 401 AUTH_REQUIRED 도 다시 보내지 않는다(자동 재시도 없음 · 요청 1)');
     const h = mkFetch(() => res(401, { success: false, code: 'USER_CODE_NOT_BOUND' }));
     const e3 = await err(A.createApiClient({ baseUrl: PROD, fetch: h, getToken: async () => 't' }).get('/v2/me', { auth: true }));
     chk(e3 && e3.code === 'USER_CODE_NOT_BOUND' && h.calls.length === 1, '  ↳ 가입 전(USER_CODE_NOT_BOUND)은 다시 안 함');
@@ -353,12 +352,9 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
         ok(f.calls[2].init.headers['X-Device-Id'] === 'dev-0001');
         await c.del('/d');
         ok(f.calls[3].init.method === 'DELETE' && f.calls[3].init.body === undefined && f.calls[3].init.headers.Authorization === 'Bearer tk');
-        let n = 0; const forces = [];
-        const g = mkFetch(() => (++n === 1 ? res(401, { success: false, code: 'AUTH_REQUIRED' }) : res(200, { success: true, data: 1 })));
-        ok((await M.createApiClient({ baseUrl: PROD, fetch: g, getToken: async (x) => { forces.push(x); return 't'; } }).get('/r', { auth: true })) === 1 && forces.join() === 'false,true');
         const h = mkFetch(() => res(401, { success: false, code: 'AUTH_REQUIRED' }));
         await err(M.createApiClient({ baseUrl: PROD, fetch: h, getToken: async () => 't' }).get('/r', { auth: true }));
-        ok(h.calls.length === 2);
+        ok(h.calls.length === 1);
         const nb = mkFetch(() => res(401, { success: false, code: 'USER_CODE_NOT_BOUND' }));
         await err(M.createApiClient({ baseUrl: PROD, fetch: nb, getToken: async () => 't' }).get('/me', { auth: true }));
         ok(nb.calls.length === 1);
@@ -426,8 +422,6 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
     const BREAKS = [
       ["        if(memo) headers['If-None-Match'] = memo.etag;", '', 'If-None-Match 를 안 보냄'],
       ["    if(typeof dev === 'string' && dev) h[DEVICE_HEADER] = dev;", '', '기기 머리를 안 붙임'],
-      ["      return once(path, ms, Object.assign({}, o, { force: true }));", "      return once(path, ms, o);", '다시 할 때 새 토큰을 안 받음'],
-      ["      if(!(o.auth && e instanceof ApiError && e.status === 401 && e.code === 'AUTH_REQUIRED')) throw e;", "      if(!(e instanceof ApiError && e.status === 401)) throw e;", '가입 전 · 로그인 없는 401 도 다시 보냄'],
       ["    if(status === 404 && NO_ROUTE_CODES.indexOf(code) >= 0)", "    if(status === 404)", '자원 없음 404 를 닿지 못함으로'],
       ["retryAfterMs: status === 429 ? retryAfterMsOf(headerOf(res, 'Retry-After')) : null", "retryAfterMs: null", 'Retry-After 를 버림'],
       ["    o.auth = o.auth !== false;", "", '쓰기가 로그인 없이 감'],
@@ -437,6 +431,7 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
       ["    if(o.expectOwner && tokenOwner(tok) !== o.expectOwner) throw", "    if(false) throw", '쓰기 직전 토큰 주인을 안 견줌'],
       ["    if(o.expectOwner && tokenOwner(tok) !== o.expectOwner) throw", "    if(o.expectOwner && tokenOwner(tok) === o.expectOwner) throw", '토큰 주인 견줌이 거꾸로'],
       ["    if(!force && 'tok' in o) tok = o.tok;", "    if(false) tok = o.tok;", '이미 받은 토큰을 또 받음'],
+      ["  const send = once;", "  const send = (p, m, o) => once(p, m, o).catch((e) => { if(e && e.status === 401) return once(p, m, o); throw e; });", '401 을 다시 보냄'],
       ["      try{ tok = getToken ? await Promise.race([getToken(false), to]) : null; }", "      try{ tok = getToken ? await getToken(false) : null; }", '토큰 받기가 시간 제한 밖'],
       ["return o.onOwner ? p.then((data) => { o.onOwner(a.who); return data; }) : p;", "return p;", 'onOwner 를 안 부름'],
       ["        memoKey = a.who + ' ' + path;", "        memoKey = path;", 'ETag 기억을 계정끼리 섞음'],

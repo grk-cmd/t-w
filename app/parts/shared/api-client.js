@@ -1,4 +1,5 @@
 /* api-client.js — 🌐 앱 공통 API 통로(우리 서버 /v2) (검사 sim-api-client.js)
+   [경로] 새 기능은 /v2 · 지금 남은 옛 읽기(원격 설정 · 카탈로그)는 /v1 — 경로는 부르는 쪽이 정한다.
    [왜] 기능마다 fetch · 시간 제한 · 봉투 풀기 · 실패 판정 · 토큰 · 기기 머리를 따로 만들지 않게 여기 한 곳에 둔다.
    [모양] get · post · put · patch · del → 성공 봉투 { success: true, data } 의 data(204 는 null). 실패는 늘 ApiError 하나로:
      kind 'unavailable' — 닿지 못함(네트워크 · 시간 초과 · 5xx · 길이 없는 404 · 봉투가 아닌 응답 · 쉬는 중).
@@ -15,7 +16,7 @@
      opts.expectOwner: 보내기 직전 쓸 토큰의 주인과 견줘 다르면 보내지 않고 code OWNER_CHANGED 로 끝낸다(요청 0) — 읽은 계정의 값을 다른 계정 토큰으로 쓰지 않게.
      opts.rawType: 본문(Uint8Array 등)을 JSON 으로 바꾸지 않고 이 Content-Type 으로 바이트 그대로 보낸다(그림 올리기).
      캐시 · 합치기 · 쉬기는 하지 않는다(쓰기는 매번 다르다). 다시 보내도 되는 쓰기는 본문 requestId 를 같은 값으로(request-id.js).
-   [로그인] 토큰은 deps.getToken(force). 없으면 보내지 않고 'auth'(code NO_TOKEN). 401 AUTH_REQUIRED 면 새 토큰으로 한 번만 다시.
+   [로그인] 토큰은 deps.getToken(force). 없으면 보내지 않고 'auth'(code NO_TOKEN).
      deps.deviceId 가 있으면 로그인 요청에 이 기기 id 머리 X-Device-Id 를 싣는다(0.12.4 앱은 기기 id 가 없어 넘기지 않는다).
    [쉬기] 'unavailable' 이면 BACKOFF_MS 동안 묻지 않고 곧장 'unavailable'(code BACKOFF) — 읽기만. 로그인 통로(authed)는 쉬지 않는다.
    [주소] 운영 앱 = 운영 API · dev 앱(--tw-firebase=dev) = dev API. dev 앱만 tw.apiBaseUrl 로 다른 주소(CSP 묶음 안)를 쓸 수 있다.
@@ -184,14 +185,8 @@ function createApiClient(deps){
     if(memoKey && typeof etag === 'string' && etag) remember(memoKey, etag, data);
     return data;
   }
-  /* 401 AUTH_REQUIRED(토큰이 막 끝남)면 새 토큰으로 한 번만 다시. 가입 전(USER_CODE_NOT_BOUND)은 다시 해도 같아서 그대로. */
-  function send(path, ms, o){
-    return once(path, ms, o).catch((e) => {
-      if(!(o.auth && e instanceof ApiError && e.status === 401 && e.code === 'AUTH_REQUIRED')) throw e;
-      onRequest();
-      return once(path, ms, Object.assign({}, o, { force: true }));
-    });
-  }
+  /* 한 번 보낸다 — 401 이어도 다시 보내지 않는다(자동 재시도 없음 · 사용자가 다시 누르는 것만). */
+  const send = once;
 
   /* 로그인 읽기에 쓸 토큰을 한 번 받는다 — 시간 제한과 겨룬다(토큰 갱신이 멈춰도 요청이 끝나지 않는 일이 없게).
      «누구»(who)는 같은 요청 합치기 열쇠에 들어간다. 토큰이 없으면 tok null · who '' (보내는 쪽이 NO_TOKEN 으로 거절) */
