@@ -15,6 +15,7 @@ const read = (f) => { for(const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' 
 const SRC = read('character/char-apply.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html');
 if(!SRC || !APP || !HTML){ say('  ? 원본 못 찾음 — char-apply.js · app.js · desk-companion-prototype.html'); process.exit(2); }
 
+const pending = [];
 const quat = () => ({ cloned: true, clone(){ return { cloned: true }; } });
 function mkSeat(o){
   return Object.assign({ desk: { userData: {} }, rig: { position: { z: 0 } }, deskMat: null, placeholder: { root: { visible: false, traverse(fn){ (this.meshes || []).forEach(fn); }, meshes: [] } },
@@ -37,10 +38,10 @@ function build(src, o){
     b64ToBuf: (b) => b, clampCharY: (v) => Math.max(0, Math.min(0.6, +v || 0)),
     commSceneCache: new Map(o.commCache || []), compositeFace: (s, f) => 'cv', creatorPrevMod: { clearHolderDeskItems: (s) => log.push('clearHolder') },
     curSlot: () => state.curSlot, customItems: () => state.customItems, defToBase: (d) => { log.push('defToBase'); return o.base || { group: {}, root: {}, faceMat: {}, fT: 'f', bT: 'b' }; },
-    deskItemsMod: () => ({ registerCustomItem(){} }),
+    deskItemsMod: () => ({ registerCustomItem: (id) => { if(o.reg) o.reg.push(id); } }),
     deskPlaceMod: () => ({ syncSeatDeskZ: (d) => log.push('syncZ'), setDeskScale: (d, s, l) => log.push('scale:' + s + ',' + l), setDeskPos: (d, p) => log.push('pos') }),
     deskVisualMod: () => ({ applyDeskCatalogRefToSeat: (s, d) => log.push('deskCatalog:' + (d.deskCatalogId || '')), swapDeskVisual(){} }),
-    fitModel: (s) => log.push('fit'), getCommissionScene: (g) => { log.push('comm:' + g); return Promise.resolve(); },
+    fitModel: (s) => log.push('fit'), getCommissionScene: (g) => { log.push('comm:' + g); return new Promise(() => {}); } /* 캐시에 안 채우는 가짜라 풀리면 applyCharToSeat 가 끝없이 다시 부른다 — 영영 안 풀리게 */,
     instantiateBase: (cs) => { log.push('inst'); return inst; }, lightToneMod: { _setDeskMatColor: (m, c) => log.push('deskColor') },
     matToneMod: { setFaceMap: (m, t) => log.push('faceMap'), applyLightPresetToInstance: (i) => log.push('tone') },
     mkFaceTex: (c) => 'tex', renderLauncher: () => log.push('renderLauncher'),
@@ -132,6 +133,13 @@ say('§3 applyCharToSeat');
   b.mod.applyCharToSeat(s, { xf: { s: 2, y: 0.1, rot: 1 } });
   chk(b.log.includes('defToBase') && b.log.includes('remove') && b.log.includes('add') && s.isPlaceholder === false && s.hasRig === false && s.placeholder.root.visible === false && s.userScale === 2 && b.log.includes('fit'), '몸을 못 만들면 기본 캐릭터로 폴백 — 옛 몸을 떼고 새로 붙이고 크기 넣기');
   chk(s.blink.closed === false, '  폴백도 눈 뜸으로 시작');
+  // 읽는 함수로 받은 값을 부를 때 읽는다 — 부팅 때 값이 굳지 않는다
+  b = build(SRC); b.state.baseAnims = ['LATE']; let got = null; b.deps.seatModelLoadMod.setupSeatModel = (s0, r0, a0) => { got = a0; };
+  s = mkSeat({}); b.mod.applyCharToSeat(s, {});
+  chk(got && got[0] === 'LATE', '★ 애니메이션 목록(BASE_ANIMS)은 입힐 때 읽는다(GLB 가 늦게 와도 최신 목록)');
+  const reg = []; b = build(SRC, { reg }); b.state.customItems = { have: {} };
+  s = mkSeat({}); b.mod.applyCharToSeat(s, { customItems: { have: { name: 'a', glb: 'g' }, nope: { name: 'b', glb: 'g2' } } });
+  pending.push(new Promise(r => setTimeout(r, 20)).then(() => chk(reg.length === 1 && reg[0] === 'nope', '내 목록에 없는 아이템 id 만 등록한다(이미 있는 id 는 건너뜀 — 비동기)')));
   // 선택된 좌석이면 슬라이더 값 채움
   { const me = mkSeat({}); b = build(SRC, { selected: me }); b.mod.applyCharToSeat(me, { xf: { s: 1.4, y: 0.2, rot: 3 } });
     chk(b.els.sScale.value === 1.4 && b.els.sY.value === 0.2 && b.els.sZ.value === 0 && b.els.sRot.value === 3, '고른 좌석이면 크기 · 높이 · 앞뒤 · 회전 슬라이더 값을 채운다');
@@ -153,6 +161,15 @@ say('§4 연결');
   chk(/const charApplyMod = TwCharApply\.createCharApply\(\{[\s\S]*?slots: slots,[\s\S]*?\}\);/.test(code), 'app.js — 만든다');
   chk(['_purgeSeatParts', 'refreshRiggedPartsXf', '_registerAnimalEarOn', 'applyCharToSeat'].every(n => new RegExp('^const ' + n + ' = charApplyMod\\.' + n + ';', 'm').test(code)), '  옛 이름 넷을 const 로 받는다');
   chk(!/function (applyCharToSeat|_purgeSeatParts|refreshRiggedPartsXf|_setPlaceholderPickable|_registerAnimalEarOn|_sweepAnimalEars)\b|window\.(rebuildAnimalSeats|registerAnimalEar)\s*=/.test(code), '  app.js 에 본문 · window 고리를 거는 줄이 안 남음(모듈이 건다)');
+  const mk = (APP.match(/const charApplyMod = TwCharApply\.createCharApply\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
+  const pairs = mk.split('\n').map(l => /^  ([\w$]+): (.+),$/.exec(l)).filter(Boolean).map(m => [m[1], m[2]]);
+  const READ = ['BASE_ANIMS', 'assetCodeMod', 'curSlot', 'customItems', 'deskItemsMod', 'deskPlaceMod', 'deskVisualMod'];
+  const FN = ['applyEquippedPartsToSeat', 'applyPartXf', 'b64ToBuf', 'compositeFace', 'defToBase', 'getCommissionScene', 'instantiateBase', 'mkFaceTex', 'renderLauncher', 'unequipPartFromSeat', 'unequipStackablePart'];
+  const shape = (n, v) => READ.includes(n) ? v === '()=>' + n : FN.includes(n) ? v === '(...a)=>' + n + '(...a)' : v === n;
+  chk(pairs.length === 37 && pairs.every(([n, v]) => shape(n, v)), '★ deps 37개 모양 — 읽는 함수 일곱은 ()=>이름 · 함수 열하나는 (...a)=>이름(...a) · 값 열아홉은 이름 그대로(값과 읽는 함수를 바꿔 넘기면 빨강)' + (pairs.length === 37 ? '' : ' — ' + pairs.length + '개'));
+  const mk2 = mk.replace('  curSlot: ()=>curSlot,', '  curSlot: curSlot,').replace('  seats: seats,', '  seats: ()=>seats,');
+  const p2 = mk2.split('\n').map(l => /^  ([\w$]+): (.+),$/.exec(l)).filter(Boolean).map(m => [m[1], m[2]]);
+  chk(!p2.every(([n, v]) => shape(n, v)), '  깨 보기: 읽는 함수를 값으로 · 값을 읽는 함수로 바꿔 넘기면 빨강');
   const AN = read('character/animal.js') || '';
   chk(/window\.rebuildAnimalSeats\(\)/.test(AN) && /window\.registerAnimalEar\(/.test(AN), '  그 고리를 부르는 쪽(animal.js)이 그대로 있다');
 }
@@ -171,9 +188,13 @@ say('§5 일부러 깨 보기');
   chk(!!m5 && (() => { const b = build(m5); const s = mkSeat({ bones: {} }); const w = { quaternion: quat() }; b.mod._registerAnimalEarOn(s, w); b.mod._registerAnimalEarOn(s, w); return s.bones.ear.length === 2; })(), '귀 중복 등록 방지를 빼면 빨강');
   const m6 = brk("window.rebuildAnimalSeats=function(){", "window.rebuildAnimalSeatsX=function(){");
   chk(!!m6 && build(m6).win.rebuildAnimalSeats === undefined, 'window.rebuildAnimalSeats 고리를 빼면 빨강');
+  const m8 = brk("seat, inst.root, BASE_ANIMS(),", "seat, inst.root, [],");
+  chk(!!m8 && (() => { const b = build(m8); b.state.baseAnims = ['LATE']; let got = null; b.deps.seatModelLoadMod.setupSeatModel = (s0, r0, a0) => { got = a0; }; b.mod.applyCharToSeat(mkSeat({}), {}); return !(got && got[0] === 'LATE'); })(), '애니메이션 목록을 읽지 않으면 빨강');
   const m7 = brk("seat.userY=clampCharY(xf.y);", "seat.userY=xf.y;");
   chk(!!m7 && (() => { const b = build(m7); const s = mkSeat({}); b.mod.applyCharToSeat(s, { xf: { y: 9 } }); return s.userY === 9; })(), '높이 상한을 빼면 빨강');
 }
-say('');
-say((fail ? '✗' : '✓') + ' 통과 ' + pass + ' · 실패 ' + fail);
-process.exit(fail ? 1 : 0);
+Promise.all(pending).then(() => {
+  say('');
+  say((fail ? '✗' : '✓') + ' 통과 ' + pass + ' · 실패 ' + fail);
+  process.exit(fail ? 1 : 0);
+});

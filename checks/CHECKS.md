@@ -226,7 +226,7 @@
 | **sim-seat-opacity-mod.js** | 84 | **d509bc1008a1** |
 | **sim-seat-state.js** | 154 | **d88cad7215f7** |
 | **sim-seat-pointer.js** | 203 | **b28e4d892a5a** |
-| **sim-char-apply.js** | 179 | **d0de5cd40dc2** |
+| **sim-char-apply.js** | 200 | **4f53e57d20c1** |
 | **sim-wd-ear.js** | 366 | **8a1e093afa86** |
 | **sim-uv-fill.js** | 102 | **f4cb774248be** |
 | **sim-paint-tools.js** | 296 | **e999a08d5185** |
