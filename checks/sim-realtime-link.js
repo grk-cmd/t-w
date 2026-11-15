@@ -149,7 +149,7 @@ async function up(env){
     for(const [why, gv] of [['null', async () => null], ['빈 글', async () => ''], ['던짐', async () => { throw new Error('no companion'); }]]){
       const ev = mk({ getVersion: gv });
       const rv = await ev.link.ensureReady();
-      chk(rv.ok === false && rv.code === 'version' && ev.socks.length === 0 && JSON.stringify(ev.log.closed) === '[[false,"version"]]' && ev.log.warns === 1, '★ 버전을 못 읽음(' + why + ') — 소켓 안 열고 version 으로 끝 · onClosed(false, version) · console.warn(가짜 버전을 보내지 않는다)');
+      chk(rv.ok === false && rv.code === 'appVersion' && ev.socks.length === 0 && JSON.stringify(ev.log.closed) === '[[false,"appVersion"]]' && ev.log.warns === 1, '★ 버전을 못 읽음(' + why + ') — 소켓 안 열고 appVersion 으로 끝 · onClosed(false, appVersion) · console.warn(가짜 버전을 보내지 않는다)');
     }
     {
       const fake = SRC.replace("if(typeof ver !== 'string' || !ver){", "if(false){").replace('token = tk; helloVer = ver;', "token = tk; helloVer = (typeof ver === 'string' && ver) ? ver : '0.0.0';");

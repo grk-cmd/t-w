@@ -105,7 +105,7 @@ export function createRealtimeLink(deps){
     /* 앱 버전을 못 읽으면 hello 를 만들 수 없다 — 가짜 버전('0.0.0')을 보내지 않는다. 이번 시도를 실패로 끝내고(번호 없는 닫힘 = 백오프로 다시 시도) 까닭을 남긴다. */
     if(typeof ver !== 'string' || !ver){
       try{ (deps.log || console).warn('[realtime] 앱 버전을 읽지 못해 연결하지 않습니다 — 가짜 버전을 보내지 않음', verErr || ver); }catch(_){}
-      fatal = 'version'; closed(); return;
+      fatal = 'appVersion'; closed(); return;   // 서버가 «앱이 낡았다» 고 거절한 'version' 과 다른 이름 — 로컬에서 버전을 못 읽은 것
     }
     token = tk; helloVer = ver;
     let sock;

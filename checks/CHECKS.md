@@ -390,7 +390,7 @@
 | **sim-outside-close.js** | 95 | **2e61ab5a3e9c** |
 | **sim-wardrobe-panel.js** | 95 | **1070574caf86** |
 | **sim-race-picker.js** | 99 | **a7878b17f66a** |
-| **sim-realtime-link.js** | 442 | **f112d98dc111** |
+| **sim-realtime-link.js** | 442 | **52bdfdd76441** |
 | **sim-lv-tier.js** | 96 | **ba1de093723c** |
 | **sim-theme.js** | 96 | **1f4b87d7c9d7** |
 | **sim-license-ui.js** | 96 | **65a051e081d7** |
