@@ -69,7 +69,7 @@
 | 파일 | 줄 | sha256[:12] |
 |---|---|---|
 | **audit.py** | 932 | **2ebbf483a2a2** |
-| **smoke.js** | 788 | **ed192c2c9319** |
+| **smoke.js** | 794 | **b16fe4521d7d** |
 | **sim-account-switch.js** | 454 | **23355be81363** |
 | **sim-admin-rules.js** | 410 | **e594e47939e2** || · 아래 칸 · 쓰기 없음** · **개정 163 1절 관리자 서버 봇(apiBots) — admins · licenses 읽기만 · 봇 명단 잠김** · **개정 129 7절 할 일 공용 메모(adminTodoNote) — 관리자만 · rev + 1 · 0~2000자 · 서버 시각** · **개정 127 7절 할 일 종류(type) feat · bug · 없어도 됨** · **개정 126 1절 config/releaseAnswerTpl 관리자만 · 7절 릴리스 답변 템플릿 1~1000자 글자 · 지우기 관리자만 · 읽기 관리자만** · **개정 123 7절 할 일 릴리스 버전(release) 모양 · 20자 · 없어도 됨** · **개정 118 7절 관리자 할 일(adminTodos) — 관리자만 · rev + 1 만(덮어쓰기 막기) · 작업자는 관리자 uid · 제보 id 모양 · 관리자 이름(adminNames) 본인 칸만** · **개정 99 1절 metrics/improvements 관리자 쓰기 · 모양(버전 · 제목 · 항목 20개 · 적용 일수 0~30)** · **개정 95 1절 config/bugDailyMax 관리자만** · **개정 87 1절 config/minAppVer 관리자만** · **2026-10-08 1절 bugBoard/ans/pub · ans/prv 관리자만 · 2절 버그제보 글쓰기(본인 uid · 본인 코드 · 새 글만) · 👍 본인 표시 하나** · **2026-10-07 3절 metrics(접속 지표) 읽기 관리자만 · 쓰기 규칙 없음** · **2026-10-06 1절 inboxBroadcastMeta 관리자만** · **2026-10-06 1절 catalogMeta/$kind 관리자만** · **2026-10-05 6절 관리자 작업 기록(adminLog) — 규칙식을 굴려 관리자만 · 새로 쓰기만 · by · 서버 시각 · 길이 · 90일 지난 것만 지우기 · invites 목록 관리자 읽기(issuedBy 색인) · 코드 하나는 누구나** · **2026-10-04 licenseRequests 친구코드(선택 · MATE/COZY 형식) · accountSnap 목록 관리자 읽기** · **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
 | **sim-char-core-load.js** | 89 | **740ecf90c6f1** |
@@ -101,7 +101,7 @@
 | **sim-fix-1016b.js** | 84 | **55d2d7d90ae9** |
 | **sim-fix-1016.js** | 170 | **7724abcbddfe** |
 | **sim-gl-recover.js** | 161 | **b617e6d90e9c** |
-| **sim-gl-context.js** | 114 | **4ef5739b53c4** |
+| **sim-gl-context.js** | 114 | **f26b91a466fd** |
 | **sim-chat-copy.js** | 86 | **0e24f604f42f** |
 | **sim-chat-delete-log.js** | 90 | **d987e49be2b8** |
 | **sim-chat-log-persist.js** | 160 | **886c6f8cad51** |
@@ -170,7 +170,7 @@
 | **sim-fix-0923.js** | 297 | **522d07f95e45** |
 | **sim-noise.js** | 146 | **62071145eda2** |
 | **sim-mobile-focus.js** | 219 | **cea5e48561c1** |
-| **sim-figure-mode.js** | 158 | **818b00e75802** |
+| **sim-figure-mode.js** | 159 | **706f14337eac** |
 | **sim-mac-0923.js** | 87 | **a46e56f3e317** |
 | **sim-bookmark.js** | 185 | **e1348542421e** |
 | **sim-overlay-gap.js** | 343 | **174f9cc83500** |
@@ -225,14 +225,17 @@
 | **sim-fit-model.js** | 162 | **ef5b499a4519** |
 | **sim-user-status.js** | 178 | **f7a4242b2242** |
 | **sim-seat-opacity-mod.js** | 84 | **d509bc1008a1** |
-| **sim-seat-state.js** | 154 | **d88cad7215f7** |
+| **sim-seat-state.js** | 154 | **f29fa8595928** |
 | **sim-seat-pointer.js** | 203 | **b28e4d892a5a** |
 | **sim-char-apply.js** | 200 | **52cf4fa5c3d8** |
-| **sim-app-mode.js** | 137 | **eef487a7aabd** |
+| **sim-app-mode.js** | 138 | **dc504c2279a2** |
 | **sim-office-mode.js** | 91 | **d956e66a4209** |
 | **sim-ls-set.js** | 52 | **ad74c91268cc** |
 | **sim-rig-anim.js** | 92 | **57328d0eb014** |
 | **sim-frame-pace.js** | 110 | **b709e852945f** |
+| **sim-window-mode.js** | 123 | **a202fa26b2bc** |
+| **sim-creator-open.js** | 104 | **41cb129fb04c** |
+| **sim-creator-canvas.js** | 132 | **7aaa8c152499** |
 | **sim-frame-loop.js** | 108 | **620d2c668ed6** |
 | **sim-flying-chair.js** | 96 | **fb813aeb71f9** |
 | **sim-move-mode.js** | 101 | **baffe35fd143** |
@@ -255,11 +258,11 @@
 | **sim-help-tab.js** | 200 | **1877f429bfdc** |
 | **sim-unfocused-fps.js** | 177 | **8a40c76659ec** |
 | **sim-purikura-fish.js** | 169 | **90c65a1bc566** |
-| **sim-creator-flat-view.js** | 128 | **ad04f512ac81** |
-| **sim-creator-xform.js** | 207 | **540025aaba06** |
-| **sim-cr-stamp.js** | 210 | **aaa16fef5c4b** |
-| **sim-creator-state.js** | 105 | **4e0daf68f5c8** |
-| **sim-paint-stroke.js** | 194 | **d25ac9eb8388** |
+| **sim-creator-flat-view.js** | 128 | **98d31f12c529** |
+| **sim-creator-xform.js** | 207 | **971fbaef381e** |
+| **sim-cr-stamp.js** | 210 | **26af24c0b206** |
+| **sim-creator-state.js** | 105 | **a9615dbf57a3** |
+| **sim-paint-stroke.js** | 194 | **fb31b89802e3** |
 | **sim-creator-flow.js** | 196 | **24a3d06e5a4e** |
 | **sim-creator-save.js** | 230 | **ade3bb959cfc** |
 | **sim-commission-import.js** | 190 | **6c80a45a1abe** |
@@ -278,12 +281,12 @@
 | **sim-asset-import.js** | 174 | **23c1ae52e3f9** |
 | **sim-asset-cards.js** | 151 | **4043cca67af1** |
 | **sim-scheduler.js** | 312 | **6d34e08cdd34** |
-| **sim-weekly-challenge.js** | 345 | **35279543c804** |
+| **sim-weekly-challenge.js** | 345 | **b7e524e4c5a5** |
 | **sim-purikura-ui.js** | 277 | **7a40aac7d032** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
 | **sim-guestbook.js** | 294 | **177f4506d26a** |
 | **sim-friend-manage-module.js** | 309 | **1a09c072d659** |
-| **sim-pomodoro-module.js** | 228 | **cfb5680616ad** |
+| **sim-pomodoro-module.js** | 228 | **87c30b512de0** |
 | **sim-myhome-sticker.js** | 415 | **6a7c58901fb9** |
 | **sim-gacha.js** | 510 | **9491aa00bd7b** |
 | **sim-myhome-edit.js** | 617 | **8ee763130a25** |
@@ -328,7 +331,7 @@
 | **sim-admin-mode.js** | 133 | **437afbc7bb20** |
 | **sim-report.js** | 139 | **144912a9daf0** |
 | **sim-my-info.js** | 98 | **5f6f1de826c8** |
-| **sim-renderer-src.js** | 291 | **15adb7cedf2e** |
+| **sim-renderer-src.js** | 294 | **3fc1ec375788** |
 | **sim-chars.js** | 94 | **f9cca0b353e7** |
 | **sim-slot-sync-mod.js** | 94 | **a2485a292a4e** |
 | **sim-away-pic.js** | 94 | **02105f2b9019** |
@@ -412,7 +415,7 @@
 | **sim-myhome-hooks.js** | 99 | **a7ccbffbc7b3** |
 | **sim-demoji-catalog.js** | 80 | **36e4e0c7b848** |
 | **sim-hook-guards.js** | 77 | **0e8ccbe59d09** |
-| **sim-typeof-guards.js** | 134 | **ca523048c634** |
+| **sim-typeof-guards.js** | 133 | **a0247b58f400** |
 | **sim-user-name.js** | 92 | **74e9a7a6d03a** |
 | **sim-part-scene.js** | 215 | **81ae3f394347** |
 | **sim-admin-thumbs.js** | 152 | **a364b1c70728** |
