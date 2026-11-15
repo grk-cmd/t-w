@@ -15,6 +15,7 @@
    deleteMyAccount — 회원 탈퇴(호출형 · 로그인한 본인). 앱 [내 정보 › 계정 › 회원 탈퇴]가 부른다. 로직은 account-delete.js.
    adminResetPassword — 비밀번호 초기화(호출형 · 관리자만). 웹 관리자 사용자 상세가 부른다 — 무작위 임시 비밀번호 · 다른 PC 로그인 끊기 · 작업 기록. 로직은 password-reset.js.
    mobileLinkTrim — 폰 연결 주소에 낀 공백 떼기. mobileLink/{코드}/state 쓰기마다 코드에 공백이 있으면 정상 칸으로 옮긴다. 로직은 mobile-link-trim.js.
+   xmasHang · xmasMatch · xmasAdminRemove — 🎄 크리스마스 이벤트(일회성 · 1월 1일 전에 걷는다 · 이슈 #963). 장식 걸기 · 바꾸기 / 12/25 0시 편지 짝 짓기 / 관리자 지우기. 로직은 xmas.js.
    chatLogDeleted · chatTabDeleted — 대화 기록(chatLog · _chatTab/{탭})이 통째로 지워지면 누가(authType · authId) · 몇 줄 · 표시 줄 유무를 로그에 남긴다(지우기는 막지 않음 · 글은 안 남김). 로직은 chat-delete-log.js.
 
    changePassword (호출형 · onCall)
@@ -381,3 +382,33 @@ exports.deleteMyAccount = onCall({ timeoutSeconds: 300, maxInstances: 5 },
       throw new HttpsError('internal', '탈퇴 중에 문제가 생겼어요 — 잠시 뒤 다시 눌러 주세요(남은 것부터 이어서 지워요)');
     }
   });
+
+/* 🎄 크리스마스 이벤트 — 일회성(2026). 1월 1일 전에 이 셋 · xmas.js · 규칙의 xmas* 칸을 걷는다(이슈 #963).
+   xmasHang: 장식 걸기 · 바꾸기 — 트리 자리는 트랜잭션으로(트리당 300개). 금칙어는 방 제목과 같은 목록. */
+function xmasCall(name, fn){
+  return async (request) => {
+    try { return await fn(request); } catch (e) {
+      if (e && e.httpsCode) throw new HttpsError(e.httpsCode, e.message);
+      console.error('[' + name + '] 실패', e && e.message);
+      throw new HttpsError('internal', '잠시 뒤 다시 눌러 주세요');
+    }
+  };
+}
+exports.xmasHang = onCall({ timeoutSeconds: 30, maxInstances: 5 }, xmasCall('xmasHang', async (request) => {
+  const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
+  const db = getDatabase();
+  const bw = require('./banned-words');
+  const list = bw.cleanBannedList((await db.ref('config/bannedWords').get()).val());
+  return require('./xmas').handleHang(db, request, Date.now(), { banned: (w) => bw.hasBannedWord(w, list) });
+}));
+// 12/25 0시(서울) 한 번 — 편지를 쓴 사람끼리 짝 지어 «쓴 만큼» 받게. 두 번 돌아도 matchedAt 이 막는다.
+exports.xmasMatch = onSchedule({ schedule: '0 0 25 12 *', timeZone: 'Asia/Seoul', timeoutSeconds: 540, retryCount: 0, maxInstances: 1 },
+  async () => {
+    const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
+    const r = await require('./xmas').runMatch(getDatabase(), Date.now());
+    console.log('[xmasMatch]', JSON.stringify(r));
+  });
+exports.xmasAdminRemove = onCall({ timeoutSeconds: 30, maxInstances: 2 }, xmasCall('xmasAdminRemove', async (request) => {
+  const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
+  return require('./xmas').handleAdminRemove(getDatabase(), request);
+}));
