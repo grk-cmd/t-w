@@ -6837,7 +6837,7 @@ const commissionMod = TwCommission.createCommission({
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   accountStore: accountStoreMod,
 });
-/* 저장된 아이템(이 계정이 코드로 추가한 것)은 확인 뒤 계정 칸에서 읽는다(userLocal 칸 savedAssets) — 만들 때는 비어 있다. 카탈로그 아이템은 카탈로그 동기화가 등록한다. */
+/* 저장된 아이템(이 계정이 코드로 추가한 것)은 확인 뒤 계정 칸에서 읽는다(userLocal 칸 savedItems) — 만들 때는 비어 있다. 카탈로그 아이템은 카탈로그 동기화가 등록한다. */
 /* 커스텀 아이템 레지스트리 (생성기 세션) */
 let customItems={};
 
@@ -7753,7 +7753,7 @@ const desktopMode = !!window.companion || /[?&]desktop=1/.test(location.search);
 
    [왜 필요한가] localStorage 쓰기는 이 파일에서 99곳이고 그중 58곳이 `catch(e){}` 로 비어 있다.
      이 앱은 얼굴 PNG·커미션 GLB 까지 로컬에 넣으므로 저장 공간이 실제로 찬다
-     (persistSavedParts·persistSavedDesks 의 '저장 공간이 부족해요' 가 그 신호다).
+     (persistSavedParts·persistSavedAssets 가 쓰기를 못 하면 E-CHAR-24 로 알린다 — 그 신호다).
      꽉 차면 **새 키는 만들어지지 않는데 화면에는 아무 표시도 안 난다** — 그러면
      "설정을 켜도 다시 켜면 꺼져 있다"가 되고, 제보에는 원인이 하나도 안 실린다.
      같은 증상이 일부 사용자에게서만 나는 것도 이 성질과 맞는다(그 기기만 저장이 꽉 찼다).
