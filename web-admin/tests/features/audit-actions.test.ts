@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { publishAnnounce } from '@/entities/notice/announce';
+import { publishAnnounce } from '@/entities/notice/announce/api/firebase';
 import type { CatalogEntry } from '@/entities/catalog';
-import { sendBroadcast } from '@/entities/inbox';
+import { sendBroadcast } from '@/entities/inbox/api/firebase';
 import { createLicense } from '@/entities/license';
 import { closeRooms } from '@/entities/room';
 import { deleteEntries } from '@/features/catalog/delete-entries';
@@ -9,7 +9,7 @@ import { approveRequest, approveRequests, rejectRequest } from '@/features/licen
 import { grantRow, type PlanRow } from '@/features/license/bulk-grant';
 import { grantByFriendCode } from '@/features/license/grant-by-code';
 import { removeKeys, revokeKeys } from '@/features/license/revoke-key';
-import { closeAllRooms } from '@/features/room/close-room';
+import { closeAllRooms } from '@/entities/room/api/firebase';
 import {
   createInviteCodes,
   grantInvites,

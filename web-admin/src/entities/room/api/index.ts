@@ -11,7 +11,7 @@ export function useRoomPort(): RoomPort {
   return useMemo(
     () =>
       pickBackend<RoomPort>({
-        firebase: () => createFirebaseRoomPort(db),
+        firebase: () => createFirebaseRoomPort(db, api),
         api: () => createServerRoomPort(api),
       }),
     [db, api],

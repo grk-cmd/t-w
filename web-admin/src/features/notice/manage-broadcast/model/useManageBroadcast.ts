@@ -1,35 +1,44 @@
 import { useMutation } from '@tanstack/react-query';
-import { useRefreshBroadcasts } from '@/entities/inbox';
-import { useDb } from '@/shared/api';
-import { deleteBroadcasts, setBroadcastsPinned } from './manageBroadcasts';
+import { useBroadcastPort, useRefreshBroadcasts } from '@/entities/inbox';
+import { refreshOnConflict } from '@/shared/api';
 
 // 하나도 여럿과 같은 길(한 묶음 + 기록 한 줄)로 보낸다.
 export function useTogglePin() {
-  const db = useDb();
+  const port = useBroadcastPort();
   const refresh = useRefreshBroadcasts();
   return useMutation({
-    mutationFn: ({ id, pinned }: { id: string; pinned: boolean }) => setBroadcastsPinned(db, [id], pinned),
+    mutationFn: ({ id, pinned }: { id: string; pinned: boolean }) => port.setPinned([id], pinned),
     onSuccess: refresh,
+    onError: refreshOnConflict(refresh),
   });
 }
 
 export function useDeleteBroadcast() {
-  const db = useDb();
+  const port = useBroadcastPort();
   const refresh = useRefreshBroadcasts();
-  return useMutation({ mutationFn: (id: string) => deleteBroadcasts(db, [id]), onSuccess: refresh });
+  return useMutation({
+    mutationFn: (id: string) => port.remove([id]),
+    onSuccess: refresh,
+    onError: refreshOnConflict(refresh),
+  });
 }
 
 export function usePinBroadcasts() {
-  const db = useDb();
+  const port = useBroadcastPort();
   const refresh = useRefreshBroadcasts();
   return useMutation({
-    mutationFn: ({ ids, pinned }: { ids: string[]; pinned: boolean }) => setBroadcastsPinned(db, ids, pinned),
+    mutationFn: ({ ids, pinned }: { ids: string[]; pinned: boolean }) => port.setPinned(ids, pinned),
     onSuccess: refresh,
+    onError: refreshOnConflict(refresh),
   });
 }
 
 export function useDeleteBroadcasts() {
-  const db = useDb();
+  const port = useBroadcastPort();
   const refresh = useRefreshBroadcasts();
-  return useMutation({ mutationFn: (ids: string[]) => deleteBroadcasts(db, ids), onSuccess: refresh });
+  return useMutation({
+    mutationFn: (ids: string[]) => port.remove(ids),
+    onSuccess: refresh,
+    onError: refreshOnConflict(refresh),
+  });
 }

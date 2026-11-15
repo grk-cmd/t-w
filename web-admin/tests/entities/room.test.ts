@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   allRoomCodes,
-  closeRooms,
   closeRoomsWrite,
   filterRooms,
   formatAgo,
-  getLiveRooms,
   ghostCodes,
   isMemberKey,
   isRoomAlive,
@@ -14,8 +12,6 @@ import {
   normalizeRoomCode,
   orphanCodes,
   parseLiveRooms,
-  probeRoom,
-  probeRooms,
   ROOM_LIVE_MS,
   ROOM_TOTAL_LIMITS,
   roomRows,
@@ -25,6 +21,7 @@ import {
   countRoomStates,
   serverOf,
 } from '@/entities/room';
+import { closeRooms, getLiveRooms, probeRoom, probeRooms } from '@/entities/room/api/firebase';
 import { fakeDb, withoutAudits } from '../shared/fakeDb';
 import { unusedWrites } from '../shared/fakeApi';
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { InboxBroadcast } from '@/entities/inbox';
-import { deleteBroadcasts, pinTargets, setBroadcastsPinned } from '@/features/notice/manage-broadcast';
+import { deleteBroadcasts, setBroadcastsPinned } from '@/entities/inbox/api/firebase';
+import { pinTargets } from '@/features/notice/manage-broadcast';
 import { auditsOf, fakeDb, NOW, withoutAudits } from '../shared/fakeDb';
 
 const b = (id: string, pinned: boolean): InboxBroadcast => ({

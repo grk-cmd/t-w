@@ -1,22 +1,17 @@
 import { useMutation } from '@tanstack/react-query';
-import {
-  clearUpdateNotice,
-  publishUpdateNotice,
-  useRefreshUpdateNotice,
-} from '@/entities/notice/update-notice';
-import { useDb } from '@/shared/api';
+import { useRefreshUpdateNotice, useUpdateNoticePort } from '@/entities/notice/update-notice';
 
 export function usePublishUpdateNotice() {
-  const db = useDb();
+  const port = useUpdateNoticePort();
   const refresh = useRefreshUpdateNotice();
   return useMutation({
-    mutationFn: ({ title, body }: { title: string; body: string }) => publishUpdateNotice(db, title, body),
+    mutationFn: ({ title, body }: { title: string; body: string }) => port.publish(title, body),
     onSuccess: refresh,
   });
 }
 
 export function useClearUpdateNotice() {
-  const db = useDb();
+  const port = useUpdateNoticePort();
   const refresh = useRefreshUpdateNotice();
-  return useMutation({ mutationFn: () => clearUpdateNotice(db), onSuccess: refresh });
+  return useMutation({ mutationFn: () => port.clear(), onSuccess: refresh });
 }

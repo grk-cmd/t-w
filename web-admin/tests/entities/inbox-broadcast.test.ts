@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { checkBroadcast, listBroadcasts, sendBroadcast, sortBroadcasts } from '@/entities/inbox';
+import { checkBroadcast, sortBroadcasts } from '@/entities/inbox';
+import { listBroadcasts, sendBroadcast } from '@/entities/inbox/api/firebase';
 import { fakeDb, withoutAudits, NOW } from '../shared/fakeDb';
 
 const msg = { tag: 'update' as const, title: ' 새 버전 ', body: ' 고친 점 ' };

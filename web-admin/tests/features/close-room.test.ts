@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  closeAllRooms,
-  closeRoom,
-  closeSelectedRooms,
-  isCloseAllConfirmed,
-} from '@/features/room/close-room';
+import { closeAllRooms, closeRoom, closeSelectedRooms } from '@/entities/room/api/firebase';
+import { isCloseAllConfirmed } from '@/features/room/close-room';
 import { fakeDb, withoutAudits } from '../shared/fakeDb';
 
 describe('방 종료', () => {

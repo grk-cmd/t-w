@@ -1,11 +1,4 @@
 export {
-  closeRooms,
-  getLiveRooms,
-  getRoomCodes,
-  getRoomIndex,
-  probeRoom,
-  probeRooms,
-  serverNow,
   useLiveRooms,
   useRefreshRooms,
   useRoomCodes,
@@ -14,6 +7,8 @@ export {
   useRoomStats,
   useSnapshotNow,
 } from './api/room';
+// Firebase 판에만 있는 유령 방 청소가 쓴다 — D12-Z 에서 그 화면과 함께 걷는다.
+export { closeRooms, getRoomIndex, probeRoom, serverNow } from './api/firebase';
 export {
   allRoomCodes,
   CHANNEL_LABEL,

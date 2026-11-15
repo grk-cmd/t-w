@@ -1,22 +1,27 @@
 import { useMutation } from '@tanstack/react-query';
-import { useRefreshRooms } from '@/entities/room';
-import { useDb } from '@/shared/api';
-import { closeAllRooms, closeRoom, closeSelectedRooms } from './closeRoom';
+import { useRefreshRooms, useRoomPort } from '@/entities/room';
 
 export function useCloseRoom() {
-  const db = useDb();
+  const port = useRoomPort();
   const refresh = useRefreshRooms();
-  return useMutation({ mutationFn: (code: string) => closeRoom(db, code), onSettled: refresh });
+  return useMutation({ mutationFn: (code: string) => port.close([code]), onSettled: refresh });
 }
 
 export function useCloseAllRooms() {
-  const db = useDb();
+  const port = useRoomPort();
   const refresh = useRefreshRooms();
-  return useMutation({ mutationFn: () => closeAllRooms(db), onSettled: refresh });
+  return useMutation({ mutationFn: () => port.closeAll(), onSettled: refresh });
 }
 
+/** 고른 방들을 한 묶음으로 닫는다 — 하나라도 규칙에 막히면 아무 방도 지워지지 않는다. */
 export function useCloseSelectedRooms() {
-  const db = useDb();
+  const port = useRoomPort();
   const refresh = useRefreshRooms();
-  return useMutation({ mutationFn: (codes: string[]) => closeSelectedRooms(db, codes), onSettled: refresh });
+  return useMutation({
+    mutationFn: async (codes: string[]) => {
+      await port.close(codes);
+      return codes.length;
+    },
+    onSettled: refresh,
+  });
 }
