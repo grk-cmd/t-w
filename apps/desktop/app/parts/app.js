@@ -636,6 +636,7 @@ try{ window.ANIMAL_RUN_SCALE = ANIMAL_RUN_SCALE; }catch(_){}
 /* 본문은 character/seat-equalize.js 로 옮겼다(구역 떼기 C · w1).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const seatEqMod = TwSeatEqualize.createSeatEqualize({
+  seatEqAccountStore: accountStoreMod,
   ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
   clampCharY: (...a)=>clampCharY(...a),
   findMySeat: (...a)=>findMySeat(...a),
@@ -649,6 +650,7 @@ let roomSeatMode = window.TwSeatPin ? TwSeatPin.loadMode(localStorage) : 'row'; 
 /* 본문은 character/deco-parts-visibility.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const decoPartsMod = TwDecoPartsVisibility.createDecoPartsVisibility({
+  decoAccountStore: accountStoreMod,
   premiumMod: ()=>premiumMod,
 });
 /* (구역 떼기 C · w1) 이 자리의 본문도 character/seat-equalize.js 로 옮겼다 — 만드는 줄은 첫 자리. */
@@ -3384,6 +3386,7 @@ window.addEventListener('mousemove', e=>{
 /* 본문은 floaters.js 로 옮겼다(앱 FSD 46번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const floatersMod = TwFloaters.createFloaters({
+  floatersAccountStore: accountStoreMod,
   ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
   focusCharScale: ()=>focusCharScale,
   scene: scene,
@@ -8295,6 +8298,14 @@ const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
   presence: Presence,
 });
 
+/* 🗂️ 이 계정이 이 PC 에서 고른 것 — 모듈은 처음 값으로 만들고, 계정 칸이 열린 뒤(app-boot 의 userLocal 칸) 여기서 읽어 채운다. 세션이 끝나면 처음 값으로 되돌린다(launcher/user-local.js).
+   조각을 더할 때: 그 모듈이 loadLocal · resetLocal 을 내놓고 여기 한 줄. 읽은 값이 화면에 걸려 있으면 load 에서 다시 그린다. */
+const userLocalMod = TwUserLocal.createUserLocal({ parts: [
+  { name: 'seatEq', load: ()=>{ seatEqMod.loadLocal(); if(seatEqMod.seatEqualizeOn()) layoutSeats(); }, reset: ()=>{ const was = seatEqMod.seatEqualizeOn(); seatEqMod.resetLocal(); if(was) layoutSeats(); } },
+  { name: 'decoParts', load: ()=>{ decoPartsMod.loadLocal(); if(!decoPartsMod.decoPartsVisible()) seats.forEach(s=>applyClothVisibility(s)); }, reset: ()=>{ const was = decoPartsMod.decoPartsVisible(); decoPartsMod.resetLocal(); if(!was) seats.forEach(s=>applyClothVisibility(s)); } },
+  { name: 'emojiReactions', load: ()=>floatersMod.loadLocal(), reset: ()=>floatersMod.resetLocal() },
+] });
+
 /* 🚀 켜는 순서 한 곳(launcher/app-boot.js) — 계정 확인(license-gate.js)이 nav 로 «계정에 들어감» 을 알리면 옛 PC 값 옮기기 → realtime → 아래 차례대로 계정 기능을 시작한다.
    ⚠️ 차례 표는 app-boot.js STEPS — 여기 starts 는 그 이름마다 하나씩(빠지거나 남으면 만들 때 던진다). 계정 기능을 새로 만들면 만들 때 일하지 말고 여기에 건다. */
 const appBoot = TwAppBoot.createAppBoot({
@@ -8308,6 +8319,7 @@ const appBoot = TwAppBoot.createAppBoot({
   }),
   goOnline: ()=>loginFlowMod.goOnline(),
   starts: {
+    userLocal: (code, me, session)=>userLocalMod.start(session),
     focusTotal: ()=>focusTotalMod.startFocusTotal(),
     focusShare: ()=>focusShareMod.startFocusShare(),
     focusLevel: (code, me, session)=>{ focusProgressMod.startFocus(code, me, session); focusLevelMod.startMobile(code, me, session); },

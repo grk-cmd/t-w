@@ -429,7 +429,7 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
   const eqBtn=document.getElementById('fsSeatEqToggle');
   if(eqBtn) eqBtn.onclick=()=>{
     setSeatEqualizeOn(!seatEqualizeOn());
-    try{ localStorage.setItem('tw.seatEq', seatEqualizeOn()?'1':'0'); }catch(_){}
+    try{ settingsAccountStore.set('tw.seatEq', seatEqualizeOn()?'1':'0'); }catch(_){}
     refreshToggleBtns();
     /* ⚠️ syncSeatEqualize 를 직접 부르지 않고 layoutSeats 를 부른다 — 그 안에서 동기화가 먼저 돌고,
        이어서 바뀐 책상 폭으로 좌석 간격·카메라 줌까지 다시 잡힌다. 여기서 동기화만 하면
@@ -448,7 +448,7 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
   const dpBtn=document.getElementById('fsDecoPartsToggle');
   if(dpBtn) dpBtn.onclick=()=>{
     setDecoPartsVisible(!decoPartsVisible());
-    try{ localStorage.setItem('tw.decoParts', decoPartsVisible()?'1':'0'); }catch(_){}
+    try{ settingsAccountStore.set('tw.decoParts', decoPartsVisible()?'1':'0'); }catch(_){}
     refreshToggleBtns();
     try{ seats.forEach(s => applyClothVisibility(s)); }catch(_){}
   };
@@ -462,7 +462,7 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
   const emojiBtn=document.getElementById('fsEmojiToggle');
   if(emojiBtn) emojiBtn.onclick=()=>{
     setEmojiReactionsEnabled(!emojiReactionsEnabled());
-    localStorage.setItem('tw.emojiReactions', emojiReactionsEnabled()?'1':'0');
+    try{ settingsAccountStore.set('tw.emojiReactions', emojiReactionsEnabled()?'1':'0'); }catch(_){}
     refreshToggleBtns();
   };
   const dotBtn=document.getElementById('fsDotToggle');

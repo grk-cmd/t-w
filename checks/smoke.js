@@ -554,6 +554,8 @@ PRELOAD.push('slot-save.js');
 PRELOAD.push('interaction-desk.js');
 /* ad-banner.js — 광고 배너 · 게임 설정(앱 FSD 43번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAdBanner 를 같이 굴린다. */
 PRELOAD.push('ad-banner.js');
+/* user-local.js — 🗂️ 이 계정이 이 PC 에서 고른 것을 계정 칸에서 읽어 채우는 한 칸(window.TwUserLocal). app.js 가 만들어 app-boot 의 userLocal 칸에 건다. */
+PRELOAD.push('user-local.js');
 /* app-boot.js — 🚀 켜는 순서 한 곳. app.js 가 만드는 createAppBoot 를 같이 굴린다(차례 표와 starts 이름이 어긋나면 던진다). */
 PRELOAD.push('app-boot.js');
 /* fn-keys.js — 함수키 단축키(앱 FSD 43번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createFnKeys 를 같이 굴린다. */
