@@ -130,7 +130,7 @@ say('§3 연결');
 const iG = HTML.indexOf('<script src="parts/shared/gl-recover.js"></script>'), iF = HTML.indexOf('<script src="parts/shared/gl-fail-notice.js"></script>');
 const iE = HTML.indexOf('<script src="parts/shared/error-codes.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
 chk(iG > 0 && iE > 0 && iF > iE && iA > iF && iA > iG, 'HTML — gl-recover · gl-fail-notice(error-codes 다음)를 app.js 보다 먼저 싣는다');
-const iN = STAGE.indexOf('const glFail = TwGlFailNotice.createGlFailNotice({'), iR = STAGE.indexOf('const renderer=glFail.guard(() => new THREE.WebGLRenderer({canvas,'), iW = STAGE.indexOf('GlRecover.createGlRecover({');
+const iN = STAGE.indexOf('const glFail = TwGlFailNotice.createGlFailNotice({'), iR = STAGE.indexOf("const renderer=TwGlContext.make(canvas,{canvas,"), iW = STAGE.indexOf('GlRecover.createGlRecover({');
 chk(iN >= 0 && iR > iN && iW > iR && /\}\)\.attach\(canvas\);/.test(STAGE.slice(iW, iW + 900)), '★ stage.js(app.js 가 만든다) — 안내를 만들고 · 렌더러를 guard 로 만든 뒤 같은 캔버스에 붙인다');
 const blk = STAGE.slice(iW, iW + 900);
 chk(/relaunch: \(\) => companion\.relaunchApp\(\)/.test(blk) && /notice: \(\) => glFail\.show\('lost'\)/.test(blk) && /localStorage\.getItem\(k\)/.test(blk) && !/location\.reload/.test(blk), '  다시 켜기는 relaunchApp · 안내는 glFail.show · 시각은 localStorage(앱을 다시 켜도 남음) · 화면만 다시 불러오기 없음');

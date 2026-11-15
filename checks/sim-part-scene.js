@@ -144,7 +144,7 @@ say('── 4. 동작 — 파싱 캐시 · 썸네일');
       const lw = {}; new Function('window', 'module', 'THREE', LT_SRC)(lw, undefined, Object.assign({ Color: class {} }, THREE_));
       const lt = lw.TwLightTone.createLightTone({ _MAIN_LIGHT_COL: raw._MAIN_LIGHT_COL, _MAIN_LIGHT_INT: raw._MAIN_LIGHT_INT, _KEY_LIGHT_MUL: raw._KEY_LIGHT_MUL, _FILL_LIGHT_MUL: 0.3, _fixGlbMatLighting: () => {} });
       const deps = Object.assign({}, raw, { isAdmin: () => raw.isAdmin, gachaMod: () => raw.gachaMod, addRunLights: lt.addRunLights, runLightAt1: lt.runLightAt1 });
-      const w = {}; new Function('window', 'module', 'THREE', 'document', MOD)(w, undefined, THREE_, doc);
+      const w = {}; new Function('window', 'module', 'THREE', 'document', 'TwGlContext', MOD)(w, undefined, THREE_, doc, { make: (cv, o) => new THREE_.WebGLRenderer(o) });
       api = w.TwPartScene.createPartScene(deps);
       w.firebaseAPI = win.firebaseAPI;
       /* 모듈은 window 전역에 콘솔 함수를 건다 — 같은 window 를 다시 쓴다 */

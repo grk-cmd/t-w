@@ -22,13 +22,13 @@ if(!MOD || !FB_SRC || !BT_SRC || !GATE_SRC){ say('  ? 원본 못 찾음 — laun
 const loadGate = (MO) => { const w = { MutationObserver: MO || class { observe(){} disconnect(){} } }; new Function('window', 'module', GATE_SRC)(w, undefined); return w.TwIdleGate; };
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_quickHash","_setDeskMatColor","allDeskItems","applyDeskColorToCustom","applyDeskItemsTo","applyEquippedPartsToSeat","applyStaticHandRest","b64ToBuf","buildDesk","clampCharY","clearHolderDeskItems","defToBase","equipDeskItem","extractBonesInto","getCommissionScene","measureBodyBox","registerCustomItem","setDeskPos","setDeskScale","setFaceMap","swapDeskVisual","addRunLights"];
+const FN_DEPS = ["_quickHash","_setDeskMatColor","allDeskItems","applyDeskColorToCustom","applyDeskItemsTo","applyEquippedPartsToSeat","applyStaticHandRest","b64ToBuf","buildDesk","clampCharY","clearHolderDeskItems","defToBase","equipDeskItem","extractBonesInto","getCommissionScene","measureBodyBox","registerCustomItem","renderLauncher","setDeskPos","setDeskScale","setFaceMap","swapDeskVisual","addRunLights"];
 const VAL_DEPS = ["CHAR_Z","FrameBudget","blinkTiming","RIG_TURN","commSceneCache","scene","slots"];
 const GET_DEPS = ["assetCodeMod","customItems","slotSaveMod"];
 const SET_DEPS = [];
 const EXPORTS = ["ensureLauncherPreview","lHolder","lRenderer","launcherLoop","setLauncherChar","sizeLauncherPreview","startLauncherLoop"];
 const MOVED = ["lRenderer","lScene","lCam","lChar","lBlinkT","lBlinkOn","lHolder","lDeskMat","lScaleHint","lCharBaseY","lFrameH","lFrameZ","LAUNCHER_CHAR_Y","PS1_PIXEL_SCALE","ensureLauncherPreview","_lcBodyBox","sizeLauncherPreview","LC_THUMB_SETTLE_MS","LC_THUMB_MAX","_lcThumbJob","_lcThumbArm","_lcThumbTake","setLauncherChar","launcherLoop"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  CHAR_Z: CHAR_Z,","  FrameBudget: FrameBudget,","  blinkTiming: TwBlinkTiming,","  RIG_TURN: RIG_TURN,","  _quickHash: (...a)=>roomSyncMod._quickHash(...a),","  _setDeskMatColor: (...a)=>_setDeskMatColor(...a),","  addRunLights: (...a)=>lightToneMod.addRunLights(...a),","  allDeskItems: (...a)=>allDeskItems(...a),","  applyDeskColorToCustom: (...a)=>applyDeskColorToCustom(...a),","  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),","  applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),","  applyStaticHandRest: (...a)=>applyStaticHandRest(...a),","  assetCodeMod: ()=>assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  buildDesk: (...a)=>buildDesk(...a),","  clampCharY: (...a)=>clampCharY(...a),","  clearHolderDeskItems: (...a)=>clearHolderDeskItems(...a),","  commSceneCache: commSceneCache,","  customItems: ()=>customItems,","  defToBase: (...a)=>defToBase(...a),","  equipDeskItem: (...a)=>equipDeskItem(...a),","  extractBonesInto: (...a)=>extractBonesInto(...a),","  getCommissionScene: (...a)=>getCommissionScene(...a),","  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),","  registerCustomItem: (...a)=>registerCustomItem(...a),","  scene: scene,","  setDeskPos: (...a)=>setDeskPos(...a),","  setDeskScale: (...a)=>setDeskScale(...a),","  setFaceMap: (...a)=>setFaceMap(...a),","  slotSaveMod: ()=>slotSaveMod,","  slots: slots,","  swapDeskVisual: (...a)=>swapDeskVisual(...a),"];
+const GLUE = ["  CHAR_Z: CHAR_Z,","  FrameBudget: FrameBudget,","  blinkTiming: TwBlinkTiming,","  RIG_TURN: RIG_TURN,","  _quickHash: (...a)=>roomSyncMod._quickHash(...a),","  _setDeskMatColor: (...a)=>_setDeskMatColor(...a),","  addRunLights: (...a)=>lightToneMod.addRunLights(...a),","  allDeskItems: (...a)=>allDeskItems(...a),","  applyDeskColorToCustom: (...a)=>applyDeskColorToCustom(...a),","  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),","  applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),","  applyStaticHandRest: (...a)=>applyStaticHandRest(...a),","  assetCodeMod: ()=>assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  buildDesk: (...a)=>buildDesk(...a),","  clampCharY: (...a)=>clampCharY(...a),","  clearHolderDeskItems: (...a)=>clearHolderDeskItems(...a),","  commSceneCache: commSceneCache,","  customItems: ()=>customItems,","  defToBase: (...a)=>defToBase(...a),","  equipDeskItem: (...a)=>equipDeskItem(...a),","  extractBonesInto: (...a)=>extractBonesInto(...a),","  getCommissionScene: (...a)=>getCommissionScene(...a),","  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),","  registerCustomItem: (...a)=>registerCustomItem(...a),","  renderLauncher: (...a)=>renderLauncher(...a),","  scene: scene,","  setDeskPos: (...a)=>setDeskPos(...a),","  setDeskScale: (...a)=>setDeskScale(...a),","  setFaceMap: (...a)=>setFaceMap(...a),","  slotSaveMod: ()=>slotSaveMod,","  slots: slots,","  swapDeskVisual: (...a)=>swapDeskVisual(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다. */
 function anything(){
@@ -49,7 +49,7 @@ function build(src, over, env){
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const E = Object.assign({ window: win, document: any, localStorage: ls, navigator: any, firebaseAPI: any, companion: any, setTimeout: () => 0, setInterval: () => 0, clearTimeout: () => {}, clearInterval: () => {},
-    requestAnimationFrame: () => 0, THREE: any, addEventListener: () => {}, removeEventListener: () => {}, module: undefined, MutationObserver: class { observe(){} disconnect(){} }, ResizeObserver: class { observe(){} disconnect(){} },
+    requestAnimationFrame: () => 0, THREE: any, TwGlContext: { make: () => any }, addEventListener: () => {}, removeEventListener: () => {}, module: undefined, MutationObserver: class { observe(){} disconnect(){} }, ResizeObserver: class { observe(){} disconnect(){} },
     performance: { now: () => 0 }, console: { log(){}, warn(){}, error(){} }, Image: any, confirm: () => true, devicePixelRatio: 1, TwIdleGate: loadGate() }, env || {});
   const keys = Object.keys(E);
   const api = new Function(...keys, src + '\nreturn window.TwLauncherPreview;')(...keys.map(k => E[k]));
@@ -118,7 +118,7 @@ function judgeLoad(mod, fbSrc, html){
     const rand = seeded(seed);
     const bt = { SHUT_AT: BT.SHUT_AT, createBlink: (now) => { st.made++; return BT.createBlink(now, rand); }, scheduleBlinks: (bl, now) => { st.scheduled++; return BT.scheduleBlinks(bl, now, rand); }, eyeClose: (bl, now) => BT.eyeClose(bl, now) };
     const base = { group: any, faceMat: { id: 'face' }, fT: 'OPEN', bT: 'SHUT' };
-    const api = build(mod, { FrameBudget: FB, blinkTiming: bt, defToBase: () => base, setFaceMap: (m, tex) => st.faces.push(tex) }, { THREE: THREE3, document: doc, performance: { now: () => 0 } });
+    const api = build(mod, { FrameBudget: FB, blinkTiming: bt, defToBase: () => base, setFaceMap: (m, tex) => st.faces.push(tex) }, { THREE: THREE3, TwGlContext: { make: (cv, o) => new THREE3.WebGLRenderer(o) }, document: doc, performance: { now: () => 0 } });
     api.ensureLauncherPreview(); api.setLauncherChar({});
     st.renders = 0;
     return { st, api };
@@ -175,7 +175,7 @@ function judgeSleep(mod){
   const step = (n) => { for(let i = 0; i < n; i++){ st.now += 1000 / 60; const q = st.q; st.q = []; q.forEach(f => f(st.now)); } };
   let api;
   try{ api = build(mod, { FrameBudget: fbWin.FrameBudget, blinkTiming: bt, defToBase: () => ({ group: any, faceMat: {}, fT: 1, bT: 2 }) },
-    { THREE: THREE3, document: doc, requestAnimationFrame: raf, TwIdleGate: loadGate(MO), performance: { now: () => st.now } }); }
+    { THREE: THREE3, TwGlContext: { make: (cv, o) => new THREE3.WebGLRenderer(o) }, document: doc, requestAnimationFrame: raf, TwIdleGate: loadGate(MO), performance: { now: () => st.now } }); }
   catch(e){ t(false, '가짜 런처 만들기 — ' + String(e.message || e).slice(0, 80)); return r; }
   api.ensureLauncherPreview(); api.setLauncherChar({});
   t(st.q.length === 0, '만들기만 해서는 rAF 를 안 건다(시작은 app.js 의 startLauncherLoop 한 줄)');

@@ -177,7 +177,7 @@ say('── 5. 배선');
   const raw = APP_RAW.replace(/\/\*[\s\S]*?\*\//g, ' ');
   chk(/let _renderQuality = FrameBudget\.qualityFrom\(localStorage\.getItem\(FrameBudget\.QUALITY_KEY\)\);/.test(raw)
     && /const _renderAA = FrameBudget\.antialiasFor\(_renderQuality\);/.test(raw) && /TwStage\.createStage\(\{\s*_renderAA: _renderAA,/.test(raw)
-    && /new THREE\.WebGLRenderer\(\{canvas,antialias:_renderAA,/.test(SRC['stage.js']), '★ 렌더러 antialias 는 저장된 화질에서(도트 렌더 값을 안 본다) — app.js 가 _renderAA 를 정해 무대(stage.js)에 넘긴다');
+    && /TwGlContext\.make\(canvas,\{canvas,antialias:_renderAA,/.test(SRC['stage.js']), '★ 렌더러 antialias 는 저장된 화질에서(도트 렌더 값을 안 본다) — app.js 가 _renderAA 를 정해 무대(stage.js)에 넘긴다');
   chk(!/antialias:\s*!?\s*[^,]*dot/i.test(raw), '  antialias 를 도트 렌더 값으로 정하지 않는다(옛 «안 보이는 끔» 버그)');
   chk(/if\(_renderQuality === FrameBudget\.QUALITY\.AUTO && document\.body\.classList\.contains\('runmode'\) && _runSlowWatch\.note\(now, _frameCap\(now\)\)\) _lowerRunQuality\(\);/.test(raw), '★ 자동일 때 · 실행 화면에서만 그린 장마다 감시');
   const lower = (raw.match(/function _lowerRunQuality\(\)\{[\s\S]*?\n\}/) || [''])[0];
