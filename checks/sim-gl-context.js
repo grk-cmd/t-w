@@ -48,8 +48,13 @@ say('§1 preview');
   chk(p.children.filter(x => x.className === 'gl-ctx-notice').length === 1, '같은 캔버스에 다시 실패해도 안내는 하나(새로 바꿈)');
   const n2 = p.children.find(x => x.className === 'gl-ctx-notice'); chk(n2.children.length === 1, '  retry 가 없으면 단추가 없다');
   b.g.make(c, {}, 'preview', { retry: () => { retried++; } });
-  const n3 = p.children.find(x => x.className === 'gl-ctx-notice'); n3.children[1]._l.click();
+  const n3 = p.children.find(x => x.className === 'gl-ctx-notice'); n3.children[1]._l.click({ stopPropagation(){} });
   chk(retried === 1 && !p.children.some(x => x.className === 'gl-ctx-notice'), '[다시 시도] 를 누르면 안내를 지우고 retry 를 부른다');
+  const bp = build(SRC, { fail: true }); const cp = canvasIn('cv9'); let rr = 0; bp.g.make(cp.c, {}, 'preview', { retry: () => { rr++; } });
+  const np = cp.p.children.find(x => x.className === 'gl-ctx-notice');
+  chk(/pointer-events:none/.test(np.style.cssText) && /pointer-events:auto/.test(np.children[1].style.cssText), '★ 안내 상자는 클릭을 아래로 보낸다(pointer-events:none) — 글 · 단추만 받는다(런처 빈 칸 · 미리보기 · 종족 카드가 막히지 않게)');
+  let stopped = 0; np.children[1]._l.click({ stopPropagation(){ stopped++; } });
+  chk(stopped === 1 && rr === 1, '[다시 시도] 클릭은 위로 퍼지지 않는다(stopPropagation) — 종족 카드 클릭으로 새지 않음');
   const bb = build(SRC, { fail: true }); const orphan = mkEl('canvas');
   chk(bb.g.make(orphan, {}, 'preview', {}) === null && bb.errs.length === 1, '칸이 없는(화면에 안 붙은) 캔버스는 안내 없이 번호만 · null');
   // 성공하면 옛 안내를 지운다
@@ -77,9 +82,13 @@ say('§3 연결');
   const SITES = [['creator/race-picker.js', 'if(!r) return;'], ['creator/creator-preview.js', 'if(!r) return false;'], ['launcher/launcher-preview.js', 'if(!r)return;'], ['character/wardrobe.js', 'if(!r) return;'], ['character/animal.js', 'if(!r) return;'], ['character/part-scene.js', 'if(!r) return;'], ['purikura/purikura-ui.js', 'if(!r) return;']];
   for(const [f, guard] of SITES){
     const t = read(f); const n = (t.match(/TwGlContext\.make\(/g) || []).length;
-    chk(!!t && n >= 1 && /'preview'/.test(t) && t.split(guard).length - 1 >= n, f + ' — preview 로 만들고 못 만들면 돌아간다(' + n + '곳)');
+    chk(!!t && n >= 1 && /'preview'/.test(t) && (t.match(/if\(!r\) ?return(?: false)?;/g) || []).length >= n, f + ' — preview 로 만들고 못 만들면 돌아간다(' + n + '곳)');
   }
   chk((read('shared/stage.js') || '').includes("TwGlContext.make(canvas,{canvas,antialias:_renderAA,alpha:true,premultipliedAlpha:false,logarithmicDepthBuffer:true},'main',{ guard: glFail.guard })"), 'stage.js — 메인은 main 역할 + glFail.guard 로(옛 동작 그대로)');
+  const AN = read('character/animal.js'), iMk = AN.indexOf("'동물 생성기'"), iOpen = AN.indexOf('creatorOpen = true;', AN.indexOf('function openPreview'));
+  chk(iMk > 0 && iOpen > iMk && /if\(!openPreview\(\)\) return;/.test(AN), '동물 생성기 — 3D 를 창 · 런처 · 창 크기를 바꾸기 전에 만들고, 못 만들면 false 로 돌아가 부르는 쪽도 멈춘다');
+  const PU = read('purikura/purikura-ui.js');
+  chk(/if\(!PK\.renderer\)\{[\s\S]{0,400}toDataURL\('image\/png'\);\s*\}\s*const pr = PK\.renderer\.getPixelRatio\(\)/.test(PU) && !/retry:\(\)=>\{ _pkBuildStage/.test(PU), '스티커사진 — 무대가 없어도 촬영은 흰 컷으로 이어 가고, 루프를 못 거는 [다시 시도] 는 두지 않는다');
   chk(read('app.js').includes('if(!creatorPrevMod.ensureCreatorPreview()) return;'), 'app.js openCreator — 3D 를 못 만들면 열지 않는다');
   const iG = HTML.indexOf('<script src="parts/shared/gl-context.js">'), iS = HTML.indexOf('<script src="parts/shared/stage.js">'), iA = HTML.indexOf('<script src="parts/app.js">');
   chk(iG > 0 && iG < iA && iG < iS, 'html — gl-context.js 를 stage.js · app.js 보다 먼저 싣는다');

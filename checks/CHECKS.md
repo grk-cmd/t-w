@@ -101,7 +101,7 @@
 | **sim-fix-1016b.js** | 84 | **55d2d7d90ae9** |
 | **sim-fix-1016.js** | 170 | **7724abcbddfe** |
 | **sim-gl-recover.js** | 161 | **b617e6d90e9c** |
-| **sim-gl-context.js** | 98 | **328fb7674394** |
+| **sim-gl-context.js** | 107 | **eb18b7e87891** |
 | **sim-chat-copy.js** | 86 | **0e24f604f42f** |
 | **sim-chat-delete-log.js** | 90 | **d987e49be2b8** |
 | **sim-chat-log-persist.js** | 160 | **886c6f8cad51** |
@@ -191,7 +191,7 @@
 | **sim-purikura-deco.js** | 954 | **25b07f4973c8** |
 | sim-purikura-net.js | 361 | a4029a7ef053 |
 | **sim-purikura-rules.js** | 261 | **0f13cb4f0a37** |
-| **sim-purikura-stage.js** | 270 | **ac334d220ecd** |
+| **sim-purikura-stage.js** | 270 | **ca11e1e82fe5** |
 | **sim-report-away.js** | 116 | **2e7056e83b60** |
 | **sim-ride-height.js** | 115 | **870e0eb2c0e7** |
 | **sim-ride-part-top.js** | 101 | **0b4bf839278c** |
@@ -376,7 +376,7 @@
 | **sim-async-prompt.js** | 112 | **298066b0cef9** |
 | **sim-launcher-chrome.js** | 95 | **ed62fec910ad** |
 | **sim-launcher-controls.js** | 204 | **78202998b89b** |
-| **sim-launcher-preview.js** | 217 | **bd039b34840c** |
+| **sim-launcher-preview.js** | 228 | **4d295d974e71** |
 | **sim-mat-tone.js** | 174 | **8055614c531b** |
 | **sim-oss-licenses.js** | 176 | **4b8e6195aaab** |
 | **sim-outside-close.js** | 95 | **2e61ab5a3e9c** |

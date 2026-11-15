@@ -213,5 +213,16 @@ for(const [nm, fm] of breaks5){
   chk(m2 !== MOD && r2.some(([ok]) => !ok), '깨 보기: ' + nm + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
 }
 
+
+say('── 6. 3D 를 못 만들 때(gl-context 가 null) — 던지지 않고 이어 간다');
+{
+  const nullRig = (mod) => { const any = anything(); const doc = new Proxy({}, { get: (o, k) => k === 'getElementById' ? (() => any) : any });
+    return build(mod, {}, { THREE: any, TwGlContext: { make: () => null }, document: doc, performance: { now: () => 0 } }); };
+  const run = (mod) => { try{ const api = nullRig(mod); api.ensureLauncherPreview(); api.sizeLauncherPreview(); api.setLauncherChar({}); api.setLauncherChar(null); api.launcherLoop(1); return api.lRenderer() === null; }catch(e){ return false; } };
+  chk(run(MOD), 'ensure · size · setLauncherChar · launcherLoop 가 renderer 없이도 던지지 않는다(lRenderer 는 null)');
+  chk(!run(MOD.replace('function sizeLauncherPreview(){if(!lRenderer)return;', 'function sizeLauncherPreview(){')), '깨 보기: size 의 가드를 빼면 빨강');
+  chk(!run(MOD.replace('_lcThumbJob=null;if(!lRenderer)return;', '_lcThumbJob=null;')), '깨 보기: setLauncherChar 의 가드를 빼면 빨강');
+}
+
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

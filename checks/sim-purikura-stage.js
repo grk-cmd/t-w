@@ -191,7 +191,7 @@ say('· §4 소스 — 창·키·캡처·업로드의 규약');
   const rig = /TwGlContext\.make\(cv,\s*\{([^}]*)\},\s*'preview',\s*\{ label:'스티커사진'/.exec(SRC);
   chk(!!rig && /preserveDrawingBuffer:\s*true/.test(rig[1]),
       '★ 무대 렌더러에 preserveDrawingBuffer 가 있다 (없으면 toDataURL 이 빈 그림을 준다)');
-  chk(/_pkCapture[\s\S]{0,600}PK\.renderer\.domElement\.toDataURL/.test(SRC),
+  chk(/_pkCapture[\s\S]{0,1200}PK\.renderer\.domElement\.toDataURL/.test(SRC),
       '★ 캡처는 무대 렌더러에서 뜬다 (메인 renderer 가 아니다)');
   chk(!/_pkCapture[\s\S]{0,600}\bcamera\b/.test(SRC),
       '★ 캡처가 메인 카메라를 안 쓴다 (화각이 갈리면 보이는 것과 찍히는 것이 달라진다)');
