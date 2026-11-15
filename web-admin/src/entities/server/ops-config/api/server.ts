@@ -146,7 +146,7 @@ export function createServerOpsConfigPort(api: Api | null): OpsConfigPort {
       const fallback = wireObject(defaults, `${group.path} 기본값`);
       for (const [path, value] of changed) {
         const field = fieldOf(path);
-        next[field] = value ?? fallback[field];
+        next[field] = value ?? wireNumber(fallback[field], `${group.path} 기본값의 ${field}`);
       }
       await config.write(group.path, from.version, next);
     },
@@ -157,7 +157,7 @@ export function createServerOpsConfigPort(api: Api | null): OpsConfigPort {
       const fallback = wireObject(defaults, 'log.level 기본값');
       for (const [path, value] of Object.entries(updates)) {
         const target = path.slice(LOG_LEVEL_PATH.length + 1);
-        next[target] = value ?? fallback[target];
+        next[target] = value ?? wireString(fallback[target], `log.level 기본값의 ${target}`);
       }
       await config.write('log.level', from.version, next);
     },

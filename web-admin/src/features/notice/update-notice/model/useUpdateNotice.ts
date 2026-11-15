@@ -1,5 +1,9 @@
 import { useMutation } from '@tanstack/react-query';
-import { useRefreshUpdateNotice, useUpdateNoticePort } from '@/entities/notice/update-notice';
+import {
+  useRefreshUpdateNotice,
+  useUpdateNoticePort,
+  type UpdateNotice,
+} from '@/entities/notice/update-notice';
 
 export function usePublishUpdateNotice() {
   const port = useUpdateNoticePort();
@@ -13,5 +17,5 @@ export function usePublishUpdateNotice() {
 export function useClearUpdateNotice() {
   const port = useUpdateNoticePort();
   const refresh = useRefreshUpdateNotice();
-  return useMutation({ mutationFn: () => port.clear(), onSuccess: refresh });
+  return useMutation({ mutationFn: (notice: UpdateNotice) => port.clear(notice), onSuccess: refresh });
 }

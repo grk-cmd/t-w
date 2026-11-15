@@ -71,7 +71,10 @@ function build(api: Api | null): MetricsPort {
 
   async function getDay(date: string): Promise<DayMetrics> {
     const { rows } = await range();
-    return rows.get(date) ?? { date, users: [], dau: 0, visits: 0, ipVisitors: 0, pings: 0 };
+    // 서버는 기간(오늘까지 92일)의 날을 빠짐없이 준다 — 없는 날은 기간 밖이라 0 줄로 채우지 않고 던진다.
+    const row = rows.get(date);
+    if (!row) throw new PortError('notFound', `서버가 준 기간 밖의 날이에요 (${date})`);
+    return row;
   }
 
   return {
@@ -85,7 +88,7 @@ function build(api: Api | null): MetricsPort {
     },
     async serverTimeOffset() {
       const { today } = await range();
-      return today ? offsetFromServerToday(today) : 0;
+      return offsetFromServerToday(today);
     },
   };
 }

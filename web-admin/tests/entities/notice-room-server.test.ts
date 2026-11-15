@@ -188,6 +188,34 @@ describe('소식 포트 — API 판', () => {
   });
 });
 
+describe('소식 — 공지 줄의 칸이 틀리면 던진다', () => {
+  it('태그 · 제목 · 시각 · pinned 가 틀린 줄을 버리거나 기본값으로 덮지 않는다', async () => {
+    for (const bad of [{ tag: 'OTHER' }, { title: 3 }, { publishedAt: 'x' }, { pinned: 'yes' }, { id: 7 }]) {
+      const s = fake({
+        'GET /v2/notices': () => ({ broadcasts: { pinned: [], latest: [wire('a', bad)], nextCursor: null } }),
+      });
+      const error = await createServerBroadcastPort(s.api)
+        .list()
+        .catch((e: unknown) => e);
+      expect(isPortError(error, 'invalid')).toBe(true);
+    }
+  });
+
+  it('묶음 결과가 목록이 아니거나 줄의 ok 가 참 · 거짓이 아니면 던진다', async () => {
+    for (const result of [{}, [{ id: 'a' }]]) {
+      const s = fake({
+        'GET /v2/notices': () => ({
+          broadcasts: { pinned: [], latest: [wire('a'), wire('b')], nextCursor: null },
+        }),
+        'POST /v2/admin/notices/broadcasts/bulk': () => result,
+      });
+      const port = createServerBroadcastPort(s.api);
+      const { items } = await port.list();
+      expect(isPortError(await port.remove(items).catch((e: unknown) => e), 'invalid')).toBe(true);
+    }
+  });
+});
+
 describe('확성기 · 업데이트 공지 — API 판', () => {
   it('확성기: 보낸 것을 기억해 남은 시간을 보이고, 끄면 지운다', async () => {
     const s = fake({
@@ -204,41 +232,58 @@ describe('확성기 · 업데이트 공지 — API 판', () => {
     expect(await port.get()).toBeNull();
   });
 
-  it('업데이트 공지: 읽은 id 로 내린다 · 없으면 notFound', async () => {
+  it('업데이트 공지: 화면이 읽은 공지의 id 로 내린다 · 이미 내려갔으면 서버가 notFound', async () => {
     let current: unknown = { id: 'u-1', title: '새 버전', body: '내용', publishedAt: '2026-11-20T03:00:00Z' };
     const s = fake({
       'GET /v2/notices': () => ({ updateNotice: current }),
       'DELETE /v2/admin/notices/update-notices/u-1': () => {
+        if (current === null) throw new ApiError('notFound', 404, 'NOTICE_NOT_FOUND', '없음');
         current = null;
       },
     });
     const port = createServerUpdateNoticePort(s.api);
-    expect(await port.get()).toEqual({
+    const read = await port.get();
+    expect(read).toEqual({
+      id: 'u-1',
       title: '새 버전',
       body: '내용',
       ts: Date.parse('2026-11-20T03:00:00Z'),
     });
-    await port.clear();
+    await port.clear(read!);
     expect(s.calls.at(-1)?.path).toBe('/v2/admin/notices/update-notices/u-1');
-    const error = await port.clear().catch((e: unknown) => e);
+    const error = await port.clear(read!).catch((e: unknown) => e);
     expect(isPortError(error, 'notFound')).toBe(true);
   });
 
-  it('업데이트 공지 올리기: 응답의 id 를 기억한다', async () => {
-    const s = fake({
-      'POST /v2/admin/notices/update-notices': () => ({
-        id: 'u-2',
-        title: 't',
-        body: 'b',
-        publishedAt: '2026-11-20T03:00:00Z',
-      }),
-      'DELETE /v2/admin/notices/update-notices/u-2': () => undefined,
-    });
+  it('업데이트 공지: 읽지 않고(id 없이) 내리려 하면 요청 없이 던진다 · 읽기 전에 먼저 읽지도 않는다', async () => {
+    const s = fake({});
+    const error = await createServerUpdateNoticePort(s.api)
+      .clear({ title: 't', body: 'b', ts: 1 })
+      .catch((e: unknown) => e);
+    expect(isPortError(error, 'invalid')).toBe(true);
+    expect(s.calls).toHaveLength(0);
+  });
+
+  it('업데이트 공지: 칸이 틀리면 빈 글로 덮지 않고 던진다 · updateNotice 칸이 없어도 던진다', async () => {
+    for (const bad of [
+      { updateNotice: { id: 'u', title: 3, body: 'b', publishedAt: '2026-11-20T03:00:00Z' } },
+      { updateNotice: { id: 'u', title: 't', body: 'b', publishedAt: 'nope' } },
+      {},
+    ]) {
+      const s = fake({ 'GET /v2/notices': () => bad });
+      const error = await createServerUpdateNoticePort(s.api)
+        .get()
+        .catch((e: unknown) => e);
+      expect(isPortError(error, 'invalid')).toBe(true);
+    }
+  });
+
+  it('업데이트 공지 올리기: 요청 번호만 보내고 id 는 기억하지 않는다', async () => {
+    const s = fake({ 'POST /v2/admin/notices/update-notices': () => undefined });
     const port = createServerUpdateNoticePort(s.api);
     await port.publish(' 제목 ', ' 본문 ');
     expect(s.calls[0].body).toMatchObject({ title: '제목', body: '본문' });
-    await port.clear();
-    expect(s.calls.at(-1)?.path).toBe('/v2/admin/notices/update-notices/u-2');
+    expect(s.calls).toHaveLength(1);
   });
 });
 

@@ -61,7 +61,7 @@ export function createServerRoomPort(api: Api | null): RoomPort {
       const next = { ...base };
       for (const [path, value] of Object.entries(updates)) {
         const kind = path.slice(CHAT_KEEP_PATH.length + 1);
-        next[kind] = value ?? fallback[kind];
+        next[kind] = value ?? wireNumber(fallback[kind], `chat.keepDays 기본값의 ${kind}`);
       }
       await config.write('chat.keepDays', from.version, next);
     },

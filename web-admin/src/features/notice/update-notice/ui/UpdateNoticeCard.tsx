@@ -40,8 +40,9 @@ export function UpdateNoticeCard() {
   };
 
   const onClear = () => {
+    if (!notice) return;
     if (!confirm('지금 업데이트 공지를 삭제할까요?')) return;
-    clear.mutate(undefined, {
+    clear.mutate(notice, {
       onSuccess: () => {
         setDraft(null);
         toast('삭제했어요');

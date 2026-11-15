@@ -53,14 +53,12 @@ describe('접속 지표 — API 판', () => {
   it('목록 한 번으로 날마다 돌려주고, WAU · MAU 는 오늘 줄에 싣는다', async () => {
     const s = fake({ 'GET /v2/admin/metrics/daily': () => daily });
     const port = createServerMetricsPort(s.api);
-    const [old, today, none] = await Promise.all([
-      port.getDay('2026-11-01'),
-      port.getDay(TODAY, true),
-      port.getDay('2026-10-01'),
-    ]);
+    const [old, today] = await Promise.all([port.getDay('2026-11-01'), port.getDay(TODAY, true)]);
     expect(old).toEqual({ date: '2026-11-01', users: [], dau: 10, visits: 30, ipVisitors: 0, pings: 5 });
     expect(today).toMatchObject({ dau: 12, ipVisitors: 20, wau: 40, mau: 120 });
-    expect(none).toEqual({ date: '2026-10-01', users: [], dau: 0, visits: 0, ipVisitors: 0, pings: 0 });
+    // 서버가 준 기간 밖의 날은 0 줄로 채우지 않고 던진다
+    const outside = await port.getDay('2026-10-01').catch((e: unknown) => e);
+    expect(isPortError(outside, 'notFound')).toBe(true);
     expect(s.calls).toHaveLength(1);
     expect(s.calls[0].query).toEqual({ days: 92 });
   });
@@ -172,7 +170,7 @@ describe('사용량 · 개선 기록 — API 판', () => {
       storage: { sentBytes: 1000, storedBytes: 5000 },
       hosting: { sentBytes: 0 },
     });
-    expect(await port.getDay('2026-11-02')).toMatchObject({ storage: null, hosting: null });
+    expect(isPortError(await port.getDay('2026-11-02').catch((e: unknown) => e), 'notFound')).toBe(true);
     expect(port.features).toEqual({ db: false, functions: false });
   });
 
@@ -250,6 +248,43 @@ describe('사용량 · 개선 기록 — API 판', () => {
       .deleteImprovement({ id: 'x', version: 'v', releasedAt: 1, title: 't', items: [], adoptDays: 3 })
       .catch((e: unknown) => e);
     expect(isPortError(error, 'invalid')).toBe(true);
+  });
+});
+
+describe('사용량 · 개선 기록 — 모양이 틀리면 던진다', () => {
+  it('사용량 칸이 틀리면 0 으로 덮지 않는다', async () => {
+    const day = {
+      day: '2026-11-01',
+      storage: { sentBytes: 'x', storedBytes: 1, measuredAt: '2026-11-01T00:00:00Z' },
+      hosting: null,
+    };
+    for (const wire of [{ today: TODAY, days: [day] }, { today: TODAY }, { days: [] }]) {
+      const s = fake({ 'GET /v2/admin/metrics/usage': () => wire });
+      const error = await createServerUsagePort(s.api)
+        .getDay('2026-11-01')
+        .catch((e: unknown) => e);
+      expect(isPortError(error, 'invalid')).toBe(true);
+    }
+  });
+
+  it('개선 기록 줄의 칸이 틀리면 줄을 버리지 않고 던진다 · 저장 응답에 id 가 없어도 던진다', async () => {
+    const s = fake({
+      'GET /v2/admin/metrics/improvements': () => ({
+        items: [{ id: 'a', release: '0.13.0' }],
+        nextCursor: null,
+      }),
+      'POST /v2/admin/metrics/improvements': () => ({}),
+    });
+    const port = createServerUsagePort(s.api);
+    expect(isPortError(await port.listImprovements().catch((e: unknown) => e), 'invalid')).toBe(true);
+    const draft = {
+      version: '0.13.0',
+      releasedAt: Date.parse('2026-11-10T00:00:00Z'),
+      title: '제목',
+      items: ['하나'],
+      adoptDays: 3,
+    };
+    expect(isPortError(await port.saveImprovement(draft).catch((e: unknown) => e), 'invalid')).toBe(true);
   });
 });
 

@@ -3,6 +3,8 @@ export interface UpdateNotice {
   title: string;
   body: string;
   ts: number;
+  /** 서버 판이 붙인 공지 id — 내릴 때 «본 것» 을 가리킨다. Firebase 판은 없다. */
+  id?: string;
 }
 
 export const NOTICE_TITLE_MAX = 60; // 규칙 updateNotice/current .validate
