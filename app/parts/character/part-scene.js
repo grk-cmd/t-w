@@ -48,7 +48,9 @@ function _ensureThumbRig(){
   if(_thumbRenderer) return;
   const canvas = document.createElement('canvas');
   canvas.width = THUMB_SIZE; canvas.height = THUMB_SIZE;
-  _thumbRenderer = new THREE.WebGLRenderer({canvas, antialias:false, alpha:true, preserveDrawingBuffer:true});
+  const r = TwGlContext.make(canvas, {canvas, antialias:false, alpha:true, preserveDrawingBuffer:true}, 'preview', { label:'파츠 썸네일' });   // 화면에 안 붙은 캔버스 — 안내 칸은 없고 실패 번호만
+  if(!r) return;
+  _thumbRenderer = r;
   _thumbRenderer.setPixelRatio(1);
   _thumbRenderer.setClearColor(0x000000, 0);   // 투명 배경
   _thumbRenderer.outputEncoding = THREE.sRGBEncoding;
@@ -69,6 +71,7 @@ function _ensureThumbRig(){
 async function generatePartThumbnail(rec){
   try{
     _ensureThumbRig();
+    if(!_thumbRenderer) return null;
     const {scene:template} = await getPartScene(rec);
     // 원본을 건드리지 않도록 clone
     const obj = (THREE.SkeletonUtils && THREE.SkeletonUtils.clone) ? THREE.SkeletonUtils.clone(template) : template.clone(true);

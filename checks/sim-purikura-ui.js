@@ -90,7 +90,7 @@ function mkEnv(opt){
     requestAnimationFrame: fn => { env.raf.push(fn); return env.raf.length; }, cancelAnimationFrame(){},
     performance: { now: () => 1000 }, devicePixelRatio: 1, innerWidth: 1280, innerHeight: 800,
     Audio: FakeAudio, Image: class { constructor(){ this.onload = null; } }, URL: { createObjectURL: () => 'blob:x', revokeObjectURL(){} },
-    confirm: () => true, THREE: U(),
+    confirm: () => true, THREE: U(), TwGlContext: { make: () => U() },
     localStorage: { getItem: (k) => (k in env.ls ? env.ls[k] : null) },
     companion: { pauseBgm(){ env.pause++; }, resumeBgm(){ env.resume++; } },
     firebaseAPI: {

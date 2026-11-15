@@ -4774,7 +4774,7 @@ creatorFlowMod.onItemsStep(()=>deskSetupMod.renderCrItems());   // 5단계 아�
 /* 생성기 여는 입구 — 동물 생성기 · 종족 선택창 · 친구 추가 · 런처가 부르고, 동물이면 동물 생성기로 되돌리는 연결 자리라 app.js 에 둔다
    (creator-flow.js 로 옮기면 animal.js ↔ 생성기 모듈 순환이 생긴다). 3D 는 creatorPrevMod · 단계는 creatorFlowMod. */
 function openCreator(mode){
-  creatorPrevMod.ensureCreatorPreview();
+  if(!creatorPrevMod.ensureCreatorPreview()) return;   // 3D 를 못 만들면 열지 않는다(안내 · 실패 번호는 gl-context 가 냄)
   // ★ 꾸미기 창이 켜진 채로 생성기를 열면 같은 종류의 "떠 있는 채 안 닫힘" 문제가 생길 수 있어 미리 닫음(저장하며 — backToLauncher 와 같다).
   const wp=document.getElementById('wardrobePanel');
   if(wp && wp.classList.contains('on') && typeof window.closeWardrobe==='function'){ try{ window.closeWardrobe(); }catch(_){} }
@@ -4999,6 +4999,7 @@ const launcherPrevMod = TwLauncherPreview.createLauncherPreview({
   getCommissionScene: (...a)=>getCommissionScene(...a),
   measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
   registerCustomItem: (...a)=>deskItemsMod.registerCustomItem(...a),
+  renderLauncher: (...a)=>renderLauncher(...a),
   scene: scene,
   setDeskPos: (...a)=>deskPlaceMod.setDeskPos(...a),
   setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),
