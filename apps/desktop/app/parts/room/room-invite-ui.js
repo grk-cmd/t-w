@@ -236,12 +236,9 @@ const _friendsClose = deps.friendsClose;       // (key) — 목록을 닫았다
 let _roomInviteBusy = false;
 /* ⏳ [2026-10-02 제보 «초대 알림이 뜨면 수락·거절 말고 아무것도 못 한다»] 초대는 **3분** 기다린다.
    그동안 화면의 다른 곳(앱 · 뒤의 프로그램)을 그대로 쓸 수 있고, 3분이 지나면 **거절로 본다.**
-   ★ 오래된 초대(앱을 꺼 둔 사이에 온 것 등)는 띄우지 않고 지운다 — 몇 시간 전 초대에 수락하면
-     이미 비어 있거나 다른 방이 된 방으로 끌려간다.
-   ⚠️ 그 «오래됨» 문턱은 3분이 아니라 **10분**이다. ts 는 **보낸 쪽 PC 시계**(Date.now)라, 받는 쪽 시계가 몇 분
-     앞서 있으면 방금 온 초대를 «3분 지남» 으로 읽고 버린다. 3분 대기 자체는 팝업이 뜬 순간부터 잰다(아래). */
+   ★ 오래된 초대는 서버가 걸러 준다 — 초대는 서버가 10분만 보관하고 남은 것만 다시 보낸다(앱이 PC 시계로 «오래됨» 을 가르지 않는다 —
+     시계가 어긋나면 방금 온 초대를 버린다). 3분 대기 자체는 팝업이 뜬 순간부터 잰다(아래). */
 const ROOM_INVITE_WAIT_MS  = 3 * 60 * 1000;
-const ROOM_INVITE_STALE_MS = 10 * 60 * 1000;
 /* 보내기 거절 까닭(서버 code) → 안내 문구. 그 밖의 실패는 E-ROOM-09 */
 const INVITE_REFUSED = Object.freeze({
   ROOM_INVITE_NOT_FRIEND: '친구에게만 초대를 보낼 수 있어요',
@@ -254,13 +251,6 @@ function _bindRoomInviteReceiver(){
   _unsubInvites = invites.onInvites(got=>{
     let ids = Object.keys(got || {});
     if(!ids.length || _roomInviteBusy) return;
-    /* 오래된 초대는 조용히 거절 처리(지우기). 지우면 구독이 다시 불려 남은 것으로 이어진다. */
-    const _now = Date.now();
-    const _stale = ids.filter(id => (got[id] && got[id].ts > 0) && (_now - got[id].ts > ROOM_INVITE_STALE_MS));
-    if(_stale.length){
-      _stale.forEach(id => { invites.clear(id); });   // 지우면 남은 것으로 다시 불린다 — 이 판은 여기서 끝
-      return;
-    }
     _roomInviteBusy = true;
     // 가장 최근 초대 하나만 처리 (여러 개면 순차)
     ids.sort((a,b)=> (got[b].ts||0) - (got[a].ts||0));

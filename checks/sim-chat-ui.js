@@ -75,6 +75,7 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
+chk(!/CHAT_BURST_N|CHAT_BURST_MS|_chatSendTimes/.test(MOD) && /CHAT_TOO_FAST/.test(MOD), '★ R7 — 앱이 5초 8줄을 따로 세지 않는다(서버 CHAT_TOO_FAST 가 막고 CHAT_SAY_REFUSED 가 «조금 천천히» 를 안내)');
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/chat/chat-ui.js"></script>', '')],

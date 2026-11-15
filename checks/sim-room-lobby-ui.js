@@ -1,7 +1,7 @@
 /*
  * 방 목록 로비 검사 — 모듈을 그대로 불러 돌린다(가짜 DOM · 가짜 provider).
  * 1. room-lobby-model.js(카드 · 상태 · 정렬 · 거르기 · 번호 · 쪽 · 빠른시작)  2. room-lobby-provider.js(API 목록 → 모델 모양 · 내 시크릿룸 · 세션 기억 · 손님 수 peek)
- * 3. room-lobby-ui.js(열기 · 그리기 · 위 띠 · 못 불러옴 · 탭 · 빠른시작 · 들어가기 · 만들기 · 시크릿룸 줄 · 글로만 그림 · 방 안 · 60초 갱신)  4. 배선(html · app.js · firebase-init)  5. 깨 보기
+ * 3. room-lobby-ui.js(열기 · 그리기 · 위 띠 · 못 불러옴 · 탭 · 빠른시작 · 들어가기 · 만들기 · 시크릿룸 줄 · 글로만 그림 · 방 안 · 주기 갱신 없음)  4. 배선(html · app.js · firebase-init)  5. 깨 보기
  * 설계: docs/ROOM_LOBBY.md 1 · 2.2 · 3
  */
 'use strict';
@@ -186,22 +186,15 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
   t.$('lobbyQuick').onclick();
   chk(t.log.joins.length === 0 && /못 불러왔어요/.test(t.log.toasts.pop() || ''), '  못 불러온 채로 빠른시작 → «못 불러왔어요»(«방이 없어요» 와 다르게)');
   await t.fire();
-  chk(t.log.lists.length === 3 && t.log.errors.length === 2, '★ 60초 갱신 — 다시 읽되 실패를 알리지 않는다(quiet)');
-  t.$('lobbyMain').hidden = true; await t.fire();
-  chk(t.log.lists.length === 3 && t.timers.size === 1, '  만들기 창이 로비를 덮었으면 이번 차례만 건너뛴다');
-  t.$('lobbyMain').hidden = false; t.o.inRoom = true; await t.fire();
-  chk(t.log.lists.length === 3 && t.timers.size === 1, '  방 안이면(로비가 안 보임) 읽지 않는다');
-  t.$('inviteOverlay').className = ''; await t.fire();
-  chk(t.log.lists.length === 3 && t.timers.size === 0, '★ 모달이 닫혔으면(바깥 클릭 · ESC · 입장도) 타이머가 스스로 멈춘다');
+  chk(t.timers.size === 0 && t.log.lists.length === 2, '★ R3 — 주기 갱신이 없다 — 모달을 열어 둬도 저절로 다시 읽지 않는다(타이머 0 · 읽기 그대로)');
   t = await mkUi({ inRoom: true, secret: { code: 'SCRT-ABCD', name: 'x', guests: 0 } });
   await t.open();
   chk(t.log.lists.length === 0 && t.timers.size === 0 && !t.$('lobbySecretName'), '★ 방 안에서 모달을 열면 목록 · 시크릿룸을 읽지 않는다');
   t.o.inRoom = false; t.nav.go('roomLobby'); await tick(); await tick();
-  chk(t.log.lists.length === 1 && t.timers.size === 1 && t.$('lobbySecretName').textContent === 'x', '★ 모달이 열린 채 방을 나오면(NAV.ROOM_LOBBY) 그때 읽고 60초 갱신을 건다');
+  chk(t.log.lists.length === 1 && t.timers.size === 0 && t.$('lobbySecretName').textContent === 'x', '★ 모달이 열린 채 방을 나오면(NAV.ROOM_LOBBY) 그때 한 번 읽는다');
   t.$('inviteOverlay').className = 'on';
   await t.open();
-  t.$('inviteClose').listeners.click();
-  chk(t.log.lists.length === 2 && t.timers.size === 0, '  닫기 버튼은 타이머를 멈춘다');
+  chk(t.log.lists.length === 2 && t.timers.size === 0, '  열 때마다 읽는다(타이머가 없으니 닫을 때 멈출 것도 없다)');
   t = await mkUi({ list: { at: null, rooms: {} } });
   await t.open();
   chk(t.$('lobbyGrid').children[0].textContent.includes('준비되지 않았어요') && t.log.errors.length === 0, '  칸이 없음(서버 함수 전) — 안내만 · 오류 번호 없음');

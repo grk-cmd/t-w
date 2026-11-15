@@ -227,9 +227,9 @@ const flowRows = async (src) => {
     t(f.log.starts.length === 1 && /^PLAY-[A-Z0-9]{4}$/.test(f.log.starts[0].code) && JSON.stringify(c) === '{"channel":"togetherroom","open":true,"title":"수다","max":4,"music":true}', '★ 만들기 → PLAY- 코드 · join.create 에 고른 값');
     t(f.win._pendingRoomChannel === null && f.win._pendingRoomOpen === false, '  들어간 뒤 만들기 표시를 비운다');
     f = await flow(src, { mySecret: { code: 'SCRT-AB12', name: 'x', expiresAt: null }, run: (m) => m.startRoom('SCRT-AB12') });
-    t(f.log.peeks.join() === 'SCRT-AB12' && JSON.stringify(f.log.starts[0].create) === '{"channel":"togetherroom","music":false}', '★ 내 시크릿룸이 비어 있으면(peek 0명) 주인이 연다 — create { togetherroom · music }');
+    t(f.log.peeks.length === 0 && JSON.stringify(f.log.starts[0].create) === '{"channel":"togetherroom","music":false}', '★ R2 — 내 시크릿룸이면 방 인원을 묻지(peek) 않고 주인이 create { togetherroom · music } 를 늘 싣는다');
     f = await flow(src, { mySecret: { code: 'SCRT-AB12' }, peek: { exists: true, count: 2 }, run: (m) => m.startRoom('SCRT-AB12') });
-    t(f.log.starts[0].create === null, '  사람이 있으면 create 없이(듣던 곡을 지우지 않게)');
+    t(f.log.peeks.length === 0 && JSON.stringify(f.log.starts[0].create) === '{"channel":"togetherroom","music":false}', '  이미 사람이 있어도 같다 — 서버가 방이 있으면 create 를 안 본다(듣던 곡은 지워지지 않는다)');
     f = await flow(src, { mySecret: { code: 'SCRT-ZZZZ' }, run: (m) => m.startRoom('SCRT-AB12') });
     t(f.log.peeks.length === 0 && f.log.starts[0].create === null, '  남의 시크릿룸이면 들여다보지 않고 create 없이(입장 판정은 서버)');
     f = await flow(src, { results: [{ ok: false, code: 'secretClosed' }], run: (m) => m.startRoom('SCRT-AB12') });
@@ -262,7 +262,7 @@ globalThis.__rsCheck = (async () => {
   (await randomRows(MOD)).forEach(([ok, msg]) => chk(ok, msg));
   const broke = await flowRows(MOD.replace("    if(m && (m[1] + '-') !== want){", "    if(false){"));
   chk(broke.some(([ok]) => !ok), '깨 보기: 빈 방 접두어 옮기기를 빼면 입장 흐름이 빨강');
-  const broke2 = await flowRows(MOD.replace("srOpen = _secretOpenFields(true, pk ? (pk.exists ? pk.count : 0) : null);", "srOpen = undefined;"));
+  const broke2 = await flowRows(MOD.replace("srOpen = _secretOpenFields(true);", "srOpen = undefined;"));
   chk(broke2.some(([ok]) => !ok), '깨 보기: 시크릿룸 «주인이 연다» 를 빼면 입장 흐름이 빨강');
 })();
 const breaks = [
@@ -283,15 +283,16 @@ for(const [name, fm, fa, fh] of breaks){
 }
 say('── 5. 방 만들기 두 번 — 입장이 끝날 때까지 방을 더 만들지 않는다(0.12.3 · 0.13 은 방 만들기 창 → doCreateRoomInChannel)');
 /* 방 만들기 창이 부르는 doCreateRoomInChannel 만 진짜 · 만들기 횟수는 «최대 인원 맞추기»(만들 때마다 한 번)로 센다 ·
-   입장(startRoom)은 버전 확인에서 150ms 기다린 뒤 «구버전» 으로 끝난다(그 뒤 길은 안 탄다) */
+   입장(startRoom)은 서버 join 을 150ms 기다린 뒤 실패로 끝난다(가짜 Presence.start — 그 사이가 «입장 중») */
 function cardRig(src, o){
   o = o || {};
   let asked = 0, threw = false;
-  const companion = { getAppVersion: () => new Promise(r => setTimeout(() => r('0.1.0'), 150)) };
-  const rc = new Proxy({ refresh: async () => {}, minRoomVer: () => '99.0.0' }, { get: (t, k) => k in t ? t[k] : anything() });
+  const companion = {};
+  const rc = new Proxy({}, { get: (t, k) => k in t ? t[k] : anything() });
+  const Presence = { start: () => new Promise(r => setTimeout(() => r({ ok: false, code: 'timeout' }), 150)), active: () => false, serverProvider: () => null };
   /* o.throwOnce 면 첫 만들기 도중(최대 인원 맞추기) 한 번 던진다 */
-  const roomSettings = { clampMax: () => { asked++; if(o.throwOnce && !threw){ threw = true; throw new Error('깨 봄'); } return 10; } };
-  const api = build(src, { companion, win: { _deviceSessionLost: false }, deps: { _rcStore: () => rc, roomSettings } });
+  const roomSettings = { clampMax: () => { asked++; if(o.throwOnce && !threw){ threw = true; throw new Error('깨 봄'); } return 10; }, serverJoinCreate: () => null };
+  const api = build(src, { companion, win: { _deviceSessionLost: false }, deps: { _rcStore: () => rc, roomSettings, Presence } });
   const settings = { title: '', max: 10, open: false, music: false };
   return { card: { onclick: () => api.doCreateRoomInChannel('workingroom', settings) }, asked: () => asked };
 }

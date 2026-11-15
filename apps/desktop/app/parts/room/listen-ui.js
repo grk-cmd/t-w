@@ -12,7 +12,6 @@ const VOL_KEY = 'tw.listenVol';     // 기기 설정 — 플레이리스트 음�
 const MUTE_KEY = 'tw.listenMute';
 const TICK_MS = 1000;
 const SEEK_GAP_MS = 8000;            // 위치 옮기기 사이 최소 간격 — 옮긴 직후 하트비트가 옛 위치를 한 번 더 말해도 또 옮기지 않게
-const RETRY_MS = 5000;               // 쓰기가 막힌 뒤 저절로 다시 쓰기까지 — 1초 tick 마다 거부당하지 않게(버튼은 기다리지 않는다)
 const VOL_RESEND_MS = [120, 300, 600, 1000, 1600, 2400];   // 새 페이지의 <video> 가 생길 때까지 음량을 다시 보낸다(playlist.js _plApplyVolSoon 과 같은 까닭)
 
 /**
@@ -63,7 +62,7 @@ let playerPaused = false;
 let lost = false;         // 다른 음악이 이김 — [다시 듣기] 전까지 재생 창을 안 건드린다
 let selfCloses = 0;       // 내가 닫은 재생 창의 «닫힘» 알림 수 — 그건 «다른 음악이 이김» 이 아니다(알림이 곡을 연 뒤에 올 수 있다)
 let writing = false;
-let retryAt = 0;          // 쓰기가 막힌 뒤 저절로 다시 쓰는 때(1초 tick 마다 거부당하지 않게) — 버튼은 기다리지 않는다
+let writeFailed = false;   // 쓰기가 막혔다 — 저절로 다시 쓰지 않는다(사람이 누른 버튼 · 서버가 보낸 새 곡 신호 · 방을 옮김이 풀어 준다)
 let advancedSeq = -1;     // 이 차례 번호에서 이미 다음 곡을 썼다(곡 끝 신호 · 예비 판정 · 버튼이 겹쳐도 한 번)
 let errNotified = null;   // 못 트는 곡 알림은 곡마다 한 번
 let lastSeekAt = 0;
@@ -123,7 +122,8 @@ async function write(m){
   try{ r = await provider.write(r0, m); }catch(e){ r = { ok: false, err: e }; }
   writing = false;
   const ok = !!(r && r.ok);
-  if(room === r0 && !ok){ retryAt = Date.now() + RETRY_MS; notifyError('E-ROOM-05', r && r.err); }
+  if(room === r0 && !ok){ writeFailed = true; notifyError('E-ROOM-05', r && r.err); }
+  if(ok) writeFailed = false;
   return ok;
 }
 /** 다음(1) · 이전(-1) 곡 — 지금 곡이 옛 DJ 것이면 내 목록 첫 곡부터 · 내 목록이 비면 칸을 지운다(«틀 곡 없음») */
@@ -139,7 +139,7 @@ async function advance(dir){
 }
 /* 내가 DJ 일 때 해야 할 일 — 칸이 비었으면 첫 곡 · 옛 DJ 가 멈춘 채 나갔으면 다시 · 곡이 끝났는데 신호를 못 받았으면 다음 */
 function reconcileDj(){
-  if(!room || music === undefined || writing || Date.now() < retryAt || !amDj()) return;
+  if(!room || music === undefined || writing || writeFailed || !amDj()) return;
   const me = myId();
   if(music === null){
     const items = djItems(), i = model.playableFrom(items, 0, 1);
@@ -196,6 +196,7 @@ function relisten(){
 /* ── 구독 ── */
 function onMusic(v){
   music = v;
+  writeFailed = false;   // 서버가 새 곡 신호를 보냈다 — 그 위에서 다시 판단한다
   applyPlayer();
   reconcileDj();
   paint();
@@ -212,7 +213,7 @@ function bindPlayer(){
 }
 function start(code){
   bindPlayer();
-  room = code; music = undefined; lost = false; advancedSeq = -1; errNotified = null; retryAt = 0;
+  room = code; music = undefined; lost = false; advancedSeq = -1; errNotified = null; writeFailed = false;
   // 내 플레이리스트는 곡이 오면 재생 창을 넘겨주며 지고, 틀 곡이 없거나 멈춤이면 applyPlayer 가 멈춘다
   unsub = provider.subscribe(code, onMusic);
   tickT = setInterval(() => { reconcileDj(); paint(); }, TICK_MS);   // DJ · 사람 수가 meta 없이 바뀌어도 창 글이 따라가게
