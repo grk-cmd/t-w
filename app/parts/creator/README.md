@@ -326,4 +326,10 @@ deskSetupMod.setHooks({
 - **책임**: 되돌리기 기록(`histF` · `histB` · `redoF` · `redoB` · `pushHistory` · undo · redo) · `actC` · `blit`(피부 위에 그림을 얹어 합성 텍스처 갱신) · `bindPaint`(미리보기 위 마우스 그리기) · 붓 색 · 크기 · 도구 줄 · 대칭 · 지우기 · 도장 단추 · 표정 ↔ 감은눈 복사 · 카메라 키 · 옷 색 입력 · 색 스와치 · 피부 스와치 · `loadSkins`.
 - **만드는 법**: `TwCreatorCanvas.createCreatorCanvas({ … 21개 })` — 읽는 함수 다섯 · 함수 셋(`bindHold` · `toast` · window 고리 `openCharColorPicker`) · 값. 원래 자리에서 만든다 — 단추 · 입력 듣기가 이때 걸린다.
 - **내보내는 것**: `_crDropEraser` · `histF` · `histB` · `redoF` · `redoB` · `isDrawStep` · `actC` · `blit` · `pushHistory` · `bindPaint` · `swEl` · `_syncCrColorSwatches` · `loadSkins`.
-- **함정**: 얼굴 합성(`compositeFace`) · 몸 만들기(`buildCreatorBase` · `defToBase`)는 일부러 남겼다(T7 몫). 표정 복사는 감은눈을 안 그렸으면 막는다(표정이 통째로 지워지므로). 검사: `checks/sim-creator-canvas.js`.
+- **함정**: 얼굴 합성(`compositeFace`) · 몸 만들기(`buildCreatorBase` · `defToBase`)는 `creator-face.js`(T7)가 맡는다. 표정 복사는 감은눈을 안 그렸으면 막는다(표정이 통째로 지워지므로). 검사: `checks/sim-creator-canvas.js`.
+
+## creator-face.js — 🙂 생성기 얼굴 · 피부 캔버스 · 몸 만들기
+
+- **책임**: 0.13 app.js 글 그대로 — 캐릭터 코어(`createFace` · `createBody.assemble`)를 부르는 얇은 이름. `CANVAS_SZ` · `FACE_SYM_SUM` · `SYM_PX` · `newCanvas` · `_isBlankDraw` · `snapCanvas` · 피부 5종(`SKIN_COLORS` · `skinCanvases` · `skinCanvasFor` · `skinColorFor`) · `compositeFace` · `charDef` · `buildCreatorBase` · `defToBase`.
+- **만드는 법**: `TwCreatorFace.createCreatorFace({ bodyCore, mkFaceTex, skelShare, COMMISSION_SCALE_CORRECTION, _attachHumanEars, animalBuilder })` — 값 넷 · 함수 하나(`_attachHumanEars`) · 읽는 함수 하나(`animalBuilder`). app.js 가 `creatorFaceMod` 로 만들고 옛 이름 열네 개를 같은 이름 const 로 받는다(기본 몸 모듈 뒤 · 생성기 그림판 앞).
+- **함정**: «비었나»(`_isBlankDraw`)의 true 는 저장을 막는 힘이 있다 — 판정할 수 없으면 false(코어 주석). #830 `shareSkeletons` 는 `defToBase` 의 `onRoot` 에 있다. 피부 그림 불러오기(`loadSkins`)는 `creator-canvas.js`. 검사: `checks/sim-creator-face.js`.

@@ -208,7 +208,7 @@ chk(offOk, '빈 껍데기(WD_EAR_OFF)가 app.js 가 부르는 함수를 다 갖�
 chk(/const wdEar = \(typeof WdEar === 'undefined' \|\| !humanEar\) \? WD_EAR_OFF : WdEar\.createWdEar/.test(A), 'wd-ear.js 가 없으면 빈 껍데기');
 const att = grab(A, '_attachHumanEars');
 chk(/def && def\.animal\)\) return;/.test(att) && /humanEar\.ensureHolder\(root\);[\s\S]*humanEar\.attachFromDef\(root, def,/.test(att), '_attachHumanEars — 동물 제외 · holder 먼저 · def 대로');
-chk(/normalizeModel\(inst\.root, 1\.4, def\.isCommission\);\s*_attachHumanEars\(inst\.root, def\);/.test(A), 'defToBase — 정규화 직후 귀(미리보기 · 런처 미리보기)');
+chk(/onRoot:\(root\)=>\{ skelShare\.shareSkeletons\(skelShare\.skinnedMeshesOf\(root\)\); _attachHumanEars\(root, def\); \}/.test(A), 'defToBase — 정규화 직후 귀(뼈대 함께 쓰기 다음)(미리보기 · 런처 미리보기) — 코어 assemble 의 onRoot(크기 맞춘 뒤 · 감싸기 전에 부른다 — 코어 시험 body.test.ts)');
 chk(/if\(!inst\._animal\) _attachHumanEars\(inst\.root, def\);\s*setupSeatModel\(seat, inst\.root,/.test(A), '좌석 — setupSeatModel(애니메이션) 직전, 바인드 자세에서');
 chk(/humanEar\.findWrap|createWdEar/.test(A) && /color:'#ffffff'/.test(grab(A, '_humanEarMat')), '귀 재질은 흰색으로 시작');
 chk(/wdEar\.copyIntoDraft\(wdDraftDef, def\);/.test(grab(A, 'ensureWdDraft')), '초안 — 귀 조정값 깊은 복사');
