@@ -636,10 +636,14 @@ function _chatTabName(id){
   return t ? t.name : '일반';
 }
 function _chatMarkKey(room, tab){ return window.ChatTabs ? ChatTabs.markKey(room, tab) : room; }
-/* 지금 탭의 기록을 구독한다 — 창을 열 때 · 탭을 바꿀 때 */
+let _chatHistFail = false, _chatHistRoom = null;   // 서버 지난 기록을 못 받음 — 대화 맨 위에 «못 불러왔어요 + [다시 시도]» 한 줄(빈 대화로 그리지 않는다)
+/* [다시 시도] — 지금 방 · 탭의 기록을 처음부터 다시 받는다(실패하면 E-CHAT-02 를 다시 알린다 — 사람이 누른 때만) */
+function _chatRetryHistory(){ if(_chatHistRoom) _chatSubscribeTab(_chatHistRoom); }
+/* 지금 탭의 기록을 구독한다 — 창을 열 때 · 탭을 바꿀 때 · 다시 시도 */
 function _chatSubscribeTab(room){
   const tab = _chatMyTabId();
   const key = _chatMarkKey(room, tab);
+  _chatHistFail = false; _chatHistRoom = room;
   // 🔖 이번 세션의 구분선 위치를 여기서 '고정' — 이후 창이 열려 있는 동안 새 메시지가 와도 선은 움직이지 않는다.
   _chatReadRoom = key;
   _chatReadMarker = _loadChatReadMarker(key);
@@ -650,7 +654,12 @@ function _chatSubscribeTab(room){
   // 🚪 목록이 도착한 그 순간이 '입장'이다 — 처음이면 여기서 표식을 찍는다(_noteChatJoin 주석 참고).
   const _onList = list => { _noteChatJoin(key, list); _renderChatLog(list); };
   // 💬 이 PC 화면 캐시 + 그 뒤만 이어 받기(chat-history.js · 길은 chat-rt.js) — 연결 모듈이 아직이면 최근 줄 구독
-  if(room && window.firebaseAPI && firebaseAPI.chatHistory) setChatLogUnsub(firebaseAPI.chatHistory.open(room, tab, _onList, ()=>{ try{ TwErrorCodes.notify('E-CHAT-02'); }catch(_){} }));
+  if(room && window.firebaseAPI && firebaseAPI.chatHistory) setChatLogUnsub(firebaseAPI.chatHistory.open(room, tab, _onList, ()=>{
+    if(_chatReadRoom !== key) return;   // 그 사이 탭 · 방을 옮겼다
+    _chatHistFail = true;
+    try{ TwErrorCodes.notify('E-CHAT-02'); }catch(_){}
+    try{ _renderChatLog(_chatLogCache()); }catch(_){}   // 안내 줄을 그린다
+  }));
   else if(room) setChatLogUnsub(chatNet.subscribeLog(room, _onList, undefined, tab));
   _chatTabUnreadStart(room);
   _chatTabsRender();
@@ -860,6 +869,7 @@ function _renderChatLog(list){
     return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
   };
   let _myUid = null; try{ _myUid = myCode(); }catch(_){}
+  if(_chatHistFail) html.push('<div class="cm-row cm-hist-fail" style="text-align:center;color:#7a2718;">지난 대화를 불러오지 못했어요 <button type="button" class="lc-btn" data-hist-retry="1" style="margin-left:6px;padding:2px 8px;">다시 시도</button></div>');
   rows.forEach((m, i)=>{
     if(i===dividerAt) html.push('<div class="cm-unread-sep" id="cmUnreadSep"><span>여기까지 읽었습니다</span></div>');
     const nm=_chatEsc(m.name||'?');
@@ -876,6 +886,7 @@ function _renderChatLog(list){
      이미 지난 안내가 대화처럼 보인다. 지금 상태는 토글 글자와 입력칸 안내가 이미 말한다. */
   if(_chatOffOn()) html.push('<div class="cm-row" style="text-align:center;color:#7a2718;">— 방장이 채팅을 껐어요 —</div>');
   box.innerHTML = html.join('');
+  if(_chatHistFail){ const rb = box.querySelector('[data-hist-retry]'); if(rb) rb.onclick = _chatRetryHistory; }
   // 연 직후 첫 렌더에서는 맨 아래가 아니라 구분선이 화면 위쪽에 오도록 맞춘다(안 읽은 것부터 읽게).
   const jump = _chatJumpToUnread && rows.length;
   if(jump) _chatJumpToUnread = false;

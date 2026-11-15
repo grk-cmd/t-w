@@ -75,6 +75,8 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
+chk(/_chatHistFail = true;[\s\S]{0,160}TwErrorCodes\.notify\('E-CHAT-02'\)[\s\S]{0,160}_renderChatLog\(_chatLogCache\(\)\)/.test(MOD) && /data-hist-retry="1"[^\n]*다시 시도/.test(MOD) && /rb\.onclick = _chatRetryHistory/.test(MOD) && /function _chatRetryHistory\(\)\{ if\(_chatHistRoom\) _chatSubscribeTab\(_chatHistRoom\); \}/.test(MOD) && /_chatHistFail = false; _chatHistRoom = room;/.test(MOD),
+  '★ 지난 기록을 못 받으면 대화 맨 위에 «못 불러왔어요 + [다시 시도]» — 누르면 같은 방 · 탭을 처음부터 다시 받고 · 새로 구독할 때 안내를 지운다(E-CHAT-02)');
 chk(!/CHAT_BURST_N|CHAT_BURST_MS|_chatSendTimes/.test(MOD) && /CHAT_TOO_FAST/.test(MOD), '★ R7 — 앱이 5초 8줄을 따로 세지 않는다(서버 CHAT_TOO_FAST 가 막고 CHAT_SAY_REFUSED 가 «조금 천천히» 를 안내)');
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
