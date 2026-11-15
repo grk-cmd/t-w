@@ -84,7 +84,7 @@
   }
 
   /* ── 지금 방 상태 읽기 ──────────────────────────────────────────────── */
-  function _office(){ try{ return !!officeModeMod.officeMode(); }catch(_){ return false; } }   // let TDZ 대비(_chatSfxOfficeLock 과 같은 이유)
+  function _office(){ try{ return !!officeModeMod.officeMode(); }catch(_){ return false; } }   // 모듈 안 let 을 읽는 함수로 읽는다 — 아직 안 만들어졌으면 던지므로 꺼짐으로 본다
   function gather(now){
     const inp = { office:_office(), mine:{ kind:nzKind, focus:false }, others:[], withOthers:nzOthers };
     let list = null;
