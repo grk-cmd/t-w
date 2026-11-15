@@ -249,6 +249,12 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 검사: `checks/sim-app-version.js` (1절 모듈 · 2절 쓰는 자리 · 3절 규칙 · 5절 presence 쓰기를 실제로 돌림 — 평소 · 늦게 옴 · 못 받음 · companion 없음 · 영영 안 옴 · 오프라인 · 규칙 판정 · 깨 보기 3).
 
+## `api-client.js` · `api-errors.js` — 🌐 서버 API(/v2) 통로 · 오류 번역표
+**책임** — 앱이 우리 서버(`/v2`)와 말하는 길 한 벌. 시간 제한 · 봉투 풀기 · 실패 모양(`ApiError`) · 토큰 붙이기를 기능마다 따로 만들지 않는다. `TwApi.client`(로그인 없는 읽기 · 쉬기 있음) · `TwApi.authed`(로그인 통로 — 읽기 · `post` · `put` · `patch` · `del` · 쉬기 없음). 토큰은 `firebase-init.js` 가 `TwApi.bindToken` 으로 잇는다.
+**provider 자리** — 도메인 모듈은 `firebaseAPI` 를 부르지 않고 `*-api.js`(예: `support/report-api.js`) 한 파일의 함수만 부른다. 그 파일이 경로 · 본문 모양 · 서버 code 를 알고 `TwApi.authed` 를 deps 로 받는다.
+**실패** — 옛 Firebase 길로 넘어가지 않는다. 실패는 던지고, 부르는 쪽이 `TwApiErrors.translate` 로 갈래를 잡아 `TwErrorCodes.notify('E-영역-번호')` 로 보인다. 자동 재시도 없음(사용자가 버튼을 다시 누르는 것만).
+**함정** — 공개 읽기 통로(`api-public-reads.js` · `shouldFallback`)는 옛 길이 남은 동안만 쓰고 새 코드는 쓰지 않는다. 쓰기(`post` 등)는 로그인이 기본이다.
+
 ## `maintenance-gate.js` — 🛠 서버 점검 창
 
 **책임** — Firebase `config/maintenance`(`{ on, endsAt?, message? }` · 웹 관리자가 씀)가 켜진 동안, **사람이 방금 누른 동작**이 서버에 닿으면 «서버 점검 중 · ○○:○○쯤 끝날 예정» 창을 띄운다. 이 PC 에서만 도는 기능(책상 · 꾸미기 · 뽀모도로)은 막지 않는다. 점검이 끝나면 «지금 다시 켜기 · 나중에» 를 묻는다.
