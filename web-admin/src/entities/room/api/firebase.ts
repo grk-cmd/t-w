@@ -187,6 +187,7 @@ export async function closeAllRooms(db: Db): Promise<string[]> {
 
 export function createFirebaseRoomPort(db: Db, api: Api | null): RoomPort {
   return {
+    features: { ghostCleanup: true, lastSeen: true },
     getLimits: () => getRoomLimits(db),
     getMaxPeople: () => getRoomMaxPeople(db),
     saveLimits: (before, next) => saveRoomLimits(db, before, next),

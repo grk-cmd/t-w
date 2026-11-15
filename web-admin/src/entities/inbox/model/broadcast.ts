@@ -5,6 +5,8 @@ export interface InboxBroadcast extends InboxMessage {
   id: string;
   ts: number;
   pinned: boolean;
+  /** 서버 판의 낙관적 잠금 번호 — 고정 · 내리기에 싣는다. Firebase 판은 없다. */
+  version?: number;
 }
 
 export interface RawBroadcast {

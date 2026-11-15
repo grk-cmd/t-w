@@ -13,6 +13,7 @@ import {
   useRefreshRooms,
   useRoomCodes,
   useRoomIndex,
+  useRoomPort,
   useRoomProbes,
   useRoomStats,
   useSnapshotNow,
@@ -92,6 +93,7 @@ function StateCounts({ rows }: { rows: readonly RoomRow[] }) {
 }
 
 export function RoomList() {
+  const { features } = useRoomPort();
   const index = useRoomIndex();
   const codes = useRoomCodes();
   const probes = useRoomProbes(index.data, codes.data);
@@ -204,7 +206,7 @@ export function RoomList() {
                 <th>랜덤 공개</th>
                 <th>인원</th>
                 <th>들어간 사람</th>
-                <th>마지막 신호</th>
+                {features.lastSeen && <th>마지막 신호</th>}
                 <th>상태</th>
                 <th />
               </tr>
@@ -212,7 +214,7 @@ export function RoomList() {
             <tbody>
               {list.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="soft">
+                  <td colSpan={features.lastSeen ? 9 : 8} className="soft">
                     {rows.length === 0 ? '열린 방이 없어요' : '찾는 방이 없어요'}
                   </td>
                 </tr>
@@ -250,9 +252,11 @@ export function RoomList() {
                   <td className={styles.people}>
                     <People row={row} pending={row.server ? live.isLoading : !probes.error} />
                   </td>
-                  <td title={row.lastSeen ? formatDate(row.lastSeen) : undefined}>
-                    {row.lastSeen !== null && now !== null ? formatAgo(now - row.lastSeen) : '—'}
-                  </td>
+                  {features.lastSeen && (
+                    <td title={row.lastSeen ? formatDate(row.lastSeen) : undefined}>
+                      {row.lastSeen !== null && now !== null ? formatAgo(now - row.lastSeen) : '—'}
+                    </td>
+                  )}
                   <td>
                     <RoomStateCell row={row} />
                   </td>
