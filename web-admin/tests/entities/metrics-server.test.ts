@@ -189,6 +189,7 @@ describe('사용량 · 개선 기록 — API 판', () => {
     const s = fake({
       'GET /v2/admin/metrics/improvements': () => ({
         items: [wire('a'), wire('b', { releasedAt: '2026-11-12T00:00:00Z', version: 7 })],
+        nextCursor: null,
       }),
       'PUT /v2/admin/metrics/improvements/a': () => wire('a'),
       'DELETE /v2/admin/metrics/improvements/b': () => undefined,
@@ -285,6 +286,24 @@ describe('사용량 · 개선 기록 — 모양이 틀리면 던진다', () => {
       adoptDays: 3,
     };
     expect(isPortError(await port.saveImprovement(draft).catch((e: unknown) => e), 'invalid')).toBe(true);
+  });
+});
+
+describe('개선 기록 쪽 넘김 — 모양이 틀리면 던진다', () => {
+  it('nextCursor 가 글자도 null 도 아니면 조용히 끝내지 않고 던진다', async () => {
+    const s = fake({ 'GET /v2/admin/metrics/improvements': () => ({ items: [], nextCursor: 5 }) });
+    const error = await createServerUsagePort(s.api)
+      .listImprovements()
+      .catch((e: unknown) => e);
+    expect(isPortError(error, 'invalid')).toBe(true);
+  });
+
+  it('쪽 상한에 닿았는데 다음 쪽이 남았으면 잘린 목록을 돌려주지 않고 던진다', async () => {
+    const s = fake({ 'GET /v2/admin/metrics/improvements': () => ({ items: [], nextCursor: 'more' }) });
+    const error = await createServerUsagePort(s.api)
+      .listImprovements()
+      .catch((e: unknown) => e);
+    expect(isPortError(error, 'invalid')).toBe(true);
   });
 });
 

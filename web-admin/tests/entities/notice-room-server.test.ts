@@ -400,7 +400,7 @@ describe('같은 API 에는 포트가 하나 — 읽는 훅 · 쓰는 훅이 같
     const s = fake({
       'GET /v2/admin/rooms': () => {
         listed += 1;
-        return { at: '2026-11-20T03:00:00Z', rooms: [], counts: {} };
+        return { at: '2026-11-20T03:00:00Z', rooms: [], counts: { workingroom: 0, togetherroom: 0 } };
       },
       'POST /v2/admin/rooms/close': () => ({ closed: ['A'], missing: [] }),
     });
@@ -460,7 +460,8 @@ describe('방 닫기 · 목록 — 결과를 그대로 알리고 모양이 틀�
       { ...listing, rooms: [{ ...room, channel: 'x' }] },
       { ...listing, rooms: [{ ...room, members: [{ userCode: 'u', name: 3 }] }] },
       { ...listing, at: 'nope' },
-      { ...listing, counts: { workingroom: 'many' } },
+      { ...listing, counts: { workingroom: 'many', togetherroom: 1 } },
+      { ...listing, counts: { workingroom: 1 } },
     ];
     for (const wire of bad) {
       const s = fake({ 'GET /v2/admin/rooms': () => wire });

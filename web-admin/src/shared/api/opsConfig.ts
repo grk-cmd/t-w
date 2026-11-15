@@ -31,6 +31,7 @@ function settingOf(row: unknown): OpsSetting {
   if (!('value' in o) || !('default' in o)) throw wireError(`설정 ${key}`, 'value · default 칸');
   return {
     key,
+    // 서버 약속(api/README «운영 설정»): 저장한 값이 없으면 `value` 는 null 이고 지금 먹는 값은 `default` 다.
     effective: o.value ?? o.default,
     default: o.default,
     version: wireNumber(o.version, `설정 ${key} 의 version`),

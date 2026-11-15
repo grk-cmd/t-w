@@ -8,6 +8,7 @@ import {
   portCall,
   wireArray,
   wireError,
+  wireNullableString,
   wireNumber,
   wireObject,
   wireString,
@@ -143,14 +144,17 @@ function build(api: Api | null): UsagePort {
         async (a) => {
           const out: Improvement[] = [];
           let cursor: string | undefined;
-          for (let page = 0; page < PAGE_CAP; page++) {
+          for (let page = 0; ; page++) {
+            // 상한에 닿았는데 다음 쪽이 남았으면 앞 쪽만 돌려주지 않고 던진다(잘린 목록을 전부인 듯 보이지 않게).
+            if (page >= PAGE_CAP)
+              throw new PortError('invalid', `개선 기록이 ${PAGE_CAP}쪽을 넘어요 — 상한을 늘려야 해요`);
             const res = wireObject(
               await a.get<unknown>(IMPROVEMENTS, { limit: PAGE_LIMIT, cursor }),
               '개선 기록 쪽',
             );
             const items = wireArray(res.items, '개선 기록 쪽의 items');
             for (const w of items) out.push(toRecord(w));
-            cursor = typeof res.nextCursor === 'string' ? res.nextCursor : undefined;
+            cursor = wireNullableString(res.nextCursor, '개선 기록 쪽의 nextCursor') ?? undefined;
             if (!cursor) break;
           }
           return out.sort((x, y) => y.releasedAt - x.releasedAt);

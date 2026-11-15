@@ -37,12 +37,13 @@ function build(api: Api | null): GameConfigPort {
       return unlock;
     },
     async saveAnimalUnlockLevel(from, level) {
+      const label = from.raw?.effective;
       if (!from.raw) throw new PortError('invalid', '읽은 값이 이 판의 것이 아니에요 (동물 해금)');
       await portCall(
         api,
         (a) =>
           a.send('PUT', adminPath(`/catalog/unlocks/${ANIMAL_UNLOCK.kind}/${ANIMAL_UNLOCK.key}`), {
-            body: { version: from.version, level, label: from.raw?.effective },
+            body: { version: from.version, level, label },
           }),
         '저장하지 못했어요',
       );

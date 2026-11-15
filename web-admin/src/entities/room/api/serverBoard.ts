@@ -61,9 +61,11 @@ function parse(data: unknown, receivedAt: number): Listing {
     };
   });
   const c = wireObject(o.counts, '열린 방 목록의 counts');
-  const counts: Listing['counts'] = {};
-  for (const channel of ['workingroom', 'togetherroom'] as const)
-    if (channel in c) counts[channel] = wireNumber(c[channel], `counts.${channel}`);
+  // 서버는 두 채널의 방 수를 늘 함께 준다 — 하나라도 없으면 0 으로 두지 않고 던진다.
+  const counts: Listing['counts'] = {
+    workingroom: wireNumber(c.workingroom, 'counts.workingroom'),
+    togetherroom: wireNumber(c.togetherroom, 'counts.togetherroom'),
+  };
   return { at, receivedAt, rooms, counts };
 }
 
