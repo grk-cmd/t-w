@@ -8,8 +8,8 @@ import { describe, expect, it } from 'vitest';
 
 /** 톱니 1 기준선 — D12-4a 뒤(라이선스 묶음을 포트 뒤로 옮김: 72 → 59). */
 const TOOTH_1_BASELINE = 59;
-/** 톱니 2 기준선 — `notPorted(` 를 적은 포트 수. */
-const TOOTH_2_BASELINE = 10;
+/** 톱니 2 기준선 — D12-4b 뒤 0(10 → 0). `notPorted` 는 지웠다 — 다시 적는 PR 은 빨강. */
+const TOOTH_2_BASELINE = 0;
 
 const SRC = join(process.cwd(), 'src');
 

@@ -1,10 +1,11 @@
-import type { LicenseStatus } from '@/entities/license';
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
+import type { SelectedKey } from '../model/revokeKeys';
 import { useRemoveKey, useRevokeKey } from '../model/useRevokeKey';
 
 // 살아 있는 키는 회수만, 회수된 키만 목록에서 지울 수 있다.
-export function KeyActions({ licenseKey, status }: { licenseKey: string; status: LicenseStatus }) {
+export function KeyActions({ row }: { row: SelectedKey }) {
+  const { key: licenseKey, status } = row;
   const toast = useToast();
   const revoke = useRevokeKey();
   const remove = useRemoveKey();
@@ -14,7 +15,7 @@ export function KeyActions({ licenseKey, status }: { licenseKey: string; status:
     if (!confirm(`${licenseKey} 키를 회수할까요? 이 키를 쓰던 사람은 다음 접속 때 라이선스가 풀려요.`))
       return;
     try {
-      await revoke.mutateAsync(licenseKey);
+      await revoke.mutateAsync(row);
       toast('회수했어요');
     } catch (e) {
       toast(errorMessage(e, '회수하지 못했어요'));
@@ -24,7 +25,7 @@ export function KeyActions({ licenseKey, status }: { licenseKey: string; status:
   const onRemove = async () => {
     if (!confirm(`${licenseKey} 키를 목록에서 완전히 지울까요? 되돌릴 수 없어요.`)) return;
     try {
-      await remove.mutateAsync(licenseKey);
+      await remove.mutateAsync(row);
       toast('삭제했어요');
     } catch (e) {
       toast(errorMessage(e, '삭제하지 못했어요'));

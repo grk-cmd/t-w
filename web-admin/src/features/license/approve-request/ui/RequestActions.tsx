@@ -14,7 +14,13 @@ export function RequestActions({ request }: { request: LicenseRequest }) {
   const onApprove = async () => {
     try {
       const { delivered } = await approve.mutateAsync(request);
-      toast(`${who}에게 발급했어요 · ${delivered ? '수령함으로 보냈어요' : '수령함 전송 실패'}`);
+      const sent =
+        delivered === null
+          ? '수령함 우편은 서버가 보내요'
+          : delivered
+            ? '수령함으로 보냈어요'
+            : '수령함 전송 실패';
+      toast(`${who}에게 발급했어요 · ${sent}`);
     } catch (e) {
       toast(errorMessage(e, '발급하지 못했어요'));
     }

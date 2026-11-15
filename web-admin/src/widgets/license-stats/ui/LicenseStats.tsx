@@ -33,7 +33,7 @@ export function LicenseStats() {
             ? errorMessage(stats.error, '불러오지 못했어요')
             : `사용 ${n(counts?.used)} · 미사용 ${n(counts?.unused)} · 회수 ${n(counts?.revoked)}`}
         </small>
-        {stats.data && (
+        {stats.data && sourceNote(stats.data.source, stats.data.syncedAt) && (
           <small className={styles.source}>{sourceNote(stats.data.source, stats.data.syncedAt)}</small>
         )}
       </div>

@@ -29,7 +29,7 @@ interface Listing {
   /** 우리가 받은 시각 — 서버 시계와 이 PC 시계의 차를 잰다. */
   receivedAt: number;
   rooms: LiveRoom[];
-  counts: Partial<Record<Channel, number>>;
+  counts: Record<Channel, number>;
 }
 
 type BoardPort = Pick<

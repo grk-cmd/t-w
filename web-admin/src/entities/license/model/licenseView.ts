@@ -10,12 +10,18 @@ import {
 
 // 화면이 쓰는 모양 — API(읽기 사본)로 받든 예전 방식(RTDB 통째)으로 받든 같은 모양으로 맞춘다.
 
-/** 어디서 읽었나. rtdb 면 왜 넘어왔는지(fallback): 이 환경에 API 가 없음 · API 에 닿지 못함. */
-export type LicenseSource = { via: 'api' } | { via: 'rtdb'; fallback: LicenseFallback };
+/**
+ * 어디서 읽었나. `server` = API 판(서버 원본 — 사본 지연이 없다). `api` · `rtdb` 는 Firebase 판 안의 갈래:
+ * 읽기 사본(API)이거나, 못 닿아 넘어온 RTDB(fallback: 이 환경에 API 가 없음 · API 에 닿지 못함).
+ */
+export type LicenseSource = { via: 'server' } | { via: 'api' } | { via: 'rtdb'; fallback: LicenseFallback };
 export type LicenseFallback = ApiFallback;
 
 export interface LicenseRow {
   key: string;
+  /** API 판 — 서버가 키에 붙인 id · 읽을 때의 번호. 회수 · 삭제는 이 줄을 그대로 넘긴다. Firebase 판은 없다. */
+  licenseId?: string;
+  version?: number;
   status: LicenseStatus;
   note: string;
   createdAt?: number;
@@ -165,8 +171,9 @@ const clock = (ts: number) => {
   return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 };
 
-/** 어디서 읽었는지 작게 붙일 말. API 면 기준 시각(사본이 몇 초 늦을 수 있어서), 예전 방식이면 왜 넘어왔는지. */
+/** 어디서 읽었는지 작게 붙일 말. 읽기 사본(API)이면 기준 시각(몇 초 늦을 수 있어서), 예전 방식이면 왜 넘어왔는지, API 판은 원본이라 없다. */
 export function sourceNote(source: LicenseSource, syncedAt: number | null): string {
+  if (source.via === 'server') return '';
   if (source.via === 'api')
     return syncedAt ? `기준 ${clock(syncedAt)}` : '기준 시각 없음 — 서버 사본을 아직 맞추지 못함';
   return source.fallback === 'no-api'

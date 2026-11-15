@@ -14,9 +14,8 @@ import {
   type LicensePageView,
   type LicenseStatsView,
 } from '../model/licenseView';
+import { LICENSES_KEY } from './keys';
 import type { LicensePort } from './port';
-
-export const LICENSES_KEY = ['licenses'];
 
 // licenses 는 통째로 받는 노드다(요금 = 내려받은 바이트) — 구독하지 않고 캐시해 두었다가 쓰기 직후에만 다시 받는다.
 // 라이선스 화면은 API 로 읽고, 이 통째 읽기는 API 를 못 쓸 때(폴백) · 사용자 화면 · 일괄 발급의 이력 확인에만 쓴다.
@@ -67,8 +66,6 @@ export function createFirebaseLicensePort(db: Db, api: Api | null, client: Query
   return {
     stats: () => fetchLicenseStats(api, all),
     page: (query) => fetchLicensePage(api, all, query),
-    list: () => listLicenses(db),
-    all,
   };
 }
 

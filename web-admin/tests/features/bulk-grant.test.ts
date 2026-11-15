@@ -140,18 +140,20 @@ describe('일괄 발급 — 행 판정', () => {
       row({ line: 5, base: 'key' }),
     ];
     const idx = issuedIndex({ k: { note: '친구코드 COZY-CD34' } });
-    expect(judge(rows, { dupFirst: true, reissue: false }, idx).map((r) => [r.st, r.dupOf])).toEqual([
+    expect(
+      judge(rows, { dupFirst: true, reissue: false }, (r) => wasIssued(idx, r.code)).map((r) => [
+        r.st,
+        r.dupOf,
+      ]),
+    ).toEqual([
       ['send', undefined],
       ['dup', 2],
       ['issued', undefined],
       ['key', undefined],
     ]);
-    expect(judge(rows, { dupFirst: false, reissue: true }, idx).map((r) => r.st)).toEqual([
-      'send',
-      'send',
-      'send',
-      'key',
-    ]);
+    expect(
+      judge(rows, { dupFirst: false, reissue: true }, (r) => wasIssued(idx, r.code)).map((r) => r.st),
+    ).toEqual(['send', 'send', 'send', 'key']);
   });
 
   it('이미 키가 있는 행의 코드도 뒷 행 중복 판정에 센다', () => {

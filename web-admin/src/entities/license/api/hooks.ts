@@ -1,23 +1,11 @@
 import { keepPreviousData, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { REPLICA_LAG_MS } from '@/shared/api';
-import type { License } from '../model/license';
 import type { LicensePageQuery, LicensePageView, LicenseStatsView } from '../model/licenseView';
-import { LICENSES_KEY } from './firebase';
+import { LICENSES_KEY } from './keys';
 import { useLicensePort } from './index';
 
 const STATS_KEY = ['licenseStats'];
 const PAGE_KEY = ['licensePage'];
-
-export function useLicenses() {
-  const port = useLicensePort();
-  return useQuery({ queryKey: LICENSES_KEY, queryFn: () => port.list() });
-}
-
-/** 필요할 때만 통째 목록을 받는 함수 — 화면을 열기만 해서 받지 않게(일괄 발급은 파일을 고른 뒤에만). */
-export function useLoadAllLicenses(): () => Promise<Record<string, License>> {
-  const port = useLicensePort();
-  return () => port.all();
-}
 
 export function useLicenseStats() {
   const port = useLicensePort();
@@ -69,8 +57,9 @@ export function useReloadLicenses() {
 }
 
 /**
- * 회수 · 삭제를 받아 둔 목록에 먼저 반영한다(낙관적 갱신) — API 사본이 따라오기 전에 줄이 옛 상태로 남아 있지 않게.
- * 몇 초 뒤 refreshLicenses 가 서버 값으로 덮는다.
+ * 회수 · 삭제를 받아 둔 목록에 먼저 반영한다(낙관적 갱신) — 읽기 사본(API)이 따라오기 전에 줄이 옛 상태로 남아 있지 않게.
+ * 몇 초 뒤 refreshLicenses 가 서버 값으로 덮는다. API 판(`server`)은 원본이라 바로 다시 읽으므로 건드리지 않는다 —
+ * 줄의 `version` 이 옛것인 채 상태만 바뀐 줄을 만들지 않게.
  */
 export function patchLicenseRows(
   client: QueryClient,
@@ -80,7 +69,7 @@ export function patchLicenseRows(
 ): void {
   const hit = new Set(keys);
   client.setQueriesData<LicensePageView>({ queryKey: PAGE_KEY }, (view) => {
-    if (!view) return view;
+    if (!view || view.source.via === 'server') return view;
     if (change === 'removed') {
       const items = view.items.filter((row) => !hit.has(row.key));
       return { ...view, items, total: Math.max(0, view.total - (view.items.length - items.length)) };

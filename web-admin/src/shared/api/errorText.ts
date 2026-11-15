@@ -28,6 +28,14 @@ export const API_ERROR_TEXT: Readonly<Record<string, string>> = {
   USER_ADMIN_TARGET: '관리자 계정은 지울 수 없어요',
   // 라이선스
   LICENSE_SECRET_ROOM_CODE_TAKEN: '이미 쓰고 있는 시크릿룸 코드예요',
+  LICENSE_SECRET_ROOM_NOT_FOUND: '없는 시크릿룸이에요',
+  LICENSE_SECRET_ROOM_ENDED: '이미 끝난 시크릿룸이에요',
+  LICENSE_SECRET_ROOM_CODE_EXHAUSTED: '빈 시크릿룸 코드를 찾지 못했어요 — 다시 시도해 주세요',
+  LICENSE_NOT_FOUND: '없는 키예요',
+  LICENSE_NOT_REVOKED: '회수된 키만 지울 수 있어요',
+  LICENSE_ALREADY_HAVE: '이미 유효한 키가 있어요',
+  LICENSE_GRANT_DUPLICATE: '같은 사람이 이 발급에 두 번 들어 있어요',
+  LICENSE_REQUEST_NOT_FOUND: '이미 처리된 요청이에요',
   // 신고 · 제보
   REPORT_IMAGE_CHANGED: '그 사이 그림이 바뀌었어요',
   BUG_NOT_FOUND: '지워진 글이에요',
@@ -41,3 +49,6 @@ export function apiErrorText(error: unknown, fallback: string): string {
   if (!(error instanceof ApiError)) return fallback;
   return API_ERROR_TEXT[error.code] ?? (error.kind === 'unavailable' ? fallback : error.message || fallback);
 }
+
+/** 줄마다 결과가 오는 묶음 · 발급의 줄 실패 `code` → 화면 문구. 표에 없으면 `code` 그대로. */
+export const rowCodeText = (code: string): string => API_ERROR_TEXT[code] ?? code;

@@ -2,7 +2,8 @@
 export interface SecretRoomPub {
   owner: string;
   name?: string;
-  ts: number;
+  /** 발급 시각(ms). API 판 읽기는 주지 않는다 — 입장 게이트도 화면도 쓰지 않는 칸이다. */
+  ts?: number;
   /** 이용 기간이 끝나는 시각(ms). 없으면 영구. */
   exp?: number;
 }
@@ -125,6 +126,49 @@ export function overwriteWarning(
   else
     effect = months ? `⚠️ 영구가 풀리고 지금부터 ${months}개월 기간제로 바뀝니다.` : '영구를 그대로 둡니다.';
   return `${code} 는 이미 ${taken.owner} 에게 발급돼 있어요${current}. 그대로 발급하면 ${effect}`;
+}
+
+/** 그 코드를 지금 가진 방 — `LICENSE_SECRET_ROOM_CODE_TAKEN`(409)의 `items` 한 줄. `expiresAt` 없음 = 영구, `endedAt` 있음 = 끝난 방. */
+export interface TakenRoom {
+  secretRoomId: string;
+  ownerUserCode: string;
+  expiresAt: number | null;
+  endedAt: number | null;
+}
+
+/** 남이 가진 코드를 넘겨받기 전에 한 번 더 묻는 문구 — API 판은 발급 답에서 알게 된다. */
+export function takenWarning(code: string, rooms: readonly TakenRoom[], now: number): string {
+  const state = (r: TakenRoom) => {
+    if (r.endedAt !== null) return '이미 끝난 방';
+    if (r.expiresAt === null) return '영구';
+    return now > r.expiresAt
+      ? `${formatDay(r.expiresAt)} 까지였고 이미 만료`
+      : `${formatDay(r.expiresAt)} 까지`;
+  };
+  const who = rooms.map((r) => `${r.ownerUserCode}(${state(r)})`).join(' · ');
+  return `${code} 는 이미 ${who} 에게 발급돼 있어요. 그대로 발급하면 그 방은 끝나고 이 사람에게 넘어갑니다.`;
+}
+
+/**
+ * 이미 열린 방이 있는 사람에게 다시 발급할 때 서버가 조용히 하는 일을 미리 알리는 문구(API 판).
+ * 같은 코드면 남은 기간에 이어붙이고(영구였는데 개월을 넣으면 영구가 풀린다), 다른 코드(비우면 새로 뽑힘)면 옛 코드는 바로 끝나고 기간은 지금부터.
+ */
+export function existingRoomWarning(
+  mine: { code: string; expiresAt: number | null },
+  wantCode: string,
+  months: number,
+  now: number,
+): string {
+  if (wantCode !== mine.code) {
+    return `이 사람은 이미 ${mine.code} 방이 있어요. ${wantCode || '새 코드'} 로 발급하면 ${mine.code} 는 바로 끝나고 기간은 지금부터 다시 시작해요.`;
+  }
+  if (mine.expiresAt === null)
+    return months
+      ? `⚠️ ${mine.code} 는 지금 영구예요. 그대로 발급하면 영구가 풀리고 지금부터 ${months}개월 기간제로 바뀝니다.`
+      : `${mine.code} 는 지금 영구예요. 영구를 그대로 둡니다.`;
+  if (months === 0)
+    return `⚠️ ${mine.code} 는 지금 ${formatDay(mine.expiresAt)} 까지 기간제예요. 영구로 발급하면 기간제가 풀리고 영구로 바뀝니다.`;
+  return `${mine.code} 는 이미 이 사람의 방이에요(현재 기간 ${formatDay(mine.expiresAt)} 까지${now > mine.expiresAt ? ', 이미 만료' : ''}). 그대로 발급하면 ${now > mine.expiresAt ? '지금부터 다시 시작합니다.' : '남은 기간에 이어붙입니다.'}`;
 }
 
 export type SecretRoomState =

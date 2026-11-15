@@ -18,14 +18,15 @@ import {
   staleReason,
 } from '@/entities/secret-room';
 import { findUserByFriendCode, getUserFriendCode, getUserLastSeen, getUserName } from '@/entities/user';
-import { auditAfter, isPermissionDenied, type Db } from '@/shared/api';
+import { auditAfter, isPermissionDenied, PortError, type Db } from '@/shared/api';
 import { secretRoomMessage } from '../model/grantSecretRoom';
-import type {
-  GrantResult,
-  GrantSecretRoomPort,
-  PrepareResult,
-  SecretGrantInput,
-  SecretGrantPlan,
+import {
+  isServerPlan,
+  type GrantResult,
+  type GrantSecretRoomPort,
+  type PrepareResult,
+  type SecretGrantInput,
+  type SecretGrantPlan,
 } from './port';
 
 const AUTO_CODE_TRIES = 5;
@@ -157,6 +158,8 @@ export async function grantSecretRoom(
     ok: true,
     code: plan.code,
     period,
+    recipient: plan.uid,
+    recipientName: plan.name,
     sent,
     linked,
     expiredOld,
@@ -166,7 +169,13 @@ export async function grantSecretRoom(
 
 export function createFirebaseGrantSecretRoomPort(db: Db): GrantSecretRoomPort {
   return {
+    needsKey: true,
     prepare: (input) => prepareSecretGrant(db, input),
-    grant: (plan, key) => grantSecretRoom(db, plan, key),
+    grant: (plan, key) => {
+      // 이 판의 prepare 만 계획을 만든다 — 다른 판의 계획이나 열쇠 없는 호출은 코드 실수다.
+      if (isServerPlan(plan) || key === undefined)
+        throw new PortError('invalid', '발급 열쇠와 이 판의 계획이 있어야 발급해요');
+      return grantSecretRoom(db, plan, key);
+    },
   };
 }

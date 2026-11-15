@@ -339,6 +339,26 @@ describe('작업 기록 — API 판', () => {
     expect(s.calls[1].query).toMatchObject({ cursor: 'c1', limit: 1 });
   });
 
+  it('칸이 약속과 다르면 줄을 버리지 않고 던진다 — byName · detail 의 null 만 «없음»', async () => {
+    const list = (items: unknown, nextCursor: unknown = null) =>
+      createServerAdminLogPort(fake({ 'GET /v2/admin/audit-logs': () => ({ items, nextCursor }) }).api).list(
+        5,
+      );
+    const shape = async (p: Promise<unknown>) => {
+      const e = await p.catch((x: unknown) => x);
+      expect(isPortError(e, 'invalid')).toBe(true);
+    };
+    await shape(list([row('1', { at: '어제' })]));
+    await shape(list([row('1', { by: undefined })]));
+    await shape(list([row('1', { id: undefined })]));
+    await shape(list([row('1', { target: 3 })]));
+    await shape(list(undefined));
+    await shape(list([row('1')], 7));
+    const ok = await list([row('1', { byName: null, detail: '자세히' })]);
+    expect(ok.items[0]).toMatchObject({ detail: '자세히' });
+    expect(ok.items[0]).not.toHaveProperty('byName');
+  });
+
   it('더 있으면 hasMore · 서버 동작 이름에 라벨이 있고 필터 칩은 서버 이름 앞부분을 따른다', async () => {
     const s = fake({ 'GET /v2/admin/audit-logs': () => ({ items: [row('1')], nextCursor: 'more' }) });
     const port = createServerAdminLogPort(s.api);

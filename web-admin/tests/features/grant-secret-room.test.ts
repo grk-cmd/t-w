@@ -117,6 +117,8 @@ describe('시크릿룸 발급 — 쓰기', () => {
       ok: true,
       code: 'SCRT-NEW1',
       period: '영구',
+      recipient: 'u1',
+      recipientName: '철수',
       sent: true,
       linked: true,
       expiredOld: 'SCRT-OLD1',

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { usePendingRequests } from '@/entities/license-request';
+import { usePendingRequests, useReloadRequests } from '@/entities/license-request';
 import { BulkApproveButton, RequestActions } from '@/features/license/approve-request';
 import { errorMessage, formatDate, usePaging, useSelection } from '@/shared/lib';
 import { Pager, RowCheckbox, SelectAllCheckbox, SelectionBar } from '@/shared/ui';
@@ -7,6 +7,7 @@ import styles from './RequestList.module.css';
 
 export function RequestList() {
   const { data: requests, error } = usePendingRequests();
+  const reload = useReloadRequests();
   const list = useMemo(() => requests ?? [], [requests]);
   // 발급 · 거절로 목록에서 사라진 요청은 선택에서도 빠진다.
   const ids = useMemo(() => list.map((r) => r.id), [list]);
@@ -17,6 +18,15 @@ export function RequestList() {
 
   return (
     <section className="card">
+      {/* API 판은 30초마다 받는다 — 바로 보고 싶을 때 */}
+      {reload && (
+        <div className="card-head">
+          <span className="soft grow">30초마다 새로 받아요</span>
+          <button type="button" className="btn" onClick={reload}>
+            새로고침
+          </button>
+        </div>
+      )}
       {list.length > 0 && (
         <SelectionBar
           count={selected.length}
@@ -46,7 +56,7 @@ export function RequestList() {
             <span className="grow">
               <span className={styles.num}>{paging.start + i + 1}</span>
               <b>{req.name || '(이름 없음)'}</b>
-              <code className="key">{req.friendCode}</code>
+              <code className="key">{req.friendCode ?? req.userCode}</code>
               <small className="soft">{formatDate(req.requestedAt)}</small>
               {req.ver && <small className="soft">v{req.ver}</small>}
             </span>

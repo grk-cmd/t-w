@@ -48,8 +48,9 @@ export function LicenseList() {
   const items = useMemo(() => view?.items ?? [], [view]);
   const ids = useMemo(() => items.map((row) => row.key), [items]);
   const selection = useSelection(ids);
-  const statusOf = useMemo(() => new Map(items.map((row) => [row.key, row.status])), [items]);
-  const selectedKeys = selection.selected.map((key) => ({ key, status: statusOf.get(key) ?? 'revoked' }));
+  const rowOf = useMemo(() => new Map(items.map((row) => [row.key, row])), [items]);
+  // 선택은 지금 쪽 안의 줄 — 읽은 줄(API 판은 licenseId · version 이 실려 있다)을 그대로 넘긴다.
+  const selectedKeys = selection.selected.flatMap((key) => rowOf.get(key) ?? []);
 
   const changeSearch = (next: string) => {
     setSearch(next.slice(0, LICENSE_QUERY_MAX));
@@ -91,7 +92,13 @@ export function LicenseList() {
       <div className="field">
         <input
           type="search"
-          placeholder={view?.source.via === 'api' ? '키 · 메모 · 사용자 코드로 검색' : '키 · 메모로 검색'}
+          placeholder={
+            view?.source.via === 'server'
+              ? '키 앞부분 · 메모 · 친구코드로 검색'
+              : view?.source.via === 'api'
+                ? '키 · 메모 · 사용자 코드로 검색'
+                : '키 · 메모로 검색'
+          }
           value={search}
           maxLength={LICENSE_QUERY_MAX}
           onChange={(e) => changeSearch(e.target.value)}
@@ -133,7 +140,7 @@ export function LicenseList() {
             <button type="button" className="btn" onClick={() => copy(row.key)}>
               복사
             </button>
-            <KeyActions licenseKey={row.key} status={row.status} />
+            <KeyActions row={row} />
           </div>
         ))}
       </div>

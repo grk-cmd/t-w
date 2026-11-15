@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { useLicensePort } from '@/entities/license';
-import { pickBackend, useDb } from '@/shared/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { loadAllFrom } from '@/entities/license';
+import { pickBackend, useApi, useDb } from '@/shared/api';
 import { createFirebaseBulkGrantPort } from './firebase';
 import type { BulkGrantPort } from './port';
 import { createServerBulkGrantPort } from './server';
@@ -8,14 +9,15 @@ import { createServerBulkGrantPort } from './server';
 /** 이 빌드의 판이 만든 «엑셀 일괄 발급» 포트. */
 export function useBulkGrantPort(): BulkGrantPort {
   const db = useDb();
-  const licenses = useLicensePort();
+  const api = useApi();
+  const client = useQueryClient();
   return useMemo(
     () =>
       pickBackend<BulkGrantPort>({
-        firebase: () => createFirebaseBulkGrantPort(db, licenses.all),
-        api: () => createServerBulkGrantPort(),
+        firebase: () => createFirebaseBulkGrantPort(db, loadAllFrom(client, db)),
+        api: () => createServerBulkGrantPort(api),
       }),
-    [db, licenses],
+    [db, api, client],
   );
 }
 

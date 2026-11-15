@@ -8,8 +8,9 @@ import {
   issuedIndex,
   normalizeCode,
   rowNote,
+  wasIssued,
+  type IssuedCheck,
   type BaseStatus,
-  type IssuedIndex,
   type PlanRow,
   type SheetRow,
 } from '../model/rows';
@@ -113,14 +114,15 @@ export function createFirebaseBulkGrantPort(
 ): BulkGrantPort {
   return {
     // 발급 이력은 통째 목록의 메모로 본다 — 못 받으면 «발급한 적 있음» 판정만 빠진다.
-    async issued(): Promise<IssuedIndex | null> {
+    async issued(): Promise<IssuedCheck | null> {
       try {
-        return issuedIndex(await loadAll());
+        const index = issuedIndex(await loadAll());
+        return (row) => wasIssued(index, row.code);
       } catch {
         return null;
       }
     },
     lookup: (data, onProgress) => lookupRows(db, data, onProgress),
-    run: (rows, onProgress) => runBulkGrant(db, rows, onProgress),
+    run: (rows, _options, onProgress) => runBulkGrant(db, rows, onProgress),
   };
 }

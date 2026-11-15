@@ -19,6 +19,7 @@ export function removeRequestWrite(id: string): Record<string, null> {
 
 export function createFirebaseLicenseRequestPort(db: Db): LicenseRequestPort {
   return {
+    kind: 'watch',
     watch: (onChange, onError) =>
       db.watch<Record<string, RawRequest>>(
         'licenseRequests',

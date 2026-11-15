@@ -11,12 +11,14 @@ export {
 } from './api/firebase';
 export {
   addMonths,
+  existingRoomWarning,
   formatDay,
   genSecretCode,
   hasConfusingChars,
   isUserId,
   MONTHS_MAX,
   overwriteWarning,
+  OWNER_NAME_MAX,
   parseMonths,
   parseWantCode,
   periodText,
@@ -25,7 +27,11 @@ export {
   secretRoomState,
   staleReason,
   STALE_DAYS,
+  takenWarning,
   type ExpiryMode,
   type SecretRoomPub,
   type SecretRoomState,
+  type TakenRoom,
 } from './model/secretRoom';
+// API 판 읽기 — 시크릿룸 발급 포트가 «그 사람의 방» 을 읽을 때 같은 줄 읽기를 쓴다.
+export { toRoomRow } from './api/server';

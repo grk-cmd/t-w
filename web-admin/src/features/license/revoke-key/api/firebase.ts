@@ -28,5 +28,16 @@ export async function removeKeys(db: Db, keys: readonly string[]): Promise<numbe
 }
 
 export function createFirebaseRevokeKeyPort(db: Db): RevokeKeyPort {
-  return { revoke: (keys) => revokeKeys(db, keys), remove: (keys) => removeKeys(db, keys) };
+  return {
+    revoke: (rows) =>
+      revokeKeys(
+        db,
+        rows.map((r) => r.key),
+      ),
+    remove: (rows) =>
+      removeKeys(
+        db,
+        rows.map((r) => r.key),
+      ),
+  };
 }

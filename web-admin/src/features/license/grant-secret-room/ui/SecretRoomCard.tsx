@@ -1,25 +1,29 @@
 import { useState, type KeyboardEvent } from 'react';
-import { MONTHS_MAX } from '@/entities/secret-room';
+import { MONTHS_MAX, takenWarning } from '@/entities/secret-room';
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
 import { useGrantSecretRoomPort } from '../api';
-import type { GrantResult, SecretGrantInput, SecretGrantPlan } from '../api/port';
+import { isServerPlan, type AnySecretPlan, type GrantResult, type SecretGrantInput } from '../api/port';
 import styles from './SecretRoomCard.module.css';
 
 type Message = { text: string; error: boolean } | null;
 
-function resultMessage(r: Extract<GrantResult, { ok: true }>, plan: SecretGrantPlan): Message {
+function resultMessage(r: Extract<GrantResult, { ok: true }>, plan: AnySecretPlan): Message {
   const parts = [
     `발급 완료 ${r.code} [${r.period}]`,
-    r.sent ? '수령함으로 보냈어요' : '수령함 전송 실패. 코드를 직접 전달해 주세요',
+    r.sent === null
+      ? '수령함 우편은 서버가 보내요'
+      : r.sent
+        ? '수령함으로 보냈어요'
+        : '수령함 전송 실패. 코드를 직접 전달해 주세요',
     // 잘못 간 뒤에 어디로 갔는지 되짚을 수 있게 받는 계정을 늘 남긴다.
-    `받는 계정 ${plan.uid}${plan.name ? ` (${plan.name})` : ''}`,
+    `받는 계정 ${r.recipient}${r.recipientName ? ` (${r.recipientName})` : ''}`,
   ];
   if (plan.confusing) parts.push('0 · O · 1 · I 가 섞여 있어요');
   if (r.expiredOld) parts.push(`옛 코드 ${r.expiredOld} 를 만료 처리했어요`);
   if (r.expireFailed) parts.push(`옛 코드 ${r.expireFailed} 만료 실패. 그 코드로도 계속 입장돼요`);
-  if (!r.linked) parts.push('참여 화면 자동 채움은 갱신하지 못했어요');
-  return { text: parts.join('\n'), error: !r.sent || !!r.expireFailed };
+  if (r.linked === false) parts.push('참여 화면 자동 채움은 갱신하지 못했어요');
+  return { text: parts.join('\n'), error: r.sent === false || !!r.expireFailed };
 }
 
 /**
@@ -32,7 +36,7 @@ export function SecretRoomCard() {
   const [input, setInput] = useState<SecretGrantInput>({ target: '', want: '', months: '' });
   const [secret, setSecret] = useState('');
   const [busy, setBusy] = useState(false);
-  const [pending, setPending] = useState<SecretGrantPlan | null>(null);
+  const [pending, setPending] = useState<AnySecretPlan | null>(null);
   const [message, setMessage] = useState<Message>(null);
 
   // 경고를 본 뒤 칸을 고치면 경고에 적힌 것과 다른 조건으로 나가지 않게 확인을 다시 받는다.
@@ -41,9 +45,15 @@ export function SecretRoomCard() {
     setPending(null);
   };
 
-  const execute = async (plan: SecretGrantPlan) => {
-    const r = await port.grant(plan, secret.trim());
+  const execute = async (plan: AnySecretPlan) => {
+    const r = await port.grant(plan, port.needsKey ? secret.trim() : undefined);
     if (!r.ok) {
+      // 남이 가진 코드(API 판) — 넘겨받아도 되는지 한 번 더 묻는다.
+      if (r.taken && isServerPlan(plan)) {
+        setPending({ ...plan, takeover: true, warnings: [takenWarning(plan.code, r.taken, Date.now())] });
+        setMessage(null);
+        return;
+      }
       setMessage({
         text: r.denied ? '발급 열쇠가 맞지 않아요' : '발급하지 못했어요',
         error: true,
@@ -56,11 +66,15 @@ export function SecretRoomCard() {
     toast(`시크릿룸 ${r.code} 발급 · ${r.period}`);
   };
 
-  const run = async (confirmed: SecretGrantPlan | null) => {
+  const run = async (confirmed: AnySecretPlan | null) => {
     if (busy) return;
     if (!input.target.trim())
-      return setMessage({ text: '친구코드 또는 유저 코드를 입력해 주세요', error: true });
-    if (!secret.trim()) return setMessage({ text: '발급 열쇠를 입력해 주세요', error: true });
+      return setMessage({
+        text: port.needsKey ? '친구코드 또는 유저 코드를 입력해 주세요' : '친구코드를 입력해 주세요',
+        error: true,
+      });
+    if (port.needsKey && !secret.trim())
+      return setMessage({ text: '발급 열쇠를 입력해 주세요', error: true });
     setBusy(true);
     setMessage({ text: '확인 중…', error: false });
     try {
@@ -98,7 +112,7 @@ export function SecretRoomCard() {
             type="text"
             maxLength={48}
             placeholder="MATE-XXXX · 뒤 4자리"
-            title="유저 코드(u…)도 받아요"
+            title={port.needsKey ? '유저 코드(u…)도 받아요' : undefined}
             value={input.target}
             onChange={(e) => edit({ target: e.target.value })}
           />
@@ -125,19 +139,22 @@ export function SecretRoomCard() {
             onChange={(e) => edit({ months: e.target.value })}
           />
         </label>
-        <label>
-          발급 열쇠
-          <input
-            type="password"
-            maxLength={64}
-            autoComplete="off"
-            data-1p-ignore
-            data-lpignore="true"
-            placeholder="저장되지 않아요"
-            value={secret}
-            onChange={(e) => setSecret(e.target.value)}
-          />
-        </label>
+        {/* 발급 열쇠는 Firebase 판만 — API 판은 관리자 권한이 대신한다 */}
+        {port.needsKey && (
+          <label>
+            발급 열쇠
+            <input
+              type="password"
+              maxLength={64}
+              autoComplete="off"
+              data-1p-ignore
+              data-lpignore="true"
+              placeholder="저장되지 않아요"
+              value={secret}
+              onChange={(e) => setSecret(e.target.value)}
+            />
+          </label>
+        )}
       </div>
 
       {pending ? (
