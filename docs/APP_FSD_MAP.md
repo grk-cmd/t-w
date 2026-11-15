@@ -281,6 +281,8 @@ app.js 9,746 → 9,476줄(270줄) · 구역 167 → 130개. 남긴 빈 머리 �
 
 **0.12.4 — app.js 분리 M11**: DRAG / PET 구역(캔버스 우클릭 · 누르기 · 끌기 · 흔들기 · 쓰다듬기 · 안전망 · 전역 마우스 NDC · `drag` 상태)을 `room/seat-pointer.js` 로 옮겼다(글 그대로 — 뒤에서 만들어지거나 다시 대입되는 여섯은 읽는 · 쓰는 함수로 받고, 옛 `typeof seats` 가드 하나는 걷음). app.js 8,326 → 8,084줄.
 
+**0.12.4 — app.js 분리 M12**: `applyCharToSeat` 묶음(좌석 파츠 비우기 · 리깅 xf 다시 굽기 · 동물 좌석 다시 빌드 · placeholder 클릭 판정 · 동물 귀 등록 · `applyCharToSeat`)을 `character/char-apply.js` 로 옮겼다(글 그대로 — 뒤에서 만들어지거나 다시 대입되는 일곱은 읽는 함수로 받고, `window.rebuildAnimalSeats` · `window.registerAnimalEar` 고리는 모듈이 만들 때 건다. 옛 `typeof seats` 가드 하나는 걷음). app.js 8,084 → 7,835줄.
+
 ## 구역 표 — `app/parts/app.js`
 
 | # | 줄 | 크기 | 목적 | 층 | 관련 모듈 | 씀 | 쓰임 | 비고 |

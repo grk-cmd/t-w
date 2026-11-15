@@ -409,3 +409,14 @@
   - 재는 동안 옮긴 `rig` · `bodyWrap` · `group` 은 값을 되돌린 뒤 **월드 행렬도 다시 세워 두고** 나간다 — 옛 행렬로 남으면 바로 뒤 `layoutSeats` 가 원점 근처에 있는 것처럼 읽는다.
   - 앞뒤(z) 재센터링은 하지 않는다(미리보기가 정답 기준). 되돌리려면 주석에 적힌 한 줄.
   - 검사: `checks/sim-fit-model.js`(진짜 three · body-measure · char-measure 로 정규화 · 이동량 · 동물 · 커미션 · 되돌리기 · 책상 · 깨 보기).
+
+## char-apply.js — 🧬 캐릭터 def 를 좌석에 입히기
+
+- **책임**: `applyCharToSeat(seat, def)` — 좌석에 저장된 캐릭터(def)를 입힌다(라이드 정리 · 옛 파츠 비우기 · 책상 배율(동물 60%) · 평준화 k 지움 · 커미션 / 동물 / 기본 몸 조립 · 크기 · 높이 넣기 · 파츠 · 책상 · 아이템 · 클릭 판정). 곁에 `_purgeSeatParts` · `refreshRiggedPartsXf` · `_setPlaceholderPickable` · `_registerAnimalEarOn`(동물 · 사람 귀 공용 등록) · `_sweepAnimalEars`. 앱 FSD 분리 M12 — app.js 에서 글 그대로 옮겼다.
+- **만드는 법**: `TwCharApply.createCharApply({ … 37개 })` — 값 19 · 함수 11 · 읽는 함수 7(`BASE_ANIMS` · `assetCodeMod` · `curSlot` · `customItems` · `deskItemsMod` · `deskPlaceMod` · `deskVisualMod`). 원래 자리에서 만든다.
+- **내보내는 것**: `applyCharToSeat` · `_purgeSeatParts` · `refreshRiggedPartsXf` · `_registerAnimalEarOn` — app.js 는 같은 이름 const 로 받는다.
+- **함정**
+  - `window.rebuildAnimalSeats`(동물 GLB 파싱 뒤 좌석 다시 입히기) · `window.registerAnimalEar`(귀가 붙을 때)는 **이 모듈을 만들 때** 건다 — `animal.js` 가 `window.` 로 부른다. 지우면 동물 귀가 안 붙고 동물이 인간으로 남는다. 반대로 이 모듈은 `window.buildAnimalBase`(animal.js)를 부른다 — 서로 부르는 고리라 `sim-dep-cycles` 기준선에 4건 올랐다(이슈 #903).
+  - 커미션 GLB 가 캐시에 없으면 파싱만 걸고 `return` 한다. 그 앞에서 책상 배율 · z 를 한 번 맞춰 두는 까닭(한 화면 옛 z 로 그려짐)이 주석에 있다 — 순서를 바꾸지 말 것.
+  - `seat._animalBuilt` 는 조건 밖에서 갱신한다 — 안 그러면 동물 GLB 파싱 전 인간 폴백일 때 직전 캐릭터의 판정이 남는다.
+  - 검사: `checks/sim-char-apply.js`(파츠 비우기 · 리깅 xf · 귀 등록 · window 고리 · 입히기 갈래 · 깨 보기).

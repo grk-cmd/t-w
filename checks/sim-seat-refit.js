@@ -15,7 +15,8 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f, path.basename(f)]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 const SRC = {
-  MOD: read('room/seat-refit.js'), APP: read('app.js'), HTML: read('desk-companion-prototype.html'),
+  MOD: read('room/seat-refit.js'), APP: read('app.js'), CA: read('character/char-apply.js'),   // applyCharToSeat 는 app.js 분리 M12 에서 char-apply.js 로 옮겼다
+  HTML: read('desk-companion-prototype.html'),
   WD: read('character/wardrobe.js'), RE: read('room/room-entry.js'), CS: read('character/catalog-sync.js'), AP: read('admin/admin-part-register.js'),
 };
 if (Object.values(SRC).some(v => !v)) { say('  ? 원본 못 찾음 — seat-refit.js · app.js · desk-companion-prototype.html · wardrobe.js · room-entry.js · catalog-sync.js · admin-part-register.js'); process.exit(2); }
@@ -94,12 +95,12 @@ async function judge(src) {
   r.wdNow = wd.some(c => c.seat === 'mySeat' && /^applyEquippedPartsToSeat\(mySeat, def\)/.test(c.rest)) && /await refitSeatAfterParts\(mySeat,/.test(src.WD);
   r.wdOwner = wd.some(c => c.seat === 'seat' && /^applyEquippedPartsToSeat\(seat, src\)/.test(c.rest)) && /await refitSeatAfterParts\(seat,/.test(src.WD);
   r.re = calls(src.RE).some(c => c.seat === 's' && /^applyEquippedPartsToSeat\(s, fdef\), layout: true, isCurrent: \(\)=>s\.charDef===fdef/.test(c.rest));
-  r.app = calls(src.APP).some(c => c.seat === 'seat' && /^applyEquippedPartsToSeat\(seat, def\), layout: true, isCurrent: \(\)=>seat\.charDef===def/.test(c.rest));
+  r.app = calls(src.CA || '').some(c => c.seat === 'seat' && /^applyEquippedPartsToSeat\(seat, def\), layout: true, isCurrent: \(\)=>seat\.charDef===def/.test(c.rest));
   r.cs = calls(src.CS).some(c => c.seat === 's' && /^Promise\.all\(_pending\./.test(c.rest) && /layout: true/.test(c.rest));
   r.ap = calls(src.AP).some(c => c.seat === 's' && /^Promise\.resolve\(equipPartOnSeat\(s, c, rec,/.test(c.rest));
   /* 옛 모양 — 장착 뒤 .then 안에서 fitModel 을 직접 부르던 줄이 실행 화면 좌석 길에 남지 않는다(생성기 미리보기 fitCreator 는 다른 함수) */
   const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
-  r.noOldThen = [src.APP, src.RE, src.CS, src.AP].every(t => !/\.then\(\(\)=>\{[^}]{0,200}\bfitModel\(/.test(strip(t)));
+  r.noOldThen = [src.APP, src.CA || '', src.RE, src.CS, src.AP].every(t => !/\.then\(\(\)=>\{[^}]{0,200}\bfitModel\(/.test(strip(t)));
   r.noOldAwait = !/await applyEquippedPartsToSeat\((mySeat|seat), (def|src)\);/.test(strip(src.WD));
   r.deps = [src.WD, src.RE, src.CS, src.AP].every(t => /^const refitSeatAfterParts = deps\.refitSeatAfterParts;$/m.test(t));
   const order = [...src.HTML.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<script\b[^>]*\bsrc="parts\/([^"]+\.js)"/g)].map(m => m[1]);
@@ -133,7 +134,7 @@ async function judge(src) {
   say('── 2. 길마다 이 함수를 부른다');
   chk(R.wdNow && R.wdOwner, '꾸미기 저장 — 주 캐릭터 · 원래 주인 두 곳(await)');
   chk(R.re, '친구 파츠 변경(room-entry.js) — layout · 같은 def 인지 확인');
-  chk(R.app, '좌석 다시 짓기(app.js applyCharToSeat) — layout · 같은 def 인지 확인');
+  chk(R.app, '좌석 다시 짓기(char-apply.js applyCharToSeat) — layout · 같은 def 인지 확인');
   chk(R.cs, '카탈로그가 늦게 와 붙은 파츠(catalog-sync.js) — 다 붙은 뒤 · layout');
   chk(R.ap, '관리자 파츠 다시 등록(admin-part-register.js) — 다시 붙인 뒤');
   chk(R.noOldThen && R.noOldAwait, '장착 뒤 fitModel 을 직접 부르던 옛 줄이 남지 않는다');
