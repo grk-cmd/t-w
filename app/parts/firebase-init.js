@@ -1684,7 +1684,8 @@
       try{ await deleteObject(_stRef(storage, url)); }catch(_){}
     },
 
-    /* ===== 🚩 신고 — 보내기는 서버 길(support/report-api.js · POST /v2/reports). 아래 관리자 목록만 아직 옛 길 =====
+    /* ===== 🚩 신고 (2026-09-23 · 시안 확정) =====
+       보내기는 서버 길(support/report-api.js · POST /v2/reports) — 아래 관리자 목록만 아직 옛 길.
        reports/{신고당한 uid}/{신고한 uid} = { kind, note?, nick, code4, ts } — 서버가 같은 칸에 쓴다 */
     /* 관리자 — 전체 신고(대상별 묶음). 규칙상 관리자만 읽힌다. */
     async listReports(){
