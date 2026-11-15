@@ -244,11 +244,10 @@ const INVITE_REFUSED = Object.freeze({
   ROOM_INVITE_NOT_FRIEND: '친구에게만 초대를 보낼 수 있어요',
   notReady: '서버에 연결된 뒤 보낼 수 있어요',
 });
-let _unsubInvites = null;   // 받은 초대 듣기를 끊는 함수 — 로그인마다 새로 걸기 전에 앞 것을 끊는다(겹쳐 걸리지 않게)
 let _popupKill = null;      // 떠 있는 초대 팝업을 콜백 없이 치우는 함수
-function _bindRoomInviteReceiver(){
-  if(_unsubInvites){ try{ _unsubInvites(); }catch(_){} _unsubInvites = null; }
-  _unsubInvites = invites.onInvites(got=>{
+/* 받은 초대 듣기 — 끊는 일은 세션이 맡는다(session.on · 로그인마다 새 세션이라 겹쳐 걸리지 않는다) */
+function _bindRoomInviteReceiver(session){
+  session.on(invites.onInvites(got=>{
     let ids = Object.keys(got || {});
     if(!ids.length || _roomInviteBusy) return;
     _roomInviteBusy = true;
@@ -265,7 +264,7 @@ function _bindRoomInviteReceiver(){
       _roomInviteBusy = false;
       invites.clear(fromId);   // 지우면 남은 초대로 다시 불린다(다음 것을 띄운다)
     });
-  });
+  }));
 }
 /* 🔔 작업표시줄 깜빡임 — 초대 팝업과 **수명을 정확히 같이 한다.**
    ⚠️ 켜는 곳과 끄는 곳이 갈라지면 안 된다. 그래서 팝업을 만드는 함수 안에서 켜고,
@@ -321,12 +320,12 @@ function showRoomInvitePopup(fromName, roomCode, cb){
 }
 /* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js STEPS.roomInvite) — 받은 초대는 realtime 연결 하나로 온다(로그인 뒤 붙으면 남은 초대를 서버가 다시 보낸다) */
 function startReceive(session){
-  _bindRoomInviteReceiver();
-  /* 계정이 바뀌면(session.onReset) 앞 계정의 초대를 놓는다 — 듣기 끊기 · 받은 초대 비우기 · 떠 있는 팝업 치우기(다음 계정에 앞 계정 초대가 남지 않게) */
-  if(session) session.onReset(stopReceive);
+  if(!session) throw new Error('[room-invite] startReceive 에 세션이 없어요');
+  _bindRoomInviteReceiver(session);
+  /* 계정이 바뀌면(session.onReset) 앞 계정의 초대를 놓는다 — 받은 초대 비우기 · 떠 있는 팝업 치우기(다음 계정에 앞 계정 초대가 남지 않게). 듣기 끊기는 session.on 이 한다 */
+  session.onReset(stopReceive);
 }
 function stopReceive(){
-  if(_unsubInvites){ try{ _unsubInvites(); }catch(_){} _unsubInvites = null; }
   if(_popupKill){ try{ _popupKill(); }catch(_){} _popupKill = null; }
   _roomInviteBusy = false;
   try{ invites.reset(); }catch(_){}

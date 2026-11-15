@@ -1182,7 +1182,8 @@ return {
   resetMemory: resetGacha,              // 로그아웃 지우기 — 메모리도 빈 기기 값으로
   /* 화면 없이 검사하는 셈 · 상태 — sim-gacha.js · sim-gacha-prune.js · sim-part-color-entry.js */
   draw: gachaDraw, pool: gachaPool, seasonNow: gachaSeasonNow, ticketsLeft: gachaTicketsLeft, ticketsEarned: gachaTicketsEarned, nextTicketLevel: gachaNextTicketLevel,
-  openGachaInv, closeGachaInv, runDraw: _gachaRunDraw, renderGachaDraw,
+  closeGachaInv,                        // 🪟 모두 닫기(win-stack closeAll — app.js 창 표)
+  openGachaInv, runDraw: _gachaRunDraw, renderGachaDraw,
   state: {
     load: ()=>_gachaLoad, page: ()=>_gachaPage, tab: ()=>_gachaTab, cat: ()=>_gachaCat, season: ()=>_gachaSeason,
     setOwned(v){ gachaOwned = v; }, setUnlocked(v){ _gachaUnlocked = v; }, setSelId(v){ _gachaSelId = v; },

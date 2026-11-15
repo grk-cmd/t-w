@@ -76,7 +76,7 @@
 | `E-ROOM-04` | 방 설정을 저장하지 못했어요 | `room/room-info-ui.js` — 방 안 [방 설정] 제목 · 공개 쓰기(`setRoomInfo`) 실패 |
 | `E-ROOM-05` | 같이 듣기 곡을 바꾸지 못했어요 | `room/listen-ui.js` — DJ 의 곡 칸(`rooms/{방}/_music`) 쓰기 실패 |
 | `E-ROOM-06` | 이 곡은 여기서 틀 수 없어요 | `room/listen-ui.js` — 재생 창이 곡을 못 틂(유튜브 재생 불가 · 지역 제한) |
-| `E-ROOM-08` | 방에 들어가지 못했어요 — 잠시 후 다시 눌러 주세요 | `room/room-entry.js` — 입장 판정이 아닌 실패(unavailable · timeout · off · 모르는 code) |
+| `E-ROOM-08` | 방에 들어가지 못했어요 — 잠시 후 다시 눌러 주세요 | `room/room-entry.js` — 입장 판정이 아닌 실패(unavailable · timeout · off · 모르는 code) · 시크릿룸 입장 때 내 방인지 읽기 실패(손님으로 들어가지 않고 멈춤) |
 | `E-ROOM-09` | 초대를 보내지 못했어요 — 잠시 후 다시 눌러 주세요 | `room/room-invite-ui.js` — 초대 보내기 실패(친구 아님 같은 까닭 있는 거절은 안내 문구) |
 | `E-ROOM-10` | 서버 연결이 끊겨 방에서 나왔어요 — 다시 들어와 주세요 | `room/room-entry.js` — 방 안에서 90초 넘게 못 붙어 방을 놓음(onLost unreachable) |
 | `E-CHAT-01` | 대화를 보내지 못했어요 — 다시 보내 주세요 | `chat/chat-ui.js · room/dice-games.js · room/tricks.js` — chatSay 실패(거절 까닭이 있는 것은 안내 문구) |

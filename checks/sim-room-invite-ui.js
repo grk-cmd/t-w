@@ -105,8 +105,11 @@ function mkEnv(opt, mod){
     friendsClose: (key) => { env.closes.push(key); env.onUpdate = null; },
     presence: { active: () => env.active, roomCode: () => env.room },
   });
-    if(!opt.noStart) env.api.startReceive();   // 계정 확인 뒤 app-boot 가 한 번 부르는 시작(만들 때는 구독이 없다)
+    if(!opt.noStart) env.api.startReceive(env.sess());   // 계정 확인 뒤 app-boot 가 한 번 부르는 시작(만들 때는 구독이 없다)
     return env.api; };
+  /* 가짜 세션(shared/session.js 모양) — on(해제 함수) · onReset(훅) · dispose(해제 → 훅, 나중 것부터) */
+  env.sess = () => { const unsubs = [], resets = []; return { unsubs, resets, on: (u) => { unsubs.push(u); return u; }, onReset: (fn) => { resets.push(fn); },
+    dispose(){ unsubs.slice().reverse().forEach(u => u()); resets.slice().reverse().forEach(f => f()); } }; };
   env.fireWin = (t) => { (env.winL[t] || []).slice().forEach(h => { if(h.once) env.winL[t] = env.winL[t].filter(x => x !== h); h.fn({}); }); };
   env.fireDoc = (t, ev) => { (env.docL[t] || []).slice().forEach(fn => fn(ev)); };
   env.open = () => els.inviteFriendBtn.fire('click');
@@ -129,16 +132,26 @@ await sec('── 1. 만들 때', () => {
   chk(!e.subs.length && !e.els.inviteFriendBtn._L.click, '  싣기만 해서는 구독도 버튼 연결도 안 한다');
   const q = mkEnv({ noStart: true }); q.mk();
   chk(!q.subs.length && !(q.winL['firebase-ready'] || []).length && q.els.inviteFriendBtn._L.click.length === 1, '만들기만 하면 구독 0 · firebase-ready 기다림 0 · 버튼 연결은 있다');
-  q.api.startReceive();
-  chk(q.subs.length === 1 && q.subs[0].id === 'ME', '  startReceive — 내 초대함 구독');
+  let threwNoSess = false; try{ q.api.startReceive(); }catch(_){ threwNoSess = true; }
+  chk(threwNoSess && q.subs.length === 0, '★ 세션 없이 startReceive 를 부르면 던진다 — 세션은 선택이 아니다(구독도 안 건다)');
+  const s1 = q.sess(); q.api.startReceive(s1);
+  chk(q.subs.length === 1 && q.subs[0].id === 'ME' && s1.unsubs.length === 1 && s1.resets.length === 1, '  startReceive — 내 초대함 구독 · 끊기는 session.on · 비우기는 session.onReset 에 맡긴다');
   {
-    /* 계정이 바뀌어 다시 로그인해도 받기가 겹쳐 걸리지 않는다(D4) — 앞 듣기를 끊고 새로 건다 · session.onReset 으로 놓는다 */
-    let resetFn = null; const sess = { onReset: (fn) => { resetFn = fn; } };
-    q.api.startReceive(sess);
-    chk(q.subs.length === 2 && q.subs[0].off === true && q.subs[1].off === false, '★ startReceive 를 다시 불러도 듣기는 하나 — 앞 것을 끊고 새로 건다(로그인마다 겹쳐 걸리지 않게)');
-    resetFn();
-    chk(q.subs[1].off === true && q.resets === 1, '★ session.onReset → 듣기 끊기 · 받은 초대 비우기(invites.reset)');
-    q.api.startReceive();
+    /* 계정이 바뀌어 다시 로그인해도 받기가 겹쳐 걸리지 않는다(D4) — 앞 세션이 dispose 되며 앞 듣기를 끊고 새 세션이 새로 건다 */
+    s1.dispose();
+    chk(q.subs[0].off === true && q.resets === 1, '★ session.dispose → 듣기 끊기(session.on) · 받은 초대 비우기(invites.reset)');
+    const s2 = q.sess(); q.api.startReceive(s2);
+    chk(q.subs.length === 2 && q.subs[1].off === false && q.subs.filter(x => !x.off).length === 1, '★ 다시 로그인하면 새 세션이 새로 건다 — 살아 있는 듣기는 늘 하나(스스로 앞 것을 끊지 않는다)');
+    s2.dispose();
+    const s3 = q.sess(); q.api.startReceive(s3);
+    s3.dispose();
+    /* 깨 보기 — 구독을 세션에 맡기지 않으면(session.on 을 빼면) dispose 뒤에도 듣기가 남아 빨강 · 세션 없음을 조용히 넘기면 빨강 */
+    const bad1 = mkEnv({ noStart: true }, MOD.replace('session.on(invites.onInvites(', '(invites.onInvites(')); bad1.mk();
+    const sb = bad1.sess(); bad1.api.startReceive(sb); sb.dispose();
+    chk(MOD.includes('session.on(invites.onInvites(') && bad1.subs[0].off !== true, '  깨 보기: session.on 을 빼면 «dispose → 듣기 끊김» 이 빨강');
+    const bad2 = mkEnv({ noStart: true }, MOD.replace("if(!session) throw new Error('[room-invite] startReceive 에 세션이 없어요');", 'if(!session) return;')); bad2.mk();
+    let t2 = false; try{ bad2.api.startReceive(); }catch(_){ t2 = true; }
+    chk(!t2, '  깨 보기: 세션 없이도 조용히 넘기게 하면 «세션 없으면 던진다» 가 빨강');
   }
   const api = e.mk();
   chk(Object.keys(api).join() === 'startReceive,stopReceive,showPopup,busy' && api.busy() === false, '반환값은 시작 · 놓기 둘과 검사용 둘(startReceive · stopReceive · showPopup · busy)');
@@ -358,7 +371,7 @@ await sec('── 6. app.js 배선', () => {
   chk(iP > 0 && iP < iMk && !/[^.\w]Presence\s*=[^=>]/.test(code.replace('const Presence=(', '')), '  Presence 는 만드는 줄보다 앞의 const · 다시 대입 안 됨 — 그래서 값');
   const m = strip(MOD);
   chk(/const friends = _myHomeFriends\(\) \|\| \{\};/.test(m) && !/[^.\w]_myHomeFriends\s*=[^=]/.test(m.replace('const _myHomeFriends = deps.myHomeFriends;', '')), '모듈은 친구 목록을 부를 때마다 읽는다 · 직접 쓰지 않는다');
-  chk(/function startReceive\(session\)\{\s*_bindRoomInviteReceiver\(\);/.test(MOD) && /session\.onReset\(stopReceive\)/.test(MOD), 'startReceive 가 초대 받기를 걸고 계정이 바뀌면 놓는다(방 초대 포트 — 로그인 뒤 붙으면 서버가 남은 초대를 보낸다)');
+  chk(/function startReceive\(session\)\{\s*if\(!session\) throw[^\n]*\n\s*_bindRoomInviteReceiver\(session\);/.test(MOD) && /session\.onReset\(stopReceive\)/.test(MOD) && /session\.on\(invites\.onInvites\(/.test(MOD) && !/_unsubInvites|if\(session\)/.test(MOD), 'startReceive 는 세션을 꼭 받아 초대 받기를 걸고(session.on) 계정이 바뀌면 놓는다(session.onReset) — 스스로 앞 구독을 끊거나 세션을 선택으로 두지 않는다');
   chk(/roomInvite: \(code, me, session\)=>\{\s*roomInviteUi\.startReceive\(session\);/.test(APP) && /session\.onReset\(\(\)=>\{ TwChatRt\.store\.reset\(\); roomLobbyProvider\.reset\(\); if\(_pkSession\) _pkSession\.reset\(\); \}\)/.test(APP) && /session\.on\(TwRtHub\.store\.on\('license', \(\)=>roomLobbyProvider\.reset\(\)\)\)/.test(APP),
     '★ app.js 시작 — 로그인 세션을 받아 받기를 걸고, 계정이 바뀌면 대화 · 방 목록 · 사진 세션을 비운다 · license 알림이면 내 시크릿룸을 다시 읽게 한다');
   const off = (APP.match(/const ROOM_INVITE_UI_OFF = \{([^\n]*?)\};/) || [])[1] || '';

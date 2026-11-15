@@ -215,7 +215,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 **책임** — 앱 버전을 한 번 받아(`companion.getAppVersion()` · 비동기 IPC) presence 에 싣는다. 웹 관리자가 누가 어느 판을 쓰는지 보고, 규칙은 presence 의 ver 로 옛 앱(≤0.10.2)을 가린다.
 
-**만드는 법** — `firebase-init.js` 가 `createAppVersion({ getVersion, onReady })`. `onReady(ver)` 는 처음 받았을 때 한 번 — presence 를 이미 썼으면 ver 만 update 하고 onDisconnect 를 다시 건다.
+**만드는 법** — `firebase-init.js` 가 `createAppVersion({ getVersion })`(`onReady` 는 선택 — 접속 표시는 쓰지 않는다). 접속 표시 객체(`createMyPresence`)가 `ready` 를 직접 받아 `onVersion(ver)` 로 메운다 — presence 를 이미 썼으면 ver 만 update 하고 onDisconnect 를 다시 건다(전역 포인터를 거치지 않는다).
 
 **내놓는 것**
 - `ready` — 받은 버전(못 받으면 `null` · 거부 없음). 최소 버전 게이트 · 방 서버 · 방문 집계 · accountSnap 은 이것(«모름» = null)을 본다.
@@ -225,7 +225,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 **함정**
 - presence 에 쓰는 것은 set · update · onDisconnect 전부 `withVer` 를 거친다. 규칙은 `online:true` 인데 ver 가 없으면 옛 앱으로 보고 그 사람의 읽기 · 쓰기를 막고 구독도 끊는다(ver 없는 오프라인 쓰기도 `inRoom` 이 있으면 거절). 버전이 늦거나 못 받았다고 ver 를 빼면 지금 앱이 막힌다.
-- presence 첫 쓰기(로그인 뒤)는 `ready` 를 기다린다 — «unknown» 으로 쓰고 메우는 쓰기를 줄인다. 그 전에 `.info/connected` 가 먼저 오면 그쪽이 «unknown» 으로 쓰고, 받은 뒤 `onReady` 가 메운다.
+- presence 첫 쓰기(로그인 뒤)는 `ready` 를 기다린다 — «unknown» 으로 쓰고 메우는 쓰기를 줄인다. 그 전에 `.info/connected` 가 먼저 오면 그쪽이 «unknown» 으로 쓰고, 받은 뒤 객체의 `onVersion` 이 메운다.
 
 검사: `checks/sim-app-version.js` (1절 모듈 · 2절 쓰는 자리 · 3절 규칙 · 5절 presence 쓰기를 실제로 돌림 — 평소 · 늦게 옴 · 못 받음 · companion 없음 · 영영 안 옴 · 오프라인 · 규칙 판정 · 깨 보기 3).
 

@@ -65,18 +65,25 @@ async function listRooms(channel){
   catch(_){ return null; }
 }
 
-/* 내 시크릿룸은 계정마다 한 번만 읽는다(발급 · 만료는 드물다 — 바뀌면 다음 실행에). 실패는 기억하지 않는다(다음에 다시). */
-let owned = null;   // { uid, p: Promise<{ code, name, expiresAt }|null> }
-/** 내 시크릿룸 — { code, name, expiresAt } 또는 null(없음 · 만료). */
+/* 내 시크릿룸은 로그인마다 한 번만 읽는다(발급 · 만료는 드물다 — 바뀌면 다음 실행에). 실패는 기억하지 않는다(다음에 다시).
+   주인은 세션이다 — 계정이 바뀌면 session.onReset 이 reset() 을 불러 비운다. 여기서 uid 를 견주어 스스로 고치지 않는다.
+   reset 은 gen 을 올린다 — 읽는 동안 계정이 바뀌었으면 옛 계정의 답을 돌려주지 않고 던진다. */
+let owned = null;   // Promise<{ code, name, expiresAt }|null>
+let gen = 0;
+/** 내 시크릿룸 — { code, name, expiresAt } 또는 null(없음 · 만료). 읽기 실패 · 읽는 중 계정이 바뀜은 던진다. */
 async function mySecretRoom(){
-  const uid = myUserId();
-  if(!uid) return null;
-  if(!owned || owned.uid !== uid){
+  if(!myUserId()) return null;
+  const g = gen;
+  if(!owned){
     const p = Promise.resolve(apiGet(MY_SECRET_PATH, { auth: true, timeoutMs: LOBBY_TIMEOUT_MS })).then(mySecretOf);
-    owned = { uid, p };
-    p.catch(() => { if(owned && owned.p === p) owned = null; });
+    owned = p;
+    p.catch(() => { if(owned === p) owned = null; });
   }
-  const o = await owned.p;
+  const o = await owned;
+  if(g !== gen){
+    console.warn('[방] 내 시크릿룸을 읽는 동안 계정이 바뀌어 답을 버립니다');
+    throw new Error('mySecretRoom: stale (reset during read)');
+  }
   if(!o) return null;
   if(typeof o.expiresAt === 'number' && o.expiresAt <= now()) return null;
   return o;
@@ -92,7 +99,7 @@ async function secretGuests(code){
 }
 
 /* 계정이 바뀜(session.onReset) · 내 시크릿룸이 바뀜(realtime 알림 license) — 읽어 둔 내 시크릿룸을 버려 다음에 다시 읽는다 */
-function reset(){ owned = null; }
+function reset(){ owned = null; gen++; }
 
 return { listRooms, mySecretRoom, secretGuests, reset };
 }

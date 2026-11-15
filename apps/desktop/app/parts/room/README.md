@@ -338,7 +338,7 @@ room-entry 는 이 모듈을 모른다 — «방에 연결됨» 알림(`onRoomJo
 
 **책임**
 - `room-lobby-model.js`(순수 · 정원은 `TwRoomSettings.roomCap` — room-settings.js 뒤에 싣는다) — 채널 목록(`{ at, rooms: { 코드: { t, n, max, hn, mu, since } } }` — provider 가 API 답을 이 모양으로 바꾼다) → 카드 · 상태(`failed` 못 읽음 · `missing` 칸 없음 · `stale` 3분 넘게 그대로 · `ok`) · 정렬(입장 가능 → 인원 많은 순 → 오래 열린 순) · «빈자리 있는 방» 거르기 · 번호 · 쪽(12장) · 빠른시작 고르기.
-- `room-lobby-provider.js` — 로비가 읽는 것 한 곳: `listRooms(채널)`(API `GET /v2/rooms/lobby?channel=` — realtime 서버가 지금 연 공개 방 · 못 받거나 모양이 틀리면 `null`) · `mySecretRoom()`(`GET /v2/me/secret-room` → `{ code, name, expiresAt }` — 계정마다 한 번 읽고 기억 · 만료 전만) · `secretGuests(코드)`(손님 수 — 방 포트 `peek` · 내가 그 방 안이면 나를 뺀다 · 로비 줄만 부른다). F1 «멀티모드» 탭의 시크릿룸 칸 · 방 입장(내 시크릿룸이면 주인이 늘 `create{ music }` 를 싣는다 — 비었는지는 서버가 가른다)도 deps `mySecretRoom` 으로 같은 판정을 쓴다.
+- `room-lobby-provider.js` — 로비가 읽는 것 한 곳: `listRooms(채널)`(API `GET /v2/rooms/lobby?channel=` — realtime 서버가 지금 연 공개 방 · 못 받거나 모양이 틀리면 `null`) · `mySecretRoom()`(`GET /v2/me/secret-room` → `{ code, name, expiresAt }` — 로그인마다 한 번 읽고 기억 · 만료 전만 · `null` 은 «없음» 뿐 — 읽기 실패 · 읽는 중 계정이 바뀜은 던진다. 비우는 일은 `reset()`(session.onReset · license 알림)만, uid 를 견주어 스스로 비우지 않는다) · `secretGuests(코드)`(손님 수 — 방 포트 `peek` · 내가 그 방 안이면 나를 뺀다 · 로비 줄만 부른다). F1 «멀티모드» 탭의 시크릿룸 칸 · 방 입장(내 시크릿룸이면 주인이 늘 `create{ music }` 를 싣는다 — 비었는지는 서버가 가른다)도 deps `mySecretRoom` 으로 같은 판정을 쓴다. 방 입장은 내 방인지 읽기가 실패하면 손님으로 들어가지 않고 `E-ROOM-08` 로 멈춘다.
 - `room-lobby-ui.js` — 방 찾기 · 만들기 모달 안 `#lobbyMain`: 탭 · 거르기 · 카드(위 띠 «입장 가능» / «가득 참») · 쪽 · [방 만들기] · [빠른시작] · 아래 줄 방 코드 칸과 [입장](room-entry 가 건다 — 빈 칸이면 «방 코드를 입력하세요» 만 · 랜덤 입장은 [빠른시작] 하나) · «내 시크릿룸» 줄. 모달을 열 때 · [새로 고침] · 탭을 바꿀 때만 읽는다(주기 갱신 없음) — 방 안이면(모달이 «연결된 방» 화면) 읽지 않는다.
 
 **만드는 법** — provider 는 방 입장 모듈보다 먼저(F1 시크릿룸 칸이 같이 쓴다) · 화면은 방 만들기 창 바로 뒤:
