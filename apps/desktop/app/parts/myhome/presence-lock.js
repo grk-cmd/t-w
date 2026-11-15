@@ -3,7 +3,7 @@
    ★ 🔒 를 켜 두면 고른 온라인 · 오프라인을 계정에 기억해(presencePref/{uid}) 다음 실행 · 다른 PC 에서도 그 값으로 시작한다.
      끄면 예전처럼 늘 온라인으로 시작한다.
    ★ 처음 접속 표시는 고정값을 읽은 뒤에 쓴다 — 오프라인 고정인데 켜는 순간 «온라인» 이 한 번 보이지 않게
-     (startOnlineFor 가 돌려주는 Promise 를 firebase-init setMyPresenceOnline 이 첫 쓰기 앞에서 기다린다).
+     (startOnlineFor 가 돌려주는 Promise 를 firebase-init createMyPresence 가 첫 쓰기 앞에서 기다린다).
      고정값은 계정 확인(GET /v2/me)이 돌려준 me 의 presencePref 다 — 계정 확인을 통과한 뒤에만 시작하니(launcher/app-boot.js) 따로 읽거나 기다리지 않는다.
    ⚠️ 다른 PC 에서 바꾼 고정값은 이미 켜져 있는 PC 에 바로 오지 않는다(다음 실행부터).
    ★ 접속 표시는 둘로 나간다 — 옛 Firebase presence(웹 관리자 · 규칙의 버전 검사가 아직 읽는다)와 realtime status(친구가 보는 쪽).

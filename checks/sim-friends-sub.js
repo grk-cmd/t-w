@@ -526,7 +526,7 @@ async function judge(S){
     const any = new Proxy(function(){}, { get: (t, k) => k === 'then' ? undefined : any, apply: () => any });
     const hang = new Promise(() => {});
     const starts = [], renders = [];
-    const fbApi = new Proxy({}, { get: (t, k) => k === 'setMyPresenceOnline' ? (() => { throw new Error('presence 던짐'); }) : (() => hang) });
+    const fbApi = new Proxy({}, { get: (t, k) => k === 'createMyPresence' ? (() => { throw new Error('presence 던짐'); }) : (() => hang) });
     const win = {};
     const mod = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'console', S.MI + '\nreturn window.TwMyHomeInit;')(win, any, { getItem: () => null }, fbApi, { warn(){}, log(){} });
     const m = mod.createMyHomeInit({

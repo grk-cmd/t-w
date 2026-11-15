@@ -12,7 +12,7 @@
    검사: checks/sim-myhome-init.js */
 (function(){
 
-/* 🕒 접속 표시의 lastSeen 을 새로 찍는 주기 — 며칠 단위로만 쓰이는 값이라 6시간이면 충분하다(firebase-init.js touchMyPresence 주석) */
+/* 🕒 접속 표시의 lastSeen 을 새로 찍는 주기 — 며칠 단위로만 쓰이는 값이라 6시간이면 충분하다(firebase-init.js createMyPresence touch 주석) */
 const PRESENCE_TOUCH_MS = 6 * 60 * 60 * 1000;
 
 function createMyHomeInit(deps){
@@ -78,7 +78,7 @@ function onNewsChanged(e){
 /* 계정 확인을 통과한 뒤 한 번(launcher/app-boot.js) — code: 서버가 확인한 내 계정 코드 · me: 그 확인(GET /v2/me)의 답(접속 고정을 거기서 읽는다) · session: 이번 로그인의 세션(받은 요청 구독 · 우편 구독을 맡긴다) */
 async function initMyHome(code, me, session){
   _waitForFirebaseAPI(async ()=>{
-    if(!session.alive()) return;   // 기다리는 사이 로그아웃했으면 접속 표시를 묶지 않는다 — 풀어 줄 세션이 이미 없다
+    if(!session.alive()) return;   // 기다리는 사이 로그아웃했으면 접속 표시를 만들지 않는다 — 풀어 줄 세션이 이미 없다
     const myId = code;
     /* 내 코드가 없으면 내 경로(presence · 프로필 · 친구 · 요청 · 우편)는 걸지 않는다 — 공지는 코드와 상관없이 따로 받는다(notice-feed).
        ⚠️ 친구 목록은 «코드 없음» 으로 시작해 둔다(요청 없이 «받음 · 0명») — 안 부르면 친구 탭이 «불러오는 중» 에 멈춘다. */
@@ -90,10 +90,12 @@ async function initMyHome(code, me, session){
         setMyHomeFriends(friends);
         inboxMod().renderMyHomeFriendList();
       }, ()=>{ try{ inboxMod().renderMyHomeFriendList(); }catch(_){} });
-      firebaseAPI.setMyPresenceOnline(myId, presenceLock.startOnlineFor(myId, me));   // 🔒 첫 쓰기는 고정값을 앉힌 뒤(presence-lock.js)
-      /* 접속 표시는 이 세션 것이다 — 6시간 lastSeen 타이머도 세션이 쥐고, 세션이 끝나면 앞 계정 것을 풀어 다음 계정이 새로 묶게 한다(firebase-init.js) */
-      session.setInterval(()=>firebaseAPI.touchMyPresence(), PRESENCE_TOUCH_MS);
-      session.onReset(()=>firebaseAPI.resetMyPresence());
+      /* 접속 표시는 이 세션 것이다 — 세션에 걸어 두고(session.presence · 방 입장 · 온라인 토글이 여기로 간다), 6시간 lastSeen 타이머도 세션이 쥐고, 세션이 끝나면 dispose.
+         객체 안에 계정 상태가 다 있어 계정 사이에 공유하는 값이 없다 — dispose 를 빠뜨리면 다음 계정이 만들 때 경고가 뜬다(firebase-init.js) */
+      const presence = firebaseAPI.createMyPresence(myId, presenceLock.startOnlineFor(myId, me));   // 🔒 첫 쓰기는 고정값을 앉힌 뒤(presence-lock.js)
+      session.presence = presence;
+      session.setInterval(()=>presence.touch(), PRESENCE_TOUCH_MS);
+      session.onReset(()=>presence.dispose());
       /* 🖥️ 한 계정 한 기기 — 0.13 은 realtime 연결의 hello claim 이 정한다(login-flow.js goOnline · 밀리면 device-lost.js). */
       /* ⚠️ 읽기(구독)는 쓰기의 성공에 기대지 않는다 — 여기에 await 쓰기를 새로 얹으면 거부될 때 아래 구독이 한 줄도 안 걸린다. 얹어야 하면 자기 try 로 감쌀 것. */
       try{ await firebaseAPI.setMyProfile(myId, getDisplayName()); }   // 이름만 — 레벨 · 별은 서버 진척이 원본(focus-progress.js)

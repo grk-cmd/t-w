@@ -99,7 +99,7 @@ async function callsWith(src, uid){
 }
 const judgeNoUid = async (src) => {
   const none = await callsWith(src, null), mine = await callsWith(src, 'ME');
-  return none.join() === 'friendsSub.start(null),mailFeed.stop()' && mine.filter(c => !c.startsWith('friendsSub.')).slice(0, 2).join() === 'presence.me=ME-ANSWER,setMyPresenceOnline';   // 접속 고정은 app-boot 가 넘긴 확인의 me 로   // 친구 목록은 «코드 없음» 으로 시작해 둬야 친구 탭이 «불러오는 중» 에 안 멈춘다   // 코드 있으면 첫 요청은 예전처럼 presence(가짜 await 는 안 풀려 그 뒤는 안 본다)
+  return none.join() === 'friendsSub.start(null),mailFeed.stop()' && mine.filter(c => !c.startsWith('friendsSub.')).slice(0, 2).join() === 'presence.me=ME-ANSWER,createMyPresence';   // 접속 고정은 app-boot 가 넘긴 확인의 me 로   // 친구 목록은 «코드 없음» 으로 시작해 둬야 친구 탭이 «불러오는 중» 에 안 멈춘다   // 코드 있으면 첫 요청은 예전처럼 presence(가짜 await 는 안 풀려 그 뒤는 안 본다)
 };
 
 (async () => {
@@ -150,7 +150,9 @@ async function sessionRun(src, endFirst, ended){
     _waitForFirebaseAPI: (cb) => Promise.resolve(cb()), ensureMyFriendCode: async () => {}, getDisplayName: () => 'n', getMyUserId: () => 'ME', toast(){},
     friendRequests: () => ({ watchReceived: () => { log.watch++; return UNSUB; } }), _myFriendRequests: () => ({}), _myHomeFriends: () => ({}), _myHomeReady: () => false,
     focusLevelMod: () => ({}), inboxMod: () => ({}), myHomeOpen: () => false, setMyFriendRequests(){}, setMyHomeFriends(){}, setMyHomeReady(){} };
-  const fa = { setMyPresenceOnline(){ log.presence.push('bind'); }, touchMyPresence(){ log.presence.push('touch'); }, resetMyPresence(){ log.presence.push('reset'); }, setMyProfile: async () => {} };
+  const presence = { touch(){ log.presence.push('touch'); }, dispose(){ log.presence.push('dispose'); } };
+  log.presenceObj = presence;
+  const fa = { createMyPresence(){ log.presence.push('create'); return presence; }, setMyProfile: async () => {} };
   const doc = { getElementById: () => null };
   const ls = { getItem: () => null };
   const api = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'module', src + '\nreturn window.TwMyHomeInit;')({}, doc, ls, fa, undefined);
@@ -162,12 +164,12 @@ async function sessionRun(src, endFirst, ended){
   chk(r.log.watch === 1 && r.session.subs.length === 1 && r.log.mailSession === r.session, '★ 받은 요청 듣기의 해제 함수는 세션이 쥔다(버리지 않는다) · 우편 시작에 세션을 넘긴다');
   const r2 = await sessionRun(MOD, true);
   chk(r2.log.unsubCalled === 1, '  이미 끝난 세션에 걸면 바로 푼다 — 늦게 걸린 구독이 새 계정으로 새지 않는다');
-  /* 접속 표시도 이 세션 것 — 6시간 lastSeen 타이머는 세션이 쥐고(firebase-init 에 타이머 없음) · 세션이 끝나면 풀어 다음 계정이 새로 묶는다 */
-  chk(r.session.timers.length === 1 && r.session.timers[0][1] === 6 * 60 * 60 * 1000 && r.session.resets.length === 1, '★ 접속 표시 — 6시간 lastSeen 타이머와 비우기를 세션에 건다');
+  /* 접속 표시도 이 세션 것 — 세션에 걸고(session.presence) · 6시간 lastSeen 타이머는 세션이 쥐고 · 세션이 끝나면 dispose(안 걸면 다음 계정이 만들 때 경고 — presence-lock 검사) */
+  chk(r.session.presence === r.log.presenceObj && r.session.timers.length === 1 && r.session.timers[0][1] === 6 * 60 * 60 * 1000 && r.session.resets.length === 1, '★ 접속 표시 — 세션에 걸고 6시간 타이머 · 풀기(dispose)를 세션에 건다');
   r.session.timers[0][0](); r.session.resets[0]();
-  chk(r.log.presence.join() === 'bind,touch,reset', '  타이머는 한 번 찍기(touch) · 비우기는 풀기(reset) — 묶은 뒤에 건다');
+  chk(r.log.presence.join() === 'create,touch,dispose', '  타이머는 한 번 찍기(touch) · 비우기는 dispose — 만든 뒤에 건다');
   const dead = await sessionRun(MOD, false, true);
-  chk(dead.log.presence.length === 0 && dead.session.timers.length === 0 && dead.log.watch === 0, '  기다리는 사이 끝난 세션이면 아무것도 묶지 않는다(풀어 줄 세션이 없다)');
+  chk(dead.log.presence.length === 0 && dead.session.timers.length === 0 && dead.log.watch === 0, '  기다리는 사이 끝난 세션이면 아무것도 만들지 않는다(풀어 줄 세션이 없다)');
 }
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 {
@@ -178,15 +180,18 @@ say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
   const m4 = MOD.replace('session.on(friendRequests().watchReceived(', 'friendRequests().watchReceived(').replace(')));   // 해제 함수는 세션이', '));   // 해제 함수는 세션이');
   const r4 = m4 === MOD ? null : await sessionRun(m4, false);
   chk(r4 && r4.session.subs.length === 0, '받은 요청 해제 함수를 세션에 안 맡기면 빨강(2-4절)');
-  const m5 = MOD.replace('session.onReset(()=>firebaseAPI.resetMyPresence());', '');
+  const m5 = MOD.replace('session.onReset(()=>presence.dispose());', '');
   const r5 = m5 === MOD ? null : await sessionRun(m5, false);
-  chk(r5 && r5.session.resets.length === 0, '접속 표시를 세션 비우기에 안 걸면(다음 계정이 앞 계정 칸에 쓴다) 빨강');
-  const m6 = MOD.replace('session.setInterval(()=>firebaseAPI.touchMyPresence(), PRESENCE_TOUCH_MS);', '');
+  chk(r5 && r5.session.resets.length === 0, '로그아웃(세션 끝)에 접속 표시를 풀지 않으면(다음 계정이 앞 계정 위에 만든다) 빨강');
+  const m6 = MOD.replace('session.setInterval(()=>presence.touch(), PRESENCE_TOUCH_MS);', '');
   const r6 = m6 === MOD ? null : await sessionRun(m6, false);
   chk(r6 && r6.session.timers.length === 0, '6시간 타이머를 세션에 안 걸면 빨강');
   const m7 = MOD.replace('    if(!session.alive()) return;', '');
   const r7 = m7 === MOD ? null : await sessionRun(m7, false, true);
-  chk(r7 && r7.log.presence.length > 0, '끝난 세션 확인을 빼면(풀어 줄 세션 없이 묶음) 빨강');
+  chk(r7 && r7.log.presence.length > 0, '끝난 세션 확인을 빼면(풀어 줄 세션 없이 만듦) 빨강');
+  const m8 = MOD.replace('      session.presence = presence;\n', '');
+  const r8 = m8 === MOD ? null : await sessionRun(m8, false);
+  chk(r8 && r8.session.presence !== r8.log.presenceObj, '세션에 접속 표시를 안 걸면(방 입장 · 토글 · 로그아웃이 쓸 곳을 못 찾음) 빨강');
 }
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/myhome/myhome-init.js"></script>', '')],
