@@ -88,7 +88,7 @@ say('§3 연결');
   const AN = read('character/animal.js'), iMk = AN.indexOf("'동물 생성기'"), iOpen = AN.indexOf('creatorOpen = true;', AN.indexOf('function openPreview'));
   chk(iMk > 0 && iOpen > iMk && /if\(!openPreview\(\)\) return;/.test(AN), '동물 생성기 — 3D 를 창 · 런처 · 창 크기를 바꾸기 전에 만들고, 못 만들면 false 로 돌아가 부르는 쪽도 멈춘다');
   const PU = read('purikura/purikura-ui.js');
-  chk(/if\(!PK\.renderer\)\{[\s\S]{0,400}toDataURL\('image\/png'\);\s*\}\s*const pr = PK\.renderer\.getPixelRatio\(\)/.test(PU) && !/retry:\(\)=>\{ _pkBuildStage/.test(PU), '스티커사진 — 무대가 없어도 촬영은 흰 컷으로 이어 가고, 루프를 못 거는 [다시 시도] 는 두지 않는다');
+  chk(!/retry:\(\)=>\{ _pkBuildStage/.test(PU), '스티커사진 — 루프를 못 거는 [다시 시도] 는 두지 않는다(무대 없는 방장의 촬영은 사용자 결정 대기 — PR 본문)');
   chk(read('app.js').includes('if(!creatorPrevMod.ensureCreatorPreview()) return;'), 'app.js openCreator — 3D 를 못 만들면 열지 않는다');
   const iG = HTML.indexOf('<script src="parts/shared/gl-context.js">'), iS = HTML.indexOf('<script src="parts/shared/stage.js">'), iA = HTML.indexOf('<script src="parts/app.js">');
   chk(iG > 0 && iG < iA && iG < iS, 'html — gl-context.js 를 stage.js · app.js 보다 먼저 싣는다');
