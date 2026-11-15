@@ -49,6 +49,7 @@ export function deleteImprovement(db: Db, entry: Improvement): Promise<void> {
 
 export function createFirebaseUsagePort(db: Db): UsagePort {
   return {
+    features: { db: true, functions: true },
     getDay: (date) => getDayUsage(db, date),
     serverTimeOffset: () => db.serverTimeOffset(),
     listImprovements: () => getImprovements(db),

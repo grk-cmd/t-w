@@ -25,6 +25,9 @@ export interface DayMetrics {
   ipVisitors: number;
   /** 앱 실행 수(로그인 안 한 사람 포함) */
   pings: number;
+  /** 서버가 «오늘» 줄에 실어 주는 최근 7일 · 30일 고유 사용자(API 판) — 있으면 `users` 로 세지 않고 이 값을 쓴다. */
+  wau?: number;
+  mau?: number;
 }
 
 /** 서버가 남긴 지난날 요약 — 숫자만. */
@@ -66,8 +69,8 @@ export function metricsSummary(days: readonly DayMetrics[]): MetricsSummary | nu
   return {
     today: days[n - 1],
     yesterday: n > 1 ? days[n - 2] : null,
-    wau: uniqueUsers(days.slice(-7)),
-    mau: uniqueUsers(days.slice(-30)),
+    wau: days[n - 1].wau ?? uniqueUsers(days.slice(-7)),
+    mau: days[n - 1].mau ?? uniqueUsers(days.slice(-30)),
     firstDate: days.find(hasRecord)?.date ?? null,
     ipFirstDate: days.find(hasIpRecord)?.date ?? null,
     days: [...days],

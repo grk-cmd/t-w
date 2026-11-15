@@ -11,6 +11,7 @@ import {
   PRICES,
   usageStats,
   useRecentUsage,
+  useUsagePort,
   USAGE_DAYS,
   useRefreshRecentUsage,
   type ByteUnit,
@@ -67,6 +68,7 @@ const fnCalls = (d: DayUsage) => d.functions?.calls ?? null;
 const peak = (d: DayUsage) => d.db?.peakConnections ?? null;
 
 export function UsageDashboard() {
+  const { features } = useUsagePort();
   const usage = useRecentUsage();
   const refresh = useRefreshRecentUsage();
   // 받은 날은 이번 달 1일까지라 31일이 될 수 있다 — 구역 그래프 · 평균은 최근 USAGE_DAYS 일만
@@ -174,14 +176,20 @@ export function UsageDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {est.lines.map((l) => (
-                  <tr key={l.label}>
-                    <th>{l.label}</th>
-                    <td className="soft">{l.toDateAmount}</td>
-                    <td className="soft">{l.amount}</td>
-                    <td>{est.total === null ? '…' : l.usd > 0 ? formatUsd(l.usd) : '무료 한도 안'}</td>
-                  </tr>
-                ))}
+                {est.lines
+                  .filter(
+                    (l) =>
+                      (features.db || !l.label.startsWith('DB')) &&
+                      (features.functions || l.label !== '함수 호출'),
+                  )
+                  .map((l) => (
+                    <tr key={l.label}>
+                      <th>{l.label}</th>
+                      <td className="soft">{l.toDateAmount}</td>
+                      <td className="soft">{l.amount}</td>
+                      <td>{est.total === null ? '…' : l.usd > 0 ? formatUsd(l.usd) : '무료 한도 안'}</td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
             <p className="soft">
@@ -196,102 +204,106 @@ export function UsageDashboard() {
         )}
       </section>
 
-      <StatSection
-        title="DB 다운로드"
-        desc={<>앱 · 웹 관리자가 Realtime Database 에서 내려받은 양 — 요금 대부분이 여기서 나옴{since}</>}
-        stats={
-          db
-            ? [
-                {
-                  label: '오늘',
-                  value: inUnit(db.today, db.unit),
-                  unit: db.unit.unit,
-                  format: fmtIn(db.unit),
-                  main: true,
-                  alert: db.todayAlert,
-                  hint: '오늘 0시부터 지금까지 — 하루가 끝날 때까지 늘어남',
-                  sub:
-                    db.stats.todayProjected !== null
-                      ? `하루 환산 ${fmtIn(db.unit)(db.stats.todayProjected / db.unit.div)}${db.unit.unit} · ${usd(gb(db.stats.todayProjected) * PRICES.dbDownloadPerGB)}`
-                      : undefined,
-                },
-                {
-                  label: '어제',
-                  value: inUnit(db.yesterday, db.unit),
-                  unit: db.unit.unit,
-                  format: fmtIn(db.unit),
-                  alert: db.yesterdayAlert,
-                  sub: db.yesterday !== null ? usd(gb(db.yesterday) * PRICES.dbDownloadPerGB) : undefined,
-                },
-                {
-                  label: '일평균',
-                  value: inUnit(db.stats.avg, db.unit),
-                  unit: db.unit.unit,
-                  format: fmtIn(db.unit),
-                  hint: '오늘 · 어제를 뺀 지난날 평균(기록이 있는 날만)',
-                  sub:
-                    db.stats.avg !== null
-                      ? `한 달 ${usd(gb(db.stats.avg) * 30 * PRICES.dbDownloadPerGB)}`
-                      : undefined,
-                },
-                {
-                  label: '최대',
-                  value: inUnit(db.stats.max, db.unit),
-                  unit: db.unit.unit,
-                  format: fmtIn(db.unit),
-                  sub: db.stats.maxDate ? shortDate(db.stats.maxDate) : undefined,
-                },
-              ]
-            : loadingStats(['오늘', '어제', '일평균', '최대'])
-        }
-        alert={db ? downloadAlert('DB', db) : undefined}
-        chart={body(() => (
-          <DailyBars label="DB 다운로드" unit={db!.unit.unit} digits={db!.unit.digits} days={db!.points} />
-        ))}
-        foot={`추정 금액 = 다운로드 × $${PRICES.dbDownloadPerGB}/GB (하루치는 정가 · 무료 월 ${FREE.dbDownloadGBMonth}GB 는 이번 달 합계에서 뺌)`}
-      />
+      {features.db && (
+        <StatSection
+          title="DB 다운로드"
+          desc={<>앱 · 웹 관리자가 Realtime Database 에서 내려받은 양 — 요금 대부분이 여기서 나옴{since}</>}
+          stats={
+            db
+              ? [
+                  {
+                    label: '오늘',
+                    value: inUnit(db.today, db.unit),
+                    unit: db.unit.unit,
+                    format: fmtIn(db.unit),
+                    main: true,
+                    alert: db.todayAlert,
+                    hint: '오늘 0시부터 지금까지 — 하루가 끝날 때까지 늘어남',
+                    sub:
+                      db.stats.todayProjected !== null
+                        ? `하루 환산 ${fmtIn(db.unit)(db.stats.todayProjected / db.unit.div)}${db.unit.unit} · ${usd(gb(db.stats.todayProjected) * PRICES.dbDownloadPerGB)}`
+                        : undefined,
+                  },
+                  {
+                    label: '어제',
+                    value: inUnit(db.yesterday, db.unit),
+                    unit: db.unit.unit,
+                    format: fmtIn(db.unit),
+                    alert: db.yesterdayAlert,
+                    sub: db.yesterday !== null ? usd(gb(db.yesterday) * PRICES.dbDownloadPerGB) : undefined,
+                  },
+                  {
+                    label: '일평균',
+                    value: inUnit(db.stats.avg, db.unit),
+                    unit: db.unit.unit,
+                    format: fmtIn(db.unit),
+                    hint: '오늘 · 어제를 뺀 지난날 평균(기록이 있는 날만)',
+                    sub:
+                      db.stats.avg !== null
+                        ? `한 달 ${usd(gb(db.stats.avg) * 30 * PRICES.dbDownloadPerGB)}`
+                        : undefined,
+                  },
+                  {
+                    label: '최대',
+                    value: inUnit(db.stats.max, db.unit),
+                    unit: db.unit.unit,
+                    format: fmtIn(db.unit),
+                    sub: db.stats.maxDate ? shortDate(db.stats.maxDate) : undefined,
+                  },
+                ]
+              : loadingStats(['오늘', '어제', '일평균', '최대'])
+          }
+          alert={db ? downloadAlert('DB', db) : undefined}
+          chart={body(() => (
+            <DailyBars label="DB 다운로드" unit={db!.unit.unit} digits={db!.unit.digits} days={db!.points} />
+          ))}
+          foot={`추정 금액 = 다운로드 × $${PRICES.dbDownloadPerGB}/GB (하루치는 정가 · 무료 월 ${FREE.dbDownloadGBMonth}GB 는 이번 달 합계에서 뺌)`}
+        />
+      )}
 
-      <StatSection
-        title="함수 호출"
-        desc="Cloud Functions 가 불린 횟수 — 예약 함수(1분마다 방 집계 등) · 앱이 부르는 함수 모두"
-        stats={[
-          {
-            label: '오늘',
-            value: days ? (today ? fnCalls(today) : null) : undefined,
-            unit: '회',
-            main: true,
-          },
-          { label: '어제', value: days ? (yesterday ? fnCalls(yesterday) : null) : undefined, unit: '회' },
-          {
-            label: '일평균',
-            value: fn ? (fn.avg === null ? null : Math.round(fn.avg)) : undefined,
-            unit: '회',
-            hint: '오늘 · 어제를 뺀 지난날 평균(기록이 있는 날만)',
-          },
-          {
-            label: '최근 30일 합',
-            value: fnMonth,
-            unit: '회',
-            sub:
-              fnMonth === undefined
-                ? undefined
-                : fnMonth <= FREE.functionsCallsMonth
-                  ? `무료 한도 안 (월 ${(FREE.functionsCallsMonth / 10_000).toLocaleString()}만 회)`
-                  : usd(((fnMonth - FREE.functionsCallsMonth) / 1_000_000) * PRICES.functionsPerMillion),
-          },
-        ]}
-        chart={body(() => (
-          <DailyBars label="함수 호출" unit="회" days={points(days!, fnCalls)} />
-        ))}
-        foot={
-          yesterday?.functions && Object.keys(yesterday.functions.byName).length
-            ? `어제 함수별: ${Object.entries(yesterday.functions.byName)
-                .sort((a, b) => b[1] - a[1])
-                .map(([name, v]) => `${name} ${v.toLocaleString()}`)
-                .join(' · ')} — 호출 요금만 셈(CPU · 메모리 시간 요금 제외)`
-            : '호출 요금만 셈(CPU · 메모리 시간 요금 제외)'
-        }
-      />
+      {features.functions && (
+        <StatSection
+          title="함수 호출"
+          desc="Cloud Functions 가 불린 횟수 — 예약 함수(1분마다 방 집계 등) · 앱이 부르는 함수 모두"
+          stats={[
+            {
+              label: '오늘',
+              value: days ? (today ? fnCalls(today) : null) : undefined,
+              unit: '회',
+              main: true,
+            },
+            { label: '어제', value: days ? (yesterday ? fnCalls(yesterday) : null) : undefined, unit: '회' },
+            {
+              label: '일평균',
+              value: fn ? (fn.avg === null ? null : Math.round(fn.avg)) : undefined,
+              unit: '회',
+              hint: '오늘 · 어제를 뺀 지난날 평균(기록이 있는 날만)',
+            },
+            {
+              label: '최근 30일 합',
+              value: fnMonth,
+              unit: '회',
+              sub:
+                fnMonth === undefined
+                  ? undefined
+                  : fnMonth <= FREE.functionsCallsMonth
+                    ? `무료 한도 안 (월 ${(FREE.functionsCallsMonth / 10_000).toLocaleString()}만 회)`
+                    : usd(((fnMonth - FREE.functionsCallsMonth) / 1_000_000) * PRICES.functionsPerMillion),
+            },
+          ]}
+          chart={body(() => (
+            <DailyBars label="함수 호출" unit="회" days={points(days!, fnCalls)} />
+          ))}
+          foot={
+            yesterday?.functions && Object.keys(yesterday.functions.byName).length
+              ? `어제 함수별: ${Object.entries(yesterday.functions.byName)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([name, v]) => `${name} ${v.toLocaleString()}`)
+                  .join(' · ')} — 호출 요금만 셈(CPU · 메모리 시간 요금 제외)`
+              : '호출 요금만 셈(CPU · 메모리 시간 요금 제외)'
+          }
+        />
+      )}
 
       <StatSection
         title="Storage"
@@ -351,34 +363,36 @@ export function UsageDashboard() {
         }`}
       />
 
-      <StatSection
-        title="DB 저장 용량 · 최대 동시 접속"
-        desc="Realtime Database 에 쌓인 데이터 크기와 한 번에 연결된 기기 수(Spark 한도 100 · Blaze 한도 20만)"
-        stats={[
-          storedStat('DB 저장 용량', dbStored, PRICES.dbStoragePerGBMonth, FREE.dbStorageGB),
-          {
-            label: '오늘 최대 동시 접속',
-            value: days ? (today ? peak(today) : null) : undefined,
-            unit: '개',
-            main: true,
-          },
-          {
-            label: '어제 최대 동시 접속',
-            value: days ? (yesterday ? peak(yesterday) : null) : undefined,
-            unit: '개',
-          },
-          {
-            label: '30일 최대',
-            value: conn?.max,
-            unit: '개',
-            sub: conn?.maxDate ? shortDate(conn.maxDate) : undefined,
-          },
-        ]}
-        chart={body(() => (
-          <DailyBars label="최대 동시 접속" unit="개" days={points(days!, peak)} />
-        ))}
-        foot={`추정 금액 = 저장 × $${PRICES.dbStoragePerGBMonth}/GB·월 (무료 ${FREE.dbStorageGB}GB 넘는 만큼)`}
-      />
+      {features.db && (
+        <StatSection
+          title="DB 저장 용량 · 최대 동시 접속"
+          desc="Realtime Database 에 쌓인 데이터 크기와 한 번에 연결된 기기 수(Spark 한도 100 · Blaze 한도 20만)"
+          stats={[
+            storedStat('DB 저장 용량', dbStored, PRICES.dbStoragePerGBMonth, FREE.dbStorageGB),
+            {
+              label: '오늘 최대 동시 접속',
+              value: days ? (today ? peak(today) : null) : undefined,
+              unit: '개',
+              main: true,
+            },
+            {
+              label: '어제 최대 동시 접속',
+              value: days ? (yesterday ? peak(yesterday) : null) : undefined,
+              unit: '개',
+            },
+            {
+              label: '30일 최대',
+              value: conn?.max,
+              unit: '개',
+              sub: conn?.maxDate ? shortDate(conn.maxDate) : undefined,
+            },
+          ]}
+          chart={body(() => (
+            <DailyBars label="최대 동시 접속" unit="개" days={points(days!, peak)} />
+          ))}
+          foot={`추정 금액 = 저장 × $${PRICES.dbStoragePerGBMonth}/GB·월 (무료 ${FREE.dbStorageGB}GB 넘는 만큼)`}
+        />
+      )}
     </>
   );
 }

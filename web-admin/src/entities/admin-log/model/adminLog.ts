@@ -8,6 +8,8 @@ export interface AdminLogEntry {
   action: string;
   target: string;
   detail: string;
+  /** 서버 판이 돌려주는 관리자 이름 — 없으면 uid 앞부분을 보인다. */
+  byName?: string;
 }
 
 export const ACTION_LABEL: Record<AuditAction, string> = {
@@ -107,12 +109,120 @@ export const LOG_GROUPS = [
   { id: 'todo', label: '할 일' },
   { id: 'improvements', label: '개선 기록' },
   { id: 'account', label: '계정' },
+  // 서버 판의 동작 이름 앞부분
+  { id: 'ops', label: '운영 설정' },
+  { id: 'metrics', label: '개선 기록' },
+  { id: 'user', label: '사용자' },
 ] as const;
 
+/** 판마다 보이는 필터 칩 — Firebase 판은 지금 열두 가지, 서버 판은 서버 동작 이름의 앞부분을 따른다. */
+export const FIREBASE_LOG_GROUPS: readonly LogGroupId[] = [
+  'all',
+  'license',
+  'invite',
+  'report',
+  'notice',
+  'settings',
+  'roomServer',
+  'room',
+  'catalog',
+  'bug',
+  'todo',
+  'improvements',
+  'account',
+];
+export const SERVER_LOG_GROUPS: readonly LogGroupId[] = [
+  'all',
+  'license',
+  'invite',
+  'report',
+  'notice',
+  'ops',
+  'room',
+  'catalog',
+  'bug',
+  'metrics',
+  'user',
+];
+
 export type LogGroup = (typeof LOG_GROUPS)[number]['id'];
+type LogGroupId = LogGroup;
+
+/**
+ * 서버 판(API 판)이 남기는 동작 이름 — 서버가 같은 트랜잭션에 적는 것이라 이름이 Firebase 판과 다르다(설계 R10).
+ * 같은 이름(`notice.announce` 등)은 위 `ACTION_LABEL` 을 따른다.
+ */
+export const SERVER_ACTION_LABEL: Record<string, string> = {
+  'bug.answer': '제보 답변',
+  'bug.answerDelete': '답변 삭제',
+  'bug.answerEdit': '답변 수정',
+  'bug.dailyMax': '제보 하루 상한',
+  'bug.delete': '제보 삭제',
+  'bug.edit': '제보 수정',
+  'bug.releaseAnswerTemplate': '릴리스 답변 템플릿',
+  'bug.releaseFix': '릴리스 반영',
+  'bug.report': '버그 제보 안내',
+  'bug.write': '제보 쓰기',
+  'catalog.archive': '카탈로그 단종',
+  'catalog.assetDelete': '파일 지우기',
+  'catalog.assetUpload': '파일 올리기',
+  'catalog.categoryCreate': '카테고리 만들기',
+  'catalog.categoryDelete': '카테고리 지우기',
+  'catalog.categoryReset': '카테고리 원래대로',
+  'catalog.categoryUpdate': '카테고리 고치기',
+  'catalog.deskCreate': '책상 만들기',
+  'catalog.deskPropCreate': '책상 소품 만들기',
+  'catalog.deskPropUpdate': '책상 소품 고치기',
+  'catalog.deskUpdate': '책상 고치기',
+  'catalog.partCreate': '파츠 만들기',
+  'catalog.partUpdate': '파츠 고치기',
+  'catalog.productCreate': '그림 상품 만들기',
+  'catalog.productUpdate': '그림 상품 고치기',
+  'catalog.shelfOrder': '진열 순서',
+  'catalog.unlockSet': '레벨 해금',
+  'invite.groupCreate': '외부인 초대장 만들기',
+  'invite.groupEdit': '외부인 초대장 고치기',
+  'invite.quotaGrant': '초대권 지급',
+  'invite.quotaRevoke': '초대권 회수',
+  'license.approve': '요청 발급',
+  'license.bulk': '엑셀 일괄 발급',
+  'license.delete': '키 삭제',
+  'license.issue': '키 발급',
+  'license.reject': '요청 거절',
+  'license.removeDevice': '기기 빼기',
+  'license.secretEnd': '시크릿룸 끝내기',
+  'license.secretIssue': '시크릿룸 발급',
+  'license.secretUpdate': '시크릿룸 고치기',
+  'license.update': '키 고치기',
+  'metrics.improvementAdd': '개선 기록 추가',
+  'metrics.improvementDelete': '개선 기록 삭제',
+  'metrics.improvementEdit': '개선 기록 수정',
+  'notice.announce': '확성기',
+  'notice.announceClear': '확성기 끄기',
+  'notice.bannerSet': '런처 배너',
+  'notice.broadcastBulk': '공지 한꺼번에',
+  'notice.broadcastCreate': '전체 공지 보내기',
+  'notice.broadcastDelete': '공지 내리기',
+  'notice.broadcastPin': '공지 고정',
+  'notice.broadcastUnpin': '공지 고정 해제',
+  'notice.updateCreate': '업데이트 공지',
+  'notice.updateWithdraw': '업데이트 공지 내림',
+  'ops.adminRename': '관리자 이름',
+  'ops.configReset': '설정 기본값으로',
+  'ops.configSet': '설정 바꿈',
+  'ops.todoCreate': '할 일 추가',
+  'ops.todoDelete': '할 일 삭제',
+  'ops.todoNoteSet': '할 일 공용 메모',
+  'ops.todoUpdate': '할 일 수정',
+  'report.dismiss': '신고 문제없음',
+  'report.takeDown': '그림 내리기',
+  'room.close': '방 종료',
+  'user.delete': '계정 삭제',
+  'user.passwordReset': '비밀번호 초기화',
+};
 
 export const actionLabel = (action: string): string =>
-  (ACTION_LABEL as Record<string, string>)[action] ?? action;
+  (ACTION_LABEL as Record<string, string>)[action] ?? SERVER_ACTION_LABEL[action] ?? action;
 
 export const inGroup = (entry: AdminLogEntry, group: LogGroup): boolean =>
   group === 'all' || entry.action.split('.')[0] === group;

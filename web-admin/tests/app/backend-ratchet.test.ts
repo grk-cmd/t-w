@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 /** 톱니 1 기준선 — D12-3a 뒤(지표 · 기록 묶음을 포트 뒤로 옮김: 80 → 72). */
 const TOOTH_1_BASELINE = 72;
 /** 톱니 2 기준선 — `notPorted(` 를 적은 포트 수. */
-const TOOTH_2_BASELINE = 4;
+const TOOTH_2_BASELINE = 0;
 
 const SRC = join(process.cwd(), 'src');
 

@@ -7,6 +7,14 @@ export function kstDateKey(ms: number): string {
 }
 
 /** 서울 자정 — 그 날짜가 시작하는 UTC ms. */
+/**
+ * 서버가 «오늘(서울 날짜)» 만 알려 줄 때의 서버 시각 차(ms) — 이 PC 의 서울 날짜가 같으면 0, 다르면 그날 한낮으로 맞춘다.
+ * 하루 안의 오차는 모르므로 날짜 칸을 고르는 데만 쓴다.
+ */
+export function offsetFromServerToday(today: string, now: number = Date.now()): number {
+  return kstDateKey(now) === today ? 0 : kstDayStart(today) + 12 * 60 * 60 * 1000 - now;
+}
+
 export function kstDayStart(date: string): number {
   return Date.parse(`${date}T00:00:00Z`) - KST_OFFSET_MS;
 }

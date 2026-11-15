@@ -21,7 +21,7 @@ export {
   useSelection,
   type Selection,
 } from './selection';
-export { DAY_MS, kstDateKey, kstDayStart, lastDateKeys } from './kstDate';
+export { DAY_MS, kstDateKey, kstDayStart, lastDateKeys, offsetFromServerToday } from './kstDate';
 export {
   hasUnsavedInput,
   isBackdropPress,

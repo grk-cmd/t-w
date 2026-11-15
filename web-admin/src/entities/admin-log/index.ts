@@ -3,8 +3,11 @@ export { useAdminLogPort, type AdminLogPage, type AdminLogPort } from './api/ind
 export {
   ACTION_LABEL,
   actionLabel,
+  FIREBASE_LOG_GROUPS,
   inGroup,
   LOG_GROUPS,
+  SERVER_ACTION_LABEL,
+  SERVER_LOG_GROUPS,
   toLogEntries,
   whoLabel,
   type AdminLogEntry,
