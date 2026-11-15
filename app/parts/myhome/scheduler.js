@@ -11,7 +11,7 @@
    ★ 다른 구역이 다시 대입하던 상태는 읽는 함수로 받는다(_mhViewingUserId → viewingUserId() · _myHomeFriends → myHomeFriends()).
      BELL_SEEN_KEY 는 deps.bellSeenKey — 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)이 같은 이름을 쓰므로 정의는 app.js 에 남겼다.
    ★ createScheduler 는 app.js 의 원래 자리에서 부른다. 만들 때 바로 도는 것(달력 버튼 · D-day 편집창 연결 · 구분선 높이 복원 ·
-     🔔 알림 구독 · 오늘 일정 받기 · 자정 넘김 1분 타이머)이 예전과 같은 순서 · 같은 때에 돈다.
+     🔔 알림 구독 · 자정 넘김 1분 타이머 — 오늘 일정 받기는 loadToday 로 마이홈 시작이 부른다)이 예전과 같은 순서 · 같은 때에 돈다.
    ⚠️ firebaseAPI · localStorage · document 는 전역 이름으로 쓴다(이 파일은 app.js 앞에 싣는 classic script).
    검사: checks/sim-scheduler.js — 셈 · 🔔 뱃지 · 알림 목록 · 받는 상태 · 잠금 · 저장 줄 세우기 · 409 · 관람 모드 · app.js 배선. */
 (function(){

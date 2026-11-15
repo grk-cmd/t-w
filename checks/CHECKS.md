@@ -406,7 +406,7 @@
 | **sim-license-ui.js** | 96 | **bc4bb234b208** |
 | **sim-license-key.js** | 95 | **9b2c72d7fa60** |
 | **sim-asset-code.js** | 96 | **1442b5b5b793** |
-| **sim-myhome-init.js** | 132 | **08675e1a7c4f** |
+| **sim-myhome-init.js** | 150 | **0acb8b0671cb** |
 | **sim-parts-paths.js** | 84 | **2810fc3f9073** |
 | **sim-global-names.js** | 236 | **4da03342e299** |
 | **sim-dep-cycles.js** | 268 | **5d63af5d3339** |

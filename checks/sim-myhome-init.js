@@ -74,9 +74,9 @@ function judgeAll(mod, app, html){
 }
 
 /* 내 코드(getMyUserId)가 없는 기기 — initMyHome 이 부르는 firebaseAPI 이름들(콜백은 안 부른다) */
-async function callsWith(src, uid){
+async function callsWith(src, uid, profileGate){
   const any = anything(), calls = [];
-  const fa = new Proxy({}, { get: (t, k) => (...a) => { calls.push(String(k)); return any; } });
+  const fa = new Proxy({}, { get: (t, k) => (...a) => { calls.push(String(k)); return (k === 'setMyProfile' && profileGate) ? profileGate : any; } });
   const deps = {};
   FN_DEPS.forEach(n => { deps[n] = () => any; });
   VAL_DEPS.forEach(n => { deps[n] = any; });
@@ -84,15 +84,26 @@ async function callsWith(src, uid){
   SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
   let done; const fin = new Promise(r => { done = r; });
   deps.getMyUserId = () => uid;
+  if(profileGate){ deps.focusLevelMod = () => ({ _mobileStart(){}, _adoptStarColorFromProfile: async () => {}, getFocusLevel: () => 1, myStarProfileOut: () => ({}) }); deps.ensureMyFriendCode = async () => {}; }   // await 하는 둘은 바로 끝나게
+  if(profileGate) deps.mhScheduler = { loadBoard(){ calls.push('sched.loadBoard'); }, loadToday(){ calls.push('sched.loadToday'); }, refreshBellBadge(){}, isBellOpen: () => false, renderBellList(){}, renderDdays(){} };
   deps.friendsSub = new Proxy({}, { get: (t, k) => (...a) => { calls.push('friendsSub.' + String(k) + '(' + (a.length ? String(a[0]) : '') + ')'); return any; } });
   deps._waitForFirebaseAPI = (cb) => { Promise.resolve(cb()).then(done, done); };
   const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const ls = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
   const api = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'module', src + '\nreturn window.TwMyHomeInit;')(win, any, ls, fa, undefined);
   api.createMyHomeInit(deps).initMyHome();
+  if(profileGate){ await new Promise(r => setTimeout(r, 50)); calls.push('--gate-open--'); profileGate.open(); }
   await Promise.race([fin, new Promise(r => setTimeout(r, 200))]);
   return calls;
 }
+/* 보드 · 오늘 일정 받기는 로그인 복원 뒤(setMyProfile 이 인증 대기를 거친다)에만 — 열기 전에는 0번, 연 뒤 한 번씩 */
+const gateOf = () => { let open; const p = new Promise(r => { open = r; }); p.open = open; return p; };
+const judgeAuthWait = async (src) => {
+  const c = await callsWith(src, 'ME', gateOf());
+  const g = c.indexOf('--gate-open--');
+  return g > 0 && !c.slice(0, g).some(x => x.startsWith('sched.')) && c.slice(g).filter(x => x === 'sched.loadBoard').length === 1 && c.slice(g).filter(x => x === 'sched.loadToday').length === 1
+    && (await callsWith(src, null, gateOf())).every(x => !x.startsWith('sched.'));
+};
 const judgeNoUid = async (src) => {
   const none = await callsWith(src, null), mine = await callsWith(src, 'ME');
   return none.join() === 'friendsSub.start(null),subscribeInboxBroadcast' && mine.filter(c => !c.startsWith('friendsSub.'))[0] === 'setMyPresenceOnline';   // 친구 목록은 «코드 없음» 으로 시작해 둬야 친구 탭이 «불러오는 중» 에 안 멈춘다   // 코드 있으면 첫 요청은 예전처럼 presence(가짜 await 는 안 풀려 그 뒤는 안 본다)
@@ -103,6 +114,13 @@ const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
 say('── 2-2. 내 코드 없음 — 내 경로 요청 0');
 chk(await judgeNoUid(MOD), '내 코드 없음 → presence · 기기 · 프로필 · 친구 · 요청 · 우편 요청 0 · 친구 목록은 «코드 없음» 으로 시작(요청 없음) · 공용 공지 구독만 · 코드 있으면 presence 부터');
+say('── 2-3. 일정 받기는 로그인 복원 뒤');
+chk(await judgeAuthWait(MOD), '프로필 쓰기(인증 대기)가 끝나기 전에는 일정 · 보드 받기 0번 · 끝난 뒤 한 번씩(loadBoard · loadToday) · 내 코드 없으면 0번');
+{
+  const m4 = MOD.replace(/(\n[ ]*mhScheduler\.loadBoard\(\);[^\n]*\n[ ]*mhScheduler\.loadToday\(\);[^\n]*)/, '');
+  const m5 = m4.replace("      try{ await firebaseAPI.setMyProfile(", "      mhScheduler.loadBoard(); mhScheduler.loadToday();\n      try{ await firebaseAPI.setMyProfile(");
+  chk(m4 !== MOD && m5 !== m4 && !(await judgeAuthWait(m5)), '  깨 보기 — 두 줄을 프로필 쓰기 앞으로 옮기면 빨강');
+}
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 {
   const m2 = MOD.replace(/\n *if\(!myId\)\{ friendsSub\.start\(null\); _subscribeInboxBroadcast\(\); return; \}[^\n]*/, '');
