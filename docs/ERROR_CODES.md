@@ -24,6 +24,7 @@
 | `CHAR` | 캐릭터 · 꾸미기 · 가챠 |
 | `FOCUS` | 포커스 · 레벨 |
 | `DATA` | 범용 데이터 통로(서버로 옮긴 경로) |
+| `XMAS` | 크리스마스 이벤트(일회성) |
 | `SYS` | 그 밖 |
 
 ## 번호
@@ -71,6 +72,9 @@
 | `E-DATA-02` | 요청 모양이 맞지 않아 처리하지 못했어요 | `shared/data-gateway.js` — 서버 범용 통로 `INVALID_REQUEST` |
 | `E-DATA-03` | 다른 곳에서 먼저 바뀌었어요 — 다시 시도해 주세요 | `shared/data-gateway.js` — 서버 범용 통로 `CONCURRENT_UPDATE` |
 | `E-DATA-04` | 서버에서 처리하지 못했어요 — 잠시 후 다시 시도해 주세요 | `shared/data-gateway.js` — 서버 범용 통로 모르는 code |
+| `E-XMAS-01` | 트리를 불러오지 못했어요 — 창을 닫았다 다시 열어 주세요 | `xmas/xmas-window.js` — 크리스마스 창 열 때 지금 트리 · 내 자리 · 장식 목록 읽기 실패 |
+| `E-XMAS-02` | 장식을 걸지 못했어요 — 잠시 후 다시 눌러 주세요 | `xmas/xmas-window.js` — 함수 `xmasHang` 실패(시간 초과 · 네트워크 · 서버 오류) |
+| `E-XMAS-03` | 신고를 보내지 못했어요 — 잠시 후 다시 해 주세요 | `xmas/xmas-window.js` — 장식 신고 `xmasReports` 쓰기 실패 |
 
 ## 걷은 번호
 (아직 없음)
