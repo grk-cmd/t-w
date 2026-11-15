@@ -1,4 +1,4 @@
-/* sim-app-boot.js — 🚀 켜는 순서 한 곳(app-boot.js) — 계정 확인 뒤에만, 정해진 차례로, 한 번만
+/* sim-app-boot.js — 🚀 켜는 순서 한 곳(app-boot.js) — 계정 확인 뒤에만, 정해진 차례로, 세션마다 한 번만 · 끄기 end 의 차례
    실행:  node sim-app-boot.js   (러너 스테이징 또는 저장소 루트에서)
    ★ 왜 이 검사가 있는가 — 기능마다 «계정 확인 전 · 실패 · 나중에 확인» 을 버티는 장치가 서른 개 생겼고, 검토 때마다 다른 갈래로 같은 구멍이 나왔다
      (접속 고정이 지난 사본을 읽음 · 가입 필요인데 마이홈이 이미 씀 · 옛 값 옮기기가 확인 전에 엉뚱한 칸으로). 시작을 «들어간 뒤» 한 곳으로 모았으니 그 한 곳을 실제로 돌려 본다.
@@ -6,7 +6,7 @@
    ・2절: 들어감 알림 — 옛 값 옮기기(그 코드) → 계정 칸 열기 → realtime → 표 순서대로 한 번씩(코드 · me 를 받음)
    ・3절: 알림이 없으면(로그인 필요 · 가입 필요 · 서버 안 됨 · 바뀐 계정) 시작 0번 · 계정 없음(빈 me)도 0번
    ・4절: 두 번 부르면 두 번째는 무시(시작 한 번뿐) · 한 칸이 던져도(동기 · 비동기) 다음 칸은 돈다 · 표와 starts 가 어긋나면 만들 때 던진다
-   ・5절: 같은 알림이 또 와도 시작은 한 번 · 로그아웃 차례는 account.js 한 곳(이 모듈은 건드리지 않음)
+   ・5절: 같은 알림이 또 와도 시작은 한 번(살아 있는 세션이 있을 때) · 끄기 end — 올리기 → 연결 → 창 → dispose → 신원 → 화면 · ①이 막으면 뒤 0 · force · ending
    ・6절: 연결 — app.js 의 starts 가 표와 같은 이름 · 각 시작은 app.js 에서 한 번만 · html 순서 · smoke PRELOAD
    ・7절: 일부러 깨 보기 */
 'use strict';
@@ -29,7 +29,7 @@ function build(src, o) {
   const ev = [];
   const made = [];   // 만들어진 세션들
   const navFns = {};
-  const twNav = { NAV: { ACCOUNT_ENTERED: 'accountEntered' }, on: (name, fn) => { navFns[name] = fn; ev.length === 0 && 0; } };
+  const twNav = { NAV: { ACCOUNT_ENTERED: 'accountEntered', ACCOUNT_LEAVE: 'accountLeave' }, on: (name, fn) => { navFns[name] = fn; ev.length === 0 && 0; } };
   const starts = {};
   const names = o.names || ORDER;
   const given = [];   // 각 시작이 세 번째 인자로 받은 세션
@@ -39,8 +39,14 @@ function build(src, o) {
   const deps = {
     migrateLegacy: (code) => { ev.push('migrate:' + code); },
     twNav,
-    newSession: (me) => { const s = { me, disposed: 0, openStore: () => { ev.push('open:' + me.userCode); if (o.openThrow) throw new Error('깨짐 open'); return o.openFail ? false : true; }, dispose: () => { s.disposed++; ev.push('dispose'); return true; } }; made.push(s); return s; },
+    newSession: (me) => { const s = { me, code: me.userCode, disposed: 0, openStore: () => { ev.push('open:' + me.userCode); if (o.openThrow) throw new Error('깨짐 open'); return o.openFail ? false : true; }, dispose: () => { s.disposed++; ev.push('dispose'); return true; } }; made.push(s); return s; },
     goOnline: () => { ev.push('online'); },
+    flushCheck: async () => { ev.push('flush'); return o.flushFail || { ok: true }; },
+    releaseConnection: async (why) => { ev.push('release:' + why); if (o.releaseThrow) throw new Error('깨짐 release'); },
+    closeWindows: () => { ev.push('closeAll'); return []; },
+    releaseIdentity: async (why, code) => { ev.push('identity:' + why + ':' + code); },
+    afterEnd: (why) => { ev.push('after:' + why); },
+    notifyError: (c) => { ev.push('err:' + c); },
     starts,
   };
   const warns = [];
@@ -48,8 +54,9 @@ function build(src, o) {
   let boot = null, err = null;
   try { boot = win.TwAppBoot.createAppBoot(deps); } catch (e) { err = e; }
   console.warn = w0;
-  const notify = (me) => navFns.accountEntered && navFns.accountEntered(me);   // 게이트가 nav.go(ACCOUNT_ENTERED, me) 하는 것
-  return { win, boot, err, ev, warns, deps, navFns, notify, made, given };
+  const notify = (me) => navFns.accountEntered && navFns.accountEntered(me);
+  const leave = (a) => navFns.accountLeave(a);   // 계정 탭 · 끊김 화면이 nav.go(ACCOUNT_LEAVE, { why, force }) 하는 것   // 게이트가 nav.go(ACCOUNT_ENTERED, me) 하는 것
+  return { win, boot, err, ev, warns, deps, navFns, notify, leave, made, given };
 }
 const ME = { userCode: 'u1', friendCode: 'MATE-AAAA' };
 const flush = () => new Promise((r) => setTimeout(r, 0));
@@ -62,7 +69,7 @@ async function judge(src) {
   let b = build(src);
   t(!b.err && b.boot && b.ev.length === 0, '만들기만 하면 아무것도 안 부른다(옛 값 옮기기 · realtime · 시작 0)' + (b.err ? ' — ' + b.err.message : ''));
   t(b.win.TwAppBoot && JSON.stringify(b.win.TwAppBoot.STEPS) === JSON.stringify(ORDER), '차례 표 — ' + ORDER.length + '칸: ' + ORDER.join(' → '));
-  t(b.boot && Object.keys(b.boot).join() === 'begin,getSession' && Object.keys(b.navFns).join() === 'accountEntered', '내놓는 것은 begin · getSession · «계정에 들어감» 알림에 건다');
+  t(b.boot && Object.keys(b.boot).join() === 'begin,end,getSession' && Object.keys(b.navFns).join() === 'accountEntered,accountLeave', '내놓는 것은 begin · end · getSession · «계정에 들어감» · «계정에서 나감» 알림에 건다');
   t(b.boot && b.boot.getSession() === null && b.made.length === 0, '  들어가기 전에는 세션이 없다(만들기만 하면 세션 0)');
   /* 2 */
   b = build(src);
@@ -77,11 +84,11 @@ async function judge(src) {
   /* 3 */
   b = build(src, { openFail: true });
   const of = await quiet(async () => b.notify(ME));
-  t(of[0] === false && b.ev.join() === 'migrate:u1,open:u1,dispose' && of[1].some((w) => /열지 못해/.test(w)), '계정 칸을 못 열면(false) realtime · 기능 시작 0번 + 경고 + 만든 세션은 바로 끝낸다');
+  t(of[0] === false && b.ev.join() === 'migrate:u1,open:u1,dispose,err:E-ACC-05' && of[1].some((w) => /열지 못해/.test(w)), '계정 칸을 못 열면(false) realtime · 기능 시작 0번 + 경고 + 오류 번호 E-ACC-05 한 번 + 만든 세션은 바로 끝낸다');
   t(b.boot.getSession() === null && b.made[0].disposed === 1, '  못 열면 들고 있는 세션도 없다');
   b = build(src, { openThrow: true });
   const ot = await quiet(async () => b.notify(ME));
-  t(ot[0] === false && b.ev.join() === 'migrate:u1,open:u1,dispose' && b.boot.getSession() === null, '계정 칸 열기가 던져도 시작 0번 · 세션 끝냄');
+  t(ot[0] === false && b.ev.join() === 'migrate:u1,open:u1,dispose,err:E-ACC-05' && b.boot.getSession() === null, '계정 칸 열기가 던져도 시작 0번 · 세션 끝냄');
   b = build(src);
   t(b.ev.length === 0, '알림이 없으면(로그인 필요 · 가입 필요 · 서버 안 됨 · 바뀐 계정 → 게이트가 알리지 않음) 시작 0번');
   const e0 = await quiet(async () => [b.notify(null), b.notify({}), b.notify({ userCode: '' })]);
@@ -100,6 +107,47 @@ async function judge(src) {
   t(miss.err && /closet/.test(miss.err.message), '표에 있는 시작이 빠지면 만들 때 던진다(한 기능을 빼먹을 수 없다)');
   const extra = build(src, { extra: '없는기능' });
   t(extra.err && /없는기능/.test(extra.err.message), '표에 없는 시작이 남으면 만들 때 던진다');
+
+  /* 5 — 끄기 end(why) */
+  const after = (b2) => b2.ev.slice(b2.ev.indexOf('start:' + ORDER[ORDER.length - 1] + ':u1:u1') + 1);
+  b = build(src); await quiet(async () => b.notify(ME));
+  const e1 = await b.leave({ why: 'logout' });
+  t(e1.ok === true && after(b).join() === 'flush,release:logout,closeAll,dispose,identity:logout:u1,after:logout', '★ 로그아웃 차례 — 올리기 · 검문 → 연결 놓기 → 창 모두 닫기 → 세션 끝내기(dispose) → 신원 놓기 → 끝난 뒤 화면  [' + after(b).join(' → ') + ']');
+  t(b.boot.getSession() === null && b.made[0].disposed === 1, '  끝나면 들고 있는 세션이 없다 · dispose 한 번');
+  const nf = { ok: false, kind: 'denied', reason: '못 올림', items: [{ label: '캐릭터 1개' }] };
+  b = build(src, { flushFail: nf }); await quiet(async () => b.notify(ME));
+  const e2 = await b.leave({ why: 'logout' });
+  t(e2 === nf && after(b).join() === 'flush' && b.boot.getSession() === b.made[0] && b.made[0].disposed === 0, '★ ① 이 막으면 검문 결과를 돌려주고 아래는 하나도 안 돈다(연결 · 창 · 세션 · 신원 그대로 — dispose 0)');
+  const e2b = await b.leave({ why: 'logout' });
+  t(e2b === nf && after(b).filter((x) => x === 'flush').length === 2, '  사용자가 다시 누르면(막힌 뒤 ending 이 풀려) 다시 시도한다');
+  b = build(src, { flushFail: nf }); await quiet(async () => b.notify(ME));
+  const e3 = (await quiet(async () => b.leave({ why: 'logout', force: true })));
+  t(e3[0].ok === true && after(b).join() === 'flush,release:logout,closeAll,dispose,identity:logout:u1,after:logout' && e3[1].some((w) => /강제로 나가요/.test(w)), '★ 두 번째 누름(force) — 막혀도 경고만 남기고 끝까지 나간다(S-Q1 나)');
+  for(const why of ['withdraw', 'gone', 'auth']){
+    b = build(src); await quiet(async () => b.notify(ME));
+    const e4 = await b.leave({ why });
+    t(e4.ok === true && after(b).join() === 'release:' + why + ',closeAll,dispose,identity:' + why + ':u1,after:' + why, why + ' — 올리기 · 검문 없이(올릴 까닭 없음) 연결 놓기 → 창 → dispose → 신원 → 끝난 뒤 화면');
+  }
+  b = build(src); await quiet(async () => b.notify(ME));
+  const e5 = await b.leave({ why: 'logout', force: true }).catch((x) => x);
+  b = build(src); await quiet(async () => b.notify(ME));
+  const pend = b.leave({ why: 'logout' }); const second = await quiet(async () => b.leave({ why: 'gone' })); await pend;
+  t(second[0].busy === true && second[1].some((w) => /끝내는 중/.test(w)) && b.ev.filter((x) => x === 'dispose').length === 1, '끝내는 중에 두 번째 end 는 거절(busy) + 경고 — dispose 한 번뿐');
+  b = build(src); const e6 = await b.leave({ why: 'gone' });
+  t(e6.ok === true && b.ev.join() === 'identity:gone:null,after:gone', '세션이 없으면(계정 칸 열기 전) 연결 · 창 · dispose 를 건너뛰고 신원 놓기부터');
+  b = build(src, { releaseThrow: true }); await quiet(async () => b.notify(ME));
+  let thrown = null; try{ await b.leave({ why: 'logout' }); }catch(x){ thrown = x; }
+  t(thrown && /깨짐 release/.test(thrown.message) && !b.ev.includes('dispose'), '한 칸이 던지면 숨기지 않고 던진다(뒤 칸은 안 돈다) · ending 은 풀린다');
+  let bad = null; try{ await build(src).leave({ why: '몰라' }); }catch(x){ bad = x; }
+  t(bad && /까닭/.test(bad.message), '모르는 까닭은 던진다');
+  b = build(src); await quiet(async () => b.notify(ME)); await b.leave({ why: 'gone' });
+  b.ev.length = 0;
+  const again = await quiet(async () => b.notify(ME));
+  t(again[0] === true && b.made.length === 2 && b.made[1].disposed === 0 && ORDER.every((n) => b.ev.some((x) => x.startsWith('start:' + n + ':'))), '★ end 뒤 다시 들어가면 새 세션(번호 다름)으로 시작 함수가 다시 불린다(살아 있는 세션이 있을 때만 거절)');
+  b = build(src); b.made.length = 0;
+  const pe = b.leave({ why: 'gone' }); const dur = await quiet(async () => b.notify(ME)); await pe;
+  t(dur[0] === false && dur[1].some((w) => /나가는 중/.test(w)), '나가는 중에 들어가기(begin)는 거절 + 경고');
+  void e5;
   return r;
 }
 
@@ -141,7 +189,20 @@ async function judge(src) {
     ['시작에 세션을 안 넘김', (m) => m.replace('starts[name](code, me, session)', 'starts[name](code, me)')],
     ['계정 칸을 옮기기 전에 엶', (m) => m.replace("    guard('옛 값 옮기기', () => migrateLegacy(code));\n", '').replace("    guard('realtime", "    guard('옛 값 옮기기', () => migrateLegacy(code));\n    guard('realtime")],
     ['알림에 begin 을 안 검', (m) => m.replace('twNav.on(twNav.NAV.ACCOUNT_ENTERED, begin);', '')],
-    ['두 번 불러도 또 시작', (m) => m.replace("if(began){ console.warn('[app-boot] 이미 시작했어요 — 두 번째 시작은 무시해요'); return false; }", '')],
+    ['두 번 불러도 또 시작', (m) => m.replace("if(session){ console.warn('[app-boot] 이미 시작했어요 — 두 번째 시작은 무시해요'); return false; }", '')],
+    ['끝낸 뒤에도 세션이 남아 다시 못 들어감', (m) => m.replace('        session = null;\n        s.dispose();', '        s.dispose();')],
+    ['신원을 세션 끝내기보다 먼저 놓음', (m) => m.replace("        closeWindows();\n        session = null;\n        s.dispose();\n      }\n      await releaseIdentity(why, s ? s.code : null);", "        closeWindows();\n        session = null;\n      }\n      await releaseIdentity(why, s ? s.code : null);\n      if(s) s.dispose();")],
+    ['연결 놓기를 세션 끝낸 뒤로', (m) => m.replace("        await releaseConnection(why);\n        closeWindows();\n        session = null;\n        s.dispose();", "        closeWindows();\n        session = null;\n        s.dispose();\n        await releaseConnection(why);")],
+    ['창을 안 닫음', (m) => m.replace('        closeWindows();\n', '')],
+    ['올리기 · 검문이 막아도 계속', (m) => m.replace('if(!(opt && opt.force)) return chk;', '')],
+    ['force 가 없음', (m) => m.replace('if(!(opt && opt.force)) return chk;', 'return chk;')],
+    ['탈퇴 · 내보냄에도 올리기 · 검문', (m) => m.replace("if(why === 'logout'){\n          const chk", "if(true){\n          const chk")],
+    ['끝내는 중 두 번째 end 를 받음', (m) => m.replace("    if(ending){ console.warn('[app-boot] 이미 끝내는 중이에요(' + ending + ') — ' + why + ' 은(는) 무시해요'); return { ok:false, busy:true }; }\n", '')],
+    ['나가는 중에도 시작', (m) => m.replace("    if(ending){ console.warn('[app-boot] 계정에서 나가는 중이라 시작하지 않아요(' + ending + ')'); return false; }\n", '')],
+    ['끝난 뒤 화면을 안 부름', (m) => m.replace('    afterEnd(why);\n', '')],
+    ['던져도 ending 이 안 풀림', (m) => m.replace('    }finally{\n      ending = null;\n    }', '    }finally{\n    }')],
+    ['나가기를 nav 에 안 검', (m) => m.replace('twNav.on(twNav.NAV.ACCOUNT_LEAVE, (a) => end(a.why, a));', '')],
+    ['계정 칸을 못 열어도 번호 없음', (m) => m.replace("      notifyError('E-ACC-05');\n", '')],
     ['한 칸이 던지면 다음 칸이 멈춤', (m) => m.replace("catch(e){ console.warn('[app-boot] ' + label + ' 실패', e); }", 'catch(e){ throw e; }')],
     ['비동기로 깨져도 경고가 없음', (m) => m.replace(".catch((e)=>console.warn('[app-boot] ' + label + ' 실패', e))", '.catch(()=>{})')],
     ['공지를 다시 차례 표에 넣음', (m) => m.replace("  'scheduler',", "  'notice',\n  'scheduler',")],

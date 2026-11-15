@@ -1,12 +1,12 @@
 /* account.js — 🔑 계정 — 구글 로그인 · 친구코드 로그인 · 로그아웃 · 신원 지우기 · 서버 계정으로 이 PC 맞추기
    app.js «🔑 구글 로그인 (계정)» · «🧹 신원을 놓을 때 이 기기에서 지우는 것» · «📤 계정 이전 / 연동 / 연동 해제(걷은 흔적)» 세 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 23번 — docs/APP_FSD_MAP.md).
-   ★ 다시 대입되거나 뒤에서 선언되는 값은 deps 의 읽는 함수(…())로, 바꾸는 값은 쓰는 함수(setFocusTodaySec · setExtraSeatSlots)로 받는다.
+   ★ 다시 대입되거나 뒤에서 선언되는 값은 deps 의 읽는 함수(…())로, 바꾸는 값은 쓰는 함수(setAcctDetached)로 받는다.
    ★ app.js 함수 4개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 신원 핵심(로그인 이메일 · 저장 키 · 친구코드 모양 · 신원 놓음)과 라이선스 저장 키는 account-state.js 에서 받는다(모듈 순환 끊기 5).
-   ★ 캐릭터(슬롯 · 보관함)와 가챠는 서버가 원본이다 — 로그아웃은 못 올린 캐릭터 고침만 올리고(closet.flushSlots) 메모리를 비운다(이 PC 에 지울 캐릭터 저장본이 없다).
+   ★ 캐릭터(슬롯 · 보관함)와 가챠는 서버가 원본이다 — 로그아웃은 못 올린 캐릭터 고침만 올린다(closet.flushSlots — 메모리는 세션이 끝날 때 각 모듈이 비운다)(이 PC 에 지울 캐릭터 저장본이 없다).
    ★ 0.13 — 로그인 · 가입 판정은 login-flow.js(서버 GET /v2/me), 여기는 그 결과로 이 PC 를 맞춘다(_enterAccount). 계정 이전 사본(accountSnap)으로 복원하던 길은 걷었다 —
      다른 PC 이어받기는 같은 계정 로그인으로 끝난다(서버가 원본).
-   ★ 밖에서 부르는 이름: _enterAccount · _loginDoFriendCode · _loginDoGoogle · _loginDoLogout · _loginDoDeleteAccount · _withdrawPreview · _wipeAccountLocal · withdrawing · refreshAccountTab — app.js 는 accountMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: _enterAccount · _loginDoFriendCode · _loginDoGoogle · _loginDoLogout · _acctFlushCheck · _acctRelease · _acctReleaseIdentity · _loginDoDeleteAccount · _withdrawPreview · _wipeAccountLocal · withdrawing · refreshAccountTab — app.js 는 accountMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwAccount — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-account.js */
@@ -23,14 +23,11 @@ const MY_FRIEND_CODE_KEY = deps.MY_FRIEND_CODE_KEY;
 const MY_FRIEND_CODE_PREV_KEY = deps.MY_FRIEND_CODE_PREV_KEY;
 const MY_USER_ID_KEY = deps.MY_USER_ID_KEY;
 const USER_NAME_KEY = deps.USER_NAME_KEY;
-const _focusTodaySec = deps._focusTodaySec;   // 읽는 함수
 const unsentSec = deps.unsentSec;   // 읽는 함수 — 아직 서버에 못 올린 집중 시간(초)
 const flushFocus = deps.flushFocus;   // 로그아웃 올리기 — 못 올린 집중 시간 한 번(focus-progress.js)
 const _rememberOldFriendCode = deps._rememberOldFriendCode;
 const _setMyUserId = deps._setMyUserId;
 const closetMod = deps.closetMod;   // 읽는 함수 — 서버 원본 옷장(character/closet.js)
-const extraSeatSlots = deps.extraSeatSlots;   // 읽는 함수
-const gachaMod = deps.gachaMod;   // 읽는 함수
 const getMyUserId = deps.getMyUserId;
 const acctStateMod = deps.acctStateMod;   // 🪪 계정 핵심 상태(account-state.js) — 라이선스 저장 키 · 초대 통과 · 프리미엄 · 신원 놓음
 const setAcctDetached = deps.setAcctDetached;   // 쓰는 함수 — 신원을 놓을 때
@@ -39,22 +36,18 @@ const LOGIN_UID_KEY = deps.LOGIN_UID_KEY;
 const getMyLoginEmail = deps.getMyLoginEmail;
 const FRIEND_CODE_LOGIN_RE = deps.FRIEND_CODE_LOGIN_RE;
 const plMod = deps.plMod;
-const mhScheduler = deps.mhScheduler;   // 📅 스케줄러 — 계정을 놓을 때 비운다(다음 계정 것은 로그인 뒤 다시 켠 부팅이 받는다)
-const bookshelfStore = deps.bookshelfStore;   // 📚 책장(bookshelf-store.js) — 로그아웃 올리기(flush) · 계정을 놓을 때 비운다(reset)
-const myhomeStore = deps.myhomeStore;   // 🏠 마이홈 페이지(myhome-store.js) — 로그아웃 올리기(flush) · 계정을 놓을 때 비운다(reset)
-const giftBox = deps.giftBox;   // 🎁 선물 상태 주인(gift-box.js) — 계정을 놓을 때 비운다(reset)
-const mallangStore = deps.mallangStore;   // 🧸 말랑이 칸(mallang-store.js) — 로그아웃 올리기(flush) · 계정을 놓을 때 비운다(reset)
-const bugBoardReset = deps.bugBoardReset;   // 🐞 버그제보 게시판(bug-board-ui.js) — 계정을 놓을 때 배지 · 목록 · 쓰던 글을 비운다
+const bookshelfStore = deps.bookshelfStore;   // 📚 책장(bookshelf-store.js) — 로그아웃 올리기(flush)
+const myhomeStore = deps.myhomeStore;   // 🏠 마이홈 페이지(myhome-store.js) — 로그아웃 올리기(flush)
+const mallangStore = deps.mallangStore;   // 🧸 말랑이 칸(mallang-store.js) — 로그아웃 올리기(flush)
 const toast = deps.toast;
 const tricksMod = deps.tricksMod;
 const weeklyChal = deps.weeklyChal;   // 읽는 함수
+const twNav = deps.twNav;   // 창 열기 통로(shared/nav.js) — 로그아웃 · 탈퇴는 NAV.ACCOUNT_LEAVE 로 app-boot.js 에 부탁한다
 const loginFlowMod = deps.loginFlowMod;   // 🔑 로그인 흐름(login-flow.js) — 로그인 · 서버 가입 확인 · realtime · 로그아웃
 const getPresence = deps.getPresence;   // () => 지금 세션의 접속 표시 한 벌 또는 null(app.js myPresence)
 const sessionLost = deps.sessionLost;   // () => boolean — 다른 기기에 밀렸나(realtime sessionLost) · 그 접속 표시는 이긴 쪽 것
 const ME_CACHE_KEY = deps.ME_CACHE_KEY;   // 내 계정 사본(login-flow.js) — 계정 몫이라 로그아웃이 지운다
 const userApiMod = deps.userApiMod;   // 🪪 계정 provider(user-api.js) — 비밀번호 붙이기 · 바꾸기 · 탈퇴 · 화면 문구(reasonOf)
-const setFocusTodaySec = deps.setFocusTodaySec;   // 쓰는 함수
-const setExtraSeatSlots = deps.setExtraSeatSlots;   // 쓰는 함수
 
 /* 🪪 서버가 돌려준 계정(me)으로 이 PC 를 맞춘다 — 켤 때 확인 · 로그인 · 가입이 같이 부르는 한 곳.
    login: { email, uid } — 이 PC 의 로그인 표시(계정 탭 얼굴 · 진단). 친구코드 · 이름은 서버 값이 정본이다.
@@ -204,28 +197,16 @@ async function _acctPreflight(uid, opt){
 
 /* 🧹 신원을 놓으면 이 기기는 빈 기기가 된다 — 계정에 딸린 것은 지우고, 기기 설정 · 카탈로그는 이 컴퓨터 것이라 남긴다.
    ⚠️ 목록을 늘리거나 줄일 땐 항목마다 «다시 로그인하면 돌아오는가» 를 볼 것 — 돌아오는 길이 없으면 로그아웃이 곧 삭제가 된다. */
-/* 🧹 실제로 지운다 — localStorage 와 **메모리** 둘 다.
-   [왜 메모리까지] 이 뒤 700ms 안에 재시작하지만, 그 사이 beforeunload 가 돈다
-     (포커스 올리기 · _chalSave). 메모리에 옛 값이 있으면 그 한 번이 지운 키를 도로 쓴다.
+/* 🧹 실제로 지운다 — localStorage 의 신원 키 + 이 PC 대화 저장.
+   ★ 메모리(포커스 · 가챠 · 옷장 · 플레이리스트 · 일정 · 마이홈 · 책장 · 선물 · 말랑이 · 버그제보)는 여기서 비우지 않는다 — 세션이 끝날 때 각 모듈이 건 비우기 훅(session.onReset)이 비운다.
+     세션이 없는 길(계정 없음 — 게이트의 signup)은 비울 메모리도 없다. 이 함수는 세션이 이미 끝난 뒤(launcher/app-boot.js end ⑤) 또는 세션이 없을 때만 부른다.
    ⚠️ getMyUserId() 를 부르는 코드가 이 뒤에 돌면 임시 uid 가 하나 생긴다. 그건 이미 설계된 상태다
      (게이트 주석 «로그아웃 직후 만들어진 임시 유저 코드»). 여기서 막지 않는다. */
 function _wipeAccountLocal(){
   setAcctDetached(true);
   for(const k of ACCOUNT_LOCAL_KEYS()){ try{ localStorage.removeItem(k); }catch(_){} }
-  /* 메모리 — 위 주석 참고. 각 값은 그 모듈의 «빈 기기» 초기값과 같다. */
-  try{ setFocusTodaySec(0); }catch(_){}
-  try{ if(window.firebaseAPI && firebaseAPI.chatHistory) firebaseAPI.chatHistory.wipeAll(); }catch(_){}   // 💬 이 PC 대화 저장(chat-history.js)
-  try{ gachaMod().resetMemory(); }catch(_){}   // 🎰 가챠 — 서버에서 받아 온 보유분 · 뽑기 수 · 구독 표시를 비운다(gacha.js)
-  try{ closetMod().resetCloset(); setExtraSeatSlots([]); }catch(_){}   // 🧬 옷장 — 메모리 · 받은 판 기억을 비우고 진행 중인 받기 · 쓰기의 답을 버린다(closet.js)
-  try{ plMod.st.cur = 0; plMod.reset(); }catch(_){}   // 🎵 playlist.js — 목록 · 한마디 · 공개를 비우고 새 계정 것을 받기 전까지 안 올림
-  try{ mhScheduler.reset(); }catch(_){}   // 📅 scheduler.js — 일정 · 디데이 · 알림을 비우고 받기 전으로
-  try{ myhomeStore.reset(); }catch(_){}   // 🏠 myhome-store.js — 내 홈 · 보던 집 · 못 올린 고침을 비우고 늦게 온 답을 버린다
-  try{ bookshelfStore.reset(); }catch(_){}   // 📚 bookshelf-store.js — 책 · 판 · 보는 집을 비우고 늦게 온 답을 버린다
-  try{ giftBox.reset(); }catch(_){}   // 🎁 gift-box.js — 선물함 · 서버 신호 구독을 비우고 늦게 온 답을 버린다
-  try{ mallangStore.reset(); }catch(_){}   // 🧸 mallang-store.js — 칸 · 판 · 보는 집을 비우고 늦게 온 답을 버린다
-  try{ bugBoardReset(); }catch(_){}   // 🐞 bug-board-ui.js — 배지 · 목록 · 연 글 · 쓰던 글을 비우고 늦게 온 답을 버린다
-  /* isPremium(메모리)은 안 건드린다 — 700ms 뒤 재시작이고, 그 사이 책상을 다시 그릴 이유가 없다.
-     다음 부팅의 initLicense 가 빈 키를 보고 기본으로 시작한다. */
+  if(window.firebaseAPI && firebaseAPI.chatHistory) firebaseAPI.chatHistory.wipeAll();   // 💬 이 PC 대화 저장(chat-history.js) — 계정별로 나뉘지 않은 저장이라 섞임 방지
+  /* isPremium(메모리)은 안 건드린다 — 다음 계정 확인(license-premium.js reset 이 «모름» 으로 되돌림)이 다시 정한다. */
 }
 
 /* 로그인이 남아 있을 때 presence 를 «꺼짐» 으로 — signOut 뒤에는 onDisconnect(꺼짐)가 돌지 않아(그 칸은 이 계정 로그인만 쓴다)
@@ -240,48 +221,45 @@ function _presenceOff(){
   try{ p = pr.setState(false); }catch(_){}
   return Promise.race([Promise.resolve(p).catch(() => {}), new Promise(r => setTimeout(r, PRESENCE_OFF_WAIT_MS))]);
 }
-/* 신원 놓기 한 벌 — 올리고 → 검문 → 지운다. 로그아웃·연동 해제가 같이 쓴다.
-   @return { ok:true } | { ok:false, reason } — false 면 **아무것도 안 지웠다.** 부르는 쪽이 이유를 보여준다. */
-async function _detachAccountLocal(opt){
-  /* 🚪 [2026-09-20 · §2] force — 검문에 걸려도 지운다. **두 번째 누름에서만** 열리는 갈래다(부르는 쪽 참고).
-     출구가 없으면 막히는 원인이 계속되는 한 영원히 못 나가는데, 하필 로그아웃이 «로그인 문구가 계속 뜬다» 의
-     복구 수단이다. 강제로 지워도 올리기는 한 번 더 해 본다(공짜다). 기기 세션도 놓는다(아래). */
-  const force = !!(opt && opt.force);
-  let uid = null; try{ uid = localStorage.getItem(MY_USER_ID_KEY); }catch(_){}
-  /* 올리기 · 검문이 계정 칸의 누적 · 마크를 읽으므로 그 **앞**에, 아직 옮기지 못한 옛 PC 칸 값을 이 계정 칸으로 옮긴다(부팅 때 못 옮겼을 때만 일이 있다 · 두 번째부터는 아무 일도 안 한다).
-     플레이리스트 마지막 올리기(plMod.flushPending)는 아래 _acctFlushToServer 안에서 끝나야 지우기(_wipeAccountLocal)가 돈다 — 그 순서가 한 곳에서 보장된다. */
-  if(uid) accountLegacyStore.migrateLegacy(uid);
-  if(uid){
-    const fl = await _acctFlushToServer();
-    const pf = await _acctPreflight(uid, { timedOut: !!(fl && fl.timedOut) });
-    if(!pf.ok && !force) return pf;
-    if(!pf.ok) console.warn('[계정] 검문에 걸렸지만 강제 로그아웃 — 이 기기에만 있던 것: ' + (pf.items || []).map(i => i.label).join(' · '));
-  }
-  if(uid) await _presenceOff();
+
+/* ── 계정에서 나가는 세 조각 — 차례는 launcher/app-boot.js end() 가 정한다(여기는 안쪽 일만. 서로 부르지 않는다) ── */
+
+/* ① 올리고 검문한다 — 로그아웃의 첫 걸음(못 올리면 아무것도 안 바뀐 채 멈춘다 · 공통 Q5).
+   ⚠️ 순서: 올리기 · 검문은 **로그인이 살아 있을 때**. 로그인을 먼저 놓으면 push 가 거부되고 검문이 그걸 «못 올렸다» 로 읽어 로그아웃이 항상 막힌다.
+   @return { ok:true } | { ok:false, reason, kind, items, timedOut } — 아무것도 지우지 않았다. 부르는 쪽이 이유를 보여 준다 */
+async function _acctFlushCheck(){
+  const fl = await _acctFlushToServer();
+  return _acctPreflight(getMyUserId(), { timedOut: fl.timedOut });
+}
+/* ② 연결을 놓는다 — 접속 표시 «꺼짐»(탈퇴는 계정이 이미 지워져 쓸 곳이 없다) → 방 나가기 · realtime 작별(bye{why}).
+   🖥️ 지금 기기 자리는 realtime 서버가 쥔다 — 작별로 놓인다. */
+async function _acctRelease(why){
+  if(why !== 'withdraw') await _presenceOff();
+  await loginFlowMod.release(why);
+}
+/* ⑤ 신원을 놓는다 — 이 PC 신원 · 대화 저장을 지우고, 탈퇴면 이 계정 칸을 통째로 지우고, 로그인을 놓는다(진행 중인 읽기 떼기 · 내 계정 사본 지우기 · Auth 로그아웃).
+   세션은 이미 끝났다(그 구독 · 접속 표시가 옛 로그인으로 마지막 쓰기를 한 뒤에 로그인을 놓는다). code 는 끝난 세션의 계정 코드(없으면 null). */
+async function _acctReleaseIdentity(why, code){
   _wipeAccountLocal();
-  /* 🖥️ 지금 기기 자리는 realtime 서버가 쥔다 — 로그아웃(loginFlowMod.logout)의 작별(bye{logout})로 놓인다. */
-  return { ok:true };
+  if(why === 'withdraw'){
+    if(!code) throw new Error('[계정] 탈퇴인데 지울 계정 칸의 코드를 모르겠어요');
+    accountLegacyStore.wipeCells(code);
+  }
+  await loginFlowMod.releaseIdentity();
 }
 
-/* 로그아웃 — Auth 세션만 끊는 게 아니라 **이 기기의 신원까지 놓는다.**
-   [왜 그렇게까지 하는가] 세션만 끊으면 로컬 유저 코드가 그대로 남아, 로그아웃한 뒤에도
-     그 계정의 마이홈·친구가 계속 보인다. 한 컴퓨터를 나눠 쓸 때 다음 사람이 앞사람 계정을
-     그대로 보게 된다는 뜻이다. 그래서 계정 연동 해제(acctUnlinkYes)와 **같은 자리를 지운다.**
-   ★ 예전에 해제가 무서웠던 이유(돌아오려면 유저 코드 22자리와 비밀번호가 필요했다)는
-     이제 없다 — 게이트에 구글 버튼이 있어서 클릭 한 번으로 돌아온다. 계정은 서버에 그대로다.
-   ★ [2026-09-16 제보 4] 지우는 목록은 ACCOUNT_LOCAL_KEYS 한 벌이다(위). 소지품까지 전부 지운다.
-   ⚠️ 순서: 올리고·검문 **먼저**, signOut 은 **그 뒤**. 거꾸로 하면 세션이 끊긴 상태에서 push 가
-     거부되고, 검문이 그걸 «못 올렸다» 로 읽어 로그아웃이 항상 막힌다.
-   @return { ok, reason } — ok=false 면 세션도 로컬도 그대로다. */
-async function _loginDoLogout(opt){
-  const r = await _detachAccountLocal(opt);
-  if(!r.ok) return r;
-  try{ await loginFlowMod.logout(); }catch(_){}   // 방 나가기 · realtime 작별(logout) · 로그인 놓기 · 내 계정 사본 지우기
-  return { ok:true };
+/* 로그아웃 — 계정에서 나간다(NAV.ACCOUNT_LEAVE{ why:'logout' } → app-boot.js end(): ① 올리기 · 검문 → ② 연결 놓기 → ③ 창 닫기 → ④ 세션 끝내기 → ⑤ 신원 놓기). 세 조각(_acctFlushCheck · _acctRelease · _acctReleaseIdentity)은 위에 있다.
+   [왜 신원까지 놓는가] 세션만 끊으면 로컬 유저 코드가 그대로 남아, 로그아웃한 뒤에도 그 계정의 마이홈·친구가 계속 보인다. 한 컴퓨터를 나눠 쓸 때 다음 사람이 앞사람 계정을 그대로 보게 된다는 뜻이다.
+   ★ 계정은 서버에 그대로다 — 게이트의 구글 버튼 · 친구 코드로 다시 들어온다.
+   ★ 지우는 목록은 ACCOUNT_LOCAL_KEYS 한 벌이다(위). 소지품까지 전부 지운다 [2026-09-16 제보 4].
+   opt.force — 두 번째 누름(S-Q1 (나)): 검문이 막아도 나간다. 올리기는 그래도 한 번 해 본다.
+   @return { ok:true } | { ok:false, reason, kind, items } — ok=false 면 세션도 로컬도 그대로다 */
+function _loginDoLogout(opt){
+  return twNav.go(twNav.NAV.ACCOUNT_LEAVE, { why:'logout', force: !!(opt && opt.force) });
 }
 
 /* 🗑️ 회원 탈퇴 — 서버(POST /v2/me/withdrawal · 202)가 계정을 지운 뒤 이 PC 의 신원 · 소지품도 로그아웃과 같은 한 벌로 지운다.
-   ★ 로그아웃과 달리 올리기 · 검문을 하지 않는다 — 지울 계정에 올릴 까닭이 없다.
+   ★ 로그아웃과 달리 올리기 · 검문을 하지 않는다 — 지울 계정에 올릴 까닭이 없다. 서버가 지운 뒤의 나가기(연결 놓기 → 세션 끝내기 → 신원 · 이 계정 칸 지우기)는 NAV.ACCOUNT_LEAVE{ why:'withdraw' } 로 app-boot.js end() 가 한다.
    ★ 서버는 5분 안 로그인을 요구한다 — 오래됐으면 다시 확인한다(_withRecentLogin — 구글 계정은 구글, 비밀번호만 있는 계정은 «비밀번호 확인» 창).
    @return { ok, reason } — ok=false 면 이 PC 는 그대로다. */
 const WITHDRAW_WORD = '탈퇴';   // 서버 확인 글자와 같다(user-api.js WITHDRAW_CONFIRM)
@@ -292,8 +270,11 @@ async function _loginDoDeleteAccount(word){
   _withdrawing = true;
   const r = await _withRecentLogin(() => userApiMod.withdraw());
   if(!r.ok){ _withdrawing = false; return r; }
-  try{ await loginFlowMod.logout({ why:'withdraw' }); }catch(_){}   // 방 나가기 · realtime 작별(withdraw) · 로그인 놓기(로그인 계정은 서버가 뒤에서 지운다)
-  _wipeAccountLocal();
+  try{
+    /* 서버가 지웠다 — 이 PC 쪽은 되돌릴 수 없다. 나가기가 안 되면(이미 나가는 중 · 던짐) «탈퇴하지 못했어요» 로 말하지 않고 던져 드러낸다. */
+    const e = await twNav.go(twNav.NAV.ACCOUNT_LEAVE, { why:'withdraw' });
+    if(!e || !e.ok) throw new Error('[계정] 탈퇴 뒤 계정에서 나가지 못했어요');
+  }finally{ _withdrawing = false; }
   return { ok:true };
 }
 /* 탈퇴 안내의 «지울 항목 n 개 · 파일 m 개» — 못 읽으면 { ok:false }(안내 줄만 숨긴다) */
@@ -525,6 +506,9 @@ return {
   _loginDoFriendCode,
   _loginDoGoogle,
   _loginDoLogout,
+  _acctFlushCheck,
+  _acctRelease,
+  _acctReleaseIdentity,
   _loginDoDeleteAccount,
   _withdrawPreview,
   _wipeAccountLocal,

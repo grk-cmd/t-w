@@ -181,7 +181,19 @@ function createAccountStore(deps){
     return res;
   }
 
-  return { get, set, remove, open, close, migrateLegacy, asStorage };
+  /* 탈퇴한 계정의 칸을 통째로 지운다(공통 Q6) — 세션이 끝난 뒤(닫힌 뒤) 신원을 놓을 때 한 번. 서버가 계정을 지웠으므로 이 PC 에 남길 까닭이 없다.
+     저장소를 훑다 던지면 그대로 던진다(지우지 못한 채 탈퇴 안내가 끝나지 않게 — 부르는 쪽이 본다).
+     @return 지운 키 수 */
+  function wipeCells(code){
+    if(!validCode(code)) throw new Error('[계정 칸] 지울 코드의 모양이 틀리다 — ' + code);
+    const prefix = CELL_PREFIX + code + '.';
+    const names = [];
+    for(let i = 0; i < storage.length; i++){ const k = storage.key(i); if(k !== null && k.startsWith(prefix)) names.push(k); }   // 지우며 훑으면 번호가 밀리므로 이름부터 모은다
+    for(const k of names) storage.removeItem(k);
+    return names.length;
+  }
+
+  return { get, set, remove, open, close, migrateLegacy, wipeCells, asStorage };
 }
 
 const api = { CELL_PREFIX, MIGRATED_KEY, DEVICE_KEYS, ACCOUNT_KEYS, ACCOUNT_KEY_PREFIXES, MOVED_KEYS, MOVED_KEY_PREFIXES, isAccountKey, cellName, createAccountStore };

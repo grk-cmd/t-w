@@ -77,19 +77,16 @@ chk(!/MY_PREV_USER_IDS_KEY/.test(listSrc) && !/\bMY_PREV_USER_IDS_KEY\s*=/.test(
 chk(/try\{ localStorage\.removeItem\('tw\.myPrevUserIds'\); \}catch\(_\)\{\}/.test(SRC), '  ↳ 예전 판이 남긴 tw.myPrevUserIds 는 부팅에 한 번 지운다');
 chk(has('MY_FRIEND_CODE_PREV_KEY'), '  버린 코드 진단 기록 — 다음 사람에게는 남의 코드다');
 chk(!/'tw\.theme'|'tw\.playlistVol'|SAVED_PARTS_KEY|PRESET_KEY/.test(listSrc), '  기기 설정·카탈로그·프리셋은 목록에 없다 (이 컴퓨터의 것)');
-const fOut = grabFn(SRC, '_loginDoLogout', 'async function ') || '';
-chk(/_detachAccountLocal\((opt)?\)/.test(fOut), '★ 로그아웃이 _detachAccountLocal 을 부른다 (§2 이후엔 opt 를 그대로 넘긴다)');
+const fOut = grabFn(SRC, '_loginDoLogout', 'function ') || '';
+chk(/twNav\.go\(twNav\.NAV\.ACCOUNT_LEAVE, \{ why:'logout', force: !!\(opt && opt\.force\) \}\)/.test(fOut), '★ 로그아웃은 계정에서 나가기(NAV.ACCOUNT_LEAVE{ why:logout, force })를 부탁한다 — 차례는 app-boot.js end(sim-app-boot)');
 /* ★ 개정 45(회원가입 설계 개정 16) — 계정 연동 해제(acctUnlinkYes)를 걷었다. 신원을 놓는 입구는 로그아웃 하나다.
      옛 판정 셋(«해제도 같은 함수» · «해제 쪽 removeItem 없음» · «옛 주석 사라짐»)은 대상이 없어져 아래 둘로 바꿨다. */
 chk(!/getElementById\('acctUnlinkYes'\)/.test(SRC), '★ 연동 해제 입구가 없다 (개정 45 — 로그인(H·K)이 기기 이동을 대신)');
+chk(!/_detachAccountLocal/.test(SRC.replace(/\/\*[\s\S]*?\*\//g, '')), '★ 옛 한 덩어리(_detachAccountLocal)는 없다 — 올리기 · 검문(_acctFlushCheck) · 연결 놓기(_acctRelease) · 신원 놓기(_acctReleaseIdentity)로 갈라 app-boot.js end 가 차례를 정한다');
 {
-  const callers = (SRC.match(/_detachAccountLocal\(/g) || []).length - (SRC.match(/function _detachAccountLocal\(/g) || []).length;
-  chk(callers === 1 && /_detachAccountLocal\(opt\)/.test(fOut), '★ _detachAccountLocal 을 부르는 곳은 로그아웃 하나다 (' + callers + '곳) — 지움 목록이 두 벌이 될 입구가 없다');
-}
-{
-  const a = fOut.indexOf('_detachAccountLocal'), b = fOut.indexOf('loginFlowMod.logout()');
-  chk(a >= 0 && b > a, '★ 로그인 놓기(loginFlowMod.logout — realtime 끄기 · signOut)는 검문 **뒤** — 앞이면 세션 없는 push 가 거부돼 로그아웃이 늘 막힌다');
-  chk(/if\(!r\.ok\) return r/.test(fOut), '  검문에 걸리면 signOut 도 안 한다 (세션도 로컬도 그대로)');
+  const rel = grabFn(SRC, '_acctRelease', 'async function ') || '', idn = grabFn(SRC, '_acctReleaseIdentity', 'async function ') || '';
+  chk(rel.indexOf('_presenceOff()') >= 0 && rel.indexOf('_presenceOff()') < rel.indexOf('loginFlowMod.release(why)'), '★ 연결 놓기: 접속 표시 «꺼짐» → 방 나가기 · 작별 — 로그인이 살아 있을 때');
+  chk(idn.indexOf('_wipeAccountLocal()') >= 0 && idn.indexOf('_wipeAccountLocal()') < idn.indexOf('loginFlowMod.releaseIdentity()'), '★ 신원 놓기: PC 칸 지우기 → 로그인 놓기(signOut)는 맨 끝 — 세션 구독 · 접속 표시가 옛 로그인으로 마지막 쓰기를 한 뒤');
 }
 
 /* ── 2. 본문 실행 — 지움 · 남김 · 검문 ── */
@@ -98,7 +95,8 @@ const fList = grabBlock(SRC, 'const ACCOUNT_LOCAL_KEYS = ()=>[', '\n];');
 const fFlush = grabFn(SRC, '_acctFlushToServer', 'async function ');
 const fPre = grabFn(SRC, '_acctPreflight', 'async function ');
 const fWipe = /let _acctDetached = false;/.test(SRC) ? ('let _acctDetached = false;\n' + (grabFn(SRC, '_wipeAccountLocal') || '')) : null;
-const fDet = grabFn(SRC, '_detachAccountLocal', 'async function ');
+/* 옛 _detachAccountLocal 자리 — 갈라진 세 조각을 app-boot.js end 의 차례(올리기 · 검문 → 연결 놓기 → 지우기)로 이어 붙인 시험용 한 함수. 차례 자체는 sim-app-boot 가 본다 */
+const fDet = (() => { const a = grabFn(SRC, '_acctFlushCheck', 'async function '), r = grabFn(SRC, '_acctRelease', 'async function '); return (a && r) ? a + '\n' + r + "\nasync function _detachAccountLocal(opt){ const pf = await _acctFlushCheck(); if(!pf.ok && !(opt && opt.force)){ return pf; } if(!pf.ok) console.warn('강제'); await _acctRelease('logout'); _wipeAccountLocal(); return { ok:true }; }" : null; })();
 const tmo = [(SRC.match(/const ACCT_FLUSH_TIMEOUT_MS = \d+;/) || [])[0], (SRC.match(/const PRESENCE_OFF_WAIT_MS = \d+;/) || [])[0], grabFn(SRC, '_presenceOff')].every(Boolean)
   ? [(SRC.match(/const ACCT_FLUSH_TIMEOUT_MS = \d+;/) || [])[0], (SRC.match(/const PRESENCE_OFF_WAIT_MS = \d+;/) || [])[0], grabFn(SRC, '_presenceOff')].join('\n') : null;
 if(!fList || !fFlush || !fPre || !fWipe || !fDet || !tmo){
@@ -125,7 +123,7 @@ if(!fList || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     const decl = Object.keys(K).map(n => 'const ' + n + " = '" + K[n] + "';").join('\n') + "\nconst ME_CACHE_KEY = 'tw.me';\n" + [
       "const sessionLost=()=>!!env.lost;   /* 다른 기기에 밀렸나 */",
       "const getPresence=()=>env.apiOn ? { setState:(on)=>{ env.calls.push('presence:'+env.LS.getItem(MY_USER_ID_KEY)+':'+on); return env.presenceHang ? new Promise(()=>{}) : Promise.resolve(); } } : null;   /* 지금 세션의 접속 표시 한 벌 */",
-      "const accountLegacyStore={ migrateLegacy:(c)=>{ env.calls.push('migrate:'+c); return {}; } };",
+      "const loginFlowMod={ release: async (w)=>{ env.calls.push('release:'+w); } };",
       "const flushFocus=async()=>{ env.calls.push('flush:focus:logout'); }; const unsentSec=()=>env.unsent;",
       "const gachaMod={ resetMemory(){ env.calls.push('gacha:reset'); } };",
       /* 👑 달성표는 weekly-challenge.js 모듈 — 로그아웃 올리기는 weeklyChal.flush(도는 쓰기 기다림). 메모리는 세션 reset 이 비운다 */
@@ -172,10 +170,7 @@ if(!fList || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     chk(e.LS.getItem('tw.theme') === 'dark' && e.LS.getItem('tw.playlistVol') === '40' && e.LS.getItem('tw.savedParts') === '[]' && e.LS.getItem('tw.deskPresets') === '[]',
         '★ 테마·볼륨·카탈로그·프리셋은 남았다 (이 컴퓨터의 것)');
     const m = e.m.mem();
-    chk(m.today === 0 && e.calls.includes('gacha:reset'), '★ 메모리도 비웠다 — 오늘치 = 0 · 가챠는 gachaMod.resetMemory');
-    chk(e.calls.includes('closet:reset') && m.extra.length === 0 && m.sig === null && m.sets.every(s => !s.items.length), '  옷장 메모리·추가 좌석·플레이리스트 지문 초기화');
-    chk(e.plReset === 1, '  ☁️ 플레이리스트를 비우고 받기 전까지 안 올림(plMod.reset) — 지금 고른 목록 번호는 계정 칸이라 세션 reset 이 비운다(S-4a)');
-    chk(m.detached === true, '  _acctDetached 가 섰다 (3절의 근거)');
+    chk(m.detached === true, '  _acctDetached 가 섰다 (3절의 근거) — 메모리 비우기는 여기서 안 한다(각 모듈이 세션 비우기 훅에 건다 — sim-session-baseline · 모듈 sim)');
 
     /* ② 슬롯 push 가 거부된 기기 — 아무것도 안 지운다 */
     say('· ② 서버에 못 올린 캐릭터 고침이 남았다 — 로그아웃을 막고 아무것도 안 지운다');
@@ -191,7 +186,7 @@ if(!fList || !fFlush || !fPre || !fWipe || !fDet || !tmo){
        여기선 **못 올린 몫이 남은 채**(쓰기가 거부된 기기)로 돌린다. */
     const g = new Function('env', 'localStorage', 'window',
       Object.keys(K).map(n => 'const ' + n + " = '" + K[n] + "';").join('\n') + '\n' +
-      "const accountLegacyStore={ migrateLegacy:()=>({}) }; const sessionLost=()=>false; const getPresence=()=>({ setState:()=>Promise.resolve() }); const ME_CACHE_KEY='tw.me';\n" +
+      "const firebaseAPI = window.firebaseAPI; const loginFlowMod={ release: async ()=>{} }; const sessionLost=()=>false; const getPresence=()=>({ setState:()=>Promise.resolve() }); const ME_CACHE_KEY='tw.me';\n" +
       "const flushFocus=async()=>{}; const unsentSec=()=>env.unsent; const setFocusTodaySec=()=>{}; const gachaMod={ resetMemory(){} }; const weeklyChal={ flush:async()=>{} }; const closetMod=()=>({ flushSlots:async()=>{}, unsavedCount:()=>0, resetCloset(){} });\n" +
       "const clearTimeout=()=>{}; const setTimeout=()=>0;\n" +
       "let _focusTodaySec=0;\n" +
@@ -213,12 +208,6 @@ if(!fList || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     r = await g(env4, lsOf(env4), { firebaseAPI: FB_MIN })();
     chk(r && r.ok === true, '  못 올린 몫이 없으면 통과');
 
-    /* ⑤ uid 가 없는 기기 — 검문 없이 그냥 지운다 */
-    say('· ⑤ uid 없는 기기(이미 놓았거나 새 기기)');
-    e = mkEnv({ unsaved: 1 }); e.LS.setItem(K.LICENSE_REQ_ID_KEY, 'REQ-?');
-    r = await e.m.detach();
-    chk(r && r.ok === true && e.calls.filter(c => c !== 'release' && !/:reset$/.test(c)).length === 0 && e.LS.getItem(K.LICENSE_REQ_ID_KEY) === null, '  올릴 곳이 없으니 서버를 안 부르고 지운다(기기 세션 놓기만 — 내 것일 때만 지우는 호출이라 무해)');
-
     /* ⑥ 오프라인 — firebaseAPI 없음 */
     e = mkEnv({ apiOn: false }); fillA(e);
     r = await e.m.detach();
@@ -238,11 +227,11 @@ if(!fList || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     chk(!e.calls.some(c => c.startsWith('presence:')), '★ 다른 기기에 밀려난 기기는 안 쓴다 — 그 칸은 이긴 쪽 것');
     e = mkEnv({ presenceHang: true, fastTimeout: true }); fillA(e);
     r = await e.m.detach();
-    chk(r && r.ok === true && e.calls.includes('gacha:reset'), '  쓰기가 끝나지 않아도(오프라인) 기다림 상한 뒤 로그아웃은 이어진다(지우기까지 간다)');
+    chk(r && r.ok === true && e.LS.getItem(K.MY_USER_ID_KEY) === null, '  쓰기가 끝나지 않아도(오프라인) 기다림 상한 뒤 로그아웃은 이어진다(지우기까지 간다)');
     e = mkEnv({ apiOn: false }); fillA(e);
     r = await e.m.detach({ force: true });
     chk(r && r.ok === true && e.LS.getItem(K.MY_USER_ID_KEY) === null, '  firebaseAPI 가 없는 강제 로그아웃도 «꺼짐» 쓰기에서 던지지 않고 지운다');
-    const noOff = fDet.replace('if(uid) await _presenceOff();', '');
+    const noOff = fDet.replace("if(why !== 'withdraw') await _presenceOff();", '');
     e = mkEnv({ det: noOff }); fillA(e);
     await e.m.detach();
     chk(noOff !== fDet && !e.calls.includes('presence:uA:false'), '  깨 보기 — «꺼짐» 쓰기를 빼면 위 ★ 가 빨강(그 판정이 이 줄을 본다)');

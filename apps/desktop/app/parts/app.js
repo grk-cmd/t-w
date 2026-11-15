@@ -5299,7 +5299,7 @@ const updateFlowMod = TwUpdateFlow.createUpdateFlow({
 TwRtStatusUi.createRtStatusUi({
   rt: TwRtHub.store, inRoom: ()=>Presence.active(), band: TwRtStatusUi.createRtBandDom(document),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
-  toLogin: ()=>accountMod._loginDoLogout({ force:true }).then(()=>acctStateMod._acctRelaunchAfterDetach(null)),   // 다시 켜면 게이트가 로그인 화면
+  toLogin: (why)=>twNav.go(twNav.NAV.ACCOUNT_LEAVE, { why }),   // 서버가 내보냄(gone) · 로그인 풀림(auth) — 올리기 없이 계정에서 나간다(app-boot.js end)
   withdrawing: ()=>accountMod.withdrawing(),
   forceUpdate: ()=>updateFlowMod.forceProtocol(),
   maintenance: (retry, onDismiss)=>TwMaintenance.store.serverClosed(retry, onDismiss),
@@ -6432,32 +6432,25 @@ const accountMod = TwAccount.createAccount({
   accountLegacyStore: accountStoreMod,
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
+  twNav: twNav,
   INBOX_BC_READ_KEY: INBOX_BC_READ_KEY,
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
   MY_FRIEND_CODE_PREV_KEY: MY_FRIEND_CODE_PREV_KEY,
   MY_USER_ID_KEY: MY_USER_ID_KEY,
   USER_NAME_KEY: USER_NAME_KEY,
-  _focusTodaySec: ()=>focusTotalMod._focusTodaySec(),
   unsentSec: (...a)=>focusProgressMod.unsentSec(...a),   // 🕒 로그아웃 검문이 보는 «못 올린 집중 시간»
   flushFocus: (...a)=>focusProgressMod.flushPending(...a),   // 📤 로그아웃 올리기
   _rememberOldFriendCode: (...a)=>_rememberOldFriendCode(...a),
   _setMyUserId: (...a)=>_setMyUserId(...a),
-  extraSeatSlots: ()=>settingsMod.extraSeatSlots(),
-  gachaMod: ()=>gachaMod,
   getMyUserId: (...a)=>getMyUserId(...a),
   acctStateMod: acctStateMod,
   plMod: plMod,
-  mhScheduler: mhScheduler,
   mallangStore: mallangStoreMod,
-  giftBox: giftBoxMod,
   myhomeStore: myhomeStoreMod,
   bookshelfStore: bookshelfStoreMod,
-  bugBoardReset: (...a)=>bugBoardUi.reset(...a),
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
   weeklyChal: ()=>weeklyChal,
-  setFocusTodaySec: (v)=>{ focusTotalMod.setFocusTodaySec(v); },
-  setExtraSeatSlots: (v)=>{ settingsMod.setExtraSeatSlots(v); },
   setAcctDetached: (v)=>{ acctStateMod.setAcctDetached(v); },
   LOGIN_EMAIL_KEY: acctStateMod.LOGIN_EMAIL_KEY,
   LOGIN_UID_KEY: acctStateMod.LOGIN_UID_KEY,
@@ -6524,7 +6517,7 @@ const myInfoMod = TwMyInfo.createMyInfo({
   toast: (...a)=>toast(...a),
   setCurSlot: (v)=>{ curSlot = v; },
   closetMod: ()=>closetMod,
-  _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 /* (앱 FSD 17번) 이 자리의 본문도 my-info.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
@@ -8345,9 +8338,15 @@ const appBoot = TwAppBoot.createAppBoot({
     timers: { setInterval: (f, ms)=>setInterval(f, ms), clearInterval: (h)=>clearInterval(h), setTimeout: (f, ms)=>setTimeout(f, ms), clearTimeout: (h)=>clearTimeout(h) },
   }),
   goOnline: ()=>loginFlowMod.goOnline(),
+  flushCheck: ()=>accountMod._acctFlushCheck(),
+  releaseConnection: (why)=>accountMod._acctRelease(why),
+  closeWindows: ()=>winStackMod.closeAll(),
+  releaseIdentity: (why, code)=>accountMod._acctReleaseIdentity(why, code),
+  afterEnd: ()=>acctStateMod._acctRelaunchAfterDetach(null),   // 아직 앱을 다시 켠다(S-4d 가 로그인 화면으로 바꾼다)
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
   starts: {
     userLocal: (code, me, session)=>userLocalMod.start(session),
-    focusTotal: (code, me, session)=>{ session.onReset(()=>focusTotalMod.setFocusTodaySec(0)); focusTotalMod.startFocusTotal(); },   // 오늘치 메모리는 세션이 끝나면 0 으로
+    focusTotal: (code, me, session)=>{ session.onReset(()=>focusTotalMod.resetFocusTotal()); focusTotalMod.startFocusTotal(); },   // 오늘 시간 · 이번 실행 시간 · 서버 오늘 · 시작 깃발을 세션이 끝나면 되돌린다
     focusShare: ()=>focusShareMod.startFocusShare(),
     focusLevel: (code, me, session)=>{ focusProgressMod.startFocus(code, me, session); focusLevelMod.startMobile(code, me, session); },
     weeklyChal: (code, me, session)=>weeklyChal.startChallenge(code, me, session),
@@ -8357,7 +8356,7 @@ const appBoot = TwAppBoot.createAppBoot({
     /* 🏠 마이홈 시작 — 받은 친구 요청 구독 · 우편 구독은 initMyHome 이 세션에 건다. 친구 목록 구독(friendsSub) · 내 접속 표시 구독(presenceSelf)은 시작이 다른 곳(마이홈 · 접속 고정)이라 비우기만 여기서 건다 */
     mhInit: (code, me, session)=>{ session.onReset(()=>{ friendsSubMod.stop(); presenceSelfMod.reset(); myhomeStoreMod.reset(); bookshelfStoreMod.reset(); }); return mhInitMod.initMyHome(code, me, session); },   // 내 홈 · 책장 메모리도 세션이 끝나면 비운다(늦게 온 답은 gen 으로 버린다)
     gift: (code, me, session)=>{ session.on(giftBoxMod.listen()); session.onReset(()=>{ giftBoxMod.reset(); mallangStoreMod.reset(); mallangMod.reset(); }); },   // 🎁 서버 신호 `gifts` 만 건다(요청 0 — 받기는 마이홈을 열 때)
-    bugBadge: (code, me, session)=>{ session.onReset(()=>bugBoardUi.reset()); return bugBoardUi.start(); },   // 배지 · 목록 · 쓰던 글은 세션이 끝나면 비운다
+    bugBadge: (code, me, session)=>{ session.onReset(()=>bugBoardUi.reset()); return bugBoardUi.start(session); },   // 배지 · 목록 · 쓰던 글은 세션이 끝나면 비운다
     scheduler: (code, me, session)=>mhScheduler.startSchedule(session),
     /* 🙋 방 초대 받기 — 방 쪽 포트(대화 · 방 목록 · 스티커사진)는 사용자가 들어갈 때 시작해 STEPS 칸이 없다. 대신 계정이 바뀔 때 비우는 일(session.onReset)을 여기서 한 곳에 모은다.
        license 알림(발급 · 연장 · 코드 바꿈 · 끝남) → 읽어 둔 내 시크릿룸을 버려 다음에 다시 읽는다(관리자가 발급한 방이 다시 실행 없이 보이게). */

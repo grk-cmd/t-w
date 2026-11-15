@@ -17,13 +17,13 @@ const MOD = ["account.js","parts/account/account.js","app/parts/account/account.
 if(!MOD){ say('  ? 원본 못 찾음 — account.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["asyncPrompt","notifyError","_rememberOldFriendCode","_setMyUserId","getMyUserId","toast","getMyLoginEmail","bugBoardReset","unsentSec","flushFocus","getPresence"];
-const VAL_DEPS = ["BELL_SEEN_KEY","accountLegacyStore","INBOX_BC_READ_KEY","MY_FRIEND_CODE_KEY","MY_FRIEND_CODE_PREV_KEY","MY_USER_ID_KEY","USER_NAME_KEY","acctStateMod","plMod","mhScheduler","mallangStore","giftBox","myhomeStore","bookshelfStore","tricksMod","LOGIN_EMAIL_KEY","LOGIN_UID_KEY","FRIEND_CODE_LOGIN_RE","loginFlowMod","ME_CACHE_KEY","userApiMod"];
-const GET_DEPS = ["_focusTodaySec","closetMod","extraSeatSlots","gachaMod","weeklyChal","sessionLost"];
-const SET_DEPS = ["setFocusTodaySec","setExtraSeatSlots","setAcctDetached"];
-const EXPORTS = ["_enterAccount","_loginDoFriendCode","_loginDoGoogle","_loginDoLogout","_loginDoDeleteAccount","_withdrawPreview","_wipeAccountLocal","withdrawing","refreshAccountTab"];
+const FN_DEPS = ["asyncPrompt","notifyError","_rememberOldFriendCode","_setMyUserId","getMyUserId","toast","getMyLoginEmail","unsentSec","flushFocus","getPresence"];
+const VAL_DEPS = ["BELL_SEEN_KEY","accountLegacyStore","INBOX_BC_READ_KEY","MY_FRIEND_CODE_KEY","MY_FRIEND_CODE_PREV_KEY","MY_USER_ID_KEY","USER_NAME_KEY","acctStateMod","plMod","mallangStore","myhomeStore","bookshelfStore","tricksMod","LOGIN_EMAIL_KEY","LOGIN_UID_KEY","FRIEND_CODE_LOGIN_RE","loginFlowMod","ME_CACHE_KEY","userApiMod","twNav"];
+const GET_DEPS = ["closetMod","weeklyChal","sessionLost"];
+const SET_DEPS = ["setAcctDetached"];
+const EXPORTS = ["_enterAccount","_loginDoFriendCode","_loginDoGoogle","_loginDoLogout","_acctFlushCheck","_acctRelease","_acctReleaseIdentity","_loginDoDeleteAccount","_withdrawPreview","_wipeAccountLocal","withdrawing","refreshAccountTab"];
 const MOVED = ["LOGIN_EMAIL_KEY","LOGIN_UID_KEY","getMyLoginEmail","_loginLocalSnapshot","_loginMayBind","CHARS_LINKED_KEY","_charsLinkPlan","_switchPrepare","_charsLinkedMaybeShow","_loginDoGoogle","FRIEND_CODE_LOGIN_RE","_loginDoFriendCode","ACCOUNT_LOCAL_KEYS","ACCOUNT_LOCAL_KEY_PREFIXES","ACCT_FLUSH_TIMEOUT_MS","_acctFlushToServer","_acctPreflight","_acctDetached","_wipeAccountLocal","_detachAccountLocal","_loginDoLogout","_acctMethodsMode","_acctPwCheck","_acctPwCode","_acctCreatePassword","_acctChangePassword","_acctMethodsLast","_acctMethodsRender","refreshAccountTab","_adoptAccountFriendCode","_applyTransferSnapshot","_restoreOwnedDataAfterTransfer"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  BELL_SEEN_KEY: BELL_SEEN_KEY,", "  accountLegacyStore: accountStoreMod,", "  asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),", "  notifyError: (...a)=>TwErrorCodes.notify(...a),", "  INBOX_BC_READ_KEY: INBOX_BC_READ_KEY,", "  MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,", "  MY_FRIEND_CODE_PREV_KEY: MY_FRIEND_CODE_PREV_KEY,", "  MY_USER_ID_KEY: MY_USER_ID_KEY,", "  USER_NAME_KEY: USER_NAME_KEY,", "  _focusTodaySec: ()=>focusTotalMod._focusTodaySec(),", "  unsentSec: (...a)=>focusProgressMod.unsentSec(...a),   // 🕒 로그아웃 검문이 보는 «못 올린 집중 시간»", "  flushFocus: (...a)=>focusProgressMod.flushPending(...a),   // 📤 로그아웃 올리기", "  _rememberOldFriendCode: (...a)=>_rememberOldFriendCode(...a),", "  _setMyUserId: (...a)=>_setMyUserId(...a),", "  extraSeatSlots: ()=>settingsMod.extraSeatSlots(),", "  gachaMod: ()=>gachaMod,", "  getMyUserId: (...a)=>getMyUserId(...a),", "  acctStateMod: acctStateMod,", "  plMod: plMod,", "  mhScheduler: mhScheduler,", "  mallangStore: mallangStoreMod,", "  giftBox: giftBoxMod,", "  myhomeStore: myhomeStoreMod,", "  bookshelfStore: bookshelfStoreMod,", "  bugBoardReset: (...a)=>bugBoardUi.reset(...a),", "  toast: (...a)=>toast(...a),", "  tricksMod: tricksMod,", "  weeklyChal: ()=>weeklyChal,", "  setFocusTodaySec: (v)=>{ focusTotalMod.setFocusTodaySec(v); },", "  setExtraSeatSlots: (v)=>{ settingsMod.setExtraSeatSlots(v); },", "  setAcctDetached: (v)=>{ acctStateMod.setAcctDetached(v); },", "  LOGIN_EMAIL_KEY: acctStateMod.LOGIN_EMAIL_KEY,", "  LOGIN_UID_KEY: acctStateMod.LOGIN_UID_KEY,", "  getMyLoginEmail: (...a)=>acctStateMod.getMyLoginEmail(...a),", "  FRIEND_CODE_LOGIN_RE: acctStateMod.FRIEND_CODE_LOGIN_RE,", "  loginFlowMod: loginFlowMod,", "  ME_CACHE_KEY: TwLoginFlow.ME_CACHE_KEY,", "  userApiMod: userApiMod,", "  sessionLost: ()=>TwRtHub.store.state() === TwRtHub.STATE.SESSION_LOST,", "  getPresence: (...a)=>myPresence(...a),"];
+const GLUE = ["  BELL_SEEN_KEY: BELL_SEEN_KEY,","  accountLegacyStore: accountStoreMod,","  asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),","  notifyError: (...a)=>TwErrorCodes.notify(...a),","  twNav: twNav,","  INBOX_BC_READ_KEY: INBOX_BC_READ_KEY,","  MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,","  MY_FRIEND_CODE_PREV_KEY: MY_FRIEND_CODE_PREV_KEY,","  MY_USER_ID_KEY: MY_USER_ID_KEY,","  USER_NAME_KEY: USER_NAME_KEY,","  unsentSec: (...a)=>focusProgressMod.unsentSec(...a),   // 🕒 로그아웃 검문이 보는 «못 올린 집중 시간»","  flushFocus: (...a)=>focusProgressMod.flushPending(...a),   // 📤 로그아웃 올리기","  _rememberOldFriendCode: (...a)=>_rememberOldFriendCode(...a),","  _setMyUserId: (...a)=>_setMyUserId(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  acctStateMod: acctStateMod,","  plMod: plMod,","  mallangStore: mallangStoreMod,","  myhomeStore: myhomeStoreMod,","  bookshelfStore: bookshelfStoreMod,","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,","  weeklyChal: ()=>weeklyChal,","  setAcctDetached: (v)=>{ acctStateMod.setAcctDetached(v); },","  LOGIN_EMAIL_KEY: acctStateMod.LOGIN_EMAIL_KEY,","  LOGIN_UID_KEY: acctStateMod.LOGIN_UID_KEY,","  getMyLoginEmail: (...a)=>acctStateMod.getMyLoginEmail(...a),","  FRIEND_CODE_LOGIN_RE: acctStateMod.FRIEND_CODE_LOGIN_RE,","  loginFlowMod: loginFlowMod,","  ME_CACHE_KEY: TwLoginFlow.ME_CACHE_KEY,","  userApiMod: userApiMod,","  sessionLost: ()=>TwRtHub.store.state() === TwRtHub.STATE.SESSION_LOST,","  getPresence: (...a)=>myPresence(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -94,7 +94,7 @@ for(const [name, fm, fa, fh] of breaks){
 
 /* ── 4. 탈퇴 · 바꾸기가 «최근 로그인 아님» 에 막혔을 때 — 다시 확인(구글 / 비밀번호 창) 후 원래 요청을 한 번만 다시 ── */
 async function reauthRun(src, o){
-  const rec = { withdraw: 0, prompts: 0, shown: [], errs: [], google: 0, pwChecks: 0, secret: null };
+  const rec = { withdraw: 0, prompts: 0, shown: [], errs: [], google: 0, pwChecks: 0, secret: null, leaves: [] };
   const any = anything();
   const deps = {};
   (src.match(/deps\.([\w$]+)/g) || []).forEach((m) => { deps[m.slice(5)] = any; });
@@ -116,6 +116,7 @@ async function reauthRun(src, o){
   };
   deps.notifyError = (c, d) => { rec.errs.push(c); };
   deps.loginFlowMod = { logout: async () => {} };
+  deps.twNav = { NAV: { ACCOUNT_LEAVE: 'accountLeave' }, go: async (name, a) => { rec.leaves.push(name + ':' + a.why); return o.leaveFail ? { ok: false, busy: true } : { ok: true }; } };
   const fb = {
     authProviders: () => o.pv,
     authReauthPassword: async (pw) => { rec.pwChecks++; return pw === 'right' ? { ok: true } : (o.pwFail || { ok: false, wrong: true }); },
@@ -127,7 +128,8 @@ async function reauthRun(src, o){
   const ls = { getItem: () => null, setItem(){}, removeItem(){}, key: () => null, length: 0 };
   const acc = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'THREE',
     src + '\nreturn window.TwAccount;')(win, any, ls, any, fb, comp, () => 0, any).createAccount(deps);
-  rec.r = await acc._loginDoDeleteAccount('탈퇴');
+  try{ rec.r = await acc._loginDoDeleteAccount('탈퇴'); }catch(e){ rec.threw = String(e && e.message || e); }
+  rec.withdrawing = acc.withdrawing();
   return rec;
 }
 async function reauthRows(src){
@@ -148,6 +150,13 @@ async function reauthRows(src){
   t(x.prompts === 0 && x.google === 1 && x.withdraw === 2 && x.r.ok, '구글이 있는 계정 — 비밀번호 창은 안 뜨고 구글 다시 확인');
   x = await reauthRun(src, { pv: { password: false, google: false }, firstDeny: true, inputs: [] });
   t(x.prompts === 0 && x.withdraw === 1 && x.r.ok === false, '다시 확인할 수단이 없으면 창 없이 안내하고 멈춘다');
+  /* 서버가 지운 뒤 — 계정에서 나가기(NAV.ACCOUNT_LEAVE{ why: withdraw })를 한 번 부탁한다. 안 돼도 «탈퇴하지 못했어요» 로 말하지 않고 던진다(서버는 이미 지웠다) · 탈퇴 중 깃발은 끝나면 내린다 */
+  x = await reauthRun(src, { pv: PW, inputs: [] });
+  t(x.r && x.r.ok && x.leaves.join() === 'accountLeave:withdraw' && x.withdrawing === false, '탈퇴 성공 — 서버 요청 1번 뒤 NAV.ACCOUNT_LEAVE{ why:withdraw } 한 번 · 탈퇴 중 깃발은 내린다');
+  x = await reauthRun(src, { pv: PW, inputs: [], leaveFail: true });
+  t(!x.r && /나가지 못했어요/.test(x.threw || '') && x.withdrawing === false, '서버가 지웠는데 나가기가 안 되면 던진다(숨기지 않는다) · 깃발은 내린다');
+  x = await reauthRun(src, { pv: PW, denyAlways: true, inputs: ['right'] });
+  t(x.leaves.length === 0, '서버가 거절하면 나가기를 부탁하지 않는다');
   return r;
 }
 (async () => {
@@ -160,6 +169,8 @@ async function reauthRows(src){
     ['취소해도 요청을 보냄', (m) => m.replace("if(v == null) return { ok:false, canceled:true };", "if(false) return { ok:false, canceled:true };")],
     ['두 번째 거절에도 또 다시 확인', (m) => m.replace("  try{ return { ok:true, value: await fn() }; }\n  catch(e){ return { ok:false, reason:userApiMod.reasonOf(e), code:(e && e.code) || '' }; }\n}\n/* C3", "  try{ return { ok:true, value: await fn() }; }\n  catch(e){ return _withRecentLogin(fn); }\n}\n/* C3")],
     ['구글 계정에도 비밀번호 창', (m) => m.replace('if(pv && pv.google) re = await _reauthByGoogle();\n  else if(pv && pv.password)', 'if(pv && pv.password)')],
+    ['탈퇴 뒤 나가기를 부탁하지 않음', (m) => m.replace("const e = await twNav.go(twNav.NAV.ACCOUNT_LEAVE, { why:'withdraw' });", "const e = { ok:true };")],
+    ['나가기가 안 돼도 조용히 지나감', (m) => m.replace("if(!e || !e.ok) throw new Error('[계정] 탈퇴 뒤 계정에서 나가지 못했어요');", "")],
     ['실패를 오류 번호 없이 지나감', (m) => m.replace("notifyError('E-ACC-02', fatal.reason);", "")],
   ];
   for(const [name, fm] of RB){

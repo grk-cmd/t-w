@@ -95,8 +95,17 @@ function startFocusTotal(){
   if(_serverDay) setServerDay(_serverDay);   // 서버 답이 먼저 왔으면 맞춘다
 }
 
+/* 🧹 계정을 놓을 때(session.onReset) — 이 계정 몫을 전부 시작 전으로: 오늘 시간 · 이번 실행 시간 · 서버 오늘 · 날 글자 · 새 날을 물은 기록 · 시작 깃발.
+   깃발을 내리므로 다음 시작 전에는 읽지도 쓰지도 않는다(계정 칸은 이미 닫혔다 — 쓰면 거절 경고). 하루 바뀜 구독(onDayEnd)은 계정 몫이 아니라 남긴다. */
+function resetFocusTotal(){
+  _focusTotalStarted = false;
+  _focusTodaySec = 0; _focusSessionSec = 0;
+  _day = null; _serverDay = null; _askedEnd = 0;
+}
+
 return {
   startFocusTotal,
+  resetFocusTotal,
   _focusTotalStarted: ()=>_focusTotalStarted,   // 읽는 함수
   FOCUS_CYCLE_CAP,
   FOCUS_CYCLE_SEC,
@@ -107,7 +116,6 @@ return {
   _focusSessionSec: ()=>_focusSessionSec,   // 읽는 함수
   setFocusSessionSec: (v)=>{ _focusSessionSec = v; },   // 쓰는 함수 — app.js 가 비운다
   _focusTodaySec: ()=>_focusTodaySec,   // 읽는 함수
-  setFocusTodaySec: (v)=>{ _focusTodaySec = v; },   // 쓰는 함수 — app.js 가 비운다
   serverDay: ()=>_serverDay,   // 읽는 함수
   setServerDay,
   _rolloverFocusToday,

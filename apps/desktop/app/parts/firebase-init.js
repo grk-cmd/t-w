@@ -301,7 +301,10 @@
         if(_presenceLive === p) _presenceLive = null;
         if(unwatch){ try{ unwatch(); }catch(_){} unwatch = null; }
         if(!st.written) return;
-        const cancel = ()=>{ try{ onDisconnect(ref_).cancel(); }catch(_){} };
+        /* 같은 계정이 바로 다시 로그인해 새 접속 표시가 이미 있으면 취소하지 않는다 — 취소는 이 칸의 onDisconnect 전부라 새 것의 «꺼짐» 예약까지 지운다 */
+        const cancel = ()=>{ if(_presenceLive !== null) return; try{ onDisconnect(ref_).cancel(); }catch(_){} };
+        /* 다른 기기에 밀려난 기기는 «꺼짐» 을 쓰지 않는다 — 그 칸은 이긴 쪽 것이다(예약만 취소) */
+        if(window.TwRtHub.store.state() === window.TwRtHub.STATE.SESSION_LOST){ cancel(); return; }
         if(!st.online){ cancel(); return; }
         try{ set(ref_, _appVer.withVer({ online:false, lastSeen: Date.now(), room:null, inRoom:false })).then(cancel, ()=>{}); }catch(_){}
       },

@@ -129,8 +129,8 @@ say('§3 연결');
   chk(!/bugBoard\s*:|createBugBoard|support\/bug-board\.js/.test(FB) && !/firebaseAPI\.bugBoard/.test(APP + UI), 'Firebase 길 걷음 — firebase-init 에 bugBoard 연결 없음 · 부르는 곳 0');
   chk(/const bugBoardUi = TwBugBoardUi\.createBugBoardUi\(\{/.test(APP) && /bugApi: TwBugApi\.createBugApi\(\{ authed: TwApi\.authed, errs: TwApiErrors, pending: \(\)=>TwRequestId\.createPending\(\) \}\)/.test(APP),
     'app.js 가 게시판을 만든다 — provider 는 로그인 통로 · 공통 표 · 요청 번호 기억');
-  chk(/bugBadge: \(code, me, session\)=>\{ session\.onReset\(\(\)=>bugBoardUi\.reset\(\)\); return bugBoardUi\.start\(\); \}/.test(APP) && /'mhInit',[^\n]*\n(?:\s*'gift',[^\n]*\n)?\s*'bugBadge',/.test(BOOT), '시작은 app-boot STEPS 의 bugBadge(mhInit 다음) 한 곳');
-  chk(/bugBoardReset: \(\.\.\.a\)=>bugBoardUi\.reset\(\.\.\.a\)/.test(APP), '계정을 놓을 때 reset(account.js 가 부른다)');
+  chk(/bugBadge: \(code, me, session\)=>\{ session\.onReset\(\(\)=>bugBoardUi\.reset\(\)\); return bugBoardUi\.start\(session\); \}/.test(APP) && /'mhInit',[^\n]*\n(?:\s*'gift',[^\n]*\n)?\s*'bugBadge',/.test(BOOT), '시작은 app-boot STEPS 의 bugBadge(mhInit 다음) 한 곳');
+  chk(!/bugBoardReset/.test(APP), '계정을 놓을 때 reset 은 세션 비우기 훅(bugBadge 의 session.onReset) 한 곳 — account.js 가 손으로 부르지 않는다');
   chk(/m\.tag === 'bug' && m\.bugId\)\{\s*_inboxOpenId = null; window\._bugBoardOpen\(m\.bugId\)/.test(APP), '우편함에서 누르면 그 글을 연다');
   const noC = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
   const board = UI.slice(0, UI.indexOf('/* ↓ app.js 에서 옮긴'));
@@ -169,7 +169,7 @@ function mkEl(id) {
     _L: {}, addEventListener(t, fn) { (this._L[t] || (this._L[t] = [])).push(fn); }, focus() {}, querySelector() { return null; }, appendChild() {} };
 }
 function boot(src) {
-  const env = { admin: false, timers: 0, toasts: [], codes: [], common: [], rt: [] };
+  const env = { admin: false, timers: 0, toasts: [], codes: [], common: [], rt: [], unsubs: [] };
   const els = {}; const el = (id) => els[id] || (els[id] = mkEl(id));
   const flts = ['all', 'mine', 'open'].map(f => { const b = mkEl('flt-' + f); b.dataset.f = f; return b; });
   const tab = mkEl('tab'); tab.kids = [];
@@ -196,10 +196,13 @@ function boot(src) {
   const DEF = { list: { items: [], next: null }, notices: [], detail: post('B-1'), write: { number: 'B-9' }, reply: undefined, answer: undefined, reportConfig: { version: 3, notice: '안내', link: 'https://open.kakao.com/o/a' }, saveReportLink: { version: 4, notice: '안내', link: 'https://open.kakao.com/o/new' }, setVis: { vis: 'prv', version: 2 }, like: { likeN: 9, liked: true }, seen: undefined, quota: { dailyMax: 5, usedToday: 0 } };
   for (const k of Object.keys(DEF)) api[k] = (...a) => { calls.push([k, ...a]); return Promise.resolve().then(() => impl[k] ? impl[k](...a) : DEF[k]); };
   const ui = ctx.TwBugBoardUi.createBugBoardUi({ bugApi: api, lib: M, apiErrors: { notify: (e) => env.common.push(e.code) }, notifyError: (c) => { env.codes.push(c); return true; },
-    toast: (m) => env.toasts.push(m), escHtml: (s) => SH.text(s), safeHtml: SH, isAdmin: () => env.admin, bugReportLink: () => env.link || '', rtOn: (k, fn) => { env.rt.push([k, fn]); return () => {}; } });
+    toast: (m) => env.toasts.push(m), escHtml: (s) => SH.text(s), safeHtml: SH, isAdmin: () => env.admin, bugReportLink: () => env.link || '', rtOn: (k, fn) => { env.rt.push([k, fn]); const u = () => {}; env.unsubs.push(u); return u; } });
+  /* 세션 — 시작이 알림 구독의 해제 함수를 맡긴다(session.on). 인자 없이 부르는 줄은 이 기본 세션으로 */
+  const mkSess = () => { const x = { subs: [], on: (u) => { x.subs.push(u); return () => {}; } }; return x; };
+  const sess = mkSess(); const start0 = ui.start; ui.start = (s) => start0(s || sess);
   const clickAct = (act, ds) => { const b = mkEl('btn'); b.dataset = Object.assign({ act }, ds || {}); els.bbDetailView._L.click[0]({ target: { closest: (s) => s === '[data-act]' ? b : null } }); return b; };
   const clickRow = (id) => els.bbRows._L.click[0]({ target: { closest: (s) => s === '.bb-row[data-id]' ? { dataset: { id } } : null } });
-  return { env, el, ui, api, impl, calls, n, ctx, flts, tab, clickAct, clickRow };
+  return { env, el, ui, api, impl, calls, n, ctx, flts, tab, clickAct, clickRow, sess, mkSess };
 }
 
 async function judgeUi(src) {
@@ -220,6 +223,9 @@ async function judgeUi(src) {
     b.impl.badge = () => 0; await b.ui.refreshBadge();
     chk(b.tab.kids[0].style.display === 'none' && !b.el('bbMineDot').classList.contains('on'), '  0 이면 배지 · 점이 안 보인다');
     chk(b.env.timers === 0, '타이머 0 — 배지를 되풀이해서 받지 않는다(부팅 setTimeout 걷음)');
+    chk(b.sess.subs.length === 1 && b.sess.subs[0] === b.env.unsubs[0], '알림 구독의 해제 함수는 세션이 쥔다(버리지 않는다 — 세션이 끝나면 풀린다)');
+    b.ui.reset(); const s2 = b.mkSess(); await b.ui.start(s2); await flush();
+    chk(b.env.rt.length === 2 && s2.subs.length === 1 && s2.subs[0] === b.env.unsubs[1], '★ 다음 로그인(reset 뒤 새 세션 시작)은 알림을 새로 걸고 새 세션이 쥔다 — 첫 로그인 것은 앞 세션이 풀어 둔다');
   }
   {
     const b = boot(src); await b.ui.start();

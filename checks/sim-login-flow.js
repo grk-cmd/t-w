@@ -286,6 +286,9 @@ async function judge(S){
     e.rtLog.length = 0; e.authLog.length = 0; e.setUser({ uid: 'auth1', anonymous: false });
     await e.flow.release('switch');
     chk(e.rtLog.join() === 'leave,left,bye:switch,closed' && e.authLog.length === 0 && e.flow.mode() === 'off', 'release(switch) — 계정 바꾸기: 방 leave → bye{switch} · 로그인은 그대로(새 계정)');
+    e.rtLog.length = 0; e.authLog.length = 0; e.setUser({ uid: 'auth1', anonymous: false }); e.flow.goOnline(); e.rtLog.length = 0;
+    await e.flow.releaseIdentity();
+    chk(e.rtLog.join() === 'forget' && e.authLog.join() === 'out' && !e.store.has('tw.me'), 'releaseIdentity — 연결은 건드리지 않고(leave · bye 없음) API 로그인 읽기 뗌 · 사본 지움 · 로그인 놓음(세션을 끝낸 뒤 app-boot.js end ⑤ 가 부른다)');
   }
   {
     const e = mkEnv(S, { leaveHang: true });
@@ -337,7 +340,9 @@ const BREAKS = [
   ['LF', "    try{ await Promise.race([deps.leaveRoom(), new Promise((r) => setTimeout(r, LEAVE_WAIT_MS))]); }catch(_){}", "    try{ await deps.leaveRoom(); }catch(_){}", '방 나가기 기다림에 상한 없음(오프라인이면 로그아웃이 멈춤)'],
   ['LF', "    await release((o && o.why) || BYE_LOGOUT);", "    await release(BYE_LOGOUT);", '탈퇴도 logout 으로 작별'],
   ['LF', "    await release((o && o.why) || BYE_LOGOUT);", "    release((o && o.why) || BYE_LOGOUT);", '작별을 안 기다리고 로그인을 놓음'],
-  ['LF', "    try{ deps.forgetSession(); }catch(_){}", "", '로그아웃에 API 로그인 읽기를 안 뗌'],
+  ['LF', "    deps.forgetSession();\n", "", '로그아웃에 API 로그인 읽기를 안 뗌'],
+  ['LF', "    await auth.signOut();\n  }", "  }", '신원 놓기가 Auth 로그아웃을 안 함'],
+  ['LF', "    await release((o && o.why) || BYE_LOGOUT);\n    await releaseIdentity();", "    await release((o && o.why) || BYE_LOGOUT);", '로그아웃이 신원을 안 놓음'],
   ['LF', "const api = { ME_CACHE_KEY, STATE, joinKey, createLoginFlow };", "function premiumNow(){ return true; }\nconst api = { ME_CACHE_KEY, STATE, joinKey, premiumNow, createLoginFlow };", 'premiumNow(24시간 유예)를 되살림'],
   ['LF', "  return 'join:' + String(inviteCode || '') + ':' + h.toString(36);", "  return 'join:' + String(inviteCode || '');", '비밀번호를 바꿔도 같은 요청'],
   ['HTML', '<script src="parts/account/login-flow.js"></script>', '', 'html 에 안 실음'],

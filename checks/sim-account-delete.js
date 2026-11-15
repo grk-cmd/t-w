@@ -427,29 +427,29 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
       };
       const env = {
         userApiMod, log,
-        loginFlowMod: { logout: async () => log.push('logout') },
+        twNav: { NAV: { ACCOUNT_LEAVE: 'L' }, go: async (n, a) => { log.push('leave:' + a.why); return { ok: true }; } },
         firebaseAPI: { authProviders: () => ({ google: !!o.google, password: false }), authReauthGoogle: async () => { log.push('reauth'); return { ok: true }; } },
         companion: { signInWithGoogle: async () => ({ ok: true, idToken: 't' }) },
       };
-      const f = new Function('env', `const { userApiMod, loginFlowMod, firebaseAPI, companion, log } = env;
+      const f = new Function('env', `const { userApiMod, twNav, firebaseAPI, companion, log } = env;
         const asyncPrompt = async () => null; const notifyError = () => {};
         const WITHDRAW_WORD = '탈퇴';
-        const _wipeAccountLocal = () => log.push('wipe');
+        let _withdrawing = false;
         ${fRe}\n${fDel}\n${fPrev}
         return { del: _loginDoDeleteAccount, prev: _withdrawPreview };`);
       return Object.assign(f(env), { log });
     };
     let t = mk({});
     let r = await t.del('  탈퇴 ');
-    chk(r.ok && t.log.join('|') === 'withdraw|logout|wipe', '★ 탈퇴 — 서버 → 로그인 놓기(realtime 끄기) → 이 PC 지우기 차례');
+    chk(r.ok && t.log.join('|') === 'withdraw|leave:withdraw', '★ 탈퇴 — 서버가 지운 뒤 계정에서 나가기(NAV.ACCOUNT_LEAVE{ why:withdraw } — 연결 놓기 → 세션 끝내기 → 신원 · 이 계정 칸 지우기는 app-boot.js end)');
     t = mk({}); r = await t.del('탈되');
     chk(!r.ok && t.log.length === 0, '확인 글자가 틀리면 아무것도 안 한다');
     t = mk({ fail: 'USER_ADMIN_CANNOT_WITHDRAW' }); r = await t.del('탈퇴');
     chk(!r.ok && r.reason === '문구:USER_ADMIN_CANNOT_WITHDRAW' && t.log.join('|') === 'withdraw', '★ 서버가 거절하면 이 PC 는 그대로(지우지 않음) · 문구 표');
     t = mk({ fail: 'USER_REAUTH_REQUIRED', reauthOnce: true, google: true }); r = await t.del('탈퇴');
-    chk(r.ok && t.log.join('|') === 'withdraw|reauth|withdraw|logout|wipe', '오래된 로그인 — 구글로 다시 확인하고 한 번 더');
+    chk(r.ok && t.log.join('|') === 'withdraw|reauth|withdraw|leave:withdraw', '오래된 로그인 — 구글로 다시 확인하고 한 번 더');
     t = mk({ fail: 'USER_REAUTH_REQUIRED', google: false }); r = await t.del('탈퇴');
-    chk(!r.ok && /다시 확인할 로그인 수단이 없어요/.test(r.reason) && !t.log.includes('wipe'), '  ↳ 다시 확인할 수단이 없는 계정은 안내하고 멈춘다(지우지 않음 · 비밀번호 계정의 창 흐름은 sim-account)');
+    chk(!r.ok && /다시 확인할 로그인 수단이 없어요/.test(r.reason) && !t.log.includes('leave:withdraw'), '  ↳ 다시 확인할 수단이 없는 계정은 안내하고 멈춘다(나가지 않음 · 비밀번호 계정의 창 흐름은 sim-account)');
     const p = await mk({}).prev();
     const p2 = await mk({ prevFail: true }).prev();
     chk(p.ok && p.items === 12 && p.files === null && p2.ok === false, '미리보기 — { items · files } · 못 읽으면 ok:false(안내 줄만 숨김)');
@@ -461,7 +461,7 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
     chk(!/account-delete-net/.test(FI), 'firebase-init 이 옛 탈퇴 모듈(account-delete-net.js)을 안 불러온다');
     const A = strip(ACC);
     const fn = A.match(/async function _loginDoDeleteAccount\(word\)\{([\s\S]*?)\n\}/);
-    chk(!!fn && /userApiMod\.withdraw\(\)/.test(fn[1]) && fn[1].indexOf('withdraw()') < fn[1].indexOf('_wipeAccountLocal()'), 'account.js — 서버가 지운 뒤에만 이 PC 기록을 지운다');
+    chk(!!fn && /userApiMod\.withdraw\(\)/.test(fn[1]) && fn[1].indexOf('withdraw()') < fn[1].indexOf('ACCOUNT_LEAVE'), 'account.js — 서버가 지운 뒤에만 계정에서 나간다(이 PC 기록 지우기)');
     chk(!!fn && !/_acctFlushToServer|_acctPreflight|releaseDeviceSession/.test(fn[1]), '  ↳ 올리기 · 검문 · 기기 세션 놓기를 하지 않는다(지울 계정에 쓰지 않는다)');
     chk(/_loginDoDeleteAccount: \(\.\.\.a\)=>accountMod\._loginDoDeleteAccount\(\.\.\.a\)/.test(APPJS) && /const _loginDoDeleteAccount = deps\._loginDoDeleteAccount;/.test(MI), 'app.js 가 my-info.js 로 넘긴다');
     const box = (HTML.match(/<div id="acctDeleteConfirm"[\s\S]*?<div id="acctDeleteDone"/) || [''])[0];
@@ -481,7 +481,7 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
     chk(/#acctLoggedIn\.acct-deleting \.acct-del-notice\{max-height:none/.test(HTML) && /class="acct-del-notice"/.test(HTML), '  ↳ 그때 고지 상자는 안쪽 스크롤 없이 다 펼친다');
     chk(/delMode\(true\)/.test(M) && /delMode\(false\)/.test(M) && /classList\.toggle\('acct-deleting'/.test(M), '  ↳ [회원 탈퇴]가 켜고 [취소]가 끈다');
     chk(/classList\.contains\('acct-deleting'\)[^\n]*dc\.click\(\)/.test(strip(MI)), '  ↳ 탭을 옮기면 열린 안내를 접는다(돌아왔을 때 계정 탭이 사라진 채로 남지 않게)');
-    chk(/_loginDoDeleteAccount\(dWord\.value\)/.test(M) && /_acctRelaunchAfterDetach\(null\)/.test(M.split('_loginDoDeleteAccount(dWord.value)')[1] || ''), '성공하면 완료 안내 → 앱 다시 켜기');
+    chk(/_loginDoDeleteAccount\(dWord\.value\)/.test(M) && /acctDeleteDone/.test(M.split('_loginDoDeleteAccount(dWord.value)')[1] || '') && !/_acctRelaunchAfterDetach/.test(M), '성공하면 완료 안내 — 앱 다시 켜기는 여기가 아니라 계정에서 나가기(app-boot.js end ⑥ afterEnd)가 한다');
     if (WA_AUDIT != null && WA_LOG != null) chk(/'account\.selfDelete'/.test(WA_AUDIT) && /'account\.selfDelete': '/.test(WA_LOG), '웹 관리자 작업 기록이 «account.selfDelete» 를 안다');
     else say('  · 웹 관리자 폴더가 없는 자리(러너) — 작업 기록 이름 검사는 저장소에서 돈다');
     const CODE = strip(FX);

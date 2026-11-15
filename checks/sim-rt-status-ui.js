@@ -55,7 +55,7 @@ function rig(U, o){
   const rt = { onState: (f) => { fn = f; return () => { fn = null; }; }, state: () => st, start: (x) => log.push('start:' + JSON.stringify(x)) };
   const ui = U.createRtStatusUi({
     rt, inRoom: () => state.inRoom, band,
-    notifyError: (c) => log.push('err:' + c), toLogin: () => log.push('toLogin'), withdrawing: () => state.withdrawing,
+    notifyError: (c) => log.push('err:' + c), toLogin: (why) => log.push('toLogin:' + why), withdrawing: () => state.withdrawing,
     forceUpdate: () => log.push('update'), maintenance: (retry, dismiss) => { log.push('maint'); state.retry = retry; state.dismiss = dismiss; },
     setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout,
   });
@@ -97,10 +97,10 @@ async function judge(S){
 
     const a = rig(U);
     a.set('ready'); a.set('authFailed'); a.set('authFailed');
-    chk(a.log.join() === 'err:E-RT-01,toLogin', 'authFailed — E-RT-01 «로그인이 풀렸어요» → 로그인 화면 · 한 번만 — ' + a.log.join());
+    chk(a.log.join() === 'err:E-RT-01,toLogin:auth', 'authFailed — E-RT-01 «로그인이 풀렸어요» → 로그인 화면 · 한 번만 — ' + a.log.join());
     const g = rig(U);
     g.set('ready'); g.set('accountGone');
-    chk(g.log.join() === 'err:E-RT-02,toLogin', 'accountGone — E-RT-02 «계정이 이 기기에서 로그아웃됐어요» → 로그아웃 처리 · 로그인 화면');
+    chk(g.log.join() === 'err:E-RT-02,toLogin:gone', 'accountGone — E-RT-02 «계정이 이 기기에서 로그아웃됐어요» → 로그아웃 처리 · 로그인 화면');
     const w = rig(U, { withdrawing: true });
     w.set('ready'); w.set('accountGone');
     chk(w.log.length === 0, '  ↳ 탈퇴 흐름이 도는 중이면 따로 안내하지 않는다(그 흐름이 로그아웃 · 다시 켜기를 한다)');
@@ -147,7 +147,7 @@ async function judge(S){
       const hub = H.createRtHub({ createLink: L.createRealtimeLink, WebSocket: FakeWS, url: () => 'wss://x', getToken: async () => 't', getVersion: async () => '0.13.0',
         deviceId: () => 'd', newSession: () => 's', now: () => clock.t, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout, random: () => 0.5, log: { warn(){} } });
       const band = { shown: null, press: null, show(v, p){ this.shown = v; this.press = p; }, hide(){ this.shown = null; } };
-      U.createRtStatusUi({ rt: hub, inRoom: () => false, band, notifyError: (c) => log.push('err:' + c), toLogin: () => log.push('toLogin'), withdrawing: () => false,
+      U.createRtStatusUi({ rt: hub, inRoom: () => false, band, notifyError: (c) => log.push('err:' + c), toLogin: (why) => log.push('toLogin:' + why), withdrawing: () => false,
         forceUpdate: () => log.push('update'), maintenance: () => log.push('maint'), setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout });
       const ready = async () => { await tick(); const w = socks[socks.length - 1]; w.open(); await tick(); w.msg({ t: 'ready', pv: 3, now: 0, userCode: 'u', graceMs: 20000 }); await tick(); return w; };
       return { hub, clock, socks, log, band, ready };
@@ -160,7 +160,7 @@ async function judge(S){
     const a = mk(); a.hub.start(); const aw = await a.ready();
     aw.kill(4001); await tick(); await a.clock.advance(1000); await tick();
     a.socks[a.socks.length - 1].open(); await tick(); a.socks[a.socks.length - 1].kill(4001); await tick();
-    chk(a.log.join() === 'err:E-RT-01,toLogin', '4001 두 번 → E-RT-01 · 로그인 화면 — ' + a.log.join());
+    chk(a.log.join() === 'err:E-RT-01,toLogin:auth', '4001 두 번 → E-RT-01 · 로그인 화면 — ' + a.log.join());
     const n = mk(); n.hub.start(); const nw = await n.ready();
     nw.kill(1006); await tick();
     await n.clock.advance(16000);
@@ -196,8 +196,8 @@ async function judge(S){
     chk(hit.split(',').map((x) => x.trim()).includes('#' + U.BAND_ID), '클릭 통과 목록(UI_HIT_SEL)에 #' + U.BAND_ID + ' — 투명 창에서도 [다시 연결] 을 누른다');
     const blk = (S.APP.split('TwRtStatusUi.createRtStatusUi({')[1] || '').split('\n});')[0];
     chk(/rt: TwRtHub\.store/.test(blk) && /forceUpdate: \(\)=>updateFlowMod\.forceProtocol\(\)/.test(blk) && /maintenance: \(retry, onDismiss\)=>TwMaintenance\.store\.serverClosed\(retry, onDismiss\)/.test(blk)
-      && /withdrawing: \(\)=>accountMod\.withdrawing\(\)/.test(blk) && /toLogin: \(\)=>accountMod\._loginDoLogout\(\{ force:true \}\)\.then\(\(\)=>acctStateMod\._acctRelaunchAfterDetach\(null\)\)/.test(blk),
-      'app.js — 연결 · 업데이트 강제 창 · 점검 창 · 탈퇴 중 · 강제 로그아웃 뒤 다시 켜기(게이트가 로그인 화면)를 잇는다');
+      && /withdrawing: \(\)=>accountMod\.withdrawing\(\)/.test(blk) && /toLogin: \(why\)=>twNav\.go\(twNav\.NAV\.ACCOUNT_LEAVE, \{ why \}\)/.test(blk),
+      'app.js — 연결 · 업데이트 강제 창 · 점검 창 · 탈퇴 중 · 계정에서 나가기(NAV.ACCOUNT_LEAVE{ why: gone · auth } — 올리기 없이)를 잇는다');
   }
 }
 
@@ -211,11 +211,11 @@ const BREAKS = [
   ['UI', "const RETRY_BAND_MS = 15000;", "const RETRY_BAND_MS = 1000;", '짧은 끊김에도 띠'],
   ['UI', "    [S.READY]: () => { sawReady = true; clearBand(); },", "    [S.READY]: () => { sawReady = true; },", '붙어도 띠가 남음'],
   ['UI', "    if(bandTimer){ deps.clearTimeout(bandTimer); bandTimer = null; }\n", "", '붙어도 15초 타이머가 남아 띠'],
-  ['UI', "if(beginSignOut()){ notifyError('E-RT-01'); deps.toLogin(); }", "if(beginSignOut()){ deps.toLogin(); }", '로그인 풀림에 번호 없음'],
-  ['UI', "if(beginSignOut()){ notifyError('E-RT-01'); deps.toLogin(); }", "if(beginSignOut()){ notifyError('E-RT-01'); }", '로그인 풀림인데 로그인 화면으로 안 감'],
+  ['UI', "if(beginSignOut()){ notifyError('E-RT-01'); deps.toLogin('auth'); }", "if(beginSignOut()){ deps.toLogin('auth'); }", '로그인 풀림에 번호 없음'],
+  ['UI', "if(beginSignOut()){ notifyError('E-RT-01'); deps.toLogin('auth'); }", "if(beginSignOut()){ notifyError('E-RT-01'); }", '로그인 풀림인데 로그인 화면으로 안 감'],
   ['UI', "    if(signingOut) return false;\n", "", '로그인 화면 보내기를 두 번'],
   ['UI', "if(!deps.withdrawing() && beginSignOut())", "if(beginSignOut())", '탈퇴 중에도 «로그아웃됐어요»'],
-  ['UI', "{ notifyError('E-RT-02'); deps.toLogin(); }", "{ notifyError('E-RT-02'); }", '계정 로그아웃인데 로그인 화면으로 안 감'],
+  ['UI', "{ notifyError('E-RT-02'); deps.toLogin('gone'); }", "{ notifyError('E-RT-02'); }", '계정 로그아웃인데 로그인 화면으로 안 감'],
   ['UI', "    [S.UPDATE]: () => { clearBand(); deps.forceUpdate(); },", "    [S.UPDATE]: () => { clearBand(); },", '4003 에 업데이트 창 없음'],
   ['UI', "deps.maintenance(() => rt.start({ claim: false }), showMaintBand);", "deps.maintenance(() => rt.start({ claim: true }), showMaintBand);", '점검 뒤 다시 붙기가 claim(남을 밈)'],
   ['UI', "deps.maintenance(() => rt.start({ claim: false }), showMaintBand);", "rt.start({ claim: false });", '점검이면 창 없이 바로 다시 붙음'],

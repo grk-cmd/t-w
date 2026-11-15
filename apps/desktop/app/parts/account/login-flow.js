@@ -218,16 +218,21 @@ function createLoginFlow(deps){
     try{ await Promise.race([deps.leaveRoom(), new Promise((r) => setTimeout(r, LEAVE_WAIT_MS))]); }catch(_){}
     try{ await deps.rt.bye(why); }catch(_){}   // 안 끄면 토큰 없이 끝없이 다시 붙는다 · 서버는 작별을 받으면 유예 없이 오프라인
   }
-  /* 로그아웃 · 계정을 놓을 때 — 연결을 놓고(release) → API 통로의 로그인 읽기를 떼고 · 로그인을 놓고 사본을 지운다. o.why: 'logout'(기본) · 'withdraw' */
+  /* 신원 놓기 — API 통로의 로그인 읽기를 떼고(진행 중인 읽기에 다음 계정이 묻어가지 않게) · 내 계정 사본을 지우고 · Auth 로그인을 놓는다. 못 놓으면 던진다(숨기지 않는다) */
+  async function releaseIdentity(){
+    deps.forgetSession();
+    clearCache();
+    await auth.signOut();
+  }
+  /* 로그아웃 · 계정을 놓을 때 — 연결을 놓고(release) → 신원을 놓는다(releaseIdentity). o.why: 'logout'(기본) · 'withdraw'.
+     ⚠️ 세션이 있는 로그아웃 · 탈퇴는 이 함수가 아니라 app-boot.js end() 가 두 조각을 사이에 세션 끝내기를 끼워 따로 부른다 — 여기는 세션 없이 로그인만 놓는 자리(가입 확인 실패 · 계정 맞추기 실패)용 */
   async function logout(o){
     await release((o && o.why) || BYE_LOGOUT);
-    try{ deps.forgetSession(); }catch(_){}   // 진행 중인 로그인 읽기에 다음 계정이 묻어가지 않게(api-client forgetSession)
-    clearCache();
-    try{ await auth.signOut(); }catch(_){}
+    await releaseIdentity();
   }
 
   return {
-    confirm, goOnline, waitForServer, retryNow, loginGoogle, loginPassword, joinPassword, joinGoogle, patchMe, logout, release,
+    confirm, goOnline, waitForServer, retryNow, loginGoogle, loginPassword, joinPassword, joinGoogle, patchMe, logout, release, releaseIdentity,
     meCache: () => readCache(),
     identity: () => auth.identity(),   // 지금 Auth 로그인 { email, uid } — 이 PC 로그인 표시(계정 탭 얼굴 · 진단)
     mode: () => mode,

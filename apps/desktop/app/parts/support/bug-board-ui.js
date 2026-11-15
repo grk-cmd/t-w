@@ -69,7 +69,6 @@ const rtOn = deps.rtOn;
   }
 
   let ready = false;          // 계정 기능을 시작했나(start) — 로그인 전 · reset 뒤엔 받지 않는다
-  let rtHooked = false;
   let filter = 'all', cursors = [null], nextCursor = null;
   let rows = [];              // 지금 목록에 그린 줄(봤음 뒤 «새 답변» 표시를 끄려고)
   let listGen = 0, postGen = 0, quotaGen = 0;
@@ -566,13 +565,10 @@ const rtOn = deps.rtOn;
   }
   bindReportLink();
 
-  /* 계정 기능 시작(app-boot STEPS bugBadge) — 배지 한 번 받기 · realtime 이 오래 끊겼다 붙으면 한 번 다시 받기 */
-  function start(){
+  /* 계정 기능 시작(app-boot STEPS bugBadge) — 배지 한 번 받기 · realtime 이 오래 끊겼다 붙으면 한 번 다시 받기. 알림 구독은 세션이 쥔다(끝나면 풀린다) */
+  function start(session){
     ready = true;
-    if(!rtHooked){
-      rtHooked = true;
-      rtOn('notification', (n) => { if(n && n.resync) refreshBadge(); });
-    }
+    session.on(rtOn('notification', (n) => { if(n && n.resync) refreshBadge(); }));
     return refreshBadge();
   }
   /* 계정을 놓을 때 — 배지 · 목록 · 연 글을 비우고 진행 중인 받기 답을 버린다. 쓰던 글은 버린다(다른 계정 이름으로 올라가지 않게) */

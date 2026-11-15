@@ -18,7 +18,7 @@ const EXP_SEC_PER_LEVEL = deps.EXP_SEC_PER_LEVEL;   // 읽는 함수
 const FOCUS_CYCLE_SEC = deps.FOCUS_CYCLE_SEC;   // 읽는 함수
 const FOCUS_LEVEL_CAP_HOURS = deps.FOCUS_LEVEL_CAP_HOURS;   // 읽는 함수
 const MY_FRIEND_CODE_KEY = deps.MY_FRIEND_CODE_KEY;
-const _acctRelaunchAfterDetach = deps._acctRelaunchAfterDetach;   // 🪪 신원을 놓은 뒤 앱 다시 켜기(account-state.js)
+const notifyError = deps.notifyError;   // 오류 번호(error-codes.js) — 로그아웃 올리기 · 검문이 막았을 때 E-ACC-04
 const closetMod = deps.closetMod;   // 읽는 함수 — 서버 원본 옷장(character/closet.js)
 const STAR_PALETTE = deps.STAR_PALETTE;   // 읽는 함수
 const USER_NAME_MAX = deps.USER_NAME_MAX;
@@ -535,20 +535,19 @@ function _miCodeLoad(){
     const afterLogout = () => {
       const cf = $('acctLogoutConfirm'); if(cf) cf.style.display = 'none';
       const dn = $('acctLogoutDone');    if(dn) dn.style.display = 'block';
-      /* 자동으로 껐다 켠다 → 부팅 시 게이트가 돌아 시작 화면이 나온다.
-         못 하는 판(구버전 앱)에서는 위 안내가 그대로 남아 수동 종료를 받는다. */
-      _acctRelaunchAfterDetach(null);
+      /* 앱을 다시 켜는 일은 계정에서 나가기(app-boot.js end)의 마지막 걸음이 한다 — 여기서는 안내 상자만. */
     };
     const runLogout = async (btn, force) => {
       if(yes) yes.disabled = true;
       if(forceBtn) forceBtn.disabled = true;
       const _t = btn ? btn.textContent : ''; if(btn) btn.textContent = '정리 중…';
-      let r; try{ r = await _loginDoLogout(force ? { force:true } : undefined); }catch(_){ r = { ok:false, reason:'로그아웃 중 오류가 났어요', kind:'unknown' }; }
+      let r; try{ r = await _loginDoLogout(force ? { force:true } : undefined); }catch(e){ console.warn('[계정] 로그아웃 중 오류', e); r = { ok:false, reason:'로그아웃 중 오류가 났어요', kind:'unknown' }; }
       if(btn) btn.textContent = _t;
       if(forceBtn) forceBtn.disabled = false;
       if(!r || !r.ok){
         /* 🛂 검문에 걸렸다 — 아무것도 안 지웠다. 몇 번째인지에 따라 다른 말을 하고, 두 번째부터 출구를 연다. */
         _logoutFails++;
+        if(_logoutFails === 1) notifyError('E-ACC-04', r);   // 상자를 연 뒤 첫 막힘에만 번호 한 번 — 아래 문구는 매번
         if(yes){ yes.disabled = false; yes.textContent = '다시 시도'; }
         say(logoutFailMsg(r, _logoutFails >= 2), false);
         if(_logoutFails >= 2) showForce(true);
@@ -607,7 +606,7 @@ function _miCodeLoad(){
       _delBusy = true; delSync(); dSay('');
       if(dCancel) dCancel.disabled = true;
       dYes.textContent = '지우는 중…';
-      let r; try{ r = await _loginDoDeleteAccount(dWord.value); }catch(_){ r = { ok:false, reason:'탈퇴 중 오류가 났어요 — 다시 눌러 주세요' }; }
+      let r; try{ r = await _loginDoDeleteAccount(dWord.value); }catch(e){ console.warn('[계정] 탈퇴 중 오류', e); r = { ok:false, reason:'탈퇴 중 오류가 났어요 — 다시 눌러 주세요' }; }
       _delBusy = false;
       if(dCancel) dCancel.disabled = false;
       if(!r || !r.ok){
@@ -617,8 +616,7 @@ function _miCodeLoad(){
         return;
       }
       if(dBox) dBox.style.display = 'none';
-      const dn = $('acctDeleteDone'); if(dn) dn.style.display = 'block';
-      _acctRelaunchAfterDetach(null);
+      const dn = $('acctDeleteDone'); if(dn) dn.style.display = 'block';   // 앱을 다시 켜는 일은 계정에서 나가기(app-boot.js end)가 한다
     };
     const dQuit = $('acctDeleteQuit');
     if(dQuit) dQuit.onclick = () => { if(window.companion && companion.quitApp) companion.quitApp(); };
@@ -634,16 +632,6 @@ function _miCodeLoad(){
 
 })();
 
-/* 🔁 신원을 놓은 뒤 앱을 껐다 켠다 — 연동 해제와 로그아웃이 **함께 쓰는 한 자리.**
-   [왜 여기 모으는가] 두 곳이 같은 일을 하는데 따로 쓰면 한쪽만 고쳐진다. 지우는 쪽도 이제
-     함수 하나다(_detachAccountLocal · ACCOUNT_LOCAL_KEYS) — 예전엔 주석으로만 «같은 목록» 이었고
-     그래서 두 곳이 똑같이 소지품을 빠뜨렸다(2026-09-16 제보 4).
-   [왜 재시작인가] 게이트(checkInviteGate)는 부팅 때 한 번만 도는 검사다. 세션 도중에 신원을
-     놓아도 화면은 그대로 남고, 그 상태로 계속 쓰면 getMyUserId() 가 그 자리에서 **새 유저 코드를
-     만들어** 아무도 모르는 계정 앞으로 기록이 쌓인다. 껐다 켜야 게이트가 다시 돈다.
-   ⚠️ 구버전 앱에는 relaunchApp 채널이 없다. 그때는 기존처럼 '지금 종료' 안내로 물러난다 —
-     여기서 그냥 실패하면 유저는 버튼을 눌렀는데 아무 일도 안 일어나는 화면을 본다.
-   @param onFallback 재시작을 못 할 때 부를 것(수동 종료 안내를 띄우는 쪽) */
 return {
   _miBoxChanged,
   _miIsOpen,

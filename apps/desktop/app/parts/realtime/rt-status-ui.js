@@ -20,7 +20,7 @@ const S = Object.freeze({ READY: 'ready', OFF: 'off', CONNECTING: 'connecting', 
  *   inRoom: () => boolean,
  *   band: { show: (view: { text: string, button: string | null }, onPress: () => void) => void, hide: () => void },
  *   notifyError: (code: string) => void,
- *   toLogin: () => void,            // 로그아웃 처리(이 PC 계정 몫 지움 · 로그인 놓음) 뒤 로그인 화면으로
+ *   toLogin: (why: 'gone' | 'auth') => unknown,   // 서버가 내보냄(gone · 4007) · 로그인 풀림(auth · 4001 두 번) — 올리기 없이 계정에서 나간다(NAV.ACCOUNT_LEAVE → app-boot.js end)
  *   withdrawing: () => boolean,     // 탈퇴 흐름이 도는 중(그 흐름이 로그아웃 · 다시 켜기를 한다)
  *   forceUpdate: () => void,        // 업데이트 강제 창(update-flow.js forceProtocol)
  *   maintenance: (retry: () => void, onDismiss: () => void) => void,   // 점검 창 + [다시 시도](maintenance-gate.js serverClosed) · «확인» 으로 닫으면 onDismiss
@@ -57,8 +57,8 @@ function createRtStatusUi(deps){
         if(rt.state() === S.RETRYING && !deps.inRoom()) band.show({ text: TEXT.RETRYING, button: null }, () => {});
       }, RETRY_BAND_MS);
     },
-    [S.AUTH_FAILED]: () => { clearBand(); if(beginSignOut()){ notifyError('E-RT-01'); deps.toLogin(); } },
-    [S.ACCOUNT_GONE]: () => { clearBand(); if(!deps.withdrawing() && beginSignOut()){ notifyError('E-RT-02'); deps.toLogin(); } },
+    [S.AUTH_FAILED]: () => { clearBand(); if(beginSignOut()){ notifyError('E-RT-01'); deps.toLogin('auth'); } },
+    [S.ACCOUNT_GONE]: () => { clearBand(); if(!deps.withdrawing() && beginSignOut()){ notifyError('E-RT-02'); deps.toLogin('gone'); } },
     [S.UPDATE]: () => { clearBand(); deps.forceUpdate(); },
     [S.MAINTENANCE]: () => { clearBand(); deps.maintenance(() => rt.start({ claim: false }), showMaintBand); },
     [S.CLOSED]: () => {

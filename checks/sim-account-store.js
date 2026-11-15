@@ -486,7 +486,7 @@ async function judge(S){
     b.st.setItem('tw.focusTodaySec', '1'); b.store.migrateLegacy(A);
     chk(b.st.o['tw.u.' + A + '.focusTodaySec'] === '7777', '  ↳ 두 번째는 덮지 않는다');
 
-    // ② 로그아웃 — _loginDoLogout 을 실물 글로 돌려 부른 차례를 본다
+    // ② 계정에서 나가는 조각 — account.js 의 올리기 · 검문(_acctFlushCheck) · 신원 놓기(_acctReleaseIdentity)를 실물 글로 돌려 본다(차례는 app-boot.js end — sim-app-boot)
     const any = (() => { const f = function(){ return P; }; const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? undefined : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true }); return P; })();
     const st = mem(); st.setItem('tw.myUserId', A);
     const rec = [];
@@ -494,9 +494,10 @@ async function judge(S){
     (S.ACC.match(/deps\.([\w$]+)/g) || []).forEach((m) => { deps[m.slice(5)] = any; });
     Object.assign(deps, {
       MY_USER_ID_KEY: 'tw.myUserId', getMyUserId: () => st.getItem('tw.myUserId'),
-      accountLegacyStore: { migrateLegacy: (c) => { rec.push('migrate:' + c); return {}; } },
+      accountLegacyStore: { migrateLegacy: (c) => { rec.push('migrate:' + c); return {}; }, wipeCells: (c) => { rec.push('wipeCells:' + c); return 0; } },
       plMod: { st: {}, reset(){}, flushPending: () => new Promise((r) => setTimeout(() => { rec.push('plFlushDone'); r(); }, 5)) },
       setAcctDetached: (v) => { if(v) rec.push('wipe'); },
+      loginFlowMod: { release: async (w) => { rec.push('release:' + w); }, releaseIdentity: async () => { rec.push('identity'); } },
       focusLevelMod: () => ({ DANCE_NOTIFIED_KEY: 'x1', DANCE_REPAIR_KEY: 'x2' }),
       acctStateMod: { INVITE_PASS_KEY: 'x3', LICENSE_KEY_STORAGE: 'x4', LICENSE_OPTOUT_KEY: 'x5' },
       LOGIN_EMAIL_KEY: 'x6', LOGIN_UID_KEY: 'x7',
@@ -508,17 +509,18 @@ async function judge(S){
         S.ACC + '\nreturn window.TwAccount;')(win, any, st, any, win.firebaseAPI, (f) => 0, undefined).createAccount(deps);
     }catch(e){ chk(false, 'account.js 를 만들지 못했다 — ' + e.message); }
     if(acc){
-      const lo = await acc._loginDoLogout({ force: true });
-      chk(lo && lo.ok, '로그아웃이 끝난다');
-      chk(rec.join() === 'migrate:' + A + ',plFlushDone,wipe', '★ 차례: 옛 값 옮기기 → 플레이리스트 마지막 올리기가 끝남 → 지우기(wipe)  [' + rec.join(' → ') + ']');
+      const fc = await acc._acctFlushCheck();
+      chk(fc && typeof fc.ok === 'boolean', '올리기 · 검문이 끝난다(결과 { ok })');
+      chk(rec.join() === 'plFlushDone', '★ 올리기: 플레이리스트 마지막 올리기가 끝난 뒤에 검문이 끝난다 · 옛 값 옮기기는 여기서 안 한다(켤 때 app-boot 가 한 번 했다)  [' + rec.join(' → ') + ']');
+      rec.length = 0;
+      await acc._acctReleaseIdentity('logout', A);
+      chk(rec.join() === 'wipe,identity', '★ 신원 놓기(로그아웃): PC 칸 지우기 → 로그인 놓기 — 계정 칸은 안 지운다  [' + rec.join(' → ') + ']');
+      rec.length = 0;
+      await acc._acctReleaseIdentity('withdraw', A);
+      chk(rec.join() === 'wipe,wipeCells:' + A + ',identity', '★ 신원 놓기(탈퇴): PC 칸 지우기 → 이 계정 칸 통째로 지우기 → 로그인 놓기  [' + rec.join(' → ') + ']');
+      let thrown = null; try{ await acc._acctReleaseIdentity('withdraw', null); }catch(e){ thrown = e; }
+      chk(!!thrown, '  ↳ 탈퇴인데 코드를 모르면 던진다(어느 칸을 지울지 짐작하지 않는다)');
     }
-    st.o = {}; 
-    const accOut = async () => {
-      const r2 = []; deps.accountLegacyStore = { migrateLegacy: (c) => { r2.push('migrate:' + c); return {}; } };
-      const a2 = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'setTimeout', 'module', S.ACC + '\nreturn window.TwAccount;')(win, any, st, any, win.firebaseAPI, (f) => 0, undefined).createAccount(deps);
-      await a2._loginDoLogout({ force: true }); return r2;
-    };
-    chk((await accOut()).length === 0, '  ↳ 로그인 전(이 PC 에 코드 없음)의 로그아웃은 옮기기를 부르지 않는다');
   }
 
   say('── 7. 배선');
@@ -539,8 +541,8 @@ await judge(SRC0);
 say('── 8. 일부러 깨 보기');
 const BREAKS = [
   ['APP', "  migrateLegacy: (code)=>accountStoreMod.migrateLegacy(code),\n", "  migrateLegacy: (code)=>{},\n", '부팅 때 옛 값을 안 옮김'],
-  ['ACC', "  if(uid) accountLegacyStore.migrateLegacy(uid);\n", "", '로그아웃이 옛 값을 안 옮김'],
-  ['ACC', "  if(uid) accountLegacyStore.migrateLegacy(uid);\n  if(uid){\n    const fl = await _acctFlushToServer();", "  if(uid){\n    const fl = await _acctFlushToServer();\n    accountLegacyStore.migrateLegacy(uid);", '로그아웃이 올린 뒤에 옮김(순서 뒤집기)'],
+  ['ACC', "    accountLegacyStore.wipeCells(code);\n", "", '탈퇴가 이 계정 칸을 안 지움'],
+  ['ACC', "  _wipeAccountLocal();\n  if(why === 'withdraw'){", "  if(why === 'withdraw'){", '신원 놓기가 PC 칸을 안 지움'],
   ['ACC', "const fl = await _acctFlushToServer();", "const fl = (_acctFlushToServer(), { timedOut:false });", '플레이리스트 마지막 올리기를 안 기다리고 지움'],
   ['STORE', "function cellName(code, key){ return CELL_PREFIX + code + '.' + key.replace(/^tw\\./, ''); }", "function cellName(code, key){ return key; }", '계정 코드를 칸 이름에 안 넣음(PC 한 칸)'],
   ['STORE', "return validCode(code) ? cellName(code, key) : null;\n  }\n  function closedFor(key){\n    if(opened !== null && opened === getAccountCode()) return false;", "return validCode(code) ? cellName(code, key) : key;\n  }\n  function closedFor(key){\n    return false;", '로그인 전에 PC 칸을 씀(열림 장치도 없는 모양)'],
