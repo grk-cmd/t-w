@@ -2051,13 +2051,18 @@ const presenceSelfMod = TwPresenceSelf.createPresenceSelf({   // 내 접속 표�
   rt: TwRtHub.store,
   onUnload: (fn)=>window.addEventListener('beforeunload', fn),   // friends-sub stop 과 같은 자리 — 계정을 놓으면 보이기 값을 비운다
 });
+/* 🔌 지금 로그인 세션의 Firebase 접속 표시 한 벌(firebase-init createMyPresence — 마이홈 처음 준비가 만들어 세션에 건다). 세션이 없거나 아직 안 만들었으면 null */
+const myPresence = ()=>{ const s = appBoot.getSession(); return (s && s.alive()) ? s.presence : null; };   // 끝난 세션의 풀린 객체는 «없음» 으로 본다 — 풀린 객체가 쓰기를 조용히 버리지 않고 아래 경고가 뜨게
+/* 접속 표시 객체가 없으면(세션이 없거나 마이홈 처음 준비가 아직 안 걸었음) 쓸 곳이 없다 — 조용히 넘기지 않고 경고한다(검사 sim-presence-lock) */
+const setMyPresenceState = (uid, online)=>{ const p = myPresence(); if(!p){ console.warn('[접속 표시] 온라인 토글을 버렸어요 — 지금 세션에 접속 표시가 없어요(세션 없음 · 마이홈 처음 준비 전)'); return; } p.setState(online); };   // 친구 탭 온라인 토글
+const setMyPresenceRoom = (code)=>{ const p = myPresence(); if(!p){ console.warn('[접속 표시] 방 표시를 버렸어요 — 지금 세션에 접속 표시가 없어요(세션 없음 · 마이홈 처음 준비 전)'); return; } p.setRoom(code); };   // 친구 목록의 «방 안» 표시
 /* 🔒 친구 탭 온라인 토글 · 고정 — 처음 접속 표시는 마이홈 처음 준비가 계정 확인의 me 로 부른다 */
 const presenceLockMod = TwPresenceLock.createPresenceLock({
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   savePref: (uid, p)=>loginFlowMod.patchMe({ presencePref: { locked: p.lock, online: p.online } }).then((r)=>{ if(!r.ok) throw r.err; }),
-  setPresence: (...a)=>firebaseAPI.setMyPresenceState(...a),
+  setPresence: (...a)=>setMyPresenceState(...a),
   setVisible: (v)=>presenceSelfMod.setVisible(v),
   startVisible: (v)=>presenceSelfMod.start(v),
 });
@@ -2097,6 +2102,7 @@ const mhInitMod = TwMyHomeInit.createMyHomeInit({
   myHomeOpen: ()=>myHomeOpen,
   noticeFeed: noticeFeed,
   presenceLock: presenceLockMod,
+  getRoomCode: (...a)=>TwRoomRt.store.roomCode(...a),   // 접속 표시를 만들 때 «입장이 끝난» 방 코드(room-entry onJoined 는 입장 때 한 번뿐 · 입장 중인 방은 넣지 않는다)
   toast: (...a)=>toast(...a),
   setMyFriendRequests: (v)=>{ _myFriendRequests = v; },
   setMyHomeFriends: (v)=>{ _myHomeFriends = v; },
@@ -6305,7 +6311,7 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   paintRoomInfo: ()=>roomInfoUi.paint(),
   roomSettings: TwRoomSettings,
   roomRt: TwRoomRt.store,
-  setPresenceRoom: (...a)=>firebaseAPI.setPresenceRoom(...a),   // 친구 목록의 «방 안» 표시 — Firebase 접속 표시가 걷힐 때(접속 상태 묶음) 같이 걷는다
+  setPresenceRoom: (...a)=>setMyPresenceRoom(...a),   // 친구 목록의 «방 안» 표시 — Firebase 접속 표시가 걷힐 때(접속 상태 묶음) 같이 걷는다
   runCost: runCost,   // 🩺 좌석 맞춤 시간(1분 [비용] 줄)
 });
 roomEntryMod.onRoomChanged(()=>listenUi.sync());   // 🎧 같이 듣기가 방 입장 모듈을 몰라도 되게(위층이 건다)
@@ -6450,6 +6456,7 @@ const accountMod = TwAccount.createAccount({
   ME_CACHE_KEY: TwLoginFlow.ME_CACHE_KEY,
   userApiMod: userApiMod,
   sessionLost: ()=>TwRtHub.store.state() === TwRtHub.STATE.SESSION_LOST,
+  getPresence: (...a)=>myPresence(...a),
 });
 /* ═══ 🪪 [내 정보] — 런처 화면 전환 (CHECKS 개정 48 · 사용자 결정 · 회원가입 설계 §7 B2 · C4 · D · G) ═══════════════
    런처 [내 정보](#lcLoad)를 누르면 **런처 카드 안의 페이지(#lcMyInfo)가 제목줄 아래를 덮는다** — 따로 창도 겹창도 아니다. ◀ 로 돌아간다.

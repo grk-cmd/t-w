@@ -77,7 +77,7 @@
 | **sim-session.js** | 221 | **37c9ae623d30** |
 | **sim-session-baseline.js** | 187 | **efaefb7f384c** |
 | **smoke.js** | 795 | **8315becf09df** |
-| **sim-account-switch.js** | 306 | **2371ee07651c** |
+| **sim-account-switch.js** | 306 | **d43e7b2271cf** |
 | **sim-admin-rules.js** | 410 | **d23c593b6d06** || · 아래 칸 · 쓰기 없음** · **개정 163 1절 관리자 서버 봇(apiBots) — admins · licenses 읽기만 · 봇 명단 잠김** · **개정 129 7절 할 일 공용 메모(adminTodoNote) — 관리자만 · rev + 1 · 0~2000자 · 서버 시각** · **개정 127 7절 할 일 종류(type) feat · bug · 없어도 됨** · **개정 126 1절 config/releaseAnswerTpl 관리자만 · 7절 릴리스 답변 템플릿 1~1000자 글자 · 지우기 관리자만 · 읽기 관리자만** · **개정 123 7절 할 일 릴리스 버전(release) 모양 · 20자 · 없어도 됨** · **개정 118 7절 관리자 할 일(adminTodos) — 관리자만 · rev + 1 만(덮어쓰기 막기) · 작업자는 관리자 uid · 제보 id 모양 · 관리자 이름(adminNames) 본인 칸만** · **개정 99 1절 metrics/improvements 관리자 쓰기 · 모양(버전 · 제목 · 항목 20개 · 적용 일수 0~30)** · **개정 95 1절 config/bugDailyMax 관리자만** · **개정 87 1절 config/minAppVer 관리자만** · **2026-10-08 1절 bugBoard/ans/pub · ans/prv 관리자만 · 2절 버그제보 글쓰기(본인 uid · 본인 코드 · 새 글만) · 👍 본인 표시 하나** · **2026-10-07 3절 metrics(접속 지표) 읽기 관리자만 · 쓰기 규칙 없음** · **2026-10-06 1절 inboxBroadcastMeta 관리자만** · **2026-10-06 1절 catalogMeta/$kind 관리자만** · **2026-10-05 6절 관리자 작업 기록(adminLog) — 규칙식을 굴려 관리자만 · 새로 쓰기만 · by · 서버 시각 · 길이 · 90일 지난 것만 지우기 · invites 목록 관리자 읽기(issuedBy 색인) · 코드 하나는 누구나** · **2026-10-04 licenseRequests 친구코드(선택 · MATE/COZY 형식) · accountSnap 목록 관리자 읽기** · **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
 | **sim-char-foot.js** | 142 | **17f2aa70cc31** |
 | **sim-char-identity.js** | 188 | **9aa1d07d92b1** |
@@ -97,7 +97,7 @@
 | **sim-seat-label-drag.js** | 91 | **6a4daf86e439** |
 | **sim-friend-requests.js** | 170 | **39737b624809** |
 | **sim-friend-visit.js** | 115 | **c33a7fed1e41** |
-| **sim-friends-sub.js** | 642 | **736cc9a7e189** |
+| **sim-friends-sub.js** | 642 | **249923377894** |
 | **sim-friends-port.js** | 325 | **2130fd1ee084** |
 | **sim-friends-presence-rt.js** | 358 | **65eb89f309b0** |
 | **sim-social-api.js** | 275 | **3c3a4c43d6fa** |
@@ -152,7 +152,7 @@
 | **sim-part-equip.js** | 134 | **2bfa1e861e1b** |
 | **sim-room-parity.js** | 111 | **737a33966e0d** ← **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 119 신규 · 🛰 방 짝 맞추기(정적) — app.js 가 방에 싣는 칸 ⊆ MEMBER_FIELDS ∪ {def, userId, chat, chatTab} · Firebase provider 메서드 ⊆ 서버 provider 메서드**
 | **sim-room-live-def.js** | 163 | **1f2b03e043c4** |
-| **sim-app-version.js** | 278 | **4ce48ec0d8ca** |
+| **sim-app-version.js** | 276 | **3b81e80eb540** |
 | **sim-update-flow.js** | 454 | **a05cced37048** |
 | **sim-maintenance-gate.js** | 364 | **1b59285f3272** |
 | **sim-invite-revoke.js** | 100 | **c6ce8535f35b** |
@@ -336,11 +336,11 @@
 | **sim-focus-level.js** | 128 | **246cbe6794dd** |
 | **sim-chat-ui.js** | 126 | **4ce92ac94c0d** |
 | **sim-license-gate.js** | 340 | **78de89e312a3** |
-| **sim-account.js** | 174 | **d80308ea6b7e** |
+| **sim-account.js** | 174 | **96590bfd29ab** |
 | **sim-wardrobe.js** | 229 | **bada904416df** |
 | **sim-settings-panel.js** | 96 | **b5ef74cdd479** |
 | **sim-desktop-run.js** | 94 | **d6ec948cc841** |
-| **sim-room-entry.js** | 338 | **31ef1d71adc1** |
+| **sim-room-entry.js** | 338 | **250c820dc789** |
 | **sim-overhead.js** | 161 | **169c381103c3** |
 | **sim-room-sync.js** | 99 | **20fd5b5bfe59** |
 | **sim-status-chip.js** | 123 | **4251e46c8a7a** |
@@ -397,8 +397,8 @@
 | **sim-license-key.js** | 134 | **f1b85394a9e8** |
 | **sim-license-screen.js** | 418 | **6dfd3086a425** |
 | **sim-asset-code.js** | 96 | **1442b5b5b793** |
-| **sim-myhome-init.js** | 193 | **efa7399e8562** |
-| **sim-presence-lock.js** | 256 | **a5fbfe594853** |
+| **sim-myhome-init.js** | 220 | **26b8ae6b5420** |
+| **sim-presence-lock.js** | 325 | **8da811b2130c** |
 | **sim-parts-paths.js** | 85 | **a1a5e4e7a80e** |
 | **sim-global-names.js** | 236 | **4da03342e299** |
 | **sim-guestbook-api.js** | 246 | **e73b45be2855** |
