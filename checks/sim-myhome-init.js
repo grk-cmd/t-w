@@ -137,12 +137,39 @@ say('── 2-3. 받은 뒤 화면');
   m.onNewsChanged({ addedIds: ['n1', 'n2', 'n3'] });
   chk(act.join() === 'render,bell,bellList' && toasts.join('|') === '📩 🆕 업데이트: 새 판|📩 📩 우편: 보상|📩 📢 공지: 점검', '소식 — 목록 · 🔔 다시 그림 · 새 소식만 토스트(업데이트 · 우편 · 공지 표시)');
 }
+say('── 2-4. 세션 — 받은 친구 요청 구독의 해제 함수 · 우편 구독은 세션이 쥔다(S-2)');
+/* 받은 요청 듣기가 돌려준 해제 함수 · 우편 시작에 넘긴 세션을 가짜 세션으로 모은다 — await 가 풀리는 가짜 deps 로 끝까지 돌린다 */
+async function sessionRun(src, endFirst){
+  const log = { unsubCalled: 0, mailSession: null, watch: 0 };
+  const UNSUB = () => { log.unsubCalled++; };
+  const session = { subs: [], on(u){ this.subs.push(u); if(endFirst){ u(); } return u; } };
+  const deps = { MY_FRIEND_CODE_KEY: 'k', friendManage: { renderFriendRequests(){}, reqVisible: () => false, showFriendRequestPopup(){} }, friendsSub: { start(){}, stop(){} },
+    mailFeed: { start: (id, sess) => { log.mailSession = sess; }, stop(){} }, noticeFeed: {}, mhScheduler: { loadBoard(){} }, presenceLock: { startOnlineFor: () => true },
+    _waitForFirebaseAPI: (cb) => Promise.resolve(cb()), ensureMyFriendCode: async () => {}, getDisplayName: () => 'n', getMyUserId: () => 'ME', toast(){},
+    friendRequests: () => ({ watchReceived: () => { log.watch++; return UNSUB; } }), _myFriendRequests: () => ({}), _myHomeFriends: () => ({}), _myHomeReady: () => false,
+    focusLevelMod: () => ({}), inboxMod: () => ({}), myHomeOpen: () => false, setMyFriendRequests(){}, setMyHomeFriends(){}, setMyHomeReady(){} };
+  const fa = { setMyPresenceOnline(){}, setMyProfile: async () => {} };
+  const doc = { getElementById: () => null };
+  const ls = { getItem: () => null };
+  const api = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'module', src + '\nreturn window.TwMyHomeInit;')({}, doc, ls, fa, undefined);
+  await api.createMyHomeInit(deps).initMyHome('ME', { tag: 'x' }, session);
+  return { log, session };
+}
+{
+  const r = await sessionRun(MOD, false);
+  chk(r.log.watch === 1 && r.session.subs.length === 1 && r.log.mailSession === r.session, '★ 받은 요청 듣기의 해제 함수는 세션이 쥔다(버리지 않는다) · 우편 시작에 세션을 넘긴다');
+  const r2 = await sessionRun(MOD, true);
+  chk(r2.log.unsubCalled === 1, '  이미 끝난 세션에 걸면 바로 푼다 — 늦게 걸린 구독이 새 계정으로 새지 않는다');
+}
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 {
   const m2 = MOD.replace(/\n *if\(!myId\)\{ friendsSub\.start\(null\); mailFeed\.stop\(\); return; \}[^\n]*/, '');
   const m3 = MOD.replace('if(!myId){ friendsSub.start(null); ', 'if(!myId){ ');
   chk(m3 !== MOD && !(await judgeNoUid(m3)), '친구 목록 시작을 빼면(#320 되돌림 — 친구 탭이 «불러오는 중» 에 멈춤) 빨강');
   chk(m2 !== MOD && !(await judgeNoUid(m2)), '입구 가드를 지우면 — 내 코드 없음 판정이 빨강');
+  const m4 = MOD.replace('session.on(friendRequests().watchReceived(', 'friendRequests().watchReceived(').replace(')));   // 해제 함수는 세션이', '));   // 해제 함수는 세션이');
+  const r4 = m4 === MOD ? null : await sessionRun(m4, false);
+  chk(r4 && r4.session.subs.length === 0, '받은 요청 해제 함수를 세션에 안 맡기면 빨강(2-4절)');
 }
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/myhome/myhome-init.js"></script>', '')],

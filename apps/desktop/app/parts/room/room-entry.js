@@ -9,7 +9,7 @@
 (function(){
 
 function createRoomEntry(deps){
-const accountStore = deps.accountStore;   // 🗂️ 계정별 칸(shared/account-store.js) — «같이 듣기로 열기» 는 이 계정이 이 PC 에서 고른 것
+const roomEntryAccountStore = deps.roomEntryAccountStore;   // 🗂️ 계정별 칸(shared/account-store.js) — «같이 듣기로 열기» 는 이 계정이 이 PC 에서 고른 것
 const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js)
 const EXP_CELLS = deps.EXP_CELLS;   // 읽는 함수
 const FLOATER_BURST = deps.FLOATER_BURST;
@@ -500,11 +500,11 @@ function _srFmtDate(ms){
    코드를 공유받은 친구는 칸이 안 보여도 된다 — COZY 칸에 «1234*» 로 넣으면 시크릿룸으로 간다. */
 /* 🎧 «내 시크릿룸을 같이 듣기로 열기» — 이 기기의 계정 칸에 기억(로그아웃해도 남고 같은 계정이 돌아오면 이어진다). 주인이 빈 방을 열 때 _meta.music 으로 쓴다. */
 const SECRET_MUSIC_KEY = 'tw.secretRoomMusic';
-function _secretMusicOn(){ try{ return accountStore.get(SECRET_MUSIC_KEY) === '1'; }catch(_){ return false; } }
+function _secretMusicOn(){ try{ return roomEntryAccountStore.get(SECRET_MUSIC_KEY) === '1'; }catch(_){ return false; } }
 /* 🎧 시크릿룸을 «연다» — 주인이 들어갈 때 같이 듣기 선택을 늘 싣는다. 비어 있는 방을 여는 때인지는 서버가 가른다(join.create 는 방이 없을 때만 보고,
    시크릿룸 music 은 주인이 연 때만 받는다 — 손님이 먼저 열면 같이 듣기가 아니고, 이미 열린 방의 듣던 곡은 지워지지 않는다). → { music } | undefined */
 function _secretOpenFields(isOwner){ return isOwner ? { music: _secretMusicOn() } : undefined; }
-{ const c=document.getElementById('fsSecretMusic'); if(c) c.addEventListener('change', ()=>{ try{ accountStore.set(SECRET_MUSIC_KEY, c.checked ? '1' : '0'); }catch(_){} }); }
+{ const c=document.getElementById('fsSecretMusic'); if(c) c.addEventListener('change', ()=>{ try{ roomEntryAccountStore.set(SECRET_MUSIC_KEY, c.checked ? '1' : '0'); }catch(_){} }); }
 function _refreshSecretRoomUI(){
   const w=document.getElementById('fsInviteSecretWrap'); const inp=document.getElementById('fsInviteSecretCode');
   if(!w) return;

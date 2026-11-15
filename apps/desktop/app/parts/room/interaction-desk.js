@@ -13,6 +13,7 @@
 (function(){
 
 function createInteractionDesk(deps){
+const accountStore = deps.accountStore;   // 🗂️ 계정별 칸(shared/account-store.js) — 지금 쓰는 상호작용 책상은 이 계정이 이 PC 에서 고른 것
 const CIRCUS_ARM_DROP = deps.CIRCUS_ARM_DROP;
 const CIRCUS_LEG_LIFT = deps.CIRCUS_LEG_LIFT;
 const CIRCUS_LEG_STAND = deps.CIRCUS_LEG_STAND;
@@ -203,10 +204,10 @@ function isDeskUnlocked(def){
   const lv = (typeof focusLevelMod().getFocusLevel==='function') ? focusLevelMod().getFocusLevel() : 1;
   return lv >= (def.reqLevel||1);
 }
-// 현재 내가 쓰는 상호작용 책상 id(교체 방식) — localStorage 보관.
+// 현재 내가 쓰는 상호작용 책상 id(교체 방식) — 계정 칸 보관.
 const ACTIVE_IDESK_KEY = 'tw.activeInteractionDesk';
-function getActiveInteractionDeskId(){ try{ return localStorage.getItem(ACTIVE_IDESK_KEY) || null; }catch(_){ return null; } }
-function setActiveInteractionDeskId(id){ try{ if(id) localStorage.setItem(ACTIVE_IDESK_KEY, id); else localStorage.removeItem(ACTIVE_IDESK_KEY); }catch(_){} }
+function getActiveInteractionDeskId(){ try{ return accountStore.get(ACTIVE_IDESK_KEY) || null; }catch(_){ return null; } }
+function setActiveInteractionDeskId(id){ try{ if(id) accountStore.set(ACTIVE_IDESK_KEY, id); else accountStore.remove(ACTIVE_IDESK_KEY); }catch(_){} }
 
 /* 🐾 "남의 캐릭터는 못 올려요" 토스트 스로틀 — 드래그를 연달아 시도해도 토스트가 쌓이지 않게. */
 let _rideDenyToastAt = 0;

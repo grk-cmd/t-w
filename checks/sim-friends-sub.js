@@ -9,7 +9,7 @@
    ・2-3b절: 새 친구 — 켠 뒤 늘어난 id 만 readFriend 로 한 명씩(listFriends 다시 안 부름) · 진행 중 · 실패 · 없음도 친구당 한 번 · 지난 실행 버림 ·
          실패면 자리표시 · 첫 구독 값 · 첫 받기 중엔 안 묻음 · 다시 받은 목록에 없는 새 친구는 알던 이름 남김
    ・2-4절: 접속 상태 — 목록이 열려 있는 동안만 듣는다(평소 0 · 열면 1벌 · 닫으면 0) · 그 친구만 한 번 읽기(refreshPresence)
-   ・3절: firebase-init.js 친구 함수를 떼어 가짜 onValue 로 — 목록 구독 1개(친구별 0) · 새로 걸면 앞의 것 풀림 · 에러 콜백 · 카드 · 접속 상태 · 판정용 읽기 경로
+   ・3절: firebase-init.js 에 친구 목록 · 카드 · 프로필 · 요청의 Firebase 길이 없다(서버 한 길)
    ・4절: app.js _waitForFirebaseAPI — 포기 없음(타이머 안 씀) · firebase-ready 를 once 로 기다림 · 이미 준비면 바로
    ・5절: myhome-init.js — 친구 구독이 첫 await(쓰기)보다 먼저 · 쓰기가 영영 안 끝나도 구독은 걸림 · subscribeMyFriends 를 직접 안 부름
    ・5-2절: 부르는 곳 — 친구 추가 · 수락은 friendsForCheck 로 판정 · 친구 탭 · 초대 목록을 열 때 retryIfFailed · 다른 파일에 친구 경로 직접 읽기 0곳
@@ -482,68 +482,12 @@ async function judge(S){
     chk(E.fetches.length === 0 && E.subs.length === 0 && E.toasts.length === 0 && r0 && !Object.keys(r0).length,
       '내 코드 없음 · 시작 전 판정 — 요청 0 · 빈 목록 · 토스트 0');
   }
-  /* ── 3. firebase-init.js 친구 함수(옛 길) ── */
-  say('── 3. firebase-init.js — 목록 구독 하나(친구별 구독 없음) · 카드 한 번 읽기 · 프로필 구독 · 한 번 읽기 (접속 상태는 realtime)');
-  const i0 = S.FB.indexOf('    watchMyFriendList(myId, onChange, onError){');
-  const i1 = i0 < 0 ? -1 : S.FB.indexOf('    async getFriendProfile(fid){', i0);
-  const i2 = i1 < 0 ? -1 : S.FB.indexOf('\n    },\n', i1);
-  chk(i0 > 0 && i1 > i0 && i2 > i1 && S.FB.indexOf('    subscribeMyFriends(') < 0, 'watchMyFriendList · getFriendCard · 프로필 구독 · 한 번 — 친구별 4개 구독(subscribeMyFriends)은 없앴다');
-  if(i0 > 0 && i2 > i1){
-    const method = S.FB.slice(i0, i2 + 6);
-    const R = { live: [], gets: [] };
-    const ref = (db, p) => ({ p });
-    const onValue = (r, cb, err) => { const l = { p: r.p, cb, err, on: true }; R.live.push(l); return () => { l.on = false; }; };
-    const get = async (r) => { R.gets.push(r.p); return { val: () => ({ 'users/F/profile': { name: 'N', level: 2 }, 'users/F/home/bio': 'B', 'users/F/home/avatar': 'A', 'users/F/presence': { online: true } })[r.p] }; };
-    let fb = null;
-    try{
-      fb = new Function('ref', 'onValue', 'get', 'db', 'console',
-        'let _myFriendsOff = null;\nconst api = {\n' + method + '\n};\nreturn api;')(ref, onValue, get, {}, { warn(){}, log(){} });
-    }catch(e){ chk(false, '떼어 굴리기 실패 — ' + e.message); }
-    if(fb){
-      const on = (p) => R.live.filter(l => l.on && (!p || l.p === p));
-      const got = [], errs = [];
-      const offA = fb.watchMyFriendList('ME', (f) => got.push(['A', f]), (e) => errs.push(['A', e]));
-      chk(typeof offA === 'function' && on().length === 1 && on()[0].p === 'users/ME/friends' && typeof on()[0].err === 'function', '목록 구독 1개 · onValue 에 에러 콜백 · 해제 함수를 돌려준다');
-      const listA = on()[0];
-      const many = {}; for(let k = 0; k < 100; k++) many['f' + k] = { addedAt: k };
-      listA.cb({ val: () => many });
-      chk(on().length === 1 && got.length === 1 && Object.keys(got[0][1]).length === 100, '★ 친구 100명이어도 구독은 목록 1개(친구별 구독 0) · 받은 대로 바로 넘긴다');
-      const offB = fb.watchMyFriendList('ME', (f) => got.push(['B', f]), (e) => errs.push(['B', e]));
-      chk(on().length === 1 && on()[0] !== listA, '다시 걸면 앞의 것을 풀고 새 목록 1개만');
-      listA.cb({ val: () => ({ late: {} }) });
-      chk(!got.some(g => g[0] === 'A' && g[1].late), '  풀린 구독의 늦은 소식은 버린다');
-      const listB = on()[0];
-      listB.cb({ val: () => null });
-      chk(got[got.length - 1][0] === 'B' && Object.keys(got[got.length - 1][1]).length === 0, '빈 목록도 넘긴다(받음 · 친구 없음)');
-      listB.err(new Error('permission_denied'));
-      chk(on().length === 0 && errs.length === 1 && errs[0][0] === 'B', '거부 · 끊김 — 풀고 onError 한 번');
-      offB(); offA();
-      chk(on().length === 0, '  해제 함수는 몇 번 불러도 탈 없음');
-      const c = await fb.getFriendCard('F');
-      chk(R.gets.join() === 'users/F/profile,users/F/home/bio,users/F/home/avatar' && c.profile.name === 'N' && c.bio === 'B' && c.avatar === 'A',
-        '카드 한 번 읽기 — 프로필 · 소개 · 사진 세 칸만(home 통째 아님) · 날것 그대로');
-      chk(!('watchFriendPresence' in fb) && !('getFriendPresence' in fb), '접속 상태 구독 · 한 번 읽기는 옛 길에 없다(realtime 으로 옮겼다)');
-      const profs = [];
-      const offP = fb.watchFriendProfile('F', (v) => profs.push(v));
-      const pl = on('users/F/profile')[0];
-      chk(pl && on().length === 1, '프로필 구독 — users/{친구}/profile 1개');
-      pl.cb({ val: () => ({ name: 'N' }) });
-      offP();
-      chk(profs.length === 1 && profs[0].name === 'N' && on().length === 0, '  날것을 넘긴다 · 해제하면 0개');
-    }
-  }
-  {
-    const g0 = S.FB.indexOf('    async getMyFriendList(myId){');
-    const g1 = g0 < 0 ? -1 : S.FB.indexOf('\n    },\n', g0);
-    chk(g0 > 0 && g1 > g0, '판정용 한 번 읽기 getMyFriendList(myId) 가 있다');
-    if(g0 > 0 && g1 > g0){
-      const reads = [];
-      const fb2 = new Function('ref', 'get', 'db', 'const api = {\n' + S.FB.slice(g0, g1 + 6) + '\n};\nreturn api;')(
-        (db, p) => ({ p }), async (r) => { reads.push(r.p); return { val: () => (r.p === 'users/ME/friends' ? { f1: { addedAt: 1 } } : null) }; }, {});
-      const v = await fb2.getMyFriendList('ME');
-      chk(reads.join() === 'users/ME/friends' && v.f1 && v.f1.addedAt === 1, '  users/{나}/friends 한 경로만 한 번 읽는다(통째 읽기 없음)');
-    }
-  }
+  /* ── 3. firebase-init.js 에 친구 읽기 · 구독이 없다(서버 한 길 — 옛 길은 걷었다) ── */
+  say('── 3. firebase-init.js — 친구 목록 · 카드 · 프로필 · 요청의 Firebase 길이 없다');
+  const OLD_FRIEND_FNS = ['watchMyFriendList', 'getMyFriendList', 'getFriendCard', 'watchFriendProfile', 'getFriendProfile', 'subscribeMyFriends', 'subscribeFriendRequests'];
+  const left = OLD_FRIEND_FNS.filter((n) => new RegExp('^    (async )?' + n + '\\(', 'm').test(S.FB));
+  chk(!left.length, '친구 목록 · 카드 · 프로필 구독 · 한 번 읽기 · 요청 구독이 firebaseAPI 에 없다' + (left.length ? ' — 남음: ' + left.join(' · ') : ''));
+  chk(!/users\/\$\{\w+\}\/friends`/.test(S.FB), '  users/{나}/friends 경로를 firebase-init.js 가 읽지 않는다');
 
   /* ── 4. app.js _waitForFirebaseAPI ── */
   say('── 4. app.js _waitForFirebaseAPI — 포기 없음 · firebase-ready 기다림');
@@ -574,7 +518,7 @@ async function judge(S){
 
   /* ── 5. myhome-init.js — 구독이 쓰기보다 먼저 ── */
   say('── 5. myhome-init.js — 친구 구독이 await 쓰기보다 먼저');
-  const body = ((S.MI.match(/async function initMyHome\(code, me\)\{([\s\S]*?)\nreturn \{/) || [])[1] || '').replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');   // 주석 속 «await» 글자는 빼고
+  const body = ((S.MI.match(/async function initMyHome\(code, me, session\)\{([\s\S]*?)\nreturn \{/) || [])[1] || '').replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');   // 주석 속 «await» 글자는 빼고
   const iStart = body.indexOf('friendsSub.start('), iAwait = body.search(/\bawait\b/);
   chk(iStart > 0 && iAwait > 0 && iStart < iAwait, 'friendsSub.start 가 첫 await 보다 앞');
   chk(!/firebaseAPI\.(subscribeMyFriends|watchMyFriendList)\(/.test(S.MI), '  친구 목록 구독은 friends-sub 로만 건다(두 벌로 걸지 않음)');
@@ -619,8 +563,6 @@ async function judge(S){
   chk(kOpen > 0 && kRetry > kOpen && kNotice > kRetry, '워킹룸 초대 목록을 열 때 _friendsRetry → 안내 읽기');
   const direct = ALL_JS.filter(([f, src]) => f !== 'firebase-init.js' && f !== 'friends-sub.js' && /\/friends`\s*\)|getMyFriendList\(/.test(strip(src).replace("getList: (...a)=>firebaseAPI.getMyFriendList(...a),", '')));
   chk(!direct.length, '다른 파일에 친구 경로 직접 읽기 · getMyFriendList 부르기 0곳(app.js 의 firebase provider deps 한 줄만)' + (direct.length ? ' — ' + direct.map(d => d[0]).join(' · ') : ''));
-  const fbFriendGets = (strip(S.FB).match(/get\(ref\(db, `users\/\$\{\w+\}\/friends`\)\)/g) || []).length;
-  chk(fbFriendGets === 1, '  firebase-init.js 의 친구 목록 get 도 한 곳(getMyFriendList) (' + fbFriendGets + ')');
 }
 
 /* 판정 하나가 영영 안 끝나면(풀리지 않는 Promise) node 는 말없이 0 으로 끝난다 — 상한을 두고 «멈춤» 은 실패로 센다 */
@@ -674,10 +616,8 @@ const BREAKS = [
   ['FS', "      .then(v=>{ if(run !== _run || !v) return;", "      .then(v=>{ if(!v) return;", '지난 실행의 늦은 한 명 받기를 받아 씀'],
   ['FS', "  if(!_detailsTried || !_myId) return;", "  if(!_myId) return;", '첫 목록 받기 중에도 한 명씩 물음'],
   ['FS', "_details = _keepKnown(v || {});", "_details = v || {};", '다시 받은 목록이 새 친구 이름을 지움'],
-  ['FB', '      if(_myFriendsOff) _myFriendsOff();\n', '', '새로 걸 때 앞의 것을 안 풂(동시 2개)'],
-  ['FB', '      }, err=>{\n        teardown();', '      }, err=>{', '거부돼도 친구별 구독이 남음'],
-  ['FB', '        if(onError) onError(err);\n', '', '에러를 안 알림'],
-  ['APP', "  TwNetReady.whenNetReady(()=>cb(), 'watchMyFriendList');", "  setTimeout(()=>_waitForFirebaseAPI(cb), 500);", '예전 폴링으로 되돌림'],
+  ['FB', '    async lookupFriendCode(code){', '    async getMyFriendList(myId){ return (await get(ref(db, `users/${myId}/friends`))).val(); },\n    async lookupFriendCode(code){', '옛 친구 목록 읽기를 firebaseAPI 에 다시 둠'],
+  ['APP', "  TwNetReady.whenNetReady(()=>cb());   // 준비 키(need)를 주지 않는다", "  setTimeout(()=>_waitForFirebaseAPI(cb), 500);", '예전 폴링으로 되돌림'],
   ['NET', "  window.addEventListener(NET_READY_EVENT, cb, { once:true });", "  window.addEventListener(NET_READY_EVENT, cb, { once:false });", 'once 를 뺌'],
   ['MI', '      friendsSub.start(myId,', '      await Promise.resolve();\n      friendsSub.start(myId,', '구독을 await 뒤로'],
   ['UI', '    if(!_fr) return;\n', '', '판정용 목록을 못 읽어도 보냄'],
