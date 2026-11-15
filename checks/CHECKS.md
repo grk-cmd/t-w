@@ -82,7 +82,7 @@
 | **sim-char-z.js** | 225 | **92fb9efdb2c1** |
 | **sim-cfg-fit.js** | 145 | **26df0415ed74** |
 | **sim-chat-fly.js** | 360 | **b52fd913a6d7** |
-| **sim-bug-board.js** | 859 | **4cb1bdd108b7** |
+| **sim-bug-board.js** | 859 | **957badf3ebbd** |
 | **sim-bug-no.js** | 159 | **afeda1efa43f** |
 | **sim-bug-cleanup.js** | 191 | **7c41fc91c912** |
 | **sim-bump-version.js** | 108 | **9c635d7b9caa** |
@@ -441,7 +441,8 @@
 | **sim-seat-panel.js** | 163 | **2f9bad25ac96** |
 | **sim-user-status-table.js** | 125 | **8727d9f8adac** |
 | **sim-chip-popups.js** | 128 | **e58ffad1803b** |
-| **sim-rules-keys.js** | 329 | **e1ce6f534d2a** |
+| **sim-rules-keys.js** | 336 | **e8bf8207fc1a** |
+| **sim-xmas-server.js** | 274 | **7cf2c5f028ab** |
 | **sim-rules-src.js** | 78 | **12241e59c87b** |
 | **sim-rules-drift.js** | 175 | **2782c5c73084** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |

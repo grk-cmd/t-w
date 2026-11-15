@@ -68,7 +68,7 @@ chk(S(bb['.write']) && ADMIN.test(S(bb['.write'])) && !/\|\|/.test(S(bb['.write'
 }
 {
   const tag = S(at('inbox/$uid/$msgId')['.validate']);
-  chk(/matches\(\/\^\(notice\|update\|reward\|bug\)\$\/\)/.test(tag), '④ 우편함 tag 에 bug 가 있다 (없으면 알림이 조용히 실패)');
+  chk(/matches\(\/\^\((?:[a-z]+\|)*bug(?:\|[a-z]+)*\)\$\/\)/.test(tag), '④ 우편함 tag 에 bug 가 있다 (없으면 알림이 조용히 실패)');
 }
 {
   const v = S(at('bugBoard/list/$id')['.validate']);
