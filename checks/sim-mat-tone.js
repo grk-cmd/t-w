@@ -3,7 +3,7 @@
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(applyLightPresetToInstance · setFaceMap)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 만드는 줄 · deps 1줄 그대로 · 부르는 곳은 matToneMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
-   ・4절: 동작 — 가짜 DOM · deps 로 모듈을 만들어 입력 → 결과(경계값 포함)를 본다
+   ・4절: 동작 — 진짜 코어 톤(빌드 사본) · 가짜 재질로 입력 → 결과(경계값 포함)를 본다. 🐾 동물 귀 깜빡임은 이 모듈 몫(앱)
    [실행] app.js · desk-companion-prototype.html · mat-tone.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -18,12 +18,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — mat-tone.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = [];
-const VAL_DEPS = ["FLAT_EMISSIVE"];
+const VAL_DEPS = ["tone"];
 const GET_DEPS = [];
 const SET_DEPS = [];
 const EXPORTS = ["applyLightPresetToInstance","setFaceMap"];
 const MOVED = ["setFaceMap","applyLightPresetToInstance"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  FLAT_EMISSIVE: FLAT_EMISSIVE,"];
+const GLUE = ["  tone: lightToneMod.toneCore,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다. */
 function anything(){
@@ -129,7 +129,12 @@ function fakeDom(absent){   // absent: 처음엔 없는(코드가 만들어 붙�
 function col(r, g, b){ return { r, g, b, copy(c){ this.r = c.r; this.g = c.g; this.b = c.b; return this; }, multiplyScalar(k){ this.r *= k; this.g *= k; this.b *= k; return this; }, setScalar(v){ this.r = this.g = this.b = v; return this; } }; }
 function mat(o){ return Object.assign({ map: null, emissiveMap: null, needsUpdate: false, color: col(1, 1, 1), emissive: col(0, 0, 0), userData: {} }, o || {}); }
 const FLAT = 0.35;
-const T = build(MOD, { FLAT_EMISSIVE: FLAT });
+/* 사람 몫(얼굴 맵 · 평탄 조명)은 캐릭터 코어(createTone · #437) — 빌드 사본으로 만든 진짜 톤을 넘긴다 */
+const CORE = ['vendor/char-core/char-core.iife.js', 'app/vendor/char-core/char-core.iife.js'].map(read).find(Boolean);
+if(!CORE){ say('  ? 원본 못 찾음 — vendor/char-core/char-core.iife.js'); process.exit(2); }
+const charCore = new Function(CORE + '\nreturn TwCharCore;')();
+const toneOf = (F) => charCore.createTone({ THREE: { Color: function(){ return col(1, 1, 1); } }, flatEmissive: F, fixMatLighting(){} });
+const T = build(MOD, { tone: toneOf(FLAT) });
 const near = (a, b) => Math.abs(a - b) < 1e-9;
 { let threw = false; try{ T.setFaceMap(null, {}); T.setFaceMap(mat(), null); }catch(_){ threw = true; }
   chk(!threw, 'setFaceMap — 재질 · 텍스처가 없으면 조용히 돌아간다'); }
@@ -167,7 +172,7 @@ const near = (a, b) => Math.abs(a - b) < 1e-9;
   chk(noColor.emissive.r === FLAT, '색이 없는 재질 — emissive 를 FLAT_EMISSIVE 로');
   chk(noEm.emissive === null, 'emissive 가 없는 재질 · null 은 건너뛴다');
   chk(face.emissive.r === FLAT, '얼굴은 litMats 에 있어도 한 번만(위 규칙 그대로)'); }
-{ const T0 = build(MOD, { FLAT_EMISSIVE: 0 }); const up = mat({ color: col(1, 1, 1) }); T0.applyLightPresetToInstance({ upMat: up });
+{ const T0 = build(MOD, { tone: toneOf(0) }); const up = mat({ color: col(1, 1, 1) }); T0.applyLightPresetToInstance({ upMat: up });
   chk(up.emissive.r === 0, '경계 — FLAT_EMISSIVE 0 이면 emissive 0'); }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
