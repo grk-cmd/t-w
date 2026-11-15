@@ -4239,7 +4239,7 @@ const creatorOpenMod = TwCreatorOpen.createCreatorOpen({
   _editRoute: _editRoute,
   _syncCrColorSwatches: _syncCrColorSwatches,
   applyDeskItemsTo: applyDeskItemsTo,
-  applyDesktopRunClass: ()=>applyDesktopRunClass,
+  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
   applyEquippedPartsToSeat: applyEquippedPartsToSeat,
   assetCodeMod: ()=>assetCodeMod,
   b64ToBuf: b64ToBuf,

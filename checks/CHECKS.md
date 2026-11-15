@@ -234,7 +234,7 @@
 | **sim-rig-anim.js** | 92 | **57328d0eb014** |
 | **sim-frame-pace.js** | 110 | **b709e852945f** |
 | **sim-window-mode.js** | 123 | **a202fa26b2bc** |
-| **sim-creator-open.js** | 104 | **0cecb0743e29** |
+| **sim-creator-open.js** | 104 | **41cb129fb04c** |
 | **sim-creator-canvas.js** | 132 | **7aaa8c152499** |
 | **sim-frame-loop.js** | 108 | **620d2c668ed6** |
 | **sim-flying-chair.js** | 96 | **fb813aeb71f9** |
