@@ -99,7 +99,7 @@
 | **sim-friend-visit.js** | 115 | **c33a7fed1e41** |
 | **sim-friends-sub.js** | 642 | **736cc9a7e189** |
 | **sim-friends-port.js** | 325 | **2130fd1ee084** |
-| **sim-friends-presence-rt.js** | 358 | **b2c59182bc84** |
+| **sim-friends-presence-rt.js** | 358 | **65eb89f309b0** |
 | **sim-social-api.js** | 275 | **3c3a4c43d6fa** |
 | **sim-friend-profile-live.js** | 216 | **ea0967a796fb** |
 | **sim-second-instance.js** | 226 | **65e5433c9fed** |
@@ -480,8 +480,8 @@
 | **sim-device-id.js** | 103 | **44a934497fba** |
 | **sim-account-store.js** | 622 | **9d89ccf7d6c3** |
 | **sim-api-errors.js** | 126 | **46fbbfebb0fc** |
-| **sim-rt-hub.js** | 500 | **2dcfa21ce5ca** |
-| **sim-rt-status-ui.js** | 245 | **a5503f36aa86** |
+| **sim-rt-hub.js** | 525 | **4be17ca21cbc** |
+| **sim-rt-status-ui.js** | 245 | **64adff52d476** |
 | **sim-run-verdict.js** | 67 | **4303b789970f** |
 | **sim-user-api.js** | 210 | **4d90ddb87f1c** |
 | **sim-login-flow.js** | 369 | **7751b6ea52e8** |
@@ -498,7 +498,7 @@
 | **sim-bookshelf-store.js** | 258 | **2647af3c408b** |
 | **sim-myhome-store.js** | 629 | **cbeeada94f57** |
 | **sim-myhome-wire.js** | 122 | **a6c458b30715** |
-| **sim-room-rt.js** | 364 | **19243ed66e49** |
+| **sim-room-rt.js** | 364 | **8e7119496345** |
 | **sim-chat-rt.js** | 222 | **eed374898aaa** |
 | **sim-room-invite-rt.js** | 85 | **aaf5c3f73ec3** |
 | **sim-purikura-rt.js** | 458 | **24a5cf75951c** |
