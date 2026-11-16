@@ -328,8 +328,8 @@ const RCM = require(path.resolve(where('remote-config.js')));
     const csp = [...HTML.matchAll(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/g)].map((m) => m[1]);
     const conn = csp.map((c) => (/connect-src ([^;]+);/.exec(c) || [])[1] || '');
     const has = (c, pre, dom) => new RegExp('(^| )' + pre + ':\\/\\/\\*\\.' + dom.replace(/\./g, '\\.') + '( |$)').test(c);
-    chk(csp.length === 2 && conn.every((c) => ['together-working.com', 'togetherworking.duckdns.org'].every((d) => has(c, 'wss', d) && has(c, 'https', d))),
-      'CSP 두 줄 — wss · https://*.together-working.com(새 도메인) · *.togetherworking.duckdns.org(옛 주소 — 옛 설정값 · dev)');
+    chk(csp.length === 2 && conn.every((c) => has(c, 'wss', 'together-working.com') && has(c, 'https', 'together-working.com') && !/duckdns/.test(c)),
+      'CSP 두 줄 — wss · https://*.together-working.com 만(옛 임시 도메인 duckdns 는 뺌 — E-6)');
     chk(/^https:\/\/[a-z0-9-]+\.together-working\.com$/.test(require(path.resolve(where('api-client.js'))).API_BASE_PROD), '  ↳ API 주소(api-client.js API_BASE_PROD)도 새 https 와일드카드 안(CSP 를 따로 열지 않음)');
     chk(conn.every((c) => !/rooms(-dev)?\.togetherworking/.test(c) && !/\bws:\/\/\*|wss:\/\/\*\.duckdns|\*\.duckdns\.org|https?:\/\/\*( |$)|\*\.com( |$)|\*-working/.test(c)), '  ↳ 다른 도메인은 그대로 막는다(duckdns 전체 · .com 전체 · ws 와일드카드 없음)');
   }
