@@ -1230,7 +1230,10 @@
      ★ 2026-09-23: 쓰는 사람이 없음을 확인하고 **서버 규칙에서도 `mysRooms` 를 내렸다**(개정 63).
         남은 것은 콘솔의 옛 데이터뿐 — 규칙이 내려간 뒤에 지운다(순서가 반대면 지우자마자 다시 생길 수 있다). */
 
-  /* 🌐 공개 읽기(파도타기 · 명함 · 사진 · 방 개수 표시 · 랜덤 참여 후보)는 API 사본 먼저 → 실패면 위 함수 그대로(api-public-reads.js). */
-  createApiPublicReads({ api: (window.TwApi && window.TwApi.client) || null, readCell: (path) => get(ref(db, path)).then(s => s.val()) }).wrap(window.firebaseAPI);
+  /* 🌐 명함 읽기는 서버 길 한 곳(api-public-reads.js) — 실패해도 위 Firebase 함수로 물러나지 않는다.
+     길은 친구 쪽 social-api.js fetchCards(GET /v2/myhomes/cards?codes=)를 그대로 쓴다(읽기뿐이라 따로 한 벌) */
+  const _cardApi = (window.TwSocialApi && window.TwApi && window.TwApi.authed)
+    ? window.TwSocialApi.createSocialApi({ authed: window.TwApi.authed, warn: (...a) => console.warn(...a) }) : null;
+  createApiPublicReads({ fetchCards: _cardApi ? (codes) => _cardApi.fetchCards(codes) : null }).wrap(window.firebaseAPI);
   try{ window.firebaseAPI.chatHistory.bindSettings(document, (m) => { window.toast(m); }); }catch(_){}   // 설정 › 시스템 [저장된 대화 지우기]
   window.dispatchEvent(new Event('firebase-ready'));

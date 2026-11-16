@@ -278,7 +278,7 @@
 | **sim-focus-progress.js** | 390 | **0195fe25d4c3** |
 | **sim-chat-window.js** | 565 | **9b933ee52a05** |
 | **sim-api-client.js** | 479 | **bda2b63251db** |
-| **sim-api-public-reads.js** | 148 | **4d8620d1b68c** |
+| **sim-api-public-reads.js** | 189 | **2c84e4ce51de** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
 | **sim-remote-config.js** | 372 | **1b5dcfbf856c** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
