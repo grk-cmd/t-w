@@ -2120,6 +2120,11 @@ const demojiPalMod = TwDemojiPalette.createDemojiPalette({
 /* 👍 플레이리스트 반응 — 플레이리스트보다 먼저 만든다(만들 때 소개칸을 그리며 부른다). 서버는 firebaseAPI.playlistLike(늦게 붙어서 부를 때 찾는다) */
 const plLikeUi = TwPlaylistLikeUi.createPlaylistLikeUi({ likeRules: TwPlaylistLike, net: ()=>firebaseAPI.playlistLike,
   getMyUserId: (...a)=>getMyUserId(...a), notifyError: (...a)=>TwErrorCodes.notify(...a) });
+/* 🎄 크리스마스 창(일회성 · 다음 업데이트에서 걷는다) — 서버는 firebaseAPI.xmas(늦게 붙음) · 런처 [🎄 크리스마스] 가 연다 · 창 크기는 applyDesktopRunClass · 그림 사본은 GLB 영구 캐시(IndexedDB · 45일)에 */
+TwXmasWindow.createXmasWindow({ THREE, ps1Dither: TwPs1Dither, rules: TwXmasRules, treeMod: TwXmasTree, net: ()=>firebaseAPI.xmas, serverNow: ()=>firebaseAPI.serverNow(),
+  onReady: (fn)=>TwNetReady.whenNetReady(fn, 'serverNow'), notifyError: (...a)=>TwErrorCodes.notify(...a), toast: (...a)=>toast(...a),
+  escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a), onSizeChange: ()=>applyDesktopRunClass(),
+  idbGet: (k)=>glbIdbMod._glbIdbGet(k), idbPut: (k, v)=>glbIdbMod._glbIdbPut(k, v) });
 const plMod = TwPlaylist.createPlaylist({
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
@@ -9137,13 +9142,15 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
   const inviteOv = document.getElementById('inviteOverlay');
   const inviteOn = !!(inviteOv && inviteOv.classList.contains('on'));
   const showMyHomeSized = (mhOn || inviteOn) && launcherOn;
+  const xmasOv = document.getElementById('xmasOverlay');   // 🎄 크리스마스 창도 런처에서 열리면 마이홈 크기(스티커 여백 없이)
+  const xmasSized = !!(xmasOv && xmasOv.classList.contains('on')) && launcherOn;
   const config = launcherOn || creatorOpen;
   const runOverlay = appMode==='run' && !config;
   document.body.classList.toggle('runmode', runOverlay);
   document.body.classList.toggle('config', config);   // 런처/생성기 열림 여부 — CSS에서 #scene 숨김에 사용
   if(typeof floor!=='undefined') floor.visible = !runOverlay;        // 투명 오버레이일 땐 바닥 숨김(데스크톱 비침)
   // 화면 종류에 따라 창 크기가 달라야 함: 생성기는 넓게, 마이홈(런처에서 열렸을 때)도 넓게, 런처는 카드 크기, 실행은 전체화면
-  const mode = creatorOpen ? 'creator' : (showMyHomeSized ? 'myhome' : (launcherOn ? 'launcher' : 'run'));
+  const mode = creatorOpen ? 'creator' : ((showMyHomeSized || xmasSized) ? 'myhome' : (launcherOn ? 'launcher' : 'run'));
   // 🎨 런처 마이홈 — 창 밖으로 나간 스티커만큼 창을 넓혀 달라고 같이 보낸다(_mhStickerOverhang)
   const extra = (mode === 'myhome' && mhOn) ? mhStLayoutMod._mhStickerOverhang() : null;
   if(window.companion&&companion.setConfigMode) companion.setConfigMode(config, mode, extra);

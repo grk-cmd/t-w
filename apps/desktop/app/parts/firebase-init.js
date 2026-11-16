@@ -3265,7 +3265,7 @@
                                getDailyMax: () => _rc ? _rc.refresh({ maxAgeMs: window.TwRemoteConfig.STALE_MS }).then(() => _rc.bugDailyMax()) : null,
                                authUid: () => (auth && auth.currentUser) ? auth.currentUser.uid : null }),
     chatNotice: window.TwChatNoticeNet.createChatNoticeNet({ db, ref, update, remove, set, onValue, off, runTransaction }), roomFocus: window.TwRoomFocusNet.createRoomFocusNet({ db, ref, update, remove, set, onValue, off, runTransaction }),   // 📢 시크릿룸 공지 · 📊 집중 기록 읽기 · 쓰기(경로 · 이유는 chat-notice-net.js · room-focus-net.js)
-    playlistLike: window.TwPlaylistLike.createPlaylistLikeNet({ db, ref, get, update, authUid: () => (auth && auth.currentUser) ? auth.currentUser.uid : null }),   // 👍 플레이리스트 반응 읽기 · 쓰기(경로 · 이유는 status/playlist-like.js)
+    playlistLike: window.TwPlaylistLike.createPlaylistLikeNet({ db, ref, get, update, authUid: () => (auth && auth.currentUser) ? auth.currentUser.uid : null }), xmas: window.TwXmasNet.createXmasNet({ db, ref, get, set, serverTimestamp, authUid: () => (auth && auth.currentUser) ? auth.currentUser.uid : null, callFn: async (name, data) => { const mod = await import(FUNCTIONS_SDK_URL); return mod.httpsCallable(mod.getFunctions(fbApp, FUNCTIONS_REGION), name)(data); } }),   // 👍 플레이리스트 반응 읽기 · 쓰기(경로 · 이유는 status/playlist-like.js) · 🎄 xmas = 크리스마스 이벤트(일회성 · parts/xmas/xmas-net.js — 다음 업데이트에서 걷는다)
     /* 💬 대화 기록(서버 3일 · 이 PC 저장 · 커서 이어 받기) — 규칙은 chat-history.js. 여기는 연결만. */
     chatHistory: createChatHistory({
       store: createIdbChatStore(typeof indexedDB !== 'undefined' ? indexedDB : null, (firebaseConfig && firebaseConfig.databaseURL) || ''),
