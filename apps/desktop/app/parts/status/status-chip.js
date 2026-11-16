@@ -22,6 +22,7 @@ const _charProjSane = deps._charProjSane;
 const _closeChipPopups = deps._closeChipPopups;
 const _danceCmdCooldownAt = deps._danceCmdCooldownAt;   // 읽는 함수
 const _lowestDanceReq = deps._lowestDanceReq;
+const lockedToast = deps.lockedToast;   // 잠긴 안내 글(room/interaction-desk.js)
 const _moveModeJustToggled = deps._moveModeJustToggled;   // 읽는 함수
 const _officeHidden = deps._officeHidden;   // 읽는 함수
 const _seatHidden = deps._seatHidden;   // 🙈 숨긴 좌석(hidden-seats.js)
@@ -644,7 +645,7 @@ function updateMyStatusChipPosition(){
     myDanceBtn.addEventListener('click', e=>{
       e.stopPropagation();
       const def = _pickUnlockedDance();
-      if(!def){ toast('🔒 Lv.'+_lowestDanceReq()+' 달성 시 사용할 수 있어요'); return; }
+      if(!def){ toast(lockedToast(_lowestDanceReq(), '달성 시 사용할 수 있어요')); return; }
       // 개인 쿨다운 5초 (채팅 명령과 공유)
       const nowMs = Date.now();
       if(nowMs - _danceCmdCooldownAt() < 5000){ toast('⏳ 춤은 5초에 한 번!'); return; }

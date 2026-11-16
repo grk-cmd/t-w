@@ -331,10 +331,10 @@
 | **sim-away-pic.js** | 94 | **02105f2b9019** |
 | **sim-myhome-ui.js** | 133 | **22172287752c** |
 | **sim-tricks.js** | 120 | **058338ed6638** |
-| **sim-ride-bench.js** | 279 | **0078bf2bf95b** |
+| **sim-ride-bench.js** | 279 | **a7daa943540f** |
 | **sim-part-paint.js** | 94 | **ccaa45183979** |
 | **sim-focus-level.js** | 128 | **246cbe6794dd** |
-| **sim-chat-ui.js** | 126 | **00b18f7fd6e1** |
+| **sim-chat-ui.js** | 126 | **55fc3d864b1d** |
 | **sim-license-gate.js** | 350 | **766ae0bf2d48** |
 | **sim-account.js** | 174 | **96590bfd29ab** |
 | **sim-wardrobe.js** | 229 | **bada904416df** |
@@ -343,7 +343,7 @@
 | **sim-room-entry.js** | 347 | **f6ec3fae4938** |
 | **sim-overhead.js** | 161 | **169c381103c3** |
 | **sim-room-sync.js** | 123 | **ba1af4a95d89** |
-| **sim-status-chip.js** | 123 | **4251e46c8a7a** |
+| **sim-status-chip.js** | 123 | **7743a21efa1e** |
 | **sim-premium-assets.js** | 157 | **7bdad0f672dd** |
 | **sim-char-code.js** | 126 | **6af407976d28** |
 | **sim-dice-games.js** | 95 | **1debed57a729** |
@@ -355,7 +355,7 @@
 | **sim-sfx.js** | 96 | **d24a22a1d75f** |
 | **sim-face-heal.js** | 231 | **f18793ed8378** |
 | **sim-slot-save.js** | 183 | **48d93b48c8dc** |
-| **sim-interaction-desk.js** | 117 | **8f8d1de68c32** |
+| **sim-interaction-desk.js** | 123 | **7be6c3545276** |
 | **sim-ad-banner.js** | 145 | **537bed51325e** |
 | **sim-fn-keys.js** | 95 | **ddaff9377359** |
 | **sim-hidden-seats.js** | 118 | **3bdd8801a00a** |

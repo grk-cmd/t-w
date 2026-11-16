@@ -161,7 +161,15 @@ function _pickUnlockedDance(rnd){
 }
 /* 아직 아무것도 못 여는 사람에게 보여줄 '가장 가까운 해금 레벨'. 안내 문구가 실제 표와 어긋나지 않게 표에서 뽑는다. */
 function _lowestDanceReq(){
-  return DANCE_MOVES.reduce((m, d)=>d.reqLevel == null ? m : Math.min(m, d.reqLevel), Infinity);   // 하나도 못 받았으면 Infinity(안내 글이 «Lv.Infinity»)
+  return DANCE_MOVES.reduce((m, d)=>d.reqLevel == null ? m : (m == null ? d.reqLevel : Math.min(m, d.reqLevel)), null);   // 하나도 못 받았으면 null(= 모름 — 안내 글은 lockedToast)
+}
+/* 잠긴 안내 글 한 곳 — 레벨을 알면 «Lv.N …», 서버 표를 아직 못 받아 모르면 «해금 정보를 받는 중» 으로 드러낸다(레벨 글자를 지어내지 않는다). tail = 뒤에 붙는 말 */
+function lockedToast(level, tail){
+  return (level == null) ? '🔒 해금 정보를 받는 중이에요 — 잠시 뒤 다시 해 주세요' : '🔒 Lv.' + level + ' ' + tail;
+}
+/* 카드에 붙이는 레벨 글자 — 모르면 «?» */
+function levelText(level){
+  return (level == null) ? 'Lv.?' : 'Lv.' + level;
 }
 /* 💃 내 춤 시작 — 내 좌석에 danceUntil을 세우고 상태 전파를 즉시 밀어 친구 화면에도 반영.
    재입력하면 시간 갱신(계속 추기). 이동/흔들기 중엔 seatState가 다른 상태를 우선하므로 자연히 중단됨. */
@@ -263,6 +271,8 @@ return {
   isDanceUnlocked,
   isDeskUnlocked,
   applyUnlocks,
+  levelText,
+  lockedToast,
   setActiveInteractionDeskId,
   startMyDance,
 };

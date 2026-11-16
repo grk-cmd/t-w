@@ -21,7 +21,7 @@ const FN_DEPS = ["toast"];
 const VAL_DEPS = ["accountStore","CIRCUS_ARM_DROP","CIRCUS_LEG_LIFT","CIRCUS_LEG_STAND","RIDE_MAX_STACK","RIDE_SNAP_DIST","_rideTmp","_rideWP","rideBenchMod","seats","tricksMod"];
 const GET_DEPS = ["Presence","focusLevelMod","isAdmin"];
 const SET_DEPS = [];
-const EXPORTS = ["DANCE_MOVES","IDESK_ENABLED","INTERACTION_DESKS","TRICK_IN_S","TRICK_SPIN_S","TRICK_TURBO_STYLE","_danceCmdCooldownAt","setDanceCmdCooldownAt","_deskDefById","_lowestDanceReq","_parseDanceCmdChain","_pickUnlockedDance","_rideDenyToastAt","setRideDenyToastAt","_trickArmBase","_trickArmSpread","_trickEaseIn","_trickLegPose","_trickTurns","findRideTarget","getActiveInteractionDeskId","isDanceUnlocked","isDeskUnlocked","applyUnlocks","setActiveInteractionDeskId","startMyDance"];
+const EXPORTS = ["DANCE_MOVES","IDESK_ENABLED","INTERACTION_DESKS","TRICK_IN_S","TRICK_SPIN_S","TRICK_TURBO_STYLE","_danceCmdCooldownAt","setDanceCmdCooldownAt","_deskDefById","_lowestDanceReq","_parseDanceCmdChain","_pickUnlockedDance","_rideDenyToastAt","setRideDenyToastAt","_trickArmBase","_trickArmSpread","_trickEaseIn","_trickLegPose","_trickTurns","findRideTarget","getActiveInteractionDeskId","isDanceUnlocked","isDeskUnlocked","applyUnlocks","levelText","lockedToast","setActiveInteractionDeskId","startMyDance"];
 const MOVED = ["INTERACTION_DESKS","IDESK_ENABLED","DANCE_MOVES","TRICK_IN_S","TRICK_SPIN_S","TRICK_OUT_S","TRICK_TURNS","TRICK_TURBO_STYLE","TRICK_TURBO_MULT","_trickTurns","TRICK_LEG_SIDE","TRICK_ARM_LIFT","TRICK_ARM_SPREAD","_trickArmBase","_trickArmSpread","_trickEaseIn","_trickLegPose","_danceByCmd","_parseDanceCmdChain","_danceCmdCooldownAt","isDanceUnlocked","_pickUnlockedDance","_lowestDanceReq","startMyDance","_deskDefById","isDeskUnlocked","ACTIVE_IDESK_KEY","getActiveInteractionDeskId","setActiveInteractionDeskId","_rideDenyToastAt","findRideTarget"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  accountStore: accountStoreMod,","  CIRCUS_ARM_DROP: CIRCUS_ARM_DROP,","  CIRCUS_LEG_LIFT: CIRCUS_LEG_LIFT,","  CIRCUS_LEG_STAND: CIRCUS_LEG_STAND,","  Presence: ()=>Presence,","  RIDE_MAX_STACK: RIDE_MAX_STACK,","  RIDE_SNAP_DIST: RIDE_SNAP_DIST,","  _rideTmp: _rideTmp,","  _rideWP: _rideWP,","  focusLevelMod: ()=>focusLevelMod,","  isAdmin: ()=>isAdmin,","  rideBenchMod: rideBenchMod,","  seats: seats,","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,"];
 
@@ -97,21 +97,27 @@ function unlockBehave(mod){
   const st = { lv: 100, admin: false };
   const d = build(mod, { isAdmin: () => st.admin, focusLevelMod: () => ({ getFocusLevel: () => st.lv }) });
   const dance = (cmd) => d.DANCE_MOVES.find((m) => m.cmd === cmd), desk = d.INTERACTION_DESKS[0];
-  const before = d.isDanceUnlocked(dance('80')) === false && d.isDeskUnlocked(desk) === false && d._pickUnlockedDance(() => 0) === null;
+  const txt = (v) => [d.lockedToast(v, '달성 시 사용할 수 있어요'), d.levelText(v)].join('|');
+  const unknown = txt(null) === '🔒 해금 정보를 받는 중이에요 — 잠시 뒤 다시 해 주세요|Lv.?' && d._lowestDanceReq() === null && !/Infinity|null|undefined|NaN/.test(txt(d._lowestDanceReq()) + txt(desk.reqLevel));
+  const before = unknown && d.isDanceUnlocked(dance('80')) === false && d.isDeskUnlocked(desk) === false && d._pickUnlockedDance(() => 0) === null;
   st.admin = true; const adm = d.isDanceUnlocked(dance('80')) === true; st.admin = false;
   d.applyUnlocks({ DANCE: { '80': { level: 90 }, '150': { level: 200 } }, INTERACTION_DESK: { bench2: { level: 60 } } });
-  const after = dance('80').reqLevel === 90 && dance('150').reqLevel === 200 && desk.reqLevel === 60 && d.isDanceUnlocked(dance('80')) === true && d.isDanceUnlocked(dance('150')) === false && d.isDeskUnlocked(desk) === true && d._lowestDanceReq() === 90;
+  const after = dance('80').reqLevel === 90 && dance('150').reqLevel === 200 && desk.reqLevel === 60 && d.isDanceUnlocked(dance('80')) === true && d.isDanceUnlocked(dance('150')) === false && d.isDeskUnlocked(desk) === true && d._lowestDanceReq() === 90 && d.lockedToast(90, '달성 시 해금돼요') === '🔒 Lv.90 달성 시 해금돼요' && d.levelText(60) === 'Lv.60';
   d.applyUnlocks({ DANCE: { '80': { level: 120 } }, INTERACTION_DESK: {} });
   const again = dance('80').reqLevel === 120 && d.isDanceUnlocked(dance('80')) === false && dance('150').reqLevel === 200 && desk.reqLevel === 60;
   return { before, adm, after, again };
 }
 {
   const R = unlockBehave(MOD);
-  chk(R.before && R.adm, '★ 서버 해금 표를 받기 전에는 춤 · 책상이 잠긴다(관리자는 늘 열림) — 코드에 박힌 레벨이 없다');
+  chk(R.before && R.adm, '★ 서버 해금 표를 받기 전에는 춤 · 책상이 잠기고(관리자는 늘 열림) 안내 글에 Infinity · null 이 없다(«해금 정보를 받는 중») — 코드에 박힌 레벨이 없다');
   chk(R.after && R.again, '★ 서버 표의 레벨이 그대로 앉는다(웹 관리자가 고친 값) · 다시 받으면 다시 앉는다 · 표에 없는 줄은 앉히지 않는다');
   chk(!/reqLevel:\s*\d/.test(strip(MOD)), '  코드에 박힌 숫자 reqLevel 이 없다');
   const bad = unlockBehave(MOD.replace("if(def.reqLevel == null) return false;   // 서버 해금 표를 아직 못 받았다 — 잠가 둔다\n  const lv=(", "const lv=(").replace('return lv >= def.reqLevel;\n}\n/* 서버', 'return lv >= (def.reqLevel||1);\n}\n/* 서버'));
   chk(!bad.before, '깨 보기 — 받기 전에 열려 있으면 빨강');
+  const bad2 = unlockBehave(MOD.replace("return (level == null) ? '🔒 해금 정보를 받는 중이에요 — 잠시 뒤 다시 해 주세요' : '🔒 Lv.' + level + ' ' + tail;", "return '🔒 Lv.' + level + ' ' + tail;"));
+  chk(!bad2.before, '깨 보기 — 모를 때 레벨 글자를 지어내면(Lv.null) 빨강');
+  const bad3 = unlockBehave(MOD.replace("d.reqLevel == null ? m : (m == null ? d.reqLevel : Math.min(m, d.reqLevel)), null);", "d.reqLevel == null ? m : Math.min(m, d.reqLevel), Infinity);"));
+  chk(!bad3.before, '깨 보기 — 못 받았을 때 Infinity 를 돌려주면 빨강');
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);
