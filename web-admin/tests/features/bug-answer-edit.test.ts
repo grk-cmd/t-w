@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ACTION_LABEL } from '@/entities/admin-log';
 import { answerEditChanges, answerEditWrite, BUG_ANS_MAX, type BugAnswer } from '@/entities/bug-board';
-import { editAnswer } from '@/features/bug-board/edit-answer';
+import { editAnswer } from '@/features/bug-board/edit-answer/api/firebase';
 import { auditsOf, fakeDb, NOW, withoutAudits } from '../shared/fakeDb';
 
 const pubAns: BugAnswer = {

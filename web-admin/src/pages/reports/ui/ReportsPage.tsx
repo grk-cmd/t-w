@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { REPORT_ADMIN_MIN, reportTargets, useRefreshReports, useReports } from '@/entities/report';
+import { REPORT_ADMIN_MIN, useRefreshReports, useReports } from '@/entities/report';
 import { useRefreshUserBrief } from '@/entities/user';
 import { BulkDismissButton } from '@/features/user/moderate-report';
 import { errorMessage, usePaging, useSelection } from '@/shared/lib';
@@ -10,7 +10,7 @@ export function ReportsPage() {
   const { data, error } = useReports();
   const refreshReports = useRefreshReports();
   const refreshBrief = useRefreshUserBrief();
-  const items = useMemo(() => (data ? reportTargets(data) : null), [data]);
+  const items = data ?? null;
   const ids = useMemo(() => (items ?? []).map((item) => item.target), [items]);
   const paging = usePaging(items ?? [], 'reports');
   const pageIds = useMemo(() => paging.items.map((item) => item.target), [paging.items]);

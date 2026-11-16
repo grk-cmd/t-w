@@ -4,7 +4,6 @@ import {
   BUG_KAKAO_MAX,
   BUG_STATUS,
   BUG_STATUSES,
-  checkAnswer,
   type AnswerInput,
   type BugItem,
   type BugStatus,
@@ -18,7 +17,7 @@ import styles from './AnswerForm.module.css';
 /** 답변 등록 — 글쓴이 우편함 알림까지 한 번에. 비공개 글엔 비공개 답변만. */
 export function AnswerForm({ item, label }: { item: BugItem; label: string }) {
   const toast = useToast();
-  const answer = useAnswerPost(item.id, label, item);
+  const answer = useAnswerPost(item, label);
   const [text, setText] = useState('');
   const [kakao, setKakao] = useState('');
   const [vis, setVis] = useState<BugVis>(item.vis);
@@ -27,7 +26,7 @@ export function AnswerForm({ item, label }: { item: BugItem; label: string }) {
 
   const onSubmit = () => {
     const input: AnswerInput = { text, kakao, vis: prvOnly ? 'prv' : vis, ...(status ? { status } : {}) };
-    const bad = checkAnswer(input);
+    const bad = answer.check(input);
     if (bad) return toast(bad);
     answer.mutate(input, {
       onSuccess: (r) => {

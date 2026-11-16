@@ -3,7 +3,6 @@ import {
   answerEditChanges,
   BUG_ANS_MAX,
   BUG_KAKAO_MAX,
-  checkAnswer,
   type AnswerEditInput,
   type BugAnswer,
 } from '@/entities/bug-board';
@@ -33,7 +32,7 @@ export function EditAnswerForm({
 
   const onSave = () => {
     const input: AnswerEditInput = { text, kakao };
-    const bad = checkAnswer(input);
+    const bad = edit.check(input);
     if (bad) return toast(bad);
     const changes = answerEditChanges(answer, input);
     if (!changes.length) return toast('바뀐 것 없음');

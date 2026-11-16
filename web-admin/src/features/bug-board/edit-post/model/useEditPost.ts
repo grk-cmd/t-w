@@ -1,18 +1,24 @@
 import { useMutation } from '@tanstack/react-query';
-import { useRefreshBugBoard, useRefreshPrvTitle, type EditInput } from '@/entities/bug-board';
-import { useDb } from '@/shared/api';
-import { editPost } from './editPost';
+import {
+  useRefreshBugBoard,
+  useRefreshPrvTitle,
+  type BugContent,
+  type BugItem,
+  type EditInput,
+} from '@/entities/bug-board';
+import { useEditPostPort } from '../api';
 
-export function useEditPost(id: string, label: string) {
-  const db = useDb();
+export function useEditPost(item: BugItem, content: BugContent | null, label: string) {
+  const port = useEditPostPort();
   const refresh = useRefreshBugBoard();
   const refreshPrvTitle = useRefreshPrvTitle();
-  return useMutation({
-    mutationFn: (input: EditInput) => editPost(db, id, input, label),
+  const mutation = useMutation({
+    mutationFn: (input: EditInput) => port.edit(item, content, input, label),
     onSuccess: (r) => {
       if (!r.ok) return;
       refresh();
-      refreshPrvTitle(id);
+      refreshPrvTitle(item.id);
     },
   });
+  return { ...mutation, check: port.check };
 }

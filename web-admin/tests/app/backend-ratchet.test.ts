@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest';
 // 톱니 — 두 판 갈아 끼우기(D12)가 끝나는 날까지 «포트 밖 직접 호출» 과 «API 판이 없는 포트» 가 늘지 않게 센다.
 // 줄이는 PR 은 기준선도 같이 낮춘다(늘리는 PR 은 빨강). 마지막 D12-*a 뒤 TOOTH_1 = 0 · 마지막 D12-*b 뒤 TOOTH_2 = 0.
 
-/** 톱니 1 기준선 — D12-5a 뒤(초대 묶음을 포트 뒤로 옮김: 59 → 56. 남은 1개는 사용자 화면이 줄마다 읽는 `userInvite.ts` — D12-8a). */
-const TOOTH_1_BASELINE = 56;
+/** 톱니 1 기준선 — D12-6a 뒤(신고 · 제보를 포트 뒤로 옮김: 56 → 41. 제보의 하루 상한 `dailyMax.ts` 는 설정 카드 몫이라 남고, 할 일 · 이름 묶음은 D12-6 뒤 절반 몫). */
+const TOOTH_1_BASELINE = 41;
 /** 톱니 2 기준선 — D12-4b 뒤 0(10 → 0). `notPorted` 는 지웠다 — 다시 적는 PR 은 빨강. */
 const TOOTH_2_BASELINE = 0;
 
