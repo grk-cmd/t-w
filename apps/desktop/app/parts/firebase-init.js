@@ -261,7 +261,7 @@
     /* 📚 마이홈 북마크 책장은 서버 길(myhome/bookshelf-store.js · myhome-api.js)로 옮겼다 — Firebase 책장 메서드는 없다. */
 
     /* ===== 🫧 자리비움 그림 (2026-09-23 · handoff-2026-09-21-features §2 · 시안 A 확정) =====
-       Storage `away/{uid}/away_{ts}.webp`(규칙: 300KB 미만 · 삭제 허용) → URL 을 users/{uid}/awayImg 한 칸에.
+       Storage `away/{uid}/away_{ts}.webp`(규칙: 300KB 미만 · 삭제 허용) → URL 은 서버로(PUT /v2/me/away-image — away-pic.js).
        ★ 파일 이름에 시각을 넣는다 — STORAGE_CACHE(1년) 라 같은 이름으로 덮으면 남들이 옛 그림을 계속 본다.
        ★ dataURL 폴백이 없다 — 올리지 못하면 실패로 끝낸다(RTDB 로 새지 않게 · _uploadDataUrlIfNeeded 를 안 쓴다). */
     async uploadAwayImg(userId, dataUrl){
@@ -271,31 +271,6 @@
         await uploadString(r, dataUrl, 'data_url', { cacheControl: STORAGE_CACHE, contentType: 'image/webp' });
         return { ok:true, url: await getDownloadURL(r) };
       }catch(e){ console.warn('[away] 업로드 실패', e); return { ok:false, reason:'업로드에 실패했어요' }; }
-    },
-    async setAwayImg(userId, url){
-      try{
-        if(url) await set(ref(db, `users/${userId}/awayImg`), url);
-        else await remove(ref(db, `users/${userId}/awayImg`));
-        return { ok:true };
-      }catch(e){ console.warn('[away] 저장 실패', e); return { ok:false }; }
-    },
-    async getAwayImg(userId){
-      try{ const v=(await get(ref(db, `users/${userId}/awayImg`))).val(); return { ok:true, url:(typeof v==='string')?v:null }; }
-      catch(e){ return { ok:false, url:null }; }
-    },
-    /* 🫧 [2026-10-02 · A안] 자리비움 그림 **화면 크기**(60·80·100 px) — 그림 주인이 정하고 계정을 따라간다.
-       규칙 users/$userId/awaySz 가 세 값만 받는다. 그림 URL 과 칸을 나눈 이유: awayImg 규칙이 «Storage 주소 문자열» 이라
-       거기에 숫자를 섞을 수 없고, 관리자 [그림 내리기]가 크기까지 지울 이유도 없다. */
-    async setAwaySz(userId, px){
-      try{
-        if(!userId || [60, 80, 100].indexOf(px) < 0) return { ok:false };
-        await set(ref(db, `users/${userId}/awaySz`), px);
-        return { ok:true };
-      }catch(e){ console.warn('[away] 크기 저장 실패', e); return { ok:false }; }
-    },
-    async getAwaySz(userId){
-      try{ const v=(await get(ref(db, `users/${userId}/awaySz`))).val(); return { ok:true, px:([60, 80, 100].indexOf(v) >= 0) ? v : null }; }
-      catch(e){ return { ok:false, px:null }; }
     },
     /* 다운로드 URL 로 Storage 파일을 지운다 — 없거나 거절돼도 조용히(옛 그림 정리용). */
     async deleteStorageUrl(url){

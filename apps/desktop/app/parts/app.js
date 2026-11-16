@@ -7853,6 +7853,7 @@ const awayPicMod = TwAwayPic.createAwayPic({
   renderer: renderer,
   seats: seats,
   toast: (...a)=>toast(...a),
+  userApi: ()=>userApiMod,
 });
 
 /* ═══ 🚩 신고하기 ═══════════════════════════════════════════════════════════
@@ -8308,6 +8309,7 @@ const appBoot = TwAppBoot.createAppBoot({
       session.on(TwRtHub.store.on('license', ()=>roomLobbyProvider.reset()));
       session.onReset(()=>{ TwChatRt.store.reset(); roomLobbyProvider.reset(); if(_pkSession) _pkSession.reset(); });
     },
+    awayPic: (code, me)=>awayPicMod.startAwayPic(me),   // 🫧 자리비움 그림 · 크기 — 서버(me.awayImage)가 기준
     desktopBg: (code)=>window.MYHOME_DESKTOP.startBgSync(code),
     playlist: (code, me, session)=>plMod.start(session),
     licensePremium: (code, me, session)=>{ session.onReset(()=>licensePremiumMod.reset()); return licensePremiumMod.start(me); },   // 알림 구독 해제 함수는 모듈이 쥐고 reset 이 푼다 — 세션이 끝나면 reset 을 부른다

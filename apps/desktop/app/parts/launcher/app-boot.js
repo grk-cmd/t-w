@@ -29,6 +29,7 @@ const STEPS = [
   'bugBadge',        // 🐞 버그제보 탭 «새 답변» 배지 한 번 받기
   'scheduler',       // 📅 일정 알림 받기
   'roomInvite',      // 🙋 방 초대 받기
+  'awayPic',         // 🫧 자리비움 그림 · 크기를 서버(me.awayImage)에 맞추기(요청 0 — 계정 확인의 답을 쓴다)
   'desktopBg',       // 🖥️ 마이홈 바탕화면 배경 맞추기
   'playlist',        // 🎵 플레이리스트 받기
   'licensePremium',  // 🔑 프리미엄 판정 반영(서버 확인) · 라이선스 알림 받기

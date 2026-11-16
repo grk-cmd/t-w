@@ -174,7 +174,7 @@
 | **sim-mh-sanitize.js** | 219 | **fc237605e364** |
 | **sim-myhome-steps.js** | 128 | **ed6b55640d6c** |
 | **sim-myhome-load.js** | 87 | **80598e5410f5** |
-| **sim-fix-0923.js** | 257 | **1f34e95525d1** |
+| **sim-fix-0923.js** | 252 | **027994f930d3** |
 | **sim-noise.js** | 146 | **e2fb15f39c34** |
 | **sim-mobile-focus.js** | 334 | **520000f2218b** |
 | **sim-figure-mode.js** | 169 | **e100b8151447** |
@@ -202,7 +202,7 @@
 | sim-purikura-net.js | 104 | 1d50a181e109 |
 | **sim-purikura-rules.js** | 241 | **25c4bbd4c8de** |
 | **sim-purikura-stage.js** | 270 | **8c2a256535ea** |
-| **sim-report-away.js** | 111 | **2520dc68e092** |
+| **sim-report-away.js** | 111 | **7003087ae0dd** |
 | **sim-ride-height.js** | 115 | **870e0eb2c0e7** |
 | **sim-ride-part-top.js** | 101 | **0b4bf839278c** |
 | **sim-seat-eq.js** | 101 | **abfda97458b5** |
@@ -328,7 +328,7 @@
 | **sim-my-info.js** | 98 | **4e58bce6234f** |
 | **sim-my-info-box.js** | 208 | **a80135e14b2c** |
 | **sim-renderer-src.js** | 269 | **dce86459e2a9** |
-| **sim-away-pic.js** | 94 | **02105f2b9019** |
+| **sim-away-pic.js** | 94 | **19b8e7b5418d** |
 | **sim-myhome-ui.js** | 133 | **22172287752c** |
 | **sim-tricks.js** | 120 | **058338ed6638** |
 | **sim-ride-bench.js** | 279 | **a7daa943540f** |
@@ -412,7 +412,7 @@
 | **sim-myhome-state.js** | 87 | **3ad983f282ef** |
 | **sim-account-state.js** | 108 | **148155f17f1a** |
 | **sim-nav.js** | 91 | **aa8cab6dd39f** |
-| **sim-app-boot.js** | 166 | **827382a00d0e** |
+| **sim-app-boot.js** | 166 | **d84ebd181508** |
 | **sim-user-local.js** | 207 | **e34df8fb0e7a** |
 | **sim-saved-lists-wiring.js** | 91 | **38b630d814d6** |
 | **sim-net-ready.js** | 152 | **a6440206a2d2** |
@@ -484,7 +484,7 @@
 | **sim-rt-hub.js** | 529 | **7a912568ddb2** |
 | **sim-rt-status-ui.js** | 245 | **64adff52d476** |
 | **sim-run-verdict.js** | 67 | **4303b789970f** |
-| **sim-user-api.js** | 210 | **4d90ddb87f1c** |
+| **sim-user-api.js** | 223 | **6ff09db9033e** |
 | **sim-login-flow.js** | 369 | **7751b6ea52e8** |
 | **sim-first-run-013.js** | 350 | **7436521829cc** |
 | **sim-lobby-window.js** | 116 | **7cfd28c086c8** |

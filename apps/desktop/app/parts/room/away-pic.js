@@ -4,7 +4,7 @@
      officeMode 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 6개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: AWAY_PIC_SCREEN_PX · _awayImgFollow · _awayImgFrame · _awayPicFor · _awayRenderUI · _awaySzOk · _awayUrlOk · awayImgSz · awayImgUrl — app.js 는 awayPicMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: AWAY_PIC_SCREEN_PX · _awayImgFollow · _awayImgFrame · _awayPicFor · _awayRenderUI · _awaySzOk · _awayUrlOk · awayImgSz · awayImgUrl · startAwayPic — app.js 는 awayPicMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwAwayPic — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-away-pic.js */
@@ -23,13 +23,14 @@ const officeMode = deps.officeMode;   // 읽는 함수
 const renderer = deps.renderer;
 const seats = deps.seats;
 const toast = deps.toast;
+const userApi = deps.userApi;   // 읽는 함수 — account/user-api.js(PUT · PATCH · DELETE /v2/me/away-image)
 var AWAY_IMG_KEY = 'tw.awayImg';
 var AWAY_IMG_PX = 500;
 var AWAY_IMG_MAX_BYTES = 300 * 1024;
 var awayImgUrl = '';
 try{ const _a = localStorage.getItem(AWAY_IMG_KEY) || ''; awayImgUrl = _awayUrlOk(_a) ? _a : ''; }catch(_){}
 /* 📏 [2026-10-02 · A안 확정] 자리비움 그림 **화면 크기** — 60·80·100 중 그림 주인이 고른다(기본 80 = AWAY_PIC_SCREEN_PX).
-   이 기기 tw.awaySz + 서버 users/{uid}/awaySz(계정을 따라감) + 방 payload awaySz(받는 쪽이 이 크기로 그린다).
+   이 기기 tw.awaySz + 서버 me.awayImage.size(계정을 따라감 — PUT · PATCH /v2/me/away-image) + 방 payload awaySz(받는 쪽이 이 크기로 그린다).
    ⚠️ 구버전이 보낸 좌석(awaySz 없음)은 기본값으로 그린다. 구버전이 **보는** 화면에서는 그쪽 고정값(60)으로 보인다. */
 var AWAY_SZ_KEY = 'tw.awaySz';
 var AWAY_SZ_OPTIONS = [60, 80, 100];
@@ -257,8 +258,10 @@ async function _awayPick(file){
     if(prep.err === 'big'){ msg = '못 올렸어요 — 줄이고 압축해도 300KB 를 넘었어요. 이전 그림 그대로예요.'; err = true; return; }
     const up = await api.uploadAwayImg(uid, prep.dataUrl);
     if(!up || !up.ok){ msg = '못 올렸어요 — ' + ((up && up.reason) || '업로드에 실패했어요') + '. 이전 그림 그대로예요.'; err = true; return; }
-    const sv = await api.setAwayImg(uid, up.url);
-    if(!sv || !sv.ok){ try{ await api.deleteStorageUrl(up.url); }catch(_){} msg = '못 올렸어요 — 저장에 실패했어요. 이전 그림 그대로예요.'; err = true; return; }
+    let sv = null;
+    try{ sv = await userApi().setAwayImage(up.url, awayImgSz); }
+    catch(e){ console.warn('[자리비움] 그림 저장 실패', e); }
+    if(!sv){ try{ await api.deleteStorageUrl(up.url); }catch(_){} msg = '못 올렸어요 — 저장에 실패했어요. 이전 그림 그대로예요.'; err = true; return; }
     const old = awayImgUrl;
     _awaySetLocal(up.url);
     if(old && old !== up.url){ try{ await api.deleteStorageUrl(old); }catch(_){} }
@@ -269,11 +272,13 @@ async function _awayPick(file){
 async function _awayReset(){
   if(_awayBusy || !awayImgUrl) return;
   const api = window.firebaseAPI, uid = getMyUserId();
-  if(!api || !api.setAwayImg || !uid){ _awayRenderUI('아직 준비 중이에요 — 잠시 뒤 다시 해 주세요.', true); return; }
+  if(!api || !uid){ _awayRenderUI('아직 준비 중이에요 — 잠시 뒤 다시 해 주세요.', true); return; }
   _awayBusy = true; _awayRenderUI('되돌리는 중…');
   try{
-    const sv = await api.setAwayImg(uid, null);
-    if(!sv || !sv.ok){ _awayBusy = false; _awayRenderUI('되돌리지 못했어요 — 잠시 뒤 다시 해 주세요.', true); return; }
+    let sv = null;
+    try{ sv = await userApi().clearAwayImage(); }
+    catch(e){ console.warn('[자리비움] 그림 되돌리기 실패', e); }
+    if(!sv){ _awayBusy = false; _awayRenderUI('되돌리지 못했어요 — 잠시 뒤 다시 해 주세요.', true); return; }
     const old = awayImgUrl;
     _awaySetLocal('');
     try{ await api.deleteStorageUrl(old); }catch(_){}
@@ -294,26 +299,19 @@ async function _awaySetSz(px){
   if(!_awaySzOk(px) || px === awayImgSz) return;
   _awaySzSetLocal(px);
   _awayRenderUI(null);
-  const api = window.firebaseAPI, uid = getMyUserId();
-  if(!api || !api.setAwaySz || !uid) return;
+  if(!getMyUserId()) return;
   try{
-    const r = await api.setAwaySz(uid, px);
-    if(!r || !r.ok) _awayRenderUI('크기를 서버에 저장하지 못했어요 — 이 기기에서만 바뀌었어요.', true);
-  }catch(_){ _awayRenderUI('크기를 서버에 저장하지 못했어요 — 이 기기에서만 바뀌었어요.', true); }
+    const r = await userApi().setAwaySize(px);
+    if(!r) _awayRenderUI('크기를 서버에 저장하지 못했어요 — 이 기기에서만 바뀌었어요.', true);
+  }catch(e){ console.warn('[자리비움] 크기 저장 실패', e); _awayRenderUI('크기를 서버에 저장하지 못했어요 — 이 기기에서만 바뀌었어요.', true); }
 }
-/* 부팅 — 서버 값이 기준이다(다른 기기에서 바꿈 · 관리자가 내림). 못 읽으면 로컬 그대로. */
-function _awayBootSync(tries){
-  const api = window.firebaseAPI, uid = getMyUserId();
-  if(!api || !api.getAwayImg || !uid){ if((tries||0) < 30) setTimeout(()=>_awayBootSync((tries||0)+1), 2000); return; }
-  api.getAwayImg(uid).then(r=>{
-    if(!r || !r.ok) return;
-    const srv = _awayUrlOk(r.url) ? r.url : '';
-    if(srv !== awayImgUrl){ _awaySetLocal(srv); _awayRenderUI(null); }
-  }).catch(()=>{});
-  /* 📏 크기도 서버가 기준 — 서버에 없으면(고른 적 없음 · 옛 판) 이 기기 값을 그대로 둔다. */
-  if(api.getAwaySz) api.getAwaySz(uid).then(r=>{
-    if(r && r.ok && _awaySzOk(r.px) && r.px !== awayImgSz){ _awaySzSetLocal(r.px); _awayRenderUI(null); }
-  }).catch(()=>{});
+/* 계정 확인을 통과한 뒤 한 번(launcher/app-boot.js) — 서버 값이 기준이다(다른 기기에서 바꿈 · 관리자가 내림). me = GET /v2/me 의 답(awayImage: { url, size } · 크기만이면 url 이 null · 없으면 null).
+   그림이 없으면 이 기기의 그림도 비운다. 서버에 크기가 없으면(고른 적 없음) 이 기기 값을 그대로 둔다. */
+function startAwayPic(me){
+  const a = me && me.awayImage;
+  const srv = (a && _awayUrlOk(a.url)) ? a.url : '';
+  if(srv !== awayImgUrl){ _awaySetLocal(srv); _awayRenderUI(null); }
+  if(a && _awaySzOk(a.size) && a.size !== awayImgSz){ _awaySzSetLocal(a.size); _awayRenderUI(null); }
 }
 (function bindAwayImg(){
   const pick = document.getElementById('miAwayPick'), file = document.getElementById('miAwayFile'), rs = document.getElementById('miAwayReset');
@@ -330,7 +328,6 @@ function _awayBootSync(tries){
     e.stopPropagation(); if(!_awayBusy) _awaySetSz(+b.dataset.sz);
   }));
   _awayRenderUI(null);
-  _awayBootSync(0);
 })();
 
 return {
@@ -341,6 +338,7 @@ return {
   _awayRenderUI,
   _awaySzOk,
   _awayUrlOk,
+  startAwayPic,
   awayImgSz: ()=>awayImgSz,   // 읽는 함수
   awayImgUrl: ()=>awayImgUrl,   // 읽는 함수
 };
