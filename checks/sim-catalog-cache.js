@@ -1,11 +1,11 @@
 /* sim-catalog-cache.js — 카탈로그 쓰기쪽 버전 올림(catalogMeta) · 규칙 (옛 앱 호환)
    [무엇을 보는가] 이 앱의 카탈로그 읽기는 서버 한 벌 GET /v2/catalog 다(character/catalog-api.js — sim-catalog-api.js 가 본다).
      catalogMeta 구독 · IndexedDB 24시간 캐시 · Firebase 로 물러나기(옛 catalog-cache.js)는 걷었다. 남은 것은 쓰기쪽이다 —
-     옛 앱(0.12)이 catalogMeta/{종류} 버전을 읽는 동안, 이 앱의 관리자 쓰기가 버전을 같이 올리는지(빠지면 옛 앱 사용자가 옛 카탈로그를 본다)와 규칙을 본다.
-       · 카탈로그를 쓰는 함수가 하나도 빠짐없이 _catalogUpdate(버전 같이 올림)를 지나는가
-       · 규칙 catalogMeta 가 옛 앱이 읽을 만큼 열려 있고 관리자만 쓰는가
+     관리자 카탈로그 쓰기도 서버로 옮겼다(D11-4) — Firebase 카탈로그 노드 · catalogMeta 에는 이 앱이 더 쓰지 않는다. 옛 앱(0.12)은 웹 관리자가 쓰는 catalogMeta 를 읽는다.
+       · firebase-init.js 에 카탈로그를 쓰는 함수가 없는가
+       · 규칙 catalogMeta 가 옛 앱이 읽을 만큼 열려 있고 관리자만 쓰는가(웹 관리자가 쓴다)
      웹 관리자 쪽 버전 올림은 web-admin/tests/entities/catalog-version.test.ts 가 본다.
-   ・1절: firebase-init.js — 읽기는 서버 한 벌 · 쓰기가 전부 _catalogUpdate 를 지나는가
+   ・1절: firebase-init.js — 읽기는 서버 한 벌 · 카탈로그 쓰기 함수가 없다(쓰기는 admin/catalog-admin-api.js — sim-catalog-admin-api.js)
    ・2절: firebase-database-rules.json — catalogMeta 규칙
    [실행] firebase-init.js · firebase-database-rules.json 이 있는 폴더에서. */
 'use strict';
@@ -36,27 +36,16 @@ say('── 1. firebase-init.js 연결');
   chk(!/onValue\(\s*(?:ref\(db,\s*['`"]catalog\/(?:parts|gachaParts|items|desks)['`"]\)|r1|r2)/.test(CODE) && !/ref\(db, 'catalogMeta\/' \+ kind\)/.test(CODE),
       'catalog/{parts·gachaParts·items·desks} 를 통째로 onValue 하는 곳도 catalogMeta 를 구독하는 곳도 없다');
 
-  /* 쓰기 — 네 종류 경로에 set/remove/직접 update 가 남아 있으면 그 쓰기는 버전을 안 올린다 */
-  const KIND = '(?:parts|gachaParts|items|desks)';
-  chk(!new RegExp('(?:set|remove)\\(ref\\(db,\\s*[`\'"]catalog\\/' + KIND + '\\/').test(CODE), 'catalog/{종류}/… 에 set·remove 를 직접 부르는 곳이 없다');
-  chk(!/(?:set|remove)\(ref\(db,\s*`\$\{(?:node|other)\}/.test(CODE), '  ↳ _partPath 로 만든 경로에도 set·remove 를 직접 부르지 않는다');
-  const writers = ['publishDesk', 'unpublishDesk', 'publishItem', 'unpublishItem', 'updateDesksOrder', 'updateItemsOrder',
-                   'publishPart', 'unpublishPart', 'updatePartsOrder'];
-  for(const w of writers){
-    const b = body(w);
-    chk(!!b && /_catalogUpdate\(/.test(b) && !/await update\(ref\(db\)/.test(b), w + ' — _catalogUpdate 로 쓴다 (버전 같이 올림)');
-  }
-  chk(/_catalogUpdate\(\{\s*\[`\$\{node\}\/\$\{id\}`\][\s\S]{0,120}\[`\$\{other\}\/\$\{id\}`\]: null,\s*\}, \['parts', 'gachaParts'\]\)/.test(body('publishPart')),
-      '  ↳ publishPart 는 반대편 통 정리까지 한 update 로 · 두 통 버전 다');
-  /* 이 파일 안에서 카탈로그 경로에 쓰는 메서드가 위 목록 밖에서 새로 생기면 알린다 */
-  /* 여러 줄짜리 메서드만(한 줄짜리 _partPath 는 본문이 다음 메서드까지 번진다) · if/for 같은 문장은 뺀다 */
-  const all = [...CODE.matchAll(/\n    (?:async )?(\w+)\([^)]*\)\{\s*\n/g)].map(m => m[1])
-    .filter(n => !/^(?:if|for|while|switch|catch|function)$/.test(n));
-  const extra = all.filter(n => !writers.includes(n) && /_catalogUpdate\(|`catalog\/(?:parts|gachaParts|items|desks)\/\$\{id\}`\]?\s*[:=]/.test(body(n)));
-  chk(extra.length === 0, '목록 밖에서 카탈로그를 쓰는 메서드가 없다' + (extra.length ? ' — ' + extra.join(',') + ' (목록에 넣고 버전 확인)' : ''));
-  const cu = (CODE.match(/async function _catalogUpdate\(updates, kinds\)\{[\s\S]*?\n  \}/) || [''])[0];
-  chk(/withMeta\['catalogMeta\/' \+ k\] = serverTimestamp\(\)/.test(cu), '_catalogUpdate — 같은 update 에 catalogMeta/{종류} = 서버 시각');
-  chk(/permission\|PERMISSION_DENIED/.test(cu) && /await update\(ref\(db\), updates\);/.test(cu), '  ↳ 규칙 배포 전(catalogMeta 거부)엔 카탈로그만 다시 쓴다 — 관리자 등록이 멎지 않게');
+  /* 쓰기 — 카탈로그 쓰기는 서버 길(admin/catalog-admin-api.js)로 옮겼다. firebase-init.js 에는 카탈로그 경로에 쓰는 함수가 하나도 없다 */
+  const KIND = '(?:parts|gachaParts|items|desks|customCats|catOverrides|gameConfig)';
+  chk(!new RegExp('(?:set|remove|update)\\(ref\\(db,\\s*[`\'"]catalog\\/' + KIND).test(CODE) && !/_catalogUpdate|_partPath|catalogMeta\//.test(CODE), 'catalog/{종류}/… 에 쓰는 곳 · _catalogUpdate · catalogMeta 올림이 없다(서버 한 벌이 원본)');
+  const gone = ['publishDesk', 'unpublishDesk', 'publishItem', 'unpublishItem', 'updateDesksOrder', 'updateItemsOrder', 'publishPart', 'unpublishPart', 'updatePartsOrder',
+    'publishCustomCat', 'unpublishCustomCat', 'publishCatOverride', 'unpublishCatOverride', 'subscribeCustomCats', 'subscribeCatOverrides', 'subscribeGameConfig'];
+  const left = gone.filter(n => body(n));
+  chk(left.length === 0, '걷은 Firebase 카탈로그 쓰기 · 읽기 함수가 남지 않았다' + (left.length ? ' — ' + left.join(',') : ''));
+  chk(/subscribeCatalogCategories\(onChange\)\{\s*return _catalogApi\.subscribe\('categories', onChange\);/.test(CODE) && /subscribeCatalogUnlocks\(onChange\)\{\s*return _catalogApi\.subscribe\('unlocks', onChange\);/.test(CODE),
+      '카테고리 · 해금 레벨 구독 → 서버 한 벌(옛 customCats · catOverrides · gameConfig 를 대신한다)');
+  chk(/catalogCurrent\(\)\{ return _catalogApi\.current\(\); \}/.test(CODE) && /reloadCatalog\(\)\{ return _catalogApi\.load\(\); \}/.test(CODE), '관리자 쓰기가 쓰는 두 자리 — 마지막으로 받은 한 벌(version) · 다시 받기');
 }
 
 say('── 2. 규칙 — catalogMeta');

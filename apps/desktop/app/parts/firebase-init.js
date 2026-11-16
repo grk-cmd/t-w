@@ -170,27 +170,8 @@
      ⚠️ `room:'SCRT'` 같은 **가짜 코드를 올리는 방식은 쓰지 않는다.** 그건 값 자체가 "쟤 비밀방에
        있다"를 말해버려서, 나중에 표시 규칙을 어떻게 바꾸든 노드만 읽으면 드러난다. 불리언은
        일반 방이든 시크릿룸이든 똑같은 true 라 구분이 안 된다. */
-  // ★ Firebase 사용량 절감: 카탈로그 GLB(수백KB~1MB)를 Realtime Database 대신 Storage에 저장.
-  //   data.glb가 base64면 → Storage로 업로드하고 { ...나머지, glbUrl } 반환.
-  //   구버전 데이터는 그대로 { glb } — 마이그레이션 전까지 앱은 둘 다 지원.
-  // 💰 Storage 캐시 정책 — 한 번 받은 파일은 브라우저/앱이 재사용해서 다운로드 대역폭(=서버비)을 아낌.
+  /* 💰 Storage 캐시 정책 — 한 번 받은 파일은 브라우저/앱이 재사용해서 다운로드 대역폭(=서버비)을 아낌. */
   const STORAGE_CACHE = 'public, max-age=31536000';
-  async function _uploadGlbIfNeeded(path, data){
-    const out = { ...data };
-    if(out.glb && typeof out.glb === 'string'){
-      const b64 = out.glb;
-      const storageRef = sref(storage, path);
-      // 💰 캐시 헤더 — 같은 파일을 매번 다시 받지 않게 1년 캐시. 파일을 새로 올리면 다운로드 URL의
-      //   토큰이 바뀌므로 갱신은 정상적으로 반영됨(오래된 캐시가 남는 문제 없음).
-      await uploadString(storageRef, b64, 'base64', { cacheControl: STORAGE_CACHE, contentType: 'model/gltf-binary' });
-      out.glbUrl = await getDownloadURL(storageRef);
-      delete out.glb;
-    }
-    return out;
-  }
-  // 💰 도트 썸네일도 Storage로 — 예전엔 base64 PNG를 Realtime DB의 카탈로그에 그대로 넣어서,
-  //   모든 사용자가 앱을 켤 때마다 전체 썸네일을 다시 내려받았음(DB 다운로드 비용의 주범).
-  //   여기서 Storage에 올리고 DB엔 thumbUrl(짧은 문자열)만 남긴다. 앱은 thumbUrl/thumbnail 둘 다 지원.
   /* presence · onDisconnect 는 set(통째 덮기)이라 그 객체마다 ver 를 실어야 꺼진 뒤에도 남는다.
      ⚠️ presence 에 쓰는 것은 update 까지 **전부** withVer 를 거친다 — 규칙은 online:true 인데 ver 가 없으면
        옛 앱으로 보고 내 읽기 · 쓰기를 막는다(ver 없는 오프라인 쓰기도 inRoom 이 있으면 거절). withVer 는 모르면 'unknown' 을 싣는다.
@@ -328,43 +309,12 @@
   const _authApi = window.TwApi.authed;
   /* 🛰 realtime 연결 하나(realtime/rt-hub.js) — 연결 공통부 · 토큰 · 버전만 잇는다. 켜기(start) · 끄기는 로그인 흐름 몫. */
   window.TwRtHub.store.bind({ createLink: createRealtimeLink, getToken: _getIdToken, getVersion: () => _appVer.ready });
-  async function _uploadThumbIfNeeded(path, data){
-    const out = { ...data };
-    if(out.thumbnail && typeof out.thumbnail === 'string' && out.thumbnail.startsWith('data:')){
-      const url = await _uploadDataUrlIfNeeded(path, out.thumbnail);
-      if(url && !url.startsWith('data:')){ out.thumbUrl = url; delete out.thumbnail; }
-    }
-    return out;
-  }
-  async function _tryDeleteStorage(path){
-    try{ await deleteObject(sref(storage, path)); }catch(_){ /* 없어도 무시 */ }
-  }
-
   /* 카탈로그 읽기 — 서버 한 벌 GET /v2/catalog(구조 · 버전 알림을 걷은 까닭은 catalog-api.js 머리말). 못 받으면 Firebase 로 물러나지 않고 E-CHAR-26 으로 알린다. */
   const _catalogApi = createCatalogApi({
     api: window.TwApi.client,
     rt: window.TwRtHub.store,
     notifyError: (...a) => window.TwErrorCodes.notify(...a),   // 부를 때 찾는다
   });
-  /* 카탈로그 쓰기는 전부 여기를 지난다 — 같은 다중 경로 update 로 catalogMeta/{종류} 버전(서버 시각)도 올린다.
-     하나라도 빠지면 그 종류는 버전이 그대로라 사용자가 옛 카탈로그(캐시)를 계속 본다(최대 수명 24시간까지).
-     catalog/parts · gachaParts · items · desks 에 쓰는 함수를 새로 만들면 반드시 이걸 쓴다(웹 관리자는 catalogCommit).
-     규칙에 catalogMeta 가 아직 없으면(규칙 배포 전) 루트가 막혀 있어 update 가 통째로 거부된다.
-     그때만 버전 없이 카탈로그만 한 번 더 쓴다 — 그 DB 를 쓰는 앱은 catalogMeta 구독이 거부돼
-     통째 구독으로 돌고 있으므로 바로 반영된다. 이 앱의 읽기는 서버 한 벌이라 catalogMeta 를 읽지 않는다(catalog-api.js) — 이 올림은 옛 앱 호환이다. */
-  async function _catalogUpdate(updates, kinds){
-    const withMeta = Object.assign({}, updates);
-    for(const k of kinds) withMeta['catalogMeta/' + k] = serverTimestamp();
-    try{
-      await update(ref(db), withMeta);
-    }catch(e){
-      const code = String((e && (e.code || e.message)) || '');
-      if(!/permission|PERMISSION_DENIED/i.test(code)) throw e;
-      await update(ref(db), updates);   // 이것도 거부면(관리자 아님 · 형식 오류) 그 오류를 그대로 던진다
-      console.warn('[catalog] catalogMeta 규칙이 없어 버전 없이 카탈로그만 썼다 —', kinds.join(','));
-    }
-  }
-
   /* ★ Storage Phase 2: 유저 이미지(프로필/배경/스티커/박수)를 Realtime DB의 base64 대신 Storage에 저장.
      dataURL("data:image/...;base64,...")이 들어오면 Storage에 올리고 다운로드 URL을 돌려줌.
      이미 URL(https://...)이면 그대로 통과 — 재저장 시 중복 업로드 방지.
@@ -577,138 +527,34 @@
     // ---- 책상 카탈로그 (관리자가 등록한 책상을 모든 사용자에게 자동 배포. 수정하면 이미 쓰던 사람도 실시간 반영) ----
     // catalog/desks/{id} = { name, icon, glbUrl, createdAt }
     //   (구버전 데이터는 { name, icon, glb(base64), createdAt } — 마이그레이션 전까지 둘 다 지원)
-    /* 쓰기는 set/remove 대신 _catalogUpdate(다중 경로 update) — catalogMeta/desks 버전을 같이 올린다.
-       다중 경로 update 에서 경로 하나에 객체를 주면 그 노드 전체 교체라 set 과 같고, null 은 remove 와 같다. */
-    async publishDesk(id, data){
-      let rec = await _uploadGlbIfNeeded('catalog/desks/'+id+'.glb', data);
-      rec = await _uploadThumbIfNeeded('catalog/desks/'+id+'.thumb.png', rec);
-      await _catalogUpdate({ [`catalog/desks/${id}`]: { ...rec, createdAt: serverTimestamp() } }, ['desks']);
-      return { ok:true };
-    },
-    async unpublishDesk(id){
-      await _tryDeleteStorage('catalog/desks/'+id+'.glb');
-      await _catalogUpdate({ [`catalog/desks/${id}`]: null }, ['desks']);
-      return { ok:true };
-    },
     /* 서버 한 벌(catalog-api.js). 콜백 모양(전체 목록 객체)은 통째 onValue 때와 같다. */
     subscribeCatalogDesks(onChange){
       return _catalogApi.subscribe('desks', onChange);
     },
 
-    // ---- 아이템(소품) 카탈로그 (책상과 동일한 방식) ----
-    async publishItem(id, data){
-      let rec = await _uploadGlbIfNeeded('catalog/items/'+id+'.glb', data);
-      rec = await _uploadThumbIfNeeded('catalog/items/'+id+'.thumb.png', rec);
-      await _catalogUpdate({ [`catalog/items/${id}`]: { ...rec, createdAt: serverTimestamp() } }, ['items']);
-      return { ok:true };
-    },
-    async updateDesksOrder(orderMap){
-      const updates = {};
-      for(const id in orderMap) updates[`catalog/desks/${id}/order`] = orderMap[id];
-      await _catalogUpdate(updates, ['desks']);   // 순서만 바뀌어도 버전을 올린다 — 안 올리면 사용자 화면 순서가 그대로다
-      return { ok:true };
-    },
-    async updateItemsOrder(orderMap){
-      const updates = {};
-      for(const id in orderMap) updates[`catalog/items/${id}/order`] = orderMap[id];
-      await _catalogUpdate(updates, ['items']);
-      return { ok:true };
-    },
-    async unpublishItem(id){
-      await _tryDeleteStorage('catalog/items/'+id+'.glb');
-      await _catalogUpdate({ [`catalog/items/${id}`]: null }, ['items']);
-      return { ok:true };
-    },
+    // ---- 아이템(소품) 카탈로그 ----
     subscribeCatalogItems(onChange){
       return _catalogApi.subscribe('items', onChange);
     },
 
-    /* ---- 게임 설정 ---- 동물 해금 레벨처럼 앱을 새로 배포하지 않고 바꾸고 싶은 값. 읽기만 있다 — 관리자 쓰기는 서버로 옮기는 중(admin/admin-launcher.js) */
-    subscribeGameConfig(onChange){
-      const r = ref(db, 'catalog/gameConfig');
-      onValue(r, snap => onChange(snap.val() || {}));
-      return () => off(r, 'value');
+    /* 카탈로그의 카테고리 · 해금 레벨(옛 customCats · catOverrides · gameConfig) — 서버 한 벌 */
+    subscribeCatalogCategories(onChange){
+      return _catalogApi.subscribe('categories', onChange);
     },
+    subscribeCatalogUnlocks(onChange){
+      return _catalogApi.subscribe('unlocks', onChange);
+    },
+    /* 관리자 쓰기(admin/catalog-admin-api.js)가 version 을 읽고 · 쓴 뒤 다시 받는 두 자리 */
+    catalogCurrent(){ return _catalogApi.current(); },
+    reloadCatalog(){ return _catalogApi.load(); },
 
     // ---- 파츠 카탈로그 ----
-    /* 🎰 가챠 파츠는 catalog/gachaParts 에 따로 산다.
-       [왜 경로 분리인가] DB 규칙은 앱 버전을 구분할 수 없다 — catalog/parts 에 gacha 플래그로만
-         섞어두면, 가챠 기능 이전 빌드(꾸미기 필터가 없다)가 그대로 받아서 꾸미기 창에 진열하고
-         뽑지 않고도 낀다(실제 제보). 구버전은 gachaParts 를 구독하는 코드 자체가 없으므로
-         경로를 나누면 받을 방법이 없다.
-       ⚠️ Storage 경로(catalog/parts/{id}.glb)는 그대로 둔다 — URL 은 DB 항목에서만 나오므로
-         나눌 이유가 없고, 나누면 기존 파일 이동까지 필요해진다. */
-    _partPath(gacha){ return gacha ? 'catalog/gachaParts' : 'catalog/parts'; },
-    async publishPart(id, data){
-      let rec = await _uploadGlbIfNeeded('catalog/parts/'+id+'.glb', data);
-      rec = await _uploadThumbIfNeeded('catalog/parts/'+id+'.thumb.png', rec);
-      const node = this._partPath(!!rec.gacha), other = this._partPath(!rec.gacha);
-      /* 수정으로 가챠↔꾸미기 통이 바뀌었을 수 있다 — 반대편에 남은 옛 항목을 정리(없으면 null 은 조용히 지나간다).
-         한 update 로 묶고 두 통의 버전을 같이 올린다 — 반대편 통에서 지워진 것도 그쪽 버전이 올라야 사용자 캐시에서 빠진다.
-         두 경로 모두 같은 관리자 .write 라 묶어도 막히지 않는다(null 에는 .validate 가 안 돈다). */
-      await _catalogUpdate({
-        [`${node}/${id}`]: { ...rec, createdAt: serverTimestamp() },
-        [`${other}/${id}`]: null,
-      }, ['parts', 'gachaParts']);
-      return { ok:true };
-    },
-    async updatePartsOrder(orderMap, gachaOrderMap){
-      const updates = {};
-      for(const id in (orderMap||{})) updates[`catalog/parts/${id}/order`] = orderMap[id];
-      /* 🎰 가챠 파츠의 순서는 제 경로에 쓴다 — catalog/parts/{가챠id}/order 로 쓰면
-         {order}만 있는 항목이 생겨 .validate(cat·name 필수)에 걸리고, RTDB 다중 경로 update 는
-         한 경로만 거부돼도 통째로 실패한다(= 꾸미기 순서까지 같이 안 바뀐다). */
-      for(const id in (gachaOrderMap||{})) updates[`catalog/gachaParts/${id}/order`] = gachaOrderMap[id];
-      /* 실제로 순서를 쓴 통의 버전만 올린다. */
-      const kinds = [];
-      if(Object.keys(orderMap||{}).length) kinds.push('parts');
-      if(Object.keys(gachaOrderMap||{}).length) kinds.push('gachaParts');
-      if(Object.keys(updates).length) await _catalogUpdate(updates, kinds);
-      return { ok:true };
-    },
-    async unpublishPart(id){
-      await _tryDeleteStorage('catalog/parts/'+id+'.glb');
-      /* 어느 통에 있는지 호출자가 알 필요 없게 양쪽 다 지운다 — 없는 쪽 null 은 no-op.
-         한 update 로 묶고 두 통의 버전을 같이 올린다(publishPart 와 같은 이유). */
-      await _catalogUpdate({ [`catalog/parts/${id}`]: null, [`catalog/gachaParts/${id}`]: null }, ['parts', 'gachaParts']);
-      return { ok:true };
-    },
     /* 🎰 파츠 — 서버 한 벌의 파츠가 가챠(gacha:true)까지 한 목록으로 온다(catalog-api.js unfoldCatalog). 앱 쪽 병합/삭제 감지는
        «카탈로그 전체 목록» 을 기대하므로 한 번에 전체를 넘긴다 — 옛 «두 통이 다 도착하기 전엔 콜백 안 함» 문제가 없다. */
     subscribeCatalogParts(onChange){
       return _catalogApi.subscribe('parts', onChange);
     },
-    // ===== Phase 3: 커스텀 서브카테고리 (관리자가 파츠 종류 추가) =====
-    // catalog/customCats/{catId} = { cat, label, icon, group, bone, createdAt }
-    async publishCustomCat(catId, data){
-      await set(ref(db, 'catalog/customCats/'+catId), Object.assign({}, data, { createdAt: Date.now() }));
-      return { ok:true };
-    },
-    async unpublishCustomCat(catId){
-      await remove(ref(db, 'catalog/customCats/'+catId));
-      return { ok:true };
-    },
-    // (마이홈 바탕화면 배경 · 폴더 — 읽기 · 쓰기는 서버 API(myhome/myhome-api.js · 상태 주인 myhome-store.js)로 옮겼다. saveAdvBg · getAdvBg · getAdvBgEx 걷음)
-    subscribeCustomCats(onChange){
-      const r = ref(db, 'catalog/customCats');
-      onValue(r, snap => onChange(snap.val() || {}));
-      return () => off(r, 'value');
-    },
-    // ===== 기본(내장) 카테고리 이름/아이콘 덮어쓰기 =====
-    // catalog/catOverrides/{catId} = { label, icon } — 예: cape → "겉옷"
-    async publishCatOverride(catId, data){
-      await set(ref(db, 'catalog/catOverrides/'+catId), Object.assign({}, data, { updatedAt: Date.now() }));
-      return { ok:true };
-    },
-    async unpublishCatOverride(catId){
-      await remove(ref(db, 'catalog/catOverrides/'+catId));
-      return { ok:true };
-    },
-    subscribeCatOverrides(onChange){
-      const r = ref(db, 'catalog/catOverrides');
-      onValue(r, snap => onChange(snap.val() || {}));
-      return () => off(r, 'value');
-    },
+    // (마이홈 바탕화면 배경 · 폴더 — 읽기 · 쓰기는 서버 API(myhome/myhome-api.js · 상태 주인 myhome-store.js)로 옮겼다)
     // Storage에 저장된 GLB를 fetch → base64로 변환 (기존 파츠 로딩 코드와 호환).
     //   앱은 로컬(localStorage/IndexedDB)에서 캐싱을 담당해서 같은 파츠는 두 번 안 받게 함(호출 측).
     async fetchCatalogGlb(url){

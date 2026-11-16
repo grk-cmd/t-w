@@ -1,7 +1,7 @@
 /* ═══ 📢 sim-ad-banner.js — 📢 런처 광고 배너 · ⚙️ 게임 설정(사용자 쪽 모듈 구조 (2026-10-14 신설 · 앱 FSD 43번) ═══════════════
    app.js 의 광고 배너 · 게임 설정 구역 본문 을 parts/launcher/ad-banner.js 로 옮겼다(글자 그대로 · 바뀐 줄 0 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(광고 배너 검사들).
    여기서는 모듈 모양 · app.js 연결을 본다.
-   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(AD_BANNER_KEY · _gameCfg · slides · refreshAdBanner)
+   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(AD_BANNER_KEY · slides · refreshAdBanner)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 2줄 그대로 · 부르는 곳은 adBannerMod.이름 · html(app.js 앞)
    ・2-2절: 서버 배너 — 공지 한 판이 바뀔 때 그린다(그림 · 링크 · 숨김) · 같은 배너면 다시 안 그림 · 설정 패널 배너도 같이 · 이 PC 에 사본(localStorage)을 안 남김
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
@@ -22,7 +22,7 @@ const FN_DEPS = [];
 const VAL_DEPS = ["noticeFeed","settingsMod"];
 const GET_DEPS = [];
 const SET_DEPS = [];
-const EXPORTS = ["AD_BANNER_KEY","_gameCfg","slides","refreshAdBanner"];
+const EXPORTS = ["AD_BANNER_KEY","slides","refreshAdBanner"];
 const MOVED = ["AD_BANNER_KEY","_lcAdSlides","_lcAdIdx","_lcAdTimer","refreshAdBanner","_gameCfg","_applyGameCfg"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  noticeFeed: noticeFeed,","  settingsMod: settingsMod,"];
 

@@ -7,10 +7,13 @@
  *
  * [구조]
  *   api   — TwApi.client(로그인 없는 읽기). If-None-Match · 304 · 같은 길 합치기는 api-client.js 가 한다(여기서 다시 만들지 않는다).
- *   unfoldCatalog(data, assetUrl) — 서버 한 벌 → 앱이 아는 세 목록({ parts · items · desks } — id → 레코드 맵). **이 모양 바꾸기는 이 모듈 한 곳이다.**
+ *   unfoldCatalog(data, assetUrl) — 서버 한 벌 → 앱이 아는 목록({ parts · items · desks } — id → 레코드 맵 · categories · unlocks). **이 모양 바꾸기는 이 모듈 한 곳이다.**
+ *     categories = { customCats: [운영이 더한 카테고리] · catOverrides: { 기본 코드: { label · icon } — 처음 값에서 바뀐 것만 } }(옛 catalog/customCats · catOverrides 와 같은 뜻) ·
+ *     unlocks = { 종류: { 열쇠: { level · label } } }(옛 catalog/gameConfig 의 동물 해금 레벨은 ANIMAL_CHARACTER · animal).
+ *     레코드마다 version · modelHash · thumbHash · listingAccess 를 싣는다 — 관리자가 고쳐 쓸 때 되돌려 보낸다.
  *     parts = 옛 catalog/parts + catalog/gachaParts 를 합친 것(가챠는 gacha:true · season) · items = 서버 deskProps · desks = 서버 desks.
  *     파일은 해시만 온다 → glbUrl · thumbUrl 은 GET /v2/catalog/assets/{해시}.{glb|png} 주소로 채운다(이름이 내용 해시라 1년 캐시 · 어느 출처든 읽는다).
- *   createCatalogApi(deps).subscribe(kind, onData) — kind: parts · items · desks. 처음 구독이 받기를 시작하고, 알림 · 연결 복구 때 다시 받는다.
+ *   createCatalogApi(deps).subscribe(kind, onData) — kind: parts · items · desks · categories · unlocks. 처음 구독이 받기를 시작하고, 알림 · 연결 복구 때 다시 받는다.
  *     받은 값이 지난번과 같은 종류는 다시 넘기지 않는다. 넘기는 값은 늘 새 객체다(받는 쪽이 glb 를 채워 넣는다).
  *
  * [버전 알림 — Firebase catalogMeta 는 걷었다] 설계(contexts/catalog.md §2 «catalogMeta 버전 칸 · IndexedDB 24시간 · API 사본 → 응답 지문 ETag» ·
@@ -28,7 +31,7 @@
 export const CATALOG_PATH = '/v2/catalog';
 export const CATALOG_ASSET_PATH = '/v2/catalog/assets/';
 export const CATALOG_TIMEOUT_MS = 8000;   // 본문이 수백 KB 라 API 공통 시간 제한(2.5초)보다 길게
-export const CATALOG_KINDS = Object.freeze(['parts', 'items', 'desks']);
+export const CATALOG_KINDS = Object.freeze(['parts', 'items', 'desks', 'categories', 'unlocks']);
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const str = (v) => (typeof v === 'string' ? v : '');
@@ -43,6 +46,13 @@ function urlOf(assetUrl, hash, ext){
 }
 function put(rec, key, val){ if(val !== null && val !== undefined) rec[key] = val; }
 
+/* 관리자가 고칠 때 되돌려 보낼 서버 칸 — 물건의 version(고치기에 싣는다) · 파일 해시(파일을 안 바꾸면 그대로 쓴다) · 진열 권한(앱이 모르는 종류도 그대로 돌려준다) */
+function adminCols(rec, row){
+  if(typeof row.version === 'number') rec.version = row.version;
+  if(typeof row.model === 'string' && HASH_RE.test(row.model)) rec.modelHash = row.model;
+  if(typeof row.thumb === 'string' && HASH_RE.test(row.thumb)) rec.thumbHash = row.thumb;
+  if(isObj(row.listing) && isObj(row.listing.access)) rec.listingAccess = row.listing.access;
+}
 /* 서버 파츠 한 줄 → 옛 catalog/parts · gachaParts 레코드 */
 function partRec(p, order, assetUrl){
   const rec = {
@@ -52,6 +62,7 @@ function partRec(p, order, assetUrl){
     hides: Array.isArray(p.hides) ? p.hides.filter((h) => typeof h === 'string') : [],
     order,
   };
+  adminCols(rec, p);
   put(rec, 'glbUrl', urlOf(assetUrl, p.model, 'glb'));
   put(rec, 'thumbUrl', urlOf(assetUrl, p.thumb, 'png'));
   const t = p.defaultTransform;
@@ -61,7 +72,7 @@ function partRec(p, order, assetUrl){
   const acq = isObj(p.listing) ? p.listing.acquisition : null;
   if(isObj(acq) && acq.kind === 'GACHA'){
     rec.gacha = true;
-    rec.season = (acq.season && acq.season !== 'ALWAYS') ? str(acq.season) : '';   // ''=상시 가챠(옛 모양)
+    rec.season = (acq.season && acq.season !== 'ALWAYS') ? str(acq.season).toLowerCase() : '';   // 앱의 시즌 이름은 소문자(gacha.js) · ''=상시 가챠(옛 모양)
   }
   return rec;
 }
@@ -70,6 +81,7 @@ function propRec(d, order, assetUrl){
   const play = isObj(d.play) ? d.play : {};
   const rec = { name: str(d.name), icon: str(d.icon), playMode: str(play.playMode) || 'click', autoPlay: play.autoPlay === true, glow: play.glow === true,
     licenseOnly: licenseOnlyOf(d.listing), order };
+  adminCols(rec, d);
   put(rec, 'glbUrl', urlOf(assetUrl, d.model, 'glb'));
   put(rec, 'thumbUrl', urlOf(assetUrl, d.thumb, 'png'));
   return rec;
@@ -77,8 +89,30 @@ function propRec(d, order, assetUrl){
 
 /* GET /v2/catalog 의 data → { parts, items, desks }(id → 레코드 맵). 한 벌의 모양이 틀리면(parts · desks · deskProps 가 배열이 아님) 던진다.
    한 줄이 깨졌으면(id 없음) 그 줄만 뺀다. order = 서버 진열 순서(배열 순서) 그대로의 번호. */
+/* 서버 카테고리 표 → { customCats: [운영이 더한 것 — 옛 catalog/customCats 줄], catOverrides: { 기본 코드: { label, icon } — 처음 값에서 바뀐 것만 } }.
+   group 은 앱 이름(소문자) · 서버 배열 순서가 곧 진열 순서다 */
+function foldCategories(list){
+  const customCats = [], catOverrides = {};
+  list.forEach((c) => {
+    if(!isObj(c) || !str(c.code)) return;
+    if(c.builtin === true){ if(c.overridden === true) catOverrides[c.code] = { label: str(c.label), icon: str(c.icon) }; }
+    else customCats.push({ cat: c.code, label: str(c.label), icon: str(c.icon), group: str(c.group).toLowerCase(), bone: str(c.bone) });
+  });
+  return { customCats, catOverrides };
+}
+/* 서버 해금 표 → { 종류: { 열쇠: { level, label } } } */
+function foldUnlocks(list){
+  const out = {};
+  list.forEach((u) => {
+    if(!isObj(u) || !str(u.kind) || !str(u.key) || typeof u.level !== 'number') return;
+    (out[u.kind] = out[u.kind] || {})[u.key] = { level: u.level, label: str(u.label) };
+  });
+  return out;
+}
+
 export function unfoldCatalog(data, assetUrl){
-  if(!isObj(data) || !Array.isArray(data.parts) || !Array.isArray(data.desks) || !Array.isArray(data.deskProps)){
+  if(!isObj(data) || !Array.isArray(data.parts) || !Array.isArray(data.desks) || !Array.isArray(data.deskProps)
+    || !Array.isArray(data.categories) || !Array.isArray(data.unlocks)){
     throw Object.assign(new Error('카탈로그 모양이 달라요'), { code: 'SHAPE' });
   }
   const parts = {}, items = {}, desks = {};
@@ -91,14 +125,14 @@ export function unfoldCatalog(data, assetUrl){
     put(items[d.deskPropId], 'attachTo', str(d.attachTo) || null);
     if(typeof d.defaultSize === 'number' && isFinite(d.defaultSize)) items[d.deskPropId].defaultSize = d.defaultSize;
   });
-  return { parts, items, desks };
+  return { parts, items, desks, categories: foldCategories(data.categories), unlocks: foldUnlocks(data.unlocks) };
 }
 
 export function createCatalogApi(deps){
   const { api, rt, notifyError } = deps;
   const warn = deps.warn || ((...a) => console.warn(...a));
-  const subs = { parts: new Set(), items: new Set(), desks: new Set() };
-  const last = { parts: null, items: null, desks: null };   // 마지막으로 넘긴 종류별 글(JSON) — 같으면 다시 안 넘긴다
+  const subs = {}, last = {};
+  for(const k of CATALOG_KINDS){ subs[k] = new Set(); last[k] = null; }   // 마지막으로 넘긴 종류별 글(JSON) — 같으면 다시 안 넘긴다
   let cur = null;          // 마지막으로 푼 { parts, items, desks }
   let raw = null;          // 마지막으로 받은 서버 data(304 면 같은 객체가 온다)
   let running = null;      // 받는 중
@@ -155,5 +189,8 @@ export function createCatalogApi(deps){
     return () => { subs[kind].delete(onData); };
   }
 
-  return { subscribe, load };
+  /* 마지막으로 받은 서버 한 벌 그대로(아직 못 받았으면 null) — 관리자 쓰기가 고칠 물건 · 카테고리 · 진열대 · 해금의 version 을 여기서 읽는다(admin/catalog-admin-api.js) */
+  const current = () => raw;
+
+  return { subscribe, load, current };
 }

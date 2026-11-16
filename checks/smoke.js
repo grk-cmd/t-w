@@ -422,6 +422,8 @@ PRELOAD.push('bgm-diag.js');   // 🔍 소리 진단 줄 — app.js 가 만들 �
 PRELOAD.push('playlist.js');
 /* admin/admin-api.js — 🛠️ 앱 관리자 창의 서버 길 provider. app.js 가 만들 때 TwAdminApi 를 부른다. */
 PRELOAD.push('admin-api.js');
+/* admin/catalog-admin-api.js — 🛠️ 카탈로그 쓰기 서버 길 provider. app.js 가 만들 때 TwCatalogAdminApi 를 부른다. */
+PRELOAD.push('catalog-admin-api.js');
 /* admin/admin-license-bulk.js — 🛠️ 📄 엑셀 라이선스 일괄 발급 · 🔒 시크릿룸 발급(관리자 코드 admin 폴더 1번). 같은 까닭 — 만들 때 하는 일
    (버튼 연결 · window._lxHideWin)과 app.js 가 원래 자리에서 부르는 createAdminLicenseBulk 를 같이 굴린다. 관리자 모듈은 parts/admin/ 에 있다. */
 PRELOAD.push('admin-license-bulk.js');

@@ -2079,6 +2079,12 @@ mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));
 const noticeApi = TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) });   // 🌐 /v2/notices
 /* 🛠️ 앱 관리자 창의 서버 길(/v2/admin/...) — 관리자 모드 · 확성기 · 업데이트 공지 · 배너 · 방 종료가 쓴다. 지금 업데이트 공지의 id 는 공지 한 판에서 받는다 */
 const adminApi = TwAdminApi.createAdminApi({ authed: TwApi.authed, pending: TwRequestId.createPending(), fetchBoard: ()=>noticeApi.fetchBoard(), errs: TwApiErrors });
+/* 🛠️ 카탈로그 관리자 쓰기(파츠 · 책상 · 소품 · 진열 순서 · 카테고리 · 게임 설정) — 고칠 판(version)은 마지막으로 받은 서버 한 벌에서 읽고, 쓴 뒤 한 번 다시 받는다 */
+const catalogAdmin = TwCatalogAdminApi.createCatalogAdminApi({
+  authed: TwApi.authed,
+  catalog: { current: ()=>window.firebaseAPI.catalogCurrent(), load: ()=>window.firebaseAPI.reloadCatalog() },
+  adminApi: adminApi, apiErrors: TwApiErrors.store, notifyError: (...a)=>TwErrorCodes.notify(...a), toast: (...a)=>toast(...a),
+});
 const noticeFeed = TwNoticeFeed.createNoticeFeed({
   api: noticeApi,
   rt: TwRtHub.store,
@@ -2884,6 +2890,7 @@ function _hsvToHex(h, sv, v){ return lightToneMod.toneCore.hsvToHex(h, sv, v); }
 /* 본문은 premium-assets.js 로 옮겼다(앱 FSD 37번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const premiumMod = TwPremiumAssets.createPremiumAssets({
+  catalogAdmin: catalogAdmin,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
   accountStore: accountStoreMod,
@@ -2909,6 +2916,7 @@ const premiumMod = TwPremiumAssets.createPremiumAssets({
    값 열세 개는 이 줄보다 뒤에 선언되거나 다시 대입되므로 읽는 함수로 넘긴다. 밖에서는 adminPartReg.이름 으로 부른다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const adminPartReg = TwAdminPartRegister.createAdminPartRegister({
+  catalogAdmin: catalogAdmin,
   _b64: (...a)=>codeCryptoMod._b64(...a),
   applyClothVisibility: (...a)=>applyClothVisibility(...a),
   catEquippedIds: (...a)=>premiumMod.catEquippedIds(...a),
@@ -2919,10 +2927,7 @@ const adminPartReg = TwAdminPartRegister.createAdminPartRegister({
   getRecHides: (...a)=>premiumMod.getRecHides(...a),
   parseGlbBytes: (...a)=>assetCodeMod.parseGlbBytes(...a),
   partCatInfo: (...a)=>premiumMod.partCatInfo(...a),
-  partCatLimit: (...a)=>premiumMod.partCatLimit(...a),
   partEntryXf: (...a)=>premiumMod.partEntryXf(...a),
-  partsInCat: (...a)=>premiumMod.partsInCat(...a),
-  partsInCatFor: (...a)=>premiumMod.partsInCatFor(...a),
   persistSavedParts: (...a)=>premiumMod.persistSavedParts(...a),
   refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),
   removeEntryFromCat: (...a)=>premiumMod.removeEntryFromCat(...a),
@@ -2931,16 +2936,12 @@ const adminPartReg = TwAdminPartRegister.createAdminPartRegister({
   resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),
   saveSlots: (...a)=>slotSaveMod.saveSlots(...a),
   syncWdGizmoToXf: (...a)=>wardrobeMod.syncWdGizmoToXf(...a),
-  toHidesForSave: (...a)=>premiumMod.toHidesForSave(...a),
   toast: (...a)=>toast(...a),
   unequipPartFromSeat: (...a)=>unequipPartFromSeat(...a),
   unequipStackablePart: (...a)=>unequipStackablePart(...a),
   seats,
   MAX_CUSTOM_ASSETS: ()=>commissionMod.MAX_CUSTOM_ASSETS,
   MAX_CUSTOM_ITEMS: ()=>commissionMod.MAX_CUSTOM_ITEMS,
-  MAX_GACHA_PARTS_PER_CAT: ()=>premiumMod.MAX_GACHA_PARTS_PER_CAT,
-  MAX_GLB_BYTES: ()=>commissionMod.MAX_GLB_BYTES,
-  MAX_PARTS_PER_CAT: ()=>premiumMod.MAX_PARTS_PER_CAT,
   PART_CATS: ()=>premiumMod.PART_CATS(),
   gachaMod: ()=>gachaMod,
   partSceneCache: ()=>partSceneMod.partSceneCache,
@@ -5003,7 +5004,7 @@ const deskSetupMod = TwDeskSetup.createDeskSetup({
   autoSaveDeskItemsNow: (...a)=>autoSaveDeskItemsNow(...a),
   b64ToBuf: (...a)=>b64ToBuf(...a),
   catalogGlbMod: ()=>catalogGlbMod,
-  catalogNet: ()=>window.firebaseAPI,
+  catalogAdmin: catalogAdmin,
   clampDeskScale: (...a)=>clampDeskScale(...a),
   commissionMod: ()=>commissionMod,
   crState: crState,
@@ -6574,6 +6575,7 @@ const adBannerMod = TwAdBanner.createAdBanner({
    isAdmin 은 다시 대입되는 let 이라 읽는 함수로 넘긴다. 사용자 쪽(배너 그리기 · 구독)은 바로 위 ad-banner.js(앱 FSD 43번).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const adminLauncher = TwAdminLauncher.createAdminLauncher({
+  catalogAdmin: catalogAdmin,
   toast: (...a)=>toast(...a),
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   isAdmin: ()=>isAdmin,
@@ -6648,6 +6650,7 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());
    PART_GROUPS(뒤에서 선언하는 const) · PART_CATS · partCatOverrides(다시 대입되는 let)는 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const adminCategory = TwAdminCategory.createAdminCategory({
+  catalogAdmin: catalogAdmin,
   toast: (...a)=>toast(...a),
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   partGroups: ()=>premiumMod.PART_GROUPS,
@@ -6867,8 +6870,7 @@ const catalogSourceMod = TwCatalogSource.createCatalogSource({
 /* 본문은 admin/admin-thumbs.js 로 옮겼다(구역 떼기 C · w2). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const adminThumbs = TwAdminThumbs.createAdminThumbs({
-  adminPartReg: adminPartReg,
-  catalogSourceMod: catalogSourceMod,
+  catalogAdmin: catalogAdmin,
   gachaMod: ()=>gachaMod,
   isAdmin: ()=>isAdmin,
   partSceneMod: partSceneMod,

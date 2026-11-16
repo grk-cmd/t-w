@@ -3,7 +3,7 @@
   "files": {
     "app.js": {
       "cap": 8548,
-      "lines": 8400,
+      "lines": 8404,
       "sections": [
         "SETUP",
         "기본 캐릭터 GLB (임베드) — face/cloth_upper/cloth_lower + 리깅",
@@ -130,8 +130,8 @@
       ]
     },
     "firebase-init.js": {
-      "cap": 1078,
-      "lines": 978,
+      "cap": 825,
+      "lines": 725,
       "sections": [
         "🚧 로그인 복원 대기선 (auth barrier)",
         "마이홈 친구 시스템",
@@ -140,8 +140,6 @@
         "🫧 자리비움 그림 (2026-09-23 · handoff-2026-09-21-features §2 · 시안 A 확정)",
         "방명록 / 웹박수",
         "🎟️ 초대장 (앱 접근 제한)",
-        "Phase 3: 커스텀 서브카테고리 (관리자가 파츠 종류 추가)",
-        "기본(내장) 카테고리 이름/아이콘 덮어쓰기",
         "🔑 로그인(Firebase Auth) 원시 — 토큰 받기만"
       ]
     }

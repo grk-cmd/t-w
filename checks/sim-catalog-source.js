@@ -14,10 +14,10 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const find = (rel) => [rel.split('/').pop(), 'parts/' + rel, 'app/parts/' + rel].map(read).find(Boolean);
 const SRC = read('app.js'), HTML = read('desk-companion-prototype.html'), MOD = find('character/catalog-source.js');
-const USERS = { 'catalog-sync.js': find('character/catalog-sync.js'), 'catalog-glb.js': find('character/catalog-glb.js'), 'admin-thumbs.js': find('admin/admin-thumbs.js') };
-if(!SRC || !HTML || !MOD || Object.values(USERS).some(v => !v)){ say('  ? 원본 못 찾음 — app.js · html · catalog-source.js · 세 모듈'); process.exit(2); }
+const USERS = { 'catalog-sync.js': find('character/catalog-sync.js'), 'catalog-glb.js': find('character/catalog-glb.js') };
+if(!SRC || !HTML || !MOD || Object.values(USERS).some(v => !v)){ say('  ? 원본 못 찾음 — app.js · html · catalog-source.js · 두 모듈'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
-const EXPORTS = ['catalogSrcReady', 'catalogSrcCan', 'catalogSrcSubscribe', 'catalogSrcFetchGlb', 'catalogSrcPublishPart'];
+const EXPORTS = ['catalogSrcReady', 'catalogSrcCan', 'catalogSrcSubscribe', 'catalogSrcFetchGlb'];
 const NET_PRE = (['net-ready.js', 'parts/shared/net-ready.js', 'app/parts/shared/net-ready.js'].map(read).find(Boolean) || '') + '\nvar TwNetReady = window.TwNetReady;\n';   // 🛰 네트워크 준비 기다리기(shared/net-ready.js) — catalogSrcReady 가 TwNetReady.whenNetReady 로 넘긴다
 const make = (win) => { new Function('window', 'module', NET_PRE + MOD)(win, undefined); return win.TwCatalogSource.createCatalogSource({}); };
 
@@ -35,11 +35,11 @@ say('── 2. 연결');
   const A = strip(SRC);
   const at = (s) => A.indexOf(s);
   const iSrc = at('const catalogSourceMod = TwCatalogSource.createCatalogSource({');
-  const users = [['adminThumbs = TwAdminThumbs.createAdminThumbs({', 'admin-thumbs.js'], ['catalogGlbMod = TwCatalogGlb.createCatalogGlb({', 'catalog-glb.js'], ['catalogSyncMod = TwCatalogSync.createCatalogSync({', 'catalog-sync.js']];
+  const users = [['catalogGlbMod = TwCatalogGlb.createCatalogGlb({', 'catalog-glb.js'], ['catalogSyncMod = TwCatalogSync.createCatalogSync({', 'catalog-sync.js']];
   chk(iSrc > 0 && (A.match(/TwCatalogSource\.createCatalogSource\(/g) || []).length === 1, 'app.js 가 provider 를 한 줄로 한 번 고른다');
-  chk(users.every(([mk]) => { const i = at(mk); const body = A.slice(i, A.indexOf('});', i)); return i > iSrc && /\n  catalogSourceMod: catalogSourceMod,/.test(body); }), '  세 모듈(admin-thumbs · catalog-glb · catalog-sync)보다 먼저 만들고 deps 로 넘긴다');
+  chk(users.every(([mk]) => { const i = at(mk); const body = A.slice(i, A.indexOf('});', i)); return i > iSrc && /\n  catalogSourceMod: catalogSourceMod,/.test(body); }), '  두 모듈(catalog-glb · catalog-sync)보다 먼저 만들고 deps 로 넘긴다');
   const direct = Object.entries(USERS).filter(([, src]) => /firebaseAPI\s*[.&)]|firebaseAPI\[/.test(strip(src))).map(([f]) => f);
-  chk(!direct.length, '세 모듈에 firebaseAPI 직접 호출이 없다(provider 를 거친다)' + (direct.length ? ' — ' + direct.join(' · ') : ''));
+  chk(!direct.length, '두 모듈에 firebaseAPI 직접 호출이 없다(provider 를 거친다)' + (direct.length ? ' — ' + direct.join(' · ') : ''));
   const iS = HTML.indexOf('<script src="parts/character/catalog-source.js">'), iA = HTML.indexOf('<script src="parts/app.js">');
   chk(iS > 0 && iS < iA, 'html 이 catalog-source.js 를 app.js 앞에 싣는다');
 }
@@ -57,10 +57,10 @@ say('── 3. 동작 — 가짜 window 위의 Firebase 판');
   w.ls.forEach(l => l[1]());
   chk(ran === 2, '  firebase-ready 가 오면 그때 부른다');
   /* 할 수 있는지 */
-  const OPS = { items: 'subscribeCatalogItems', desks: 'subscribeCatalogDesks', parts: 'subscribeCatalogParts', customCats: 'subscribeCustomCats', catOverrides: 'subscribeCatOverrides', fetchGlb: 'fetchCatalogGlb', publishPart: 'publishPart' };
+  const OPS = { items: 'subscribeCatalogItems', desks: 'subscribeCatalogDesks', parts: 'subscribeCatalogParts', categories: 'subscribeCatalogCategories', unlocks: 'subscribeCatalogUnlocks', fetchGlb: 'fetchCatalogGlb' };
   const full = {}; Object.values(OPS).forEach(n => { full[n] = () => {}; });
   S = make(mkWin(full));
-  chk(Object.keys(OPS).every(op => S.catalogSrcCan(op) === true), 'catalogSrcCan — 일곱 가지 일 모두 Firebase 판 함수에 잇는다');
+  chk(Object.keys(OPS).every(op => S.catalogSrcCan(op) === true), 'catalogSrcCan — 여섯 가지 일 모두 Firebase 판 함수에 잇는다');
   chk(S.catalogSrcCan('nope') === false && make(mkWin(undefined)).catalogSrcCan('items') === false && make(mkWin({ subscribeCatalogItems: () => {} })).catalogSrcCan('desks') === false, '  경계 — 모르는 일 · 연결 없음 · 그 함수만 없음은 false');
   /* 넘기기 */
   const log = [];
@@ -68,10 +68,10 @@ say('── 3. 동작 — 가짜 window 위의 Firebase 판');
   Object.entries(OPS).forEach(([op, n]) => { fb[n] = (...a) => { log.push([n, ...a]); return 'ret:' + op; }; });
   w = mkWin(fb); S = make(w);
   const cb = () => {};
-  const rs = ['items', 'desks', 'parts', 'customCats', 'catOverrides'].map(k => S.catalogSrcSubscribe(k, cb));
-  chk(log.slice(0, 5).map(l => l[0]).join() === 'subscribeCatalogItems,subscribeCatalogDesks,subscribeCatalogParts,subscribeCustomCats,subscribeCatOverrides' && log.slice(0, 5).every(l => l[1] === cb && l.length === 2) && rs[0] === 'ret:items', 'catalogSrcSubscribe — 종류별 구독에 콜백을 그대로 넘기고 돌려받는 값도 그대로');
-  chk(S.catalogSrcFetchGlb('u') === 'ret:fetchGlb' && S.catalogSrcPublishPart('id', { a: 1 }) === 'ret:publishPart'
-      && log[5][1] === 'u' && log[6][1] === 'id' && log[6][2].a === 1, '  GLB 받기 · 파츠 올리기 — 인자 · 돌려받는 값(약속) 그대로');
+  const rs = ['items', 'desks', 'parts', 'categories', 'unlocks'].map(k => S.catalogSrcSubscribe(k, cb));
+  chk(log.slice(0, 5).map(l => l[0]).join() === 'subscribeCatalogItems,subscribeCatalogDesks,subscribeCatalogParts,subscribeCatalogCategories,subscribeCatalogUnlocks' && log.slice(0, 5).every(l => l[1] === cb && l.length === 2) && rs[0] === 'ret:items', 'catalogSrcSubscribe — 종류별 구독에 콜백을 그대로 넘기고 돌려받는 값도 그대로');
+  chk(S.catalogSrcFetchGlb('u') === 'ret:fetchGlb' && log[5][1] === 'u', '  GLB 받기 — 인자 · 돌려받는 값(약속) 그대로');
+  chk(!('catalogSrcPublishPart' in S) && !/publishPart/.test(MOD), '  관리자 쓰기(올리기)는 이 provider 에 없다 — admin/catalog-admin-api.js');
   /* 부를 때마다 읽기 */
   w = mkWin(undefined); S = make(w);
   w.firebaseAPI = { fetchCatalogGlb: (u) => 'late:' + u };
@@ -82,18 +82,18 @@ say('── 4. 입구 가드 — catalogSrcCan 을 안 물어도 요청 0');
 {
   const mkWin = (fb) => ({ firebaseAPI: fb, addEventListener(){} });
   const tryCall = (fn) => { try{ return { v: fn() }; }catch(e){ return { err: e }; } };
-  const all = (S) => [() => S.catalogSrcSubscribe('items', () => {}), () => S.catalogSrcFetchGlb('u'), () => S.catalogSrcPublishPart('id', { a: 1 })];
+  const all = (S) => [() => S.catalogSrcSubscribe('items', () => {}), () => S.catalogSrcFetchGlb('u')];
   let S = make(mkWin(undefined));
-  chk(all(S).map(tryCall).every(r => !r.err && r.v === null), '연결이 없으면 세 가지 모두 던지지 않고 null');
+  chk(all(S).map(tryCall).every(r => !r.err && r.v === null), '연결이 없으면 둘 다 던지지 않고 null');
   S = make(mkWin({}));
   chk(all(S).map(tryCall).every(r => !r.err && r.v === null), '  연결은 있는데 그 함수가 없어도 던지지 않고 null');
   const log = [];
-  const fb = {}; ['subscribeCatalogItems', 'subscribeCatalogDesks', 'fetchCatalogGlb', 'publishPart'].forEach(n => { fb[n] = (...a) => { log.push(n); return 'ok'; }; });
+  const fb = {}; ['subscribeCatalogItems', 'subscribeCatalogDesks', 'fetchCatalogGlb'].forEach(n => { fb[n] = (...a) => { log.push(n); return 'ok'; }; });
   S = make(mkWin(fb));
   const bad = [() => S.catalogSrcSubscribe('nope', () => {}), () => S.catalogSrcSubscribe('fetchGlb', () => {}), () => S.catalogSrcSubscribe('items'), () => S.catalogSrcSubscribe('desks', 'x'),
-    () => S.catalogSrcFetchGlb(''), () => S.catalogSrcFetchGlb(undefined), () => S.catalogSrcPublishPart('', { a: 1 }), () => S.catalogSrcPublishPart(null, { a: 1 }), () => S.catalogSrcPublishPart('id')].map(tryCall);
-  chk(bad.every(r => !r.err && r.v === null) && log.length === 0, '  모르는 종류(구독 아닌 일 포함) · 콜백 없음 · 빈 url · 빈 id · 빈 data 는 요청 0 · null');
-  chk(S.catalogSrcSubscribe('items', () => {}) === 'ok' && S.catalogSrcFetchGlb('u') === 'ok' && S.catalogSrcPublishPart('id', {}) === 'ok' && log.join() === 'subscribeCatalogItems,fetchCatalogGlb,publishPart', '  전제가 다 있으면 그대로 넘긴다(가드가 정상 호출을 막지 않음)');
+    () => S.catalogSrcFetchGlb(''), () => S.catalogSrcFetchGlb(undefined)].map(tryCall);
+  chk(bad.every(r => !r.err && r.v === null) && log.length === 0, '  모르는 종류(구독 아닌 일 포함) · 콜백 없음 · 빈 url 은 요청 0 · null');
+  chk(S.catalogSrcSubscribe('items', () => {}) === 'ok' && S.catalogSrcFetchGlb('u') === 'ok' && log.join() === 'subscribeCatalogItems,fetchCatalogGlb', '  전제가 다 있으면 그대로 넘긴다(가드가 정상 호출을 막지 않음)');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

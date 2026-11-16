@@ -1,9 +1,9 @@
 /* ═══ 🧰 sim-admin-users-launcher.js — 관리자 5번 모듈 둘 (2026-10-14 신설 · 관리자 코드 admin 폴더 5번) ═══════════════
    app.js 의 관리자 몫 두 덩이를 parts/admin/ 으로 옮겼다. 동작은 그대로여야 한다 — 가짜 DOM 위에서 굴린다.
      admin-users.js    — 📊 전체 통계 · 🎟️ 초대권 지급(사용자 초대 창 bindInviteUI 안쪽에 있던 것)
-     admin-launcher.js — 🛑 전체 방 종료 · 🧹 유령 방 청소 · ⚙️ 게임 설정(멈춤) · 📢 광고 배너 편집 (0.13: 방 종료 · 배너는 서버 관리자 API — adminApi)
+     admin-launcher.js — 🛑 전체 방 종료 · 🧹 유령 방 청소 · ⚙️ 게임 설정(서버 해금 표) · 📢 광고 배너 편집 (0.13: 방 종료 · 배너는 서버 관리자 API — adminApi)
    ・1절: 통계 · 초대권 — 만들 때 버튼 · 통계 읽기 · 한 명 지급(친추코드 → uid → 장수) · 장수 상한 · 전체 지급은 두 번 눌러야
-   ・2절: 런처 도구 — 관리자 아니면 막힘(다시 대입된 isAdmin 을 읽음) · 방 종료는 «종료» 입력 후 서버 · 연타 한 번 · 실패는 오류 번호 · 게임 설정은 멈춤(서버로 안 감) ·
+   ・2절: 런처 도구 — 관리자 아니면 막힘(다시 대입된 isAdmin 을 읽음) · 방 종료는 «종료» 입력 후 서버 · 연타 한 번 · 실패는 오류 번호 · 게임 설정은 서버 해금 표에 쓴다(catalogAdmin) ·
         광고 배너는 열 때 서버에서 받고(받기 전엔 안 열림) 읽은 판으로 저장 · 저장하면 본인 런처 배너를 한 번 받음 · 409 는 다시 받아 채우고 번호 없이 문구 · 이 PC 사본 없음
    ・3절: app.js 연결 — 본문이 안 남음 · 사용자 쪽은 남음 · 빈 껍데기 · deps · 원래 자리(초대 창 안 · 런처 구역) · html
    ・4절: 일부러 깨 보기
@@ -97,6 +97,12 @@ async function judgeAll(m, app, html){
   /* 2. 런처 도구 */
   const st = { admin: false, shown: [], rooms: { closed: 3, missing: 0 }, banner: { version: 4, slides: [{ img: 'https://a/old.png', link: 'https://a/old' }] }, putErr: null, roomErr: null, fetchErr: null, hold: null, feed: 0 };
   const apiCalls = [];
+  const cfg = { level: 50, label: '동물 캐릭터', err: null, calls: [], hold: null };
+  const catalogAdmin = {
+    unlockOf: (k, key) => { cfg.calls.push(['unlockOf', k, key]); return { level: cfg.level, label: cfg.label, version: 1 }; },
+    saveUnlock: async (k, key, level, label) => { cfg.calls.push(['saveUnlock', k, key, level, label]); if(cfg.hold) await cfg.hold; if(cfg.err) throw cfg.err; },
+    reportFail: async (err, site) => { cfg.calls.push(['reportFail', site]); return 'notice'; },
+  };
   const adminApi = {
     ERRORS: { MARK: 1 },
     closeAllRooms: async () => { apiCalls.push(['closeAllRooms']); if(st.hold) await st.hold; if(st.roomErr) throw st.roomErr; return st.rooms; },
@@ -106,7 +112,7 @@ async function judgeAll(m, app, html){
   const apiErrors = { notify: (e, table) => { if(!(e && e.code === 'CONCURRENT_UPDATE')) st.shown.push([e && e.code, table && table.MARK]);   /* 409 는 기능 표가 번호 없이(notice null) — admin-api.js ERRORS · sim-admin-api.js */
     return { action: e && e.code === 'CONCURRENT_UPDATE' ? 'refetch' : 'notice' }; } };
   let Ln;
-  try{ Ln = build(m.launcher, 'TwAdminLauncher', { asyncPrompt: async () => st.answer, isAdmin: () => st.admin, adminApi, apiErrors, refreshBanner: async () => { st.feed++; } }); }catch(e){ t(false, '런처 도구 모듈을 만들 수 없다 — ' + e.message); }
+  try{ Ln = build(m.launcher, 'TwAdminLauncher', { asyncPrompt: async () => st.answer, isAdmin: () => st.admin, catalogAdmin, adminApi, apiErrors, refreshBanner: async () => { st.feed++; } }); }catch(e){ t(false, '런처 도구 모듈을 만들 수 없다 — ' + e.message); }
   if(Ln){
     const e = Ln.els;
     t(['lcCloseAllRooms', 'lcGameCfg', 'lcAdBannerEdit', 'adBannerCloseBtn', 'adBannerSaveBtn']
@@ -128,8 +134,19 @@ async function judgeAll(m, app, html){
     const p1 = e.lcCloseAllRooms.onclick(); await new Promise(r => setImmediate(r)); const p2 = e.lcCloseAllRooms.onclick();
     release(); await p1; await p2; st.hold = null;
     t(apiCalls.filter(c => c[0] === 'closeAllRooms').length === n0 + 1, '방 종료 요청 중 한 번 더 눌러도 한 번만 나간다');
-    const nBefore = Ln.toasts.length; e.lcGameCfg.onclick();
-    t(Ln.toasts.length === nBefore + 1 && /게임 설정/.test(Ln.toasts[nBefore]) && e.gameCfgOverlay.style.display !== 'flex' && !apiCalls.some(c => /Game/.test(c[0])), '게임 설정 — 창을 열지 않고 «서버로 옮기는 중» 안내만(서버 · Firebase 에 안 씀)');
+    /* ⚙️ 게임 설정 — 서버 해금 표(ANIMAL_CHARACTER · animal)에 쓴다 */
+    await e.lcGameCfg.onclick();
+    t(e.gameCfgOverlay.style.display === 'flex' && e.gameCfgAnimalLv.value === 50 && cfg.calls[0].join() === 'unlockOf,ANIMAL_CHARACTER,animal' && !apiCalls.some(c => /Game|Unlock/.test(c[0])), '게임 설정 — 창이 열리고 서버 해금 표의 지금 레벨을 채운다(마지막으로 받은 한 벌)');
+    e.gameCfgAnimalLv.value = '40'; cfg.calls.length = 0;
+    await e.gameCfgSaveBtn.onclick();
+    t(cfg.calls.map(c => c[0]).join() === 'unlockOf,saveUnlock' && cfg.calls[1].slice(1).join() === 'ANIMAL_CHARACTER,animal,40,동물 캐릭터' && Ln.toasts.includes('⚙️ 저장했어요 — 동물 해금 Lv.40') && e.gameCfgOverlay.style.display === 'none',
+      '★ 게임 설정 저장 — PUT 해금(종류 · 열쇠 · 레벨 · 서버가 준 이름)을 한 번 · 저장했다고 알리고 창을 닫는다(범위 1~999 는 서버가 본다 — 앱이 미리 거절하지 않는다)');
+    cfg.err = Object.assign(new Error('x'), { code: 'CATALOG_INVALID_UNLOCK_LEVEL' }); cfg.calls.length = 0; e.gameCfgOverlay.style.display = 'flex'; e.gameCfgAnimalLv.value = '5000'; const nCfg = Ln.toasts.length;
+    await e.gameCfgSaveBtn.onclick();
+    t(cfg.calls.map(c => c[0]).join() === 'unlockOf,saveUnlock,reportFail' && cfg.calls[2][1] === 'config' && Ln.toasts.length === nCfg && e.gameCfgOverlay.style.display === 'flex', '  서버가 거절하면 성공 토스트 없이 번호로 알리고 창은 그대로(5000 도 일단 서버로 보낸다)');
+    cfg.err = null; let relCfg; cfg.hold = new Promise(r => { relCfg = r; }); cfg.calls.length = 0;
+    const g1 = e.gameCfgSaveBtn.onclick(); await new Promise(r => setImmediate(r)); const g2 = e.gameCfgSaveBtn.onclick(); relCfg(); await g1; await g2; cfg.hold = null;
+    t(cfg.calls.filter(c => c[0] === 'saveUnlock').length === 1, '  저장 요청 중 한 번 더 눌러도 한 번만 나간다');
     /* 광고 배너 */
     st.fetchErr = Object.assign(new Error('x'), { code: 'NETWORK' }); st.shown.length = 0;
     await e.lcAdBannerEdit.onclick();
@@ -162,15 +179,15 @@ async function judgeAll(m, app, html){
   /* 3. app.js 연결 */
   const A = strip(app);
   t(!/bindTotalStats|getAdminStats\(|grantInvites\(|inviteGrantAll|closeAllRooms\(|cleanGhostRooms\(|publishGameConfig\(|publishAdBanner\(|'lcAdBannerEdit'/.test(A), 'app.js 에 옮긴 본문이 남지 않았다');
-  t(['function _applyGameCfg(cfg)', 'noticeFeed.onChange(', 'function refreshAdBanner()'].every(x => A.includes(x) || ADB.includes(x)) && (/\(function bindInviteUI\(\)\{/.test(A) || /\(function bindInviteUI\(\)\{/.test(LGATE)),
-    '사용자 쪽(게임 설정 구독 · 배너 그리기 · 공지 한 판의 배너 받기 · 초대 창 — 초대 창은 license-gate.js)은 관리자 모듈 밖에 남았다');
+  t(['noticeFeed.onChange(', 'function refreshAdBanner()'].every(x => A.includes(x) || ADB.includes(x)) && (/\(function bindInviteUI\(\)\{/.test(A) || /\(function bindInviteUI\(\)\{/.test(LGATE)),
+    '사용자 쪽(배너 그리기 · 공지 한 판의 배너 받기 · 초대 창 — 초대 창은 license-gate.js)은 관리자 모듈 밖에 남았다');
   t(!/\bADMIN_USERS_OFF\b/.test(app) && !/\bADMIN_LAUNCHER_OFF\b/.test(app), '빈 껍데기 없이 만든다(모듈은 늘 싣는다 — 가드 걷기 3차)');
   const block = (name) => ((app.match(new RegExp('const ' + name + ' = (?:\\(typeof \\w+ === \'undefined\'\\) \\? \\w+ : )?\\w+\\.create\\w+\\(\\{\\n([\\s\\S]*?)\\n\\s*\\}\\);')) || [])[1] || '')
     .split('\n').map(l => l.trim()).filter(Boolean);
   const du = block('adminUsers'), dl = block('adminLauncher');
   t(/^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),\|inviteGrantMax: (?:licenseGateMod\.)?INVITE_GRANT_MAX,\|adminApi: adminApi,\|apiErrors: TwApiErrors\.store,\|notifyError: \(\.\.\.a\)=>TwErrorCodes\.notify\(\.\.\.a\),$/.test(du.join('|')), 'deps — 통계 · 초대권: toast · INVITE_GRANT_MAX · adminApi · apiErrors · notifyError');
-  t(dl.length === 6 && dl.includes('isAdmin: ()=>isAdmin,') && dl.includes('adminApi: adminApi,') && dl.includes('apiErrors: TwApiErrors.store,') && dl.includes('refreshBanner: ()=>noticeFeed.refresh(),'),
-    'deps — 런처 도구 여섯 · isAdmin 은 읽는 함수(다시 대입되는 let) · adminApi · apiErrors · refreshBanner(저장 뒤 배너 받기)');
+  t(dl.length === 7 && dl.includes('catalogAdmin: catalogAdmin,') && dl.includes('isAdmin: ()=>isAdmin,') && dl.includes('adminApi: adminApi,') && dl.includes('apiErrors: TwApiErrors.store,') && dl.includes('refreshBanner: ()=>noticeFeed.refresh(),'),
+    'deps — 런처 도구 일곱 · catalogAdmin(게임 설정) · isAdmin 은 읽는 함수(다시 대입되는 let) · adminApi · apiErrors · refreshBanner(저장 뒤 배너 받기)');
   /* 만드는 줄은 초대장 모듈(license-gate.js) 만드는 줄 바로 뒤 — 사이에 주석 · 빈 껍데기 줄 말고는 없다(부팅 때 초대 창 묶기 직후 한 번 만드는 차례 그대로) */
   const iLG = app.indexOf('const licenseGateMod = '), iLGEnd = iLG >= 0 ? app.indexOf('\n});', iLG) + 4 : -1, iUsers = app.indexOf('const adminUsers =');
   const gap = iLGEnd > 3 && iUsers > iLGEnd ? app.slice(iLGEnd, iUsers).replace(/\/\*[\s\S]*?\*\//g, '').replace(/const ADMIN_USERS_OFF = \{\};.*\n/, '').trim() : '?';
@@ -198,7 +215,7 @@ async function judgeAll(m, app, html){
     ['방 종료를 Firebase 로 되돌림', { launcher: s => s.replace('await adminApi.closeAllRooms();', 'await firebaseAPI.closeAllRooms();') }],
     ['방 종료 연타 잠금 없음', { launcher: s => s.replace('if(closing) return;', '') }],
     ['방 종료 실패를 성공처럼', { launcher: s => s.replace('}catch(e){ fail(e); }\n      finally{ closing = false; }', '}catch(e){ toast(`방 0개를 종료했어요`); }\n      finally{ closing = false; }') }],
-    ['게임 설정 창이 다시 열림', { launcher: s => s.replace("_btn.onclick = ()=>{ toast(GAME_CFG_PAUSED_TEXT); };", "_btn.onclick = ()=>{ toast(GAME_CFG_PAUSED_TEXT); const o=document.getElementById('gameCfgOverlay'); o.style.display='flex'; };") }],
+    ['게임 설정 저장이 서버를 안 부름', { launcher: s => s.replace('await catalogAdmin.saveUnlock(ANIMAL_UNLOCK_KIND', 'await Promise.resolve(ANIMAL_UNLOCK_KIND') }],
     ['배너를 이 PC 에 남김', { launcher: s => s.replace("bannerVersion = b.version;", "bannerVersion = b.version; localStorage.setItem('tw.adBanner', '1');") }],
     ['배너 저장에 판을 안 실음', { launcher: s => s.replace('adminApi.replaceBanner(bannerVersion, slides)', 'adminApi.replaceBanner(0, slides)') }],
     ['배너 못 받아도 창을 엶', { launcher: s => s.replace("    await loadBanner();\n    const o=$('adBannerOverlay');", "    try{ await loadBanner(); }catch(_){}\n    const o=$('adBannerOverlay');") }],

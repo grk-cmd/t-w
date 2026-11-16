@@ -12,6 +12,7 @@
 
 function createAdminCategory(deps){
 const toast = deps.toast;
+const catalogAdmin = deps.catalogAdmin;   // 카탈로그 쓰기 서버 길(admin/catalog-admin-api.js)
 const asyncPrompt = deps.asyncPrompt;
 const PART_GROUPS = deps.partGroups;           // 읽는 함수 — 그룹 목록(app.js 가 뒤에서 선언하는 const)
 const PART_CATS = deps.partCats;               // 읽는 함수 — 기본 + 커스텀 카테고리(카탈로그 구독이 다시 대입)
@@ -50,7 +51,7 @@ function renderCategoryManager(){
       chip.innerHTML = TwSafeHtml.text(c.icon)+' '+TwSafeHtml.text(c.label) + (isBuiltin ? ' <span style="font-size:9px;color:#666;">기본</span>' : '');
       if(isBuiltin){
         // ✎ 기본 카테고리 이름/아이콘 수정 — cat 식별자와 동작(부착 본·숨김 규칙)은 그대로 두고 표시 이름만 바꿈.
-        //   모든 사용자에게 반영됨(catalog/catOverrides).
+        //   모든 사용자에게 반영됨(서버 카테고리 표).
         const ed=document.createElement('span');
         ed.style.cssText='color:#2a6ea0;cursor:pointer;margin-left:4px;font-weight:bold;';
         ed.textContent='✎';
@@ -62,14 +63,11 @@ function renderCategoryManager(){
           const nm = String(name).trim();
           if(!nm){ toast('이름을 입력해주세요'); return; }
           const ic = await asyncPrompt({ title:'카테고리 아이콘', message:'아이콘 이모지 (비우면 기존 아이콘 유지)', defaultValue:c.icon||'', maxLength:8 });
-          if(!window.firebaseAPI || !window.firebaseAPI.publishCatOverride){ toast('네트워크 연결을 확인해주세요'); return; }
+          const icv = (ic==null) ? '' : String(ic).trim();   // 비우면 지금 아이콘을 그대로 보낸다
           try{
-            const payload = { label: nm };
-            const icv = (ic==null) ? '' : String(ic).trim();
-            if(icv) payload.icon = icv;
-            await window.firebaseAPI.publishCatOverride(c.cat, payload);
+            await catalogAdmin.renameCategory(c.cat, { label: nm, icon: icv || c.icon });
             toast('"'+nm+'"(으)로 바꿨어요');
-          }catch(_){ toast('변경 실패'); }
+          }catch(e){ await catalogAdmin.reportFail(e, 'category'); }
         };
         chip.appendChild(ed);
         // ↺ 기본 이름으로 되돌리기 — 덮어쓴 적 있을 때만
@@ -79,9 +77,8 @@ function renderCategoryManager(){
           rs.textContent='↺';
           rs.title='원래 이름으로 되돌리기';
           rs.onclick=async ()=>{
-            if(!window.firebaseAPI || !window.firebaseAPI.unpublishCatOverride){ toast('네트워크 연결을 확인해주세요'); return; }
-            try{ await window.firebaseAPI.unpublishCatOverride(c.cat); toast('원래 이름으로 되돌렸어요'); }
-            catch(_){ toast('되돌리기 실패'); }
+            try{ await catalogAdmin.resetCategory(c.cat); toast('원래 이름으로 되돌렸어요'); }
+            catch(e){ await catalogAdmin.reportFail(e, 'category'); }
           };
           chip.appendChild(rs);
         }
@@ -93,9 +90,8 @@ function renderCategoryManager(){
         del.title='이 카테고리 삭제 (파츠 데이터는 유지)';
         del.onclick=async ()=>{
           if(!confirm('"'+c.label+'" 카테고리를 삭제할까요?\n(파츠 데이터는 유지되지만 카테고리가 사라지면 파츠가 안 보여요)')){ window.focus(); return; } window.focus();
-          if(!window.firebaseAPI || !window.firebaseAPI.unpublishCustomCat){ toast('네트워크 연결을 확인해주세요'); return; }
-          try{ await window.firebaseAPI.unpublishCustomCat(c.cat); toast('삭제했어요'); }
-          catch(_){ toast('삭제 실패'); }
+          try{ await catalogAdmin.deleteCategory(c.cat); toast('삭제했어요'); }
+          catch(e){ await catalogAdmin.reportFail(e, 'category'); }
         };
         chip.appendChild(del);
       }
@@ -143,15 +139,12 @@ document.getElementById('cmAddGoBtn').onclick=async ()=>{
   const bone=document.getElementById('cmAddBone').value;
   if(!name || !catId){ toast('이름과 ID를 입력해주세요'); return; }
   if(!/^[a-z][a-z0-9_]*$/.test(catId)){ toast('ID는 영문 소문자로 시작하고 영문/숫자/언더스코어만 사용 가능해요'); return; }
-  // 기존 카테고리와 ID 겹침 방지
-  if(PART_CATS().find(c=>c.cat===catId)){ toast('이미 있는 ID예요 — 다른 ID를 써주세요'); return; }
-  if(!window.firebaseAPI || !window.firebaseAPI.publishCustomCat){ toast('네트워크 연결을 확인해주세요'); return; }
-  try{
-    await window.firebaseAPI.publishCustomCat(catId, { cat:catId, label:name, icon:icon||'🏷️', group:_cmAddingGroup, bone });
+  try{   // 이미 있는 ID 는 서버가 거절한다(CATALOG_ALREADY_EXISTS)
+    await catalogAdmin.createCategory(catId, { group:_cmAddingGroup, label:name, icon:icon||'🏷️', bone });
     toast('"'+name+'" 카테고리를 추가했어요');
     const form=document.getElementById('cmAddForm'); if(form) form.style.display='none';
     _cmAddingGroup = null;
-  }catch(e){ toast('추가 실패'); }
+  }catch(e){ await catalogAdmin.reportFail(e, 'category'); }
 };
 
 return { renderCategoryManager };   // 🔄 카탈로그 동기화가 카테고리를 받을 때 다시 그린다

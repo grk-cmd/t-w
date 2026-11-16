@@ -32,7 +32,6 @@ const EXEMPT = {
   buildAnimalBase: { why: 'animal.js 가 app.js 뒤에 실려 app.js 가 부를 때 아직 없을 수 있다' },
   reopenAnimalCreator: { why: 'animal.js 가 app.js 뒤에 실린다' },
   _animalUnlocked: { why: 'animal.js 가 거는 고리 — 부르는 쪽이 먼저 실린다' },
-  _setAnimalUnlockLevel: { why: 'animal.js 가 거는 고리 — 부르는 쪽이 먼저 실린다' },
   _pomoShowText: { why: '포모도로 모듈을 만들기 전에 focus-share 가 먼저 불린다(pomodoro.js 머리 주석)' },
   __anpSetEarSide: { why: '동물 미리보기 창을 열 때만 걸린다' },
   __anpGoTab: { why: '동물 미리보기 창을 열 때만 걸린다' },
