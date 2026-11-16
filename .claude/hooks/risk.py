@@ -16,7 +16,7 @@
   python3 .claude/hooks/risk.py --release <판 브랜치>   → 그 판에 머지된 PR 중 위험도 높았던 것 · 이유 한 장(릴리스 직전 승인자가 본다)
   python3 .claude/hooks/risk.py --wait <PR>             → 승인(낮음이면 바로) · CI 가 끝날 때까지 기다렸다가 한 줄로 알린다(/ship 이 뒤에서 돌림)
 """
-import json, re, subprocess, sys, time
+import base64, json, re, subprocess, sys, time
 
 # Windows 는 표준 입출력이 지역 인코딩(cp949)이라 «·» 같은 글자를 쓰다 죽는다 — hook 입출력은 UTF-8 로 고정
 for _s in (sys.stdin, sys.stdout, sys.stderr):
@@ -41,10 +41,10 @@ APPROVE_LINE = re.compile(r'^\s*승인\s+([0-9a-f]{7,40})\s*$', re.M)
 # (줄을 더하거나 지우면 그대로 다르게 잡힌다 · 해시가 맞는지는 CI 정본 대조가 본다)
 CHECKS_FILE = 'checks/CHECKS.md'
 CHECKS_ROW = re.compile(r'^([ +-]\| \*\*[^*|]+\*\* \|) \d+ \| \*\*[0-9a-f]{12}\*\* \|$')
-# 줄 번호까지 같아야 «같은 변경» 인 파일 — 생김새가 같은 묶음이 되풀이돼 앞뒤 글만으로는 자리가 안 정해지는 규칙 · 설정, 그리고 가드 자리.
-# 그 밖(코드 · 문서)은 첫 덩어리에서 잰 상대 줄로 견준다 — 다른 갈래가 같은 파일 위쪽을 고쳐 통째로 밀린 합치기는 다시 판정하지 않고,
-# 덩어리 사이가 벌어지거나 좁혀지면(사이에 무언가 끼면) 다르게 잡는다. 덩어리가 하나뿐이면 상대 줄로 잡을 것이 없어 규칙 · 설정은 절대 줄 그대로
-STRICT_LINES = ('firebase-database-rules.json', 'storage.rules', 'firebase.json')
+# Firebase 규칙 · 설정 — 위험도 표(RISKY_FILES)와 «같은 변경» 판정(_hunks)이 같이 쓴다
+FIREBASE_CONFIG = re.compile(r'^firebase-database-rules\.json$|^storage\.rules$|^firebase\.json$')
+# «같은 변경» 견주기: 규칙 · 설정 · 가드 파일은 줄 번호 그대로(생김새가 같은 묶음이 되풀이돼 덩어리 하나면 상대 줄로는 자리가 안 잡혀서).
+# 그 밖은 첫 덩어리에서 잰 상대 줄 — 다른 갈래가 위쪽을 고쳐 통째로 밀린 합치기는 같고, 덩어리 사이가 달라지면 다르다
 HUNK_HEAD = re.compile(r'^@@ -(\d+)(,\d+)? \+(\d+)(,\d+)? @@')
 # 검사 기준선(줄 수 · 개수 상한) — 판 브랜치를 합친 뒤 --write-baseline 으로 다시 쓰면 숫자가 바뀐다.
 # 합친 값이 «옛 머리 · 합친 판 브랜치» 어느 쪽보다도 느슨하지 않으면(숫자는 둘 중 큰 값 이하 · 목록은 둘의 합 안) 같은 변경으로 본다
@@ -54,7 +54,7 @@ WAIT_SEC, WAIT_EVERY = 3600, 30
 
 # 이 파일을 바꾸면 늘 높음
 RISKY_FILES = [
-    (re.compile(r'^firebase-database-rules\.json$|^storage\.rules$|^firebase\.json$'), 'Firebase 규칙 · 설정'),
+    (FIREBASE_CONFIG, 'Firebase 규칙 · 설정'),
     (re.compile(r'^app/parts/firebase-init\.js$'), 'firebase-init.js(DB 경로)'),
     (re.compile(r'^app/parts/shared/(data-gateway|api-client|source-switch|remote-config)\.js$'), '서버 · 데이터 통로'),
     (re.compile(r'^functions/'), 'Cloud Functions'),
@@ -133,7 +133,7 @@ def _hunks(name, patch):
     lines = patch.splitlines()
     if name == CHECKS_FILE:   # 검사 해시 표 — 줄 자리는 뜻이 없고(다른 갈래가 표 가운데에 줄을 더한다) 해시는 CI 정본 대조가 본다
         return tuple('@@' if l.startswith('@@') else CHECKS_ROW.sub(r'\1', l) for l in lines)
-    if name in STRICT_LINES or is_guard(name):
+    if FIREBASE_CONFIG.match(name) or is_guard(name):
         return tuple(lines)
     out, first = [], None
     for l in lines:
@@ -174,7 +174,6 @@ def _json_at(path, ref):
         if 'HTTP 404' in str(e):
             return None
         raise
-    import base64
     return json.loads(base64.b64decode(c['content']).decode('utf-8'))
 
 
