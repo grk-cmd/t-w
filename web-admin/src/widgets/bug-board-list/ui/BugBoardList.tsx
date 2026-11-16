@@ -25,7 +25,9 @@ import styles from './BugBoardList.module.css';
 
 function Title({ item }: { item: BugItem }) {
   const prv = usePrvTitle(item);
-  if (item.vis === 'pub') return <>{item.title || <span className="soft">(제목 없음)</span>}</>;
+  // API 판은 서버가 비공개 글 제목도 줄에 준다.
+  if (item.vis === 'pub' || item.server)
+    return <>{item.title || <span className="soft">(제목 없음)</span>}</>;
   if (prv.isLoading) return <span className="soft">…</span>;
   if (prv.error) return <span className="soft">읽지 못함</span>;
   return <>{prv.data || <span className="soft">(제목 없음)</span>}</>;
@@ -107,8 +109,11 @@ export function BugBoardList({ onOpen }: { onOpen: (id: string) => void }) {
   const refreshTodos = useRefreshTodos();
   const byReport = useMemo(() => todoByReport(todos.data ?? []), [todos.data]);
 
+  // 쪽 번호로 읽는 판(API 사본 · 서버) — 전체 수 · 쪽 번호를 보인다.
+  const paged = data && data.via !== 'rtdb' ? data : null;
+
   // 지우기 · 상태 바꾸기로 줄어 지금 쪽이 끝을 넘으면 끝 쪽으로(API 는 넘은 쪽을 빈 채로 돌려준다)
-  if (data?.via === 'api' && !isPlaceholderData && page > data.pageCount) setPage(data.pageCount);
+  if (paged && !isPlaceholderData && page > paged.pageCount) setPage(paged.pageCount);
 
   const pick = (next: BugFilter) => {
     setFilter(next);
@@ -117,10 +122,10 @@ export function BugBoardList({ onOpen }: { onOpen: (id: string) => void }) {
   };
 
   const paging = {
-    page: data?.via === 'api' ? data.page : page,
-    pageCount: data?.via === 'api' ? data.pageCount : 1,
+    page: paged ? paged.page : page,
+    pageCount: paged ? paged.pageCount : 1,
     size,
-    total: data?.via === 'api' ? data.total : 0,
+    total: paged ? paged.total : 0,
     setPage: (next: number) => setPage(Math.max(1, next)),
     setSize: (next: number) => {
       savePageSize(LIST_KEY, next);
@@ -183,7 +188,7 @@ export function BugBoardList({ onOpen }: { onOpen: (id: string) => void }) {
           </table>
         </div>
       )}
-      {data?.via === 'api' && <Pager paging={paging} />}
+      {paged && <Pager paging={paging} />}
       {data?.via === 'rtdb' && (
         <div className={styles.pager}>
           <button

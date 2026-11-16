@@ -39,6 +39,11 @@ export const BUG_STATUS: Record<BugStatus, string> = {
 };
 export const BUG_STATUSES = Object.keys(BUG_STATUS) as BugStatus[];
 
+/** API 판 서버가 쓰는 이름 — 상태 · 분류는 대문자, 공개 범위는 PUBLIC · PRIVATE. */
+export const serverStatus = (status: BugStatus) => status.toUpperCase();
+export const serverCategory = (cat: string) => cat.toUpperCase();
+export const serverVisibility = (vis: BugVis) => (vis === 'pub' ? 'PUBLIC' : 'PRIVATE');
+
 // 앱 BUG_CATS 와 같다(규칙 cat 정규식과 짝).
 export const BUG_CATS: Record<string, string> = {
   bug: '오류 · 멈춤',
@@ -88,6 +93,12 @@ export interface BugItem {
   no?: string;
   /** 관리자가 쓴 글 — 규칙상 관리자만 넣을 수 있는 칸(🛡 배지). */
   byAdmin?: boolean;
+  /** API 판 — 서버가 준 줄이다. 글쓴이 이름 · 비공개 제목을 이미 풀어서 주므로 따로 읽지 않는다. */
+  server?: true;
+  /** API 판 — 상세가 준 글 번호. 고쳐 쓸 때 그대로 싣고, 그 사이 다른 곳이 고쳤으면 서버가 409. 목록 줄에는 없다. */
+  version?: number;
+  /** API 판 — 운영자 마지막 답변 시각을 서버가 준 글자 그대로(마이크로초까지 같아야 «겹친 답변» 을 가른다). */
+  lastReplyAt?: string;
 }
 
 export interface BugContent {
@@ -157,7 +168,8 @@ export function toBugItem(id: string, v: unknown): BugItem | null {
 export const isStaffPost = (item: Pick<BugItem, 'byAdmin' | 'notice'>) => !!item.byAdmin || !!item.notice;
 
 /** 비공개 글이라 닉네임을 따로 읽어야 하는가 — 목록 칸 이름이 «익명» 이라 관리자는 글쓴이 코드로 지금 닉네임을 읽는다. */
-export const needsAuthorLookup = (item: Pick<BugItem, 'vis' | 'code'>) => item.vis === 'prv' && !!item.code;
+export const needsAuthorLookup = (item: Pick<BugItem, 'vis' | 'code' | 'server'>) =>
+  item.vis === 'prv' && !!item.code && !item.server;
 
 /**
  * 관리자 화면의 글쓴이 이름 — 비공개 글은 «익명 (지금 닉네임)». 닉네임을 아직 못 읽었거나 없으면 목록 칸 이름 그대로.
@@ -534,6 +546,15 @@ export interface ApiBugPage {
 }
 
 export type BugListView =
+  | {
+      /** API 판 — 서버가 원본이라 사본 지연도 기준 시각도 없다. */
+      via: 'server';
+      items: BugItem[];
+      /** 1부터. */
+      page: number;
+      pageCount: number;
+      total: number;
+    }
   | {
       via: 'api';
       items: BugItem[];

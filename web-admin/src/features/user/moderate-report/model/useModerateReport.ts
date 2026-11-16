@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { useForgetReports } from '@/entities/report';
+import { useForgetReports, useRefreshReports } from '@/entities/report';
 import { useForgetAwayImg, useRefreshUserBrief } from '@/entities/user';
 import { useModerateReportPort } from '../api';
 
@@ -9,6 +9,7 @@ export function useTakeDownAwayImg(target: string) {
   const forgetReports = useForgetReports();
   const forgetAwayImg = useForgetAwayImg();
   const refreshBrief = useRefreshUserBrief();
+  const refreshReports = useRefreshReports();
   return useMutation({
     mutationFn: (shownUrl: string) => port.takeDown(target, shownUrl),
     onSuccess: (r) => {
@@ -16,6 +17,8 @@ export function useTakeDownAwayImg(target: string) {
         forgetAwayImg(target);
         forgetReports(target);
       } else {
+        // 그 사이 그림이 바뀌었다 — 목록 · 사람 정보를 한 번 다시 받는다.
+        refreshReports();
         refreshBrief(target);
       }
     },

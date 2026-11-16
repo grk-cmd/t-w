@@ -71,13 +71,13 @@ export function useBugNo(item: Pick<BugItem, 'id' | 'ts' | 'no'>): BugNo {
   return bugNo(item, order.data?.get(item.id));
 }
 
-/** 비공개 글 제목 — 목록에는 없어서 따로 읽는다. */
+/** 비공개 글 제목 — Firebase 판 목록에는 없어서 따로 읽는다(API 판은 서버가 줄에 준다). */
 export function usePrvTitle(item: BugItem) {
   const port = useBugBoardPort();
   return useQuery({
     queryKey: [...BUG_KEY, 'prvTitle', item.id],
     queryFn: () => port.prvTitle(item),
-    enabled: item.vis === 'prv',
+    enabled: item.vis === 'prv' && !item.server,
     staleTime: Infinity,
   });
 }
