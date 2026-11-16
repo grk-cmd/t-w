@@ -1,24 +1,26 @@
 import { useState, type FormEvent } from 'react';
 import { adminNameOf, useAdminNames } from '@/entities/admin/name';
-import { checkTodoNote, TODO_NOTE_MAX, useTodoNote, type TodoNote } from '@/entities/admin/todo';
-import { useDb } from '@/shared/api';
+import { TODO_NOTE_MAX, useTodoNote, type TodoNote } from '@/entities/admin/todo';
+import { useMyUid } from '@/shared/api';
 import { errorMessage, formatDate } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
+import { useEditNotePort } from '../api';
 import { noteConflictMessage } from '../model/saveNote';
 import { useSaveTodoNote } from '../model/useSaveNote';
 import styles from './TodoNotePanel.module.css';
 
 function Editor({ note, onDone }: { note: TodoNote | null; onDone: () => void }) {
   const toast = useToast();
-  const me = useDb().uid();
+  const me = useMyUid();
   const names = useAdminNames().data ?? new Map<string, string>();
   const save = useSaveTodoNote();
+  const port = useEditNotePort();
   const [seen, setSeen] = useState(note);
   const [text, setText] = useState(note?.text ?? '');
   const [error, setError] = useState<string | null>(null);
   // 충돌로 최신 내용을 다시 채울 때 내가 쓰던 글 — 잃지 않게 보여 준다.
   const [mine, setMine] = useState<string | null>(null);
-  const bad = checkTodoNote(text);
+  const bad = port.check(text);
   const unchanged = text.trimEnd() === (seen?.text ?? '');
 
   const submit = (e: FormEvent) => {
@@ -78,7 +80,7 @@ function Editor({ note, onDone }: { note: TodoNote | null; onDone: () => void })
 /** 📝 공용 메모 — 관리자끼리 같이 보는 자유 메모(adminTodoNote). 평소엔 읽기, 누르거나 [편집] 이면 고치기. */
 export function TodoNotePanel() {
   const note = useTodoNote();
-  const me = useDb().uid();
+  const me = useMyUid();
   const names = useAdminNames().data ?? new Map<string, string>();
   const [editing, setEditing] = useState(false);
   const data = note.data ?? null;

@@ -1,35 +1,36 @@
 import { useState } from 'react';
 import { useReleaseDownloads } from '@/entities/release';
-import { useEnv, withProdMark } from '@/shared/api';
+import { useEnv, withProdMark, type Versioned } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
-import {
-  checkTemplate,
-  fillTemplate,
-  RELEASE_TPL_DEFAULT,
-  RELEASE_TPL_MAX,
-  RELEASE_TPL_VARS,
-} from '../model/applyRelease';
+import { useApplyReleasePort } from '../api';
+import { RELEASE_TPL_MAX, RELEASE_TPL_VARS } from '../model/applyRelease';
+import type { ReleaseTemplate } from '../model/releaseTpl';
 import { useReleaseTpl, useSaveReleaseTpl } from '../model/useApplyRelease';
 import styles from './ApplyRelease.module.css';
 
-function Editor({ saved }: { saved: string | null }) {
+function Editor({ template }: { template: Versioned<ReleaseTemplate> }) {
   const env = useEnv();
   const toast = useToast();
   const save = useSaveReleaseTpl();
+  const port = useApplyReleasePort();
+  const { saved, fallback } = template.value;
   const latest = useReleaseDownloads().data?.[0]?.version ?? '0.11.3';
-  const [tpl, setTpl] = useState(saved ?? RELEASE_TPL_DEFAULT);
-  const bad = checkTemplate(tpl);
-  const current = saved ?? RELEASE_TPL_DEFAULT;
+  const [tpl, setTpl] = useState(saved ?? fallback);
+  const bad = port.check(tpl);
+  const current = saved ?? fallback;
 
   const write = (value: string | null, done: string) =>
-    save.mutate(value, {
-      onSuccess: () => toast(done),
-      onError: (e) => toast(errorMessage(e, '템플릿 저장 실패')),
-    });
+    save.mutate(
+      { from: template, tpl: value },
+      {
+        onSuccess: () => toast(done),
+        onError: (e) => toast(errorMessage(e, '템플릿 저장 실패')),
+      },
+    );
   const reset = () => {
     if (!confirm(withProdMark(env, '저장된 템플릿을 지우고 기본 문구로 되돌릴까요?'))) return;
-    setTpl(RELEASE_TPL_DEFAULT);
+    setTpl(fallback);
     write(null, '기본 문구로 되돌림');
   };
 
@@ -49,7 +50,7 @@ function Editor({ saved }: { saved: string | null }) {
       <p className={styles.preview}>
         <small className="soft">미리 보기 (공개 글 예)</small>
         <br />
-        {fillTemplate(tpl, { version: latest, title: '«제보 제목»', todo: '«할 일 제목»' }) || (
+        {port.fill(tpl, { version: latest, title: '«제보 제목»', todo: '«할 일 제목»' }) || (
           <span className="warn">빈 답변</span>
         )}
       </p>
@@ -86,7 +87,9 @@ export function ReleaseTplPanel() {
       {tpl.error && <p className="msg err">{errorMessage(tpl.error, '템플릿 불러오기 실패')}</p>}
       {tpl.isLoading && <p className="soft">불러오는 중…</p>}
       {/* 저장된 값이 바뀌면(다른 창 · 확인 창에서 저장) 입력칸을 새 값으로. */}
-      {tpl.isSuccess && <Editor key={tpl.data ?? ''} saved={tpl.data} />}
+      {tpl.isSuccess && (
+        <Editor key={`${tpl.data.version}:${tpl.data.value.saved ?? ''}`} template={tpl.data} />
+      )}
     </details>
   );
 }

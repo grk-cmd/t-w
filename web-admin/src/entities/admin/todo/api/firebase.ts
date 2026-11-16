@@ -1,8 +1,8 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { isPermissionDenied, useDb, type Db } from '@/shared/api';
+// Firebase 판 — 지금 코드 그대로: `adminTodos` · `adminTodoNote` 를 통째로 읽고, 본 rev 를 조건으로 쓴다(남이 먼저 고쳤으면 쓰지 않고 지금 값을 돌려준다).
+import { isPermissionDenied, type Db } from '@/shared/api';
 import { TODO_ROOT, toTodo, toTodos, type Todo } from '../model/adminTodo';
-
-const TODOS_KEY = ['adminTodos'];
+import { TODO_NOTE_PATH, toTodoNote, type TodoNote } from '../model/todoNote';
+import type { TodoPort } from './port';
 
 /** 관리자 몇 명이 쓰는 수십~수백 건이라 통째로 한 번 — 제보 목록도 이 한 번을 같이 쓴다. */
 export async function listTodos(db: Db): Promise<Todo[]> {
@@ -11,16 +11,6 @@ export async function listTodos(db: Db): Promise<Todo[]> {
 
 export async function getTodo(db: Db, id: string): Promise<Todo | null> {
   return toTodo(id, await db.get<unknown>(`${TODO_ROOT}/${id}`));
-}
-
-export function useTodos() {
-  const db = useDb();
-  return useQuery({ queryKey: TODOS_KEY, queryFn: () => listTodos(db), staleTime: 30_000 });
-}
-
-export function useRefreshTodos() {
-  const client = useQueryClient();
-  return () => client.invalidateQueries({ queryKey: TODOS_KEY });
 }
 
 /** 쓰기 결과 — 남이 먼저 고쳤으면 쓰지 않고 지금 값(latest, 지워졌으면 null)을 돌려준다. */
@@ -56,4 +46,42 @@ export async function commitTodo(
     }
     throw error;
   }
+}
+
+export async function getTodoNote(db: Db): Promise<TodoNote | null> {
+  return toTodoNote(await db.get<unknown>(TODO_NOTE_PATH));
+}
+
+/** 쓰기 결과 — 남이 먼저 고쳤으면 쓰지 않고 지금 값(latest)을 돌려준다. */
+export type TodoNoteCommitResult = { ok: true } | { ok: false; latest: TodoNote | null };
+
+const sameNoteRev = (current: TodoNote | null, seenRev: number | null) =>
+  seenRev === null ? current === null : current?.rev === seenRev;
+
+/**
+ * 본 rev(처음이면 null) 그대로일 때만 쓴다 — commitTodo 와 같은 방식(작업 기록과 한 묶음 · 규칙의 rev + 1 을 조건으로).
+ *   ① 쓰기 전에 지금 값을 읽어 rev 를 견준다 ② 그 사이에 누가 끼면 규칙이 거절 → 다시 읽어 충돌로 돌려준다.
+ */
+export async function commitTodoNote(
+  db: Db,
+  seenRev: number | null,
+  value: Record<string, unknown>,
+  extra: Record<string, unknown> = {},
+): Promise<TodoNoteCommitResult> {
+  const current = await getTodoNote(db);
+  if (!sameNoteRev(current, seenRev)) return { ok: false, latest: current };
+  try {
+    await db.commit({ ...extra, [TODO_NOTE_PATH]: value });
+    return { ok: true };
+  } catch (error) {
+    if (isPermissionDenied(error)) {
+      const latest = await getTodoNote(db);
+      if (!sameNoteRev(latest, seenRev)) return { ok: false, latest };
+    }
+    throw error;
+  }
+}
+
+export function createFirebaseTodoPort(db: Db): TodoPort {
+  return { list: () => listTodos(db), note: () => getTodoNote(db) };
 }

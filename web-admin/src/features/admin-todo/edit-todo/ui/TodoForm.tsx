@@ -20,9 +20,10 @@ import {
   type TodoType,
 } from '@/entities/admin/todo';
 import { useReleaseDownloads } from '@/entities/release';
-import { useDb } from '@/shared/api';
+import { useMyUid } from '@/shared/api';
 import { errorMessage, toVersionParts, versionPartsFilled, type VersionParts } from '@/shared/lib';
 import { useToast, VersionInput } from '@/shared/ui';
+import { useEditTodoPort } from '../api';
 import { resultMessage } from '../model/saveTodo';
 import { useSaveTodo } from '../model/useSaveTodo';
 import styles from './TodoForm.module.css';
@@ -38,9 +39,10 @@ interface Props {
 /** 만들기 · 고치기. 남이 먼저 고쳤으면 쓰지 않고 최신 값으로 다시 채운다. */
 export function TodoForm({ todo, initial, onDone }: Props) {
   const toast = useToast();
-  const me = useDb().uid();
+  const me = useMyUid();
   const names = useAdminNames().data ?? new Map<string, string>();
   const save = useSaveTodo();
+  const { fixesReports } = useEditTodoPort();
   // 새로 만들 때 id 를 미리 정해 둔다 — 충돌 뒤 다시 저장해도 같은 자리.
   const [id] = useState(() => todo?.id ?? todoId());
   const [seen, setSeen] = useState<Todo | null>(todo ?? null);
@@ -80,6 +82,7 @@ export function TodoForm({ todo, initial, onDone }: Props) {
     if ('error' in rel) return setError(rel.error);
     const toSave: TodoDraft = { ...draft, release: rel.release };
     const markFixed =
+      fixesReports &&
       becomesDone(seen, toSave) &&
       toSave.reports.length > 0 &&
       confirm(

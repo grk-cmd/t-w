@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAdminNames } from '@/entities/admin/name';
 import { TodoBadge, useTodos } from '@/entities/admin/todo';
-import { useDb } from '@/shared/api';
+import { useMyUid } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
 import { resultMessage } from '../model/saveTodo';
@@ -14,7 +14,7 @@ import styles from './ReportTodos.module.css';
  */
 export function ReportTodos({ reportId }: { reportId: string }) {
   const toast = useToast();
-  const me = useDb().uid();
+  const me = useMyUid();
   const todos = useTodos();
   const names = useAdminNames().data ?? new Map<string, string>();
   const link = useLinkReport(reportId, names);

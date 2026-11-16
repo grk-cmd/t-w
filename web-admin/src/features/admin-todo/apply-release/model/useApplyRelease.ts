@@ -1,49 +1,55 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRefreshBugBoard } from '@/entities/bug-board';
-import { useDb } from '@/shared/api';
-import { applyReleaseFixes, previewReleaseFixes, type ApplyOptions, type FixTarget } from './applyRelease';
-import { getReleaseTpl, RELEASE_TPL_KEY, saveReleaseTpl } from './releaseTpl';
+import { refreshOnConflict, type Versioned } from '@/shared/api';
+import { useApplyReleasePort } from '../api';
+import type { ApplyOptions, FixTarget } from './applyRelease';
+import { RELEASE_TPL_KEY, type ReleaseTemplate } from './releaseTpl';
 
 export function useReleaseTpl() {
-  const db = useDb();
-  return useQuery({ queryKey: RELEASE_TPL_KEY, queryFn: () => getReleaseTpl(db) });
+  const port = useApplyReleasePort();
+  return useQuery({ queryKey: RELEASE_TPL_KEY, queryFn: () => port.template() });
 }
 
 export function useSaveReleaseTpl() {
-  const db = useDb();
+  const port = useApplyReleasePort();
   const client = useQueryClient();
+  const refresh = () => client.invalidateQueries({ queryKey: RELEASE_TPL_KEY });
   return useMutation({
-    mutationFn: (tpl: string | null) => saveReleaseTpl(db, tpl),
-    onSuccess: () => client.invalidateQueries({ queryKey: RELEASE_TPL_KEY }),
+    mutationFn: ({ from, tpl }: { from: Versioned<ReleaseTemplate>; tpl: string | null }) =>
+      port.saveTemplate(from, tpl),
+    onSuccess: refresh,
+    onError: refreshOnConflict(refresh),
   });
 }
 
 /** 확인 창을 열기 전 — 대상 제보 · 저장된 템플릿을 함께(템플릿은 캐시를 같이 쓴다). */
 export function usePreviewRelease() {
-  const db = useDb();
+  const port = useApplyReleasePort();
   const client = useQueryClient();
   return useMutation({
     mutationFn: async (latest: string) => {
-      const [targets, tpl] = await Promise.all([
-        previewReleaseFixes(db, latest),
-        client.fetchQuery({ queryKey: RELEASE_TPL_KEY, queryFn: () => getReleaseTpl(db) }),
+      const [targets, template] = await Promise.all([
+        port.preview(latest),
+        client.fetchQuery({ queryKey: RELEASE_TPL_KEY, queryFn: () => port.template() }),
       ]);
-      return { targets, tpl };
+      return { targets, template };
     },
   });
 }
 
 export function useApplyRelease() {
-  const db = useDb();
+  const port = useApplyReleasePort();
   const client = useQueryClient();
   const refreshBugs = useRefreshBugBoard();
+  const refreshTpl = () => client.invalidateQueries({ queryKey: RELEASE_TPL_KEY });
   return useMutation({
     mutationFn: ({ targets, opts }: { targets: readonly FixTarget[]; opts: ApplyOptions }) =>
-      applyReleaseFixes(db, targets, opts),
+      port.apply(targets, opts),
     onSuccess: (r, { opts }) => {
       if (!r.ok) return;
       void refreshBugs();
-      if (opts.saveTpl) void client.invalidateQueries({ queryKey: RELEASE_TPL_KEY });
+      if (opts.saveTpl) void refreshTpl();
     },
+    onError: refreshOnConflict(() => refreshBugs()),
   });
 }
