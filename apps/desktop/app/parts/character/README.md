@@ -106,7 +106,7 @@
   - 아이템은 세션 등록(`loadSavedItemsIntoSession`)을 **기다린 뒤** 좌석을 다시 적용한다 — 순서를 바꾸면 옛 크기(0.8)로 다시 만든다.
   - 생성기에서 보던 책상 · 아이템의 위치 · 크기 조정값은 일부러 안 지킨다(자동 크기 계산을 바꿔도 보이게).
   - 파츠는 이미 붙은 것을 다시 붙이지 않는다 — 겹쳐 다는 파츠는 `stackedPartObjs` 로 판정. 새로 붙은 게 있을 때만 `fitModel` · `layoutSeats`.
-  - 가챠 카탈로그 옮기기(`migrateGachaCatalog`)는 관리자 세션에서 한 번만(`window.__gachaMigrated`) · 실패하면 다음 콜백에서 다시.
+  - 가챠 카탈로그 옮기기는 걷었다(D11-2) — 서버 카탈로그가 `listing.acquisition` 으로 가른다.
   - 검사: `checks/sim-catalog-sync.js`(4절 — 구독 · firebase-ready · 세 합치기 · 좌석 · 생성기 다시 반영 · 가챠 옮기기 · 카테고리).
 
 ## desk-items.js — 🧸 책상 위 아이템 등록부

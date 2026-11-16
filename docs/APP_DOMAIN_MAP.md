@@ -52,7 +52,6 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `tricks.js` · `dice-games.js` · `roulette.js` · `floaters.js` | 깜짝쇼 · 때리기 · 주사위 · 하루 횟수 · 러시안룰렛 · 이모지 떠오르기 | fb 2 · 2 |
 | `overhead.js` · `away-pic.js` | 머리 위 말풍선 · 이름표 · 공지 배너 · 자리비움 그림 | fb 2 |
 | `room-rt.js` | 방 포트 — realtime 연결 하나 위의 방 provider(서버 통신 규약 pv 2 · 탭 s1↔S1 · random · peek) | ws(rt-hub) |
-| `room-alive.js` (ES) | 살아 있음 판정 — 관리자 유령 방 청소(firebase-init cleanGhostRooms)만 남음 · 앱 관리자 창을 걷을 때 같이 | (firebase-init 이 연결) |
 
 ## 3. 💬 `chat/` — 채팅 ✅ 옮김(폴더 3번)
 

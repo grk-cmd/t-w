@@ -800,36 +800,6 @@
       if(Object.keys(updates).length) await _catalogUpdate(updates, kinds);
       return { ok:true };
     },
-    /* 🧹 Storage 이관 뒷정리 — 이미 glbUrl이 있는(=Storage로 옮겨진) catalog 항목의 남은 base64 glb 필드만
-       DB에서 삭제. glbUrl이 없는 항목은 안전하게 건너뜀(원본 소실 방지). onValue 다운로드 비용의 주범 제거.
-       dryRun=true면 실제로 지우지 않고 대상 수/용량만 계산해서 반환. */
-    async cleanupCatalogBase64(dryRun){
-      const kinds = ['parts','desks','items'];
-      const report = { willDelete:0, skipNoUrl:0, alreadyClean:0, bytes:0, byKind:{} };
-      const updates = {};
-      const touched = [];   // 실제로 지운 종류 — 그 종류의 catalogMeta 버전만 올린다
-      for(const kind of kinds){
-        report.byKind[kind] = { del:0, skip:0 };
-        let snap;
-        try{ snap = await get(ref(db, 'catalog/'+kind)); }catch(_){ continue; }
-        const obj = snap.val() || {};
-        for(const id in obj){
-          const rec = obj[id] || {};
-          if(!rec.glb){ report.alreadyClean++; continue; }        // 이미 base64 없음
-          if(!rec.glbUrl){ report.skipNoUrl++; report.byKind[kind].skip++; continue; }  // Storage 미이관 → 절대 건드리지 않음
-          report.willDelete++; report.byKind[kind].del++;
-          report.bytes += (rec.glb.length||0);
-          if(!dryRun){
-            updates[`catalog/${kind}/${id}/glb`] = null;  // 이 필드만 삭제(다른 필드 유지)
-            if(touched.indexOf(kind) < 0) touched.push(kind);
-          }
-        }
-      }
-      report.mb = (report.bytes/1048576).toFixed(2);
-      /* 정리도 카탈로그 쓰기다 — 버전을 안 올리면 사용자 캐시에 base64 가 남은 옛 레코드가 그대로 산다. */
-      if(!dryRun && Object.keys(updates).length) await _catalogUpdate(updates, touched);
-      return report;
-    },
     async unpublishPart(id){
       await _tryDeleteStorage('catalog/parts/'+id+'.glb');
       /* 어느 통에 있는지 호출자가 알 필요 없게 양쪽 다 지운다 — 없는 쪽 null 은 no-op.
@@ -837,55 +807,10 @@
       await _catalogUpdate({ [`catalog/parts/${id}`]: null, [`catalog/gachaParts/${id}`]: null }, ['parts', 'gachaParts']);
       return { ok:true };
     },
-    // 🔍 카탈로그 용량 진단 — 어떤 레코드가 DB 용량(=모든 사용자 다운로드)을 먹는지 측정.
-    //   base64가 DB에 남아 있으면 그 레코드를 모든 사용자가 앱 켤 때마다 통째로 받게 됨.
-    async analyzeCatalog(){
-      const out = {};
-      for(const kind of ['parts','desks','items']){
-        const snap = await get(ref(db, `catalog/${kind}`));
-        const all = snap.val() || {};
-        const recs = [];
-        let total = 0, base64Count = 0;
-        for(const id in all){
-          const r = all[id] || {};
-          const size = JSON.stringify(r).length;
-          total += size;
-          const heavy = [];
-          for(const k in r){
-            const v = r[k];
-            if(typeof v === 'string' && v.length > 2000){
-              heavy.push(k + '(' + Math.round(v.length/1024) + 'KB' + (v.startsWith('data:') ? ', base64' : '') + ')');
-              if(v.startsWith('data:')) base64Count++;
-            }
-          }
-          recs.push({ id, name: r.name || '', kb: Math.round(size/1024*10)/10, heavy });
-        }
-        recs.sort((a,b)=> b.kb - a.kb);
-        out[kind] = { totalKB: Math.round(total/1024*10)/10, count: recs.length, base64Fields: base64Count, top: recs.slice(0,10) };
-      }
-      return out;
-    },
     /* 🎰 파츠 — 서버 한 벌의 파츠가 가챠(gacha:true)까지 한 목록으로 온다(catalog-api.js unfoldCatalog). 앱 쪽 병합/삭제 감지는
        «카탈로그 전체 목록» 을 기대하므로 한 번에 전체를 넘긴다 — 옛 «두 통이 다 도착하기 전엔 콜백 안 함» 문제가 없다. */
     subscribeCatalogParts(onChange){
       return _catalogApi.subscribe('parts', onChange);
-    },
-    /* 🎰 이관 — catalog/parts 에 gacha:true 로 남아 있는 옛 항목을 gachaParts 로 옮긴다.
-       멱등이라 몇 번을 불러도 안전하다(옮길 것이 없으면 아무것도 안 한다).
-       ★ 이걸 돌리는 순간부터 구버전 클라이언트에서는 그 파츠가 사라진다(착용도 자동 해제) —
-         그게 바로 원하는 효과다. */
-    async migrateGachaCatalog(){
-      const snap = await get(ref(db, 'catalog/parts'));
-      const all = snap.val() || {};
-      const moved = [];
-      for(const id in all){
-        const rec = all[id];
-        if(!rec || rec.gacha !== true) continue;
-        /* 한 update 로 옮긴다(반쯤 옮긴 채로 남지 않는다) + 두 통 버전 올림. */
-        await _catalogUpdate({ [`catalog/gachaParts/${id}`]: rec, [`catalog/parts/${id}`]: null }, ['parts', 'gachaParts']);
-        moved.push(id);
-      }
-      return { ok:true, moved };
     },
     // ===== Phase 3: 커스텀 서브카테고리 (관리자가 파츠 종류 추가) =====
     // catalog/customCats/{catId} = { cat, label, icon, group, bone, createdAt }

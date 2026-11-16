@@ -142,7 +142,6 @@
 | **sim-listen-provider.js** | 95 | **b5e087ed6ce4** |
 | **sim-listen-ui.js** | 431 | **95dd6fe40b2f** |
 | **sim-room-settings.js** | 222 | **e4793b3f67ad** |
-| **sim-room-alive.js** | 128 | **e2fef530ff2a** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
 | **sim-visit-ping.js** | 151 | **9f3a61fcae2c** |
 | **sim-usage-snapshot.js** | 194 | **a2cfdf538af3** |
@@ -164,7 +163,7 @@
 | **sim-ghost-cache-sync.js** | 366 | **30ab1365b0d8** |
 | **sim-click-through-policy.js** | 312 | **c8a07dca8eaa** |
 | **sim-heartbeat-policy.js** | 251 | **b3c8bdfbc2a0** |
-| **sim-catalog-cache.js** | 79 | **fdb819ceb86d** |
+| **sim-catalog-cache.js** | 77 | **d7f26fc427d8** |
 | **sim-catalog-api.js** | 213 | **02e71814b45e** |
 | **sim-friend-code-keep.js** | 180 | **395ddad5a770** |
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
@@ -426,7 +425,7 @@
 | **sim-admin-thumbs.js** | 152 | **a364b1c70728** |
 | **sim-glb-idb-cache.js** | 172 | **fda2ba697435** |
 | **sim-catalog-glb.js** | 202 | **0a4643ef753c** |
-| **sim-catalog-sync.js** | 276 | **d0aee4a9f2f5** |
+| **sim-catalog-sync.js** | 275 | **9cdef71525d4** |
 | **sim-catalog-source.js** | 100 | **9c4060fb215d** |
 | **sim-desk-items.js** | 166 | **a1f0433d23a0** |
 | **sim-bgm-diag.js** | 300 | **b0b5757656bc** |
