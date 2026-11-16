@@ -346,7 +346,7 @@
 | **sim-chat-ui.js** | 123 | **8cb619c64968** |
 | **sim-license-gate.js** | 179 | **9ad7d48c2ce4** |
 | **sim-account.js** | 95 | **45959b36fe4e** |
-| **sim-wardrobe.js** | 198 | **0ffbea9742ab** |
+| **sim-wardrobe.js** | 198 | **192575fb0332** |
 | **sim-settings-panel.js** | 96 | **ca06fbe0742a** |
 | **sim-desktop-run.js** | 94 | **8e8a83fe9c82** |
 | **sim-room-entry.js** | 187 | **2c1c3fb9ef36** |
@@ -445,7 +445,7 @@
 | **sim-deco-parts-visibility.js** | 131 | **d079351120a6** |
 | **sim-ride-measure.js** | 188 | **83e35751526e** |
 | **sim-ride-tuning.js** | 124 | **6889f9df66be** |
-| **sim-char-measure.js** | 167 | **c1ee503be3b6** |
+| **sim-char-measure.js** | 195 | **d4afb844136c** |
 | **sim-body-measure.js** | 655 | **961377b318b4** |
 | **sim-glow.js** | 99 | **395a5af3c3c0** |
 | **sim-stage.js** | 149 | **3df89922d91c** |

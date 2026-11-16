@@ -54,6 +54,7 @@ const isAdmin = deps.isAdmin;   // 읽는 함수
 const isDeskPartCat = deps.isDeskPartCat;
 const isHueTintMesh = deps.isHueTintMesh;
 const measureCharBox = deps.measureCharBox;
+const measurePreviewBox = deps.measurePreviewBox;   // 👀 카메라 구도(리깅 파츠 원본 박스 · 숨은 메시 뺌 — char-measure.js)
 const openAssetImport = deps.openAssetImport;
 const partCatInfo = deps.partCatInfo;
 const partEntryId = deps.partEntryId;
@@ -748,7 +749,7 @@ async function refreshWdPreviewChar(){
   //   화면 색이 달라 보이는 부작용이 있었음 — 색상 선택 화면에서는 "입체감"보다 "지정한 색 그대로 보이는 것"이
   //   더 중요하다는 피드백에 따라 이 조정은 제거함(장착 시 설정된 emissive를 그대로 둠).
   // 카메라 기준값만 다시 계산 — yaw/pitch/zoom(사용자가 조절한 값)은 그대로 유지
-  const box=new THREE.Box3().setFromObject(g);
+  const box=measurePreviewBox(g);
   const size=box.getSize(new THREE.Vector3()), center=box.getCenter(new THREE.Vector3());
   wdCamCenter.copy(center);
   wdCamLookY = center.y+size.y*0.12;
