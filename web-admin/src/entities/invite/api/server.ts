@@ -1,4 +1,4 @@
-// API 판 — 여러 명 코드는 `GET /v2/admin/invites?cursor&limit`(최근 만든 것부터 키셋), 한 사람의 남은 초대권은 사용자 상세 `GET /v2/admin/users/{userCode}` 의 `invite.invitesLeft`.
+// API 판 — 여러 명 코드는 `GET /v2/admin/invites?group=true&cursor&limit`(여러 명 코드만 · 최근 만든 것부터 키셋), 한 사람의 남은 초대권은 사용자 상세 `GET /v2/admin/users/{userCode}` 의 `invite.invitesLeft`.
 // 서버 목록은 쪽으로 오지만 이 화면은 코드를 통째로 보인다 — 끝까지 이어 받는다.
 import {
   adminPath,
@@ -47,7 +47,10 @@ function build(api: Api | null): InvitePort {
           const rows: GroupInvite[] = [];
           let cursor: string | undefined;
           do {
-            const page = wireObject(await a.get<unknown>(BASE, { cursor, limit: PAGE_MAX }), '초대 코드 쪽');
+            const page = wireObject(
+              await a.get<unknown>(BASE, { group: 'true', cursor, limit: PAGE_MAX }),
+              '초대 코드 쪽',
+            );
             rows.push(...wireArray(page.items, '초대 코드 쪽의 items').map(toGroupInviteRow));
             cursor = wireNullableString(page.nextCursor, '초대 코드 쪽의 nextCursor') ?? undefined;
           } while (cursor !== undefined);

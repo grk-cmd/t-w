@@ -46,8 +46,8 @@ describe('여러 명 코드 목록 — API 판', () => {
     });
     expect(list[1]).toMatchObject({ note: '', stoppedAt: null, expiresAt: null });
     expect(s.calls.map((c) => c.query)).toEqual([
-      { cursor: undefined, limit: 100 },
-      { cursor: 'c1', limit: 100 },
+      { group: 'true', cursor: undefined, limit: 100 },
+      { group: 'true', cursor: 'c1', limit: 100 },
     ]);
   });
 

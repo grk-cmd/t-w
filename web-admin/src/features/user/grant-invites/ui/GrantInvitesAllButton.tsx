@@ -10,9 +10,9 @@ const CONFIRM_WORD = '전체 지급';
 
 export function GrantInvitesAllButton() {
   const env = useEnv();
-  // 대상은 단추를 눌렀을 때만 받는다(friendCodes 통째) — 화면을 열기만 해서 받지 않게.
+  // 대상 수는 단추를 눌렀을 때만 받는다 — 화면을 열기만 해서 받지 않게.
   const countAll = useCountAllTargets();
-  // 서버가 처리할 때 세는 판은 null — 그때는 대상 수를 미리 보이지 않는다.
+  // null = 못 읽음(대상 0명과 다르다) — 이때는 지급을 막는다.
   const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<unknown>(null);
@@ -30,7 +30,7 @@ export function GrantInvitesAllButton() {
     try {
       setTotal(await countAll());
     } catch (e) {
-      setTotal(0);
+      setTotal(null);
       setLoadError(e);
     } finally {
       setLoading(false);
@@ -53,7 +53,7 @@ export function GrantInvitesAllButton() {
         onClose={() => setOpen(false)}
       >
         <p>
-          대상 <b>{total === null ? '전체 사용자' : `${total}명`}</b>{' '}
+          대상 <b>{total === null ? '못 읽음' : `${total}명`}</b>{' '}
           <span className="soft">· 초대 정보가 없는 계정 · 이미 999장인 계정은 빼고 줘요</span>
         </p>
         <CountStepper value={count} onChange={setCount} />
@@ -105,10 +105,10 @@ export function GrantInvitesAllButton() {
             <button
               type="button"
               className="btn primary"
-              disabled={running || total === 0 || typed.trim() !== CONFIRM_WORD}
+              disabled={running || total === null || total === 0 || typed.trim() !== CONFIRM_WORD}
               onClick={() => grant.mutate({ target: { kind: 'all' }, count })}
             >
-              {running ? '지급 중…' : `${total === null ? '전체' : `${total}명`}에게 ${count}장씩 지급`}
+              {running ? '지급 중…' : `${total}명에게 ${count}장씩 지급`}
             </button>
           )}
         </div>

@@ -7,7 +7,6 @@ import {
   type GroupInvite,
   type GroupInviteDraft,
 } from '@/entities/invite';
-import { refreshOnConflict } from '@/shared/api';
 import { useGrantInvitesPort, type RunOpts } from '../api';
 import type { InviteTarget } from './grantInvites';
 
@@ -79,9 +78,8 @@ export function useCreateInviteCodes() {
 
 /**
  * 전체 지급 · 회수의 대상 수 — 단추를 눌렀을 때만 부른다(화면을 열기만 해서 대상을 읽지 않게).
- * 서버가 처리할 때 세는 판은 null.
  */
-export function useCountAllTargets(): () => Promise<number | null> {
+export function useCountAllTargets(): () => Promise<number> {
   const port = useGrantInvitesPort();
   return () => port.countAll();
 }
@@ -102,8 +100,7 @@ export function useSetGroupInviteStopped() {
   const reload = () => client.invalidateQueries({ queryKey: GROUP_INVITES_KEY });
   return useMutation<void, Error, { invite: GroupInvite; stop: boolean }>({
     mutationFn: ({ invite, stop }) => port.setGroupStopped(invite, stop),
-    // 다른 곳이 먼저 고쳤으면(API 판 409) 줄이 옛 번호를 들고 있다 — 어느 쪽이든 목록을 다시 받는다.
-    onError: refreshOnConflict(reload),
+    // 다른 곳이 먼저 고쳤으면(API 판 409) 줄이 옛 번호를 들고 있다 — onSettled 가 한 번 다시 받는다.
     onSettled: reload,
   });
 }

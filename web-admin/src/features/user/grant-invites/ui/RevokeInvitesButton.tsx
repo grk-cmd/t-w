@@ -12,8 +12,8 @@ const CONFIRM_WORD = '전체 회수';
 interface Props {
   scope: GrantScope;
   uids: string[];
-  /** 대상 수를 누를 때 센다(전체) — 서버가 처리할 때 세는 판은 null. */
-  countAll?: () => Promise<number | null>;
+  /** 대상 수를 누를 때 센다(전체). 못 읽으면 던진다. */
+  countAll?: () => Promise<number>;
   /** 회수를 마치고 창을 닫을 때 — 선택 회수는 선택을 비운다. */
   onDone?: () => void;
 }
@@ -25,7 +25,7 @@ function RevokeInvitesButton({ scope, uids, countAll, onDone }: Props) {
   const [typed, setTyped] = useState('');
   // 창을 연 순간의 대상 — 도는 중에 선택이 바뀌어도 진행 표시가 흔들리지 않게.
   const [targets, setTargets] = useState<string[]>([]);
-  // 전체 대상 수 — 서버가 처리할 때 세는 판은 null.
+  // 전체 대상 수 — null = 못 읽음(대상 0명과 다르다), 이때는 회수를 막는다.
   const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<unknown>(null);
@@ -40,7 +40,7 @@ function RevokeInvitesButton({ scope, uids, countAll, onDone }: Props) {
       try {
         setTotal(await countAll());
       } catch (e) {
-        setTotal(0);
+        setTotal(null);
         setLoadError(e);
       } finally {
         setLoading(false);
@@ -59,7 +59,7 @@ function RevokeInvitesButton({ scope, uids, countAll, onDone }: Props) {
 
   const r = revoke.data;
   const running = revoke.isPending;
-  const ready = !running && total !== 0 && (!all || typed.trim() === CONFIRM_WORD);
+  const ready = !running && total !== null && total !== 0 && (!all || typed.trim() === CONFIRM_WORD);
 
   return (
     <>
@@ -78,7 +78,7 @@ function RevokeInvitesButton({ scope, uids, countAll, onDone }: Props) {
         onClose={close}
       >
         <p>
-          대상 <b>{total === null ? '전체 사용자' : `${total}명`}</b>의 남은 초대권을 <b>0장</b>으로 바꿔요.
+          대상 <b>{total === null ? '못 읽음' : `${total}명`}</b>의 남은 초대권을 <b>0장</b>으로 바꿔요.
         </p>
         <ul className={styles.rules}>
           <li>
@@ -148,7 +148,7 @@ function RevokeInvitesButton({ scope, uids, countAll, onDone }: Props) {
                 revoke.mutate({ target: all ? { kind: 'all' } : { kind: 'picked', uids: targets } })
               }
             >
-              {running ? '회수 중…' : `${total === null ? '전체' : `${total}명`} 초대권 0장으로`}
+              {running ? '회수 중…' : `${total ?? 0}명 초대권 0장으로`}
             </button>
           )}
         </div>

@@ -58,9 +58,12 @@ describe('초대권 한 명 지급 — API 판', () => {
 
 describe('초대권 지급 — 전체 · 고른 사람들 — API 판', () => {
   it('전체는 target "all" 한 번 — 바뀐 사람 수만 알고 나머지는 모른다(null)', async () => {
-    const s = fakeApiOf({ [GRANTS]: () => ({ changed: 42 }) });
+    const s = fakeApiOf({
+      [GRANTS]: () => ({ changed: 42 }),
+      'GET /v2/admin/users/stats': () => ({ total: 57 }),
+    });
     const port = createServerGrantInvitesPort(s.api);
-    expect(await port.countAll()).toBeNull();
+    expect(await port.countAll()).toBe(57);
     expect(await port.grant({ kind: 'all' }, 2)).toEqual({
       total: null,
       granted: 42,
@@ -68,7 +71,13 @@ describe('초대권 지급 — 전체 · 고른 사람들 — API 판', () => {
       failed: 0,
       stopped: false,
     });
-    expect(s.calls[0].body).toMatchObject({ target: 'all', n: 2 });
+    expect(s.calls[1].body).toMatchObject({ target: 'all', n: 2 });
+  });
+
+  it('전체 대상 수를 못 읽으면 0 으로 대신하지 않고 던진다', async () => {
+    const s = fakeApiOf({ 'GET /v2/admin/users/stats': () => ({ total: '57' }) });
+    const e = await caught(createServerGrantInvitesPort(s.api).countAll());
+    expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
   });
 
   it('고른 사람들은 100명씩 나눠 보내고 줄마다 결과를 센다 · 진행을 알린다', async () => {

@@ -37,6 +37,7 @@ import type { GrantInvitesPort, RunOpts } from './port';
 
 const INVITES = adminPath('/invites');
 const QUOTAS = adminPath('/invite-quotas');
+const USER_STATS = adminPath('/users/stats');
 /** 고른 사람들을 한 번에 보내는 상한(서버 `targets` 1~100). */
 const PICK_MAX = 100;
 
@@ -118,8 +119,17 @@ function build(api: Api | null): GrantInvitesPort {
       return r.left === null ? { ok: false, reason: 'no-invite' } : { ok: false, reason: 'full' };
     },
 
-    // 서버가 «전체» 를 처리할 때 센다 — 미리 읽는 대상이 없다.
-    countAll: async () => null,
+    // «전체» 대상 = 가입한 사람 전부 = 사용자 통계의 total.
+    countAll: () =>
+      portCall(
+        api,
+        async (a) =>
+          wireNumber(
+            wireObject(await a.get<unknown>(USER_STATS), '사용자 통계').total,
+            '사용자 통계의 total',
+          ),
+        '대상 수를 읽지 못했어요',
+      ),
 
     async grant(target, count, opts: RunOpts = {}) {
       if (!isGrantCount(count)) throw new Error(`지급 장수가 범위를 벗어났어요: ${count}`);

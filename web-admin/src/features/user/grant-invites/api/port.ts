@@ -14,8 +14,8 @@ export type RunOpts = Omit<BatchOpts, 'scope'>;
 export interface GrantInvitesPort {
   /** 한 사람에게 count 장. 초대 칸이 없거나 이미 상한이면 `ok: false`. */
   grantOne(uid: string, count: number): Promise<GrantInvitesResult>;
-  /** «전체» 대상 수. Firebase 판은 friendCodes 를 읽어 세고, API 판은 서버가 처리할 때 세므로 null. */
-  countAll(): Promise<number | null>;
+  /** «전체» 대상 수. Firebase 판은 friendCodes 를 읽어 세고, API 판은 서버의 사용자 통계 total 을 읽는다. 못 읽으면 던진다. */
+  countAll(): Promise<number>;
   grant(target: InviteTarget, count: number, opts?: RunOpts): Promise<GrantAllResult>;
   /** 남은 초대권을 0 장으로(마이너스는 그대로). */
   revoke(target: InviteTarget, opts?: RunOpts): Promise<RevokeAllResult>;
