@@ -4,7 +4,7 @@
    ★ 프리미엄 깃발 바꾸기(_setPremium)는 계정 핵심 상태(account-state.js)에 있고 부르는 곳은 서버 확인을 반영하는 license-premium.js 뿐이다 — 이 모듈은 프리미엄이 바뀌면 다시 그리기를 onPremiumChanged 로 건다.
    ★ 0.13 — 켤 때 로그인 · 서버 가입 확인은 login-flow.js(GET /v2/me), 초대 코드 확인 · 가입 · 내 초대는 서버(user-api.js)가 한다.
      옛 갈래(기기 토큰으로 초대 소진 · 앱이 uid · 친구 코드를 만들어 묶기 · 기존 사용자 가입 I · 로그인 필요 K · grandfather 초대권 · 계정 사본)는 걷었다.
-   ★ 밖에서 부르는 이름: INVITE_GRANT_MAX · _genLicenseKey · checkInviteGate · refreshInviteBtn — app.js 는 licenseGateMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: INVITE_GRANT_MAX · checkInviteGate · refreshInviteBtn — app.js 는 licenseGateMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwLicenseGate — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-license-gate.js */
@@ -413,13 +413,6 @@ async function _inviteConfirmIssue(){
 
 })();
 
-function _genLicenseKey(){
-  // XXXX-XXXX-XXXX-XXXX 형식, 헷갈리기 쉬운 0/O, 1/I 제외
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const seg = () => Array.from({length:4}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
-  return `${seg()}-${seg()}-${seg()}-${seg()}`;
-}
-
 /* 프리미엄 여부가 바뀔 때 그에 따라 잠금/해제되는 UI를 다시 그림 — 바꾸는 쪽은 서버 확인을 반영하는 license-premium.js */
 onPremiumChanged(_refreshPremiumGatedUI);   // 프리미엄이 바뀌면(account-state.js _setPremium) 내 좌석 책상 · 아이템 · 전용 칸을 다시 그린다
 function _refreshPremiumGatedUI(){
@@ -455,7 +448,6 @@ function _refreshPremiumGatedUI(){
 
 return {
   INVITE_GRANT_MAX,
-  _genLicenseKey,
   checkInviteGate,
   refreshInviteBtn,
 };

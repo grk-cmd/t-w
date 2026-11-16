@@ -153,6 +153,15 @@
 | `E-BUG-21` | 오픈카톡 링크를 불러오지 못했어요 | `support/bug-board-ui.js` — 관리자 [🔗 오픈카톡 링크] 폼 열기(GET /v2/admin/config 의 bug.report 줄 — 폼은 안 엶) |
 | `E-BUG-22` | 오픈카톡 링크를 저장하지 못했어요 | `support/bug-board-ui.js` — 관리자 링크 폼 [저장](`PUT /v2/admin/config/bug.report` — 그사이 바뀜(CONCURRENT_UPDATE)은 번호 없이 다시 받아 칸 채움 · 주소 모양이 안 맞음(OPS_INVALID_VALUE) 포함) |
 | `E-RPT-01` | 신고하지 못했어요 — 잠시 뒤 다시 해 주세요 | `support/report.js` — 신고 창 [신고] 서버 쓰기 실패(`POST /v2/reports` — 기능 갈래(`report-api.js` `failOf`)도 공통 code(`api-errors.js`)도 아닌 실패 · 숨기지 않고 [신고] 다시 켬 · 다시 보내지 않음) |
+| `E-ADM-20` | 발급된 키 목록을 불러오지 못했어요 | admin/admin-license.js — 발급 창 열기 · 검색 · [더 보기] · [다시 시도](GET /v2/admin/licenses — 기능 갈래도 공통 code(api-errors.js)도 아닌 실패 · «못 불러왔어요 [다시 시도]» · 다시 보내지 않음) |
+| `E-ADM-21` | 키를 발급하지 못했어요 | admin/admin-license.js · admin-license-bulk.js — 새 키 · 친구코드로 발급 · 엑셀 일괄 발급(POST /v2/admin/licenses — 요청 실패 · 줄이 ok 가 아닌 까닭이 USER_NOT_FOUND · LICENSE_ALREADY_HAVE 가 아닌 경우 · 같은 단추를 다시 누르면 같은 요청 번호) |
+| `E-ADM-22` | 키를 회수하거나 지우지 못했어요 | admin/admin-license.js — 키 목록 [회수] · [삭제](PATCH · DELETE /v2/admin/licenses/{licenseId} — 판이 달라짐(CONCURRENT_UPDATE) · 이미 없음(LICENSE_NOT_FOUND)은 번호 없이 목록 다시 받기) |
+| `E-ADM-23` | 대기 중인 요청을 불러오지 못했어요 | admin/admin-license.js — 발급 창 열기 · [새로 고침] · [다시 시도](GET /v2/admin/license-requests — 다시 보내지 않음) |
+| `E-ADM-24` | 라이선스 요청을 처리하지 못했어요 | admin/admin-license.js — 요청 [발급] · [거절] · [전체 일괄 발급](POST /v2/admin/license-requests/{id}/approve · reject · bulk-approve — 이미 없음(LICENSE_REQUEST_NOT_FOUND)은 번호 없이 목록 다시 받기) |
+| `E-ADM-25` | 전체 통계를 불러오지 못했어요 | admin/admin-users.js — 📊 전체 통계 열기 · [새로고침](GET /v2/admin/metrics/totals — «통계를 불러오지 못했어요» 칸 · 다시 보내지 않음) |
+| `E-ADM-26` | 초대권을 지급하지 못했어요 | admin/admin-users.js — 초대권 지급 · 전체 지급(POST /v2/admin/invite-quotas/grants — 없는 친구코드(USER_NOT_FOUND)는 번호 없이 창 안 안내 · 같은 단추를 다시 누르면 같은 요청 번호) |
+| `E-ADM-27` | 초대권을 회수하지 못했어요 | admin/admin-users.js — 초대권 전체 회수(우클릭 두 번 · POST /v2/admin/invite-quotas/revocations) |
+| `E-ADM-28` | 엑셀의 친구코드를 확인하지 못했어요 | admin/admin-license-bulk.js — 엑셀 파일을 읽은 뒤 미리보기(POST /v2/admin/licenses/preview — 실패하면 친구코드 줄은 «조회 실패» 로 건너뜀 · 다시 보내지 않음 · 파일을 다시 골라 시도) |
 | `E-ADM-30` | 신고 목록을 불러오지 못했어요 | `admin/admin-report.js` — 🚩 신고 목록 열기 · [다시 시도] · [더 보기](`GET /v2/admin/reports` — 기능 갈래도 공통 code(`api-errors.js`)도 아닌 실패 · 열 때 · 다시 시도는 «못 불러왔어요 [다시 시도]» · 다시 보내지 않음) |
 | `E-ADM-31` | 신고를 비우지 못했어요 | `admin/admin-report.js` — [문제없음](`POST /v2/admin/reports/dismissals` — 그 사람 줄이 ok 가 아님 포함 · [문제없음] 다시 켬) |
 | `E-ADM-32` | 자리비움 그림을 내리지 못했어요 | `admin/admin-report.js` — [그림 내리기](`POST /v2/admin/reports/{target}/take-down` — `REPORT_IMAGE_CHANGED` 는 번호 없이 목록 다시 받기 · 그 밖 실패 · [그림 내리기] 다시 켬) |

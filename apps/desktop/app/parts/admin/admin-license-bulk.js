@@ -2,14 +2,14 @@
    app.js 의 두 구역(«📄 엑셀로 라이선스 일괄 발급» · «🔒 시크릿룸 발급(관리자)»)을 그대로 옮긴 관리자 모듈이다
    (관리자 코드 admin 폴더 1번 · 앱 FSD 순서표 9번 — docs/APP_FSD_MAP.md). 동작은 옮기기 전과 같다.
 
-   ★ D8-5: «🔒 시크릿룸 발급» 절만 서버 길(POST /v2/admin/secret-rooms)로 다시 썼다 — 엑셀 일괄 발급 절은 옮긴 그대로.
-   ★ 아래 본문은 app.js 에 있던 글 그대로다 — 구역 머리 주석 · 들여쓰기도 바꾸지 않았다(옮기기 전 줄과 견주어 볼 수 있게).
-   ★ app.js 함수 일곱(escHtml · toast · _genLicenseKey · _saveFailMsg · renderLicenseGenList · downloadBlob · _srFmtDate)은
-     app.js 가 화살표로 넘긴다. 본문의 typeof 가드(typeof escHtml · typeof _saveFailMsg)는 예전처럼 늘 통과한다.
+   ★ D8-5: «🔒 시크릿룸 발급» 절은 서버 길(POST /v2/admin/secret-rooms)로 다시 썼다. D11-3: «📄 엑셀 일괄 발급» 절도 서버 길로 — 미리보기는
+     POST /v2/admin/licenses/preview(있는 사람 · 이름 · 이미 유효한 키), 발급은 POST /v2/admin/licenses 한 번(줄마다 결과). 키 만들기 · 우편 · 사람 찾기는 서버가 한다.
+   ★ 파일 읽기 · 쓰기(xlsx · csv) 순수 함수는 옮긴 그대로다.
+   ★ app.js 함수 넷(escHtml · toast · renderLicenseGenList · downloadBlob · _srFmtDate)과 서버 길(adminApi · apiErrors · notifyError)은 app.js 가 넘긴다.
    ★ 밖에서 부르는 이름은 없다 — 두 즉시 실행 함수(bindLicenseXlsxBulk · bindSecretRoomGrant)가 버튼을 만들 때 건다.
      발급 창을 다시 열 때 부르는 window._lxHideWin 도 예전처럼 만들 때 건다.
    ★ createAdminLicenseBulk 는 app.js 의 원래 자리(두 구역 머리 아래)에서 부른다 — 예전과 같은 때에 돈다.
-   ⚠️ document · window · firebaseAPI · JSZip · DOMParser · confirm 은 예전처럼 전역 이름으로 쓴다
+   ⚠️ document · window · JSZip · DOMParser · confirm 은 예전처럼 전역 이름으로 쓴다
      (이 파일은 app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwAdminLicenseBulk — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-license-xlsx.js — 배선 · 순수 함수 실행 · 발급 순서 · app.js 연결 · html 순서. */
@@ -18,9 +18,10 @@
 function createAdminLicenseBulk(deps){
 const escHtml = deps.escHtml;
 const toast = deps.toast;
-const _genLicenseKey = deps.genLicenseKey;             // 키 만들기 — 단건 발급과 같은 모양
-const _saveFailMsg = deps.saveFailMsg;                 // 서버 거부 / 인터넷 끊김 문구 가르기
-const renderLicenseGenList = deps.renderLicenseGenList; // 발급 창의 키 목록 다시 그리기
+const adminApi = deps.adminApi;                        // 서버 길(admin-api.js)
+const apiErrors = deps.apiErrors;                      // 서버 오류 → 오류 번호(TwApiErrors.store)
+const notifyError = deps.notifyError;                  // 번호 알림(TwErrorCodes.notify)
+const renderLicenseGenList = deps.renderLicenseGenList; // 발급 창의 키 목록 다시 받기
 const downloadBlob = deps.downloadBlob;
 const _srFmtDate = deps.srFmtDate;                     // 시크릿룸 만료일 글자(YYYY.MM.DD)
 /* ═══ 📄 [2026-10-02] 엑셀(xlsx·csv)로 라이선스 일괄 발급 — 시안 확정(입구 = 친구코드 발급 아래 · 빈 코드 = 키만 · 전에 발급한 코드 = 건너뜀) ═══
@@ -28,13 +29,13 @@ const _srFmtDate = deps.srFmtDate;                     // 시크릿룸 만료일
    ★ 외부 라이브러리를 새로 넣지 않는다. xlsx 는 «XML 몇 장을 담은 zip» 이라, 이미 실려 있는 JSZip(vendor/jszip.min.js)과
      브라우저 DOMParser 로 첫 시트의 글자만 읽고, 결과 파일도 같은 방식으로 쓴다. (SheetJS npm 판은 알려진 취약점이 있고
      최신판은 npm 밖에서만 받을 수 있어 일부러 피했다.) 옛 .xls(이진 형식)는 못 읽는다 — 안내 문구로 막는다.
-   ★ 발급 한 건 = 단건 「친구코드로 발급」(bindLicenseGrantByCode)과 **같은 순서·같은 문구**다: createLicense → sendInboxMessage(reward).
-     note 는 규칙 상한(licenses/$key/note ≤ 100자)에 맞춰 자른다.
-   ★ «전에 발급한 적 있음» 은 발급된 키 목록(listLicenses)의 메모에서 친구코드를 찾아 판정한다. 관리자 화면에서는 그 사람이
-     **지금 프리미엄인지는 알 수 없다**(accountSnap 은 본인만 읽음) — 그래서 이 기준을 쓴다.
-   ⚠️ 한 명씩 순서대로 보낸다(동시에 쏘지 않는다). 중간에 끊겨도 결과 표에 어디까지 됐는지 남는다. */
+   ★ 발급은 서버에 한 번 보낸다(줄마다 키 한 장 · 친구코드가 있으면 그 사람 우편도 서버가 보낸다 · 줄마다 ok · 까닭). note 는 서버 상한(100자)에 맞춰 자른다.
+   ★ «이미 유효한 키가 있음» 은 서버가 미리보기에서 알려 준다(hasValidLicense) — 앱이 메모를 뒤져 짐작하지 않는다. 같은 사람이 목록에 두 번 나오면 서버가 뒤 줄을 건너뛴다.
+   ⚠️ 못 받으면(미리보기 실패) 그 줄은 «조회 실패» 로 두고 발급하지 않는다. 발급 요청이 서버에 닿지 못하면 결과 표에 «실패» 로 남고 같은 파일로 다시 누르면 같은 요청 번호로 나간다. */
 const LX_MAX_ROWS = 500;          // 한 파일 상한 — 넘으면 앞 500행만(안내)
-const LX_NOTE_MAX = 100;          // 규칙 licenses/$key/note 상한
+const LX_NOTE_MAX = 100;          // 서버 메모 상한
+/* 서버가 줄마다 주는 «안 된 까닭» code → 결과 표의 사유 */
+const LX_WHY = { USER_NOT_FOUND: '친구코드를 가진 유저가 없음', LICENSE_ALREADY_HAVE: '이미 유효한 키가 있음', LICENSE_GRANT_DUPLICATE: '같은 사람이 목록에 두 번 있음' };
 const LX_CODE_RE = /^(?:(MATE|COZY)-)?([A-Z0-9]{4})$/;
 
 /* xml 문서에서 이름(네임스페이스 무시)으로 자식 찾기 */
@@ -161,22 +162,6 @@ function _lxCandidates(raw){
   if(/^[A-Z0-9]{4}$/.test(c)) return ['MATE-' + c, 'COZY-' + c];
   return [c];
 }
-/* 발급된 키 목록 → 이미 받은 친구코드 표. 단건 발급 메모 모양 둘(«닉 · 친구코드 MATE-XXXX» · «친구코드 발급: XXXX»)을 다 읽는다.
-   full: 'MATE-9K2M' 꼴 · tail: 접두어 없이 적힌 4자리(옛 단건 발급이 입력 그대로 남긴 것). */
-function _lxIssuedIndex(all){
-  const full = new Set(), tail = new Set();
-  Object.keys(all || {}).forEach(k=>{
-    const note = String((all[k] || {}).note || '').toUpperCase();
-    (note.match(/\b(?:MATE|COZY)-[A-Z0-9]{4}\b/g) || []).forEach(x => full.add(x));
-    const m = /친구코드(?: 발급:)? ([A-Z0-9]{4})(?![A-Z0-9-])/.exec(note);
-    if(m) tail.add(m[1]);
-  });
-  return { full, tail };
-}
-function _lxWasIssued(idx, code){
-  if(!idx || !code) return false;
-  return idx.full.has(code) || idx.tail.has(code.replace(/^(MATE|COZY)-/, ''));
-}
 /* 2차원 글자 배열 → xlsx(Uint8Array). 모든 칸은 inlineStr(숫자도 글자로 — 키·코드가 숫자로 바뀌지 않게). */
 async function _lxWriteXlsx(rows, sheetName){
   if(typeof JSZip === 'undefined') throw new Error('JSZip 라이브러리가 로드되지 않았어요');
@@ -245,7 +230,6 @@ async function _lxWriteXlsx(rows, sheetName){
     haskey: ['⚠ 이미 키 있음', '#9A6B00'],
     ok:     ['✓ 보냄', '#2E7D4F'],
     okkey:  ['🔑 키 생성', '#2E7D4F'],
-    sendfail:['⚠ 수령함 실패', '#9A6B00'],
     fail:   ['✗ 발급 실패', 'var(--win-error)'],
   };
   const chip = (st, extra) => { const c = CHIP[st] || [st, 'var(--ink-soft)'];
@@ -289,7 +273,7 @@ async function _lxWriteXlsx(rows, sheetName){
       if(r.base !== 'send') return;
       if(dupFirst.checked && seen.has(r.code)){ r.st = 'dup'; r.dupOf = seen.get(r.code); return; }
       if(!seen.has(r.code)) seen.set(r.code, r.line);
-      if(!reissue.checked && _lxWasIssued(S.issued, r.code)) r.st = 'issued';
+      if(!reissue.checked && r.hasValid) r.st = 'issued';
     });
   }
   async function loadFile(f){
@@ -311,30 +295,27 @@ async function _lxWriteXlsx(rows, sheetName){
     if(!data.length){ info.textContent = '⚠ ' + f.name + ' — 발급할 줄이 없어요(첫 줄은 제목으로 봐요)'; return; }
     S.map = map; S.grid = grid;
     info.textContent = '📎 ' + f.name + ' · ' + data.length + '행 · 확인 중…' + (cut ? ' (앞 ' + LX_MAX_ROWS + '행만)' : '');
-    /* 전에 발급한 코드 표 — 실패해도 미리보기는 계속(그때는 이 판정만 빠진다) */
-    try{ S.issued = _lxIssuedIndex(await firebaseAPI.listLicenses()); }catch(_){ S.issued = null; }
-    /* 조회 — 같은 코드는 한 번만, 다섯 개씩 나란히 */
+    /* 조회 — 같은 코드는 한 번만. 뒷 4자리만 적은 줄은 MATE- · COZY- 두 후보를 같이 묻는다(서버가 «있는 사람 · 이름 · 이미 유효한 키» 를 준다) */
     const look = new Map();
     const uniq = [...new Set(data.map(d => d.code.toUpperCase().replace(/\s+/g, '')).filter(Boolean))];
-    let doneN = 0;
-    const one = async raw => {
-      const cands = _lxCandidates(raw);
-      let hit = null, err = false;
-      for(const c of cands){
-        try{ const u = await firebaseAPI.lookupFriendCode(c); if(u){ hit = { uid: u, code: c }; break; } }catch(_){ err = true; }
-      }
-      if(hit){ try{ if(firebaseAPI.getUserNameById) hit.name = await firebaseAPI.getUserNameById(hit.uid); }catch(_){} }
-      look.set(raw, hit || (err ? 'err' : null));
-      doneN++; info.textContent = '📎 ' + f.name + ' · ' + data.length + '행 · 확인 중… ' + doneN + '/' + uniq.length;
-    };
-    for(let i = 0; i < uniq.length; i += 5) await Promise.all(uniq.slice(i, i + 5).map(one));
+    const asked = [...new Set(uniq.flatMap(_lxCandidates))];
+    let prev = null, prevErr = null;
+    try{ prev = await adminApi.previewLicenses(asked); }catch(e){ prevErr = e; }
+    if(prevErr){ apiErrors.notify(prevErr, adminApi.ERRORS); if(adminApi.failOf(prevErr) === 'site') notifyError('E-ADM-28', prevErr); }
+    const byCode = new Map((prev || []).map(x => [x.friendCode, x]));
+    uniq.forEach(raw => {
+      if(prevErr){ look.set(raw, 'err'); return; }
+      let hit = null;
+      for(const c of _lxCandidates(raw)){ const x = byCode.get(c); if(x && x.found){ hit = { code: c, name: x.name || '', hasValid: x.hasValid }; break; } }
+      look.set(raw, hit);
+    });
     S.rows = data.map(d => {
       const raw = d.code, k = raw.toUpperCase().replace(/\s+/g, '');
-      const r = { line: d.line, cells: d.cells, raw, memo: d.memo, code: '', uid: null, name: '', base: 'key' };
+      const r = { line: d.line, cells: d.cells, raw, memo: d.memo, code: '', name: '', hasValid: false, base: 'key' };
       if(k){
         const h = look.get(k);
         if(h === 'err') r.base = 'neterr';
-        else if(h){ r.base = 'send'; r.uid = h.uid; r.code = h.code; r.name = h.name || ''; }
+        else if(h){ r.base = 'send'; r.code = h.code; r.name = h.name || ''; r.hasValid = !!h.hasValid; }
         else r.base = LX_CODE_RE.test(k) ? 'nouser' : 'badcode';
       }
       /* 결과 파일을 다시 올렸을 때 — 키가 이미 나간 행은 또 만들지 않는다. 코드는 위에서 풀어 두었으니
@@ -343,48 +324,44 @@ async function _lxWriteXlsx(rows, sheetName){
       return r;
     });
     judge();
-    info.textContent = '📎 ' + f.name + ' · ' + S.rows.length + '행' + (cut ? ' (앞 ' + LX_MAX_ROWS + '행만)' : '') + (S.issued ? '' : ' · ⚠ 발급 목록을 못 읽어 «발급한 적 있음» 판정 없음');
+    info.textContent = '📎 ' + f.name + ' · ' + S.rows.length + '행' + (cut ? ' (앞 ' + LX_MAX_ROWS + '행만)' : '') + (prevErr ? ' · ⚠ 친구코드 확인에 실패해 그 줄은 건너뛰어요' : '');
     renderPreview();
   }
   async function run(){
     const todo = S.rows.filter(actionable);
     if(!todo.length || S.running) return;
-    if(!(window.firebaseAPI && firebaseAPI.createLicense && firebaseAPI.sendInboxMessage)){ toast('네트워크 연결이 필요해요'); return; }
     const nSend = todo.filter(r => r.st === 'send').length;
     if(!confirm(todo.length + '건을 발급할까요?\n· 수령함으로 보냄 ' + nSend + '건\n· 키만 만듦 ' + (todo.length - nSend) + '건')){ window.focus(); return; }
     window.focus();
     S.running = true;
     show(opts, false); show(acts, false); show(prog, true);
-    let i = 0;
-    for(const r of todo){
-      i++;
-      progText.innerHTML = '발급 중… <b>' + i + ' / ' + todo.length + '</b>';
-      progBar.style.width = Math.round((i - 1) / todo.length * 100) + '%';
-      const key = _genLicenseKey();
+    progText.innerHTML = '발급 중… <b>' + todo.length + '건</b>';
+    progBar.style.width = '50%';
+    /* 서버에 한 번 — 줄마다 키 한 장 · 친구코드 줄은 그 사람 우편도 서버가 보낸다. 줄마다 결과(ok · 까닭)가 같은 차례로 온다 */
+    const grants = todo.map(r => {
       const tail = r.memo ? ' · ' + r.memo : '';
-      const note = (r.st === 'send'
-        ? (r.name ? r.name + ' · ' : '') + '친구코드 ' + r.code + tail
-        : '엑셀 일괄' + tail).slice(0, LX_NOTE_MAX);
-      try{
-        await firebaseAPI.createLicense(key, note);
-        r.key = key;
-      }catch(e){ r.res = 'fail'; r.why = _saveFailMsg(e, '키 생성 실패'); continue; }
-      if(r.st !== 'send'){ r.res = 'okkey'; continue; }
-      try{
-        const title = '🎫 라이선스가 도착했어요';
-        const body = '아래 키를 [라이선스 등록] 창에 입력하면 프리미엄 기능을 쓸 수 있어요.\n\n' + key + '\n\n(설정 → 라이선스 등록)';
-        const res = await firebaseAPI.sendInboxMessage(r.uid, 'reward', title, body);
-        if(res && res.ok === false){ r.res = 'sendfail'; r.why = '키는 만들어짐 — 직접 전달해 주세요'; }
-        else r.res = 'ok';
-      }catch(_){ r.res = 'sendfail'; r.why = '키는 만들어짐 — 직접 전달해 주세요'; }
+      return r.st === 'send' ? { friendCode: r.code, note: r.memo ? r.memo.slice(0, LX_NOTE_MAX) : '' } : { note: ('엑셀 일괄' + tail).slice(0, LX_NOTE_MAX) };
+    });
+    let res;
+    try{ res = await adminApi.issueLicenses(grants, !!reissue.checked); }
+    catch(e){
+      /* 서버에 닿지 못했거나 거절됐다 — 아무것도 발급됐다고 보지 않는다. 미리보기 그대로 두어 같은 단추를 다시 누르면 같은 요청 번호로 나간다(서버가 한 번만) */
+      apiErrors.notify(e, adminApi.ERRORS); if(adminApi.failOf(e) === 'site') notifyError('E-ADM-21', e);
+      S.running = false; show(prog, false); renderPreview();
+      return;
     }
+    res.forEach((it, i) => {
+      const r = todo[i];
+      if(it.ok && it.key){ r.key = it.key; r.res = r.st === 'send' ? 'ok' : 'okkey'; }
+      else{ r.res = 'fail'; r.why = LX_WHY[it.code] || ('발급하지 못했어요' + (it.code ? ' (' + it.code + ')' : '')); }
+    });
     progBar.style.width = '100%';
     S.running = false; S.finished = true;
     show(prog, false);
     const c = k => S.rows.filter(r => r.res === k).length;
     const skip = S.rows.filter(r => !actionable(r)).length;
     doneSum.innerHTML = chip('ok', ' ' + c('ok')).replace('✓ 보냄', '수령함 발송') + chip('okkey', ' ' + c('okkey')).replace('🔑 키 생성', '키만 발급')
-      + (c('sendfail') ? chip('sendfail', ' ' + c('sendfail')) : '') + chip('fail', ' ' + c('fail')).replace('✗ 발급 실패', '실패')
+      + chip('fail', ' ' + c('fail')).replace('✗ 발급 실패', '실패')
       + (skip ? chip('issued', ' ' + skip).replace('⚠ 발급한 적 있음', '건너뜀') : '');
     const hand = S.rows.filter(r => r.key && r.res !== 'ok');
     keyOnly.innerHTML = hand.map(r => '<div>' + Number(r.line) + '행 · ' + esc(r.memo || r.raw || '—') + ' · <span style="font-family:\'Courier New\',monospace;font-weight:bold;user-select:all;">' + esc(r.key) + '</span></div>').join('')
@@ -394,7 +371,7 @@ async function _lxWriteXlsx(rows, sheetName){
     renderPreview();
     show(acts, false); show(opts, false); show(sumEl, false);   // 위 요약은 «발급 전» 숫자라 끝나면 내린다(아래 완료 요약이 대신한다)
     try{ renderLicenseGenList(); }catch(_){}
-    toast('일괄 발급 완료 — 수령함 ' + c('ok') + ' · 키만 ' + c('okkey') + (c('fail') + c('sendfail') ? ' · 확인 필요 ' + (c('fail') + c('sendfail')) : ''));
+    toast('일괄 발급 완료 — 수령함 ' + c('ok') + ' · 키만 ' + c('okkey') + (c('fail') ? ' · 확인 필요 ' + c('fail') : ''));
   }
   async function saveResult(){
     if(!S.rows.length) return;
@@ -402,7 +379,7 @@ async function _lxWriteXlsx(rows, sheetName){
     const head = (S.map.header ? S.map.header.slice() : Array.from({ length: width }, (_, i) => i === S.map.codeCol ? '친구코드' : (i === S.map.memoCol ? '메모' : '')));
     while(head.length < width) head.push('');
     const LABEL = { send:'발급 안 함', key:'발급 안 함', haskey:'건너뜀', nouser:'건너뜀', dup:'건너뜀', issued:'건너뜀', badcode:'건너뜀', neterr:'건너뜀',
-                    ok:'수령함 발송', okkey:'키만 발급', sendfail:'수령함 실패', fail:'실패' };
+                    ok:'수령함 발송', okkey:'키만 발급', fail:'실패' };
     const WHY = { haskey:'이미 발급 키가 있는 행', nouser:'친구코드를 가진 유저가 없음', badcode:'친구코드 형식이 아님', neterr:'조회 실패(네트워크)', issued:'전에 발급한 적 있음' };
     /* 결과 파일을 다시 올린 것이면 그 세 열을 **채운다**(덧붙이면 열이 두 벌이 된다). 그 행의 옛 키는 지우지 않는다. */
     const hn = head.map(x => String(x || '').replace(/\s+/g, ''));
@@ -438,7 +415,6 @@ async function _lxWriteXlsx(rows, sheetName){
     hideWin();
   }
   openBtn.addEventListener('click', ()=>{
-    if(!(window.firebaseAPI && firebaseAPI.lookupFriendCode && firebaseAPI.listLicenses)){ toast('네트워크 연결이 필요해요'); return; }
     const ov = win.parentElement, GAP = 12, WIN_W = 440;
     const fits = !ov || !mainBox || ov.clientWidth >= mainBox.offsetWidth + GAP + WIN_W + 16;
     setSolo(!fits);

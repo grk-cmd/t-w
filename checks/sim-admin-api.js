@@ -35,13 +35,14 @@ function mk(src, o){
   const log = [], settled = [];
   const call = (m) => async (path, a) => {
     log.push([m === 'del' ? 'DELETE' : m.toUpperCase(), path, m === 'del' || m === 'get' ? undefined : a]);
+    if(m === 'del' || m === 'get') log[log.length - 1][3] = a;
     const r = o[m]; const v = typeof r === 'function' ? r(path, a) : r;
     if(v instanceof Error) throw v;
     return v;
   };
   const ids = { n: 0, idFor: (k) => 'req-' + k.length + '-' + (o.sameId ? 1 : ++ids.n), settle: (k) => settled.push(k) };
   const board = o.board || { updateNotice: { id: 'u-7', title: '제목', body: '본문', ts: 5 } };
-  const m = load(src).createAdminApi({ authed: { get: call('get'), post: call('post'), put: call('put'), del: call('del') }, pending: ids,
+  const m = load(src).createAdminApi({ authed: { get: call('get'), post: call('post'), put: call('put'), patch: call('patch'), del: call('del') }, pending: ids, errs: o.errs,
     fetchBoard: async () => { log.push(['BOARD']); if(board instanceof Error) throw board; return board; } });
   return { m, log, settled };
 }
@@ -117,6 +118,53 @@ async function judge(S){
     chk(e3 && e3.status === 403 && e3.code === 'ACCESS_DENIED', '관리자가 아니면 403 ACCESS_DENIED 를 그대로 던진다');
   }
 
+  say('── 2-2. 라이선스 · 대기 요청 · 통계 · 초대권 (D11-3)');
+  {
+    const item = { licenseId: 'L1', key: 'AAAA-BBBB', status: 'VALID', note: '메모', ownerUserCode: 'u1', ownerName: '말랑', firstRedeemedAt: '2026-11-01T00:00:00Z', version: 7, devices: [] };
+    const a = mk(LIB, { get: { items: [item], nextCursor: 'c2', total: 41 } });
+    const pg = await a.m.listLicenses({ q: 'a b', cursor: 'c1' });
+    chk(a.log[0][0] === 'GET' && a.log[0][1] === '/v2/admin/licenses?q=a%20b&cursor=c1' && pg.total === 41 && pg.next === 'c2' && pg.items[0].id === 'L1' && pg.items[0].used === true && pg.items[0].version === 7,
+      '키 목록 — GET /v2/admin/licenses?q&cursor(검색 · 쪽 · 총 수는 서버) → 화면 줄(id · 판 · 사용됨)');
+    chk(await mk(LIB, { get: { items: [{ key: 'x' }] } }).m.listLicenses({}).then(() => false, (e) => e.code === 'SHAPE'), '  모양이 틀리면 던진다(빈 목록으로 보이지 않는다)');
+    const b = mk(LIB, { post: [{ friendCode: 'MATE-9K2M', ok: true, code: null, licenseId: 'L2', key: 'KKKK' }] });
+    const iss = await b.m.issueLicenses([{ friendCode: 'MATE-9K2M', note: 'n'.repeat(150) }], true);
+    chk(b.log[0][0] === 'POST' && b.log[0][1] === '/v2/admin/licenses' && /^req-/.test(b.log[0][2].requestId) && b.log[0][2].reissue === true && b.log[0][2].grants[0].friendCode === 'MATE-9K2M' && b.log[0][2].grants[0].note.length === 100
+      && iss[0].key === 'KKKK' && iss[0].ok === true && !('key' in b.log[0][2].grants[0]), '발급 — POST /v2/admin/licenses { requestId, grants, reissue } · 메모 100자 · 키는 서버가 돌려준다(앱이 만들지 않는다)');
+    chk(await mk(LIB, {}).m.issueLicenses([], false).then(() => false, (e) => e.code === 'INVALID_REQUEST') && await mk(LIB, {}).m.issueLicenses(new Array(501).fill({}), false).then(() => false, (e) => e.code === 'INVALID_REQUEST'), '  줄 0개 · 501개는 요청 없이 던진다(상한 500)');
+    const c = mk(LIB, { post: apiErr(503, 'X') });
+    await c.m.issueLicenses([{}], false).catch(() => {});
+    chk(c.settled.length === 1, '  서버가 답했으면 요청 번호를 버린다');
+    const c2 = mk(LIB, { post: Object.assign(new Error('n'), { kind: 'unavailable' }) });
+    await c2.m.issueLicenses([{}], false).catch(() => {});
+    chk(c2.settled.length === 0, '  닿지 못했으면 번호를 남긴다 — 다시 누르면 같은 번호');
+    const d = mk(LIB, { post: [{ friendCode: 'MATE-9K2M', found: true, name: '말랑', hasValidLicense: true }, { friendCode: 'COZY-9K2M', found: false, hasValidLicense: false }] });
+    const pv = await d.m.previewLicenses(['MATE-9K2M', 'COZY-9K2M']);
+    chk(d.log[0][1] === '/v2/admin/licenses/preview' && d.log[0][2].friendCodes.length === 2 && pv[0].found && pv[0].name === '말랑' && pv[0].hasValid && !pv[1].found, '엑셀 미리보기 — POST …/licenses/preview { friendCodes } → 있는 사람 · 이름 · 이미 유효한 키(서버 판정)');
+    const e1 = mk(LIB, { patch: null, del: null });
+    await e1.m.revokeLicense('L1', 7); await e1.m.deleteLicense('L1', 7);
+    chk(e1.log[0][0] === 'PATCH' && e1.log[0][1] === '/v2/admin/licenses/L1' && e1.log[0][2].version === 7 && e1.log[0][2].status === 'REVOKED' && e1.log[1][0] === 'DELETE' && e1.log[1][1] === '/v2/admin/licenses/L1?version=7',
+      '회수 — PATCH …/{licenseId} { version, status } · 삭제 — DELETE …/{licenseId}?version= (키 원문은 경로에 없다)');
+    const f = mk(LIB, { get: { items: [{ id: 'R1', requesterUserCode: 'u9', name: '요청자', createdAt: 'x' }], nextCursor: null }, post: null });
+    const rq = await f.m.pendingRequests(null);
+    await f.m.approveRequest('R1'); await f.m.rejectRequest('R2');
+    chk(f.log[0][1] === '/v2/admin/license-requests' && rq.items[0].id === 'R1' && rq.items[0].name === '요청자' && f.log[1][1] === '/v2/admin/license-requests/R1/approve' && f.log[2][1] === '/v2/admin/license-requests/R2/reject', '대기 요청 — GET …/license-requests · POST …/{id}/approve · reject');
+    const g = mk(LIB, { post: [{ id: 'R1', ok: true }, { id: 'R2', ok: false, code: 'LICENSE_REQUEST_NOT_FOUND' }] });
+    const ba = await g.m.approveRequests(['R1', 'R2']);
+    chk(g.log[0][1] === '/v2/admin/license-requests/bulk-approve' && g.log[0][2].ids.join() === 'R1,R2' && ba[1].ok === false && ba[1].code === 'LICENSE_REQUEST_NOT_FOUND', '일괄 승인 — POST …/bulk-approve { ids } → 줄마다 ok · 까닭');
+    const h = mk(LIB, { get: { users: 12, premiumUsers: 3, licenses: { valid: 4, used: 2 } } });
+    const tt = await h.m.totals();
+    chk(h.log[0][1] === '/v2/admin/metrics/totals' && tt.users === 12 && tt.premiumUsers === 3 && tt.licValid === 4 && tt.licUsed === 2, '통계 — GET /v2/admin/metrics/totals(서버 총계 · 앱이 세지 않는다)');
+    const i = mk(LIB, { post: { changed: 1, invitesLeft: 5 } });
+    const gi = await i.m.grantInvites('MATE-9K2M', 2); const ri = await i.m.revokeInvites('all', '2026-07-18T00:00:00Z');
+    chk(i.log[0][1] === '/v2/admin/invite-quotas/grants' && /^req-/.test(i.log[0][2].requestId) && i.log[0][2].target === 'MATE-9K2M' && i.log[0][2].n === 2 && gi.left === 5
+      && i.log[1][1] === '/v2/admin/invite-quotas/revocations' && i.log[1][2].target === 'all' && i.log[1][2].joinedSince === '2026-07-18T00:00:00Z' && !('requestId' in i.log[1][2]) && ri.changed === 1, '초대권 — POST …/invite-quotas/grants { requestId, target, n } · …/revocations { target, joinedSince? } (사람 찾기는 서버)');
+    chk(await mk(LIB, {}).m.grantInvites('', 1).then(() => false, (e) => e.code === 'INVALID_REQUEST') && await mk(LIB, {}).m.grantInvites('x', 0).then(() => false, (e) => e.code === 'INVALID_REQUEST'), '  대상 없음 · 0장은 요청 없이 던진다');
+    const AE = loadErrors(S.ERRS);
+    const fo = (code, status) => mk(LIB, { errs: { translate: AE.createApiErrors({ notifyError: () => true }).translate, COMMON: AE.COMMON } }).m.failOf(Object.assign(new Error(code), { code, status, kind: 'request' }));
+    chk(fo('CONCURRENT_UPDATE', 409) === 'refetch' && fo('LICENSE_NOT_FOUND', 404) === 'refetch' && fo('LICENSE_REQUEST_NOT_FOUND', 404) === 'refetch' && fo('TOO_MANY_REQUESTS', 429) === 'common' && fo('ACCESS_DENIED', 403) === 'notice' && fo('SOMETHING_ELSE', 400) === 'site',
+      '실패 갈래 — 판이 달라짐 · 이미 없음 = refetch · 공통 code = common · 이 기능 표 = notice · 그 밖 = site');
+  }
+
   say('── 3. 오류 표');
   {
     const api = load(S.API), AE = loadErrors(S.ERRS);
@@ -145,7 +193,7 @@ async function judge(S){
       'html — admin-api.js 가 쓰는 관리자 모듈들 · app.js 보다 먼저');
     chk(/PRELOAD\.push\('admin-api\.js'\)/.test(S.SMOKE), 'smoke PRELOAD');
     const A = strip(S.APP);
-    chk(/const adminApi = TwAdminApi\.createAdminApi\(\{ authed: TwApi\.authed, pending: TwRequestId\.createPending\(\), fetchBoard: \(\)=>noticeApi\.fetchBoard\(\) \}\);/.test(A), 'app.js — 로그인 통로(authed) · 요청 번호 · 공지 한 판 읽기를 넘겨 만든다');
+    chk(/const adminApi = TwAdminApi\.createAdminApi\(\{ authed: TwApi\.authed, pending: TwRequestId\.createPending\(\), fetchBoard: \(\)=>noticeApi\.fetchBoard\(\), errs: TwApiErrors \}\);/.test(A), 'app.js — 로그인 통로(authed) · 요청 번호 · 공지 한 판 읽기 · 공통 오류 표를 넘겨 만든다');
     const FI = strip(S.FI);
     chk(!/\b(publishAnnounce|clearAnnounce|publishUpdateNotice|clearUpdateNotice|getUpdateNotice|publishAdBanner|publishGameConfig|closeAllRooms)\s*\(/.test(FI), 'firebase-init 에 걷은 관리자 쓰기(확성기 · 업데이트 공지 · 배너 · 게임 설정 · 방 종료)가 없다');
     chk(!/\bfirebaseAPI\.(publishAnnounce|clearAnnounce|publishUpdateNotice|clearUpdateNotice|getUpdateNotice|publishAdBanner|publishGameConfig|closeAllRooms)\b/.test(A), 'app.js 가 걷은 Firebase 관리자 쓰기를 안 부른다');
@@ -158,6 +206,12 @@ async function runAll(){
   await judge(S);
   say('── 5. 일부러 깨 보기');
   const breaks = [
+    ['발급에 요청 번호 없음', { API: S.API.replace("{ requestId, grants: body, reissue: !!reissue }", "{ grants: body, reissue: !!reissue }") }, 'requestId'],
+    ['회수에 판 안 실음', { API: S.API.replace("{ version, status: 'REVOKED' }", "{ status: 'REVOKED' }") }, 'version'],
+    ['삭제 판을 경로에', { API: S.API.replace("'?version=' + encodeURIComponent(version)", "''") }, '삭제 — DELETE'],
+    ['메모 상한 없음', { API: S.API.replace(".slice(0, LIMITS.LICENSE_NOTE)", "") }, '메모 100자'],
+    ['통계를 앱이 셈', { API: S.API.replace("licValid: num(d.licenses.valid)", "licValid: 0") }, '통계'],
+    ['초대권 회수에 요청 번호', { API: S.API.replace("const body = { target: t };", "const body = { target: t, requestId: 'x' };") }, 'revocations'],
     ['확성기 상한 없음', { API: S.API.replace(".slice(0, LIMITS.ANNOUNCE)", "") }, '≤140'],
     ['확성기에 켜는 시간을 실음', { API: S.API.replace("{ requestId, text: t }", "{ requestId, text: t, duration: 60000 }") }, '켜는 시간'],
     ['공지 제목 상한 없음', { API: S.API.replace(".slice(0, LIMITS.UPDATE_TITLE)", "") }, 'title≤60'],
