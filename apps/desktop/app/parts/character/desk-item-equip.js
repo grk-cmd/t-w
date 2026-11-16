@@ -3,7 +3,7 @@
    ・책임: 아이템 하나를 좌석 · 생성기 미리보기(holder)에 올리고 내리기(equipDeskItem — 라이선스 전용 막기 · 손 본 부착 · _col 색 그룹 · 손 따라가는 지점 · 재생 방식 등록 ·
      커스텀 GLB 크기 맞춤 · 해제 전 위치 기억) · 저장된 아이템 한 벌 입히기(applyDeskItemsTo) · 모으기(collectDeskItems) · 켜고 끌 때 바로 저장(autoSaveDeskItemsNow) · 색 반영(_applyItemColor) ·
      생성기에서 «처음 나타난 자리» 기억(deskItemOrigin — ⟲ 초기화가 돌아갈 곳).
-   ・받는 deps 13 — 값: activeItemMixers · _idleItemPivots(part-anim.js 의 재생 목록) · lightToneMod · toast · 함수: licenseAssetBlocked(account-state.js — 전용 자산을 막아야 하나) · 읽는 함수: commissionMod · crState · crXformMod · customItems · deskItemsMod ·
+   ・받는 deps 14 — 값: activeItemMixers · _idleItemPivots(part-anim.js 의 재생 목록) · lightToneMod · toast · 함수: licenseAssetBlocked(account-state.js — 전용 자산을 막아야 하나) · 읽는 함수: catalogReceived(이번 세션에서 카탈로그를 받았나) · commissionMod · crState · crXformMod · customItems · deskItemsMod ·
      deskSetupMod · launcherPrevMod · slotSaveMod(더 아래에서 만들어지거나 다시 대입되는 것).
    ・내놓는 것: applyDeskAdj · deskItemOrigin(없으면 null) · equipDeskItem · collectDeskItems · autoSaveDeskItemsNow · applyDeskItemsTo · _applyItemColor
    ⚠️ 라이선스 전용 막기는 친구 좌석(holder.remote)에는 걸지 않는다 — 보는 사람의 라이선스로 친구가 올린 아이템을 숨기지 말 것.
@@ -22,6 +22,7 @@ const customItems = deps.customItems;
 const deskItemsMod = deps.deskItemsMod;
 const deskSetupMod = deps.deskSetupMod;
 const licenseAssetBlocked = deps.licenseAssetBlocked;
+const catalogReceived = deps.catalogReceived;   // 읽는 함수 — 이번 세션에서 카탈로그를 받았나(catalog-api.js current 유무)
 const launcherPrevMod = deps.launcherPrevMod;
 const slotSaveMod = deps.slotSaveMod;
 /* 책상 위 소품(아이템) 시스템 — holder = 좌석 또는 생성기 미리보기 */
@@ -43,8 +44,9 @@ function equipDeskItem(holder,def,on){
   let _siCat = null; try{ _siCat = commissionMod().savedItems(); }catch(_){}
   const _siRec = (_siCat && _siCat.find && def && def.id) ? _siCat.find(s=>s.id===def.id) : null;
   if(on && !(holder && holder.remote)){
-    /* 모를 땐 막는다 — 커스텀 아이템인데 카탈로그 기록이 아직 없으면 서버 locked 를 모른다(캐릭터 코드 def 로 딸려 온 것). 기록이 오면 catalog-sync 가 좌석 아이템을 다시 적용해 locked 로 다시 판정한다. */
-    if(def && def.custom && !_siRec) return;
+    /* 카탈로그를 받기 전(처음 · 받기 실패)에는 기록 없는 커스텀 아이템의 locked 를 모른다 — 막는다. 받은 뒤에도 기록이 없으면 카탈로그 물건이 아니다(전용 물건은 늘 카탈로그에 있다 —
+       친구가 코드로 추가한 소품 등) — 막지 않는다. 기록이 오면 catalog-sync 가 좌석 아이템을 다시 적용해 locked 로 다시 판정한다. */
+    if(def && def.custom && !_siRec && !catalogReceived()) return;
     if(licenseAssetBlocked(_siRec)){
       toast('🔒 "'+(def.name||'이 아이템')+'"은(는) 라이선스 보유자만 사용할 수 있어요');
       return;

@@ -41,6 +41,7 @@ function build(src, o){
     customItems: () => st.custom,
     deskItemsMod: () => ({ allDeskItems: () => Object.values(defs), deskItemDef: (id) => defs[id] }),
     deskSetupMod: () => ({ selectDeskItemForAdjust: (p) => log.select.push(p) }),
+    catalogReceived: () => !!o.received,
     licenseAssetBlocked: (item) => !!(item && item.locked === true),   // account-state.js 와 같은 판단(서버 locked 하나)
     launcherPrevMod: () => ({ lHolder: () => null }),
     slotSaveMod: () => ({ saveSlots: () => log.saves++ }),
@@ -70,7 +71,11 @@ say('§1 라이선스 전용 막기');
   /* 모를 땐 막는다 — 커스텀 아이템인데 카탈로그 기록이 없으면 locked 를 모른다(캐릭터 코드로 딸려 온 것). 기록이 오면 다시 판정한다 */
   const cu = mkDef('vip', { custom: true, licenseOnly: false });
   b = build(SRC); h = mkHolder(); b.mod.equipDeskItem(h, cu, true);
-  chk(!h.deskItems && b.log.toast.length === 0, '★ 커스텀 아이템인데 기록이 없으면 막는다(소리 없이 — 장착 안 함)');
+  chk(!h.deskItems && b.log.toast.length === 0, '★ 받기 전(처음 · 받기 실패) · 기록 없음 → 막는다(소리 없이 — 장착 안 함)');
+  b = build(SRC, { received: true }); h = mkHolder(); b.mod.equipDeskItem(h, cu, true);
+  chk(!!(h.deskItems && h.deskItems.vip) && b.log.toast.length === 0, '★ 받은 뒤 · 기록 없음 → 장착한다(카탈로그 물건이 아니다 — 친구가 코드로 추가한 소품)');
+  b = build(SRC, { received: true, saved: [{ id: 'vip', locked: true }] }); h = mkHolder(); b.mod.equipDeskItem(h, cu, true);
+  chk(!h.deskItems && b.log.toast.length === 1, '★ 받은 뒤 · locked:true → 막고 안내한다');
   b = build(SRC, { saved: [{ id: 'vip', locked: false }] }); h = mkHolder(); b.mod.equipDeskItem(h, cu, true);
   chk(!!(h.deskItems && h.deskItems.vip), '  ↳ 기록이 오고 locked:false 면 그때 장착된다');
   b = build(SRC, { saved: [{ id: 'vip', locked: true }] }); h = mkHolder(); b.mod.equipDeskItem(h, cu, true);
@@ -81,7 +86,9 @@ say('§1 라이선스 전용 막기');
   chk(!!(h.deskItems && h.deskItems.plant), '  ↳ 기본 내장 아이템(custom 아님)은 기록이 없어도 막지 않는다');
   b = build(SRC); h = mkHolder(); b.mod.equipDeskItem(h, cu, false);
   chk(b.log.toast.length === 0, '  ↳ 끄기는 기록이 없어도 막지 않는다');
-  { const mm = SRC.replace('if(def && def.custom && !_siRec) return;', ''); const bb = build(mm); const hh = mkHolder(); bb.mod.equipDeskItem(hh, cu, true);
+  { const m2 = SRC.replace('&& !catalogReceived()) return;', ') return;'); const b2 = build(m2, { received: true }); const h2 = mkHolder(); b2.mod.equipDeskItem(h2, cu, true);
+    chk(m2 !== SRC && !h2.deskItems, '  깨 보기: «받았는가» 를 안 보면 받은 뒤에도 막혀 버린다(= 위 «받은 뒤 · 기록 없음» 판정이 빨강)'); }
+  { const mm = SRC.replace('if(def && def.custom && !_siRec && !catalogReceived()) return;', ''); const bb = build(mm); const hh = mkHolder(); bb.mod.equipDeskItem(hh, cu, true);
     chk(mm !== SRC && !!(hh.deskItems && hh.deskItems.vip), '  깨 보기: 기록 없을 때 막는 줄을 지우면 장착돼 버린다(= 위 판정이 빨강)'); }
   b = build(SRC, { saved: LOCKEDREC }); h = mkHolder(); b.mod.equipDeskItem(h, d, false);
   chk(b.log.toast.length === 0, '끄기(on=false)는 막지 않는다');

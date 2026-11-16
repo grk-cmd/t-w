@@ -204,6 +204,7 @@ const deskItemEquipMod = TwDeskItemEquip.createDeskItemEquip({
   deskSetupMod: ()=>deskSetupMod,
   launcherPrevMod: ()=>launcherPrevMod,
   licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),
+  catalogReceived: ()=>!!catalogApiMod.current(),
   slotSaveMod: ()=>slotSaveMod,
   lightToneMod: lightToneMod,
   toast: (...a)=>toast(...a),
