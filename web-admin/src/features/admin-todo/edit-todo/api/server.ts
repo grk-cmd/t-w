@@ -1,5 +1,5 @@
 // API 판 — 만들기 `POST /v2/admin/todos` · 고치기 `PATCH …/{id}`(`version` 필수) · 지우기 `DELETE …/{id}?version=` → 한 줄 응답.
-// 작업 기록은 서버가 같은 트랜잭션에 남긴다. 제목 · 메모 · 제보 수 · 버전 모양 판정은 서버가 한다 — 값은 그대로 보내고 400 은 서버 문구로 띄운다.
+// 만들기는 `requestId` 를 싣는다. 작업 기록은 서버가 같은 트랜잭션에 남긴다. 제목 · 메모 · 제보 수 · 버전 모양 판정은 서버가 한다 — 값은 그대로 보내고 400 은 서버 문구로 띄운다.
 // 연결된 제보는 번호(`B-MMDD-n`)다. 완료로 바꾸며 «제보도 수정 완료로» 를 고르면 할 일을 저장한 뒤 제보마다 `GET /v2/bugs/{n}` 으로 version 을 읽고 `PATCH /v2/admin/bugs/{n} { version, status }` 한다(요청이 따로라 일부만 될 수 있다 — 안 된 수 · 원인을 결과에 싣는다).
 // 남이 먼저 고쳤으면(409) 또는 그새 지워졌으면(`OPS_TODO_NOT_FOUND`) 목록을 한 번 다시 받아 그 할 일의 지금 값(지워졌으면 null)을 돌려준다.
 import { becomesDone, createServerTodoPort, toTodoRow, type Todo } from '@/entities/admin/todo';
@@ -14,6 +14,7 @@ import {
   type Api,
   type PortError,
 } from '@/shared/api';
+import { createPayloadRequestId } from '@/shared/lib';
 import { assigneeNameOf, linkWith, type SaveTodoInput, type SaveTodoResult } from '../model/saveTodo';
 import type { EditTodoPort } from './port';
 
@@ -30,6 +31,8 @@ const lost = (error: unknown): error is PortError =>
 
 function build(api: Api | null): EditTodoPort {
   const todos = createServerTodoPort(api);
+  // 만들기만 — 답을 못 받고 다시 누르면 같은 내용에 같은 번호(서버가 처음 만든 할 일을 돌려준다).
+  const once = createPayloadRequestId();
 
   /** 겹침 · 지워짐 뒤 — 목록을 한 번 다시 받아 그 할 일의 지금 값을 찾는다. 다시 받지 못하면 그 실패를 던진다. */
   async function latestOf(id: string): Promise<SaveTodoResult> {
@@ -99,7 +102,7 @@ function build(api: Api | null): EditTodoPort {
           (a) =>
             seen
               ? a.send<unknown>('PATCH', todoPath(seen.id), { body })
-              : a.send<unknown>('POST', TODOS, { body }),
+              : once(body, (requestId) => a.send<unknown>('POST', TODOS, { body: { requestId, ...body } })),
           '저장하지 못했어요',
         ),
       );

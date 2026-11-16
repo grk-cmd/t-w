@@ -167,6 +167,7 @@ describe('할 일 쓰기 — API 판', () => {
     });
     expect(r).toEqual({ ok: true, id: 'srv-1', fixed: 0 });
     expect(s.calls[0].body).toEqual({
+      requestId: expect.any(String),
       title: long,
       memo: '  메모  ',
       status: 'todo',
@@ -176,6 +177,26 @@ describe('할 일 쓰기 — API 판', () => {
       reports: ['B-1116-1'],
       release: '',
     });
+  });
+
+  it('만들기 — 답을 못 받고 다시 보내면 같은 requestId, 서버가 답한 뒤에는 새 번호', async () => {
+    let fail = true;
+    const s = fakeApiOf({
+      'POST /v2/admin/todos': () => {
+        if (fail) throw new ApiError('unavailable', 0, '', '끊김');
+        return wireTodo('srv-1', { version: 0 });
+      },
+    });
+    const port = createServerEditTodoPort(s.api);
+    const input = { id: 'n', seen: null, draft: emptyDraft([], '제목'), names };
+    await caught(port.save(input));
+    fail = false;
+    await port.save(input);
+    await port.save(input);
+    const ids = s.calls.map((c) => (c.body as { requestId: string }).requestId);
+    expect(ids[0]).toBeTruthy();
+    expect(ids[1]).toBe(ids[0]);
+    expect(ids[2]).not.toBe(ids[1]);
   });
 
   it('고치기 — 본 version 을 싣는다 · 제보는 건드리지 않는다(markFixed 없이)', async () => {
@@ -499,6 +520,11 @@ describe('릴리스 반영 — API 판', () => {
     const row = (value: unknown) => [
       { key: 'bug.releaseAnswerTemplate', value, default: '기본 문구', version: 7 },
     ];
+    // 저장한 값이 기본 문구와 같아도 «저장됨» — 서버 value 가 null 인지로만 가른다
+    const same = fakeApiOf({ 'GET /v2/admin/config': () => row('기본 문구') });
+    expect(await createServerApplyReleasePort(same.api).template()).toMatchObject({
+      value: { saved: '기본 문구' },
+    });
     const unsaved = fakeApiOf({ 'GET /v2/admin/config': () => row(null) });
     expect(await createServerApplyReleasePort(unsaved.api).template()).toMatchObject({
       value: { saved: null, fallback: '기본 문구' },

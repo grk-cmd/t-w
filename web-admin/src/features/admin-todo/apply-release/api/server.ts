@@ -90,8 +90,8 @@ function build(api: Api | null): ApplyReleasePort {
     const effective = wireString(s.effective, '답변 틀');
     const fallback = wireString(s.default, '답변 틀의 기본 문구');
     return {
-      // 저장한 값이 없으면 지금 먹는 값이 기본 문구다(서버 약속).
-      value: { saved: effective === fallback ? null : effective, fallback },
+      // 저장한 값이 있는지는 서버가 `value` 의 null 로 알려 준다.
+      value: { saved: s.saved ? effective : null, fallback },
       version: s.version,
       raw: { effective: s.effective, defaults: s.default },
     };
