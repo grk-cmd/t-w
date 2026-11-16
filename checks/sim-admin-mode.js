@@ -28,11 +28,11 @@ function build(src, st){
   const els = {}, docOn = {}, calls = [];
   const mk = (id) => ({ id, style: {}, value: '', textContent: '', innerHTML: '', onclick: null, _on: {},
     classList: { _s: new Set(), add(c){ this._s.add(c); }, remove(c){ this._s.delete(c); }, contains(c){ return this._s.has(c); } },
-    addEventListener(t, f){ (this._on[t] = this._on[t] || []).push(f); }, focus(){} });
+    addEventListener(t, f){ (this._on[t] = this._on[t] || []).push(f); }, focus(){}, getAttribute(){ return ''; }, remove(){} });
   const adminOnly = [mk('a1'), mk('a2')];
   const body = mk('body');
   const document = { getElementById: (id) => els[id] || (els[id] = mk(id)), body,
-    addEventListener(t, f, cap){ (docOn[t] = docOn[t] || []).push({ f, cap: !!cap }); }, querySelectorAll: (sel) => sel === '.admin-only' ? adminOnly : [] };
+    addEventListener(t, f, cap){ (docOn[t] = docOn[t] || []).push({ f, cap: !!cap }); }, querySelectorAll: (sel) => sel === '.admin-only' ? adminOnly : (sel === '[data-admin-win]' ? (st.winIds || []).map(id => document.getElementById(id)) : []) };
   const meCalls = []; st.meCalls = meCalls;
   const fb = { authCurrentUid: () => st.uid, authCurrentEmail: () => 'a@b.c' };
   const companion = { setAdminMode: (v) => calls.push('setAdminMode:' + v) };
@@ -61,6 +61,7 @@ async function judgeAll(src, app, html, platform){
   const r = [];
   const t = (ok, msg) => r.push([!!ok, msg]);
   const st = { admin: false, uid: null, platform };
+  st.winIds = [...html.matchAll(/id="(\w+)" data-admin-win/g)].map(m => m[1]);
   let B;
   try{ B = build(src, st); }catch(e){ t(false, '모듈을 만들 수 없다 — ' + e.message); return r; }
   const e = B.els;
@@ -115,13 +116,17 @@ async function judgeAll(src, app, html, platform){
     t(st.meCalls.length === nMe + 1 && !st.admin && !B.body.classList.contains('admin'), '세션 끝 — 확인 중이던 옛 계정의 답으로 관리자 모드를 켜지 않는다(늦은 답 버림)');
     e.adminPassInput.value = PW; await e.adminPassOk.onclick();
     t(st.admin, '세션 끝 뒤 새 계정의 확인은 다시 된다(확인 중 잠금이 풀렸다)'); st.admin = false; B.body.classList.remove('admin'); }
-  { const WIN = ['licenseGenOverlay', 'inviteGrantOverlay', 'totalStatsOverlay', 'adBannerOverlay', 'categoryManageOverlay'];
+  { const WIN = ['licenseGenOverlay', 'inviteGrantOverlay', 'totalStatsOverlay', 'adBannerOverlay', 'categoryManageOverlay', 'announceOverlay', 'updateNoticeAdminOverlay', 'partRegOverlay', 'assetGenOverlay', 'gameCfgOverlay', 'licenseXlsxWin'];
     st.admin = true; WIN.forEach(id => { e[id].classList.add('on'); e[id].style.display = 'flex'; });
     st.navFns.adminExit();
     t(WIN.every(id => !e[id].classList.contains('on') && e[id].style.display === 'none'), '세션 끝 — 열려 있던 관리자 창(발급 · 초대권 · 통계 · 배너 · 카테고리)을 전부 닫는다');
     st.admin = true; WIN.forEach(id => { e[id].style.display = 'flex'; }); const nt = B.calls.length;
     key(B, { ctrlKey: true, key: 'e' });
     t(WIN.every(id => e[id].style.display === 'none') && B.calls.slice(nt).some(c => c === 'toast:관리자 모드 OFF — 창도 닫힌다' || c.startsWith('toast:관리자 모드 OFF')), 'Ctrl+E — 같은 몸통으로 창도 닫고 토스트는 띄운다'); st.admin = false; }
+  { const dirs = ['parts/admin', 'app/parts/admin', '.']; const used = new Set();
+    for(const d of dirs){ let fl = []; try{ fl = fs.readdirSync(d).filter(f => /^admin-[\w-]+\.js$/.test(f)); }catch(_){} fl.forEach(f => { for(const m of fs.readFileSync(d + '/' + f, 'utf8').matchAll(/'(\w+(?:Overlay|Win))'/g)) used.add(m[1]); }); }
+    const miss = [...used].filter(id => !st.winIds.includes(id));
+    t(used.size >= 10 && !miss.length, '관리자 모듈(parts/admin/*)이 여는 창 id 가 모두 html 에서 data-admin-win 을 가졌다 (' + used.size + '개' + (miss.length ? ' · 빠짐: ' + miss.join(',') : '') + ')'); }
   /* 4. app.js 연결 */
   const A = strip(app);
   t(!/function tryEnterAdmin|function _submitAdminPass|function exitAdmin|function refreshAdminVisibility|bindAdminTrigger|function _sha256Hex|'adminPassOk'/.test(A), 'app.js 에 옮긴 본문이 남지 않았다');
@@ -156,6 +161,7 @@ async function judgeAll(src, app, html, platform){
     ['기능 표를 안 넘김', { mod: s => s.replace("apiErrors.notify(e, adminApi.ERRORS)", "apiErrors.notify(e)") }],
     ['켜기 전에 isAdmin 을 붙잡음', { mod: s => s.replace('const isAdmin = deps.isAdmin;', 'const isAdmin = ((v)=>()=>v)(deps.isAdmin());') }],
     ['세션 끝에 안 끔', { mod: s => s.replace('  _adminOff(false);', '  return;') }],
+    ['창 표식이 빠짐', { html: s => s.replace('id="partRegOverlay" data-admin-win', 'id="partRegOverlay"') }],
     ['관리자 창을 안 닫음', { mod: s => s.replace('  _closeAdminWindows();\n  if(announce)', '  if(announce)') }],
     ['세션 끝 뒤 옛 답이 켬', { mod: s => s.replace('if(g !== gen) return;   // 확인 중에 세션이 끝났다 — 끝난 계정의 답으로', 'if(false) return;   // 확인 중에 세션이 끝났다 — 끝난 계정의 답으로') }],
     ['app-boot 칸 빠짐', { app: s => s.replace('adminMode: (code, me, session)=>{ session.onReset(()=>twNav.go(twNav.NAV.ADMIN_EXIT)); },', '') }],

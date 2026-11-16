@@ -53,6 +53,7 @@ async function _openReportAdmin(){
   ov.addEventListener('mousedown', e=>{ if(e.target === ov) _reportClose(); });
   setReportEsc(e=>{ if(e.key === 'Escape'){ e.stopPropagation(); _reportClose(); } });
   document.addEventListener('keydown', _reportEsc(), true);
+  ov.setAttribute('data-admin-win', 'remove');   // 세션이 끝나면 admin-mode 가 이 창도 닫는다(떼어 낸다)
   document.body.appendChild(ov); setReportOv(ov);
   let gen = 0;
   const live = (g)=>_reportOv() === ov && g === gen;
