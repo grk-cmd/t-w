@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { grantInvites, grantInvitesAll, revokeInvitesAll } from '@/features/user/grant-invites/api/firebase';
 import { uniqueUserIds } from '@/features/user/grant-invites';
+import { grantAllLabel, revokeAllLabel } from '@/features/user/grant-invites/model/grantInvites';
 import { fakeDb, withoutAudits } from '../shared/fakeDb';
 
 const left = (uid: string) => `users/${uid}/invite/invitesLeft`;
@@ -139,5 +140,22 @@ describe('초대권 회수 — 0장으로', () => {
     });
     expect(r).toMatchObject({ revoked: 19, failed: 1, stopped: true });
     expect(withoutAudits(writes)).toHaveLength(19);
+  });
+});
+
+describe('전체 지급 · 회수 확인 단추 글자', () => {
+  it('대상 수를 못 읽으면(null) null · 0명 없이 «대상 수 못 읽음»', () => {
+    const labels = [grantAllLabel(null, 2, false), revokeAllLabel(null, false)];
+    for (const l of labels) {
+      expect(l).toBe('대상 수 못 읽음');
+      expect(l).not.toMatch(/null|0명/);
+    }
+  });
+
+  it('읽었으면 수를 보이고, 도는 중이면 진행 글자', () => {
+    expect(grantAllLabel(7, 2, false)).toBe('7명에게 2장씩 지급');
+    expect(revokeAllLabel(7, false)).toBe('7명 초대권 0장으로');
+    expect(grantAllLabel(null, 2, true)).toBe('지급 중…');
+    expect(revokeAllLabel(7, true)).toBe('회수 중…');
   });
 });

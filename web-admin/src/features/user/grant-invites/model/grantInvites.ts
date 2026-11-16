@@ -46,3 +46,15 @@ export interface RevokeAllResult {
   failed: number;
   stopped: boolean;
 }
+
+/** «전체 지급» 확인 단추 글자 — 대상 수를 못 읽었으면(null) 수를 지어내지 않고 그렇게 말한다. */
+export function grantAllLabel(total: number | null, count: number, running: boolean): string {
+  if (running) return '지급 중…';
+  return total === null ? '대상 수 못 읽음' : `${total}명에게 ${count}장씩 지급`;
+}
+
+/** «전체 회수» 확인 단추 글자 — 대상 수를 못 읽었으면(null) 0명으로 보이지 않게 한다. */
+export function revokeAllLabel(total: number | null, running: boolean): string {
+  if (running) return '회수 중…';
+  return total === null ? '대상 수 못 읽음' : `${total}명 초대권 0장으로`;
+}

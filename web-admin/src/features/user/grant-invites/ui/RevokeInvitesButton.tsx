@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useEnv, withProdMark } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
-import type { GrantScope } from '../model/grantInvites';
+import { revokeAllLabel, type GrantScope } from '../model/grantInvites';
 import { useCountAllTargets, useRevokeInvites } from '../model/useGrantInvites';
 import { InviteDialog } from './InviteDialog';
 import styles from './InviteDialog.module.css';
@@ -148,7 +148,7 @@ function RevokeInvitesButton({ scope, uids, countAll, onDone }: Props) {
                 revoke.mutate({ target: all ? { kind: 'all' } : { kind: 'picked', uids: targets } })
               }
             >
-              {running ? '회수 중…' : `${total ?? 0}명 초대권 0장으로`}
+              {revokeAllLabel(total, running)}
             </button>
           )}
         </div>

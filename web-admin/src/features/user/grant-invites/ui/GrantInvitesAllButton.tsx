@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useEnv, withProdMark } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
+import { grantAllLabel } from '../model/grantInvites';
 import { useCountAllTargets, useGrantInvitesAll } from '../model/useGrantInvites';
 import { CountStepper, InviteDialog } from './InviteDialog';
 import styles from './InviteDialog.module.css';
@@ -108,7 +109,7 @@ export function GrantInvitesAllButton() {
               disabled={running || total === null || total === 0 || typed.trim() !== CONFIRM_WORD}
               onClick={() => grant.mutate({ target: { kind: 'all' }, count })}
             >
-              {running ? '지급 중…' : `${total}명에게 ${count}장씩 지급`}
+              {grantAllLabel(total, count, running)}
             </button>
           )}
         </div>
