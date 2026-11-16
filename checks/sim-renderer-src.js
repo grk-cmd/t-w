@@ -78,7 +78,7 @@ const MODULES = [
   { file: 'race-picker.js', mod: 'racePickerMod', glob: 'TwRacePicker', sample: 'function initRacePreview(' },   // 앱 FSD 48번
   { file: 'wardrobe-panel.js', mod: 'wdPanelMod', glob: 'TwWardrobePanel', sample: '(function bindWardrobe(){' },   // 앱 FSD 48번
   { file: 'lv-tier.js', mod: 'lvTierMod', glob: 'TwLvTier', sample: 'function lvTierNum(' },   // 앱 FSD 48번
-  { file: 'myhome-init.js', mod: 'mhInitMod', glob: 'TwMyHomeInit', sample: 'function _warnOwnerWriteDenied(' },   // 앱 FSD 44번 남은 몫
+  { file: 'myhome-init.js', mod: 'mhInitMod', glob: 'TwMyHomeInit', sample: 'async function initMyHome(' },   // 앱 FSD 44번 남은 몫
   { file: 'dot-render.js', mod: 'dotRenderMod', glob: 'TwDotRender', sample: 'function applyDotTextureFilter(' },   // 구역 떼기 C · w1
   { file: 'launcher-controls.js', mod: 'launcherCtlMod', glob: 'TwLauncherControls', sample: 'function closeGearMenu(' },   // C 구역 떼기 · w3
   { file: 'seat-camera.js', mod: 'seatCameraMod', glob: 'TwSeatCamera', sample: 'function updateCameraOnly(' },   // 구역 떼기 C · w1

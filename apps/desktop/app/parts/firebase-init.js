@@ -392,13 +392,6 @@
         return { ok:true, url };
       }catch(e){ console.warn('[슬롯] GLB 업로드 실패', safeKey, e); return { ok:false, reason:'업로드에 실패했어요' }; }
     },
-    /* 내 프로필 이름 저장 — 친구 목록이 이 노드를 아직 듣는다. 레벨 · 별(level · cyc · clv · starC)은 서버 진척이 원본이라 쓰지 않고,
-       update 라 그 칸들은 마지막 값 그대로 남는다(통째로 덮으면 지워진다 — 친구 쪽 갈아타기는 서버 빈칸 G2). */
-    async setMyProfile(userId, name){
-      /* 🚧 부팅 직후 첫 쓰기다. 세션 복원을 기다리지 않으면 구글에 묶인 계정에서 permission_denied 가 난다. */
-      await _whenAuthReady();
-      await update(ref(db, `users/${userId}/profile`), { name: name||'(이름 없음)', updatedAt: Date.now() });
-    },
     /* 내 접속 표시 한 벌을 만든다 — 로그인 세션마다 하나(마이홈 처음 준비가 만들어 세션에 걸고 세션이 끝나면 dispose). 아래 _createMyPresence 참고. */
     createMyPresence(userId, startOnline){ return _createMyPresence(userId, startOnline); },
     /* 범용 이미지 업로드 — 디자인 스튜디오 등에서 파일로 고른 이미지를 Storage에 올리고 URL을 받음.

@@ -26,7 +26,6 @@ const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const friendManage = deps.friendManage;
 const friendRequests = deps.friendRequests;   // 👋 친구 요청 포트(friend-requests-port.js — 읽는 함수)
 const friendsSub = deps.friendsSub;   // 👥 친구 목록 구독 한 벌(friends-sub.js) — 상태 · 자동 다시 걸기
-const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
 const getRoomCode = deps.getRoomCode;   // 지금 들어가 있는 방 코드(없으면 null) — 접속 표시를 만들 때 한 번 싣는다
 const inboxMod = deps.inboxMod;   // 읽는 함수
@@ -39,15 +38,6 @@ const toast = deps.toast;
 const setMyFriendRequests = deps.setMyFriendRequests;   // 쓰는 함수
 const setMyHomeFriends = deps.setMyHomeFriends;   // 쓰는 함수
 const setMyHomeReady = deps.setMyHomeReady;   // 쓰는 함수
-let _ownerWriteWarned = false;
-function _warnOwnerWriteDenied(what, err){
-  const denied = String((err && (err.code || err.message)) || '').toLowerCase().includes('permission');
-  console.warn('[마이홈] ' + what + ' 저장 실패' + (denied ? ' (권한 거부)' : ''), err);
-  if(!denied || _ownerWriteWarned) return;
-  _ownerWriteWarned = true;
-  toast('🔑 이 PC의 로그인이 풀려 있어 변경 내용이 저장되지 않아요 — 앱을 다시 시작하면 로그인 화면이 나와요');
-}
-
 /* 📩 우편이 바뀐 뒤(받음 · 못 받음 · 읽음 · 지움) — 목록 · 배지 · 🔔 다시 그리고, 새로 온 우편만 토스트(처음 받은 판은 새 우편이 아니다 — mail-feed.js) */
 function onMailChanged(e){
   const box = mailFeed.items();
@@ -101,8 +91,6 @@ async function initMyHome(code, me, session){
       session.onReset(()=>presence.dispose());
       /* 🖥️ 한 계정 한 기기 — 0.13 은 realtime 연결의 hello claim 이 정한다(login-flow.js goOnline · 밀리면 device-lost.js). */
       /* ⚠️ 읽기(구독)는 쓰기의 성공에 기대지 않는다 — 여기에 await 쓰기를 새로 얹으면 거부될 때 아래 구독이 한 줄도 안 걸린다. 얹어야 하면 자기 try 로 감쌀 것. */
-      try{ await firebaseAPI.setMyProfile(myId, getDisplayName()); }   // 이름만 — 레벨 · 별은 서버 진척이 원본(focus-progress.js)
-      catch(e){ _warnOwnerWriteDenied('프로필', e); }
       try{ await ensureMyFriendCode(); }
       catch(e){ console.warn('[마이홈] 친추 코드 확보 실패 — 구독은 그대로 진행', e); }
       // 📌 D-day 보드 받기 (스케줄러 우측 목록) — 서버가 바뀌었다고 알리면 스케줄러가 알아서 다시 받는다

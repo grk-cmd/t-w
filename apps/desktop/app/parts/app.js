@@ -2108,7 +2108,6 @@ const mhInitMod = TwMyHomeInit.createMyHomeInit({
   friendManage: friendManage,
   friendRequests: ()=>friendRequestsPortMod,
   friendsSub: friendsSubMod,
-  getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   inboxMod: ()=>inboxMod,
   mailFeed: mailFeed,

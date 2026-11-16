@@ -327,7 +327,7 @@
 | **sim-report.js** | 420 | **de17a89ce544** |
 | **sim-my-info.js** | 98 | **4e58bce6234f** |
 | **sim-my-info-box.js** | 208 | **a80135e14b2c** |
-| **sim-renderer-src.js** | 269 | **8523246f92b9** |
+| **sim-renderer-src.js** | 269 | **dce86459e2a9** |
 | **sim-away-pic.js** | 94 | **02105f2b9019** |
 | **sim-myhome-ui.js** | 133 | **22172287752c** |
 | **sim-tricks.js** | 120 | **058338ed6638** |
@@ -397,7 +397,7 @@
 | **sim-license-key.js** | 134 | **f1b85394a9e8** |
 | **sim-license-screen.js** | 418 | **6dfd3086a425** |
 | **sim-asset-code.js** | 96 | **1442b5b5b793** |
-| **sim-myhome-init.js** | 220 | **26b8ae6b5420** |
+| **sim-myhome-init.js** | 223 | **6a59d0cbfb60** |
 | **sim-presence-lock.js** | 325 | **8da811b2130c** |
 | **sim-parts-paths.js** | 85 | **6ed65253e869** |
 | **sim-global-names.js** | 236 | **4da03342e299** |
