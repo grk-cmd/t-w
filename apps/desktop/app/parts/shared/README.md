@@ -382,7 +382,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **서버 쓰기는 읽은 토큰 주인과 묶는다**: 읽은 값을 고쳐 올리는 provider 는 읽을 때 `get(path, { auth: true, onOwner })` 로 토큰 주인을 기억하고, 쓸 때 `put(path, body, { expectOwner })` 를 싣는다. 보내기 직전 쓸 토큰의 주인이 다르면(그 사이 로그인한 사람이 바뀜) 통로가 보내지 않고 `OWNER_CHANGED`(요청 0)로 끝낸다 — 앞 계정 값이 새 계정 토큰으로 나가 덮어쓰는 길을 막는다. 다른 묶음의 «읽고 고쳐 쓰기» 도 이 규칙을 따른다.
 - **토큰**: `TwApi.authed` 의 토큰은 firebase-init.js 가 `TwApi.bindToken(_getIdToken)` 로 잇는다. 로그인 읽기는 토큰을 요청당 한 번만 받고(시간 제한과 겨룸 — 멈춰도 `TIMEOUT`) 그 토큰으로 보낸다. 401 `AUTH_REQUIRED` 면 새 토큰으로 한 번만 다시 — `USER_CODE_NOT_BOUND`(가입 전)는 다시 안 한다.
 - **길 없는 404 = 앱 버그**: 서버에 그 길 자체가 없는 404(`NOT_FOUND` · `DATA_ROUTE_NOT_FOUND` · code 없음)는 kind `noRoute` 다. 쉬기(30초 BACKOFF)에 넣지 않는다 — 같은 통로의 `GET /v2/config`(점검 판정)가 막히지 않게. 그 요청만 실패하고 `console.error` 가 남으며 `api-errors.js` 가 E-NET-09 로 알린다. 자원이 없다는 404(`USER_NOT_FOUND` 등)는 그대로 `request`. 앱이 부르는 길이 서버에 있는지는 `checks/sim-api-routes.js` 가 본다.
-- **함정**: 쓰기는 다시 보내지 않는다(통로가 알아서 재시도하지 않음) — 다시 보낼 일은 부르는 쪽이 같은 `requestId`(request-id.js)로. 읽기 시간 제한(`TIMEOUT_MS`)은 옛 Firebase 길로 빨리 넘어가려고 짧다 — 옛 길이 없는 읽기는 `timeoutMs` 를 넘긴다. `shouldFallback` 은 옛 길을 걷으면 같이 걷는다.
+- **함정**: 쓰기는 다시 보내지 않는다(통로가 알아서 재시도하지 않음) — 다시 보낼 일은 부르는 쪽이 같은 `requestId`(request-id.js)로. 읽기 시간 제한(`TIMEOUT_MS`)은 짧다 — 본문이 큰 읽기는 `timeoutMs` 를 넘긴다. 실패해도 다른 길로 넘어가지 않는다(부르는 쪽이 오류 번호로 드러낸다).
 - 검사: `checks/sim-api-client.js`.
 
 ## `api-errors.js` — 🧭 서버 오류 봉투 → 할 일 · 오류 번호

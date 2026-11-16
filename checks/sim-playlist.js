@@ -125,9 +125,8 @@ function mkEnv(o){
     }
     env.t = end;
   };
-  const api = o.noApi ? undefined : {   // 옛 길에 남은 것 — 명함 읽기뿐
-    fetchPlaylistCard: async (uid) => { env.calls.push('card ' + uid); if(env.cardFail) throw new Error('card down'); return env.cards[uid] || null; },
-  };
+  /* 명함 읽기 — app.js 가 api-public-reads.js 로 만들어 deps 로 넘긴다. 막히면(noApi) 던진다 */
+  const fetchPlaylistCard = async (uid) => { env.calls.push('card ' + uid); if(o.noApi || env.cardFail) throw new Error('card down'); return env.cards[uid] || null; };
   /* 🌐 서버 길 provider(playlist-api.js)의 가짜 — 모양은 진짜와 같다(내 목록 / 저장 / 무작위 / 남의 목록). 막히면(noApi) 던진다 */
   const down = async () => { throw new Error('서버 길 막힘'); };
   const playlistApi = o.noApi ? { fetchMine: down, saveMine: down, fetchRandom: down, fetchOf: down } : {
@@ -144,7 +143,7 @@ function mkEnv(o){
     onBgmTrackEnd: (cb) => { env.cb.end = cb; }, onBgmMode: (cb) => { env.cb.mode = cb; }, onBgmClosed: (cb) => { env.cb.closed = cb; },
   };
   env.winL = [];
-  const win = { companion: comp, firebaseAPI: api, addEventListener: (t, fn) => { if(t === 'beforeunload') env.winL.push(fn); } };
+  const win = { companion: comp, addEventListener: (t, fn) => { if(t === 'beforeunload') env.winL.push(fn); } };
   const ls = { getItem: (k) => env.store.has(k) ? env.store.get(k) : null, setItem: (k, v) => env.store.set(k, String(v)), removeItem: (k) => env.store.delete(k) };
   const fetch_ = async (u) => { env.calls.push('fetch'); const m = /v%3D([\w-]{11})/.exec(u); const t = m && env.titles[m[1]]; if(t === 'throw') throw new Error('off'); return { ok: !!t, json: async () => ({ title: t }) }; };
   const MathX = Object.create(Math); MathX.random = () => env.rand;
@@ -153,7 +152,7 @@ function mkEnv(o){
   const nav = { clipboard: { writeText: (t) => env.calls.push('copy ' + t) } };
   new Function('window', 'module', 'document', 'localStorage', 'firebaseAPI', 'companion', 'navigator', 'fetch', 'requestAnimationFrame',
     'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'innerWidth', 'innerHeight', 'console', 'Date', 'Math', 'TwIdleGate', o.src || SRC['playlist.js'])
-    (win, undefined, doc, ls, api, comp, nav, fetch_, (fn) => fn(), setTimeout_, clearTimeout_, setInterval_, clearTimeout_, 1280, 720, con, DateX, MathX, IDLE_GATE);
+    (win, undefined, doc, ls, undefined, comp, nav, fetch_, (fn) => fn(), setTimeout_, clearTimeout_, setInterval_, clearTimeout_, 1280, 720, con, DateX, MathX, IDLE_GATE);
   env.win = win;
   env.mk = (extra) => {
     env.m = win.TwPlaylist.createPlaylist(Object.assign({
@@ -166,7 +165,7 @@ function mkEnv(o){
       openFriendHomeView: (uid, nm) => env.home.push(uid + ' ' + nm),
       closeChipPopups: (id) => env.chipClosed.push(id), repositionOpenChipPopups: () => { env.reposition++; },
       bringWinToFront: (id) => env.front.push(id), escRegisterWindow: (w) => env.esc.push(w), escEditable: (t) => !!(t && t.tagName === 'INPUT'),
-      playlistApi, notifyError: (c, err) => { env.errors.push(c); env.errArgs.push(err); },
+      playlistApi, fetchPlaylistCard, notifyError: (c, err) => { env.errors.push(c); env.errArgs.push(err); },
       /* 계정 칸 — 같은 store 위에(이 검사는 키 이름으로만 본다). 만들 때는 읽지 않고 확인 뒤 loadLocal 이 읽는다(아래) */
       playlistAccountStore: { get: (k) => { env.acctReads.push(k); return env.store.has(k) ? env.store.get(k) : null; }, set: (k, v) => { env.store.set(k, String(v)); return true; } },
     }, extra || {}));
@@ -971,9 +970,9 @@ function wiring(PL, APP, HTML){
     ['myFocusShow', 'myFocusShow'], ['starFromRemote', 'starFromRemote'], ['lvBadgeClass', 'lvBadgeClass'], ['lvStarBadgeClass', 'lvStarBadgeClass'], ['lvStarStr', 'lvStarStr'],
     ['starPaint', '_starPaint'], ['openFriendHomeView', 'openFriendHomeView'], ['closeChipPopups', '_closeChipPopups'], ['repositionOpenChipPopups', '_repositionOpenChipPopups'],
     ['bringWinToFront', 'bringWinToFront'], ['escRegisterWindow', 'escRegisterWindow'], ['escEditable', '_escEditable'], ['friendsRefreshPresence', 'friendsSubMod.refreshPresence']];
-  const want = fnNames.map(([k, f]) => k + ': (...a)=>' + f + '(...a),').concat(['playlistAccountStore: accountStoreMod,', 'myhomeAvatar: ()=>myhomeStoreMod.avatar(),', 'myHomeFriends: ()=>_myHomeFriends,', 'playlistApi: playlistApiMod,', 'notifyError: (...a)=>TwErrorCodes.notify(...a),']);
+  const want = fnNames.map(([k, f]) => k + ': (...a)=>' + f + '(...a),').concat(['playlistAccountStore: accountStoreMod,', 'myhomeAvatar: ()=>myhomeStoreMod.avatar(),', 'myHomeFriends: ()=>_myHomeFriends,', 'playlistApi: playlistApiMod,', 'fetchPlaylistCard: (...a)=>apiPublicReadsMod.fetchPlaylistCard(...a),', 'notifyError: (...a)=>TwErrorCodes.notify(...a),']);
   const miss = want.filter(w => !deps.includes(w));
-  chk(deps.length === 23 && !miss.length, 'deps 23개 — 함수 19는 화살표 · 다시 대입되는 let 하나는 읽는 함수 · 내 사진은 마이홈 상태 주인 · 서버 길 provider · 계정 칸 (' + deps.length + (miss.length ? ' · 없음 ' + miss[0] : '') + ')');
+  chk(deps.length === 24 && !miss.length, 'deps 24개 — 함수 19는 화살표 · 다시 대입되는 let 하나는 읽는 함수 · 내 사진은 마이홈 상태 주인 · 서버 길 provider · 계정 칸 (' + deps.length + (miss.length ? ' · 없음 ' + miss[0] : '') + ')');
   const decl = (n) => APP.indexOf('\nlet ' + n + ' = ');
   chk(['_myHomeFriends'].every(n => decl(n) > iMk), '  _myHomeFriends 는 만드는 줄보다 뒤에 선언 — 값이면 TDZ');
   const usedIn = (re) => [...new Set((A.match(re) || []).map(s => s.split('.').pop()))];

@@ -37,7 +37,6 @@
   import { createChatHistory, createIdbChatStore } from "./chat/chat-history.js";
   import { createCatalogApi } from "./character/catalog-api.js";
   import { createRealtimeLink } from "./realtime/realtime-link.js";
-  import { createApiPublicReads } from "./shared/api-public-reads.js";
   /* 로그인 수단 읽기 — authProviders · authChangePassword 가 같이 쓴다. 세션이 없으면 null. */
   function _providersOf(cu){
     if(!cu) return null;
@@ -355,25 +354,6 @@
     apiGetAuthed(path, opts){ return _authApi ? _authApi.get(path, opts) : Promise.reject(Object.assign(new Error('API 통로 없음'), { kind: 'unavailable', code: 'NO_API', status: 0 })); },
     // 서버 방에 들어가고 나갈 때 친구 목록의 «온라인 · 방코드» — Firebase 방은 joinRoom · leaveRoom 이 직접 한다.
     // ===== 마이홈 친구 시스템 =====
-    /* ===== 🎵 플레이리스트 =====
-       내 목록 · 파도타기는 서버 API 로 옮겼다(status/playlist-api.js). 여기엔 명함 읽기(아래)만 남는다. */
-    /* 👤 목록 주인의 명함 — 이름·레벨·프로필 사진. 파도타기로 **건너간 순간에만** 1회 읽는다.
-       ★ 친구 목록이 이미 구독 중인 경로 둘을 그대로 쓴다(users/{uid}/profile, users/{uid}/home/avatar).
-         home 을 통째로 읽으면 게시글·테마·스티커까지 딸려 와서 파도탈 때마다 수백 KB가 나간다.
-       ⚠️ 실패해도 null 만 돌려준다 — 명함이 없다고 목록을 못 듣게 되면 안 된다. */
-    async fetchPlaylistCard(uid){
-      try{
-        const [ps, as] = await Promise.all([
-          get(ref(db, `users/${uid}/profile`)),
-          get(ref(db, `users/${uid}/home/avatar`)),
-        ]);
-        const p = ps.val() || {};
-        return { name: p.name ? String(p.name) : null,
-          level: (typeof p.level === 'number' && p.level >= 1) ? p.level : null,
-          cyc: p.cyc, clv: p.clv, starC: p.starC,   // 🌟 회차(개정 70) — 거르는 것은 app.js starFromRemote
-          avatar: as.val() || null };
-      }catch(e){ console.warn('[플레이리스트] 명함 읽기 실패', e); return null; }
-    },
     async lookupFriendCode(code){
       const snap = await get(ref(db, `friendCodes/${code}`));
       const v = snap.val();
@@ -717,9 +697,5 @@
      ★ 2026-09-23: 쓰는 사람이 없음을 확인하고 **서버 규칙에서도 `mysRooms` 를 내렸다**(개정 63).
         남은 것은 콘솔의 옛 데이터뿐 — 규칙이 내려간 뒤에 지운다(순서가 반대면 지우자마자 다시 생길 수 있다). */
 
-  /* 🌐 명함 읽기는 서버 길 한 곳(api-public-reads.js) — 실패해도 위 Firebase 함수로 물러나지 않는다.
-     길은 친구 쪽 social-api.js fetchCards(GET /v2/myhomes/cards?codes=)를 그대로 쓴다(읽기뿐이라 따로 한 벌) */
-  const _cardApi = window.TwSocialApi.createSocialApi({ authed: window.TwApi.authed, warn: (...a) => console.warn(...a) });
-  createApiPublicReads({ fetchCards: (codes) => _cardApi.fetchCards(codes) }).wrap(window.firebaseAPI);
   try{ window.firebaseAPI.chatHistory.bindSettings(document, (m) => { window.toast(m); }); }catch(_){}   // 설정 › 시스템 [저장된 대화 지우기]
   window.dispatchEvent(new Event('firebase-ready'));

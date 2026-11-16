@@ -183,7 +183,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `rich-text.js` · `sfx.js` · `frame-budget.js` · `gl-recover.js` | 리치 텍스트 sanitize · 효과음 공장 · 프레임 예산 · 3D 연결 끊김 복구 |
 | `theme.js` · `theme-ui.js` | 디자인 테마 · 자식 창 테마 |
 | `api-client.js` · `remote-config.js` · `api-errors.js` · `request-id.js` · `device-id.js` | 서버 API 통로 · 원격 설정(GET /v2/config) · 오류 번역 · 요청 번호 · 기기 id (api) |
-| `api-public-reads.js` · `app-version.js` · `visit-ping.js` (ES) | 공개 읽기 API 먼저 · 앱 버전 싣기 · 방문 집계 (최소 버전 막기 → 업데이트 흐름은 classic `shared/update-flow.js`) |
+| `api-public-reads.js` (classic) · `app-version.js` · `visit-ping.js` (ES) | 플레이리스트 명함 읽기(서버 명함 묶음) · 앱 버전 싣기 · 방문 집계 (최소 버전 막기 → 업데이트 흐름은 classic `shared/update-flow.js`) |
 
 ## 15. ③ 폴더로 나눌 때 — 같이 고칠 곳과 함정
 

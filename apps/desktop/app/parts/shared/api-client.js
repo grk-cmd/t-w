@@ -8,7 +8,7 @@
      kind 'auth'        — 401/403. kind 'request' — 그 밖의 4xx(그 자원이 없다는 404 포함 · 429 는 retryAfterMs).
      err.code 는 서버 봉투의 code(기계가 읽는 이름 — 문구 message 로 가르지 않는다) · err.items 는 실패에 걸린 줄(있을 때만 · 없으면 null).
      앱 오류 번호 · 할 일(로그인 화면 · 점검 창 · 다시 받기)로 바꾸는 표는 api-errors.js 한 곳.
-     shouldFallback 은 옛 Firebase 길이 남은 동안만 쓴다(닿지 못함 · 사본 없음이면 옛 길로) — 그 길을 걷는 묶음이 같이 걷는다.
+     실패하면 다른 길로 넘어가지 않는다 — 부르는 쪽이 오류 번호(TwErrorCodes)로 드러낸다.
    [읽기] get(path, { cacheMs, auth, headers, timeoutMs, onOwner }) — 같은 경로를 동시에 부르면 요청은 하나. cacheMs 는 로그인 없는 읽기만.
      응답에 ETag 가 있으면 값과 함께 기억했다가 다음 읽기에 If-None-Match — 304 면 기억한 값을 돌려준다(ETAG_MAX 개까지 · 오래된 것부터 버림).
      로그인 읽기는 «누구의 토큰인가»(토큰 sub)까지 열쇠에 넣는다 — 계정을 바꿔도 남의 기억 값을 돌려주지 않게. 토큰은 요청당 한 번만 받고(시간 제한과 겨룸) 그 토큰으로 보낸다.
@@ -33,7 +33,7 @@ const API_BASE_PROD = 'https://api.together-working.com';
 const API_BASE_DEV = 'https://api-dev.together-working.com';
 const API_BASE_DEV_KEY = 'tw.apiBaseUrl';
 const API_BASE_RE = /^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:together-working\.com|togetherworking\.duckdns\.org)$/;
-const TIMEOUT_MS = 2500;           // 읽기 한 번 — 옛 Firebase 길로 넘어가는 읽기가 오래 기다리지 않게
+const TIMEOUT_MS = 2500;           // 읽기 한 번 — 본문이 큰 읽기는 부르는 쪽이 timeoutMs 를 넘긴다
 const WRITE_TIMEOUT_MS = 10000;    // 쓰기 한 번 — 서버가 트랜잭션 · 그림 사본까지 하고 답한다
 const BACKOFF_MS = 30 * 1000;
 const ETAG_MAX = 64;               // ETag 로 기억하는 읽기 수
@@ -51,8 +51,6 @@ class ApiError extends Error {
     this.retryAfterMs = (typeof x.retryAfterMs === 'number') ? x.retryAfterMs : null;
   }
 }
-/* 옛 Firebase 길로 넘어가도 되는 실패인가 — 닿지 못함 · 사본 없음만. */
-const shouldFallback = (e) => !!e && (e.kind === 'unavailable' || e.kind === 'notReady');
 
 /* 이 환경의 API 주소. 운영 앱은 늘 운영 API. dev 앱은 tw.apiBaseUrl(묶음 안 · 운영 API 아님)이 있으면 그것, 없으면 dev API. */
 function apiBaseFor(env, storage){
@@ -289,7 +287,7 @@ try{
 function bindToken(fn){ tokenSource = fn; }
 
 const api = { API_BASE_PROD, API_BASE_DEV, API_BASE_DEV_KEY, API_BASE_RE, TIMEOUT_MS, WRITE_TIMEOUT_MS, BACKOFF_MS, ETAG_MAX, DEVICE_HEADER, NO_ROUTE_CODES,
-  ApiError, shouldFallback, apiBaseFor, envOf, tokenOwner, retryAfterMsOf, createApiClient, bindToken, client, authed };
+  ApiError, apiBaseFor, envOf, tokenOwner, retryAfterMsOf, createApiClient, bindToken, client, authed };
 if(typeof window !== 'undefined') window.TwApi = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

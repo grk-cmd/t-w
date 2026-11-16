@@ -1,8 +1,8 @@
 /* ═══ 🌐 sim-api-client.js — 앱 공통 API 통로(api-client.js · window.TwApi) ═══════════════
-   [왜] 읽기 사본이 있는 것은 우리 API(t-w-server)에서 먼저 읽고, 못 받으면 Firebase 길로 간다. 시간 제한 · 봉투 · 실패 모양 · 쉬기를 한 곳에서.
+   [왜] 서버 API(t-w-server) 읽기 · 쓰기를 한 통로로. 실패해도 Firebase 길로 넘어가지 않는다. 시간 제한 · 봉투 · 실패 모양 · 쉬기를 한 곳에서.
    1. 주소 — 운영 앱은 운영 API · dev 앱은 dev API(tw.apiBaseUrl 은 dev 만 · CSP 묶음 안 · 운영 API 아님) · 환경은 companion.firebaseEnv
    2. 성공 — 봉투 { success, data } 의 data · 토큰 · 쿠키 없이 · 주소 = 기본 + 경로
-   3. 실패 한 모양 — 네트워크 · 시간 초과 · 5xx · 봉투 아님 → unavailable · 길 없는 404(NOT_FOUND) → noRoute(앱 버그 · console.error) · *_NOT_READY → notReady · 401/403 → auth · 그 밖 4xx → request · shouldFallback
+   3. 실패 한 모양 — 네트워크 · 시간 초과 · 5xx · 봉투 아님 → unavailable · 길 없는 404(NOT_FOUND) → noRoute(앱 버그 · console.error) · *_NOT_READY → notReady · 401/403 → auth · 그 밖 4xx → request · 넘어가기 장치(shouldFallback) 없음
    4. 쉬기 — unavailable 뒤 BACKOFF_MS 동안 묻지 않고 곧장 실패(BACKOFF) · 지나면 다시 · notReady · 길 없는 404 · 성공은 쉬지 않음(그 요청만 실패 — 같은 통로의 /v2/config 는 계속 간다)
    5. 캐시 · 같은 요청 하나로(로그인 읽기는 누구별) · 주소 없음
    6. 쓰기 — post · put · patch · del 방법 · 본문 · 로그인 기본 · 쓰기 시간 제한 · 204 · 쉬지 않음
@@ -88,8 +88,7 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
     chk(bad.length === 0, '★ 네트워크 · 5xx · 봉투 아님 → unavailable · 길 없는 404 → noRoute · *_NOT_READY → notReady · 401/403 → auth · 그 밖 4xx → request' + (bad.length ? ' — 틀림: ' + bad.join(', ') : ''));
     const e503 = await one(() => res(503, { success: false, code: 'CONFIG_NOT_READY' }));
     chk(e503.status === 503 && e503.name === 'ApiError' && e503 instanceof Error, '  ↳ 상태 · 이름 · Error 를 잇는다');
-    chk(A.shouldFallback(new A.ApiError('unavailable')) && A.shouldFallback(new A.ApiError('notReady')) && !A.shouldFallback(new A.ApiError('auth')) && !A.shouldFallback(new A.ApiError('request')) && !A.shouldFallback(null),
-      'shouldFallback — 닿지 못함 · 사본 없음만 Firebase 길로(권한 · 요청 오류는 덮지 않음)');
+    chk(!('shouldFallback' in A), '★ shouldFallback 는 없다 — 실패해도 다른 길로 넘어가지 않는다(부르는 쪽이 오류 번호로 드러낸다)');
     const logged = []; const ce = console.error; console.error = (...a) => { logged.push(a.join(' ')); };
     try{ await one(() => res(404, { success: false, code: 'NOT_FOUND' })); }finally{ console.error = ce; }
     chk(logged.length === 1 && /\/v2\/x/.test(logged[0]) && /앱 버그/.test(logged[0]) && /404/.test(logged[0]), '★ 길 없는 404 는 console.error 로 크게 남는다(메서드 · 길 · 상태 — 조용히 넘어가지 않는다)');

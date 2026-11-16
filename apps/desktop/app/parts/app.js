@@ -1530,6 +1530,7 @@ const playlistApiMod = TwPlaylistApi.createPlaylistApi({ authed: TwApi.authed, r
 const plMod = TwPlaylist.createPlaylist({
   playlistAccountStore: accountStoreMod,
   playlistApi: playlistApiMod,
+  fetchPlaylistCard: (...a)=>apiPublicReadsMod.fetchPlaylistCard(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
@@ -2020,6 +2021,7 @@ const deviceLostMod = TwDeviceLost.createDeviceLost({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 /* 👥 친구 데이터는 포트(friends/friends-port.js) 하나로 — 그 뒤 서버 provider(friends-api.js)가 있다. friends-sub · 화면은 서버 길을 모른다. */
 const socialApiMod = TwSocialApi.createSocialApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) });   // 🌐 친구 · 친구 요청 · 명함 서버 길(social-api.js)
+const apiPublicReadsMod = TwApiPublicReads.createApiPublicReads({ fetchCards: (codes)=>socialApiMod.fetchCards(codes) });   // 🌐 플레이리스트 명함 읽기(api-public-reads.js — 같은 틱에 모인 코드는 요청 하나)
 const friendsApiMod = TwFriendsApi.createFriendsApi({
   social: socialApiMod,
   rt: TwRtHub.store,   // 알림 friends · card 를 받으면 다시 받는다

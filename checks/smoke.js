@@ -629,6 +629,7 @@ PRELOAD.push('friends-api.js');
 PRELOAD.push('friend-requests-api.js');
 PRELOAD.push('friend-requests-port.js');
 PRELOAD.push('social-api.js');   // 👥 친구 · 요청 · 명함 서버 길 provider — app.js 가 만든다(socialApiMod)
+PRELOAD.push('api-public-reads.js');   // 🌐 플레이리스트 명함 읽기 — app.js 가 social-api 위에 만든다(apiPublicReadsMod)
 PRELOAD.push('friends-presence-rt.js');
 PRELOAD.push('presence-self.js');
 PRELOAD.push('friends-port.js');
