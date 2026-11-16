@@ -45,6 +45,16 @@
 - **검사**: `checks/sim-mat-tone.js` — 코어 빌드 사본으로 만든 진짜 톤으로 돈다 · 모듈 모양 · 연결 · 깨 보기 + 가짜 재질로 입력 → 결과(맵 · emissiveMap 동기화 · 귀 감김/뜸 · 같은 그림이면 안 감 · 빠진 재질 건너뛰기 · 평탄화 배율 · 텍스처 없는 메쉬 · 색 없는 재질 · FLAT_EMISSIVE 0).
 
 
+## catalog-api.js — 🧩 카탈로그 서버 한 벌 받기(`GET /v2/catalog`)
+
+- **책임**: 파츠 · 책상 · 아이템을 서버 한 벌 `GET /v2/catalog`(ETag · `no-cache`)에서 받아 앱이 아는 세 목록(`parts` · `items` · `desks` — id → 레코드 맵)으로 **한 번 펼친다**. 이 모양 바꾸기는 이 모듈 한 곳(`unfoldCatalog`)이다 — 서버 `parts` + 가챠(`listing.acquisition.GACHA`)는 `parts`(gacha:true · season) · 서버 `deskProps` 는 `items` · 서버 `desks` 는 `desks`. 파일은 해시만 오므로 `glbUrl` · `thumbUrl` 을 `GET /v2/catalog/assets/{해시}.{glb|png}` 주소로 채운다. 진열 `access.kind === 'entitlement'` 는 옛 `licenseOnly`.
+- **만드는 법**: ES 모듈 — `firebase-init.js` 가 `createCatalogApi({ api: TwApi.client, rt: TwRtHub.store, notifyError })` 로 만들어 `firebaseAPI.subscribeCatalogParts · Items · Desks` 에 잇는다(catalog-source → catalog-sync 는 그대로).
+- **내보내는 것**: `subscribe(kind, onData)` → 해제 함수(kind: `parts` · `items` · `desks`) · `load()` · `unfoldCatalog(data, assetUrl)`. 넘기는 값은 늘 새 객체(받는 쪽이 `glb` 를 채운다) · 지난번과 같은 종류는 다시 안 넘긴다.
+- **버전 알림**: Firebase `catalogMeta` 는 걷었다(설계 `contexts/catalog.md` §2 · `d13-e-finish` §9). 바뀜 알림 = realtime `catalog`(`rt.on`), 다시 묻기 = ETag(304 면 같은 객체라 넘기지 않음). IndexedDB 24시간 캐시도 같이 걷었다.
+- **함정**: 못 받으면 Firebase 로 물러나지 않는다 — `E-CHAR-26` 으로 알리고 지난 목록은 그대로 둔다. 타이머로 다시 두드리지 않고, 알림 · 연결 복구(`ready`) 때 다시 받는다. 카테고리(`customCats` · `catOverrides`)는 아직 Firebase 구독이다(이 모듈 밖).
+- E-2 몫: `catalog-source.js` 의 provider 자리(Firebase 판 이름표)는 E-2 에서 정리한다.
+- 검사: `checks/sim-catalog-api.js`(펼치기 표 · 받기 · 알림 · 실패 · 깨 보기). 길이 서버에 있는지는 `checks/sim-api-routes.js`.
+
 ## catalog-source.js — 🔌 카탈로그 데이터 provider(서버 이관)
 
 - **책임**: 카탈로그 도메인(`catalog-sync` · `catalog-glb` · `admin/admin-thumbs`)이 서버에 닿는 일을 도메인 이름으로 내놓는다 — 도메인은 `firebaseAPI` 를 직접 부르지 않는다. 지금은 Firebase 판(옛 길) 하나.
