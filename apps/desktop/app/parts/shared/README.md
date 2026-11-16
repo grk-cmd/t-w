@@ -215,7 +215,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 **책임** — 앱 버전을 한 번 받아(`companion.getAppVersion()` · 비동기 IPC) presence 에 싣는다. 웹 관리자가 누가 어느 판을 쓰는지 보고, 규칙은 presence 의 ver 로 옛 앱(≤0.10.2)을 가린다.
 
-**만드는 법** — `firebase-init.js` 가 `createAppVersion({ getVersion })`(`onReady` 는 선택 — 접속 표시는 쓰지 않는다). 접속 표시 객체(`createMyPresence`)가 `ready` 를 직접 받아 `onVersion(ver)` 로 메운다 — presence 를 이미 썼으면 ver 만 update 하고 onDisconnect 를 다시 건다(전역 포인터를 거치지 않는다).
+**만드는 법** — `firebase-init.js` 가 `createAppVersion({ getVersion })` — realtime 연결의 hello 가 `ready` 로 이 판을 싣는다(`rt-hub` getVersion). Firebase presence 에 판을 싣던 길은 걷었다(`withVer` 는 쓰는 곳이 없다 — E-5 에서 걷는다).
 
 **내놓는 것**
 - `ready` — 받은 버전(못 받으면 `null` · 거부 없음). 최소 버전 게이트 · 방 서버 · 방문 집계 · accountSnap 은 이것(«모름» = null)을 본다.

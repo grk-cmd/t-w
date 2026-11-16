@@ -2,7 +2,7 @@
    app.js 의 마이홈 처음 준비 구역 본문 을 parts/myhome/myhome-init.js 로 옮겼다(글자 그대로 · 바뀐 줄 24 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(마이홈 처음 준비 검사들).
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(initMyHome)
-   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 25줄 그대로 · 부르는 곳은 mhInitMod.이름 · html(app.js 앞)
+   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 그대로 · 부르는 곳은 mhInitMod.이름 · html(app.js 앞)
    ・2-2절: 내 코드 없음 — initMyHome 이 내 경로를 하나도 안 부르고 우편만 멈춘다(공지는 notice-feed 가 따로)
    ・2-3절: 받은 뒤 화면 — 우편 · 소식이 바뀌면 목록 · 🔔 다시 그리고 새로 온 것만 토스트(우편은 종류 이름 · 소식은 업데이트/우편/공지 표시) · 🐞 답변이면 배지(해금 안내 우편은 서버 알림이라 앱이 따라잡지 않는다)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
@@ -19,13 +19,13 @@ const MOD = ["myhome-init.js","parts/myhome/myhome-init.js","app/parts/myhome/my
 if(!MOD){ say('  ? 원본 못 찾음 — myhome-init.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_waitForFirebaseAPI","ensureMyFriendCode","getDisplayName","getMyUserId","getRoomCode","toast"];
+const FN_DEPS = ["_waitForFirebaseAPI","getMyUserId","toast"];
 const VAL_DEPS = ["MY_FRIEND_CODE_KEY","friendManage","friendsSub","mailFeed","mhScheduler","noticeFeed","presenceLock"];
 const GET_DEPS = ["friendRequests","_myFriendRequests","_myHomeFriends","_myHomeReady","focusLevelMod","inboxMod","myHomeOpen"];
 const SET_DEPS = ["_myFriendRequests","_myHomeFriends","_myHomeReady"];
 const EXPORTS = ["initMyHome","onMailChanged","onNewsChanged"];
-const MOVED = ["_ownerWriteWarned","_warnOwnerWriteDenied","initMyHome","_myInbox","_myInboxReady","_inboxBroadcast"];   // 옮긴 꼭대기 선언 + 서버 원본이 되어 걷은 let 셋          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,","  _myFriendRequests: ()=>_myFriendRequests,","  _myHomeFriends: ()=>_myHomeFriends,","  _myHomeReady: ()=>_myHomeReady,","  _waitForFirebaseAPI: (...a)=>_waitForFirebaseAPI(...a),","  ensureMyFriendCode: (...a)=>ensureMyFriendCode(...a),","  focusLevelMod: ()=>focusLevelMod,","  friendManage: friendManage,","  friendRequests: ()=>friendRequestsPortMod,","  friendsSub: friendsSubMod,","  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  inboxMod: ()=>inboxMod,","  mailFeed: mailFeed,","  mhScheduler: mhScheduler,","  myHomeOpen: ()=>myHomeOpen,","  noticeFeed: noticeFeed,","  presenceLock: presenceLockMod,","  getRoomCode: (...a)=>TwRoomRt.store.roomCode(...a),   // 접속 표시를 만들 때 «입장이 끝난» 방 코드(room-entry onJoined 는 입장 때 한 번뿐 · 입장 중인 방은 넣지 않는다)","  toast: (...a)=>toast(...a),","  setMyFriendRequests: (v)=>{ _myFriendRequests = v; },","  setMyHomeFriends: (v)=>{ _myHomeFriends = v; },","  setMyHomeReady: (v)=>{ _myHomeReady = v; },"];
+const MOVED = ["initMyHome","_myInbox","_myInboxReady","_inboxBroadcast"];   // 옮긴 꼭대기 선언 + 서버 원본이 되어 걷은 let 셋          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
+const GLUE = ["  MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,","  _myFriendRequests: ()=>_myFriendRequests,","  _myHomeFriends: ()=>_myHomeFriends,","  _myHomeReady: ()=>_myHomeReady,","  _waitForFirebaseAPI: (...a)=>_waitForFirebaseAPI(...a),","  focusLevelMod: ()=>focusLevelMod,","  friendManage: friendManage,","  friendRequests: ()=>friendRequestsPortMod,","  friendsSub: friendsSubMod,","  getMyUserId: (...a)=>getMyUserId(...a),","  inboxMod: ()=>inboxMod,","  mailFeed: mailFeed,","  mhScheduler: mhScheduler,","  myHomeOpen: ()=>myHomeOpen,","  noticeFeed: noticeFeed,","  presenceLock: presenceLockMod,","  toast: (...a)=>toast(...a),","  setMyFriendRequests: (v)=>{ _myFriendRequests = v; },","  setMyHomeFriends: (v)=>{ _myHomeFriends = v; },","  setMyHomeReady: (v)=>{ _myHomeReady = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -77,7 +77,7 @@ function judgeAll(mod, app, html){
 /* 내 코드(getMyUserId)가 없는 기기 — initMyHome 이 부르는 firebaseAPI 이름들(콜백은 안 부른다) */
 async function callsWith(src, uid){
   const any = anything(), calls = [];
-  const fa = new Proxy({}, { get: (t, k) => (...a) => { calls.push(k === 'setMyProfile' ? 'setMyProfile/' + a.length : String(k)); return any; } });
+  const fa = new Proxy({}, { get: (t, k) => (...a) => { calls.push(String(k)); return any; } });
   const deps = {};
   FN_DEPS.forEach(n => { deps[n] = () => any; });
   VAL_DEPS.forEach(n => { deps[n] = any; });
@@ -99,7 +99,7 @@ async function callsWith(src, uid){
 }
 const judgeNoUid = async (src) => {
   const none = await callsWith(src, null), mine = await callsWith(src, 'ME');
-  return none.join() === 'friendsSub.start(null),mailFeed.stop()' && mine.filter(c => !c.startsWith('friendsSub.')).slice(0, 2).join() === 'presence.me=ME-ANSWER,createMyPresence';   // 접속 고정은 app-boot 가 넘긴 확인의 me 로   // 친구 목록은 «코드 없음» 으로 시작해 둬야 친구 탭이 «불러오는 중» 에 안 멈춘다   // 코드 있으면 첫 요청은 예전처럼 presence(가짜 await 는 안 풀려 그 뒤는 안 본다)
+  return none.join() === 'friendsSub.start(null),mailFeed.stop()' && mine.filter(c => !c.startsWith('friendsSub.')).slice(0, 1).join() === 'presence.me=ME-ANSWER' && !mine.includes('createMyPresence');   // 접속 고정은 app-boot 가 넘긴 확인의 me 로 앉힌다 · Firebase 접속 표시는 만들지 않는다   // 친구 목록은 «코드 없음» 으로 시작해 둬야 친구 탭이 «불러오는 중» 에 안 멈춘다
 };
 
 (async () => {
@@ -107,7 +107,10 @@ const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
 say('── 2-2. 내 코드 없음 — 내 경로 요청 0');
 chk(await judgeNoUid(MOD), '내 코드 없음 → presence · 기기 · 프로필 · 친구 · 요청 · 우편 요청 0 · 친구 목록은 «코드 없음» 으로 시작(요청 없음) · 우편은 멈춤(앞 계정 것 비움) · 공지는 코드와 상관없이 따로 받는다 · 코드 있으면 presence 부터');
-chk((await callsWith(MOD, 'ME')).filter(c => c.startsWith('setMyProfile')).join() === 'setMyProfile/2', '프로필은 이름만 쓴다 — 레벨 · 별을 넘기지 않는다(서버 진척이 원본 — 친구 목록이 읽는 노드에 이름은 남겨야 한다)');
+{
+  const mine = await callsWith(MOD, 'ME');
+  chk(!mine.some(c => /Profile/.test(c)) && !/setMyProfile/.test(MOD), '★ 내 이름을 Firebase 프로필 노드에 쓰지 않는다(이름의 원본은 PATCH /v2/me — user-name.js) · 마이홈 첫 준비는 이 쓰기를 기다리지 않는다');
+}
 say('── 2-3. 받은 뒤 화면');
 {
   const act = [], toasts = [];
@@ -146,13 +149,11 @@ async function sessionRun(src, endFirst, ended, room){
   const session = { subs: [], timers: [], resets: [], alive: () => !ended, on(u){ this.subs.push(u); if(endFirst){ u(); } return u; },
     setInterval(fn, ms){ this.timers.push([fn, ms]); }, onReset(fn){ this.resets.push(fn); } };
   const deps = { MY_FRIEND_CODE_KEY: 'k', friendManage: { renderFriendRequests(){}, reqVisible: () => false, showFriendRequestPopup(){} }, friendsSub: { start(){}, stop(){} },
-    mailFeed: { start: (id, sess) => { log.mailSession = sess; }, stop(){} }, noticeFeed: {}, mhScheduler: { loadBoard(){} }, presenceLock: { startOnlineFor: () => true }, getRoomCode: () => (room === undefined ? null : room),
-    _waitForFirebaseAPI: (cb) => Promise.resolve(cb()), ensureMyFriendCode: async () => {}, getDisplayName: () => 'n', getMyUserId: () => 'ME', toast(){},
+    mailFeed: { start: (id, sess) => { log.mailSession = sess; }, stop(){} }, noticeFeed: {}, mhScheduler: { loadBoard(){} }, presenceLock: { startOnlineFor: () => { log.presence.push('start'); return true; } },
+    _waitForFirebaseAPI: (cb) => Promise.resolve(cb()), getMyUserId: () => 'ME', toast(){},
     friendRequests: () => ({ watchReceived: () => { log.watch++; return UNSUB; } }), _myFriendRequests: () => ({}), _myHomeFriends: () => ({}), _myHomeReady: () => false,
     focusLevelMod: () => ({}), inboxMod: () => ({}), myHomeOpen: () => false, setMyFriendRequests(){}, setMyHomeFriends(){}, setMyHomeReady(){} };
-  const presence = { touch(){ log.presence.push('touch'); }, dispose(){ log.presence.push('dispose'); }, setRoom(c){ log.presence.push('room:' + c); } };
-  log.presenceObj = presence;
-  const fa = { createMyPresence(){ log.presence.push('create'); return presence; }, setMyProfile: async () => {} };
+  const fa = { createMyPresence(){ log.presence.push('create'); } };   // 불리면 안 된다
   const doc = { getElementById: () => null };
   const ls = { getItem: () => null };
   const api = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'module', src + '\nreturn window.TwMyHomeInit;')({}, doc, ls, fa, undefined);
@@ -164,12 +165,8 @@ async function sessionRun(src, endFirst, ended, room){
   chk(r.log.watch === 1 && r.session.subs.length === 1 && r.log.mailSession === r.session, '★ 받은 요청 듣기의 해제 함수는 세션이 쥔다(버리지 않는다) · 우편 시작에 세션을 넘긴다');
   const r2 = await sessionRun(MOD, true);
   chk(r2.log.unsubCalled === 1, '  이미 끝난 세션에 걸면 바로 푼다 — 늦게 걸린 구독이 새 계정으로 새지 않는다');
-  /* 접속 표시도 이 세션 것 — 세션에 걸고(session.presence) · 6시간 lastSeen 타이머는 세션이 쥐고 · 세션이 끝나면 dispose(안 걸면 다음 계정이 만들 때 경고 — presence-lock 검사) */
-  chk(r.session.presence === r.log.presenceObj && r.session.timers.length === 1 && r.session.timers[0][1] === 6 * 60 * 60 * 1000 && r.session.resets.length === 1, '★ 접속 표시 — 세션에 걸고 6시간 타이머 · 풀기(dispose)를 세션에 건다');
-  r.session.timers[0][0](); r.session.resets[0]();
-  chk(r.log.presence.join() === 'create,touch,dispose', '  타이머는 한 번 찍기(touch) · 비우기는 dispose — 만든 뒤에 건다');
-  const inRoom = await sessionRun(MOD, false, false, 'COZY-9K2M');
-  chk(inRoom.log.presence.join() === 'create,room:COZY-9K2M', '★ 접속 표시를 만들기 전에 이미 방에 들어가 있었으면(입장 알림은 한 번뿐) 만든 직후 지금 방을 싣는다 — 방 없으면 싣지 않는다(위 경우)');
+  /* 접속 표시는 realtime 이 맡는다 — 온라인 고정만 앉히고 첫 표시를 켠다(Firebase 접속 표시 · 6시간 타이머 · 세션에 걸기 없음) */
+  chk(r.log.presence.join() === 'start' && r.session.timers.length === 0 && r.session.resets.length === 0 && r.session.presence === undefined, '★ 접속 표시 — 온라인 고정을 앉혀 켤 뿐 Firebase 접속 표시 · 6시간 타이머 · 세션 걸기가 없다');
   const dead = await sessionRun(MOD, false, true);
   chk(dead.log.presence.length === 0 && dead.session.timers.length === 0 && dead.log.watch === 0, '  기다리는 사이 끝난 세션이면 아무것도 만들지 않는다(풀어 줄 세션이 없다)');
 }
@@ -182,21 +179,9 @@ say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
   const m4 = MOD.replace('session.on(friendRequests().watchReceived(', 'friendRequests().watchReceived(').replace(')));   // 해제 함수는 세션이', '));   // 해제 함수는 세션이');
   const r4 = m4 === MOD ? null : await sessionRun(m4, false);
   chk(r4 && r4.session.subs.length === 0, '받은 요청 해제 함수를 세션에 안 맡기면 빨강(2-4절)');
-  const m5 = MOD.replace('session.onReset(()=>presence.dispose());', '');
-  const r5 = m5 === MOD ? null : await sessionRun(m5, false);
-  chk(r5 && r5.session.resets.length === 0, '로그아웃(세션 끝)에 접속 표시를 풀지 않으면(다음 계정이 앞 계정 위에 만든다) 빨강');
-  const m6 = MOD.replace('session.setInterval(()=>presence.touch(), PRESENCE_TOUCH_MS);', '');
-  const r6 = m6 === MOD ? null : await sessionRun(m6, false);
-  chk(r6 && r6.session.timers.length === 0, '6시간 타이머를 세션에 안 걸면 빨강');
   const m7 = MOD.replace('    if(!session.alive()) return;', '');
   const r7 = m7 === MOD ? null : await sessionRun(m7, false, true);
   chk(r7 && r7.log.presence.length > 0, '끝난 세션 확인을 빼면(풀어 줄 세션 없이 만듦) 빨강');
-  const m9 = MOD.replace('      if(room) presence.setRoom(room);\n', '');
-  const r9 = m9 === MOD ? null : await sessionRun(m9, false, false, 'COZY-9K2M');
-  chk(r9 && !r9.log.presence.includes('room:COZY-9K2M'), '만든 직후 지금 방을 안 실으면(방에 먼저 들어간 사람이 친구 목록에 방 없음으로 보임) 빨강');
-  const m8 = MOD.replace('      session.presence = presence;\n', '');
-  const r8 = m8 === MOD ? null : await sessionRun(m8, false);
-  chk(r8 && r8.session.presence !== r8.log.presenceObj, '세션에 접속 표시를 안 걸면(방 입장 · 토글 · 로그아웃이 쓸 곳을 못 찾음) 빨강');
 }
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/myhome/myhome-init.js"></script>', '')],

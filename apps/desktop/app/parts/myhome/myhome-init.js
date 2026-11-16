@@ -1,5 +1,5 @@
-/* myhome-init.js — 🏠 마이홈 1단계 — 처음 준비(initMyHome) · 소유권 쓰기 거부 안내
-   app.js «🏠 마이홈 1단계 — 처음 준비(initMyHome) · 소유권 쓰기 거부 안내» 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 44번 남은 몫 — docs/APP_FSD_MAP.md).
+/* myhome-init.js — 🏠 마이홈 1단계 — 처음 준비(initMyHome)
+   app.js «🏠 마이홈 1단계 — 처음 준비(initMyHome)» 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 44번 남은 몫 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 24줄 —
      _myFriendRequests · _myHomeFriends · _myHomeReady · focusLevelMod · inboxMod · myHomeOpen 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setMyFriendRequests · setMyHomeFriends · setMyHomeReady(…).
@@ -12,23 +12,17 @@
    검사: checks/sim-myhome-init.js */
 (function(){
 
-/* 🕒 접속 표시의 lastSeen 을 새로 찍는 주기 — 며칠 단위로만 쓰이는 값이라 6시간이면 충분하다(firebase-init.js createMyPresence touch 주석) */
-const PRESENCE_TOUCH_MS = 6 * 60 * 60 * 1000;
-
 function createMyHomeInit(deps){
 const MY_FRIEND_CODE_KEY = deps.MY_FRIEND_CODE_KEY;
 const _myFriendRequests = deps._myFriendRequests;   // 읽는 함수
 const _myHomeFriends = deps._myHomeFriends;   // 읽는 함수
 const _myHomeReady = deps._myHomeReady;   // 읽는 함수
 const _waitForFirebaseAPI = deps._waitForFirebaseAPI;
-const ensureMyFriendCode = deps.ensureMyFriendCode;
 const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const friendManage = deps.friendManage;
 const friendRequests = deps.friendRequests;   // 👋 친구 요청 포트(friend-requests-port.js — 읽는 함수)
 const friendsSub = deps.friendsSub;   // 👥 친구 목록 구독 한 벌(friends-sub.js) — 상태 · 자동 다시 걸기
-const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
-const getRoomCode = deps.getRoomCode;   // 지금 들어가 있는 방 코드(없으면 null) — 접속 표시를 만들 때 한 번 싣는다
 const inboxMod = deps.inboxMod;   // 읽는 함수
 const mailFeed = deps.mailFeed;   // 📩 내 우편 한 벌(mail-feed.js)
 const noticeFeed = deps.noticeFeed;   // 📢 공지 한 판(notice-feed.js)
@@ -39,15 +33,6 @@ const toast = deps.toast;
 const setMyFriendRequests = deps.setMyFriendRequests;   // 쓰는 함수
 const setMyHomeFriends = deps.setMyHomeFriends;   // 쓰는 함수
 const setMyHomeReady = deps.setMyHomeReady;   // 쓰는 함수
-let _ownerWriteWarned = false;
-function _warnOwnerWriteDenied(what, err){
-  const denied = String((err && (err.code || err.message)) || '').toLowerCase().includes('permission');
-  console.warn('[마이홈] ' + what + ' 저장 실패' + (denied ? ' (권한 거부)' : ''), err);
-  if(!denied || _ownerWriteWarned) return;
-  _ownerWriteWarned = true;
-  toast('🔑 이 PC의 로그인이 풀려 있어 변경 내용이 저장되지 않아요 — 앱을 다시 시작하면 로그인 화면이 나와요');
-}
-
 /* 📩 우편이 바뀐 뒤(받음 · 못 받음 · 읽음 · 지움) — 목록 · 배지 · 🔔 다시 그리고, 새로 온 우편만 토스트(처음 받은 판은 새 우편이 아니다 — mail-feed.js) */
 function onMailChanged(e){
   const box = mailFeed.items();
@@ -79,9 +64,9 @@ function onNewsChanged(e){
 /* 계정 확인을 통과한 뒤 한 번(launcher/app-boot.js) — code: 서버가 확인한 내 계정 코드 · me: 그 확인(GET /v2/me)의 답(접속 고정을 거기서 읽는다) · session: 이번 로그인의 세션(받은 요청 구독 · 우편 구독을 맡긴다) */
 async function initMyHome(code, me, session){
   _waitForFirebaseAPI(async ()=>{
-    if(!session.alive()) return;   // 기다리는 사이 로그아웃했으면 접속 표시를 만들지 않는다 — 풀어 줄 세션이 이미 없다
+    if(!session.alive()) return;   // 기다리는 사이 로그아웃했으면 접속 표시를 켜지 않는다 — 풀어 줄 세션이 이미 없다
     const myId = code;
-    /* 내 코드가 없으면 내 경로(presence · 프로필 · 친구 · 요청 · 우편)는 걸지 않는다 — 공지는 코드와 상관없이 따로 받는다(notice-feed).
+    /* 내 코드가 없으면 내 경로(접속 표시 · 친구 · 요청 · 우편)는 걸지 않는다 — 공지는 코드와 상관없이 따로 받는다(notice-feed).
        ⚠️ 친구 목록은 «코드 없음» 으로 시작해 둔다(요청 없이 «받음 · 0명») — 안 부르면 친구 탭이 «불러오는 중» 에 멈춘다. */
     if(!myId){ friendsSub.start(null); mailFeed.stop(); return; }
     try{
@@ -91,20 +76,11 @@ async function initMyHome(code, me, session){
         setMyHomeFriends(friends);
         inboxMod().renderMyHomeFriendList();
       }, ()=>{ try{ inboxMod().renderMyHomeFriendList(); }catch(_){} });
-      /* 접속 표시는 이 세션 것이다 — 세션에 걸어 두고(session.presence · 방 입장 · 온라인 토글이 여기로 간다), 6시간 lastSeen 타이머도 세션이 쥐고, 세션이 끝나면 dispose.
-         객체 안에 계정 상태가 다 있어 계정 사이에 공유하는 값이 없다 — dispose 를 빠뜨리면 다음 계정이 만들 때 경고가 뜬다(firebase-init.js) */
-      const presence = firebaseAPI.createMyPresence(myId, presenceLock.startOnlineFor(myId, me));   // 🔒 첫 쓰기는 고정값을 앉힌 뒤(presence-lock.js)
-      session.presence = presence;
-      const room = getRoomCode();   // 접속 표시가 만들어지기 전에(느린 망) 이미 방에 들어갔으면 입장 알림은 지나갔다 — 지금 방을 싣는다
-      if(room) presence.setRoom(room);
-      session.setInterval(()=>presence.touch(), PRESENCE_TOUCH_MS);
-      session.onReset(()=>presence.dispose());
+      /* 친구에게 보이는 접속 표시는 realtime 이 맡는다(friends/presence-self.js · 방 · 마지막 접속 · 앱 판은 서버가 hello · join 에서 안다) —
+         여기서는 계정 확인의 me 로 온라인 고정을 앉히고 첫 표시를 켠다(presence-lock.js startOnlineFor). */
+      presenceLock.startOnlineFor(myId, me);
       /* 🖥️ 한 계정 한 기기 — 0.13 은 realtime 연결의 hello claim 이 정한다(login-flow.js goOnline · 밀리면 device-lost.js). */
       /* ⚠️ 읽기(구독)는 쓰기의 성공에 기대지 않는다 — 여기에 await 쓰기를 새로 얹으면 거부될 때 아래 구독이 한 줄도 안 걸린다. 얹어야 하면 자기 try 로 감쌀 것. */
-      try{ await firebaseAPI.setMyProfile(myId, getDisplayName()); }   // 이름만 — 레벨 · 별은 서버 진척이 원본(focus-progress.js)
-      catch(e){ _warnOwnerWriteDenied('프로필', e); }
-      try{ await ensureMyFriendCode(); }
-      catch(e){ console.warn('[마이홈] 친추 코드 확보 실패 — 구독은 그대로 진행', e); }
       // 📌 D-day 보드 받기 (스케줄러 우측 목록) — 서버가 바뀌었다고 알리면 스케줄러가 알아서 다시 받는다
       mhScheduler.loadBoard();
       // 👋 나에게 온 친구 요청 구독 — 새 요청이 오면 목록에 뜨고, 처음 도착 시 토스트로 알림.

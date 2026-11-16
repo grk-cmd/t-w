@@ -93,6 +93,7 @@ function createRtHub(deps){
   let started = false, claimNext = false, authFails = 0, lostAt = null, sawSessionLost = false;
   let sessionId = null;   // 이 연결의 세션 id — start 가 비어 있을 때 뽑고, 연결을 끝낸 stop · bye · quit 이 비운다(다음 로그인은 새 id)
   let state = STATE.OFF, userCode = null, lastClose = null;
+  let clockOff = null;   // 서버 시계 − PC 시계(ms) — ready.now 로 맞춘다(연결이 ready 될 때마다). 아직 못 맞췄으면 null(PC 시계로 대신하지 않는다)
   let pongTimer = null;
   let byeDone = null;   // bye 뒤 서버 닫힘을 기다리는 쪽 — { timer, res }
   const tSet = deps.setTimeout || ((f, ms) => setTimeout(f, ms));
@@ -136,6 +137,7 @@ function createRtHub(deps){
   function onReady(m){
     authFails = 0; claimNext = false;
     userCode = (m && typeof m.userCode === 'string') ? m.userCode : null;
+    if(m && typeof m.now === 'number' && isFinite(m.now)) clockOff = m.now - now();   // 연결이 ready 될 때마다(다시 붙은 뒤 포함) 다시 맞춘다
     const gap = (lostAt == null) ? null : now() - lostAt;
     lostAt = null;
     setState(STATE.READY);
@@ -196,7 +198,7 @@ function createRtHub(deps){
   }
   /* 끄기 — 로그아웃 · 계정을 놓을 때. 다시 켜면 처음부터(놓친 알림 메우기 없음 — 그때는 화면을 새로 받는다). */
   function stop(){
-    started = false; lostAt = null; userCode = null; sessionId = null;
+    started = false; lostAt = null; userCode = null; sessionId = null; clockOff = null;
     clearPong();
     if(link) link.close();
     setState(STATE.OFF);
@@ -205,7 +207,7 @@ function createRtHub(deps){
      ready 가 아니면(인증 전 · 끊긴 중) 보낼 곳이 없으니 바로 끈다. 돌려주는 것: 끝나면 풀리는 Promise(던지지 않는다). */
   function bye(why){
     if(!started || !link){ stop(); return Promise.resolve(); }
-    started = false; lostAt = null; userCode = null; sessionId = null;
+    started = false; lostAt = null; userCode = null; sessionId = null; clockOff = null;
     clearPong();
     if(!link.send({ t: 'bye', why })){ link.close(); setState(STATE.OFF); return Promise.resolve(); }
     return new Promise((res) => {
@@ -215,7 +217,7 @@ function createRtHub(deps){
   /* 앱 끄기(beforeunload) — bye{quit} 를 보내고 기다리지 않고 닫는다(못 가면 서버는 1006 → 유예). */
   function quit(){
     if(!started || !link) return;
-    started = false; sessionId = null;
+    started = false; sessionId = null; clockOff = null;
     clearPong();
     link.send({ t: 'bye', why: BYE_WHY.QUIT });
     link.close();
@@ -254,6 +256,8 @@ function createRtHub(deps){
     request: (msg) => (link ? link.request(msg, (m) => m) : Promise.resolve(null)),
     state: () => state,
     userCode: () => userCode,
+    /* 서버 시각(ms) — 방 밖에서 «지금» 을 서버 시계로 견줄 때(포커싱 «N분째» 등). 첫 ready 전 · 연결을 끝낸 뒤에는 null(모름) — 부르는 쪽이 모름으로 다룬다. */
+    serverNow: () => (clockOff === null ? null : now() + clockOff),
     isReady: () => state === STATE.READY,
     lastCloseCode: () => lastClose,
   };

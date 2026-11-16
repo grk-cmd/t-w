@@ -60,7 +60,7 @@ say('── 1. 자리비움 그림');
   chk(!/!prem/.test(strip(grabFn('_awayReset'))) && /rs\.disabled = !!_awayBusy;/.test(CODE), '[기본으로]는 라이선스와 무관(내 그림을 되돌리는 길은 막지 않는다)');
   chk(!/_awayPremium/.test(strip(grabFn('_awayPicFor'))), '보는 쪽은 라이선스를 안 본다(남의 그림은 그대로 보인다)');
   chk(/_awayRenderUI\(null\); \}catch\(_\)\{\}        \/\/ 👑/.test(SRC), '라이선스가 바뀌면 칸을 다시 그린다(_refreshPremiumGatedUI)');
-  chk(/_awayBootSync\(0\)/.test(CODE) && /_awaySetLocal\(srv\)/.test(strip(grabFn('_awayBootSync'))), '부팅 때 서버 값이 기준(관리자가 내리면 로컬도 비움)');
+  chk(/function startAwayPic\(me\)/.test(CODE) && /_awaySetLocal\(srv\)/.test(strip(grabFn('startAwayPic'))), '부팅 때 서버 값이 기준(관리자가 내리면 로컬도 비움)');
   if(FI){
     const up = strip(grabFn('uploadAwayImg', FI.replace(/async uploadAwayImg\(/, 'function uploadAwayImg(')));
     chk(/away\/\$\{userId\}\/away_\$\{Date\.now\(\)\}\.webp/.test(up) && !/_uploadDataUrlIfNeeded/.test(up), 'Storage away/{uid}/away_{시각}.webp · dataURL 폴백 없음');

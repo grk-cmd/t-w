@@ -132,6 +132,7 @@
   "PUT /v2/me/avatars/{avatarId}",
   "POST /v2/me/avatars/{avatarId}/move",
   "DELETE /v2/me/away-image",
+  "PATCH /v2/me/away-image",
   "PUT /v2/me/away-image",
   "GET /v2/me/bugs/quota",
   "GET /v2/me/bugs/unseen-count",

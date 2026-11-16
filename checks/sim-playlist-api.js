@@ -284,7 +284,7 @@ async function judge(S){
     ['API', "      if(e && e.code === OWNER_CHANGED_CODE){ versions.delete(uid); return 'stale'; }", "", '주인이 바뀌어 막힌 것을 실패로 알림'],
     ['API', "onOwner: (who) => { owner = who; }", "onOwner: () => {}", '읽을 때 토큰 주인을 기억하지 않음'],
     ['PL', "const plApi = deps.playlistApi;", "const plApi = { fetchMine: async () => null, saveMine: async () => true, fetchRandom: async () => null, fetchOf: async () => null };", '부르는 곳이 provider 를 안 씀'],
-    ['FI', "    async lookupFriendCode(code){", "    async fetchPlaylistOf(uid){ return null; },\n    async lookupFriendCode(code){", 'firebase-init 에 옛 친구 파도타기가 되살아남'],
+    ['FI', "    async uploadRoomFace(userId, key, dataUrl){", "    async fetchPlaylistOf(uid){ return null; },\n    async uploadRoomFace(userId, key, dataUrl){", 'firebase-init 에 옛 친구 파도타기가 되살아남'],
     ['HTML', '<script src="parts/status/playlist-api.js"></script>', '', 'html 에서 provider 를 안 실음'],
     ['SMOKE', "PRELOAD.push('playlist-api.js');", "", 'smoke 가 provider 를 안 싣음'],
   ];

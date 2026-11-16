@@ -139,6 +139,20 @@ async function judge(S){
     chk(e.hub.state() === 'off' && e.socks.length === 4 && closedNow, 'stop — 곧바로 닫고 다시 붙지 않는다');
   }
 
+  say('── 2-0. 서버 시계 — ready.now 로 맞춘 방 밖 시계(첫 ready 전 · 끝낸 뒤에는 null = 모름)');
+  {
+    const e = mk(S);
+    chk(e.hub.serverNow() === null, '★ ready 전에는 null — PC 시계로 대신하지 않는다');
+    e.hub.start();
+    await tick(); const ws = e.last(); ws.open(); await tick();
+    ws.msg({ t: 'ready', pv: 3, now: e.clock.t + 5000, userCode: 'u1', graceMs: 20000 }); await tick();
+    chk(e.hub.serverNow() === e.clock.t + 5000, '★ ready.now 와 PC 시계의 차이를 더한다(서버가 5초 앞)');
+    await e.clock.advance(1000);
+    chk(e.hub.serverNow() === e.clock.t + 5000, '  ↳ 시간이 가면 같은 차이로 따라간다');
+    e.hub.stop();
+    chk(e.hub.serverNow() === null, '★ 연결을 끝내면 다시 null(로그인마다 새로 — 앞 계정 값이 남지 않는다)');
+  }
+
   say('── 3. 알림 표');
   {
     const e = mk(S);
@@ -472,9 +486,9 @@ await judge(SRC0);
 
 say('── 7. 일부러 깨 보기');
 const BREAKS = [
-  ['HUB', "    started = false; lostAt = null; userCode = null; sessionId = null;\n    clearPong();\n    if(link) link.close();", "    started = false; lostAt = null; userCode = null;\n    clearPong();\n    if(link) link.close();", 'stop 이 세션 id 를 안 비움(다음 로그인이 앞 id 를 씀)'],
-  ['HUB', "    started = false; lostAt = null; userCode = null; sessionId = null;\n    clearPong();\n    if(!link.send", "    started = false; lostAt = null; userCode = null;\n    clearPong();\n    if(!link.send", 'bye 가 세션 id 를 안 비움(로그아웃 뒤 같은 id)'],
-  ['HUB', "    started = false; sessionId = null;\n    clearPong();\n    link.send({ t: 'bye', why: BYE_WHY.QUIT });", "    started = false;\n    clearPong();\n    link.send({ t: 'bye', why: BYE_WHY.QUIT });", 'quit 이 세션 id 를 안 비움'],
+  ['HUB', "    started = false; lostAt = null; userCode = null; sessionId = null; clockOff = null;\n    clearPong();\n    if(link) link.close();", "    started = false; lostAt = null; userCode = null; clockOff = null;\n    clearPong();\n    if(link) link.close();", 'stop 이 세션 id 를 안 비움(다음 로그인이 앞 id 를 씀)'],
+  ['HUB', "    started = false; lostAt = null; userCode = null; sessionId = null; clockOff = null;\n    clearPong();\n    if(!link.send", "    started = false; lostAt = null; userCode = null; clockOff = null;\n    clearPong();\n    if(!link.send", 'bye 가 세션 id 를 안 비움(로그아웃 뒤 같은 id)'],
+  ['HUB', "    started = false; sessionId = null; clockOff = null;\n    clearPong();\n    link.send({ t: 'bye', why: BYE_WHY.QUIT });", "    started = false; clockOff = null;\n    clearPong();\n    link.send({ t: 'bye', why: BYE_WHY.QUIT });", 'quit 이 세션 id 를 안 비움'],
   ['HUB', "    if(sessionId === null) sessionId = sessionIdOf(deps.newSession());", "    sessionId = sessionIdOf(deps.newSession());", '시작마다 새 id(다시 붙기 · 여기서 계속도 바뀜)'],
   ['HUB', "        if(phase === 'open' && claimNext) o.claim = true;", "        o.claim = true;", '다시 붙기 · 토큰 갱신에도 claim(밀려난 앱이 남을 밈)'],
   ['HUB', "    authFails = 0; claimNext = false;", "    authFails = 0;", '다시 붙을 때 또 차지'],

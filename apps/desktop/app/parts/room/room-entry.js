@@ -67,7 +67,6 @@ function _roomJoined(code){ const meta = window._roomMetaCache || null; _roomJoi
 const mySecretRoom = deps.mySecretRoom;   // 내 시크릿룸 판정(room-lobby-provider.js — 로비와 같은 한 곳)
 const roomSettings = deps.roomSettings;   // 방 설정 규칙(room-settings.js — 최대 인원 · 방장 닉네임)
 const roomRt = deps.roomRt;   // 🛰 방 포트(room-rt.js TwRoomRt.store) — 입장 · 랜덤 · 들여다보기 · 연결의 나(myCode)
-const setPresenceRoom = deps.setPresenceRoom;   // 친구 목록의 «방 안» 표시(firebase-init) — 도메인은 firebaseAPI 를 직접 부르지 않고 deps 로 받는다(D9)
 const seatSyncDiff = TwSeatSyncDiff;   // 🪑 줄 배치를 다시 할지 정하는 규칙(seat-sync-diff.js — 순수 모듈)
 let _lastSyncSnap = null;   // 지난번 맞춘 뒤의 모양 — 줄 배치가 필요 없는 변화(상태 · 경험치 …)는 값만 적고 넘어간다
 /* 서버 meta { channel, host(userCode), open, chatOff, secret, tabs, title?, max?, hostName?, music?, since } → 방 공용 상태 · 방장이 나로 바뀌면 알림 */
@@ -108,8 +107,6 @@ function makeRoomProvider(create){
     },
     // 끊긴 지 15초가 넘었다(true) · 다시 붙었다(false) — room-rt.js RECONNECT_NOTICE_MS
     onReconnecting: (on)=>{ toast(on ? '📡 서버 연결이 끊겨 다시 연결하는 중이에요…' : '서버에 다시 연결됐어요'); },
-    onJoined: (room)=>{ try{ setPresenceRoom(room); }catch(_){} },
-    onLeft: ()=>{ try{ setPresenceRoom(null); }catch(_){} },
   }, { create });
 }
 const ROOM_CONNECTING_TOAST_MS = 1000;   // 이만큼 지나도 못 붙었으면 «연결 중» 을 보인다(바로 붙으면 안 띄운다)

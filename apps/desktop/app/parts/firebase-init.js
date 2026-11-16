@@ -7,9 +7,7 @@
    ⚠️ (걷힘 · 개정 61) 예전에는 맨 끝에서 window.__mysNetBind(미스테리au 파티 전송선)를 불렀다. 그 게임과 함께 걷었다. */
 
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import {
-    getDatabase, ref as _dbRef, set as _sdkSet, update as _dbUpdate, remove as _sdkRemove, onValue as _sdkOnValue, onDisconnect, get as _sdkGet, runTransaction
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+  import { getDatabase, ref as _dbRef, get as _sdkGet } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";   // 남은 DB 읽기는 점검 칸(config/maintenance) 하나
   // Storage: 큰 base64 데이터(GLB 등)를 Realtime Database에서 빼내 스토리지에 두고 URL만 저장 (Firebase 사용량 절감)
   import {
     getStorage, ref as _stRef, uploadString, getDownloadURL, deleteObject
@@ -31,7 +29,6 @@
     signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { firebaseConfig } from "./firebase-config.js";
-  import { sharedAppVersion } from "./shared/app-version.js";
   import { createChatHistory, createIdbChatStore } from "./chat/chat-history.js";
   /* 로그인 수단 읽기 — authProviders · authChangePassword 가 같이 쓴다. 세션이 없으면 null. */
   function _providersOf(cu){
@@ -64,26 +61,6 @@
   }
   const ref  = (d, p) => (p === undefined ? _dbRef(d) : _dbRef(d, _noUidPath(p)));
   const sref = (st, p) => _stRef(st, _noUidPath(p));
-  /* 기본 동작(get · set · update · remove · push · onValue)은 이 이름들로만 — 요청마다 서버 점검 창(maintenance-gate.js touch)을 먼저 본다.
-     옛 Firebase 길이 남은 동안의 한 벌이다(기능 묶음이 API 로 옮기며 걷는다 — 새 기능은 여기 더하지 않는다). */
-  const _mt = window.TwMaintenance.store;
-  const _touched = (f) => (...a) => { _mt.touch(); return f(...a); };   // 🛠 사람이 방금 누른 동작이 서버에 닿으면 점검 창
-  const get = _touched(_sdkGet);
-  const set = _touched(_sdkSet);
-  const remove = _touched(_sdkRemove);
-  const onValue = _touched(_sdkOnValue);
-  const _update = _touched(_dbUpdate);
-  /* 다중 경로 update(루트 ref + {경로: 값}) 는 경로가 키에 있다 — 하나라도 빈 uid 면 통째로 거절한다
-     (update 는 한 덩어리라 그 한 줄만 빼고 보내면 규칙이 보던 짝이 깨진다). */
-  const update = (r, v) => {
-    if(v && typeof v === 'object'){
-      for(const k of Object.keys(v)){
-        if(_noUidPath(k) !== k) return Promise.reject(new Error('[uid-guard] uid 없는 다중 경로 update: ' + k));
-      }
-    }
-    return _update(r, v);
-  };
-
   /* 🛰 중복 로드 방지 — app.js 의 감시견(_fbBootWatch)이 이 파일을 다시 꽂을 수 있다.
      ★ 원본이 **느렸을 뿐**인데 재시도분이 겹치면 이 파일이 두 번 돌아, 방 리스너·서버시간
        구독·MYS_NET 바인딩이 이중으로 걸린다. 그쪽이 겹칠 위험을 감수하는 대신 여기서 막는다.
@@ -142,145 +119,10 @@
      이미 통과했으면 await 비용은 0이다(정착된 뒤엔 마이크로태스크 한 번). */
   const _whenAuthReady = ()=> _authSettled ? Promise.resolve() : _authReadyPromise;
 
-  // ⏱ 서버 시간 오프셋 — stale 판정을 로컬 시계로 하면 PC 시계가 몇 분만 틀어져도
-  //   상대의 멀쩡한 하트비트를 "오래됨"으로 오판해 숨김(A↔B 비대칭의 원인 후보). 서버 오프셋으로 보정.
-  let _svTimeOffset = 0;
-  try{ onValue(ref(db, '.info/serverTimeOffset'), s => { _svTimeOffset = s.val() || 0; }); }catch(e){}
-  const _svNow = () => Date.now() + _svTimeOffset;
-  /* 🔌 접속 표시는 **로그인 세션마다 하나씩 만드는 객체**다(createMyPresence · 마이홈 처음 준비가 만들어 세션에 걸고, 세션이 끝나면 dispose).
-     모듈 전역에 «지금 계정의 접속 표시 상태» 를 두지 않는다 — 계정이 바뀌어도 앞 계정의 ref · 온라인 · 방 · onDisconnect · 구독이 다음 계정에 섞일 길이 없다.
-     세션이 끝날 때 dispose 를 빠뜨리면 숨기지 않고 만들 때 경고한다(_presenceLive — 쓰기에는 쓰이지 않는 감시용 포인터).
-     _presenceLive 는 «아직 안 풀린 객체가 있나» 만 본다. */
-  let _presenceLive = null;
-  // 방 입장/퇴장 시 presence에 현재 방 코드를 같이 기록 — 친구 목록의 "온라인 · COZY-9K2M" 배지에 쓰임
-  /* 🔒 단, **시크릿룸 코드는 기기 밖으로 내보내지 않는다.**
-     [왜 화면에서 가리는 게 아니라 여기서 막나] presence 는 친구라면 누구나 읽는 노드다. 화면에서만
-       숨기면 코드 자체는 서버에 그대로 남아, 앱을 거치지 않고 노드를 들여다보는 것만으로 새어나간다.
-       시크릿룸은 "별표를 아는 사람만 들어오는 방"이라(doJoinRoom 사양 주석) 코드가 곧 열쇠다 —
-       열쇠를 친구 목록에 올려두면 잠금장치가 없는 것과 같다.
-     ★ 대신 `inRoom` **불리언 하나**를 따로 올린다. 친구 목록의 🏠(=지금 방에 있음)는 이 값만 본다.
-       코드는 여전히 안 나가므로 열쇠는 지켜지고, "지금 뭔가 하는 중"이라는 신호는 남는다.
-     ⚠️ `room:'SCRT'` 같은 **가짜 코드를 올리는 방식은 쓰지 않는다.** 그건 값 자체가 "쟤 비밀방에
-       있다"를 말해버려서, 나중에 표시 규칙을 어떻게 바꾸든 노드만 읽으면 드러난다. 불리언은
-       일반 방이든 시크릿룸이든 똑같은 true 라 구분이 안 된다. */
   /* 💰 Storage 캐시 정책 — 한 번 받은 파일은 브라우저/앱이 재사용해서 다운로드 대역폭(=서버비)을 아낌. */
   const STORAGE_CACHE = 'public, max-age=31536000';
-  /* presence · onDisconnect 는 set(통째 덮기)이라 그 객체마다 ver 를 실어야 꺼진 뒤에도 남는다.
-     ⚠️ presence 에 쓰는 것은 update 까지 **전부** withVer 를 거친다 — 규칙은 online:true 인데 ver 가 없으면
-       옛 앱으로 보고 내 읽기 · 쓰기를 막는다(ver 없는 오프라인 쓰기도 inRoom 이 있으면 거절). withVer 는 모르면 'unknown' 을 싣는다.
-     버전보다 presence 가 먼저 쓰였으면 받은 뒤 ver 만 update 하고 onDisconnect 도 ver 를 실어 다시 건다. */
-  const _appVer = sharedAppVersion(window);   // realtime/rt-bind.js 와 같은 한 벌(버전 IPC 한 번)
-  /* 🔌 내 접속 표시 한 벌 — 온라인 · 방 · 쓴 적 있음 · 구독 · ref 를 전부 이 객체가 쥔다(모듈 전역 없음).
-     @param startOnline 처음 온라인 여부(Promise · 고정값을 읽은 뒤) — 첫 쓰기는 이것이 풀린 뒤에만, «오프라인 고정» 인데 «온라인» 이 한 번 보이지 않게. 없으면 온라인.
-     @return { touch, setState, setRoom, onVersion, dispose, userId } — dispose 뒤에는 모든 쓰기가 버려진다(늦게 도착한 쓰기 · 기다리던 첫 쓰기 포함). */
-  function _createMyPresence(userId, startOnline){
-    if(_presenceLive) console.warn('[접속 표시] 앞 계정(' + _presenceLive.userId + ')의 접속 표시가 풀리지 않았어요 — 세션이 끝날 때 dispose 를 부르지 않은 버그예요. 새 계정(' + userId + ')은 따로 만들지만 앞 것이 남아 있어요');
-    const ref_ = ref(db, `users/${userId}/presence`);
-    const st = { online: true, room: null, inRoom: false, written: false, od: false, dead: false };
-    let unwatch = null;
-    const offPayload = ()=>_appVer.withVer({ online:false, lastSeen: Date.now() });
-    const body = ()=>_appVer.withVer({
-      online: st.online, lastSeen: Date.now(),
-      room:   st.online ? st.room   : null,
-      inRoom: st.online ? st.inRoom : false
-    });
-    /* 🔌 presence 를 **지금 상태 그대로** 다시 쓰고, onDisconnect 도 함께 다시 건다.
-         최초 1회와 재접속이 똑같은 것을 써야 해서 함수로 뺐다.
-         ★ online 에 true 가 아니라 `st.online` 을 넣는 것이 핵심이다 —
-           수동으로 오프라인 해 둔 사람을 네트워크가 한 번 끊겼다는 이유로
-           온라인으로 되돌리면 안 된다(setState 가 이 값을 세운다). */
-    const gate = Promise.resolve(startOnline).then(v=>{ if(v === false) st.online = false; }).catch(()=>{});
-    const arm = ()=>gate.then(()=>{
-      if(st.dead) return;   // 풀린 뒤 도착한 쓰기는 버린다
-      onDisconnect(ref_).set(offPayload());
-      st.od = true;
-      set(ref_, body());
-      st.written = true;
-    });
-    /* 🚧 presence 도 소유권이 걸린 가지다 — 세션 복원 전에 쓰면 조용히 거부되고,
-         그 기기는 친구 목록에서 영영 오프라인으로 보인다(재접속 복구가 돌기 전까지).
-         ⚠️ .info/connected 쪽은 감싸지 않는다. 그건 이미 부팅이 한참 지난 뒤의 경로다. */
-    /* 처음 쓰기는 버전을 받은 뒤 — 'unknown' 으로 먼저 쓰고 메우는 쓰기 두 번을 줄인다(IPC 라 보통 로그인보다 빠르다).
-       ready 는 못 받아도 null 로 끝나고(거부 없음), 그 전에 .info/connected 가 먼저 오면 그쪽이 'unknown' 으로 쓴다. */
-    _whenAuthReady().then(() => _appVer.ready).then(arm);
-    /* 🔌 재접속 복구 — **이게 없으면 한 번 끊긴 사람은 영영 오프라인이다.**
-         [기전] 화면 잠금·절전·와이파이 전환으로 소켓이 끊기면 서버가 위 onDisconnect 를 실행해
-           presence.online 을 false 로 만든다. 여기까지는 의도된 동작이다.
-           깨어나면 SDK 가 알아서 재접속하고 onDisconnect 도 다시 걸어 주지만,
-           **online 을 true 로 되돌려 쓰는 주체가 아무도 없었다.**
-           · 만든 객체를 다시 만들 수도 없고(세션마다 하나),
-           · 아래 6시간 인터벌은 update 로 lastSeen 만 건드려 online:false 를 그대로 남긴다
-             (오히려 '살아 있는 계정'으로 보이게 만들어 이상함을 더 늦게 발견하게 한다).
-           ⇒ 수동 토글(setState)을 누르기 전까지 자가 복구 경로가 하나도 없었다.
-           제보 그대로다: "누르지도 않았는데 오프라인 · 토글하면 정상 · 직전에 장시간 화면 잠금".
-         ★ 방 멤버 노드(joinRoom 의 `.info/connected` 감시)는 이미 같은 방식으로 복구하고 있었다.
-           패턴이 코드베이스에 있었는데 presence 에만 적용이 안 돼 있던 것이라, 그것을 옮겨왔다.
-         · 첫 콜백은 붙자마자 true 로 즉시 온다 → arm 이 한 번 중복 실행된다.
-           presence 는 수십 바이트라 그대로 둔다(방 노드와 같은 사정).
-         · 재접속마다 onDisconnect 를 다시 거는 것은 부수 이득이다 — payload 의 lastSeen 이
-           '앱 켠 시각'에 고정되던 문제(바로 아래 주석)가 재접속 시점으로 갱신된다.
-         · room·inRoom 도 함께 복구된다. onDisconnect 가 set 이라 그 둘이 날아가는데,
-           예전에는 방 안에 있어도 재접속 뒤 "온라인 · COZY-…" 배지가 사라진 채로 남았다. */
-    try{
-      unwatch = onValue(ref(db, '.info/connected'), s=>{ if(s.val() === true) arm(); });
-    }catch(_){}
-    const p = {
-      userId,
-      /* 🕒 lastSeen 을 한 번 찍는다 — 6시간마다 부르는 타이머는 세션이 쥔다(myhome-init.js).
-         [왜] onDisconnect 의 payload 는 **등록 시점에 고정**된다. 즉 앱을 끄면 '앱을 켠 시각'이
-           lastSeen 으로 남고, 켜 두는 동안에는 아무도 갱신하지 않는다.
-           그러면 앱을 8일 내리 켜 둔 사람의 lastSeen 이 8일 전이 되어, 매일 쓰는 사람인데도
-           시크릿룸 발급 판정(app.js SR_STALE_DAYS=7)에서 '버려진 계정'으로 보인다(예전엔 친추 코드 되찾기도 —
-           개정 56 에서 걷었다).
-         ⚠️ 주기를 짧게 잡을 이유가 없다. 이 값은 '며칠 단위'로만 쓰이므로 6시간이면 충분하고,
-           유저당 하루 4번의 아주 작은 쓰기로 끝난다. */
-      touch(){
-        if(st.dead) return;
-        try{ update(ref_, _appVer.withVer({ lastSeen: Date.now() })); }catch(_){}
-      },
-      /* 온라인 표시 수동 토글 — false면 친구 목록에서 오프라인으로 보임(앱은 계속 실행됨). */
-      setState(online){
-        if(st.dead) return Promise.resolve();
-        st.online = !!online;
-        if(!st.od){
-          st.od = true;
-          onDisconnect(ref_).set(offPayload());
-        }
-        st.written = true;
-        return set(ref_, body());
-      },
-      /* 방 입장/퇴장 — 친구 목록의 «방 안» 표시. 시크릿룸 코드는 기기 밖으로 내보내지 않는다(위 주석). */
-      setRoom(code){
-        if(st.dead) return;
-        const _secret = typeof code === 'string' && code.indexOf('SCRT-') === 0;
-        st.room = (_secret ? null : (code || null));
-        st.inRoom = !!code;
-        if(st.online && st.written) update(ref_, _appVer.withVer({ room: st.room, inRoom: st.inRoom, lastSeen: Date.now() }));   // 아직 안 썼으면(첫 쓰기 전) 첫 쓰기 body 가 이 방을 싣는다
-      },
-      /* 앱 버전이 presence 보다 늦게 왔을 때 — 이미 썼으면 ver 만 메우고 onDisconnect 도 진짜 버전으로 다시 건다 */
-      onVersion(ver){
-        if(st.dead || !st.written) return;
-        try{ onDisconnect(ref_).set(offPayload()); }catch(_){}
-        update(ref_, { ver }).catch(()=>{});
-      },
-      /* 세션이 끝날 때 — 쓴 적이 있고 온라인이었으면 «꺼짐» 으로 쓰고 쓰기가 끝나면 onDisconnect 를 취소한다(앱을 다시 켜지 않아 연결이 안 닫히므로, 취소하지 않으면
-         뒤에 같은 계정이 다른 기기에서 켠 접속 표시를 이 앱이 닫을 때 꺼 버린다). 이미 «꺼짐» 이면 취소만. 못 써도(오프라인) onDisconnect 는 남겨 연결이 닫힐 때 서버가 꺼 준다. */
-      dispose(){
-        if(st.dead) return;
-        st.dead = true;
-        if(_presenceLive === p) _presenceLive = null;
-        if(unwatch){ try{ unwatch(); }catch(_){} unwatch = null; }
-        if(!st.written) return;
-        const cancel = ()=>{ try{ onDisconnect(ref_).cancel(); }catch(_){} };
-        if(!st.online){ cancel(); return; }
-        try{ set(ref_, _appVer.withVer({ online:false, lastSeen: Date.now(), room:null, inRoom:false })).then(cancel, ()=>{}); }catch(_){}
-      },
-    };
-    _appVer.ready.then(v => { if(v) p.onVersion(v); });   // 버전이 presence 보다 늦게 오면 이 객체가 직접 받아 메운다(전역 포인터를 거치지 않는다)
-    _presenceLive = p;
-    return p;
-  }
   /* 🛠 점검 표시 — 서버 /v2/config 가 먼저, 서버에 닿지 못할 때만 이 Firebase 칸을 한 번 읽는다(점검 중에도 규칙이 이 칸 읽기는 연다). 읽는 때 · 주인은 maintenance-gate.js 한 곳 */
+  const _mt = window.TwMaintenance.store;
   _mt.start({ readServer: () => window.TwApi.client.get(window.TwMaintenance.CONFIG_PATH),   // 앱 공통 API 통로 — 원격 설정과 같은 길이면 하나로 합치고 같은 값이면 304
     readFlag: () => _sdkGet(ref(db, window.TwMaintenance.MAINTENANCE_PATH)).then((s) => s.val()), rt: window.TwRtHub.store });
   const _getIdToken = (force) => (auth && auth.currentUser) ? auth.currentUser.getIdToken(!!force) : Promise.resolve(null);
@@ -312,45 +154,8 @@
   }
 
   window.firebaseAPI = {
-    /* 🕒 서버 시계 — 위에서 이미 구독해 둔 `.info/serverTimeOffset` 보정값을 밖으로 낸다.
-       [왜 내보내나] 가챠 병합이 **ts 가 큰 쪽이 이긴다**라서, 기기 시계를 그대로 믿으면 시계가
-         앞선 기기 한 대가 올린 미래 ts 가 그 시각이 실제로 올 때까지 그 계정의 모든 기기를
-         묶는다 — 뽑아도 그 자리에서 서버 값으로 덮이고 서버에는 안 올라간다(제보).
-         하트비트 stale 판정이 같은 이유로 이미 이 값을 쓰고 있었다(_svNow) — 새 구독이 아니라
-         쓰던 것을 공유하는 것뿐이라 비용이 0 이다.
-       ⚠️ 오프셋이 아직 안 왔거나 오프라인이면 0 이라 Date.now() 와 같아진다 — 호출부는 그 경우를
-         '보정 없음'으로 그냥 받아들이면 된다(지금보다 나빠지지 않는다). */
-    serverNow(){ return _svNow(); },
     getIdToken(force){ return _getIdToken(force); },
     // 서버 방에 들어가고 나갈 때 친구 목록의 «온라인 · 방코드» — Firebase 방은 joinRoom · leaveRoom 이 직접 한다.
-    // ===== 마이홈 친구 시스템 =====
-    async lookupFriendCode(code){
-      const snap = await get(ref(db, `friendCodes/${code}`));
-      const v = snap.val();
-      return (v && v.userId) ? v.userId : null;
-    },
-    /* 🔗 역방향 — "이 계정이 쓰던 친추 코드는 무엇인가".
-       friendCodes 는 코드→uid 뿐이라, uid 로 코드를 알려면 노드 전체를 훑어야 한다(비용 폭탄).
-       그래서 코드를 발급/되찾을 때마다 users/{uid}/friendCode 에 거울을 하나 둔다.
-       ★ 이게 있어야 **새 PC**에서 옛 코드를 알 수 있다. 로컬 기록은 그 기기에만 있으니
-         기기를 갈아타면 통째로 사라진다 — 계정을 따라오는 곳은 서버뿐이다. */
-    async getUserFriendCode(uid){
-      try{ const s = await get(ref(db, `users/${uid}/friendCode`)); const v = s.val(); return (typeof v === 'string' && v) ? v : null; }
-      catch(e){ return null; }
-    },
-    /* 👋 (걷음 · 회원가입 설계 §6-⑧ · CHECKS 개정 56) `migrateFriendRequests` — «버린 uid» 앞의 친구 요청을 지금 계정으로
-       끌어오던 것. 부르는 곳(_healFriendCodeOwner 의 «내가 버린 uid» 갈래)이 걷혔다 — 그 uid 는 이제 다른 계정이다. */
-    // 내 친추코드를 등록(이미 다른 사람이 쓰고 있으면 실패). 트랜잭션으로 안전하게 "선점".
-    async registerFriendCode(code, userId){
-      const codeRef = ref(db, `friendCodes/${code}`);
-      const result = await runTransaction(codeRef, cur=>{
-        if(cur && cur.userId && cur.userId !== userId) return;   // 이미 다른 사람이 쓰는 코드 — 실패(undefined 반환 시 트랜잭션 중단)
-        return { userId };
-      });
-      return !!(result && result.committed);
-    },
-    /* 🔗 (걷음 · 개정 56) `setFriendCodeOwner` — 친추코드 소유자 강제 지정. 부르던 두 곳(_claimFriendCodeAfterTransfer ·
-       _healFriendCodeOwner 되찾기 갈래)이 걷혔다. 남의 계정 코드를 가져가는 통로라 남기지 않는다(선점은 registerFriendCode 뿐). */
     /* ===== 🧬 캐릭터 슬롯 · 보관함은 서버 원본(character/closet-api.js — /v2/me/avatars). 여기는 Storage 올리기만 남았다 =====
        🧍 슬롯에 딸린 GLB(커미션 베이스·커스텀 책상·커스텀 아이템)를 Storage 에.
        key 는 app.js 가 '종류_내용해시' 로 만든다 — 같은 파일은 같은 경로라 두 번 올라가지 않고,
@@ -369,15 +174,6 @@
         return { ok:true, url };
       }catch(e){ console.warn('[슬롯] GLB 업로드 실패', safeKey, e); return { ok:false, reason:'업로드에 실패했어요' }; }
     },
-    /* 내 프로필 이름 저장 — 친구 목록이 이 노드를 아직 듣는다. 레벨 · 별(level · cyc · clv · starC)은 서버 진척이 원본이라 쓰지 않고,
-       update 라 그 칸들은 마지막 값 그대로 남는다(통째로 덮으면 지워진다 — 친구 쪽 갈아타기는 서버 빈칸 G2). */
-    async setMyProfile(userId, name){
-      /* 🚧 부팅 직후 첫 쓰기다. 세션 복원을 기다리지 않으면 구글에 묶인 계정에서 permission_denied 가 난다. */
-      await _whenAuthReady();
-      await update(ref(db, `users/${userId}/profile`), { name: name||'(이름 없음)', updatedAt: Date.now() });
-    },
-    /* 내 접속 표시 한 벌을 만든다 — 로그인 세션마다 하나(마이홈 처음 준비가 만들어 세션에 걸고 세션이 끝나면 dispose). 아래 _createMyPresence 참고. */
-    createMyPresence(userId, startOnline){ return _createMyPresence(userId, startOnline); },
     /* 범용 이미지 업로드 — 디자인 스튜디오 등에서 파일로 고른 이미지를 Storage에 올리고 URL을 받음.
        slot: 'bg' | 'panel_xxx' 등 용도별 키. 같은 slot에 다시 올리면 덮어씀(용량 누적 방지). */
     // 🏊 방 입장용 얼굴/눈감기 PNG를 Storage에 올리고 URL 반환 — 방 payload 다이어트(가) 단계.
@@ -404,7 +200,7 @@
     /* 📚 마이홈 북마크 책장은 서버 길(myhome/bookshelf-store.js · myhome-api.js)로 옮겼다 — Firebase 책장 메서드는 없다. */
 
     /* ===== 🫧 자리비움 그림 (2026-09-23 · handoff-2026-09-21-features §2 · 시안 A 확정) =====
-       Storage `away/{uid}/away_{ts}.webp`(규칙: 300KB 미만 · 삭제 허용) → URL 을 users/{uid}/awayImg 한 칸에.
+       Storage `away/{uid}/away_{ts}.webp`(규칙: 300KB 미만 · 삭제 허용) → URL 은 서버로(PUT /v2/me/away-image — away-pic.js).
        ★ 파일 이름에 시각을 넣는다 — STORAGE_CACHE(1년) 라 같은 이름으로 덮으면 남들이 옛 그림을 계속 본다.
        ★ dataURL 폴백이 없다 — 올리지 못하면 실패로 끝낸다(RTDB 로 새지 않게 · _uploadDataUrlIfNeeded 를 안 쓴다). */
     async uploadAwayImg(userId, dataUrl){
@@ -414,31 +210,6 @@
         await uploadString(r, dataUrl, 'data_url', { cacheControl: STORAGE_CACHE, contentType: 'image/webp' });
         return { ok:true, url: await getDownloadURL(r) };
       }catch(e){ console.warn('[away] 업로드 실패', e); return { ok:false, reason:'업로드에 실패했어요' }; }
-    },
-    async setAwayImg(userId, url){
-      try{
-        if(url) await set(ref(db, `users/${userId}/awayImg`), url);
-        else await remove(ref(db, `users/${userId}/awayImg`));
-        return { ok:true };
-      }catch(e){ console.warn('[away] 저장 실패', e); return { ok:false }; }
-    },
-    async getAwayImg(userId){
-      try{ const v=(await get(ref(db, `users/${userId}/awayImg`))).val(); return { ok:true, url:(typeof v==='string')?v:null }; }
-      catch(e){ return { ok:false, url:null }; }
-    },
-    /* 🫧 [2026-10-02 · A안] 자리비움 그림 **화면 크기**(60·80·100 px) — 그림 주인이 정하고 계정을 따라간다.
-       규칙 users/$userId/awaySz 가 세 값만 받는다. 그림 URL 과 칸을 나눈 이유: awayImg 규칙이 «Storage 주소 문자열» 이라
-       거기에 숫자를 섞을 수 없고, 관리자 [그림 내리기]가 크기까지 지울 이유도 없다. */
-    async setAwaySz(userId, px){
-      try{
-        if(!userId || [60, 80, 100].indexOf(px) < 0) return { ok:false };
-        await set(ref(db, `users/${userId}/awaySz`), px);
-        return { ok:true };
-      }catch(e){ console.warn('[away] 크기 저장 실패', e); return { ok:false }; }
-    },
-    async getAwaySz(userId){
-      try{ const v=(await get(ref(db, `users/${userId}/awaySz`))).val(); return { ok:true, px:([60, 80, 100].indexOf(v) >= 0) ? v : null }; }
-      catch(e){ return { ok:false, px:null }; }
     },
     /* 다운로드 URL 로 Storage 파일을 지운다 — 없거나 거절돼도 조용히(옛 그림 정리용). */
     async deleteStorageUrl(url){

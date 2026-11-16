@@ -53,10 +53,9 @@ say('── 1. 판정 합치기 (_applyActiveAppState 를 실제로 돌린다)')
   const mk = () => {
     const env = { now: 100000, srv: 5e12, added: 0, chal: 0 };
     const ctx = {
-      env, window: { firebaseAPI: { serverNow: () => env.srv } }, performance: { now: () => env.now },
+      env, serverNow: () => env.srv, window: {}, performance: { now: () => env.now },
       console,
     };
-    ctx.firebaseAPI = ctx.window.firebaseAPI;
     vm.createContext(ctx);
     vm.runInContext(`
       const MOBILE_MAX_ON_MS = ${maxM[1]};
@@ -161,7 +160,7 @@ say('── 4. 서버 길 (focus-level.js 를 돌린다)');
         issue: opt.issue || { status: 'ok', key: KEY }, unlink: opt.unlink || { status: 'ok' }, gate: null };
       const els = {}; ids.forEach((id) => { els[id] = { textContent: '', style: {}, className: '', disabled: false, onclick: null, title: '', classList: { add(){}, remove(){} }, getContext: () => null, width: 132 }; });
       const document = { getElementById: (id) => els[id] || null };
-      const win = { firebaseAPI: { serverNow: () => env.now }, TWQR: null, addEventListener(){} };
+      const win = { TWQR: null, addEventListener(){} };
       const done = (v) => env.gate ? env.gate.then(() => v) : Promise.resolve(v);
       const deps = {
         progress: { STAR_PALETTE: [['#ffd76a', '금']], whenReady: async () => { env.calls.push('ready'); return env.ready; } },
@@ -170,6 +169,7 @@ say('── 4. 서버 길 (focus-level.js 를 돌린다)');
         focusApi: { issueMobileKey: (u) => { env.calls.push('issue:' + u); return done(env.issue); }, unlinkMobile: (u) => { env.calls.push('unlink:' + u); return done(env.unlink); } },
         focusStore: { get: (k) => (k in env.store ? env.store[k] : null), set: (k, v) => { env.store[k] = String(v); return true; }, remove: (k) => { delete env.store[k]; return true; } },
         notifyError: (c) => { env.notes.push(c); },
+        serverNow: () => (env.clockKnown === false ? null : env.now),
         rtOnMessage: (t, fn) => { env.msgFns.push([t, fn]); return () => { env.msgFns = env.msgFns.filter((x) => x[1] !== fn); }; },
         _acctDetached: () => false, _focusSessionSec: () => 0, findMySeat: () => null, getMyUserId: () => 'u1', toast: (t) => env.toasts.push(t),
         wdDraftDef: () => null, setFocusSessionSec: () => {}, addFocusToday: () => {}, _focusTotalStarted: () => true,
@@ -217,9 +217,17 @@ say('── 4. 서버 길 (focus-level.js 를 돌린다)');
       chk(w.api._mobileOn() === true, '  4시간 안이면 켜짐');
       w.env.now += hours(1);
       chk(w.api._mobileOn() === false, '  서버 시각이 흘러 상한을 넘으면 꺼짐(새 신호 없이)');
-      const bk = LEVEL.replace('(_mobileNow() - m.since)', '(Date.now() - m.since)');
+      const bk = LEVEL.replace('(now - m.since) < MOBILE_MAX_ON_MS', '(Date.now() - m.since) < MOBILE_MAX_ON_MS');
       const wb = bk !== LEVEL ? mk({ src: bk }) : null; if(wb){ wb.api.startMobile('u1', {}, wb.session); fire(wb, { on: true, app: 'A', at: wb.env.now - hours(4) - 1 }); }
       chk(!!wb && wb.api._mobileOn() === true, '  (깨 보기) 4시간 셈을 PC 시계로 바꾸면 위 «4시간 넘음 → 꺼짐» 판정이 빨강'); }
+
+    /* 서버 시계를 모를 때(ready 전) — PC 시계로 어림하지 않고 «모름» 으로 본다 */
+    { const w = mk(); w.api.startMobile('u1', {}, w.session);
+      w.env.clockKnown = false;
+      fire(w, { t: 'mobileFocus', on: true, app: 'A', at: w.env.now - 1000 });
+      chk(w.api._mobileOn() === false && w.api._mobileRoomLabel() === '', '★ 서버 시계를 모르면 폰 «사용 중» 을 켜지 않는다(PC 시계로 대신하지 않는다)');
+      w.env.clockKnown = true;
+      chk(w.api._mobileOn() === true, '  시계를 알게 되면 같은 신호로 켜진다'); }
 
     /* (c) 계정 바뀜 */
     { const w = mk(); w.api.startMobile('u1', {}, w.session);
