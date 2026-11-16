@@ -152,141 +152,12 @@
   let _svTimeOffset = 0;
   try{ onValue(ref(db, '.info/serverTimeOffset'), s => { _svTimeOffset = s.val() || 0; }); }catch(e){}
   const _svNow = () => Date.now() + _svTimeOffset;
-  /* 🔌 접속 표시는 **로그인 세션마다 하나씩 만드는 객체**다(createMyPresence · 마이홈 처음 준비가 만들어 세션에 걸고, 세션이 끝나면 dispose).
-     모듈 전역에 «지금 계정의 접속 표시 상태» 를 두지 않는다 — 계정이 바뀌어도 앞 계정의 ref · 온라인 · 방 · onDisconnect · 구독이 다음 계정에 섞일 길이 없다.
-     세션이 끝날 때 dispose 를 빠뜨리면 숨기지 않고 만들 때 경고한다(_presenceLive — 쓰기에는 쓰이지 않는 감시용 포인터).
-     _presenceLive 는 «아직 안 풀린 객체가 있나» 만 본다. */
-  let _presenceLive = null;
-  // 방 입장/퇴장 시 presence에 현재 방 코드를 같이 기록 — 친구 목록의 "온라인 · COZY-9K2M" 배지에 쓰임
-  /* 🔒 단, **시크릿룸 코드는 기기 밖으로 내보내지 않는다.**
-     [왜 화면에서 가리는 게 아니라 여기서 막나] presence 는 친구라면 누구나 읽는 노드다. 화면에서만
-       숨기면 코드 자체는 서버에 그대로 남아, 앱을 거치지 않고 노드를 들여다보는 것만으로 새어나간다.
-       시크릿룸은 "별표를 아는 사람만 들어오는 방"이라(doJoinRoom 사양 주석) 코드가 곧 열쇠다 —
-       열쇠를 친구 목록에 올려두면 잠금장치가 없는 것과 같다.
-     ★ 대신 `inRoom` **불리언 하나**를 따로 올린다. 친구 목록의 🏠(=지금 방에 있음)는 이 값만 본다.
-       코드는 여전히 안 나가므로 열쇠는 지켜지고, "지금 뭔가 하는 중"이라는 신호는 남는다.
-     ⚠️ `room:'SCRT'` 같은 **가짜 코드를 올리는 방식은 쓰지 않는다.** 그건 값 자체가 "쟤 비밀방에
-       있다"를 말해버려서, 나중에 표시 규칙을 어떻게 바꾸든 노드만 읽으면 드러난다. 불리언은
-       일반 방이든 시크릿룸이든 똑같은 true 라 구분이 안 된다. */
   /* 💰 Storage 캐시 정책 — 한 번 받은 파일은 브라우저/앱이 재사용해서 다운로드 대역폭(=서버비)을 아낌. */
   const STORAGE_CACHE = 'public, max-age=31536000';
-  /* presence · onDisconnect 는 set(통째 덮기)이라 그 객체마다 ver 를 실어야 꺼진 뒤에도 남는다.
-     ⚠️ presence 에 쓰는 것은 update 까지 **전부** withVer 를 거친다 — 규칙은 online:true 인데 ver 가 없으면
-       옛 앱으로 보고 내 읽기 · 쓰기를 막는다(ver 없는 오프라인 쓰기도 inRoom 이 있으면 거절). withVer 는 모르면 'unknown' 을 싣는다.
-     버전보다 presence 가 먼저 쓰였으면 받은 뒤 ver 만 update 하고 onDisconnect 도 ver 를 실어 다시 건다. */
+  /* 이 앱 판 — preload 의 companion.getAppVersion() 을 한 번 받는다. realtime 연결의 hello 가 이 판을 싣는다(rt-hub getVersion). */
   const _appVer = createAppVersion({
     getVersion: () => (window.companion && window.companion.getAppVersion) ? window.companion.getAppVersion() : null,
   });
-  /* 🔌 내 접속 표시 한 벌 — 온라인 · 방 · 쓴 적 있음 · 구독 · ref 를 전부 이 객체가 쥔다(모듈 전역 없음).
-     @param startOnline 처음 온라인 여부(Promise · 고정값을 읽은 뒤) — 첫 쓰기는 이것이 풀린 뒤에만, «오프라인 고정» 인데 «온라인» 이 한 번 보이지 않게. 없으면 온라인.
-     @return { touch, setState, setRoom, onVersion, dispose, userId } — dispose 뒤에는 모든 쓰기가 버려진다(늦게 도착한 쓰기 · 기다리던 첫 쓰기 포함). */
-  function _createMyPresence(userId, startOnline){
-    if(_presenceLive) console.warn('[접속 표시] 앞 계정(' + _presenceLive.userId + ')의 접속 표시가 풀리지 않았어요 — 세션이 끝날 때 dispose 를 부르지 않은 버그예요. 새 계정(' + userId + ')은 따로 만들지만 앞 것이 남아 있어요');
-    const ref_ = ref(db, `users/${userId}/presence`);
-    const st = { online: true, room: null, inRoom: false, written: false, od: false, dead: false };
-    let unwatch = null;
-    const offPayload = ()=>_appVer.withVer({ online:false, lastSeen: Date.now() });
-    const body = ()=>_appVer.withVer({
-      online: st.online, lastSeen: Date.now(),
-      room:   st.online ? st.room   : null,
-      inRoom: st.online ? st.inRoom : false
-    });
-    /* 🔌 presence 를 **지금 상태 그대로** 다시 쓰고, onDisconnect 도 함께 다시 건다.
-         최초 1회와 재접속이 똑같은 것을 써야 해서 함수로 뺐다.
-         ★ online 에 true 가 아니라 `st.online` 을 넣는 것이 핵심이다 —
-           수동으로 오프라인 해 둔 사람을 네트워크가 한 번 끊겼다는 이유로
-           온라인으로 되돌리면 안 된다(setState 가 이 값을 세운다). */
-    const gate = Promise.resolve(startOnline).then(v=>{ if(v === false) st.online = false; }).catch(()=>{});
-    const arm = ()=>gate.then(()=>{
-      if(st.dead) return;   // 풀린 뒤 도착한 쓰기는 버린다
-      onDisconnect(ref_).set(offPayload());
-      st.od = true;
-      set(ref_, body());
-      st.written = true;
-    });
-    /* 🚧 presence 도 소유권이 걸린 가지다 — 세션 복원 전에 쓰면 조용히 거부되고,
-         그 기기는 친구 목록에서 영영 오프라인으로 보인다(재접속 복구가 돌기 전까지).
-         ⚠️ .info/connected 쪽은 감싸지 않는다. 그건 이미 부팅이 한참 지난 뒤의 경로다. */
-    /* 처음 쓰기는 버전을 받은 뒤 — 'unknown' 으로 먼저 쓰고 메우는 쓰기 두 번을 줄인다(IPC 라 보통 로그인보다 빠르다).
-       ready 는 못 받아도 null 로 끝나고(거부 없음), 그 전에 .info/connected 가 먼저 오면 그쪽이 'unknown' 으로 쓴다. */
-    _whenAuthReady().then(() => _appVer.ready).then(arm);
-    /* 🔌 재접속 복구 — **이게 없으면 한 번 끊긴 사람은 영영 오프라인이다.**
-         [기전] 화면 잠금·절전·와이파이 전환으로 소켓이 끊기면 서버가 위 onDisconnect 를 실행해
-           presence.online 을 false 로 만든다. 여기까지는 의도된 동작이다.
-           깨어나면 SDK 가 알아서 재접속하고 onDisconnect 도 다시 걸어 주지만,
-           **online 을 true 로 되돌려 쓰는 주체가 아무도 없었다.**
-           · 만든 객체를 다시 만들 수도 없고(세션마다 하나),
-           · 아래 6시간 인터벌은 update 로 lastSeen 만 건드려 online:false 를 그대로 남긴다
-             (오히려 '살아 있는 계정'으로 보이게 만들어 이상함을 더 늦게 발견하게 한다).
-           ⇒ 수동 토글(setState)을 누르기 전까지 자가 복구 경로가 하나도 없었다.
-           제보 그대로다: "누르지도 않았는데 오프라인 · 토글하면 정상 · 직전에 장시간 화면 잠금".
-         ★ 방 멤버 노드(joinRoom 의 `.info/connected` 감시)는 이미 같은 방식으로 복구하고 있었다.
-           패턴이 코드베이스에 있었는데 presence 에만 적용이 안 돼 있던 것이라, 그것을 옮겨왔다.
-         · 첫 콜백은 붙자마자 true 로 즉시 온다 → arm 이 한 번 중복 실행된다.
-           presence 는 수십 바이트라 그대로 둔다(방 노드와 같은 사정).
-         · 재접속마다 onDisconnect 를 다시 거는 것은 부수 이득이다 — payload 의 lastSeen 이
-           '앱 켠 시각'에 고정되던 문제(바로 아래 주석)가 재접속 시점으로 갱신된다.
-         · room·inRoom 도 함께 복구된다. onDisconnect 가 set 이라 그 둘이 날아가는데,
-           예전에는 방 안에 있어도 재접속 뒤 "온라인 · COZY-…" 배지가 사라진 채로 남았다. */
-    try{
-      unwatch = onValue(ref(db, '.info/connected'), s=>{ if(s.val() === true) arm(); });
-    }catch(_){}
-    const p = {
-      userId,
-      /* 🕒 lastSeen 을 한 번 찍는다 — 6시간마다 부르는 타이머는 세션이 쥔다(myhome-init.js).
-         [왜] onDisconnect 의 payload 는 **등록 시점에 고정**된다. 즉 앱을 끄면 '앱을 켠 시각'이
-           lastSeen 으로 남고, 켜 두는 동안에는 아무도 갱신하지 않는다.
-           그러면 앱을 8일 내리 켜 둔 사람의 lastSeen 이 8일 전이 되어, 매일 쓰는 사람인데도
-           시크릿룸 발급 판정(app.js SR_STALE_DAYS=7)에서 '버려진 계정'으로 보인다(예전엔 친추 코드 되찾기도 —
-           개정 56 에서 걷었다).
-         ⚠️ 주기를 짧게 잡을 이유가 없다. 이 값은 '며칠 단위'로만 쓰이므로 6시간이면 충분하고,
-           유저당 하루 4번의 아주 작은 쓰기로 끝난다. */
-      touch(){
-        if(st.dead) return;
-        try{ update(ref_, _appVer.withVer({ lastSeen: Date.now() })); }catch(_){}
-      },
-      /* 온라인 표시 수동 토글 — false면 친구 목록에서 오프라인으로 보임(앱은 계속 실행됨). */
-      setState(online){
-        if(st.dead) return Promise.resolve();
-        st.online = !!online;
-        if(!st.od){
-          st.od = true;
-          onDisconnect(ref_).set(offPayload());
-        }
-        st.written = true;
-        return set(ref_, body());
-      },
-      /* 방 입장/퇴장 — 친구 목록의 «방 안» 표시. 시크릿룸 코드는 기기 밖으로 내보내지 않는다(위 주석). */
-      setRoom(code){
-        if(st.dead) return;
-        const _secret = typeof code === 'string' && code.indexOf('SCRT-') === 0;
-        st.room = (_secret ? null : (code || null));
-        st.inRoom = !!code;
-        if(st.online && st.written) update(ref_, _appVer.withVer({ room: st.room, inRoom: st.inRoom, lastSeen: Date.now() }));   // 아직 안 썼으면(첫 쓰기 전) 첫 쓰기 body 가 이 방을 싣는다
-      },
-      /* 앱 버전이 presence 보다 늦게 왔을 때 — 이미 썼으면 ver 만 메우고 onDisconnect 도 진짜 버전으로 다시 건다 */
-      onVersion(ver){
-        if(st.dead || !st.written) return;
-        try{ onDisconnect(ref_).set(offPayload()); }catch(_){}
-        update(ref_, { ver }).catch(()=>{});
-      },
-      /* 세션이 끝날 때 — 쓴 적이 있고 온라인이었으면 «꺼짐» 으로 쓰고 쓰기가 끝나면 onDisconnect 를 취소한다(앱을 다시 켜지 않아 연결이 안 닫히므로, 취소하지 않으면
-         뒤에 같은 계정이 다른 기기에서 켠 접속 표시를 이 앱이 닫을 때 꺼 버린다). 이미 «꺼짐» 이면 취소만. 못 써도(오프라인) onDisconnect 는 남겨 연결이 닫힐 때 서버가 꺼 준다. */
-      dispose(){
-        if(st.dead) return;
-        st.dead = true;
-        if(_presenceLive === p) _presenceLive = null;
-        if(unwatch){ try{ unwatch(); }catch(_){} unwatch = null; }
-        if(!st.written) return;
-        const cancel = ()=>{ try{ onDisconnect(ref_).cancel(); }catch(_){} };
-        if(!st.online){ cancel(); return; }
-        try{ set(ref_, _appVer.withVer({ online:false, lastSeen: Date.now(), room:null, inRoom:false })).then(cancel, ()=>{}); }catch(_){}
-      },
-    };
-    _appVer.ready.then(v => { if(v) p.onVersion(v); });   // 버전이 presence 보다 늦게 오면 이 객체가 직접 받아 메운다(전역 포인터를 거치지 않는다)
-    _presenceLive = p;
-    return p;
-  }
   /* ⚙️ 원격 설정(remote-config.js — 읽는 차례 · 주기는 그 머리 주석) */
   const _lsOrNull = () => { try{ return window.localStorage; }catch(_){ return null; } };
   const _rc = (window.TwRemoteConfig && window.TwRemoteConfig.store) || null;
@@ -364,8 +235,6 @@
         return { ok:true, url };
       }catch(e){ console.warn('[슬롯] GLB 업로드 실패', safeKey, e); return { ok:false, reason:'업로드에 실패했어요' }; }
     },
-    /* 내 접속 표시 한 벌을 만든다 — 로그인 세션마다 하나(마이홈 처음 준비가 만들어 세션에 걸고 세션이 끝나면 dispose). 아래 _createMyPresence 참고. */
-    createMyPresence(userId, startOnline){ return _createMyPresence(userId, startOnline); },
     /* 범용 이미지 업로드 — 디자인 스튜디오 등에서 파일로 고른 이미지를 Storage에 올리고 URL을 받음.
        slot: 'bg' | 'panel_xxx' 등 용도별 키. 같은 slot에 다시 올리면 덮어씀(용량 누적 방지). */
     // 🏊 방 입장용 얼굴/눈감기 PNG를 Storage에 올리고 URL 반환 — 방 payload 다이어트(가) 단계.

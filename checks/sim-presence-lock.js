@@ -1,10 +1,8 @@
-/* sim-presence-lock.js — 🔒 친구 탭 온라인 고정(myhome/presence-lock.js) · 첫 쓰기 미루기(firebase-init createMyPresence) · 규칙(presencePref)
+/* sim-presence-lock.js — 🔒 친구 탭 온라인 고정(myhome/presence-lock.js) · realtime 첫 표시 · 규칙(presencePref)
    ・1절: normalize · startOnline — 고정했을 때만 고른 값 · 틀린 모양은 «고정 없음 · 온라인»
    ・2절: 모듈을 가짜 DOM 으로 실제로 돌린다 — 켤 때 계정 확인의 me 에서 고정값 · 받기 전 누름은 덮지 않음 ·
           고정 중 토글만 저장 · 🔒 누르면 지금 값으로 저장 · 로그인 없음 · 저장 실패는 E-MH-13
-   ・3절: 접속 표시 객체(_createMyPresence)를 실제로 돌린다 — 처음 값이 풀리기 전엔 쓰지 않음(재접속 신호가 먼저 와도) · 오프라인 고정이면 첫 쓰기부터 false ·
-          처음 값이 없으면(밀려난 뒤 다시 걸기) 지금 값 · 등록(_myPresenceRef)은 바로
-   ・4절: 배선 — html 버튼 · 싣는 순서 · app.js · myhome-init · myhome-ui 옛 토글 걷음 · 규칙 · 오류 번호 · smoke
+   ・4절: 배선 — Firebase 접속 표시 없음 · html 버튼 · 싣는 순서 · app.js · myhome-init · myhome-ui 옛 토글 걷음 · 규칙 · 오류 번호 · smoke
    ・5절: 깨 보기 */
 'use strict';
 const fs = require('fs');
@@ -43,7 +41,7 @@ function el(){
 function world(src, o){
   const w = Object.assign({ uid: 'u1', saveFail: false }, o || {});
   const tog = el(), lock = el();
-  const out = { tog, lock, saves: [], sets: [], vis: [], toasts: [], errs: [] };
+  const out = { tog, lock, saves: [], vis: [], toasts: [], errs: [] };
   const doc = { getElementById: (id) => id === 'mhPresenceToggle' ? tog : id === 'mhPresenceLock' ? lock : null };
   const win = {};
   new Function('window', 'document', src)(win, doc);
@@ -53,7 +51,6 @@ function world(src, o){
     toast: (m) => out.toasts.push(m),
     notifyError: (c, e) => out.errs.push(c),
     savePref: async (uid, p) => { out.saves.push([uid, p.lock, p.online]); if(w.saveFail) throw new Error('거절'); },
-    setPresence: (uid, on) => out.sets.push([uid, on]),
     startVisible: (on) => out.vis.push('start:' + on),
     setVisible: (on) => out.vis.push('set:' + on),
   });
@@ -75,7 +72,7 @@ async function behave(src){
   // 켤 때 — me 의 고정값(오프라인): 기다림 없이 바로(동기)
   let w = world(src);
   let v = w.m.startOnlineFor('u1', meOf(true, false));
-  r.bootLocked = v === false && isOff(w) && w.lock.textContent === '🔒' && w.lock.attr['aria-pressed'] === 'true' && w.saves.length === 0 && w.sets.length === 0;
+  r.bootLocked = v === false && isOff(w) && w.lock.textContent === '🔒' && w.lock.attr['aria-pressed'] === 'true' && w.saves.length === 0 && w.vis.join() === 'start:false';
   // 고정 안 함이면 오프라인이 남아 있어도 온라인
   w = world(src);
   r.bootUnlocked = w.m.startOnlineFor('u1', meOf(false, false)) === true && isOn(w) && w.lock.textContent === '🔓';
@@ -87,7 +84,7 @@ async function behave(src){
   // 받기 전에 누름 — 받은 값으로 덮지 않는다
   w = world(src);
   w.tog.click();
-  const t1 = w.m.startOnlineFor('u1', meOf(true, true)) === false && isOff(w) && w.sets.length === 1 && w.sets[0][1] === false && w.lock.textContent === '🔒';
+  const t1 = w.m.startOnlineFor('u1', meOf(true, true)) === false && isOff(w) && w.vis.join() === 'set:false,start:false' && w.lock.textContent === '🔒';
   await tick();
   const t2 = JSON.stringify(w.saves) === '[["u1",true,false]]';
   // 받기 전 누름 · 고정 안 함 → 🔓 · 저장 없음
@@ -101,7 +98,7 @@ async function behave(src){
   // 고정 안 함 · 토글 → 접속 표시만(저장 없음)
   w = world(src); w.m.startOnlineFor('u1', meOf(false, true));
   w.tog.click(); await tick();
-  r.toggleUnlocked = w.saves.length === 0 && w.sets.length === 1 && w.sets[0][1] === false && isOff(w) && /오프라인으로 보여요/.test(w.toasts[0]);
+  r.toggleUnlocked = w.saves.length === 0 && w.vis.join() === 'start:true,set:false' && isOff(w) && /오프라인으로 보여요/.test(w.toasts[0]);
   // 🔒 → 지금 값(오프라인)으로 저장 · 고정 중 토글 → 저장 · 🔓 → 풀림 저장
   w.lock.click(); await tick();
   const s1 = w.saves[0];
@@ -130,7 +127,7 @@ function report(r){
   say('── 1. normalize · startOnline');
   chk(r.pure, '고정했을 때만 고른 값으로 시작 · 틀린 모양은 «고정 없음 · 온라인» · 이 PC 사본 키 · 읽기 시한은 없다');
   say('── 2. 모듈을 실제로 돌린다');
-  chk(r.bootLocked, '켤 때 — 계정 확인의 me 에 «🔒 오프라인» 이면 오프라인으로 시작 · 🔒 표시 · 저장 · 접속 쓰기 0(첫 쓰기는 firebase-init)');
+  chk(r.bootLocked, '켤 때 — 계정 확인의 me 에 «🔒 오프라인» 이면 오프라인으로 시작 · 🔒 표시 · 저장 · 접속 표시는 고정값을 앉힌 뒤에만');
   chk(r.visible, '★ realtime 접속 표시 — 처음 값은 고정값을 앉힌 뒤(오프라인 고정이면 false 로 시작) · 누를 때마다 · 로그인 없으면 보내지 않는다');
   chk(r.bootUnlocked, '  고정을 안 했으면 마지막이 오프라인이어도 온라인으로 시작(예전과 같다)');
   chk(r.bootEmpty, '  서버 칸이 비어 있거나 me 가 없으면 온라인');
@@ -139,69 +136,6 @@ function report(r){
   chk(r.toggleUnlocked, '고정 안 함 — 토글은 접속 표시만 바꾸고 저장하지 않는다(예전과 같다)');
   chk(r.lockFlow, '🔒 누르면 지금 값으로 저장 · 고정 중 토글은 저장 · 🔓 누르면 풀림 저장 · 안내 문구');
   chk(r.edge, '로그인 없음 → 안내만 · 저장 실패 → E-MH-13 · uid 없으면 온라인');
-}
-
-/* 내 접속 표시 한 벌(firebase-init _createMyPresence)을 실제로 돌린다 — 서버 흉내: set · update · onDisconnect · 구독을 경로와 함께 적는다 */
-async function gate(fbi){
-  const grab = (src, head) => { const i = src.indexOf(head); if(i < 0) return null; let k = src.indexOf('{', i), d = 0;
-    for(; k < src.length; k++){ if(src[k] === '{') d++; else if(src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return null; };
-  const fn = grab(fbi, 'function _createMyPresence(');
-  if(!fn) return null;
-  const mk = () => {
-    const w = { log: [], connected: [], paths: [], cancelled: [], unwatched: 0, warns: [] };
-    const c = {
-      Date: { now: () => 1 }, Promise, db: {},
-      console: { warn: (m) => w.warns.push(String(m)) },
-      ref: (d, p) => ({ p }),
-      set: (r, v) => { w.log.push(['set', v.online, r.p]); return Promise.resolve(); },
-      update: (r, v) => { w.log.push(['update', v.online, r.p]); return Promise.resolve(); },
-      onDisconnect: (r) => ({ set: (v) => { w.log.push(['od', v.online, r.p]); return Promise.resolve(); }, cancel: () => { w.cancelled.push(r.p); return Promise.resolve(); } }),
-      onValue: (r, cb) => { if(r.p === '.info/connected'){ w.connected.push(cb); return () => { w.unwatched++; }; } },
-      _whenAuthReady: () => Promise.resolve(),
-      _appVer: { ready: Promise.resolve(), withVer: (x) => x },
-    };
-    vm.createContext(c);
-    vm.runInContext('let _presenceLive = null;\n' + fn + '\nthis.create = _createMyPresence;', c);
-    w.create = c.create; w.connect = () => w.connected.forEach(cb => cb({ val: () => true }));
-    w.sets = (path) => w.log.filter(e => e[0] === 'set' && (!path || e[2] === path));
-    return w;
-  };
-  const r = {};
-  const only = (w, path) => w.log.length > 0 && w.log.every(e => e[2] === path);
-  /* 처음 값이 풀리기 전엔 쓰지 않는다(재접속 신호 · 6시간 lastSeen 이 먼저 와도) · «🔒 오프라인» 이면 어느 쓰기에도 online:true 없음 */
-  let res; let w = mk();
-  let p = w.create('u1', new Promise(a => { res = a; }));
-  w.connect(); p.touch(); await tick();
-  const before = w.log.filter(e => e[0] === 'set' || e[1] === true).length;
-  res(false); await tick(); p.touch(); await tick();
-  r.wait = before === 0 && w.sets().length > 0 && w.log.every(e => e[1] !== true);
-  w = mk(); w.create('u1', Promise.resolve(true)); await tick();
-  r.onTrue = w.sets().length > 0 && w.sets().every(e => e[1] === true);
-  w = mk(); w.create('u1', Promise.reject(new Error('x'))); await tick();
-  r.noArg = w.sets().length > 0 && w.sets().every(e => e[1] === true);
-  w = mk(); w.create('u1'); await tick();
-  r.fresh = w.sets().length > 0 && w.sets().every(e => e[1] === true);
-  /* 계정이 바뀐다 — 앞 사람이 «오프라인» 으로 꺼 둔 채 나가도(setState false → dispose) 다음 사람은 온라인으로 시작 · 앞 계정 onDisconnect 취소 · 구독 해제 · 앞 계정 칸에 더 쓰지 않는다 */
-  w = mk(); const A = w.create('u1', Promise.resolve(true)); await tick();
-  A.setState(false); await tick(); A.dispose(); await tick();
-  const afterDispose = w.unwatched === 1 && w.cancelled.join() === 'users/u1/presence' && w.warns.length === 0;
-  w.log.length = 0;
-  const B = w.create('u2', Promise.resolve(true)); await tick();
-  w.connect(); B.touch(); B.setRoom('COZY-1'); B.setState(true); await tick();
-  r.switchUser = afterDispose && only(w, 'users/u2/presence') && w.sets().every(e => e[1] === true) && w.warns.length === 0;
-  /* dispose 뒤의 쓰기는 버린다 — 늦은 재접속 신호 · 토글 · 방 · 한 번 찍기 · 기다리던 첫 쓰기 */
-  w = mk(); let late; const L = w.create('u1', new Promise(a => { late = a; })); L.dispose();
-  w.connect(); L.setState(true); L.setRoom('X'); L.touch(); late(true); await tick();
-  r.afterDispose = w.log.length === 0;
-  /* 첫 쓰기 전에 방이 정해지면 따로 update 하지 않고 첫 쓰기 body 가 싣는다(인증 복원 전 거부 · 오프라인 고정인데 노드에 room 이 붙는 것을 막는다) */
-  w = mk(); let g2; const R = w.create('u1', new Promise(a => { g2 = a; })); R.setRoom('COZY-1'); await tick();
-  const noEarlyUpdate = w.log.length === 0; g2(true); await tick();
-  r.roomFirst = noEarlyUpdate && w.log.some(e => e[0] === 'set');
-  /* 풀지 않고 새로 만들면(세션이 끝날 때 dispose 를 빠뜨림) 숨기지 않고 경고 — 정상 흐름(dispose 뒤)에는 경고가 없다 */
-  w = mk(); w.create('u1', Promise.resolve(true)); w.create('u2', Promise.resolve(true)); await tick();
-  r.warnsLeak = w.warns.length === 1 && /풀리지 않았어요/.test(w.warns[0]);
-  w = mk(); const P1 = w.create('u1'); P1.dispose(); w.create('u2'); r.noWarnClean = w.warns.length === 0;
-  return r;
 }
 
 (async () => {
@@ -217,20 +151,6 @@ async function gate(fbi){
     chk(!/mhInit: \(code, me, session\)=>\{[^\n]*mhInitMod\.initMyHome\(code, me, session\);/.test(old), '깨 보기 — me 를 안 넘기는 모양이면 빨강');
   }
 
-  say('── 3. 첫 쓰기 미루기 (_createMyPresence 를 실제로 돌린다)');
-  const G = await gate(FBI);
-  chk(!!G, '_createMyPresence 를 찾았다');
-  if(G){
-    chk(G.wait, '처음 값이 풀리기 전엔 쓰지 않는다(재접속 신호 · 6시간 lastSeen 이 먼저 와도) · «🔒 오프라인» 이면 어느 쓰기에도 online:true 없음');
-    chk(G.onTrue, '  처음 값이 온라인이면 예전처럼 온라인');
-    chk(G.noArg && G.fresh, '  처음 값이 실패하거나 없으면 온라인으로 쓴다');
-    chk(G.switchUser, '★ 계정이 바뀐다 — 앞 사람이 «오프라인» 으로 꺼 둔 채 나가도 다음 사람은 온라인으로 시작 · 앞 계정 onDisconnect 취소 · 접속 구독 해제 · 다음 사람은 자기 칸에만 쓴다(앞 계정 칸 0)');
-    chk(G.roomFirst, '  첫 쓰기 전의 방 표시는 따로 쓰지 않는다 — 첫 쓰기가 싣는다');
-    chk(G.afterDispose, '★ 풀린(dispose) 객체는 토글 · 방 · 한 번 찍기 · 재접속 신호 · 기다리던 첫 쓰기 모두 버린다');
-    chk(G.warnsLeak, '★ 앞 객체를 풀지 않고 새로 만들면 숨기지 않고 경고한다(세션이 끝날 때 dispose 를 빠뜨린 버그)');
-    chk(G.noWarnClean, '  정상(dispose 뒤 새로 만듦)에는 경고가 없다');
-  }
-
   say('── 4. 배선');
   {
     const H = SRC[A + 'desk-companion-prototype.html'], AP = SRC[A + 'parts/app.js'], INIT = SRC[A + 'parts/myhome/myhome-init.js'], UI = SRC[A + 'parts/myhome/myhome-ui.js'];
@@ -239,9 +159,8 @@ async function gate(fbi){
     chk(iL > 0 && iA > iL, 'html — presence-lock.js 가 app.js 보다 먼저');
     chk((AP.match(/const presenceLockMod = TwPresenceLock\.createPresenceLock\(\{/g) || []).length === 1 && AP.indexOf('const presenceLockMod') < AP.indexOf('const mhInitMod')
       && /savePref: \(uid, p\)=>loginFlowMod\.patchMe\(\{ presencePref: \{ locked: p\.lock, online: p\.online \} \}\)\.then\(\(r\)=>\{ if\(!r\.ok\) throw r\.err; \}\),/.test(AP)
-      && /setPresence: \(\.\.\.a\)=>setMyPresenceState\(\.\.\.a\),/.test(AP)
       && /  setVisible: \(v\)=>presenceSelfMod\.setVisible\(v\),\n  startVisible: \(v\)=>presenceSelfMod\.start\(v\),/.test(AP) && AP.indexOf('const presenceSelfMod') < AP.indexOf('const presenceLockMod') && /  presenceLock: presenceLockMod,\n/.test(AP), 'app.js — 마이홈 처음 준비보다 먼저 만들고 deps 로 넘긴다');
-    chk(/firebaseAPI\.createMyPresence\(myId, presenceLock\.startOnlineFor\(myId, me\)\);/.test(INIT), 'myhome-init — 처음 온라인 여부를 접속 표시를 만들 때 넘긴다(확인의 me 로)');
+    chk(/presenceLock\.startOnlineFor\(myId, me\);/.test(INIT) && !/createMyPresence/.test(INIT), 'myhome-init — 온라인 고정을 계정 확인의 me 로 앉히고 첫 표시를 켠다(Firebase 접속 표시는 만들지 않는다)');
     chk(!/mhPresenceToggle/.test(UI) && !/setMyPresenceState/.test(UI), 'myhome-ui — 옛 토글 연결을 걷었다(두 벌이면 한 번 누름에 두 번 바뀐다)');
     let R = null; try{ R = JSON.parse(SRC['firebase/firebase-database-rules.json']).rules.presencePref.$userId; }catch(_){}
     const own = /^auth != null && root\.child\('userAuth\/'\+\$userId\)\.val\(\) === auth\.uid && /;
@@ -252,32 +171,12 @@ async function gate(fbi){
     chk(SRC['checks/smoke.js'].indexOf("PRELOAD.push('presence-lock.js');") > 0, 'smoke PRELOAD 에 presence-lock.js');
   }
 
-  say('── 4-2. 접속 표시 객체가 없을 때 — 조용히 버리지 않고 경고한다(app.js 길 · account.js «꺼짐»)');
+  say('── 4-2. Firebase 접속 표시가 없다 — 앱은 접속 표시를 realtime 으로만 보낸다');
   {
     const AP = SRC[A + 'parts/app.js'], AC = SRC[A + 'parts/account/account.js'];
-    const line = (head) => (AP.split('\n').find(l => l.startsWith(head)) || '');
-    const L = [line('const myPresence = '), line('const setMyPresenceState = '), line('const setMyPresenceRoom = ')];
-    const run = (lines, sess) => {
-      const warns = [], got = [];
-      const f = new Function('appBoot', 'console', lines.join('\n') + '\nreturn { setMyPresenceState, setMyPresenceRoom };');
-      const m = f({ getSession: () => sess }, { warn: (x) => warns.push(String(x)) });
-      m.setMyPresenceState('u', false); m.setMyPresenceRoom('COZY-1');
-      return { warns, got };
-    };
-    const pr = []; const p = { setState: (v) => pr.push('state:' + v), setRoom: (c) => pr.push('room:' + c) };
-    const okRun = L.every(Boolean) ? run(L, { presence: p, alive: () => true }) : null;
-    chk(!!okRun && pr.join() === 'state:false,room:COZY-1' && okRun.warns.length === 0, '객체가 있으면 지금 세션의 객체로 간다(토글 · 방) — 경고 없음');
-    const noSess = L.every(Boolean) ? run(L, null) : null, noObj = L.every(Boolean) ? run(L, { alive: () => true }) : null;
-    const dead = L.every(Boolean) ? run(L, { presence: p, alive: () => false }) : null;
-    chk(!!noSess && noSess.warns.length === 2 && noSess.warns.every(w => /접속 표시/.test(w)) && !!noObj && noObj.warns.length === 2, '★ 세션이 없거나 마이홈 처음 준비 전(객체 없음)이면 토글 · 방 쓰기를 버리며 경고한다(조용히 버리지 않는다)');
-    chk(!!dead && dead.warns.length === 2 && pr.length === 2, '★ 끝난 세션(alive 거짓)의 풀린 객체는 «없음» 으로 본다 — 쓰기를 조용히 버리지 않고 경고한다(객체에 쓰지도 않는다)');
-    const deadLive = L.map(l => l.replace('(s && s.alive()) ? s.presence : null', 's ? s.presence : null'));
-    const leak = run(deadLive, { presence: p, alive: () => false });
-    chk(deadLive.join() !== L.join() && leak.warns.length === 0, '  깨 보기 — 끝난 세션을 가리지 않으면 위 ★ 가 빨강');
-    const mute = L.map(l => l.replace(/console\.warn\([^;]*\); /, ''));
-    const quiet = run(mute, null);
-    chk(mute.join() !== L.join() && quiet.warns.length === 0, '  깨 보기 — 경고를 빼면 위 ★ 가 빨강(경고 없이 버리는 모양이 판정에 잡힌다)');
-    chk(/function _presenceOff\(\)\{\n  if\(sessionLost\(\)\) return Promise\.resolve\(\);[^\n]*\n  const pr = getPresence\(\);\n  if\(!pr\)\{ console\.warn\('\[접속 표시\][^\n]*return Promise\.resolve\(\); \}/.test(AC), '로그아웃 «꺼짐» 쓰기도 객체가 없으면 경고하고 건너뛴다(밀려난 기기만 조용히 건너뜀 — 그 칸은 이긴 쪽 것)');
+    const code = (x) => x.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/mg, '');
+    chk(!/createMyPresence|_createMyPresence|\.info\/connected/.test(code(FBI)), '★ firebase-init 에 접속 표시 쓰기 · onDisconnect · .info/connected 구독이 없다');
+    chk(!/setMyPresenceState|setMyPresenceRoom|myPresence\b|setPresence/.test(code(AP)) && !/_presenceOff|getPresence/.test(code(AC)), '★ app.js · account.js 에 Firebase 접속 표시 객체를 쓰는 길이 없다(토글 · 방 표시 · 로그아웃 «꺼짐»)');
   }
 
   say('── 5. 깨 보기');
@@ -299,23 +198,6 @@ async function gate(fbi){
     chk(b9 && !b9.visible, '토글을 realtime 에 안 알리면 2절이 빨강');
     const b7 = await br("adopt(uid, normalize(pp ? { lock: pp.locked, online: pp.online } : null));", "adopt(uid, normalize(null));");
     chk(b7 && !b7.bootLocked, 'me 의 고정값을 안 읽으면 2절이 빨강');
-    const gb = async (from, to) => FBI.includes(from) ? gate(FBI.replace(from, to)) : null;
-    const g2 = await gb("update(ref_, _appVer.withVer({ lastSeen: Date.now() }))", "update(ref_, _appVer.withVer({ lastSeen: Date.now(), online: true }))");
-    chk(g2 && !g2.wait, '한 번 찍기(lastSeen)에 online:true 를 섞으면 3절이 빨강');
-    const g1 = await gb("const arm = ()=>gate.then(()=>{", "const arm = ()=>Promise.resolve().then(()=>{");
-    chk(g1 && !g1.wait, '첫 쓰기가 처음 값을 안 기다리면 3절이 빨강');
-    const g3 = await gb("      if(st.dead) return;   // 풀린 뒤 도착한 쓰기는 버린다\n", "");
-    chk(g3 && !g3.afterDispose, '풀린 뒤 기다리던 첫 쓰기를 안 버리면 3절이 빨강');
-    const g4 = await gb("        if(st.dead) return Promise.resolve();\n        st.online = !!online;", "        st.online = !!online;");
-    chk(g4 && !g4.afterDispose, '풀린 뒤 토글을 안 버리면 3절이 빨강');
-    const g5 = await gb("const cancel = ()=>{ try{ onDisconnect(ref_).cancel(); }catch(_){} };", "const cancel = ()=>{};");
-    chk(g5 && !g5.switchUser, '앞 계정 onDisconnect 를 취소하지 않으면 3절이 빨강');
-    const g6 = await gb("if(unwatch){ try{ unwatch(); }catch(_){} unwatch = null; }", "");
-    chk(g6 && !g6.switchUser, '접속 구독을 풀지 않으면 3절이 빨강');
-    const g7 = await gb("if(_presenceLive) console.warn(", "if(false) console.warn(");
-    chk(g7 && !g7.warnsLeak, '풀지 않은 앞 객체가 있어도 경고하지 않으면(조용히 넘어가면) 3절이 빨강');
-    const g8 = await gb("if(_presenceLive === p) _presenceLive = null;", "");
-    chk(g8 && !g8.noWarnClean, 'dispose 가 «풀림» 을 적지 않으면(정상 흐름에 거짓 경고) 3절이 빨강');
   }
 
   say('');

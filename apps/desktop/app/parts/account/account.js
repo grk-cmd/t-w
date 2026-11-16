@@ -49,7 +49,6 @@ const toast = deps.toast;
 const tricksMod = deps.tricksMod;
 const weeklyChal = deps.weeklyChal;   // 읽는 함수
 const loginFlowMod = deps.loginFlowMod;   // 🔑 로그인 흐름(login-flow.js) — 로그인 · 서버 가입 확인 · realtime · 로그아웃
-const getPresence = deps.getPresence;   // () => 지금 세션의 접속 표시 한 벌 또는 null(app.js myPresence)
 const sessionLost = deps.sessionLost;   // () => boolean — 다른 기기에 밀렸나(realtime sessionLost) · 그 접속 표시는 이긴 쪽 것
 const ME_CACHE_KEY = deps.ME_CACHE_KEY;   // 내 계정 사본(login-flow.js) — 계정 몫이라 로그아웃이 지운다
 const userApiMod = deps.userApiMod;   // 🪪 계정 provider(user-api.js) — 비밀번호 붙이기 · 바꾸기 · 탈퇴 · 화면 문구(reasonOf)
@@ -228,18 +227,6 @@ function _wipeAccountLocal(){
      다음 부팅의 initLicense 가 빈 키를 보고 기본으로 시작한다. */
 }
 
-/* 로그인이 남아 있을 때 presence 를 «꺼짐» 으로 — signOut 뒤에는 onDisconnect(꺼짐)가 돌지 않아(그 칸은 이 계정 로그인만 쓴다)
-   친구에게 접속중으로 남는다. 밀려난 기기는 쓰지 않는다 — 그 칸은 이긴 쪽 것이다.
-   접속 표시 객체가 없을 수 있다 — 강제 로그아웃은 검문(«네트워크 없음»)에 걸려도 여기까지 온다. */
-const PRESENCE_OFF_WAIT_MS = 3000;   // 오프라인이면 쓰기가 안 끝난다 — 로그아웃을 이만큼만 붙잡는다
-function _presenceOff(){
-  if(sessionLost()) return Promise.resolve();   // 밀려난 기기는 쓰지 않는다 — 그 칸은 이긴 쪽 것
-  const pr = getPresence();
-  if(!pr){ console.warn('[접속 표시] 로그아웃 «꺼짐» 쓰기를 건너뛰었어요 — 지금 세션에 접속 표시가 없어요(세션 없음 · 마이홈 처음 준비 전)'); return Promise.resolve(); }
-  let p = null;
-  try{ p = pr.setState(false); }catch(_){}
-  return Promise.race([Promise.resolve(p).catch(() => {}), new Promise(r => setTimeout(r, PRESENCE_OFF_WAIT_MS))]);
-}
 /* 신원 놓기 한 벌 — 올리고 → 검문 → 지운다. 로그아웃·연동 해제가 같이 쓴다.
    @return { ok:true } | { ok:false, reason } — false 면 **아무것도 안 지웠다.** 부르는 쪽이 이유를 보여준다. */
 async function _detachAccountLocal(opt){
@@ -257,9 +244,8 @@ async function _detachAccountLocal(opt){
     if(!pf.ok && !force) return pf;
     if(!pf.ok) console.warn('[계정] 검문에 걸렸지만 강제 로그아웃 — 이 기기에만 있던 것: ' + (pf.items || []).map(i => i.label).join(' · '));
   }
-  if(uid) await _presenceOff();
   _wipeAccountLocal();
-  /* 🖥️ 지금 기기 자리는 realtime 서버가 쥔다 — 로그아웃(loginFlowMod.logout)의 작별(bye{logout})로 놓인다. */
+  /* 🖥️ 지금 기기 자리 · 친구에게 보이는 접속 표시는 realtime 서버가 쥔다 — 로그아웃(loginFlowMod.logout)의 작별(bye{logout})로 놓인다. */
   return { ok:true };
 }
 
