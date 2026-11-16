@@ -3,6 +3,7 @@ import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-quer
 import { byPopularity } from '../model/popularity';
 import {
   applyListEdit,
+  shelfKindOf,
   type CatalogShelf,
   type CatalogSort,
   type ListEdit,
@@ -11,7 +12,6 @@ import {
 import type { CatView } from '../model/category';
 import { CATEGORIES_KEY, kindShelvesKey, SHELF_KEY, shelfKey } from './keys';
 import { useCatalogPort } from './index';
-import { shelfKindOf } from '../model/shelf';
 
 /**
  * 한 종류의 진열대. 처음 연 종류마다 한 번만 받고 세션 동안 들고 있는다(gcTime 무한) — 쓰고 나면 포트가 돌려준 말로 캐시만 고치고,

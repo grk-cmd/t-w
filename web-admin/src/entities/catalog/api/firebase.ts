@@ -3,9 +3,9 @@
 import { isPermissionDenied, type Db } from '@/shared/api';
 import { catalogPath, withCatalogVersion, type CatalogNode, type CatalogWrite } from '../model/catalog';
 import { categoryViews, type CatOverride, type CatView, type CustomCat } from '../model/category';
-import { catalogEntries, type CatalogRecord } from '../model/entry';
+import { byShelfOrder, catalogEntries, type CatalogKind, type CatalogRecord } from '../model/entry';
 import { equipCountOf, equipKindOf, equipPath, toEquipCounts, type EquipKind } from '../model/popularity';
-import { isPartsKind, type CatalogShelf } from '../model/shelf';
+import type { CatalogShelf } from '../model/shelf';
 import type { CatalogPort } from './port';
 
 export async function getCatalogNode<T>(db: Db, node: CatalogNode): Promise<Record<string, T>> {
@@ -49,16 +49,18 @@ export function createFirebaseCatalogPort(db: Db): CatalogPort {
     diagnosable: true,
 
     async shelf(kind): Promise<CatalogShelf> {
-      const [raw, categories, counts] = await Promise.all([
-        getCatalogNode<CatalogRecord>(db, kind),
-        isPartsKind(kind) ? getCategories(db) : [],
+      // 파츠 탭은 보통 파츠(parts)와 가챠 파츠(gachaParts)를 한 목록으로 — 앱이 두 통을 order 로 합쳐 보이는 것과 같다.
+      const nodes: CatalogKind[] = kind === 'parts' ? ['parts', 'gachaParts'] : [kind];
+      const [raws, categories, counts] = await Promise.all([
+        Promise.all(nodes.map((node) => getCatalogNode<CatalogRecord>(db, node))),
+        kind === 'parts' ? getCategories(db) : [],
         // 장착 수를 못 읽어도 목록은 보인다 — 못 읽은 줄은 `equip: null`(화면이 «장착 ?» 로 보인다).
         getEquipCounts(db, equipKindOf(kind)).catch(() => null),
       ]);
-      const entries = catalogEntries(kind, raw).map((e) => ({
-        ...e,
-        equip: counts ? equipCountOf(counts, e.id) : null,
-      }));
+      const entries = nodes
+        .flatMap((node, i) => catalogEntries(node, raws[i]))
+        .sort(byShelfOrder)
+        .map((e) => ({ ...e, equip: counts ? equipCountOf(counts, e.id) : null }));
       return { entries, categories, shelves: {} };
     },
 

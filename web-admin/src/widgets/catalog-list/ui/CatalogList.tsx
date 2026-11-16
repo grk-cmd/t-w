@@ -1,12 +1,13 @@
 import { useMemo, useState, type DragEvent } from 'react';
 import {
   KIND_LABEL,
+  STATE_LABEL,
   shelfScope,
   shelfVersion,
   useCatalogShelf,
   useRefreshCatalog,
   type CatalogEntry,
-  type CatalogKind,
+  type ShelfKind,
   type CatalogShelf,
   type CatView,
 } from '@/entities/catalog';
@@ -32,8 +33,8 @@ const SORT_LABEL: Record<SortMode, string> = {
 };
 
 /** 파츠는 카테고리마다 진열 칸이 따로라 칸별로 묶는다 — 앱 카테고리 순서, 모르는 카테고리는 뒤에. */
-function useGroups(kind: CatalogKind, shelf: CatalogShelf | undefined): Group[] {
-  const byCat = kind === 'parts' || kind === 'gachaParts';
+function useGroups(kind: ShelfKind, shelf: CatalogShelf | undefined): Group[] {
+  const byCat = kind === 'parts';
   return useMemo(() => {
     if (!shelf) return [];
     if (!byCat) return [{ key: '', title: null, entries: shelf.entries }];
@@ -86,7 +87,7 @@ function Thumb({ entry }: { entry: CatalogEntry }) {
 }
 
 interface Props {
-  kind: CatalogKind;
+  kind: ShelfKind;
   /** 이름 · 아이콘 수정 — 책상 · 아이템. */
   editable?: boolean;
 }
@@ -178,7 +179,7 @@ export function CatalogList({ kind, editable }: Props) {
             )}
             {group.entries.map((entry) => (
               <div
-                key={entry.id}
+                key={`${entry.kind}/${entry.id}`}
                 className={drag?.id === entry.id ? `row ${styles.dragging}` : 'row'}
                 draggable={!popular && !entry.legacyGacha && !reorder.isPending && editing !== entry.id}
                 onDragStart={(e) => {
@@ -211,6 +212,10 @@ export function CatalogList({ kind, editable }: Props) {
                         {entry.icon} {entry.name || '이름 없음'}
                       </b>
                       <code className="key">{entry.id}</code>
+                      {entry.gacha && <small className={styles.badge}>가챠</small>}
+                      {entry.state && entry.state !== 'ACTIVE' && (
+                        <small className="warn">{STATE_LABEL[entry.state]}</small>
+                      )}
                       {entry.base64 && <small className="warn">base64</small>}
                       {entry.legacyGacha && <small className="warn">가챠 이관 전</small>}
                     </span>
@@ -222,7 +227,9 @@ export function CatalogList({ kind, editable }: Props) {
                     )}
                   </>
                 )}
-                <DeleteEntriesButton entries={[entry]} all={entries ?? []} single />
+                {entry.state !== 'ARCHIVED' && (
+                  <DeleteEntriesButton entries={[entry]} all={entries ?? []} single />
+                )}
               </div>
             ))}
           </div>

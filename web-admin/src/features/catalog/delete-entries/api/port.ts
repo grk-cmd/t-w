@@ -10,8 +10,12 @@ export interface RemoveEntriesResult {
   edits: ListEdit[];
 }
 
-/** 🗑 항목 지우기. */
+/**
+ * 🗑 항목 지우기. Firebase 판은 지우고(되돌릴 수 없다), API 판은 서버에 지우기가 없어 «단종» 한다(행은 남고 되살릴 수 있다).
+ */
 export interface DeleteEntriesPort {
+  /** 지우지 않고 단종하는 판 — 화면의 단추 · 확인 문구가 이에 맞춘다. */
+  archives: boolean;
   /** `entries` 를 지운다. `rest` 는 같은 목록 전체 — 남는 항목이 쓰는 파일은 지우지 않는다. */
   remove(entries: readonly CatalogEntry[], rest: readonly CatalogEntry[]): Promise<RemoveEntriesResult>;
 }

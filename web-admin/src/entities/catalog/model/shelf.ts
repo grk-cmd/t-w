@@ -3,14 +3,15 @@ import type { CatalogEntry, CatalogKind } from './entry';
 
 export type CatalogSort = 'order' | 'popular';
 
-/** 화면 탭 하나 = 진열대 하나. */
-export type ShelfKind = CatalogKind;
+/** 화면 탭 하나 = 진열대 하나 — 파츠 탭은 보통 파츠와 가챠 파츠를 한 줄로 보인다. */
+export type ShelfKind = 'parts' | 'desks' | 'items';
 
 /** 줄 종류 → 그 줄이 보이는 탭. */
-export const shelfKindOf = (kind: CatalogKind): ShelfKind => kind;
+export const shelfKindOf = (kind: CatalogKind): ShelfKind => (kind === 'gachaParts' ? 'parts' : kind);
 
 /** 파츠 줄이 있는 종류 — 카테고리별로 묶는다. */
-export const isPartsKind = (kind: CatalogKind): boolean => kind === 'parts' || kind === 'gachaParts';
+export const isPartsKind = (kind: CatalogKind | ShelfKind): boolean =>
+  kind === 'parts' || kind === 'gachaParts';
 
 /** 한 종류의 진열대 한 벌 — 줄 · 카테고리 · 진열대(범위별 번호). */
 export interface CatalogShelf {
@@ -72,15 +73,19 @@ export function applyListEdit(shelf: CatalogShelf, edit: ListEdit): CatalogShelf
     }
     case 'order': {
       const inScope = (e: CatalogEntry) => shelfScope(e) === edit.scope;
-      const byId = new Map(shelf.entries.filter(inScope).map((e) => [e.id, e]));
-      const next = edit.ids.flatMap((id, i) => {
+      const scoped = shelf.entries.filter(inScope);
+      const byId = new Map(scoped.map((e) => [e.id, e]));
+      const listed = edit.ids.flatMap((id, i) => {
         const e = byId.get(id);
         return e ? [{ ...e, order: i }] : [];
       });
+      // 순서에 없는 줄은 그 뒤에 원래 순서 그대로(서버도 «목록에 없는 물건은 맨 뒤» 로 본다).
+      const named = new Set(listed.map((e) => e.id));
+      const next = [...listed, ...scoped.filter((e) => !named.has(e.id))];
       let at = 0;
       return {
         ...shelf,
-        entries: shelf.entries.map((e) => (inScope(e) && at < next.length ? next[at++] : e)),
+        entries: shelf.entries.map((e) => (inScope(e) ? next[at++] : e)),
         shelves: edit.version ? { ...shelf.shelves, [edit.scope]: edit.version } : shelf.shelves,
       };
     }

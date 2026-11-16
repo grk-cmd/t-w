@@ -9,6 +9,15 @@ export {
 } from './api/hooks';
 export { useCatalogPort, type CatalogPort } from './api';
 export {
+  CATALOG_BASE,
+  createServerCatalogPort,
+  ITEM_FIELD,
+  ITEM_KIND,
+  ITEM_PATH,
+  toCatalogRow,
+  toCatView,
+} from './api/server';
+export {
   applyCatalogWrite,
   CATALOG_NODES,
   catalogMetaPath,

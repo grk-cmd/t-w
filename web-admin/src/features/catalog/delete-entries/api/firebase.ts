@@ -57,6 +57,7 @@ export async function deleteEntries(
 
 export function createFirebaseDeleteEntriesPort(db: Db, files: Files): DeleteEntriesPort {
   return {
+    archives: false,
     async remove(entries, rest) {
       const r = await deleteEntries(db, files, entries, rest);
       return {

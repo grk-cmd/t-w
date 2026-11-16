@@ -45,3 +45,11 @@
   margin: 4px 0 0;
   font-size: 12px;
 }
+
+.badge {
+  margin-left: 6px;
+  padding: 0 6px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  color: var(--accent);
+}

@@ -1,5 +1,7 @@
+import { QueryClient } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
 import {
+  applyEdits,
   applyListEdit,
   categoryAfterNameSave,
   categoryNameWrite,
@@ -13,7 +15,8 @@ import {
 } from '@/entities/catalog';
 import { applyCatalogWrite, type CatalogWrite } from '@/entities/catalog';
 import { createFirebaseCatalogPort } from '@/entities/catalog/api/firebase';
-import { fakeDb } from '../shared/fakeDb';
+import { createFirebaseReorderEntriesPort } from '@/features/catalog/reorder-entries/api/firebase';
+import { fakeDb, NOW, withoutAudits } from '../shared/fakeDb';
 
 const part = (id: string, cat: string, order: number) => toEntry('parts', id, { name: id, cat, order });
 
@@ -123,5 +126,75 @@ describe('Firebase 판 진열대 읽기', () => {
     });
     const s = await port.shelf('desks', 'order');
     expect(s.entries.map((e) => [e.id, e.equip])).toEqual([['d1', null]]);
+  });
+});
+
+describe('Firebase 판 파츠 탭 — 보통 파츠와 가챠 파츠를 한 목록으로', () => {
+  const data = {
+    'catalog/parts': {
+      p1: { cat: 'hat', name: '보통1', order: 1 },
+      old: { cat: 'hat', name: '옛 가챠', gacha: true, order: 5 },
+    },
+    'catalog/gachaParts': { g1: { cat: 'hat', name: '가챠1', order: 0 }, g2: { cat: 'top', name: '가챠2' } },
+    'metrics/parts/equipped/parts': { g1: 2, p1: 1 },
+  };
+
+  it('order 로 합쳐 세우고(없으면 뒤) 가챠 표시를 단다', async () => {
+    const s = await createFirebaseCatalogPort(fakeDb(data).db).shelf('parts', 'order');
+    expect(s.entries.map((e) => [e.kind, e.id, e.gacha, e.equip])).toEqual([
+      ['gachaParts', 'g1', true, 2],
+      ['parts', 'p1', false, 1],
+      ['parts', 'old', true, 0],
+      ['gachaParts', 'g2', true, 0],
+    ]);
+  });
+
+  it('한 칸에 섞인 줄을 끌어 놓으면 각자의 통 경로에 order 를 쓴다', async () => {
+    const { db, writes } = fakeDb(data);
+    const s = await createFirebaseCatalogPort(db).shelf('parts', 'order');
+    const hat = s.entries.filter((e) => e.cat === 'hat' && !e.legacyGacha);
+    const r = await createFirebaseReorderEntriesPort(db).reorder({
+      group: hat,
+      dragged: 'p1',
+      target: 'g1',
+      version: 0,
+    });
+    expect(r.ok && r.changed).toBe(true);
+    expect(withoutAudits(writes)).toEqual([
+      ['commit', 'catalog/parts/p1/order', 0],
+      ['commit', 'catalog/gachaParts/g1/order', 1],
+      ['commit', 'catalogMeta/parts', NOW],
+      ['commit', 'catalogMeta/gachaParts', NOW],
+    ]);
+  });
+});
+
+describe('쓰기 말을 캐시에 적용', () => {
+  const sortKeyOf = (kind: string, sort: string) => ['catalog', 'shelf', kind, sort];
+
+  it('seed — 진열 순서 캐시는 그대로 두고 다른 정렬 캐시는 낡았다고 표시한다', () => {
+    const client = new QueryClient();
+    const stale: CatalogShelf = { entries: [], categories: [], shelves: {} };
+    client.setQueryData(sortKeyOf('parts', 'popular'), stale);
+    const fresh = shelf();
+    applyEdits(client, [{ op: 'seed', kind: 'gachaParts', shelf: fresh }]);
+    expect(client.getQueryData(sortKeyOf('parts', 'order'))).toBe(fresh);
+    expect(client.getQueryState(sortKeyOf('parts', 'popular'))?.isInvalidated).toBe(true);
+    expect(client.getQueryState(sortKeyOf('parts', 'order'))?.isInvalidated).toBe(false);
+  });
+
+  it('category — 카테고리 카드와 파츠 진열대의 같은 카테고리를 함께 바꾼다', () => {
+    const client = new QueryClient();
+    const [hat] = categoryViews({}, {});
+    client.setQueryData(['catalog', 'categories'], [hat]);
+    client.setQueryData(sortKeyOf('parts', 'order'), { entries: [], categories: [hat], shelves: {} });
+    applyEdits(client, [{ op: 'category', cat: { ...hat, label: '새 이름', version: 2 } }]);
+    expect(client.getQueryData<CatView[]>(['catalog', 'categories'])?.[0]).toMatchObject({
+      label: '새 이름',
+    });
+    expect(client.getQueryData<CatalogShelf>(sortKeyOf('parts', 'order'))?.categories[0]).toMatchObject({
+      label: '새 이름',
+      version: 2,
+    });
   });
 });
