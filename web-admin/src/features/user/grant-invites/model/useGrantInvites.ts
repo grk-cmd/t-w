@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
+import { resetKeyset } from '@/shared/lib';
 import {
   GROUP_INVITES_KEY,
   useForgetUserInvites,
@@ -84,20 +85,20 @@ export function useCountAllTargets(): () => Promise<number> {
   return () => port.countAll();
 }
 
-/** 여러 명 코드 — 만들거나 중지하면 목록을 다시 받는다. */
+/** 여러 명 코드 — 만들거나 중지하면 목록을 첫 쪽부터 다시 받는다(옛 커서 · `total` 을 이어 쓰지 않는다). */
 export function useCreateGroupInvite() {
   const port = useGrantInvitesPort();
   const client = useQueryClient();
   return useMutation({
     mutationFn: (draft: GroupInviteDraft) => port.createGroup(draft),
-    onSuccess: () => client.invalidateQueries({ queryKey: GROUP_INVITES_KEY }),
+    onSuccess: () => resetKeyset(client, GROUP_INVITES_KEY),
   });
 }
 
 export function useSetGroupInviteStopped() {
   const port = useGrantInvitesPort();
   const client = useQueryClient();
-  const reload = () => client.invalidateQueries({ queryKey: GROUP_INVITES_KEY });
+  const reload = () => resetKeyset(client, GROUP_INVITES_KEY);
   return useMutation<void, Error, { invite: GroupInvite; stop: boolean }>({
     mutationFn: ({ invite, stop }) => port.setGroupStopped(invite, stop),
     // 다른 곳이 먼저 고쳤으면(API 판 409) 줄이 옛 번호를 들고 있다 — onSettled 가 한 번 다시 받는다.

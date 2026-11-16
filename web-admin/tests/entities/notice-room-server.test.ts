@@ -56,11 +56,14 @@ describe('소식 포트 — API 판', () => {
           pinned: [wire('p1', { pinned: true, tag: 'UPDATE' })],
           latest: [wire('a')],
           nextCursor: null,
+          total: 1,
         },
       }),
     });
     const page = await createServerBroadcastPort(s.api).list(30);
     expect(page.hasMore).toBe(false);
+    // 서버 total 은 고정 아닌 공지 수 — 고정을 더해 전체 수로.
+    expect(page.total).toBe(2);
     expect(page.items.map((b) => [b.id, b.tag, b.pinned, b.ts, b.version])).toEqual([
       ['p1', 'update', true, Date.parse('2026-11-20T03:00:00Z'), 3],
       ['a', 'notice', false, Date.parse('2026-11-20T03:00:00Z'), 3],
@@ -70,7 +73,7 @@ describe('소식 포트 — API 판', () => {
   it('더 달라고 하면 키셋으로 이어 받는다(한 번에 최대 50개)', async () => {
     const s = fake({
       'GET /v2/notices': () => ({
-        broadcasts: { pinned: [], latest: [wire('a'), wire('b')], nextCursor: 'c1' },
+        broadcasts: { pinned: [], latest: [wire('a'), wire('b')], nextCursor: 'c1', total: 3 },
       }),
       'GET /v2/notices/broadcasts': () => ({ items: [wire('c')], nextCursor: null }),
     });
@@ -78,6 +81,16 @@ describe('소식 포트 — API 판', () => {
     expect(page.items.map((b) => b.id)).toEqual(['a', 'b', 'c']);
     expect(s.calls[1].query).toEqual({ cursor: 'c1', limit: 50 });
     expect(page.hasMore).toBe(false);
+  });
+
+  it('공지 판에 total 이 없으면 약속과 다른 응답', async () => {
+    const s = fake({
+      'GET /v2/notices': () => ({ broadcasts: { pinned: [], latest: [wire('a')], nextCursor: null } }),
+    });
+    const error = await createServerBroadcastPort(s.api)
+      .list()
+      .catch((e: unknown) => e);
+    expect(isPortError(error, 'invalid')).toBe(true);
   });
 
   it('보내기: 태그는 서버 이름으로, 같은 내용을 다시 보내면 같은 요청 번호', async () => {
@@ -105,6 +118,7 @@ describe('소식 포트 — API 판', () => {
           pinned: [],
           latest: [wire('a', { version: 7 }), wire('b', { version: 2 })],
           nextCursor: null,
+          total: 2,
         },
       }),
       'PATCH /v2/admin/notices/broadcasts/a': () => undefined,
@@ -136,7 +150,7 @@ describe('소식 포트 — API 판', () => {
   it('묶음에서 안 된 줄이 있으면 «n개 됨 · m개 안 됨» 으로 던지고 겹침이면 conflict', async () => {
     const s = fake({
       'GET /v2/notices': () => ({
-        broadcasts: { pinned: [], latest: [wire('a'), wire('b')], nextCursor: null },
+        broadcasts: { pinned: [], latest: [wire('a'), wire('b')], nextCursor: null, total: 2 },
       }),
       'POST /v2/admin/notices/broadcasts/bulk': () => [
         { id: 'a', ok: true },
@@ -163,7 +177,7 @@ describe('소식 포트 — API 판', () => {
   it('옛 화면이 든 줄(옛 version)로 고정하면 서버가 409 → conflict, 덮어쓰지 않는다', async () => {
     const s = fake({
       'GET /v2/notices': () => ({
-        broadcasts: { pinned: [], latest: [wire('a', { version: 1 })], nextCursor: null },
+        broadcasts: { pinned: [], latest: [wire('a', { version: 1 })], nextCursor: null, total: 1 },
       }),
       'PATCH /v2/admin/notices/broadcasts/a': () => {
         throw new ApiError('request', 409, 'CONCURRENT_UPDATE', '겹침');
@@ -179,7 +193,7 @@ describe('소식 포트 — API 판', () => {
   it('version 이 없는 응답 줄은 0 이나 빈 값으로 덮지 않고 던진다', async () => {
     const s = fake({
       'GET /v2/notices': () => ({
-        broadcasts: { pinned: [], latest: [wire('a', { version: undefined })], nextCursor: null },
+        broadcasts: { pinned: [], latest: [wire('a', { version: undefined })], nextCursor: null, total: 1 },
       }),
     });
     const error = await createServerBroadcastPort(s.api)
@@ -193,7 +207,9 @@ describe('소식 — 공지 줄의 칸이 틀리면 던진다', () => {
   it('태그 · 제목 · 시각 · pinned 가 틀린 줄을 버리거나 기본값으로 덮지 않는다', async () => {
     for (const bad of [{ tag: 'OTHER' }, { title: 3 }, { publishedAt: 'x' }, { pinned: 'yes' }, { id: 7 }]) {
       const s = fake({
-        'GET /v2/notices': () => ({ broadcasts: { pinned: [], latest: [wire('a', bad)], nextCursor: null } }),
+        'GET /v2/notices': () => ({
+          broadcasts: { pinned: [], latest: [wire('a', bad)], nextCursor: null, total: 1 },
+        }),
       });
       const error = await createServerBroadcastPort(s.api)
         .list()
@@ -206,7 +222,7 @@ describe('소식 — 공지 줄의 칸이 틀리면 던진다', () => {
     for (const result of [{}, [{ id: 'a' }]]) {
       const s = fake({
         'GET /v2/notices': () => ({
-          broadcasts: { pinned: [], latest: [wire('a'), wire('b')], nextCursor: null },
+          broadcasts: { pinned: [], latest: [wire('a'), wire('b')], nextCursor: null, total: 2 },
         }),
         'POST /v2/admin/notices/broadcasts/bulk': () => result,
       });
@@ -380,7 +396,7 @@ describe('같은 API 에는 포트가 하나 — 읽는 훅 · 쓰는 훅이 같
   it('읽은 줄의 version 이 고정 요청에 실려 간다(포트는 따로 기억하지 않는다)', async () => {
     const s = fake({
       'GET /v2/notices': () => ({
-        broadcasts: { pinned: [], latest: [wire('a', { version: 9 })], nextCursor: null },
+        broadcasts: { pinned: [], latest: [wire('a', { version: 9 })], nextCursor: null, total: 1 },
       }),
       'PATCH /v2/admin/notices/broadcasts/a': () => undefined,
     });
@@ -418,6 +434,7 @@ describe('같은 API 에는 포트가 하나 — 읽는 훅 · 쓰는 훅이 같
           pinned: [],
           latest: Array.from({ length: 100 }, (_, i) => wire(`b${i}`)),
           nextCursor: null,
+          total: 100,
         },
       }),
     });

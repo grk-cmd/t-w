@@ -1,5 +1,5 @@
 // API 판 — 받는 사람 확인 `POST /v2/admin/licenses/preview { friendCodes: [코드] }`(쓰는 것 없음 · 이름을 방 이름으로 쓴다),
-// 이미 방이 있는 사람은 `GET /secret-rooms?friendCode=` 로 읽어 연장 · 코드 바꿈을 미리 알린다. 발급 `POST /v2/admin/secret-rooms { requestId, friendCode, code?, name, months?, confirmTakeover }` — 끝나는 날 · 이어붙임 · 옛 방 끝내기 · 우편은 서버가 한다.
+// 이미 방이 있는 사람은 `GET /secret-rooms?friendCode=&live=true`(열린 방만) 로 읽어 연장 · 코드 바꿈을 미리 알린다. 발급 `POST /v2/admin/secret-rooms { requestId, friendCode, code?, name, months?, confirmTakeover }` — 끝나는 날 · 이어붙임 · 옛 방 끝내기 · 우편은 서버가 한다.
 // 남이 가진 코드면 409 `LICENSE_SECRET_ROOM_CODE_TAKEN` 의 `items` 로 알려 주고, 확인받은 뒤 `confirmTakeover: true` 로 다시 보낸다.
 import {
   existingRoomWarning,
@@ -10,7 +10,7 @@ import {
   parseWantCode,
   SECRET_PREFIX,
   isUserId,
-  toRoomRow,
+  toLiveRoom,
   type TakenRoom,
 } from '@/entities/secret-room';
 import {
@@ -86,17 +86,13 @@ function build(api: Api | null): GrantSecretRoomPort {
       const friendCode = wireString(o.friendCode, '미리 보기 줄의 friendCode');
       const wantCode = wanted.want ? SECRET_PREFIX + wanted.want : '';
       // 서버는 이미 방이 있는 사람에게 연장 · 코드 바꿈을 조용히 한다 — 먼저 그 사람의 방을 읽어 알린다.
-      const rooms = await portCall(
+      const mine = await portCall(
         api,
-        async (a) => wireArray(await a.get<unknown>(ROOMS, { friendCode }), '시크릿룸 목록').map(toRoomRow),
+        async (a) => toLiveRoom(await a.get<unknown>(ROOMS, { friendCode, live: 'true' }), '시크릿룸 목록'),
         '그 사람의 시크릿룸을 확인하지 못했어요',
       );
-      const open = rooms.filter((r) => r.endedAt === null);
-      if (open.length > 1) throw wireError('시크릿룸 목록', '열린 방 하나');
       const warnings: string[] = [];
-      if (open.length === 1) {
-        const [mine] = open;
-        if (mine.code === null) throw wireError(`시크릿룸 ${mine.id} 의 code`, '열린 방의 글자');
+      if (mine !== null) {
         warnings.push(
           existingRoomWarning(
             { code: mine.code, expiresAt: mine.expiresAt },

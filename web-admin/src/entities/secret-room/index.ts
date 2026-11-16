@@ -34,4 +34,4 @@ export {
   type TakenRoom,
 } from './model/secretRoom';
 // API 판 읽기 — 시크릿룸 발급 포트가 «그 사람의 방» 을 읽을 때 같은 줄 읽기를 쓴다.
-export { toRoomRow } from './api/server';
+export { toLiveRoom } from './api/server';

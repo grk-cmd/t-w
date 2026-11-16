@@ -1,22 +1,22 @@
-// API 판 — `GET /v2/admin/license-requests?cursor&limit`(대기 요청 · 키셋). 연결이 없어 화면이 열려 있는 동안 30초마다 묻는다(설계 5절).
+// API 판 — `GET /v2/admin/license-requests?cursor&limit`(대기 요청 · 키셋 · 첫 쪽 `total`). 연결이 없어 화면이 열려 있는 동안 30초마다 묻는다(설계 5절).
 import {
   adminPath,
   perApi,
   portCall,
   wireArray,
   wireError,
+  wireNullableNumber,
   wireNullableString,
+  wireNumber,
   wireObject,
   wireString,
   type Api,
 } from '@/shared/api';
-import { fetchAllPages } from '@/shared/lib';
+import type { KeysetPage } from '@/shared/lib';
 import type { LicenseRequest } from '../model/request';
 import type { LicenseRequestPort } from './port';
 
 const BASE = adminPath('/license-requests');
-/** 서버 한 번에 받는 상한(`limit` 1~100). */
-const PAGE_MAX = 100;
 export const POLL_MS = 30_000;
 
 /** 요청 한 건 — 칸이 약속과 다르면 줄을 버리지 않고 던진다. */
@@ -37,20 +37,21 @@ function build(api: Api | null): LicenseRequestPort {
   return {
     kind: 'poll',
     intervalMs: POLL_MS,
-    pending: () =>
+    page: (cursor, limit) =>
       portCall(
         api,
-        (a) =>
-          fetchAllPages(async (cursor) => {
-            const page = wireObject(
-              await a.get<unknown>(BASE, { cursor, limit: PAGE_MAX }),
-              '라이선스 요청 쪽',
-            );
-            return {
-              items: wireArray(page.items, '라이선스 요청 쪽의 items').map(toRequest),
-              nextCursor: wireNullableString(page.nextCursor, '라이선스 요청 쪽의 nextCursor'),
-            };
-          }),
+        async (a): Promise<KeysetPage<LicenseRequest>> => {
+          const page = wireObject(await a.get<unknown>(BASE, { cursor, limit }), '라이선스 요청 쪽');
+          return {
+            items: wireArray(page.items, '라이선스 요청 쪽의 items').map(toRequest),
+            nextCursor: wireNullableString(page.nextCursor, '라이선스 요청 쪽의 nextCursor'),
+            // `total` 은 첫 쪽에만 오고 다음 쪽은 null.
+            total:
+              cursor === undefined
+                ? wireNumber(page.total, '라이선스 요청 첫 쪽의 total')
+                : wireNullableNumber(page.total, '라이선스 요청 쪽의 total'),
+          };
+        },
         '요청 목록을 받지 못했어요',
       ),
   };

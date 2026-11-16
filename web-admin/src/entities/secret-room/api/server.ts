@@ -1,4 +1,4 @@
-// API 판 — `GET /v2/admin/secret-rooms?ownerUserCode=` — 그 사람의 방(끝난 방 포함 · 발급 순). 지금 열려 있는 방(끝나지 않은 것)만 «그 사람의 방» 이다.
+// API 판 — `GET /v2/admin/secret-rooms?ownerUserCode=&live=true` — 그 사람의 열린 방(끝나지 않은 것)만. 거르기는 서버가 한다.
 import {
   adminPath,
   perApi,
@@ -37,21 +37,28 @@ export function toRoomRow(w: unknown) {
   };
 }
 
+/** `live=true` 로 받은 목록 — 끝난 방이 섞였거나 한 사람에 열린 방이 둘 이상이면 약속과 다른 응답. 없으면 null. */
+export function toLiveRoom(w: unknown, what: string) {
+  const rooms = wireArray(w, what).map(toRoomRow);
+  if (rooms.some((r) => r.endedAt !== null)) throw wireError(what, '끝나지 않은 방만');
+  if (rooms.length > 1) throw wireError(what, '열린 방 하나');
+  const [room] = rooms;
+  if (!room) return null;
+  if (room.code === null) throw wireError(`시크릿룸 ${room.id} 의 code`, '열린 방의 글자');
+  return { ...room, code: room.code };
+}
+
 function build(api: Api | null): SecretRoomPort {
   return {
     ofUser: (uid) =>
       portCall(
         api,
         async (a) => {
-          const rooms = wireArray(await a.get<unknown>(BASE, { ownerUserCode: uid }), '시크릿룸 목록').map(
-            toRoomRow,
+          const room = toLiveRoom(
+            await a.get<unknown>(BASE, { ownerUserCode: uid, live: 'true' }),
+            '시크릿룸 목록',
           );
-          const open = rooms.filter((r) => r.endedAt === null);
-          if (open.length === 0) return null;
-          // 서버 약속: 한 사람에 열린 방은 하나.
-          if (open.length > 1) throw wireError('시크릿룸 목록', '열린 방 하나');
-          const [room] = open;
-          if (room.code === null) throw wireError(`시크릿룸 ${room.id} 의 code`, '열린 방의 글자');
+          if (room === null) return null;
           const pub: SecretRoomPub = { owner: room.ownerUserCode };
           if (room.name !== null) pub.name = room.name;
           if (room.expiresAt !== null) pub.exp = room.expiresAt;

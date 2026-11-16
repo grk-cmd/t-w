@@ -24,7 +24,11 @@ export async function listBroadcasts(db: Db, n = BROADCAST_PAGE): Promise<Broadc
     if (!isIndexMissing(error)) throw error;
     return splitBroadcasts((await db.get<Record<string, RawBroadcast>>(ROOT)) ?? {}, n);
   });
-  return { items: sortBroadcasts({ ...recent, ...pinned }), hasMore: Object.keys(recent).length >= n };
+  return {
+    items: sortBroadcasts({ ...recent, ...pinned }),
+    hasMore: Object.keys(recent).length >= n,
+    total: null,
+  };
 }
 
 function splitBroadcasts(all: Record<string, RawBroadcast>, n: number) {

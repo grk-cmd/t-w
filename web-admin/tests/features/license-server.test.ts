@@ -408,14 +408,12 @@ describe('시크릿룸 발급 — API 판', () => {
     const warn = async (room: object, over: { want?: string; months?: string }) => {
       const s = fakeApiOf({
         'POST /v2/admin/licenses/preview': () => [found()],
-        'GET /v2/admin/secret-rooms': () => [
-          mine({ secretRoomId: 'old', code: null, endedAt: '2026-01-01T00:00:00Z' }),
-          room,
-        ],
+        // live=true 라 끝난 방은 서버가 뺀다.
+        'GET /v2/admin/secret-rooms': () => [room],
       });
       const { r } = await prepared(s, over);
       if (!r.ok) throw new Error('확인이 통과해야 해요');
-      expect(s.calls[1].query).toEqual({ friendCode: 'MATE-AB12' });
+      expect(s.calls[1].query).toEqual({ friendCode: 'MATE-AB12', live: 'true' });
       return r.plan.warnings;
     };
     expect(await warn(mine(), { want: 'mine', months: '3' })).toEqual([

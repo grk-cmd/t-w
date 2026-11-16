@@ -47,7 +47,7 @@ describe('수령함 전체 공지', () => {
     expect(list.map((b) => b.id)).toEqual(['pin', 'new', 'old']);
     expect(list[0]).toEqual({ id: 'pin', tag: 'notice', title: '고정', body: '', ts: 2, pinned: true });
     expect(hasMore).toBe(false);
-    expect(await listBroadcasts(fakeDb().db)).toEqual({ items: [], hasMore: false });
+    expect(await listBroadcasts(fakeDb().db)).toEqual({ items: [], hasMore: false, total: null });
     expect(sortBroadcasts({})).toEqual([]);
   });
 

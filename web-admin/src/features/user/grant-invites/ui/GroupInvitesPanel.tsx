@@ -11,8 +11,8 @@ import {
   type GroupInviteState,
 } from '@/entities/invite';
 import { useEnv, withProdMark } from '@/shared/api';
-import { copyText, errorMessage, formatDate, kstDateKey } from '@/shared/lib';
-import { useToast } from '@/shared/ui';
+import { copyText, errorMessage, formatDate, keysetView, kstDateKey, useKeysetPaging } from '@/shared/lib';
+import { Pager, useToast } from '@/shared/ui';
 import { useCreateGroupInvite, useSetGroupInviteStopped } from '../model/useGrantInvites';
 import styles from './GroupInvitesPanel.module.css';
 
@@ -28,6 +28,8 @@ export function GroupInvitesPanel() {
   const env = useEnv();
   const toast = useToast();
   const list = useGroupInvites(true);
+  const paging = useKeysetPaging(list, 'groupInvites');
+  const loaded = list.data ? keysetView(list.data.pages).items : null;
   const create = useCreateGroupInvite();
   const stop = useSetGroupInviteStopped();
   const [maxUses, setMaxUses] = useState(100);
@@ -100,33 +102,36 @@ export function GroupInvitesPanel() {
       <h3 className={styles.sub}>만든 코드</h3>
       {list.isPending && <p className="soft">불러오는 중…</p>}
       {list.error && <p className="msg err">{errorMessage(list.error, '목록을 불러오지 못했어요')}</p>}
-      {list.data && list.data.length === 0 && <p className="soft">아직 만든 코드가 없어요</p>}
+      {loaded && loaded.length === 0 && <p className="soft">아직 만든 코드가 없어요</p>}
       {stop.error && <p className="msg err">{errorMessage(stop.error, '바꾸지 못했어요')}</p>}
-      {list.data && list.data.length > 0 && (
-        <table className={styles.table} aria-label="만든 외부인 초대장">
-          <thead>
-            <tr>
-              <th>코드</th>
-              <th>메모</th>
-              <th>쓴 사람</th>
-              <th>마감</th>
-              <th>상태</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {list.data.map((g) => (
-              <Row
-                key={g.code}
-                invite={g}
-                state={groupInviteState(g, now)}
-                busy={stop.isPending}
-                onCopy={() => copy(g.code)}
-                onStop={(s) => stop.mutate({ invite: g, stop: s })}
-              />
-            ))}
-          </tbody>
-        </table>
+      {loaded && loaded.length > 0 && (
+        <>
+          <table className={styles.table} aria-label="만든 외부인 초대장">
+            <thead>
+              <tr>
+                <th>코드</th>
+                <th>메모</th>
+                <th>쓴 사람</th>
+                <th>마감</th>
+                <th>상태</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {paging.items.map((g) => (
+                <Row
+                  key={g.code}
+                  invite={g}
+                  state={groupInviteState(g, now)}
+                  busy={stop.isPending}
+                  onCopy={() => copy(g.code)}
+                  onStop={(s) => stop.mutate({ invite: g, stop: s })}
+                />
+              ))}
+            </tbody>
+          </table>
+          <Pager paging={paging} more={paging.more} />
+        </>
       )}
     </section>
   );

@@ -120,7 +120,11 @@ export async function listGroupInvites(db: Db): Promise<GroupInvite[]> {
 
 export function createFirebaseInvitePort(db: Db): InvitePort {
   return {
-    groups: () => listGroupInvites(db),
+    // 노드를 통째로 받는 판이라 한 쪽에 전부 싣는다(다음 쪽 없음 · 전체 수 = 받은 수).
+    groups: async () => {
+      const items = await listGroupInvites(db);
+      return { items, nextCursor: null, total: items.length };
+    },
     invitesLeft: (uid) => getInvitesLeft(db, uid),
   };
 }
