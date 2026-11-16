@@ -1,11 +1,12 @@
 /* xmas-window.js — 🎄 크리스마스 창(일회성 — 다음 업데이트에서 걷는다 · 이슈 #963) (검사 sim-xmas-window.js)
    책임: 런처 [크리스마스] 버튼(1월 1일 0시 — 서버 시각 — 부터 숨김) · 창 열고 닫기 · 내 트리 불러오기(그림은 판이 달라진 자리만) ·
      장식 고르기 · 내 그림 올리기(64px PNG) · 한마디 · 장식 달기 · 바꾸기(5초 간격) · «트리가 다 찼어요» · 장식 신고 · 한마디 라벨.
-   3D 는 xmas-tree.js, 서버는 net(firebaseAPI.xmas — 늦게 붙으므로 부를 때 찾는다), 규칙은 rules(TwXmasRules).
+   3D 는 xmas-tree.js, 편지 창은 xmas-letter.js(뮤직바 xmas-song.js), 서버는 net(firebaseAPI.xmas — 늦게 붙으므로 부를 때 찾는다), 규칙은 rules(TwXmasRules).
    ★ 그림 사본은 이 PC 의 GLB 영구 캐시(IndexedDB)에 «트리/자리@판» 키로 — 다시 열 때 판이 같은 그림은 받지 않는다.
      ⚠️ localStorage 에 두지 말 것 — 트리 하나가 수 MB 라 앱 전체가 같이 쓰는 한도를 먹어 캐릭터 저장 등이 실패한다.
    ★ 남이 쓴 한마디는 textContent 로만 넣는다.
-   classic script(window.TwXmasWindow) — app.js 보다 먼저 싣는다. app.js 가 `createXmasWindow(deps)` 한 번 — 밖에서 부르는 이름 없음(런처 버튼이 연다). */
+   classic script(window.TwXmasWindow) — app.js 보다 먼저 싣는다. app.js 가 `createXmasWindow(deps)` 한 번 — 밖에서 부르는 이름 없음
+   (런처 버튼 · 알림함 «익명의 편지가 왔어요» 가 창 열기 통로 NAV.XMAS 로 연다). */
 (function(){
 'use strict';
 
@@ -16,7 +17,9 @@ const FETCH_PAR = 6;
 /**
  * @param {{ doc?:Document, win?:Window, THREE:any, ps1Dither:any, rules:any, treeMod:any, net:()=>any, serverNow:()=>number,
  *           notifyError:(code:string, err?:any)=>void, toast:(msg:string)=>void, escRegisterWindow:Function,
- *           onSizeChange:()=>void, onReady:(fn:()=>void)=>void, idbGet:(k:string)=>Promise<string|null>, idbPut:(k:string, v:string)=>any }} deps
+ *           onSizeChange:()=>void, onReady:(fn:()=>void)=>void, idbGet:(k:string)=>Promise<string|null>, idbPut:(k:string, v:string)=>any,
+ *           songMod:any, letterMod:any, companion:()=>any, ytVideoId:(url:string)=>string|null, asyncPrompt:Function,
+ *           storage:()=>Storage|null, twNav:{ NAV:any, on:Function } }} deps
  */
 function createXmasWindow(deps){
   const doc = deps.doc || document;
@@ -28,16 +31,28 @@ function createXmasWindow(deps){
   const toast = deps.toast;
   const idbGet = deps.idbGet;
   const idbPut = deps.idbPut;
+const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙여 쓴다(sim-nav 가 «deps 로 받는 모듈» 을 이 줄로 센다)
   const $ = (id) => doc.getElementById(id);
 
   const ov = $('xmasOverlay'), btn = $('lcXmas');
   if (!ov || !btn) throw new Error('xmas-window: #xmasOverlay · #lcXmas 가 html 에 없다');
   const tree = deps.treeMod.createXmasTree({ THREE: deps.THREE, rules, ps1Dither: deps.ps1Dither, doc, win });
 
+  /* Esc 는 트리 창을 편지 창보다 먼저 등록한다 — 알림함 길은 두 창을 같은 틱에 열어서, 창 쌓기가 등록 순서로 쌓는다(편지 창이 위 → Esc 에 편지 창만 닫힘) */
+  deps.escRegisterWindow({ key: 'xmas', el: ov, isOpen: () => ov.classList.contains('on'), close });
+  const song = deps.songMod.createXmasSong({ doc, win, companion: deps.companion, ytVideoId: deps.ytVideoId, asyncPrompt: deps.asyncPrompt, toast, songTitleMax: rules.SONG_TITLE_MAX });
+  const letter = deps.letterMod.createXmasLetter({ doc, win, rules, net, song, serverNow, toast, notifyError, escRegisterWindow: deps.escRegisterWindow,
+    storage: deps.storage, onDot: (on) => btn.classList.toggle('xm-dot', on) });
+
   let treeNo = 0, mine = null, ornList = [], chosen = { kind: 'star', img: null }, lastHangAt = NaN, busy = false, seq = 0;
 
   /* ── 런처 버튼 — 이벤트 기간에만 ── */
-  function refreshButton(){ btn.hidden = !rules.eventOn(serverNow()); if (btn.hidden && ov.classList.contains('on')) close(); }
+  function refreshButton(){
+    btn.hidden = !rules.eventOn(serverNow());
+    if (btn.hidden){ if (ov.classList.contains('on')) close(); return; }
+    letter.checkGot();   // 25일 0시가 지나면 받은 편지 → 빨간 점
+    letter.paintBtn();   // 날짜가 넘어가면 [편지 쓰기] → [편지 열람]
+  }
 
   /* ── 한마디 라벨 · 신고 ── */
   const say = $('xmasSay');
@@ -55,6 +70,7 @@ function createXmasWindow(deps){
     const r = await net().reportOrnament(treeNo, s);
     if (r.ok) toast('신고했어요. 관리자가 확인할게요.');
     else if (r.code === 'dup') toast('이미 신고한 장식이에요.');
+    else if (r.code === 'auth') toast('로그인한 뒤 신고할 수 있어요.');
     else notifyError('E-XMAS-03', r.err);
   };
 
@@ -130,7 +146,10 @@ function createXmasWindow(deps){
     const n = net();
     const w = await n.where();
     if (my !== seq || !ov.classList.contains('on')) return;
-    if (!w.ok){ setState('트리를 불러오지 못했어요.'); if (w.code !== 'auth') notifyError('E-XMAS-01', w.err); return; }
+    if (!w.ok){
+      if (w.code === 'auth'){ setState('로그인한 뒤 트리를 볼 수 있어요.'); return; }   // 실패가 아니라 «아직 못 봄»
+      setState('트리를 불러오지 못했어요.'); notifyError('E-XMAS-01', w.err); return;
+    }
     mine = w.mine; treeNo = mine ? mine.t : w.cur;
     const tr = await n.tree(treeNo);
     if (my !== seq || !ov.classList.contains('on')) return;
@@ -199,10 +218,12 @@ function createXmasWindow(deps){
     deps.onSizeChange();
     tree.open($('xmasCanvas'));
     load(false);
+    letter.refresh();
   }
   function close(){
     if (!ov.classList.contains('on')) return;
     seq++;
+    letter.close();
     tree.close();
     ['xmasFull', 'xmasRep'].forEach(id => { $(id).hidden = true; });
     say.hidden = true;
@@ -210,8 +231,9 @@ function createXmasWindow(deps){
     deps.onSizeChange();
   }
   btn.onclick = open;
+  // 📩 알림함 «익명의 편지가 왔어요 · 편지가 반송됐어요» 가 부른다 — 편지 창까지 연다
+  twNav.on(twNav.NAV.XMAS, (what) => { open(); if (what === 'letter' && ov.classList.contains('on')) letter.open(); });
   $('xmasCloseBtn').onclick = close;
-  deps.escRegisterWindow({ key: 'xmas', el: ov, isOpen: () => ov.classList.contains('on'), close });
 
   /* 창 끌기 — 제목줄(닫기 단추 위는 빼고) */
   (function(){
@@ -238,7 +260,7 @@ function createXmasWindow(deps){
   btn.hidden = true;
   deps.onReady(() => { refreshButton(); win.setInterval(refreshButton, 60000); });   // 1월 1일 0시를 지나면 켜 둔 채로도 숨는다
 
-  return { open, close, refreshButton };
+  return { open, close, refreshButton, letter };
 }
 
 const api = Object.freeze({ createXmasWindow });

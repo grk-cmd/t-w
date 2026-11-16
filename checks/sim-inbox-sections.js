@@ -38,7 +38,7 @@ function judge(mod){
     const win = load(mod), S = win.TwInboxSections;
     r.only = Object.keys(win).join() === 'TwInboxSections';
     r.consts = J(S.SECS) === J(['mail', 'news']) && J(S.CATS) === J(['all', 'notice', 'update']) && Object.isFrozen(S.SECS) && Object.isFrozen(S.CATS);
-    r.tagOf = S.tagOf({ tag: 'update' }) === 'update' && S.tagOf({ tag: 'reward' }) === 'reward' && S.tagOf({ tag: 'bug' }) === 'bug'
+    r.tagOf = S.tagOf({ tag: 'update' }) === 'update' && S.tagOf({ tag: 'reward' }) === 'reward' && S.tagOf({ tag: 'bug' }) === 'bug' && S.tagOf({ tag: 'xmas' }) === 'xmas'
       && S.tagOf({ tag: 'notice' }) === 'notice' && S.tagOf({ tag: 'weird' }) === 'notice' && S.tagOf({}) === 'notice' && S.tagOf(null) === 'notice';
     r.sectionOf = S.sectionOf({ _src: 'broadcast', tag: 'notice' }) === 'news' && S.sectionOf({ _src: 'broadcast', tag: 'update' }) === 'news'
       && S.sectionOf({ _src: 'broadcast' }) === 'news' && S.sectionOf({ _src: 'broadcast', tag: 'weird' }) === 'news'
@@ -79,7 +79,7 @@ function wiring(inbox, html, smoke){
 const R = judge(MOD), W = wiring(INBOX, HTML, SMOKE);
 say('── 1. 순수 함수');
 chk(!R.err && R.only && R.consts, '싣기만 하면 window.TwInboxSections 하나 · 칸 셋 · 종류 셋(바꿀 수 없음)' + (R.err ? ' — ' + R.err : ''));
-chk(R.tagOf, '태그 — update · reward · bug 는 그대로 · 나머지(없음 · 모르는 값 · null)는 공지');
+chk(R.tagOf, '태그 — update · reward · bug · xmas(크리스마스 편지 · 일회성) 는 그대로 · 나머지(없음 · 모르는 값 · null)는 공지');
 chk(R.sectionOf, '★ 칸 — 모두에게 보낸 공지 · 업데이트(태그 없음 · 모르는 태그 포함)만 소식 · 모두에게 보낸 우편 · 개인 우편은 전부 우편');
 chk(R.norm, '모르는 칸은 우편 · 모르는 종류(옛 reward · gift)는 전체');
 chk(R.mail && R.mailPin, '우편 칸 — 📌 먼저 · 최신순 · 모두에게 보낸 우편도 · 소식은 빠짐');
@@ -105,7 +105,7 @@ const BREAKS = [
   ['MOD', "return CATS.indexOf(c) >= 0 ? c : 'all';", 'return c;', '옛 필터 값을 그대로 둠', 'norm'],
   ['MOD', "return unread(merged).mail > 0 ? 'mail' : 'news';", "return 'mail';", '처음 칸을 늘 우편으로', 'first'],
   ['MOD', "if(m[id].read) return;\n    out.total++;", 'out.total++;', '읽은 것도 셈', 'unread'],
-  ['MOD', "return (t === 'update' || t === 'reward' || t === 'bug') ? t : 'notice';", 'return t;', '모르는 태그를 그대로', 'tagOf'],
+  ['MOD', "return (t === 'update' || t === 'reward' || t === 'bug' || t === 'xmas') ? t : 'notice';", 'return t;', '모르는 태그를 그대로', 'tagOf'],
   ['MOD', 'const SECS = Object.freeze(', 'const SECS = (', '칸 목록을 바꿀 수 있음', 'consts'],
   ['INBOX', 'const ids = inboxSec.newsIds(merged, _inboxFilter);', 'const ids = Object.keys(merged).filter(id=>merged[id]._src === \'broadcast\' && (merged[id].tag));', '수령함이 소식 판단을 다시 씀', 'W'],
   ['HTML', '<script src="parts/myhome/inbox-sections.js"></script>', '', 'html 이 안 실음', 'W'],

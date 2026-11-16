@@ -1,5 +1,6 @@
 /* xmas-rules.js — 🎄 크리스마스 이벤트(2026 · 일회성 — 다음 업데이트에서 걷는다 · 이슈 #963)의 순수 규칙 (검사 sim-xmas-rules.js)
-   화면 · 서버를 모르는 계산만 — 날짜 판정 · 장식 자리 · 다시 받을 그림 · 흔들기 · 연달아 누르기 · 반짝임 · 한마디 정리.
+   화면 · 서버를 모르는 계산만 — 날짜 판정 · 장식 자리 · 다시 받을 그림 · 흔들기 · 연달아 누르기 · 반짝임 · 한마디 정리 ·
+   편지 칸 · 반송 사유 · 받은 편지 · 마감 D-day · 읽음 표시.
    ⚠️ 날짜 · 상한 숫자는 서버(firebase/functions/xmas.js · 규칙 xmas*)와 같아야 한다 — sim-xmas-rules 가 견준다.
    classic script(window.TwXmasRules) — xmas-tree.js · xmas-window.js · app.js 보다 먼저 싣는다. */
 (function(){
@@ -104,10 +105,67 @@ function createShake(){
   };
 }
 
+/* ── ✉️ 마니또 편지 — 규칙 xmasLetters · 함수 runMatch · handleAdminReturn 과 같은 숫자 ── */
+const LETTER_MAX = 5, LETTER_TEXT_MAX = 500, SONG_TITLE_MAX = 40;
+const LETTER_IDS = Object.freeze(['l1', 'l2', 'l3', 'l4', 'l5']);
+const SONG_ID_RE = /^[A-Za-z0-9_-]{11}$/;
+const RETURN_REASONS = Object.freeze({ abuse: '욕설 · 비방', privacy: '개인정보', spam: '광고 · 도배', etc: '기타' });
+const DAY_MS = 86400000, KST_MS = 9 * 3600000;
+
+/** 추천곡 칸 — 모양이 맞으면 { id, title } · 아니면 null(남이 쓴 값이라 한 번 더 거른다) */
+function songOf(v){
+  if (!v || typeof v !== 'object' || typeof v.id !== 'string' || !SONG_ID_RE.test(v.id)) return null;
+  return { id: v.id, title: typeof v.title === 'string' ? v.title.slice(0, SONG_TITLE_MAX) : '' };
+}
+/** 편지 한 통 다듬기 — 앞뒤 공백 · 500자. 빈 글이면 '' */
+const cleanLetter = (t) => String(t == null ? '' : t).replace(/\r\n?/g, '\n').trim().slice(0, LETTER_TEXT_MAX);
+
+/** 내 편지함(xmasLetters/{uid}) → 칸 번호 순 [{ lid, text, ts, song }] — 모양이 틀린 칸은 뺀다 */
+function myLettersOf(v){
+  const box = (v && typeof v === 'object') ? v : {};
+  return LETTER_IDS.filter(id => box[id] && typeof box[id].text === 'string' && box[id].text)
+    .map(id => ({ lid: id, text: box[id].text.slice(0, LETTER_TEXT_MAX), ts: Number.isFinite(box[id].ts) ? box[id].ts : 0, song: songOf(box[id].song) }));
+}
+/** 반송된 편지(xmasReturned/{uid}) → [{ lid, reason, why, text, song, ts }] — why = 보여 줄 사유(«기타 — 적은 말») */
+function returnedOf(v){
+  const box = (v && typeof v === 'object') ? v : {};
+  return LETTER_IDS.filter(id => box[id] && typeof box[id].text === 'string')
+    .map(id => {
+      const r = box[id];
+      const reason = Object.prototype.hasOwnProperty.call(RETURN_REASONS, r.reason) ? r.reason : 'etc';
+      const note = typeof r.note === 'string' ? r.note : '';
+      return { lid: id, reason, why: RETURN_REASONS[reason] + (note ? ' — ' + note : ''), text: r.text.slice(0, LETTER_TEXT_MAX), song: songOf(r.song), ts: Number.isFinite(r.ts) ? r.ts : 0 };
+    });
+}
+/** 새 편지를 넣을 빈 칸 — 없으면 null(5통 다 맡김) */
+function freeLetterId(letters){
+  const used = new Set((letters || []).map(l => l.lid));
+  return LETTER_IDS.find(id => !used.has(id)) || null;
+}
+/** 받은 편지(xmasGot/{uid}) → 번호 순 [{ n, text, song }] */
+function gotOf(v){
+  const box = (v && typeof v === 'object') ? v : {};
+  return Object.keys(box).filter(k => /^[1-9][0-9]?$/.test(k) && box[k] && typeof box[k].text === 'string')
+    .map(k => ({ n: Number(k), text: box[k].text.slice(0, LETTER_TEXT_MAX), song: songOf(box[k].song) }))
+    .sort((a, b) => a.n - b.n);
+}
+/** 마감까지 남은 날(한국 날짜로 · 12월 24일이 D-0) — 마감 뒤면 -1 */
+function ddayLeft(now){
+  if (!letterOpen(now)) return -1;
+  const day = (ms) => Math.floor((ms + KST_MS) / DAY_MS);
+  return day(LETTER_DEADLINE_MS - 1) - day(now);
+}
+/** 받은 편지 읽음 표시(이 PC) — '1,3' ↔ Set. 빨간 점은 안 읽은 편지가 있을 때 */
+const readSetOf = (s) => new Set(String(s || '').split(',').filter(x => /^[1-9][0-9]?$/.test(x)).map(Number));
+const readSetStr = (set) => [...set].sort((a, b) => a - b).join(',');
+const hasUnread = (got, set) => (got || []).some(g => !set.has(g.n));
+
 const api = Object.freeze({
   TREE_MAX, KINDS, WORD_MAX, IMG_PX, LETTER_DEADLINE_MS, EVENT_END_MS, HANG_COOLDOWN_MS, BLINK_COUNT, BLINK_HALF_MS,
   TAPS_TO_DROP, TAP_GAP_MS, SHAKE_PX, SHAKE_GAP_MS, SHAKE_RESET_MS, TIERS,
   eventOn, letterOpen, lettersArrived, cleanWord, slotPositions, countOf, changedImgSlots, cooldownLeft, blinkOpacity, createTaps, createShake,
+  LETTER_MAX, LETTER_TEXT_MAX, SONG_TITLE_MAX, LETTER_IDS, RETURN_REASONS,
+  songOf, cleanLetter, myLettersOf, returnedOf, freeLetterId, gotOf, ddayLeft, readSetOf, readSetStr, hasUnread,
 });
 if (typeof window !== 'undefined') window.TwXmasRules = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;

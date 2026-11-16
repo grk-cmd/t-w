@@ -2120,11 +2120,14 @@ const demojiPalMod = TwDemojiPalette.createDemojiPalette({
 /* 👍 플레이리스트 반응 — 플레이리스트보다 먼저 만든다(만들 때 소개칸을 그리며 부른다). 서버는 firebaseAPI.playlistLike(늦게 붙어서 부를 때 찾는다) */
 const plLikeUi = TwPlaylistLikeUi.createPlaylistLikeUi({ likeRules: TwPlaylistLike, net: ()=>firebaseAPI.playlistLike,
   getMyUserId: (...a)=>getMyUserId(...a), notifyError: (...a)=>TwErrorCodes.notify(...a) });
-/* 🎄 크리스마스 창(일회성 · 다음 업데이트에서 걷는다) — 서버는 firebaseAPI.xmas(늦게 붙음) · 런처 [🎄 크리스마스] 가 연다 · 창 크기는 applyDesktopRunClass · 그림 사본은 GLB 영구 캐시(IndexedDB · 45일)에 */
+/* 🎄 크리스마스 창(일회성 · 다음 업데이트에서 걷는다) — 서버는 firebaseAPI.xmas(늦게 붙음) · 런처 [🎄 크리스마스] · 📩 편지 알림(NAV.XMAS)이 연다 · 창 크기는 applyDesktopRunClass · 그림 사본은 GLB 영구 캐시(IndexedDB · 45일)에 · 추천곡은 공용 배경음악 창(주인 'xmas') */
 TwXmasWindow.createXmasWindow({ THREE, ps1Dither: TwPs1Dither, rules: TwXmasRules, treeMod: TwXmasTree, net: ()=>firebaseAPI.xmas, serverNow: ()=>firebaseAPI.serverNow(),
   onReady: (fn)=>TwNetReady.whenNetReady(fn, 'serverNow'), notifyError: (...a)=>TwErrorCodes.notify(...a), toast: (...a)=>toast(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a), onSizeChange: ()=>applyDesktopRunClass(),
-  idbGet: (k)=>glbIdbMod._glbIdbGet(k), idbPut: (k, v)=>glbIdbMod._glbIdbPut(k, v) });
+  idbGet: (k)=>glbIdbMod._glbIdbGet(k), idbPut: (k, v)=>glbIdbMod._glbIdbPut(k, v), songMod: TwXmasSong, letterMod: TwXmasLetter, companion: ()=>window.companion,
+  ytVideoId: (u)=>plMod.ytVideoId(u), asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a), storage: ()=>window.localStorage,
+  twNav: twNav,
+});
 const plMod = TwPlaylist.createPlaylist({
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
@@ -2814,6 +2817,7 @@ const inboxMod = TwMyHomeInbox.createMyHomeInbox({
   lvBadgeClass: (...a)=>lvTierMod.lvBadgeClass(...a),
   openFriendHomeView: (...a)=>mhVisitMod.openFriendHomeView(...a),
   renderMhProfileRail: (...a)=>myHomeUiMod.renderMhProfileRail(...a),
+  twNav: twNav,
 });
 /* ═══ 📩 수령함 · 💝 선물함 그리기 ═══ */
 /* 📩 수령함 · 💝 선물함 그리기는 parts/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 연결은 바로 위 «👥 마이홈 친구 목록» 머리 아래(inboxMod). */

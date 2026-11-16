@@ -33,6 +33,7 @@ function createMyHomeInbox(deps){
 const escHtml = deps.escHtml;
 const toast = deps.toast;
 const getMyUserId = deps.getMyUserId;
+const twNav = deps.twNav;                            // 🧭 창 열기 통로(nav.js) — 🎄 편지 알림이 크리스마스 창을 연다
 // 📩 수령함 — app.js 의 let(구독이 다시 대입)과 저장 키
 const _myInbox = deps.myInbox;                       // 읽는 함수 — 개인 수령함(마이홈 열기의 subscribeInbox 가 다시 대입)
 const _inboxBroadcast = deps.inboxBroadcast;         // 읽는 함수 — 공용 공지(subscribeInboxBroadcast 가 다시 대입)
@@ -584,8 +585,8 @@ function _inboxBodyEl(cls, m){
   _bindExtLinks(body);
   return body;
 }
-const _INBOX_ICON = { reward:'🎁', bug:'🛠️', update:'🆕', notice:'📢' };
-const _INBOX_CAT_NAME = { notice:'공지', update:'업데이트', reward:'우편', bug:'버그제보 답변' };
+const _INBOX_ICON = { reward:'🎁', bug:'🛠️', update:'🆕', notice:'📢', xmas:'🎄' };
+const _INBOX_CAT_NAME = { notice:'공지', update:'업데이트', reward:'우편', bug:'버그제보 답변', xmas:'크리스마스 편지' };
 
 /* 📩 우편함 — 왼쪽 세로 메뉴(📩 우편 · 📢 소식)와 고른 칸을 그린다. 칸 나누기 · 순서 · 안 읽은 수는 inbox-sections.js. */
 function renderInbox(){
@@ -638,7 +639,7 @@ function _renderInboxMail(merged){
     sub.textContent = _INBOX_CAT_NAME[tag] + (m.ts ? ' · ' + _inboxTimeStr(m.ts) : '');
     main.appendChild(title); main.appendChild(sub);
     const go = document.createElement('button'); go.type = 'button'; go.className = 'mh-ibx-go';
-    go.textContent = (tag === 'bug' && m.bugId) ? '가기' : (isOpen ? '접기' : '보기');   // 누르면 카드 누르기로 올라간다
+    go.textContent = ((tag === 'bug' && m.bugId) || tag === 'xmas') ? '가기' : (isOpen ? '접기' : '보기');   // 누르면 카드 누르기로 올라간다
     row.appendChild(ic); row.appendChild(main); row.appendChild(go);
     const pinBtn = _inboxPinBtn(id, m); if(pinBtn) row.appendChild(pinBtn);
     row.appendChild(_inboxXBtn(id, m));
@@ -651,6 +652,10 @@ function _renderInboxMail(merged){
       // 🛠️ 답변 알림 — 펼치는 대신 버그제보 탭의 그 글로 간다(bug-board-ui.js)
       if(m.tag === 'bug' && m.bugId){
         _inboxOpenId = null; window._bugBoardOpen(m.bugId); return;
+      }
+      // 🎄 편지 알림(받은 편지 · 반송) — 마이홈을 닫고 크리스마스 편지 창으로(일회성 · 다음 업데이트에서 걷는다)
+      if(tag === 'xmas'){
+        _inboxOpenId = null; twNav.go(twNav.NAV.MY_HOME_CLOSE, ()=>twNav.go(twNav.NAV.XMAS, 'letter')); return;
       }
       renderInbox();
     };

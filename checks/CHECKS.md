@@ -287,7 +287,7 @@
 | **sim-source-switch.js** | 178 | **0dbd6e281aa4** |
 | **sim-data-gateway.js** | 273 | **b1301dd1fb44** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
-| **sim-myhome-inbox.js** | 602 | **2f88802194fc** |
+| **sim-myhome-inbox.js** | 603 | **9b401f83871e** |
 | **sim-playlist-sync.js** | 169 | **d3dd85d9361c** |
 | **sim-playlist.js** | 780 | **c2a7d19b7990** |
 | **sim-playlist-like.js** | 290 | **7f861cc513f9** |
@@ -375,7 +375,7 @@
 | **sim-device-lost.js** | 180 | **634846059164** |
 | **sim-myhome-page.js** | 126 | **b5ca916c06e5** |
 | **sim-myhome-preset.js** | 158 | **931f2c50a7b0** |
-| **sim-inbox-sections.js** | 126 | **1a78a79c79f8** |
+| **sim-inbox-sections.js** | 126 | **038d4379e703** |
 | **sim-myhome-sticker-rules.js** | 90 | **d12d6538f2a7** |
 | **sim-myhome-links.js** | 95 | **6d53e7c2d7fd** |
 | **sim-async-prompt.js** | 112 | **298066b0cef9** |
@@ -403,7 +403,7 @@
 | **sim-error-codes.js** | 109 | **c3b25d49f7c4** |
 | **sim-myhome-state.js** | 90 | **9ac9ba6189aa** |
 | **sim-account-state.js** | 94 | **d9d3c39a82ed** |
-| **sim-nav.js** | 85 | **577cbd2e8332** |
+| **sim-nav.js** | 85 | **b544e42b6a80** |
 | **sim-net-ready.js** | 145 | **0a54ffa6283c** |
 | **sim-myhome-hooks.js** | 99 | **3392431af583** |
 | **sim-demoji-catalog.js** | 80 | **36e4e0c7b848** |
@@ -443,10 +443,12 @@
 | **sim-chip-popups.js** | 128 | **e58ffad1803b** |
 | **sim-rules-keys.js** | 337 | **a3ad0ded37ef** |
 | **sim-xmas-server.js** | 332 | **747e95535831** |
-| **sim-xmas-net.js** | 98 | **38181b4ae498** |
-| **sim-xmas-rules.js** | 74 | **6b54ac374440** |
+| **sim-xmas-net.js** | 128 | **ca7e5fdcafb5** |
+| **sim-xmas-rules.js** | 107 | **0c7ca4e5ecad** |
 | **sim-xmas-tree.js** | 51 | **0d4a04e1115d** |
-| **sim-xmas-window.js** | 182 | **f0c4bfc4e9c8** |
+| **sim-xmas-window.js** | 216 | **29c8229f0abc** |
+| **sim-xmas-song.js** | 140 | **6ae997815cbc** |
+| **sim-xmas-letter.js** | 239 | **8d674f4078d9** |
 | **sim-rules-src.js** | 78 | **12241e59c87b** |
 | **sim-rules-drift.js** | 175 | **2782c5c73084** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |

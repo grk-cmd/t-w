@@ -214,6 +214,10 @@ contextBridge.exposeInMainWorld('companion', {
   openPlaylistTrack(url, title) {
     ipcRenderer.send('companion:openPlaylistTrack', url, title || '');
   },
+  // 🎄 크리스마스 편지 추천곡(일회성 — 다음 업데이트에서 걷는다) — 같은 창의 네 번째 주인('xmas'). 열면 다른 주인은 진다
+  openXmasSong(url, title) {
+    ipcRenderer.send('companion:openXmasSong', url, title || '');
+  },
   // 🎵 플레이리스트 패널(#myPlaylistBox)의 현재 위치를 main에 전달 — 재생 창이 그 뒤로 정확히 숨게.
   //   패널이 닫혀 있으면 null (숨을 곳이 없으므로 main이 창을 투명하게 만든다).
   setPlBounds(rect) {

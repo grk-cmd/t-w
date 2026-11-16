@@ -208,6 +208,8 @@ function syncFriendsOpen(){
     close();
   };
   if(closeBtn) closeBtn.addEventListener('click', ()=>{ if(!leaveGuarded(closeAll)) closeAll(); });
+  /* 🧭 다른 창으로 옮겨 갈 때(📩 크리스마스 편지 알림 → 🎄 크리스마스 창) — 닫기 단추와 같은 길로 닫고 then. 같은 층이라 열어 둔 채로는 그 창이 마이홈 뒤에 깔린다 */
+  twNav.on(twNav.NAV.MY_HOME_CLOSE, (then)=>{ const go = ()=>{ closeAll(); then(); }; if(!leaveGuarded(go)) go(); });
   const backBtn=document.getElementById('mhBackHomeBtn');
   if(backBtn) backBtn.addEventListener('click', ()=>closeFriendHomeView());
   // 👁 방문자 시점 미리보기 — 내 홈을 방문자가 보는 것처럼 (데이터는 안 건드리는 순수 UI 미리보기)

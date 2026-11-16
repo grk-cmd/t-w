@@ -75,6 +75,9 @@ const CODES = {
   'E-XMAS-01': { msg: '트리를 불러오지 못했어요 — 창을 닫았다 다시 열어 주세요', where: 'xmas/xmas-window.js — 크리스마스 창 열 때 지금 트리 · 내 자리 · 장식 목록 읽기 실패' },
   'E-XMAS-02': { msg: '장식을 걸지 못했어요 — 잠시 후 다시 눌러 주세요', where: 'xmas/xmas-window.js — 함수 xmasHang 실패(시간 초과 · 네트워크 · 서버 오류)' },
   'E-XMAS-03': { msg: '신고를 보내지 못했어요 — 잠시 후 다시 해 주세요', where: 'xmas/xmas-window.js — 장식 신고 xmasReports 쓰기 실패' },
+  'E-XMAS-04': { msg: '편지를 불러오지 못했어요 — 창을 닫았다 다시 열어 주세요', where: 'xmas/xmas-letter.js — 편지 창 열 때 내 편지함 · 반송 · 받은 편지 읽기 실패' },
+  'E-XMAS-05': { msg: '편지를 저장하지 못했어요 — 잠시 후 다시 눌러 주세요', where: 'xmas/xmas-letter.js — 편지 맡기기 · 고치기 · 거두기 · 반송 표시 치우기 xmasLetters · xmasReturned 쓰기 실패' },
+  'E-XMAS-06': { msg: '편지 신고를 보내지 못했어요 — 잠시 후 다시 해 주세요', where: 'xmas/xmas-letter.js — 받은 편지 신고 xmasReports(g-) 쓰기 실패' },
 };
 /* 걷은 번호 — { 번호: '언제 · 왜' }. 다시 쓰지 않으려고 남긴다. */
 const RETIRED = {};
