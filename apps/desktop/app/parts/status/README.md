@@ -58,5 +58,5 @@
   - 목록을 전부 비워도 같은 저장이다(빈 세 벌 + 한마디) — 노드를 지우는 길은 없다.
   - 저장은 서버 상한(세 벌 · 곡 20 · 이름 16 · 제목 60 · 한마디 140)으로 깎는다. 서버가 거절하면(400) 다시 보내지 않고 `'failed'`.
   - 파도타기 «없음»(`null`)과 «못 불러옴»(던짐)을 가른다 — 부르는 쪽(playlist.js)은 앞엣것에 «아직 파도탈 목록이 없어요» · 뒤엣것에 «인터넷 연결이 필요해요». 404 `USER_NOT_FOUND` 와 403 `PLAYLIST_FRIENDS_ONLY` 는 «없음» 쪽이다.
-  - 명함(이름 · 레벨 · 사진)은 이 서버 길에 없다 — `firebaseAPI.fetchPlaylistCard`(공개 명함 읽기)가 그대로 맡는다.
+  - 명함(이름 · 레벨 · 사진)은 이 provider 가 아니라 `firebaseAPI.fetchPlaylistCard` 가 맡는다 — 이 이름을 `shared/api-public-reads.js` 가 서버 명함 묶음(`GET /v2/myhomes/cards?codes={userCode}`)으로 바꿔 끼운다. 이 모듈이 다루는 `uid` 는 userCode 라 그대로 키가 된다. 한 틱에 여럿을 물으면 요청 하나로 묶고, 못 받으면 던진다(playlist.js 가 E-PL-03).
 - **검사**: `checks/sim-playlist-api.js`(가짜 `authed` 로 실제로 불러 판정 · 일부러 깨 보기).

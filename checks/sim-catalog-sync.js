@@ -115,7 +115,6 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
       subscribeCatalogParts: (cb) => { subs.parts = cb; L('sub', 'parts'); },
       subscribeCustomCats: (cb) => { subs.cats = cb; L('sub', 'cats'); },
       subscribeCatOverrides: (cb) => { subs.over = cb; L('sub', 'over'); },
-      migrateGachaCatalog: () => { L('migrate'); return o.migrateFails ? Promise.reject(new Error('x')) : Promise.resolve({ moved: ['g1', 'g2'] }); },
     };
     const win = { firebaseAPI: o.noApi ? undefined : fb, addEventListener: (ev, fn, opt) => listeners.push([ev, fn, opt]) };
     const els = { launcher: { classList: { contains: () => !!o.launcherOn } }, wdPreviewPanel: { classList: { contains: () => !!o.wdOn } } };
@@ -237,8 +236,8 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
 
     /* 가챠 카탈로그 옮기기(관리자)는 걷었다 — 옛 가챠 표식이 보여도 아무것도 옮기지 않는다 */
     W = load({});
-    await W.subs.parts({ g1: { _legacyGacha: true } }); await flush();
-    chk(!has(W.log, 'migrate') && !('__gachaMigrated' in W.win), '옛 가챠 표식이 보여도 옮기지도 알리지도 않는다(관리자 이관 장치를 걷음)');
+    await W.subs.parts({ g1: { gacha: true } }); await flush();
+    chk(!has(W.log, 'migrate') && !('__gachaMigrated' in W.win), '가챠 이관 장치는 없다 — 파츠를 받아도 옮기지도 알리지도 않는다');
 
     /* 합치기 규칙(순수 함수) — 아이템 · 책상 · 파츠가 같이 쓴다 */
     if(!PREMOVE){

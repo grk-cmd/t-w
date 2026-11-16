@@ -1,53 +1,51 @@
 /*
- * 🌐 공개 읽기를 API 사본에서 (검사 sim-api-public-reads.js) — 명함(fetchPlaylistCard) 하나.
+ * 🌐 공개 읽기를 API 에서 (검사 sim-api-public-reads.js) — 명함(fetchPlaylistCard) 하나.
  *
- * [왜] Firebase 요금은 내려받은 바이트다. t-w-server 가 같은 데이터의 읽기 전용 사본을 두고 «필요한 한 줄» 모양으로 내준다
- *   쓰기 원본은 그대로 Firebase.
- * [규칙] API 한 길(window.TwApi.client — 시간 제한 · 쉬기는 api-client.js). 못 받으면 **던진다** — Firebase 로 물러나지 않는다(0.13 E-2 · R4).
- *   실패 = ApiError 무엇이든(닿지 못함 · 5xx · 503 *_NOT_READY · RTDB_UNAVAILABLE · 4xx) · 모양이 다른 응답 · API 통로 없음 · 사진 칸 읽기 실패.
- *   data:null 은 실패가 아니라 «없음» 이다 — 없는 사람의 명함은 빈 명함. (파도타기는 로그인 길로 옮겼다 — status/playlist-api.js)
- *   돌려주는 모양은 원래 함수와 같다. 던진 것은 부르는 쪽 playlist.js 가 E-PL-03 «명함을 못 받았어요» 로 알린다.
+ * [왜] 명함은 서버 «마이홈 명함 묶음» 한 길(GET /v2/myhomes/cards?codes= — MyHomeController)에서만 받는다. 키는 userCode 다(uid 가 아니다 —
+ *   0.13 앱의 uid 는 서버가 가입 때 만든 userCode 와 같은 값이다: app.js getMyUserId · 파도타기 playlist-api 의 uid). 쓰기 원본은 서버.
+ *   예전 길 GET /v2/users/{uid}/card 는 서버에 없다(#887 이 /v1 → /v2 로 기계적으로 바꾸며 생긴 오류 — checks/sim-api-routes.js 가 막는다).
+ * [규칙] 길 · 봉투 풀기 · 100개씩 나누기 · 모양 맞춤은 친구 쪽 social-api.js(fetchCards) 한 곳이다 — 여기서 다시 만들지 않는다.
+ *   같은 순간(한 틱)에 여러 사람의 명함을 물으면 요청 하나로 묶는다(사람 수만큼 따로 부르지 않는다).
+ *   못 받으면 **던진다** — Firebase 로 물러나지 않는다(0.13 E-2 · R4). 실패 = 닿지 못함 · 5xx · 4xx · 모양이 다른 응답.
+ *   서버는 없는 사람의 코드를 빼고 준다 — 그 사람은 실패가 아니라 «없음» 이라 빈 명함이다. (파도타기는 로그인 길로 옮겼다 — status/playlist-api.js)
+ *   돌려주는 모양은 원래 함수와 같다({ name, level, cyc, clv, starC, avatar }). 던진 것은 부르는 쪽 playlist.js 가 E-PL-03 «명함을 못 받았어요» 로 알린다.
  *
- * deps: api(TwApi.client — get(path)) · readCell(path) → Promise<값>(Firebase 한 칸 · 사진이 사본에 없을 때만)
+ * deps: fetchCards(codes) → Promise<{ userCode: { name, avatar, bio, level, cyc, clv, starC } }> (social-api.js 의 fetchCards)
  * wrap(firebaseAPI) — fetchPlaylistCard 를 API 판으로 바꿔 끼운다(firebase-init.js 의 옛 함수는 쓰이지 않는다 — E-5 가 걷는다).
  */
-export const API_PATHS = Object.freeze({
-  card: (uid) => '/v2/users/' + encodeURIComponent(uid) + '/card',
-});
-export const avatarPath = (uid) => 'users/' + uid + '/home/avatar';
-
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
-const str = (v) => (typeof v === 'string' ? v : '');
 
-/* API 명함 → fetchPlaylistCard 모양({ name, level, cyc, clv, starC, avatar }). avatar 는 avatarInline 이면 따로 읽는다. */
-export function cardOf(d, avatar){
-  const c = isObj(d) ? d : {};
-  return { name: c.name ? String(c.name) : null,
-    level: (typeof c.level === 'number' && c.level >= 1) ? c.level : null,
-    cyc: c.cyc, clv: c.clv, starC: c.starC,
-    avatar: avatar || null };
+/* 서버 명함(social-api cardOf 모양) → fetchPlaylistCard 모양({ name, level, cyc, clv, starC, avatar }). 없는 사람(null)은 빈 명함. */
+export function cardOf(c){
+  const d = isObj(c) ? c : {};
+  return { name: d.name ? String(d.name) : null,
+    level: (typeof d.level === 'number' && d.level >= 1) ? d.level : null,
+    cyc: d.cyc, clv: d.clv, starC: d.starC,
+    avatar: (typeof d.avatar === 'string' && d.avatar) ? d.avatar : null };
 }
 
 export function createApiPublicReads(deps){
-  const api = deps.api || null;
-  const readCell = deps.readCell || (() => Promise.resolve(null));
+  const fetchCards = deps.fetchCards;
+  let batch = null;   // { codes: Set, done: Promise<{ userCode: 명함 }> } — 이번 틱에 모이는 묶음
 
-  const ask = (path) => (api && typeof api.get === 'function') ? api.get(path) : Promise.reject(new Error('API 없음'));
-
-  /* 명함의 사진 — avatarInline(사본에 안 싣는 큰 data URL)이면 Firebase 한 칸, 아니면 avatarUrl. 그 칸을 못 읽으면 던진다(사진 없는 명함으로 그리지 않는다). */
-  async function avatarFrom(uid, c){
-    if(isObj(c) && c.avatarInline === true) return (await readCell(avatarPath(uid))) || null;
-    return (isObj(c) && typeof c.avatarUrl === 'string' && c.avatarUrl) ? c.avatarUrl : null;
+  /* 같은 틱에 모인 코드를 한 번에 묻는다. 한 묶음이 실패하면 그 묶음의 모두가 같은 오류로 실패한다. */
+  function ask(code){
+    if(!batch){
+      const b = { codes: new Set(), done: null };
+      b.done = Promise.resolve().then(() => {
+        if(batch === b) batch = null;
+        return fetchCards(Array.from(b.codes));
+      });
+      batch = b;
+    }
+    batch.codes.add(code);
+    return batch.done.then((cards) => (isObj(cards) && isObj(cards[code])) ? cards[code] : null);
   }
 
-  /* fetchPlaylistCard 를 API 판으로 바꿔 끼운다. 못 받으면(닿지 못함 · 5xx · 모양이 다름 · API 통로 없음) 던진다 —
+  /* fetchPlaylistCard 를 API 판으로 바꿔 끼운다. 못 받으면(닿지 못함 · 5xx · 모양이 다름) 던진다 —
      Firebase 로 물러나지 않는다. 부르는 쪽(playlist.js)이 «못 받음» 을 알린다. */
   function wrap(fb){
-    fb.fetchPlaylistCard = async (uid) => {
-      const d = await ask(API_PATHS.card(uid));
-      if(d !== null && !isObj(d)) throw new Error('명함 모양이 달라요');
-      return cardOf(d, await avatarFrom(uid, d));
-    };
+    fb.fetchPlaylistCard = async (userCode) => cardOf(await ask(String(userCode)));
     return fb;
   }
 

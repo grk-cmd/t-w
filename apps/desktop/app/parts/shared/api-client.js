@@ -1,7 +1,9 @@
 /* api-client.js — 🌐 앱 공통 API 통로(우리 서버 /v2) (검사 sim-api-client.js)
    [왜] 기능마다 fetch · 시간 제한 · 봉투 풀기 · 실패 판정 · 토큰 · 기기 머리를 따로 만들지 않게 여기 한 곳에 둔다.
    [모양] get · post · put · patch · del → 성공 봉투 { success: true, data } 의 data(204 는 null). 실패는 늘 ApiError 하나로:
-     kind 'unavailable' — 닿지 못함(네트워크 · 시간 초과 · 5xx · 길이 없는 404 · 봉투가 아닌 응답 · 쉬는 중).
+     kind 'unavailable' — 닿지 못함(네트워크 · 시간 초과 · 5xx · 봉투가 아닌 응답 · 쉬는 중).
+     kind 'noRoute'     — 서버에 그 길 자체가 없는 404(code NOT_FOUND · DATA_ROUTE_NOT_FOUND · 빈 code). 서버가 죽은 것이 아니라 «앱이 없는 길을 부른 버그» 다 —
+                          그 요청만 실패시키고 console.error 로 크게 남긴다. 쉬기(BACKOFF)에 넣지 않는다(같은 통로의 /v2/config 점검 판정까지 막지 않게).
      kind 'notReady'    — 서버는 살아 있지만 사본이 아직 없음(code 가 *_NOT_READY).
      kind 'auth'        — 401/403. kind 'request' — 그 밖의 4xx(그 자원이 없다는 404 포함 · 429 는 retryAfterMs).
      err.code 는 서버 봉투의 code(기계가 읽는 이름 — 문구 message 로 가르지 않는다) · err.items 는 실패에 걸린 줄(있을 때만 · 없으면 null).
@@ -36,7 +38,8 @@ const WRITE_TIMEOUT_MS = 10000;    // 쓰기 한 번 — 서버가 트랜잭션 
 const BACKOFF_MS = 30 * 1000;
 const ETAG_MAX = 64;               // ETag 로 기억하는 읽기 수
 const DEVICE_HEADER = 'X-Device-Id';
-/* 서버에 그 길 자체가 없을 때의 404 code — 자원이 없다는 404(USER_NOT_FOUND 등)와 가른다 */
+/* 서버에 그 길 자체가 없을 때의 404 code — 자원이 없다는 404(USER_NOT_FOUND 등)와 가른다.
+   서버 정본: GlobalExceptionHandler.handleNotFound → ErrorType.NOT_FOUND(404 · code 'NOT_FOUND'). DATA_ROUTE_NOT_FOUND 는 옛 /v1 legacy 의 «맡지 않는 길». */
 const NO_ROUTE_CODES = Object.freeze(['', 'NOT_FOUND', 'DATA_ROUTE_NOT_FOUND']);
 
 class ApiError extends Error {
@@ -174,7 +177,11 @@ function createApiClient(deps){
     if(/_NOT_READY$/.test(code)) throw new ApiError('notReady', status, code, msg, extra);
     if(status === 401 || status === 403) throw new ApiError('auth', status, code, msg, extra);
     if(status >= 500 || !status) throw new ApiError('unavailable', status, code, msg || ('API 오류 (' + status + ')'), extra);
-    if(status === 404 && NO_ROUTE_CODES.indexOf(code) >= 0) throw new ApiError('unavailable', status, code, msg || 'API 에 그 길이 없어요', extra);
+    if(status === 404 && NO_ROUTE_CODES.indexOf(code) >= 0){
+      /* 앱 버그 — 쉬기에 넣지 않고(kind 가 unavailable 이 아니다) 이 요청만 실패시키며 크게 남긴다 */
+      try{ console.error('[api] 서버에 없는 길을 불렀다(앱 버그) —', method, path, status, code || '(code 없음)'); }catch(_){}
+      throw new ApiError('noRoute', status, code || 'NOT_FOUND', msg || 'API 에 그 길이 없어요', extra);
+    }
     if(!(res && res.ok)) throw new ApiError('request', status, code, msg || ('API 요청 오류 (' + status + ')'), extra);
     if(status === 204) return null;
     // 앞단(Caddy) 오류 페이지처럼 봉투가 아닌 2xx 도 서버 문제로 본다

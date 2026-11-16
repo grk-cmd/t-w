@@ -52,7 +52,6 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `tricks.js` · `dice-games.js` · `roulette.js` · `floaters.js` | 깜짝쇼 · 때리기 · 주사위 · 하루 횟수 · 러시안룰렛 · 이모지 떠오르기 | fb 2 · 2 |
 | `overhead.js` · `away-pic.js` | 머리 위 말풍선 · 이름표 · 공지 배너 · 자리비움 그림 | fb 2 |
 | `room-rt.js` | 방 포트 — realtime 연결 하나 위의 방 provider(서버 통신 규약 pv 2 · 탭 s1↔S1 · random · peek) | ws(rt-hub) |
-| `room-alive.js` (ES) | 살아 있음 판정 — 관리자 유령 방 청소(firebase-init cleanGhostRooms)만 남음 · 앱 관리자 창을 걷을 때 같이 | (firebase-init 이 연결) |
 
 ## 3. 💬 `chat/` — 채팅 ✅ 옮김(폴더 3번)
 
@@ -104,7 +103,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `char-code.js` · `code-crypto.js` · `asset-code.js` · `commission.js` | 복제 코드 · 암호화 · 에셋 코드 · 커미션 zip · 저장 책상 / 아이템 | — |
 | `face-heal.js` · `def-size.js` · `seat-slot.js` | 얼굴 자동 복구 · def 용량 상한 · 좌석 안 파츠 가두기 | — |
 | `gacha.js` | 파츠 가챠 · 보관함 · 뽑기 창 | fb 5 |
-| `catalog-cache.js` (ES) | 카탈로그(parts · gachaParts · items · desks) 버전 확인 + 로컬 캐시 | (firebase-init 이 연결) |
+| `catalog-api.js` (ES) | 카탈로그(파츠 · 책상 · 아이템)를 서버 한 벌 `GET /v2/catalog`(ETag · realtime catalog 알림)에서 받아 앱 모양으로 펼침 | (firebase-init 이 연결) |
 
 ## 6. 🎨 `creator/` — 생성기 ✅ 옮김(폴더 12번)
 

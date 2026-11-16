@@ -445,7 +445,7 @@ function resetLocal(){ savedParts = savedParts.filter(p=>p.fromCatalog); }
    ⚠️ 관리자가 그 파츠를 한 번 다시 저장하면 카탈로그 값도 true 로 고쳐진다(buildPartPublishData). */
 function _normPartRec(p){ if(p && p.gacha && !p.stackable) p.stackable = true; return p; }
 function persistSavedParts(){
-  // 이 계정 몫(fromCatalog 아닌 것 — base64 glb 포함)만 계정 칸에 쓴다. 카탈로그 몫은 서버가 원본이고 오프라인 캐시는 catalog-cache.js 가 맡는다.
+  // 이 계정 몫(fromCatalog 아닌 것 — base64 glb 포함)만 계정 칸에 쓴다. 카탈로그 몫은 서버가 원본이고 catalog-api.js 가 서버 한 벌로 채운다.
   if(!accountStore.set(SAVED_PARTS_KEY, JSON.stringify(savedParts.filter(p=>!p.fromCatalog)))){ console.warn('[파츠] 계정 칸에 쓰지 못했어요'); notifyError('E-CHAR-24'); }
 }
 function partsInCat(cat){ return savedParts.filter(p=>p.cat===cat); }

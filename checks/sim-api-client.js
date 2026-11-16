@@ -2,8 +2,8 @@
    [왜] 읽기 사본이 있는 것은 우리 API(t-w-server)에서 먼저 읽고, 못 받으면 Firebase 길로 간다. 시간 제한 · 봉투 · 실패 모양 · 쉬기를 한 곳에서.
    1. 주소 — 운영 앱은 운영 API · dev 앱은 dev API(tw.apiBaseUrl 은 dev 만 · CSP 묶음 안 · 운영 API 아님) · 환경은 companion.firebaseEnv
    2. 성공 — 봉투 { success, data } 의 data · 토큰 · 쿠키 없이 · 주소 = 기본 + 경로
-   3. 실패 한 모양 — 네트워크 · 시간 초과 · 5xx · 404 · 봉투 아님 → unavailable · *_NOT_READY → notReady · 401/403 → auth · 그 밖 4xx → request · shouldFallback
-   4. 쉬기 — unavailable 뒤 BACKOFF_MS 동안 묻지 않고 곧장 실패(BACKOFF) · 지나면 다시 · notReady · 성공은 쉬지 않음
+   3. 실패 한 모양 — 네트워크 · 시간 초과 · 5xx · 봉투 아님 → unavailable · 길 없는 404(NOT_FOUND) → noRoute(앱 버그 · console.error) · *_NOT_READY → notReady · 401/403 → auth · 그 밖 4xx → request · shouldFallback
+   4. 쉬기 — unavailable 뒤 BACKOFF_MS 동안 묻지 않고 곧장 실패(BACKOFF) · 지나면 다시 · notReady · 길 없는 404 · 성공은 쉬지 않음(그 요청만 실패 — 같은 통로의 /v2/config 는 계속 간다)
    5. 캐시 · 같은 요청 하나로(로그인 읽기는 누구별) · 주소 없음
    6. 쓰기 — post · put · patch · del 방법 · 본문 · 로그인 기본 · 쓰기 시간 제한 · 204 · 쉬지 않음
    7. 로그인 — 토큰 · X-Device-Id 머리 · 401 AUTH_REQUIRED 면 새 토큰으로 한 번만 · 가입 전(NOT_BOUND)은 다시 안 함 · 토큰 없음
@@ -70,7 +70,9 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
       ['네트워크(TypeError)', () => { throw new TypeError('Failed to fetch'); }, 'unavailable', 'NETWORK'],
       ['500', () => res(500, { success: false, code: 'INTERNAL' }), 'unavailable', 'INTERNAL'],
       ['502 HTML', () => res(502, new SyntaxError('html')), 'unavailable', ''],
-      ['404(배포 전)', () => res(404, { success: false, code: 'NOT_FOUND' }), 'unavailable', 'NOT_FOUND'],
+      ['404 길 없음', () => res(404, { success: false, code: 'NOT_FOUND' }), 'noRoute', 'NOT_FOUND'],
+      ['404 옛 길 없음', () => res(404, { success: false, code: 'DATA_ROUTE_NOT_FOUND' }), 'noRoute', 'DATA_ROUTE_NOT_FOUND'],
+      ['404 code 없음', () => res(404, {}), 'noRoute', 'NOT_FOUND'],
       ['200 인데 봉투 아님(HTML)', () => res(200, new SyntaxError('html')), 'unavailable', ''],
       ['200 인데 success:false', () => res(200, { success: false }), 'unavailable', ''],
       ['503 CONFIG_NOT_READY', () => res(503, { success: false, code: 'CONFIG_NOT_READY' }), 'notReady', 'CONFIG_NOT_READY'],
@@ -83,11 +85,14 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
       const e = await one(fn);
       if(!(e instanceof A.ApiError) || e.kind !== kind || e.code !== code) bad.push(name + '=' + (e && e.kind) + '/' + (e && e.code));
     }
-    chk(bad.length === 0, '★ 네트워크 · 5xx · 404 · 봉투 아님 → unavailable · *_NOT_READY → notReady · 401/403 → auth · 그 밖 4xx → request' + (bad.length ? ' — 틀림: ' + bad.join(', ') : ''));
+    chk(bad.length === 0, '★ 네트워크 · 5xx · 봉투 아님 → unavailable · 길 없는 404 → noRoute · *_NOT_READY → notReady · 401/403 → auth · 그 밖 4xx → request' + (bad.length ? ' — 틀림: ' + bad.join(', ') : ''));
     const e503 = await one(() => res(503, { success: false, code: 'CONFIG_NOT_READY' }));
     chk(e503.status === 503 && e503.name === 'ApiError' && e503 instanceof Error, '  ↳ 상태 · 이름 · Error 를 잇는다');
     chk(A.shouldFallback(new A.ApiError('unavailable')) && A.shouldFallback(new A.ApiError('notReady')) && !A.shouldFallback(new A.ApiError('auth')) && !A.shouldFallback(new A.ApiError('request')) && !A.shouldFallback(null),
       'shouldFallback — 닿지 못함 · 사본 없음만 Firebase 길로(권한 · 요청 오류는 덮지 않음)');
+    const logged = []; const ce = console.error; console.error = (...a) => { logged.push(a.join(' ')); };
+    try{ await one(() => res(404, { success: false, code: 'NOT_FOUND' })); }finally{ console.error = ce; }
+    chk(logged.length === 1 && /\/v2\/x/.test(logged[0]) && /앱 버그/.test(logged[0]) && /404/.test(logged[0]), '★ 길 없는 404 는 console.error 로 크게 남는다(메서드 · 길 · 상태 — 조용히 넘어가지 않는다)');
     const t0 = Date.now();
     const eh = await one(() => new Promise(() => {}), { timeoutMs: 150 });
     chk(eh && eh.kind === 'unavailable' && eh.code === 'TIMEOUT' && Date.now() - t0 < 1000, '★ 답이 없으면 시간 제한에서 끊는다(TIMEOUT · unavailable)');
@@ -115,6 +120,17 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
     const e3 = await err(c.get('/r2'));
     chk(e3 && e3.kind === 'notReady' && f.calls.length === 4, '  ↳ 사본 없음(notReady)은 서버가 살아 있는 것 — 쉬지 않는다');
     mode = 'ok';
+    {
+      /* ★ 길 없는 404(앱 버그)는 쉬기에 넣지 않는다 — 같은 통로의 /v2/config(원격 설정 · 점검 판정)가 30초 막히지 않게 */
+      const ce = console.error; console.error = () => {};
+      try{
+        const fr = mkFetch((url) => (/\/v2\/gone$/.test(url) ? res(404, { success: false, code: 'NOT_FOUND' }) : res(200, { success: true, data: { cfg: 1 } })));
+        const cr = A.createApiClient({ baseUrl: PROD, fetch: fr, now: () => t, backoffMs: 30000 });
+        const en = await err(cr.get('/v2/gone'));
+        const cfg = await cr.get('/v2/config');
+        chk(en && en.kind === 'noRoute' && !cr.resting() && cfg && cfg.cfg === 1 && fr.calls.length === 2, '★ 길 없는 404 뒤에도 쉬지 않는다 — 그 요청만 실패하고 /v2/config 는 바로 간다(BACKOFF 0)');
+      }finally{ console.error = ce; }
+    }
     const c0 = A.createApiClient({ baseUrl: PROD, fetch: mkFetch(() => res(401, {})), now: () => t, backoffMs: 30000 });
     await err(c0.get('/x'));
     chk(!c0.resting(), '  ↳ 권한 오류도 쉬지 않는다');
@@ -364,6 +380,13 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
         ok(nb.calls.length === 1);
         const e1 = await err(M.createApiClient({ baseUrl: PROD, fetch: mkFetch(() => res(404, { success: false, code: 'USER_NOT_FOUND' })), backoffMs: 0 }).get('/x'));
         ok(e1 && e1.kind === 'request');
+        const ce0 = console.error; console.error = () => {};
+        try{
+          const nr = mkFetch((url) => (/gone$/.test(url) ? res(404, { success: false, code: 'NOT_FOUND' }) : res(200, { success: true, data: 5 })));
+          const cn = M.createApiClient({ baseUrl: PROD, fetch: nr, backoffMs: 30000 });
+          const en = await err(cn.get('/gone'));
+          ok(en && en.kind === 'noRoute' && !cn.resting() && (await cn.get('/v2/config')) === 5);
+        }finally{ console.error = ce0; }
         const e2 = await err(M.createApiClient({ baseUrl: PROD, fetch: mkFetch(() => res(429, { success: false, code: 'TOO_MANY_REQUESTS', items: [1] }, { 'Retry-After': '3' })), getToken: async () => 't' }).post('/x', {}));
         ok(e2 && e2.retryAfterMs === 3000 && e2.items && e2.items[0] === 1);
         const pb = mkFetch(() => res(200, { success: true, data: 1 }));
@@ -428,7 +451,8 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
       ["    if(typeof dev === 'string' && dev) h[DEVICE_HEADER] = dev;", '', '기기 머리를 안 붙임'],
       ["      return once(path, ms, Object.assign({}, o, { force: true }));", "      return once(path, ms, o);", '다시 할 때 새 토큰을 안 받음'],
       ["      if(!(o.auth && e instanceof ApiError && e.status === 401 && e.code === 'AUTH_REQUIRED')) throw e;", "      if(!(e instanceof ApiError && e.status === 401)) throw e;", '가입 전 · 로그인 없는 401 도 다시 보냄'],
-      ["    if(status === 404 && NO_ROUTE_CODES.indexOf(code) >= 0)", "    if(status === 404)", '자원 없음 404 를 닿지 못함으로'],
+      ["    if(status === 404 && NO_ROUTE_CODES.indexOf(code) >= 0){", "    if(status === 404){", '자원 없음 404 를 길 없음으로'],
+      ["throw new ApiError('noRoute', status,", "throw new ApiError('unavailable', status,", '길 없는 404 를 닿지 못함(30초 쉬기)으로 되돌림'],
       ["retryAfterMs: status === 429 ? retryAfterMsOf(headerOf(res, 'Retry-After')) : null", "retryAfterMs: null", 'Retry-After 를 버림'],
       ["    o.auth = o.auth !== false;", "", '쓰기가 로그인 없이 감'],
       ["    authed = createApiClient({ baseUrl, fetch: fetchFn, onRequest: touch, backoffMs: 0,", "    authed = createApiClient({ baseUrl, fetch: fetchFn, onRequest: touch,", '로그인 통로가 쉬기를 씀'],

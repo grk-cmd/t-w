@@ -35,7 +35,7 @@
   import { firebaseConfig } from "./firebase-config.js";
   import { createAppVersion } from "./shared/app-version.js";
   import { createChatHistory, createIdbChatStore } from "./chat/chat-history.js";
-  import { createCatalogSync, createApiCatalogFetch } from "./character/catalog-cache.js";
+  import { createCatalogApi } from "./character/catalog-api.js";
   import { createRealtimeLink } from "./realtime/realtime-link.js";
   import { createApiPublicReads } from "./shared/api-public-reads.js";
   /* 로그인 수단 읽기 — authProviders · authChangePassword 가 같이 쓴다. 세션이 없으면 null. */
@@ -340,27 +340,18 @@
     try{ await deleteObject(sref(storage, path)); }catch(_){ /* 없어도 무시 */ }
   }
 
-  /* 카탈로그 버전 확인 + 로컬 캐시 — 구조와 이유는 catalog-cache.js 머리말에 있다.
-     경로를 여기 두는 이유: audit 검사 7 이 «코드가 접근하는 최상위 경로가 규칙에 있는가» 를 이 파일에서 찾는다.
-     scope = DB 주소 — 운영과 dev 가 같은 PC 에서 돌아도 캐시가 섞이지 않게. */
-  const _subscribeCatalogKind = createCatalogSync({
-    metaRef:    (kind) => ref(db, 'catalogMeta/' + kind),
-    catalogRef: (kind) => ref(db, 'catalog/' + kind),
-    onValue, get,
-    scope: (firebaseConfig && (firebaseConfig.databaseURL || firebaseConfig.projectId)) || '',
-    /* 본문은 API 읽기 사본(GET /v2/catalog/{종류}?v=) 먼저 — 못 받으면 아래 Firebase get. 버전 알림은 위 metaRef 그대로. */
-    fetch: createApiCatalogFetch({
-      api: (window.TwApi && window.TwApi.client) || null,
-      shouldFallback: window.TwApi && window.TwApi.shouldFallback,
-      firebaseGet: (kind) => get(ref(db, 'catalog/' + kind)),
-    }),
+  /* 카탈로그 읽기 — 서버 한 벌 GET /v2/catalog(구조 · 버전 알림을 걷은 까닭은 catalog-api.js 머리말). 못 받으면 Firebase 로 물러나지 않고 E-CHAR-26 으로 알린다. */
+  const _catalogApi = createCatalogApi({
+    api: window.TwApi.client,
+    rt: window.TwRtHub.store,
+    notifyError: (...a) => window.TwErrorCodes.notify(...a),   // 부를 때 찾는다
   });
   /* 카탈로그 쓰기는 전부 여기를 지난다 — 같은 다중 경로 update 로 catalogMeta/{종류} 버전(서버 시각)도 올린다.
      하나라도 빠지면 그 종류는 버전이 그대로라 사용자가 옛 카탈로그(캐시)를 계속 본다(최대 수명 24시간까지).
      catalog/parts · gachaParts · items · desks 에 쓰는 함수를 새로 만들면 반드시 이걸 쓴다(웹 관리자는 catalogCommit).
      규칙에 catalogMeta 가 아직 없으면(규칙 배포 전) 루트가 막혀 있어 update 가 통째로 거부된다.
      그때만 버전 없이 카탈로그만 한 번 더 쓴다 — 그 DB 를 쓰는 앱은 catalogMeta 구독이 거부돼
-     통째 구독으로 돌고 있으므로 바로 반영된다(catalog-cache.js 안전장치 ①). */
+     통째 구독으로 돌고 있으므로 바로 반영된다. 이 앱의 읽기는 서버 한 벌이라 catalogMeta 를 읽지 않는다(catalog-api.js) — 이 올림은 옛 앱 호환이다. */
   async function _catalogUpdate(updates, kinds){
     const withMeta = Object.assign({}, updates);
     for(const k of kinds) withMeta['catalogMeta/' + k] = serverTimestamp();
@@ -370,7 +361,7 @@
       const code = String((e && (e.code || e.message)) || '');
       if(!/permission|PERMISSION_DENIED/i.test(code)) throw e;
       await update(ref(db), updates);   // 이것도 거부면(관리자 아님 · 형식 오류) 그 오류를 그대로 던진다
-      console.warn('[catalog-cache] catalogMeta 규칙이 없어 버전 없이 카탈로그만 썼다 —', kinds.join(','));
+      console.warn('[catalog] catalogMeta 규칙이 없어 버전 없이 카탈로그만 썼다 —', kinds.join(','));
     }
   }
 
@@ -599,9 +590,9 @@
       await _catalogUpdate({ [`catalog/desks/${id}`]: null }, ['desks']);
       return { ok:true };
     },
-    /* 버전 확인 + 로컬 캐시(catalog-cache.js). 콜백 모양(전체 목록 객체)은 통째 onValue 때와 같다. */
+    /* 서버 한 벌(catalog-api.js). 콜백 모양(전체 목록 객체)은 통째 onValue 때와 같다. */
     subscribeCatalogDesks(onChange){
-      return _subscribeCatalogKind('desks', onChange);
+      return _catalogApi.subscribe('desks', onChange);
     },
 
     // ---- 아이템(소품) 카탈로그 (책상과 동일한 방식) ----
@@ -629,7 +620,7 @@
       return { ok:true };
     },
     subscribeCatalogItems(onChange){
-      return _subscribeCatalogKind('items', onChange);
+      return _catalogApi.subscribe('items', onChange);
     },
 
     /* ---- 게임 설정 ---- 동물 해금 레벨처럼 앱을 새로 배포하지 않고 바꾸고 싶은 값. 읽기만 있다 — 관리자 쓰기는 서버로 옮기는 중(admin/admin-launcher.js) */
@@ -675,36 +666,6 @@
       if(Object.keys(updates).length) await _catalogUpdate(updates, kinds);
       return { ok:true };
     },
-    /* 🧹 Storage 이관 뒷정리 — 이미 glbUrl이 있는(=Storage로 옮겨진) catalog 항목의 남은 base64 glb 필드만
-       DB에서 삭제. glbUrl이 없는 항목은 안전하게 건너뜀(원본 소실 방지). onValue 다운로드 비용의 주범 제거.
-       dryRun=true면 실제로 지우지 않고 대상 수/용량만 계산해서 반환. */
-    async cleanupCatalogBase64(dryRun){
-      const kinds = ['parts','desks','items'];
-      const report = { willDelete:0, skipNoUrl:0, alreadyClean:0, bytes:0, byKind:{} };
-      const updates = {};
-      const touched = [];   // 실제로 지운 종류 — 그 종류의 catalogMeta 버전만 올린다
-      for(const kind of kinds){
-        report.byKind[kind] = { del:0, skip:0 };
-        let snap;
-        try{ snap = await get(ref(db, 'catalog/'+kind)); }catch(_){ continue; }
-        const obj = snap.val() || {};
-        for(const id in obj){
-          const rec = obj[id] || {};
-          if(!rec.glb){ report.alreadyClean++; continue; }        // 이미 base64 없음
-          if(!rec.glbUrl){ report.skipNoUrl++; report.byKind[kind].skip++; continue; }  // Storage 미이관 → 절대 건드리지 않음
-          report.willDelete++; report.byKind[kind].del++;
-          report.bytes += (rec.glb.length||0);
-          if(!dryRun){
-            updates[`catalog/${kind}/${id}/glb`] = null;  // 이 필드만 삭제(다른 필드 유지)
-            if(touched.indexOf(kind) < 0) touched.push(kind);
-          }
-        }
-      }
-      report.mb = (report.bytes/1048576).toFixed(2);
-      /* 정리도 카탈로그 쓰기다 — 버전을 안 올리면 사용자 캐시에 base64 가 남은 옛 레코드가 그대로 산다. */
-      if(!dryRun && Object.keys(updates).length) await _catalogUpdate(updates, touched);
-      return report;
-    },
     async unpublishPart(id){
       await _tryDeleteStorage('catalog/parts/'+id+'.glb');
       /* 어느 통에 있는지 호출자가 알 필요 없게 양쪽 다 지운다 — 없는 쪽 null 은 no-op.
@@ -712,72 +673,10 @@
       await _catalogUpdate({ [`catalog/parts/${id}`]: null, [`catalog/gachaParts/${id}`]: null }, ['parts', 'gachaParts']);
       return { ok:true };
     },
-    // 🔍 카탈로그 용량 진단 — 어떤 레코드가 DB 용량(=모든 사용자 다운로드)을 먹는지 측정.
-    //   base64가 DB에 남아 있으면 그 레코드를 모든 사용자가 앱 켤 때마다 통째로 받게 됨.
-    async analyzeCatalog(){
-      const out = {};
-      for(const kind of ['parts','desks','items']){
-        const snap = await get(ref(db, `catalog/${kind}`));
-        const all = snap.val() || {};
-        const recs = [];
-        let total = 0, base64Count = 0;
-        for(const id in all){
-          const r = all[id] || {};
-          const size = JSON.stringify(r).length;
-          total += size;
-          const heavy = [];
-          for(const k in r){
-            const v = r[k];
-            if(typeof v === 'string' && v.length > 2000){
-              heavy.push(k + '(' + Math.round(v.length/1024) + 'KB' + (v.startsWith('data:') ? ', base64' : '') + ')');
-              if(v.startsWith('data:')) base64Count++;
-            }
-          }
-          recs.push({ id, name: r.name || '', kb: Math.round(size/1024*10)/10, heavy });
-        }
-        recs.sort((a,b)=> b.kb - a.kb);
-        out[kind] = { totalKB: Math.round(total/1024*10)/10, count: recs.length, base64Fields: base64Count, top: recs.slice(0,10) };
-      }
-      return out;
-    },
+    /* 🎰 파츠 — 서버 한 벌의 파츠가 가챠(gacha:true)까지 한 목록으로 온다(catalog-api.js unfoldCatalog). 앱 쪽 병합/삭제 감지는
+       «카탈로그 전체 목록» 을 기대하므로 한 번에 전체를 넘긴다 — 옛 «두 통이 다 도착하기 전엔 콜백 안 함» 문제가 없다. */
     subscribeCatalogParts(onChange){
-      /* 🎰 두 통(parts + gachaParts)을 합쳐서 한 객체로 넘긴다 — 앱 쪽 병합/삭제 감지는
-         "카탈로그 전체 목록"을 기대하기 때문이다.
-         ⚠️ 둘 다 최소 한 번 도착하기 전에는 콜백하지 않는다 — parts 가 먼저 오면 아직 안 온
-           gachaParts 쪽 파츠들이 "관리자가 삭제한 것"으로 오인돼 착용까지 풀린다
-           (mergeCatalogIntoSavedParts 의 removedIds 경로). */
-      let parts = null, gacha = null;
-      const emit = () => {
-        if(parts === null || gacha === null) return;
-        const merged = { ...parts };
-        for(const id in gacha) merged[id] = { ...gacha[id], gacha: true };
-        /* 이관 전 과도기 — parts 쪽에 gacha:true 로 남아 있는 옛 항목 표식.
-           앱(관리자 세션)이 이 표식을 보고 migrateGachaCatalog 를 한 번 돌린다. */
-        for(const id in parts){ if(parts[id] && parts[id].gacha) merged[id] = { ...parts[id], _legacyGacha: true }; }
-        onChange(merged);
-      };
-      /* 종류별 버전 확인 + 로컬 캐시(catalog-cache.js).
-         두 통의 버전은 따로다 — 가챠 파츠만 고치면 gachaParts 만 다시 받는다. 위의 «둘 다 도착하기 전엔 콜백 안 함» 은 그대로. */
-      const u1 = _subscribeCatalogKind('parts', v => { parts = v || {}; emit(); });
-      const u2 = _subscribeCatalogKind('gachaParts', v => { gacha = v || {}; emit(); });
-      return () => { u1(); u2(); };
-    },
-    /* 🎰 이관 — catalog/parts 에 gacha:true 로 남아 있는 옛 항목을 gachaParts 로 옮긴다.
-       멱등이라 몇 번을 불러도 안전하다(옮길 것이 없으면 아무것도 안 한다).
-       ★ 이걸 돌리는 순간부터 구버전 클라이언트에서는 그 파츠가 사라진다(착용도 자동 해제) —
-         그게 바로 원하는 효과다. */
-    async migrateGachaCatalog(){
-      const snap = await get(ref(db, 'catalog/parts'));
-      const all = snap.val() || {};
-      const moved = [];
-      for(const id in all){
-        const rec = all[id];
-        if(!rec || rec.gacha !== true) continue;
-        /* 한 update 로 옮긴다(반쯤 옮긴 채로 남지 않는다) + 두 통 버전 올림. */
-        await _catalogUpdate({ [`catalog/gachaParts/${id}`]: rec, [`catalog/parts/${id}`]: null }, ['parts', 'gachaParts']);
-        moved.push(id);
-      }
-      return { ok:true, moved };
+      return _catalogApi.subscribe('parts', onChange);
     },
     // ===== Phase 3: 커스텀 서브카테고리 (관리자가 파츠 종류 추가) =====
     // catalog/customCats/{catId} = { cat, label, icon, group, bone, createdAt }
@@ -972,7 +871,9 @@
      ★ 2026-09-23: 쓰는 사람이 없음을 확인하고 **서버 규칙에서도 `mysRooms` 를 내렸다**(개정 63).
         남은 것은 콘솔의 옛 데이터뿐 — 규칙이 내려간 뒤에 지운다(순서가 반대면 지우자마자 다시 생길 수 있다). */
 
-  /* 🌐 공개 읽기(파도타기 · 명함 · 사진 · 방 개수 표시 · 랜덤 참여 후보)는 API 사본 먼저 → 실패면 위 함수 그대로(api-public-reads.js). */
-  createApiPublicReads({ api: (window.TwApi && window.TwApi.client) || null, readCell: (path) => get(ref(db, path)).then(s => s.val()) }).wrap(window.firebaseAPI);
+  /* 🌐 명함 읽기는 서버 길 한 곳(api-public-reads.js) — 실패해도 위 Firebase 함수로 물러나지 않는다.
+     길은 친구 쪽 social-api.js fetchCards(GET /v2/myhomes/cards?codes=)를 그대로 쓴다(읽기뿐이라 따로 한 벌) */
+  const _cardApi = window.TwSocialApi.createSocialApi({ authed: window.TwApi.authed, warn: (...a) => console.warn(...a) });
+  createApiPublicReads({ fetchCards: (codes) => _cardApi.fetchCards(codes) }).wrap(window.firebaseAPI);
   try{ window.firebaseAPI.chatHistory.bindSettings(document, (m) => { window.toast(m); }); }catch(_){}   // 설정 › 시스템 [저장된 대화 지우기]
   window.dispatchEvent(new Event('firebase-ready'));

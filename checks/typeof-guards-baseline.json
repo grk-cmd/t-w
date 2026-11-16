@@ -44,7 +44,7 @@
   "room/roulette.js": 1,
   "room/tricks.js": 1,
   "shared/api-client.js": 2,
-  "shared/api-public-reads.js": 1,
+  "shared/api-public-reads.js": 0,
   "shared/app-version.js": 1,
   "shared/dot-render.js": 2,
   "shared/win-stack.js": 2,
