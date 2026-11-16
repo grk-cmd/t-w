@@ -109,7 +109,8 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
     /* 가짜 카탈로그 통로(catalog-api.js 의 subscribe) — 부른 종류 · 콜백을 적고 해제 함수를 돌려준다 */
     const catalogApiMod = { subscribe: (kind, cb) => { const k = kind === 'categories' ? 'cats' : kind; subs[k] = cb; L('sub', k); return () => { offs.push(k); }; } };
     const sessionOn = [];
-    const session = { on: (u) => { sessionOn.push(u); return () => {}; } };
+    const resets = [];
+    const session = { on: (u) => { sessionOn.push(u); return () => {}; }, onReset: (fn) => { resets.push(fn); } };
     const win = {};
     const els = { launcher: { classList: { contains: () => !!o.launcherOn } }, wdPreviewPanel: { classList: { contains: () => !!o.wdOn } } };
     const doc = { getElementById: (id) => els[id] || null };
@@ -124,6 +125,7 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
       premiumMod: { savedParts: () => st.parts, setSavedParts: (v) => { st.parts = v; L('setParts'); }, persistSavedParts: () => L('persistParts'),
         _normPartRec: (r) => Object.assign({ norm: true }, r), partEntryId: (e) => typeof e === 'string' ? e : (e && e.id),
         entriesForCat: (def, cat) => { const v = def.equippedParts[cat]; return Array.isArray(v) ? v : [v]; }, partEntryXf: (e) => e && e.xf,
+        restoreLicenseHeldAssets: () => L('restoreHeld'),
         pruneUnownedLicenseAssets: () => { L('licPrune'); if(o.licThrows) throw new Error('lic'); },
         setCustomPartCats: (v) => L('setCats', v), rebuildPartCats: () => L('rebuildCats'), setPartCatOverrides: (v) => L('setOver', v) },
       catalogGlbMod: { resolveCatalogGlbAll: async (x) => { L('resolveAll'); return x; } },
@@ -160,7 +162,7 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
       GETS.forEach(n => { deps[n] = () => raw[n]; });
       deps.setCDeskGlbB64 = (v) => L('set cDeskGlbB64', v); deps.setCDeskTemplate = (v) => L('set cDeskTemplate', v);
       deps.catalogApiMod = catalogApiMod;
-      new Function('window', 'module', 'document', 'console', MOD)(win, undefined, doc, cons);
+      new Function('window', 'module', 'document', 'console', o.src || MOD)(win, undefined, doc, cons);
       mod = win.TwCatalogSync.createCatalogSync(deps);
       if(!o.noStart) mod.start(session);
     } else {
@@ -169,7 +171,7 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
       const names = Object.keys(raw);
       new Function(...names, 'window', 'document', 'console', SRC.slice(a1, b1) + '\n' + SRC.slice(a2, b2))(...names.map(n => raw[n]), win, doc, cons);
     }
-    return { log, st, subs, offs, sessionOn, mod, session, win, raw };
+    return { log, st, subs, offs, sessionOn, resets, mod, session, win, raw };
   };
   const has = (log, s) => log.includes(s);
   const idx = (log, s) => log.indexOf(s);
@@ -182,6 +184,27 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
     chk(W.sessionOn.length === 5 && W.sessionOn.every((u) => typeof u === 'function') && !W.offs.length, '★ 다섯 해제 함수를 모두 세션에 맡긴다(session.on) — 세션이 끝나면 풀리고 catalog-api 가 값을 비운다');
     W.sessionOn.forEach((u) => u());
     chk(W.offs.join() === 'items,desks,parts,cats,unlocks', '  ↳ 맡긴 함수가 각자 제 구독을 푼다');
+    chk(W.resets.length === 1 && typeof W.resets[0] === 'function', '★ 세션 reset 에 카탈로그 몫 비우기를 한 곳(clearCatalogShare)으로 건다');
+
+    /* 계정 A(라이선스 있음 · 전용 책상 locked:false) → 세션 끝 → 계정 B 는 받기 전 · 받기 실패에도 A 의 전용 책상을 못 쓴다 */
+    const acct = (o) => load(Object.assign({ customItems: { vip: { id: 'vip' }, mine: { id: 'mine' } },
+      desks: [{ id: 'deskVip', fromCatalog: true, licenseOnly: true, locked: false }, { id: 'localDesk' }],
+      items: [{ id: 'vip', fromCatalog: true, licenseOnly: true, locked: false }, { id: 'mine' }],
+      parts: [{ id: 'p1', fromCatalog: true }, { id: 'pLocal' }] }, o || {}));
+    const endSession = (A) => A.resets.forEach((fn) => fn());
+    const left = (A) => A.st.desks.map(r => r.id).join() + '|' + A.st.items.map(r => r.id).join() + '|' + A.st.parts.map(r => r.id).join();
+    let A = acct();
+    chk(A.st.desks[0].locked === false, 'A — 라이선스가 있어 전용 책상의 locked 가 거짓이다(쓸 수 있다)');
+    endSession(A);
+    chk(left(A) === 'localDesk|mine|pLocal', '★ 세션이 끝나면 저장 목록 셋에서 카탈로그 몫(fromCatalog)만 빠진다 — 이 계정 몫(코드로 추가)은 userLocal 의 reset 이 따로 비운다');
+    chk(!('vip' in A.raw.customItems) && 'mine' in A.raw.customItems, '  ↳ customItems 도 카탈로그 몫만 뺀다');
+    chk(!A.st.desks.some(r => r.id === 'deskVip') && !A.st.desks.some(r => r.locked === false), '★ B 가 받기 전 · 받기에 실패해도(구독 콜백이 안 온다) A 의 전용 책상 레코드가 남지 않는다 — 레코드가 없으니 B 는 쓸 수 없다');
+    A.st.desks.length = 0;
+    await A.subs.desks({ deskVip: { licenseOnly: true, locked: true } }); await flush();
+    chk(A.st.desks[0].id === 'deskVip' && A.st.desks[0].locked === true, '  ↳ B 가 받으면 서버가 B 에게 정한 locked(참)로 채워진다');
+    const brokenSrc = MOD.replace('session.onReset(clearCatalogShare);', '');
+    const Bk = acct({ src: brokenSrc }); endSession(Bk);
+    chk(brokenSrc !== MOD && left(Bk) === 'deskVip,localDesk|vip,mine|p1,pLocal' && Bk.st.desks[0].locked === false, '  깨 보기: 세션 reset 에 안 걸면 A 의 locked:false 레코드가 B 에게 남는다(= 위 판정이 빨강)');
     W = load();
 
     /* 아이템 */

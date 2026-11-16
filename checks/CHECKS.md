@@ -121,9 +121,9 @@
 | **sim-def-send.js** | 221 | **166a25f773b8** |
 | **sim-desk-floor-clamp.js** | 206 | **b59a0d2a44b2** |
 | **sim-desk-part-scale.js** | 83 | **8a0a59ffb09a** |
-| **sim-desk-preset.js** | 254 | **40c3a0e49634** |
+| **sim-desk-preset.js** | 254 | **4e79c7cc1ca5** |
 | **sim-json-store.js** | 209 | **667a88619187** |
-| **sim-desk-setup.js** | 255 | **72e4ab3d5320** |
+| **sim-desk-setup.js** | 255 | **e9a0e3f5c2bf** |
 | sim-dom-boot.js | 83 | 927ab53ecc44 |
 | sim-exp-bar-color.js | 135 | 4142ee5559d6 |
 | **sim-face-loss.js** | 322 | **06f4d70a148e** |
@@ -163,14 +163,14 @@
 | **sim-click-through-policy.js** | 312 | **c8a07dca8eaa** |
 | **sim-heartbeat-policy.js** | 251 | **b3c8bdfbc2a0** |
 | **sim-catalog-cache.js** | 62 | **e1f40810eba9** |
-| **sim-catalog-api.js** | 295 | **2dd0831056bf** |
+| **sim-catalog-api.js** | 296 | **b011d358fc4e** |
 | **sim-friend-code-keep.js** | 180 | **395ddad5a770** |
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
 | **sim-key-input.js** | 71 | **3116fd7dd8fb** |
 | **sim-keysof-twin.js** | 369 | **54f473215813** |
-| **sim-license-leak.js** | 315 | **5b8cf9066189** |
+| **sim-license-leak.js** | 319 | **4969e3950d0e** |
 | **sim-license-api.js** | 158 | **97931c95bc34** |
-| **sim-license-premium.js** | 327 | **ebde3b7ba983** |
+| **sim-license-premium.js** | 328 | **09a357b05a8b** |
 | **sim-mh-sanitize.js** | 219 | **fc237605e364** |
 | **sim-myhome-steps.js** | 128 | **ed6b55640d6c** |
 | **sim-myhome-load.js** | 87 | **80598e5410f5** |
@@ -191,7 +191,7 @@
 | **sim-pl-loop.js** | 511 | **baae9984599b** |
 | **sim-pl-next.js** | 171 | **9e7dea09b15f** |
 | **sim-pl-watchdog.js** | 412 | **4658ffafbd00** |
-| **sim-premium-desk.js** | 131 | **764746bcf36e** |
+| **sim-premium-desk.js** | 131 | **c9f138462e71** |
 | **sim-presence.js** | 263 | **72b39c1a8191** |
 | **sim-light-tone.js** | 281 | **2240049cb22b** |
 | **sim-paint-geom.js** | 107 | **0c187cb7b3d7** |
@@ -229,7 +229,7 @@
 | **sim-human-ear-attach.js** | 129 | **cc7187e89b24** |
 | **sim-desk-build.js** | 100 | **0de2a23692c7** |
 | **sim-part-anim.js** | 177 | **c1dc6497cf24** |
-| **sim-desk-item-equip.js** | 212 | **e2a0e8286cbb** |
+| **sim-desk-item-equip.js** | 213 | **cf28b8562e73** |
 | **sim-animal-edit-route.js** | 113 | **05e6088f9a9d** |
 | **sim-seat-slot.js** | 114 | **aea78fc86038** |
 | **sim-fix-1008b.js** | 47 | **a35227963110** |
@@ -425,7 +425,7 @@
 | **sim-admin-thumbs.js** | 145 | **b8bfec2cc80a** |
 | **sim-glb-idb-cache.js** | 172 | **fda2ba697435** |
 | **sim-catalog-glb.js** | 195 | **05c442a939b9** |
-| **sim-catalog-sync.js** | 280 | **5d0e3777b73f** |
+| **sim-catalog-sync.js** | 303 | **51b40f03ff8c** |
 | **sim-desk-items.js** | 166 | **a1f0433d23a0** |
 | **sim-bgm-diag.js** | 300 | **b0b5757656bc** |
 | **sim-blink-timing.js** | 112 | **624e0321ea28** |

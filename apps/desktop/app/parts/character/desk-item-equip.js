@@ -37,16 +37,12 @@ function equipDeskItem(holder,def,on){
   //   ⚠️ 단 **친구 좌석(holder.remote)에는 걸지 않는다.** applyDeskItemsTo가 친구 좌석을 그릴 때도
   //     이 함수를 타는데, 여기서 '보는 사람'의 라이선스를 보면 라이선스 있는 친구가 올려둔 아이템이
   //     라이선스 없는 내 화면에서만 사라진다(applyDeskCatalogRefToSeat와 같은 함정).
-  /* ⚠️ def.licenseOnly 만 보면 새는 자리가 있다 — 캐릭터에 딸려온 customItems 는 registerCustomItem 을
-     licenseOnly 인자 없이 부르는 세 곳(슬롯 적용·좌석 적용·프리셋)에서 **licenseOnly:false 로 등록**된다.
-     카탈로그가 먼저 도착했으면 `if(!customItems[id])` 가드에 걸려 무사하지만, 캐릭터가 먼저 닿으면
-     그 세션 내내 전용 아이템이 게이트를 통째로 안 탄다. 원본은 카탈로그 레코드(savedItems)이므로
-     그쪽도 함께 본다 — 카탈로그가 늦게 와도 그때부터는 맞는 답이 된다.
+  /* ⚠️ 막을지는 카탈로그 레코드(savedItems)의 서버 locked 다 — 캐릭터에 딸려온 customItems def 는 registerCustomItem 이 licenseOnly:false 로 등록하는 길이 있어 def 를 믿으면 새고,
+     그 def 의 칸은 «분류» 라 막기 판정에 쓰지 않는다. 레코드가 아직 없으면(받기 전) 막을 것도 없다.
      savedItems 는 아래에서 let 으로 선언되므로 typeof 가 아니라 try 로 감싼다(TDZ). */
   let _siCat = null; try{ _siCat = commissionMod().savedItems(); }catch(_){}
   const _siRec = (_siCat && _siCat.find && def && def.id) ? _siCat.find(s=>s.id===def.id) : null;
-  const _itemLicenseOnly = !!(def && def.licenseOnly) || !!(_siRec && _siRec.licenseOnly);
-  if(on && !(holder && holder.remote) && licenseAssetBlocked({ licenseOnly: _itemLicenseOnly })){
+  if(on && !(holder && holder.remote) && licenseAssetBlocked(_siRec)){
     toast('🔒 "'+(def.name||'이 아이템')+'"은(는) 라이선스 보유자만 사용할 수 있어요');
     return;
   }

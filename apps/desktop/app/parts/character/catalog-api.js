@@ -12,7 +12,7 @@
  *     categories = { customCats: [운영이 더한 카테고리] · catOverrides: { 기본 코드: { label · icon } — 처음 값에서 바뀐 것만 } }(옛 catalog/customCats · catOverrides 와 같은 뜻) ·
  *     unlocks = { 종류: { 열쇠: { level · label } } }(옛 catalog/gameConfig 의 동물 해금 레벨은 ANIMAL_CHARACTER · animal).
  *     레코드마다 version · modelHash · thumbHash · listingAccess 를 싣는다 — 관리자가 고쳐 쓸 때 되돌려 보낸다.
- *     책상 · 소품의 licenseOnly = 서버가 이 사람에게 정한 locked 값 그대로(access.kind 로 앱이 다시 판정하지 않는다).
+ *     책상 · 소품의 두 칸: locked = 서버가 이 사람에게 정한 «나에게 잠김» 그대로(막을 때 쓴다 — 앱이 다시 판정하지 않는다) · licenseOnly = 진열 access 가 entitlement 인 «라이선스 전용 분류»(어느 탭 · 목록에 그릴지 — 판정이 아니라 칸 채우기).
  *     parts = 옛 catalog/parts + catalog/gachaParts 를 합친 것(가챠는 gacha:true · season) · items = 서버 deskProps · desks = 서버 desks.
  *     파일은 해시만 온다 → glbUrl · thumbUrl 은 GET /v2/catalog/assets/{해시}.{glb|png} 주소로 채운다(이름이 내용 해시라 1년 캐시 · 어느 출처든 읽는다).
  *   createCatalogApi(deps).subscribe(kind, onData) — kind: parts · items · desks · categories · unlocks. 처음 구독이 받기를 시작하고, 알림(catalog · 내 라이선스가 바뀌면 license) · 연결 복구 때 다시 받는다. 돌려주는 해제 함수로 마지막 구독자가 빠지면 이번 로그인의 값을 모두 비운다(다음 로그인이 앞 사람의 locked 를 받지 않게).
@@ -46,6 +46,8 @@ const HASH_RE = /^[0-9a-f]{64}$/;
 function urlOf(assetUrl, hash, ext){
   return (typeof hash === 'string' && HASH_RE.test(hash)) ? assetUrl(hash, ext) : null;
 }
+/* 진열 분류 — «라이선스 전용» 으로 진열된 물건인가(어느 탭 · 목록에 그릴지 · 관리자 칸). 막을지는 이것이 아니라 서버 locked 가 정한다(propRec 의 locked 칸) */
+const licenseOnlyOf = (listing) => !!(isObj(listing) && isObj(listing.access) && listing.access.kind === 'entitlement');
 function put(rec, key, val){ if(val !== null && val !== undefined) rec[key] = val; }
 
 /* 관리자가 고칠 때 되돌려 보낼 서버 칸 — 물건의 version(고치기에 싣는다) · 파일 해시(파일을 안 바꾸면 그대로 쓴다) · 진열 권한(앱이 모르는 종류도 그대로 돌려준다) */
@@ -82,7 +84,7 @@ function partRec(p, order, assetUrl){
 function propRec(d, order, assetUrl){
   const play = isObj(d.play) ? d.play : {};
   const rec = { name: str(d.name), icon: str(d.icon), playMode: str(play.playMode) || 'click', autoPlay: play.autoPlay === true, glow: play.glow === true,
-    licenseOnly: d.locked === true, order };
+    licenseOnly: licenseOnlyOf(d.listing), locked: d.locked === true, order };
   adminCols(rec, d);
   put(rec, 'glbUrl', urlOf(assetUrl, d.model, 'glb'));
   put(rec, 'thumbUrl', urlOf(assetUrl, d.thumb, 'png'));

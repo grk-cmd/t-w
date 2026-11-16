@@ -142,7 +142,7 @@ function applyDeskPreset(p){
     }
   };
   /* 프리셋에 남은 라이선스 전용 책상은 라이선스가 없으면 쓰지 않는다(쓰면 완료 때 def 에 굳는다) — 기본 책상으로 열고 프리셋은 그대로 둔다. */
-  const _presetDeskLocked = licenseAssetBlocked({ licenseOnly: premiumMod._licenseLockedDeskId(p.deskCatalogId) });
+  const _presetDeskLocked = licenseAssetBlocked({ locked: premiumMod._licenseLockedDeskId(p.deskCatalogId) });
   if(p.deskCatalogId===NO_DESK_ID){
     crState.cDeskTemplate=null; crState.cDeskGlbB64=null; crState.activeCustomDeskId=NO_DESK_ID;
     if(crState.cDesk){ hideDeskBody(crState.cDesk); setCreatorDeskScale(crState.cDeskScale); }

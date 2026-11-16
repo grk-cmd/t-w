@@ -41,12 +41,12 @@ function resetPremium(){
   _premiumKnown = false;
   setIsPremium(false);
 }
-/* 🔒 «이 라이선스 전용 자산을 지금 막아야 하나» — 전용(licenseOnly)이고 프리미엄도 관리자도 아님. 전용 책상 · 아이템을 그리거나 고르는 모든 곳이 이 한 판단을 부른다
-   (책상 그리기 · 아이템 장착 · 생성기 카드 · 슬롯 불러오기 · 프리셋). item = 책상 · 아이템 레코드 또는 { licenseOnly }.
-   ★ 서버가 프리미엄을 확인해 주기 전(모름)에는 막지 않는다 — isPremium 의 false 는 «아님» 이 아니라서, 막으면 프리미엄 사용자가 켤 때마다 기본 책상 + «보유자만» 안내를 본다.
-     확인이 오면 _setPremium 알림이 내 좌석 · 런처 미리보기를 다시 그린다(license-gate.js _refreshPremiumGatedUI). 계정 핵심 상태에 두는 까닭: 책상 모듈과 전용 자산 모듈이 서로를 부르는 층이라 그 아래여야 순환이 안 생긴다. */
+/* 🔒 «이 라이선스 전용 자산을 지금 막아야 하나» — 서버가 카탈로그에 실어 준 이 사람의 locked 하나만 본다(판정은 서버). 전용 책상 · 아이템을 그리거나 고르는 모든 곳이 이 한 판단을 부른다
+   (책상 그리기 · 아이템 장착 · 생성기 카드 · 슬롯 불러오기 · 프리셋). item = 책상 · 아이템 레코드 또는 { locked }.
+   ★ 프리미엄 · 관리자 · «모름» 을 앱이 다시 가리지 않는다 — 서버가 확인하기 전에는 레코드(locked)가 아직 없어 막을 것도 없다. 풀림 · 잠김은 realtime license 알림 뒤 카탈로그를 다시 받아 바뀐다.
+   계정 핵심 상태에 두는 까닭: 책상 모듈과 전용 자산 모듈이 서로를 부르는 층이라 그 아래여야 순환이 안 생긴다. */
 function licenseAssetBlocked(item){
-  return !!(item && item.licenseOnly) && _premiumKnown && !isPremium() && !isAdmin();
+  return !!(item && item.locked === true);
 }
 const LICENSE_OPTOUT_KEY = 'tw.licenseOptOut';   // 0.12 의 «이 기기에서 해제» 표시 — 더는 쓰지 않는 옛 값(0.13 은 서버 기기 목록에서 뺀다 · 첫 실행이 읽고 지운다)
 let _acctDetached = false;   // 신원을 놓았다 — 이 뒤로 서버에 올리는 길(포커스 올리기 등)은 돌지 않는다

@@ -41,7 +41,7 @@ function build(src, o){
     customItems: () => st.custom,
     deskItemsMod: () => ({ allDeskItems: () => Object.values(defs), deskItemDef: (id) => defs[id] }),
     deskSetupMod: () => ({ selectDeskItemForAdjust: (p) => log.select.push(p) }),
-    licenseAssetBlocked: (item) => !!(item && item.licenseOnly) && !st.premium && !st.admin,   // account-state.js 와 같은 판단(프리미엄 확인 뒤)
+    licenseAssetBlocked: (item) => !!(item && item.locked === true),   // account-state.js 와 같은 판단(서버 locked 하나)
     launcherPrevMod: () => ({ lHolder: () => null }),
     slotSaveMod: () => ({ saveSlots: () => log.saves++ }),
     lightToneMod: { baseFlatOf: () => 0.5 },
@@ -56,17 +56,18 @@ const clip = (n) => new THREE.AnimationClip(n, -1, [new THREE.VectorKeyframeTrac
 say('§1 라이선스 전용 막기');
 {
   const d = mkDef('vip', { licenseOnly: true });
-  let b = build(SRC); let h = mkHolder(); b.mod.equipDeskItem(h, d, true);
-  chk(b.log.toast.length === 1 && b.log.toast[0].includes('라이선스') && !h.deskItems, '일반 유저 — 막고 안내(장착 안 함)');
-  b = build(SRC, { premium: true }); h = mkHolder(); b.mod.equipDeskItem(h, d, true);
-  chk(h.deskItems && h.deskItems.vip && b.log.toast.length === 0, '프리미엄은 통과');
-  b = build(SRC, { admin: true }); h = mkHolder(); b.mod.equipDeskItem(h, d, true);
-  chk(!!(h.deskItems && h.deskItems.vip), '관리자는 통과');
-  b = build(SRC); h = mkHolder({ remote: true }); b.mod.equipDeskItem(h, d, true);
-  chk(!!(h.deskItems && h.deskItems.vip) && b.log.toast.length === 0, '★ 친구 좌석은 보는 사람의 라이선스를 안 본다');
-  b = build(SRC, { saved: [{ id: 'cc', licenseOnly: true }] }); h = mkHolder(); b.mod.equipDeskItem(h, mkDef('cc', { licenseOnly: false }), true);
-  chk(b.log.toast.length === 1 && !h.deskItems, '카탈로그 기록(savedItems)이 licenseOnly 면 def 가 false 여도 막는다');
-  b = build(SRC); h = mkHolder(); b.mod.equipDeskItem(h, d, false);
+  const LOCKEDREC = [{ id: 'vip', licenseOnly: true, locked: true }], OPENREC = [{ id: 'vip', licenseOnly: true, locked: false }];   // 서버가 사람마다 정해 싣는다(보유자 · 관리자에게는 locked:false)
+  let b = build(SRC, { saved: LOCKEDREC }); let h = mkHolder(); b.mod.equipDeskItem(h, d, true);
+  chk(b.log.toast.length === 1 && b.log.toast[0].includes('라이선스') && !h.deskItems, '서버 locked:true — 막고 안내(장착 안 함)');
+  b = build(SRC, { saved: OPENREC }); h = mkHolder(); b.mod.equipDeskItem(h, d, true);
+  chk(h.deskItems && h.deskItems.vip && b.log.toast.length === 0, '★ 전용 분류여도 서버 locked:false(보유자 · 관리자)면 통과 — 앱이 다시 가리지 않는다');
+  b = build(SRC); h = mkHolder(); b.mod.equipDeskItem(h, d, true);
+  chk(!!(h.deskItems && h.deskItems.vip) && b.log.toast.length === 0, '레코드가 아직 없으면(받기 전) 막을 것도 없다');
+  b = build(SRC, { saved: LOCKEDREC }); h = mkHolder({ remote: true }); b.mod.equipDeskItem(h, d, true);
+  chk(!!(h.deskItems && h.deskItems.vip) && b.log.toast.length === 0, '★ 친구 좌석은 보는 사람의 locked 를 안 본다');
+  b = build(SRC, { saved: [{ id: 'cc', licenseOnly: true, locked: true }] }); h = mkHolder(); b.mod.equipDeskItem(h, mkDef('cc', { licenseOnly: false }), true);
+  chk(b.log.toast.length === 1 && !h.deskItems, '카탈로그 기록(savedItems)의 서버 locked 가 참이면 def 가 licenseOnly:false 여도 막는다');
+  b = build(SRC, { saved: LOCKEDREC }); h = mkHolder(); b.mod.equipDeskItem(h, d, false);
   chk(b.log.toast.length === 0, '끄기(on=false)는 막지 않는다');
 }
 say('§2 장착 · 해제');
@@ -195,7 +196,7 @@ say('§8 일부러 깨 보기');
 {
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const m1 = brk('!(holder && holder.remote)', 'true');
-  chk(!!m1 && (() => { const b = build(m1); const h = mkHolder({ remote: true }); b.mod.equipDeskItem(h, mkDef('v', { licenseOnly: true }), true); return !h.deskItems; })(), '친구 좌석에도 라이선스를 걸면 빨강');
+  chk(!!m1 && (() => { const b = build(m1, { saved: [{ id: 'v', locked: true }] }); const h = mkHolder({ remote: true }); b.mod.equipDeskItem(h, mkDef('v', { licenseOnly: true }), true); return !h.deskItems; })(), '친구 좌석에도 라이선스를 걸면 빨강');
   const m2 = brk('holder._itemAdjMemory[def.id]=Object.assign({},cur.userData.adj);', '');
   chk(!!m2 && (() => { const b = build(m2); const h = mkHolder(); const d = mkDef('p'); b.mod.equipDeskItem(h, d, true); h.deskItems.p.userData.adj.x = 0.9; b.mod.equipDeskItem(h, d, false); b.mod.equipDeskItem(h, d, true); return !near(h.deskItems.p.userData.adj.x, 0.9); })(), '해제 전 위치를 기억하지 않으면 빨강');
   const m3 = brk('activeItemMixers.add(mixer);\n      } else if(playMode===\'idle\')', '} else if(playMode===\'idle\')');

@@ -36,7 +36,7 @@
 ## catalog-admin-api.js — 🛠️ 카탈로그 쓰기 서버 길 provider(D11-4)
 
 - **책임**: 파츠 · 책상 · 소품 등록 · 고치기 · 단종 · 진열 순서 · 카테고리 · 레벨 해금을 서버 `/v2/admin/catalog/*` 로 쓰는 요청 모양 한 곳(앱 칸 → 서버 본문 바꾸기도 여기뿐). 관리자 판정 · 상한 · 값 거르기는 서버가 하고 앱은 미리 거절하지 않는다.
-- **만드는 법**: app.js `adminApi` 뒤에서 `const catalogAdmin = TwCatalogAdminApi.createCatalogAdminApi({ authed, catalog: { current, load }, adminApi, apiErrors, notifyError, toast })` — `catalog` 는 `firebaseAPI.catalogCurrent()`(마지막으로 받은 서버 한 벌) · `reloadCatalog()`.
+- **만드는 법**: app.js `adminApi` 뒤에서 `const catalogAdmin = TwCatalogAdminApi.createCatalogAdminApi({ authed, catalog: { current, load }, adminApi, apiErrors, notifyError, toast })` — `catalog` 는 `catalogApiMod.current()`(마지막으로 받은 서버 한 벌) · `catalogApiMod.load()`(쓴 뒤 다시 받기)
 - **내보내는 것**: `savePart · saveDesk · saveDeskProp(id, 칸, { create, quiet })` · `archive(kind, id)` · `saveShelf(scope, ids)` · `createCategory · renameCategory · resetCategory · deleteCategory` · `saveUnlock · unlockOf` · `reload` · `reportFail(err, site)`.
 - **함정**
   - 파일(GLB · 썸네일 PNG)을 먼저 올리고(`POST /assets` — 바이트 그대로 · 해시가 돌아온다) 물건을 PUT 한다. 올리기가 실패하면 물건은 쓰지 않고 `E-ADM-06`.

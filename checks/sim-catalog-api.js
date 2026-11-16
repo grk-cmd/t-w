@@ -92,12 +92,13 @@ const mkData = () => ({
     const d = u.desks.d1, d2 = u.desks.d2;
     chk(d.name === '나무 책상' && d.playMode === 'auto' && d.autoPlay === true && d.licenseOnly === false && d.glbUrl === assetUrl(H('e'), 'glb') && !('attachTo' in d),
       '  ↳ 책상 — 재생 방식 · 전용 아님 · 소품 칸(attachTo)은 없다');
-    chk(d2.licenseOnly === true && d2.glow === true, '★ 서버 locked:true → licenseOnly:true — 서버가 이 사람에게 정한 값 그대로');
-    chk(u.desks.d3.licenseOnly === false && u.desks.d3.listingAccess.kind === 'entitlement' && d.licenseOnly === false, '★ 진열이 전용(entitlement)이어도 서버 locked 가 거짓이면(이 사람은 쓸 수 있다) licenseOnly:false — 앱이 access.kind 로 다시 판정하지 않는다');
+    chk(d2.locked === true && d2.licenseOnly === true && d2.glow === true, '★ 두 칸 — 서버 locked:true → locked:true(막기 · 서버 값 그대로) · 진열 entitlement → licenseOnly:true(전용 분류)');
+    chk(u.desks.d3.locked === false && u.desks.d3.licenseOnly === true && u.desks.d3.listingAccess.kind === 'entitlement' && d.locked === false && d.licenseOnly === false,
+      '★ 진열이 전용이어도 서버 locked 가 거짓이면(이 사람은 쓸 수 있다) locked:false — 막기는 분류로 정하지 않는다. 분류(licenseOnly)는 그대로 true 라 «전용 책상» 탭에 그려진다');
     const nl = mkData(); delete nl.desks[0].locked; delete nl.deskProps[0].locked;
-    chk(M.unfoldCatalog(nl, assetUrl).desks.d1.licenseOnly === false, '  ↳ locked 칸이 없으면(null · 안 옴) 막지 않는다 — 서버가 «못 고름» 이라 한 것만 막는다');
+    chk(M.unfoldCatalog(nl, assetUrl).desks.d1.locked === false, '  ↳ locked 칸이 없으면(null · 안 옴) 막지 않는다 — 서버가 «못 고름» 이라 한 것만 막는다');
     const it = u.items.i1;
-    chk(it.attachTo === 'handL' && it.defaultSize === 0.5 && it.playMode === 'idle' && it.licenseOnly === false, '  ↳ 소품 — attachTo · defaultSize · 재생 방식');
+    chk(it.attachTo === 'handL' && it.defaultSize === 0.5 && it.playMode === 'idle' && it.licenseOnly === false && it.locked === false, '  ↳ 소품 — attachTo · defaultSize · 재생 방식');
     const bad = mkData(); bad.parts[0].model = 'ZZ'; bad.parts.push({ name: 'id 없음' }); bad.parts.push(null);
     const ub = M.unfoldCatalog(bad, assetUrl);
     chk(!('glbUrl' in ub.parts.hat1) && Object.keys(ub.parts).length === 3, '  ↳ 해시 모양이 아니면 주소를 만들지 않는다(틀린 주소 0) · id 없는 줄 · null 은 그 줄만 뺀다');
@@ -147,7 +148,7 @@ const mkData = () => ({
     cat.subscribe('desks', (v) => got.push(v)); await flush();
     chk(typeof env.h.catalog === 'function' && typeof env.h.license === 'function' && env.st.length === 1, '★ 구독하면 realtime 허브의 catalog · license 알림 · 연결 상태를 건다');
     env.data.desks[1].locked = false; env.h.license({ kind: 'license' }); await flush();
-    chk(env.calls.length === 2 && got.length === 2 && got[1].d2.licenseOnly === false, '★ 내 라이선스가 바뀌었다는 알림(license) → 다시 받는다 — 서버가 정하는 locked 가 바뀌었다');
+    chk(env.calls.length === 2 && got.length === 2 && got[1].d2.locked === false, '★ 내 라이선스가 바뀌었다는 알림(license) → 다시 받는다 — 서버가 정하는 locked 가 바뀌었다');
     env.data.desks[1].locked = true; env.data.desks[1].name = '바뀜'; env.calls.length = 1; got.length = 1;
     env.data.desks[1].name = '알림 뒤 책상'; env.h.catalog({ kind: 'catalog', resync: false }); await flush();
     chk(env.calls.length === 2 && got.length === 2 && got[1].d2.name === '알림 뒤 책상', '★ catalog 알림 → 다시 묻는다(ETag) · 바뀐 값을 넘긴다');
@@ -193,7 +194,7 @@ const mkData = () => ({
     chk(cat.current() === null && env.offs === 3 && !env.h.catalog && !env.h.license && env.st.length === 0, '★ 마지막 구독자가 빠지면(세션이 끝남) 받은 값 · catalog · license · 연결 상태 구독을 모두 비운다');
     const c = []; env.data.desks[1].locked = false;   // 다음 사람 — 서버가 다르게 정해 준다
     cat.subscribe('desks', (v) => c.push(v)); await flush();
-    chk(env.calls.length === 2 && c.length === 1 && c[0].d2.licenseOnly === false, '★ 다음 로그인은 새로 받는다 — 앞 사람의 locked 를 받지 않는다');
+    chk(env.calls.length === 2 && c.length === 1 && c[0].d2.locked === false, '★ 다음 로그인은 새로 받는다 — 앞 사람의 locked 를 받지 않는다');
     /* 앞 로그인의 늦은 답 */
     const e2 = mkEnv(); const k2 = e2.make(); let rel = null; const got2 = [];
     e2.api.get = async (p, op) => { e2.calls.push({ p, op }); await new Promise((r) => { rel = r; }); return JSON.parse(JSON.stringify(e2.data)); };
@@ -238,7 +239,7 @@ const mkData = () => ({
     chk(!/ref\(db,\s*['"`]catalogMeta/.test(fi) && !/onValue\([^)]*catalogMeta/.test(fi) && !/ref\(db,\s*['"`]catalog\/(?:parts|gachaParts|items|desks)['"`]\)[^;]{0,40}onValue/.test(fi), '★ Firebase catalogMeta 를 읽는 구독이 없다(쓰기쪽 올림은 옛 앱 호환이라 남는다)');
     chk(!exists('catalog-cache.js') && !/catalog-cache\.js/.test(fi), '  ↳ 옛 catalog-cache.js(버전 확인 · IndexedDB 캐시 · Firebase 로 물러나기)가 없다');
     chk(!/createApiCatalogFetch|firebaseGet/.test(fi), '  ↳ «API 실패면 Firebase get» 이 없다');
-    chk(!/access\.kind|entitlement/.test(strip(SRC)), '★ catalog-api.js 가 access.kind 로 다시 판정하지 않는다(서버 locked 를 그대로 쓴다 — listingAccess 는 관리자가 되돌려 보낼 값으로만 싣는다)');
+    chk(/locked: d\.locked === true/.test(strip(SRC)) && !/locked:\s*licenseOnlyOf|locked:[^,}]*access/.test(strip(SRC)), '★ 막기 칸(locked)은 서버 값 그대로 — 진열 access 로 만들지 않는다(access.kind 는 분류 칸 licenseOnly 를 채울 때만 쓴다)');
   }
 
   say('── 6. 일부러 깨 보기');
@@ -286,8 +287,8 @@ const mkData = () => ({
     const de = mkEnv(), dk = load(dropless).createCatalogApi({ api: de.api, rt: de.rt, notifyError: () => {}, warn: () => {} });
     const du = dk.subscribe('parts', () => {}); await flush(); du();
     chk(dropless !== SRC && dk.current() !== null, '  깨 보기: 로그인이 끝나도 값을 안 비우면 4-B 의 «비운다» 판정이 빨강');
-    const own = SRC.replace("licenseOnly: d.locked === true,", "licenseOnly: !!(d.listing && d.listing.access && d.listing.access.kind === 'entitlement'),");
-    chk(own !== SRC && load(own).unfoldCatalog(mkData(), assetUrl).desks.d3.licenseOnly === true, '  깨 보기: access.kind 로 다시 판정하면 «서버 locked 그대로» 판정이 빨강');
+    const own = SRC.replace("locked: d.locked === true,", "locked: licenseOnlyOf(d.listing),");
+    chk(own !== SRC && load(own).unfoldCatalog(mkData(), assetUrl).desks.d3.locked === true, '  깨 보기: 진열 access 로 locked 를 만들면 «서버 locked 그대로» 판정이 빨강');
   }
 
   say('\n' + pass + ' · ' + fail);

@@ -75,7 +75,9 @@ async function mergeCatalogIntoSavedItems(catalogObj){
     seats.forEach(s=>{ removedIds.forEach(id=>{ if(s.deskItems && s.deskItems[id]){ const def=customItems()[id]||{id}; equipDeskItem(s,def,false); } }); });
     removedIds.forEach(id=>{ delete customItems()[id]; });
   }
-  commissionMod.setSavedItems(list);   // 카탈로그 몫은 따로 저장하지 않는다(서버가 원본 · 한 벌은 catalog-api.js) — 이 계정 몫은 바뀐 게 없다
+  commissionMod.setSavedItems(list);
+  restoreHeldLicenseAssets();   // 서버 locked 가 풀린 접어 둔 것을 되돌린 뒤 아래에서 다시 그린다
+  // 카탈로그 몫은 따로 저장하지 않는다(서버가 원본 · 한 벌은 catalog-api.js) — 이 계정 몫은 바뀐 게 없다
   /* ⚠️ 세션 등록이 끝난 **뒤에** 좌석을 다시 적용한다 — 기다리지 않으면 옛 정의(크기 0.8)로 다시 만든다. */
   await loadSavedItemsIntoSession();   // 세션 customItems에도 최신 상태 반영(새로 추가/수정된 GLB 등록) — 깨진 GLB 는 그 함수가 하나씩 경고 + E-CHAR-25 로 드러내고, 그 밖의 실패는 던져 구독 쪽에 드러난다(삼키지 않는다)
   // 캐릭터 로드가 카탈로그 동기화보다 먼저 끝났을 수 있어서(비동기 타이밍), 이미 떠 있는 좌석들의 아이템도 다시 적용
@@ -107,6 +109,7 @@ function mergeCatalogIntoSavedDesks(catalogObj){
     seats.forEach(s=>{ if(s.charDef && removedIds.includes(s.charDef.deskCatalogId)){ s.charDef.deskCatalogId=null; s.charDef.deskGlb=null; if(s.desk) swapDeskVisual(s.desk,null); } });
   }
   commissionMod.setSavedDesks(list);
+  restoreHeldLicenseAssets();   // 서버 locked 가 풀린 접어 둔 것을 되돌린 뒤 아래 좌석 순회가 다시 그린다
   // 지금 이 책상을 쓰고 있는 좌석이 있으면(수정됐을 수 있으니) 즉시 새 GLB로 다시 그림 — "교체하면 실시간 반영" 요구사항
   // 기본 책상(별도 deskCatalogId/deskGlb 없음)을 쓰는 좌석도 __default_desk__ 오버라이드가 있으면/없어졌으면 반영
   seats.forEach(s=>{
@@ -215,6 +218,19 @@ function subscribeUnlocks(){
   });
 }
 
+/* 접어 둔 전용 자산 중 서버 locked 가 풀린 것을 되돌린다 — 라이선스가 바뀌면 서버가 locked 를 바꾸고(realtime license → 다시 받기) 그 카탈로그가 올 때 여기를 지난다 */
+function restoreHeldLicenseAssets(){
+  try{ premiumMod.restoreLicenseHeldAssets(); }
+  catch(e){ console.warn('[라이선스] 접어 둔 자산 복원 실패', e); }
+}
+/* 세션이 끝나면 카탈로그 몫(fromCatalog — 서버가 이 사람에게 정한 locked 를 든 레코드)을 저장 목록 셋과 customItems 에서 뺀다 — 다음 계정이 앞 계정의 locked 로 시작하지 않게.
+   이 계정 몫(코드로 추가한 것)은 userLocal 의 reset 이 따로 비운다. 비운 뒤 다음 카탈로그가 올 때까지는 레코드가 없어 막을 것도 없다(레코드 없는 책상은 기본 책상으로 그린다). */
+function clearCatalogShare(){
+  commissionMod.savedItems().filter(p=>p.fromCatalog).forEach(p=>{ delete customItems()[p.id]; });
+  commissionMod.setSavedItems(commissionMod.savedItems().filter(p=>!p.fromCatalog));
+  commissionMod.setSavedDesks(commissionMod.savedDesks().filter(p=>!p.fromCatalog));
+  premiumMod.setSavedParts(premiumMod.savedParts().filter(p=>!p.fromCatalog));
+}
 /* 로그인 세션이 시작될 때 한 번(launcher/app-boot.js STEPS 'catalog') — 다섯 구독을 세션에 맡긴다. 세션이 끝나면 풀리고, 마지막이 풀리면 catalog-api 가 받은 값을 비운다. */
 function start(session){
   session.on(subscribeCatalogItems());
@@ -222,6 +238,7 @@ function start(session){
   session.on(subscribeCatalogParts());
   session.on(subscribeCategories());
   session.on(subscribeUnlocks());
+  session.onReset(clearCatalogShare);
 }
 
 return {

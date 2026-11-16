@@ -59,7 +59,7 @@ function world(src, o = {}) {
     commissionMod: () => ({ savedDesks: () => desks, savedItems: () => items, setSavedDesks: (a) => { desks = a; }, setSavedItems: (a) => { items = a; }, persistSavedAssets: call('persist'), MAX_CUSTOM_ASSETS: 2, MAX_CUSTOM_ITEMS: 3 }),
     crState: st, creatorOpen: () => o.open !== false, customItems: () => customItems,
     deskItemsMod: () => ({ deskItemDef: (id) => (o.override && o.override[id]) || null }), equipDeskItem: call('equip'),
-    isAdmin: () => !!o.admin, licenseAssetBlocked: (r) => !!(r && r.licenseOnly) && !o.premium && !o.admin, lightToneMod: () => ({ _setDeskMatColor: call('matColor') }),
+    isAdmin: () => !!o.admin, licenseAssetBlocked: (r) => !!(r && r.locked === true), lightToneMod: () => ({ _setDeskMatColor: call('matColor') }),
     ndc: { x: 0, y: 0 }, premiumMod: { _wdLicenseDesks: () => o.licDesks || [] }, ray,
     setCreatorDeskScale: call('scale'), swapDeskVisual: call('swap'), toast: (m, a, b) => log.toasts.push([m, a, b]),
   });
@@ -79,7 +79,7 @@ async function behave(src) {
   try { w = world(src); } catch (e) { err = e; }
   t(!err && w && Object.keys(w.out).sort().join() === 'renderCrItems,selectDeskItemForAdjust,setHooks', '만들 때 던지지 않고 셋을 내놓는다' + (err ? ' — ' + String(err.message || err).slice(0, 80) : ''));
   if (!w) return r;
-  const D = [{ id: '__default_desk__', glbUrl: 'u' }, { id: 'd1', name: '나무', glb: 'G1' }, { id: 'd2', name: '전용', glb: 'G2', licenseOnly: true, fromCatalog: true }, { id: 'd3', name: '카탈', glbUrl: 'u3', fromCatalog: true }];
+  const D = [{ id: '__default_desk__', glbUrl: 'u' }, { id: 'd1', name: '나무', glb: 'G1' }, { id: 'd2', name: '전용', glb: 'G2', licenseOnly: true, locked: true, fromCatalog: true }, { id: 'd3', name: '카탈', glbUrl: 'u3', fromCatalog: true }];
   w = world(src, { desks: D }); w.out.renderCrItems();
   let dc = deskCards(w);
   t(dc[0].label === '기본 책상' && dc[0].on === true && dc.map((c) => c.label).join() === '기본 책상,나무,카탈' && dc[1].onDelete && !dc[2].onDelete, '책상 카드 — 기본 책상(켜짐) · 저장 책상(관리자 덮어쓰기 · 전용 빼고) · 카탈로그 것은 일반 사용자가 못 지움');
@@ -107,7 +107,7 @@ async function behave(src) {
   t(w.st.activeCustomDeskId === null && w.st.cDeskTemplate === null && w.calls('resolve')[0][1] === '__default_desk__' && w.calls('swap')[0][3] === true && w.calls('color').length >= 1, '기본 책상 — 관리자가 등록한 기본 책상(URL 받기)으로 · 덮어쓰기 표시');
   /* 잠금 안전망 — 거르기 뒤에 licenseOnly 가 서는 경우(카탈로그가 늦게 와 licenseOnly 를 아직 모르던 순간)에도 고르지 못한다 */
   w = world(src, { desks: [{ id: 'late', name: '늦게', glbUrl: 'u' }] });
-  { let n = 0; const rec = JSON.parse(JSON.stringify({ id: 'late', name: '늦게', glbUrl: 'u' })); Object.defineProperty(rec, 'licenseOnly', { get: () => (n++ > 0) }); w.getDesks().splice(0, 1, rec); }
+  { let n = 0; const rec = JSON.parse(JSON.stringify({ id: 'late', name: '늦게', glbUrl: 'u' })); Object.defineProperty(rec, 'licenseOnly', { get: () => (n++ > 0) }); rec.locked = true; w.getDesks().splice(0, 1, rec); }
   w.out.renderCrItems();
   const lateCard = deskCards(w)[1]; await lateCard.onclick(); await flush();
   t(lateCard.style.opacity === '.55' && lateCard.children[0].children.some((n) => n.textContent === '🔒') && /라이선스 보유자만/.test(lastT(w)) && !w.calls('resolve').length && !w.st.activeCustomDeskId,
@@ -123,7 +123,7 @@ async function behave(src) {
   t(wx.getDesks().length === 4 && wx.log.net.map((n) => n[0]).join() === 'archive,fail' && wx.log.net[1][1] === 'item', '★ 서버가 단종을 거절하면 번호로 알리고 이 PC 목록도 그대로 둔다');
 
   /* 아이템 카드 */
-  const I = [{ id: 'i1' }, { id: 'i2' }, { id: 'i3', fromCatalog: true }, { id: 'i4' }, { id: 'plant', name: '교체 화분' }];
+  const I = [{ id: 'i1' }, { id: 'i2', licenseOnly: true, locked: true }, { id: 'i3', fromCatalog: true }, { id: 'i4' }, { id: 'plant', name: '교체 화분' }];
   const C = { i1: { id: 'i1', name: '하나', glb: 'g1' }, i2: { id: 'i2', name: '둘', licenseOnly: true }, i3: { id: 'i3', name: '셋' }, i4: { id: 'i4', name: '넷' } };
   w = world(src, { items: I, customItems: C }); w.out.renderCrItems();
   let ic = itemCards(w);
