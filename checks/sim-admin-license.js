@@ -80,6 +80,7 @@ function mkApi(st){
     pendingRequests: rec('pendingRequests', () => st.pending), approveRequest: rec('approveRequest', () => { if(st.writeErr) throw st.writeErr; }),
     rejectRequest: rec('rejectRequest'), approveRequests: rec('approveRequests', (ids) => ids.map(id => ({ id, ok: true, code: null }))),
     failOf: (e) => (e && e.kind) || 'site', ERRORS: { MARK: 1 }, item };
+  api.notifyFail = (e, errs, onSite) => { const k = api.failOf(e); if(k === 'notice' || k === 'common') errs.notify(e, api.ERRORS); else if(k === 'site') onSite(); return k; };
   return api;
 }
 const LIC_DEPS = (api) => ({ adminApi: api, apiErrors: { notify: (e, t) => api.shown.push(['notify', e && e.code, t && t.MARK]) }, notifyError: (c, e) => api.shown.push(['num', c, e && e.code]) });

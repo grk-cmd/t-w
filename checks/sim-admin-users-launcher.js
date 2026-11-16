@@ -59,7 +59,8 @@ async function judgeAll(m, app, html){
     totals: async () => { uc.push(['totals']); if(us.hold) await us.hold; if(us.err) throw us.err; return us.totals; },
     grantInvites: async (tg, n) => { uc.push(['grantInvites', tg, n]); if(us.err) throw us.err; return { changed: tg === 'all' ? 9 : 1, left: tg === 'all' ? null : 5 }; },
     revokeInvites: async (tg, js) => { uc.push(['revokeInvites', tg, js]); if(us.err) throw us.err; return { changed: 2, left: null }; },
-    failOf: (e) => (e && e.kind) || 'site' };
+    failOf: (e) => (e && e.kind) || 'site',
+    notifyFail: (e, errs, onSite) => { const k = (e && e.kind) || 'site'; if(k === 'notice' || k === 'common') errs.notify(e, { MARK: 1 }); else if(k === 'site') onSite(); return k; } };
   const uErrs = { notify: (e, t) => us.shown.push(['notify', e && e.code, t && t.MARK]) };
   let U;
   try{ U = build(m.users, 'TwAdminUsers', { inviteGrantMax: 3, adminApi: uApi, apiErrors: uErrs, notifyError: (c, e) => us.shown.push(['num', c, e && e.code]) }); }catch(e){ t(false, '통계 · 초대권 모듈을 만들 수 없다 — ' + e.message); }

@@ -163,6 +163,10 @@ async function judge(S){
     const fo = (code, status) => mk(LIB, { errs: { translate: AE.createApiErrors({ notifyError: () => true }).translate, COMMON: AE.COMMON } }).m.failOf(Object.assign(new Error(code), { code, status, kind: 'request' }));
     chk(fo('CONCURRENT_UPDATE', 409) === 'refetch' && fo('LICENSE_NOT_FOUND', 404) === 'refetch' && fo('LICENSE_REQUEST_NOT_FOUND', 404) === 'refetch' && fo('TOO_MANY_REQUESTS', 429) === 'common' && fo('ACCESS_DENIED', 403) === 'notice' && fo('SOMETHING_ELSE', 400) === 'site',
       '실패 갈래 — 판이 달라짐 · 이미 없음 = refetch · 공통 code = common · 이 기능 표 = notice · 그 밖 = site');
+    { const mm = mk(LIB, { errs: { translate: AE.translate, COMMON: AE.COMMON } }).m; const out = [];
+      const E = (code) => Object.assign(new Error(code), { code, kind: 'request' });
+      const ks = [E('CONCURRENT_UPDATE'), E('TOO_MANY_REQUESTS'), E('ACCESS_DENIED'), E('SOMETHING_ELSE')].map(e => mm.notifyFail(e, { notify: (x) => out.push('n:' + x.code) }, () => out.push('site')));
+      chk(ks.join() === 'refetch,common,notice,site' && out.join() === 'n:TOO_MANY_REQUESTS,n:ACCESS_DENIED,site', '실패 알림 한 벌 notifyFail — refetch 는 알리지 않고 · common · notice 는 apiErrors.notify · 그 밖은 onSite'); }
   }
 
   say('── 3. 오류 표');
@@ -212,6 +216,7 @@ async function runAll(){
     ['메모 상한 없음', { API: S.API.replace(".slice(0, LIMITS.LICENSE_NOTE)", "") }, '메모 100자'],
     ['통계를 앱이 셈', { API: S.API.replace("licValid: num(d.licenses.valid)", "licValid: 0") }, '통계'],
     ['초대권 회수에 요청 번호', { API: S.API.replace("const body = { target: t };", "const body = { target: t, requestId: 'x' };") }, 'revocations'],
+    ['notifyFail 이 site 를 안 알림', { API: S.API.replace("else if(kind === 'site') onSite();", '') }, 'notifyFail'],
     ['확성기 상한 없음', { API: S.API.replace(".slice(0, LIMITS.ANNOUNCE)", "") }, '≤140'],
     ['확성기에 켜는 시간을 실음', { API: S.API.replace("{ requestId, text: t }", "{ requestId, text: t, duration: 60000 }") }, '켜는 시간'],
     ['공지 제목 상한 없음', { API: S.API.replace(".slice(0, LIMITS.UPDATE_TITLE)", "") }, 'title≤60'],

@@ -24,7 +24,7 @@ const notifyError = deps.notifyError;                  // 번호 알림(TwErrorC
 const renderLicenseGenList = deps.renderLicenseGenList; // 발급 창의 키 목록 다시 받기
 const downloadBlob = deps.downloadBlob;
 const _srFmtDate = deps.srFmtDate;                     // 시크릿룸 만료일 글자(YYYY.MM.DD)
-/* ═══ 📄 [2026-10-02] 엑셀(xlsx·csv)로 라이선스 일괄 발급 — 시안 확정(입구 = 친구코드 발급 아래 · 빈 코드 = 키만 · 전에 발급한 코드 = 건너뜀) ═══
+/* ═══ 📄 [2026-10-02] 엑셀(xlsx·csv)로 라이선스 일괄 발급 — 시안 확정(입구 = 친구코드 발급 아래 · 빈 코드 = 키만 · 이미 유효한 키가 있는 사람 = 건너뜀) ═══
    흐름: ① 파일 고르기 → ② 미리보기(친구코드 **조회만** — 키 생성·수령함 발송 없음) → ③ [N건 발급] → ④ 결과 엑셀 저장.
    ★ 외부 라이브러리를 새로 넣지 않는다. xlsx 는 «XML 몇 장을 담은 zip» 이라, 이미 실려 있는 JSZip(vendor/jszip.min.js)과
      브라우저 DOMParser 로 첫 시트의 글자만 읽고, 결과 파일도 같은 방식으로 쓴다. (SheetJS npm 판은 알려진 취약점이 있고
@@ -215,7 +215,7 @@ async function _lxWriteXlsx(rows, sheetName){
   const opts = $('licenseXlsxOpts'), acts = $('licenseXlsxActs'), runBtn = $('licenseXlsxRunBtn');
   const prog = $('licenseXlsxProg'), progText = $('licenseXlsxProgText'), progBar = $('licenseXlsxProgBar');
   const done = $('licenseXlsxDone'), doneSum = $('licenseXlsxDoneSum'), keyOnly = $('licenseXlsxKeyOnly');
-  const dupFirst = $('licenseXlsxDupFirst'), reissue = $('licenseXlsxReissue');
+  const reissue = $('licenseXlsxReissue');
   const esc = escHtml;
   /* 상태: rows(판정된 행) · map(파일 열 정보) · fileName · running · finished */
   let S = { rows: [], map: null, fileName: '', running: false, finished: false };
@@ -224,7 +224,7 @@ async function _lxWriteXlsx(rows, sheetName){
     key:    ['🔑 키만', 'var(--win-accent)'],
     nouser: ['✗ 유저 없음', 'var(--win-error)'],
     dup:    ['✗ 중복', 'var(--win-error)'],
-    issued: ['⚠ 발급한 적 있음', '#9A6B00'],
+    issued: ['⚠ 이미 유효한 키가 있음', '#9A6B00'],
     badcode:['✗ 코드 형식', 'var(--win-error)'],
     neterr: ['✗ 조회 실패', 'var(--win-error)'],
     haskey: ['⚠ 이미 키 있음', '#9A6B00'],
@@ -271,7 +271,7 @@ async function _lxWriteXlsx(rows, sheetName){
       r.st = r.base;
       if(r.base === 'haskey' && r.code && !seen.has(r.code)) seen.set(r.code, r.line);
       if(r.base !== 'send') return;
-      if(dupFirst.checked && seen.has(r.code)){ r.st = 'dup'; r.dupOf = seen.get(r.code); return; }
+      if(seen.has(r.code)){ r.st = 'dup'; r.dupOf = seen.get(r.code); return; }
       if(!seen.has(r.code)) seen.set(r.code, r.line);
       if(!reissue.checked && r.hasValid) r.st = 'issued';
     });
@@ -301,7 +301,7 @@ async function _lxWriteXlsx(rows, sheetName){
     const asked = [...new Set(uniq.flatMap(_lxCandidates))];
     let prev = null, prevErr = null;
     try{ prev = await adminApi.previewLicenses(asked); }catch(e){ prevErr = e; }
-    if(prevErr){ apiErrors.notify(prevErr, adminApi.ERRORS); if(adminApi.failOf(prevErr) === 'site') notifyError('E-ADM-28', prevErr); }
+    if(prevErr) adminApi.notifyFail(prevErr, apiErrors, () => notifyError('E-ADM-28', prevErr));
     const byCode = new Map((prev || []).map(x => [x.friendCode, x]));
     uniq.forEach(raw => {
       if(prevErr){ look.set(raw, 'err'); return; }
@@ -346,7 +346,7 @@ async function _lxWriteXlsx(rows, sheetName){
     try{ res = await adminApi.issueLicenses(grants, !!reissue.checked); }
     catch(e){
       /* 서버에 닿지 못했거나 거절됐다 — 아무것도 발급됐다고 보지 않는다. 미리보기 그대로 두어 같은 단추를 다시 누르면 같은 요청 번호로 나간다(서버가 한 번만) */
-      apiErrors.notify(e, adminApi.ERRORS); if(adminApi.failOf(e) === 'site') notifyError('E-ADM-21', e);
+      adminApi.notifyFail(e, apiErrors, () => notifyError('E-ADM-21', e));
       S.running = false; show(prog, false); renderPreview();
       return;
     }
@@ -362,7 +362,7 @@ async function _lxWriteXlsx(rows, sheetName){
     const skip = S.rows.filter(r => !actionable(r)).length;
     doneSum.innerHTML = chip('ok', ' ' + c('ok')).replace('✓ 보냄', '수령함 발송') + chip('okkey', ' ' + c('okkey')).replace('🔑 키 생성', '키만 발급')
       + chip('fail', ' ' + c('fail')).replace('✗ 발급 실패', '실패')
-      + (skip ? chip('issued', ' ' + skip).replace('⚠ 발급한 적 있음', '건너뜀') : '');
+      + (skip ? chip('issued', ' ' + skip).replace('⚠ 이미 유효한 키가 있음', '건너뜀') : '');
     const hand = S.rows.filter(r => r.key && r.res !== 'ok');
     keyOnly.innerHTML = hand.map(r => '<div>' + Number(r.line) + '행 · ' + esc(r.memo || r.raw || '—') + ' · <span style="font-family:\'Courier New\',monospace;font-weight:bold;user-select:all;">' + esc(r.key) + '</span></div>').join('')
       + (hand.length ? '<div style="color:var(--ink-soft);">↑ 이 키들은 직접 전달해야 해요 (결과 엑셀에도 들어 있어요)</div>' : '');
@@ -380,7 +380,7 @@ async function _lxWriteXlsx(rows, sheetName){
     while(head.length < width) head.push('');
     const LABEL = { send:'발급 안 함', key:'발급 안 함', haskey:'건너뜀', nouser:'건너뜀', dup:'건너뜀', issued:'건너뜀', badcode:'건너뜀', neterr:'건너뜀',
                     ok:'수령함 발송', okkey:'키만 발급', fail:'실패' };
-    const WHY = { haskey:'이미 발급 키가 있는 행', nouser:'친구코드를 가진 유저가 없음', badcode:'친구코드 형식이 아님', neterr:'조회 실패(네트워크)', issued:'전에 발급한 적 있음' };
+    const WHY = { haskey:'이미 발급 키가 있는 행', nouser:'친구코드를 가진 유저가 없음', badcode:'친구코드 형식이 아님', neterr:'조회 실패(네트워크)', issued:'이미 유효한 키가 있음' };
     /* 결과 파일을 다시 올린 것이면 그 세 열을 **채운다**(덧붙이면 열이 두 벌이 된다). 그 행의 옛 키는 지우지 않는다. */
     const hn = head.map(x => String(x || '').replace(/\s+/g, ''));
     let ki = hn.indexOf('발급키'), ri = hn.indexOf('결과'), wi = hn.indexOf('사유');
@@ -424,7 +424,6 @@ async function _lxWriteXlsx(rows, sheetName){
   $('licenseXlsxCancelBtn').addEventListener('click', ()=>{ if(S.running) return; S = { rows: [], map: null, fileName: '', running: false, finished: false }; resetView(); info.textContent = '📎 .xlsx 또는 .csv 파일을 골라 주세요'; });
   $('licenseXlsxFileBtn').addEventListener('click', ()=>{ if(S.running) return; fileInp.value = ''; fileInp.click(); });
   fileInp.addEventListener('change', ()=>{ const f = fileInp.files && fileInp.files[0]; if(f) loadFile(f); });
-  dupFirst.addEventListener('change', ()=>{ if(S.rows.length && !S.finished){ judge(); renderPreview(); } });
   reissue.addEventListener('change', ()=>{ if(S.rows.length && !S.finished){ judge(); renderPreview(); } });
   runBtn.addEventListener('click', run);
   $('licenseXlsxSaveBtn').addEventListener('click', saveResult);

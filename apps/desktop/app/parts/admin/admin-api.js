@@ -20,6 +20,7 @@
      pendingRequests(cursor) → { items:[{ id, name, userCode }], next } · approveRequest(id) · rejectRequest(id) → Promise<void> · approveRequests(ids) → [{ id, ok, code }]
      totals() → { users, premiumUsers, licValid, licUsed } — 서버 총계(가입 수 손보정은 없다).
      grantInvites(target, n) → { changed, left } · revokeInvites(target, joinedSince?) → { changed, left } — target = userCode · 친구코드 · "all". 서버가 사람을 찾는다.
+     notifyFail(err, apiErrors, onSite) → 갈래 — 실패 알림 한 벌(notice · common 은 apiErrors.notify · site 는 onSite · refetch 는 알리지 않음)
      failOf(err) → 'notice'(이 기능 표 · 번호) | 'refetch'(판이 달라짐 — 다시 받기) | 'common'(공통 표) | 'site'(그 밖 — 부르는 쪽이 자기 번호로)
      ERRORS — 서버 오류 code → 할 일 · 오류 번호(TwApiErrors.store.notify(err, ERRORS) 의 기능 표)
    }
@@ -210,10 +211,18 @@ function createAdminApi(deps){
     return 'site';
   }
 
+  /* 실패 알림 한 벌 — 이 기능 표 · 공통 표는 apiErrors.notify 로, 그 밖(site)은 onSite(그 자리 번호 알림)로. 갈래를 돌려준다. 'refetch' 는 알리지 않는다(부르는 쪽이 다시 받고 «받아왔어요») */
+  function notifyFail(err, apiErrors, onSite){
+    const kind = failOf(err);
+    if(kind === 'notice' || kind === 'common') apiErrors.notify(err, ERRORS);
+    else if(kind === 'site') onSite();
+    return kind;
+  }
+
   return { me, announce, clearAnnouncement, currentUpdateNotice, publishUpdateNotice, withdrawUpdateNotice,
     fetchBanner, replaceBanner, closeAllRooms,
     listLicenses, issueLicenses, previewLicenses, revokeLicense, deleteLicense, pendingRequests, approveRequest, rejectRequest, approveRequests,
-    totals, grantInvites, revokeInvites, failOf, ERRORS };
+    totals, grantInvites, revokeInvites, failOf, notifyFail, ERRORS };
 }
 
 const api = { createAdminApi, bannerOf, PATHS, LIMITS, ERRORS };

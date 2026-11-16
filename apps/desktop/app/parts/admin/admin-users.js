@@ -17,12 +17,7 @@ const adminApi = deps.adminApi;
 const apiErrors = deps.apiErrors;
 const notifyError = deps.notifyError;
 /* 실패 하나 알리기 — 이 기능 표 · 공통 표는 그대로, 그 밖은 그 자리 번호(site) */
-function fail(e, onSite){
-  const kind = adminApi.failOf(e);
-  if(kind === 'notice' || kind === 'common') apiErrors.notify(e, adminApi.ERRORS);
-  else if(kind === 'refetch' || kind === 'site') onSite();
-  return kind;
-}
+const fail = (e, onSite) => { const k = adminApi.notifyFail(e, apiErrors, onSite); if(k === 'refetch') onSite(); return k; };   // 이 창에는 다시 받을 목록이 없어 판이 달라져도 번호로 알린다
   // 📊 관리자: 전체 통계 (가입 유저 수 / 프리미엄 유저 수 / 유효 키) — 서버 총계
   (function bindTotalStats(){
     const btn = document.getElementById('lcTotalStats');

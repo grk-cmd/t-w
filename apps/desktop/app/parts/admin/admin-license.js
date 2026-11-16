@@ -22,12 +22,7 @@ const SEARCH_WAIT_MS = 300;   // 입력이 멈춘 뒤 서버에 묻는다(글자
 const GRANT_CODE_RE = /^[A-Z0-9]{4}$/;
 
 /* 실패 하나 알리기 — 이 기능 표 · 공통 표는 그대로, 그 밖은 onSite(그 자리 번호 알림). 갈래를 돌려준다 */
-function fail(e, onSite){
-  const kind = adminApi.failOf(e);
-  if(kind === 'notice' || kind === 'common') apiErrors.notify(e, adminApi.ERRORS);
-  else if(kind === 'site') onSite();
-  return kind;
-}
+const fail = (e, onSite) => adminApi.notifyFail(e, apiErrors, onSite);
 const mkBtn = (text, red) => { const b = document.createElement('button'); b.textContent = text;
   b.style.cssText = 'flex-shrink:0;padding:2px 8px;font-size:10.5px;cursor:pointer;' + (red ? 'color:var(--win-error);' : ''); return b; };
 
