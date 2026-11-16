@@ -94,7 +94,8 @@ async function decryptCommission(code, pass){
 }
 /* 코드로 추가한 책상·아이템 영구 저장 (모든 캐릭터 공통, localStorage). 각 최대 6개 */
 const SAVED_DESK_KEY='tw.savedDesks', SAVED_ITEM_KEY='tw.savedItems';
-const MAX_CUSTOM_ASSETS=6, MAX_CUSTOM_ITEMS=50, MAX_GLB_BYTES=1024*1024;   // 1MB — 책상은 6개, 아이템은 요청에 따라 50개까지
+/* 이 PC 에 코드로 추가하는 책상 · 아이템 개수 상한(로컬 몫 — 카드 «+ 코드로 추가하기» 와 asset-import 가 쓴다). 서버 카탈로그의 진열 상한(DESK 6 · DESK_PROP 50 — 409 CATALOG_SHELF_FULL)은 서버가 판정하고 앱 관리자 등록은 이 값으로 미리 거절하지 않는다. */
+const MAX_CUSTOM_ASSETS=6, MAX_CUSTOM_ITEMS=50, MAX_GLB_BYTES=1024*1024;   // 1MB
 let savedDesks=[], savedItems=[];   // [{id, name, icon, glb(base64)}]
 /* 🗂️ 두 갈래 — ① 카탈로그 몫(fromCatalog · 서버가 원본 · 카탈로그 동기화가 채운다 · 이 PC 에 따로 저장하지 않는다 — 서버 한 벌은 catalog-api.js)
    ② 이 계정 몫(코드로 추가한 책상 · 아이템 — 계정 칸). 계정 칸은 확인 전엔 닫혀 있어 만들 때는 비어 있고, 확인 뒤 loadLocalDesks · loadLocalItems 가 ② 만 채운다.

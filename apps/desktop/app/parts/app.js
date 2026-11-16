@@ -2944,8 +2944,6 @@ const adminPartReg = TwAdminPartRegister.createAdminPartRegister({
   unequipPartFromSeat: (...a)=>unequipPartFromSeat(...a),
   unequipStackablePart: (...a)=>unequipStackablePart(...a),
   seats,
-  MAX_CUSTOM_ASSETS: ()=>commissionMod.MAX_CUSTOM_ASSETS,
-  MAX_CUSTOM_ITEMS: ()=>commissionMod.MAX_CUSTOM_ITEMS,
   PART_CATS: ()=>premiumMod.PART_CATS(),
   gachaMod: ()=>gachaMod,
   partSceneCache: ()=>partSceneMod.partSceneCache,

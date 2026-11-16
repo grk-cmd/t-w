@@ -3,8 +3,8 @@
    옮겼다. D11-4 로 등록 · 고치기 · 삭제는 서버 카탈로그에 쓴다(catalogAdmin) — 서버 본문 칸은 sim-catalog-admin-api.js · sim-publish-fields.js 가 본다.
    ・1절: 만들 때 — 책상 · 아이템 등록 버튼 둘을 건다 · 내놓는 이름(넷) · 서버 안 부름
    ・2절: 파츠 삭제 — 서버 카탈로그의 파츠면 먼저 단종(못 하면 목록 그대로) · 지금 목록(다시 대입된 뒤)을 읽고 setSavedParts 로 바꿔 끼움 · 캐시 비움 · 입은 좌석에서 벗김 · 꾸미기 다시 그림
-   ・3절: 값 열 개는 읽는 함수로만 — 모듈 안에 이름만 쓴 자리(값으로 붙잡는 자리)가 없다
-   ・4절: app.js 연결 — 본문이 안 남음 · 빈 껍데기 · 원래 자리 · deps 36(함수 22 · 좌석 1 · 읽는 함수 10 · 쓰는 함수 1 · 꾸미기에 거는 함수 1 · 서버 길 1) · 부르는 곳 13(갈고리 포함) · 🎰 gacha deps 셋 · html
+   ・3절: 값 여덟 개는 읽는 함수로만 — 모듈 안에 이름만 쓴 자리(값으로 붙잡는 자리)가 없다
+   ・4절: app.js 연결 — 본문이 안 남음 · 빈 껍데기 · 원래 자리 · deps 34(함수 22 · 좌석 1 · 읽는 함수 8 · 쓰는 함수 1 · 꾸미기에 거는 함수 1 · 서버 길 1) · 부르는 곳 13(갈고리 포함) · 🎰 gacha deps 셋 · html
    ・5절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · admin-part-register.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
@@ -23,7 +23,7 @@ const WARD = ['wardrobe.js', 'parts/character/wardrobe.js', 'app/parts/character
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const noStr = (s) => s.replace(/'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|`(?:\\.|[^`\\])*`/g, '""');
 
-const VALUES = ['MAX_CUSTOM_ASSETS', 'MAX_CUSTOM_ITEMS',
+const VALUES = [
   'PART_CATS', 'gachaMod', 'partSceneCache', 'savedDesks', 'savedItems', 'savedParts', 'wdGizmo', 'wdPreviewBase'];
 const FNS = ['_b64', 'applyClothVisibility', 'catEquippedIds', 'equipPartOnSeat', 'findEntryById', 'generatePartThumbnail', 'getPartScene',
   'getRecHides', 'parseGlbBytes', 'partCatInfo', 'partEntryXf', 'persistSavedParts', 'refitSeatAfterParts', 'removeEntryFromCat',
@@ -103,7 +103,8 @@ async function judgeAll(src, app, html, ward = WARD){
       bare.push(v);
     }
   }
-  t(bare.length === 0, '값 열 개는 모듈 안에서 늘 이름() 으로 읽는다 — 값으로 붙잡는 자리 없음' + (bare.length ? ' (' + [...new Set(bare)].join(' · ') + ')' : ''));
+  t(bare.length === 0, '값 여덟 개는 모듈 안에서 늘 이름() 으로 읽는다 — 값으로 붙잡는 자리 없음' + (bare.length ? ' (' + [...new Set(bare)].join(' · ') + ')' : ''));
+  t(!/MAX_CUSTOM_(?:ASSETS|ITEMS)/.test(noStr(strip(src))), '★ 책상 · 아이템 개수 상한은 앱이 세지 않는다 — 서버가 판정한다(CATALOG_SHELF_FULL · 책상 6 · 소품 50)');
   t(!/[^.\w$]savedParts\s*=[^=]/.test(body.replace(/const savedParts = deps\.savedParts;/, '')), '모듈은 app.js 의 savedParts 에 직접 쓰지 않는다(setSavedParts 로)');
   /* 4. app.js 연결 */
   const A = strip(app);
@@ -113,10 +114,10 @@ async function judgeAll(src, app, html, ward = WARD){
   const deps = mk.split('\n').map(l => l.trim()).filter(Boolean);
   /* 오른쪽은 그 이름이 다른 모듈로 옮겨 가면 «mod.이름» 으로 바뀐다 — 키와 넘기는 방식만 본다 */
   const reEsc = (x) => x.replace(/[$]/g, '\\$');
-  t(deps.length === 36 && FNS.every(n => deps.some(d => new RegExp('^' + reEsc(n) + ': \\(\\.\\.\\.a\\)=>(?:[\\w$]+\\.)?' + reEsc(n) + '\\(\\.\\.\\.a\\),$').test(d)))
+  t(deps.length === 34 && FNS.every(n => deps.some(d => new RegExp('^' + reEsc(n) + ': \\(\\.\\.\\.a\\)=>(?:[\\w$]+\\.)?' + reEsc(n) + '\\(\\.\\.\\.a\\),$').test(d)))
     && VALUES.every(n => deps.some(d => new RegExp('^' + reEsc(n) + ': \\(\\)=>(?:[\\w$]+\\.)?' + reEsc(n) + '(?:\\(\\))?,$').test(d)))
     && deps.includes('catalogAdmin: catalogAdmin,') && deps.includes('seats,') && deps.includes('setSavedParts: (v)=>{ savedParts = v; },') && deps.some(d => /^setAdminPartActions: (wardrobeMod\.)?setAdminPartActions,$/.test(d)),
-    'deps 36 — 함수 22 화살표 · 좌석 1 · 값 10 읽는 함수 · 쓰는 함수 1 · 꾸미기에 거는 함수 1 · 서버 길 1 (' + deps.length + ')');
+    'deps 34 — 함수 22 화살표 · 좌석 1 · 값 8 읽는 함수 · 쓰는 함수 1 · 꾸미기에 거는 함수 1 · 서버 길 1 (' + deps.length + ')');
   const h82 = app.indexOf('/* ═══ 🛠️ 파츠 · 책상 · 아이템 등록 모달(관리자) ═══ */');
   t(h82 > 0 && app.indexOf('const adminPartReg =') > h82, '만드는 줄은 원래 자리(🛠️ 등록 모달 머리 아래)');
   /* app.js 를 공용 도우미로 되살려 읽으면 꾸미기 본문이 이미 app.js 글 안에 있다 — 그때는 wardrobe.js 를 따로 세지 않는다(두 번 세기 방지) */
@@ -147,6 +148,7 @@ async function judgeAll(src, app, html, ward = WARD){
     ['캐시를 안 비움', { mod: s => s.replace('  partSceneCache().delete(id);\n  // 모든 좌석에서', '  // 모든 좌석에서') }],
     ['카탈로그에서 안 내림', { mod: s => s.replace("try{ await catalogAdmin.archive('part', id); }", 'try{ }') }],
     ['서버에 없는 파츠도 서버로 보냄', { mod: s => s.replace('if(editing && _oldRec && !_oldRec.fromCatalog){ catalogAdmin.notifyLocalOnly(); return; }', '') }],
+    ['책상 개수를 앱이 다시 셈', { mod: s => s.replace("const btn=document.getElementById('deskRegGo');", "if(arr.length>=MAX_CUSTOM_ASSETS()) return; const btn=document.getElementById('deskRegGo');") }],
     ['서버가 거절해도 목록을 지움', { mod: s => s.replace("catch(e){ await catalogAdmin.reportFail(e, 'item'); return; }", 'catch(e){ }') }],
     ['책상 등록 버튼 안 걺', { mod: s => s.replace("document.getElementById('deskRegBtn').onclick=", "document.getElementById('deskRegBtnX').onclick=") }],
     ['옛 이름으로 부름', { app: s => s.replace("_hooks.openDeskRegister('desk', DEFAULT_DESK_OVERRIDE_ID)", "openDeskRegister('desk', DEFAULT_DESK_OVERRIDE_ID)") }],

@@ -4,7 +4,7 @@
      새 물건은 서버 한 벌이 돌아오면 목록에 뜬다(catalog-sync.js). 파일 크기 · 카테고리당 진열 수 같은 서버 제한은 앱이 미리 거절하지 않는다(서버 오류를 번호로 보인다).
 
    ★ 뒤에 선언되거나 다시 대입되는 값은 읽는 함수로 받는다 —
-     값(MAX_CUSTOM_ASSETS · MAX_CUSTOM_ITEMS · PART_CATS · gachaMod ·
+     값(PART_CATS · gachaMod ·
      partSceneCache · savedDesks · savedItems · savedParts · wdGizmo · wdPreviewBase)를 이름() 으로 읽는다. 이 모듈을 만드는 줄보다
      뒤에 선언되거나(const · TDZ) app.js 가 다시 대입하는 let 이라 값이 아니라 읽는 함수로 받는다. 파츠 삭제의 savedParts = … 는 setSavedParts(…).
      자리는 파서(typescript)로 찾아 바꿨다 — 주석 · 글자 · 속성 이름(obj.savedParts 같은)은 건드리지 않았다.
@@ -41,8 +41,6 @@ const toast = deps.toast;
 const unequipPartFromSeat = deps.unequipPartFromSeat;
 const unequipStackablePart = deps.unequipStackablePart;
 const seats = deps.seats;   // 좌석 배열 — 다시 대입되지 않는 같은 객체
-const MAX_CUSTOM_ASSETS = deps.MAX_CUSTOM_ASSETS;   // 읽는 함수
-const MAX_CUSTOM_ITEMS = deps.MAX_CUSTOM_ITEMS;   // 읽는 함수
 const PART_CATS = deps.PART_CATS;   // 읽는 함수
 const gachaMod = deps.gachaMod;   // 읽는 함수
 const partSceneCache = deps.partSceneCache;   // 읽는 함수
@@ -350,8 +348,6 @@ function openDeskRegister(kind, editId){
     const icon=document.getElementById('deskRegIcon').value;
     const editing = !!_deskRegEditId;
     if(!editing && !f){ toast('GLB 파일을 선택해 주세요'); return; }
-    const _maxAssets = isDesk ? MAX_CUSTOM_ASSETS() : MAX_CUSTOM_ITEMS();
-    if(!editing && arr.filter(d=>d.fromCatalog).length>=_maxAssets){ toast(label+'은(는) 최대 '+_maxAssets+'개까지 등록할 수 있어요'); return; }
     const btn=document.getElementById('deskRegGo'); btn.disabled=true; btn.textContent=editing?'수정 중...':'등록 중...';
     const old = editing ? arr.find(d=>d.id===_deskRegEditId) : null;
     let glbBytes = null;

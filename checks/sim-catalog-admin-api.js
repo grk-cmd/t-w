@@ -134,9 +134,11 @@ const PF = { name: '모자', icon: '🎩', category: 'hat', glow: false, multi: 
   chk(!w.shown.length && !w.log.length, '공통 표 실패는 admin-api 의 notifyFail 이 알린다(여기서 번호를 또 붙이지 않는다)');
   /* 서버 오류 code → 번호 표(admin-api.js ERRORS) */
   const AA = load(AAPI);
-  const srv = ['CATALOG_INVALID_FILE', 'CATALOG_STORE_FULL', 'CATALOG_INVALID_ITEM', 'CATALOG_UNKNOWN_CATEGORY', 'CATALOG_UNKNOWN_ASSET', 'CATALOG_UNKNOWN_ITEM', 'CATALOG_GACHA_PARTS_ONLY', 'CATALOG_INVALID_UNLOCK_LEVEL', 'CATALOG_ALREADY_EXISTS', 'CATALOG_CATEGORY_FULL', 'CATALOG_BUILTIN_CATEGORY', 'CATALOG_CATEGORY_IN_USE', 'CATALOG_ITEM_NOT_FOUND'];
-  chk(srv.every((c) => AA.ERRORS[c]) && AA.ERRORS.CATALOG_ITEM_NOT_FOUND.action === 'refetch' && AA.ERRORS.CATALOG_CATEGORY_FULL.action === 'notice', '서버 카탈로그 오류 code 열세 개가 admin-api.js 갈래 표에 있다(없는 물건은 다시 받기 · 나머지는 번호)');
+  const srv = ['CATALOG_INVALID_FILE', 'CATALOG_STORE_FULL', 'CATALOG_INVALID_ITEM', 'CATALOG_UNKNOWN_CATEGORY', 'CATALOG_UNKNOWN_ASSET', 'CATALOG_UNKNOWN_ITEM', 'CATALOG_GACHA_PARTS_ONLY', 'CATALOG_INVALID_UNLOCK_LEVEL', 'CATALOG_ALREADY_EXISTS', 'CATALOG_CATEGORY_FULL', 'CATALOG_SHELF_FULL', 'CATALOG_BUILTIN_CATEGORY', 'CATALOG_CATEGORY_IN_USE', 'CATALOG_ITEM_NOT_FOUND'];
+  chk(srv.every((c) => AA.ERRORS[c]) && AA.ERRORS.CATALOG_ITEM_NOT_FOUND.action === 'refetch' && AA.ERRORS.CATALOG_CATEGORY_FULL.action === 'notice', '서버 카탈로그 오류 code 열네 개가 admin-api.js 갈래 표에 있다(없는 물건은 다시 받기 · 나머지는 번호)');
   const got = []; AA.ERRORS.CATALOG_CATEGORY_FULL.notice((c, e, t) => got.push([c, t]), { message: '이 카테고리에 진열 중인 일반 파츠는 30개까지예요' });
+  const got2 = []; AA.ERRORS.CATALOG_SHELF_FULL.notice((c, e, t) => got2.push([c, t]), { message: 'x' });
+  chk(got2[0][0] === 'E-ADM-07' && got2[0][1] === '진열할 수 있는 개수를 넘었어요(책상 6 · 소품 50) — 단종한 뒤 다시 해 주세요', '★ 책상 · 소품 진열 상한 거절(CATALOG_SHELF_FULL) — 앱이 세지 않고 서버 거절을 고정 문구로 알린다(책상 6 · 소품 50 — 단종한 뒤 다시)');
   chk(got[0][0] === 'E-ADM-07' && /30개/.test(got[0][1]), '  거절 번호(E-ADM-07)에 서버가 준 «어느 칸이 왜» 글을 싣는다');
 
   w = world(SRC); w.api.notifyLocalOnly();

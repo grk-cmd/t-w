@@ -75,6 +75,7 @@ const ERRORS = Object.freeze({
   CATALOG_INVALID_UNLOCK_LEVEL: { action: 'notice', notice: (notifyError, e) => notifyError('E-ADM-07', e, e && e.message) },
   CATALOG_ALREADY_EXISTS: { action: 'notice', notice: (notifyError, e) => notifyError('E-ADM-07', e, e && e.message) },
   CATALOG_CATEGORY_FULL: { action: 'notice', notice: (notifyError, e) => notifyError('E-ADM-07', e, e && e.message) },
+  CATALOG_SHELF_FULL: { action: 'notice', notice: (notifyError, e) => notifyError('E-ADM-07', e, '진열할 수 있는 개수를 넘었어요(책상 6 · 소품 50) — 단종한 뒤 다시 해 주세요') },
   CATALOG_BUILTIN_CATEGORY: { action: 'notice', notice: (notifyError, e) => notifyError('E-ADM-07', e, e && e.message) },
   CATALOG_CATEGORY_IN_USE: { action: 'notice', notice: (notifyError, e) => notifyError('E-ADM-07', e, e && e.message) },
   CATALOG_ITEM_NOT_FOUND: { action: 'refetch', notice: null },
