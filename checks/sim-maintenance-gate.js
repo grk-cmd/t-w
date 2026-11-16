@@ -3,7 +3,7 @@
    ・2-1절: 사람이 누른 동작 — 입력 시각 1초 판정(로컬 클릭 3초 뒤 뒤쪽 요청 · «확인» 뒤 요청은 창 없음 · 클릭 직후 요청은 창) · 자식 창(방명록 · 디자인)에서 누르면 그 창에 그림
    ・2-2절: realtime 점검(4006) — serverClosed: 점검 창 + [다시 시도] · 누름 · 점검 해제 때만 한 번 다시 붙기 · 그동안 on()
    ・2절: 창 — 점검 중이어도 사람이 누른 동작일 때만 · 뒤에서 혼자 낸 요청은 조용히 · 떠 있는 창은 바뀐 끝 시각으로 다시 · 끝나면 다시 켜기를 묻는다(본 적 없으면 안 물음) · 단추
-   ・3절: 고리 — Firebase 기본 동작(firebase-init.js _touched)이 요청마다 한 번 · API 통로(api-client.js)는 실제로 보낼 때만 · 오류 번호 토스트는 점검 중 조용히(기록은 남김)
+   ・3절: 고리 — firebase-init.js 의 Firebase 기본 동작 감쌈은 걷었다 · API 통로(api-client.js)는 실제로 보낼 때만 · 오류 번호 토스트는 점검 중 조용히(기록은 남김)
    ・2-3절: 점검 값 읽기(0.13) — 서버 /v2/config 먼저 · 네트워크 · 5xx · 시간 초과면 Firebase 한 칸 · 4xx 는 물러나지 않음 · 서버가 답하면 Firebase 를 안 읽음 · ISO 끝 시각 · 읽는 때(시작 · config 알림 · 4006 · 다시 시도)
    ・4절: 연결 · 규칙 — html 싣는 순서 · 클릭 통과 목록 · firebase-init 구독 · config/maintenance 누구나 읽기 · 관리자만 쓰기 · 모양
    ・5절: 깨 보기 — (읽기) 4xx 도 물러나거나 · 서버가 답해도 Firebase 를 읽거나 · 서버 길을 건너뛰거나 · 알림 · 다시 시도에서 안 읽으면 빨강 · 사람이 누른 동작 확인을 빼거나 · 판정 폭을 5초로 · 창 안 입력도 세거나 · 다른 창 것을 안 숨기거나 · 오류 토스트 조용히를 빼거나 · on 판정을 느슨하게 하면 빨강
@@ -246,16 +246,10 @@ run(M, '');
 
 say('── 3. 고리');
 {
-  /* firebase-init.js 의 감쌈 한 줄을 그대로 돌린다 — 기본 동작 여섯이 다 그 감쌈을 지나는지도 본다 */
-  const line = (FI.match(/^  const _touched = .*$/m) || [''])[0];
-  let touches = 0; const calls = [];
-  let wrap = null;
-  try{ wrap = new Function('_mt', line.replace('const _touched =', 'return'))({ touch(){ touches++; } }); }catch(_){ wrap = null; }
-  const ops = ['get', 'set', 'update', 'remove', 'onValue', 'push'];
-  if(wrap){ for(const k of ops) wrap((...a) => { calls.push(k + ':' + a.join(',')); return k; })(1, 2); }
-  chk(!!wrap && touches === 6 && calls.join('|') === ops.map((k) => k + ':1,2').join('|'), 'Firebase 기본 동작 — 요청마다 점검 창 touch 한 번 · 인자 · 돌려주는 값 그대로 · ' + touches);
-  const wired = ['get = _touched(_sdkGet)', 'set = _touched(_sdkSet)', 'remove = _touched(_sdkRemove)', 'push = _touched(_sdkPush)', 'onValue = _touched(_sdkOnValue)', '_update = _touched(_dbUpdate)'].filter((x) => FI.indexOf('  const ' + x + ';') < 0);
-  chk(!wired.length, '  ↳ get · set · remove · push · onValue · update 가 다 감쌈을 지난다' + (wired.length ? ' — 빠짐: ' + wired.join(', ') : ''));
+  /* firebase-init.js — 옛 Firebase 기본 동작(get · set · update · remove · push · onValue)과 그 «요청마다 점검 창 touch» 감쌈은 걷었다(DB 읽기 · 쓰기 길이 없다). 남은 DB 읽기는 점검 칸 하나 */
+  const FC = FI.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/mg, '');
+  chk(!/_touched/.test(FC) && !/_mt\.touch\(/.test(FC), 'firebase-init — Firebase 기본 동작 감쌈(_touched)이 없다 — 점검 창 touch 는 API 통로(api-client.js)만');
+  chk(/_mt\.start\(\{ readServer:/.test(FC) && /readFlag:/.test(FC), '  ↳ 점검 칸(config/maintenance) 읽기는 _mt.start 의 readFlag 하나');
 }
 (async () => {
   await runRead(M, '');

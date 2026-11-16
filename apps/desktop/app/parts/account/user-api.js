@@ -66,7 +66,10 @@ function meFrom(d){
   const userCode = str(d.userCode), friendCode = str(d.friendCode);
   if(!/^u[0-9a-z]{8,40}$/i.test(userCode) || !friendCode || typeof d.version !== 'number') return null;
   const pp = isObj(d.presencePref) ? d.presencePref : {};
-  const away = isObj(d.awayImage) && str(d.awayImage.url) ? { url: d.awayImage.url, size: num(d.awayImage.size, 0) } : null;
+  /* 자리비움: 그림 + 크기 · 크기만 · 없음(null). url 키가 없으면 그림은 없다(null). */
+  const awaySize = isObj(d.awayImage) && typeof d.awayImage.size === 'number' && isFinite(d.awayImage.size) ? d.awayImage.size : null;
+  const awayUrl = isObj(d.awayImage) && str(d.awayImage.url) ? d.awayImage.url : null;
+  const away = (awayUrl || awaySize !== null) ? { url: awayUrl, size: awaySize } : null;
   return {
     userCode, friendCode,
     displayName: str(d.displayName),
@@ -101,6 +104,12 @@ function createUserApi(deps){
 
   /* 내 계정 고치기 — { version, displayName?, presencePref?:{ locked, online } }. 칸을 안 실으면 그대로. */
   async function updateMe(patch){ return meFrom(await api().patch('/v2/me', patch)); }
+
+  /* 자리비움 그림 — 올리기(Storage)는 앱이 하고 주소 · 크기만 서버로. size 는 60 · 80 · 100(서버가 판정). 모두 내 계정(Me)을 돌려준다.
+     setAwayImage: 그림 + 크기 · setAwaySize: 크기만(그림이 없어도 됨) · clearAwayImage: 그림만 지운다(크기는 남는다) */
+  async function setAwayImage(url, size){ return meFrom(await api().put('/v2/me/away-image', { url, size })); }
+  async function setAwaySize(size){ return meFrom(await api().patch('/v2/me/away-image', { size })); }
+  async function clearAwayImage(){ return meFrom(await api().del('/v2/me/away-image')); }
 
   async function attachPasswordLogin(password){ return meFrom(await api().post('/v2/me/password-login', { password: String(password || '') })); }
   async function changePassword(newPassword){ await api().post('/v2/me/password', { newPassword: String(newPassword || '') }); return true; }
@@ -148,7 +157,7 @@ function createUserApi(deps){
     return true;
   }
 
-  return { me, joinWithPassword, joinWithGoogle, updateMe, attachPasswordLogin, changePassword,
+  return { me, joinWithPassword, joinWithGoogle, updateMe, setAwayImage, setAwaySize, clearAwayImage, attachPasswordLogin, changePassword,
     withdrawalPreview, withdraw, checkInvite, myInvites, createInvite, findByFriendCode, visit,
     reasonOf, inviteReasonOf };   // 화면 문구 표도 같이 — 부르는 쪽이 통로 하나만 받게
 }

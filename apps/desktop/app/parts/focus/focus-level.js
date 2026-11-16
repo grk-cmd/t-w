@@ -23,6 +23,7 @@ const getMyUserId = deps.getMyUserId;
 const focusApi = deps.focusApi;   // focus-api.js createFocusApi — 진척과 같은 하나(읽은 주인을 같이 쓴다)
 const focusStore = deps.focusStore;   // 계정 칸 get/set/remove(shared/account-store.js)
 const notifyError = deps.notifyError;   // TwErrorCodes.notify
+const serverNow = deps.serverNow;   // () => 서버 시각 ms | null(모름) — realtime 연결의 ready.now 로 맞춘 시계(rt-hub). PC 시계로 대신하지 않는다
 const rtOnMessage = deps.rtOnMessage;   // (type, fn) => 해제 함수 — realtime 허브 onMessage
 const toast = deps.toast;
 const wdDraftDef = deps.wdDraftDef;   // 읽는 함수
@@ -97,12 +98,15 @@ let _mobileFocus = MOBILE_EMPTY;   // seen = 이번 실행에 폰 신호를 한 
 let _mobileKey = null;             // startMobile 이 계정 칸에서 읽는다(만들 때는 계정 칸을 읽지 않는다)
 let mobCode = null, mobGen = 0, mobBusy = false;   // 로그인한 계정 · 계정 바뀜 순번(늦은 답 버림) · 키 만들기 · 끊기 중
 let _mobileWasOnTick = false;
-function _mobileNow(){ try{ if(window.firebaseAPI && firebaseAPI.serverNow) return firebaseAPI.serverNow(); }catch(_){} return Date.now(); }
+/* 서버 시각 — 아직 모르면 null. 모르는 동안 폰 «사용 중» 은 켜지 않는다(PC 시계로 «N분째» · 4시간 상한을 어림하지 않는다). */
+function _mobileNow(){ return serverNow(); }
 /* 폰이 지금 «포커싱 어플을 쓰는 중» 인가 — 켜짐 + 상한 안. */
 function _mobileOn(){
   const m = _mobileFocus;
   if(!m || !m.on || !m.since) return false;
-  return (_mobileNow() - m.since) < MOBILE_MAX_ON_MS;
+  const now = _mobileNow();
+  if(now === null) return false;
+  return (now - m.since) < MOBILE_MAX_ON_MS;
 }
 /* 좌석이 띄울 앱 이름 — 남은 받은 값(remoteMobile), 나는 지금 판정. 자리추가 좌석은 안 띄운다. */
 function _seatMobileApp(seat){
@@ -140,7 +144,7 @@ function _mobileApplyState(v){
     _mobileFocus = MOBILE_EMPTY;
   } else {
     const on = v.on === true, at = Number(v.at) || 0;
-    _mobileFocus = { on, app:_mobileCleanApp(v.app), since: on ? (at || _mobileNow()) : 0, seen:true };
+    _mobileFocus = { on, app:_mobileCleanApp(v.app), since: on ? at : 0, seen:true };   // at = 서버 시각(서버가 늘 싣는다) — 없으면 시작 시각을 모르는 것이라 켜지 않는다
   }
   if(wasOn !== _mobileOn() || wasLabel !== _mobileRoomLabel()) _mobileChanged();
   try{ _mobRenderPanel(); }catch(_){}
@@ -183,7 +187,7 @@ function _mobRenderPanel(){
   const paired = !!_mobileKey;
   let cls = 'off', m = '연결 안 됨', sb = '';
   if(_mobileOn()){
-    const min = Math.max(0, Math.floor((_mobileNow() - _mobileFocus.since) / 60000));
+    const min = Math.max(0, Math.floor((_mobileNow() - _mobileFocus.since) / 60000));   // _mobileOn() 이 참이면 시계를 안다
     cls = 'use'; m = '📱 ' + (_mobileFocus.app || '태블릿·폰') + ' 사용 중';
     sb = (min < 1 ? '방금 시작' : (min + '분째')) + ' · 포커스 시간이 쌓이고 있어요';
   } else if(paired && _mobileFocus.seen){

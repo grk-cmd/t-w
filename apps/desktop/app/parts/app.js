@@ -276,8 +276,8 @@ const CHAR_POS_KEY = 'tw.deskPan';        // {x, y}
 const MY_USER_ID_KEY = 'tw.myUserId';
 const MY_FRIEND_CODE_KEY = 'tw.myFriendCode';
 /* 🔗 이 기기가 **버린** 친추 코드들 (최신 먼저, 최대 5개).
-   [왜 필요한가] 되찾기가 코드 입력을 요구했는데, 정작 코드를 잃는 순간은 자기 치유
-   (_healFriendCodeOwner)나 계정 연동이 **자동으로** 갈아끼울 때다. 그 순간 화면에는
+   [왜 필요한가] 되찾기가 코드 입력을 요구했는데, 정작 코드를 잃는 순간은 자동 치유나
+   계정 연동이 **자동으로** 갈아끼울 때다. 그 순간 화면에는
    새 코드만 남고 옛 코드는 어디에도 안 적힌다 — 외워두지 않았으면 되찾을 방법이 없었다.
    그런데 갈아끼우는 그 코드에서 **우리는 옛 코드를 손에 쥐고 있었다.** 버리기 전에 적어둔다.
    ⚠️ 로컬 기록이라 이 기기에서 잃은 코드만 안다. 새 PC에서 처음 연동하며 잃은 코드는
@@ -286,7 +286,7 @@ const MY_FRIEND_CODE_KEY = 'tw.myFriendCode';
 /* ⚠️ 되찾기 UI 가 사라진 뒤로 이 기록을 **읽는 화면은 없다.** 지우지 않고 남겨둔 이유는
    하나뿐이다 — 코드가 바뀌었다는 제보가 오면 F12 콘솔에서 getOldFriendCodes() 로
    "이 기기가 무슨 코드를 언제 버렸는지"를 물어볼 수 있다. 그게 유일한 용도다.
-   새 기능을 여기에 얹지 말 것. 코드 유지는 _healFriendCodeOwner 가 책임진다. */
+   새 기능을 여기에 얹지 말 것. 코드는 서버가 정한다(로그인 때 _enterAccount 가 적는다). */
 const MY_FRIEND_CODE_PREV_KEY = 'tw.myFriendCodePrev';
 /* 🪪 (걷음 · 회원가입 설계 §6-② · CHECKS 개정 56) «이 기기가 버린 내 uid» 목록 `tw.myPrevUserIds` · `_rememberPrevUserId` ·
    `_isMyPrevUserId`. 계정이 없던 시절(한 사람 = 기기마다 다른 uid)의 장치였다 — 그 uid 를 가리키는 친구 코드·친구 요청을
@@ -328,72 +328,8 @@ function _setMyUserId(uid){
   if(typeof uid !== 'string' || !/^u[0-9a-z]{8,40}$/i.test(uid)) return false;
   try{ localStorage.setItem(MY_USER_ID_KEY, uid); return localStorage.getItem(MY_USER_ID_KEY) === uid; }catch(e){ return false; }
 }
-/* 🔗 친추코드 소유권 검증 플래그 — 세션당 1회(읽기 1회)만 확인한다.
-   ⚠️ 이 값을 true로 만드는 것은 "확인을 마쳤다"는 뜻이다. 조회 자체가 실패했을 때는
-      반드시 false로 되돌려야 한다 — 안 그러면 오프라인 실행 한 번으로 검증이 영구히 건너뛰어진다. */
-let _fcOwnerChecked = false;
-/* (걷음 · 개정 56) FC_STALE_DAYS — 친추코드 «7일 조용하면 되찾기» 갈래와 함께. 시크릿룸 발급 게이트는 제 상수(SR_STALE_DAYS)를 쓴다. */
-// 내 친추코드 확보 — 로컬에 이미 있으면 그대로 쓰고, 없으면 새로 만들어서 Firebase에 등록(충돌 시 재시도).
-/* 🪞 [회원가입 설계 §3 ⑥ · 개정 12] 친구 코드 거울 정정 — 계정 거울(users/{uid}/friendCode)이 이 기기 코드와 다르면 **로컬만** 고친다.
-   [왜] 코드 = 로그인 아이디다. 코드가 틀리게 보이는 PC 는 로그인 아이디를 틀리게 보여 주는 PC 다.
-     개정 27 이후 _healFriendCodeOwner 는 옛 uid 를 가리키는 코드를 그대로 두므로(핑퐁 방지) 그것만으로는 이 표시가 안 고쳐진다.
-   ★ friendCodes 에 **쓰지 않는다** — 소유권은 안 건드린다(개정 27 «활동 중인 소유자 것은 빼앗지 않는다» 그대로).
-   ★ 거울이 비었거나 못 읽으면 아무것도 안 한다 — 발급은 ensureMyFriendCode 몫.
-   ★ 거울 코드가 **지금도 내 것일 때만** 따른다(읽기 한 번) — 거울이 낡아 남의 코드를 가리키면 남의 아이디를 보여 주게 된다.
-   ★ 부르는 곳은 ensureMyFriendCode 첫머리 하나(세션당 한 번) — 발급보다 **먼저** 봐야, 로컬 코드가 없는 PC 가
-     새 코드를 뽑아 계정의 진짜 코드를 버리는 일이 없다. 돌려주는 것: 'fixed' · 'adopted'(로컬이 비어 있었다) · 그 밖의 사유 문자열. */
-let _fcMirrorChecked = false;
-async function _friendCodeMirrorFix(){
-  const uid = getMyUserId();
-  if(!uid) return 'no-uid';
-  if(!(window.firebaseAPI && firebaseAPI.getUserFriendCode && firebaseAPI.lookupFriendCode)) return 'no-api';
-  let mirror = null;
-  try{ mirror = await firebaseAPI.getUserFriendCode(uid); }catch(_){ return 'unread'; }
-  if(!mirror) return 'empty';
-  let local = null; try{ local = localStorage.getItem(MY_FRIEND_CODE_KEY); }catch(_){}
-  if(local === mirror) return 'same';
-  let owner;
-  try{ owner = await firebaseAPI.lookupFriendCode(mirror); }catch(_){ return 'unread'; }
-  if(owner !== uid) return 'not-mine';
-  try{ localStorage.setItem(MY_FRIEND_CODE_KEY, mirror); }catch(_){ return 'unsaved'; }
-  _fcOwnerChecked = true;   // 방금 확인했다 — 거울 코드의 주인은 나
-  console.info('[친추코드] 계정 거울을 따라 이 기기 표시를 고쳤어요:', (local || '(없음)') + ' → ' + mirror);
-  return local ? 'fixed' : 'adopted';
-}
-async function ensureMyFriendCode(){
-  if(!_fcMirrorChecked && getMyUserId()){
-    _fcMirrorChecked = true;
-    try{ await _friendCodeMirrorFix(); }catch(_){}
-  }
-  let code = localStorage.getItem(MY_FRIEND_CODE_KEY);
-  if(code){
-    // 🔗 계정 연동 뒤 이 코드가 남의(=버린) uid를 가리키고 있을 수 있다 → 아래에서 정정한다.
-    if(!_fcOwnerChecked) await _healFriendCodeOwner(code);
-    return localStorage.getItem(MY_FRIEND_CODE_KEY) || code;
-  }
-  /* 0.13 — 친구 코드는 서버가 가입 때 정하고 로그인 때 이 PC 에 적는다(account.js _enterAccount). 앱이 새로 뽑아 등록하지 않는다. */
-  return null;
-}
-/* 🔗 친추코드가 내 uid를 가리키지 않을 때 (읽기 1회, 세션당 1회)
-   [개정 56 · 회원가입 설계 §6-③] 되찾기 갈래 둘을 걷었다 — «내가 버린 uid» 면 조건 없이 · «주인이 7일 조용» 이면 가져오던 것.
-     둘 다 계정이 없던 시절(한 사람 = 기기마다 uid)의 장치였다. 지금 이 기기 코드의 주인이 내가 아니면 그 주인은
-     **다른 계정**이다 — 가져가면 남의 아이디(코드 = 로그인 아이디)와 그 앞으로 온 친구 요청을 빼앗는다.
-   남은 것: 내 것이면 끝 · 주인이 없으면(등록이 실패한 채 로컬에만 남은 코드) 선점 · 그 밖은 **그대로 두고 경고만**.
-   ★ 0.13 — 로그인 때 서버 계정의 코드를 적는다(account.js _enterAccount). 여기까지 떨어지는 것은 옛 판의 잔재뿐이다.
-   친구 목록은 코드가 아니라 uid로 저장되므로, 코드 표시가 어긋나도 기존 친구관계는 끊기지 않는다. */
-async function _healFriendCodeOwner(code){
-  if(!(window.firebaseAPI && firebaseAPI.lookupFriendCode && firebaseAPI.registerFriendCode)) return;
-  const myId = getMyUserId();
-  let owner;
-  try{ owner = await firebaseAPI.lookupFriendCode(code); }
-  catch(e){ console.warn('[친추코드] 소유자 조회 실패 — 판단 보류', e); return; }   // 플래그 그대로(다음 기회에 재시도)
-  _fcOwnerChecked = true;
-  if(owner === myId) return;                    // 정상
-  /* 🔒 [2026-09-20 결정] **여기서 새 코드를 발급하지 않는다** — 처음 발급된 코드를 유지한다(제보 3-2 · 친구들이 적어 둔
-     코드가 매번 죽는 쪽이 훨씬 큰 불편이다). 소유권도 손대지 않는다(개정 56 — 남의 계정 것이다). */
-  _rememberOldFriendCode(code);   // 기록만 — F12 getOldFriendCodes() 진단용
-  console.warn('[친추코드] ' + code + ' 의 소유자는 ' + owner + ' 이고 내 uid 는 ' + myId + ' — 코드는 그대로 둔다(재발급 안 함)');
-}
+/* 🔗 친구 코드는 서버가 가입 때 정하고, 로그인 때 이 PC 에 적는다(account.js _enterAccount — GET /v2/me 의 friendCode 가 원본).
+   앱은 코드를 뽑지 · 등록하지 · Firebase 의 코드 노드와 맞춰 보지 않는다. */
 /* 🔒 친추코드 재발급 금지의 근거를 검사가 잡을 수 있게 이름 붙인 결정. 되살리려면 이 상수만 볼 것이 아니라
    위 갈래 전체를 되살려야 한다 — 이 상수는 문서이지 스위치가 아니다. */
 const FC_NEVER_REISSUE = true;
@@ -403,7 +339,7 @@ const FC_NEVER_REISSUE = true;
      (개정 56: «버린 uid» 되찾기 · 7일 되찾기 · 로그인 직후 소유자 강제 정정은 걷었다 — 전부 남의 계정 것을 가져오는 길이다)
    ⚠️ 되살릴 일이 생기면 lastSeen 판정을 반드시 함께 되살릴 것. 그 판정 없이 코드 문자열만으로
      소유권을 넘기면 4자리를 찍어서 남의 코드와 친구 요청을 가져갈 수 있다.
-   🔒 [2026-09-20] 그 마지막 경우에도 이제 **자동 재발급을 하지 않는다**(_healFriendCodeOwner 끝 주석).
+   🔒 [2026-09-20] 그 마지막 경우에도 이제 **자동 재발급을 하지 않는다**(0.13 — 코드는 서버가 정한다).
      사용자가 직접 코드를 바꾸는 UI 는 이미 없고, 자동으로 바뀌는 길도 이것으로 사라졌다 —
      **로컬 코드를 지우는 자리는 로그아웃(ACCOUNT_LOCAL_KEYS)뿐**이다. */
 const CHAR_SCALE_KEY = 'tw.focusCharScale';   // ★ 모니터별로 저장: {"<디스플레이id>": 배율, "sig:<가로>x<세로>": 배율, "default": 배율}
@@ -2059,18 +1995,12 @@ const presenceSelfMod = TwPresenceSelf.createPresenceSelf({   // 내 접속 표�
   rt: TwRtHub.store,
   onUnload: (fn)=>window.addEventListener('beforeunload', fn),   // friends-sub stop 과 같은 자리 — 계정을 놓으면 보이기 값을 비운다
 });
-/* 🔌 지금 로그인 세션의 Firebase 접속 표시 한 벌(firebase-init createMyPresence — 마이홈 처음 준비가 만들어 세션에 건다). 세션이 없거나 아직 안 만들었으면 null */
-const myPresence = ()=>{ const s = appBoot.getSession(); return (s && s.alive()) ? s.presence : null; };   // 끝난 세션의 풀린 객체는 «없음» 으로 본다 — 풀린 객체가 쓰기를 조용히 버리지 않고 아래 경고가 뜨게
-/* 접속 표시 객체가 없으면(세션이 없거나 마이홈 처음 준비가 아직 안 걸었음) 쓸 곳이 없다 — 조용히 넘기지 않고 경고한다(검사 sim-presence-lock) */
-const setMyPresenceState = (uid, online)=>{ const p = myPresence(); if(!p){ console.warn('[접속 표시] 온라인 토글을 버렸어요 — 지금 세션에 접속 표시가 없어요(세션 없음 · 마이홈 처음 준비 전)'); return; } p.setState(online); };   // 친구 탭 온라인 토글
-const setMyPresenceRoom = (code)=>{ const p = myPresence(); if(!p){ console.warn('[접속 표시] 방 표시를 버렸어요 — 지금 세션에 접속 표시가 없어요(세션 없음 · 마이홈 처음 준비 전)'); return; } p.setRoom(code); };   // 친구 목록의 «방 안» 표시
 /* 🔒 친구 탭 온라인 토글 · 고정 — 처음 접속 표시는 마이홈 처음 준비가 계정 확인의 me 로 부른다 */
 const presenceLockMod = TwPresenceLock.createPresenceLock({
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   savePref: (uid, p)=>loginFlowMod.patchMe({ presencePref: { locked: p.lock, online: p.online } }).then((r)=>{ if(!r.ok) throw r.err; }),
-  setPresence: (...a)=>setMyPresenceState(...a),
   setVisible: (v)=>presenceSelfMod.setVisible(v),
   startVisible: (v)=>presenceSelfMod.start(v),
 });
@@ -2103,12 +2033,10 @@ const mhInitMod = TwMyHomeInit.createMyHomeInit({
   _myHomeFriends: ()=>_myHomeFriends,
   _myHomeReady: ()=>_myHomeReady,
   _waitForFirebaseAPI: (...a)=>_waitForFirebaseAPI(...a),
-  ensureMyFriendCode: (...a)=>ensureMyFriendCode(...a),
   focusLevelMod: ()=>focusLevelMod,
   friendManage: friendManage,
   friendRequests: ()=>friendRequestsPortMod,
   friendsSub: friendsSubMod,
-  getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   inboxMod: ()=>inboxMod,
   mailFeed: mailFeed,
@@ -2116,7 +2044,6 @@ const mhInitMod = TwMyHomeInit.createMyHomeInit({
   myHomeOpen: ()=>myHomeOpen,
   noticeFeed: noticeFeed,
   presenceLock: presenceLockMod,
-  getRoomCode: (...a)=>TwRoomRt.store.roomCode(...a),   // 접속 표시를 만들 때 «입장이 끝난» 방 코드(room-entry onJoined 는 입장 때 한 번뿐 · 입장 중인 방은 넣지 않는다)
   toast: (...a)=>toast(...a),
   setMyFriendRequests: (v)=>{ _myFriendRequests = v; },
   setMyHomeFriends: (v)=>{ _myHomeFriends = v; },
@@ -6335,7 +6262,6 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   paintRoomInfo: ()=>roomInfoUi.paint(),
   roomSettings: TwRoomSettings,
   roomRt: TwRoomRt.store,
-  setPresenceRoom: (...a)=>setMyPresenceRoom(...a),   // 친구 목록의 «방 안» 표시 — Firebase 접속 표시가 걷힐 때(접속 상태 묶음) 같이 걷는다
   runCost: runCost,   // 🩺 좌석 맞춤 시간(1분 [비용] 줄)
 });
 roomEntryMod.onRoomChanged(()=>listenUi.sync());   // 🎧 같이 듣기가 방 입장 모듈을 몰라도 되게(위층이 건다)
@@ -6480,7 +6406,6 @@ const accountMod = TwAccount.createAccount({
   ME_CACHE_KEY: TwLoginFlow.ME_CACHE_KEY,
   userApiMod: userApiMod,
   sessionLost: ()=>TwRtHub.store.state() === TwRtHub.STATE.SESSION_LOST,
-  getPresence: (...a)=>myPresence(...a),
 });
 /* ═══ 🪪 [내 정보] — 런처 화면 전환 (CHECKS 개정 48 · 사용자 결정 · 회원가입 설계 §7 B2 · C4 · D · G) ═══════════════
    런처 [내 정보](#lcLoad)를 누르면 **런처 카드 안의 페이지(#lcMyInfo)가 제목줄 아래를 덮는다** — 따로 창도 겹창도 아니다. ◀ 로 돌아간다.
@@ -7928,6 +7853,7 @@ const awayPicMod = TwAwayPic.createAwayPic({
   renderer: renderer,
   seats: seats,
   toast: (...a)=>toast(...a),
+  userApi: ()=>userApiMod,
 });
 
 /* ═══ 🚩 신고하기 ═══════════════════════════════════════════════════════════
@@ -8005,6 +7931,7 @@ const focusLevelMod = TwFocusLevel.createFocusLevel({
   focusStore: accountStoreMod,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   rtOnMessage: (...a)=>TwRtHub.store.onMessage(...a),
+  serverNow: ()=>TwRtHub.store.serverNow(),   // 방 밖 서버 시계(ready.now) — 모르면 null
   toast: (...a)=>toast(...a),
   wdDraftDef: ()=>wardrobeMod.wdDraftDef(),
   setFocusSessionSec: (v)=>{ focusTotalMod.setFocusSessionSec(v); },
@@ -8383,6 +8310,7 @@ const appBoot = TwAppBoot.createAppBoot({
       session.on(TwRtHub.store.on('license', ()=>roomLobbyProvider.reset()));
       session.onReset(()=>{ TwChatRt.store.reset(); roomLobbyProvider.reset(); if(_pkSession) _pkSession.reset(); });
     },
+    awayPic: (code, me)=>awayPicMod.startAwayPic(me),   // 🫧 자리비움 그림 · 크기 — 서버(me.awayImage)가 기준
     desktopBg: (code)=>window.MYHOME_DESKTOP.startBgSync(code),
     playlist: (code, me, session)=>plMod.start(session),
     licensePremium: (code, me, session)=>{ session.onReset(()=>licensePremiumMod.reset()); return licensePremiumMod.start(me); },   // 알림 구독 해제 함수는 모듈이 쥐고 reset 이 푼다 — 세션이 끝나면 reset 을 부른다

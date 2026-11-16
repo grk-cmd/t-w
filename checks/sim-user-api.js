@@ -87,6 +87,19 @@ async function judge(S){
     chk(e.sent[3] && Object.keys(e.sent[3].body).length === 0, '  ↳ 초대 코드가 없으면 빈 본문');
   }
 
+  say('── 2-2. 자리비움 그림 · 크기 — PUT · PATCH · DELETE /v2/me/away-image');
+  {
+    const e = mkEnv(S, (r) => (r.path === '/v2/me/away-image') ? ok(Object.assign({}, ME, { awayImage: r.method === 'PATCH' ? { size: r.body.size } : r.method === 'DELETE' ? { size: 100 } : { url: r.body.url, size: r.body.size } })) : null);
+    const a = await e.ua.setAwayImage('https://x/away/u1/a.webp', 80);
+    chk(e.sent[0].method === 'PUT' && e.sent[0].body.url === 'https://x/away/u1/a.webp' && e.sent[0].body.size === 80 && a.awayImage.url === 'https://x/away/u1/a.webp' && a.awayImage.size === 80, 'PUT { url, size } — 그림을 올릴 때 지금 크기를 같이 보낸다');
+    const b = await e.ua.setAwaySize(60);
+    chk(e.sent[1].method === 'PATCH' && JSON.stringify(e.sent[1].body) === '{"size":60}' && b.awayImage.url === null && b.awayImage.size === 60, 'PATCH { size } — 크기만 · 받은 me 의 awayImage 는 url 이 null 이고 크기만 있다');
+    const c = await e.ua.clearAwayImage();
+    chk(e.sent[2].method === 'DELETE' && c.awayImage.url === null && c.awayImage.size === 100, 'DELETE — 그림만 지운다(크기는 남는다)');
+    const n = mkEnv(S, (r) => r.path === '/v2/me' ? ok(Object.assign({}, ME, { awayImage: null })) : null);
+    chk((await n.ua.me()).awayImage === null, '아무것도 없으면 awayImage null');
+  }
+
   say('── 3. 고치기 · 비밀번호 · 탈퇴');
   {
     const e = mkEnv(S, (r) => {

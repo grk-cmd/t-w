@@ -217,17 +217,12 @@ say('── 10. 📏 자리비움 그림 크기 60·80·100 — 그림 주인이
   chk(/s\.remoteAwaySz=_awaySzOk\(friends\[id\]\.awaySz\) \? friends\[id\]\.awaySz : null;/.test(CODE), '받는 쪽은 세 값만 받는다');
   chk(/function setAwaySz\(px\)\{[\s\S]{0,160}if\(v === myAwaySz\) return;/.test(CODE) && /setAwayImg, setAwaySz,/.test(CODE), 'Presence.setAwaySz — 같으면 안 보냄 · 내보냄');
   const ui = grab(SRC, '_awaySetSz');
-  chk(/if\(!_awaySzOk\(px\) \|\| px === awayImgSz\) return;/.test(ui) && /api\.setAwaySz\(uid, px\)/.test(ui), '버튼 → 같은 값이면 무시 · 서버 users/{uid}/awaySz');
-  chk(/api\.getAwaySz\(uid\)/.test(grab(SRC, '_awayBootSync')), '부팅 때 서버 값이 이긴다(계정을 따라감)');
+  chk(/if\(!_awaySzOk\(px\) \|\| px === awayImgSz\) return;/.test(ui) && /userApi(?:\(\))?\.setAwaySize\(px\)/.test(ui), '버튼 → 같은 값이면 무시 · 서버 PATCH /v2/me/away-image');
+  chk(/a\.size/.test(grab(SRC, 'startAwayPic')) && /awayImage/.test(grab(SRC, 'startAwayPic')), '켤 때 서버 값(me.awayImage)이 이긴다(계정을 따라감)');
   const H = read('desk-companion-prototype.html') || '';
   chk(/id="miAwaySz"[\s\S]{0,400}data-sz="60"[\s\S]{0,120}data-sz="80"[\s\S]{0,120}data-sz="100"/.test(H) && H.indexOf('id="miAwaySzRow"') > H.indexOf('id="miAwayReset"'), 'HTML — [내 정보] 그림 칸 버튼 아래 60·80·100');
-  const RJ = read('firebase-database-rules.json');
-  if(RJ){
-    const R = JSON.parse(RJ).rules.users.$userId.awaySz;
-    chk(!!R && /=== 60/.test(R['.validate']) && /=== 80/.test(R['.validate']) && /=== 100/.test(R['.validate']) && /isNumber/.test(R['.validate']) && /userAuth/.test(R['.write']), '규칙 users/$userId/awaySz — 본인만 · 세 값만');
-  } else say('  ? firebase-database-rules.json 없음 — 규칙 판정 건너뜀');
   const FI = read('firebase-init.js');
-  if(FI) chk(/async setAwaySz\(userId, px\)/.test(FI) && /async getAwaySz\(userId\)/.test(FI) && /users\/\$\{userId\}\/awaySz/.test(FI), 'firebase-init — setAwaySz · getAwaySz');
+  if(FI) chk(!/setAwaySz|getAwaySz|setAwayImg|getAwayImg|users\/\$\{userId\}\/awaySz/.test(FI), 'firebase-init — 자리비움 DB 길 없음(서버 /v2/me/away-image)');
   else say('  ? firebase-init.js 없음 — 건너뜀');
 }
 
