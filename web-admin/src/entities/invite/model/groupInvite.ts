@@ -33,6 +33,8 @@ export interface GroupInvite {
   expiresAt: number | null;
   stoppedAt: number | null;
   note: string;
+  /** API 판 목록이 싣는 번호 — 중지 · 다시 열기에 그대로 돌려준다(Firebase 판은 없다). */
+  version?: number;
 }
 
 export function isGroupMaxUses(n: number): boolean {

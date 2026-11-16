@@ -41,3 +41,31 @@ export function wireBool(value: unknown, what: string): boolean {
   if (typeof value !== 'boolean') throw wireError(what, '참 · 거짓');
   return value;
 }
+
+export function wireNullableNumber(value: unknown, what: string): number | null {
+  if (value === null) return null;
+  return wireNumber(value, what);
+}
+
+/** ISO 시각 글자 → ms. */
+export function wireTime(value: unknown, what: string): number {
+  const at = Date.parse(wireString(value, what));
+  if (Number.isNaN(at)) throw wireError(what, 'ISO 시각');
+  return at;
+}
+
+export function wireNullableTime(value: unknown, what: string): number | null {
+  return value === null ? null : wireTime(value, what);
+}
+
+/**
+ * 서버가 비어 있으면 칸을 싣지 않는 응답(`NON_NULL`)의 칸 — 칸이 없으면 null, 있으면 `read` 로 읽는다.
+ * 문서가 «없으면 싣지 않는다» 고 약속한 칸에만 쓴다.
+ */
+export function wireOmittable<T>(
+  object: Record<string, unknown>,
+  key: string,
+  read: (value: unknown) => T,
+): T | null {
+  return key in object ? read(object[key]) : null;
+}
