@@ -46,6 +46,7 @@ async function judge(S){
     ['500', () => res(500, { success: false, code: 'INTERNAL_ERROR' }), 'offline', 'E-NET-07'],
     ['503 사본 없음', () => res(503, { success: false, code: 'PUBLIC_CONFIG_NOT_READY' }), 'offline', 'E-NET-07'],
     ['모르는 409', () => res(409, { success: false, code: 'SOMETHING_NEW' }), 'notice', 'E-NET-08'],
+    ['404 길 없음(앱 버그)', () => res(404, { success: false, code: 'NOT_FOUND' }), 'notice', 'E-NET-09'],
   ];
   const bad = [];
   for(const [name, fn, action, code] of cases){
@@ -72,7 +73,7 @@ async function judge(S){
   chk(E.translate({ kind: 'request', code: 'toString' }).action === 'notice' && E.translate({ kind: 'request', code: 'constructor' }).action === 'notice', '  ↳ 표 찾기는 제 칸만(toString 같은 이름에 속지 않음)');
 
   say('── 3. 번호');
-  const rows = Object.values(E.COMMON).concat([E.OFFLINE, E.UNKNOWN]);
+  const rows = Object.values(E.COMMON).concat([E.OFFLINE, E.NO_ROUTE, E.UNKNOWN]);
   const used = new Set(); rows.forEach((r) => { if(r.notice) r.notice((c) => used.add(c), null); });
   const missing = [...used].filter((c) => !C.CODES[c]);
   chk(used.size >= 8 && !missing.length, '표가 부르는 번호 ' + used.size + '개가 다 error-codes.js 에 있다' + (missing.length ? ' — 없음: ' + missing.join(', ') : ''));
@@ -102,6 +103,7 @@ const BREAKS = [
   ['AE', "  USER_CODE_NOT_BOUND: { action: ACTION.SIGNUP, notice: null },", "  USER_CODE_NOT_BOUND: { action: ACTION.LOGIN, notice: null },", '가입 전을 로그인 풀림으로'],
   ['AE', "  NO_TOKEN: { action: ACTION.LOGIN, notice: (notifyError, e) => notifyError('E-NET-01', e) },", "", '토큰 없음을 모르는 오류로'],
   ['AE', "  else if(kind === 'unavailable' || kind === 'notReady' || !kind) row = OFFLINE;", "  else if(kind === 'unavailable') row = OFFLINE;", '사본 없음을 모르는 오류로'],
+  ['AE', "  else if(kind === 'noRoute') row = NO_ROUTE;\n", "", '길 없는 404 를 모르는 오류로'],
   ['AE', "    if(t.notice) t.notice(notifyError, err);", "", '번호 토스트를 안 냄'],
   ['AE', "    retryAfterMs: (err && typeof err.retryAfterMs === 'number') ? err.retryAfterMs : null,", "    retryAfterMs: null,", 'Retry-After 를 버림'],
   ['AE', "const own = (o, k) => !!o && Object.prototype.hasOwnProperty.call(o, k);", "const own = (o, k) => !!o && k in o;", '표 찾기가 물려받은 이름에 속음'],

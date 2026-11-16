@@ -104,7 +104,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `char-code.js` · `code-crypto.js` · `asset-code.js` · `commission.js` | 복제 코드 · 암호화 · 에셋 코드 · 커미션 zip · 저장 책상 / 아이템 | — |
 | `face-heal.js` · `def-size.js` · `seat-slot.js` | 얼굴 자동 복구 · def 용량 상한 · 좌석 안 파츠 가두기 | — |
 | `gacha.js` | 파츠 가챠 · 보관함 · 뽑기 창 | fb 5 |
-| `catalog-cache.js` (ES) | 카탈로그(parts · gachaParts · items · desks) 버전 확인 + 로컬 캐시 | (firebase-init 이 연결) |
+| `catalog-api.js` (ES) | 카탈로그(파츠 · 책상 · 아이템)를 서버 한 벌 `GET /v2/catalog`(ETag · realtime catalog 알림)에서 받아 앱 모양으로 펼침 | (firebase-init 이 연결) |
 
 ## 6. 🎨 `creator/` — 생성기 ✅ 옮김(폴더 12번)
 

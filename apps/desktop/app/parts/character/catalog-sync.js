@@ -74,7 +74,7 @@ async function mergeCatalogIntoSavedItems(catalogObj){
     seats.forEach(s=>{ removedIds.forEach(id=>{ if(s.deskItems && s.deskItems[id]){ const def=customItems()[id]||{id}; equipDeskItem(s,def,false); } }); });
     removedIds.forEach(id=>{ delete customItems()[id]; });
   }
-  commissionMod.setSavedItems(list);   // 카탈로그 몫은 따로 저장하지 않는다(서버가 원본 · 오프라인 캐시는 catalog-cache.js) — 이 계정 몫은 바뀐 게 없다
+  commissionMod.setSavedItems(list);   // 카탈로그 몫은 따로 저장하지 않는다(서버가 원본 · 한 벌은 catalog-api.js) — 이 계정 몫은 바뀐 게 없다
   /* ⚠️ 세션 등록이 끝난 **뒤에** 좌석을 다시 적용한다 — 기다리지 않으면 옛 정의(크기 0.8)로 다시 만든다. */
   await loadSavedItemsIntoSession();   // 세션 customItems에도 최신 상태 반영(새로 추가/수정된 GLB 등록) — 깨진 GLB 는 그 함수가 하나씩 경고 + E-CHAR-25 로 드러내고, 그 밖의 실패는 던져 구독 쪽에 드러난다(삼키지 않는다)
   // 캐릭터 로드가 카탈로그 동기화보다 먼저 끝났을 수 있어서(비동기 타이밍), 이미 떠 있는 좌석들의 아이템도 다시 적용
@@ -145,7 +145,7 @@ function mergeCatalogIntoSavedParts(catalogObj){
     // 삭제된 파츠를 지금 착용 중인 좌석이 있으면 해제
     seats.forEach(s=>{ if(s.charDef&&s.charDef.equippedParts){ for(const c in s.charDef.equippedParts){ if(removedIds.includes(premiumMod.partEntryId(s.charDef.equippedParts[c]))){ delete s.charDef.equippedParts[c]; unequipPartFromSeat(s,c); } } } applyClothVisibility(s); });
   }
-  premiumMod.setSavedParts(list);   // 오프라인 캐시는 catalog-cache.js 가 맡는다 — 카탈로그 몫을 이 계정 칸에 쓰지 않는다
+  premiumMod.setSavedParts(list);   // 카탈로그는 catalog-api.js 가 서버 한 벌로 채운다 — 카탈로그 몫을 이 계정 칸에 쓰지 않는다
   // 시작 때 rec.glb 가 없어 못 붙인 파츠를 다시 붙인다 — entry 단위로 돈다.
   // ⚠️ 겹쳐 다는(stackable) 파츠는 stackedPartObjs 에 있다 — equippedPartObjs 만 보면 매번 xf 없이 다시 붙어 자리가 원점으로 간다.
   seats.forEach(s=>{

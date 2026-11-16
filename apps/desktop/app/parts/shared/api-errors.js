@@ -34,6 +34,8 @@ const COMMON = Object.freeze({
 });
 /* code 가 표에 없을 때 — 닿지 못함(통로 kind 'unavailable' · 'notReady')과 그 밖 */
 const OFFLINE = Object.freeze({ action: ACTION.OFFLINE, notice: (notifyError, e) => notifyError('E-NET-07', e) });
+/* 길 없는 404(kind 'noRoute') — 앱이 서버에 없는 길을 부른 버그. 쉬지 않고 번호로 드러낸다(api-client.js · 검사 sim-api-routes.js) */
+const NO_ROUTE = Object.freeze({ action: ACTION.NOTICE, notice: (notifyError, e) => notifyError('E-NET-09', e) });
 const UNKNOWN = Object.freeze({ action: ACTION.NOTICE, notice: (notifyError, e) => notifyError('E-NET-08', e) });
 
 const own = (o, k) => !!o && Object.prototype.hasOwnProperty.call(o, k);
@@ -46,6 +48,7 @@ function translate(err, table){
   let row = null;
   if(code && own(table, code)) row = table[code];
   else if(code && own(COMMON, code)) row = COMMON[code];
+  else if(kind === 'noRoute') row = NO_ROUTE;
   else if(kind === 'unavailable' || kind === 'notReady' || !kind) row = OFFLINE;
   else row = UNKNOWN;
   return {
@@ -69,7 +72,7 @@ function createApiErrors(deps){
   return { notify, translate };
 }
 
-const api = { ACTION, COMMON, OFFLINE, UNKNOWN, translate, createApiErrors };
+const api = { ACTION, COMMON, OFFLINE, NO_ROUTE, UNKNOWN, translate, createApiErrors };
 if(typeof window !== 'undefined'){
   /* 앱 한 벌 — 번호 토스트는 error-codes.js(부를 때 찾는다) */
   api.store = createApiErrors({ notifyError: (...a) => window.TwErrorCodes.notify(...a) });

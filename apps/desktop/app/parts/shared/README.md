@@ -381,12 +381,13 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **ETag**: 응답에 ETag 가 있으면 값과 함께 기억했다가 다음 읽기에 `If-None-Match` — 304 면 기억한 값. 로그인 읽기는 토큰 주인(sub)마다 따로 기억한다. 계정을 놓을 때 `clearCache()`.
 - **서버 쓰기는 읽은 토큰 주인과 묶는다**: 읽은 값을 고쳐 올리는 provider 는 읽을 때 `get(path, { auth: true, onOwner })` 로 토큰 주인을 기억하고, 쓸 때 `put(path, body, { expectOwner })` 를 싣는다. 보내기 직전 쓸 토큰의 주인이 다르면(그 사이 로그인한 사람이 바뀜) 통로가 보내지 않고 `OWNER_CHANGED`(요청 0)로 끝낸다 — 앞 계정 값이 새 계정 토큰으로 나가 덮어쓰는 길을 막는다. 다른 묶음의 «읽고 고쳐 쓰기» 도 이 규칙을 따른다.
 - **토큰**: `TwApi.authed` 의 토큰은 firebase-init.js 가 `TwApi.bindToken(_getIdToken)` 로 잇는다. 로그인 읽기는 토큰을 요청당 한 번만 받고(시간 제한과 겨룸 — 멈춰도 `TIMEOUT`) 그 토큰으로 보낸다. 401 `AUTH_REQUIRED` 면 새 토큰으로 한 번만 다시 — `USER_CODE_NOT_BOUND`(가입 전)는 다시 안 한다.
+- **길 없는 404 = 앱 버그**: 서버에 그 길 자체가 없는 404(`NOT_FOUND` · `DATA_ROUTE_NOT_FOUND` · code 없음)는 kind `noRoute` 다. 쉬기(30초 BACKOFF)에 넣지 않는다 — 같은 통로의 `GET /v2/config`(점검 판정)가 막히지 않게. 그 요청만 실패하고 `console.error` 가 남으며 `api-errors.js` 가 E-NET-09 로 알린다. 자원이 없다는 404(`USER_NOT_FOUND` 등)는 그대로 `request`. 앱이 부르는 길이 서버에 있는지는 `checks/sim-api-routes.js` 가 본다.
 - **함정**: 쓰기는 다시 보내지 않는다(통로가 알아서 재시도하지 않음) — 다시 보낼 일은 부르는 쪽이 같은 `requestId`(request-id.js)로. 읽기 시간 제한(`TIMEOUT_MS`)은 옛 Firebase 길로 빨리 넘어가려고 짧다 — 옛 길이 없는 읽기는 `timeoutMs` 를 넘긴다. `shouldFallback` 은 옛 길을 걷으면 같이 걷는다.
 - 검사: `checks/sim-api-client.js`.
 
 ## `api-errors.js` — 🧭 서버 오류 봉투 → 할 일 · 오류 번호
 
-- **책임**: api-client.js 의 `ApiError`(서버 봉투 code · 통로 kind)를 «할 일 + 오류 번호» 로 바꾸는 표 한 곳. 공통 code 만 여기 — `AUTH_REQUIRED` · `NO_TOKEN` → `login`(E-NET-01) · `USER_CODE_NOT_BOUND` → `signup`(토스트 없음) · `SERVER_ADMIN_ONLY` → `maintenance`(토스트 없음) · `ACCESS_DENIED` · `PREMIUM_REQUIRED` → `notice` · `TOO_MANY_REQUESTS` → `later`(`retryAfterMs`) · `CONCURRENT_UPDATE` → `refetch` · 모양 오류 → `notice` · 닿지 못함 → `offline`(E-NET-07) · 그 밖 → `notice`(E-NET-08).
+- **책임**: api-client.js 의 `ApiError`(서버 봉투 code · 통로 kind)를 «할 일 + 오류 번호» 로 바꾸는 표 한 곳. 공통 code 만 여기 — `AUTH_REQUIRED` · `NO_TOKEN` → `login`(E-NET-01) · `USER_CODE_NOT_BOUND` → `signup`(토스트 없음) · `SERVER_ADMIN_ONLY` → `maintenance`(토스트 없음) · `ACCESS_DENIED` · `PREMIUM_REQUIRED` → `notice` · `TOO_MANY_REQUESTS` → `later`(`retryAfterMs`) · `CONCURRENT_UPDATE` → `refetch` · 모양 오류 → `notice` · 길 없는 404(`noRoute`) → `notice`(E-NET-09) · 닿지 못함 → `offline`(E-NET-07) · 그 밖 → `notice`(E-NET-08).
 - **쓰는 법**: `const t = TwApiErrors.store.notify(err, 내 표)` → `{ code, action, retryAfterMs, items }` 를 받아 화면을 고른다(로그인 화면 · 점검 창 · 다시 받기는 부르는 쪽 몫). 번호 없이 판단만 — `TwApiErrors.translate(err, 내 표)`.
 - **기능 표**: `{ GIFT_DAILY_LIMIT: { action: 'later', notice: (notifyError, e) => notifyError('E-MH-..', e, e.message) } }` 모양으로 그 묶음 파일에 둔다 — 번호는 error-codes.js 표에 먼저 넣고 글자 그대로. 기능 표가 공통 표보다 먼저다.
 - **함정**: 서버 message 는 사용자 문구로 써도 되는 곳만 셋째 인자로(선물 · 하루 상한처럼 숫자가 든 것). 공통 표에 기능 code 를 더하지 않는다 — 같은 code 를 기능마다 다르게 다룰 수 있어야 한다.
