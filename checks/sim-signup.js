@@ -5,7 +5,7 @@
    로그인 필요 K · 비밀번호 붙이기 함수 · 갈아타기 전 정리)은 대상이 없어 걷었다 — 새 흐름은 sim-login-flow.js · sim-user-api.js · sim-first-run-013.js.
    1절 정적      getMyUserId 는 읽기만 · 앱에 uid 를 만드는 곳이 없다 · 옛 가입 통로 없음 · firebase-init 안전망 배선
    2절 안전망    firebase-init `_noUidPath` · ref/sref/update 가 빈 uid 경로를 서버에 안 보낸다
-   8절 ⑥         친구 코드 거울 정정 — 로컬만 · friendCodes 쓰기 0 · 거울 코드가 지금 내 것일 때만 · 발급 없음 · 세션당 한 번
+   8절 ⑥         친구 코드 — 앱의 Firebase 코드 노드 읽기 · 쓰기 없음(서버 값이 원본)
   11절 내 정보   런처 안 페이지(개정 48) · 작은 머리 · 보관함 표제 · 톱니 G · 계정 C4 · 걷은 것 · transferHash 지우기만
                  (보관함 목록 · 슬롯에 올리기 · 휴지통 · 가득 참의 동작은 서버 원본 옷장으로 옮기며 sim-my-info-box.js 가 실제로 돌려 본다)
   15절 별 색     (개정 69) [내 정보] 레벨 배지 = 버튼 · 누르면 머리 아래 «별 색» 구획 · 999 전 잠김(남은 시간) · 회차면 미리보기 + 16칸 · 열 때마다 닫힘 · 재료 함수(별 문자열 · 회차 파생 · 팔레트만 받음)
@@ -86,74 +86,10 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
 
   const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
   say('');
-  say('【8】 ⑥ 거울 정정 — 로컬만 고친다 · friendCodes 쓰기 0 · 내 것일 때만 · 발급보다 먼저');
-  const EN = takeFn(APP, 'async function ensureMyFriendCode(') || '';
-  const MF = takeFn(APP, 'async function _friendCodeMirrorFix(') || '';
-  chk(!!MF && /_friendCodeMirrorFix\(\)/.test(EN) && !/registerFriendCode/.test(EN), '★ ensureMyFriendCode 첫머리에서 부른다 · 발급 · 등록은 없다(0.13 — 서버가 가입 때)');
-  chk(count(APP, /(?<!function )_friendCodeMirrorFix\(\)/g) === 1, '부르는 곳은 하나');
-  chk(MF && !/registerFriendCode|setUserFriendCode|friendCodes\//.test(MF), '★ 본문에 friendCodes · 거울 쓰기가 없다(로컬만)');
-  if (MF){
-    function mk6(o){
-      const st = Object.assign({ 'tw.myUserId':'ume0000000001' }, o.store || {}); const log = [];
-      const ls = { getItem: k => (k in st ? st[k] : null), setItem: (k, v) => { log.push('set:' + k); st[k] = String(v); }, removeItem: k => { delete st[k]; } };
-      const api = {
-        getUserFriendCode: async u => { log.push('mirror?'); if (o.mirrorThrow) throw new Error('net'); return o.mirror || null; },
-        lookupFriendCode: async c => { log.push('owner?'); if (o.lookupThrow) throw new Error('net'); return (o.owners || {})[c] || null; },
-        registerFriendCode: async (c, u) => { log.push('register:' + c); return true; },
-        setUserFriendCode: async (u, c) => { log.push('setMirror:' + c); return true; },
-      };
-      const w = { firebaseAPI: api };
-      Object.defineProperty(globalThis, 'firebaseAPI', { get: () => w.firebaseAPI, configurable: true });
-      const src5 = [
-        "const MY_USER_ID_KEY = 'tw.myUserId'; const MY_FRIEND_CODE_KEY = 'tw.myFriendCode';",
-        "let _fcOwnerChecked = false; let _fcMirrorChecked = false;",
-        "async function _healFriendCodeOwner(){ log.push('heal'); }",
-        "function genFriendCodeCandidate(){ return 'MATE-NEW1'; }",
-        takeFn(APP, 'function getMyUserId('), MF, EN,
-        'return { fix:_friendCodeMirrorFix, ensure:ensureMyFriendCode, owned:()=>_fcOwnerChecked };',
-      ].join('\n');
-      const X = (new Function('localStorage', 'window', 'log', 'console', src5))(ls, w, log, { info(){}, warn(){} });
-      return { X, st, log };
-    }
-    {
-      const E = mk6({ store:{ 'tw.myFriendCode':'MATE-OLD1' }, mirror:'MATE-ACC1', owners:{ 'MATE-ACC1':'ume0000000001' } });
-      const r = await E.X.fix();
-      chk(r === 'fixed' && E.st['tw.myFriendCode'] === 'MATE-ACC1' && E.X.owned(), '★ 거울이 다르고 내 것 → 로컬만 고친다');
-      chk(!E.log.some(x => x.startsWith('register') || x.startsWith('setMirror')), '★ 그때 friendCodes · 거울 쓰기 0');
-    }
-    {
-      const E = mk6({ store:{ 'tw.myFriendCode':'MATE-OLD1' }, mirror:'MATE-ACC1', owners:{ 'MATE-ACC1':'usomeoneelse1' } });
-      chk((await E.X.fix()) === 'not-mine' && E.st['tw.myFriendCode'] === 'MATE-OLD1', '★ 거울 코드가 지금 남의 것 → 그대로 둔다');
-    }
-    {
-      const E = mk6({ store:{ 'tw.myFriendCode':'MATE-OLD1' } });
-      chk((await E.X.fix()) === 'empty' && E.st['tw.myFriendCode'] === 'MATE-OLD1', '거울이 비었으면 아무것도 안 한다');
-    }
-    {
-      const E = mk6({ store:{ 'tw.myFriendCode':'MATE-ACC1' }, mirror:'MATE-ACC1' });
-      chk((await E.X.fix()) === 'same' && !E.log.includes('owner?'), '같으면 주인도 안 묻는다');
-    }
-    {
-      const E = mk6({ store:{ 'tw.myFriendCode':'MATE-OLD1' }, mirror:'MATE-ACC1', lookupThrow:true });
-      chk((await E.X.fix()) === 'unread' && E.st['tw.myFriendCode'] === 'MATE-OLD1', '주인을 못 읽으면 그대로');
-      const F = mk6({ mirrorThrow:true });
-      chk((await F.X.fix()) === 'unread', '거울을 못 읽으면 그대로');
-      const G = mk6({ store:{ 'tw.myUserId':'' } }); delete G.st['tw.myUserId'];
-      chk((await G.X.fix()) === 'no-uid' && !G.log.includes('mirror?'), 'uid 없으면 서버에 안 묻는다');
-    }
-    {
-      const E = mk6({ mirror:'MATE-ACC1', owners:{ 'MATE-ACC1':'ume0000000001' } });   // 로컬 코드 없음
-      const c = await E.X.ensure();
-      chk(c === 'MATE-ACC1' && !E.log.some(x => x.startsWith('register')), '★ 로컬 코드가 없는 PC: 거울(내 것)을 따른다 · 새 코드를 안 뽑는다');
-      const n0 = E.log.filter(x => x === 'mirror?').length;
-      await E.X.ensure();
-      chk(E.log.filter(x => x === 'mirror?').length === n0, '세션당 한 번만 묻는다');
-    }
-    {
-      const E = mk6({ owners:{} });   // 로컬 없음 · 거울 없음 → 발급
-      const c = await E.X.ensure();
-      chk(c === null && !E.log.some(x => x.startsWith('register')), '거울도 없으면 뽑지 않는다(0.13 — 로그인 때 서버 코드를 적는다)');
-    }
+  say('【8】 ⑥ 친구 코드 — 앱이 Firebase 코드 노드를 읽거나 쓰지 않는다 · 로그인 때 서버 값(_enterAccount)');
+  {
+    const AC = APP.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/mg, '');
+    chk(!/ensureMyFriendCode|_friendCodeMirrorFix|_healFriendCodeOwner|firebaseAPI\.(lookupFriendCode|getUserFriendCode|registerFriendCode)/.test(AC), '★ 코드 거울 정정 · 소유자 조회 · 등록이 app.js 에 없다(0.13 — 코드는 서버가 가입 때 정하고 로그인 때 GET /v2/me 가 이 PC 를 맞춘다)');
   }
 
   /* ══ 9. J · J2 가입 완료 · K 로그인 필요 (CHECKS 개정 43 · 설계 (가)) ══ */

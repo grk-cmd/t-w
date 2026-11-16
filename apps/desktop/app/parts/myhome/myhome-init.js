@@ -21,7 +21,6 @@ const _myFriendRequests = deps._myFriendRequests;   // 읽는 함수
 const _myHomeFriends = deps._myHomeFriends;   // 읽는 함수
 const _myHomeReady = deps._myHomeReady;   // 읽는 함수
 const _waitForFirebaseAPI = deps._waitForFirebaseAPI;
-const ensureMyFriendCode = deps.ensureMyFriendCode;
 const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const friendManage = deps.friendManage;
 const friendRequests = deps.friendRequests;   // 👋 친구 요청 포트(friend-requests-port.js — 읽는 함수)
@@ -91,8 +90,6 @@ async function initMyHome(code, me, session){
       session.onReset(()=>presence.dispose());
       /* 🖥️ 한 계정 한 기기 — 0.13 은 realtime 연결의 hello claim 이 정한다(login-flow.js goOnline · 밀리면 device-lost.js). */
       /* ⚠️ 읽기(구독)는 쓰기의 성공에 기대지 않는다 — 여기에 await 쓰기를 새로 얹으면 거부될 때 아래 구독이 한 줄도 안 걸린다. 얹어야 하면 자기 try 로 감쌀 것. */
-      try{ await ensureMyFriendCode(); }
-      catch(e){ console.warn('[마이홈] 친추 코드 확보 실패 — 구독은 그대로 진행', e); }
       // 📌 D-day 보드 받기 (스케줄러 우측 목록) — 서버가 바뀌었다고 알리면 스케줄러가 알아서 다시 받는다
       mhScheduler.loadBoard();
       // 👋 나에게 온 친구 요청 구독 — 새 요청이 오면 목록에 뜨고, 처음 도착 시 토스트로 알림.

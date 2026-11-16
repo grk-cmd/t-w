@@ -19,13 +19,13 @@ const MOD = ["myhome-init.js","parts/myhome/myhome-init.js","app/parts/myhome/my
 if(!MOD){ say('  ? 원본 못 찾음 — myhome-init.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_waitForFirebaseAPI","ensureMyFriendCode","getMyUserId","getRoomCode","toast"];
+const FN_DEPS = ["_waitForFirebaseAPI","getMyUserId","getRoomCode","toast"];
 const VAL_DEPS = ["MY_FRIEND_CODE_KEY","friendManage","friendsSub","mailFeed","mhScheduler","noticeFeed","presenceLock"];
 const GET_DEPS = ["friendRequests","_myFriendRequests","_myHomeFriends","_myHomeReady","focusLevelMod","inboxMod","myHomeOpen"];
 const SET_DEPS = ["_myFriendRequests","_myHomeFriends","_myHomeReady"];
 const EXPORTS = ["initMyHome","onMailChanged","onNewsChanged"];
 const MOVED = ["initMyHome","_myInbox","_myInboxReady","_inboxBroadcast"];   // 옮긴 꼭대기 선언 + 서버 원본이 되어 걷은 let 셋          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,","  _myFriendRequests: ()=>_myFriendRequests,","  _myHomeFriends: ()=>_myHomeFriends,","  _myHomeReady: ()=>_myHomeReady,","  _waitForFirebaseAPI: (...a)=>_waitForFirebaseAPI(...a),","  ensureMyFriendCode: (...a)=>ensureMyFriendCode(...a),","  focusLevelMod: ()=>focusLevelMod,","  friendManage: friendManage,","  friendRequests: ()=>friendRequestsPortMod,","  friendsSub: friendsSubMod,","  getMyUserId: (...a)=>getMyUserId(...a),","  inboxMod: ()=>inboxMod,","  mailFeed: mailFeed,","  mhScheduler: mhScheduler,","  myHomeOpen: ()=>myHomeOpen,","  noticeFeed: noticeFeed,","  presenceLock: presenceLockMod,","  getRoomCode: (...a)=>TwRoomRt.store.roomCode(...a),   // 접속 표시를 만들 때 «입장이 끝난» 방 코드(room-entry onJoined 는 입장 때 한 번뿐 · 입장 중인 방은 넣지 않는다)","  toast: (...a)=>toast(...a),","  setMyFriendRequests: (v)=>{ _myFriendRequests = v; },","  setMyHomeFriends: (v)=>{ _myHomeFriends = v; },","  setMyHomeReady: (v)=>{ _myHomeReady = v; },"];
+const GLUE = ["  MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,","  _myFriendRequests: ()=>_myFriendRequests,","  _myHomeFriends: ()=>_myHomeFriends,","  _myHomeReady: ()=>_myHomeReady,","  _waitForFirebaseAPI: (...a)=>_waitForFirebaseAPI(...a),","  focusLevelMod: ()=>focusLevelMod,","  friendManage: friendManage,","  friendRequests: ()=>friendRequestsPortMod,","  friendsSub: friendsSubMod,","  getMyUserId: (...a)=>getMyUserId(...a),","  inboxMod: ()=>inboxMod,","  mailFeed: mailFeed,","  mhScheduler: mhScheduler,","  myHomeOpen: ()=>myHomeOpen,","  noticeFeed: noticeFeed,","  presenceLock: presenceLockMod,","  getRoomCode: (...a)=>TwRoomRt.store.roomCode(...a),   // 접속 표시를 만들 때 «입장이 끝난» 방 코드(room-entry onJoined 는 입장 때 한 번뿐 · 입장 중인 방은 넣지 않는다)","  toast: (...a)=>toast(...a),","  setMyFriendRequests: (v)=>{ _myFriendRequests = v; },","  setMyHomeFriends: (v)=>{ _myHomeFriends = v; },","  setMyHomeReady: (v)=>{ _myHomeReady = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -150,7 +150,7 @@ async function sessionRun(src, endFirst, ended, room){
     setInterval(fn, ms){ this.timers.push([fn, ms]); }, onReset(fn){ this.resets.push(fn); } };
   const deps = { MY_FRIEND_CODE_KEY: 'k', friendManage: { renderFriendRequests(){}, reqVisible: () => false, showFriendRequestPopup(){} }, friendsSub: { start(){}, stop(){} },
     mailFeed: { start: (id, sess) => { log.mailSession = sess; }, stop(){} }, noticeFeed: {}, mhScheduler: { loadBoard(){} }, presenceLock: { startOnlineFor: () => true }, getRoomCode: () => (room === undefined ? null : room),
-    _waitForFirebaseAPI: (cb) => Promise.resolve(cb()), ensureMyFriendCode: async () => {}, getMyUserId: () => 'ME', toast(){},
+    _waitForFirebaseAPI: (cb) => Promise.resolve(cb()), getMyUserId: () => 'ME', toast(){},
     friendRequests: () => ({ watchReceived: () => { log.watch++; return UNSUB; } }), _myFriendRequests: () => ({}), _myHomeFriends: () => ({}), _myHomeReady: () => false,
     focusLevelMod: () => ({}), inboxMod: () => ({}), myHomeOpen: () => false, setMyFriendRequests(){}, setMyHomeFriends(){}, setMyHomeReady(){} };
   const presence = { touch(){ log.presence.push('touch'); }, dispose(){ log.presence.push('dispose'); }, setRoom(c){ log.presence.push('room:' + c); } };

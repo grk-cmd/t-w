@@ -520,7 +520,7 @@ async function judge(S){
   say('── 5. myhome-init.js — 친구 구독이 await 쓰기보다 먼저');
   const body = ((S.MI.match(/async function initMyHome\(code, me, session\)\{([\s\S]*?)\nreturn \{/) || [])[1] || '').replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');   // 주석 속 «await» 글자는 빼고
   const iStart = body.indexOf('friendsSub.start('), iAwait = body.search(/\bawait\b/);
-  chk(iStart > 0 && iAwait > 0 && iStart < iAwait, 'friendsSub.start 가 첫 await 보다 앞');
+  chk(iStart > 0 && (iAwait < 0 || iStart < iAwait), 'friendsSub.start 가 첫 await 보다 앞(await 가 아예 없어도 된다)');
   chk(!/firebaseAPI\.(subscribeMyFriends|watchMyFriendList)\(/.test(S.MI), '  친구 목록 구독은 friends-sub 로만 건다(두 벌로 걸지 않음)');
   try{
     const any = new Proxy(function(){}, { get: (t, k) => k === 'then' ? undefined : any, apply: () => any });
@@ -531,14 +531,14 @@ async function judge(S){
     const mod = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'console', S.MI + '\nreturn window.TwMyHomeInit;')(win, any, { getItem: () => null }, fbApi, { warn(){}, log(){} });
     const m = mod.createMyHomeInit({
       MY_FRIEND_CODE_KEY: 'k', _inboxBroadcast: () => ({}), _myFriendRequests: () => ({}), _myHomeFriends: () => ({}), _myHomeReady: () => false,
-      _myInbox: () => ({}), _myInboxReady: () => false, _waitForFirebaseAPI: (cb) => cb(), deviceLostMod: any, ensureMyFriendCode: () => hang,
+      _myInbox: () => ({}), _myInboxReady: () => false, _waitForFirebaseAPI: (cb) => cb(), deviceLostMod: any,
       focusLevelMod: () => ({ _adoptStarColorFromProfile: () => hang, getFocusLevel: () => 1, myStarProfileOut: () => null }),
-      friendManage: any, friendsSub: { start: (id, onF, onS) => starts.push({ id, onF, onS }) }, getDisplayName: () => 'n', getMyUserId: () => 'ME',
+      friendManage: any, friendsSub: { start: (id, onF, onS) => starts.push({ id, onF, onS }) }, getMyUserId: () => 'ME',
       inboxMod: () => ({ renderMyHomeFriendList: () => renders.push('list') }), mhScheduler: any, myHomeOpen: () => false, toast: () => {},
       setInboxBroadcast(){}, setMyFriendRequests(){}, setMyHomeFriends: (v) => renders.push(['set', v]), setMyHomeReady(){}, setMyInbox(){}, setMyInboxReady(){},
     });
     m.initMyHome('ME', {}, { alive: () => true, on: (u) => u, setInterval(){}, onReset(){} });
-    chk(starts.length === 1 && starts[0].id === 'ME', '프로필 쓰기 · 코드 확보가 영영 안 끝나고 presence 가 던져도 친구 구독은 걸린다');
+    chk(starts.length === 1 && starts[0].id === 'ME', 'presence 가 던져도 친구 구독은 걸린다');
     if(starts[0]){
       starts[0].onF({ f1: {} });
       chk(JSON.stringify(renders) === JSON.stringify([['set', { f1: {} }], 'list']), '  받으면 — 목록 저장 → 친구 탭 그리기 (방명록 쓰기 게이트는 서버 canWrite 라 이 목록을 안 본다)');
@@ -616,7 +616,7 @@ const BREAKS = [
   ['FS', "      .then(v=>{ if(run !== _run || !v) return;", "      .then(v=>{ if(!v) return;", '지난 실행의 늦은 한 명 받기를 받아 씀'],
   ['FS', "  if(!_detailsTried || !_myId) return;", "  if(!_myId) return;", '첫 목록 받기 중에도 한 명씩 물음'],
   ['FS', "_details = _keepKnown(v || {});", "_details = v || {};", '다시 받은 목록이 새 친구 이름을 지움'],
-  ['FB', '    async lookupFriendCode(code){', '    async getMyFriendList(myId){ return (await get(ref(db, `users/${myId}/friends`))).val(); },\n    async lookupFriendCode(code){', '옛 친구 목록 읽기를 firebaseAPI 에 다시 둠'],
+  ['FB', '    async uploadRoomFace(userId, key, dataUrl){', '    async getMyFriendList(myId){ return (await get(ref(db, `users/${myId}/friends`))).val(); },\n    async uploadRoomFace(userId, key, dataUrl){', '옛 친구 목록 읽기를 firebaseAPI 에 다시 둠'],
   ['APP', "  TwNetReady.whenNetReady(()=>cb());   // 준비 키(need)를 주지 않는다", "  setTimeout(()=>_waitForFirebaseAPI(cb), 500);", '예전 폴링으로 되돌림'],
   ['NET', "  window.addEventListener(NET_READY_EVENT, cb, { once:true });", "  window.addEventListener(NET_READY_EVENT, cb, { once:false });", 'once 를 뺌'],
   ['MI', '      friendsSub.start(myId,', '      await Promise.resolve();\n      friendsSub.start(myId,', '구독을 await 뒤로'],

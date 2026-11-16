@@ -97,7 +97,7 @@
 | **sim-seat-label-drag.js** | 91 | **6a4daf86e439** |
 | **sim-friend-requests.js** | 170 | **39737b624809** |
 | **sim-friend-visit.js** | 115 | **c33a7fed1e41** |
-| **sim-friends-sub.js** | 642 | **249923377894** |
+| **sim-friends-sub.js** | 642 | **d9cee57cc23b** |
 | **sim-friends-port.js** | 325 | **2130fd1ee084** |
 | **sim-friends-presence-rt.js** | 357 | **8dc5fd4ef2e6** |
 | **sim-social-api.js** | 275 | **3c3a4c43d6fa** |
@@ -164,7 +164,7 @@
 | **sim-heartbeat-policy.js** | 251 | **b3c8bdfbc2a0** |
 | **sim-catalog-cache.js** | 62 | **e1f40810eba9** |
 | **sim-catalog-api.js** | 296 | **b011d358fc4e** |
-| **sim-friend-code-keep.js** | 180 | **395ddad5a770** |
+| **sim-friend-code-keep.js** | 116 | **71a873cfc70c** |
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
 | **sim-key-input.js** | 71 | **3116fd7dd8fb** |
 | **sim-keysof-twin.js** | 369 | **54f473215813** |
@@ -212,7 +212,7 @@
 | **sim-closet-api.js** | 171 | **8bc368df4587** |
 | **sim-closet.js** | 687 | **e37a6c1363c9** |
 | **sim-slot-codec.js** | 134 | **2837813acdc3** |
-| **sim-signup.js** | 384 | **606558927f3c** |
+| **sim-signup.js** | 320 | **e4c52f54a614** |
 | **sim-sysinput.js** | 397 | **41919d14be24** |
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 130 | **4ddd42809f74** |
@@ -397,7 +397,7 @@
 | **sim-license-key.js** | 134 | **f1b85394a9e8** |
 | **sim-license-screen.js** | 418 | **6dfd3086a425** |
 | **sim-asset-code.js** | 96 | **1442b5b5b793** |
-| **sim-myhome-init.js** | 223 | **6a59d0cbfb60** |
+| **sim-myhome-init.js** | 223 | **911d73a9b11c** |
 | **sim-presence-lock.js** | 325 | **8da811b2130c** |
 | **sim-parts-paths.js** | 85 | **6ed65253e869** |
 | **sim-global-names.js** | 236 | **4da03342e299** |

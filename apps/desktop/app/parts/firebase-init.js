@@ -346,34 +346,6 @@
     // 로그인 API GET — get(path, { auth:true, headers, timeoutMs }) 그대로(api-client.js). 통로가 없으면 'unavailable'(NO_API).
     apiGetAuthed(path, opts){ return _authApi ? _authApi.get(path, opts) : Promise.reject(Object.assign(new Error('API 통로 없음'), { kind: 'unavailable', code: 'NO_API', status: 0 })); },
     // 서버 방에 들어가고 나갈 때 친구 목록의 «온라인 · 방코드» — Firebase 방은 joinRoom · leaveRoom 이 직접 한다.
-    // ===== 마이홈 친구 시스템 =====
-    async lookupFriendCode(code){
-      const snap = await get(ref(db, `friendCodes/${code}`));
-      const v = snap.val();
-      return (v && v.userId) ? v.userId : null;
-    },
-    /* 🔗 역방향 — "이 계정이 쓰던 친추 코드는 무엇인가".
-       friendCodes 는 코드→uid 뿐이라, uid 로 코드를 알려면 노드 전체를 훑어야 한다(비용 폭탄).
-       그래서 코드를 발급/되찾을 때마다 users/{uid}/friendCode 에 거울을 하나 둔다.
-       ★ 이게 있어야 **새 PC**에서 옛 코드를 알 수 있다. 로컬 기록은 그 기기에만 있으니
-         기기를 갈아타면 통째로 사라진다 — 계정을 따라오는 곳은 서버뿐이다. */
-    async getUserFriendCode(uid){
-      try{ const s = await get(ref(db, `users/${uid}/friendCode`)); const v = s.val(); return (typeof v === 'string' && v) ? v : null; }
-      catch(e){ return null; }
-    },
-    /* 👋 (걷음 · 회원가입 설계 §6-⑧ · CHECKS 개정 56) `migrateFriendRequests` — «버린 uid» 앞의 친구 요청을 지금 계정으로
-       끌어오던 것. 부르는 곳(_healFriendCodeOwner 의 «내가 버린 uid» 갈래)이 걷혔다 — 그 uid 는 이제 다른 계정이다. */
-    // 내 친추코드를 등록(이미 다른 사람이 쓰고 있으면 실패). 트랜잭션으로 안전하게 "선점".
-    async registerFriendCode(code, userId){
-      const codeRef = ref(db, `friendCodes/${code}`);
-      const result = await runTransaction(codeRef, cur=>{
-        if(cur && cur.userId && cur.userId !== userId) return;   // 이미 다른 사람이 쓰는 코드 — 실패(undefined 반환 시 트랜잭션 중단)
-        return { userId };
-      });
-      return !!(result && result.committed);
-    },
-    /* 🔗 (걷음 · 개정 56) `setFriendCodeOwner` — 친추코드 소유자 강제 지정. 부르던 두 곳(_claimFriendCodeAfterTransfer ·
-       _healFriendCodeOwner 되찾기 갈래)이 걷혔다. 남의 계정 코드를 가져가는 통로라 남기지 않는다(선점은 registerFriendCode 뿐). */
     /* ===== 🧬 캐릭터 슬롯 · 보관함은 서버 원본(character/closet-api.js — /v2/me/avatars). 여기는 Storage 올리기만 남았다 =====
        🧍 슬롯에 딸린 GLB(커미션 베이스·커스텀 책상·커스텀 아이템)를 Storage 에.
        key 는 app.js 가 '종류_내용해시' 로 만든다 — 같은 파일은 같은 경로라 두 번 올라가지 않고,

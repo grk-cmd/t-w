@@ -1,12 +1,11 @@
 /* ═══ 🔗 sim-friend-code-keep.js — 친추코드는 바뀌지 않는다 · 로그인하면 서버 계정의 코드 (2026-09-20 · 0.13) ═══
    [무엇을 지키나]
      [제보 3-2 · 결정 2026-09-20] **자동 재발급을 하지 않는다.** 처음 코드가 유지된다 — 친구들이 적어 둔 코드가 죽지 않게.
-       _healFriendCodeOwner 는 이 기기 코드의 주인이 내가 아니어도 코드도 소유권도 그대로 두고 경고만 한다.
+       (소유자를 Firebase 에서 조회해 맞춰 보던 _healFriendCodeOwner 는 걷었다 — 코드는 로그인 때 서버 값으로 적는다.)
      [0.13] 친구 코드는 서버가 가입 때 정한다(다시 발급하지 않음 — ADR-0005). 앱은 코드를 뽑지도 등록하지도 않고,
        로그인 · 켤 때 서버 계정(GET /v2/me)의 코드를 이 PC 에 적는다(account.js _enterAccount). 계정 사본(accountSnap) 복원은 걷었다.
 
-   ・1절: _healFriendCodeOwner 를 **떼어 와 실행한다** — 내 것이면 끝 · 그 밖(주인 없음 · 버린 uid 였던 것 · 오래 조용함 · 활동 중인 남)은
-          **코드 그대로 · 소유권 그대로 · 등록 없음 · 경고만**. ensureMyFriendCode 는 코드가 없어도 뽑지 않는다.
+   ・1절: 정적 — 소유자 조회 · 거울 정정 · 코드 확보 · 등록이 앱에 없다(서버 값이 원본).
    ・2절: 정적 — 소유권 강제 지정 · 재발급 UI · 코드 후보 뽑기(genFriendCodeCandidate) 없음.
    ・3절: _enterAccount 를 **떼어 와 실행한다** — 서버 코드를 적고 옛 코드는 진단 기록 · 이름 · 로그인 표시 · 같은 계정이면 그대로 ·
           다른 계정 — 로그인했던 PC 면 전부 내려놓고 · 로그인 없이 쓰던 PC 면 신원 키만(캐릭터는 첫 실행 legacy-sync 몫) · 못 적으면 실패.
@@ -31,9 +30,6 @@ function grabFn(name, kw){
   }
   return null;
 }
-const fHeal   = grabFn('_healFriendCodeOwner', 'async function ');
-const fEnsure = grabFn('ensureMyFriendCode', 'async function ');
-const fRemOld = grabFn('_rememberOldFriendCode');
 const fEnter  = grabFn('_enterAccount');
 
 /* ── 공용 스텁 ── */
@@ -43,72 +39,12 @@ function mkLS(){
 }
 
 (async () => {
-/* ═══ 1. _healFriendCodeOwner ═══ */
-say('── 1. _healFriendCodeOwner — 내 것이면 끝 · 그 밖은 코드도 소유권도 그대로 · 등록 없음');
-if(!fHeal || !fEnsure || !fRemOld){
-  chk(false, '★ 함수를 못 떼어 옴');
-}else{
-  const mkHeal = (opt) => {
-    const LS = mkLS();
-    LS.setItem('tw.myUserId', 'me');
-    LS.setItem('tw.myFriendCode', 'MATE-AB12');
-    if(opt.prev) LS.setItem('tw.myPrevUserIds', JSON.stringify(opt.prev));   // 예전 판이 남긴 값 — 이제 아무도 안 읽는다
-    const rec = { registered: [], ownerSet: [], toasts: [], warns: [], ensureCalls: 0, migrated: [], seenReads: 0 };
-    const api = {
-      lookupFriendCode: async () => opt.owner,
-      registerFriendCode: async (c, u) => { rec.registered.push([c, u]); return true; },
-      setFriendCodeOwner: async (c, u) => { rec.ownerSet.push([c, u]); return true; },
-      getUserLastSeen: async () => { rec.seenReads++; return opt.seen; },
-      setUserFriendCode: async () => true,
-      migrateFriendRequests: async (a, b) => { rec.migrated.push([a, b]); },
-    };
-    const f = new Function('localStorage', 'firebaseAPI', 'rec', [
-      "const window={ firebaseAPI };",
-      "const console={ warn:(...a)=>rec.warns.push(a.join(' ')), log:()=>{}, info:()=>{} };",
-      "const toast=(m)=>rec.toasts.push(m);",
-      "const document={ getElementById:()=>null };",
-      "const MY_USER_ID_KEY='tw.myUserId', MY_FRIEND_CODE_KEY='tw.myFriendCode', MY_FRIEND_CODE_PREV_KEY='tw.myFriendCodePrev';",
-      "let _fcOwnerChecked=false;",
-      "function getMyUserId(){ return localStorage.getItem(MY_USER_ID_KEY); }",
-      fRemOld,
-      fEnsure.replace('async function ensureMyFriendCode(', 'async function ensureMyFriendCode_real('),
-      "async function ensureMyFriendCode(){ rec.ensureCalls++; return ensureMyFriendCode_real(); }",
-      fHeal,
-      "let _fcMirrorChecked=true; async function _friendCodeMirrorFix(){}",
-      "return { heal:_healFriendCodeOwner, checked:()=>_fcOwnerChecked, ensure:ensureMyFriendCode_real };",
-    ].join('\n'));
-    return { LS, rec, m: f(LS, api, rec) };
-  };
-  const untouched = (e) => e.LS.getItem('tw.myFriendCode') === 'MATE-AB12' && e.rec.ownerSet.length === 0 && e.rec.migrated.length === 0
-    && e.rec.ensureCalls === 0 && e.rec.registered.length === 0 && e.rec.toasts.length === 0;
-
-  let e = mkHeal({ owner: 'me' });
-  await (e.m.heal('MATE-AB12'));
-  chk(untouched(e), '  내 것이면 아무것도 안 한다');
-
-  e = mkHeal({ owner: null });
-  await (e.m.heal('MATE-AB12'));
-  chk(e.rec.registered.length === 0 && e.LS.getItem('tw.myFriendCode') === 'MATE-AB12', '★ 주인 없는 코드도 앱이 등록하지 않는다(0.13 — 코드는 서버가 가입 때 정한다) · 코드는 그대로');
-  e = mkHeal({ owner: 'me' });
-  e.LS.removeItem('tw.myFriendCode');
-  const got = await e.m.ensure();
-  chk(got === null && e.rec.registered.length === 0 && e.LS.getItem('tw.myFriendCode') === null, '★ 이 PC 에 코드가 없어도 ensureMyFriendCode 는 뽑지 · 등록하지 않는다(로그인 때 서버 코드를 적는다)');
-
-  e = mkHeal({ owner: 'old-uid', prev: ['old-uid'], seen: Date.now() });
-  await (e.m.heal('MATE-AB12'));
-  chk(untouched(e), '★ 예전 «버린 uid» 목록에 있어도 가져오지 않는다 — 소유권 · 친구 요청 그대로 (개정 56 · 그 uid 는 다른 계정)');
-
-  e = mkHeal({ owner: 'ghost', seen: Date.now() - 30 * 86400000 });
-  await (e.m.heal('MATE-AB12'));
-  chk(untouched(e) && e.rec.seenReads === 0, '★ 소유자가 오래 조용해도 되찾지 않는다 — lastSeen 을 읽지도 않는다 (개정 56)');
-
-  /* ★ 제보 3-2 의 그 갈래 — 활동 중인 남 */
-  e = mkHeal({ owner: 'office-uid', seen: Date.now() - 86400000 });
-  await (e.m.heal('MATE-AB12'));
-  chk(untouched(e), '★ 활동 중인 남의 코드여도 **로컬 코드가 그대로 남는다** — 새로 뽑지 않고 · 소유권도 안 건드리고 · 토스트 없다(제보 3-2)');
-  chk(e.rec.warns.some(w => /재발급 안 함/.test(w)), '  대신 콘솔에 남긴다(지원 때 읽는다)');
-  chk(e.m.checked() === true, '  이 세션에서 다시 판정하지 않는다(매 부팅 한 번)');
-  chk(JSON.parse(e.LS.getItem('tw.myFriendCodePrev') || '[]')[0] === 'MATE-AB12', '  진단 기록에만 남긴다(getOldFriendCodes)');
+/* ═══ 1. 코드 소유자 · 거울 · 확보 ═══ */
+say('── 1. 앱이 Firebase 코드 노드를 읽거나 쓰지 않는다 — 코드는 서버가 정하고 로그인 때 적는다');
+{
+  const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/mg, '');
+  chk(!/_healFriendCodeOwner|_friendCodeMirrorFix|ensureMyFriendCode|_fcOwnerChecked|_fcMirrorChecked/.test(CODE), '★ 소유자 조회 · 거울 정정 · 코드 확보가 app.js 에 없다(0.13 — 로그인 때 GET /v2/me 의 friendCode 가 이 PC 를 맞춘다)');
+  chk(!/firebaseAPI\.(lookupFriendCode|getUserFriendCode|registerFriendCode)/.test(CODE), '  그 통로를 부르는 곳이 없다');
 }
 
 /* ═══ 2. 정적 ═══ */
@@ -120,7 +56,7 @@ say('── 2. 정적 — 코드를 바꾸는 길이 없다');
   let FB = ''; try{ FB = fs.readFileSync('firebase-init.js', 'utf8'); }catch(_){}
   if(FB){
     const FBC = FB.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/mg, '');
-    chk(!/async setFriendCodeOwner\(|async migrateFriendRequests\(/.test(FBC), '  firebase-init 에 setFriendCodeOwner · migrateFriendRequests 통로가 없다 (선점은 registerFriendCode 트랜잭션뿐)');
+    chk(!/async (setFriendCodeOwner|migrateFriendRequests|lookupFriendCode|getUserFriendCode|registerFriendCode)\(/.test(FBC), '  firebase-init 에 setFriendCodeOwner · migrateFriendRequests 통로가 없다 ');
   } else say('  ? firebase-init.js 없음 — 통로 검사 생략');
 }
 chk(/const FC_NEVER_REISSUE = true;/.test(SRC), '  결정에 이름이 붙어 있다(FC_NEVER_REISSUE) — 되살리려면 갈래 전체를 되살려야 한다는 주석과 함께');
