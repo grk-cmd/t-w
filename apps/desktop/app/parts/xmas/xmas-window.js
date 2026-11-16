@@ -55,6 +55,7 @@ function createXmasWindow(deps){
     const r = await net().reportOrnament(treeNo, s);
     if (r.ok) toast('신고했어요. 관리자가 확인할게요.');
     else if (r.code === 'dup') toast('이미 신고한 장식이에요.');
+    else if (r.code === 'auth') toast('로그인한 뒤 신고할 수 있어요.');
     else notifyError('E-XMAS-03', r.err);
   };
 
@@ -130,7 +131,10 @@ function createXmasWindow(deps){
     const n = net();
     const w = await n.where();
     if (my !== seq || !ov.classList.contains('on')) return;
-    if (!w.ok){ setState('트리를 불러오지 못했어요.'); if (w.code !== 'auth') notifyError('E-XMAS-01', w.err); return; }
+    if (!w.ok){
+      if (w.code === 'auth'){ setState('로그인한 뒤 트리를 볼 수 있어요.'); return; }   // 실패가 아니라 «아직 못 봄»
+      setState('트리를 불러오지 못했어요.'); notifyError('E-XMAS-01', w.err); return;
+    }
     mine = w.mine; treeNo = mine ? mine.t : w.cur;
     const tr = await n.tree(treeNo);
     if (my !== seq || !ov.classList.contains('on')) return;

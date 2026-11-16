@@ -53,7 +53,7 @@ function world(opts){
   const S = { now: o.now == null ? R.LETTER_DEADLINE_MS - 86400000 : o.now, ready: null, toasts: [], errs: [], size: 0, escs: [] };
   const N = { calls: [], data: o.data || { cur: 1, mine: null, trees: { 1: {} }, imgs: {} }, fail: o.fail || {}, hangRet: o.hangRet || null, hangGate: null };
   const net = {
-    where: async () => { N.calls.push('where'); return N.fail.where ? { ok: false, code: 'read' } : { ok: true, cur: N.data.cur, mine: N.data.mine }; },
+    where: async () => { N.calls.push('where'); return N.fail.where ? { ok: false, code: N.fail.where === 'auth' ? 'auth' : 'read' } : { ok: true, cur: N.data.cur, mine: N.data.mine }; },
     tree: async (t) => { N.calls.push('tree:' + t); if (N.hangGate) await N.hangGate; return N.fail.tree ? { ok: false, code: 'read' } : { ok: true, o: N.data.trees[t] || {} }; },
     img: async (t, s) => { N.calls.push('img:' + t + '/' + s); const v = (N.data.imgs[t] || {})[s]; return { ok: true, v: v ? v.v : null, d: v ? v.d : null }; },
     hang: async (d) => { N.calls.push('hang'); N.lastHang = d; return N.hangRet || { ok: true, tree: N.data.cur, slot: 0, moved: false, changed: false }; },
@@ -138,6 +138,9 @@ say('── 4절 신고');
   const wd = world({ data: { cur: 4, mine: null, trees: { 4: {} }, imgs: {} }, repRet: { ok: false, code: 'dup' } }); wd.S.ready(); wd.api.open(); await settle();
   wd.T.onReport(1); await wd.els.xmasRepYes.onclick();
   chk(/이미 신고/.test(wd.S.toasts.pop()) && !wd.S.errs.length, '이미 신고한 장식 — 안내');
+  const wa = world({ data: { cur: 4, mine: null, trees: { 4: {} }, imgs: {} }, repRet: { ok: false, code: 'auth' } }); wa.S.ready(); wa.api.open(); await settle();
+  wa.T.onReport(1); await wa.els.xmasRepYes.onclick();
+  chk(/로그인한 뒤 신고/.test(wa.S.toasts.pop()) && !wa.S.errs.length, '로그인 안 됨 · 가입 전 — «로그인한 뒤 신고할 수 있어요»(«이미 신고» 가 아님)');
   const we = world({ data: { cur: 4, mine: null, trees: { 4: {} }, imgs: {} }, repRet: { ok: false, code: 'write' } }); we.S.ready(); we.api.open(); await settle();
   we.T.onReport(1); await we.els.xmasRepYes.onclick();
   chk(we.S.errs.join() === 'E-XMAS-03', '신고 실패는 E-XMAS-03');
@@ -147,6 +150,8 @@ say('── 5절 실패 · 닫기');
 {
   const w = world({ fail: { where: true } }); w.S.ready(); w.api.open(); await settle();
   chk(w.S.errs.join() === 'E-XMAS-01' && /불러오지 못했어요/.test(w.els.xmasState.textContent) && !w.T.lists.length, '못 불러옴 — E-XMAS-01 · 빈 트리로 그리지 않는다');
+  const wn = world({ fail: { where: 'auth' } }); wn.S.ready(); wn.api.open(); await settle();
+  chk(!wn.S.errs.length && /로그인한 뒤 트리를 볼 수 있어요/.test(wn.els.xmasState.textContent), '로그인 안 됨 — «못 불러옴» 이 아니라 로그인 안내(오류 코드 없음)');
   const w2 = world({ data: { cur: 1, mine: null, trees: { 1: { 0: { k: 'star', v: 1 } } }, imgs: {} } }); w2.S.ready();
   let release; w2.N.hangGate = new Promise(r => { release = r; });
   w2.api.open(); await tick(); w2.api.close(); release(); await settle();

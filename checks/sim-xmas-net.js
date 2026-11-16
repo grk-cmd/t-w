@@ -25,7 +25,7 @@ function mk(data, opts){
   const get = async (r) => { reads.push(r.path); if (o.failRead && o.failRead(r.path)) throw new Error('net'); const v = r.path.split('/').reduce((a, k) => (a && typeof a === 'object' ? a[k] : undefined), data); return { val: () => (v === undefined ? null : v) }; };
   const set = async (r, v) => { if (o.failWrite) throw Object.assign(new Error('PERMISSION_DENIED'), { code: 'PERMISSION_DENIED' }); writes.push([r.path, v]); };
   const net = N.createXmasNet({ db: {}, ref: (db, p) => ({ path: p }), get, set, serverTimestamp: () => SV_TS,
-    authUid: () => (o.uid === undefined ? 'authMe00001' : o.uid),
+    authUid: () => (o.uid === undefined ? 'authMe00001' : o.uid), anonymous: () => !!o.anon,
     callFn: async (name, d) => { calls.push([name, d]); if (o.callErr) throw o.callErr; return { data: o.ret || { tree: 2, slot: 7, moved: true, changed: false } }; } });
   return { net, reads, writes, calls };
 }
@@ -81,10 +81,12 @@ say('── 4절 신고');
   const d = await mk({}, { failWrite: true }).net.reportOrnament(2, 7);
   chk(!d.ok && d.code === 'dup', '두 번째 신고(규칙이 막음)는 dup');
   const a = await mk({}, { uid: null }).net.reportOrnament(2, 7); chk(!a.ok && a.code === 'auth', '로그인 없음은 auth');
+  const an = mk({}, { anon: true }); const ar = await an.net.reportOrnament(2, 7);
+  chk(!ar.ok && ar.code === 'auth' && !an.writes.length, '가입 전(익명) — 규칙이 막으니 쓰지 않고 auth(«이미 신고» 로 잘못 안내하지 않게)');
 }
 
 say('── 5절 연결 · 깨 보기');
-chk(/xmas: window\.TwXmasNet\.createXmasNet\(\{ db, ref, get, set, serverTimestamp, authUid: /.test(FBI) && /callFn: async \(name, data\) => \{ const mod = await import\(FUNCTIONS_SDK_URL\); return mod\.httpsCallable\(mod\.getFunctions\(fbApp, FUNCTIONS_REGION\), name\)\(data\); \}/.test(FBI), 'firebase-init — firebaseAPI.xmas 로 만든다(함수 리전 · SDK 같은 길)');
+chk(/anonymous: \(\) => !!\(auth && auth\.currentUser && auth\.currentUser\.isAnonymous\)/.test(FBI) && /xmas: window\.TwXmasNet\.createXmasNet\(\{ db, ref, get, set, serverTimestamp, authUid: /.test(FBI) && /callFn: async \(name, data\) => \{ const mod = await import\(FUNCTIONS_SDK_URL\); return mod\.httpsCallable\(mod\.getFunctions\(fbApp, FUNCTIONS_REGION\), name\)\(data\); \}/.test(FBI), 'firebase-init — firebaseAPI.xmas 로 만든다(함수 리전 · SDK 같은 길)');
 {
   // 깨 보기 — 트리를 통째로 읽으면 1절이 잡는다
   const reads = []; const get = async (r) => { reads.push(r.path); return { val: () => null }; };

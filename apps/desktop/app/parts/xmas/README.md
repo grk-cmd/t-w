@@ -28,5 +28,6 @@ firebase-init 의 `xmas:` · `applyDesktopRunClass` 의 `xmasOv` 줄 · `UI_HIT_
 - **책임**: 런처 버튼(서버 시각 1월 1일 0시부터 숨김 · 1분마다 다시 봄) · 창 열고 닫기 · 내 트리(없으면 지금 트리 미리 보기) 불러오기 · 그림 사본(GLB 영구 캐시 IndexedDB · 키 `xmasimg:{트리}/{자리}@{판}` — 판이 같으면 안 받음 · 45일 뒤 저절로 치움 · ⚠️ localStorage 금지 — 트리 하나가 수 MB) · 장식 고르기 · 내 그림 올리기(64px · 넘치면 48 · 32 PNG) · 한마디 · 달기 / 바꾸기(5초 간격) · «트리가 이미 다 차버렸어요» · 장식 신고 확인창.
 - **만드는 법**: app.js `TwXmasWindow.createXmasWindow({ THREE, ps1Dither, rules, treeMod, net: ()=>firebaseAPI.xmas, serverNow, onReady, notifyError, toast, escRegisterWindow, onSizeChange: ()=>applyDesktopRunClass(), idbGet, idbPut })` — 밖에서 부르는 이름 없음.
 - **함정**: 남이 쓴 한마디는 `textContent` 로만, 받은 그림 주소는 `TwSafeHtml.safeUrl(d, 'image')` 로 거른다. 닫은 뒤 늦게 온 답은 버린다(`seq`). 런처에서 열면 창 크기를 마이홈 크기로(`applyDesktopRunClass` 가 `#xmasOverlay.on` 을 본다).
+- 로그인 안 됨: 트리는 «로그인한 뒤 트리를 볼 수 있어요»(오류 코드 아님) · 신고는 «로그인한 뒤 신고할 수 있어요»(가입 전 익명은 net 이 쓰기 전에 auth 로).
 - 오류 코드: `E-XMAS-01`(못 불러옴) · `E-XMAS-02`(장식 못 걺) · `E-XMAS-03`(신고 못 보냄)
 - 검사: `sim-xmas-window.js`(가짜 화면 · 가짜 서버로 흐름을 돌린다)

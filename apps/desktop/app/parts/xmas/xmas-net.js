@@ -9,11 +9,12 @@
 
 /**
  * @param {{ db:any, ref:Function, get:Function, set:Function, serverTimestamp:Function,
- *           authUid:()=>string|null, callFn:(name:string, data:any)=>Promise<any> }} deps
+ *           authUid:()=>string|null, anonymous:()=>boolean, callFn:(name:string, data:any)=>Promise<any> }} deps
  */
 function createXmasNet(deps){
   const { db, ref, get, set, serverTimestamp } = deps;
   const authUid = deps.authUid;
+  const anonymous = deps.anonymous;   // 가입이 끝나지 않은 세션 — 규칙이 쓰기를 막는다(신고)
   const callFn = deps.callFn;
 
   const fail = (code, err) => ({ ok: false, code, msg: (err && err.message) || '', err });
@@ -65,7 +66,7 @@ function createXmasNet(deps){
   /** 장식 신고 — xmasReports/o-{t}-{s}/{내 uid} 에 한 번(두 번째는 규칙이 막는다 → code 'dup' 로 본다) */
   async function reportOrnament(t, s, note){
     const uid = authUid();
-    if (!uid) return fail('auth');
+    if (!uid || anonymous()) return fail('auth');   // 가입 전은 규칙이 막는다 — 묻지 않고 auth(«이미 신고» 로 잘못 안내하지 않게)
     const val = { ts: serverTimestamp() };
     const n = String(note == null ? '' : note).trim().slice(0, 40);
     if (n) val.note = n;
