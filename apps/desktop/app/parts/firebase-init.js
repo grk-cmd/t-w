@@ -7,7 +7,7 @@
    ⚠️ (걷힘 · 개정 61) 예전에는 맨 끝에서 window.__mysNetBind(미스테리au 파티 전송선)를 불렀다. 그 게임과 함께 걷었다. */
 
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getDatabase, ref as _dbRef, get as _sdkGet } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";   // 남은 DB 읽기는 점검 칸(config/maintenance) 하나
+  import { getDatabase, ref as _dbRef, get as _sdkGet, forceWebSockets } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";   // 남은 DB 읽기는 점검 칸(config/maintenance) 하나
   // Storage: 큰 base64 데이터(GLB 등)를 Realtime Database에서 빼내 스토리지에 두고 URL만 저장 (Firebase 사용량 절감)
   import {
     getStorage, ref as _stRef, uploadString, getDownloadURL, deleteObject
@@ -82,6 +82,7 @@
   window.__fbInitStarted = true;
 
   const fbApp = initializeApp(firebaseConfig);
+  forceWebSockets();   // 연결은 웹소켓으로만 — CSP script-src 에 DB 주소가 없어 긴 폴링(스크립트 태그)은 막힌다. SDK 가 남기는 «웹소켓 실패 기억»(localStorage)으로 폴링을 먼저 쓰지 않게(E-6)
   const db = getDatabase(fbApp);
   const storage = getStorage(fbApp);
   /* 🔑 auth 는 **없어도 앱이 살아야 한다.** 여기서 예외가 새면 이 파일이 통째로 죽고

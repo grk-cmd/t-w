@@ -40,7 +40,8 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
     chk(A.API_BASE_PROD === PROD && A.API_BASE_DEV === DEV, '운영 · dev API 주소');
     chk(A.apiBaseFor('prod', memStore({ 'tw.apiBaseUrl': 'https://x.togetherworking.duckdns.org' })) === PROD && A.apiBaseFor(undefined, null) === PROD, '★ 운영 앱은 늘 운영 API(시험 주소 무시)');
     chk(A.apiBaseFor('dev', memStore()) === DEV && A.apiBaseFor('dev', null) === DEV, 'dev 앱은 dev API');
-    chk(A.apiBaseFor('dev', memStore({ 'tw.apiBaseUrl': 'https://api-test.togetherworking.duckdns.org/' })) === 'https://api-test.togetherworking.duckdns.org', '  ↳ dev 앱만 tw.apiBaseUrl(끝 / 무시)');
+    chk(A.apiBaseFor('dev', memStore({ 'tw.apiBaseUrl': 'https://api-test.together-working.com/' })) === 'https://api-test.together-working.com', '  ↳ dev 앱만 tw.apiBaseUrl(끝 / 무시)');
+    chk(A.apiBaseFor('dev', memStore({ 'tw.apiBaseUrl': 'https://api-test.togetherworking.duckdns.org' })) === DEV && !A.API_BASE_RE.test('https://api-test.togetherworking.duckdns.org'), '  ↳ ★ 옛 임시 도메인(duckdns)을 시험 주소 칸에 넣으면 dev API 로 떨어진다(E-6)');
     chk(A.apiBaseFor('dev', memStore({ 'tw.apiBaseUrl': 'https://api-test.together-working.com' })) === 'https://api-test.together-working.com', '  ↳ 새 도메인 묶음(*.together-working.com)도 시험 주소로');
     chk(['https://evil.example', 'http://api-test.togetherworking.duckdns.org', 'https://a.togetherworking.duckdns.org.evil.com', 'https://a.b.togetherworking.duckdns.org', PROD,
       'https://evil-together-working.com', 'https://a.together-working.com.evil.com', 'https://a.b.together-working.com', 'http://a.together-working.com', 'https://together-working.com']
@@ -322,9 +323,9 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
       vm.runInNewContext(SRC, { window: w, console, setTimeout, clearTimeout, AbortController, Promise, Map, Error, String, Date, encodeURIComponent });
       return w;
     };
-    const wp = mkWin('prod'), wd = mkWin('dev'), wn = mkWin(null), wo = mkWin('dev', { 'tw.apiBaseUrl': 'https://api-x.togetherworking.duckdns.org' });
+    const wp = mkWin('prod'), wd = mkWin('dev'), wn = mkWin(null), wo = mkWin('dev', { 'tw.apiBaseUrl': 'https://api-x.together-working.com' });
     chk(wp.TwApi && wp.TwApi.client && wp.TwApi.client.baseUrl() === PROD, 'window.TwApi · 앱 한 벌(client) — 운영 앱은 운영 API');
-    chk(wd.TwApi.client.baseUrl() === DEV && wn.TwApi.client.baseUrl() === PROD && wo.TwApi.client.baseUrl() === 'https://api-x.togetherworking.duckdns.org', '  ↳ dev 앱 dev API · companion 없음(웹 · 검사) 운영 · dev 시험 주소');
+    chk(wd.TwApi.client.baseUrl() === DEV && wn.TwApi.client.baseUrl() === PROD && wo.TwApi.client.baseUrl() === 'https://api-x.together-working.com', '  ↳ dev 앱 dev API · companion 없음(웹 · 검사) 운영 · dev 시험 주소');
     {
       const calls = [];
       let down = false;
@@ -347,8 +348,8 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
       iDev = HTML.indexOf('<script src="parts/shared/device-id.js"></script>'), iMt = HTML.indexOf('<script src="parts/shared/maintenance-gate.js"></script>');
     chk(iMt > 0 && iDev > iMt && iApi > iDev && iApi < iRc && iRc < iApp, 'html — maintenance-gate.js · device-id.js → api-client.js → remote-config.js → app.js 차례');
     const csp = [...HTML.matchAll(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/g)].map((m) => (/connect-src ([^;]+);/.exec(m[1]) || [])[1] || '');
-    const inCsp = (u) => csp.length === 2 && csp.every((c) => /(^| )https:\/\/\*\.together-working\.com( |$)/.test(c) && /(^| )https:\/\/\*\.togetherworking\.duckdns\.org( |$)/.test(c)) && A.API_BASE_RE.test(u);
-    chk(inCsp(PROD) && inCsp(DEV), '  ↳ 운영 · dev API 주소가 CSP connect-src(https://*.together-working.com) 안 · 옛 duckdns 묶음도 그대로 열림');
+    const inCsp = (u) => csp.length === 2 && csp.every((c) => /(^| )https:\/\/\*\.together-working\.com( |$)/.test(c) && !/duckdns/.test(c)) && A.API_BASE_RE.test(u);
+    chk(inCsp(PROD) && inCsp(DEV), '  ↳ 운영 · dev API 주소가 CSP connect-src(https://*.together-working.com) 안 · 옛 duckdns 는 CSP 에 없음');
   }
 
   say('── 10. 일부러 깨 보기');

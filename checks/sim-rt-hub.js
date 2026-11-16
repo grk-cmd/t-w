@@ -435,6 +435,8 @@ async function judge(S){
       && !H.DEV_URL_RE.test('wss://realtime-dev.together-working.com/v3') && !H.DEV_URL_RE.test('wss://realtime-dev.together-working.com/v2/x'),
       '  ↳ 시험 주소는 묶음 안 wss 에 /v2 를 붙여도 받고 다른 길은 안 받음');
     chk(H.realtimeUrlFor('dev', mem({ 'tw.realtimeUrl': H.REALTIME_URLS.prod })) === H.REALTIME_URLS.dev, '  ↳ dev 앱이 운영 주소를 시험 주소로 넣어도 로컬로');
+    chk(!H.DEV_URL_RE.test('wss://rooms-dev.togetherworking.duckdns.org') && H.realtimeUrlFor('dev', mem({ 'tw.realtimeUrl': 'wss://rooms-dev.togetherworking.duckdns.org' })) === H.REALTIME_URLS.dev,
+      '  ↳ ★ 옛 임시 도메인(duckdns)을 시험 주소 칸에 넣으면 로컬로 떨어진다(E-6)');
     chk(H.REALTIME_URLS.dev === 'ws://127.0.0.1:8787' && H.DEV_URL_RE.test(H.REALTIME_URLS.dev), '  dev 기본은 이 PC 로컬 8787(dev 용 공개 이름은 없다) · 시험 주소 규칙 안');
     chk(H.realtimeUrlFor('dev', mem({})) === H.REALTIME_URLS.dev && H.realtimeUrlFor('dev', mem({ 'tw.realtimeUrl': 'ws://127.0.0.1:8787' })) === 'ws://127.0.0.1:8787'
       && H.realtimeUrlFor('dev', mem({ 'tw.realtimeUrl': 'wss://evil.example' })) === H.REALTIME_URLS.dev && H.realtimeUrlFor('dev', mem({ 'tw.realtimeUrl': 'ws://127.0.0.1:9999' })) === H.REALTIME_URLS.dev,

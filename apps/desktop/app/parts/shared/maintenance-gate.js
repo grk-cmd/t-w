@@ -26,6 +26,7 @@
 const MAINTENANCE_PATH = 'config/maintenance';
 const GATE_ID = 'maintGateOverlay';          // desktop-run.js UI_HIT_SEL 에도 있어야 클릭을 받는다
 const CONFIG_PATH = '/v2/config';
+const FLAG_TIMEOUT_MS = 2500;               // Firebase 한 칸 읽기 제한 — 서버 읽기(api-client TIMEOUT_MS)와 같다. 넘으면 «못 읽음»
 const SIGNAL_GAP_MS = 3000;                  // 서버 신호(4006)로 다시 읽을 때 최소 간격 — 서버가 «점검 아님» 인데 realtime 이 4006 이면 돌고 돌지 않게
 const MESSAGE_MAX = 200;                     // 규칙 config/maintenance/message 와 같은 값
 const ACTIVE_MS = 1000;                      // 누른 뒤 이 안에 나간 요청만 «그 동작이 낸 것» 으로 본다
@@ -83,7 +84,7 @@ function createInputClock(deps){
   };
 }
 
-/** @param {{ readServer?: () => Promise<any>, readFlag?: () => Promise<any>, userActive: () => boolean, ui: { show: (view: object, onPress: (action: string) => void) => void, hide: () => void }, relaunch: () => void, now?: () => number }} deps */
+/** @param {{ readServer?: () => Promise<any>, readFlag?: () => Promise<any>, userActive: () => boolean, ui: { show: (view: object, onPress: (action: string) => void) => void, hide: () => void }, relaunch: () => void, now?: () => number, setTimeout?: Function, clearTimeout?: Function }} deps */
 function createMaintenance(deps){
   const userActive = deps.userActive;
   const ui = deps.ui;
@@ -132,6 +133,15 @@ function createMaintenance(deps){
 
   /* 점검 값을 한 번 읽는다 — 서버(/v2/config)가 먼저 · 닿지 못하면(unreachable) Firebase 한 칸 · 4xx 나 모르는 답은 지금 값 그대로.
      한 번에 하나만 읽는다(읽는 중에 또 부르면 같은 약속을 돌려준다). */
+  /* Firebase 한 칸 읽기에 시간 제한 — SDK get() 은 스스로 끝나지 않을 수 있다(웹소켓이 안 열리면 오래 걸린 약속).
+     넘으면 «못 읽음» 으로 끝낸다(점검 아님으로 보지 않는다 · 다음 check() 가 새로 읽는다). 서버 읽기(api-client TIMEOUT_MS)와 같은 수준. */
+  function readFlagLimited(){
+    return new Promise((resolve, reject) => {
+      const st = deps.setTimeout || setTimeout, ct = deps.clearTimeout || clearTimeout;
+      const t = st(() => { console.warn('[maintenance-gate] Firebase 점검 칸 읽기 시간 초과 — 못 읽음'); reject(new Error('FLAG_TIMEOUT')); }, FLAG_TIMEOUT_MS);
+      Promise.resolve().then(() => readFlag()).then((v) => { ct(t); resolve(v); }, (e) => { ct(t); reject(e); });
+    });
+  }
   function check(){
     if(checking) return checking;
     if(!readServer) return Promise.resolve(false);
@@ -141,11 +151,11 @@ function createMaintenance(deps){
         try{ data = await readServer(); }
         catch(e){
           if(!unreachable(e) || !readFlag) return false;   // 4xx 등 — 서버가 답했으니 Firebase 로 물러나지 않는다
-          try{ apply(maintenanceOf(await readFlag())); return true; }catch(_){ return false; }
+          try{ apply(maintenanceOf(await readFlagLimited())); return true; }catch(_){ return false; }
         }
         if(!data || typeof data !== 'object' || Array.isArray(data)){
           if(!readFlag) return false;                         // 봉투는 맞는데 data 가 없다 — 서버 문제로 보고 물러난다
-          try{ apply(maintenanceOf(await readFlag())); return true; }catch(_){ return false; }
+          try{ apply(maintenanceOf(await readFlagLimited())); return true; }catch(_){ return false; }
         }
         apply(maintenanceOfServer(data.maintenance));          // 칸이 없으면(옛 서버) 점검 아님
         return true;
@@ -233,7 +243,7 @@ function createMultiDocUi(getDoc){
   };
 }
 
-const api = { CONFIG_PATH, SIGNAL_GAP_MS, maintenanceOfServer, unreachable, MAINTENANCE_PATH, GATE_ID, MESSAGE_MAX, ACTIVE_MS, maintenanceOf, endsAtText, viewOf, createInputClock, createMaintenance, createMaintenanceDom, createMultiDocUi };
+const api = { CONFIG_PATH, FLAG_TIMEOUT_MS, SIGNAL_GAP_MS, maintenanceOfServer, unreachable, MAINTENANCE_PATH, GATE_ID, MESSAGE_MAX, ACTIVE_MS, maintenanceOf, endsAtText, viewOf, createInputClock, createMaintenance, createMaintenanceDom, createMultiDocUi };
 /* 렌더러에서는 한 벌을 만들어 둔다 — 창은 처음 띄울 때 만든다(document 는 그때 있다). */
 if(typeof window !== 'undefined' && typeof document !== 'undefined'){
   const input = createInputClock();

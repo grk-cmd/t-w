@@ -212,6 +212,26 @@ async function runRead(M, label){
     q = mk(null, null, true); q.server = () => Promise.reject({ kind: 'unavailable', status: 0 }); q.g.start({ readFlag: () => { q.reads.flag += 10; return Promise.resolve({ on: true }); } });
     await q.g.check();
     chk(q.g.on() === true && q.reads.flag >= 10, '  ↳ start 로 이은 Firebase 읽기를 쓴다');
+    if(M.FLAG_TIMEOUT_MS){   // Firebase 읽기가 끝나지 않을 때 — 제한 뒤 «못 읽음» · checking 풀림 · 다음 check 가 새로 읽음
+      const timers = []; let calls = 0, hang = true;
+      const g = M.createMaintenance({ userActive: () => true, ui: { show(){}, hide(){} }, relaunch(){}, now: () => 1e12,
+        setTimeout: (fn, ms) => { timers.push({ fn, ms, off: false }); return timers.length - 1; }, clearTimeout: (i) => { if(timers[i]) timers[i].off = true; },
+        readServer: () => Promise.reject({ kind: 'unavailable', status: 0 }),
+        readFlag: () => { calls++; return hang ? new Promise(() => {}) : Promise.resolve({ on: true }); } });
+      const warn = console.warn; console.warn = () => {};
+      const p1 = g.check(); await new Promise((r) => setImmediate(r));
+      const same = g.check() === p1;
+      chk(timers.length === 1 && timers[0].ms === M.FLAG_TIMEOUT_MS && M.FLAG_TIMEOUT_MS <= 3000 && same, '★ 걸린 Firebase 읽기에 짧은 시간 제한을 건다(서버 읽기 수준) · 그동안 같은 약속을 돌려준다');
+      timers[0].fn();
+      const r1 = await p1;
+      chk(r1 === false && g.on() === false, '  ↳ 제한이 지나면 «못 읽음» 으로 끝난다 — «점검 아님» 으로 단정하지 않고 값을 바꾸지 않는다');
+      hang = false;
+      const p2 = g.check();
+      chk(p2 !== p1, '  ↳ 걸린 약속이 풀려(checking 해제) 다음 check() 가 새로 부른다');
+      await p2;
+      chk(calls === 2 && g.on() === true, '  ↳ 다시 check 가 Firebase 를 새로 읽어 값을 받는다');
+      console.warn = warn;
+    }
     let rel = 0; const hs = {}; q = mk(null, null, true); q.server = { room: {}, maintenance: { on: false } };
     const rt = { on: (k, f) => { hs[k] = f; } };
     await q.g.start({ rt });
@@ -333,6 +353,8 @@ say('── 3. 고리');
   const quietRead = async (MM) => { const log = console.log; console.log = () => {}; const p0 = pass, f0 = fail; let ok; try{ ok = await runRead(MM, ''); }catch(_){ ok = false; }finally{ console.log = log; } pass = p0; fail = f0; return ok; };
   const r1 = broke(SRC, "if(!unreachable(e) || !readFlag) return false;", "if(!readFlag) return false;");
   chk(r1 && !(await quietRead(asModule(r1))), '(읽기) 4xx 에도 Firebase 로 물러나면 빨강');
+  const r2t = broke(SRC, "await readFlagLimited()", "await readFlag()");
+  chk(r2t && !(await quietRead(asModule(r2t))), '(읽기) Firebase 읽기에 시간 제한이 없으면 빨강');
   const r2 = broke(SRC, "apply(maintenanceOfServer(data.maintenance));", "apply(maintenanceOfServer(data.maintenance)); if(readFlag) try{ apply(maintenanceOf(await readFlag())); }catch(_){}");
   chk(r2 && !(await quietRead(asModule(r2))), '(읽기) 서버가 답해도 Firebase 를 또 읽으면 빨강');
   const r3 = broke(SRC, "try{ data = await readServer(); }", "try{ data = await Promise.reject({ kind: 'unavailable' }); }");
