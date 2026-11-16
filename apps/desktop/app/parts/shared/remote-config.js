@@ -9,7 +9,7 @@
    [언제] 켤 때 한 번 · 창이 다시 보일 때(STALE_MS 넘었으면) · realtime 알림 config(rt-hub.js — 서버가 바꿨다고 알림 · 오래 끊겼다 붙음). 주기 다시 읽기는 없다(0.13 — 바뀌면 서버가 알린다).
      방 입장 · 제보 전에는 STALE_MS 넘었을 때만(refresh({ maxAgeMs })). 같은 값이면 API 통로가 ETag 304 로 받는다(api-client.js).
    API 는 앱 공통 통로(api-client.js · window.TwApi.client — 시간 제한 · 봉투 · 실패 한 모양 · 죽었을 때 쉬기)로 부른다.
-   classic script — api-client.js 다음 · app.js 보다 먼저 싣고(window.TwRemoteConfig), firebase-init.js(module)가 store.start 로 API 통로 · 알림을 잇는다. */
+   classic script — api-client.js 다음 · app.js 보다 먼저 싣고(window.TwRemoteConfig), app.js 가 store.start 로 API 통로 · 알림을 잇는다. */
 (function(){
 'use strict';
 
@@ -168,7 +168,7 @@ function createRemoteConfig(){
     return inflight;
   }
 
-  /** deps: { api(TwApi.client — get(path)), storage, now, win, rt(TwRtHub.store — on('config', fn)) } — firebase-init.js 가 부른다. 두 번 부르면 두 번째는 다시 읽기만. */
+  /** deps: { api(TwApi.client — get(path)), storage, now, win, rt(TwRtHub.store — on('config', fn)) } — app.js 가 부른다. 두 번 부르면 두 번째는 다시 읽기만. */
   function start(deps){
     if(opts) return refresh({ maxAgeMs: STALE_MS });
     opts = Object.assign({}, deps || {});

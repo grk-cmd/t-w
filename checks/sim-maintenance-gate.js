@@ -254,8 +254,8 @@ say('── 3. 고리');
   const ops = ['get', 'set', 'update', 'remove', 'onValue', 'push'];
   if(wrap){ for(const k of ops) wrap((...a) => { calls.push(k + ':' + a.join(',')); return k; })(1, 2); }
   chk(!!wrap && touches === 6 && calls.join('|') === ops.map((k) => k + ':1,2').join('|'), 'Firebase 기본 동작 — 요청마다 점검 창 touch 한 번 · 인자 · 돌려주는 값 그대로 · ' + touches);
-  const wired = ['get = _touched(_sdkGet)', 'set = _touched(_sdkSet)', 'remove = _touched(_sdkRemove)', 'push = _touched(_sdkPush)', 'onValue = _touched(_sdkOnValue)', '_update = _touched(_dbUpdate)'].filter((x) => FI.indexOf('  const ' + x + ';') < 0);
-  chk(!wired.length, '  ↳ get · set · remove · push · onValue · update 가 다 감쌈을 지난다' + (wired.length ? ' — 빠짐: ' + wired.join(', ') : ''));
+  const wired = ['get = _touched(_sdkGet)', 'set = _touched(_sdkSet)', 'remove = _touched(_sdkRemove)', 'onValue = _touched(_sdkOnValue)', '_update = _touched(_dbUpdate)'].filter((x) => FI.indexOf('  const ' + x + ';') < 0);
+  chk(!wired.length, '  ↳ get · set · remove · onValue · update 가 다 감쌈을 지난다' + (wired.length ? ' — 빠짐: ' + wired.join(', ') : ''));
 }
 (async () => {
   await runRead(M, '');

@@ -9,7 +9,7 @@
 - pv 2 부터 hello 에 `userId` 를 싣지 않는다(서버는 모르는 칸을 `badRequest` 로 거절 · 신원은 토큰뿐). 연결마다 · 갱신마다 달라지는 칸은 `helloFields(phase)`(`'open'` · `'refresh'`).
 - `hooks.onReady(readyMsg)` · `hooks.onClosed(wasReady, fatal, closeCode)` — 닫힘 번호는 부르는 쪽이 판단한다. ready 전 `error` auth · protocol 은 먼저 끊되 서버가 실을 번호(4001 · 4003)를 넘긴다.
 - `scheduleReconnect({ delayMs, readyWaitMs })` — 백오프 대신 정한 시간 뒤 · 그 연결의 ready 기다림(서버 재시작 1001). `reconnectNow()` — 기다리는 다시 붙기를 지금 한 번(네트워크 돌아옴).
-- 만드는 법: 아무것도 import 하지 않는다. firebase-init.js 가 `createRealtimeLink` 를 import 해 토큰 · 버전 · userId 와 함께 넘긴다.
+- 만드는 법: 아무것도 import 하지 않는다. rt-bind.js 가 `createRealtimeLink` 를 import 해 토큰 · 버전 · userId 와 함께 넘긴다.
   ```js
   const link = createRealtimeLink({
     WebSocket, enabled: () => true, target: () => url, switchOk: () => true,
@@ -39,7 +39,7 @@
 - 다시 받기: 서버 유예(`ready.graceMs`)보다 오래 끊겼다 붙으면 건 함수마다 `{ kind, resync:true }` 로 한 번(같은 함수를 여러 종류에 걸어도 한 번). 짧게 끊긴 동안의 알림은 서버가 들고 있다 보낸다. `graceMs` 가 없으면 0(늘 다시 받기).
 - 그 밖의 메시지: `onMessage(t, fn)` — `presence` · `announce` · `roomInvited` · `mobileFocus` · `sessionLost` · `error` · 방 메시지(`ROOM_TYPES` — C 묶음 방 포트 자리). 보내기 `send(msg)`(ready 일 때만 true) · 답 있는 요청 `request(msg)`(rid 짝 — `presenceGet` · `random` · `peek`).
 - 상태: `onState(fn)` — `off` · `connecting` · `ready` · `retrying` · `sessionLost`(4004) · `update`(4003) · `authFailed`(4001 두 번) · `maintenance`(4006) · `accountGone`(4007) · `closed`(모르는 4000번대). 마지막 닫힘 번호는 `lastCloseCode()`. 화면은 `rt-status-ui.js`.
-- 만드는 법: 연결 공통부(ES 모듈)와 토큰 · 버전은 firebase-init.js 가 `TwRtHub.store.bind({ createLink, getToken, getVersion })` 로 잇는다 — bind 전 `start()` 는 던진다. 주소는 운영 `wss://realtime.together-working.com` · dev `ws://127.0.0.1:8787`(dev 서버는 이 PC 로컬)(dev 앱만 `tw.realtimeUrl` 시험 주소).
+- 만드는 법: 연결 공통부(ES 모듈)와 토큰 · 버전은 rt-bind.js(ES 모듈 — firebase-init.js 다음에 싣는다)가 `TwRtHub.store.bind({ createLink, getToken, getVersion })` 로 잇는다 — bind 전 `start()` 는 던진다. 주소는 운영 `wss://realtime.together-working.com` · dev `ws://127.0.0.1:8787`(dev 서버는 이 PC 로컬)(dev 앱만 `tw.realtimeUrl` 시험 주소).
 - 함정: 다시 받기는 GET 몰림을 만들 수 있다 — 함수 안에서 또 흩지 말고(서버가 ready 를 0~30초 흩는다) ETag GET 한 번만. 방 안 90초 포기 · 방 자리 이어 붙기(`resume`)는 방 포트 몫.
 - 검사: `checks/sim-rt-hub.js`(진짜 realtime-link 위에서 · 깨 보기).
 
@@ -49,3 +49,8 @@
 - 내놓는 것: `createRtStatusUi(deps)` → `{ dispose }` · `createRtBandDom(doc)` → `{ show(view, onPress), hide }` · `RETRY_BAND_MS` · `BAND_ID`(`#rtBand` — desktop-run.js `UI_HIT_SEL` 에 있어야 단추를 누른다).
 - 함정: 멈춘 뒤 다시 붙기는 사용자 누름 · 점검 해제 때만이고 `claim:false`(이 기기가 이미 지금 세션 — 남을 밀지 않는다). 띠 글은 고정 문구만 textContent.
 - 검사: `checks/sim-rt-status-ui.js`(상태마다 · 진짜 rt-hub 위 · 띠 화면 · 배선 · 깨 보기).
+
+## rt-bind.js — realtime 연결 만들기를 rt-hub 에 잇기(ES 모듈)
+- 책임: `createRealtimeLink` · 앱 버전 · 토큰(`firebaseAPI.getIdToken`)을 `TwRtHub.store.bind` 로 한 번 건넨다. 켜기 · 끄기는 로그인 흐름 몫.
+- 왜 따로: classic script 인 app.js 는 ES 모듈 realtime-link.js 를 못 불러서 모듈인 이 파일이 대신 건다. firebase-init.js 는 realtime 을 모른다.
+- 함정: html 에서 `type="module"` 로 firebase-init.js 다음에 싣는다. 토큰은 연결을 만들 때 부르므로 firebaseAPI 가 늦어도 된다.
