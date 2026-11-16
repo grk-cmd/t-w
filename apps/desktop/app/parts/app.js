@@ -6896,6 +6896,8 @@ const catalogGlbMod = TwCatalogGlb.createCatalogGlb({
 /* 본문은 character/catalog-sync.js 로 옮겼다(구역 떼기 C · w2). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const catalogSyncMod = TwCatalogSync.createCatalogSync({
+  applyInteractionUnlocks: (...a)=>iDeskMod.applyUnlocks(...a),
+  setAnimalUnlockLevel: (...a)=>window._setAnimalUnlockLevel(...a),
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
   activeCustomDeskId: ()=>crState.activeCustomDeskId,
   adminCategory: adminCategory,

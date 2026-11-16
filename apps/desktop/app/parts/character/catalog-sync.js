@@ -17,6 +17,8 @@ function createCatalogSync(deps){
 const DEFAULT_DESK_OVERRIDE_ID = deps.DEFAULT_DESK_OVERRIDE_ID;
 const activeCustomDeskId = deps.activeCustomDeskId;   // 읽는 함수
 const adminCategory = deps.adminCategory;
+const applyInteractionUnlocks = deps.applyInteractionUnlocks;   // 춤 · 상호작용 책상 해금 레벨 앉히기(room/interaction-desk.js)
+const setAnimalUnlockLevel = deps.setAnimalUnlockLevel;   // 동물 캐릭터 해금 레벨 앉히기(animal.js 의 고리 — 그 파일이 app.js 보다 뒤에 실려, 서버 답은 둘 다 실린 뒤에 온다)
 const applyClothVisibility = deps.applyClothVisibility;
 const applyDeskCatalogRefToSeat = deps.applyDeskCatalogRefToSeat;
 const applyDeskColorToCustom = deps.applyDeskColorToCustom;
@@ -208,15 +210,16 @@ function subscribeCategories(){
     if(typeof adminCategory.renderCategoryManager==='function') adminCategory.renderCategoryManager();
   });
 }
-/* 해금 레벨 — 서버 한 벌의 unlocks. 동물 캐릭터(ANIMAL_CHARACTER · animal)만 여기서 앉힌다(춤 · 상호작용 책상 해금은 아직 앱 코드 값).
+/* 해금 레벨 — 서버 한 벌의 unlocks. 동물 캐릭터(ANIMAL_CHARACTER · animal)는 여기서, 춤 · 상호작용 책상은 applyInteractionUnlocks 로 앉힌다.
    서버에 그 줄이 없으면 앉히지 않고 알린다(animal.js 의 처음 값이 남는다). */
 const ANIMAL_UNLOCK = { kind: 'ANIMAL_CHARACTER', key: 'animal' };
 function subscribeUnlocks(){
   if(!catalogSourceMod.catalogSrcCan('unlocks')) return;
   catalogSourceMod.catalogSrcSubscribe('unlocks', unlocks=>{
+    applyInteractionUnlocks(unlocks);   // 춤 · 상호작용 책상
     const row = unlocks[ANIMAL_UNLOCK.kind] && unlocks[ANIMAL_UNLOCK.kind][ANIMAL_UNLOCK.key];
     if(!row){ console.warn('[catalog] 서버 해금 표에 동물 캐릭터 줄이 없다'); return; }
-    window._setAnimalUnlockLevel(row.level);
+    setAnimalUnlockLevel(row.level);
   });
 }
 catalogSourceMod.catalogSrcReady(()=>{ subscribeCategories(); subscribeUnlocks(); });

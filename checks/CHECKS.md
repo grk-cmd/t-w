@@ -355,7 +355,7 @@
 | **sim-sfx.js** | 96 | **d24a22a1d75f** |
 | **sim-face-heal.js** | 231 | **f18793ed8378** |
 | **sim-slot-save.js** | 183 | **48d93b48c8dc** |
-| **sim-interaction-desk.js** | 96 | **4e2fe34fc282** |
+| **sim-interaction-desk.js** | 117 | **8f8d1de68c32** |
 | **sim-ad-banner.js** | 145 | **537bed51325e** |
 | **sim-fn-keys.js** | 95 | **ddaff9377359** |
 | **sim-hidden-seats.js** | 118 | **3bdd8801a00a** |
@@ -425,7 +425,7 @@
 | **sim-admin-thumbs.js** | 148 | **cfa7338384af** |
 | **sim-glb-idb-cache.js** | 172 | **fda2ba697435** |
 | **sim-catalog-glb.js** | 202 | **0a4643ef753c** |
-| **sim-catalog-sync.js** | 282 | **e388a787f031** |
+| **sim-catalog-sync.js** | 283 | **52fb3a9a682b** |
 | **sim-catalog-source.js** | 100 | **ee20f110d197** |
 | **sim-desk-items.js** | 166 | **a1f0433d23a0** |
 | **sim-bgm-diag.js** | 300 | **b0b5757656bc** |
