@@ -22,7 +22,7 @@ import {
   type BugListView,
   type BugPage,
 } from '../model/bugBoard';
-import type { BugBoardPort, BugListQuery, BugPost } from './port';
+import type { BugBoardPagedPort, BugListQuery, BugPost } from './port';
 
 // 하루 순번을 셀 때 한 날짜에서 받을 쪽 수 상한 — 하루 제보가 이걸 넘으면 앞쪽 번호는 «?».
 const DAY_PAGES_MAX = 10;
@@ -133,8 +133,9 @@ export async function getStaffAnswers(db: Db, item: Pick<BugItem, 'id' | 'vis'>)
   return toAnswers(pub, prv);
 }
 
-export function createFirebaseBugBoardPort(api: Api | null, db: Db): BugBoardPort {
+export function createFirebaseBugBoardPort(api: Api | null, db: Db): BugBoardPagedPort {
   return {
+    kind: 'paged',
     list: (query) => fetchBugList(api, db, query),
     item: (id) => getBugItem(db, id),
     post: (id) => getBugPost(db, id),

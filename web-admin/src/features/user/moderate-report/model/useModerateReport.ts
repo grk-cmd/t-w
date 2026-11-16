@@ -17,8 +17,8 @@ export function useTakeDownAwayImg(target: string) {
         forgetAwayImg(target);
         forgetReports(target);
       } else {
-        // 그 사이 그림이 바뀌었다 — 목록 · 사람 정보를 한 번 다시 받는다.
-        refreshReports();
+        // API 판은 목록이 서버 것이라 그 사이 바뀐 줄을 다시 받는다. Firebase 판은 지금처럼 사람 정보만.
+        if (r.refreshList) refreshReports();
         refreshBrief(target);
       }
     },

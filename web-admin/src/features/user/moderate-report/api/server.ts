@@ -63,7 +63,7 @@ function build(api: Api | null): ModerateReportPort {
         );
       } catch (error) {
         if (isPortError(error, 'conflict') && error.code === IMAGE_CHANGED)
-          return { ok: false, reason: 'changed' };
+          return { ok: false, reason: 'changed', refreshList: true };
         throw error;
       }
       return { ok: true, fileDeleted: null };

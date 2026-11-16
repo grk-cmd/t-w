@@ -5,6 +5,8 @@ import { fakeApiOf } from '../shared/fakeApi';
 
 const caught = (promise: Promise<unknown>) => promise.catch((e: unknown) => e);
 const LIST = 'GET /v2/admin/reports';
+const targets = async (port: ReturnType<typeof createServerReportPort>) =>
+  (await port.page(undefined, 100)).items;
 
 const reporter = (extra: Record<string, unknown> = {}) => ({
   userCode: 'r1',
@@ -31,30 +33,41 @@ const target = (extra: Record<string, unknown> = {}) => ({
 describe('신고 목록 — API 판', () => {
   it('서버가 거른 대상을 이름 · 친구코드 · 그림과 신고자 줄로 읽고, minReporters 는 보내지 않는다', async () => {
     const s = fakeApiOf({ [LIST]: () => ({ items: [target()], nextCursor: null, total: 1 }) });
-    const [row] = await createServerReportPort(s.api).targets();
+    const [row] = await targets(createServerReportPort(s.api));
     expect(row.target).toBe('u1');
+    expect(row.openCount).toBe(3);
     expect(row.card).toEqual({ name: '철수', friendCode: 'WXYZ-0001', awayImg: 'https://img/a.png' });
     expect(row.reports).toHaveLength(3);
     expect(row.reports[0]).toMatchObject({
       kind: 'etc',
       nick: '그때이름',
-      friendCode: 'ABCD-1234',
+      code4: '1234',
       note: '욕설',
       ts: Date.parse('2026-11-01T03:00:00Z'),
     });
     expect(s.calls[0].query).toEqual({ cursor: undefined, limit: 100 });
   });
 
-  it('끝까지 이어 받는다', async () => {
+  it('한 쪽씩 — 커서 · limit 을 그대로 보내고 첫 쪽 total · 다음 쪽 null 을 읽는다', async () => {
     const s = fakeApiOf({
       [LIST]: (c) =>
         c.query?.cursor === undefined
           ? { items: [target()], nextCursor: 'c2', total: 2 }
           : { items: [target({ target: 'u2' })], nextCursor: null, total: null },
     });
-    const rows = await createServerReportPort(s.api).targets();
-    expect(rows.map((r) => r.target)).toEqual(['u1', 'u2']);
-    expect(s.calls[1].query?.cursor).toBe('c2');
+    const port = createServerReportPort(s.api);
+    const first = await port.page(undefined, 100);
+    expect(first).toMatchObject({ nextCursor: 'c2', total: 2 });
+    const next = await port.page('c2', 100);
+    expect(next.items.map((r) => r.target)).toEqual(['u2']);
+    expect(next).toMatchObject({ nextCursor: null, total: null });
+    expect(s.calls[1].query).toEqual({ cursor: 'c2', limit: 100 });
+  });
+
+  it('첫 쪽에 total 이 없으면 약속과 다른 응답', async () => {
+    const s = fakeApiOf({ [LIST]: () => ({ items: [], nextCursor: null, total: null }) });
+    const e = await caught(createServerReportPort(s.api).page(undefined, 100));
+    expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
   });
 
   it('탈퇴한 사람(이름 · 친구코드 · 그림 null)은 null 그대로 — 지어내지 않는다', async () => {
@@ -65,7 +78,7 @@ describe('신고 목록 — API 판', () => {
         total: 1,
       }),
     });
-    const [row] = await createServerReportPort(s.api).targets();
+    const [row] = await targets(createServerReportPort(s.api));
     expect(row.card).toEqual({ name: null, friendCode: null, awayImg: null });
   });
 
@@ -84,7 +97,7 @@ describe('신고 목록 — API 판', () => {
         total: 1,
       }),
     });
-    const [row] = await createServerReportPort(s.api).targets();
+    const [row] = await targets(createServerReportPort(s.api));
     expect(row.reports[0].nick).toBe('지금이름');
     expect(row.reports[1]).not.toHaveProperty('nick');
     expect(row.reports[1]).not.toHaveProperty('note');
@@ -94,18 +107,19 @@ describe('신고 목록 — API 판', () => {
     for (const bad of [
       target({ reporters: [reporter({ kind: 'SPAM' })] }),
       target({ reporters: [reporter({ at: '어제' })] }),
-      target({ openCount: 3, target: 7 }),
+      target({ target: 7 }),
+      target({ openCount: null }),
       target({ awayImage: { size: 1 } }),
     ]) {
       const s = fakeApiOf({ [LIST]: () => ({ items: [bad], nextCursor: null, total: 1 }) });
-      const e = await caught(createServerReportPort(s.api).targets());
+      const e = await caught(targets(createServerReportPort(s.api)));
       expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
     }
   });
 
   it('쪽이 객체가 아니면 약속과 다른 응답', async () => {
     const s = fakeApiOf({ [LIST]: () => [] });
-    const e = await caught(createServerReportPort(s.api).targets());
+    const e = await caught(targets(createServerReportPort(s.api)));
     expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
   });
 });

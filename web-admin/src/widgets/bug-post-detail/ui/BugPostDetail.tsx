@@ -28,7 +28,7 @@ function Body({ post, onClose }: { post: BugPost; onClose: () => void }) {
   const { item, content, answers } = post;
   const bugNo = useBugNo(item);
   // 비공개 글은 목록 칸 이름이 «익명» 이라 글쓴이 코드로 닉네임 한 칸만 읽는다
-  const nick = useUserName(item.code, needsAuthorLookup(item));
+  const nick = useUserName(item.code ?? '', needsAuthorLookup(item));
   // 작업 기록 · 확인 문구용 — 임시 번호면 «(임시)» 까지.
   const no = bugNoLabel(bugNo);
   const [editing, setEditing] = useState(false);

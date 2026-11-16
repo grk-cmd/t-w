@@ -1,7 +1,7 @@
 // Firebase 판 — 지금 코드 그대로: 신고 노드를 통째로 받아 웹이 «3명 이상» 을 거른다.
 import type { Db } from '@/shared/api';
 import { reportTargets, type ReportTree } from '../model/report';
-import type { ReportPort } from './port';
+import type { ReportAllPort } from './port';
 
 // 신고는 한 줄에 100바이트 남짓이고 쌓이면 관리자가 비우는 노드라 통째로 받는다.
 export async function listReports(db: Db): Promise<ReportTree> {
@@ -18,8 +18,9 @@ export function clearReportsWrite(target: string): Record<string, null> {
   return { [`reports/${target}`]: null };
 }
 
-export function createFirebaseReportPort(db: Db): ReportPort {
+export function createFirebaseReportPort(db: Db): ReportAllPort {
   return {
+    kind: 'all',
     targets: async () => reportTargets(await listReports(db)),
     countFor: (uid) => countUserReports(db, uid),
   };

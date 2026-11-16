@@ -76,8 +76,10 @@ export interface BugItem {
   status: BugStatus;
   cat: string;
   name: string;
-  authUid: string;
-  code: string;
+  /** Firebase 판 — 비공개 글 경로를 만드는 데만 쓴다. API 줄에는 없다. */
+  authUid?: string;
+  /** 글쓴이 사용자코드. 운영진이 쓴 글(API 판)은 없다. */
+  code?: string;
   ts: number;
   openTs?: number;
   nts?: number;
@@ -93,8 +95,10 @@ export interface BugItem {
   no?: string;
   /** 관리자가 쓴 글 — 규칙상 관리자만 넣을 수 있는 칸(🛡 배지). */
   byAdmin?: boolean;
-  /** API 판 — 서버가 준 줄이다. 글쓴이 이름 · 비공개 제목을 이미 풀어서 주므로 따로 읽지 않는다. */
+  /** API 판 — 서버가 준 줄이다. 비공개 글의 글쓴이 이름(`nick`) · 제목을 이미 주므로 따로 읽지 않는다. */
   server?: true;
+  /** API 판 비공개 글 — 서버가 관리자에게 주는 글쓴이 이름(목록 칸 이름은 «익명»). */
+  nick?: string;
   /** API 판 — 상세가 준 글 번호. 고쳐 쓸 때 그대로 싣고, 그 사이 다른 곳이 고쳤으면 서버가 409. 목록 줄에는 없다. */
   version?: number;
   /** API 판 — 운영자 마지막 답변 시각을 서버가 준 글자 그대로(마이크로초까지 같아야 «겹친 답변» 을 가른다). */
@@ -176,11 +180,11 @@ export const needsAuthorLookup = (item: Pick<BugItem, 'vis' | 'code' | 'server'>
  * 닉네임은 글 쓸 때가 아니라 지금 이름이다(목록 칸에는 비공개 글 이름을 남기지 않는다).
  */
 export function bugAuthorName(
-  item: Pick<BugItem, 'vis' | 'name'>,
+  item: Pick<BugItem, 'vis' | 'name' | 'nick'>,
   nickname: string | null | undefined,
 ): string {
   const base = item.name || '이름 없음';
-  const nick = typeof nickname === 'string' ? nickname.trim() : '';
+  const nick = (typeof nickname === 'string' ? nickname : (item.nick ?? '')).trim();
   return item.vis === 'prv' && nick ? `${base} (${nick})` : base;
 }
 
@@ -546,15 +550,6 @@ export interface ApiBugPage {
 }
 
 export type BugListView =
-  | {
-      /** API 판 — 서버가 원본이라 사본 지연도 기준 시각도 없다. */
-      via: 'server';
-      items: BugItem[];
-      /** 1부터. */
-      page: number;
-      pageCount: number;
-      total: number;
-    }
   | {
       via: 'api';
       items: BugItem[];

@@ -1,4 +1,4 @@
-// API 판 — `GET /v2/admin/reports?cursor&limit`(신고 많은 순 키셋 · `minReporters` 는 안 보낸다 — 서버 기본값이 기준이다).
+// API 판 — `GET /v2/admin/reports?cursor&limit`(신고 많은 순 키셋 · `minReporters` 는 안 보낸다 — 서버 기본값이 기준이다). 한 쪽씩 주고 이어 받기는 화면의 `useKeysetPaging` 이 한다.
 // 대상마다 지금 이름 · 친구코드 · 자리비움 그림과 신고자 줄이 함께 온다. 한 사람이 받은 신고 수는 사용자 상세 `GET /v2/admin/users/{userCode}` 의 `openReports`.
 import {
   adminPath,
@@ -6,6 +6,7 @@ import {
   portCall,
   wireArray,
   wireError,
+  wireNullableNumber,
   wireNullableString,
   wireNumber,
   wireObject,
@@ -13,12 +14,11 @@ import {
   wireTime,
   type Api,
 } from '@/shared/api';
+import type { KeysetPage } from '@/shared/lib';
 import type { Report, ReportTarget } from '../model/report';
-import type { ReportPort } from './port';
+import type { ReportKeysetPort } from './port';
 
 const BASE = adminPath('/reports');
-/** 서버 한 번에 받는 상한(`limit` 1~100). */
-const PAGE_MAX = 100;
 
 /** 서버 신고 종류 → 화면이 쓰는 이름. */
 const KINDS: Record<string, string> = {
@@ -39,12 +39,13 @@ function toReport(w: unknown): Report {
   const nick =
     wireNullableString(o.nameSnapshot, what('nameSnapshot')) ??
     wireNullableString(o.displayName, what('displayName'));
+  // 신고자 친구코드는 뒤 4자리만 보인다.
   const friendCode = wireNullableString(o.friendCode, what('friendCode'));
   const note = wireNullableString(o.note, what('note'));
   return {
     kind: KINDS[kind],
     ...(nick !== null ? { nick } : {}),
-    ...(friendCode !== null ? { friendCode } : {}),
+    ...(friendCode !== null ? { code4: friendCode.slice(-4) } : {}),
     ...(note !== null ? { note } : {}),
     ts: wireTime(o.at, what('at')),
   };
@@ -59,6 +60,7 @@ export function toReportTarget(w: unknown): ReportTarget {
   return {
     target,
     reports: wireArray(o.reporters, what('reporters')).map(toReport),
+    openCount: wireNumber(o.openCount, what('openCount')),
     card: {
       name: wireNullableString(o.displayName, what('displayName')),
       friendCode: wireNullableString(o.friendCode, what('friendCode')),
@@ -67,21 +69,25 @@ export function toReportTarget(w: unknown): ReportTarget {
   };
 }
 
-function build(api: Api | null): ReportPort {
+function build(api: Api | null): ReportKeysetPort {
   return {
-    // 서버 목록은 쪽으로 오지만 이 화면은 목록을 통째로 보인다 — 끝까지 이어 받는다.
-    targets: () =>
+    kind: 'keyset',
+
+    // 거르기(서버 기본 «3명 이상») · 신고 많은 순 · 전체 수(첫 쪽 `total`)는 서버가 한다.
+    page: (cursor, limit) =>
       portCall(
         api,
-        async (a) => {
-          const rows: ReportTarget[] = [];
-          let cursor: string | undefined;
-          do {
-            const page = wireObject(await a.get<unknown>(BASE, { cursor, limit: PAGE_MAX }), '신고 쪽');
-            rows.push(...wireArray(page.items, '신고 쪽의 items').map(toReportTarget));
-            cursor = wireNullableString(page.nextCursor, '신고 쪽의 nextCursor') ?? undefined;
-          } while (cursor !== undefined);
-          return rows;
+        async (a): Promise<KeysetPage<ReportTarget>> => {
+          const page = wireObject(await a.get<unknown>(BASE, { cursor, limit }), '신고 쪽');
+          return {
+            items: wireArray(page.items, '신고 쪽의 items').map(toReportTarget),
+            nextCursor: wireNullableString(page.nextCursor, '신고 쪽의 nextCursor'),
+            // `total` 은 첫 쪽에만 오고 다음 쪽은 null.
+            total:
+              cursor === undefined
+                ? wireNumber(page.total, '신고 첫 쪽의 total')
+                : wireNullableNumber(page.total, '신고 쪽의 total'),
+          };
         },
         '신고 목록을 불러오지 못했어요',
       ),

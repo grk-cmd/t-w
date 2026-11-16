@@ -34,6 +34,7 @@ const detail = (extra: Record<string, unknown> = {}) => ({
   liked: false,
   doneAt: null,
   version: 7,
+  answerCount: 1,
   lastAnswerAt: '2026-11-02T03:00:00.123456Z',
   comments: [
     {
@@ -61,7 +62,7 @@ const detail = (extra: Record<string, unknown> = {}) => ({
 });
 
 describe('제보 목록 — API 판', () => {
-  it('거르기는 서버가 — 화면 갈래를 서버 이름으로 보내고 한 줄을 BugItem 으로 읽는다', async () => {
+  it('거르기는 서버가 — 갈래 이름 · 커서 · limit 을 그대로 보내고 한 줄을 BugItem 으로 읽는다', async () => {
     const s = fakeApiOf({
       [LIST]: () => ({
         items: [
@@ -71,30 +72,26 @@ describe('제보 목록 — API 판', () => {
             status: 'REVIEW',
             lastAnswerAt: '2026-11-02T03:00:00.123456Z',
             lastAuthorReplyAt: '2026-11-03T03:00:00Z',
-            author: { userCode: null, name: '운영자', anonymous: false },
             byAdmin: true,
           }),
         ],
-        nextCursor: null,
-        total: 1,
+        nextCursor: 'c2',
+        total: 9,
       }),
     });
-    const view = await createServerBugBoardPort(s.api).list({
-      filter: 'suggest',
-      page: 1,
-      size: 20,
-      before: null,
-    });
-    expect(s.calls[0].query).toMatchObject({ filter: 'suggest', limit: 20 });
-    expect(view).toMatchObject({ via: 'server', page: 1, pageCount: 1, total: 1 });
-    expect(view.items[0]).toMatchObject({
+    const page = await createServerBugBoardPort(s.api).page('suggest', undefined, 100);
+    expect(s.calls[0].query).toEqual({ filter: 'suggest', cursor: undefined, limit: 100 });
+    expect(page).toMatchObject({ nextCursor: 'c2', total: 9 });
+    expect(page.items[0]).toMatchObject({
       id: 'B-1101-1',
       no: 'B-1101-1',
       vis: 'prv',
       cat: 'suggest',
       status: 'review',
-      name: '운영자',
-      code: '',
+      // 비공개 글은 목록 칸 이름 «익명», 서버가 준 이름은 닉네임 칸
+      name: '익명',
+      nick: '철수',
+      code: 'u1',
       title: '제목 1',
       ansN: 1,
       likeN: 2,
@@ -104,72 +101,36 @@ describe('제보 목록 — API 판', () => {
       lastReplyAt: '2026-11-02T03:00:00.123456Z',
       userReplyTs: Date.parse('2026-11-03T03:00:00Z'),
     });
+    expect(page.items[0]).not.toHaveProperty('authUid');
   });
 
-  it('공지는 filter=notices 한 번 — 온 줄이 전부(서버 total 은 null)', async () => {
+  it('공지도 같은 키셋 쪽 — filter=notices, total 은 서버 값(웹이 세지 않는다)', async () => {
     const s = fakeApiOf({
-      [LIST]: () => ({
-        items: [summary(1, { notice: true }), summary(2, { notice: true })],
-        nextCursor: null,
-        total: null,
-      }),
+      [LIST]: () => ({ items: [summary(1, { notice: true })], nextCursor: 'c2', total: 7 }),
     });
-    const view = await createServerBugBoardPort(s.api).list({
-      filter: 'notice',
-      page: 3,
-      size: 20,
-      before: null,
-    });
-    expect(s.calls).toHaveLength(1);
+    const page = await createServerBugBoardPort(s.api).page('notice', undefined, 100);
     expect(s.calls[0].query?.filter).toBe('notices');
-    expect(view).toMatchObject({ via: 'server', page: 1, pageCount: 1, total: 2 });
+    expect(page.total).toBe(7);
+    expect(page.items).toHaveLength(1);
   });
 
-  it('쪽 번호는 서버 키셋을 이어 받아 자르고, 전체 수는 첫 쪽 total', async () => {
-    const all = Array.from({ length: 5 }, (_, i) => summary(i + 1));
-    const s = fakeApiOf({
-      [LIST]: (c) => {
-        const from = c.query?.cursor ? Number(c.query.cursor) : 0;
-        const limit = Number(c.query?.limit);
-        const items = all.slice(from, from + limit);
-        const next = from + limit < all.length ? String(from + limit) : null;
-        return { items, nextCursor: next, total: from === 0 ? 5 : null };
-      },
-    });
-    const view = await createServerBugBoardPort(s.api).list({
-      filter: 'all',
-      page: 2,
-      size: 2,
-      before: null,
-    });
-    expect(view.via === 'server' && view.items.map((i) => i.id)).toEqual(['B-1101-3', 'B-1101-4']);
-    expect(view).toMatchObject({ page: 2, pageCount: 3, total: 5 });
-    expect(s.calls.map((c) => c.query?.limit)).toEqual([4]);
+  it('다음 쪽의 total 은 null, 첫 쪽에 total 이 없으면 약속과 다른 응답', async () => {
+    const next = fakeApiOf({ [LIST]: () => ({ items: [summary(2)], nextCursor: null, total: null }) });
+    expect(await createServerBugBoardPort(next.api).page('all', 'c2', 100)).toMatchObject({ total: null });
+    const first = fakeApiOf({ [LIST]: () => ({ items: [], nextCursor: null, total: null }) });
+    const e = await caught(createServerBugBoardPort(first.api).page('all', undefined, 100));
+    expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
   });
 
-  it('한 번에 100개를 넘겨 달라고 하지 않고 나눠 받는다', async () => {
-    const s = fakeApiOf({
-      [LIST]: (c) =>
-        c.query?.cursor === undefined
-          ? { items: [summary(1)], nextCursor: 'c2', total: 150 }
-          : { items: [summary(2)], nextCursor: null, total: null },
-    });
-    await createServerBugBoardPort(s.api).list({ filter: 'open', page: 2, size: 100, before: null });
-    expect(s.calls.map((c) => c.query?.limit)).toEqual([100, 100]);
-  });
-
-  it('첫 쪽에 total 이 없거나 줄 칸이 다르면 약속과 다른 응답', async () => {
-    for (const answer of [
-      { items: [summary(1)], nextCursor: null, total: null },
-      { items: [summary(1, { status: 'DONE' })], nextCursor: null, total: 1 },
-      { items: [summary(1, { visibility: 'HIDDEN' })], nextCursor: null, total: 1 },
-      { items: [summary(1, { createdAt: '어제' })], nextCursor: null, total: 1 },
-      { items: [summary(1, { author: null })], nextCursor: null, total: 1 },
+  it('줄 칸이 다르면 약속과 다른 응답', async () => {
+    for (const bad of [
+      summary(1, { status: 'DONE' }),
+      summary(1, { visibility: 'HIDDEN' }),
+      summary(1, { createdAt: '어제' }),
+      summary(1, { author: null }),
     ]) {
-      const s = fakeApiOf({ [LIST]: () => answer });
-      const e = await caught(
-        createServerBugBoardPort(s.api).list({ filter: 'all', page: 1, size: 20, before: null }),
-      );
+      const s = fakeApiOf({ [LIST]: () => ({ items: [bad], nextCursor: null, total: 1 }) });
+      const e = await caught(createServerBugBoardPort(s.api).page('all', undefined, 100));
       expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
     }
   });
@@ -238,6 +199,17 @@ describe('제보 상세 — API 판', () => {
     }
   });
 
+  it('answerCount 가 없으면 댓글로 세어 채우지 않고 약속과 다른 응답', async () => {
+    const s = fakeApiOf({ 'GET /v2/bugs/B-1101-1': () => ({ ...detail(), answerCount: undefined }) });
+    const e = await caught(createServerBugBoardPort(s.api).post('B-1101-1'));
+    expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
+  });
+
+  it('answerCount 는 서버 값 그대로(댓글 수와 달라도)', async () => {
+    const s = fakeApiOf({ 'GET /v2/bugs/B-1101-1': () => detail({ answerCount: 5 }) });
+    expect((await createServerBugBoardPort(s.api).post('B-1101-1'))?.item.ansN).toBe(5);
+  });
+
   it('version 이 없으면 0 으로 덮지 않고 약속과 다른 응답', async () => {
     const s = fakeApiOf({ 'GET /v2/bugs/B-1101-1': () => ({ ...detail(), version: undefined }) });
     const e = await caught(createServerBugBoardPort(s.api).post('B-1101-1'));
@@ -252,25 +224,26 @@ describe('제보 상세 — API 판', () => {
 });
 
 describe('글쓴이 이름 — API 판', () => {
-  it('서버가 관리자에게 비공개 글 글쓴이 이름도 주므로 따로 읽지 않고 그 이름을 그대로 보인다', async () => {
+  it('비공개 글은 «익명 (닉네임)» — 서버 이름을 닉네임으로 두고 따로 읽지 않는다', async () => {
+    const s = fakeApiOf({
+      [LIST]: () => ({ items: [summary(1, { visibility: 'PRIVATE' })], nextCursor: null, total: 1 }),
+    });
+    const [row] = (await createServerBugBoardPort(s.api).page('all', undefined, 100)).items;
+    expect(needsAuthorLookup(row)).toBe(false);
+    expect(bugAuthorName(row, undefined)).toBe('익명 (철수)');
+    // Firebase 판 줄(server 표시 없음)은 그대로 따로 읽는다.
+    expect(needsAuthorLookup({ vis: 'prv', code: 'u1' })).toBe(true);
+  });
+
+  it('운영진이 쓴 글은 사용자코드가 없다 — 빈 글자로 바꾸지 않는다', async () => {
     const s = fakeApiOf({
       [LIST]: () => ({
-        items: [summary(1, { visibility: 'PRIVATE' })],
+        items: [summary(1, { author: { userCode: null, name: '운영자', anonymous: false } })],
         nextCursor: null,
         total: 1,
       }),
     });
-    const view = await createServerBugBoardPort(s.api).list({
-      filter: 'all',
-      page: 1,
-      size: 20,
-      before: null,
-    });
-    const [row] = view.items;
-    expect(row.code).toBe('u1');
-    expect(needsAuthorLookup(row)).toBe(false);
-    expect(bugAuthorName(row, undefined)).toBe('철수');
-    // Firebase 판 줄(server 표시 없음)은 그대로 따로 읽는다.
-    expect(needsAuthorLookup({ vis: 'prv', code: 'u1' })).toBe(true);
+    const [row] = (await createServerBugBoardPort(s.api).page('all', undefined, 100)).items;
+    expect(row).not.toHaveProperty('code');
   });
 });

@@ -1,5 +1,6 @@
 import {
   keepPreviousData,
+  useInfiniteQuery,
   useQueries,
   useQuery,
   useQueryClient,
@@ -7,18 +8,39 @@ import {
 } from '@tanstack/react-query';
 import { REPLICA_LAG_MS } from '@/shared/api';
 import { kstDateKey } from '@/shared/lib';
-import { bugDay, bugNo, type BugItem, type BugListView, type BugNo } from '../model/bugBoard';
+import { bugDay, bugNo, type BugFilter, type BugItem, type BugListView, type BugNo } from '../model/bugBoard';
 import { BUG_KEY, BUG_LIST_KEY } from './keys';
+
+/** 서버 한 번에 받는 상한(관리자 `limit` 1~100). */
+const PAGE_MAX = 100;
 import type { BugListQuery } from './port';
 import { useBugBoardPort } from './index';
 
+/** 쪽 번호 · 커서로 한 쪽씩 받는 판(`kind: 'paged'` — Firebase). */
 export function useBugList(query: BugListQuery) {
   const port = useBugBoardPort();
   const { filter, page, size, before } = query;
   return useQuery({
     queryKey: [...BUG_KEY, 'list', filter, page, size, before?.value ?? null, before?.key ?? null],
-    queryFn: () => port.list(query),
+    queryFn: () => {
+      if (port.kind !== 'paged') throw new Error('이 판은 제보 목록을 키셋으로 받아요');
+      return port.list(query);
+    },
     placeholderData: keepPreviousData,
+  });
+}
+
+/** 서버 키셋을 쪽으로 받는 판(`kind: 'keyset'` — API). 이어 붙이기 · 쪽 넘기기는 `useKeysetPaging` 이 한다. */
+export function useBugListKeyset(filter: BugFilter) {
+  const port = useBugBoardPort();
+  return useInfiniteQuery({
+    queryKey: [...BUG_KEY, 'list', 'keyset', filter],
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) => {
+      if (port.kind !== 'keyset') throw new Error('이 판은 제보 목록을 쪽 번호로 받아요');
+      return port.page(filter, pageParam, PAGE_MAX);
+    },
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
 }
 

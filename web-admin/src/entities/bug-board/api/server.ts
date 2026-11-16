@@ -1,7 +1,7 @@
 // API 판 — 목록 `GET /v2/bugs?filter=open|all|notices|suggest&cursor&limit`(관리자는 limit 1~100 · 최신순 키셋 · 첫 쪽 `total`),
 // 글 열기 `GET /v2/bugs/{number}`(글 · 댓글 · `version` · `lastAnswerAt`). 번호 `B-MMDD-n` 이 글의 id 다.
-// 화면은 쪽 번호로 묻는다 — 서버 키셋을 첫 쪽부터 이어 받아 그 쪽을 자른다(받아 둔 커서를 포트가 기억하지 않는다).
-// 거르기 · 세기(미해결 · 건의 · 공지 · 전체 수)는 서버가 한다. 서버가 원본이라 사본 지연도 날짜 순번 세기도 없다.
+// 서버가 한 쪽씩 주고(공지도 같다) 이어 받기 · 쪽 넘기기는 화면의 `useKeysetPaging` 이 한다.
+// 거르기 · 세기(미해결 · 건의 · 공지 · 전체 수 · 답변 수)는 서버가 한다. 서버가 원본이라 사본 지연도 날짜 순번 세기도 없다.
 import {
   ApiError,
   perApi,
@@ -10,6 +10,7 @@ import {
   wireArray,
   wireBool,
   wireError,
+  wireNullableNumber,
   wireNullableString,
   wireNumber,
   wireObject,
@@ -17,12 +18,11 @@ import {
   wireTime,
   type Api,
 } from '@/shared/api';
+import type { KeysetPage } from '@/shared/lib';
 import type { BugAnswer, BugContent, BugFilter, BugItem, BugStatus, BugVis } from '../model/bugBoard';
-import type { BugBoardPort, BugPost } from './port';
+import type { BugBoardKeysetPort, BugPost } from './port';
 
 const BUGS = '/v2/bugs';
-/** 서버 한 번에 받는 상한(관리자 `limit` 1~100). */
-const PAGE_MAX = 100;
 const NOT_FOUND = 'BUG_NOT_FOUND';
 
 const FILTERS: Record<BugFilter, string> = {
@@ -57,24 +57,27 @@ function named<T>(table: Record<string, T>, value: unknown, what: string): T {
   return table[key];
 }
 
+/** 비공개 글은 목록 칸 이름이 «익명», 서버가 준 이름은 닉네임 칸. */
+const names = (vis: BugVis, name: string) => (vis === 'prv' ? { name: '익명', nick: name } : { name });
+
 /** 글 한 줄 · 상세가 같이 가진 칸. `lastAnswerAt` · `lastAuthorReplyAt` 의 null 만 문서가 약속한 «없음». */
 function toBase(o: Record<string, unknown>): BugItem {
   const number = wireString(o.number, '제보의 number');
   const what = (field: string) => `제보 ${number} 의 ${field}`;
   const author = wireObject(o.author, what('author'));
+  const vis = named(VISIBILITY, o.visibility, what('visibility'));
   const code = wireNullableString(author.userCode, what('author.userCode'));
   const lastAnswerAt = wireNullableString(o.lastAnswerAt, what('lastAnswerAt'));
   const lastAuthorReplyAt = wireNullableString(o.lastAuthorReplyAt, what('lastAuthorReplyAt'));
   return {
     id: number,
     no: number,
-    vis: named(VISIBILITY, o.visibility, what('visibility')),
+    vis,
     status: named(STATUS, o.status, what('status')),
     cat: named(CATEGORY, o.category, what('category')),
-    name: wireString(author.name, what('author.name')),
-    // Firebase 경로를 만드는 데만 쓰는 칸 — 서버 줄에는 없다.
-    authUid: '',
-    code: code ?? '',
+    // 비공개 글은 «익명 (닉네임)» 으로 보인다 — 서버가 관리자에게 주는 이름은 닉네임 칸에.
+    ...names(vis, wireString(author.name, what('author.name'))),
+    ...(code !== null ? { code } : {}),
     ts: wireTime(o.createdAt, what('createdAt')),
     notice: wireBool(o.notice, what('notice')),
     byAdmin: wireBool(o.byAdmin, what('byAdmin')),
@@ -139,14 +142,14 @@ export function toBugPost(w: unknown): BugPost {
     item: {
       ...base,
       version: wireNumber(o.version, what('version')),
-      ansN: answers.filter((a) => !a.byAuthor).length,
+      ansN: wireNumber(o.answerCount, what('answerCount')),
     },
     content,
     answers,
   };
 }
 
-function build(api: Api | null): BugBoardPort {
+function build(api: Api | null): BugBoardKeysetPort {
   /** 글 하나 — 없는 글(404 `BUG_NOT_FOUND`)은 null. */
   const detail = (id: string): Promise<BugPost | null> =>
     portCall(
@@ -163,41 +166,24 @@ function build(api: Api | null): BugBoardPort {
     );
 
   return {
-    list: (query) =>
+    kind: 'keyset',
+
+    page: (filter, cursor, limit) =>
       portCall(
         api,
-        async (a) => {
-          const filter = FILTERS[query.filter];
-          const read = async (cursor: string | undefined, limit: number) => {
-            const page = wireObject(await a.get<unknown>(BUGS, { filter, cursor, limit }), '제보 쪽');
-            return {
-              page,
-              rows: wireArray(page.items, '제보 쪽의 items').map(toBugSummary),
-              next: wireNullableString(page.nextCursor, '제보 쪽의 nextCursor') ?? undefined,
-            };
-          };
-          // 공지는 쪽 없이 한 번에 온다(서버 `total` 은 null) — 온 줄이 곧 전부다.
-          if (query.filter === 'notice') {
-            const { rows } = await read(undefined, PAGE_MAX);
-            return { via: 'server', items: rows, page: 1, pageCount: 1, total: rows.length };
-          }
-          const want = query.page * query.size;
-          // `total` 은 첫 쪽에만 온다.
-          const first = await read(undefined, Math.min(PAGE_MAX, want));
-          const total = wireNumber(first.page.total, '제보 첫 쪽의 total');
-          const rows = first.rows;
-          let cursor = first.next;
-          while (cursor !== undefined && rows.length < want) {
-            const next = await read(cursor, Math.min(PAGE_MAX, want - rows.length));
-            rows.push(...next.rows);
-            cursor = next.next;
-          }
+        async (a): Promise<KeysetPage<BugItem>> => {
+          const page = wireObject(
+            await a.get<unknown>(BUGS, { filter: FILTERS[filter], cursor, limit }),
+            '제보 쪽',
+          );
           return {
-            via: 'server',
-            items: rows.slice((query.page - 1) * query.size, want),
-            page: query.page,
-            pageCount: Math.max(1, Math.ceil(total / query.size)),
-            total,
+            items: wireArray(page.items, '제보 쪽의 items').map(toBugSummary),
+            nextCursor: wireNullableString(page.nextCursor, '제보 쪽의 nextCursor'),
+            // `total` 은 첫 쪽에만 오고 다음 쪽은 null.
+            total:
+              cursor === undefined
+                ? wireNumber(page.total, '제보 첫 쪽의 total')
+                : wireNullableNumber(page.total, '제보 쪽의 total'),
           };
         },
         '제보 목록을 불러오지 못했어요',

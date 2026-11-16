@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { TodoBadge, todoByReport, useRefreshTodos, useTodos, type Todo } from '@/entities/admin/todo';
 import {
   BUG_CATS,
@@ -10,7 +10,9 @@ import {
   isStaffPost,
   needsAuthorLookup,
   StatusChip,
+  useBugBoardPort,
   useBugList,
+  useBugListKeyset,
   useBugNo,
   usePrvTitle,
   useRefreshBugBoard,
@@ -19,7 +21,14 @@ import {
   type BugItem,
 } from '@/entities/bug-board';
 import { useUserName } from '@/entities/user';
-import { errorMessage, formatDate, pageForSize, readPageSize, savePageSize } from '@/shared/lib';
+import {
+  errorMessage,
+  formatDate,
+  pageForSize,
+  readPageSize,
+  savePageSize,
+  useKeysetPaging,
+} from '@/shared/lib';
 import { Pager } from '@/shared/ui';
 import styles from './BugBoardList.module.css';
 
@@ -47,7 +56,7 @@ function Comments({ item }: { item: BugItem }) {
 
 function Row({ item, todo, onOpen }: { item: BugItem; todo?: Todo; onOpen: (id: string) => void }) {
   // 비공개 글은 목록 칸 이름이 «익명» 이라 글쓴이 코드로 닉네임 한 칸만 읽는다
-  const nick = useUserName(item.code, needsAuthorLookup(item));
+  const nick = useUserName(item.code ?? '', needsAuthorLookup(item));
   const no = useBugNo(item);
   return (
     <tr>
@@ -92,47 +101,24 @@ function Row({ item, todo, onOpen }: { item: BugItem; todo?: Todo; onOpen: (id: 
 
 const LIST_KEY = 'bugs';
 
-/**
- * API 읽기 사본으로 읽으면 전체 수 · 쪽 번호(Pager). 닿지 못하면 예전처럼 한 쪽 20개씩(규칙 상한) —
- * 앞 쪽들의 자리(cursor)를 쌓아 [이전] 으로 돌아가고, 쪽 수 · 총 개수는 모른다(세려면 전부 받아야 한다).
- */
-export function BugBoardList({ onOpen }: { onOpen: (id: string) => void }) {
-  const [filter, setFilter] = useState<BugFilter>('open');
-  const [page, setPage] = useState(1);
-  const [size, setSize] = useState(() => readPageSize(LIST_KEY));
-  const [cursors, setCursors] = useState<(BugCursor | null)[]>([null]);
-  const before = cursors[cursors.length - 1];
-  const { data, error, isFetching, isPlaceholderData } = useBugList({ filter, page, size, before });
+interface ShellProps {
+  filter: BugFilter;
+  pick: (next: BugFilter) => void;
+  error: unknown;
+  /** 지금 보일 줄 — 아직 못 받았으면 null. */
+  items: BugItem[] | null;
+  onOpen: (id: string) => void;
+  /** 표 아래 — 쪽 넘기기. */
+  footer: ReactNode;
+}
+
+/** 머리 · 갈래 단추 · 표 — 두 판이 같이 쓰고, 쪽 넘기기만 `footer` 로 다르다. */
+function BugListShell({ filter, pick, error, items, onOpen, footer }: ShellProps) {
   const refresh = useRefreshBugBoard();
   // 할 일 전체를 한 번 받아 줄마다 찾는다 — 줄마다 읽지 않는다.
   const todos = useTodos();
   const refreshTodos = useRefreshTodos();
   const byReport = useMemo(() => todoByReport(todos.data ?? []), [todos.data]);
-
-  // 쪽 번호로 읽는 판(API 사본 · 서버) — 전체 수 · 쪽 번호를 보인다.
-  const paged = data && data.via !== 'rtdb' ? data : null;
-
-  // 지우기 · 상태 바꾸기로 줄어 지금 쪽이 끝을 넘으면 끝 쪽으로(API 는 넘은 쪽을 빈 채로 돌려준다)
-  if (paged && !isPlaceholderData && page > paged.pageCount) setPage(paged.pageCount);
-
-  const pick = (next: BugFilter) => {
-    setFilter(next);
-    setPage(1);
-    setCursors([null]);
-  };
-
-  const paging = {
-    page: paged ? paged.page : page,
-    pageCount: paged ? paged.pageCount : 1,
-    size,
-    total: paged ? paged.total : 0,
-    setPage: (next: number) => setPage(Math.max(1, next)),
-    setSize: (next: number) => {
-      savePageSize(LIST_KEY, next);
-      setPage(pageForSize(page, size, next));
-      setSize(next);
-    },
-  };
 
   return (
     <section className="card">
@@ -162,10 +148,10 @@ export function BugBoardList({ onOpen }: { onOpen: (id: string) => void }) {
           </button>
         ))}
       </div>
-      {error && <p className="msg err">{errorMessage(error, '제보 목록 불러오기 실패')}</p>}
-      {!error && !data && <p className="soft">불러오는 중…</p>}
-      {data && data.items.length === 0 && <p className="soft">해당 제보 없음</p>}
-      {data && data.items.length > 0 && (
+      {!!error && <p className="msg err">{errorMessage(error, '제보 목록 불러오기 실패')}</p>}
+      {!error && !items && <p className="soft">불러오는 중…</p>}
+      {items && items.length === 0 && <p className="soft">해당 제보 없음</p>}
+      {items && items.length > 0 && (
         <div className={styles.wrap}>
           <table className={styles.table}>
             <thead>
@@ -181,35 +167,116 @@ export function BugBoardList({ onOpen }: { onOpen: (id: string) => void }) {
               </tr>
             </thead>
             <tbody>
-              {data.items.map((item) => (
+              {items.map((item) => (
                 <Row key={item.id} item={item} todo={byReport.get(item.id)} onOpen={onOpen} />
               ))}
             </tbody>
           </table>
         </div>
       )}
-      {paged && <Pager paging={paging} />}
-      {data?.via === 'rtdb' && (
-        <div className={styles.pager}>
-          <button
-            type="button"
-            className="btn"
-            disabled={cursors.length <= 1 || isFetching}
-            onClick={() => setCursors(cursors.slice(0, -1))}
-          >
-            이전
-          </button>
-          <span className="soft">{cursors.length}쪽</span>
-          <button
-            type="button"
-            className="btn"
-            disabled={!data.next || isFetching}
-            onClick={() => data.next && setCursors([...cursors, data.next])}
-          >
-            다음
-          </button>
-        </div>
-      )}
+      {footer}
     </section>
+  );
+}
+
+/**
+ * API 읽기 사본으로 읽으면 전체 수 · 쪽 번호(Pager). 닿지 못하면 예전처럼 한 쪽 20개씩(규칙 상한) —
+ * 앞 쪽들의 자리(cursor)를 쌓아 [이전] 으로 돌아가고, 쪽 수 · 총 개수는 모른다(세려면 전부 받아야 한다).
+ */
+function PagedBugList({ onOpen }: { onOpen: (id: string) => void }) {
+  const [filter, setFilter] = useState<BugFilter>('open');
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState(() => readPageSize(LIST_KEY));
+  const [cursors, setCursors] = useState<(BugCursor | null)[]>([null]);
+  const before = cursors[cursors.length - 1];
+  const { data, error, isFetching, isPlaceholderData } = useBugList({ filter, page, size, before });
+
+  // 지우기 · 상태 바꾸기로 줄어 지금 쪽이 끝을 넘으면 끝 쪽으로(API 는 넘은 쪽을 빈 채로 돌려준다)
+  if (data?.via === 'api' && !isPlaceholderData && page > data.pageCount) setPage(data.pageCount);
+
+  const pick = (next: BugFilter) => {
+    setFilter(next);
+    setPage(1);
+    setCursors([null]);
+  };
+
+  const paging = {
+    page: data?.via === 'api' ? data.page : page,
+    pageCount: data?.via === 'api' ? data.pageCount : 1,
+    size,
+    total: data?.via === 'api' ? data.total : 0,
+    setPage: (next: number) => setPage(Math.max(1, next)),
+    setSize: (next: number) => {
+      savePageSize(LIST_KEY, next);
+      setPage(pageForSize(page, size, next));
+      setSize(next);
+    },
+  };
+
+  return (
+    <BugListShell
+      filter={filter}
+      pick={pick}
+      error={error}
+      items={data?.items ?? null}
+      onOpen={onOpen}
+      footer={
+        <>
+          {data?.via === 'api' && <Pager paging={paging} />}
+          {data?.via === 'rtdb' && (
+            <div className={styles.pager}>
+              <button
+                type="button"
+                className="btn"
+                disabled={cursors.length <= 1 || isFetching}
+                onClick={() => setCursors(cursors.slice(0, -1))}
+              >
+                이전
+              </button>
+              <span className="soft">{cursors.length}쪽</span>
+              <button
+                type="button"
+                className="btn"
+                disabled={!data.next || isFetching}
+                onClick={() => data.next && setCursors([...cursors, data.next])}
+              >
+                다음
+              </button>
+            </div>
+          )}
+        </>
+      }
+    />
+  );
+}
+
+/** 서버 키셋을 쪽으로 받는 판 — 받은 쪽을 이어 두고(`useKeysetPaging`), «총 N개» · 쪽 수는 서버 `total`. */
+function KeysetBugList({ onOpen }: { onOpen: (id: string) => void }) {
+  const [filter, setFilter] = useState<BugFilter>('open');
+  const query = useBugListKeyset(filter);
+  const paging = useKeysetPaging(query, LIST_KEY);
+
+  const pick = (next: BugFilter) => {
+    setFilter(next);
+    paging.setPage(1);
+  };
+
+  return (
+    <BugListShell
+      filter={filter}
+      pick={pick}
+      error={query.error}
+      items={query.data ? paging.items : null}
+      onOpen={onOpen}
+      footer={<Pager paging={paging} more={paging.more} />}
+    />
+  );
+}
+
+export function BugBoardList({ onOpen }: { onOpen: (id: string) => void }) {
+  return useBugBoardPort().kind === 'keyset' ? (
+    <KeysetBugList onOpen={onOpen} />
+  ) : (
+    <PagedBugList onOpen={onOpen} />
   );
 }

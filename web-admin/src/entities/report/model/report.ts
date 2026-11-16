@@ -5,8 +5,6 @@ export interface Report {
   code4?: string;
   note?: string;
   ts?: number;
-  /** API 판 — 신고자의 지금 친구코드(서버가 준다). Firebase 판은 `code4` 만 있다. */
-  friendCode?: string;
 }
 
 export type ReportTree = Record<string, Record<string, unknown>>;
@@ -21,6 +19,8 @@ export interface ReportCard {
 export interface ReportTarget {
   target: string;
   reports: Report[];
+  /** API 판 — 서버가 센 열린 신고 수(신고 «n명»). Firebase 판은 줄 수로 보인다. */
+  openCount?: number;
   card?: ReportCard;
 }
 

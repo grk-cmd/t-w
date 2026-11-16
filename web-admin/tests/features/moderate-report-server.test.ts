@@ -76,6 +76,7 @@ describe('자리비움 그림 내리기 — API 판', () => {
     expect(await createServerModerateReportPort(s.api).takeDown('u1', 'x')).toEqual({
       ok: false,
       reason: 'changed',
+      refreshList: true,
     });
   });
 
