@@ -57,7 +57,7 @@ const mkData = () => ({
   say('── 1. 펼치기');
   {
     const u = M.unfoldCatalog(mkData(), assetUrl);
-    chk(Object.keys(u).join() === 'parts,items,desks' && Object.keys(u.parts).join() === 'hat1,g1,g2' && Object.keys(u.desks).join() === 'd1,d2' && Object.keys(u.items).join() === 'i1',
+    chk(Object.keys(u).join() === 'parts,items,desks,categories,unlocks' && Object.keys(u.parts).join() === 'hat1,g1,g2' && Object.keys(u.desks).join() === 'd1,d2' && Object.keys(u.items).join() === 'i1',
       '★ 한 벌 → { parts · items · desks } — 서버 deskProps 가 items · 가챠 파츠는 parts 한 목록 안(옛 gachaParts 를 합친 모양)');
     const p = u.parts.hat1;
     chk(p.name === '모자' && p.icon === '🎩' && p.cat === 'hat' && p.multi === true && p.rideTop === true && p.animMode === 'loop' && p.charType === 'default' && p.hides.join() === 'mask' && p.gacha === undefined,
@@ -66,9 +66,27 @@ const mkData = () => ({
       '★ 파일은 해시 → GET /v2/catalog/assets/{해시}.glb · .png 주소 · order = 서버 진열 순서(배열 순서)');
     chk(p.defaultXf && p.defaultXf.scale === 1.2 && p.defaultXf.pos.join() === '0,0.1,0' && p.defaultXf.rot.join() === '0,90,0' && Object.keys(p.defaultXf.color).length === 0 && !u.parts.g1.defaultXf,
       '  ↳ defaultTransform → defaultXf({ scale · pos · rot · color:{} }) · 없으면 칸 없음');
-    chk(u.parts.g1.gacha === true && u.parts.g1.season === 'SUMMER' && u.parts.g2.gacha === true && u.parts.g2.season === '' && u.parts.g1.stackable === false && u.parts.g1.noColor === true,
-      '★ 가챠 — gacha:true · season(ALWAYS 는 \'\' = 상시) · stackable 은 저장값 그대로(가챠 강제는 앱의 _normPartRec 몫)');
+    chk(u.parts.g1.gacha === true && u.parts.g1.season === 'summer' && u.parts.g2.gacha === true && u.parts.g2.season === '' && u.parts.g1.stackable === false && u.parts.g1.noColor === true,
+      '★ 가챠 — gacha:true · season(소문자 — gacha.js 가 읽는 이름 · ALWAYS 는 \'\' = 상시) · stackable 은 저장값 그대로(가챠 강제는 앱의 _normPartRec 몫)');
     chk(!('thumbUrl' in u.parts.g1), '  ↳ 썸네일 해시가 없으면 thumbUrl 칸이 없다');
+    chk(u.parts.hat1.version === 3 && u.parts.hat1.modelHash === H('a') && u.parts.hat1.thumbHash === H('b') && u.parts.hat1.listingAccess.kind === 'everyone' && !('thumbHash' in u.parts.g1)
+      && u.desks.d2.version === 2 && u.desks.d2.listingAccess.kind === 'entitlement' && u.items.i1.modelHash === H('2'),
+      '★ 관리자가 되돌려 보낼 칸 — version · 파일 해시 · 진열 권한을 레코드에 싣는다(없는 해시는 칸이 없다)');
+    const dc = mkData();
+    dc.categories = [
+      { code: 'hat', builtin: true, group: 'HEAD', label: '모자', icon: '🎩', bone: 'head', position: 0, version: 0, defaultLabel: '모자', defaultIcon: '🎩', overridden: false },
+      { code: 'cape', builtin: true, group: 'CLOTH', label: '겉옷', icon: '🧥', bone: 'spine', position: 1, version: 4, defaultLabel: '망토', defaultIcon: '🧣', overridden: true },
+      { code: 'scarf', builtin: false, group: 'CLOTH', label: '목도리', icon: '🧶', bone: 'spine', position: 2, version: 2, overridden: false },
+    ];
+    dc.unlocks = [{ kind: 'ANIMAL_CHARACTER', key: 'animal', level: 40, label: '동물 캐릭터', version: 1 }, { kind: 'DANCE', key: '80', level: 80, label: '살랑살랑', version: 0 }];
+    const uc = M.unfoldCatalog(dc, assetUrl);
+    chk(JSON.stringify(uc.categories.customCats) === JSON.stringify([{ cat: 'scarf', label: '목도리', icon: '🧶', group: 'cloth', bone: 'spine' }])
+      && JSON.stringify(uc.categories.catOverrides) === JSON.stringify({ cape: { label: '겉옷', icon: '🧥' } }),
+      '★ 카테고리 — 운영이 더한 것은 customCats(group 소문자) · 기본 카테고리는 처음 값에서 바뀐 것만 catOverrides');
+    chk(uc.unlocks.ANIMAL_CHARACTER.animal.level === 40 && uc.unlocks.DANCE['80'].level === 80, '★ 해금 — 종류 → 열쇠 → 레벨(동물 해금 레벨은 ANIMAL_CHARACTER · animal)');
+    const nb = mkData(); delete nb.categories;
+    let thrown = null; try{ M.unfoldCatalog(nb, assetUrl); }catch(e){ thrown = e; }
+    chk(thrown && thrown.code === 'SHAPE', '  ↳ categories · unlocks 가 배열이 아니면 모양이 틀린 한 벌로 던진다');
     const d = u.desks.d1, d2 = u.desks.d2;
     chk(d.name === '나무 책상' && d.playMode === 'auto' && d.autoPlay === true && d.licenseOnly === false && d.glbUrl === assetUrl(H('e'), 'glb') && !('attachTo' in d),
       '  ↳ 책상 — 재생 방식 · 전용 아님 · 소품 칸(attachTo)은 없다');
@@ -109,6 +127,10 @@ const mkData = () => ({
     chk(env.calls.length === 2 && got.parts.length === 1 && got.desks.length === 1, '★ 304(같은 객체가 온다)면 다시 넘기지 않는다');
     env.same = false; env.data.desks[0].name = '바뀐 책상'; await cat.load(); await flush();
     chk(got.desks.length === 2 && got.desks[1].d1.name === '바뀐 책상' && got.parts.length === 1 && got.items.length === 1, '  ↳ 바뀐 종류(책상)만 다시 넘긴다 · 같은 파츠 · 아이템은 그대로');
+    const cg = []; cat.subscribe('categories', (v) => cg.push(v)); const ug = []; cat.subscribe('unlocks', (v) => ug.push(v));
+    chk(cg.length === 1 && Array.isArray(cg[0].customCats) && ug.length === 1 && typeof ug[0] === 'object' && !!cat.current() && Array.isArray(cat.current().parts),
+      '★ 카테고리 · 해금도 같은 한 벌에서 구독한다(요청 추가 없음) · current() 는 마지막으로 받은 서버 한 벌 그대로(관리자 쓰기가 version 을 읽는다)');
+    chk(mkEnv().make().current() === null, '  ↳ 아직 못 받았으면 current() 는 null');
     const un = cat.subscribe('items', () => {}); un();
     chk(typeof un === 'function' && typeof cat.subscribe('x', () => {}) === 'function' && env.calls.length === 3, '  ↳ 해제 함수를 돌려준다 · 모르는 종류 · 콜백 없음은 요청하지 않는다');
   }

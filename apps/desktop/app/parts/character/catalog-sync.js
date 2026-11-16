@@ -1,5 +1,5 @@
 /* catalog-sync.js — 🔄 카탈로그 실시간 동기화 — 아이템 · 책상 · 파츠 · 카테고리 구독을 저장 목록과 좌석에 반영
-   책임: Firebase 카탈로그(catalog/items · desks · parts · 카테고리) 구독을 걸고, 스냅샷이 오면 저장 목록(savedItems · savedDesks · savedParts)에 합친 뒤(카탈로그 순서 · 지워진 것 빼기 · 로컬 전용 남기기) 떠 있는 좌석 · 생성기 · 런처 · 꾸미기 미리보기에 다시 반영한다.
+   책임: 서버 카탈로그(items · desks · parts · 카테고리 · 해금 레벨) 구독을 걸고, 스냅샷이 오면 저장 목록(savedItems · savedDesks · savedParts)에 합친 뒤(카탈로그 순서 · 지워진 것 빼기 · 로컬 전용 남기기) 떠 있는 좌석 · 생성기 · 런처 · 꾸미기 미리보기에 다시 반영한다.
    받는 deps: 저장 목록 모듈(commissionMod · premiumMod) · GLB 해결(catalogGlbMod) · 서버(catalogSourceMod — character/catalog-source.js) · 좌석에 입히기(equipDeskItem · applyDeskItemsTo · equipPartOnSeat · applyDeskCatalogRefToSeat …) · 생성기 상태(cDesk · cBase · creatorOpen …, 읽는 · 쓰는 함수) · 화면 다시 그리기(wardrobeMod · gachaMod · adminCategory · renderLauncher).
    내보내는 것: 없음 — 만들 때 구독을 건다(서버는 catalogSourceMod 를 거친다 — 연결이 아직 없으면 연결을 기다린다). 합치기 규칙 mergeCatalogList 는 이 안의 순수 함수(검사는 글을 뽑아 직접 돌린다).
    app.js «🔄 카탈로그 실시간 동기화» 구역을 그대로 옮겼다(구역 떼기 C · w2 — 좌석 책상을 그리는 applyDeskCatalogRefToSeat 는 책상 몫이라 남김). 동작은 옮기기 전과 같다.
@@ -17,6 +17,8 @@ function createCatalogSync(deps){
 const DEFAULT_DESK_OVERRIDE_ID = deps.DEFAULT_DESK_OVERRIDE_ID;
 const activeCustomDeskId = deps.activeCustomDeskId;   // 읽는 함수
 const adminCategory = deps.adminCategory;
+const applyInteractionUnlocks = deps.applyInteractionUnlocks;   // 춤 · 상호작용 책상 해금 레벨 앉히기(room/interaction-desk.js)
+const setAnimalUnlockLevel = deps.setAnimalUnlockLevel;   // 동물 캐릭터 해금 레벨 앉히기(animal.js 의 고리 — 그 파일이 app.js 보다 뒤에 실려, 서버 답은 둘 다 실린 뒤에 온다)
 const applyClothVisibility = deps.applyClothVisibility;
 const applyDeskCatalogRefToSeat = deps.applyDeskCatalogRefToSeat;
 const applyDeskColorToCustom = deps.applyDeskColorToCustom;
@@ -197,27 +199,30 @@ function subscribeCatalogParts(){
   });
 }
 catalogSourceMod.catalogSrcReady(subscribeCatalogParts);
-// 커스텀 서브카테고리 구독 — 받아서 PART_CATS 에 합친다.
-function subscribeCustomCats(){
-  if(!catalogSourceMod.catalogSrcCan('customCats')) return;
-  catalogSourceMod.catalogSrcSubscribe('customCats', catObj=>{
-    premiumMod.setCustomPartCats(Object.keys(catObj||{}).map(k=>catObj[k]).filter(c=>c && c.cat));
+/* 카테고리 — 서버 한 벌의 categories 한 줄로 받는다: 운영이 더한 카테고리(PART_CATS 에 합침) · 기본 카테고리의 바뀐 이름 · 아이콘(예: 망토 → 겉옷) */
+function subscribeCategories(){
+  if(!catalogSourceMod.catalogSrcCan('categories')) return;
+  catalogSourceMod.catalogSrcSubscribe('categories', cats=>{
+    premiumMod.setCustomPartCats(cats.customCats);
+    premiumMod.setPartCatOverrides(cats.catOverrides);
     premiumMod.rebuildPartCats();
     wardrobeMod.renderWardrobe();
     if(typeof adminCategory.renderCategoryManager==='function') adminCategory.renderCategoryManager();
   });
 }
-// 기본 카테고리 이름 덮어쓰기 구독 (예: 망토 → 겉옷)
-function subscribeCatOverrides(){
-  if(!catalogSourceMod.catalogSrcCan('catOverrides')) return;
-  catalogSourceMod.catalogSrcSubscribe('catOverrides', obj=>{
-    premiumMod.setPartCatOverrides(obj || {});
-    premiumMod.rebuildPartCats();
-    wardrobeMod.renderWardrobe();
-    if(typeof adminCategory.renderCategoryManager==='function') adminCategory.renderCategoryManager();
+/* 해금 레벨 — 서버 한 벌의 unlocks. 동물 캐릭터(ANIMAL_CHARACTER · animal)는 여기서, 춤 · 상호작용 책상은 applyInteractionUnlocks 로 앉힌다.
+   서버에 그 줄이 없으면 앉히지 않고 알린다(animal.js 의 처음 값이 남는다). */
+const ANIMAL_UNLOCK = { kind: 'ANIMAL_CHARACTER', key: 'animal' };
+function subscribeUnlocks(){
+  if(!catalogSourceMod.catalogSrcCan('unlocks')) return;
+  catalogSourceMod.catalogSrcSubscribe('unlocks', unlocks=>{
+    applyInteractionUnlocks(unlocks);   // 춤 · 상호작용 책상
+    const row = unlocks[ANIMAL_UNLOCK.kind] && unlocks[ANIMAL_UNLOCK.kind][ANIMAL_UNLOCK.key];
+    if(!row){ console.warn('[catalog] 서버 해금 표에 동물 캐릭터 줄이 없다'); return; }
+    setAnimalUnlockLevel(row.level);
   });
 }
-catalogSourceMod.catalogSrcReady(()=>{ subscribeCustomCats(); subscribeCatOverrides(); });
+catalogSourceMod.catalogSrcReady(()=>{ subscribeCategories(); subscribeUnlocks(); });
 
 return {
 

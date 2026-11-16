@@ -5,7 +5,7 @@
    동작은 그대로여야 한다 — 가짜 DOM 위에서 굴린다.
    ・1절: 만들 때 — 버튼을 한 번씩 건다 · 돌려주는 이름 · 서버는 안 부른다
    ・2절: 라이선스(서버 길 · D11-3) — 목록(서버 검색 · 쪽 · 총 수) · 회수 · 삭제(licenseId + version · 409 다시 받기) · 대기 요청(받기 · 발급 · 일괄) · 새 키 · 친구코드로 발급(MATE · COZY 차례 · 이미 있음 → 한 장 더) · 옛 답 버림 · 못 받음 번호
-   ・4절: 카테고리 — 읽는 함수로 받은 목록(다시 대입된 뒤)을 그린다 · 이미 있는 ID 는 안 만듦 · 덮어쓴 이름만 ↺
+   ・4절: 카테고리 — 읽는 함수로 받은 목록(다시 대입된 뒤)을 그린다 · 이름 바꾸기 · 되돌리기 · 추가 · 삭제는 서버 카탈로그(catalogAdmin) · 덮어쓴 이름만 ↺
    ・5절: app.js 연결 — 본문이 안 남음 · 빈 껍데기 셋 · 원래 자리 · deps · 바깥에서 부르던 곳(adminCategory · adminLicense) · 사용자 쪽 팝업은 app.js 에 · html 순서
    ・6절: 일부러 깨 보기 — 모듈 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · admin-license.js · admin-notice.js · admin-category.js 가 있는 폴더에서
@@ -56,8 +56,6 @@ function build(src, glob, create, deps, fbOver){
     createLicense: rec('createLicense'), revokeLicense: rec('revokeLicense'), deleteLicense: rec('deleteLicense'),
     lookupFriendCode: rec('lookupFriendCode', (c) => c === 'COZY-4HTR' ? 'u123' : null),
     getUserNameById: rec('getUserNameById', '말랑'), sendInboxMessage: rec('sendInboxMessage', { ok: true }),
-    publishCustomCat: rec('publishCustomCat'), unpublishCustomCat: rec('unpublishCustomCat'),
-    publishCatOverride: rec('publishCatOverride'), unpublishCatOverride: rec('unpublishCatOverride'),
   }, fbOver || {});
   const D = makeDom();
   const win = { firebaseAPI: fb, focus(){} };
@@ -160,7 +158,12 @@ async function judgeAll(m, app, html){
   /* ── 1 · 4. 카테고리 ── */
   const st = { groups: [{ group: 'head', icon: '🎩', label: '머리' }], cats: [{ cat: 'hat', label: '모자', icon: '🎩', group: 'head', builtin: true }], ov: {} };
   let C;
-  try{ C = build(m.cat, 'TwAdminCategory', 'createAdminCategory', { asyncPrompt: async () => null, partGroups: () => st.groups, partCats: () => st.cats, partCatOverrides: () => st.ov }); }
+  const cc = []; const ccFail = { on: false };
+  const crec = (n) => async (...a) => { cc.push([n, ...a]); if(ccFail.on) throw Object.assign(new Error('x'), { code: 'CATALOG_INVALID_ITEM' }); };
+  const catalogAdmin = { createCategory: crec('createCategory'), renameCategory: crec('renameCategory'), resetCategory: crec('resetCategory'), deleteCategory: crec('deleteCategory'),
+    reportFail: async (e, site) => { cc.push(['reportFail', site]); return 'notice'; } };
+  const answers = [];
+  try{ C = build(m.cat, 'TwAdminCategory', 'createAdminCategory', { catalogAdmin, asyncPrompt: async () => answers.shift(), partGroups: () => st.groups, partCats: () => st.cats, partCatOverrides: () => st.ov }); }
   catch(e){ t(false, '카테고리 모듈을 만들 수 없다 — ' + e.message); }
   if(C){
     const e = C.els;
@@ -172,29 +175,39 @@ async function judgeAll(m, app, html){
     st.cats = st.cats.concat([{ cat: 'ribbon', label: '리본', icon: '🎀', group: 'head' }]); st.ov = { hat: { label: '모자2' } };
     C.out.renderCategoryManager();
     t(chips().length === 3 && chips()[0].children.length === 2, '다시 대입된 뒤의 목록 · 덮어쓰기를 읽는다(읽는 함수) — 칩 둘 + 추가 · ↺ 생김');
-    chips()[2].onclick();
-    e.cmAddName.value = '모자'; e.cmAddId.value = 'hat'; await e.cmAddGoBtn.onclick();
-    t(!C.calls.some(c => c[0] === 'publishCustomCat'), '이미 있는 ID 는 안 만든다');
-    e.cmAddId.value = 'scarf'; e.cmAddName.value = '목도리'; e.cmAddBone.value = 'head'; await e.cmAddGoBtn.onclick();
-    t(C.calls.some(c => c[0] === 'publishCustomCat' && c[1] === 'scarf' && c[2].group === 'head' && c[2].label === '목도리'), '새 카테고리 — 고른 그룹으로 만든다');
+    /* 서버 카탈로그에 쓴다(catalogAdmin) — 기본 카테고리 이름 바꾸기 · 되돌리기 · 운영 카테고리 추가 · 삭제 */
+    answers.push('겉옷', ''); await chips()[0].children[0].onclick();
+    t(cc.length === 1 && cc[0].join() === 'renameCategory,hat,[object Object]' && JSON.stringify(cc[0][2]) === '{"label":"겉옷","icon":"🎩"}', '★ 기본 카테고리 이름 바꾸기 — 서버에 이름 · 아이콘(비우면 지금 아이콘 그대로)을 쓴다');
+    await chips()[0].children[1].onclick();
+    t(cc[1].join() === 'resetCategory,hat', '↺ 되돌리기 — 서버 «원래대로»');
+    await chips()[1].children[0].onclick();
+    t(cc[2].join() === 'deleteCategory,ribbon', '✕ 삭제 — 서버에 지우기(확인창 뒤)');
+    cc.length = 0; chips()[2].onclick();
+    e.cmAddName.value = '모자'; e.cmAddId.value = 'Bad Id!'; e.cmAddBone.value = 'head'; await e.cmAddGoBtn.onclick();
+    t(cc.length === 1 && cc[0][1] === 'badid', '칸 정리 — ID 는 영문 소문자 · 숫자 · _ 로 정리해 보낸다(이미 있는 ID 는 앱이 거르지 않는다 — 서버가 CATALOG_ALREADY_EXISTS 로 거절)');
+    cc.length = 0; chips()[2].onclick(); e.cmAddId.value = 'scarf'; e.cmAddName.value = '목도리'; e.cmAddBone.value = 'head'; await e.cmAddGoBtn.onclick();
+    t(cc[0][0] === 'createCategory' && cc[0][1] === 'scarf' && cc[0][2].group === 'head' && cc[0][2].label === '목도리' && cc[0][2].bone === 'head', '새 카테고리 — 고른 그룹으로 서버에 만든다');
+    ccFail.on = true; cc.length = 0; chips()[2].onclick(); e.cmAddId.value = 'x1'; e.cmAddName.value = 'X'; await e.cmAddGoBtn.onclick();
+    t(cc.map(c => c[0]).join() === 'createCategory,reportFail' && cc[1][1] === 'category', '서버가 거절하면 번호로 알린다(조용히 넘기지 않는다)');
+    ccFail.on = false;
   }
   /* ── 5. app.js 연결 ── */
   const A = strip(app);
-  t(!/function renderLicenseGenList|function renderLicenseReqList|function renderCategoryManager|bindLicenseGrantByCode|publishCustomCat\(/.test(A),
+  t(!/function renderLicenseGenList|function renderLicenseReqList|function renderCategoryManager|bindLicenseGrantByCode|publishCustomCat\(|publishCatOverride\(/.test(A),
     'app.js 에 옮긴 본문이 남지 않았다');
   t(/function _showUpdateNoticeOnce\(/.test(A), '사용자 쪽(공지 한 판을 처음 받았을 때 업데이트 공지 팝업)은 app.js 에 남았다');
   t(!/\bADMIN_LICENSE_OFF\b/.test(app) && !/\bADMIN_NOTICE_OFF\b/.test(app) && !/\bADMIN_CATEGORY_OFF\b/.test(app), '빈 껍데기 없이 만든다(모듈은 늘 싣는다 — 가드 걷기 3차)');
   const deps = (name) => ((app.match(new RegExp('const ' + name + ' = (?:\\(typeof \\w+ === \'undefined\'\\) \\? \\w+ : )?\\w+\\.create\\w+\\(\\{\\n([\\s\\S]*?)\\n\\}\\);')) || [])[1] || '')
     .split('\n').map(l => l.trim()).filter(Boolean);
   const dl = deps('adminLicense'), dc = deps('adminCategory');
-  t(dl.length === 4 && dl.includes('adminApi: adminApi,') && dl.includes('apiErrors: TwApiErrors.store,') && dc.length === 5, 'deps — 라이선스 넷(toast · adminApi · apiErrors · notifyError) · 카테고리 다섯');
+  t(dl.length === 4 && dl.includes('adminApi: adminApi,') && dl.includes('apiErrors: TwApiErrors.store,') && dc.length === 6, 'deps — 라이선스 넷(toast · adminApi · apiErrors · notifyError) · 카테고리 여섯(서버 쓰기 길 catalogAdmin 포함)');
   t(['partGroups: ()=>PART_GROUPS,', 'partCats: ()=>PART_CATS,', 'partCatOverrides: ()=>partCatOverrides,'].every(l => dc.includes(l)),
     '카테고리 deps — PART_GROUPS(뒤에서 선언) · PART_CATS · partCatOverrides(다시 대입)는 읽는 함수로');
   const h130 = app.indexOf('/* ═══ 🛠️ 라이선스 발급 · 공지 · 업데이트 안내(관리자) ═══ */'), h131 = app.indexOf('// ===== Phase 3: 관리자 카테고리 관리 =====');
   t(h130 > 0 && app.indexOf('const adminLicense =') > h130 && app.indexOf('const adminLicense =') < h131
     && app.indexOf('const adminCategory =') > h131, '만드는 줄은 원래 자리(두 구역 머리 아래)');
-  t((A.match(/if\(typeof adminCategory\.renderCategoryManager==='function'\) adminCategory\.renderCategoryManager\(\);/g) || []).length === 2
-    && !/typeof renderCategoryManager/.test(A), '🔄 카탈로그 동기화가 adminCategory.renderCategoryManager 로 부른다(둘) — 옛 typeof 는 늘 거짓이 되므로 남기면 안 된다');
+  t((A.match(/if\(typeof adminCategory\.renderCategoryManager==='function'\) adminCategory\.renderCategoryManager\(\);/g) || []).length === 1
+    && !/typeof renderCategoryManager/.test(A), '🔄 카탈로그 동기화가 adminCategory.renderCategoryManager 로 부른다(카테고리 한 벌 구독 하나) — 옛 typeof 는 늘 거짓이 되므로 남기면 안 된다');
   t(/renderLicenseGenList: \(\.\.\.a\)=>adminLicense\.renderLicenseGenList\(\.\.\.a\),/.test(app), '📄 엑셀 일괄 발급이 목록을 다시 그릴 때 adminLicense.renderLicenseGenList');
   t(['TwAdminLicense', 'TwAdminCategory'].every((g, i) => new RegExp('window\\.' + g + ' = api;').test([m.lic, m.cat][i])), '전역 이름 Tw 접두사 둘');
   const iA = html.indexOf('<script src="parts/app.js"></script>');
@@ -219,7 +232,8 @@ async function judgeAll(m, app, html){
     ['옛 답 버림 빠짐', { lic: s => s.replace('  if(g !== listGen) return;\n  drawList(listEl, q, page, g);', '  drawList(listEl, q, page, g);') }],
     ['검색을 앱이 거름', { lic: s => s.replace('adminApi.listLicenses({ q })', 'adminApi.listLicenses({ q: \'\' })') }],
     ['카테고리 목록을 값으로 붙잡음', { cat: s => s.replace('const PART_CATS = deps.partCats;', 'const PART_CATS = (()=>{ const v = deps.partCats(); return ()=>v; })();') }],
-    ['이미 있는 ID 검사 빠짐', { cat: s => s.replace("if(PART_CATS().find(c=>c.cat===catId)){ toast('이미 있는 ID예요 — 다른 ID를 써주세요'); return; }", '') }],
+    ['카테고리 서버 쓰기 안 함', { cat: s => s.replace("await catalogAdmin.resetCategory(c.cat);", "await Promise.resolve(c.cat);") }],
+    ['카테고리 실패를 삼킴', { cat: s => { const t0 = "await catalogAdmin.reportFail(e, 'category');"; const x = s.lastIndexOf(t0); return s.slice(0, x) + s.slice(x + t0.length); } }],
     ['옛 typeof 로 부름', { app: s => s.replace("if(typeof adminCategory.renderCategoryManager==='function') adminCategory.renderCategoryManager();", "if(typeof renderCategoryManager==='function') renderCategoryManager();") }],
     ['html 줄 빠짐', { html: s => s.replace('<script src="parts/admin/admin-license.js"></script>', '') }],
     ['app.js 에 본문이 남음', { app: s => s + '\nfunction renderLicenseReqList(all){}' }],

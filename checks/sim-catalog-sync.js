@@ -21,13 +21,13 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/
 const CSRC = ["catalog-source.js","parts/character/catalog-source.js","app/parts/character/catalog-source.js"].map(read).find(Boolean);   // 서버 provider — 4절은 진짜 Firebase 판을 가짜 window 위에 만든다
 const NET_PRE = (['net-ready.js', 'parts/shared/net-ready.js', 'app/parts/shared/net-ready.js'].map(read).find(Boolean) || '') + '\nvar TwNetReady = window.TwNetReady;\n';   // 🛰 네트워크 준비 기다리기(shared/net-ready.js) — catalogSrcReady 가 TwNetReady.whenNetReady 로 넘긴다
 const mkSource = (win) => { new Function('window', 'module', NET_PRE + CSRC)(win, undefined); return win.TwCatalogSource.createCatalogSource({}); };
-const FN_DEPS = ["applyClothVisibility","applyDeskCatalogRefToSeat","applyDeskColorToCustom","applyDeskItemsTo","b64ToBuf","clearHolderDeskItems","equipDeskItem","equipPartOnSeat","loadSavedItemsIntoSession","refitSeatAfterParts","renderCrItems","renderLauncher","setCreatorDeskScale","swapDeskVisual","toast","unequipPartFromSeat"];
+const FN_DEPS = ["applyInteractionUnlocks","setAnimalUnlockLevel","applyClothVisibility","applyDeskCatalogRefToSeat","applyDeskColorToCustom","applyDeskItemsTo","b64ToBuf","clearHolderDeskItems","equipDeskItem","equipPartOnSeat","loadSavedItemsIntoSession","refitSeatAfterParts","renderCrItems","renderLauncher","setCreatorDeskScale","swapDeskVisual","toast","unequipPartFromSeat"];
 const VAL_DEPS = ["DEFAULT_DESK_OVERRIDE_ID","adminCategory","assetCodeMod","catalogGlbMod","catalogSourceMod","commissionMod","premiumMod","rideBenchMod","seats","wardrobeMod"];
 const GET_DEPS = ["activeCustomDeskId","cBase","cDesk","cDeskColor","cDeskGlbB64","cDeskScale","cDeskTemplate","creatorOpen","customItems","gachaMod"];
 const SET_DEPS = ["cDeskGlbB64","cDeskTemplate"];
 const EXPORTS = [];
 const MOVED = ["mergeCatalogIntoSavedItems","subscribeCatalogItems","mergeCatalogIntoSavedDesks","subscribeCatalogDesks","mergeCatalogIntoSavedParts","subscribeCatalogParts","subscribeCustomCats","subscribeCatOverrides"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  activeCustomDeskId: ()=>crState.activeCustomDeskId,","  adminCategory: adminCategory,","  applyClothVisibility: (...a)=>applyClothVisibility(...a),","  applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),","  applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),","  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),","  assetCodeMod: assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  cBase: ()=>crState.cBase,","  cDesk: ()=>crState.cDesk,","  cDeskColor: ()=>crState.cDeskColor,","  cDeskGlbB64: ()=>crState.cDeskGlbB64,","  cDeskScale: ()=>crState.cDeskScale,","  cDeskTemplate: ()=>crState.cDeskTemplate,","  catalogGlbMod: catalogGlbMod,","  catalogSourceMod: catalogSourceMod,","  clearHolderDeskItems: (...a)=>creatorPrevMod.clearHolderDeskItems(...a),","  commissionMod: commissionMod,","  creatorOpen: ()=>creatorOpen,","  customItems: ()=>customItems,","  equipDeskItem: (...a)=>equipDeskItem(...a),","  equipPartOnSeat: (...a)=>equipPartOnSeat(...a),","  gachaMod: ()=>gachaMod,","  loadSavedItemsIntoSession: (...a)=>loadSavedItemsIntoSession(...a),","  premiumMod: premiumMod,","  refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),","  renderCrItems: (...a)=>renderCrItems(...a),","  renderLauncher: (...a)=>renderLauncher(...a),","  rideBenchMod: rideBenchMod,","  seats: seats,","  setCreatorDeskScale: (...a)=>setCreatorDeskScale(...a),","  swapDeskVisual: (...a)=>deskVisualMod.swapDeskVisual(...a),","  toast: (...a)=>toast(...a),","  unequipPartFromSeat: (...a)=>unequipPartFromSeat(...a),","  wardrobeMod: wardrobeMod,","  setCDeskGlbB64: (v)=>{ crState.cDeskGlbB64 = v; },","  setCDeskTemplate: (v)=>{ crState.cDeskTemplate = v; },"];
+const GLUE = ["  applyInteractionUnlocks: (...a)=>iDeskMod.applyUnlocks(...a),","  setAnimalUnlockLevel: (...a)=>window._setAnimalUnlockLevel(...a),","  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  activeCustomDeskId: ()=>crState.activeCustomDeskId,","  adminCategory: adminCategory,","  applyClothVisibility: (...a)=>applyClothVisibility(...a),","  applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),","  applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),","  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),","  assetCodeMod: assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  cBase: ()=>crState.cBase,","  cDesk: ()=>crState.cDesk,","  cDeskColor: ()=>crState.cDeskColor,","  cDeskGlbB64: ()=>crState.cDeskGlbB64,","  cDeskScale: ()=>crState.cDeskScale,","  cDeskTemplate: ()=>crState.cDeskTemplate,","  catalogGlbMod: catalogGlbMod,","  catalogSourceMod: catalogSourceMod,","  clearHolderDeskItems: (...a)=>creatorPrevMod.clearHolderDeskItems(...a),","  commissionMod: commissionMod,","  creatorOpen: ()=>creatorOpen,","  customItems: ()=>customItems,","  equipDeskItem: (...a)=>equipDeskItem(...a),","  equipPartOnSeat: (...a)=>equipPartOnSeat(...a),","  gachaMod: ()=>gachaMod,","  loadSavedItemsIntoSession: (...a)=>loadSavedItemsIntoSession(...a),","  premiumMod: premiumMod,","  refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),","  renderCrItems: (...a)=>renderCrItems(...a),","  renderLauncher: (...a)=>renderLauncher(...a),","  rideBenchMod: rideBenchMod,","  seats: seats,","  setCreatorDeskScale: (...a)=>setCreatorDeskScale(...a),","  swapDeskVisual: (...a)=>deskVisualMod.swapDeskVisual(...a),","  toast: (...a)=>toast(...a),","  unequipPartFromSeat: (...a)=>unequipPartFromSeat(...a),","  wardrobeMod: wardrobeMod,","  setCDeskGlbB64: (v)=>{ crState.cDeskGlbB64 = v; },","  setCDeskTemplate: (v)=>{ crState.cDeskTemplate = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -113,8 +113,8 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
       subscribeCatalogItems: (cb) => { subs.items = cb; L('sub', 'items'); },
       subscribeCatalogDesks: (cb) => { subs.desks = cb; L('sub', 'desks'); },
       subscribeCatalogParts: (cb) => { subs.parts = cb; L('sub', 'parts'); },
-      subscribeCustomCats: (cb) => { subs.cats = cb; L('sub', 'cats'); },
-      subscribeCatOverrides: (cb) => { subs.over = cb; L('sub', 'over'); },
+      subscribeCatalogCategories: (cb) => { subs.cats = cb; L('sub', 'cats'); },
+      subscribeCatalogUnlocks: (cb) => { subs.unlocks = cb; L('sub', 'unlocks'); },
     };
     const win = { firebaseAPI: o.noApi ? undefined : fb, addEventListener: (ev, fn, opt) => listeners.push([ev, fn, opt]) };
     const els = { launcher: { classList: { contains: () => !!o.launcherOn } }, wdPreviewPanel: { classList: { contains: () => !!o.wdOn } } };
@@ -122,6 +122,7 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
     const cons = { warn: (...a) => L('warn', a[0]), log: () => {} };
     const raw = {
       DEFAULT_DESK_OVERRIDE_ID: '__default_desk__',
+      applyInteractionUnlocks: (u) => L('idesk', JSON.stringify(u.DANCE || {})), setAnimalUnlockLevel: (n) => L('animal', n),
       seats: o.seats || [],
       customItems: o.customItems || {},
       commissionMod: { savedItems: () => st.items, setSavedItems: (v) => { st.items = v; L('setItems'); }, savedDesks: () => st.desks, setSavedDesks: (v) => { st.desks = v; L('setDesks'); }, persistSavedAssets: () => L('persistAssets') },
@@ -179,9 +180,9 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
   (async () => {
     /* 구독 걸기 */
     let W = load();
-    chk(W.log.filter(x => x.startsWith('sub')).join() === 'sub:items,sub:desks,sub:parts,sub:cats,sub:over' && !W.listeners.length, 'firebaseAPI 가 있으면 만들 때 아이템 · 책상 · 파츠 · 카테고리 · 이름 덮어쓰기 구독을 바로 건다');
+    chk(W.log.filter(x => x.startsWith('sub')).join() === 'sub:items,sub:desks,sub:parts,sub:cats,sub:unlocks' && !W.listeners.length, 'firebaseAPI 가 있으면 만들 때 아이템 · 책상 · 파츠 · 카테고리 · 해금 레벨 구독을 바로 건다');
     W = load({ noApi: true });
-    chk(W.listeners.length === 4 && W.listeners.every(l => l[0] === 'firebase-ready' && l[2] && l[2].once === true) && !W.log.length, '  없으면 firebase-ready 를 한 번만(once) 기다린다 — 걸개 넷(카테고리 둘은 한 걸개)');
+    chk(W.listeners.length === 4 && W.listeners.every(l => l[0] === 'firebase-ready' && l[2] && l[2].once === true) && !W.log.length, '  없으면 firebase-ready 를 한 번만(once) 기다린다 — 걸개 넷(카테고리 · 해금은 한 걸개)');
     W.win.firebaseAPI = { subscribeCatalogItems: () => W.log.push('late') };
     W.listeners.forEach(l => l[1]());
     chk(W.log.join() === 'late', '  firebase-ready 뒤에도 그 함수가 없는 구독은 조용히 건너뛴다');
@@ -262,9 +263,16 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
 
     /* 카테고리 */
     W = load();
-    W.subs.cats({ a: { cat: 'x', name: 'n' }, b: null, c: {} });
-    W.subs.over(null);
-    chk(has(W.log, 'setCats:[{"cat":"x","name":"n"}]') && has(W.log, 'setOver:{}') && W.log.filter(x => x === 'rebuildCats').length === 2 && W.log.filter(x => x === 'catMgr').length === 2, '카테고리 — cat 없는 항목은 거르고 · 덮어쓰기 없음은 {} · 둘 다 다시 짓고 관리 창도 다시 그린다');
+    W.subs.cats({ customCats: [{ cat: 'x', label: 'n' }], catOverrides: { cape: { label: '겉옷', icon: '🧥' } } });
+    chk(has(W.log, 'setCats:[{"cat":"x","label":"n"}]') && has(W.log, 'setOver:{"cape":{"label":"겉옷","icon":"🧥"}}') && W.log.filter(x => x === 'rebuildCats').length === 1 && W.log.filter(x => x === 'catMgr').length === 1,
+      '카테고리 — 서버 한 벌의 더한 카테고리 · 바뀐 이름을 한 번에 앉히고 · 다시 짓고 · 관리 창도 다시 그린다');
+    /* 해금 레벨 — 동물 캐릭터 줄이 레벨을 앉힌다 */
+    W = load();
+    W.subs.unlocks({ ANIMAL_CHARACTER: { animal: { level: 40, label: '동물 캐릭터' } }, DANCE: { '80': { level: 80, label: 'x' } } });
+    chk(has(W.log, 'animal:40') && W.log.filter(x => x.startsWith('animal')).length === 1 && has(W.log, 'idesk:{"80":{"level":80,"label":"x"}}'), '해금 — 동물 캐릭터(ANIMAL_CHARACTER · animal)의 레벨을 deps 로 앉히고 · 같은 표를 춤 · 상호작용 책상 쪽에도 넘긴다');
+    W = load();
+    W.subs.unlocks({ DANCE: { '80': { level: 80, label: 'x' } } });
+    chk(!W.log.some(x => x.startsWith('animal')) && has(W.log, 'warn:[catalog] 서버 해금 표에 동물 캐릭터 줄이 없다'), '  동물 줄이 없으면 앉히지 않고 알린다(console.warn — 처음 값이 남는다)');
     say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
     process.exit(fail ? 1 : 0);
   })().catch(e => { chk(false, '4절 던짐 — ' + (e && e.stack || e)); say(`\n✗ 통과 ${pass} · 실패 ${fail}`); process.exit(1); });

@@ -201,7 +201,7 @@ async function judge(S){
     const FI = strip(S.FI);
     chk(!/\b(publishAnnounce|clearAnnounce|publishUpdateNotice|clearUpdateNotice|getUpdateNotice|publishAdBanner|publishGameConfig|closeAllRooms)\s*\(/.test(FI), 'firebase-init 에 걷은 관리자 쓰기(확성기 · 업데이트 공지 · 배너 · 게임 설정 · 방 종료)가 없다');
     chk(!/\bfirebaseAPI\.(publishAnnounce|clearAnnounce|publishUpdateNotice|clearUpdateNotice|getUpdateNotice|publishAdBanner|publishGameConfig|closeAllRooms)\b/.test(A), 'app.js 가 걷은 Firebase 관리자 쓰기를 안 부른다');
-    chk(/subscribeGameConfig\s*\(/.test(FI), '  게임 설정 읽기(subscribeGameConfig)는 남았다 — 사용자 앱이 아직 거기서 읽는다');
+    chk(!/subscribeGameConfig|publishCustomCat|publishCatOverride|updatePartsOrder|publishPart\s*\(/.test(FI), '  카탈로그 쓰기 · 게임 설정 · 카테고리 읽기의 Firebase 길이 firebase-init 에 없다(서버 한 벌 · catalog-admin-api.js)');
   }
 }
 

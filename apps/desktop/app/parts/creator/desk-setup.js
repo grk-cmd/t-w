@@ -1,13 +1,13 @@
 /* desk-setup.js — 🪑 생성기 책상 세팅(5단계): 책상 카드 · 아이템 카드(쪽 넘김)를 그리고, 고르기 · 지우기(회수) · 순서 바꾸기 · 색 · 아이템 고르기를 잇는다
    app.js «책상 세팅(5단계)» 조각을 그대로 옮긴 모듈이다(C 구역 떼기 w4). 동작은 옮기기 전과 같다
-   (바뀐 줄은 읽는 함수 자리 · 갈고리 둘(setHooks) · firebaseAPI 를 데이터 provider(catalogNet)로 · 입구 가드 · 옛 이야기형 주석 줄이기).
+   (바뀐 줄은 읽는 함수 자리 · 갈고리 둘(setHooks) · 관리자 회수 · 순서를 서버 길(catalogAdmin)로 · 입구 가드 · 옛 이야기형 주석 줄이기).
    ・책임: renderCrItems(기본 · 저장 책상 카드 — 라이선스 잠금 🔒 · 관리자 ✎ · ☰ / 기본 · 커스텀 아이템 카드 5개씩 쪽 넘김 · 개수 한도 표시) ·
      reorderSavedItem · reorderSavedDesk(관리자 순서 바꾸기 → 카탈로그 순서 저장) · selectDeskItemForAdjust(놓인 아이템 고르기) · 미리보기 우클릭으로 아이템 고르기 · 책상 색 칸.
    ・받는 deps 29 — 값 crState · assetCardsMod(카드 · 도트 썸네일 · ☰ 손잡이) · premiumMod · DESK_ITEMS · DESK_SCALE_DEFAULT · DEFAULT_DESK_OVERRIDE_ID · ndc · ray ·
-     함수 10 · 읽는 함수 10(뒤에서 만들어지는 모듈 · isAdmin · catalogNet — 데이터 provider, 지금은 app.js 가 window.firebaseAPI 를 넘긴다).
+     함수 10 · 읽는 함수 10(뒤에서 만들어지는 모듈 · isAdmin)· catalogAdmin — 카탈로그 쓰기 서버 길(admin/catalog-admin-api.js).
    ・내놓는 것: renderCrItems · selectDeskItemForAdjust · setHooks({ openDeskRegister, attachItemGizmo }) — app.js 가 crXformMod 를 만든 뒤 잇는다.
    ・입구 전제: 카드 줄(#crDeskRow · #crItemRow) · 색 칸(#deskColor) · 미리보기(#creatorPreview)가 없으면 그리지 · 걸지 않는다 · 아이템 고르기는 캐릭터(crState.cBase)가 있어야.
-   ⚠️ document · confirm 은 전역 이름 그대로. firebaseAPI 는 catalogNet() 으로만. 전역 이름은 TwDeskSetup(Tw 접두사 #103).
+   ⚠️ document · confirm 은 전역 이름 그대로. 서버 쓰기는 catalogAdmin 으로만. 전역 이름은 TwDeskSetup(Tw 접두사 #103).
    검사: checks/sim-desk-setup.js */
 (function(){
 
@@ -42,7 +42,7 @@ const ray = deps.ray;
 const setCreatorDeskScale = deps.setCreatorDeskScale;
 const swapDeskVisual = deps.swapDeskVisual;
 const toast = deps.toast;
-const catalogNet = deps.catalogNet;   // 읽는 함수 — 데이터 provider(카탈로그 회수 · 순서 저장), 준비 전이면 없음
+const catalogAdmin = deps.catalogAdmin;   // 카탈로그 쓰기 서버 길(admin/catalog-admin-api.js) — 회수(단종) · 진열 순서
 /* 관리자 등록 창 열기 · 아이템 기즈모 붙이기 — 그 두 모듈(admin-part-register · creator-xform)은 책상 카드를 다시 그리려고 이 모듈을 부른다.
    여기서 그 둘을 deps 로 받으면 서로를 부르게 되어(sim-dep-cycles) app.js 가 crXformMod 를 만든 뒤 setHooks 로 잇는다. */
 const _hooks = { openDeskRegister: null, attachItemGizmo: null };
@@ -85,13 +85,7 @@ function renderCrItems(){
      카탈로그가 늦게 와 licenseOnly 를 아직 모르는 순간의 안전망이라 지우지 않는다. */
   commissionMod().savedDesks().filter(rec=>rec.id!==DEFAULT_DESK_OVERRIDE_ID && (isAdmin() || !rec.licenseOnly)).forEach(rec=>{
     const on=(crState.activeCustomDeskId===rec.id);
-    const deleteHandler = (rec.fromCatalog && !isAdmin()) ? null : ()=>{
-      // X 삭제: localStorage에서 제거 + 현재 활성 책상이면 기본으로 복귀
-      // 카탈로그에서 온 것(fromCatalog)이면 관리자 전용 "회수"로 처리 — 모두에게서 배포 취소
-      if(rec.fromCatalog){
-        if(!confirm('"'+(rec.name||'책상')+'"을(를) 모든 사용자에게서 회수할까요?')){ window.focus(); return; } window.focus();
-        if(catalogNet() && catalogNet().unpublishDesk) catalogNet().unpublishDesk(rec.id).catch(()=>toast('회수 실패(네트워크 확인)'));
-      }
+    const removeLocalDesk = ()=>{
       commissionMod().setSavedDesks(commissionMod().savedDesks().filter(d=>d.id!==rec.id)); commissionMod().persistSavedAssets();
       if(crState.activeCustomDeskId===rec.id){ crState.cDeskTemplate=null; crState.cDeskGlbB64=null; crState.activeCustomDeskId=null;
         if(crState.cDesk){
@@ -100,6 +94,12 @@ function renderCrItems(){
           else { swapDeskVisual(crState.cDesk,null); applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); }
         } }
       renderCrItems();
+    };
+    // X 삭제: 이 PC 목록에서 제거 + 현재 활성 책상이면 기본으로 복귀. 카탈로그에서 온 것(fromCatalog)이면 관리자 전용 "회수" — 서버에서 먼저 단종하고(못 하면 목록도 그대로) 모두에게서 내린다
+    const deleteHandler = (rec.fromCatalog && !isAdmin()) ? null : ()=>{
+      if(!rec.fromCatalog){ removeLocalDesk(); return; }
+      if(!confirm('"'+(rec.name||'책상')+'"을(를) 모든 사용자에게서 회수할까요?')){ window.focus(); return; } window.focus();
+      catalogAdmin.archive('desk', rec.id).then(removeLocalDesk, e=>catalogAdmin.reportFail(e, 'item'));
     };
     const card=assetCardsMod.swThumb(rec.name||'책상', on, rec.icon||'🪑', deleteHandler);
     card.dataset.reorderId = rec.id;   // bindReorderHandle의 elementFromPoint 탐색용
@@ -190,17 +190,17 @@ function renderCrItems(){
     const def = customItems()[rec.id]; if(!def) return;   // 아직 세션에 파싱 안 된(로딩 중) 아이템은 건너뜀
     const on=!!(crState.cBase&&crState.cBase.deskItems&&crState.cBase.deskItems[def.id]);
     const active = !!(crState.cBase && crState.cBase.activeDeskItem && on && crState.cBase.deskItems[def.id]===crState.cBase.activeDeskItem);
-    const deleteHandler = (rec && rec.fromCatalog && !isAdmin()) ? null : ()=>{
-      // X 삭제: 세션 + localStorage + 현재 장착돼 있으면 해제
-      // 카탈로그에서 온 것(fromCatalog)이면 관리자 전용 "회수"로 처리 — 모두에게서 배포 취소
-      if(rec && rec.fromCatalog){
-        if(!confirm('"'+(def.name||'아이템')+'"을(를) 모든 사용자에게서 회수할까요?')){ window.focus(); return; } window.focus();
-        if(catalogNet() && catalogNet().unpublishItem) catalogNet().unpublishItem(def.id).catch(()=>toast('회수 실패(네트워크 확인)'));
-      }
+    const removeLocalItem = ()=>{
       if(crState.cBase&&crState.cBase.deskItems&&crState.cBase.deskItems[def.id]) equipDeskItem(crState.cBase,def,false);
       delete customItems()[def.id];
       commissionMod().setSavedItems(commissionMod().savedItems().filter(s=>s.id!==def.id)); commissionMod().persistSavedAssets();
       renderCrItems();
+    };
+    // X 삭제: 세션 + 이 PC 목록 + 현재 장착돼 있으면 해제. 카탈로그에서 온 것(fromCatalog)이면 관리자 전용 "회수" — 서버에서 먼저 단종한다(못 하면 그대로)
+    const deleteHandler = (rec && rec.fromCatalog && !isAdmin()) ? null : ()=>{
+      if(!(rec && rec.fromCatalog)){ removeLocalItem(); return; }
+      if(!confirm('"'+(def.name||'아이템')+'"을(를) 모든 사용자에게서 회수할까요?')){ window.focus(); return; } window.focus();
+      catalogAdmin.archive('deskProp', def.id).then(removeLocalItem, e=>catalogAdmin.reportFail(e, 'item'));
     };
     const it=assetCardsMod.swThumb(def.name, on, def.icon||'📦', deleteHandler, active);
     assetCardsMod.applyDeskDotThumb(rec, it);   // 🎨 GLB 도트 썸네일 (생성 전까진 이모지)
@@ -256,8 +256,19 @@ function renderCrItems(){
   if(dac){ const full=commissionMod().savedDesks().length>=commissionMod().MAX_CUSTOM_ASSETS; dac.style.opacity=full?'0.4':'1'; dac.title=full?'최대 '+commissionMod().MAX_CUSTOM_ASSETS+'개. 카드 X로 지운 뒤 추가하세요':''; }
   if(iac){ const full=commissionMod().savedItems().length>=commissionMod().MAX_CUSTOM_ITEMS; iac.style.opacity=full?'0.4':'1'; iac.title=full?'최대 '+commissionMod().MAX_CUSTOM_ITEMS+'개. 카드 X로 지운 뒤 추가하세요':''; }
 }
-/* 관리자 — 커스텀 아이템끼리 드래그로 진열 순서 변경, 카탈로그(Firebase)에 order 반영해서 전체 사용자 동기화 */
-function reorderSavedItem(draggedId, targetId){
+/* 진열 순서 바꾸기 — 서버 진열대(DESK_PROP · DESK)에 순서 전체를 먼저 보내고, 서버가 받은 뒤에야 이 PC 순서를 바꾼다(못 쓰면 번호로 알리고 화면은 그대로).
+   서버 카탈로그에 있는 것만 보낸다(로컬 전용은 서버가 모르는 물건이다) */
+function movedIds(list, draggedId, targetId){
+  const copy = list.slice();
+  const d = copy.findIndex(p=>p.id===draggedId), t = copy.findIndex(p=>p.id===targetId);
+  if(d<0 || t<0) return null;
+  copy.splice(t, 0, copy.splice(d,1)[0]);
+  return copy.filter(p=>p.fromCatalog).map(p=>p.id);
+}
+async function reorderSavedItem(draggedId, targetId){
+  const ids = movedIds(commissionMod().savedItems(), draggedId, targetId);
+  if(!ids) return;
+  if(ids.length && !(await catalogAdmin.saveShelfOrReport('DESK_PROP', ids))) return;
   const draggedIdx = commissionMod().savedItems().findIndex(p=>p.id===draggedId);
   const targetIdx = commissionMod().savedItems().findIndex(p=>p.id===targetId);
   if(draggedIdx<0 || targetIdx<0) return;
@@ -268,15 +279,11 @@ function reorderSavedItem(draggedId, targetId){
   renderCrItems();
   // 런처4-2: 활성 아이템이 없으면(사용자가 카드 선택 안 함) 캐릭터 위에 남아있던 기즈모 숨김.
   if(_hooks.attachItemGizmo) _hooks.attachItemGizmo();
-  if(catalogNet() && catalogNet().updateItemsOrder){
-    const orderMap={};
-    commissionMod().savedItems().forEach((p,i)=>{ if(p.fromCatalog) orderMap[p.id]=i; });
-    if(Object.keys(orderMap).length){
-      catalogNet().updateItemsOrder(orderMap).catch(()=>{ toast('⚠ 순서가 온라인에는 반영 안 됐어요(인터넷 연결 확인) — 이 화면에서만 바뀐 상태예요'); });
-    }
-  }
 }
-function reorderSavedDesk(draggedId, targetId){
+async function reorderSavedDesk(draggedId, targetId){
+  const ids = movedIds(commissionMod().savedDesks(), draggedId, targetId);
+  if(!ids) return;
+  if(ids.length && !(await catalogAdmin.saveShelfOrReport('DESK', ids))) return;
   const draggedIdx = commissionMod().savedDesks().findIndex(p=>p.id===draggedId);
   const targetIdx = commissionMod().savedDesks().findIndex(p=>p.id===targetId);
   if(draggedIdx<0 || targetIdx<0) return;
@@ -285,13 +292,6 @@ function reorderSavedDesk(draggedId, targetId){
   commissionMod().savedDesks().forEach((p,i)=>{ p.order=i; });
   commissionMod().persistSavedAssets();
   renderCrItems();
-  if(catalogNet() && catalogNet().updateDesksOrder){
-    const orderMap={};
-    commissionMod().savedDesks().forEach((p,i)=>{ if(p.fromCatalog) orderMap[p.id]=i; });
-    if(Object.keys(orderMap).length){
-      catalogNet().updateDesksOrder(orderMap).catch(()=>{ toast('⚠ 순서가 온라인에는 반영 안 됐어요(인터넷 연결 확인) — 이 화면에서만 바뀐 상태예요'); });
-    }
-  }
 }
 if(document.getElementById('deskColor')) document.getElementById('deskColor').addEventListener('input',e=>{ crState.cDeskColor=e.target.value; lightToneMod()._setDeskMatColor(crState.cDeskMat, crState.cDeskColor); applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); });
 // 일반(비관리자) 모드: 3D 미리보기에서 이미 놓인 아이템을 우클릭하면 그걸 선택 상태로 만들어서

@@ -1796,7 +1796,7 @@ function renderWardrobe(){
       handle.title='드래그해서 순서 바꾸기';
       card.appendChild(handle);
       card.dataset.reorderId = rec.id;
-      bindReorderHandle(handle, card, rec.id, (draggedId, targetId)=>{ if(reorderSavedPart(draggedId, targetId, info.cat)) renderWardrobe(); });
+      bindReorderHandle(handle, card, rec.id, async (draggedId, targetId)=>{ if(await reorderSavedPart(draggedId, targetId, info.cat)) renderWardrobe(); });
     }
     grid.appendChild(card);
     if(activeWdAdj && activeWdAdj.id === rec.id) {

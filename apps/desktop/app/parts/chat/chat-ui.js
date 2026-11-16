@@ -45,6 +45,7 @@ const chatHistory = deps.chatHistory;   // 읽는 함수 — 💬 대화 기록(
 const myCode = deps.myCode;   // 연결의 나(room-rt.js myCode) — 줄의 글쓴이(userCode)와 견준다
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const isDanceUnlocked = deps.isDanceUnlocked;
+const lockedToast = deps.lockedToast;   // 잠긴 안내 글(room/interaction-desk.js — 레벨을 모르면 «해금 정보를 받는 중»)
 const officeMode = deps.officeMode;   // 읽는 함수
 const seats = deps.seats;
 const showChatBubble = deps.showChatBubble;
@@ -1136,7 +1137,7 @@ function _sendChatWindowMsg(){
         setDanceCmdCooldownAt(nowMs);
         startMyDance(def, { cmd: hit.cmd, repeat: hit.repeat });
       }
-      else toast('🔒 Lv.'+def.reqLevel+' 달성 시 사용할 수 있어요');
+      else toast(lockedToast(def.reqLevel, '달성 시 사용할 수 있어요'));
       return;   // 명령은 대화 기록/전송에 싣지 않음
     }
   }

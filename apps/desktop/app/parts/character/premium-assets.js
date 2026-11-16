@@ -31,6 +31,7 @@ const seats = deps.seats;
 const slots = deps.slots;   // 읽는 함수
 const toast = deps.toast;
 const notifyError = deps.notifyError;
+const catalogAdmin = deps.catalogAdmin;   // 카탈로그 쓰기 서버 길(admin/catalog-admin-api.js) — 진열 순서
 const WD_DESK_TAB = '__desk_model__';
 function _wdLicenseDesks(){
   let list = null; try{ list = savedDesks(); }catch(_){ return []; }
@@ -196,9 +197,9 @@ const BUILTIN_PART_CATS = [
 ];
 // 그룹별 부착 본 매핑 — 커스텀 카테고리 추가 시 group만 선택해도 bone이 자동 결정됨
 const GROUP_TO_BONE = { head:'head', cloth:'spine', deco:'spine', hand:'head', desk:'desk' };   // hand의 경우 UI에서 handL/handR 중 선택
-// 커스텀 카테고리 (Firebase catalog/customCats에서 subscribe 후 여기 채워짐)
+// 커스텀 카테고리 (서버 카탈로그의 categories 에서 받아 여기 채워짐 — catalog-sync.js)
 let customPartCats = [];   // [{cat, label, icon, group, bone}]
-// 기본(내장) 카테고리 이름/아이콘 덮어쓰기 — catalog/catOverrides에서 구독. { cat: {label, icon} }
+// 기본(내장) 카테고리 이름/아이콘 덮어쓰기 — 서버 카탈로그의 categories 에서 받는다. { cat: {label, icon} }
 //   예: 관리자가 '망토'를 '겉옷'으로 바꾸면 모든 사용자에게 그 이름으로 보임. cat 식별자와 동작은 그대로.
 let partCatOverrides = {};
 // 실제 사용될 통합 목록 — BUILTIN + custom 병합.
@@ -442,7 +443,7 @@ function resetLocal(){ savedParts = savedParts.filter(p=>p.fromCatalog); }
      가챠 모자가 기본 모자를 덮고 있어서 끼울 때는 티가 안 나고, 뺄 때 둘 다 없어진 것으로 보인다.
    ★ 읽는 자리(rec.stackable 을 보는 곳이 열 군데가 넘는다)를 고치지 않고 들어오는 입구에서 값을 맞춘다 —
      등록이 이미 지키는 약속과 같은 값이므로 새 규칙이 아니다. 확인 뒤 userLocal 칸(savedParts)이 좌석을 세우기 **전에** 부른다(loadLocal).
-   ⚠️ 관리자가 그 파츠를 한 번 다시 저장하면 카탈로그 값도 true 로 고쳐진다(buildPartPublishData). */
+   ⚠️ 관리자가 그 파츠를 한 번 다시 저장하면 카탈로그 값도 true 로 고쳐진다(catalog-admin-api.js partBody). */
 function _normPartRec(p){ if(p && p.gacha && !p.stackable) p.stackable = true; return p; }
 function persistSavedParts(){
   // 이 계정 몫(fromCatalog 아닌 것 — base64 glb 포함)만 계정 칸에 쓴다. 카탈로그 몫은 서버가 원본이고 catalog-api.js 가 서버 한 벌로 채운다.
@@ -464,31 +465,29 @@ function partsInCat(cat){ return savedParts.filter(p=>p.cat===cat); }
 function isGachaPart(rec){ return !!(rec && rec.gacha); }   // 가챠 파츠인가 — 카탈로그 항목의 깃발(가챠 · 꾸미기가 같이 읽는다)
 function partsInCatFor(cat, gacha){ return partsInCat(cat).filter(p=>!!isGachaPart(p) === !!gacha); }
 function partCatLimit(gacha){ return gacha ? MAX_GACHA_PARTS_PER_CAT : MAX_PARTS_PER_CAT; }
-/* 관리자 — 같은 카테고리 안에서 드래그로 파츠 진열 순서 변경 (로컬 화면 전용) */
-function reorderSavedPart(draggedId, targetId, cat){
+/* 관리자 — 같은 카테고리 안에서 드래그로 파츠 진열 순서 변경(화면은 바로 · 서버 진열대에도 쓴다) */
+async function reorderSavedPart(draggedId, targetId, cat){
   const catItems = savedParts.filter(p=>p.cat===cat);
-  const others = savedParts.filter(p=>p.cat!==cat);
   const draggedIdx = catItems.findIndex(p=>p.id===draggedId);
   const targetIdx = catItems.findIndex(p=>p.id===targetId);
-  if(draggedIdx<0 || targetIdx<0) return;
+  if(draggedIdx<0 || targetIdx<0) return false;
   const [item] = catItems.splice(draggedIdx,1);
   catItems.splice(targetIdx,0,item);
-  savedParts = [...others, ...catItems];
+  /* 서버 진열대(CATEGORY:{코드})에 순서 전체를 먼저 보낸다 — 서버 카탈로그에 있는 파츠만(로컬 전용은 서버가 모르는 물건이다).
+     서버가 받은 뒤에야 이 PC 순서를 바꾼다 — 못 쓰면 번호로 알리고(catalogAdmin) 화면 순서는 그대로 둔다. */
+  const ids = catItems.filter(p=>p.fromCatalog).map(p=>p.id);
+  if(ids.length && !(await catalogAdmin.saveShelfOrReport('CATEGORY:'+cat, ids))) return false;
+  // 기다리는 사이 목록이 바뀌었을 수 있어 다시 읽고 같은 자리에 끼운다
+  const fresh = savedParts.filter(p=>p.cat===cat);
+  const others = savedParts.filter(p=>p.cat!==cat);
+  const dI = fresh.findIndex(p=>p.id===draggedId), tI = fresh.findIndex(p=>p.id===targetId);
+  if(dI<0 || tI<0) return false;
+  const [it2] = fresh.splice(dI,1);
+  fresh.splice(tI,0,it2);
+  savedParts = [...others, ...fresh];
   // 새 순서를 각 항목의 order 필드로 기록(로컬)
-  catItems.forEach((p,i)=>{ p.order=i; });
+  fresh.forEach((p,i)=>{ p.order=i; });
   persistSavedParts();
-  // ★ 카탈로그(Firebase)에 등록된 적 있는 파츠만 순서를 같이 올림 — 순수 로컬 전용 파츠는 카탈로그에
-  //   없는 경로라 순서만 써버리면 cat/name/glb 없는 빈 항목이 생겨서 검증에 걸림(의도적으로 제외).
-  //   GLB는 다시 안 올리고 order 숫자만 가볍게 업데이트되므로 데이터 사용량 걱정 없음.
-  if(window.firebaseAPI && window.firebaseAPI.updatePartsOrder){
-    /* 🎰 가챠 파츠는 catalog/gachaParts 에 살므로 순서도 그 경로로 — 한 맵에 섞으면
-       catalog/parts/{가챠id}/order 가 .validate 에 걸려 update 전체가 거부된다. */
-    const orderMap={}, gachaOrderMap={};
-    catItems.forEach((p,i)=>{ if(p.fromCatalog){ (isGachaPart(p)?gachaOrderMap:orderMap)[p.id]=i; } });
-    if(Object.keys(orderMap).length || Object.keys(gachaOrderMap).length){
-      window.firebaseAPI.updatePartsOrder(orderMap, gachaOrderMap).catch(()=>{ toast('⚠ 순서가 온라인에는 반영 안 됐어요(인터넷 연결 확인) — 이 화면에서만 바뀐 상태예요'); });
-    }
-  }
   return true;   // 바꿨다 — 꾸미기 창은 부르는 쪽(wardrobe.js)이 다시 그린다
 }
 

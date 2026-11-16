@@ -25,7 +25,7 @@
      ERRORS — 서버 오류 code → 할 일 · 오류 번호(TwApiErrors.store.notify(err, ERRORS) 의 기능 표)
    }
      순수: PATHS · LIMITS · bannerOf(d)
-   ⚠️ 여기서 메우지 않는 것: ⚙️ 게임 설정(동물 해금 레벨) · 📁 카테고리 — 쓰는 길은 서버에 있으나 사용자 앱(과 이 창)이 그 값을 아직 Firebase 에서 읽는다. 읽는 쪽이 서버로 옮겨 가면 이어서 켠다.
+   카탈로그 쓰기(파츠 · 책상 · 소품 · 순서 · 카테고리 · 게임 설정)의 요청 모양은 catalog-admin-api.js — 그 실패 갈래 표(ERRORS)만 여기 한 곳에 둔다.
    검사: checks/sim-admin-api.js */
 (function(){
 'use strict';
@@ -64,6 +64,21 @@ const ERRORS = Object.freeze({
   /* 키 · 요청이 그 사이 없어졌다(다른 관리자가 먼저 처리) — 목록을 다시 받아 보인다 */
   LICENSE_NOT_FOUND: { action: 'refetch', notice: null },
   LICENSE_REQUEST_NOT_FOUND: { action: 'refetch', notice: null },
+  /* 🛠️ 카탈로그 쓰기(catalog-admin-api.js) — 서버가 «어느 칸이 왜» 를 message 로 준다 · 그 글을 번호 알림에 싣는다 */
+  CATALOG_INVALID_FILE: { action: 'notice', notice: (notifyError, e) => notifyError('E-ADM-06', e, e && e.message) },
+  CATALOG_STORE_FULL: { action: 'notice', notice: (notifyError, e) => notifyError('E-ADM-06', e, e && e.message) },
+  CATALOG_INVALID_ITEM: { action: 'notice', notice: (notifyError, e) => notifyError('E-ADM-07', e, e && e.message) },
+  CATALOG_UNKNOWN_CATEGORY: { action: 'notice', notice: (notifyError, e) => notifyError('E-ADM-07', e, e && e.message) },
+  CATALOG_UNKNOWN_ASSET: { action: 'notice', notice: (notifyError, e) => notifyError('E-ADM-07', e, e && e.message) },
+  CATALOG_UNKNOWN_ITEM: { action: 'notice', notice: (notifyError, e) => notifyError('E-ADM-07', e, e && e.message) },
+  CATALOG_GACHA_PARTS_ONLY: { action: 'notice', notice: (notifyError, e) => notifyError('E-ADM-07', e, e && e.message) },
+  CATALOG_INVALID_UNLOCK_LEVEL: { action: 'notice', notice: (notifyError, e) => notifyError('E-ADM-07', e, e && e.message) },
+  CATALOG_ALREADY_EXISTS: { action: 'notice', notice: (notifyError, e) => notifyError('E-ADM-07', e, e && e.message) },
+  CATALOG_CATEGORY_FULL: { action: 'notice', notice: (notifyError, e) => notifyError('E-ADM-07', e, e && e.message) },
+  CATALOG_SHELF_FULL: { action: 'notice', notice: (notifyError, e) => notifyError('E-ADM-07', e, e && e.message) },
+  CATALOG_BUILTIN_CATEGORY: { action: 'notice', notice: (notifyError, e) => notifyError('E-ADM-07', e, e && e.message) },
+  CATALOG_CATEGORY_IN_USE: { action: 'notice', notice: (notifyError, e) => notifyError('E-ADM-07', e, e && e.message) },
+  CATALOG_ITEM_NOT_FOUND: { action: 'refetch', notice: null },
 });
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);

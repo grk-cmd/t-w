@@ -47,22 +47,22 @@
 
 ## catalog-api.js — 🧩 카탈로그 서버 한 벌 받기(`GET /v2/catalog`)
 
-- **책임**: 파츠 · 책상 · 아이템을 서버 한 벌 `GET /v2/catalog`(ETag · `no-cache`)에서 받아 앱이 아는 세 목록(`parts` · `items` · `desks` — id → 레코드 맵)으로 **한 번 펼친다**. 이 모양 바꾸기는 이 모듈 한 곳(`unfoldCatalog`)이다 — 서버 `parts` + 가챠(`listing.acquisition.GACHA`)는 `parts`(gacha:true · season) · 서버 `deskProps` 는 `items` · 서버 `desks` 는 `desks`. 파일은 해시만 오므로 `glbUrl` · `thumbUrl` 을 `GET /v2/catalog/assets/{해시}.{glb|png}` 주소로 채운다. 진열 `access.kind === 'entitlement'` 는 옛 `licenseOnly`.
-- **만드는 법**: ES 모듈 — `firebase-init.js` 가 `createCatalogApi({ api: TwApi.client, rt: TwRtHub.store, notifyError })` 로 만들어 `firebaseAPI.subscribeCatalogParts · Items · Desks` 에 잇는다(catalog-source → catalog-sync 는 그대로).
-- **내보내는 것**: `subscribe(kind, onData)` → 해제 함수(kind: `parts` · `items` · `desks`) · `load()` · `unfoldCatalog(data, assetUrl)`. 넘기는 값은 늘 새 객체(받는 쪽이 `glb` 를 채운다) · 지난번과 같은 종류는 다시 안 넘긴다.
+- **책임**: 파츠 · 책상 · 아이템을 서버 한 벌 `GET /v2/catalog`(ETag · `no-cache`)에서 받아 앱이 아는 목록(`parts` · `items` · `desks` — id → 레코드 맵 · `categories` · `unlocks`)으로 **한 번 펼친다**. 이 모양 바꾸기는 이 모듈 한 곳(`unfoldCatalog`)이다 — 서버 `parts` + 가챠(`listing.acquisition.GACHA`)는 `parts`(gacha:true · season) · 서버 `deskProps` 는 `items` · 서버 `desks` 는 `desks`. 파일은 해시만 오므로 `glbUrl` · `thumbUrl` 을 `GET /v2/catalog/assets/{해시}.{glb|png}` 주소로 채운다. 진열 `access.kind === 'entitlement'` 는 옛 `licenseOnly`. 서버 카테고리 표는 운영이 더한 것(`customCats`) · 처음 값에서 바뀐 기본 카테고리의 이름 · 아이콘(`catOverrides`)으로, 해금 표는 `{ 종류: { 열쇠: { level · label } } }` 로 푼다(동물 해금 레벨 = `ANIMAL_CHARACTER` · `animal`). 레코드마다 `version` · `modelHash` · `thumbHash` · `listingAccess` 를 싣는다(관리자가 고쳐 쓸 때 되돌려 보낸다).
+- **만드는 법**: ES 모듈 — `firebase-init.js` 가 `createCatalogApi({ api: TwApi.client, rt: TwRtHub.store, notifyError })` 로 만들어 `firebaseAPI.subscribeCatalogParts · Items · Desks · Categories · Unlocks` 에 잇는다(catalog-source → catalog-sync 는 그대로).
+- **내보내는 것**: `subscribe(kind, onData)` → 해제 함수(kind: `parts` · `items` · `desks` · `categories` · `unlocks`) · `load()` · `current()`(마지막으로 받은 서버 한 벌 — 관리자 쓰기가 `version` 을 읽는다) · `unfoldCatalog(data, assetUrl)`. 넘기는 값은 늘 새 객체(받는 쪽이 `glb` 를 채운다) · 지난번과 같은 종류는 다시 안 넘긴다.
 - **버전 알림**: Firebase `catalogMeta` 는 걷었다(설계 `contexts/catalog.md` §2 · `d13-e-finish` §9). 바뀜 알림 = realtime `catalog`(`rt.on`), 다시 묻기 = ETag(304 면 같은 객체라 넘기지 않음). IndexedDB 24시간 캐시도 같이 걷었다.
-- **함정**: 못 받으면 Firebase 로 물러나지 않는다 — `E-CHAR-26` 으로 알리고 지난 목록은 그대로 둔다. 타이머로 다시 두드리지 않고, 알림 · 연결 복구(`ready`) 때 다시 받는다. 카테고리(`customCats` · `catOverrides`)는 아직 Firebase 구독이다(이 모듈 밖).
+- **함정**: 못 받으면 Firebase 로 물러나지 않는다 — `E-CHAR-26` 으로 알리고 지난 목록은 그대로 둔다. 타이머로 다시 두드리지 않고, 알림 · 연결 복구(`ready`) 때 다시 받는다. 카테고리 · 해금 레벨도 같은 한 벌에서 받는다(옛 `customCats` · `catOverrides` · `gameConfig` Firebase 구독은 걷었다) — 추가 요청 없음.
 - E-2 몫: `catalog-source.js` 의 provider 자리(Firebase 판 이름표)는 E-2 에서 정리한다.
 - 검사: `checks/sim-catalog-api.js`(펼치기 표 · 받기 · 알림 · 실패 · 깨 보기). 길이 서버에 있는지는 `checks/sim-api-routes.js`.
 
 ## catalog-source.js — 🔌 카탈로그 데이터 provider(서버 이관)
 
-- **책임**: 카탈로그 도메인(`catalog-sync` · `catalog-glb` · `admin/admin-thumbs`)이 서버에 닿는 일을 도메인 이름으로 내놓는다 — 도메인은 `firebaseAPI` 를 직접 부르지 않는다. 지금은 Firebase 판(옛 길) 하나.
-- **만드는 법**: app.js 에서 세 모듈보다 먼저 한 줄 — `const catalogSourceMod = TwCatalogSource.createCatalogSource({});` → 세 모듈에 `catalogSourceMod` 로 넘긴다. deps 0.
+- **책임**: 카탈로그 도메인(`catalog-sync` · `catalog-glb`)이 서버에 닿는 일을 도메인 이름으로 내놓는다 — 도메인은 `firebaseAPI` 를 직접 부르지 않는다. 지금은 Firebase 판(옛 길) 하나.
+- **만드는 법**: app.js 에서 두 모듈보다 먼저 한 줄 — `const catalogSourceMod = TwCatalogSource.createCatalogSource({});` → 두 모듈에 `catalogSourceMod` 로 넘긴다. deps 0.
 - **내보내는 것**
   - `catalogSrcReady(fn)` — 연결이 있으면 바로, 없으면 `firebase-ready` 를 한 번만 기다려 부른다.
-  - `catalogSrcCan(op)` → bool — op: `items` · `desks` · `parts` · `customCats` · `catOverrides` · `migrateGacha` · `fetchGlb` · `publishPart`.
-  - `catalogSrcSubscribe(kind, cb)` · `catalogSrcMigrateGacha()` · `catalogSrcFetchGlb(url)` · `catalogSrcPublishPart(id, data)` — 인자 · 돌려받는 값(약속)을 그대로 넘긴다. 입구에서 스스로 `catalogSrcCan` 을 본다 — 연결 · 함수가 없거나 모르는 종류 · 빈 인자(콜백 · url · id · data)면 요청 없이 `null`(던지지 않음).
+  - `catalogSrcCan(op)` → bool — op: `items` · `desks` · `parts` · `categories` · `unlocks`(구독) · `fetchGlb` — 읽기만(관리자 쓰기는 `admin/catalog-admin-api.js`).
+  - `catalogSrcSubscribe(kind, cb)` · `catalogSrcFetchGlb(url)` — 인자 · 돌려받는 값(약속)을 그대로 넘긴다. 입구에서 스스로 `catalogSrcCan` 을 본다 — 연결 · 함수가 없거나 모르는 종류 · 빈 인자(콜백 · url · id · data)면 요청 없이 `null`(던지지 않음).
   ```js
   if(!catalogSourceMod.catalogSrcCan('parts')) return;
   catalogSourceMod.catalogSrcSubscribe('parts', async obj => { … });
@@ -71,7 +71,7 @@
 - **함정**
   - `firebaseAPI` 는 부를 때마다 읽는다 — 만들 때 붙잡아 두면 부팅 뒤에 생긴 연결을 못 쓴다.
   - 부르는 쪽이 `catalogSrcCan` 을 먼저 묻는 자리는 옛 «함수가 없으면 조용히 건너뜀» 동작이다. 같은 가드가 provider 입구에도 있어서 빠뜨려도 던지거나 빈 요청을 보내지 않는다 — 새 provider 판도 같은 입구 가드를 둔다.
-  - 검사: `checks/sim-catalog-source.js`(모양 · 연결 · 세 모듈 직접 호출 0 · 기다리기 · 넘기기 · 입구 가드 · 늦게 생긴 연결).
+  - 검사: `checks/sim-catalog-source.js`(모양 · 연결 · 두 모듈 직접 호출 0 · 기다리기 · 넘기기 · 입구 가드 · 늦게 생긴 연결).
 
 ## catalog-glb.js — 🔗 카탈로그 GLB 해결(glbUrl → rec.glb)
 
