@@ -172,7 +172,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 ## `net-ready.js` — 🛰 네트워크(provider) 준비됨 기다리기
 
-**책임** — «연결이 있으면 바로, 없으면 준비 신호를 한 번 기다림» 한 곳. 14곳(app.js 넷 · room-entry 둘 · ad-banner · my-info · scheduler · overhead · room-invite-ui · room-sync · bug-board-ui · catalog-source)에 따로 있던 판단을 묶었다. 지금 «준비됨» 은 `firebase-init.js` 가 `window.firebaseAPI` 를 다 만들고 쏘는 `firebase-ready` 이벤트.
+**책임** — «연결이 있으면 바로, 없으면 준비 신호를 한 번 기다림» 한 곳. 14곳(app.js 넷 · room-entry 둘 · ad-banner · my-info · scheduler · overhead · room-invite-ui · room-sync · bug-board-ui)에 따로 있던 판단을 묶었다. 지금 «준비됨» 은 `firebase-init.js` 가 `window.firebaseAPI` 를 다 만들고 쏘는 `firebase-ready` 이벤트.
 
 **만드는 법** — 만들 필요 없음(deps 0). 쓰는 모듈 · app.js 보다 먼저 싣는 classic script(`window.TwNetReady`)이고, 쓰는 곳은 `TwNetReady.이름` 으로 바로 부른다.
 

@@ -2087,7 +2087,7 @@ const adminApi = TwAdminApi.createAdminApi({ authed: TwApi.authed, pending: TwRe
 /* 🛠️ 카탈로그 관리자 쓰기(파츠 · 책상 · 소품 · 진열 순서 · 카테고리 · 게임 설정) — 고칠 판(version)은 마지막으로 받은 서버 한 벌에서 읽고, 쓴 뒤 한 번 다시 받는다 */
 const catalogAdmin = TwCatalogAdminApi.createCatalogAdminApi({
   authed: TwApi.authed, imageBytes: TwImageBytes,
-  catalog: { current: ()=>window.firebaseAPI.catalogCurrent(), load: ()=>window.firebaseAPI.reloadCatalog() },
+  catalog: { current: ()=>catalogApiMod.current(), load: ()=>catalogApiMod.load() },
   adminApi: adminApi, apiErrors: TwApiErrors.store, notifyError: (...a)=>TwErrorCodes.notify(...a), toast: (...a)=>toast(...a),
 });
 const noticeFeed = TwNoticeFeed.createNoticeFeed({
@@ -6867,8 +6867,12 @@ const partSceneMod = TwPartScene.createPartScene({
   resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),
   runLightAt1: (...a)=>lightToneMod.runLightAt1(...a),
 });
-/* 카탈로그 서버 호출은 provider 하나로 — 서버 API 판이 생기면 이 줄만 바꾼다(지금은 Firebase 판 = 옛 길). */
-const catalogSourceMod = TwCatalogSource.createCatalogSource({
+/* 카탈로그 서버 한 벌(GET /v2/catalog — 로그인 뒤 · 서버가 정한 locked 를 그대로 · 못 받으면 E-CHAR-26) — catalog-sync · catalog-glb · 관리자 쓰기가 같이 쓴다 */
+const catalogApiMod = TwCatalogApi.createCatalogApi({
+  api: TwApi.authed,
+  rt: TwRtHub.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  fetch: (...a)=>window.fetch(...a),
 });
 
 /* 본문은 admin/admin-thumbs.js 로 옮겼다(구역 떼기 C · w2). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
@@ -6892,7 +6896,7 @@ const glbIdbMod = TwGlbIdbCache.createGlbIdbCache({
 /* 본문은 character/catalog-glb.js 로 옮겼다(구역 떼기 C · w2).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const catalogGlbMod = TwCatalogGlb.createCatalogGlb({
-  catalogSourceMod: catalogSourceMod,
+  catalogApiMod: catalogApiMod,
   glbIdbMod: glbIdbMod,
 });
 
@@ -6917,8 +6921,8 @@ const catalogSyncMod = TwCatalogSync.createCatalogSync({
   cDeskGlbB64: ()=>crState.cDeskGlbB64,
   cDeskScale: ()=>crState.cDeskScale,
   cDeskTemplate: ()=>crState.cDeskTemplate,
+  catalogApiMod: catalogApiMod,
   catalogGlbMod: catalogGlbMod,
-  catalogSourceMod: catalogSourceMod,
   clearHolderDeskItems: (...a)=>creatorPrevMod.clearHolderDeskItems(...a),
   commissionMod: commissionMod,
   creatorOpen: ()=>creatorOpen,
@@ -8360,6 +8364,7 @@ const appBoot = TwAppBoot.createAppBoot({
   goOnline: ()=>loginFlowMod.goOnline(),
   starts: {
     userLocal: (code, me, session)=>userLocalMod.start(session),
+    catalog: (code, me, session)=>catalogSyncMod.start(session),   // 🧩 카탈로그 서버 한 벌 받기 — 로그인 뒤(서버가 이 사람의 locked 를 정한다) · 세션이 끝나면 풀고 비운다
     focusTotal: (code, me, session)=>{ session.onReset(()=>focusTotalMod.setFocusTodaySec(0)); focusTotalMod.startFocusTotal(); },   // 오늘치 메모리는 세션이 끝나면 0 으로
     focusShare: ()=>focusShareMod.startFocusShare(),
     focusLevel: (code, me, session)=>{ focusProgressMod.startFocus(code, me, session); focusLevelMod.startMobile(code, me, session); },

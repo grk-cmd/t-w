@@ -329,7 +329,8 @@ function openDeskRegister(kind, editId){
   const glowChk=document.getElementById('deskRegGlow');
   if(glowChk) glowChk.checked = !!(rec && rec.glow);
   const licenseChk=document.getElementById('deskRegLicense');
-  if(licenseChk) licenseChk.checked = !!(rec && rec.licenseOnly);
+  /* 칸의 뜻은 «진열에 적힌 이 물건의 이용 권한» 이다 — 관리자는 모두 쓸 수 있어 서버 locked 가 늘 거짓이라 licenseOnly 로는 못 읽는다. 쓸 때 서버 값(listingAccess)을 되돌려 보낸다. */
+  if(licenseChk) licenseChk.checked = !!(rec && rec.listingAccess && rec.listingAccess.kind === 'entitlement');
   document.getElementById('deskRegGo').textContent = rec ? '수정 완료' : '등록';
   document.getElementById('deskRegOverlay').classList.add('on');
   window.focus();

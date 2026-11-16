@@ -6,14 +6,16 @@
  *   응답에 ETag 와 no-cache 가 있다 — 앱은 «카탈로그 바뀜» 알림(realtime notify catalog)을 받으면 다시 묻고, 안 바뀌었으면 304 다.
  *
  * [구조]
- *   api   — TwApi.client(로그인 없는 읽기). If-None-Match · 304 · 같은 길 합치기는 api-client.js 가 한다(여기서 다시 만들지 않는다).
+ *   api   — TwApi.authed(로그인 읽기). If-None-Match · 304 · 같은 길 합치기는 api-client.js 가 한다(여기서 다시 만들지 않는다).
+ *     로그인 뒤에만 받는다 — 서버가 보는 사람마다 «못 고르는 것(locked)» 을 정해 주기 때문이다(판정은 서버 · 앱은 그 값을 그대로 쓴다).
  *   unfoldCatalog(data, assetUrl) — 서버 한 벌 → 앱이 아는 목록({ parts · items · desks } — id → 레코드 맵 · categories · unlocks). **이 모양 바꾸기는 이 모듈 한 곳이다.**
  *     categories = { customCats: [운영이 더한 카테고리] · catOverrides: { 기본 코드: { label · icon } — 처음 값에서 바뀐 것만 } }(옛 catalog/customCats · catOverrides 와 같은 뜻) ·
  *     unlocks = { 종류: { 열쇠: { level · label } } }(옛 catalog/gameConfig 의 동물 해금 레벨은 ANIMAL_CHARACTER · animal).
  *     레코드마다 version · modelHash · thumbHash · listingAccess 를 싣는다 — 관리자가 고쳐 쓸 때 되돌려 보낸다.
+ *     책상 · 소품의 licenseOnly = 서버가 이 사람에게 정한 locked 값 그대로(access.kind 로 앱이 다시 판정하지 않는다).
  *     parts = 옛 catalog/parts + catalog/gachaParts 를 합친 것(가챠는 gacha:true · season) · items = 서버 deskProps · desks = 서버 desks.
  *     파일은 해시만 온다 → glbUrl · thumbUrl 은 GET /v2/catalog/assets/{해시}.{glb|png} 주소로 채운다(이름이 내용 해시라 1년 캐시 · 어느 출처든 읽는다).
- *   createCatalogApi(deps).subscribe(kind, onData) — kind: parts · items · desks · categories · unlocks. 처음 구독이 받기를 시작하고, 알림 · 연결 복구 때 다시 받는다.
+ *   createCatalogApi(deps).subscribe(kind, onData) — kind: parts · items · desks · categories · unlocks. 처음 구독이 받기를 시작하고, 알림(catalog · 내 라이선스가 바뀌면 license) · 연결 복구 때 다시 받는다. 돌려주는 해제 함수로 마지막 구독자가 빠지면 이번 로그인의 값을 모두 비운다(다음 로그인이 앞 사람의 locked 를 받지 않게).
  *     받은 값이 지난번과 같은 종류는 다시 넘기지 않는다. 넘기는 값은 늘 새 객체다(받는 쪽이 glb 를 채워 넣는다).
  *
  * [버전 알림 — Firebase catalogMeta 는 걷었다] 설계(contexts/catalog.md §2 «catalogMeta 버전 칸 · IndexedDB 24시간 · API 사본 → 응답 지문 ETag» ·
@@ -24,21 +26,21 @@
  * [못 받으면] Firebase 로 물러나지 않는다(우회 금지). 던진 오류를 오류 번호 E-CHAR-26 으로 드러내고, 목록은 지난번 것을 그대로 둔다(비우지 않는다).
  *   다시 받기는 알림이 올 때 · 오래 끊겼다 붙을 때(resync) · realtime 연결이 ready 가 될 때(받기에 실패한 적이 있으면)다. 타이머로 다시 두드리지 않는다.
  *
- * deps: api(TwApi.client — get(path, opts) · baseUrl()) · rt(TwRtHub.store — on(kind, fn) · onState(fn)) · notifyError — 오류 번호로 알리는 함수(TwErrorCodes.notify) · warn
- * Firebase 를 직접 import 하지 않는다 — 연결은 firebase-init.js 가 한다.
+ * [GLB 받기] fetchGlb(url) — 카탈로그가 알려 준 파일 주소를 받아 base64 로 돌려준다(웹 캐시를 거치지 않는다 — 깨진 응답이 캐시에 남지 않게 · E-CHAR-14). 받은 것을 남기는 일은 부르는 쪽(catalog-glb.js).
+ *
+ * deps: api(TwApi.authed — get(path, opts) · baseUrl()) · rt(TwRtHub.store — on(kind, fn) · onState(fn)) · notifyError — 오류 번호로 알리는 함수(TwErrorCodes.notify) · fetch(파일 받기) · warn
+ * classic script(window.TwCatalogApi) — app.js 가 만들어 catalog-sync · catalog-glb · 관리자 쓰기에 넘긴다. Firebase 를 거치지 않는다.
  */
+(function(){
 
-export const CATALOG_PATH = '/v2/catalog';
-export const CATALOG_ASSET_PATH = '/v2/catalog/assets/';
-export const CATALOG_TIMEOUT_MS = 8000;   // 본문이 수백 KB 라 API 공통 시간 제한(2.5초)보다 길게
-export const CATALOG_KINDS = Object.freeze(['parts', 'items', 'desks', 'categories', 'unlocks']);
+const CATALOG_PATH = '/v2/catalog';
+const CATALOG_ASSET_PATH = '/v2/catalog/assets/';
+const CATALOG_TIMEOUT_MS = 8000;   // 본문이 수백 KB 라 API 공통 시간 제한(2.5초)보다 길게
+const CATALOG_KINDS = Object.freeze(['parts', 'items', 'desks', 'categories', 'unlocks']);
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const str = (v) => (typeof v === 'string' ? v : '');
 const HASH_RE = /^[0-9a-f]{64}$/;
-
-/* 진열 — 이 라이선스(프리미엄) 전용인가. 옛 licenseOnly 깃발과 같은 뜻 */
-const licenseOnlyOf = (listing) => !!(isObj(listing) && isObj(listing.access) && listing.access.kind === 'entitlement');
 
 /* 해시 → 파일 주소. 해시 모양이 아니면 null(없는 파일로 본다 — 틀린 주소를 만들지 않는다) */
 function urlOf(assetUrl, hash, ext){
@@ -80,7 +82,7 @@ function partRec(p, order, assetUrl){
 function propRec(d, order, assetUrl){
   const play = isObj(d.play) ? d.play : {};
   const rec = { name: str(d.name), icon: str(d.icon), playMode: str(play.playMode) || 'click', autoPlay: play.autoPlay === true, glow: play.glow === true,
-    licenseOnly: licenseOnlyOf(d.listing), order };
+    licenseOnly: d.locked === true, order };
   adminCols(rec, d);
   put(rec, 'glbUrl', urlOf(assetUrl, d.model, 'glb'));
   put(rec, 'thumbUrl', urlOf(assetUrl, d.thumb, 'png'));
@@ -110,7 +112,7 @@ function foldUnlocks(list){
   return out;
 }
 
-export function unfoldCatalog(data, assetUrl){
+function unfoldCatalog(data, assetUrl){
   if(!isObj(data) || !Array.isArray(data.parts) || !Array.isArray(data.desks) || !Array.isArray(data.deskProps)
     || !Array.isArray(data.categories) || !Array.isArray(data.unlocks)){
     throw Object.assign(new Error('카탈로그 모양이 달라요'), { code: 'SHAPE' });
@@ -128,8 +130,9 @@ export function unfoldCatalog(data, assetUrl){
   return { parts, items, desks, categories: foldCategories(data.categories), unlocks: foldUnlocks(data.unlocks) };
 }
 
-export function createCatalogApi(deps){
+function createCatalogApi(deps){
   const { api, rt, notifyError } = deps;
+  const fetchFile = deps.fetch;
   const warn = deps.warn || ((...a) => console.warn(...a));
   const subs = {}, last = {};
   for(const k of CATALOG_KINDS){ subs[k] = new Set(); last[k] = null; }   // 마지막으로 넘긴 종류별 글(JSON) — 같으면 다시 안 넘긴다
@@ -138,10 +141,12 @@ export function createCatalogApi(deps){
   let running = null;      // 받는 중
   let again = false;       // 받는 중에 알림이 또 왔다 — 끝나면 한 번 더
   let failed = false;      // 마지막 받기가 실패했다 — realtime 이 붙으면 다시
-  let started = false;
+  let gen = 0;             // 로그인 한 번마다 하나 — 끝난 로그인의 늦은 답을 버린다
+  const offs = [];         // 알림 · 연결 구독 해제(구독자가 있는 동안만 건다)
 
   const assetUrl = (hash, ext) => (api.baseUrl() || '') + CATALOG_ASSET_PATH + hash + '.' + ext;
   const clone = (o) => JSON.parse(JSON.stringify(o));
+  const count = () => CATALOG_KINDS.reduce((n, k) => n + subs[k].size, 0);
 
   function push(kind, onData){
     try{ onData(clone(cur[kind])); }catch(e){ warn('[catalog] 구독 콜백 오류', kind, e); }
@@ -155,8 +160,9 @@ export function createCatalogApi(deps){
     }
   }
 
-  async function once(){
-    const data = await api.get(CATALOG_PATH, { timeoutMs: CATALOG_TIMEOUT_MS });   // 304 면 기억한 같은 객체
+  async function once(g){
+    const data = await api.get(CATALOG_PATH, { auth: true, timeoutMs: CATALOG_TIMEOUT_MS });   // 304 면 기억한 같은 객체
+    if(g !== gen) return;   // 그 사이 로그인이 끝났다
     if(data === raw && cur) return;   // 바뀐 것 없음
     const next = unfoldCatalog(data, assetUrl);
     raw = data; cur = next;
@@ -165,32 +171,59 @@ export function createCatalogApi(deps){
   /* 받기 — 겹치면 하나로 합치고, 받는 중에 또 요청이 오면 끝난 뒤 한 번 더. 실패는 번호로 드러내고 지난 목록은 그대로 둔다 */
   function load(){
     if(running){ again = true; return running; }
-    running = (async () => {
-      try{ await once(); failed = false; }
-      catch(e){ failed = true; notifyError('E-CHAR-26', e); warn('[catalog] 받기 실패', (e && (e.code || e.message)) || e); }
-      finally{ running = null; }
-      if(again){ again = false; return load(); }
+    const g = gen;
+    const p = (async () => {
+      try{ await once(g); if(g === gen) failed = false; }
+      catch(e){ if(g === gen){ failed = true; notifyError('E-CHAR-26', e); warn('[catalog] 받기 실패', (e && (e.code || e.message)) || e); } }
+      finally{ if(g === gen) running = null; }
+      if(g === gen && again){ again = false; return load(); }
     })();
-    return running;
+    if(g === gen) running = p;
+    return p;
   }
   function start(){
-    if(started) return;
-    started = true;
-    rt.on('catalog', () => { load(); });   // 바뀜 · 오래 끊겼다 붙음(resync) 모두 같은 일 — 다시 받기(ETag)
-    rt.onState((s) => { if(s === 'ready' && failed) load(); });
+    if(offs.length) return;
+    offs.push(
+      rt.on('catalog', () => { load(); }),   // 바뀜 · 오래 끊겼다 붙음(resync) 모두 같은 일 — 다시 받기(ETag)
+      rt.on('license', () => { load(); }),   // 내 라이선스가 바뀌면 서버가 정하는 locked 도 바뀐다
+      rt.onState((s) => { if(s === 'ready' && failed) load(); }),
+    );
+  }
+  /* 마지막 구독자가 빠졌다 = 로그인이 끝났다 — 받은 값 · 받는 중인 요청 · 알림 구독을 모두 비운다 */
+  function drop(){
+    gen++;
+    offs.splice(0).forEach((off) => off());
+    cur = null; raw = null; running = null; again = false; failed = false;
+    for(const k of CATALOG_KINDS) last[k] = null;
   }
 
   function subscribe(kind, onData){
-    if(!CATALOG_KINDS.includes(kind)) return () => {};
+    if(!CATALOG_KINDS.includes(kind)) throw new Error('[catalog] 모르는 종류 — ' + kind);
     subs[kind].add(onData);
     start();
     if(cur) push(kind, onData);
     else if(!running) load();   // 받는 중이면 끝날 때 이 구독자에게도 간다
-    return () => { subs[kind].delete(onData); };
+    return () => { if(subs[kind].delete(onData) && count() === 0) drop(); };
+  }
+
+  async function fetchGlb(url){
+    if(!url) throw new Error('empty url');
+    const res = await fetchFile(url, { cache: 'no-store' });
+    if(!res.ok) throw new Error('storage fetch failed ' + res.status);
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    // 한 번에 큰 배열로 fromCharCode 하면 stack overflow — 청크로 처리
+    let bin = ''; const CHUNK = 0x8000;
+    for(let i = 0; i < bytes.length; i += CHUNK) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+    return btoa(bin);
   }
 
   /* 마지막으로 받은 서버 한 벌 그대로(아직 못 받았으면 null) — 관리자 쓰기가 고칠 물건 · 카테고리 · 진열대 · 해금의 version 을 여기서 읽는다(admin/catalog-admin-api.js) */
   const current = () => raw;
 
-  return { subscribe, load, current };
+  return { subscribe, load, current, fetchGlb };
 }
+
+const mod = { CATALOG_PATH, CATALOG_ASSET_PATH, CATALOG_TIMEOUT_MS, CATALOG_KINDS, unfoldCatalog, createCatalogApi };
+if(typeof window !== 'undefined') window.TwCatalogApi = mod;
+if(typeof module !== 'undefined' && module.exports) module.exports = mod;
+})();

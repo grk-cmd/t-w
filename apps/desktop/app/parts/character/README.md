@@ -47,44 +47,27 @@
 
 ## catalog-api.js — 🧩 카탈로그 서버 한 벌 받기(`GET /v2/catalog`)
 
-- **책임**: 파츠 · 책상 · 아이템을 서버 한 벌 `GET /v2/catalog`(ETag · `no-cache`)에서 받아 앱이 아는 목록(`parts` · `items` · `desks` — id → 레코드 맵 · `categories` · `unlocks`)으로 **한 번 펼친다**. 이 모양 바꾸기는 이 모듈 한 곳(`unfoldCatalog`)이다 — 서버 `parts` + 가챠(`listing.acquisition.GACHA`)는 `parts`(gacha:true · season) · 서버 `deskProps` 는 `items` · 서버 `desks` 는 `desks`. 파일은 해시만 오므로 `glbUrl` · `thumbUrl` 을 `GET /v2/catalog/assets/{해시}.{glb|png}` 주소로 채운다. 진열 `access.kind === 'entitlement'` 는 옛 `licenseOnly`. 서버 카테고리 표는 운영이 더한 것(`customCats`) · 처음 값에서 바뀐 기본 카테고리의 이름 · 아이콘(`catOverrides`)으로, 해금 표는 `{ 종류: { 열쇠: { level · label } } }` 로 푼다(동물 해금 레벨 = `ANIMAL_CHARACTER` · `animal`). 레코드마다 `version` · `modelHash` · `thumbHash` · `listingAccess` 를 싣는다(관리자가 고쳐 쓸 때 되돌려 보낸다).
-- **만드는 법**: ES 모듈 — `firebase-init.js` 가 `createCatalogApi({ api: TwApi.client, rt: TwRtHub.store, notifyError })` 로 만들어 `firebaseAPI.subscribeCatalogParts · Items · Desks · Categories · Unlocks` 에 잇는다(catalog-source → catalog-sync 는 그대로).
-- **내보내는 것**: `subscribe(kind, onData)` → 해제 함수(kind: `parts` · `items` · `desks` · `categories` · `unlocks`) · `load()` · `current()`(마지막으로 받은 서버 한 벌 — 관리자 쓰기가 `version` 을 읽는다) · `unfoldCatalog(data, assetUrl)`. 넘기는 값은 늘 새 객체(받는 쪽이 `glb` 를 채운다) · 지난번과 같은 종류는 다시 안 넘긴다.
-- **버전 알림**: Firebase `catalogMeta` 는 걷었다(설계 `contexts/catalog.md` §2 · `d13-e-finish` §9). 바뀜 알림 = realtime `catalog`(`rt.on`), 다시 묻기 = ETag(304 면 같은 객체라 넘기지 않음). IndexedDB 24시간 캐시도 같이 걷었다.
-- **함정**: 못 받으면 Firebase 로 물러나지 않는다 — `E-CHAR-26` 으로 알리고 지난 목록은 그대로 둔다. 타이머로 다시 두드리지 않고, 알림 · 연결 복구(`ready`) 때 다시 받는다. 카테고리 · 해금 레벨도 같은 한 벌에서 받는다(옛 `customCats` · `catOverrides` · `gameConfig` Firebase 구독은 걷었다) — 추가 요청 없음.
-- E-2 몫: `catalog-source.js` 의 provider 자리(Firebase 판 이름표)는 E-2 에서 정리한다.
-- 검사: `checks/sim-catalog-api.js`(펼치기 표 · 받기 · 알림 · 실패 · 깨 보기). 길이 서버에 있는지는 `checks/sim-api-routes.js`.
-
-## catalog-source.js — 🔌 카탈로그 데이터 provider(서버 이관)
-
-- **책임**: 카탈로그 도메인(`catalog-sync` · `catalog-glb`)이 서버에 닿는 일을 도메인 이름으로 내놓는다 — 도메인은 `firebaseAPI` 를 직접 부르지 않는다. 지금은 Firebase 판(옛 길) 하나.
-- **만드는 법**: app.js 에서 두 모듈보다 먼저 한 줄 — `const catalogSourceMod = TwCatalogSource.createCatalogSource({});` → 두 모듈에 `catalogSourceMod` 로 넘긴다. deps 0.
-- **내보내는 것**
-  - `catalogSrcReady(fn)` — 연결이 있으면 바로, 없으면 `firebase-ready` 를 한 번만 기다려 부른다.
-  - `catalogSrcCan(op)` → bool — op: `items` · `desks` · `parts` · `categories` · `unlocks`(구독) · `fetchGlb` — 읽기만(관리자 쓰기는 `admin/catalog-admin-api.js`).
-  - `catalogSrcSubscribe(kind, cb)` · `catalogSrcFetchGlb(url)` — 인자 · 돌려받는 값(약속)을 그대로 넘긴다. 입구에서 스스로 `catalogSrcCan` 을 본다 — 연결 · 함수가 없거나 모르는 종류 · 빈 인자(콜백 · url · id · data)면 요청 없이 `null`(던지지 않음).
-  ```js
-  if(!catalogSourceMod.catalogSrcCan('parts')) return;
-  catalogSourceMod.catalogSrcSubscribe('parts', async obj => { … });
-  ```
-- **확장할 때 고칠 자리**: 서버 API 판은 같은 이름 여섯을 내놓는 provider 를 하나 더 만들고 app.js 의 고르는 줄만 바꾼다(room-server-gate.js 처럼). 새 서버 일은 `CATALOG_SRC_FB_OPS` 에 이름 하나 + 함수 하나.
-- **함정**
-  - `firebaseAPI` 는 부를 때마다 읽는다 — 만들 때 붙잡아 두면 부팅 뒤에 생긴 연결을 못 쓴다.
-  - 부르는 쪽이 `catalogSrcCan` 을 먼저 묻는 자리는 옛 «함수가 없으면 조용히 건너뜀» 동작이다. 같은 가드가 provider 입구에도 있어서 빠뜨려도 던지거나 빈 요청을 보내지 않는다 — 새 provider 판도 같은 입구 가드를 둔다.
-  - 검사: `checks/sim-catalog-source.js`(모양 · 연결 · 두 모듈 직접 호출 0 · 기다리기 · 넘기기 · 입구 가드 · 늦게 생긴 연결).
+- **책임**: 파츠 · 책상 · 아이템을 서버 한 벌 `GET /v2/catalog`(ETag · `no-cache`)에서 받아 앱이 아는 목록(`parts` · `items` · `desks` — id → 레코드 맵 · `categories` · `unlocks`)으로 **한 번 펼친다**. 이 모양 바꾸기는 이 모듈 한 곳(`unfoldCatalog`)이다 — 서버 `parts` + 가챠(`listing.acquisition.GACHA`)는 `parts`(gacha:true · season) · 서버 `deskProps` 는 `items` · 서버 `desks` 는 `desks`. 파일은 해시만 오므로 `glbUrl` · `thumbUrl` 을 `GET /v2/catalog/assets/{해시}.{glb|png}` 주소로 채운다. 서버 카테고리 표는 운영이 더한 것(`customCats`) · 처음 값에서 바뀐 기본 카테고리의 이름 · 아이콘(`catOverrides`)으로, 해금 표는 `{ 종류: { 열쇠: { level · label } } }` 로 푼다(동물 해금 레벨 = `ANIMAL_CHARACTER` · `animal`). 레코드마다 `version` · `modelHash` · `thumbHash` · `listingAccess` 를 싣는다(관리자가 고쳐 쓸 때 되돌려 보낸다).
+- **로그인 뒤에만, 서버 `locked` 그대로**: 로그인 통로(`TwApi.authed`)로 받는다 — 서버가 보는 사람마다 «못 고르는 것» 을 `locked` 로 정해 준다. 책상 · 소품의 `licenseOnly` 는 그 `locked` 값 그대로다(앱이 `access.kind` 로 다시 판정하지 않는다 — 판정은 서버). 파츠에는 아직 `locked` 를 싣지 않는다.
+- **만드는 법**: classic script(`window.TwCatalogApi`) — app.js 가 `const catalogApiMod = TwCatalogApi.createCatalogApi({ api: TwApi.authed, rt: TwRtHub.store, notifyError, fetch })` 로 한 번 만들어 `catalog-sync` · `catalog-glb` · 관리자 쓰기(`catalogAdmin`)에 `catalogApiMod` 로 넘긴다. Firebase 를 거치지 않는다.
+- **내보내는 것**: `subscribe(kind, onData)` → 해제 함수(kind: `parts` · `items` · `desks` · `categories` · `unlocks` — 모르는 종류는 던진다) · `load()` · `current()`(마지막으로 받은 서버 한 벌 — 관리자 쓰기가 `version` 을 읽는다) · `fetchGlb(url)`(파일 → base64 · 웹 캐시를 거치지 않는다) · `unfoldCatalog(data, assetUrl)`. 넘기는 값은 늘 새 객체(받는 쪽이 `glb` 를 채운다) · 지난번과 같은 종류는 다시 안 넘긴다.
+- **세션 한 번이 값을 쥔다**: 첫 구독이 받기를 시작하고, 마지막 구독자가 빠지면(로그인이 끝남) 받은 값 · 알림 구독 · 받는 중인 요청을 모두 비운다 — 다음 로그인이 앞 사람의 `locked` 를 받지 않고, 늦게 온 앞 로그인의 답은 버린다.
+- **버전 알림**: Firebase `catalogMeta` 는 걷었다(설계 `contexts/catalog.md` §2 · `d13-e-finish` §9). 바뀜 알림 = realtime `catalog` · 내 라이선스가 바뀌면 `license`(서버가 정하는 `locked` 가 바뀐다) — 다시 묻기 = ETag(304 면 같은 객체라 넘기지 않음). IndexedDB 24시간 캐시도 같이 걷었다.
+- **함정**: 못 받으면 Firebase 로 물러나지 않는다 — `E-CHAR-26` 으로 알리고 지난 목록은 그대로 둔다. 타이머로 다시 두드리지 않고, 알림 · 연결 복구(`ready`) 때 다시 받는다. 카테고리 · 해금 레벨도 같은 한 벌에서 받는다 — 추가 요청 없음.
+- 검사: `checks/sim-catalog-api.js`(펼치기 표 · 받기 · 알림 · 실패 · 비우기 · 깨 보기). 길이 서버에 있는지는 `checks/sim-api-routes.js`.
 
 ## catalog-glb.js — 🔗 카탈로그 GLB 해결(glbUrl → rec.glb)
 
-- **책임**: 카탈로그 인덱스엔 `glbUrl` 만 오는데 앱 곳곳은 `rec.glb`(base64)를 본다 — 쓰는 때에 채운다. 차례: 세션 메모리 → 영구 캐시(`shared/glb-idb-cache.js`) → 서버(`catalogSourceMod.catalogSrcFetchGlb` — provider).
-- **만드는 법**: `const catalogGlbMod = TwCatalogGlb.createCatalogGlb({ catalogSourceMod, glbIdbMod });`
+- **책임**: 카탈로그 인덱스엔 `glbUrl` 만 오는데 앱 곳곳은 `rec.glb`(base64)를 본다 — 쓰는 때에 채운다. 차례: 세션 메모리 → 영구 캐시(`shared/glb-idb-cache.js`) → 서버(`catalogApiMod.fetchGlb`).
+- **만드는 법**: `const catalogGlbMod = TwCatalogGlb.createCatalogGlb({ catalogApiMod, glbIdbMod });`
 - **내보내는 것**
   - `resolveCatalogGlb(rec)` → `Promise<b64 | null>` — 성공하면 `rec.glb` 도 채운다. `rec.glb` 가 이미 있으면 그것.
   - `resolveCatalogGlbAll(catalogObj)` → 같은 객체 — 스냅샷 전부를 나란히 채우고 영구 캐시 치우기를 부른다.
-  - `glbFailWhy(url)` → 글 — 그 주소의 마지막 받기 실패 이유(`net-fail … Nms`(연결이 안 되거나 받는 도중 끊김 — 차단 · DNS · 연결) · `fail … 403 Nms`(응답 번호) · `no-src`(받을 길 없음) · 실패한 적 없으면 빈 글). 책상 카드(만들기 E-CHAR-14 · 꾸미기 책상 탭 E-CHAR-13)가 진단 기록에 싣는다 — 주소 · 토큰은 담지 않는다.
+  - `glbFailWhy(url)` → 글 — 그 주소의 마지막 받기 실패 이유(`net-fail … Nms`(연결이 안 되거나 받는 도중 끊김 — 차단 · DNS · 연결) · `fail … 403 Nms`(응답 번호) · 실패한 적 없으면 빈 글). 책상 카드(만들기 E-CHAR-14 · 꾸미기 책상 탭 E-CHAR-13)가 진단 기록에 싣는다 — 주소 · 토큰은 담지 않는다.
   ```js
-  catalogSourceMod.catalogSrcSubscribe('parts', async obj => { await catalogGlbMod.resolveCatalogGlbAll(obj); merge(obj); });
+  catalogApiMod.subscribe('parts', async obj => { await catalogGlbMod.resolveCatalogGlbAll(obj); merge(obj); });
   ```
-- **확장할 때 고칠 자리**: 받는 길이 바뀌면 provider(`catalog-source.js`) 쪽 — 이 모듈은 그대로.
+- **확장할 때 고칠 자리**: 받는 길이 바뀌면 `catalog-api.js` 의 `fetchGlb` 쪽 — 이 모듈은 그대로.
 - **함정**
   - 메모리 · 영구 캐시에서 꺼낼 때도 `rec.glb` 를 채워야 한다 — 빠뜨리면 `rec.glb` 를 보는 곳이 «GLB를 불러올 수 없어요» 로 오탐한다.
   - 실패는 기억하지 않는다(다음에 다시 받는다 — `glbFailWhy` 는 이유만 적어 둘 뿐 막지 않고, 받으면 지운다) · 영구 캐시 넣기는 기다리지 않는다.
@@ -92,16 +75,16 @@
 
 ## catalog-sync.js — 🔄 카탈로그 실시간 동기화
 
-- **책임**: 카탈로그 구독(provider `catalogSourceMod` 를 거친다 · 아이템 · 책상 · 파츠 · 커스텀 카테고리 · 기본 카테고리 이름 덮어쓰기)을 걸고, 스냅샷이 오면 저장 목록에 합친 뒤 떠 있는 좌석 · 생성기 · 런처 · 꾸미기 미리보기에 다시 반영한다.
+- **책임**: 카탈로그 구독(`catalogApiMod` — 아이템 · 책상 · 파츠 · 커스텀 카테고리 · 기본 카테고리 이름 덮어쓰기)을 걸고, 스냅샷이 오면 저장 목록에 합친 뒤 떠 있는 좌석 · 생성기 · 런처 · 꾸미기 미리보기에 다시 반영한다.
   - 합치는 규칙(셋이 같이 쓰는 순수 함수 `mergeCatalogList`): 카탈로그 항목은 `fromCatalog:true` 로 서버판이 이기고 `order` 오름차순(없으면 9999) · `fromCatalog` 인데 목록에 없으면 관리자가 지운 것 → 좌석에서 내리고 목록에서 뺀다 · 카탈로그에 온 적 없는 로컬 항목은 뒤에 남긴다.
 - **만드는 법**: app.js «🔄 카탈로그 실시간 동기화» 자리에서 `const catalogSyncMod = TwCatalogSync.createCatalogSync({ … });` — deps 40
-  - 저장 목록: `commissionMod`(아이템 · 책상) · `premiumMod`(파츠 · 카테고리) · GLB 해결 `catalogGlbMod` · 서버 `catalogSourceMod`
+  - 저장 목록: `commissionMod`(아이템 · 책상) · `premiumMod`(파츠 · 카테고리) · GLB 해결 `catalogGlbMod` · 서버 `catalogApiMod`
   - 좌석에 입히기: `seats` · `customItems`(읽는 함수) · `equipDeskItem` · `clearHolderDeskItems` · `applyDeskItemsTo` · `loadSavedItemsIntoSession` · `applyDeskCatalogRefToSeat` · `swapDeskVisual` · `equipPartOnSeat` · `unequipPartFromSeat` · `applyClothVisibility` · `fitModel` · `layoutSeats` · `rideBenchMod`
   - 생성기 상태(읽는 함수): `creatorOpen` · `cBase` · `cDesk` · `cDeskColor` · `cDeskScale` · `cDeskGlbB64` · `cDeskTemplate` · `activeCustomDeskId` + 쓰는 함수 `setCDeskGlbB64` · `setCDeskTemplate`
   - 다시 그리기: `wardrobeMod` · `gachaMod` · `adminCategory` · `renderLauncher` · `renderCrItems` · `toast` · `isAdmin`
-- **내보내는 것**: 없음 — 만들 때 구독을 건다(`catalogSourceMod.catalogSrcReady` — 연결이 아직 없으면 한 번 기다린다).
+- **내보내는 것**: `start(session)` — 로그인 뒤 app-boot 차례 `catalog`(저장 목록이 읽힌 뒤)가 한 번 부른다. 구독 다섯을 세션에 맡기고(`session.on`), 세션이 끝나면 풀린다. 만들 때는 요청 · 구독이 없다.
   - 안쪽 순수 함수 `mergeCatalogList(catalogObj, saved, norm?)` → `{ list, removedIds }` — 저장 목록은 안 바꾼다(세 합치기가 부른다 · 검사는 글을 뽑아 직접 돌린다).
-- **확장할 때 고칠 자리**: 새 카탈로그 종류는 `mergeCatalogIntoSavedXxx` + `subscribeCatalogXxx` 한 벌 · 구독 걸기는 파일 끝 `catalogSourceMod.catalogSrcReady(…)` 줄 · 서버 쪽 이름은 provider 에 하나 더. 합치는 규칙을 바꿀 땐 `mergeCatalogList` 한 곳.
+- **확장할 때 고칠 자리**: 새 카탈로그 종류는 `mergeCatalogIntoSavedXxx` + `subscribeCatalogXxx` 한 벌 · 구독 걸기는 `start(session)` 에 한 줄 · 새 종류는 `catalog-api.js` `CATALOG_KINDS` 에 하나 더. 합치는 규칙을 바꿀 땐 `mergeCatalogList` 한 곳.
 - **함정**
   - 아이템은 세션 등록(`loadSavedItemsIntoSession`)을 **기다린 뒤** 좌석을 다시 적용한다 — 순서를 바꾸면 옛 크기(0.8)로 다시 만든다.
   - 생성기에서 보던 책상 · 아이템의 위치 · 크기 조정값은 일부러 안 지킨다(자동 크기 계산을 바꿔도 보이게).

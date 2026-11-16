@@ -1,14 +1,14 @@
 /* catalog-sync.js — 🔄 카탈로그 실시간 동기화 — 아이템 · 책상 · 파츠 · 카테고리 구독을 저장 목록과 좌석에 반영
    책임: 서버 카탈로그(items · desks · parts · 카테고리 · 해금 레벨) 구독을 걸고, 스냅샷이 오면 저장 목록(savedItems · savedDesks · savedParts)에 합친 뒤(카탈로그 순서 · 지워진 것 빼기 · 로컬 전용 남기기) 떠 있는 좌석 · 생성기 · 런처 · 꾸미기 미리보기에 다시 반영한다.
-   받는 deps: 저장 목록 모듈(commissionMod · premiumMod) · GLB 해결(catalogGlbMod) · 서버(catalogSourceMod — character/catalog-source.js) · 좌석에 입히기(equipDeskItem · applyDeskItemsTo · equipPartOnSeat · applyDeskCatalogRefToSeat …) · 생성기 상태(cDesk · cBase · creatorOpen …, 읽는 · 쓰는 함수) · 화면 다시 그리기(wardrobeMod · gachaMod · adminCategory · renderLauncher).
-   내보내는 것: 없음 — 만들 때 구독을 건다(서버는 catalogSourceMod 를 거친다 — 연결이 아직 없으면 연결을 기다린다). 합치기 규칙 mergeCatalogList 는 이 안의 순수 함수(검사는 글을 뽑아 직접 돌린다).
+   받는 deps: 저장 목록 모듈(commissionMod · premiumMod) · GLB 해결(catalogGlbMod) · 서버(catalogApiMod — character/catalog-api.js) · 좌석에 입히기(equipDeskItem · applyDeskItemsTo · equipPartOnSeat · applyDeskCatalogRefToSeat …) · 생성기 상태(cDesk · cBase · creatorOpen …, 읽는 · 쓰는 함수) · 화면 다시 그리기(wardrobeMod · gachaMod · adminCategory · renderLauncher).
+   내보내는 것: start(session) — 로그인 뒤 app-boot STEPS 'catalog' 가 한 번 부른다(구독 다섯을 세션에 맡긴다 — 만들 때는 요청 0). 합치기 규칙 mergeCatalogList 는 이 안의 순수 함수(검사는 글을 뽑아 직접 돌린다).
    app.js «🔄 카탈로그 실시간 동기화» 구역을 그대로 옮겼다(구역 떼기 C · w2 — 좌석 책상을 그리는 applyDeskCatalogRefToSeat 는 책상 몫이라 남김). 동작은 옮기기 전과 같다.
    ★ 아래 코드는 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 2개를 원래 차례로 · 사이에 빈 줄 하나 · 옛 이야기형 주석만 «왜 · 함정» 으로 줄였다). 바뀐 코드 줄은 18줄 —
      activeCustomDeskId · cBase · cDesk · cDeskColor · cDeskGlbB64 · cDeskScale · cDeskTemplate · creatorOpen · customItems · gachaMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setCDeskGlbB64 · setCDeskTemplate(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 17개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: 없음 — 만들 때 건다.
-   ⚠️ firebaseAPI 는 직접 보지 않는다(catalogSourceMod 로만). document · window · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
+   ⚠️ firebaseAPI 는 쓰지 않는다(서버는 catalogApiMod 로만). document · window · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwCatalogSync — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-catalog-sync.js */
 (function(){
@@ -32,7 +32,7 @@ const cDeskGlbB64 = deps.cDeskGlbB64;   // 읽는 함수
 const cDeskScale = deps.cDeskScale;   // 읽는 함수
 const cDeskTemplate = deps.cDeskTemplate;   // 읽는 함수
 const catalogGlbMod = deps.catalogGlbMod;
-const catalogSourceMod = deps.catalogSourceMod;
+const catalogApiMod = deps.catalogApiMod;
 const clearHolderDeskItems = deps.clearHolderDeskItems;
 const commissionMod = deps.commissionMod;
 const creatorOpen = deps.creatorOpen;   // 읽는 함수
@@ -95,13 +95,11 @@ async function mergeCatalogIntoSavedItems(catalogObj){
   catch(e){ console.warn('[라이선스] 아이템 카탈로그 도착 후 정리 실패', e); }
 }
 function subscribeCatalogItems(){
-  if(!catalogSourceMod.catalogSrcCan('items')) return;
-  catalogSourceMod.catalogSrcSubscribe('items', async catalogObj=>{
+  return catalogApiMod.subscribe('items', async catalogObj=>{
     await catalogGlbMod.resolveCatalogGlbAll(catalogObj);
     await mergeCatalogIntoSavedItems(catalogObj);
   });
 }
-catalogSourceMod.catalogSrcReady(subscribeCatalogItems);
 function mergeCatalogIntoSavedDesks(catalogObj){
   const { list, removedIds } = mergeCatalogList(catalogObj, commissionMod.savedDesks());
   if(removedIds.length){
@@ -132,13 +130,11 @@ function mergeCatalogIntoSavedDesks(catalogObj){
   if(creatorOpen()) renderCrItems();
 }
 function subscribeCatalogDesks(){
-  if(!catalogSourceMod.catalogSrcCan('desks')) return;
-  catalogSourceMod.catalogSrcSubscribe('desks', async catalogObj=>{
+  return catalogApiMod.subscribe('desks', async catalogObj=>{
     await catalogGlbMod.resolveCatalogGlbAll(catalogObj);
     mergeCatalogIntoSavedDesks(catalogObj);
   });
 }
-catalogSourceMod.catalogSrcReady(subscribeCatalogDesks);
 
 function mergeCatalogIntoSavedParts(catalogObj){
   const { list, removedIds } = mergeCatalogList(catalogObj, premiumMod.savedParts(), r=>premiumMod._normPartRec(r));   // 🎰 가챠 = stackable(_normPartRec 주석)
@@ -192,17 +188,14 @@ function mergeCatalogIntoSavedParts(catalogObj){
   catch(e){ console.warn('[가챠] 카탈로그 도착 후 정리 실패', e); }
 }
 function subscribeCatalogParts(){
-  if(!catalogSourceMod.catalogSrcCan('parts')) return;
-  catalogSourceMod.catalogSrcSubscribe('parts', async catalogObj=>{
+  return catalogApiMod.subscribe('parts', async catalogObj=>{
     await catalogGlbMod.resolveCatalogGlbAll(catalogObj);
     mergeCatalogIntoSavedParts(catalogObj);
   });
 }
-catalogSourceMod.catalogSrcReady(subscribeCatalogParts);
 /* 카테고리 — 서버 한 벌의 categories 한 줄로 받는다: 운영이 더한 카테고리(PART_CATS 에 합침) · 기본 카테고리의 바뀐 이름 · 아이콘(예: 망토 → 겉옷) */
 function subscribeCategories(){
-  if(!catalogSourceMod.catalogSrcCan('categories')) return;
-  catalogSourceMod.catalogSrcSubscribe('categories', cats=>{
+  return catalogApiMod.subscribe('categories', cats=>{
     premiumMod.setCustomPartCats(cats.customCats);
     premiumMod.setPartCatOverrides(cats.catOverrides);
     premiumMod.rebuildPartCats();
@@ -214,18 +207,25 @@ function subscribeCategories(){
    서버에 그 줄이 없으면 앉히지 않고 알린다(animal.js 의 처음 값이 남는다). */
 const ANIMAL_UNLOCK = { kind: 'ANIMAL_CHARACTER', key: 'animal' };
 function subscribeUnlocks(){
-  if(!catalogSourceMod.catalogSrcCan('unlocks')) return;
-  catalogSourceMod.catalogSrcSubscribe('unlocks', unlocks=>{
+  return catalogApiMod.subscribe('unlocks', unlocks=>{
     applyInteractionUnlocks(unlocks);   // 춤 · 상호작용 책상
     const row = unlocks[ANIMAL_UNLOCK.kind] && unlocks[ANIMAL_UNLOCK.kind][ANIMAL_UNLOCK.key];
     if(!row){ console.warn('[catalog] 서버 해금 표에 동물 캐릭터 줄이 없다'); return; }
     setAnimalUnlockLevel(row.level);
   });
 }
-catalogSourceMod.catalogSrcReady(()=>{ subscribeCategories(); subscribeUnlocks(); });
+
+/* 로그인 세션이 시작될 때 한 번(launcher/app-boot.js STEPS 'catalog') — 다섯 구독을 세션에 맡긴다. 세션이 끝나면 풀리고, 마지막이 풀리면 catalog-api 가 받은 값을 비운다. */
+function start(session){
+  session.on(subscribeCatalogItems());
+  session.on(subscribeCatalogDesks());
+  session.on(subscribeCatalogParts());
+  session.on(subscribeCategories());
+  session.on(subscribeUnlocks());
+}
 
 return {
-
+  start,
 };
 }
 

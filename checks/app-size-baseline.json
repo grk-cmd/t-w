@@ -3,7 +3,7 @@
   "files": {
     "app.js": {
       "cap": 8548,
-      "lines": 8410,
+      "lines": 8415,
       "sections": [
         "SETUP",
         "기본 캐릭터 GLB (임베드) — face/cloth_upper/cloth_lower + 리깅",
@@ -130,8 +130,8 @@
       ]
     },
     "firebase-init.js": {
-      "cap": 801,
-      "lines": 701,
+      "cap": 748,
+      "lines": 648,
       "sections": [
         "🚧 로그인 복원 대기선 (auth barrier)",
         "마이홈 친구 시스템",
