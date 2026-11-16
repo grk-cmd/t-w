@@ -104,7 +104,7 @@ async function judgeAll(src, app, html, ward = WARD){
     }
   }
   t(bare.length === 0, '값 여덟 개는 모듈 안에서 늘 이름() 으로 읽는다 — 값으로 붙잡는 자리 없음' + (bare.length ? ' (' + [...new Set(bare)].join(' · ') + ')' : ''));
-  t(!/MAX_CUSTOM_(?:ASSETS|ITEMS)/.test(noStr(strip(src))), '★ 책상 · 아이템 개수 상한은 앱이 세지 않는다 — 서버가 판정한다(CATALOG_SHELF_FULL · 책상 6 · 소품 50)');
+  t(!/MAX_CUSTOM_(?:ASSETS|ITEMS)/.test(noStr(strip(src))), '★ 책상 · 아이템 개수 상한은 앱이 세지 않는다 — 서버가 판정한다(서버 진열 상한 #260 — CATALOG_SHELF_FULL · 개수도 서버 글로 온다)');
   t(!/[^.\w$]savedParts\s*=[^=]/.test(body.replace(/const savedParts = deps\.savedParts;/, '')), '모듈은 app.js 의 savedParts 에 직접 쓰지 않는다(setSavedParts 로)');
   /* 4. app.js 연결 */
   const A = strip(app);

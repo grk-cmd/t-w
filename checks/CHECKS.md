@@ -293,7 +293,7 @@
 | **sim-mail-feed.js** | 361 | **2bcd1eeabc34** |
 | **sim-notice-api.js** | 159 | **0d412e593953** |
 | **sim-admin-api.js** | 249 | **9a3ca66c0eda** |
-| **sim-catalog-admin-api.js** | 179 | **8997ae134893** |
+| **sim-catalog-admin-api.js** | 182 | **dbb857dfeb05** |
 | **sim-admin-notice.js** | 212 | **952fbda2e531** |
 | **sim-notice-feed.js** | 266 | **c80dd0979f9b** |
 | **sim-ui-tokens.js** | 135 | **bf0abb5744a6** |
@@ -320,7 +320,7 @@
 | **sim-mhd-hidefolders.js** | 133 | **7a61ee3d6c05** |
 | **sim-pomodoro.js** | 131 | **03a73d7ae51e** |
 | **sim-admin-license.js** | 252 | **287c8730fc6d** |
-| **sim-admin-part-register.js** | 171 | **0418d780ee2c** |
+| **sim-admin-part-register.js** | 171 | **1adf117e02a3** |
 | **sim-admin-users-launcher.js** | 240 | **3c4a469aceec** |
 | **sim-admin-asset.js** | 129 | **32cd05cdef5a** |
 | **sim-admin-mode.js** | 221 | **9759ff545e73** |
