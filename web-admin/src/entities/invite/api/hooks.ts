@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { UserInvite } from '@/entities/user/@x/invite';
 import { GROUP_INVITES_KEY, invitesLeftKey, USER_INVITE, userInviteKey } from './keys';
-import type { UserInvite } from './userInvite';
 import { useInvitePort } from './index';
 
 export function useGroupInvites(enabled: boolean) {

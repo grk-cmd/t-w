@@ -1,5 +1,3 @@
-import type { Functions } from '@/shared/api';
-
 // 서버 함수 functions/index.js adminDeleteAccount — 로직은 functions/account-delete.js. 모양을 바꾸면 둘을 같이 본다.
 export const DELETE_ACCOUNT_FN = 'adminDeleteAccount';
 
@@ -27,15 +25,6 @@ export interface AccountDeleteResult {
   empty: boolean;
   /** 실행했을 때만. */
   done?: { db: number; files: number; auth: boolean; logId: string };
-}
-
-export function previewAccountDelete(fns: Functions, code: string): Promise<AccountDeleteResult> {
-  return fns.call<AccountDeleteResult>(DELETE_ACCOUNT_FN, { code: code.trim(), dryRun: true });
-}
-
-/** 지운다 — 함수는 dryRun 이 false 일 때만 지운다. 미리 본 사용자 코드로 부른다(친구 코드가 그 사이 바뀌어도 같은 사람). */
-export function runAccountDelete(fns: Functions, userCode: string): Promise<AccountDeleteResult> {
-  return fns.call<AccountDeleteResult>(DELETE_ACCOUNT_FN, { code: userCode, dryRun: false });
 }
 
 /** 확인 입력 — 미리 본 사람의 사용자 코드 또는 친구 코드를 그대로(친구 코드만 대소문자 무시). */

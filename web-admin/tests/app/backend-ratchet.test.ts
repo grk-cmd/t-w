@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest';
 // 톱니 — 두 판 갈아 끼우기(D12)가 끝나는 날까지 «포트 밖 직접 호출» 과 «API 판이 없는 포트» 가 늘지 않게 센다.
 // 줄이는 PR 은 기준선도 같이 낮춘다(늘리는 PR 은 빨강). 마지막 D12-*a 뒤 TOOTH_1 = 0 · 마지막 D12-*b 뒤 TOOTH_2 = 0.
 
-/** 톱니 1 기준선 — D12-7 뒤(카탈로그를 포트 뒤로 옮김 · 카탈로그 진단은 Firebase 판 전용으로 뺌: 31 → 19). */
-const TOOTH_1_BASELINE = 19;
+/** 톱니 1 기준선 — D12-8a 뒤(사용자를 포트 뒤로 옮김: 19 → 10). */
+const TOOTH_1_BASELINE = 10;
 /** 톱니 2 기준선 — D12-4b 뒤 0(10 → 0). `notPorted` 는 지웠다 — 다시 적는 PR 은 빨강. */
 const TOOTH_2_BASELINE = 0;
 

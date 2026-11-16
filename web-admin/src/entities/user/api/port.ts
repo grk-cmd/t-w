@@ -1,0 +1,44 @@
+import type { IssuedInvite } from '@/entities/invite/@x/user';
+import type { Presence, UserInvite } from '../model/live';
+import type { UserDetail } from '../model/detail';
+import type { UserLicense } from '../model/userRow';
+
+export interface UserBrief {
+  name: string | null;
+  friendCode: string | null;
+  awayImg: string | null;
+}
+
+interface UserReads {
+  /** 이름. 없으면 null. */
+  name(uid: string): Promise<string | null>;
+  /** 이름 · 친구코드 · 자리비움 그림. */
+  brief(uid: string): Promise<UserBrief>;
+  /** 접속 · 마지막 접속 · 앱 버전. 기록이 없으면 null. */
+  presence(uid: string): Promise<Presence | null>;
+  /** 집중 누적 시간(초). */
+  focusSec(uid: string): Promise<number>;
+  /** 한 사람의 라이선스 상태. */
+  license(uid: string): Promise<UserLicense>;
+}
+
+/**
+ * 👤 사용자 한 사람 읽기 — 이름 · 소개 · 접속 · 집중 · 라이선스. 목록은 features/user/user-rows 의 포트가 한다.
+ * 읽는 법이 판마다 다르다: Firebase 판은 users/{uid}/… 의 작은 칸을 하나씩 읽고(`cells`),
+ * API 판은 서버가 한 사람 몫을 한 번에 준다(`detail` — 칸마다 따로 읽지 않는다).
+ */
+export type UserPort = UserCellsPort | UserDetailPort;
+
+export type UserCellsPort = UserReads & {
+  kind: 'cells';
+  /** 가입 · 초대권. 칸이 없으면 null(아직 게이트를 안 지난 옛 앱). */
+  invite(uid: string): Promise<UserInvite | null>;
+  /** 이 사람이 만든 초대 코드. */
+  issuedInvites(uid: string): Promise<IssuedInvite[]>;
+};
+
+export type UserDetailPort = UserReads & {
+  kind: 'detail';
+  /** 한 사람의 상세 — 줄 칸 · 접속 · 방 · 가입 · 초대 · 시크릿룸 · 신고 수. */
+  detail(uid: string): Promise<UserDetail>;
+};

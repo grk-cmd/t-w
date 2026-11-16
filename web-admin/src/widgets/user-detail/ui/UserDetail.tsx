@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { inviterKind, useIssuedInvites, useUserInvite } from '@/entities/invite';
+import { inviterKind } from '@/entities/invite';
 import { REPORT_ADMIN_MIN, useUserReportCount } from '@/entities/report';
 import { formatDay, secretRoomState, useUserSecretRoom } from '@/entities/secret-room';
 import {
@@ -8,7 +8,9 @@ import {
   LICENSE_LABEL,
   realName,
   useUserBrief,
+  useIssuedInvites,
   useUserFocusSec,
+  useUserInvite,
   useUserName,
   useUserPresence,
   verLabel,

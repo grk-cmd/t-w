@@ -8,14 +8,6 @@ export {
   type AddInvitesResult,
   type ClearInvitesResult,
 } from './api/firebase';
-export {
-  getUserInvite,
-  listIssuedInvites,
-  useIssuedInvites,
-  userInviteQuery,
-  useUserInvite,
-  type UserInvite,
-} from './api/userInvite';
 export { GROUP_INVITES_KEY } from './api/keys';
 export { useForgetUserInvites, useGroupInvites, useInvitesLeft, useSetInvitesLeftCache } from './api/hooks';
 export { useInvitePort, type InvitePort } from './api/index';

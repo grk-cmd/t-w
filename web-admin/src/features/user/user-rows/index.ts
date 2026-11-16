@@ -5,14 +5,20 @@ export {
   fetchUserPage,
   fetchUsersByCode,
   fetchUserStats,
+  loadAllRowsFrom,
   queryParams,
   USERS_BATCH,
   USERS_PATH,
   type AllUsersView,
   type LoadAllRows,
-} from './api/userList';
+} from './api/firebase';
 export {
-  loadAllRowsFrom,
+  useUserRowsPort,
+  type UserRowsKeysetPort,
+  type UserRowsPagedPort,
+  type UserRowsPort,
+} from './api/index';
+export {
   refreshUsers,
   useAllUsers,
   useRefreshUsers,
@@ -20,6 +26,7 @@ export {
   useSameLicenseUsers,
   useUserByCode,
   useUserPage,
+  useUserPageKeyset,
   useUsersByCode,
   useUserStats,
 } from './model/useUserRows';

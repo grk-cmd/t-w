@@ -6,7 +6,7 @@ import {
   LICENSE_LABEL,
   realName,
   useUserName,
-  useUserPresence,
+  useRowPresence,
   verLabel,
   type UserRow,
 } from '@/entities/user';
@@ -31,14 +31,16 @@ function useRowName(row: UserRow): string | null {
   return row.name ?? realName(fetched.data) ?? null;
 }
 
-type PresenceQuery = ReturnType<typeof useUserPresence>;
+type PresenceQuery = ReturnType<typeof useRowPresence>;
 
 // 마지막 접속 — 보이는 쪽의 줄만 presence 한 칸씩 읽는다(사용자 화면과 같은 방식).
 function LastSeen({ p }: { p: PresenceQuery }) {
   if (p.isLoading) return <span className="soft">…</span>;
   if (p.error) return <span className="soft">읽지 못함</span>;
   if (p.data?.online) return <span className={styles.online}>접속 중</span>;
-  return <span className="soft">{p.data?.lastSeen ? formatDate(p.data.lastSeen) : '—'}</span>;
+  const seen = p.data?.lastSeen ? formatDate(p.data.lastSeen) : '—';
+  // online 이 null 이면 «꺼짐» 이 아니라 «모름» 이다.
+  return <span className="soft">{p.data?.online === null ? `접속 여부 모름 · ${seen}` : seen}</span>;
 }
 
 function UserLine({
@@ -55,7 +57,7 @@ function UserLine({
   const name = useRowName(row);
   const who = `${name ?? '이름 없음'}(${row.friendCode ?? row.userCode})`;
   // 앱 버전 — 마지막 접속과 같은 presence 한 번(따로 안 읽음).
-  const presence = useUserPresence(row.userCode);
+  const presence = useRowPresence(row);
   const ver = currentVer(presence.data ?? null, row);
   const block = presence.isLoading ? null : appVerBlock(ver);
   return (

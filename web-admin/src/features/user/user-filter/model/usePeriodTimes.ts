@@ -1,8 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { userInviteQuery } from '@/entities/invite';
-import { userPresenceQuery, type UserRow } from '@/entities/user';
-import { useDb } from '@/shared/api';
+import { userInviteQuery, userPresenceQuery, useUserPort, type UserRow } from '@/entities/user';
 import type { PeriodField } from './filter';
 
 // 사람마다 작은 칸 하나라 20명씩 함께 읽는다 — 목록 칸과 같은 캐시라 이미 본 사람은 다시 받지 않는다.
@@ -19,7 +17,7 @@ export interface PeriodTimes {
  * 계정 요약에는 이 두 시각이 없어 사람마다 읽어야 한다.
  */
 export function usePeriodTimes(rows: UserRow[] | null, field: PeriodField): PeriodTimes {
-  const db = useDb();
+  const port = useUserPort();
   const client = useQueryClient();
   // 어느 요청(rows · field)의 결과인지 같이 둔다 — 요청이 바뀌면 렌더에서 «읽는 중» 으로 본다.
   const [state, setState] = useState<{ rows: UserRow[]; field: PeriodField } & PeriodTimes>();
@@ -43,8 +41,8 @@ export function usePeriodTimes(rows: UserRow[] | null, field: PeriodField): Peri
             try {
               const t =
                 field === 'joined'
-                  ? (await client.fetchQuery(userInviteQuery(db, userCode)))?.joinedAt
-                  : (await client.fetchQuery(userPresenceQuery(db, userCode)))?.lastSeen;
+                  ? (await client.fetchQuery(userInviteQuery(port, userCode)))?.joinedAt
+                  : (await client.fetchQuery(userPresenceQuery(port, userCode)))?.lastSeen;
               times.set(userCode, t ?? null);
             } catch {
               times.set(userCode, null);
@@ -58,7 +56,7 @@ export function usePeriodTimes(rows: UserRow[] | null, field: PeriodField): Peri
     return () => {
       cancelled = true;
     };
-  }, [rows, field, db, client]);
+  }, [rows, field, port, client]);
 
   if (!rows) return { times: null, progress: null };
   if (state?.rows !== rows || state.field !== field)

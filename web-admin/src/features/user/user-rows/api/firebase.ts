@@ -1,4 +1,9 @@
+import type { QueryClient } from '@tanstack/react-query';
+import { listAccountSnaps } from '@/entities/account';
+import { listLicenses } from '@/entities/license';
 import {
+  buildUserRows,
+  listFriendCodes,
   pageFromApi,
   pageFromRows,
   queryUsers,
@@ -14,7 +19,8 @@ import {
   type UserSource,
   type UserStatsView,
 } from '@/entities/user';
-import { viaApiOr, type Api, type ApiParams } from '@/shared/api';
+import { viaApiOr, type Api, type ApiParams, type Db } from '@/shared/api';
+import type { UserRowsPagedPort } from './port';
 
 // 사용자 목록 읽기 — API(읽기 사본)를 먼저, 닿지 못하면(또는 이 환경에 없으면) 예전 방식(RTDB 통째 → 화면에서 거름)으로.
 // 권한 · 요청 오류(401 · 403 · 400)는 넘어가지 않고 그대로 던진다(라이선스 화면과 같은 규칙).
@@ -125,4 +131,30 @@ export function fetchLicenseUsers(
     async (a) => (await a.get<ApiUserPage>(USERS_PATH, { license, size: CODES_MAX })).items.map(rowFromApi),
     async () => (await loadAll()).filter((r) => r.license === license),
   );
+}
+
+/** Firebase 판 — 지금 코드 그대로: 옛 API 를 먼저, 닿지 못하면 RTDB 통째 → 화면에서 거름. */
+/** 통째 목록 셋을 캐시에서(없거나 무효면 받아서) 사용자 한 줄씩으로 — API 를 못 쓸 때만 불린다. */
+export function loadAllRowsFrom(client: QueryClient, db: Db): LoadAllRows {
+  return async () => {
+    const get = <T>(queryKey: string[], queryFn: () => Promise<T>) =>
+      client.fetchQuery({ queryKey, queryFn, staleTime: Infinity });
+    const [accounts, friendCodes, licenses] = await Promise.all([
+      get(['accountSnap'], () => listAccountSnaps(db)),
+      get(['friendCodes'], () => listFriendCodes(db)),
+      get(['licenses'], () => listLicenses(db)),
+    ]);
+    return buildUserRows(accounts, friendCodes, licenses);
+  };
+}
+
+export function createFirebaseUserRowsPort(api: Api | null, loadAll: LoadAllRows): UserRowsPagedPort {
+  return {
+    kind: 'paged',
+    page: (query, page, size) => fetchUserPage(api, loadAll, query, page, size),
+    all: (query) => fetchAllUsers(api, loadAll, query),
+    stats: () => fetchUserStats(api, loadAll),
+    byCodes: (codes) => fetchUsersByCode(api, loadAll, codes),
+    sameLicense: (license) => fetchLicenseUsers(api, loadAll, license),
+  };
 }

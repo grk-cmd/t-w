@@ -1,5 +1,3 @@
-import type { Functions } from '@/shared/api';
-
 // 서버 함수 functions/index.js adminResetPassword — 로직은 functions/password-reset.js. 모양을 바꾸면 둘을 같이 본다.
 export const RESET_PASSWORD_FN = 'adminResetPassword';
 
@@ -16,23 +14,21 @@ export const KIND_TEXT: Record<PasswordResetKind, string> = {
 
 export interface PasswordResetResult {
   ok: true;
-  kind: PasswordResetKind;
+  /** 함수가 한 일. API 판 서버는 알려 주지 않는다(null). */
+  kind: PasswordResetKind | null;
   code: string;
   friendCode: string | null;
   name: string | null;
   /** 이 창에 한 번만 보인다 — 서버는 어디에도 적지 않는다. */
   tempPassword: string;
-  logId: string;
+  /** 작업 기록 번호. API 판은 없다(null). */
+  logId: string | null;
 }
 
 /** 메모(제보 번호 · 연락 경로 — 형식 자유)를 함수가 받는 모양으로. 비면 null(버튼을 못 누른다). */
 export function normalizeMemo(raw: string): string | null {
   const s = raw.replace(/\s+/g, ' ').trim().slice(0, MEMO_MAX);
   return s ? s : null;
-}
-
-export function runPasswordReset(fns: Functions, code: string, memo: string): Promise<PasswordResetResult> {
-  return fns.call<PasswordResetResult>(RESET_PASSWORD_FN, { code: code.trim(), memo });
 }
 
 /** 사용자에게 보낼 안내 글 — 비공개로 보낸다(공개 답변 · 채팅에 쓰지 않는다). */
