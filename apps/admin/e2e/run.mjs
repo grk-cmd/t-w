@@ -1,7 +1,7 @@
 // e2e 실행 — `npm run e2e` · `npm run e2e -- <playwright 인자>`(예: `-- xmas`). Windows 기본 창(cmd)에서도 돈다.
-// [왜] 예전 스크립트는 cp(cmd 에 없음)로 규칙 사본을 만들고, 붙인 인자가 «playwright test» 따옴표 밖으로 떨어져 시험 이름이 넘어가지 않았다.
-// 바깥(npm 이 부름): 규칙 사본 → 에뮬레이터를 띄우고 안쪽으로 자기를 다시 부른다. 인자는 명령 글이 아니라 환경 변수로 넘긴다(따옴표 · 셸 차이 없음).
-// 안쪽(에뮬레이터가 부름): playwright 를 인자 배열 그대로 부른다.
+// [왜] cmd 에는 cp 가 없어 node 로 복사하고, 인자는 셸 명령 글 밖(환경 변수)으로 넘긴다 — 따옴표 · 셸마다 다른 풀이에 안 걸린다.
+// 바깥(npm 이 부름): 규칙 사본 → 에뮬레이터를 띄우고 안쪽으로 자기를 다시 부른다. 안쪽(에뮬레이터가 부름): playwright 를 인자 배열 그대로 부른다.
+// ⚠️ TW_E2E_ARGS 가 이미 걸려 있으면 안쪽으로 본다(규칙 사본 · 에뮬레이터 없이 playwright 만) — 손으로 걸지 말 것.
 import { spawnSync } from 'node:child_process';
 import { copyFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
