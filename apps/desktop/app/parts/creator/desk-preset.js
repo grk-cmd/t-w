@@ -111,7 +111,8 @@ function applyDeskPreset(p){
   if(p.deskPos && typeof p.deskPos==='object'){ crState.cDeskPos={x:+p.deskPos.x||0, y:+p.deskPos.y||0, z:+p.deskPos.z||0}; setDeskPos(crState.cDesk, crState.cDeskPos); crXformMod().updateDeskPosNum(); }
   // 4) 책상 모델(카탈로그 id or GLB)
   const applyDeskModel = ()=>{
-    // 현재 아이템 전부 제거 (프리셋의 아이템으로 교체)
+    // 현재 아이템 전부 제거 (프리셋의 아이템으로 교체) — 옛 «건너뜀» 표시도 같이 비운다(교체하는 소품이라 남은 표시가 저장 때 옛 항목을 되살린다)
+    if(crState.cBase && crState.cBase._skippedItems) crState.cBase._skippedItems.clear();
     if(crState.cBase){ deskItemsMod().allDeskItems().forEach(def=>{ if(crState.cBase.deskItems && crState.cBase.deskItems[def.id]) equipDeskItem(crState.cBase,def,false); }); }
     // 프리셋에 아이템 복원
     if(p.deskItems && crState.cBase) applyDeskItemsTo(crState.cBase, p.deskItems);
