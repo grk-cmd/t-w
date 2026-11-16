@@ -178,21 +178,67 @@ describe('할 일 쓰기 — API 판', () => {
     });
   });
 
-  it('고치기 — 본 version 을 싣는다 · 완료로 바꿔도 제보 상태는 건드리지 않는다', async () => {
+  it('고치기 — 본 version 을 싣는다 · 제보는 건드리지 않는다(markFixed 없이)', async () => {
     const s = fakeApiOf({ 'PATCH /v2/admin/todos/t1': () => wireTodo('t1', { status: 'done', version: 4 }) });
     const port = createServerEditTodoPort(s.api);
-    expect(port.fixesReports).toBe(false);
+    expect(port.fixesReports).toBe(true);
     const seen = seenTodo({ reports: ['B-1116-1'] });
-    const r = await port.save({
+    const r = await port.save({ id: 't1', seen, draft: { ...draftOf(seen), status: 'done' }, names });
+    expect(r).toEqual({ ok: true, id: 't1', fixed: 0 });
+    expect(s.calls).toHaveLength(1);
+    expect(s.calls[0].body).toMatchObject({ version: 3, status: 'done', reports: ['B-1116-1'] });
+  });
+
+  const done = async (handlers: Parameters<typeof fakeApiOf>[0]) => {
+    const s = fakeApiOf({
+      'PATCH /v2/admin/todos/t1': () => wireTodo('t1', { status: 'done', version: 4 }),
+      ...handlers,
+    });
+    const seen = seenTodo({ reports: ['B-1116-1', 'B-1116-2', 'B-1116-3'] });
+    const r = await createServerEditTodoPort(s.api).save({
       id: 't1',
       seen,
       draft: { ...draftOf(seen), status: 'done' },
       names,
       markFixed: true,
     });
-    expect(r).toEqual({ ok: true, id: 't1', fixed: 0 });
-    expect(s.calls).toHaveLength(1);
-    expect(s.calls[0].body).toMatchObject({ version: 3, status: 'done', reports: ['B-1116-1'] });
+    return { s, r };
+  };
+  const bug = (status: string, version = 7) => ({ number: 'x', status, version });
+
+  it('완료 + markFixed — 미해결 제보만 읽은 version 으로 FIXED, 다 된 글 · 지워진 글은 건너뛴다', async () => {
+    const { s, r } = await done({
+      'GET /v2/bugs/B-1116-1': () => bug('NEW', 7),
+      'GET /v2/bugs/B-1116-2': () => bug('FIXED'),
+      'GET /v2/bugs/B-1116-3': () => {
+        throw new ApiError('notFound', 404, 'BUG_NOT_FOUND', '없음');
+      },
+      'PATCH /v2/admin/bugs/B-1116-1': () => ({}),
+    });
+    expect(r).toEqual({ ok: true, id: 't1', fixed: 1 });
+    const patches = s.calls.filter((c) => c.path.startsWith('/v2/admin/bugs'));
+    expect(patches).toHaveLength(1);
+    expect(patches[0].body).toEqual({ version: 7, status: 'FIXED' });
+  });
+
+  it('일부만 되면 숨기지 않고 안 된 수 · 원인 · 409 여부를 싣는다', async () => {
+    const { r } = await done({
+      'GET /v2/bugs/B-1116-1': () => bug('NEW'),
+      'GET /v2/bugs/B-1116-2': () => bug('CHECKING'),
+      'GET /v2/bugs/B-1116-3': () => bug('NEW'),
+      'PATCH /v2/admin/bugs/B-1116-1': () => ({}),
+      'PATCH /v2/admin/bugs/B-1116-2': () => {
+        throw new ApiError('request', 409, 'CONCURRENT_UPDATE', '다른 곳에서 바꾼 내용을 받아왔어요');
+      },
+      'PATCH /v2/admin/bugs/B-1116-3': () => {
+        throw new ApiError('request', 400, 'INVALID_REQUEST', '안 돼요');
+      },
+    });
+    expect(r).toMatchObject({
+      ok: true,
+      fixed: 1,
+      fixFailed: { count: 2, conflict: true },
+    });
   });
 
   it('서버 400 은 PortError(invalid) 로 서버 문구 그대로 — 미리 거절하지 않는다', async () => {

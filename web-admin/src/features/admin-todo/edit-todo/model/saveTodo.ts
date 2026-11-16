@@ -2,7 +2,13 @@ import { adminNameOf } from '@/entities/admin/name';
 import { draftOf, type Todo, type TodoDraft } from '@/entities/admin/todo';
 
 export type SaveTodoResult =
-  | { ok: true; id: string; fixed: number }
+  | {
+      ok: true;
+      id: string;
+      fixed: number;
+      /** 제보를 «수정 완료» 로 바꾸다 일부가 안 됐을 때(할 일 저장은 됐다) — 안 된 수 · 첫 원인 · 다시 받아야 하나(409). */
+      fixFailed?: { count: number; reason: string; conflict: boolean };
+    }
   | { ok: false; reason: string }
   | { ok: false; conflict: true; latest: Todo | null };
 

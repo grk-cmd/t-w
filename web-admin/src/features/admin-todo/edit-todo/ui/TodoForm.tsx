@@ -95,7 +95,11 @@ export function TodoForm({ todo, initial, onDone }: Props) {
       {
         onSuccess: (r) => {
           if (r.ok) {
-            toast((seen ? '할 일 저장' : '할 일 추가') + (r.fixed ? ` · 제보 ${r.fixed}건 수정 완료` : ''));
+            toast(
+              r.fixFailed
+                ? `할 일 완료 · 제보 ${r.fixed}건 바뀜 · ${r.fixFailed.count}건 안 됨(${r.fixFailed.reason})`
+                : (seen ? '할 일 저장' : '할 일 추가') + (r.fixed ? ` · 제보 ${r.fixed}건 수정 완료` : ''),
+            );
             onDone(r.id);
             return;
           }

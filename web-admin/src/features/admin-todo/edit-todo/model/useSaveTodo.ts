@@ -10,7 +10,7 @@ function useAfter() {
   const refreshBugs = useRefreshBugBoard();
   return (r: SaveTodoResult) => {
     if (r.ok || 'conflict' in r) void refreshTodos();
-    if (r.ok && r.fixed) void refreshBugs();
+    if (r.ok && (r.fixed || r.fixFailed)) void refreshBugs();
   };
 }
 
