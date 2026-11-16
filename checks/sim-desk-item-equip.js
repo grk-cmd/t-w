@@ -199,7 +199,7 @@ say('§5-B 받기 전에 건너뛴 아이템은 저장본에서 지워지지 않
     return { cb, b };
   };
   const r = run(SRC);
-  chk(!r.cb.deskItems.vip && r.cb._skippedItems && r.cb._skippedItems.has('vip') && r.cb._skippedItems.has('other'), '건너뛴 소품을 holder 에 따로 적어 둔다');
+  chk(!r.cb.deskItems.vip && r.cb._skippedItems instanceof Map && r.cb._skippedItems.get('vip').adj.x === 1 && r.cb._skippedItems.get('other').adj.x === 2, '건너뛴 소품을 holder 에 따로 적어 둔다');
   chk(Object.keys(r.cb.charDef.deskItems).sort().join() === 'other,plant,vip' && r.cb.charDef.deskItems.vip.adj.x === 1 && r.cb.charDef.deskItems.other.adj.x === 2, '★ 다른 조정 뒤 저장해도 건너뛴 두 소품의 원본(위치 · 크기)이 저장본에 남는다');
   const cb2 = mkHolder({ charDef: { deskItems: ORIG() } });
   const b2 = build(SRC, { cBase: cb2, defs: { vip: mkDef('vip', { custom: true }), other: mkDef('other', { custom: true }) } });
@@ -209,8 +209,16 @@ say('§5-B 받기 전에 건너뛴 아이템은 저장본에서 지워지지 않
   b2.st.received = true;
   b2.mod.applyDeskItemsTo(cb2, { vip: cb2.charDef.deskItems.vip, other: cb2.charDef.deskItems.other });
   chk(!!(cb2.deskItems.vip && cb2.deskItems.other) && cb2._skippedItems.size === 0 && cb2.deskItems.vip.userData.adj.x === 1, '카탈로그가 오면 저장된 위치째 올라오고 건너뜀 표시가 풀린다');
-  const mm = SRC.replace("_sk.forEach(id=>{ if(_orig[id] && !d[id]){ d[id]=_orig[id]; any=true; } });", '');
+  /* 프리셋을 얹은 뒤 건너뜀 — 저장본에는 옛 캐릭터 값이 아니라 프리셋 값이 남는다 */
+  const cbp = mkHolder({ charDef: { deskItems: ORIG() } });
+  const bp = build(SRC, { cBase: cbp, defs: { vip: mkDef('vip', { custom: true }), other: mkDef('other', { custom: true }) } });
+  bp.mod.applyDeskItemsTo(cbp, { vip: { adj: { x: 9 } } });   // 프리셋이 입히려던 값
+  bp.mod.autoSaveDeskItemsNow();
+  chk(cbp.charDef.deskItems && cbp.charDef.deskItems.vip.adj.x === 9 && !cbp.charDef.deskItems.other, '★ 프리셋을 얹은 뒤 건너뜀 → 저장본에 프리셋 값(x:9)이 남는다(옛 캐릭터 값 x:1 이 아니다)');
+  const mm = SRC.replace("_sk.forEach((entry,id)=>{ if(entry && !d[id]){ d[id]=entry; any=true; } });", '');
   const rb = run(mm);
+  const rbp = (() => { const c = mkHolder({ charDef: { deskItems: ORIG() } }); const bb = build(SRC.replace("if(holder._skippedItems && holder._skippedItems.has(id)) holder._skippedItems.set(id, e);", ''), { cBase: c, defs: { vip: mkDef('vip', { custom: true }) } }); bb.mod.applyDeskItemsTo(c, { vip: { adj: { x: 9 } } }); bb.mod.autoSaveDeskItemsNow(); return c; })();
+  chk(!rbp.charDef.deskItems || !rbp.charDef.deskItems.vip || rbp.charDef.deskItems.vip.adj.x !== 9, '  깨 보기: 건너뛰는 순간 원본을 붙잡지 않으면 프리셋 값이 저장본에 남지 않는다(= 위 «프리셋» 판정이 빨강)');
   chk(mm !== SRC && Object.keys(rb.cb.charDef.deskItems || {}).sort().join() === 'plant', '  깨 보기: collectDeskItems 의 합치는 줄을 빼면 건너뛴 소품이 저장본에서 지워진다(= 위 판정이 빨강)');
   /* 저장 길 셋이 같은 결과 — 자동 저장 · 생성기 «완성 → 저장»(creator-save.js) · 프리셋 저장(desk-preset.js)은 모두 collectDeskItems 로 모은다 */
   const cb3 = mkHolder({ charDef: { deskItems: ORIG() } });

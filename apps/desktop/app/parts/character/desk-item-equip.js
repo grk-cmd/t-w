@@ -33,11 +33,11 @@ function _rememberCrItemOrigin(holder, p){
   if(!deskItemOrigin || !p || typeof crState().cBase==='undefined' || holder!==crState().cBase) return;
   deskItemOrigin.remember(p, p.userData.adj);
 }
-/* 막혀서 올리지 못한 아이템의 id 를 holder 에 적어 둔다 — 저장(autoSaveDeskItemsNow)이 holder 기준이라 이 표시가 없으면 건너뛴 아이템이 저장본에서 지워진다 */
+/* 막혀서 올리지 못한 아이템을 holder 에 적어 둔다(Map id → 입히려던 원본 항목) — 저장(autoSaveDeskItemsNow)이 holder 기준이라 이 표시가 없으면 건너뛴 아이템이 저장본에서 지워진다 */
 function _markSkipped(holder, id){
   if(!holder || !id) return;
-  if(!holder._skippedItems) holder._skippedItems = new Set();
-  holder._skippedItems.add(id);
+  if(!holder._skippedItems) holder._skippedItems = new Map();   // id → 그때 입히려던 원본 항목(applyDeskItemsTo 가 채운다 · 사용자가 직접 켠 것은 항목이 없다)
+  if(!holder._skippedItems.has(id)) holder._skippedItems.set(id, undefined);
 }
 function equipDeskItem(holder,def,on){
   // ★ 라이선스 보유자 전용으로 등록된 아이템은 막아야 하면(account-state.js licenseAssetBlocked) 장착 자체를 막음.
@@ -180,14 +180,14 @@ function equipDeskItem(holder,def,on){
     if(typeof crState().cBase!=='undefined' && holder===crState().cBase) deskSetupMod().selectDeskItemForAdjust(pivot);   // 생성기 안에서는 방금 장착한 아이템도 선택 표시
   }
 }
-/* 저장 길(자동 저장 · 생성기 «완성 → 저장» · 프리셋 저장)이 모두 이 함수로 모은다. 막혀서 올리지 못한 아이템(holder._skippedItems)은 올리지 못했다고 지우면 되돌릴 수 없으므로 holder.charDef.deskItems 의 원본 항목을 그대로 합친다. */
+/* 저장 길(자동 저장 · 생성기 «완성 → 저장» · 프리셋 저장)이 모두 이 함수로 모은다. 막혀서 올리지 못한 아이템(holder._skippedItems — 건너뛰는 순간 붙잡은 원본 항목)은 올리지 못했다고 지우면 되돌릴 수 없으므로 그 항목을 그대로 합친다. */
 function collectDeskItems(holder){ const d={}; let any=false; deskItemsMod().allDeskItems().forEach(def=>{ const p=holder.deskItems&&holder.deskItems[def.id]; if(p){ d[def.id]={adj:Object.assign({},p.userData.adj)}; if(p.userData.autoScale!=null) d[def.id].autoScale=p.userData.autoScale;
   // ★ 색상은 비어있어도 항상 저장 — "초기화(원본으로 복원)한 상태"를 명시적으로 기록해서
   //   실행 화면 로드 시 이전에 저장돼 있던 색이 남지 않게 함. 예전엔 빈 객체면 필드가 빠져서 초기화가 안 반영됐음.
   if(p.userData.colorGroups) d[def.id].colors=Object.assign({},p.userData.colors||{});
   any=true;} });
-  const _sk=holder._skippedItems, _orig=holder.charDef && holder.charDef.deskItems;
-  if(_sk && _sk.size && _orig) _sk.forEach(id=>{ if(_orig[id] && !d[id]){ d[id]=_orig[id]; any=true; } });
+  const _sk=holder._skippedItems;
+  if(_sk && _sk.size) _sk.forEach((entry,id)=>{ if(entry && !d[id]){ d[id]=entry; any=true; } });
   return any?d:null; }
 /* ★ 생성기에서 책상 아이템을 켜고 끌 때 "완성 → 저장"을 눌러야만 반영되던 게 혼란을 줬음(꾸미기 파츠는
    토글 즉시 저장되는 것과 비대칭) — 아이템 켜고/끄는 즉시 여기서 바로 def에 반영 + 저장까지 함.
@@ -204,7 +204,9 @@ function autoSaveDeskItemsNow(){
   }
   slotSaveMod().saveSlots();
 }
-function applyDeskItemsTo(holder,data){ if(!data||!holder.deskAnchor)return; Object.keys(data).forEach(id=>{ const def=deskItemsMod().deskItemDef(id); if(!def)return; const e=data[id]; equipDeskItem(holder,def,true); const p=holder.deskItems && holder.deskItems[id];  /* 건너뛴(막힌) 아이템이면 holder.deskItems 가 아직 없을 수 있다 */ if(p&&e.adj){
+function applyDeskItemsTo(holder,data){ if(!data||!holder.deskAnchor)return; Object.keys(data).forEach(id=>{ const def=deskItemsMod().deskItemDef(id); if(!def)return; const e=data[id]; equipDeskItem(holder,def,true);
+    if(holder._skippedItems && holder._skippedItems.has(id)) holder._skippedItems.set(id, e);   // 막혀 건너뛰었다 — 이번에 입히려던 원본 항목을 붙잡는다
+    const p=holder.deskItems && holder.deskItems[id];  /* 건너뛴(막힌) 아이템이면 holder.deskItems 가 아직 없을 수 있다 */ if(p&&e.adj){
     const savedAdj=Object.assign({},e.adj);
     // ★ 예전엔 y를 자동 계산값(ITEM_Y_START_OFFSET)으로 강제 복원해서 저장값을 무시했음 — 유저가 기즈모로
     //   조절할 수 있는 UI가 없다고 가정한 옛 로직. 지금은 기즈모로 자유롭게 y 조작 가능하므로 저장값 그대로 씀.
