@@ -20,6 +20,7 @@ const SRC0 = {
   HUB: pick(at('rt-hub.js', 'realtime')),
   LINK: pick(at('realtime-link.js', 'realtime')),
   FI: pick(['firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js']),
+  RB: pick(at('rt-bind.js', 'realtime')),
   HTML: pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html']),
   API: pick(at('api-client.js', 'shared')),
 };
@@ -474,8 +475,9 @@ async function judge(S){
       chk(urlOf({ firebaseEnv: 'dev' }) === H.REALTIME_URLS.dev && urlOf(undefined) === H.REALTIME_URLS.prod, '앱 한 벌 — dev 앱은 dev 주소 · 그 밖은 운영 주소');
       chk(urlOf({ firebaseEnv: 'dev' }, () => 'prod') === H.REALTIME_URLS.prod, '  ↳ 판정은 TwApi.envOf 를 따른다(따로 판정하지 않는다)');
     }
-    chk(/window\.TwRtHub\.store\.bind\(\{ createLink: createRealtimeLink, getToken: _getIdToken, getVersion: \(\) => _appVer\.ready \}\);/.test(strip(S.FI)), 'firebase-init — 연결 공통부 · 토큰 · 버전을 bind');
-    chk(!/\.start\(/.test(strip(S.FI).split('window.TwRtHub.store.bind')[1].split('\n')[0]), '  ↳ 켜기는 여기서 안 한다(로그인 흐름 몫)');
+    chk(/window\.TwRtHub\.store\.bind\(\{\s*createLink: createRealtimeLink,\s*getToken: \(force\) => window\.firebaseAPI\.getIdToken\(force\),\s*getVersion: \(\) => appVer\.ready,\s*\}\);/.test(strip(S.RB)), 'rt-bind — 연결 공통부 · 토큰 · 버전을 bind');
+    chk(!/\.start\(/.test(strip(S.RB).split('window.TwRtHub.store.bind')[1]), '  ↳ 켜기는 여기서 안 한다(로그인 흐름 몫)');
+    chk(/<script type="module" src="parts\/firebase-init\.js"><\/script>\s*<script type="module" src="parts\/realtime\/rt-bind\.js"><\/script>/.test(S.HTML), '  ↳ html 이 rt-bind 를 module 로 firebase-init 다음에 싣는다');
   }
 }
 
@@ -524,7 +526,7 @@ const BREAKS = [
   ['HUB', "    if(link) link.close();\n    setState(STATE.OFF);", "    setState(STATE.OFF);", 'stop 이 연결을 안 닫음'],
   ['LINK', "const base = { t: 'hello', pv: deps.pv, token: tk, ver: helloVer };", "const base = { t: 'hello', pv: deps.pv, token: tk, userId: 'u1', ver: helloVer };", 'pv 2 hello 에 userId(서버가 모르는 칸 — badRequest)'],
   ['HTML', '<script src="parts/realtime/rt-hub.js"></script>', '', 'html 에 안 실음'],
-  ['FI', "  window.TwRtHub.store.bind({ createLink: createRealtimeLink, getToken: _getIdToken, getVersion: () => _appVer.ready });", '', 'firebase-init 이 bind 안 함'],
+  ['RB', "  createLink: createRealtimeLink,\n", '', 'rt-bind 가 연결 만들기를 안 건넴'],
 ];
 const caught = [];
 for(const [where, from, to, what] of BREAKS){

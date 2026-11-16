@@ -18,44 +18,40 @@ const FI = need('firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebas
 const RULES = JSON.parse(need('firebase-database-rules.json')).rules;
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const CODE = strip(FI);
-const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nreturn { createAppVersion, cleanAppVer, APP_VER_MAX, APP_VER_UNKNOWN };')();
+const RB = need('rt-bind.js', 'parts/realtime/rt-bind.js', 'app/parts/realtime/rt-bind.js');
+const RBC = strip(RB);
+const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nreturn { createAppVersion, sharedAppVersion, cleanAppVer, APP_VER_MAX };')();
 
 (async () => {
   say('── 1. app-version.js');
   {
-    const { createAppVersion, cleanAppVer, APP_VER_MAX, APP_VER_UNKNOWN } = mod;
-    const UNK = APP_VER_UNKNOWN;
-    chk(APP_VER_MAX === 20, '길이 상한 20 — 규칙과 같다');
-    chk(typeof UNK === 'string' && cleanAppVer(UNK) === UNK, '모를 때 싣는 값도 규칙 모양(문자열 · 20자 이하 · 허용 글자)');
+    const { createAppVersion, cleanAppVer, APP_VER_MAX } = mod;
+    chk(APP_VER_MAX === 20, '길이 상한 20 — 서버 hello 와 같다');
     chk(cleanAppVer('0.10.3') === '0.10.3' && cleanAppVer('0.10.3-beta.1') === '0.10.3-beta.1', '버전 모양 문자열은 그대로');
     chk([null, undefined, 3, '', 'x'.repeat(21), '0.1 <b>', {}].every(v => cleanAppVer(v) === null), '  ↳ 문자열이 아니거나 · 빈칸 · 21자 · 이상한 글자는 null');
-
-    let got = [];
-    const a = createAppVersion({ getVersion: async () => '0.10.3', onReady: v => got.push(v) });
-    chk(a.get() === null && a.withVer({ online: true }).ver === UNK, '★ 받기 전: get() 은 null 이지만 쓰는 객체엔 «모름» ver — ver 없는 online:true 는 규칙이 옛 앱으로 막는다');
-    chk(await a.ready === '0.10.3' && a.get() === '0.10.3', '★ 받은 뒤: get() = 버전');
-    chk(JSON.stringify(a.withVer({ online: false, lastSeen: 1 })) === '{"online":false,"lastSeen":1,"ver":"0.10.3"}', '  ↳ withVer 가 ver 한 칸만 붙인다');
-    chk(got.length === 1 && got[0] === '0.10.3', '  ↳ onReady 는 한 번');
-
-    got = [];
-    const b = createAppVersion({ getVersion: () => null, onReady: v => got.push(v) });
-    chk(await b.ready === null && got.length === 0 && b.withVer({ online: true }).ver === UNK, '★ companion 없음(웹 · 검사): ready 는 null · onReady 안 부름 · 그래도 ver 는 «모름» 으로 싣는다');
-    const c = createAppVersion({ getVersion: () => { throw new Error('x'); }, onReady: v => got.push(v) });
-    const d = createAppVersion({ getVersion: () => Promise.reject(new Error('ipc')), onReady: v => got.push(v) });
-    chk(await c.ready === null && await d.ready === null && got.length === 0, '  ↳ 던지거나 · 거부돼도 앱이 안 깨진다(null)');
-    chk(c.withVer({ online: false, inRoom: false }).ver === UNK && d.withVer({ online: true }).ver === UNK, '  ↳ 못 받아도 쓰는 객체엔 ver 가 있다');
+    const a = createAppVersion({ getVersion: async () => '0.10.3' });
+    chk(await a.ready === '0.10.3', '★ 받은 뒤 ready = 버전');
+    const b = createAppVersion({ getVersion: () => null });
+    chk(await b.ready === null, '★ companion 없음(웹 · 검사): ready 는 null');
+    const c = createAppVersion({ getVersion: () => { throw new Error('x'); } });
+    const d = createAppVersion({ getVersion: () => Promise.reject(new Error('ipc')) });
+    chk(await c.ready === null && await d.ready === null, '  ↳ 던지거나 · 거부돼도 앱이 안 깨진다(null)');
     const e = createAppVersion({ getVersion: async () => 'x'.repeat(40) });
-    chk(await e.ready === null && e.withVer({}).ver === UNK, '  ↳ 규칙이 거절할 값(21자 이상)은 처음부터 안 싣는다(«모름» 으로)');
-    const f = createAppVersion({ getVersion: async () => '1.0.0', onReady: () => { throw new Error('boom'); } });
-    chk(await f.ready === '1.0.0', '  ↳ onReady 가 던져도 ready 는 끝난다');
+    chk(await e.ready === null, '  ↳ 서버가 거절할 값(21자 이상)은 처음부터 안 싣는다(null)');
+    chk(!/withVer|APP_VER_UNKNOWN|onReady/.test(AV), '  ↳ presence 용 withVer · «모름» 값 · onReady 는 없다(걷음)');
   }
 
-  say('── 2. firebase-init.js — 이 판을 realtime 연결에 잇는다(Firebase presence 쓰기는 걷었다)');
+  say('── 2. rt-bind.js — 이 판을 realtime 연결에 잇는다(Firebase presence 쓰기는 걷었다)');
   {
-    chk(/import \{ createAppVersion \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?app-version\.js";/.test(CODE), 'app-version.js 를 불러온다');
-    chk(/getVersion: \(\) => \(window\.companion && window\.companion\.getAppVersion\) \? window\.companion\.getAppVersion\(\) : null/.test(CODE),
+    chk(/import \{ sharedAppVersion \} from "\.\.\/shared\/app-version\.js";/.test(RBC), 'rt-bind.js 가 app-version.js 의 한 벌(sharedAppVersion)을 받는다');
+    chk(/\(win\.companion && win\.companion\.getAppVersion\) \? win\.companion\.getAppVersion\(\) : null/.test(AV),
       '★ companion 이 없으면 getAppVersion 을 부르지 않는다');
-    chk(/getVersion: \(\) => _appVer\.ready/.test(CODE) && !/_createMyPresence|createMyPresence|onDisconnect\(/.test(CODE), '★ realtime 연결의 hello 가 이 판을 싣는다 · presence 쓰기 · onDisconnect 는 없다');
+    {
+      let n = 0; const w = { companion: { getAppVersion: async () => { n++; return '0.13.0'; } } };
+      const a = mod.sharedAppVersion(w), b = mod.sharedAppVersion(w);
+      chk(a === b && await a.ready === '0.13.0' && n === 1, '★ 둘이 받아도 같은 한 벌 · 버전 IPC 는 한 번');
+    }
+    chk(/getVersion: \(\) => appVer\.ready/.test(RBC) && /sharedAppVersion\(window\)/.test(RBC) && !/createAppVersion/.test(CODE) && !/_createMyPresence|createMyPresence|onDisconnect\(/.test(CODE), '★ realtime 연결의 hello 가 한 벌(sharedAppVersion)의 판을 싣는다 · firebase-init 에는 presence 쓰기 · onDisconnect · 버전 읽기가 없다');
   }
 
   say('── 3. 규칙 — 실제로 굴린다');

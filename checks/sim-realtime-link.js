@@ -6,7 +6,7 @@
  * 3. rid 요청 — answers 로 rid 로만 답 짝짓기 · rid 없는 답 · 모르는 rid 의 답은 warn 후 버림 · badRequest · unavailable(깨 보기) · 시간 초과 · 끊기면 null
  * 4. 끊김 → onClosed(wasReady, fatal) · 다시 붙기 백오프(reconnectWanted) · markAuthRetry → getToken(true)
  * 5. 토큰 갱신 hello 에도 선택 칸 · 쉬면 닫기(idleCloseMs · busy) · 못 붙은 주소 1분 쉼 · retry · 주소 바뀜(switchOk)
- * 6. firebase-init 연결 — import 하고 realtime 연결 하나(rt-hub)에 createLink 로 넘긴다
+ * 6. rt-bind 연결 — import 하고 realtime 연결 하나(rt-hub)에 createLink 로 넘긴다
  * 7. 끊김 정책 몫 — ready 전 error auth · protocol 의 닫힘 번호(4001 · 4003) · scheduleReconnect({ delayMs, readyWaitMs }) · reconnectNow
  */
 'use strict';
@@ -15,8 +15,8 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const SRC = read('realtime-link.js'), FI = read('firebase-init.js');
-for(const [n, v] of [['realtime-link.js', SRC], ['firebase-init.js', FI]]){
+const SRC = read('realtime-link.js'), FI = read('firebase-init.js'), RB = read('rt-bind.js');
+for(const [n, v] of [['realtime-link.js', SRC], ['firebase-init.js', FI], ['rt-bind.js', RB]]){
   if(!v){ say('  ? 원본 못 찾음 — ' + n); process.exit(2); }
 }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
@@ -450,9 +450,10 @@ async function up(env){
 
   say('── 6. 연결');
   {
-    const FC = strip(FI);
-    chk(/import \{ createRealtimeLink \} from "\.\/realtime\/realtime-link\.js";/.test(FC), 'firebase-init.js 가 realtime/realtime-link.js 를 import');
-    chk(/TwRtHub\.store\.bind\(\{ createLink: createRealtimeLink,/.test(FC) && !/createRoomServerNet/.test(FC), '  ↳ realtime 연결 하나(rt-hub)에 createLink 로 넘긴다 · 옛 방 연결(pv 1)은 없다');
+    const FC = strip(RB);
+    chk(/import \{ createRealtimeLink \} from "\.\/realtime-link\.js";/.test(FC), 'rt-bind.js 가 realtime-link.js 를 import');
+    chk(/TwRtHub\.store\.bind\(\{\s*createLink: createRealtimeLink,/.test(FC) && !/createRoomServerNet/.test(FC), '  ↳ realtime 연결 하나(rt-hub)에 createLink 로 넘긴다 · 옛 방 연결(pv 1)은 없다');
+    chk(!/realtime-link|createRealtimeLink/.test(strip(FI)), '  ↳ firebase-init.js 는 realtime 연결을 모른다');
   }
 
   say(fail ? `\n✗ 실패 ${fail}건` : `\n전부 통과 ✅ (${pass}건)`);

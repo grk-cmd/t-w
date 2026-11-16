@@ -29,9 +29,7 @@
     signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { firebaseConfig } from "./firebase-config.js";
-  import { createAppVersion } from "./shared/app-version.js";
   import { createChatHistory, createIdbChatStore } from "./chat/chat-history.js";
-  import { createRealtimeLink } from "./realtime/realtime-link.js";
   /* 로그인 수단 읽기 — authProviders · authChangePassword 가 같이 쓴다. 세션이 없으면 null. */
   function _providersOf(cu){
     if(!cu) return null;
@@ -123,21 +121,6 @@
 
   /* 💰 Storage 캐시 정책 — 한 번 받은 파일은 브라우저/앱이 재사용해서 다운로드 대역폭(=서버비)을 아낌. */
   const STORAGE_CACHE = 'public, max-age=31536000';
-  /* 이 앱 판 — preload 의 companion.getAppVersion() 을 한 번 받는다. realtime 연결의 hello 가 이 판을 싣는다(rt-hub getVersion). */
-  const _appVer = createAppVersion({
-    getVersion: () => (window.companion && window.companion.getAppVersion) ? window.companion.getAppVersion() : null,
-  });
-  /* ⚙️ 원격 설정(remote-config.js — 읽는 차례 · 주기는 그 머리 주석) */
-  const _lsOrNull = () => { try{ return window.localStorage; }catch(_){ return null; } };
-  const _rc = (window.TwRemoteConfig && window.TwRemoteConfig.store) || null;
-  if(_rc){
-    _rc.start({
-      api: (window.TwApi && window.TwApi.client) || null,   // 앱 공통 API 통로(api-client.js) — 운영/dev 주소는 거기서
-      storage: _lsOrNull(),
-      win: window,
-      rt: window.TwRtHub.store,   // realtime 알림 config — 서버가 바꿨을 때 · 오래 끊겼다 붙었을 때 다시 묻는다
-    });
-  }
   /* 🛠 점검 표시 — 서버 /v2/config 가 먼저, 서버에 닿지 못할 때만 이 Firebase 칸을 한 번 읽는다(점검 중에도 규칙이 이 칸 읽기는 연다). 읽는 때 · 주인은 maintenance-gate.js 한 곳 */
   const _mt = window.TwMaintenance.store;
   _mt.start({ readServer: () => window.TwApi.client.get(window.TwMaintenance.CONFIG_PATH),   // 앱 공통 API 통로 — 원격 설정과 같은 길이면 하나로 합치고 같은 값이면 304
@@ -145,9 +128,6 @@
   const _getIdToken = (force) => (auth && auth.currentUser) ? auth.currentUser.getIdToken(!!force) : Promise.resolve(null);
   /* 🌐 로그인이 필요한 API 통로(api-client.js TwApi.authed — 쉬기 없음 · 기기 머리) — 토큰 출처만 여기서 잇는다. */
   window.TwApi.bindToken(_getIdToken);
-  const _authApi = window.TwApi.authed;
-  /* 🛰 realtime 연결 하나(realtime/rt-hub.js) — 연결 공통부 · 토큰 · 버전만 잇는다. 켜기(start) · 끄기는 로그인 흐름 몫. */
-  window.TwRtHub.store.bind({ createLink: createRealtimeLink, getToken: _getIdToken, getVersion: () => _appVer.ready });
   /* ★ Storage Phase 2: 유저 이미지(프로필/배경/스티커/박수)를 Realtime DB의 base64 대신 Storage에 저장.
      dataURL("data:image/...;base64,...")이 들어오면 Storage에 올리고 다운로드 URL을 돌려줌.
      이미 URL(https://...)이면 그대로 통과 — 재저장 시 중복 업로드 방지.
@@ -175,8 +155,6 @@
 
   window.firebaseAPI = {
     getIdToken(force){ return _getIdToken(force); },
-    // 로그인 API GET — get(path, { auth:true, headers, timeoutMs }) 그대로(api-client.js). 통로가 없으면 'unavailable'(NO_API).
-    apiGetAuthed(path, opts){ return _authApi ? _authApi.get(path, opts) : Promise.reject(Object.assign(new Error('API 통로 없음'), { kind: 'unavailable', code: 'NO_API', status: 0 })); },
     // 서버 방에 들어가고 나갈 때 친구 목록의 «온라인 · 방코드» — Firebase 방은 joinRoom · leaveRoom 이 직접 한다.
     /* ===== 🧬 캐릭터 슬롯 · 보관함은 서버 원본(character/closet-api.js — /v2/me/avatars). 여기는 Storage 올리기만 남았다 =====
        🧍 슬롯에 딸린 GLB(커미션 베이스·커스텀 책상·커스텀 아이템)를 Storage 에.

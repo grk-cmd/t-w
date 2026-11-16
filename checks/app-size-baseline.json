@@ -3,7 +3,7 @@
   "files": {
     "app.js": {
       "cap": 8542,
-      "lines": 8342,
+      "lines": 8344,
       "sections": [
         "SETUP",
         "기본 캐릭터 GLB (임베드) — face/cloth_upper/cloth_lower + 리깅",
@@ -130,8 +130,8 @@
       ]
     },
     "firebase-init.js": {
-      "cap": 518,
-      "lines": 418,
+      "cap": 496,
+      "lines": 396,
       "sections": [
         "🚧 로그인 복원 대기선 (auth barrier)",
         "🧬 캐릭터 슬롯 · 보관함은 서버 원본(character/closet-api.js — /v2/me/avatars). 여기는 Storage 올리기만 남았다",

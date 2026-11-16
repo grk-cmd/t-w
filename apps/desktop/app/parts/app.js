@@ -6572,6 +6572,8 @@ function _showUpdateNoticeOnce(notice, done){   // done — 창이 닫히거나 
 // 공지 창은 켜는 흐름(updateFlowMod — 업데이트 창 다음)이 처음 받았을 때 한 번 띄운다
 // 켤 때 공지를 받는다 — 공지는 모두에게 같은 공용 데이터라 계정 확인을 기다리지 않는다(로그인 화면 위에도 업데이트 공지가 뜬다). 이후엔 서버가 «공지가 바뀌었다» 하면 다시 받는다 — notice-feed.js
 TwNetReady.whenNetReady(()=>noticeFeed.start());
+/* ⚙️ 원격 설정 시작 — 읽는 차례 · 주기는 remote-config.js 머리. API 통로 · 이 PC 저장 · realtime 알림만 잇는다. */
+TwNetReady.whenNetReady(()=>TwRemoteConfig.store.start({ api: TwApi.client, win: window, rt: TwRtHub.store }));
 
 // ===== Phase 3: 관리자 카테고리 관리 =====
 /* 카테고리 관리 본문은 admin/admin-category.js, 뒤쪽의 라이선스 요청 · 발급 버튼 · 친구코드로 발급은 admin/admin-license.js 로 옮겼다.

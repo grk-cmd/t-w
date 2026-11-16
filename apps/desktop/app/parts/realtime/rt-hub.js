@@ -19,7 +19,7 @@
    [그 밖의 메시지] onMessage(t, fn) — presence · announce · roomInvited · mobileFocus 와 방(ROOM_TYPES — C 묶음 방 포트 자리)의 메시지.
      send(msg) · request(msg)(rid 답 짝짓기 — presenceGet · random · peek). 방 포트는 이 둘 위에 만든다(방 규칙은 여기 없음).
    classic script — device-id.js 다음 · 쓰는 모듈 · app.js 보다 먼저 싣는다(window.TwRtHub). 연결 공통부(realtime-link.js · ES 모듈)와
-     토큰 · 버전은 firebase-init.js 가 store.bind 로 잇는다 — bind 전 start 는 던진다. 켜는 것(start · stop · bye)은 로그인 흐름 몫. */
+     토큰 · 버전은 rt-bind.js 가 store.bind 로 잇는다 — bind 전 start 는 던진다. 켜는 것(start · stop · bye)은 로그인 흐름 몫. */
 (function(){
 'use strict';
 
@@ -275,9 +275,9 @@ const api = { PV, KINDS, ROOM_TYPES, MESSAGE_TYPES, REQUEST_KINDS, ANSWERS, CLOS
   START_WAIT_MS, RESTART_SPREAD_MS, RESTART_READY_WAIT_MS, BYE_WAIT_MS, PONG_WAIT_MS,
   REALTIME_URLS, DEV_URL_KEY, DEV_URL_RE, realtimeUrlFor, sessionIdOf, createRtHub, bindWindowEvents };
 if(typeof window !== 'undefined'){
-  /* 앱 한 벌 — 연결 공통부 · 토큰 · 버전은 firebase-init.js 가 bind 로 잇는다(ES 모듈이라 이 파일보다 늦게 돈다). */
+  /* 앱 한 벌 — 연결 공통부 · 토큰 · 버전은 rt-bind.js 가 bind 로 잇는다(ES 모듈이라 이 파일보다 늦게 돈다). */
   let bound = null;
-  const need = () => { if(!bound) throw new Error('[realtime] 연결 재료가 아직 없다 — firebase-init 이 bind 한 뒤 start'); return bound; };
+  const need = () => { if(!bound) throw new Error('[realtime] 연결 재료가 아직 없다 — rt-bind.js 가 bind 한 뒤 start'); return bound; };
   let st = null; try{ st = window.localStorage; }catch(_){ st = null; }
   const env = window.TwApi.envOf(window);   // API 와 같은 판정 한 곳 — api-client.js 가 먼저 실린다
   const hub = createRtHub({
@@ -289,7 +289,7 @@ if(typeof window !== 'undefined'){
     deviceId: () => window.TwDeviceId.store.get(),
     newSession: () => window.TwRequestId.newId(),
   });
-  /* firebase-init.js 가 한 번 — { createLink(realtime-link.js), getToken(force), getVersion() } */
+  /* rt-bind.js 가 한 번 — { createLink(realtime-link.js), getToken(force), getVersion() } */
   hub.bind = (o) => { bound = o; };
   bindWindowEvents(window, hub);
   api.store = hub;

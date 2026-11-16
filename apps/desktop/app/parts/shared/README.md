@@ -211,23 +211,22 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **내놓는 것**: `load(key, fallback)` → `{ ok, list, err, bytes }`(키가 없거나 빈 글이면 ok · fallback) · `save(key, value)` → `{ ok, err, bytes }`(던지지 않는다).
 - **함정**: 값의 모양(배열 · 객체)은 부르는 쪽이 본다. DOM · 토스트를 모른다 — 알리기는 부르는 쪽. 검사 `checks/sim-json-store.js`.
 
-## `app-version.js` — 🏷️ 앱 버전(ver) 싣기
+## `app-version.js` — 🏷️ 앱 버전(ver) 받기
 
-**책임** — 앱 버전을 한 번 받아(`companion.getAppVersion()` · 비동기 IPC) presence 에 싣는다. 웹 관리자가 누가 어느 판을 쓰는지 보고, 규칙은 presence 의 ver 로 옛 앱(≤0.10.2)을 가린다.
+**책임** — 앱 버전을 한 번 받아(`companion.getAppVersion()` · 비동기 IPC) realtime 연결의 hello 에 싣는다. 서버가 hello 의 ver 로 최소 버전 · 방 서버 판정을 한다.
 
-**만드는 법** — `firebase-init.js` 가 `createAppVersion({ getVersion })` — realtime 연결의 hello 가 `ready` 로 이 판을 싣는다(`rt-hub` getVersion). Firebase presence 에 판을 싣던 길은 걷었다(`withVer` 는 쓰는 곳이 없다 — E-5 에서 걷는다).
+**만드는 법** — `realtime/rt-bind.js` 가 `sharedAppVersion(window)` 을 받아 `TwRtHub.store.bind` 의 `getVersion` 으로 넘긴다(앱 한 벌 · IPC 한 번). 검사 · 다른 출처는 `createAppVersion({ getVersion })`.
 
 **내놓는 것**
-- `ready` — 받은 버전(못 받으면 `null` · 거부 없음). 최소 버전 게이트 · 방 서버 · 방문 집계 · accountSnap 은 이것(«모름» = null)을 본다.
-- `get()` — 지금 아는 버전 또는 `null`.
-- `withVer(obj)` — 쓰는 객체에 ver 를 **늘** 붙인다. 아직 모르거나 못 받았으면 `APP_VER_UNKNOWN`(`'unknown'`).
-- `cleanAppVer(v)` · `APP_VER_MAX`(20 · 규칙 상한).
+- `sharedAppVersion(win)` — 앱 한 벌의 `{ ready }`.
+- `createAppVersion({ getVersion })` → `{ ready }` — 받은 버전(못 받으면 `null` · 거부 없음). 최소 버전 게이트 · 방 서버는 이것(«모름» = null)을 본다.
+- `cleanAppVer(v)` · `APP_VER_MAX`(20 · 서버 hello 상한).
 
 **함정**
-- presence 에 쓰는 것은 set · update · onDisconnect 전부 `withVer` 를 거친다. 규칙은 `online:true` 인데 ver 가 없으면 옛 앱으로 보고 그 사람의 읽기 · 쓰기를 막고 구독도 끊는다(ver 없는 오프라인 쓰기도 `inRoom` 이 있으면 거절). 버전이 늦거나 못 받았다고 ver 를 빼면 지금 앱이 막힌다.
-- presence 첫 쓰기(로그인 뒤)는 `ready` 를 기다린다 — «unknown» 으로 쓰고 메우는 쓰기를 줄인다. 그 전에 `.info/connected` 가 먼저 오면 그쪽이 «unknown» 으로 쓰고, 받은 뒤 객체의 `onVersion` 이 메운다.
+- companion 이 없거나(웹 · 검사) 던지거나 모양이 이상하면 `null` — 부르는 쪽이 «모름» 으로 다룬다.
+- Firebase presence 에 ver 를 싣던 길(`withVer` · `.info/connected` · `onVersion`)은 걷었다.
 
-검사: `checks/sim-app-version.js` (1절 모듈 · 2절 쓰는 자리 · 3절 규칙 · 5절 presence 쓰기를 실제로 돌림 — 평소 · 늦게 옴 · 못 받음 · companion 없음 · 영영 안 옴 · 오프라인 · 규칙 판정 · 깨 보기 3).
+검사: `checks/sim-app-version.js` (1절 모듈 · 2절 rt-bind 가 한 벌을 받음 · 3절 규칙 · 4절 accountSnap).
 
 ## `maintenance-gate.js` — 🛠 서버 점검 창
 

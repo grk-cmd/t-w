@@ -250,9 +250,8 @@ async function judge(S){
       'app.js — 포트는 realtime provider(접속 상태) · 서버 provider 둘만 받는다(옛 길 · 받는 곳 고르기 · 진단 줄 없음)');
     chk(/const socialApiMod = TwSocialApi\.createSocialApi\(\{ authed: TwApi\.authed,[^\n]*\n/.test(a) && /const friendsApiMod = TwFriendsApi\.createFriendsApi\(\{\n  social: socialApiMod,\n  rt: TwRtHub\.store,/.test(a), '  ↳ 서버 provider 가 서버 길(social-api.js — 로그인 API 통로 TwApi.authed) · realtime 알림 걸기를 받는다');
     const fi = strip(S.FI);
-    chk(/window\.TwApi\.bindToken\(_getIdToken\);\n  const _authApi = window\.TwApi\.authed;/.test(fi)
-      && /apiGetAuthed\(path, opts\)\{ return _authApi \? _authApi\.get\(path, opts\) : Promise\.reject\(/.test(fi),
-      '  ↳ firebase-init — 로그인 API 통로(api-client.js authed — 공용 주소 · 쉬기 끔)에 Firebase ID 토큰을 잇는다 · 없으면 거절(옛 길)');
+    chk(/window\.TwApi\.bindToken\(_getIdToken\);/.test(fi) && !/apiGetAuthed|_authApi/.test(fi),
+      '  ↳ firebase-init — 로그인 API 통로(api-client.js authed)에 Firebase ID 토큰만 잇는다 · 따로 부르는 길(apiGetAuthed)은 없다');
     chk(/  listFriends: \(\.\.\.a\)=>friendsPortMod\.listFriends\(\.\.\.a\),/.test(a), '  ↳ friends-sub 의 이름 받기(listFriends)도 포트로');
     chk(/  readFriend: \(\.\.\.a\)=>friendsPortMod\.readFriend\(\.\.\.a\),/.test(a), '  ↳ friends-sub 의 새 친구 한 명 받기(readFriend)도 포트로');
     chk(!/firebaseAPI\.removeFriend/.test(a) && /  removeFriend: \(\.\.\.a\)=>friendsPortMod\.removeFriend\(\.\.\.a\),/.test(a), '  ↳ 끊기도 포트로 — 화면은 firebaseAPI 를 안 부른다');

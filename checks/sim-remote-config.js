@@ -120,14 +120,14 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(RCM.CONFIG_PATH === '/v2/config' && /^tw\./.test(RCM.CACHE_KEY) && RCM.CACHE_VERSION === 2, '경로 /v2/config · 저장 키 tw. 접두사 · 저장 모양 2판');
     chk(RCM.STALE_MS === 60 * 1000 && API.TIMEOUT_MS <= 3000 && !('REFRESH_MS' in RCM), '입장 때 1분 넘었으면 다시 읽기 · API 3초 이하 · 주기 다시 읽기 없음');
     { const oi = globalThis.setInterval; let n = 0; globalThis.setInterval = (...a) => { n++; return oi(...a); };
-      try{ const sx = RCM.createRemoteConfig(); await sx.start({ api: mkApi(mkFetch(() => okRes(DATA))), storage: memStore() }); }finally{ globalThis.setInterval = oi; }
+      try{ const sx = RCM.createRemoteConfig(); await sx.start({ api: mkApi(mkFetch(() => okRes(DATA))), win: { localStorage: memStore() } }); }finally{ globalThis.setInterval = oi; }
       chk(n === 0, '★ 켤 때 주기 타이머를 걸지 않는다(바뀌면 서버가 config 알림)'); }
 
     // ① 정상
     let st = memStore();
     let f = mkFetch(() => okRes(DATA));
     let s = RCM.createRemoteConfig();
-    await s.start({ api: mkApi(f), storage: st });
+    await s.start({ api: mkApi(f), win: { localStorage: st } });
     chk(f.calls.length === 1 && f.calls[0].url === BASE + '/v2/config' && !f.calls[0].init.headers.Authorization && f.calls[0].init.credentials === 'omit', '★ 켤 때 GET /v2/config 한 번 — 로그인 없이(토큰 · 쿠키 없음)');
     chk(s.roomLimitOf('workingroom') === 500 && s.maxPeople() === 12 && s.inviteGate() === false && s.minAppVer() === '0.13.0' && s.bugDailyMax() === 9 && s.answered() && s.source() === 'api', '  ↳ 받은 값 반영 · 첫 답 표시 · 출처 api');
     const saved = JSON.parse(st.m['tw.remoteConfig'] || 'null');
@@ -136,19 +136,19 @@ const RCM = require(path.resolve(where('remote-config.js')));
     // ② 못 받음 → 저장값 → 기본값
     const down = mkFetch(() => { throw new TypeError('Failed to fetch'); });
     s = RCM.createRemoteConfig();
-    await quiet(() => s.start({ api: mkApi(down), storage: memStore({ 'tw.remoteConfig': JSON.stringify({ v: 2, at: 1, data: DATA }) }) }));
+    await quiet(() => s.start({ api: mkApi(down), win: { localStorage: memStore({ 'tw.remoteConfig': JSON.stringify({ v: 2, at: 1, data: DATA }) }) } }));
     chk(s.roomLimitOf('workingroom') === 500 && s.maxPeople() === 12 && s.inviteGate() === false && s.bugDailyMax() === 9 && s.answered() && s.source() === 'cache',
       '★ API 를 못 받으면 저장값(방 상한 · 정원 · 스위치 · 제보 상한)');
     chk(s.minAppVer() === null && s.minRoomVer() === null, '★ 최소 버전은 저장값을 쓰지 않는다(못 받으면 막지 않는다)');
     s = RCM.createRemoteConfig();
-    await quiet(() => s.start({ api: mkApi(down), storage: memStore({ 'tw.remoteConfig': JSON.stringify({ data: { roomMaxPeople: 30, roomLimits: { workingroom: 9 } } }) }) }));
+    await quiet(() => s.start({ api: mkApi(down), win: { localStorage: memStore({ 'tw.remoteConfig': JSON.stringify({ data: { roomMaxPeople: 30, roomLimits: { workingroom: 9 } } }) }) } }));
     chk(s.maxPeople() === 10 && s.roomLimitOf('workingroom') === 300 && s.source() === 'default', '  ↳ 옛 판(평평한 칸 · 판 표시 없음)이 남긴 저장값은 읽지 않는다');
     s = RCM.createRemoteConfig();
-    await quiet(() => s.start({ api: mkApi(down), storage: memStore() }));
+    await quiet(() => s.start({ api: mkApi(down), win: { localStorage: memStore() } }));
     chk(s.roomLimitOf('workingroom') === 300 && s.maxPeople() === 10 && s.inviteGate() === true && s.bugDailyMax() === 5 && s.answered() && s.source() === 'default',
       '★ 처음 실행 · 못 받음 → 기본값');
     s = RCM.createRemoteConfig();
-    await s.start({ api: null, storage: memStore() });
+    await s.start({ api: null, win: { localStorage: memStore() } });
     chk(s.answered() && s.source() === 'default', '  ↳ API 통로가 없으면 묻지 않고 기본값(답은 받은 것으로)');
     // ③ 봉투 · 모양 · 시간 초과
     const bads = [
@@ -162,14 +162,14 @@ const RCM = require(path.resolve(where('remote-config.js')));
     let allOk = true;
     for(const fn of bads){
       const s2 = RCM.createRemoteConfig();
-      await quiet(() => s2.start({ api: mkApi(mkFetch(fn)), storage: memStore() }));
+      await quiet(() => s2.start({ api: mkApi(mkFetch(fn)), win: { localStorage: memStore() } }));
       if(s2.maxPeople() !== 10 || !s2.answered() || s2.source() !== 'default') allOk = false;
     }
     chk(allOk, '실패 봉투 · 5xx · 봉투 아닌 응답 · data 없음 · 옛 모양(config 칸) · 점검(503) → 못 받음으로(기본값 · 답은 받음)');
     const hang = RCM.createRemoteConfig();
     const t0 = Date.now();
     const w0 = console.warn; console.warn = () => {};
-    hang.start({ api: mkApi(() => new Promise(() => {})), storage: memStore() });
+    hang.start({ api: mkApi(() => new Promise(() => {})), win: { localStorage: memStore() } });
     const v = await hang.ready(null, 300);
     chk(Date.now() - t0 < 1000 && v.roomMaxPeople === 10 && !hang.answered(), '★ API 가 멈춰도(답 없음) 부팅 대기는 ready 시간 상한까지만 — 기본값으로 간다');
     await new Promise((res) => setTimeout(res, API.TIMEOUT_MS + 200));
@@ -180,7 +180,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
     let t = 1000;
     f = mkFetch((url, init) => (init.headers['If-None-Match'] === '"c1"' ? { ok: false, status: 304, headers: { get: () => null }, json: async () => { throw new Error('본문 없음'); } } : okRes(DATA, 200, { ETag: '"c1"' })));
     s = RCM.createRemoteConfig();
-    await s.start({ api: mkApi(f), storage: memStore(), now: () => t });
+    await s.start({ api: mkApi(f), win: { localStorage: memStore() }, now: () => t });
     await s.refresh({ maxAgeMs: RCM.STALE_MS });
     chk(f.calls.length === 1, '입장 때 refresh({ maxAgeMs }) — 1분 안이면 다시 묻지 않는다');
     t += RCM.STALE_MS + 1;
@@ -188,7 +188,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(f.calls.length === 2 && f.calls[1].init.headers['If-None-Match'] === '"c1"' && s.maxPeople() === 12 && s.source() === 'api', '★ 1분이 지났으면 한 번 더 — 같은 값이면 ETag 304(본문 없이) · 값 그대로');
     const ff = mkFetch(() => { throw new Error('down'); });
     const s3 = RCM.createRemoteConfig();
-    await quiet(() => s3.start({ api: mkApi(ff), storage: memStore(), now: () => t }));
+    await quiet(() => s3.start({ api: mkApi(ff), win: { localStorage: memStore() }, now: () => t }));
     await quiet(() => s3.refresh({ maxAgeMs: RCM.STALE_MS }));
     chk(ff.calls.length === 1, '  ↳ API 가 멈췄을 때도 1분 안에는 다시 기다리지 않는다(입장마다 시간 초과를 겪지 않게)');
 
@@ -198,16 +198,30 @@ const RCM = require(path.resolve(where('remote-config.js')));
     let n = 0;
     const fn = mkFetch(() => { n++; return okRes(Object.assign({}, DATA, { room: Object.assign({}, DATA.room, { maxPeople: 10 + n }) })); });
     s = RCM.createRemoteConfig();
-    await s.start({ api: mkApi(fn), storage: memStore(), now: () => t, rt });
+    await s.start({ api: mkApi(fn), win: { localStorage: memStore() }, now: () => t, rt });
     chk(typeof hooks.config === 'function' && Object.keys(hooks).join() === 'config', 'realtime 알림 — config 하나만 건다');
     await hooks.config({ kind: 'config', resync: false });
     await new Promise((res) => setTimeout(res, 0)); await s.refresh({ maxAgeMs: RCM.STALE_MS });
     chk(fn.calls.length === 2 && s.maxPeople() === 12, '★ 알림이 오면 1분 안이어도 바로 다시 묻는다(서버가 바꿨다)');
 
+    // ⑤-2 storage 를 안 주면 win.localStorage 를 쓴다(app.js 가 안 준다)
+    {
+      const st2 = memStore(); const wmem = { localStorage: st2 };
+      const sd = RCM.createRemoteConfig();
+      await quiet(() => sd.start({ api: mkApi(mkFetch(() => okRes(DATA))), win: wmem }));
+      chk(!!st2.getItem('tw.remoteConfig'), 'storage 를 안 주면 win.localStorage 에 마지막 값을 적는다');
+    }
+    // ⑤-3 localStorage 를 못 읽으면 조용히 넘기지 않고 경고한다(저장값 없이 진행)
+    {
+      let warned = 0; const ow = console.warn; console.warn = () => { warned++; };
+      const sb = RCM.createRemoteConfig();
+      try{ await sb.start({ api: mkApi(mkFetch(() => okRes(DATA))), win: { get localStorage(){ throw new Error('blocked'); } } }); }finally{ console.warn = ow; }
+      chk(warned >= 1 && sb.maxPeople() === 12, '못 읽는 localStorage 는 경고로 드러내고 받은 값은 그대로 쓴다');
+    }
     // ⑥ firebase-init 배선
     const fi = strip(FI);
-    chk(/_rc\.start\(\{\s*api: \(window\.TwApi && window\.TwApi\.client\) \|\| null,\s*storage: _lsOrNull\(\),\s*win: window,\s*rt: window\.TwRtHub\.store,/.test(fi),
-      'firebase-init.js 가 store.start 로 앱 공통 API 통로(TwApi.client) · realtime 알림(TwRtHub.store)을 잇는다');
+    chk(/TwRemoteConfig\.store\.start\(\{ api: TwApi\.client, win: window, rt: TwRtHub\.store \}\)/.test(strip(APP)) && !/TwRemoteConfig|_rc\b/.test(fi),
+      'app.js 가 store.start 로 앱 공통 API 통로(TwApi.client) · realtime 알림(TwRtHub.store)을 잇는다 · firebase-init.js 는 원격 설정을 모른다');
     chk(!/fallbackRead/.test(fi) && !/store\.watch/.test(fi) && !/'config\/(?!maintenance)/.test(fi) && !/ref\(db, 'config'\)/.test(fi), '  ↳ Firebase config 비상 읽기 · 구독 · 박힌 경로 없음(점검 칸만 — maintenance-gate.js)');
     chk(!/createAppVersionGate|MIN_APP_VER_WAIT_MS/.test(fi), '  ↳ 앱 최소 버전 판정은 firebase-init 에 없다 — 켜는 흐름(shared/update-flow.js)이 원격 설정 첫 답으로 한다(sim-update-flow.js)');
     chk(!/getMinRoomVer/.test(fi) && !/_ensureRoomVersionOk|ROOM_VER_MAX_AGE_MS|minRoomVer\(\)/.test(strip(APP)),
@@ -328,16 +342,16 @@ const RCM = require(path.resolve(where('remote-config.js')));
       let M; try{ M = loadRc(src); }catch(_){ return 99; }
       try{
         const s1 = M.createRemoteConfig();
-        await s1.start({ api: mkApi(mkFetch(() => okRes(DATA))), storage: memStore() });        ok(s1.maxPeople() === 12 && s1.minAppVer() === '0.13.0' && s1.minRoomVer() === '0.13.1' && s1.clapDailyMax() === 7 && s1.giftDailySendMax() === 3 && s1.inviteGate() === false);
+        await s1.start({ api: mkApi(mkFetch(() => okRes(DATA))), win: { localStorage: memStore() } });        ok(s1.maxPeople() === 12 && s1.minAppVer() === '0.13.0' && s1.minRoomVer() === '0.13.1' && s1.clapDailyMax() === 7 && s1.giftDailySendMax() === 3 && s1.inviteGate() === false);
         const s2 = M.createRemoteConfig();
-        await s2.start({ api: mkApi(mkFetch(() => { throw new TypeError('x'); })), storage: memStore({ 'tw.remoteConfig': JSON.stringify({ v: 2, at: 1, data: DATA }) }) });        ok(s2.maxPeople() === 12 && s2.minAppVer() === null);
+        await s2.start({ api: mkApi(mkFetch(() => { throw new TypeError('x'); })), win: { localStorage: memStore({ 'tw.remoteConfig': JSON.stringify({ v: 2, at: 1, data: DATA }) }) } });        ok(s2.maxPeople() === 12 && s2.minAppVer() === null);
         const s3 = M.createRemoteConfig();
-        await s3.start({ api: mkApi(mkFetch(() => { throw new TypeError('x'); })), storage: memStore({ 'tw.remoteConfig': JSON.stringify({ data: { room: { maxPeople: 30 } } }) }) });        ok(s3.maxPeople() === 10);
+        await s3.start({ api: mkApi(mkFetch(() => { throw new TypeError('x'); })), win: { localStorage: memStore({ 'tw.remoteConfig': JSON.stringify({ data: { room: { maxPeople: 30 } } }) }) } });        ok(s3.maxPeople() === 10);
         const s4 = M.createRemoteConfig();
-        await s4.start({ api: mkApi(mkFetch(() => okRes({ config: { roomMaxPeople: 30 } }))), storage: memStore() });        ok(s4.source() === 'default');
+        await s4.start({ api: mkApi(mkFetch(() => okRes({ config: { roomMaxPeople: 30 } }))), win: { localStorage: memStore() } });        ok(s4.source() === 'default');
         const hooks = {}; let n = 0;
         const s5 = M.createRemoteConfig();
-        await s5.start({ api: mkApi(mkFetch(() => { n++; return okRes(DATA); })), storage: memStore(), rt: { on: (k, fn) => { hooks[k] = fn; } } });        if(hooks.config) await hooks.config({}); await new Promise((r) => setTimeout(r, 0));
+        await s5.start({ api: mkApi(mkFetch(() => { n++; return okRes(DATA); })), win: { localStorage: memStore() }, rt: { on: (k, fn) => { hooks[k] = fn; } } });        if(hooks.config) await hooks.config({}); await new Promise((r) => setTimeout(r, 0));
         ok(n === 2);
         ok(M.cleanTiming({ joinWaitMs: 2999 }).joinWaitMs === 10000 && M.cleanClapDailyMax(101) === 5);
       }catch(_){ bad++; }
