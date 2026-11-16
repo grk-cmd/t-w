@@ -1,10 +1,13 @@
 import type { LiveUserRow } from './userRow';
 
-/** 서버가 준 «내가 만든 초대 코드» 한 줄 — 쓴 사람은 사용자코드(여러 명일 수 있다). */
-export interface ServerIssuedInvite {
+/** 이 사람이 만든 개인 초대 코드로 들어온 사람 한 줄. 이름 · 친구코드는 탈퇴 처리가 덜 끝난 짧은 사이에만 null. */
+export interface Invitee {
+  userCode: string;
+  name: string | null;
+  friendCode: string | null;
+  /** 들어올 때 쓴 코드. */
   code: string;
-  createdAt: number;
-  usedBy: string[];
+  joinedAt: number;
 }
 
 export interface DetailSecretRoom {
@@ -23,9 +26,7 @@ export interface UserDetail {
   awayImage: { url: string; size: number } | null;
   openReports: number;
   secretRoom: DetailSecretRoom | null;
-  /** 최근 200개까지만 — 전체 수는 아래 두 칸. */
-  issuedInvites: ServerIssuedInvite[];
-  /** 만든 개인 초대 전부. */
+  /** 만든 개인 초대 전부. 들어온 사람은 `invitees` 로 쪽마다 받는다. */
   issuedInviteCount: number;
   /** 그중 한 번이라도 쓰인 것. */
   usedInviteCount: number;

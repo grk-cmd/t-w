@@ -51,9 +51,6 @@ describe('사용자 한 사람 — API 판', () => {
       issuedInviteCount: 3,
       usedInviteCount: 1,
     });
-    expect(d.issuedInvites).toEqual([
-      { code: 'INVT-AAAA-BBBB', createdAt: Date.parse('2026-10-02T00:00:00Z'), usedBy: ['ufriend001'] },
-    ]);
     expect(s.calls).toHaveLength(1);
   });
 
@@ -131,5 +128,64 @@ describe('사용자 한 사람 — API 판', () => {
       const e = await caught(port.detail(uid));
       expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
     }
+  });
+});
+
+describe('초대로 들어온 사람 — API 판', () => {
+  const invitee = (userCode: string, over: Record<string, unknown> = {}) => ({
+    userCode,
+    name: `이름 ${userCode}`,
+    friendCode: `MATE-${userCode}`,
+    code: 'INVT-AAAA-BBBB',
+    joinedAt: '2026-10-05T00:00:00Z',
+    ...over,
+  });
+
+  it('한 쪽씩 받고 첫 쪽 total 을 쓴다 · 이름은 서버가 준 그대로', async () => {
+    const s = fakeApiOf({
+      'GET /v2/admin/users/u1/invitees': ({ query }) =>
+        query?.cursor
+          ? { items: [invitee('u3', { name: null, friendCode: null })], nextCursor: null, total: null }
+          : { items: [invitee('u2')], nextCursor: 'c1', total: 2 },
+    });
+    const port = createServerUserPort(s.api);
+    const first = await port.invitees('u1', undefined, 100);
+    expect(first).toEqual({
+      items: [
+        {
+          userCode: 'u2',
+          name: '이름 u2',
+          friendCode: 'MATE-u2',
+          code: 'INVT-AAAA-BBBB',
+          joinedAt: Date.parse('2026-10-05T00:00:00Z'),
+        },
+      ],
+      nextCursor: 'c1',
+      total: 2,
+    });
+    const second = await port.invitees('u1', 'c1', 100);
+    expect(second.items[0]).toMatchObject({ userCode: 'u3', name: null, friendCode: null });
+    expect(second.total).toBeNull();
+    expect(s.calls.map((c) => c.query)).toEqual([
+      { cursor: undefined, limit: 100 },
+      { cursor: 'c1', limit: 100 },
+    ]);
+  });
+
+  it('첫 쪽에 total 이 없거나 칸이 틀리면 약속과 다른 응답', async () => {
+    const noTotal = fakeApiOf({
+      'GET /v2/admin/users/u1/invitees': () => ({ items: [], nextCursor: null }),
+    });
+    const e1 = await caught(createServerUserPort(noTotal.api).invitees('u1', undefined, 100));
+    expect(isPortError(e1) && e1.code).toBe(WIRE_SHAPE_CODE);
+    const bad = fakeApiOf({
+      'GET /v2/admin/users/u1/invitees': () => ({
+        items: [invitee('u2', { joinedAt: 'x' })],
+        nextCursor: null,
+        total: 1,
+      }),
+    });
+    const e2 = await caught(createServerUserPort(bad.api).invitees('u1', undefined, 100));
+    expect(isPortError(e2) && e2.code).toBe(WIRE_SHAPE_CODE);
   });
 });
