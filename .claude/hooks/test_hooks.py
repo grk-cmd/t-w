@@ -226,15 +226,25 @@ carry = [
 MOVED = [{'filename': 'app/a.js', 'status': 'modified', 'patch': '@@ -9,3 +9,3 @@ function deleteAll\n ctx2\n-old\n+new'}, files('new')[1]]
 ROWDEL = files('new')[:1] + [{'filename': 'checks/CHECKS.md', 'status': 'modified', 'patch': f'@@ -70 +70 @@\n-{ROW("000000000000")}\n+{ROW("aaaaaaaaaaaa")}\n-| **sim-z.js** | 9 | **abcdefabcdef** |'}]
 A7 = dict(comments=[{'user': U, 'body': '승인 ' + O[:7]}])
+TWO = lambda a, b: {'filename': 'app/a.js', 'status': 'modified', 'patch': f'@@ -{a},3 +{a},3 @@\n ctx\n-old\n+new\n@@ -{b},3 +{b},3 @@\n ctx2\n-old2\n+new2'}
+RULES = lambda n: {'filename': 'firebase-database-rules.json', 'status': 'modified', 'patch': f'@@ -{n},3 +{n},3 @@\n   ".read": "auth != null",\n-  ".write": false\n+  ".write": "auth != null"'}
+HOOK = lambda n: {'filename': '.claude/hooks/ship-gate.py', 'status': 'modified', 'patch': f'@@ -{n},3 +{n},3 @@\n ctx\n-old\n+new'}
 carry += [
     ('같은 줄을 다른 자리(다른 함수)에', dict(A7, cmp={O: files('new'), H: MOVED}), H, False),
-    ('줄 번호가 달라짐(같은 글 · 같은 앞뒤 · 다른 자리 — 판 브랜치가 위를 고쳤어도 다시)', dict(A7, cmp={O: files('new'), H: [dict(files('new')[0], patch=files('new')[0]['patch'].replace('-1,3 +1,3', '-41,3 +41,3')), files('new')[1]]}), H, False),
+    ('코드 파일이 통째로 밀림(판 브랜치가 위를 고침 — 상대 줄 같음)', dict(A7, cmp={O: files('new'), H: [dict(files('new')[0], patch=files('new')[0]['patch'].replace('-1,3 +1,3', '-41,3 +41,3')), files('new')[1]]}), H, True),
+    ('코드 파일 덩어리 사이가 벌어짐(사이에 무언가 낌)', dict(A7, cmp={O: [TWO(1, 20)], H: [TWO(1, 30)]}), H, False),
+    ('코드 파일 덩어리 둘이 같이 밀림', dict(A7, cmp={O: [TWO(1, 20)], H: [TWO(11, 30)]}), H, True),
+    ('규칙 JSON 은 통째로 밀려도 다시(덩어리 하나는 상대 줄로 자리를 못 잡음)', dict(A7, cmp={O: [RULES(5)], H: [RULES(45)]}), H, False),
+    ('CHECKS.md 는 덩어리 사이가 벌어져도 같음(다른 갈래가 표에 줄을 더함)', dict(A7, cmp={O: [files('new')[0], {'filename': 'checks/CHECKS.md', 'status': 'modified', 'patch': f'@@ -70 +70 @@\n-{ROW("000000000000")}\n+{ROW("aaaaaaaaaaaa")}\n@@ -90 +90 @@\n-x\n+y'}],
+                                                                       H: [files('new')[0], {'filename': 'checks/CHECKS.md', 'status': 'modified', 'patch': f'@@ -70 +70 @@\n-{ROW("000000000000")}\n+{ROW("bbbbbbbbbbbb")}\n@@ -95 +95 @@\n-x\n+y'}]}), H, True),
+    ('가드 파일도 줄 번호 그대로', dict(A7, cmp={O: [HOOK(5)], H: [HOOK(45)]}), H, False),
     ('CHECKS.md 의 다른 해시 줄을 지움', dict(A7, cmp={O: files('new'), H: ROWDEL}), H, False),
     ('다른 파일의 해시 줄 모양 줄은 빼지 않음', dict(A7, cmp={O: [{'filename': 'b.md', 'status': 'modified', 'patch': '@@ -1 +1 @@\n+' + ROW('aaaaaaaaaaaa')}], H: [{'filename': 'b.md', 'status': 'modified', 'patch': '@@ -1 +1 @@\n+' + ROW('bbbbbbbbbbbb')}]}), H, False),
     ('두 커밋 다 바꾼 것 없음', dict(A7, cmp={O: [], H: []}), H, False),
     ('patch 없는 파일(머리 판이 같아도 못 봄)', dict(A7, cmp={O: files('new', extra=[{'filename': 'big.js', 'status': 'modified', 'patch': None, 'sha': 'bX'}]),
                                                     H: files('new', extra=[{'filename': 'big.js', 'status': 'modified', 'patch': None, 'sha': 'bX'}])}), H, False),
-    ('앞뒤 글은 같고 @@ 꼬리(함수)만 다름', dict(A7, cmp={O: files('new'), H: [dict(files('new')[0], patch=files('new')[0]['patch'].replace('@@ -1,3 +1,3 @@', '@@ -1,3 +1,3 @@ function deleteAll')), files('new')[1]]}), H, False),
+    ('코드 파일 앞뒤 글은 같고 @@ 꼬리(함수)만 다름', dict(A7, cmp={O: files('new'), H: [dict(files('new')[0], patch=files('new')[0]['patch'].replace('@@ -1,3 +1,3 @@', '@@ -1,3 +1,3 @@ function deleteAll')), files('new')[1]]}), H, True),
+    ('규칙 JSON 은 @@ 꼬리만 달라도 다시', dict(A7, cmp={O: [RULES(5)], H: [dict(RULES(5), patch=RULES(5)['patch'].replace(' @@\n', ' @@ "rooms"\n', 1))]}), H, False),
 ]
 B = 'e5' * 20   # 승인이 두 번 — O 승인 → B 코드 고침 · 승인 → H 는 B 에 합치기만: 가장 최근 승인(B)과 견준다
 carry += [('승인 두 번 · 최근 승인과 견줌', dict(comments=[{'user': U, 'body': '승인 ' + O[:7]}, {'user': U, 'body': '승인 ' + B[:7]}], commits=(O, B, H),
@@ -250,6 +260,44 @@ for name, kw, head, want in carry:
     else:
         bad += 1
         print(f'  ✗ 이어 받기 {name}: {got}(기대 {want})')
+
+# 기준선 json — 합친 뒤 다시 쓴 숫자가 «옛 머리 · 합친 판 브랜치» 어느 쪽보다 느슨하지 않으면 같은 변경
+import base64 as _b64
+MB = 'f6' * 20   # H 가 합친 판 브랜치 커밋
+BL = 'checks/app-size-baseline.json'
+def bl_case(name, old_v, base_v, new_v, want, new_base=MB, missing_new=False):
+    risk._same.clear()
+    blobs = {O: old_v, MB: base_v, H: None if missing_new else new_v}
+    cmp = {O: files('new', extra=[{'filename': BL, 'status': 'modified', 'patch': '@@ -1 +1 @@\n-a\n+b'}]),
+           H: files('new', extra=[{'filename': BL, 'status': 'modified', 'patch': '@@ -1 +1 @@\n-a\n+c'}])}
+    fake(commits=(O, H), cmp=cmp, comments=[{'user': U, 'body': '승인 ' + O[:7]}])
+    inner = risk.get
+    def get(p):
+        if '/compare/' in p:
+            return dict(inner(p), merge_base_commit=({'sha': new_base} if new_base else {}) if p.endswith(H) else {'sha': 'x'})
+        if '/contents/' in p:
+            v = blobs.get(p.rsplit('ref=', 1)[1])
+            if v is None:
+                raise RuntimeError('gh api: Not Found (HTTP 404)')
+            return {'content': _b64.b64encode(json.dumps(v).encode()).decode()}
+        return inner(p)
+    risk.get = get
+    global ok, bad
+    got = risk.owner_approved(395, H)
+    if got == want:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 기준선 이어 받기 {name}: {got}(기대 {want})')
+F = lambda cap, secs=('가',): {'files': {'app.js': {'cap': cap, 'lines': cap - 100, 'sections': list(secs)}}}
+bl_case('둘 다 줄였고 합친 값은 더 작음', F(900), F(950), F(850), True)
+bl_case('합친 값이 판 브랜치 값과 같음', F(900), F(950), F(950), True)
+bl_case('합친 값이 양쪽보다 큼(상한을 올림)', F(900), F(950), F(960), False)
+bl_case('구역 목록이 둘의 합 안', F(900, ('가',)), F(950, ('나',)), F(900, ('가', '나')), True)
+bl_case('구역 목록에 새 이름', F(900), F(950), F(900, ('가', '새 구역')), False)
+bl_case('새 칸이 생김', F(900), F(950), dict(F(900), extra=1), False)
+bl_case('합친 머리에 기준선이 없음', F(900), F(950), None, False, missing_new=True)
+bl_case('합친 판 브랜치 커밋을 모름', F(900), F(950), F(850), False, new_base=None)
 
 # 가드 판정 이어 받기 — 머리에 tw/confirm · tw/verify 가 없어도 앞 커밋에 있고 PR 자체 변경이 같으면 머지 길을 연다
 import importlib.util, io, contextlib

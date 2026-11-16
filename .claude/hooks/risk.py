@@ -41,6 +41,14 @@ APPROVE_LINE = re.compile(r'^\s*승인\s+([0-9a-f]{7,40})\s*$', re.M)
 # (줄을 더하거나 지우면 그대로 다르게 잡힌다 · 해시가 맞는지는 CI 정본 대조가 본다)
 CHECKS_FILE = 'checks/CHECKS.md'
 CHECKS_ROW = re.compile(r'^([ +-]\| \*\*[^*|]+\*\* \|) \d+ \| \*\*[0-9a-f]{12}\*\* \|$')
+# 줄 번호까지 같아야 «같은 변경» 인 파일 — 생김새가 같은 묶음이 되풀이돼 앞뒤 글만으로는 자리가 안 정해지는 규칙 · 설정, 그리고 가드 자리.
+# 그 밖(코드 · 문서)은 첫 덩어리에서 잰 상대 줄로 견준다 — 다른 갈래가 같은 파일 위쪽을 고쳐 통째로 밀린 합치기는 다시 판정하지 않고,
+# 덩어리 사이가 벌어지거나 좁혀지면(사이에 무언가 끼면) 다르게 잡는다. 덩어리가 하나뿐이면 상대 줄로 잡을 것이 없어 규칙 · 설정은 절대 줄 그대로
+STRICT_LINES = ('firebase-database-rules.json', 'storage.rules', 'firebase.json')
+HUNK_HEAD = re.compile(r'^@@ -(\d+)(,\d+)? \+(\d+)(,\d+)? @@')
+# 검사 기준선(줄 수 · 개수 상한) — 판 브랜치를 합친 뒤 --write-baseline 으로 다시 쓰면 숫자가 바뀐다.
+# 합친 값이 «옛 머리 · 합친 판 브랜치» 어느 쪽보다도 느슨하지 않으면(숫자는 둘 중 큰 값 이하 · 목록은 둘의 합 안) 같은 변경으로 본다
+BASELINE_FILE = re.compile(r'^checks/[\w-]+-baseline\.json$')
 COMPARE_MAX = 300   # compare API 가 주는 파일 상한 — 다 차면 못 다 본 것이라 같다고 하지 않는다
 WAIT_SEC, WAIT_EVERY = 3600, 30
 
@@ -120,25 +128,75 @@ def comment_approves(body, head_sha):
 
 
 def _hunks(name, patch):
-    """diff 덩어리를 줄 번호까지 그대로 — 자리가 고정돼, 생김새가 같은 다른 묶음(규칙 JSON 등)에 넣으면 다르게 잡힌다.
-    판 브랜치가 같은 파일 위쪽을 고쳐 번호가 밀리면 다르다고 나온다(다시 판정 · 승인 — 안전한 쪽)."""
-    if name != CHECKS_FILE:
-        return tuple(patch.splitlines())
-    return tuple(CHECKS_ROW.sub(r'\1', l) for l in patch.splitlines())
+    """diff 덩어리 — 규칙 · 설정 · 가드 파일은 줄 번호까지 그대로(생김새가 같은 다른 묶음에 넣으면 다르게 잡히게),
+    나머지는 덩어리 머리의 줄 번호를 첫 덩어리에서 잰 상대 줄로 바꾸고 함수 꼬리는 지운다."""
+    lines = patch.splitlines()
+    if name == CHECKS_FILE:   # 검사 해시 표 — 줄 자리는 뜻이 없고(다른 갈래가 표 가운데에 줄을 더한다) 해시는 CI 정본 대조가 본다
+        return tuple('@@' if l.startswith('@@') else CHECKS_ROW.sub(r'\1', l) for l in lines)
+    if name in STRICT_LINES or is_guard(name):
+        return tuple(lines)
+    out, first = [], None
+    for l in lines:
+        m = HUNK_HEAD.match(l)
+        if m:
+            o, n = int(m.group(1)), int(m.group(3))
+            first = first or (o, n)
+            l = f'@@ -{o - first[0]}{m.group(2) or ""} +{n - first[1]}{m.group(4) or ""} @@'
+        out.append(l)
+    return tuple(out)
 
 
-def own_change(base, sha):
-    """그 커밋이 base 에서 갈라진 뒤 PR 이 바꾼 것 — 파일마다 diff 덩어리(줄 번호 그대로). 못 다 보면 None."""
-    files = get(f'repos/{REPO}/compare/{base}...{sha}').get('files') or []
+def _compare(base, sha):
+    """그 커밋이 base 에서 갈라진 뒤 PR 이 바꾼 것 — (파일마다 diff 덩어리, 갈라진 커밋). 못 다 보면 덩어리는 None."""
+    c = get(f'repos/{REPO}/compare/{base}...{sha}')
+    files = c.get('files') or []
+    mb = (c.get('merge_base_commit') or {}).get('sha')
     if len(files) >= COMPARE_MAX:
-        return None
+        return None, mb
     out = {}
     for f in files:
         name, patch = f['filename'], f.get('patch')
         if patch is None:   # 그림 · 너무 큰 diff — 머리 판만으로는 판 브랜치 쪽 변경을 되돌렸는지 못 본다
-            return None
+            return None, mb
         out[name] = (f.get('status'), f.get('previous_filename'), _hunks(name, patch))
-    return out or None   # 바꾼 것이 하나도 안 보이면 견줄 것이 없다 — 같다고 하지 않는다
+    return out or None, mb   # 바꾼 것이 하나도 안 보이면 견줄 것이 없다 — 같다고 하지 않는다
+
+
+def own_change(base, sha):
+    return _compare(base, sha)[0]
+
+
+def _json_at(path, ref):
+    """그 커밋의 파일을 JSON 으로 — 없으면 None. 못 읽으면 던진다(같다고 하지 않게)."""
+    try:
+        c = get(f'repos/{REPO}/contents/{path}?ref={ref}')
+    except RuntimeError as e:
+        if 'HTTP 404' in str(e):
+            return None
+        raise
+    import base64
+    return json.loads(base64.b64decode(c['content']).decode('utf-8'))
+
+
+def _no_looser(new, old, base):
+    """new 의 숫자는 old · base 가운데 큰 값 이하, 목록은 둘의 합 안, 그 밖은 둘 중 하나와 같다 — 합치며 새로 느슨해진 것이 없다."""
+    if isinstance(new, dict):
+        return all(_no_looser(v, old.get(k) if isinstance(old, dict) else None, base.get(k) if isinstance(base, dict) else None)
+                   for k, v in new.items())
+    if isinstance(new, list):
+        seen = {json.dumps(x, sort_keys=True) for side in (old, base) if isinstance(side, list) for x in side}
+        return all(json.dumps(x, sort_keys=True) in seen for x in new)
+    if isinstance(new, (int, float)) and not isinstance(new, bool):
+        sides = [x for x in (old, base) if isinstance(x, (int, float)) and not isinstance(x, bool)]
+        return bool(sides) and new <= max(sides)
+    return new in (old, base)
+
+
+def _baseline_merged(path, old_sha, new_sha, new_base):
+    new = _json_at(path, new_sha)
+    if new is None or not new_base:
+        return False
+    return _no_looser(new, _json_at(path, old_sha), _json_at(path, new_base))
 
 
 _same = {}   # (pr, 옛, 새) → 답 — 기다리는 동안 같은 compare 를 되풀이해 묻지 않게
@@ -146,7 +204,7 @@ _same = {}   # (pr, 옛, 새) → 답 — 기다리는 동안 같은 compare 를
 
 def same_change(pr, old_sha, new_sha):
     """new 가 old 위에 판 브랜치를 합치기만 했는가 — 두 커밋의 PR 자체 변경이 같으면 true.
-    합치며 충돌을 손으로 풀어 코드가 달라졌으면 false(다시 판정 · 승인)."""
+    합치며 충돌을 손으로 풀어 코드가 달라졌으면 false(다시 판정 · 승인). 기준선 json 은 숫자가 느슨해지지 않았으면 같다고 본다."""
     if not old_sha or not new_sha:
         return False
     if old_sha == new_sha:
@@ -154,8 +212,11 @@ def same_change(pr, old_sha, new_sha):
     key = (str(pr), old_sha, new_sha)
     if key not in _same:
         base = get(f'repos/{REPO}/pulls/{pr}')['base']['ref']
-        a = own_change(base, old_sha)
-        _same[key] = a is not None and a == own_change(base, new_sha)
+        a, _ = _compare(base, old_sha)
+        b, new_base = _compare(base, new_sha)
+        _same[key] = a is not None and b is not None and all(
+            a.get(k) == b.get(k) or (BASELINE_FILE.match(k) and _baseline_merged(k, old_sha, new_sha, new_base))
+            for k in set(a) | set(b))
     return _same[key]
 
 
