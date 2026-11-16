@@ -136,7 +136,8 @@ export function TodoBoard() {
     void refreshTodos();
     void refreshNote();
   };
-  const names = useAdminNames().data ?? new Map<string, string>();
+  const namesQuery = useAdminNames();
+  const names = namesQuery.data ?? new Map<string, string>();
   const focusId = useHashSub();
   const [filter, setFilter] = useState<TodoFilter>(ALL_TODOS);
   const [adding, setAdding] = useState(false);
@@ -250,6 +251,9 @@ export function TodoBoard() {
         <article className={styles.todo}>
           <TodoForm onDone={() => setAdding(false)} />
         </article>
+      )}
+      {namesQuery.isError && (
+        <p className="msg err">{errorMessage(namesQuery.error, '관리자 이름을 불러오지 못했어요')}</p>
       )}
       {todos.error && <p className="msg err">{errorMessage(todos.error, '할 일 불러오기 실패')}</p>}
       {!todos.error && !todos.data && <p className="soft">불러오는 중…</p>}

@@ -1,19 +1,18 @@
 import { useState } from 'react';
 import { BugNoText, useBugNo } from '@/entities/bug-board';
 import { useReleaseDownloads } from '@/entities/release';
-import { useEnv, withProdMark } from '@/shared/api';
+import { useEnv, withProdMark, type Versioned } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import { useModalDialog, useToast } from '@/shared/ui';
+import { useApplyReleasePort } from '../api';
 import {
-  checkTemplate,
-  fillTemplate,
-  RELEASE_TPL_DEFAULT,
   RELEASE_TPL_MAX,
   RELEASE_TPL_VARS,
   tplVars,
   type ApplyResult,
   type FixTarget,
 } from '../model/applyRelease';
+import type { ReleaseTemplate } from '../model/releaseTpl';
 import { useApplyRelease, usePreviewRelease } from '../model/useApplyRelease';
 import styles from './ApplyRelease.module.css';
 
@@ -37,33 +36,35 @@ function FixRow({ t }: { t: FixTarget }) {
 function doneMessage(r: Extract<ApplyResult, { ok: true }>, answer: boolean): string {
   if (!r.applied) return '반영할 제보 없음 — 그새 다른 관리자가 바꿨어요';
   const head = `제보 ${r.applied}건 수정 완료` + (answer ? ` · 답변 ${r.applied} · 알림 ${r.notified}` : '');
-  return r.skipped ? `${head} · ${r.skipped}건은 그새 바뀌어 건너뜀` : head;
+  const body = r.skipped ? `${head} · ${r.skipped}건은 그새 바뀌어 건너뜀` : head;
+  return r.templateError ? `${body} · 템플릿은 저장하지 못했어요 (${r.templateError})` : body;
 }
 
 function Body({
   targets,
-  saved,
+  template,
   latest,
   onDone,
 }: {
   targets: FixTarget[];
-  saved: string | null;
+  template: Versioned<ReleaseTemplate>;
   latest: string;
   onDone: () => void;
 }) {
   const env = useEnv();
   const toast = useToast();
   const apply = useApplyRelease();
+  const port = useApplyReleasePort();
   const [answer, setAnswer] = useState(true);
-  const [tpl, setTpl] = useState(saved ?? RELEASE_TPL_DEFAULT);
+  const [tpl, setTpl] = useState(template.value.saved ?? template.value.fallback);
   const [saveTpl, setSaveTpl] = useState(false);
   const first = targets[0];
-  const bad = answer || saveTpl ? checkTemplate(tpl) : null;
+  const bad = answer || saveTpl ? port.check(tpl) : null;
 
   const run = () => {
     if (bad) return toast(bad);
     apply.mutate(
-      { targets, opts: { latest, answer, template: tpl, saveTpl } },
+      { targets, opts: { latest, answer, template: tpl, saveTpl, templateFrom: template } },
       {
         onSuccess: (r) => {
           if (!r.ok) return toast(r.reason);
@@ -107,7 +108,7 @@ function Body({
             <p className={styles.preview}>
               <small className="soft">미리 보기 (첫 제보)</small>
               <br />
-              {fillTemplate(tpl, tplVars(first)) || <span className="warn">빈 답변</span>}
+              {port.fill(tpl, tplVars(first)) || <span className="warn">빈 답변</span>}
             </p>
           )}
           <label className={styles.check}>
@@ -132,16 +133,20 @@ export function ApplyReleaseButton() {
   const releases = useReleaseDownloads();
   const latest = releases.data?.[0]?.version;
   const preview = usePreviewRelease();
-  const [open, setOpen] = useState<{ targets: FixTarget[]; tpl: string | null; latest: string } | null>(null);
+  const [open, setOpen] = useState<{
+    targets: FixTarget[];
+    template: Versioned<ReleaseTemplate>;
+    latest: string;
+  } | null>(null);
   const close = () => setOpen(null);
   const { dialogProps } = useModalDialog({ open: !!open, onClose: close });
 
   const onClick = () => {
     if (!latest) return;
     preview.mutate(latest, {
-      onSuccess: ({ targets, tpl }) => {
+      onSuccess: ({ targets, template }) => {
         if (!targets.length) return toast('반영할 제보 없음');
-        setOpen({ targets, tpl, latest });
+        setOpen({ targets, template, latest });
       },
       onError: (e) => toast(errorMessage(e, '반영할 제보 불러오기 실패')),
     });
@@ -171,7 +176,7 @@ export function ApplyReleaseButton() {
             닫기
           </button>
         </div>
-        {open && <Body targets={open.targets} saved={open.tpl} latest={open.latest} onDone={close} />}
+        {open && <Body targets={open.targets} template={open.template} latest={open.latest} onDone={close} />}
       </dialog>
     </>
   );

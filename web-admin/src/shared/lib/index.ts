@@ -48,6 +48,7 @@ export {
   type PendingRequestId,
 } from './requestId';
 export {
+  fetchAllPages,
   KEYSET_PAGE_MAX,
   keysetView,
   needsMore,

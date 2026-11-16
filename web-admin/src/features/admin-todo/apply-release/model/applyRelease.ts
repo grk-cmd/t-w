@@ -1,19 +1,7 @@
-import { compareRelease, listTodos, releaseState, type Todo } from '@/entities/admin/todo';
-import {
-  answerId,
-  answerNoticeBody,
-  answerWrite,
-  BUG_ANS_MAX,
-  BUG_NOTICE_TITLE,
-  BUG_STATUS,
-  getBugItem,
-  isOpen,
-  statusWrite,
-  type BugItem,
-} from '@/entities/bug-board';
-import { inboxMessageWrite } from '@/entities/inbox';
-import { auditEntry, type Db } from '@/shared/api';
-import { releaseTplWrite } from './releaseTpl';
+import { compareRelease, releaseState, type Todo } from '@/entities/admin/todo';
+import { answerNoticeBody, BUG_ANS_MAX, isOpen, type BugItem } from '@/entities/bug-board';
+import type { Versioned } from '@/shared/api';
+import type { ReleaseTemplate } from './releaseTpl';
 
 /*
  * 🏷 릴리스 반영 — 완료 · 출시된(최신 공개 릴리스 이하) 할 일에 걸린 제보를 한꺼번에 «수정 완료» 로.
@@ -28,8 +16,16 @@ export interface ReleaseFix {
   todo: string;
 }
 
+/** 반영 대상 제보 한 건에서 쓰는 칸 — 판마다 읽는 글 모양이 달라 필요한 것만 둔다. */
+export type FixBug = Pick<BugItem, 'id' | 'vis' | 'status' | 'title' | 'ts' | 'no'>;
+
 export interface FixTarget extends ReleaseFix {
-  item: BugItem;
+  item: FixBug;
+  /**
+   * 읽을 때 본 «마지막 답변 시각» — 서버가 준 글자 그대로. 반영 요청에 그대로 실어 그 사이 다른 관리자가 답했는지 서버가 가린다.
+   * 답변이 아직 없거나(null) 이 값을 쓰지 않는 판(Firebase 판)은 없다.
+   */
+  seenLastAnswerAt?: string | null;
 }
 
 /** 완료 + 버전이 latest 이하인 할 일의 제보 — 겹치면 하나로(낮은 버전). 버전이 없거나 출시 전이면 뺀다. */
@@ -49,7 +45,7 @@ export function releasedReports(todos: readonly Todo[], latest: string | null | 
 /** 아직 미해결(접수 · 확인 중 · 해결 안 됨)인 제보만 — 수정 완료 · 재현 안 됨 · 지워진 글은 건드리지 않는다. 오래된 글부터. */
 export function fixTargets(
   fixes: readonly ReleaseFix[],
-  items: ReadonlyMap<string, BugItem | null>,
+  items: ReadonlyMap<string, FixBug | null>,
 ): FixTarget[] {
   return fixes
     .flatMap((f) => {
@@ -57,13 +53,6 @@ export function fixTargets(
       return item && isOpen(item.status) ? [{ ...f, item }] : [];
     })
     .sort((a, b) => a.item.ts - b.item.ts || (a.rid < b.rid ? -1 : 1));
-}
-
-/** 확인 창에 보일 목록 — 할 일은 새로 받고, 제보는 걸린 것만 줄 하나씩 읽는다(목록 통째로 받지 않는다). */
-export async function previewReleaseFixes(db: Db, latest: string): Promise<FixTarget[]> {
-  const fixes = releasedReports(await listTodos(db), latest);
-  const items = await Promise.all(fixes.map((f) => getBugItem(db, f.rid)));
-  return fixTargets(fixes, new Map(fixes.map((f, i) => [f.rid, items[i]])));
 }
 
 export const RELEASE_TPL_DEFAULT = '{version} 에서 수정되어 릴리스되었습니다. 앱을 업데이트해 주세요 🙏';
@@ -88,13 +77,13 @@ export const tplVars = (t: Pick<FixTarget, 'release' | 'todo' | 'item'>): TplVar
   todo: t.todo,
 });
 
-/** 템플릿 → 답변 글. 빈 변수로 생긴 겹친 빈칸은 하나로. */
-export function fillTemplate(tpl: string, v: TplVars): string {
+/** 템플릿 → 답변 글. 빈 변수로 생긴 겹친 빈칸은 하나로. `max` 보다 길면 자른다(서버가 길이를 가리는 판은 자르지 않는다). */
+export function fillTemplate(tpl: string, v: TplVars, max: number = RELEASE_TPL_MAX): string {
   return tpl
     .replace(/\{(version|title|todo)\}/g, (_, k: keyof TplVars) => v[k])
     .replace(/[ \t]{2,}/g, ' ')
     .trim()
-    .slice(0, RELEASE_TPL_MAX);
+    .slice(0, max);
 }
 
 /** 템플릿 입력 확인 — 문제없으면 null. */
@@ -113,76 +102,21 @@ export interface ApplyOptions {
   template: string;
   /** 이번 템플릿을 기본(config/releaseAnswerTpl)으로도 저장. */
   saveTpl?: boolean;
+  /** 화면이 읽은 템플릿 — `saveTpl` 일 때 저장에 번호를 싣는 판이 쓴다(Firebase 판은 쓰지 않는다). */
+  templateFrom?: Versioned<ReleaseTemplate>;
 }
 
 export type ApplyResult =
-  { ok: true; applied: number; skipped: number; notified: number } | { ok: false; reason: string };
+  | {
+      ok: true;
+      applied: number;
+      skipped: number;
+      notified: number;
+      /** 반영은 됐는데 «기본 템플릿으로 저장» 만 실패했을 때 그 까닭. */
+      templateError?: string;
+    }
+  | { ok: false; reason: string };
 
 /** 알림 본문 — 답변 알림과 같은 머리(비공개 글은 고정 문구) + 고친 버전. */
 export const fixNoticeBody = (item: Pick<BugItem, 'vis' | 'title'>, release: string) =>
   `${answerNoticeBody(item.vis, item.title, false)}\n${release} 에서 고쳐졌어요`;
-
-/**
- * 반영 — 제보 줄을 쓰기 직전에 다시 읽어(그새 바뀌었으면 건너뜀 · ansN 은 최신 기준) 상태 · 답변 · 알림 · 작업 기록을
- * 한 묶음으로. 하나라도 막히면 아무것도 남지 않는다.
- * 작업 기록은 제보마다 손으로 바꿀 때와 같은 줄(bug.answer · bug.status) + 반영 한 줄(todo.applyRelease).
- * 대상은 제보 번호(없으면 id) — 비공개 글 제목은 남기지 않는다.
- */
-export async function applyReleaseFixes(
-  db: Db,
-  targets: readonly FixTarget[],
-  opts: ApplyOptions,
-): Promise<ApplyResult> {
-  if (opts.answer || opts.saveTpl) {
-    const bad = checkTemplate(opts.template);
-    if (bad) return { ok: false, reason: bad };
-  }
-  const fresh = await Promise.all(targets.map((t) => getBugItem(db, t.item.id)));
-  const live = targets.flatMap((t, i) => {
-    const item = fresh[i];
-    return item && isOpen(item.status) ? [{ ...t, item }] : [];
-  });
-  const texts = live.map((t) => (opts.answer ? fillTemplate(opts.template, tplVars(t)) : ''));
-  if (opts.answer && texts.some((x) => !x))
-    return {
-      ok: false,
-      reason: '채우고 나면 빈 답변이 되는 제보가 있어요 — 템플릿에 {title} 말고 글을 넣어 주세요',
-    };
-  if (!live.length) return { ok: true, applied: 0, skipped: targets.length, notified: 0 };
-
-  const updates: Record<string, unknown> = {};
-  let notified = 0;
-  live.forEach((t, i) => {
-    const { item } = t;
-    const label = item.no ?? item.id;
-    if (opts.answer) {
-      const notify = item.code
-        ? inboxMessageWrite(item.code, {
-            tag: 'bug',
-            title: BUG_NOTICE_TITLE,
-            body: fixNoticeBody(item, t.release),
-            bugId: item.id,
-          })
-        : {};
-      if (item.code) notified++;
-      const detail = `${item.vis === 'pub' ? '공개' : '비공개'} 답변 · ${BUG_STATUS.fixed} · ${t.release} 릴리스 반영${item.code ? '' : ' · 알림 없음'}`;
-      Object.assign(
-        updates,
-        answerWrite(item, { text: texts[i], vis: item.vis, status: 'fixed' }, answerId(), db.now()),
-        notify,
-        auditEntry(db, 'bug.answer', label, detail),
-      );
-    } else {
-      const detail = `${BUG_STATUS[item.status]} → ${BUG_STATUS.fixed} · ${t.release} 릴리스 반영`;
-      Object.assign(updates, statusWrite(item, 'fixed'), auditEntry(db, 'bug.status', label, detail));
-    }
-  });
-  const summary = `제보 ${live.length}건 수정 완료${opts.answer ? ` · 답변 · 알림 ${notified}건` : ' · 답변 없음'}`;
-  Object.assign(
-    updates,
-    opts.saveTpl ? releaseTplWrite(db, opts.template) : {},
-    auditEntry(db, 'todo.applyRelease', `${opts.latest} 릴리스 반영`, summary),
-  );
-  await db.commit(updates);
-  return { ok: true, applied: live.length, skipped: targets.length - live.length, notified };
-}

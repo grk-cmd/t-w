@@ -20,7 +20,7 @@ import {
   type TodoType,
 } from '@/entities/admin/todo';
 import { useReleaseDownloads } from '@/entities/release';
-import { useDb } from '@/shared/api';
+import { useMyUid } from '@/shared/api';
 import { errorMessage, toVersionParts, versionPartsFilled, type VersionParts } from '@/shared/lib';
 import { useToast, VersionInput } from '@/shared/ui';
 import { resultMessage } from '../model/saveTodo';
@@ -38,8 +38,9 @@ interface Props {
 /** 만들기 · 고치기. 남이 먼저 고쳤으면 쓰지 않고 최신 값으로 다시 채운다. */
 export function TodoForm({ todo, initial, onDone }: Props) {
   const toast = useToast();
-  const me = useDb().uid();
-  const names = useAdminNames().data ?? new Map<string, string>();
+  const me = useMyUid();
+  const namesQuery = useAdminNames();
+  const names = namesQuery.data ?? new Map<string, string>();
   const save = useSaveTodo();
   // 새로 만들 때 id 를 미리 정해 둔다 — 충돌 뒤 다시 저장해도 같은 자리.
   const [id] = useState(() => todo?.id ?? todoId());
@@ -91,7 +92,11 @@ export function TodoForm({ todo, initial, onDone }: Props) {
       {
         onSuccess: (r) => {
           if (r.ok) {
-            toast((seen ? '할 일 저장' : '할 일 추가') + (r.fixed ? ` · 제보 ${r.fixed}건 수정 완료` : ''));
+            toast(
+              r.fixFailed
+                ? `할 일 완료 · 제보 ${r.fixed}건 바뀜 · ${r.fixFailed.count}건 안 됨(${r.fixFailed.reason})`
+                : (seen ? '할 일 저장' : '할 일 추가') + (r.fixed ? ` · 제보 ${r.fixed}건 수정 완료` : ''),
+            );
             onDone(r.id);
             return;
           }
@@ -150,6 +155,11 @@ export function TodoForm({ todo, initial, onDone }: Props) {
         </label>
         <label>
           작업자
+          {namesQuery.isError && (
+            <small className="msg err">
+              {errorMessage(namesQuery.error, '관리자 이름을 불러오지 못했어요')}
+            </small>
+          )}
           <select value={draft.assignee ?? ''} onChange={(e) => set('assignee', e.target.value || null)}>
             <option value="">없음</option>
             {options.map((o) => (

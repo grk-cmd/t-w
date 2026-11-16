@@ -1,10 +1,16 @@
 export {
   applyReleaseFixes,
+  getReleaseTpl,
+  previewReleaseFixes,
+  releaseTplWrite,
+  saveReleaseTpl,
+} from './api/firebase';
+export { useApplyReleasePort, type ApplyReleasePort } from './api';
+export {
   checkTemplate,
   fillTemplate,
   fixNoticeBody,
   fixTargets,
-  previewReleaseFixes,
   releasedReports,
   RELEASE_TPL_DEFAULT,
   RELEASE_TPL_MAX,
@@ -14,6 +20,6 @@ export {
   type FixTarget,
   type ReleaseFix,
 } from './model/applyRelease';
-export { getReleaseTpl, RELEASE_TPL_PATH, releaseTplWrite, saveReleaseTpl } from './model/releaseTpl';
+export { RELEASE_TPL_PATH, type ReleaseTemplate } from './model/releaseTpl';
 export { ApplyReleaseButton } from './ui/ApplyReleaseButton';
 export { ReleaseTplPanel } from './ui/ReleaseTplPanel';

@@ -1,17 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
-import { useDb, type Db } from '@/shared/api';
+// Firebase 판 — 지금 코드 그대로: `adminNames` 를 통째로 한 번 읽고, 로그인할 때 본인 칸을 구글 이름으로 채운다.
+import type { Db } from '@/shared/api';
 import { ADMIN_NAMES_ROOT, adminNameWrite, toAdminNames } from '../model/adminName';
-
-const NAMES_KEY = ['adminNames'];
+import type { AdminNamePort } from './port';
 
 /** 관리자 몇 명분이라 통째로 한 번. */
 export async function getAdminNames(db: Db): Promise<Map<string, string>> {
   return toAdminNames(await db.get<unknown>(ADMIN_NAMES_ROOT));
-}
-
-export function useAdminNames() {
-  const db = useDb();
-  return useQuery({ queryKey: NAMES_KEY, queryFn: () => getAdminNames(db), staleTime: 5 * 60_000 });
 }
 
 /**
@@ -31,4 +25,8 @@ export async function syncMyAdminName(db: Db, uid: string, displayName: string |
   } catch (error) {
     console.warn('[adminNames] 이름을 저장하지 못했어요', error);
   }
+}
+
+export function createFirebaseAdminNamePort(db: Db): AdminNamePort {
+  return { names: () => getAdminNames(db) };
 }

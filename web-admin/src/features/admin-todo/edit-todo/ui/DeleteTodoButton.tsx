@@ -1,6 +1,6 @@
 import { useAdminNames } from '@/entities/admin/name';
 import type { Todo } from '@/entities/admin/todo';
-import { useDb } from '@/shared/api';
+import { useMyUid } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
 import { resultMessage } from '../model/saveTodo';
@@ -8,7 +8,7 @@ import { useDeleteTodo } from '../model/useSaveTodo';
 
 export function DeleteTodoButton({ todo }: { todo: Todo }) {
   const toast = useToast();
-  const me = useDb().uid();
+  const me = useMyUid();
   const names = useAdminNames().data ?? new Map<string, string>();
   const del = useDeleteTodo();
   const onClick = () => {
