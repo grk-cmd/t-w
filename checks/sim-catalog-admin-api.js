@@ -134,6 +134,8 @@ const PF = { name: '모자', icon: '🎩', category: 'hat', glow: false, multi: 
   const got = []; AA.ERRORS.CATALOG_CATEGORY_FULL.notice((c, e, t) => got.push([c, t]), { message: '이 카테고리에 진열 중인 일반 파츠는 30개까지예요' });
   chk(got[0][0] === 'E-ADM-07' && /30개/.test(got[0][1]), '  거절 번호(E-ADM-07)에 서버가 준 «어느 칸이 왜» 글을 싣는다');
 
+  w = world(SRC); w.api.notifyLocalOnly();
+  chk(w.shown.join() === 'E-ADM-12,' && !w.log.length, '서버에 없는(이 PC 에만 있는) 파츠를 고치려 하면 서버를 부르지 않고 E-ADM-12 로 알린다');
   say('── 6. 일부러 깨 보기');
   const breaks = [
     ['고치기에 version 안 실음', (s) => s.replace('return authed.put(path, version == null ? body : Object.assign({ version }, body));', 'return authed.put(path, body);')],

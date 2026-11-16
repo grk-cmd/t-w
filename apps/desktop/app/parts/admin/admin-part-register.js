@@ -173,6 +173,8 @@ function openPartRegister(cat, editRec){
     const _oldRec = editing ? savedParts().find(p=>p.id===_partRegEditId) : null;
     const icon = (_oldRec && _oldRec.icon) || '';
     if(!editing && !f){toast('GLB 파일을 선택해 주세요');return;}
+    /* 서버 카탈로그에 없는 파츠(코드로 추가해 이 PC 에만 있는 것)는 서버가 모르는 물건이라 고칠 수 없다 — 서버를 부르지 않고 번호로 알린다 */
+    if(editing && _oldRec && !_oldRec.fromCatalog){ catalogAdmin.notifyLocalOnly(); return; }
     const btn=document.getElementById('partRegGo'); btn.disabled=true; btn.textContent=editing?'수정 중...':'등록 중...';
     const resetBtn = ()=>{ btn.disabled=false; btn.textContent=editing?'수정 완료':'등록'; };
     let glbB64, glbBytes = null, noColor, defaultXf = null, thumbnail = null;

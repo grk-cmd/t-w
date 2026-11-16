@@ -12,7 +12,7 @@
      archive(kind, id) — kind: part · desk · deskProp. 단종(진열에서 내림 · 행은 남음) · saveShelf(scope, ids) — 진열 순서 전체 · saveShelfOrReport(scope, ids) → Promise<bool> — 쓰고 실패는 알린다(true 면 서버가 받았다)
      createCategory(code, { group, label, icon, bone }) · renameCategory(code, { label, icon }) · resetCategory(code) · deleteCategory(code)
      saveUnlock(kind, key, level, label) · unlockOf(kind, key) → { level, label, version } | null
-     reload() — 서버 한 벌 다시 받기
+     reload() — 서버 한 벌 다시 받기 · notifyLocalOnly() — 서버에 없는(이 PC 에만 있는) 파츠를 고치려 할 때 E-ADM-12
      reportFail(err, site) → Promise<갈래> — 실패 알림 한 벌(판이 달라졌으면 다시 받고 «받아왔어요»). 그 밖 실패는 site(item · shelf · category · config)의 번호로. 파일 올리기 실패(err.stage 'asset')는 E-ADM-06
    }
      순수: SITE_NOTICE · PATHS · PART_FIELDS · DESK_FIELDS · PROP_FIELDS · partFieldsOf · partBody · deskBody · propBody · accessOf
@@ -210,9 +210,11 @@ function createCatalogAdminApi(deps){
     try{ await saveShelf(scope, ids); return true; }
     catch(e){ await reportFail(e, 'shelf'); return false; }
   }
+  /* 이 PC 에만 있는 파츠(코드로 추가 — 서버 카탈로그에 없다)를 앱 관리자가 고치려 할 때 — 서버를 부르지 않고 번호로 알린다 */
+  const notifyLocalOnly = () => deps.notifyError('E-ADM-12', null);
   const reload = () => catalog.load();
 
-  return { reload, saveShelfOrReport, savePart, saveDesk, saveDeskProp, archive, saveShelf, createCategory, renameCategory, resetCategory, deleteCategory, saveUnlock, unlockOf, reportFail };
+  return { reload, notifyLocalOnly, saveShelfOrReport, savePart, saveDesk, saveDeskProp, archive, saveShelf, createCategory, renameCategory, resetCategory, deleteCategory, saveUnlock, unlockOf, reportFail };
 }
 
 const api = { createCatalogAdminApi, SITE_NOTICE, PATHS, PART_FIELDS, DESK_FIELDS, PROP_FIELDS, partFieldsOf, partBody, deskBody, propBody, accessOf };

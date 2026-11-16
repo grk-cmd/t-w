@@ -160,6 +160,7 @@
 | `E-ADM-09` | 진열 순서를 저장하지 못했어요 | character/premium-assets.js · creator/desk-setup.js — 끌어서 바꾼 진열 순서(PUT /v2/admin/catalog/shelves/{scope} — 그 밖 실패 · 화면 순서는 서버 한 벌을 다시 받아 맞춘다) |
 | `E-ADM-10` | 카테고리를 저장하지 못했어요 | admin/admin-category.js — 이름 바꾸기 · 되돌리기 · 추가 · 삭제(PUT · POST reset · DELETE /v2/admin/catalog/categories/{code} — 그 밖 실패) |
 | `E-ADM-11` | 게임 설정을 저장하지 못했어요 | admin/admin-launcher.js — ⚙️ 게임 설정 [저장](PUT /v2/admin/catalog/unlocks/ANIMAL_CHARACTER/animal — 그 밖 실패) |
+| `E-ADM-12` | 서버 카탈로그에 없는 파츠예요 — 이 PC 에만 있는 파츠(코드로 추가)는 여기서 고칠 수 없어요 | `admin/admin-part-register.js` — 파츠 등록 창 [수정 완료](서버 카탈로그에 없는 `fromCatalog` 아닌 파츠 — 서버를 부르지 않는다 · 지우기는 이 PC 목록에서만) |
 | `E-ADM-20` | 발급된 키 목록을 불러오지 못했어요 | admin/admin-license.js — 발급 창 열기 · 검색 · [더 보기] · [다시 시도](GET /v2/admin/licenses — 기능 갈래도 공통 code(api-errors.js)도 아닌 실패 · «못 불러왔어요 [다시 시도]» · 다시 보내지 않음) |
 | `E-ADM-21` | 키를 발급하지 못했어요 | admin/admin-license.js · admin-license-bulk.js — 새 키 · 친구코드로 발급 · 엑셀 일괄 발급(POST /v2/admin/licenses — 요청 실패 · 줄이 ok 가 아닌 까닭이 USER_NOT_FOUND · LICENSE_ALREADY_HAVE 가 아닌 경우 · 같은 단추를 다시 누르면 같은 요청 번호) |
 | `E-ADM-22` | 키를 회수하거나 지우지 못했어요 | admin/admin-license.js — 키 목록 [회수] · [삭제](PATCH · DELETE /v2/admin/licenses/{licenseId} — 판이 달라짐(CONCURRENT_UPDATE) · 이미 없음(LICENSE_NOT_FOUND)은 번호 없이 목록 다시 받기) |

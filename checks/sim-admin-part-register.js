@@ -41,6 +41,8 @@ function build(src, st){
   const fb = {};
   const win = { firebaseAPI: fb };
   const catalogAdmin = { archive: async (kind, id) => { calls.push(['archive', kind, id]); if(st.archiveFail) throw Object.assign(new Error('x'), { code: 'CONCURRENT_UPDATE' }); },
+    savePart: async (id, f, o) => { calls.push(['savePart', id, !!(o && o.create)]); },
+    notifyLocalOnly: () => { calls.push(['notifyLocalOnly']); },
     reportFail: async (e, site) => { calls.push(['reportFail', site]); return 'refetch'; } };
   const fn = (name) => (...a) => { calls.push([name, ...a]); return name === 'catEquippedIds' ? (st.equipped[a[1]] || []) : undefined; };
   const deps = { catalogAdmin, setSavedParts: (v) => { calls.push(['setSavedParts', v.map(p => p.id).join()]); st.parts = v; }, seats: st.seats,
@@ -64,6 +66,11 @@ async function judgeAll(src, app, html, ward = WARD){
     t(EXPORTS.every(n => typeof B.out[n] === 'function') && Object.keys(B.out).length === 4,
       '내놓는 이름 — 넷(등록 창 · 책상 창 · 삭제 · 가챠 잠금)');
     t(B.calls.filter(c => c[0] !== 'setAdminPartActions').length === 0, '만들 때는 서버 · app.js 함수를 안 부른다(꾸미기에 거는 것만)');
+    /* 서버에 없는(이 PC 에만 있는) 파츠를 고치려 하면 서버를 부르지 않고 번호로 알린다 */
+    st.parts = [{ id: 'loc1', name: '로컬', cat: 'hat' }, { id: 'srv1', name: '서버', cat: 'hat', fromCatalog: true }]; const nLoc = B.calls.length;
+    st.PART_CATS = []; B.els.partRegFile = Object.assign(B.els.partRegFile || {}, { files: [] }); B.out.openPartRegister('hat', st.parts[0]);
+    await B.els.partRegGo.onclick();
+    t(B.calls.slice(nLoc).map(c => c[0]).filter(n => /^(notifyLocalOnly|savePart|reportFail)$/.test(n)).join() === 'notifyLocalOnly' && !B.els.partRegGo.disabled, '★ 서버 카탈로그에 없는 파츠 고치기 — 서버를 안 부르고 번호로 알린다(고치는 척하지 않는다)');
     /* 2. 파츠 삭제 — app.js 가 목록을 다시 대입한 뒤 */
     const seat = { charDef: { equippedParts: { hat: 'p9' } }, stackedPartObjs: {} };
     st.parts = [{ id: 'p8' }, { id: 'p9', fromCatalog: true }]; st.cache = new Map([['p9', 1]]); st.seats.push(seat); st.equipped = { hat: ['p9'] };
@@ -139,6 +146,7 @@ async function judgeAll(src, app, html, ward = WARD){
     ['삭제가 목록을 안 바꿔 끼움', { mod: s => s.replace('  setSavedParts(savedParts().filter(p=>p.id!==id));\n', '') }],
     ['캐시를 안 비움', { mod: s => s.replace('  partSceneCache().delete(id);\n  // 모든 좌석에서', '  // 모든 좌석에서') }],
     ['카탈로그에서 안 내림', { mod: s => s.replace("try{ await catalogAdmin.archive('part', id); }", 'try{ }') }],
+    ['서버에 없는 파츠도 서버로 보냄', { mod: s => s.replace('if(editing && _oldRec && !_oldRec.fromCatalog){ catalogAdmin.notifyLocalOnly(); return; }', '') }],
     ['서버가 거절해도 목록을 지움', { mod: s => s.replace("catch(e){ await catalogAdmin.reportFail(e, 'item'); return; }", 'catch(e){ }') }],
     ['책상 등록 버튼 안 걺', { mod: s => s.replace("document.getElementById('deskRegBtn').onclick=", "document.getElementById('deskRegBtnX').onclick=") }],
     ['옛 이름으로 부름', { app: s => s.replace("_hooks.openDeskRegister('desk', DEFAULT_DESK_OVERRIDE_ID)", "openDeskRegister('desk', DEFAULT_DESK_OVERRIDE_ID)") }],
