@@ -209,9 +209,18 @@ say('§5-B 받기 전에 건너뛴 아이템은 저장본에서 지워지지 않
   b2.st.received = true;
   b2.mod.applyDeskItemsTo(cb2, { vip: cb2.charDef.deskItems.vip, other: cb2.charDef.deskItems.other });
   chk(!!(cb2.deskItems.vip && cb2.deskItems.other) && cb2._skippedItems.size === 0 && cb2.deskItems.vip.userData.adj.x === 1, '카탈로그가 오면 저장된 위치째 올라오고 건너뜀 표시가 풀린다');
-  const mm = SRC.replace("skipped.forEach(id=>{ if(orig[id] && !(di && di[id])){ di = di || {}; di[id] = orig[id]; } });", '');
+  const mm = SRC.replace("_sk.forEach(id=>{ if(_orig[id] && !d[id]){ d[id]=_orig[id]; any=true; } });", '');
   const rb = run(mm);
-  chk(mm !== SRC && Object.keys(rb.cb.charDef.deskItems || {}).sort().join() === 'plant', '  깨 보기: 합치는 줄을 빼면 건너뛴 소품이 저장본에서 지워진다(= 위 판정이 빨강)');
+  chk(mm !== SRC && Object.keys(rb.cb.charDef.deskItems || {}).sort().join() === 'plant', '  깨 보기: collectDeskItems 의 합치는 줄을 빼면 건너뛴 소품이 저장본에서 지워진다(= 위 판정이 빨강)');
+  /* 저장 길 셋이 같은 결과 — 자동 저장 · 생성기 «완성 → 저장»(creator-save.js) · 프리셋 저장(desk-preset.js)은 모두 collectDeskItems 로 모은다 */
+  const cb3 = mkHolder({ charDef: { deskItems: ORIG() } });
+  const b3 = build(SRC, { cBase: cb3, defs: { vip: mkDef('vip', { custom: true }), other: mkDef('other', { custom: true }), plant: mkDef('plant') } });
+  b3.mod.applyDeskItemsTo(cb3, cb3.charDef.deskItems); b3.mod.equipDeskItem(cb3, b3.defs.plant, true);
+  const viaCollect = b3.mod.collectDeskItems(cb3);   // creator-save 의 def.deskItems · desk-preset 의 deskItems 가 받는 값
+  chk(Object.keys(viaCollect).sort().join() === 'other,plant,vip' && viaCollect.vip.adj.x === 1, '★ collectDeskItems 한 곳이 건너뛴 원본을 합친다 — 생성기 «완성 → 저장» · 프리셋 저장이 받는 값에도 두 소품이 남는다');
+  const rd = (names) => { for(const n of names){ try{ return require('fs').readFileSync(n, 'utf8'); }catch(_){} } return ''; };
+  const CS = rd(['creator-save.js', 'parts/creator/creator-save.js', 'app/parts/creator/creator-save.js']), DP = rd(['desk-preset.js', 'parts/creator/desk-preset.js', 'app/parts/creator/desk-preset.js']);
+  chk(/def\.deskItems=di;/.test(CS) && /collectDeskItems\(cBase\(\)\)/.test(CS) && /deskItems: crState\.cBase \? collectDeskItems\(crState\.cBase\) : null/.test(DP), '  ↳ creator-save.js · desk-preset.js 가 직접 모으지 않고 collectDeskItems 를 부른다(합치기 한 곳)');
 }
 say('§6 생성기 몫');
 {

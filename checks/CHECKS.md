@@ -229,7 +229,7 @@
 | **sim-human-ear-attach.js** | 129 | **cc7187e89b24** |
 | **sim-desk-build.js** | 100 | **0de2a23692c7** |
 | **sim-part-anim.js** | 177 | **c1dc6497cf24** |
-| **sim-desk-item-equip.js** | 262 | **c350952aa8d4** |
+| **sim-desk-item-equip.js** | 271 | **3d6d111abd7e** |
 | **sim-animal-edit-route.js** | 113 | **05e6088f9a9d** |
 | **sim-seat-slot.js** | 114 | **aea78fc86038** |
 | **sim-fix-1008b.js** | 47 | **a35227963110** |

@@ -180,21 +180,22 @@ function equipDeskItem(holder,def,on){
     if(typeof crState().cBase!=='undefined' && holder===crState().cBase) deskSetupMod().selectDeskItemForAdjust(pivot);   // 생성기 안에서는 방금 장착한 아이템도 선택 표시
   }
 }
+/* 저장 길(자동 저장 · 생성기 «완성 → 저장» · 프리셋 저장)이 모두 이 함수로 모은다. 막혀서 올리지 못한 아이템(holder._skippedItems)은 올리지 못했다고 지우면 되돌릴 수 없으므로 holder.charDef.deskItems 의 원본 항목을 그대로 합친다. */
 function collectDeskItems(holder){ const d={}; let any=false; deskItemsMod().allDeskItems().forEach(def=>{ const p=holder.deskItems&&holder.deskItems[def.id]; if(p){ d[def.id]={adj:Object.assign({},p.userData.adj)}; if(p.userData.autoScale!=null) d[def.id].autoScale=p.userData.autoScale;
   // ★ 색상은 비어있어도 항상 저장 — "초기화(원본으로 복원)한 상태"를 명시적으로 기록해서
   //   실행 화면 로드 시 이전에 저장돼 있던 색이 남지 않게 함. 예전엔 빈 객체면 필드가 빠져서 초기화가 안 반영됐음.
   if(p.userData.colorGroups) d[def.id].colors=Object.assign({},p.userData.colors||{});
-  any=true;} }); return any?d:null; }
+  any=true;} });
+  const _sk=holder._skippedItems, _orig=holder.charDef && holder.charDef.deskItems;
+  if(_sk && _sk.size && _orig) _sk.forEach(id=>{ if(_orig[id] && !d[id]){ d[id]=_orig[id]; any=true; } });
+  return any?d:null; }
 /* ★ 생성기에서 책상 아이템을 켜고 끌 때 "완성 → 저장"을 눌러야만 반영되던 게 혼란을 줬음(꾸미기 파츠는
    토글 즉시 저장되는 것과 비대칭) — 아이템 켜고/끄는 즉시 여기서 바로 def에 반영 + 저장까지 함.
    단, 새 캐릭터(아직 한 번도 저장 안 한)일 땐 cBase.charDef가 없어서 조용히 건너뜀(완성 시 정상 저장됨). */
 function autoSaveDeskItemsNow(){
   if(!crState().cBase || !crState().cBase.charDef) return;
   const def = crState().cBase.charDef;
-  let di = collectDeskItems(crState().cBase);
-  /* 건너뛴(막힌 · 아직 모르는) 아이템의 원본 항목은 저장본에 남긴다 — 올리지 못했다고 지우면 되돌릴 수 없다 */
-  const skipped = crState().cBase._skippedItems, orig = def.deskItems;
-  if(skipped && skipped.size && orig) skipped.forEach(id=>{ if(orig[id] && !(di && di[id])){ di = di || {}; di[id] = orig[id]; } });
+  const di = collectDeskItems(crState().cBase);   // 건너뛴 아이템의 원본은 collectDeskItems 가 합쳐 준다
   def.deskItems = di;
   if(di){
     const ci={}; Object.keys(di).forEach(id=>{ const c=customItems()[id]; const rec=commissionMod().savedItems().find(s=>s.id===id);
