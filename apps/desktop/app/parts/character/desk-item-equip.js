@@ -42,9 +42,13 @@ function equipDeskItem(holder,def,on){
      savedItems 는 아래에서 let 으로 선언되므로 typeof 가 아니라 try 로 감싼다(TDZ). */
   let _siCat = null; try{ _siCat = commissionMod().savedItems(); }catch(_){}
   const _siRec = (_siCat && _siCat.find && def && def.id) ? _siCat.find(s=>s.id===def.id) : null;
-  if(on && !(holder && holder.remote) && licenseAssetBlocked(_siRec)){
-    toast('🔒 "'+(def.name||'이 아이템')+'"은(는) 라이선스 보유자만 사용할 수 있어요');
-    return;
+  if(on && !(holder && holder.remote)){
+    /* 모를 땐 막는다 — 커스텀 아이템인데 카탈로그 기록이 아직 없으면 서버 locked 를 모른다(캐릭터 코드 def 로 딸려 온 것). 기록이 오면 catalog-sync 가 좌석 아이템을 다시 적용해 locked 로 다시 판정한다. */
+    if(def && def.custom && !_siRec) return;
+    if(licenseAssetBlocked(_siRec)){
+      toast('🔒 "'+(def.name||'이 아이템')+'"은(는) 라이선스 보유자만 사용할 수 있어요');
+      return;
+    }
   }
   if(!holder.deskItems)holder.deskItems={};
   if(!holder._itemAdjMemory)holder._itemAdjMemory={};   // 해제했다가 다시 장착할 때 이전 위치/크기 조정값을 기억해뒀다가 복원하기 위함

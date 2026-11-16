@@ -250,7 +250,6 @@ async function judge(S){
         findMySeat: () => seat, isAdmin: () => false, isPremium: () => world.premium, licenseAssetBlocked: (it) => asApi.licenseAssetBlocked(it), saveSlots: () => { world.saves++; },
         savedDesks: () => world.recs, savedItems: () => [], seats: [seat], slots: () => [def], toast: () => {},
       });
-      asApi.onPremiumChanged(() => { PA.restoreLicenseHeldAssets(); PA.pruneUnownedLicenseAssets(); });   // license-gate.js _refreshPremiumGatedUI 와 같은 순서
       // 판정 모듈의 setPremium 을 진짜 계정 핵심 상태(위)로 잇는다
       const mod = load(LP, 'createLicensePremium')({
         userApi: { me: async () => ME(o.premium) }, licenseApi: { mine: async () => null, putDevice: async () => lic([ID]), register: async () => lic([ID]), removeDevice: async () => lic([]), reasonOf: () => null },

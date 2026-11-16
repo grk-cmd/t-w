@@ -79,7 +79,7 @@ say('── 1-2. 부르는 곳 — 복사된 조건이 없고 모두 그 함수�
   chk(/licenseAssetBlocked\(rec\)/.test(strip2(T['creator/desk-setup.js'] || '')) && /if\(licenseAssetBlocked\(rec\)\)\{/.test(strip2(T['creator/desk-setup.js'] || '')), '생성기 — 책상 카드 · 아이템 카드');
   chk(/licenseAssetBlocked\(\{ locked: premiumMod\._licenseLockedDeskId/.test(strip2(T['creator/desk-preset.js'] || '')), '프리셋 — 전용 책상');
   chk(/function _licenseLockedDeskId\(id\)\{[\s\S]*?return !!\(rec && rec\.locked === true\);/.test(strip2(T['character/premium-assets.js'] || '')) && !/function pruneUnownedLicenseAssets\(\)\{[\s\S]{0,60}licenseAssetBlocked\(\{ licenseOnly/.test(strip2(T['character/premium-assets.js'] || '')), '전용 자산 접기 — 레코드의 서버 locked 만 본다(입구에 «전용이면» 가드가 없다)');
-  chk(/(?:premiumMod\.)?licenseAssetBlocked\(m\)/.test(SRC) && /!\(holder && holder\.remote\) && (?:premiumMod\.)?licenseAssetBlocked\(_siRec\)/.test(strip2(fs.readFileSync(['parts/character/desk-item-equip.js', 'app/parts/character/desk-item-equip.js', 'character/desk-item-equip.js', 'desk-item-equip.js'].find(x => fs.existsSync(x)), 'utf8')) + SRC), '슬롯 불러오기 · 아이템 장착(친구 좌석은 안 막음 · 카탈로그 레코드의 locked)');
+  chk(/(?:premiumMod\.)?licenseAssetBlocked\(m\)/.test(SRC) && /!\(holder && holder\.remote\)\)\{[\s\S]*?licenseAssetBlocked\(_siRec\)/.test(strip2(fs.readFileSync(['parts/character/desk-item-equip.js', 'app/parts/character/desk-item-equip.js', 'character/desk-item-equip.js', 'desk-item-equip.js'].find(x => fs.existsSync(x)), 'utf8')) + SRC), '슬롯 불러오기 · 아이템 장착(친구 좌석은 안 막음 · 카탈로그 레코드의 locked)');
 }
 
 /* ── 2. 대입 한 통로 ── */
@@ -92,7 +92,7 @@ chk(direct.length === 0, '★ 직접 대입 ' + direct.length + '곳 (선언 제
 const setCalls = (SRC.match(/_setPremium\(/g) || []).length - 1;
 chk(setCalls === 1, '_setPremium 을 부르는 곳은 app.js 에서 서버 확인을 반영하는 모듈에 잇는 줄 하나뿐 (' + setCalls + '곳 — 로컬 키로 미리 켜기 · 활성화 · 해제가 직접 부르던 길은 0.13 에서 걷음)');
 const setSrc = grabFn('_setPremium') || '';
-chk(/if\(isPremium === v && wasKnown\) return;/.test(setSrc), '같은 값이면 다시 그리지 않는다 (단 서버가 처음 확인해 줄 때는 같은 값이어도 — 모르는 동안 건너뛴 접기가 돈다)');
+chk(/if\(isPremium\(\) === v\) return;/.test(PASRC || ''), '같은 값이면 다시 그리지 않는다(첫 확인도 마찬가지 — 접기는 카탈로그 locked 가 정한다)');
 chk(/_premiumChanged\(\)/.test(setSrc) && /^onPremiumChanged\(_refreshPremiumGatedUI\);/m.test(SRC), '바뀌면 _refreshPremiumGatedUI 가 돈다(계정 핵심 상태의 «프리미엄이 바뀌었다» 알림에 초대 게이트가 건다 — 모듈 순환 끊기 5)');
 chk(!grabFn('_applyTransferSnapshot'), '계정 이전 복원(키만 저장하던 통로)은 0.13 에서 걷었다 — isPremium 을 바꾸는 통로는 서버 확인 하나');
 const LP = ['license-premium.js', 'parts/account/license-premium.js', 'app/parts/account/license-premium.js'].map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean) || '';

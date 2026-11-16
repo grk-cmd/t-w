@@ -43,7 +43,7 @@ function registerCustomItem(id,name,glbB64,template,icon,animations,attachTo,aut
   playMode: playMode || (autoPlay ? 'auto' : 'click'),   // 어플 8: 'click' | 'auto' | 'idle'
   defaultSize: (defaultSize!=null) ? defaultSize : ITEM_DEFAULT_SIZE,   // 장착됐을 때 기본 크기 — 관리자가 등록 시 설정
   glow: !!glow,   // true면 옆에 은은한 원형 빛 스프라이트 추가
-  licenseOnly: !!licenseOnly,   // true면 라이선스 보유자(isPremium)나 관리자만 장착 가능
+  licenseOnly: !!licenseOnly,   // 진열 분류(라이선스 전용으로 진열됨). 막을지는 이 칸이 아니라 카탈로그 레코드의 서버 locked(desk-item-equip.js)
   animations: animations||[],
   // ⚠️ 본이 있는 모델은 clone(true) 로 복제하면 스켈레톤 연결이 깨진다 — SkeletonUtils.clone 을 쓴다.
   build:()=>{const c=(THREE.SkeletonUtils&&THREE.SkeletonUtils.clone)?THREE.SkeletonUtils.clone(template):template.clone(true);

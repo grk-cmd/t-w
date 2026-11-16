@@ -27,13 +27,11 @@ const applyDeskItemsTo = deps.applyDeskItemsTo;
 const awayPicMod = deps.awayPicMod;   // 읽는 함수
 const creatorOpen = deps.creatorOpen;   // 읽는 함수
 const getMyUserId = deps.getMyUserId;
-const pruneUnownedLicenseAssets = deps.pruneUnownedLicenseAssets;
 const refreshAccountTab = deps.refreshAccountTab;
 const refreshCustomStatusMenuItem = deps.refreshCustomStatusMenuItem;
 const refreshLicenseUI = deps.refreshLicenseUI;
 const refreshLauncherPreview = deps.refreshLauncherPreview;   // 런처가 열려 있으면 미리보기(전용 책상 · 아이템)를 다시 그린다
 const renderCrItems = deps.renderCrItems;
-const restoreLicenseHeldAssets = deps.restoreLicenseHeldAssets;
 const seats = deps.seats;
 const toast = deps.toast;
 const onPremiumChanged = deps.onPremiumChanged;
@@ -418,19 +416,8 @@ onPremiumChanged(_refreshPremiumGatedUI);   // 프리미엄이 바뀌면(account
 function _refreshPremiumGatedUI(){
   refreshCustomStatusMenuItem();   // ✨ 커스텀 상태 메뉴 항목
   try{ if(typeof awayPicMod()._awayRenderUI === 'function') awayPicMod()._awayRenderUI(null); }catch(_){}        // 👑 자리비움 그림 등록 칸(프리미엄 전용)
-  /* 🪑 [2026-09-18 제보 2] 라이선스가 바뀌었으니 **저장값부터** 맞춘다 — 다시 그리는 것은 그 다음이다.
-     ★ 예전에는 여기 「charDef 는 손대지 않는다」고 적혀 있었다. 근거는 «나중에 라이선스가 오면 같은
-       참조로 원래 책상이 돌아온다» 였고 그 판단 자체는 옳았다. 다만 그 남은 값이
-       serializeDefForNetwork 를 타고 방으로 나가고, 받는 쪽은 seat.remote 라 게이트 없이 그린다 —
-       «친구 화면엔 없는데 내 화면엔 보인다» 가 정확히 그것이다(제보 2).
-     ★ 그래서 지금은 **접어 둔다** — 지우는 것이 아니라 deskLicenseHold 로 옮겨 적는다.
-       옛 주석이 지키려던 것(라이선스가 돌아오면 책상도 돌아온다)은 그대로 지키면서 전파만 끊는다.
-       근거와 경계는 pruneUnownedLicenseAssets 위 주석에 적었다.
-     ⚠️ 남의 좌석은 안 건드린다 — 남의 것은 애초에 게이트를 안 탄다(seat.remote). */
-  try{ restoreLicenseHeldAssets(); }
-  catch(e){ console.warn('[라이선스] 접어 둔 자산 복원 실패', e); }
-  try{ pruneUnownedLicenseAssets(); }
-  catch(e){ console.warn('[라이선스] 전용 자산 정리 실패', e); }
+  /* 🪑 저장값(접어 둔 책상 · 아이템)을 맞추는 일은 여기서 하지 않는다 — 그 기준인 서버 locked 는 카탈로그를 다시 받아야 바뀌므로(realtime license → 다시 받기)
+     되돌리기 · 접기는 catalog-sync 가 카탈로그가 도착할 때 부른다. 여기서는 지금 레코드대로 내 좌석을 다시 그린다. */
   try{
     if(typeof seats!=='undefined' && Array.isArray(seats)){
       seats.forEach(s=>{

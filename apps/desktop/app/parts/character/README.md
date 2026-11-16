@@ -83,6 +83,8 @@
   - 생성기 상태(읽는 함수): `creatorOpen` · `cBase` · `cDesk` · `cDeskColor` · `cDeskScale` · `cDeskGlbB64` · `cDeskTemplate` · `activeCustomDeskId` + 쓰는 함수 `setCDeskGlbB64` · `setCDeskTemplate`
   - 다시 그리기: `wardrobeMod` · `gachaMod` · `adminCategory` · `renderLauncher` · `renderCrItems` · `toast` · `isAdmin`
 - **내보내는 것**: `start(session)` — 로그인 뒤 app-boot 차례 `catalog`(저장 목록이 읽힌 뒤)가 한 번 부른다. 구독 다섯을 세션에 맡기고(`session.on`), 세션이 끝나면 풀린다. 만들 때는 요청 · 구독이 없다.
+  - `session.onReset(clearCatalogShare)` — 세션이 끝나면 저장 목록 셋과 `customItems` 에서 카탈로그 몫(`fromCatalog`)을 한 곳에서 뺀다(다음 계정이 앞 계정의 `locked` 로 시작하지 않게).
+  - 책상 · 아이템 카탈로그가 도착하면 `restoreLicenseHeldAssets`(서버 `locked` 가 풀린 접어 둔 것 되돌리기)를 부른 뒤 좌석을 다시 그리고 `pruneUnownedLicenseAssets` 를 부른다 — 되돌리기 · 접기를 부르는 곳은 여기 한 곳이다(라이선스가 바뀌면 realtime `license` → 다시 받기).
   - 안쪽 순수 함수 `mergeCatalogList(catalogObj, saved, norm?)` → `{ list, removedIds }` — 저장 목록은 안 바꾼다(세 합치기가 부른다 · 검사는 글을 뽑아 직접 돌린다).
 - **확장할 때 고칠 자리**: 새 카탈로그 종류는 `mergeCatalogIntoSavedXxx` + `subscribeCatalogXxx` 한 벌 · 구독 걸기는 `start(session)` 에 한 줄 · 새 종류는 `catalog-api.js` `CATALOG_KINDS` 에 하나 더. 합치는 규칙을 바꿀 땐 `mergeCatalogList` 한 곳.
 - **함정**
@@ -453,7 +455,7 @@
 - **만드는 법**: `TwDeskItemEquip.createDeskItemEquip({ activeItemMixers, _idleItemPivots, lightToneMod, toast, commissionMod, crState, crXformMod, customItems, deskItemsMod, deskSetupMod, launcherPrevMod, licenseAssetBlocked, slotSaveMod })` — 앞 넷은 값(part-anim.js 가 먼저 만든 재생 목록 · 이미 있는 것), `licenseAssetBlocked` 는 함수(account-state.js — 전용 자산을 막아야 하나), 나머지 아홉은 읽는 함수(`()=>crState` …)다. 더 아래에서 만들어지거나 다시 대입되는 let 이어서다.
 - **내보내는 것**: `applyDeskAdj` · `deskItemOrigin`(처음 자리 모듈이 없으면 `null`) · `equipDeskItem` · `collectDeskItems` · `autoSaveDeskItemsNow` · `applyDeskItemsTo` · `_applyItemColor` — app.js 는 같은 이름 const 로 받는다.
 - **함정**
-  - 라이선스 전용 막기는 **친구 좌석(`holder.remote`)에는 걸지 않는다** — 보는 사람의 라이선스로 친구가 올린 아이템이 내 화면에서만 사라진다. `def.licenseOnly` 만 보면 새므로 카탈로그 기록(`savedItems`)도 같이 본다.
+  - 라이선스 전용 막기는 **친구 좌석(`holder.remote`)에는 걸지 않는다** — 보는 사람의 라이선스로 친구가 올린 아이템이 내 화면에서만 사라진다. 내 좌석은 카탈로그 기록(`savedItems`)의 서버 `locked` 만 본다(`def.licenseOnly` 는 분류라 안 본다). 커스텀 아이템인데 기록이 아직 없으면 `locked` 를 모르는 것이라 막는다(소리 없이) — 카탈로그가 오면 `catalog-sync` 가 좌석 아이템을 다시 적용해 `locked` 로 다시 판정한다.
   - 생성기(`crState.cBase`)일 때만 선택 표시 · 처음 자리 기억 · 기즈모 해제를 한다.
   - 색 그룹이 있으면 비어 있어도 `colors` 를 항상 저장한다 — «초기화한 상태» 를 기록해야 옛 색이 안 남는다.
   - 검사: `checks/sim-desk-item-equip.js`(진짜 three 로 장착 · 해제 · 복원 · 재생 방식 · 색 · 저장 · 환산 · 깨 보기).

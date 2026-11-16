@@ -168,9 +168,9 @@
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
 | **sim-key-input.js** | 71 | **3116fd7dd8fb** |
 | **sim-keysof-twin.js** | 369 | **54f473215813** |
-| **sim-license-leak.js** | 319 | **4969e3950d0e** |
+| **sim-license-leak.js** | 317 | **b6048937e5bc** |
 | **sim-license-api.js** | 158 | **97931c95bc34** |
-| **sim-license-premium.js** | 328 | **09a357b05a8b** |
+| **sim-license-premium.js** | 327 | **67a84182fca1** |
 | **sim-mh-sanitize.js** | 219 | **fc237605e364** |
 | **sim-myhome-steps.js** | 128 | **ed6b55640d6c** |
 | **sim-myhome-load.js** | 87 | **80598e5410f5** |
@@ -191,7 +191,7 @@
 | **sim-pl-loop.js** | 511 | **baae9984599b** |
 | **sim-pl-next.js** | 171 | **9e7dea09b15f** |
 | **sim-pl-watchdog.js** | 412 | **4658ffafbd00** |
-| **sim-premium-desk.js** | 131 | **c9f138462e71** |
+| **sim-premium-desk.js** | 131 | **e30015070d9f** |
 | **sim-presence.js** | 263 | **72b39c1a8191** |
 | **sim-light-tone.js** | 281 | **2240049cb22b** |
 | **sim-paint-geom.js** | 107 | **0c187cb7b3d7** |
@@ -229,7 +229,7 @@
 | **sim-human-ear-attach.js** | 129 | **cc7187e89b24** |
 | **sim-desk-build.js** | 100 | **0de2a23692c7** |
 | **sim-part-anim.js** | 177 | **c1dc6497cf24** |
-| **sim-desk-item-equip.js** | 213 | **cf28b8562e73** |
+| **sim-desk-item-equip.js** | 229 | **fcbfb44c6ff3** |
 | **sim-animal-edit-route.js** | 113 | **05e6088f9a9d** |
 | **sim-seat-slot.js** | 114 | **aea78fc86038** |
 | **sim-fix-1008b.js** | 47 | **a35227963110** |
@@ -335,7 +335,7 @@
 | **sim-part-paint.js** | 94 | **ccaa45183979** |
 | **sim-focus-level.js** | 128 | **246cbe6794dd** |
 | **sim-chat-ui.js** | 126 | **55fc3d864b1d** |
-| **sim-license-gate.js** | 350 | **766ae0bf2d48** |
+| **sim-license-gate.js** | 350 | **c793ea68d3e8** |
 | **sim-account.js** | 174 | **96590bfd29ab** |
 | **sim-wardrobe.js** | 229 | **bada904416df** |
 | **sim-settings-panel.js** | 96 | **b5ef74cdd479** |
@@ -410,7 +410,7 @@
 | **sim-room-state.js** | 58 | **ddcd7ec6a8ac** |
 | **sim-error-codes.js** | 110 | **5f949216e20f** |
 | **sim-myhome-state.js** | 87 | **3ad983f282ef** |
-| **sim-account-state.js** | 109 | **3f0632cca906** |
+| **sim-account-state.js** | 108 | **148155f17f1a** |
 | **sim-nav.js** | 91 | **aa8cab6dd39f** |
 | **sim-app-boot.js** | 166 | **827382a00d0e** |
 | **sim-user-local.js** | 207 | **e34df8fb0e7a** |

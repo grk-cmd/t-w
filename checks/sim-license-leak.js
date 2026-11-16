@@ -189,14 +189,12 @@ else{
   chk(d[constHold[1]] === undefined && d[constHold[2]] === undefined, '접어 둔 필드는 비워진다 (두 번 돌아오지 않는다)');
 }
 const refresh = grabFn('_refreshPremiumGatedUI') || '';
-chk(/restoreLicenseHeldAssets\(\)/.test(refresh), '_refreshPremiumGatedUI 가 되돌리기를 부른다');
-chk(/pruneUnownedLicenseAssets\(\)/.test(refresh), '_refreshPremiumGatedUI 가 접기를 부른다');
+chk(!/restoreLicenseHeldAssets|pruneUnownedLicenseAssets/.test(refresh), '★ _refreshPremiumGatedUI 는 되돌리기 · 접기를 부르지 않는다 — 그 순간 서버 locked 는 옛 값이라 할 일이 없다(계기는 catalog-sync 한 곳)');
 {
-  const ri = refresh.indexOf('restoreLicenseHeldAssets()');
-  const pi = refresh.indexOf('pruneUnownedLicenseAssets()');
-  chk(ri > 0 && pi > ri, '★ 되돌리기가 접기보다 **먼저**다 — 거꾸로면 라이선스를 켠 순간 접은 것을 다시 접는다');
-  const ai = refresh.indexOf('applyDeskCatalogRefToSeat');
-  chk(ai > pi, '  둘 다 «다시 그리기»보다 앞이다 (저장값을 맞춘 뒤에 그린다)');
+  const cs = ['catalog-sync.js', 'parts/character/catalog-sync.js', 'app/parts/character/catalog-sync.js'].map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean) || '';
+  const di = cs.indexOf('function mergeCatalogIntoSavedDesks'), ii = cs.indexOf('async function mergeCatalogIntoSavedItems');
+  const seg = (i) => cs.slice(i, i + 3500);
+  chk(di >= 0 && ii >= 0 && /restoreHeldLicenseAssets\(\)[\s\S]*pruneUnownedLicenseAssets\(\)/.test(seg(di)) && /restoreHeldLicenseAssets\(\)[\s\S]*pruneUnownedLicenseAssets\(\)/.test(seg(ii)), '★ 책상 · 아이템 카탈로그 도착이 되돌리기 → 접기 순으로 부른다(거꾸로면 접은 것을 다시 접는다)');
 }
 
 /* ── 3. 전파 차단 ── */
@@ -213,7 +211,7 @@ else{
 /* ── 4. 입구 넷에서 부른다 ── */
 say('── 4. 불러오기·도착 자리에서 부른다');
 const callSites = [...SRC.matchAll(/pruneUnownedLicenseAssets\(\)/g)].length;
-chk(callSites >= 6, '호출 ' + callSites + '곳 (정의 1 + _refreshPremiumGatedUI + 책상/아이템 카탈로그 + 슬롯 + 코드 = 6 이상)');
+chk(callSites >= 5, '호출 ' + callSites + '곳 (정의 1 + 책상/아이템 카탈로그 + 슬롯 + 코드 = 5 이상)');
 const around = (needle, span) => {
   const i = SRC.indexOf(needle);
   return i < 0 ? '' : SRC.slice(i, i + span);
