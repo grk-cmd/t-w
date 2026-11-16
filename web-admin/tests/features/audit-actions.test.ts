@@ -21,7 +21,7 @@ import {
   grantInvitesAll,
   revokeInvitesAll,
 } from '@/features/user/grant-invites/api/firebase';
-import { dismissReportsMany, takeDownAwayImg } from '@/features/user/moderate-report';
+import { dismissReportsMany, takeDownAwayImg } from '@/features/user/moderate-report/api/firebase';
 import { auditsOf, fakeDb, type Write } from '../shared/fakeDb';
 import { fakeFiles } from '../shared/fakeFiles';
 

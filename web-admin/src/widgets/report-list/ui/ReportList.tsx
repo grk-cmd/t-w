@@ -6,9 +6,10 @@ import { RowCheckbox } from '@/shared/ui';
 import styles from './ReportList.module.css';
 
 // 신고된 사람 한 명당 이름 · 친구코드 · 그림 세 칸만 읽는다 — 목록에 뜬 사람(3명 이상 신고)만.
+// API 판은 서버가 목록에 실어 주므로(`item.card`) 따로 읽지 않는다.
 function ReportRow({ item, selection }: { item: ReportTarget; selection: Selection }) {
-  const brief = useUserBrief(item.target);
-  const b = brief.data;
+  const brief = useUserBrief(item.target, !item.card);
+  const b = item.card ?? brief.data;
   const name = realName(b?.name);
   const who = name ?? b?.friendCode ?? item.target;
 
@@ -32,7 +33,7 @@ function ReportRow({ item, selection }: { item: ReportTarget; selection: Selecti
         <span className="grow">
           <b>{name ?? (brief.isLoading ? '…' : '이름 없음')}</b>
           <code className="key">{b?.friendCode ?? item.target}</code>
-          <b className="warn">🚩 {item.reports.length}명</b>
+          <b className="warn">🚩 {item.openCount ?? item.reports.length}명</b>
         </span>
         <ul className={styles.reasons}>
           {item.reports.map((r, i) => (

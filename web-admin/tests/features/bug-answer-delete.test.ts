@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ACTION_LABEL } from '@/entities/admin-log';
 import { answerDeleteWrite, type BugAnswer } from '@/entities/bug-board';
-import { deleteAnswer } from '@/features/bug-board/delete-answer';
+import { deleteAnswer } from '@/features/bug-board/delete-answer/api/firebase';
 import { AUDIT_ACTIONS } from '@/shared/api';
 import { auditsOf, fakeDb, NOW, withoutAudits } from '../shared/fakeDb';
 

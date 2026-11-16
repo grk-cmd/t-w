@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { dismissReports, dismissReportsMany, takeDownAwayImg } from '@/features/user/moderate-report';
+import {
+  dismissReports,
+  dismissReportsMany,
+  takeDownAwayImg,
+} from '@/features/user/moderate-report/api/firebase';
 import { fakeDb, withoutAudits } from '../shared/fakeDb';
 import { fakeFiles } from '../shared/fakeFiles';
 

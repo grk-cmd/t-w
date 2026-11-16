@@ -15,7 +15,13 @@ export function BulkDismissButton({ targets, onDone }: Props) {
   const onClick = async () => {
     if (!confirm(`선택한 ${targets.length}명에 대한 신고를 비울까요?`)) return;
     try {
-      toast(`${await dismiss.mutateAsync(targets)}명의 신고를 비웠어요`);
+      const done = await dismiss.mutateAsync(targets);
+      if (done.failed.length) {
+        // 못 비운 사람은 목록에 남고 선택도 그대로 둔다.
+        toast(`${done.dismissed.length}명의 신고를 비웠어요 · ${done.failed.length}명은 못 비웠어요`);
+        return;
+      }
+      toast(`${done.dismissed.length}명의 신고를 비웠어요`);
       onDone();
     } catch (e) {
       toast(errorMessage(e, '비우지 못했어요. 비운 신고는 없어요'));

@@ -9,9 +9,19 @@ export interface Report {
 
 export type ReportTree = Record<string, Record<string, unknown>>;
 
+/** 신고된 사람의 지금 모습 — API 판은 서버가 목록에 실어 준다(탈퇴했으면 null). Firebase 판은 줄마다 사용자 정보를 따로 읽는다. */
+export interface ReportCard {
+  name: string | null;
+  friendCode: string | null;
+  awayImg: string | null;
+}
+
 export interface ReportTarget {
   target: string;
   reports: Report[];
+  /** API 판 — 서버가 센 열린 신고 수(신고 «n명»). Firebase 판은 줄 수로 보인다. */
+  openCount?: number;
+  card?: ReportCard;
 }
 
 /** 앱 REPORT_ADMIN_MIN 과 같다 — 한두 명의 장난 신고로 목록이 차지 않게. */
