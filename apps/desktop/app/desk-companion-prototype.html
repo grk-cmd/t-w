@@ -6463,7 +6463,7 @@
 </div>
 
 <!-- 🎟️ 관리자: 유저 초대권 지급 — 대상 친추코드 + 지급 장수를 한 창에서 입력 -->
-<div id="inviteGrantOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
+<div id="inviteGrantOverlay" data-admin-win style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -6711,7 +6711,7 @@
   </div>
 </div>
 
-<div id="adminPassOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
+<div id="adminPassOverlay" data-admin-win style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -6735,7 +6735,7 @@
 </div>
 
 <!-- 라이선스 키 생성 모달 (관리자 전용) -->
-<div id="licenseGenOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
+<div id="licenseGenOverlay" data-admin-win style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   gap:12px;flex-wrap:wrap;background:none;pointer-events:none;">
   <div style="pointer-events:auto;max-height:90vh;overflow-y:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -6810,7 +6810,7 @@
   </div>
   <!-- 📄 [2026-10-02] 엑셀로 일괄 발급 — 발급 창 **옆에** 서는 두 번째 창(같은 #licenseGenOverlay 안이라
        클릭 통과 목록·ESC 사다리·창 층을 새로 등록할 필요가 없다). 미리보기 단계에서는 아무것도 쓰지 않는다. -->
-  <div id="licenseXlsxWin" style="display:none;pointer-events:auto;max-height:90vh;overflow-y:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+  <div id="licenseXlsxWin" data-admin-win style="display:none;pointer-events:auto;max-height:90vh;overflow-y:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     width:440px;max-width:90vw;font-family:var(--tw-font-legacy);">
     <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;display:flex;align-items:center;justify-content:space-between;
@@ -6867,7 +6867,7 @@
 <!-- 📣 확성기 공지 모달 (관리자 전용) — 런처5:
      짧은 공지를 firebase에 발행하면 접속 중인 모든 유저의 캐릭터 위(레벨 닉네임 위)에 1분간 표시.
      200px 폭 마퀴로 왼쪽으로 흘러가고, 다른 유저가 나중에 접속해도 60초 이내면 남은 시간만큼 표시. -->
-<div id="announceOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
+<div id="announceOverlay" data-admin-win style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -6893,7 +6893,7 @@
 </div>
 
 <!-- 업데이트 공지 편집 모달 (관리자) — 팝업으로 제목/본문을 저장, 유저에게 첫 실행 시 한 번 팝업 -->
-<div id="updateNoticeAdminOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
+<div id="updateNoticeAdminOverlay" data-admin-win style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -6947,7 +6947,7 @@
   </div>
 </div>
 <!-- Phase 3: 카테고리 관리 모달 (관리자) -->
-<div id="categoryManageOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
+<div id="categoryManageOverlay" data-admin-win style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;width:460px;max-width:92vw;max-height:88vh;overflow-y:auto;
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -7051,7 +7051,7 @@
     </div>
   </div>
 </div>
-<div id="gameCfgOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
+<div id="gameCfgOverlay" data-admin-win style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;width:300px;max-width:90vw;
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -7070,7 +7070,7 @@
     </div>
   </div>
 </div>
-<div id="adBannerOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
+<div id="adBannerOverlay" data-admin-win style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;width:320px;max-width:90vw;max-height:88vh;overflow-y:auto;
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -7477,7 +7477,7 @@
 </div>
 
 
-<div id="glbEncOverlay">
+<div id="glbEncOverlay" data-admin-win>
   <div id="glbEncModal">
     <h2>GLB 암호화 (판매용)</h2>
     <p>커스텀 캐릭터 GLB를 비밀번호로 암호화해 <b>.dcc</b> 파일로 저장해요. 파일과 비밀번호를 함께 전달하세요.</p>
@@ -7487,7 +7487,7 @@
   </div>
 </div>
 
-<div id="glbLoadOverlay">
+<div id="glbLoadOverlay" data-admin-win>
   <div id="glbLoadModal">
     <h2>암호화 GLB 불러오기</h2>
     <p>전달받은 암호화 파일(<b>.dcc</b>)과 비밀번호로 캐릭터를 불러와요.</p>
@@ -7497,7 +7497,7 @@
   </div>
 </div>
 
-<div id="assetGenOverlay">
+<div id="assetGenOverlay" data-admin-win>
   <div id="assetGenModal">
     <h2>책상·아이템 코드 만들기 (판매용)</h2>
     <p>커스텀 <b>책상</b> 또는 <b>아이템</b> GLB를 비밀번호로 암호화해 <b>코드</b>로 만들어요. 코드와 비밀번호를 함께 전달하세요.</p>
@@ -7537,7 +7537,7 @@
   </div>
 </div>
 
-<div id="commGenOverlay">
+<div id="commGenOverlay" data-admin-win>
   <div id="commGenModal" style="background:#fffdf6;border-radius:18px;padding:22px 24px;max-width:460px;width:90%;max-height:90vh;overflow-y:auto;box-shadow:0 12px 40px rgba(74,63,53,.3);">
     <h2 style="margin:0 0 4px;font-family:'Fredoka',sans-serif;font-size:18px;color:#4a3f35;">🎁 커미션 캐릭터 등록</h2>
     <p style="margin:0 0 14px;font-size:12px;color:#7a6b5d;line-height:1.5;">완성형 캐릭터(GLB + 표정 + 감은눈)를 비밀번호로 암호화해 코드로 만들어요. 고객은 받은 코드로 캐릭터를 바로 등록하고 책상 세팅만 합니다.</p>
@@ -7552,7 +7552,7 @@
   </div>
 </div>
 
-<div id="partRegOverlay">
+<div id="partRegOverlay" data-admin-win>
   <div id="partRegModal" style="background:#fffdf6;border-radius:18px;padding:22px 24px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(74,63,53,.3);">
     <h2 style="margin:0 0 4px;font-family:'Fredoka',sans-serif;font-size:18px;color:#4a3f35;">🎨 <span id="partRegCatLabel">파츠 등록</span><span id="partRegGachaTag" style="display:none;margin-left:6px;font-size:12px;padding:2px 8px;border-radius:9px;background:#6a4a9a;color:#fff;vertical-align:middle;">🎰 가챠 전용 · 꾸미기 창에 안 나옴</span></h2>
     <p style="margin:0 0 14px;font-size:12px;color:#7a6b5d;line-height:1.5;">캐릭터에 부착할 GLB 파츠를 등록해요. 부착 위치에 맞춰 모델링된 GLB를 올려주세요. (1MB 한도)</p>
@@ -7683,7 +7683,7 @@
   </div>
 </div>
 
-<div id="deskRegOverlay">
+<div id="deskRegOverlay" data-admin-win>
   <div id="deskRegModal" style="background:#fffdf6;border-radius:18px;padding:22px 24px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(74,63,53,.3);">
     <h2 id="deskRegTitle" style="margin:0 0 4px;font-family:'Fredoka',sans-serif;font-size:18px;color:#4a3f35;">🪑 책상 등록</h2>
     <p id="deskRegDesc" style="margin:0 0 14px;font-size:12px;color:#7a6b5d;line-height:1.5;">모든 사용자에게 배포되는 책상 GLB예요. 나중에 GLB만 새로 올려서 교체하면, 이미 이 책상을 쓰던 사람들도 자동으로 새 모습으로 바뀌어요.</p>
@@ -7746,7 +7746,7 @@
 </div>
 
 <!-- 📊 관리자 Total 통계 -->
-<div id="totalStatsOverlay" style="display:none;position:fixed;inset:0;z-index:var(--z-dialog-admin);align-items:center;justify-content:center;background:rgba(0,0,0,.35);pointer-events:auto;">
+<div id="totalStatsOverlay" data-admin-win style="display:none;position:fixed;inset:0;z-index:var(--z-dialog-admin);align-items:center;justify-content:center;background:rgba(0,0,0,.35);pointer-events:auto;">
   <div style="width:320px;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 4px 4px 0 rgba(0,0,0,.35);font-family:var(--tw-font-legacy);">
     <div style="background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));color:#fff;padding:5px 8px;font-size:12px;font-weight:bold;display:flex;justify-content:space-between;align-items:center;">
       <span>📊 전체 통계</span>

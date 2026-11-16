@@ -110,10 +110,14 @@ async function _submitAdminPass(){
   }catch(_){ err.textContent='비밀번호 확인 중 오류'; err.style.display='block'; }
 }
 /* 끄는 몸통 하나 — exitAdmin(Ctrl+E · 토스트) 과 reset(세션 끝 · 조용히)이 같이 부른다.
-   모드를 끄고 열린 관리자 창을 전부 닫는다(세션이 끝났는데 앞 계정의 관리자 창이 다음 계정 화면에 남지 않게). */
-const ADMIN_WINDOWS = ['adminPassOverlay', 'licenseGenOverlay', 'inviteGrantOverlay', 'totalStatsOverlay', 'adBannerOverlay', 'categoryManageOverlay'];
+   모드를 끄고 data-admin-win 표식이 달린 관리자 창을 전부 닫는다(세션이 끝났는데 앞 계정의 관리자 창이 다음 계정 화면에 남지 않게). */
 function _closeAdminWindows(){
-  for(const id of ADMIN_WINDOWS){ const o = document.getElementById(id); if(o){ o.classList.remove('on'); o.style.display = 'none'; } }
+  /* 관리자 창 뿌리는 html 에서 data-admin-win 표식을 단다(.admin-only 는 켤 때 display 를 지워 창이 열려 버려서 못 쓴다).
+     = "remove" 인 창은 JS 가 만들어 여는 창(신고 목록)이라 떼어 낸다. 새 관리자 창을 만들면 이 표식을 꼭 단다(sim-admin-mode 가 센다). */
+  document.querySelectorAll('[data-admin-win]').forEach((o)=>{
+    if(o.getAttribute && o.getAttribute('data-admin-win') === 'remove'){ if(o.remove) o.remove(); return; }
+    o.classList.remove('on'); o.style.display = 'none';
+  });
 }
 function _adminOff(announce){
   setIsAdmin(false);
