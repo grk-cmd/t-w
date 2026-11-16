@@ -16,6 +16,8 @@ const NAV = Object.freeze({
   ROOM_LOBBY: 'roomLobby',                          // 🗂️ 방 목록 로비 다시 읽기 — 모달이 열린 채 방을 나와 로비가 다시 보일 때 · 거는 곳 room/room-lobby-ui.js
   WARDROBE_ALBUM: 'wardrobeAlbum',                  // 📚 꾸미기 창을 «도감» 탭으로 열기 — 뽑기 창 [도감으로] · 거는 곳 character/wardrobe-panel.js
   FRIEND_VISIT: 'friendVisit',                      // 🏠 «○○ 님이 있는 룸에 놀러 갈까요?» — (fid, invite) · 🔔 받은 초대 줄 · 거는 곳 room/friend-visit.js
+  MY_HOME_CLOSE: 'myHomeClose',                     // 🏠 마이홈 창 닫기 — (then) 쓰던 글 묻기를 거쳐 닫은 뒤 then() · 거는 곳 myhome-ui.js
+  XMAS: 'xmas',                                     // 🎄 크리스마스 창 열기(일회성) — ('letter' 면 편지 창까지) · 📩 편지 알림 · 거는 곳 xmas/xmas-window.js
 });
 const _fns = {};
 function on(name, fn){ _fns[name] = fn; }

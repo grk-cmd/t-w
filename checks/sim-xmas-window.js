@@ -5,7 +5,9 @@
    ・3절 장식 달기 — 고른 장식 · 한마디 다듬기 · 보던 트리 번호 · 다 찼으면 «다른 트리로 이동» · 5초 간격 · 실패 갈래
    ・4절 신고 — 확인창 · 내 트리 · 자리 · 이미 신고 · 실패 코드
    ・5절 실패 · 닫기 — 못 불러옴(E-XMAS-01) · 닫은 뒤 늦게 온 답은 버림 · 끝난 뒤 열기 막기
-   ・6절 한마디 라벨은 textContent 로만 · 깨 보기 */
+   ・6절 한마디 라벨은 textContent 로만 · 깨 보기
+   ・7절 편지 창 잇기(편지 · 뮤직바는 가짜 — 그 모듈은 sim-xmas-letter · sim-xmas-song) — 창 열면 맡긴 수 · 1분마다 받은 편지 확인 · 닫으면 편지 창도 ·
+     📩 알림함이 NAV.XMAS 로 연다('letter' 면 편지 창까지) · 빨간 점 · 로그인 안 됨 안내(오류 코드 아님) */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -59,10 +61,16 @@ function world(opts){
     hang: async (d) => { N.calls.push('hang'); N.lastHang = d; return N.hangRet || { ok: true, tree: N.data.cur, slot: 0, moved: false, changed: false }; },
     reportOrnament: async (t, s) => { N.calls.push('report:' + t + '/' + s); return o.repRet || { ok: true }; },
   };
+  const Lt = { calls: [], deps: null };
+  const letterMod = { createXmasLetter: (d) => { Lt.deps = d; const c = (n) => () => { Lt.calls.push(n); };
+    return { open: c('open'), close: c('close'), refresh: c('refresh'), checkGot: c('checkGot'), paintBtn: c('paintBtn'), isOpen: () => false }; } };
+  const songMod = { createXmasSong: (d) => { Lt.songDeps = d; return { bar: () => ({}), stop: () => {} }; } };
+  const nav = { NAV: { XMAS: 'xmas' }, fns: {}, on(n, f){ this.fns[n] = f; } };
   const api = W.createXmasWindow({ doc, win, THREE: {}, ps1Dither: {}, rules: R, treeMod, net: () => net, serverNow: () => S.now, idbGet, idbPut,
     notifyError: (c) => S.errs.push(c), toast: (m) => S.toasts.push(m), escRegisterWindow: (x) => S.escs.push(x),
-    onSizeChange: () => { S.size++; }, onReady: (fn) => { S.ready = fn; } });
-  return { api, els, T, S, N, store, timers };
+    onSizeChange: () => { S.size++; }, onReady: (fn) => { S.ready = fn; },
+    songMod, letterMod, companion: () => null, ytVideoId: () => null, asyncPrompt: async () => null, storage: () => null, twNav: nav });
+  return { api, els, T, S, N, store, timers, Lt, nav };
 }
 const tick = () => new Promise(r => setTimeout(r, 0));
 const settle = async () => { for (let i = 0; i < 6; i++) await tick(); };
@@ -180,6 +188,27 @@ say('── 6절 한마디 라벨 · 깨 보기');
   wb.api.open(); await settle(); wb.api.close(); wb.N.calls.length = 0; delete wb.store['xmasimg:1/3@1'];
   wb.api.open(); await settle();
   chk(wb.N.calls.includes('img:1/3'), '깨 보기 — 사본이 없으면 다시 받는다(사본을 안 보면 2절이 빨강)');
+}
+
+say('── 7절 편지 창 잇기');
+{
+  const w = world(); w.S.ready();
+  chk(w.Lt.calls.join() === 'checkGot,paintBtn', '서버 시각을 받으면 받은 편지 확인 · 단추 그리기 — ' + w.Lt.calls.join(' · '));
+  w.Lt.calls.length = 0; w.timers[0][0]();
+  chk(w.Lt.calls.join() === 'checkGot,paintBtn', '  ↳ 1분마다 다시(25일 0시가 지나면 [편지 열람] · 빨간 점)');
+  w.Lt.calls.length = 0; w.api.open(); await settle();
+  chk(w.Lt.calls.join() === 'refresh', '창을 열면 맡긴 수(n/5)를 위해 편지함을 한 번');
+  w.Lt.calls.length = 0; w.api.close();
+  chk(w.Lt.calls.join() === 'close', '창을 닫으면 편지 창도 닫는다(추천곡 멈춤은 편지 모듈)');
+  w.Lt.deps.onDot(true); chk(w.els.lcXmas.classList.contains('xm-dot'), '안 읽은 받은 편지 — 런처 [크리스마스] 빨간 점');
+  w.Lt.deps.onDot(false); chk(!w.els.lcXmas.classList.contains('xm-dot'), '  ↳ 다 읽으면 지운다');
+  w.Lt.calls.length = 0; w.nav.fns.xmas('letter'); await settle();
+  chk(w.els.xmasOverlay.classList.contains('on') && w.Lt.calls.join() === 'refresh,open', '📩 알림함 → NAV.XMAS(\'letter\') — 트리 창 · 편지 창까지');
+  w.api.close(); w.Lt.calls.length = 0; w.nav.fns.xmas(); await settle();
+  chk(w.Lt.calls.join() === 'refresh', '  ↳ 이름 없이 부르면 트리 창만');
+  const we = world({ now: R.EVENT_END_MS }); we.S.ready(); we.Lt.calls.length = 0; we.nav.fns.xmas('letter');
+  chk(!we.Lt.calls.includes('open') && !we.els.xmasOverlay.classList.contains('on'), '  ↳ 끝난 뒤엔 편지 창도 안 연다');
+  chk(w.Lt.songDeps.songTitleMax === R.SONG_TITLE_MAX && w.Lt.deps.rules === R, '뮤직바 · 편지 모듈은 같은 규칙 한 벌로 만든다');
 }
 
 say(`\n${fail ? '✗' : '✓'} ${pass} 통과 · ${fail} 실패`);

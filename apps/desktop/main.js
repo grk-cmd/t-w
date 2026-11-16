@@ -2649,11 +2649,12 @@ function createWindow() {
        'playlist' : 상태칩 플레이리스트. 마이홈과 무관하게 화면 우하단 작은 창으로 뜬다.
        'listen'   : 🎧 같이 듣기(방 DJ 의 곡을 같은 위치로). 배치는 playlist 와 같고, 반복은 늘 끄며,
                     곡 끝 · 하트비트 신호는 따로 companion:listenSignal 로만 보낸다(docs/LISTEN_TOGETHER.md 4장).
+       'xmas'     : 🎄 크리스마스 편지 추천곡(일회성 — 다음 업데이트에서 걷는다). 배치는 playlist 와 같고, 신호 없이 마이홈처럼 되풀이한다.
      규칙은 **나중에 튼 쪽이 이긴다.** 모드가 바뀌면 renderer에 알려서 진 쪽이 자기 표시를 내린다.
      ⚠️ 창을 둘로 나누면 소리가 겹쳐 나온다 — 그래서 하나로 유지하고 소유권만 넘긴다. */
   let bgmMode = 'home';
-  // 패널 뒤에 숨는(마이홈을 따라가지 않는) 모드 — 플레이리스트 · 같이 듣기
-  function bgmPanelMode(m){ return m === 'playlist' || m === 'listen'; }
+  // 패널 뒤에 숨는(마이홈을 따라가지 않는) 모드 — 플레이리스트 · 같이 듣기 · 크리스마스 추천곡
+  function bgmPanelMode(m){ return m === 'playlist' || m === 'listen' || m === 'xmas'; }
   // 주입 스크립트의 TWPL 신호를 renderer 로 넘길 채널 — 받는 쪽이 한 곳이게 모드마다 나눈다. 마이홈은 신호를 안 쓴다.
   function bgmSignalChannel(m){ return m === 'playlist' ? 'companion:bgmTrackEnd' : m === 'listen' ? 'companion:listenSignal' : null; }
   /* 🔊 음량 0~1 — 플레이리스트 슬라이더가 정한다.
@@ -3131,6 +3132,8 @@ function createWindow() {
   ipcMain.on('companion:openBgm', (e, url, title) => { bgmOpen(url, title, 'home'); });
   // 🎵 상태칩 플레이리스트 — 같은 창을 쓰지만 마이홈에 종속되지 않는 배치로 한 곡을 재생한다.
   ipcMain.on('companion:openPlaylistTrack', (e, url, title) => { bgmOpen(url, title, 'playlist'); });
+  // 🎄 크리스마스 편지 추천곡(일회성) — 같은 창 · 나중에 튼 쪽이 이긴다
+  ipcMain.on('companion:openXmasSong', (e, url, title) => { bgmOpen(url, title, 'xmas'); });
   /* 🎧 같이 듣기 — DJ 의 곡을 그 위치(초)부터 연다. 위치는 유튜브 주소의 t 로 싣는다(앞광고만큼 늦는 건 렌더러의 어긋남 맞추기가 덮는다). */
   function bgmListenUrl(url, start){
     try{

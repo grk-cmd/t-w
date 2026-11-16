@@ -3167,6 +3167,64 @@
   .xm-pop .xm-msg b{display:block;font-size:13px;margin-bottom:4px;}
   .xm-pop .xm-acts{display:flex;justify-content:flex-end;gap:6px;padding:0 12px 12px;}
   #lcXmas[hidden]{display:none;}
+  #xmasLetterBtn[hidden]{display:none;}
+  /* 안 읽은 받은 편지 — 런처 [크리스마스] · [편지 열람] 빨간 점 */
+  #lcXmas.xm-dot,#xmasLetterBtn.xm-dot{position:relative;}
+  #lcXmas.xm-dot::after,#xmasLetterBtn.xm-dot::after{content:"";position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:50%;background:#e0342f;box-shadow:0 0 0 1px #fff;}
+  /* ✉️ 편지 창 — 트리 창 위에 겹쳐 뜬다(parts/xmas/xmas-letter.js) */
+  #xmasLetter{display:none;position:absolute;inset:0;z-index:2;place-items:center;background:rgba(0,0,0,.18);}
+  #xmasLetter.on{display:grid;}
+  #xmasLwWin{width:min(560px,calc(100% - 24px));max-height:calc(100% - 24px);display:flex;flex-direction:column;}
+  #xmasLwBody{overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:0;font-size:12px;line-height:18px;}
+  #xmasLwBody section{display:flex;flex-direction:column;gap:8px;}
+  #xmasLwBody section[hidden],#xmasLwState[hidden]{display:none;}
+  #xmasLwState{padding:24px 8px;text-align:center;color:var(--win-lo);}
+  .xm-lead{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline;}
+  .xm-lead b{font-size:13px;}
+  .xm-dday{color:#c0392b;font-variant-numeric:tabular-nums;}
+  .xm-cap{font-size:11px;line-height:16px;color:#555;}
+  .xm-notice{padding:4px 8px;background:#fff8e1;border:1px solid #e6cf8a;color:#6b5414;}
+  .xm-klist{display:flex;flex-direction:column;gap:6px;}
+  .xm-klist:empty{display:none;}
+  .xm-kitem{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:5px 8px;border:1px solid var(--win-lo);background:var(--win-face);}
+  .xm-ks{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .xm-kwhy{flex-basis:100%;order:3;font-size:11px;color:#c0392b;}
+  #xmasLwRet .xm-kitem{background:#fdeeee;border-color:#e2a4a4;}
+  .xm-paper{background:#fffdf6;color:#3b3226;border:1px solid #c9bda4;padding:10px 14px 8px;}
+  .xm-to,.xm-from{font-size:12px;color:#8a7a62;}
+  .xm-from{text-align:right;}
+  #xmasLwText,.xm-text{display:block;width:100%;box-sizing:border-box;border:0;resize:vertical;min-height:168px;padding:0;margin:4px 0;
+    font:13px/24px var(--tw-font-ui, inherit);color:#3b3226;background:repeating-linear-gradient(180deg,transparent 0 23px,#e9dfc9 23px 24px);white-space:pre-wrap;word-break:break-all;}
+  .xm-text{min-height:0;}
+  #xmasLwText:focus{outline:none;}
+  .xm-paper:focus-within{outline:2px solid var(--win-title-a);outline-offset:1px;}
+  .xm-count{font-size:11px;color:#8a7a62;text-align:right;font-variant-numeric:tabular-nums;}
+  .xm-songrow{display:flex;flex-direction:column;gap:3px;}
+  .xm-songrow[hidden]{display:none;}
+  .xm-acts2{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;}
+  .xm-acts2.xm-split{justify-content:space-between;}
+  .xm-acts2[hidden],#xmasLwEdit[hidden],#xmasLwEnvBox[hidden],#xmasLwOpened[hidden],#xmasLwNone[hidden]{display:none;}
+  /* 🎵 뮤직바 — 마이홈 BGM 위젯(#mhBgmWidget)과 같은 모양 · 같은 조작(parts/xmas/xmas-song.js) */
+  .xm-mbar{font-size:9.5px;background:#eee;border:1px solid #999;padding:3px 6px;display:flex;align-items:center;gap:4px;color:#333;overflow:hidden;white-space:nowrap;}
+  .xm-mplay,.xm-mset{cursor:pointer;user-select:none;flex-shrink:0;background:none;border:0;padding:0;font:inherit;color:inherit;}
+  .xm-mplay:hover,.xm-mset:hover{color:#000;}
+  .xm-mset{margin-left:auto;}
+  .xm-mvp{flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap;position:relative;}
+  .xm-mlab{display:inline-block;white-space:nowrap;}
+  .xm-mlab.xm-marq{animation:xmMarq var(--xmDur,6s) linear infinite;}
+  .xm-gap{display:inline-block;width:32px;}
+  @keyframes xmMarq{from{transform:translateX(0);}to{transform:translateX(calc(-1 * var(--xmW,0px)));}}
+  /* 📬 받은 편지 봉투 */
+  .xm-envs{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;}
+  .xm-env{display:grid;place-items:center;gap:4px;padding:10px 8px;background:none;border:0;cursor:pointer;font:inherit;color:inherit;}
+  .xm-envbox{position:relative;display:block;width:120px;height:78px;background:#e8d6b0;border:2px solid #b89a63;border-radius:3px;overflow:hidden;}
+  .xm-envbox::before{content:"";position:absolute;left:-2px;right:-2px;top:-40px;height:80px;background:#f1e2c2;border-bottom:2px solid #b89a63;clip-path:polygon(0 50%,50% 100%,100% 50%,100% 0,0 0);}
+  .xm-seal{position:absolute;left:50%;top:36px;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#c9343c;color:#fff;display:grid;place-items:center;font-size:11px;}
+  .xm-env:hover .xm-envbox{transform:translateY(-2px);}
+  .xm-env.read .xm-envbox{filter:saturate(.5) brightness(.95);}
+  .xm-envt{font-weight:bold;}
+  .xm-empty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:28px 12px;text-align:center;}
+  .xm-empty .xm-pic{font-size:16px;color:#777;letter-spacing:1px;}
   #myHomeWin{position:absolute;left:50%;top:50%;width:760px;transform:translate(-50%,-50%);pointer-events:auto;
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow:var(--win-drop-el, 3px 3px 0 rgba(0,0,0,.35));border-radius:var(--win-radius-el) !important;}
@@ -5937,7 +5995,62 @@
         <span class="xm-spacer"></span>
         <input type="text" id="xmasWord" class="win98sunken" maxlength="30" placeholder="한마디 (선택)" aria-label="한마디 (선택 · 30자)">
         <button type="button" class="win98raised" id="xmasHang">내 장식 달기</button>
+        <button type="button" class="win98raised" id="xmasLetterBtn" hidden>편지 쓰기 (0/5)</button>
       </div>
+    </div>
+    <!-- ✉️ 마니또 편지 창 — 트리 창 위에 겹쳐 뜬다(✕ · Esc) · parts/xmas/xmas-letter.js · 뮤직바 xmas-song.js -->
+    <div id="xmasLetter">
+      <div id="xmasLwWin" class="win98raised" role="dialog" aria-modal="true" aria-labelledby="xmasLwT">
+        <div class="win98titlebar"><span id="xmasLwT">✉️ 마니또 편지</span>
+          <span class="win98titlebtns"><button type="button" class="win98titlebtn" id="xmasLwX" title="닫기" aria-label="닫기">&times;</button></span></div>
+        <div id="xmasLwBody">
+          <div id="xmasLwState" hidden></div>
+          <!-- ✍️ 쓰기(12월 24일 23:59 까지 · 5통) -->
+          <section id="xmasLwWrite" hidden>
+            <div class="xm-lead"><b>누군가에게 보낼 편지 <span class="xm-dday" id="xmasLwCnt"></span></b><span class="xm-dday" id="xmasLwDday"></span></div>
+            <div class="xm-cap">편지를 쓴 사람끼리 무작위로 주고받아요. 5통까지 쓸 수 있고, 쓴 만큼 받아요. 12월 25일 0시에 전달되고, 받는 사람에게는 끝까지 이름이 안 보여요.</div>
+            <div class="xm-cap xm-notice">부적절한 내용이 없는지 운영자가 확인해요. 받는 사람에게는 끝까지 익명이에요.</div>
+            <div class="xm-klist" id="xmasLwRet"></div>
+            <div class="xm-klist" id="xmasLwList"></div>
+            <div id="xmasLwEdit" hidden>
+              <div class="xm-paper">
+                <div class="xm-to">To. 누군가에게</div>
+                <textarea id="xmasLwText" maxlength="500" aria-label="편지 내용" placeholder="올 한 해 같이 작업하며 하고 싶었던 말을 적어 보세요."></textarea>
+                <div class="xm-count"><span id="xmasLwN">0</span>/500</div>
+                <div class="xm-from">From. 익명의 산타</div>
+              </div>
+              <div class="xm-songrow" style="margin-top:8px"><span class="xm-cap">🎵 추천곡 (선택) — 오른쪽 ((o 를 눌러 유튜브 링크를 넣어요</span><div id="xmasLwSong"></div></div>
+              <div class="xm-acts2" style="margin-top:8px"><button type="button" class="win98raised" id="xmasLwCancel" hidden>취소</button><button type="button" class="win98raised" id="xmasLwKeep" disabled>편지 맡기기</button></div>
+            </div>
+            <div class="xm-acts2" id="xmasLwNewRow" hidden><button type="button" class="win98raised" id="xmasLwNew">＋ 새 편지 쓰기</button></div>
+          </section>
+          <!-- 📬 열람(12월 25일부터) -->
+          <section id="xmasLwGot" hidden>
+            <div id="xmasLwEnvBox">
+              <div class="xm-lead"><b>익명의 편지가 왔어요!</b><span class="xm-cap" id="xmasLwGotCnt"></span></div>
+              <div class="xm-envs" id="xmasLwEnvs"></div>
+            </div>
+            <div id="xmasLwOpened" hidden>
+              <div class="xm-paper">
+                <div class="xm-to">To. 당신에게</div>
+                <div class="xm-text" id="xmasLwGotText"></div>
+                <div class="xm-from">From. 익명의 산타</div>
+              </div>
+              <div class="xm-songrow" id="xmasLwGotSongRow" style="margin-top:8px"><span class="xm-cap">🎵 보낸 사람의 추천곡</span><div id="xmasLwGotSong"></div></div>
+              <div class="xm-acts2 xm-split" style="margin-top:8px"><button type="button" class="win98raised" id="xmasLwReport">🚩 신고</button><button type="button" class="win98raised" id="xmasLwBack">← 다른 편지</button></div>
+            </div>
+            <div class="xm-empty" id="xmasLwNone" hidden>
+              <div class="xm-pic">( ˘ ³˘)♡</div>
+              <b>올해는 받은 편지가 없어요</b>
+              <div class="xm-cap">마니또 편지는 편지를 쓴 사람끼리 주고받아요.<br>트리에 장식을 달고 한마디를 남겨 보는 건 어때요?</div>
+            </div>
+          </section>
+        </div>
+      </div>
+      <div class="xm-pop" id="xmasLwRep" hidden><div class="win98raised" role="dialog" aria-modal="true" aria-labelledby="xmasLwRepT">
+        <div class="win98titlebar"><span id="xmasLwRepT">신고</span></div>
+        <div class="xm-msg"><b>이 편지를 신고할까요?</b>관리자가 내용을 확인해요. 보낸 사람에게는 알려지지 않아요.</div>
+        <div class="xm-acts"><button type="button" class="win98raised" id="xmasLwRepNo">취소</button><button type="button" class="win98raised" id="xmasLwRepYes">신고</button></div></div></div>
     </div>
   </div>
 </div>
@@ -8984,6 +9097,8 @@
 <script src="parts/xmas/xmas-rules.js"></script>   <!-- 🎄 크리스마스 규칙(날짜 · 장식 자리 · 이스터에그 — window.TwXmasRules) — xmas-tree · xmas-window · app.js 보다 먼저 -->
 <script src="parts/xmas/xmas-net.js"></script>   <!-- 🎄 크리스마스 서버 읽기 · 쓰기(window.TwXmasNet) — firebase-init(모듈 · 늦게 돎)이 firebaseAPI.xmas 로 만든다 -->
 <script src="parts/xmas/xmas-tree.js"></script>   <!-- 🎄 3D 트리(window.TwXmasTree) — xmas-window 가 만든다 -->
+<script src="parts/xmas/xmas-song.js"></script>   <!-- 🎄 편지 추천곡 뮤직바(window.TwXmasSong) — xmas-window 가 만든다 -->
+<script src="parts/xmas/xmas-letter.js"></script>   <!-- 🎄 마니또 편지 창(window.TwXmasLetter) — xmas-window 가 만든다 -->
 <script src="parts/xmas/xmas-window.js"></script>   <!-- 🎄 크리스마스 창 · 런처 버튼(window.TwXmasWindow) — app.js 가 만든다 -->
 <script src="parts/character/catalog-source.js"></script>   <!-- 🔌 카탈로그 데이터 provider(지금은 Firebase 판) — app.js 보다 먼저(app.js 가 TwCatalogSource.createCatalogSource 로 고른다) -->
 <script src="parts/shared/glb-idb-cache.js"></script>   <!-- 💾 GLB 영구 캐시(IndexedDB) — app.js 보다 먼저(app.js 가 원래 자리에서 TwGlbIdbCache.createGlbIdbCache 로 만든다) -->

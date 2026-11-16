@@ -4,7 +4,9 @@
    ・2절 내 자리 · 지금 트리 — 로그인 없음 · 아직 아무도 안 걸었으면 트리 1 · 실패는 { ok:false }
    ・3절 장식 걸기 — 함수 xmasHang 이름 · 받은 값 · 실패 code(functions/ 접두사 걷기)
    ・4절 신고 — 내 이름 칸 · 서버 시각 · 메모 40자 · 두 번째(권한 거절)는 dup
-   ・5절 firebase-init 연결 · 깨 보기 */
+   ・5절 firebase-init 연결 · 깨 보기
+   ・6절 편지 — 내 칸만(xmasLetters · xmasReturned · xmasGot/{내 uid}) · 맡기기 모양(서버 시각 · 추천곡) · 거두기 · 반송 표시 치우기 ·
+     마감 뒤(권한 거절)는 closed · 가입 전(익명)은 묻지 않고 auth · 받은 편지 신고 키 g-{내 uid}-{n} */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -93,6 +95,32 @@ chk(/anonymous: \(\) => !!\(auth && auth\.currentUser && auth\.currentUser\.isAn
   const bad = { tree: async (t) => get({ path: 'xmasTrees/' + t }) };
   await bad.tree(2);
   chk(/^xmasTrees\/\d+$/.test(reads[0]), '깨 보기 — 트리 통째 읽기(xmasTrees/2)는 위 검사의 «통째로 읽지 않는다» 모양에 걸린다');
+}
+
+say('── 6절 편지');
+{
+  const D = { xmasLetters: { authMe00001: { l1: { text: '안녕', ts: 1 } } }, xmasReturned: { authMe00001: { l2: { reason: 'spam', text: 'x', ts: 2 } } }, xmasGot: { authMe00001: { 1: { text: '고마워', ts: 3 } } } };
+  const m = mk(D);
+  const r = await m.net.myLetters(); const g = await m.net.got();
+  chk(m.reads.join() === 'xmasLetters/authMe00001,xmasReturned/authMe00001,xmasGot/authMe00001', '내 칸만 읽는다 — ' + m.reads.join(' · '));
+  chk(r.ok && r.letters.l1.text === '안녕' && r.returned.l2.reason === 'spam' && g.ok && g.got[1].text === '고마워', '맡긴 편지 · 반송 · 받은 편지');
+  chk(!m.reads.some(p => /^xmas(Letters|Got|Returned)$/.test(p)), '편지 통째(남의 칸 포함) 읽기 없음');
+  const w = mk({});
+  await w.net.saveLetter('l3', '메리 크리스마스', { id: 'abcdefghijk', title: '캐럴' });
+  await w.net.saveLetter('l4', '두 번째', null);
+  await w.net.saveLetter('l5', '제목 없는 곡', { id: 'abcdefghijk', title: '' });
+  chk(w.writes[0][0] === 'xmasLetters/authMe00001/l3' && w.writes[0][1].ts === SV_TS && w.writes[0][1].text === '메리 크리스마스' && w.writes[0][1].song.title === '캐럴', '맡기기 — 내 칸 · 서버 시각 · 추천곡(id · 제목)');
+  chk(!('song' in w.writes[1][1]) && JSON.stringify(w.writes[2][1].song) === '{"id":"abcdefghijk"}', '  ↳ 곡이 없으면 칸을 안 만들고 · 제목이 비면 id 만(규칙 모양)');
+  await w.net.removeLetter('l3'); await w.net.clearReturned('l2');
+  chk(w.writes[3][0] === 'xmasLetters/authMe00001/l3' && w.writes[3][1] === null && w.writes[4][0] === 'xmasReturned/authMe00001/l2' && w.writes[4][1] === null, '거두기 · 반송 표시 치우기는 null 쓰기');
+  const c = await mk({}, { failWrite: true }).net.saveLetter('l1', 'x');
+  chk(!c.ok && c.code === 'closed', '권한 거절(마감 뒤) — closed');
+  const an = mk({}, { anon: true }); const ar = await an.net.saveLetter('l1', 'x');
+  chk(!ar.ok && ar.code === 'auth' && !an.writes.length, '가입 전(익명) — 쓰지 않고 auth');
+  const rp = mk({}); await rp.net.reportLetter(2, '광고');
+  chk(rp.writes[0][0] === 'xmasReports/g-authMe00001-2/authMe00001' && rp.writes[0][1].note === '광고', '받은 편지 신고 — g-{내 uid}-{번호} 의 내 이름 칸(받은 사람만)');
+  chk(!(await mk({}, { uid: null }).net.myLetters()).ok && !(await mk({}, { uid: null }).net.got()).ok, '로그인 없음 — 읽지 않고 auth');
+  chk((await mk({}, { failRead: (p) => /Returned/.test(p) }).net.myLetters()).code === 'read', '반송 칸 읽기 실패도 { ok:false, read }');
 }
 
 say(`\n${fail ? '✗' : '✓'} ${pass} 통과 · ${fail} 실패`);

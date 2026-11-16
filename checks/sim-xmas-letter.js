@@ -1,0 +1,225 @@
+/* sim-xmas-letter.js — 🎄 마니또 편지 창(parts/xmas/xmas-letter.js · 일회성)을 가짜 화면 · 가짜 서버로 돌려 본다
+   실행: node checks/run.js sim-xmas-letter
+   ・1절 단추 — 쓰는 기간 [편지 쓰기 (n/5)] · 25일 0시부터 [편지 열람] · 1월 1일엔 숨김 · 창은 날짜로 쓰기 / 열람을 고른다
+   ・2절 쓰기 — 맡긴 목록 · 마감 D-day · 운영자 확인 안내(html) · 처음이면 바로 편지지 · 새 편지(빈 칸) · 고치기(같은 칸) · 거두기 · 5통이면 더 못 씀
+   ・3절 반송 — 사유 표시 · [다시 쓰기] 는 그 글로 편지지를 펴고 맡기면 반송 표시를 치운다 · [지우기]
+   ・4절 쓰기 실패 — 마감(closed) · 로그인(auth) 은 안내 · 그 밖은 E-XMAS-05 · 불러오기 실패 E-XMAS-04 · 로그인 안 됨은 안내(오류 코드 없음)
+   ・5절 열람 — 봉투 · 열기(글은 textContent) · 추천곡 바 · 읽음(이 PC) · 빨간 점 · ← 다른 편지 · 신고(g-) · 받은 편지 없음
+   ・6절 받은 편지 확인(빨간 점) — 25일 전엔 안 읽음 · 아직 없으면 5분 간격 · 한 시간 뒤엔 멈춤 · 찾으면 더 안 읽음 · 실패는 다시
+   ・7절 닫기 · Esc · 저장소가 던져도 · 깨 보기 */
+'use strict';
+const fs = require('fs');
+const path = require('path');
+let pass = 0, fail = 0;
+const say = (s) => console.log(s);
+const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
+const find = (c) => c.find(p => fs.existsSync(p));
+const LP = find(['xmas-letter.js', 'parts/xmas/xmas-letter.js', 'app/parts/xmas/xmas-letter.js', 'apps/desktop/app/parts/xmas/xmas-letter.js']);
+const RP = find(['xmas-rules.js', 'parts/xmas/xmas-rules.js', 'app/parts/xmas/xmas-rules.js', 'apps/desktop/app/parts/xmas/xmas-rules.js']);
+const HP = find(['desk-companion-prototype.html', 'app/desk-companion-prototype.html', 'apps/desktop/app/desk-companion-prototype.html']);
+if (!LP || !RP || !HP) { say('  ? 원본 못 찾음 — xmas-letter.js · xmas-rules.js · desk-companion-prototype.html'); process.exit(2); }
+const L = require(path.resolve(LP));
+const R = require(path.resolve(RP));
+const SRC = fs.readFileSync(LP, 'utf8');
+const HTML = fs.readFileSync(HP, 'utf8');
+const IDS = [...new Set([...SRC.matchAll(/\$\('([A-Za-z]+)'\)/g)].map(m => m[1]))];
+
+function el(tag, id){
+  const cls = new Set();
+  const e = { tagName: String(tag || 'div').toUpperCase(), id, hidden: false, value: '', disabled: false, className: '', type: '', children: [], onclick: null, ls: {},
+    get textContent(){ return e._t !== undefined ? e._t : e.children.map(c => c.textContent).join(''); },
+    set textContent(v){ e._t = String(v); e.children = []; },
+    classList: { add: (c) => cls.add(c), remove: (c) => cls.delete(c), contains: (c) => cls.has(c), toggle: (c, on) => (on ? cls.add(c) : cls.delete(c)) },
+    appendChild: (c) => { e._t = undefined; e.children.push(c); return c; },
+    addEventListener: (t, f) => { e.ls[t] = f; }, focus: () => {} };
+  return e;
+}
+const DAY = 86400000;
+const WRITE_NOW = R.LETTER_DEADLINE_MS - 9.5 * DAY;   // 12/15 낮(한국)
+function world(opts){
+  const o = opts || {};
+  const els = {}; IDS.forEach(i => { els[i] = el('div', i); });
+  ['xmasLwState', 'xmasLwWrite', 'xmasLwGot', 'xmasLwEdit', 'xmasLwRep', 'xmasLwOpened', 'xmasLwNone', 'xmasLwNewRow', 'xmasLwCancel'].forEach(i => { els[i].hidden = true; });
+  const doc = { getElementById: (i) => els[i] || null, createElement: (t) => el(t) };
+  const S = { now: o.now == null ? WRITE_NOW : o.now, toasts: [], errs: [], escs: [], dots: [], store: {} };
+  const D = { letters: o.letters || null, returned: o.returned || null, got: o.got || null };
+  const N = { calls: [], fail: o.fail || {}, ret: o.ret || {} };
+  const net = {
+    me: () => 'authMe00001',
+    myLetters: async () => { N.calls.push('my'); return N.fail.my ? { ok: false, code: N.fail.my } : { ok: true, letters: D.letters, returned: D.returned }; },
+    got: async () => { N.calls.push('got'); return N.fail.got ? { ok: false, code: N.fail.got } : { ok: true, got: D.got }; },
+    saveLetter: async (lid, text, song) => { N.calls.push('save:' + lid); N.last = { lid, text, song }; if (N.ret.save) return N.ret.save;
+      D.letters = Object.assign({}, D.letters, { [lid]: { text, ts: 9, song: song || undefined } }); return { ok: true }; },
+    removeLetter: async (lid) => { N.calls.push('remove:' + lid); if (N.ret.remove) return N.ret.remove; D.letters = Object.assign({}, D.letters); delete D.letters[lid]; return { ok: true }; },
+    clearReturned: async (lid) => { N.calls.push('clearRet:' + lid); D.returned = Object.assign({}, D.returned); delete D.returned[lid]; return { ok: true }; },
+    reportLetter: async (n) => { N.calls.push('report:' + n); return N.ret.report || { ok: true }; },
+  };
+  const bars = [];
+  const song = { stops: 0, bar: (box, op) => { const b = { box, op, sets: [], set: (s) => b.sets.push(s), get: () => b.sets[b.sets.length - 1] || null }; bars.push(b); return b; }, stop(){ this.stops++; } };
+  const storage = o.badStore ? () => ({ getItem(){ throw new Error('x'); }, setItem(){ throw new Error('x'); } })
+    : () => ({ getItem: (k) => (k in S.store ? S.store[k] : null), setItem: (k, v) => { S.store[k] = String(v); } });
+  const api = L.createXmasLetter({ doc, rules: R, net: () => net, song, serverNow: () => S.now, toast: (m) => S.toasts.push(m), notifyError: (c) => S.errs.push(c),
+    escRegisterWindow: (x) => S.escs.push(x), storage, onDot: (on) => S.dots.push(on) });
+  return { api, els, S, D, N, song, bars };
+}
+const settle = async () => { for (let i = 0; i < 8; i++) await new Promise(r => setTimeout(r, 0)); };
+const btn = (row, label) => row.children.find(c => c.tagName === 'BUTTON' && c.textContent === label);
+const rows = (box) => box.children;
+const SONG = { id: 'abcdefghijk', title: '캐럴' };
+
+(async () => {
+say('── 1절 단추 · 날짜');
+{
+  const w = world({ letters: { l1: { text: '하나', ts: 1 }, l3: { text: '셋', ts: 3 } } });
+  await w.api.refresh();
+  chk(w.els.xmasLetterBtn.textContent === '편지 쓰기 (2/5)' && !w.els.xmasLetterBtn.hidden && w.N.calls.join() === 'my', '쓰는 기간 — 편지함을 한 번 읽고 [편지 쓰기 (2/5)]');
+  w.S.now = R.LETTER_DEADLINE_MS; w.N.calls.length = 0; await w.api.refresh();
+  chk(w.els.xmasLetterBtn.textContent === '편지 열람' && !w.N.calls.length, '25일 0시부터 [편지 열람] — 편지함은 안 읽는다');
+  w.S.now = R.EVENT_END_MS; w.api.paintBtn();
+  chk(w.els.xmasLetterBtn.hidden, '1월 1일 0시부터 숨김');
+  chk(/부적절한 내용이 없는지 운영자가 확인해요\. 받는 사람에게는 끝까지 익명이에요\./.test(HTML) && /From\. 익명의 산타/.test(HTML) && /To\. 누군가에게/.test(HTML), 'html — 운영자 확인 한 줄 안내 · 편지지 «To. 누군가에게 / From. 익명의 산타»');
+}
+
+say('── 2절 쓰기');
+{
+  const w = world();
+  w.els.xmasLetterBtn.onclick(); await settle();
+  chk(w.els.xmasLetter.classList.contains('on') && !w.els.xmasLwWrite.hidden && w.els.xmasLwGot.hidden && w.els.xmasLwT.textContent === '✉️ 마니또 편지 쓰기', '창 — 쓰는 기간이면 쓰기 화면');
+  chk(w.els.xmasLwDday.textContent === '마감까지 D-9 · 12월 24일 23:59' && w.els.xmasLwCnt.textContent === '0/5', '마감 D-day · 0/5');
+  chk(!w.els.xmasLwEdit.hidden && w.els.xmasLwCancel.hidden && w.els.xmasLwNewRow.hidden, '처음(맡긴 편지 없음)엔 바로 편지지 · 취소 없음');
+  w.els.xmasLwText.value = '  올해 고마웠어요\n내년에도  '; w.els.xmasLwText.ls.input();
+  chk(!w.els.xmasLwKeep.disabled && w.els.xmasLwN.textContent === String(w.els.xmasLwText.value.length), '글을 쓰면 [편지 맡기기] · 글자 수');
+  w.bars[0].op.onChange(SONG);
+  await w.els.xmasLwKeep.onclick(); await settle();
+  chk(w.N.last.lid === 'l1' && w.N.last.text === '올해 고마웠어요\n내년에도' && w.N.last.song === SONG, '맡기기 — 빈 칸(l1) · 다듬은 글 · 추천곡');
+  chk(/맡겼어요/.test(w.S.toasts.pop()) && w.N.calls.slice(-1)[0] === 'my' && w.els.xmasLwEdit.hidden && w.els.xmasLwCnt.textContent === '1/5' && rows(w.els.xmasLwList).length === 1, '  ↳ 다시 읽어 목록 1통 · 편지지 접힘 · 1/5');
+  chk(!w.els.xmasLwNewRow.hidden, '[＋ 새 편지 쓰기] 보임');
+  w.els.xmasLwNew.onclick();
+  chk(!w.els.xmasLwEdit.hidden && w.els.xmasLwText.value === '' && !w.els.xmasLwCancel.hidden, '새 편지 — 빈 편지지 · 취소 있음');
+  w.els.xmasLwText.value = '두 번째'; w.els.xmasLwText.ls.input(); await w.els.xmasLwKeep.onclick(); await settle();
+  chk(w.N.last.lid === 'l2' && w.N.last.song === null, '  ↳ 다음 빈 칸(l2) · 곡 없이');
+  const r1 = rows(w.els.xmasLwList)[0];
+  chk(/^1번째 편지 · 올해 고마웠어요$/.test(r1.children[0].textContent), '목록 — 몇 번째 · 첫 줄만');
+  btn(r1, '고치기').onclick();
+  chk(w.els.xmasLwText.value === '올해 고마웠어요\n내년에도' && w.bars[0].sets.slice(-1)[0].id === SONG.id, '고치기 — 그 글 · 그 곡으로 편지지');
+  w.els.xmasLwText.value = '고친 글'; w.els.xmasLwText.ls.input(); await w.els.xmasLwKeep.onclick(); await settle();
+  chk(w.N.last.lid === 'l1' && w.N.last.text === '고친 글', '  ↳ 같은 칸(l1)에');
+  await btn(rows(w.els.xmasLwList)[1], '거두기').onclick(); await settle();
+  chk(w.N.calls.includes('remove:l2') && /거뒀어요/.test(w.S.toasts.pop()) && rows(w.els.xmasLwList).length === 1, '거두기 — 칸을 비우고 목록에서 빠짐');
+  const wf = world({ letters: Object.fromEntries(R.LETTER_IDS.map((id, i) => [id, { text: '편지' + i, ts: i }])) });
+  wf.api.open(); await settle();
+  chk(wf.els.xmasLwNewRow.hidden && wf.els.xmasLwCnt.textContent === '5/5', '5통 — [＋ 새 편지 쓰기] 숨김');
+  wf.els.xmasLwNew.onclick();
+  chk(/5통까지/.test(wf.S.toasts.pop() || '') && wf.els.xmasLwEdit.hidden, '  ↳ 새로 쓰기를 눌러도 막고 안내');
+}
+
+say('── 3절 반송');
+{
+  const w = world({ letters: { l1: { text: '하나', ts: 1 } }, returned: { l2: { reason: 'privacy', text: '내 번호는 010', ts: 5, song: SONG } } });
+  w.api.open(); await settle();
+  const rr = rows(w.els.xmasLwRet)[0];
+  chk(rr && /^반송됨 · 내 번호는 010$/.test(rr.children[0].textContent) && /사유: 개인정보 · 고쳐서 다시 써 주세요/.test(rr.children[1].textContent), '반송 — 첫 줄 · «사유: 개인정보 · 고쳐서 다시 써 주세요»');
+  chk(w.els.xmasLwEdit.hidden, '반송이 있으면 편지지를 저절로 펴지 않는다(먼저 사유를 본다)');
+  btn(rr, '다시 쓰기').onclick();
+  chk(w.els.xmasLwText.value === '내 번호는 010' && w.bars[0].sets.slice(-1)[0].id === SONG.id, '[다시 쓰기] — 반송된 글 · 곡으로 편지지');
+  w.els.xmasLwText.value = '번호 뺐어요'; w.els.xmasLwText.ls.input(); await w.els.xmasLwKeep.onclick(); await settle();
+  chk(w.N.calls.includes('save:l2') && w.N.calls.includes('clearRet:l2') && w.N.calls.indexOf('save:l2') < w.N.calls.indexOf('clearRet:l2'), '  ↳ 빈 칸에 맡긴 뒤 반송 표시를 치운다(맡기기가 실패하면 표시가 남는다)');
+  chk(!rows(w.els.xmasLwRet).length && rows(w.els.xmasLwList).length === 2, '  ↳ 반송 줄이 사라지고 맡긴 목록 2통');
+  const w2 = world({ returned: { l3: { reason: 'etc', note: '도배', text: 'ㅋㅋㅋ' } } });
+  w2.api.open(); await settle();
+  chk(/기타 — 도배/.test(rows(w2.els.xmasLwRet)[0].children[1].textContent), '기타 사유는 적은 말까지');
+  await btn(rows(w2.els.xmasLwRet)[0], '지우기').onclick(); await settle();
+  chk(w2.N.calls.includes('clearRet:l3') && !rows(w2.els.xmasLwRet).length && !w2.els.xmasLwEdit.hidden, '[지우기] — 표시만 치운다(다 비면 편지지가 펴진다)');
+  const w3 = world({ returned: { l1: { reason: 'abuse', text: '나쁜 말' } } });
+  w3.api.open(); await settle(); btn(rows(w3.els.xmasLwRet)[0], '다시 쓰기').onclick();
+  w3.N.ret.save = { ok: false, code: 'write' };
+  w3.els.xmasLwText.ls.input(); await w3.els.xmasLwKeep.onclick(); await settle();
+  chk(!w3.N.calls.some(c => c.startsWith('clearRet')) && w3.S.errs.join() === 'E-XMAS-05', '  ↳ 맡기기 실패면 반송 표시를 지우지 않는다 · E-XMAS-05');
+}
+
+say('── 4절 쓰기 실패 · 불러오기 실패');
+{
+  for (const [code, re, err] of [['closed', /마감이 지났어요/, ''], ['auth', /로그인한 뒤 편지/, ''], ['write', null, 'E-XMAS-05']]) {
+    const w = world({ ret: { save: { ok: false, code } } }); w.api.open(); await settle();
+    w.els.xmasLwText.value = '안녕'; w.els.xmasLwText.ls.input(); await w.els.xmasLwKeep.onclick(); await settle();
+    chk((re ? re.test(w.S.toasts.pop() || '') : true) && w.S.errs.join() === err && !w.els.xmasLwEdit.hidden, '맡기기 실패 ' + code + ' — ' + (err || '안내') + ' · 쓰던 편지지는 그대로');
+  }
+  const wr = world({ letters: { l1: { text: 'x' } }, ret: { remove: { ok: false, code: 'write' } } }); wr.api.open(); await settle();
+  await btn(rows(wr.els.xmasLwList)[0], '거두기').onclick();
+  chk(wr.S.errs.join() === 'E-XMAS-05', '거두기 실패 — E-XMAS-05');
+  const wl = world({ fail: { my: 'read' } }); wl.api.open(); await settle();
+  chk(wl.S.errs.join() === 'E-XMAS-04' && /불러오지 못했어요/.test(wl.els.xmasLwState.textContent) && wl.els.xmasLwWrite.hidden, '불러오기 실패 — E-XMAS-04 · 빈 목록으로 그리지 않는다');
+  const wa = world({ fail: { my: 'auth' } }); wa.api.open(); await settle();
+  chk(!wa.S.errs.length && /로그인한 뒤/.test(wa.els.xmasLwState.textContent), '로그인 안 됨 — 안내(오류 코드 없음)');
+}
+
+say('── 5절 열람');
+{
+  const got = { 1: { text: '<b>메리</b> 크리스마스', song: SONG }, 2: { text: '두 번째 편지' } };
+  const w = world({ now: R.LETTER_DEADLINE_MS + 1000, got });
+  w.api.open(); await settle();
+  chk(!w.els.xmasLwGot.hidden && w.els.xmasLwWrite.hidden && w.els.xmasLwT.textContent === '✉️ 받은 편지' && rows(w.els.xmasLwEnvs).length === 2 && w.els.xmasLwGotCnt.textContent === '2통', '25일 — 받은 편지 봉투 2통');
+  chk(w.S.dots.slice(-1)[0] === true, '안 읽은 편지 — 빨간 점');
+  rows(w.els.xmasLwEnvs)[0].onclick();
+  chk(w.els.xmasLwGotText.textContent === '<b>메리</b> 크리스마스' && !w.els.xmasLwOpened.hidden && w.els.xmasLwEnvBox.hidden, '열기 — 남이 쓴 글은 글자 그대로(textContent)');
+  chk(w.bars[1].sets.slice(-1)[0].id === SONG.id && !w.els.xmasLwGotSongRow.hidden && w.bars[1].op.editable !== true, '추천곡 바(((o 없음)');
+  chk(w.S.store['tw.xmasGotRead.authMe00001'] === '1' && w.S.dots.slice(-1)[0] === true, '읽음은 이 PC 에(계정마다) · 한 통 남아 점은 그대로');
+  w.els.xmasLwBack.onclick();
+  chk(!w.els.xmasLwEnvBox.hidden && w.els.xmasLwOpened.hidden && w.bars[1].sets.slice(-1)[0] === null && /읽음/.test(rows(w.els.xmasLwEnvs)[0].textContent), '← 다른 편지 — 봉투로 · 곡 내림 · «읽음»');
+  rows(w.els.xmasLwEnvs)[1].onclick();
+  chk(w.els.xmasLwGotSongRow.hidden && w.S.dots.slice(-1)[0] === false, '곡 없는 편지는 바를 숨김 · 다 읽으면 점 지움');
+  w.els.xmasLwReport.onclick(); chk(!w.els.xmasLwRep.hidden, '🚩 신고 — 확인창');
+  await w.els.xmasLwRepYes.onclick();
+  chk(w.N.calls.includes('report:2') && /신고했어요/.test(w.S.toasts.pop()), '  ↳ 연 편지 번호로 신고');
+  for (const [code, re, err] of [['dup', /이미 신고한 편지/, ''], ['auth', /로그인한 뒤 신고/, ''], ['write', null, 'E-XMAS-06']]) {
+    const wx = world({ now: R.LETTER_DEADLINE_MS + 1000, got, ret: { report: { ok: false, code } } }); wx.api.open(); await settle();
+    rows(wx.els.xmasLwEnvs)[0].onclick(); await wx.els.xmasLwRepYes.onclick();
+    chk((re ? re.test(wx.S.toasts.pop() || '') : true) && wx.S.errs.join() === err, '신고 실패 ' + code + ' — ' + (err || '안내'));
+  }
+  const wn = world({ now: R.LETTER_DEADLINE_MS + 1000, got: null }); wn.api.open(); await settle();
+  chk(!wn.els.xmasLwNone.hidden && wn.els.xmasLwEnvBox.hidden, '받은 편지 없음 — «올해는 받은 편지가 없어요»');
+  const wg = world({ now: R.LETTER_DEADLINE_MS + 1000, fail: { got: 'read' } }); wg.api.open(); await settle();
+  chk(wg.S.errs.join() === 'E-XMAS-04' && wg.els.xmasLwNone.hidden, '못 불러옴 — E-XMAS-04 · «없어요» 로 그리지 않는다');
+}
+
+say('── 6절 받은 편지 확인(빨간 점)');
+{
+  const w = world({ now: R.LETTER_DEADLINE_MS - 1000 });
+  await w.api.checkGot(); chk(!w.N.calls.length, '25일 전엔 읽지 않는다');
+  w.S.now = R.LETTER_DEADLINE_MS + 30000; await w.api.checkGot();
+  chk(w.N.calls.join() === 'got', '25일 0시 뒤 첫 확인');
+  w.S.now += 60000; await w.api.checkGot(); chk(w.N.calls.length === 1, '  ↳ 아직 없으면 5분 안엔 다시 안 읽는다');
+  w.D.got = { 1: { text: '도착' } }; w.S.now += 5 * 60000; await w.api.checkGot();
+  chk(w.N.calls.length === 2 && w.S.dots.slice(-1)[0] === true && w.els.xmasLetterBtn.classList.contains('xm-dot'), '  ↳ 5분 뒤 다시 · 찾으면 빨간 점([편지 열람] 에도)');
+  w.S.now += 10 * 60000; await w.api.checkGot(); chk(w.N.calls.length === 2, '  ↳ 찾은 뒤엔 더 안 읽는다');
+  const wl = world({ now: R.LETTER_DEADLINE_MS + 59 * 60000 }); await wl.api.checkGot(); wl.S.now += 6 * 60000; await wl.api.checkGot();
+  chk(wl.N.calls.length === 1, '한 시간이 지나면 다시 보지 않는다(편지를 안 쓴 사람이 계속 읽지 않게)');
+  const we = world({ now: R.LETTER_DEADLINE_MS + 1000, fail: { got: 'read' } }); await we.api.checkGot(); we.N.fail.got = null; we.D.got = { 1: { text: 'x' } }; we.S.now += 5 * 60000; await we.api.checkGot();
+  chk(we.N.calls.length === 2 && we.S.dots.slice(-1)[0] === true, '실패는 «없음» 으로 굳히지 않고 다음에 다시');
+  const wr = world({ now: R.LETTER_DEADLINE_MS + 1000, got: { 1: { text: 'x' } } }); wr.S.store['tw.xmasGotRead.authMe00001'] = '1';
+  await wr.api.checkGot(); chk(wr.S.dots.slice(-1)[0] === false, '이미 읽은 편지뿐이면 점 없음');
+}
+
+say('── 7절 닫기 · Esc · 저장소');
+{
+  const w = world(); w.api.open(); await settle();
+  chk(w.S.escs.length === 1 && w.S.escs[0].key === 'xmasLetter' && w.S.escs[0].isOpen(), 'Esc 스택에 xmasLetter(트리 창보다 먼저 닫힌다)');
+  w.els.xmasLwX.onclick();
+  chk(!w.els.xmasLetter.classList.contains('on') && w.song.stops === 1, '✕ — 닫고 추천곡을 멈춘다');
+  const wb = world({ now: R.LETTER_DEADLINE_MS + 1000, got: { 1: { text: 'x' } }, badStore: true }); wb.api.open(); await settle();
+  rows(wb.els.xmasLwEnvs)[0].onclick();
+  chk(wb.els.xmasLwGotText.textContent === 'x', '저장소가 던져도 열람은 된다(읽음 표시만 못 남김)');
+  const wt = world({ now: R.EVENT_END_MS }); wt.api.open(); await settle();
+  chk(!wt.els.xmasLetter.classList.contains('on'), '1월 1일 뒤엔 열자마자 닫힌다');
+  let threw = false; try { L.createXmasLetter({ doc: { getElementById: () => null } }); } catch (e) { threw = /xmasLetter/.test(e.message); }
+  chk(threw, '마크업이 없으면 이름을 대고 던진다');
+  chk(!/innerHTML/.test(SRC.replace(/\/\*[\s\S]*?\*\//g, '')), '편지 모듈에 innerHTML 없음');
+  // 깨 보기 — 반송을 다시 쓸 때 «반송 칸 번호» 에 그대로 쓰면, 그새 그 칸에 새 편지를 맡겼을 때 덮어쓴다
+  const wk = world({ letters: { l1: { text: '새로 맡긴 편지' } }, returned: { l1: { reason: 'spam', text: '옛 글' } } });
+  wk.api.open(); await settle(); btn(rows(wk.els.xmasLwRet)[0], '다시 쓰기').onclick(); wk.els.xmasLwText.ls.input(); await wk.els.xmasLwKeep.onclick(); await settle();
+  chk(wk.N.calls.includes('save:l2') && !wk.N.calls.includes('save:l1'), '깨 보기 — 반송 칸(l1)에 새 편지가 있으면 빈 칸(l2)에 맡긴다(덮어쓰지 않음)');
+}
+
+say(`\n${fail ? '✗' : '✓'} ${pass} 통과 · ${fail} 실패`);
+process.exit(fail ? 1 : 0);
+})().catch((e) => { console.error(e); process.exit(1); });

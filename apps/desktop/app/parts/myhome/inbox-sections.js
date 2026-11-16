@@ -15,7 +15,7 @@ const CATS = Object.freeze(['all', 'notice', 'update']);    // 소식 목록 위
 /* 태그 한 벌 — 모르는 값은 공지 */
 function tagOf(m){
   const t = m && m.tag;
-  return (t === 'update' || t === 'reward' || t === 'bug') ? t : 'notice';
+  return (t === 'update' || t === 'reward' || t === 'bug' || t === 'xmas') ? t : 'notice';   // xmas — 🎄 크리스마스 편지 알림(일회성 · 다음 업데이트에서 걷는다)
 }
 /* 우편 한 통이 드는 칸 — 'news' | 'mail' */
 function sectionOf(m){

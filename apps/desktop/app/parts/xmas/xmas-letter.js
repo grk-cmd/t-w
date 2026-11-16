@@ -1,0 +1,274 @@
+/* xmas-letter.js — 🎄 마니또 편지 창(일회성 — 다음 업데이트에서 걷는다 · 이슈 #963) (검사 sim-xmas-letter.js)
+   책임: 트리 창 아래 [편지 쓰기 (n/5)] · [편지 열람] 단추 · 그 위에 겹쳐 뜨는 편지 창(✕ · Esc) ·
+     ✍️ 쓰기(12/24 23:59 까지 — 맡긴 편지 목록 · 고치기 · 거두기 · 새 편지 · 반송된 편지의 사유 · 다시 쓰기 · 추천곡) ·
+     📬 열람(12/25 부터 — 봉투 · 열기 · 추천곡 · 신고 · 읽음 표시) · 런처 [크리스마스] 빨간 점(안 읽은 받은 편지).
+   서버는 net(firebaseAPI.xmas — 내 칸만 읽고 쓴다), 날짜 · 칸 규칙은 rules(TwXmasRules), 뮤직바는 song(TwXmasSong).
+   ★ 받은 편지 · 추천곡 제목은 남이 쓴 값 — textContent 로만 넣는다.
+   ★ 받은 편지 확인은 25일 0시가 지난 뒤 — 짝 짓기가 0시에 돌아 조금 늦을 수 있어 한 시간 동안만 5분 간격으로 다시 본다(그 뒤엔 앱을 켤 때 한 번).
+   ★ 읽음 표시는 이 PC(localStorage 'tw.xmasGotRead.{uid}' — 번호 몇 개)에만.
+   classic script(window.TwXmasLetter) — xmas-window.js 보다 먼저 싣는다. xmas-window.js 가 `createXmasLetter(deps)` 한 번. */
+(function(){
+'use strict';
+
+const READ_KEY = 'tw.xmasGotRead.';
+const GOT_RETRY_MS = 5 * 60000;     // 받은 편지가 아직 없을 때 다시 볼 간격
+const GOT_RETRY_UNTIL_MS = 3600000; // 마감 뒤 이 시간까지만 다시 본다
+
+/**
+ * @param {{ doc?:Document, win?:Window, rules:any, net:()=>any, song:any, serverNow:()=>number,
+ *           toast:(msg:string)=>void, notifyError:(code:string, err?:any)=>void, escRegisterWindow:Function,
+ *           storage:()=>Storage|null, onDot:(on:boolean)=>void }} deps
+ */
+function createXmasLetter(deps){
+  const doc = deps.doc || document;
+  const rules = deps.rules;
+  const net = deps.net;
+  const serverNow = deps.serverNow;
+  const toast = deps.toast;
+  const notifyError = deps.notifyError;
+  const $ = (id) => doc.getElementById(id);
+
+  const lw = $('xmasLetter'), btn = $('xmasLetterBtn');
+  if (!lw || !btn) throw new Error('xmas-letter: #xmasLetter · #xmasLetterBtn 이 html 에 없다');
+
+  let letters = [], returned = [], got = [], editing = null, draftSong = null, openedN = null, busy = false, seq = 0, refSeq = 0;
+  let gotFound = false, gotTriedAt = -Infinity, gotTrying = false;
+
+  /* ── 읽음 표시(이 PC) ── */
+  const readKey = () => READ_KEY + (net().me() || '');
+  function readSet(){
+    try { const st = deps.storage(); return rules.readSetOf(st ? st.getItem(readKey()) : ''); } catch (_) { return new Set(); }
+  }
+  function markRead(n){
+    const set = readSet(); set.add(n);
+    try { const st = deps.storage(); if (st) st.setItem(readKey(), rules.readSetStr(set)); } catch (_) {}
+    deps.onDot(rules.hasUnread(got, set));
+  }
+
+  /* ── 단추(트리 창 아래) ── */
+  function paintBtn(){
+    const now = serverNow();
+    if (rules.lettersArrived(now)){ btn.textContent = '편지 열람'; btn.hidden = false; }
+    else if (rules.letterOpen(now)){ btn.textContent = '편지 쓰기 (' + letters.length + '/' + rules.LETTER_MAX + ')'; btn.hidden = false; }
+    else btn.hidden = true;
+    btn.classList.toggle('xm-dot', rules.lettersArrived(now) && rules.hasUnread(got, readSet()));
+  }
+  /** 트리 창을 열 때 — 쓰는 기간이면 맡긴 수(n/5)를 위해 내 편지함을 한 번 읽는다 */
+  async function refresh(){
+    const now = serverNow();
+    if (rules.letterOpen(now)){
+      const my = ++refSeq;
+      const r = await net().myLetters();
+      if (my !== refSeq || isOpen()) return;   // 편지 창이 열렸으면 그쪽이 읽은 값이 맞다
+      if (r.ok){ letters = rules.myLettersOf(r.letters); returned = rules.returnedOf(r.returned); }
+    }
+    paintBtn();
+  }
+
+  /* ── 받은 편지 확인(빨간 점) — 25일 0시 뒤 ── */
+  async function checkGot(){
+    const now = serverNow();
+    if (!rules.lettersArrived(now) || gotFound || gotTrying) return;
+    const retrying = gotTriedAt > -Infinity;
+    if (retrying && (now - gotTriedAt < GOT_RETRY_MS || now >= rules.LETTER_DEADLINE_MS + GOT_RETRY_UNTIL_MS)) return;
+    gotTrying = true; gotTriedAt = now;
+    const r = await net().got();
+    gotTrying = false;
+    if (!r.ok) return;   // 다음 확인 때 다시(실패를 «없음» 으로 굳히지 않는다)
+    got = rules.gotOf(r.got);
+    gotFound = got.length > 0;
+    deps.onDot(rules.hasUnread(got, readSet()));
+    paintBtn();
+  }
+
+  /* ── 편지 창 ── */
+  const songW = deps.song.bar($('xmasLwSong'), { editable: true, onChange: (s) => { draftSong = s; } });
+  const songG = deps.song.bar($('xmasLwGotSong'), {});
+  const isOpen = () => lw.classList.contains('on');
+  function setState(text){ const el = $('xmasLwState'); el.textContent = text || ''; el.hidden = !text; }
+  function show(view){
+    $('xmasLwWrite').hidden = view !== 'write';
+    $('xmasLwGot').hidden = view !== 'got';
+  }
+
+  /* ✍️ 쓰기 */
+  function ddayText(){
+    const d = rules.ddayLeft(serverNow());
+    return (d === 0 ? '오늘 마감' : '마감까지 D-' + d) + ' · 12월 24일 23:59';
+  }
+  function item(text, sub, acts){
+    const row = doc.createElement('div'); row.className = 'xm-kitem';
+    const s = doc.createElement('span'); s.className = 'xm-ks'; s.textContent = text;
+    row.appendChild(s);
+    if (sub){ const w = doc.createElement('span'); w.className = 'xm-kwhy'; w.textContent = sub; row.appendChild(w); }
+    acts.forEach(([label, fn]) => {
+      const b = doc.createElement('button'); b.type = 'button'; b.className = 'win98raised'; b.textContent = label;
+      b.onclick = fn; row.appendChild(b);
+    });
+    return row;
+  }
+  const firstLine = (t) => t.split('\n').find(x => x.trim()) || t;
+  function renderWrite(){
+    $('xmasLwCnt').textContent = letters.length + '/' + rules.LETTER_MAX;
+    $('xmasLwDday').textContent = ddayText();
+    const ret = $('xmasLwRet'); ret.textContent = '';
+    returned.forEach(r => ret.appendChild(item('반송됨 · ' + firstLine(r.text), '사유: ' + r.why + ' · 고쳐서 다시 써 주세요', [
+      ['다시 쓰기', () => edit({ lid: null, retLid: r.lid, text: r.text, song: r.song })],
+      ['지우기', () => dismiss(r.lid)],
+    ])));
+    const list = $('xmasLwList'); list.textContent = '';
+    letters.forEach((l, i) => list.appendChild(item((i + 1) + '번째 편지 · ' + firstLine(l.text), '', [
+      ['고치기', () => edit({ lid: l.lid, retLid: null, text: l.text, song: l.song })],
+      ['거두기', () => withdraw(l.lid)],
+    ])));
+    const full = letters.length >= rules.LETTER_MAX;
+    if (!editing && !letters.length && !returned.length){
+      editing = { lid: null, retLid: null, fresh: true };   // 처음엔 바로 편지지를 편다
+      $('xmasLwText').value = ''; draftSong = null; songW.set(null); checkText();
+    }
+    $('xmasLwEdit').hidden = !editing;
+    $('xmasLwCancel').hidden = !editing || !!editing.fresh;
+    $('xmasLwNewRow').hidden = !!editing || full;
+    paintBtn();
+  }
+  function edit(e){
+    if (!e.lid && letters.length >= rules.LETTER_MAX){ toast('편지는 ' + rules.LETTER_MAX + '통까지 맡길 수 있어요.'); return; }
+    editing = { lid: e.lid, retLid: e.retLid };
+    $('xmasLwText').value = e.text || '';
+    draftSong = e.song || null; songW.set(draftSong);
+    checkText(); renderWrite(); $('xmasLwText').focus();
+  }
+  function checkText(){
+    const v = $('xmasLwText').value;
+    $('xmasLwN').textContent = String(v.length);
+    $('xmasLwKeep').disabled = busy || !rules.cleanLetter(v);
+  }
+  /** 쓰기 실패 — 마감 · 로그인은 안내, 그 밖은 오류 코드 */
+  function writeFailed(r){
+    if (r.code === 'closed'){ toast('편지 마감이 지났어요.'); loadView(); return; }
+    if (r.code === 'auth'){ toast('로그인한 뒤 편지를 쓸 수 있어요.'); return; }
+    notifyError('E-XMAS-05', r.err);
+  }
+  async function keep(){
+    const text = rules.cleanLetter($('xmasLwText').value);
+    if (!text || busy || !editing) return;
+    const lid = editing.lid || rules.freeLetterId(letters);
+    if (!lid){ toast('편지는 ' + rules.LETTER_MAX + '통까지 맡길 수 있어요.'); return; }
+    const retLid = editing.retLid;
+    busy = true; checkText();
+    const r = await net().saveLetter(lid, text, draftSong);
+    busy = false; checkText();
+    if (!r.ok){ writeFailed(r); return; }
+    if (retLid){ const c = await net().clearReturned(retLid); if (!c.ok) notifyError('E-XMAS-05', c.err); }
+    editing = null; songW.set(null);
+    toast('편지를 맡겼어요. 25일 0시에 전달돼요.');
+    await loadView();
+  }
+  async function withdraw(lid){
+    if (busy) return;
+    busy = true;
+    const r = await net().removeLetter(lid);
+    busy = false;
+    if (!r.ok){ writeFailed(r); return; }
+    if (editing && editing.lid === lid){ editing = null; songW.set(null); }
+    toast('편지를 거뒀어요. 마감 전까지 다시 쓸 수 있어요.');
+    await loadView();
+  }
+  async function dismiss(lid){
+    const r = await net().clearReturned(lid);
+    if (!r.ok){ notifyError('E-XMAS-05', r.err); return; }
+    if (editing && editing.retLid === lid) editing = null;
+    await loadView();
+  }
+  $('xmasLwText').addEventListener('input', checkText);
+  $('xmasLwKeep').onclick = keep;
+  $('xmasLwCancel').onclick = () => { editing = null; songW.set(null); renderWrite(); };
+  $('xmasLwNew').onclick = () => edit({ lid: null, retLid: null, text: '', song: null });
+
+  /* 📬 열람 */
+  function renderGot(){
+    const has = got.length > 0;
+    $('xmasLwNone').hidden = has;
+    $('xmasLwEnvBox').hidden = !has || openedN != null;
+    $('xmasLwOpened').hidden = openedN == null;
+    if (!has) return;
+    const set = readSet();
+    $('xmasLwGotCnt').textContent = got.length + '통';
+    const box = $('xmasLwEnvs'); box.textContent = '';
+    got.forEach((g, i) => {
+      const b = doc.createElement('button'); b.type = 'button';
+      b.className = 'xm-env' + (set.has(g.n) ? ' read' : ' new');
+      const bx = doc.createElement('span'); bx.className = 'xm-envbox';
+      const seal = doc.createElement('span'); seal.className = 'xm-seal'; seal.textContent = '♥';
+      bx.appendChild(seal);
+      const t = doc.createElement('span'); t.className = 'xm-envt'; t.textContent = (i + 1) + '번째 편지' + (set.has(g.n) ? ' · 읽음' : '');
+      b.appendChild(bx); b.appendChild(t);
+      b.onclick = () => openLetter(g);
+      box.appendChild(b);
+    });
+  }
+  function openLetter(g){
+    openedN = g.n;
+    $('xmasLwGotText').textContent = g.text;
+    $('xmasLwGotSongRow').hidden = !g.song;
+    songG.set(g.song);
+    markRead(g.n);
+    renderGot();
+  }
+  $('xmasLwBack').onclick = () => { openedN = null; songG.set(null); renderGot(); };
+  $('xmasLwReport').onclick = () => { $('xmasLwRep').hidden = false; $('xmasLwRepNo').focus(); };
+  $('xmasLwRepNo').onclick = () => { $('xmasLwRep').hidden = true; };
+  $('xmasLwRepYes').onclick = async () => {
+    $('xmasLwRep').hidden = true;
+    if (openedN == null) return;
+    const r = await net().reportLetter(openedN);
+    if (r.ok) toast('신고했어요. 관리자가 확인할게요.');
+    else if (r.code === 'dup') toast('이미 신고한 편지예요.');
+    else if (r.code === 'auth') toast('로그인한 뒤 신고할 수 있어요.');
+    else notifyError('E-XMAS-06', r.err);
+  };
+
+  /* 창 열기 · 불러오기 — 날짜로 쓰기 / 열람을 고른다 */
+  async function loadView(){
+    const my = ++seq;
+    const now = serverNow();
+    const view = rules.lettersArrived(now) ? 'got' : rules.letterOpen(now) ? 'write' : null;
+    if (!view){ close(); return; }
+    $('xmasLwT').textContent = view === 'write' ? '✉️ 마니또 편지 쓰기' : '✉️ 받은 편지';
+    show(null); setState('편지를 불러오는 중…');
+    const r = view === 'write' ? await net().myLetters() : await net().got();
+    if (my !== seq || !isOpen()) return;
+    if (!r.ok){
+      if (r.code === 'auth'){ setState('로그인한 뒤 편지를 쓰고 받을 수 있어요.'); return; }
+      setState('편지를 불러오지 못했어요.'); notifyError('E-XMAS-04', r.err); return;
+    }
+    setState('');
+    if (view === 'write'){ letters = rules.myLettersOf(r.letters); returned = rules.returnedOf(r.returned); show('write'); renderWrite(); }
+    else { got = rules.gotOf(r.got); gotFound = gotFound || got.length > 0; show('got'); renderGot(); deps.onDot(rules.hasUnread(got, readSet())); }
+  }
+  function open(){
+    if (isOpen()) return;
+    editing = null; openedN = null; draftSong = null;
+    lw.classList.add('on');
+    loadView();
+  }
+  function close(){
+    if (!isOpen()) return;
+    seq++;
+    deps.song.stop();
+    songW.set(null); songG.set(null);
+    $('xmasLwRep').hidden = true;
+    lw.classList.remove('on');
+    paintBtn();
+  }
+  btn.onclick = open;
+  $('xmasLwX').onclick = close;
+  deps.escRegisterWindow({ key: 'xmasLetter', el: lw, isOpen, close });
+
+  return { open, close, isOpen, refresh, checkGot, paintBtn };
+}
+
+const api = Object.freeze({ createXmasLetter });
+if (typeof window !== 'undefined') window.TwXmasLetter = api;
+if (typeof module !== 'undefined' && module.exports) module.exports = api;
+})();
