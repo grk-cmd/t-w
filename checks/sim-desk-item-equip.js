@@ -41,7 +41,7 @@ function build(src, o){
     customItems: () => st.custom,
     deskItemsMod: () => ({ allDeskItems: () => Object.values(defs), deskItemDef: (id) => defs[id] }),
     deskSetupMod: () => ({ selectDeskItemForAdjust: (p) => log.select.push(p) }),
-    catalogReceived: () => !!o.received,
+    catalogReceived: () => !!(o.received || st.received),
     licenseAssetBlocked: (item) => !!(item && item.locked === true),   // account-state.js 와 같은 판단(서버 locked 하나)
     launcherPrevMod: () => ({ lHolder: () => null }),
     slotSaveMod: () => ({ saveSlots: () => log.saves++ }),
@@ -86,9 +86,9 @@ say('§1 라이선스 전용 막기');
   chk(!!(h.deskItems && h.deskItems.plant), '  ↳ 기본 내장 아이템(custom 아님)은 기록이 없어도 막지 않는다');
   b = build(SRC); h = mkHolder(); b.mod.equipDeskItem(h, cu, false);
   chk(b.log.toast.length === 0, '  ↳ 끄기는 기록이 없어도 막지 않는다');
-  { const m2 = SRC.replace('&& !catalogReceived()) return;', ') return;'); const b2 = build(m2, { received: true }); const h2 = mkHolder(); b2.mod.equipDeskItem(h2, cu, true);
+  { const m2 = SRC.replace('&& !_siRec && !catalogReceived()', '&& !_siRec'); const b2 = build(m2, { received: true }); const h2 = mkHolder(); b2.mod.equipDeskItem(h2, cu, true);
     chk(m2 !== SRC && !h2.deskItems, '  깨 보기: «받았는가» 를 안 보면 받은 뒤에도 막혀 버린다(= 위 «받은 뒤 · 기록 없음» 판정이 빨강)'); }
-  { const mm = SRC.replace('if(def && def.custom && !_siRec && !catalogReceived()) return;', ''); const bb = build(mm); const hh = mkHolder(); bb.mod.equipDeskItem(hh, cu, true);
+  { const mm = SRC.replace('if(def && def.custom && !_siRec && !catalogReceived()){ _markSkipped(holder, def.id); return; }', ''); const bb = build(mm); const hh = mkHolder(); bb.mod.equipDeskItem(hh, cu, true);
     chk(mm !== SRC && !!(hh.deskItems && hh.deskItems.vip), '  깨 보기: 기록 없을 때 막는 줄을 지우면 장착돼 버린다(= 위 판정이 빨강)'); }
   b = build(SRC, { saved: LOCKEDREC }); h = mkHolder(); b.mod.equipDeskItem(h, d, false);
   chk(b.log.toast.length === 0, '끄기(on=false)는 막지 않는다');
@@ -186,6 +186,32 @@ say('§5 모으기 · 저장 · 불러오기');
   const a3 = build(SRC, { defs: { c: mkDef('c', { build: () => { const g = new THREE.Group(); const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0xff0000 })); m.name = 'x_col'; g.add(m); return g; } }) } }); const hc = mkHolder();
   a3.mod.applyDeskItemsTo(hc, { c: { adj: {}, colors: {} } });
   chk(hc.deskItems.c.userData.colorGroups.col1[0].material.color.getHexString() === 'ff0000', '저장된 색이 없는 그룹은 원래 색(origColor)으로 되돌린다');
+}
+say('§5-B 받기 전에 건너뛴 아이템은 저장본에서 지워지지 않는다');
+{
+  const ORIG = () => ({ vip: { adj: { x: 1 } }, other: { adj: { x: 2 } } });
+  const run = (src) => {
+    const cb = mkHolder({ charDef: { deskItems: ORIG() } });
+    const b = build(src, { cBase: cb, defs: { vip: mkDef('vip', { custom: true }), other: mkDef('other', { custom: true }), plant: mkDef('plant') } });
+    b.mod.applyDeskItemsTo(cb, cb.charDef.deskItems);   // 카탈로그를 받기 전 — 기록 없는 커스텀 둘을 건너뛴다
+    b.mod.equipDeskItem(cb, b.defs.plant, true);          // 다른 조정(기본 아이템 켜기)
+    b.mod.autoSaveDeskItemsNow();
+    return { cb, b };
+  };
+  const r = run(SRC);
+  chk(!r.cb.deskItems.vip && r.cb._skippedItems && r.cb._skippedItems.has('vip') && r.cb._skippedItems.has('other'), '건너뛴 소품을 holder 에 따로 적어 둔다');
+  chk(Object.keys(r.cb.charDef.deskItems).sort().join() === 'other,plant,vip' && r.cb.charDef.deskItems.vip.adj.x === 1 && r.cb.charDef.deskItems.other.adj.x === 2, '★ 다른 조정 뒤 저장해도 건너뛴 두 소품의 원본(위치 · 크기)이 저장본에 남는다');
+  const cb2 = mkHolder({ charDef: { deskItems: ORIG() } });
+  const b2 = build(SRC, { cBase: cb2, defs: { vip: mkDef('vip', { custom: true }), other: mkDef('other', { custom: true }) } });
+  b2.mod.applyDeskItemsTo(cb2, cb2.charDef.deskItems); b2.mod.autoSaveDeskItemsNow();
+  chk(cb2.charDef.deskItems && Object.keys(cb2.charDef.deskItems).sort().join() === 'other,vip', '★ 전부 건너뛰었어도 null 이 저장되지 않는다');
+  /* 카탈로그가 도착한 뒤 — 같은 holder 에 다시 올리면 표시가 풀리고 저장본에 그대로 있다 */
+  b2.st.received = true;
+  b2.mod.applyDeskItemsTo(cb2, { vip: cb2.charDef.deskItems.vip, other: cb2.charDef.deskItems.other });
+  chk(!!(cb2.deskItems.vip && cb2.deskItems.other) && cb2._skippedItems.size === 0 && cb2.deskItems.vip.userData.adj.x === 1, '카탈로그가 오면 저장된 위치째 올라오고 건너뜀 표시가 풀린다');
+  const mm = SRC.replace("skipped.forEach(id=>{ if(orig[id] && !(di && di[id])){ di = di || {}; di[id] = orig[id]; } });", '');
+  const rb = run(mm);
+  chk(mm !== SRC && Object.keys(rb.cb.charDef.deskItems || {}).sort().join() === 'plant', '  깨 보기: 합치는 줄을 빼면 건너뛴 소품이 저장본에서 지워진다(= 위 판정이 빨강)');
 }
 say('§6 생성기 몫');
 {

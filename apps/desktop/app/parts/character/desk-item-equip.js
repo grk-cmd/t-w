@@ -33,6 +33,12 @@ function _rememberCrItemOrigin(holder, p){
   if(!deskItemOrigin || !p || typeof crState().cBase==='undefined' || holder!==crState().cBase) return;
   deskItemOrigin.remember(p, p.userData.adj);
 }
+/* 막혀서 올리지 못한 아이템의 id 를 holder 에 적어 둔다 — 저장(autoSaveDeskItemsNow)이 holder 기준이라 이 표시가 없으면 건너뛴 아이템이 저장본에서 지워진다 */
+function _markSkipped(holder, id){
+  if(!holder || !id) return;
+  if(!holder._skippedItems) holder._skippedItems = new Set();
+  holder._skippedItems.add(id);
+}
 function equipDeskItem(holder,def,on){
   // ★ 라이선스 보유자 전용으로 등록된 아이템은 막아야 하면(account-state.js licenseAssetBlocked) 장착 자체를 막음.
   //   ⚠️ 단 **친구 좌석(holder.remote)에는 걸지 않는다.** applyDeskItemsTo가 친구 좌석을 그릴 때도
@@ -46,12 +52,14 @@ function equipDeskItem(holder,def,on){
   if(on && !(holder && holder.remote)){
     /* 카탈로그를 받기 전(처음 · 받기 실패)에는 기록 없는 커스텀 아이템의 locked 를 모른다 — 막는다. 받은 뒤에도 기록이 없으면 카탈로그 물건이 아니다(전용 물건은 늘 카탈로그에 있다 —
        친구가 코드로 추가한 소품 등) — 막지 않는다. 기록이 오면 catalog-sync 가 좌석 아이템을 다시 적용해 locked 로 다시 판정한다. */
-    if(def && def.custom && !_siRec && !catalogReceived()) return;
+    if(def && def.custom && !_siRec && !catalogReceived()){ _markSkipped(holder, def.id); return; }
     if(licenseAssetBlocked(_siRec)){
+      _markSkipped(holder, def.id);
       toast('🔒 "'+(def.name||'이 아이템')+'"은(는) 라이선스 보유자만 사용할 수 있어요');
       return;
     }
   }
+  if(holder && holder._skippedItems) holder._skippedItems.delete(def.id);   // 장착 · 해제가 이뤄졌다 — 더는 «건너뜀» 이 아니다
   if(!holder.deskItems)holder.deskItems={};
   if(!holder._itemAdjMemory)holder._itemAdjMemory={};   // 해제했다가 다시 장착할 때 이전 위치/크기 조정값을 기억해뒀다가 복원하기 위함
   const cur=holder.deskItems[def.id];
@@ -183,7 +191,10 @@ function collectDeskItems(holder){ const d={}; let any=false; deskItemsMod().all
 function autoSaveDeskItemsNow(){
   if(!crState().cBase || !crState().cBase.charDef) return;
   const def = crState().cBase.charDef;
-  const di = collectDeskItems(crState().cBase);
+  let di = collectDeskItems(crState().cBase);
+  /* 건너뛴(막힌 · 아직 모르는) 아이템의 원본 항목은 저장본에 남긴다 — 올리지 못했다고 지우면 되돌릴 수 없다 */
+  const skipped = crState().cBase._skippedItems, orig = def.deskItems;
+  if(skipped && skipped.size && orig) skipped.forEach(id=>{ if(orig[id] && !(di && di[id])){ di = di || {}; di[id] = orig[id]; } });
   def.deskItems = di;
   if(di){
     const ci={}; Object.keys(di).forEach(id=>{ const c=customItems()[id]; const rec=commissionMod().savedItems().find(s=>s.id===id);
@@ -192,7 +203,7 @@ function autoSaveDeskItemsNow(){
   }
   slotSaveMod().saveSlots();
 }
-function applyDeskItemsTo(holder,data){ if(!data||!holder.deskAnchor)return; Object.keys(data).forEach(id=>{ const def=deskItemsMod().deskItemDef(id); if(!def)return; const e=data[id]; equipDeskItem(holder,def,true); const p=holder.deskItems[id]; if(p&&e.adj){
+function applyDeskItemsTo(holder,data){ if(!data||!holder.deskAnchor)return; Object.keys(data).forEach(id=>{ const def=deskItemsMod().deskItemDef(id); if(!def)return; const e=data[id]; equipDeskItem(holder,def,true); const p=holder.deskItems && holder.deskItems[id];  /* 건너뛴(막힌) 아이템이면 holder.deskItems 가 아직 없을 수 있다 */ if(p&&e.adj){
     const savedAdj=Object.assign({},e.adj);
     // ★ 예전엔 y를 자동 계산값(ITEM_Y_START_OFFSET)으로 강제 복원해서 저장값을 무시했음 — 유저가 기즈모로
     //   조절할 수 있는 UI가 없다고 가정한 옛 로직. 지금은 기즈모로 자유롭게 y 조작 가능하므로 저장값 그대로 씀.

@@ -84,6 +84,12 @@ async function mergeCatalogIntoSavedItems(catalogObj){
   seats.forEach(s=>{ clearHolderDeskItems(s); if(s.charDef && s.charDef.deskItems) applyDeskItemsTo(s, s.charDef.deskItems); });
   // 생성기를 연 채 관리자가 아이템을 고쳐도 바로 보이게 장착분도 다시 올린다.
   // ⚠️ 위치 · 크기 조정값은 일부러 안 지킨다 — 지키면 자동 크기 계산을 바꿔도 옛 값이 덮어써 안 보인다.
+  /* 받기 전에 건너뛴 아이템(holder._skippedItems)은 holder 가 아니라 원본(charDef.deskItems)에서 저장된 위치 · 크기째 올린다 — 올려 보고 아직 막히면 표시가 남는다 */
+  if(typeof cBase()!=='undefined' && cBase() && creatorOpen() && cBase()._skippedItems && cBase()._skippedItems.size && cBase().charDef && cBase().charDef.deskItems){
+    const orig = cBase().charDef.deskItems, pick = {};
+    cBase()._skippedItems.forEach(id=>{ if(orig[id] && customItems()[id]) pick[id] = orig[id]; });
+    applyDeskItemsTo(cBase(), pick);
+  }
   if(typeof cBase()!=='undefined' && cBase() && creatorOpen() && cBase().deskItems){
     Object.keys(cBase().deskItems).forEach(id=>{
       const p=cBase().deskItems[id]; if(!p) return;

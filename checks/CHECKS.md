@@ -229,7 +229,7 @@
 | **sim-human-ear-attach.js** | 129 | **cc7187e89b24** |
 | **sim-desk-build.js** | 100 | **0de2a23692c7** |
 | **sim-part-anim.js** | 177 | **c1dc6497cf24** |
-| **sim-desk-item-equip.js** | 236 | **f327ba00c565** |
+| **sim-desk-item-equip.js** | 262 | **c350952aa8d4** |
 | **sim-animal-edit-route.js** | 113 | **05e6088f9a9d** |
 | **sim-seat-slot.js** | 114 | **aea78fc86038** |
 | **sim-fix-1008b.js** | 47 | **a35227963110** |
@@ -425,7 +425,7 @@
 | **sim-admin-thumbs.js** | 145 | **b8bfec2cc80a** |
 | **sim-glb-idb-cache.js** | 172 | **fda2ba697435** |
 | **sim-catalog-glb.js** | 195 | **05c442a939b9** |
-| **sim-catalog-sync.js** | 303 | **51b40f03ff8c** |
+| **sim-catalog-sync.js** | 313 | **8f8d10f5da48** |
 | **sim-desk-items.js** | 166 | **a1f0433d23a0** |
 | **sim-bgm-diag.js** | 300 | **b0b5757656bc** |
 | **sim-blink-timing.js** | 112 | **624e0321ea28** |

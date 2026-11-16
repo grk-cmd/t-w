@@ -219,6 +219,16 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
     await W.subs.items({ i1: {} }); await flush();
     chk(has(W.log, 'equipDeskItem:cBase:i1:true') && W.log.filter(x => x.startsWith('equipDeskItem')).length === 1 && has(W.log, 'renderCrItems') && has(W.log, 'warn:[라이선스] 아이템 카탈로그 도착 후 정리 실패'), '  생성기가 열려 있으면 생성기 책상의 카탈로그 아이템만 새 GLB 로 다시 올리고 카드도 다시 그린다 · 라이선스 접기 실패는 경고만');
 
+    /* 받기 전에 건너뛴 소품(holder._skippedItems)은 카탈로그가 오면 생성기에서 원본(charDef.deskItems)째 다시 올린다 */
+    const skipSet = new Set(['i1', 'gone2']);
+    W = load({ creatorOpen: true, cBase: { __n: 'cBase', deskItems: {}, _skippedItems: skipSet, charDef: { deskItems: { i1: { adj: { x: 1 } }, gone2: { adj: { x: 2 } } } } }, customItems: { i1: { id: 'i1' } } });
+    await W.subs.items({ i1: {} }); await flush();
+    chk(has(W.log, 'applyDeskItems:cBase'), '★ 카탈로그가 오면 생성기가 건너뛴 소품을 원본(저장된 위치 · 크기)에서 다시 올린다');
+    const mmSrc = MOD.replace('applyDeskItemsTo(cBase(), pick);', '');
+    W = load({ src: mmSrc, creatorOpen: true, cBase: { __n: 'cBase', deskItems: {}, _skippedItems: new Set(['i1']), charDef: { deskItems: { i1: { adj: {} } } } }, customItems: { i1: { id: 'i1' } } });
+    await W.subs.items({ i1: {} }); await flush();
+    chk(mmSrc !== MOD && !has(W.log, 'applyDeskItems:cBase'), '  깨 보기: 다시 올리는 줄을 빼면 건너뛴 소품이 생성기에 안 돌아온다(= 위 판정이 빨강)');
+
     /* 책상 */
     const sR = { __n: 'R', desk: { __n: 'dR' }, charDef: { deskCatalogId: 'gone', deskGlb: 'g' } };
     const sC = { __n: 'C', desk: { __n: 'dC' }, charDef: { deskCatalogId: 'd1' } };
