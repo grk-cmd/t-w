@@ -16,8 +16,16 @@ export interface ReleaseFix {
   todo: string;
 }
 
+/** 반영 대상 제보 한 건에서 쓰는 칸 — 판마다 읽는 글 모양이 달라 필요한 것만 둔다. */
+export type FixBug = Pick<BugItem, 'id' | 'vis' | 'status' | 'title' | 'ts' | 'no'>;
+
 export interface FixTarget extends ReleaseFix {
-  item: BugItem;
+  item: FixBug;
+  /**
+   * 읽을 때 본 «마지막 답변 시각» — 서버가 준 글자 그대로. 반영 요청에 그대로 실어 그 사이 다른 관리자가 답했는지 서버가 가린다.
+   * 답변이 아직 없거나(null) 이 값을 쓰지 않는 판(Firebase 판)은 없다.
+   */
+  seenLastAnswerAt?: string | null;
 }
 
 /** 완료 + 버전이 latest 이하인 할 일의 제보 — 겹치면 하나로(낮은 버전). 버전이 없거나 출시 전이면 뺀다. */
@@ -37,7 +45,7 @@ export function releasedReports(todos: readonly Todo[], latest: string | null | 
 /** 아직 미해결(접수 · 확인 중 · 해결 안 됨)인 제보만 — 수정 완료 · 재현 안 됨 · 지워진 글은 건드리지 않는다. 오래된 글부터. */
 export function fixTargets(
   fixes: readonly ReleaseFix[],
-  items: ReadonlyMap<string, BugItem | null>,
+  items: ReadonlyMap<string, FixBug | null>,
 ): FixTarget[] {
   return fixes
     .flatMap((f) => {
@@ -69,13 +77,13 @@ export const tplVars = (t: Pick<FixTarget, 'release' | 'todo' | 'item'>): TplVar
   todo: t.todo,
 });
 
-/** 템플릿 → 답변 글. 빈 변수로 생긴 겹친 빈칸은 하나로. */
-export function fillTemplate(tpl: string, v: TplVars): string {
+/** 템플릿 → 답변 글. 빈 변수로 생긴 겹친 빈칸은 하나로. `max` 보다 길면 자른다(서버가 길이를 가리는 판은 자르지 않는다). */
+export function fillTemplate(tpl: string, v: TplVars, max: number = RELEASE_TPL_MAX): string {
   return tpl
     .replace(/\{(version|title|todo)\}/g, (_, k: keyof TplVars) => v[k])
     .replace(/[ \t]{2,}/g, ' ')
     .trim()
-    .slice(0, RELEASE_TPL_MAX);
+    .slice(0, max);
 }
 
 /** 템플릿 입력 확인 — 문제없으면 null. */

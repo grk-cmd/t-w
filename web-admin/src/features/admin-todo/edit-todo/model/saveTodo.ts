@@ -16,6 +16,12 @@ export interface SaveTodoInput {
   markFixed?: boolean;
 }
 
+/** 작업자 이름 — 이름표에서, 없으면 같은 작업자일 때 저장돼 있던 이름. 모르면 빈 글자(작업자 이름 칸은 비워 둔다). */
+export function assigneeNameOf(d: TodoDraft, seen: Todo | null, names: ReadonlyMap<string, string>): string {
+  if (!d.assignee) return '';
+  return names.get(d.assignee) ?? (seen?.assignee === d.assignee ? seen.assigneeName : '');
+}
+
 /** 제보 하나를 할 일에 붙이기 — 이미 붙어 있으면 쓰지 않는다. `save` 는 그 판의 쓰기. */
 export function linkWith(
   save: (input: SaveTodoInput) => Promise<SaveTodoResult>,

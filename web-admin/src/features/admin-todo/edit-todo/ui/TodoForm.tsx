@@ -40,7 +40,8 @@ interface Props {
 export function TodoForm({ todo, initial, onDone }: Props) {
   const toast = useToast();
   const me = useMyUid();
-  const names = useAdminNames().data ?? new Map<string, string>();
+  const namesQuery = useAdminNames();
+  const names = namesQuery.data ?? new Map<string, string>();
   const save = useSaveTodo();
   const { fixesReports } = useEditTodoPort();
   // 새로 만들 때 id 를 미리 정해 둔다 — 충돌 뒤 다시 저장해도 같은 자리.
@@ -153,6 +154,11 @@ export function TodoForm({ todo, initial, onDone }: Props) {
         </label>
         <label>
           작업자
+          {namesQuery.isError && (
+            <small className="msg err">
+              {errorMessage(namesQuery.error, '관리자 이름을 불러오지 못했어요')}
+            </small>
+          )}
           <select value={draft.assignee ?? ''} onChange={(e) => set('assignee', e.target.value || null)}>
             <option value="">없음</option>
             {options.map((o) => (

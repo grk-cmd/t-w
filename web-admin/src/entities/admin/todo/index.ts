@@ -9,6 +9,7 @@ export {
 } from './api/firebase';
 export { useRefreshTodoNote, useRefreshTodos, useTodoNote, useTodos } from './api/hooks';
 export { useTodoPort, type TodoPort } from './api/index';
+export { createServerTodoPort, toNoteRow, toTodoRow } from './api/server';
 export {
   ALL_TODOS,
   becomesDone,

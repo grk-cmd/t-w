@@ -7,18 +7,11 @@ import {
   todoChanges,
   todoValue,
   type Todo,
-  type TodoDraft,
 } from '@/entities/admin/todo';
 import { BUG_STATUS, getBugItem, isOpen, statusWrite } from '@/entities/bug-board';
 import { auditEntry, type Db } from '@/shared/api';
-import { linkWith, type SaveTodoInput, type SaveTodoResult } from '../model/saveTodo';
+import { assigneeNameOf, linkWith, type SaveTodoInput, type SaveTodoResult } from '../model/saveTodo';
 import type { EditTodoPort } from './port';
-
-/** 작업자 이름 — 이름표에서, 없으면 같은 작업자일 때 저장돼 있던 이름. 모르면 비움(규칙이 빈 글자를 안 받아 칸을 뺀다). */
-function assigneeNameOf(d: TodoDraft, seen: Todo | null, names: ReadonlyMap<string, string>): string {
-  if (!d.assignee) return '';
-  return names.get(d.assignee) ?? (seen?.assignee === d.assignee ? seen.assigneeName : '');
-}
 
 /**
  * 연결된 제보 중 아직 미해결인 것만 «수정 완료» 로 — 제보마다 줄을 다시 읽어(지워졌으면 건너뜀) openTs 도 같이 맞춘다.

@@ -125,7 +125,7 @@ export async function applyReleaseFixes(
 export function createFirebaseApplyReleasePort(db: Db): ApplyReleasePort {
   return {
     check: checkTemplate,
-    fill: fillTemplate,
+    fill: (tpl, vars) => fillTemplate(tpl, vars),
     template: async () => unversioned({ saved: await getReleaseTpl(db), fallback: RELEASE_TPL_DEFAULT }),
     saveTemplate: (_from, tpl) => saveReleaseTpl(db, tpl),
     preview: (latest) => previewReleaseFixes(db, latest),
