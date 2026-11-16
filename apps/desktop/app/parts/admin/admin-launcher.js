@@ -97,7 +97,7 @@ $('lcAdBannerEdit').onclick=async ()=>{
 };
 $('adBannerCloseBtn').onclick=closeBanner;
 /* 세션이 끝나면(NAV.ADMIN_EXIT → admin-mode 가 알림) 이 파일이 여는 창을 자기 닫기로 닫는다 */
-document.addEventListener('tw-admin-exit', ()=>{ closeBanner(); const g=$('gameCfgOverlay'); if(g){ g.classList.remove('on'); g.style.display='none'; } });
+document.addEventListener(TwAdminMode.EXIT_EVENT, ()=>{ closeBanner(); const g=$('gameCfgOverlay'); if(g){ g.classList.remove('on'); g.style.display='none'; } });
 $('adBannerSaveBtn').onclick=async ()=>{
   if(bannerBusy || bannerVersion == null) return;
   const slides=[];

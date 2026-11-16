@@ -46,16 +46,23 @@ function _reportReasonText(r){
 const _code4 = (c)=>c ? String(c).slice(-4) : '----';
 const _codeOf = (x)=>x.friendCode || x.code;   // 친구 코드가 먼저 · 없으면(그새 탈퇴) 사용자 코드
 
+/* 세션 끝 알림 리스너 — 창을 열 때마다 하나 걸고, 닫을 때(_closeList) 푼다. 한 번에 하나만 열리는 창이라 하나만 쥐면 된다 */
+let _exitHook = null;
+function _unhookExit(){ if(_exitHook){ document.removeEventListener(TwAdminMode.EXIT_EVENT, _exitHook); _exitHook = null; } }
+function _closeList(){ _unhookExit(); _reportClose(); }
+
 async function _openReportAdmin(){
   if(!isAdmin()) return;
-  _reportClose();
+  _closeList();
   const { ov, body } = _reportBox('🚩 신고 목록', 460);
-  ov.addEventListener('mousedown', e=>{ if(e.target === ov) _reportClose(); });
-  setReportEsc(e=>{ if(e.key === 'Escape'){ e.stopPropagation(); _reportClose(); } });
+  ov.addEventListener('mousedown', e=>{ if(e.target === ov) _closeList(); });
+  setReportEsc(e=>{ if(e.key === 'Escape'){ e.stopPropagation(); _closeList(); } });
   document.addEventListener('keydown', _reportEsc(), true);
   ov.setAttribute('data-admin-win', '');
-  const onExit = ()=>{ if(_reportOv() === ov) _reportClose(); document.removeEventListener('tw-admin-exit', onExit); };   // 세션이 끝나면 주인의 닫기(Esc 리스너 · 창 칸 정리)로
-  document.addEventListener('tw-admin-exit', onExit);
+  /* 세션이 끝나면 주인의 닫기(Esc 리스너 · 창 칸 정리)로. 창을 열 때마다 하나씩 걸리므로 — 세션 끝이 아니라 창을 그냥 닫을 때도(_reportClose) 풀어, 쌓이지 않게 한다 */
+  const onExit = ()=>{ if(_reportOv() === ov) _closeList(); };
+  _exitHook = onExit;
+  document.addEventListener(TwAdminMode.EXIT_EVENT, onExit);
   document.body.appendChild(ov); setReportOv(ov);
   let gen = 0;
   const live = (g)=>_reportOv() === ov && g === gen;

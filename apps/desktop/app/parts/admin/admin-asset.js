@@ -113,7 +113,7 @@ document.getElementById('glbLoadGo').onclick=async()=>{const fi=document.getElem
   catch(e){toast('비밀번호가 틀렸거나 파일이 손상됐어요');}};
 
 /* 세션이 끝나면 이 파일이 여는 창을 자기 닫기(취소 단추와 같은 동작)로 닫는다 */
-document.addEventListener('tw-admin-exit', ()=>{ ['assetGenOverlay','commGenOverlay','glbEncOverlay','glbLoadOverlay'].forEach(id=>{ const o=document.getElementById(id); if(o) o.classList.remove('on'); }); });
+document.addEventListener(TwAdminMode.EXIT_EVENT, ()=>{ ['assetGenOverlay','commGenOverlay','glbEncOverlay','glbLoadOverlay'].forEach(id=>{ const o=document.getElementById(id); if(o) o.classList.remove('on'); }); });
 
 return {};   // 밖에서 부르는 이름 없음 — 전부 만들 때 건다
 }

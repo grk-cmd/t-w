@@ -172,7 +172,7 @@ function drawRequests(listEl, page){
 $('licenseGenClose').onclick = () => {
   const o = $('licenseGenOverlay'); o.classList.remove('on'); o.style.display = 'none';
 };
-document.addEventListener('tw-admin-exit', ()=>{ $('licenseGenClose').onclick(); });   // 세션이 끝나면 자기 닫기로(✕ 와 같은 동작 · 엑셀 창은 bulk 가 닫는다)
+document.addEventListener(TwAdminMode.EXIT_EVENT, ()=>{ $('licenseGenClose').onclick(); });   // 세션이 끝나면 자기 닫기로(✕ 와 같은 동작 · 엑셀 창은 bulk 가 닫는다)
 /* 🔍 발급된 키 검색 — 입력이 멈추면 서버에 묻는다(받아 둔 목록을 앱이 거르지 않는다) */
 { let t = null;
   const s = $('licenseGenSearch');

@@ -53,7 +53,7 @@ const fail = (e, onSite) => { const k = adminApi.notifyFail(e, apiErrors, onSite
     };
     btn.addEventListener('click', ()=>{ ov.style.display='flex'; load(); });
     if(closeBtn) closeBtn.addEventListener('click', ()=>{ gen++; ov.style.display='none'; });
-    document.addEventListener('tw-admin-exit', ()=>{ gen++; ov.style.display='none'; });   // 세션이 끝나면 자기 닫기로
+    document.addEventListener(TwAdminMode.EXIT_EVENT, ()=>{ gen++; ov.style.display='none'; });   // 세션이 끝나면 자기 닫기로
     if(refreshBtn) refreshBtn.addEventListener('click', load);
     ov.addEventListener('mousedown', e=>{ if(e.target===ov){ gen++; ov.style.display='none'; } });
   })();
@@ -94,7 +94,7 @@ const fail = (e, onSite) => { const k = adminApi.notifyFail(e, apiErrors, onSite
     if(grantMinus) grantMinus.addEventListener('click', ()=>{ if(_grantN>1){ _grantN--; renderN(); } });
     if(grantPlus)  grantPlus.addEventListener('click',  ()=>{ if(_grantN<INVITE_GRANT_MAX){ _grantN++; renderN(); } });
     if(grantCancel) grantCancel.addEventListener('click', closeGrant);
-    document.addEventListener('tw-admin-exit', closeGrant);   // 세션이 끝나면 자기 닫기로
+    document.addEventListener(TwAdminMode.EXIT_EVENT, closeGrant);   // 세션이 끝나면 자기 닫기로
 
     // 📢 전체 유저 일괄 지급 — confirm() 대신 2단계 클릭(Electron 투명창 confirm 멈춤 방지)
     const grantAllBtn = document.getElementById('inviteGrantAll');
