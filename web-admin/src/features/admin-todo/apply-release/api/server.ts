@@ -3,20 +3,15 @@
 // 본 «마지막 답변 시각» 은 읽은 글자 그대로 싣고 보내기 전에 다시 읽어 맞추지 않는다. 그 사이 다른 관리자가 답했으면 409 → `conflict`(화면이 제보를 다시 받는다).
 // 답변 틀은 설정 키 `bug.releaseAnswerTemplate` — 읽은 번호로 저장하고, 반영이 된 뒤 «기본 템플릿으로 저장» 은 요청 하나를 더 보낸다(실패해도 반영은 그대로 — 그 까닭을 결과에 싣는다).
 // 틀 · 답변 길이 판정은 서버가 한다 — 값은 그대로 보내고 400 은 서버 문구로 띄운다.
-import { createServerTodoPort } from '@/entities/admin/todo';
-import { BUG_STATUSES, type BugStatus } from '@/entities/bug-board';
+import { createServerTodoPort, readLinkedBug } from '@/entities/admin/todo';
 import {
-  isPortError,
   opsConfigClient,
   perApi,
   portCall,
   wireArray,
   wireBool,
-  wireError,
-  wireNullableString,
   wireObject,
   wireString,
-  wireTime,
   adminPath,
   type Api,
   type Versioned,
@@ -29,61 +24,18 @@ import {
   tplVars,
   type ApplyOptions,
   type ApplyResult,
-  type FixBug,
   type FixTarget,
 } from '../model/applyRelease';
 import type { ReleaseTemplate } from '../model/releaseTpl';
 import type { ApplyReleasePort } from './port';
 
-const BUGS = '/v2/bugs';
 const RELEASE_FIXES = adminPath('/bugs/release-fixes');
 const TEMPLATE_KEY = 'bug.releaseAnswerTemplate';
-
-/** 서버 글 한 건 → 반영에 쓰는 칸. `number` 가 글 번호이고 화면 주소 · 제보 연결의 열쇠다. */
-export function toFixBug(w: unknown): { item: FixBug; lastAnswerAt: string | null } {
-  const o = wireObject(w, '제보');
-  const number = wireString(o.number, '제보의 number');
-  const what = (field: string) => `제보 ${number} 의 ${field}`;
-  const status = wireString(o.status, what('status')).toLowerCase();
-  if (!BUG_STATUSES.includes(status as BugStatus)) throw wireError(what('status'), BUG_STATUSES.join(' · '));
-  const visibility = wireString(o.visibility, what('visibility'));
-  if (visibility !== 'PUBLIC' && visibility !== 'PRIVATE')
-    throw wireError(what('visibility'), 'PUBLIC · PRIVATE');
-  const lastAnswerAt = wireNullableString(o.lastAnswerAt, what('lastAnswerAt'));
-  if (lastAnswerAt !== null) wireTime(lastAnswerAt, what('lastAnswerAt'));
-  return {
-    item: {
-      id: number,
-      no: number,
-      vis: visibility === 'PUBLIC' ? 'pub' : 'prv',
-      status: status as BugStatus,
-      title: wireString(o.title, what('title')),
-      ts: wireTime(o.createdAt, what('createdAt')),
-    },
-    lastAnswerAt,
-  };
-}
 
 function build(api: Api | null): ApplyReleasePort {
   const once = createPayloadRequestId();
   const todos = createServerTodoPort(api);
   const config = opsConfigClient(api);
-
-  /** 지금 글 — 그새 지워졌으면 null(`BUG_NOT_FOUND`), 못 읽으면 던진다. */
-  async function readBug(number: string) {
-    try {
-      return toFixBug(
-        await portCall(
-          api,
-          (a) => a.get<unknown>(`${BUGS}/${encodeURIComponent(number)}`),
-          '제보를 불러오지 못했어요',
-        ),
-      );
-    } catch (error) {
-      if (isPortError(error, 'notFound') && error.code === 'BUG_NOT_FOUND') return null;
-      throw error;
-    }
-  }
 
   async function template(): Promise<Versioned<ReleaseTemplate>> {
     const s = await config.read(TEMPLATE_KEY);
@@ -106,11 +58,6 @@ function build(api: Api | null): ApplyReleasePort {
     if (opts.saveTpl && !opts.templateFrom)
       throw new Error('틀을 저장하려면 읽은 틀(templateFrom)이 필요해요');
     const texts = targets.map((t) => (opts.answer ? fillTemplate(opts.template, tplVars(t), Infinity) : ''));
-    if (opts.answer && texts.some((x) => !x))
-      return {
-        ok: false,
-        reason: '채우고 나면 빈 답변이 되는 제보가 있어요 — 템플릿에 {title} 말고 글을 넣어 주세요',
-      };
     if (!targets.length) return { ok: true, applied: 0, skipped: 0, notified: 0 };
 
     const body = {
@@ -164,7 +111,7 @@ function build(api: Api | null): ApplyReleasePort {
     saveTemplate,
     async preview(latest) {
       const fixes = releasedReports(await todos.list(), latest);
-      const bugs = await Promise.all(fixes.map((f) => readBug(f.rid)));
+      const bugs = await Promise.all(fixes.map((f) => readLinkedBug(api, f.rid)));
       const found = fixTargets(fixes, new Map(fixes.map((f, i) => [f.rid, bugs[i]?.item ?? null])));
       const seen = new Map(fixes.map((f, i) => [f.rid, bugs[i]?.lastAnswerAt ?? null]));
       return found.map((t) => ({ ...t, seenLastAnswerAt: seen.get(t.rid) ?? null }));

@@ -23,7 +23,6 @@ import { useReleaseDownloads } from '@/entities/release';
 import { useMyUid } from '@/shared/api';
 import { errorMessage, toVersionParts, versionPartsFilled, type VersionParts } from '@/shared/lib';
 import { useToast, VersionInput } from '@/shared/ui';
-import { useEditTodoPort } from '../api';
 import { resultMessage } from '../model/saveTodo';
 import { useSaveTodo } from '../model/useSaveTodo';
 import styles from './TodoForm.module.css';
@@ -43,7 +42,6 @@ export function TodoForm({ todo, initial, onDone }: Props) {
   const namesQuery = useAdminNames();
   const names = namesQuery.data ?? new Map<string, string>();
   const save = useSaveTodo();
-  const { fixesReports } = useEditTodoPort();
   // 새로 만들 때 id 를 미리 정해 둔다 — 충돌 뒤 다시 저장해도 같은 자리.
   const [id] = useState(() => todo?.id ?? todoId());
   const [seen, setSeen] = useState<Todo | null>(todo ?? null);
@@ -83,7 +81,6 @@ export function TodoForm({ todo, initial, onDone }: Props) {
     if ('error' in rel) return setError(rel.error);
     const toSave: TodoDraft = { ...draft, release: rel.release };
     const markFixed =
-      fixesReports &&
       becomesDone(seen, toSave) &&
       toSave.reports.length > 0 &&
       confirm(

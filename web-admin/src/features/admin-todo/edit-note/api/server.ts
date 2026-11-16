@@ -22,7 +22,8 @@ function build(api: Api | null): EditNotePort {
         toNoteRow(answer);
         return { ok: true };
       } catch (error) {
-        if (isPortError(error, 'conflict')) return { ok: false, conflict: true, latest: await todos.note() };
+        if (isPortError(error, 'conflict'))
+          return { ok: false, conflict: true, latest: await todos.note(), fresh: true };
         throw error;
       }
     },

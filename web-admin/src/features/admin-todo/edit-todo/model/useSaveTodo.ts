@@ -1,17 +1,15 @@
 import { useMutation } from '@tanstack/react-query';
-import { useRefreshTodos, type Todo } from '@/entities/admin/todo';
+import { useRefreshTodos, useSetTodos, type Todo } from '@/entities/admin/todo';
 import { useRefreshBugBoard } from '@/entities/bug-board';
 import { useEditTodoPort } from '../api';
+import { afterTodoSave } from './afterSave';
 import type { SaveTodoInput, SaveTodoResult } from './saveTodo';
 
-/** 성공이든 충돌이든 목록을 다시 받는다 — 충돌이면 최신 값을 봐야 하니까. 제보를 바꿨으면 제보 목록도. */
 function useAfter() {
   const refreshTodos = useRefreshTodos();
+  const setTodos = useSetTodos();
   const refreshBugs = useRefreshBugBoard();
-  return (r: SaveTodoResult) => {
-    if (r.ok || 'conflict' in r) void refreshTodos();
-    if (r.ok && (r.fixed || r.fixFailed)) void refreshBugs();
-  };
+  return (r: SaveTodoResult) => afterTodoSave(r, { refreshTodos, setTodos, refreshBugs });
 }
 
 export function useSaveTodo() {

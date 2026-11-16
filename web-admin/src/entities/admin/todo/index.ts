@@ -7,8 +7,16 @@ export {
   type TodoCommitResult,
   type TodoNoteCommitResult,
 } from './api/firebase';
-export { useRefreshTodoNote, useRefreshTodos, useTodoNote, useTodos } from './api/hooks';
+export {
+  useRefreshTodoNote,
+  useRefreshTodos,
+  useSetTodoNote,
+  useSetTodos,
+  useTodoNote,
+  useTodos,
+} from './api/hooks';
 export { useTodoPort, type TodoPort } from './api/index';
+export { readLinkedBug, type LinkedBug } from './api/linkedBug';
 export { createServerTodoPort, toNoteRow, toTodoRow } from './api/server';
 export {
   ALL_TODOS,

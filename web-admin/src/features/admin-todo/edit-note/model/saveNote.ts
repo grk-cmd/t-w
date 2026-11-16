@@ -1,8 +1,11 @@
 import { adminNameOf } from '@/entities/admin/name';
 import type { TodoNote } from '@/entities/admin/todo';
 
+/** `fresh` — 포트가 최신 메모를 방금 받았다(화면이 그대로 캐시에 두고 다시 받지 않는다. Firebase 판은 없다). */
 export type SaveNoteResult =
-  { ok: true } | { ok: false; reason: string } | { ok: false; conflict: true; latest: TodoNote | null };
+  | { ok: true }
+  | { ok: false; reason: string }
+  | { ok: false; conflict: true; latest: TodoNote | null; fresh?: true };
 
 /** 작업 기록 detail — 메모 본문은 기록에 남기지 않고 길이만(기록은 120자라 어차피 잘린다). */
 export function noteChange(prev: TodoNote | null, text: string): string {

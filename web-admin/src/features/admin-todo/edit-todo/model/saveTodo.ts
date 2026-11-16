@@ -6,11 +6,17 @@ export type SaveTodoResult =
       ok: true;
       id: string;
       fixed: number;
-      /** 제보를 «수정 완료» 로 바꾸다 일부가 안 됐을 때(할 일 저장은 됐다) — 안 된 수 · 첫 원인 · 다시 받아야 하나(409). */
-      fixFailed?: { count: number; reason: string; conflict: boolean };
+      /** 제보를 «수정 완료» 로 바꾸다 일부가 안 됐을 때(할 일 저장은 됐다) — 안 된 수 · 첫 원인. */
+      fixFailed?: { count: number; reason: string };
     }
   | { ok: false; reason: string }
-  | { ok: false; conflict: true; latest: Todo | null };
+  | {
+      ok: false;
+      conflict: true;
+      latest: Todo | null;
+      /** 포트가 최신 값을 찾으려고 방금 받은 목록 — 있으면 화면이 그대로 캐시에 두고 다시 받지 않는다(Firebase 판은 없다). */
+      list?: Todo[];
+    };
 
 export interface SaveTodoInput {
   id: string;

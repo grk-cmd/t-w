@@ -72,7 +72,6 @@ export function linkReport(
 
 export function createFirebaseEditTodoPort(db: Db): EditTodoPort {
   return {
-    fixesReports: true,
     save: (input) => saveTodo(db, input),
     delete: (todo) => deleteTodo(db, todo),
     link: (todo, reportId, names) => linkReport(db, todo, reportId, names),

@@ -1,4 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { Todo } from '../model/adminTodo';
+import type { TodoNote } from '../model/todoNote';
 import { useTodoPort } from './index';
 
 const TODOS_KEY = ['adminTodos'];
@@ -24,4 +26,16 @@ export function useTodoNote() {
 export function useRefreshTodoNote() {
   const client = useQueryClient();
   return () => client.invalidateQueries({ queryKey: TODO_NOTE_KEY });
+}
+
+/** 포트가 방금 받은 목록을 그대로 캐시에 둔다 — 같은 목록을 한 번 더 받지 않는다. */
+export function useSetTodos() {
+  const client = useQueryClient();
+  return (todos: Todo[]) => client.setQueryData(TODOS_KEY, todos);
+}
+
+/** 포트가 방금 받은 메모를 그대로 캐시에 둔다. */
+export function useSetTodoNote() {
+  const client = useQueryClient();
+  return (note: TodoNote | null) => client.setQueryData(TODO_NOTE_KEY, note);
 }
