@@ -5233,6 +5233,13 @@ const updateFlowMod = TwUpdateFlow.createUpdateFlow({
   noticeOnce: (fn)=>noticeFeed.onceReady(fn),
   showNotice: (n, done)=>_showUpdateNoticeOnce(n, done),
 });
+/* 🔄 계정 판 맞추기(account/app-version-sync.js) — 시작은 계정 확인 뒤 app-boot 의 appVersion 차례. 더 새 판을 쓰는 기기가 있으면 업데이트 강제 창(문구만 다르다). */
+const appVersionSyncMod = TwAppVersionSync.createAppVersionSync({
+  authed: TwApi.authed,
+  getVersion: ()=>window.TwAppVersion.ready,
+  block: (my, highest)=>{ updateFlowMod.forceAccount(highest); },
+  warn: (...a)=>console.warn(...a),
+});
 /* 🛰 realtime 끊김 화면(realtime/rt-status-ui.js) — 다시 연결 중 띠 · 로그인 풀림 · 계정 로그아웃 · 업데이트 강제 · 점검 · 모르는 닫힘 */
 TwRtStatusUi.createRtStatusUi({
   rt: TwRtHub.store, inRoom: ()=>Presence.active(), band: TwRtStatusUi.createRtBandDom(document),
@@ -8316,6 +8323,7 @@ const appBoot = TwAppBoot.createAppBoot({
     desktopBg: (code)=>window.MYHOME_DESKTOP.startBgSync(code),
     playlist: (code, me, session)=>plMod.start(session),
     licensePremium: (code, me, session)=>{ session.onReset(()=>licensePremiumMod.reset()); return licensePremiumMod.start(me); },   // 알림 구독 해제 함수는 모듈이 쥐고 reset 이 푼다 — 세션이 끝나면 reset 을 부른다
+    appVersion: (code, me, session)=>appVersionSyncMod.start(session),   // 🔄 이 PC 앱 판을 서버에 알림 — 더 새 판을 쓰는 기기가 있으면 업데이트 창
     adminMode: (code, me, session)=>{ session.onReset(()=>twNav.go(twNav.NAV.ADMIN_EXIT)); },   // 🔐 세션이 끝나면 관리자 모드를 조용히 끈다(요청 0 · 창 열기 통로로 — 모듈끼리 순환 없이)
     firstRun: ()=>firstRunMod.run().catch((e)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', e)),
   },

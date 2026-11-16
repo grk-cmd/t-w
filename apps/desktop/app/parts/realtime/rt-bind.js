@@ -6,6 +6,7 @@ import { createRealtimeLink } from "./realtime-link.js";
 import { sharedAppVersion } from "../shared/app-version.js";
 
 const appVer = sharedAppVersion(window);
+window.TwAppVersion = appVer;   // 앱 한 벌의 버전 — classic script(app.js 의 판 맞추기 차례)가 읽는다
 window.TwRtHub.store.bind({
   createLink: createRealtimeLink,
   getToken: (force) => window.firebaseAPI.getIdToken(force),
