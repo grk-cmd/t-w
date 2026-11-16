@@ -176,8 +176,8 @@ async function judge(S){
       const w2 = {};
       new Function('window', 'document', 'firebaseAPI', 'TwMyHomeHooks', 'module', 'console', S.MV)(new Proxy(w2, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } }), doc, fapi, any, undefined, { warn(){}, log(){}, error(){} });
       const mod = w2.TwMyHomeVisit.createMyHomeVisit({
-        _myHomeFriends: () => friends.v, _schedDdaysVisitUnsub: () => null, applyDesktopRunClass(){}, getMyUserId: () => 'ME', loadMyHomePage(){}, mhScheduler: any, myHomeOpen: () => true,
-        renderMyHomePage: () => { L.renders++; L.titles.push(label.textContent); }, toast(){}, setSchedDdaysVisitUnsub(){}, setMyHomeOpen(){},
+        _myHomeFriends: () => friends.v, applyDesktopRunClass(){}, getMyUserId: () => 'ME', loadMyHomePage(){}, mhScheduler: any, myHomeOpen: () => true,
+        renderMyHomePage: () => { L.renders++; L.titles.push(label.textContent); }, toast(){}, setMyHomeOpen(){},
         _myHomeData: () => st._myHomeData(), _myHomeLoaded: () => true, _mhViewingUserId: () => st._mhViewingUserId(), _mhViewingName: () => st._mhViewingName(),
         _mhHomeFromServer: (...x) => st._mhHomeFromServer(...x), _mhViewingDisplayName: (...x) => st._mhViewingDisplayName(...x),
         setMyHomeData: (v) => st.setMyHomeData(v), setMhViewingUserId: (v) => st.setMhViewingUserId(v), setMhViewingName: (v) => st.setMhViewingName(v),

@@ -175,6 +175,17 @@ const mhBgUrl = TwMhBgUrl;   // myhome-edit.js 머리 — myhome-desktop.js(옛 
 **함정** — 안내는 **내 배경일 때만** 부른다(바탕화면 `advApplyBg` 는 `!advVisiting`, 창 바깥 `applyMyHomeBg` 는 `!_mhViewingUserId()`) — 친구 홈 구경에서 남의 배경 오류를 띄우지 않는다. 진단 줄에 주소를 싣지 않는다.
 검사: `checks/sim-mh-bg-url.js`(입력 → 출력 · 불러 보기 · 그리는 곳 두 군데를 떼어 돌림 · 깨 보기).
 
+## `schedule-api.js` — 📅 일정 · 🎂 디데이 서버 길
+
+**책임** — 내 달력 한 달 읽기 · 일정 쓰기 · 지우기(`/v2/me/schedules`) · 남의 공개 일정(`/v2/schedules/{코드}`) · 디데이 보드 통째 읽기 · 저장(`/v2/me/ddays` — 판 `version` 으로 겹친 고침을 가른다) · 남의 공개 보드(`/v2/ddays/{코드}`) · 카드 그림 올리기(`/v2/me/images?purpose=dday`). 서버 모양(`visibility` · `countFromOne` · `bgImage` · 카드 / 배너 두 목록)을 화면이 쓰던 모양(`public` · `base1` · `bgImg` · `kind` · `order`)으로 맞추는 곳은 여기뿐이다. 친구 태그 알림은 서버가 보낸다 — 일정 · 보드 저장 요청에 `tagFriends` 를 싣는다.
+
+**만드는 법** — app.js 가 스케줄러를 만드는 줄 앞에서 `TwScheduleApi.createScheduleApi({ authed: TwApi.authed, newId, imageBytes: TwImageBytes, warn })` 로 만들어 deps `scheduleApi` 로 넘긴다. `api-client.js` · `image-bytes.js` · `request-id.js` 다음, `scheduler.js` · app.js 보다 먼저 싣는다.
+
+**내놓는 것** — `fetchMonth` · `fetchMonthOf` · `createItem` · `deleteItem` · `fetchBoard` · `fetchBoardOf` · `saveBoard` · `orderedIds` · `reset`.
+
+**함정** — 쓰기는 읽은 토큰의 주인과 묶는다(`expectOwner`) — 읽은 적이 없으면 `NOT_RECEIVED` 로 쓰지 않는다. 보드 저장이 409(`CONCURRENT_UPDATE`)면 판을 버리고 다시 받기 전엔 쓰지 못한다 — 같은 판으로 다시 보내지 않는다. 그림은 `data:` 로 들고 있다가 저장할  때만 올리고, 못 올리면 보드를 보내지 않는다. 친구가 태그한 알림을 **받는** 쪽(`schedNotices` 구독 · 지우기)은 아직 예전 길(`firebaseAPI`)이다.
+검사: `checks/sim-schedule-api.js` · `checks/sim-scheduler.js`.
+
 ## `gift-save.js` — 💾 받은 말랑이 선물 그림 저장
 
 **책임** — 선물함 칸 우클릭 [저장] 에서 선물 그림을 받아 그대로(다시 그리지 않음 — GIF 움직임 유지) `말랑이_보낸사람_받은날짜.확장자` 로 내려받기. 실패하면 `E-MH-03`.

@@ -484,3 +484,16 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **책임**: 텍스처가 있는 파츠의 색을 «텍스처 × 색» 곱셈 대신 셰이더에서 색조(Hue)만 돌리는 일의 옛 이름 여섯(`_rgbHexToHsv` · `isHueTintMesh` · `_ensureHueUniforms` · `_hueOBC` · `applyHueTint` · `_hsvToHex`)을 캐릭터 코어(`createTone`)로 잇는다. 앱 FSD 분리 T1 — 0.13 app.js 글 그대로. 본문(셰이더 · HSV 환산)은 코어 `tone.ts` 한 곳.
 - **만드는 법**: `TwHueTint.createHueTint({ lightToneMod })` — 값 하나(`lightToneMod.toneCore` 를 읽는다). app.js 가 «색조 셰이더» 자리에서 만들고 여섯 이름을 const 로 받는다(꾸미기 · 도트 · 스티커사진이 부른다).
 - **함정**: r128 `Material.copy` 는 `onBeforeCompile` 을 복사하지 않는다 — 재질을 복제한 쪽은 `_hueOBC` 로 다시 건다. 검사: `checks/sim-hue-tint.js`.
+
+## image-bytes.js — 🖼 data: 그림 → 올릴 바이트 판정
+
+**책임** — 화면이 줄여 만든 `data:image/…;base64,…` 글을 풀어 «종류 · 비어 있지 않음 · 크기» 를 한 곳에서 판정한다(`inspect(u, { types, maxBytes })` → `{ ok, type, bytes }` 또는 `{ ok: false, why: 'format' | 'empty' | 'large' }`). 순수 — 아무것도 부르지 않는다.
+**만드는 법** — classic script(`window.TwImageBytes`)를 쓰는 provider · app.js 보다 먼저 싣고, app.js 가 provider 에 deps `imageBytes` 로 넘긴다(지금 쓰는 곳: `myhome/schedule-api.js` 카드 그림).
+**함정** — 종류 목록을 안 주면 아무것도 통과시키지 않는다. 상한과 같은 크기는 통과.
+검사: `checks/sim-image-bytes.js`.
+
+## request-id.js — 🔁 요청 번호
+
+**책임** — 새것을 만드는 쓰기의 본문 `requestId` 를 만든다(`newId()`). 같은 일을 다시 보낼 땐 같은 번호(`createPending` — 이 판에서는 쓰는 곳 없음). 서버 규칙 `^[A-Za-z0-9_-]{8,64}$`.
+**만드는 법** — classic script(`window.TwRequestId`)를 쓰는 provider · app.js 보다 먼저 싣는다. 아무것도 부르지 않는다.
+검사: `checks/sim-request-id.js`.

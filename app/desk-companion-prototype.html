@@ -5799,6 +5799,7 @@
               <label><input id="mhSchedPublic" type="checkbox"> 친구에게 공개</label>
               <button id="mhSchedTagBtn" type="button" class="mh-txtbtn">👥 친구 태그</button>
               <span id="mhSchedTagInfo"></span>
+              <span id="mhSchedPublicHint"></span>
             </div>
           </div>
         </div>
@@ -5864,6 +5865,7 @@
             <button id="mhDdayTagBtn" type="button">👥 친구 태그</button>
             <span id="mhDdayTagInfo"></span>
           </div>
+          <div class="mh-dde-hint" id="mhDdayPublicHint"></div>
           <div id="mhDdayEditMsg"></div>
         </div>
         <div class="mh-dde-foot">
@@ -8351,6 +8353,8 @@
 <script src="parts/creator/animal-edit-route.js"></script>   <!-- 🐾 동물 편집 길잡이(모양 → 책상 → 좌석) — app.js 보다 먼저 -->
 <script src="parts/shared/api-client.js"></script>   <!-- 🌐 앱 공통 API 통로(window.TwApi · 우리 서버 /v2) — remote-config.js 보다 먼저 -->
 <script src="parts/shared/api-errors.js"></script>   <!-- 🧭 서버 오류 봉투 → 할 일 · 오류 번호 번역표(window.TwApiErrors) — error-codes.js · api-client.js 다음 · 쓰는 모듈 · app.js 보다 먼저 -->
+<script src="parts/shared/image-bytes.js"></script>   <!-- 🖼 data: 그림 → 올릴 바이트 판정(window.TwImageBytes — 종류 · 빈 그림 · 크기) — 쓰는 provider(schedule-api) · app.js 보다 먼저 -->
+<script src="parts/shared/request-id.js"></script>   <!-- 🔁 요청 번호(window.TwRequestId — 같은 일 다시 보내기는 같은 번호) — 쓰는 provider · app.js 보다 먼저 -->
 <script src="parts/account/app-version-sync.js"></script>   <!-- 🔄 계정 단위 판 맞추기(window.TwAppVersionSync — POST /v2/me/app-version) — api-client.js 다음 · firebase-init.js 보다 먼저(거기서 로그인 복원 뒤 알린다) -->
 <script src="parts/shared/remote-config.js"></script>   <!-- ⚙️ 원격 설정(방 상한 · 정원 · 가입 스위치 — window.TwRemoteConfig) — app.js · firebase-init.js 보다 먼저 -->
 <script src="parts/shared/source-switch.js"></script>   <!-- 🎚️ 기능별 받는 곳 고르기(서버 / 파이어베이스 — window.TwSourceSwitch) — remote-config.js 다음 · app.js · firebase-init.js 보다 먼저 -->
@@ -8364,6 +8368,7 @@
 <script src="parts/shared/net-ready.js"></script>   <!-- 🛰 «네트워크(provider) 준비됨» 기다리기 한 곳(window.TwNetReady) — 쓰는 모듈(스케줄러 · 방 · 계정 · 카탈로그 · 버그 게시판) · app.js 보다 먼저 -->
 <script src="parts/shared/upload-cache.js"></script>   <!-- 🗂️ 업로드 캐시 상한 규칙 한 곳(window.TwUploadCache) — 방 동기화 · 슬롯 동기화가 deps 로 받음 · app.js 보다 먼저 -->
 <script src="parts/shared/win-stack.js"></script>   <!-- 🪟 창 겹침 · ESC 스택 — 창 자리 되돌리기 목록(__winPosResetters)을 거는 모듈(스케줄러 · 플레이리스트 · 가챠 · 설정)보다 먼저 · app.js 보다 먼저(app.js 가 원래 자리에서 TwWinStack.createWinStack 로 만든다) -->
+<script src="parts/myhome/schedule-api.js"></script>   <!-- 🌐 일정 · 디데이 서버 길 provider — api-client.js · image-bytes.js · request-id.js 다음 · scheduler.js · app.js 보다 먼저(app.js 가 로그인 통로를 넘겨 만든다) -->
 <script src="parts/myhome/scheduler.js"></script>   <!-- 📅 스케줄러 · 🔔 일정 알림 — app.js 보다 먼저(app.js 가 원래 자리에서 MhScheduler.createScheduler 로 만든다) -->
 <script src="parts/focus/weekly-challenge.js"></script>   <!-- 👑 달성표 — app.js 보다 먼저(app.js 가 원래 자리에서 TwWeeklyChallenge.createWeeklyChallenge 로 만든다) -->
 <script src="parts/purikura/pk-bgm.js"></script>   <!-- 🎵 스티커사진 창 BGM(재생 · 멈춤 · 끄기 기억) — purikura-ui.js 보다 먼저(만들 때 TwPkBgm 을 부른다) -->
