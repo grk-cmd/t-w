@@ -432,7 +432,7 @@ async function _lxWriteXlsx(rows, sheetName){
   const gc = $('licenseGenClose');
   if(gc) gc.addEventListener('click', hideWin);
   window._lxHideWin = hideWin;
-  document.addEventListener('tw-admin-exit', hideWin);   // 세션이 끝나면 자기 닫기로
+  document.addEventListener(TwNav.ADMIN_EXIT_EVENT, hideWin);   // 세션이 끝나면 자기 닫기로
 })();
 
 /* ═══ 🔒 시크릿룸 발급(관리자) ═══ */

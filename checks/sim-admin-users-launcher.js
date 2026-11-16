@@ -44,7 +44,7 @@ function build(src, glob, deps, fbOver){
   const D = makeDom();
   const win = { firebaseAPI: fb, _animalUnlockLevel: 50 };
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
-  const api = new Function('window', 'document', 'firebaseAPI', 'localStorage', 'navigator', 'setTimeout', 'clearTimeout', 'console', 'module', src + '\nreturn window.' + glob + ';')(
+  const api = new Function('window', 'document', 'firebaseAPI', 'localStorage', 'navigator', 'setTimeout', 'clearTimeout', 'console', 'module', 'var TwNav = { ADMIN_EXIT_EVENT: "tw-admin-exit" };\n' + src + '\nreturn window.' + glob + ';')(
     win, D.document, fb, ls, { clipboard: { writeText(){} } }, () => 0, () => {}, { error(){}, warn(){} }, undefined);
   const out = api['create' + glob.replace(/^Tw/, '')](Object.assign({ toast: (m) => toasts.push(m) }, deps));
   return { out, calls, toasts, els: D.els, store };

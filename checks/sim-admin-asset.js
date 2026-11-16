@@ -41,7 +41,7 @@ function build(src, st){
   };
   const crypto = { subtle: {} };
   const win = { crypto };
-  const api = new Function('window', 'document', 'crypto', 'Blob', 'URL', 'module', src + '\nreturn window.TwAdminAsset;')(win, document, crypto, class { constructor(){} }, { createObjectURL: () => 'blob:' }, undefined);
+  const api = new Function('window', 'document', 'crypto', 'Blob', 'URL', 'module', 'var TwNav = { ADMIN_EXIT_EVENT: "tw-admin-exit" };\n' + src + '\nreturn window.TwAdminAsset;')(win, document, crypto, class { constructor(){} }, { createObjectURL: () => 'blob:' }, undefined);
   const out = api.createAdminAsset(deps);
   return { out, calls, els: new Proxy(els, { get: (o, id) => document.getElementById(id) }) };
 }

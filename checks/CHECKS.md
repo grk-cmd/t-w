@@ -121,7 +121,7 @@
 | **sim-def-send.js** | 221 | **166a25f773b8** |
 | **sim-desk-floor-clamp.js** | 206 | **b59a0d2a44b2** |
 | **sim-desk-part-scale.js** | 83 | **8a0a59ffb09a** |
-| **sim-desk-preset.js** | 254 | **4e79c7cc1ca5** |
+| **sim-desk-preset.js** | 260 | **c9cbd3ae4266** |
 | **sim-json-store.js** | 209 | **667a88619187** |
 | **sim-desk-setup.js** | 255 | **e9a0e3f5c2bf** |
 | sim-dom-boot.js | 83 | 927ab53ecc44 |
@@ -131,8 +131,8 @@
 | **sim-fly-egg.js** | 259 | **e92b86d5702f** |
 | **sim-fly-replay.js** | 158 | **0aca7ea71d29** |
 | **sim-fly-roulette.js** | 165 | **af3da63bb9d0** |
-| **sim-license-xlsx.js** | 121 | **bb40d3e02eb0** |
-| **sim-secret-room-grant.js** | 162 | **e93ada9c03c7** |
+| **sim-license-xlsx.js** | 121 | **cbf29f53976d** |
+| **sim-secret-room-grant.js** | 162 | **d5486d919f20** |
 | **sim-room-meta-cleanup.js** | 250 | **9c9b9de5850b** |
 | **sim-room-stats.js** | 155 | **a02149187d49** |
 | **sim-room-lobby.js** | 196 | **8350cc76c150** |
@@ -295,7 +295,7 @@
 | **sim-notice-api.js** | 159 | **0d412e593953** |
 | **sim-admin-api.js** | 249 | **9a3ca66c0eda** |
 | **sim-catalog-admin-api.js** | 182 | **dbb857dfeb05** |
-| **sim-admin-notice.js** | 212 | **952fbda2e531** |
+| **sim-admin-notice.js** | 212 | **af861ec471bc** |
 | **sim-notice-feed.js** | 266 | **c80dd0979f9b** |
 | **sim-ui-tokens.js** | 135 | **bf0abb5744a6** |
 | **sim-upload-cache.js** | 76 | **be66b699227c** |
@@ -320,12 +320,12 @@
 | **sim-kb-blind.js** | 180 | **7d9f3fe5e684** |
 | **sim-mhd-hidefolders.js** | 133 | **7a61ee3d6c05** |
 | **sim-pomodoro.js** | 131 | **03a73d7ae51e** |
-| **sim-admin-license.js** | 252 | **287c8730fc6d** |
-| **sim-admin-part-register.js** | 171 | **1adf117e02a3** |
-| **sim-admin-users-launcher.js** | 240 | **3c4a469aceec** |
-| **sim-admin-asset.js** | 129 | **32cd05cdef5a** |
-| **sim-admin-mode.js** | 221 | **9759ff545e73** |
-| **sim-report.js** | 420 | **de17a89ce544** |
+| **sim-admin-license.js** | 252 | **b72dfad10bec** |
+| **sim-admin-part-register.js** | 171 | **612dc767d408** |
+| **sim-admin-users-launcher.js** | 240 | **70d402d196c8** |
+| **sim-admin-asset.js** | 129 | **d1fca5392c26** |
+| **sim-admin-mode.js** | 234 | **227db9b51f75** |
+| **sim-report.js** | 420 | **56c1b79a3bf7** |
 | **sim-my-info.js** | 98 | **4e58bce6234f** |
 | **sim-my-info-box.js** | 208 | **a80135e14b2c** |
 | **sim-renderer-src.js** | 269 | **dce86459e2a9** |
@@ -414,6 +414,7 @@
 | **sim-account-state.js** | 108 | **148155f17f1a** |
 | **sim-nav.js** | 91 | **aa8cab6dd39f** |
 | **sim-app-boot.js** | 166 | **d84ebd181508** |
+| **sim-away-start.js** | 120 | **c501f6a3d5f6** |
 | **sim-user-local.js** | 207 | **e34df8fb0e7a** |
 | **sim-saved-lists-wiring.js** | 91 | **38b630d814d6** |
 | **sim-net-ready.js** | 152 | **a6440206a2d2** |
