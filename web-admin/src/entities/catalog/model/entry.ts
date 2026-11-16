@@ -29,7 +29,22 @@ export interface CatalogEntry {
   base64: boolean;
   /** catalog/parts 에 gacha:true 로 남은 옛 가챠 항목 — 규칙이 이 항목의 쓰기를 거절한다. */
   legacyGacha: boolean;
+  /** 서버가 이 줄에 붙인 번호 — 고치기 · 단종에 그대로 싣는다. Firebase 판은 번호가 없어 0 이다. */
+  version: number;
+  /** 진열 상태. Firebase 판은 이 개념이 없어 null(통에 있으면 진열 중). */
+  state: ListingState | null;
+  /** 슬롯에 이 항목을 낀 사람 수. 못 읽었으면 null(Firebase 판에서 장착 수 노드를 못 읽은 때만). */
+  equip: number | null;
 }
+
+/** 서버 진열 상태 — 초안(관리자만 봄) · 진열 · 단종(모두에게서 사라짐). */
+export type ListingState = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
+
+export const STATE_LABEL: Record<ListingState, string> = {
+  DRAFT: '초안',
+  ACTIVE: '진열 중',
+  ARCHIVED: '단종',
+};
 
 export const NO_ORDER = 9999; // 앱 merge 정렬 — order 가 없으면 뒤로
 
@@ -72,6 +87,9 @@ export function toEntry(kind: CatalogKind, id: string, rec: CatalogRecord): Cata
     files: [rec.glbUrl, rec.thumbUrl].filter(isCatalogFileUrl),
     base64: !!str(rec.glb),
     legacyGacha: kind === 'parts' && rec.gacha === true,
+    version: 0,
+    state: null,
+    equip: null,
   };
 }
 

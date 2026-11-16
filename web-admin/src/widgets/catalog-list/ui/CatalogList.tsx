@@ -1,22 +1,19 @@
 import { useMemo, useState, type DragEvent } from 'react';
 import {
-  byPopularity,
-  categoryViews,
-  equipCountOf,
-  equipKindOf,
   KIND_LABEL,
-  useCatalogEntries,
-  useCatOverrides,
-  useCustomCats,
-  useEquipCounts,
+  shelfScope,
+  shelfVersion,
+  useCatalogShelf,
   useRefreshCatalog,
-  useRefreshEquipCounts,
   type CatalogEntry,
   type CatalogKind,
+  type CatalogShelf,
+  type CatView,
 } from '@/entities/catalog';
 import { DeleteEntriesButton } from '@/features/catalog/delete-entries';
 import { EntryInfoForm } from '@/features/catalog/edit-entry-info';
 import { useReorderEntries } from '@/features/catalog/reorder-entries';
+import { CONFLICT_TEXT } from '@/shared/api';
 import { errorMessage, useSelection } from '@/shared/lib';
 import { RowCheckbox, SelectAllCheckbox, SelectionBar, useToast } from '@/shared/ui';
 import styles from './CatalogList.module.css';
@@ -35,31 +32,28 @@ const SORT_LABEL: Record<SortMode, string> = {
 };
 
 /** 파츠는 카테고리마다 진열 칸이 따로라 칸별로 묶는다 — 앱 카테고리 순서, 모르는 카테고리는 뒤에. */
-function useGroups(kind: CatalogKind, entries: CatalogEntry[] | undefined): Group[] {
+function useGroups(kind: CatalogKind, shelf: CatalogShelf | undefined): Group[] {
   const byCat = kind === 'parts' || kind === 'gachaParts';
-  const { data: customCats } = useCustomCats();
-  const { data: overrides } = useCatOverrides();
   return useMemo(() => {
-    if (!entries) return [];
-    if (!byCat) return [{ key: '', title: null, entries }];
-    const views = categoryViews(customCats ?? {}, overrides ?? {});
-    const cats = [...new Set([...views.map((v) => v.cat), ...entries.map((e) => e.cat ?? '')])];
+    if (!shelf) return [];
+    if (!byCat) return [{ key: '', title: null, entries: shelf.entries }];
+    const views: CatView[] = shelf.categories;
+    const cats = [...new Set([...views.map((v) => v.cat), ...shelf.entries.map((e) => e.cat ?? '')])];
     return cats
       .map((cat) => {
         const view = views.find((v) => v.cat === cat);
         return {
           key: cat,
           title: view ? `${view.icon} ${view.label} · ${cat}` : `❔ ${cat || '카테고리 없음'}`,
-          entries: entries.filter((e) => (e.cat ?? '') === cat),
+          entries: shelf.entries.filter((e) => (e.cat ?? '') === cat),
         };
       })
       .filter((g) => g.entries.length > 0);
-  }, [byCat, entries, customCats, overrides]);
+  }, [byCat, shelf]);
 }
 
-function EquipCount({ count, state }: { count: number; state: 'ok' | 'loading' | 'error' }) {
-  if (state === 'loading') return <span className={`soft ${styles.equip}`}>장착 …</span>;
-  if (state === 'error')
+function EquipCount({ count }: { count: number | null }) {
+  if (count === null)
     return (
       <span className={`soft ${styles.equip}`} title="장착 수를 불러오지 못했어요">
         장착 ?
@@ -99,21 +93,13 @@ interface Props {
 
 export function CatalogList({ kind, editable }: Props) {
   const toast = useToast();
-  const { data: entries, error, isFetching } = useCatalogEntries(kind);
-  const refresh = useRefreshCatalog();
-  const reorder = useReorderEntries();
-  const equipKind = equipKindOf(kind);
-  const counts = useEquipCounts(equipKind);
-  const refreshCounts = useRefreshEquipCounts();
   const [sort, setSort] = useState<SortMode>('order');
   const popular = sort === 'popular';
-  const baseGroups = useGroups(kind, entries);
-  const groups = useMemo(
-    () =>
-      popular ? baseGroups.map((g) => ({ ...g, entries: byPopularity(g.entries, counts.data) })) : baseGroups,
-    [popular, baseGroups, counts.data],
-  );
-  const countState = counts.error ? 'error' : counts.data ? 'ok' : 'loading';
+  const { data: shelf, error, isFetching } = useCatalogShelf(kind, sort);
+  const entries = shelf?.entries;
+  const refresh = useRefreshCatalog();
+  const reorder = useReorderEntries();
+  const groups = useGroups(kind, shelf);
   const ids = useMemo(() => (entries ?? []).map((e) => e.id), [entries]);
   const selection = useSelection(ids);
   const selected = (entries ?? []).filter((e) => selection.isSelected(e.id));
@@ -125,8 +111,14 @@ export function CatalogList({ kind, editable }: Props) {
     setDrag(null);
     if (!dragged || dragged.group !== group.key || dragged.id === target) return;
     try {
-      const written = await reorder.mutateAsync({ group: group.entries, dragged: dragged.id, target });
-      if (Object.keys(written).length) toast('순서를 바꿨어요');
+      const r = await reorder.mutateAsync({
+        group: group.entries,
+        dragged: dragged.id,
+        target,
+        version: shelf ? shelfVersion(shelf, shelfScope(group.entries[0])) : 0,
+      });
+      if (!r.ok) toast(CONFLICT_TEXT);
+      else if (r.changed) toast('순서를 바꿨어요');
     } catch (e) {
       toast(errorMessage(e, '순서를 바꾸지 못했어요'));
     }
@@ -148,15 +140,7 @@ export function CatalogList({ kind, editable }: Props) {
             </option>
           ))}
         </select>
-        <button
-          type="button"
-          className="btn"
-          disabled={isFetching || counts.isFetching}
-          onClick={() => {
-            refresh(kind);
-            refreshCounts(equipKind);
-          }}
-        >
+        <button type="button" className="btn" disabled={isFetching} onClick={() => refresh(kind)}>
           새로고침
         </button>
       </div>
@@ -230,7 +214,7 @@ export function CatalogList({ kind, editable }: Props) {
                       {entry.base64 && <small className="warn">base64</small>}
                       {entry.legacyGacha && <small className="warn">가챠 이관 전</small>}
                     </span>
-                    <EquipCount count={equipCountOf(counts.data, entry.id)} state={countState} />
+                    <EquipCount count={entry.equip} />
                     {editable && (
                       <button type="button" className="btn" onClick={() => setEditing(entry.id)}>
                         수정

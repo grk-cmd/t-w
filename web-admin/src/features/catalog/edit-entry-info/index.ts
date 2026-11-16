@@ -1,2 +1,2 @@
-export { saveEntryInfo } from './model/editEntryInfo';
+export { saveEntryInfo } from './api/firebase';
 export { EntryInfoForm } from './ui/EntryInfoForm';

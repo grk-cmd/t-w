@@ -83,6 +83,27 @@ export function categoryNameWrite(cat: CatView, label: string, icon: string, now
   return { [catalogPath('catOverrides', cat.id)]: value };
 }
 
+/**
+ * 이름 · 아이콘을 저장한 뒤의 카테고리 — `categoryNameWrite` 가 쓴 대로 `categoryViews` 가 읽을 모양.
+ * 쓴 묶음을 받아 둔 목록에 다시 풀지 않고 이 값으로 그 줄만 바꾼다.
+ */
+export function categoryAfterNameSave(cat: CatView, label: string, icon: string): CatView {
+  const text = label.trim();
+  const mark = icon.trim();
+  if (!cat.builtin) return { ...cat, label: text, icon: mark || CUSTOM_CAT_ICON };
+  const sameLabel = !text || text === cat.defaultLabel;
+  const sameIcon = !mark || mark === cat.defaultIcon;
+  if (sameLabel && sameIcon) {
+    return { ...cat, label: cat.defaultLabel, icon: cat.defaultIcon, overridden: false };
+  }
+  return {
+    ...cat,
+    label: text || cat.defaultLabel,
+    icon: sameIcon ? cat.defaultIcon : mark,
+    overridden: true,
+  };
+}
+
 export interface CatView {
   /** DB 키 — 기본 카테고리는 cat 과 같다. */
   id: string;
@@ -92,6 +113,8 @@ export interface CatView {
   group: string;
   builtin: boolean;
   overridden: boolean;
+  /** 서버가 붙인 번호 — 고치기 · 원래대로에 그대로 싣는다. Firebase 판은 번호가 없어 0 이다. */
+  version: number;
   /** 덮어쓰기 전 이름 · 아이콘 — 커스텀은 빈 값. */
   defaultLabel: string;
   defaultIcon: string;
@@ -114,6 +137,7 @@ export function categoryViews(
       group: c.group,
       builtin: true,
       overridden: !!o,
+      version: 0,
       defaultLabel: c.label,
       defaultIcon: c.icon,
     };
@@ -128,6 +152,7 @@ export function categoryViews(
       group: c.group || 'head',
       builtin: false,
       overridden: false,
+      version: 0,
       defaultLabel: '',
       defaultIcon: '',
     }));

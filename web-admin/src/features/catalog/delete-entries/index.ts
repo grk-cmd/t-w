@@ -1,2 +1,2 @@
-export { deleteEntries, type DeleteEntriesResult } from './model/deleteEntries';
+export { deleteEntries, type DeleteEntriesResult } from './api/firebase';
 export { DeleteEntriesButton } from './ui/DeleteEntriesButton';

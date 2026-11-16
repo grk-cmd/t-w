@@ -1,14 +1,17 @@
 import { useMutation } from '@tanstack/react-query';
-import { useApplyCatalogWrite, type CatalogEntry } from '@/entities/catalog';
-import { useDb } from '@/shared/api';
-import { saveEntryInfo } from './editEntryInfo';
+import { useApplyEdits, type CatalogEntry } from '@/entities/catalog';
+import { useEditEntryInfoPort } from '../api';
 
 export function useEditEntryInfo() {
-  const db = useDb();
-  const apply = useApplyCatalogWrite();
+  const port = useEditEntryInfoPort();
+  const apply = useApplyEdits();
   return useMutation({
     mutationFn: ({ entry, name, icon }: { entry: CatalogEntry; name: string; icon: string }) =>
-      saveEntryInfo(db, entry, name, icon),
-    onSuccess: apply,
+      port.save(entry, name, icon),
+    onSuccess: (r) => apply(r.edits),
   });
+}
+
+export function useEditEntryInfoCheck() {
+  return useEditEntryInfoPort().check;
 }

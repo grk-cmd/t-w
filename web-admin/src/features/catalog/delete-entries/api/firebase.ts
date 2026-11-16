@@ -1,3 +1,4 @@
+// Firebase 판 — 지금 코드 그대로: 항목을 한 묶음(db.commit)으로 지운 뒤 Storage 파일을 지운다. 되돌릴 수 없다.
 import {
   catalogCommit,
   catalogFilePath,
@@ -6,6 +7,7 @@ import {
   type CatalogWrite,
 } from '@/entities/catalog';
 import { countTarget, withAudit, type Db, type Files } from '@/shared/api';
+import type { DeleteEntriesPort } from './port';
 
 export interface DeleteEntriesResult {
   removed: number;
@@ -51,4 +53,18 @@ export async function deleteEntries(
     filesLeft += results.filter((r) => r.status === 'rejected').length;
   }
   return { removed: entries.length, filesLeft, written };
+}
+
+export function createFirebaseDeleteEntriesPort(db: Db, files: Files): DeleteEntriesPort {
+  return {
+    async remove(entries, rest) {
+      const r = await deleteEntries(db, files, entries, rest);
+      return {
+        removed: r.removed,
+        filesLeft: r.filesLeft,
+        failed: [],
+        edits: entries.length ? [{ op: 'drop', kind: entries[0].kind, ids: entries.map((e) => e.id) }] : [],
+      };
+    },
+  };
 }
