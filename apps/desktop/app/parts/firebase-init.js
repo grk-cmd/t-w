@@ -33,7 +33,6 @@
     signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { firebaseConfig } from "./firebase-config.js";
-  import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS } from "./room/room-alive.js";   // 관리자 유령 방 청소(cleanGhostRooms)만 — 앱 관리자 창을 걷을 때 같이
   import { createInviteRevokeAll } from "./account/invite-revoke.js";
   import { createAppVersion } from "./shared/app-version.js";
   import { createChatHistory, createIdbChatStore } from "./chat/chat-history.js";
@@ -675,112 +674,7 @@
       }
       return { ok:true, granted, skipped, total: uids.length };
     },
-    // 🎟️ 특정 날짜 이후 가입자의 초대권 회수 — 옛 버전으로 가입해 2장을 받은 계정 정리용.
-    //   invite.joinedAt(가입 시각) 기준. dryRun=true면 실제로 바꾸지 않고 대상만 조사해서 돌려줌.
-    //   · 대상: joinedAt >= sinceMs 이고 invitesLeft > 0 인 계정
-    //   · 처리: invitesLeft에서 amount만큼 빼되 0 밑으로는 내려가지 않음
-    // 🧹 유령 방 청소 — 멤버 없이 _meta만 남은 방을 일괄 정리(관리자 전용, dryRun 기본).
-    //   예전엔 마지막 사람이 나가도 _meta가 남아 방이 유령으로 남았음. leaveRoom을 고쳤지만
-    //   이미 남아있던 옛 유령 방을 청소하는 용도.
-    async cleanupGhostRooms(dryRun){
-      const snap = await get(ref(db, 'rooms'));
-      const all = snap.val() || {};
-      const ghosts = [];
-      const now = _svNow(); const DEAD = 10*60*1000;   // 삭제는 보수적으로 10분 기준(순간 재연결 보호)
-      for(const code in all){
-        const room = all[code] || {};
-        const members = Object.keys(room).filter(k => k !== '_meta');
-        const anyRecent = members.some(k =>
-          room[k] && room[k].lastSeen && (now - room[k].lastSeen) < DEAD);
-        if(members.length === 0 || !anyRecent) ghosts.push(code);   // 빈 방 또는 전원 사망(10분+) 방
-      }
-      if(dryRun !== false){ return { ok:true, dryRun:true, count:ghosts.length, ghosts }; }
-      let removed = 0, failed = 0;
-      for(const code of ghosts){
-        try{ await remove(ref(db, `rooms/${code}`)); removed++; }catch(_){ failed++; }
-        await remove(ref(db, `roomIndex/${code}`)).catch(()=>{});   // 💰 요약 노드도 함께 정리
-      }
-      return { ok:true, dryRun:false, removed, failed, ghosts };
-    },
-    // 🧹 관리자: 유령 방 일괄 청소 — 살아있는 멤버(90초 내 하트비트)가 하나도 없는데
-    //   _meta/chatLog만 남은 방을 통째로 삭제. 정상 방(살아있는 멤버 있음)은 절대 안 건드림.
-    async cleanGhostRooms(){
-      try{
-        const snap = await get(ref(db, 'rooms'));
-        const all = snap.val() || {};
-        /* 🕒 관리자 PC 시계가 앞서 있으면 **살아 있는 방을 유령으로 보고 지운다** — 여기는
-           되돌릴 수 없는 삭제라 다른 자리보다 위험하다. 오프셋 보정본을 쓴다. */
-        const now = _svNow(); const STALE = 90*1000;
-        // 💓 새 하트비트(hb:2) 멤버는 lastSeen 이 입장 때 값에 머문다 — roomAlive 도장으로 본다(room-alive.js)
-        const aliveTree = await get(ref(db, 'roomAlive')).then(s => s.val() || {}).catch(() => ({}));
-        const ghosts = [];
-        for(const code in all){
-          const room = all[code] || {};
-          let alive = false;
-          for(const k in room){
-            if(k === '_meta' || k === 'chatLog') continue;
-            const mm = room[k];
-            if(mm && mm.lastSeen && (now - mm.lastSeen) < STALE){ alive = true; break; }
-            const at = aliveTree[code] && aliveTree[code][k];
-            if(mm && mm.hb === ROOM_ALIVE_HB && typeof at === 'number' && (now - at) < ROOM_ALIVE_STALE_MS){ alive = true; break; }
-          }
-          if(!alive) ghosts.push(code);   // 살아있는 멤버 없음 = 유령 방
-        }
-        let ok=0, fail=0;
-        await Promise.all(ghosts.map(async code=>{
-          try{
-            // 통째 remove(rooms/{code})는 $room 삭제 규칙 게시가 필요하므로,
-            // 규칙 게시 없이도 되도록 하위 노드를 개별 삭제(각 하위는 예전부터 .write:true).
-            const room = all[code] || {};
-            const dels = [];
-            for(const k in room){ dels.push(remove(ref(db, `rooms/${code}/${k}`)).catch(()=>{})); }
-            if(aliveTree[code]) dels.push(remove(ref(db, `roomAlive/${code}`)).catch(()=>{}));
-            await Promise.all(dels);
-            ok++;
-          }catch(_){ fail++; }
-        }));
-        // 💰 roomIndex 정리 — 방금 지운 방 + rooms에 더 이상 없는 고아 인덱스를 함께 제거.
-        //   (마지막 사람이 강제종료로 나가면 leaveRoom이 못 돌아서 인덱스만 남을 수 있음 —
-        //    카운트는 lastSeen 90초 기준이라 어차피 안 세지만, 쓰레기가 쌓이지 않게 여기서 청소)
-        try{
-          const isnap = await get(ref(db, 'roomIndex'));
-          const idx = isnap.val() || {};
-          const dels = [];
-          for(const code in idx){
-            if(idx[code] && idx[code].srv) continue;   // 🛰 방 서버 방 줄 — Firebase rooms 에 없어도 정상(서버가 30초마다 갱신 · 끝나면 서버가 지운다)
-            if(!(code in all) || ghosts.indexOf(code) !== -1) dels.push(remove(ref(db, `roomIndex/${code}`)).catch(()=>{}));
-          }
-          await Promise.all(dels);
-        }catch(_){}
-        return { ok:true, cleaned: ok, failed: fail, total: Object.keys(all).length };
-      }catch(e){ return { ok:false, error:String(e&&e.message||e) }; }
-    },
     revokeInvitesAll: createInviteRevokeAll({ db, ref, get, runTransaction }),
-    async reclaimInvitesSince(sinceMs, amount, dryRun, allowNegative){
-      const snap = await get(ref(db, 'users'));
-      const all = snap.val() || {};
-      const targets = [];
-      let changed = 0, skipped = 0, failed = 0;
-      for(const uid in all){
-        const inv = all[uid] && all[uid].invite;
-        if(!inv || typeof inv.invitesLeft !== 'number'){ skipped++; continue; }
-        if(typeof inv.joinedAt !== 'number' || inv.joinedAt < sinceMs){ skipped++; continue; }
-        if(inv.invitesLeft <= 0){ skipped++; continue; }
-        const after = allowNegative ? (inv.invitesLeft - amount) : Math.max(0, inv.invitesLeft - amount);
-        targets.push({ uid, joinedAt: inv.joinedAt, before: inv.invitesLeft, after });
-      }
-      if(dryRun) return { ok:true, dryRun:true, count:targets.length, targets, skipped };
-      for(const t of targets){
-        try{
-          await runTransaction(ref(db, `users/${t.uid}/invite/invitesLeft`), cur=>{
-            const n = (typeof cur === 'number') ? cur : t.before;
-            return allowNegative ? (n - amount) : Math.max(0, n - amount);
-          });
-          changed++;
-        }catch(e){ failed++; }
-      }
-      return { ok:true, dryRun:false, changed, failed, skipped, targets };
-    },
     async grantInvites(userId, count){
       try{
         const leftRef = ref(db, `users/${userId}/invite/invitesLeft`);
@@ -906,36 +800,6 @@
       if(Object.keys(updates).length) await _catalogUpdate(updates, kinds);
       return { ok:true };
     },
-    /* 🧹 Storage 이관 뒷정리 — 이미 glbUrl이 있는(=Storage로 옮겨진) catalog 항목의 남은 base64 glb 필드만
-       DB에서 삭제. glbUrl이 없는 항목은 안전하게 건너뜀(원본 소실 방지). onValue 다운로드 비용의 주범 제거.
-       dryRun=true면 실제로 지우지 않고 대상 수/용량만 계산해서 반환. */
-    async cleanupCatalogBase64(dryRun){
-      const kinds = ['parts','desks','items'];
-      const report = { willDelete:0, skipNoUrl:0, alreadyClean:0, bytes:0, byKind:{} };
-      const updates = {};
-      const touched = [];   // 실제로 지운 종류 — 그 종류의 catalogMeta 버전만 올린다
-      for(const kind of kinds){
-        report.byKind[kind] = { del:0, skip:0 };
-        let snap;
-        try{ snap = await get(ref(db, 'catalog/'+kind)); }catch(_){ continue; }
-        const obj = snap.val() || {};
-        for(const id in obj){
-          const rec = obj[id] || {};
-          if(!rec.glb){ report.alreadyClean++; continue; }        // 이미 base64 없음
-          if(!rec.glbUrl){ report.skipNoUrl++; report.byKind[kind].skip++; continue; }  // Storage 미이관 → 절대 건드리지 않음
-          report.willDelete++; report.byKind[kind].del++;
-          report.bytes += (rec.glb.length||0);
-          if(!dryRun){
-            updates[`catalog/${kind}/${id}/glb`] = null;  // 이 필드만 삭제(다른 필드 유지)
-            if(touched.indexOf(kind) < 0) touched.push(kind);
-          }
-        }
-      }
-      report.mb = (report.bytes/1048576).toFixed(2);
-      /* 정리도 카탈로그 쓰기다 — 버전을 안 올리면 사용자 캐시에 base64 가 남은 옛 레코드가 그대로 산다. */
-      if(!dryRun && Object.keys(updates).length) await _catalogUpdate(updates, touched);
-      return report;
-    },
     async unpublishPart(id){
       await _tryDeleteStorage('catalog/parts/'+id+'.glb');
       /* 어느 통에 있는지 호출자가 알 필요 없게 양쪽 다 지운다 — 없는 쪽 null 은 no-op.
@@ -943,55 +807,10 @@
       await _catalogUpdate({ [`catalog/parts/${id}`]: null, [`catalog/gachaParts/${id}`]: null }, ['parts', 'gachaParts']);
       return { ok:true };
     },
-    // 🔍 카탈로그 용량 진단 — 어떤 레코드가 DB 용량(=모든 사용자 다운로드)을 먹는지 측정.
-    //   base64가 DB에 남아 있으면 그 레코드를 모든 사용자가 앱 켤 때마다 통째로 받게 됨.
-    async analyzeCatalog(){
-      const out = {};
-      for(const kind of ['parts','desks','items']){
-        const snap = await get(ref(db, `catalog/${kind}`));
-        const all = snap.val() || {};
-        const recs = [];
-        let total = 0, base64Count = 0;
-        for(const id in all){
-          const r = all[id] || {};
-          const size = JSON.stringify(r).length;
-          total += size;
-          const heavy = [];
-          for(const k in r){
-            const v = r[k];
-            if(typeof v === 'string' && v.length > 2000){
-              heavy.push(k + '(' + Math.round(v.length/1024) + 'KB' + (v.startsWith('data:') ? ', base64' : '') + ')');
-              if(v.startsWith('data:')) base64Count++;
-            }
-          }
-          recs.push({ id, name: r.name || '', kb: Math.round(size/1024*10)/10, heavy });
-        }
-        recs.sort((a,b)=> b.kb - a.kb);
-        out[kind] = { totalKB: Math.round(total/1024*10)/10, count: recs.length, base64Fields: base64Count, top: recs.slice(0,10) };
-      }
-      return out;
-    },
     /* 🎰 파츠 — 서버 한 벌의 파츠가 가챠(gacha:true)까지 한 목록으로 온다(catalog-api.js unfoldCatalog). 앱 쪽 병합/삭제 감지는
        «카탈로그 전체 목록» 을 기대하므로 한 번에 전체를 넘긴다 — 옛 «두 통이 다 도착하기 전엔 콜백 안 함» 문제가 없다. */
     subscribeCatalogParts(onChange){
       return _catalogApi.subscribe('parts', onChange);
-    },
-    /* 🎰 이관 — catalog/parts 에 gacha:true 로 남아 있는 옛 항목을 gachaParts 로 옮긴다.
-       멱등이라 몇 번을 불러도 안전하다(옮길 것이 없으면 아무것도 안 한다).
-       ★ 이걸 돌리는 순간부터 구버전 클라이언트에서는 그 파츠가 사라진다(착용도 자동 해제) —
-         그게 바로 원하는 효과다. */
-    async migrateGachaCatalog(){
-      const snap = await get(ref(db, 'catalog/parts'));
-      const all = snap.val() || {};
-      const moved = [];
-      for(const id in all){
-        const rec = all[id];
-        if(!rec || rec.gacha !== true) continue;
-        /* 한 update 로 옮긴다(반쯤 옮긴 채로 남지 않는다) + 두 통 버전 올림. */
-        await _catalogUpdate({ [`catalog/gachaParts/${id}`]: rec, [`catalog/parts/${id}`]: null }, ['parts', 'gachaParts']);
-        moved.push(id);
-      }
-      return { ok:true, moved };
     },
     // ===== Phase 3: 커스텀 서브카테고리 (관리자가 파츠 종류 추가) =====
     // catalog/customCats/{catId} = { cat, label, icon, group, bone, createdAt }

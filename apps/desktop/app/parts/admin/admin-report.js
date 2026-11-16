@@ -53,6 +53,9 @@ async function _openReportAdmin(){
   ov.addEventListener('mousedown', e=>{ if(e.target === ov) _reportClose(); });
   setReportEsc(e=>{ if(e.key === 'Escape'){ e.stopPropagation(); _reportClose(); } });
   document.addEventListener('keydown', _reportEsc(), true);
+  ov.setAttribute('data-admin-win', '');
+  const onExit = ()=>{ if(_reportOv() === ov) _reportClose(); document.removeEventListener('tw-admin-exit', onExit); };   // 세션이 끝나면 주인의 닫기(Esc 리스너 · 창 칸 정리)로
+  document.addEventListener('tw-admin-exit', onExit);
   document.body.appendChild(ov); setReportOv(ov);
   let gen = 0;
   const live = (g)=>_reportOv() === ov && g === gen;

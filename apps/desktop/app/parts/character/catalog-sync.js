@@ -4,7 +4,7 @@
    내보내는 것: 없음 — 만들 때 구독을 건다(서버는 catalogSourceMod 를 거친다 — 연결이 아직 없으면 연결을 기다린다). 합치기 규칙 mergeCatalogList 는 이 안의 순수 함수(검사는 글을 뽑아 직접 돌린다).
    app.js «🔄 카탈로그 실시간 동기화» 구역을 그대로 옮겼다(구역 떼기 C · w2 — 좌석 책상을 그리는 applyDeskCatalogRefToSeat 는 책상 몫이라 남김). 동작은 옮기기 전과 같다.
    ★ 아래 코드는 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 2개를 원래 차례로 · 사이에 빈 줄 하나 · 옛 이야기형 주석만 «왜 · 함정» 으로 줄였다). 바뀐 코드 줄은 18줄 —
-     activeCustomDeskId · cBase · cDesk · cDeskColor · cDeskGlbB64 · cDeskScale · cDeskTemplate · creatorOpen · customItems · gachaMod · isAdmin 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setCDeskGlbB64 · setCDeskTemplate(…).
+     activeCustomDeskId · cBase · cDesk · cDeskColor · cDeskGlbB64 · cDeskScale · cDeskTemplate · creatorOpen · customItems · gachaMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setCDeskGlbB64 · setCDeskTemplate(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 17개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: 없음 — 만들 때 건다.
@@ -38,7 +38,6 @@ const customItems = deps.customItems;   // 읽는 함수
 const equipDeskItem = deps.equipDeskItem;
 const equipPartOnSeat = deps.equipPartOnSeat;
 const gachaMod = deps.gachaMod;   // 읽는 함수
-const isAdmin = deps.isAdmin;   // 읽는 함수
 const loadSavedItemsIntoSession = deps.loadSavedItemsIntoSession;
 const premiumMod = deps.premiumMod;
 const refitSeatAfterParts = deps.refitSeatAfterParts;
@@ -195,15 +194,6 @@ function subscribeCatalogParts(){
   catalogSourceMod.catalogSrcSubscribe('parts', async catalogObj=>{
     await catalogGlbMod.resolveCatalogGlbAll(catalogObj);
     mergeCatalogIntoSavedParts(catalogObj);
-    /* 🎰 이관 과도기 — catalog/parts 에 남은 옛 가챠 항목(_legacyGacha)을 관리자 세션이 gachaParts 로 옮긴다(옛 앱이 뽑지 않고 낀다).
-       ⚠️ 관리자만 — 일반 기기가 조용히 카탈로그를 옮기게 두지 않는다. 멱등이라 관리자 기기가 여럿이어도 된다. */
-    if(isAdmin() && !window.__gachaMigrated && catalogSourceMod.catalogSrcCan('migrateGacha')
-       && Object.keys(catalogObj||{}).some(id=>catalogObj[id] && catalogObj[id]._legacyGacha)){
-      window.__gachaMigrated = true;   // 콜백이 연달아 와도 한 번만
-      catalogSourceMod.catalogSrcMigrateGacha()
-        .then(r=>{ if(r && r.moved && r.moved.length) toast('🎰 가챠 파츠 '+r.moved.length+'개를 새 카탈로그 경로로 옮겼어요 (구버전 노출 차단)'); })
-        .catch(()=>{ window.__gachaMigrated = false; });   // 실패하면 다음 콜백에서 재시도
-    }
   });
 }
 catalogSourceMod.catalogSrcReady(subscribeCatalogParts);

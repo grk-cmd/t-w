@@ -5332,7 +5332,9 @@ const adminMode = TwAdminMode.createAdminMode({
   adminPassHash: ADMIN_PASS_HASH,
   isAdmin: ()=>isAdmin,
   setIsAdmin: (v)=>{ isAdmin = v; },
-  savedParts: ()=>premiumMod.savedParts(),
+  twNav: twNav,
+  session: ()=>appBoot.getSession(),
+  identity: ()=>loginFlowMod.identity(),
   adminApi: adminApi,
   apiErrors: TwApiErrors.store,
 });
@@ -6565,7 +6567,7 @@ const adBannerMod = TwAdBanner.createAdBanner({
   noticeFeed: noticeFeed,
   settingsMod: settingsMod,
 });
-/* 관리자 쪽(🛑 전체 방 종료 · 🧹 유령 방 청소 · ⚙️ 게임 설정 · 📢 광고 배너 편집)은 admin/admin-launcher.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에.
+/* 관리자 쪽(🛑 전체 방 종료 · ⚙️ 게임 설정 · 📢 광고 배너 편집)은 admin/admin-launcher.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에.
    isAdmin 은 다시 대입되는 let 이라 읽는 함수로 넘긴다. 사용자 쪽(배너 그리기 · 구독)은 바로 위 ad-banner.js(앱 FSD 43번).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const adminLauncher = TwAdminLauncher.createAdminLauncher({
@@ -6884,15 +6886,6 @@ const catalogGlbMod = TwCatalogGlb.createCatalogGlb({
   glbIdbMod: glbIdbMod,
 });
 
-/* ═══ 🧹 관리자 콘솔 도구 — 카탈로그 정리 · 진단 · 유령 방 · 초대권 회수 ═══ */
-/* 본문(F12 콘솔 함수 일곱)은 admin/admin-console.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에 모은다. 이름은 예전처럼 window 에 걸린다.
-   카탈로그 목록 셋은 다시 대입되는 let 이라 읽는 함수로 넘긴다. */
-const adminConsole = TwAdminConsole.createAdminConsole({
-  savedParts: ()=>premiumMod.savedParts(),
-  savedDesks: ()=>commissionMod.savedDesks(),
-  savedItems: ()=>commissionMod.savedItems(),
-});
-
 /* ═══ 🔄 카탈로그 실시간 동기화 — 아이템 · 책상 · 파츠 · 카테고리 ═══ */
 /* 본문은 character/catalog-sync.js 로 옮겼다(구역 떼기 C · w2). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
@@ -6921,7 +6914,6 @@ const catalogSyncMod = TwCatalogSync.createCatalogSync({
   equipDeskItem: (...a)=>equipDeskItem(...a),
   equipPartOnSeat: (...a)=>equipPartOnSeat(...a),
   gachaMod: ()=>gachaMod,
-  isAdmin: ()=>isAdmin,
   loadSavedItemsIntoSession: (...a)=>loadSavedItemsIntoSession(...a),
   premiumMod: premiumMod,
   refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),
@@ -8378,6 +8370,7 @@ const appBoot = TwAppBoot.createAppBoot({
     desktopBg: (code)=>window.MYHOME_DESKTOP.startBgSync(code),
     playlist: (code, me, session)=>plMod.start(session),
     licensePremium: (code, me, session)=>{ session.onReset(()=>licensePremiumMod.reset()); return licensePremiumMod.start(me); },   // 알림 구독 해제 함수는 모듈이 쥐고 reset 이 푼다 — 세션이 끝나면 reset 을 부른다
+    adminMode: (code, me, session)=>{ session.onReset(()=>twNav.go(twNav.NAV.ADMIN_EXIT)); },   // 🔐 세션이 끝나면 관리자 모드를 조용히 끈다(요청 0 · 창 열기 통로로 — 모듈끼리 순환 없이)
     firstRun: ()=>firstRunMod.run().catch((e)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', e)),
   },
 });

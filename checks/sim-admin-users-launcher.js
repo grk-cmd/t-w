@@ -33,7 +33,7 @@ function makeDom(){
     classList: { _s: new Set(), add(c){ this._s.add(c); }, remove(c){ this._s.delete(c); }, contains(c){ return this._s.has(c); } },
     addEventListener(t, f){ (this._on[t] = this._on[t] || []).push(f); }, focus(){},
     fire(t, ev){ return Promise.all((this._on[t] || []).map(f => f(Object.assign({ preventDefault(){}, target: null }, ev || {})))); } });
-  const document = { getElementById: (id) => els[id] || (els[id] = mk(id)) };
+  const document = { addEventListener(t, f){ (this._h = this._h || {})[t] = ((this._h[t]) || []).concat(f); }, dispatchEvent(e){ ((this._h || {})[e.type] || []).forEach(f => f(e)); }, getElementById: (id) => els[id] || (els[id] = mk(id)) };
   return { els: new Proxy(els, { get: (o, id) => document.getElementById(id) }), document };
 }
 function build(src, glob, deps, fbOver){
@@ -43,7 +43,6 @@ function build(src, glob, deps, fbOver){
     getAdminStats: rec('getAdminStats', { totalUsers: 12, premiumUsers: 3, licValid: 4, licUsed: 2 }), setUserCount: rec('setUserCount'),
     grantInvites: rec('grantInvites', { ok: true, invitesLeft: 5 }), grantInvitesAll: rec('grantInvitesAll', { ok: true, granted: 9, skipped: 1 }),
     revokeInvitesAll: rec('revokeInvitesAll', { revoked: 2, taken: 3, skipped: 0 }), lookupFriendCode: rec('lookupFriendCode', (c) => c === 'MATE-AAAA' ? 'u1' : null),
-    cleanGhostRooms: rec('cleanGhostRooms', { ok: true, cleaned: 1, failed: 0 }),
   }, fbOver || {});
   const D = makeDom();
   const win = { firebaseAPI: fb, _animalUnlockLevel: 50 };
@@ -92,16 +91,17 @@ async function judgeAll(m, app, html){
   try{ Ln = build(m.launcher, 'TwAdminLauncher', { asyncPrompt: async () => st.answer, isAdmin: () => st.admin, adminApi, apiErrors, refreshBanner: async () => { st.feed++; } }); }catch(e){ t(false, '런처 도구 모듈을 만들 수 없다 — ' + e.message); }
   if(Ln){
     const e = Ln.els;
-    t(['lcCloseAllRooms', 'lcCleanGhostRooms', 'lcGameCfg', 'lcAdBannerEdit', 'adBannerCloseBtn', 'adBannerSaveBtn']
-      .every(id => typeof e[id].onclick === 'function') && Ln.out && !Object.keys(Ln.out).length && Ln.calls.length === 0 && !apiCalls.length, '런처 도구 — 만들 때 버튼 여섯 · 빈 반환 · 서버 안 부름');
-    st.answer = '종료'; await e.lcCloseAllRooms.onclick(); await e.lcCleanGhostRooms.onclick();
-    t(!Ln.calls.length && !apiCalls.length && Ln.toasts.filter(x => /관리자만/.test(x)).length === 2, '관리자 아니면 방 종료 · 유령 방 청소가 막힌다');
+    t(['lcCloseAllRooms', 'lcGameCfg', 'lcAdBannerEdit', 'adBannerCloseBtn', 'adBannerSaveBtn']
+      .every(id => typeof e[id].onclick === 'function') && Ln.out && !Object.keys(Ln.out).length && Ln.calls.length === 0 && !apiCalls.length, '런처 도구 — 만들 때 버튼 다섯 · 빈 반환 · 서버 안 부름 · 유령 방 청소 버튼은 없다'
+      + '') && t(typeof e.lcCleanGhostRooms.onclick !== 'function' && !/lcCleanGhostRooms|cleanGhostRooms/.test(m.launcher + html), '  🧹 유령 방 청소 — 버튼 연결도 html 버튼도 Firebase 부름도 없다(걷음)');
+    st.answer = '종료'; await e.lcCloseAllRooms.onclick();
+    t(!Ln.calls.length && !apiCalls.length && Ln.toasts.filter(x => /관리자만/.test(x)).length === 1, '관리자 아니면 방 종료가 막힌다');
     st.admin = true;
     st.answer = '종 료'; await e.lcCloseAllRooms.onclick();
     t(!apiCalls.length, '방 종료 — «종료» 와 다르면 안 한다');
-    st.answer = ' 종료 '; await e.lcCloseAllRooms.onclick(); await e.lcCleanGhostRooms.onclick();
-    t(apiCalls.filter(c => c[0] === 'closeAllRooms').length === 1 && Ln.calls.some(c => c[0] === 'cleanGhostRooms') && Ln.toasts.includes('방 3개를 종료했어요'),
-      '다시 대입된 isAdmin(true)을 읽고 — «종료» 면 서버에 방 종료(닫은 수를 알림) · 유령 방 청소');
+    st.answer = ' 종료 '; await e.lcCloseAllRooms.onclick();
+    t(apiCalls.filter(c => c[0] === 'closeAllRooms').length === 1 && Ln.toasts.includes('방 3개를 종료했어요'),
+      '다시 대입된 isAdmin(true)을 읽고 — «종료» 면 서버에 방 종료(닫은 수를 알림)');
     st.roomErr = Object.assign(new Error('x'), { code: 'ROOM_REALTIME_UNAVAILABLE' }); st.shown.length = 0; const nToast = Ln.toasts.length;
     await e.lcCloseAllRooms.onclick();
     t(st.shown.length === 1 && st.shown[0][0] === 'ROOM_REALTIME_UNAVAILABLE' && st.shown[0][1] === 1 && Ln.toasts.length === nToast, '방 종료 실패 — 성공 토스트 없이 오류 번호(기능 표를 넘김)');

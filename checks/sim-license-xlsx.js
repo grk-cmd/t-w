@@ -106,7 +106,7 @@ say('── 4. 관리자 모듈 연결 (admin/admin-license-bulk.js)');
   const el = (id) => els[id] || (els[id] = { id, style:{}, value:'', checked:false, disabled:false, textContent:'', innerHTML:'', files:null,
     parentElement:null, firstElementChild:null, offsetWidth:300, clientWidth:900, _on:{}, addEventListener(t, f){ (this._on[t] = this._on[t] || []).push(f); }, click(){} });
   const win = { };
-  const g = { document:{ getElementById: el }, window: win, module: undefined };
+  const g = { document:{ addEventListener(t, f){ (this._h = this._h || {})[t] = ((this._h[t]) || []).concat(f); }, dispatchEvent(e){ ((this._h || {})[e.type] || []).forEach(f => f(e)); }, getElementById: el }, window: win, module: undefined };
   const fn = new Function('document', 'window', 'module', LB + '\nreturn window.TwAdminLicenseBulk;');
   const api = fn(g.document, g.window, undefined);
   const noop = () => {};

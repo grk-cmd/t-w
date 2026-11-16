@@ -46,7 +46,7 @@ function parseTable(html) {
 }
 /* 창의 z-index 글 — 인라인 style 이 있으면 그것, 아니면 CSS 규칙(쉼표 묶음 · body.desktop 같은 앞붙이 없는 규칙)에서 */
 function zTextOf(html, id) {
-  const inl = new RegExp('<div id="' + id + '" style="([^"]*)"').exec(html);
+  const inl = new RegExp('<div id="' + id + '"(?:\\s+[\\w-]+(?:="[^"]*")?)*?\\s+style="([^"]*)"').exec(html);
   if (inl) { const z = /z-index:([^;]+);/.exec(inl[1]); if (z) return z[1].trim(); }
   const css = html.split('<style>').slice(1).map((x) => x.split('</style>')[0]).join('\n');
   const re = new RegExp('(?:^|\\n|\\})\\s*((?:#[\\w-]+\\s*,\\s*)*#' + id + '(?:\\s*,\\s*#[\\w-]+)*)\\s*\\{([^}]*)\\}', 'g');
@@ -148,7 +148,7 @@ say('── 5. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['마이홈이 숫자를 직접', (h) => h.replace('#myHomeOverlay{display:none;position:fixed;inset:0;z-index:var(--z-win-myhome);', '#myHomeOverlay{display:none;position:fixed;inset:0;z-index:71;')],
   ['편집 창이 대화상자 층', (h) => h.replace('#creatorOverlay{position:fixed;inset:0;z-index:var(--z-work);', '#creatorOverlay{position:fixed;inset:0;z-index:var(--z-dialog);')],
-  ['관리자 창 인라인 숫자', (h) => h.replace(/(<div id="adBannerOverlay" style="[^"]*?)z-index:var\(--z-dialog-admin\);/, '$1z-index:60;')],
+  ['관리자 창 인라인 숫자', (h) => h.replace(/(<div id="adBannerOverlay"(?: data-admin-win)? style="[^"]*?)z-index:var\(--z-dialog-admin\);/, '$1z-index:60;')],
   ['표 값 바뀜', (h) => h.replace('--z-work: 55;', '--z-work: 54;')],
   ['표 이름 빠짐', (h) => h.replace(/\n\s*--z-win-bell: 62;[^\n]*/, '')],
   ['대화상자를 창 쌓기 아래로(옛 57)', (h) => h.replace('--z-dialog: 101;', '--z-dialog: 57;')],

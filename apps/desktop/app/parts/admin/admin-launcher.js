@@ -1,11 +1,11 @@
-/* admin-launcher.js — 🛑 전체 방 종료 · 🧹 유령 방 청소 · ⚙️ 게임 설정 · 📢 광고 배너 편집 (관리자 — 런처 관리자 줄의 단발 도구)
+/* admin-launcher.js — 🛑 전체 방 종료 · ⚙️ 게임 설정 · 📢 광고 배너 편집 (관리자 — 런처 관리자 줄의 단발 도구)
    서버에 쓰는 일은 admin-api.js(adminApi)가 한다(방 종료 · 배너). 사용자 쪽(광고 배너 그리기 · 게임 설정 구독)은 launcher/ad-banner.js.
    ★ 밖에서 부르는 이름은 없다 — 버튼 연결을 만들 때 건다.
    deps: toast · asyncPrompt — 안내 · 입력 창 · refreshBanner — 저장 뒤 관리자 본인 배너 받기 · isAdmin — 읽는 함수(app.js 의 let) · adminApi — 서버 길(admin-api.js) · apiErrors — 서버 오류 → 오류 번호(TwApiErrors.store)
    ⚠️ 배너의 원본은 서버다 — 열 때 서버에서 받아 채우고(받기 전에는 창을 안 연다), 저장은 읽은 판을 실어 보낸다. 다른 관리자가 먼저 고쳤으면(409)
      덮어쓰지 않고 지금 서버 값으로 다시 채우고 알린다. 이 PC 에는 사본을 남기지 않는다.
    ⚠️ ⚙️ 게임 설정(동물 해금 레벨)은 멈춰 있다 — 쓰는 길은 서버에 있으나(카탈로그 해금) 사용자 앱이 그 값을 아직 Firebase 에서 읽는다. 읽는 쪽이 서버로 옮겨 가면 이어서 켠다.
-   ⚠️ 🧹 유령 방 청소는 아직 Firebase 방 노드를 훑는다(서버 쪽 대응 길이 없다 — 걷기 · 유지는 정해지면).
+   ⚠️ 🧹 유령 방 청소는 걷었다 — 0.13 방은 realtime 메모리라 끊긴 방이 남지 않는다.
    ⚠️ document · window · firebaseAPI 는 전역 이름으로 쓴다(이 파일은 app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwAdminLauncher — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-admin-users-launcher.js */
@@ -42,23 +42,6 @@ const GAME_CFG_PAUSED_TEXT = '⚙️ 게임 설정은 서버로 옮기는 중이
       finally{ closing = false; }
     };
   }
-  // 🧹 유령 방 청소 — 살아있는 멤버 없이 _meta/chatLog만 남은 방 정리(정상 방은 안 건드림)
-  { const _cgr = document.getElementById('lcCleanGhostRooms');
-    if(_cgr) _cgr.onclick = async ()=>{
-      if(!isAdmin()){ toast('관리자만 사용할 수 있어요'); return; }
-      if(!(window.firebaseAPI && firebaseAPI.cleanGhostRooms)){ toast('이 기능은 앱을 재시작한 후에 사용할 수 있어요'); return; }
-      // ★ 키워드 확인 제거 — 유령 방(사람 없이 데이터만 남은 방) 정리는 정상 방을 안 건드리는 안전한 작업이라
-      //   버튼 클릭 즉시 실행. 연타만 방지.
-      if(_cgr._cleaning) return; _cgr._cleaning = true;
-      toast('청소 중…');
-      const r = await firebaseAPI.cleanGhostRooms();
-      _cgr._cleaning = false;   // 완료 — 다음 청소 허용
-      if(r && r.ok){
-        if(r.cleaned>0) toast(`유령 방 ${r.cleaned}개를 정리했어요` + (r.failed>0?` (실패 ${r.failed}개)`:''));
-        else toast('정리할 유령 방이 없어요');
-      } else toast('청소에 실패했어요' + (r&&r.error?(' — '+r.error):''));
-    };
-  }
   const _btn = document.getElementById('lcGameCfg');
   if(_btn) _btn.onclick = ()=>{ toast(GAME_CFG_PAUSED_TEXT); };
 }
@@ -87,6 +70,8 @@ $('lcAdBannerEdit').onclick=async ()=>{
   finally{ bannerBusy = false; }
 };
 $('adBannerCloseBtn').onclick=closeBanner;
+/* 세션이 끝나면(NAV.ADMIN_EXIT → admin-mode 가 알림) 이 파일이 여는 창을 자기 닫기로 닫는다 */
+document.addEventListener('tw-admin-exit', ()=>{ closeBanner(); const g=$('gameCfgOverlay'); if(g){ g.classList.remove('on'); g.style.display='none'; } });
 $('adBannerSaveBtn').onclick=async ()=>{
   if(bannerBusy || bannerVersion == null) return;
   const slides=[];

@@ -208,7 +208,8 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 | 13 | desktopBg | 🖥️ 바탕화면 배경 맞추기(`MYHOME_DESKTOP.startBgSync`) |
 | 14 | playlist | 🎵 플레이리스트 받기(`plMod.start(session)` — 받기 다시 시도 · 올리기 모으기 타이머 · 비우기를 세션에) |
 | 15 | licensePremium | 🔑 프리미엄 판정 반영(서버 확인) · 라이선스 알림 받기 |
-| 16 | firstRun | 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기) |
+| 16 | adminMode | 🔐 세션이 끝나면 관리자 모드를 조용히 끈다(`twNav.go(NAV.ADMIN_EXIT)` → admin-mode 가 끈다 — 요청 0 · 비우기만 세션에) |
+| 17 | firstRun | 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기) |
 
 **내놓는 것** — `begin(me)`(보통은 nav 로 불린다) · `getSession()`(들어가기 전·못 열었으면 null). 두 번 불러도 두 번째는 아무것도 안 하고 `false`(콘솔 경고). 한 칸이 던져도(동기 · 비동기) 다음 칸은 돈다.
 
