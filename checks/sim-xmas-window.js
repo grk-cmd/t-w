@@ -62,7 +62,7 @@ function world(opts){
     reportOrnament: async (t, s) => { N.calls.push('report:' + t + '/' + s); return o.repRet || { ok: true }; },
   };
   const Lt = { calls: [], deps: null };
-  const letterMod = { createXmasLetter: (d) => { Lt.deps = d; const c = (n) => () => { Lt.calls.push(n); };
+  const letterMod = { createXmasLetter: (d) => { Lt.deps = d; d.escRegisterWindow({ key: 'xmasLetter' }); const c = (n) => () => { Lt.calls.push(n); };
     return { open: c('open'), close: c('close'), refresh: c('refresh'), checkGot: c('checkGot'), paintBtn: c('paintBtn'), isOpen: () => false }; } };
   const songMod = { createXmasSong: (d) => { Lt.songDeps = d; return { bar: () => ({}), stop: () => {} }; } };
   const nav = { NAV: { XMAS: 'xmas' }, fns: {}, on(n, f){ this.fns[n] = f; } };
@@ -86,7 +86,7 @@ say('── 1절 런처 버튼');
   w.els.lcXmas.onclick(); await settle();
   w.S.now = R.EVENT_END_MS; w.api.refreshButton();
   chk(w.els.lcXmas.hidden === true && !w.els.xmasOverlay.classList.contains('on') && w.T.closed === 1, '1월 1일 0시부터 숨고 · 열려 있던 창도 닫힌다');
-  chk(w.S.escs.length === 1 && w.S.escs[0].key === 'xmas' && w.S.escs[0].el === w.els.xmasOverlay, 'Esc 로 닫기 등록');
+  chk(w.S.escs.map(x => x.key).join() === 'xmas,xmasLetter' && w.S.escs[0].el === w.els.xmasOverlay, 'Esc 로 닫기 등록 — 트리 창을 편지 창보다 먼저(알림함 길은 둘을 같은 틱에 열어 창 쌓기가 등록 순서로 쌓는다 → Esc 에 편지 창만)');
 }
 
 say('── 2절 열기 · 불러오기');

@@ -5,6 +5,7 @@
    서버는 net(firebaseAPI.xmas — 내 칸만 읽고 쓴다), 날짜 · 칸 규칙은 rules(TwXmasRules), 뮤직바는 song(TwXmasSong).
    ★ 받은 편지 · 추천곡 제목은 남이 쓴 값 — textContent 로만 넣는다.
    ★ 받은 편지 확인은 25일 0시가 지난 뒤 — 짝 짓기가 0시에 돌아 조금 늦을 수 있어 한 시간 동안만 5분 간격으로 다시 본다(그 뒤엔 앱을 켤 때 한 번).
+     실패는 세지 않는다 — 앱을 켠 직후엔 로그인 복원 전이라 auth 로 돌아오므로 다음 확인(1분)에 다시 · 계정이 바뀌면 처음부터.
    ★ 읽음 표시는 이 PC(localStorage 'tw.xmasGotRead.{uid}' — 번호 몇 개)에만.
    classic script(window.TwXmasLetter) — xmas-window.js 보다 먼저 싣는다. xmas-window.js 가 `createXmasLetter(deps)` 한 번. */
 (function(){
@@ -32,7 +33,7 @@ function createXmasLetter(deps){
   if (!lw || !btn) throw new Error('xmas-letter: #xmasLetter · #xmasLetterBtn 이 html 에 없다');
 
   let letters = [], returned = [], got = [], editing = null, draftSong = null, openedN = null, busy = false, seq = 0, refSeq = 0;
-  let gotFound = false, gotTriedAt = -Infinity, gotTrying = false;
+  let gotFound = false, gotTriedAt = -Infinity, gotTrying = false, gotEmpty = false, gotUid = null;
 
   /* ── 읽음 표시(이 PC) ── */
   const readKey = () => READ_KEY + (net().me() || '');
@@ -68,15 +69,25 @@ function createXmasLetter(deps){
   /* ── 받은 편지 확인(빨간 점) — 25일 0시 뒤 ── */
   async function checkGot(){
     const now = serverNow();
-    if (!rules.lettersArrived(now) || gotFound || gotTrying) return;
-    const retrying = gotTriedAt > -Infinity;
-    if (retrying && (now - gotTriedAt < GOT_RETRY_MS || now >= rules.LETTER_DEADLINE_MS + GOT_RETRY_UNTIL_MS)) return;
+    if (!rules.lettersArrived(now) || gotTrying) return;
+    const uid = net().me();
+    if (uid !== gotUid){   // 계정이 바뀌면 앞 계정의 받은 편지 · 점을 버리고 처음부터
+      gotUid = uid; got = []; gotFound = false; gotEmpty = false; gotTriedAt = -Infinity;
+      deps.onDot(false); paintBtn();
+    }
+    if (gotFound || now - gotTriedAt < GOT_RETRY_MS) return;
+    if (gotEmpty && now >= rules.LETTER_DEADLINE_MS + GOT_RETRY_UNTIL_MS) return;   // 비어 있음을 본 뒤로는 한 시간까지만
     gotTrying = true; gotTriedAt = now;
     const r = await net().got();
     gotTrying = false;
-    if (!r.ok) return;   // 다음 확인 때 다시(실패를 «없음» 으로 굳히지 않는다)
+    if (!r.ok){
+      // 실패는 «없음» 으로 굳히지 않는다 — 로그인 복원 전(auth)은 읽지도 않았으니 다음 확인(1분)에 바로, 그 밖은 5분 뒤에
+      if (r.code === 'auth') gotTriedAt = -Infinity;
+      return;
+    }
     got = rules.gotOf(r.got);
     gotFound = got.length > 0;
+    gotEmpty = !gotFound;
     deps.onDot(rules.hasUnread(got, readSet()));
     paintBtn();
   }

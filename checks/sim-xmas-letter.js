@@ -5,7 +5,8 @@
    ・3절 반송 — 사유 표시 · [다시 쓰기] 는 그 글로 편지지를 펴고 맡기면 반송 표시를 치운다 · [지우기]
    ・4절 쓰기 실패 — 마감(closed) · 로그인(auth) 은 안내 · 그 밖은 E-XMAS-05 · 불러오기 실패 E-XMAS-04 · 로그인 안 됨은 안내(오류 코드 없음)
    ・5절 열람 — 봉투 · 열기(글은 textContent) · 추천곡 바 · 읽음(이 PC) · 빨간 점 · ← 다른 편지 · 신고(g-) · 받은 편지 없음
-   ・6절 받은 편지 확인(빨간 점) — 25일 전엔 안 읽음 · 아직 없으면 5분 간격 · 한 시간 뒤엔 멈춤 · 찾으면 더 안 읽음 · 실패는 다시
+   ・6절 받은 편지 확인(빨간 점) — 25일 전엔 안 읽음 · 아직 없으면 5분 간격 · 한 시간 뒤엔 멈춤 · 찾으면 더 안 읽음 · 실패는 다시 ·
+     앱을 켠 직후(로그인 복원 전 auth)는 세지 않고 다음 1분에 · 계정이 바뀌면 앞 계정 점을 지우고 처음부터
    ・7절 닫기 · Esc · 저장소가 던져도 · 깨 보기 */
 'use strict';
 const fs = require('fs');
@@ -43,11 +44,11 @@ function world(opts){
   const doc = { getElementById: (i) => els[i] || null, createElement: (t) => el(t) };
   const S = { now: o.now == null ? WRITE_NOW : o.now, toasts: [], errs: [], escs: [], dots: [], store: {} };
   const D = { letters: o.letters || null, returned: o.returned || null, got: o.got || null };
-  const N = { calls: [], fail: o.fail || {}, ret: o.ret || {} };
+  const N = { calls: [], fail: o.fail || {}, ret: o.ret || {}, uid: 'uid' in o ? o.uid : 'authMe00001' };
   const net = {
-    me: () => 'authMe00001',
+    me: () => N.uid,
     myLetters: async () => { N.calls.push('my'); return N.fail.my ? { ok: false, code: N.fail.my } : { ok: true, letters: D.letters, returned: D.returned }; },
-    got: async () => { N.calls.push('got'); return N.fail.got ? { ok: false, code: N.fail.got } : { ok: true, got: D.got }; },
+    got: async () => { if (!N.uid) return { ok: false, code: 'auth' }; N.calls.push('got'); return N.fail.got ? { ok: false, code: N.fail.got } : { ok: true, got: D.got }; },
     saveLetter: async (lid, text, song) => { N.calls.push('save:' + lid); N.last = { lid, text, song }; if (N.ret.save) return N.ret.save;
       D.letters = Object.assign({}, D.letters, { [lid]: { text, ts: 9, song: song || undefined } }); return { ok: true }; },
     removeLetter: async (lid) => { N.calls.push('remove:' + lid); if (N.ret.remove) return N.ret.remove; D.letters = Object.assign({}, D.letters); delete D.letters[lid]; return { ok: true }; },
@@ -196,6 +197,19 @@ say('── 6절 받은 편지 확인(빨간 점)');
   chk(wl.N.calls.length === 1, '한 시간이 지나면 다시 보지 않는다(편지를 안 쓴 사람이 계속 읽지 않게)');
   const we = world({ now: R.LETTER_DEADLINE_MS + 1000, fail: { got: 'read' } }); await we.api.checkGot(); we.N.fail.got = null; we.D.got = { 1: { text: 'x' } }; we.S.now += 5 * 60000; await we.api.checkGot();
   chk(we.N.calls.length === 2 && we.S.dots.slice(-1)[0] === true, '실패는 «없음» 으로 굳히지 않고 다음에 다시');
+  const wb = world({ now: R.LETTER_DEADLINE_MS + 2 * 3600000, uid: null, got: { 1: { text: '도착' } } });
+  await wb.api.checkGot(); chk(!wb.N.calls.length, '앱을 켠 직후(로그인 복원 전) — 읽지 못함(auth)');
+  wb.N.uid = 'authMe00001'; wb.S.now += 60000; await wb.api.checkGot();
+  chk(wb.N.calls.join() === 'got' && wb.S.dots.slice(-1)[0] === true, '  ↳ 실패로 세지 않아 1분 뒤 로그인되면 읽고 점이 켜진다(25일 새벽 1시 뒤에 앱을 켠 사람)');
+  const wf = world({ now: R.LETTER_DEADLINE_MS + 2 * 3600000, fail: { got: 'read' }, got: { 1: { text: 'x' } } });
+  await wf.api.checkGot(); wf.N.fail.got = null; wf.S.now += 60000; await wf.api.checkGot();
+  chk(wf.N.calls.length === 1, '  ↳ 읽기 실패는 5분 뒤에(1분마다 두드리지 않음)');
+  wf.S.now += 5 * 60000; await wf.api.checkGot();
+  chk(wf.N.calls.length === 2 && wf.S.dots.slice(-1)[0] === true, '  ↳ 한 시간이 지났어도 실패 뒤엔 다시 본다(«없음» 으로 굳히지 않음)');
+  const wu = world({ now: R.LETTER_DEADLINE_MS + 1000, got: { 1: { text: 'A 의 편지' } } });
+  await wu.api.checkGot(); chk(wu.S.dots.slice(-1)[0] === true, '계정 A — 점');
+  wu.N.uid = 'authOther0002'; wu.D.got = null; wu.S.now += 60000; await wu.api.checkGot();
+  chk(wu.S.dots.includes(false) && wu.S.dots.slice(-1)[0] === false && wu.N.calls.length === 2 && !wu.els.xmasLetterBtn.classList.contains('xm-dot'), '계정이 바뀌면 앞 계정 점을 지우고 새 계정 것을 읽는다');
   const wr = world({ now: R.LETTER_DEADLINE_MS + 1000, got: { 1: { text: 'x' } } }); wr.S.store['tw.xmasGotRead.authMe00001'] = '1';
   await wr.api.checkGot(); chk(wr.S.dots.slice(-1)[0] === false, '이미 읽은 편지뿐이면 점 없음');
 }

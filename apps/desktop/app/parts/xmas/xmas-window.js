@@ -38,6 +38,8 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
   if (!ov || !btn) throw new Error('xmas-window: #xmasOverlay · #lcXmas 가 html 에 없다');
   const tree = deps.treeMod.createXmasTree({ THREE: deps.THREE, rules, ps1Dither: deps.ps1Dither, doc, win });
 
+  /* Esc 는 트리 창을 편지 창보다 먼저 등록한다 — 알림함 길은 두 창을 같은 틱에 열어서, 창 쌓기가 등록 순서로 쌓는다(편지 창이 위 → Esc 에 편지 창만 닫힘) */
+  deps.escRegisterWindow({ key: 'xmas', el: ov, isOpen: () => ov.classList.contains('on'), close });
   const song = deps.songMod.createXmasSong({ doc, win, companion: deps.companion, ytVideoId: deps.ytVideoId, asyncPrompt: deps.asyncPrompt, toast, songTitleMax: rules.SONG_TITLE_MAX });
   const letter = deps.letterMod.createXmasLetter({ doc, win, rules, net, song, serverNow, toast, notifyError, escRegisterWindow: deps.escRegisterWindow,
     storage: deps.storage, onDot: (on) => btn.classList.toggle('xm-dot', on) });
@@ -232,7 +234,6 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
   // 📩 알림함 «익명의 편지가 왔어요 · 편지가 반송됐어요» 가 부른다 — 편지 창까지 연다
   twNav.on(twNav.NAV.XMAS, (what) => { open(); if (what === 'letter' && ov.classList.contains('on')) letter.open(); });
   $('xmasCloseBtn').onclick = close;
-  deps.escRegisterWindow({ key: 'xmas', el: ov, isOpen: () => ov.classList.contains('on'), close });
 
   /* 창 끌기 — 제목줄(닫기 단추 위는 빼고) */
   (function(){
