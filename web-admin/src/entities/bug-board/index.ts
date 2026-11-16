@@ -20,6 +20,8 @@ export {
   useRefreshBugBoard,
   useRefreshPrvTitle,
 } from './api/hooks';
+export { changeBugStatus } from './api/changeStatus';
+export { createServerBugBoardPort } from './api/server';
 export { useBugBoardPort, type BugBoardPort, type BugListQuery, type BugPost } from './api/index';
 export {
   answerDeleteWrite,

@@ -30,15 +30,29 @@ const wireTodo = (id: string, over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+/** 서버 제보 상세 한 건 — 제보 읽기 포트가 읽는 칸을 다 채운다. */
 const wireBug = (number: string, over: Record<string, unknown> = {}) => ({
   number,
   visibility: 'PUBLIC',
   category: 'BUG',
   title: `글 ${number}`,
+  body: '본문',
+  env: null,
   status: 'NEW',
+  notice: false,
+  byAdmin: false,
+  author: { userCode: 'u1', name: '철수', anonymous: false },
+  mine: false,
+  canReply: false,
+  likeCount: 0,
+  liked: false,
+  answerCount: 0,
+  doneAt: null,
   createdAt: '2026-11-10T00:00:00Z',
   lastAnswerAt: null,
+  lastAuthorReplyAt: null,
   version: 1,
+  comments: [],
   ...over,
 });
 

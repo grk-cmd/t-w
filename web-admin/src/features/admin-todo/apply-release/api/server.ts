@@ -3,7 +3,8 @@
 // 본 «마지막 답변 시각» 은 읽은 글자 그대로 싣고 보내기 전에 다시 읽어 맞추지 않는다. 그 사이 다른 관리자가 답했으면 409 → `conflict`(화면이 제보를 다시 받는다).
 // 답변 틀은 설정 키 `bug.releaseAnswerTemplate` — 읽은 번호로 저장하고, 반영이 된 뒤 «기본 템플릿으로 저장» 은 요청 하나를 더 보낸다(실패해도 반영은 그대로 — 그 까닭을 결과에 싣는다).
 // 틀 · 답변 길이 판정은 서버가 한다 — 값은 그대로 보내고 400 은 서버 문구로 띄운다.
-import { createServerTodoPort, readLinkedBug } from '@/entities/admin/todo';
+import { createServerTodoPort } from '@/entities/admin/todo';
+import { createServerBugBoardPort } from '@/entities/bug-board';
 import {
   opsConfigClient,
   perApi,
@@ -35,6 +36,7 @@ const TEMPLATE_KEY = 'bug.releaseAnswerTemplate';
 function build(api: Api | null): ApplyReleasePort {
   const once = createPayloadRequestId();
   const todos = createServerTodoPort(api);
+  const bugBoard = createServerBugBoardPort(api);
   const config = opsConfigClient(api);
 
   async function template(): Promise<Versioned<ReleaseTemplate>> {
@@ -111,9 +113,9 @@ function build(api: Api | null): ApplyReleasePort {
     saveTemplate,
     async preview(latest) {
       const fixes = releasedReports(await todos.list(), latest);
-      const bugs = await Promise.all(fixes.map((f) => readLinkedBug(api, f.rid)));
-      const found = fixTargets(fixes, new Map(fixes.map((f, i) => [f.rid, bugs[i]?.item ?? null])));
-      const seen = new Map(fixes.map((f, i) => [f.rid, bugs[i]?.lastAnswerAt ?? null]));
+      const bugs = await Promise.all(fixes.map((f) => bugBoard.item(f.rid)));
+      const found = fixTargets(fixes, new Map(fixes.map((f, i) => [f.rid, bugs[i] ?? null])));
+      const seen = new Map(fixes.map((f, i) => [f.rid, bugs[i]?.lastReplyAt ?? null]));
       return found.map((t) => ({ ...t, seenLastAnswerAt: seen.get(t.rid) ?? null }));
     },
     apply,
