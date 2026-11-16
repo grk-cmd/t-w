@@ -153,8 +153,8 @@
 | **sim-room-live-def.js** | 163 | **fb1e16adcd60** |
 | **sim-app-version.js** | 109 | **6dee4558ad2b** |
 | **sim-update-flow.js** | 454 | **a05cced37048** |
-| **sim-firebase-left.js** | 172 | **d89e11f6156c** |
-| **sim-maintenance-gate.js** | 358 | **450b7d646390** |
+| **sim-firebase-left.js** | 174 | **775ff888bbb9** |
+| **sim-maintenance-gate.js** | 380 | **ee8f07b284a7** |
 | **sim-room-invite-wait.js** | 44 | **2327a1043182** |
 | **sim-friend-manage.js** | 251 | **5849b1a8292c** |
 | **sim-gacha-prune.js** | 176 | **caaafe40eb06** |

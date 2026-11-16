@@ -28,10 +28,11 @@ function audit(src){
   if(dbImp.length !== 1) bad.push('데이터베이스 import 가 한 줄이 아님: ' + dbImp.length);
   else{
     const names = dbImp[0][1].split(',').map(x => x.trim().split(/\s+as\s+/)[0]).filter(Boolean).sort().join(',');
-    if(names !== 'get,getDatabase,ref') bad.push('데이터베이스 import 가 getDatabase · ref · get 셋이 아님: ' + names);
+    if(names !== 'forceWebSockets,get,getDatabase,ref') bad.push('데이터베이스 import 가 getDatabase · ref · get · forceWebSockets 넷이 아님: ' + names);
   }
   for(const w of ['set', 'update', 'remove', 'push', 'onValue', 'runTransaction', 'onDisconnect', 'onChildAdded', 'onChildChanged', 'serverTimestamp', 'goOffline', 'goOnline'])
     if(new RegExp('(^|[^\\w.$])' + w + '\\s*\\(').test(c)) bad.push('DB 이름을 부름: ' + w + '(');
+  if(!/(^|[^\w.$])forceWebSockets\(\)\s*;[\s\S]*?getDatabase\(\s*fbApp\s*\)/.test(c)) bad.push('getDatabase 전에 forceWebSockets() 를 부르지 않음');
   if((c.match(/\bref\(\s*db\b/g) || []).length !== 1) bad.push('ref(db, …) 가 한 번이 아님');
   if(!/ref\(\s*db,\s*window\.TwMaintenance\.MAINTENANCE_PATH\s*\)/.test(c)) bad.push('DB 읽기가 점검 칸(MAINTENANCE_PATH)이 아님');
   if((c.match(/\b_sdkGet\s*\(/g) || []).length !== 1) bad.push('DB get 이 한 번이 아님');
@@ -59,8 +60,9 @@ say('── 2. 깨 보기');
 {
   const real = FI;
   const brk = [
-    ['쓰기 import 를 더함', (s) => s.replace('import { getDatabase, ref as _dbRef, get as _sdkGet }', 'import { getDatabase, ref as _dbRef, get as _sdkGet, set as _sdkSet }')],
+    ['쓰기 import 를 더함', (s) => s.replace('get as _sdkGet, forceWebSockets }', 'get as _sdkGet, set as _sdkSet, forceWebSockets }')],
     ['DB 쓰기를 부름', (s) => s.replace('  window.firebaseAPI = {', "  set(ref(db, 'x'), 1);\n  window.firebaseAPI = {")],
+    ['forceWebSockets 호출을 뺌', (s) => s.replace(/forceWebSockets\(\);/, '')],
     ['점검 말고 다른 경로를 읽음', (s) => s.replace('window.TwMaintenance.MAINTENANCE_PATH)).then', "'users/a')).then")],
     ['구독을 검', (s) => s.replace('  window.firebaseAPI = {', "  onValue(ref(db, 'x'), () => {});\n  window.firebaseAPI = {")],
     ['허용 밖 메서드를 더함', (s) => s.replace('    getIdToken(force){', '    lookupFriendCode(code){ return null; },\n    getIdToken(force){')],
