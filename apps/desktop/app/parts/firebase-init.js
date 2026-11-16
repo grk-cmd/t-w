@@ -35,9 +35,7 @@
   import { firebaseConfig } from "./firebase-config.js";
   import { createAppVersion } from "./shared/app-version.js";
   import { createChatHistory, createIdbChatStore } from "./chat/chat-history.js";
-  import { createCatalogApi } from "./character/catalog-api.js";
   import { createRealtimeLink } from "./realtime/realtime-link.js";
-  import { createApiPublicReads } from "./shared/api-public-reads.js";
   /* 로그인 수단 읽기 — authProviders · authChangePassword 가 같이 쓴다. 세션이 없으면 null. */
   function _providersOf(cu){
     if(!cu) return null;
@@ -309,12 +307,6 @@
   const _authApi = window.TwApi.authed;
   /* 🛰 realtime 연결 하나(realtime/rt-hub.js) — 연결 공통부 · 토큰 · 버전만 잇는다. 켜기(start) · 끄기는 로그인 흐름 몫. */
   window.TwRtHub.store.bind({ createLink: createRealtimeLink, getToken: _getIdToken, getVersion: () => _appVer.ready });
-  /* 카탈로그 읽기 — 서버 한 벌 GET /v2/catalog(구조 · 버전 알림을 걷은 까닭은 catalog-api.js 머리말). 못 받으면 Firebase 로 물러나지 않고 E-CHAR-26 으로 알린다. */
-  const _catalogApi = createCatalogApi({
-    api: window.TwApi.client,
-    rt: window.TwRtHub.store,
-    notifyError: (...a) => window.TwErrorCodes.notify(...a),   // 부를 때 찾는다
-  });
   /* ★ Storage Phase 2: 유저 이미지(프로필/배경/스티커/박수)를 Realtime DB의 base64 대신 Storage에 저장.
      dataURL("data:image/...;base64,...")이 들어오면 Storage에 올리고 다운로드 URL을 돌려줌.
      이미 URL(https://...)이면 그대로 통과 — 재저장 시 중복 업로드 방지.
@@ -355,25 +347,6 @@
     apiGetAuthed(path, opts){ return _authApi ? _authApi.get(path, opts) : Promise.reject(Object.assign(new Error('API 통로 없음'), { kind: 'unavailable', code: 'NO_API', status: 0 })); },
     // 서버 방에 들어가고 나갈 때 친구 목록의 «온라인 · 방코드» — Firebase 방은 joinRoom · leaveRoom 이 직접 한다.
     // ===== 마이홈 친구 시스템 =====
-    /* ===== 🎵 플레이리스트 =====
-       내 목록 · 파도타기는 서버 API 로 옮겼다(status/playlist-api.js). 여기엔 명함 읽기(아래)만 남는다. */
-    /* 👤 목록 주인의 명함 — 이름·레벨·프로필 사진. 파도타기로 **건너간 순간에만** 1회 읽는다.
-       ★ 친구 목록이 이미 구독 중인 경로 둘을 그대로 쓴다(users/{uid}/profile, users/{uid}/home/avatar).
-         home 을 통째로 읽으면 게시글·테마·스티커까지 딸려 와서 파도탈 때마다 수백 KB가 나간다.
-       ⚠️ 실패해도 null 만 돌려준다 — 명함이 없다고 목록을 못 듣게 되면 안 된다. */
-    async fetchPlaylistCard(uid){
-      try{
-        const [ps, as] = await Promise.all([
-          get(ref(db, `users/${uid}/profile`)),
-          get(ref(db, `users/${uid}/home/avatar`)),
-        ]);
-        const p = ps.val() || {};
-        return { name: p.name ? String(p.name) : null,
-          level: (typeof p.level === 'number' && p.level >= 1) ? p.level : null,
-          cyc: p.cyc, clv: p.clv, starC: p.starC,   // 🌟 회차(개정 70) — 거르는 것은 app.js starFromRemote
-          avatar: as.val() || null };
-      }catch(e){ console.warn('[플레이리스트] 명함 읽기 실패', e); return null; }
-    },
     async lookupFriendCode(code){
       const snap = await get(ref(db, `friendCodes/${code}`));
       const v = snap.val();
@@ -524,52 +497,6 @@
       await uploadString(storageRef, dataUrl, 'data_url', { cacheControl: STORAGE_CACHE, contentType: isGif ? 'image/gif' : 'image/png' });
       return getDownloadURL(storageRef);
     },
-    // ---- 책상 카탈로그 (관리자가 등록한 책상을 모든 사용자에게 자동 배포. 수정하면 이미 쓰던 사람도 실시간 반영) ----
-    // catalog/desks/{id} = { name, icon, glbUrl, createdAt }
-    //   (구버전 데이터는 { name, icon, glb(base64), createdAt } — 마이그레이션 전까지 둘 다 지원)
-    /* 서버 한 벌(catalog-api.js). 콜백 모양(전체 목록 객체)은 통째 onValue 때와 같다. */
-    subscribeCatalogDesks(onChange){
-      return _catalogApi.subscribe('desks', onChange);
-    },
-
-    // ---- 아이템(소품) 카탈로그 ----
-    subscribeCatalogItems(onChange){
-      return _catalogApi.subscribe('items', onChange);
-    },
-
-    /* 카탈로그의 카테고리 · 해금 레벨(옛 customCats · catOverrides · gameConfig) — 서버 한 벌 */
-    subscribeCatalogCategories(onChange){
-      return _catalogApi.subscribe('categories', onChange);
-    },
-    subscribeCatalogUnlocks(onChange){
-      return _catalogApi.subscribe('unlocks', onChange);
-    },
-    /* 관리자 쓰기(admin/catalog-admin-api.js)가 version 을 읽고 · 쓴 뒤 다시 받는 두 자리 */
-    catalogCurrent(){ return _catalogApi.current(); },
-    reloadCatalog(){ return _catalogApi.load(); },
-
-    // ---- 파츠 카탈로그 ----
-    /* 🎰 파츠 — 서버 한 벌의 파츠가 가챠(gacha:true)까지 한 목록으로 온다(catalog-api.js unfoldCatalog). 앱 쪽 병합/삭제 감지는
-       «카탈로그 전체 목록» 을 기대하므로 한 번에 전체를 넘긴다 — 옛 «두 통이 다 도착하기 전엔 콜백 안 함» 문제가 없다. */
-    subscribeCatalogParts(onChange){
-      return _catalogApi.subscribe('parts', onChange);
-    },
-    // (마이홈 바탕화면 배경 · 폴더 — 읽기 · 쓰기는 서버 API(myhome/myhome-api.js · 상태 주인 myhome-store.js)로 옮겼다)
-    // Storage에 저장된 GLB를 fetch → base64로 변환 (기존 파츠 로딩 코드와 호환).
-    //   앱은 로컬(localStorage/IndexedDB)에서 캐싱을 담당해서 같은 파츠는 두 번 안 받게 함(호출 측).
-    async fetchCatalogGlb(url){
-      if(!url) throw new Error('empty url');
-      /* 웹 캐시를 거치지 않는다 — 깨진 응답이 캐시에 남으면 서버에 다시 묻지 않고 그것만 계속 꺼낸다(E-CHAR-14).
-         받은 GLB 는 부르는 쪽이 IndexedDB 에 저장하므로(glb-idb-cache.js) 요청 수는 그대로다. */
-      const res = await fetch(url, { cache: 'no-store' });
-      if(!res.ok) throw new Error('storage fetch failed '+res.status);
-      const buf = await res.arrayBuffer();
-      // ArrayBuffer → base64 (한 번에 큰 배열 대상으로 fromCharCode 하면 stack overflow — 청크로 처리)
-      const bytes = new Uint8Array(buf);
-      let bin = ''; const CHUNK = 0x8000;
-      for(let i=0; i<bytes.length; i+=CHUNK) bin += String.fromCharCode.apply(null, bytes.subarray(i, i+CHUNK));
-      return btoa(bin);
-    },
     /* ═══════════ 🔑 로그인(Firebase Auth) 원시 — 토큰 받기만 ═══════════
        0.13 은 로그인만 앱 ↔ Firebase Auth 가 하고 «이 로그인이 누구인가» 는 서버가 정한다(GET /v2/me — account/login-flow.js).
        여기는 Auth SDK 를 부르는 얇은 자리다 — 유저 코드 묶기 · 가입 · 비밀번호 붙이기 · 바꾸기는 서버(account/user-api.js)가 한다.
@@ -717,9 +644,5 @@
      ★ 2026-09-23: 쓰는 사람이 없음을 확인하고 **서버 규칙에서도 `mysRooms` 를 내렸다**(개정 63).
         남은 것은 콘솔의 옛 데이터뿐 — 규칙이 내려간 뒤에 지운다(순서가 반대면 지우자마자 다시 생길 수 있다). */
 
-  /* 🌐 명함 읽기는 서버 길 한 곳(api-public-reads.js) — 실패해도 위 Firebase 함수로 물러나지 않는다.
-     길은 친구 쪽 social-api.js fetchCards(GET /v2/myhomes/cards?codes=)를 그대로 쓴다(읽기뿐이라 따로 한 벌) */
-  const _cardApi = window.TwSocialApi.createSocialApi({ authed: window.TwApi.authed, warn: (...a) => console.warn(...a) });
-  createApiPublicReads({ fetchCards: (codes) => _cardApi.fetchCards(codes) }).wrap(window.firebaseAPI);
   try{ window.firebaseAPI.chatHistory.bindSettings(document, (m) => { window.toast(m); }); }catch(_){}   // 설정 › 시스템 [저장된 대화 지우기]
   window.dispatchEvent(new Event('firebase-ready'));

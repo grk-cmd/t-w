@@ -99,7 +99,7 @@ const MAX_CUSTOM_ASSETS=6, MAX_CUSTOM_ITEMS=50, MAX_GLB_BYTES=1024*1024;   // 1M
 let savedDesks=[], savedItems=[];   // [{id, name, icon, glb(base64)}]
 /* 🗂️ 두 갈래 — ① 카탈로그 몫(fromCatalog · 서버가 원본 · 카탈로그 동기화가 채운다 · 이 PC 에 따로 저장하지 않는다 — 서버 한 벌은 catalog-api.js)
    ② 이 계정 몫(코드로 추가한 책상 · 아이템 — 계정 칸). 계정 칸은 확인 전엔 닫혀 있어 만들 때는 비어 있고, 확인 뒤 loadLocalDesks · loadLocalItems 가 ② 만 채운다.
-   ★ 로그인 때 읽은 값으로 ① 을 덮지 않는다 — 카탈로그 몫이 먼저 와 있으면(구독은 계정과 무관하게 먼저 돈다) 그대로 두고 ② 중 카탈로그에 같은 id 가 없는 것만 더한다. */
+   ★ 로그인 때 읽은 값으로 ① 을 덮지 않는다 — 카탈로그 몫이 먼저 와 있으면(구독은 로그인 뒤 userLocal 다음에 돈다) 그대로 두고 ② 중 카탈로그에 같은 id 가 없는 것만 더한다. */
 function _readLocal(key){
   const raw = accountStore.get(key);   // 비어 있으면 null(저장한 적 없음). 깨진 값이면 JSON.parse 가 던진다 — 숨기지 않는다(user-local 이 경고)
   if(raw === null) return [];
@@ -112,7 +112,7 @@ function _mergeLocal(cur, key){
 /* 칸마다 따로 읽는다 — 한 칸이 깨져 던져도 다른 칸은 읽힌다(userLocal 이 칸마다 따로 부른다). 안 읽힌 칸이 «비어 있음» 으로 남아 다음 쓰기가 멀쩡한 칸의 몫을 지우지 않게 */
 function loadLocalDesks(){ savedDesks = _mergeLocal(savedDesks, SAVED_DESK_KEY); }
 function loadLocalItems(){ savedItems = _mergeLocal(savedItems, SAVED_ITEM_KEY); }
-/* 세션이 끝날 때 — 이 계정 몫만 비운다. 카탈로그 몫은 계정과 무관해 그대로 둔다 */
+/* 세션이 끝날 때 — 이 계정 몫만 비운다. 카탈로그 몫(서버가 이 사람에게 정한 locked 를 든다)은 catalog-sync.js 의 세션 reset 이 따로 비운다 */
 function resetLocalDesks(){ savedDesks = savedDesks.filter(p=>p.fromCatalog); }
 function resetLocalItems(){ savedItems = savedItems.filter(p=>p.fromCatalog); }
 /* 카탈로그에서 다시 받을 수 있는 자산인가 — 그렇다면 GLB 바이트를 이 PC 저장소에 복사해 두지 않는다(필요할 때 resolveCatalogGlb).

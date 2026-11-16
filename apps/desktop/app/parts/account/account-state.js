@@ -23,16 +23,14 @@ function _premiumChanged(){ _premiumFns.forEach(fn=>fn()); }   // «프리미엄
 
 const LICENSE_KEY_STORAGE = 'tw.licenseKey';   // 0.12 까지 이 PC 가 들던 키 — 0.13 은 서버가 계정에 묶어 안다. 첫 실행에 올리고 지울 옛 값(읽기 전용)
 /* 🔑 isPremium 은 **이 함수로만** 바꾼다 — 바뀌면 _refreshPremiumGatedUI 가 내 좌석의 책상 · 아이템을 다시 적용한다.
-   [모름] 서버 확인(GET /v2/me)이 오기 전에는 «아직 모름» 이다 — isPremium 은 false 지만 «아님» 이 아니다. 모르는 동안 전용 자산을 접으면(pruneUnownedLicenseAssets)
-     프리미엄 사용자의 책상이 잠깐 기본으로 떨어지고 방으로 나간다. 그래서 premiumKnown() 이 false 인 동안 접기는 건너뛴다(premium-assets.js).
-   [부르는 곳] 서버가 «이 계정 + 이 기기» 로 판정해 준 값(license-premium.js)만. 확인 전 저장값으로 켜지 않는다.
-   첫 확인은 값이 그대로 false 여도 «알림» 을 돌린다 — 모르는 동안 건너뛴 접기가 그때 돈다. */
+   [모름] 서버 확인(GET /v2/me)이 오기 전에는 «아직 모름» 이다 — isPremium 은 false 지만 «아님» 이 아니다. premiumKnown() 은 캐릭터 코드 불러오기(char-code.js)만 쓴다.
+     전용 자산을 막고 접는 판단은 이 값이 아니라 카탈로그 레코드의 서버 locked 다(licenseAssetBlocked · premium-assets.js).
+   [부르는 곳] 서버가 «이 계정 + 이 기기» 로 판정해 준 값(license-premium.js)만. 확인 전 저장값으로 켜지 않는다. 같은 값이면 조용하다. */
 let _premiumKnown = false;
 function _setPremium(v){
   v = !!v;
-  const wasKnown = _premiumKnown;
   _premiumKnown = true;
-  if(isPremium() === v && wasKnown) return;
+  if(isPremium() === v) return;
   setIsPremium(v);
   _premiumChanged();
 }
@@ -41,12 +39,12 @@ function resetPremium(){
   _premiumKnown = false;
   setIsPremium(false);
 }
-/* 🔒 «이 라이선스 전용 자산을 지금 막아야 하나» — 전용(licenseOnly)이고 프리미엄도 관리자도 아님. 전용 책상 · 아이템을 그리거나 고르는 모든 곳이 이 한 판단을 부른다
-   (책상 그리기 · 아이템 장착 · 생성기 카드 · 슬롯 불러오기 · 프리셋). item = 책상 · 아이템 레코드 또는 { licenseOnly }.
-   ★ 서버가 프리미엄을 확인해 주기 전(모름)에는 막지 않는다 — isPremium 의 false 는 «아님» 이 아니라서, 막으면 프리미엄 사용자가 켤 때마다 기본 책상 + «보유자만» 안내를 본다.
-     확인이 오면 _setPremium 알림이 내 좌석 · 런처 미리보기를 다시 그린다(license-gate.js _refreshPremiumGatedUI). 계정 핵심 상태에 두는 까닭: 책상 모듈과 전용 자산 모듈이 서로를 부르는 층이라 그 아래여야 순환이 안 생긴다. */
+/* 🔒 «이 라이선스 전용 자산을 지금 막아야 하나» — 서버가 카탈로그에 실어 준 이 사람의 locked 하나만 본다(판정은 서버). 전용 책상 · 아이템을 그리거나 고르는 모든 곳이 이 한 판단을 부른다
+   (책상 그리기 · 아이템 장착 · 생성기 카드 · 슬롯 불러오기 · 프리셋). item = 책상 · 아이템 레코드 또는 { locked }.
+   ★ 프리미엄 · 관리자 · «모름» 을 앱이 다시 가리지 않는다 — 서버가 확인하기 전에는 레코드(locked)가 아직 없어 막을 것도 없다. 풀림 · 잠김은 realtime license 알림 뒤 카탈로그를 다시 받아 바뀐다.
+   계정 핵심 상태에 두는 까닭: 책상 모듈과 전용 자산 모듈이 서로를 부르는 층이라 그 아래여야 순환이 안 생긴다. */
 function licenseAssetBlocked(item){
-  return !!(item && item.licenseOnly) && _premiumKnown && !isPremium() && !isAdmin();
+  return !!(item && item.locked === true);
 }
 const LICENSE_OPTOUT_KEY = 'tw.licenseOptOut';   // 0.12 의 «이 기기에서 해제» 표시 — 더는 쓰지 않는 옛 값(0.13 은 서버 기기 목록에서 뺀다 · 첫 실행이 읽고 지운다)
 let _acctDetached = false;   // 신원을 놓았다 — 이 뒤로 서버에 올리는 길(포커스 올리기 등)은 돌지 않는다

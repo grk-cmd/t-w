@@ -1,11 +1,12 @@
 /* ═══ 🧩 sim-catalog-api.js — 카탈로그를 서버 한 벌 GET /v2/catalog 에서(character/catalog-api.js) ═══════════════
    [왜] #887 이 서버에 없는 GET /v2/catalog/{parts·gachaParts·items·desks}?v= 를 만들었다. 서버 정본은 GET /v2/catalog 한 벌(ETag · no-cache)이다.
-     이 검사는 한 벌을 앱의 세 목록(parts · items · desks)으로 펼치는 표 · 받기 · 알림 · 실패(Firebase 로 안 물러남)를 지킨다.
+     이 검사는 한 벌을 앱의 세 목록(parts · items · desks)으로 펼치는 표 · 받기(로그인 통로 · 서버 locked 그대로) · 알림 · 실패(Firebase 로 안 물러남) · 로그인이 끝나면 비움을 지킨다.
    1. 펼치기 — 서버 한 벌(CatalogResponse)의 칸이 옛 레코드 칸으로(가챠 · 전용 · 위치 · 파일 주소 · 순서 · 깨진 줄 · 모양이 틀린 한 벌)
    2. 받기 — 길은 GET /v2/catalog 하나 · 구독 셋이 요청 하나 · 새 객체 · 같은 값은 다시 안 넘김 · 늦은 구독자
    3. 알림 — realtime catalog 알림이 다시 받기 · 받는 중 알림은 한 번 더 · 연결이 ready 가 되면 실패했을 때만 다시
    4. 실패 — E-CHAR-26 으로 드러냄 · 지난 목록을 비우지 않음 · Firebase 로 안 물러남 · 타이머로 두드리지 않음
-   5. 배선 — firebase-init(import · 만드는 줄 · 구독 셋) · 옛 길(/v2/catalog/{종류}) · catalogMeta 구독 · catalog-cache.js 가 없다
+   4-B. 로그인이 끝나면 — 마지막 구독자가 빠지면 값 · 알림 구독을 비운다(다음 로그인이 앞 사람의 locked 를 받지 않는다) · 늦게 온 앞 로그인의 답은 버린다
+   5. 배선 — app.js(만드는 줄 · 로그인 통로) · app-boot 차례 'catalog' · html · Firebase 에는 카탈로그가 없다 · 옛 길(/v2/catalog/{종류}) · catalogMeta 구독 · catalog-cache.js · catalog-source.js 가 없다
    6. 일부러 깨 보기
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
 'use strict';
@@ -18,13 +19,12 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const DIRS = ['.', 'parts', 'app', path.join('app', 'parts'), '..', path.join('..', 'app'), path.join('..', 'app', 'parts')];
 const read = (f) => { for(const d of DIRS){ try{ return fs.readFileSync(path.join(d, f), 'utf8'); }catch(_){} } return null; };
 const exists = (f) => DIRS.some((d) => fs.existsSync(path.join(d, f)));
-const SRC = read('catalog-api.js'), FI = read('firebase-init.js'), ERR = read('error-codes.js');
-for(const [n, v] of [['catalog-api.js', SRC], ['firebase-init.js', FI], ['error-codes.js', ERR]]){
+const SRC = read('catalog-api.js'), FI = read('firebase-init.js'), ERR = read('error-codes.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html'), BOOT = read('app-boot.js');
+for(const [n, v] of [['catalog-api.js', SRC], ['firebase-init.js', FI], ['error-codes.js', ERR], ['app.js', APP], ['html', HTML], ['app-boot.js', BOOT]]){
   if(!v){ say('  ? 원본 못 찾음 — ' + n); process.exit(2); }
 }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
-const names = [...SRC.matchAll(/^export (?:const|function|async function) (\w+)/gm)].map((m) => m[1]);
-const load = (src) => new Function(src.replace(/^export (const|function|async function) /gm, '$1 ') + '\nreturn {' + names.join(',') + '};')();
+const load = (src) => { const m = { exports: {} }; new Function('window', 'module', src)(undefined, m); return m.exports; };   // classic script — module.exports 로 꺼낸다
 const M = load(SRC);
 const BASE = 'https://api.together-working.com';
 const H = (c) => c.repeat(64).slice(0, 64);
@@ -45,8 +45,10 @@ const mkData = () => ({
   ],
   desks: [
     { deskId: 'd1', name: '나무 책상', icon: '🪑', model: H('e'), thumb: H('f'), play: { playMode: 'auto', autoPlay: true, glow: false }, listing: listing(), version: 1 },
-    { deskId: 'd2', name: '전용 책상', icon: '💎', model: H('1'), play: { playMode: 'click', autoPlay: false, glow: true },
+    { deskId: 'd2', name: '전용 책상', icon: '💎', model: H('1'), play: { playMode: 'click', autoPlay: false, glow: true }, locked: true,
       listing: listing({ access: { kind: 'entitlement', key: 'premium', display: 'show' } }), version: 2 },
+    { deskId: 'd3', name: '내가 쓸 수 있는 전용 책상', icon: '💠', model: H('4'), play: { playMode: 'click', autoPlay: false, glow: false }, locked: false,
+      listing: listing({ access: { kind: 'entitlement', key: 'premium', display: 'show' } }), version: 1 },
   ],
   deskProps: [
     { deskPropId: 'i1', name: '컵', icon: '☕', model: H('2'), thumb: H('3'), play: { playMode: 'idle', autoPlay: false, glow: false }, attachTo: 'handL', defaultSize: 0.5, listing: listing(), version: 1 },
@@ -57,7 +59,7 @@ const mkData = () => ({
   say('── 1. 펼치기');
   {
     const u = M.unfoldCatalog(mkData(), assetUrl);
-    chk(Object.keys(u).join() === 'parts,items,desks,categories,unlocks' && Object.keys(u.parts).join() === 'hat1,g1,g2' && Object.keys(u.desks).join() === 'd1,d2' && Object.keys(u.items).join() === 'i1',
+    chk(Object.keys(u).join() === 'parts,items,desks,categories,unlocks' && Object.keys(u.parts).join() === 'hat1,g1,g2' && Object.keys(u.desks).join() === 'd1,d2,d3' && Object.keys(u.items).join() === 'i1',
       '★ 한 벌 → { parts · items · desks } — 서버 deskProps 가 items · 가챠 파츠는 parts 한 목록 안(옛 gachaParts 를 합친 모양)');
     const p = u.parts.hat1;
     chk(p.name === '모자' && p.icon === '🎩' && p.cat === 'hat' && p.multi === true && p.rideTop === true && p.animMode === 'loop' && p.charType === 'default' && p.hides.join() === 'mask' && p.gacha === undefined,
@@ -90,9 +92,13 @@ const mkData = () => ({
     const d = u.desks.d1, d2 = u.desks.d2;
     chk(d.name === '나무 책상' && d.playMode === 'auto' && d.autoPlay === true && d.licenseOnly === false && d.glbUrl === assetUrl(H('e'), 'glb') && !('attachTo' in d),
       '  ↳ 책상 — 재생 방식 · 전용 아님 · 소품 칸(attachTo)은 없다');
-    chk(d2.licenseOnly === true && d2.glow === true, '★ 진열 access.kind entitlement → licenseOnly:true(옛 깃발과 같은 뜻)');
+    chk(d2.locked === true && d2.licenseOnly === true && d2.glow === true, '★ 두 칸 — 서버 locked:true → locked:true(막기 · 서버 값 그대로) · 진열 entitlement → licenseOnly:true(전용 분류)');
+    chk(u.desks.d3.locked === false && u.desks.d3.licenseOnly === true && u.desks.d3.listingAccess.kind === 'entitlement' && d.locked === false && d.licenseOnly === false,
+      '★ 진열이 전용이어도 서버 locked 가 거짓이면(이 사람은 쓸 수 있다) locked:false — 막기는 분류로 정하지 않는다. 분류(licenseOnly)는 그대로 true 라 «전용 책상» 탭에 그려진다');
+    const nl = mkData(); delete nl.desks[0].locked; delete nl.deskProps[0].locked;
+    chk(M.unfoldCatalog(nl, assetUrl).desks.d1.locked === false, '  ↳ locked 칸이 없으면(null · 안 옴) 막지 않는다 — 서버가 «못 고름» 이라 한 것만 막는다');
     const it = u.items.i1;
-    chk(it.attachTo === 'handL' && it.defaultSize === 0.5 && it.playMode === 'idle' && it.licenseOnly === false, '  ↳ 소품 — attachTo · defaultSize · 재생 방식');
+    chk(it.attachTo === 'handL' && it.defaultSize === 0.5 && it.playMode === 'idle' && it.licenseOnly === false && it.locked === false, '  ↳ 소품 — attachTo · defaultSize · 재생 방식');
     const bad = mkData(); bad.parts[0].model = 'ZZ'; bad.parts.push({ name: 'id 없음' }); bad.parts.push(null);
     const ub = M.unfoldCatalog(bad, assetUrl);
     chk(!('glbUrl' in ub.parts.hat1) && Object.keys(ub.parts).length === 3, '  ↳ 해시 모양이 아니면 주소를 만들지 않는다(틀린 주소 0) · id 없는 줄 · null 은 그 줄만 뺀다');
@@ -106,8 +112,8 @@ const mkData = () => ({
     const o = opts || {};
     const env = { calls: [], notes: [], warns: [], data: mkData(), fail: null, same: false };
     env.api = { baseUrl: () => BASE, get: async (p, op) => { env.calls.push({ p, op }); if(env.fail) throw env.fail; if(env.same && env.last) return env.last; env.last = JSON.parse(JSON.stringify(env.data)); return env.last; } };
-    env.h = {}; env.st = [];
-    env.rt = { on: (k, fn) => { env.h[k] = fn; return () => {}; }, onState: (fn) => { env.st.push(fn); return () => {}; } };
+    env.h = {}; env.st = []; env.offs = 0;
+    env.rt = { on: (k, fn) => { env.h[k] = fn; return () => { env.offs++; delete env.h[k]; }; }, onState: (fn) => { env.st.push(fn); return () => { env.offs++; env.st.length = 0; }; } };
     env.make = (Mod) => (Mod || M).createCatalogApi({ api: env.api, rt: env.rt, notifyError: (c, e) => env.notes.push([c, e]), warn: (...a) => env.warns.push(a.join(' ')) });
     return env;
   };
@@ -119,6 +125,7 @@ const mkData = () => ({
     cat.subscribe('parts', (v) => got.parts.push(v)); cat.subscribe('items', (v) => got.items.push(v)); cat.subscribe('desks', (v) => got.desks.push(v));
     await flush();
     chk(env.calls.length === 1 && env.calls[0].p === '/v2/catalog' && env.calls[0].op.timeoutMs === 8000, '★ 구독 셋이어도 요청 하나 — 길은 GET /v2/catalog(옛 /v2/catalog/{종류}?v= 아님) · 본문이 커서 시간 제한 8초');
+    chk(env.calls[0].op.auth === true, '★ 로그인 읽기로 받는다(auth:true) — 서버가 보는 사람마다 locked 를 정한다');
     chk(got.parts.length === 1 && got.items.length === 1 && got.desks.length === 1 && got.parts[0].hat1 && got.items[0].i1 && got.desks[0].d2, '  ↳ 세 구독자가 제 종류의 전체 목록을 한 번씩 받는다');
     got.parts[0].hat1.glb = 'BASE64';   // 받는 쪽(resolveCatalogGlb)이 rec.glb 를 채워 넣는다
     let late = null; cat.subscribe('parts', (v) => { late = v; });
@@ -132,14 +139,17 @@ const mkData = () => ({
       '★ 카테고리 · 해금도 같은 한 벌에서 구독한다(요청 추가 없음) · current() 는 마지막으로 받은 서버 한 벌 그대로(관리자 쓰기가 version 을 읽는다)');
     chk(mkEnv().make().current() === null, '  ↳ 아직 못 받았으면 current() 는 null');
     const un = cat.subscribe('items', () => {}); un();
-    chk(typeof un === 'function' && typeof cat.subscribe('x', () => {}) === 'function' && env.calls.length === 3, '  ↳ 해제 함수를 돌려준다 · 모르는 종류 · 콜백 없음은 요청하지 않는다');
+    chk(typeof un === 'function' && (() => { try{ cat.subscribe('x', () => {}); return false; }catch(_){ return true; } })() && env.calls.length === 3, '  ↳ 해제 함수를 돌려준다 · 모르는 종류는 던진다(요청하지 않는다)');
   }
 
   say('── 3. 알림 — realtime catalog');
   {
     const env = mkEnv(); const cat = env.make(); const got = [];
     cat.subscribe('desks', (v) => got.push(v)); await flush();
-    chk(typeof env.h.catalog === 'function' && env.st.length === 1, '★ 구독하면 realtime 허브의 catalog 알림 · 연결 상태를 건다');
+    chk(typeof env.h.catalog === 'function' && typeof env.h.license === 'function' && env.st.length === 1, '★ 구독하면 realtime 허브의 catalog · license 알림 · 연결 상태를 건다');
+    env.data.desks[1].locked = false; env.h.license({ kind: 'license' }); await flush();
+    chk(env.calls.length === 2 && got.length === 2 && got[1].d2.locked === false, '★ 내 라이선스가 바뀌었다는 알림(license) → 다시 받는다 — 서버가 정하는 locked 가 바뀌었다');
+    env.data.desks[1].locked = true; env.data.desks[1].name = '바뀜'; env.calls.length = 1; got.length = 1;
     env.data.desks[1].name = '알림 뒤 책상'; env.h.catalog({ kind: 'catalog', resync: false }); await flush();
     chk(env.calls.length === 2 && got.length === 2 && got[1].d2.name === '알림 뒤 책상', '★ catalog 알림 → 다시 묻는다(ETag) · 바뀐 값을 넘긴다');
     env.h.catalog({ resync: true }); await flush();
@@ -173,18 +183,63 @@ const mkData = () => ({
     chk(/'E-CHAR-26': \{/.test(ERR), '  ↳ E-CHAR-26 이 error-codes.js 표에 있다');
   }
 
+  say('── 4-B. 로그인이 끝나면 비운다');
+  {
+    const env = mkEnv(); const cat = env.make(); const a = [], b = [];
+    const u1 = cat.subscribe('parts', (v) => a.push(v)), u2 = cat.subscribe('desks', (v) => b.push(v)); await flush();
+    chk(!!cat.current() && env.calls.length === 1, '로그인 중에는 받은 한 벌을 들고 있다');
+    u1();
+    chk(!!cat.current() && env.offs === 0, '★ 구독자가 하나라도 남아 있으면 비우지 않는다');
+    u2();
+    chk(cat.current() === null && env.offs === 3 && !env.h.catalog && !env.h.license && env.st.length === 0, '★ 마지막 구독자가 빠지면(세션이 끝남) 받은 값 · catalog · license · 연결 상태 구독을 모두 비운다');
+    const c = []; env.data.desks[1].locked = false;   // 다음 사람 — 서버가 다르게 정해 준다
+    cat.subscribe('desks', (v) => c.push(v)); await flush();
+    chk(env.calls.length === 2 && c.length === 1 && c[0].d2.locked === false, '★ 다음 로그인은 새로 받는다 — 앞 사람의 locked 를 받지 않는다');
+    /* 앞 로그인의 늦은 답 */
+    const e2 = mkEnv(); const k2 = e2.make(); let rel = null; const got2 = [];
+    e2.api.get = async (p, op) => { e2.calls.push({ p, op }); await new Promise((r) => { rel = r; }); return JSON.parse(JSON.stringify(e2.data)); };
+    const un = k2.subscribe('parts', (v) => got2.push(v)); await flush(); un();
+    rel(); await flush();
+    chk(got2.length === 0 && k2.current() === null && e2.notes.length === 0, '★ 로그인이 끝난 뒤 늦게 온 답은 버린다 — 누구에게도 넘기지 않고 알림 · 목록도 남기지 않는다');
+    const e3 = mkEnv(); const k3 = e3.make(); let rel3 = []; const got3 = [];
+    e3.api.get = async (p, op) => { e3.calls.push({ p, op }); await new Promise((r) => rel3.push(r)); return JSON.parse(JSON.stringify(e3.data)); };
+    const un3 = k3.subscribe('parts', () => {}); await flush(); un3();
+    k3.subscribe('parts', (v) => got3.push(v)); await flush();
+    rel3[0](); await flush();
+    chk(got3.length === 0, '  ↳ 앞 로그인의 늦은 답이 다음 로그인 구독자에게 새지 않는다');
+    rel3[1](); await flush();
+    chk(got3.length === 1 && e3.calls.length === 2, '  ↳ 다음 로그인 자신의 요청 답은 받는다');
+  }
+
+  say('── 4-C. GLB 받기');
+  {
+    const env = mkEnv(); let asked = null;
+    const bytes = new Uint8Array([71, 76, 66, 0, 255]);
+    const ok = env.make === undefined ? null : M.createCatalogApi({ api: env.api, rt: env.rt, notifyError: () => {}, fetch: async (u, o) => { asked = [u, o]; return { ok: true, arrayBuffer: async () => bytes.buffer }; } });
+    const b64 = await ok.fetchGlb('https://x/a.glb');
+    chk(b64 === Buffer.from(bytes).toString('base64') && asked[0] === 'https://x/a.glb' && asked[1].cache === 'no-store', '★ 주소를 웹 캐시 없이 받아 base64 로 돌려준다');
+    const bad = M.createCatalogApi({ api: env.api, rt: env.rt, notifyError: () => {}, fetch: async () => ({ ok: false, status: 404 }) });
+    const e1 = await bad.fetchGlb('u').then(() => null, (e) => e), e2 = await bad.fetchGlb('').then(() => null, (e) => e);
+    chk(e1 && /404/.test(e1.message) && e2 && /empty url/.test(e2.message), '  ↳ 못 받으면 · 주소가 비면 던진다(부르는 쪽 catalog-glb 가 실패 이유를 남긴다)');
+  }
+
   say('── 5. 배선');
   {
-    const fi = strip(FI);
-    chk(/import \{ createCatalogApi \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?catalog-api\.js";/.test(FI), 'firebase-init.js 가 catalog-api.js 를 import 한다');
-    chk(/const _catalogApi = createCatalogApi\(\{\s*api: window\.TwApi\.client,\s*rt: window\.TwRtHub\.store,\s*notifyError: \(\.\.\.a\) => window\.TwErrorCodes\.notify\(\.\.\.a\),\s*\}\);/.test(fi),
-      '  ↳ 만드는 줄 — 로그인 없는 API 통로 · realtime 허브 · 오류 번호(부를 때 찾는다)');
-    chk(/subscribeCatalogDesks\(onChange\)\{\s*return _catalogApi\.subscribe\('desks', onChange\);/.test(fi) && /subscribeCatalogItems\(onChange\)\{\s*return _catalogApi\.subscribe\('items', onChange\);/.test(fi)
-      && /subscribeCatalogParts\(onChange\)\{\s*return _catalogApi\.subscribe\('parts', onChange\);/.test(fi), '  ↳ 책상 · 아이템 · 파츠 구독이 서버 한 벌에 이어진다');
+    const fi = strip(FI), app = strip(APP);
+    chk(!/createCatalogApi|subscribeCatalog|fetchCatalogGlb|catalogCurrent|reloadCatalog|_catalogApi|catalog-api/.test(fi), '★ firebase-init.js 에 카탈로그 읽기 · 구독 · GLB 받기가 없다 — Firebase 를 거치지 않는다');
+    chk(/const catalogApiMod = TwCatalogApi\.createCatalogApi\(\{\s*api: TwApi\.authed,\s*rt: TwRtHub\.store,\s*notifyError: \(\.\.\.a\)=>TwErrorCodes\.notify\(\.\.\.a\),\s*fetch: \(\.\.\.a\)=>window\.fetch\(\.\.\.a\),\s*\}\);/.test(app),
+      '  ↳ app.js 가 로그인 통로(TwApi.authed) · realtime 허브 · 오류 번호 · 파일 받기로 만든다');
+    chk(/catalog: \(code, me, session\)=>catalogSyncMod\.start\(session\),/.test(app) && /catalog: \{ current: \(\)=>catalogApiMod\.current\(\), load: \(\)=>catalogApiMod\.load\(\) \},/.test(app), '  ↳ 로그인 뒤 app-boot 차례(catalog)가 구독을 세션에 맡긴다 · 관리자 쓰기는 같은 한 벌의 version 을 읽는다');
+    const st = (BOOT.match(/const STEPS = \[([\s\S]*?)\];/) || [])[1] || '';
+    chk(/'userLocal'[\s\S]*'catalog'/.test(st) && st.indexOf("'catalog'") > st.indexOf("'userLocal'"), '  ↳ 차례 표에서 catalog 는 저장 목록이 읽힌 뒤(userLocal 다음)');
+    const iA = HTML.indexOf('<script src="parts/character/catalog-api.js">'), iApp = HTML.indexOf('<script src="parts/app.js">');
+    chk(iA > 0 && iA < iApp && !/catalog-source\.js/.test(HTML), '  ↳ html 이 catalog-api.js 를 일반 스크립트로 app.js 앞에 싣는다 · catalog-source.js 는 없다');
+    chk(!/catalogSrc|TwCatalogSource|catalogSourceMod/.test(app) && !exists('catalog-source.js'), '  ↳ 옛 provider 자리(catalog-source.js · catalogSrc* · «있으면 부르기» 가드)가 없다');
     chk(!/\/v2\/catalog\/['"`]?\s*\+\s*kind|v2\/catalog\/(?:parts|gachaParts|items|desks)/.test(fi + strip(SRC)), '★ 옛 길 GET /v2/catalog/{종류}?v= 가 코드에 없다');
     chk(!/ref\(db,\s*['"`]catalogMeta/.test(fi) && !/onValue\([^)]*catalogMeta/.test(fi) && !/ref\(db,\s*['"`]catalog\/(?:parts|gachaParts|items|desks)['"`]\)[^;]{0,40}onValue/.test(fi), '★ Firebase catalogMeta 를 읽는 구독이 없다(쓰기쪽 올림은 옛 앱 호환이라 남는다)');
     chk(!exists('catalog-cache.js') && !/catalog-cache\.js/.test(fi), '  ↳ 옛 catalog-cache.js(버전 확인 · IndexedDB 캐시 · Firebase 로 물러나기)가 없다');
     chk(!/createApiCatalogFetch|firebaseGet/.test(fi), '  ↳ «API 실패면 Firebase get» 이 없다');
+    chk(/locked: d\.locked === true/.test(strip(SRC)) && !/locked:\s*licenseOnlyOf|locked:[^,}]*access/.test(strip(SRC)), '★ 막기 칸(locked)은 서버 값 그대로 — 진열 access 로 만들지 않는다(access.kind 는 분류 칸 licenseOnly 를 채울 때만 쓴다)');
   }
 
   say('── 6. 일부러 깨 보기');
@@ -193,7 +248,7 @@ const mkData = () => ({
       const env = mkEnv(); const cat = env.make(Mod); const got = []; let okAll = true;
       const ok = (c) => { if(!c) okAll = false; };
       cat.subscribe('parts', (v) => got.push(v)); cat.subscribe('desks', (v) => got.push(v)); await flush();
-      ok(env.calls.length === 1 && env.calls[0].p === '/v2/catalog' && got.length === 2);
+      ok(env.calls.length === 1 && env.calls[0].p === '/v2/catalog' && env.calls[0].op.auth === true && got.length === 2);
       got[0].hat1 && (got[0].hat1.glb = 'X'); let late = null; cat.subscribe('parts', (v) => { late = v; }); ok(late && !('glb' in late.hat1));
       env.same = true; await cat.load(); await flush(); ok(got.length === 2);
       env.same = false; env.data.desks[0].name = 'N'; await cat.load(); await flush(); ok(got.length === 3);
@@ -210,11 +265,12 @@ const mkData = () => ({
     };
     chk(await run(M), '원본은 핵심 동작을 다 지킨다');
     const BREAKS = [
-      ["api.get(CATALOG_PATH, {", "api.get(CATALOG_PATH + '/parts', {", '옛 길 /v2/catalog/{종류} 를 부름'],
+      ["api.get(CATALOG_PATH, { auth: true,", "api.get(CATALOG_PATH + '/parts', { auth: true,", '옛 길 /v2/catalog/{종류} 를 부름'],
+      ["api.get(CATALOG_PATH, { auth: true,", "api.get(CATALOG_PATH, {", '로그인 없이 받음(locked 가 사람마다 달라지지 않음)'],
       ["      if(text === last[kind]) continue;", "", '바뀌지 않은 종류도 다시 넘김'],
       ["try{ onData(clone(cur[kind])); }", "try{ onData(cur[kind]); }", '값을 복제하지 않고 같은 객체를 넘김'],
-      ["catch(e){ failed = true; notifyError('E-CHAR-26', e);", "catch(e){ failed = true;", '실패를 번호로 안 알림'],
-      ["rt.on('catalog', () => { load(); });", "", 'catalog 알림을 안 들음'],
+      ["failed = true; notifyError('E-CHAR-26', e);", "failed = true;", '실패를 번호로 안 알림'],
+      ["rt.on('catalog', () => { load(); }),", "", 'catalog 알림을 안 들음'],
       ["    if(data === raw && cur) return;", "    if(cur) return;", '바뀐 값도 304 처럼 넘김'],
       ["    if(running){ again = true; return running; }", "    if(running) return running;", '받는 중에 온 알림을 놓침'],
       ["if(s === 'ready' && failed) load();", "", '연결 복구 때 다시 안 받음'],
@@ -226,8 +282,13 @@ const mkData = () => ({
       if(good) missed.push(what);
     }
     chk(!missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
-    const fb = FI.replace("return _catalogApi.subscribe('parts', onChange);", "return null;");
-    chk(fb !== FI && !/subscribeCatalogParts\(onChange\)\{\s*return _catalogApi\.subscribe\('parts', onChange\);/.test(strip(fb)), '  깨 보기: 파츠 구독을 끊으면 배선 판정이 빨강');
+    /* 비우기 · locked 깨 보기 — 4-B 와 2 절의 판정이 빨강이 되는지 */
+    const dropless = SRC.replace("    cur = null; raw = null; running = null; again = false; failed = false;\n", "");
+    const de = mkEnv(), dk = load(dropless).createCatalogApi({ api: de.api, rt: de.rt, notifyError: () => {}, warn: () => {} });
+    const du = dk.subscribe('parts', () => {}); await flush(); du();
+    chk(dropless !== SRC && dk.current() !== null, '  깨 보기: 로그인이 끝나도 값을 안 비우면 4-B 의 «비운다» 판정이 빨강');
+    const own = SRC.replace("locked: d.locked === true,", "locked: licenseOnlyOf(d.listing),");
+    chk(own !== SRC && load(own).unfoldCatalog(mkData(), assetUrl).desks.d3.locked === true, '  깨 보기: 진열 access 로 locked 를 만들면 «서버 locked 그대로» 판정이 빨강');
   }
 
   say('\n' + pass + ' · ' + fail);

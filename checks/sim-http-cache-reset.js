@@ -1,7 +1,7 @@
-/* ═══ 🧹 sim-http-cache-reset.js — 웹 캐시 재발 방지(http-cache-reset.js · firebase-init.js fetchCatalogGlb) ═══════════════
+/* ═══ 🧹 sim-http-cache-reset.js — 웹 캐시 재발 방지(http-cache-reset.js · catalog-api.js fetchGlb) ═══════════════
    [왜] 웹 캐시에 깨진 응답이 남으면 앱이 서버에 다시 묻지 않고 그것만 꺼내 책상 · 장신구(E-CHAR-14)와 썸네일이 계속 안 떴다.
    ・1절: 버전이 바뀐 뒤 첫 실행에만 비운다 · 같은 버전이면 안 비운다 · 표시 파일 · 못 비우면 표시를 안 남김 · 오래 걸리면 기다리기를 그만둠
-   ・2절: 책상 · 장신구 GLB 받기는 웹 캐시를 거치지 않는다(fetch cache: 'no-store') — firebase-init.js 의 함수를 떼어 돌린다
+   ・2절: 책상 · 장신구 GLB 받기는 웹 캐시를 거치지 않는다(fetch cache: 'no-store') — catalog-api.js 의 함수를 떼어 돌린다
    ・3절: 배선 — main.js 가 창을 띄우기 전에 부른다 · 그동안 맥 activate 가 창을 먼저 만들지 않는다 · 설치 목록(package.json files)
    ・4절: 깨 보기
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
@@ -15,8 +15,8 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const DIRS = ['.', '..', 'app', path.join('app', 'parts'), 'parts', path.join('..', 'apps', 'desktop'), path.join('..', 'apps', 'desktop', 'app', 'parts')];
 const find = (f) => { for(const d of DIRS){ const p = path.join(d, f); if(fs.existsSync(p)) return p; } return null; };
 const read = (f) => { const p = find(f); return p ? fs.readFileSync(p, 'utf8') : null; };
-const MODP = find('http-cache-reset.js'), MOD = read('http-cache-reset.js'), MAIN = read('main.js'), FB = read('firebase-init.js'), PKG = read('package.json');
-for(const [n, v] of [['http-cache-reset.js', MOD], ['main.js', MAIN], ['firebase-init.js', FB], ['package.json', PKG]]){
+const MODP = find('http-cache-reset.js'), MOD = read('http-cache-reset.js'), MAIN = read('main.js'), FB = read('catalog-api.js'), PKG = read('package.json');
+for(const [n, v] of [['http-cache-reset.js', MOD], ['main.js', MAIN], ['catalog-api.js', FB], ['package.json', PKG]]){
   if(!v){ say('  ? 원본 못 찾음 — ' + n); process.exit(2); }
 }
 const load = (src) => { const m = { exports: {} }; new Function('module', 'require', src)(m, require); return m.exports; };
@@ -47,20 +47,20 @@ async function behave(src){
   r.timeout = (await mk(R, '0.13.0', 30).run()) === 'timeout' && Date.now() - t0 < 1000 && !(F in R.files);
   return r;
 }
-/* firebase-init.js 의 fetchCatalogGlb 를 떼어 가짜 fetch 로 돌린다 */
+/* catalog-api.js 의 fetchGlb 를 떼어 가짜 fetch 로 돌린다 */
 function fetchGlbOf(src){
-  const i = src.indexOf('async fetchCatalogGlb(url){');
+  const i = src.indexOf('async function fetchGlb(url){');
   if(i < 0) return null;
   let d = 0, j = src.indexOf('{', i);
   for(; j < src.length; j++){ if(src[j] === '{') d++; else if(src[j] === '}' && --d === 0) break; }
   const body = src.slice(i, j + 1);
-  return (fetchFn) => new Function('fetch', 'btoa', 'return {' + body + '};')(fetchFn, (s) => Buffer.from(s, 'binary').toString('base64'));
+  return (fetchFn) => new Function('fetchFile', 'btoa', body + '\nreturn { fetchGlb };')(fetchFn, (s) => Buffer.from(s, 'binary').toString('base64'));
 }
 async function glbFetch(src){
   const mk = fetchGlbOf(src); if(!mk) return null;
   const calls = [];
   const api = mk(async (u, opt) => { calls.push([u, opt]); return { ok: true, status: 200, arrayBuffer: async () => new Uint8Array([103, 108, 84, 70]).buffer }; });
-  const b64 = await api.fetchCatalogGlb('https://x/o/a.glb?alt=media');
+  const b64 = await api.fetchGlb('https://x/o/a.glb?alt=media');
   return { b64, calls };
 }
 /* main.js 의 activate 처리기를 떼어 «부팅 끝났나» 에 따라 창을 만드는지 돌린다 */
@@ -90,7 +90,7 @@ function bootOrderOk(src){
 
   say('── 2. 책상 · 장신구 GLB 받기는 웹 캐시를 거치지 않는다');
   const g = await glbFetch(FB);
-  chk(!!g && g.calls.length === 1 && g.calls[0][1] && g.calls[0][1].cache === 'no-store', "★ fetchCatalogGlb 가 fetch(url, { cache: 'no-store' }) 로 받는다");
+  chk(!!g && g.calls.length === 1 && g.calls[0][1] && g.calls[0][1].cache === 'no-store', "★ fetchGlb 가 fetch(url, { cache: 'no-store' }) 로 받는다");
   chk(!!g && g.b64 === 'Z2xURg==', '  받은 바이트는 예전처럼 base64 로 돌려준다');
 
   say('── 3. 배선');
@@ -106,7 +106,7 @@ function bootOrderOk(src){
   chk(!b1.same, '같은 버전도 비우면 위 «같은 버전이면 안 비운다» 가 빨강');
   const b2 = await behave(MOD.replace("    await o.session.clearCache();\n    try{ o.fs.writeFileSync(file, String(o.version)); }catch(_){}", "    try{ o.fs.writeFileSync(file, String(o.version)); }catch(_){}\n    await o.session.clearCache();"));
   chk(!b2.fail, '비우기 전에 표시를 남기면 위 «못 비우면 표시를 안 남긴다» 가 빨강');
-  const g2 = await glbFetch(FB.replace("await fetch(url, { cache: 'no-store' })", 'await fetch(url)'));
+  const g2 = await glbFetch(FB.replace("await fetchFile(url, { cache: 'no-store' })", 'await fetchFile(url)'));
   chk(!!g2 && !(g2.calls[0][1] && g2.calls[0][1].cache === 'no-store'), "fetch 에서 cache: 'no-store' 를 빼면 위 2절이 빨강");
   const act2 = activateOf(MAIN.replace("    if (!_bootDone) return;\n", ''));
   chk(!!act2 && act2(false, 0) === 1, 'activate 의 «부팅 전엔 그만» 을 빼면 위 3절 ★ 가 빨강');

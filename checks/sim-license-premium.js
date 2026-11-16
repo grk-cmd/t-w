@@ -234,14 +234,13 @@ async function judge(S){
     t(d3.ok === false && d3.err === boom && e.custom === 0 && e.sets.length === 0, '해제 실패 → 아무것도 안 바꾼다(커스텀 상태 · 프리미엄) · 오류(err)를 돌려줘 부르는 쪽이 번호로 알린다');
   }
 
-  /* 4. ★ 모름 동안 접기 0번 — 진짜 account-state + premium-assets 를 이어서 */
+  /* 4. ★ 서버 locked 를 받기 전엔 접기 0번 — 진짜 account-state + premium-assets 를 이어서(레코드는 카탈로그가 와야 생기고, 서버가 사람마다 locked 를 정해 싣는다) */
   {
     const any = new Proxy(function(){}, { get: (t, k) => (k === Symbol.toPrimitive ? () => '' : k === 'then' ? undefined : any), apply: () => any, construct: () => any, set: () => true, has: () => true });
     const boot = async (o) => {
-      const world = { premium: false, saves: 0, pushes: 0, redraws: [] };
+      const world = { premium: false, saves: 0, pushes: 0, redraws: [], recs: [] };
       const win = {};
       const asApi = new Function('window', 'companion', 'localStorage', 'setTimeout', 'module', S.AS + '\nreturn window.TwAccountState;')(win, any, any, (f) => f(), undefined).createAccountState({ isPremium: () => world.premium, isAdmin: () => false, setIsPremium: (v) => { world.premium = v; } });
-      const desk = { id: 'desk_gaming', licenseOnly: true };
       const def = { deskCatalogId: 'desk_gaming', deskScale: 1, deskLenX: 1, deskColor: 0 };
       const seat = { isMe: true, charDef: def };
       const PA = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
@@ -249,9 +248,8 @@ async function judge(S){
         DEFAULT_DESK_OVERRIDE_ID: '__d__', Presence: () => ({ active: () => true, updateDef: () => { world.pushes++; } }),
         applyDeskCatalogRefToSeat: (s, d) => { world.redraws.push(d.deskCatalogId); }, cBase: () => null, deskItemDef: () => ({}), deskPartAnchorOf: () => null, equipDeskItem: () => {},
         findMySeat: () => seat, isAdmin: () => false, isPremium: () => world.premium, licenseAssetBlocked: (it) => asApi.licenseAssetBlocked(it), saveSlots: () => { world.saves++; },
-        savedDesks: () => [desk], savedItems: () => [], seats: [seat], slots: () => [def], toast: () => {},
+        savedDesks: () => world.recs, savedItems: () => [], seats: [seat], slots: () => [def], toast: () => {},
       });
-      asApi.onPremiumChanged(() => { PA.restoreLicenseHeldAssets(); PA.pruneUnownedLicenseAssets(); });   // license-gate.js _refreshPremiumGatedUI 와 같은 순서
       // 판정 모듈의 setPremium 을 진짜 계정 핵심 상태(위)로 잇는다
       const mod = load(LP, 'createLicensePremium')({
         userApi: { me: async () => ME(o.premium) }, licenseApi: { mine: async () => null, putDevice: async () => lic([ID]), register: async () => lic([ID]), removeDevice: async () => lic([]), reasonOf: () => null },
@@ -262,18 +260,21 @@ async function judge(S){
       const early = [PA.pruneUnownedLicenseAssets(), PA.pruneUnownedLicenseAssets()];
       const snapshotBefore = JSON.stringify(def);
       await mod.start(ME(o.premium));
-      return { world, def, early, snapshotBefore, asApi };
+      const mid = [PA.pruneUnownedLicenseAssets()];   // 서버 확인은 왔지만 카탈로그가 아직 — 레코드가 없다
+      world.recs = [{ id: 'desk_gaming', licenseOnly: true, locked: !o.premium }];   // 카탈로그 도착 — 서버가 이 사람에게 정한 locked
+      PA.restoreLicenseHeldAssets(); PA.pruneUnownedLicenseAssets();   // catalog-sync 가 부르는 순서
+      return { world, def, early, mid, snapshotBefore, asApi };
     };
     const good = await boot({ premium: true, paSrc: S.PA });
-    t(good.early.join() === '0,0' && good.snapshotBefore === JSON.stringify({ deskCatalogId: 'desk_gaming', deskScale: 1, deskLenX: 1, deskColor: 0 }) && good.world.saves === 0 && good.world.pushes === 0 && good.world.redraws.length === 0,
-      '★ 서버가 확인해 주기 전(모름)에 슬롯 불러오기 · 카탈로그 도착이 접기를 불러도 접지도 · 저장도 · 방에 내보내지도 · 다시 그리지도 않는다');
-    t(good.def.deskCatalogId === 'desk_gaming' && !('deskLicenseHold' in good.def) && good.world.saves === 0 && good.world.pushes === 0 && good.asApi.premiumKnown() === true,
-      '★ 프리미엄 사용자 — 확인이 와도 책상은 한 번도 접히지 않는다(깜빡임 · 방 전파 0)');
+    t(good.early.join() === '0,0' && good.mid.join() === '0' && good.world.saves === 0 && good.world.pushes === 0 && good.world.redraws.length === 0,
+      '★ 카탈로그(locked)가 오기 전에 슬롯 불러오기 · 서버 확인이 접기를 불러도 접지도 · 저장도 · 방에 내보내지도 · 다시 그리지도 않는다');
+    t(good.def.deskCatalogId === 'desk_gaming' && !('deskLicenseHold' in good.def) && good.world.saves === 0 && good.world.pushes === 0,
+      '★ 프리미엄 사용자 — 서버가 locked:false 로 주니 책상은 한 번도 접히지 않는다(깜빡임 · 방 전파 0)');
     const none = await boot({ premium: false, paSrc: S.PA });
-    t(none.early.join() === '0,0' && none.def.deskCatalogId === null && none.def.deskLicenseHold === 'desk_gaming' && none.world.saves === 1,
-      '프리미엄이 아닌 사용자 — 모르는 동안은 그대로, 확인이 «아님» 이면 그때 접는다(건너뛴 접기가 사라지지 않는다)');
-    const broken = await boot({ premium: true, paSrc: S.PA.replace('if(!licenseAssetBlocked({ licenseOnly: true })) return 0;', '') });
-    t(S.PA.includes('if(!licenseAssetBlocked({ licenseOnly: true })) return 0;') && (broken.world.pushes > 0 || broken.def.deskCatalogId === null), '  ↳ 깨 보기: 모름 가드를 지우면 프리미엄 사용자도 접힌다(= 위 판정이 빨강이 된다)');
+    t(none.early.join() === '0,0' && none.mid.join() === '0' && none.def.deskCatalogId === null && none.def.deskLicenseHold === 'desk_gaming' && none.world.saves === 1,
+      '프리미엄이 아닌 사용자 — locked 를 받기 전은 그대로, 서버가 locked:true 로 주면 그때 접는다');
+    const broken = await boot({ premium: true, paSrc: S.PA.split('rec.locked === true').join('rec.licenseOnly') });
+    t(S.PA.includes('rec.locked === true') && (broken.world.pushes > 0 || broken.def.deskCatalogId === null), '  ↳ 깨 보기: 분류(licenseOnly)로 접으면 프리미엄 사용자도 접힌다(= 위 판정이 빨강이 된다)');
   }
 
   /* 5. 배선 */
@@ -314,8 +315,7 @@ async function judge(S){
     ['도는 확인 중 쓰기 응답 뒤 다시 묻지 않음', mut('LP', (s) => s.replace("if(running) again = true;\n", ""))],
     ['해제가 서버를 안 부름', mut('LP', (s) => s.split("after = await licenseApi.removeDevice(deps.deviceId());").join("after = null;"))],
     ['쓰기 응답 사본(meCache)으로 프리미엄 판정', mut('LP', (s) => s.replace("let me = given || null;", "let me = given || (deps.meCache && deps.meCache()) || null;").replace("setPremium(me.premium === true);", "setPremium(me.premium === true || deps.meCache);"))],
-    ['첫 확인이 같은 값이면 조용', mut('AS', (s) => s.replace('isPremium() === v && wasKnown', 'isPremium() === v'))],
-    ['전용 자산 접기가 «모름» 을 안 봄', mut('PA', (s) => s.replace('if(!licenseAssetBlocked({ licenseOnly: true })) return 0;', ''))],
+    ['전용 자산 접기가 서버 locked 대신 분류를 봄', mut('PA', (s) => s.split('rec.locked === true').join('rec.licenseOnly'))],
   ];
   for(const [name, S2] of breaks){
     let r2; try{ r2 = await judge(S2); }catch(_){ r2 = [[false, '던짐']]; }

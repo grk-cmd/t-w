@@ -38,10 +38,10 @@ function judge(mod, html, files, app) {
     r.pass = !('INVITE_PASS_KEY' in st) && !('_markInvitePassed' in st);
     const got = []; st.onPremiumChanged(() => got.push('a')); st.onPremiumChanged(() => got.push('b'));
     const unknown0 = st.premiumKnown() === false && prem() === false;   // 서버가 확인해 주기 전 — false 는 «모름»
-    st._setPremium(false); r.first = unknown0 && st.premiumKnown() === true && prem() === false && got.join() === 'a,b';   // 첫 확인은 값이 그대로여도 알린다(모르는 동안 건너뛴 접기가 돈다)
-    st._setPremium(false); r.quiet = got.length === 2;
-    st._setPremium(1); r.prem = prem() === true && got.join() === 'a,b,a,b';
-    st._setPremium(true); r.premSame = got.length === 4;
+    st._setPremium(false); r.first = unknown0 && st.premiumKnown() === true && prem() === false && got.length === 0;   // 첫 확인도 값이 그대로면 조용하다(접기는 카탈로그 locked 가 정한다)
+    st._setPremium(false); r.quiet = got.length === 0;
+    st._setPremium(1); r.prem = prem() === true && got.join() === 'a,b';
+    st._setPremium(true); r.premSame = got.length === 2;
     r.detach = st._acctDetached() === false && (st.setAcctDetached(true), st._acctDetached() === true);
     r.rcNull = st._rcStore() === null;
     win.TwRemoteConfig = { store: { maxPeople: () => 7 } }; r.rc = st._rcStore() && st._rcStore().maxPeople() === 7;
@@ -78,7 +78,7 @@ const R = judge(MOD, HTML, FILES, APP);
 say('── 1. 값 · 함수');
 chk(!R.err && R.keys && R.re, '저장 키 넷 · 친구코드 모양(MATE-XXXX)이 옮기기 전 값 그대로' + (R.err ? ' — ' + R.err : ''));
 chk(R.email && R.pass, '로그인 이메일은 저장 키에서 읽는다(없으면 null) · 초대 통과 표시는 걷었다(0.13)');
-chk(R.first && R.quiet, '프리미엄 «모름» — 확인 전 premiumKnown 은 false · 첫 확인은 같은 값(false)이어도 알림 · 그 뒤 같은 값은 조용');
+chk(R.first && R.quiet, '프리미엄 «모름» — 확인 전 premiumKnown 은 false · 첫 확인도 같은 값이면 조용 · 값이 바뀔 때만 알림');
 chk(R.prem && R.premSame, '프리미엄 — 같은 값이면 알림 없음 · 바뀌면 건 차례대로 한 번 · 값은 쓰는 함수로');
 chk(R.detach, '신원 놓음 — 처음 false · 쓰는 함수로 올린다');
 chk(R.rcNull && R.rc, '원격 설정 한 벌 — 없으면(검사 · 옛 html) null · 있으면 그 store');
@@ -95,8 +95,7 @@ say('── 3. 일부러 깨 보기');
 const line = '<script src="parts/account/account-state.js"></script>';
 const lateHtml = HTML.indexOf(line) < 0 ? HTML : HTML.replace(line, '').replace('<script src="parts/app.js"></script>', '<script src="parts/app.js"></script>\n' + line);
 chk(judge(MOD, lateHtml, FILES, APP).late.length > 0, 'account-state.js 를 app.js 뒤로 옮기면 빨강');
-chk(!judge(MOD.replace('  if(isPremium() === v && wasKnown) return;\n', ''), HTML, FILES, APP).premSame, '같은 값에도 알리면 빨강');
-chk(!judge(MOD.replace('isPremium() === v && wasKnown', 'isPremium() === v'), HTML, FILES, APP).first, '첫 확인이 같은 값이라고 조용하면 빨강(접기가 영영 안 돈다)');
+chk(!judge(MOD.replace('  if(isPremium() === v) return;\n', ''), HTML, FILES, APP).premSame, '같은 값에도 알리면 빨강');
 chk(!judge(MOD.replace('  _premiumKnown = true;\n', ''), HTML, FILES, APP).first, '확인했는데도 «모름» 이면 빨강');
 chk(!judge(MOD.replace("const LOGIN_EMAIL_KEY = 'tw.loginEmail';", "const LOGIN_EMAIL_KEY = 'tw.loginMail';"), HTML, FILES, APP).keys, '저장 키 글자가 바뀌면 빨강');
 const extra = FILES.map(([f, t]) => [f, f === 'myhome/guestbook.js' ? t + '\nonPremiumChanged(()=>{});\n' : t]);

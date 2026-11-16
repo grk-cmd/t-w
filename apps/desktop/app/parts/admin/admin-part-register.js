@@ -329,7 +329,7 @@ function openDeskRegister(kind, editId){
   const glowChk=document.getElementById('deskRegGlow');
   if(glowChk) glowChk.checked = !!(rec && rec.glow);
   const licenseChk=document.getElementById('deskRegLicense');
-  if(licenseChk) licenseChk.checked = !!(rec && rec.licenseOnly);
+  if(licenseChk) licenseChk.checked = !!(rec && rec.licenseOnly);   // 진열 분류(catalog-api.js 가 채운다) — 막기(locked)와 다르다
   document.getElementById('deskRegGo').textContent = rec ? '수정 완료' : '등록';
   document.getElementById('deskRegOverlay').classList.add('on');
   window.focus();

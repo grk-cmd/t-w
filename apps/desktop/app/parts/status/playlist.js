@@ -31,6 +31,7 @@
 function createPlaylist(deps){
 const toast = deps.toast;
 const playlistAccountStore = deps.playlistAccountStore;   // 🗂️ 계정별 칸(shared/account-store.js) — «지금 고른 목록 번호» 는 이 계정이 이 PC 에서 고른 것
+const fetchPlaylistCard = deps.fetchPlaylistCard;   // 명함 읽기(shared/api-public-reads.js — 서버 명함 묶음 · 못 받으면 던진다)
 const notifyError = deps.notifyError;   // 사용자에게 보이는 실패 — 번호 표(shared/error-codes.js)
 const getMyUserId = deps.getMyUserId;
 const getDisplayName = deps.getDisplayName;
@@ -662,9 +663,8 @@ function _plMyAvatar(){
 async function _plLoadMyCard(){
   if(_plCardTried) return;
   _plCardTried = true;
-  if(typeof firebaseAPI === 'undefined' || !firebaseAPI.fetchPlaylistCard) return;
   try{
-    const c = await firebaseAPI.fetchPlaylistCard(getMyUserId());
+    const c = await fetchPlaylistCard(getMyUserId());
     if(c){ _plMyCard = c; _plRenderHead(); }
   }catch(e){ notifyError('E-PL-03', e); }   // 못 받음 — 이름 · 사진이 빈 채로 그려진다(Firebase 로 물러나지 않는다)
 }
@@ -1175,8 +1175,7 @@ async function _plPeek(){
      명함이 도착하면 그때 소개칸만 다시 그린다. 도중에 또 파도를 탔으면 조용히 버린다. */
 function _plLoadViewCard(uid){
   _plViewCard = null;
-  if(typeof firebaseAPI === 'undefined' || !firebaseAPI.fetchPlaylistCard) return;
-  Promise.resolve(firebaseAPI.fetchPlaylistCard(uid)).then(c=>{
+  Promise.resolve(fetchPlaylistCard(uid)).then(c=>{
     if(!c || !_plView || _plView.uid !== uid) return;
     _plViewCard = c;
     _plRenderHead();

@@ -30,9 +30,8 @@ const body = (name) => {
 
 say('── 1. firebase-init.js 연결');
 {
-  chk(/import \{ createCatalogApi \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?catalog-api\.js";/.test(CODE) && !/catalog-cache\.js/.test(CODE), '읽기는 catalog-api.js(서버 한 벌) — 옛 catalog-cache.js 를 import 하지 않는다');
-  chk(/subscribeCatalogDesks\(onChange\)\{\s*return _catalogApi\.subscribe\('desks', onChange\);/.test(CODE) && /subscribeCatalogItems\(onChange\)\{\s*return _catalogApi\.subscribe\('items', onChange\);/.test(CODE)
-    && /subscribeCatalogParts\(onChange\)\{\s*return _catalogApi\.subscribe\('parts', onChange\);/.test(CODE), '책상 · 아이템 · 파츠 구독 → 서버 한 벌');
+  chk(!/catalog-api|catalog-cache|createCatalogApi|_catalogApi/.test(CODE), '읽기는 firebase-init.js 를 거치지 않는다(catalog-api.js 를 app.js 가 만든다 — 옛 catalog-cache.js 도 없다)');
+  chk(!/subscribeCatalog(?:Desks|Items|Parts|Categories|Unlocks)|catalogCurrent|reloadCatalog|fetchCatalogGlb/.test(CODE), '책상 · 아이템 · 파츠 · 카테고리 · 해금 구독 · 관리자 쓰기 두 자리 · GLB 받기가 firebase-init.js 에 없다(서버 한 벌은 app.js 가 만든다)');
   chk(!/onValue\(\s*(?:ref\(db,\s*['`"]catalog\/(?:parts|gachaParts|items|desks)['`"]\)|r1|r2)/.test(CODE) && !/ref\(db, 'catalogMeta\/' \+ kind\)/.test(CODE),
       'catalog/{parts·gachaParts·items·desks} 를 통째로 onValue 하는 곳도 catalogMeta 를 구독하는 곳도 없다');
 
@@ -43,9 +42,6 @@ say('── 1. firebase-init.js 연결');
     'publishCustomCat', 'unpublishCustomCat', 'publishCatOverride', 'unpublishCatOverride', 'subscribeCustomCats', 'subscribeCatOverrides', 'subscribeGameConfig'];
   const left = gone.filter(n => body(n));
   chk(left.length === 0, '걷은 Firebase 카탈로그 쓰기 · 읽기 함수가 남지 않았다' + (left.length ? ' — ' + left.join(',') : ''));
-  chk(/subscribeCatalogCategories\(onChange\)\{\s*return _catalogApi\.subscribe\('categories', onChange\);/.test(CODE) && /subscribeCatalogUnlocks\(onChange\)\{\s*return _catalogApi\.subscribe\('unlocks', onChange\);/.test(CODE),
-      '카테고리 · 해금 레벨 구독 → 서버 한 벌(옛 customCats · catOverrides · gameConfig 를 대신한다)');
-  chk(/catalogCurrent\(\)\{ return _catalogApi\.current\(\); \}/.test(CODE) && /reloadCatalog\(\)\{ return _catalogApi\.load\(\); \}/.test(CODE), '관리자 쓰기가 쓰는 두 자리 — 마지막으로 받은 한 벌(version) · 다시 받기');
 }
 
 say('── 2. 규칙 — catalogMeta');

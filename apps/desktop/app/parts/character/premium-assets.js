@@ -48,22 +48,21 @@ function _licenseLockedDeskId(id){
   let list = null; try{ list = savedDesks(); }catch(_){ return false; }
   if(!list || !list.length) return false;
   const rec = list.find(d => d.id === id);
-  return !!(rec && rec.licenseOnly);
+  return !!(rec && rec.locked === true);
 }
 function _licenseLockedItemId(id){
   if(!id) return false;
   let list = null; try{ list = savedItems(); }catch(_){ return false; }
   if(!list || !list.length) return false;
   const rec = list.find(s => s.id === id);
-  return !!(rec && rec.licenseOnly);
+  return !!(rec && rec.locked === true);
 }
 function pruneUnownedLicenseAssets(){
   /* ★ 전제 검사는 **호출부가 아니라 여기** 있어야 한다 — pruneUnownedGachaParts 와 같은 이유다.
      호출 지점이 여럿이고(라이선스 변경 · 카탈로그 도착 · 코드 불러오기 · 슬롯 복원 · 프리셋),
      그때마다 같은 조건을 복사하면 언젠가 하나를 빠뜨린다.
-     ★ «지금 막아야 하나» 는 licenseAssetBlocked 한 곳(account-state.js) — 모름 · 보유자 · 관리자면 접지 않는다.
-       모름에 접으면 프리미엄 사용자의 책상이 켤 때마다 잠깐 기본으로 떨어진다(방으로도 나간다). 확인이 오면 알림이 한 번 돌아 그때 접는다. */
-  if(!licenseAssetBlocked({ licenseOnly: true })) return 0;
+     ★ «막아야 하나» 는 레코드의 서버 locked(licenseAssetBlocked 와 같은 값) — 레코드가 아직 없으면(받기 전 · 받기 실패) 접을 것도 없다.
+       서버가 확인해 주기 전에 접으면 프리미엄 사용자의 책상이 켤 때마다 잠깐 기본으로 떨어지므로, 접기는 카탈로그가 locked 와 함께 온 뒤에 돈다. */
   let _desks = null; try{ _desks = savedDesks(); }catch(_){ return 0; }
   let _items = null; try{ _items = savedItems(); }catch(_){ return 0; }
   if(!(_desks && _desks.length) && !(_items && _items.length)) return 0;   // 카탈로그 미도착 = 판정 불가
@@ -124,18 +123,20 @@ function pruneUnownedLicenseAssets(){
   console.warn('[라이선스] 전용 자산 ' + n + '개를 접어 뒀습니다 — 라이선스를 등록하면 그대로 돌아옵니다');
   return n;
 }
-/* 접어 뒀던 것을 되돌린다 — 라이선스가 켜지는 모든 통로가 _setPremium 하나를 지나므로 여기 한 곳이면 된다. */
+/* 접어 뒀던 것을 되돌린다 — 레코드의 서버 locked 가 풀린 것만(라이선스가 바뀌면 서버가 locked 를 바꿔 주고 카탈로그를 다시 받은 뒤 catalog-sync 가 부른다). 아직 잠긴 것은 접힌 채 둔다. */
 function restoreLicenseHeldAssets(){
-  const _ok = (typeof isPremium() !== 'undefined' && isPremium()) || (typeof isAdmin() !== 'undefined' && isAdmin());
-  if(!_ok) return 0;
   const _restoreDef = def => {
     let k = 0;
     if(!def) return 0;
-    if(def[DESK_LICENSE_HOLD]){ def.deskCatalogId = def[DESK_LICENSE_HOLD]; delete def[DESK_LICENSE_HOLD]; k++; }
+    if(def[DESK_LICENSE_HOLD] && !_licenseLockedDeskId(def[DESK_LICENSE_HOLD])){ def.deskCatalogId = def[DESK_LICENSE_HOLD]; delete def[DESK_LICENSE_HOLD]; k++; }
     if(def[ITEM_LICENSE_HOLD]){
-      if(!def.deskItems) def.deskItems = {};
-      Object.keys(def[ITEM_LICENSE_HOLD]).forEach(id => { def.deskItems[id] = def[ITEM_LICENSE_HOLD][id]; k++; });
-      delete def[ITEM_LICENSE_HOLD];
+      const held = def[ITEM_LICENSE_HOLD];
+      Object.keys(held).forEach(id => {
+        if(_licenseLockedItemId(id)) return;
+        if(!def.deskItems) def.deskItems = {};
+        def.deskItems[id] = held[id]; delete held[id]; k++;
+      });
+      if(!Object.keys(held).length) delete def[ITEM_LICENSE_HOLD];
     }
     return k;
   };

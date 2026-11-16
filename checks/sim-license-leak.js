@@ -24,7 +24,7 @@ const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // �
 const fs = require('fs');
 const vm = require('vm');
 const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
-/* 접기의 «지금 막아야 하나» 는 account-state.js licenseAssetBlocked 한 곳 — 진짜 함수를 불러 쓴다(조건을 이 검사에 다시 쓰지 않음) */
+/* «막아야 하나» 는 레코드의 서버 locked 하나 — 접기는 _licenseLocked*Id 가 그 칸을 읽는다(조건을 이 검사에 다시 쓰지 않음) */
 const ASSRC = ['account-state.js', 'parts/account/account-state.js', 'app/parts/account/account-state.js'].map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean);
 function realBlocked(c, item){
   const st = { premium: !!c.isPremium, admin: !!c.isAdmin };
@@ -90,8 +90,11 @@ if(!fnPrune || !fnRestore || !fnLockD || !fnLockI || !constHold || !ASSRC){
   };
   ctx = makeCtx;
 
-  const LOCKED = [{ id: 'desk_gaming', licenseOnly: true }, { id: 'desk_wood' }];
-  const LOCKI  = [{ id: 'item_neon', licenseOnly: true }, { id: 'item_cup' }];
+  /* 서버가 «이 사람에게 잠김» 으로 준 레코드(locked:true) · 이 사람이 쓸 수 있어 풀려 온 레코드(locked:false — 라이선스 보유자 · 관리자에게는 서버가 이렇게 준다) */
+  const LOCKED = [{ id: 'desk_gaming', licenseOnly: true, locked: true }, { id: 'desk_wood' }];
+  const LOCKI  = [{ id: 'item_neon', licenseOnly: true, locked: true }, { id: 'item_cup' }];
+  const OPEND = [{ id: 'desk_gaming', licenseOnly: true, locked: false }, { id: 'desk_wood' }];
+  const OPENI = [{ id: 'item_neon', licenseOnly: true, locked: false }, { id: 'item_cup' }];
   const mkDef  = () => ({ deskCatalogId: 'desk_gaming', deskItems: { item_neon: { adj: {} }, item_cup: { adj: {} } } });
 
   /* (가) 카탈로그가 아직 안 왔으면 아무 일도 없어야 한다 — 가장 중요한 가드 */
@@ -102,30 +105,29 @@ if(!fnPrune || !fnRestore || !fnLockD || !fnLockI || !constHold || !ASSRC){
     chk(n === 0 && d.deskCatalogId === 'desk_gaming',
       '★ 카탈로그 미도착 → 아무것도 안 접는다 (조회 실패를 «전용 아님»으로도 «전용»으로도 단정하지 않는다)');
   }
-  /* (가-2) 서버가 아직 프리미엄을 확인해 주지 않았으면(모름) 접지 않는다 — 켤 때마다 프리미엄 사용자의 책상이 잠깐 기본으로 떨어지는 것을 막는다 */
+  /* (가-2) 서버 locked 를 모르는 레코드(분류만 있고 locked 칸이 없다 — 받기 전 모양)는 접지 않는다. 앱이 분류(licenseOnly)로 판정하지 않는다 */
   {
     const d = mkDef();
-    const c = makeCtx({ known: false, desks: LOCKED, items: LOCKI, seats: [{ isMe: true, charDef: d }], slots: [d] });
+    const c = makeCtx({ desks: [{ id: 'desk_gaming', licenseOnly: true }], items: [{ id: 'item_neon', licenseOnly: true }], seats: [{ isMe: true, charDef: d }], slots: [d] });
     const n = vm.runInContext('pruneUnownedLicenseAssets()', c);
     chk(n === 0 && d.deskCatalogId === 'desk_gaming' && c._saved === 0 && c._redrawn.length === 0 && c._pushed === 0,
-      '★ 프리미엄 «모름» → 접지도 · 저장도 · 다시 그리기도 · 방에 내보내기도 없다(프리미엄 사용자의 책상이 깜빡이지 않게)');
-    c.premiumKnown = true;   // 확인이 와서 «아님» 으로 정해지면 그때 접는다
-    chk(vm.runInContext('pruneUnownedLicenseAssets()', c) === 2 && d.deskCatalogId === null, '  ↳ 확인이 «아님» 으로 오면 그때 접는다(모르는 동안 건너뛴 것이 사라지지 않는다)');
-    /* 깨 보기 — «모름» 가드를 지우면 위 판정이 빨강이어야 한다 */
-    const brokenSrc = fnPrune.replace('if(!licenseAssetBlocked({ licenseOnly: true })) return 0;', '');
+      '★ locked 칸이 없으면 접지도 · 저장도 · 다시 그리기도 · 방에 내보내기도 없다(분류만으로 막지 않는다)');
+    /* 깨 보기 — 분류(licenseOnly)로 접게 되돌리면 위 판정이 빨강이어야 한다 */
+    const brokenD = fnLockD.replace('rec.locked === true', 'rec.licenseOnly');
+    const brokenI = fnLockI.replace('rec.locked === true', 'rec.licenseOnly');
     const d2 = mkDef();
-    const cb = makeCtx({ known: false, desks: LOCKED, items: LOCKI, slots: [d2] });
-    vm.runInContext(brokenSrc.replace('function pruneUnownedLicenseAssets', 'function brokenPrune'), cb);
-    chk(brokenSrc !== fnPrune && vm.runInContext('brokenPrune()', cb) > 0 && d2.deskCatalogId === null, '  ↳ 깨 보기: 가드를 지우면 모르는 동안에도 접는다(= 위 검사가 빨강이 된다)');
+    const cb = makeCtx({ desks: [{ id: 'desk_gaming', licenseOnly: true }], items: [{ id: 'item_neon', licenseOnly: true }], slots: [d2] });
+    vm.runInContext(brokenD + '\n' + brokenI, cb);
+    chk(brokenD !== fnLockD && brokenI !== fnLockI && vm.runInContext('pruneUnownedLicenseAssets()', cb) > 0 && d2.deskCatalogId === null, '  ↳ 깨 보기: 분류로 접으면 모르는 동안에도 접는다(= 위 검사가 빨강이 된다)');
   }
   /* (나) 라이선스 보유자·관리자는 통째로 건너뛴다 */
   {
     const d = mkDef();
-    const c = makeCtx({ premium: true, desks: LOCKED, items: LOCKI, slots: [d] });
+    const c = makeCtx({ premium: true, desks: OPEND, items: OPENI, slots: [d] });
     chk(vm.runInContext('pruneUnownedLicenseAssets()', c) === 0 && d.deskCatalogId === 'desk_gaming',
-      '라이선스 보유자는 건드리지 않는다');
+      '라이선스 보유자는 건드리지 않는다(서버가 locked:false 로 준다)');
     const d2 = mkDef();
-    const c2 = makeCtx({ admin: true, desks: LOCKED, items: LOCKI, slots: [d2] });
+    const c2 = makeCtx({ admin: true, desks: OPEND, items: OPENI, slots: [d2] });
     chk(vm.runInContext('pruneUnownedLicenseAssets()', c2) === 0 && d2.deskCatalogId === 'desk_gaming',
       '관리자도 건드리지 않는다 (등록·검수 절차가 보유 없이 착용한다)');
   }
@@ -171,12 +173,14 @@ if(!fnPrune || !fnRestore || !fnLockD || !fnLockI || !constHold || !ASSRC){
 say('── 2. 되돌리기(restoreLicenseHeldAssets) — 라이선스가 오면 그대로 돌아온다');
 if(!ctx){ huh('1절에서 재료를 못 찾아 건너뜀'); }
 else{
-  const LOCKED = [{ id: 'desk_gaming', licenseOnly: true }];
-  const LOCKI  = [{ id: 'item_neon', licenseOnly: true }];
+  const LOCKED = [{ id: 'desk_gaming', licenseOnly: true, locked: true }];
+  const LOCKI  = [{ id: 'item_neon', licenseOnly: true, locked: true }];
   const d = { deskCatalogId: 'desk_gaming', deskItems: { item_neon: { adj: { scale: 3 } } } };
   const c = ctx({ desks: LOCKED, items: LOCKI, slots: [d] });
   vm.runInContext('pruneUnownedLicenseAssets()', c);
-  vm.runInContext('isPremium = true;', c);                   // 키 등록 · 계정 복원 · 재검증 성공
+  const still = vm.runInContext('restoreLicenseHeldAssets()', c);
+  chk(still === 0 && d.deskCatalogId === null, '★ 서버 locked 가 아직 참이면(카탈로그를 다시 받기 전) 되돌리지 않는다');
+  c.savedDesks[0].locked = false; c.savedItems[0].locked = false;   // 키 등록 → realtime license → 카탈로그를 다시 받으니 서버가 locked:false 로 준다
   const n = vm.runInContext('restoreLicenseHeldAssets()', c);
   chk(n === 2, '되돌린 개수 2 (실제 ' + n + ')');
   chk(d.deskCatalogId === 'desk_gaming', '★ 책상 참조가 그대로 돌아왔다');
@@ -185,14 +189,12 @@ else{
   chk(d[constHold[1]] === undefined && d[constHold[2]] === undefined, '접어 둔 필드는 비워진다 (두 번 돌아오지 않는다)');
 }
 const refresh = grabFn('_refreshPremiumGatedUI') || '';
-chk(/restoreLicenseHeldAssets\(\)/.test(refresh), '_refreshPremiumGatedUI 가 되돌리기를 부른다');
-chk(/pruneUnownedLicenseAssets\(\)/.test(refresh), '_refreshPremiumGatedUI 가 접기를 부른다');
+chk(!/restoreLicenseHeldAssets|pruneUnownedLicenseAssets/.test(refresh), '★ _refreshPremiumGatedUI 는 되돌리기 · 접기를 부르지 않는다 — 그 순간 서버 locked 는 옛 값이라 할 일이 없다(계기는 catalog-sync 한 곳)');
 {
-  const ri = refresh.indexOf('restoreLicenseHeldAssets()');
-  const pi = refresh.indexOf('pruneUnownedLicenseAssets()');
-  chk(ri > 0 && pi > ri, '★ 되돌리기가 접기보다 **먼저**다 — 거꾸로면 라이선스를 켠 순간 접은 것을 다시 접는다');
-  const ai = refresh.indexOf('applyDeskCatalogRefToSeat');
-  chk(ai > pi, '  둘 다 «다시 그리기»보다 앞이다 (저장값을 맞춘 뒤에 그린다)');
+  const cs = ['catalog-sync.js', 'parts/character/catalog-sync.js', 'app/parts/character/catalog-sync.js'].map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean) || '';
+  const di = cs.indexOf('function mergeCatalogIntoSavedDesks'), ii = cs.indexOf('async function mergeCatalogIntoSavedItems');
+  const seg = (i) => cs.slice(i, i + 3500);
+  chk(di >= 0 && ii >= 0 && /restoreHeldLicenseAssets\(\)[\s\S]*pruneUnownedLicenseAssets\(\)/.test(seg(di)) && /restoreHeldLicenseAssets\(\)[\s\S]*pruneUnownedLicenseAssets\(\)/.test(seg(ii)), '★ 책상 · 아이템 카탈로그 도착이 되돌리기 → 접기 순으로 부른다(거꾸로면 접은 것을 다시 접는다)');
 }
 
 /* ── 3. 전파 차단 ── */
@@ -209,7 +211,7 @@ else{
 /* ── 4. 입구 넷에서 부른다 ── */
 say('── 4. 불러오기·도착 자리에서 부른다');
 const callSites = [...SRC.matchAll(/pruneUnownedLicenseAssets\(\)/g)].length;
-chk(callSites >= 6, '호출 ' + callSites + '곳 (정의 1 + _refreshPremiumGatedUI + 책상/아이템 카탈로그 + 슬롯 + 코드 = 6 이상)');
+chk(callSites >= 5, '호출 ' + callSites + '곳 (정의 1 + 책상/아이템 카탈로그 + 슬롯 + 코드 = 5 이상)');
 const around = (needle, span) => {
   const i = SRC.indexOf(needle);
   return i < 0 ? '' : SRC.slice(i, i + span);
@@ -219,7 +221,7 @@ chk(/_loadedFns\.forEach/.test(around('async function applySlotObjs(', 6000)) &&
 chk(/pruneUnownedLicenseAssets[\s\S]{0,400}saveSlots\(\);saveCurSlot\(\)/.test(SRC),
   '★ 공유 코드 불러오기 — **저장 전에** 접는다 (받는 쪽에 라이선스 검사가 없었다)');
 chk(/pruneUnownedLicenseAssets/.test(around('function mergeCatalogIntoSavedDesks', 4000)),
-  '★ 책상 카탈로그 도착 — licenseOnly 를 알 수 있는 첫 순간');
+  '★ 책상 카탈로그 도착 — locked 를 알 수 있는 첫 순간');
 chk(/pruneUnownedLicenseAssets/.test(around('function mergeCatalogIntoSavedItems', 4000)),
   '★ 아이템 카탈로그 도착 — 같은 이유');
 const preset = grabFn('applyDeskPreset') || '';

@@ -3,7 +3,7 @@
    ・책임: 아이템 하나를 좌석 · 생성기 미리보기(holder)에 올리고 내리기(equipDeskItem — 라이선스 전용 막기 · 손 본 부착 · _col 색 그룹 · 손 따라가는 지점 · 재생 방식 등록 ·
      커스텀 GLB 크기 맞춤 · 해제 전 위치 기억) · 저장된 아이템 한 벌 입히기(applyDeskItemsTo) · 모으기(collectDeskItems) · 켜고 끌 때 바로 저장(autoSaveDeskItemsNow) · 색 반영(_applyItemColor) ·
      생성기에서 «처음 나타난 자리» 기억(deskItemOrigin — ⟲ 초기화가 돌아갈 곳).
-   ・받는 deps 13 — 값: activeItemMixers · _idleItemPivots(part-anim.js 의 재생 목록) · lightToneMod · toast · 함수: licenseAssetBlocked(account-state.js — 전용 자산을 막아야 하나) · 읽는 함수: commissionMod · crState · crXformMod · customItems · deskItemsMod ·
+   ・받는 deps 14 — 값: activeItemMixers · _idleItemPivots(part-anim.js 의 재생 목록) · lightToneMod · toast · 함수: licenseAssetBlocked(account-state.js — 전용 자산을 막아야 하나) · 읽는 함수: catalogReceived(이번 세션에서 카탈로그를 받았나) · commissionMod · crState · crXformMod · customItems · deskItemsMod ·
      deskSetupMod · launcherPrevMod · slotSaveMod(더 아래에서 만들어지거나 다시 대입되는 것).
    ・내놓는 것: applyDeskAdj · deskItemOrigin(없으면 null) · equipDeskItem · collectDeskItems · autoSaveDeskItemsNow · applyDeskItemsTo · _applyItemColor
    ⚠️ 라이선스 전용 막기는 친구 좌석(holder.remote)에는 걸지 않는다 — 보는 사람의 라이선스로 친구가 올린 아이템을 숨기지 말 것.
@@ -22,6 +22,7 @@ const customItems = deps.customItems;
 const deskItemsMod = deps.deskItemsMod;
 const deskSetupMod = deps.deskSetupMod;
 const licenseAssetBlocked = deps.licenseAssetBlocked;
+const catalogReceived = deps.catalogReceived;   // 읽는 함수 — 이번 세션에서 카탈로그를 받았나(catalog-api.js current 유무)
 const launcherPrevMod = deps.launcherPrevMod;
 const slotSaveMod = deps.slotSaveMod;
 /* 책상 위 소품(아이템) 시스템 — holder = 좌석 또는 생성기 미리보기 */
@@ -32,24 +33,33 @@ function _rememberCrItemOrigin(holder, p){
   if(!deskItemOrigin || !p || typeof crState().cBase==='undefined' || holder!==crState().cBase) return;
   deskItemOrigin.remember(p, p.userData.adj);
 }
+/* 막혀서 올리지 못한 아이템을 holder 에 적어 둔다(Map id → 입히려던 원본 항목) — 저장(autoSaveDeskItemsNow)이 holder 기준이라 이 표시가 없으면 건너뛴 아이템이 저장본에서 지워진다 */
+function _markSkipped(holder, id){
+  if(!holder || !id) return;
+  if(!holder._skippedItems) holder._skippedItems = new Map();   // id → 그때 입히려던 원본 항목(applyDeskItemsTo 가 채운다 · 사용자가 직접 켠 것은 항목이 없다)
+  if(!holder._skippedItems.has(id)) holder._skippedItems.set(id, undefined);
+}
 function equipDeskItem(holder,def,on){
   // ★ 라이선스 보유자 전용으로 등록된 아이템은 막아야 하면(account-state.js licenseAssetBlocked) 장착 자체를 막음.
   //   ⚠️ 단 **친구 좌석(holder.remote)에는 걸지 않는다.** applyDeskItemsTo가 친구 좌석을 그릴 때도
   //     이 함수를 타는데, 여기서 '보는 사람'의 라이선스를 보면 라이선스 있는 친구가 올려둔 아이템이
   //     라이선스 없는 내 화면에서만 사라진다(applyDeskCatalogRefToSeat와 같은 함정).
-  /* ⚠️ def.licenseOnly 만 보면 새는 자리가 있다 — 캐릭터에 딸려온 customItems 는 registerCustomItem 을
-     licenseOnly 인자 없이 부르는 세 곳(슬롯 적용·좌석 적용·프리셋)에서 **licenseOnly:false 로 등록**된다.
-     카탈로그가 먼저 도착했으면 `if(!customItems[id])` 가드에 걸려 무사하지만, 캐릭터가 먼저 닿으면
-     그 세션 내내 전용 아이템이 게이트를 통째로 안 탄다. 원본은 카탈로그 레코드(savedItems)이므로
-     그쪽도 함께 본다 — 카탈로그가 늦게 와도 그때부터는 맞는 답이 된다.
+  /* ⚠️ 막을지는 카탈로그 레코드(savedItems)의 서버 locked 다 — 캐릭터에 딸려온 customItems def 는 registerCustomItem 이 licenseOnly:false 로 등록하는 길이 있어 def 를 믿으면 새고,
+     그 def 의 칸은 «분류» 라 막기 판정에 쓰지 않는다. 레코드가 아직 없으면(받기 전) 막을 것도 없다.
      savedItems 는 아래에서 let 으로 선언되므로 typeof 가 아니라 try 로 감싼다(TDZ). */
   let _siCat = null; try{ _siCat = commissionMod().savedItems(); }catch(_){}
   const _siRec = (_siCat && _siCat.find && def && def.id) ? _siCat.find(s=>s.id===def.id) : null;
-  const _itemLicenseOnly = !!(def && def.licenseOnly) || !!(_siRec && _siRec.licenseOnly);
-  if(on && !(holder && holder.remote) && licenseAssetBlocked({ licenseOnly: _itemLicenseOnly })){
-    toast('🔒 "'+(def.name||'이 아이템')+'"은(는) 라이선스 보유자만 사용할 수 있어요');
-    return;
+  if(on && !(holder && holder.remote)){
+    /* 카탈로그를 받기 전(처음 · 받기 실패)에는 기록 없는 커스텀 아이템의 locked 를 모른다 — 막는다. 받은 뒤에도 기록이 없으면 카탈로그 물건이 아니다(전용 물건은 늘 카탈로그에 있다 —
+       친구가 코드로 추가한 소품 등) — 막지 않는다. 기록이 오면 catalog-sync 가 좌석 아이템을 다시 적용해 locked 로 다시 판정한다. */
+    if(def && def.custom && !_siRec && !catalogReceived()){ _markSkipped(holder, def.id); return; }
+    if(licenseAssetBlocked(_siRec)){
+      _markSkipped(holder, def.id);
+      toast('🔒 "'+(def.name||'이 아이템')+'"은(는) 라이선스 보유자만 사용할 수 있어요');
+      return;
+    }
   }
+  if(holder && holder._skippedItems) holder._skippedItems.delete(def.id);   // 장착 · 해제가 이뤄졌다 — 더는 «건너뜀» 이 아니다
   if(!holder.deskItems)holder.deskItems={};
   if(!holder._itemAdjMemory)holder._itemAdjMemory={};   // 해제했다가 다시 장착할 때 이전 위치/크기 조정값을 기억해뒀다가 복원하기 위함
   const cur=holder.deskItems[def.id];
@@ -170,18 +180,22 @@ function equipDeskItem(holder,def,on){
     if(typeof crState().cBase!=='undefined' && holder===crState().cBase) deskSetupMod().selectDeskItemForAdjust(pivot);   // 생성기 안에서는 방금 장착한 아이템도 선택 표시
   }
 }
+/* 저장 길(자동 저장 · 생성기 «완성 → 저장» · 프리셋 저장)이 모두 이 함수로 모은다. 막혀서 올리지 못한 아이템(holder._skippedItems — 건너뛰는 순간 붙잡은 원본 항목)은 올리지 못했다고 지우면 되돌릴 수 없으므로 그 항목을 그대로 합친다. */
 function collectDeskItems(holder){ const d={}; let any=false; deskItemsMod().allDeskItems().forEach(def=>{ const p=holder.deskItems&&holder.deskItems[def.id]; if(p){ d[def.id]={adj:Object.assign({},p.userData.adj)}; if(p.userData.autoScale!=null) d[def.id].autoScale=p.userData.autoScale;
   // ★ 색상은 비어있어도 항상 저장 — "초기화(원본으로 복원)한 상태"를 명시적으로 기록해서
   //   실행 화면 로드 시 이전에 저장돼 있던 색이 남지 않게 함. 예전엔 빈 객체면 필드가 빠져서 초기화가 안 반영됐음.
   if(p.userData.colorGroups) d[def.id].colors=Object.assign({},p.userData.colors||{});
-  any=true;} }); return any?d:null; }
+  any=true;} });
+  const _sk=holder._skippedItems;
+  if(_sk && _sk.size) _sk.forEach((entry,id)=>{ if(entry && !d[id]){ d[id]=entry; any=true; } });
+  return any?d:null; }
 /* ★ 생성기에서 책상 아이템을 켜고 끌 때 "완성 → 저장"을 눌러야만 반영되던 게 혼란을 줬음(꾸미기 파츠는
    토글 즉시 저장되는 것과 비대칭) — 아이템 켜고/끄는 즉시 여기서 바로 def에 반영 + 저장까지 함.
    단, 새 캐릭터(아직 한 번도 저장 안 한)일 땐 cBase.charDef가 없어서 조용히 건너뜀(완성 시 정상 저장됨). */
 function autoSaveDeskItemsNow(){
   if(!crState().cBase || !crState().cBase.charDef) return;
   const def = crState().cBase.charDef;
-  const di = collectDeskItems(crState().cBase);
+  const di = collectDeskItems(crState().cBase);   // 건너뛴 아이템의 원본은 collectDeskItems 가 합쳐 준다
   def.deskItems = di;
   if(di){
     const ci={}; Object.keys(di).forEach(id=>{ const c=customItems()[id]; const rec=commissionMod().savedItems().find(s=>s.id===id);
@@ -190,7 +204,9 @@ function autoSaveDeskItemsNow(){
   }
   slotSaveMod().saveSlots();
 }
-function applyDeskItemsTo(holder,data){ if(!data||!holder.deskAnchor)return; Object.keys(data).forEach(id=>{ const def=deskItemsMod().deskItemDef(id); if(!def)return; const e=data[id]; equipDeskItem(holder,def,true); const p=holder.deskItems[id]; if(p&&e.adj){
+function applyDeskItemsTo(holder,data){ if(!data||!holder.deskAnchor)return; Object.keys(data).forEach(id=>{ const def=deskItemsMod().deskItemDef(id); if(!def)return; const e=data[id]; equipDeskItem(holder,def,true);
+    if(holder._skippedItems && holder._skippedItems.has(id)) holder._skippedItems.set(id, e);   // 막혀 건너뛰었다 — 이번에 입히려던 원본 항목을 붙잡는다
+    const p=holder.deskItems && holder.deskItems[id];  /* 건너뛴(막힌) 아이템이면 holder.deskItems 가 아직 없을 수 있다 */ if(p&&e.adj){
     const savedAdj=Object.assign({},e.adj);
     // ★ 예전엔 y를 자동 계산값(ITEM_Y_START_OFFSET)으로 강제 복원해서 저장값을 무시했음 — 유저가 기즈모로
     //   조절할 수 있는 UI가 없다고 가정한 옛 로직. 지금은 기즈모로 자유롭게 y 조작 가능하므로 저장값 그대로 씀.

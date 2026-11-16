@@ -127,7 +127,7 @@ function judgeConn(S) {
 /* 3. 연결 */
 {
   const starts = (S.APP.match(/const appBoot = TwAppBoot\.createAppBoot\(\{[\s\S]*?\n {2}starts: \{\n([\s\S]*?)\n {2}\},\n\}\);/) || [])[1] || '';
-  t(/^ {4}userLocal: \(code, me, session\)=>userLocalMod\.start\(session\),\n {4}focusTotal:/.test(starts), 'app.js 의 starts 맨 앞이 userLocal — 모든 계정 기능보다 먼저 읽는다');
+  t(/^ {4}userLocal: \(code, me, session\)=>userLocalMod\.start\(session\),\n {4}catalog: \(code, me, session\)=>catalogSyncMod\.start\(session\),/.test(starts), 'app.js 의 starts 맨 앞이 userLocal — 모든 계정 기능보다 먼저 읽는다');
   const parts = (S.APP.match(/const userLocalMod = TwUserLocal\.createUserLocal\(\{ parts: \[([\s\S]*?)\n\] \}\);/) || [])[1] || '';
   const names = [...parts.matchAll(/\{ name: '(\w+)'/g)].map((m) => m[1]);
   t(['seatEq', 'decoParts', 'emojiReactions'].every((n) => names.includes(n)), 'app.js 의 조각 목록 — ' + names.join(' · '));

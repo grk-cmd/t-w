@@ -26,8 +26,7 @@ const SERVER_PART_FIELDS = ['version', 'name', 'icon', 'category', 'model', 'thu
 
 const load = (src, extra) => { const m = { exports: {} }; new Function('window', 'module', src)({}, m); return m.exports; };
 const caa = load(CAA);
-const names = [...CAT.matchAll(/^export (?:const|function|async function) (\w+)/gm)].map((m) => m[1]);
-const cat = new Function(CAT.replace(/^export (const|function|async function) /gm, '$1 ') + '\nreturn {' + names.join(',') + '};')();
+const cat = load(CAT);   // classic script — module.exports 로 꺼낸다
 
 const H = (c) => c.repeat(64);
 /* 모든 칸이 채워진 파츠 — 여기서 하나라도 빠지면 다른 사용자가 그 값을 잃는다 */

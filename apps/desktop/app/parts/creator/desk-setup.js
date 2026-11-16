@@ -82,7 +82,7 @@ function renderCrItems(){
   dr.appendChild(noThumb);
   // 저장된 책상 카드들
   /* 라이선스 전용 책상은 꾸미기 › 책상 에서 고른다 — 관리자만 여기서 본다(등록 · 검수 · 순서). 아래 deskLocked 갈래는 관리자 화면과
-     카탈로그가 늦게 와 licenseOnly 를 아직 모르는 순간의 안전망이라 지우지 않는다. */
+     카탈로그가 늦게 와 locked 를 아직 모르는 순간의 안전망이라 지우지 않는다. */
   commissionMod().savedDesks().filter(rec=>rec.id!==DEFAULT_DESK_OVERRIDE_ID && (isAdmin() || !rec.licenseOnly)).forEach(rec=>{
     const on=(crState.activeCustomDeskId===rec.id);
     const removeLocalDesk = ()=>{
@@ -205,7 +205,7 @@ function renderCrItems(){
     const it=assetCardsMod.swThumb(def.name, on, def.icon||'📦', deleteHandler, active);
     assetCardsMod.applyDeskDotThumb(rec, it);   // 🎨 GLB 도트 썸네일 (생성 전까진 이모지)
     it.dataset.reorderId = def.id;   // bindReorderHandle의 elementFromPoint 탐색용
-    if(licenseAssetBlocked(def)){
+    if(licenseAssetBlocked(rec)){
       const lock=document.createElement('div'); lock.textContent='🔒'; lock.title='라이선스 보유자 전용';
       lock.style.cssText='position:absolute;bottom:-4px;right:-4px;font-size:13px;filter:drop-shadow(0 1px 1px #fff);z-index:2;';
       it.firstChild.appendChild(lock);

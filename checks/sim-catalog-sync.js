@@ -18,16 +18,13 @@ const MOD = ["catalog-sync.js","parts/character/catalog-sync.js","app/parts/char
 if(!MOD){ say('  ? 원본 못 찾음 — catalog-sync.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const CSRC = ["catalog-source.js","parts/character/catalog-source.js","app/parts/character/catalog-source.js"].map(read).find(Boolean);   // 서버 provider — 4절은 진짜 Firebase 판을 가짜 window 위에 만든다
-const NET_PRE = (['net-ready.js', 'parts/shared/net-ready.js', 'app/parts/shared/net-ready.js'].map(read).find(Boolean) || '') + '\nvar TwNetReady = window.TwNetReady;\n';   // 🛰 네트워크 준비 기다리기(shared/net-ready.js) — catalogSrcReady 가 TwNetReady.whenNetReady 로 넘긴다
-const mkSource = (win) => { new Function('window', 'module', NET_PRE + CSRC)(win, undefined); return win.TwCatalogSource.createCatalogSource({}); };
 const FN_DEPS = ["applyInteractionUnlocks","setAnimalUnlockLevel","applyClothVisibility","applyDeskCatalogRefToSeat","applyDeskColorToCustom","applyDeskItemsTo","b64ToBuf","clearHolderDeskItems","equipDeskItem","equipPartOnSeat","loadSavedItemsIntoSession","refitSeatAfterParts","renderCrItems","renderLauncher","setCreatorDeskScale","swapDeskVisual","toast","unequipPartFromSeat"];
-const VAL_DEPS = ["DEFAULT_DESK_OVERRIDE_ID","adminCategory","assetCodeMod","catalogGlbMod","catalogSourceMod","commissionMod","premiumMod","rideBenchMod","seats","wardrobeMod"];
+const VAL_DEPS = ["DEFAULT_DESK_OVERRIDE_ID","adminCategory","assetCodeMod","catalogApiMod","catalogGlbMod","commissionMod","premiumMod","rideBenchMod","seats","wardrobeMod"];
 const GET_DEPS = ["activeCustomDeskId","cBase","cDesk","cDeskColor","cDeskGlbB64","cDeskScale","cDeskTemplate","creatorOpen","customItems","gachaMod"];
 const SET_DEPS = ["cDeskGlbB64","cDeskTemplate"];
-const EXPORTS = [];
+const EXPORTS = ["start"];
 const MOVED = ["mergeCatalogIntoSavedItems","subscribeCatalogItems","mergeCatalogIntoSavedDesks","subscribeCatalogDesks","mergeCatalogIntoSavedParts","subscribeCatalogParts","subscribeCustomCats","subscribeCatOverrides"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  applyInteractionUnlocks: (...a)=>iDeskMod.applyUnlocks(...a),","  setAnimalUnlockLevel: (...a)=>window._setAnimalUnlockLevel(...a),","  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  activeCustomDeskId: ()=>crState.activeCustomDeskId,","  adminCategory: adminCategory,","  applyClothVisibility: (...a)=>applyClothVisibility(...a),","  applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),","  applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),","  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),","  assetCodeMod: assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  cBase: ()=>crState.cBase,","  cDesk: ()=>crState.cDesk,","  cDeskColor: ()=>crState.cDeskColor,","  cDeskGlbB64: ()=>crState.cDeskGlbB64,","  cDeskScale: ()=>crState.cDeskScale,","  cDeskTemplate: ()=>crState.cDeskTemplate,","  catalogGlbMod: catalogGlbMod,","  catalogSourceMod: catalogSourceMod,","  clearHolderDeskItems: (...a)=>creatorPrevMod.clearHolderDeskItems(...a),","  commissionMod: commissionMod,","  creatorOpen: ()=>creatorOpen,","  customItems: ()=>customItems,","  equipDeskItem: (...a)=>equipDeskItem(...a),","  equipPartOnSeat: (...a)=>equipPartOnSeat(...a),","  gachaMod: ()=>gachaMod,","  loadSavedItemsIntoSession: (...a)=>loadSavedItemsIntoSession(...a),","  premiumMod: premiumMod,","  refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),","  renderCrItems: (...a)=>renderCrItems(...a),","  renderLauncher: (...a)=>renderLauncher(...a),","  rideBenchMod: rideBenchMod,","  seats: seats,","  setCreatorDeskScale: (...a)=>setCreatorDeskScale(...a),","  swapDeskVisual: (...a)=>deskVisualMod.swapDeskVisual(...a),","  toast: (...a)=>toast(...a),","  unequipPartFromSeat: (...a)=>unequipPartFromSeat(...a),","  wardrobeMod: wardrobeMod,","  setCDeskGlbB64: (v)=>{ crState.cDeskGlbB64 = v; },","  setCDeskTemplate: (v)=>{ crState.cDeskTemplate = v; },"];
+const GLUE = ["  applyInteractionUnlocks: (...a)=>iDeskMod.applyUnlocks(...a),","  setAnimalUnlockLevel: (...a)=>window._setAnimalUnlockLevel(...a),","  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  activeCustomDeskId: ()=>crState.activeCustomDeskId,","  adminCategory: adminCategory,","  applyClothVisibility: (...a)=>applyClothVisibility(...a),","  applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),","  applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),","  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),","  assetCodeMod: assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  cBase: ()=>crState.cBase,","  cDesk: ()=>crState.cDesk,","  cDeskColor: ()=>crState.cDeskColor,","  cDeskGlbB64: ()=>crState.cDeskGlbB64,","  cDeskScale: ()=>crState.cDeskScale,","  cDeskTemplate: ()=>crState.cDeskTemplate,","  catalogApiMod: catalogApiMod,","  catalogGlbMod: catalogGlbMod,","  clearHolderDeskItems: (...a)=>creatorPrevMod.clearHolderDeskItems(...a),","  commissionMod: commissionMod,","  creatorOpen: ()=>creatorOpen,","  customItems: ()=>customItems,","  equipDeskItem: (...a)=>equipDeskItem(...a),","  equipPartOnSeat: (...a)=>equipPartOnSeat(...a),","  gachaMod: ()=>gachaMod,","  loadSavedItemsIntoSession: (...a)=>loadSavedItemsIntoSession(...a),","  premiumMod: premiumMod,","  refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),","  renderCrItems: (...a)=>renderCrItems(...a),","  renderLauncher: (...a)=>renderLauncher(...a),","  rideBenchMod: rideBenchMod,","  seats: seats,","  setCreatorDeskScale: (...a)=>setCreatorDeskScale(...a),","  swapDeskVisual: (...a)=>deskVisualMod.swapDeskVisual(...a),","  toast: (...a)=>toast(...a),","  unequipPartFromSeat: (...a)=>unequipPartFromSeat(...a),","  wardrobeMod: wardrobeMod,","  setCDeskGlbB64: (v)=>{ crState.cDeskGlbB64 = v; },","  setCDeskTemplate: (v)=>{ crState.cDeskTemplate = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -108,18 +105,17 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
     const log = [];
     const L = (...a) => log.push(a.map(x => typeof x === 'object' && x && x.__n ? x.__n : (typeof x === 'object' ? JSON.stringify(x) : String(x))).join(':'));
     const st = { items: o.items || [], desks: o.desks || [], parts: o.parts || [] };
-    const subs = {}, listeners = [];
-    const fb = {
-      subscribeCatalogItems: (cb) => { subs.items = cb; L('sub', 'items'); },
-      subscribeCatalogDesks: (cb) => { subs.desks = cb; L('sub', 'desks'); },
-      subscribeCatalogParts: (cb) => { subs.parts = cb; L('sub', 'parts'); },
-      subscribeCatalogCategories: (cb) => { subs.cats = cb; L('sub', 'cats'); },
-      subscribeCatalogUnlocks: (cb) => { subs.unlocks = cb; L('sub', 'unlocks'); },
-    };
-    const win = { firebaseAPI: o.noApi ? undefined : fb, addEventListener: (ev, fn, opt) => listeners.push([ev, fn, opt]) };
+    const subs = {}, offs = [];
+    /* 가짜 카탈로그 통로(catalog-api.js 의 subscribe) — 부른 종류 · 콜백을 적고 해제 함수를 돌려준다 */
+    const catalogApiMod = { subscribe: (kind, cb) => { const k = kind === 'categories' ? 'cats' : kind; subs[k] = cb; L('sub', k); return () => { offs.push(k); }; } };
+    const sessionOn = [];
+    const resets = [];
+    const session = { on: (u) => { sessionOn.push(u); return () => {}; }, onReset: (fn) => { resets.push(fn); } };
+    const win = {};
     const els = { launcher: { classList: { contains: () => !!o.launcherOn } }, wdPreviewPanel: { classList: { contains: () => !!o.wdOn } } };
     const doc = { getElementById: (id) => els[id] || null };
     const cons = { warn: (...a) => L('warn', a[0]), log: () => {} };
+    let mod = null;
     const raw = {
       DEFAULT_DESK_OVERRIDE_ID: '__default_desk__',
       applyInteractionUnlocks: (u) => L('idesk', JSON.stringify(u.DANCE || {})), setAnimalUnlockLevel: (n) => L('animal', n),
@@ -129,6 +125,7 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
       premiumMod: { savedParts: () => st.parts, setSavedParts: (v) => { st.parts = v; L('setParts'); }, persistSavedParts: () => L('persistParts'),
         _normPartRec: (r) => Object.assign({ norm: true }, r), partEntryId: (e) => typeof e === 'string' ? e : (e && e.id),
         entriesForCat: (def, cat) => { const v = def.equippedParts[cat]; return Array.isArray(v) ? v : [v]; }, partEntryXf: (e) => e && e.xf,
+        restoreLicenseHeldAssets: () => L('restoreHeld'),
         pruneUnownedLicenseAssets: () => { L('licPrune'); if(o.licThrows) throw new Error('lic'); },
         setCustomPartCats: (v) => L('setCats', v), rebuildPartCats: () => L('rebuildCats'), setPartCatOverrides: (v) => L('setOver', v) },
       catalogGlbMod: { resolveCatalogGlbAll: async (x) => { L('resolveAll'); return x; } },
@@ -164,28 +161,51 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
       const deps = Object.assign({}, raw);
       GETS.forEach(n => { deps[n] = () => raw[n]; });
       deps.setCDeskGlbB64 = (v) => L('set cDeskGlbB64', v); deps.setCDeskTemplate = (v) => L('set cDeskTemplate', v);
-      deps.catalogSourceMod = mkSource(win);
-      new Function('window', 'module', 'document', 'console', MOD)(win, undefined, doc, cons);
-      win.TwCatalogSync.createCatalogSync(deps);
+      deps.catalogApiMod = catalogApiMod;
+      new Function('window', 'module', 'document', 'console', o.src || MOD)(win, undefined, doc, cons);
+      mod = win.TwCatalogSync.createCatalogSync(deps);
+      if(!o.noStart) mod.start(session);
     } else {
       const a1 = SRC.indexOf('async function mergeCatalogIntoSavedItems'), b1 = SRC.indexOf('// 좌석의 charDef.deskCatalogId를 보고', a1);
       const a2 = SRC.indexOf('function mergeCatalogIntoSavedParts'), b2 = SRC.indexOf('/* ═══ 🪑 책상 · 아이템 등록', a2);
       const names = Object.keys(raw);
       new Function(...names, 'window', 'document', 'console', SRC.slice(a1, b1) + '\n' + SRC.slice(a2, b2))(...names.map(n => raw[n]), win, doc, cons);
     }
-    return { log, st, subs, listeners, win, raw };
+    return { log, st, subs, offs, sessionOn, resets, mod, session, win, raw };
   };
   const has = (log, s) => log.includes(s);
   const idx = (log, s) => log.indexOf(s);
   (async () => {
-    /* 구독 걸기 */
-    let W = load();
-    chk(W.log.filter(x => x.startsWith('sub')).join() === 'sub:items,sub:desks,sub:parts,sub:cats,sub:unlocks' && !W.listeners.length, 'firebaseAPI 가 있으면 만들 때 아이템 · 책상 · 파츠 · 카테고리 · 해금 레벨 구독을 바로 건다');
-    W = load({ noApi: true });
-    chk(W.listeners.length === 4 && W.listeners.every(l => l[0] === 'firebase-ready' && l[2] && l[2].once === true) && !W.log.length, '  없으면 firebase-ready 를 한 번만(once) 기다린다 — 걸개 넷(카테고리 · 해금은 한 걸개)');
-    W.win.firebaseAPI = { subscribeCatalogItems: () => W.log.push('late') };
-    W.listeners.forEach(l => l[1]());
-    chk(W.log.join() === 'late', '  firebase-ready 뒤에도 그 함수가 없는 구독은 조용히 건너뛴다');
+    /* 구독 걸기 — 만들 때가 아니라 로그인 세션이 시작될 때 */
+    let W = load({ noStart: true });
+    chk(!W.log.length && !Object.keys(W.subs).length && typeof W.mod.start === 'function', '★ 만들 때는 요청도 구독도 없다 — start(session) 가 불릴 때까지 기다린다(로그인 전에는 서버가 locked 를 못 정한다)');
+    W.mod.start(W.session);
+    chk(W.log.filter(x => x.startsWith('sub')).join() === 'sub:items,sub:desks,sub:parts,sub:cats,sub:unlocks', '★ start 가 아이템 · 책상 · 파츠 · 카테고리 · 해금 레벨 구독 다섯을 건다');
+    chk(W.sessionOn.length === 5 && W.sessionOn.every((u) => typeof u === 'function') && !W.offs.length, '★ 다섯 해제 함수를 모두 세션에 맡긴다(session.on) — 세션이 끝나면 풀리고 catalog-api 가 값을 비운다');
+    W.sessionOn.forEach((u) => u());
+    chk(W.offs.join() === 'items,desks,parts,cats,unlocks', '  ↳ 맡긴 함수가 각자 제 구독을 푼다');
+    chk(W.resets.length === 1 && typeof W.resets[0] === 'function', '★ 세션 reset 에 카탈로그 몫 비우기를 한 곳(clearCatalogShare)으로 건다');
+
+    /* 계정 A(라이선스 있음 · 전용 책상 locked:false) → 세션 끝 → 계정 B 는 받기 전 · 받기 실패에도 A 의 전용 책상을 못 쓴다 */
+    const acct = (o) => load(Object.assign({ customItems: { vip: { id: 'vip' }, mine: { id: 'mine' } },
+      desks: [{ id: 'deskVip', fromCatalog: true, licenseOnly: true, locked: false }, { id: 'localDesk' }],
+      items: [{ id: 'vip', fromCatalog: true, licenseOnly: true, locked: false }, { id: 'mine' }],
+      parts: [{ id: 'p1', fromCatalog: true }, { id: 'pLocal' }] }, o || {}));
+    const endSession = (A) => A.resets.forEach((fn) => fn());
+    const left = (A) => A.st.desks.map(r => r.id).join() + '|' + A.st.items.map(r => r.id).join() + '|' + A.st.parts.map(r => r.id).join();
+    let A = acct();
+    chk(A.st.desks[0].locked === false, 'A — 라이선스가 있어 전용 책상의 locked 가 거짓이다(쓸 수 있다)');
+    endSession(A);
+    chk(left(A) === 'localDesk|mine|pLocal', '★ 세션이 끝나면 저장 목록 셋에서 카탈로그 몫(fromCatalog)만 빠진다 — 이 계정 몫(코드로 추가)은 userLocal 의 reset 이 따로 비운다');
+    chk(!('vip' in A.raw.customItems) && 'mine' in A.raw.customItems, '  ↳ customItems 도 카탈로그 몫만 뺀다');
+    chk(!A.st.desks.some(r => r.id === 'deskVip') && !A.st.desks.some(r => r.locked === false), '★ B 가 받기 전 · 받기에 실패해도(구독 콜백이 안 온다) A 의 전용 책상 레코드가 남지 않는다 — 레코드가 없으니 B 는 쓸 수 없다');
+    A.st.desks.length = 0;
+    await A.subs.desks({ deskVip: { licenseOnly: true, locked: true } }); await flush();
+    chk(A.st.desks[0].id === 'deskVip' && A.st.desks[0].locked === true, '  ↳ B 가 받으면 서버가 B 에게 정한 locked(참)로 채워진다');
+    const brokenSrc = MOD.replace('session.onReset(clearCatalogShare);', '');
+    const Bk = acct({ src: brokenSrc }); endSession(Bk);
+    chk(brokenSrc !== MOD && left(Bk) === 'deskVip,localDesk|vip,mine|p1,pLocal' && Bk.st.desks[0].locked === false, '  깨 보기: 세션 reset 에 안 걸면 A 의 locked:false 레코드가 B 에게 남는다(= 위 판정이 빨강)');
+    W = load();
 
     /* 아이템 */
     const seatA = { __n: 'A', deskItems: { gone: {} }, charDef: { deskItems: { i1: {} } } }, seatB = { __n: 'B', deskItems: {} };
@@ -198,6 +218,16 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
     W = load({ creatorOpen: true, cBase: { __n: 'cBase', deskItems: { i1: {}, nope: {}, x: null } }, customItems: { i1: { id: 'i1' } }, licThrows: true });
     await W.subs.items({ i1: {} }); await flush();
     chk(has(W.log, 'equipDeskItem:cBase:i1:true') && W.log.filter(x => x.startsWith('equipDeskItem')).length === 1 && has(W.log, 'renderCrItems') && has(W.log, 'warn:[라이선스] 아이템 카탈로그 도착 후 정리 실패'), '  생성기가 열려 있으면 생성기 책상의 카탈로그 아이템만 새 GLB 로 다시 올리고 카드도 다시 그린다 · 라이선스 접기 실패는 경고만');
+
+    /* 받기 전에 건너뛴 소품(holder._skippedItems)은 카탈로그가 오면 생성기에서 원본(charDef.deskItems)째 다시 올린다 */
+    const skipSet = new Map([['i1', { adj: { x: 1 } }], ['gone2', { adj: { x: 2 } }]]);
+    W = load({ creatorOpen: true, cBase: { __n: 'cBase', deskItems: {}, _skippedItems: skipSet, charDef: {} }, customItems: { i1: { id: 'i1' } } });
+    await W.subs.items({ i1: {} }); await flush();
+    chk(has(W.log, 'applyDeskItems:cBase'), '★ 카탈로그가 오면 생성기가 건너뛴 소품을 원본(저장된 위치 · 크기)에서 다시 올린다');
+    const mmSrc = MOD.replace('applyDeskItemsTo(cBase(), pick);', '');
+    W = load({ src: mmSrc, creatorOpen: true, cBase: { __n: 'cBase', deskItems: {}, _skippedItems: new Map([['i1', { adj: {} }]]), charDef: {} }, customItems: { i1: { id: 'i1' } } });
+    await W.subs.items({ i1: {} }); await flush();
+    chk(mmSrc !== MOD && !has(W.log, 'applyDeskItems:cBase'), '  깨 보기: 다시 올리는 줄을 빼면 건너뛴 소품이 생성기에 안 돌아온다(= 위 판정이 빨강)');
 
     /* 책상 */
     const sR = { __n: 'R', desk: { __n: 'dR' }, charDef: { deskCatalogId: 'gone', deskGlb: 'g' } };

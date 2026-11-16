@@ -59,7 +59,7 @@ function world(src, o = {}) {
   const T = new Function('window', 'document', 'localStorage', 'setTimeout', 'Event', 'module', src + '\nreturn window.TwDeskPreset;')({}, doc, ls, (f) => timers.push(f), class { constructor(t) { this.type = t; } }, undefined);
   const out = T.createDeskPreset({
     DEFAULT_DESK_OVERRIDE_ID: '__default_desk__', NO_DESK_ID: '__no_desk__', hideDeskBody: call('hide'), crState: st, deskPresetStoreMod: store,
-    premiumMod: { _licenseLockedDeskId: (id) => !!(o.locked && id) }, licenseAssetBlocked: (r) => !!(r && r.licenseOnly) && !o.premium && !o.admin,
+    premiumMod: { _licenseLockedDeskId: (id) => !!(o.locked && id && !o.premium && !o.admin) }, licenseAssetBlocked: (r) => !!(r && r.locked === true),
     applyCreatorXform: call('xform'), applyDeskColorToCustom: call('color'), applyDeskItemsTo: call('items'), autoSaveDeskItemsNow: call('autosave'),
     assetCodeMod: () => ({ parseGlbBytes: (b) => { log.parsed.push(b); return o.parseFail || (o.overrideFail && b === 'B:OVGLB') ? Promise.reject(new Error('x')) : Promise.resolve({ scene: b }); } }),
     b64ToBuf: (s) => 'B:' + s,
@@ -233,7 +233,7 @@ function wire(app, html) {
     ['라이선스를 프리셋 값으로', (m) => m.replace('licenseOnly:!!(_rec && _rec.licenseOnly)', 'licenseOnly:false'), null],
     ['책상 크기 clamp 없앰', (m) => m.replace('crState.cDeskScale=clampDeskScale(p.deskScale);', 'crState.cDeskScale=p.deskScale;'), null],
     ['카메라 기억 안 지움', (m) => m.replace('  crState.deskCamSaved = null;\n', ''), null],
-    ['라이선스 잠금 없앰', (m) => m.replace('licenseAssetBlocked({ licenseOnly: premiumMod._licenseLockedDeskId(p.deskCatalogId) })', 'false'), null],
+    ['라이선스 잠금 없앰', (m) => m.replace('licenseAssetBlocked({ locked: premiumMod._licenseLockedDeskId(p.deskCatalogId) })', 'false'), null],
     ['기본 책상 덮어쓰기 표시 안 함', (m) => m.replace('swapDeskVisual(crState.cDesk, sc, true);', 'swapDeskVisual(crState.cDesk, sc);'), null],
     ['저장이 카탈로그 책상 바이트를 그대로', null, (s) => s.replace('return jsonStore.save(PRESET_KEY, slimPresets(arr.slice(0,PRESET_SLOTS)));', 'return jsonStore.save(PRESET_KEY, arr.slice(0,PRESET_SLOTS));')],
     ['불러올 때 카탈로그에서 안 받음', (m) => m.replace('  if(p.deskGlb) return p.deskGlb;\n', '  return p.deskGlb || null;\n'), null],

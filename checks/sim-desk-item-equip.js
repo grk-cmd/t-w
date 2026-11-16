@@ -41,7 +41,8 @@ function build(src, o){
     customItems: () => st.custom,
     deskItemsMod: () => ({ allDeskItems: () => Object.values(defs), deskItemDef: (id) => defs[id] }),
     deskSetupMod: () => ({ selectDeskItemForAdjust: (p) => log.select.push(p) }),
-    licenseAssetBlocked: (item) => !!(item && item.licenseOnly) && !st.premium && !st.admin,   // account-state.js 와 같은 판단(프리미엄 확인 뒤)
+    catalogReceived: () => !!(o.received || st.received),
+    licenseAssetBlocked: (item) => !!(item && item.locked === true),   // account-state.js 와 같은 판단(서버 locked 하나)
     launcherPrevMod: () => ({ lHolder: () => null }),
     slotSaveMod: () => ({ saveSlots: () => log.saves++ }),
     lightToneMod: { baseFlatOf: () => 0.5 },
@@ -56,17 +57,40 @@ const clip = (n) => new THREE.AnimationClip(n, -1, [new THREE.VectorKeyframeTrac
 say('§1 라이선스 전용 막기');
 {
   const d = mkDef('vip', { licenseOnly: true });
-  let b = build(SRC); let h = mkHolder(); b.mod.equipDeskItem(h, d, true);
-  chk(b.log.toast.length === 1 && b.log.toast[0].includes('라이선스') && !h.deskItems, '일반 유저 — 막고 안내(장착 안 함)');
-  b = build(SRC, { premium: true }); h = mkHolder(); b.mod.equipDeskItem(h, d, true);
-  chk(h.deskItems && h.deskItems.vip && b.log.toast.length === 0, '프리미엄은 통과');
-  b = build(SRC, { admin: true }); h = mkHolder(); b.mod.equipDeskItem(h, d, true);
-  chk(!!(h.deskItems && h.deskItems.vip), '관리자는 통과');
-  b = build(SRC); h = mkHolder({ remote: true }); b.mod.equipDeskItem(h, d, true);
-  chk(!!(h.deskItems && h.deskItems.vip) && b.log.toast.length === 0, '★ 친구 좌석은 보는 사람의 라이선스를 안 본다');
-  b = build(SRC, { saved: [{ id: 'cc', licenseOnly: true }] }); h = mkHolder(); b.mod.equipDeskItem(h, mkDef('cc', { licenseOnly: false }), true);
-  chk(b.log.toast.length === 1 && !h.deskItems, '카탈로그 기록(savedItems)이 licenseOnly 면 def 가 false 여도 막는다');
-  b = build(SRC); h = mkHolder(); b.mod.equipDeskItem(h, d, false);
+  const LOCKEDREC = [{ id: 'vip', licenseOnly: true, locked: true }], OPENREC = [{ id: 'vip', licenseOnly: true, locked: false }];   // 서버가 사람마다 정해 싣는다(보유자 · 관리자에게는 locked:false)
+  let b = build(SRC, { saved: LOCKEDREC }); let h = mkHolder(); b.mod.equipDeskItem(h, d, true);
+  chk(b.log.toast.length === 1 && b.log.toast[0].includes('라이선스') && !h.deskItems, '서버 locked:true — 막고 안내(장착 안 함)');
+  b = build(SRC, { saved: OPENREC }); h = mkHolder(); b.mod.equipDeskItem(h, d, true);
+  chk(h.deskItems && h.deskItems.vip && b.log.toast.length === 0, '★ 전용 분류여도 서버 locked:false(보유자 · 관리자)면 통과 — 앱이 다시 가리지 않는다');
+  b = build(SRC); h = mkHolder(); b.mod.equipDeskItem(h, d, true);
+  chk(!!(h.deskItems && h.deskItems.vip) && b.log.toast.length === 0, '레코드가 아직 없으면(받기 전) 막을 것도 없다');
+  b = build(SRC, { saved: LOCKEDREC }); h = mkHolder({ remote: true }); b.mod.equipDeskItem(h, d, true);
+  chk(!!(h.deskItems && h.deskItems.vip) && b.log.toast.length === 0, '★ 친구 좌석은 보는 사람의 locked 를 안 본다');
+  b = build(SRC, { saved: [{ id: 'cc', licenseOnly: true, locked: true }] }); h = mkHolder(); b.mod.equipDeskItem(h, mkDef('cc', { licenseOnly: false }), true);
+  chk(b.log.toast.length === 1 && !h.deskItems, '카탈로그 기록(savedItems)의 서버 locked 가 참이면 def 가 licenseOnly:false 여도 막는다');
+  /* 모를 땐 막는다 — 커스텀 아이템인데 카탈로그 기록이 없으면 locked 를 모른다(캐릭터 코드로 딸려 온 것). 기록이 오면 다시 판정한다 */
+  const cu = mkDef('vip', { custom: true, licenseOnly: false });
+  b = build(SRC); h = mkHolder(); b.mod.equipDeskItem(h, cu, true);
+  chk(!h.deskItems && b.log.toast.length === 0, '★ 받기 전(처음 · 받기 실패) · 기록 없음 → 막는다(소리 없이 — 장착 안 함)');
+  b = build(SRC, { received: true }); h = mkHolder(); b.mod.equipDeskItem(h, cu, true);
+  chk(!!(h.deskItems && h.deskItems.vip) && b.log.toast.length === 0, '★ 받은 뒤 · 기록 없음 → 장착한다(카탈로그 물건이 아니다 — 친구가 코드로 추가한 소품)');
+  b = build(SRC, { received: true, saved: [{ id: 'vip', locked: true }] }); h = mkHolder(); b.mod.equipDeskItem(h, cu, true);
+  chk(!h.deskItems && b.log.toast.length === 1, '★ 받은 뒤 · locked:true → 막고 안내한다');
+  b = build(SRC, { saved: [{ id: 'vip', locked: false }] }); h = mkHolder(); b.mod.equipDeskItem(h, cu, true);
+  chk(!!(h.deskItems && h.deskItems.vip), '  ↳ 기록이 오고 locked:false 면 그때 장착된다');
+  b = build(SRC, { saved: [{ id: 'vip', locked: true }] }); h = mkHolder(); b.mod.equipDeskItem(h, cu, true);
+  chk(!h.deskItems && b.log.toast.length === 1, '  ↳ 기록이 오고 locked:true 면 막고 안내한다');
+  b = build(SRC); h = mkHolder({ remote: true }); b.mod.equipDeskItem(h, cu, true);
+  chk(!!(h.deskItems && h.deskItems.vip), '  ↳ 친구 좌석은 기록이 없어도 막지 않는다');
+  b = build(SRC); h = mkHolder(); b.mod.equipDeskItem(h, mkDef('plant'), true);
+  chk(!!(h.deskItems && h.deskItems.plant), '  ↳ 기본 내장 아이템(custom 아님)은 기록이 없어도 막지 않는다');
+  b = build(SRC); h = mkHolder(); b.mod.equipDeskItem(h, cu, false);
+  chk(b.log.toast.length === 0, '  ↳ 끄기는 기록이 없어도 막지 않는다');
+  { const m2 = SRC.replace('&& !_siRec && !catalogReceived()', '&& !_siRec'); const b2 = build(m2, { received: true }); const h2 = mkHolder(); b2.mod.equipDeskItem(h2, cu, true);
+    chk(m2 !== SRC && !h2.deskItems, '  깨 보기: «받았는가» 를 안 보면 받은 뒤에도 막혀 버린다(= 위 «받은 뒤 · 기록 없음» 판정이 빨강)'); }
+  { const mm = SRC.replace('if(def && def.custom && !_siRec && !catalogReceived()){ _markSkipped(holder, def.id); return; }', ''); const bb = build(mm); const hh = mkHolder(); bb.mod.equipDeskItem(hh, cu, true);
+    chk(mm !== SRC && !!(hh.deskItems && hh.deskItems.vip), '  깨 보기: 기록 없을 때 막는 줄을 지우면 장착돼 버린다(= 위 판정이 빨강)'); }
+  b = build(SRC, { saved: LOCKEDREC }); h = mkHolder(); b.mod.equipDeskItem(h, d, false);
   chk(b.log.toast.length === 0, '끄기(on=false)는 막지 않는다');
 }
 say('§2 장착 · 해제');
@@ -112,7 +136,7 @@ say('§3 재생 방식');
 }
 say('§4 커스텀 크기 · 색 그룹 · 손 지점');
 {
-  const b = build(SRC); const h = mkHolder();
+  const b = build(SRC, { saved: [{ id: 'big' }, { id: 'colored' }] }); const h = mkHolder();
   const d = mkDef('big', { custom: true, defaultSize: 0.5, build: () => { const g = new THREE.Group(); const m = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 2)); m.position.set(5, 7, 0); g.add(m); return g; } });
   b.mod.equipDeskItem(h, d, true);
   const p = h.deskItems.big; const obj = p.children[0]; const box = new THREE.Box3().setFromObject(obj);
@@ -149,7 +173,7 @@ say('§5 모으기 · 저장 · 불러오기');
   s.mod.autoSaveDeskItemsNow();
   chk(cb.charDef.deskItems && Object.keys(cb.charDef.deskItems).sort().join() === 'cust,plant' && s.log.saves === 1, '켜고 끌 때 def.deskItems 에 바로 반영하고 슬롯을 저장');
   chk(JSON.stringify(cb.charDef.customItems) === '{"cust":{"name":"N","glb":"G"}}', '  customItems 에는 업로드한 것만(카탈로그에서 온 것은 뺀다)');
-  const a = build(SRC, { defs: { plant: mkDef('plant', { custom: true, defaultSize: 1 }) } });
+  const a = build(SRC, { defs: { plant: mkDef('plant', { custom: true, defaultSize: 1 }) }, saved: [{ id: 'plant' }] });
   const ha = mkHolder();
   a.mod.applyDeskItemsTo(ha, { plant: { adj: { x: 1, y: 2, z: 3, scale: 0.4, rot: 0.5 }, autoScale: 0.2, colors: {} } });
   const pa = ha.deskItems.plant;
@@ -162,6 +186,49 @@ say('§5 모으기 · 저장 · 불러오기');
   const a3 = build(SRC, { defs: { c: mkDef('c', { build: () => { const g = new THREE.Group(); const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0xff0000 })); m.name = 'x_col'; g.add(m); return g; } }) } }); const hc = mkHolder();
   a3.mod.applyDeskItemsTo(hc, { c: { adj: {}, colors: {} } });
   chk(hc.deskItems.c.userData.colorGroups.col1[0].material.color.getHexString() === 'ff0000', '저장된 색이 없는 그룹은 원래 색(origColor)으로 되돌린다');
+}
+say('§5-B 받기 전에 건너뛴 아이템은 저장본에서 지워지지 않는다');
+{
+  const ORIG = () => ({ vip: { adj: { x: 1 } }, other: { adj: { x: 2 } } });
+  const run = (src) => {
+    const cb = mkHolder({ charDef: { deskItems: ORIG() } });
+    const b = build(src, { cBase: cb, defs: { vip: mkDef('vip', { custom: true }), other: mkDef('other', { custom: true }), plant: mkDef('plant') } });
+    b.mod.applyDeskItemsTo(cb, cb.charDef.deskItems);   // 카탈로그를 받기 전 — 기록 없는 커스텀 둘을 건너뛴다
+    b.mod.equipDeskItem(cb, b.defs.plant, true);          // 다른 조정(기본 아이템 켜기)
+    b.mod.autoSaveDeskItemsNow();
+    return { cb, b };
+  };
+  const r = run(SRC);
+  chk(!r.cb.deskItems.vip && r.cb._skippedItems instanceof Map && r.cb._skippedItems.get('vip').adj.x === 1 && r.cb._skippedItems.get('other').adj.x === 2, '건너뛴 소품을 holder 에 따로 적어 둔다');
+  chk(Object.keys(r.cb.charDef.deskItems).sort().join() === 'other,plant,vip' && r.cb.charDef.deskItems.vip.adj.x === 1 && r.cb.charDef.deskItems.other.adj.x === 2, '★ 다른 조정 뒤 저장해도 건너뛴 두 소품의 원본(위치 · 크기)이 저장본에 남는다');
+  const cb2 = mkHolder({ charDef: { deskItems: ORIG() } });
+  const b2 = build(SRC, { cBase: cb2, defs: { vip: mkDef('vip', { custom: true }), other: mkDef('other', { custom: true }) } });
+  b2.mod.applyDeskItemsTo(cb2, cb2.charDef.deskItems); b2.mod.autoSaveDeskItemsNow();
+  chk(cb2.charDef.deskItems && Object.keys(cb2.charDef.deskItems).sort().join() === 'other,vip', '★ 전부 건너뛰었어도 null 이 저장되지 않는다');
+  /* 카탈로그가 도착한 뒤 — 같은 holder 에 다시 올리면 표시가 풀리고 저장본에 그대로 있다 */
+  b2.st.received = true;
+  b2.mod.applyDeskItemsTo(cb2, { vip: cb2.charDef.deskItems.vip, other: cb2.charDef.deskItems.other });
+  chk(!!(cb2.deskItems.vip && cb2.deskItems.other) && cb2._skippedItems.size === 0 && cb2.deskItems.vip.userData.adj.x === 1, '카탈로그가 오면 저장된 위치째 올라오고 건너뜀 표시가 풀린다');
+  /* 프리셋을 얹은 뒤 건너뜀 — 저장본에는 옛 캐릭터 값이 아니라 프리셋 값이 남는다 */
+  const cbp = mkHolder({ charDef: { deskItems: ORIG() } });
+  const bp = build(SRC, { cBase: cbp, defs: { vip: mkDef('vip', { custom: true }), other: mkDef('other', { custom: true }) } });
+  bp.mod.applyDeskItemsTo(cbp, { vip: { adj: { x: 9 } } });   // 프리셋이 입히려던 값
+  bp.mod.autoSaveDeskItemsNow();
+  chk(cbp.charDef.deskItems && cbp.charDef.deskItems.vip.adj.x === 9 && !cbp.charDef.deskItems.other, '★ 프리셋을 얹은 뒤 건너뜀 → 저장본에 프리셋 값(x:9)이 남는다(옛 캐릭터 값 x:1 이 아니다)');
+  const mm = SRC.replace("_sk.forEach((entry,id)=>{ if(entry && !d[id]){ d[id]=entry; any=true; } });", '');
+  const rb = run(mm);
+  const rbp = (() => { const c = mkHolder({ charDef: { deskItems: ORIG() } }); const bb = build(SRC.replace("if(holder._skippedItems && holder._skippedItems.has(id)) holder._skippedItems.set(id, e);", ''), { cBase: c, defs: { vip: mkDef('vip', { custom: true }) } }); bb.mod.applyDeskItemsTo(c, { vip: { adj: { x: 9 } } }); bb.mod.autoSaveDeskItemsNow(); return c; })();
+  chk(!rbp.charDef.deskItems || !rbp.charDef.deskItems.vip || rbp.charDef.deskItems.vip.adj.x !== 9, '  깨 보기: 건너뛰는 순간 원본을 붙잡지 않으면 프리셋 값이 저장본에 남지 않는다(= 위 «프리셋» 판정이 빨강)');
+  chk(mm !== SRC && Object.keys(rb.cb.charDef.deskItems || {}).sort().join() === 'plant', '  깨 보기: collectDeskItems 의 합치는 줄을 빼면 건너뛴 소품이 저장본에서 지워진다(= 위 판정이 빨강)');
+  /* 저장 길 셋이 같은 결과 — 자동 저장 · 생성기 «완성 → 저장»(creator-save.js) · 프리셋 저장(desk-preset.js)은 모두 collectDeskItems 로 모은다 */
+  const cb3 = mkHolder({ charDef: { deskItems: ORIG() } });
+  const b3 = build(SRC, { cBase: cb3, defs: { vip: mkDef('vip', { custom: true }), other: mkDef('other', { custom: true }), plant: mkDef('plant') } });
+  b3.mod.applyDeskItemsTo(cb3, cb3.charDef.deskItems); b3.mod.equipDeskItem(cb3, b3.defs.plant, true);
+  const viaCollect = b3.mod.collectDeskItems(cb3);   // creator-save 의 def.deskItems · desk-preset 의 deskItems 가 받는 값
+  chk(Object.keys(viaCollect).sort().join() === 'other,plant,vip' && viaCollect.vip.adj.x === 1, '★ collectDeskItems 한 곳이 건너뛴 원본을 합친다 — 생성기 «완성 → 저장» · 프리셋 저장이 받는 값에도 두 소품이 남는다');
+  const rd = (names) => { for(const n of names){ try{ return require('fs').readFileSync(n, 'utf8'); }catch(_){} } return ''; };
+  const CS = rd(['creator-save.js', 'parts/creator/creator-save.js', 'app/parts/creator/creator-save.js']), DP = rd(['desk-preset.js', 'parts/creator/desk-preset.js', 'app/parts/creator/desk-preset.js']);
+  chk(/def\.deskItems=di;/.test(CS) && /collectDeskItems\(cBase\(\)\)/.test(CS) && /deskItems: crState\.cBase \? collectDeskItems\(crState\.cBase\) : null/.test(DP), '  ↳ creator-save.js · desk-preset.js 가 직접 모으지 않고 collectDeskItems 를 부른다(합치기 한 곳)');
 }
 say('§6 생성기 몫');
 {
@@ -195,15 +262,15 @@ say('§8 일부러 깨 보기');
 {
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const m1 = brk('!(holder && holder.remote)', 'true');
-  chk(!!m1 && (() => { const b = build(m1); const h = mkHolder({ remote: true }); b.mod.equipDeskItem(h, mkDef('v', { licenseOnly: true }), true); return !h.deskItems; })(), '친구 좌석에도 라이선스를 걸면 빨강');
+  chk(!!m1 && (() => { const b = build(m1, { saved: [{ id: 'v', locked: true }] }); const h = mkHolder({ remote: true }); b.mod.equipDeskItem(h, mkDef('v', { licenseOnly: true }), true); return !h.deskItems; })(), '친구 좌석에도 라이선스를 걸면 빨강');
   const m2 = brk('holder._itemAdjMemory[def.id]=Object.assign({},cur.userData.adj);', '');
   chk(!!m2 && (() => { const b = build(m2); const h = mkHolder(); const d = mkDef('p'); b.mod.equipDeskItem(h, d, true); h.deskItems.p.userData.adj.x = 0.9; b.mod.equipDeskItem(h, d, false); b.mod.equipDeskItem(h, d, true); return !near(h.deskItems.p.userData.adj.x, 0.9); })(), '해제 전 위치를 기억하지 않으면 빨강');
   const m3 = brk('activeItemMixers.add(mixer);\n      } else if(playMode===\'idle\')', '} else if(playMode===\'idle\')');
   chk(!!m3 && (() => { const b = build(m3); const h = mkHolder(); b.mod.equipDeskItem(h, mkDef('a', { animations: [clip('i')], playMode: 'auto' }), true); return b.activeItemMixers.size === 0; })(), 'auto 아이템을 믹서 목록에 안 넣으면 빨강');
   const m4 = brk('const ITEM_Y_START_OFFSET = 1.1;', 'const ITEM_Y_START_OFFSET = 0;');
-  chk(!!m4 && (() => { const b = build(m4); const h = mkHolder(); b.mod.equipDeskItem(h, mkDef('c', { custom: true }), true); return !near(h.deskItems.c.userData.adj.y, 1.1); })(), '커스텀 높이 보정을 바꾸면 빨강');
+  chk(!!m4 && (() => { const b = build(m4, { saved: [{ id: 'c' }] }); const h = mkHolder(); b.mod.equipDeskItem(h, mkDef('c', { custom: true }), true); return !near(h.deskItems.c.userData.adj.y, 1.1); })(), '커스텀 높이 보정을 바꾸면 빨강');
   const m5 = brk('savedAdj.scale = p.userData.autoScale * userMul;', '');
-  chk(!!m5 && (() => { const b = build(m5, { defs: { plant: mkDef('plant', { custom: true, defaultSize: 1 }) } }); const h = mkHolder(); b.mod.applyDeskItemsTo(h, { plant: { adj: { scale: 0.4 }, autoScale: 0.2 } }); const p = h.deskItems.plant; return !near(p.userData.adj.scale, p.userData.autoScale * 2); })(), '크기 비율 환산을 빼면 빨강');
+  chk(!!m5 && (() => { const b = build(m5, { defs: { plant: mkDef('plant', { custom: true, defaultSize: 1 }) }, saved: [{ id: 'plant' }] }); const h = mkHolder(); b.mod.applyDeskItemsTo(h, { plant: { adj: { scale: 0.4 }, autoScale: 0.2 } }); const p = h.deskItems.plant; return !near(p.userData.adj.scale, p.userData.autoScale * 2); })(), '크기 비율 환산을 빼면 빨강');
   const m6 = brk('if(!crState().cBase || !crState().cBase.charDef) return;', '');
   chk(!!m6 && (() => { const b = build(m6); try{ b.mod.autoSaveDeskItemsNow(); }catch(_){ return true; } return b.log.saves > 0; })(), '생성기 캐릭터 없을 때 건너뛰기를 빼면 빨강');
 }

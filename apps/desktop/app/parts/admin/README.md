@@ -7,7 +7,7 @@
 
 - **책임**: F12 콘솔 함수 `window.generateAllPartThumbnails(force)` 하나. 카탈로그 파츠 썸네일을 굽고(`partSceneMod.generatePartThumbnail`) 카탈로그에 올린다. 관리자가 아니면 아무것도 안 한다.
 - **만드는 법**: app.js «🧊 파츠 GLB 파싱 캐시 · 썸네일» 자리, `partSceneMod` 바로 뒤에서 `const adminThumbs = TwAdminThumbs.createAdminThumbs({ … });`
-  - `partSceneMod` · `adminPartReg` · `catalogSourceMod`(올리기 provider) · `premiumMod` · `wardrobeMod` (값) · `toast` (함수) · `isAdmin` · `gachaMod` (읽는 함수)
+  - `partSceneMod` · `adminPartReg` · `catalogAdmin`(올리기 — 서버 관리자 쓰기) · `premiumMod` · `wardrobeMod` (값) · `toast` (함수) · `isAdmin` · `gachaMod` (읽는 함수)
 - **내보내는 것**: 없음 — 만들 때 window 에 건다.
   ```js
   // F12 콘솔
@@ -16,7 +16,7 @@
   ```
 - **확장할 때 고칠 자리**: 대상 거르기(`fromCatalog && (force || 썸네일 없음)`) · 올리는 데이터는 `catalogAdmin.savePart` + `TwCatalogAdminApi.partFieldsOf`(서버 줄을 그대로 되돌려 쓴다) 한 곳.
 - **함정**
-  - 올리기(`catalogSourceMod.catalogSrcPublishPart` → Firebase `publishPart`)는 `set()`(노드 통째 교체) — 필드를 손으로 나열하지 말 것(빠진 `gacha` 로 뽑기 파츠가 꾸미기 창에 뜬 적 있다).
+  - 올리기는 서버 관리자 쓰기(`admin/catalog-admin-api.js`)다 — 서버가 보내 준 줄(`version` · 파일 해시 · 진열 권한)을 되돌려 보내고, 필드를 손으로 나열하지 않는다(빠진 `gacha` 로 뽑기 파츠가 꾸미기 창에 뜬 적 있다).
   - 카드는 `thumbUrl` 을 `thumbnail` 보다 먼저 읽는다 — force 때 `thumbUrl` 을 지우는 줄을 빼면 다시 구워도 안 바뀐다.
   - 구운 PNG 는 서버 보관함에 올려 해시로 쓴다(`quiet` 으로 이어 쓰고 끝에서 서버 한 벌을 한 번만 다시 받는다).
   - 검사: `checks/sim-admin-thumbs.js`(4절 — 관리자 아님 · 없는 것만 · force · 서버에 쓰기 · 실패 건너뛰기 · 0개).
@@ -36,7 +36,7 @@
 ## catalog-admin-api.js — 🛠️ 카탈로그 쓰기 서버 길 provider(D11-4)
 
 - **책임**: 파츠 · 책상 · 소품 등록 · 고치기 · 단종 · 진열 순서 · 카테고리 · 레벨 해금을 서버 `/v2/admin/catalog/*` 로 쓰는 요청 모양 한 곳(앱 칸 → 서버 본문 바꾸기도 여기뿐). 관리자 판정 · 상한 · 값 거르기는 서버가 하고 앱은 미리 거절하지 않는다.
-- **만드는 법**: app.js `adminApi` 뒤에서 `const catalogAdmin = TwCatalogAdminApi.createCatalogAdminApi({ authed, catalog: { current, load }, adminApi, apiErrors, notifyError, toast })` — `catalog` 는 `firebaseAPI.catalogCurrent()`(마지막으로 받은 서버 한 벌) · `reloadCatalog()`.
+- **만드는 법**: app.js `adminApi` 뒤에서 `const catalogAdmin = TwCatalogAdminApi.createCatalogAdminApi({ authed, catalog: { current, load }, adminApi, apiErrors, notifyError, toast })` — `catalog` 는 `catalogApiMod.current()`(마지막으로 받은 서버 한 벌) · `catalogApiMod.load()`(쓴 뒤 다시 받기)
 - **내보내는 것**: `savePart · saveDesk · saveDeskProp(id, 칸, { create, quiet })` · `archive(kind, id)` · `saveShelf(scope, ids)` · `createCategory · renameCategory · resetCategory · deleteCategory` · `saveUnlock · unlockOf` · `reload` · `reportFail(err, site)`.
 - **함정**
   - 파일(GLB · 썸네일 PNG)을 먼저 올리고(`POST /assets` — 바이트 그대로 · 해시가 돌아온다) 물건을 PUT 한다. 올리기가 실패하면 물건은 쓰지 않고 `E-ADM-06`.

@@ -629,6 +629,7 @@ PRELOAD.push('friends-api.js');
 PRELOAD.push('friend-requests-api.js');
 PRELOAD.push('friend-requests-port.js');
 PRELOAD.push('social-api.js');   // 👥 친구 · 요청 · 명함 서버 길 provider — app.js 가 만든다(socialApiMod)
+PRELOAD.push('api-public-reads.js');   // 🌐 플레이리스트 명함 읽기 — app.js 가 social-api 위에 만든다(apiPublicReadsMod)
 PRELOAD.push('friends-presence-rt.js');
 PRELOAD.push('presence-self.js');
 PRELOAD.push('friends-port.js');
@@ -649,8 +650,8 @@ PRELOAD.push('presence.js');
 PRELOAD.push('launcher-preview.js');
 /* part-scene.js — 🧊 파츠 GLB 파싱 캐시 · 썸네일(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createPartScene 를 같이 굴린다. */
 PRELOAD.push('part-scene.js');
-/* catalog-source.js — 🔌 카탈로그 데이터 provider(구역 떼기 C · w2 · 서버 이관). 같은 까닭 — app.js 가 고르는 줄의 createCatalogSource 를 같이 굴린다. */
-PRELOAD.push('catalog-source.js');
+/* catalog-api.js — 🧩 카탈로그 서버 한 벌 받기(서버 이관). app.js 가 만드는 줄의 createCatalogApi 를 같이 굴린다. */
+PRELOAD.push('catalog-api.js');
 /* admin-thumbs.js — 🖼️ 관리자 콘솔 — 파츠 썸네일 다시 굽기(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAdminThumbs 를 같이 굴린다. */
 PRELOAD.push('admin-thumbs.js');
 /* mat-tone.js — 💡 재질 톤(C 구역 떼기 · w3). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMatTone 를 같이 굴린다. */
