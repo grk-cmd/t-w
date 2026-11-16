@@ -41,7 +41,7 @@ const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nr
     chk(!/withVer|APP_VER_UNKNOWN|onReady/.test(AV), '  ↳ presence 용 withVer · «모름» 값 · onReady 는 없다(걷음)');
   }
 
-  say('── 2. firebase-init.js — 이 판을 realtime 연결에 잇는다(Firebase presence 쓰기는 걷었다)');
+  say('── 2. rt-bind.js — 이 판을 realtime 연결에 잇는다(Firebase presence 쓰기는 걷었다)');
   {
     chk(/import \{ sharedAppVersion \} from "\.\.\/shared\/app-version\.js";/.test(RBC), 'rt-bind.js 가 app-version.js 의 한 벌(sharedAppVersion)을 받는다');
     chk(/\(win\.companion && win\.companion\.getAppVersion\) \? win\.companion\.getAppVersion\(\) : null/.test(AV),

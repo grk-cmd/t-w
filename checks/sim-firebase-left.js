@@ -28,7 +28,7 @@ function audit(src){
     if(names !== 'get,getDatabase,ref') bad.push('데이터베이스 import 가 getDatabase · ref · get 셋이 아님: ' + names);
   }
   for(const w of ['set', 'update', 'remove', 'push', 'onValue', 'runTransaction', 'onDisconnect', 'onChildAdded', 'onChildChanged', 'serverTimestamp', 'goOffline', 'goOnline'])
-    if(new RegExp('(^|[^\\w.$])' + w + '\\s*\\(').test(c) && !/uploadString/.test(w)) bad.push('DB 이름을 부름: ' + w + '(');
+    if(new RegExp('(^|[^\\w.$])' + w + '\\s*\\(').test(c)) bad.push('DB 이름을 부름: ' + w + '(');
   if((c.match(/\bref\(\s*db\b/g) || []).length !== 1) bad.push('ref(db, …) 가 한 번이 아님');
   if(!/ref\(\s*db,\s*window\.TwMaintenance\.MAINTENANCE_PATH\s*\)/.test(c)) bad.push('DB 읽기가 점검 칸(MAINTENANCE_PATH)이 아님');
   if((c.match(/\b_sdkGet\s*\(/g) || []).length !== 1) bad.push('DB get 이 한 번이 아님');
