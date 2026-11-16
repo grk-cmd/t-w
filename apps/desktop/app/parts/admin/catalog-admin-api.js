@@ -4,15 +4,15 @@
    관리자 판정 · 상한(카테고리당 진열 수 · 파일 크기 · 모양) · 값 거르기는 서버가 한다. 앱이 미리 거절하지 않고 서버 오류를 번호로 보인다.
    고치기에 싣는 version 은 마지막으로 받은 서버 한 벌(catalog.current())에서 읽는다 — 다르면 서버가 409(CONCURRENT_UPDATE)로 거절한다.
    쓰기가 끝나면 한 벌을 한 번 다시 받는다(catalog.load() — realtime «카탈로그 바뀜» 알림은 흩어서 와서 관리자 본인 화면이 늦는다).
-   deps: authed — 로그인 통로(TwApi.authed) · catalog — { current() 마지막 서버 한 벌, load() 다시 받기 }(catalog-api.js) ·
+   deps: authed — 로그인 통로(TwApi.authed) · imageBytes — data: 그림 풀기(TwImageBytes — f.thumbDataUrl → 올릴 바이트) · catalog — { current() 마지막 서버 한 벌, load() 다시 받기 }(catalog-api.js) ·
          adminApi — 실패 갈래(failOf · notifyFail — admin-api.js) · apiErrors — 서버 오류 → 번호(TwApiErrors.store) · notifyError — 번호 알림(TwErrorCodes.notify) · toast
    내보냄: createCatalogAdminApi(deps) → {
      savePart(id, f, { create, quiet }) · saveDesk(id, f, { create, quiet }) · saveDeskProp(id, f, { create, quiet }) → Promise<void> — quiet 이면 쓴 뒤 다시 받지 않는다(여럿을 이어 쓸 때 — 끝에서 reload)
-       f = 앱 칸 — 파일은 glb · thumbPng(Uint8Array — 올린 뒤 해시를 싣는다) 또는 modelHash · thumbHash(안 바꾸면 그대로). create 가 아니면 지금 version 으로 고친다.
+       f = 앱 칸 — 파일은 glb · thumbPng(Uint8Array) · thumbDataUrl(구운 data:image/png 글 — 올린 뒤 해시를 싣는다) 또는 modelHash · thumbHash(안 바꾸면 그대로). create 가 아니면 지금 version 으로 고친다.
      archive(kind, id) — kind: part · desk · deskProp. 단종(진열에서 내림 · 행은 남음) · saveShelf(scope, ids) — 진열 순서 전체 · saveShelfOrReport(scope, ids) → Promise<bool> — 쓰고 실패는 알린다(true 면 서버가 받았다)
      createCategory(code, { group, label, icon, bone }) · renameCategory(code, { label, icon }) · resetCategory(code) · deleteCategory(code)
      saveUnlock(kind, key, level, label) · unlockOf(kind, key) → { level, label, version } | null
-     reload() — 서버 한 벌 다시 받기 · notifyLocalOnly() — 서버에 없는(이 PC 에만 있는) 파츠를 고치려 할 때 E-ADM-12
+     partFieldsOf(rec, 바꿀 칸) — 서버 줄(rec)을 savePart 의 칸으로(순수 함수와 같은 것) · reload() — 서버 한 벌 다시 받기 · notifyLocalOnly() — 서버에 없는(이 PC 에만 있는) 파츠를 고치려 할 때 E-ADM-12
      reportFail(err, site) → Promise<갈래> — 실패 알림 한 벌(판이 달라졌으면 다시 받고 «받아왔어요»). 그 밖 실패는 site(item · shelf · category · config)의 번호로. 파일 올리기 실패(err.stage 'asset')는 E-ADM-06
    }
      순수: SITE_NOTICE · PATHS · PART_FIELDS · DESK_FIELDS · PROP_FIELDS · partFieldsOf · partBody · deskBody · propBody · accessOf
@@ -122,6 +122,12 @@ function createCatalogAdminApi(deps){
   }
   const done = async (d, opt) => { if(!(opt && opt.quiet)) await catalog.load(); return d; };
 
+  /* 화면이 구운 data:image/png 글 → 올릴 바이트. 풀 수 없으면 올리지 않고 던진다(깨진 그림을 조용히 빼지 않는다) */
+  function pngBytesOf(dataUrl){
+    const img = deps.imageBytes.parseDataUrl(dataUrl);
+    if(!img) throw Object.assign(new Error('썸네일 그림을 풀 수 없어요'), { code: 'SHAPE', stage: 'asset' });
+    return img.bytes;
+  }
   /* 파일 한 벌 올리기 → 해시. 내용이 같으면 서버가 같은 해시를 돌려준다 */
   async function upload(bytes, type){
     try{
@@ -133,7 +139,8 @@ function createCatalogAdminApi(deps){
   /* 파일 · 썸네일을 올리고(바뀐 것만) 본문에 해시를 싣는다 — 하나라도 올리지 못하면 물건은 쓰지 않는다 */
   async function withFiles(f){
     const modelHash = f.glb ? await upload(f.glb, GLB) : f.modelHash;
-    const thumbHash = f.thumbPng ? await upload(f.thumbPng, PNG) : f.thumbHash;
+    const thumbPng = f.thumbPng || (f.thumbDataUrl ? pngBytesOf(f.thumbDataUrl) : null);
+    const thumbHash = thumbPng ? await upload(thumbPng, PNG) : f.thumbHash;
     return Object.assign({}, f, { modelHash, thumbHash });
   }
   function put(path, body, version){
@@ -214,7 +221,7 @@ function createCatalogAdminApi(deps){
   const notifyLocalOnly = () => deps.notifyError('E-ADM-12', null);
   const reload = () => catalog.load();
 
-  return { reload, notifyLocalOnly, saveShelfOrReport, savePart, saveDesk, saveDeskProp, archive, saveShelf, createCategory, renameCategory, resetCategory, deleteCategory, saveUnlock, unlockOf, reportFail };
+  return { reload, partFieldsOf, notifyLocalOnly, saveShelfOrReport, savePart, saveDesk, saveDeskProp, archive, saveShelf, createCategory, renameCategory, resetCategory, deleteCategory, saveUnlock, unlockOf, reportFail };
 }
 
 const api = { createCatalogAdminApi, SITE_NOTICE, PATHS, PART_FIELDS, DESK_FIELDS, PROP_FIELDS, partFieldsOf, partBody, deskBody, propBody, accessOf };

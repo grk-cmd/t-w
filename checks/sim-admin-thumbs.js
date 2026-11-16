@@ -19,8 +19,7 @@ if(!MOD){ say('  ? 원본 못 찾음 — admin-thumbs.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const CAA = ["catalog-admin-api.js","parts/admin/catalog-admin-api.js","app/parts/admin/catalog-admin-api.js"].map(read).find(Boolean);   // 서버 쓰기 길 — 올리는 본문 모양은 실제 모듈로 본다
-const IMG = ["image-bytes.js","parts/shared/image-bytes.js","app/parts/shared/image-bytes.js"].map(read).find(Boolean);
-if(!CAA || !IMG){ say('  ? 원본 못 찾음 — catalog-admin-api.js · image-bytes.js'); process.exit(2); }
+if(!CAA){ say('  ? 원본 못 찾음 — catalog-admin-api.js'); process.exit(2); }
 const FN_DEPS = ["toast"];
 const VAL_DEPS = ["catalogAdmin","partSceneMod","premiumMod","wardrobeMod"];
 const GET_DEPS = ["gachaMod","isAdmin"];
@@ -102,10 +101,8 @@ say('── 4. 동작 — generateAllPartThumbnails');
   const load = (admin, parts, failIds) => {
     const log = { saved: [], calls: [], toasts: [], baked: [], parts };
     const gen = async (rec) => { log.baked.push(rec.id); if((failIds || []).includes(rec.id)) return null; if(rec.id === 'boom') throw new Error('x'); return 'data:image/png;base64,QUJD'; };
-    const catalogAdmin = { savePart: async (id, f, opt) => { log.saved.push([id, f, opt]); }, reload: async () => { log.calls.push('reload'); } };
     const raw = {
       premiumMod: { savedParts: () => log.parts },
-      catalogAdmin,
       wardrobeMod: { renderWardrobe: () => log.calls.push('wardrobe') },
       toast: (m) => log.toasts.push(m),
       isAdmin: admin,
@@ -114,9 +111,9 @@ say('── 4. 동작 — generateAllPartThumbnails');
     const win = {};
     const cons = { warn: () => {}, log: () => {} };
     const caa = (() => { const m = { exports: {} }; new Function('window', 'module', CAA)({}, m); return m.exports; })();
-    const img = (() => { const m = { exports: {} }; new Function('window', 'module', IMG)({}, m); return m.exports; })();
-    new Function('window', 'module', 'console', 'TwCatalogAdminApi', 'TwImageBytes', MOD)(win, undefined, cons, caa, img);
-    win.TwAdminThumbs.createAdminThumbs(Object.assign({}, raw, { isAdmin: () => admin, gachaMod: () => raw.gachaMod, partSceneMod: { generatePartThumbnail: gen } }));
+    log.catalogAdmin = { partFieldsOf: caa.partFieldsOf, savePart: async (id, f, opt) => { log.saved.push([id, f, opt]); }, reload: async () => { log.calls.push('reload'); } };
+    new Function('window', 'module', 'console', MOD)(win, undefined, cons);
+    win.TwAdminThumbs.createAdminThumbs(Object.assign({}, raw, { catalogAdmin: log.catalogAdmin, isAdmin: () => admin, gachaMod: () => raw.gachaMod, partSceneMod: { generatePartThumbnail: gen } }));
     log.run = (f) => win.generateAllPartThumbnails(f);
     log.win = win;
     return log;
@@ -128,8 +125,8 @@ say('── 4. 동작 — generateAllPartThumbnails');
     await L.run();
     chk(!L.baked.length && !L.saved.length && !L.calls.length && !L.toasts.length, '관리자가 아니면 아무것도 안 한다');
     L = load(true, P()); await L.run();
-    chk(L.baked.join() === 'a' && L.saved.length === 1 && L.saved[0][0] === 'a' && L.saved[0][1].gacha === true && L.saved[0][2].quiet === true && Array.from(L.saved[0][1].thumbPng).join() === '65,66,67',
-      '관리자 — 썸네일 · thumbUrl 둘 다 없는 카탈로그 파츠만 굽고 서버 카탈로그에 쓴다(구운 PNG 바이트 · 나머지 칸은 서버 줄 그대로 — gacha 유지)');
+    chk(L.baked.join() === 'a' && L.saved.length === 1 && L.saved[0][0] === 'a' && L.saved[0][1].gacha === true && L.saved[0][2].quiet === true && L.saved[0][1].thumbDataUrl === 'data:image/png;base64,QUJD',
+      '관리자 — 썸네일 · thumbUrl 둘 다 없는 카탈로그 파츠만 굽고 서버 카탈로그에 쓴다(구운 그림 data:image/png 글 · 나머지 칸은 서버 줄 그대로 — gacha 유지)');
     chk(L.calls.join() === 'reload,wardrobe,gacha' && L.toasts.join() === '썸네일 생성 완료: 1개', '  끝나면 서버 한 벌을 한 번 다시 받고 · 꾸미기 창 · 보관함 다시 그리기 · «썸네일 생성 완료: N개»');
     L = load(true, P()); await L.run(true);
     chk(L.baked.join() === 'a,b,c' && L.saved.length === 3 && L.calls.filter(x => x === 'reload').length === 1, 'force — 있는 것도 다시 굽고 쓴다(로컬 전용 파츠 d 는 제외) · 여럿을 써도 다시 받기는 한 번');

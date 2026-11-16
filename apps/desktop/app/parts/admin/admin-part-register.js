@@ -240,11 +240,10 @@ function openPartRegister(cat, editRec){
       thumbnail = await generatePartThumbnail(Object.assign({}, _oldRec || {}, { id, cat:_partRegCat, name, icon, glb:glbB64 }));
     }catch(e){ toast((editing?'수정':'등록')+' 실패: GLB 파일을 확인해 주세요'); resetBtn(); return; }
     /* 서버에 먼저 쓴다 — 파일(GLB · 썸네일)을 올리고 물건 한 건을 PUT(고치기는 지금 version 으로). 못 쓰면 이 PC 도 바꾸지 않는다 */
-    const thumbBytes = thumbnail ? TwImageBytes.parseDataUrl(thumbnail) : null;
     try{
       await catalogAdmin.savePart(id, {
         name, icon, category:_partRegCat, glb:glbBytes, modelHash:_oldRec && _oldRec.modelHash,
-        thumbPng:thumbBytes && thumbBytes.bytes, thumbHash:_oldRec && _oldRec.thumbHash,
+        thumbDataUrl:thumbnail, thumbHash:_oldRec && _oldRec.thumbHash,
         glow, multi, standalone, stackable, rideTop, noColor, animMode, charType, hides, gacha, season,
         defaultXf: defaultXf || (_oldRec && _oldRec.defaultXf), listingAccess: _oldRec && _oldRec.listingAccess,
       }, { create: !editing });

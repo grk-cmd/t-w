@@ -2081,7 +2081,7 @@ const noticeApi = TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(pa
 const adminApi = TwAdminApi.createAdminApi({ authed: TwApi.authed, pending: TwRequestId.createPending(), fetchBoard: ()=>noticeApi.fetchBoard(), errs: TwApiErrors });
 /* 🛠️ 카탈로그 관리자 쓰기(파츠 · 책상 · 소품 · 진열 순서 · 카테고리 · 게임 설정) — 고칠 판(version)은 마지막으로 받은 서버 한 벌에서 읽고, 쓴 뒤 한 번 다시 받는다 */
 const catalogAdmin = TwCatalogAdminApi.createCatalogAdminApi({
-  authed: TwApi.authed,
+  authed: TwApi.authed, imageBytes: TwImageBytes,
   catalog: { current: ()=>window.firebaseAPI.catalogCurrent(), load: ()=>window.firebaseAPI.reloadCatalog() },
   adminApi: adminApi, apiErrors: TwApiErrors.store, notifyError: (...a)=>TwErrorCodes.notify(...a), toast: (...a)=>toast(...a),
 });

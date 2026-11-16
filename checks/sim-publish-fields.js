@@ -59,7 +59,7 @@ chk(bodySrc && reads.size >= 15, 'partBody 가 읽는 칸을 읽어냈다 (' + r
 const callM = REG.match(/catalogAdmin\.savePart\(id, \{([\s\S]*?)\}, \{ create: !editing \}\)/);
 chk(!!callM, '등록 창의 savePart 호출을 찾았다');
 const passed = callM ? [...callM[1].matchAll(/(?:^|[\s,])(\w+)\s*[:,]/g)].map((m) => m[1]) : [];
-const FILE_FIELDS = ['glb', 'thumbPng'];
+const FILE_FIELDS = ['glb', 'thumbPng', 'thumbDataUrl'];
 const READ_ONLY_BY_SERVER = ['licenseOnly'];   // 책상 · 소품만 쓰는 칸(파츠는 권한을 서버 줄 그대로 되돌린다)
 const extra = passed.filter((k) => !reads.has(k) && !FILE_FIELDS.includes(k));
 const unsent = [...reads].filter((k) => !passed.includes(k) && !READ_ONLY_BY_SERVER.includes(k));

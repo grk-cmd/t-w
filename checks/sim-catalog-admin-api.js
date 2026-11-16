@@ -41,7 +41,8 @@ function world(src, o){
   const shown = [];
   const catalog = { current: () => raw, load: async () => { log.push(['LOAD']); } };
   const adminApi = { notifyFail: (e, errs, onSite) => { const k = o.kind || 'site'; if(k === 'site') onSite(); return k; } };
-  const api = load(src).createCatalogAdminApi({ authed, catalog, adminApi, apiErrors: {}, notifyError: (c, e) => shown.push([c, e && e.code]), toast: (m) => shown.push(['toast', m]) });
+  const imageBytes = { parseDataUrl: (u) => u === 'data:image/png;base64,QUJD' ? { type: 'image/png', bytes: new Uint8Array([65, 66, 67]) } : null };
+  const api = load(src).createCatalogAdminApi({ imageBytes, authed, catalog, adminApi, apiErrors: {}, notifyError: (c, e) => shown.push([c, e && e.code]), toast: (m) => shown.push(['toast', m]) });
   return { api, log, shown };
 }
 world.n = 0;
@@ -73,6 +74,10 @@ const PF = { name: '모자', icon: '🎩', category: 'hat', glow: false, multi: 
   chk(!('version' in put) && put.model === H('1') && put.thumb === H('2') && put.category === 'hat' && put.listing.state === 'ACTIVE', '  ↳ 만들기 본문은 version 이 없다 · 올린 해시가 model · thumb 으로 · 곧바로 ACTIVE');
   w = world(SRC); await w.api.savePart('p1', Object.assign({ modelHash: H('c'), thumbHash: H('d') }, PF));
   chk(names(w) === 'PUT /v2/admin/catalog/parts/p1 | LOAD' && w.log[0][2].version === 3 && w.log[0][2].model === H('c') && w.log[0][2].thumb === H('d'), '★ 고치기 — 파일을 안 바꾸면 올리지 않고 해시를 그대로 · 마지막으로 받은 한 벌의 version(3)을 싣는다');
+  w = world(SRC); await w.api.savePart('p1', Object.assign({ modelHash: H('c'), thumbDataUrl: 'data:image/png;base64,QUJD' }, PF), { quiet: true });
+  chk(names(w) === 'POST /v2/admin/catalog/assets | PUT /v2/admin/catalog/parts/p1' && w.log[0][3].rawType === 'image/png' && Array.from(w.log[0][2]).join() === '65,66,67' && /^[0-9a-f]{64}$/.test(w.log[1][2].thumb), '구운 썸네일(data:image/png 글)은 풀어 PNG 로 올리고 해시를 싣는다(deps.imageBytes)');
+  w = world(SRC); let ep = null; try{ await w.api.savePart('p1', Object.assign({ modelHash: H('c'), thumbDataUrl: 'data:broken' }, PF)); }catch(e){ ep = e; }
+  chk(ep && ep.stage === 'asset' && ep.code === 'SHAPE' && !w.log.length, '  풀 수 없는 그림이면 물건도 쓰지 않고 던진다(조용히 빼지 않는다)');
   w = world(SRC); await w.api.savePart('p1', Object.assign({ modelHash: H('c') }, PF), { quiet: true });
   chk(names(w) === 'PUT /v2/admin/catalog/parts/p1', '  quiet 이면 다시 받지 않는다(여럿을 이어 쓸 때 — 끝에서 reload)');
   w = world(SRC, { failAt: (m, p) => p.endsWith('/assets') });

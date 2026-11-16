@@ -32,7 +32,7 @@ window.generateAllPartThumbnails = async function(force){
       const thumb = await partSceneMod.generatePartThumbnail(rec);
       if(thumb){
         /* 구운 그림만 바꾸고 나머지 칸은 서버에서 받은 그대로 되돌려 쓴다(PUT 은 물건 전체 교체). 끝에서 한 번만 다시 받는다 */
-        await catalogAdmin.savePart(rec.id, TwCatalogAdminApi.partFieldsOf(rec, { thumbPng: TwImageBytes.parseDataUrl(thumb).bytes }), { quiet: true });
+        await catalogAdmin.savePart(rec.id, catalogAdmin.partFieldsOf(rec, { thumbDataUrl: thumb }), { quiet: true });
         ok++;
         console.log('✓', rec.name, '('+(ok+fail)+'/'+targets.length+')');
       } else { fail++; }

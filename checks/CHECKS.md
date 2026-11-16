@@ -197,7 +197,7 @@
 | **sim-paint-geom.js** | 107 | **0c187cb7b3d7** |
 | **sim-seat-friend-req.js** | 117 | **ef3b67676aa8** |
 | **sim-seat-menu.js** | 167 | **d852cfc88b06** |
-| **sim-publish-fields.js** | 92 | **fcaceaef1af7** |
+| **sim-publish-fields.js** | 92 | **0d8f3fc1be3c** |
 | **sim-purikura-deco.js** | 953 | **1d529bcb0f22** |
 | sim-purikura-net.js | 104 | 1d50a181e109 |
 | **sim-purikura-rules.js** | 241 | **25c4bbd4c8de** |
@@ -293,7 +293,7 @@
 | **sim-mail-feed.js** | 361 | **2bcd1eeabc34** |
 | **sim-notice-api.js** | 159 | **0d412e593953** |
 | **sim-admin-api.js** | 249 | **9a3ca66c0eda** |
-| **sim-catalog-admin-api.js** | 172 | **81d5021c4456** |
+| **sim-catalog-admin-api.js** | 177 | **69a4e39e6bef** |
 | **sim-admin-notice.js** | 212 | **952fbda2e531** |
 | **sim-notice-feed.js** | 266 | **c80dd0979f9b** |
 | **sim-ui-tokens.js** | 135 | **bf0abb5744a6** |
@@ -422,7 +422,7 @@
 | **sim-typeof-guards.js** | 132 | **f72ad164ae59** |
 | **sim-user-name.js** | 107 | **66552a89e023** |
 | **sim-part-scene.js** | 215 | **cd235a3c785f** |
-| **sim-admin-thumbs.js** | 148 | **cfa7338384af** |
+| **sim-admin-thumbs.js** | 145 | **b8bfec2cc80a** |
 | **sim-glb-idb-cache.js** | 172 | **fda2ba697435** |
 | **sim-catalog-glb.js** | 202 | **0a4643ef753c** |
 | **sim-catalog-sync.js** | 283 | **52fb3a9a682b** |
