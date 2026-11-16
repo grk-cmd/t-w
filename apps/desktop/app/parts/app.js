@@ -5336,6 +5336,8 @@ const adminMode = TwAdminMode.createAdminMode({
   isAdmin: ()=>isAdmin,
   setIsAdmin: (v)=>{ isAdmin = v; },
   twNav: twNav,
+  session: ()=>appBoot.getSession(),
+  identity: ()=>loginFlowMod.identity(),
   adminApi: adminApi,
   apiErrors: TwApiErrors.store,
 });
