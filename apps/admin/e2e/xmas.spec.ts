@@ -46,7 +46,6 @@ test('신고 — 장식 그림 · 한마디 · 건 사람 · 문제없음', asyn
   await expect(item).toContainText('«메리»');
   await expect(item).toContainText('트리 #3 · 자리 12');
   await expect(item.getByRole('img', { name: '신고된 장식 그림' })).toBeVisible();
-  page.once('dialog', (d) => d.accept());
   await item.getByRole('button', { name: '문제없음' }).click();
   await expect(toast(page)).toContainText('신고를 비웠어요');
   await expect.poll(() => dbGet('xmasReports/o-3-12')).toBeNull();
