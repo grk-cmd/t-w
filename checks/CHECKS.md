@@ -323,7 +323,7 @@
 | **sim-admin-part-register.js** | 151 | **7a798301bf93** |
 | **sim-admin-users-launcher.js** | 205 | **8b6a4e1e7df3** |
 | **sim-admin-asset.js** | 129 | **6ecb2dc8ed96** |
-| **sim-admin-mode.js** | 171 | **f01447a46638** |
+| **sim-admin-mode.js** | 179 | **45a2959786a4** |
 | **sim-report.js** | 420 | **de17a89ce544** |
 | **sim-my-info.js** | 98 | **4e58bce6234f** |
 | **sim-my-info-box.js** | 208 | **a80135e14b2c** |
