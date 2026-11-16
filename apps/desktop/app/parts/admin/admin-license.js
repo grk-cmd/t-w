@@ -172,7 +172,6 @@ function drawRequests(listEl, page){
 $('licenseGenClose').onclick = () => {
   const o = $('licenseGenOverlay'); o.classList.remove('on'); o.style.display = 'none';
 };
-<<<<<<< HEAD
 document.addEventListener('tw-admin-exit', ()=>{ $('licenseGenClose').onclick(); });   // 세션이 끝나면 자기 닫기로(✕ 와 같은 동작 · 엑셀 창은 bulk 가 닫는다)
 /* 🔍 발급된 키 검색 — 입력이 멈추면 서버에 묻는다(받아 둔 목록을 앱이 거르지 않는다) */
 { let t = null;
@@ -186,20 +185,6 @@ document.addEventListener('tw-admin-exit', ()=>{ $('licenseGenClose').onclick();
     if(!ids.length) return;
     if(!confirm('대기 중인 요청 ' + ids.length + '건에 전부 키를 발급할까요?')){ window.focus(); return; } window.focus();
     reqBusy = true; bb.disabled = true; bb.textContent = '발급 중...';
-=======
-document.addEventListener('tw-admin-exit', ()=>{ document.getElementById('licenseGenClose').onclick(); });   // 세션이 끝나면 자기 닫기로(✕ 와 같은 동작 · 엑셀 창은 bulk 가 닫는다)
-// 🔍 발급된 키 검색 — 입력할 때마다 캐시에서 즉시 필터 (재조회 없음)
-document.getElementById('licenseGenSearch')?.addEventListener('input', ()=>{ _renderLicenseGenListFiltered(); });
-// 📦 대기 요청 전체 일괄 발급 — 각각 키를 새로 만들어 순서대로 승인
-document.getElementById('licenseBulkBtn')?.addEventListener('click', async ()=>{
-  const targets=_licensePendingCache.slice();
-  if(!targets.length) return;
-  if(!confirm('대기 중인 요청 '+targets.length+'건에 전부 키를 발급할까요?')){ window.focus(); return; } window.focus();
-  const bulkBtn=document.getElementById('licenseBulkBtn');
-  bulkBtn.disabled=true; bulkBtn.textContent='발급 중...';
-  let ok=0, fail=0;
-  for(const t of targets){
->>>>>>> feat/d11-2-admin
     try{
       const res = await adminApi.approveRequests(ids);
       const okN = res.filter((r) => r.ok).length, failN = res.length - okN;
