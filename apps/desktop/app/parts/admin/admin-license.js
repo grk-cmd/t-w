@@ -137,7 +137,7 @@ function renderLicenseReqList(all){
 document.getElementById('licenseGenClose').onclick=()=>{
   const o=document.getElementById('licenseGenOverlay'); o.classList.remove('on'); o.style.display='none';
 };
-document.addEventListener('tw-admin-exit', ()=>{ $('licenseGenClose').onclick(); });   // 세션이 끝나면 자기 닫기로(✕ 와 같은 동작 · 엑셀 창은 bulk 가 닫는다)
+document.addEventListener('tw-admin-exit', ()=>{ document.getElementById('licenseGenClose').onclick(); });   // 세션이 끝나면 자기 닫기로(✕ 와 같은 동작 · 엑셀 창은 bulk 가 닫는다)
 // 🔍 발급된 키 검색 — 입력할 때마다 캐시에서 즉시 필터 (재조회 없음)
 document.getElementById('licenseGenSearch')?.addEventListener('input', ()=>{ _renderLicenseGenListFiltered(); });
 // 📦 대기 요청 전체 일괄 발급 — 각각 키를 새로 만들어 순서대로 승인
