@@ -14,6 +14,7 @@ import {
   wireTime,
   type Api,
 } from '@/shared/api';
+import { fetchAllPages } from '@/shared/lib';
 import type { GroupInvite } from '../model/groupInvite';
 import type { InvitePort } from './port';
 
@@ -43,19 +44,17 @@ function build(api: Api | null): InvitePort {
     groups: () =>
       portCall(
         api,
-        async (a) => {
-          const rows: GroupInvite[] = [];
-          let cursor: string | undefined;
-          do {
+        (a) =>
+          fetchAllPages<GroupInvite>(async (cursor) => {
             const page = wireObject(
               await a.get<unknown>(BASE, { group: 'true', cursor, limit: PAGE_MAX }),
               '초대 코드 쪽',
             );
-            rows.push(...wireArray(page.items, '초대 코드 쪽의 items').map(toGroupInviteRow));
-            cursor = wireNullableString(page.nextCursor, '초대 코드 쪽의 nextCursor') ?? undefined;
-          } while (cursor !== undefined);
-          return rows;
-        },
+            return {
+              items: wireArray(page.items, '초대 코드 쪽의 items').map(toGroupInviteRow),
+              nextCursor: wireNullableString(page.nextCursor, '초대 코드 쪽의 nextCursor'),
+            };
+          }),
         '목록을 불러오지 못했어요',
       ),
 

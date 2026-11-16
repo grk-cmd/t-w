@@ -14,6 +14,7 @@ import {
   wireTime,
   type Api,
 } from '@/shared/api';
+import { fetchAllPages } from '@/shared/lib';
 import {
   sortTodos,
   TODO_STATUSES,
@@ -83,19 +84,19 @@ function build(api: Api | null): TodoPort {
     list: () =>
       portCall(
         api,
-        async (a) => {
-          const rows: Todo[] = [];
-          let cursor: string | undefined;
-          do {
-            const page = wireObject(
-              await a.get<unknown>(TODOS_PATH, { cursor, limit: PAGE_MAX }),
-              '할 일 쪽',
-            );
-            rows.push(...wireArray(page.items, '할 일 쪽의 items').map(toTodoRow));
-            cursor = wireNullableString(page.nextCursor, '할 일 쪽의 nextCursor') ?? undefined;
-          } while (cursor !== undefined);
-          return sortTodos(rows);
-        },
+        async (a) =>
+          sortTodos(
+            await fetchAllPages<Todo>(async (cursor) => {
+              const page = wireObject(
+                await a.get<unknown>(TODOS_PATH, { cursor, limit: PAGE_MAX }),
+                '할 일 쪽',
+              );
+              return {
+                items: wireArray(page.items, '할 일 쪽의 items').map(toTodoRow),
+                nextCursor: wireNullableString(page.nextCursor, '할 일 쪽의 nextCursor'),
+              };
+            }),
+          ),
         '할 일을 불러오지 못했어요',
       ),
 

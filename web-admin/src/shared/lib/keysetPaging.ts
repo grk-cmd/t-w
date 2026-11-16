@@ -86,3 +86,20 @@ export function useKeysetPaging<T>(
 export function resetKeyset(client: QueryClient, queryKey: QueryKey): Promise<void> {
   return client.resetQueries({ queryKey });
 }
+
+/**
+ * 키셋 목록을 끝까지 이어 받아 한 목록으로 — 몇십~몇백 건이라 화면이 통째로 거르고 찾는 목록용.
+ * `fetchPage` 는 커서(첫 쪽은 undefined)로 한 쪽을 받아 줄과 다음 커서(없으면 null)를 돌려준다. 못 받으면 던진다.
+ */
+export async function fetchAllPages<T>(
+  fetchPage: (cursor: string | undefined) => Promise<{ items: T[]; nextCursor: string | null }>,
+): Promise<T[]> {
+  const rows: T[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await fetchPage(cursor);
+    rows.push(...page.items);
+    cursor = page.nextCursor ?? undefined;
+  } while (cursor !== undefined);
+  return rows;
+}

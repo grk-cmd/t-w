@@ -10,6 +10,7 @@ import {
   wireString,
   type Api,
 } from '@/shared/api';
+import { fetchAllPages } from '@/shared/lib';
 import type { LicenseRequest } from '../model/request';
 import type { LicenseRequestPort } from './port';
 
@@ -39,19 +40,17 @@ function build(api: Api | null): LicenseRequestPort {
     pending: () =>
       portCall(
         api,
-        async (a) => {
-          const out: LicenseRequest[] = [];
-          let cursor: string | undefined;
-          do {
+        (a) =>
+          fetchAllPages(async (cursor) => {
             const page = wireObject(
               await a.get<unknown>(BASE, { cursor, limit: PAGE_MAX }),
               '라이선스 요청 쪽',
             );
-            out.push(...wireArray(page.items, '라이선스 요청 쪽의 items').map(toRequest));
-            cursor = wireNullableString(page.nextCursor, '라이선스 요청 쪽의 nextCursor') ?? undefined;
-          } while (cursor !== undefined);
-          return out;
-        },
+            return {
+              items: wireArray(page.items, '라이선스 요청 쪽의 items').map(toRequest),
+              nextCursor: wireNullableString(page.nextCursor, '라이선스 요청 쪽의 nextCursor'),
+            };
+          }),
         '요청 목록을 받지 못했어요',
       ),
   };
