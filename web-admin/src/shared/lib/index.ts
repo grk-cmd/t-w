@@ -59,3 +59,4 @@ export {
   type KeysetView,
 } from './keysetPaging';
 export { BULK_SEND_MAX, chunks } from './bulk';
+export { ADMIN_MEMO_MAX } from './memo';

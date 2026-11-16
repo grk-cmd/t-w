@@ -20,7 +20,7 @@ interface Props {
   onSearch: (search: UserSearch) => void;
   /** 보일 칩. 없으면 Firebase 판의 칩 전부. */
   chips?: readonly FilterChip[];
-  /** 검색어 칸 글자 수 힌트 — 막기만 하고 판정은 서버가 한다. */
+  /** 검색어 칸 글자 수 표시 — 막지 않고 알려 주기만 한다(판정은 서버). */
   textMax?: number;
 }
 
@@ -54,10 +54,14 @@ export function UserFilterBar({
           type="search"
           className={styles.text}
           placeholder="이름 · 친구코드 · 사용자코드 · 키"
-          maxLength={textMax}
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
+        {textMax !== undefined && (
+          <small className="soft">
+            {text.length}/{textMax}
+          </small>
+        )}
         <select
           aria-label="기간 기준"
           value={period.field}

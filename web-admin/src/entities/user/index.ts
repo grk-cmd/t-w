@@ -41,6 +41,7 @@ export {
 } from './api/index';
 export { USER_KEYSET_KEY, userPresenceKey } from './api/keys';
 export type { UserDetail, ServerIssuedInvite, DetailSecretRoom } from './model/detail';
+export { ONLINE_UNKNOWN_LABEL, onlineUnknownText } from './model/presenceText';
 export type { Presence, UserInvite, UserLive } from './model/live';
 export {
   buildUserRows,

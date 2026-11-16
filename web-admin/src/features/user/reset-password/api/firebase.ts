@@ -9,6 +9,7 @@ export function runPasswordReset(fns: Functions, code: string, memo: string): Pr
 
 export function createFirebaseResetPasswordPort(fns: Functions): ResetPasswordPort {
   return {
+    kind: 'functions',
     run: (code, memo) => {
       // 함수가 받는 모양으로 — 공백을 한 칸으로 · 60자까지. 빈 메모는 화면이 막는다.
       const normalized = normalizeMemo(memo);

@@ -1,8 +1,10 @@
+import { ADMIN_MEMO_MAX } from '@/shared/lib';
+
 // 서버 함수 functions/index.js adminResetPassword — 로직은 functions/password-reset.js. 모양을 바꾸면 둘을 같이 본다.
 export const RESET_PASSWORD_FN = 'adminResetPassword';
 
 /** 메모 길이 — 함수 MEMO_MAX 와 같다(넘치면 함수가 자른다). */
-export const MEMO_MAX = 60;
+export const MEMO_MAX = ADMIN_MEMO_MAX;
 
 /** 함수가 한 일 — functions/password-reset.js KIND_LABEL 과 같은 두 가지(구글 전용 계정은 함수가 거절). */
 export type PasswordResetKind = 'reset' | 'createLogin';
@@ -14,15 +16,12 @@ export const KIND_TEXT: Record<PasswordResetKind, string> = {
 
 export interface PasswordResetResult {
   ok: true;
-  /** 함수가 한 일. API 판 서버는 알려 주지 않는다(null). */
-  kind: PasswordResetKind | null;
+  kind: PasswordResetKind;
   code: string;
   friendCode: string | null;
   name: string | null;
   /** 이 창에 한 번만 보인다 — 서버는 어디에도 적지 않는다. */
   tempPassword: string;
-  /** 작업 기록 번호. API 판은 없다(null). */
-  logId: string | null;
 }
 
 /** 메모(제보 번호 · 연락 경로 — 형식 자유)를 함수가 받는 모양으로. 비면 null(버튼을 못 누른다). */

@@ -13,8 +13,6 @@ import type { UserRowsPort } from '../api/port';
 
 /** 사용자 목록 쪽 · 통계 · 한 사람 찾기 — 모두 이 이름표 아래. */
 const USERS_KEY = ['users'];
-/** 서버 키셋 목록(API 판) — 쓰기 뒤에는 이어 둔 쪽을 버리고 첫 쪽부터 다시 받는다. */
-const USERS_KEYSET_KEY = USER_KEYSET_KEY;
 
 // 예전 방식 · 폴백의 원본 셋. 사용자 화면 · 방 서버 화면 · 라이선스 화면이 같은 캐시를 나눠 쓴다(같은 키).
 const RTDB_KEYS = [['accountSnap'], ['friendCodes'], ['licenses']];
@@ -50,7 +48,7 @@ export function useUserPageKeyset(query: UserQuery) {
   const { period } = query;
   return useInfiniteQuery({
     queryKey: [
-      ...USERS_KEYSET_KEY,
+      ...USER_KEYSET_KEY,
       ...queryKeyOf(query),
       period ? [period.field, period.from, period.to] : null,
     ],
@@ -127,7 +125,7 @@ export function refreshUsers(client: QueryClient, lagMs: number = REPLICA_LAG_MS
   // 상세 창만 쓰는 칸(집중 · 시크릿룸 · 신고 수)도 함께 — 열려 있는 창은 바로 다시 읽는다.
   const keys = [...RTDB_KEYS, ['userName'], ['userFocus'], ['userSecretRoom'], ['reports'], ['userDetail']];
   for (const queryKey of keys) void client.invalidateQueries({ queryKey });
-  void resetKeyset(client, USERS_KEYSET_KEY);
+  void resetKeyset(client, USER_KEYSET_KEY);
   const again = () =>
     void client.invalidateQueries({
       queryKey: USERS_KEY,

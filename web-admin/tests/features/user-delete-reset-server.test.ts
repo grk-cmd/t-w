@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createServerDeleteAccountPort } from '@/features/user/delete-account/api/server';
 import { createServerResetPasswordPort } from '@/features/user/reset-password/api/server';
 import { acceptedText, contextLabel, filesText, providersLabel } from '@/features/user/delete-account';
-import { isPortError, WIRE_SHAPE_CODE } from '@/shared/api';
+import { accountErrorMessage, ApiError, isPortError, WIRE_SHAPE_CODE, type Api } from '@/shared/api';
 import { fakeApiOf } from '../shared/fakeApi';
 
 const preview = (over: Record<string, unknown> = {}) => ({
@@ -65,7 +65,7 @@ describe('비밀번호 초기화 — API 판', () => {
     const memo = '  제보 B-1  ';
     const r = await createServerResetPasswordPort(s.api).run('MATE-AB12', memo);
     expect(s.calls[0].body).toEqual({ memo });
-    expect(r).toMatchObject({ tempPassword: 'Abc-123', kind: null, logId: null, friendCode: null });
+    expect(r).toMatchObject({ tempPassword: 'Abc-123', kind: 'reset', friendCode: null });
   });
 
   it('임시 비밀번호가 글자가 아니면 던진다', async () => {
@@ -74,5 +74,35 @@ describe('비밀번호 초기화 — API 판', () => {
       .run('u1', 'm')
       .catch((x: unknown) => x);
     expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
+  });
+});
+
+describe('계정 일 오류 문구 — API 판', () => {
+  const failing = (status: number, code: string) => {
+    const api = {
+      baseUrl: 'https://api.test',
+      get: async () => {
+        throw new ApiError(status >= 500 ? 'unavailable' : 'notFound', status, code, '서버 원문');
+      },
+      send: async () => {
+        throw new ApiError(status >= 500 ? 'unavailable' : 'notFound', status, code, '서버 원문');
+      },
+      upload: async () => {
+        throw new Error('upload 안 씀');
+      },
+    } as Api;
+    return api;
+  };
+
+  it('미리 보기 · 삭제 · 초기화의 오류는 errorText 표 문구로 보인다', async () => {
+    const unavailable = failing(503, 'USER_AUTH_UNAVAILABLE');
+    const missing = failing(404, 'USER_NOT_FOUND');
+    const text = (p: Promise<unknown>, fallback = '함수 문구') =>
+      p.catch((e: unknown) => accountErrorMessage(e, fallback));
+    expect(await text(createServerDeleteAccountPort(unavailable).preview('u1'))).toBe(
+      '로그인 서버에 닿지 못했어요 — 잠시 뒤 다시 해 주세요',
+    );
+    expect(await text(createServerDeleteAccountPort(missing).run('u1', 'm'))).toBe('없는 사용자예요');
+    expect(await text(createServerResetPasswordPort(missing).run('u1', 'm'))).toBe('없는 사용자예요');
   });
 });

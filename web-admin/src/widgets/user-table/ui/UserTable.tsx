@@ -1,6 +1,7 @@
 import {
   isBadLicense,
   LICENSE_LABEL,
+  onlineUnknownText,
   useRowName,
   type LastSeenOrder,
   currentVer,
@@ -29,7 +30,7 @@ function LastSeenCell({ row }: { row: UserRow }) {
   if (p.data?.online) return <span className={styles.online}>접속 중</span>;
   const seen = p.data?.lastSeen ? formatDate(p.data.lastSeen) : '—';
   // online 이 null 이면 «꺼짐» 이 아니라 «모름» — 접속 상태를 묻는 서버에 닿지 못했다.
-  if (p.data?.online === null) return <span className="soft">접속 여부 모름 · {seen}</span>;
+  if (p.data?.online === null) return <span className="soft">{onlineUnknownText(seen)}</span>;
   return <span className="soft">{seen}</span>;
 }
 

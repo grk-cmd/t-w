@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { callErrorMessage, useEnv, withProdMark } from '@/shared/api';
+import { accountErrorMessage, useEnv, withProdMark } from '@/shared/api';
 import { useModalDialog, useToast } from '@/shared/ui';
+import { useResetPasswordPort } from '../api/index';
 import { guideText, KIND_TEXT, MEMO_MAX, type PasswordResetResult } from '../model/resetPassword';
 import { usePasswordReset } from '../model/useResetPassword';
 import styles from './ResetPassword.module.css';
@@ -14,9 +15,6 @@ interface Props {
   friendCode?: string | null;
 }
 
-/** 서버가 한 일을 알려 주지 않는 판(API) — 임시 비밀번호를 만들었다는 것만 안다. */
-const UNKNOWN_KIND_TEXT = '임시 비밀번호를 만들었어요.';
-
 function Done({ r, friendCode }: { r: PasswordResetResult; friendCode: string | null }) {
   const toast = useToast();
   const text = guideText({ ...r, friendCode: r.friendCode ?? friendCode });
@@ -28,9 +26,7 @@ function Done({ r, friendCode }: { r: PasswordResetResult; friendCode: string | 
   };
   return (
     <>
-      <p className="msg">
-        {r.kind ? KIND_TEXT[r.kind] : UNKNOWN_KIND_TEXT} 작업 기록에 남겼어요(비밀번호는 남기지 않아요).
-      </p>
+      <p className="msg">{KIND_TEXT[r.kind]} 작업 기록에 남겼어요(비밀번호는 남기지 않아요).</p>
       <dl className={styles.who}>
         <dt>아이디(친구 코드)</dt>
         <dd>
@@ -56,6 +52,7 @@ function Done({ r, friendCode }: { r: PasswordResetResult; friendCode: string | 
 function Body({ code, friendCode }: { code: string; friendCode: string | null }) {
   const env = useEnv();
   const [memoRaw, setMemoRaw] = useState('');
+  const port = useResetPasswordPort();
   const reset = usePasswordReset();
   // 비었으면 보낼 것이 없다 — 길이 · 모양 판정은 판마다 다르니 포트(서버)가 한다.
   const filled = memoRaw.trim() !== '';
@@ -82,15 +79,20 @@ function Body({ code, friendCode }: { code: string; friendCode: string | null })
           aria-label="메모"
           placeholder="B-1017-3 · 오픈채팅 10/17"
           autoComplete="off"
-          maxLength={MEMO_MAX}
+          maxLength={port.kind === 'functions' ? MEMO_MAX : undefined}
           value={memoRaw}
           onChange={(e) => setMemoRaw(e.target.value)}
         />
+        {port.kind === 'server' && (
+          <small className="soft">
+            {memoRaw.length}/{MEMO_MAX}
+          </small>
+        )}
       </label>
       <button type="submit" className="btn danger" disabled={!filled || reset.isPending}>
         {reset.isPending ? '초기화 중…' : withProdMark(env, '비밀번호 초기화')}
       </button>
-      {reset.error && <p className="msg err">{callErrorMessage(reset.error, CALL_FAIL)}</p>}
+      {reset.error && <p className="msg err">{accountErrorMessage(reset.error, CALL_FAIL)}</p>}
     </form>
   );
 }

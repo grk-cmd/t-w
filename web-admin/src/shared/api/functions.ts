@@ -1,4 +1,6 @@
 // 호출형 함수 통로 — 기능 코드가 Functions SDK 를 직접 부르지 않게 한다. 테스트에서는 가짜를 넣는다.
+import { isPortError } from './backend';
+
 export interface Functions {
   /** 이름으로 부르고 함수가 돌려준 값만 받는다. 실패하면 code 가 «functions/…» 인 오류를 던진다. */
   call<T>(name: string, data: unknown): Promise<T>;
@@ -16,4 +18,9 @@ export function callErrorMessage(error: unknown, fallback: string): string {
   const code = typeof e?.code === 'string' ? e.code : '';
   const message = typeof e?.message === 'string' ? e.message : '';
   return code.startsWith('functions/') && /[가-힣]/.test(message) ? message : fallback;
+}
+
+/** 계정 일 오류 문구 — API 판의 `PortError` 는 이미 `errorText` 표 문구라 그대로, Firebase 판은 서버 함수 문구 또는 `fallback`. */
+export function accountErrorMessage(error: unknown, fallback: string): string {
+  return isPortError(error) ? error.message : callErrorMessage(error, fallback);
 }

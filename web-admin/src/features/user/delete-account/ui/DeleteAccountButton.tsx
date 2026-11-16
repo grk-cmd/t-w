@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { callErrorMessage, useEnv, withProdMark } from '@/shared/api';
+import { accountErrorMessage, useEnv, withProdMark } from '@/shared/api';
+import { ADMIN_MEMO_MAX } from '@/shared/lib';
 import { useModalDialog, useToast } from '@/shared/ui';
+import { ONLINE_UNKNOWN_LABEL } from '@/entities/user';
 import { useDeleteAccountPort } from '../api/index';
 import { authLabel, confirmMatches, doneSummary, type AccountDeleteResult } from '../model/deleteAccount';
 import {
@@ -20,8 +22,6 @@ import {
 import styles from './DeleteAccount.module.css';
 
 const CALL_FAIL = '삭제 함수를 부르지 못했어요 — 함수가 배포됐는지, 관리자 계정인지 확인해 주세요';
-/** 입력 칸 힌트 — 서버 한도(1~60자)를 미리 거절하지 않고 칸에서 알려 주기만 한다. */
-const MEMO_HINT_MAX = 60;
 
 interface Props {
   /** 사용자 상세에서 열면 그 사람의 사용자 코드가 미리 들어간다. 없으면 직접 넣는다. */
@@ -179,7 +179,7 @@ function FunctionsBody({
           {preview.isPending ? '확인 중…' : '미리 보기'}
         </button>
       </form>
-      {preview.error && <p className="msg err">{callErrorMessage(preview.error, CALL_FAIL)}</p>}
+      {preview.error && <p className="msg err">{accountErrorMessage(preview.error, CALL_FAIL)}</p>}
       {r && <Preview r={r} />}
       {r && !r.empty && (
         <form
@@ -205,7 +205,7 @@ function FunctionsBody({
           </button>
         </form>
       )}
-      {remove.error && <p className="msg err">{callErrorMessage(remove.error, CALL_FAIL)}</p>}
+      {remove.error && <p className="msg err">{accountErrorMessage(remove.error, CALL_FAIL)}</p>}
     </>
   );
 }
@@ -225,7 +225,7 @@ function ServerPreview({ p }: { p: ServerDeletePreview }) {
         <dd>
           <code className="key">{p.userCode}</code>
           {p.online === true && <b className="warn"> · 접속 중</b>}
-          {p.online === null && <small className="soft"> · 접속 여부 모름</small>}
+          {p.online === null && <small className="soft"> · {ONLINE_UNKNOWN_LABEL}</small>}
         </dd>
       </dl>
       <table className={styles.table}>
@@ -329,7 +329,7 @@ function ServerBody({ code: initial, onDone }: { code?: string; onDone: (r: Serv
           {preview.isPending ? '확인 중…' : '미리 보기'}
         </button>
       </form>
-      {preview.error && <p className="msg err">{callErrorMessage(preview.error, CALL_FAIL)}</p>}
+      {preview.error && <p className="msg err">{accountErrorMessage(preview.error, CALL_FAIL)}</p>}
       {p && <ServerPreview p={p} />}
       {p && (
         <form
@@ -347,10 +347,13 @@ function ServerBody({ code: initial, onDone }: { code?: string; onDone: (r: Serv
               placeholder="삭제 요청 · 제보 번호 · 연락 경로"
               autoComplete="off"
               required
-              maxLength={MEMO_HINT_MAX}
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
             />
+            {/* 글자 수 힌트 — 서버 한도(1~60자)를 막지 않고 알려 주기만 한다. */}
+            <small className="soft">
+              {memo.length}/{ADMIN_MEMO_MAX}
+            </small>
           </label>
           <label>
             지우려면 사용자 코드(또는 친구 코드)를 그대로 입력하세요
@@ -368,7 +371,7 @@ function ServerBody({ code: initial, onDone }: { code?: string; onDone: (r: Serv
           </button>
         </form>
       )}
-      {remove.error && <p className="msg err">{callErrorMessage(remove.error, CALL_FAIL)}</p>}
+      {remove.error && <p className="msg err">{accountErrorMessage(remove.error, CALL_FAIL)}</p>}
     </>
   );
 }

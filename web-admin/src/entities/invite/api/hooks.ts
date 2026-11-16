@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { resetKeyset } from '@/shared/lib';
 import { USER_KEYSET_KEY, type UserInvite } from '@/entities/user/@x/invite';
 import { GROUP_INVITES_KEY, invitesLeftKey, USER_INVITE, userInviteKey } from './keys';
 import { useInvitePort } from './index';
@@ -23,7 +24,7 @@ export function useSetInvitesLeftCache() {
       cur ? { ...cur, invitesLeft: value } : cur,
     );
     // API 판은 목록 줄이 초대권 수를 싣고 온다 — 그 줄을 다시 받는다(Firebase 판에는 없는 목록이라 아무 일도 없다).
-    void client.invalidateQueries({ queryKey: USER_KEYSET_KEY });
+    void resetKeyset(client, USER_KEYSET_KEY);
   };
 }
 
@@ -33,6 +34,6 @@ export function useForgetUserInvites() {
   return () =>
     Promise.all([
       client.invalidateQueries({ queryKey: [USER_INVITE] }),
-      client.invalidateQueries({ queryKey: USER_KEYSET_KEY }),
+      resetKeyset(client, USER_KEYSET_KEY),
     ]);
 }

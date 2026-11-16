@@ -156,5 +156,5 @@ function build(api: Api | null): UserDetailPort {
   };
 }
 
-/** `api` 마다 하나 — 상태가 없다. */
+/** `api` 마다 하나 — 들고 있는 것은 받는 중인 요청뿐이다. */
 export const createServerUserPort = perApi(build);

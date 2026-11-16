@@ -5,6 +5,7 @@ import type { ResetPasswordPort } from './port';
 
 function build(api: Api | null): ResetPasswordPort {
   return {
+    kind: 'server',
     run: (code, memo) =>
       portCall(
         api,
@@ -21,12 +22,12 @@ function build(api: Api | null): ResetPasswordPort {
           );
           return {
             ok: true as const,
-            kind: null,
+            // 서버는 비밀번호 로그인이 없는 계정을 거절하므로 하는 일은 «바꾸기» 하나다.
+            kind: 'reset' as const,
             code: code.trim(),
             friendCode: null,
             name: null,
             tempPassword: wireString(body.tempPassword, '임시 비밀번호의 tempPassword'),
-            logId: null,
           };
         },
         '비밀번호를 초기화하지 못했어요',

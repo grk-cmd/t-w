@@ -1,22 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { ROOM_SERVER_MIN_APP_VER, useRoomServerConfig } from '@/entities/room-server';
 import {
   isBadLicense,
   currentVer,
   LICENSE_LABEL,
-  useRowName,
+  realName,
+  useUserName,
   useRowPresence,
   verLabel,
   type UserRow,
 } from '@/entities/user';
 import { appVerBlock, ServerSelect } from '@/features/room-server/manage-allow';
-import {
-  useReloadUsers,
-  useUserPage,
-  useUserPageKeyset,
-  useUserRowsPort,
-  useUserStats,
-} from '@/features/user/user-rows';
+import { useReloadUsers, useUserPage, useUserStats } from '@/features/user/user-rows';
 import {
   errorMessage,
   formatDate,
@@ -24,8 +19,6 @@ import {
   readPageSize,
   savePageSize,
   useDebouncedValue,
-  useKeysetPaging,
-  type Paging,
 } from '@/shared/lib';
 import { Pager } from '@/shared/ui';
 import styles from './RoomServerUsers.module.css';
@@ -33,6 +26,10 @@ import styles from './RoomServerUsers.module.css';
 type Message = { text: string; error: boolean } | null;
 
 // 이름이 계정 요약에 없을 때만 그 사람 이름 한 칸을 읽는다(사용자 화면과 같은 캐시).
+function useRowName(row: UserRow): string | null {
+  const fetched = useUserName(row.userCode, !row.name);
+  return row.name ?? realName(fetched.data) ?? null;
+}
 
 type PresenceQuery = ReturnType<typeof useRowPresence>;
 
@@ -41,9 +38,7 @@ function LastSeen({ p }: { p: PresenceQuery }) {
   if (p.isLoading) return <span className="soft">…</span>;
   if (p.error) return <span className="soft">읽지 못함</span>;
   if (p.data?.online) return <span className={styles.online}>접속 중</span>;
-  const seen = p.data?.lastSeen ? formatDate(p.data.lastSeen) : '—';
-  // online 이 null 이면 «꺼짐» 이 아니라 «모름» 이다.
-  return <span className="soft">{p.data?.online === null ? `접속 여부 모름 · ${seen}` : seen}</span>;
+  return <span className="soft">{p.data?.lastSeen ? formatDate(p.data.lastSeen) : '—'}</span>;
 }
 
 function UserLine({
@@ -57,7 +52,7 @@ function UserLine({
   current: string | null;
   onResult: (text: string, error: boolean) => void;
 }) {
-  const { name } = useRowName(row);
+  const name = useRowName(row);
   const who = `${name ?? '이름 없음'}(${row.friendCode ?? row.userCode})`;
   // 앱 버전 — 마지막 접속과 같은 presence 한 번(따로 안 읽음).
   const presence = useRowPresence(row);
@@ -100,21 +95,33 @@ const LIST_KEY = 'roomServerUsers';
 /** 입력이 이만큼 멈추면 묻는다 — 글자마다 서버에 묻지 않게. */
 const SEARCH_DEBOUNCE_MS = 300;
 
-interface ViewProps {
-  text: string;
-  onText: (text: string) => void;
-  /** 조건에 맞는 수 · 전체 수 — 둘 다 받았을 때만. */
-  count: string;
-  error: Error | null;
-  loaded: boolean;
-  paging: Pick<Paging<UserRow>, 'items' | 'page' | 'pageCount' | 'size' | 'total' | 'setPage' | 'setSize'>;
-  more?: boolean;
-}
-
-function RoomServerUsersView({ text, onText, count, error, loaded, paging, more }: ViewProps) {
+// 사용자 목록에서 바로 서버 지정 — 사용자 화면과 같은 목록(API 사본 · 폴백은 통째 캐시)을 쪽 단위로, 줄마다 읽는 칸은 보이는 쪽만.
+export function RoomServerUsers() {
   const reload = useReloadUsers();
   const { data: cfg } = useRoomServerConfig();
+  const [text, setText] = useState('');
+  const q = useDebouncedValue(text, SEARCH_DEBOUNCE_MS);
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState(() => readPageSize(LIST_KEY));
   const [message, setMessage] = useState<Message>(null);
+  const list = useUserPage({ filter: 'all', q, ver: undefined }, page, size);
+  const stats = useUserStats();
+  const view = list.data;
+  const error = list.error;
+  if (view && !list.isPlaceholderData && page > view.pageCount) setPage(view.pageCount);
+  const paging = {
+    items: view?.items ?? [],
+    page: view?.page ?? page,
+    pageCount: view?.pageCount ?? 1,
+    size,
+    total: view?.total ?? 0,
+    setPage: (next: number) => setPage(Math.max(1, next)),
+    setSize: (next: number) => {
+      savePageSize(LIST_KEY, next);
+      setPage(pageForSize(page, size, next));
+      setSize(next);
+    },
+  };
   const servers = Object.keys(cfg?.servers ?? {}).sort();
   const onResult = (t: string, err: boolean) => setMessage({ text: t, error: err });
 
@@ -122,7 +129,7 @@ function RoomServerUsersView({ text, onText, count, error, loaded, paging, more 
     <section className="card">
       <div className="card-head">
         <h2 className="grow">사용자별 서버</h2>
-        <span className="soft">{count}</span>
+        <span className="soft">{view && stats.data && `${view.total} / ${stats.data.total}명`}</span>
         <button type="button" className="btn" onClick={reload}>
           새로고침
         </button>
@@ -137,11 +144,14 @@ function RoomServerUsersView({ text, onText, count, error, loaded, paging, more 
         aria-label="사용자 찾기"
         placeholder="이름 · 친구 코드 · 사용자 코드(u…)"
         value={text}
-        onChange={(e) => onText(e.target.value)}
+        onChange={(e) => {
+          setText(e.target.value);
+          setPage(1);
+        }}
       />
       {error && <p className="msg err">{errorMessage(error, '사용자 목록을 불러오지 못했어요')}</p>}
-      {!error && !loaded && <p className="soft">불러오는 중…</p>}
-      {loaded && (
+      {!error && !view && <p className="soft">불러오는 중…</p>}
+      {view && (
         <div className={styles.wrap}>
           <table className={styles.table}>
             <thead>
@@ -176,73 +186,7 @@ function RoomServerUsersView({ text, onText, count, error, loaded, paging, more 
         </div>
       )}
       {message && <p className={message.error ? 'msg err' : 'msg'}>{message.text}</p>}
-      <Pager paging={paging} more={more} />
+      <Pager paging={paging} />
     </section>
   );
-}
-
-// 사용자 목록에서 바로 서버 지정 — 사용자 화면과 같은 목록(API 사본 · 폴백은 통째 캐시)을 쪽 단위로, 줄마다 읽는 칸은 보이는 쪽만.
-function PagedRoomServerUsers() {
-  const [text, setText] = useState('');
-  const q = useDebouncedValue(text, SEARCH_DEBOUNCE_MS);
-  const [page, setPage] = useState(1);
-  const [size, setSize] = useState(() => readPageSize(LIST_KEY));
-  const list = useUserPage({ filter: 'all', q, ver: undefined }, page, size);
-  const stats = useUserStats();
-  const view = list.data;
-  if (view && !list.isPlaceholderData && page > view.pageCount) setPage(view.pageCount);
-  const paging = {
-    items: view?.items ?? [],
-    page: view?.page ?? page,
-    pageCount: view?.pageCount ?? 1,
-    size,
-    total: view?.total ?? 0,
-    setPage: (next: number) => setPage(Math.max(1, next)),
-    setSize: (next: number) => {
-      savePageSize(LIST_KEY, next);
-      setPage(pageForSize(page, size, next));
-      setSize(next);
-    },
-  };
-  return (
-    <RoomServerUsersView
-      text={text}
-      onText={(next) => {
-        setText(next);
-        setPage(1);
-      }}
-      count={view && stats.data ? `${view.total} / ${stats.data.total}명` : ''}
-      error={list.error}
-      loaded={!!view}
-      paging={paging}
-    />
-  );
-}
-
-// API 판 — 서버가 찾고 센다. 받은 쪽을 이어 붙여 쪽으로 자른다.
-function KeysetRoomServerUsers() {
-  const [text, setText] = useState('');
-  const q = useDebouncedValue(text, SEARCH_DEBOUNCE_MS);
-  const query = useMemo(() => ({ filter: 'all' as const, q, ver: undefined }), [q]);
-  const list = useUserPageKeyset(query);
-  const stats = useUserStats();
-  const paging = useKeysetPaging(list, LIST_KEY);
-  return (
-    <RoomServerUsersView
-      text={text}
-      onText={(next) => {
-        setText(next);
-        paging.setPage(1);
-      }}
-      count={list.data && stats.data ? `${paging.total} / ${stats.data.total}명` : ''}
-      error={list.error}
-      loaded={!!list.data}
-      paging={paging}
-      more={paging.more}
-    />
-  );
-}
-
-export function RoomServerUsers() {
-  return useUserRowsPort().kind === 'keyset' ? <KeysetRoomServerUsers /> : <PagedRoomServerUsers />;
 }

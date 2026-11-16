@@ -5,6 +5,8 @@ import { formatDay, secretRoomState, useUserSecretRoom } from '@/entities/secret
 import {
   currentVer,
   isBadLicense,
+  ONLINE_UNKNOWN_LABEL,
+  onlineUnknownText,
   LICENSE_LABEL,
   realName,
   useUserBrief,
@@ -352,7 +354,7 @@ function ServerPresence({ row, room }: { row: UserRow; room: string | null | und
   const p = row.live?.presence;
   if (!p) return <span className="soft">읽지 못함</span>;
   const seen = p.lastSeen ? formatDate(p.lastSeen) : '—';
-  if (p.online === null) return <span className="soft">접속 여부 모름 · {seen}</span>;
+  if (p.online === null) return <span className="soft">{onlineUnknownText(seen)}</span>;
   if (!p.online) return <>{seen}</>;
   return <span className={styles.online}>접속 중{room && <code className="key"> · {room}</code>}</span>;
 }
@@ -363,7 +365,7 @@ function ServerBadges({ row }: { row: UserRow }) {
   return (
     <div className={styles.badges}>
       {online === null ? (
-        <span className={styles.badge}>접속 여부 모름</span>
+        <span className={styles.badge}>{ONLINE_UNKNOWN_LABEL}</span>
       ) : online ? (
         <span className={`${styles.badge} ${styles.badgeOk}`}>● 접속 중</span>
       ) : (
@@ -377,7 +379,11 @@ function ServerBadges({ row }: { row: UserRow }) {
         </span>
       )}
       {!!detail.data?.openReports && (
-        <span className={`${styles.badge} ${styles.badgeWarn}`}>열린 신고 {detail.data.openReports}건</span>
+        <span
+          className={`${styles.badge} ${detail.data.openReports >= REPORT_ADMIN_MIN ? styles.badgeWarn : ''}`}
+        >
+          신고 {detail.data.openReports}명
+        </span>
       )}
     </div>
   );
@@ -520,9 +526,13 @@ function ServerBody({ row, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> &
       </Section>
 
       <Section title="신고 · 그림">
-        <Field label="열린 신고">
+        <Field label="받은 신고">
           <Loaded q={detail}>
-            {(d) => <span className={d.openReports > 0 ? 'warn' : undefined}>{d.openReports}건</span>}
+            {(d) => (
+              <span className={d.openReports >= REPORT_ADMIN_MIN ? 'warn' : undefined}>
+                {d.openReports}명
+              </span>
+            )}
           </Loaded>
         </Field>
         <Field label="자리비움 그림">
@@ -553,11 +563,6 @@ function ServerBody({ row, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> &
       </Section>
 
       <Section title="로그인">
-        <Field label="비밀번호 로그인">
-          <Loaded q={detail}>
-            {(d) => (d.hasPasswordLogin ? '있음' : <span className="soft">없음</span>)}
-          </Loaded>
-        </Field>
         <Field label="비밀번호">
           <ResetPasswordButton code={uid} friendCode={row.friendCode} />
         </Field>

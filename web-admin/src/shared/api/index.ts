@@ -61,7 +61,7 @@ export { opsConfigClient, type OpsConfigClient, type OpsSetting } from './opsCon
 export { API_ERROR_TEXT, apiErrorText, CONFLICT_TEXT, rowCodeText } from './errorText';
 export { isIndexMissing, isPermissionDenied, type Db, type LastRange } from './db';
 export type { Files } from './files';
-export { callErrorMessage, FUNCTIONS_REGION, type Functions } from './functions';
+export { accountErrorMessage, callErrorMessage, FUNCTIONS_REGION, type Functions } from './functions';
 export { DbProvider } from './DbProvider';
 export { EnvContext, PROD_MARK, useEnv, withProdMark, type Env } from './env';
 export { connectFirebase, isAdmin, type Firebase } from './firebase';
