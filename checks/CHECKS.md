@@ -165,7 +165,7 @@
 | **sim-click-through-policy.js** | 312 | **c8a07dca8eaa** |
 | **sim-heartbeat-policy.js** | 251 | **b3c8bdfbc2a0** |
 | **sim-catalog-cache.js** | 79 | **fdb819ceb86d** |
-| **sim-catalog-api.js** | 218 | **514b5a583b7a** |
+| **sim-catalog-api.js** | 213 | **02e71814b45e** |
 | **sim-friend-code-keep.js** | 180 | **395ddad5a770** |
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
 | **sim-key-input.js** | 71 | **3116fd7dd8fb** |
@@ -279,7 +279,7 @@
 | **sim-focus-progress.js** | 390 | **0195fe25d4c3** |
 | **sim-chat-window.js** | 565 | **9b933ee52a05** |
 | **sim-api-client.js** | 479 | **bda2b63251db** |
-| **sim-api-public-reads.js** | 189 | **2c84e4ce51de** |
+| **sim-api-public-reads.js** | 185 | **974d2b87fee4** |
 | **sim-api-routes.js** | 256 | **c65dfca05922** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
 | **sim-remote-config.js** | 372 | **1b5dcfbf856c** |

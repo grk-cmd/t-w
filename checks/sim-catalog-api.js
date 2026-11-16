@@ -90,7 +90,7 @@ const mkData = () => ({
     env.api = { baseUrl: () => BASE, get: async (p, op) => { env.calls.push({ p, op }); if(env.fail) throw env.fail; if(env.same && env.last) return env.last; env.last = JSON.parse(JSON.stringify(env.data)); return env.last; } };
     env.h = {}; env.st = [];
     env.rt = { on: (k, fn) => { env.h[k] = fn; return () => {}; }, onState: (fn) => { env.st.push(fn); return () => {}; } };
-    env.make = (Mod) => (Mod || M).createCatalogApi({ api: env.api, rt: o.noRt ? null : env.rt, notifyError: (c, e) => env.notes.push([c, e]), warn: (...a) => env.warns.push(a.join(' ')) });
+    env.make = (Mod) => (Mod || M).createCatalogApi({ api: env.api, rt: env.rt, notifyError: (c, e) => env.notes.push([c, e]), warn: (...a) => env.warns.push(a.join(' ')) });
     return env;
   };
 
@@ -146,11 +146,6 @@ const mkData = () => ({
     const bad = mkEnv(); const cb = bad.make(); let n = 0;
     bad.data.parts = 'x'; cb.subscribe('parts', () => { n++; }); await flush();
     chk(n === 0 && bad.notes.length === 1 && bad.notes[0][1].code === 'SHAPE', '  ↳ 모양이 틀린 응답도 실패로 알린다(빈 목록으로 꾸미지 않는다)');
-    const nort = mkEnv({ noRt: true }); const cn = nort.make(); let m = 0; cn.subscribe('items', () => { m++; }); await flush();
-    chk(m === 1, '  ↳ realtime 이 없어도 처음 받기는 된다(알림만 못 듣는다)');
-    const none = M.createCatalogApi({ notifyError: (c) => none.notes.push(c) }); none.notes = [];
-    none.subscribe('parts', () => {}); await flush();
-    chk(none.notes.join() === 'E-CHAR-26', '  ↳ API 통로가 없으면 던지지 않고 번호로 알린다');
     const code = strip(SRC);
     chk(!/setTimeout|setInterval/.test(code) && !/firebase|indexedDB|onValue/i.test(code) && !/^\s*import\s/m.test(code), '★ 타이머로 두드리지 않고 · Firebase · IndexedDB 를 모르고 · import 가 없다(통로는 deps)');
     chk(/'E-CHAR-26': \{/.test(ERR), '  ↳ E-CHAR-26 이 error-codes.js 표에 있다');
@@ -196,7 +191,7 @@ const mkData = () => ({
       ["api.get(CATALOG_PATH, {", "api.get(CATALOG_PATH + '/parts', {", '옛 길 /v2/catalog/{종류} 를 부름'],
       ["      if(text === last[kind]) continue;", "", '바뀌지 않은 종류도 다시 넘김'],
       ["try{ onData(clone(cur[kind])); }", "try{ onData(cur[kind]); }", '값을 복제하지 않고 같은 객체를 넘김'],
-      ["catch(e){ failed = true; try{ notifyError('E-CHAR-26', e); }catch(_){}", "catch(e){ failed = true;", '실패를 번호로 안 알림'],
+      ["catch(e){ failed = true; notifyError('E-CHAR-26', e);", "catch(e){ failed = true;", '실패를 번호로 안 알림'],
       ["rt.on('catalog', () => { load(); });", "", 'catalog 알림을 안 들음'],
       ["    if(data === raw && cur) return;", "    if(cur) return;", '바뀐 값도 304 처럼 넘김'],
       ["    if(running){ again = true; return running; }", "    if(running) return running;", '받는 중에 온 알림을 놓침'],

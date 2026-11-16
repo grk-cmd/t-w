@@ -6,7 +6,7 @@
    2-B. 같은 틱의 여러 명함은 요청 하나로 묶는다(사람 수만큼 따로 부르지 않는다)
    3. 랭킹 — 걷었다: 순위 통로(fetchMyRank · fetchLeaderboardTop)를 달지 않고 /v2/leaderboard 를 묻지 않는다
    4. 방 개수(정원 검사)는 API 를 거치지 않고 늘 Firebase · 걷은 이름(fetchAvatar · fetchUserCardApi · findRandomRooms)을 달지 않는다
-   5. 실패 종류 — 닿지 못함 · 503 *_NOT_READY · RTDB_UNAVAILABLE · 400 · 통로 없음 · 모양이 다름 모두 던짐(Firebase 길 0)
+   5. 실패 종류 — 닿지 못함 · 503 *_NOT_READY · RTDB_UNAVAILABLE · 400 · 모양이 다름 모두 던짐(Firebase 길 0)
    6. 배선 — firebase-init(import · firebase-ready 전에 wrap · 명함 통로는 social-api) · app.js 사진 두 곳 · 모듈은 import 없음
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
 'use strict';
@@ -116,7 +116,7 @@ const rej = async (p) => { try{ await p; return null; }catch(e){ return e || new
     const r = [await fb.fetchMyRank('u1'), await fb.fetchLeaderboardTop()];
     chk(r.every((x) => x === 'FB') && !authed.calls.some((c) => /leaderboard/.test(c)), '★ 순위 통로를 바꿔 끼우지 않는다 — /v2/leaderboard 를 묻지 않는다');
     chk(!/leaderboard|fetchMyRank|fetchLeaderboardTop/.test(strip(SRC)), '  ↳ 모듈 글에 랭킹 경로 · 이름이 없다');
-    const bare = mkFb(); M.createApiPublicReads({}).wrap(bare.fb);
+    const bare = mkFb(); M.createApiPublicReads({ fetchCards: async () => ({}) }).wrap(bare.fb);
     chk(!('fetchMyRank' in bare.fb) && !('fetchLeaderboardTop' in bare.fb), '  ↳ 없던 순위 함수를 새로 달지 않는다');
   }
 
@@ -144,12 +144,8 @@ const rej = async (p) => { try{ await p; return null; }catch(e){ return e || new
       if(!threw || log.length !== 0) ok = false;
     }
     chk(ok, '★ 닿지 못함 · 시간 초과 · 쉬는 중 · 503 *_NOT_READY · RTDB_UNAVAILABLE · 400 · 401 · 길 없음 · 그 밖 오류 → 던진다 · 원래 Firebase 함수는 부르지 않는다');
-    const { fb, log } = mkFb();
-    M.createApiPublicReads({ fetchCards: null }).wrap(fb);
-    let t2 = false; try{ await fb.fetchPlaylistCard('u'); }catch(_){ t2 = true; }
-    chk(t2 && log.length === 0, '  ↳ 명함 통로가 없으면(TwSocialApi 없음) 던진다 · Firebase 0');
     const keep = mkFb(); const before = keep.fb.getMyHome;
-    M.createApiPublicReads({}).wrap(keep.fb);
+    M.createApiPublicReads({ fetchCards: async () => ({}) }).wrap(keep.fb);
     chk(keep.fb.getMyHome === before && Object.keys(keep.fb).join() === 'fetchPlaylistCard,getRoomCounts,getMyHome', '  ↳ 다른 함수는 건드리지 않고 새 이름을 더하지도 않는다');
     /* 깨 보기 — 실패하면 원래 함수로 물러나게 되돌리면 위가 빨강 */
     const back = SRC.replace("    fb.fetchPlaylistCard = async (userCode) => cardOf(await ask(String(userCode)));", "    const orig = fb.fetchPlaylistCard.bind(fb);\n    fb.fetchPlaylistCard = async (userCode) => { try{ return cardOf(await ask(String(userCode))); }catch(_){ return orig(userCode); } };");
@@ -170,9 +166,9 @@ const rej = async (p) => { try{ await p; return null; }catch(e){ return e || new
   {
     const fi = strip(FI);
     chk(/import \{ createApiPublicReads \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?api-public-reads\.js";/.test(FI), 'firebase-init.js 가 모듈을 들여온다');
-    const iw = fi.indexOf('createApiPublicReads({ fetchCards: _cardApi ? (codes) => _cardApi.fetchCards(codes) : null }).wrap(window.firebaseAPI);');
+    const iw = fi.indexOf('createApiPublicReads({ fetchCards: (codes) => _cardApi.fetchCards(codes) }).wrap(window.firebaseAPI);');
     chk(iw > 0 && iw < fi.indexOf("window.dispatchEvent(new Event('firebase-ready'))") && iw > fi.indexOf('window.firebaseAPI = {'), '  ↳ firebaseAPI 를 다 만든 뒤 · firebase-ready 전에 wrap(명함 통로 = 친구 쪽 social-api fetchCards)');
-    chk(/_cardApi = \(window\.TwSocialApi && window\.TwApi && window\.TwApi\.authed\)\s*\?\s*window\.TwSocialApi\.createSocialApi\(\{ authed: window\.TwApi\.authed,/.test(fi), '  ↳ 명함 통로는 로그인 통로(TwApi.authed — 명함 묶음은 로그인한 사람만) 위의 social-api');
+    chk(/_cardApi = window\.TwSocialApi\.createSocialApi\(\{ authed: window\.TwApi\.authed,/.test(fi) && !/_cardApi \?|TwSocialApi &&/.test(fi), '  ↳ 명함 통로는 로그인 통로(TwApi.authed) 위의 social-api 를 «있으면 부르기» 가드 없이 바로 만든다')
     const html = read('desk-companion-prototype.html');
     chk(!!html && html.indexOf('<script src="parts/friends/social-api.js"></script>') > 0 && html.indexOf('<script type="module" src="parts/firebase-init.js"></script>') > 0,
       '  ↳ html 이 social-api.js 를 일반 스크립트로 싣고 firebase-init.js 는 module(문서를 다 읽은 뒤 돈다) — wrap 이 도는 때 TwSocialApi 가 있다')

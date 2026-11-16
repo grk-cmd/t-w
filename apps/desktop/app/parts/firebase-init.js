@@ -1206,8 +1206,7 @@
 
   /* 🌐 명함 읽기는 서버 길 한 곳(api-public-reads.js) — 실패해도 위 Firebase 함수로 물러나지 않는다.
      길은 친구 쪽 social-api.js fetchCards(GET /v2/myhomes/cards?codes=)를 그대로 쓴다(읽기뿐이라 따로 한 벌) */
-  const _cardApi = (window.TwSocialApi && window.TwApi && window.TwApi.authed)
-    ? window.TwSocialApi.createSocialApi({ authed: window.TwApi.authed, warn: (...a) => console.warn(...a) }) : null;
-  createApiPublicReads({ fetchCards: _cardApi ? (codes) => _cardApi.fetchCards(codes) : null }).wrap(window.firebaseAPI);
+  const _cardApi = window.TwSocialApi.createSocialApi({ authed: window.TwApi.authed, warn: (...a) => console.warn(...a) });
+  createApiPublicReads({ fetchCards: (codes) => _cardApi.fetchCards(codes) }).wrap(window.firebaseAPI);
   try{ window.firebaseAPI.chatHistory.bindSettings(document, (m) => { window.toast(m); }); }catch(_){}   // 설정 › 시스템 [저장된 대화 지우기]
   window.dispatchEvent(new Event('firebase-ready'));

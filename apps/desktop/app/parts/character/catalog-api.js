@@ -95,10 +95,8 @@ export function unfoldCatalog(data, assetUrl){
 }
 
 export function createCatalogApi(deps){
-  const api = deps.api || null;
-  const rt = deps.rt || null;
-  const notifyError = deps.notifyError || (() => {});
-  const warn = deps.warn || ((...a) => { try{ console.warn(...a); }catch(_){} });
+  const { api, rt, notifyError } = deps;
+  const warn = deps.warn || ((...a) => console.warn(...a));
   const subs = { parts: new Set(), items: new Set(), desks: new Set() };
   const last = { parts: null, items: null, desks: null };   // 마지막으로 넘긴 종류별 글(JSON) — 같으면 다시 안 넘긴다
   let cur = null;          // 마지막으로 푼 { parts, items, desks }
@@ -108,7 +106,7 @@ export function createCatalogApi(deps){
   let failed = false;      // 마지막 받기가 실패했다 — realtime 이 붙으면 다시
   let started = false;
 
-  const assetUrl = (hash, ext) => ((api && typeof api.baseUrl === 'function' && api.baseUrl()) || '') + CATALOG_ASSET_PATH + hash + '.' + ext;
+  const assetUrl = (hash, ext) => (api.baseUrl() || '') + CATALOG_ASSET_PATH + hash + '.' + ext;
   const clone = (o) => JSON.parse(JSON.stringify(o));
 
   function push(kind, onData){
@@ -124,7 +122,6 @@ export function createCatalogApi(deps){
   }
 
   async function once(){
-    if(!api || typeof api.get !== 'function') throw Object.assign(new Error('API 통로 없음'), { code: 'NO_API' });
     const data = await api.get(CATALOG_PATH, { timeoutMs: CATALOG_TIMEOUT_MS });   // 304 면 기억한 같은 객체
     if(data === raw && cur) return;   // 바뀐 것 없음
     const next = unfoldCatalog(data, assetUrl);
@@ -136,7 +133,7 @@ export function createCatalogApi(deps){
     if(running){ again = true; return running; }
     running = (async () => {
       try{ await once(); failed = false; }
-      catch(e){ failed = true; try{ notifyError('E-CHAR-26', e); }catch(_){} warn('[catalog] 받기 실패', (e && (e.code || e.message)) || e); }
+      catch(e){ failed = true; notifyError('E-CHAR-26', e); warn('[catalog] 받기 실패', (e && (e.code || e.message)) || e); }
       finally{ running = null; }
       if(again){ again = false; return load(); }
     })();
@@ -145,12 +142,12 @@ export function createCatalogApi(deps){
   function start(){
     if(started) return;
     started = true;
-    if(rt && typeof rt.on === 'function') rt.on('catalog', () => { load(); });   // 바뀜 · 오래 끊겼다 붙음(resync) 모두 같은 일 — 다시 받기(ETag)
-    if(rt && typeof rt.onState === 'function') rt.onState((s) => { if(s === 'ready' && failed) load(); });
+    rt.on('catalog', () => { load(); });   // 바뀜 · 오래 끊겼다 붙음(resync) 모두 같은 일 — 다시 받기(ETag)
+    rt.onState((s) => { if(s === 'ready' && failed) load(); });
   }
 
   function subscribe(kind, onData){
-    if(!CATALOG_KINDS.includes(kind) || typeof onData !== 'function') return () => {};
+    if(!CATALOG_KINDS.includes(kind)) return () => {};
     subs[kind].add(onData);
     start();
     if(cur) push(kind, onData);

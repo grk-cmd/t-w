@@ -6,7 +6,7 @@
  *   예전 길 GET /v2/users/{uid}/card 는 서버에 없다(#887 이 /v1 → /v2 로 기계적으로 바꾸며 생긴 오류 — checks/sim-api-routes.js 가 막는다).
  * [규칙] 길 · 봉투 풀기 · 100개씩 나누기 · 모양 맞춤은 친구 쪽 social-api.js(fetchCards) 한 곳이다 — 여기서 다시 만들지 않는다.
  *   같은 순간(한 틱)에 여러 사람의 명함을 물으면 요청 하나로 묶는다(사람 수만큼 따로 부르지 않는다).
- *   못 받으면 **던진다** — Firebase 로 물러나지 않는다(0.13 E-2 · R4). 실패 = 닿지 못함 · 5xx · 4xx · 모양이 다른 응답 · 명함 통로 없음.
+ *   못 받으면 **던진다** — Firebase 로 물러나지 않는다(0.13 E-2 · R4). 실패 = 닿지 못함 · 5xx · 4xx · 모양이 다른 응답.
  *   서버는 없는 사람의 코드를 빼고 준다 — 그 사람은 실패가 아니라 «없음» 이라 빈 명함이다. (파도타기는 로그인 길로 옮겼다 — status/playlist-api.js)
  *   돌려주는 모양은 원래 함수와 같다({ name, level, cyc, clv, starC, avatar }). 던진 것은 부르는 쪽 playlist.js 가 E-PL-03 «명함을 못 받았어요» 로 알린다.
  *
@@ -25,12 +25,11 @@ export function cardOf(c){
 }
 
 export function createApiPublicReads(deps){
-  const fetchCards = (deps && typeof deps.fetchCards === 'function') ? deps.fetchCards : null;
+  const fetchCards = deps.fetchCards;
   let batch = null;   // { codes: Set, done: Promise<{ userCode: 명함 }> } — 이번 틱에 모이는 묶음
 
   /* 같은 틱에 모인 코드를 한 번에 묻는다. 한 묶음이 실패하면 그 묶음의 모두가 같은 오류로 실패한다. */
   function ask(code){
-    if(!fetchCards) return Promise.reject(new Error('명함 통로 없음'));
     if(!batch){
       const b = { codes: new Set(), done: null };
       b.done = Promise.resolve().then(() => {
@@ -43,7 +42,7 @@ export function createApiPublicReads(deps){
     return batch.done.then((cards) => (isObj(cards) && isObj(cards[code])) ? cards[code] : null);
   }
 
-  /* fetchPlaylistCard 를 API 판으로 바꿔 끼운다. 못 받으면(닿지 못함 · 5xx · 모양이 다름 · 통로 없음) 던진다 —
+  /* fetchPlaylistCard 를 API 판으로 바꿔 끼운다. 못 받으면(닿지 못함 · 5xx · 모양이 다름) 던진다 —
      Firebase 로 물러나지 않는다. 부르는 쪽(playlist.js)이 «못 받음» 을 알린다. */
   function wrap(fb){
     fb.fetchPlaylistCard = async (userCode) => cardOf(await ask(String(userCode)));
