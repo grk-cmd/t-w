@@ -96,7 +96,7 @@ async function decryptCommission(code, pass){
 const SAVED_DESK_KEY='tw.savedDesks', SAVED_ITEM_KEY='tw.savedItems';
 const MAX_CUSTOM_ASSETS=6, MAX_CUSTOM_ITEMS=50, MAX_GLB_BYTES=1024*1024;   // 1MB — 책상은 6개, 아이템은 요청에 따라 50개까지
 let savedDesks=[], savedItems=[];   // [{id, name, icon, glb(base64)}]
-/* 🗂️ 두 갈래 — ① 카탈로그 몫(fromCatalog · 서버가 원본 · 카탈로그 동기화가 채운다 · 이 PC 에 따로 저장하지 않는다 — 오프라인 캐시는 catalog-cache.js)
+/* 🗂️ 두 갈래 — ① 카탈로그 몫(fromCatalog · 서버가 원본 · 카탈로그 동기화가 채운다 · 이 PC 에 따로 저장하지 않는다 — 서버 한 벌은 catalog-api.js)
    ② 이 계정 몫(코드로 추가한 책상 · 아이템 — 계정 칸). 계정 칸은 확인 전엔 닫혀 있어 만들 때는 비어 있고, 확인 뒤 loadLocalDesks · loadLocalItems 가 ② 만 채운다.
    ★ 로그인 때 읽은 값으로 ① 을 덮지 않는다 — 카탈로그 몫이 먼저 와 있으면(구독은 계정과 무관하게 먼저 돈다) 그대로 두고 ② 중 카탈로그에 같은 id 가 없는 것만 더한다. */
 function _readLocal(key){

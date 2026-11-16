@@ -164,7 +164,8 @@
 | **sim-ghost-cache-sync.js** | 366 | **30ab1365b0d8** |
 | **sim-click-through-policy.js** | 312 | **c8a07dca8eaa** |
 | **sim-heartbeat-policy.js** | 251 | **b3c8bdfbc2a0** |
-| **sim-catalog-cache.js** | 384 | **e4b2b4e50cb3** |
+| **sim-catalog-cache.js** | 79 | **fdb819ceb86d** |
+| **sim-catalog-api.js** | 218 | **514b5a583b7a** |
 | **sim-friend-code-keep.js** | 180 | **395ddad5a770** |
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
 | **sim-key-input.js** | 71 | **3116fd7dd8fb** |
