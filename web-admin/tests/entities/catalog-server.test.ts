@@ -37,6 +37,17 @@ describe('카탈로그 진열대 읽기 — API 판', () => {
     ]);
   });
 
+  it('그림 해시는 공개 파일 주소로 바꾸고, 없으면 그림 없음(null)', async () => {
+    const s = fakeApiOf({
+      'GET /v2/admin/catalog': () => bundle({ parts: [part('p1', { thumb: 'abc123' }), part('p2')] }),
+    });
+    const shelf = await createServerCatalogPort(s.api).shelf('parts', 'order');
+    expect(shelf.entries.map((e) => e.thumb)).toEqual([
+      'https://api.test/v2/catalog/assets/abc123.png',
+      null,
+    ]);
+  });
+
   it('책상 · 소품은 각자의 종류 이름 · 배열 · id 칸으로 읽는다', async () => {
     const s = fakeApiOf({
       'GET /v2/admin/catalog': (c) =>

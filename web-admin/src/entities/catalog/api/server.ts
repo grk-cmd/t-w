@@ -3,6 +3,7 @@
 // 거르기 · 세기(장착 수 `equipCount`) · 많이 쓰는 순 정렬은 서버가 한다 — 웹은 값을 그대로 보낸다.
 import {
   adminPath,
+  catalogAssetUrl,
   perApi,
   portCall,
   wireArray,
@@ -42,9 +43,15 @@ function oneOf<T extends string>(table: readonly T[], value: unknown, what: stri
 
 /**
  * 물건 줄 하나. `equip` 은 목록 줄만 싣는다(`'required'`) — 한 건 · 고치기 응답은 싣지 않아(`'absent'`) null.
- * 서버가 NON_NULL 로 싣지 않는 칸(`thumb` · 책상 · 소품의 `listing.acquisition`)은 읽지 않는다.
+ * `thumb`(그림 해시)는 서버가 없으면 싣지 않는다 — 없으면 null, 있으면 `assetUrl` 로 공개 파일 주소를 만든다.
+ * 한 건 응답처럼 그림을 쓰지 않는 곳은 `assetUrl` 을 넘기지 않는다(`thumb` 읽지 않음).
  */
-export function toCatalogRow(kind: ShelfKind, w: unknown, equip: 'required' | 'absent'): CatalogEntry {
+export function toCatalogRow(
+  kind: ShelfKind,
+  w: unknown,
+  equip: 'required' | 'absent',
+  assetUrl?: (hash: string) => string,
+): CatalogEntry {
   const spec = ROWS[kind];
   const o = wireObject(w, `${spec.what} 줄`);
   const id = wireString(o[spec.id], `${spec.what} 줄의 ${spec.id}`);
@@ -66,8 +73,7 @@ export function toCatalogRow(kind: ShelfKind, w: unknown, equip: 'required' | 'a
     cat: kind === 'parts' ? wireString(o.category, what('category')) : null,
     // 서버가 배열 순서로 진열 순서를 준다 — 번호 칸은 없다.
     order: null,
-    // 파일 그림 주소는 이 판의 목록에 싣지 않는다(해시 → 주소는 공개 파일 길로 받는다).
-    thumb: null,
+    thumb: assetUrl ? wireOmittable(o, 'thumb', (v) => assetUrl(wireString(v, what('thumb')))) : null,
     files: [],
     base64: false,
     legacyGacha: false,
@@ -118,8 +124,10 @@ function build(api: Api | null): CatalogPort {
   const get = (kind: ShelfKind, sort: 'order' | 'popular') =>
     portCall(
       api,
-      async (a) =>
-        wireObject(await a.get<unknown>(CATALOG_BASE, { kind: KIND_PARAM[kind], sort }), '카탈로그'),
+      async (a) => ({
+        data: wireObject(await a.get<unknown>(CATALOG_BASE, { kind: KIND_PARAM[kind], sort }), '카탈로그'),
+        assetUrl: (hash: string) => catalogAssetUrl(a, hash),
+      }),
       '카탈로그를 불러오지 못했어요',
     );
 
@@ -128,11 +136,11 @@ function build(api: Api | null): CatalogPort {
     diagnosable: false,
 
     async shelf(kind, sort): Promise<CatalogShelf> {
-      const data = await get(kind, sort);
+      const { data, assetUrl } = await get(kind, sort);
       const spec = ROWS[kind];
       return {
         entries: wireArray(data[spec.array], `카탈로그의 ${spec.array}`).map((r) =>
-          toCatalogRow(kind, r, 'required'),
+          toCatalogRow(kind, r, 'required', assetUrl),
         ),
         categories: wireArray(data.categories, '카탈로그의 categories').map(toCatView),
         shelves: toShelves(data.shelves),
@@ -141,7 +149,7 @@ function build(api: Api | null): CatalogPort {
 
     // 물건 줄은 거르고 카테고리는 늘 온다 — 줄이 가장 적은 종류(책상)로 받는다.
     async categories() {
-      return wireArray((await get('desks', 'order')).categories, '카탈로그의 categories').map(toCatView);
+      return wireArray((await get('desks', 'order')).data.categories, '카탈로그의 categories').map(toCatView);
     },
   };
 }

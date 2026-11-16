@@ -287,6 +287,44 @@ describe('항목 지우기(단종) — API 판', () => {
     });
   });
 
+  it('100개를 넘게 고르면 100개씩 나눠 보낸다', async () => {
+    const many = Array.from({ length: 230 }, (_, i) => toCatalogRow('parts', part(`p${i}`), 'required'));
+    const s = fakeApiOf({
+      'POST /v2/admin/catalog/listings/bulk': (c) =>
+        (c.body as { items: { kind: string; id: string }[] }).items.map((i) => ({ ...i, ok: true })),
+    });
+    const r = await createServerDeleteEntriesPort(s.api).remove(many, many);
+    expect(s.calls.map((c) => (c.body as { items: unknown[] }).items.length)).toEqual([100, 100, 30]);
+    expect(r).toMatchObject({ removed: 230, failed: [] });
+  });
+
+  it('중간 묶음이 실패하면 된 수와 안 된 줄 · 까닭을 드러낸다', async () => {
+    const many = Array.from({ length: 150 }, (_, i) => toCatalogRow('parts', part(`p${i}`), 'required'));
+    let n = 0;
+    const s = fakeApiOf({
+      'POST /v2/admin/catalog/listings/bulk': (c) => {
+        if (++n === 2) throw new ApiError('unavailable', 503, '', '');
+        return (c.body as { items: { kind: string; id: string }[] }).items.map((i) => ({ ...i, ok: true }));
+      },
+    });
+    const r = await createServerDeleteEntriesPort(s.api).remove(many, many);
+    expect(r.removed).toBe(100);
+    expect(r.failed).toHaveLength(50);
+    expect(r.failed[0].id).toBe('p100');
+    expect(r.edits).toEqual([{ op: 'refetch', kind: 'parts' }]);
+  });
+
+  it('첫 묶음이 실패하면 그대로 던진다(바뀐 것 없음)', async () => {
+    const s = fakeApiOf({
+      'POST /v2/admin/catalog/listings/bulk': () => {
+        throw new ApiError('unavailable', 503, '', '');
+      },
+    });
+    expect(await caught(createServerDeleteEntriesPort(s.api).remove(entries, entries))).toBeInstanceOf(
+      PortError,
+    );
+  });
+
   it('단종하는 판이다', () => {
     expect(createServerDeleteEntriesPort(fakeApiOf({}).api).archives).toBe(true);
   });

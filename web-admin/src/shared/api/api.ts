@@ -10,6 +10,13 @@ export const API_TIMEOUT_MS = 8000;
 /** API 판 서버 길의 기준 경로 — 서버가 새 길을 /v2 로 옮겼다. 바뀌면 이 한 줄만 고친다. */
 export const ADMIN_API_BASE = '/v2/admin';
 
+/**
+ * 카탈로그 공개 파일 주소 `/v2/catalog/assets/{해시}.{확장자}` — 주소를 만드는 곳은 여기 한 곳이다.
+ * 서버는 확장자를 셋(png · webp · glb) 중 아무거나 받고 Content-Type 은 저장된 형식으로 준다 — 그림이라 png.
+ */
+export const catalogAssetUrl = (api: Pick<Api, 'baseUrl'>, hash: string): string =>
+  `${api.baseUrl}/v2/catalog/assets/${encodeURIComponent(hash)}.png`;
+
 /** `adminPath('/admins/me')` → `/v2/admin/admins/me` */
 export const adminPath = (path: string): string => `${ADMIN_API_BASE}${path}`;
 
@@ -65,6 +72,8 @@ export interface ApiSendOptions {
 }
 
 export interface Api {
+  /** 서버 기준 주소(끝 `/` 없음) — 공개 파일 주소를 만들 때만 쓴다. */
+  baseUrl: string;
   /** 성공 봉투의 data 만 돌려준다. 실패는 ApiError. */
   get<T>(path: string, params?: ApiParams): Promise<T>;
   /** 쓰기. 고쳐 쓰기는 본문에 `version`, DELETE 는 `query.version`. */
@@ -200,6 +209,7 @@ export function createApi({
   }
 
   return {
+    baseUrl,
     get: (path, params) => request('GET', path, params),
     send: (method, path, options = {}) => request(method, path, options.query, options.body),
     upload: (path, bytes, contentType) => request('POST', path, undefined, undefined, { bytes, contentType }),
