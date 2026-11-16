@@ -482,7 +482,7 @@
 | **sim-device-id.js** | 103 | **44a934497fba** |
 | **sim-account-store.js** | 624 | **d65c22de53e9** |
 | **sim-api-errors.js** | 126 | **46fbbfebb0fc** |
-| **sim-rt-hub.js** | 525 | **4be17ca21cbc** |
+| **sim-rt-hub.js** | 529 | **7a912568ddb2** |
 | **sim-rt-status-ui.js** | 245 | **64adff52d476** |
 | **sim-run-verdict.js** | 67 | **4303b789970f** |
 | **sim-user-api.js** | 210 | **4d90ddb87f1c** |
