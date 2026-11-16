@@ -158,12 +158,12 @@ console.log('\n── 5. 관리자 모드 진입 — 화면과 실제 권한이 
   const trigger = src.slice(src.indexOf('function bindAdminTrigger'), AM ? src.indexOf('return { refreshAdminVisibility }') : src.indexOf('function setFaceMap'));
   const enter = src.slice(src.indexOf('function tryEnterAdmin'), src.indexOf('async function _submitAdminPass'));
 
-  chk(/_myAuthUid\(\)/.test(submit), '비밀번호가 맞아도 로그인 여부를 확인한다');
+  chk(/_signedIn\(\)/.test(submit), '비밀번호가 맞아도 로그인 여부를 확인한다');
   { const _on = submit.search(/setIsAdmin\(true\)|isAdmin = true/);
-    chk(_on > 0 && submit.indexOf('_myAuthUid()') < _on, '  ↳ 확인이 isAdmin 을 켜기 전에 온다'); }
+    chk(_on > 0 && submit.indexOf('_signedIn()') < _on, '  ↳ 확인이 isAdmin 을 켜기 전에 온다'); }
   chk(/구글 로그인이 필요해요/.test(submit), '로그인이 없으면 무엇이 필요한지 알려준다');
-  chk(/authCurrentUid/.test(src) && !/getMyUserId\(\)[^\n]*admins/.test(src),
-      '권한 판정에 앱 자체 id(getMyUserId)를 쓰지 않는다');
+  chk(/deps\.session\(\)/.test(src) && /\.alive\(\)/.test(src) && !/getMyUserId\(\)[^\n]*admins/.test(src),
+      '권한 판정에 앱 자체 id(getMyUserId)를 쓰지 않는다 — 로그인은 켜는 차례의 세션(session().alive())으로 본다');
 
   chk(!/clicks\.length >= 5/.test(trigger), '5연타 조건이 사라졌다');
   chk(/e\.ctrlKey \|\| \(isMac && e\.metaKey\)/.test(trigger) && /const isMac = \/Mac\/i\.test\(navigator\.platform/.test(trigger),
