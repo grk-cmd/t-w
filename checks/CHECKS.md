@@ -176,7 +176,7 @@
 | **sim-myhome-load.js** | 87 | **80598e5410f5** |
 | **sim-fix-0923.js** | 252 | **027994f930d3** |
 | **sim-noise.js** | 146 | **e2fb15f39c34** |
-| **sim-mobile-focus.js** | 334 | **520000f2218b** |
+| **sim-mobile-focus.js** | 342 | **130f76ba80a9** |
 | **sim-figure-mode.js** | 169 | **e100b8151447** |
 | **sim-focus-gate-self.js** | 124 | **5a2405206abb** |
 | **sim-focus-gate.js** | 105 | **d13765baacc8** |
@@ -333,7 +333,7 @@
 | **sim-tricks.js** | 120 | **058338ed6638** |
 | **sim-ride-bench.js** | 279 | **a7daa943540f** |
 | **sim-part-paint.js** | 94 | **ccaa45183979** |
-| **sim-focus-level.js** | 128 | **246cbe6794dd** |
+| **sim-focus-level.js** | 128 | **d1f0e0319230** |
 | **sim-chat-ui.js** | 126 | **55fc3d864b1d** |
 | **sim-license-gate.js** | 350 | **c793ea68d3e8** |
 | **sim-account.js** | 174 | **ed8045d9dc22** |
@@ -481,7 +481,7 @@
 | **sim-device-id.js** | 103 | **44a934497fba** |
 | **sim-account-store.js** | 624 | **d65c22de53e9** |
 | **sim-api-errors.js** | 128 | **b13cd4fb40bc** |
-| **sim-rt-hub.js** | 529 | **7a912568ddb2** |
+| **sim-rt-hub.js** | 543 | **769e2e1927b0** |
 | **sim-rt-status-ui.js** | 245 | **64adff52d476** |
 | **sim-run-verdict.js** | 67 | **4303b789970f** |
 | **sim-user-api.js** | 223 | **6ff09db9033e** |

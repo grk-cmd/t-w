@@ -7931,6 +7931,7 @@ const focusLevelMod = TwFocusLevel.createFocusLevel({
   focusStore: accountStoreMod,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   rtOnMessage: (...a)=>TwRtHub.store.onMessage(...a),
+  serverNow: ()=>TwRtHub.store.serverNow(),   // 방 밖 서버 시계(ready.now) — 모르면 null
   toast: (...a)=>toast(...a),
   wdDraftDef: ()=>wardrobeMod.wdDraftDef(),
   setFocusSessionSec: (v)=>{ focusTotalMod.setFocusSessionSec(v); },

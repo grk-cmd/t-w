@@ -147,11 +147,6 @@
      이미 통과했으면 await 비용은 0이다(정착된 뒤엔 마이크로태스크 한 번). */
   const _whenAuthReady = ()=> _authSettled ? Promise.resolve() : _authReadyPromise;
 
-  // ⏱ 서버 시간 오프셋 — stale 판정을 로컬 시계로 하면 PC 시계가 몇 분만 틀어져도
-  //   상대의 멀쩡한 하트비트를 "오래됨"으로 오판해 숨김(A↔B 비대칭의 원인 후보). 서버 오프셋으로 보정.
-  let _svTimeOffset = 0;
-  try{ onValue(ref(db, '.info/serverTimeOffset'), s => { _svTimeOffset = s.val() || 0; }); }catch(e){}
-  const _svNow = () => Date.now() + _svTimeOffset;
   /* 💰 Storage 캐시 정책 — 한 번 받은 파일은 브라우저/앱이 재사용해서 다운로드 대역폭(=서버비)을 아낌. */
   const STORAGE_CACHE = 'public, max-age=31536000';
   /* 이 앱 판 — preload 의 companion.getAppVersion() 을 한 번 받는다. realtime 연결의 hello 가 이 판을 싣는다(rt-hub getVersion). */
@@ -204,15 +199,6 @@
   }
 
   window.firebaseAPI = {
-    /* 🕒 서버 시계 — 위에서 이미 구독해 둔 `.info/serverTimeOffset` 보정값을 밖으로 낸다.
-       [왜 내보내나] 가챠 병합이 **ts 가 큰 쪽이 이긴다**라서, 기기 시계를 그대로 믿으면 시계가
-         앞선 기기 한 대가 올린 미래 ts 가 그 시각이 실제로 올 때까지 그 계정의 모든 기기를
-         묶는다 — 뽑아도 그 자리에서 서버 값으로 덮이고 서버에는 안 올라간다(제보).
-         하트비트 stale 판정이 같은 이유로 이미 이 값을 쓰고 있었다(_svNow) — 새 구독이 아니라
-         쓰던 것을 공유하는 것뿐이라 비용이 0 이다.
-       ⚠️ 오프셋이 아직 안 왔거나 오프라인이면 0 이라 Date.now() 와 같아진다 — 호출부는 그 경우를
-         '보정 없음'으로 그냥 받아들이면 된다(지금보다 나빠지지 않는다). */
-    serverNow(){ return _svNow(); },
     getIdToken(force){ return _getIdToken(force); },
     // 로그인 API GET — get(path, { auth:true, headers, timeoutMs }) 그대로(api-client.js). 통로가 없으면 'unavailable'(NO_API).
     apiGetAuthed(path, opts){ return _authApi ? _authApi.get(path, opts) : Promise.reject(Object.assign(new Error('API 통로 없음'), { kind: 'unavailable', code: 'NO_API', status: 0 })); },
