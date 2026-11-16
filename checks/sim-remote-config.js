@@ -204,9 +204,16 @@ const RCM = require(path.resolve(where('remote-config.js')));
     await new Promise((res) => setTimeout(res, 0)); await s.refresh({ maxAgeMs: RCM.STALE_MS });
     chk(fn.calls.length === 2 && s.maxPeople() === 12, '★ 알림이 오면 1분 안이어도 바로 다시 묻는다(서버가 바꿨다)');
 
+    // ⑤-2 storage 를 안 주면 win.localStorage 를 쓴다(app.js 가 안 준다)
+    {
+      const st2 = memStore(); const wmem = { localStorage: st2 };
+      const sd = RCM.createRemoteConfig();
+      await quiet(() => sd.start({ api: mkApi(mkFetch(() => okRes(DATA))), win: wmem }));
+      chk(!!st2.getItem('tw.remoteConfig'), 'storage 를 안 주면 win.localStorage 에 마지막 값을 적는다');
+    }
     // ⑥ firebase-init 배선
     const fi = strip(FI);
-    chk(/TwRemoteConfig\.store\.start\(\{ api: TwApi\.client, storage: window\.localStorage, win: window, rt: TwRtHub\.store \}\)/.test(strip(APP)) && !/TwRemoteConfig|_rc\b/.test(fi),
+    chk(/TwRemoteConfig\.store\.start\(\{ api: TwApi\.client, win: window, rt: TwRtHub\.store \}\)/.test(strip(APP)) && !/TwRemoteConfig|_rc\b/.test(fi),
       'app.js 가 store.start 로 앱 공통 API 통로(TwApi.client) · realtime 알림(TwRtHub.store)을 잇는다 · firebase-init.js 는 원격 설정을 모른다');
     chk(!/fallbackRead/.test(fi) && !/store\.watch/.test(fi) && !/'config\/(?!maintenance)/.test(fi) && !/ref\(db, 'config'\)/.test(fi), '  ↳ Firebase config 비상 읽기 · 구독 · 박힌 경로 없음(점검 칸만 — maintenance-gate.js)');
     chk(!/createAppVersionGate|MIN_APP_VER_WAIT_MS/.test(fi), '  ↳ 앱 최소 버전 판정은 firebase-init 에 없다 — 켜는 흐름(shared/update-flow.js)이 원격 설정 첫 답으로 한다(sim-update-flow.js)');

@@ -168,11 +168,12 @@ function createRemoteConfig(){
     return inflight;
   }
 
-  /** deps: { api(TwApi.client — get(path)), storage, now, win, rt(TwRtHub.store — on('config', fn)) } — app.js 가 부른다. 두 번 부르면 두 번째는 다시 읽기만. */
+  /** deps: { api(TwApi.client — get(path)), storage(없으면 win.localStorage), now, win, rt(TwRtHub.store — on('config', fn)) } — app.js 가 부른다. 두 번 부르면 두 번째는 다시 읽기만. */
   function start(deps){
     if(opts) return refresh({ maxAgeMs: STALE_MS });
     opts = Object.assign({}, deps || {});
     if(!opts.api) opts.api = null;
+    if(opts.storage === undefined && opts.win) opts.storage = opts.win.localStorage;   // 이 PC 저장값 — 주지 않으면 창의 localStorage
     loadCache();
     const p = refresh();
     const w = opts.win;
