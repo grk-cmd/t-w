@@ -122,7 +122,7 @@ crState.camYaw += dx * 0.01;
 **확장할 때 고칠 자리** — 새 세션 값은 모듈의 `let` 줄(처음 값)과 맨 아래 `return { get … set … }` 한 줄 · `checks/sim-creator-state.js` 의 `INIT` 표. app.js 에 생성기 값을 새 꼭대기 `let` 으로 만들지 않는다.
 
 **함정**
-- `creatorOpen` · `creatorMode` · `curSlot` 은 여기 없다 — animal.js 가 전역 이름으로 직접 읽어서 app.js 에 남겼다(옮기려면 animal.js 를 deps 로 바꾼 뒤).
+- `creatorOpen` · `creatorMode` · `curSlot` 은 여기 없다 — app.js 에 남아 있다(animal.js 는 M23 에서 deps 로 받게 됐으니 옮길 수 있다).
 - `crState` 는 만드는 줄보다 앞에서 부팅 때 바로 쓰면 TDZ — 함수 안(나중에 불림)은 괜찮다.
 - 처음 값의 객체(`cXform` · `cDeskPos` · `stampPlace`)는 만들 때마다 새것이다 — 다른 곳과 같이 쓰는 객체로 바꾸지 말 것.
 
@@ -310,7 +310,7 @@ deskSetupMod.setHooks({
 - 관리자 등록 창 · 기즈모 모듈을 deps 로 받지 않는다 — 둘 다 책상 카드를 다시 그리려고 이 모듈을 불러 서로를 부르게 된다(sim-dep-cycles). 갈고리로만.
 - 카탈로그 책상 · 아이템은 GLB 를 def 에 안 싣는다 — 용량은 코드로 넣은 것만 잰다.
 - 입구 전제 — 카드 줄(`#crDeskRow` · `#crItemRow`) · 색 칸 · 미리보기가 없으면 그리지 · 걸지 않는다. 아이템 고르기는 캐릭터가 있어야.
-- `bindHold`(꾹 누르면 반복)는 animal.js 가 전역으로 읽어서 app.js 에 남겼다.
+- `bindHold`(꾹 누르면 반복)는 app.js 에 남아 있다(animal.js 는 deps 로 받는다).
 
 검사: `checks/sim-desk-setup.js`.
 

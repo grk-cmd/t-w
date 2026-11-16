@@ -1175,6 +1175,7 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   isDeskPartCat: (...a)=>premiumMod.isDeskPartCat(...a),
   isHueTintMesh: (...a)=>isHueTintMesh(...a),
   measureCharBox: (...a)=>charMeasureMod.measureCharBox(...a),
+  measurePreviewBox: (...a)=>charMeasureMod.measurePreviewBox(...a),
   openAssetImport: (...a)=>twNav.go(twNav.NAV.ASSET_IMPORT, ...a),
   partCatInfo: (...a)=>premiumMod.partCatInfo(...a),
   partEntryId: (...a)=>premiumMod.partEntryId(...a),
@@ -1323,7 +1324,7 @@ const mhScheduler = MhScheduler.createScheduler({
 });
 
 /* 🐞 버그 제보 탭(오픈카톡 기본 링크 — bugReport/current · window._bugReportLink)은 parts/bug-board-ui.js 끝으로 옮겼다(앱 FSD 5번).
-     게시판 화면과 한 파일이다. 그 파일은 app.js 뒤에 싣지만 firebase-init.js(type="module")보다는 앞이라 구독 시작 때는 같다.
+     게시판 화면과 한 파일이다. 그 파일은 app.js 보다 먼저 싣고 app.js 끝(INIT 뒤)에서 만든다 — firebase-init.js(type="module")보다는 앞이라 구독 시작 때는 같다.
    👥 친구 관리(받은 요청 · 📤 보낸 요청 · 선물함 서브탭) · 👋 새 친구 요청 팝업 · 친구 탭 배지는 parts/friend-manage.js 로 옮겼다
      (앱 FSD 5번 · docs/APP_FSD_MAP.md). ★ 원래 자리인 여기서 만든다(만들 때 바로 도는 일은 없다 — 상태 초기값뿐).
    함수 deps 는 화살표로 감싼다(부를 때 찾게). _myFriendRequests · _myHomeFriends · myHomeOpen 은 다시 대입되는 let 이라
@@ -2777,7 +2778,7 @@ const assetImportMod = TwAssetImport.createAssetImport({
 });
 assetImportMod.onPartAdded(()=>wardrobeMod.renderWardrobe());   // 파츠를 넣으면 꾸미기 창을 다시 그린다(꾸미기가 이 창을 열기도 해서 deps 대신 구독)
 /* 본문은 shared/light-tone.js 로 옮겼다(C 구역 떼기 w4) — 만드는 줄은 💡 조명 상수 바로 뒤(메인 씬 조명이 쓴다). */
-const LIGHT_PRESET = lightToneMod.LIGHT_PRESET;   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 읽는다(도메인 단계에서 걷는다)
+const LIGHT_PRESET = lightToneMod.LIGHT_PRESET;   // 옛 전역 이름 — app.js 안에서 쓴다(animal.js 는 deps 로 받는다)
 
 /* ===== 관리자 모드 =====
    진입: Ctrl(Mac 은 ⌘) 누른 채로 후원 · 캐릭터 생성 · 꾸미기 · 광고배너 중 하나를 한 번 클릭 → 비밀번호 창(bindAdminTrigger)
@@ -3390,7 +3391,7 @@ const presenceMod = TwPresence.createPresence({
   tricksMod: tricksMod,
   triggerPet: (...a)=>triggerPet(...a),
 });
-const Presence = presenceMod.Presence;   // 옛 전역 이름 — app.js · 다른 모듈(animal.js · noise.js)이 Presence.이름 으로 부른다(도메인 단계에서 deps 로 바꾸고 걷는다)
+const Presence = presenceMod.Presence;   // 옛 전역 이름 — app.js 와 아직 전역으로 읽는 모듈이 Presence.이름 으로 부른다(animal.js · noise.js 는 deps 로 받는다)
 
 /* ═══ 📦 방으로 보내는 def — 직렬화 · 얼굴 URL · 델타 전송 · Firebase provider ═══ */
 /* (앱 FSD 35번) 이 자리의 본문도 room-sync.js 로 옮겼다 — 만드는 줄은 첫 자리. */
@@ -4911,3 +4912,57 @@ const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
 
    🔵 되돌리려면 이 블록만 지우면 된다. 바깥에 남기는 것은 없다. */
 /* (앱 FSD 35번) 이 자리의 본문도 room-sync.js 로 옮겼다 — 만드는 줄은 첫 자리. */
+/* 🧩 app.js 를 마친 뒤 만드는 화면 모듈 넷(앱 FSD · M23)
+   예전엔 app.js 다음 <script> 로 실려 app.js 의 전역 이름을 그냥 불렀다. 지금은 app.js 보다 먼저 싣고(html) 여기서 deps 로 이어 준다 —
+   옛 «app.js 다음 script» 와 같은 때(INIT 이 끝난 바로 뒤)에 같은 차례로 돈다. 다시 대입되는 let 은 읽는 · 쓰는 함수로 넘긴다. */
+TwMyHomeDesktop.createMyHomeDesktop({
+  getMyUserId: (...a)=>getMyUserId(...a),
+  focusLevelMod: focusLevelMod,
+  _focusTotalSec: ()=>_focusTotalSec,
+  isPremium: ()=>isPremium,
+  isAdmin: ()=>isAdmin,
+  getDisplayName: (...a)=>getDisplayName(...a),
+  toast: (...a)=>toast(...a),
+});
+TwBugBoardUi.createBugBoardUi({
+  escHtml: (...a)=>escHtml(...a),
+  isAdmin: ()=>isAdmin,
+  getDisplayName: (...a)=>getDisplayName(...a),
+  getMyUserId: (...a)=>getMyUserId(...a),
+  toast: (...a)=>toast(...a),
+  _saveFailMsg: (...a)=>_saveFailMsg(...a),
+});
+TwNoise.createNoise({
+  officeModeMod: officeModeMod,
+  seats: seats,
+  findMySeat: (...a)=>findMySeat(...a),
+  seatState: (...a)=>seatState(...a),
+  hiddenSeatsMod: hiddenSeatsMod,
+  Presence: Presence,
+});
+TwAnimal.createAnimal({
+  isAdmin: ()=>isAdmin,
+  curSlot: ()=>curSlot,
+  creatorMode: ()=>creatorMode,
+  creatorOpen: ()=>creatorOpen,
+  setCurSlot: (v)=>{ curSlot = v; },
+  setCreatorOpen: (v)=>{ creatorOpen = v; },
+  lightToneMod: lightToneMod,
+  loader: loader,
+  focusLevelMod: focusLevelMod,
+  normalizeModel: (...a)=>normalizeModel(...a),
+  toast: (...a)=>toast(...a),
+  bindHold: (...a)=>bindHold(...a),
+  ANIMAL_HAND_REST: ANIMAL_HAND_REST,
+  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
+  renderLauncher: (...a)=>renderLauncher(...a),
+  partPaintMod: partPaintMod,
+  slots: slots,
+  applyCharToSeat: (...a)=>applyCharToSeat(...a),
+  slotSaveMod: slotSaveMod,
+  Presence: Presence,
+  layoutSeats: (...a)=>layoutSeats(...a),
+  openCreator: (...a)=>openCreator(...a),
+  saveCurSlot: (...a)=>saveCurSlot(...a),
+  LIGHT_PRESET: LIGHT_PRESET,
+});

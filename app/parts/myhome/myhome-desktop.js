@@ -16,7 +16,7 @@
    🧟 좀비 텍스트 어드벤처: 시뮬/캐릭터세팅/인벤토리 창.
 
    ★ 설계 방침 (핸드오프 준수)
-   · app.js와 파일 분리 — app.js에는 _mhApplyVisitUI 훅 1줄만.
+   · app.js와 파일 분리 — app.js 끝에서 createMyHomeDesktop(deps) 로 만든다(M23). 방문 UI 훅 _advApplyVisitUI 는 이 파일이 window 에 건다.
    · 엔진 ↔ 콘텐츠 분리 — ADV_WORLD(스탯명/아이템/씬)만 교체하면 다른 장르 확장 가능.
    · 저장: localStorage(tw.advZ.v2 확장). 이미지(배경/프로필)만 Firebase Storage.
    · 모든 창은 #mhRoomPreview 내부 absolute — 화이트리스트 추가 불필요. confirm() 미사용.
@@ -32,10 +32,18 @@
    · 이번 단계는 UI/규칙 자리만: 파티 바 + 협동 선택지 (0/3) 표시.
    · 실시간 연동(Firebase parties)은 다음 단계 — advPartyAdd에서 안내만.
 
-   ★ app.js 전역 의존 (전부 typeof 가드)
-   · focusLevelMod.getFocusLevel(), _focusTotalSec, getDisplayName()
-   · firebaseAPI.uploadUserImage(), getMyUserId(), toast(), companion.dsHold()
+   ★ app.js 가 createMyHomeDesktop(deps) 로 넘기는 것(앱 FSD · M23 — app.js 보다 먼저 싣고 INIT 뒤에 만든다)
+   · focusLevelMod.getFocusLevel(), _focusTotalSec(읽는 함수), isPremium · isAdmin(읽는 함수), getDisplayName(), getMyUserId(), toast()
+   · firebaseAPI.uploadUserImage(), companion.dsHold() 는 window 의 것을 그대로
 */
+function createMyHomeDesktop(deps){
+const isAdmin = deps.isAdmin;   // 읽는 함수
+const isPremium = deps.isPremium;   // 읽는 함수
+const _focusTotalSec = deps._focusTotalSec;   // 읽는 함수
+const focusLevelMod = deps.focusLevelMod;
+const getMyUserId = deps.getMyUserId;
+const getDisplayName = deps.getDisplayName;
+const toast = deps.toast;
 (function(){
 /* ══════════════════════════════════════════════════════════════════════════════
    ★ 좀아칼 중단 스위치 — 바탕화면은 남기고 '게임만' 끈다
@@ -219,7 +227,7 @@ function activeSlot(){ return ADV.slots[ADV.active]; }
 
 /* ─────────────────────────── 집중 연동 ─────────────────────────── */
 function advFocusLevel(){ try{ return focusLevelMod.getFocusLevel(); }catch(_){} return 1; }
-function advFocusSec(){ try{ if(typeof _focusTotalSec==='number') return _focusTotalSec; }catch(_){} return 0; }
+function advFocusSec(){ try{ if(typeof _focusTotalSec()==='number') return _focusTotalSec(); }catch(_){} return 0; }
 // ★ 나이대별 스탯 포인트 계수 (어린이·노인은 적게). 경계·배율은 여기서 조정.
 const AGE_TIERS = [
   { max:12,  mul:0.6,  label:'어린이' },
@@ -2971,7 +2979,7 @@ const PARTY = {
   unsubParty: null, unsubInv: null,
 };
 function fbReady(){ if(ADV_GAME_OFF) return false; return !!((window.firebaseAPI && firebaseAPI.advCreateParty) && getMyUserId()); }   // ★ ADV_OFF: 파티·전투·채팅 통신의 단일 관문 — 여기서 막으면 읽기·쓰기·구독이 전부 멈춘다
-function advHasLicense(){ try{ return !!((typeof isPremium!=='undefined' && isPremium) || (typeof isAdmin!=='undefined' && isAdmin)); }catch(_){ return false; } }   // app.js와 동일 판정
+function advHasLicense(){ try{ return !!(isPremium() || isAdmin()); }catch(_){ return false; } }   // app.js와 동일 판정
 function advPartyMax(){ return advHasLicense() ? 5 : 2; }   // 라이선스=5인 / 미보유=2인
 function advPartyLeaderName(){ const d=PARTY.data; if(d&&d.members&&d.leader){ const lm=d.members[d.leader]; if(lm&&lm.charName) return lm.charName; } return '팀장'; }
 function advEnterRun(keepMap){   // 실제 게임 진입(솔로/파티 공통) — 파티원은 1a로 파티장 시드 상속
@@ -6110,3 +6118,6 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
 else advInit();
 
 })();
+}
+
+window.TwMyHomeDesktop = { createMyHomeDesktop };

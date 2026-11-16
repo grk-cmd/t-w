@@ -15,7 +15,7 @@
      — st.sets = … 처럼 이름만 바뀌고 줄 모양은 그대로다(getter · setter).
    ★ 밖으로 내놓는 이름은 createPlaylist 의 반환값이다 — app.js 의 부르는 곳은 plMod.이름 으로 부른다. 전부 만드는 줄보다 늦게 돈다.
      예외 셋 — _plHasSavedPos · _plApplyPos · _plSyncBgmBounds 는 예전처럼 **window 고리**로도 건다. 상태칩 팝업 자리 계산
-     (_repositionOpenChipPopups — 만드는 줄보다 위에 선언)과 noise.js(🌙 백색소음 — app.js 뒤에 실림)가 그 이름에 typeof 를 걸고 부른다.
+     (_repositionOpenChipPopups — 만드는 줄보다 위에 선언)과 noise.js(🌙 백색소음 — app.js 보다 먼저 실리고 app.js 끝에서 만든다)가 그 이름에 typeof 를 걸고 부른다.
    ★ createPlaylist 는 app.js 의 원래 자리(«🎵 상태칩 플레이리스트» 머리 아래)에서 부른다. 만들 때 예전처럼 돈다 —
      🪟 창 위치 초기화 등록 · 저장값 읽기(_plLoad) · 버튼 · ESC · 끌기 연결 · 미니미 반영 · 300ms 사각형 폴링 · BGM 신호 구독 · 음량 한 번.
      예전엔 «🐕 재생 감시견» 구역 끝(bindMyPlaylist)에서 돌았지만, 그 사이(👤 · 🏅)는 선언뿐이라 다른 일과의 순서는 같다.
@@ -2005,7 +2005,7 @@ function _plApplyVolSoon(){
 
 /* 🪟 window 고리 — 예전엔 app.js 최상위 function 선언이라 저절로 전역이었다. 아래 둘이 그 이름에 typeof 를 걸고 부른다.
      · _repositionOpenChipPopups(상태칩 팝업 자리 — 만드는 줄보다 위에 선언) — _plHasSavedPos · _plApplyPos
-     · noise.js(🌙 백색소음 접기/펴기 — app.js 뒤에 실림) — _plApplyPos · _plSyncBgmBounds
+     · noise.js(🌙 백색소음 접기/펴기 — app.js 보다 먼저 실리고 app.js 끝에서 만든다) — _plApplyPos · _plSyncBgmBounds
    ⚠️ 부르는 곳을 plMod.이름 으로 바꾸지 말 것 — 만들기 전에 불리면 const plMod 가 TDZ 라 typeof 로도 못 막는다. */
 try{ window._plHasSavedPos = _plHasSavedPos; window._plApplyPos = _plApplyPos; window._plSyncBgmBounds = _plSyncBgmBounds; }catch(_){}
 

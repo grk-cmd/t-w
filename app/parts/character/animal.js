@@ -9,8 +9,33 @@
        안 먹고, 본을 키워야 실제 게임 화면과 같은 결과가 나옴.
    · 다음 단계에서 이 창을 없애고 기존 생성기 탭(1 얼굴·2 귀·3 표정·4 감은눈)에
      통합 예정 — 승인된 UI 스펙 그대로.
-   · app.js는 손대지 않음 — 카드 바인딩·창 생성 모두 이 파일이 처리.
+   · 카드 바인딩·창 생성 모두 이 파일이 처리한다. app.js 가 createAnimal(deps) 로 INIT 뒤에 만든다(앱 FSD · M23 — app.js 보다 먼저 싣는다).
    ════════════════════════════════════════════════════════════════ */
+function createAnimal(deps){
+const isAdmin = deps.isAdmin;   // 읽는 함수
+const curSlot = deps.curSlot;   // 읽는 함수
+const creatorMode = deps.creatorMode;   // 읽는 함수
+const creatorOpen = deps.creatorOpen;   // 읽는 함수
+const lightToneMod = deps.lightToneMod;
+const loader = deps.loader;
+const focusLevelMod = deps.focusLevelMod;
+const normalizeModel = deps.normalizeModel;
+const toast = deps.toast;
+const bindHold = deps.bindHold;
+const ANIMAL_HAND_REST = deps.ANIMAL_HAND_REST;
+const applyDesktopRunClass = deps.applyDesktopRunClass;
+const renderLauncher = deps.renderLauncher;
+const partPaintMod = deps.partPaintMod;
+const slots = deps.slots;
+const applyCharToSeat = deps.applyCharToSeat;
+const slotSaveMod = deps.slotSaveMod;
+const Presence = deps.Presence;
+const layoutSeats = deps.layoutSeats;
+const openCreator = deps.openCreator;
+const saveCurSlot = deps.saveCurSlot;
+const LIGHT_PRESET = deps.LIGHT_PRESET;
+const setCurSlot = deps.setCurSlot;   // 쓰는 함수
+const setCreatorOpen = deps.setCreatorOpen;   // 쓰는 함수
 (function(){
 'use strict';
 const ANIMAL_VER='v0.4.0-p6 (860x440 / preview 360)';
@@ -50,7 +75,7 @@ let overlay=null, renderer=null, scene=null, cam=null, model=null;
 const AN_AMB_COLOR=0xfdfbf7, AN_KEY_COLOR=0xfdfaf5;
 /* 동물 생성기 빛 세기 — 예산 1 · 키 배율 없음 · 정면 필 없음(사람 생성기와 다른 옛 값을 화면 그대로 지킨다). 몫은 shared/light-tone.js */
 const AN_LIGHT_OPT={ keyPos:[0,4,0], int:1, keyMul:1, frontFill:false };
-/* app.js 가 먼저 실리는 classic script — 공용 조명(shared/light-tone.js)은 app.js 의 lightToneMod 로 받는다 */
+/* 공용 조명(shared/light-tone.js)은 app.js 의 lightToneMod 를 deps 로 받는다 */
 const addRunLights=lightToneMod.addRunLights, runLightInts=lightToneMod.runLightInts;
 const AN_PREVIEW_EMISSIVE=0;
 let aAmb=null, aKey=null, aFlat=null;
@@ -101,7 +126,7 @@ let panX=0, panY=0; // 방향키 카메라 평행이동
 let scl={x:1, y:1, all:1};
 
 function myLevel(){ try{ return focusLevelMod.getFocusLevel(); }catch(_){ return 1; } }
-function admin(){ try{ return (typeof isAdmin!=='undefined') && !!isAdmin; }catch(_){ return false; } }
+function admin(){ try{ return !!isAdmin(); }catch(_){ return false; } }
 
 /* ── 카드 활성화: "공사중" → Lv.100 잠금 카드 ── */
 let _rcR=null,_rcS=null,_rcC=null,_rcChar=null;
@@ -866,7 +891,7 @@ function openPreview(){
   try{
     _prevLauncherOn = document.getElementById('launcher').classList.contains('on');
     if(_prevLauncherOn) document.getElementById('launcher').classList.remove('on');
-    creatorOpen = true;
+    setCreatorOpen(true);
     applyDesktopRunClass();
   }catch(e){ console.warn('[동물] 창 모드 전환 중 오류:', e); }
   // ★ 이중 안전 — 위 경유(applyDesktopRunClass)가 환경에 따라 안 먹는 경우가 보고돼,
@@ -982,7 +1007,7 @@ function closePreview(){
   if(overlay) overlay.style.display='none';
   cancelAnimationFrame(raf); raf=0;
   try{
-    creatorOpen = false;
+    setCreatorOpen(false);
     if(_prevLauncherOn){ document.getElementById('launcher').classList.add('on'); renderLauncher(); }
     applyDesktopRunClass();   // 폴백 — 런처 크기 복귀
   }catch(e){ console.warn('[동물] 창 모드 복귀 중 오류:', e); }
@@ -1759,7 +1784,7 @@ function saveAnimalSlot(opts){
     try{
       applyCharToSeat(seatRef, def);
       // 슬롯 저장은 crDone의 seat 분기와 같은 규칙 — 좌석에 slot이 없으면 내 좌석일 때만 curSlot으로 폴백
-      const idx = (seatRef.slot!=null) ? seatRef.slot : (seatRef.isMe ? curSlot : null);
+      const idx = (seatRef.slot!=null) ? seatRef.slot : (seatRef.isMe ? curSlot() : null);
       if(idx!=null){ slots[idx]=def; if(seatRef.slot==null) seatRef.slot=idx; }
       slotSaveMod.saveSlots();
       if(seatRef.isMe && Presence.active && Presence.active() && Presence.updateDef) Presence.updateDef(def);
@@ -1776,7 +1801,7 @@ function saveAnimalSlot(opts){
   try{
     // ★ 런처 [＋]로 확정된 칸이 최우선 — 아래 추론들은 그 정보가 없을 때만 쓴다.
     if(_targetSlot!=null && !_editSrcDef) target=_targetSlot;
-    else if(typeof creatorMode!=='undefined' && creatorMode && creatorMode.edit && creatorMode.slot!=null) target=creatorMode.slot;
+    else if(creatorMode() && creatorMode().edit && creatorMode().slot!=null) target=creatorMode().slot;
     // ★ 재편집인데 creatorMode가 슬롯 번호를 안 들고 있는 경우 — 원본 def가 꽂혀 있는 슬롯을 직접 찾는다.
     //   빈 슬롯을 찾아 저장하면 같은 캐릭터가 하나 더 생기는 '슬롯 증식'이 됨.
     else if(_editSrcDef){ const _i=slots.indexOf(_editSrcDef); if(_i>=0) target=_i; }
@@ -1784,11 +1809,11 @@ function saveAnimalSlot(opts){
     //   슬롯 삭제는 뒤 칸을 앞으로 당기는 방식이라 삭제 직후 curSlot이 '다른 캐릭터'를 가리킨다.
     //   그 상태로 저장하면 아무 안내 없이 남의 캐릭터가 사라진다(실제 제보된 사고).
     //   → 빈 칸을 우선 쓰고, 확실하지 않으면 덮어쓰지 말고 거부한다.
-    if(target==null && _editSrcDef && slots[curSlot]===_editSrcDef) target=curSlot;   // 지금 보고 있는 그 캐릭터를 수정 중
+    if(target==null && _editSrcDef && slots[curSlot()]===_editSrcDef) target=curSlot();   // 지금 보고 있는 그 캐릭터를 수정 중
     if(target==null || target<0){
       const _empty = slots.findIndex(x=>!x);
       if(_empty>=0) target=_empty;                 // 빈 칸이 있으면 거기에
-      else if(!slots[curSlot]) target=curSlot;     // 현재 칸이 비어 있으면 거기에
+      else if(!slots[curSlot()]) target=curSlot();     // 현재 칸이 비어 있으면 거기에
       else{
         // 덮어쓸 뻔한 상황 — 저장하지 않고 알린다.
         console.warn('[동물] 저장 위치를 정할 수 없어 중단했습니다 (빈 슬롯 없음, 원본 위치 불명)');
@@ -1805,7 +1830,7 @@ function saveAnimalSlot(opts){
       }
       try{ if(typeof window!=='undefined' && window.focus) window.focus(); }catch(_){}
     }
-    slots[target]=def; curSlot=target;
+    slots[target]=def; setCurSlot(target);
     slotSaveMod.saveSlots();
     saveCurSlot();
     renderLauncher();
@@ -1843,7 +1868,7 @@ function _resetAnimalState(){
     if(model){ try{ applyFace(); applyScale(); applyEars(); ensurePaintTex(); }catch(_){} }
     markFaceBtns();
     // ★ 새로 만드는 것이므로 '빈 슬롯에 저장' 흐름이 되도록 편집 표식을 지운다.
-    if(typeof creatorMode!=='undefined' && creatorMode){ creatorMode.edit=false; creatorMode.slot=null; }
+    if(creatorMode()){ creatorMode().edit=false; creatorMode().slot=null; }
   }catch(e){ console.warn('[동물] 신규 상태 초기화 실패', e); }
 }
 /* ★ 해금 여부를 밖(app.js)에서도 물어볼 수 있게 노출한다.
@@ -1868,8 +1893,8 @@ window.reopenAnimalCreator=function(def, opts){
   // 어디서 돌아왔는지 기억 — 저장 시 원본 def에 병합하고, 좌석 편집이면 그 좌석에 직접 반영한다.
   _editSrcDef = def || null;
   _targetSlot = null;   // ★ 재편집은 원본이 꽂힌 칸을 따라가야 하므로 [＋] 타깃을 비운다
-  _editSeat = (typeof creatorMode!=='undefined' && creatorMode && creatorMode.kind==='seat') ? creatorMode.seat : null;
-  const _fromLauncher = !!(typeof creatorMode!=='undefined' && creatorMode && creatorMode.cameFromLauncher);
+  _editSeat = (creatorMode() && creatorMode().kind==='seat') ? creatorMode().seat : null;
+  const _fromLauncher = !!(creatorMode() && creatorMode().cameFromLauncher);
   if(!openPreview()) return;   // 창 열기(모델 로드 등) — 3D 를 못 만들면 아무것도 안 바꾸고 돌아간다
   // ★ openPreview는 '지금 런처가 켜져 있나'로 _prevLauncherOn을 정하는데, 이 경로는 인간 생성기가 이미 런처를
   //   꺼둔 상태라 항상 false가 된다. 그러면 closePreview가 런처를 복원하지 않고 → 뒤이은 openCreator의
@@ -2092,3 +2117,6 @@ function init(){
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init);
 else init();
 })();
+}
+
+window.TwAnimal = { createAnimal };

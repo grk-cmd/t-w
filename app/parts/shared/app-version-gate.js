@@ -46,7 +46,7 @@ function withTimeout(p, ms){
 }
 
 // 업데이트 상태 → 화면 단추. action: install(재시작 설치) · open(브라우저로 받기) · retry(다시 확인) · wait(받는 중)
-export function viewOf(my, min, up){
+export function viewOf(my, min, up, account){
   const u = up || {};
   let button;
   if(u.status === 'downloaded') button = { label: '지금 재시작해서 업데이트', action: 'install' };
@@ -57,7 +57,9 @@ export function viewOf(my, min, up){
   else button = { label: '다운로드 페이지 열기', action: 'open', url: RELEASES_URL };
   return {
     title: '업데이트해 주세요',
-    body: '이 버전(' + my + ')은 더 이상 쓸 수 없어요. ' + min + ' 이상으로 업데이트하면 그대로 이어서 쓸 수 있어요 — 캐릭터 · 친구 · 기록은 계정에 남아 있어요.',
+    body: account
+      ? '다른 PC 에서 더 새 버전(' + min + ')을 쓰고 있어요. 이 PC(' + my + ')도 업데이트하면 그대로 이어서 쓸 수 있어요 — 캐릭터 · 친구 · 기록은 계정에 남아 있어요.'
+      : '이 버전(' + my + ')은 더 이상 쓸 수 없어요. ' + min + ' 이상으로 업데이트하면 그대로 이어서 쓸 수 있어요 — 캐릭터 · 친구 · 기록은 계정에 남아 있어요.',
     button,
     note: u.status === 'error' ? '자동 업데이트가 안 되면 아래 링크에서 직접 받아 설치해 주세요.' : '',
     linkUrl: RELEASES_URL,
@@ -68,10 +70,10 @@ export function createAppVersionGate(deps){
   const { readMin, getVersion, ui } = deps;
   const companion = deps.companion || null;
   const timeoutMs = deps.timeoutMs || MIN_APP_VER_TIMEOUT_MS;
-  let blocked = null;        // { my, min } — 막았을 때만
+  let blocked = null;        // { my, min, account } — 막았을 때만(account = 계정 판 맞추기로 막음 · min 은 그 계정이 쓴 가장 높은 판)
   let up = null;             // 마지막 업데이트 상태 — 막기 전에 온 것도 기억한다(윈도우는 켜고 3초 뒤 받기 시작)
 
-  const view = () => viewOf(blocked.my, blocked.min, up);
+  const view = () => viewOf(blocked.my, blocked.min, up, blocked.account);
   const redraw = () => { if(blocked && ui && ui.update){ try{ ui.update(view()); }catch(_){} } };
 
   if(companion && typeof companion.onUpdateStatus === 'function'){
@@ -111,7 +113,17 @@ export function createAppVersionGate(deps){
     return { blocked: true, my, min: String(min) };
   }
 
-  return { start, press, isBlocked: () => !!blocked };
+  /* 계정 판 맞추기(account/app-version-sync.js)가 «이 계정은 더 새 판을 쓰는 기기가 있다» 고 답했을 때 — 같은 화면 · 같은 업데이트 길.
+     이미 최소 버전으로 막혔으면 그 화면을 둔다(둘 다 «업데이트» 라 하나면 된다). 판을 모르면 막지 않는다. */
+  function blockForAccount(my, highest){
+    if(blocked) return false;
+    if(!parseVer(my) || !parseVer(highest)) return false;
+    blocked = { my, min: String(highest), account: true };
+    if(ui && ui.show){ try{ ui.show(view(), press); }catch(_){} }
+    return true;
+  }
+
+  return { start, press, blockForAccount, isBlocked: () => !!blocked };
 }
 
 /*

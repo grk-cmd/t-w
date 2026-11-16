@@ -10,7 +10,7 @@
    ・4절: 서브탭 · 📤 보낸 요청 — setTab · tab · 살아 있는 것만 · 죽은 미러 치우기 · 이름 조회(캐시) · 취소
    ・5절: 👋 팝업 · reqVisible — 마이홈이 열려 있고(myHomeOpen 은 읽는 함수) 친구 탭 · 받은 요청 서브탭일 때만 «보인다» · 팝업 수락 · 상한
    ・6절: app.js 배선 — 정의는 모듈에만 · createFriendManage 는 원래 자리 · deps 모양 · 부르는 곳 · 빈 껍데기 · html 순서 · 전역 이름
-   ・7절: 🐞 버그 제보 탭 — app.js 에 없고 bug-board-ui.js 끝(IIFE 밖 · 전역 그대로) · 링크 구독 · 관리자만 편집 · 링크 모양 · 공지는 그대로 실어 보냄
+   ・7절: 🐞 버그 제보 탭 — app.js 에 없고 bug-board-ui.js 끝(게시판 IIFE 밖 · createBugBoardUi 안 — 전역으로 남는 것은 window._bugReportLink) · 링크 구독 · 관리자만 편집 · 링크 모양 · 공지는 그대로 실어 보냄
    [실행] friend-manage.js · bug-board-ui.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
@@ -255,11 +255,11 @@ await sec('── 7. 🐞 버그 제보 탭 — bug-board-ui.js 끝', async () =
   const code = strip(APP);
   chk(!/bindBugReport|_bugReportConf|_bugReportLink|subscribeBugReport|setBugReport|mhBugEditBtn/.test(code), 'app.js 에 버그 제보 탭 코드가 없다');
   const iI = BUG.indexOf('})();\n\n/* ↓ app.js 에서 옮긴'), iB = BUG.indexOf('(function bindBugReport(){');
-  chk(iB > 0 && /^let _bugReportConf = null;/m.test(BUG) && /^window\._bugReportLink = /m.test(BUG), 'bug-board-ui.js 맨 앞 칸 — 전역 이름 그대로(_bugReportConf · window._bugReportLink)');
+  chk(iB > 0 && /^let _bugReportConf = null;/m.test(BUG) && /^window\._bugReportLink = /m.test(BUG), 'bug-board-ui.js 게시판 뒤 칸 — _bugReportConf · window._bugReportLink(전역으로 남는 것은 window._bugReportLink)');
   chk(iI > 0 && iB > iI, '  게시판 IIFE 뒤(밖)에 있다');
   const iBU = HTML.indexOf('<script src="parts/support/bug-board-ui.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   const iFB = HTML.indexOf('<script type="module" src="parts/firebase-init.js"></script>');
-  chk(iBU > iA && iFB > 0, 'html — bug-board-ui.js 는 app.js 뒤 · firebase-init.js 는 module(classic 스크립트가 다 돈 뒤에 돈다 → firebase-ready 를 놓치지 않는다)');
+  chk(iBU > 0 && iBU < iA && iFB > 0, 'html — bug-board-ui.js 는 app.js 보다 먼저(app.js 끝에서 만든다 — M23) · firebase-init.js 는 module(classic 스크립트가 다 돈 뒤에 돈다 → firebase-ready 를 놓치지 않는다)');
   /* 굴려 보기 — 게시판 IIFE 는 DOMContentLoaded 를 기다리게 두고(loading), 끝의 버그 제보 탭만 돈다 */
   const env = { toasts: [], saved: [], L: {}, admin: false };
   const els = {};
@@ -272,11 +272,11 @@ await sec('── 7. 🐞 버그 제보 탭 — bug-board-ui.js 끝', async () =
     _saveFailMsg: (e, fb) => 'F:' + fb,
     escHtml: (s) => s,
   };
-  Object.defineProperty(ctx, 'isAdmin', { get: () => env.admin });
   ctx.window = ctx;
   vm.createContext(ctx);
   vm.runInContext(SRC['net-ready.js'], ctx, { filename: 'net-ready.js' });
   vm.runInContext(BUG, ctx, { filename: 'bug-board-ui.js' });
+  ctx.TwBugBoardUi.createBugBoardUi({ escHtml: (...a) => ctx.escHtml(...a), isAdmin: () => env.admin, getDisplayName: () => '이름', getMyUserId: () => 'me', toast: (...a) => ctx.toast(...a), _saveFailMsg: (...a) => ctx._saveFailMsg(...a) });   // app.js 끝의 만드는 줄과 같다(M23)
   chk(typeof ctx._bugReportLink === 'function' && ctx._bugReportLink() === '', 'window._bugReportLink — 아직 안 받았으면 빈 문자열');
   chk(typeof env.L['firebase-ready'] === 'function', 'firebaseAPI 가 아직 없으면 firebase-ready 를 기다린다');
   let subCb = null;

@@ -735,6 +735,14 @@ PRELOAD.push('creator-open.js');
 PRELOAD.push('creator-canvas.js');
 /* creator-face.js — 🙂 생성기 얼굴 · 피부 캔버스 · 몸 만들기. app.js 가 원래 자리에서 createCreatorFace 로 만든다. */
 PRELOAD.push('creator-face.js');
+/* myhome-desktop.js — 🏠 마이홈 바탕화면. app.js 가 INIT 뒤에서 createMyHomeDesktop 로 만든다(M23). */
+PRELOAD.push('myhome-desktop.js');
+/* bug-board-ui.js — 🐞 버그제보 게시판 화면. app.js 가 INIT 뒤에서 createBugBoardUi 로 만든다(M23). */
+PRELOAD.push('bug-board-ui.js');
+/* noise.js — 🌙 백색소음. app.js 가 INIT 뒤에서 createNoise 로 만든다(M23). */
+PRELOAD.push('noise.js');
+/* animal.js — 🐾 동물 생성기 · 카드. app.js 가 INIT 뒤에서 createAnimal 로 만든다(M23). */
+PRELOAD.push('animal.js');
 /* frame-loop.js — 🎞 프레임 한 장(frame). app.js 가 원래 자리에서 createFrameLoop 로 만든다. */
 PRELOAD.push('frame-loop.js');
 /* flying-chair.js — 🪑 플라잉체어 — canFly · startFlight. app.js 가 원래 자리에서 createFlyingChair 로 만든다. */
