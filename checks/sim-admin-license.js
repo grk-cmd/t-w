@@ -40,7 +40,7 @@ function makeDom(){
       fire(t, ev){ return Promise.all((this._on[t] || []).map(f => f(ev || {}))); } };
     return e;
   };
-  const document = { getElementById: (id) => els[id] || (els[id] = Object.assign(mk('div'), { id })), createElement: mk };
+  const document = { addEventListener(t, f){ (this._h = this._h || {})[t] = ((this._h[t]) || []).concat(f); }, dispatchEvent(e){ ((this._h || {})[e.type] || []).forEach(f => f(e)); }, getElementById: (id) => els[id] || (els[id] = Object.assign(mk('div'), { id })), createElement: mk };
   /* 아직 안 부른 id 도 꺼내 볼 수 있게 — 처음 읽을 때 만든다(getElementById 와 같은 칸) */
   return { els: new Proxy(els, { get: (o, id) => document.getElementById(id) }), document };
 }

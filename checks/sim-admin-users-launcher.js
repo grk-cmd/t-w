@@ -33,7 +33,7 @@ function makeDom(){
     classList: { _s: new Set(), add(c){ this._s.add(c); }, remove(c){ this._s.delete(c); }, contains(c){ return this._s.has(c); } },
     addEventListener(t, f){ (this._on[t] = this._on[t] || []).push(f); }, focus(){},
     fire(t, ev){ return Promise.all((this._on[t] || []).map(f => f(Object.assign({ preventDefault(){}, target: null }, ev || {})))); } });
-  const document = { getElementById: (id) => els[id] || (els[id] = mk(id)) };
+  const document = { addEventListener(t, f){ (this._h = this._h || {})[t] = ((this._h[t]) || []).concat(f); }, dispatchEvent(e){ ((this._h || {})[e.type] || []).forEach(f => f(e)); }, getElementById: (id) => els[id] || (els[id] = mk(id)) };
   return { els: new Proxy(els, { get: (o, id) => document.getElementById(id) }), document };
 }
 function build(src, glob, deps, fbOver){

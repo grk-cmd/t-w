@@ -27,7 +27,7 @@ function makeDom(){
   const els = {};
   const mk = (id) => ({ id, style: {}, value: '', disabled: false, onclick: null,
     classList: { _s: new Set(), add(c){ this._s.add(c); }, remove(c){ this._s.delete(c); }, contains(c){ return this._s.has(c); } }, focus(){} });
-  const document = { getElementById: (id) => els[id] || (els[id] = mk(id)) };
+  const document = { addEventListener(t, f){ (this._h = this._h || {})[t] = ((this._h[t]) || []).concat(f); }, dispatchEvent(e){ ((this._h || {})[e.type] || []).forEach(f => f(e)); }, getElementById: (id) => els[id] || (els[id] = mk(id)) };
   return { els: new Proxy(els, { get: (o, id) => document.getElementById(id) }), document };
 }
 const gate = () => { let go; const p = new Promise((r) => { go = r; }); return { p, go }; };

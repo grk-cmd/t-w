@@ -37,7 +37,7 @@ function build(src, st){
   const mk = (id) => ({ id, style: {}, value: '', checked: false, disabled: false, textContent: '', innerHTML: '', children: [], _on: {}, onclick: null, onchange: null,
     classList: { _s: new Set(), add(c){ this._s.add(c); }, remove(c){ this._s.delete(c); }, contains(c){ return this._s.has(c); }, toggle(){} },
     appendChild(c){ this.children.push(c); return c; }, addEventListener(t, f){ (this._on[t] = this._on[t] || []).push(f); }, focus(){}, querySelectorAll(){ return []; } });
-  const document = { getElementById: (id) => els[id] || (els[id] = mk(id)), createElement: () => mk(''), querySelectorAll: () => [] };
+  const document = { addEventListener(t, f){ (this._h = this._h || {})[t] = ((this._h[t]) || []).concat(f); }, dispatchEvent(e){ ((this._h || {})[e.type] || []).forEach(f => f(e)); }, getElementById: (id) => els[id] || (els[id] = mk(id)), createElement: () => mk(''), querySelectorAll: () => [] };
   const fb = { unpublishPart: async (id) => { calls.push(['unpublishPart', id]); } };
   const win = { firebaseAPI: fb };
   const fn = (name) => (...a) => { calls.push([name, ...a]); return name === 'catEquippedIds' ? (st.equipped[a[1]] || []) : undefined; };
