@@ -402,11 +402,11 @@ for _mm in re.finditer(r"onValue\(ref\(db,\s*[`'\"]([^`'\"/$]+)[`'\"]", html_cod
         print(f'  ⚠️ onValue 전체 구독: {_n} @~{_ln}')
         ok9 = False
 # (b) 최상위 노드 통째 get() — 알려진 기준선 초과 시 경보 (기준: 패치 시점)
-_BASELINE_GET = {'rooms': 3, 'users': 2, 'licenses': 2, 'parties': 1, 'roomIndex': 99,
-                 'friendCodes': 2, 'reports': 1, 'roomAlive': 1}   # rooms 3곳 = 관리자 함수만(카운트 폴백 제거됨)
+_BASELINE_GET = {'rooms': 3, 'users': 2, 'licenses': 0, 'parties': 1, 'roomIndex': 99,
+                 'friendCodes': 0, 'reports': 1, 'roomAlive': 1}   # rooms 3곳 = 관리자 함수만(카운트 폴백 제거됨)
 # roomAlive · rooms 읽기는 유령 방 청소(cleanGhostRooms · 관리자 전용)가 걷히며 0곳이 됐다 — 아래 숫자는 위쪽 한도로만 남는다.
 # reports 1곳 = 🚩 listReports(관리자 전용 · [신고 목록] 버튼 누를 때 1회 · 규칙상 관리자만 읽힘 · 2026-09-23 개정 60).
-# friendCodes 2곳 = 🎟️ grantInvitesAll · invite-revoke.js 전체 회수(둘 다 관리자 전용, 버튼 누를 때 1회).
+# friendCodes · licenses 0곳 = 관리자 라이선스 · 초대권(전체 지급 · 전체 회수 · 목록 · 통계)이 서버 길로 옮겨 가며 걷혔다(D11-3).
 #   users 전체 읽기는 규칙상 거부되므로(.read는 users/$userId에만 존재) uid 목록을 얻는 대체 인덱스로 사용.
 #   code→{userId}만 담겨 유저당 약 50바이트 — users 전체(수 KB/명)보다 훨씬 가볍다.
 _gets = {}
@@ -425,7 +425,7 @@ for _n, _c in sorted(_gets.items()):
 #   런처마다 통째로 읽던 한 줄이 운영 다운로드의 27%였다(2026-10-03). 기준선보다 늘면 경보 — 필요한 하위 경로만 읽을 것.
 #   users 1곳 = invite-account.js 의 폴백(shallow 실패 때만). rooms 2곳 = 정원 · 생존 확인의 폴백.
 _BASELINE_GET1 = {'accountSnap': 1, 'authUsers': 2, 'bookmarks': 1, 'bookmarksPub': 1, 'catalog': 1, 'friendCodes': 1,
-                  'groupInvites': 1, 'inbox': 1, 'licenseRequests': 1, 'licenses': 2, 'playlistPriv': 1, 'rooms': 2, 'roomAlive': 2, 'roomLobby': 1, 'sentFriendRequests': 1, 'userAuth': 2, 'users': 1}
+                  'groupInvites': 1, 'inbox': 1, 'licenseRequests': 1, 'licenses': 0, 'playlistPriv': 1, 'rooms': 2, 'roomAlive': 2, 'roomLobby': 1, 'sentFriendRequests': 1, 'userAuth': 2, 'users': 1}
 #   playlistPriv 1곳 = 🔒 fetchMyPlaylistSets — 잠근 프리셋(나만 보기) 본인 칸. 본인만 읽고 부팅 맞추기 · 계정 이어받기 때 한 번, 잠근 프리셋 이름 · 곡뿐.
 #   groupInvites 1곳 = group-invite.js 의 코드 머리 — 칸 일곱(인원 · 쓴 수 · 마감 · 중지 …)뿐이고 소진 판정에 다 쓴다. 들어온 사람은 다른 노드.
 #   roomAlive 2곳 = 💓 checkRoomCapacity · checkSecretRoomEntry — 입장할 때 한 번, 그 방 도장(멤버당 숫자 하나)만.

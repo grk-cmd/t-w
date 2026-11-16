@@ -29,20 +29,17 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/
 
 function makeDom(){
   const els = {};
-  const mk = (id) => ({ id, style: {}, value: '', textContent: '', innerHTML: '', disabled: false, title: '', _on: {}, onclick: null,
+  const mk = (id) => ({ id, style: {}, value: '', _text: '', get textContent(){ return this._text; }, set textContent(v){ this._text = String(v); this.children = []; }, innerHTML: '', disabled: false, title: '', _on: {}, onclick: null, children: [], appendChild(c){ this.children.push(c); return c; },
     classList: { _s: new Set(), add(c){ this._s.add(c); }, remove(c){ this._s.delete(c); }, contains(c){ return this._s.has(c); } },
     addEventListener(t, f){ (this._on[t] = this._on[t] || []).push(f); }, focus(){},
     fire(t, ev){ return Promise.all((this._on[t] || []).map(f => f(Object.assign({ preventDefault(){}, target: null }, ev || {})))); } });
-  const document = { addEventListener(t, f){ (this._h = this._h || {})[t] = ((this._h[t]) || []).concat(f); }, dispatchEvent(e){ ((this._h || {})[e.type] || []).forEach(f => f(e)); }, getElementById: (id) => els[id] || (els[id] = mk(id)) };
+  const document = { addEventListener(t, f){ (this._h = this._h || {})[t] = ((this._h[t]) || []).concat(f); }, dispatchEvent(e){ ((this._h || {})[e.type] || []).forEach(f => f(e)); }, getElementById: (id) => els[id] || (els[id] = mk(id)), createElement: (tag) => mk('<' + tag + '>') };
   return { els: new Proxy(els, { get: (o, id) => document.getElementById(id) }), document };
 }
 function build(src, glob, deps, fbOver){
   const calls = [], toasts = [], store = {};
   const rec = (name, ret) => async (...a) => { calls.push([name, ...a]); return typeof ret === 'function' ? ret(...a) : ret; };
   const fb = Object.assign({
-    getAdminStats: rec('getAdminStats', { totalUsers: 12, premiumUsers: 3, licValid: 4, licUsed: 2 }), setUserCount: rec('setUserCount'),
-    grantInvites: rec('grantInvites', { ok: true, invitesLeft: 5 }), grantInvitesAll: rec('grantInvitesAll', { ok: true, granted: 9, skipped: 1 }),
-    revokeInvitesAll: rec('revokeInvitesAll', { revoked: 2, taken: 3, skipped: 0 }), lookupFriendCode: rec('lookupFriendCode', (c) => c === 'MATE-AAAA' ? 'u1' : null),
   }, fbOver || {});
   const D = makeDom();
   const win = { firebaseAPI: fb, _animalUnlockLevel: 50 };
@@ -56,25 +53,46 @@ function build(src, glob, deps, fbOver){
 async function judgeAll(m, app, html){
   const r = [];
   const t = (ok, msg) => r.push([!!ok, msg]);
-  /* 1. 통계 · 초대권 */
+  /* 1. 통계 · 초대권 (서버 길 · D11-3) */
+  const uc = [], us = { shown: [], err: null, totals: { users: 12, premiumUsers: 3, licValid: 4, licUsed: 2 }, hold: null };
+  const uApi = { ERRORS: { MARK: 1 },
+    totals: async () => { uc.push(['totals']); if(us.hold) await us.hold; if(us.err) throw us.err; return us.totals; },
+    grantInvites: async (tg, n) => { uc.push(['grantInvites', tg, n]); if(us.err) throw us.err; return { changed: tg === 'all' ? 9 : 1, left: tg === 'all' ? null : 5 }; },
+    revokeInvites: async (tg, js) => { uc.push(['revokeInvites', tg, js]); if(us.err) throw us.err; return { changed: 2, left: null }; },
+    failOf: (e) => (e && e.kind) || 'site',
+    notifyFail: (e, errs, onSite) => { const k = (e && e.kind) || 'site'; if(k === 'notice' || k === 'common') errs.notify(e, { MARK: 1 }); else if(k === 'site') onSite(); return k; } };
+  const uErrs = { notify: (e, t) => us.shown.push(['notify', e && e.code, t && t.MARK]) };
   let U;
-  try{ U = build(m.users, 'TwAdminUsers', { inviteGrantMax: 3 }); }catch(e){ t(false, '통계 · 초대권 모듈을 만들 수 없다 — ' + e.message); }
+  try{ U = build(m.users, 'TwAdminUsers', { inviteGrantMax: 3, adminApi: uApi, apiErrors: uErrs, notifyError: (c, e) => us.shown.push(['num', c, e && e.code]) }); }catch(e){ t(false, '통계 · 초대권 모듈을 만들 수 없다 — ' + e.message); }
   if(U){
     const e = U.els;
     t((e.lcTotalStats._on.click || []).length === 1 && (e.lcInviteGrant._on.click || []).length === 1 && (e.inviteGrantOk._on.click || []).length === 1
-      && (e.inviteGrantAll._on.click || []).length === 1 && (e.inviteGrantAll._on.contextmenu || []).length === 1 && U.out && !Object.keys(U.out).length && U.calls.length === 0,
+      && (e.inviteGrantAll._on.click || []).length === 1 && (e.inviteGrantAll._on.contextmenu || []).length === 1 && U.out && !Object.keys(U.out).length && uc.length === 0,
       '통계 · 초대권 — 만들 때 버튼 다섯 · 빈 반환 · 서버 안 부름');
     await e.lcTotalStats.fire('click');
-    t(U.calls.some(c => c[0] === 'getAdminStats') && /12명/.test(e.totalStatsBody.innerHTML) && e.totalStatsOverlay.style.display === 'flex', '통계 — 창을 열고 가입 · 프리미엄 수를 읽는다');
+    const txt = (e.totalStatsBody.children || []).map(c => c.children.map(x => x.textContent).join(' ')).join('|');
+    t(uc.some(c => c[0] === 'totals') && /가입 유저 12명/.test(txt) && /프리미엄 유저 3명/.test(txt) && /유효 라이선스 키 4개 \(사용 2\)/.test(txt) && e.totalStatsOverlay.style.display === 'flex' && !/보정/.test(txt),
+      '통계 — 서버 총계로 가입 · 프리미엄 · 유효 키(가입 수 손보정 칸은 없다)');
+    us.err = Object.assign(new Error('x'), { code: 'NETWORK', kind: 'site' }); us.shown.length = 0;
+    await e.totalStatsRefresh.fire('click');
+    t(us.shown.some(x => x[0] === 'num' && x[1] === 'E-ADM-25') && /불러오지 못했/.test((e.totalStatsBody.children[0] || {}).textContent || ''), '통계 못 받음 — 오류 번호 + «통계를 불러오지 못했어요»(0 으로 채우지 않는다)');
+    us.err = null;
     await e.lcInviteGrant.fire('click');
     for(let i = 0; i < 5; i++) await e.inviteGrantPlus.fire('click');
     t(e.inviteGrantCount.textContent === '3', '초대권 장수 — INVITE_GRANT_MAX(3) 에서 멈춘다');
     e.inviteGrantCode.value = ' mate-aaaa '; await e.inviteGrantOk.fire('click');
-    t(U.calls.some(c => c[0] === 'lookupFriendCode' && c[1] === 'MATE-AAAA') && U.calls.some(c => c[0] === 'grantInvites' && c[1] === 'u1' && c[2] === 3), '한 명 지급 — 친추코드(대문자 · 공백 빼고) → uid → 장수');
+    t(uc.some(c => c[0] === 'grantInvites' && c[1] === 'MATE-AAAA' && c[2] === 3) && !uc.some(c => /lookup/.test(c[0])) && U.toasts.includes('초대권 3장 지급 완료 (현재 5장)'), '한 명 지급 — 친추코드(대문자 · 공백 빼고)를 그대로 서버에(사람 찾기는 서버) · 남은 장 수는 서버 값');
+    us.err = Object.assign(new Error('n'), { code: 'USER_NOT_FOUND' }); us.shown.length = 0; await e.lcInviteGrant.fire('click'); e.inviteGrantCode.value = 'zzzz'; await e.inviteGrantOk.fire('click');
+    t(/찾을 수 없어요/.test(e.inviteGrantMsg.textContent) && !us.shown.length, '없는 친구코드 — 번호 없이 창 안 안내(서버 USER_NOT_FOUND)');
+    us.err = Object.assign(new Error('s'), { code: 'X', kind: 'site' }); e.inviteGrantCode.value = 'mate-bbbb'; await e.inviteGrantOk.fire('click');
+    t(us.shown.some(x => x[0] === 'num' && x[1] === 'E-ADM-26') && /실패/.test(e.inviteGrantMsg.textContent), '지급 실패 — 오류 번호 + 창 안 안내(혼자 다시 보내지 않는다)');
+    us.err = null;
     await e.inviteGrantAll.fire('click');
-    const n1 = U.calls.filter(c => c[0] === 'grantInvitesAll').length;
+    const n1 = uc.filter(c => c[0] === 'grantInvites' && c[1] === 'all').length;
     await e.inviteGrantAll.fire('click');
-    t(n1 === 0 && U.calls.filter(c => c[0] === 'grantInvitesAll').length === 1, '전체 지급 — 첫 클릭은 걸기만 · 두 번째에 지급');
+    t(n1 === 0 && uc.filter(c => c[0] === 'grantInvites' && c[1] === 'all' && c[2] === 1).length === 1 && U.toasts.some(x => /전체 지급 완료 — 9명에게 1장씩/.test(x)), '전체 지급 — 첫 클릭은 걸기만 · 두 번째에 target all 로 한 번 · 결과 수는 서버 값');
+    await e.inviteGrantAll.fire('contextmenu'); await e.inviteGrantAll.fire('contextmenu');
+    t(uc.filter(c => c[0] === 'revokeInvites' && c[1] === 'all').length === 1 && U.toasts.some(x => /전체 회수 완료 — 2명/.test(x)), '전체 회수 — 우클릭 두 번에 한 번 서버로');
   }
   /* 2. 런처 도구 */
   const st = { admin: false, shown: [], rooms: { closed: 3, missing: 0 }, banner: { version: 4, slides: [{ img: 'https://a/old.png', link: 'https://a/old' }] }, putErr: null, roomErr: null, fetchErr: null, hold: null, feed: 0 };
@@ -143,14 +161,14 @@ async function judgeAll(m, app, html){
   }
   /* 3. app.js 연결 */
   const A = strip(app);
-  t(!/bindTotalStats|getAdminStats\(|inviteGrantAll|closeAllRooms\(|cleanGhostRooms\(|publishGameConfig\(|publishAdBanner\(|'lcAdBannerEdit'/.test(A), 'app.js 에 옮긴 본문이 남지 않았다');
+  t(!/bindTotalStats|getAdminStats\(|grantInvites\(|inviteGrantAll|closeAllRooms\(|cleanGhostRooms\(|publishGameConfig\(|publishAdBanner\(|'lcAdBannerEdit'/.test(A), 'app.js 에 옮긴 본문이 남지 않았다');
   t(['function _applyGameCfg(cfg)', 'noticeFeed.onChange(', 'function refreshAdBanner()'].every(x => A.includes(x) || ADB.includes(x)) && (/\(function bindInviteUI\(\)\{/.test(A) || /\(function bindInviteUI\(\)\{/.test(LGATE)),
     '사용자 쪽(게임 설정 구독 · 배너 그리기 · 공지 한 판의 배너 받기 · 초대 창 — 초대 창은 license-gate.js)은 관리자 모듈 밖에 남았다');
   t(!/\bADMIN_USERS_OFF\b/.test(app) && !/\bADMIN_LAUNCHER_OFF\b/.test(app), '빈 껍데기 없이 만든다(모듈은 늘 싣는다 — 가드 걷기 3차)');
   const block = (name) => ((app.match(new RegExp('const ' + name + ' = (?:\\(typeof \\w+ === \'undefined\'\\) \\? \\w+ : )?\\w+\\.create\\w+\\(\\{\\n([\\s\\S]*?)\\n\\s*\\}\\);')) || [])[1] || '')
     .split('\n').map(l => l.trim()).filter(Boolean);
   const du = block('adminUsers'), dl = block('adminLauncher');
-  t(/^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),\|inviteGrantMax: (?:licenseGateMod\.)?INVITE_GRANT_MAX,$/.test(du.join('|')), 'deps — 통계 · 초대권: toast · INVITE_GRANT_MAX(초대장 모듈이 내놓는 상수)');
+  t(/^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),\|inviteGrantMax: (?:licenseGateMod\.)?INVITE_GRANT_MAX,\|adminApi: adminApi,\|apiErrors: TwApiErrors\.store,\|notifyError: \(\.\.\.a\)=>TwErrorCodes\.notify\(\.\.\.a\),$/.test(du.join('|')), 'deps — 통계 · 초대권: toast · INVITE_GRANT_MAX · adminApi · apiErrors · notifyError');
   t(dl.length === 6 && dl.includes('isAdmin: ()=>isAdmin,') && dl.includes('adminApi: adminApi,') && dl.includes('apiErrors: TwApiErrors.store,') && dl.includes('refreshBanner: ()=>noticeFeed.refresh(),'),
     'deps — 런처 도구 여섯 · isAdmin 은 읽는 함수(다시 대입되는 let) · adminApi · apiErrors · refreshBanner(저장 뒤 배너 받기)');
   /* 만드는 줄은 초대장 모듈(license-gate.js) 만드는 줄 바로 뒤 — 사이에 주석 · 빈 껍데기 줄 말고는 없다(부팅 때 초대 창 묶기 직후 한 번 만드는 차례 그대로) */

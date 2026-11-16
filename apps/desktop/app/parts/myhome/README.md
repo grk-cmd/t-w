@@ -139,7 +139,7 @@ mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));   // 받은 뒤 화면 · �
 - 쓰기는 «읽은 토큰의 주인» 과 묶는다(`expectOwner`) — 읽은 적 없는 계정이나 주인이 바뀐 뒤에는 요청 0.
 - 한 번에 4쪽(200통)까지만 받는다(`complete:false`) — 안 읽은 수는 그래도 서버 값이다. 더 보기 단추는 아직 없다.
 - 한 번도 못 받은 동안(받는 중 · 못 받음)은 «모두 읽음» · 읽음 · 지우기를 보내지 않는다. «받은 우편이 없어요» 는 받은 뒤 정말 비었을 때만 그린다.
-- 레벨 해금 · 버그 답변 우편은 서버가 만든다(앱이 자기 수령함에 쓰는 `sendInboxMessage` 는 관리자 코드와 옛 해금 안내가 아직 부르는 동안만 남는다).
+- 레벨 해금 · 버그 답변 우편은 서버가 만든다(앱이 자기 수령함에 쓰는 `sendInboxMessage` 는 걷었다 — 관리자 발급 우편도 서버가 보낸다).
 검사: `checks/sim-inbox-api.js` · `checks/sim-mail-feed.js`(입력 → 출력 · 상태 · 계정 바뀜 · 깨 보기).
 
 ## `guestbook-api.js` · `guestbook-feed.js` · `guestbook.js` — 📖 방명록 · 웹박수 (서버가 원본)

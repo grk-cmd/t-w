@@ -33,7 +33,6 @@
     signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { firebaseConfig } from "./firebase-config.js";
-  import { createInviteRevokeAll } from "./account/invite-revoke.js";
   import { createAppVersion } from "./shared/app-version.js";
   import { createChatHistory, createIdbChatStore } from "./chat/chat-history.js";
   import { createCatalogApi } from "./character/catalog-api.js";
@@ -406,11 +405,6 @@
     apiGetAuthed(path, opts){ return _authApi ? _authApi.get(path, opts) : Promise.reject(Object.assign(new Error('API 통로 없음'), { kind: 'unavailable', code: 'NO_API', status: 0 })); },
     // 서버 방에 들어가고 나갈 때 친구 목록의 «온라인 · 방코드» — Firebase 방은 joinRoom · leaveRoom 이 직접 한다.
     // ===== 마이홈 친구 시스템 =====
-    // 친추코드 → userId 조회. 없으면 null.
-    async getUserNameById(uid){
-      try{ const snap = await get(ref(db, `users/${uid}/profile`)); const p = snap.val(); return (p && p.name) ? String(p.name) : null; }
-      catch(_){ return null; }
-    },
     /* ===== 🎵 플레이리스트 =====
        내 목록 · 파도타기는 서버 API 로 옮겼다(status/playlist-api.js). 여기엔 명함 읽기(아래)만 남는다. */
     /* 👤 목록 주인의 명함 — 이름·레벨·프로필 사진. 파도타기로 **건너간 순간에만** 1회 읽는다.
@@ -558,58 +552,6 @@
     // 읽기 · 쓰기 · 박수 · 폭죽 · 그림은 서버 API(myhome/guestbook-api.js)로 옮겼다 — 여기 남은 길 없음.
     // 🔒 시크릿룸 — 발급 · 만료 · 조회는 전부 서버 API 다(Firebase 길 없음).
     /* 발급 · 만료 처리는 서버(POST /v2/admin/secret-rooms · 앱 admin/admin-license-bulk.js)가 한다 — Firebase 로 쓰던 issueSecretRoom · expireSecretRoom 은 D8-5 에서 걷었다. */
-    // ---- 라이선스 (관리자 직접 발급 방식) ----
-    // licenses/{key} = { valid:true, note, createdAt, redeemedAt|null, redeemedBy|null(기기 식별용, 선택) }
-
-    // 관리자: 새 라이선스 키 발급. key는 호출부(app.js)에서 랜덤 생성해 넘김.
-    async createLicense(key, note){
-      await set(ref(db, `licenses/${key}`), { valid:true, note: note||'', createdAt: serverTimestamp(), redeemedAt:null });
-      return { ok:true };
-    },
-
-    // 관리자: 발급된 키 전체 목록 조회 (최근 것부터 보여주려면 app.js에서 정렬) — 규칙상 관리자만 읽힌다(개정 55)
-    async listLicenses(){
-      const snap = await get(ref(db, 'licenses'));
-      return snap.val() || {};
-    },
-
-    // 📊 관리자 통계 — 가입 유저 수 + 라이선스(프리미엄) 보유 유저 수.
-    //   · 가입 유저 = users 노드의 자식 수 (invite/profile 등 실사용 흔적이 있는 계정)
-    //   · 라이선스 보유 = 유효한(valid) 라이선스가 등록된 유저. licenses 노드에서 valid && usedBy가 있는 것을 셈.
-    async getAdminStats(){
-      // 👥 가입 유저 수 = stats/userCount 카운터 (users 전체를 읽지 않아 프라이버시 보호)
-      // 👑 프리미엄 유저 = licenses 노드에서 valid + usedBy 집계 — 모음 읽기는 **관리자만**(개정 55 · 키 목록이 공개였다). 관리자 화면에서만 부른다.
-      const [cntSnap, licSnap] = await Promise.all([
-        get(ref(db, 'stats/userCount')),
-        get(ref(db, 'licenses')),
-      ]);
-      const totalUsers = cntSnap.val() || 0;
-      const lics = licSnap.val() || {};
-      let licValid = 0, licUsed = 0;
-      const usedById = {};
-      for(const key in lics){
-        const L = lics[key] || {};
-        if(L.valid){ licValid++; if(L.usedBy){ licUsed++; usedById[L.usedBy] = true; } }
-      }
-      const premiumUsers = Object.keys(usedById).length;
-      return { totalUsers, licValid, licUsed, premiumUsers };
-    },
-    // 관리자: 카운터를 실제 값으로 보정(선택) — 카운터 도입 이전 가입자를 반영하고 싶을 때 수동 세팅
-    async setUserCount(n){ try{ await set(ref(db, 'stats/userCount'), n); return { ok:true }; }catch(e){ return { ok:false }; } },
-
-    // 관리자: 이미 발급한 키 회수(비활성화). 환불 등으로 취소해야 할 때 사용 — valid:false로 바뀌면
-    // 다음에 그 사용자가 앱을 켤 때(백그라운드 재검증)나 이 키로 새로 등록 시도할 때 자동으로 막힘.
-    async revokeLicense(key){
-      await update(ref(db, `licenses/${key}`), { valid:false, revokedAt: serverTimestamp() });
-      return { ok:true };
-    },
-
-    // 관리자: 회수된 키를 목록에서 완전히 삭제(정리용). 아직 유효한 키는 앱에서 먼저 회수를 요구함.
-    async deleteLicense(key){
-      await remove(ref(db, `licenses/${key}`));
-      return { ok:true };
-    },
-
     /* ═══════════════════ 🎟️ 초대장 (앱 접근 제한) ═══════════════════
        스키마:
          users/{uid}/invite = { invitesLeft, invitedBy, joinedAt }
@@ -632,82 +574,6 @@
       await uploadString(storageRef, dataUrl, 'data_url', { cacheControl: STORAGE_CACHE, contentType: isGif ? 'image/gif' : 'image/png' });
       return getDownloadURL(storageRef);
     },
-    // 관리자: 특정 유저에게 초대권 추가 지급 (기존 값에 더함)
-    // 🎟️ 전체 유저 일괄 지급 — invite 노드가 "이미 있는" 유저에게만 count장씩 더함.
-    //   노드 없는 계정(게이트 통과 전 유령 계정 등)에 지급하면 노드가 새로 생겨
-    //   비정상 계정이 초대권을 갖게 되므로 반드시 제외.
-    /* 🎟️ 전체 유저 일괄 지급.
-       ★ 예전엔 get(ref(db,'users'))로 유저 노드를 통째로 읽었는데, 규칙상 .read는 users/$userId에만
-         있고 users에는 없다. 읽기 권한은 아래로만 전파되므로 이 호출은 항상 거부됐고,
-         호출부의 catch가 그걸 "네트워크 오류"로 표시해 원인을 찾기 어려웠다.
-         friendCodes(code→{userId})는 모든 유저에 이미 채워져 있는 가장 가벼운 uid 인덱스라
-         users 전체를 공개하지 않고도 대상 목록을 얻을 수 있다(유저당 약 50바이트). */
-    async grantInvitesAll(count){
-      const snap = await get(ref(db, 'friendCodes'));
-      const codes = snap.val() || {};
-      const seen = {}, uids = [];
-      for(const c in codes){
-        const uid = codes[c] && codes[c].userId;
-        if(uid && !seen[uid]){ seen[uid] = 1; uids.push(uid); }
-      }
-      let granted = 0, skipped = 0;
-      const MAX_INVITES = 999;   // 규칙의 .validate 상한 — 넘기면 쓰기가 거부되므로 미리 자름
-      const grantOne = async uid => {
-        try{
-          const p = ref(db, `users/${uid}/invite/invitesLeft`);
-          // ★ 사전 get — 트랜잭션은 로컬 캐시가 비면 첫 시도에 cur=null로 들어온다.
-          //   그걸 "초대권 없는 계정"으로 오해하면 전원이 skip되므로 실제 값을 먼저 확인한다.
-          const cur = await get(p);
-          const base = cur.val();
-          if(typeof base !== 'number'){ skipped++; return; }   // 초대권 노드가 없는 계정은 대상 아님
-          await runTransaction(p, v => {
-            const n = (typeof v === 'number') ? v : base;
-            return Math.min(MAX_INVITES, n + count);
-          });
-          granted++;
-        }catch(e){ skipped++; }
-      };
-      // 순차로 돌리면 유저 수만큼 왕복이 쌓여 매우 느리다 — 20개씩 묶어서 병렬 처리.
-      const CHUNK = 20;
-      for(let i=0; i<uids.length; i+=CHUNK){
-        await Promise.all(uids.slice(i, i+CHUNK).map(grantOne));
-      }
-      return { ok:true, granted, skipped, total: uids.length };
-    },
-    revokeInvitesAll: createInviteRevokeAll({ db, ref, get, runTransaction }),
-    async grantInvites(userId, count){
-      try{
-        const leftRef = ref(db, `users/${userId}/invite/invitesLeft`);
-        const r = await runTransaction(leftRef, cur=>{
-          const n = (typeof cur === 'number') ? cur : 0;
-          return n + count;
-        });
-        if(!r || !r.committed) return { ok:false, reason:'지급에 실패했어요' };
-        return { ok:true, invitesLeft: r.snapshot.val() };
-      }catch(e){
-        return { ok:false, reason:'네트워크 오류' };
-      }
-    },
-
-    // ---- 라이선스 요청 (관리자 쪽만 — 사용자 요청 화면은 0.13 에서 걷음) ----
-    // licenseRequests/{reqId} = { name, status:'pending'|'approved', requestedAt, issuedKey|null, approvedAt|null, ver? }
-
-    // 관리자: 대기 중인 요청 목록 실시간 구독
-    subscribeLicenseRequests(onChange){
-      onValue(ref(db, 'licenseRequests'), snap => onChange(snap.val()||{}));
-    },
-    // 관리자: 요청 하나를 승인하며 새 키 발급(키 생성은 app.js에서), 요청 노드에도 발급된 키를 남겨서 요청자가 실시간으로 받아볼 수 있게 함
-    async approveLicenseRequest(reqId, key, note){
-      await set(ref(db, `licenses/${key}`), { valid:true, note: note||'', createdAt: serverTimestamp(), redeemedAt:null });
-      await update(ref(db, `licenseRequests/${reqId}`), { status:'approved', issuedKey:key, approvedAt: serverTimestamp() });
-      return { ok:true };
-    },
-    // 관리자: 요청 거절 — 요청 노드를 아예 삭제함(승인 대기 목록에서 사라지고, 요청자 쪽은 다시 처음부터 요청 가능해짐)
-    async rejectLicenseRequest(reqId){
-      await remove(ref(db, `licenseRequests/${reqId}`));
-      return { ok:true };
-    },
-
     // ---- 책상 카탈로그 (관리자가 등록한 책상을 모든 사용자에게 자동 배포. 수정하면 이미 쓰던 사람도 실시간 반영) ----
     // catalog/desks/{id} = { name, icon, glbUrl, createdAt }
     //   (구버전 데이터는 { name, icon, glb(base64), createdAt } — 마이그레이션 전까지 둘 다 지원)
@@ -858,24 +724,6 @@
       for(let i=0; i<bytes.length; i+=CHUNK) bin += String.fromCharCode.apply(null, bytes.subarray(i, i+CHUNK));
       return btoa(bin);
     },
-    /* ═══════════ 📩 수령함 (구 DM 자리) ═══════════
-       받기 · 읽음 · 지우기 · 공지는 서버 API 로 옮겼다(myhome/inbox-api.js · launcher/notice-api.js).
-       여기엔 관리자 코드(admin/)가 아직 부르는 «개별 보내기» 만 남는다 — 관리자 묶음이 서버 길로 옮기면 같이 걷는다. */
-    // 개별 유저에게 메시지 전송 — 시스템(보상 지급/업데이트 안내 등)이 호출
-    /* extra.bugId — 🐞 답변 알림(tag 'bug')이 가리키는 글. 우편함에서 누르면 그 글을 연다. */
-    async sendInboxMessage(toId, tag, title, body, extra){
-      const id = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
-      const rec = {
-        tag: (tag==='update'||tag==='reward'||tag==='bug') ? tag : 'notice',
-        title: String(title||'').slice(0,80),
-        body:  String(body ||'').slice(0,600),
-        ts: Date.now(), read: false,
-      };
-      if(extra && extra.bugId) rec.bugId = String(extra.bugId).slice(0,40);
-      await set(ref(db, `inbox/${toId}/${id}`), rec);
-      return { ok:true, id };
-    },
-
     /* ═══════════ 🔑 로그인(Firebase Auth) 원시 — 토큰 받기만 ═══════════
        0.13 은 로그인만 앱 ↔ Firebase Auth 가 하고 «이 로그인이 누구인가» 는 서버가 정한다(GET /v2/me — account/login-flow.js).
        여기는 Auth SDK 를 부르는 얇은 자리다 — 유저 코드 묶기 · 가입 · 비밀번호 붙이기 · 바꾸기는 서버(account/user-api.js)가 한다.

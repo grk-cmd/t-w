@@ -2078,7 +2078,7 @@ const mailFeed = TwMailFeed.createMailFeed({
 mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));
 const noticeApi = TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) });   // 🌐 /v2/notices
 /* 🛠️ 앱 관리자 창의 서버 길(/v2/admin/...) — 관리자 모드 · 확성기 · 업데이트 공지 · 배너 · 방 종료가 쓴다. 지금 업데이트 공지의 id 는 공지 한 판에서 받는다 */
-const adminApi = TwAdminApi.createAdminApi({ authed: TwApi.authed, pending: TwRequestId.createPending(), fetchBoard: ()=>noticeApi.fetchBoard() });
+const adminApi = TwAdminApi.createAdminApi({ authed: TwApi.authed, pending: TwRequestId.createPending(), fetchBoard: ()=>noticeApi.fetchBoard(), errs: TwApiErrors });
 const noticeFeed = TwNoticeFeed.createNoticeFeed({
   api: noticeApi,
   rt: TwRtHub.store,
@@ -5263,6 +5263,9 @@ const licenseGateMod = TwLicenseGate.createLicenseGate({
 const adminUsers = TwAdminUsers.createAdminUsers({
   toast: (...a)=>toast(...a),
   inviteGrantMax: licenseGateMod.INVITE_GRANT_MAX,
+  adminApi: adminApi,
+  apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 /* 🔑 프리미엄 판정(account/license-premium.js) — 서버 확인(GET /v2/me 의 premium)만 isPremium 에 반영한다. 시작은 켜는 차례(app-boot 의 licensePremium) 한 곳.
    키 등록 · 이 기기 해제 버튼(license-key.js)도 여기를 부른다. */
@@ -6600,9 +6603,9 @@ const outsideCloseMod = TwOutsideClose.createOutsideClose({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const adminLicense = TwAdminLicense.createAdminLicense({
   toast: (...a)=>toast(...a),
-  chatEsc: (...a)=>_chatEsc(...a),
-  genLicenseKey: (...a)=>licenseGateMod._genLicenseKey(...a),
-  saveFailMsg: (...a)=>_saveFailMsg(...a),
+  adminApi: adminApi,
+  apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 const adminNotice = TwAdminNotice.createAdminNotice({
   toast: (...a)=>toast(...a),
@@ -6659,8 +6662,9 @@ const adminCategory = TwAdminCategory.createAdminCategory({
 const adminLicenseBulk = TwAdminLicenseBulk.createAdminLicenseBulk({
   escHtml: (...a)=>escHtml(...a),
   toast: (...a)=>toast(...a),
-  genLicenseKey: (...a)=>licenseGateMod._genLicenseKey(...a),
-  saveFailMsg: (...a)=>_saveFailMsg(...a),
+  adminApi: adminApi,
+  apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
   renderLicenseGenList: (...a)=>adminLicense.renderLicenseGenList(...a),
   downloadBlob: (...a)=>charCodeMod.downloadBlob(...a),
   srFmtDate: (...a)=>roomEntryMod._srFmtDate(...a),
