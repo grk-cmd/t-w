@@ -45,6 +45,7 @@ export const API_ERROR_TEXT: Readonly<Record<string, string>> = {
   BUG_ANSWER_CONFLICT: '다른 관리자가 먼저 답했어요',
   // 카탈로그
   CATALOG_INVALID_ITEM: '항목 값이 올바르지 않아요',
+  CATALOG_ITEM_NOT_FOUND: '없는 물건이에요',
 };
 
 /** 오류 → 화면 문구. 표에 있으면 그 문구, 서버 오류인데 표에 없으면 서버 `message`, 그 밖은 `fallback`. */

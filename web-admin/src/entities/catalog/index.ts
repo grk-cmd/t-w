@@ -1,13 +1,22 @@
+export { catalogCommit, getCatalogNode, getEquipCounts } from './api/firebase';
 export {
-  catalogCommit,
-  getCatalogNode,
-  useApplyCatalogWrite,
-  useCatalogEntries,
-  useCatalogNode,
-  useCatOverrides,
-  useCustomCats,
+  applyEdits,
+  useApplyEdits,
+  useCatalogCategories,
+  useCatalogShelf,
   useRefreshCatalog,
-} from './api/catalog';
+  useRefreshCategories,
+} from './api/hooks';
+export { useCatalogPort, type CatalogPort } from './api';
+export {
+  CATALOG_BASE,
+  createServerCatalogPort,
+  ITEM_FIELD,
+  ITEM_KIND,
+  ITEM_PATH,
+  toCatalogRow,
+  toCatView,
+} from './api/server';
 export {
   applyCatalogWrite,
   CATALOG_NODES,
@@ -23,6 +32,7 @@ export {
 export {
   BUILTIN_CATS,
   CAT_LABEL_MAX,
+  categoryAfterNameSave,
   categoryNameProblem,
   categoryNameWrite,
   categoryViews,
@@ -52,7 +62,9 @@ export {
   toEntry,
   type CatalogEntry,
   type CatalogKind,
+  STATE_LABEL,
   type CatalogRecord,
+  type ListingState,
 } from './model/entry';
 export {
   analyzeKind,
@@ -67,7 +79,6 @@ export {
   type KindAnalysis,
   type RecordSize,
 } from './model/diagnose';
-export { getEquipCounts, useEquipCounts, useRefreshEquipCounts } from './api/popularity';
 export {
   byPopularity,
   equipCountOf,
@@ -77,3 +88,15 @@ export {
   toEquipCounts,
   type EquipKind,
 } from './model/popularity';
+export {
+  applyListEdit,
+  isPartsKind,
+  shelfKindOf,
+  shelfScope,
+  shelfVersion,
+  type CatalogEditResult,
+  type CatalogShelf,
+  type CatalogSort,
+  type ListEdit,
+  type ShelfKind,
+} from './model/shelf';

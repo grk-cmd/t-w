@@ -26,6 +26,7 @@ function fakeApi(me: () => unknown) {
       return undefined as T;
     },
     upload: unusedWrites.upload,
+    baseUrl: 'https://api.test',
   };
   return { api, sent };
 }
@@ -147,6 +148,7 @@ describe('관리자 확인 — 판마다 다른 것', () => {
         throw new ApiError('request', 409, 'CONCURRENT_UPDATE', '');
       },
       upload: unusedWrites.upload,
+      baseUrl: 'https://api.test',
     };
     expect(await createServerAuthPort(api).checkAdmin(USER)).toEqual({ state: 'admin' });
   });

@@ -1,12 +1,12 @@
 import { useMemo } from 'react';
-import { analyzeKind, DIAGNOSE_KINDS, KIND_LABEL, useRefreshCatalog } from '@/entities/catalog';
+import { analyzeKind, DIAGNOSE_KINDS, KIND_LABEL } from '@/entities/catalog';
 import { errorMessage } from '@/shared/lib';
-import { useDiagnoseSource } from '../model/useDiagnoseCatalog';
+import { useDiagnoseSource, useRefreshDiagnose } from '../model/useDiagnoseCatalog';
 import styles from './Diagnose.module.css';
 
 export function CatalogAnalysisCard() {
   const { data, error } = useDiagnoseSource();
-  const refresh = useRefreshCatalog();
+  const refresh = useRefreshDiagnose();
   const rows = useMemo(
     () => (data ? DIAGNOSE_KINDS.map((kind) => ({ kind, ...analyzeKind(data[kind]) })) : null),
     [data],
@@ -18,7 +18,7 @@ export function CatalogAnalysisCard() {
       <div className="card-head">
         <h2>용량 진단</h2>
         {totalKB !== null && <span className="soft">합계 {totalKB}KB</span>}
-        <button type="button" className="btn" onClick={() => DIAGNOSE_KINDS.forEach((k) => refresh(k))}>
+        <button type="button" className="btn" onClick={refresh}>
           새로고침
         </button>
       </div>

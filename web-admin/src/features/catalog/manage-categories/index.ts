@@ -1,2 +1,2 @@
-export { saveCategoryName } from './model/manageCategories';
+export { saveCategoryName } from './api/firebase';
 export { CategoryNamesCard } from './ui/CategoryNamesCard';

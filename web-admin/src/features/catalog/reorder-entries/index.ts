@@ -1,2 +1,3 @@
-export { reorderEntries } from './model/reorderEntries';
-export { useReorderEntries, type ReorderInput } from './model/useReorderEntries';
+export { reorderEntries } from './api/firebase';
+export { useReorderEntries } from './model/useReorderEntries';
+export type { ReorderInput } from './api';

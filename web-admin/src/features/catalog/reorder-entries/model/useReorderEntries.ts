@@ -1,19 +1,12 @@
 import { useMutation } from '@tanstack/react-query';
-import { useApplyCatalogWrite, type CatalogEntry } from '@/entities/catalog';
-import { useDb } from '@/shared/api';
-import { reorderEntries } from './reorderEntries';
-
-export interface ReorderInput {
-  group: CatalogEntry[];
-  dragged: string;
-  target: string;
-}
+import { useApplyEdits } from '@/entities/catalog';
+import { useReorderEntriesPort, type ReorderInput } from '../api';
 
 export function useReorderEntries() {
-  const db = useDb();
-  const apply = useApplyCatalogWrite();
+  const port = useReorderEntriesPort();
+  const apply = useApplyEdits();
   return useMutation({
-    mutationFn: ({ group, dragged, target }: ReorderInput) => reorderEntries(db, group, dragged, target),
-    onSuccess: apply,
+    mutationFn: (input: ReorderInput) => port.reorder(input),
+    onSuccess: (r) => apply(r.edits),
   });
 }

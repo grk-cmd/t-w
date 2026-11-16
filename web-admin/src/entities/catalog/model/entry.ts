@@ -29,7 +29,24 @@ export interface CatalogEntry {
   base64: boolean;
   /** catalog/parts 에 gacha:true 로 남은 옛 가챠 항목 — 규칙이 이 항목의 쓰기를 거절한다. */
   legacyGacha: boolean;
+  /** 뽑아서 얻는 파츠 — 파츠 탭에서 «가챠» 표시를 단다. */
+  gacha: boolean;
+  /** 서버가 이 줄에 붙인 번호 — 고치기 · 단종에 그대로 싣는다. Firebase 판은 번호가 없어 0 이다. */
+  version: number;
+  /** 진열 상태. Firebase 판은 이 개념이 없어 null(통에 있으면 진열 중). */
+  state: ListingState | null;
+  /** 슬롯에 이 항목을 낀 사람 수. 못 읽었으면 null(Firebase 판에서 장착 수 노드를 못 읽은 때만). */
+  equip: number | null;
 }
+
+/** 서버 진열 상태 — 초안(관리자만 봄) · 진열 · 단종(모두에게서 사라짐). */
+export type ListingState = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
+
+export const STATE_LABEL: Record<ListingState, string> = {
+  DRAFT: '초안',
+  ACTIVE: '진열 중',
+  ARCHIVED: '단종',
+};
 
 export const NO_ORDER = 9999; // 앱 merge 정렬 — order 가 없으면 뒤로
 
@@ -72,17 +89,22 @@ export function toEntry(kind: CatalogKind, id: string, rec: CatalogRecord): Cata
     files: [rec.glbUrl, rec.thumbUrl].filter(isCatalogFileUrl),
     base64: !!str(rec.glb),
     legacyGacha: kind === 'parts' && rec.gacha === true,
+    gacha: kind === 'gachaParts' || (kind === 'parts' && rec.gacha === true),
+    version: 0,
+    state: null,
+    equip: null,
   };
 }
 
 /** 앱과 같은 진열 순서 — order 오름차순, 없으면 뒤로. 같으면 키 순. */
+export const byShelfOrder = (a: CatalogEntry, b: CatalogEntry): number =>
+  (a.order ?? NO_ORDER) - (b.order ?? NO_ORDER) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
 export function catalogEntries(kind: CatalogKind, raw: Record<string, CatalogRecord>): CatalogEntry[] {
   return Object.entries(raw)
     .filter(([, rec]) => rec && typeof rec === 'object')
     .map(([id, rec]) => toEntry(kind, id, rec))
-    .sort(
-      (a, b) => (a.order ?? NO_ORDER) - (b.order ?? NO_ORDER) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
-    );
+    .sort(byShelfOrder);
 }
 
 /** 끌어 놓기 — 앱 reorderSavedPart 와 같게 끌던 것을 빼고 놓은 자리에 넣는다. */

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { useCatalogPort } from '@/entities/catalog';
 import { Base64CleanupCard, CatalogAnalysisCard } from '@/features/catalog/diagnose-catalog';
 import { CategoryNamesCard } from '@/features/catalog/manage-categories';
 import { CatalogList } from '@/widgets/catalog-list';
@@ -18,29 +19,32 @@ const TABS: Tab[] = [
     render: () => <CategoryNamesCard />,
   },
   { id: 'parts', label: '파츠', render: () => <CatalogList kind="parts" /> },
-  { id: 'gachaParts', label: '가챠 파츠', render: () => <CatalogList kind="gachaParts" /> },
   { id: 'desks', label: '책상', render: () => <CatalogList kind="desks" editable /> },
   { id: 'items', label: '아이템', render: () => <CatalogList kind="items" editable /> },
-  {
-    id: 'diagnose',
-    label: '진단',
-    render: () => (
-      <>
-        <CatalogAnalysisCard />
-        <Base64CleanupCard />
-      </>
-    ),
-  },
 ];
 
+// Firebase 판에만 있다 — 서버는 용량을 잴 base64 노드가 없다. 포트가 «있는 판» 인지 알려 준다.
+const DIAGNOSE_TAB: Tab = {
+  id: 'diagnose',
+  label: '진단',
+  render: () => (
+    <>
+      <CatalogAnalysisCard />
+      <Base64CleanupCard />
+    </>
+  ),
+};
+
 export function CatalogPage() {
+  const { diagnosable } = useCatalogPort();
+  const tabs = diagnosable ? [...TABS, DIAGNOSE_TAB] : TABS;
   const [current, setCurrent] = useState(TABS[0].id);
-  const tab = TABS.find((t) => t.id === current) ?? TABS[0];
+  const tab = tabs.find((t) => t.id === current) ?? tabs[0];
 
   return (
     <>
       <div className={styles.tabs} role="tablist">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.id}
             type="button"

@@ -23,6 +23,7 @@ function fake(handlers: Record<string, (call: Call) => unknown>) {
     return h(call);
   };
   const api: Api = {
+    baseUrl: 'https://api.test',
     async get<T>(path: string, query?: ApiParams) {
       return answer({ method: 'GET', path, query }) as T;
     },

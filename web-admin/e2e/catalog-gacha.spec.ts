@@ -19,7 +19,10 @@ const gacha = (name: string, order: number, glbUrl: string) => ({
   season: 'winter',
 });
 
-test('가챠 파츠 — 순서는 catalog/gachaParts/{id}/order 에 쓴다', async ({ page, seed }) => {
+test('가챠 파츠 — 파츠 탭에 «가챠» 표시로 섞여 보이고 순서는 각자 통의 order 에 쓴다', async ({
+  page,
+  seed,
+}) => {
   const url = await upload('catalog/parts/g.glb');
   await seed({
     catalog: {
@@ -28,16 +31,18 @@ test('가챠 파츠 — 순서는 catalog/gachaParts/{id}/order 에 쓴다', asy
     },
   });
   await openMenu(page, 'catalog');
-  await page.getByRole('tab', { name: '가챠 파츠' }).click();
-  const list = card(page, '가챠 파츠');
-  await expect(row(list, '일반모자')).toHaveCount(0);
+  await page.getByRole('tab', { name: '파츠', exact: true }).click();
+  const list = card(page, '파츠');
+  await expect(row(list, '눈모자')).toContainText('가챠');
+  await expect(row(list, '일반모자')).not.toContainText('가챠');
 
+  // 한 카테고리 목록은 order 순(같으면 id 순): 눈모자(g1) · 일반모자(p1) · 털모자(g2).
   await row(list, '털모자').dragTo(row(list, '눈모자'));
   await expect(toast(page)).toHaveText('순서를 바꿨어요');
   expect(await dbGet('catalog/gachaParts/g2/order')).toBe(0);
   expect(await dbGet('catalog/gachaParts/g1/order')).toBe(1);
+  expect(await dbGet('catalog/parts/p1/order')).toBe(2);
   expect(await dbGet('catalog/parts/g2')).toBeNull();
-  expect(await dbGet('catalog/parts/p1/order')).toBe(0);
 });
 
 test('가챠 파츠 — 지우면 gachaParts 와 Storage 파일이 지워지고 일반 파츠는 남는다', async ({
@@ -53,8 +58,8 @@ test('가챠 파츠 — 지우면 gachaParts 와 Storage 파일이 지워지고 
     },
   });
   await openMenu(page, 'catalog');
-  await page.getByRole('tab', { name: '가챠 파츠' }).click();
-  const list = card(page, '가챠 파츠');
+  await page.getByRole('tab', { name: '파츠', exact: true }).click();
+  const list = card(page, '파츠');
   await list.getByRole('checkbox', { name: '눈모자 선택' }).check();
   await list.getByRole('button', { name: '선택 삭제 (1)' }).click();
   await expect(toast(page)).toHaveText('1개 삭제했어요');

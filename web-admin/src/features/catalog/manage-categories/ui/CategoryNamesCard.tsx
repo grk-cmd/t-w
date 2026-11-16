@@ -1,24 +1,22 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import {
   CAT_LABEL_MAX,
-  categoryNameProblem,
-  categoryViews,
   ICON_MAX,
-  useCatOverrides,
-  useCustomCats,
-  useRefreshCatalog,
+  useCatalogCategories,
+  useRefreshCategories,
   type CatView,
 } from '@/entities/catalog';
-import { useEnv, withProdMark } from '@/shared/api';
+import { CONFLICT_TEXT, useEnv, withProdMark } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import { EmojiInput, useToast } from '@/shared/ui';
-import { useSaveCategoryName } from '../model/useManageCategories';
+import { useCategoryNameCheck, useSaveCategoryName } from '../model/useManageCategories';
 import styles from './CategoryNamesCard.module.css';
 
 function NameRow({ cat }: { cat: CatView }) {
   const toast = useToast();
   const env = useEnv();
   const save = useSaveCategoryName();
+  const check = useCategoryNameCheck();
   // 덮어쓰지 않은 기본 카테고리는 칸을 비워 두고 기본값을 흐리게 보여 준다 — 비우고 저장하면 기본값으로 돌아간다.
   const initLabel = cat.builtin && !cat.overridden ? '' : cat.label;
   const initIcon = cat.builtin && cat.icon === cat.defaultIcon ? '' : cat.icon;
@@ -29,12 +27,13 @@ function NameRow({ cat }: { cat: CatView }) {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    const p = categoryNameProblem(cat, label, icon);
+    const p = check(cat, label, icon);
     if (p) return setProblem(p);
     if (env.isProd && !confirm(withProdMark(env, `${cat.cat} 이름을 바꿀까요? 모든 사용자에게 바로 보여요.`)))
       return;
     try {
-      await save.mutateAsync({ cat, label, icon });
+      const r = await save.mutateAsync({ cat, label, icon });
+      if (!r.ok) return setProblem(CONFLICT_TEXT);
       setProblem(null);
       toast('저장했어요');
     } catch (err) {
@@ -69,36 +68,23 @@ function NameRow({ cat }: { cat: CatView }) {
 }
 
 export function CategoryNamesCard() {
-  const custom = useCustomCats();
-  const overrides = useCatOverrides();
-  const refresh = useRefreshCatalog();
-  const error = custom.error ?? overrides.error;
-  const cats = useMemo(
-    () => (custom.data && overrides.data ? categoryViews(custom.data, overrides.data) : []),
-    [custom.data, overrides.data],
-  );
+  const { data: cats, error } = useCatalogCategories();
+  const refresh = useRefreshCategories();
 
   return (
     <section className="card">
       <div className="card-head">
         <h2>카테고리 이름</h2>
-        <button
-          type="button"
-          className="btn"
-          onClick={() => {
-            refresh('customCats');
-            refresh('catOverrides');
-          }}
-        >
+        <button type="button" className="btn" onClick={() => refresh()}>
           새로고침
         </button>
       </div>
       <div className={`list ${styles.cols}`}>
         {error && errorMessage(error, '불러오지 못했어요')}
-        {!error && !cats.length && '불러오는 중…'}
-        {cats.map((c) => (
+        {!error && !cats && '불러오는 중…'}
+        {cats?.map((c) => (
           // 저장 뒤 값이 바뀌면 칸을 새 값으로 다시 채운다.
-          <NameRow key={`${c.id}|${c.label}|${c.icon}|${c.overridden}`} cat={c} />
+          <NameRow key={`${c.id}|${c.label}|${c.icon}|${c.overridden}|${c.version}`} cat={c} />
         ))}
       </div>
     </section>

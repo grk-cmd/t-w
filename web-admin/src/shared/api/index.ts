@@ -14,6 +14,7 @@ export {
 export {
   ADMIN_API_BASE,
   adminPath,
+  catalogAssetUrl,
   API_TIMEOUT_MS,
   ApiError,
   apiBaseUrl,

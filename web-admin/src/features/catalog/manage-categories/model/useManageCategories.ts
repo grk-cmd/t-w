@@ -1,14 +1,17 @@
 import { useMutation } from '@tanstack/react-query';
-import { useApplyCatalogWrite, type CatView } from '@/entities/catalog';
-import { useDb } from '@/shared/api';
-import { saveCategoryName } from './manageCategories';
+import { useApplyEdits, type CatView } from '@/entities/catalog';
+import { useManageCategoriesPort } from '../api';
 
 export function useSaveCategoryName() {
-  const db = useDb();
-  const apply = useApplyCatalogWrite();
+  const port = useManageCategoriesPort();
+  const apply = useApplyEdits();
   return useMutation({
     mutationFn: ({ cat, label, icon }: { cat: CatView; label: string; icon: string }) =>
-      saveCategoryName(db, cat, label, icon),
-    onSuccess: apply,
+      port.save(cat, label, icon),
+    onSuccess: (r) => apply(r.edits),
   });
+}
+
+export function useCategoryNameCheck() {
+  return useManageCategoriesPort().check;
 }

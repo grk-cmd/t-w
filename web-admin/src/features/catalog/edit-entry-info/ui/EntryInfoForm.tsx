@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react';
-import { ENTRY_ICON_MAX, entryInfoProblem, NAME_MAX, type CatalogEntry } from '@/entities/catalog';
-import { useEnv, withProdMark } from '@/shared/api';
+import { ENTRY_ICON_MAX, NAME_MAX, type CatalogEntry } from '@/entities/catalog';
+import { CONFLICT_TEXT, useEnv, withProdMark } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import { EmojiInput, useToast } from '@/shared/ui';
-import { useEditEntryInfo } from '../model/useEditEntryInfo';
+import { useEditEntryInfo, useEditEntryInfoCheck } from '../model/useEditEntryInfo';
 import styles from './EntryInfoForm.module.css';
 
 interface Props {
@@ -15,18 +15,20 @@ export function EntryInfoForm({ entry, onDone }: Props) {
   const toast = useToast();
   const env = useEnv();
   const save = useEditEntryInfo();
+  const check = useEditEntryInfoCheck();
   const [name, setName] = useState(entry.name);
   const [icon, setIcon] = useState(entry.icon);
   const [problem, setProblem] = useState<string | null>(null);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    const p = entryInfoProblem(name, icon);
+    const p = check(name, icon);
     if (p) return setProblem(p);
     if (name.trim() === entry.name && icon.trim() === entry.icon) return onDone();
     if (!confirm(withProdMark(env, `«${name.trim()}» 로 저장할까요? 모든 사용자에게 바로 보여요.`))) return;
     try {
-      await save.mutateAsync({ entry, name, icon });
+      const r = await save.mutateAsync({ entry, name, icon });
+      if (!r.ok) return setProblem(CONFLICT_TEXT);
       toast('저장했어요');
       onDone();
     } catch (err) {

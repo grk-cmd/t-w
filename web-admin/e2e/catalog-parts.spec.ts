@@ -107,7 +107,7 @@ test('파츠 — 카테고리 안에서 끌어 놓으면 order 를 한 묶음으
   expect(await dbGet('catalog/parts/g/order')).toBe(0);
 });
 
-test('파츠 · 가챠 파츠 — 장착 N명이 보이고, 많이 쓰는 순으로 고르면 카테고리 안에서 다시 선다', async ({
+test('파츠(가챠 표시 포함) — 장착 N명이 보이고, 많이 쓰는 순으로 고르면 카테고리 안에서 다시 선다', async ({
   page,
   seed,
 }) => {
@@ -134,11 +134,13 @@ test('파츠 · 가챠 파츠 — 장착 N명이 보이고, 많이 쓰는 순으
 
   await list.getByLabel('정렬').selectOption({ label: '많이 쓰는 순' });
   await expect(hats.locator('.row').nth(0)).toContainText('셋모자');
-  await expect(hats.locator('.row').nth(1)).toContainText('둘모자');
-  await expect(hats.locator('.row').nth(2)).toContainText('첫모자');
+  await expect(hats.locator('.row').nth(1)).toContainText('반짝모자');
+  await expect(hats.locator('.row').nth(2)).toContainText('둘모자');
+  await expect(hats.locator('.row').nth(3)).toContainText('첫모자');
   await expect(row(hats, '셋모자')).toHaveAttribute('draggable', 'false'); // 이 순서에선 끌어 놓기 없음
   expect(await dbGet('catalog/parts/a/order')).toBe(0); // 정렬은 화면만 — 진열 순서는 그대로
 
-  await page.getByRole('tab', { name: '가챠 파츠', exact: true }).click();
-  await expect(row(card(page, '가챠 파츠'), '반짝모자')).toContainText('장착 3명');
+  // 가챠 파츠도 파츠 탭 한 목록에 «가챠» 표시로 보인다.
+  await expect(row(hats, '반짝모자')).toContainText('가챠');
+  await expect(row(hats, '반짝모자')).toContainText('장착 3명');
 });

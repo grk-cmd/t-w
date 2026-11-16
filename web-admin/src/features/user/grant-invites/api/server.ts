@@ -19,7 +19,7 @@ import {
   wireString,
   type Api,
 } from '@/shared/api';
-import { createPayloadRequestId } from '@/shared/lib';
+import { BULK_SEND_MAX, chunks, createPayloadRequestId } from '@/shared/lib';
 import type {
   GrantAllResult,
   GrantInvitesResult,
@@ -31,8 +31,6 @@ import type { GrantInvitesPort, RunOpts } from './port';
 const INVITES = adminPath('/invites');
 const QUOTAS = adminPath('/invite-quotas');
 const USER_STATS = adminPath('/users/stats');
-/** 고른 사람들을 한 번에 보내는 상한(서버 `targets` 1~100). */
-const PICK_MAX = 100;
 
 /** 안 바뀐 까닭 — 둘 다 «건너뜀»(초대 칸이 없거나 이미 그 값)이다. 그 밖의 글자는 약속과 다른 응답. */
 const SKIP_CODES = ['USER_NOT_FOUND', 'NO_CHANGE'];
@@ -57,12 +55,6 @@ function toRow(w: unknown): { id: string; ok: boolean } {
   if (!ok && (code === null || !SKIP_CODES.includes(code)))
     throw wireError('초대권 결과 줄의 code', SKIP_CODES.join(' · '));
   return { id, ok };
-}
-
-function chunks<T>(list: readonly T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
-  return out;
 }
 
 /** 중간 묶음이 실패했을 때 — 앞 묶음은 이미 서버에 반영됐으니 «n명 됨 · m명 안 됨» 으로 알린다. */
@@ -148,7 +140,7 @@ function build(api: Api | null): GrantInvitesPort {
       let done = 0;
       let skipped = 0;
       opts.onProgress?.(0, target.uids.length);
-      for (const targets of chunks(target.uids, PICK_MAX)) {
+      for (const targets of chunks(target.uids, BULK_SEND_MAX)) {
         if (opts.shouldStop?.()) {
           result.stopped = true;
           break;
@@ -202,7 +194,7 @@ function build(api: Api | null): GrantInvitesPort {
       let done = 0;
       let skipped = 0;
       opts.onProgress?.(0, target.uids.length);
-      for (const targets of chunks(target.uids, PICK_MAX)) {
+      for (const targets of chunks(target.uids, BULK_SEND_MAX)) {
         if (opts.shouldStop?.()) {
           result.stopped = true;
           break;
