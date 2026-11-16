@@ -280,6 +280,7 @@
 | **sim-chat-window.js** | 565 | **9b933ee52a05** |
 | **sim-api-client.js** | 479 | **bda2b63251db** |
 | **sim-api-public-reads.js** | 189 | **2c84e4ce51de** |
+| **sim-api-routes.js** | 256 | **c65dfca05922** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
 | **sim-remote-config.js** | 372 | **1b5dcfbf856c** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |

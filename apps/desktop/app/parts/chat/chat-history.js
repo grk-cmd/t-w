@@ -15,7 +15,7 @@
  * [방장 지우기 표시] 서버 노드를 지우면 커서 구독으로는 «지워졌다» 를 알 수 없고, 꺼져 있던 사람은 아예 못 본다.
  *   그래서 지운 뒤 표시 줄 하나(sys: 'clr')를 남긴다 — 이 줄보다 앞은 모두 버린다. 서버 3일 정리는 이 줄을 남긴다.
  *   옛 앱에는 평범한 한 줄(«알림 : 🗑 …»)로 보인다.
- * ⚠️ 저장 DB 이름에 DB 주소(scope)를 넣는다 — 운영과 dev(start:dev)가 같은 PC 에서 돈다(catalog-cache.js 와 같다).
+ * ⚠️ 저장 DB 이름에 DB 주소(scope)를 넣는다 — 운영과 dev(start:dev)가 같은 PC 에서 돈다.
  */
 
 export const CHAT_SERVER_KEEP_MS = 3 * 24 * 3600 * 1000;   // 서버 보관 — functions/chat-expire.js 와 같은 값(검사가 대조)
