@@ -66,9 +66,9 @@ const PONG_WAIT_MS = 5000;       // 깨어남 · online 때 보낸 ping 의 답 
 
 /* 붙을 주소 — 운영 · dev 앱. dev 서버는 이 PC 로컬(dev 용 공개 이름은 없다)이라 dev 기본은 로컬 8787 —
    dev 앱만 tw.realtimeUrl(같은 묶음의 wss · 로컬 8787)로 바꿀 수 있다. CSP connect-src 안이어야 한다(ws://127.0.0.1:8787 은 이미 열려 있다). */
-const REALTIME_URLS = Object.freeze({ prod: 'wss://realtime.together-working.com', dev: 'ws://127.0.0.1:8787' });
+const REALTIME_URLS = Object.freeze({ prod: 'wss://realtime.together-working.com/v2', dev: 'ws://127.0.0.1:8787' });   // 운영은 API 처럼 새 realtime 이 /v2 (맨 앞 길은 옛 realtime — 0.13 점검까지)
 const DEV_URL_KEY = 'tw.realtimeUrl';
-const DEV_URL_RE = /^(?:wss:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:together-working\.com|togetherworking\.duckdns\.org)|ws:\/\/(?:127\.0\.0\.1|localhost):8787)$/;
+const DEV_URL_RE = /^(?:wss:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:together-working\.com|togetherworking\.duckdns\.org)(?:\/v2)?|ws:\/\/(?:127\.0\.0\.1|localhost):8787)$/;
 function realtimeUrlFor(env, storage){
   if(env !== 'dev') return REALTIME_URLS.prod;
   try{
