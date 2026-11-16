@@ -13,7 +13,10 @@ import { Pager } from '@/shared/ui';
 import styles from './XmasReportList.module.css';
 
 function OrnamentView({ tree, slot }: { tree: number; slot: number }) {
-  const { data, isLoading } = useOrnament(tree, slot);
+  const { data, error, isLoading } = useOrnament(tree, slot);
+  // 못 읽음과 «없음» 을 나눈다 — 못 읽었는데 «없어요 · 문제없음으로 비우면 돼요» 로 그리면 진짜 신고를 비우게 된다
+  if (error)
+    return <p className="msg err">{errorMessage(error, '장식을 불러오지 못했어요 — 새로고침해 주세요')}</p>;
   if (isLoading) return <p className="soft">…</p>;
   if (!data) return <p className="soft">이미 없는 장식이에요(바꿨거나 지워짐) — 문제없음으로 비우면 돼요</p>;
   return (
@@ -39,7 +42,9 @@ function OrnamentView({ tree, slot }: { tree: number; slot: number }) {
 }
 
 function LetterView({ got, n }: { got: string; n: number }) {
-  const { data, isLoading } = useReportedLetter(got, n);
+  const { data, error, isLoading } = useReportedLetter(got, n);
+  if (error)
+    return <p className="msg err">{errorMessage(error, '편지를 불러오지 못했어요 — 새로고침해 주세요')}</p>;
   if (isLoading) return <p className="soft">…</p>;
   if (!data) return <p className="soft">편지를 찾지 못했어요(지워졌을 수 있어요)</p>;
   return (

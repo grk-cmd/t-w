@@ -133,6 +133,12 @@ describe('신고', () => {
     });
     expect(ornamentOf({ k: 'star' }, { d: png }, U1)?.img).toBeNull();
   });
+  it('읽기가 실패하면 «없음»(null) 이 아니라 던진다 — 화면이 «못 불러옴» 으로 그린다', async () => {
+    const { db } = fakeDb();
+    const denied = { ...db, get: async () => Promise.reject(new Error('permission_denied')) };
+    await expect(getOrnament(denied, 3, 12)).rejects.toThrow();
+    await expect(getReportedLetter(denied, U2, 2)).rejects.toThrow();
+  });
   it('사람은 uid 앞 8자로', () => {
     expect(shortUid(U1)).toBe('authUser…');
     expect(shortUid('short')).toBe('short');

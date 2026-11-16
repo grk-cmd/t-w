@@ -1,6 +1,6 @@
 /*
  * 🎄 크리스마스 이벤트(2026 · 일회성 — 이벤트가 끝나면 걷는다 · 이슈 #963) 관리자 쪽 모양.
- * 경로 · 숫자는 서버 firebase/functions/xmas.js · 규칙 xmas* 와 같아야 한다 — tests/entities/xmas.test.ts 가 서버 모듈과 견준다.
+ * 경로 · 숫자는 서버 firebase/functions/xmas.js · 규칙 xmas* 와 같아야 한다 — tests/entities/xmas-event.test.ts 가 서버 모듈과 견준다.
  *   xmasLetters/{authUid}/l1~l5   { text, ts, song? }      맡긴 편지(관리자 읽기 · 반송은 함수 xmasAdminReturn)
  *   xmasReports/{key}/{authUid}   { ts, note? }            신고 — key: o-{트리}-{자리}(장식) · g-{받은 uid}-{번호}(받은 편지)
  *   xmasTrees/{t}/o/{s} · xmasImg/{t}/{s} · xmasOwners/{t}/{s}   신고된 장식 · 그림 · 건 사람

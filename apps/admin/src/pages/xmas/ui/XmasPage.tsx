@@ -6,7 +6,7 @@ import styles from './XmasPage.module.css';
 
 type Tab = 'letters' | 'reports';
 
-/** 🎄 크리스마스 이벤트(일회성 · 이슈 #963) — 맡긴 편지 확인 · 반송 / 장식 · 받은 편지 신고 처리. 이벤트가 끝나면 이 화면을 걷는다. */
+/** 크리스마스 이벤트(일회성 · 이슈 #963) — 맡긴 편지 확인 · 반송 / 장식 · 받은 편지 신고 처리. 이벤트가 끝나면 이 화면을 걷는다. */
 export function XmasPage() {
   const [tab, setTab] = useState<Tab>('letters');
   const { data: reports } = useXmasReports();

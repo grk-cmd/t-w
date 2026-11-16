@@ -93,9 +93,13 @@ export function useForgetXmasReport() {
     client.setQueryData<XmasReport[]>(REPORTS_KEY, (all) => all?.filter((r) => r.key !== key));
 }
 
-/** 서버 시각(ms) — 반송 마감을 이 기기 시계가 아니라 서버로 본다. 받기 전엔 null. */
+/** 서버 시각(ms) — 반송 마감을 이 기기 시계가 아니라 서버로 본다. 30초마다 다시 재서 화면을 연 채 마감을 넘겨도 단추가 닫힌다. 받기 전엔 null. */
 export function useXmasServerNow(): number | null {
   const db = useDb();
-  const q = useQuery({ queryKey: [...ROOT, 'offset'], queryFn: () => db.serverTimeOffset() });
-  return q.data == null ? null : Date.now() + q.data;
+  const q = useQuery({
+    queryKey: [...ROOT, 'now'],
+    queryFn: async () => Date.now() + (await db.serverTimeOffset()),
+    refetchInterval: 30000,
+  });
+  return q.data ?? null;
 }

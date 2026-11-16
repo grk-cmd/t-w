@@ -89,7 +89,7 @@ export const AUDIT_ACTIONS = [
   'account.delete',
   'account.selfDelete',
   'account.resetPassword',
-  // 🎄 크리스마스 이벤트(일회성 — 이벤트가 끝나면 걷는다). 반송 · 지우기는 함수가 하고 웹이 뒤에 기록한다.
+  // 크리스마스 이벤트(일회성 — 이벤트가 끝나면 걷는다). 반송 · 지우기는 함수가 하고 웹이 뒤에 기록한다.
   'xmas.returnLetter',
   'xmas.removeOrnament',
   'xmas.removeLetter',
