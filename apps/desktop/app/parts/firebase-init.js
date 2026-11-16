@@ -31,7 +31,7 @@
     signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { firebaseConfig } from "./firebase-config.js";
-  import { createAppVersion } from "./shared/app-version.js";
+  import { sharedAppVersion } from "./shared/app-version.js";
   import { createChatHistory, createIdbChatStore } from "./chat/chat-history.js";
   /* 로그인 수단 읽기 — authProviders · authChangePassword 가 같이 쓴다. 세션이 없으면 null. */
   function _providersOf(cu){
@@ -169,9 +169,7 @@
      ⚠️ presence 에 쓰는 것은 update 까지 **전부** withVer 를 거친다 — 규칙은 online:true 인데 ver 가 없으면
        옛 앱으로 보고 내 읽기 · 쓰기를 막는다(ver 없는 오프라인 쓰기도 inRoom 이 있으면 거절). withVer 는 모르면 'unknown' 을 싣는다.
      버전보다 presence 가 먼저 쓰였으면 받은 뒤 ver 만 update 하고 onDisconnect 도 ver 를 실어 다시 건다. */
-  const _appVer = createAppVersion({
-    getVersion: () => (window.companion && window.companion.getAppVersion) ? window.companion.getAppVersion() : null,
-  });
+  const _appVer = sharedAppVersion(window);   // realtime/rt-bind.js 와 같은 한 벌(버전 IPC 한 번)
   /* 🔌 내 접속 표시 한 벌 — 온라인 · 방 · 쓴 적 있음 · 구독 · ref 를 전부 이 객체가 쥔다(모듈 전역 없음).
      @param startOnline 처음 온라인 여부(Promise · 고정값을 읽은 뒤) — 첫 쓰기는 이것이 풀린 뒤에만, «오프라인 고정» 인데 «온라인» 이 한 번 보이지 않게. 없으면 온라인.
      @return { touch, setState, setRoom, onVersion, dispose, userId } — dispose 뒤에는 모든 쓰기가 버려진다(늦게 도착한 쓰기 · 기다리던 첫 쓰기 포함). */

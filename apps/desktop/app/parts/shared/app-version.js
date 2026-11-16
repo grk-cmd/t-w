@@ -33,3 +33,10 @@ export function createAppVersion(deps){
 
   return { get: ()=>ver, ready, withVer };
 }
+
+/* 앱 한 벌에 하나 — 버전 IPC 를 한 번만 부른다. firebase-init.js(접속 표시)와 realtime/rt-bind.js(연결 hello)가 같이 쓴다. */
+let _shared = null;
+export function sharedAppVersion(win){
+  if(!_shared) _shared = createAppVersion({ getVersion: () => (win.companion && win.companion.getAppVersion) ? win.companion.getAppVersion() : null });
+  return _shared;
+}

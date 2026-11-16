@@ -20,7 +20,7 @@ const FI = need('firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebas
 const RULES = JSON.parse(need('firebase-database-rules.json')).rules;
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const CODE = strip(FI);
-const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nreturn { createAppVersion, cleanAppVer, APP_VER_MAX, APP_VER_UNKNOWN };')();
+const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nreturn { createAppVersion, sharedAppVersion, cleanAppVer, APP_VER_MAX, APP_VER_UNKNOWN };')();
 
 (async () => {
   say('── 1. app-version.js');
@@ -54,9 +54,14 @@ const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nr
 
   say('── 2. firebase-init.js — presence 를 통째로 쓰는 자리');
   {
-    chk(/import \{ createAppVersion \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?app-version\.js";/.test(CODE), 'app-version.js 를 불러온다');
-    chk(/getVersion: \(\) => \(window\.companion && window\.companion\.getAppVersion\) \? window\.companion\.getAppVersion\(\) : null/.test(CODE),
+    chk(/import \{ sharedAppVersion \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?app-version\.js";/.test(CODE) && /_appVer = sharedAppVersion\(window\)/.test(CODE), 'app-version.js 의 한 벌(sharedAppVersion)을 받는다');
+    chk(/\(win\.companion && win\.companion\.getAppVersion\) \? win\.companion\.getAppVersion\(\) : null/.test(AV),
       '★ companion 이 없으면 getAppVersion 을 부르지 않는다');
+    {
+      let n = 0; const w = { companion: { getAppVersion: async () => { n++; return '0.13.0'; } } };
+      const a = mod.sharedAppVersion(w), b = mod.sharedAppVersion(w);
+      chk(a === b && await a.ready === '0.13.0' && n === 1, '★ 둘이 받아도 같은 한 벌 · 버전 IPC 는 한 번');
+    }
     // presence ref(ref_) 로 하는 set · onDisconnect().set 을 모두 찾는다 — 하나라도 ver 없이 쓰면 그 순간 버전이 지워진다.
     const FN = (CODE.match(/function _createMyPresence\([\s\S]*?\n  \}\n/) || [''])[0];
     const odSets = [...FN.matchAll(/onDisconnect\(ref_\)\.set\(([^\n]*)/g)].map(m => m[1]);
@@ -69,7 +74,7 @@ const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nr
     chk(!/ref\(db,\s*`users\/\$\{[^}]+\}\/presence`\)\s*,/.test(CODE.replace(/get\(ref\(db,\s*`users\/\$\{[^}]+\}\/presence`\)\)/g, '')) && (CODE.match(/users\/\$\{[^}]+\}\/presence`/g) || []).length === 1,
       '  ↳ 접속 표시 ref 는 객체를 만드는 한 곳(ref_)뿐 — 거치지 않고 presence 를 직접 쓰는 곳은 없다');
     chk((FN.match(/st\.written = true;/g) || []).length === 2, '  ↳ 처음 쓰기 · 토글에서 «썼다» 표시');
-    chk(/_appVer\.ready\.then\(v => \{ if\(v\) p\.onVersion\(v\); \}\);/.test(FN) && !/onReady/.test(CODE.slice(CODE.indexOf('const _appVer = createAppVersion('), CODE.indexOf('function _createMyPresence('))), '★ 버전이 늦게 오면 — 객체가 직접 받아 메운다(전역 포인터를 거치지 않는다)');
+    chk(/_appVer\.ready\.then\(v => \{ if\(v\) p\.onVersion\(v\); \}\);/.test(FN) && !/onReady/.test(CODE.slice(CODE.indexOf('const _appVer = sharedAppVersion('), CODE.indexOf('function _createMyPresence('))), '★ 버전이 늦게 오면 — 객체가 직접 받아 메운다(전역 포인터를 거치지 않는다)');
     const ready = (FN.match(/onVersion\(ver\)\{([\s\S]*?)\n      \},/) || [])[1] || '';
     chk(/if\(st\.dead \|\| !st\.written\) return;/.test(ready), '  ↳ presence 를 이미 썼을 때만 메운다(풀린 객체는 안 쓴다)');
     chk(/update\(ref_, \{ ver \}\)/.test(ready), '  ↳ ver 만 update(부분 쓰기 — online · room 은 그대로)');
@@ -131,7 +136,7 @@ const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nr
     const grab = (src, head) => { const i = src.indexOf(head); if(i < 0) return null; let k = src.indexOf('{', i), d = 0;
       for(; k < src.length; k++){ if(src[k] === '{') d++; else if(src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return null; };
     const SRC = {
-      av: grab(CODE, 'const _appVer = createAppVersion('),
+      av: /const _appVer = sharedAppVersion\(window\);/.test(CODE) ? 'const _appVer = sharedAppVersion(window' : null,
       fn: grab(CODE, 'function _createMyPresence('),
     };
     chk(Object.values(SRC).every(Boolean), '_appVer · _createMyPresence 를 찾았다');
@@ -148,7 +153,7 @@ const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nr
       const c = {
         Date: { now: () => 1000 }, Promise, JSON, Object, db: {},
         window: { companion: o.companion },
-        createAppVersion: o.createAppVersion,
+        sharedAppVersion: (w) => o.createAppVersion({ getVersion: () => (w.companion && w.companion.getAppVersion) ? w.companion.getAppVersion() : null }),
         ref: (d, p) => ({ p }),
         set: (r, v) => save('set', v), update: (r, v) => save('update', v),
         onDisconnect: () => ({ set: (v) => save('od', v), cancel: () => Promise.resolve() }),

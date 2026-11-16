@@ -151,7 +151,7 @@
 | **sim-part-equip.js** | 134 | **2bfa1e861e1b** |
 | **sim-room-parity.js** | 111 | **737a33966e0d** ← **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 119 신규 · 🛰 방 짝 맞추기(정적) — app.js 가 방에 싣는 칸 ⊆ MEMBER_FIELDS ∪ {def, userId, chat, chatTab} · Firebase provider 메서드 ⊆ 서버 provider 메서드**
 | **sim-room-live-def.js** | 163 | **fb1e16adcd60** |
-| **sim-app-version.js** | 276 | **3b81e80eb540** |
+| **sim-app-version.js** | 281 | **949d1f4d982c** |
 | **sim-update-flow.js** | 454 | **a05cced37048** |
 | **sim-maintenance-gate.js** | 364 | **95343c34486b** |
 | **sim-room-invite-wait.js** | 44 | **2327a1043182** |
@@ -280,7 +280,7 @@
 | **sim-api-public-reads.js** | 140 | **9b83d534da2a** |
 | **sim-api-routes.js** | 256 | **c65dfca05922** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
-| **sim-remote-config.js** | 379 | **ce7d3c79876c** |
+| **sim-remote-config.js** | 386 | **a2ad88daf1b4** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
 | **sim-myhome-inbox.js** | 766 | **0c88f8bb0962** |
 | **sim-playlist.js** | 1137 | **c2d70f725d71** |
