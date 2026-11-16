@@ -5237,7 +5237,7 @@ const updateFlowMod = TwUpdateFlow.createUpdateFlow({
 const appVersionSyncMod = TwAppVersionSync.createAppVersionSync({
   authed: TwApi.authed,
   getVersion: ()=>window.TwAppVersion.ready,
-  block: (my, highest)=>{ updateFlowMod.forceAccount(highest); },
+  block: (my, highest)=>updateFlowMod.forceAccount(highest),
   warn: (...a)=>console.warn(...a),
 });
 /* 🛰 realtime 끊김 화면(realtime/rt-status-ui.js) — 다시 연결 중 띠 · 로그인 풀림 · 계정 로그아웃 · 업데이트 강제 · 점검 · 모르는 닫힘 */

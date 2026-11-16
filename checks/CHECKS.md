@@ -152,7 +152,7 @@
 | **sim-room-parity.js** | 111 | **737a33966e0d** ← **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 119 신규 · 🛰 방 짝 맞추기(정적) — app.js 가 방에 싣는 칸 ⊆ MEMBER_FIELDS ∪ {def, userId, chat, chatTab} · Firebase provider 메서드 ⊆ 서버 provider 메서드**
 | **sim-room-live-def.js** | 163 | **fb1e16adcd60** |
 | **sim-app-version.js** | 109 | **6dee4558ad2b** |
-| **sim-app-version-sync.js** | 167 | **4a6513303dcd** |
+| **sim-app-version-sync.js** | 178 | **f67e03834602** |
 | **sim-update-flow.js** | 499 | **571de5cf6990** |
 | **sim-firebase-left.js** | 73 | **5bdcc0c45d16** |
 | **sim-maintenance-gate.js** | 358 | **450b7d646390** |

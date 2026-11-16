@@ -56,7 +56,7 @@ function judge(S){
       chk(t.log.length === 1 && t.log[0].path === '/v2/me/app-version', '계정에 들어간 뒤 한 번 — POST /v2/me/app-version');
       chk(JSON.stringify(t.log[0].body) === '{"version":"0.12.3"}', '  본문은 { version } 만 — 계정 코드 · 기기 값을 싣지 않는다(계정은 토큰으로 서버가 정한다)');
       chk(r.state === 'ok' && t.blocks.length === 0 && t.warns.length === 0, '  같은 판이면 안 막는다(ok) · 경고도 없다');
-      for(const bad of [null, undefined, '', 'x'.repeat(21), '0.12 3', 123]){
+      for(const bad of [null, undefined, '']){
         const u = mk(S.SYNC, { highest: '9', behind: true }, { ver: bad });
         const q = await u.sync.start(u.session);
         chk(u.log.length === 0 && u.blocks.length === 0 && q.state === 'skipped' && u.warns.length === 1, '  판을 모르거나 글자가 틀리면(' + JSON.stringify(bad) + ') 요청 0 · 안 막음 · 경고 한 줄');
@@ -96,6 +96,16 @@ function judge(S){
       chk(r.state === 'skipped' && g.log.length === 0 && g.blocks.length === 0 && g.warns.length === 1, '판을 읽다 던져도 안 막음 · 요청 0 · 경고 한 줄');
     }
 
+    say('── 3-2. 창을 못 띄우면 경고');
+    {
+      const t = mk(S.SYNC, { highest: '0.12.4', behind: true });
+      const sy = t.M.createAppVersionSync({ authed: { post: async () => ({ highest: '0.12.4', behind: true }) }, getVersion: async () => '0.12.3', block: () => false, warn: (...a) => t.warns.push(a) });
+      const r = await sy.start(t.session);
+      chk(r.state === 'behind' && t.warns.length === 1, '★ block 이 false(창을 못 띄움)면 경고 한 줄 · 상태는 behind');
+      const ok = await t.sync.start(t.session);
+      chk(ok.state === 'behind' && t.warns.length === 1, '  block 이 undefined(대역)이면 경고 없음 — 위 한 줄은 앞 호출 몫');
+    }
+
     say('── 4. 세션이 끝났으면 답을 버린다');
     {
       const t = mk(S.SYNC, { highest: '0.12.4', behind: true }, { endSession: true });
@@ -120,7 +130,7 @@ function judge(S){
       const code = strip(S.APP);
       const i = code.indexOf('TwAppVersionSync.createAppVersionSync({');
       const blk = i >= 0 ? code.slice(i, code.indexOf('});', i) + 3) : '';
-      chk(i > code.indexOf('const updateFlowMod = TwUpdateFlow.createUpdateFlow({') && /authed: TwApi\.authed/.test(blk) && /getVersion: \(\)=>window\.TwAppVersion\.ready/.test(blk) && /block: \(my, highest\)=>\{ updateFlowMod\.forceAccount\(highest\); \}/.test(blk), 'app.js — 로그인 통로(TwApi.authed) · 앱 판 한 벌(TwAppVersion) · 업데이트 흐름 forceAccount 를 잇는다');
+      chk(i > code.indexOf('const updateFlowMod = TwUpdateFlow.createUpdateFlow({') && /authed: TwApi\.authed/.test(blk) && /getVersion: \(\)=>window\.TwAppVersion\.ready/.test(blk) && /block: \(my, highest\)=>updateFlowMod\.forceAccount\(highest\)/.test(blk), 'app.js — 로그인 통로(TwApi.authed) · 앱 판 한 벌(TwAppVersion) · 업데이트 흐름 forceAccount 를 잇는다');
       chk(/appVersion: \(code, me, session\)=>appVersionSyncMod\.start\(session\)/.test(code), '★ 시작은 app-boot starts 의 appVersion 한 곳(세션을 넘긴다)');
       chk((code.match(/appVersionSyncMod\.start\(/g) || []).length === 1, '  다른 자리에서 또 알리지 않는다(켤 때 한 번 · 다시 보내는 타이머 없음)');
       chk(/window\.TwAppVersion = appVer;/.test(strip(S.BIND)) && /sharedAppVersion\(window\)/.test(strip(S.BIND)), '앱 판은 sharedAppVersion 한 벌(rt-bind 가 같은 것을 내놓는다 — IPC 를 또 부르지 않는다)');
@@ -137,15 +147,16 @@ function judge(S){
   const BREAKS = [
     ['SYNC', "{ version: my }", "{ version: my, device: 'x' }", '본문에 다른 값을 싣는다'],
     ['SYNC', "if(!data.behind) return { state: STATE.OK };", "", 'behind 거짓도 막는다'],
-    ['SYNC', "block(my, data.highest);", "", '막아야 할 때 안 막는다'],
+    ['SYNC', "if(block(my, data.highest) === false) warn(", "if(false) warn(", '막아야 할 때 안 막는다'],
     ['SYNC', "typeof data.behind !== 'boolean' || ", "", '글자 behind 를 믿는다'],
-    ['SYNC', "if(typeof my !== 'string' || !VER_RE.test(my)){", "if(false){", '판을 몰라도 알린다'],
+    ['SYNC', "if(!my){", "if(false){", '판을 몰라도 알린다'],
+    ['SYNC', "=== false) warn(", "=== false) (0, function(){})(", '창을 못 띄워도 말이 없다'],
     ['SYNC', "warn('[판 맞추기] 알리지 못해 건너뜀'", "(0, function(){})('[판 맞추기] 알리지 못해 건너뜀'", '못 알린 것을 삼킨다'],
     ['SYNC', "warn('[판 맞추기] 알리지 못해 건너뜀', (e && (e.code || e.kind || e.message)) || e);", "block(my, 'x'); warn('[판 맞추기] 알리지 못해 건너뜀');", '못 닿으면 막는다'],
     ['SYNC', "    if(!session.alive()) return { state: STATE.STALE };\n    if(!isObj(data)", "    if(!isObj(data)", '끝난 세션의 답으로 막는다'],
     ['BOOT', "  'appVersion',", "", '차례 표에서 뺀다'],
     ['APP', "appVersion: (code, me, session)=>appVersionSyncMod.start(session),", "", 'app.js 가 시작을 안 건다'],
-    ['APP', "updateFlowMod.forceAccount(highest);", "", '막아야 할 때 창을 안 띄운다'],
+    ['APP', "=>updateFlowMod.forceAccount(highest),", "=>{},", '막아야 할 때 창을 안 띄운다'],
     ['APP', "window.TwAppVersion.ready", "(window.companion ? window.companion.getAppVersion() : null)", '앱 판을 IPC 로 또 읽는다'],
     ['BIND', "window.TwAppVersion = appVer;", "", 'rt-bind 가 앱 판 한 벌을 안 내놓는다'],
     ['HTML', '<script src="parts/account/app-version-sync.js"></script>', '', 'html 에 안 싣는다'],

@@ -13,13 +13,12 @@
 
 const PATH = '/v2/me/app-version';
 const STATE = Object.freeze({ BEHIND: 'behind', OK: 'ok', SKIPPED: 'skipped', STALE: 'stale' });
-const VER_RE = /^[0-9A-Za-z.+-]{1,20}$/;   // 서버가 받는 판 글자 · 길이(앱 판 모양) — 틀리면 요청 없이 건너뛴다
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
 /** @param {{ authed: { post: (path: string, body: object) => Promise<any> }, getVersion: () => Promise<string | null> | string | null,
- *   block: (my: string, highest: string) => void, warn: (...a: any[]) => void }} deps
- *   authed = 로그인 API 통로(TwApi.authed) · getVersion = 이 앱 판(shared/app-version.js 의 한 벌) · block = 업데이트 안내 창 띄우기 */
+ *   block: (my: string, highest: string) => boolean | void, warn: (...a: any[]) => void }} deps
+ *   authed = 로그인 API 통로(TwApi.authed) · getVersion = 이 앱 판(shared/app-version.js 의 한 벌) · block = 업데이트 안내 창 띄우기(false 를 돌려주면 못 띄운 것) · 판 모양은 shared/app-version.js cleanAppVer 가 이미 거른다(null 이면 «모름») */
 function createAppVersionSync(deps){
   const authed = deps.authed;
   const getVersion = deps.getVersion;
@@ -29,7 +28,7 @@ function createAppVersionSync(deps){
   async function start(session){
     let my = null;
     try{ my = await getVersion(); }catch(e){ warn('[판 맞추기] 앱 판을 못 읽어 건너뜀', (e && e.message) || e); return { state: STATE.SKIPPED, why: 'no-version' }; }
-    if(typeof my !== 'string' || !VER_RE.test(my)){ warn('[판 맞추기] 앱 판을 몰라 건너뜀'); return { state: STATE.SKIPPED, why: 'no-version' }; }
+    if(!my){ warn('[판 맞추기] 앱 판을 몰라 건너뜀'); return { state: STATE.SKIPPED, why: 'no-version' }; }
     if(!session.alive()) return { state: STATE.STALE };
     let data;
     try{ data = await authed.post(PATH, { version: my }); }
@@ -44,7 +43,8 @@ function createAppVersionSync(deps){
       return { state: STATE.SKIPPED, why: 'shape' };
     }
     if(!data.behind) return { state: STATE.OK };
-    block(my, data.highest);
+    /* block 이 false 를 돌려주면 창을 새로 못 띄운 것(이미 강제 창이 떠 있거나 판 모양을 모름) — 숨기지 않고 남긴다 */
+    if(block(my, data.highest) === false) warn('[판 맞추기] 더 새 판이 있는데 업데이트 창을 새로 띄우지 못함', my, data.highest);
     return { state: STATE.BEHIND, my, highest: data.highest };
   }
 
