@@ -1,2 +1,2 @@
-export { changeStatus } from './model/changeStatus';
+export { useChangeStatusPort, type ChangeStatusPort } from './api';
 export { StatusButtons } from './ui/StatusButtons';

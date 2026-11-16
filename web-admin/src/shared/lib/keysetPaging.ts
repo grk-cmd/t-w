@@ -2,6 +2,9 @@ import { useEffect } from 'react';
 import type { InfiniteData, QueryClient, QueryKey, UseInfiniteQueryResult } from '@tanstack/react-query';
 import { usePaging, type Paging } from './paging';
 
+/** 관리자가 한 번에 받는 상한(서버 `limit` 1~100). */
+export const KEYSET_PAGE_MAX = 100;
+
 /** 서버 목록의 한 쪽 — 키셋(`cursor` · `limit` · `nextCursor`). `total` 은 첫 쪽에만 오는 목록이 있다. */
 export interface KeysetPage<T> {
   items: T[];

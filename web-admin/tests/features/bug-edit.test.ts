@@ -10,7 +10,8 @@ import {
   type BugContent,
   type EditInput,
 } from '@/entities/bug-board';
-import { editAsk, editPost } from '@/features/bug-board/edit-post';
+import { editPost } from '@/features/bug-board/edit-post/api/firebase';
+import { editAsk } from '@/features/bug-board/edit-post';
 import { auditsOf, fakeDb, NOW, withoutAudits } from '../shared/fakeDb';
 
 const item = { id: 'p1', vis: 'pub' as const, authUid: 'uid1', cat: 'bug', notice: false };

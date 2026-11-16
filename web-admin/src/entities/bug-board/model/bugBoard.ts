@@ -39,6 +39,11 @@ export const BUG_STATUS: Record<BugStatus, string> = {
 };
 export const BUG_STATUSES = Object.keys(BUG_STATUS) as BugStatus[];
 
+/** API 판 서버가 쓰는 이름 — 상태 · 분류는 대문자, 공개 범위는 PUBLIC · PRIVATE. */
+export const serverStatus = (status: BugStatus) => status.toUpperCase();
+export const serverCategory = (cat: string) => cat.toUpperCase();
+export const serverVisibility = (vis: BugVis) => (vis === 'pub' ? 'PUBLIC' : 'PRIVATE');
+
 // 앱 BUG_CATS 와 같다(규칙 cat 정규식과 짝).
 export const BUG_CATS: Record<string, string> = {
   bug: '오류 · 멈춤',
@@ -71,8 +76,10 @@ export interface BugItem {
   status: BugStatus;
   cat: string;
   name: string;
-  authUid: string;
-  code: string;
+  /** Firebase 판 — 비공개 글 경로를 만드는 데만 쓴다. API 줄에는 없다. */
+  authUid?: string;
+  /** 글쓴이 사용자코드. 운영진이 쓴 글(API 판)은 없다. */
+  code?: string;
   ts: number;
   openTs?: number;
   nts?: number;
@@ -88,6 +95,14 @@ export interface BugItem {
   no?: string;
   /** 관리자가 쓴 글 — 규칙상 관리자만 넣을 수 있는 칸(🛡 배지). */
   byAdmin?: boolean;
+  /** API 판 — 서버가 준 줄이다. 비공개 글의 글쓴이 이름(`nick`) · 제목을 이미 주므로 따로 읽지 않는다. */
+  server?: true;
+  /** API 판 비공개 글 — 서버가 관리자에게 주는 글쓴이 이름(목록 칸 이름은 «익명»). */
+  nick?: string;
+  /** API 판 — 상세가 준 글 번호. 고쳐 쓸 때 그대로 싣고, 그 사이 다른 곳이 고쳤으면 서버가 409. 목록 줄에는 없다. */
+  version?: number;
+  /** API 판 — 운영자 마지막 답변 시각을 서버가 준 글자 그대로(마이크로초까지 같아야 «겹친 답변» 을 가른다). */
+  lastReplyAt?: string;
 }
 
 export interface BugContent {
@@ -157,18 +172,19 @@ export function toBugItem(id: string, v: unknown): BugItem | null {
 export const isStaffPost = (item: Pick<BugItem, 'byAdmin' | 'notice'>) => !!item.byAdmin || !!item.notice;
 
 /** 비공개 글이라 닉네임을 따로 읽어야 하는가 — 목록 칸 이름이 «익명» 이라 관리자는 글쓴이 코드로 지금 닉네임을 읽는다. */
-export const needsAuthorLookup = (item: Pick<BugItem, 'vis' | 'code'>) => item.vis === 'prv' && !!item.code;
+export const needsAuthorLookup = (item: Pick<BugItem, 'vis' | 'code' | 'server'>) =>
+  item.vis === 'prv' && !!item.code && !item.server;
 
 /**
  * 관리자 화면의 글쓴이 이름 — 비공개 글은 «익명 (지금 닉네임)». 닉네임을 아직 못 읽었거나 없으면 목록 칸 이름 그대로.
  * 닉네임은 글 쓸 때가 아니라 지금 이름이다(목록 칸에는 비공개 글 이름을 남기지 않는다).
  */
 export function bugAuthorName(
-  item: Pick<BugItem, 'vis' | 'name'>,
+  item: Pick<BugItem, 'vis' | 'name' | 'nick'>,
   nickname: string | null | undefined,
 ): string {
   const base = item.name || '이름 없음';
-  const nick = typeof nickname === 'string' ? nickname.trim() : '';
+  const nick = (typeof nickname === 'string' ? nickname : (item.nick ?? '')).trim();
   return item.vis === 'prv' && nick ? `${base} (${nick})` : base;
 }
 

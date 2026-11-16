@@ -23,8 +23,8 @@ export function ReportActions({ target, who, awayImg }: Props) {
     try {
       const r = await takeDown.mutateAsync(awayImg);
       if (!r.ok) toast('그 사이 그림이 바뀌었어요. 다시 확인해 주세요');
-      else if (r.fileDeleted) toast('자리비움 그림을 내리고 신고를 비웠어요');
-      else toast('그림을 내리고 신고를 비웠어요 · 파일 삭제 실패');
+      else if (r.fileDeleted === false) toast('그림을 내리고 신고를 비웠어요 · 파일 삭제 실패');
+      else toast('자리비움 그림을 내리고 신고를 비웠어요');
     } catch (e) {
       toast(errorMessage(e, '내리지 못했어요'));
     }

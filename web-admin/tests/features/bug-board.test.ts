@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { BUG_PRV_NOTICE_BODY } from '@/entities/bug-board';
-import { ANSWER_BUSY, answerPost } from '@/features/bug-board/answer-post';
-import { changeStatus } from '@/features/bug-board/change-status';
-import { deleteAsk, deletePost } from '@/features/bug-board/delete-post';
+import { ANSWER_BUSY } from '@/features/bug-board/answer-post';
+import { answerPost } from '@/features/bug-board/answer-post/api/firebase';
+import { changeStatus } from '@/features/bug-board/change-status/api/firebase';
+import { deleteAsk } from '@/features/bug-board/delete-post';
+import { deletePost } from '@/features/bug-board/delete-post/api/firebase';
 import { auditsOf, fakeDb, NOW, withoutAudits } from '../shared/fakeDb';
 
 const entry = (extra: Record<string, unknown> = {}) => ({

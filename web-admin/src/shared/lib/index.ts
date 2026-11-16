@@ -49,6 +49,7 @@ export {
 } from './requestId';
 export {
   fetchAllPages,
+  KEYSET_PAGE_MAX,
   keysetView,
   needsMore,
   resetKeyset,

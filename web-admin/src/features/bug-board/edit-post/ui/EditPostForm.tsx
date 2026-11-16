@@ -3,7 +3,6 @@ import {
   BUG_BODY_MAX,
   BUG_CATS,
   BUG_TITLE_MAX,
-  checkEdit,
   editChanges,
   type BugContent,
   type BugItem,
@@ -31,7 +30,7 @@ export function EditPostForm({
 }) {
   const env = useEnv();
   const toast = useToast();
-  const edit = useEditPost(item.id, label);
+  const edit = useEditPost(item, content, label);
   const [title, setTitle] = useState(content?.title ?? '');
   const [body, setBody] = useState(content?.body ?? '');
   const [cat, setCat] = useState(Object.hasOwn(BUG_CATS, item.cat) ? item.cat : 'etc');
@@ -39,7 +38,7 @@ export function EditPostForm({
 
   const onSave = () => {
     const input: EditInput = { title, body, cat, vis };
-    const bad = checkEdit(item, input);
+    const bad = edit.check(item, input);
     if (bad) return toast(bad);
     const changes = editChanges(item, content, input);
     if (!changes.length) return toast('바뀐 것 없음');

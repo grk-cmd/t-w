@@ -33,9 +33,9 @@ export function awayImgRemoveWrite(uid: string): Record<string, null> {
   return { [`users/${uid}/awayImg`]: null };
 }
 
-export function useUserBrief(uid: string) {
+export function useUserBrief(uid: string, enabled = true) {
   const db = useDb();
-  return useQuery({ queryKey: briefKey(uid), queryFn: () => getUserBrief(db, uid) });
+  return useQuery({ queryKey: briefKey(uid), queryFn: () => getUserBrief(db, uid), enabled });
 }
 
 export function useRefreshUserBrief() {

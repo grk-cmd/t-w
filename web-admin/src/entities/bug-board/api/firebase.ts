@@ -1,0 +1,147 @@
+// Firebase 판 — 지금 코드 그대로: 글 목록 · 상세를 RTDB 에서 읽고(목록은 예전 API 사본을 먼저 묻고 닿지 못하면 RTDB 로), 앞쪽 번호는 날짜 순번을 세어 붙인다.
+import { viaApiOr, type Api, type ApiFallback, type Db } from '@/shared/api';
+import { DAY_MS, kstDayStart } from '@/shared/lib';
+import {
+  bugListFromApi,
+  BUG_LIST,
+  BUG_PAGE,
+  BUG_ROOT,
+  dayOrder,
+  filterKey,
+  isSuggestion,
+  SUGGEST_SCAN_PAGES,
+  toAnswers,
+  toBugItem,
+  toBugPage,
+  type ApiBugPage,
+  type BugAnswer,
+  type BugContent,
+  type BugCursor,
+  type BugFilter,
+  type BugItem,
+  type BugListView,
+  type BugPage,
+} from '../model/bugBoard';
+import type { BugBoardPagedPort, BugListQuery, BugPost } from './port';
+
+// 하루 순번을 셀 때 한 날짜에서 받을 쪽 수 상한 — 하루 제보가 이걸 넘으면 앞쪽 번호는 «?».
+const DAY_PAGES_MAX = 10;
+
+/** 목록 한 쪽(≤ 20) — 규칙이 limitToLast ≤ 20 쿼리만 받는다. 통째로 받지 않는다. */
+export async function listBugPage(db: Db, filter: BugFilter, before: BugCursor | null): Promise<BugPage> {
+  if (filter === 'suggest') return listSuggestPage(db, before);
+  const key = filterKey(filter);
+  const raw = await db.getLast<unknown>(
+    BUG_LIST,
+    key,
+    BUG_PAGE,
+    before ? { endBefore: { value: before.value, key: before.key } } : undefined,
+  );
+  return toBugPage(raw, key);
+}
+
+/**
+ * 미해결 건의 — 미해결 쪽을 차례로 받아 건의만 남긴다. 건의가 한 쪽(20) 넘게 모이거나 미해결이 끝나거나
+ * SUGGEST_SCAN_PAGES 쪽을 보면 멈추고, [다음] 은 마지막으로 본 미해결 자리부터 잇는다.
+ */
+async function listSuggestPage(db: Db, before: BugCursor | null): Promise<BugPage> {
+  const items: BugItem[] = [];
+  let cur = before;
+  for (let i = 0; i < SUGGEST_SCAN_PAGES; i++) {
+    const p = await listBugPage(db, 'open', cur);
+    items.push(...p.items.filter(isSuggestion));
+    cur = p.next;
+    if (!cur || items.length >= BUG_PAGE) break;
+  }
+  return { items, next: cur };
+}
+
+/**
+ * 목록 — API 읽기 사본을 먼저(전체 수 · 쪽 번호), 닿지 못하면(또는 이 환경에 없으면) 예전처럼 RTDB 커서로 20줄씩.
+ * 커서는 예전 방식에서만 생긴다 — 커서로 넘기는 중이면 API 를 묻지 않는다(쪽 번호와 섞이지 않게).
+ */
+export function fetchBugList(api: Api | null, db: Db, query: BugListQuery): Promise<BugListView> {
+  const fromRtdb = async (fallback: ApiFallback): Promise<BugListView> => ({
+    via: 'rtdb',
+    fallback,
+    ...(await listBugPage(db, query.filter, query.before)),
+  });
+  if (query.before) return fromRtdb(api ? 'unavailable' : 'no-api');
+  // TODO: 서버 API(/v1/admin/bugs)가 filter=suggest 를 알면 이 줄을 걷는다 — 그 전까지 미해결 건의는 RTDB 로만 읽는다.
+  if (query.filter === 'suggest') return fromRtdb('no-api');
+  return viaApiOr(
+    api,
+    async (a) =>
+      bugListFromApi(
+        await a.get<ApiBugPage>('/v1/admin/bugs', {
+          page: query.page,
+          size: query.size,
+          filter: query.filter,
+        }),
+      ),
+    fromRtdb,
+  );
+}
+
+export async function getBugItem(db: Db, id: string): Promise<BugItem | null> {
+  return toBugItem(id, await db.get<unknown>(`${BUG_LIST}/${id}`));
+}
+
+/** 그날(서울) 올라온 글의 순번 — ts 범위 쿼리로 그날 것만, 20개씩 거슬러 받는다. */
+export async function getDayOrder(db: Db, day: string): Promise<Map<string, number>> {
+  const start = kstDayStart(day);
+  const all: Record<string, unknown> = {};
+  let before = { value: start + DAY_MS } as { value: number; key?: string };
+  for (let i = 0; i < DAY_PAGES_MAX; i++) {
+    const got = await db.getLast<unknown>(BUG_LIST, 'ts', BUG_PAGE, { startAt: start, endBefore: before });
+    Object.assign(all, got);
+    const entries = Object.entries(got);
+    if (entries.length < BUG_PAGE) return dayOrder(all);
+    const [oldestId, oldest] = entries
+      .map(([id, v]) => [id, Number((v as { ts?: unknown } | null)?.ts)] as const)
+      .sort((a, b) => a[1] - b[1] || (a[0] < b[0] ? -1 : 1))[0];
+    before = { value: oldest, key: oldestId };
+  }
+  // 상한까지 받고도 남았다 — 앞쪽 순번을 모르니 아무 번호도 주지 않는다(틀린 번호보다 «?»).
+  return new Map();
+}
+
+/** 상세 — 목록 줄 · 내용 · 답변 · 글쓴이 답글. 공개 글이 아니면 공개 답변 칸은, 답글을 단 적 없는 글은 답글 칸을 읽지 않는다. */
+export async function getBugPost(db: Db, id: string): Promise<BugPost | null> {
+  const item = await getBugItem(db, id);
+  if (!item) return null;
+  const contentPath = item.vis === 'pub' ? `${BUG_ROOT}/pub/${id}` : `${BUG_ROOT}/prv/${item.authUid}/${id}`;
+  const [content, [pub, prv], rep] = await Promise.all([
+    db.get<BugContent>(contentPath),
+    getStaffAnswersRaw(db, item),
+    item.userReplyTs ? db.get<unknown>(`${BUG_ROOT}/rep/${item.vis}/${id}`) : Promise.resolve(null),
+  ]);
+  return { item, content, answers: toAnswers(pub, prv, { vis: item.vis, all: rep }) };
+}
+
+/** 운영자 답변 두 갈래 원본 — 공개 글이 아니면 공개 답변 칸은 읽지 않는다(앱도 안 읽는 자리). */
+function getStaffAnswersRaw(db: Db, item: Pick<BugItem, 'id' | 'vis'>): Promise<[unknown, unknown]> {
+  return Promise.all([
+    item.vis === 'pub' ? db.get<unknown>(`${BUG_ROOT}/ans/pub/${item.id}`) : Promise.resolve(null),
+    db.get<unknown>(`${BUG_ROOT}/ans/prv/${item.id}`),
+  ]);
+}
+
+/** 운영자 답변만(글쓴이 답글 빼고) 오래된 순 — 답변 지우기 직전 다시 셀 때. */
+export async function getStaffAnswers(db: Db, item: Pick<BugItem, 'id' | 'vis'>): Promise<BugAnswer[]> {
+  const [pub, prv] = await getStaffAnswersRaw(db, item);
+  return toAnswers(pub, prv);
+}
+
+export function createFirebaseBugBoardPort(api: Api | null, db: Db): BugBoardPagedPort {
+  return {
+    kind: 'paged',
+    list: (query) => fetchBugList(api, db, query),
+    item: (id) => getBugItem(db, id),
+    post: (id) => getBugPost(db, id),
+    // 비공개 글 제목 — 목록에는 없어서 prv 에서 제목 칸만 읽는다(관리자 읽기 허용).
+    prvTitle: async (item) =>
+      (await db.get<string>(`${BUG_ROOT}/prv/${item.authUid}/${item.id}/title`)) ?? '',
+    dayOrder: (day) => getDayOrder(db, day),
+  };
+}
