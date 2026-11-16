@@ -42,7 +42,7 @@ function build(src, o){
     publishUpdateNotice: rec('publishUpdateNotice', o.publish), withdrawUpdateNotice: rec('withdrawUpdateNotice', o.withdraw) };
   const apiErrors = { notify: (e, table) => { shown.push([e && e.code, table && table.MARK]); return { action: 'notice' }; } };
   const win = { focus(){} };
-  const api = new Function('window', 'document', 'confirm', 'setTimeout', 'module', src + '\nreturn window.TwAdminNotice;')(
+  const api = new Function('window', 'document', 'confirm', 'setTimeout', 'module', 'var TwNav = { ADMIN_EXIT_EVENT: "tw-admin-exit" };\n' + src + '\nreturn window.TwAdminNotice;')(
     win, D.document, () => o.confirm !== false, () => 0, undefined);
   const out = api.createAdminNotice({ toast: (m) => toasts.push(m), adminApi, apiErrors });
   return { out, calls, toasts, shown, els: D.els };

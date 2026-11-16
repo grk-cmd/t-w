@@ -115,7 +115,7 @@ function _closeAdminWindows(){
   /* 창마다 «주인의 닫기» 를 부른다 — 여기서 DOM 을 직접 건드리지 않는다(창마다 .on 클래스 · 인라인 display 로 여닫는 방식이 달라, 인라인 none 을 박으면 다시 안 열리는 창이 있다).
      각 관리자 모듈이 'tw-admin-exit' 를 듣고 자기 닫기로 닫는다. 비밀번호 창만 이 파일이 연다. */
   const o = document.getElementById('adminPassOverlay'); if(o){ o.classList.remove('on'); o.style.display = 'none'; }
-  document.dispatchEvent(new Event('tw-admin-exit'));
+  document.dispatchEvent(new Event(twNav.ADMIN_EXIT_EVENT));
   /* 표식(data-admin-win)이 달린 창이 아직 열려 있으면 숨기지 않고 알린다 — 주인 모듈이 이 신호를 안 듣는 것이다 */
   document.querySelectorAll('[data-admin-win]').forEach((w)=>{
     if(w.classList.contains('on') || w.style.display === 'flex' || w.style.display === 'block') console.warn('[관리자] 세션 끝 — 닫히지 않은 관리자 창: ' + (w.id || '?'));

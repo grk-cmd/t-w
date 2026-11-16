@@ -60,7 +60,7 @@ function build(src, glob, create, deps, fbOver){
   const D = makeDom();
   const win = { firebaseAPI: fb, focus(){} };
   const nav = { clipboard: { writeText(){} } };
-  const api = new Function('window', 'document', 'firebaseAPI', 'confirm', 'navigator', 'setTimeout', 'module', src + '\nreturn window.' + glob + ';')(
+  const api = new Function('window', 'document', 'firebaseAPI', 'confirm', 'navigator', 'setTimeout', 'module', 'var TwNav = { ADMIN_EXIT_EVENT: "tw-admin-exit" };\n' + src + '\nreturn window.' + glob + ';')(
     win, D.document, fb, () => true, nav, (f) => f(), undefined);
   const out = api[create](Object.assign({ toast: (m) => toasts.push(m) }, deps));
   return { win, calls, toasts, out, els: D.els, fb };

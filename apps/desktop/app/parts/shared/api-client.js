@@ -21,7 +21,7 @@
      로그인 요청에는 이 기기 id 머리 X-Device-Id(device-id.js — 프리미엄은 «이 기기» 판정)를 싣는다.
    [쉬기] 'unavailable' 이면 BACKOFF_MS 동안 묻지 않고 곧장 'unavailable'(code BACKOFF) — 읽기만. 로그인 통로(authed)는 쉬지 않는다.
    [주소] 운영 앱 = 운영 API · dev 앱(--tw-firebase=dev) = dev API. dev 앱만 tw.apiBaseUrl 로 다른 주소(CSP 묶음 안)를 쓸 수 있다.
-     CSP connect-src https://*.together-working.com · *.togetherworking.duckdns.org 안이어야 한다(desk-companion-prototype.html). duckdns 는 옛 주소 — dev 시험 주소용으로만 남는다.
+     CSP connect-src https://*.together-working.com 안이어야 한다(desk-companion-prototype.html).
    Electron(file://)의 fetch 는 Origin 헤더 없이 나가고 CORS 를 보지 않는다 — 쿠키는 늘 보내지 않는다.
    앱 한 벌: TwApi.client(로그인 없는 읽기 · 쉬기 있음) · TwApi.authed(로그인 통로 — 토큰은 firebase-init 이 bindToken 으로 잇는다 · 쉬기 없음).
    계정을 놓을 때는 authed.forgetSession() — 진행 중인 로그인 읽기 · 계정별 ETag 기억을 뗀다(account/login-flow.js logout).
@@ -32,7 +32,7 @@
 const API_BASE_PROD = 'https://api.together-working.com';
 const API_BASE_DEV = 'https://api-dev.together-working.com';
 const API_BASE_DEV_KEY = 'tw.apiBaseUrl';
-const API_BASE_RE = /^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:together-working\.com|togetherworking\.duckdns\.org)$/;
+const API_BASE_RE = /^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.together-working\.com$/;
 const TIMEOUT_MS = 2500;           // 읽기 한 번 — 본문이 큰 읽기는 부르는 쪽이 timeoutMs 를 넘긴다
 const WRITE_TIMEOUT_MS = 10000;    // 쓰기 한 번 — 서버가 트랜잭션 · 그림 사본까지 하고 답한다
 const BACKOFF_MS = 30 * 1000;

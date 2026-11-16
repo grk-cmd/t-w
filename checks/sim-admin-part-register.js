@@ -49,7 +49,7 @@ function build(src, st){
     setAdminPartActions: (a) => { calls.push(['setAdminPartActions', Object.keys(a).sort().join()]); } };
   FNS.forEach(n => { deps[n] = fn(n); });
   VALUES.forEach(n => { deps[n] = () => st[n] !== undefined ? st[n] : (n === 'savedParts' ? st.parts : n === 'partSceneCache' ? st.cache : null); });
-  const api = new Function('window', 'document', 'firebaseAPI', 'confirm', 'module', src + '\nreturn window.TwAdminPartRegister;')(win, document, fb, () => true, undefined);
+  const api = new Function('window', 'document', 'firebaseAPI', 'confirm', 'module', 'var TwNav = { ADMIN_EXIT_EVENT: "tw-admin-exit" };\n' + src + '\nreturn window.TwAdminPartRegister;')(win, document, fb, () => true, undefined);
   const out = api.createAdminPartRegister(deps);
   return { out, calls, els, st };
 }

@@ -36,7 +36,7 @@ function build(src, replies){
     TwErrorCodes: { notify: (c) => { notes.push(c); return true; } },
   };
   new Function('window', 'document', 'module', RID + '\n')(win, undefined, undefined);   // 진짜 request-id.js
-  const g = new Function('window', 'document', 'module', src + '\nreturn window.TwAdminLicenseBulk;')(win, { getElementById: el, addEventListener(){} }, undefined);
+  const g = new Function('window', 'document', 'module', 'var TwNav = { ADMIN_EXIT_EVENT: "tw-admin-exit" };\n' + src + '\nreturn window.TwAdminLicenseBulk;')(win, { getElementById: el, addEventListener(){} }, undefined);
   g.createAdminLicenseBulk({ escHtml: (s) => String(s), toast: (m) => toasts.push(m), genLicenseKey: () => 'K', saveFailMsg: () => '', renderLicenseGenList(){}, downloadBlob(){},
     srFmtDate: (ms) => new Date(ms).toISOString().slice(0, 10) });
   const set = (code, want, months) => { els.srGrantCode.value = code; els.srGrantWant.value = want || ''; els.srGrantMonths.value = months || ''; };

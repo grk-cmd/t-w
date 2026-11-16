@@ -18,7 +18,7 @@ const apiErrors = deps.apiErrors;
 const $ = (id)=>document.getElementById(id);
 const fail = (e)=>{ apiErrors.notify(e, adminApi.ERRORS); };
 const hide = (id)=>{ const o=$(id); o.classList.remove('on'); o.style.display='none'; };
-document.addEventListener('tw-admin-exit', ()=>{ hide('announceOverlay'); hide('updateNoticeAdminOverlay'); });   // 세션이 끝나면 자기 닫기로
+document.addEventListener(TwNav.ADMIN_EXIT_EVENT, ()=>{ hide('announceOverlay'); hide('updateNoticeAdminOverlay'); });   // 세션이 끝나면 자기 닫기로
 let busy = false;   // 서버에 보내는 중 — 확성기 · 업데이트 공지 버튼이 같이 쓴다(한 번에 하나)
 async function exclusive(job){
   if(busy) return;
