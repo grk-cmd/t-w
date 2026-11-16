@@ -236,6 +236,7 @@
 - **만드는 법**: deps 하나 — `const charMeasureMod = TwCharMeasure.createCharMeasure({ measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a) });`. 맨 몸 · 맨 머리 · 발밑 깊이는 `measureBodyBox`(body-measure.js)에 옵션만 고른다.
 - **내보내는 것**
   - `measureCharBox(root)` — 맨 몸 박스(스킨드 · 리깅 · 꾸미기 wrapper 제외). fitModel 의 키 정규화 분모.
+  - `measurePreviewBox(root)` — 꾸미기 미리보기 카메라 구도. 보이는 몸 · 보이는 일반 파츠는 세고 리깅 파츠(스키닝 전 원본 박스가 몇 배씩 크다) · 숨은 메시는 뺀다. 아무것도 안 잡히면 통째로. ⚠️ 통째로(setFromObject) 재면 리깅 파츠 하나에 카메라가 물러나 캐릭터가 점처럼 보인다.
   - `measureHeadBoxNoParts(root, outBoxes?, meshHost?)` — 맨 머리 박스(숨은 메쉬 · 꾸미기 파츠 제외, meshHost 를 주면 기본 장식 메쉬도). 올라타기 · 이름표 · 귀가 쓴다.
   - `headDecorMeshSet(meshHost)` — 기본 장식 메쉬(hatMesh · maskMesh · glassesMesh · wingMesh) Set.
   - `measureUnderfootDepth(root)` — 발 아래로 내려간 깊이(오차 0.005 이하면 0 · 상한 1.2).
@@ -308,6 +309,7 @@
   - `countsAsBody(mesh, root, opts)` · `isPartNode(node)` · `isPartByRigOrName(node)`(옛 판정 — 리깅 · 이름만, 표식은 안 봄) · `PART_WRAP_PREFIX`
   ```js
   measureCharBox(root)          // = measureBodyBox(root, { excludeParts: true })                       키 정규화 · 센터링 · 날기 벽(tricks — gltfRoot 를 재고 비면 rig 째 옵션 없음)
+  measurePreviewBox(root)       // = measureBodyBox(root, { excludeParts: 'rigged', visibleOnly: true }) 꾸미기 미리보기 카메라 구도(비면 통째로)
   measureHeadBoxNoParts(r,o,h)  // = { excludeParts: true, visibleOnly: true, skipMeshes: 장식 }         올라타기 · 맨 머리
   measureUnderfootDepth(root)   // = { excludeParts: 'rigged', visibleOnly: true } 의 min.y            발밑 파츠 바닥 맞춤
   _boxExcluding(root, skipSub)  // = { skipBranch: o => o.visible === false || skipSub(o) }            책상 바닥 맞춤(파츠 핀 빼기)

@@ -1175,6 +1175,7 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   isDeskPartCat: (...a)=>premiumMod.isDeskPartCat(...a),
   isHueTintMesh: (...a)=>isHueTintMesh(...a),
   measureCharBox: (...a)=>charMeasureMod.measureCharBox(...a),
+  measurePreviewBox: (...a)=>charMeasureMod.measurePreviewBox(...a),
   openAssetImport: (...a)=>twNav.go(twNav.NAV.ASSET_IMPORT, ...a),
   partCatInfo: (...a)=>premiumMod.partCatInfo(...a),
   partEntryId: (...a)=>premiumMod.partEntryId(...a),

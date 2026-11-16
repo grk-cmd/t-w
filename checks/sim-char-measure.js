@@ -22,7 +22,7 @@ const FN_DEPS = ["measureBodyBox"];
 const VAL_DEPS = [];
 const GET_DEPS = [];
 const SET_DEPS = [];
-const EXPORTS = ["charFootFix","floorClampWrapper","headDecorMeshSet","measureCharBox","measureHeadBoxNoParts","measureUnderfootDepth"];
+const EXPORTS = ["charFootFix","floorClampWrapper","headDecorMeshSet","measureCharBox","measurePreviewBox","measureHeadBoxNoParts","measureUnderfootDepth"];
 const MOVED = ["HEAD_DECOR_MESH_KEYS","_EMPTY_MESH_SET","headDecorMeshSet","measureHeadBoxNoParts","measureCharBox","FLOOR_SNAP_MAX","FLOOR_SNAP_MIN","measureUnderfootDepth","FOOT_FIX_MAX_RATIO","charFootFix","_boxExcluding","floorClampWrapper"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),"];
 
@@ -142,6 +142,34 @@ say('── 4. 동작 — 박스 · 깊이 · 보정 · 바닥 맞춤');
   chk(C.measureUnderfootDepth(feet(-3)) === SNAP_MAX && warns.length === 1, '  비정상으로 깊으면 상한 ' + SNAP_MAX + ' · 경고');
   chk(C.measureUnderfootDepth(feet(-0.5, 'hidden')) === 0 && C.measureUnderfootDepth(feet(-0.5, 'rig')) === 0, '  숨은 메쉬 · 리깅 파츠는 안 센다');
   chk(C.measureUnderfootDepth({ updateWorldMatrix(){ throw new Error('x'); } }) === 0, '  던지면 0');
+  /* 👀 꾸미기 미리보기 카메라 구도 — 리깅 파츠 원본 박스 · 숨은 메시는 빼고, 보이는 몸 · 보이는 일반 파츠는 센다 */
+  if(C.measurePreviewBox){
+    const pv = () => { const g = new THREE.Group(); g.add(mesh(0.6, 1.45, 0.4, 0, 0.725, 0)); return g; };
+    let g = pv(); const hatW = new THREE.Group(); hatW.userData.__twPartWrap = true; hatW.add(mesh(0.4, 0.3, 0.4, 0, 1.6, 0)); g.add(hatW);
+    let b = C.measurePreviewBox(g);
+    chk(near(b.max.y, 1.75) && near(b.min.y, 0), '★ 미리보기 구도 — 보이는 일반 파츠(모자)는 센다(구도에 모자까지 · 예전과 같음)');
+    g = pv(); const rigW = new THREE.Group(); rigW.userData.rigged = true; const big = mesh(140, 140, 140, 0, 70, 0); rigW.add(big); g.add(rigW);
+    b = C.measurePreviewBox(g);
+    chk(near(b.max.y, 1.45) && near(b.max.x, 0.3), '★ 리깅 파츠의 스키닝 전 원본 박스(몇십 배)는 안 센다 — 카메라가 물러나 캐릭터가 점처럼 보이던 것');
+    g = pv(); const sk = mesh(90, 90, 90); sk.userData._origBind = true; g.add(sk); const hid = mesh(50, 50, 50); hid.visible = false; g.add(hid);
+    b = C.measurePreviewBox(g);
+    chk(near(b.max.y, 1.45), '  스킨드 원본(_origBind) · 숨은 메시도 안 센다');
+    const empty = new THREE.Group(); const onlyRig = new THREE.Group(); onlyRig.userData.rigged = true; onlyRig.add(mesh(1, 1, 1, 0, 0.5, 0)); empty.add(onlyRig);
+    b = C.measurePreviewBox(empty);
+    chk(!b.isEmpty() && near(b.max.y, 1), '  잡히는 게 없으면 통째로(빈 상자로 카메라를 잃지 않게)');
+  }
+  /* 깨 보기 — 예전처럼 통째로 재면 리깅 파츠에 끌려간다 · 꾸미기 미리보기가 이 함수로 구도를 잡는다 */
+  if(typeof MOD === 'string' && MOD && C.measurePreviewBox){
+    const brk = MOD.replace("  const b = measureBodyBox(root, { excludeParts: 'rigged', visibleOnly: true });", "  const b = new THREE.Box3().setFromObject(root);");
+    const bmSrc = ['character/body-measure.js', 'parts/character/body-measure.js', 'app/parts/character/body-measure.js', 'body-measure.js'].map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean);
+    const bw = {}; new Function('window', 'module', 'THREE', bmSrc)(bw, undefined, THREE);
+    const w2 = {}; new Function('window', 'module', 'THREE', 'console', brk)(w2, undefined, THREE, con);
+    const C2 = w2.TwCharMeasure.createCharMeasure({ measureBodyBox: (...a)=>bw.TwBodyMeasure.createBodyMeasure({}).measureBodyBox(...a) });
+    const g = new THREE.Group(); g.add(mesh(0.6, 1.45, 0.4, 0, 0.725, 0)); const r = new THREE.Group(); r.userData.rigged = true; r.add(mesh(140, 140, 140, 0, 70, 0)); g.add(r);
+    chk(brk !== MOD && !near(C2.measurePreviewBox(g).max.y, 1.45), '깨 보기 — 통째로 재면 리깅 파츠에 끌려가 빨강');
+    const WD = ['character/wardrobe.js', 'parts/character/wardrobe.js', 'app/parts/character/wardrobe.js', 'wardrobe.js'].map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean) || '';
+    chk(/const box=measurePreviewBox\(g\);\n  const size=box\.getSize/.test(WD) && !/new THREE\.Box3\(\)\.setFromObject\(g\);\n  const size=box\.getSize/.test(WD), '꾸미기 미리보기 카메라가 이 규칙(measurePreviewBox)으로 구도를 잡는다(wardrobe.js refreshWdPreviewChar)');
+  }
   /* 피봇 보정 */
   const B = (a, b) => new THREE.Box3(new THREE.Vector3(0, a, 0), new THREE.Vector3(1, b, 1));
   chk(C.charFootFix(null) === 0 && C.charFootFix(new THREE.Box3()) === 0 && C.charFootFix(B(0, 1.45)) === 0, '피봇 보정 — 빈 값 · 빈 박스 · 이미 발바닥이면 0');
