@@ -32,7 +32,7 @@ const NO_ROWS: UserRow[] = [];
 
 // 보통은 쪽 단위로 받는다(API 는 서버가 거르고 자른다, 폴백은 통째로 받아 화면에서). 선택은 지금 보이는 쪽 안에서만.
 // 기간 검색은 사람마다 한 칸씩 읽어야 알 수 있어, 걸었을 때만 조건에 맞는 사람을 전부 받아 화면에서 거르고 자른다.
-export function UsersPage() {
+export function PagedUsers() {
   const reload = useReloadUsers();
   const refresh = useRefreshUsers();
   const [filter, setFilter] = useState<UserFilter>('all');

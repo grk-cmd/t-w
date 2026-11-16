@@ -1,4 +1,4 @@
-import type { UserRow } from './userRow';
+import type { LiveUserRow } from './userRow';
 
 /** 서버가 준 «내가 만든 초대 코드» 한 줄 — 쓴 사람은 사용자코드(여러 명일 수 있다). */
 export interface ServerIssuedInvite {
@@ -16,7 +16,7 @@ export interface DetailSecretRoom {
 
 /** API 판 사용자 상세 — 줄 칸(`row`)에 상세 창 칸을 더한 것. */
 export interface UserDetail {
-  row: UserRow;
+  row: LiveUserRow;
   /** 접속 중이고 시크릿룸이 아닐 때만 들어간 방 코드. */
   room: string | null;
   hasPasswordLogin: boolean;

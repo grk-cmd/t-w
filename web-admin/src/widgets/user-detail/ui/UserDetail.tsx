@@ -9,17 +9,20 @@ import {
   realName,
   useUserBrief,
   useIssuedInvites,
+  useUserDetail,
   useUserFocusSec,
   useUserInvite,
   useUserName,
+  useUserPort,
   useUserPresence,
   verLabel,
+  type UserDetail as UserDetailView,
   type UserRow,
 } from '@/entities/user';
 import { DeleteAccountButton } from '@/features/user/delete-account';
 import { ResetPasswordButton } from '@/features/user/reset-password';
 import { GrantInvitesButton } from '@/features/user/grant-invites';
-import { useSameLicenseUsers, useUserByCode } from '@/features/user/user-rows';
+import { useSameLicenseUsers, useUserByCode, useUsersByCode } from '@/features/user/user-rows';
 import { copyText, formatDate, formatHours } from '@/shared/lib';
 import { useModalDialog, useToast } from '@/shared/ui';
 import styles from './UserDetail.module.css';
@@ -200,7 +203,7 @@ function Badges({ row }: { row: UserRow }) {
   );
 }
 
-function Body({ row, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> & { row: UserRow }) {
+function FirebaseBody({ row, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> & { row: UserRow }) {
   const uid = row.userCode;
   const toast = useToast();
   const brief = useUserBrief(uid);
@@ -342,6 +345,233 @@ function Body({ row, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> & { row
   );
 }
 
+// ── API 판 — 한 사람 몫을 서버가 한 번에 준다. 줄(row)에 있는 칸은 바로, 상세에만 있는 칸은 받는 대로 ──
+
+/** 접속 칸 — online 이 null 이면 «꺼짐» 이 아니라 «모름». */
+function ServerPresence({ row, room }: { row: UserRow; room: string | null | undefined }) {
+  const p = row.live?.presence;
+  if (!p) return <span className="soft">읽지 못함</span>;
+  const seen = p.lastSeen ? formatDate(p.lastSeen) : '—';
+  if (p.online === null) return <span className="soft">접속 여부 모름 · {seen}</span>;
+  if (!p.online) return <>{seen}</>;
+  return <span className={styles.online}>접속 중{room && <code className="key"> · {room}</code>}</span>;
+}
+
+function ServerBadges({ row }: { row: UserRow }) {
+  const detail = useUserDetail(row.userCode);
+  const online = row.live?.presence.online;
+  return (
+    <div className={styles.badges}>
+      {online === null ? (
+        <span className={styles.badge}>접속 여부 모름</span>
+      ) : online ? (
+        <span className={`${styles.badge} ${styles.badgeOk}`}>● 접속 중</span>
+      ) : (
+        <span className={styles.badge}>오프라인</span>
+      )}
+      {row.license && (
+        <span
+          className={`${styles.badge} ${isBadLicense(row.licenseState) ? styles.badgeWarn : styles.badgeAccent}`}
+        >
+          라이선스 · {LICENSE_LABEL[row.licenseState]}
+        </span>
+      )}
+      {!!detail.data?.openReports && (
+        <span className={`${styles.badge} ${styles.badgeWarn}`}>열린 신고 {detail.data.openReports}건</span>
+      )}
+    </div>
+  );
+}
+
+/** 사용자코드 목록 → 이름 링크. 이름을 받기 전에는 코드, 받지 못한 사람은 코드 그대로. */
+function ServerPeople({ codes, onOpen }: { codes: string[]; onOpen: (uid: string) => void }) {
+  const found = useUsersByCode(codes);
+  return (
+    <>
+      {codes.map((code) => {
+        const known = found.data?.get(code);
+        return known ? (
+          <UserLink key={code} row={known} onOpen={onOpen} />
+        ) : (
+          <code key={code} className="key soft">
+            {code}
+          </code>
+        );
+      })}
+    </>
+  );
+}
+
+function ServerJoined({ invitedBy, onOpen }: { invitedBy: string | null; onOpen: (uid: string) => void }) {
+  const kind = inviterKind(invitedBy);
+  if (kind === 'existing' || !invitedBy) return <>기존</>;
+  if (kind === 'admin') return <>초대 · 관리자</>;
+  return (
+    <>
+      초대 · <ServerPeople codes={[invitedBy]} onOpen={onOpen} />
+    </>
+  );
+}
+
+function ServerSecretRoom({ q }: { q: Q<UserDetailView> }) {
+  const [now] = useState(Date.now);
+  return (
+    <Loaded q={q}>
+      {(d) => {
+        const room = d.secretRoom;
+        if (!room) return '—';
+        const exp = room.expiresAt;
+        return (
+          <>
+            <code className="key">{room.code}</code>
+            {room.name && <small>{room.name}</small>}
+            {exp === null && <small>영구</small>}
+            {exp !== null && exp > now && <small>{formatDay(exp)} 까지</small>}
+            {exp !== null && exp <= now && <small className="warn">만료 · {formatDay(exp)}</small>}
+          </>
+        );
+      }}
+    </Loaded>
+  );
+}
+
+function ServerBody({ row, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> & { row: UserRow }) {
+  const uid = row.userCode;
+  const toast = useToast();
+  const detail = useUserDetail(uid);
+  const live = row.live;
+  const who = row.name ?? row.friendCode ?? uid;
+  const copy = async () => toast((await copyText(uid)) ? '사용자코드를 복사했어요' : '복사하지 못했어요');
+
+  return (
+    <>
+      <Section title="계정 정보">
+        <Field label="이름">{row.name ?? <span className="soft">이름 없음</span>}</Field>
+        <Field label="친구코드">
+          <code className="key">{row.friendCode ?? '—'}</code>
+        </Field>
+        <Field label="사용자코드">
+          <code className="key">{uid}</code>
+          <button type="button" className={styles.mini} onClick={copy}>
+            복사
+          </button>
+        </Field>
+      </Section>
+
+      <Section title="라이선스">
+        <Field label="키">
+          {row.license && <code className="key">{row.license}</code>}
+          <small className={isBadLicense(row.licenseState) ? 'warn' : 'soft'}>
+            {LICENSE_LABEL[row.licenseState]}
+          </small>
+        </Field>
+      </Section>
+
+      <Section title="활동">
+        <Field label="마지막 접속">
+          <ServerPresence row={detail.data?.row ?? row} room={detail.data?.room} />
+        </Field>
+        <Field label="앱 버전">
+          {live ? (
+            (live.presence.ver ?? <span className="soft">{verLabel(currentVer(live.presence, row))}</span>)
+          ) : (
+            <span className="soft">읽지 못함</span>
+          )}
+        </Field>
+        <Field label="집중">{formatHours(row.focusTotalSec)}</Field>
+      </Section>
+
+      <Section title="가입 · 초대">
+        {live ? (
+          <>
+            <Field label="가입일">{live.invite.joinedAt ? formatDate(live.invite.joinedAt) : '—'}</Field>
+            <Field label="경로">
+              <ServerJoined invitedBy={live.invite.invitedBy} onOpen={onOpen} />
+            </Field>
+            <Field label="초대권">
+              {live.invite.invitesLeft === null ? '—' : `${live.invite.invitesLeft}장`}
+              <GrantInvitesButton uid={uid} who={who} />
+            </Field>
+          </>
+        ) : (
+          <Field label="가입">
+            <span className="soft">읽지 못함</span>
+          </Field>
+        )}
+        <Field label="초대한 사람">
+          <Loaded q={detail}>
+            {(d) => {
+              if (d.issuedInviteCount === 0) return <>없음</>;
+              const users = [...new Set(d.issuedInvites.flatMap((i) => i.usedBy))];
+              const unused = d.issuedInviteCount - d.usedInviteCount;
+              const cut = d.issuedInvites.length < d.issuedInviteCount;
+              return (
+                <span className={styles.invitees}>
+                  <ServerPeople codes={users} onOpen={onOpen} />
+                  <small className="soft">
+                    코드 {d.issuedInviteCount}개 · 안 씀 {unused}
+                    {cut ? ` · 사람은 최근 ${d.issuedInvites.length}개 코드만` : ''}
+                  </small>
+                </span>
+              );
+            }}
+          </Loaded>
+        </Field>
+      </Section>
+
+      <Section title="신고 · 그림">
+        <Field label="열린 신고">
+          <Loaded q={detail}>
+            {(d) => <span className={d.openReports > 0 ? 'warn' : undefined}>{d.openReports}건</span>}
+          </Loaded>
+        </Field>
+        <Field label="자리비움 그림">
+          <Loaded q={detail}>
+            {(d) =>
+              d.awayImage ? (
+                <a
+                  className={styles.thumb}
+                  href={d.awayImage.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="원본 크게 보기"
+                >
+                  <img src={d.awayImage.url} alt={`${who} 님의 자리비움 그림`} />
+                </a>
+              ) : (
+                <span className="soft">없음</span>
+              )
+            }
+          </Loaded>
+        </Field>
+      </Section>
+
+      <Section title="시크릿룸">
+        <Field label="코드">
+          <ServerSecretRoom q={detail} />
+        </Field>
+      </Section>
+
+      <Section title="로그인">
+        <Field label="비밀번호 로그인">
+          <Loaded q={detail}>
+            {(d) => (d.hasPasswordLogin ? '있음' : <span className="soft">없음</span>)}
+          </Loaded>
+        </Field>
+        <Field label="비밀번호">
+          <ResetPasswordButton code={uid} friendCode={row.friendCode} />
+        </Field>
+      </Section>
+
+      <Section title="삭제 요청" danger>
+        <Field label="계정 삭제">
+          <DeleteAccountButton code={uid} onDeleted={onDeleted} />
+        </Field>
+      </Section>
+    </>
+  );
+}
+
 interface Props {
   /** 열 사람. null 이면 닫힌다. */
   row: UserRow | null;
@@ -356,6 +586,7 @@ interface Props {
 export function UserDetail({ row, onOpen, onClose, onDeleted }: Props) {
   // 안에 있는 초대권 지급 · 계정 삭제 창의 close 는 훅이 걸러 낸다 — 이 창 자신의 것만 받는다.
   const { dialogProps } = useModalDialog({ open: row !== null, onClose });
+  const serverDetail = useUserPort().kind === 'detail';
 
   const title = row ? `${whoOf(row)} 상세` : '사용자 상세';
 
@@ -377,8 +608,18 @@ export function UserDetail({ row, onOpen, onClose, onDeleted }: Props) {
           닫기
         </button>
       </div>
-      {row && <Badges row={row} />}
-      {row && <Body key={row.userCode} row={row} onOpen={onOpen} onDeleted={onDeleted} />}
+      {row &&
+        (serverDetail ? (
+          <>
+            <ServerBadges row={row} />
+            <ServerBody key={row.userCode} row={row} onOpen={onOpen} onDeleted={onDeleted} />
+          </>
+        ) : (
+          <>
+            <Badges row={row} />
+            <FirebaseBody key={row.userCode} row={row} onOpen={onOpen} onDeleted={onDeleted} />
+          </>
+        ))}
     </dialog>
   );
 }

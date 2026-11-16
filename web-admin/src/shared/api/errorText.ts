@@ -26,6 +26,8 @@ export const API_ERROR_TEXT: Readonly<Record<string, string>> = {
   USER_NOT_FOUND: '없는 사용자예요',
   USER_NO_PASSWORD_LOGIN: '구글 로그인만 쓰는 계정이에요',
   USER_ADMIN_TARGET: '관리자 계정은 지울 수 없어요',
+  USER_AUTH_UNAVAILABLE: '로그인 서버에 닿지 못했어요 — 잠시 뒤 다시 해 주세요',
+  USER_REAUTH_REQUIRED: '로그인이 오래돼서 막았어요 — 다시 로그인한 뒤 해 주세요',
   // 라이선스
   LICENSE_SECRET_ROOM_CODE_TAKEN: '이미 쓰고 있는 시크릿룸 코드예요',
   LICENSE_SECRET_ROOM_NOT_FOUND: '없는 시크릿룸이에요',

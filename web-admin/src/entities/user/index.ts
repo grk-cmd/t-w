@@ -19,6 +19,7 @@ export {
   useIssuedInvites,
   useRefreshUserBrief,
   useRowInvite,
+  useRowName,
   useRowPresence,
   useUserBrief,
   useUserDetail,
@@ -30,6 +31,7 @@ export {
   userPresenceQuery,
   useUserPresence,
 } from './api/hooks';
+export { toServerUserDetail, toServerUserRow } from './api/server';
 export {
   useUserPort,
   type UserBrief,
@@ -37,7 +39,7 @@ export {
   type UserDetailPort,
   type UserPort,
 } from './api/index';
-export { userPresenceKey } from './api/keys';
+export { USER_KEYSET_KEY, userPresenceKey } from './api/keys';
 export type { UserDetail, ServerIssuedInvite, DetailSecretRoom } from './model/detail';
 export type { Presence, UserInvite, UserLive } from './model/live';
 export {
@@ -47,6 +49,7 @@ export {
   licenseUseCounts,
   realName,
   sameLicenseUsers,
+  type LiveUserRow,
   type UserLicense,
   type UserRow,
 } from './model/userRow';

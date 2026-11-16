@@ -12,13 +12,26 @@ export {
   type UserFilter,
 } from '@/entities/user';
 
-export const USER_FILTERS: { id: UserFilter; label: string }[] = [
+export interface FilterChip {
+  id: UserFilter;
+  label: string;
+}
+
+export const USER_FILTERS: FilterChip[] = [
   { id: 'all', label: '전체' },
   { id: 'licensed', label: '라이선스 사용 중' },
   { id: 'revoked', label: '회수 · 없는 키' },
   { id: 'no-license', label: '라이선스 없음' },
   { id: 'no-account', label: '계정 없음' },
   { id: 'dup-license', label: '키 중복' },
+];
+
+/** API 판 칩 — 서버 모델에 «계정 없음» · «키 중복» 이 없다(모든 계정에 로그인이 있고 키 주인은 한 명). */
+export const SERVER_USER_FILTERS: FilterChip[] = [
+  { id: 'all', label: '전체' },
+  { id: 'licensed', label: '라이선스 사용 중' },
+  { id: 'revoked', label: '회수된 키' },
+  { id: 'no-license', label: '라이선스 없음' },
 ];
 
 export const PERIOD_FIELDS: { id: PeriodField; label: string }[] = [

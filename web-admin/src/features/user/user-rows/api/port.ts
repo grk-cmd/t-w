@@ -1,4 +1,4 @@
-import type { UserPageView, UserQuery, UserRow, UserStatsView } from '@/entities/user';
+import type { LiveUserRow, UserPageView, UserQuery, UserRow, UserStatsView } from '@/entities/user';
 import type { KeysetPage } from '@/shared/lib';
 import type { AllUsersView } from './firebase';
 
@@ -28,5 +28,5 @@ export type UserRowsPagedPort = UserRowsReads & {
 export type UserRowsKeysetPort = UserRowsReads & {
   kind: 'keyset';
   /** 한 쪽 — 첫 쪽은 `cursor` 없음. 첫 쪽만 `total`(조건에 맞는 전체 수). 거르기 · 찾기 · 기간 · 순서는 서버가 한다. */
-  page(query: UserQuery, cursor: string | undefined, limit: number): Promise<KeysetPage<UserRow>>;
+  page(query: UserQuery, cursor: string | undefined, limit: number): Promise<KeysetPage<LiveUserRow>>;
 };

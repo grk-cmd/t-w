@@ -12,6 +12,7 @@ export {
   type AllUsersView,
   type LoadAllRows,
 } from './api/firebase';
+export { serverUserParams } from './api/server';
 export {
   useUserRowsPort,
   type UserRowsKeysetPort,

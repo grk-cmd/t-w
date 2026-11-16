@@ -18,6 +18,9 @@ export const LICENSE_LABEL: Record<UserLicense, string> = {
 /** 회수됐거나 발급 목록에 없는 키 — 경고 색으로 보인다. */
 export const isBadLicense = (state: UserLicense) => state === 'revoked' || state === 'unknown';
 
+/** 줄이 접속 · 가입 칸을 싣고 온 모양(API 판). */
+export type LiveUserRow = UserRow & { live: UserLive };
+
 export interface UserRow {
   userCode: string;
   name: string | null;

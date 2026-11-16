@@ -5,7 +5,7 @@ import {
   useQueryClient,
   type QueryClient,
 } from '@tanstack/react-query';
-import type { UserQuery, UserRow } from '@/entities/user';
+import { USER_KEYSET_KEY, type UserQuery, type UserRow } from '@/entities/user';
 import { REPLICA_LAG_MS } from '@/shared/api';
 import { KEYSET_PAGE_MAX, resetKeyset } from '@/shared/lib';
 import { useUserRowsPort } from '../api/index';
@@ -14,7 +14,7 @@ import type { UserRowsPort } from '../api/port';
 /** 사용자 목록 쪽 · 통계 · 한 사람 찾기 — 모두 이 이름표 아래. */
 const USERS_KEY = ['users'];
 /** 서버 키셋 목록(API 판) — 쓰기 뒤에는 이어 둔 쪽을 버리고 첫 쪽부터 다시 받는다. */
-const USERS_KEYSET_KEY = [...USERS_KEY, 'keyset'];
+const USERS_KEYSET_KEY = USER_KEYSET_KEY;
 
 // 예전 방식 · 폴백의 원본 셋. 사용자 화면 · 방 서버 화면 · 라이선스 화면이 같은 캐시를 나눠 쓴다(같은 키).
 const RTDB_KEYS = [['accountSnap'], ['friendCodes'], ['licenses']];

@@ -1,7 +1,7 @@
 import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query';
 import { userInviteKey } from '@/entities/invite/@x/user';
 import type { UserInvite } from '../model/live';
-import type { UserRow } from '../model/userRow';
+import { realName, type UserRow } from '../model/userRow';
 import { userBriefKey, userDetailKey, userPresenceKey } from './keys';
 import type { UserBrief, UserCellsPort, UserPort } from './port';
 import { useUserPort } from './index';
@@ -63,6 +63,15 @@ export function useUserFocusSec(uid: string) {
 export function useUserName(uid: string, enabled: boolean) {
   const port = useUserPort();
   return useQuery({ queryKey: ['userName', uid], queryFn: () => port.name(uid), enabled });
+}
+
+/**
+ * 목록 줄의 이름 — 줄에 이름이 있으면 그대로. 없으면 Firebase 판은 그 사람 이름 한 칸을 읽고,
+ * 줄이 칸을 싣고 오는 판(API)은 서버가 «이름 없음» 이라 한 것이라 더 묻지 않는다.
+ */
+export function useRowName(row: UserRow): { name: string | null; loading: boolean } {
+  const fetched = useUserName(row.userCode, !row.name && row.live === null);
+  return { name: row.name ?? realName(fetched.data), loading: fetched.isLoading };
 }
 
 export function useUserLicense(uid: string) {

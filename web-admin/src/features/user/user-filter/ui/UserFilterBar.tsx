@@ -4,6 +4,7 @@ import {
   NO_PERIOD,
   PERIOD_FIELDS,
   USER_FILTERS,
+  type FilterChip,
   type Period,
   type PeriodField,
   type UserFilter,
@@ -17,10 +18,21 @@ interface Props {
   search: UserSearch;
   onFilterChange: (filter: UserFilter) => void;
   onSearch: (search: UserSearch) => void;
+  /** 보일 칩. 없으면 Firebase 판의 칩 전부. */
+  chips?: readonly FilterChip[];
+  /** 검색어 칸 글자 수 힌트 — 막기만 하고 판정은 서버가 한다. */
+  textMax?: number;
 }
 
 // 글자 · 기간은 «검색» 을 눌러야 걸린다 — 기간은 사람마다 한 칸씩 읽어야 해서 칠 때마다 돌리면 안 된다. 칩은 바로.
-export function UserFilterBar({ filter, search, onFilterChange, onSearch }: Props) {
+export function UserFilterBar({
+  filter,
+  search,
+  onFilterChange,
+  onSearch,
+  chips = USER_FILTERS,
+  textMax,
+}: Props) {
   const [text, setText] = useState(search.text);
   const [period, setPeriod] = useState<Period>(search.period);
   const active = Boolean(search.text.trim()) || hasPeriod(search.period);
@@ -42,6 +54,7 @@ export function UserFilterBar({ filter, search, onFilterChange, onSearch }: Prop
           type="search"
           className={styles.text}
           placeholder="이름 · 친구코드 · 사용자코드 · 키"
+          maxLength={textMax}
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
@@ -81,7 +94,7 @@ export function UserFilterBar({ filter, search, onFilterChange, onSearch }: Prop
         )}
       </form>
       <div className={styles.chips}>
-        {USER_FILTERS.map((f) => (
+        {chips.map((f) => (
           <button
             key={f.id}
             type="button"
