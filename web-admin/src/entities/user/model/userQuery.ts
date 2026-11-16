@@ -1,3 +1,4 @@
+import type { Period } from './period';
 import type { UserRow } from './userRow';
 import { matchesVer } from './version';
 
@@ -50,6 +51,8 @@ export interface UserQuery {
   ver: VerFilter;
   /** 없으면 desc. «키 중복» 은 같은 키끼리 붙이는 순서가 먼저다. */
   order?: LastSeenOrder;
+  /** 가입일 · 마지막 접속 기간. API 판은 서버가 거른다(Firebase 판은 화면이 따로 읽어 거른다). */
+  period?: Period;
 }
 
 export const ALL_USERS: UserQuery = { filter: 'all', q: '', ver: undefined };

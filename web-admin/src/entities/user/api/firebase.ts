@@ -1,8 +1,11 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
-import { useDb, type Db } from '@/shared/api';
+// Firebase 판 — 지금 코드 그대로: users/{uid}/… 의 작은 칸을 하나씩 읽는다.
+import type { Db } from '@/shared/api';
 import { licenseStatus, type License } from '@/entities/license/@x/user';
+import { toIssuedInvites, type IssuedInvite } from '@/entities/invite/@x/user';
+import type { Presence, UserInvite } from '../model/live';
 import type { UserLicense } from '../model/userRow';
 import { APP_VER_UNKNOWN, cleanVer } from '../model/version';
+import type { UserBrief, UserPort } from './port';
 
 const FRIEND_CODE_PREFIXES = ['MATE', 'COZY'];
 
@@ -45,18 +48,6 @@ export async function getUserLastSeen(db: Db, uid: string): Promise<number | nul
   }
 }
 
-export interface Presence {
-  online: boolean;
-  /** 마지막으로 접속 · 종료한 시각(ms). 0.9.7 같은 옛 앱도 쓴다 — 계정이 없는 사용자의 활동은 여기서만 보인다. */
-  lastSeen: number | null;
-  /** 접속 중일 때 들어가 있는 방 코드. 시크릿룸은 앱이 코드를 올리지 않아 늘 null 이다. */
-  room: string | null;
-  /** 앱 버전 — 0.11.0 부터. 꺼진 뒤에도 남는다. 옛 앱은 null. */
-  ver: string | null;
-  /** 앱이 버전을 못 받은 채 쓴 presence(ver «unknown») — 0.11.0 이상이라 옛 앱이 아니다. 이때 ver 는 null. */
-  verUnknown: boolean;
-}
-
 // presence 는 online · lastSeen · room · inRoom · ver 다섯 칸뿐이라 통째로 읽는다(접속 중인 사람은 lastSeen 이 접속한 시각이라 online 도 봐야 한다).
 export async function getUserPresence(db: Db, uid: string): Promise<Presence | null> {
   const p = await db.get<{ online?: unknown; lastSeen?: unknown; room?: unknown; ver?: unknown }>(
@@ -74,15 +65,6 @@ export async function getUserPresence(db: Db, uid: string): Promise<Presence | n
   };
 }
 
-/** 목록 칸과 기간 검색이 같은 캐시를 쓰도록 한 곳에서 만든다. */
-export const userPresenceQuery = (db: Db, uid: string) =>
-  queryOptions({ queryKey: ['presence', uid], queryFn: () => getUserPresence(db, uid) });
-
-/** 화면에 보이는 줄만 읽는다 — 한 번 읽은 값은 캐시에 남아 페이지를 오가도 다시 받지 않는다. */
-export function useUserPresence(uid: string) {
-  return useQuery(userPresenceQuery(useDb(), uid));
-}
-
 /**
  * 계정에 적힌 친구코드(거울). friendCodes 는 코드 → uid 뿐이라 반대 방향은 여기서만 알 수 있다.
  * undefined = 읽지 못함 · null = 적힌 값 없음.
@@ -96,11 +78,6 @@ export async function getUserFriendCode(db: Db, uid: string): Promise<string | n
   }
 }
 
-export function useFriendCodes() {
-  const db = useDb();
-  return useQuery({ queryKey: ['friendCodes'], queryFn: () => listFriendCodes(db) });
-}
-
 /**
  * 집중 누적 시간(초) — 계정 요약에도 있지만 계정이 없는 사람은 여기에만 있다. 앱이 기기끼리 합치는 정본.
  * 칸이 없으면 0.
@@ -108,18 +85,6 @@ export function useFriendCodes() {
 export async function getUserFocusSec(db: Db, uid: string): Promise<number> {
   const v = await db.get<unknown>(`users/${uid}/focus/totalSec`);
   return typeof v === 'number' && v > 0 ? v : 0;
-}
-
-/** 상세 창을 열 때만 읽는다. */
-export function useUserFocusSec(uid: string) {
-  const db = useDb();
-  return useQuery({ queryKey: ['userFocus', uid], queryFn: () => getUserFocusSec(db, uid) });
-}
-
-/** 이름 한 칸 — 한 번 받은 이름은 캐시에 남아 페이지를 오가도 다시 받지 않는다. */
-export function useUserName(uid: string, enabled: boolean) {
-  const db = useDb();
-  return useQuery({ queryKey: ['userName', uid], queryFn: () => getUserName(db, uid), enabled });
 }
 
 /**
@@ -134,7 +99,62 @@ export async function getUserLicense(db: Db, uid: string): Promise<UserLicense> 
   return license ? licenseStatus(license) : 'unknown';
 }
 
-export function useUserLicense(uid: string) {
-  const db = useDb();
-  return useQuery({ queryKey: ['userLicense', uid], queryFn: () => getUserLicense(db, uid) });
+// 규칙 users/$id/awayImg 가 받는 모양과 같다 — 그 밖의 값은 그림으로 보지 않는다.
+export function isAwayImgUrl(v: unknown): v is string {
+  return typeof v === 'string' && v.length <= 500 && v.startsWith('https://firebasestorage.googleapis.com/');
+}
+
+/** 앱 getUserBrief 와 같이 세 칸만 따로 읽는다 — users/{uid} 를 통째로 받으면 마이홈 · 캐릭터까지 딸려 온다. */
+export async function getUserBrief(db: Db, uid: string): Promise<UserBrief> {
+  const read = (path: string) => db.get<unknown>(`users/${uid}/${path}`).catch(() => null);
+  const [name, friendCode, awayImg] = await Promise.all([
+    read('profile/name'),
+    read('friendCode'),
+    read('awayImg'),
+  ]);
+  return {
+    name: typeof name === 'string' ? name : null,
+    friendCode: typeof friendCode === 'string' ? friendCode : null,
+    awayImg: isAwayImgUrl(awayImg) ? awayImg : null,
+  };
+}
+
+export function awayImgRemoveWrite(uid: string): Record<string, null> {
+  return { [`users/${uid}/awayImg`]: null };
+}
+
+/** users/{uid}/invite 세 칸. 칸이 없으면 null — 아직 게이트를 안 지난(옛 앱) 사용자. */
+export async function getUserInvite(db: Db, uid: string): Promise<UserInvite | null> {
+  const v = await db.get<{ joinedAt?: unknown; invitedBy?: unknown; invitesLeft?: unknown }>(
+    `users/${uid}/invite`,
+  );
+  if (!v || typeof v !== 'object') return null;
+  return {
+    joinedAt: typeof v.joinedAt === 'number' ? v.joinedAt : null,
+    invitedBy: typeof v.invitedBy === 'string' && v.invitedBy ? v.invitedBy : null,
+    invitesLeft: typeof v.invitesLeft === 'number' ? v.invitesLeft : null,
+  };
+}
+
+/**
+ * 이 사람이 만든 초대 코드 — 규칙의 invites ".indexOn": ["issuedBy"] 로 그 사람 몫만 받는다(통째 받기 금지).
+ * 관리자가 만든 코드는 issuedBy 가 'admin' 이라 여기 나오지 않는다.
+ */
+export async function listIssuedInvites(db: Db, uid: string): Promise<IssuedInvite[]> {
+  return toIssuedInvites(
+    await db.getEqual<{ createdAt?: unknown; usedBy?: unknown }>('invites', 'issuedBy', uid),
+  );
+}
+
+export function createFirebaseUserPort(db: Db): UserPort {
+  return {
+    kind: 'cells',
+    name: (uid) => getUserName(db, uid),
+    brief: (uid) => getUserBrief(db, uid),
+    presence: (uid) => getUserPresence(db, uid),
+    focusSec: (uid) => getUserFocusSec(db, uid),
+    license: (uid) => getUserLicense(db, uid),
+    invite: (uid) => getUserInvite(db, uid),
+    issuedInvites: (uid) => listIssuedInvites(db, uid),
+  };
 }

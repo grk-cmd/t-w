@@ -1,0 +1,135 @@
+import { describe, expect, it } from 'vitest';
+import { createServerUserPort } from '@/entities/user/api/server';
+import { isPortError, WIRE_SHAPE_CODE } from '@/shared/api';
+import { fakeApiOf } from '../shared/fakeApi';
+import { serverRow } from '../shared/serverUserFixtures';
+
+const caught = (promise: Promise<unknown>) => promise.catch((e: unknown) => e);
+
+const detail = (userCode: string, over: Record<string, unknown> = {}) => ({
+  ...serverRow(userCode),
+  room: { code: 'WORK-AAAA' },
+  hasPasswordLogin: true,
+  awayImage: { url: 'https://x/away.png', size: 12 },
+  openReports: 1,
+  secretRoom: { code: 'SECR-1', name: '비밀', expiresAt: null },
+  issuedInvites: [{ code: 'INVT-AAAA-BBBB', createdAt: '2026-10-02T00:00:00Z', usedBy: ['ufriend001'] }],
+  issuedInviteCount: 3,
+  usedInviteCount: 1,
+  ...over,
+});
+
+describe('사용자 한 사람 — API 판', () => {
+  it('상세 한 번으로 줄 칸 · 접속 · 방 · 초대 수를 모두 읽는다', async () => {
+    const s = fakeApiOf({ 'GET /v2/admin/users/u1': () => detail('u1') });
+    const d = await createServerUserPort(s.api).detail('u1');
+    expect(d.row).toMatchObject({
+      userCode: 'u1',
+      name: '민트',
+      license: 'KEY-1',
+      licenseState: 'used',
+      ver: '0.13.0',
+      focusTotalSec: 7200,
+    });
+    expect(d.row.live.presence).toEqual({
+      online: true,
+      lastSeen: Date.parse('2026-11-10T00:00:00Z'),
+      room: 'WORK-AAAA',
+      ver: '0.13.0',
+      verUnknown: false,
+    });
+    expect(d.row.live.invite).toEqual({
+      joinedAt: Date.parse('2026-10-01T00:00:00Z'),
+      invitedBy: 'uboss0001',
+      invitesLeft: 2,
+    });
+    expect(d).toMatchObject({
+      room: 'WORK-AAAA',
+      hasPasswordLogin: true,
+      awayImage: { url: 'https://x/away.png', size: 12 },
+      openReports: 1,
+      issuedInviteCount: 3,
+      usedInviteCount: 1,
+    });
+    expect(d.issuedInvites).toEqual([
+      { code: 'INVT-AAAA-BBBB', createdAt: Date.parse('2026-10-02T00:00:00Z'), usedBy: ['ufriend001'] },
+    ]);
+    expect(s.calls).toHaveLength(1);
+  });
+
+  it('online null 은 «모름» 으로 남는다 — false 로 바꾸지 않는다', async () => {
+    const s = fakeApiOf({ 'GET /v2/admin/users/u1': () => detail('u1', { online: null, room: null }) });
+    const p = await createServerUserPort(s.api).presence('u1');
+    expect(p?.online).toBeNull();
+    expect(p?.room).toBeNull();
+  });
+
+  it('관리자가 만든 코드로 들어온 사람은 invitedBy 가 «admin», 제도 전부터 쓰던 사람은 null', async () => {
+    const s = fakeApiOf({
+      'GET /v2/admin/users/u1': () =>
+        detail('u1', {
+          invite: {
+            joinedAt: '2026-10-01T00:00:00Z',
+            invited: true,
+            invitedByAdmin: true,
+            invitedBy: null,
+            invitesLeft: 0,
+          },
+        }),
+      'GET /v2/admin/users/u2': () =>
+        detail('u2', {
+          invite: {
+            joinedAt: '2026-10-01T00:00:00Z',
+            invited: false,
+            invitedByAdmin: false,
+            invitedBy: null,
+            invitesLeft: 5,
+          },
+        }),
+    });
+    const port = createServerUserPort(s.api);
+    expect((await port.detail('u1')).row.live.invite.invitedBy).toBe('admin');
+    expect((await port.detail('u2')).row.live.invite.invitedBy).toBeNull();
+  });
+
+  it('작은 읽기(이름 · 소개 · 집중 · 라이선스)는 모두 상세의 한 칸이고 같은 때의 요청은 한 번만 보낸다', async () => {
+    const s = fakeApiOf({
+      'GET /v2/admin/users/u1': () => detail('u1', { license: { key: 'KEY-1', state: 'revoked' } }),
+    });
+    const port = createServerUserPort(s.api);
+    const [name, brief, focus, license] = await Promise.all([
+      port.name('u1'),
+      port.brief('u1'),
+      port.focusSec('u1'),
+      port.license('u1'),
+    ]);
+    expect(name).toBe('민트');
+    expect(brief).toEqual({ name: '민트', friendCode: 'MATE-AB12', awayImg: 'https://x/away.png' });
+    expect(focus).toBe(7200);
+    expect(license).toBe('revoked');
+    expect(s.calls).toHaveLength(1);
+  });
+
+  it('라이선스가 없으면 none, 모르는 상태 글자는 던진다', async () => {
+    const s = fakeApiOf({
+      'GET /v2/admin/users/u1': () => detail('u1', { license: null }),
+      'GET /v2/admin/users/u2': () => detail('u2', { license: { key: 'K', state: 'paused' } }),
+    });
+    const port = createServerUserPort(s.api);
+    expect(await port.license('u1')).toBe('none');
+    const e = await caught(port.license('u2'));
+    expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
+  });
+
+  it('칸이 약속과 다르면 짐작으로 채우지 않고 던진다', async () => {
+    const s = fakeApiOf({
+      'GET /v2/admin/users/u1': () => detail('u1', { focusTotalSec: '7200' }),
+      'GET /v2/admin/users/u2': () => detail('u2', { online: 'yes' }),
+    });
+    const port = createServerUserPort(s.api);
+    for (const uid of ['u1', 'u2']) {
+      const e = await caught(port.detail(uid));
+      expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
+    }
+  });
+});

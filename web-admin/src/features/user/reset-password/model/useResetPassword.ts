@@ -1,10 +1,9 @@
 import { useMutation } from '@tanstack/react-query';
-import { useFunctions } from '@/shared/api';
-import { runPasswordReset } from './resetPassword';
+import { useResetPasswordPort } from '../api/index';
 
 export function usePasswordReset() {
-  const fns = useFunctions();
+  const port = useResetPasswordPort();
   return useMutation({
-    mutationFn: ({ code, memo }: { code: string; memo: string }) => runPasswordReset(fns, code, memo),
+    mutationFn: ({ code, memo }: { code: string; memo: string }) => port.run(code, memo),
   });
 }

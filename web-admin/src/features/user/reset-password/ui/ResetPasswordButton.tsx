@@ -1,13 +1,8 @@
 import { useState } from 'react';
-import { callErrorMessage, useEnv, withProdMark } from '@/shared/api';
+import { accountErrorMessage, useEnv, withProdMark } from '@/shared/api';
 import { useModalDialog, useToast } from '@/shared/ui';
-import {
-  guideText,
-  KIND_TEXT,
-  MEMO_MAX,
-  normalizeMemo,
-  type PasswordResetResult,
-} from '../model/resetPassword';
+import { useResetPasswordPort } from '../api/index';
+import { guideText, KIND_TEXT, MEMO_MAX, type PasswordResetResult } from '../model/resetPassword';
 import { usePasswordReset } from '../model/useResetPassword';
 import styles from './ResetPassword.module.css';
 
@@ -16,11 +11,13 @@ const CALL_FAIL = '초기화 함수를 부르지 못했어요 — 함수가 배�
 interface Props {
   /** 사용자 상세에서 연다 — 그 사람의 사용자 코드. */
   code: string;
+  /** 안내 글에 쓸 친구 코드 — 서버가 답에 싣지 않는 판(API)을 위해 상세가 넘긴다. */
+  friendCode?: string | null;
 }
 
-function Done({ r }: { r: PasswordResetResult }) {
+function Done({ r, friendCode }: { r: PasswordResetResult; friendCode: string | null }) {
   const toast = useToast();
-  const text = guideText(r);
+  const text = guideText({ ...r, friendCode: r.friendCode ?? friendCode });
   const copy = () => {
     void navigator.clipboard.writeText(text).then(
       () => toast('안내 글을 복사했어요'),
@@ -29,13 +26,11 @@ function Done({ r }: { r: PasswordResetResult }) {
   };
   return (
     <>
-      <p className="msg">
-        {KIND_TEXT[r.kind] ?? KIND_TEXT.reset} 작업 기록에 남겼어요(비밀번호는 남기지 않아요).
-      </p>
+      <p className="msg">{KIND_TEXT[r.kind]} 작업 기록에 남겼어요(비밀번호는 남기지 않아요).</p>
       <dl className={styles.who}>
         <dt>아이디(친구 코드)</dt>
         <dd>
-          <code className="key">{r.friendCode ?? r.code}</code>
+          <code className="key">{r.friendCode ?? friendCode ?? r.code}</code>
         </dd>
         <dt>임시 비밀번호</dt>
         <dd>
@@ -54,20 +49,22 @@ function Done({ r }: { r: PasswordResetResult }) {
   );
 }
 
-function Body({ code }: { code: string }) {
+function Body({ code, friendCode }: { code: string; friendCode: string | null }) {
   const env = useEnv();
   const [memoRaw, setMemoRaw] = useState('');
+  const port = useResetPasswordPort();
   const reset = usePasswordReset();
-  const memo = normalizeMemo(memoRaw);
+  // 비었으면 보낼 것이 없다 — 길이 · 모양 판정은 판마다 다르니 포트(서버)가 한다.
+  const filled = memoRaw.trim() !== '';
 
-  if (reset.data) return <Done r={reset.data} />;
+  if (reset.data) return <Done r={reset.data} friendCode={friendCode} />;
 
   return (
     <form
       className={styles.form}
       onSubmit={(e) => {
         e.preventDefault();
-        if (memo) reset.mutate({ code, memo });
+        if (filled) reset.mutate({ code, memo: memoRaw });
       }}
     >
       <p className="soft">
@@ -82,20 +79,25 @@ function Body({ code }: { code: string }) {
           aria-label="메모"
           placeholder="B-1017-3 · 오픈채팅 10/17"
           autoComplete="off"
-          maxLength={MEMO_MAX}
+          maxLength={port.kind === 'functions' ? MEMO_MAX : undefined}
           value={memoRaw}
           onChange={(e) => setMemoRaw(e.target.value)}
         />
+        {port.kind === 'server' && (
+          <small className="soft">
+            {memoRaw.length}/{MEMO_MAX}
+          </small>
+        )}
       </label>
-      <button type="submit" className="btn danger" disabled={!memo || reset.isPending}>
+      <button type="submit" className="btn danger" disabled={!filled || reset.isPending}>
         {reset.isPending ? '초기화 중…' : withProdMark(env, '비밀번호 초기화')}
       </button>
-      {reset.error && <p className="msg err">{callErrorMessage(reset.error, CALL_FAIL)}</p>}
+      {reset.error && <p className="msg err">{accountErrorMessage(reset.error, CALL_FAIL)}</p>}
     </form>
   );
 }
 
-export function ResetPasswordButton({ code }: Props) {
+export function ResetPasswordButton({ code, friendCode = null }: Props) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
   // 사용자 상세 창 안에서 열린다 — 훅이 이 창 자신의 close 만 받는다.
@@ -113,7 +115,7 @@ export function ResetPasswordButton({ code }: Props) {
           </button>
         </div>
         {/* 열 때마다 새로 — 지난번 임시 비밀번호가 남지 않게. */}
-        {open && <Body code={code} />}
+        {open && <Body code={code} friendCode={friendCode} />}
       </dialog>
     </>
   );

@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { resetKeyset } from '@/shared/lib';
+import { USER_KEYSET_KEY, type UserInvite } from '@/entities/user/@x/invite';
 import { GROUP_INVITES_KEY, invitesLeftKey, USER_INVITE, userInviteKey } from './keys';
-import type { UserInvite } from './userInvite';
 import { useInvitePort } from './index';
 
 export function useGroupInvites(enabled: boolean) {
@@ -22,11 +23,17 @@ export function useSetInvitesLeftCache() {
     client.setQueryData<UserInvite | null>(userInviteKey(uid), (cur) =>
       cur ? { ...cur, invitesLeft: value } : cur,
     );
+    // API 판은 목록 줄이 초대권 수를 싣고 온다 — 그 줄을 다시 받는다(Firebase 판에는 없는 목록이라 아무 일도 없다).
+    void resetKeyset(client, USER_KEYSET_KEY);
   };
 }
 
 /** 여러 명에게 지급한 뒤 — 받아 둔 가입 칸을 버려 보이는 줄만 다시 읽게 한다. */
 export function useForgetUserInvites() {
   const client = useQueryClient();
-  return () => client.invalidateQueries({ queryKey: [USER_INVITE] });
+  return () =>
+    Promise.all([
+      client.invalidateQueries({ queryKey: [USER_INVITE] }),
+      resetKeyset(client, USER_KEYSET_KEY),
+    ]);
 }

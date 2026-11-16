@@ -1,15 +1,15 @@
 import {
   isBadLicense,
   LICENSE_LABEL,
-  realName,
-  useUserName,
+  onlineUnknownText,
+  useRowName,
   type LastSeenOrder,
   currentVer,
-  useUserPresence,
+  useRowInvite,
+  useRowPresence,
   verLabel,
   type UserRow,
 } from '@/entities/user';
-import { useUserInvite } from '@/entities/invite';
 import { GrantInvitesButton } from '@/features/user/grant-invites';
 import { formatDate, formatHours, type Selection } from '@/shared/lib';
 import { RowCheckbox, SelectAllCheckbox } from '@/shared/ui';
@@ -17,32 +17,34 @@ import styles from './UserTable.module.css';
 
 // 계정 요약에 이름이 없으면 그 사람 이름 한 칸만 읽는다. 화면에 보이는 줄만 읽고, 한 번 읽은 이름은 캐시에 남는다.
 function NameCell({ row }: { row: UserRow }) {
-  const fetched = useUserName(row.userCode, !row.name);
-  const name = row.name ?? realName(fetched.data);
+  const { name, loading } = useRowName(row);
   if (name) return <>{name}</>;
-  return <span className="soft">{fetched.isLoading ? '…' : '이름 없음'}</span>;
+  return <span className="soft">{loading ? '…' : '이름 없음'}</span>;
 }
 
-// 마지막 접속 — 계정 요약은 계정이 있는 사람만 있어서, 옛 앱을 포함한 모두가 쓰는 presence 를 줄마다 읽는다.
-function LastSeenCell({ uid }: { uid: string }) {
-  const p = useUserPresence(uid);
+// 마지막 접속 — 계정 요약은 계정이 있는 사람만 있어서, 옛 앱을 포함한 모두가 쓰는 presence 를 줄마다 읽는다(API 판은 줄이 싣고 온다).
+function LastSeenCell({ row }: { row: UserRow }) {
+  const p = useRowPresence(row);
   if (p.isLoading) return <span className="soft">…</span>;
   if (p.error) return <span className="soft">읽지 못함</span>;
   if (p.data?.online) return <span className={styles.online}>접속 중</span>;
-  return <span className="soft">{p.data?.lastSeen ? formatDate(p.data.lastSeen) : '—'}</span>;
+  const seen = p.data?.lastSeen ? formatDate(p.data.lastSeen) : '—';
+  // online 이 null 이면 «꺼짐» 이 아니라 «모름» — 접속 상태를 묻는 서버에 닿지 못했다.
+  if (p.data?.online === null) return <span className="soft">{onlineUnknownText(seen)}</span>;
+  return <span className="soft">{seen}</span>;
 }
 
 // 버전 — 마지막 접속 칸과 같은 presence(캐시 한 벌)를 본다. 계정 요약의 버전은 옛 값이 남을 수 있다.
 function VerCell({ row }: { row: UserRow }) {
-  const p = useUserPresence(row.userCode);
+  const p = useRowPresence(row);
   if (p.isLoading) return <span className="soft">…</span>;
   const v = currentVer(p.data ?? null, row);
   return <span className={v.ver ? undefined : 'soft'}>{verLabel(v)}</span>;
 }
 
 // 가입 — 초대장 제도의 기록. 초대한 사람이 없으면 제도 전부터 쓰던 «기존»(처음 5장), 있으면 «초대»(0장으로 시작).
-function JoinCell({ uid }: { uid: string }) {
-  const inv = useUserInvite(uid);
+function JoinCell({ row }: { row: UserRow }) {
+  const inv = useRowInvite(row);
   if (inv.isLoading) return <span className="soft">…</span>;
   if (inv.error) return <span className="soft">읽지 못함</span>;
   if (!inv.data) return <span className="soft">—</span>;
@@ -157,10 +159,10 @@ export function UserTable({ rows, startIndex, selection, onOpen, order, onToggle
               </td>
               <td>{formatHours(row.focusTotalSec)}</td>
               <td>
-                <JoinCell uid={row.userCode} />
+                <JoinCell row={row} />
               </td>
               <td>
-                <LastSeenCell uid={row.userCode} />
+                <LastSeenCell row={row} />
               </td>
               <td>
                 <VerCell row={row} />

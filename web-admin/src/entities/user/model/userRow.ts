@@ -1,6 +1,7 @@
 // 사용자 한 줄은 계정 요약 · 친구코드 명단 · 발급된 키를 맞춰 본 결과라 두 entity 를 @x 통로로 함께 쓴다.
 import type { AccountSnap } from '@/entities/account/@x/user';
 import { licenseStatus, type License, type LicenseStatus } from '@/entities/license/@x/user';
+import type { UserLive } from './live';
 import { cleanVer } from './version';
 
 export type UserLicense = LicenseStatus | 'none' | 'unknown';
@@ -17,6 +18,9 @@ export const LICENSE_LABEL: Record<UserLicense, string> = {
 /** 회수됐거나 발급 목록에 없는 키 — 경고 색으로 보인다. */
 export const isBadLicense = (state: UserLicense) => state === 'revoked' || state === 'unknown';
 
+/** 줄이 접속 · 가입 칸을 싣고 온 모양(API 판). */
+export type LiveUserRow = UserRow & { live: UserLive };
+
 export interface UserRow {
   userCode: string;
   name: string | null;
@@ -30,6 +34,8 @@ export interface UserRow {
   ver: string | null;
   /** 이 키를 쓰는 사람 수(목록 전체 기준 · 본인 포함). 키가 없으면 0. */
   licenseUsers: number;
+  /** 줄이 싣고 온 접속 · 가입 칸. null 이면 칸마다 따로 읽는다. */
+  live: UserLive | null;
 }
 
 // 앱은 이름을 안 정한 사람에게 이 글자를 실제 이름처럼 저장한다 — 이름이 없는 것으로 본다.
@@ -62,6 +68,7 @@ export function buildUserRows(
       focusTotalSec: snap.focusTotalSec ?? 0,
       ver: cleanVer(snap.ver),
       licenseUsers: 0,
+      live: null,
     });
   }
 
@@ -79,6 +86,7 @@ export function buildUserRows(
       focusTotalSec: 0,
       ver: null,
       licenseUsers: 0,
+      live: null,
     });
   }
 

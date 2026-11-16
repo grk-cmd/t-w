@@ -1,0 +1,18 @@
+export const serverRow = (userCode: string, over: Record<string, unknown> = {}) => ({
+  userCode,
+  name: '민트',
+  friendCode: 'MATE-AB12',
+  license: { key: 'KEY-1', state: 'valid' },
+  lastSeenAt: '2026-11-10T00:00:00Z',
+  appVersion: '0.13.0',
+  focusTotalSec: 7200,
+  invite: {
+    joinedAt: '2026-10-01T00:00:00Z',
+    invited: true,
+    invitedByAdmin: false,
+    invitedBy: 'uboss0001',
+    invitesLeft: 2,
+  },
+  online: true,
+  ...over,
+});

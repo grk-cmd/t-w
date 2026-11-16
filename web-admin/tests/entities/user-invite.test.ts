@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { getUserInvite, listIssuedInvites, toIssuedInvites } from '@/entities/invite';
+import { toIssuedInvites } from '@/entities/invite';
+import { getUserInvite, listIssuedInvites } from '@/entities/user';
 import { fakeDb } from '../shared/fakeDb';
 
 describe('가입 기록', () => {
