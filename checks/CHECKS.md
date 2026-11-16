@@ -277,7 +277,7 @@
 | **sim-focus-log.js** | 333 | **721cf81ef653** |
 | **sim-focus-progress.js** | 390 | **0195fe25d4c3** |
 | **sim-chat-window.js** | 565 | **9b933ee52a05** |
-| **sim-api-client.js** | 455 | **95f8f2d62950** |
+| **sim-api-client.js** | 479 | **bda2b63251db** |
 | **sim-api-public-reads.js** | 148 | **4d8620d1b68c** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
 | **sim-remote-config.js** | 372 | **1b5dcfbf856c** |
@@ -481,7 +481,7 @@
 | **sim-request-id.js** | 94 | **34021f461cd5** |
 | **sim-device-id.js** | 103 | **44a934497fba** |
 | **sim-account-store.js** | 624 | **d65c22de53e9** |
-| **sim-api-errors.js** | 126 | **46fbbfebb0fc** |
+| **sim-api-errors.js** | 128 | **b13cd4fb40bc** |
 | **sim-rt-hub.js** | 529 | **7a912568ddb2** |
 | **sim-rt-status-ui.js** | 245 | **64adff52d476** |
 | **sim-run-verdict.js** | 67 | **4303b789970f** |
