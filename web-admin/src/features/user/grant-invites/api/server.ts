@@ -2,15 +2,8 @@
 // 고른 사람들(≤100): `{ requestId, targets, n }` → 줄마다 `{ id, ok, code?, left? }`. 회수는 `POST …/revocations { target | targets }`(요청 번호 없음).
 // 한 명짜리 코드 n 개: `POST /v2/admin/invites { requestId, maxUses: 1, count: n }` → `{ code, codes }`. 여러 명 코드: 같은 길에 `{ requestId, maxUses, expiresAt?, memo? }`,
 // 중지 · 다시 열기: `PATCH /v2/admin/invites/{code} { version, paused }` — 번호는 목록이 읽은 줄에 실려 오고 그 사이 다른 관리자가 고쳤으면 409 → `conflict`.
-// 기록 · 남은 장수 계산은 서버가 한다.
-import {
-  GROUP_INVITE_NOTE_MAX,
-  INVITE_CODE_MAX,
-  isGrantCount,
-  isGroupMaxUses,
-  type GroupInvite,
-  type GroupInviteDraft,
-} from '@/entities/invite';
+// 기록 · 남은 장수 계산과 지급 장수 · 코드 개수 · 인원 상한 · 메모 길이 판정은 서버가 한다 — 값은 그대로 보내고 400 은 서버 문구로 띄운다.
+import { type GroupInvite, type GroupInviteDraft } from '@/entities/invite';
 import {
   adminPath,
   perApi,
@@ -98,7 +91,6 @@ function build(api: Api | null): GrantInvitesPort {
 
   return {
     async grantOne(uid, count) {
-      if (!isGrantCount(count)) throw new Error(`지급 장수가 범위를 벗어났어요: ${count}`);
       const body = { target: uid, n: count };
       const r = toChanged(
         await portCall(
@@ -132,7 +124,6 @@ function build(api: Api | null): GrantInvitesPort {
       ),
 
     async grant(target, count, opts: RunOpts = {}) {
-      if (!isGrantCount(count)) throw new Error(`지급 장수가 범위를 벗어났어요: ${count}`);
       if (target.kind === 'all') {
         const body = { target: 'all', n: count };
         const r = toChanged(
@@ -240,8 +231,6 @@ function build(api: Api | null): GrantInvitesPort {
     },
 
     async createCodes(n, onCode) {
-      if (!Number.isInteger(n) || n < 1 || n > INVITE_CODE_MAX)
-        throw new Error(`만들 개수가 범위를 벗어났어요: ${n}`);
       const body = { maxUses: 1, count: n };
       const answer = wireObject(
         await portCall(
@@ -259,8 +248,7 @@ function build(api: Api | null): GrantInvitesPort {
     },
 
     async createGroup(draft: GroupInviteDraft) {
-      if (!isGroupMaxUses(draft.maxUses)) throw new Error(`인원이 범위를 벗어났어요: ${draft.maxUses}`);
-      const memo = draft.note.trim().slice(0, GROUP_INVITE_NOTE_MAX);
+      const memo = draft.note.trim();
       const body = {
         maxUses: draft.maxUses,
         ...(draft.expiresAt !== null ? { expiresAt: new Date(draft.expiresAt).toISOString() } : {}),

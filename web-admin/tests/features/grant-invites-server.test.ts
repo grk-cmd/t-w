@@ -35,12 +35,6 @@ describe('초대권 한 명 지급 — API 판', () => {
     expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
   });
 
-  it('1~3장 밖은 보내지 않는다', async () => {
-    const s = fakeApiOf({});
-    await expect(createServerGrantInvitesPort(s.api).grantOne('u1', 4)).rejects.toThrow();
-    expect(s.calls).toEqual([]);
-  });
-
   it('닿지 못해 답을 못 받으면 다시 눌러도 같은 요청 번호로 보낸다', async () => {
     let n = 0;
     const s = fakeApiOf({
@@ -206,8 +200,29 @@ describe('한 명짜리 코드 · 여러 명 코드 — API 판', () => {
     const s = fakeApiOf({ [INVITES]: () => ({ code: 'INVT-A', codes: ['INVT-A'] }) });
     const e = await caught(createServerGrantInvitesPort(s.api).createCodes(2));
     expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
-    await expect(createServerGrantInvitesPort(s.api).createCodes(11)).rejects.toThrow();
-    expect(s.calls).toHaveLength(1);
+  });
+
+  it('범위 밖 값도 웹이 거르지 않고 그대로 보낸다 — 서버 400 은 서버 문구의 PortError', async () => {
+    const reject = (c: { body?: unknown }) => {
+      throw new ApiError('request', 400, 'INVALID_REQUEST', `거절: ${JSON.stringify(c.body)}`);
+    };
+    const s = fakeApiOf({ [INVITES]: reject, [GRANTS]: reject });
+    const port = createServerGrantInvitesPort(s.api);
+    const long = 'ㅁ'.repeat(500);
+    const errs = [
+      await caught(port.createCodes(11)),
+      await caught(port.createGroup({ maxUses: 5000, expiresAt: null, note: long })),
+      await caught(port.grantOne('u1', 9)),
+      await caught(port.grant({ kind: 'picked', uids: ['u1'] }, 9)),
+    ];
+    for (const e of errs) expect(isPortError(e, 'invalid') && e.code).toBe('INVALID_REQUEST');
+    expect(s.calls.map((c) => c.body)).toMatchObject([
+      { maxUses: 1, count: 11 },
+      { maxUses: 5000, memo: long },
+      { target: 'u1', n: 9 },
+      { targets: ['u1'], n: 9 },
+    ]);
+    expect(errs[0]).toMatchObject({ message: expect.stringContaining('count') });
   });
 
   it('여러 명 코드는 인원 · 마감(ISO) · 메모를 보내고 코드를 돌려준다', async () => {
