@@ -256,13 +256,19 @@ function renderCrItems(){
   if(dac){ const full=commissionMod().savedDesks().length>=commissionMod().MAX_CUSTOM_ASSETS; dac.style.opacity=full?'0.4':'1'; dac.title=full?'최대 '+commissionMod().MAX_CUSTOM_ASSETS+'개. 카드 X로 지운 뒤 추가하세요':''; }
   if(iac){ const full=commissionMod().savedItems().length>=commissionMod().MAX_CUSTOM_ITEMS; iac.style.opacity=full?'0.4':'1'; iac.title=full?'최대 '+commissionMod().MAX_CUSTOM_ITEMS+'개. 카드 X로 지운 뒤 추가하세요':''; }
 }
-/* 관리자 — 커스텀 아이템끼리 드래그로 진열 순서 변경, 서버 진열대에 순서를 써서 전체 사용자 동기화 */
-function saveShelfOrReload(scope, ids){
-  catalogAdmin.saveShelf(scope, ids).catch(async e=>{
-    if(await catalogAdmin.reportFail(e, 'shelf') !== 'refetch') await catalogAdmin.reload();
-  });
+/* 진열 순서 바꾸기 — 서버 진열대(DESK_PROP · DESK)에 순서 전체를 먼저 보내고, 서버가 받은 뒤에야 이 PC 순서를 바꾼다(못 쓰면 번호로 알리고 화면은 그대로).
+   서버 카탈로그에 있는 것만 보낸다(로컬 전용은 서버가 모르는 물건이다) */
+function movedIds(list, draggedId, targetId){
+  const copy = list.slice();
+  const d = copy.findIndex(p=>p.id===draggedId), t = copy.findIndex(p=>p.id===targetId);
+  if(d<0 || t<0) return null;
+  copy.splice(t, 0, copy.splice(d,1)[0]);
+  return copy.filter(p=>p.fromCatalog).map(p=>p.id);
 }
-function reorderSavedItem(draggedId, targetId){
+async function reorderSavedItem(draggedId, targetId){
+  const ids = movedIds(commissionMod().savedItems(), draggedId, targetId);
+  if(!ids) return;
+  if(ids.length && !(await catalogAdmin.saveShelfOrReport('DESK_PROP', ids))) return;
   const draggedIdx = commissionMod().savedItems().findIndex(p=>p.id===draggedId);
   const targetIdx = commissionMod().savedItems().findIndex(p=>p.id===targetId);
   if(draggedIdx<0 || targetIdx<0) return;
@@ -273,11 +279,11 @@ function reorderSavedItem(draggedId, targetId){
   renderCrItems();
   // 런처4-2: 활성 아이템이 없으면(사용자가 카드 선택 안 함) 캐릭터 위에 남아있던 기즈모 숨김.
   if(_hooks.attachItemGizmo) _hooks.attachItemGizmo();
-  /* 서버 진열대(DESK_PROP)에 순서 전체를 보낸다 — 서버 카탈로그에 있는 것만. 못 쓰면 번호로 알리고 서버 한 벌을 다시 받아 화면 순서를 되돌린다 */
-  const ids = commissionMod().savedItems().filter(p=>p.fromCatalog).map(p=>p.id);
-  if(ids.length) saveShelfOrReload('DESK_PROP', ids);
 }
-function reorderSavedDesk(draggedId, targetId){
+async function reorderSavedDesk(draggedId, targetId){
+  const ids = movedIds(commissionMod().savedDesks(), draggedId, targetId);
+  if(!ids) return;
+  if(ids.length && !(await catalogAdmin.saveShelfOrReport('DESK', ids))) return;
   const draggedIdx = commissionMod().savedDesks().findIndex(p=>p.id===draggedId);
   const targetIdx = commissionMod().savedDesks().findIndex(p=>p.id===targetId);
   if(draggedIdx<0 || targetIdx<0) return;
@@ -286,8 +292,6 @@ function reorderSavedDesk(draggedId, targetId){
   commissionMod().savedDesks().forEach((p,i)=>{ p.order=i; });
   commissionMod().persistSavedAssets();
   renderCrItems();
-  const ids = commissionMod().savedDesks().filter(p=>p.fromCatalog).map(p=>p.id);
-  if(ids.length) saveShelfOrReload('DESK', ids);
 }
 if(document.getElementById('deskColor')) document.getElementById('deskColor').addEventListener('input',e=>{ crState.cDeskColor=e.target.value; lightToneMod()._setDeskMatColor(crState.cDeskMat, crState.cDeskColor); applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); });
 // 일반(비관리자) 모드: 3D 미리보기에서 이미 놓인 아이템을 우클릭하면 그걸 선택 상태로 만들어서

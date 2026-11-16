@@ -100,6 +100,9 @@ const PF = { name: '모자', icon: '🎩', category: 'hat', glow: false, multi: 
   chk(sh[0][1] === '/v2/admin/catalog/shelves/CATEGORY%3Ahat' && JSON.stringify(sh[0][2]) === '{"version":9,"order":["b","a"]}' && JSON.stringify(sh[1][2]) === '{"version":0,"order":["x"]}',
     '★ 진열 순서 — 순서 전체를 진열대 version 과 함께(진열대 줄이 아직 없는 범위는 version 0 — 서버 계약)');
 
+  w = world(SRC); const so1 = await w.api.saveShelfOrReport('DESK', ['x']);
+  w = world(SRC, { failAt: (m, p) => m === 'PUT', failCode: 'CATALOG_INVALID_ITEM', kind: 'site' }); const so2 = await w.api.saveShelfOrReport('DESK', ['x']);
+  chk(so1 === true && so2 === false && w.shown.map((x) => x[0]).join() === 'E-ADM-09' && !w.log.some((l) => l[0] === 'LOAD'), '★ 진열 순서 saveShelfOrReport — 서버가 받으면 true · 못 받으면 쓰던 자리 번호(E-ADM-09)로 알리고 false(부르는 쪽이 화면 순서를 안 바꾼다)');
   say('── 4. 카테고리 · 해금');
   w = world(SRC);
   await w.api.createCategory('muffler', { group: 'cloth', label: '머플러', icon: '🧣', bone: 'spine' });
@@ -136,6 +139,7 @@ const PF = { name: '모자', icon: '🎩', category: 'hat', glow: false, multi: 
     ['고치기에 version 안 실음', (s) => s.replace('return authed.put(path, version == null ? body : Object.assign({ version }, body));', 'return authed.put(path, body);')],
     ['파일 올리기 전에 물건부터 씀', (s) => s.replace('const g = await withFiles(f);\n    const v = (opt && opt.create) ? null : versionIn(\'parts\', \'partId\', id);', 'const v = (opt && opt.create) ? null : versionIn(\'parts\', \'partId\', id); const g = f;')],
     ['쓴 뒤 다시 안 받음', (s) => s.replace('const done = async (d, opt) => { if(!(opt && opt.quiet)) await catalog.load(); return d; };', 'const done = async (d) => d;')],
+    ['진열 순서 실패에 true', (s) => s.replace('catch(e){ await reportFail(e, \'shelf\'); return false; }', 'catch(e){ await reportFail(e, \'shelf\'); return true; }')],
     ['진열대 version 0 고정', (s) => s.replace('version: row ? row.version : 0', 'version: 0')],
     ['단종 줄 실패를 삼킴', (s) => s.replace("if(d[0].ok !== true) throw", "if(false) throw")],
     ['카테고리 묶음을 소문자로', (s) => s.replace('String(c.group).toUpperCase()', 'String(c.group)')],
@@ -155,6 +159,7 @@ const PF = { name: '모자', icon: '🎩', category: 'hat', glow: false, multi: 
       x = wq({ bulk: [{ kind: 'part', id: 'p1', ok: false, code: 'X' }] }); try{ await x.api.archive('part', 'p1'); bad = true; }catch(_){ /* 던져야 한다 */ }
       x = wq(); await x.api.createCategory('c', { group: 'cloth', label: 'l', icon: 'i', bone: 'b' }); if(x.log[0][2].group !== 'CLOTH') bad = true;
       x = wq({ failAt: (m, p) => p.endsWith('/assets') }); try{ await x.api.savePart('n', Object.assign({ glb: FILE }, PF), { create: true }); }catch(e){ if(e.stage !== 'asset') bad = true; }
+      x = wq({ failAt: (m) => m === 'PUT', kind: 'site' }); if(await x.api.saveShelfOrReport('DESK', ['x']) !== false) bad = true;
       x = wq({ kind: 'refetch' }); await x.api.reportFail(new Error('x'), 'item'); if(!x.log.some((l) => l[0] === 'LOAD')) bad = true;
       void A;
     }catch(_){ bad = true; }

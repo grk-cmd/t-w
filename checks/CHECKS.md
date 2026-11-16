@@ -123,7 +123,7 @@
 | **sim-desk-part-scale.js** | 83 | **8a0a59ffb09a** |
 | **sim-desk-preset.js** | 254 | **40c3a0e49634** |
 | **sim-json-store.js** | 209 | **667a88619187** |
-| **sim-desk-setup.js** | 254 | **e1400cb148e7** |
+| **sim-desk-setup.js** | 255 | **72e4ab3d5320** |
 | sim-dom-boot.js | 83 | 927ab53ecc44 |
 | sim-exp-bar-color.js | 135 | 4142ee5559d6 |
 | **sim-face-loss.js** | 322 | **06f4d70a148e** |
@@ -293,7 +293,7 @@
 | **sim-mail-feed.js** | 361 | **2bcd1eeabc34** |
 | **sim-notice-api.js** | 159 | **0d412e593953** |
 | **sim-admin-api.js** | 249 | **9a3ca66c0eda** |
-| **sim-catalog-admin-api.js** | 165 | **bdc8f9def2cf** |
+| **sim-catalog-admin-api.js** | 170 | **75a517703ce6** |
 | **sim-admin-notice.js** | 212 | **952fbda2e531** |
 | **sim-notice-feed.js** | 266 | **c80dd0979f9b** |
 | **sim-ui-tokens.js** | 135 | **bf0abb5744a6** |
@@ -344,7 +344,7 @@
 | **sim-overhead.js** | 161 | **169c381103c3** |
 | **sim-room-sync.js** | 123 | **ba1af4a95d89** |
 | **sim-status-chip.js** | 123 | **4251e46c8a7a** |
-| **sim-premium-assets.js** | 129 | **1ab02ca72279** |
+| **sim-premium-assets.js** | 157 | **7bdad0f672dd** |
 | **sim-char-code.js** | 126 | **6af407976d28** |
 | **sim-dice-games.js** | 95 | **1debed57a729** |
 | **sim-program-settings.js** | 148 | **63ad8f3b844f** |

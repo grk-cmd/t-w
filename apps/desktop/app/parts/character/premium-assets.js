@@ -466,26 +466,28 @@ function isGachaPart(rec){ return !!(rec && rec.gacha); }   // 가챠 파츠인�
 function partsInCatFor(cat, gacha){ return partsInCat(cat).filter(p=>!!isGachaPart(p) === !!gacha); }
 function partCatLimit(gacha){ return gacha ? MAX_GACHA_PARTS_PER_CAT : MAX_PARTS_PER_CAT; }
 /* 관리자 — 같은 카테고리 안에서 드래그로 파츠 진열 순서 변경(화면은 바로 · 서버 진열대에도 쓴다) */
-function reorderSavedPart(draggedId, targetId, cat){
+async function reorderSavedPart(draggedId, targetId, cat){
   const catItems = savedParts.filter(p=>p.cat===cat);
-  const others = savedParts.filter(p=>p.cat!==cat);
   const draggedIdx = catItems.findIndex(p=>p.id===draggedId);
   const targetIdx = catItems.findIndex(p=>p.id===targetId);
-  if(draggedIdx<0 || targetIdx<0) return;
+  if(draggedIdx<0 || targetIdx<0) return false;
   const [item] = catItems.splice(draggedIdx,1);
   catItems.splice(targetIdx,0,item);
-  savedParts = [...others, ...catItems];
-  // 새 순서를 각 항목의 order 필드로 기록(로컬)
-  catItems.forEach((p,i)=>{ p.order=i; });
-  persistSavedParts();
-  /* 서버 진열대(CATEGORY:{코드})에 순서 전체를 보낸다 — 서버 카탈로그에 있는 파츠만(로컬 전용은 서버가 모르는 물건이라 거절한다).
-     못 쓰면 번호로 알리고 서버 한 벌을 다시 받아 화면 순서를 서버 것으로 되돌린다. */
+  /* 서버 진열대(CATEGORY:{코드})에 순서 전체를 먼저 보낸다 — 서버 카탈로그에 있는 파츠만(로컬 전용은 서버가 모르는 물건이다).
+     서버가 받은 뒤에야 이 PC 순서를 바꾼다 — 못 쓰면 번호로 알리고(catalogAdmin) 화면 순서는 그대로 둔다. */
   const ids = catItems.filter(p=>p.fromCatalog).map(p=>p.id);
-  if(ids.length){
-    catalogAdmin.saveShelf('CATEGORY:'+cat, ids).catch(async e=>{
-      if(await catalogAdmin.reportFail(e, 'shelf') !== 'refetch') await catalogAdmin.reload();
-    });
-  }
+  if(ids.length && !(await catalogAdmin.saveShelfOrReport('CATEGORY:'+cat, ids))) return false;
+  // 기다리는 사이 목록이 바뀌었을 수 있어 다시 읽고 같은 자리에 끼운다
+  const fresh = savedParts.filter(p=>p.cat===cat);
+  const others = savedParts.filter(p=>p.cat!==cat);
+  const dI = fresh.findIndex(p=>p.id===draggedId), tI = fresh.findIndex(p=>p.id===targetId);
+  if(dI<0 || tI<0) return false;
+  const [it2] = fresh.splice(dI,1);
+  fresh.splice(tI,0,it2);
+  savedParts = [...others, ...fresh];
+  // 새 순서를 각 항목의 order 필드로 기록(로컬)
+  fresh.forEach((p,i)=>{ p.order=i; });
+  persistSavedParts();
   return true;   // 바꿨다 — 꾸미기 창은 부르는 쪽(wardrobe.js)이 다시 그린다
 }
 

@@ -38,7 +38,7 @@ function world(src, o = {}) {
     crItemPage: o.page || 0, crStep: o.step || 5, cCam: {}, cBase: o.noBase ? null : { deskAnchor: o.noAnchor ? null : {}, deskItems: Object.assign({}, o.equipped || {}), activeDeskItem: null } };
   const bad = () => Promise.reject(Object.assign(new Error('x'), { code: 'CONCURRENT_UPDATE' }));
   const net = { archive: (kind, id) => { log.net.push(['archive', kind, id]); return o.archiveFail ? bad() : Promise.resolve(); },
-    saveShelf: (scope, ids) => { log.net.push(['shelf', scope, ids]); return o.orderFail ? bad() : Promise.resolve(); },
+    saveShelfOrReport: async (scope, ids) => { log.net.push(['shelf', scope, ids]); if(o.orderFail){ log.net.push(['fail', 'shelf']); return false; } return true; },
     reportFail: async (e, site) => { log.net.push(['fail', site]); return 'notice'; }, reload: async () => { log.net.push(['reload']); } };
   const cards = [];
   const assetCardsMod = {
@@ -165,7 +165,7 @@ async function behave(src) {
   t(w.getItems().map((x) => x.id).join() === 'c,a,b' && w.getItems()[0].order === 0 && JSON.stringify(w.log.net[0]) === '["shelf","DESK_PROP",["c","a"]]' && w.calls('gizmo').length === 1 && w.calls('persist').length === 1, '아이템 순서 — 옮기고 order 다시 · 카탈로그 것만 서버 진열대(DESK_PROP)에 순서 전체 저장 · 기즈모 갈고리');
   w = world(src, { items: [{ id: 'a', fromCatalog: true }, { id: 'b', fromCatalog: true }], customItems: { a: { id: 'a' }, b: { id: 'b' } }, admin: true, orderFail: true }); w.out.renderCrItems();
   itemCards(w).find((c) => c.reorder).reorder.onDrop('b', 'a'); await flush();
-  t(w.log.net.map((n) => n[0]).join() === 'shelf,fail,reload' && w.log.net[1][1] === 'shelf', '순서 저장 실패 — 번호로 알리고 서버 한 벌을 다시 받아 화면 순서를 되돌린다');
+  t(w.log.net.map((n) => n[0]).join() === 'shelf,fail' && w.getItems().map((x) => x.id).join() === 'a,b' && !w.calls('persist').length, '★ 순서 저장 실패 — 번호로 알리고 이 PC 순서는 그대로다(저장도 안 한다)');
   w = world(src, { desks: [{ id: 'x', fromCatalog: true, name: 'X' }, { id: 'y', fromCatalog: true, name: 'Y' }], admin: true }); w.out.renderCrItems();
   deskCards(w)[1].reorder.onDrop('y', 'x'); await flush();
   t(w.getDesks().map((d) => d.id).join() === 'y,x' && JSON.stringify(w.log.net[0]) === '["shelf","DESK",["y","x"]]', '책상 순서 — 옮기고 서버 진열대(DESK)에 순서 저장');
@@ -232,7 +232,8 @@ function wire(app, html) {
     ['쪽당 5 → 6', (m) => m.replace('const CR_ITEM_PAGE_SIZE = 5;', 'const CR_ITEM_PAGE_SIZE = 6;'), null, null],
     ['쪽 번호 넘침 안 잡음', (m) => m.replace('if(crState.crItemPage >= _totalPages) crState.crItemPage = _totalPages-1;', ''), null, null],
     ['관리자 교체분 무시', (m) => m.replace('const eff=deskItemsMod().deskItemDef(def.id)||def;', 'const eff=def;'), null, null],
-    ['카탈로그 아닌 것도 순서 저장', (m) => m.replace('const ids = commissionMod().savedItems().filter(p=>p.fromCatalog).map(p=>p.id);', 'const ids = commissionMod().savedItems().map(p=>p.id);'), null, null],
+    ['순서 저장 결과를 안 보고 바꿈', (m) => m.replace("if(ids.length && !(await catalogAdmin.saveShelfOrReport('DESK_PROP', ids))) return;", ''), null, null],
+    ['카탈로그 아닌 것도 순서 저장', (m) => m.replace('return copy.filter(p=>p.fromCatalog).map(p=>p.id);', 'return copy.map(p=>p.id);'), null, null],
     ['기즈모 갈고리 안 부름', (m) => m.replace('  crState.cBase.activeDeskItem = pivot;\n  if(creatorOpen()) renderCrItems();\n  if(_hooks.attachItemGizmo) _hooks.attachItemGizmo();', '  crState.cBase.activeDeskItem = pivot;\n  if(creatorOpen()) renderCrItems();'), null, null],
     ['관리자도 미리보기 우클릭', (m) => m.replace('  if(isAdmin()) return;   // 관리자는', '  if(false) return;   // 관리자는'), null, null],
     ['입구 전제 없앰(카드)', (m) => m.replace("  if(!document.getElementById('crDeskRow') || !document.getElementById('crItemRow') || !document.getElementById('deskColor')) return;\n", ''), null, null],

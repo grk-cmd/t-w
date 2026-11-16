@@ -125,5 +125,33 @@ for(const [name, fm, fa, fh] of breaks){
   let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
+say('── 4. 진열 순서 — 서버가 받은 뒤에야 이 PC 순서를 바꾼다');
+async function reorderBehave(mod){
+  const log = [], st = { ok: true };
+  const catalogAdmin = { saveShelfOrReport: async (scope, ids) => { log.push([scope, ids.join()]); return st.ok; } };
+  const api = build(mod, { catalogAdmin });
+  const seed = () => api.setSavedParts([{ id: 'a', cat: 'hat', fromCatalog: true }, { id: 'b', cat: 'hat', fromCatalog: true }, { id: 'l', cat: 'hat' }, { id: 'x', cat: 'cape', fromCatalog: true }]);
+  const order = () => api.savedParts().filter(p => p.cat === 'hat').map(p => p.id).join();
+  seed();
+  const r1 = await api.reorderSavedPart('b', 'a', 'hat');
+  const ok1 = r1 === true && log.length === 1 && log[0][0] === 'CATEGORY:hat' && log[0][1] === 'b,a' && order() === 'b,a,l' && api.savedParts().find(p => p.id === 'b').order === 0;
+  seed(); st.ok = false; log.length = 0;
+  const r2 = await api.reorderSavedPart('b', 'a', 'hat');
+  const ok2 = r2 === false && log.length === 1 && order() === 'a,b,l' && api.savedParts().find(p => p.id === 'a').order === undefined;
+  st.ok = true; api.setSavedParts([{ id: 'l1', cat: 'hat' }, { id: 'l2', cat: 'hat' }]); log.length = 0;
+  const r3 = await api.reorderSavedPart('l2', 'l1', 'hat');
+  const ok3 = r3 === true && !log.length && order() === 'l2,l1';
+  return { ok1, ok2, ok3 };
+}
+(async () => {
+{
+  const R = await reorderBehave(MOD);
+  chk(R.ok1, '★ 서버가 받으면 진열대(CATEGORY:{코드})에 서버 카탈로그 파츠의 순서 전체를 보내고 이 PC 순서도 바꾼다(로컬 전용 파츠는 서버로 안 보낸다)');
+  chk(R.ok2, '★ 서버가 못 받으면(번호로 알림) 이 PC 순서는 그대로다 — 화면이 서버와 어긋나지 않는다');
+  chk(R.ok3, '  서버 카탈로그 파츠가 없는 목록은 서버를 부르지 않고 이 PC 에서만 바꾼다');
+  const bad = await reorderBehave(MOD.replace('if(ids.length && !(await catalogAdmin.saveShelfOrReport(\'CATEGORY:\'+cat, ids))) return false;', ''));
+  chk(!bad.ok2, '깨 보기 — 서버 결과를 안 보고 바로 바꾸면 빨강');
+}
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);
+})().catch((e) => { chk(false, '4절 던짐 — ' + (e && e.stack || e)); process.exit(1); });

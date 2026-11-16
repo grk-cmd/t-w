@@ -9,7 +9,7 @@
    내보냄: createCatalogAdminApi(deps) → {
      savePart(id, f, { create, quiet }) · saveDesk(id, f, { create, quiet }) · saveDeskProp(id, f, { create, quiet }) → Promise<void> — quiet 이면 쓴 뒤 다시 받지 않는다(여럿을 이어 쓸 때 — 끝에서 reload)
        f = 앱 칸 — 파일은 glb · thumbPng(Uint8Array — 올린 뒤 해시를 싣는다) 또는 modelHash · thumbHash(안 바꾸면 그대로). create 가 아니면 지금 version 으로 고친다.
-     archive(kind, id) — kind: part · desk · deskProp. 단종(진열에서 내림 · 행은 남음) · saveShelf(scope, ids) — 진열 순서 전체
+     archive(kind, id) — kind: part · desk · deskProp. 단종(진열에서 내림 · 행은 남음) · saveShelf(scope, ids) — 진열 순서 전체 · saveShelfOrReport(scope, ids) → Promise<bool> — 쓰고 실패는 알린다(true 면 서버가 받았다)
      createCategory(code, { group, label, icon, bone }) · renameCategory(code, { label, icon }) · resetCategory(code) · deleteCategory(code)
      saveUnlock(kind, key, level, label) · unlockOf(kind, key) → { level, label, version } | null
      reload() — 서버 한 벌 다시 받기
@@ -205,9 +205,14 @@ function createCatalogAdminApi(deps){
     return kind;
   }
 
+  /* 진열 순서 저장 + 실패 알림 — 서버가 받았으면 true. 아니면 번호로 알리고 false(부르는 쪽은 화면 순서를 바꾸지 않는다) */
+  async function saveShelfOrReport(scope, ids){
+    try{ await saveShelf(scope, ids); return true; }
+    catch(e){ await reportFail(e, 'shelf'); return false; }
+  }
   const reload = () => catalog.load();
 
-  return { reload, savePart, saveDesk, saveDeskProp, archive, saveShelf, createCategory, renameCategory, resetCategory, deleteCategory, saveUnlock, unlockOf, reportFail };
+  return { reload, saveShelfOrReport, savePart, saveDesk, saveDeskProp, archive, saveShelf, createCategory, renameCategory, resetCategory, deleteCategory, saveUnlock, unlockOf, reportFail };
 }
 
 const api = { createCatalogAdminApi, SITE_NOTICE, PATHS, PART_FIELDS, DESK_FIELDS, PROP_FIELDS, partFieldsOf, partBody, deskBody, propBody, accessOf };
