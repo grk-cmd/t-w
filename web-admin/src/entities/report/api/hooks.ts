@@ -1,11 +1,8 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { KeysetPage } from '@/shared/lib';
+import { KEYSET_PAGE_MAX, resetKeyset } from '@/shared/lib';
 import type { ReportTarget } from '../model/report';
-import { REPORTS_KEY, userReportCountKey } from './keys';
+import { REPORTS_KEY, REPORTS_KEYSET_KEY, userReportCountKey } from './keys';
 import { useReportPort } from './index';
-
-/** 서버 한 번에 받는 상한(`limit` 1~100). */
-const PAGE_MAX = 100;
 
 /** 통째로 받는 판(`kind: 'all'` — Firebase). */
 export function useReports() {
@@ -23,11 +20,11 @@ export function useReports() {
 export function useReportsKeyset() {
   const port = useReportPort();
   return useInfiniteQuery({
-    queryKey: [...REPORTS_KEY, 'keyset'],
+    queryKey: REPORTS_KEYSET_KEY,
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) => {
       if (port.kind !== 'keyset') throw new Error('이 판은 신고 목록을 통째로 받아요');
-      return port.page(pageParam, PAGE_MAX);
+      return port.page(pageParam, KEYSET_PAGE_MAX);
     },
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
@@ -43,20 +40,16 @@ export function useUserReportCount(uid: string) {
   return useQuery({ queryKey: userReportCountKey(uid), queryFn: () => port.countFor(uid) });
 }
 
-/** 비운 사람을 캐시에서만 뺀다 — 목록을 다시 받지 않아도 된다. */
+/**
+ * 쓰기 뒤 — Firebase 판은 받아 둔 목록에서 그 사람 줄만 뺀다. API 판은 이어 둔 쪽을 버리고 첫 쪽부터 다시 받는다
+ * (줄만 빼면 첫 쪽 `total` · 끝 쪽 번호가 틀린 채로 남는다).
+ */
 export function useForgetReports() {
   const client = useQueryClient();
   return (target: string) => {
     client.setQueryData<ReportTarget[]>([...REPORTS_KEY, 'all'], (all) =>
       all?.filter((t) => t.target !== target),
     );
-    client.setQueryData<{ pages: KeysetPage<ReportTarget>[]; pageParams: unknown[] }>(
-      [...REPORTS_KEY, 'keyset'],
-      (data) =>
-        data && {
-          ...data,
-          pages: data.pages.map((p) => ({ ...p, items: p.items.filter((t) => t.target !== target) })),
-        },
-    );
+    void resetKeyset(client, REPORTS_KEYSET_KEY);
   };
 }

@@ -7,12 +7,9 @@ import {
   type QueryClient,
 } from '@tanstack/react-query';
 import { REPLICA_LAG_MS } from '@/shared/api';
-import { kstDateKey } from '@/shared/lib';
+import { KEYSET_PAGE_MAX, kstDateKey, resetKeyset } from '@/shared/lib';
 import { bugDay, bugNo, type BugFilter, type BugItem, type BugListView, type BugNo } from '../model/bugBoard';
-import { BUG_KEY, BUG_LIST_KEY } from './keys';
-
-/** 서버 한 번에 받는 상한(관리자 `limit` 1~100). */
-const PAGE_MAX = 100;
+import { BUG_KEY, BUG_KEYSET_KEY, BUG_LIST_KEY } from './keys';
 import type { BugListQuery } from './port';
 import { useBugBoardPort } from './index';
 
@@ -34,11 +31,11 @@ export function useBugList(query: BugListQuery) {
 export function useBugListKeyset(filter: BugFilter) {
   const port = useBugBoardPort();
   return useInfiniteQuery({
-    queryKey: [...BUG_KEY, 'list', 'keyset', filter],
+    queryKey: [...BUG_KEYSET_KEY, filter],
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) => {
       if (port.kind !== 'keyset') throw new Error('이 판은 제보 목록을 쪽 번호로 받아요');
-      return port.page(filter, pageParam, PAGE_MAX);
+      return port.page(filter, pageParam, KEYSET_PAGE_MAX);
     },
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
@@ -128,13 +125,18 @@ export function refreshBugBoard(client: QueryClient, lagMs: number = REPLICA_LAG
     .getQueriesData<BugListView>({ queryKey: BUG_LIST_KEY })
     .some(([, data]) => data?.via === 'api');
   if (viaApi && lagMs > 0) setTimeout(() => void client.invalidateQueries({ queryKey: BUG_LIST_KEY }), lagMs);
-  return client.invalidateQueries({
-    queryKey: BUG_KEY,
-    predicate: (q) => {
-      const [, kind, arg] = q.queryKey;
-      return kind === 'list' || kind === 'post' || (kind === 'day' && arg === kstDateKey(Date.now()));
-    },
-  });
+  // 이어 둔 키셋 쪽은 버리고 첫 쪽부터 다시 받는다 — 전체 수 · 끝 쪽 번호가 새 값이 되게.
+  return Promise.all([
+    resetKeyset(client, BUG_KEYSET_KEY),
+    client.invalidateQueries({
+      queryKey: BUG_KEY,
+      predicate: (q) => {
+        const [, kind, arg] = q.queryKey;
+        if (kind === 'list') return arg !== 'keyset';
+        return kind === 'post' || (kind === 'day' && arg === kstDateKey(Date.now()));
+      },
+    }),
+  ]).then(() => undefined);
 }
 
 export function useRefreshBugBoard() {

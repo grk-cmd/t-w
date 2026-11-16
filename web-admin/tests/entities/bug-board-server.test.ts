@@ -1,5 +1,6 @@
+import { InfiniteQueryObserver, QueryClient } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
-import { bugAuthorName, needsAuthorLookup } from '@/entities/bug-board';
+import { bugAuthorName, needsAuthorLookup, refreshBugBoard } from '@/entities/bug-board';
 import { createServerBugBoardPort } from '@/entities/bug-board/api/server';
 import { ApiError, isPortError, WIRE_SHAPE_CODE } from '@/shared/api';
 import { fakeApiOf } from '../shared/fakeApi';
@@ -245,5 +246,39 @@ describe('글쓴이 이름 — API 판', () => {
     });
     const [row] = (await createServerBugBoardPort(s.api).page('all', undefined, 100)).items;
     expect(row).not.toHaveProperty('code');
+  });
+});
+
+describe('쓰기 뒤 키셋 목록 다시 받기', () => {
+  it('이어 둔 쪽을 버리고 첫 쪽부터 다시 받아 total 이 새 값이 된다', async () => {
+    const client = new QueryClient();
+    let total = 3;
+    const calls: Array<string | undefined> = [];
+    const key = ['bugBoard', 'list', 'keyset', 'all'];
+    const obs = new InfiniteQueryObserver(client, {
+      queryKey: key,
+      initialPageParam: undefined as string | undefined,
+      queryFn: ({ pageParam }) => {
+        calls.push(pageParam);
+        return Promise.resolve({
+          nextCursor: pageParam ? null : 'c2',
+          total: pageParam ? null : total,
+        });
+      },
+      getNextPageParam: (last) => last.nextCursor ?? undefined,
+    });
+    const unsub = obs.subscribe(() => undefined);
+    await obs.refetch();
+    await obs.fetchNextPage();
+    expect(calls).toEqual([undefined, 'c2']);
+    total = 2;
+    calls.length = 0;
+    await refreshBugBoard(client, 0);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(calls).toEqual([undefined]);
+    expect((client.getQueryData(key) as { pages: { total: number }[] }).pages).toEqual([
+      { nextCursor: 'c2', total: 2 },
+    ]);
+    unsub();
   });
 });
