@@ -425,9 +425,6 @@ PRELOAD.push('admin-api.js');
 /* admin/admin-license-bulk.js — 🛠️ 📄 엑셀 라이선스 일괄 발급 · 🔒 시크릿룸 발급(관리자 코드 admin 폴더 1번). 같은 까닭 — 만들 때 하는 일
    (버튼 연결 · window._lxHideWin)과 app.js 가 원래 자리에서 부르는 createAdminLicenseBulk 를 같이 굴린다. 관리자 모듈은 parts/admin/ 에 있다. */
 PRELOAD.push('admin-license-bulk.js');
-/* admin/admin-console.js — 🛠️ 🧹 F12 콘솔 도구 일곱(관리자 코드 admin 폴더 2번). 같은 까닭 — 만들 때 하는 일(window 에 콘솔 함수 걸기)과
-   app.js 가 원래 자리에서 부르는 createAdminConsole 을 같이 굴린다. */
-PRELOAD.push('admin-console.js');
 /* admin/admin-license.js · admin-notice.js · admin-category.js — 🛠️ 라이선스 발급 · 공지 · 카테고리 관리(관리자 코드 admin 폴더 3번).
    같은 까닭 — 만들 때 하는 일(버튼 연결)과 app.js 가 원래 자리에서 부르는 create 셋을 같이 굴린다. */
 PRELOAD.push('admin-license.js', 'admin-notice.js', 'admin-category.js');

@@ -108,9 +108,9 @@ const A = new Function(unexport(RA) + '\nreturn { ROOM_ALIVE_MIN_VER, ROOM_ALIVE
     chk(/if \(!light\)\{\s*let tree = null;[\s\S]{0,200}if \(tree\)\{ try\{ alive = await sweepRoomAlive\(db, now, tree\); \}/.test(SRC), '청소는 1분 주기 실행에서만 — 방 열림 · 닫힘 트리거(light)는 안 한다 (roomAlive 트리는 빈 방 청소와 같이 한 번 읽는다)');
   }
 
-  say('── 3. 관리자 유령 방 청소(firebase-init.js) — 0.13 방 입장 길은 realtime 서버로 옮겨 하트비트 연결은 없다');
+  say('── 3. 관리자 유령 방 청소 — 걷었다(0.13 방은 realtime 메모리라 유령 방이 없다)');
   {
-    chk(/aliveTree\[code\] && aliveTree\[code\]\[k\][\s\S]{0,160}ROOM_ALIVE_STALE_MS/.test(CODE), '관리자 유령 방 청소가 도장을 본다 — hb:2 방을 유령으로 지우지 않게');
+    chk(!/cleanGhostRooms|cleanupGhostRooms|ROOM_ALIVE_STALE_MS/.test(CODE), 'firebase-init.js 에 유령 방 청소 · 도장 판정을 부르는 줄이 없다');
   }
 
   say('── 4. 규칙');

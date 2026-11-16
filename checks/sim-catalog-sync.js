@@ -23,11 +23,11 @@ const NET_PRE = (['net-ready.js', 'parts/shared/net-ready.js', 'app/parts/shared
 const mkSource = (win) => { new Function('window', 'module', NET_PRE + CSRC)(win, undefined); return win.TwCatalogSource.createCatalogSource({}); };
 const FN_DEPS = ["applyClothVisibility","applyDeskCatalogRefToSeat","applyDeskColorToCustom","applyDeskItemsTo","b64ToBuf","clearHolderDeskItems","equipDeskItem","equipPartOnSeat","loadSavedItemsIntoSession","refitSeatAfterParts","renderCrItems","renderLauncher","setCreatorDeskScale","swapDeskVisual","toast","unequipPartFromSeat"];
 const VAL_DEPS = ["DEFAULT_DESK_OVERRIDE_ID","adminCategory","assetCodeMod","catalogGlbMod","catalogSourceMod","commissionMod","premiumMod","rideBenchMod","seats","wardrobeMod"];
-const GET_DEPS = ["activeCustomDeskId","cBase","cDesk","cDeskColor","cDeskGlbB64","cDeskScale","cDeskTemplate","creatorOpen","customItems","gachaMod","isAdmin"];
+const GET_DEPS = ["activeCustomDeskId","cBase","cDesk","cDeskColor","cDeskGlbB64","cDeskScale","cDeskTemplate","creatorOpen","customItems","gachaMod"];
 const SET_DEPS = ["cDeskGlbB64","cDeskTemplate"];
 const EXPORTS = [];
 const MOVED = ["mergeCatalogIntoSavedItems","subscribeCatalogItems","mergeCatalogIntoSavedDesks","subscribeCatalogDesks","mergeCatalogIntoSavedParts","subscribeCatalogParts","subscribeCustomCats","subscribeCatOverrides"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  activeCustomDeskId: ()=>crState.activeCustomDeskId,","  adminCategory: adminCategory,","  applyClothVisibility: (...a)=>applyClothVisibility(...a),","  applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),","  applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),","  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),","  assetCodeMod: assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  cBase: ()=>crState.cBase,","  cDesk: ()=>crState.cDesk,","  cDeskColor: ()=>crState.cDeskColor,","  cDeskGlbB64: ()=>crState.cDeskGlbB64,","  cDeskScale: ()=>crState.cDeskScale,","  cDeskTemplate: ()=>crState.cDeskTemplate,","  catalogGlbMod: catalogGlbMod,","  catalogSourceMod: catalogSourceMod,","  clearHolderDeskItems: (...a)=>creatorPrevMod.clearHolderDeskItems(...a),","  commissionMod: commissionMod,","  creatorOpen: ()=>creatorOpen,","  customItems: ()=>customItems,","  equipDeskItem: (...a)=>equipDeskItem(...a),","  equipPartOnSeat: (...a)=>equipPartOnSeat(...a),","  gachaMod: ()=>gachaMod,","  isAdmin: ()=>isAdmin,","  loadSavedItemsIntoSession: (...a)=>loadSavedItemsIntoSession(...a),","  premiumMod: premiumMod,","  refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),","  renderCrItems: (...a)=>renderCrItems(...a),","  renderLauncher: (...a)=>renderLauncher(...a),","  rideBenchMod: rideBenchMod,","  seats: seats,","  setCreatorDeskScale: (...a)=>setCreatorDeskScale(...a),","  swapDeskVisual: (...a)=>deskVisualMod.swapDeskVisual(...a),","  toast: (...a)=>toast(...a),","  unequipPartFromSeat: (...a)=>unequipPartFromSeat(...a),","  wardrobeMod: wardrobeMod,","  setCDeskGlbB64: (v)=>{ crState.cDeskGlbB64 = v; },","  setCDeskTemplate: (v)=>{ crState.cDeskTemplate = v; },"];
+const GLUE = ["  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  activeCustomDeskId: ()=>crState.activeCustomDeskId,","  adminCategory: adminCategory,","  applyClothVisibility: (...a)=>applyClothVisibility(...a),","  applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),","  applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),","  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),","  assetCodeMod: assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  cBase: ()=>crState.cBase,","  cDesk: ()=>crState.cDesk,","  cDeskColor: ()=>crState.cDeskColor,","  cDeskGlbB64: ()=>crState.cDeskGlbB64,","  cDeskScale: ()=>crState.cDeskScale,","  cDeskTemplate: ()=>crState.cDeskTemplate,","  catalogGlbMod: catalogGlbMod,","  catalogSourceMod: catalogSourceMod,","  clearHolderDeskItems: (...a)=>creatorPrevMod.clearHolderDeskItems(...a),","  commissionMod: commissionMod,","  creatorOpen: ()=>creatorOpen,","  customItems: ()=>customItems,","  equipDeskItem: (...a)=>equipDeskItem(...a),","  equipPartOnSeat: (...a)=>equipPartOnSeat(...a),","  gachaMod: ()=>gachaMod,","  loadSavedItemsIntoSession: (...a)=>loadSavedItemsIntoSession(...a),","  premiumMod: premiumMod,","  refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),","  renderCrItems: (...a)=>renderCrItems(...a),","  renderLauncher: (...a)=>renderLauncher(...a),","  rideBenchMod: rideBenchMod,","  seats: seats,","  setCreatorDeskScale: (...a)=>setCreatorDeskScale(...a),","  swapDeskVisual: (...a)=>deskVisualMod.swapDeskVisual(...a),","  toast: (...a)=>toast(...a),","  unequipPartFromSeat: (...a)=>unequipPartFromSeat(...a),","  wardrobeMod: wardrobeMod,","  setCDeskGlbB64: (v)=>{ crState.cDeskGlbB64 = v; },","  setCDeskTemplate: (v)=>{ crState.cDeskTemplate = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -101,7 +101,7 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
 {
   const PREMOVE = !!process.env.TW_PREMOVE;
   const REFIT = (() => { for(const c of ['seat-refit.js', 'room/seat-refit.js', 'parts/room/seat-refit.js', 'app/parts/room/seat-refit.js']) if(fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; })();
-  const GETS = ['activeCustomDeskId', 'cBase', 'cDesk', 'cDeskColor', 'cDeskGlbB64', 'cDeskScale', 'cDeskTemplate', 'creatorOpen', 'customItems', 'gachaMod', 'isAdmin'];
+  const GETS = ['activeCustomDeskId', 'cBase', 'cDesk', 'cDeskColor', 'cDeskGlbB64', 'cDeskScale', 'cDeskTemplate', 'creatorOpen', 'customItems', 'gachaMod'];
   const flush = async () => { for(let i = 0; i < 8; i++) await new Promise(r => setImmediate(r)); };
   const load = (o) => {
     o = o || {};
@@ -158,7 +158,7 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
       gachaMod: { pruneUnownedGachaParts: () => L('gachaPrune') },
       adminCategory: { renderCategoryManager: () => L('catMgr') },
       creatorOpen: !!o.creatorOpen, cBase: o.cBase, cDesk: o.cDesk, cDeskColor: o.cDeskColor, cDeskGlbB64: o.cDeskGlbB64, cDeskScale: o.cDeskScale,
-      cDeskTemplate: null, activeCustomDeskId: o.activeCustomDeskId || null, isAdmin: !!o.isAdmin,
+      cDeskTemplate: null, activeCustomDeskId: o.activeCustomDeskId || null,
     };
     if(!PREMOVE){
       const deps = Object.assign({}, raw);
@@ -235,16 +235,10 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
     await W.subs.parts({ p1: { cat: 'hat' } }); await flush();
     chk(!W.log.some(x => x.startsWith('equipPart') || x.startsWith('fit')) && !has(W.log, 'renderLauncher') && !has(W.log, 'refreshWd'), '  다 붙어 있으면 다시 붙이지도 바닥을 다시 맞추지도 않는다 · 닫힌 화면은 안 그림');
 
-    /* 가챠 카탈로그 옮기기(관리자) */
-    W = load({ isAdmin: true });
-    await W.subs.parts({ g1: { _legacyGacha: true } }); await W.subs.parts({ g1: { _legacyGacha: true } }); await flush();
-    chk(W.log.filter(x => x === 'migrate').length === 1 && W.win.__gachaMigrated === true && has(W.log, 'toast:🎰 가챠 파츠 2개를 새 카탈로그 경로로 옮겼어요 (구버전 노출 차단)'), '관리자 세션 — 옛 가챠 표식이 보이면 한 번만 옮기고 알린다');
-    W = load({ isAdmin: true, migrateFails: true });
+    /* 가챠 카탈로그 옮기기(관리자)는 걷었다 — 옛 가챠 표식이 보여도 아무것도 옮기지 않는다 */
+    W = load({});
     await W.subs.parts({ g1: { _legacyGacha: true } }); await flush();
-    chk(W.win.__gachaMigrated === false, '  실패하면 표식을 풀어 다음 콜백에서 다시');
-    W = load({ isAdmin: false });
-    await W.subs.parts({ g1: { _legacyGacha: true } }); await flush();
-    chk(!has(W.log, 'migrate'), '  관리자가 아니면 옮기지 않는다');
+    chk(!has(W.log, 'migrate') && !('__gachaMigrated' in W.win), '옛 가챠 표식이 보여도 옮기지도 알리지도 않는다(관리자 이관 장치를 걷음)');
 
     /* 합치기 규칙(순수 함수) — 아이템 · 책상 · 파츠가 같이 쓴다 */
     if(!PREMOVE){

@@ -366,8 +366,8 @@ _callers = {}
 # admin/*.js — 🛠️ 관리자 코드는 parts/admin/ 에 모은다(관리자 코드 admin 폴더). 러너 스테이징은 한 층만 펼쳐서 이 폴더가
 #   parts/admin/ 로 남는다 — 이름만으로 못 열면 그 자리도 본다(_open_part). admin-license-bulk.js 는 createLicense · sendInboxMessage ·
 #   lookupFriendCode · listLicenses · getUserNameById · issueSecretRoom · expireSecretRoom · getSecretRoomPub · getMySecretRoom ·
-#   setMySecretRoom · getUserLastSeen · getUserFriendCode 를 부른다. admin-console.js 는 cleanupCatalogBase64 · analyzeCatalog ·
-#   cleanupGhostRooms · reclaimInvitesSince · publishPart · publishDesk · publishItem 을 부른다. admin-license.js · admin-notice.js ·
+#   setMySecretRoom · getUserLastSeen · getUserFriendCode 를 부른다. 관리자 콘솔 도구(admin-console.js — 걷음)는 cleanupCatalogBase64 · analyzeCatalog ·
+#   publishPart · publishDesk · publishItem 을 부른다. admin-license.js · admin-notice.js ·
 #   admin-category.js(관리자 3번)는 라이선스 발급 · 요청 · 공지 · 카테고리 쓰기를 부른다. admin-part-register.js(4번)는 publishPart ·
 #   publishDesk · publishItem 등 카탈로그 쓰기를 부른다. admin-users.js · admin-launcher.js(5번)는 통계 · 초대권 지급 · 방 종료 ·
 #   유령 방 · 게임 설정 · 광고 배너 게시를 부른다. admin-report.js(앱 FSD 11번)는 listReports ·
@@ -376,7 +376,7 @@ def _open_part(name):
     for _p in (name, os.path.join('parts', 'admin', name), os.path.join('app', 'parts', 'admin', name)):
         if os.path.exists(_p): return open(_p, encoding='utf-8')
     return open(name, encoding='utf-8')
-for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js', 'friend-manage.js', 'bug-board-ui.js', 'gacha.js', 'myhome-edit.js', 'room-invite-ui.js', 'myhome-inbox.js', 'playlist.js', 'admin-license-bulk.js', 'admin-console.js', 'admin-license.js', 'admin-notice.js', 'admin-category.js', 'admin-part-register.js', 'admin-users.js', 'admin-launcher.js', 'report.js', 'admin-report.js', 'my-info.js', 'chars.js', 'slot-sync.js', 'away-pic.js', 'myhome-ui.js', 'tricks.js', 'ride-bench.js', 'part-paint.js', 'focus-level.js', 'chat-ui.js', 'license-gate.js', 'account.js', 'wardrobe.js', 'settings-panel.js', 'desktop-run.js', 'room-entry.js', 'overhead.js', 'room-sync.js', 'status-chip.js', 'premium-assets.js', 'char-code.js', 'dice-games.js', 'program-settings.js', 'chat-prefs.js', 'rich-text.js', 'win-stack.js', 'sfx.js', 'face-heal.js', 'slot-save.js', 'interaction-desk.js', 'ad-banner.js', 'license-request.js', 'fn-keys.js', 'hidden-seats.js', 'theme-ui.js', 'myhome-sticker-layout.js', 'myhome-diag.js', 'myhome-visit.js', 'exp-bar.js', 'focus-share.js', 'focus-total.js', 'commission.js', 'code-crypto.js', 'add-friend.js', 'floaters.js', 'roulette.js', 'chat-lock.js', 'device-lost.js', 'demoji-palette.js', 'outside-close.js', 'launcher-chrome.js', 'myhome-links.js', 'async-prompt.js', 'myhome-page.js', 'theme.js', 'asset-code.js', 'license-key.js', 'license-ui.js', 'race-picker.js', 'wardrobe-panel.js', 'lv-tier.js', 'myhome-init.js'):
+for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js', 'friend-manage.js', 'bug-board-ui.js', 'gacha.js', 'myhome-edit.js', 'room-invite-ui.js', 'myhome-inbox.js', 'playlist.js', 'admin-license-bulk.js', 'admin-license.js', 'admin-notice.js', 'admin-category.js', 'admin-part-register.js', 'admin-users.js', 'admin-launcher.js', 'report.js', 'admin-report.js', 'my-info.js', 'chars.js', 'slot-sync.js', 'away-pic.js', 'myhome-ui.js', 'tricks.js', 'ride-bench.js', 'part-paint.js', 'focus-level.js', 'chat-ui.js', 'license-gate.js', 'account.js', 'wardrobe.js', 'settings-panel.js', 'desktop-run.js', 'room-entry.js', 'overhead.js', 'room-sync.js', 'status-chip.js', 'premium-assets.js', 'char-code.js', 'dice-games.js', 'program-settings.js', 'chat-prefs.js', 'rich-text.js', 'win-stack.js', 'sfx.js', 'face-heal.js', 'slot-save.js', 'interaction-desk.js', 'ad-banner.js', 'license-request.js', 'fn-keys.js', 'hidden-seats.js', 'theme-ui.js', 'myhome-sticker-layout.js', 'myhome-diag.js', 'myhome-visit.js', 'exp-bar.js', 'focus-share.js', 'focus-total.js', 'commission.js', 'code-crypto.js', 'add-friend.js', 'floaters.js', 'roulette.js', 'chat-lock.js', 'device-lost.js', 'demoji-palette.js', 'outside-close.js', 'launcher-chrome.js', 'myhome-links.js', 'async-prompt.js', 'myhome-page.js', 'theme.js', 'asset-code.js', 'license-key.js', 'license-ui.js', 'race-picker.js', 'wardrobe-panel.js', 'lv-tier.js', 'myhome-init.js'):
     try: _cs = _strip_js_comments(_open_part(_cf).read())
     except Exception: continue
     for _mm in set(re.findall(r'firebaseAPI\.(\w+)', _cs)):
@@ -404,7 +404,7 @@ for _mm in re.finditer(r"onValue\(ref\(db,\s*[`'\"]([^`'\"/$]+)[`'\"]", html_cod
 # (b) 최상위 노드 통째 get() — 알려진 기준선 초과 시 경보 (기준: 패치 시점)
 _BASELINE_GET = {'rooms': 3, 'users': 2, 'licenses': 2, 'parties': 1, 'roomIndex': 99,
                  'friendCodes': 2, 'reports': 1, 'roomAlive': 1}   # rooms 3곳 = 관리자 함수만(카운트 폴백 제거됨)
-# roomAlive 1곳 = 💓 cleanGhostRooms(관리자 전용 · 버튼 누를 때 1회 · 규칙상 관리자만 읽힘). 멤버당 숫자 하나(수십 바이트).
+# roomAlive · rooms 읽기는 유령 방 청소(cleanGhostRooms · 관리자 전용)가 걷히며 0곳이 됐다 — 아래 숫자는 위쪽 한도로만 남는다.
 # reports 1곳 = 🚩 listReports(관리자 전용 · [신고 목록] 버튼 누를 때 1회 · 규칙상 관리자만 읽힘 · 2026-09-23 개정 60).
 # friendCodes 2곳 = 🎟️ grantInvitesAll · invite-revoke.js 전체 회수(둘 다 관리자 전용, 버튼 누를 때 1회).
 #   users 전체 읽기는 규칙상 거부되므로(.read는 users/$userId에만 존재) uid 목록을 얻는 대체 인덱스로 사용.

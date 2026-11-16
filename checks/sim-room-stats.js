@@ -31,8 +31,7 @@ const tick = () => new Promise(r => setTimeout(r, 0));
   {
     const f = require(path.resolve('functions/room-stats.js'));
     const now = 1e9;
-    chk(f.ROOM_LIVE_MS === 90 * 1000, '살아 있는 방 기준 90초 — 앱 getRoomCounts 의 STALE 과 같다');
-    chk(/const STALE = 90\*1000;/.test(CODE), '  ↳ 앱 쪽도 아직 90초다 (한쪽만 바꾸면 숫자가 어긋난다)');
+    chk(f.ROOM_LIVE_MS === 90 * 1000, '살아 있는 방 기준 90초(앱 쪽 같은 값은 유령 방 청소와 함께 걷었다)');
     const { stats, drop } = f.roomStatsFrom({
       W1: { lastSeen: now - 1000, channel: 'workingroom', open: true },
       W2: { lastSeen: now - 1000 },                                        // channel 없음 → 워킹룸(앱과 같음)
@@ -142,12 +141,11 @@ const tick = () => new Promise(r => setTimeout(r, 0));
     chk(rs === null || !/createRoomStats|ROOM_STATS_FRESH_MS/.test(rs), '  앱 쪽 room-stats.js(createRoomStats · ROOM_STATS_FRESH_MS)가 없다');
   }
 
-  say('── 4. 관리자 유령 방 청소 · 규칙');
+  say('── 4. 유령 방 청소 걷음 · 규칙');
   {
     const APP = strip(_joinRenderer(need('app.js')));
     chk(!/firebaseAPI\.(?:watchRoomCounts|getRoomCounts)\(/.test(APP), '방 창은 방 개수를 읽지도 구독하지도 않는다(채널 카드 숫자는 방 목록 로비로 바뀌었다)');
-    const cg = CODE.match(/async cleanGhostRooms\(\)\{[\s\S]*?\n    \},/);
-    chk(!!cg && /if\(idx\[code\] && idx\[code\]\.srv\) continue;[^\n]*\n\s*if\(!\(code in all\)/.test(cg[0]), '🛰 유령 방 청소는 방 서버 줄을 «rooms 에 없는 고아» 로 지우지 않는다');
+    chk(!/cleanGhostRooms|cleanupGhostRooms/.test(CODE), '🧹 유령 방 청소는 걷었다 — firebase-init 에 두 함수가 없다(0.13 방은 realtime 메모리라 유령 방이 없다)');
     let rr = null; try{ rr = JSON.parse(RULES).rules.roomStats; }catch(_){}
     chk(!!rr && rr['.read'] === true && !('.write' in rr) && Object.keys(rr).length === 1, '규칙: roomStats 는 읽기만 — 쓰기는 서버(Admin SDK)만');
   }

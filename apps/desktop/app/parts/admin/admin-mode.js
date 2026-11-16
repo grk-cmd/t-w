@@ -2,14 +2,13 @@
    app.js «🔐 라이선스 · 초대 게이트 시작 · 관리자 모드 진입» 의 뒤쪽(관리자 모드)과 «📨 라이선스 요청 · 관리자 비밀번호 모달» 의 비밀번호 창 연결을
    그대로 옮긴 관리자 모듈이다(관리자 코드 admin 폴더 7번 — docs/APP_FSD_MAP.md). 동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(두 덩이를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 6줄 —
-     isAdmin 은 이름() 으로 읽고 isAdmin = … 은 setIsAdmin(…) 으로, savedParts 는 이름() 으로. 둘 다 app.js 의 let 이고(isAdmin 은
-     이 모듈이 바꾸는 값 · savedParts 는 뒤에서 선언되고 다시 대입) 값이 아니라 읽는 함수 · 쓰는 함수로 받는다. 자리는 파서로 찾았다.
+     isAdmin 은 이름() 으로 읽고 isAdmin = … 은 setIsAdmin(…) 으로. app.js 의 let 이라 값이 아니라 읽는 함수 · 쓰는 함수로 받는다.
    ★ 이 모듈이 isAdmin 을 바꾸는 단 한 곳이다(켜기 · 끄기). 권한의 진짜 근거는 서버다 — 비밀번호가 맞고 로그인이 있어도 서버가 이 계정을
      관리자로 알아야(GET /v2/admin/admins/me) 켠다. 아니면 «모드는 켜졌는데 저장이 전부 403» 이 된다.
-   ★ 밖에서 부르는 이름은 refreshAdminVisibility 하나 — 부팅 때 관리자 전용 UI 를 숨길 때 app.js 가 adminMode.refreshAdminVisibility 로 부른다.
+   ★ 밖에서 부르는 이름은 refreshAdminVisibility 하나 — 부팅 때 관리자 전용 UI 를 숨길 때 app.js 가 부른다. 세션이 끝나면 app-boot 의 adminMode 칸이 NAV.ADMIN_EXIT 로 알려 모드를 조용히 끈다.
    ⚠️ document · window · companion · firebaseAPI · crypto · TextEncoder · hotkeyLetter(key-input.js) · navigator 는 예전처럼 전역 이름으로 쓴다
      (이 파일은 app.js 앞 · key-input.js 뒤에 싣는 classic script).
-   deps: adminApi — 서버 길(admin-api.js, 켜기 전 관리자 확인) · apiErrors — 서버 오류 → 오류 번호(TwApiErrors.store)
+   deps: twNav — 창 열기 통로(shared/nav.js) · adminApi — 서버 길(admin-api.js, 켜기 전 관리자 확인) · apiErrors — 서버 오류 → 오류 번호(TwApiErrors.store)
    ⚠️ 전역 이름은 TwAdminMode — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-admin-mode.js */
 (function(){
@@ -20,10 +19,11 @@ const refreshInviteBtn = deps.refreshInviteBtn;   // 🎟️ 관리자는 초대
 const ADMIN_PASS_HASH = deps.adminPassHash;       // 비밀번호 SHA-256(앞에서 선언한 const)
 const isAdmin = deps.isAdmin;                     // 읽는 함수 — 관리자 모드(app.js 의 let)
 const setIsAdmin = deps.setIsAdmin;               // 쓰는 함수 — 켜기 · 끄기는 여기서만
-const savedParts = deps.savedParts;               // 읽는 함수 — 카탈로그 파츠(뒤에서 선언 · 다시 대입되는 let)
+const twNav = deps.twNav;                         // 창 열기 통로 — 세션이 끝나면 app-boot 표가 NAV.ADMIN_EXIT 로 알린다(서로를 모르게 — 순환 없이)
 const adminApi = deps.adminApi;
 const apiErrors = deps.apiErrors;
 let checking = false;                              // 서버에 관리자 확인 중 — 확인 버튼을 또 눌러도 한 번
+let gen = 0;                                       // 세션이 끝날 때마다 +1 — 확인 중에 세션이 끝났으면 늦게 온 답을 버린다
 async function _sha256Hex(s){
   /* ★ 실패하면 null — 계정 이전 쪽 같은 이름 함수(뒤에 있어 이기고 있던 판)와 동작을 맞췄다(개정 16 에서 그쪽을 걷음). */
   try{
@@ -39,8 +39,8 @@ function tryEnterAdmin(){
   if(!overlay) return;
   err.style.display='none'; input.value='';
   /* 🔑 지금 어느 계정으로 로그인돼 있는지 먼저 보여준다.
-     [왜 여기에] 서버 규칙이 보는 것은 이 uid 하나다. 관리자를 한 명 더 등록할 때도 이 값을
-       콘솔의 admins 노드에 넣으면 되므로, 확인하려고 개발자도구를 열 일이 없어진다. */
+     [왜 여기에] 서버 규칙이 보는 것은 이 uid 하나다. 관리자를 한 명 더 등록할 때도 운영자가 이 값을
+       서버의 관리자 표(admin)에 넣으므로, 확인하려고 개발자도구를 열 일이 없어진다. */
   const line = document.getElementById('adminAuthLine');
   if(line){
     const uid = _myAuthUid();
@@ -89,29 +89,23 @@ async function _submitAdminPass(){
       /* 🛡️ 서버가 이 계정을 관리자로 아는가 — 모르면 켜지 않는다(켜 봐야 모든 저장이 403). 닿지 못했을 때도 켜지 않는다: 권한을 확인하지 못했다. */
       if(checking) return;
       checking = true;
+      const g = gen;
       try{ await adminApi.me(); }
       catch(e){
+        if(g !== gen) return;   // 확인 중에 세션이 끝났다 — 다음 계정 창에 까닭을 띄우지 않는다
         const t = apiErrors.notify(e, adminApi.ERRORS);
         err.textContent = (t.code === 'ACCESS_DENIED') ? '이 계정은 관리자로 등록돼 있지 않아요' : '서버에서 관리자 권한을 확인하지 못했어요';
         err.style.display='block';
         return;
       }
-      finally{ checking = false; }
+      finally{ if(g === gen) checking = false; }
+      if(g !== gen) return;   // 확인 중에 세션이 끝났다 — 끝난 계정의 답으로 모드를 켜지 않는다
       setIsAdmin(true);
       document.body.classList.add('admin');
       if(window.companion && companion.setAdminMode) companion.setAdminMode(true);
       toast('관리자 모드 ON — Ctrl+E로 종료');
       refreshAdminVisibility();
       overlay.classList.remove('on'); overlay.style.display='none';
-      /* 🎰 이관 과도기 — 카탈로그 첫 스냅샷이 이미 지나간 뒤에 관리자가 됐을 수 있다.
-         옛 경로 표식(_legacyGacha)이 로컬 목록에 남아 있으면 여기서도 한 번 옮긴다. */
-      if(!window.__gachaMigrated && window.firebaseAPI && window.firebaseAPI.migrateGachaCatalog
-         && savedParts().some(p=>p && p._legacyGacha)){
-        window.__gachaMigrated = true;
-        window.firebaseAPI.migrateGachaCatalog()
-          .then(r=>{ if(r && r.moved && r.moved.length) toast('🎰 가챠 파츠 '+r.moved.length+'개를 새 카탈로그 경로로 옮겼어요 (구버전 노출 차단)'); })
-          .catch(()=>{ window.__gachaMigrated = false; });
-      }
     } else {
       err.textContent='비밀번호가 틀려요'; err.style.display='block';
     }
@@ -122,6 +116,18 @@ function exitAdmin(){
   document.body.classList.remove('admin');
   if(window.companion && companion.setAdminMode) companion.setAdminMode(false);
   toast('관리자 모드 OFF');
+  refreshAdminVisibility();
+}
+/* 세션이 끝나면(로그아웃 · 계정 바꾸기 · 탈퇴) 관리자 모드를 조용히 끈다 — 토스트 없음. 안 끄면 다음 계정 화면에 관리자 버튼이 남는다(서버가 403 으로 막아도 화면이 어긋난다).
+   확인 중이던 요청의 답도 버린다(gen) — 끝난 계정의 답이 다음 계정의 모드를 켜지 못하게. 열린 비밀번호 창도 닫는다. */
+function reset(){
+  gen++;
+  checking = false;
+  const o = document.getElementById('adminPassOverlay'); if(o){ o.classList.remove('on'); o.style.display = 'none'; }
+  if(!isAdmin()) return;
+  setIsAdmin(false);
+  document.body.classList.remove('admin');
+  if(window.companion && companion.setAdminMode) companion.setAdminMode(false);
   refreshAdminVisibility();
 }
 // 관리자 모드 표시는 배지(클릭 버튼) 대신 Ctrl+E 단축키로 종료 — run 모드 클릭통과와 충돌하지 않게.
@@ -171,6 +177,8 @@ document.getElementById('adminPassCancel').onclick=()=>{
   const o=document.getElementById('adminPassOverlay'); o.classList.remove('on'); o.style.display='none';
 };
 document.getElementById('adminPassInput').addEventListener('keydown', e=>{ if(e.key==='Enter') _submitAdminPass(); });
+
+twNav.on(twNav.NAV.ADMIN_EXIT, reset);   // 세션이 끝나면 모드를 끈다
 
 return { refreshAdminVisibility };   // 부팅 때 관리자 전용 UI 숨기기
 }

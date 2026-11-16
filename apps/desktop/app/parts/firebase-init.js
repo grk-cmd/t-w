@@ -33,7 +33,6 @@
     signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { firebaseConfig } from "./firebase-config.js";
-  import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS } from "./room/room-alive.js";   // 관리자 유령 방 청소(cleanGhostRooms)만 — 앱 관리자 창을 걷을 때 같이
   import { createInviteRevokeAll } from "./account/invite-revoke.js";
   import { createAppVersion } from "./shared/app-version.js";
   import { createChatHistory, createIdbChatStore } from "./chat/chat-history.js";
@@ -684,112 +683,7 @@
       }
       return { ok:true, granted, skipped, total: uids.length };
     },
-    // 🎟️ 특정 날짜 이후 가입자의 초대권 회수 — 옛 버전으로 가입해 2장을 받은 계정 정리용.
-    //   invite.joinedAt(가입 시각) 기준. dryRun=true면 실제로 바꾸지 않고 대상만 조사해서 돌려줌.
-    //   · 대상: joinedAt >= sinceMs 이고 invitesLeft > 0 인 계정
-    //   · 처리: invitesLeft에서 amount만큼 빼되 0 밑으로는 내려가지 않음
-    // 🧹 유령 방 청소 — 멤버 없이 _meta만 남은 방을 일괄 정리(관리자 전용, dryRun 기본).
-    //   예전엔 마지막 사람이 나가도 _meta가 남아 방이 유령으로 남았음. leaveRoom을 고쳤지만
-    //   이미 남아있던 옛 유령 방을 청소하는 용도.
-    async cleanupGhostRooms(dryRun){
-      const snap = await get(ref(db, 'rooms'));
-      const all = snap.val() || {};
-      const ghosts = [];
-      const now = _svNow(); const DEAD = 10*60*1000;   // 삭제는 보수적으로 10분 기준(순간 재연결 보호)
-      for(const code in all){
-        const room = all[code] || {};
-        const members = Object.keys(room).filter(k => k !== '_meta');
-        const anyRecent = members.some(k =>
-          room[k] && room[k].lastSeen && (now - room[k].lastSeen) < DEAD);
-        if(members.length === 0 || !anyRecent) ghosts.push(code);   // 빈 방 또는 전원 사망(10분+) 방
-      }
-      if(dryRun !== false){ return { ok:true, dryRun:true, count:ghosts.length, ghosts }; }
-      let removed = 0, failed = 0;
-      for(const code of ghosts){
-        try{ await remove(ref(db, `rooms/${code}`)); removed++; }catch(_){ failed++; }
-        await remove(ref(db, `roomIndex/${code}`)).catch(()=>{});   // 💰 요약 노드도 함께 정리
-      }
-      return { ok:true, dryRun:false, removed, failed, ghosts };
-    },
-    // 🧹 관리자: 유령 방 일괄 청소 — 살아있는 멤버(90초 내 하트비트)가 하나도 없는데
-    //   _meta/chatLog만 남은 방을 통째로 삭제. 정상 방(살아있는 멤버 있음)은 절대 안 건드림.
-    async cleanGhostRooms(){
-      try{
-        const snap = await get(ref(db, 'rooms'));
-        const all = snap.val() || {};
-        /* 🕒 관리자 PC 시계가 앞서 있으면 **살아 있는 방을 유령으로 보고 지운다** — 여기는
-           되돌릴 수 없는 삭제라 다른 자리보다 위험하다. 오프셋 보정본을 쓴다. */
-        const now = _svNow(); const STALE = 90*1000;
-        // 💓 새 하트비트(hb:2) 멤버는 lastSeen 이 입장 때 값에 머문다 — roomAlive 도장으로 본다(room-alive.js)
-        const aliveTree = await get(ref(db, 'roomAlive')).then(s => s.val() || {}).catch(() => ({}));
-        const ghosts = [];
-        for(const code in all){
-          const room = all[code] || {};
-          let alive = false;
-          for(const k in room){
-            if(k === '_meta' || k === 'chatLog') continue;
-            const mm = room[k];
-            if(mm && mm.lastSeen && (now - mm.lastSeen) < STALE){ alive = true; break; }
-            const at = aliveTree[code] && aliveTree[code][k];
-            if(mm && mm.hb === ROOM_ALIVE_HB && typeof at === 'number' && (now - at) < ROOM_ALIVE_STALE_MS){ alive = true; break; }
-          }
-          if(!alive) ghosts.push(code);   // 살아있는 멤버 없음 = 유령 방
-        }
-        let ok=0, fail=0;
-        await Promise.all(ghosts.map(async code=>{
-          try{
-            // 통째 remove(rooms/{code})는 $room 삭제 규칙 게시가 필요하므로,
-            // 규칙 게시 없이도 되도록 하위 노드를 개별 삭제(각 하위는 예전부터 .write:true).
-            const room = all[code] || {};
-            const dels = [];
-            for(const k in room){ dels.push(remove(ref(db, `rooms/${code}/${k}`)).catch(()=>{})); }
-            if(aliveTree[code]) dels.push(remove(ref(db, `roomAlive/${code}`)).catch(()=>{}));
-            await Promise.all(dels);
-            ok++;
-          }catch(_){ fail++; }
-        }));
-        // 💰 roomIndex 정리 — 방금 지운 방 + rooms에 더 이상 없는 고아 인덱스를 함께 제거.
-        //   (마지막 사람이 강제종료로 나가면 leaveRoom이 못 돌아서 인덱스만 남을 수 있음 —
-        //    카운트는 lastSeen 90초 기준이라 어차피 안 세지만, 쓰레기가 쌓이지 않게 여기서 청소)
-        try{
-          const isnap = await get(ref(db, 'roomIndex'));
-          const idx = isnap.val() || {};
-          const dels = [];
-          for(const code in idx){
-            if(idx[code] && idx[code].srv) continue;   // 🛰 방 서버 방 줄 — Firebase rooms 에 없어도 정상(서버가 30초마다 갱신 · 끝나면 서버가 지운다)
-            if(!(code in all) || ghosts.indexOf(code) !== -1) dels.push(remove(ref(db, `roomIndex/${code}`)).catch(()=>{}));
-          }
-          await Promise.all(dels);
-        }catch(_){}
-        return { ok:true, cleaned: ok, failed: fail, total: Object.keys(all).length };
-      }catch(e){ return { ok:false, error:String(e&&e.message||e) }; }
-    },
     revokeInvitesAll: createInviteRevokeAll({ db, ref, get, runTransaction }),
-    async reclaimInvitesSince(sinceMs, amount, dryRun, allowNegative){
-      const snap = await get(ref(db, 'users'));
-      const all = snap.val() || {};
-      const targets = [];
-      let changed = 0, skipped = 0, failed = 0;
-      for(const uid in all){
-        const inv = all[uid] && all[uid].invite;
-        if(!inv || typeof inv.invitesLeft !== 'number'){ skipped++; continue; }
-        if(typeof inv.joinedAt !== 'number' || inv.joinedAt < sinceMs){ skipped++; continue; }
-        if(inv.invitesLeft <= 0){ skipped++; continue; }
-        const after = allowNegative ? (inv.invitesLeft - amount) : Math.max(0, inv.invitesLeft - amount);
-        targets.push({ uid, joinedAt: inv.joinedAt, before: inv.invitesLeft, after });
-      }
-      if(dryRun) return { ok:true, dryRun:true, count:targets.length, targets, skipped };
-      for(const t of targets){
-        try{
-          await runTransaction(ref(db, `users/${t.uid}/invite/invitesLeft`), cur=>{
-            const n = (typeof cur === 'number') ? cur : t.before;
-            return allowNegative ? (n - amount) : Math.max(0, n - amount);
-          });
-          changed++;
-        }catch(e){ failed++; }
-      }
-      return { ok:true, dryRun:false, changed, failed, skipped, targets };
-    },
     async grantInvites(userId, count){
       try{
         const leftRef = ref(db, `users/${userId}/invite/invitesLeft`);

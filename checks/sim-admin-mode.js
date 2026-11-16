@@ -34,11 +34,12 @@ function build(src, st){
   const document = { getElementById: (id) => els[id] || (els[id] = mk(id)), body,
     addEventListener(t, f, cap){ (docOn[t] = docOn[t] || []).push({ f, cap: !!cap }); }, querySelectorAll: (sel) => sel === '.admin-only' ? adminOnly : [] };
   const meCalls = []; st.meCalls = meCalls;
-  const fb = { authCurrentUid: () => st.uid, authCurrentEmail: () => 'a@b.c', migrateGachaCatalog: async () => ({ moved: [] }) };
+  const fb = { authCurrentUid: () => st.uid, authCurrentEmail: () => 'a@b.c' };
   const companion = { setAdminMode: (v) => calls.push('setAdminMode:' + v) };
+  const navFns = {}; st.navFns = navFns; const twNav = { NAV: { ADMIN_EXIT: 'adminExit' }, on: (n, f) => { navFns[n] = f; } };
   const win = { firebaseAPI: fb, companion, refreshWardrobe: () => calls.push('refreshWardrobe') };   // 코드는 window.companion 이 있을 때만 창 쪽에 알린다
-  const deps = { toast: (m) => calls.push('toast:' + m), refreshInviteBtn: () => calls.push('refreshInviteBtn'), adminPassHash: HASH,
-    isAdmin: () => st.admin, setIsAdmin: (v) => { calls.push('setIsAdmin:' + v); st.admin = v; }, savedParts: () => [],
+  const deps = { twNav, toast: (m) => calls.push('toast:' + m), refreshInviteBtn: () => calls.push('refreshInviteBtn'), adminPassHash: HASH,
+    isAdmin: () => st.admin, setIsAdmin: (v) => { calls.push('setIsAdmin:' + v); st.admin = v; },
     adminApi: { ERRORS: { MARK: 1 }, me: async () => { meCalls.push(1); if(st.hold) await st.hold; if(st.meErr) throw st.meErr; return { name: '관리자', version: 1 }; } },
     apiErrors: { notify: (e, table) => { calls.push('notify:' + (e && e.code) + ':' + (table && table.MARK)); return { code: e && e.code, action: 'notice' }; } } };
   const api = new Function('window', 'document', 'firebaseAPI', 'companion', 'navigator', 'hotkeyLetter', 'setTimeout', 'crypto', 'TextEncoder', 'module',
@@ -65,7 +66,7 @@ async function judgeAll(src, app, html, platform){
   const e = B.els;
   t(typeof e.adminPassOk.onclick === 'function' && typeof e.adminPassCancel.onclick === 'function' && (e.adminPassInput._on.keydown || []).length === 1
     && (B.docOn.keydown || []).length === 1 && (B.docOn.click || []).filter(x => x.cap).length === 1, '만들 때 — 비밀번호 창 버튼 셋 · Ctrl+E · 진입 클릭(캡처 단계)');
-  t(B.out && Object.keys(B.out).join() === 'refreshAdminVisibility' && !B.calls.some(c => c.startsWith('setIsAdmin')), '내놓는 이름 refreshAdminVisibility 하나 · 만들 때 isAdmin 을 안 바꾼다');
+  t(B.out && Object.keys(B.out).join() === 'refreshAdminVisibility' && typeof st.navFns.adminExit === 'function' && !B.calls.some(c => c.startsWith('setIsAdmin')), '내놓는 이름 refreshAdminVisibility 하나 · 세션 끝 알림(NAV.ADMIN_EXIT)에 끄기를 건다 · 만들 때 isAdmin 을 안 바꾼다');
   /* 2. 켜기 */
   e.adminPassInput.value = '틀림'; await e.adminPassOk.onclick();
   t(!st.admin && /틀려요/.test(e.adminPassErr.textContent), '틀린 비밀번호 — 안 켠다');
@@ -100,6 +101,20 @@ async function judgeAll(src, app, html, platform){
   t(!c3.prevented, '진입 버튼이 아닌 곳의 Ctrl+클릭은 건드리지 않는다');
   st.admin = true; const c4 = click(B, 'lcCreate', { ctrlKey: true }); st.admin = false;
   t(!c4.prevented, '이미 켜져 있으면 진입 클릭을 가로채지 않는다');
+  /* 3-2. 세션 끝 — 관리자 모드를 조용히 끈다 */
+  st.admin = true; B.body.classList.add('admin'); e.adminPassOverlay.classList.add('on');
+  const nReset = B.calls.length; st.navFns.adminExit();
+  t(!st.admin && !B.body.classList.contains('admin') && B.calls.slice(nReset).includes('setIsAdmin:false') && B.calls.slice(nReset).includes('setAdminMode:false')
+    && !B.calls.slice(nReset).some(c => c.startsWith('toast:')) && B.adminOnly.every(x => x.style.display === 'none') && !e.adminPassOverlay.classList.contains('on'),
+    '세션 끝 — 관리자 모드 끔 · 관리자 버튼 숨김 · 비밀번호 창 닫음 · 토스트 0');
+  const nReset2 = B.calls.length; st.navFns.adminExit();
+  t(!B.calls.slice(nReset2).some(c => c.startsWith('setIsAdmin')), '세션 끝 — 이미 꺼져 있으면 아무것도 안 바꾼다');
+  { let rel; st.hold = new Promise((r) => { rel = r; }); st.uid = 'u1'; const nMe = st.meCalls.length; e.adminPassInput.value = PW;
+    const pend = e.adminPassOk.onclick(); await new Promise((r) => setTimeout(r, 30));
+    st.navFns.adminExit(); rel(); await pend; st.hold = null;
+    t(st.meCalls.length === nMe + 1 && !st.admin && !B.body.classList.contains('admin'), '세션 끝 — 확인 중이던 옛 계정의 답으로 관리자 모드를 켜지 않는다(늦은 답 버림)');
+    e.adminPassInput.value = PW; await e.adminPassOk.onclick();
+    t(st.admin, '세션 끝 뒤 새 계정의 확인은 다시 된다(확인 중 잠금이 풀렸다)'); st.admin = false; B.body.classList.remove('admin'); }
   /* 4. app.js 연결 */
   const A = strip(app);
   t(!/function tryEnterAdmin|function _submitAdminPass|function exitAdmin|function refreshAdminVisibility|bindAdminTrigger|function _sha256Hex|'adminPassOk'/.test(A), 'app.js 에 옮긴 본문이 남지 않았다');
@@ -107,10 +122,11 @@ async function judgeAll(src, app, html, platform){
   t(!/\bADMIN_MODE_OFF\b/.test(app), '빈 껍데기 없이 만든다(모듈은 늘 싣는다 — 가드 걷기 3차)');
   const mk = (app.match(/const adminMode = TwAdminMode\.createAdminMode\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = mk.split('\n').map(l => l.trim()).filter(Boolean);
-  t(deps.length === 8 && deps.includes('adminApi: adminApi,') && deps.includes('apiErrors: TwApiErrors.store,') && deps.includes('isAdmin: ()=>isAdmin,') && deps.includes('setIsAdmin: (v)=>{ isAdmin = v; },') && deps.includes('savedParts: ()=>savedParts,')
-    && deps.includes('adminPassHash: ADMIN_PASS_HASH,'), 'deps 여덟 — isAdmin 은 읽는 함수 + 쓰는 함수 · savedParts 는 읽는 함수 · adminApi · apiErrors');
+  t(deps.length === 8 && deps.includes('adminApi: adminApi,') && deps.includes('twNav: twNav,') && deps.includes('apiErrors: TwApiErrors.store,') && deps.includes('isAdmin: ()=>isAdmin,') && deps.includes('setIsAdmin: (v)=>{ isAdmin = v; },')
+    && deps.includes('adminPassHash: ADMIN_PASS_HASH,'), 'deps 여덟 — twNav ·  isAdmin 은 읽는 함수 + 쓰는 함수 · adminApi · apiErrors');
   t(/if\(typeof adminMode\.refreshAdminVisibility==='function'\) adminMode\.refreshAdminVisibility\(\);/.test(A) && !/^refreshAdminVisibility\(\);/m.test(A),
     '부팅 때 adminMode.refreshAdminVisibility 로 관리자 전용 UI 를 숨긴다');
+  t(/adminMode: \(code, me, session\)=>\{ session\.onReset\(\(\)=>twNav\.go\(twNav\.NAV\.ADMIN_EXIT\)\); \},/.test(A) && (A.match(/NAV\.ADMIN_EXIT/g) || []).length === 1, '세션 끝에 관리자 모드 끄기 — app-boot 표 adminMode 칸 한 곳(창 열기 통로로 알림)');
   t(/window\.TwAdminMode = api;/.test(src), '전역 이름 TwAdminMode(Tw 접두사)');
   const iK = html.indexOf('<script src="parts/shared/key-input.js"></script>'), iM = html.indexOf('<script src="parts/admin/admin-mode.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iK > 0 && iM > iK && iA > iM, 'html — key-input.js(hotkeyLetter) 뒤 · app.js 앞');
@@ -119,7 +135,7 @@ async function judgeAll(src, app, html, platform){
 
 (async () => {
   const rows = await judgeAll(MOD, SRC, HTML, 'Win32');
-  const heads = { 0: '── 1. 만들 때', 2: '── 2. 켜기', 9: '── 3. 끄기 · 진입', 15: '── 4. app.js 연결' };
+  const heads = { 0: '── 1. 만들 때', 2: '── 2. 켜기', 9: '── 3. 끄기 · 진입', 15: '── 3-2. 세션 끝', 19: '── 4. app.js 연결' };
   rows.forEach(([ok, msg], i) => { if(heads[i]) say(heads[i]); chk(ok, msg); });
   /* Mac 에서는 ⌘+클릭으로 열린다 */
   { const st = { admin: false, uid: 'u1', platform: 'MacIntel' }; const B = build(MOD, st); const c = click(B, 'lcDonateBtn', { metaKey: true });
@@ -132,6 +148,9 @@ async function judgeAll(src, app, html, platform){
     ['확인 연타 잠금 없음', { mod: s => s.replace("if(checking) return;", "") }],
     ['기능 표를 안 넘김', { mod: s => s.replace("apiErrors.notify(e, adminApi.ERRORS)", "apiErrors.notify(e)") }],
     ['켜기 전에 isAdmin 을 붙잡음', { mod: s => s.replace('const isAdmin = deps.isAdmin;', 'const isAdmin = ((v)=>()=>v)(deps.isAdmin());') }],
+    ['세션 끝에 안 끔', { mod: s => s.replace('  if(!isAdmin()) return;\n  setIsAdmin(false);', '  return;\n  setIsAdmin(false);') }],
+    ['세션 끝 뒤 옛 답이 켬', { mod: s => s.replace('if(g !== gen) return;   // 확인 중에 세션이 끝났다 — 끝난 계정의 답으로', 'if(false) return;   // 확인 중에 세션이 끝났다 — 끝난 계정의 답으로') }],
+    ['app-boot 칸 빠짐', { app: s => s.replace('adminMode: (code, me, session)=>{ session.onReset(()=>twNav.go(twNav.NAV.ADMIN_EXIT)); },', '') }],
     ['Ctrl+E 가 안 끔', { mod: s => s.replace("e.preventDefault(); exitAdmin(); }", "e.preventDefault(); }") }],
     ['Win 키로도 열림', { mod: s => s.replace('if(!(e.ctrlKey || (isMac && e.metaKey))) return;', 'if(!(e.ctrlKey || e.metaKey)) return;') }],
     ['진입 클릭의 원래 동작을 안 막음', { mod: s => s.replace("    e.preventDefault();\n    e.stopPropagation();\n    tryEnterAdmin();", "    tryEnterAdmin();") }],
