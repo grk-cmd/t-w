@@ -122,8 +122,7 @@ function RevokeInvitesButton({ scope, uids, countAll, onDone }: Props) {
         {r && (
           <p className="msg">
             {r.stopped ? '멈춤 · ' : '완료 · '}
-            {r.revoked}명{r.taken === null ? '' : `에게서 ${r.taken}장`} 회수
-            {r.skipped === null ? '' : ` · ${r.skipped}명 건너뜀`}
+            {r.revoked}명에게서 {r.taken}장 회수 · {r.skipped}명 건너뜀
             {r.failed ? ` · ${r.failed}명 실패` : ''}
           </p>
         )}

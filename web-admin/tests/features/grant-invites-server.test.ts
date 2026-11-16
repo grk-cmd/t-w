@@ -51,21 +51,35 @@ describe('초대권 한 명 지급 — API 판', () => {
 });
 
 describe('초대권 지급 — 전체 · 고른 사람들 — API 판', () => {
-  it('전체는 target "all" 한 번 — 바뀐 사람 수만 알고 나머지는 모른다(null)', async () => {
+  it('전체는 target "all" 한 번 — 대상 · 건너뜀 수는 서버가 센 targeted · skipped', async () => {
     const s = fakeApiOf({
-      [GRANTS]: () => ({ changed: 42 }),
+      [GRANTS]: () => ({ changed: 42, targeted: 50, skipped: 8 }),
       'GET /v2/admin/users/stats': () => ({ total: 57 }),
     });
     const port = createServerGrantInvitesPort(s.api);
     expect(await port.countAll()).toBe(57);
     expect(await port.grant({ kind: 'all' }, 2)).toEqual({
+      total: 50,
+      granted: 42,
+      skipped: 8,
+      failed: 0,
+      stopped: false,
+    });
+    expect(s.calls[1].body).toMatchObject({ target: 'all', n: 2 });
+  });
+
+  it('칸이 생기기 전의 요청 기록을 다시 받으면(targeted · skipped 없음) 모름(null) — 0 으로 메우지 않는다', async () => {
+    const s = fakeApiOf({ [GRANTS]: () => ({ changed: 42 }) });
+    expect(await createServerGrantInvitesPort(s.api).grant({ kind: 'all' }, 2)).toEqual({
       total: null,
       granted: 42,
       skipped: null,
       failed: 0,
       stopped: false,
     });
-    expect(s.calls[1].body).toMatchObject({ target: 'all', n: 2 });
+    const bad = fakeApiOf({ [GRANTS]: () => ({ changed: 42, targeted: '50', skipped: 8 }) });
+    const e = await caught(createServerGrantInvitesPort(bad.api).grant({ kind: 'all' }, 2));
+    expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
   });
 
   it('전체 대상 수를 못 읽으면 0 으로 대신하지 않고 던진다', async () => {
@@ -74,19 +88,18 @@ describe('초대권 지급 — 전체 · 고른 사람들 — API 판', () => {
     expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
   });
 
-  it('고른 사람들은 100명씩 나눠 보내고 줄마다 결과를 센다 · 진행을 알린다', async () => {
+  it('고른 사람들은 100명씩 나눠 보내고 묶음마다 서버 수를 더한다 · 진행을 알린다', async () => {
     const uids = Array.from({ length: 230 }, (_, i) => `u${i}`);
     const s = fakeApiOf({
       [GRANTS]: (c) => {
         const targets = bodyOf(c).targets!;
-        return {
-          changed: 0,
-          results: targets.map((id, i) =>
-            i % 10 === 0
-              ? { id, ok: false, code: i % 20 === 0 ? 'NO_CHANGE' : 'USER_NOT_FOUND' }
-              : { id, ok: true, left: 3 },
-          ),
-        };
+        const results = targets.map((id, i) =>
+          i % 10 === 0
+            ? { id, ok: false, code: i % 20 === 0 ? 'NO_CHANGE' : 'USER_NOT_FOUND' }
+            : { id, ok: true, left: 3 },
+        );
+        const changed = results.filter((r) => r.ok).length;
+        return { changed, results, targeted: targets.length, skipped: targets.length - changed };
       },
     });
     const seen: Array<[number, number]> = [];
@@ -106,7 +119,15 @@ describe('초대권 지급 — 전체 · 고른 사람들 — API 판', () => {
 
   it('멈추면 다음 묶음부터 서고 멈췄다고 알린다', async () => {
     const s = fakeApiOf({
-      [GRANTS]: (c) => ({ changed: 0, results: bodyOf(c).targets!.map((id) => ({ id, ok: true, left: 1 })) }),
+      [GRANTS]: (c) => {
+        const targets = bodyOf(c).targets!;
+        return {
+          changed: targets.length,
+          results: targets.map((id) => ({ id, ok: true, left: 1 })),
+          targeted: targets.length,
+          skipped: 0,
+        };
+      },
     });
     let calls = 0;
     const uids = Array.from({ length: 150 }, (_, i) => `u${i}`);
@@ -135,7 +156,13 @@ describe('초대권 지급 — 전체 · 고른 사람들 — API 판', () => {
     const s = fakeApiOf({
       [GRANTS]: (c) => {
         if (++n === 2) throw new ApiError('unavailable', 0, '', '연결 안 됨');
-        return { changed: 0, results: bodyOf(c).targets!.map((id) => ({ id, ok: true, left: 1 })) };
+        const targets = bodyOf(c).targets!;
+        return {
+          changed: targets.length,
+          results: targets.map((id) => ({ id, ok: true, left: 1 })),
+          targeted: targets.length,
+          skipped: 0,
+        };
       },
     });
     const uids = Array.from({ length: 150 }, (_, i) => `u${i}`);
@@ -146,20 +173,32 @@ describe('초대권 지급 — 전체 · 고른 사람들 — API 판', () => {
 });
 
 describe('초대권 회수 — API 판', () => {
-  it('전체는 target "all" — 요청 번호 없이 보내고 바뀐 사람 수만 안다', async () => {
-    const s = fakeApiOf({ [REVOKES]: () => ({ changed: 7 }) });
+  it('전체는 target "all" — 요청 번호 없이 보내고 대상 · 건너뜀 · 거둔 장 수는 서버 칸', async () => {
+    const s = fakeApiOf({ [REVOKES]: () => ({ changed: 7, targeted: 10, skipped: 3, taken: 25 }) });
     expect(await createServerGrantInvitesPort(s.api).revoke({ kind: 'all' })).toEqual({
-      total: null,
+      total: 10,
       revoked: 7,
-      taken: null,
-      skipped: null,
+      taken: 25,
+      skipped: 3,
       failed: 0,
       stopped: false,
     });
     expect(s.calls[0].body).toEqual({ target: 'all' });
   });
 
-  it('고른 사람들은 줄마다 결과 — 안 된 줄은 건너뜀', async () => {
+  it('회수 결과에 taken · targeted · skipped 가 없으면 약속과 다른 응답(회수는 늘 새로 센다)', async () => {
+    for (const answer of [
+      { changed: 7, targeted: 10, skipped: 3 },
+      { changed: 7, skipped: 3, taken: 25 },
+      { changed: 7, targeted: 10, taken: 25 },
+    ]) {
+      const s = fakeApiOf({ [REVOKES]: () => answer });
+      const e = await caught(createServerGrantInvitesPort(s.api).revoke({ kind: 'all' }));
+      expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
+    }
+  });
+
+  it('고른 사람들 — 바뀐 · 건너뜀 · 거둔 장 수는 서버 칸', async () => {
     const s = fakeApiOf({
       [REVOKES]: () => ({
         changed: 1,
@@ -167,12 +206,15 @@ describe('초대권 회수 — API 판', () => {
           { id: 'u1', ok: true, left: 0 },
           { id: 'u2', ok: false, code: 'NO_CHANGE', left: 0 },
         ],
+        targeted: 2,
+        skipped: 1,
+        taken: 4,
       }),
     });
     expect(await createServerGrantInvitesPort(s.api).revoke({ kind: 'picked', uids: ['u1', 'u2'] })).toEqual({
       total: 2,
       revoked: 1,
-      taken: null,
+      taken: 4,
       skipped: 1,
       failed: 0,
       stopped: false,

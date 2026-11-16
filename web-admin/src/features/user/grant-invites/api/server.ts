@@ -1,5 +1,6 @@
 // API 판 — 한 사람 · 전체: `POST /v2/admin/invite-quotas/grants { requestId, target(사용자코드 | "all"), n }`,
 // 고른 사람들(≤100): `{ requestId, targets, n }` → 줄마다 `{ id, ok, code?, left? }`. 회수는 `POST …/revocations { target | targets }`(요청 번호 없음).
+// 결과의 대상 수 · 건너뛴 수 · 거둔 장 수는 서버가 센 `targeted` · `skipped` · `taken` 을 그대로 쓴다(웹이 줄을 세지 않는다).
 // 한 명짜리 코드 n 개: `POST /v2/admin/invites { requestId, maxUses: 1, count: n }` → `{ code, codes }`. 여러 명 코드: 같은 길에 `{ requestId, maxUses, expiresAt?, memo? }`,
 // 중지 · 다시 열기: `PATCH /v2/admin/invites/{code} { version, paused }` — 번호는 목록이 읽은 줄에 실려 오고 그 사이 다른 관리자가 고쳤으면 409 → `conflict`.
 // 기록 · 남은 장수 계산과 지급 장수 · 코드 개수 · 인원 상한 · 메모 길이 판정은 서버가 한다 — 값은 그대로 보내고 400 은 서버 문구로 띄운다.
@@ -35,15 +36,33 @@ const USER_STATS = adminPath('/users/stats');
 /** 안 바뀐 까닭 — 둘 다 «건너뜀»(초대 칸이 없거나 이미 그 값)이다. 그 밖의 글자는 약속과 다른 응답. */
 const SKIP_CODES = ['USER_NOT_FOUND', 'NO_CHANGE'];
 
-/** `{ changed, invitesLeft? }` — `invitesLeft` 는 한 사람 대상일 때만 오고 없는 사람이면 칸이 없다. */
+/**
+ * `{ changed, invitesLeft?, results?, targeted, skipped, taken? }` — `invitesLeft` 는 한 사람 대상일 때만 오고 없는 사람이면 칸이 없다.
+ * `targeted`(대상 수) · `skipped`(대상 중 안 바뀐 수) · `taken`(회수로 거둔 장 수 — 지급이면 없음)은 서버가 센 값을 그대로 쓴다.
+ */
 function toChanged(w: unknown) {
   const o = wireObject(w, '초대권 결과');
+  const count = (field: string) => wireOmittable(o, field, (v) => wireNumber(v, `초대권 결과의 ${field}`));
   return {
     changed: wireNumber(o.changed, '초대권 결과의 changed'),
-    left: wireOmittable(o, 'invitesLeft', (v) => wireNumber(v, '초대권 결과의 invitesLeft')),
+    left: count('invitesLeft'),
     rows: wireOmittable(o, 'results', (v) => wireArray(v, '초대권 결과의 results')),
+    targeted: count('targeted'),
+    skipped: count('skipped'),
+    taken: count('taken'),
   };
 }
+
+/** 회수 결과의 수 — 회수는 요청 번호가 없어 늘 새로 세므로 세 칸이 다 있어야 한다. */
+function revokeCounts(r: ReturnType<typeof toChanged>) {
+  if (r.targeted === null) throw wireError('초대권 결과의 targeted', '숫자(대상 수)');
+  if (r.skipped === null) throw wireError('초대권 결과의 skipped', '숫자(건너뛴 수)');
+  if (r.taken === null) throw wireError('초대권 결과의 taken', '숫자(거둔 장 수)');
+  return { targeted: r.targeted, skipped: r.skipped, taken: r.taken };
+}
+
+/** 묶음마다 받은 수를 더한다 — 하나라도 모르면(null) 합도 모름. */
+const addKnown = (sum: number | null, n: number | null) => (sum === null || n === null ? null : sum + n);
 
 /** 고른 사람 한 줄 — 안 된 줄은 까닭 `code` 가 있다. */
 function toRow(w: unknown): { id: string; ok: boolean } {
@@ -71,14 +90,14 @@ function partial(error: unknown, done: number, left: number, what: string): Port
 function build(api: Api | null): GrantInvitesPort {
   const once = createPayloadRequestId();
 
-  /** 고른 사람들 한 묶음의 결과 — 보낸 사람과 줄이 어긋나면 약속과 다른 응답. */
+  /** 고른 사람들 한 묶음의 결과 — 보낸 사람과 줄이 어긋나면 약속과 다른 응답. 수는 서버가 센 칸을 쓴다. */
   function readPicked(answer: unknown, sent: readonly string[]) {
-    const { rows } = toChanged(answer);
-    if (rows === null) throw wireError('초대권 결과의 results', '줄마다 결과');
-    const parsed = rows.map(toRow);
+    const changed = toChanged(answer);
+    if (changed.rows === null) throw wireError('초대권 결과의 results', '줄마다 결과');
+    const parsed = changed.rows.map(toRow);
     if (parsed.length !== sent.length || parsed.some((r, i) => r.id !== sent[i]))
       throw wireError('초대권 결과의 results', '보낸 사람 순서대로 한 줄씩');
-    return parsed;
+    return changed;
   }
 
   return {
@@ -128,7 +147,8 @@ function build(api: Api | null): GrantInvitesPort {
             '전체 지급을 하지 못했어요',
           ),
         );
-        return { total: null, granted: r.changed, skipped: null, failed: 0, stopped: false };
+        // 그 칸이 생기기 전에 적힌 요청 기록을 같은 요청 번호로 다시 받으면 대상 · 건너뜀 수가 없다(null = 모름).
+        return { total: r.targeted, granted: r.changed, skipped: r.skipped, failed: 0, stopped: false };
       }
       const result: GrantAllResult = {
         total: target.uids.length,
@@ -138,7 +158,6 @@ function build(api: Api | null): GrantInvitesPort {
         stopped: false,
       };
       let done = 0;
-      let skipped = 0;
       opts.onProgress?.(0, target.uids.length);
       for (const targets of chunks(target.uids, BULK_SEND_MAX)) {
         if (opts.shouldStop?.()) {
@@ -147,7 +166,7 @@ function build(api: Api | null): GrantInvitesPort {
         }
         const body = { targets, n: count };
         try {
-          const rows = readPicked(
+          const r = readPicked(
             await portCall(
               api,
               (a) =>
@@ -158,17 +177,14 @@ function build(api: Api | null): GrantInvitesPort {
             ),
             targets,
           );
-          for (const row of rows) {
-            if (row.ok) result.granted += 1;
-            else skipped += 1;
-          }
+          result.granted += r.changed;
+          result.skipped = addKnown(result.skipped, r.skipped);
         } catch (error) {
           throw partial(error, result.granted, target.uids.length - done, '지급');
         }
         done += targets.length;
         opts.onProgress?.(done, target.uids.length);
       }
-      result.skipped = skipped;
       return result;
     },
 
@@ -181,18 +197,18 @@ function build(api: Api | null): GrantInvitesPort {
             '전체 회수를 하지 못했어요',
           ),
         );
-        return { total: null, revoked: r.changed, taken: null, skipped: null, failed: 0, stopped: false };
+        const { targeted, skipped, taken } = revokeCounts(r);
+        return { total: targeted, revoked: r.changed, taken, skipped, failed: 0, stopped: false };
       }
       const result: RevokeAllResult = {
         total: target.uids.length,
         revoked: 0,
-        taken: null,
+        taken: 0,
         skipped: 0,
         failed: 0,
         stopped: false,
       };
       let done = 0;
-      let skipped = 0;
       opts.onProgress?.(0, target.uids.length);
       for (const targets of chunks(target.uids, BULK_SEND_MAX)) {
         if (opts.shouldStop?.()) {
@@ -200,7 +216,7 @@ function build(api: Api | null): GrantInvitesPort {
           break;
         }
         try {
-          const rows = readPicked(
+          const r = readPicked(
             await portCall(
               api,
               (a) => a.send<unknown>('POST', `${QUOTAS}/revocations`, { body: { targets } }),
@@ -208,17 +224,16 @@ function build(api: Api | null): GrantInvitesPort {
             ),
             targets,
           );
-          for (const row of rows) {
-            if (row.ok) result.revoked += 1;
-            else skipped += 1;
-          }
+          const counts = revokeCounts(r);
+          result.revoked += r.changed;
+          result.skipped += counts.skipped;
+          result.taken += counts.taken;
         } catch (error) {
           throw partial(error, result.revoked, target.uids.length - done, '회수');
         }
         done += targets.length;
         opts.onProgress?.(done, target.uids.length);
       }
-      result.skipped = skipped;
       return result;
     },
 
