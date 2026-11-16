@@ -121,7 +121,7 @@
 | **sim-def-send.js** | 221 | **166a25f773b8** |
 | **sim-desk-floor-clamp.js** | 206 | **b59a0d2a44b2** |
 | **sim-desk-part-scale.js** | 83 | **8a0a59ffb09a** |
-| **sim-desk-preset.js** | 254 | **4e79c7cc1ca5** |
+| **sim-desk-preset.js** | 260 | **c9cbd3ae4266** |
 | **sim-json-store.js** | 209 | **667a88619187** |
 | **sim-desk-setup.js** | 255 | **e9a0e3f5c2bf** |
 | sim-dom-boot.js | 83 | 927ab53ecc44 |
@@ -324,7 +324,7 @@
 | **sim-admin-part-register.js** | 171 | **1adf117e02a3** |
 | **sim-admin-users-launcher.js** | 240 | **3c4a469aceec** |
 | **sim-admin-asset.js** | 129 | **32cd05cdef5a** |
-| **sim-admin-mode.js** | 221 | **9759ff545e73** |
+| **sim-admin-mode.js** | 233 | **d0605ecdf3d3** |
 | **sim-report.js** | 420 | **de17a89ce544** |
 | **sim-my-info.js** | 98 | **4e58bce6234f** |
 | **sim-my-info-box.js** | 208 | **a80135e14b2c** |
@@ -414,6 +414,7 @@
 | **sim-account-state.js** | 108 | **148155f17f1a** |
 | **sim-nav.js** | 91 | **aa8cab6dd39f** |
 | **sim-app-boot.js** | 166 | **d84ebd181508** |
+| **sim-away-start.js** | 120 | **c501f6a3d5f6** |
 | **sim-user-local.js** | 207 | **e34df8fb0e7a** |
 | **sim-saved-lists-wiring.js** | 91 | **38b630d814d6** |
 | **sim-net-ready.js** | 152 | **a6440206a2d2** |

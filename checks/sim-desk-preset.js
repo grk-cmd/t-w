@@ -122,6 +122,11 @@ async function behave(src, storeSrc) {
   t(w.st.cDeskColor === '#222222' && w.E.deskColor.value === '#222222' && (w.E.deskColor.dispatched || []).includes('input') && w.mat.c === '#222222' && w.calls('color')[0][2] === '#222222', '책상 색 — 상태 · 색 칸(input 이벤트) · 재질 · 커스텀 책상');
   t(w.st.cDeskScale === 0.3 && w.E.deskScale.value === 0.3 && w.st.cDeskLenX === 1.4 && w.calls('scale').length >= 2 && JSON.stringify(w.st.cDeskPos) === '{"x":1,"y":0,"z":0}' && w.calls('pos').length === 1 && w.calls('posnum').length === 1,
     '책상 크기(0.05~0.3 로 자름) · 길이 · 위치(숫자로 · 아니면 0) · 위치 숫자 칸');
+  { const x = world(src, { ls: { 'tw.deskPresets': JSON.stringify([P()]) } }); x.st.cBase._skippedItems = new Map([['old1', { adj: 1 }], ['old2', undefined]]); const sk = x.st.cBase._skippedItems;
+    btn(x, 0).onclick(); await flush();
+    t(sk.size === 0 && x.st.cBase._skippedItems === sk && x.calls('items').length === 1, '★ 프리셋을 얹기 전에 옛 «건너뜀» 표시를 비운다(소품을 교체하니 옛 표시가 저장 때 옛 항목을 되살리지 않는다) — 같은 Map 을 비우고 그 뒤에 얹는다');
+    const y = world(src, { ls: { 'tw.deskPresets': JSON.stringify([P()]) } }); btn(y, 0).onclick(); await flush();
+    t(y.calls('items').length === 1 && !y.st.cBase._skippedItems, '  표시가 없던 자리는 새로 만들지 않는다(던지지 않는다)'); }
   w = await apply({ customItems: { have: { name: '원래' } }, savedItems: [{ id: 'lic', licenseOnly: true }] }, P({ customItems: { lic: { name: 'L', glb: 'g' }, free: { name: 'F', glb: 'h' }, have: { name: '새' } } }));
   t(w.customItems.lic.licenseOnly === true && w.customItems.lic.name === 'L' && w.customItems.free.licenseOnly === false && w.customItems.free.deskItem === true && w.customItems.have.name === '원래',
     '로컬 아이템 — 없던 것만 넣고 라이선스 전용 여부는 원본 카탈로그에서(프리셋 값 아님)');
@@ -232,6 +237,7 @@ function wire(app, html) {
     ['적용이 옛 앞뒤 z 를 높이로', (m) => m.replace("if(typeof p.seat.y==='number')", "if(typeof p.seat.z==='number') p.seat.y=p.seat.z; if(typeof p.seat.y==='number')"), null],
     ['라이선스를 프리셋 값으로', (m) => m.replace('licenseOnly:!!(_rec && _rec.licenseOnly)', 'licenseOnly:false'), null],
     ['책상 크기 clamp 없앰', (m) => m.replace('crState.cDeskScale=clampDeskScale(p.deskScale);', 'crState.cDeskScale=p.deskScale;'), null],
+    ['건너뜀 표시를 안 비움', (m) => m.replace('crState.cBase._skippedItems.clear();', ''), null],
     ['카메라 기억 안 지움', (m) => m.replace('  crState.deskCamSaved = null;\n', ''), null],
     ['라이선스 잠금 없앰', (m) => m.replace('licenseAssetBlocked({ locked: premiumMod._licenseLockedDeskId(p.deskCatalogId) })', 'false'), null],
     ['기본 책상 덮어쓰기 표시 안 함', (m) => m.replace('swapDeskVisual(crState.cDesk, sc, true);', 'swapDeskVisual(crState.cDesk, sc);'), null],
