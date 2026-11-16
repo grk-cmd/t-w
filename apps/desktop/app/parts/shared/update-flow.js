@@ -65,14 +65,16 @@ function mainButton(up, wantUpdate){
   return { label: '다운로드 페이지 열기', action: ACT.OPEN, url: RELEASES_URL };
 }
 
-function viewOf(kind, my, min, latest, up, wantUpdate){
+function viewOf(kind, my, min, latest, up, wantUpdate, account){
   const u = up || {};
   if(kind === STAGE.FORCE){
     return {
       kind,
       title: '업데이트가 필요해요',
-      // min 이 없으면 서버가 통신 판이 다르다고 끊은 것(realtime 4003) — 몇 이상인지 모른다
-      body: (min
+      // min 이 없으면 서버가 통신 판이 다르다고 끊은 것(realtime 4003) — 몇 이상인지 모른다. account 면 min 은 이 계정이 쓴 가장 높은 판
+      body: (account
+        ? '다른 PC 에서 더 새 버전(' + min + ')을 쓰고 있어요. 이 PC(' + my + ')도 업데이트하면 그대로 이어서 쓸 수 있어요'
+        : min
         ? '이 버전(' + my + ')은 더 이상 쓸 수 없어요. ' + min + ' 이상으로 업데이트하면 그대로 이어서 쓸 수 있어요'
         : '이 버전' + (my ? '(' + my + ')' : '') + '은 서버와 맞지 않아 더 이상 쓸 수 없어요. 새 버전으로 업데이트하면 그대로 이어서 쓸 수 있어요')
         + ' — 캐릭터 · 친구 · 기록은 계정에 남아 있어요.',
@@ -112,7 +114,7 @@ function createUpdateFlow(deps){
   let my = null;            // 이 앱 버전 — 읽은 뒤에만
   let up = null;            // 마지막 업데이트 상태
   let latest = null;        // 알려진 새 판(main 의 available · downloaded · mac-available 에서)
-  let shown = null;         // 지금 떠 있는 창 { kind, min }
+  let shown = null;         // 지금 떠 있는 창 { kind, min, account } — account = 계정 판 맞추기로 뜬 강제 창(min 은 그 계정이 쓴 가장 높은 판)
   let wantUpdate = false;   // 선택 창에서 [업데이트] 를 눌렀다 — 받기가 끝나면 바로 설치
   let laterResolve = null;  // 선택 창이 닫히길 기다리는 쪽
   let updateAnswer = null;  // 새 판 확인 답을 기다리는 쪽
@@ -120,9 +122,10 @@ function createUpdateFlow(deps){
   let stageDone = false;
   const doneWaiters = [];
 
+  const viewNow = () => viewOf(shown.kind, my, shown.min, latest, up, wantUpdate, shown.account);
   const redraw = () => {
     if(!shown) return;
-    ui.update(viewOf(shown.kind, my, shown.min, latest, up, wantUpdate));
+    ui.update(viewNow());
   };
 
   function open(url){ if(companion) companion.openBrowser(url); }
@@ -137,9 +140,9 @@ function createUpdateFlow(deps){
     });
   }
 
-  function showWindow(kind, min){
-    shown = { kind, min };
-    ui.show(viewOf(kind, my, min, latest, up, wantUpdate), press);
+  function showWindow(kind, min, account){
+    shown = { kind, min, account: !!account };
+    ui.show(viewNow(), press);
   }
   function closeWindow(){
     shown = null; wantUpdate = false;
@@ -151,7 +154,7 @@ function createUpdateFlow(deps){
   function press(action){
     if(!shown) return;
     if(action === 'link') return open(RELEASES_URL);
-    const b = viewOf(shown.kind, my, shown.min, latest, up, wantUpdate).buttons.find(x => x.action === action);
+    const b = viewNow().buttons.find(x => x.action === action);
     if(!b) return;
     if(action === ACT.LATER) return closeWindow();
     if(action === ACT.INSTALL){ if(companion) companion.installUpdate(); return; }
@@ -191,6 +194,19 @@ function createUpdateFlow(deps){
     if(laterResolve){ const f = laterResolve; laterResolve = null; f(); }
     showWindow(STAGE.FORCE, null);
     askIfIdle();
+  }
+
+  /* 계정 판 맞추기(account/app-version-sync.js)가 «이 계정은 더 새 판을 쓰는 기기가 있다» 고 답했을 때 — 같은 강제 창 · 같은 업데이트 길(문구만 다르다).
+     이미 강제 창이 떠 있으면 그 창을 둔다(둘 다 «업데이트» 라 하나면 된다). 이 앱 판 · 그 판 모양을 모르면 막지 않는다.
+     @return 새로 막았으면 true */
+  function forceAccount(highest){
+    if(forced) return false;
+    if(!parseVer(my) || !parseVer(highest)) return false;
+    forced = true;
+    if(laterResolve){ const f = laterResolve; laterResolve = null; f(); }
+    showWindow(STAGE.FORCE, String(highest), true);
+    askIfIdle();
+    return true;
   }
 
   /* 켜 둔 동안 — 최소 버전이 올라가면 바로 강제 창. 버전을 읽기 전(켜는 중)에는 켜는 흐름이 보므로 건너뛴다. */
@@ -253,6 +269,7 @@ function createUpdateFlow(deps){
     runBeforeLogin,
     press,
     forceProtocol,
+    forceAccount,
     /* 업데이트 창 단계가 끝난 뒤 한 번 — 끝났으면 바로 */
     whenStageDone(fn){ if(stageDone) fn(); else doneWaiters.push(fn); },
     isForced: () => forced,

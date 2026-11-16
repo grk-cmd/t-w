@@ -12,6 +12,18 @@
   - 화면 문구는 `reasonOf` 표로 — 서버 message 를 그대로 보여 주지 않는다.
 - 검사: `checks/sim-user-api.js`(진짜 api-client 위에서 · 깨 보기).
 
+## app-version-sync.js — 계정 단위 판 맞추기(classic script `window.TwAppVersionSync`)
+- 책임: 계정에 들어간 뒤 이 앱 판을 서버에 알리고(`POST /v2/me/app-version`, 본문 `{ version }` 만 — 계정은 토큰으로 서버가 정한다), 응답이 `behind: true`(이 계정이 더 새 판을 쓰는 기기가 있다)면 업데이트 강제 창으로 막는다. 판 비교는 서버가 한다 — 앱은 `behind` 만 믿는다.
+- deps: `authed`(`TwApi.authed`) · `getVersion()`(`window.TwAppVersion.ready` — `shared/app-version.js` 의 `sharedAppVersion` 한 벌을 rt-bind 가 내놓는다) · `block(my, highest)`(app.js 가 `updateFlowMod.forceAccount(highest)` 로 잇는다 — false 를 돌려주면 창을 못 띄운 것이라 경고 한 줄) · `warn`.
+- 내놓는 것: `createAppVersionSync(deps)` → `start(session)` → `{ state: 'behind' | 'ok' | 'skipped' | 'stale' }` · `PATH` · `STATE`. 시작은 app-boot 의 `appVersion` 차례 한 곳.
+- 함정:
+  - 판 모양 규칙은 `shared/app-version.js` 의 `cleanAppVer` 한 곳 — 여기서는 `null`(«모름»)만 거른다.
+  - 가입 전(익명) 로그인은 계정 확인이 «로그인 필요» 로 걸러 이 차례에 오지 않는다 — 따로 거르지 않는다.
+  - 못 알려도(닿지 못함 · 모양이 다른 답 · 판을 모름) 막지 않는다(잘못 막는 쪽이 더 크다). 숨기지는 않는다 — 까닭을 `console.warn` 한 줄로 남긴다. 다시 보내지 않는다 — 다음에 켤 때 다시 알린다.
+  - 답이 오기 전에 세션이 끝났으면(`stale`) 그 답을 버린다 — 옛 계정의 답이 새 로그인을 막지 않게.
+  - 창은 `shared/update-flow.js` 의 `forceAccount`(이미 최소 버전 · 통신 판으로 막혔으면 그 창을 둔다).
+- 검사: `checks/sim-app-version-sync.js` · `checks/sim-update-flow.js` 6-3절.
+
 ## license-api.js · license-premium.js — 프리미엄 판정(classic script `window.TwLicenseApi` · `window.TwLicensePremium`)
 - 책임: 프리미엄은 서버가 «이 계정 + 이 기기가 등록돼 있음 + 키 유효» 로 판정한다. `license-api.js` 는 내 라이선스 · 기기 길(`/v2/me/license*`) 한 벌,
   `license-premium.js` 는 서버 확인(`GET /v2/me` 의 `premium`)을 `isPremium` 에 반영하고 키 등록 · 이 기기 해제를 한다. 이 PC 의 키(`tw.licenseKey`)로 미리 켜지도, 24시간 유예로 버티지도 않는다.

@@ -346,6 +346,41 @@ async function suite(M, label){
     chk(t2.comp.calls.filter(c => c[0] === 'check').length === 1, '  ↳ 받는 중(available)이면 또 묻지 않는다');
   }
 
+  say('── 6-3. 계정 판 맞추기(더 새 판을 쓰는 기기가 있음) — forceAccount');
+  {
+    let t3 = make({ my: '0.12.3', min: null });
+    let p3 = t3.f.runBeforeLogin(); await sleep(5); t3.comp.push({ status: 'none' }); await p3;
+    const n0 = t3.comp.calls.length;
+    const r1 = t3.f.forceAccount('0.12.4');
+    const v = t3.ui.log[t3.ui.log.length - 1];
+    chk(r1 === true && t3.f.isForced() && t3.f.current() === STAGE.FORCE && v.buttons.length === 1 && /다른 PC/.test(v.body) && /0\.12\.4/.test(v.body) && /0\.12\.3/.test(v.body) && !/null/.test(v.body),
+      '★ 더 새 판을 쓰는 기기가 있으면 강제 창(«다른 PC» · 내 판 · 그 판 · 단추 하나 · 닫기 없음) — ' + v.body);
+    chk(t3.comp.calls.length === n0 + 1 && t3.comp.calls[n0][0] === 'check', '  ↳ 받기가 안 돌고 있으면 새 판 확인을 한 번 묻는다(같은 업데이트 길)');
+    t3.comp.push({ status: 'downloaded', version: '0.12.4' });
+    t3.f.press('install');
+    chk(t3.comp.calls.some(c => c[0] === 'install') && /다른 PC/.test(t3.ui.log[t3.ui.log.length - 1].body), '  ↳ 받기가 끝나면 같은 단추로 재시작 설치 · 창 문구는 그대로');
+    chk(t3.f.forceAccount('0.12.5') === false, '  ↳ 이미 강제 창이면 그 창을 둔다(false · 다시 띄우지 않음)');
+    t3 = make({ my: '0.12.0', min: '0.13.0' });
+    p3 = t3.f.runBeforeLogin(); await sleep(5);
+    const rr = await p3;
+    chk(rr.proceed === false && t3.f.forceAccount('0.13.1') === false && !/다른 PC/.test(t3.ui.log[t3.ui.log.length - 1].body), '  ↳ 최소 버전으로 이미 막혔으면 그 화면을 둔다');
+    t3 = make({ my: '0.12.3', min: null });
+    p3 = t3.f.runBeforeLogin(); await sleep(5); t3.comp.push({ status: 'none' }); await p3;
+    const shownBefore = t3.ui.log.length;
+    chk(t3.f.forceAccount('x') === false && t3.f.forceAccount(null) === false && t3.f.current() === null && t3.ui.log.length === shownBefore, '  ↳ 그 판 모양을 모르면 막지 않는다');
+    t3 = make({ my: null, min: null });
+    p3 = t3.f.runBeforeLogin(); await sleep(5); t3.comp.push({ status: 'none' }); await p3;
+    chk(t3.f.forceAccount('0.12.4') === false && t3.f.current() === null, '  ↳ 이 앱 판을 모르면 막지 않는다');
+    t3 = make({ my: '0.12.3', min: null });
+    p3 = t3.f.runBeforeLogin(); await sleep(5); t3.comp.push({ status: 'none' }); await p3;
+    t3.f.forceAccount('0.12.4');
+    t3.setMin('0.12.9');
+    const v2 = t3.ui.log[t3.ui.log.length - 1];
+    chk(/0\.12\.9/.test(v2.body) && !/다른 PC/.test(v2.body), '  ↳ 그 뒤 최소 버전이 오르면 최소 버전 문구로 바뀐다');
+    const x = viewOf(STAGE.FORCE, '0.12.3', '<img src=x>', null, null, false, true);
+    chk(x.body.indexOf('<img src=x>') > 0 && x.buttons.length === 1, '  ↳ 문구는 글자로만 만든다(화면은 textContent)');
+  }
+
   say('── 7. 연결');
   {
     // 아래 7절 정규식은 app.js · main.js · preload.js 의 «배선»(어디서 무엇을 부르나)이라 실제로 불러 볼 수 없어 글자로 본다. 동작은 2~5절이 맡는다.
@@ -440,6 +475,16 @@ async function suite(M, label){
       async (m) => { const x = flowOf(m, { my: '0.13.0', min: null }); const p = x.f.runBeforeLogin(); await sleep(2); x.comp.push({ status: 'none' }); await p; x.f.forceProtocol(); return x.f.current() === 'force'; });
     await redIf('4003 강제 창 글에 최소 버전 자리(null)', mutate("        : '이 버전' + (my ? '(' + my + ')' : '') + '은 서버와 맞지 않아", "        : '이 버전(' + my + ')은 ' + min + ' 서버와 맞지 않아"),
       async (m) => { const X = load(m); return !/null/.test(X.viewOf(X.STAGE.FORCE, '0.13.0', null, null, null).body); });
+    // 계정 판 맞추기 깨 보기
+    const accFlow = async (m) => { const x = flowOf(m, { my: '0.12.3', min: null }); const p = x.f.runBeforeLogin(); await sleep(2); x.comp.push({ status: 'none' }); await p; return x; };
+    await redIf('계정 판 맞추기가 강제 창을 안 띄운다', mutate("    showWindow(STAGE.FORCE, String(highest), true);\n", ''),
+      async (m) => { const x = await accFlow(m); x.f.forceAccount('0.12.4'); return x.f.current() === 'force'; });
+    await redIf('계정 판 맞추기 창에 다른 PC 문구가 없다', mutate("        ? '다른 PC 에서 더 새 버전(' + min + ')을 쓰고 있어요.", "        ? '이 버전(' + min + ')을 쓰고 있어요."),
+      async (m) => { const x = await accFlow(m); x.f.forceAccount('0.12.4'); return /다른 PC/.test(x.ui.log[x.ui.log.length - 1].body); });
+    await redIf('이미 강제 창인데 계정 판 맞추기가 다시 띄운다', mutate("  function forceAccount(highest){\n    if(forced) return false;\n", "  function forceAccount(highest){\n"),
+      async (m) => { const x = flowOf(m, { my: '0.12.0', min: '0.13.0' }); await x.f.runBeforeLogin(); return x.f.forceAccount('0.13.1') === false; });
+    await redIf('판 모양을 모르는데 막는다', mutate("    if(!parseVer(my) || !parseVer(highest)) return false;\n    forced = true;", "    forced = true;"),
+      async (m) => { const x = await accFlow(m); return x.f.forceAccount('x') === false; });
     // 강제인데 로그인으로 넘기기
     {
       const m2 = SRC.split('return { proceed: false, stage: STAGE.FORCE };').join('return { proceed: true, stage: STAGE.FORCE };');
