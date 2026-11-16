@@ -31,7 +31,7 @@ function build(src, st){
     addEventListener(t, f){ (this._on[t] = this._on[t] || []).push(f); }, focus(){}, getAttribute(){ return ''; }, remove(){} });
   const adminOnly = [mk('a1'), mk('a2')];
   const body = mk('body');
-  const document = { getElementById: (id) => els[id] || (els[id] = mk(id)), body,
+  const document = { getElementById: (id) => els[id] || (els[id] = mk(id)), body, dispatchEvent(e){ (docOn[e.type] || []).forEach(x => x.f(e)); },
     addEventListener(t, f, cap){ (docOn[t] = docOn[t] || []).push({ f, cap: !!cap }); }, querySelectorAll: (sel) => sel === '.admin-only' ? adminOnly : (sel === '[data-admin-win]' ? (st.winIds || []).map(id => document.getElementById(id)) : []) };
   const meCalls = []; st.meCalls = meCalls;
   const fb = { authCurrentUid: () => st.uid, authCurrentEmail: () => 'a@b.c' };
@@ -57,7 +57,7 @@ const click = (B, targetId, ev) => {
 };
 const key = (B, ev) => (B.docOn.keydown || []).forEach(x => x.f(Object.assign({ preventDefault(){} }, ev)));
 
-async function judgeAll(src, app, html, platform){
+async function judgeAll(src, app, html, platform, repOv){
   const r = [];
   const t = (ok, msg) => r.push([!!ok, msg]);
   const st = { admin: false, uid: null, platform };
@@ -116,13 +116,47 @@ async function judgeAll(src, app, html, platform){
     t(st.meCalls.length === nMe + 1 && !st.admin && !B.body.classList.contains('admin'), '세션 끝 — 확인 중이던 옛 계정의 답으로 관리자 모드를 켜지 않는다(늦은 답 버림)');
     e.adminPassInput.value = PW; await e.adminPassOk.onclick();
     t(st.admin, '세션 끝 뒤 새 계정의 확인은 다시 된다(확인 중 잠금이 풀렸다)'); st.admin = false; B.body.classList.remove('admin'); }
-  { const WIN = ['licenseGenOverlay', 'inviteGrantOverlay', 'totalStatsOverlay', 'adBannerOverlay', 'categoryManageOverlay', 'announceOverlay', 'updateNoticeAdminOverlay', 'partRegOverlay', 'assetGenOverlay', 'gameCfgOverlay', 'licenseXlsxWin'];
-    st.admin = true; WIN.forEach(id => { e[id].classList.add('on'); e[id].style.display = 'flex'; });
-    st.navFns.adminExit();
-    t(WIN.every(id => !e[id].classList.contains('on') && e[id].style.display === 'none'), '세션 끝 — 열려 있던 관리자 창(발급 · 초대권 · 통계 · 배너 · 카테고리)을 전부 닫는다');
-    st.admin = true; WIN.forEach(id => { e[id].style.display = 'flex'; }); const nt = B.calls.length;
+  /* 창 닫기 — 주인의 닫기를 부른다(DOM 직접 조작 없음). 주인 모듈 대역이 'tw-admin-exit' 를 듣고 자기 방식으로 닫는다 */
+  { const own = []; const owner = { dispatchOn: null };
+    const el = e.partRegOverlay; el.classList.add('on');             // .on 으로 여는 창
+    const el2 = e.announceOverlay; el2.style.display = 'flex';      // 인라인으로 여는 창
+    B.docOn['tw-admin-exit'] = [{ f: () => { el.classList.remove('on'); el2.style.display = 'none'; own.push('closed'); } }];
+    st.admin = true; const n0 = B.calls.length; st.navFns.adminExit();
+    t(own.length === 1 && !el.classList.contains('on') && el2.style.display === 'none', '세션 끝 — 관리자 창을 «주인의 닫기» 로 닫는다(tw-admin-exit)');
+    B.docOn['tw-admin-exit'] = [];
+    el.classList.add('on'); st.admin = true; st.navFns.adminExit();
+    t(el.style.display !== 'none', '  admin-mode 는 창에 인라인 display:none 을 박지 않는다 — .on 으로 여는 창이 닫은 뒤 다시 열린다');
+    el.classList.remove('on'); el.classList.add('on');
+    t(el.classList.contains('on') && el.style.display !== 'none', '  닫은 뒤 다시 열면(.on) 보인다');
+    B.docOn['tw-admin-exit'] = [{ f: () => {} }]; st.admin = true; const nT = B.calls.length;
     key(B, { ctrlKey: true, key: 'e' });
-    t(WIN.every(id => e[id].style.display === 'none') && B.calls.slice(nt).some(c => c === 'toast:관리자 모드 OFF — 창도 닫힌다' || c.startsWith('toast:관리자 모드 OFF')), 'Ctrl+E — 같은 몸통으로 창도 닫고 토스트는 띄운다'); st.admin = false; }
+    t(B.docOn['tw-admin-exit'].length === 1 && B.calls.slice(nT).some(c => c.startsWith('toast:관리자 모드 OFF')), 'Ctrl+E — 같은 몸통(알림 + 토스트)'); st.admin = false; }
+  /* 신고 목록 창을 연 채 세션이 끝나면 — 주인의 닫기(_reportClose)를 거쳐 capture Esc 리스너 · 창 칸이 남지 않는다 */
+  { let REP = null; for(const d of ['parts/admin', 'app/parts/admin', '.']){ try{ REP = fs.readFileSync(d + '/admin-report.js', 'utf8'); break; }catch(_){} }
+    if(repOv) REP = repOv(REP);
+    if(!REP){ t(false, 'admin-report.js 를 못 찾았다'); }
+    else{
+      const docL = []; const clicks = {}; let curOv = null, curEsc = null, closes = 0;
+      const mkOv = () => ({ _a: {}, style: {}, setAttribute(k, v){ this._a[k] = v; }, addEventListener(){}, remove(){}, appendChild(){}, set textContent(v){}, get textContent(){ return ''; } });
+      const doc = { getElementById: (id) => id === 'lcReportList' ? { addEventListener(ty, f){ clicks[ty] = f; } } : { addEventListener(){} }, body: { appendChild(){} }, createElement: () => mkOv(),
+        addEventListener(ty, f){ docL.push([ty, f]); }, removeEventListener(ty, f){ const i = docL.findIndex(x => x[0] === ty && x[1] === f); if(i >= 0) docL.splice(i, 1); }, dispatchEvent(e){ docL.filter(x => x[0] === e.type).map(x => x[1]).forEach(f => f(e)); } };
+      const api2 = new Function('window', 'document', 'module', REP + '\nreturn window.TwAdminReport;')({}, doc, undefined);
+      const reportClose = () => { closes++; if(curEsc){ doc.removeEventListener('keydown', curEsc, true); curEsc = null; } curOv = null; };
+      api2.createAdminReport({ toast(){}, awayUrlOk: () => true, isAdmin: () => true, reportClose, reportBox: () => { const ov = mkOv(); return { ov, body: mkOv() }; }, kinds: [], adminMin: 3,
+        reportOv: () => curOv, setReportOv: (v) => { curOv = v; }, reportEsc: () => curEsc, setReportEsc: (f) => { curEsc = f; },
+        adminApi: { page: async () => ({ items: [], next: null, total: 0 }), dismiss(){}, takeDown(){}, failOf: () => 'site' }, apiErrors: { notify(){} }, notifyError(){} });
+      await clicks.click({ stopPropagation(){} }); await new Promise(r => setImmediate(r));
+      const hadEsc = docL.some(x => x[0] === 'keydown'), before = closes;
+      doc.dispatchEvent({ type: 'tw-admin-exit' });
+      t(hadEsc && closes === before + 1 && !docL.some(x => x[0] === 'keydown') && curOv === null, '신고 목록 창을 연 채 세션이 끝나면 _reportClose 를 거쳐 Esc 리스너 · 창 칸이 남지 않는다'); } }
+  { const dirs = ['parts/admin', 'app/parts/admin', '.']; const src2 = {};
+    for(const d of dirs){ let fl = []; try{ fl = fs.readdirSync(d).filter(f => /^admin-[\w-]+\.js$/.test(f)); }catch(_){} fl.forEach(f => { src2[f] = fs.readFileSync(d + '/' + f, 'utf8'); }); }
+    const own = { 'admin-launcher.js': ['adBannerOverlay', 'gameCfgOverlay'], 'admin-asset.js': ['assetGenOverlay', 'commGenOverlay', 'glbEncOverlay', 'glbLoadOverlay'], 'admin-category.js': ['categoryManageOverlay'],
+      'admin-notice.js': ['announceOverlay', 'updateNoticeAdminOverlay'], 'admin-license.js': ['licenseGenOverlay'], 'admin-license-bulk.js': ['licenseXlsxWin'], 'admin-part-register.js': ['partRegOverlay', 'deskRegOverlay'], 'admin-users.js': ['totalStatsOverlay', 'inviteGrantOverlay'], 'admin-report.js': [] };
+    const bad = Object.keys(own).filter(f => !src2[f] || !/addEventListener\('tw-admin-exit'/.test(src2[f]));
+    t(!bad.length, '창을 여는 관리자 모듈마다 tw-admin-exit 를 듣고 자기 닫기로 닫는다' + (bad.length ? ' — 빠짐: ' + bad.join(',') : ''));
+    t(/_reportClose\(\)/.test((src2['admin-report.js'].match(/const onExit[^\n]*/) || [''])[0]), '신고 목록 창 — 세션 끝에 _reportClose()(Esc 리스너 · 창 칸 정리)로 닫는다(떼어 내지 않는다)');
+    t(!/data-admin-win'?\)?[^\n]*remove/.test(src2['admin-mode.js'] || '') && !/\.remove\(\);/.test((src2['admin-mode.js'].match(/function _closeAdminWindows[\s\S]*?\n\}/) || [''])[0]), 'admin-mode 의 창 닫기에 DOM 떼기 · 창 인라인 조작이 없다(비밀번호 창만 자기 것)'); }
   { const dirs = ['parts/admin', 'app/parts/admin', '.']; const used = new Set();
     for(const d of dirs){ let fl = []; try{ fl = fs.readdirSync(d).filter(f => /^admin-[\w-]+\.js$/.test(f)); }catch(_){} fl.forEach(f => { for(const m of fs.readFileSync(d + '/' + f, 'utf8').matchAll(/'(\w+(?:Overlay|Win))'/g)) used.add(m[1]); }); }
     const miss = [...used].filter(id => !st.winIds.includes(id));
@@ -161,6 +195,8 @@ async function judgeAll(src, app, html, platform){
     ['기능 표를 안 넘김', { mod: s => s.replace("apiErrors.notify(e, adminApi.ERRORS)", "apiErrors.notify(e)") }],
     ['켜기 전에 isAdmin 을 붙잡음', { mod: s => s.replace('const isAdmin = deps.isAdmin;', 'const isAdmin = ((v)=>()=>v)(deps.isAdmin());') }],
     ['세션 끝에 안 끔', { mod: s => s.replace('  _adminOff(false);', '  return;') }],
+    ['admin-mode 가 창에 인라인 none 을 박음', { mod: s => s.replace("document.dispatchEvent(new Event('tw-admin-exit'));", "document.dispatchEvent(new Event('tw-admin-exit')); document.querySelectorAll('[data-admin-win]').forEach(w => { w.style.display = 'none'; });") }],
+    ['신고 창이 _reportClose 를 안 거침', { rep: s => s.replace('if(_reportOv() === ov) _reportClose();', '') }],
     ['창 표식이 빠짐', { html: s => s.replace('id="partRegOverlay" data-admin-win', 'id="partRegOverlay"') }],
     ['관리자 창을 안 닫음', { mod: s => s.replace('  _closeAdminWindows();\n  if(announce)', '  if(announce)') }],
     ['세션 끝 뒤 옛 답이 켬', { mod: s => s.replace('if(g !== gen) return;   // 확인 중에 세션이 끝났다 — 끝난 계정의 답으로', 'if(false) return;   // 확인 중에 세션이 끝났다 — 끝난 계정의 답으로') }],
@@ -176,8 +212,8 @@ async function judgeAll(src, app, html, platform){
   ];
   for(const [name, f] of breaks){
     const s2 = f.mod ? f.mod(MOD) : MOD, a2 = f.app ? f.app(SRC) : SRC, h2 = f.html ? f.html(HTML) : HTML;
-    const changed = s2 !== MOD || a2 !== SRC || h2 !== HTML;
-    let rows2; try{ rows2 = await judgeAll(s2, a2, h2, 'Win32'); }catch(_){ rows2 = [[false, '던짐']]; }
+    const changed = s2 !== MOD || a2 !== SRC || h2 !== HTML || !!f.rep;
+    let rows2; try{ rows2 = await judgeAll(s2, a2, h2, 'Win32', f.rep); }catch(_){ rows2 = [[false, '던짐']]; }
     chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
   }
   say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

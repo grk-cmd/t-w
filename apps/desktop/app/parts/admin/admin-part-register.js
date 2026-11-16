@@ -201,6 +201,7 @@ function openPartRegister(cat, editRec){
 (function bindPartRegister(){
   const ov=document.getElementById('partRegOverlay'); if(!ov)return;
   document.getElementById('partRegCancel').onclick=()=>ov.classList.remove('on');
+  document.addEventListener('tw-admin-exit', ()=>ov.classList.remove('on'));   // 세션이 끝나면 자기 닫기로
   /* 🎰 가챠를 켜면 🔗 함께 착용도 같이 켜고 잠근다 — 저장 쪽에서도 강제하지만, 화면에서
      체크가 안 들어오면 관리자가 "안 켜도 되나 보다"로 읽는다. 눈에 보이게 묶어둔다. */
   (function bindGachaStackable(){
@@ -441,6 +442,7 @@ function openDeskRegister(kind, editId){
 (function bindDeskRegister(){
   const ov=document.getElementById('deskRegOverlay'); if(!ov) return;
   document.getElementById('deskRegCancel').onclick=()=>ov.classList.remove('on');
+  document.addEventListener('tw-admin-exit', ()=>ov.classList.remove('on'));   // 세션이 끝나면 자기 닫기로
   document.getElementById('deskRegGo').onclick=async()=>{
     const isDesk = _deskRegKind==='desk';
     const arr = isDesk ? savedDesks() : savedItems();

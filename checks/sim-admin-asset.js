@@ -29,7 +29,7 @@ function build(src, st){
   const mk = (id) => ({ id, style: {}, value: '', textContent: '', files: [], onclick: null, _on: {},
     classList: { _s: new Set(), add(c){ this._s.add(c); }, remove(c){ this._s.delete(c); }, contains(c){ return this._s.has(c); } },
     addEventListener(t, f){ (this._on[t] = this._on[t] || []).push(f); }, select(){}, click(){}, remove(){} });
-  const document = { getElementById: (id) => els[id] || (els[id] = mk(id)), createElement: () => mk(''), body: { appendChild(){} }, execCommand(){} };
+  const document = { addEventListener(t, f){ (this._h = this._h || {})[t] = ((this._h[t]) || []).concat(f); }, dispatchEvent(e){ ((this._h || {})[e.type] || []).forEach(f => f(e)); }, getElementById: (id) => els[id] || (els[id] = mk(id)), createElement: () => mk(''), body: { appendChild(){} }, execCommand(){} };
   const rec = (n, ret) => async (...a) => { calls.push([n, ...a]); return typeof ret === 'function' ? ret(...a) : ret; };
   const deps = {
     toast: (m) => calls.push(['toast', m]), wrapAsset: (n, i, g) => ({ n, i, g }), _b64: (b) => 'B64(' + b + ')',

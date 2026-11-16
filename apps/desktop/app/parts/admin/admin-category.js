@@ -130,6 +130,7 @@ document.getElementById('lcCategoryManage').onclick=openCategoryManage;
 // 꾸미기 창 하단의 카테고리 관리 버튼 (관리자 전용)
 { const wcm=document.getElementById('wardrobeCategoryManageBtn'); if(wcm) wcm.onclick=openCategoryManage; }
 document.getElementById('cmCloseX').onclick=closeCategoryManage;
+document.addEventListener('tw-admin-exit', closeCategoryManage);   // 세션이 끝나면 자기 닫기로
 document.getElementById('cmAddCancelBtn').onclick=()=>{
   const form=document.getElementById('cmAddForm'); if(form) form.style.display='none';
   _cmAddingGroup = null;

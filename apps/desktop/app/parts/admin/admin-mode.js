@@ -110,13 +110,15 @@ async function _submitAdminPass(){
   }catch(_){ err.textContent='비밀번호 확인 중 오류'; err.style.display='block'; }
 }
 /* 끄는 몸통 하나 — exitAdmin(Ctrl+E · 토스트) 과 reset(세션 끝 · 조용히)이 같이 부른다.
-   모드를 끄고 data-admin-win 표식이 달린 관리자 창을 전부 닫는다(세션이 끝났는데 앞 계정의 관리자 창이 다음 계정 화면에 남지 않게). */
+   모드를 끄고 관리자 창을 전부 닫는다(주인 모듈의 닫기 — 'tw-admin-exit')(세션이 끝났는데 앞 계정의 관리자 창이 다음 계정 화면에 남지 않게). */
 function _closeAdminWindows(){
-  /* 관리자 창 뿌리는 html 에서 data-admin-win 표식을 단다(.admin-only 는 켤 때 display 를 지워 창이 열려 버려서 못 쓴다).
-     = "remove" 인 창은 JS 가 만들어 여는 창(신고 목록)이라 떼어 낸다. 새 관리자 창을 만들면 이 표식을 꼭 단다(sim-admin-mode 가 센다). */
-  document.querySelectorAll('[data-admin-win]').forEach((o)=>{
-    if(o.getAttribute && o.getAttribute('data-admin-win') === 'remove'){ if(o.remove) o.remove(); return; }
-    o.classList.remove('on'); o.style.display = 'none';
+  /* 창마다 «주인의 닫기» 를 부른다 — 여기서 DOM 을 직접 건드리지 않는다(창마다 .on 클래스 · 인라인 display 로 여닫는 방식이 달라, 인라인 none 을 박으면 다시 안 열리는 창이 있다).
+     각 관리자 모듈이 'tw-admin-exit' 를 듣고 자기 닫기로 닫는다. 비밀번호 창만 이 파일이 연다. */
+  const o = document.getElementById('adminPassOverlay'); if(o){ o.classList.remove('on'); o.style.display = 'none'; }
+  document.dispatchEvent(new Event('tw-admin-exit'));
+  /* 표식(data-admin-win)이 달린 창이 아직 열려 있으면 숨기지 않고 알린다 — 주인 모듈이 이 신호를 안 듣는 것이다 */
+  document.querySelectorAll('[data-admin-win]').forEach((w)=>{
+    if(w.classList.contains('on') || w.style.display === 'flex' || w.style.display === 'block') console.warn('[관리자] 세션 끝 — 닫히지 않은 관리자 창: ' + (w.id || '?'));
   });
 }
 function _adminOff(announce){

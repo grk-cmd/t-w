@@ -131,8 +131,8 @@
 | **sim-fly-egg.js** | 259 | **e92b86d5702f** |
 | **sim-fly-replay.js** | 158 | **0aca7ea71d29** |
 | **sim-fly-roulette.js** | 165 | **af3da63bb9d0** |
-| **sim-license-xlsx.js** | 121 | **4b9b17ce7a0b** |
-| **sim-secret-room-grant.js** | 162 | **175fcb9918f4** |
+| **sim-license-xlsx.js** | 121 | **bb40d3e02eb0** |
+| **sim-secret-room-grant.js** | 162 | **e93ada9c03c7** |
 | **sim-room-meta-cleanup.js** | 250 | **9c9b9de5850b** |
 | **sim-room-stats.js** | 155 | **a02149187d49** |
 | **sim-room-lobby.js** | 196 | **8350cc76c150** |
@@ -293,7 +293,7 @@
 | **sim-mail-feed.js** | 361 | **2bcd1eeabc34** |
 | **sim-notice-api.js** | 159 | **0d412e593953** |
 | **sim-admin-api.js** | 249 | **a6964f59fc86** |
-| **sim-admin-notice.js** | 212 | **034a00b92986** |
+| **sim-admin-notice.js** | 212 | **952fbda2e531** |
 | **sim-notice-feed.js** | 266 | **c80dd0979f9b** |
 | **sim-ui-tokens.js** | 135 | **bf0abb5744a6** |
 | **sim-upload-cache.js** | 76 | **be66b699227c** |
@@ -318,11 +318,11 @@
 | **sim-kb-blind.js** | 180 | **7d9f3fe5e684** |
 | **sim-mhd-hidefolders.js** | 133 | **7a61ee3d6c05** |
 | **sim-pomodoro.js** | 131 | **03a73d7ae51e** |
-| **sim-admin-license.js** | 238 | **6540a0412eb2** |
-| **sim-admin-part-register.js** | 151 | **7a798301bf93** |
-| **sim-admin-users-launcher.js** | 223 | **8999c6c202da** |
-| **sim-admin-asset.js** | 129 | **6ecb2dc8ed96** |
-| **sim-admin-mode.js** | 185 | **9b78a9cf2a26** |
+| **sim-admin-license.js** | 238 | **e57baec69baf** |
+| **sim-admin-part-register.js** | 151 | **63ed14c85d47** |
+| **sim-admin-users-launcher.js** | 223 | **b001d9489e1c** |
+| **sim-admin-asset.js** | 129 | **32cd05cdef5a** |
+| **sim-admin-mode.js** | 221 | **9759ff545e73** |
 | **sim-report.js** | 420 | **de17a89ce544** |
 | **sim-my-info.js** | 98 | **4e58bce6234f** |
 | **sim-my-info-box.js** | 208 | **a80135e14b2c** |
