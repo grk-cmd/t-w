@@ -171,7 +171,7 @@
 | **sim-license-leak.js** | 315 | **5b8cf9066189** |
 | **sim-license-api.js** | 158 | **97931c95bc34** |
 | **sim-license-premium.js** | 327 | **ebde3b7ba983** |
-| **sim-mh-sanitize.js** | 219 | **4f9660d65e07** |
+| **sim-mh-sanitize.js** | 219 | **fc237605e364** |
 | **sim-myhome-steps.js** | 128 | **ed6b55640d6c** |
 | **sim-myhome-load.js** | 87 | **80598e5410f5** |
 | **sim-fix-0923.js** | 257 | **1f34e95525d1** |
