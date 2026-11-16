@@ -7,11 +7,7 @@
    ⚠️ (걷힘 · 개정 61) 예전에는 맨 끝에서 window.__mysNetBind(미스테리au 파티 전송선)를 불렀다. 그 게임과 함께 걷었다. */
 
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import {
-    getDatabase, ref as _dbRef, set as _sdkSet, update as _dbUpdate, remove as _sdkRemove, onValue as _sdkOnValue, off, onDisconnect, serverTimestamp, get as _sdkGet, runTransaction,
-    push as _sdkPush, query as _sdkQuery, limitToLast as _sdkLimitToLast, orderByChild as _sdkOrderByChild, orderByKey as _sdkOrderByKey,
-    startAt as _sdkStartAt, equalTo as _sdkEqualTo, onChildAdded, onChildChanged, goOffline, goOnline
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+  import { getDatabase, ref as _dbRef, get as _sdkGet } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";   // 남은 DB 읽기는 점검 칸(config/maintenance) 하나
   // Storage: 큰 base64 데이터(GLB 등)를 Realtime Database에서 빼내 스토리지에 두고 URL만 저장 (Firebase 사용량 절감)
   import {
     getStorage, ref as _stRef, uploadString, getDownloadURL, deleteObject
@@ -67,28 +63,6 @@
   }
   const ref  = (d, p) => (p === undefined ? _dbRef(d) : _dbRef(d, _noUidPath(p)));
   const sref = (st, p) => _stRef(st, _noUidPath(p));
-  /* 기본 동작(get · set · update · remove · push · onValue)은 이 이름들로만 — 요청마다 서버 점검 창(maintenance-gate.js touch)을 먼저 본다.
-     옛 Firebase 길이 남은 동안의 한 벌이다(기능 묶음이 API 로 옮기며 걷는다 — 새 기능은 여기 더하지 않는다). */
-  const orderByChild = _sdkOrderByChild, orderByKey = _sdkOrderByKey, limitToLast = _sdkLimitToLast, startAt = _sdkStartAt, equalTo = _sdkEqualTo, query = _sdkQuery;
-  const _mt = window.TwMaintenance.store;
-  const _touched = (f) => (...a) => { _mt.touch(); return f(...a); };   // 🛠 사람이 방금 누른 동작이 서버에 닿으면 점검 창
-  const get = _touched(_sdkGet);
-  const set = _touched(_sdkSet);
-  const remove = _touched(_sdkRemove);
-  const push = _touched(_sdkPush);
-  const onValue = _touched(_sdkOnValue);
-  const _update = _touched(_dbUpdate);
-  /* 다중 경로 update(루트 ref + {경로: 값}) 는 경로가 키에 있다 — 하나라도 빈 uid 면 통째로 거절한다
-     (update 는 한 덩어리라 그 한 줄만 빼고 보내면 규칙이 보던 짝이 깨진다). */
-  const update = (r, v) => {
-    if(v && typeof v === 'object'){
-      for(const k of Object.keys(v)){
-        if(_noUidPath(k) !== k) return Promise.reject(new Error('[uid-guard] uid 없는 다중 경로 update: ' + k));
-      }
-    }
-    return _update(r, v);
-  };
-
   /* 🛰 중복 로드 방지 — app.js 의 감시견(_fbBootWatch)이 이 파일을 다시 꽂을 수 있다.
      ★ 원본이 **느렸을 뿐**인데 재시도분이 겹치면 이 파일이 두 번 돌아, 방 리스너·서버시간
        구독·MYS_NET 바인딩이 이중으로 걸린다. 그쪽이 겹칠 위험을 감수하는 대신 여기서 막는다.
@@ -165,6 +139,7 @@
     });
   }
   /* 🛠 점검 표시 — 서버 /v2/config 가 먼저, 서버에 닿지 못할 때만 이 Firebase 칸을 한 번 읽는다(점검 중에도 규칙이 이 칸 읽기는 연다). 읽는 때 · 주인은 maintenance-gate.js 한 곳 */
+  const _mt = window.TwMaintenance.store;
   _mt.start({ readServer: () => window.TwApi.client.get(window.TwMaintenance.CONFIG_PATH),   // 앱 공통 API 통로 — 원격 설정과 같은 길이면 하나로 합치고 같은 값이면 304
     readFlag: () => _sdkGet(ref(db, window.TwMaintenance.MAINTENANCE_PATH)).then((s) => s.val()), rt: window.TwRtHub.store });
   const _getIdToken = (force) => (auth && auth.currentUser) ? auth.currentUser.getIdToken(!!force) : Promise.resolve(null);

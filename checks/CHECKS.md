@@ -153,7 +153,7 @@
 | **sim-room-live-def.js** | 163 | **fb1e16adcd60** |
 | **sim-app-version.js** | 113 | **b05bb371e40d** |
 | **sim-update-flow.js** | 454 | **a05cced37048** |
-| **sim-maintenance-gate.js** | 364 | **1b59285f3272** |
+| **sim-maintenance-gate.js** | 358 | **450b7d646390** |
 | **sim-room-invite-wait.js** | 44 | **2327a1043182** |
 | **sim-friend-manage.js** | 251 | **5849b1a8292c** |
 | **sim-gacha-prune.js** | 176 | **caaafe40eb06** |
@@ -212,7 +212,7 @@
 | **sim-closet-api.js** | 171 | **8bc368df4587** |
 | **sim-closet.js** | 687 | **e37a6c1363c9** |
 | **sim-slot-codec.js** | 134 | **2837813acdc3** |
-| **sim-signup.js** | 320 | **e4c52f54a614** |
+| **sim-signup.js** | 308 | **1bca0b59a711** |
 | **sim-sysinput.js** | 397 | **41919d14be24** |
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 130 | **4ddd42809f74** |
@@ -284,7 +284,7 @@
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
 | **sim-myhome-inbox.js** | 766 | **0c88f8bb0962** |
 | **sim-playlist.js** | 1137 | **c2d70f725d71** |
-| **sim-playlist-api.js** | 307 | **fa45a34ab4b2** |
+| **sim-playlist-api.js** | 307 | **5987d352259b** |
 | **sim-inbox-api.js** | 203 | **302ad48aa944** |
 | **sim-gift-api.js** | 324 | **dc124fb72d02** |
 | **sim-gift-box.js** | 562 | **ddc5d4a2c9cc** |

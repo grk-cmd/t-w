@@ -50,24 +50,18 @@ chk(gm && !/setItem/.test(gm), 'getMyUserId 본문에 setItem 이 없다(읽기�
 chk(gm && !/Date\.now|Math\.random/.test(gm), 'getMyUserId 가 uid 를 만들지 않는다');
 chk(!/function _inventMyUserId\(/.test(APP) && count(APP, /'u'\s*\+\s*Date\.now\(\)\.toString\(36\)/g) === 0, '앱에 uid 를 만드는 곳이 없다(서버가 가입 때 만든다 — account/user-api.js · login-flow.js)');
 chk(!/redeemInvite|finishInviteSignup|authSignupEnsure|authSignupBind|authOwnerOf/.test(FI.replace(/\/\*[\s\S]*?\*\//g, '')), 'firebase-init 에 옛 가입 통로(초대 소진 · 익명 → 묶기 · 주인 묻기)가 없다');
-chk(/ref as _dbRef/.test(FI) && /update as _dbUpdate/.test(FI) && /ref as _stRef/.test(FI), 'firebase-init: ref · update · storage ref 를 별칭으로 들여와 감싼다');
-chk(/const ref\s*=\s*\(d, p\)/.test(FI) && /const sref\s*=/.test(FI) && /const update\s*=/.test(FI), 'firebase-init: ref · sref · update 가 안전망을 지난다');
+chk(/ref as _dbRef/.test(FI) && /ref as _stRef/.test(FI), 'firebase-init: ref · storage ref 를 별칭으로 들여와 감싼다(다중 경로 update 는 걷었다)');
+chk(/const ref\s*=\s*\(d, p\)/.test(FI) && /const sref\s*=/.test(FI) && !/const update\s*=/.test(FI), 'firebase-init: ref · sref 가 안전망을 지난다(update 는 걷었다)');
 
 /* ══ 2. 안전망 실행 ══ */
 say('');
 say('【2】 빈 uid 안전망 — 경로가 만들어지는 자리에서 막는다');
-/* 안전망(_noUidPath · ref · sref)과 다중 경로 update 감쌈을 잘라 온다. 그 사이의 기본 동작 배선(점검 창 touch)은 빼고,
-   update 감쌈이 넘기는 곳(_update)은 SDK update 를 그대로 부르는 가짜로 — 판정은 안전망 그대로. */
-const g1 = FI.slice(FI.indexOf('  const _NOUID_SEG'), FI.indexOf('  const sref = (st, p) => _stRef(st, _noUidPath(p));') + '  const sref = (st, p) => _stRef(st, _noUidPath(p));'.length);
-const g2 = FI.slice(FI.indexOf('  const update = (r, v) => {'), FI.indexOf('    return _update(r, v);\n  };') + '    return _update(r, v);\n  };'.length);
-const guardSrc = g1 + '\n' + g2;
-const _fakeUpdate = (r, v) => Promise.resolve({ r, v });
-const G = (new Function('_dbRef', '_stRef', '_dbUpdate', '_update', 'console',
-  guardSrc + '\nreturn { _noUidPath, ref, sref, update };'))(
+/* 안전망(_noUidPath · ref · sref)을 잘라 온다(다중 경로 update 감쌈은 DB 쓰기와 함께 걷었다). */
+const guardSrc = FI.slice(FI.indexOf('  const _NOUID_SEG'), FI.indexOf('  const sref = (st, p) => _stRef(st, _noUidPath(p));') + '  const sref = (st, p) => _stRef(st, _noUidPath(p));'.length);
+const G = (new Function('_dbRef', '_stRef', 'console',
+  guardSrc + '\nreturn { _noUidPath, ref, sref };'))(
   (d, p) => ({ db: d, path: p === undefined ? '/' : p }),
   (st, p) => ({ st, path: p }),
-  _fakeUpdate,
-  _fakeUpdate,
   { warn(){} });
 const ok = p => G._noUidPath(p) === p;
 chk(ok('users/u1abc/profile'), '정상 uid 경로는 그대로');
@@ -78,12 +72,6 @@ chk(ok('https://x.firebasestorage.app/o/a.png'), 'URL 의 https:// 는 빈 세�
 chk(G.ref('DB', 'users/null/x').path.startsWith('_noUid/') && G.ref('DB').path === '/', 'ref: 돌리고 · 루트 ref 는 그대로');
 chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Storage): 돌린다');
 (async () => {
-  let rej = null;
-  try { await G.update({ path:'/' }, { 'users/u1abc/friends/x': 1, 'users/null/friends/u1abc': 1 }); } catch (e) { rej = e; }
-  chk(!!rej, '다중 경로 update: 한 줄이라도 빈 uid 면 통째로 거절');
-  let okv = null; try { okv = await G.update({ path:'/' }, { 'users/u1abc/a': 1 }); } catch (_){}
-  chk(okv && okv.v && okv.v['users/u1abc/a'] === 1, '다중 경로 update: 정상이면 그대로 보낸다');
-
   const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
   say('');
   say('【8】 ⑥ 친구 코드 — 앱이 Firebase 코드 노드를 읽거나 쓰지 않는다 · 로그인 때 서버 값(_enterAccount)');
