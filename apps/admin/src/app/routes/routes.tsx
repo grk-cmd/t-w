@@ -15,6 +15,7 @@ import { SettingsPage } from '@/pages/settings';
 import { TodosPage } from '@/pages/todos';
 import { UsagePage } from '@/pages/usage';
 import { UsersPage } from '@/pages/users';
+import { XmasPage } from '@/pages/xmas';
 
 export interface Route {
   id: string;
@@ -40,6 +41,8 @@ export const ROUTE_GROUPS: RouteGroup[] = [
       { id: 'bugs', label: '🐞 제보', Page: BugBoardPage },
       { id: 'todos', label: '📋 할 일', Page: TodosPage },
       { id: 'notices', label: '📣 공지', Page: NoticesPage },
+      // 크리스마스 이벤트 — 일회성(이슈 #963) — 이벤트가 끝나면 이 줄 · pages/xmas · widgets/xmas · features/xmas · entities/seasonal 을 걷는다
+      { id: 'xmas', label: '🎄 크리스마스', Page: XmasPage },
     ],
   },
   {
