@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { pickBackend, useApi, useFunctions } from '@/shared/api';
 import { createFirebaseDeleteAccountPort } from './firebase';
 import type { DeleteAccountPort } from './port';
+import { createServerDeleteAccountPort } from './server';
 
 /** 이 빌드의 판이 만든 «계정 삭제» 포트. */
 export function useDeleteAccountPort(): DeleteAccountPort {
@@ -11,9 +12,7 @@ export function useDeleteAccountPort(): DeleteAccountPort {
     () =>
       pickBackend<DeleteAccountPort>({
         firebase: () => createFirebaseDeleteAccountPort(fns),
-        api: () => {
-          throw new Error('API 판은 다음 커밋에서 채워요');
-        },
+        api: () => createServerDeleteAccountPort(api),
       }),
     [fns, api],
   );

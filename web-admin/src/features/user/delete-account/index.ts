@@ -7,6 +7,7 @@ export {
   type DeleteGroup,
 } from './model/deleteAccount';
 export { previewAccountDelete, runAccountDelete } from './api/firebase';
+export { toServerDeleteAccepted, toServerDeletePreview } from './api/server';
 export {
   useDeleteAccountPort,
   type DeleteAccountFunctionsPort,
