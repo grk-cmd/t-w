@@ -16,6 +16,9 @@ const NAV = Object.freeze({
   ADMIN_EXIT: 'adminExit',                   // 🔐 관리자 모드 끄기 — 세션이 끝났을 때(조용히 · 토스트 없음) · 거는 곳 admin/admin-mode.js
   ROOM_LOBBY: 'roomLobby',                          // 🗂️ 방 목록 로비 다시 읽기 — 모달이 열린 채 방을 나와 로비가 다시 보일 때 · 거는 곳 room/room-lobby-ui.js
 });
+/* 문서 이벤트 이름 한 곳 — 세션이 끝나 관리자 모드를 끌 때 admin-mode 가 보내고, 관리자 창을 여는 모듈이 듣고 자기 닫기로 닫는다.
+   NAV 이름(on · go)과 달리 document 이벤트다. admin-mode 가 아닌 이 파일에 두는 까닭: 관리자 모듈이 admin-mode 를 읽으면 admin-mode ↔ app-boot ↔ catalog-sync 순환이 생긴다(sim-dep-cycles). */
+const ADMIN_EXIT_EVENT = 'tw-admin-exit';
 const _fns = {};
 function on(name, fn){ _fns[name] = fn; }
 const _warned = new Set();
@@ -27,7 +30,7 @@ function go(name, ...a){
   return undefined;
 }
 
-const api = { NAV, on, go };
+const api = { NAV, on, go, ADMIN_EXIT_EVENT };
 if(typeof window !== 'undefined') window.TwNav = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

@@ -107,7 +107,7 @@ say('── 4. 관리자 모듈 연결 (admin/admin-license-bulk.js)');
     parentElement:null, firstElementChild:null, offsetWidth:300, clientWidth:900, _on:{}, addEventListener(t, f){ (this._on[t] = this._on[t] || []).push(f); }, click(){} });
   const win = { };
   const g = { document:{ addEventListener(t, f){ (this._h = this._h || {})[t] = ((this._h[t]) || []).concat(f); }, dispatchEvent(e){ ((this._h || {})[e.type] || []).forEach(f => f(e)); }, getElementById: el }, window: win, module: undefined };
-  const fn = new Function('document', 'window', 'module', LB + '\nreturn window.TwAdminLicenseBulk;');
+  const fn = new Function('document', 'window', 'module', 'var TwNav = { ADMIN_EXIT_EVENT: "tw-admin-exit" };\n' + LB + '\nreturn window.TwAdminLicenseBulk;');
   const api = fn(g.document, g.window, undefined);
   const noop = () => {};
   const out = api.createAdminLicenseBulk({ escHtml: s => String(s), toast: noop, adminApi: {}, apiErrors: {}, notifyError: noop, renderLicenseGenList: noop, downloadBlob: noop, srFmtDate: () => '' });

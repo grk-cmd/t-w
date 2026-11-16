@@ -70,7 +70,7 @@ function build(rep, adm, st, rapi){
   const win = {};
   const hidden = new Set();
   const safe = { safeUrl: (u) => u };   // 진짜 escape 는 sim-safe-html.js 가 본다
-  const run = (src, glob) => new Function('window', 'document', 'TwSafeHtml', 'module', src + '\nreturn window.' + glob + ';')(win, D.document, safe, undefined);
+  const run = (src, glob) => new Function('window', 'document', 'TwSafeHtml', 'module', 'var TwNav = { ADMIN_EXIT_EVENT: "tw-admin-exit" };\n' + src + '\nreturn window.' + glob + ';')(win, D.document, safe, undefined);
   const RA = run(rapi, 'TwReportApi');
   /* 진짜 공통 표 — 번호 토스트만 가짜(어느 번호로 갔는지 적는다) */
   const notifyError = (code, e) => { calls.push(['notifyError', code, e]); return true; };
@@ -385,7 +385,7 @@ async function judgeAll(rep, adm, app, html, rapi){
     ['실패를 성공으로 삼킴', { rapi: s => s.replace('    await authed.post(PATHS.file, body);', '    try{ await authed.post(PATHS.file, body); }catch(_){}') }],
     ['41자도 보냄', { rapi: s => s.replace('if(n.length > NOTE_MAX) throw', 'if(n.length > NOTE_MAX + 1) throw') }],
     ['관리자 목록이 팝업 칸을 안 이어받음', { adm: s => s.replace('document.body.appendChild(ov); setReportOv(ov);', 'document.body.appendChild(ov);') }],
-    ['관리자 목록이 신고 창을 안 닫음', { adm: s => s.replace('  _reportClose();\n  const { ov, body } = _reportBox(\'🚩 신고 목록\', 460);', "  const { ov, body } = _reportBox('🚩 신고 목록', 460);") }],
+    ['관리자 목록이 신고 창을 안 닫음', { adm: s => s.replace('  _closeList();\n  const { ov, body } = _reportBox(\'🚩 신고 목록\', 460);', "  const { ov, body } = _reportBox('🚩 신고 목록', 460);") }],
     ['관리자 확인을 값으로 붙잡음', { adm: s => s.replace('const isAdmin = deps.isAdmin;', 'const isAdmin = ((v)=>()=>v)(deps.isAdmin());') }],
     ['관리자가 아니어도 목록을 엶', { adm: s => s.replace('  if(!isAdmin()) return;\n', '') }],
     ['닫은 창 · 옛 차례 답도 그림(창 gen 빠짐)', { adm: s => s.replace('const live = (g)=>_reportOv() === ov && g === gen;', 'const live = (g)=>true;') }],
