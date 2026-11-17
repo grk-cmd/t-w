@@ -76,6 +76,9 @@ say('§1 규칙');
   chk(lr.ok === false && Array.isArray(lr.list) && !lr.list.length && b.ls.store['tw.r'] === '{망' && b.notes.join() === 'E-SYS-11', '읽기 짝 — 해석 안 되면 기본값 · E-SYS-11 · 그 뒤 막은 쓰기는 조용(망가진 칸 하나에 한 번)');
   b = build(SRC, 'ok'); b.ls.store['tw.q'] = '{망';
   chk(b.api.lsLoadJson('tw.q', null, { quiet: true }).ok === false && !b.notes.length && b.api.lsLoadJson('tw.none', 7).list === 7 && !b.notes.length, '  quiet 는 안 알림 · 없음은 조용히 기본값');
+  b = build(SRC, 'ok'); b.ls.store['tw.c'] = '{망';
+  chk(b.api.lsSaveCopy('tw.c', [1], false) === false && b.ls.store['tw.c'] === '{망' && b.notes.join() === 'E-SYS-11', '서버 원본 칸 — 사본이 아니면(서버에서 못 받음) 망가진 글 위엔 안 씀 · E-SYS-11');
+  chk(b.api.lsSaveCopy('tw.c', [2], true) === true && b.ls.store['tw.c'] === '[2]', '  사본이면(서버에서 받음) 망가진 글 위에도 고쳐 씀');
   {
     /* 안내를 못 띄웠으면(부팅 중) «알렸다» 로 적지 않는다 */
     const ls = mkStore('throw'); let ok = false; const got = [];
@@ -111,11 +114,11 @@ const SITES = {
   'character/premium-assets.js': { lsSaveJson: 1, lsLoadJson: 1 },
   'room/hidden-seats.js': { lsSave: 1 },
   'status/user-status.js': { lsSave: 2 },
-  'myhome/mallang.js': { lsSave: 2, lsSaveJson: 1, lsLoadJson: 1 },   // 숨긴 선물 · 서버에 쓴 뒤 사본 / 백업 / 백업 읽기(quiet)
+  'myhome/mallang.js': { lsSave: 1, lsSaveCopy: 1, lsLoadJson: 1 },   // 숨긴 선물 / 백업(서버에서 받았을 때만 사본) / 백업 읽기
   'myhome/myhome-desktop.js': { lsSaveJson: 1, lsLoadJson: 1 },
-  'myhome/bookmark.js': { lsSave: 1, lsSaveJson: 1, lsLoadJson: 1 },   // 서버 사본 / 이 기기에만 / 읽기(quiet)
+  'myhome/bookmark.js': { lsSaveCopy: 1, lsLoadJson: 1 },   // 이 기기 것(서버에서 받았을 때만 사본) / 읽기
 };
-const CODE_OF = { lsSet: 'E-SYS-09', lsUnset: 'E-SYS-09', lsSetJson: 'E-SYS-09', lsSave: 'E-SYS-10', lsRemove: 'E-SYS-10', lsSaveJson: 'E-SYS-10', lsLoadJson: 'E-SYS-11' };
+const CODE_OF = { lsSet: 'E-SYS-09', lsUnset: 'E-SYS-09', lsSetJson: 'E-SYS-09', lsSave: 'E-SYS-10', lsRemove: 'E-SYS-10', lsSaveJson: 'E-SYS-10', lsLoadJson: 'E-SYS-11', lsSaveCopy: 'E-SYS-10' };
 /* 아무 이름이나 받아 주는 가짜 값 — 부르면 자기, 속성도 자기, 글자 ''/숫자 0, 비어 있는 반복 */
 const ANY = new Proxy(function(){}, {
   get(t, k){
@@ -135,7 +138,7 @@ function scopeWith(over){
 function callsIn(src){
   const out = [];
   const code = stripC(src);
-  const re = /TwLsSet\.(lsLoadJson|lsSetJson|lsSaveJson|lsSet|lsUnset|lsSave|lsRemove)\b/g;
+  const re = /TwLsSet\.(lsLoadJson|lsSaveCopy|lsSetJson|lsSaveJson|lsSet|lsUnset|lsSave|lsRemove)\b/g;
   let m;
   while((m = re.exec(code))){
     let i = m.index + m[0].length, depth = 0, j = i;
@@ -236,8 +239,8 @@ say('§4 일부러 깨 보기');
   chk(!!m3 && build(m3, 'throw').api.lsSave('a', 1) === false && (() => { const b = build(m3, 'throw'); b.api.lsSave('a', 1); return b.notes[0] !== 'E-SYS-10'; })(), '데이터 실패를 설정 번호로 바꾸면 빨강');
   /* 자리 하나를 옛 모양(빈 catch)으로 되돌리면 2절이 빨강 */
   const BM = read('myhome/bookmark.js');
-  const bm = brk(BM, /TwLsSet\.lsSaveJson\(BM_KEY, (.*)\);(.*)$/m, 'try{ localStorage.setItem(BM_KEY, JSON.stringify($1)); }catch(_){}$2');
-  chk(!!bm && checkSites((f) => f === 'myhome/bookmark.js' ? bm : read(f), { 'myhome/bookmark.js': { lsSaveJson: 1 } }).bad.length > 0, '자리를 빈 catch 로 되돌리면 빨강');
+  const bm = brk(BM, 'return TwLsSet.lsSaveCopy(BM_KEY, bmLocalPayload(), bmFromServer);', 'try{ localStorage.setItem(BM_KEY, JSON.stringify(bmLocalPayload())); }catch(_){}');
+  chk(!!bm && checkSites((f) => f === 'myhome/bookmark.js' ? bm : read(f), { 'myhome/bookmark.js': { lsSaveCopy: 1, lsLoadJson: 1 } }).bad.length > 0, '자리를 빈 catch 로 되돌리면 빨강');
   const sv = brk(read('character/slot-save.js'), 'TwLsSet.lsSave(LS_KEY', 'TwLsSet.lsSet(LS_KEY');
   chk(!!sv && checkSites((f) => sv, { 'character/slot-save.js': { lsSave: 1 } }).bad.length > 0, '캐릭터 슬롯을 설정 번호로 바꾸면 빨강');
   const FL = read('focus/focus-level.js');

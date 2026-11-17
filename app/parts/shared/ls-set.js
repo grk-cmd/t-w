@@ -5,9 +5,10 @@
      값은 setItem 처럼 글자로 바꿔 쓴다. 던지지 않는다 — 쓰던 자리의 try 를 걷어도 된다.
      · JSON 칸: lsSetJson(key, value)(설정) · lsSaveJson(key, value)(데이터) — shared/json-store.js 의 save 로 쓴다.
        저장된 글이 해석이 안 되면 덮어쓰지 않고(blocked) E-SYS-11, 그 밖의 실패는 위와 같은 번호. 성공 true / 실패 false.
-     · 읽기 짝: lsLoadJson(key, fallback, { quiet }) — 해석 안 되면 E-SYS-11(막은 쓰기와 같은 번호 · 한 번). quiet 는 서버가 원본인 칸.
+     · 읽기 짝: lsLoadJson(key, fallback, { quiet }) — 해석 안 되면 E-SYS-11(막은 쓰기와 같은 번호 · 한 번). quiet 는 안 알림.
+     · 서버가 원본인 칸 쓰기: lsSaveCopy(key, value, isCopy) — 서버에서 받았을 때만 사본으로 보고 덮어쓴다.
    ・받는 deps 2 — notifyError: 번호 · 오류를 받아 알리는 함수(TwErrorCodes.notify — 부를 때 찾는다) · jsonStore: TwJsonStore(load · save).
-   ・내놓는 것: createLsSet(deps) → { _lsSet, lsUnset, lsSave, lsRemove, lsSetJson, lsSaveJson, lsLoadJson } · 렌더러에서는 window.TwLsSet 의 같은 이름(_lsSet 은 lsSet · 하나를 만들어 둔다).
+   ・내놓는 것: createLsSet(deps) → { _lsSet, lsUnset, lsSave, lsRemove, lsSetJson, lsSaveJson, lsLoadJson, lsSaveCopy } · 렌더러에서는 window.TwLsSet 의 같은 이름(_lsSet 은 lsSet · 하나를 만들어 둔다).
      app.js 는 원래 자리에서 createLsSet 로 만들어 옛 이름 _lsSet 으로 받는다(deps 로 받는 모듈 몫).
    ⚠️ «세션당 한 번» 은 이 파일이 실린 동안이다 — 기억을 파일 위에 둬서 app.js 가 만든 것과 window 것이 같이 센다(토글을 누를 때마다 뜨면 못 쓴다).
    ⚠️ 캐시 · 창 위치 · 읽음 표시처럼 못 남겨도 사용자가 잃는 게 없는 값은 여기로 오지 않는다(알리면 소음).
@@ -51,7 +52,10 @@ function lsRemove(key){ const e = _remove(key); if(e) _tell('E-SYS-10', key, e);
 function lsSetJson(key, value){ const r = jsonStore.save(key, value); if(!r.ok) _tell(r.blocked ? 'E-SYS-11' : 'E-SYS-09', key, r.err); return r.ok; }
 function lsSaveJson(key, value){ const r = jsonStore.save(key, value); if(!r.ok) _tell(r.blocked ? 'E-SYS-11' : 'E-SYS-10', key, r.err); return r.ok; }
 /* 읽기 짝 — { ok, list, err }(json-store load 그대로). 해석이 안 되면(«없음» 과 다름) E-SYS-11 · 막은 쓰기와 같은 번호라 망가진 칸 하나에 안내는 한 번.
-   quiet: 서버가 원본인 칸(로컬은 사본) — 읽을 때는 알리지 않는다. 서버에 못 쓰고 로컬도 막혔을 때 쓰기에서만 알린다. */
+   quiet: 알리지 않는다(부르는 쪽이 따로 알릴 때). */
+/* 서버가 원본인 칸 쓰기 — isCopy(이번 실행에 서버에서 실제로 데이터를 받았다)면 이 기기 것은 사본이라 망가진 글 위에도 쓴다(lsSave).
+   아니면(서버가 비었음 · 못 읽음 · 아직 안 받음) 이 기기 것이 하나뿐인 원본 — 해석 안 되는 저장분 위엔 안 쓴다(lsSaveJson · E-SYS-11). 남았으면 true. */
+function lsSaveCopy(key, value, isCopy){ return isCopy ? lsSave(key, JSON.stringify(value)) : lsSaveJson(key, value); }
 function lsLoadJson(key, fallback, opts){ const r = jsonStore.load(key, fallback); if(!r.ok && !(opts && opts.quiet)) _tell('E-SYS-11', key, r.err); return r; }
 
 return {
@@ -62,6 +66,7 @@ return {
   lsSetJson,
   lsSaveJson,
   lsLoadJson,
+  lsSaveCopy,
 };
 }
 
@@ -75,6 +80,7 @@ if(typeof window !== 'undefined'){
   api.lsSetJson = inst.lsSetJson;
   api.lsSaveJson = inst.lsSaveJson;
   api.lsLoadJson = inst.lsLoadJson;
+  api.lsSaveCopy = inst.lsSaveCopy;
   window.TwLsSet = api;
 }
 if(typeof module !== 'undefined' && module.exports) module.exports = api;

@@ -67,8 +67,9 @@
   function hasLicense(){ try{ return !!window._premiumOn(); }catch(_){ return false; } }
   function esc(s){ return TwSafeHtml.text(s); }   // 마크업 글자 안에 넣을 값 — 공용(shared/safe-html.js)
   function lsKey(){ return 'tw.mallang.' + (myId()||'anon'); }
-  /* 이 기기에만 쓰기 — 해석 안 되는 백업 위엔 안 씀(서버도 못 쓴 때라 E-SYS-11). 남았으면 true */
-  function saveLocal(){ return TwLsSet.lsSaveJson(lsKey(), imgs); }
+  /* 이 기기 백업 쓰기 — 이번에 서버에서 내 말랑이를 실제로 받았으면(_mlFromServer) 사본이라 망가진 글 위에도, 아니면(서버가 비었음 · 못 읽음) 백업이 원본이라 안 씀(E-SYS-11). 남았으면 true */
+  let _mlFromServer = false;
+  function saveLocal(){ return TwLsSet.lsSaveCopy(lsKey(), imgs, _mlFromServer); }
   /* 💾 로컬 먼저, 서버는 그 다음. **이 함수는 던지지 않는다.**
      [무엇이 문제였나] 예전 판은 `await firebaseAPI.saveMallangImgs(...)` 한 줄이었다. 위험이 둘이다.
        ① **결과를 버린다.** saveMallangImgs 는 실패해도 예외 대신 `{ok:false}` 를 돌려주므로
@@ -83,15 +84,14 @@
      ★ 로그인 전(uid 없음)은 실패가 아니다 — lsKey 가 'anon' 으로 로컬 저장을 하고 있고,
        그 상태로 `users/null/mallang` 에 쓰면 규칙상 통과해 **엉뚱한 노드에 쌓인다.** 여기서 막는다. */
   async function persist(){
-    const local = TwJsonStore.save(lsKey(), imgs);   // 서버가 안 되어도 이 기기에서는 남는다 — 순서를 바꾸지 말 것(막혔는지는 서버 결과를 보고 알린다)
-    const onlyLocal = (reason) => ({ ok:false, reason, local: local.ok || saveLocal() });
+    const local = saveLocal();         // 서버가 안 되어도 이 기기에서는 남는다 — 순서를 바꾸지 말 것
+    const onlyLocal = (reason) => ({ ok:false, reason, local });
     if(!fbReady() || !firebaseAPI.saveMallangImgs) return onlyLocal('offline');
     const uid = myId();
     if(!uid) return onlyLocal('no-uid');
     let r = null;
     try{ r = await firebaseAPI.saveMallangImgs(uid, imgs); }catch(_){ r = null; }
     if(!(r && r.ok)) return onlyLocal('server');
-    if(!local.ok) TwLsSet.lsSave(lsKey(), JSON.stringify(imgs));   // 서버에 썼다 — 이 기기 것은 사본이니 망가진 글 위에도 쓴다
     return { ok:true };
   }
   /* 🔔 "이 기기에만 저장됐다"를 알린다 — 조용히 넘어가면 유저는 다른 기기에서야 알게 된다.
@@ -818,10 +818,14 @@
   async function loadImgsFor(userId){
     imgs = [];
     let raw = [];
-    if(fbReady() && userId) raw = await firebaseAPI.getMallangImgs(userId).catch(()=>[]) || [];   // 내 코드가 없으면 서버는 안 읽고 로컬 백업('anon')만
-    // 서버가 비었고 '내 것'을 보는 중이면 로컬 백업에서 복원 (규칙 미반영 등 대비)
-    if((!raw || !raw.length) && userId===myId()){
-      const r = TwLsSet.lsLoadJson(lsKey(), null, { quiet: true });   // 백업은 서버의 사본 — 읽을 때는 알리지 않는다(막힌 쓰기에서만)
+    let got = false;                  // 서버에서 실제로 받았나 — 비었음 · 못 읽음(getMallangImgs 는 실패도 [] 로 준다)은 «못 받음»
+    if(fbReady() && userId){   // 내 코드가 없으면 서버는 안 읽고 로컬 백업('anon')만
+      try{ const s = await firebaseAPI.getMallangImgs(userId); if(Array.isArray(s) && s.length){ raw = s; got = true; } }catch(_){}
+    }
+    if(userId===myId()) _mlFromServer = got;
+    // 서버에서 못 받았고 '내 것'을 보는 중이면 로컬 백업에서 복원 (규칙 미반영 등 대비) — 이때 백업은 하나뿐인 원본이라 망가졌으면 알린다
+    if(!got && userId===myId()){
+      const r = TwLsSet.lsLoadJson(lsKey(), null);
       if(r.ok && Array.isArray(r.list)) raw = r.list;
     }
     imgs = (raw||[]).map(x => (typeof x==='string') ? { url:x, on:true } : { url:x.url, on:(x.on!==false) }).filter(x=>x && x.url);
