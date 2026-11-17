@@ -576,7 +576,7 @@ await sec('── 9. app.js 배선', () => {
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
   const fnDeps = deps.filter(l => /^\w+: \(\.\.\.a\)=>[\w$.]+\(\.\.\.a\),$/.test(l));   // [\w$.] — ytVideoId 는 playlist.js 의 plMod.ytVideoId(앱 FSD 16번)
   const getters = ['myHomeData: ()=>_myHomeData,', 'mhViewingUserId: ()=>_mhViewingUserId,', 'myHomeLoaded: ()=>_myHomeLoaded,', 'myHomeUid: ()=>_myHomeUid,',
-    'mhStickerDragDist: ()=>_mhStickerDragDist,', 'isPremium: ()=>isPremium,', 'isAdmin: ()=>isAdmin,', 'userNameMax: ()=>USER_NAME_MAX,'];
+    'mhStickerDragDist: ()=>_mhStickerDragDist,', /* 계정 핵심 상태의 읽는 함수(옮기기 전 글로 되살리면 isPremium()) */ 'isPremium: ()=>isPremium(),', 'isAdmin: ()=>isAdmin,', 'userNameMax: ()=>USER_NAME_MAX,'];
   const setters = ['setMyHomeLoaded: (v)=>{ _myHomeLoaded = v; },', 'setMhStickerDragDist: (v)=>{ _mhStickerDragDist = v; },'];
   const vals = ['homeUploadCache: uploadCacheMod,', 'myHomeSticker,', 'stickerMax: STICKER_MAX,', 'stickerImgMaxW: STICKER_IMG_MAX_W,', 'dsImgMaxBgW: DS_IMG_MAX_BG_W,', 'dsImgMaxBgH: DS_IMG_MAX_BG_H,', 'dsImgMaxPanel: DS_IMG_MAX_PANEL,', 'dsImgQuality: DS_IMG_QUALITY,'];
   chk(deps.includes('installMacTip: (...a)=>TwMacTooltip.installChild(...a),'), '맥 말풍선은 shared/mac-tooltip.js 의 installChild 로 잇는다');

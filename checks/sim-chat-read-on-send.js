@@ -60,7 +60,6 @@ function world(src, opts){
   const win = { _activeChannel: 2, _roomMetaCache: { tabs: { s1: { name: '잡담', ts: 1 } } }, firebaseAPI: fb };
   const tabsApi = new Function('window', 'module', TABS + '\nreturn window.ChatTabs;')(win, undefined);
   win.ChatTabs = tabsApi;
-  let cache = [];
   const any = anything();
   let room = ROOM;
   const presence = { roomCode: () => room, active: () => false, sendChat(){}, serverProvider: () => null };
@@ -68,7 +67,6 @@ function world(src, opts){
     Presence: () => presence, _chatRoomCode: () => room, _chatOffOn: () => false, _parseDanceCmdChain: () => null,
     officeMode: () => false, findMySeat: () => null, getMyUserId: () => ME, getDisplayName: () => '나', toast(){},
     _chatEsc: (s) => String(s), escHtml: (s) => String(s),
-    _chatLogCache: () => cache, setChatLogCache: (v) => { cache = v; }, _chatLogUnsub: () => null, setChatLogUnsub(){},
     CHAT_WIN_POS_KEY: () => 'tw.chatWinPos', bringWinToFront(){}, demojiCatalog: { DIR: '', LIST: [], BY_ID: {}, BY_CMD: {} }, seats: [], _myHomeData: () => null, isAdmin: () => false,
   }, { get: (t, k) => (k in t ? t[k] : (() => any)) });
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'ChatTabs', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'TwSafeHtml', 'module',

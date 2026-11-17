@@ -95,7 +95,7 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
   실행 화면(`runmode`)일 때만 적지만, 1분 몫(`takeMinute` · `_gpuTimer.take` · `_frameJsStats.take` · `runCost.take`)은 늘 비운다.
 - **만드는 법**: `TwRunDiagMinute.createRunDiagMinute(deps)` — app.js 원래 자리(프레임 상한 · 포커스 연결 뒤, `function frame` 앞)에서 만든다. 만들 때 60초 타이머 하나를 건다.
   - 값: `_FB`(FrameBudget) · `_frameBudget`(없으면 null — 그때는 아무것도 안 한다) · `_gpuTimer` · `_frameJsStats` · `runCost` · `hitShadow` · `renderer` · `canvas` · `scene` · `key` · `seats` · `Presence`
-  - 읽는 함수: `_renderQuality` · `_runLowered`(program-settings · 자동 낮춤이 다시 대입한다)
+  - 읽는 함수: `_renderQuality` · `_runLowered`(주인은 `render-state.js` — 프로그램 설정 · 자동 낮춤이 바꾼다)
   - 함수: `_frameCap` · `_bodyHidden`(= `hiddenSeatsMod._bodyHidden`)
 - **내놓는 것**: 없음.
 - **함정**: 줄 모양은 `frame-budget.js`(`diagLine`) · `gpu-timer.js`(`suffix`) · `run-cost-diag.js`(`line`) · `hit-shadow.js`(`lines`)가 정한다 — 여기서 글을 만들지 않는다. `[비용]` 줄은 `[프레임]` 줄 바로 앞에, `[지도]` 줄들은 `[프레임]` 뒤에 적는다.
@@ -149,17 +149,24 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - **내보내는 것**: `desktopMode` · `FIGURE_MODE_KEY` · `OFFICE_MODE_KEY` · `refreshOfficeChipUI`(값 · 함수) · `figureMode` · `officeMode` · `_officeHidden`(읽는 함수) · `setFigureMode` · `setOfficeMode`(쓰는 함수).
 - **함정**: 만들 때 깃발을 읽고 `refreshOfficeChipUI()` 를 부른다 — 깃발을 최상위에서 읽는 app.js 줄(`focusGateSleep` 등)은 만드는 줄 아래에 둔다(TDZ — `checks/smoke.js` 가 잡는다). 검사: `checks/sim-office-mode.js`.
 
+## render-state.js — 🎚️ 실행 화면 그리기 상태
+
+- **책임**: 화질(`FrameBudget.QUALITY` — 프로그램 설정 › 모니터) · «자동» 이 이번 실행에서 배율을 낮췄는가 · 도트 렌더 켬 — 세 값을 들고 읽는 함수 · 쓰는 함수로 내놓는다. 그리기 · 저장 · DOM 은 안 한다(저장은 바꾸는 쪽 — 화질 `program-settings.js` · 도트 `settings-panel.js`). app.js 분리 F6 — 맨 위 let 셋(`_renderQuality` · `_runLowered` · `dotRenderEnabled`)을 처음 값 그대로 옮겼다.
+- **만드는 법**: `TwRenderState.createRenderState()` — 받는 deps 없음. 만들 때 localStorage 에서 처음 값을 한 번 읽는다. app.js 맨 위 무대보다 먼저 만들고 `renderQuality()` 로 antialias(`_renderAA`)를 정한다.
+- **내보내는 것**: `renderQuality` · `runLowered` · `dotRenderEnabled`(읽는 함수) · `setRenderQuality` · `setRunLowered` · `setDotRenderEnabled`(쓰는 함수). app.js 는 읽는 쪽에 `()=>renderStateMod.이름()`, 쓰는 쪽에 `(v)=>{ renderStateMod.set이름(v); }` 를 넘긴다(좌석 카메라 · 프레임 한 장 · 1분 진단 줄 · 프로그램 설정 · 프레임 상한 · 설정 패널).
+- **함정**: 바꾸는 모듈 하나에 두면 읽는 모듈이 그 모듈을 바라보고 순환이 되므로 맨 아래 이 파일에 둔다(`room/room-state.js` 와 같은 까닭). html · smoke 에서 `frame-budget.js` 뒤 · 읽는 모듈과 app.js 앞. 검사: `checks/sim-render-state.js`.
+
 ## frame-pace.js — 🔋 프레임 상한 · rAF 멈춤 감시
 
 - **책임**: `FrameBudget` 만들기 · «자동» 화질 감시 · `_gpuTimer`(1분 `[프레임]` 줄 꼬리) · `_uiHot`(손댐 상한 해제) · `_fbIsBusy`(입력칸 · 꾸미기 · 춤 · 생성기 — 0.5초에 한 번만 DOM 을 봄) · `_frameCap` · `_frameCapped` · rAF 가 1초 넘게 안 오면 타이머가 `frame()` 을 대신 돌림 · 포커스 · 손댐 듣기.
-- **만드는 법**: `TwFramePace.createFramePace({ … 8개 })` — 읽는 함수 2(`_flyActive` · `creatorOpen`) · 함수 1(`frame`) · 쓰는 함수 1(`setRunLowered`) · 값 4. 원래 자리에서 만든다 — 타이머 · 듣기가 이때 걸린다.
+- **만드는 법**: `TwFramePace.createFramePace({ … 8개 })` — 읽는 함수 2(`_flyActive` · `creatorOpen`) · 함수 1(`frame`) · 쓰는 함수 1(`setRunLowered` — `render-state.js` 의 쓰는 함수로 잇는다) · 값 4. 원래 자리에서 만든다 — 타이머 · 듣기가 이때 걸린다.
 - **내보내는 것**: `_FB` · `_frameBudget` · `_runSlowWatch` · `_gpuTimer` · `_frameJsStats` · `_lowerRunQuality` · `_uiHot` · `_frameCap` · `_frameCapped` · `_lastRafAt`(읽는 함수) · `setLastRafAt`.
 - **함정**: `mousemove` 는 «손댐» 으로 세지 않는다(클릭 통과 중에도 들어와 30 ↔ 60 이 오르내림). `frame()`(app.js)이 rAF 가 실제로 온 시각을 `setLastRafAt` 으로 알린다. 검사: `checks/sim-frame-pace.js`.
 
 ## frame-loop.js — 🎞 프레임 한 장
 
 - **책임**: `frame(now, manual)`(rAF 콜백)과 `prev` — rAF 시각 알림 · 프레임 상한 건너뜀 · dt · 좌석마다(상태 판정 → 자세 → 올라타기 · 벤치 · 자리비움 → 라벨 · 경험치 바 · 이름표 · 말풍선) · 3D 그리기 · 히트 맵 표시 · 상태칩 위치 · 비용 재기.
-- **만드는 법**: `TwFrameLoop.createFrameLoop({ … 50개 })` — 읽는 함수 여섯(`_renderQuality` · `awayPicMod` · `desktopMode` · `expBarMod` · `focusLevelMod` · `officeModeMod`) · 나머지는 값. 원래 자리에서 만든다 — 만들기만 하고 부르지 않는다.
+- **만드는 법**: `TwFrameLoop.createFrameLoop({ … 50개 })` — 읽는 함수 여섯(`_renderQuality` — 주인 `render-state.js` · `awayPicMod` · `desktopMode` · `expBarMod` · `focusLevelMod` · `officeModeMod`) · 나머지는 값. 원래 자리에서 만든다 — 만들기만 하고 부르지 않는다.
 - **내보내는 것**: `frame` — app.js 는 같은 이름 const 로 받는다. 첫 `requestAnimationFrame(frame)` 은 app.js INIT, 타이머 대행은 `frame-pace.js`.
 - **함정**: 좌석 한 명 몫(`seat-frame`)을 따로 떼는 일은 글 그대로 옮기기로는 안 된다(`continue` → `return` 등) — R5 로 남김. 이름표는 경험치 바 뒤 · 말풍선은 이름표 뒤 순서를 바꾸지 말 것. 검사: `checks/sim-frame-loop.js`.
 

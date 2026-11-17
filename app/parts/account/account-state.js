@@ -5,14 +5,16 @@
      바뀐 것은 둘 — _setPremium 이 다시 그리기를 직접 부르지 않고 «프리미엄이 바뀌었다» 알림(onPremiumChanged)을 돌린다(게이트가 건다) ·
      _acctDetached 는 계정이 쓰는 함수(setAcctDetached)로 올린다.
    ★ 원격 설정 한 벌 읽기(_rcStore)도 여기 — 초대 게이트 · 방 입장 · app.js 가 같이 쓴다.
-   ★ 밖에서 부르는 이름: FRIEND_CODE_LOGIN_RE · _rcStore · INVITE_PASS_KEY · LOGIN_EMAIL_KEY · LOGIN_UID_KEY · getMyLoginEmail · LICENSE_KEY_STORAGE · LICENSE_OPTOUT_KEY · _markInvitePassed · _setPremium · onPremiumChanged · _acctDetached(읽는 함수) · setAcctDetached · _acctRelaunchAfterDetach — app.js 는 acctStateMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: isPremium(읽는 함수) · FRIEND_CODE_LOGIN_RE · _rcStore · INVITE_PASS_KEY · LOGIN_EMAIL_KEY · LOGIN_UID_KEY · getMyLoginEmail · LICENSE_KEY_STORAGE · LICENSE_OPTOUT_KEY · _markInvitePassed · _setPremium · onPremiumChanged · _acctDetached(읽는 함수) · setAcctDetached · _acctRelaunchAfterDetach — app.js 는 acctStateMod.이름 으로 부른다.
    ⚠️ 전역 이름은 TwAccountState — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    app.js · 쓰는 모듈보다 먼저 싣는 classic script. */
 (function(){
 
-function createAccountState(deps){
-const isPremium = deps.isPremium;   // 읽는 함수 — 프리미엄 여부(app.js 의 let · 여러 모듈이 읽는다)
-const setIsPremium = deps.setIsPremium;   // 쓰는 함수 — 바꾸는 곳은 아래 _setPremium 하나
+/** 받는 deps 없음. @returns 아래 return 칸 — isPremium 은 읽는 함수(바꾸는 곳은 _setPremium 하나) */
+function createAccountState(){
+let _isPremium = false;   // 프리미엄 여부 — 여러 모듈이 읽는다(app.js 는 읽는 쪽에 ()=>acctStateMod.isPremium() 을 넘긴다 · app.js 분리 F6)
+const isPremium = ()=>_isPremium;   // 읽는 함수
+const setIsPremium = (v)=>{ _isPremium = v; };   // 쓰는 함수 — 바꾸는 곳은 아래 _setPremium 하나
 /* 원격 설정 한 벌(remote-config.js 가 app.js 앞에 싣는다). 없으면(검사 · 옛 html) null — 부르는 쪽이 기본값으로.
    초대 게이트 스위치 · 방 정원 · 방 개수가 같이 읽어 계정 묶음 맨 아래 여기 한 벌(옮기기 전엔 초대 게이트에 있었다) */
 function _rcStore(){ return (typeof window !== 'undefined' && window.TwRemoteConfig && window.TwRemoteConfig.store) || null; }
@@ -66,6 +68,7 @@ return {
   LICENSE_KEY_STORAGE,
   LICENSE_OPTOUT_KEY,
   _markInvitePassed,
+  isPremium,   // 읽는 함수
   _setPremium,
   onPremiumChanged,
   _acctDetached: ()=>_acctDetached,   // 읽는 함수

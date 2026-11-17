@@ -14,7 +14,7 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['frame-budget.js', 'app.js', 'desk-companion-prototype.html', 'program-settings.js', 'stage.js', 'frame-pace.js'];
+const need = ['frame-budget.js', 'app.js', 'desk-companion-prototype.html', 'program-settings.js', 'stage.js', 'frame-pace.js', 'render-state.js'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const APP_RAW = SRC['app.js'];
@@ -176,8 +176,9 @@ say('── 5. 배선');
   chk(/FrameBudget\.runPixelRatio\(devicePixelRatio, dotRenderEnabled, renderQuality, runLowered\)/.test(code), '실행 화면 배율을 runPixelRatio 로(한 곳 · 화질 · 낮춤을 같이)');
   const raw = SRC['app.js'].replace(/\/\*[\s\S]*?\*\//g, ' ');
   const rawApp = APP_RAW.replace(/\/\*[\s\S]*?\*\//g, ' ');   // 되살리지 않은 app.js(만드는 줄 모양을 볼 때)
-  chk(/let _renderQuality = FrameBudget\.qualityFrom\(localStorage\.getItem\(FrameBudget\.QUALITY_KEY\)\);/.test(rawApp)
-    && /const _renderAA = FrameBudget\.antialiasFor\(_renderQuality\);/.test(rawApp) && /TwStage\.createStage\(\{\s*_renderAA: _renderAA,/.test(rawApp)
+  /* 화질 상태의 주인은 launcher/render-state.js(app.js 분리 F6) — 저장된 화질을 읽고, app.js 는 그 값으로 antialias 를 정한다 */
+  chk(/let _renderQuality = FrameBudget\.qualityFrom\(localStorage\.getItem\(FrameBudget\.QUALITY_KEY\)\);/.test(SRC['render-state.js'])
+    && /const renderStateMod = TwRenderState\.createRenderState\(\);\s*const _renderAA = FrameBudget\.antialiasFor\(renderStateMod\.renderQuality\(\)\);/.test(rawApp) && /TwStage\.createStage\(\{\s*_renderAA: _renderAA,/.test(rawApp)
     && /TwGlContext\.make\(canvas,\{canvas,antialias:_renderAA,/.test(SRC['stage.js']), '★ 렌더러 antialias 는 저장된 화질에서(도트 렌더 값을 안 본다) — app.js 가 _renderAA 를 정해 무대(stage.js)에 넘긴다');
   chk(!/antialias:\s*!?\s*[^,]*dot/i.test(raw), '  antialias 를 도트 렌더 값으로 정하지 않는다(옛 «안 보이는 끔» 버그)');
   chk(/if\(_renderQuality === FrameBudget\.QUALITY\.AUTO && document\.body\.classList\.contains\('runmode'\) && _runSlowWatch\.note\(now, _frameCap\(now\)\)\) _lowerRunQuality\(\);/.test(raw), '★ 자동일 때 · 실행 화면에서만 그린 장마다 감시');
