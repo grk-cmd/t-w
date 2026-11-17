@@ -115,7 +115,7 @@
 | `apps/desktop/app/parts/room/roulette.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 46번) — 🔫 러시안룰렛(워킹룸 · 혼자 — 하루 횟수는 dice-games.js). classic script(`window.TwRoulette`), 부르는 곳은 `rouletteMod.이름` |
 | `apps/desktop/app/parts/room/floaters.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 46번) — 💞 이모지 떠오르기(쓰다듬기 · 반응 이모지 스프라이트 — 움직임은 ANIM 프레임 루프가 `floatersMod.floaters` 를 돈다). classic script(`window.TwFloaters`), 부르는 곳은 `floatersMod.이름` |
 | `apps/desktop/app/parts/myhome/add-friend.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 46번) — 👥 책상에서 친구 추가(친구 고르기 창 · 얼굴 섬네일 `drawFaceThumb`). classic script(`window.TwAddFriend`), 부르는 곳은 `addFriendMod.이름` |
-| `apps/desktop/app/parts/account/device-lost.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 46번) — 🖥️ 한 계정 한 기기 — 다른 기기에 밀려난 기기 처리(«여기서 계속» · 안내). classic script(`window.TwDeviceLost`), 부르는 곳은 `deviceLostMod.이름` |
+| `apps/desktop/app/parts/account/device-lost.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 46번) — 🖥️ PC 3대까지 · 4번째 PC 는 가장 오래된 기기를 지울지 묻는다 · 다른 PC 에서 지워진 기기 처리(«이 PC 다시 등록» · «여기서 계속» · 안내 — 등록은 `account/device-register.js`). classic script(`window.TwDeviceLost`), 부르는 곳은 `deviceLostMod.이름` |
 | `apps/desktop/app/parts/myhome/myhome-page.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 47번) — 🏠 마이홈 페이지 불러오기 · 그리기(`loadMyHomePage` · `renderMyHomePage` — 관람 중이면 내 데이터로 덮지 않음). classic script(`window.TwMyHomePage`), 부르는 곳은 `mhPageMod.이름` |
 | `apps/desktop/app/parts/myhome/myhome-links.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 47번) — 🔗 마이홈 본문(자기소개 · 게시글) 링크를 시스템 기본 브라우저로 열기. classic script(`window.TwMyHomeLinks`) — 밖에서 부르는 이름 없음 |
 | `apps/desktop/app/parts/shared/async-prompt.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 47번) — ✏️ 인앱 프롬프트(`asyncPrompt` — 창 안 입력 대화상자 · `window.asyncPrompt`). classic script(`window.TwAsyncPrompt`), 부르는 곳은 `asyncPromptMod.이름` |
