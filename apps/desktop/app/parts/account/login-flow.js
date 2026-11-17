@@ -17,8 +17,7 @@
 const ME_CACHE_KEY = 'tw.me';   // { authUid, me, at } — 마지막 /v2/me 답(patchMe 가 version 을 읽는다). 프리미엄은 여기서 읽지 않는다 — 서버 확인(license-premium.js)만 따른다
 const STATE = Object.freeze({ IN: 'in', SIGNUP: 'signup', LOGIN: 'login', LOCAL: 'local' });
 const CANCELED_TEXT = '로그인이 취소됐어요';   // 옛 main 은 canceled 표시 없이 이 글만 보낸다 — 그냥 닫음으로 본다
-const RT_READY = 'ready', RT_SESSION_LOST = 'sessionLost', RT_DEVICE_REMOVED = 'deviceRemoved';   // rt-hub.js 상태 이름
-const deviceOff = (s) => s === RT_SESSION_LOST || s === RT_DEVICE_REMOVED;   // 서버가 이 PC 의 연결을 끝냄(4004)
+const RT_READY = 'ready';   // rt-hub.js 상태 이름
 const BYE_LOGOUT = 'logout';   // rt-hub.js BYE_WHY
 const LEAVE_WAIT_MS = 1500;    // 방 나가기 기다림 상한(설계 4-D-3) — 오프라인이면 방 나가기 쓰기가 끝나지 않아 로그아웃이 멈춘다
 
@@ -40,7 +39,7 @@ function joinKey(inviteCode, password){
  *           signInPassword: (code: string, pw: string) => Promise<{ ok: boolean, email?: string, reason?: string }>,
  *           signOut: () => Promise<void>, identity: () => ({ email: string | null, uid: string | null }) },
  *   googleWindow: () => Promise<{ ok: boolean, idToken?: string, canceled?: boolean, reason?: string }>,
- *   rt: { start: (o: { claim: boolean }) => void, stop: () => void, bye: (why: string) => Promise<void>, onState: (fn: (s: string) => void) => Function },
+ *   rt: { start: (o: { claim: boolean }) => void, stop: () => void, bye: (why: string) => Promise<void>, onState: (fn: (s: string) => void) => Function, isDeviceOff: (s: string) => boolean },   // isDeviceOff — rt-hub 한 곳의 «서버가 이 PC 연결을 끝냄» 판정
  *   leaveRoom: () => Promise<void>,   // 방 안이면 나가기(leave → left 기다림) · 방 밖이면 바로 풀린다
  *   pending: { idFor: (k: string) => string, settle: (k: string) => void },
  *   storage: { getItem: Function, setItem: Function, removeItem: Function },
@@ -99,8 +98,9 @@ function createLoginFlow(deps){
     stateHooked = true;
     deps.rt.onState((s) => {
       /* 기다리는 화면 동안 켠 연결은 등록 전이라 서버가 끊는다(이 PC 의 이번 세션이 아직 없다) — 그것도 «서버가 답함» 이다. 등록 · 다시 붙기는 들어간 뒤 app-boot 가 한다 */
-      if(deviceOff(s) && waitBack) retryNow();
-      else if(deviceOff(s) && armed) deps.onSessionLost(s);   // 등록 뒤 켠 연결(goOnline)만 — 그 전의 4004 는 등록 전 세션이라 안내할 일이 아니다
+      const off = deps.rt.isDeviceOff(s);
+      if(off && waitBack) retryNow();
+      else if(off && armed) deps.onSessionLost(s);   // 등록 뒤 켠 연결(goOnline)만 — 그 전의 4004 는 등록 전 세션이라 안내할 일이 아니다
       else if(s === RT_READY && waitBack) retryNow();
     });
   }

@@ -8,7 +8,7 @@
      받기 실패의 오류 번호는 사용자가 연 · 누른 받기(manual)에서만 띄운다(알림으로 자동 받다 실패하면 상태만 error).
      쓰기는 서버가 «됐다» 한 뒤에 화면을 고친다 — 글 쓰기 · 지우기 · 폭죽은 다시 받아 맞추고, 박수는 서버 답의 수를 쓴다.
    deps: api — createGuestbookApi 가 돌려준 것(guestbook-api.js)
-         rt — { on(kind, fn)→해제, onState(fn)→해제, send(msg) }(TwRtHub.store) · rtState — TwRtHub.STATE
+         rt — { on(kind, fn)→해제, onState(fn)→해제, send(msg) }(TwRtHub.store) · rtState — TwRtHub.STATE · rtDeviceOff — TwRtHub.isDeviceOff
          pending — TwRequestId.createPending() (같은 일 다시 보내기는 같은 번호)
          lastRead — createLastReadStore 가 돌려준 것({ get(uid), set(uid, ts) } — «마지막으로 방명록을 연 때»)
          notifyError — 오류 번호로 알리는 함수(TwErrorCodes.notify) · translate(err, table) · ACTION — TwApiErrors
@@ -47,6 +47,7 @@ function createGuestbookFeed(deps){
   const api = deps.api;
   const rt = deps.rt;
   const RT = deps.rtState;
+  const rtDeviceOff = deps.rtDeviceOff;   // 서버가 이 PC 연결을 끝냄(rt-hub isDeviceOff — 판정 한 곳)
   const ids = deps.pending;
   const lastRead = deps.lastRead;
   const notifyError = deps.notifyError;
@@ -101,7 +102,7 @@ function createGuestbookFeed(deps){
     }else if(s === RT.OFF){
       reset();   // 연결을 끈 것(로그아웃 · 계정을 놓음) — 모두 비운다. 보낼 길이 없으니 떼기 메시지도 없다
       emit('off');   // 화면이 열린 창을 닫는 신호 — 이것만이 «연결을 껐다» 는 뜻이다(owner 가 비었다고 짐작하지 말 것)
-    }else if(s === RT.AUTH_FAILED || s === RT.SESSION_LOST || s === RT.DEVICE_REMOVED || s === RT.UPDATE || s === RT.MAINTENANCE || s === RT.ACCOUNT_GONE || s === RT.CLOSED){
+    }else if(rtDeviceOff(s) || s === RT.AUTH_FAILED || s === RT.UPDATE || s === RT.MAINTENANCE || s === RT.ACCOUNT_GONE || s === RT.CLOSED){
       release();   // 연결만 끊겼다 — 다시 붙을 수 있으니 받은 것만 거두고 «누구 것을 보는 중인가» 와 알림 걸기는 둔다
     }   // CONNECTING · RETRYING 은 아무것도 안 한다 — 재시도 중에도 화면과 배지는 그대로 둔다
   }

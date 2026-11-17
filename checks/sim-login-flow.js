@@ -59,7 +59,7 @@ function mkEnv(S, o){
   };
   const rtLog = []; let stateFn = null;
   /* 서버 흉내 — otherSession 이면 등록 전 세션이라 claim 과 상관없이 4004(sessionLost)로 끊는다(자리는 등록이 정하고 realtime 은 claim 을 보지 않는다) */
-  const rt = { start: (x) => { rtLog.push('start:' + JSON.stringify(x)); if(opt.otherSession && stateFn) stateFn('sessionLost'); }, stop: () => rtLog.push('stop'),
+  const rt = { start: (x) => { rtLog.push('start:' + JSON.stringify(x)); if(opt.otherSession && stateFn) stateFn('sessionLost'); }, stop: () => rtLog.push('stop'), isDeviceOff: (s) => s === 'sessionLost' || s === 'deviceRemoved',
     bye: async (why) => { rtLog.push('bye:' + why); await tick(); rtLog.push('closed'); }, onState: (fn) => { stateFn = fn; return () => {}; } };
   /* 방 나가기 흉내 — leave 를 보내고 left 를 기다렸다 풀린다(방 밖이면 바로) */
   const leaveRoom = opt.leaveHang ? () => { rtLog.push('leave'); return new Promise(() => {}); }   // 오프라인 — 방 나가기 쓰기가 끝나지 않음
@@ -329,15 +329,15 @@ const BREAKS = [
   ['LF', "      if(t.action === 'signup'){ clearCache(); return { state: STATE.SIGNUP, me: null }; }", "      if(t.action === 'signup'){ return { state: STATE.SIGNUP, me: null }; }", '탈퇴한 계정 사본을 남김'],
   ['LF', "      if(t.action === 'login') return { state: STATE.LOGIN, me: null, reason: deps.reasonOf(e) };", "", '끝난 토큰을 로컬 모드로'],
   ['LF', "    online = true;\n    deps.rt.start({ claim: true });\n  }", "    if(online) return;\n    online = true;\n    deps.rt.start({ claim: true });\n  }", '켜 둔 연결이 끊긴 뒤 goOnline 이 다시 안 켬'],
-  ['LF', "      else if(deviceOff(s) && armed) deps.onSessionLost(s);", "      else if(false){ }", '밀려남을 화면에 안 알림'],
-  ['LF', "      else if(deviceOff(s) && armed) deps.onSessionLost(s);", "      else if(deviceOff(s) && armed) deps.onSessionLost('sessionLost');", '지워짐 · 새 세션을 안 가름'],
-  ['LF', "      if(deviceOff(s) && waitBack) retryNow();\n", "", '기다리는 화면에서 등록 전 4004 를 안내 화면으로'],
+  ['LF', "      else if(off && armed) deps.onSessionLost(s);", "      else if(false){ }", '밀려남을 화면에 안 알림'],
+  ['LF', "      else if(off && armed) deps.onSessionLost(s);", "      else if(off && armed) deps.onSessionLost('sessionLost');", '지워짐 · 새 세션을 안 가름'],
+  ['LF', "      if(off && waitBack) retryNow();\n", "", '기다리는 화면에서 등록 전 4004 를 안내 화면으로'],
   ['LF', "      else if(s === RT_READY && waitBack) retryNow();", "      else if(waitBack) retryNow();", 'ready 아닌 신호에도 묻음'],
   ['LF', "      else if(s === RT_READY && waitBack) retryNow();", "", 'realtime ready 신호가 와도 안 물음'],
   ['LF', "    if(checking) return null;\n", "", '묻는 중에 또 물음'],
   ['LF', "    if(r.state === STATE.IN){ mode = 'in'; if(rtWait){ rtWait = false; online = false; try{ deps.rt.stop(); }catch(_){} } }", "    if(r.state === STATE.IN){ goOnline(); }", '닿자마자 등록 전 세션으로 realtime 을 켬'],
   ['LF', "    if(r.state === STATE.IN){ mode = 'in'; if(rtWait){ rtWait = false; online = false; try{ deps.rt.stop(); }catch(_){} } }", "    if(r.state === STATE.IN){ mode = 'in'; rtWait = false; }", '들어간 뒤에도 기다리며 켠 연결을 그대로 둠(등록 전에 붙어 4004)'],
-  ['LF', "      else if(deviceOff(s) && armed) deps.onSessionLost(s);", "      else if(deviceOff(s)) deps.onSessionLost(s);", 'goOnline 전 4004 도 안내 화면으로'],
+  ['LF', "      else if(off && armed) deps.onSessionLost(s);", "      else if(off) deps.onSessionLost(s);", 'goOnline 전 4004 도 안내 화면으로'],
   ['LF', "    if(!online){ online = true; rtWait = true; deps.rt.start({ claim: true }); }", "", '기다리는 동안 realtime 을 안 켬(신호가 안 옴)'],
   ['LF', "    else if(rtWait){ rtWait = false; online = false; try{ deps.rt.stop(); }catch(_){} }", "", '계정이 없는데 켜 둔 연결을 안 끔'],
   ['LF', "limited: !!(e && e.status === 429)", "limited: false", '429 를 못 알림'],

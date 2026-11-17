@@ -56,7 +56,7 @@ function mkEnv(src, opt){
   const pendingIds = new Map();
   const pending = { idFor: (k) => { if(!pendingIds.has(k)) pendingIds.set(k, 'rid-' + (++env.ids)); return pendingIds.get(k); }, settle: (k) => { pendingIds.delete(k); }, has: (k) => pendingIds.has(k) };
   env.feed = mod.createGuestbookFeed({
-    api, rt, rtState: RT, pending,
+    api, rt, rtState: RT, rtDeviceOff: (s) => s === RT.SESSION_LOST || s === RT.DEVICE_REMOVED, pending,
     lastRead: { get: (u) => env.lastRead[u] || 0, set: (u, t) => { env.lastRead[u] = t; } },
     notifyError: (code, err) => { env.notes.push(code + (err && err.code ? ':' + err.code : '')); return true; },
     translate: (e, t) => TwApiErrors.translate(e, t), ACTION: TwApiErrors.ACTION, now: () => 5000,

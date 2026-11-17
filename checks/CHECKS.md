@@ -437,7 +437,7 @@
 | **sim-parts-paths.js** | 85 | **6ed65253e869** |
 | **sim-global-names.js** | 236 | **4da03342e299** |
 | **sim-guestbook-api.js** | 246 | **e73b45be2855** |
-| **sim-guestbook-feed.js** | 403 | **6e665a7f2746** |
+| **sim-guestbook-feed.js** | 403 | **7b9e8b2063b2** |
 | **sim-focus-api.js** | 192 | **c64b7334bb10** |
 | **sim-guestbook-wiring.js** | 291 | **0b48710dd848** |
 | **sim-dep-cycles.js** | 268 | **ff89d3a97db2** |
@@ -517,11 +517,11 @@
 | **sim-gift-img-retry.js** | 207 | **1053b262fc34** |
 | **sim-device-id.js** | 103 | **44a934497fba** |
 | **sim-account-store.js** | 624 | **d65c22de53e9** |
-| **sim-rt-hub.js** | 673 | **6cda1a45af73** |
+| **sim-rt-hub.js** | 676 | **8ef7ed2c81ad** |
 | **sim-rt-status-ui.js** | 245 | **64adff52d476** |
 | **sim-run-verdict.js** | 67 | **4303b789970f** |
 | **sim-user-api.js** | 250 | **2d4fc2ad2565** |
-| **sim-login-flow.js** | 386 | **f2f606bcc2df** |
+| **sim-login-flow.js** | 386 | **a2b9a84c9a58** |
 | **sim-first-run-013.js** | 350 | **7436521829cc** |
 | **sim-lobby-window.js** | 119 | **277eac451d99** |
 | **sim-animal-tex.js** | 67 | **022878707d99** |
@@ -534,7 +534,7 @@
 | **sim-bookshelf-store.js** | 258 | **2647af3c408b** |
 | **sim-myhome-store.js** | 629 | **cbeeada94f57** |
 | **sim-myhome-wire.js** | 122 | **02e5d6bf593a** |
-| **sim-room-rt.js** | 419 | **f2250efa4a60** |
+| **sim-room-rt.js** | 419 | **86a66e833395** |
 | **sim-chat-rt.js** | 245 | **4a3d5da0356a** |
 | **sim-room-invite-rt.js** | 85 | **aaf5c3f73ec3** |
 | **sim-purikura-rt.js** | 458 | **24a5cf75951c** |

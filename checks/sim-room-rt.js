@@ -82,7 +82,7 @@ function mk(S){
     getToken: async () => 'tok', getVersion: async () => '0.13.0', deviceId: () => 'dev-0001', newSession: () => 'sess01',
     now: () => clock.t, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout, random: () => 0.5, log: { warn(){} },
   });
-  const rt = R.createRoomRt({ hub, STATE: H.STATE, timing: () => null,
+  const rt = R.createRoomRt({ hub, STATE: H.STATE, isDeviceOff: H.isDeviceOff, timing: () => null,
     now: () => clock.t, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout, setInterval: clock.setInterval, clearInterval: clock.clearInterval, log: { warn(){} } });
   return { H, R, hub, rt, clock, socks, last: () => socks[socks.length - 1] };
 }

@@ -153,7 +153,8 @@ function memberFrom(view){
 }
 
 /** @param {{ hub: { onMessage: Function, onState: Function, send: Function, request: Function, state: () => string, isReady: () => boolean, userCode: () => (string|null) },
- *   STATE: { READY: string, OFF: string, SESSION_LOST: string, DEVICE_REMOVED: string, UPDATE: string, AUTH_FAILED: string },
+ *   STATE: { READY: string, OFF: string, SESSION_LOST: string, UPDATE: string, AUTH_FAILED: string },
+ *   isDeviceOff: (s: string) => boolean,   // 서버가 이 PC 연결을 끝냄(rt-hub isDeviceOff — 판정 한 곳)
  *   timing?: () => ({ joinWaitMs?: number, clientGiveUpMs?: number } | null),
  *   now?: () => number, setTimeout?: Function, clearTimeout?: Function, setInterval?: Function, clearInterval?: Function, log?: { warn: Function } }} deps */
 function createRoomRt(deps){
@@ -200,7 +201,7 @@ function createRoomRt(deps){
       return;
     }
     if(!P || !P.inRoom || P.leaving) return;
-    if(s === S.SESSION_LOST || s === S.DEVICE_REMOVED){   // 이 PC 의 연결이 서버에서 끊김(지워짐 · 새 세션) — 방 자리도 서버가 바로 뺐다 · 안내 화면은 로그인 흐름 몫
+    if(deps.isDeviceOff(s)){   // 이 PC 의 연결이 서버에서 끊김(지워짐 · 새 세션) — 방 자리도 서버가 바로 뺐다 · 안내 화면은 로그인 흐름 몫
       if(P.joinWaiter && !P.joined){ finishJoin(P, { ok: false, code: 'sessionLost' }); return; }
       lost(P, 'sessionLost');
       return;
@@ -622,7 +623,7 @@ function createRoomRt(deps){
         return new Promise((res) => {
           let st = null;
           try{ st = hub.state(); }catch(_){ st = S.OFF; }
-          if(st === S.SESSION_LOST || st === S.DEVICE_REMOVED || STOPPED[st]){
+          if(deps.isDeviceOff(st) || STOPPED[st]){
             P.joinWaiter = { res, timer: null };
             finishJoin(P, { ok: false, code: STOPPED[st] || 'sessionLost' });
             return;
@@ -751,7 +752,7 @@ const api = { JOIN_TIMEOUT_MS, REQ_TIMEOUT_MS, LEAVE_WAIT_MS, TIMING_DEFAULTS, R
 if(typeof window !== 'undefined'){
   /* 앱 한 벌 — realtime 연결 하나(TwRtHub.store) 위. 시간 두 칸은 원격 설정(room.timing · remote-config.js 가 먼저 실린다). */
   api.store = createRoomRt({
-    hub: window.TwRtHub.store, STATE: window.TwRtHub.STATE,
+    hub: window.TwRtHub.store, STATE: window.TwRtHub.STATE, isDeviceOff: window.TwRtHub.isDeviceOff,
     timing: () => window.TwRemoteConfig.store.roomServerTiming(),
   });
   window.TwRoomRt = api;

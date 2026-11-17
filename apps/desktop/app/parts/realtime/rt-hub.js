@@ -61,6 +61,8 @@ function closeAction(code, reason){
 }
 const STATE = Object.freeze({ OFF: 'off', CONNECTING: 'connecting', READY: 'ready', RETRYING: 'retrying',
   SESSION_LOST: 'sessionLost', DEVICE_REMOVED: 'deviceRemoved', UPDATE: 'update', AUTH_FAILED: 'authFailed', MAINTENANCE: 'maintenance', ACCOUNT_GONE: 'accountGone', CLOSED: 'closed' });
+/** 서버가 이 PC 의 연결을 끝낸 상태인가(4004 — 다른 PC 가 이 기기를 지움 · 이 PC 의 새 세션). 이 판정은 여기 한 곳 — 부르는 쪽이 상태 이름을 다시 늘어놓지 않는다 */
+const isDeviceOff = (s) => s === STATE.SESSION_LOST || s === STATE.DEVICE_REMOVED;
 /* 멈춤 할 일 → 상태 */
 const STOP_STATES = Object.freeze({ [ACTION.UPDATE]: STATE.UPDATE, [ACTION.SESSION_LOST]: STATE.SESSION_LOST, [ACTION.DEVICE_REMOVED]: STATE.DEVICE_REMOVED, [ACTION.MAINTENANCE]: STATE.MAINTENANCE,
   [ACTION.ACCOUNT_GONE]: STATE.ACCOUNT_GONE, [ACTION.UNKNOWN]: STATE.CLOSED, [ACTION.END]: STATE.OFF });
@@ -302,7 +304,7 @@ function bindWindowEvents(win, hub){
   if(win.companion) win.companion.onWake(() => hub.checkAlive());   // 웹 미리보기 · 검사 창엔 preload 가 없다(깨어남 신호 없이 online 만)
 }
 
-const api = { PV, KINDS, ROOM_TYPES, MESSAGE_TYPES, REQUEST_KINDS, ANSWERS, CLOSE_CODES, CLOSE_REASONS, ACTION, CLOSE_ACTIONS, closeAction, STATE, BYE_WHY,
+const api = { PV, KINDS, ROOM_TYPES, MESSAGE_TYPES, REQUEST_KINDS, ANSWERS, CLOSE_CODES, CLOSE_REASONS, ACTION, CLOSE_ACTIONS, closeAction, STATE, isDeviceOff, BYE_WHY,
   START_WAIT_MS, RESTART_SPREAD_MS, RESTART_READY_WAIT_MS, BYE_WAIT_MS, PONG_WAIT_MS, KEEPALIVE_IDLE_MS,
   REALTIME_URLS, DEV_URL_KEY, DEV_URL_RE, realtimeUrlFor, sessionIdOf, createRtHub, bindWindowEvents };
 if(typeof window !== 'undefined'){

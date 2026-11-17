@@ -282,6 +282,8 @@ async function judge(S){
       [4001, 'auth'], [4002, 'unknown'], [4003, 'update'], [4004, 'sessionLost'], [4004, 'deviceRemoved', 'deviceRemoved'], [4004, 'sessionLost', 'sessionLost'], [4005, 'reconnect'], [4006, 'maintenance'], [4007, 'accountGone'], [4008, 'reconnect'],
       [4000, 'unknown'], [4999, 'unknown'], [5000, 'reconnect']];
     const bad = want.filter(([c, act, why]) => H.closeAction(c, why) !== act).map(([c, act, why]) => c + (why ? '/' + why : '') + '→' + H.closeAction(c, why) + '(' + act + ')');
+    chk(typeof H.isDeviceOff === 'function' && H.isDeviceOff('sessionLost') && H.isDeviceOff('deviceRemoved') && !['ready', 'off', 'retrying', 'authFailed', 'closed', 'accountGone'].some(H.isDeviceOff),
+      '★ isDeviceOff — «서버가 이 PC 연결을 끝냄» 판정 한 곳(sessionLost · deviceRemoved 만)');
     chk(!bad.length, 'closeAction — 코드마다 처리 한 곳(모르는 1000번대 · 번호 없음은 다시 · 모르는 4000번대는 멈춤)' + (bad.length ? ' — ' + bad.join(' ') : ''));
     /* 멈추는 번호 — 상태 · 더 안 붙음 */
     const stopOn = async (code, want) => {
@@ -617,6 +619,7 @@ const BREAKS = [
   ['HUB', "    if(sawSessionLost){ sawSessionLost = false; stopWith(act === ACTION.DEVICE_REMOVED ? STATE.DEVICE_REMOVED : STATE.SESSION_LOST); return; }", "", '밀려남 메시지 뒤 번호 없이 끊겨도 멈춰야 함'],
   ['HUB', "stopWith(act === ACTION.DEVICE_REMOVED ? STATE.DEVICE_REMOVED : STATE.SESSION_LOST)", "stopWith(STATE.SESSION_LOST)", '지워진 PC 를 «다른 창» 으로 봄(까닭을 안 가름)'],
   ['HUB', "  if(code === CLOSE_CODES.sessionLost && reason === CLOSE_REASONS.deviceRemoved) return ACTION.DEVICE_REMOVED;\n", "", 'closeAction 이 까닭을 안 봄'],
+  ['HUB', "const isDeviceOff = (s) => s === STATE.SESSION_LOST || s === STATE.DEVICE_REMOVED;", "const isDeviceOff = (s) => s === STATE.SESSION_LOST;", 'isDeviceOff 가 지워진 PC 를 빠뜨림'],
   ['HUB', "  function stopWith(s){ started = false; clockOff = null; setState(s); }", "  function stopWith(s){ started = false; setState(s); }", '밀려 멈춰도 서버 시계를 들고 있음(밀린 PC 가 폰 시간을 쌓음)'],
   ['HUB', "    session();   // 끝낸 연결 뒤 첫 start", "    sessionId = sessionIdOf(deps.newSession());   // 끝낸 연결 뒤 첫 start", 'start 가 등록한 세션 id 를 버리고 새로 뽑음'],
   ['HUB', "[CLOSE_CODES.protocol]: ACTION.UPDATE,", "  [CLOSE_CODES.protocol]: ACTION.RECONNECT,", '판이 달라도 계속 붙음'],

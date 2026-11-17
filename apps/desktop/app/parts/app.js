@@ -1751,6 +1751,7 @@ const guestbookFeed = TwGuestbookFeed.createGuestbookFeed({   // 🌐 방명록 
   api: TwGuestbookApi.createGuestbookApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) }),
   rt: TwRtHub.store,
   rtState: TwRtHub.STATE,
+  rtDeviceOff: (s)=>TwRtHub.isDeviceOff(s),   // 서버가 이 PC 연결을 끝냄(rt-hub 한 곳)
   pending: TwRequestId.createPending(),
   lastRead: TwGuestbookFeed.createLastReadStore(accountStoreMod.asStorage()),   // 🗂️ 읽음 시각은 이 계정 칸(닫혀 있으면 읽기 0 · 쓰기 안 됨)
   notifyError: (...a)=>TwErrorCodes.notify(...a),
@@ -2831,7 +2832,7 @@ const loginFlowMod = TwLoginFlow.createLoginFlow({
     identity: ()=>({ email: firebaseAPI.authCurrentEmail(), uid: firebaseAPI.authCurrentUid() }),
   },
   googleWindow: ()=>companion.signInWithGoogle(),
-  rt: { start: (o)=>TwRtHub.store.start(o), stop: ()=>TwRtHub.store.stop(), bye: (why)=>TwRtHub.store.bye(why), onState: (fn)=>TwRtHub.store.onState(fn) },
+  rt: { start: (o)=>TwRtHub.store.start(o), stop: ()=>TwRtHub.store.stop(), bye: (why)=>TwRtHub.store.bye(why), onState: (fn)=>TwRtHub.store.onState(fn), isDeviceOff: (s)=>TwRtHub.isDeviceOff(s) },
   leaveRoom: ()=>Promise.resolve(Presence.active() ? twNav.go(twNav.NAV.LEAVE_ROOM) : null),   // 로그아웃 차례 — 방 leave 가 realtime 작별보다 먼저(방 모듈은 창 열기 통로로 — 순환 없이)
   pending: TwRequestId.createPending(),
   storage: localStorage,
@@ -3721,7 +3722,7 @@ const accountMod = TwAccount.createAccount({
   loginFlowMod: loginFlowMod,
   ME_CACHE_KEY: TwLoginFlow.ME_CACHE_KEY,
   userApiMod: userApiMod,
-  sessionLost: ()=>[TwRtHub.STATE.SESSION_LOST, TwRtHub.STATE.DEVICE_REMOVED].includes(TwRtHub.store.state()),
+  sessionLost: ()=>TwRtHub.isDeviceOff(TwRtHub.store.state()),
 });
 /* ═══ 🪪 [내 정보] — 런처 화면 전환 (CHECKS 개정 48 · 사용자 결정 · 회원가입 설계 §7 B2 · C4 · D · G) ═══════════════
    런처 [내 정보](#lcLoad)를 누르면 **런처 카드 안의 페이지(#lcMyInfo)가 제목줄 아래를 덮는다** — 따로 창도 겹창도 아니다. ◀ 로 돌아간다.
