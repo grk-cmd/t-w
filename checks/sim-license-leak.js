@@ -142,7 +142,16 @@ if(!fnPrune || !fnRestore || !fnLockD || !fnLockI || !constHold || !ASSRC){
     chk(!(d.deskItems && d.deskItems.item_neon), '전용 아이템도 빠졌다');
     chk(!!(d.deskItems && d.deskItems.item_cup), '★ 무료 아이템은 그대로다');
     chk(d[constHold[2]] && d[constHold[2]].item_neon, '전용 아이템도 ' + constHold[2] + ' 로 옮겨 적었다');
-    chk(c._saved > 0, '접은 뒤 저장한다 (다음 부팅에도 유지)');
+    chk(c._saved === 0, '★ 접기는 저장하지 않는다 — 이 PC 의 화면 · 방 전송만(계정 캐릭터는 여러 PC 가 같이 써서, 저장하면 라이선스 있는 PC 와 서로 덮는다)');
+    const fnHeld = grabFn('withHeldAssets');
+    const held = fnHeld && new Function('DESK_LICENSE_HOLD', 'ITEM_LICENSE_HOLD', fnHeld + ' return withHeldAssets;')(constHold[1], constHold[2]);
+    const saved = held && held({ deskCatalogId: d.deskCatalogId, deskItems: d.deskItems, top: 1 }, d);
+    chk(!!saved && saved.deskCatalogId === 'desk_gaming' && saved.deskItems.item_neon && saved.deskItems.item_cup && saved.top === 1 && !(constHold[1] in saved),
+      '★ 저장 모양(withHeldAssets)은 접기 전 그대로 — 전용 책상 · 아이템을 되돌려 싣는다(서버 캐릭터는 사람이 고른 그대로)');
+    const picked = held && held({ deskCatalogId: 'desk_free', deskItems: null }, d);
+    chk(!!picked && picked.deskCatalogId === 'desk_free', '  그사이 다른 책상을 골랐으면 고른 것이 이긴다');
+    const brokenHeld = fnHeld && new Function('DESK_LICENSE_HOLD', 'ITEM_LICENSE_HOLD', fnHeld.replace("if(heldDesk && !out.deskCatalogId) out.deskCatalogId = heldDesk;", "") + ' return withHeldAssets;')(constHold[1], constHold[2]);
+    chk(!!brokenHeld && brokenHeld({ deskCatalogId: null }, d).deskCatalogId !== 'desk_gaming', '  ↳ 깨 보기: 책상을 안 되돌리면 위 판정이 빨강');
   }
   /* (라) 남의 좌석은 절대 건드리지 않는다 — 되돌리면 옛 제보가 되살아난다 */
   {

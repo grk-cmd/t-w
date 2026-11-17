@@ -17,13 +17,13 @@ const MOD = ["slot-save.js","parts/character/slot-save.js","app/parts/character/
 if(!MOD){ say('  ? 원본 못 찾음 — slot-save.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_isBlankDraw","charDef","loadImg","newCanvas","toast"];
+const FN_DEPS = ["_isBlankDraw","charDef","loadImg","newCanvas","toast","withHeldAssets"];
 const VAL_DEPS = ["CHAR_SLOT_MAX","_blinkEverDrawn","_faceEverDrawn","seats","slots"];
 const GET_DEPS = ["_blankFaceConfirmed"];
 const SET_DEPS = ["_blankFaceConfirmed"];
 const EXPORTS = ["_relinkSeatsToSlots","applySlotObjs","lastOut","pullForward","onLoaded","onSaved","onSeatRelinked","onSlotsReplaced","saveSlots","slotToObj","slotsReplaced"];
 const MOVED = ["_slotImgToDataUrl","slotToObj","_relinkSeatsToSlots","saveSlots","applySlotObjs"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  _blankFaceConfirmed: ()=>_blankFaceConfirmed,","  _blinkEverDrawn: _blinkEverDrawn,","  _faceEverDrawn: _faceEverDrawn,","  _isBlankDraw: (...a)=>_isBlankDraw(...a),","  charDef: (...a)=>charDef(...a),","  loadImg: (...a)=>loadImg(...a),","  newCanvas: (...a)=>newCanvas(...a),","  seats: seats,","  slots: slots,","  toast: (...a)=>toast(...a),","  setBlankFaceConfirmed: (v)=>{ _blankFaceConfirmed = v; },"];
+const GLUE = ["  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  _blankFaceConfirmed: ()=>_blankFaceConfirmed,","  _blinkEverDrawn: _blinkEverDrawn,","  _faceEverDrawn: _faceEverDrawn,","  _isBlankDraw: (...a)=>_isBlankDraw(...a),","  charDef: (...a)=>charDef(...a),","  loadImg: (...a)=>loadImg(...a),","  newCanvas: (...a)=>newCanvas(...a),","  seats: seats,","  slots: slots,","  toast: (...a)=>toast(...a),","  setBlankFaceConfirmed: (v)=>{ _blankFaceConfirmed = v; },","  withHeldAssets: (o, d)=>premiumMod.withHeldAssets(o, d),   // 접기는 화면에만 — 저장 모양은 사람이 고른 그대로"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -101,7 +101,8 @@ function mkWorld(srcMod){
   const cv = () => { const c = { src: null, blank: true, getContext: () => ({ drawImage(img){ c.src = img.src; c.blank = false; } }), toDataURL: () => c.src || 'data:image/png;base64,BLANK' }; return c; };
   const deps = { CHAR_SLOT_MAX: 5, _blankFaceConfirmed: () => w.confirmed, _blinkEverDrawn: w.be, _faceEverDrawn: w.fe, _isBlankDraw: (c) => !c || c.blank,
     charDef: (skin, f, b, top, bot) => ({ skin, face: f, blink: b, top, bot }), loadImg: async (u) => { if(u === 'data:bad') throw new Error('깨짐'); return { src: u }; }, newCanvas: cv,
-    seats: w.seats, slots: w.slots, toast: (m) => w.toasts.push(m), setBlankFaceConfirmed: (v) => { w.confirmed = v; } };
+    seats: w.seats, slots: w.slots, toast: (m) => w.toasts.push(m), setBlankFaceConfirmed: (v) => { w.confirmed = v; },
+    withHeldAssets: (o, d) => (d && d.heldDesk && !o.deskCatalogId ? Object.assign({}, o, { deskCatalogId: d.heldDesk }) : o) };
   const ctx = { window: {}, console: { warn(){}, log(){} }, JSON, Object, Array, Promise, Error, Set };
   vm.createContext(ctx); vm.runInContext(srcMod, ctx);
   w.M = ctx.window.TwSlotSave.createSlotSave(deps);
@@ -126,6 +127,12 @@ async function behave(srcMod){
   t(w.saved.length === 2 && w.saved[1].changed === false, '저장했는데 내용이 같으면 changed=false(서버에 쓰지 않는다)');
   w.slots[0].top = 9; w.M.saveSlots();
   t(w.saved[2].changed === true && w.saved[2].out[0].top === 9 && w.M.lastOut()[0].top === 9, '  고치면 changed=true · 직전 저장 모양이 새로 바뀐다');
+  /* 라이선스 없는 PC 가 화면에서만 접은 책상 — 저장 모양은 withHeldAssets 가 되돌린 것(접기가 공용 캐릭터를 덮지 않게) */
+  w.slots[0].deskCatalogId = null; w.slots[0].heldDesk = 'desk_gaming'; w.M.saveSlots();
+  t(w.saved[3].out[0].deskCatalogId === 'desk_gaming', '★ 저장은 withHeldAssets 를 거친다 — 화면에서 접은 책상이 저장 모양에선 그대로');
+  delete w.slots[0].heldDesk; w.slots[0].deskCatalogId = 'desk_gaming'; w.M.saveSlots();
+  t(w.saved[4].changed === false, '  접기 전과 저장 모양이 같아 «달라짐» 이 아니다(서버에 쓰지 않는다)');
+  w.saved.splice(3, 2);
   /* 빈 그림 방어 */
   w.slots[0].face.src = null; w.slots[0].face.blank = true;
   w.M.saveSlots();
@@ -172,6 +179,7 @@ async function behave(srcMod){
     ['빈 그림 방어를 뺌', "if(p && typeof p[key]==='string'){ o[key]=p[key]; _rescued.push((i+1)+'번 '+what); }", ''],
     ['_imgBroken 제외를 뺌', "if(d && d._imgBroken && prev && prev[i] !== undefined){", "if(false){"],
     ['당길 때 직전 저장 모양을 안 당김', "slots[k]=slots[k+1]; _lastOut[k]=_lastOut[k+1];", "slots[k]=slots[k+1];"],
+    ['저장이 접은 모양을 그대로 씀(라이선스 없는 PC 가 공용 캐릭터를 덮음)', "    try{ o = withHeldAssets(slotToObj(d), d); }", "    try{ o = slotToObj(d); }"],
   ];
   for(const [name, a, b] of bb){
     const m2 = MOD.replace(a, b);

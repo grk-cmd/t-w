@@ -598,7 +598,7 @@ PRELOAD.push('roulette.js');
 /* chat-lock.js — 시크릿룸 채팅 잠금(앱 FSD 46번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createChatLock 를 같이 굴린다. */
 PRELOAD.push('chat-lock.js');
 /* device-lost.js — 밀려난 기기 처리(앱 FSD 46번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDeviceLost 를 같이 굴린다. */
-PRELOAD.push('device-lost.js');
+PRELOAD.push('device-register.js', 'device-limit-dialog.js', 'device-lost.js');   // 이 PC 등록 · 확인창 — app.js 가 기기 안내 화면 곁에서 만든다
 /* demoji-palette.js — 기본 이모티콘 팔레트(앱 FSD 46번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDemojiPalette 를 같이 굴린다. */
 PRELOAD.push('demoji-palette.js');
 /* outside-close.js — 팝업 바깥 클릭으로 닫기(앱 FSD 47번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createOutsideClose 를 같이 굴린다. */

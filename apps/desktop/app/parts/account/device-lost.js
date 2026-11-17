@@ -1,41 +1,59 @@
-/* device-lost.js — 🖥️ 한 계정 한 기기 — 밀려난 기기 처리(여기서 계속 · 안내) (검사 checks/sim-device-lost.js)
-   0.13 — «이 기기가 지금 기기» 는 realtime 서버가 정한다: 켤 때 hello claim → 같은 계정의 다른 기기가 claim 하면 이 연결에 sessionLost · 닫힘 4004
-   (realtime/rt-hub.js 가 'sessionLost' 상태로 멈추고 login-flow.js 가 여기 _onDeviceSessionLost 를 부른다).
-   여기는 «밀려난 뒤 이 기기가 하는 일» 뿐이다 — 방에서 나온다 · 방 입장을 막는다(window._deviceSessionLost — room-entry) · 차단 화면.
-   ★ 로그아웃하지 않는다 — 캐릭터 · 기록 · 신원 그대로. «여기서 계속 쓰기» = 같은 연결 하나로 다시 claim(반대쪽이 이 화면을 본다) · «앱 닫기» = quitApp.
+/* device-lost.js — 🖥️ 이 PC 의 연결이 서버에서 끊긴 뒤(지워짐 · 새 세션) — 안내 · 다시 등록 · 여기서 계속 (검사 checks/sim-device-lost.js)
+   0.13 — 한 계정은 PC 3대까지 쓴다. 자리(기기 등록)는 서버 API 가 정하고 realtime 이 그대로 따른다(account/device-register.js).
+   realtime 이 이 연결을 sessionLost · 닫힘 4004 로 끊으면(realtime/rt-hub.js) login-flow.js 가 여기 _onDeviceSessionLost(kind) 를 부른다.
+     kind 'deviceRemoved' — 다른 PC 에서 이 기기를 지웠다(또는 등록돼 있지 않음) → «이 PC 다시 등록»
+     kind 'sessionLost'   — 이 PC 에서 앱을 새로 열어 이 창의 세션이 밀렸다 → «여기서 계속 쓰기»
+   두 단추 모두 continueHere() — 이 PC 를 다시 등록하고(셋이 다 찼으면 확인창) 같은 realtime 연결 하나로 다시 붙는다. 등록하지 못하면(취소 · 실패) 화면을 그대로 둔다.
+   같은 계정이 다른 PC 에서 같은 방에 들어온 것(left replaced)은 이 화면이 아니다 — 방에서만 나온다(room-entry.js).
+   여기는 «끊긴 뒤 이 PC 가 하는 일» 뿐이다 — 방에서 나온다 · 방 입장을 막는다(window._deviceSessionLost — room-entry) · 안내 화면.
+   ★ 로그아웃하지 않는다 — 캐릭터 · 기록 · 신원 그대로. «앱 닫기» = quitApp.
    ★ 밖에서 부르는 이름: _onDeviceSessionLost — app.js 는 deviceLostMod.이름 으로 부른다.
    ⚠️ 전역 이름은 TwDeviceLost — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103). */
 (function(){
 
-/** @param {{ twNav: { go: Function, NAV: { LEAVE_ROOM: string } }, continueHere: () => void }} deps */
+/** @param {{ twNav: { go: Function, NAV: { LEAVE_ROOM: string } }, continueHere: () => Promise<boolean> }} deps */
 function createDeviceLost(deps){
 const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 방 나가기
-const continueHere = deps.continueHere;   // 다시 claim(realtime 연결 하나 — TwRtHub.store.start({ claim:true }))
+const continueHere = deps.continueHere;   // 이 PC 다시 등록 → realtime 다시 붙기 — 붙일 수 있게 됐으면 true(취소 · 실패는 false)
 window._deviceSessionLost = false;
-const LOST_TEXT = { title: '🖥️ 다른 기기에서 사용 중이에요', btn: '여기서 계속 쓰기',
-  msg: '이 계정이 방금 다른 PC에서 로그인됐어요. 투게더워킹은 한 번에 한 기기에서만 쓸 수 있어요.\n이 PC의 캐릭터·기록은 그대로 두고, 방 접속만 끊었어요.' };
-function _onDeviceSessionLost(){
-  if(window._deviceSessionLost) return;
+const DEVICE_LOST_KIND = Object.freeze({ REMOVED: 'deviceRemoved', SESSION: 'sessionLost' });
+const DEVICE_LOST_TEXT = Object.freeze({
+  [DEVICE_LOST_KIND.REMOVED]: { title: '다른 PC에서 이 기기를 지웠어요', btn: '이 PC 다시 등록', msg: '다시 등록하면 바로 이어서 쓸 수 있어요.' },
+  [DEVICE_LOST_KIND.SESSION]: { title: '이 PC의 다른 창에서 쓰는 중이에요', btn: '여기서 계속 쓰기', msg: '' },
+});
+
+let _devLostBusy = false;
+const _devLostEl = (id) => document.getElementById(id);
+function _onDeviceSessionLost(kind){
+  const t = DEVICE_LOST_TEXT[kind] || DEVICE_LOST_TEXT[DEVICE_LOST_KIND.SESSION];
+  const first = !window._deviceSessionLost;
   window._deviceSessionLost = true;
-  try{ Promise.resolve(twNav.go(twNav.NAV.LEAVE_ROOM)).catch(()=>{}); }catch(_){}
-  const ti = document.getElementById('deviceSessionTitle'), mi = document.getElementById('deviceSessionMsg'), b1 = document.getElementById('deviceSessionContinue');
-  if(ti) ti.textContent = LOST_TEXT.title;
-  if(mi) mi.textContent = LOST_TEXT.msg;
-  if(b1){ b1.textContent = LOST_TEXT.btn; b1.disabled = false; }
-  const ov = document.getElementById('deviceSessionOverlay');
+  if(first){ try{ Promise.resolve(twNav.go(twNav.NAV.LEAVE_ROOM)).catch(()=>{}); }catch(_){} }
+  const ti = _devLostEl('deviceSessionTitle'), mi = _devLostEl('deviceSessionMsg'), b1 = _devLostEl('deviceSessionContinue');
+  if(ti) ti.textContent = t.title;
+  if(mi){ mi.textContent = t.msg; mi.style.display = t.msg ? '' : 'none'; }
+  if(b1){ b1.textContent = t.btn; b1.disabled = _devLostBusy; }
+  const ov = _devLostEl('deviceSessionOverlay');
   if(ov) ov.style.display = 'flex';
 }
-/* 이어 쓰기 — 같은 연결로 다시 claim 하고 화면을 닫는다(앱을 다시 켜지 않는다 — 끊긴 것은 realtime 연결 하나뿐이다) */
-function _deviceSessionContinueHere(){
-  if(!window._deviceSessionLost) return;
-  try{ continueHere(); }catch(_){}
-  const ov = document.getElementById('deviceSessionOverlay');
+/* 다시 등록 · 여기서 계속 — 등록이 되면 같은 연결로 다시 붙고 화면을 닫는다(앱을 다시 켜지 않는다 — 끊긴 것은 realtime 연결 하나뿐이다) */
+async function _deviceSessionContinueHere(){
+  if(!window._deviceSessionLost || _devLostBusy) return;
+  _devLostBusy = true;
+  const b1 = _devLostEl('deviceSessionContinue');
+  if(b1) b1.disabled = true;
+  let ok = false;
+  try{ ok = (await continueHere()) === true; }catch(_){ ok = false; }
+  _devLostBusy = false;
+  if(b1) b1.disabled = false;
+  if(!ok) return;   // 취소 · 실패 — 화면을 그대로 둔다(실패 번호는 등록 쪽이 알렸다)
+  const ov = _devLostEl('deviceSessionOverlay');
   if(ov) ov.style.display = 'none';
   window._deviceSessionLost = false;
 }
 {
-  const b1 = document.getElementById('deviceSessionContinue');
-  const b2 = document.getElementById('deviceSessionQuit');
+  const b1 = _devLostEl('deviceSessionContinue');
+  const b2 = _devLostEl('deviceSessionQuit');
   if(b1) b1.onclick = _deviceSessionContinueHere;
   if(b2) b2.onclick = ()=>{ try{ if(window.companion && companion.quitApp) companion.quitApp(); else window.close(); }catch(_){} };
 }

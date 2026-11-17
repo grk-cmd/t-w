@@ -26,8 +26,8 @@ const SRC0 = {
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const loadWin = (src, name) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w[name]; };
 const TwApiErrors = loadWin(SRC0.ERR, 'TwApiErrors');
-const RT = { READY: 'ready', OFF: 'off', CONNECTING: 'connecting', RETRYING: 'retrying', AUTH_FAILED: 'authFailed', SESSION_LOST: 'sessionLost', UPDATE: 'update', MAINTENANCE: 'maintenance', ACCOUNT_GONE: 'accountGone', CLOSED: 'closed' };
-const STOPPED = [RT.AUTH_FAILED, RT.SESSION_LOST, RT.UPDATE, RT.MAINTENANCE, RT.ACCOUNT_GONE, RT.CLOSED];   // 연결만 끊긴 여섯 멈춤 상태
+const RT = { READY: 'ready', OFF: 'off', CONNECTING: 'connecting', RETRYING: 'retrying', AUTH_FAILED: 'authFailed', SESSION_LOST: 'sessionLost', DEVICE_REMOVED: 'deviceRemoved', UPDATE: 'update', MAINTENANCE: 'maintenance', ACCOUNT_GONE: 'accountGone', CLOSED: 'closed' };
+const STOPPED = [RT.AUTH_FAILED, RT.SESSION_LOST, RT.DEVICE_REMOVED, RT.UPDATE, RT.MAINTENANCE, RT.ACCOUNT_GONE, RT.CLOSED];   // 연결만 끊긴 일곱 멈춤 상태
 const HUB_SRC = pick(['rt-hub.js', 'realtime/rt-hub.js', 'parts/realtime/rt-hub.js', 'app/parts/realtime/rt-hub.js']);
 const flush = async (n = 6) => { for(let i = 0; i < n; i++) await new Promise((r) => setImmediate(r)); };
 const deferred = () => { let res, rej; const p = new Promise((a, b) => { res = a; rej = b; }); return { p, res, rej }; };
@@ -56,7 +56,7 @@ function mkEnv(src, opt){
   const pendingIds = new Map();
   const pending = { idFor: (k) => { if(!pendingIds.has(k)) pendingIds.set(k, 'rid-' + (++env.ids)); return pendingIds.get(k); }, settle: (k) => { pendingIds.delete(k); }, has: (k) => pendingIds.has(k) };
   env.feed = mod.createGuestbookFeed({
-    api, rt, rtState: RT, pending,
+    api, rt, rtState: RT, rtDeviceOff: (s) => s === RT.SESSION_LOST || s === RT.DEVICE_REMOVED, pending,
     lastRead: { get: (u) => env.lastRead[u] || 0, set: (u, t) => { env.lastRead[u] = t; } },
     notifyError: (code, err) => { env.notes.push(code + (err && err.code ? ':' + err.code : '')); return true; },
     translate: (e, t) => TwApiErrors.translate(e, t), ACTION: TwApiErrors.ACTION, now: () => 5000,

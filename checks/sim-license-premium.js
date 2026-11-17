@@ -271,8 +271,8 @@ async function judge(S){
     t(good.def.deskCatalogId === 'desk_gaming' && !('deskLicenseHold' in good.def) && good.world.saves === 0 && good.world.pushes === 0,
       '★ 프리미엄 사용자 — 서버가 locked:false 로 주니 책상은 한 번도 접히지 않는다(깜빡임 · 방 전파 0)');
     const none = await boot({ premium: false, paSrc: S.PA });
-    t(none.early.join() === '0,0' && none.mid.join() === '0' && none.def.deskCatalogId === null && none.def.deskLicenseHold === 'desk_gaming' && none.world.saves === 1,
-      '프리미엄이 아닌 사용자 — locked 를 받기 전은 그대로, 서버가 locked:true 로 주면 그때 접는다');
+    t(none.early.join() === '0,0' && none.mid.join() === '0' && none.def.deskCatalogId === null && none.def.deskLicenseHold === 'desk_gaming' && none.world.saves === 0,
+      '프리미엄이 아닌 사용자 — locked 를 받기 전은 그대로, 서버가 locked:true 로 주면 그때 화면에서만 접는다(저장 0)');
     const broken = await boot({ premium: true, paSrc: S.PA.split('rec.locked === true').join('rec.licenseOnly') });
     t(S.PA.includes('rec.locked === true') && (broken.world.pushes > 0 || broken.def.deskCatalogId === null), '  ↳ 깨 보기: 분류(licenseOnly)로 접으면 프리미엄 사용자도 접힌다(= 위 판정이 빨강이 된다)');
   }

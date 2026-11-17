@@ -82,6 +82,18 @@ function meFrom(d){
   };
 }
 
+/* 서버 기기 한 줄 → { deviceId, os(null = 모름), claimedAt, lastSeenAt }(ISO 글자). 기기 id 가 없으면 null */
+function deviceFrom(d){
+  if(!isObj(d) || !str(d.deviceId)) return null;
+  return { deviceId: d.deviceId, os: str(d.os) || null, claimedAt: str(d.claimedAt) || null, lastSeenAt: str(d.lastSeenAt) || null };
+}
+const DEVICE_LIMIT = 'USER_DEVICE_LIMIT';   // 서버 code — 계정의 PC 셋이 다 참
+/* 등록 실패가 «셋이 다 참» 이면 가장 오래 안 쓴 기기(err.items[0]), 아니면 null */
+function limitOldestOf(err){
+  if(!err || err.code !== DEVICE_LIMIT || !Array.isArray(err.items)) return null;
+  return deviceFrom(err.items[0]);
+}
+
 /** @param {{ api: () => { get: Function, post: Function, patch: Function }, newId: () => string }} deps
  *   api 는 로그인 통로(TwApi.authed — 쉬기 없음 · 토큰 · 기기 머리). 토큰 없는 길은 opts.auth:false 로 같은 통로를 쓴다. */
 function createUserApi(deps){
@@ -141,6 +153,22 @@ function createUserApi(deps){
     return { code: isObj(d) ? str(d.code) : '' };
   }
 
+  /* 이 PC 등록(계정마다 PC 셋) — { deviceId, session, os, replaceOldest? } → { deviceId, os, claimedAt, lastSeenAt, removed }.
+     셋이 다 찼으면 409 USER_DEVICE_LIMIT 를 그대로 던진다(err.items[0] = 가장 오래 안 쓴 기기 — deviceFrom 으로 읽는다).
+     replaceOldest 는 사용자에게 보여 준 그 기기 id 일 때만 서버가 지운다(그사이 바뀌었으면 또 409). */
+  async function registerDevice(o){
+    const body = { deviceId: String(o.deviceId || ''), session: String(o.session || ''), os: String(o.os || '') };
+    if(o.replaceOldest) body.replaceOldest = String(o.replaceOldest);
+    const d = await api().post('/v2/me/devices', body);
+    return Object.assign(deviceFrom(d) || {}, { removed: isObj(d) && str(d.removed) ? d.removed : null });
+  }
+  /* 내 기기 목록(«내 기기» 화면 자리 — 아직 화면 없음) → [{ deviceId, os, claimedAt, lastSeenAt, current }] */
+  async function myDevices(){
+    const d = await api().get('/v2/me/devices', { auth: true });
+    const list = isObj(d) && Array.isArray(d.devices) ? d.devices : [];
+    return list.map((x) => { const v = deviceFrom(x); return v ? Object.assign(v, { current: x.current === true }) : null; }).filter(Boolean);
+  }
+
   /* 친구코드로 찾기 → [{ userCode, displayName }](0 또는 1명) */
   async function findByFriendCode(code){
     const d = await api().get('/v2/users?friendCode=' + encodeURIComponent(String(code || '').trim().toUpperCase()), { auth: true });
@@ -158,12 +186,12 @@ function createUserApi(deps){
   }
 
   return { me, joinWithPassword, joinWithGoogle, updateMe, setAwayImage, setAwaySize, clearAwayImage, attachPasswordLogin, changePassword,
-    withdrawalPreview, withdraw, checkInvite, myInvites, createInvite, findByFriendCode, visit,
+    withdrawalPreview, withdraw, checkInvite, myInvites, createInvite, registerDevice, myDevices, findByFriendCode, visit,
     reasonOf, inviteReasonOf };   // 화면 문구 표도 같이 — 부르는 쪽이 통로 하나만 받게
 }
 
-const out = { WITHDRAW_CONFIRM, ME_TIMEOUT_MS, INVITE_RE, REASONS, OFFLINE_REASON, UNKNOWN_REASON, INVITE_UNUSABLE,
-  reasonOf, inviteReasonOf, meFrom, createUserApi };
+const out = { WITHDRAW_CONFIRM, ME_TIMEOUT_MS, INVITE_RE, REASONS, OFFLINE_REASON, UNKNOWN_REASON, INVITE_UNUSABLE, DEVICE_LIMIT,
+  reasonOf, inviteReasonOf, meFrom, deviceFrom, limitOldestOf, createUserApi };
 if(typeof window !== 'undefined'){
   /* 앱 한 벌 — 통로 · 요청 번호는 부를 때 찾는다(싣는 차례가 바뀌어도 만들 때 던지지 않게) */
   out.store = createUserApi({ api: () => window.TwApi.authed, newId: () => window.TwRequestId.newId() });

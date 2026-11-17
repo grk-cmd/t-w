@@ -55,18 +55,28 @@
 - 검사: `checks/sim-license-screen.js`(상태 · 그리기 · 깨 보기) · `checks/sim-license-ui.js` · `checks/sim-license-key.js`(모듈 모양 · 단추 연결).
 
 ## login-flow.js — 로그인 흐름(classic script `window.TwLoginFlow`)
-- 책임: 로그인(Auth) → 서버 가입 확인(`GET /v2/me`) → realtime 켜기(`TwRtHub.store.start({claim:true})`) · 서버에 닿지 못한 화면에서 기다리기(로컬 모드 없음) · 내 계정 사본(`tw.me` — 로그인 계정과 묶음).
+- 책임: 로그인(Auth) → 서버 가입 확인(`GET /v2/me`) → (이 PC 등록 뒤 app-boot 가 부르는) realtime 켜기(`TwRtHub.store.start({claim:true})`) · 서버에 닿지 못한 화면에서 기다리기(로컬 모드 없음) · 내 계정 사본(`tw.me` — 로그인 계정과 묶음).
   판정 `confirm()` → `in`(계정 있음) · `signup`(로그인은 됐는데 계정 없음 — 가입 전 · 탈퇴) · `login`(로그인 없음 · 익명 · 토큰 끝남) · `local`(닿지 못함 · 점검).
 - deps: `userApi`(user-api.js) · `translate`(api-errors.js) · `reasonOf` · `auth`(Firebase Auth 원시 — ready · user · signInGoogle · signInPassword · signOut) ·
-  `googleWindow`(main 의 구글 창) · `rt`(rt-hub — start · stop · bye · onState) · `leaveRoom`(방 안이면 나가기 — 창 열기 통로 LEAVE_ROOM) · `pending`(request-id createPending) · `storage` · `onSessionLost` · `now`.
-- 내놓는 것: `confirm` · `goOnline` · `waitForServer(onBack)` · `retryNow()`(서버에 닿지 못한 화면 — realtime 을 `claim:true` 로 켜 두고 ready 신호 또는 «다시 시도» 가 계정을 한 번 묻는다 · 타이머 없음 · 이 PC 기능만 쓰는 로컬 모드는 없다) · `loginGoogle` · `loginPassword` · `joinPassword` · `joinGoogle` ·
+  `googleWindow`(main 의 구글 창) · `rt`(rt-hub — start · stop · bye · onState) · `leaveRoom`(방 안이면 나가기 — 창 열기 통로 LEAVE_ROOM) · `pending`(request-id createPending) · `storage` · `onSessionLost(kind)`(`sessionLost` · `deviceRemoved`) · `now`.
+- 내놓는 것: `confirm` · `goOnline` · `waitForServer(onBack)` · `retryNow()`(서버에 닿지 못한 화면 — realtime 을 켜 두고 서버 신호(ready · 등록 전이라 4004 로 끊김) 또는 «다시 시도» 가 계정을 한 번 묻는다 · 타이머 없음 · 이 PC 기능만 쓰는 로컬 모드는 없다) · `loginGoogle` · `loginPassword` · `joinPassword` · `joinGoogle` ·
   `patchMe(fields)`(사본 version · 먼저 바뀌었으면 다시 받아 한 번 더) · `logout({ why })`(`logout` · `withdraw`) · `release(why)`(계정 바꾸기 `switch` — 로그인은 둔다) · `meCache` · `mode`.
 - 함정:
-  - realtime 은 서버가 계정을 돌려준 뒤(`goOnline`) 켜는 것이 기본이다 — 가입 전 토큰으로 hello 하면 서버가 끊는다. 예외는 서버에 닿지 못한 화면: `waitForServer` 가 `claim:true` 로 켜 두고(claim 없으면 다른 기기 세션 때문에 4004 로 끊긴다) ready 신호를 계정 다시 묻기에 쓴다. 계정이 없거나 로그인이 풀린 것으로 드러나면 끈다.
+  - realtime 은 서버가 계정을 돌려주고 이 PC 를 등록한 뒤(app-boot → `goOnline`) 켜는 것이 기본이다 — 등록 전 세션으로 hello 하면 서버가 4004 로 끊는다. 예외는 서버에 닿지 못한 화면: `waitForServer` 가 켜 두고 그 신호(ready · 4004)를 계정 다시 묻기에 쓴다(그 4004 는 안내 화면이 아니다). 닿아도 여기서 다시 켜지 않는다 — 등록 뒤 `goOnline` 이 켠다(켜져 있으면 허브가 무시). 계정이 없거나 로그인이 풀린 것으로 드러나면 끈다.
   - 비밀번호 가입은 답을 못 받아 다시 누르면 같은 요청 번호 — 비밀번호를 바꾸면 새 번호(같은 번호면 첫 비밀번호의 계정이 돌아온다).
   - 이 PC 계정 몫 지우기 · 다시 켜기는 부르는 쪽(account.js) 몫 — 여기는 화면 · 저장 키 목록을 모른다.
   - 연결을 놓는 차례(설계 04-realtime-disconnect 4-D-3): 방 leave → left 기다림 → realtime `bye{why}` → 서버 닫힘 기다림(1초) → 그 뒤에 로그인을 놓는다. 거꾸로 하면 방 사람들 · 친구는 유예(20초) 뒤에야 나간 것을 본다.
 - 검사: `checks/sim-login-flow.js`.
+
+## device-register.js · device-limit-dialog.js · device-lost.js — 계정마다 PC 셋(classic script `window.TwDeviceRegister` · `window.TwDeviceLimitDialog` · `window.TwDeviceLost`)
+- 책임: 한 계정은 PC 3대까지. 자리는 서버가 정한다 — 켤 때 realtime 보다 먼저 이 PC 를 등록(`POST /v2/me/devices { deviceId, session, os }` — `device-register.js ensure()` → `ok` · `canceled` · `failed`).
+  넷째 PC 면 서버가 409 `USER_DEVICE_LIMIT` 와 가장 오래 안 쓴 기기(`items[0]`)를 준다 → 확인창(`device-limit-dialog.js`) «가장 오래된 기기 Windows PC (11월 3일 등록) · 마지막 사용 11월 10일 — 이 기기를 지우고 이 PC를 쓸까요?» [취소] · [지우고 사용].
+  [지우고 사용]이면 보여 준 그 기기 id 를 `replaceOldest` 로 다시 — 그사이 바뀌었으면 서버가 또 409(새 기기로 다시 묻는다). [취소]면 등록하지 않고 로그인 화면(app-boot `toLogin`). 저절로 지우지 않는다.
+  realtime 이 이 연결을 4004 로 끊으면(까닭 `deviceRemoved` — 다른 PC 가 이 기기를 지움 · `sessionLost` — 이 PC 에서 앱을 새로 엶) `device-lost.js` 안내 화면 · 단추는 같은 등록 흐름 → 되면 같은 realtime 연결로 다시.
+- 기기 이름: OS + 처음 등록한 날(`deviceLabel` — «Windows PC (11월 3일 등록)» · «Mac (…)» · 모르면 «PC»), 마지막 사용은 따로. **호스트 이름은 쓰지 않는다**(사람 이름이 든 경우가 많다).
+- deps: register — `registerDevice` · `limitOldestOf`(user-api.js) · `deviceId`(device-id.js) · `session`(rt-hub `session()` — hello.session 과 같은 값) · `os`(`osOf(navigator)`) · `ask(question)`(확인창) · `notifyError`. dialog — `document`. lost — `twNav` · `continueHere`(등록 → realtime).
+- 함정: 같은 계정이 다른 PC 에서 같은 방에 들어온 것(`left{replaced}`)은 이 화면이 아니다 — 방에서만 나오고 «다른 PC에서 이 방에 들어왔어요» 한 줄(room-entry.js). 등록 실패(E-ACC-04)는 그대로 이어 간다 — realtime 이 안 들이면 안내 화면이 [다시 등록]을 준다.
+- 검사: `checks/sim-device-register.js` · `checks/sim-device-limit-dialog.js` · `checks/sim-device-lost.js`.
 
 ## first-run-013.js — 0.13 첫 실행(classic script `window.TwFirstRun013`)
 - 책임: 이 PC 에 남은 0.12 값을 서버로 올리고 지우는 **차례** 한 곳 — ① 로그인 → ② 캐릭터 올리기(legacy-sync) → ③ 라이선스 키 → ④ 이 PC 키 지우기.

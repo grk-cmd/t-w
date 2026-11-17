@@ -93,7 +93,7 @@ function mkEnv(opt){
   const pending = { idFor: (k) => { if(!ids.has(k)) ids.set(k, 'rid-' + (++env.ids)); return ids.get(k); }, settle: (k) => { ids.delete(k); } };
   const FEED = loadWin(opt.feedSrc || CUR_FEED || SRC['guestbook-feed.js'], 'TwGuestbookFeed');
   env.feed = FEED.createGuestbookFeed({
-    api, rt, rtState: RT, pending, lastRead: FEED.createLastReadStore({ getItem: k => (k in env.ls ? env.ls[k] : null), setItem: (k, v) => { env.ls[k] = String(v); } }),
+    api, rt, rtState: RT, rtDeviceOff: (s) => s === 'sessionLost' || s === 'deviceRemoved', pending, lastRead: FEED.createLastReadStore({ getItem: k => (k in env.ls ? env.ls[k] : null), setItem: (k, v) => { env.ls[k] = String(v); } }),
     notifyError: (code, err) => { env.notes.push(code); env.toasts.push(TwErrorCodes.toastText(code)); return true; },
     translate: (e, t) => TwApiErrors.translate(e, t), ACTION: TwApiErrors.ACTION, now: () => 1.8e12,
   });

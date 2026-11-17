@@ -71,7 +71,7 @@ function mkHub(){
   };
   return h;
 }
-const rt = globalThis.TwRoomRt.createRoomRt({ hub: mkHub(), STATE: globalThis.TwRtHub.STATE });
+const rt = globalThis.TwRoomRt.createRoomRt({ hub: mkHub(), STATE: globalThis.TwRtHub.STATE, isDeviceOff: globalThis.TwRtHub.isDeviceOff });
 globalThis.getMyUserId = () => 'u_test';
 
 const D = t => 'data:image/png;base64,' + t + 'A'.repeat(200);

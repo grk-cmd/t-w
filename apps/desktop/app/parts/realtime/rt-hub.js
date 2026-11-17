@@ -3,10 +3,12 @@
      알림(notify — «바뀌었다» 만 · 데이터 없음)을 받으면 그 기능이 자기 자원을 다시 GET(ETag)한다.
    [연결] start({ claim }) — hello { pv:3, token, ver, deviceId, session, claim? } → ready{ userCode, graceMs }. 사고로 끊기면 다시 붙는다
      (realtime-link.js 백오프 1 · 2 · 4 · 8 · 15초 ±50%). 토큰은 만료 5분 전 같은 연결로 hello(link 가 한다).
-     claim 은 앱을 켤 때 · «여기서 계속» 의 첫 hello 에만 — 다시 붙기 · 토큰 갱신에는 싣지 않는다(밀려난 앱이 되살아나 남을 밀지 않게).
+     claim 은 앱을 켤 때 · «여기서 계속» 의 첫 hello 에만 싣는다. 자리(기기 등록)는 서버 API(POST /v2/me/devices)가 정하고 realtime 은 claim 을 보지 않는다 —
+     등록은 연결 전에 부르는 쪽(account/device-register.js)이 같은 세션 id(session())로 한다.
      session 은 로그인(연결)마다 새로 뽑는 값(저장 안 함) — stop · bye · quit 뒤 처음 start 가 새로 뽑고, 다시 붙기 · 토큰 갱신 · «여기서 계속»(멈춤 뒤 start)은 같은 값이다. 서버는 «갱신 hello 의 사람 · 기기 · 세션이 다르면 4001» 이라 같은 렌더러에서 A → B 로 바뀔 때 연결도 id 도 새것이어야 한다.
      deviceId 는 device-id.js(API 머리 X-Device-Id 와 같은 값).
-   [닫힘 번호] CLOSE_CODES(서버 protocol/closeCodes.ts 와 같은 이름 · 값) → closeAction 한 곳(설계 04-realtime-disconnect 4-D-2).
+   [닫힘 번호] CLOSE_CODES(서버 통신 규약 7-1 과 같은 이름 · 값) → closeAction 한 곳(설계 04-realtime-disconnect 4-D-2).
+     4004 는 닫힘 까닭(reason)으로 둘을 가른다 — 'deviceRemoved'(이 PC 가 등록돼 있지 않음 · 다른 PC 가 지움) · 그 밖('sessionLost' — 이 PC 가 새 세션을 등록함).
      다시 붙는 것은 사고(1006 · 1009 · 4005 · 4008 · 모르는 1000번대 · 1001 은 첫 시도를 흩고 오래 기다림)뿐. 멈추는 번호 뒤엔
      사용자 누름 · 서버 신호(점검 해제)로만 start 를 다시 부른다(자동 재시도 없음). 4001 은 새 토큰으로 한 번 더 — ready 전 error auth 도 같게 센다.
    [작별] bye(why) — 로그아웃 · 탈퇴 · 계정 바꾸기: bye 를 보내고 서버의 닫힘(1000)을 BYE_WAIT_MS 기다린다(못 받으면 앱이 닫음). 방 leave 는 부르는 쪽이 먼저.
@@ -36,28 +38,33 @@ const ROOM_TYPES = Object.freeze(['welcome', 'joined', 'left', 'patch', 'def', '
 const MESSAGE_TYPES = Object.freeze(ROOM_TYPES.concat(['presence', 'roomInvited', 'roomInviteSent', 'mobileFocus', 'announce', 'sessionLost', 'error']));
 const REQUEST_KINDS = Object.freeze(['presenceGet', 'random', 'peek', 'roomInvite']);
 const ANSWERS = Object.freeze({ presence: 'presenceGet', random: 'random', peek: 'peek', roomInviteSent: 'roomInvite' });
-/* 서버 close 코드 표 — 정본 t-w-server realtime/src/protocol/closeCodes.ts(PROTOCOL.md 7-1). 이름 · 값을 그대로 옮긴다. 4002 는 걷은 번호(다시 쓰지 않음). */
+/* 서버 close 코드 표 — 정본은 서버 통신 규약 7-1. 이름 · 값을 그대로 옮긴다. 4002 는 걷은 번호(다시 쓰지 않음). */
 const CLOSE_CODES = Object.freeze({ bye: 1000, restart: 1001, tooLarge: 1009, auth: 4001, protocol: 4003, sessionLost: 4004,
   unavailable: 4005, maintenance: 4006, accountGone: 4007, helloTimeout: 4008 });
+/* 4004 의 닫힘 까닭 — 이 이름이면 «이 PC 가 등록돼 있지 않음(다른 PC 가 지움)», 아니면 옛 뜻(이 PC 가 새 세션을 등록해 이 연결이 밀림) */
+const CLOSE_REASONS = Object.freeze({ deviceRemoved: 'deviceRemoved' });
 /* 닫힘마다 할 일 — 한 코드 한 처리. 표에 없는 번호는 closeAction 이 가른다(1000번대 · 번호 없음 = 사고 · 4000번대 = 멈춤) */
 const ACTION = Object.freeze({ END: 'end', RECONNECT: 'reconnect', RESTART: 'restart', AUTH: 'auth', UPDATE: 'update',
-  SESSION_LOST: 'sessionLost', MAINTENANCE: 'maintenance', ACCOUNT_GONE: 'accountGone', UNKNOWN: 'unknown' });
+  SESSION_LOST: 'sessionLost', DEVICE_REMOVED: 'deviceRemoved', MAINTENANCE: 'maintenance', ACCOUNT_GONE: 'accountGone', UNKNOWN: 'unknown' });
 const CLOSE_ACTIONS = Object.freeze({
   [CLOSE_CODES.bye]: ACTION.END, [CLOSE_CODES.restart]: ACTION.RESTART, [CLOSE_CODES.tooLarge]: ACTION.RECONNECT,
   [CLOSE_CODES.auth]: ACTION.AUTH, [CLOSE_CODES.protocol]: ACTION.UPDATE, [CLOSE_CODES.sessionLost]: ACTION.SESSION_LOST,
   [CLOSE_CODES.unavailable]: ACTION.RECONNECT, [CLOSE_CODES.maintenance]: ACTION.MAINTENANCE, [CLOSE_CODES.accountGone]: ACTION.ACCOUNT_GONE,
   [CLOSE_CODES.helloTimeout]: ACTION.RECONNECT,
 });
-/** 닫힘 번호 → 할 일. 번호 없음(1006 · 앱이 끊음) · 모르는 1000번대는 사고로 다시 붙고, 모르는 4000번대는 새 서버의 «멈춰야 하는» 번호일 수 있어 멈춘다. */
-function closeAction(code){
+/** 닫힘 번호(+ 까닭) → 할 일. 번호 없음(1006 · 앱이 끊음) · 모르는 1000번대는 사고로 다시 붙고, 모르는 4000번대는 새 서버의 «멈춰야 하는» 번호일 수 있어 멈춘다. */
+function closeAction(code, reason){
   if(typeof code !== 'number') return ACTION.RECONNECT;
+  if(code === CLOSE_CODES.sessionLost && reason === CLOSE_REASONS.deviceRemoved) return ACTION.DEVICE_REMOVED;
   if(Object.prototype.hasOwnProperty.call(CLOSE_ACTIONS, code)) return CLOSE_ACTIONS[code];
   return (code >= 4000 && code <= 4999) ? ACTION.UNKNOWN : ACTION.RECONNECT;
 }
 const STATE = Object.freeze({ OFF: 'off', CONNECTING: 'connecting', READY: 'ready', RETRYING: 'retrying',
-  SESSION_LOST: 'sessionLost', UPDATE: 'update', AUTH_FAILED: 'authFailed', MAINTENANCE: 'maintenance', ACCOUNT_GONE: 'accountGone', CLOSED: 'closed' });
+  SESSION_LOST: 'sessionLost', DEVICE_REMOVED: 'deviceRemoved', UPDATE: 'update', AUTH_FAILED: 'authFailed', MAINTENANCE: 'maintenance', ACCOUNT_GONE: 'accountGone', CLOSED: 'closed' });
+/** 서버가 이 PC 의 연결을 끝낸 상태인가(4004 — 다른 PC 가 이 기기를 지움 · 이 PC 의 새 세션). 이 판정은 여기 한 곳 — 부르는 쪽이 상태 이름을 다시 늘어놓지 않는다 */
+const isDeviceOff = (s) => s === STATE.SESSION_LOST || s === STATE.DEVICE_REMOVED;
 /* 멈춤 할 일 → 상태 */
-const STOP_STATES = Object.freeze({ [ACTION.UPDATE]: STATE.UPDATE, [ACTION.SESSION_LOST]: STATE.SESSION_LOST, [ACTION.MAINTENANCE]: STATE.MAINTENANCE,
+const STOP_STATES = Object.freeze({ [ACTION.UPDATE]: STATE.UPDATE, [ACTION.SESSION_LOST]: STATE.SESSION_LOST, [ACTION.DEVICE_REMOVED]: STATE.DEVICE_REMOVED, [ACTION.MAINTENANCE]: STATE.MAINTENANCE,
   [ACTION.ACCOUNT_GONE]: STATE.ACCOUNT_GONE, [ACTION.UNKNOWN]: STATE.CLOSED, [ACTION.END]: STATE.OFF });
 const BYE_WHY = Object.freeze({ LOGOUT: 'logout', QUIT: 'quit', WITHDRAW: 'withdraw', SWITCH: 'switch' });   // 서버 BYE_WHYS 와 같다
 const START_WAIT_MS = 10000;     // start 가 첫 ready 를 기다리는 시간 — 넘으면 백오프로 계속 붙는다
@@ -169,14 +176,15 @@ function createRtHub(deps){
     const b = byeDone; byeDone = null;
     tClear(b.timer); b.res();
   }
-  function stopWith(s){ started = false; setState(s); }
-  function onClosed(wasReady, fatal, closeCode){
+  /* 멈춤 — 서버 시계도 놓는다(밀려난 PC 가 «연결된 PC» 처럼 서버 시각을 계속 내놓아 폰 집중 시간을 쌓지 않게). 다시 붙으면 ready 가 다시 맞춘다 */
+  function stopWith(s){ started = false; clockOff = null; setState(s); }
+  function onClosed(wasReady, fatal, closeCode, closeReason){
     clearPong();
     lastClose = (typeof closeCode === 'number') ? closeCode : null;
     if(wasReady && lostAt == null) lostAt = now();
     if(!started){ finishBye(); setState(STATE.OFF); return; }
-    if(sawSessionLost){ sawSessionLost = false; stopWith(STATE.SESSION_LOST); return; }
-    const act = closeAction(closeCode);
+    const act = closeAction(closeCode, closeReason);
+    if(sawSessionLost){ sawSessionLost = false; stopWith(act === ACTION.DEVICE_REMOVED ? STATE.DEVICE_REMOVED : STATE.SESSION_LOST); return; }
     if(STOP_STATES[act]){ stopWith(STOP_STATES[act]); return; }
     if(act === ACTION.AUTH){
       // 멈추는 것은 서버가 4001(ready 전 error auth 포함 — link 가 같은 번호로 넘김)을 두 번 보냈을 때만.
@@ -206,11 +214,16 @@ function createRtHub(deps){
     });
   }
 
-  /* 켜기 — 로그인(가입 확인) 뒤. claim 은 앱을 켤 때 · «여기서 계속» 에 true(기본 true). 이미 켜져 있으면 아무 일 없음. */
+  /* 이 연결의 세션 id — 비어 있으면(끝낸 연결 뒤 · 첫 로그인) 새로 뽑는다. 기기 등록(POST /v2/me/devices)이 연결보다 먼저 같은 값을 싣는다 */
+  function session(){
+    if(sessionId === null) sessionId = sessionIdOf(deps.newSession());
+    return sessionId;
+  }
+  /* 켜기 — 로그인(가입 확인) · 기기 등록 뒤. claim 은 앱을 켤 때 · «여기서 계속» 에 true(기본 true). 이미 켜져 있으면 아무 일 없음. */
   function start(o){
     if(started) return;
     if(!link) link = makeLink();
-    if(sessionId === null) sessionId = sessionIdOf(deps.newSession());   // 끝낸 연결 뒤 첫 start — 새 로그인은 새 세션 id
+    session();   // 끝낸 연결 뒤 첫 start — 새 로그인은 새 세션 id(등록이 먼저 뽑았으면 그 값)
     started = true; authFails = 0; sawSessionLost = false;
     claimNext = !(o && o.claim === false);
     setState(STATE.CONNECTING);
@@ -271,7 +284,7 @@ function createRtHub(deps){
   }
 
   return {
-    start, stop, bye, quit, checkAlive, on, onMessage, onState,
+    start, stop, bye, quit, checkAlive, on, onMessage, onState, session,
     send: (msg) => (link ? link.send(msg) : false),
     request: (msg) => (link ? link.request(msg, (m) => m) : Promise.resolve(null)),
     state: () => state,
@@ -291,7 +304,7 @@ function bindWindowEvents(win, hub){
   if(win.companion) win.companion.onWake(() => hub.checkAlive());   // 웹 미리보기 · 검사 창엔 preload 가 없다(깨어남 신호 없이 online 만)
 }
 
-const api = { PV, KINDS, ROOM_TYPES, MESSAGE_TYPES, REQUEST_KINDS, ANSWERS, CLOSE_CODES, ACTION, CLOSE_ACTIONS, closeAction, STATE, BYE_WHY,
+const api = { PV, KINDS, ROOM_TYPES, MESSAGE_TYPES, REQUEST_KINDS, ANSWERS, CLOSE_CODES, CLOSE_REASONS, ACTION, CLOSE_ACTIONS, closeAction, STATE, isDeviceOff, BYE_WHY,
   START_WAIT_MS, RESTART_SPREAD_MS, RESTART_READY_WAIT_MS, BYE_WAIT_MS, PONG_WAIT_MS, KEEPALIVE_IDLE_MS,
   REALTIME_URLS, DEV_URL_KEY, DEV_URL_RE, realtimeUrlFor, sessionIdOf, createRtHub, bindWindowEvents };
 if(typeof window !== 'undefined'){

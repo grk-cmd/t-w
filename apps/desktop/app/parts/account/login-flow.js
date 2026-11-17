@@ -9,7 +9,7 @@
                 429 면 limited:true. 다시 묻기는 «다시 시도» 누름(retryNow) · realtime ready 신호 — 타이머로 되풀이하지 않는다.
    [가입] 비밀번호: POST /v2/users(토큰 없음) → 받은 친구코드 + 비밀번호로 Auth 로그인 → confirm. 답을 못 받아 다시 누르면 **같은 요청 번호**
      (서버가 처음 계정을 돌려준다 — 두 계정이 생기지 않게). 구글: 구글 로그인 → confirm 이 'signup' 이면 POST /v2/users { inviteCode }.
-   [realtime] goOnline() — 서버가 계정을 돌려준 뒤 켠다(hello claim:true · 이 기기가 지금 기기). 예외: 서버에 닿지 못한 화면 동안은 waitForServer 가 claim:true 로 켜 두고 ready 를 다시 묻는 계기로 쓴다(계정이 정해지면 같은 연결을 그대로). 밀려나면(4004) onSessionLost 로 밀려난 기기 화면을 띄운다.
+   [realtime] goOnline() — 서버가 계정을 돌려주고 이 PC 를 등록한 뒤(launcher/app-boot.js) 켠다. 예외: 서버에 닿지 못한 화면 동안은 waitForServer 가 켜 두고 ready 를 다시 묻는 계기로 쓴다(계정이 정해지면 같은 연결을 그대로). 끊기면(4004) onSessionLost(까닭)로 기기 안내 화면을 띄운다.
    classic script — user-api.js · api-errors.js · rt-hub.js 다음 · app.js 보다 먼저 싣는다(window.TwLoginFlow). Firebase 를 모른다 — Auth 원시는 deps.auth. */
 (function(){
 'use strict';
@@ -17,7 +17,7 @@
 const ME_CACHE_KEY = 'tw.me';   // { authUid, me, at } — 마지막 /v2/me 답(patchMe 가 version 을 읽는다). 프리미엄은 여기서 읽지 않는다 — 서버 확인(license-premium.js)만 따른다
 const STATE = Object.freeze({ IN: 'in', SIGNUP: 'signup', LOGIN: 'login', LOCAL: 'local' });
 const CANCELED_TEXT = '로그인이 취소됐어요';   // 옛 main 은 canceled 표시 없이 이 글만 보낸다 — 그냥 닫음으로 본다
-const RT_READY = 'ready', RT_SESSION_LOST = 'sessionLost';   // rt-hub.js 상태 이름
+const RT_READY = 'ready';   // rt-hub.js 상태 이름
 const BYE_LOGOUT = 'logout';   // rt-hub.js BYE_WHY
 const LEAVE_WAIT_MS = 1500;    // 방 나가기 기다림 상한(설계 4-D-3) — 오프라인이면 방 나가기 쓰기가 끝나지 않아 로그아웃이 멈춘다
 
@@ -39,11 +39,11 @@ function joinKey(inviteCode, password){
  *           signInPassword: (code: string, pw: string) => Promise<{ ok: boolean, email?: string, reason?: string }>,
  *           signOut: () => Promise<void>, identity: () => ({ email: string | null, uid: string | null }) },
  *   googleWindow: () => Promise<{ ok: boolean, idToken?: string, canceled?: boolean, reason?: string }>,
- *   rt: { start: (o: { claim: boolean }) => void, stop: () => void, bye: (why: string) => Promise<void>, onState: (fn: (s: string) => void) => Function },
+ *   rt: { start: (o: { claim: boolean }) => void, stop: () => void, bye: (why: string) => Promise<void>, onState: (fn: (s: string) => void) => Function, isDeviceOff: (s: string) => boolean },   // isDeviceOff — rt-hub 한 곳의 «서버가 이 PC 연결을 끝냄» 판정
  *   leaveRoom: () => Promise<void>,   // 방 안이면 나가기(leave → left 기다림) · 방 밖이면 바로 풀린다
  *   pending: { idFor: (k: string) => string, settle: (k: string) => void },
  *   storage: { getItem: Function, setItem: Function, removeItem: Function },
- *   onSessionLost: () => void,
+ *   onSessionLost: (kind: 'sessionLost' | 'deviceRemoved') => void,
  *   forgetSession: () => void,   // 계정을 놓을 때 API 통로의 로그인 읽기 · 기억을 뗀다(TwApi.authed.forgetSession)
  *   now: () => number,
  * }} deps */
@@ -53,6 +53,7 @@ function createLoginFlow(deps){
   const storage = deps.storage;
   const now = deps.now;
   let mode = 'off';           // 'off' · 'in'
+  let armed = false;          // goOnline(등록 뒤 realtime)을 불렀나 — 그 전의 4004 는 안내 화면으로 보내지 않는다
   let online = false;         // realtime 를 켰나
   let stateHooked = false;
   let rtWait = false;         // 서버에 닿지 못한 화면 동안 realtime 을 켜 둔 상태(ready 신호를 받으려고 — 계정이 정해지면 그대로 쓴다)
@@ -91,27 +92,29 @@ function createLoginFlow(deps){
     return { state: STATE.IN, me };
   }
 
-  /* realtime 상태 신호 — 밀려남(4004)은 밀려난 기기 화면 · ready(서버가 다시 답함)는 기다리는 화면이 있을 때 계정을 한 번 다시 묻는 계기 */
+  /* realtime 상태 신호 — 끊김(4004 — 이 PC 가 지워짐 · 이 PC 의 새 세션)은 기기 안내 화면(어느 쪽인지 실어서) · ready(서버가 다시 답함)는 기다리는 화면이 있을 때 계정을 한 번 다시 묻는 계기 */
   function hookState(){
     if(stateHooked) return;
     stateHooked = true;
     deps.rt.onState((s) => {
-      if(s === RT_SESSION_LOST) deps.onSessionLost();
+      /* 기다리는 화면 동안 켠 연결은 등록 전이라 서버가 끊는다(이 PC 의 이번 세션이 아직 없다) — 그것도 «서버가 답함» 이다. 등록 · 다시 붙기는 들어간 뒤 app-boot 가 한다 */
+      const off = deps.rt.isDeviceOff(s);
+      if(off && waitBack) retryNow();
+      else if(off && armed) deps.onSessionLost(s);   // 등록 뒤 켠 연결(goOnline)만 — 그 전의 4004 는 등록 전 세션이라 안내할 일이 아니다
       else if(s === RT_READY && waitBack) retryNow();
     });
   }
-  /* 서버가 계정을 돌려준 뒤 — realtime 켜기(이 기기가 지금 기기 · claim). 이미 켰으면 아무 일 없음. */
+  /* 서버가 계정을 돌려주고 이 PC 를 등록한 뒤 — realtime 켜기. 켜져 있으면 rt.start 가 아무 일도 안 한다(기다리는 동안 켠 연결이 살아 있으면 그대로 · 끊겼으면 다시) */
   function goOnline(){
-    mode = 'in'; waitBack = null;
+    mode = 'in'; waitBack = null; armed = true;
     hookState();
-    rtWait = false;   // 기다리는 동안 이미 claim 으로 켠 연결은 그대로 쓴다
-    if(online) return;
+    rtWait = false;
     online = true;
     deps.rt.start({ claim: true });
   }
 
-  /* 서버에 닿지 못한 화면 — realtime(핵심 연결 — 혼자 다시 붙는다)을 켜 두고(앱을 켠 것이라 첫 hello 는 claim · 안 그러면 다른 기기 세션 때문에 4004 로 끊긴다),
-     ready 신호 또는 retryNow(«다시 시도» 누름)가 계정을 한 번 묻는다. local 이 아닌 답이 오면 onBack(confirm 결과) 한 번 · 'in' 이면 같은 연결을 그대로 쓴다. 타이머 없음. */
+  /* 서버에 닿지 못한 화면 — realtime(핵심 연결 — 혼자 다시 붙는다)을 켜 두고, 서버 신호(ready · 등록 전이라 4004 로 끊김)
+     또는 retryNow(«다시 시도» 누름)가 계정을 한 번 묻는다. local 이 아닌 답이 오면 onBack(confirm 결과) 한 번. 타이머 없음. */
   function waitForServer(onBack){
     waitBack = onBack;
     hookState();
@@ -125,7 +128,8 @@ function createLoginFlow(deps){
     try{ r = await confirm(); }finally{ checking = false; }
     if(!waitBack || r.state === STATE.LOCAL) return r;
     const back = waitBack; waitBack = null;
-    if(r.state === STATE.IN) goOnline();
+    /* 들어감 — 기다리며 켠 연결은 끈다(등록 전 세션으로 다시 붙어 4004 를 받지 않게). 등록 뒤 app-boot 의 goOnline 이 새로 켠다 */
+    if(r.state === STATE.IN){ mode = 'in'; if(rtWait){ rtWait = false; online = false; try{ deps.rt.stop(); }catch(_){} } }
     else if(rtWait){ rtWait = false; online = false; try{ deps.rt.stop(); }catch(_){} }   // 계정이 없거나 로그인이 풀렸다 — 켜 둔 연결을 끈다
     try{ back(r); }catch(_){}
     return r;

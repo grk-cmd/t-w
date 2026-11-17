@@ -26,6 +26,7 @@ const seats = deps.seats;
 const slots = deps.slots;
 const toast = deps.toast;
 const setBlankFaceConfirmed = deps.setBlankFaceConfirmed;   // 쓰는 함수
+const withHeldAssets = deps.withHeldAssets;   // (저장 모양, def) → 저장 모양 — 라이선스 없는 PC 가 화면에서 접어 둔 책상 · 아이템을 되돌려 싣는다(premium-assets.js withHeldAssets)
 const _savedFns = [], _loadedFns = [], _relinkFns = [], _replacedFns = [];
 function onSaved(fn){ _savedFns.push(fn); }
 function onLoaded(fn){ _loadedFns.push(fn); }
@@ -95,7 +96,7 @@ function saveSlots(){
       return prev[i];
     }
     let o;
-    try{ o = slotToObj(d); }
+    try{ o = withHeldAssets(slotToObj(d), d); }
     catch(e){
       console.warn('[슬롯] '+(i+1)+'번 직렬화 실패 — 직전 저장값을 유지합니다', e);
       return (prev && prev[i] !== undefined) ? prev[i] : null;

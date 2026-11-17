@@ -25,9 +25,9 @@ function build(src, o){
   const doc = { getElementById: (i) => els[i] || null, body };
   const t = { now: 0 }; const log = [];
   const ls = mkLauncherState(); if(o.appMode) ls.setAppMode(o.appMode);
-  const st = { creator: !!o.creator, gate: null, fig: !!o.fig, mob: !!o.mob, last: 0, self: null, pen: null, secs: 0, chal: [], plat: undefined, ended: 0 };
+  const st = { creator: !!o.creator, gate: null, fig: !!o.fig, mob: !!o.mob, mobHere: o.mobHere === undefined ? !!o.mob : !!o.mobHere, last: 0, self: null, pen: null, secs: 0, chal: [], plat: undefined, ended: 0 };
   const deps = { launcherState: ls, creatorOpen: () => st.creator, desktopMode: o.desktop !== false, floor: { visible: true }, focusGate: FOCUS_GATE, focusProgressMod: () => ({ focusEnded: () => { st.ended++; } }), setFocusGateSleep: (v) => { st.gate = v; },
-    focusLevelMod: { _mobileOn: () => st.mob, addFocusSeconds: (d) => { st.secs += d; } }, focusWindowMs: () => 1500, key: { castShadow: null }, mhStLayoutMod: { _mhStickerOverhang: () => 'EXTRA' },
+    focusLevelMod: { _mobileOn: () => st.mob, _mobileCountsHere: () => st.mobHere, addFocusSeconds: (d) => { st.secs += d; } }, focusWindowMs: () => 1500, key: { castShadow: null }, mhStLayoutMod: { _mhStickerOverhang: () => 'EXTRA' },
     officeModeMod: { figureMode: () => st.fig }, seatStateMod: { lastActivity: () => st.last, setSelfAppActive: (v) => { st.self = v; }, setPenAppFocused: (v) => { st.pen = v; } },
     weeklyChal: { focusTick: (s, d) => st.chal.push(d), setKeyPlatform: (p) => { st.plat = p; } } };
   const win = { companion: o.noCompanion ? undefined : { setConfigMode: (c, m, e) => sent.push([c, m, e]) } };
@@ -94,6 +94,12 @@ say('§3 _applyActiveAppState');
   chk(b.st.gate === true, '등록 앱이 있지만 지금 활성이 아니면 닫힘');
   b = build(SRC, { mob: true }); b.mod._applyActiveAppState({ hasAnyRegistered: false });
   chk(b.st.gate === false, '📱 폰이 켜져 있으면 게이트 열림');
+  b = build(SRC, { mob: true }); b.t.now = 1000; b.st.last = 0; b.mod._applyActiveAppState({ hasAnyRegistered: false });
+  b.t.now = 2000; b.mod._applyActiveAppState({ hasAnyRegistered: false });
+  chk(Math.abs(b.st.secs - 1) < 1e-9, '📱 폰을 연결한 이 PC — PC 입력이 없어도 폰 시간이 쌓인다');
+  b = build(SRC, { mob: true, mobHere: false }); b.t.now = 1000; b.st.last = 0; b.mod._applyActiveAppState({ hasAnyRegistered: false });
+  b.t.now = 2000; b.mod._applyActiveAppState({ hasAnyRegistered: false });
+  chk(b.st.secs === 0 && b.st.gate === false, '★ 폰을 연결하지 않은 PC — 게이트는 열려도(안 잠듦) 폰 시간은 안 쌓는다(계정의 PC 마다 쌓으면 곱절)');
   b = build(SRC, {}); b.mod._applyActiveAppState({ key: 'win:chrome.exe', isSelf: true, isPenApp: true, hasAnyRegistered: true, isFocusedAppRegistered: false });
   chk(b.st.plat === 'win' && b.st.self === true && b.st.pen === true && b.st.gate === null, '플랫폼 접두사 · 자기 창 · 펜 앱을 알린다 · 투게더워킹 창이 앞이면 게이트는 직전 값 그대로(focus-gate nextGateSleep null)');
   b = build(SRC, {}); b.mod._applyActiveAppState({ isSelf: true, hasAnyRegistered: true, isFocusedAppRegistered: true });
@@ -138,5 +144,8 @@ say('§5 일부러 깨 보기');
   chk(!!m4 && (() => { const b = build(m4, { fig: true }); b.mod._applyActiveAppState({ hasAnyRegistered: false }); return b.st.gate === true; })(), '피규어 모드 게이트를 빼면 빨강');
   const m5 = brk("  else if(_focusAccruedLast) focusProgressMod().focusEnded();", "");
   chk(!!m5 && (() => { const b = build(m5, {}); b.t.now = 1000; b.st.last = 900; b.mod._applyActiveAppState({ hasAnyRegistered: true, isFocusedAppRegistered: true }); b.t.now = 2000; b.st.last = 1900; b.mod._applyActiveAppState({ hasAnyRegistered: true, isFocusedAppRegistered: true }); b.t.now = 3000; b.mod._applyActiveAppState({ hasAnyRegistered: true, isFocusedAppRegistered: false }); return b.st.ended === 0; })(), '집중 끝남 알림을 빼면 빨강');
+  const m6 = brk("  _focusWasActive = !!(state.hasAnyRegistered && state.isFocusedAppRegistered) || mobHere;", "  _focusWasActive = !!(state.hasAnyRegistered && state.isFocusedAppRegistered) || mobOn;");
+  const m6b = m6 && m6.replace("  const notFocusingNow = mobHere ? false : pcNotFocusing;", "  const notFocusingNow = mobOn ? false : pcNotFocusing;");
+  chk(!!m6b && m6b !== m6 && (() => { const b = build(m6b, { mob: true, mobHere: false }); b.t.now = 1000; b.st.last = 0; b.mod._applyActiveAppState({ hasAnyRegistered: false }); b.t.now = 2000; b.mod._applyActiveAppState({ hasAnyRegistered: false }); return b.st.secs > 0; })(), '폰 시간을 계정의 모든 PC 에서 쌓으면(mobOn) 빨강');
 }
 say(''); say((fail ? '✗' : '✓') + ' 통과 ' + pass + ' · 실패 ' + fail); process.exit(fail ? 1 : 0);

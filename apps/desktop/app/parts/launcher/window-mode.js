@@ -32,10 +32,12 @@ function _applyActiveAppState(state){
   //   손을 뗀 뒤 캐릭터가 이미 idle인데도 8초까진 기록이 계속 쌓였다. 이제 마지막 입력 후 FOCUS_MS가
   //   지나 캐릭터가 '집중(focus) 포즈'를 벗어나면(=idle 진입) 즉시 누적을 멈춘다.
   //   → "실제로 입력하며 집중하는 동안"만 시간이 쌓임. 입력이 재개되면 다음 폴링부터 다시 누적.
-  /* 📱 폰 켜짐이면 PC 입력 조건을 건너뛴다 — PC 입력이 없는 게 정상이라 그대로 두면 한 초도 안 쌓인다(요구: PC 와 똑같이). */
+  /* 📱 폰 켜짐이면 PC 입력 조건을 건너뛴다 — PC 입력이 없는 게 정상이라 그대로 두면 한 초도 안 쌓인다(요구: PC 와 똑같이).
+     쌓기는 폰을 연결한 PC 한 곳에서만(mobHere) — 폰 상태는 계정의 모든 PC 에 와서, PC 마다 쌓으면 곱절이 된다. 잠들지 않기(게이트)는 모든 PC 가 같이(mobOn). */
   const mobOn = focusLevelMod._mobileOn();
+  const mobHere = focusLevelMod._mobileCountsHere();
   const pcNotFocusing = (now - seatStateMod.lastActivity()) > focusWindowMs();
-  const notFocusingNow = mobOn ? false : pcNotFocusing;
+  const notFocusingNow = mobHere ? false : pcNotFocusing;
   /* 🧸 피규어 모드면 쌓지 않는다 — 직전 폴링 값(_focusWasActive)이 아니라 지금 값을 봐서, 켠 순간부터 멈춘다. */
   const accruing = !officeModeMod.figureMode() && _focusWasActive && !notFocusingNow && dt>0 && dt<30;
   if(accruing) focusLevelMod.addFocusSeconds(dt);
@@ -54,7 +56,7 @@ function _applyActiveAppState(state){
   seatStateMod.setPenAppFocused(!!state.isPenApp);   // 🖊️ 펜 앱이면 기록 창을 4초로 넓힘(focusWindowMs)
   const nextGate = focusGate.nextGateSleep(state, { figureMode: officeModeMod.figureMode(), mobOn });   // null = 투게더워킹 창이 앞 — 직전 값을 둔다
   if(nextGate !== null) setFocusGateSleep(nextGate);
-  _focusWasActive = !!(state.hasAnyRegistered && state.isFocusedAppRegistered) || mobOn;
+  _focusWasActive = !!(state.hasAnyRegistered && state.isFocusedAppRegistered) || mobHere;
 }
 function applyDesktopRunClass(){ if(!desktopMode) return;
   const launcherOn = document.getElementById('launcher').classList.contains('on');

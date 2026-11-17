@@ -60,8 +60,8 @@ function applyEnv(fnSrc){
     const officeModeMod = { figureMode: () => figureMode };   // 깃발은 launcher/office-mode.js 가 갖고 app.js 는 읽는 함수로 읽는다
     function focusWindowMs(){ return 1500; }
     const seatStateMod = { lastActivity: () => lastActivity, setSelfAppActive: (v) => { _selfAppActive = v; }, setPenAppFocused: (v) => { _penAppFocused = v; } };   // 활동 시각 · 깃발은 status/seat-state.js 가 갖는다
-    const focusLevelMod = { _mobileOn: () => env.mob, addFocusSeconds: (d) => { env.added += d; } };
-    const _mobileOn = focusLevelMod._mobileOn, addFocusSeconds = focusLevelMod.addFocusSeconds;
+    const focusLevelMod = { _mobileOn: () => env.mob, _mobileCountsHere: () => env.mob, addFocusSeconds: (d) => { env.added += d; } };
+    const _mobileOn = focusLevelMod._mobileOn, _mobileCountsHere = focusLevelMod._mobileCountsHere, addFocusSeconds = focusLevelMod.addFocusSeconds;
     const weeklyChal = { focusTick(s, d){ env.chal += d; }, setKeyPlatform(){} };
     const focusProgressMod = () => ({ focusEnded(){ env.ended++; } });   // 읽는 함수로 받는다(window-mode.js — 뒤에서 만들어진다)
     let _focusLastTick = performance.now(), _focusWasActive = false, _focusAccruedLast = false;

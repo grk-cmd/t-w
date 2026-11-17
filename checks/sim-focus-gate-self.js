@@ -33,8 +33,8 @@ function behave(fnSrc, gateSrc){
     vm.runInContext(`
       let lastActivity = 0, figureMode = ${env.figure ? 'true' : 'false'}, focusGateSleep = true, _penAppFocused = false;
       function focusWindowMs(){ return 1500; }
-      const focusLevelMod = { _mobileOn: () => env.mob, addFocusSeconds: (d) => { env.added += d; } };
-      const _mobileOn = focusLevelMod._mobileOn, addFocusSeconds = focusLevelMod.addFocusSeconds;   // joinRenderer 는 옮기기 전 이름으로 되살린다
+      const focusLevelMod = { _mobileOn: () => env.mob, _mobileCountsHere: () => env.mob, addFocusSeconds: (d) => { env.added += d; } };
+      const _mobileOn = focusLevelMod._mobileOn, _mobileCountsHere = focusLevelMod._mobileCountsHere, addFocusSeconds = focusLevelMod.addFocusSeconds;   // joinRenderer 는 옮기기 전 이름으로 되살린다
       const weeklyChal = { focusTick(){}, setKeyPlatform(){} };
       const focusProgressMod = { focusEnded(){} };   // 집중 끝남 알림(서버 올리기) — 이 검사는 보지 않는다(sim-figure-mode · sim-focus-progress)
       let _focusLastTick = performance.now(), _focusWasActive = false, _focusAccruedLast = false, _selfAppActive = false;

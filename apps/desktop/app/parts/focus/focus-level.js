@@ -4,7 +4,7 @@
    레벨 · 회차를 앱이 누적에서 세지 않는다 · 해금 안내 우편은 서버 알림이 한다 · 프로필(Firebase)에 레벨 · 별을 쓰지 않는다.
    ★ 📱 폰 연결은 서버 길이다 — 폰 상태는 realtime `mobileFocus`(on · app · at) 그대로, 키 만들기 · 끊기는 focus-api.js(POST · DELETE /v2/me/focus/mobile-link).
      키 원문은 만들 때 한 번만 오므로 계정 칸 tw.mobileKey 에 둔다(QR 다시 보기). 키 만들기 · 끊기는 «읽은 진척의 주인» 과 묶이므로(expectOwner) 먼저 진척을 받은 뒤에 부른다.
-   ★ 밖에서 부르는 이름: STAR_PALETTE · _mobileBubbleText · _mobileCleanApp · _mobileOn · _mobileRoomLabel · startMobile · _seatMobileApp · addFocusSeconds · focusCycleOf · formatHMS · getFocusLevel · getStarColor · lvStarStr · myFocusShow · myStarOut · setStarColor · starFromRemote — app.js 는 focusLevelMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: STAR_PALETTE · _mobileBubbleText · _mobileCleanApp · _mobileCountsHere · _mobileOn · _mobileRoomLabel · startMobile · _seatMobileApp · addFocusSeconds · focusCycleOf · formatHMS · getFocusLevel · getStarColor · lvStarStr · myFocusShow · myStarOut · setStarColor · starFromRemote — app.js 는 focusLevelMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwFocusLevel — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-focus-level.js · sim-focus-progress.js · sim-mobile-focus.js */
@@ -108,6 +108,9 @@ function _mobileOn(){
   if(now === null) return false;
   return (now - m.since) < MOBILE_MAX_ON_MS;
 }
+/* 폰 시간을 이 PC 에서 쌓는가 — 폰 상태는 계정의 모든 PC 에 오므로, 폰을 연결한 PC(QR 키를 이 PC 계정 칸에 가진 PC) 한 곳에서만 쌓는다.
+   PC 마다 쌓으면 PC 수만큼 곱절이 된다. 밀려난 PC 는 서버 시계를 놓아(rt-hub) _mobileOn 부터 거짓이다. */
+function _mobileCountsHere(){ return !!_mobileKey && _mobileOn(); }
 /* 좌석이 띄울 앱 이름 — 남은 받은 값(remoteMobile), 나는 지금 판정. 자리추가 좌석은 안 띄운다. */
 function _seatMobileApp(seat){
   if(!seat) return '';
@@ -189,7 +192,7 @@ function _mobRenderPanel(){
   if(_mobileOn()){
     const min = Math.max(0, Math.floor((_mobileNow() - _mobileFocus.since) / 60000));   // _mobileOn() 이 참이면 시계를 안다
     cls = 'use'; m = '📱 ' + (_mobileFocus.app || '태블릿·폰') + ' 사용 중';
-    sb = (min < 1 ? '방금 시작' : (min + '분째')) + ' · 포커스 시간이 쌓이고 있어요';
+    sb = (min < 1 ? '방금 시작' : (min + '분째')) + (paired ? ' · 포커스 시간이 쌓이고 있어요' : ' · 시간은 폰을 연결한 PC에서 쌓여요');
   } else if(paired && _mobileFocus.seen){
     cls = 'rest'; m = '연결됨 · 폰에서 쉬는 중';
   } else if(paired){
@@ -299,6 +302,7 @@ return {
   STAR_PALETTE,
   _mobileBubbleText,
   _mobileCleanApp,
+  _mobileCountsHere,
   _mobileOn,
   _mobileRoomLabel,
   startMobile,

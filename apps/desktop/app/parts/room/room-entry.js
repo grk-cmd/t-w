@@ -17,7 +17,6 @@ const Presence = deps.Presence;
 const _chatNotifyIncoming = deps._chatNotifyIncoming;
 const _demojiNotifyIncoming = deps._demojiNotifyIncoming;
 const _clearHiddenSeats = deps._clearHiddenSeats;
-const _onDeviceSessionLost = deps._onDeviceSessionLost;
 const _pokeFresh = deps._pokeFresh;
 const _refreshChatMembers = deps._refreshChatMembers;
 const applyCharToSeat = deps.applyCharToSeat;
@@ -89,7 +88,9 @@ const ROOM_LOST_MSG = Object.freeze({
   closed: '관리자가 방을 닫았어요',
   version: '최신 업데이트에서만 방을 이용할 수 있어요. 공지의 링크로 업데이트해 주세요.',
 });
-const ROOM_LOST_QUIET = Object.freeze(['off', 'maintenance', 'accountGone', 'hubClosed']);
+const ROOM_LOST_QUIET = Object.freeze(['off', 'maintenance', 'accountGone', 'hubClosed', 'sessionLost']);   // sessionLost — 기기 안내 화면이 따로 뜬다(login-flow)
+const ROOM_REPLACED_TEXT = '다른 PC에서 이 방에 들어왔어요';
+const DEVICE_BLOCKED_TEXT = '이 PC가 지금 서버에 연결돼 있지 않아요 — 안내 창의 버튼을 눌러 주세요';
 function makeRoomProvider(create){
   return roomRt.makeProvider({
     serializeDef: serializeDefForNetwork,
@@ -98,7 +99,8 @@ function makeRoomProvider(create){
     getExp: ()=>{ try{ return myExpCells(); }catch(_){ return undefined; } },
     onMeta: _onServerRoomMeta,
     onDisband: ()=>{ window._onRoomDisbanded(); },
-    onReplaced: ()=>{ _onDeviceSessionLost(); },
+    /* 같은 계정이 다른 PC 에서 이 방에 들어왔다 — 한 방에 한 자리라 이 PC 는 방에서만 나온다(연결 · 다른 기능은 그대로) */
+    onReplaced: ()=>{ toast(ROOM_REPLACED_TEXT); Promise.resolve(doLeaveRoom()).catch(()=>{}); },
     /* 방 안에서 이어 가지 못했다(오래 끊김 · 관리자 종료 · 판이 낮음 · 로그인 끊김) — 방에서 나온다. 다시 들어오면 서버가 같은 방으로 붙인다. */
     onLost: (code)=>{
       console.warn('[방] 방을 이어 가지 못했다 —', code);
@@ -122,7 +124,7 @@ function _roomJoinMessage(code, isSecret){
   if(code === 'forbidden') return '투게더룸은 라이선스가 있어야 열 수 있어요';
   if(code === 'title') return roomSettings.TITLE_ERROR_TEXT.banned;   // 서버가 금칙어로 거절(앱 목록이 늦었을 때)
   if(code === 'version') return ROOM_LOST_MSG.version;
-  if(code === 'sessionLost') return '다른 기기에서 이 계정을 쓰는 중이에요 — «여기서 계속 쓰기» 를 누르면 이 PC 로 가져와요';
+  if(code === 'sessionLost') return DEVICE_BLOCKED_TEXT;
   return null;   // 판정이 아닌 실패(unavailable · timeout · off · notReady · 모르는 code) — 부르는 쪽이 E-ROOM-08 번호로 알린다
 }
 /* 빈 방을 열 때 채널을 정하는 자격 — 보유자(라이선스 · 관리자)면 투게더룸(서버도 같은 판정 · 접두어 고르기에 쓴다). */
@@ -554,7 +556,7 @@ function _warnSecretExpiry(expiresAt, nowMs){
   if(left <= SECRET_EXPIRY_WARN_DAYS) toast('🔒 이 시크릿룸은 ' + left + '일 뒤 만료돼요 (' + _srFmtDate(expiresAt) + ')');
 }
 async function startRoom(code){
-  if(window._deviceSessionLost){ toast('다른 기기에서 이 계정을 쓰는 중이에요 — «여기서 계속 쓰기» 를 누르면 이 PC 로 가져와요'); return; }   // 🖥️ 한 계정 한 기기
+  if(window._deviceSessionLost){ toast(DEVICE_BLOCKED_TEXT); return; }   // 🖥️ 이 PC 연결이 끊긴 동안(device-lost.js)
   const myDef=slots[curSlot()]||slots.find(Boolean);
   if(!myDef){ toast('먼저 내 캐릭터를 만들어 주세요'); return; }
   /* 🔒 시크릿룸 — 발급 · 기간 · 정원(방장은 정원 밖) · 방장 고정은 서버가 판정한다(secretClosed · full).
@@ -975,7 +977,7 @@ function _setupSecretCodeInput(inputEl){
 }
 _setupSecretCodeInput(document.getElementById('fsInviteSecretCode'));
 
-twNav.on(twNav.NAV.LEAVE_ROOM, doLeaveRoom);   // 🧭 다른 기기에 밀려남 · 자리비움 자동 퇴장이 이 통로로 나간다
+twNav.on(twNav.NAV.LEAVE_ROOM, doLeaveRoom);   // 🧭 이 PC 연결 끊김(device-lost) · 자리비움 자동 퇴장이 이 통로로 나간다
 return {
   doCreateRoomInChannel,
   _myRoomLicensed,
