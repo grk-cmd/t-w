@@ -131,7 +131,7 @@ chk(/function _creatorBuildDef\(forSize\)\{/.test(A) && /const def=_creatorBuild
   const done = (A.match(/document\.getElementById\('crDone'\)\.addEventListener\('click',\(\)=>\{[\s\S]*?toast\('수정했어요'\)/) || [''])[0];
   const g = done.indexOf('DefSize.checkGrowth(currentCreatorDef ? defWireForSize(currentCreatorDef) : null, defWireForSize(def)');
   chk(g > 0 && g < done.indexOf('applyCharToSeat(') && g < done.indexOf('saveSlots()'), '[완료] — 적용 · 저장 전에 원래 캐릭터와 견줘 막는다');
-  chk(/if\(!_sz\.ok\)\{ _blankFaceConfirmed = false; toast\(_sz\.message, null, DEF_SIZE_TOAST_MS\); return; \}/.test(done), '[완료] — 막으면 생성기는 열린 채(return) · 빈 얼굴 확인은 되돌림');
+  chk(/if\(!_sz\.ok\)\{ (?:_blankFaceConfirmed = false|setBlankFaceConfirmed\(false\)); toast\(_sz\.message, null, DEF_SIZE_TOAST_MS\); return; \}/.test(done), '[완료] — 막으면 생성기는 열린 채(return) · 빈 얼굴 확인은 되돌림');
 }
 chk(/if\(!on && !\(rec && rec\.fromCatalog\)\)\{\s*const _sz = _creatorSizeGrow\(d=>\{ d\.customItems = d\.customItems \|\| \{\}; d\.customItems\[def\.id\] = \{ name: def\.name, glb: def\.glb \}; \}\);\s*if\(!_sz\.ok\)\{ toast\(_sz\.message, null, DEF_SIZE_TOAST_MS\); return; \}\s*\}\s*equipDeskItem\(cBase,def,!on\);/.test(A), '아이템 켜기 — 장착 전에 잰다(카탈로그 아이템 · 끄기는 안 잼)');
 chk(/if\(!rec\.fromCatalog\)\{\s*const _sz = _creatorSizeGrow\(d=>\{ d\.deskGlb = rec\.glb; delete d\.deskCatalogId; \}\);\s*if\(!_sz\.ok\)\{ toast\(_sz\.message, null, DEF_SIZE_TOAST_MS\); return; \}\s*\}\s*try\{ const sc=await parseGlbBytes\(b64ToBuf\(rec\.glb\)\);\s*cDeskTemplate=sc; cDeskGlbB64=rec\.glb;/.test(A), '책상 고르기 — 바꿔 끼우기 전에 잰다');

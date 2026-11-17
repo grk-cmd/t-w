@@ -22,9 +22,8 @@ function build(mod, win) {
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const companion = new Proxy({}, { get: (t, k) => win.companion && win.companion[k] });   // 진짜 앱처럼 전역 companion = window.companion
   const api = new Function('window', 'companion', 'localStorage', 'setTimeout', 'module', mod + '\nreturn window.TwAccountState;')(win, companion, ls, (fn) => fn(), undefined);
-  let prem = false;
-  const st = api.createAccountState({ isPremium: () => prem, setIsPremium: (v) => { prem = v; } });
-  return { st, store, prem: () => prem };
+  const st = api.createAccountState();
+  return { st, store, prem: () => st.isPremium() };
 }
 function judge(mod, html, files, app) {
   const r = {};
@@ -37,6 +36,7 @@ function judge(mod, html, files, app) {
     r.email = st.getMyLoginEmail() === null && (store['tw.loginEmail'] = 'a@b.c', st.getMyLoginEmail() === 'a@b.c');
     st._markInvitePassed(); r.pass = store['tw.invitePassed'] === '1';
     const got = []; st.onPremiumChanged(() => got.push('a')); st.onPremiumChanged(() => got.push('b'));
+    r.premStart = prem() === false;
     st._setPremium(false); const quiet = got.length === 0;
     st._setPremium(1); r.prem = quiet && prem() === true && got.join() === 'a,b';
     st._setPremium(true); r.premSame = got.length === 2;
@@ -57,8 +57,11 @@ function judge(mod, html, files, app) {
   const glue = (name) => { const i = app.indexOf('.' + name + '({'); return i < 0 ? '' : app.slice(i, app.indexOf('\n});', i)); };
   r.detachWriters = [...app.matchAll(/acctStateMod\.setAcctDetached\(/g)].length === 1 && /setAcctDetached: \(v\)=>\{ acctStateMod\.setAcctDetached\(v\); \}/.test(glue('createAccount'))
     && /^\s*setAcctDetached\(true\);/m.test(t('account/account.js'));
-  r.made = /const acctStateMod = TwAccountState\.createAccountState\(\{\n  isPremium: \(\)=>isPremium,\n  setIsPremium: \(v\)=>\{ isPremium = v; \},\n\}\);/.test(app)
-    && app.indexOf('const acctStateMod =') > app.search(/^let isPremium = false;/m) && app.indexOf('const acctStateMod =') < app.indexOf('const licenseGateMod =');
+  /* 프리미엄 깃발의 주인은 이 모듈(app.js 분리 F6) — app.js 에 let 이 없고, 읽는 쪽에는 이 모듈의 읽는 함수를 부르는 화살표를 넘긴다 */
+  const made = app.indexOf('const acctStateMod = TwAccountState.createAccountState();');
+  const readers = [...app.matchAll(/^  isPremium: (.*)$/gm)];
+  r.made = made >= 0 && !/^let isPremium\b/m.test(app) && !/\bisPremium = /.test(strip(app)) && made < app.indexOf('const licenseGateMod =')
+    && readers.length > 0 && readers.every(m => m[1] === '()=>acctStateMod.isPremium(),');
   return r;
 }
 
@@ -69,7 +72,7 @@ const R = judge(MOD, HTML, FILES, APP);
 say('── 1. 값 · 함수');
 chk(!R.err && R.keys && R.re, '저장 키 다섯 · 친구코드 모양(MATE-XXXX)이 옮기기 전 값 그대로' + (R.err ? ' — ' + R.err : ''));
 chk(R.email && R.pass, '로그인 이메일은 저장 키에서 읽는다(없으면 null) · 초대 통과 표시를 적는다');
-chk(R.prem && R.premSame, '프리미엄 — 같은 값이면 알림 없음 · 바뀌면 건 차례대로 한 번 · 값은 쓰는 함수로');
+chk(R.premStart && R.prem && R.premSame, '프리미엄 — 처음 false · 같은 값이면 알림 없음 · 바뀌면 건 차례대로 한 번 · 값은 읽는 함수로 내놓는다');
 chk(R.detach, '신원 놓음 — 처음 false · 쓰는 함수로 올린다');
 chk(R.rcNull && R.rc, '원격 설정 한 벌 — 없으면(검사 · 옛 html) null · 있으면 그 store');
 chk(R.relaunch, '다시 켜기 — companion 이 없으면 대신 할 일을 부르고 false · 있으면 앱을 다시 켠다');
@@ -78,7 +81,7 @@ say('── 2. 싣는 순서 · 거는 곳 · 바꾸는 곳');
 chk(FILES.length >= 100 && !R.late.length, '쓰는 모듈(초대 게이트 · 계정 · 내 정보 · 포커스 레벨 · 방 입장) · app.js 보다 먼저 싣는다' + (R.late.length ? ' — 먼저 실리는 것: ' + R.late.join(' · ') : ''));
 chk(R.gateHooks && R.onPrem.length === 1 && R.onPrem[0] === 'account/license-gate.js', '프리미엄 알림은 초대 게이트가 _refreshPremiumGatedUI 로 건다(그 밖엔 없다)' + (R.onPrem.length !== 1 ? ' — ' + R.onPrem.join(' · ') : ''));
 chk(R.detachWriters, '신원 놓음을 바꾸는 곳은 계정(_wipeAccountLocal) 하나 — app.js 는 계정 만드는 줄에서만 쓰는 함수를 넘긴다');
-chk(R.made, 'app.js 는 isPremium 바로 뒤 · 초대 게이트보다 먼저 계정 핵심 상태를 만든다');
+chk(R.made, 'app.js 에 isPremium let 이 없고 · 초대 게이트보다 먼저 계정 핵심 상태를 만들며 · 읽는 쪽은 모두 ()=>acctStateMod.isPremium() 을 받는다');
 
 say('── 3. 일부러 깨 보기');
 const line = '<script src="parts/account/account-state.js"></script>';
@@ -89,6 +92,9 @@ chk(!judge(MOD.replace("const LOGIN_EMAIL_KEY = 'tw.loginEmail';", "const LOGIN_
 const extra = FILES.map(([f, t]) => [f, f === 'myhome/guestbook.js' ? t + '\nonPremiumChanged(()=>{});\n' : t]);
 chk(judge(MOD, HTML, extra, APP).onPrem.includes('myhome/guestbook.js'), '다른 파일이 프리미엄 알림을 걸면 빨강(거는 곳을 여기 적고 이유를 주석에)');
 chk(!judge(MOD, HTML, FILES, APP + '\nacctStateMod.setAcctDetached(false);\n').detachWriters, 'app.js 다른 자리에서 신원 놓음을 바꾸면 빨강');
+chk(!judge(MOD, HTML, FILES, 'let isPremium = false;\n' + APP.replace('  isPremium: ()=>acctStateMod.isPremium(),', '  isPremium: ()=>isPremium,')).made, 'app.js 에 isPremium let 을 되살려 읽는 함수로 넘기면 빨강');
+chk(!judge(MOD, HTML, FILES, APP.replace('  isPremium: ()=>acctStateMod.isPremium(),', '  isPremium: acctStateMod.isPremium(),')).made, '읽는 함수를 부른 값(만들 때 한 번 읽은 false)을 넘기면 빨강');
+chk(!judge(MOD.replace('let _isPremium = false;', 'let _isPremium = true;'), HTML, FILES, APP).premStart, '처음 값이 true 면 빨강');
 
 say('\n' + (fail ? '✗ 통과 ' + pass + ' · 실패 ' + fail : '전부 통과 ✅ ' + pass + ' — 계정 핵심 상태는 account-state.js 한 곳'));
 process.exit(fail ? 1 : 0);

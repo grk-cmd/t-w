@@ -11,7 +11,7 @@
   const seatCameraMod = TwSeatCamera.createSeatCamera({
     BASE_PXW, DOT_RENDER_SCALE, camera, canvas, renderer,          // 값
     _cachedRowCenter: ()=>_cachedRowCenter, _cachedRowSpan: ()=>_cachedRowSpan,   // 읽는 함수(layoutSeats 가 다시 대입)
-    deskPanX: ()=>deskPanX, deskPanY: ()=>deskPanY, dotRenderEnabled: ()=>dotRenderEnabled,
+    deskPanX: ()=>deskPanX, deskPanY: ()=>deskPanY, dotRenderEnabled: ()=>renderStateMod.dotRenderEnabled(),   // 주인은 launcher/render-state.js
     dotRenderMod: ()=>dotRenderMod, focusCharScale: ()=>focusCharScale, sizeFactor: ()=>sizeFactor,
   });
   ```

@@ -122,8 +122,8 @@ say('§4 연결');
   const names = ['canvas', 'renderer', 'scene', 'camera', 'floor', 'sizeFloorTo', 'loader'];
   chk(names.every(n => new RegExp('^const ' + n + ' = stageMod\\.' + n + ';', 'm').test(code)), '  옛 이름 일곱(canvas · renderer · scene · camera · floor · sizeFloorTo · loader)을 const 로 받는다');
   chk(!/new THREE\.WebGLRenderer|new THREE\.Scene\(|new THREE\.GLTFLoader|new THREE\.DRACOLoader|GlRecover\.|TwGlFailNotice/.test(code), '  app.js 에 렌더러 · 씬 · 로더 · 감시 · 안내를 직접 만드는 줄이 없다');
-  const iQ = code.indexOf('let _renderQuality'), iM = code.indexOf('const stageMod');
-  chk(iQ >= 0 && iM > iQ, '  화질(_renderQuality)을 읽은 다음에 무대를 만든다(antialias 는 만들 때만 정해진다)');
+  const iQ = code.indexOf('const _renderAA = FrameBudget.antialiasFor(renderStateMod.renderQuality());'), iR = code.indexOf('const renderStateMod = TwRenderState.createRenderState();'), iM = code.indexOf('const stageMod');
+  chk(iR >= 0 && iQ > iR && iM > iQ, '  화질(그리기 상태 render-state.js 의 renderQuality)을 읽은 다음에 무대를 만든다(antialias 는 만들 때만 정해진다)');
 }
 
 say('§5 일부러 깨 보기');

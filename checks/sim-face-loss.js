@@ -76,11 +76,11 @@ const INK_URL = 'data:image/png;base64,INK', BLANK_URL = 'data:image/png;base64,
 }
 
 /* __P.allowBlankOnce 는 «생성기에서 사용자가 비운 채 저장을 확인했다»를 흉내 낸다.
-   _blankFaceConfirmed 는 let 이라 밖에서 못 건드린다 — 같은 스코프인 이 probe 안에서만 대입할 수 있다. */
+   «비운 채 저장» 확인의 주인은 slot-save.js — 되살린 글의 같은 스코프인 이 probe 안에서 그 쓰는 함수로 세운다. */
 const probe = `
 ;globalThis.__P = { loadSlots, saveSlots, slots, LS_KEY, loadImg, MAX: CHAR_SLOT_MAX,
   isBlank: _isBlankDraw, faceMem: _faceEverDrawn,
-  allowBlankOnce: ()=>{ _blankFaceConfirmed = true; },
+  allowBlankOnce: ()=>{ setBlankFaceConfirmed(true); },
   /* 진짜 THREE.CanvasTexture 는 tex.image 에 원본 캔버스를 담는다 — 복구가 그 자리에 다시 그린다.
      smoke 의 THREE 스텁은 무엇을 물어도 프록시를 돌려줘서 tex.image 가 캔버스가 아니다.
      그러면 «화면 텍스처가 비었다»를 만들 수조차 없으므로, 여기서만 실제 동작대로 채워 준다. */

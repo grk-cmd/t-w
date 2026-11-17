@@ -2,10 +2,11 @@
    app.js 의 채팅 다섯 구역(🌊 날리기 · 🔖 여기까지 읽음 구분선 · 💬 채팅 탭 · 📋 드래그 복사 · 😊 커스텀 이모티콘) 본문을 그대로 옮긴 모듈이다(앱 FSD 24번 — docs/APP_FSD_MAP.md).
    대화창 배선은 chat-window.js. 동작은 옮기기 전과 같다. 기본 이모티콘 목록은 demoji-catalog.js.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 5개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 37줄 —
-     CHAT_WIN_POS_KEY · Presence · _chatLogCache · _chatLogUnsub · _danceCmdCooldownAt · _myHomeData · focusLevelMod · isAdmin · officeMode 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setChatLogCache · setChatLogUnsub · setDanceCmdCooldownAt(…).
+     CHAT_WIN_POS_KEY · Presence · _danceCmdCooldownAt · _myHomeData · focusLevelMod · isAdmin · officeMode 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setDanceCmdCooldownAt(…).
+     대화 기록 구독 · 그린 목록(_chatLogUnsub · _chatLogCache)은 이 모듈이 주인이다(app.js 분리 F6) — 읽기 · 쓰기는 같은 이름의 읽는 함수 · 쓰는 함수.
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 22개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: DEMOJI_BY_CMD · DEMOJI_BY_ID · DEMOJI_DIR · DEMOJI_LIST · EMOJI_SLOTS · FLY_COLOR_LEVEL · _bindChatCopy · _bindChatTabs · _chatClearNow · _chatClearUndo · _chatFlyColor · _chatFlyOn · _chatFlyRefreshUI · _chatFlySize · _chatIsMinimized · _chatMyTabId · _chatTabName · _chatTabOut · _chatTabResolve · _chatTabsOnMeta · _chatTabsRender · _chatWindowIsOpen · _deleteEmoji · _emojiCache · _flyLaneFreeAt · _flySizeOk · _onEmojiFilePicked · _onEmojiSlotClick · _renderChatLog · _saveChatLog · _saveChatWinPos · _sendChatWindowMsg · _setChatMinimized · _syncChatBadgeSub · _toggleEmojiPanel · closeChatWindow · openChatWindow · sendMyChat · showFlyText — app.js 는 chatUiMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: _chatLogCache(읽는 함수) · DEMOJI_BY_CMD · DEMOJI_BY_ID · DEMOJI_DIR · DEMOJI_LIST · EMOJI_SLOTS · FLY_COLOR_LEVEL · _bindChatCopy · _bindChatTabs · _chatClearNow · _chatClearUndo · _chatFlyColor · _chatFlyOn · _chatFlyRefreshUI · _chatFlySize · _chatIsMinimized · _chatMyTabId · _chatTabName · _chatTabOut · _chatTabResolve · _chatTabsOnMeta · _chatTabsRender · _chatWindowIsOpen · _deleteEmoji · _emojiCache · _flyLaneFreeAt · _flySizeOk · _onEmojiFilePicked · _onEmojiSlotClick · _renderChatLog · _saveChatLog · _saveChatWinPos · _sendChatWindowMsg · _setChatMinimized · _syncChatBadgeSub · _toggleEmojiPanel · closeChatWindow · openChatWindow · sendMyChat · showFlyText — app.js 는 chatUiMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwChatUi — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-chat-ui.js */
@@ -19,8 +20,6 @@ const Presence = deps.Presence;   // 읽는 함수
 const _chatDelClose = deps._chatDelClose;
 const _chatEsc = deps._chatEsc;
 const _chatIsHost = deps._chatIsHost;
-const _chatLogCache = deps._chatLogCache;   // 읽는 함수
-const _chatLogUnsub = deps._chatLogUnsub;   // 읽는 함수
 const _chatOffOn = deps._chatOffOn;
 const _chatOffRefreshUI = deps._chatOffRefreshUI;
 const _chatRoomCode = deps._chatRoomCode;
@@ -45,8 +44,13 @@ const seats = deps.seats;
 const showChatBubble = deps.showChatBubble;
 const startMyDance = deps.startMyDance;
 const toast = deps.toast;
-const setChatLogCache = deps.setChatLogCache;   // 쓰는 함수
-const setChatLogUnsub = deps.setChatLogUnsub;   // 쓰는 함수
+/* 대화 기록 구독 · 그린 목록 — 주인은 이 모듈(app.js 분리 F6). 채팅 설정(chat-prefs.js)은 내놓는 읽는 함수 _chatLogCache 로 읽는다 */
+let _chatLogUnsubFn = null;      // subscribeChatLog 해제 함수
+let _chatLogList = [];        // 화면에 그린 마지막 메시지 목록(기록 저장용)
+const _chatLogCache = ()=>_chatLogList;   // 읽는 함수
+const _chatLogUnsub = ()=>_chatLogUnsubFn;   // 읽는 함수
+const setChatLogCache = (v)=>{ _chatLogList = v; };   // 쓰는 함수
+const setChatLogUnsub = (v)=>{ _chatLogUnsubFn = v; };   // 쓰는 함수
 const setDanceCmdCooldownAt = deps.setDanceCmdCooldownAt;   // 쓰는 함수
 const FLY_BAND_PX    = 600;     // 흐르는 띠의 높이 — 화면 한가운데 기준 위아래 300px
 /* 레인 한 칸 높이 — 글자 크기를 따라간다.
@@ -1325,6 +1329,7 @@ function _applyDefaultEmojiOnly(text){
 }
 
 return {
+  _chatLogCache,   // 읽는 함수 — 채팅 설정(chat-prefs.js)이 대화 수를 센다
   DEMOJI_BY_CMD,
   DEMOJI_BY_ID,
   DEMOJI_DIR,

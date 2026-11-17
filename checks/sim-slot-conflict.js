@@ -111,7 +111,7 @@ function mkEnv(){
     "const LS_KEY='deskFriends.slots.v1'; const CHAR_SLOT_MAX=5;",
     "const slots=new Array(CHAR_SLOT_MAX).fill(null);",
     "const _faceEverDrawn=new Array(CHAR_SLOT_MAX).fill(false), _blinkEverDrawn=new Array(CHAR_SLOT_MAX).fill(false);",
-    "let _blankFaceConfirmed=false; const _isBlankDraw=()=>false;",
+    "let _bfOnce=false; const _blankFaceConfirmed=()=>_bfOnce; const setBlankFaceConfirmed=(v)=>{ _bfOnce=v; }; const _isBlankDraw=()=>false;",   // «비운 채 저장» 확인 — 주인 slot-save.js 와 같은 모양
     "const console={ warn:(m)=>env.warns.push(String(m)), log:()=>{} };",
     "const toast=(m)=>env.toasts.push(m);",
     "const document={ getElementById:()=>({ classList:{ contains:()=>true } }) };",

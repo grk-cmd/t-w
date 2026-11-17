@@ -443,6 +443,8 @@ PRELOAD.push('chat-ui.js');
 PRELOAD.push('nav.js');
 /* demoji-catalog.js — 😊 기본 이모티콘 목록(맨 아래 고정 표). chat-ui 를 만드는 줄이 TwDemojiCatalog 를 넘기므로 먼저 싣는다. */
 PRELOAD.push('demoji-catalog.js');
+/* render-state.js — 🎚️ 실행 화면 그리기 상태(화질 · «자동» 낮춤 · 도트 — app.js 분리 F6). app.js 가 무대보다 먼저 만들어 antialias 를 정한다. */
+PRELOAD.push('render-state.js');
 /* account-state.js — 🪪 계정 핵심 상태(모듈 순환 끊기 5). 같은 까닭 — 초대 게이트 · 계정 · 내 정보 · 포커스 레벨이 만들 때 이 모듈의 알림 자리(onPremiumChanged)를 받는다. */
 PRELOAD.push('account-state.js');
 /* license-gate.js — 🎟️ 초대장 · 라이선스(앱 FSD 31번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLicenseGate 를 같이 굴린다. */
