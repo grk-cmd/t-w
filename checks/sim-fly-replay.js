@@ -132,7 +132,7 @@ say('\n── 5. 스냅샷 순서 보장 (방 포트 room-rt.js)');
   const hub = { onMessage(t, fn){ (fns[t] = fns[t] || []).push(fn); }, onState(){}, request: async () => null,
     state: () => 'ready', isReady: () => true, userCode: () => 'u_me', send: (m) => { if(m && m.t === 'join') hub.lastJoinRid = m.rid; return true; } };
   const emit = (m) => (fns[m.t] || []).forEach((f) => f(m));
-  const rt = globalThis.TwRoomRt.createRoomRt({ hub, STATE: globalThis.TwRtHub.STATE });
+  const rt = globalThis.TwRoomRt.createRoomRt({ hub, STATE: globalThis.TwRtHub.STATE, isDeviceOff: globalThis.TwRtHub.isDeviceOff });
   const delivered = [];
   const pv = rt.makeProvider({ deserializeDef: (d) => new Promise((r) => realST(() => r(d), (d && d.v === 1) ? 40 : 1)) }, null);
   const jp = pv.join('WORK-TEST', { def:{}, name:'나', state:'idle' }, (fr) => { delivered.push(fr); });

@@ -75,7 +75,7 @@ function installApi(uploadOk){
   globalThis.window.firebaseAPI = {
     uploadRoomFace: async (uid, key) => uploadOk ? { ok: true, url: 'https://storage.test/' + key + '.png' } : { ok: false },
   };
-  rt = globalThis.TwRoomRt.createRoomRt({ hub: mkHub(), STATE: globalThis.TwRtHub.STATE });
+  rt = globalThis.TwRoomRt.createRoomRt({ hub: mkHub(), STATE: globalThis.TwRtHub.STATE, isDeviceOff: globalThis.TwRtHub.isDeviceOff });
 }
 globalThis.getMyUserId = () => 'u_test';
 
