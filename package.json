@@ -11,6 +11,9 @@
     "start": "npm --prefix apps/desktop start",
     "start:dev": "npm --prefix apps/desktop run start:dev",
     "check": "node checks/run.js",
+    "lint": "cd apps/desktop && eslint .",
+    "lint:prune": "cd apps/desktop && eslint . --prune-suppressions",
+    "lint:baseline": "cd apps/desktop && eslint . --suppress-all",
     "admin:dev": "npm --prefix apps/admin run dev",
     "admin:test": "npm --prefix apps/admin test",
     "admin:build": "npm --prefix apps/admin run build",
@@ -22,6 +25,7 @@
     "dist": "npm --prefix apps/desktop run dist"
   },
   "devDependencies": {
+    "eslint": "9.39.5",
     "jsdom": "30.1.2",
     "typescript": "5.9.3"
   },
