@@ -4059,7 +4059,6 @@ const commissionMod = TwCommission.createCommission({
   _b64: (...a)=>codeCryptoMod._b64(...a),
   _deriveKey: (...a)=>codeCryptoMod._deriveKey(...a),
   _unb64: (...a)=>codeCryptoMod._unb64(...a),
-  toast: (...a)=>toast(...a),
 });
 /* ★ 앱을 켜자마자 최대한 일찍 저장된 아이템들의 GLB 파싱을 시작해둠(비동기) — 이게 늦게 끝나면, 그 사이에
      캐릭터가 먼저 실행되면서 아직 customItems에 등록 안 된 아이템은 조용히 빠지는(=책상 위에서 사라지는)
@@ -4425,6 +4424,7 @@ const refreshOfficeChipUI = officeModeMod.refreshOfficeChipUI;   // 옛 전역 �
 /* 본문은 shared/ls-set.js 로 옮겼다(앱 FSD · app.js 분리 M14). 설정 저장 헬퍼 — 쓰는 곳은 deps 로 `_lsSet` 을 받는다. */
 const lsSetMod = TwLsSet.createLsSet({
   notifyError: (...a)=>TwErrorCodes.notify(...a),
+  jsonStore: TwJsonStore,
 });
 const _lsSet = lsSetMod._lsSet;   // 옛 전역 이름
 

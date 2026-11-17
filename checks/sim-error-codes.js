@@ -51,6 +51,17 @@ try{
   const bad = E.createErrorNotice({ now: ()=>0, toast: ()=>{ throw new Error('x'); }, diag: ()=>{ throw new Error('y'); } });
   let threw = false; try{ bad.notify('E-FR-01'); }catch(_){ threw = true; }
   chk(!threw, '토스트 · 진단이 던져도 부른 쪽으로 새지 않는다');
+  /* 토스트가 아직 없을 때(부팅 중) 부르면 false · «띄웠다» 로 적지 않는다 — 곧이어 다시 부르면 그때 뜬다 */
+  let ready = false, tn = 1000; const shown = [];
+  const late = E.createErrorNotice({ now: ()=>tn, toast: (m)=>{ if(!ready) throw new ReferenceError('toast'); shown.push(m); } });
+  const r1 = late.notify('E-FR-01'); ready = true; tn += 3000; const r2 = late.notify('E-FR-01');
+  chk(r1 === false && r2 === true && shown.length === 1, '토스트가 던지면 false · 10초 안이어도 다음 부름에서 뜬다(띄운 뒤에만 겹침 막기)');
+  const brkSrc = SRC['error-codes.js'].replace('    if(shown) lastShown[c] = at;\n', '').replace('    let shown = false;\n', '    let shown = false; lastShown[c] = at;\n');
+  const bm = { exports: {} }; new Function('window', 'module', brkSrc)(undefined, bm);
+  let rd = false, tb = 1000; const sb = [];
+  const lb = bm.exports.createErrorNotice({ now: ()=>tb, toast: (m)=>{ if(!rd) throw new Error('x'); sb.push(m); } });
+  lb.notify('E-FR-01'); rd = true; tb += 3000; lb.notify('E-FR-01');
+  chk(brkSrc !== SRC['error-codes.js'] && sb.length === 0, '  깨 보기 — 띄우기 전에 «띄웠다» 로 적으면 다음 안내가 막힌다(빨강이 나는지)');
 } finally { console.warn = origWarn; }
 
 say('── 3. 부르는 곳');

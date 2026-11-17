@@ -220,6 +220,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 - **책임**: 한 키의 JSON 을 읽고(해석) 쓴다. 실패를 삼키지 않고 결과 `{ ok, err, bytes }` 로 돌려준다 — 부르는 쪽이 알릴 수 있게.
 - **쓰는 곳**: 사람 책상 프리셋(`creator/desk-preset-store.js` · `tw.deskPresets`) · 동물 프리셋(`character/animal.js` · `tw.animalPresets`). 같은 «읽기 → 해석 / 만들기 → 쓰기» 를 두 곳이 따로 들던 것을 묶었다.
+  읽기 실패 뒤 기본값으로 덮어쓰지 않게(blocked) 여기로 옮긴 곳(app.js 분리 F5): 커미션 책상 · 아이템(`character/commission.js`) · 저장 파츠(`character/premium-assets.js`) · 북마크(`myhome/bookmark.js`) · 뽀모도로 설정(`focus/pomodoro.js`) · 말랑 백업(`myhome/mallang.js`) · 바탕화면 모험(`myhome/myhome-desktop.js`) — 읽기 실패 · 막은 쓰기는 `E-SYS-11`(검사 `checks/sim-no-overwrite.js`).
 - **만드는 법**: 렌더러에서는 `window.TwJsonStore`(`load` · `save`)를 바로 쓴다. 검사 · 다른 저장소는 `TwJsonStore.createJsonStore({ storage: () => 저장소 })`.
 - **내놓는 것**: `load(key, fallback)` → `{ ok, list, err, bytes }`(키가 없거나 빈 글이면 ok · fallback) · `save(key, value)` → `{ ok, err, bytes }`(던지지 않는다).
 - **함정**: 값의 모양(배열 · 객체)은 부르는 쪽이 본다. DOM · 토스트를 모른다 — 알리기는 부르는 쪽. 검사 `checks/sim-json-store.js`.
@@ -479,7 +480,11 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **책임**: 쓰기 · 지우기 뒤 `getItem` 으로 왕복 확인 · 실패하면 콘솔 경고(매번) + 번호 안내(번호마다 세션당 한 번) · 성공 true / 실패 false · 던지지 않는다.
   - 설정(테마 · 토글 · 크기 · 소리 같은 작은 값): `lsSet(key, val)` · `lsUnset(key)` → `E-SYS-09`
   - 사용자가 만든 데이터(계정 · 라이선스 · 이름 · 친구 코드 · 캐릭터 슬롯 · 숨김 목록 · 상태 · 말랑 · 바탕화면 · 북마크): `lsSave(key, val)` · `lsRemove(key)` → `E-SYS-10`
-- **만드는 법**: 렌더러에서는 `window.TwLsSet`(`lsSet` · `lsUnset` · `lsSave` · `lsRemove`)를 바로 쓴다. app.js 는 원래 자리에서 `TwLsSet.createLsSet({ notifyError })` 로 만들어 옛 이름 `_lsSet` 으로 받는다(deps 로 `_lsSet` 을 받는 모듈 몫).
+  - JSON 칸: `lsSetJson(key, value)`(설정) · `lsSaveJson(key, value)`(데이터) — `json-store.js` 의 `save` 로 쓴다. 저장된 글이 해석이 안 되면 덮어쓰지 않고(blocked) `E-SYS-11`(세션당 한 번), 그 밖의 실패는 09 / 10.
+  - 읽기 짝: `lsLoadJson(key, fallback, { quiet })` — 해석 안 되면 `E-SYS-11`(막은 쓰기와 같은 «한 번» — 망가진 칸 하나에 안내 하나). `quiet` 는 알리지 않는다.
+  - 서버가 원본인 칸 쓰기: `lsSaveCopy(key, value, isCopy)` — 이번 실행에 서버에서 실제로 데이터를 받았을 때만(`isCopy`) 이 기기 것을 사본으로 보고 망가진 글 위에도 쓴다. 서버가 비었음 · 못 읽음 · 아직 안 받음이면 이 기기 것이 원본 — 막는다(`E-SYS-11`). 북마크 · 말랑 백업.
+  - 안내를 실제로 못 띄웠으면(부팅 중 토스트가 아직 없음 — `TwErrorCodes.notify` 가 false) «알렸다» 로 적지 않는다 — 다음 실패에서 뜬다.
+- **만드는 법**: 렌더러에서는 `window.TwLsSet`(`lsSet` · `lsUnset` · `lsSave` · `lsRemove` · `lsSetJson` · `lsSaveJson`)를 바로 쓴다(json-store.js 다음에 싣는다). app.js 는 원래 자리에서 `TwLsSet.createLsSet({ notifyError, jsonStore })` 로 만들어 옛 이름 `_lsSet` 으로 받는다(deps 로 `_lsSet` 을 받는 모듈 몫).
 - **함정**: «세션당 한 번» 기억은 파일 위에 있다 — app.js 가 만든 것과 window 것이 같이 센다. 캐시 · 창 위치 · 읽음 표시처럼 못 남겨도 잃는 게 없는 값은 여기로 보내지 않는다(알리면 소음). 새로 부르는 자리는 검사의 자리 표(`SITES`)에 더한다. 검사: `checks/sim-ls-set.js`.
 
 ## hue-tint.js — 🎨 텍스처 파츠 색조 셰이더 이름 잇기

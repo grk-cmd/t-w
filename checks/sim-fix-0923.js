@@ -6,8 +6,11 @@
    ・5절: 🫨 말랑이 제자리 떨림 — 짧은 간격으로 세 번째 돌아서려 하면 쉰다
    [실행] app.js · purikura-ui.js · desk-companion-prototype.html · mallang.js · animal.js 가 있는 폴더에서. */
 'use strict';
-/* 모듈이 저장을 shared/ls-set.js(TwLsSet)로 한다 — 이 검사의 저장소 위에 하나 만든다(안내는 받지 않음) */
-const lsSetOn = (ls) => { const src = ['ls-set.js', 'app/parts/shared/ls-set.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const w = { TwErrorCodes: { notify(){ return true; } } }; new Function('window', 'localStorage', 'console', 'module', src)(w, ls, { warn(){} }, undefined); return w.TwLsSet; };
+/* 모듈이 저장을 shared/ls-set.js(TwLsSet — JSON 칸은 json-store 를 거친다)로 한다 — 이 검사의 저장소 위에 하나 만든다(안내는 받지 않음) */
+const lsSetOn = (ls) => { const src = ['ls-set.js', 'app/parts/shared/ls-set.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const js = ['json-store.js', 'app/parts/shared/json-store.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const jm = { exports: {} }; new Function('window', 'module', js)(undefined, jm); const st = jm.exports.createJsonStore({ storage: () => ls }); const w = { TwErrorCodes: { notify(){ return true; } }, TwJsonStore: Object.assign({}, jm.exports, { load: st.load, save: st.save }) }; new Function('window', 'localStorage', 'console', 'module', src)(w, ls, { warn(){} }, undefined); return w.TwLsSet; };
+/* 모듈이 JSON 칸을 shared/json-store.js(TwJsonStore)로 읽고 쓴다 — 이 검사의 저장소 위에 하나 만든다(번호 안내는 받지 않음) */
+const jsonStoreOn = (ls) => { const src = ['json-store.js', 'app/parts/shared/json-store.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const m = { exports: {} }; new Function('window', 'module', src)(undefined, m); const s = m.exports.createJsonStore({ storage: () => ls }); return Object.assign({}, m.exports, { load: s.load, save: s.save }); };
+const errCodesStub = { notify(){ return true; } };
 const _MI_JOIN = require('./sim-renderer-src.js').joinRenderer;   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -30,7 +33,8 @@ say('── 1. 🎰 가챠 = stackable · 숫자키 맵');
   chk(N({ id:'g', gacha:true, stackable:false }).stackable === true, '옛 가챠 파츠(stackable:false) → true');
   chk(N({ id:'n', stackable:false }).stackable === false, '일반 파츠는 그대로');
   /* 입구 두 곳은 글 모양이 아니라 진짜 함수를 돌려 본다 — 합치기 규칙을 옮겨도 판정이 안 깨지게 */
-  const IN = new Function('localStorage', 'document', [
+  const IN = new Function('localStorage', 'document', 'jsonStoreOn', 'TwErrorCodes', 'lsSetOn', [
+    'const TwJsonStore = jsonStoreOn(localStorage), TwLsSet = lsSetOn(localStorage);',
     "const SAVED_PARTS_KEY = 'tw.savedParts', CATALOG_ORDER_LAST = 9999; let savedParts = [];",
     'const log = [], seats = [];',
     'const persistSavedParts = () => {}, applyClothVisibility = () => {}, unequipPartFromSeat = () => {}, fitModel = () => {}, layoutSeats = () => {};',
@@ -44,10 +48,10 @@ say('── 1. 🎰 가챠 = stackable · 숫자키 맵');
   ].join('\n'));
   const doc = { getElementById: () => null };
   const old = [{ id:'g1', cat:'hat', gacha:true, stackable:false }, { id:'n1', cat:'hat', stackable:false }];
-  let E = IN({ getItem: () => JSON.stringify(old) }, doc);
+  let E = IN({ getItem: () => JSON.stringify(old) }, doc, jsonStoreOn, errCodesStub, lsSetOn);
   E.load();
   chk(E.parts().find(p => p.id === 'g1').stackable === true && E.parts().find(p => p.id === 'n1').stackable === false, '입구 ① 로컬 캐시(loadSavedParts) — 옛 가챠 기록을 읽으면 stackable · 일반 파츠는 그대로');
-  E = IN({ getItem: () => '[]' }, doc);
+  E = IN({ getItem: () => '[]' }, doc, jsonStoreOn, errCodesStub, lsSetOn);
   E.seats.push({ charDef:{ equippedParts:{ hat:[{ id:'hat0', xf:{} }, { id:'g2', xf:{ y:1 } }] } } });
   E.merge({ g2:{ cat:'hat', gacha:true, stackable:false }, n2:{ cat:'hat', stackable:false } });
   const g2 = E.parts().find(p => p.id === 'g2');

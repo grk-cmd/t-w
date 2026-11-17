@@ -1,5 +1,8 @@
 /* ═══ 💾 sim-ls-set.js — localStorage 쓰기 · 지우기 한 곳(shared/ls-set.js) · 저장 실패 안내 자리(app.js 분리 F5) ═══════════════
    ・1절: 규칙 — 남으면 true · 값이 안 남는 환경 · setItem 이 던지는 환경 · 지우기 · 번호(설정 E-SYS-09 / 데이터 E-SYS-10) · 번호마다 세션당 한 번
+     · JSON 칸(lsSetJson · lsSaveJson) — json-store 로 쓰고, 해석 안 되는 저장분 위엔 안 씀(E-SYS-11) · 그 밖 실패는 09 / 10
+     · 읽기 짝(lsLoadJson) — 해석 안 되면 E-SYS-11(막은 쓰기와 같은 «한 번») · quiet 는 안 알림
+     · 안내를 실제로 못 띄웠으면(부팅 중 토스트 없음) «알렸다» 로 적지 않는다 — 다음 실패에서 뜬다
    ・2절: 자리마다 — 렌더러에서 TwLsSet 을 부르는 줄을 모두 찾아 «그 줄의 부르기» 를 그대로 돌린다(이름은 가짜 값).
      저장소가 던지면 안내가 한 번 · 두 번째는 조용 · 잘 되면 안내 없음. 자리 표(SITES)와 개수 · 번호가 맞는지.
      별 색(setStarColor)은 함수째로 돌려 실패면 false(내 정보가 그 값으로 멈춘다) · 자리 고정(saveMode)은 받은 저장 함수로 쓴다.
@@ -14,8 +17,8 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { for(const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f, f.split('/').pop()]) if(fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 const stripC = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 const depPairs = (APP, mod, glob, create) => { const m = APP.match(new RegExp('const ' + mod + ' = ' + glob + '\\.' + create + '\\(\\{\\n([\\s\\S]*?)\\n\\}\\);')); return m ? m[1].split('\n').map(l => /^  ([\w$]+): (.+),$/.exec(l)).filter(Boolean).map(x => [x[1], x[2]]) : null; };
-const SRC = read('shared/ls-set.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html');
-if(!SRC || !APP || !HTML){ say('  ? 원본 못 찾음'); process.exit(2); }
+const SRC = read('shared/ls-set.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html'), JS = read('shared/json-store.js');
+if(!SRC || !APP || !HTML || !JS){ say('  ? 원본 못 찾음'); process.exit(2); }
 
 /* 저장소 — ok: 남는다 · drop: 던지지 않는데 안 남는다 · throw: 쓰기 · 지우기가 던진다 */
 function mkStore(mode){
@@ -30,10 +33,11 @@ function mkStore(mode){
 /* 파일을 새로 실어 window 것과 createLsSet 것을 함께 돌려준다(세션 = 한 번 실린 동안). */
 function build(src, mode){
   const ls = mkStore(mode), notes = [], warns = [];
-  const win = { TwErrorCodes: { notify: (c, e) => { notes.push(c); return true; } } };
+  const jm = { exports: {} }; new Function('window', 'module', JS)(undefined, jm); const st = jm.exports.createJsonStore({ storage: () => ls });
+  const win = { TwErrorCodes: { notify: (c, e) => { notes.push(c); return true; } }, TwJsonStore: Object.assign({}, jm.exports, { load: st.load, save: st.save }) };
   new Function('window', 'localStorage', 'console', 'module', src)(win, ls, { warn: (...a) => warns.push(a), log(){}, error(){} }, undefined);
   const own = [];
-  const mod = win.TwLsSet.createLsSet({ notifyError: (c) => own.push(c) });
+  const mod = win.TwLsSet.createLsSet({ notifyError: (c) => own.push(c), jsonStore: win.TwJsonStore });
   return { api: win.TwLsSet, mod, ls, notes, own, warns };
 }
 
@@ -59,6 +63,30 @@ say('§1 규칙');
   chk(b.api.lsRemove('tw.r') === false && b.notes.join() === 'E-SYS-10', '데이터 지우기가 던지면 false · E-SYS-10');
   let threw = false; try{ build(SRC, 'throw').api.lsSave('k', 'v'); }catch(_){ threw = true; }
   chk(!threw, '던지지 않는다(부르는 자리의 try 를 걷어도 된다)');
+  b = build(SRC, 'ok');
+  chk(b.api.lsSaveJson('tw.j', { a: 1 }) === true && b.ls.store['tw.j'] === '{"a":1}' && b.api.lsSetJson('tw.k', [1]) === true && b.notes.length === 0, 'JSON 칸 — 글로 만들어 쓰고 true · 안내 없음');
+  b.ls.store['tw.j'] = '{망가진';
+  chk(b.api.lsSaveJson('tw.j', { a: 2 }) === false && b.ls.store['tw.j'] === '{망가진' && b.notes.join() === 'E-SYS-11', '★ 해석 안 되는 저장분 위엔 쓰지 않는다 — 망가진 글 그대로 · E-SYS-11');
+  b.ls.store['tw.k'] = '[망'; b.api.lsSetJson('tw.k', [2]); b.api.lsSaveJson('tw.j', 3);
+  chk(b.ls.store['tw.k'] === '[망' && b.notes.length === 1, '  막은 쓰기 안내도 세션당 한 번(설정 · 데이터 같이)');
+  b = build(SRC, 'throw');
+  chk(b.api.lsSetJson('tw.k', [1]) === false && b.api.lsSaveJson('tw.j', 1) === false && b.notes.join() === 'E-SYS-09,E-SYS-10', 'JSON 칸 쓰기가 던지면 설정 E-SYS-09 · 데이터 E-SYS-10');
+  b = build(SRC, 'ok'); b.ls.store['tw.r'] = '{망';
+  const lr = b.api.lsLoadJson('tw.r', []); b.api.lsSaveJson('tw.r', [1]);
+  chk(lr.ok === false && Array.isArray(lr.list) && !lr.list.length && b.ls.store['tw.r'] === '{망' && b.notes.join() === 'E-SYS-11', '읽기 짝 — 해석 안 되면 기본값 · E-SYS-11 · 그 뒤 막은 쓰기는 조용(망가진 칸 하나에 한 번)');
+  b = build(SRC, 'ok'); b.ls.store['tw.q'] = '{망';
+  chk(b.api.lsLoadJson('tw.q', null, { quiet: true }).ok === false && !b.notes.length && b.api.lsLoadJson('tw.none', 7).list === 7 && !b.notes.length, '  quiet 는 안 알림 · 없음은 조용히 기본값');
+  b = build(SRC, 'ok'); b.ls.store['tw.c'] = '{망';
+  chk(b.api.lsSaveCopy('tw.c', [1], false) === false && b.ls.store['tw.c'] === '{망' && b.notes.join() === 'E-SYS-11', '서버 원본 칸 — 사본이 아니면(서버에서 못 받음) 망가진 글 위엔 안 씀 · E-SYS-11');
+  chk(b.api.lsSaveCopy('tw.c', [2], true) === true && b.ls.store['tw.c'] === '[2]', '  사본이면(서버에서 받음) 망가진 글 위에도 고쳐 씀');
+  {
+    /* 안내를 못 띄웠으면(부팅 중) «알렸다» 로 적지 않는다 */
+    const ls = mkStore('throw'); let ok = false; const got = [];
+    const w = { TwErrorCodes: { notify: (c) => { got.push(c); return ok; } }, TwJsonStore: {} };
+    new Function('window', 'localStorage', 'console', 'module', SRC)(w, ls, { warn(){} }, undefined);
+    w.TwLsSet.lsSave('a', 1); ok = true; w.TwLsSet.lsSave('a', 1); w.TwLsSet.lsSave('a', 1);
+    chk(got.join() === 'E-SYS-10,E-SYS-10', '★ 안내를 못 띄우면(false) 다음 실패에서 다시 부른다 · 띄운 뒤로는 조용');
+  }
 }
 
 say('§2 자리마다');
@@ -74,7 +102,7 @@ const SITES = {
   'room/char-place.js': { lsSet: 2 },
   'status/noise.js': { lsSet: 1 },
   'status/status-chip.js': { lsSet: 1 },
-  'focus/pomodoro.js': { lsSet: 1 },
+  'focus/pomodoro.js': { lsSetJson: 1, lsLoadJson: 1 },
   'focus/focus-log.js': { lsSet: 1 },
   'focus/focus-level.js': { lsSet: 1, lsSave: 1 },         // 별 색 / 폰 연결 키
   'myhome/scheduler.js': { lsSet: 2 },
@@ -82,14 +110,15 @@ const SITES = {
   'account/account-state.js': { lsSave: 1 },
   'account/license-gate.js': { lsSave: 11, lsRemove: 2 },
   'character/slot-save.js': { lsSave: 1 },
-  'character/commission.js': { lsSave: 1 },
+  'character/commission.js': { lsSaveJson: 2, lsLoadJson: 2 },           // 책상 · 아이템 — 같은 번호라 한 저장에 안내 하나
+  'character/premium-assets.js': { lsSaveJson: 1, lsLoadJson: 1 },
   'room/hidden-seats.js': { lsSave: 1 },
   'status/user-status.js': { lsSave: 2 },
-  'myhome/mallang.js': { lsSave: 2 },
-  'myhome/myhome-desktop.js': { lsSave: 1 },
-  'myhome/bookmark.js': { lsSave: 1 },
+  'myhome/mallang.js': { lsSave: 1, lsSaveCopy: 1, lsLoadJson: 1 },   // 숨긴 선물 / 백업(서버에서 받았을 때만 사본) / 백업 읽기
+  'myhome/myhome-desktop.js': { lsSaveJson: 1, lsLoadJson: 1 },
+  'myhome/bookmark.js': { lsSaveCopy: 1, lsLoadJson: 1 },   // 이 기기 것(서버에서 받았을 때만 사본) / 읽기
 };
-const CODE_OF = { lsSet: 'E-SYS-09', lsUnset: 'E-SYS-09', lsSave: 'E-SYS-10', lsRemove: 'E-SYS-10' };
+const CODE_OF = { lsSet: 'E-SYS-09', lsUnset: 'E-SYS-09', lsSetJson: 'E-SYS-09', lsSave: 'E-SYS-10', lsRemove: 'E-SYS-10', lsSaveJson: 'E-SYS-10', lsLoadJson: 'E-SYS-11', lsSaveCopy: 'E-SYS-10' };
 /* 아무 이름이나 받아 주는 가짜 값 — 부르면 자기, 속성도 자기, 글자 ''/숫자 0, 비어 있는 반복 */
 const ANY = new Proxy(function(){}, {
   get(t, k){
@@ -109,7 +138,7 @@ function scopeWith(over){
 function callsIn(src){
   const out = [];
   const code = stripC(src);
-  const re = /TwLsSet\.(lsSet|lsUnset|lsSave|lsRemove)\b/g;
+  const re = /TwLsSet\.(lsLoadJson|lsSaveCopy|lsSetJson|lsSaveJson|lsSet|lsUnset|lsSave|lsRemove)\b/g;
   let m;
   while((m = re.exec(code))){
     let i = m.index + m[0].length, depth = 0, j = i;
@@ -138,6 +167,17 @@ function checkSites(srcOf, sites){
     for(const c of calls){
       n++;
       const expr = c.ref ? 'TwSeatPin.saveMode(' + c.expr + ', "right")' : c.expr;
+      if(c.name === 'lsLoadJson'){
+        const quiet = /quiet: true/.test(c.expr);
+        try{
+          const b = build(SRC, 'ok'); b.ls.getItem = () => '{망가진';
+          const r1 = runExpr(expr, b.api, {}), r2 = runExpr(expr, b.api, {});
+          if(!(r1 && r1.ok === false && r2.ok === false && b.notes.join() === (quiet ? '' : 'E-SYS-11'))) bad.push(f + ' «' + expr.slice(0, 60) + '» 망가진 글 → ' + b.notes.join('|'));
+          const g = build(SRC, 'ok');
+          if(runExpr(expr, g.api, {}).ok !== true || g.notes.length) bad.push(f + ' «' + expr.slice(0, 60) + '» 없음 길');
+        }catch(e){ bad.push(f + ' «' + expr.slice(0, 60) + '» 던짐 ' + e.message); }
+        continue;
+      }
       const b = build(SRC, 'throw');
       try{
         const r1 = runExpr(expr, b.api, { TwSeatPin: PIN });
@@ -175,13 +215,14 @@ function checkSites(srcOf, sites){
 
 say('§3 연결');
 {
+  const iJ = HTML.indexOf('<script src="parts/shared/json-store.js"></script>');
   const iE = HTML.indexOf('<script src="parts/shared/error-codes.js"></script>'), iM = HTML.indexOf('<script src="parts/shared/ls-set.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
-  chk(iE > 0 && iM > iE && iA > iM, 'html — error-codes.js 다음 · app.js 보다 먼저 싣는다');
+  chk(iE > 0 && iJ > 0 && iM > iE && iM > iJ && iA > iM, 'html — error-codes.js · json-store.js 다음 · app.js 보다 먼저 싣는다(window 것이 만들 때 TwJsonStore 를 받는다)');
   const late = Object.keys(SITES).filter(f => f !== 'app.js').filter(f => { const i = HTML.indexOf('<script src="parts/' + f + '"'); return i >= 0 && i < iM; });
   chk(!late.length, '  부르는 모듈보다 먼저' + (late.length ? ' — 늦음: ' + late.join(', ') : ''));
   const code = stripC(APP);
   const pairs = depPairs(APP, 'lsSetMod', 'TwLsSet', 'createLsSet');
-  chk(!!pairs && pairs.length === 1 && pairs[0][0] === 'notifyError' && pairs[0][1] === '(...a)=>TwErrorCodes.notify(...a)', 'app.js — 만든다 · deps 는 notifyError 하나');
+  chk(!!pairs && pairs.length === 2 && pairs[0][0] === 'notifyError' && pairs[0][1] === '(...a)=>TwErrorCodes.notify(...a)' && pairs[1][0] === 'jsonStore' && pairs[1][1] === 'TwJsonStore', 'app.js — 만든다 · deps 는 notifyError · jsonStore');
   chk(/^const _lsSet = lsSetMod\._lsSet;/m.test(code) && !/function _lsSet\b/.test(code), '  옛 이름을 const 로 받고 본문은 안 남음');
 }
 
@@ -190,14 +231,16 @@ say('§4 일부러 깨 보기');
   const brk = (s, a, b) => { const m = s.replace(a, b); return m === s ? null : m; };
   const m1 = brk(SRC, "if(localStorage.getItem(key) !== s) throw new Error('값이 남지 않음');", "");
   chk(!!m1 && build(m1, 'drop').api.lsSet('k', 1) === true, '왕복 확인을 빼면 빨강');
-  const m2 = brk(SRC, "if(_warned[code]) return false;", "");
+  const m2 = brk(SRC, "if(_warned[code]) return;", "");
   chk(!!m2 && (() => { const b = build(m2, 'throw'); b.api.lsSave('a', 1); b.api.lsSave('b', 1); return b.notes.length === 2; })(), '세션당 한 번 제한을 빼면 빨강');
-  const m3 = brk(SRC, "function lsSave(key, val){ const e = _write(key, val); if(e && _first('E-SYS-10', key, e)) notifyError('E-SYS-10', e);", "function lsSave(key, val){ const e = _write(key, val); if(e && _first('E-SYS-09', key, e)) notifyError('E-SYS-09', e);");
+  const m3 = brk(SRC, "function lsSave(key, val){ const e = _write(key, val); if(e) _tell('E-SYS-10', key, e);", "function lsSave(key, val){ const e = _write(key, val); if(e) _tell('E-SYS-09', key, e);");
+  const m4 = brk(SRC, "_tell(r.blocked ? 'E-SYS-11' : 'E-SYS-10', key, r.err)", "_tell('E-SYS-10', key, r.err)");
+  chk(!!m4 && (() => { const b = build(m4, 'ok'); b.ls.store.k = '{x'; b.api.lsSaveJson('k', 1); return b.notes[0] !== 'E-SYS-11'; })(), '막은 쓰기를 저장 실패로 섞으면 빨강(«못 불러옴» 과 «못 남김» 구분)');
   chk(!!m3 && build(m3, 'throw').api.lsSave('a', 1) === false && (() => { const b = build(m3, 'throw'); b.api.lsSave('a', 1); return b.notes[0] !== 'E-SYS-10'; })(), '데이터 실패를 설정 번호로 바꾸면 빨강');
   /* 자리 하나를 옛 모양(빈 catch)으로 되돌리면 2절이 빨강 */
   const BM = read('myhome/bookmark.js');
-  const bm = brk(BM, /TwLsSet\.lsSave\(BM_KEY, ([^\n]*)\);/, 'try{ localStorage.setItem(BM_KEY, $1); }catch(_){}');
-  chk(!!bm && checkSites((f) => f === 'myhome/bookmark.js' ? bm : read(f), { 'myhome/bookmark.js': { lsSave: 1 } }).bad.length > 0, '자리를 빈 catch 로 되돌리면 빨강');
+  const bm = brk(BM, 'return TwLsSet.lsSaveCopy(BM_KEY, bmLocalPayload(), bmFromServer);', 'try{ localStorage.setItem(BM_KEY, JSON.stringify(bmLocalPayload())); }catch(_){}');
+  chk(!!bm && checkSites((f) => f === 'myhome/bookmark.js' ? bm : read(f), { 'myhome/bookmark.js': { lsSaveCopy: 1, lsLoadJson: 1 } }).bad.length > 0, '자리를 빈 catch 로 되돌리면 빨강');
   const sv = brk(read('character/slot-save.js'), 'TwLsSet.lsSave(LS_KEY', 'TwLsSet.lsSet(LS_KEY');
   chk(!!sv && checkSites((f) => sv, { 'character/slot-save.js': { lsSave: 1 } }).bad.length > 0, '캐릭터 슬롯을 설정 번호로 바꾸면 빨강');
   const FL = read('focus/focus-level.js');

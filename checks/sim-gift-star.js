@@ -114,12 +114,13 @@ const noUidCalls = (ml) => {
   const calls = [];
   const ctx = { calls, imgs: [], localStorage: { getItem: () => '["https://i/anon.png"]' }, lsKey: () => 'tw.mallang.anon', myId: () => null, fbReady: () => true,
     firebaseAPI: new Proxy({}, { get: (t, k) => (...a) => { calls.push(String(k)); return Promise.resolve({}); } }),
-    _hiddenSet: () => new Set(), _saveHidden(){}, spawnGift(){}, updateGiftBadge(){}, giftOverflow: () => [], GIFT_MAX: 30, JSON };
+    _hiddenSet: () => new Set(), _saveHidden(){}, spawnGift(){}, updateGiftBadge(){}, giftOverflow: () => [], GIFT_MAX: 30, JSON,
+    TwLsSet: { lsLoadJson: () => ({ ok: true, list: ['https://i/anon.png'] }) } };   // 로컬 백업 읽기는 ls-set 읽기 짝으로
   try { vm.runInNewContext(fns + '\nloadImgsFor(null).catch(()=>{}); loadGifts(null).catch(()=>{});', ctx); } catch (e) { return ['던짐 ' + e.message]; }
   return calls;
 };
 chk(noUidCalls(ML).length === 0, '내 코드 없음 → getMallangImgs · getMallangGifts 요청 0');
-chk(noUidCalls(ML.replace('if(fbReady() && userId) raw =', 'if(fbReady()) raw =').replace('if(!ownerId || !fbReady() || !firebaseAPI.getMallangGifts) return;', 'if(!fbReady() || !firebaseAPI.getMallangGifts) return;')).length === 2,
+chk(noUidCalls(ML.replace('if(fbReady() && userId){', 'if(fbReady()){').replace('if(!ownerId || !fbReady() || !firebaseAPI.getMallangGifts) return;', 'if(!fbReady() || !firebaseAPI.getMallangGifts) return;')).length === 2,
   '  깨 보기 — 내 코드 확인을 빼면 두 요청이 나간다(빨강)');
 
 say('');

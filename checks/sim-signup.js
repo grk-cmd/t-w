@@ -23,8 +23,8 @@
    실행: node sim-signup.js   (app.js · firebase-init.js · desk-companion-prototype.html 과 같은 폴더에서 — run.js 가 맞춰 준다)
 */
 'use strict';
-/* 모듈이 저장을 shared/ls-set.js(TwLsSet)로 한다 — 이 검사의 저장소 위에 하나 만든다(안내는 받지 않음) */
-const lsSetOn = (ls) => { const src = ['ls-set.js', 'app/parts/shared/ls-set.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const w = { TwErrorCodes: { notify(){ return true; } } }; new Function('window', 'localStorage', 'console', 'module', src)(w, ls, { warn(){} }, undefined); return w.TwLsSet; };
+/* 모듈이 저장을 shared/ls-set.js(TwLsSet — JSON 칸은 json-store 를 거친다)로 한다 — 이 검사의 저장소 위에 하나 만든다(안내는 받지 않음) */
+const lsSetOn = (ls) => { const src = ['ls-set.js', 'app/parts/shared/ls-set.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const js = ['json-store.js', 'app/parts/shared/json-store.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const jm = { exports: {} }; new Function('window', 'module', js)(undefined, jm); const st = jm.exports.createJsonStore({ storage: () => ls }); const w = { TwErrorCodes: { notify(){ return true; } }, TwJsonStore: Object.assign({}, jm.exports, { load: st.load, save: st.save }) }; new Function('window', 'localStorage', 'console', 'module', src)(w, ls, { warn(){} }, undefined); return w.TwLsSet; };
 globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
 const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const fs = require('fs');

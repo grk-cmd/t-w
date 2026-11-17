@@ -82,17 +82,19 @@
     return out;
   }
   function bmLoadLocal(){
-    try{ bmData = bmClean(JSON.parse(localStorage.getItem(BM_KEY) || '{}')); }catch(_){ bmData = { order:[], items:{}, ts:0 }; }
+    /* 서버에서 받기 전에는 이 기기 것이 원본 — 망가졌으면 알리고(E-SYS-11 한 번) 그 위에 쓰지 않는다 */
+    bmData = bmClean(TwLsSet.lsLoadJson(BM_KEY, {}).list);
   }
-  function bmSaveLocal(){
-    TwLsSet.lsSave(BM_KEY, JSON.stringify({ order:bmData.order.join(','), items:bmData.items, ts:bmData.ts }));
-  }
+  function bmLocalPayload(){ return { order:bmData.order.join(','), items:bmData.items, ts:bmData.ts }; }
+  /* 이 기기에 쓰기 — 서버에서 책장을 실제로 받았으면(bmFromServer) 사본이라 망가진 글 위에도, 아니면 안 씀(E-SYS-11). 남았으면 true */
+  let bmFromServer = false;
+  function bmSaveLocal(){ return TwLsSet.lsSaveCopy(BM_KEY, bmLocalPayload(), bmFromServer); }
   async function bmPull(){
     const u = uid(), a = api();
     if(!u || !a || !a.getBookmarks) return false;
     const r = await a.getBookmarks(u).catch(()=>null);
     if(!r || !r.ok) return false;
-    if(r.data){ bmData = bmClean(r.data); bmSaveLocal(); }
+    if(r.data){ bmData = bmClean(r.data); bmFromServer = true; bmSaveLocal(); }
     else if(bmData.order.length){ await bmPush(); }   // 서버가 비었고 이 기기에만 있으면 올린다
     bmLoaded = true;
     return true;
@@ -100,14 +102,15 @@
   async function bmPush(){
     const u = uid(), a = api();
     bmData.ts = Date.now();
-    bmSaveLocal(); bmRender();
+    const local = bmSaveLocal();   // 먼저 이 기기에
+    bmRender();
     if(!u || !a || !a.saveBookmarks){ return false; }
     /* 빈 주소 칸은 서버로 보내지 않는다 — 규칙은 «있으면 http/https» 라서 빈 문자열은 거절된다(주소는 선택). */
     const strip = (k)=>{ const it = Object.assign({}, bmData.items[k]); if(!it.url) delete it.url; if(!it.img) delete it.img; return it; };
     const items = {};
     Object.keys(bmData.items).forEach(k=>{ items[k] = strip(k); });
     const r = await a.saveBookmarks(u, { order:bmData.order.join(','), items, ts:bmData.ts }).catch(()=>null);
-    if(!r || !r.ok){ toastOf('책장을 저장하지 못했어요 — 이 기기에만 남아 있어요'); return false; }
+    if(!r || !r.ok){ if(local) toastOf('책장을 저장하지 못했어요 — 이 기기에만 남아 있어요'); return false; }   // 이 기기에도 못 남겼으면 그쪽 안내(E-SYS-10 · 11)만
     /* 👀 공개 사본 — 공개로 표시한 책만 따로 올린다(방문자는 이 노드만 읽는다). 하나도 없으면 노드를 지운다. */
     if(a.savePublicBookmarks){
       const pubOrder = bmData.order.filter(k=>bmData.items[k] && bmData.items[k].pub);

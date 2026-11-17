@@ -422,7 +422,7 @@ function removePartEntryInstance(e, idx){
 }
 let savedParts=[];   // [{id, cat, name, icon, glb(base64)}]
 function loadSavedParts(){
-  try{ savedParts=JSON.parse(localStorage.getItem(SAVED_PARTS_KEY)||'[]'); }catch(_){ savedParts=[]; }
+  savedParts = TwLsSet.lsLoadJson(SAVED_PARTS_KEY, []).list;   // 해석 안 됨 ≠ 없음 — 그 위에 쓰지 않는다(persistSavedParts)
   if(Array.isArray(savedParts)) savedParts.forEach(_normPartRec); else savedParts=[];
 }
 /* 🎰 가챠 파츠는 **항상** 겹쳐 입는다(stackable) — 들어오는 입구 두 곳(로컬 캐시 · 카탈로그)에서 못박는다.
@@ -443,7 +443,7 @@ function persistSavedParts(){
     if(p.fromCatalog && p.glbUrl){ const clone={...p}; delete clone.glb; return clone; }
     return p;
   });
-  try{ localStorage.setItem(SAVED_PARTS_KEY,JSON.stringify(stripped)); }catch(_){ toast('저장 공간이 부족해요'); }
+  TwLsSet.lsSaveJson(SAVED_PARTS_KEY, stripped);   // 해석 안 되는 저장분 위엔 안 씀(E-SYS-11) · 못 남기면 E-SYS-10
 }
 function partsInCat(cat){ return savedParts.filter(p=>p.cat===cat); }
 /* 🎰 카테고리 상한은 "꾸미기 창에 진열되는 파츠"의 상한이다.

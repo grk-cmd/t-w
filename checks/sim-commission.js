@@ -7,6 +7,11 @@
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · commission.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
+/* 모듈이 JSON 칸을 shared/json-store.js(TwJsonStore)로 읽고 쓴다 — 이 검사의 저장소 위에 하나 만든다(번호 안내는 받지 않음) */
+const jsonStoreOn = (ls) => { const src = ['json-store.js', 'app/parts/shared/json-store.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const m = { exports: {} }; new Function('window', 'module', src)(undefined, m); const s = m.exports.createJsonStore({ storage: () => ls }); return Object.assign({}, m.exports, { load: s.load, save: s.save }); };
+const errCodesStub = { notify(){ return true; } };
+/* 모듈이 저장을 shared/ls-set.js(TwLsSet — JSON 칸은 json-store 를 거친다)로 한다 — 이 검사의 저장소 위에 하나 만든다(안내는 받지 않음) */
+const lsSetOn = (ls) => { const src = ['ls-set.js', 'app/parts/shared/ls-set.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const js = ['json-store.js', 'app/parts/shared/json-store.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const jm = { exports: {} }; new Function('window', 'module', js)(undefined, jm); const st = jm.exports.createJsonStore({ storage: () => ls }); const w = { TwErrorCodes: { notify(){ return true; } }, TwJsonStore: Object.assign({}, jm.exports, { load: st.load, save: st.save }) }; new Function('window', 'localStorage', 'console', 'module', src)(w, ls, { warn(){} }, undefined); return w.TwLsSet; };
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
@@ -18,13 +23,13 @@ const MOD = ["commission.js","parts/character/commission.js","app/parts/characte
 if(!MOD){ say('  ? 원본 못 찾음 — commission.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_b64","_deriveKey","_unb64","toast"];
+const FN_DEPS = ["_b64","_deriveKey","_unb64"];
 const VAL_DEPS = [];
 const GET_DEPS = [];
 const SET_DEPS = [];
 const EXPORTS = ["MAX_COMMISSION_BYTES","MAX_CUSTOM_ASSETS","MAX_CUSTOM_ITEMS","MAX_GLB_BYTES","catalogBacked","decryptCommission","encryptCommission","persistSavedAssets","savedDesks","setSavedDesks","savedItems","setSavedItems","unpackCommissionZip"];
 const MOVED = ["MAX_COMMISSION_BYTES","COMMISSION_TEX_SIZE","resizeImgBlobTo","unpackCommissionZip","encryptCommission","decryptCommission","SAVED_DESK_KEY","SAVED_ITEM_KEY","MAX_CUSTOM_ASSETS","MAX_CUSTOM_ITEMS","MAX_GLB_BYTES","savedDesks","savedItems","loadSavedAssets","persistSavedAssets"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  _b64: (...a)=>_b64(...a),","  _deriveKey: (...a)=>_deriveKey(...a),","  _unb64: (...a)=>_unb64(...a),","  toast: (...a)=>toast(...a),"];
+const GLUE = ["  _b64: (...a)=>_b64(...a),","  _deriveKey: (...a)=>_deriveKey(...a),","  _unb64: (...a)=>_unb64(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -44,8 +49,8 @@ function build(src){
   const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
-  const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
-    src + '\nreturn window.TwCommission;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
+  const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module', 'TwJsonStore', 'TwErrorCodes', 'TwLsSet',
+    src + '\nreturn window.TwCommission;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined, jsonStoreOn(ls), errCodesStub, lsSetOn(ls));
   return api.createCommission(deps);
 }
 
@@ -89,7 +94,7 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const commissionMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('commissionMod.' + x)); if(n){ ls[i] = ls[i].replace('commissionMod.' + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 deps 를 되부름', m => m.replace('loadSavedAssets();\n\nreturn {', 'loadSavedAssets();\ntoast("깨 봄");\n\nreturn {'), null, null],
+  ['만들 때 deps 를 되부름', m => m.replace('loadSavedAssets();\n\nreturn {', 'loadSavedAssets();\n_b64("깨 봄");\n\nreturn {'), null, null],
   ['부팅 등록 줄 빠짐', null, a => a.replace('\nloadSavedItemsIntoSession();\n', '\n'), null],
   ['만들 때 던짐', m => m.replace('function createCommission(deps){', 'function createCommission(deps){ throw new Error("깨 봄");'), null, null],
 ];

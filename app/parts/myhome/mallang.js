@@ -67,7 +67,9 @@
   function hasLicense(){ try{ return !!window._premiumOn(); }catch(_){ return false; } }
   function esc(s){ return TwSafeHtml.text(s); }   // 마크업 글자 안에 넣을 값 — 공용(shared/safe-html.js)
   function lsKey(){ return 'tw.mallang.' + (myId()||'anon'); }
-  function saveLocal(){ TwLsSet.lsSave(lsKey(), JSON.stringify(imgs)); }
+  /* 이 기기 백업 쓰기 — 이번에 서버에서 내 말랑이를 실제로 받았으면(_mlFromServer) 사본이라 망가진 글 위에도, 아니면(서버가 비었음 · 못 읽음) 백업이 원본이라 안 씀(E-SYS-11). 남았으면 true */
+  let _mlFromServer = false;
+  function saveLocal(){ return TwLsSet.lsSaveCopy(lsKey(), imgs, _mlFromServer); }
   /* 💾 로컬 먼저, 서버는 그 다음. **이 함수는 던지지 않는다.**
      [무엇이 문제였나] 예전 판은 `await firebaseAPI.saveMallangImgs(...)` 한 줄이었다. 위험이 둘이다.
        ① **결과를 버린다.** saveMallangImgs 는 실패해도 예외 대신 `{ok:false}` 를 돌려주므로
@@ -82,16 +84,15 @@
      ★ 로그인 전(uid 없음)은 실패가 아니다 — lsKey 가 'anon' 으로 로컬 저장을 하고 있고,
        그 상태로 `users/null/mallang` 에 쓰면 규칙상 통과해 **엉뚱한 노드에 쌓인다.** 여기서 막는다. */
   async function persist(){
-    saveLocal();                       // 서버가 안 되어도 이 기기에서는 남는다 — 순서를 바꾸지 말 것
-    if(!fbReady() || !firebaseAPI.saveMallangImgs) return { ok:false, reason:'offline' };
+    const local = saveLocal();         // 서버가 안 되어도 이 기기에서는 남는다 — 순서를 바꾸지 말 것
+    const onlyLocal = (reason) => ({ ok:false, reason, local });
+    if(!fbReady() || !firebaseAPI.saveMallangImgs) return onlyLocal('offline');
     const uid = myId();
-    if(!uid) return { ok:false, reason:'no-uid' };
-    try{
-      const r = await firebaseAPI.saveMallangImgs(uid, imgs);
-      return (r && r.ok) ? { ok:true } : { ok:false, reason:'server' };
-    }catch(_){
-      return { ok:false, reason:'server' };
-    }
+    if(!uid) return onlyLocal('no-uid');
+    let r = null;
+    try{ r = await firebaseAPI.saveMallangImgs(uid, imgs); }catch(_){ r = null; }
+    if(!(r && r.ok)) return onlyLocal('server');
+    return { ok:true };
   }
   /* 🔔 "이 기기에만 저장됐다"를 알린다 — 조용히 넘어가면 유저는 다른 기기에서야 알게 된다.
      ★ no-uid 는 알리지 않는다. 로그인 전에는 로컬 저장이 정상 동작이고, 그때 토스트를 띄우면
@@ -99,7 +100,7 @@
      ★ 5초에 한 번만 — 슬롯을 연타하면 토스트가 쌓여 화면을 덮는다. */
   let _persistWarnAt = 0;
   function warnIfUnsaved(r){
-    if(!r || r.ok || r.reason === 'no-uid') return;
+    if(!r || r.ok || r.reason === 'no-uid' || r.local === false) return;   // 이 기기에도 못 남겼으면 «이 기기에만» 은 틀린 말 — 그쪽 안내(E-SYS-10 · 11)만
     const now = Date.now();
     if(now - _persistWarnAt < 5000) return;
     _persistWarnAt = now;
@@ -817,10 +818,15 @@
   async function loadImgsFor(userId){
     imgs = [];
     let raw = [];
-    if(fbReady() && userId) raw = await firebaseAPI.getMallangImgs(userId).catch(()=>[]) || [];   // 내 코드가 없으면 서버는 안 읽고 로컬 백업('anon')만
-    // 서버가 비었고 '내 것'을 보는 중이면 로컬 백업에서 복원 (규칙 미반영 등 대비)
-    if((!raw || !raw.length) && userId===myId()){
-      try{ const ls=JSON.parse(localStorage.getItem(lsKey())||'null'); if(Array.isArray(ls)) raw=ls; }catch(_){}
+    let got = false;                  // 서버에서 실제로 받았나 — 비었음 · 못 읽음(getMallangImgs 는 실패도 [] 로 준다)은 «못 받음»
+    if(fbReady() && userId){   // 내 코드가 없으면 서버는 안 읽고 로컬 백업('anon')만
+      try{ const s = await firebaseAPI.getMallangImgs(userId); if(Array.isArray(s) && s.length){ raw = s; got = true; } }catch(_){}
+    }
+    if(userId===myId()) _mlFromServer = got;
+    // 서버에서 못 받았고 '내 것'을 보는 중이면 로컬 백업에서 복원 (규칙 미반영 등 대비) — 이때 백업은 하나뿐인 원본이라 망가졌으면 알린다
+    if(!got && userId===myId()){
+      const r = TwLsSet.lsLoadJson(lsKey(), null);
+      if(r.ok && Array.isArray(r.list)) raw = r.list;
     }
     imgs = (raw||[]).map(x => (typeof x==='string') ? { url:x, on:true } : { url:x.url, on:(x.on!==false) }).filter(x=>x && x.url);
   }

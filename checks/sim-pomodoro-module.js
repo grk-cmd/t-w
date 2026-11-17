@@ -10,8 +10,11 @@
    ・7절: app.js 배선 — 정의는 모듈에만 · createPomodoro 는 원래 자리 · deps 모양 · 빈 껍데기 · _focusShowConf 는 typeof 가드 · html 순서 · 전역 이름
    [실행] pomodoro.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
-/* 모듈이 저장을 shared/ls-set.js(TwLsSet)로 한다 — 이 검사의 저장소 위에 하나 만든다(안내는 받지 않음) */
-const lsSetOn = (ls) => { const src = ['ls-set.js', 'app/parts/shared/ls-set.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const w = { TwErrorCodes: { notify(){ return true; } } }; new Function('window', 'localStorage', 'console', 'module', src)(w, ls, { warn(){} }, undefined); return w.TwLsSet; };
+/* 모듈이 JSON 칸을 shared/json-store.js(TwJsonStore)로 읽고 쓴다 — 이 검사의 저장소 위에 하나 만든다(번호 안내는 받지 않음) */
+const jsonStoreOn = (ls) => { const src = ['json-store.js', 'app/parts/shared/json-store.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const m = { exports: {} }; new Function('window', 'module', src)(undefined, m); const s = m.exports.createJsonStore({ storage: () => ls }); return Object.assign({}, m.exports, { load: s.load, save: s.save }); };
+const errCodesStub = { notify(){ return true; } };
+/* 모듈이 저장을 shared/ls-set.js(TwLsSet — JSON 칸은 json-store 를 거친다)로 한다 — 이 검사의 저장소 위에 하나 만든다(안내는 받지 않음) */
+const lsSetOn = (ls) => { const src = ['ls-set.js', 'app/parts/shared/ls-set.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const js = ['json-store.js', 'app/parts/shared/json-store.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const jm = { exports: {} }; new Function('window', 'module', js)(undefined, jm); const st = jm.exports.createJsonStore({ storage: () => ls }); const w = { TwErrorCodes: { notify(){ return true; } }, TwJsonStore: Object.assign({}, jm.exports, { load: st.load, save: st.save }) }; new Function('window', 'localStorage', 'console', 'module', src)(w, ls, { warn(){} }, undefined); return w.TwLsSet; };
 const fs = require('fs');
 const vm = require('vm');
 let pass = 0, fail = 0, done = false;
@@ -59,6 +62,8 @@ function mkEnv(opt){
     _focusLogClamp: () => { env.clamps++; },
   };
   ctx.window = ctx;
+  ctx.TwJsonStore = jsonStoreOn(ctx.localStorage);
+  ctx.TwErrorCodes = errCodesStub;
   ctx.TwLsSet = lsSetOn(ctx.localStorage);
   vm.createContext(ctx);
   vm.runInContext(MOD, ctx, { filename: 'pomodoro.js' });
