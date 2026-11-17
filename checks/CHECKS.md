@@ -99,7 +99,7 @@
 | **sim-friend-visit.js** | 115 | **c33a7fed1e41** |
 | **sim-friends-sub.js** | 642 | **d9cee57cc23b** |
 | **sim-friends-port.js** | 324 | **b94a81b6ba2c** |
-| **sim-friends-presence-rt.js** | 357 | **8dc5fd4ef2e6** |
+| **sim-friends-presence-rt.js** | 361 | **d7264878dfc0** |
 | **sim-social-api.js** | 275 | **3c3a4c43d6fa** |
 | **sim-friend-profile-live.js** | 216 | **ea0967a796fb** |
 | **sim-second-instance.js** | 226 | **65e5433c9fed** |
