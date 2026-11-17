@@ -8,6 +8,8 @@
    ・4절: HTML — 목록 id 가 CHAT_SFX_LIST 와 같다 · 서브메뉴가 #chatWindow 안 · :hover 로 열림 · fly 이름 안 씀.
    [실행] app.js · chat-window.js · desk-companion-prototype.html 이 있는 폴더에서(chat-notify-*.mp3 는 있으면 본다). */
 'use strict';
+/* 모듈이 저장을 shared/ls-set.js(TwLsSet)로 한다 — 이 검사의 저장소 위에 하나 만든다(안내는 받지 않음) */
+const lsSetOn = (ls) => { const src = ['ls-set.js', 'app/parts/shared/ls-set.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const w = { TwErrorCodes: { notify(){ return true; } } }; new Function('window', 'localStorage', 'console', 'module', src)(w, ls, { warn(){} }, undefined); return w.TwLsSet; };
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 /* 💬 대화창 배선(🔔 알림음 메뉴 연결 · 저장값 반영)은 parts/chat/chat-window.js 로 옮겼다(앱 FSD 14번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
@@ -32,10 +34,10 @@ say('── 1. 상태 · 게이트 (실행)');
   chk(/CHAT_SFX_ON_KEY\s*=\s*'tw\.chatSfx'/.test(SRC) && /CHAT_SFX_ID_KEY\s*=\s*'tw\.chatSfxId'/.test(SRC), '저장 키 tw.chatSfx · tw.chatSfxId (로컬)');
   if(!(listM && consts.every(Boolean) && fns.every(Boolean))){ say('  · 함수가 없어 실행 판정을 건너뜀'); }
   else {
-  const env = { store:{}, played:[], focus:true, open:true, active:'input', now:1000,
+  const env = { lsSetOn, store:{}, played:[], focus:true, open:true, active:'input', now:1000,
     items:[1,2,3].map(n => ({ dataset:{ sfx:String(n) }, k:{ textContent:'' } })), tgChk:{ textContent:'' }, note:{ textContent:'' }, office:false, list:{ style:{ display:'' } } };
   const run = new Function('env', `
-    const localStorage = { getItem:k => (k in env.store ? env.store[k] : null), setItem:(k,v)=>{ env.store[k]=String(v); } };
+    const localStorage = { getItem:k => (k in env.store ? env.store[k] : null), setItem:(k,v)=>{ env.store[k]=String(v); } }; const TwLsSet = env.lsSetOn(localStorage);
     const Date = { now:()=>env.now };
     env.tg = { title:'', cls:new Set(), classList:{ toggle:(c,v)=> v ? env.tg.cls.add(c) : env.tg.cls.delete(c) },
                querySelector:q => q === '.chk' ? env.tgChk : env.note };
@@ -50,6 +52,7 @@ say('── 1. 상태 · 게이트 (실행)');
     };
     ${listM ? listM[0].replace(/srcs:\[[^\]]*\]/g, 'srcs:[]') : ''}
     ${consts.join('\n')}
+    const DEMOJI_SFX_ON_KEY = 'tw.demojiSfx';   // 채팅 알림음을 끄면 이모티콘 소리도 끈다(_setChatSfxOn) — 예전엔 이름이 없어도 빈 catch 가 삼켰다
     let _chatSfxLast = 0;
     const _chatSfxPools = {}; CHAT_SFX_LIST.forEach(x=>{ _chatSfxPools[x.id] = { play:()=>env.played.push(x.id) }; });
     ${fns.join('\n').replace(/!!officeMode/, '!!_og.officeMode')}
@@ -135,9 +138,9 @@ say('── 3-2. 워킹룸 받은 이모티콘 소리 (실행)');
     const fns = need.map(g);
     const keyM = /const DEMOJI_SFX_ON_KEY = '[^']+';/.exec(src), idM = /const DEMOJI_SFX_ID = \d+;/.exec(src);
     if(!fns.every(Boolean) || !keyM || !idM) return null;
-    const env = { store:{}, played:[], now:1000, office:false };
+    const env = { lsSetOn, store:{}, played:[], now:1000, office:false };
     const A = new Function('env', `
-      const localStorage = { getItem:k => (k in env.store ? env.store[k] : null), setItem:(k,v)=>{ env.store[k]=String(v); } };
+      const localStorage = { getItem:k => (k in env.store ? env.store[k] : null), setItem:(k,v)=>{ env.store[k]=String(v); } }; const TwLsSet = env.lsSetOn(localStorage);
       const Date = { now:()=>env.now };
       const document = { getElementById:()=>null, querySelectorAll:()=>[] };
       const _og = { get officeMode(){ return env.office; } };   // 옮기기 전 글은 officeMode 를 값으로 읽는다(1절과 같은 처리)
@@ -185,7 +188,7 @@ say('── 3-2. 워킹룸 받은 이모티콘 소리 (실행)');
     chk(!!b1 && !b1.onTurnsChat, '  깨 보기 — 켤 때 채팅 알림음을 안 켜면 빨강');
     const b2 = run(SRC.replace("_chatSfxPreview(DEMOJI_SFX_ID);", "_chatSfxPreview(_chatSfxId());"));
     chk(!!b2 && !b2.sound1, '  깨 보기 — 고른 소리를 따라가면 빨강');
-    const b3 = run(SRC.replace("  if(!on){ try{ localStorage.setItem(DEMOJI_SFX_ON_KEY, '0'); }catch(_){} }", ''));
+    const b3 = run(SRC.replace("  if(!on) TwLsSet.lsSet(DEMOJI_SFX_ON_KEY, '0');", ''));
     chk(!!b3 && !b3.chatBackStaysOff, '  깨 보기 — 채팅을 끌 때 이모티콘 소리를 안 끄면 빨강');
   }
   const recv = (SRC.match(/const chat=friends\[id\]\.chat;[\s\S]*?\n    \}/) || [''])[0];
