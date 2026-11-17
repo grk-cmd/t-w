@@ -82,19 +82,20 @@
     return out;
   }
   function bmLoadLocal(){
-    const r = TwJsonStore.load(BM_KEY, {});   // 해석 안 됨 ≠ 없음 — 그 위에 쓰지 않는다(bmSaveLocal)
-    bmData = bmClean(r.list);
-    if(!r.ok) TwErrorCodes.notify('E-SYS-11', r.err);
+    /* 서버가 원본, 이 기기 것은 사본 — 망가져 있어도 읽을 때는 알리지 않는다(서버에서 받으면 고쳐 쓴다) */
+    bmData = bmClean(TwLsSet.lsLoadJson(BM_KEY, {}, { quiet: true }).list);
   }
-  function bmSaveLocal(){
-    TwLsSet.lsSaveJson(BM_KEY, { order:bmData.order.join(','), items:bmData.items, ts:bmData.ts });   // 해석 안 되는 저장분 위엔 안 씀(E-SYS-11)
-  }
+  function bmLocalPayload(){ return { order:bmData.order.join(','), items:bmData.items, ts:bmData.ts }; }
+  /* 이 기기에만 쓰기 — 해석 안 되는 저장분 위엔 안 씀(서버도 못 쓴 때라 E-SYS-11). 남았으면 true */
+  function bmSaveLocal(){ return TwLsSet.lsSaveJson(BM_KEY, bmLocalPayload()); }
+  /* 서버 것을 받았거나 서버에 썼다 — 이 기기 것은 사본이니 망가진 글 위에도 쓴다 */
+  function bmSaveCopy(){ return TwLsSet.lsSave(BM_KEY, JSON.stringify(bmLocalPayload())); }
   async function bmPull(){
     const u = uid(), a = api();
     if(!u || !a || !a.getBookmarks) return false;
     const r = await a.getBookmarks(u).catch(()=>null);
     if(!r || !r.ok) return false;
-    if(r.data){ bmData = bmClean(r.data); bmSaveLocal(); }
+    if(r.data){ bmData = bmClean(r.data); bmSaveCopy(); }
     else if(bmData.order.length){ await bmPush(); }   // 서버가 비었고 이 기기에만 있으면 올린다
     bmLoaded = true;
     return true;
@@ -102,14 +103,16 @@
   async function bmPush(){
     const u = uid(), a = api();
     bmData.ts = Date.now();
-    bmSaveLocal(); bmRender();
-    if(!u || !a || !a.saveBookmarks){ return false; }
+    const local = TwJsonStore.save(BM_KEY, bmLocalPayload());   // 먼저 이 기기에 — 막혔는지는 서버 결과를 보고 알린다
+    bmRender();
+    if(!u || !a || !a.saveBookmarks){ if(!local.ok) bmSaveLocal(); return false; }
     /* 빈 주소 칸은 서버로 보내지 않는다 — 규칙은 «있으면 http/https» 라서 빈 문자열은 거절된다(주소는 선택). */
     const strip = (k)=>{ const it = Object.assign({}, bmData.items[k]); if(!it.url) delete it.url; if(!it.img) delete it.img; return it; };
     const items = {};
     Object.keys(bmData.items).forEach(k=>{ items[k] = strip(k); });
     const r = await a.saveBookmarks(u, { order:bmData.order.join(','), items, ts:bmData.ts }).catch(()=>null);
-    if(!r || !r.ok){ toastOf('책장을 저장하지 못했어요 — 이 기기에만 남아 있어요'); return false; }
+    if(!r || !r.ok){ if(local.ok || bmSaveLocal()) toastOf('책장을 저장하지 못했어요 — 이 기기에만 남아 있어요'); return false; }   // 이 기기에도 못 남겼으면 그쪽 안내만
+    if(!local.ok) bmSaveCopy();
     /* 👀 공개 사본 — 공개로 표시한 책만 따로 올린다(방문자는 이 노드만 읽는다). 하나도 없으면 노드를 지운다. */
     if(a.savePublicBookmarks){
       const pubOrder = bmData.order.filter(k=>bmData.items[k] && bmData.items[k].pub);

@@ -422,9 +422,7 @@ function removePartEntryInstance(e, idx){
 }
 let savedParts=[];   // [{id, cat, name, icon, glb(base64)}]
 function loadSavedParts(){
-  const r = TwJsonStore.load(SAVED_PARTS_KEY, []);   // 해석 안 됨 ≠ 없음 — 그 위에 쓰지 않는다(persistSavedParts)
-  savedParts = r.list;
-  if(!r.ok) TwErrorCodes.notify('E-SYS-11', r.err);
+  savedParts = TwLsSet.lsLoadJson(SAVED_PARTS_KEY, []).list;   // 해석 안 됨 ≠ 없음 — 그 위에 쓰지 않는다(persistSavedParts)
   if(Array.isArray(savedParts)) savedParts.forEach(_normPartRec); else savedParts=[];
 }
 /* 🎰 가챠 파츠는 **항상** 겹쳐 입는다(stackable) — 들어오는 입구 두 곳(로컬 캐시 · 카탈로그)에서 못박는다.

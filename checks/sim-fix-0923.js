@@ -33,8 +33,8 @@ say('── 1. 🎰 가챠 = stackable · 숫자키 맵');
   chk(N({ id:'g', gacha:true, stackable:false }).stackable === true, '옛 가챠 파츠(stackable:false) → true');
   chk(N({ id:'n', stackable:false }).stackable === false, '일반 파츠는 그대로');
   /* 입구 두 곳은 글 모양이 아니라 진짜 함수를 돌려 본다 — 합치기 규칙을 옮겨도 판정이 안 깨지게 */
-  const IN = new Function('localStorage', 'document', 'jsonStoreOn', 'TwErrorCodes', [
-    'const TwJsonStore = jsonStoreOn(localStorage);',
+  const IN = new Function('localStorage', 'document', 'jsonStoreOn', 'TwErrorCodes', 'lsSetOn', [
+    'const TwJsonStore = jsonStoreOn(localStorage), TwLsSet = lsSetOn(localStorage);',
     "const SAVED_PARTS_KEY = 'tw.savedParts', CATALOG_ORDER_LAST = 9999; let savedParts = [];",
     'const log = [], seats = [];',
     'const persistSavedParts = () => {}, applyClothVisibility = () => {}, unequipPartFromSeat = () => {}, fitModel = () => {}, layoutSeats = () => {};',
@@ -48,10 +48,10 @@ say('── 1. 🎰 가챠 = stackable · 숫자키 맵');
   ].join('\n'));
   const doc = { getElementById: () => null };
   const old = [{ id:'g1', cat:'hat', gacha:true, stackable:false }, { id:'n1', cat:'hat', stackable:false }];
-  let E = IN({ getItem: () => JSON.stringify(old) }, doc, jsonStoreOn, errCodesStub);
+  let E = IN({ getItem: () => JSON.stringify(old) }, doc, jsonStoreOn, errCodesStub, lsSetOn);
   E.load();
   chk(E.parts().find(p => p.id === 'g1').stackable === true && E.parts().find(p => p.id === 'n1').stackable === false, '입구 ① 로컬 캐시(loadSavedParts) — 옛 가챠 기록을 읽으면 stackable · 일반 파츠는 그대로');
-  E = IN({ getItem: () => '[]' }, doc, jsonStoreOn, errCodesStub);
+  E = IN({ getItem: () => '[]' }, doc, jsonStoreOn, errCodesStub, lsSetOn);
   E.seats.push({ charDef:{ equippedParts:{ hat:[{ id:'hat0', xf:{} }, { id:'g2', xf:{ y:1 } }] } } });
   E.merge({ g2:{ cat:'hat', gacha:true, stackable:false }, n2:{ cat:'hat', stackable:false } });
   const g2 = E.parts().find(p => p.id === 'g2');

@@ -39,7 +39,7 @@ var POMO_KEY = 'tw.pomo', POMO_RUN_KEY = 'tw.pomoRun';
 var POMO_PRESETS = { '25': { f:25, s:5, l:15 }, '50': { f:50, s:10, l:20 } };
 var _pomoCfg = { preset:'25', f:25, s:5, l:15, every:4, auto:true, sound:true };
 var _pomoRun = null;   // { phase:'focus'|'short'|'long', endAt, left(일시정지 중 남은 ms), paused, done(이번 사이클에 끝낸 집중 수), total(이 구간 길이 ms) }
-{ const r = TwJsonStore.load(POMO_KEY, null); if(!r.ok) TwErrorCodes.notify('E-SYS-11', r.err); else if(r.list && typeof r.list === 'object') Object.assign(_pomoCfg, r.list); }   // 해석 안 됨 ≠ 없음 — 그 위에 쓰지 않는다(_pomoSaveCfg)
+{ const r = TwLsSet.lsLoadJson(POMO_KEY, null); if(r.ok && r.list && typeof r.list === 'object') Object.assign(_pomoCfg, r.list); }   // 해석 안 됨 ≠ 없음 — 그 위에 쓰지 않는다(_pomoSaveCfg)
 try{ const r = JSON.parse(localStorage.getItem(POMO_RUN_KEY) || 'null'); if(r && r.phase && r.total > 0) _pomoRun = r; }catch(_){}
 function _pomoClampMin(v, lo, hi, d){ const n = parseInt(v, 10); return (n >= lo && n <= hi) ? n : d; }
 function _pomoSaveCfg(){ TwLsSet.lsSetJson(POMO_KEY, _pomoCfg); }   // 해석 안 되는 저장분 위엔 안 씀(E-SYS-11) · 못 남기면 E-SYS-09

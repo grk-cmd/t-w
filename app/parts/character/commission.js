@@ -94,12 +94,10 @@ async function decryptCommission(code, pass){
 const SAVED_DESK_KEY='tw.savedDesks', SAVED_ITEM_KEY='tw.savedItems';
 const MAX_CUSTOM_ASSETS=6, MAX_CUSTOM_ITEMS=50, MAX_GLB_BYTES=1024*1024;   // 1MB — 책상은 6개, 아이템은 요청에 따라 50개까지
 let savedDesks=[], savedItems=[];   // [{id, name, icon, glb(base64)}]
-/* 읽기 실패(해석 안 됨)는 «없음» 과 다르다 — 빈 목록으로 보여 주되 그 위에 쓰지 않는다(TwJsonStore.save 가 막는다). */
+/* 읽기 실패(해석 안 됨)는 «없음» 과 다르다 — 빈 목록으로 보여 주되 그 위에 쓰지 않는다(lsSaveJson 이 막는다). */
 function loadSavedAssets(){
-  const d = TwJsonStore.load(SAVED_DESK_KEY, []), i = TwJsonStore.load(SAVED_ITEM_KEY, []);
-  savedDesks = d.list; savedItems = i.list;
-  if(!d.ok) TwErrorCodes.notify('E-SYS-11', d.err);
-  if(!i.ok) TwErrorCodes.notify('E-SYS-11', i.err);
+  savedDesks = TwLsSet.lsLoadJson(SAVED_DESK_KEY, []).list;
+  savedItems = TwLsSet.lsLoadJson(SAVED_ITEM_KEY, []).list;
 }
 /* 카탈로그에서 다시 받을 수 있는 자산인가 — 그렇다면 GLB 바이트를 이 PC 저장소에 복사해 두지 않는다(필요할 때 resolveCatalogGlb).
    책상 프리셋(creator/desk-preset-store.js)도 이 판단을 쓴다 — 조건을 다시 쓰지 말 것. */

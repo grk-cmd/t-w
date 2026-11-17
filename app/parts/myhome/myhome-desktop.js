@@ -82,9 +82,7 @@ function blankSlot(){
 }
 function advLoad(){
   try{
-    const r = TwJsonStore.load(ADV_KEY, null);   // 해석 안 됨 ≠ 없음 — 기본값으로 시작하되 그 위에 쓰지 않는다(advSave)
-    if(!r.ok) TwErrorCodes.notify('E-SYS-11', r.err);
-    const d = r.list;
+    const d = TwLsSet.lsLoadJson(ADV_KEY, null).list;   // 해석 안 됨 ≠ 없음 — 기본값으로 시작하되 그 위에 쓰지 않는다(advSave)
     if(d && Array.isArray(d.slots)){
       const slots = [0,1,2].map(i => Object.assign(blankSlot(), d.slots[i] || {},
         { faceImgs: (function(sd){ const f=Object.assign({a:null,b:null,c:null,d:null},(sd&&sd.faceImgs)||{});

@@ -481,6 +481,8 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 설정(테마 · 토글 · 크기 · 소리 같은 작은 값): `lsSet(key, val)` · `lsUnset(key)` → `E-SYS-09`
   - 사용자가 만든 데이터(계정 · 라이선스 · 이름 · 친구 코드 · 캐릭터 슬롯 · 숨김 목록 · 상태 · 말랑 · 바탕화면 · 북마크): `lsSave(key, val)` · `lsRemove(key)` → `E-SYS-10`
   - JSON 칸: `lsSetJson(key, value)`(설정) · `lsSaveJson(key, value)`(데이터) — `json-store.js` 의 `save` 로 쓴다. 저장된 글이 해석이 안 되면 덮어쓰지 않고(blocked) `E-SYS-11`(세션당 한 번), 그 밖의 실패는 09 / 10.
+  - 읽기 짝: `lsLoadJson(key, fallback, { quiet })` — 해석 안 되면 `E-SYS-11`(막은 쓰기와 같은 «한 번» — 망가진 칸 하나에 안내 하나). `quiet` 는 서버가 원본인 칸(북마크 · 말랑 백업 — 서버에 쓰면 사본을 고쳐 쓰고, 서버도 안 될 때만 막힌 쓰기에서 알린다).
+  - 안내를 실제로 못 띄웠으면(부팅 중 토스트가 아직 없음 — `TwErrorCodes.notify` 가 false) «알렸다» 로 적지 않는다 — 다음 실패에서 뜬다.
 - **만드는 법**: 렌더러에서는 `window.TwLsSet`(`lsSet` · `lsUnset` · `lsSave` · `lsRemove` · `lsSetJson` · `lsSaveJson`)를 바로 쓴다(json-store.js 다음에 싣는다). app.js 는 원래 자리에서 `TwLsSet.createLsSet({ notifyError, jsonStore })` 로 만들어 옛 이름 `_lsSet` 으로 받는다(deps 로 `_lsSet` 을 받는 모듈 몫).
 - **함정**: «세션당 한 번» 기억은 파일 위에 있다 — app.js 가 만든 것과 window 것이 같이 센다. 캐시 · 창 위치 · 읽음 표시처럼 못 남겨도 잃는 게 없는 값은 여기로 보내지 않는다(알리면 소음). 새로 부르는 자리는 검사의 자리 표(`SITES`)에 더한다. 검사: `checks/sim-ls-set.js`.
 

@@ -7,7 +7,7 @@
      · 한 번 쓴 번호는 **다시 쓰지 않는다.** 걷은 번호는 RETIRED 로 옮긴다 — 옛 앱 사용자는
        옛 번호를 계속 불러 준다.
      · 새 번호는 표에 먼저 넣고 부른다. 표에 없는 번호를 부르면 검사(sim-error-codes)가 빨강이다.
-   ★ 부르는 법: TwErrorCodes.notify('E-FR-01', err) — 표의 문구로 토스트를 띄우고 진단 기록에 한 줄.
+   ★ 부르는 법: TwErrorCodes.notify('E-FR-01', err) — 표의 문구로 토스트를 띄우고 진단 기록에 한 줄. 토스트를 실제로 띄웠으면 true.
      문구에 개수처럼 그때그때 다른 말이 필요하면 셋째 인자로 준다(번호는 그대로 붙는다).
    ⚠️ 이 파일은 app.js 보다 먼저 실린다. 토스트(app.js 의 toast)는 **부를 때** 찾는다 — 실릴 때는 아직 없다.
    DOM 을 직접 안 만진다(검사 sim-error-codes.js). */
@@ -38,7 +38,7 @@ const CODES = {
   'E-SYS-08': { msg: '캐릭터 몸 파일을 불러오지 못했어요 — 앱을 다시 설치해 주세요', where: 'launcher/run-boot.js — 켤 때 기본 몸(window.BASE_GLB_B64)을 못 읽음(대신 몸으로 계속). 설치 파일이 깨졌을 수 있다' },
   'E-SYS-09': { msg: '이 PC 에 설정을 저장하지 못했어요 — 저장 공간이 가득 찼을 수 있어요', where: 'shared/ls-set.js — 설정(테마 · 채팅 · 표시 토글 · 자리 · 소리 · 뽀모도로 · 별 색 등) 쓰기 · 지우기가 남지 않음(lsSet · lsUnset · app.js _lsSet — 세션당 한 번)' },
   'E-SYS-10': { msg: '이 PC 에 저장하지 못했어요 — 저장 공간이 가득 찼을 수 있어요(다시 켜면 사라질 수 있어요)', where: 'shared/ls-set.js — 사용자가 만든 데이터(계정 · 라이선스 · 이름 · 친구 코드 · 캐릭터 슬롯 · 커미션 책상 · 아이템 · 저장 파츠 · 신고 숨김 · 상태 · 말랑 · 바탕화면 · 북마크) 쓰기 · 지우기가 남지 않음(lsSave · lsRemove — 세션당 한 번)' },
-  'E-SYS-11': { msg: '이 PC 에 저장된 내용을 읽지 못해 덮어쓰지 않았어요 — 바꾼 것은 저장되지 않아요', where: 'json-store 로 읽는 자리 · shared/ls-set.js lsSetJson · lsSaveJson — 저장분이 해석이 안 됨(읽기 실패 · 그 위 저장을 막음 blocked — 막은 쓰기 안내는 세션당 한 번): 커미션 책상 · 아이템(character/commission.js) · 저장 파츠(character/premium-assets.js) · 북마크(myhome/bookmark.js) · 뽀모도로 설정(focus/pomodoro.js) · 말랑 백업(myhome/mallang.js) · 바탕화면 모험(myhome/myhome-desktop.js)' },
+  'E-SYS-11': { msg: '이 PC 에 저장된 내용을 읽지 못해 덮어쓰지 않았어요 — 바꾼 것은 저장되지 않아요', where: 'shared/ls-set.js lsLoadJson · lsSetJson · lsSaveJson — 저장분이 해석이 안 됨(읽기 실패 · 그 위 저장을 막음 blocked — 막은 쓰기 안내는 세션당 한 번): 커미션 책상 · 아이템(character/commission.js) · 저장 파츠(character/premium-assets.js) · 북마크(myhome/bookmark.js) · 뽀모도로 설정(focus/pomodoro.js) · 말랑 백업(myhome/mallang.js) · 바탕화면 모험(myhome/myhome-desktop.js)' },
   'E-FR-01': { msg: '친구 요청을 수락하지 못했어요', where: 'myhome/friend-manage.js — 요청 팝업 · 받은 요청 [수락]' },
   'E-FR-02': { msg: '친구 요청을 거절하지 못했어요', where: 'myhome/friend-manage.js — 요청 팝업 · 받은 요청 [거절]' },
   'E-FR-03': { msg: '보낸 친구 요청을 취소하지 못했어요', where: 'myhome/friend-manage.js — 보낸 요청 [취소]' },
@@ -121,9 +121,11 @@ function createErrorNotice(deps){
     try{ console.warn('[오류] ' + c, err == null ? '' : err); }catch(_){}
     if(d.muted && d.muted()) return false;   // 서버 점검 중 — 실패는 점검 창이 알린다(maintenance-gate.js)
     if(lastShown[c] && at - lastShown[c] < REPEAT_MS) return false;
-    lastShown[c] = at;
-    try{ if(d.toast) d.toast(toastText(c, text), null, TOAST_MS); }catch(_){}
-    return true;
+    /* 실제로 띄웠을 때만 «띄웠다» 로 적는다 — 토스트가 아직 없을 때(부팅 중) 부른 것이 뒤의 안내를 10초 막지 않게 */
+    let shown = false;
+    try{ if(d.toast){ d.toast(toastText(c, text), null, TOAST_MS); shown = true; } }catch(_){}
+    if(shown) lastShown[c] = at;
+    return shown;
   }
   return { notify, recent: ()=>recent.slice() };
 }

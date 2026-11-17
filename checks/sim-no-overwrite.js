@@ -1,7 +1,10 @@
 /* ═══ 🛡 sim-no-overwrite.js — 읽기 실패 뒤 기본값으로 덮어쓰지 않기 (app.js 분리 F5 · shared/json-store.js 의 blocked) ═══
    자리 여섯(여덟 칸): 커미션 책상 · 아이템(commission.js) · 저장 파츠(premium-assets.js) · 북마크(bookmark.js) · 뽀모도로 설정(pomodoro.js) ·
    말랑 백업(mallang.js) · 바탕화면 모험(myhome-desktop.js). 플레이리스트 · 가챠는 이 묶음 밖(다른 결정 · 0.13 서버 판).
-   ・1절: 자리마다 실제 읽기 · 쓰기 함수를 떼어 돌린다(나머지 이름은 가짜 값)
+   ・1절: 자리마다 실제 읽기 · 쓰기 함수를 떼어 돌린다(나머지 이름은 가짜 값) — 읽기는 TwLsSet.lsLoadJson · 쓰기는 lsSaveJson / lsSetJson
+     · 망가진 칸 하나에 안내(E-SYS-11)는 한 번 — 읽기에서든 막은 쓰기에서든. 서버가 원본인 북마크 · 말랑은 읽을 때 안 알린다(quiet)
+     · 부팅 중(토스트가 아직 없음) 읽기 실패가 뒤의 막은 쓰기 안내를 막지 않는다(진짜 error-codes 로)
+     · 북마크 · 말랑 세 갈래 — 서버 됨 + 로컬 망가짐 → 사본을 고쳐 씀 / 서버 안 됨 + 로컬 망가짐 → 막음 · 안내 한 번 · «이 기기에만» 안 뜸
      · 망가진 저장분 — 읽으면 기본값 · «못 불러옴» E-SYS-11 · 쓰면 망가진 글이 그대로(덮어쓰지 않음) · E-SYS-11
      · 없음 — 안내 없이 기본값 · 쓰면 남는다
      · 멀쩡한 저장분 — 그 값을 읽고 · 쓰면 바뀐다
@@ -12,6 +15,7 @@
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
+const PENDING = [];
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for(const c of [f, 'app/parts/' + f, f.split('/').pop()]) if(fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
@@ -38,7 +42,7 @@ const ANY = new Proxy(function(){}, {
   apply(){ return ANY; },
 });
 const REAL = new Set(['JSON', 'String', 'Number', 'Math', 'Array', 'Object', 'Set', 'Map', 'Date', 'parseInt', 'isFinite', 'undefined', 'NaN', 'Infinity', 'Error', 'Symbol', 'console']);
-function env(stored, jsSrc){
+function env(stored, jsSrc, opts){
   const m = new Map(Object.entries(stored || {}));
   const ls = { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { m.set(k, String(v)); }, removeItem: (k) => { m.delete(k); } };
   const mod = { exports: {} }; new Function('window', 'module', jsSrc || SRC.js)(undefined, mod);
@@ -47,7 +51,7 @@ function env(stored, jsSrc){
   const vars = {
     localStorage: ls,
     TwJsonStore: Object.assign({}, J, { load: store.load, save: store.save }),
-    TwErrorCodes: { notify: (c, e) => { notes.push(c); return true; } },
+    TwErrorCodes: (opts && opts.notice) ? opts.notice(notes) : { notify: (c, e) => { notes.push(c); return true; } },
     toast: (t) => toasts.push(t),
   };
   /* 쓰기는 ls-set 의 JSON 칸(lsSaveJson · lsSetJson)을 거친다 — 같은 저장소 · 같은 json-store · 안내는 같은 notes 로 */
@@ -72,13 +76,13 @@ const SITES = [
     fns: ['_normPartRec', 'loadSavedParts', 'persistSavedParts'], load: 'loadSavedParts();', save: 'savedParts = [{ id: "n", cat: "hat" }]; persistSavedParts();',
     got: (v) => v.savedParts, good: [{ id: 'p1', cat: 'hat' }] },
   { name: '북마크', file: 'bookmark', key: 'tw.bookmarks', vars: { BM_KEY: 'tw.bookmarks', bmClean: (o) => ({ order: Array.isArray(o.order) ? o.order : String(o.order || '').split(',').filter(Boolean), items: o.items || {}, ts: o.ts || 0 }) },
-    fns: ['bmLoadLocal', 'bmSaveLocal'], load: 'bmLoadLocal();', save: 'bmData = { order: ["n"], items: { n: {} }, ts: 2 }; bmSaveLocal();',
+    quiet: true, fns: ['bmLoadLocal', 'bmLocalPayload', 'bmSaveLocal'], load: 'bmLoadLocal();', save: 'bmData = { order: ["n"], items: { n: {} }, ts: 2 }; bmSaveLocal();',
     got: (v) => v.bmData && v.bmData.order, good: { order: 'b1', items: { b1: {} }, ts: 1 } },
   { name: '뽀모도로 설정', file: 'pomodoro', key: 'tw.pomo', vars: { POMO_KEY: 'tw.pomo' },
-    pre: '_pomoCfg = { preset: "25", f: 25 };', loadCut: '{ const r = TwJsonStore.load(POMO_KEY', fns: ['_pomoSaveCfg'], save: '_pomoCfg = { preset: "50", f: 50 }; _pomoSaveCfg();',
+    pre: '_pomoCfg = { preset: "25", f: 25 };', loadCut: '{ const r = TwLsSet.lsLoadJson(POMO_KEY', fns: ['_pomoSaveCfg'], save: '_pomoCfg = { preset: "50", f: 50 }; _pomoSaveCfg();',
     got: (v) => v._pomoCfg && v._pomoCfg.f, good: { preset: '25', f: 30 }, defVal: 25 },
   { name: '말랑 백업', file: 'mallang', key: 'tw.mallang.me', vars: { lsKey: () => 'tw.mallang.me' },
-    pre: 'raw = [];', loadCut: 'const r = TwJsonStore.load(lsKey(), null);', loadEnd: 'raw = r.list;', fns: ['saveLocal'], save: 'imgs = [{ url: "n" }]; saveLocal();',
+    quiet: true, pre: 'raw = [];', loadCut: 'const r = TwLsSet.lsLoadJson(lsKey(), null', loadEnd: 'raw = r.list;', fns: ['saveLocal'], save: 'imgs = [{ url: "n" }]; saveLocal();',
     got: (v) => v.raw, good: [{ url: 'm1' }] },
   { name: '바탕화면 모험', file: 'desktop', key: 'tw.advZ.v2', vars: { ADV_KEY: 'tw.advZ.v2', ADV_KEY_V1: 'tw.advZ', blankSlot: () => ({ alloc: {}, bonus: {} }) },
     fns: ['advLoad', 'advSave'], load: 'ADV = advLoad();', save: 'ADV = { slots: [{ face: "n" }], bg: "new" }; advSave();',
@@ -106,10 +110,11 @@ function judge(site, src){
     const v = site.got(e.vars);
     const isDef = ('defVal' in site) ? v === site.defVal : (Array.isArray(v) ? v.length === 0 : !v);
     if(!isDef) bad.push('망가진 저장분을 기본값으로 읽지 않음');
-    if(e.notes.join() !== 'E-SYS-11') bad.push('읽기 실패 안내가 E-SYS-11 하나가 아님(' + e.notes.join('|') + ')');
+    if(e.notes.join() !== (site.quiet ? '' : 'E-SYS-11')) bad.push('읽기 실패 안내가 ' + (site.quiet ? '없어야 함(서버가 원본)' : 'E-SYS-11 하나가 아님') + '(' + e.notes.join('|') + ')');
     e.run(c.def + '\n' + c.save);
     if(e.m.get(site.key) !== BROKEN) bad.push('★ 망가진 저장분을 덮어씀');
-    if(e.notes.filter(x => x === 'E-SYS-11').length !== 2) bad.push('막은 쓰기에 E-SYS-11 이 없음');
+    e.run(c.def + '\n' + c.save);
+    if(e.notes.filter(x => x === 'E-SYS-11').length !== 1) bad.push('망가진 칸 하나에 E-SYS-11 이 한 번이 아님(' + e.notes.join('|') + ')');
     /* 없음 */
     e = go({});
     if(e.notes.length) bad.push('없음인데 안내(' + e.notes.join('|') + ')');
@@ -146,6 +151,85 @@ for(const s of SITES){
   chk(f.notes.join() === 'E-SYS-10' && !f.toasts.length, '저장 파츠 — 못 남기면 E-SYS-10 · 옛 토스트 없음');
 }
 
+
+say('── 1-2. 부팅 중 · 여러 번 · 서버가 원본인 칸');
+/* 진짜 error-codes 의 notice — 토스트를 바꿔 낄 수 있게(부팅 중엔 없다 = 던진다) */
+function realNotice(st){
+  return (notes) => {
+    const m = { exports: {} }; new Function('window', 'module', SRC.codes)(undefined, m);
+    const n = m.exports.createErrorNotice({ now: () => st.now, toast: (t) => { if(!st.ready) throw new ReferenceError('toast'); st.toasts.push(t); } });
+    return { notify: (c, e) => { notes.push(c); return n.notify(c, e); } };
+  };
+}
+{
+  const st = { now: 1000, ready: false, toasts: [] };
+  const s = SITES.find(x => x.name === '커미션 책상'), c = code(s, SRC.commission);
+  const e = env({ [s.key]: BROKEN }, null, { notice: realNotice(st) }); Object.assign(e.vars, s.vars);
+  const origWarn = console.warn; console.warn = () => {};
+  try{
+    e.run(c.def + '\n' + c.load);   // 토스트가 아직 없다(app.js 의 toastMod 앞)
+    const before = st.toasts.length;
+    st.ready = true; st.now += 3000;
+    e.run(c.def + '\n' + c.save);
+    chk(before === 0 && st.toasts.length === 1 && /E-SYS-11/.test(st.toasts[0]) && e.m.get(s.key) === BROKEN, '★ 부팅 중 읽기 실패(토스트 없음) → 3초 뒤 막은 쓰기에서 토스트 1개 · 망가진 글 그대로');
+    e.run(c.def + '\n' + c.save); st.now += 20000; e.run(c.def + '\n' + c.save);
+    chk(st.toasts.length === 1, '  그 뒤로는 조용(세션당 한 번)');
+  } finally { console.warn = origWarn; }
+}
+/* 떼어 낸 글은 «function 이름(» 부터라 async 를 다시 붙인다 */
+const ML_FNS = ['saveLocal', 'persist', 'warnIfUnsaved', 'loadImgsFor'].map(n => { const f = fnOf(SRC.mallang, n); return f && (n === 'persist' || n === 'loadImgsFor') ? 'async ' + f : f; });
+const mlEnv = (stored, server) => {
+  const e = env(stored);
+  Object.assign(e.vars, { lsKey: () => 'tw.mallang.me', myId: () => 'me', _persistWarnAt: 0, imgs: [],
+    fbReady: () => !!server, firebaseAPI: { getMallangImgs: async () => [], saveMallangImgs: async () => ({ ok: server === 'ok' }) } });
+  return e;
+};
+const mlRun = (e, body) => new Function('__s', 'with(__s){ ' + ML_FNS.join('\n') + '\nreturn (async () => { ' + body + ' })(); }')(new Proxy(e.vars, {
+  has: (t, k) => typeof k === 'string' && !REAL.has(k), get: (t, k) => (k === Symbol.unscopables ? undefined : k in t ? t[k] : ANY), set: (t, k, v) => { t[k] = v; return true; } }));
+const BM_FNS = ['bmLoadLocal', 'bmLocalPayload', 'bmSaveLocal', 'bmSaveCopy', 'bmPull', 'bmPush'].map(n => { const f = fnOf(SRC.bookmark, n); return f && /^bmP/.test(n) ? 'async ' + f : f; });
+const bmEnv = (stored, server) => {
+  const e = env(stored);
+  Object.assign(e.vars, { BM_KEY: 'tw.bookmarks', bmLoaded: false, bmRender: () => {}, toastOf: (t) => e.toasts.push(t), uid: () => 'me',
+    bmClean: (o) => ({ order: Array.isArray(o.order) ? o.order : String(o.order || '').split(',').filter(Boolean), items: o.items || {}, ts: o.ts || 0 }),
+    api: () => (server ? { getBookmarks: async () => ({ ok: server === 'ok', data: server === 'ok' ? { order: 'b9', items: { b9: {} }, ts: 9 } : null }), saveBookmarks: async () => ({ ok: server === 'ok' }) } : null) });
+  return e;
+};
+const bmRun = (e, body) => new Function('__s', 'with(__s){ ' + BM_FNS.join('\n') + '\nreturn (async () => { ' + body + ' })(); }')(new Proxy(e.vars, {
+  has: (t, k) => typeof k === 'string' && !REAL.has(k), get: (t, k) => (k === Symbol.unscopables ? undefined : k in t ? t[k] : ANY), set: (t, k, v) => { t[k] = v; return true; } }));
+PENDING.push((async () => {
+  if(ML_FNS.some(f => !f) || BM_FNS.some(f => !f)){ chk(false, '말랑 · 북마크 함수를 못 찾음'); return; }
+  const origWarn = console.warn; console.warn = () => {};
+  try{
+    /* 말랑 — 서버 안 됨 + 백업 망가짐: 두 번 열고 두 번 바꿔도 안내 한 번 · «이 기기에만» 안 뜸 · 백업 그대로 */
+    let e = mlEnv({ 'tw.mallang.me': BROKEN }, null);
+    await mlRun(e, "await loadImgsFor('me'); await loadImgsFor('me'); imgs = [{ url: 'n' }]; warnIfUnsaved(await persist()); warnIfUnsaved(await persist());");
+    chk(e.notes.join() === 'E-SYS-11' && !e.toasts.length && e.m.get('tw.mallang.me') === BROKEN, '★ 말랑 — 서버 안 됨 + 백업 망가짐: 두 번 열고 두 번 바꿔도 E-SYS-11 한 번 · «이 기기에만» 안 뜸 · 백업 그대로' + (e.notes.length !== 1 ? ' — ' + e.notes.join('|') : ''));
+    /* 말랑 — 서버 됨 + 백업 망가짐: 서버에 썼으니 사본을 고쳐 씀 · 안내 없음 */
+    e = mlEnv({ 'tw.mallang.me': BROKEN }, 'ok');
+    await mlRun(e, "await loadImgsFor('me'); imgs = [{ url: 'n' }]; warnIfUnsaved(await persist());");
+    chk(!e.notes.length && !e.toasts.length && e.m.get('tw.mallang.me') === JSON.stringify([{ url: 'n' }]), '★ 말랑 — 서버 됨 + 백업 망가짐: 사본을 고쳐 씀 · 안내 없음');
+    /* 말랑 — 서버 안 됨 + 백업 멀쩡: 예전처럼 «이 기기에만» */
+    e = mlEnv({}, 'fail');
+    await mlRun(e, "imgs = [{ url: 'n' }]; warnIfUnsaved(await persist());");
+    chk(!e.notes.length && e.toasts.length === 1 && /이 기기에만/.test(e.toasts[0]), '  말랑 — 서버 실패 + 백업 남음: «이 기기에만 저장했어요» 그대로');
+    /* 북마크 — 서버 됨 + 로컬 망가짐: 받으면 사본을 고쳐 씀 · 써도 고쳐 씀 · 안내 없음 */
+    e = bmEnv({ 'tw.bookmarks': BROKEN }, 'ok');
+    await bmRun(e, "bmLoadLocal(); await bmPull();");
+    chk(!e.notes.length && e.m.get('tw.bookmarks') !== BROKEN && /b9/.test(e.m.get('tw.bookmarks')), '★ 북마크 — 서버 됨 + 로컬 망가짐: 서버 것을 받아 사본을 고쳐 씀 · 안내 없음');
+    e = bmEnv({ 'tw.bookmarks': BROKEN }, 'ok');
+    await bmRun(e, "bmLoadLocal(); bmData = { order: ['n'], items: { n: {} }, ts: 1 }; await bmPush();");
+    chk(!e.notes.length && !e.toasts.length && /"n"/.test(e.m.get('tw.bookmarks') || ''), '  북마크 — 서버에 쓰면 망가진 사본 위에도 고쳐 씀 · 안내 없음');
+    /* 북마크 — 서버 안 됨 + 로컬 망가짐: 막음 · 안내 한 번 · «이 기기에만» 안 뜸 */
+    e = bmEnv({ 'tw.bookmarks': BROKEN }, 'fail');
+    await bmRun(e, "bmLoadLocal(); bmData = { order: ['n'], items: { n: {} }, ts: 1 }; await bmPush(); await bmPush();");
+    chk(e.notes.join() === 'E-SYS-11' && !e.toasts.length && e.m.get('tw.bookmarks') === BROKEN, '★ 북마크 — 서버 안 됨 + 로컬 망가짐: 덮어쓰지 않음 · E-SYS-11 한 번 · «이 기기에만 남아 있어요» 안 뜸');
+    e = bmEnv({}, 'fail');
+    await bmRun(e, "bmData = { order: ['n'], items: { n: {} }, ts: 1 }; await bmPush();");
+    chk(!e.notes.length && e.toasts.length === 1 && /이 기기에만/.test(e.toasts[0]), '  북마크 — 서버 실패 + 로컬 남음: «이 기기에만 남아 있어요» 그대로');
+  }catch(err){ chk(false, '말랑 · 북마크 갈래를 못 돌림 — ' + err.message); }
+  finally { console.warn = origWarn; }
+})());
+
 say('── 2. 번호');
 {
   const m = { exports: {} }; new Function('window', 'module', SRC.codes)(undefined, m);
@@ -160,13 +244,19 @@ say('── 3. 일부러 깨 보기');
   const site = (n) => SITES.find(s => s.name === n);
   const p1 = brk(SRC.pomodoro, /function _pomoSaveCfg\(\)\{[^\n]*\}/, 'function _pomoSaveCfg(){ try{ localStorage.setItem(POMO_KEY, JSON.stringify(_pomoCfg)); }catch(_){} }');
   chk(!!p1 && judge(site('뽀모도로 설정'), p1).some(x => /덮어씀/.test(x)), '뽀모도로 쓰기를 옛 모양으로 되돌리면 빨강(덮어씀)');
-  const b1 = brk(SRC.bookmark, /    const r = TwJsonStore\.load\(BM_KEY, \{\}\);[^\n]*\n    bmData = bmClean\(r\.list\);\n    if\(!r\.ok\)[^\n]*\n/, "    try{ bmData = bmClean(JSON.parse(localStorage.getItem(BM_KEY) || '{}')); }catch(_){ bmData = { order:[], items:{}, ts:0 }; }\n");
-  chk(!!b1 && judge(site('북마크'), b1).some(x => /읽기 실패 안내/.test(x)), '북마크 읽기를 옛 모양(빈 catch)으로 되돌리면 빨강(«없음» 과 구분 못 함)');
+  const b1 = brk(SRC.premium, /  savedParts = TwLsSet\.lsLoadJson\(SAVED_PARTS_KEY, \[\]\)\.list;[^\n]*\n/, "  try{ savedParts=JSON.parse(localStorage.getItem(SAVED_PARTS_KEY)||'[]'); }catch(_){ savedParts=[]; }\n");
+  chk(!!b1 && judge(site('저장 파츠'), b1).some(x => /읽기 실패 안내/.test(x)), '저장 파츠 읽기를 옛 모양(빈 catch)으로 되돌리면 빨강(«없음» 과 구분 못 함)');
+  const b2 = brk(SRC.mallang, "TwLsSet.lsLoadJson(lsKey(), null, { quiet: true })", "TwLsSet.lsLoadJson(lsKey(), null)");
+  chk(!!b2 && judge(site('말랑 백업'), b2).some(x => /없어야 함/.test(x)), '말랑 백업 읽기를 quiet 없이 — 서버가 원본인데 읽을 때 알리면 빨강');
+  const l1 = brk(SRC.ls, "if(_warned[code]) return;", '');
+  chk(!!l1 && (() => { const s = site('커미션 책상'); const c = code(s, SRC.commission); const e = env({ [s.key]: BROKEN }); e.vars.TwLsSet = (() => { const w = { TwErrorCodes: e.vars.TwErrorCodes, TwJsonStore: e.vars.TwJsonStore }; new Function('window', 'localStorage', 'console', 'module', l1)(w, e.ls, { warn(){} }, undefined); return w.TwLsSet; })(); Object.assign(e.vars, s.vars); e.run(c.def + '\n' + c.load + '\n' + c.save); return e.notes.length > 1; })(), 'ls-set 의 «한 번» 을 빼면 빨강(읽기 + 쓰기 두 번)');
   const d1 = brk(SRC.desktop, /function advSave\(\)\{[^\n]*\}/, 'function advSave(){ try{ localStorage.setItem(ADV_KEY, JSON.stringify(ADV)); }catch(_){} }');
   chk(!!d1 && judge(site('바탕화면 모험'), d1).some(x => /덮어씀/.test(x)), '바탕화면 쓰기를 옛 모양으로 되돌리면 빨강');
   const js1 = brk(SRC.js, 'if(unreadable(key)){', 'if(false){');
   chk(!!js1 && (() => { const s = site('커미션 아이템'); const c = code(s, SRC.commission); const e = env({ [s.key]: BROKEN }, js1); Object.assign(e.vars, s.vars); e.run(c.def + '\n' + c.load + '\n' + c.save); return e.m.get(s.key) !== BROKEN; })(), 'json-store 의 막기(blocked)를 빼면 빨강 — 자리들이 그 한 곳에 기댄다');
 }
 
-say('\n' + (fail ? '✗ 통과 ' + pass + ' · 실패 ' + fail : '전부 통과 ✅ ' + pass));
-process.exit(fail ? 1 : 0);
+Promise.all(PENDING).then(() => {
+  say('\n' + (fail ? '✗ 통과 ' + pass + ' · 실패 ' + fail : '전부 통과 ✅ ' + pass));
+  process.exit(fail ? 1 : 0);
+});
