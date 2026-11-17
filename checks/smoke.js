@@ -768,6 +768,8 @@ PRELOAD.push('seat-state.js');
 PRELOAD.push('seat-pointer.js');
 /* char-apply.js — 🧬 캐릭터 def 를 좌석에 입히기. app.js 가 원래 자리에서 createCharApply 로 만든다. */
 PRELOAD.push('char-apply.js');
+/* launcher-state.js — 🧭 런처 공용 상태(앱 모드 · 마이홈 열림). app.js 가 맨 앞에서 createLauncherState 로 만든다 — 읽는 모듈보다 먼저 있게. */
+PRELOAD.push('launcher-state.js');
 /* app-mode.js — 🖥 런처 ↔ 실행 화면 전환(앱 모드). app.js 가 원래 자리에서 createAppMode 로 만든다. */
 PRELOAD.push('app-mode.js');
 /* office-mode.js — 🏢 데스크탑 · 피규어 · 회사원 모드 깃발. app.js 가 원래 자리에서 createOfficeMode 로 만든다. */

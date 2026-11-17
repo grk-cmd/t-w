@@ -4,6 +4,8 @@
 let _renderQuality = FrameBudget.qualityFrom(localStorage.getItem(FrameBudget.QUALITY_KEY));
 let _runLowered = false;   // «자동» 이 이번 실행에서 배율을 낮췄는가
 const _renderAA = FrameBudget.antialiasFor(_renderQuality);
+/* 🧭 런처 공용 상태(launcher/launcher-state.js) — 앱 모드 · 마이홈이 런처 위에 열려 있나. 읽는 모듈(친구 관리 · 마이홈 · 달성표 · 창 모드)을 만드는 줄보다 먼저 있게 맨 앞에서 만든다. */
+const launcherStateMod = TwLauncherState.createLauncherState();
 /* 🎬 3D 무대 한 벌(shared/stage.js) — 렌더러(못 만들면 안내) · 연결 끊김 감시 · 씬 · 카메라 · 바닥 · GLTF 로더. 아래 const 는 옛 전역 이름이다. */
 const stageMod = TwStage.createStage({
   _renderAA: _renderAA,
@@ -1248,8 +1250,8 @@ const mhScheduler = MhScheduler.createScheduler({
 /* 🐞 버그 제보 탭(오픈카톡 기본 링크 폼 포함)은 parts/support/bug-board-ui.js 다 — 게시판은 🚩 신고 다음에서 만든다.
    👥 친구 관리(받은 요청 · 📤 보낸 요청 · 선물함 서브탭) · 👋 새 친구 요청 팝업 · 친구 탭 배지는 parts/friend-manage.js 로 옮겼다
      (앱 FSD 5번 · docs/APP_FSD_MAP.md). ★ 원래 자리인 여기서 만든다(만들 때 바로 도는 일은 없다 — 상태 초기값뿐).
-   함수 deps 는 화살표로 감싼다(부를 때 찾게). _myFriendRequests · _myHomeFriends · myHomeOpen 은 다시 대입되는 let 이라
-     읽는 함수로 넘긴다(myHomeOpen 은 이 줄보다 한참 뒤에 선언된다). 부르는 곳은 friendManage.이름.
+   함수 deps 는 화살표로 감싼다(부를 때 찾게). _myFriendRequests · _myHomeFriends · myHomeOpen 은 다시 대입되는 값이라
+     읽는 함수로 넘긴다(myHomeOpen 의 주인은 launcher-state.js). 부르는 곳은 friendManage.이름.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const friendManage = TwFriendManage.createFriendManage({
   getMyUserId: ()=>getMyUserId(),
@@ -1258,7 +1260,7 @@ const friendManage = TwFriendManage.createFriendManage({
   giftStat: (...a)=>inboxMod.giftStat(...a),
   renderGiftBox: (...a)=>inboxMod.renderGiftBox(...a),
   inboxTimeStr: (...a)=>inboxMod.inboxTimeStr(...a),
-  myHomeOpen: ()=>windowModeMod.myHomeOpen(),
+  myHomeOpen: ()=>launcherStateMod.myHomeOpen(),
   myHomeFriends: ()=>_myHomeFriends,
   myFriendRequests: ()=>_myFriendRequests,
   friendMax: FRIEND_MAX,
@@ -1374,7 +1376,7 @@ const mhInitMod = TwMyHomeInit.createMyHomeInit({
   inboxMod: ()=>inboxMod,
   mailFeed: mailFeed,
   mhScheduler: mhScheduler,
-  myHomeOpen: ()=>windowModeMod.myHomeOpen(),
+  myHomeOpen: ()=>launcherStateMod.myHomeOpen(),
   noticeFeed: noticeFeed,
   presenceLock: presenceLockMod,
   toast: (...a)=>toast(...a),
@@ -1551,12 +1553,12 @@ const myHomeUiMod = TwMyHomeUi.createMyHomeUi({
   mallangMod: mallangMod,
   giftBox: giftBoxMod,
   mhScheduler: mhScheduler,
-  myHomeOpen: ()=>windowModeMod.myHomeOpen(),
+  myHomeOpen: ()=>launcherStateMod.myHomeOpen(),
   myHomeSticker: ()=>myHomeSticker,
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
   renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers(...a),
   toast: (...a)=>toast(...a),
-  setMyHomeOpen: (v)=>{ windowModeMod.setMyHomeOpen(v); },
+  setMyHomeOpen: (v)=>{ launcherStateMod.setMyHomeOpen(v); },
   twNav: twNav,
 });
 /* 👥 친구 목록이 보이는 동안만 friends-sub 에 «열림» — 마이홈을 여닫는 길이 여럿이라(열기 · 친구 홈 구경 · 런처 복귀 · 단축키) 두 칸의 class 를 지켜본다. */
@@ -1580,10 +1582,10 @@ const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({
   loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),
   mallangMod: mallangMod,
   mhScheduler: mhScheduler,
-  myHomeOpen: ()=>windowModeMod.myHomeOpen(),
+  myHomeOpen: ()=>launcherStateMod.myHomeOpen(),
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
   toast: (...a)=>toast(...a),
-  setMyHomeOpen: (v)=>{ windowModeMod.setMyHomeOpen(v); },
+  setMyHomeOpen: (v)=>{ launcherStateMod.setMyHomeOpen(v); },
   _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
   _mhViewingName: ()=>mhStateMod._mhViewingName(),
   _mhViewingDisplayName: (...a)=>mhStateMod._mhViewingDisplayName(...a),
@@ -1621,7 +1623,7 @@ const mhPageMod = TwMyHomePage.createMyHomePage({
   renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers(...a),
   richTextMod: richTextMod,
   myhomeStore: myhomeStoreMod,
-  myHomeOpen: ()=>windowModeMod.myHomeOpen(),
+  myHomeOpen: ()=>launcherStateMod.myHomeOpen(),
 });
 myhomeStoreMod.onChange(()=>mhPageMod.onStoreChange());   // 상태 주인의 값이 바뀌면 열린 마이홈을 다시 그린다(판단은 myhome-page.js)
 /* ═══ ✏️ 인앱 프롬프트(asyncPrompt) ═══ */
@@ -3415,7 +3417,7 @@ const appModeMod = TwAppMode.createAppMode({
   curSlot: ()=>curSlot,
   layoutSeats: (...a)=>layoutSeats(...a),
   myhomeStore: myhomeStoreMod,
-  setMyHomeOpen: (v)=>{ windowModeMod.setMyHomeOpen(v); },
+  launcherState: launcherStateMod,
   overheadMod: overheadMod,
   Presence: ()=>Presence,
   renderLauncher: renderLauncher,
@@ -4728,7 +4730,7 @@ const chalStoreMod = TwChalStore.createChalStore({
   premiumOn: ()=>_premiumOn(),
   serverDay: ()=>focusTotalMod.serverDay(),
   rolloverToday: ()=>focusTotalMod._rolloverFocusToday(),
-  appMode: ()=>appModeMod.appMode(),
+  appMode: ()=>launcherStateMod.appMode(),
   addQuitListener: (fn)=>window.addEventListener('beforeunload', fn),
 });
 const weeklyChal = TwWeeklyChallenge.createWeeklyChallenge({
@@ -4737,7 +4739,7 @@ const weeklyChal = TwWeeklyChallenge.createWeeklyChallenge({
   escHtml: (...a)=>escHtml(...a),
   formatHMS: (...a)=>focusLevelMod.formatHMS(...a),
   premiumOn: ()=>_premiumOn(),
-  appMode: ()=>appModeMod.appMode(),
+  appMode: ()=>launcherStateMod.appMode(),
 });
 focusTotalMod.onDayEnd(()=>{ weeklyChal.dayEnded(); });   // 하루가 바뀐 때 달성표도 이번 주를 다시 받는다
 
@@ -4757,9 +4759,8 @@ const pomodoro = TwPomodoro.createPomodoro({
 });
 
 /* ═══ 🖥️ 데스크탑 실행 화면 — 창 크기 · 업데이트 배너 · 전역 입력 · 클릭 통과 · 하트비트 ═══ */
-/* 본문은 launcher/window-mode.js 로 옮겼다(앱 FSD · app.js 분리 M22). 활성 앱 판정 · 창 모드(마이홈 열림 · applyDesktopRunClass)의 주인이다 — 판단은 옛 그대로. 다시 대입되거나 뒤에서 선언되는 값은 읽는 · 쓰는 함수로 다룬다. */
+/* 본문은 launcher/window-mode.js 로 옮겼다(앱 FSD · app.js 분리 M22). 활성 앱 판정 · 창 모드(applyDesktopRunClass)의 주인이다 — 마이홈 열림 · 앱 모드는 launcherStateMod 에서 읽기만 — 판단은 옛 그대로. 다시 대입되거나 뒤에서 선언되는 값은 읽는 · 쓰는 함수로 다룬다. */
 const windowModeMod = TwWindowMode.createWindowMode({
-  appModeMod: appModeMod,
   creatorOpen: ()=>creatorOpen,
   desktopMode: desktopMode,
   floor: floor,
@@ -4769,6 +4770,7 @@ const windowModeMod = TwWindowMode.createWindowMode({
   focusLevelMod: focusLevelMod,
   focusWindowMs: focusWindowMs,
   key: key,
+  launcherState: launcherStateMod,
   mhStLayoutMod: mhStLayoutMod,
   officeModeMod: officeModeMod,
   seatStateMod: seatStateMod,

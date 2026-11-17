@@ -15,7 +15,7 @@ const myHomeUiMod = deps.myHomeUiMod;
 const renderMyHomeStickers = deps.renderMyHomeStickers;
 const richTextMod = deps.richTextMod;
 const myhomeStore = deps.myhomeStore;   // 🏠 상태 주인(myhome-store.js) — 받기 · 못 받음 상태
-const myHomeOpen = deps.myHomeOpen;   // 읽는 함수 — 마이홈이 열려 있나(app.js 의 let)
+const myHomeOpen = deps.myHomeOpen;   // 읽는 함수 — 마이홈이 열려 있나(주인은 launcher/launcher-state.js)
 const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판(myhome-hooks.js) — BGM · 배경 · 테마 다시 칠하기는 편집 묶음이 건다
 /* 마이홈을 열 때 · [다시 시도] — 받고 그린다. 못 받으면(E-MH-20 은 store 가 띄운다) 본문 자리에 «못 불러왔어요 [다시 시도]» 를 그린다 */
 async function loadMyHomePage(){
