@@ -4,7 +4,8 @@
    ・받는 deps 1 — 값 DESK_SCALE_DEFAULT(책상 크기 처음 값 — HTML 슬라이더와 짝이라 app.js 에 둔다).
    ・내놓는 것: 이름마다 get · set — app.js 는 crState.이름 으로 읽고 대입한다(crState.cDeskPos.x = 1 처럼 안쪽을 바꾸는 것도 그대로).
      생성기 조각 모듈은 이 객체 하나(crState)를 deps 로 받으면 된다 — 읽는 · 쓰는 함수를 이름마다 따로 넘기지 않는다.
-   ⚠️ 여러 곳이 전역으로 직접 읽는 creatorOpen · creatorMode · curSlot(animal.js)은 여기 없다(app.js 에 남김).
+   ・creatorMode(생성기를 어디서 · 무엇으로 열었나 — 바꾸는 곳은 openCreator 하나)도 여기 — app.js 분리 F6.
+   ⚠️ 여러 곳이 바꾸는 creatorOpen · curSlot 은 여기 없다(app.js 에 남김).
    ⚠️ 전역 이름은 TwCreatorState(Tw 접두사 #103).
    검사: checks/sim-creator-state.js */
 (function(){
@@ -15,6 +16,7 @@ let editingSlot=-1, pendingSlot=0;
 let cTopColor='#9dba8a', cBotColor='#d98e73';
 let crStep=1, brushColor='#333333', brushSize=11, eraser=false, blinkEdited=false, skinIndex=0;
 let currentCreatorDef = null;   // openCreator로 들어온 원본 def — 커미션 여부 판정에 사용
+let creatorMode={kind:'slot',edit:false};
 let cXform={s:0.7,y:0,z:0,rot:0}, cDeskColor='#c9a36a', cDeskScale=DESK_SCALE_DEFAULT, cDeskLenX=1;
 /* 🪑 책상 위치 오프셋(생성기 세션). 저장은 def.deskPos — 전부 0 이면 아예 저장하지 않는다
 (기존 캐릭터 데이터에 없던 필드라, 0 을 굳이 적어 넣으면 옛 저장분과 모양이 갈린다). */
@@ -52,6 +54,7 @@ return {
   get blinkEdited(){ return blinkEdited; }, set blinkEdited(v){ blinkEdited = v; },
   get skinIndex(){ return skinIndex; }, set skinIndex(v){ skinIndex = v; },
   get currentCreatorDef(){ return currentCreatorDef; }, set currentCreatorDef(v){ currentCreatorDef = v; },
+  get creatorMode(){ return creatorMode; }, set creatorMode(v){ creatorMode = v; },
   get cXform(){ return cXform; }, set cXform(v){ cXform = v; },
   get cDeskColor(){ return cDeskColor; }, set cDeskColor(v){ cDeskColor = v; },
   get cDeskScale(){ return cDeskScale; }, set cDeskScale(v){ cDeskScale = v; },

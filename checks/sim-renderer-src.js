@@ -200,7 +200,10 @@ function joinRenderer(app){
     /* 만드는 줄 — 「const mod = TwX.createX({」(가드 걷기 3차 뒤) · 옛 모양 「const mod = (typeof TwX … ) ? OFF : TwX.createX({」 둘 다 */
     const i0 = app.indexOf('const ' + m.mod + ' = ' + m.glob + '.');
     const i = i0 >= 0 ? i0 : app.indexOf('const ' + m.mod + ' = (typeof ' + m.glob);
-    const j = i >= 0 ? app.indexOf('\n});', i) : -1;
+    /* deps 없이 한 줄로 만드는 모듈(«const mod = TwX.createX();» — 받는 것 없는 상태 파일)은 그 줄까지만 */
+    const eol = i >= 0 ? app.indexOf('\n', i) : -1;
+    const oneLine = i >= 0 && /\.create[\w$]*\(\);/.test(app.slice(i, eol < 0 ? app.length : eol));
+    const j = i < 0 ? -1 : oneLine ? (eol < 0 ? app.length : eol) - 4 : app.indexOf('\n});', i);
     const glue = i >= 0 ? app.slice(i, j) : '';
     const getters = [...glue.matchAll(/^  ([\w$]+): \(\)=>(?:[\w$]+\.)?([\w$]+)(?:\(\))?,$/gm)].map(x => x[1]);   // 키 = 모듈 안 이름(오른쪽이 다른 모듈의 읽는 함수여도)
     /* 데이터 provider 고르기 한 줄(«roomNet: ()=>window.firebaseAPI,»)은 키가 아니라 오른쪽 글로 되살린다 — 옮기기 전 글은 window.firebaseAPI 를 직접 봤다 */
@@ -209,7 +212,7 @@ function joinRenderer(app){
     for(const x of txt.matchAll(/^  ([\w$]+): \(\)=>([\w$]+),/gm)) retGet.push([m.mod, x[1]]);
     for(const x of txt.matchAll(/^  ([\w$]+): \(v\)=>\{ ([\w$]+) = v; \},/gm)) retSet.push([m.mod, x[1], x[2]]);
     /* 껍데기(IIFE · createX(deps){ … return {…} })를 벗기고 본문만 — 옮긴 선언이 옛 자리처럼 꼭대기에 선다(함수를 돌려 보는 검사용) */
-    const h = txt.match(/\nfunction create[\w$]*\(deps\)\{\n/);
+    const h = txt.match(/\nfunction create[\w$]*\((?:deps)?\)\{\n/);   // 받는 것 없는 상태 파일은 createX()
     const r = txt.lastIndexOf('\nreturn {');
     let body = (h && r > h.index) ? txt.slice(h.index + h[0].length, r) : txt;
     /* 이름이 다른 값 deps(«key: 딴이름,» — 예 ps1Dither: TwPs1Dither)는 지우지 않고 «const key = 딴이름;» 으로 남긴다 */

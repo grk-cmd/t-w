@@ -2,7 +2,7 @@
    app.js «🧍 생성기 미리보기» 구역의 완료 쪽(_creatorBuildDef · 용량 재기 · [완료] 버튼)을 그대로 옮긴 모듈이다(C 구역 떼기 · w3).
    생성기 상태는 app.js 에 남아 읽는 · 쓰는 함수로 받는다. 동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 45줄 —
-     Presence · _blankFaceConfirmed · activeCustomDeskId · cBase · cBotColor · cCam · cDeskColor · cDeskGlbB64 · cDeskLenX · cDeskPos · cDeskScale · cRenderer · cScene · cTopColor · cXform · charsMod · commissionMod · creatorMode · creatorOpen · curSlot · currentCreatorDef · customItems · skinIndex · slotSaveMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setBlankFaceConfirmed · setCreatorOpen · setCurSlot(…).
+     Presence · activeCustomDeskId · cBase · cBotColor · cCam · cDeskColor · cDeskGlbB64 · cDeskLenX · cDeskPos · cDeskScale · cRenderer · cScene · cTopColor · cXform · charsMod · commissionMod · creatorMode · creatorOpen · curSlot · currentCreatorDef · customItems · skinIndex · slotSaveMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setBlankFaceConfirmed · setCreatorOpen · setCurSlot(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 15개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: DEF_SIZE_TOAST_MS · _creatorBuildDef · _creatorSizeGrow · _defSizeFile — app.js 는 creatorSaveMod.이름 으로 부른다.
@@ -15,7 +15,6 @@ function createCreatorSave(deps){
 const CHAR_SLOT_MAX = deps.CHAR_SLOT_MAX;
 const NO_DESK_ID = deps.NO_DESK_ID;   // 🚫 «책상 없음» 예약 id(desk-visual.js 가 그린다)
 const Presence = deps.Presence;   // 읽는 함수
-const _blankFaceConfirmed = deps._blankFaceConfirmed;   // 읽는 함수
 const _isBlankDraw = deps._isBlankDraw;
 const activeCustomDeskId = deps.activeCustomDeskId;   // 읽는 함수
 const applyCharToSeat = deps.applyCharToSeat;
@@ -58,7 +57,7 @@ const slotSaveMod = deps.slotSaveMod;   // 읽는 함수
 const slots = deps.slots;
 const snapCanvas = deps.snapCanvas;
 const toast = deps.toast;
-const setBlankFaceConfirmed = deps.setBlankFaceConfirmed;   // 쓰는 함수
+const setBlankFaceConfirmed = deps.setBlankFaceConfirmed;   // 쓰는 함수 — «비운 채 저장» 확인의 주인은 slot-save.js
 const setCreatorOpen = deps.setCreatorOpen;   // 쓰는 함수
 const setCurSlot = deps.setCurSlot;   // 쓰는 함수
 /* 생성기 지금 상태 → def. [완료] 저장과 📦 용량 재기(forSize)가 같은 함수를 탄다 — 따로 두면 재는 것과 저장하는 것이 갈라진다.

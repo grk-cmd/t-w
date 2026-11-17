@@ -1,9 +1,9 @@
 /* ============================================================ SETUP */
 /* 🎚️ 실행 화면 화질(프로그램 설정 › 모니터 — FrameBudget.QUALITY). antialias 는 WebGL 을 만들 때만 정해져서 «가볍게» 는 다시 켜야 적용된다.
    ⚠️ 도트 렌더 저장값으로 antialias 를 정하지 말 것 — 개발 실행 · 설치본이 저장소를 같이 써서 안 보이게 꺼진 채 굳었다(도트 느낌은 DOT_RENDER_SCALE 로 충분). */
-let _renderQuality = FrameBudget.qualityFrom(localStorage.getItem(FrameBudget.QUALITY_KEY));
-let _runLowered = false;   // «자동» 이 이번 실행에서 배율을 낮췄는가
-const _renderAA = FrameBudget.antialiasFor(_renderQuality);
+/* 화질 · «자동» 낮춤 · 도트 렌더 상태는 launcher/render-state.js 에(app.js 분리 F6) — 무대보다 먼저 만들어 antialias 를 정한다 */
+const renderStateMod = TwRenderState.createRenderState();
+const _renderAA = FrameBudget.antialiasFor(renderStateMod.renderQuality());
 /* 🎬 3D 무대 한 벌(shared/stage.js) — 렌더러(못 만들면 안내) · 연결 끊김 감시 · 씬 · 카메라 · 바닥 · GLTF 로더. 아래 const 는 옛 전역 이름이다. */
 const stageMod = TwStage.createStage({
   _renderAA: _renderAA,
@@ -165,7 +165,7 @@ const deskItemEquipMod = TwDeskItemEquip.createDeskItemEquip({
   deskItemsMod: ()=>deskItemsMod,
   deskSetupMod: ()=>deskSetupMod,
   isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
+  isPremium: ()=>acctStateMod.isPremium(),
   launcherPrevMod: ()=>launcherPrevMod,
   slotSaveMod: ()=>slotSaveMod,
   lightToneMod: lightToneMod,
@@ -364,7 +364,6 @@ const FC_NEVER_REISSUE = true;
    🔒 [2026-09-20] 그 마지막 경우에도 이제 **자동 재발급을 하지 않는다**(_healFriendCodeOwner 끝 주석).
      사용자가 직접 코드를 바꾸는 UI 는 이미 없고, 자동으로 바뀌는 길도 이것으로 사라졌다 —
      **로컬 코드를 지우는 자리는 로그아웃(ACCOUNT_LOCAL_KEYS)뿐**이다. */
-let dotRenderEnabled = (localStorage.getItem('tw.dotRender')==='1');   // 기본 꺼짐
 const DOT_RENDER_SCALE = 0.45;   // 저해상도(도트) 렌더 배율 — 작을수록 거친 도트. 0.45=PS1급 도트감. 0.55=은은, 0.35=더 거침.
 /* ═══ 🪑 좌석 크기 평준화 — 배율(k)을 정하는 곳은 여기 하나다 ═══════════════════
    내 화면에서만 남의 좌석을 내 캐릭터 크기에 맞춘다(서버에 안 쓴다). 방식 · 함정은 character/seat-equalize.js 머리에. */
@@ -741,13 +740,13 @@ const seatCameraMod = TwSeatCamera.createSeatCamera({
   canvas: canvas,
   deskPanX: ()=>charPlaceMod.deskPanX(),
   deskPanY: ()=>charPlaceMod.deskPanY(),
-  dotRenderEnabled: ()=>dotRenderEnabled,
+  dotRenderEnabled: ()=>renderStateMod.dotRenderEnabled(),
   dotRenderMod: ()=>dotRenderMod,
   focusCharScale: ()=>charPlaceMod.focusCharScale(),
   renderer: renderer,
   sizeFactor: ()=>charPlaceMod.sizeFactor(),
-  renderQuality: ()=>_renderQuality,
-  runLowered: ()=>_runLowered,
+  renderQuality: ()=>renderStateMod.renderQuality(),
+  runLowered: ()=>renderStateMod.runLowered(),
 });
 /* 본문은 shared/dot-render.js 로 옮겼다(구역 떼기 C · w1).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
@@ -846,7 +845,7 @@ const userStatusTableMod = TwUserStatusTable.createUserStatusTable({
 const userStatusMod = TwUserStatus.createUserStatus({
   clampCharY: clampCharY,
   findMySeat: (...a)=>findMySeat(...a),
-  isPremium: ()=>isPremium,
+  isPremium: ()=>acctStateMod.isPremium(),
   slots: ()=>slots,
   userStatusTableMod: userStatusTableMod,
 });
@@ -1046,14 +1045,14 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   createSeat: (...a)=>createSeat(...a),
   curSlot: ()=>curSlot,
   decoPartsVisible: ()=>decoPartsMod.decoPartsVisible(),
-  dotRenderEnabled: ()=>dotRenderEnabled,
+  dotRenderEnabled: ()=>renderStateMod.dotRenderEnabled(),
   drawFaceThumb: (...a)=>addFriendMod.drawFaceThumb(...a),
   emojiReactionsEnabled: ()=>floatersMod.emojiReactionsEnabled(),
   equipDeskItem: (...a)=>equipDeskItem(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   findMySeat: (...a)=>findMySeat(...a),
   focusCharScale: ()=>charPlaceMod.focusCharScale(),
-  isPremium: ()=>isPremium,
+  isPremium: ()=>acctStateMod.isPremium(),
   layoutSeats: (...a)=>layoutSeats(...a),
   moveMode: ()=>moveModeMod.moveMode(),
   nameplateEnabled: ()=>overheadMod.nameplateEnabled(),
@@ -1080,7 +1079,7 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   setChipHorizontal: (v)=>{ overheadMod.setChipHorizontal(v); },
   setCurSlot: (v)=>{ curSlot = v; },
   setDecoPartsVisible: (v)=>{ decoPartsMod.setDecoPartsVisible(v); },
-  setDotRenderEnabled: (v)=>{ dotRenderEnabled = v; },
+  setDotRenderEnabled: (v)=>{ renderStateMod.setDotRenderEnabled(v); },
   setEmojiReactionsEnabled: (v)=>{ floatersMod.setEmojiReactionsEnabled(v); },
   setFocusCharScale: (v)=>{ charPlaceMod.setFocusCharScale(v); },
   setMoveMode: (v)=>{ moveModeMod.setMoveMode(v); },
@@ -1121,7 +1120,7 @@ const fnKeysMod = TwFnKeys.createFnKeys({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const wdPanelMod = TwWardrobePanel.createWardrobePanel({
   isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
+  isPremium: ()=>acctStateMod.isPremium(),
   twNav: twNav,
   toast: (...a)=>toast(...a),
   wardrobeMod: ()=>wardrobeMod,
@@ -1467,7 +1466,7 @@ const chatPrefsMod = TwChatPrefs.createChatPrefs({
   _chatEsc: (...a)=>_chatEsc(...a),
   _chatIsHost: (...a)=>chatLockMod._chatIsHost(...a),
   _chatIsSecretRoom: (...a)=>chatLockMod._chatIsSecretRoom(...a),
-  _chatLogCache: ()=>_chatLogCache,
+  _chatLogCache: ()=>chatUiMod._chatLogCache(),
   _chatOffOn: (...a)=>chatLockMod._chatOffOn(...a),
   _chatOffRefreshUI: (...a)=>chatLockMod._chatOffRefreshUI(...a),
   _chatRoomCode: (...a)=>chatLockMod._chatRoomCode(...a),
@@ -1691,7 +1690,7 @@ const mhLinksMod = TwMyHomeLinks.createMyHomeLinks({
    ★ 원래 자리인 여기서 만든다 — 만들 때 바로 도는 일(버튼 · 입력칸 연결 · window 고리 · companion.onBgmClosed · onBgmMode 구독)이
      예전과 같은 때 돈다. 바깥에서 부르는 이름은 예전처럼 window 에 걸린다(commitMyHomePage · _mhApplyBg · _mhApplyTheme · _bgmDestroy 등).
    함수 deps 는 화살표로 감싼다(부를 때 찾게). _myHomeData · _mhViewingUserId · _myHomeLoaded · _myHomeUid · _mhStickerDragDist ·
-   isPremium · isAdmin 은 다시 대입되는 let 이라 읽는 함수로, _myHomeLoaded · _mhStickerDragDist 를 바꾸는 것은 쓰는 함수로 넘긴다.
+   isPremium 은 계정 핵심 상태의 읽는 함수, isAdmin 은 다시 대입되는 let 이라 읽는 함수로, _myHomeLoaded · _mhStickerDragDist 를 바꾸는 것은 쓰는 함수로 넘긴다.
    USER_NAME_MAX 는 이 줄보다 뒤에 선언되는 const 라(TDZ) 읽는 함수로. 스티커를 그린 뒤 할 일은 알림(onStickersRendered)에 건다.
    myHomeSticker · STICKER_* · DS_IMG_* 는 이 줄보다 앞에 선언되고 다시 대입되지 않는 const 라 값으로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
@@ -1722,7 +1721,7 @@ const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
   myHomeUid: ()=>mhStateMod._myHomeUid(),
   mhStickerDragDist: ()=>mhPageMod._mhStickerDragDist(),
   setMhStickerDragDist: (v)=>{ mhPageMod.setMhStickerDragDist(v); },
-  isPremium: ()=>isPremium,
+  isPremium: ()=>acctStateMod.isPremium(),
   isAdmin: ()=>isAdmin,
   userNameMax: ()=>userNameMod.USER_NAME_MAX,
   myHomeSticker,
@@ -1783,8 +1782,6 @@ const chatUiMod = TwChatUi.createChatUi({
   _chatDelClose: (...a)=>chatPrefsMod._chatDelClose(...a),
   _chatEsc: (...a)=>_chatEsc(...a),
   _chatIsHost: (...a)=>chatLockMod._chatIsHost(...a),
-  _chatLogCache: ()=>_chatLogCache,
-  _chatLogUnsub: ()=>_chatLogUnsub,
   _chatOffOn: (...a)=>chatLockMod._chatOffOn(...a),
   _chatOffRefreshUI: (...a)=>chatLockMod._chatOffRefreshUI(...a),
   _chatRoomCode: (...a)=>chatLockMod._chatRoomCode(...a),
@@ -1809,15 +1806,11 @@ const chatUiMod = TwChatUi.createChatUi({
   showChatBubble: (...a)=>showChatBubble(...a),
   startMyDance: (...a)=>iDeskMod.startMyDance(...a),
   toast: (...a)=>toast(...a),
-  setChatLogCache: (v)=>{ _chatLogCache = v; },
-  setChatLogUnsub: (v)=>{ _chatLogUnsub = v; },
   setDanceCmdCooldownAt: (v)=>{ iDeskMod.setDanceCmdCooldownAt(v); },
   twNav: twNav,
 });
 
 /* ═══════════════ 💬 프리미엄 대화창 (1차: 코어) ═══════════════ */
-let _chatLogUnsub = null;      // subscribeChatLog 해제 함수
-let _chatLogCache = [];        // 화면에 그린 마지막 메시지 목록(기록 저장용)
 
 /* HTML 이스케이프 (메시지 렌더 시 XSS/깨짐 방지) — 지금은 공용 `escHtml` 의 **별칭**이다.
    ⚠️ 여기에 구현을 되돌려 넣지 말 것. 같은 일을 하는 헬퍼가 둘이 되면 한쪽만 약해지는데,
@@ -2060,7 +2053,7 @@ const premiumMod = TwPremiumAssets.createPremiumAssets({
   equipDeskItem: (...a)=>equipDeskItem(...a),
   findMySeat: (...a)=>findMySeat(...a),
   isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
+  isPremium: ()=>acctStateMod.isPremium(),
   saveSlots: (...a)=>slotSaveMod.saveSlots(...a),
   savedDesks: ()=>commissionMod.savedDesks(),
   savedItems: ()=>commissionMod.savedItems(),
@@ -2433,7 +2426,6 @@ const slots=new Array(CHAR_SLOT_MAX).fill(null);
    이 값이 true 인 칸에 빈 그림이 저장되려 하면 그건 사용자의 뜻이 아니라 사고다. */
 const _faceEverDrawn  = new Array(CHAR_SLOT_MAX).fill(false);
 const _blinkEverDrawn = new Array(CHAR_SLOT_MAX).fill(false);
-let _blankFaceConfirmed = false;   // 생성기에서 «비운 채 저장»을 확인한 직후, 바로 뒤 saveSlots 1회만 소비
 const CUR_SLOT_KEY='tw.curSlot';
 function _loadCurSlot(){ try{ const v=parseInt(localStorage.getItem(CUR_SLOT_KEY),10); if(v>=0&&v<CHAR_SLOT_MAX) return v; }catch(e){} return 0; }
 function saveCurSlot(){ TwLsSet.lsSet(CUR_SLOT_KEY, String(curSlot)); }
@@ -2479,7 +2471,6 @@ const defToBase = creatorFaceMod.defToBase;   // 옛 전역 이름
 const faceC=newCanvas(), blinkC=newCanvas();      // 저장 레이어(깨끗한 원본)
 const dispC=newCanvas();                          // 모델에 보이는 합성 텍스처(양파껍질 포함)
 const dispTex=new THREE.CanvasTexture(dispC); dispTex.flipY=false;dispTex.encoding=THREE.sRGBEncoding;
-let creatorMode={kind:'slot',edit:false};
 function isCommissionEditing(){ return !!(crState.currentCreatorDef && crState.currentCreatorDef.isCommission); }
 function isAnimalEditing(){ return !!(crState.currentCreatorDef && crState.currentCreatorDef.animal); }
 function isDeskSeatOnly(){ return isCommissionEditing() || isAnimalEditing(); }   // 페인트 단계 없이 책상·좌석만 하는 캐릭터
@@ -2528,7 +2519,7 @@ const deskPresetMod = TwDeskPreset.createDeskPreset({
   fitCreator: (...a)=>creatorPrevMod.fitCreator(...a),
   frameDeskCam: (...a)=>creatorPrevMod.frameDeskCam(...a),
   isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
+  isPremium: ()=>acctStateMod.isPremium(),
   premiumMod: premiumMod,
   setCreatorDeskScale: (...a)=>deskPlaceMod.setCreatorDeskScale(...a),
   setDeskPos: (...a)=>deskPlaceMod.setDeskPos(...a),
@@ -2653,7 +2644,7 @@ const deskSetupMod = TwDeskSetup.createDeskSetup({
   deskItemsMod: ()=>deskItemsMod,
   equipDeskItem: (...a)=>equipDeskItem(...a),
   isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
+  isPremium: ()=>acctStateMod.isPremium(),
   lightToneMod: ()=>lightToneMod,
   ndc: ndc,
   premiumMod: premiumMod,
@@ -2798,13 +2789,9 @@ let isAdmin = false;
    ⚠️ 스위치는 원격 설정 flags.inviteGate(remote-config.js · API · 없으면 true). false면 게이트가 아예 안 뜬다.
       부팅 때 한 번 정한다 — initInviteGate 가 첫 답을 잠깐 기다린 뒤 checkInviteGate 를 부른다(못 읽으면 true).
 ──────────────────────────────────────────────────────────────────── */
-let isPremium = false;   // 프리미엄 여부 — 여러 모듈이 읽어 app.js 에 둔다. 바꾸는 곳은 license-gate.js 의 _setPremium 하나
-/* 🪪 계정 핵심 상태(라이선스 저장 키 · 초대 통과 · 프리미엄 깃발 바꾸기 · 신원 놓음 · 다시 켜기)는 account-state.js 에 —
-   계정 · 초대 게이트 · 내 정보 · 포커스 레벨이 서로를 바라보지 않게(모듈 순환 끊기 5). isPremium 은 여기(app.js) 그대로, 바꾸는 곳은 _setPremium 하나 */
-const acctStateMod = TwAccountState.createAccountState({
-  isPremium: ()=>isPremium,
-  setIsPremium: (v)=>{ isPremium = v; },
-});
+/* 🪪 계정 핵심 상태(라이선스 저장 키 · 초대 통과 · 프리미엄 깃발 · 신원 놓음 · 다시 켜기)는 account-state.js 에 —
+   계정 · 초대 게이트 · 내 정보 · 포커스 레벨이 서로를 바라보지 않게(모듈 순환 끊기 5). 프리미엄 깃발의 주인도 거기(app.js 분리 F6) — 바꾸는 곳은 _setPremium 하나 */
+const acctStateMod = TwAccountState.createAccountState();
 /* 본문은 license-gate.js 로 옮겼다(앱 FSD 31번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const licenseGateMod = TwLicenseGate.createLicenseGate({
@@ -3018,7 +3005,7 @@ const creatorFlowMod = TwCreatorFlow.createCreatorFlow({
   clampCharY: (...a)=>clampCharY(...a),
   clearStampState: (...a)=>crStampMod.clearStampState(...a),
   crStep: ()=>crState.crStep,
-  creatorMode: ()=>creatorMode,
+  creatorMode: ()=>crState.creatorMode,
   creatorOpen: ()=>creatorOpen,
   creatorPrevMod: creatorPrevMod,
   currentCreatorDef: ()=>crState.currentCreatorDef,
@@ -3064,8 +3051,8 @@ const creatorOpenMod = TwCreatorOpen.createCreatorOpen({
   clampDeskScale: clampDeskScale,
   commissionMod: ()=>commissionMod,
   creatorFlowMod: creatorFlowMod,
-  creatorMode: ()=>creatorMode,
-  setCreatorMode: (v)=>{ creatorMode = v; },
+  creatorMode: ()=>crState.creatorMode,
+  setCreatorMode: (v)=>{ crState.creatorMode = v; },
   setCreatorOpen: (v)=>{ creatorOpen = v; },
   creatorPrevMod: creatorPrevMod,
   crState: crState,
@@ -3082,7 +3069,7 @@ const creatorOpenMod = TwCreatorOpen.createCreatorOpen({
   histB: histB,
   histF: histF,
   isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
+  isPremium: ()=>acctStateMod.isPremium(),
   launcherCtlMod: ()=>launcherCtlMod,
   launcherPrevMod: ()=>launcherPrevMod,
   licenseGateMod: licenseGateMod,
@@ -3106,7 +3093,6 @@ const creatorSaveMod = TwCreatorSave.createCreatorSave({
   NO_DESK_ID: NO_DESK_ID,
   CHAR_SLOT_MAX: CHAR_SLOT_MAX,
   Presence: ()=>Presence,
-  _blankFaceConfirmed: ()=>_blankFaceConfirmed,
   _isBlankDraw: (...a)=>_isBlankDraw(...a),
   activeCustomDeskId: ()=>crState.activeCustomDeskId,
   applyCharToSeat: (...a)=>applyCharToSeat(...a),
@@ -3132,7 +3118,7 @@ const creatorSaveMod = TwCreatorSave.createCreatorSave({
   commissionMod: ()=>commissionMod,
   createSeat: (...a)=>createSeat(...a),
   creatorFlowMod: creatorFlowMod,
-  creatorMode: ()=>creatorMode,
+  creatorMode: ()=>crState.creatorMode,
   creatorOpen: ()=>creatorOpen,
   curSlot: ()=>curSlot,
   currentCreatorDef: ()=>crState.currentCreatorDef,
@@ -3149,7 +3135,7 @@ const creatorSaveMod = TwCreatorSave.createCreatorSave({
   slots: slots,
   snapCanvas: (...a)=>snapCanvas(...a),
   toast: (...a)=>toast(...a),
-  setBlankFaceConfirmed: (v)=>{ _blankFaceConfirmed = v; },
+  setBlankFaceConfirmed: (v)=>{ slotSaveMod.setBlankFaceConfirmed(v); },
   setCreatorOpen: (v)=>{ creatorOpen = v; },
   setCurSlot: (v)=>{ curSlot = v; },
 });
@@ -3381,7 +3367,7 @@ const presenceMod = TwPresence.createPresence({
   getMyUserId: (...a)=>getMyUserId(...a),
   iDeskMod: iDeskMod,
   isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
+  isPremium: ()=>acctStateMod.isPremium(),
   lastAnyInput: ()=>seatStateMod.lastAnyInput(),
   roomEntryMod: ()=>roomEntryMod,
   roomNet: ()=>window.firebaseAPI,
@@ -3425,7 +3411,7 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
+  isPremium: ()=>acctStateMod.isPremium(),
   layoutSeats: (...a)=>layoutSeats(...a),
   maxPeople: (...a)=>maxPeople(...a),
   myExpCells: (...a)=>expBarMod.myExpCells(...a),
@@ -3509,8 +3495,8 @@ const progSettingsMod = TwProgramSettings.createProgramSettings({
   setFocusGateSleep: (v)=>{ focusGateSleep = v; },
   setOfficeMode: (v)=>{ officeModeMod.setOfficeMode(v); },
   twNav: twNav,
-  renderQuality: ()=>_renderQuality,
-  setRenderQuality: (v)=>{ _renderQuality = v; },
+  renderQuality: ()=>renderStateMod.renderQuality(),
+  setRenderQuality: (v)=>{ renderStateMod.setRenderQuality(v); },
   renderAntialias: _renderAA,
   applyRunPixelRatio: (...a)=>seatCameraMod.updateCameraOnly(...a),
 });
@@ -3673,7 +3659,7 @@ const myInfoMod = TwMyInfo.createMyInfo({
 /* 본문은 license-ui.js 로 옮겼다(앱 FSD 48번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const licenseUiMod = TwLicenseUi.createLicenseUi({
-  isPremium: ()=>isPremium,
+  isPremium: ()=>acctStateMod.isPremium(),
   licReqMod: ()=>licReqMod,
 });
 /* ═══ 🪟 런처 타이틀바 · 팝업 흐림 ═══ */
@@ -3826,7 +3812,6 @@ const addFriendMod = TwAddFriend.createAddFriend({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const slotSaveMod = TwSlotSave.createSlotSave({
   CHAR_SLOT_MAX: CHAR_SLOT_MAX,
-  _blankFaceConfirmed: ()=>_blankFaceConfirmed,
   _blinkEverDrawn: _blinkEverDrawn,
   _faceEverDrawn: _faceEverDrawn,
   _isBlankDraw: (...a)=>_isBlankDraw(...a),
@@ -3836,7 +3821,6 @@ const slotSaveMod = TwSlotSave.createSlotSave({
   seats: seats,
   slots: slots,
   toast: (...a)=>toast(...a),
-  setBlankFaceConfirmed: (v)=>{ _blankFaceConfirmed = v; },
 });
 /* 슬롯 저장 · 복원 뒤 할 일 — 이 모듈보다 먼저 만들어지는 위층(프리미엄 · 꾸미기 · 설정 화면)은 여기서 건다.
    동기화 · 보관함은 자기를 만들 때 스스로 건다(slot-sync.js · chars.js). */
@@ -4196,7 +4180,7 @@ const deskVisualMod = TwDeskVisual.createDeskVisual({
   b64ToBuf: (...a)=>b64ToBuf(...a),
   commissionMod: commissionMod,
   isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
+  isPremium: ()=>acctStateMod.isPremium(),
   setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),
   toast: (...a)=>toast(...a),
 });
@@ -4262,7 +4246,7 @@ const charCodeMod = TwCharCode.createCharCode({
   focusLevelMod: ()=>focusLevelMod,
   gachaMod: ()=>gachaMod,
   isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
+  isPremium: ()=>acctStateMod.isPremium(),
   layoutSeats: (...a)=>layoutSeats(...a),
   loadCharGLB: (...a)=>seatModelLoadMod.loadCharGLB(...a),
   overheadMod: overheadMod,
@@ -4316,7 +4300,7 @@ const setClip = rigAnimMod.setClip;   // 옛 전역 이름
    다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다. */
 const framePaceMod = TwFramePace.createFramePace({
   _flyActive: ()=>flyChairMod._flyActive(),
-  setRunLowered: (v)=>{ _runLowered = v; },
+  setRunLowered: (v)=>{ renderStateMod.setRunLowered(v); },
   creatorOpen: ()=>creatorOpen,
   frame: (...a)=>frame(...a),
   renderer: renderer,
@@ -4362,8 +4346,8 @@ const runDiagMinuteMod = TwRunDiagMinute.createRunDiagMinute({
   _frameCap: (...a)=>_frameCap(...a),
   _frameJsStats: _frameJsStats,
   _gpuTimer: _gpuTimer,
-  _renderQuality: ()=>_renderQuality,
-  _runLowered: ()=>_runLowered,
+  _renderQuality: ()=>renderStateMod.renderQuality(),
+  _runLowered: ()=>renderStateMod.runLowered(),
   canvas: canvas,
   hitShadow: hitShadow,
   key: key,
@@ -4381,7 +4365,7 @@ const frameLoopMod = TwFrameLoop.createFrameLoop({
   _frameJsStats: _frameJsStats,
   _gpuTimer: _gpuTimer,
   _lowerRunQuality: _lowerRunQuality,
-  _renderQuality: ()=>_renderQuality,
+  _renderQuality: ()=>renderStateMod.renderQuality(),
   _runSlowWatch: _runSlowWatch,
   activeItemMixers: activeItemMixers,
   animateRig: animateRig,
@@ -4846,7 +4830,7 @@ const runBoot = TwRunBoot.createRunBoot({
     seatTabs: ()=>{ seatPanelMod.renderSeatTabs(); seatPanelMod.setManual(null); },
     appMode: ()=>{ applyAppMode(); applyDesktopRunClass(); },
     adminUi: ()=>{ if(typeof adminMode.refreshAdminVisibility==='function') adminMode.refreshAdminVisibility(); },   // 관리자 전용 UI는 기본 숨김 (관리자 모드 진입 시 노출)
-    licenseLabel: ()=>{ const lbl=document.getElementById('lcLicenseLbl'); if(lbl) lbl.textContent = isPremium ? '🔓 라이선스 등록됨' : '🔑 라이선스 등록'; },
+    licenseLabel: ()=>{ const lbl=document.getElementById('lcLicenseLbl'); if(lbl) lbl.textContent = acctStateMod.isPremium() ? '🔓 라이선스 등록됨' : '🔑 라이선스 등록'; },
     /* 🏠 마이홈 시작(내 접속 표시 · 프로필 · 친구 · 요청 · 우편 구독) — 모듈을 다 만든 뒤 여기서 한 번.
        첫 일이 «Firebase 붙을 때까지 기다리기» 라, 부팅 중 어디서 불러도 실제 시작은 firebaseAPI 가 생긴 뒤다. */
     myHome: ()=>mhInitMod.initMyHome(),
@@ -4920,7 +4904,7 @@ TwMyHomeDesktop.createMyHomeDesktop({
   getMyUserId: (...a)=>getMyUserId(...a),
   focusLevelMod: focusLevelMod,
   _focusTotalSec: ()=>_focusTotalSec,
-  isPremium: ()=>isPremium,
+  isPremium: ()=>acctStateMod.isPremium(),
   isAdmin: ()=>isAdmin,
   getDisplayName: (...a)=>getDisplayName(...a),
   toast: (...a)=>toast(...a),
@@ -4944,7 +4928,7 @@ TwNoise.createNoise({
 TwAnimal.createAnimal({
   isAdmin: ()=>isAdmin,
   curSlot: ()=>curSlot,
-  creatorMode: ()=>creatorMode,
+  creatorMode: ()=>crState.creatorMode,
   creatorOpen: ()=>creatorOpen,
   setCurSlot: (v)=>{ curSlot = v; },
   setCreatorOpen: (v)=>{ creatorOpen = v; },

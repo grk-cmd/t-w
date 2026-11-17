@@ -89,7 +89,7 @@ say('§4 연결');
   const code = stripC(APP);
   const pairs = depPairs(APP, 'framePaceMod', 'TwFramePace', 'createFramePace');
   const READ = ['_flyActive', 'creatorOpen'], FN = ['frame'];
-  const shape = (n, v) => n === 'setRunLowered' ? v === '(v)=>{ _runLowered = v; }' : n === '_flyActive' ? v === '()=>flyChairMod._flyActive()' : READ.includes(n) ? v === '()=>' + n : FN.includes(n) ? v === '(...a)=>' + n + '(...a)' : v === n;
+  const shape = (n, v) => n === 'setRunLowered' ? v === '(v)=>{ renderStateMod.setRunLowered(v); }' : n === '_flyActive' ? v === '()=>flyChairMod._flyActive()' : READ.includes(n) ? v === '()=>' + n : FN.includes(n) ? v === '(...a)=>' + n + '(...a)' : v === n;
   chk(!!pairs && pairs.length === 8 && pairs.every(([n, v]) => shape(n, v)), '★ deps 8개 모양 — 읽는 함수 둘 · 함수 하나(frame) · 쓰는 함수 하나 · 값 넷');
   const bad = pairs ? pairs.map(([n, v]) => n === 'creatorOpen' ? [n, 'creatorOpen'] : [n, v]) : [];
   chk(!bad.every(([n, v]) => shape(n, v)), '  깨 보기: 읽는 함수를 값으로 넘기면 빨강');

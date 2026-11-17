@@ -20,7 +20,7 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/
 
 const EXPORTS = [];
 const GLUE = ['  Presence: Presence,', '  _FB: _FB,', '  _bodyHidden: (...a)=>hiddenSeatsMod._bodyHidden(...a),', '  _frameBudget: _frameBudget,', '  _frameCap: (...a)=>_frameCap(...a),',
-  '  _frameJsStats: _frameJsStats,', '  _gpuTimer: _gpuTimer,', '  _renderQuality: ()=>_renderQuality,', '  _runLowered: ()=>_runLowered,', '  canvas: canvas,', '  hitShadow: hitShadow,', '  key: key,',
+  '  _frameJsStats: _frameJsStats,', '  _gpuTimer: _gpuTimer,', '  _renderQuality: ()=>renderStateMod.renderQuality(),', '  _runLowered: ()=>renderStateMod.runLowered(),', '  canvas: canvas,', '  hitShadow: hitShadow,', '  key: key,',
   '  renderer: renderer,', '  runCost: runCost,', '  scene: scene,', '  seats: seats,'];
 const MAKE = 'const runDiagMinuteMod = TwRunDiagMinute.createRunDiagMinute({';
 const DECLS = ['const hitShadow = TwHitShadow.createHitShadow();', 'const _FB = ', 'const _frameBudget = ', 'const _gpuTimer = ', 'const _frameJsStats = ', 'const runCost = TwRunCostDiag.page;', 'const Presence = ', 'const hiddenSeatsMod = '];   // 값으로 넘기는 것 — 만드는 줄보다 먼저

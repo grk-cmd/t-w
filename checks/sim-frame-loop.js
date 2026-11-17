@@ -85,7 +85,7 @@ say('§4 연결');
   const code = stripC(APP);
   const pairs = depPairs(APP, 'frameLoopMod', 'TwFrameLoop', 'createFrameLoop');
   const READ = ['_renderQuality', 'awayPicMod', 'desktopMode', 'expBarMod', 'focusLevelMod', 'officeModeMod'];
-  const shape = (n, v) => n === '_renderQuality' ? v === '()=>_renderQuality' : READ.includes(n) ? v === '()=>' + n : v === n;
+  const shape = (n, v) => n === '_renderQuality' ? v === '()=>renderStateMod.renderQuality()' : READ.includes(n) ? v === '()=>' + n : v === n;
   chk(!!pairs && pairs.length === 50 && pairs.every(([n, v]) => shape(n, v)), '★ deps 50개 모양 — 읽는 함수 여섯은 ()=>이름 · 나머지는 값(이미 만들어진 것)' + (pairs ? ' (' + pairs.length + '개)' : ''));
   const bad = pairs ? pairs.map(([n, v]) => n === 'desktopMode' ? [n, 'desktopMode'] : [n, v]) : [];
   chk(!bad.every(([n, v]) => shape(n, v)), '  깨 보기: 읽는 함수를 값으로 넘기면 빨강');

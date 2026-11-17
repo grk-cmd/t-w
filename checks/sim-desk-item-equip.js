@@ -185,7 +185,7 @@ say('§7 연결');
   const iE = HTML.indexOf('<script src="parts/character/desk-item-equip.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>'), iP = HTML.indexOf('<script src="parts/character/part-anim.js"></script>');
   chk(iE > 0 && iA > iE, 'html — desk-item-equip.js 를 app.js 보다 먼저 싣는다');
   const code = APP.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
-  chk(/const deskItemEquipMod = TwDeskItemEquip\.createDeskItemEquip\(\{[\s\S]*?crState: \(\)=>crState,[\s\S]*?isPremium: \(\)=>isPremium,[\s\S]*?\}\);/.test(code), 'app.js — 만들고 늦게 생기는 것 · 다시 대입되는 let(isAdmin · isPremium · customItems)은 읽는 함수로 넘긴다');
+  chk(/const deskItemEquipMod = TwDeskItemEquip\.createDeskItemEquip\(\{[\s\S]*?crState: \(\)=>crState,[\s\S]*?isPremium: \(\)=>acctStateMod\.isPremium\(\),[\s\S]*?\}\);/.test(code), 'app.js — 만들고 늦게 생기는 것 · 다시 대입되는 let(isAdmin · customItems) · 계정 핵심 상태의 isPremium 은 읽는 함수로 넘긴다');
   const names = ['applyDeskAdj', 'deskItemOrigin', 'equipDeskItem', 'collectDeskItems', 'autoSaveDeskItemsNow', 'applyDeskItemsTo', '_applyItemColor'];
   chk(names.every(n => new RegExp('^const ' + n + ' = deskItemEquipMod\\.' + n + ';', 'm').test(code)), '  옛 이름 일곱을 const 로 받는다');
   chk(!/function (equipDeskItem|collectDeskItems|autoSaveDeskItemsNow|applyDeskItemsTo|_applyItemColor|applyDeskAdj|_rememberCrItemOrigin)\b/.test(code), '  app.js 에 장착 함수가 남아 있지 않다');
