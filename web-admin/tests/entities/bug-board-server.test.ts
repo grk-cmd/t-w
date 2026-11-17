@@ -105,7 +105,7 @@ describe('제보 목록 — API 판', () => {
     expect(page.items[0]).not.toHaveProperty('authUid');
   });
 
-  it('이름이 없는 글쓴이(author.name: null) — 공개 글은 null, 비공개 글은 «익명» 에 닉네임 칸 없음', async () => {
+  it('이름이 없는 글쓴이(author.name: null) — 공개 글은 null, 비공개 글은 «익명» · nick 필드 없음', async () => {
     const none = { userCode: 'u1', name: null, anonymous: false };
     const s = fakeApiOf({
       [LIST]: () => ({

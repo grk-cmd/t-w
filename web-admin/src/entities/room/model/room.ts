@@ -67,7 +67,7 @@ export interface RoomProbe {
   people?: RoomPerson[];
 }
 
-/** 멤버 칸에서 읽은 name · userId 를 사람 하나로 — 빈 칸 · 모양이 틀린 칸은 null. */
+/** 멤버 값의 name · userId 를 RoomPerson 으로 — 빈 값 · 형식이 틀린 필드는 null. */
 export function toRoomPerson(name: unknown, userId: unknown): RoomPerson {
   return {
     userId: typeof userId === 'string' && userId ? userId : null,
