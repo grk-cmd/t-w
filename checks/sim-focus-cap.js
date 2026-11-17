@@ -16,6 +16,8 @@
    종료 코드: 0=통과 · 1=실패 · 2=원본 없음
 */
 'use strict';
+/* 모듈이 저장을 shared/ls-set.js(TwLsSet)로 한다 — 이 검사의 저장소 위에 하나 만든다(안내는 받지 않음) */
+const lsSetOn = (ls) => { const src = ['ls-set.js', 'app/parts/shared/ls-set.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const w = { TwErrorCodes: { notify(){ return true; } } }; new Function('window', 'localStorage', 'console', 'module', src)(w, ls, { warn(){} }, undefined); return w.TwLsSet; };
 const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const _MI_JOIN = require('./sim-renderer-src.js').joinRenderer;   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
@@ -252,14 +254,14 @@ console.log('\n[6] 색이 계정을 따라간다 — 받아 오기 · 비워 보
       const LS = { st: Object.assign({}, o.st || {}), getItem(k){ return k in this.st ? this.st[k] : null; }, setItem(k, v){ this.st[k] = String(v); } };
       const calls = [];
       const api = { fetchProfileStarC: async (uid) => { calls.push(uid); if (o.pickDuring) LS.st['tw.starColor'] = o.pickDuring; return o.remote === undefined ? null : o.remote; } };
-      const E = new Function('localStorage', 'window', 'env', `
+      const E = new Function('localStorage', 'window', 'env', 'TwLsSet', `
         const STAR_COLOR_KEY = 'tw.starColor', FOCUS_CYCLE_SEC = 999*3600;
         let _focusTotalSec = env.total;
         const getMyUserId = () => env.uid;
         const firebaseAPI = window.firebaseAPI;   // 브라우저에선 전역 — 여기선 window 에서 꺼내 둔다
         ${APP.slice(palS, palE)}
         ${fs6.join('\n')}
-        return { getStarColor, myStarOut, myStarProfileOut, adopt: _adoptStarColorFromProfile };`)(LS, { firebaseAPI: api }, { total: o.total || 0, uid: o.uid === undefined ? 'U1' : o.uid });
+        return { getStarColor, myStarOut, myStarProfileOut, adopt: _adoptStarColorFromProfile };`)(LS, { firebaseAPI: api }, { total: o.total || 0, uid: o.uid === undefined ? 'U1' : o.uid }, lsSetOn(LS));
       return Object.assign(E, { LS, calls });
     };
     const C = 999 * 3600, P0 = '#ffd76a', PINK = '#ff7ad0', MINT = '#6ef0a0';

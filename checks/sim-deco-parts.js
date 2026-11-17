@@ -53,7 +53,7 @@ say('── 3. 토글 · 버튼 · HTML');
   const code = strip(SRC);
   const i = code.indexOf("document.getElementById('fsDecoPartsToggle');\n  if(dpBtn) dpBtn.onclick");
   const t = code.slice(i, i + 500);
-  chk(i >= 0 && /decoPartsVisible = !decoPartsVisible;/.test(t) && /localStorage\.setItem\('tw\.decoParts'/.test(t), '토글: 뒤집고 저장');
+  chk(i >= 0 && /decoPartsVisible = !decoPartsVisible;/.test(t) && /TwLsSet\.lsSet\('tw\.decoParts'/.test(t), '토글: 뒤집고 저장');
   chk(/seats\.forEach\(s => applyClothVisibility\(s\)\)/.test(t), '★ 전 좌석(나·친구·추가 좌석)에 바로 적용');
   chk(!/firebaseAPI|Presence\./.test(t), '  서버 쓰기 없음(내 화면 전용)');
   chk(/fsDecoPartsToggle'\);\s*if\(dpBtn\)\{ dpBtn\.textContent = decoPartsVisible\?'켜짐':'꺼짐'/.test(code), '  refreshToggleBtns 가 켜짐/꺼짐을 그린다');

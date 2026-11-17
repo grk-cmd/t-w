@@ -27,6 +27,8 @@
       그쪽은 부르는 쪽, 이쪽은 불린 함수 안을 본다.
    [실행] app.js 가 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
+/* 모듈이 저장을 shared/ls-set.js(TwLsSet)로 한다 — 이 검사의 저장소 위에 하나 만든다(안내는 받지 않음) */
+const lsSetOn = (ls) => { const src = ['ls-set.js', 'app/parts/shared/ls-set.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const w = { TwErrorCodes: { notify(){ return true; } } }; new Function('window', 'localStorage', 'console', 'module', src)(w, ls, { warn(){} }, undefined); return w.TwLsSet; };
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
@@ -80,7 +82,7 @@ if(!fHeal || !fEnsure || !fRemOld || !fGen){
       setUserFriendCode: async () => true,
       migrateFriendRequests: async (a, b) => { rec.migrated.push([a, b]); },
     };
-    const f = new Function('localStorage', 'firebaseAPI', 'rec', [
+    const f = new Function('localStorage', 'firebaseAPI', 'rec', 'TwLsSet', [
       "const window={ firebaseAPI };",
       "const console={ warn:(...a)=>rec.warns.push(a.join(' ')), log:()=>{}, info:()=>{} };",
       "const toast=(m)=>rec.toasts.push(m);",
@@ -94,7 +96,7 @@ if(!fHeal || !fEnsure || !fRemOld || !fGen){
       fHeal,
       "return { heal:_healFriendCodeOwner, checked:()=>_fcOwnerChecked };",
     ].join('\n'));
-    return { LS, rec, m: f(LS, api, rec) };
+    return { LS, rec, m: f(LS, api, rec, lsSetOn(LS)) };
   };
   const untouched = (e) => e.LS.getItem('tw.myFriendCode') === 'MATE-AB12' && e.rec.ownerSet.length === 0 && e.rec.migrated.length === 0
     && e.rec.ensureCalls === 0 && e.rec.registered.length === 0 && e.rec.toasts.length === 0;
@@ -157,7 +159,7 @@ if(!fApply){
     LS.setItem('tw.focusSyncedSec', '900');
     if(!noCode) LS.setItem('tw.myFriendCode', 'MATE-OLD1');
     const rec = { calls: [], premium: null };
-    const f = new Function('localStorage', 'rec', [
+    const f = new Function('localStorage', 'rec', 'TwLsSet', [
       "const console={ warn:()=>{}, log:()=>{}, info:()=>{} };",
       "const LICENSE_KEY_STORAGE='tw.licenseKey', FOCUS_TOTAL_KEY='tw.focusTotalSec', FOCUS_SYNCED_KEY='tw.focusSyncedSec', USER_NAME_KEY='tw.userName', MY_FRIEND_CODE_KEY='tw.myFriendCode';",
       "let _focusTotalSec=1000;",
@@ -170,7 +172,7 @@ if(!fApply){
       fApply,
       "return { apply:_applyTransferSnapshot, focus:()=>_focusTotalSec };",
     ].join('\n'));
-    return { LS, rec, m: f(LS, rec) };
+    return { LS, rec, m: f(LS, rec, lsSetOn(LS)) };
   };
 
   let a = mkApply();
