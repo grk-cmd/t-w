@@ -14,15 +14,16 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const SRC = read('app.js'), HTML = read('desk-companion-prototype.html');
 if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
+const SEATS = ["seats.js","parts/room/seats.js","app/parts/room/seats.js"].map(read).find(Boolean);
 const MOD = ["seat-layout.js","parts/room/seat-layout.js","app/parts/room/seat-layout.js"].map(read).find(Boolean);
-if(!MOD){ say('  ? 원본 못 찾음 — seat-layout.js'); process.exit(2); }
+if(!MOD || !SEATS){ say('  ? 원본 못 찾음 — seat-layout.js · seats.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["_rideBottom","clampDeskPan","renderSeatTabs","seatDeskHalfWidth","measureCharBox","syncSeatEqualize"];
 const VAL_DEPS = ["seats"];
 const GET_DEPS = ["MULTIPLAYER_SPACING","SPACING","deskPanX","deskPanY","roomSeatMode","seatCameraMod"];
 const SET_DEPS = ["deskPanX","deskPanY"];
-const EXPORTS = ["layoutSeatRow","seatHalfWidth","slotIndexAt"];
+const EXPORTS = ["layoutSeatRow","layoutAndNotify","onLaidOut","seatHalfWidth","slotIndexAt"];
 const MOVED = ["layoutSeatRow"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,","  SPACING: ()=>SPACING,","  _rideBottom: (...a)=>_rideBottom(...a),","  clampDeskPan: (...a)=>clampDeskPan(...a),","  deskPanX: ()=>deskPanX,","  deskPanY: ()=>deskPanY,","  renderSeatTabs: (...a)=>renderSeatTabs(...a),","  roomSeatMode: ()=>roomSeatMode,","  seatCameraMod: ()=>seatCameraMod,","  seatDeskHalfWidth: (...a)=>seatDeskHalfWidth(...a),","  measureCharBox: (...a)=>measureCharBox(...a),","  seats: seats,","  syncSeatEqualize: (...a)=>syncSeatEqualize(...a),","  setCachedRowCenter: (v)=>{ _cachedRowCenter = v; },","  setCachedRowSpan: (v)=>{ _cachedRowSpan = v; },","  setDeskPanX: (v)=>{ deskPanX = v; },","  setDeskPanY: (v)=>{ deskPanY = v; },"];
 
@@ -66,7 +67,8 @@ function judgeAll(mod, app, html){
   const want = GLUE.map(kindOf), got = (mk ? mk.split('\n') : []).map(kindOf);   // deps 가 하나도 없으면 «({\n});»
   t(got.length === want.length && want.every((k, i) => got[i] === k), 'deps ' + GLUE.length + '개 — 키 · 넘기는 방식 그대로(함수 ' + FN_DEPS.length + ' · 값 ' + VAL_DEPS.length + ' · 읽는 함수 ' + GET_DEPS.length + ' · 쓰는 함수 ' + SET_DEPS.length + ')');
   /* 같은 이름의 딴 지역 변수가 app.js 에 따로 있는 이름(예: 함수 안 let)은 이 판정에서 뺀다 — 설정 localSame */
-  const bare = EXPORTS.filter(n => ![].includes(n)).filter(n => new RegExp('(^|[^.\\w$])' + n.replace(/\$/g, '\\$') + '\\b(?!\\s*:[^:]|\\(\\)\\{\\})').test(A.replace(/const seatLayoutMod = [\s\S]*?\n\}\);/, '').replace(/'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"/g, "''")));   // 따옴표 글자 안의 이름(안내 문구)은 부르는 곳이 아니다
+  const bare = EXPORTS
+  .filter(n => new RegExp('(^|[^.\\w$])' + n.replace(/\$/g, '\\$') + '\\b(?!\\s*:[^:]|\\(\\)\\{\\})').test(A.replace(/const seatLayoutMod = [\s\S]*?\n\}\);/, '').replace(/'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"/g, "''")));   // 따옴표 글자 안의 이름(안내 문구)은 부르는 곳이 아니다
   t(!bare.length, '부르는 곳은 seatLayoutMod.이름 — 옛 이름 그대로 부르는 자리 없음' + (bare.length ? ' — ' + bare.join(' · ') : ''));
   const iM = html.indexOf('<script src="parts/room/seat-layout.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iM > 0 && iA > iM, 'html — parts/room/seat-layout.js 를 app.js 보다 먼저 싣는다');
@@ -170,9 +172,9 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
   /* 경계 — 책상 폭 0 · 빈 좌석 목록 */
   r = runLayout([{ isMe: true, hw: 0 }, { hw: 0 }], {});
   chk(J(r.xs) === J([0, -0.4]) && J(r.log[r.log.length - 1]) === J(['cam', -0.2, 1.2]), '경계 — 책상 폭 0 이면 여백만큼 · 폭 하한 1.2');
-  /* 좌석 간격 최소값(app.js GAP_MIN)은 음수 — 맨 왼쪽 칸에선 책상끼리 조금 겹치게 붙는다. 앱이 쓰는 값으로 그대로 돌린다 */
+  /* 좌석 간격 최소값(seats.js GAP_MIN)은 음수 — 맨 왼쪽 칸에선 책상끼리 조금 겹치게 붙는다. 앱이 쓰는 값으로 그대로 돌린다 */
   {
-    const m = /const GAP_MIN = (-?[\d.]+), GAP_MAX = ([\d.]+), GAP_STEPS = (\d+);/.exec(SRC);
+    const m = /const GAP_MIN = (-?[\d.]+), GAP_MAX = ([\d.]+), GAP_STEPS = (\d+);/.exec(SEATS);
     const gmin = m ? +m[1] : NaN;
     chk(m && gmin < 0 && gmin > -0.85 && +m[2] > 0, '좌석 간격 최소값 — 음수(겹쳐 붙기)이되 기본 책상 반폭(0.85)보다 덜 겹친다 · 최대는 양수' + (m ? ' (' + m[1] + ' ~ ' + m[2] + ')' : ' — 못 찾음'));
     if(m){
@@ -319,6 +321,24 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
   }
   let threw = null; try{ r = runLayout([], {}); }catch(e){ threw = e; }
   chk(!threw && J(r.log[r.log.length - 1]) === J(['cam', null, null]) || (!threw && r.log.some(l => l[0] === 'cam')), '경계 — 좌석이 없어도 던지지 않는다(옮기기 전과 같은 값을 카메라에 넘긴다)');
+}
+
+
+say('── 6. 배치한 뒤 알림(F4 — layoutSeats 감싸 다시 대입을 갚음)');
+{
+  const MODX = MOD.replace('function layoutSeatRow(){', 'function layoutSeatRow(){ return;');   // 배치 계산은 따로 시험한다 — 여기선 알림만
+  const m = build(MODX);
+  const order = []; m.onLaidOut(() => order.push('a')); m.onLaidOut(() => order.push('b'));
+  m.layoutAndNotify(); m.layoutAndNotify();
+  chk(order.join() === 'a,b,a,b', 'layoutAndNotify 를 부를 때마다 거는 차례대로 알림을 부른다');
+  chk(build(MODX).layoutAndNotify() === undefined, '알림이 없어도 던지지 않는다');
+  const m2 = build(MODX); let k = 0; m2.onLaidOut(() => k++); m2.layoutSeatRow();
+  chk(k === 0, 'layoutSeatRow 만 부르면(끌기 계산 등) 알림은 안 간다 — 알림은 layoutAndNotify 를 거칠 때만');
+  const code = SRC.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  chk(/function layoutSeats\(\)\{ seatLayoutMod\.layoutAndNotify\(\); \}/.test(code) && /seatLayoutMod\.onLaidOut\(\(\)=>\{[\s\S]*?applyDesktopRunClass\(\); \}\);/.test(code) && !/layoutSeats\s*=\s*function|const _layoutSeats/.test(code), 'app.js — layoutSeats 는 한 번만 정의하고 창 크기 맞춤은 알림에 건다(감싸 다시 대입 없음)');
+  const brk = MODX.replace('function layoutAndNotify(){ layoutSeatRow(); laidOutFns.forEach(fn=>fn()); }', 'function layoutAndNotify(){ layoutSeatRow(); }');
+  const m3 = build(brk); let k3 = 0; m3.onLaidOut(() => k3++); m3.layoutAndNotify();
+  chk(brk !== MODX && k3 === 0, '깨 보기: 알림을 안 부르면 빨강');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

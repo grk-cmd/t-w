@@ -91,9 +91,19 @@ shared 는 머리를 달기 전 0.7% 였다 — 공용 도구가 따로 구역 �
 기준선 `checks/app-wiring-baseline.json` 보다 **늘면 빨강**, 줄면 같은 PR 에서 내린다(`node checks/sim-app-wiring.js --write-baseline` — 늘었으면 쓰기를 거절한다).
 처음 값(0.12.4 · P3 뒤): 함수 209 · let 77 · 듣기 71 · 저장 47 · try 139. 다섯이 모두 0 이 되면 기준선을 걷고 «0 이 아니면 빨강» 으로 바꾼다.
 
+## 옮기기 규약 — `scripts/move-verbatim.js`
+
+app.js 에서 모듈로 옮기는 PR(제목에 «app.js 분리» · «동작 무변경»)의 규약이다. «그대로 옮겼다» 는 사람이 다시 읽어 믿지 않고 기계로 증명한다.
+
+- **크기**: PR 하나에 구역 여럿. 기준은 옮기는 줄 1,000 ~ 2,000줄이고 큰 덩어리부터 옮긴다. 구역마다 PR 을 나누지 않는다.
+- **허용되는 고침**(이것만): 주석 · 모듈 머리와 꼬리(`window.TwXxx` · `createXxx(deps)` · `const X = deps.X;` · 알림 고리 · `return { … }`) · app.js 쪽 연결 줄(`const xMod = TwXxx.createXxx({…})` 와 deps 줄) · 다시 대입되는 let 을 읽는 함수로(`foo` → `foo()`) · 쓰는 함수로(`foo = v` → `setFoo(v)`) · 부르는 곳의 이름 바꿈(`fn(` → `xMod.fn(`) · 알림 고리로 바꿈(`xMod.fn(` → `xHooks.fn(`) · `typeof` 가드 걷기(`!== 'undefined' &&` · `=== 'undefined' ||` 두 모양만 · 새로 넣지 않는다) · html · `checks/smoke.js` 의 script · PRELOAD 한 줄 · README 절. 그 밖의 고침은 옮기기 PR 에 섞지 않고 따로 낸다.
+- **증명**: PR 마다 `node scripts/move-verbatim.js origin/<base> HEAD` 를 돌려 결과(옮긴 줄 수 · 종류별 줄 수 · 허용 밖)를 본문에 붙인다. 허용 밖이 있으면 한 줄씩 왜 필요한지 적는다. 컨펌자 · 검증자는 허용 밖 줄과 연결(deps · 만드는 자리 · 로드 순서)만 본다. 도구가 못 잡는 것: 줄 순서가 바뀐 것 · `})` 같은 문장부호만 있는 줄(블록 경계가 옮겨진 곳은 사람이 본다) · 연결 블록 칸에 바로 부르는 식이 든 것 · 읽기 자리의 `x` → `xMod.x` · 새 모듈을 html 에 안 싣는 것(smoke 검사 몫) · 가드 이름이 속성 · 문자열 안 낱말로만 남은 식의 가드 걷기 · 한 줄에 같은 이름을 두 번 대입 · setter 인자 칸의 쉼표식 · 읽는 함수 이름을 `()` 없이 쓴 줄. 전체 목록은 도구 머리 주석.
+- **기록**: 이 표의 줄은 한두 줄로 쓴다 — 파일 · 내놓는 이름 수 · app.js 줄 수 변화. 책임 · deps · 함정은 도메인 폴더 `README.md` 에 있다.
+- 판정기 자체의 검사는 `checks/sim-move-verbatim.js`.
+
 ## 옮기는 순서 (제안)
 
-한 줄 = 앞으로의 PR 하나. 고른 기준: 다른 구역이 덜 쓰고(쓰임 · 밖으로 나가는 이름이 적음) 줄 수가 큰 것부터.
+한 줄 = 앞으로 옮길 구역 하나(PR 은 «옮기기 규약» 대로 여러 구역을 묶는다). 고른 기준: 다른 구역이 덜 쓰고(쓰임 · 밖으로 나가는 이름이 적음) 줄 수가 큰 것부터.
 **방법**은 지금 있는 모듈과 같다 — `apps/desktop/app/parts/<이름>.js` 를 classic script(IIFE · `window.Xxx = api` · `module.exports`)로 만들고
 `desk-companion-prototype.html` 에서 app.js **앞**에 싣는다. app.js 는 `Xxx.createXxx({ … })` 로 필요한 것만 deps 로 넘긴다
 (`creator-flat-view.js` · `wd-ear.js` 가 본보기). 옮긴 모듈에는 `sim-<이름>.js` 를 붙여 node 로 실행해 본다.
@@ -102,7 +112,7 @@ shared 는 머리를 달기 전 0.7% 였다 — 공용 도구가 따로 구역 �
 - **app.js 글을 읽는 검사**가 많다(`fs.readFileSync('app.js')` 로 함수 몸통을 찾는 sim). 옮긴 함수를 찾는 검사는 새 파일을 읽게 고친다 — 아래 «먼저 볼 검사». 고치면 `CHECKS.md` §3 해시 · 개정 번호도 같은 커밋에.
 - 맨 앞 칸에서 **부팅 때 바로 도는 줄**(구독 시작 · 이벤트 연결)은 실행 순서가 바뀐다. `createXxx` 는 app.js 의 원래 자리에서 부른다.
 - 구역 밖에서 쓰는 이름(«밖에서 쓰는 이름»)은 `const xxx = Xxx.createXxx(…)` 의 반환값으로 내놓고 부르는 쪽을 `xxx.이름` 으로 바꾼다.
-- 한 PR 에 한 구역 묶음. 옮긴 뒤 `npm run check` 의 `sim-app-size` 톱니가 빨개지면 상한을 내린다.
+- 한 PR 에 여러 구역(1,000 ~ 2,000줄 · «옮기기 규약» 절). 옮긴 뒤 `npm run check` 의 `sim-app-size` 톱니가 빨개지면 상한을 내린다.
 
 > 1 ~ 8 · 7-2 줄의 «#N» 은 머리를 새로 달기 전(구역 97개) 번호다. 9 ~ 는 지금(173개) 번호다. 옛 번호 → 새 번호(굵게 = 나뉜 구역):
 > #1→1 · #2→2 · #3→3 · #4→4 · #5→5 · #6→6 · #7→7 · #8→8 · #9→9 · #10→10 · #11→11 · **#12→12~15** · #13→16 · **#14→17~18** · #15→19 · #16→20 · #17→21 · #18→22 · **#19→23~25** · #20→26 · #21→27 · #22→28 · #23→29 · **#24→30~31** · #25→32 · **#26→33~42** · #27→43 · #28→44 · **#29→45~54** · #30→55 · **#31→56~62** · #32→63 · #33→64 · #34→65 · #35→66 · #36→67 · #37→68 · #38→69 · #39→70 · #40→71 · #41→72 · **#42→73~78** · **#43→79~86** · #44→87 · #45→88 · #46→89 · #47→90 · #48→91 · #49→92 · #50→93 · #51→94 · #52→95 · #53→96 · #54→97 · #55→98 · #56→99 · #57→100 · #58→101 · **#59→102~108** · #60→109 · #61→110 · #62→111 · **#63→112~114** · #64→115 · #65→116 · #66→117 · #67→118 · #68→119 · #69→120 · **#70→121~130** · #71→131 · **#72→132~135** · #73→136 · #74→137 · #75→138 · #76→139 · #77→140 · #78→141 · #79→142 · #80→143 · #81→144 · #82→145 · **#83→146~154** · #84→155 · #85→156 · #86→157 · #87→158 · #88→159 · **#89→160~162** · #90→163 · #91→164 · #92→165 · #93→166 · **#94→167~170** · #95→171 · #96→172 · #97→173
@@ -172,7 +182,7 @@ app.js 앞에 싣는 작은 파일로 옮기면 전역 이름이 그대로라 �
 남길 핵심(약 4,000줄 · 쓰임이 수십 곳이라 도메인 폴더를 나눌 때 같이 본다): SETUP #1 · BUILDERS #5 · SEATS #6 · 좌석 크기 #7 ·
 좌석 배치 #18 · FIT #20 · USER STATUS #23 · CREATOR + LAUNCHER #90 · 방 접속 상태(Presence) #113 · ANIM #155.
 
-고른 기준은 1차와 같다 — 쓰임(다른 구역이 부르는 수)이 적고 줄 수가 큰 것부터, 한 줄 = PR 하나. 구역 번호는 지금(173개) 번호
+고른 기준은 1차와 같다 — 쓰임(다른 구역이 부르는 수)이 적고 줄 수가 큰 것부터, 한 줄 = 구역 하나(PR 은 «옮기기 규약» 절대로 묶는다). 구역 번호는 지금(173개) 번호
 (`node apps/desktop/scripts/app-sections.js` 로 다시 뽑는다 — 아래 «구역 표» 의 줄 범위는 옛 값이라 번호 · 제목으로 찾는다).
 
 | 순서 | 묶음 | 구역 | 줄(약) | 메모 |
@@ -229,7 +239,7 @@ app.js 앞에 싣는 작은 파일로 옮기면 전역 이름이 그대로라 �
 ## 옮기는 순서 4차 (46 ~ ) — 2026-10-14
 
 3차(34 ~ 45)가 끝났다 — app.js 19,851 → 14,804줄. 위 «남기는 것» 밖에 남은 기능 조각(구역마다 코드 10 ~ 80줄, 합쳐 약 650줄)을
-분야별로 세 묶음으로 옮긴다. 조각마다 모듈 하나(원래 자리 차례가 안 바뀌게), 한 줄 = PR 하나.
+분야별로 세 묶음으로 옮긴다. 조각마다 모듈 하나(원래 자리 차례가 안 바뀌게), 한 줄 = 구역 하나(PR 은 «옮기기 규약» 절대로 묶는다).
 
 | 순서 | 묶음 | 구역 | 줄(약) | 메모 |
 |---|---|---|---:|---|
@@ -301,6 +311,46 @@ app.js 9,746 → 9,476줄(270줄) · 구역 167 → 130개. 남긴 빈 머리 �
 **0.12.4 — app.js 분리 M4**: 파츠 · 책상 아이템 애니메이션 재생(클립 고르기 · 믹서 · 활동 중에만 재생 · 아이템 idle · 손 따라가기 · 눌러 재생)을 `character/part-anim.js` 로 옮겼다(글 그대로 — `isAdmin` · `userStatus` · `seats` 만 읽는 함수로 받고 옛 `typeof` 가드 둘을 걷었다). app.js 9,290 → 9,104줄.
 
 **0.12.4 — app.js 분리 M5**: 책상 아이템 장착(장착 · 해제 · 위치 · 색 · 모으기 · 바로 저장 · 저장 반영)을 `character/desk-item-equip.js` 로 옮겼다(글 그대로 — 더 아래에서 만들어지거나 다시 대입되는 열 가지를 읽는 함수로 받는다). app.js 9,104 → 8,902줄.
+
+**0.12.4 — app.js 분리 M6**: 좌석 목록(`seats`) · `createSeat` · `removeSeat` · 고른 좌석 · 좌석 간격 저장을 `room/seats.js` 로 옮겼다(글 그대로 — 다시 대입되는 `selected` · `SPACING` · `MULTIPLAYER_SPACING` 는 읽는 · 쓰는 함수로 내놓고 app.js 는 `seatsMod.selected()` 로 읽는다). app.js 8,902 → 8,874줄.
+
+**0.12.4 — app.js 분리 M7**: 캐릭터 높이 · 깊이(`CHAR_Z` · `clampCharY` …) · 프로그램 이동 위치 · 크기의 모니터별 저장 · 끌기 한계(`clampDeskPan`) · 책상 반폭(`seatDeskHalfWidth`)을 `room/char-place.js` 로 옮겼다(글 그대로 — `seats` 는 읽는 함수, 줄 배치는 attach 알림, 다시 대입되는 여섯은 읽는 · 쓰는 함수). app.js 8,874 → 8,624줄.
+
+**0.12.4 — app.js 분리 M8**: FIT 구역의 `fitModel`(몸 키 · 자리 맞춤) · `fitDesk`(책상 맞춤)를 `character/fit-model.js` 로 옮겼다(글 그대로 — `creatorPrevMod` 만 읽는 함수로 받는다). app.js 8,624 → 8,488줄.
+
+**0.12.4 — app.js 분리 M9**: USER STATUS 구역(내 상태 저장 · 칩 · 메뉴 · 커스텀 상태 · `statusConfFor`)과 좌석 xf 저장(`saveSeatXf`)을 `status/user-status.js` 로 옮겼다(글 그대로 — 방 알림 · 오늘 기록 전시 · 슬롯 저장 · 칩 색 변환은 모듈 순환을 막으려고 `attachStatusHooks` 알림으로 건다. `window.setUserStatus` 고리는 app.js 가 건다). app.js 8,488 → 8,423줄.
+
+**0.12.4 — app.js 분리 M10**: 캐릭터 투명도(`setSeatOpacity`)를 `room/seat-opacity.js` 로, 활동 판정(`seatState` · 활동 시각 · 펜 앱 · `triggerPet`)을 `status/seat-state.js` 로 옮겼다(글 그대로 — 활동 시각 · 펜 앱 깃발은 모듈 안에서 읽는 · 쓰는 함수로 나온다. 옛 `lastZ` 는 선언만 있어 걷음). app.js 8,423 → 8,326줄.
+
+**0.12.4 — app.js 분리 M11**: DRAG / PET 구역(캔버스 우클릭 · 누르기 · 끌기 · 흔들기 · 쓰다듬기 · 안전망 · 전역 마우스 NDC · `drag` 상태)을 `room/seat-pointer.js` 로 옮겼다(글 그대로 — 뒤에서 만들어지거나 다시 대입되는 여섯은 읽는 · 쓰는 함수로 받고, 옛 `typeof seats` 가드 하나는 걷음). app.js 8,326 → 8,084줄.
+
+**0.12.4 — app.js 분리 M12**: `applyCharToSeat` 묶음(좌석 파츠 비우기 · 리깅 xf 다시 굽기 · 동물 좌석 다시 빌드 · placeholder 클릭 판정 · 동물 귀 등록 · `applyCharToSeat`)을 `character/char-apply.js` 로 옮겼다(글 그대로 — 뒤에서 만들어지거나 다시 대입되는 일곱은 읽는 함수로 받고, `window.rebuildAnimalSeats` · `window.registerAnimalEar` 고리는 모듈이 만들 때 건다. 옛 `typeof seats` 가드 하나는 걷음). app.js 8,084 → 7,835줄.
+
+**0.12.4 — app.js 분리 M13 ~ M16**: 앱 모드(`launcher/app-mode.js`) · 회사원 · 피규어 모드 깃발(`launcher/office-mode.js`) · 설정 저장 헬퍼(`shared/ls-set.js`) · 몸짓(`character/rig-anim.js`) · 프레임 상한 · rAF 멈춤 감시(`launcher/frame-pace.js`)를 글 그대로 옮겼다(한 PR · 모듈 다섯). app.js 7,835 → 7,324줄.
+
+**0.12.4 — app.js 분리 T4**: 옷 겹침(`_unequipClothCat` · `applyClothVisibility`)을 `character/cloth-visibility.js` 로 옮겼다(글 그대로 — 0.13 이 이 구역을 안 바꿨다. deps 는 `decoPartsMod` · `premiumMod` · `rideBenchMod` · `unequipPartFromSeat`).
+
+**0.12.4 — app.js 분리 T1**: 색조 셰이더 구역(100줄 → 0.13 의 이름 잇기 여섯 줄)을 `shared/hue-tint.js` 로 옮겼다(0.13 app.js 글 그대로 — 셰이더 본문은 코어 `tone.ts`).
+
+**0.12.4 — app.js 분리 T2**: 기본 몸 구역(`bodyCore` 만들기 · `loadBaseGLB` · `instantiateBase` · 커미션 GLB 캐시 · `normalizeModel`)을 `character/base-body.js` 로 옮겼다(0.13 app.js 글 그대로 — #830 `shareSkeletons` 줄도 0.13 글에 있다. 안 읽히던 `measureBaseGeometry` · `calcMeshBox` · `BASE_MESH_*` 와 `let BASE_SCENE · BASE_ANIMS` 는 걷고 코어 `bodyCore.baseScene()` · `baseAnims()` 로 읽음).
+
+**0.12.4 — app.js 분리 T5**: 파츠 저작 오프셋 · 머리 높이 보정 · xf 적용 구역(367줄)을 `character/part-xf.js` 로 옮겼다(0.13 app.js 글 그대로 — 계산 본문은 코어 `createParts` 를 부르는 한 줄 · 코어 파츠는 app.js 가 만들어 넘김).
+
+**0.12.4 — app.js 분리 T6**: 파츠 붙이기 · 떼기 · def 대조 · 한꺼번에 입히기 · 본 찾기(약 780줄)를 `character/part-equip.js` 로 옮겼다(0.13 app.js 글 그대로 — 복제 · 재질 · 리깅 다시 묶기 · wrapper 는 코어 `createParts` 호출. 0.12.4 의 #830 `shareSkeletons` 두 줄은 0.13 글에도 있어 그대로).
+
+**0.12.4 — app.js 분리 M17 ~ M19**: `frame()` · `prev`(`launcher/frame-loop.js` — 좌석 한 명 몫 분리는 글이 달라져 R5 로 남김) · 플라잉체어(`room/flying-chair.js`) · 스티커 그리기(`myhome/myhome-sticker-render.js` — 다시 대입이 있어 읽는 · 쓰는 함수, F4 때 걷음) · 이동 모드 · 캐릭터 화면 좌표(`launcher/move-mode.js`)를 글 그대로 옮겼다. app.js 7,324 → 6,858줄.
+
+**0.12.4 — app.js 분리 M20 ~ M22**: 생성기 그림판(`creator/creator-canvas.js` — 얼굴 합성 · 몸 만들기는 T7 몫이라 남김) · `openCreator` · `renderLauncher`(`creator/creator-open.js`) · 활성 앱 판정 · 창 모드 정하기(`launcher/window-mode.js` — 판단 그대로, F2 의 바탕)를 글 그대로 옮겼다. app.js 6,972 → 6,087줄(base 기준).
+
+**0.12.4 — app.js 분리 T7**: 얼굴 · 피부 캔버스 · 사람 몸 만들기(`newCanvas` · `compositeFace` · `defToBase` 등 약 110줄)를 `creator/creator-face.js` 로 옮겼다(0.13 app.js 글 그대로 — 본문은 코어 `createFace` · `createBody.assemble` 호출. `defToBase` 의 `onRoot` 에 #830 `shareSkeletons` 가 있다).
+
+**0.12.4 — app.js 분리 M23**: app.js 다음 `<script>` 로 실려 app.js 전역을 그냥 부르던 넷(`character/animal.js` · `myhome/myhome-desktop.js` · `support/bug-board-ui.js` · `status/noise.js`)을 `createXxx(deps)` 로 바꿨다. app.js 보다 먼저 싣고 app.js 끝(INIT 뒤)에서 만든다(옛 차례 그대로). deps 는 값 · 함수 · 읽는 함수 · 쓰는 함수(`curSlot` · `creatorOpen` 은 이 모듈이 바꾼다). 남은 몫: `myhome/mallang.js` · `myhome/bookmark.js` 의 app.js 이름 3개씩.
+
+**0.12.4 — app.js 분리 F2**: 창 모드를 한 값으로 모았다. `main.js` 는 렌더러가 보낸 모드(`launcher` · `creator` · `animal` · `myhome` · `run`)를 `_curMode` 로 기억하고 창 크기로 되짚지 않는다(`sizeToMode` · 허용 오차 · 줄인 크기 표 `_fittedSize` 걷음). 다시 불러오기 전 되돌리기는 `_applyConfigMode(true, 'launcher')` 한 줄로 같은 통로를 지난다. 화면 쪽 주인은 `launcher/window-mode.js`(M22).
+
+**0.12.4 — app.js 분리 F3**: app.js 바닥 INIT 덩이(좌석 탭 · 앱 모드 · 관리자 UI · 라이선스 글 · 마이홈 시작 · 기본 몸 불러오기 · 프레임 루프 · 런처 루프 · 얼굴 복구 점검 · 창 크기 맞춤)를 `launcher/run-boot.js` 의 차례 표로 옮겼다(0.13 `app-boot.js` 모양 — 표에 없는 이름 · 남는 이름은 만들 때 던지고 `begin` 은 한 번). 기본 몸을 못 불러오면 안내 한 번(`E-SYS-08`) 뒤 대신 몸으로 이어 간다.
+
+**0.13.0 에 합침(release/0.12.4 → release/0.13.0)**: 위 M6 ~ M23 · T0 ~ T7 · F1 ~ F4 는 0.13 판에 그대로 들어왔다 — 0.13 이 그 구역에서 바꾼 줄(서버 원본 · 계정 칸 · 코어 호출)은 옮긴 모듈 안에 넣었다. 다른 점: M23 은 동물 · 소음 둘만(마이홈 바탕화면은 `myhome-desktop-boot.js`, 버그 제보 게시판은 0.13 의 `bugBoardUi` 가 만든다) · F3 의 «마이홈 시작» · «슬롯 읽기» 칸은 빠짐(계정 확인 뒤 `app-boot.js` 차례) · F4 의 «그린 뒤 알림» 은 걷음(스티커 지우기 · 저장은 상태 주인 `myhomeStore.removeSticker`).
 
 ## 구역 표 — `apps/desktop/app/parts/app.js`
 

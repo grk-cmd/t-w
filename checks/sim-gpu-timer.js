@@ -14,7 +14,8 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'parts/shared/' + f, 'app/' + f, 'app/parts/' + f, 'app/parts/shared/' + f, 'checks/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const MOD = read('gpu-timer.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html'), SMOKE = read('smoke.js');
+const FLP = (() => { for(const c of ['frame-loop.js', 'parts/launcher/frame-loop.js', 'app/parts/launcher/frame-loop.js']) { const t = read(c); if(t) return t; } return ''; })();   // frame() 은 launcher/frame-loop.js 로 옮겼다(M17)
+const MOD = read('gpu-timer.js'), APP = (read('app.js') || '') + '\n' + FLP, HTML = read('desk-companion-prototype.html'), SMOKE = read('smoke.js');
 if (!MOD || !APP || !HTML || !SMOKE) { say('  ? 원본 못 찾음 — gpu-timer.js · app.js · desk-companion-prototype.html · smoke.js'); process.exit(2); }
 const load = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwGpuTimer; };
 

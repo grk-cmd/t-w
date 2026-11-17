@@ -335,7 +335,7 @@ await sec('── 6. app.js 배선', () => {
   const bad = want.map((re, i) => re.test(deps[i] || '') ? null : (i + ':' + (deps[i] || '없음'))).filter(Boolean);
   chk(deps.length === want.length && !bad.length, 'deps 18개 — 함수는 화살표 · let 은 읽는 / 쓰는 함수 · const 는 값 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
   /* ★ renderMyHomeStickers 는 이제 편집 묶음이 감싸 다시 대입하지 않는다(삭제 저장은 × 버튼이 상태 주인 removeSticker 를 부른다) — 그래도 화살표로 받는다(app.js 함수가 뒤에서 선언) */
-  chk(!/_setRenderMyHomeStickers\(/.test(strip(EDIT)) && !/setRenderMyHomeStickers/.test(APP) && /myhomeStoreMod\.removeSticker\(sid\)/.test(APP), '  renderMyHomeStickers 감싸기 없음 — × 버튼이 상태 주인 removeSticker 를 부른다');
+  chk(!/_setRenderMyHomeStickers\(/.test(strip(EDIT)) && !/setRenderMyHomeStickers/.test(APP) && /myhomeStore(Mod)?\.removeSticker\(sid\)/.test(APP), '  renderMyHomeStickers 감싸기 없음 — × 버튼이 상태 주인 removeSticker 를 부른다');
   const consts = ['STICKER_MAX', 'STICKER_BASE', 'STICKER_ROT_SNAP'].map(n => APP.indexOf('const ' + n + ' = '));
   chk(consts.every(i => i > 0 && i < iMk) && !/\bSTICKER_(MAX|BASE|ROT_SNAP)\s*=[^=]/.test(code.replace(/const STICKER_(MAX|BASE|ROT_SNAP) = /g, '')), '  STICKER_* 는 만드는 줄보다 앞 · 다시 대입되지 않는다');
   chk(/let _mhStickerEditSid = null;/.test(APP) && /let _mhStickerDragDist = 0;/.test(APP) && /if\(sid === _mhStickerEditSid && canEdit\)/.test(APP) && /if\(_mhStickerDragDist>5\) return;/.test(APP), '  두 let 은 app.js 에 남아 renderMyHomeStickers 가 읽는다');

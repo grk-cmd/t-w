@@ -3,7 +3,7 @@
    같은 자세에서 견준다. WebGL 없이 — 셰이더가 쓰는 뼈 행렬(skeleton.update 의 boneMatrices)과 꼭짓점 스킨 자리
    (광선 판정이 쓰는 boneTransform)를 JS 로 셈해 견준다. 그림 픽셀 대조는 PR 본문(헤드리스 크롬)에.
    ・1절: sameRig 경계 — 같은 객체 · 뼈 순서 · 길이 · 역행렬 한 칸 · -0 · NaN · 빈 값
-   ・2절: 기본 몸 — app.js instantiateBase(캐릭터 코어 복제 + 함께 쓰기) · defToBase(코어 assemble 의 onRoot)를 그대로 떼어 돌려 메시 넷이 Skeleton 하나 · 뼈 행렬 · 스킨 자리가 옛과 같다
+   ・2절: 기본 몸 — base-body.js instantiateBase(캐릭터 코어 복제 + 함께 쓰기) · creator-face.js defToBase(코어 assemble 의 onRoot)를 그대로 떼어 돌려 메시 넷이 Skeleton 하나 · 뼈 행렬 · 스킨 자리가 옛과 같다
    ・3절: 리깅 파츠 — 역행렬이 같으면 몸과 함께(bindMatrix 가 달라도) · 다르면 따로(파츠 메시끼리만) · 입양 뼈 파츠는 따로
    ・4절: 한 장의 뼈대 갱신 수(three 의 skeleton.frame 거르기 그대로) · 숨긴 메시
    ・5절: 동물 몸 · 스티커사진식 복제 뒤 함께 쓰기
@@ -17,8 +17,8 @@ const path = require('path');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
-const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['skeleton-share.js', 'app.js', 'base-glb.js', 'animal-glb.js', 'desk-companion-prototype.html', 'smoke.js'];
+const read = (f) => { for(const c of [f, 'parts/' + f, 'app/parts/' + f, path.basename(f)]) { try{ return fs.readFileSync(c, 'utf8'); }catch(_){ } } return null; };
+const need = ['skeleton-share.js', 'character/base-body.js', 'creator/creator-face.js', 'app.js', 'base-glb.js', 'animal-glb.js', 'desk-companion-prototype.html', 'smoke.js'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const vendor = ['vendor/three', '.'].find(d => fs.existsSync(path.join(d, 'three.min.js')) && fs.existsSync(path.join(d, 'GLTFLoader.js')) && fs.existsSync(path.join(d, 'SkeletonUtils.js')));
@@ -119,18 +119,18 @@ say('── 1. sameRig 경계');
   chk(SS.skinnedMeshesOf(null).length === 0, 'skinnedMeshesOf(null) → 빈 목록');
 }
 
-say('── 2. 기본 몸 — app.js instantiateBase · defToBase 그대로(복제는 캐릭터 코어)');
+say('── 2. 기본 몸 — character/base-body.js instantiateBase · creator/creator-face.js defToBase 그대로(복제는 캐릭터 코어)');
 /* 캐릭터 코어 몸 한 벌 — 앱과 같은 사본(vendor/char-core). 몸 모델은 진짜 기본 몸 GLB */
 const charCore = new Function(CORE_SRC + '\nreturn TwCharCore;')();
 const bodyCore = charCore.createBody({ THREE, gltf: new THREE.GLTFLoader(), fixMatLighting: () => {}, setFaceMap: () => {}, applyLightPreset: () => {} });
 { const b = Buffer.from(win.BASE_GLB_B64, 'base64'); chk(await bodyCore.loadBase(b.buffer.slice(b.byteOffset, b.byteOffset + b.length)), '캐릭터 코어가 기본 몸을 읽었다'); }
-const instSrc = grab(SRC['app.js'], 'instantiateBase');
-chk(!!instSrc, 'app.js 에서 instantiateBase 를 찾았다');
+const instSrc = grab(SRC['character/base-body.js'], 'instantiateBase');
+chk(!!instSrc, 'base-body.js 에서 instantiateBase 를 찾았다');
 const mkInst = (S) => new Function('bodyCore', 'skelShare', instSrc + '\nreturn instantiateBase;')(bodyCore, S);
-const defSrc = grab(SRC['app.js'], 'defToBase');
-chk(!!defSrc, 'app.js 에서 defToBase 를 찾았다');
-const mkDef = (S) => new Function('window', 'mkFaceTex', 'compositeFace', 'bodyCore', 'COMMISSION_SCALE_CORRECTION', 'skinColorFor', 'skelShare', '_attachHumanEars', defSrc + '\nreturn defToBase;')
-  ({}, () => null, () => null, bodyCore, 1, () => 0xffffff, S, () => {});
+const defSrc = grab(SRC['creator/creator-face.js'], 'defToBase');
+chk(!!defSrc, 'creator-face.js 에서 defToBase 를 찾았다');
+const mkDef = (S) => new Function('animalBuilder', 'mkFaceTex', 'compositeFace', 'bodyCore', 'COMMISSION_SCALE_CORRECTION', 'skinColorFor', 'skelShare', '_attachHumanEars', defSrc + '\nreturn defToBase;')
+  (() => null, () => null, () => null, bodyCore, 1, () => 0xffffff, S, () => {});
 const noShare = { shareSkeletons: () => 0, skinnedMeshesOf: SS.skinnedMeshesOf };   // 옛 동작(함께 쓰지 않음)
 const oldInst = mkInst(noShare)(), newInst = mkInst(SS)();
 chk(skinned(newInst.root).length === 4, '기본 몸 스킨 메시 4개(face · hat · lower · upper) — ' + skinned(newInst.root).map(m => m.name).join(','));

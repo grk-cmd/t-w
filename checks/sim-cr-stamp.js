@@ -14,7 +14,7 @@ const say = (s) => process.stdout.write(s + '\n');
 console.log = () => {};   // 모듈이 남기는 진단 로그([도장] 얼굴 밖 격자점 …)는 판정과 무관 — 출력만 줄인다
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f, f.split('/').pop()]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const MOD = read('creator/stamp.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html'), SMOKE = read('smoke.js');
+const MOD = read('creator/stamp.js'), APP = read('app.js') + '\n' + (['creator/creator-canvas.js','creator/creator-open.js','launcher/window-mode.js'].map(f => read(f) || read(f.split('/').pop()) || '').join('\n')), HTML = read('desk-companion-prototype.html'), SMOKE = read('smoke.js');
 if (!MOD || !APP || !HTML) { say('  ? 원본 못 찾음 — stamp.js · app.js · desk-companion-prototype.html'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 const near = (a, b, e = 1e-6) => Math.abs(a - b) < e;

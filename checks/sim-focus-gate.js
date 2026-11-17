@@ -12,7 +12,7 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, path.join('apps', 'desktop', 'app', 'parts', f), path.basename(f)]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const MOD = read('focus/focus-gate.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html') || read(path.join('..', 'desk-companion-prototype.html'));
+const MOD = read('focus/focus-gate.js'), APP = read('app.js'), WM = read('launcher/window-mode.js'), SS = read('status/seat-state.js'), HTML = read('desk-companion-prototype.html') || read(path.join('..', 'desk-companion-prototype.html'));
 if (!MOD || !APP || !HTML) { say('  ? 원본 못 찾음 — focus-gate.js · app.js · desk-companion-prototype.html'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 const load = (src) => { const win = {}; new Function('window', 'module', src)(win, undefined); return win; };
@@ -79,12 +79,12 @@ say('── 2. 연결');
   const H = HTML.replace(/<!--[\s\S]*?-->/g, ' ');
   const iMod = H.indexOf('<script src="parts/focus/focus-gate.js"></script>'), iApp = H.indexOf('<script src="parts/app.js"');
   chk(iMod > 0 && iApp > iMod, 'html — focus-gate.js 를 app.js 보다 먼저 싣는다');
-  const A = strip(APP);
-  chk(/const focusGate = TwFocusGate;/.test(A), 'app.js — focusGate 로 받는다');
-  chk(/_selfAppActive = focusGate\.selfFront\(state\);/.test(A), '  활성 창 처리가 selfFront 로 «투게더워킹 창이 앞» 을 정한다');
-  chk(/const nextGate = focusGate\.nextGateSleep\(state, \{ figureMode, mobOn \}\);\s*if\(nextGate !== null\) focusGateSleep = nextGate;/.test(A), '  게이트 다음 값은 nextGateSleep(null 이면 둔다)');
-  chk(/if\(desktopMode && focusGateSleep\) return focusGate\.gatedPose\(_selfAppActive, now-Math\.max\(lastActivity,lastAnyInput\), SLEEP_MS\);/.test(A), '  seatState 는 gatedPose — 마지막 입력은 lastActivity · lastAnyInput 중 늦은 것');
-  chk(!/state\.isSelf/.test(A) && !/keepGate/.test(A), '  app.js 는 isSelf 를 직접 보지 않는다(같은 판단을 다시 쓰지 않음)');
+  const A = strip(APP), W = strip(WM || ''), S = strip(SS || '');
+  chk((A.match(/focusGate: TwFocusGate,/g) || []).length === 2 && /const focusGate = deps\.focusGate;/.test(W) && /const focusGate = deps\.focusGate;/.test(S), 'app.js — 규칙 한 벌(TwFocusGate)을 활성 창 처리(window-mode.js) · 자세 판정(seat-state.js)에 deps 로 넘긴다');
+  chk(/seatStateMod\.setSelfAppActive\(focusGate\.selfFront\(state\)\);/.test(W), '  활성 창 처리가 selfFront 로 «투게더워킹 창이 앞» 을 정한다');
+  chk(/const nextGate = focusGate\.nextGateSleep\(state, \{ figureMode: officeModeMod\.figureMode\(\), mobOn \}\);\s*if\(nextGate !== null\) setFocusGateSleep\(nextGate\);/.test(W), '  게이트 다음 값은 nextGateSleep(null 이면 둔다)');
+  chk(/if\(desktopMode\(\) && focusGateSleep\(\)\) return focusGate\.gatedPose\(_selfAppActive, now-Math\.max\(lastActivity,lastAnyInput\), SLEEP_MS\);/.test(S), '  seatState 는 gatedPose — 마지막 입력은 lastActivity · lastAnyInput 중 늦은 것');
+  chk(!/state\.isSelf/.test(A + W + S) && !/keepGate/.test(A + W + S), '  app.js · window-mode · seat-state 는 isSelf 를 직접 보지 않는다(같은 판단을 다시 쓰지 않음)');
 }
 
 say('── 3. 깨 보기');

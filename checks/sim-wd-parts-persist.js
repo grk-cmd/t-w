@@ -74,7 +74,7 @@ say('── 3. 저장 순서 — 파츠 받기 전에 saveSlots');
 say('── 4. 숨기기 전에 저장');
 const closesFirst = (fnSrc) => {
   const c = noCmt(fnSrc);
-  const iClose = c.indexOf("window.closeWardrobe();"), iHide = c.indexOf("wp.classList.remove('on')");
+  const iClose = c.indexOf("closeWardrobe();")   /* 앱 모드 모듈로 옮기며 window. 고리를 deps 로 받는다 */, iHide = c.indexOf("wp.classList.remove('on')");
   return iClose > 0 && iHide > iClose && /wp\.classList\.contains\('on'\)/.test(c.slice(0, iClose));
 };
 chk(closesFirst(grab('backToLauncher')), '★ backToLauncher(설정 패널 «런처로») — 꾸미기가 열려 있으면 closeWardrobe(=저장) 후 숨김');

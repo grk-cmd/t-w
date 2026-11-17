@@ -19,7 +19,8 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for(const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f, f.split('/').pop()]) if(fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const MOD = read('character/body-measure.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html');
+const MOD = read('character/body-measure.js'), APP = read('app.js') + '\n' + (read('character/part-xf.js') || ''),   // 머리 공간 진단 · 머리 여유는 app.js 분리 T5 에서 part-xf.js 로 옮겼다(0.13 글 그대로)
+  HTML = read('desk-companion-prototype.html');
 const TRICKS = read('room/tricks.js'), CHIP = read('status/status-chip.js'), AWAY = read('room/away-pic.js'), CM = read('character/char-measure.js');
 const LCP = read('launcher/launcher-preview.js'), RIDE = read('room/ride-bench.js'), FSD = read('character/floor-snap-diag.js');
 if(!MOD || !APP || !HTML || !TRICKS || !CHIP || !AWAY || !CM || !LCP || !RIDE || !FSD){ say('  ? 원본 못 찾음 — body-measure.js · app.js · html · tricks.js · status-chip.js · away-pic.js · char-measure.js · launcher-preview.js · ride-bench.js · floor-snap-diag.js'); process.exit(2); }
@@ -523,7 +524,7 @@ function wiring(app, html, tricks, chip, away, files, cm){
   const t = (ok, msg) => r.push([!!ok, msg]);
   const A = strip(app);
   t(/const bodyMeasureMod = TwBodyMeasure\.createBodyMeasure\(\{\n\}\);/.test(app), 'app.js 가 만든다(빈 deps)');
-  t(A.indexOf('const bodyMeasureMod') >= 0 && A.indexOf('const bodyMeasureMod') < A.indexOf('function _myPanHalfFrac('), '만드는 줄이 맨 앞(쓰는 함수들보다 먼저 — 부팅 중에 불려도 TDZ 없음)');
+  t(A.indexOf('const bodyMeasureMod') >= 0 && A.indexOf('const bodyMeasureMod') < A.indexOf('const charPlaceMod'), '만드는 줄이 맨 앞(쓰는 모듈 — _myPanHalfFrac 가 든 char-place — 보다 먼저 — 부팅 중에 불려도 TDZ 없음)');
   const iM = html.indexOf('<script src="parts/character/body-measure.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iM > 0 && iA > iM, 'html — body-measure.js 를 app.js 보다 먼저 싣는다');
   const fnBody = (src, name) => { const i = src.indexOf('function ' + name + '('); if(i < 0) return ''; const j = src.indexOf('\n}\n', i); return src.slice(i, j < 0 ? undefined : j); };
@@ -533,7 +534,8 @@ function wiring(app, html, tricks, chip, away, files, cm){
   t(/(?:^|[^.\w])measureBodyBox\(root, \{ excludeParts: true, visibleOnly: true, skipMeshes: headDecorMeshSet\(meshHost\)/.test(fnBody(C, 'measureHeadBoxNoParts')), 'measureHeadBoxNoParts → 파츠 · 숨김 · 장식 빼기');
   t(/(?:^|[^.\w])measureBodyBox\(root, \{ excludeParts: true \}\)/.test(fnBody(C, 'measureCharBox')) && !/\.traverse\(/.test(fnBody(C, 'measureCharBox')), 'measureCharBox → 파츠만 빼기');
   t(/(?:^|[^.\w])measureBodyBox\(root, \{ excludeParts: 'rigged', visibleOnly: true \}\)/.test(fnBody(C, 'measureUnderfootDepth')), "measureUnderfootDepth → 리깅만 빼기 · 숨김 빼기");
-  const pan = fnBody(A, '_myPanHalfFrac');
+  const CP = strip(files[Object.keys(files).find(f => /char-place\.js$/.test(f))] || '');   // _myPanHalfFrac 는 room/char-place.js(app.js 분리 M7)
+  const pan = fnBody(CP, '_myPanHalfFrac');
   t(/bodyMeasureMod\.measureBodyBox\(me\.group, \{[^}]*visibleOnly: true[^}]*\}\)/.test(pan) && !/\.traverse\(/.test(pan), '_myPanHalfFrac → measureBodyBox(손으로 도는 traverse 없음)');
   const glue = (name) => { const m = app.match(new RegExp('const ' + name + ' = [\\s\\S]*?\\n\\}\\);')); return m ? m[0] : ''; };
   const T = strip(tricks), probe = fnBody(T, '_flyProbeY');

@@ -13,9 +13,9 @@ let pass = 0, fail = 0, quiet = false;
 const say = (s) => { if(!quiet) console.log(s); };
 const chk = (ok, msg) => { if(quiet){ if(!ok) fail++; return; } ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for(const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f, 'parts/myhome/' + f, 'app/parts/myhome/' + f, 'parts/account/' + f, 'app/parts/account/' + f, 'app/parts/shared/' + f]) { try{ return fs.readFileSync(c, 'utf8'); }catch(_){} } return null; };
-const need = ['app.js', 'account.js', 'firebase-init.js', 'myhome-store.js', 'myhome-state.js', 'myhome-page.js', 'myhome-visit.js', 'myhome-edit.js', 'myhome-sticker.js', 'myhome-sticker-layout.js', 'myhome-api.js', 'api-errors.js', 'myhome-sticker-rules.js', 'chat-ui.js', 'my-info.js', 'playlist.js'];
+const need = ['app.js', 'app-mode.js', 'myhome-sticker-render.js', 'account.js', 'firebase-init.js', 'myhome-store.js', 'myhome-state.js', 'myhome-page.js', 'myhome-visit.js', 'myhome-edit.js', 'myhome-sticker.js', 'myhome-sticker-layout.js', 'myhome-api.js', 'api-errors.js', 'myhome-sticker-rules.js', 'chat-ui.js', 'my-info.js', 'playlist.js'];
 const SRC = {};
-for(const f of need){ SRC[f] = read(f) || read('chat/' + f) || read('status/' + f); if(!SRC[f]){ console.log('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
+for(const f of need){ SRC[f] = read(f) || read('chat/' + f) || read('status/' + f) || read('launcher/' + f) || read('myhome/' + f); if(!SRC[f]){ console.log('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 const loadMod = (src) => { const m = { exports: {} }; new Function('window', 'module', src)({}, m); return m.exports; };
 const flush = async () => { for(let i = 0; i < 6; i++) await new Promise((r) => setImmediate(r)); };
@@ -35,7 +35,7 @@ function wiring(S){
   const acc = strip(S['account.js']);
   const iF = acc.indexOf('myhomeStore.flush()'), iR = acc.indexOf('myhomeStore.reset()');
   t(iF > 0 && iR > iF && /myhomeStore: myhomeStoreMod,/.test(app), '로그아웃 — 못 올린 고침을 올린 뒤(flush) 계정을 놓을 때 비운다(reset · 늦은 답 버림)');
-  t(/window\.commitMyHomePage\(true\); myhomeStoreMod\.flush\(\)/.test(app), '런처로 돌아갈 때도 마이홈 마지막 저장 뒤 flush');
+  t(/commitMyHomePage\(true\); myhomeStore\.flush\(\)/.test(S['app-mode.js']) && /myhomeStore: myhomeStoreMod,/.test(app), '런처로 돌아갈 때도 마이홈 마지막 저장 뒤 flush(launcher/app-mode.js)');
   const fi = strip(S['firebase-init.js']);
   t(!/getMyHome|saveMyHome|_myHomeLimits/.test(fi), 'firebase-init.js — 옛 마이홈 길(getMyHome · saveMyHome)이 없다');
   t(!/(?:firebaseAPI\.)?(?:getMyHome|saveMyHome)\b/.test(strip(app) + ['chat-ui.js', 'my-info.js', 'playlist.js'].map((f) => strip(S[f])).join('')), '화면 · 모듈 어디서도 옛 길을 부르지 않는다');
@@ -56,7 +56,7 @@ function direct(S){
   r.push([!bad.length, '화면 파일은 마이홈 값을 직접 고치지 않는다 — 상태 주인의 동작 함수로만' + (bad.length ? ' — ' + bad.join(' · ') : '')]);
   const app = strip(S['app.js']);
   r.push([!/mhStateMod\._myHomeData\(\)\.\w+(?:\[[^\]]*\])?\s*=(?!=)|delete mhStateMod\._myHomeData/.test(app), 'app.js 도 마찬가지(스티커 × 버튼은 상태 주인 removeSticker)']);
-  r.push([/animSpeed/.test(app) && !/animSpd/.test(app + S['myhome-sticker-layout.js']), '스티커 움직임 속도 칸 이름은 animSpeed 하나(옛 animSpd 없음)']);
+  r.push([/animSpeed/.test(S['myhome-sticker-render.js']) && !/animSpd/.test(app + S['myhome-sticker-layout.js'] + S['myhome-sticker-render.js']), '스티커 움직임 속도 칸 이름은 animSpeed 하나(옛 animSpd 없음 — 그리기는 myhome-sticker-render.js)']);
   return r;
 }
 

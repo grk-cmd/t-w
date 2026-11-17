@@ -148,7 +148,7 @@ say('§6 연결');
   const iP = HTML.indexOf('<script src="parts/character/part-anim.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iP > 0 && iA > iP, 'html — part-anim.js 를 app.js 보다 먼저 싣는다');
   const code = APP.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
-  chk(/const partAnimMod = TwPartAnim\.createPartAnim\(\{[\s\S]*?isAdmin: \(\)=>isAdmin,[\s\S]*?seats: \(\)=>seats,[\s\S]*?userStatus: \(\)=>userStatus,[\s\S]*?\}\);/.test(code), 'app.js — 만들고 다시 대입되는 let(isAdmin · userStatus)과 늦게 선언되는 seats 는 읽는 함수로 넘긴다');
+  chk(/const partAnimMod = TwPartAnim\.createPartAnim\(\{[\s\S]*?isAdmin: \(\)=>isAdmin,[\s\S]*?seats: \(\)=>seats,[\s\S]*?userStatus: \(\)=>userStatusMod\.userStatus\(\),[\s\S]*?\}\);/.test(code), 'app.js — 만들고 다시 대입되는 let(isAdmin · userStatus)과 늦게 선언되는 seats 는 읽는 함수로 넘긴다');
   const names = ['activeItemMixers', '_idleItemPivots', '_clipHasMotion', '_pickPartClip', '_partAnimNotice', '_stripPartClipOwnedTracks', '_setupPartIdleAnim', '_teardownPartIdleAnim', 'updateActivePartPlayback', 'updateIdleItemPlayback', 'updateItemHandTrackers', 'playItemIdle'];
   chk(names.every(n => new RegExp('^const ' + n + ' = partAnimMod\\.' + n + ';', 'm').test(code)), '  옛 이름 열둘을 const 로 받는다');
   chk(!/function (_clipHasMotion|_pickPartClip|_stripPartClipOwnedTracks|_setupPartIdleAnim|_teardownPartIdleAnim|updateActivePartPlayback|updateIdleItemPlayback|updateItemHandTrackers|playItemIdle|_partAnimNotice)\b/.test(code), '  app.js 에 재생 함수가 남아 있지 않다');

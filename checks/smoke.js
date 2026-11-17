@@ -343,6 +343,8 @@ PRELOAD.push('idle-gate.js');
 PRELOAD.push('skeleton-share.js');
 /* img-retry.js — 🖼 남의 그림 한 번 더 받을 주소(window.TwImgRetry). room-sync.js · animal.js · myhome-inbox.js · mallang.js 가 부를 때 읽는다. */
 PRELOAD.push('img-retry.js');
+PRELOAD.push('image-bytes.js', 'request-id.js');   // 🖼 data: 그림 → 바이트 판정 · 🔁 요청 번호 — schedule-api.js 가 app.js 에서 넘겨 받는다
+PRELOAD.push('schedule-api.js');   // 🌐 일정 · 디데이 서버 길 provider — app.js 가 로그인 통로를 넘겨 만든다
 /* scheduler.js — 📅 스케줄러 · 🔔 일정 알림(앱 FSD 1번). app.js 는 없어도 빈 껍데기로 돌지만, 그러면 모듈이 만들 때 하는 일
    (버튼 연결 · 알림 구독 · 자정 타이머)을 아무도 안 굴린다 — 여기서 같이 싣고 굴린다.
    ⚠️ 윗줄 모양은 sim-wd-ear.js 가 글자 그대로 본다 — 목록에 끼우지 말고 여기서 붙인다. */
@@ -739,6 +741,7 @@ PRELOAD.push('desk-place.js');
 /* body-measure.js — 캐릭터 몸 박스 재기 한 규칙. app.js 가 맨 앞(SETUP)에서 createBodyMeasure 로 만든다. */
 PRELOAD.push('body-measure.js');
 /* stage.js — 🎬 3D 무대 한 벌(렌더러 · 씬 · 카메라 · 바닥 · GLTF 로더). app.js 가 맨 앞(SETUP)에서 createStage 로 만든다 — 가짜 THREE 로 같이 굴린다. */
+PRELOAD.push('gl-context.js');
 PRELOAD.push('stage.js');
 /* glow.js — ✨ 빛나는 스프라이트 · 재질 발광. app.js 가 SETUP 에서 createGlow 로 만든다. */
 PRELOAD.push('glow.js');
@@ -750,6 +753,65 @@ PRELOAD.push('desk-build.js');
 PRELOAD.push('part-anim.js');
 /* desk-item-equip.js — 🪑 책상 아이템 장착. app.js 가 원래 자리에서 createDeskItemEquip 로 만든다. */
 PRELOAD.push('desk-item-equip.js');
+/* seats.js — 🪑 좌석 목록 · 만들기 · 지우기 · 고른 좌석 · 간격. app.js 가 원래 자리에서 createSeats 로 만든다. */
+PRELOAD.push('seats.js');
+/* char-place.js — 🧍 캐릭터 높이 · 깊이 · 자리 · 크기 저장 · 끌기 한계 · 책상 반폭. app.js 가 원래 자리에서 createCharPlace 로 만든다. */
+PRELOAD.push('char-place.js');
+/* fit-model.js — 📐 몸 · 책상 맞춤. app.js 가 원래 자리에서 createFitModel 로 만든다. */
+PRELOAD.push('fit-model.js');
+/* user-status.js — 🫧 활동 상태 저장 · 칩 · 메뉴 + 좌석 xf 저장. app.js 가 원래 자리에서 createUserStatus 로 만든다. */
+PRELOAD.push('user-status.js');
+/* seat-opacity.js · seat-state.js — 👻 캐릭터 투명도 · 🫧 좌석 활동 판정. app.js 가 원래 자리에서 만든다. */
+PRELOAD.push('seat-opacity.js');
+PRELOAD.push('seat-state.js');
+/* seat-pointer.js — 🖱 캔버스 누르기 · 끌기 · 흔들기 · 쓰다듬기 · 우클릭. app.js 가 원래 자리에서 만든다. */
+PRELOAD.push('seat-pointer.js');
+/* char-apply.js — 🧬 캐릭터 def 를 좌석에 입히기. app.js 가 원래 자리에서 createCharApply 로 만든다. */
+PRELOAD.push('char-apply.js');
+/* app-mode.js — 🖥 런처 ↔ 실행 화면 전환(앱 모드). app.js 가 원래 자리에서 createAppMode 로 만든다. */
+PRELOAD.push('app-mode.js');
+/* office-mode.js — 🏢 데스크탑 · 피규어 · 회사원 모드 깃발. app.js 가 원래 자리에서 createOfficeMode 로 만든다. */
+PRELOAD.push('office-mode.js');
+/* ls-set.js — 💾 작은 설정 저장 — 남았는지 왕복 확인. app.js 가 원래 자리에서 createLsSet 로 만든다. */
+PRELOAD.push('ls-set.js');
+/* rig-anim.js — 🕺 몸짓 — 자세 목표 · 뼈 움직이기 · 클립. app.js 가 원래 자리에서 createRigAnim 로 만든다. */
+PRELOAD.push('rig-anim.js');
+/* frame-pace.js — 🔋 프레임 상한 · rAF 멈춤 감시. app.js 가 원래 자리에서 createFramePace 로 만든다. */
+PRELOAD.push('frame-pace.js');
+/* window-mode.js — 🪟 창 모드 정하기 · 활성 앱 판정. app.js 가 원래 자리에서 createWindowMode 로 만든다. */
+PRELOAD.push('window-mode.js');
+/* creator-open.js — 🧍 생성기 여는 입구 · 런처 다시 그리기. app.js 가 원래 자리에서 createCreatorOpen 로 만든다. */
+PRELOAD.push('creator-open.js');
+/* creator-canvas.js — 🎨 생성기 그림판. app.js 가 원래 자리에서 createCreatorCanvas 로 만든다. */
+PRELOAD.push('creator-canvas.js');
+/* creator-face.js — 🙂 생성기 얼굴 · 피부 캔버스 · 몸 만들기. app.js 가 원래 자리에서 createCreatorFace 로 만든다. */
+PRELOAD.push('creator-face.js');
+/* bug-board-ui.js — 🐞 버그제보 게시판 화면. app.js 가 만든다(🚩 신고 다음 — bugBoardUi). */
+PRELOAD.push('bug-board-ui.js');
+/* noise.js — 🌙 백색소음. app.js 가 INIT 뒤에서 createNoise 로 만든다(M23). */
+PRELOAD.push('noise.js');
+/* animal.js — 🐾 동물 생성기 · 카드. app.js 가 INIT 뒤에서 createAnimal 로 만든다(M23). */
+PRELOAD.push('animal.js');
+/* frame-loop.js — 🎞 프레임 한 장(frame). app.js 가 원래 자리에서 createFrameLoop 로 만든다. */
+PRELOAD.push('frame-loop.js');
+/* flying-chair.js — 🪑 플라잉체어 — canFly · startFlight. app.js 가 원래 자리에서 createFlyingChair 로 만든다. */
+PRELOAD.push('flying-chair.js');
+/* myhome-sticker-render.js — 🎨 마이홈 스티커 그리기. app.js 가 원래 자리에서 createMyHomeStickerRender 로 만든다. */
+PRELOAD.push('myhome-sticker-render.js');
+/* move-mode.js — ✥ 프로그램 이동 모드 · 캐릭터 화면 좌표. app.js 가 원래 자리에서 createMoveMode 로 만든다. */
+PRELOAD.push('move-mode.js');
+/* cloth-visibility.js — 👕 옷 겹침 · 기본 메시 보이기. app.js 가 원래 자리에서 createClothVisibility 로 만든다. */
+PRELOAD.push('cloth-visibility.js');
+/* hue-tint.js — 🎨 색조 셰이더 이름 잇기. app.js 가 원래 자리에서 createHueTint 로 만든다. */
+PRELOAD.push('hue-tint.js');
+/* base-body.js — 🧍 기본 몸 모델 공급 · 복제 · 크기. app.js 가 원래 자리에서 createBaseBody 로 만든다. */
+PRELOAD.push('base-body.js');
+/* part-xf.js — 🎀 파츠 저작 오프셋 · xf 적용. app.js 가 원래 자리에서 createPartXf 로 만든다. */
+PRELOAD.push('part-xf.js');
+/* part-equip.js — 🎀 파츠 붙이기 · 떼기 · def 대조. app.js 가 원래 자리에서 createPartEquip 로 만든다. */
+PRELOAD.push('part-equip.js');
+/* run-boot.js — 🚀 켜는 차례 표. app.js 가 원래 자리에서 createRunBoot 로 만든다. */
+PRELOAD.push('run-boot.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

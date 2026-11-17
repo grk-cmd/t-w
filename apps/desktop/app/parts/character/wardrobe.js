@@ -55,6 +55,7 @@ const isAdmin = deps.isAdmin;   // 읽는 함수
 const isDeskPartCat = deps.isDeskPartCat;
 const isHueTintMesh = deps.isHueTintMesh;
 const measureCharBox = deps.measureCharBox;
+const measurePreviewBox = deps.measurePreviewBox;   // 👀 카메라 구도(리깅 파츠 원본 박스 · 숨은 메시 뺌 — char-measure.js)
 const openAssetImport = deps.openAssetImport;
 const partCatInfo = deps.partCatInfo;
 const partEntryId = deps.partEntryId;
@@ -254,7 +255,9 @@ const WD_PREVIEW_DESK_NUDGE = {x:0, y:0, z:0};
 function ensureWdPreview(){
   if(wdRenderer) return;
   const canvas=document.getElementById('wdPreviewCanvas'); if(!canvas) return;
-  wdRenderer=new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+  const r=TwGlContext.make(canvas,{canvas, antialias:true, alpha:true},'preview',{ label:'꾸미기', retry:()=>{ refreshWdPreviewChar(); } });
+  if(!r) return;
+  wdRenderer=r;
   wdRenderer.setPixelRatio(Math.min(devicePixelRatio,2));
   wdRenderer.outputEncoding=THREE.sRGBEncoding;
   wdScene=new THREE.Scene();
@@ -754,10 +757,9 @@ async function refreshWdPreviewChar(){
   //   화면 색이 달라 보이는 부작용이 있었음 — 색상 선택 화면에서는 "입체감"보다 "지정한 색 그대로 보이는 것"이
   //   더 중요하다는 피드백에 따라 이 조정은 제거함(장착 시 설정된 emissive를 그대로 둠).
   // 카메라 기준값만 다시 계산 — yaw/pitch/zoom(사용자가 조절한 값)은 그대로 유지
-  /* 카메라는 맨 몸으로 맞춘다(fitModel 과 같은 measureCharBox) — 파츠까지 통째로 재면 리깅 파츠는 원본 박스가 몇 배씩 커서
-     카메라가 멀리 · 높이 잡혀 캐릭터가 안 보였다(B-1109-9). 몸을 못 재면(빈 박스) 예전처럼 통째로 잰다. */
-  let box=measureCharBox(g);
-  if(box.isEmpty()) box=new THREE.Box3().setFromObject(g);
+  /* 카메라 구도는 보이는 몸 · 보이는 일반 파츠로 잰다(char-measure.js measurePreviewBox) — 리깅 파츠는 원본 박스가 몇 배씩 커서
+     통째로 재면 카메라가 멀리 물러나 캐릭터가 점처럼 보였다(B-1109-9). 리깅 원본 · 숨은 메시는 빼고, 비면 통째로 잰다. */
+  const box=measurePreviewBox(g);
   const size=box.getSize(new THREE.Vector3()), center=box.getCenter(new THREE.Vector3());
   wdCamCenter.copy(center);
   wdCamLookY = center.y+size.y*0.12;

@@ -30,7 +30,7 @@ function createMyHomeSticker(deps){
 const toast = deps.toast;
 const asyncPrompt = deps.asyncPrompt;                    // ✏️ 인앱 프롬프트(🔗 링크 바꾸기)
 const myhomeStore = deps.myhomeStore;                          // 🏠 상태 주인(myhome-store.js) — 스티커는 editSticker · removeSticker · moveSticker 로만 고친다
-const renderMyHomeStickers = deps.renderMyHomeStickers;  // 🎨 스티커 다시 그리기 — app.js(마이홈 페이지 편집 묶음이 감싸 다시 대입한다)
+const renderMyHomeStickers = deps.renderMyHomeStickers;  // 🎨 스티커 다시 그리기 — myhome-sticker-render.js(부를 때 찾는다)
 const _mhStickerOutOfView = deps.mhStickerOutOfView;     // 📐 스티커 자리 · 크기 도우미 — app.js(마이홈 페이지 그리기)
 const _mhClampStickerPos = deps.mhClampStickerPos;
 const _mhStickerDispSize = deps.mhStickerDispSize;

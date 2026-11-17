@@ -6,7 +6,7 @@
      책상 · 아이템 재질 톤은 여기 그대로(앱 몫).
    ・내놓는 것: LIGHT_PRESET · CREATOR_LIGHT_SL · TONE_FRONT_TOTAL · FLAT_EMISSIVE · toneCore · baseFlatOf · _applyPartMatTone(m) · _applyItemMatTone(m) · _setDeskMatColor(m, color)
      · addRunLights(target, opt) · runLightInts(opt) · runLightAt1() — app.js 는 lightToneMod.이름.
-     animal.js 가 전역 LIGHT_PRESET 을 읽어 app.js 에 «옛 전역 이름» 한 줄이 있다.
+     app.js 에 «옛 전역 이름» 한 줄(LIGHT_PRESET)이 있다 — animal.js 는 deps 로 받는다.
    ⚠️ THREE 는 전역 이름 그대로. 전역 이름은 TwLightTone(Tw 접두사 #103). shared — 도메인을 모른다.
    검사: checks/sim-light-tone.js */
 (function(){

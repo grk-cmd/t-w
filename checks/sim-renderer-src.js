@@ -132,6 +132,32 @@ const MODULES = [
   { file: 'desk-build.js', mod: 'deskBuildMod', glob: 'TwDeskBuild', sample: 'function buildPlaceholder(' },   // 0.12.4 app.js 분리 M3
   { file: 'part-anim.js', mod: 'partAnimMod', glob: 'TwPartAnim', sample: 'function _clipHasMotion(' },   // 0.12.4 app.js 분리 M4
   { file: 'desk-item-equip.js', mod: 'deskItemEquipMod', glob: 'TwDeskItemEquip', sample: 'function equipDeskItem(' },   // 0.12.4 app.js 분리 M5
+  { file: 'seats.js', mod: 'seatsMod', glob: 'TwSeats', sample: 'function createSeat(' },   // 0.12.4 app.js 분리 M6
+  { file: 'char-place.js', mod: 'charPlaceMod', glob: 'TwCharPlace', sample: 'function _animalPanExtra(' },   // 0.12.4 app.js 분리 M7
+  { file: 'fit-model.js', mod: 'fitModelMod', glob: 'TwFitModel', sample: 'function fitModel(' },   // 0.12.4 app.js 분리 M8
+  { file: 'user-status.js', mod: 'userStatusMod', glob: 'TwUserStatus', sample: 'function setUserStatus(' },   // 0.12.4 app.js 분리 M9
+  { file: 'seat-opacity.js', mod: 'seatOpacityMod', glob: 'TwSeatOpacity', sample: 'function setSeatOpacity(' },   // 0.12.4 app.js 분리 M10
+  { file: 'seat-state.js', mod: 'seatStateMod', glob: 'TwSeatState', sample: 'function seatState(' },   // 0.12.4 app.js 분리 M10
+  { file: 'seat-pointer.js', mod: 'seatPointerMod', glob: 'TwSeatPointer', sample: 'function classifyHit(' },   // 0.12.4 app.js 분리 M11
+  { file: 'char-apply.js', mod: 'charApplyMod', glob: 'TwCharApply', sample: 'function applyCharToSeat(' },   // 0.12.4 app.js 분리 M12
+  { file: 'app-mode.js', mod: 'appModeMod', glob: 'TwAppMode', sample: 'function applyAppMode(' },   // 0.12.4 app.js 분리 M13
+  { file: 'office-mode.js', mod: 'officeModeMod', glob: 'TwOfficeMode', sample: 'function setOfficeHidden(' },   // 0.12.4 app.js 분리 M14
+  { file: 'ls-set.js', mod: 'lsSetMod', glob: 'TwLsSet', sample: 'function _lsSet(' },   // 0.12.4 app.js 분리 M14
+  { file: 'rig-anim.js', mod: 'rigAnimMod', glob: 'TwRigAnim', sample: 'function animateRig(' },   // 0.12.4 app.js 분리 M15
+  { file: 'frame-pace.js', mod: 'framePaceMod', glob: 'TwFramePace', sample: 'function _frameCap(' },   // 0.12.4 app.js 분리 M16
+  { file: 'frame-loop.js', mod: 'frameLoopMod', glob: 'TwFrameLoop', sample: 'function frame(' },   // 0.12.4 app.js 분리 M17
+  { file: 'flying-chair.js', mod: 'flyChairMod', glob: 'TwFlyingChair', sample: 'function startFlight(' },   // 0.12.4 app.js 분리 M18
+  { file: 'myhome-sticker-render.js', mod: 'stickerRenderMod', glob: 'TwMyHomeStickerRender', sample: 'function renderMyHomeStickers(' },   // 0.12.4 app.js 분리 M19
+  { file: 'move-mode.js', mod: 'moveModeMod', glob: 'TwMoveMode', sample: 'function _charProjSane(' },   // 0.12.4 app.js 분리 M19
+  { file: 'cloth-visibility.js', mod: 'clothVisMod', glob: 'TwClothVisibility', sample: 'function applyClothVisibility(' },   // 0.12.4 app.js 분리 T4
+  { file: 'hue-tint.js', mod: 'hueTintMod', glob: 'TwHueTint', sample: 'function applyHueTint(' },   // 0.12.4 app.js 분리 T1
+  { file: 'base-body.js', mod: 'baseBodyMod', glob: 'TwBaseBody', sample: 'function instantiateBase(' },   // 0.12.4 app.js 분리 T2
+  { file: 'part-xf.js', mod: 'partXfMod', glob: 'TwPartXf', sample: 'function applyPartXf(' },   // 0.12.4 app.js 분리 T5
+  { file: 'part-equip.js', mod: 'partEquipMod', glob: 'TwPartEquip', sample: 'async function equipPartOnSeat(' },   // 0.12.4 app.js 분리 T6
+  { file: 'window-mode.js', mod: 'windowModeMod', glob: 'TwWindowMode', sample: 'function applyDesktopRunClass(' },   // 0.12.4 app.js 분리 M22
+  { file: 'creator-open.js', mod: 'creatorOpenMod', glob: 'TwCreatorOpen', sample: 'function openCreator(' },   // 0.12.4 app.js 분리 M21
+  { file: 'creator-canvas.js', mod: 'creatorCanvasMod', glob: 'TwCreatorCanvas', sample: 'function bindPaint(' },   // 0.12.4 app.js 분리 M20
+  { file: 'creator-face.js', mod: 'creatorFaceMod', glob: 'TwCreatorFace', sample: 'function defToBase(' },   // 0.12.4 app.js 분리 T7
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
@@ -153,6 +179,9 @@ function joinRenderer(app){
   if(typeof app !== 'string') return app;
   /* 옛 전역 이름 잇기 줄(«// 옛 전역 이름» 표지)은 먼저 지운다 — «mod.» 를 떼면 자기 자신을 부르는 함수가 된다(자리 계산 전에) */
   app = app.split('\n').filter(l => !l.includes('// 옛 전역 이름')).join('\n');
+  /* app.js 끝의 «화면 모듈(M23 — 소음 · 동물)» 만드는 줄은 옛 app.js 글에 없던 것(옛엔 그 파일들이 app.js 다음 script) — 옮기기 전 글이 아니므로 뗀다 */
+  const iM23 = app.indexOf('/* 🧩 app.js 를 마친 뒤 만드는 화면 모듈'), iAn = iM23 >= 0 ? app.indexOf('TwAnimal.createAnimal({', iM23) : -1, eM23 = iAn >= 0 ? app.indexOf('\n});', iAn) : -1;
+  if(iM23 >= 0) app = app.slice(0, iM23) + (eM23 > 0 ? app.slice(eM23 + '\n});'.length) : '');   // 마지막 만드는 줄(동물) 블록 끝까지만 — 그 아래에 줄이 붙으면 남는다
   /* 다른 모듈 만드는 줄의 쓰는 함수가 옮긴 모듈의 쓰는 함수를 거치면(«setX: (v)=>{ mod.setX(v); },») 옛 모양 «x = v» 로 먼저 돌린다 —
      그래야 아래 ②에서 그 모듈 본문의 setX(…) 도 «x = …» 로 되살아난다 */
   const allSet = {};

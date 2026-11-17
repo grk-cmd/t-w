@@ -122,7 +122,7 @@ crState.camYaw += dx * 0.01;
 **확장할 때 고칠 자리** — 새 세션 값은 모듈의 `let` 줄(처음 값)과 맨 아래 `return { get … set … }` 한 줄 · `checks/sim-creator-state.js` 의 `INIT` 표. app.js 에 생성기 값을 새 꼭대기 `let` 으로 만들지 않는다.
 
 **함정**
-- `creatorOpen` · `creatorMode` · `curSlot` 은 여기 없다 — animal.js 가 전역 이름으로 직접 읽어서 app.js 에 남겼다(옮기려면 animal.js 를 deps 로 바꾼 뒤).
+- `creatorOpen` · `creatorMode` · `curSlot` 은 여기 없다 — app.js 에 남아 있다(animal.js 는 M23 에서 deps 로 받게 됐으니 옮길 수 있다).
 - `crState` 는 만드는 줄보다 앞에서 부팅 때 바로 쓰면 TDZ — 함수 안(나중에 불림)은 괜찮다.
 - 처음 값의 객체(`cXform` · `cDeskPos` · `stampPlace`)는 만들 때마다 새것이다 — 다른 곳과 같이 쓰는 객체로 바꾸지 말 것.
 
@@ -310,6 +310,26 @@ deskSetupMod.setHooks({
 - 관리자 등록 창 · 기즈모 모듈을 deps 로 받지 않는다 — 둘 다 책상 카드를 다시 그리려고 이 모듈을 불러 서로를 부르게 된다(sim-dep-cycles). 갈고리로만.
 - 카탈로그 책상 · 아이템은 GLB 를 def 에 안 싣는다 — 용량은 코드로 넣은 것만 잰다.
 - 입구 전제 — 카드 줄(`#crDeskRow` · `#crItemRow`) · 색 칸 · 미리보기가 없으면 그리지 · 걸지 않는다. 아이템 고르기는 캐릭터가 있어야.
-- `bindHold`(꾹 누르면 반복)는 animal.js 가 전역으로 읽어서 app.js 에 남겼다.
+- `bindHold`(꾹 누르면 반복)는 app.js 에 남아 있다(animal.js 는 deps 로 받는다).
 
 검사: `checks/sim-desk-setup.js`.
+
+## creator-open.js — 🧍 생성기 여는 입구 · 런처 다시 그리기
+
+- **책임**: `openCreator(mode)` — 3D 미리보기를 먼저 만들고(못 만들면 아무것도 안 바꾸고 돌아감 — F1) · 꾸미기 창을 닫아 저장하고 · 모드와 «런처에서 왔는지» 를 기억하고 · 동물 편집은 동물 생성기로 돌려보내고 · 새로 열 때 그림 레이어 · 색 · 크기 · 책상 · 아이템을 세운다 · `renderLauncher()` — 런처 미리보기 · 칸 번호 · 빈 칸 · 톱니 · 연동 띠를 다시 맞춘다.
+- **만드는 법**: `TwCreatorOpen.createCreatorOpen({ … 44개 })` — 읽는 함수 열셋 · 쓰는 함수 셋(`setCreatorMode` · `setCreatorOpen` · `setCustomItems`) · 함수 둘 + window 고리 하나(`closeWardrobe`) · 값 나머지(전용 책상 막기는 `acctStateMod.licenseAssetBlocked` — 프리미엄 «모름» 이면 막지 않음). 런처 다시 그리기는 빈 칸 안내(`launcherCtlMod.renderEmptyState`)까지. 원래 자리에서 만든다.
+- **내보내는 것**: `openCreator` · `renderLauncher`(app.js 가 같은 이름 const 로).
+- **함정**: 여러 모듈이 부르는 연결 자리라 deps 가 많다 — 생성기 · 런처 모듈로 더 나누면 슬롯 · 라이선스 모듈과 순환이 생긴다. 검사: `checks/sim-creator-open.js`.
+
+## creator-canvas.js — 🎨 생성기 그림판
+
+- **책임**: 되돌리기 기록(`histF` · `histB` · `redoF` · `redoB` · `pushHistory` · undo · redo) · `actC` · `blit`(피부 위에 그림을 얹어 합성 텍스처 갱신) · `bindPaint`(미리보기 위 마우스 그리기) · 붓 색 · 크기 · 도구 줄 · 대칭 · 지우기 · 도장 단추 · 표정 ↔ 감은눈 복사 · 카메라 키 · 옷 색 입력 · 색 스와치 · 피부 스와치 · `loadSkins`.
+- **만드는 법**: `TwCreatorCanvas.createCreatorCanvas({ … 21개 })` — 읽는 함수 다섯 · 함수 셋(`bindHold` · `toast` · window 고리 `openCharColorPicker`) · 값. 원래 자리에서 만든다 — 단추 · 입력 듣기가 이때 걸린다.
+- **내보내는 것**: `_crDropEraser` · `histF` · `histB` · `redoF` · `redoB` · `isDrawStep` · `actC` · `blit` · `pushHistory` · `bindPaint` · `swEl` · `_syncCrColorSwatches` · `loadSkins`.
+- **함정**: 얼굴 합성(`compositeFace`) · 몸 만들기(`buildCreatorBase` · `defToBase`)는 `creator-face.js`(T7)가 맡는다. 표정 복사는 감은눈을 안 그렸으면 막는다(표정이 통째로 지워지므로). 검사: `checks/sim-creator-canvas.js`.
+
+## creator-face.js — 🙂 생성기 얼굴 · 피부 캔버스 · 몸 만들기
+
+- **책임**: 0.13 app.js 글 그대로 — 캐릭터 코어(`createFace` · `createBody.assemble`)를 부르는 얇은 이름. `CANVAS_SZ` · `FACE_SYM_SUM` · `SYM_PX` · `newCanvas` · `_isBlankDraw` · `snapCanvas` · 피부 5종(`SKIN_COLORS` · `skinCanvases` · `skinCanvasFor` · `skinColorFor`) · `compositeFace` · `charDef` · `buildCreatorBase` · `defToBase`.
+- **만드는 법**: `TwCreatorFace.createCreatorFace({ bodyCore, mkFaceTex, skelShare, COMMISSION_SCALE_CORRECTION, _attachHumanEars, animalBuilder })` — 값 넷 · 함수 하나(`_attachHumanEars`) · 읽는 함수 하나(`animalBuilder`). app.js 가 `creatorFaceMod` 로 만들고 옛 이름 열네 개를 같은 이름 const 로 받는다(기본 몸 모듈 뒤 · 생성기 그림판 앞).
+- **함정**: «비었나»(`_isBlankDraw`)의 true 는 저장을 막는 힘이 있다 — 판정할 수 없으면 false(코어 주석). #830 `shareSkeletons` 는 `defToBase` 의 `onRoot` 에 있다. 피부 그림 불러오기(`loadSkins`)는 `creator-canvas.js`. 검사: `checks/sim-creator-face.js`.

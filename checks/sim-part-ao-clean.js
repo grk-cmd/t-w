@@ -20,7 +20,7 @@ function findUp(name){
   return null;
 }
 const read = (n) => { const f = findUp(n); return f ? fs.readFileSync(f, 'utf8') : ''; };
-const APP = read('app.js'), WD = read('wardrobe.js'), CORE = read('char-core.iife.js');   // 빌드 사본(apps/desktop/app/vendor/char-core)
+const APP = (read('app.js') || '') + '\n' + (read('part-xf.js') || ''), WD = read('wardrobe.js'), CORE = read('char-core.iife.js');   // 빌드 사본(apps/desktop/app/vendor/char-core)
 
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);

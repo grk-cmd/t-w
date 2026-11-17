@@ -463,3 +463,10 @@ const mallangMod = TwMallang.createMallang({
 - **책임**: `createMyHomeDesktop({ advStore: accountStoreMod })` 한 줄. 바탕화면은 app.js 뒤에 실리고 싣자마자 돌아야 해서, app.js 가 만든 계정 칸을 deps 로 넘기는 자리를 별도 파일로 둔다.
 - **함정**: 순서 — `app.js` → `myhome-desktop.js` → 이 파일. 사이에 다른 스크립트를 끼우지 않는다(`bookmark.js` 는 app.js 가 만들어 앞에 실린다). html 에 `myhome-desktop-boot.js` 가 있는지는 `sim-account-store.js` 가 본다.
 
+
+## myhome-sticker-render.js — 🎨 마이홈 스티커 그리기
+
+- **책임**: `renderMyHomeStickers` — 마이홈 탭에서만 스티커 영역을 보이고 z 순서대로 요소(이미지 · 이모지 · 움직임 · 크기 · 회전 · 링크 · 편집 핸들)를 다시 그린다. 친구 홈 구경에서는 허용된 그림 주소만. 앱 FSD 분리 M19.
+- **만드는 법**: `TwMyHomeStickerRender.createMyHomeStickerRender({ mhPageMod, mhStLayoutMod, myHomeSticker, myhomeStore })` — `myHomeSticker` 만 읽는 함수(뒤에서 만들어짐).
+- **내보내는 것**: `renderMyHomeStickers()`.
+- **함정**: × 로 지우기는 상태 주인 `myhomeStore.removeSticker` 가 하고 저장도 그쪽이 한다 — 편집 묶음이 그린 뒤에 덧붙이는 일(옛 «감싸 다시 대입» · 알림)은 없다. 검사: `checks/sim-myhome-sticker-render.js`.

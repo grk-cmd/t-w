@@ -13,7 +13,7 @@
   ```
 - **확장할 때 고칠 자리**: 새 상태는 `USER_STATUSES` 에 한 줄(칩 메뉴 HTML 의 `data-st` 와 방 통신 칸도 같이). 동작 깃발(`forceSleep` · `opacity` · `idleTweak`)은 프레임 루프가 읽는다.
 - **함정**
-  - 내 상태 값(`userStatus`) · 풀이(`statusConfFor`) · 칩 반영 · 커스텀 저장(방에 알림)은 app.js 에 남았다 — 옮기면 상태칩(status-chip.js) · 포커스 공유(focus-share.js)와 순환이 생기고, room-sync.js 가 `window.setUserStatus` 전역을 부른다.
+  - 내 상태 값(`userStatus`) · 풀이(`statusConfFor`) · 칩 반영 · 커스텀 저장(방에 알림)은 아래 `user-status.js`(앱 FSD 분리 M9)에 있다. 상태칩(status-chip.js) · 포커스 공유(focus-share.js)와 순환이 생기지 않게 그 모듈은 `attachStatusHooks` 알림만 부르고, room-sync.js 가 부르는 `window.setUserStatus` 고리는 app.js 가 건다.
   - 이모지는 `slice(0,2)` — 코드유닛 2개라 겹친 이모지는 잘릴 수 있다(지금 동작).
   - 검사: `checks/sim-user-status-table.js`(4절 — 표 · 불러오기 · 자르기 · 깨진 값).
 
@@ -60,3 +60,31 @@
   - 파도타기 «없음»(`null`)과 «못 불러옴»(던짐)을 가른다 — 부르는 쪽(playlist.js)은 앞엣것에 «아직 파도탈 목록이 없어요» · 뒤엣것에 «인터넷 연결이 필요해요». 404 `USER_NOT_FOUND` 와 403 `PLAYLIST_FRIENDS_ONLY` 는 «없음» 쪽이다.
   - 명함(이름 · 레벨 · 사진)은 이 provider 가 아니라 deps `fetchPlaylistCard` 가 맡는다 — app.js 가 `shared/api-public-reads.js` 로 만들어 넘긴다(서버 명함 묶음`GET /v2/myhomes/cards?codes={userCode}` · firebaseAPI 를 거치지 않는다). 이 모듈이 다루는 `uid` 는 userCode 라 그대로 키가 된다. 한 틱에 여럿을 물으면 요청 하나로 묶고, 못 받으면 던진다(playlist.js 가 E-PL-03).
 - **검사**: `checks/sim-playlist-api.js`(가짜 `authed` 로 실제로 불러 판정 · 일부러 깨 보기).
+
+## user-status.js — 🫧 활동 상태 · 내 칩 · 커스텀 상태 · 좌석 xf 저장
+
+- **책임**: 내 상태 `userStatus`(계정 칸 `tw.userStatus` 저장 · 불러오기 · `setUserStatus` → 칩 · 메뉴 · 방에 알림) · 좌석 + 상태키 → 화면에 쓸 상태 설정 `statusConfFor`(커스텀 · 상태가 없을 때 내 좌석에만 «오늘 기록 전시») · 커스텀 문구 저장 `saveCustomStatusConf` · 내 칩 · 메뉴 다시 그리기(`refreshMyStatusUI` · `refreshCustomStatusMenuItem` — 프리미엄이 아니면 커스텀 항목 숨김) · `saveSeatXf`(좌석 크기 · 높이 · 방향을 `def.xf` 와 슬롯에 저장). 상태 표(`USER_STATUSES`)는 `user-status-table.js` 가 가진다. 앱 FSD 분리 M9 — app.js USER STATUS 구역을 글 그대로 옮겼다.
+- **만드는 법**: `TwUserStatus.createUserStatus({ accountStoreMod, clampCharY, findMySeat, isPremium, slots, userStatusTableMod })` 뒤 `userStatusMod.attachStatusHooks({ setCustomStatus, setUserStatus, focusShowMine, hexToRgba, saveSlots })` — `isPremium` · `slots` 는 읽는 함수. 방 알림 · 오늘 기록 전시 · 슬롯 저장 · 칩 색 변환은 다른 도메인이라 이 모듈이 그쪽 모듈을 부르면 모듈 순환이 되므로(sim-dep-cycles) app.js 가 알림만 건다.
+- **내보내는 것**: `attachStatusHooks` · `userStatus()`(읽기만 — 바꾸는 곳은 `setUserStatus` · `loadUserStatusFromStorage` · `resetLocal` 셋) · `resetLocal`(세션이 끝날 때 처음 값 — `launcher/user-local.js` 의 status 조각) · `_premiumOn` · `saveCustomStatusConf` · `statusConfFor` · `setUserStatus` · `loadUserStatusFromStorage` · `refreshMyStatusUI` · `refreshCustomStatusMenuItem` · `saveSeatXf`.
+- **함정**
+  - `window.setUserStatus` 고리는 **app.js 가** 건다 — `presence.js` · `room-sync.js` 가 `window.` 로 부른다. `_premiumOn` 은 다른 모듈에 deps 로 넘긴다(window 고리 없음).
+  - `_premiumOn` 은 `isPremium`(파일 뒤쪽 let)을 `try` 로 읽는다 — 초기화 때 불려도 TDZ 로 죽지 않게.
+  - `loadUserStatusFromStorage` 는 먼저 비운다 — 계정 칸이 열리기 전에 자동 자리비움이 바꿨을 수 있어 계정 칸 값만 믿는다.
+  - 커스텀 상태 항목은 상태 드롭다운 안의 `stItem` 이라 `textContent` 를 통째로 갈아치우면 안 된다(`.csEmo` · `.csLabel` 이 따로 있다).
+  - 검사: `checks/sim-user-status.js`.
+
+## seat-state.js — 🫧 좌석 활동 판정 · 활동 시각 · 쓰다듬기 시작
+
+- **책임**: `seatState(seat, now)` — 좌석 하나의 지금 상태 키(idle · focus · sleep · pet · shaking · dizzy · dance) 정하기. 활동 시각 `lastActivity`(타이핑 모션용 — 포커싱 게이트에 걸림) · `lastAnyInput`(자동 자리비움용 «실제 입력») · 창 포커스 · 펜 앱(집중 창 4초) · 투게더워킹 창이 맨 앞인지. `triggerPet`(쓰다듬기 시작 · 눈 깜빡임 펄스). 앱 FSD 분리 M10 — 만들 때 mousemove · keydown · wheel · visibilitychange · blur · focus 듣기를 한 번 건다.
+- **만드는 법**: `TwSeatState.createSeatState({ desktopMode, figureMode, focusGate, focusGateSleep, focusLevelMod, seatPanelMod, userStatusMod })` — `focusGate` 는 «투게더워킹 창이 앞이면 안 잠듦» 규칙(`focus/focus-gate.js` — `window-mode.js` 와 같은 한 벌).
+- **내보내는 것**: `FOCUS_MS` · `SLEEP_MS` · `PET_MS` · `PEN_FOCUS_MS` · `focusWindowMs` · `activity` · `anyInput` · `seatState` · `triggerPet` · 시각 읽기 `lastActivity()` · `lastAnyInput()` · `penAppFocused()` · 쓰기 `setLastActivity` · `setLastAnyInput` · `setPenAppFocused` · `setSelfAppActive`(`setPenAppFocused` · `setSelfAppActive` 는 `launcher/window-mode.js` `_applyActiveAppState` 가, `setLastActivity` · `setLastAnyInput` 은 `desktop-run.js` 가 건다).
+- **함정**
+  - `lastActivity` 와 `lastAnyInput` 을 합치지 말 것 — 앞은 포커싱 게이트에 걸려 «타이핑 모션», 뒤는 어떤 앱을 쓰든 «사람이 만지고 있나».
+  - 판정 순서가 곧 우선순위다(액자 고정 · 흔들기 · 어지러움 · 쓰다듬기 · 춤 · 자리비움 · 친구 상태 · 수동 · 창 포커스 · 게이트 · 폰 · 입력 간격).
+  - 검사: `checks/sim-seat-state.js`.
+
+## noise.js — 🌙 백색소음
+
+- **책임**: 예전엔 app.js 다음 `<script>` 로 실려 app.js 맨 위 이름을 그냥 불렀다. 지금은 `TwNoise.createNoise(deps)` 로 받는다 — app.js 보다 먼저 싣고(html), app.js 끝의 «화면 모듈 둘(M23)» 줄에서 INIT 뒤에 만든다.
+- **받는 deps**: 값 `officeModeMod` · `seats` · `hiddenSeatsMod` · `Presence` · 함수 둘(`findMySeat` · `seatState`).
+- **함정**: 소리 자료(`noise-sounds.js`)를 이 모듈보다 먼저 싣는다. 검사: `checks/sim-global-deps.js`.

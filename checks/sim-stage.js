@@ -49,8 +49,8 @@ function build(src, o){
   const win = {};
   const con = { warn: (...a) => log.warns.push(a.join(' ')), log: () => {} };
   const companion = { diagNote: (m) => log.notes.push(m), relaunchApp: () => {}, quitApp: () => {} };
-  const run = new Function('THREE', 'TwGlFailNotice', 'GlRecover', 'TwErrorCodes', 'companion', 'document', 'devicePixelRatio', 'localStorage', 'window', 'console', src);
-  run(THREE, TwGlFailNotice, GlRecover, { notify: () => {} }, companion, document, o.dpr == null ? 3 : o.dpr, localStorage, win, con);
+  const run = new Function('TwGlContext', 'THREE', 'TwGlFailNotice', 'GlRecover', 'TwErrorCodes', 'companion', 'document', 'devicePixelRatio', 'localStorage', 'window', 'console', src);
+  run({ make: (cv, opts, role, ex) => ex.guard(() => new THREE.WebGLRenderer(opts)) }, THREE, TwGlFailNotice, GlRecover, { notify: () => {} }, companion, document, o.dpr == null ? 3 : o.dpr, localStorage, win, con);
   const stage = win.TwStage.createStage({ _renderAA: o.aa == null ? true : o.aa, afterRestore: () => { log.restores = (log.restores || 0) + 1; } });
   return { stage, log, canvas, THREE, store };
 }
@@ -139,7 +139,7 @@ say('§5 일부러 깨 보기');
   chk(!!m3 && build(m3).stage.floor.receiveShadow !== true, '바닥이 그림자를 못 받으면 빨강');
   const m4 = brk('d=Math.max(sz+0.5,1.5)', 'd=sz+0.5');
   chk(!!m4 && (() => { const b = build(m4); const x = new b.THREE.Mesh(new b.THREE.BoxGeometry(1, 1, 1)); b.stage.sizeFloorTo(x, 0, 0, 0.2, 0.2); return Math.abs(x.scale.z - 1.5) > 1e-9; })(), '바닥 깊이 하한을 빼면 빨강');
-  const m5 = brk('const renderer=glFail.guard(', 'const renderer=((f)=>f())(');
+  const m5 = brk("{ guard: glFail.guard }", "{ guard: (f) => f() }");
   chk(!!m5 && !tryBuild(m5, { rendererThrows: true }).log.shows.includes('create'), 'guard 를 빼면(안내 없이 죽으면) 빨강');
   const m6 = brk('scene.add(floor);', '');
   chk(!!m6 && !build(m6).stage.scene.children.includes(build(m6).stage.floor), '바닥을 씬에 안 올리면 빨강');

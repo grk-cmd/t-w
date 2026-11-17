@@ -901,7 +901,7 @@ async function behave(src){
     chk(m.st.playing === false && m.st.now === -1 && m.st.sets.length === 3, '  재생 표시도 st 로 읽는다(빈 프리셋이라 곡은 안 열림)');
     m.st.playing = false;
     chk(m.state().playing === false, '  📷 스티커사진이 쓰는 재생 재우기(st.playing = false)');
-    chk(['_plHasSavedPos', '_plApplyPos', '_plSyncBgmBounds'].every(n => typeof e.win[n] === 'function'), 'window 고리 셋 — 상태칩 팝업 자리 · noise.js 가 typeof 로 부른다');
+    chk(['_plHasSavedPos', '_plApplyPos', '_plSyncBgmBounds'].every(n => typeof e.win[n] === 'function'), 'window 고리 셋 — 상태칩 팝업 자리 · noise.js 가 try 로 감싸 부른다');
     chk(e.win._plHasSavedPos() === false, '  옮긴 자리가 없으면 false');
     e.byId.myPlHead.fire('pointerdown', { clientX: 510, clientY: 305, target: e.byId.myPlHead });
     e.doc.fire('pointermove', { clientX: 600, clientY: 400 }); e.doc.fire('pointerup', {});
@@ -995,7 +995,7 @@ function wiring(PL, APP, HTML){
     '  상태칩 팝업 자리(만드는 줄보다 위에 선언)는 window 고리 + typeof 로');
   const iI = HTML.indexOf('<script src="parts/myhome/myhome-inbox.js"></script>'), iP = HTML.indexOf('<script src="parts/status/playlist.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>'),
     iN = HTML.indexOf('<script src="parts/status/noise.js"></script>');
-  chk(iI > 0 && iP > iI && iA > iP && iN > iA, 'html — playlist.js 를 app.js 보다 먼저(myhome-inbox.js 뒤) · noise.js 는 app.js 뒤');
+  chk(iI > 0 && iP > iI && iA > iP && iN > 0 && iN < iA, 'html — playlist.js 를 app.js 보다 먼저(myhome-inbox.js 뒤) · noise.js 도 app.js 보다 먼저(M23 — app.js 가 끝에서 만든다)');
   chk(/TwPlaylist/.test(PL) && !/window\.(Playlist|PlayList)\s*=/.test(PL) && !/\bplMod\b/.test(HTML.replace(/<!--[\s\S]*?-->/g, '')), '전역 이름은 Tw 접두사 · 연결 상수(plMod)는 DOM id 와 겹치지 않는다');
 }
 
