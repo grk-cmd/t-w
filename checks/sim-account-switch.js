@@ -125,16 +125,16 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     };
     const firebaseAPI = env.apiOn ? {
       loadSlotsTs: async () => { env.calls.push('slotsTs'); return env.slotsTs; },
-      loadGachaOwned: async () => { env.calls.push('gacha'); return env.srvGacha; },
+      loadGachaOwned: async () => { env.calls.push('gacha'); return env.srvGacha; },   // 옛 길 — 이 판은 부르지 않는다(검문에 가챠가 없다)
       releaseDeviceSession: async () => { env.calls.push('release'); },
       setMyPresenceState: (uid, on) => { env.calls.push('presence:' + uid + ':' + on); return env.presenceHang ? new Promise(() => {}) : Promise.resolve(); },
       deviceSessionLost: () => !!env.lost,
     } : null;
     const window = { firebaseAPI };
     const decl = Object.keys(K).map(n => 'const ' + n + " = '" + K[n] + "';").join('\n') + '\n' + [
-      "const syncFocusTotalToServer=async(r)=>{ env.calls.push('flush:focus:'+r); env.mark = env.total; env.hasMark = true; };",
-      /* 🎰 가챠는 gacha.js 모듈(앱 FSD 8번) — app.js 는 gachaMod.syncGachaToServer · owned · resetMemory 로 부른다. 메모리 칸은 아래 let 이 대신한다 */
-      "const gachaMod={ syncGachaToServer:async(r)=>{ env.calls.push('flush:gacha:'+r); }, owned:()=>gachaOwned, unsynced:(srv)=>{ let n=0; for(const k in gachaOwned) n+=Math.max(0,(gachaOwned[k]|0)-((srv||{})[k]|0)); return n; }, resetMemory(){ gachaOwned = {}; _gachaTs = 0; _gachaBonus = 0; } };",
+      "const syncFocusTotalToServer=async(r)=>{ env.calls.push('flush:focus:'+r); if(!env.focusStuck){ env.mark = env.total; env.hasMark = true; } };",
+      /* 🎰 가챠는 gacha.js 모듈 · 서버가 원본 — 로그아웃은 메모리만 비운다(resetMemory · 올리기 · 검문 없음). 메모리 칸은 아래 let 이 대신한다 */
+      "const gachaMod={ owned:()=>gachaOwned, resetMemory(){ gachaOwned = {}; _gachaTs = 0; _gachaBonus = 0; } };",
       /* 👑 달성표는 weekly-challenge.js 모듈 — app.js 는 weeklyChal.syncChalToServer · resetMemory 로 부른다. 메모리 칸은 여기 let 이 대신한다 */
       "const weeklyChal={ syncChalToServer:async(r)=>{ env.calls.push('flush:chal:'+r); }, resetMemory(){ env.calls.push('chal:reset'); chalRec = _chalBlank(); _chalDirty = false; } };",
       "const syncSlotsToServer=async(r)=>{ env.calls.push('flush:slots:'+r); };",
@@ -177,7 +177,8 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     let r = await e.m.detach();
     chk(r && r.ok === true, '★ 검문 통과');
     const flushed = e.calls.filter(c => c.startsWith('flush:')).map(c => c.split(':')[1]).sort().join(',');
-    chk(flushed === 'chal,focus,gacha,slots', '  지우기 **전에** 넷을 올렸다 (' + flushed + ')');
+    chk(flushed === 'chal,focus,slots', '  지우기 **전에** 셋을 올렸다 — 가챠는 서버가 원본이라 올릴 것이 없다 (' + flushed + ')');
+    chk(!e.calls.includes('gacha'), '  검문이 가챠 보유분을 읽지 않는다(Firebase 옛 길 0)');
     chk(e.calls.indexOf('slotsTs') > e.calls.lastIndexOf('flush:slots:logout') , '  검문 읽기는 올린 뒤에 온다');
     const left = e.m.keys().filter(k => e.LS.getItem(k) !== null);
     chk(left.length === 0, '★ 목록의 키가 하나도 안 남았다' + (left.length ? ' — 남음: ' + left.join(' ') : ''));
@@ -206,7 +207,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     chk(r && r.ok === false, '★ 읽기 실패도 «못 올렸다» 로 본다 — 네트워크 없는 순간에 지우지 않는다');
     e = mkEnv({ srvGacha: null }); fillA(e);
     r = await e.m.detach();
-    chk(r && r.ok === false && /파츠/.test(r.reason || ''), '  가챠 읽기 실패도 막는다 (' + (r && r.reason) + ')');
+    chk(r && r.ok === true && !e.calls.includes('gacha'), '  가챠는 검문하지 않는다 — 뽑기는 서버가 저장해야 끝나 이 PC 에만 있는 뽑기가 없다 (' + (r && r.reason) + ')');
 
     /* ④ 누적 시간이 안 올라갔다 */
     say('· ④ 누적 시간 미반영');
@@ -214,7 +215,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
        여기선 **마크를 안 옮기는 flush**(쓰기가 거부된 기기)로 바꿔 끼운다. */
     const g = new Function('env', 'localStorage', 'window',
       Object.keys(K).map(n => 'const ' + n + " = '" + K[n] + "';").join('\n') + '\n' +
-      "const syncFocusTotalToServer=async()=>{}; const gachaMod={ syncGachaToServer:async()=>{}, owned:()=>gachaOwned, unsynced:(srv)=>{ let n=0; for(const k in gachaOwned) n+=Math.max(0,(gachaOwned[k]|0)-((srv||{})[k]|0)); return n; }, resetMemory(){} }; const weeklyChal={ syncChalToServer:async()=>{}, resetMemory(){} }; const syncSlotsToServer=async()=>{};\n" +
+      "const syncFocusTotalToServer=async()=>{}; const gachaMod={ owned:()=>gachaOwned, resetMemory(){} }; const weeklyChal={ syncChalToServer:async()=>{}, resetMemory(){} }; const syncSlotsToServer=async()=>{};\n" +
       "let _slotsPushTimer=null; const clearTimeout=()=>{}; const setTimeout=()=>0; const _slotsHasLocal=()=>false;\n" +
       "let gachaOwned={}; let _gachaTs=0; let _gachaBonus=0; let _focusTotalSec=env.total, _focusTodaySec=0;\n" +
       "const _hasFocusSyncedMark=()=>env.hasMark; const _getFocusSyncedMark=()=>env.mark;\n" +
@@ -281,20 +282,16 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     e = mkEnv({ slotsTs: 0 }); fillA(e);
     r = await e.m.detach();
     chk(r && r.kind === 'denied' && /올리지 못했어요/.test(r.reason || ''), '★ 서버에 없음(0)은 «올리지 못했어요» (denied)');
-    e = mkEnv({ slotsTs: 0, srvGacha: { owned: {} } }); fillA(e);
+    e = mkEnv({ slotsTs: 0, focusStuck: true, mark: 0, hasMark: true }); fillA(e);
     e.LS.setItem(K.LS_KEY, '[{"skin":1},null,{"skin":2}]');
     r = await e.m.detach();
     chk(r && r.items && r.items.length === 2, '★ 첫 실패에서 끝내지 않고 **전 항목**을 센다 (' + (r && r.items ? r.items.length : 0) + '개)');
-    chk(r && r.items && r.items[0].label === '캐릭터 2개' && /뽑은 파츠 1개/.test(r.items[1].label), '  항목에 **이름과 개수**가 있다 — «이 컴퓨터에만 있는 것: 캐릭터 2개 · 뽑은 파츠 1개» (' + (r && r.items ? r.items.map(i => i.label).join(' · ') : '') + ')');
+    chk(r && r.items && r.items[0].label === '캐릭터 2개' && /누적 시간 60분/.test(r.items[1].label) && !r.items.some(i => /뽑은 파츠/.test(i.label)), '  항목에 **이름과 개수**가 있다 — «이 컴퓨터에만 있는 것: 캐릭터 2개 · 누적 시간 60분» · 가챠는 항목이 아니다 (' + (r && r.items ? r.items.map(i => i.label).join(' · ') : '') + ')');
     chk(e.LS.getItem(K.MY_USER_ID_KEY) === 'uA', '  여전히 아무것도 안 지웠다');
-    /* B-1021-13 — 서버에 보유분이 «있어도» 이 PC 뽑기가 다 올라가지 않았으면 막는다(예전엔 «하나라도 있나» 만 봐서 지웠다) */
+    /* 🎰 가챠는 서버가 원본 — 메모리의 보유분은 서버에서 받은 값이라 검문 항목이 아니다(옛 B-1021-13 검문은 사본이 없어 걷었다) */
     e = mkEnv({ gacha: { p1: 2, p9: 1 }, srvGacha: { owned: { p1: 1 }, ts: 5 } }); fillA(e);
     r = await e.m.detach();
-    chk(r && r.ok === false && r.items && r.items.length === 1 && /뽑은 파츠/.test(r.items[0].label) && r.kind === 'denied' && e.LS.getItem(K.MY_USER_ID_KEY) === 'uA',
-        '★ 서버에 일부만 있으면(p1 1/2 · p9 없음) 막는다 — 서버에 못 올라간 뽑기를 로그아웃이 지우지 않게');
-    e = mkEnv({ gacha: { p1: 1 }, srvGacha: { owned: { p1: 3 }, ts: 5 } }); fillA(e);
-    r = await e.m.detach();
-    chk(r && r.ok === true, '  서버가 더 많으면(다른 PC 에서 뽑음) 통과');
+    chk(r && r.ok === true && !e.calls.includes('gacha'), '★ 가챠 보유분은 검문하지 않는다 — 서버 읽기 0 · 막지 않는다');
     e = mkEnv({ slotsTs: 0, fastTimeout: true }); fillA(e);
     r = await e.m.detach();
     chk(r && r.kind === 'timeout' && r.timedOut === true, '★ 8초 상한에 걸린 뒤의 «없다» 는 timeout — «아직 올리는 중» 이라고 말할 재료');
@@ -307,7 +304,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     chk(r && r.ok === true, '★ force 면 검문에 걸려도 지운다');
     chk(e.m.keys().filter(k => e.LS.getItem(k) !== null).length === 0 && e.m.mem().detached === true, '  강제로 지워도 목록 한 벌·메모리 전부 — 반쪽 로그아웃은 없다');
     chk(e.calls.indexOf('release') >= 0 && e.calls.indexOf('release') > e.calls.indexOf('slotsTs'), '  강제로 지운 뒤에도 기기 세션을 놓는다(releaseDeviceSession) — 안 놓으면 다음 사람이 «다른 기기에서 사용 중» 에 걸린다');
-    chk(e.calls.filter(c => c.startsWith('flush:')).length === 4, '  강제여도 올리기는 한 번 더 해 본다(공짜다)');
+    chk(e.calls.filter(c => c.startsWith('flush:')).length === 3, '  강제여도 올리기는 한 번 더 해 본다(공짜다)');
     /* 부르는 쪽 — 정적 */
     const uiBlk = grabBlock(SRC, "let _logoutFails = 0;", "if(forceBtn) forceBtn.onclick") || '';
     chk(!!uiBlk && /_logoutFails >= 2\) showForce\(true\)/.test(uiBlk), '★ [그래도 로그아웃] 은 **두 번째 실패에서만** 열린다 — 첫 실패엔 «다시 시도» 뿐');
@@ -388,7 +385,7 @@ function part4(){
         /* app.js 는 plMod 로 부른다(앱 FSD 16번) — 함수는 아래에서 떼어 온 진짜 관문 · 지문, 상태는 위 let */
         "const plMod={ PL_MAX, PL_TITLE_MAX, PL_BIO_MAX, normalizeSets:(...a)=>_plNormalizeSets(...a), setIdx:(...a)=>_plSetIdx(...a), pubSigOf:(...a)=>_plPubSigOf(...a),\n" +
         "  mine:()=>_plMine(), save:()=>_plSave(), publish:()=>_plPublish(), render:()=>_plRender(), markSynced:()=>{ env.marked = 'push'; }, resetSync:()=>{ env.reset = (env.reset || 0) + 1; env.resetBeforeFetch = !env.fetched; }, bootSync:()=>{ env.boot = (env.boot || 0) + 1; }, adoptServer:(r)=>{ env.adopted = r; _plSets = _plNormalizeSets(r.sets); _plBio = String(r.bio || ''); _plHomePublic = !!r.homePublic; _plPubSig = 'adopted'; _plSave(); _plRender(); }, st:" + PL_ST_ALL + " };\n" +
-        "const getMyUserId=()=>'uB'; const gachaMod={ syncGachaToServer:async()=>{ env.gachaPull++; }, isInvOpen:()=>false, renderGachaInv(){} }; const syncSlotsToServer=async()=>{ env.slotsPull++; };\n" +
+        "const getMyUserId=()=>'uB'; const gachaMod={ resetMemory(){ env.gachaReset = (env.gachaReset || 0) + 1; }, startGacha:async()=>{ if(env.gachaReset) env.gachaPull++; } }; const syncSlotsToServer=async()=>{ env.slotsPull++; };\n" +
         [fNorm, fBlank, fIdx, fSig, fRestore].join('\n') +
         "\nreturn async()=>{ await _restoreOwnedDataAfterTransfer(); return { sets:_plSets, cur:_plCur, bio:_plBio, pub:_plHomePublic, sig:_plPubSig }; };");
       const api = { fetchMyPlaylistSets: async () => { env.fetched = true; return { sets: r.sets, bio: r.bio, homePublic: r.homePublic, ts: 4321 }; }, fetchPlaylistOf: async () => { throw new Error('옛 길을 탔다'); } };
@@ -399,7 +396,7 @@ function part4(){
       chk(typeof out.sig === 'string' && env.published === 0, '  지문을 맞춰 두어 헛쓰기(_plPublish)가 안 나간다');
       chk(env.adopted && env.adopted.ts === 4321 && env.marked === undefined, '  ☁️ 받은 사본을 그대로 adoptServer 에 넘긴다(고친 시각 · 백업은 그쪽 몫)');
       chk(env.reset === 1 && env.resetBeforeFetch === true && !env.boot, '  ☁️ 읽기 전에 이 기기를 새 기기로(resetSync) — 앞 uid 의 고친 시각이 새 계정 목록을 이기지 않게');
-      chk(env.gachaPull === 1 && env.slotsPull === 1, '  가챠·슬롯 pull 은 그대로 이어서 돈다');
+      chk(env.gachaPull === 1 && env.slotsPull === 1, '  가챠(앞 계정 메모리 비운 뒤 서버에서 받기) · 슬롯 pull 은 그대로 이어서 돈다');
       /* 서버가 비었고 로컬에 곡이 있으면 올린다 */
       const env2 = { saved: 0, published: 0, gachaPull: 0, slotsPull: 0 };
       const api2 = { fetchMyPlaylistSets: async () => ({ sets: [], bio: '', homePublic: false, ts: 0 }) };

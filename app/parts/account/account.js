@@ -278,7 +278,7 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
         빈 기기에 마크가 남아 있으면 다음 계정의 첫 동기화가 (0 − 옛마크) 로 꼬인다. */
   FOCUS_TOTAL_KEY(), FOCUS_TODAY_SEC_KEY(), FOCUS_TODAY_DATE_KEY(), focusLevelMod().FOCUS_SYNCED_KEY,
   focusLevelMod().DANCE_NOTIFIED_KEY, focusLevelMod().DANCE_REPAIR_KEY,   // 해금 안내 기록 — 수령함이 진짜다(_danceUnlockPending 이 수령함을 보고 중복을 거른다)
-  /* 가챠 — 연동 pull(syncGachaToServer 'transfer','pull') + 부팅 tick 이 서버 것을 받아온다. 보너스는 loadChalBonus. */
+  /* 가챠 — 옛 판이 남긴 사본(이 판은 안 쓴다 · 서버가 원본이라 다음 로그인에 서버에서 받는다). */
   GACHA_OWNED_KEY(), GACHA_TS_KEY(), GACHA_BONUS_KEY(),
   /* 달성표 — syncChalToServer 가 서버 ts 가 크면 통째로 받아온다. */
   CHAL_KEY(),
@@ -308,7 +308,7 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
 /* 접두어로 쌓이는 키(방마다 하나) — 목록에 못 적으므로 여기서 훑는다. */
 const ACCOUNT_LOCAL_KEY_PREFIXES = ['tw_chat_read:', 'tw_chat_join:'];
 
-/* 📤 지우기 전에 올린다 — 이 기기가 마지막으로 쌓은 것(≤10분치 시간·마지막 뽑기·저장한 캐릭터)을
+/* 📤 지우기 전에 올린다 — 이 기기가 마지막으로 쌓은 것(≤10분치 시간·저장한 캐릭터)을
    서버에 실어 보낸다. 실패는 여기서 판단하지 않는다 — 아래 검문(_acctPreflight)이 결과로 본다.
    ⚠️ 무한정 기다리지 않는다. 슬롯 push 는 얼굴 업로드가 딸려 있어 느릴 수 있다. */
 const ACCT_FLUSH_TIMEOUT_MS = 8000;
@@ -316,7 +316,6 @@ async function _acctFlushToServer(){
   const jobs = [];
   const call = (fn, ...a) => { try{ if(typeof fn === 'function') jobs.push(Promise.resolve(fn(...a))); }catch(_){} };
   call(typeof focusLevelMod().syncFocusTotalToServer === 'function' ? focusLevelMod().syncFocusTotalToServer : null, 'logout');
-  call(gachaMod().syncGachaToServer, 'logout');
   call(weeklyChal().syncChalToServer, 'logout');
   /* 슬롯은 대기 중인 debounce push 가 있으면 그것부터 흘려보낸다(3초를 기다릴 이유가 없다). */
   try{ if(typeof slotSyncMod()._slotsPushTimer !== 'undefined' && slotSyncMod()._slotsPushTimer()){ clearTimeout(slotSyncMod()._slotsPushTimer()); slotSyncMod().setSlotsPushTimer(null); } }catch(_){}
@@ -350,16 +349,13 @@ async function _acctPreflight(uid, opt){
   const items = [];
   const push = (label, reason, kind) => items.push({ label, reason, kind });
   /* 로컬 개수부터 — 오프라인이어도 «무엇이 사라지는지» 는 말할 수 있어야 한다. */
-  let nSlots = 0, nGacha = 0, gapMin = 0, hasSlots = false;
+  let nSlots = 0, gapMin = 0, hasSlots = false;
   try{ hasSlots = (typeof slotSyncMod()._slotsHasLocal === 'function') && slotSyncMod()._slotsHasLocal(); }catch(_){}
   try{ nSlots = (hasSlots && typeof slotSyncMod()._slotsFilledCount === 'function') ? slotSyncMod()._slotsFilledCount(localStorage.getItem(LS_KEY())) : 0; }catch(_){}
-  try{ nGacha = (typeof gachaMod().owned() === 'object' && gachaMod().owned()) ? Object.keys(gachaMod().owned()).length : 0; }catch(_){}
   const lblSlots = '캐릭터' + (nSlots ? ' ' + nSlots + '개' : '');
-  const lblGacha = '뽑은 파츠' + (nGacha ? ' ' + nGacha + '개' : '');
   const api = window.firebaseAPI;
   if(!api){
     if(hasSlots) push(lblSlots, '네트워크 연결이 필요해요', 'offline');
-    if(nGacha) push(lblGacha, '네트워크 연결이 필요해요', 'offline');
     return { ok:false, reason:'네트워크 연결이 필요해요', kind:'offline', items, timedOut };
   }
   /* 🧍 캐릭터 — 로컬에 있으면 서버 ts 가 있어야 한다. */
@@ -370,15 +366,7 @@ async function _acctPreflight(uid, opt){
       else if(!(typeof ts === 'number' && ts > 0)) push(lblSlots, '캐릭터를 서버에 올리지 못했어요', timedOut ? 'timeout' : 'denied');
     }
   }catch(_){ push(lblSlots, '캐릭터 저장 상태를 확인하지 못했어요', 'unknown'); }
-  /* 🎰 가챠 — 이 PC 의 뽑기가 서버에 다 있어야 한다(파츠마다 개수까지). ⚠️ «서버에 하나라도 있나» 로 줄이지 말 것 —
-     서버에 못 올라간 뽑기가 있어도 통과해 로그아웃이 지운다. */
-  try{
-    if(nGacha && api.loadGachaOwned){
-      const srv = await api.loadGachaOwned(uid);
-      if(srv === null || srv === undefined) push(lblGacha, '파츠 저장 상태를 확인하지 못했어요', 'unknown');
-      else if(gachaMod().unsynced(srv.owned) > 0) push(lblGacha, '뽑은 파츠를 서버에 올리지 못했어요', timedOut ? 'timeout' : 'denied');
-    }
-  }catch(_){ push(lblGacha, '파츠 저장 상태를 확인하지 못했어요', 'unknown'); }
+  /* 🎰 가챠는 검문하지 않는다 — 뽑기는 서버가 저장해야 끝나서(서버가 원본) 이 PC 에만 있는 뽑기가 없다. */
   /* 🕒 누적 시간 — 마크가 로컬 누적을 따라잡았어야 한다(2분은 왕복 사이에 쌓이는 폭). */
   try{
     const total = Math.floor(Number(_focusTotalSec()) || 0);
@@ -417,7 +405,7 @@ function _wipeAccountLocal(){
   /* 메모리 — 위 주석 참고. 각 값은 그 모듈의 «빈 기기» 초기값과 같다. */
   try{ setFocusTotalSec(0); setFocusTodaySec(0); }catch(_){}
   try{ if(window.firebaseAPI && firebaseAPI.chatHistory) firebaseAPI.chatHistory.wipeAll(); }catch(_){}   // 💬 이 PC 대화 저장(chat-history.js)
-  try{ gachaMod().resetMemory(); }catch(_){}   // 🎰 가챠 — gachaOwned = {} · _gachaTs = 0 · _gachaBonus = 0 (gacha.js)
+  try{ gachaMod().resetMemory(); }catch(_){}   // 🎰 가챠 — 서버에서 받아 온 보유분 · 뽑기 수를 비운다(gacha.js)
   try{ weeklyChal().resetMemory(); }catch(_){}   // 👑 달성표 — chalRec = 빈 기록 · dirty=false (weekly-challenge.js)
   try{ slotSyncMod().setSlotsTs(0); slotSyncMod().setSlotsSeen(0); slotSyncMod().setSlotsConflict(null); setExtraSeatSlots([]); }catch(_){}
   try{ const pl = plMod.st; pl.sets = plMod.blankSets(); pl.cur = 0; pl.bio = ''; pl.homePublic = false; pl.private = false; pl.pubSig = null; plMod.resetSync(); }catch(_){}   // 🎵 playlist.js — 상태 묶음 · ☁️ 맞춤 상태도 새 기기처럼
@@ -824,11 +812,10 @@ async function _restoreOwnedDataAfterTransfer(){
       }
     }
   }catch(e){ console.warn('[연동] 플레이리스트 복원 실패', e); }
-  // ── 🎰 가챠 보유분 — 연동은 '저쪽 계정 것을 받아온다'가 맞으므로 ts 를 보지 않고 무조건 내려받는다.
-  //    (평소 동기화는 최신 기기가 이기는 ts 비교지만, 연동만은 이 기기가 더 최신이어도 저쪽이 정답이다)
+  // ── 🎰 가챠 보유분 — 서버가 원본이라 앞 계정 메모리를 비우고 이 계정 것을 서버에서 받는다(받으면 열린 보관함도 다시 그린다).
   try{
-    await gachaMod().syncGachaToServer('transfer', 'pull');
-    if(gachaMod().isInvOpen()) gachaMod().renderGachaInv();
+    gachaMod().resetMemory();
+    await gachaMod().startGacha();
   }catch(e){ console.warn('[연동] 가챠 복원 실패', e); }
   // ── 🧍 캐릭터 슬롯 [2026-09-16 제보 6-b] — 가챠와 같은 규칙: 저쪽 계정 것을 ts 안 보고 pull,
   //    저쪽이 비어 있으면 이 기기 것을 push(로컬에만 캐릭터가 있던 사람의 첫 업로드).

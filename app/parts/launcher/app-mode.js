@@ -112,8 +112,8 @@ function backToLauncher(){
   focusLevelMod().syncFocusTotalToServer('launcher');
   // 👑 달성표도 같은 경계에서 맞춘다 — 다른 기기에서 체크한 오늘 항목이 여기서 따라온다.
   weeklyChal().syncChalToServer('launcher');
-  // 🎰 가챠도 같은 경계에서. 셋 다 '다른 기기에서 쌓인 것을 받아오는' 같은 성격이라 한자리에 둔다.
-  gachaMod().syncGachaToServer('launcher');
+  // 🎰 가챠도 같은 경계에서 서버에서 받는다 — 다른 기기에서 뽑은 것이 따라온다(0.12.4 는 realtime 신호가 없어 여기서 받는다).
+  gachaMod().pullGacha(false);
   applyDesktopRunClass();
 }
 document.getElementById('toLauncher').onclick=backToLauncher;

@@ -1430,6 +1430,7 @@ const mhInitMod = TwMyHomeInit.createMyHomeInit({
   getMyUserId: (...a)=>getMyUserId(...a),
   inboxMod: ()=>inboxMod,
   mhScheduler: mhScheduler,
+  startGacha: (...a)=>gachaMod.startGacha(...a),
   myHomeOpen: ()=>windowModeMod.myHomeOpen(),
   toast: (...a)=>toast(...a),
   setInboxBroadcast: (v)=>{ _inboxBroadcast = v; },
@@ -4561,23 +4562,25 @@ const focusLevelMod = TwFocusLevel.createFocusLevel({
 });
 
 /* ═══ 🎰 가챠 모듈 연결 · 🔑 쓰기 거부 안내 ═══ */
-/* 🎰 파츠 가챠 — 코어(보유분 · 확률 · 뽑기 · 서버 동기화 · 미보유 파츠 회수)와 파츠 보관함(T) · 뽑기 창은 parts/gacha.js 로 옮겼다
+/* 🎰 파츠 가챠 — 코어(서버 보유분 · 뽑기 · 미보유 파츠 회수)와 파츠 보관함(T) · 뽑기 창은 character/gacha.js 로 옮겼다
    (앱 FSD 8번 · docs/APP_FSD_MAP.md).
-   ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(localStorage 읽기 · 시각 부트스트랩 · 부팅 동기화 4.2초 타이머 · 10분 tick ·
-     창 버튼 · 끌기 · ESC · 바깥 클릭 · blur 연결)이 예전과 같은 때 돈다.
-   저장 키 세 줄은 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)이 같이 써서 여기 두고 값으로 넘긴다(달성표 CHAL_KEY 와 같은 방식).
+   ★ 원래 자리인 여기서 만든다 — 만들 때는 창 버튼 · 끌기 · ESC · 바깥 클릭 · blur 연결만 한다. 서버에서 받기는 로그인 복원 뒤 startGacha()(myhome-init).
+   저장 키 세 줄은 옛 판이 이 PC 에 남긴 사본이다 — 이 판은 읽지도 쓰지도 않고, 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)이 지우기만 한다.
    함수 deps 는 화살표로 감싼다(부를 때 찾게). isAdmin · savedParts · PART_CATS · wdDraftDef · activeWdAdj 는 다시 대입되는 let 이라 읽는 함수로,
    activeWdAdj 를 바꾸는 것은 쓰는 함수로 넘긴다. seats · slots · Presence 는 이 줄보다 앞에 선언되고 다시 대입되지 않는 const 라 값으로.
    부르는 곳은 gachaMod.이름(전부 이 줄보다 늦게 돈다). 바로 아래 🔑 «서버가 조용히 거부하는 기기» 안내는 캐릭터 슬롯도 써서 여기 남겼다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다.
    ⚠️ 이름을 gacha 로 짓지 않은 까닭 — partsInCatFor(cat, gacha) · 파츠 등록의 const gacha 가 가린다. */
 const GACHA_OWNED_KEY = 'tw.gachaOwned';
-const GACHA_TS_KEY    = 'tw.gachaOwnedTs';   // 이 기기가 마지막으로 gachaOwned 를 '바꾼' 시각(ms)
-const GACHA_BONUS_KEY = 'tw.gachaBonus';     // 👑달성표 주간 보상으로 얹힌 추가 뽑기 횟수
+const GACHA_TS_KEY    = 'tw.gachaOwnedTs';
+const GACHA_BONUS_KEY = 'tw.gachaBonus';
+/* 🎰 가챠 서버 길 — 서버가 뽑고 저장한다(character/gacha-api.js) · 로그인 통로는 TwApi.authed */
+const gachaApiMod = TwGachaApi.createGachaApi({
+  authed: TwApi.authed,
+  newRequestId: ()=>TwRequestId.newId(),
+});
 const gachaMod = TwGacha.createGacha({
   toast: (...a)=>toast(...a),
-  srvNow: (...a)=>roomSyncMod._srvNow(...a),
-  warnServerWriteDenied: (...a)=>_warnServerWriteDenied(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   getFocusLevel: (...a)=>focusLevelMod.getFocusLevel(...a),
   catEquippedIds: (...a)=>premiumMod.catEquippedIds(...a),
@@ -4609,11 +4612,9 @@ const gachaMod = TwGacha.createGacha({
   seats: seats,
   slots: slots,
   presence: Presence,
-  ownedKey: GACHA_OWNED_KEY,
-  tsKey: GACHA_TS_KEY,
-  bonusKey: GACHA_BONUS_KEY,
   isGachaPart: (...a)=>premiumMod.isGachaPart(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
+  gachaApi: gachaApiMod,
 });
 /* 🛠 가챠 보관함의 관리자 등록 · 삭제 — 관리자 모듈이 가챠보다 먼저 만들어져 여기서 건다(가챠는 관리자 모듈을 부르지 않는다) */
 gachaMod.setPartEditor({
@@ -4730,7 +4731,7 @@ const expBarMod = TwExpBar.createExpBar({
 /* ═══ 👑 달성표 · 🍅 뽀모도로 모듈 연결 ═══ */
 /* 👑 달성표(주간 규칙 · 기록 · 화면) — parts/weekly-challenge.js 로 옮겼다(앱 FSD 2번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(localStorage 읽기 · 부팅 동기화 타이머 · 20초 tick · 버튼 연결)이
-     예전과 같은 때 돈다. 함수 deps 는 화살표로 감싼다(부를 때 찾게). appMode · _gachaBonus 는 다시 대입되는 let 이라 읽는 함수로.
+     예전과 같은 때 돈다. 함수 deps 는 화살표로 감싼다(부를 때 찾게). appMode 는 다시 대입되는 let 이라 읽는 함수로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const CHAL_KEY = 'tw.chal';   // 👑 달성표 로컬 기록 — 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)도 쓴다
 const weeklyChal = TwWeeklyChallenge.createWeeklyChallenge({
@@ -4742,9 +4743,7 @@ const weeklyChal = TwWeeklyChallenge.createWeeklyChallenge({
   dayShifted: (...a)=>focusTotalMod._dayShifted(...a),
   focusDayStr: (...a)=>focusTotalMod._focusDayStr(...a),
   dayStartHour: focusTotalMod.DAY_START_HOUR,
-  setGachaBonusLocal: (...a)=>gachaMod.setBonusLocal(...a),
-  renderGachaInv: ()=>gachaMod.renderGachaInv(),
-  gachaBonus: ()=>gachaMod.bonus(),
+  pullGacha: ()=>gachaMod.pullGacha(false),
   appMode: ()=>appModeMod.appMode(),
   storageKey: CHAL_KEY,
 });

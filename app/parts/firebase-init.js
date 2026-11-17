@@ -38,7 +38,6 @@
   import { createRoomIndex } from "./room/room-index.js";
   import { recoverChannelFor } from "./room/room-channel.js";
   import { createRoomStats } from "./room/room-stats.js";
-  import { createGachaTx } from "./character/gacha-tx.js";
   import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive, isNodeAlive } from "./room/room-alive.js";
   import { createInviteAccount } from "./account/invite-account.js";
   import { createInviteRevokeAll } from "./account/invite-revoke.js";
@@ -425,7 +424,6 @@
                     friends: _roomLastFriends, meta: _roomMetaVal }),
   });
   const _roomStats = createRoomStats({ db, ref, get, onValue, now: () => _svNow() });
-  const _gachaTx = createGachaTx({ db, ref, get, runTransaction, waitConnected: ms => window.firebaseAPI.waitConnected(ms), whenAuthReady: _whenAuthReady });
   const _groupInvite = createGroupInvite({ db, ref, get, update });
   /* presence · onDisconnect 는 set(통째 덮기)이라 그 객체마다 ver 를 실어야 꺼진 뒤에도 남는다.
      ⚠️ presence 에 쓰는 것은 update 까지 **전부** withVer 를 거친다 — 규칙은 online:true 인데 ver 가 없으면
@@ -938,22 +936,7 @@
     },
     /* 🔗 (걷음 · 개정 56) `setFriendCodeOwner` — 친추코드 소유자 강제 지정. 부르던 두 곳(_claimFriendCodeAfterTransfer ·
        _healFriendCodeOwner 되찾기 갈래)이 걷혔다. 남의 계정 코드를 가져가는 통로라 남기지 않는다(선점은 registerFriendCode 뿐). */
-    /* ===== 🎰 파츠 가챠 =====
-         users/{uid}/gacha/owned/{partId} = 4      // 뽑은 횟수(누적). 4 이상 = 색상 변경 해금
-         users/{uid}/gacha/ts             = 172…   // 마지막으로 바꾼 시각(ms)
-       내 것만 1회 get 한다 — 목록을 실시간 구독하면 비용이 터진다(audit 검사 9).
-       ★ 쓰기는 트랜잭션 한 길(updateGacha → character/gacha-tx.js)뿐이다 — 통째 set 은 다른 PC 의 뽑기를 지운다.
-       ⚠️ 규칙 파일의 users/$userId 안에 gacha 블록이 없으면 여기 쓰기가 **조용히 전부 거부**된다.
-         audit 검사 7은 최상위 경로만 보므로 users 하위 키는 잡아주지 않는다. */
-    async loadGachaOwned(uid){
-      try{
-        const snap = await get(ref(db, `users/${uid}/gacha`));
-        const v = snap.val() || {};
-        return { owned: v.owned || {}, ts: Number(v.ts) || 0 };
-      }
-      catch(e){ console.warn('[가챠] 소유 목록 읽기 실패', e); return null; }   // null = 읽기 실패(값 없음과 구분)
-    },
-    updateGacha(uid, apply, opt){ return _gachaTx.updateGacha(uid, apply, opt); },
+    /* 🎰 파츠 가챠 — 보유분 · 뽑기는 서버 API(character/gacha-api.js · /v2/me/collection · /v2/me/gacha)로 옮겼다. 여기 길은 없다. */
     /* ===== 🧍 캐릭터 슬롯 (기기 간 동기화 · 2026-09-16 제보 6-b) =====
          users/{uid}/slots/ts      = 172…   // 마지막으로 바꾼 시각(ms · 서버 시계)
          users/{uid}/slots/v       = 1
@@ -1182,10 +1165,6 @@
          없는 다른 기기가 나중에 저장하면 그 표식이 지워지고 그 기기가 한 번 더 준다.
          선지급은 "평일 낮에 목표를 채우는 순간"이라 두 기기가 겹칠 일이 흔하다.
          ⚠️ 뽑기는 한 번 나가면 회수 경로가 없다. 이 방어를 걷어내지 말 것. */
-    async loadChalBonus(uid){
-      try{ const s = await get(ref(db, `users/${uid}/chalBonus`)); return Math.max(0, Math.floor(Number(s.val()) || 0)); }
-      catch(e){ console.warn('[달성표] 보상 읽기 실패', e); return null; }   // null = 읽기 실패(0 과 구분)
-    },
     async addChalBonus(uid, n, tag){
       try{
         const add = Math.max(0, Math.min(99, Math.floor(Number(n) || 0)));

@@ -27,7 +27,7 @@ function build(src, o){
   const st = { curSlot: o.curSlot || 0, hint: null, myHomeOpen: !!o.myHomeOpen, presence: o.presence || null, extra: o.extra || [] };
   const deps = {
     applyCharToSeat: (s, d) => log.push('apply:' + (d && d.name)), applyDesktopRunClass: () => log.push('runClass'), createSeat: () => ({ group: {}, id: 'me' }),
-    curSlot: () => st.curSlot, focusLevelMod: () => ({ syncFocusTotalToServer: (w) => log.push('focusSync:' + w) }), gachaMod: () => ({ syncGachaToServer: (w) => log.push('gachaSync:' + w) }),
+    curSlot: () => st.curSlot, focusLevelMod: () => ({ syncFocusTotalToServer: (w) => log.push('focusSync:' + w) }), gachaMod: () => ({ pullGacha: (n) => log.push('gachaPull:' + n) }),
     layoutSeats: () => log.push('layout'), setMyHomeOpen: (v) => { st.myHomeOpen = v; },
     overheadMod: { removeSeatLabels: (s) => log.push('rmLabels') }, Presence: () => ({ active: () => !!st.presence, friendsObj: () => ({ f: 1 }), myDef: () => st.presence && st.presence.def, updateDef: (d) => log.push('updateDef:' + d.name) }),
     renderLauncher: () => log.push('renderLauncher'), rideBenchMod: { _resetIdeskRestore: () => log.push('resetIdesk'), unmountBench: () => {} },
@@ -94,7 +94,7 @@ say('§3 backToLauncher');
   chk(b.mod.appMode() === 'run' && b.els.launcher.classList.contains('on'), '모드를 run 으로 되돌리고 런처를 켠다');
   chk(b.log.includes('closeWardrobe') && !b.els.wardrobePanel.classList.contains('on') && !b.els.wdPreviewPanel.classList.contains('on'), '꾸미기 창이 켜져 있으면 closeWardrobe 로 닫아 저장하고 미리보기도 끈다');
   chk(b.log.includes('commitMyHome:true') && !b.els.myHomeOverlay.classList.contains('on') && b.st.myHomeOpen === false && b.log.includes('gbStop') && b.log.includes('bgmDestroy') && b.log.includes('dsClose'), '마이홈이 켜져 있으면 저장하고 닫는다(방명록 감시 · BGM · 스튜디오 정리 포함)');
-  chk(b.log.includes('resetIdesk') && b.log.includes('renderLauncher') && b.log.includes('focusSync:launcher') && b.log.includes('chalSync:launcher') && b.log.includes('gachaSync:launcher') && b.log[b.log.length - 1] === 'runClass', '런처를 다시 그리고 포커스 · 달성표 · 가챠를 서버와 맞춘 뒤 창 크기를 맞춘다');
+  chk(b.log.includes('resetIdesk') && b.log.includes('renderLauncher') && b.log.includes('focusSync:launcher') && b.log.includes('chalSync:launcher') && b.log.includes('gachaPull:false') && b.log[b.log.length - 1] === 'runClass', '런처를 다시 그리고 포커스 · 달성표를 서버와 맞추고 가챠는 서버에서 받은 뒤(조용히 — 오류 번호 없이) 창 크기를 맞춘다');
   b = build(SRC); b.mod.backToLauncher();
   chk(!b.log.some(l => l === 'closeWardrobe' || l.startsWith('commitMyHome')), '꾸미기 · 마이홈이 안 켜져 있으면 닫기 부름이 없다');
   b = build(SRC, { seats: [] }); b.st.hint = 77; b.mod.backToLauncher();

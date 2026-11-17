@@ -2,7 +2,7 @@
    app.js 의 마이홈 처음 준비 구역 본문 을 parts/myhome/myhome-init.js 로 옮겼다(글자 그대로 · 바뀐 줄 24 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(마이홈 처음 준비 검사들).
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(initMyHome)
-   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 25줄 그대로 · 부르는 곳은 mhInitMod.이름 · html(app.js 앞)
+   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 26줄 그대로 · 부르는 곳은 mhInitMod.이름 · html(app.js 앞)
    ・2-2절: 내 코드 없음 — initMyHome 이 내 경로를 하나도 안 부르고 공용 공지만 건다
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · myhome-init.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
@@ -18,13 +18,13 @@ const MOD = ["myhome-init.js","parts/myhome/myhome-init.js","app/parts/myhome/my
 if(!MOD){ say('  ? 원본 못 찾음 — myhome-init.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_waitForFirebaseAPI","ensureMyFriendCode","getDisplayName","getMyUserId","toast"];
+const FN_DEPS = ["_waitForFirebaseAPI","ensureMyFriendCode","getDisplayName","getMyUserId","startGacha","toast"];
 const VAL_DEPS = ["MY_FRIEND_CODE_KEY","deviceLostMod","friendManage","friendsSub","mhScheduler"];
 const GET_DEPS = ["_inboxBroadcast","_myFriendRequests","_myHomeFriends","_myHomeReady","_myInbox","_myInboxReady","focusLevelMod","inboxMod","myHomeOpen"];
 const SET_DEPS = ["_inboxBroadcast","_myFriendRequests","_myHomeFriends","_myHomeReady","_myInbox","_myInboxReady"];
 const EXPORTS = ["initMyHome"];
 const MOVED = ["_ownerWriteWarned","_warnOwnerWriteDenied","initMyHome"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,","  _inboxBroadcast: ()=>_inboxBroadcast,","  _myFriendRequests: ()=>_myFriendRequests,","  _myHomeFriends: ()=>_myHomeFriends,","  _myHomeReady: ()=>_myHomeReady,","  _myInbox: ()=>_myInbox,","  _myInboxReady: ()=>_myInboxReady,","  _waitForFirebaseAPI: (...a)=>_waitForFirebaseAPI(...a),","  deviceLostMod: deviceLostMod,","  ensureMyFriendCode: (...a)=>ensureMyFriendCode(...a),","  focusLevelMod: ()=>focusLevelMod,","  friendManage: friendManage,","  friendsSub: friendsSubMod,","  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  inboxMod: ()=>inboxMod,","  mhScheduler: mhScheduler,","  myHomeOpen: ()=>myHomeOpen,","  toast: (...a)=>toast(...a),","  setInboxBroadcast: (v)=>{ _inboxBroadcast = v; },","  setMyFriendRequests: (v)=>{ _myFriendRequests = v; },","  setMyHomeFriends: (v)=>{ _myHomeFriends = v; },","  setMyHomeReady: (v)=>{ _myHomeReady = v; },","  setMyInbox: (v)=>{ _myInbox = v; },","  setMyInboxReady: (v)=>{ _myInboxReady = v; },"];
+const GLUE = ["  MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,","  _inboxBroadcast: ()=>_inboxBroadcast,","  _myFriendRequests: ()=>_myFriendRequests,","  _myHomeFriends: ()=>_myHomeFriends,","  _myHomeReady: ()=>_myHomeReady,","  _myInbox: ()=>_myInbox,","  _myInboxReady: ()=>_myInboxReady,","  _waitForFirebaseAPI: (...a)=>_waitForFirebaseAPI(...a),","  deviceLostMod: deviceLostMod,","  ensureMyFriendCode: (...a)=>ensureMyFriendCode(...a),","  focusLevelMod: ()=>focusLevelMod,","  friendManage: friendManage,","  friendsSub: friendsSubMod,","  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  inboxMod: ()=>inboxMod,","  mhScheduler: mhScheduler,","  startGacha: (...a)=>gachaMod.startGacha(...a),","  myHomeOpen: ()=>myHomeOpen,","  toast: (...a)=>toast(...a),","  setInboxBroadcast: (v)=>{ _inboxBroadcast = v; },","  setMyFriendRequests: (v)=>{ _myFriendRequests = v; },","  setMyHomeFriends: (v)=>{ _myHomeFriends = v; },","  setMyHomeReady: (v)=>{ _myHomeReady = v; },","  setMyInbox: (v)=>{ _myInbox = v; },","  setMyInboxReady: (v)=>{ _myInboxReady = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -85,6 +85,7 @@ async function callsWith(src, uid, profileGate){
   let done; const fin = new Promise(r => { done = r; });
   deps.getMyUserId = () => uid;
   if(profileGate){ deps.focusLevelMod = () => ({ _mobileStart(){}, _adoptStarColorFromProfile: async () => {}, getFocusLevel: () => 1, myStarProfileOut: () => ({}) }); deps.ensureMyFriendCode = async () => {}; }   // await 하는 둘은 바로 끝나게
+  if(profileGate) deps.startGacha = () => { calls.push('gacha.start'); };
   if(profileGate) deps.mhScheduler = { loadBoard(){ calls.push('sched.loadBoard'); }, loadToday(){ calls.push('sched.loadToday'); }, refreshBellBadge(){}, isBellOpen: () => false, renderBellList(){}, renderDdays(){} };
   deps.friendsSub = new Proxy({}, { get: (t, k) => (...a) => { calls.push('friendsSub.' + String(k) + '(' + (a.length ? String(a[0]) : '') + ')'); return any; } });
   deps._waitForFirebaseAPI = (cb) => { Promise.resolve(cb()).then(done, done); };
@@ -101,8 +102,9 @@ const gateOf = () => { let open; const p = new Promise(r => { open = r; }); p.op
 const judgeAuthWait = async (src) => {
   const c = await callsWith(src, 'ME', gateOf());
   const g = c.indexOf('--gate-open--');
-  return g > 0 && !c.slice(0, g).some(x => x.startsWith('sched.')) && c.slice(g).filter(x => x === 'sched.loadBoard').length === 1 && c.slice(g).filter(x => x === 'sched.loadToday').length === 1
-    && (await callsWith(src, null, gateOf())).every(x => !x.startsWith('sched.'));
+  return g > 0 && !c.slice(0, g).some(x => x.startsWith('sched.') || x.startsWith('gacha.')) && c.slice(g).filter(x => x === 'sched.loadBoard').length === 1 && c.slice(g).filter(x => x === 'sched.loadToday').length === 1
+    && c.slice(g).filter(x => x === 'gacha.start').length === 1
+    && (await callsWith(src, null, gateOf())).every(x => !x.startsWith('sched.') && !x.startsWith('gacha.'));
 };
 const judgeNoUid = async (src) => {
   const none = await callsWith(src, null), mine = await callsWith(src, 'ME');
@@ -115,11 +117,14 @@ rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i =
 say('── 2-2. 내 코드 없음 — 내 경로 요청 0');
 chk(await judgeNoUid(MOD), '내 코드 없음 → presence · 기기 · 프로필 · 친구 · 요청 · 우편 요청 0 · 친구 목록은 «코드 없음» 으로 시작(요청 없음) · 공용 공지 구독만 · 코드 있으면 presence 부터');
 say('── 2-3. 일정 받기는 로그인 복원 뒤');
-chk(await judgeAuthWait(MOD), '프로필 쓰기(인증 대기)가 끝나기 전에는 일정 · 보드 받기 0번 · 끝난 뒤 한 번씩(loadBoard · loadToday) · 내 코드 없으면 0번');
+chk(await judgeAuthWait(MOD), '프로필 쓰기(인증 대기)가 끝나기 전에는 일정 · 보드 받기 · 🎰 가챠 시작 0번 · 끝난 뒤 한 번씩(loadBoard · loadToday · startGacha) · 내 코드 없으면 0번');
 {
   const m4 = MOD.replace(/(\n[ ]*mhScheduler\.loadBoard\(\);[^\n]*\n[ ]*mhScheduler\.loadToday\(\);[^\n]*)/, '');
   const m5 = m4.replace("      try{ await firebaseAPI.setMyProfile(", "      mhScheduler.loadBoard(); mhScheduler.loadToday();\n      try{ await firebaseAPI.setMyProfile(");
   chk(m4 !== MOD && m5 !== m4 && !(await judgeAuthWait(m5)), '  깨 보기 — 두 줄을 프로필 쓰기 앞으로 옮기면 빨강');
+  const g4 = MOD.replace(/\n[ ]*startGacha\(\);[^\n]*/, '');
+  const g5 = g4.replace("      try{ await firebaseAPI.setMyProfile(", "      startGacha();\n      try{ await firebaseAPI.setMyProfile(");
+  chk(g4 !== MOD && g5 !== g4 && !(await judgeAuthWait(g5)) && !(await judgeAuthWait(g4)), '  깨 보기 — 🎰 가챠 시작을 프로필 쓰기 앞으로 옮기거나 빼면 빨강');
 }
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 {

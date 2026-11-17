@@ -4,8 +4,8 @@
 
    ★ 아래 본문은 app.js 에 있던 글 그대로다 — 들여쓰기도 바꾸지 않았다(옮기기 전 줄과 견주어 볼 수 있게).
      바뀐 것은 셋뿐이다.
-       · appMode → appMode() · _gachaBonus → gachaBonus()
-         두 값은 app.js 가 나중에 다시 대입하는 let 이라(실행 화면 전환 · 가챠 동기화) 값이 아니라 읽는 함수로 받는다.
+       · appMode → appMode() — app.js 가 나중에 다시 대입하는 let 이라(실행 화면 전환) 값이 아니라 읽는 함수로 받는다.
+       · 보상을 준 뒤 가챠 뽑기 수는 가챠가 서버에서 다시 받는다(deps.pullGacha) — 보너스 수는 서버가 센다(이 PC 사본 없음).
        · CHAL_KEY 는 deps.storageKey — 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)이 같은 이름을 쓰므로 정의는 app.js 에 남겼다.
    ★ 다른 구역이 다시 대입하던 상태는 함수로 바꾼다 — chalRec · _chalDirty(로그아웃 지우기) → resetMemory(),
      _chalKeyPlatform(활성 앱 판정 _applyActiveAppState) → setKeyPlatform(v).
@@ -25,9 +25,7 @@ const _premiumOn = deps.premiumOn;              // ⚠️ isPremium 을 직접 �
 const _dayShifted = deps.dayShifted;            // 🌅 하루가 오전 6시에 바뀐다
 const _focusDayStr = deps.focusDayStr;
 const DAY_START_HOUR = deps.dayStartHour;
-const _setGachaBonusLocal = deps.setGachaBonusLocal;
-const renderGachaInv = deps.renderGachaInv;
-const gachaBonus = deps.gachaBonus;             // 🎰 보너스 뽑기 수 — app.js 의 _gachaBonus(다시 대입되는 let)
+const pullGacha = deps.pullGacha;               // 🎰 가챠 서버 상태 다시 받기 — 보너스를 준 뒤 뽑기 수가 따라오게
 const appMode = deps.appMode;                   // 'run' | … — app.js 의 appMode(다시 대입되는 let)
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -290,17 +288,16 @@ async function _chalPayTickets(n, tag){
   const add = Math.max(0, n | 0);
   if(add <= 0) return 0;
   if(!_premiumOn()) return 0;          // ⚠️ 게이트 ③ — 단, 이미 준 것은 회수하지 않는다
-  const done = (v) => { _setGachaBonusLocal(v); try{ renderGachaInv(); }catch(_){} };
-  /* 로그인이 없으면 서버가 아예 없다 = 기기가 하나뿐이다. 예전처럼 로컬에만 얹고 끝낸다. */
-  if(!(window.firebaseAPI && firebaseAPI.addChalBonus)){
-    done(gachaBonus() + add); _chalDropDue(tag || ''); return add;
-  }
+  /* 보너스 수는 서버가 센다 — 가챠가 다시 받아 그린다(0.12.4 는 realtime 신호가 없어 여기서 부른다). */
+  const done = () => { try{ pullGacha(); }catch(_){} };
+  /* 서버 통로가 아직 없으면 주지 않는다 — 대기줄에 남아 다음 tick 에 다시 온다(가챠에는 이 PC 사본이 없다). */
+  if(!(window.firebaseAPI && firebaseAPI.addChalBonus)) return 0;
   try{
     const r = await firebaseAPI.addChalBonus(getMyUserId(), add, tag || '');
     if(r && r.ok){
       _chalDropDue(tag || '');         // 서버가 확인해 줬다(줬든, 이미 줬든) — 대기줄에서 뺀다
       if(r.dup) return 0;              // 다른 기기가 이미 준 트랙이다 — 조용히 물러난다
-      done(r.bonus != null ? r.bonus : (gachaBonus() + add));
+      done();
       return add;
     }
   }catch(_){}
@@ -626,16 +623,6 @@ async function syncChalToServer(reason, mode){
     if(sTs > myTs)              _adopt();
     else if(myTs > sTs)         await _push();
     else if(!sHas && myTs)      await _push();
-    /* 보상 합계는 chal 과 다른 노드에 있으므로 읽기가 한 번 더 든다.
-       판정이 바뀔 때마다 읽을 이유는 없다 — 값이 변하는 건 정산 때뿐이다. */
-    if(reason === 'boot' || reason === 'launcher' || reason === 'settle'){
-      try{
-        if(firebaseAPI.loadChalBonus){
-          const b = await firebaseAPI.loadChalBonus(uid);
-          if(b !== null) _setGachaBonusLocal(b);      // null = 읽기 실패 — 로컬 값을 지킨다
-        }
-      }catch(_){}
-    }
   }catch(e){ console.warn('[달성표] 동기화 실패', e); }
   finally{ _chalSyncing = false; }
 }

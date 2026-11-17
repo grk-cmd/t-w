@@ -94,7 +94,7 @@ function mkEnv(opt){
       saveChal: async (uid, rec) => { env.saved.push(JSON.parse(JSON.stringify(rec))); },
       addChalBonus: async (uid, n, tag) => { env.bonusCalls.push({ uid, n, tag });
         if(env.paidTags.has(tag)) return { ok: true, dup: true }; env.paidTags.add(tag); env.bonus += n; return { ok: true, bonus: env.bonus }; },
-      loadChalBonus: async () => env.bonus,
+      loadChalBonus: async () => { env.bonusReads = (env.bonusReads || 0) + 1; return env.bonus; },   // 이 판은 부르지 않는다(보너스 수는 가챠가 서버에서 받는다)
     },
   };
   ctx.window = ctx;
@@ -113,9 +113,7 @@ function mkEnv(opt){
     dayShifted: (...a) => H._dayShifted(...a),
     focusDayStr: (...a) => H._focusDayStr(...a),
     dayStartHour: H.DAY_START_HOUR,
-    setGachaBonusLocal: (n) => env.bonusLocal.push(n),
-    renderGachaInv: () => { env.gachaInv = (env.gachaInv || 0) + 1; },
-    gachaBonus: () => 0,
+    pullGacha: () => { env.bonusLocal.push('pull'); },   // 🎰 보상을 준 뒤 가챠가 서버에서 다시 받는다
     appMode: () => env.appMode,
     storageKey: 'tw.chal',
   });
@@ -211,7 +209,7 @@ await sec('── 3. 📋규칙 트랙 — 체크 · 달성 · 3일째 선지급
        (예전엔 ts:0 이라 곧장 한 번 더 보내, 그쪽이 먼저 받으면 토스트가 «밀렸던 뽑기» 로 떴다) */
   chk(e.bonusCalls.length === 1 && e.bonusCalls[0].n === 1 && e.bonusCalls[0].tag === key && e.bonus === 1 && W.state().early === key, '3일째 선지급 1회 — 서버 tag ' + key + ' · 서버 호출 한 번 · early 표식');
   chk(!e.toasts.some(t => /밀렸던 뽑기/.test(t)), '  «밀렸던 뽑기» 토스트가 섞이지 않는다');
-  chk(e.toasts.some(t => /뽑기 1회를 받았어요/.test(t)) && e.bonusLocal[e.bonusLocal.length - 1] === 1 && (W.state().due == null), '받았다 토스트 · 로컬 보너스 = 서버 값 · 대기줄 비움');
+  chk(e.toasts.some(t => /뽑기 1회를 받았어요/.test(t)) && e.bonusLocal.length === 1 && e.bonusLocal[0] === 'pull' && (W.state().due == null), '받았다 토스트 · 가챠가 서버에서 다시 받는다(보너스 수는 서버가 센다) · 대기줄 비움');
   chk(/<i class="chal-pay">1<\/i>/.test(e.els.chalWeek.innerHTML) && /1번만 더.*1회는 이미 받았어요/.test(e.els.chalReward.innerHTML), '선지급 칸 표시 · 보상 문구');
   W.tick(); await flush(); W.tick(); await flush();
   const nCalls = e.bonusCalls.length;
@@ -301,10 +299,10 @@ await sec('── 6. 로그아웃 지우기 · 서버 동기화', async () => {
   e = mkEnv({ now, rec: { ts: 5, auto: true }, srv: { ts: 9, autoWe: true } });
   W = e.mk(); await W.syncChalToServer('boot');
   chk(W.state().ts === 9 && W.state().autoWe === true && W.state().auto === false && JSON.parse(e.ls.get('tw.chal')).ts === 9, '서버가 새것 — 통째로 받고 받은 시각을 그대로(핑퐁 없음)');
-  chk(e.bonusLocal.length === 1, 'boot 에는 보상 합계도 한 번 읽는다');
+  chk(e.bonusLocal.length === 0 && !e.bonusReads, 'boot 에도 보상 합계를 따로 읽지 않는다 — 보너스 수는 가챠가 서버(/v2/me/gacha)에서 받는다');
   e = mkEnv({ now, rec: { ts: 12, auto: true }, srv: { ts: 9 } });
   W = e.mk(); await W.syncChalToServer('check');
-  chk(e.saved.length === 1 && e.saved[0].ts === 12 && e.bonusLocal.length === 0, '내 것이 새것 — 올린다 · check 에는 보상 합계를 안 읽는다');
+  chk(e.saved.length === 1 && e.saved[0].ts === 12 && e.bonusLocal.length === 0 && !e.bonusReads, '내 것이 새것 — 올린다 · 보상 합계를 안 읽는다');
   e = mkEnv({ now, rec: { ts: 12 }, srv: null });
   W = e.mk(); await W.syncChalToServer('check');
   chk(e.saved.length === 0 && W.state().ts === 12, '읽기 실패(null) — 아무것도 안 한다');
@@ -329,9 +327,10 @@ await sec('── 7. app.js 배선', () => {
   chk(!/\bWEEKLY_CHAL_OFF\b/.test(APP), '빈 껍데기 WEEKLY_CHAL_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const call = (APP.match(/TwWeeklyChallenge\.createWeeklyChallenge\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
-  chk(deps.length === 13 && deps.every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>|[A-Z_]+,$)/.test(l)), 'deps 13개 — 함수는 화살표로 감싼다(부를 때 찾게) · 값은 상수만');
-  /* 🎰 가챠는 gacha.js 로 옮겼다(앱 FSD 8번) — _gachaBonus 는 그 모듈의 let 이라 gachaMod.bonus() 로 읽는다 */
-  chk(/appMode: \(\)=>appMode,/.test(call) && /gachaBonus: \(\)=>gachaMod\.bonus\(\),/.test(call), '다시 대입되는 let(appMode · 가챠 _gachaBonus)은 읽는 함수로');
+  chk(deps.length === 11 && deps.every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>|[A-Z_]+,$)/.test(l)), 'deps 11개 — 함수는 화살표로 감싼다(부를 때 찾게) · 값은 상수만');
+  /* 🎰 가챠는 서버가 원본이다 — 보상을 준 뒤 가챠가 서버에서 다시 받는다(이 PC 보너스 사본 없음) */
+  chk(/appMode: \(\)=>appMode,/.test(call) && /pullGacha: \(\)=>gachaMod\.pullGacha\(false\),/.test(call) && !/setGachaBonusLocal|gachaBonus:/.test(call) && !/loadChalBonus|_setGachaBonusLocal|gachaBonus\(\)/.test(strip(MOD)),
+      '다시 대입되는 let(appMode)은 읽는 함수로 · 가챠는 pullGacha 한 줄(옛 보너스 사본 · loadChalBonus 없음)');
   const iW = HTML.indexOf('<script src="parts/focus/weekly-challenge.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iW > 0 && iW < iA, 'html — weekly-challenge.js 를 app.js 앞에 싣는다');
   /* #103 교훈 — 크로미움 내장 전역(Scheduler 등)과 겹치면 typeof 가드가 늘 통과한다. 접두사로 피한다(헤드리스 크로미움에서 typeof 확인) */
