@@ -521,7 +521,7 @@
 | **sim-rt-status-ui.js** | 245 | **64adff52d476** |
 | **sim-run-verdict.js** | 67 | **4303b789970f** |
 | **sim-user-api.js** | 250 | **2d4fc2ad2565** |
-| **sim-login-flow.js** | 380 | **52f2b1701d2f** |
+| **sim-login-flow.js** | 386 | **f2f606bcc2df** |
 | **sim-first-run-013.js** | 350 | **7436521829cc** |
 | **sim-lobby-window.js** | 119 | **277eac451d99** |
 | **sim-animal-tex.js** | 67 | **022878707d99** |

@@ -18,6 +18,7 @@ const ME_CACHE_KEY = 'tw.me';   // { authUid, me, at } — 마지막 /v2/me 답(
 const STATE = Object.freeze({ IN: 'in', SIGNUP: 'signup', LOGIN: 'login', LOCAL: 'local' });
 const CANCELED_TEXT = '로그인이 취소됐어요';   // 옛 main 은 canceled 표시 없이 이 글만 보낸다 — 그냥 닫음으로 본다
 const RT_READY = 'ready', RT_SESSION_LOST = 'sessionLost', RT_DEVICE_REMOVED = 'deviceRemoved';   // rt-hub.js 상태 이름
+const deviceOff = (s) => s === RT_SESSION_LOST || s === RT_DEVICE_REMOVED;   // 서버가 이 PC 의 연결을 끝냄(4004)
 const BYE_LOGOUT = 'logout';   // rt-hub.js BYE_WHY
 const LEAVE_WAIT_MS = 1500;    // 방 나가기 기다림 상한(설계 4-D-3) — 오프라인이면 방 나가기 쓰기가 끝나지 않아 로그아웃이 멈춘다
 
@@ -53,6 +54,7 @@ function createLoginFlow(deps){
   const storage = deps.storage;
   const now = deps.now;
   let mode = 'off';           // 'off' · 'in'
+  let armed = false;          // goOnline(등록 뒤 realtime)을 불렀나 — 그 전의 4004 는 안내 화면으로 보내지 않는다
   let online = false;         // realtime 를 켰나
   let stateHooked = false;
   let rtWait = false;         // 서버에 닿지 못한 화면 동안 realtime 을 켜 둔 상태(ready 신호를 받으려고 — 계정이 정해지면 그대로 쓴다)
@@ -97,14 +99,14 @@ function createLoginFlow(deps){
     stateHooked = true;
     deps.rt.onState((s) => {
       /* 기다리는 화면 동안 켠 연결은 등록 전이라 서버가 끊는다(이 PC 의 이번 세션이 아직 없다) — 그것도 «서버가 답함» 이다. 등록 · 다시 붙기는 들어간 뒤 app-boot 가 한다 */
-      if((s === RT_SESSION_LOST || s === RT_DEVICE_REMOVED) && waitBack) retryNow();
-      else if(s === RT_SESSION_LOST || s === RT_DEVICE_REMOVED) deps.onSessionLost(s);
+      if(deviceOff(s) && waitBack) retryNow();
+      else if(deviceOff(s) && armed) deps.onSessionLost(s);   // 등록 뒤 켠 연결(goOnline)만 — 그 전의 4004 는 등록 전 세션이라 안내할 일이 아니다
       else if(s === RT_READY && waitBack) retryNow();
     });
   }
   /* 서버가 계정을 돌려주고 이 PC 를 등록한 뒤 — realtime 켜기. 켜져 있으면 rt.start 가 아무 일도 안 한다(기다리는 동안 켠 연결이 살아 있으면 그대로 · 끊겼으면 다시) */
   function goOnline(){
-    mode = 'in'; waitBack = null;
+    mode = 'in'; waitBack = null; armed = true;
     hookState();
     rtWait = false;
     online = true;
@@ -126,7 +128,8 @@ function createLoginFlow(deps){
     try{ r = await confirm(); }finally{ checking = false; }
     if(!waitBack || r.state === STATE.LOCAL) return r;
     const back = waitBack; waitBack = null;
-    if(r.state === STATE.IN){ mode = 'in'; rtWait = false; }   // realtime 은 등록 뒤 app-boot 의 goOnline 이 — 여기서 켜면 등록 전 세션으로 붙는다
+    /* 들어감 — 기다리며 켠 연결은 끈다(등록 전 세션으로 다시 붙어 4004 를 받지 않게). 등록 뒤 app-boot 의 goOnline 이 새로 켠다 */
+    if(r.state === STATE.IN){ mode = 'in'; if(rtWait){ rtWait = false; online = false; try{ deps.rt.stop(); }catch(_){} } }
     else if(rtWait){ rtWait = false; online = false; try{ deps.rt.stop(); }catch(_){} }   // 계정이 없거나 로그인이 풀렸다 — 켜 둔 연결을 끈다
     try{ back(r); }catch(_){}
     return r;
