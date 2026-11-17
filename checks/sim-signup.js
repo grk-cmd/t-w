@@ -23,6 +23,8 @@
    실행: node sim-signup.js   (app.js · firebase-init.js · desk-companion-prototype.html 과 같은 폴더에서 — run.js 가 맞춰 준다)
 */
 'use strict';
+/* 모듈이 저장을 shared/ls-set.js(TwLsSet — JSON 칸은 json-store 를 거친다)로 한다 — 이 검사의 저장소 위에 하나 만든다(안내는 받지 않음) */
+const lsSetOn = (ls) => { const src = ['ls-set.js', 'app/parts/shared/ls-set.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const js = ['json-store.js', 'app/parts/shared/json-store.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const jm = { exports: {} }; new Function('window', 'module', js)(undefined, jm); const st = jm.exports.createJsonStore({ storage: () => ls }); const w = { TwErrorCodes: { notify(){ return true; } }, TwJsonStore: Object.assign({}, jm.exports, { load: st.load, save: st.save }) }; new Function('window', 'localStorage', 'console', 'module', src)(w, ls, { warn(){} }, undefined); return w.TwLsSet; };
 globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
 const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const fs = require('fs');
@@ -184,7 +186,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
   const win = { firebaseAPI: null };
   /* 떼어 온 함수는 `window.firebaseAPI` 와 맨 이름 `firebaseAPI` 를 둘 다 쓴다 — 같은 것을 보게 한다. */
   Object.defineProperty(globalThis, 'firebaseAPI', { get: () => win.firebaseAPI, configurable: true });
-  const A = (new Function('localStorage', 'window', src))(LS, win);
+  const A = (new Function('localStorage', 'window', 'TwLsSet', src))(LS, win, lsSetOn(LS));
   chk(A.getMyUserId() === null, '빈 기기: getMyUserId() → null');
   chk(!sets.includes('tw.myUserId'), '빈 기기: 부르기만 해서는 tw.myUserId 를 안 쓴다');
   const u = A._inventMyUserId();
@@ -261,7 +263,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
       takeFn(APP, 'function getMyUserId('), takeFn(APP, 'function _setMyUserId('), fnL,
       'return _loginDoFriendCode;',
     ].join('\n');
-    const f = (new Function('localStorage', 'window', 'calls', 'console', src2))(ls, w, calls, { warn(){} });
+    const f = (new Function('localStorage', 'window', 'calls', 'console', 'TwLsSet', src2))(ls, w, calls, { warn(){} }, lsSetOn(ls));
     return { f, st, calls };
   }
   {
@@ -385,7 +387,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
         ...need.map(h => takeFn(APP, h)),
         'return { _signupDoPassword, _signupDoGoogle, _signupPendingEnsure, _signupPendingLoad };',
       ].join('\n');
-      const A = (new Function('localStorage', 'window', 'log', 'console', src3))(ls, w, log, { warn(){} });
+      const A = (new Function('localStorage', 'window', 'log', 'console', 'TwLsSet', src3))(ls, w, log, { warn(){} }, lsSetOn(ls));
       return { A, st, log, fc };
     }
     const TOKEN = JSON.stringify({ code:'INVT-AAAA-BBBB', token:'tdevice00000000001' });
@@ -569,7 +571,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
         ...needI.map(h => takeFn(APP, h)),
         'return { need:_existingSignupNeed, go:_existingSignupDoPassword };',
       ].join('\n');
-      const X = (new Function('localStorage', 'window', 'log', src4))(ls, w, log);
+      const X = (new Function('localStorage', 'window', 'log', 'TwLsSet', src4))(ls, w, log, lsSetOn(ls));
       return { X, st, log, fc };
     }
     chk((await mkI({ noUid:true }).X.need()) === null, 'uid 없는 기기(처음 쓰는 PC) → 안 띄운다(H·A 몫)');
@@ -634,7 +636,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
         takeFn(APP, 'function getMyUserId('), MF, EN,
         'return { fix:_friendCodeMirrorFix, ensure:ensureMyFriendCode, owned:()=>_fcOwnerChecked };',
       ].join('\n');
-      const X = (new Function('localStorage', 'window', 'log', 'console', src5))(ls, w, log, { info(){}, warn(){} });
+      const X = (new Function('localStorage', 'window', 'log', 'console', 'TwLsSet', src5))(ls, w, log, { info(){}, warn(){} }, lsSetOn(ls));
       return { X, st, log };
     }
     {
@@ -1375,7 +1377,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
         const els = {}; ['miStar','miLvBtn','miStarOn','miStarLock','miStarSub','miStarNpStar','miStarNpText','miStarFill','miStarPal','miStarLeft','miStarMeter'].forEach(id => els[id] = mkEl(id));
         const LS = { st: Object.assign({}, stored || {}), getItem(k){ return k in this.st ? this.st[k] : null; }, setItem(k, v){ this.st[k] = String(v); } };
         const doc = { getElementById: id => els[id] || null, createElement: () => mkEl(null) };
-        const f = new Function('document', 'localStorage', 'env', `
+        const f = new Function('document', 'localStorage', 'env', 'TwLsSet', `
           const FOCUS_LEVEL_CAP_HOURS = 999, FOCUS_CYCLE_SEC = 999*3600, EXP_SEC_PER_LEVEL = 3600, EXP_SEC_PER_CELL = 300, EXP_CELLS = 12;
           let _focusTotalSec = env.total;
           const STAR_COLOR_KEY = 'tw.starColor';
@@ -1386,7 +1388,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
           let _miStarOpen = false;
           function _pushLevelIfChanged(){} function _miRenderHead(){ _miRenderStar(); }
           return { STAR_PALETTE, getStarColor, setStarColor, focusCycleOf, lvStarStr, toggle: _miStarToggle, render: _miRenderStar, isOpen: () => _miStarOpen };`);
-        return Object.assign(f(doc, LS, { total }), { els, LS });
+        return Object.assign(f(doc, LS, { total }, lsSetOn(LS)), { els, LS });
       };
       let v = mk(0);
       /* 팔레트 — 16 · 겹침 없음 · 밝은 톤만 */

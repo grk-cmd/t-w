@@ -9,6 +9,8 @@
    ・7절: 일부러 깨 보기
    [실행] 러너 스테이징 또는 저장소 루트에서. */
 'use strict';
+/* 모듈이 저장을 shared/ls-set.js(TwLsSet — JSON 칸은 json-store 를 거친다)로 한다 — 이 검사의 저장소 위에 하나 만든다(안내는 받지 않음) */
+const lsSetOn = (ls) => { const src = ['ls-set.js', 'app/parts/shared/ls-set.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const js = ['json-store.js', 'app/parts/shared/json-store.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const jm = { exports: {} }; new Function('window', 'module', js)(undefined, jm); const st = jm.exports.createJsonStore({ storage: () => ls }); const w = { TwErrorCodes: { notify(){ return true; } }, TwJsonStore: Object.assign({}, jm.exports, { load: st.load, save: st.save }) }; new Function('window', 'localStorage', 'console', 'module', src)(w, ls, { warn(){} }, undefined); return w.TwLsSet; };
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
@@ -37,8 +39,8 @@ function build(src, o){
   const log = { hooks: [], saves: 0, pres: [] };
   const state = { premium: !!o.premium, premiumThrows: !!o.premiumThrows, slots: [], mine: o.mine || null };
   const win = {};
-  const names = ['document', 'localStorage', 'TwSafeHtml', 'window', 'module'];
-  new Function(...names, src)(document, localStorage, { cssColor: (c) => 'css:' + c }, win, undefined);
+  const names = ['document', 'localStorage', 'TwSafeHtml', 'window', 'module', 'TwLsSet'];
+  new Function(...names, src)(document, localStorage, { cssColor: (c) => 'css:' + c }, win, undefined, lsSetOn(localStorage));
   const mod = win.TwUserStatus.createUserStatus({
     clampCharY: (v) => Math.max(0, Math.min(0.6, +v || 0)),
     findMySeat: () => state.mine,

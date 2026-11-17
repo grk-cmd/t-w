@@ -6,6 +6,8 @@
    ・5절: 🫨 말랑이 제자리 떨림 — 짧은 간격으로 세 번째 돌아서려 하면 쉰다
    [실행] app.js · purikura-ui.js · desk-companion-prototype.html · mallang.js · animal.js 가 있는 폴더에서. */
 'use strict';
+/* 모듈이 저장을 shared/ls-set.js(TwLsSet — JSON 칸은 json-store 를 거친다)로 한다 — 이 검사의 저장소 위에 하나 만든다(안내는 받지 않음) */
+const lsSetOn = (ls) => { const src = ['ls-set.js', 'app/parts/shared/ls-set.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const js = ['json-store.js', 'app/parts/shared/json-store.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const jm = { exports: {} }; new Function('window', 'module', js)(undefined, jm); const st = jm.exports.createJsonStore({ storage: () => ls }); const w = { TwErrorCodes: { notify(){ return true; } }, TwJsonStore: Object.assign({}, jm.exports, { load: st.load, save: st.save }) }; new Function('window', 'localStorage', 'console', 'module', src)(w, ls, { warn(){} }, undefined); return w.TwLsSet; };
 /* 모듈이 JSON 칸을 shared/json-store.js(TwJsonStore)로 읽고 쓴다 — 이 검사의 저장소 위에 하나 만든다(번호 안내는 받지 않음) */
 const jsonStoreOn = (ls) => { const src = ['json-store.js', 'app/parts/shared/json-store.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const m = { exports: {} }; new Function('window', 'module', src)(undefined, m); const s = m.exports.createJsonStore({ storage: () => ls }); return Object.assign({}, m.exports, { load: s.load, save: s.save }); };
 const errCodesStub = { notify(){ return true; } };
@@ -143,11 +145,12 @@ say('── 6. 🎫 라이선스가 계정을 따라간다');
   chk(fns.split('function ').length - 1 >= 4, '네 함수를 떼어 왔다');
   const mk = (o) => {
     const LS = new Map(Object.entries(o.ls || {}));
-    const env = { pushed:[], toasts:[], premium:null, LS };
+    const env = { pushed:[], toasts:[], premium:null, LS, lsSetOn };
     const W = { firebaseAPI:{ setAccountSnapshot:(u, s)=>env.pushed.push(s), fetchAccountSnapshot: async ()=>({ license:o.acct || null }) } };
     const f = new Function('env', 'window', 'firebaseAPI', `
       const LICENSE_KEY_STORAGE='tw.licenseKey', LICENSE_OPTOUT_KEY='tw.licenseOptOut';
       const localStorage = { getItem:k=>env.LS.has(k)?env.LS.get(k):null, setItem:(k,v)=>env.LS.set(k,String(v)), removeItem:k=>env.LS.delete(k) };
+      const TwLsSet = env.lsSetOn(localStorage);
       const getMyLoginEmail = ()=> ${o.login === false ? 'null' : "'a@b'"}, getMyUserId = ()=>'U1';
       const _loginLocalSnapshot = ()=>({ license: localStorage.getItem(LICENSE_KEY_STORAGE), name:'n' });
       const verifyLicense = async (k)=> (${JSON.stringify(o.verify || { ok:true })});

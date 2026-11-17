@@ -317,7 +317,7 @@ async function ensureMyFriendCode(){
     try{
       const ok = await firebaseAPI.registerFriendCode(cand, myId);
       if(ok){
-        try{ localStorage.setItem(MY_FRIEND_CODE_KEY, cand); }catch(e){}
+        TwLsSet.lsSave(MY_FRIEND_CODE_KEY, cand);   // 못 남기면 다음 부팅에 코드를 또 발급할 수 있다 — 알린다
         // 🔗 계정에도 거울을 남긴다 — 새 PC에서 옛 코드를 알 수 있는 유일한 통로다.
         try{ if(firebaseAPI.setUserFriendCode) await firebaseAPI.setUserFriendCode(myId, cand); }catch(_){}
         return cand;
@@ -2436,7 +2436,7 @@ const _blinkEverDrawn = new Array(CHAR_SLOT_MAX).fill(false);
 let _blankFaceConfirmed = false;   // 생성기에서 «비운 채 저장»을 확인한 직후, 바로 뒤 saveSlots 1회만 소비
 const CUR_SLOT_KEY='tw.curSlot';
 function _loadCurSlot(){ try{ const v=parseInt(localStorage.getItem(CUR_SLOT_KEY),10); if(v>=0&&v<CHAR_SLOT_MAX) return v; }catch(e){} return 0; }
-function saveCurSlot(){ try{ localStorage.setItem(CUR_SLOT_KEY, String(curSlot)); }catch(e){} }
+function saveCurSlot(){ TwLsSet.lsSet(CUR_SLOT_KEY, String(curSlot)); }
 /* 🪑 책상 크기 슬라이더의 **기본값** — 흩어져 있던 0.175 리터럴의 단 하나의 출처.
    [왜 상수가 필요해졌나] '책상 위' 파츠가 이 슬라이더를 따라 커지고 작아지는 것을 끊으면서
      "무엇을 기준으로 안 따라가는가"를 정해야 했다. 답이 이 값이다 — 슬라이더가 기본값일 때가
@@ -3459,7 +3459,7 @@ function getUserName(){
 }
 
 function setUserName(name){
-  try{ localStorage.setItem(USER_NAME_KEY, name || '나'); }catch(e){}
+  TwLsSet.lsSave(USER_NAME_KEY, name || '나');
 }
 
 // 머리 위 이름표 등 "다른 사람에게 보이는" 표시용 — 이름을 저장한 적 없으면 (이름 없음)으로 표시
@@ -3767,7 +3767,7 @@ async function _checkUpdateNoticeOnStartup(){
     const close = ()=>{
       const dontShow = document.getElementById('updateNoticeDontShow').checked;
       if(dontShow){
-        try{ localStorage.setItem('tw.updateNoticeDismissedTs', String(notice.ts)); }catch(_){}
+        TwLsSet.lsSet('tw.updateNoticeDismissedTs', String(notice.ts));
       }
       ov.style.display = 'none';
     };
@@ -4440,7 +4440,8 @@ const OFFICE_MODE_KEY = officeModeMod.OFFICE_MODE_KEY;   // 옛 전역 이름
 const refreshOfficeChipUI = officeModeMod.refreshOfficeChipUI;   // 옛 전역 이름
 /* 본문은 shared/ls-set.js 로 옮겼다(앱 FSD · app.js 분리 M14). 설정 저장 헬퍼 — 쓰는 곳은 deps 로 `_lsSet` 을 받는다. */
 const lsSetMod = TwLsSet.createLsSet({
-  toast: toast,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  jsonStore: TwJsonStore,
 });
 const _lsSet = lsSetMod._lsSet;   // 옛 전역 이름
 

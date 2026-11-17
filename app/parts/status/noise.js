@@ -62,7 +62,7 @@ const Presence = deps.Presence;
 
   const _ls = {
     get(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } },
-    set(k, v){ try{ localStorage.setItem(k, v); }catch(_){} },
+    set(k, v){ TwLsSet.lsSet(k, v); },
   };
   function _kindOk(k){ return (typeof k === 'string' && NZ_KINDS.indexOf(k) >= 0) ? k : ''; }
 

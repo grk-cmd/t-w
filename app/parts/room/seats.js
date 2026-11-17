@@ -27,7 +27,7 @@ const GAP_KEY_SOLO='tw.gapSolo', GAP_KEY_MULTI='tw.gapMulti';
 function _loadGap(key, def){ try{ const v=parseFloat(localStorage.getItem(key)); if(!isNaN(v)) return Math.max(GAP_MIN,Math.min(GAP_MAX,v)); }catch(e){} return def; }
 let SPACING = _loadGap(GAP_KEY_SOLO, 0.3);
 let MULTIPLAYER_SPACING = _loadGap(GAP_KEY_MULTI, 0.45);
-function saveGap(){ try{ localStorage.setItem(GAP_KEY_SOLO, String(SPACING)); localStorage.setItem(GAP_KEY_MULTI, String(MULTIPLAYER_SPACING)); }catch(e){} }
+function saveGap(){ TwLsSet.lsSet(GAP_KEY_SOLO, String(SPACING)); TwLsSet.lsSet(GAP_KEY_MULTI, String(MULTIPLAYER_SPACING)); }
 function createSeat(){
   const group=new THREE.Group();
   const desk=buildDesk(true); group.add(desk);

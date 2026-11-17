@@ -6,6 +6,8 @@
    ・2절: HTML 순서(쓰는 모듈 · app.js 보다 먼저) · 알림을 거는 곳 · 바꾸는 곳
    ・3절: 일부러 깨 보기 */
 'use strict';
+/* 모듈이 저장을 shared/ls-set.js(TwLsSet — JSON 칸은 json-store 를 거친다)로 한다 — 이 검사의 저장소 위에 하나 만든다(안내는 받지 않음) */
+const lsSetOn = (ls) => { const src = ['ls-set.js', 'app/parts/shared/ls-set.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const js = ['json-store.js', 'app/parts/shared/json-store.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const jm = { exports: {} }; new Function('window', 'module', js)(undefined, jm); const st = jm.exports.createJsonStore({ storage: () => ls }); const w = { TwErrorCodes: { notify(){ return true; } }, TwJsonStore: Object.assign({}, jm.exports, { load: st.load, save: st.save }) }; new Function('window', 'localStorage', 'console', 'module', src)(w, ls, { warn(){} }, undefined); return w.TwLsSet; };
 const fs = require('fs');
 const path = require('path');
 let pass = 0, fail = 0;
@@ -21,7 +23,7 @@ function build(mod, win) {
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const companion = new Proxy({}, { get: (t, k) => win.companion && win.companion[k] });   // 진짜 앱처럼 전역 companion = window.companion
-  const api = new Function('window', 'companion', 'localStorage', 'setTimeout', 'module', mod + '\nreturn window.TwAccountState;')(win, companion, ls, (fn) => fn(), undefined);
+  const api = new Function('window', 'companion', 'localStorage', 'setTimeout', 'module', 'TwLsSet', mod + '\nreturn window.TwAccountState;')(win, companion, ls, (fn) => fn(), undefined, lsSetOn(ls));
   let prem = false;
   const st = api.createAccountState({ isPremium: () => prem, setIsPremium: (v) => { prem = v; } });
   return { st, store, prem: () => prem };

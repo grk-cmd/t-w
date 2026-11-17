@@ -25,7 +25,7 @@ const REPORT_HIDDEN_MAX = 200;
 const _reportHiddenUids = new Set();
 try{ const _rh = JSON.parse(localStorage.getItem(REPORT_HIDDEN_KEY) || '[]'); if(Array.isArray(_rh)) _rh.slice(-REPORT_HIDDEN_MAX).forEach(u=>{ if(typeof u === 'string' && u) _reportHiddenUids.add(u); }); }catch(_){}
 function _reportHiddenSave(){
-  try{ localStorage.setItem(REPORT_HIDDEN_KEY, JSON.stringify(Array.from(_reportHiddenUids).slice(-REPORT_HIDDEN_MAX))); }catch(_){}
+  TwLsSet.lsSave(REPORT_HIDDEN_KEY, JSON.stringify(Array.from(_reportHiddenUids).slice(-REPORT_HIDDEN_MAX)));
 }
 function _seatHidden(seat){
   if(!(seat && seat.remote)) return false;

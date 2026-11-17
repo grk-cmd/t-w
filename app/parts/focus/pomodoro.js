@@ -42,7 +42,7 @@ var _pomoRun = null;   // { phase:'focus'|'short'|'long', endAt, left(일시정�
 { const r = TwJsonStore.load(POMO_KEY, null); if(!r.ok) TwErrorCodes.notify('E-SYS-11', r.err); else if(r.list && typeof r.list === 'object') Object.assign(_pomoCfg, r.list); }   // 해석 안 됨 ≠ 없음 — 그 위에 쓰지 않는다(_pomoSaveCfg)
 try{ const r = JSON.parse(localStorage.getItem(POMO_RUN_KEY) || 'null'); if(r && r.phase && r.total > 0) _pomoRun = r; }catch(_){}
 function _pomoClampMin(v, lo, hi, d){ const n = parseInt(v, 10); return (n >= lo && n <= hi) ? n : d; }
-function _pomoSaveCfg(){ const r = TwJsonStore.save(POMO_KEY, _pomoCfg); if(r.blocked) TwErrorCodes.notify('E-SYS-11', r.err); }
+function _pomoSaveCfg(){ TwLsSet.lsSetJson(POMO_KEY, _pomoCfg); }   // 해석 안 되는 저장분 위엔 안 씀(E-SYS-11) · 못 남기면 E-SYS-09
 function _pomoSaveRun(){ try{ if(_pomoRun) localStorage.setItem(POMO_RUN_KEY, JSON.stringify(_pomoRun)); else localStorage.removeItem(POMO_RUN_KEY); }catch(_){} }
 function _pomoPhaseMs(phase){ return 60 * 1000 * (phase === 'focus' ? _pomoCfg.f : phase === 'long' ? _pomoCfg.l : _pomoCfg.s); }
 function _pomoLeftMs(now){

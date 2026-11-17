@@ -320,7 +320,7 @@ function _annivView(){
   try{ return _annivViewOf(localStorage.getItem(ANNIV_VIEW_KEY)); }catch(e){ return 'tile'; }
 }
 function _setAnnivView(v){
-  try{ localStorage.setItem(ANNIV_VIEW_KEY, _annivViewOf(v)); }catch(e){}
+  TwLsSet.lsSet(ANNIV_VIEW_KEY, _annivViewOf(v));
   renderAnnivCards();
 }
 function _syncAnnivViewBtns(view){
@@ -837,7 +837,7 @@ function _applyAnnivHeight(px){
     split.classList.remove('dragging');
     document.body.style.cursor = '';
     const h = area.getBoundingClientRect().height;
-    try{ localStorage.setItem(ANNIV_H_KEY, String(Math.round(h))); }catch(e){}
+    TwLsSet.lsSet(ANNIV_H_KEY, String(Math.round(h)));
   });
 
   // 마이홈 창 크기가 바뀌면 tiny 재판정

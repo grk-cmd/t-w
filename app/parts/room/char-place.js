@@ -113,7 +113,7 @@ function _loadCharScale(){
   if(bySig!=null) return bySig;
   return ok(_charScaleMap.default) != null ? _charScaleMap.default : 1;
 }
-function saveCharPos(){ try{ localStorage.setItem(CHAR_POS_KEY, JSON.stringify({x:deskPanX,y:deskPanY})); }catch(e){} }
+function saveCharPos(){ TwLsSet.lsSet(CHAR_POS_KEY, JSON.stringify({x:deskPanX,y:deskPanY})); }
 function saveCharScale(){
   // ★ 모니터를 바꿀 때마다 다시 조정해야 하던 문제 — 현재 모니터 id로 따로 저장해서 그 모니터로
   //   돌아오면 그때 맞춰둔 크기가 복원된다.
@@ -126,7 +126,7 @@ function saveCharScale(){
   if(_currentDisplayIdForScale!=null) _charScaleMap[String(_currentDisplayIdForScale)] = val;
   if(_currentDisplaySigForScale!=null) _charScaleMap[_currentDisplaySigForScale] = val;
   _charScaleMap.default = val;
-  try{ localStorage.setItem(CHAR_SCALE_KEY, JSON.stringify(_charScaleMap)); }catch(e){}
+  TwLsSet.lsSet(CHAR_SCALE_KEY, JSON.stringify(_charScaleMap));
 }
 // 현재 어느 모니터에 떠 있는지 비동기로 확인해서, 그 모니터 전용 저장값이 있으면 focusCharScale에 반영.
 // main.js 쪽에서 이미 모니터 이동/복원을 처리하고 나면 호출하면 됨 — 여러 번 호출해도 안전(멱등).

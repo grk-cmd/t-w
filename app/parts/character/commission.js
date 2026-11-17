@@ -116,8 +116,7 @@ function persistSavedAssets(){
   });
   const d = TwJsonStore.save(SAVED_DESK_KEY, stripDesks);
   if(d.blocked) TwErrorCodes.notify('E-SYS-11', d.err); else if(!d.ok) toast('저장 공간이 부족해요');
-  const i = TwJsonStore.save(SAVED_ITEM_KEY, stripItems);
-  if(i.blocked) TwErrorCodes.notify('E-SYS-11', i.err);
+  TwLsSet.lsSaveJson(SAVED_ITEM_KEY, stripItems);   // 해석 안 되는 저장분 위엔 안 씀(E-SYS-11) · 못 남기면 E-SYS-10
 }
 loadSavedAssets();
 

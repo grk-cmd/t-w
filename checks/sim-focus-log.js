@@ -12,6 +12,8 @@
    ・7절: 일부러 깨 보기 — 모듈 글을 조금씩 망가뜨려 2~5절이 잡아내는지(이 검사가 헛돌지 않는지) 스스로 확인
    [실행] focus-log.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+/* 모듈이 저장을 shared/ls-set.js(TwLsSet — JSON 칸은 json-store 를 거친다)로 한다 — 이 검사의 저장소 위에 하나 만든다(안내는 받지 않음) */
+const lsSetOn = (ls) => { const src = ['ls-set.js', 'app/parts/shared/ls-set.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const js = ['json-store.js', 'app/parts/shared/json-store.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const jm = { exports: {} }; new Function('window', 'module', js)(undefined, jm); const st = jm.exports.createJsonStore({ storage: () => ls }); const w = { TwErrorCodes: { notify(){ return true; } }, TwJsonStore: Object.assign({}, jm.exports, { load: st.load, save: st.save }) }; new Function('window', 'localStorage', 'console', 'module', src)(w, ls, { warn(){} }, undefined); return w.TwLsSet; };
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const vm = require('vm');
@@ -68,6 +70,7 @@ function mkEnv(opt){
     addEventListener: (t, fn) => { (env.winL[t] = env.winL[t] || []).push(fn); },
   };
   ctx.window = ctx;
+  ctx.TwLsSet = lsSetOn(ctx.localStorage);
   vm.createContext(ctx);
   vm.runInContext(opt.src || MOD, ctx, { filename: 'focus-log.js' });
   env.ctx = ctx; env.els = els;

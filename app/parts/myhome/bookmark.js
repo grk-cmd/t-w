@@ -87,8 +87,7 @@
     if(!r.ok) TwErrorCodes.notify('E-SYS-11', r.err);
   }
   function bmSaveLocal(){
-    const r = TwJsonStore.save(BM_KEY, { order:bmData.order.join(','), items:bmData.items, ts:bmData.ts });
-    if(r.blocked) TwErrorCodes.notify('E-SYS-11', r.err);   // 용량이 차는 것은 서버 사본이 기준이라 다음 부팅에 돌아온다
+    TwLsSet.lsSaveJson(BM_KEY, { order:bmData.order.join(','), items:bmData.items, ts:bmData.ts });   // 해석 안 되는 저장분 위엔 안 씀(E-SYS-11)
   }
   async function bmPull(){
     const u = uid(), a = api();

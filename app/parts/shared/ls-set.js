@@ -1,49 +1,76 @@
-/* ls-set.js — 💾 작은 설정을 localStorage 에 쓰고 «실제로 남았는지» 확인한다(앱 FSD · app.js 분리 M14)
-   app.js 의 _lsSet 을 글 그대로 옮긴 모듈이다. 동작은 옛 자리와 같다.
-   ・책임: _lsSet(key, val) — setItem 뒤 getItem 으로 왕복 확인 · 실패하면 콘솔 경고 + 세션당 한 번 토스트 · 성공 true / 실패 false.
-   ・받는 deps 1 — toast(함수).
-   ・내놓는 것: _lsSet — app.js 는 같은 이름 const 로 받는다(deps 에서 `(...a)=>_lsSet(...a)` 로 넘긴다).
-   ⚠️ 설정처럼 작은 값 전용이다 — 슬롯 · 파츠 · 책상 같은 큰 값은 실패 때 할 일이 달라 각자 처리한다.
+/* ls-set.js — 💾 localStorage 에 쓰고 «실제로 남았는지» 확인하는 한 곳 — 못 남기면 번호로 한 번 알린다
+   ・책임: 쓰기 · 지우기 뒤 getItem 으로 왕복 확인 · 실패하면 콘솔 경고(매번) + 번호 안내(번호마다 세션당 한 번) · 성공 true / 실패 false.
+     · 설정(작은 값 — 테마 · 토글 · 창 크기 같은 것): lsSet(key, val) · lsUnset(key) → E-SYS-09
+     · 사용자가 만든 데이터(계정 · 캐릭터 슬롯 · 숨김 목록 · 상태 같은 것): lsSave(key, val) · lsRemove(key) → E-SYS-10
+     값은 setItem 처럼 글자로 바꿔 쓴다. 던지지 않는다 — 쓰던 자리의 try 를 걷어도 된다.
+     · JSON 칸: lsSetJson(key, value)(설정) · lsSaveJson(key, value)(데이터) — shared/json-store.js 의 save 로 쓴다.
+       저장된 글이 해석이 안 되면 덮어쓰지 않고(blocked) E-SYS-11, 그 밖의 실패는 위와 같은 번호. 성공 true / 실패 false.
+   ・받는 deps 2 — notifyError: 번호 · 오류를 받아 알리는 함수(TwErrorCodes.notify — 부를 때 찾는다) · jsonStore: TwJsonStore(load · save).
+   ・내놓는 것: createLsSet(deps) → { _lsSet, lsUnset, lsSave, lsRemove, lsSetJson, lsSaveJson } · 렌더러에서는 window.TwLsSet.lsSet · lsUnset · lsSave · lsRemove · lsSetJson · lsSaveJson(하나를 만들어 둔다).
+     app.js 는 원래 자리에서 createLsSet 로 만들어 옛 이름 _lsSet 으로 받는다(deps 로 받는 모듈 몫).
+   ⚠️ «세션당 한 번» 은 이 파일이 실린 동안이다 — 기억을 파일 위에 둬서 app.js 가 만든 것과 window 것이 같이 센다(토글을 누를 때마다 뜨면 못 쓴다).
+   ⚠️ 캐시 · 창 위치 · 읽음 표시처럼 못 남겨도 사용자가 잃는 게 없는 값은 여기로 오지 않는다(알리면 소음).
    검사: checks/sim-ls-set.js */
 (function(){
 
-function createLsSet(deps){
-const toast = deps.toast;
-/* 💾 설정을 저장하고 **실제로 남았는지 확인한다** — 조용한 실패를 없애기 위한 것이다.
+const _warned = {};   // 번호 → 이미 알림
 
-   [왜 필요한가] localStorage 쓰기는 이 파일에서 99곳이고 그중 58곳이 `catch(e){}` 로 비어 있다.
-     이 앱은 얼굴 PNG·커미션 GLB 까지 로컬에 넣으므로 저장 공간이 실제로 찬다
-     (persistSavedParts·persistSavedDesks 의 '저장 공간이 부족해요' 가 그 신호다).
-     꽉 차면 **새 키는 만들어지지 않는데 화면에는 아무 표시도 안 난다** — 그러면
-     "설정을 켜도 다시 켜면 꺼져 있다"가 되고, 제보에는 원인이 하나도 안 실린다.
-     같은 증상이 일부 사용자에게서만 나는 것도 이 성질과 맞는다(그 기기만 저장이 꽉 찼다).
-   ★ 왕복 확인까지 한다 — setItem 이 던지지 않고도 값이 안 남는 환경이 있다.
-   ⚠️ 안내는 **세션당 한 번**이다. 토글을 누를 때마다 뜨면 그것대로 못 쓴다.
-   ⚠️ 이 헬퍼는 '설정' 같은 작은 값 전용이다. 슬롯·파츠·책상처럼 큰 값은 실패했을 때
-     할 일이 다르므로(직전 저장값 보존 등) 각자의 처리를 그대로 둔다. */
-let _lsWarned = false;
-function _lsSet(key, val){
+function createLsSet(deps){
+const notifyError = deps.notifyError;
+const jsonStore = deps.jsonStore;
+/* 처음 난 실패인가 — 콘솔은 매번, 안내는 번호마다 한 번 */
+function _first(code, key, e){
+  console.warn('[저장] ' + key + ' 저장 실패 — 앱을 껐다 켜면 사라집니다', e);
+  if(_warned[code]) return false;
+  _warned[code] = true;
+  return true;
+}
+/* 실패면 그 오류, 남았으면 null. setItem 이 던지지 않고도 값이 안 남는 환경이 있어 다시 읽어 본다. */
+function _write(key, val){
   const s = String(val);
   try{
     localStorage.setItem(key, s);
     if(localStorage.getItem(key) !== s) throw new Error('값이 남지 않음');
-    return true;
-  }catch(e){
-    console.warn('[저장] ' + key + ' 저장 실패 — 이 설정은 앱을 껐다 켜면 사라집니다', e);
-    if(!_lsWarned){
-      _lsWarned = true;
-      try{ toast('⚠ 설정을 저장하지 못했어요 — 저장 공간이 가득 찼을 수 있어요'); }catch(_){}
-    }
-    return false;
-  }
+    return null;
+  }catch(e){ return e; }
 }
+function _remove(key){
+  try{
+    localStorage.removeItem(key);
+    if(localStorage.getItem(key) !== null) throw new Error('값이 지워지지 않음');
+    return null;
+  }catch(e){ return e; }
+}
+/* 번호는 글자 그대로 쓴다(검사 sim-error-codes 가 찾는다). */
+function _lsSet(key, val){ const e = _write(key, val); if(e && _first('E-SYS-09', key, e)) notifyError('E-SYS-09', e); return !e; }
+function lsUnset(key){ const e = _remove(key); if(e && _first('E-SYS-09', key, e)) notifyError('E-SYS-09', e); return !e; }
+function lsSave(key, val){ const e = _write(key, val); if(e && _first('E-SYS-10', key, e)) notifyError('E-SYS-10', e); return !e; }
+function lsRemove(key){ const e = _remove(key); if(e && _first('E-SYS-10', key, e)) notifyError('E-SYS-10', e); return !e; }
+/* JSON 칸 — 해석 안 되는 저장분 위에는 쓰지 않는다(읽기 실패는 빈 칸으로 보여서 그 위에 쓰면 나머지까지 지워진다). */
+function _blocked(key, r){ if(_first('E-SYS-11', key, r.err)) notifyError('E-SYS-11', r.err); return false; }
+function lsSetJson(key, value){ const r = jsonStore.save(key, value); if(r.ok) return true; if(r.blocked) return _blocked(key, r); if(_first('E-SYS-09', key, r.err)) notifyError('E-SYS-09', r.err); return false; }
+function lsSaveJson(key, value){ const r = jsonStore.save(key, value); if(r.ok) return true; if(r.blocked) return _blocked(key, r); if(_first('E-SYS-10', key, r.err)) notifyError('E-SYS-10', r.err); return false; }
 
 return {
   _lsSet,
+  lsUnset,
+  lsSave,
+  lsRemove,
+  lsSetJson,
+  lsSaveJson,
 };
 }
 
 const api = { createLsSet };
-if(typeof window !== 'undefined') window.TwLsSet = api;
+if(typeof window !== 'undefined'){
+  const inst = createLsSet({ notifyError: (...a)=>window.TwErrorCodes.notify(...a), jsonStore: window.TwJsonStore });
+  api.lsSet = inst._lsSet;
+  api.lsUnset = inst.lsUnset;
+  api.lsSave = inst.lsSave;
+  api.lsRemove = inst.lsRemove;
+  api.lsSetJson = inst.lsSetJson;
+  api.lsSaveJson = inst.lsSaveJson;
+  window.TwLsSet = api;
+}
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

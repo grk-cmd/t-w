@@ -439,7 +439,7 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
   const eqBtn=document.getElementById('fsSeatEqToggle');
   if(eqBtn) eqBtn.onclick=()=>{
     setSeatEqualizeOn(!seatEqualizeOn());
-    try{ localStorage.setItem('tw.seatEq', seatEqualizeOn()?'1':'0'); }catch(_){}
+    TwLsSet.lsSet('tw.seatEq', seatEqualizeOn()?'1':'0');
     refreshToggleBtns();
     /* ⚠️ syncSeatEqualize 를 직접 부르지 않고 layoutSeats 를 부른다 — 그 안에서 동기화가 먼저 돌고,
        이어서 바뀐 책상 폭으로 좌석 간격·카메라 줌까지 다시 잡힌다. 여기서 동기화만 하면
@@ -450,7 +450,7 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
   const rsBtn=document.getElementById('fsRoomSeatModeToggle');
   if(rsBtn && window.TwSeatPin) rsBtn.onclick=()=>{
     setRoomSeatMode(TwSeatPin.next(roomSeatMode()));
-    TwSeatPin.saveMode(localStorage, roomSeatMode());
+    TwSeatPin.saveMode(TwLsSet.lsSet, roomSeatMode());
     refreshToggleBtns();
     layoutSeats();
   };
@@ -458,34 +458,34 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
   const dpBtn=document.getElementById('fsDecoPartsToggle');
   if(dpBtn) dpBtn.onclick=()=>{
     setDecoPartsVisible(!decoPartsVisible());
-    try{ localStorage.setItem('tw.decoParts', decoPartsVisible()?'1':'0'); }catch(_){}
+    TwLsSet.lsSet('tw.decoParts', decoPartsVisible()?'1':'0');
     refreshToggleBtns();
     try{ seats.forEach(s => applyClothVisibility(s)); }catch(_){}
   };
   const coBtn=document.getElementById('fsChipOrientToggle');
   if(coBtn) coBtn.onclick=()=>{
     setChipHorizontal(!chipHorizontal());
-    try{ localStorage.setItem('tw.chipHorz', chipHorizontal()?'1':'0'); }catch(_){}
+    TwLsSet.lsSet('tw.chipHorz', chipHorizontal()?'1':'0');
     applyChipOrientation();
     refreshToggleBtns();
   };
   const emojiBtn=document.getElementById('fsEmojiToggle');
   if(emojiBtn) emojiBtn.onclick=()=>{
     setEmojiReactionsEnabled(!emojiReactionsEnabled());
-    localStorage.setItem('tw.emojiReactions', emojiReactionsEnabled()?'1':'0');
+    TwLsSet.lsSet('tw.emojiReactions', emojiReactionsEnabled()?'1':'0');
     refreshToggleBtns();
   };
   const dotBtn=document.getElementById('fsDotToggle');
   if(dotBtn) dotBtn.onclick=()=>{
     setDotRenderEnabled(!dotRenderEnabled());
-    localStorage.setItem('tw.dotRender', dotRenderEnabled()?'1':'0');
+    TwLsSet.lsSet('tw.dotRender', dotRenderEnabled()?'1':'0');
     refreshToggleBtns();
     layoutSeats();   // 렌더 해상도 즉시 반영
   };
   const npBtn=document.getElementById('fsNameplateToggle');
   if(npBtn) npBtn.onclick=()=>{
     setNameplateEnabled(!nameplateEnabled());
-    localStorage.setItem('tw.nameplate', nameplateEnabled()?'1':'0');
+    TwLsSet.lsSet('tw.nameplate', nameplateEnabled()?'1':'0');
     refreshToggleBtns();
   };
   // 이름표(레벨/이름) 크기 슬라이더 — CSS 변수(--nameplate-size)를 갱신해서 즉시 반영, localStorage에 저장.
@@ -499,7 +499,7 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
     npSizeSlider.oninput=()=>{
       const v=+npSizeSlider.value;
       document.getElementById('seatLabelsLayer').style.setProperty('--nameplate-size', v+'px');
-      try{ localStorage.setItem('tw.nameplateSize', String(v)); }catch(e){}
+      TwLsSet.lsSet('tw.nameplateSize', String(v));
     };
   }
 
@@ -675,7 +675,7 @@ let extraSeatSlots = [];
     if(raw){ const arr=JSON.parse(raw); if(Array.isArray(arr)) extraSeatSlots = arr.filter(n=>Number.isInteger(n)); }
   }catch(e){}
 })();
-function _saveExtraSeatSlots(){ try{ localStorage.setItem(EXTRA_SEAT_KEY, JSON.stringify(extraSeatSlots)); }catch(e){} }
+function _saveExtraSeatSlots(){ TwLsSet.lsSet(EXTRA_SEAT_KEY, JSON.stringify(extraSeatSlots)); }
 
 // 저장된 def를 가진 아이템의 desk item(화분/머그컵/책 등)을 전부 제거 — 캐릭터 교체 시 이전 캐릭터의
 // 책상 아이템이 새 캐릭터에 그대로 남아있는 걸 방지(applyDeskItemsTo는 "새 def에 있는 것만" 추가할 뿐

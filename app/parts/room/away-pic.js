@@ -241,7 +241,7 @@ function _awayRenderUI(msg, isErr){
 }
 function _awaySetLocal(url){
   awayImgUrl = _awayUrlOk(url) ? url : '';
-  try{ if(awayImgUrl) localStorage.setItem(AWAY_IMG_KEY, awayImgUrl); else localStorage.removeItem(AWAY_IMG_KEY); }catch(_){}
+  if(awayImgUrl) TwLsSet.lsSet(AWAY_IMG_KEY, awayImgUrl); else TwLsSet.lsUnset(AWAY_IMG_KEY);
   try{ if(typeof Presence !== 'undefined' && Presence.setAwayImg) Presence.setAwayImg(awayImgUrl); }catch(_){}
 }
 async function _awayPick(file){
@@ -286,7 +286,7 @@ async function _awayReset(){
 function _awaySzSetLocal(px){
   if(!_awaySzOk(px)) return;
   awayImgSz = px;
-  try{ localStorage.setItem(AWAY_SZ_KEY, String(px)); }catch(_){}
+  TwLsSet.lsSet(AWAY_SZ_KEY, String(px));
   try{ if(typeof Presence !== 'undefined' && Presence.setAwaySz) Presence.setAwaySz(px); }catch(_){}
   try{ const me = findMySeat(); if(me) me._awayFitAt = 0; }catch(_){}   // 내 화면 즉시 다시 맞춤
 }

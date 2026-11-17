@@ -6,7 +6,8 @@
      · 없음 — 안내 없이 기본값 · 쓰면 남는다
      · 멀쩡한 저장분 — 그 값을 읽고 · 쓰면 바뀐다
    ・2절: 번호 표 · 문서
-   ・3절: 일부러 깨 보기 — 쓰기를 옛 모양(그냥 setItem)으로 · 읽기를 옛 모양(빈 catch)으로 되돌리면 빨강
+   ・3절: 일부러 깨 보기 — 쓰기를 옛 모양(그냥 setItem)으로 · 읽기를 옛 모양(빈 catch)으로 되돌리면 빨강 · json-store 의 막기를 빼면 빨강
+   쓰기 쪽은 ls-set 의 JSON 칸(lsSaveJson · lsSetJson)이 막은 쓰기를 E-SYS-11 로 알린다(커미션 책상 · 저장 파츠는 옛 토스트 그대로라 직접).
    [실행] node checks/run.js sim-no-overwrite */
 'use strict';
 const fs = require('fs');
@@ -15,7 +16,7 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for(const c of [f, 'app/parts/' + f, f.split('/').pop()]) if(fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 const SRC = {
-  js: read('shared/json-store.js'), codes: read('shared/error-codes.js'), doc: read('docs/ERROR_CODES.md') || read('ERROR_CODES.md'),
+  js: read('shared/json-store.js'), ls: read('shared/ls-set.js'), codes: read('shared/error-codes.js'), doc: read('docs/ERROR_CODES.md') || read('ERROR_CODES.md'),
   commission: read('character/commission.js'), premium: read('character/premium-assets.js'), bookmark: read('myhome/bookmark.js'),
   pomodoro: read('focus/pomodoro.js'), mallang: read('myhome/mallang.js'), desktop: read('myhome/myhome-desktop.js'),
 };
@@ -49,6 +50,8 @@ function env(stored, jsSrc){
     TwErrorCodes: { notify: (c, e) => { notes.push(c); return true; } },
     toast: (t) => toasts.push(t),
   };
+  /* 쓰기는 ls-set 의 JSON 칸(lsSaveJson · lsSetJson)을 거친다 — 같은 저장소 · 같은 json-store · 안내는 같은 notes 로 */
+  vars.TwLsSet = vars.TwJsonStore && (() => { const w = { TwErrorCodes: vars.TwErrorCodes, TwJsonStore: vars.TwJsonStore }; new Function('window', 'localStorage', 'console', 'module', SRC.ls)(w, ls, { warn(){} }, undefined); return w.TwLsSet; })();
   const scope = new Proxy(vars, {
     has: (t, k) => typeof k === 'string' && !REAL.has(k),
     get: (t, k) => (k === Symbol.unscopables ? undefined : k in t ? t[k] : ANY),
