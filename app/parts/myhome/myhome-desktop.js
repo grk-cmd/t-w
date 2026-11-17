@@ -82,7 +82,9 @@ function blankSlot(){
 }
 function advLoad(){
   try{
-    const d = JSON.parse(localStorage.getItem(ADV_KEY) || 'null');
+    const r = TwJsonStore.load(ADV_KEY, null);   // 해석 안 됨 ≠ 없음 — 기본값으로 시작하되 그 위에 쓰지 않는다(advSave)
+    if(!r.ok) TwErrorCodes.notify('E-SYS-11', r.err);
+    const d = r.list;
     if(d && Array.isArray(d.slots)){
       const slots = [0,1,2].map(i => Object.assign(blankSlot(), d.slots[i] || {},
         { faceImgs: (function(sd){ const f=Object.assign({a:null,b:null,c:null,d:null},(sd&&sd.faceImgs)||{});
@@ -143,7 +145,7 @@ function advLoad(){
   return { slots:[blankSlot(),blankSlot(),blankSlot()], active:0, st:100, stLevel:null, hp:100,
            inf:0, inv:{}, weapons:[], scene:'camp', bg:null };
 }
-function advSave(){ try{ localStorage.setItem(ADV_KEY, JSON.stringify(ADV)); }catch(_){} }
+function advSave(){ const r = TwJsonStore.save(ADV_KEY, ADV); if(r.blocked) TwErrorCodes.notify('E-SYS-11', r.err); }
 // 🖥️ 바탕화면 배경을 서버에도 저장 — 방문자가 집주인 바탕화면을 볼 수 있게 + 🩹 내 다른 기기와 맞추려고.
 //   ★ ts(고른 시각)를 같이 싣는다 — 기기끼리 «누가 더 최근에 골랐나» 를 가르는 유일한 근거다(advPullBg).
 function advSaveBgRemote(){

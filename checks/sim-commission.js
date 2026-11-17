@@ -7,6 +7,9 @@
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · commission.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
+/* 모듈이 JSON 칸을 shared/json-store.js(TwJsonStore)로 읽고 쓴다 — 이 검사의 저장소 위에 하나 만든다(번호 안내는 받지 않음) */
+const jsonStoreOn = (ls) => { const src = ['json-store.js', 'app/parts/shared/json-store.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const m = { exports: {} }; new Function('window', 'module', src)(undefined, m); const s = m.exports.createJsonStore({ storage: () => ls }); return Object.assign({}, m.exports, { load: s.load, save: s.save }); };
+const errCodesStub = { notify(){ return true; } };
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
@@ -44,8 +47,8 @@ function build(src){
   const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
-  const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
-    src + '\nreturn window.TwCommission;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
+  const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module', 'TwJsonStore', 'TwErrorCodes',
+    src + '\nreturn window.TwCommission;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined, jsonStoreOn(ls), errCodesStub);
   return api.createCommission(deps);
 }
 

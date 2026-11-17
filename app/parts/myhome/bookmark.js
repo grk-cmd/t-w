@@ -82,11 +82,13 @@
     return out;
   }
   function bmLoadLocal(){
-    try{ bmData = bmClean(JSON.parse(localStorage.getItem(BM_KEY) || '{}')); }catch(_){ bmData = { order:[], items:{}, ts:0 }; }
+    const r = TwJsonStore.load(BM_KEY, {});   // 해석 안 됨 ≠ 없음 — 그 위에 쓰지 않는다(bmSaveLocal)
+    bmData = bmClean(r.list);
+    if(!r.ok) TwErrorCodes.notify('E-SYS-11', r.err);
   }
   function bmSaveLocal(){
-    try{ localStorage.setItem(BM_KEY, JSON.stringify({ order:bmData.order.join(','), items:bmData.items, ts:bmData.ts })); }
-    catch(_){ /* 용량이 차도 서버 사본이 기준이라 다음 부팅에 돌아온다 */ }
+    const r = TwJsonStore.save(BM_KEY, { order:bmData.order.join(','), items:bmData.items, ts:bmData.ts });
+    if(r.blocked) TwErrorCodes.notify('E-SYS-11', r.err);   // 용량이 차는 것은 서버 사본이 기준이라 다음 부팅에 돌아온다
   }
   async function bmPull(){
     const u = uid(), a = api();

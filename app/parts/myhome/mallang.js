@@ -67,7 +67,7 @@
   function hasLicense(){ try{ return !!window._premiumOn(); }catch(_){ return false; } }
   function esc(s){ return TwSafeHtml.text(s); }   // 마크업 글자 안에 넣을 값 — 공용(shared/safe-html.js)
   function lsKey(){ return 'tw.mallang.' + (myId()||'anon'); }
-  function saveLocal(){ try{ localStorage.setItem(lsKey(), JSON.stringify(imgs)); }catch(_){} }
+  function saveLocal(){ const r = TwJsonStore.save(lsKey(), imgs); if(r.blocked) TwErrorCodes.notify('E-SYS-11', r.err); }
   /* 💾 로컬 먼저, 서버는 그 다음. **이 함수는 던지지 않는다.**
      [무엇이 문제였나] 예전 판은 `await firebaseAPI.saveMallangImgs(...)` 한 줄이었다. 위험이 둘이다.
        ① **결과를 버린다.** saveMallangImgs 는 실패해도 예외 대신 `{ok:false}` 를 돌려주므로
@@ -820,7 +820,8 @@
     if(fbReady() && userId) raw = await firebaseAPI.getMallangImgs(userId).catch(()=>[]) || [];   // 내 코드가 없으면 서버는 안 읽고 로컬 백업('anon')만
     // 서버가 비었고 '내 것'을 보는 중이면 로컬 백업에서 복원 (규칙 미반영 등 대비)
     if((!raw || !raw.length) && userId===myId()){
-      try{ const ls=JSON.parse(localStorage.getItem(lsKey())||'null'); if(Array.isArray(ls)) raw=ls; }catch(_){}
+      const r = TwJsonStore.load(lsKey(), null);   // 해석 안 됨 ≠ 없음 — 그 위에 쓰지 않는다(saveLocal)
+      if(!r.ok) TwErrorCodes.notify('E-SYS-11', r.err); else if(Array.isArray(r.list)) raw = r.list;
     }
     imgs = (raw||[]).map(x => (typeof x==='string') ? { url:x, on:true } : { url:x.url, on:(x.on!==false) }).filter(x=>x && x.url);
   }

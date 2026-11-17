@@ -220,6 +220,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 - **책임**: 한 키의 JSON 을 읽고(해석) 쓴다. 실패를 삼키지 않고 결과 `{ ok, err, bytes }` 로 돌려준다 — 부르는 쪽이 알릴 수 있게.
 - **쓰는 곳**: 사람 책상 프리셋(`creator/desk-preset-store.js` · `tw.deskPresets`) · 동물 프리셋(`character/animal.js` · `tw.animalPresets`). 같은 «읽기 → 해석 / 만들기 → 쓰기» 를 두 곳이 따로 들던 것을 묶었다.
+  읽기 실패 뒤 기본값으로 덮어쓰지 않게(blocked) 여기로 옮긴 곳(app.js 분리 F5): 커미션 책상 · 아이템(`character/commission.js`) · 저장 파츠(`character/premium-assets.js`) · 북마크(`myhome/bookmark.js`) · 뽀모도로 설정(`focus/pomodoro.js`) · 말랑 백업(`myhome/mallang.js`) · 바탕화면 모험(`myhome/myhome-desktop.js`) — 읽기 실패 · 막은 쓰기는 `E-SYS-11`(검사 `checks/sim-no-overwrite.js`).
 - **만드는 법**: 렌더러에서는 `window.TwJsonStore`(`load` · `save`)를 바로 쓴다. 검사 · 다른 저장소는 `TwJsonStore.createJsonStore({ storage: () => 저장소 })`.
 - **내놓는 것**: `load(key, fallback)` → `{ ok, list, err, bytes }`(키가 없거나 빈 글이면 ok · fallback) · `save(key, value)` → `{ ok, err, bytes }`(던지지 않는다).
 - **함정**: 값의 모양(배열 · 객체)은 부르는 쪽이 본다. DOM · 토스트를 모른다 — 알리기는 부르는 쪽. 검사 `checks/sim-json-store.js`.
