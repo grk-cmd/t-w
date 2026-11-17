@@ -39,11 +39,11 @@ export interface UserRow {
 }
 
 // 옛 앱은 이름을 안 정한 사람에게 이 글자를 실제 이름처럼 저장했다 — 읽을 때 이름이 없는 것(null)으로 본다.
-const NO_NAME = '(이름 없음)';
+const LEGACY_NO_NAME = '(이름 없음)';
 
 export function realName(name: string | null | undefined): string | null {
   const n = name?.trim();
-  return n && n !== NO_NAME ? n : null;
+  return n && n !== LEGACY_NO_NAME ? n : null;
 }
 
 // 계정 요약(accountSnap)이 있으면 그걸 쓰고, 없는 사용자는 친구코드 명단에서만 잡힌다(이름 · 키를 모름).

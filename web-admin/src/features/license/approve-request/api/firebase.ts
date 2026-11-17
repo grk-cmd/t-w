@@ -20,7 +20,12 @@ export async function approveRequest(
 ): Promise<{ key: string; delivered: boolean }> {
   const friendCode = req.friendCode ?? '';
   const user = await findUserByFriendCode(db, friendCode);
-  const { key, write } = newLicenseWrite(db, `요청: ${req.name} · 친구코드 ${friendCode}`, genKey);
+  const { key, write } = newLicenseWrite(
+    db,
+    // 발급 메모는 저장되는 글 — 이름이 없으면 빼고 «나» 를 적지 않는다
+    `요청: ${req.name ? `${req.name} · ` : ''}친구코드 ${friendCode}`,
+    genKey,
+  );
   const updates = {
     ...write,
     ...approvedWrite(db, req.id, key),
