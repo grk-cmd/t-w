@@ -1,6 +1,6 @@
 /* ═══ 🪟 sim-window-mode.js — 창 모드 정하기 · 활성 앱 판정(launcher/window-mode.js · app.js 분리 M22) ═══════════════
    ・1절: applyDesktopRunClass — 데스크탑이 아니면 아무 일 없음 · 화면을 보고 모드(run · launcher · creator · myhome) · runmode · config 클래스 · 바닥 · 그림자 · main 에 보내는 값
-   ・2절: myHomeOpen — 읽는 · 쓰는 함수 · 오버레이 .on 이 곧 «마이홈이 떠 있다»
+   ・2절: myHomeOpen — 런처 상태(launcher-state.js)의 깃발을 읽는다(이 모듈은 들지 않는다) · 오버레이 .on 이 곧 «마이홈이 떠 있다»
    ・3절: _applyActiveAppState — 상태 없음 · 누적(조건 · 상한) · 집중 끝남 알림 · 달성표 · 플랫폼 · 게이트(focus-gate.js 규칙) · 자기 창 · 펜 앱
    ・4절: 연결 — 옛 이름 · deps 모양 · 만드는 줄
    ・5절: 일부러 깨 보기 */
@@ -13,8 +13,9 @@ const read = (f) => { for(const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' 
 const stripC = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 const depPairs = (APP, mod, glob, create) => { const m = APP.match(new RegExp('const ' + mod + ' = ' + glob + '\\.' + create + '\\(\\{\\n([\\s\\S]*?)\\n\\}\\);')); return m ? m[1].split('\n').map(l => /^  ([\w$]+): (.+),$/.exec(l)).filter(Boolean).map(x => [x[1], x[2]]) : null; };
 const SRC = read('launcher/window-mode.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html');
-const GATE_SRC = read('focus/focus-gate.js');
-if(!SRC || !APP || !HTML || !GATE_SRC){ say('  ? 원본 못 찾음'); process.exit(2); }
+const GATE_SRC = read('focus/focus-gate.js'), LS_SRC = read('launcher/launcher-state.js');
+if(!SRC || !APP || !HTML || !GATE_SRC || !LS_SRC){ say('  ? 원본 못 찾음'); process.exit(2); }
+const mkLauncherState = () => { const w = {}; new Function('window', 'module', LS_SRC)(w, undefined); return w.TwLauncherState.createLauncherState(); };   // 진짜 런처 상태(앱 모드 · 마이홈 열림)
 const FOCUS_GATE = (() => { const w = {}; new Function('window', 'module', GATE_SRC)(w, undefined); return w.TwFocusGate; })();   // 진짜 «창이 앞이면 안 잠듦» 규칙
 function mkEl(){ const cl = new Set(); return { classList: { add: (c) => cl.add(c), remove: (c) => cl.delete(c), contains: (c) => cl.has(c), toggle: (c, on) => { on ? cl.add(c) : cl.delete(c); } } }; }
 function build(src, o){
@@ -23,8 +24,9 @@ function build(src, o){
   if(o.launcherOn) els.launcher.classList.add('on'); if(o.mhOn) els.myHomeOverlay.classList.add('on'); if(o.lobbyOn) els.inviteOverlay.classList.add('on');
   const doc = { getElementById: (i) => els[i] || null, body };
   const t = { now: 0 }; const log = [];
-  const st = { creator: !!o.creator, mode: o.appMode || 'run', gate: null, fig: !!o.fig, mob: !!o.mob, last: 0, self: null, pen: null, secs: 0, chal: [], plat: undefined, ended: 0 };
-  const deps = { appModeMod: { appMode: () => st.mode }, creatorOpen: () => st.creator, desktopMode: o.desktop !== false, floor: { visible: true }, focusGate: FOCUS_GATE, focusProgressMod: () => ({ focusEnded: () => { st.ended++; } }), setFocusGateSleep: (v) => { st.gate = v; },
+  const ls = mkLauncherState(); if(o.appMode) ls.setAppMode(o.appMode);
+  const st = { creator: !!o.creator, gate: null, fig: !!o.fig, mob: !!o.mob, last: 0, self: null, pen: null, secs: 0, chal: [], plat: undefined, ended: 0 };
+  const deps = { launcherState: ls, creatorOpen: () => st.creator, desktopMode: o.desktop !== false, floor: { visible: true }, focusGate: FOCUS_GATE, focusProgressMod: () => ({ focusEnded: () => { st.ended++; } }), setFocusGateSleep: (v) => { st.gate = v; },
     focusLevelMod: { _mobileOn: () => st.mob, addFocusSeconds: (d) => { st.secs += d; } }, focusWindowMs: () => 1500, key: { castShadow: null }, mhStLayoutMod: { _mhStickerOverhang: () => 'EXTRA' },
     officeModeMod: { figureMode: () => st.fig }, seatStateMod: { lastActivity: () => st.last, setSelfAppActive: (v) => { st.self = v; }, setPenAppFocused: (v) => { st.pen = v; } },
     weeklyChal: { focusTick: (s, d) => st.chal.push(d), setKeyPlatform: (p) => { st.plat = p; } } };
@@ -33,7 +35,7 @@ function build(src, o){
   const names = Object.keys(g);
   new Function(...names, src)(...names.map(n => g[n]));
   const mod = win.TwWindowMode.createWindowMode(deps);
-  return { mod, els, body, sent, st, t, deps, log };
+  return { mod, ls, els, body, sent, st, t, deps, log };
 }
 say('§1 applyDesktopRunClass');
 {
@@ -61,10 +63,10 @@ say('§1 applyDesktopRunClass');
 say('§2 myHomeOpen');
 {
   const b = build(SRC, { launcherOn: true });
-  chk(b.mod.myHomeOpen() === false, '처음엔 닫힘');
-  b.mod.setMyHomeOpen(true); b.mod.applyDesktopRunClass();
-  chk(b.mod.myHomeOpen() === true && b.sent[0][1] === 'myhome', '깃발만 켜져도(오버레이 확인 전) 런처에서는 myhome');
-  const b2 = build(SRC, {}); b2.mod.setMyHomeOpen(true); b2.mod.applyDesktopRunClass();
+  chk(b.ls.myHomeOpen() === false && !('myHomeOpen' in b.mod) && !('setMyHomeOpen' in b.mod), '처음엔 닫힘 · 깃발은 런처 상태에 있다(이 모듈은 내놓지 않음)');
+  b.ls.setMyHomeOpen(true); b.mod.applyDesktopRunClass();
+  chk(b.sent[0][1] === 'myhome', '깃발만 켜져도(오버레이 확인 전) 런처에서는 myhome');
+  const b2 = build(SRC, {}); b2.ls.setMyHomeOpen(true); b2.mod.applyDesktopRunClass();
   chk(b2.sent[0][1] === 'run', '런처가 아니면 깃발이 켜져도 run');
 }
 say('§3 _applyActiveAppState');
@@ -112,12 +114,14 @@ say('§4 연결');
   chk(iM > 0 && iA > iM, 'html — window-mode.js 를 app.js 보다 먼저 싣는다');
   const code = stripC(APP);
   const pairs = depPairs(APP, 'windowModeMod', 'TwWindowMode', 'createWindowMode');
-  const shape = (n, v) => n === 'creatorOpen' ? v === '()=>creatorOpen' : n === 'focusProgressMod' ? v === '()=>focusProgressMod' : n === 'focusGate' ? v === 'TwFocusGate' : n === 'setFocusGateSleep' ? v === '(v)=>{ focusGateSleep = v; }' : v === n;
-  chk(!!pairs && pairs.length === 14 && pairs.every(([n, v]) => shape(n, v)), '★ deps 14개 모양 — 읽는 함수 둘(creatorOpen · focusProgressMod) · 쓰는 함수 하나 · 게이트 규칙 TwFocusGate · 값 열(이미 만들어진 것)');
+  const shape = (n, v) => n === 'launcherState' ? v === 'launcherStateMod' : n === 'creatorOpen' ? v === '()=>creatorOpen' : n === 'focusProgressMod' ? v === '()=>focusProgressMod' : n === 'focusGate' ? v === 'TwFocusGate' : n === 'setFocusGateSleep' ? v === '(v)=>{ focusGateSleep = v; }' : v === n;
+  chk(!!pairs && pairs.length === 14 && pairs.every(([n, v]) => shape(n, v)), '★ deps 14개 모양 — 읽는 함수 둘(creatorOpen · focusProgressMod) · 쓰는 함수 하나 · 게이트 규칙 TwFocusGate · 런처 상태 launcherStateMod · 값 아홉(이미 만들어진 것)');
   const bad = pairs ? pairs.map(([n, v]) => n === 'creatorOpen' ? [n, 'creatorOpen'] : [n, v]) : [];
   chk(!bad.every(([n, v]) => shape(n, v)), '  깨 보기: 읽는 함수를 값으로 넘기면 빨강');
   chk(/^const _applyActiveAppState = windowModeMod\._applyActiveAppState;/m.test(code) && /^const applyDesktopRunClass = windowModeMod\.applyDesktopRunClass;/m.test(code) && !/function (_applyActiveAppState|applyDesktopRunClass)\b/.test(code) && !/^let myHomeOpen\b/m.test(code), '옛 이름 둘을 const 로 받고 본문 · let 이 안 남음');
-  chk(/setMyHomeOpen: \(v\)=>\{ windowModeMod\.setMyHomeOpen\(v\); \}/.test(code) && (code.match(/windowModeMod\.myHomeOpen\(\)/g) || []).length >= 3, 'myHomeOpen 은 읽는 · 쓰는 함수로 읽고 쓴다');
+  chk(/setMyHomeOpen: \(v\)=>\{ launcherStateMod\.setMyHomeOpen\(v\); \}/.test(code) && (code.match(/launcherStateMod\.myHomeOpen\(\)/g) || []).length >= 3 && !/windowModeMod\.(set)?[mM]yHomeOpen\b/.test(code), 'myHomeOpen 은 런처 상태의 읽는 · 쓰는 함수로 읽고 쓴다(window-mode 를 바라보지 않음 — 순환)');
+  const iLs = code.indexOf('const launcherStateMod = TwLauncherState.createLauncherState();'), iFm = code.indexOf('const friendManage = TwFriendManage');
+  chk(iLs > 0 && iFm > iLs, '런처 상태는 처음 읽는 모듈(친구 관리)보다 먼저 만든다');
   const iMk = code.indexOf('const windowModeMod = TwWindowMode'), iDr = code.indexOf('const desktopRunMod = TwDesktopRun');
   chk(iMk > 0 && iDr > iMk, '만드는 줄이 desktop-run 만드는 줄보다 앞(_applyActiveAppState 를 deps 로 넘기기 전)');
 }

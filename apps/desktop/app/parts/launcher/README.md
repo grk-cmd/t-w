@@ -221,11 +221,20 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 - 함수 안의 `if(!uid) return` 입구 확인은 다른 길에서 불릴 수 있어 남겨 둔다.
 검사: `checks/sim-app-boot.js`(차례 · 한 번만 · 알림 없으면 0번 · 던져도 계속 · 깨 보기) · `checks/sim-license-gate.js`(게이트가 확인 뒤에만 알림) · `checks/sim-nav.js`.
 
+## launcher-state.js — 🧭 런처 공용 상태(앱 모드 · 마이홈 열림)
+
+- **책임**: 앱 모드(`run` · `editseat`)와 «마이홈이 런처 위에 열려 있나» 깃발을 드는 한 곳. 처음 값은 `run` · `false`.
+- **왜 여기**: 두 값은 바꾸는 모듈(`app-mode.js` · `window-mode.js`)이 들고 있었다. 달성표(`chal-store.js` · `weekly-challenge.js`) · 마이홈(창 · 페이지 · 구경 · 시작 · 친구 관리)이 그 모듈을 바라보고, 그 모듈도 달성표 · 마이홈을 불러 순환이 됐다(`checks/sim-dep-cycles.js`). 주인을 맨 아래로 내렸다.
+- **만드는 법**: `TwLauncherState.createLauncherState()` — 받는 것 없음. app.js 가 맨 앞(SETUP)에서 `launcherStateMod` 로 만든다(처음 읽는 모듈 — 친구 관리 — 보다 먼저). html · `checks/smoke.js` PRELOAD 에서 읽는 모듈 · app.js 보다 먼저 싣는다.
+- **내보내는 것**: `appMode()` · `setAppMode(v)` · `myHomeOpen()` · `setMyHomeOpen(v)`.
+- **누가 바꾸나**: 앱 모드는 `app-mode.js`(`launchApp` · `backToLauncher`)만. 마이홈 열림은 `app-mode.js`(런처 복귀) · app.js 가 마이홈 창 · 친구 홈 구경에 넘기는 쓰는 함수. 나머지(`window-mode.js` · 달성표 · 마이홈 모듈)는 읽기만 — 읽는 모듈은 app.js 가 `()=>launcherStateMod.이름()` 이나 `launcherStateMod` 값으로 넘긴다.
+- **함정**: 다른 파일에 `let appMode` · `let myHomeOpen` 을 다시 두면 두 벌이 된다. 검사: `checks/sim-launcher-state.js`.
+
 ## app-mode.js — 🖥 런처 ↔ 실행 화면 전환
 
-- **책임**: `appMode`(run · editseat) · `applyAppMode`(좌석 슬라이더 · 상태 미리보기 · 제목 · 창 크기 맞춤 부르기) · `launchApp`(내 좌석 다시 만들기 · 방 친구 복원 · 방에 나간 def 와 달라졌을 때만 새 def 를 방에 보냄 · 솔로 자리 추가 복원 · Tab 힌트) · `backToLauncher`(꾸미기 · 마이홈 닫아 저장 · 포커스 · 달성표 · 가챠 서버 맞추기) · «런처로» 버튼.
-- **만드는 법**: `TwAppMode.createAppMode({ … 21개 })` — 읽는 함수 6(`curSlot` · `focusLevelMod` · `gachaMod` · `Presence` · `roomEntryMod` · `weeklyChal`) · 함수 3(`applyDesktopRunClass` · `toast` · `layoutSeats`) · 쓰는 함수 1(`setMyHomeOpen`) · 값 11. 원래 자리(설정 패널 «캐릭터» 탭 안내 뒤)에서 만든다.
-- **내보내는 것**: `appMode`(읽는 함수 — app.js 는 `appModeMod.appMode()`) · `showEl` · `applyAppMode` · `launchApp` · `backToLauncher`.
+- **책임**: 앱 모드 바꾸기(run · editseat — 값은 `launcher-state.js`) · `applyAppMode`(좌석 슬라이더 · 상태 미리보기 · 제목 · 창 크기 맞춤 부르기) · `launchApp`(내 좌석 다시 만들기 · 방 친구 복원 · 방에 나간 def 와 달라졌을 때만 새 def 를 방에 보냄 · 솔로 자리 추가 복원 · Tab 힌트) · `backToLauncher`(꾸미기 · 마이홈 닫아 저장 · 포커스 · 달성표 · 가챠 서버 맞추기) · «런처로» 버튼.
+- **만드는 법**: `TwAppMode.createAppMode({ … 21개 })` — 읽는 함수 6(`curSlot` · `focusLevelMod` · `gachaMod` · `Presence` · `roomEntryMod` · `weeklyChal`) · 함수 3(`applyDesktopRunClass` · `toast` · `layoutSeats`) · 런처 상태 `launcherState`(앱 모드를 바꾸고 · 런처 복귀 때 마이홈 열림을 끈다) · 값 11. 원래 자리(설정 패널 «캐릭터» 탭 안내 뒤)에서 만든다.
+- **내보내는 것**: `showEl` · `applyAppMode` · `launchApp` · `backToLauncher`.
 - **함정**: `layoutSeats` 는 app.js 에서 이 모듈보다 뒤에 정의되므로 `(...a)=>layoutSeats(...a)` 로 넘긴다(부를 때 찾는다). 검사: `checks/sim-app-mode.js`.
 
 ## office-mode.js — 🏢 데스크탑 · 피규어 · 회사원 모드 깃발
@@ -258,9 +267,9 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 
 ## window-mode.js — 🪟 창 모드 정하기 · 활성 앱 판정
 
-- **책임**: `_applyActiveAppState`(포커싱 어플 폴링 결과로 누적 시간 · 게이트 · 달성표 · 자기 창 · 펜 앱을 갱신) · `myHomeOpen`(마이홈이 런처에서 열려 있는가) · `applyDesktopRunClass`(화면을 보고 `runmode` · `config` 클래스 · 바닥 · 그림자를 정하고 main 에 창 모드 creator · myhome · launcher · run 을 보낸다). 집중이 끝나면(쌓던 → 안 쌓음) `focusProgressMod.focusEnded()` 로 못 올린 몫을 올린다 · 로비(`#inviteOverlay`)가 떠 있어도 마이홈 크기로 연다.
-- **만드는 법**: `TwWindowMode.createWindowMode({ … 14개 })` — 읽는 함수 둘(`creatorOpen` · `focusProgressMod`) · 쓰는 함수 하나(`setFocusGateSleep`) · 값 열하나(`focusGate` — «투게더워킹 창이 앞이면 안 잠듦» 규칙, `focus/focus-gate.js` 포함). 원래 자리(데스크탑 실행 화면 구역 머리 앞)에서 만든다.
-- **내보내는 것**: `_applyActiveAppState` · `applyDesktopRunClass`(app.js 가 같은 이름 const 로) · `myHomeOpen()` · `setMyHomeOpen(v)`.
+- **책임**: `_applyActiveAppState`(포커싱 어플 폴링 결과로 누적 시간 · 게이트 · 달성표 · 자기 창 · 펜 앱을 갱신) · `applyDesktopRunClass`(화면 · 런처 상태의 앱 모드 · 마이홈 열림을 보고 `runmode` · `config` 클래스 · 바닥 · 그림자를 정하고 main 에 창 모드 creator · myhome · launcher · run 을 보낸다). 집중이 끝나면(쌓던 → 안 쌓음) `focusProgressMod.focusEnded()` 로 못 올린 몫을 올린다 · 로비(`#inviteOverlay`)가 떠 있어도 마이홈 크기로 연다.
+- **만드는 법**: `TwWindowMode.createWindowMode({ … 14개 })` — 읽는 함수 둘(`creatorOpen` · `focusProgressMod`) · 쓰는 함수 하나(`setFocusGateSleep`) · 런처 상태 `launcherState`(읽기만) · 값 열(`focusGate` — «투게더워킹 창이 앞이면 안 잠듦» 규칙, `focus/focus-gate.js` 포함). 원래 자리(데스크탑 실행 화면 구역 머리 앞)에서 만든다.
+- **내보내는 것**: `_applyActiveAppState` · `applyDesktopRunClass`(app.js 가 같은 이름 const 로).
 - **함정**: `applyDesktopRunClass` 는 «누군가 불러줘야» 한다 — 오버레이를 여는 새 길이 생기면 여기도 부를 것. 여는 쪽 플래그가 아니라 화면(오버레이 `.on`)을 본다. 검사: `checks/sim-window-mode.js`.
 
 ## run-boot.js — 🚀 켜는 차례 표

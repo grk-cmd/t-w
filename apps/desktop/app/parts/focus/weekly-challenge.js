@@ -15,7 +15,7 @@ const toast = deps.toast;
 const escHtml = deps.escHtml;
 const formatHMS = deps.formatHMS;
 const _premiumOn = deps.premiumOn;              // ⚠️ isPremium 을 직접 읽지 않는다(TDZ) — app.js 의 _premiumOn
-const appMode = deps.appMode;                   // 'run' | … — app.js 의 appMode(다시 대입되는 let)
+const appMode = deps.appMode;                   // 'run' | … — 읽는 함수(앱 모드의 주인은 launcher/launcher-state.js)
 const { PHASE, CELL, ruleItems: _chalRuleItems } = TwChalStore;
 
 const CHAL_RULE_MAX = TwChalStore.RULE_MAX;     // 📋규칙 한 요일당 최대 줄 수

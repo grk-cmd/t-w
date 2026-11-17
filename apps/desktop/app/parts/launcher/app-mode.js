@@ -1,8 +1,9 @@
 /* app-mode.js — 🖥 런처 ↔ 실행 화면 전환(앱 FSD · app.js 분리 M13)
    app.js 의 앱 모드 구역(appMode · showEl · applyAppMode · launchApp · backToLauncher · «런처로» 버튼)을 글 그대로 옮긴 모듈이다.
    동작은 옛 자리와 같다(다시 대입되는 값을 읽는 함수 · 쓰는 함수로 받는 줄만 달라진다).
+   앱 모드 · 마이홈 열림 값의 주인은 launcher-state.js 다 — 여기는 바꾸는 쪽이다(읽는 모듈이 이 모듈을 바라보면 순환이 됐다).
    ・책임: appMode(run | editseat) · applyAppMode(화면 요소 보이기 · 창 크기 맞춤 부르기) · launchApp(런처 → 실행: 내 좌석 만들기 · 방 친구 복원 · Tab 힌트) · backToLauncher(실행 → 런처: 꾸미기 · 마이홈 닫기).
-   ・내놓는 것: appMode(읽는 함수) · showEl · applyAppMode · launchApp · backToLauncher — app.js 는 같은 이름 const 로 받는다(appMode 는 appModeMod.appMode() 로 읽는다).
+   ・내놓는 것: showEl · applyAppMode · launchApp · backToLauncher — app.js 는 같은 이름 const 로 받는다(앱 모드는 launcherStateMod.appMode() 로 읽는다).
    ⚠️ 만드는 줄은 옛 자리(설정 패널 «캐릭터» 탭 안내 뒤)에 둔다 — «런처로» 버튼 연결이 만들 때 걸린다.
    검사: checks/sim-app-mode.js */
 (function(){
@@ -18,7 +19,8 @@ const myhomeStore = deps.myhomeStore;   // 🏠 마이홈 상태 주인 — 닫�
 const createSeat = deps.createSeat;
 const curSlot = deps.curSlot;   // 읽는 함수
 const layoutSeats = deps.layoutSeats;   // 함수
-const setMyHomeOpen = deps.setMyHomeOpen;   // 쓰는 함수
+const launcherState = deps.launcherState;   // 🧭 앱 모드 · 마이홈 열림 주인(launcher-state.js)
+const setMyHomeOpen = launcherState.setMyHomeOpen;   // 쓰는 함수
 const overheadMod = deps.overheadMod;
 const Presence = deps.Presence;   // 읽는 함수
 const renderLauncher = deps.renderLauncher;
@@ -31,9 +33,9 @@ const settingsMod = deps.settingsMod;
 const slots = deps.slots;
 const statusChipMod = deps.statusChipMod;
 const toast = deps.toast;   // 함수
-let appMode='run';
 function showEl(id,on){const el=document.getElementById(id); if(el)el.style.display=on?'':'none';}
 function applyAppMode(){
+  const appMode=launcherState.appMode();
   const run=(appMode==='run');
   showEl('seatEditor', appMode==='editseat');   // 좌석 슬라이더는 좌석 세팅 모드에서만
   showEl('devFiles', false);                    // GLB 교체 등 dev 도구는 고객 화면에서 숨김
@@ -50,7 +52,7 @@ function launchApp(opts){ opts=opts||{};
   [...seats].forEach(s=>{scene.remove(s.group);overheadMod.removeSeatLabels(s);});seats.length=0;
   const me=createSeat(); applyCharToSeat(me,myDef); me.slot=curSlot(); me.isMe=true;
   seatPanelMod.selectSeat(me);seatPanelMod.renderSeatTabs();seatPanelMod.setManual(null);
-  appMode = (opts.mode==='edit') ? 'editseat' : 'run';
+  launcherState.setAppMode((opts.mode==='edit') ? 'editseat' : 'run');
   applyAppMode();
   document.getElementById('launcher').classList.remove('on');
   if(Presence().active()){
@@ -67,7 +69,7 @@ function launchApp(opts){ opts=opts||{};
   //    칩이 지금 접혀(숨겨져) 있을 때만 의미 있으므로 그 경우에만 보여줌. Tab을 먼저 눌러 스스로 찾으면
   //    위 keydown 핸들러가 이 타이머를 취소해서 뒤늦게 뜨지 않음.
   if(statusChipMod._tabHintTimer()){ clearTimeout(statusChipMod._tabHintTimer()); statusChipMod.setTabHintTimer(null); }
-  if(appMode==='run'){
+  if(launcherState.appMode()==='run'){
     statusChipMod.setTabHintTimer(setTimeout(()=>{
       statusChipMod.setTabHintTimer(null);
       const chip=document.getElementById('myStatusChip');
@@ -85,7 +87,7 @@ function backToLauncher(){
       _me.group.remove(_me.bench); _me.bench=null; _me.benchSlots=null; _me.benchDeskId=null; _me.benchOccupants={};
       _me._benchOwnerSit=false; _me._benchSit=false; if(_me.desk) _me.desk.visible=true; }
   }catch(_){}
-  appMode='run';
+  launcherState.setAppMode('run');
   document.getElementById('launcher').classList.add('on');
   // ★ 꾸미기 창이 켜진 채로 런처에 돌아가면 그대로 떠 있던 채 따라오던 문제 — 런처로 돌아갈 땐 항상 닫음.
   //   (이 상태가 이어져서 이후 관리자 모드에서 꾸미기 아이콘이 안 먹히는 것처럼 보이던 문제도 같이 방지됨)
@@ -110,7 +112,6 @@ function backToLauncher(){
 document.getElementById('toLauncher').onclick=backToLauncher;
 
 return {
-  appMode: ()=>appMode,
   showEl,
   applyAppMode,
   launchApp,

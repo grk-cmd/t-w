@@ -1,13 +1,13 @@
 /* window-mode.js — 🪟 창 모드 정하기 · 활성 앱 판정(앱 FSD · app.js 분리 M22)
    app.js 의 «활성 앱 판정(_applyActiveAppState)» 과 «데스크탑 실행 화면 — 창 크기»(myHomeOpen · applyDesktopRunClass)를 글 그대로 옮긴 모듈이다. 판단도 그대로다(창 모드를 한 값으로 모으는 F2 의 바탕 — 지금은 옛 판단 그대로 옮기기만).
-   ・책임: _applyActiveAppState(포커싱 어플 폴링 결과로 누적 시간 · 게이트 · 자기 창 · 펜 앱을 갱신) · myHomeOpen(마이홈이 런처에서 열려 있는가) · applyDesktopRunClass(화면을 보고 runmode · config 클래스 · 바닥 · 그림자를 정하고 main 에 창 모드 — creator · myhome · launcher · run — 를 보낸다).
-   ・내놓는 것: _applyActiveAppState · applyDesktopRunClass(함수 — app.js 는 같은 이름 const 로 받는다) · myHomeOpen(읽는 함수) · setMyHomeOpen(쓰는 함수).
+   ・책임: _applyActiveAppState(포커싱 어플 폴링 결과로 누적 시간 · 게이트 · 자기 창 · 펜 앱을 갱신) · applyDesktopRunClass(화면을 보고 runmode · config 클래스 · 바닥 · 그림자를 정하고 main 에 창 모드 — creator · myhome · launcher · run — 를 보낸다).
+   ・내놓는 것: _applyActiveAppState · applyDesktopRunClass(함수 — app.js 는 같은 이름 const 로 받는다).
+   마이홈 열림 · 앱 모드 값의 주인은 launcher-state.js 다 — 여기는 읽기만 한다(마이홈 모듈이 이 모듈을 바라보면 순환이 됐다).
    ⚠️ 이 함수는 «누군가 불러줘야» 한다 — 오버레이를 여는 새 길이 생기면 여기도 부를 것. 여는 쪽 플래그가 아니라 화면(오버레이의 .on)을 본다.
    검사: checks/sim-window-mode.js */
 (function(){
 
 function createWindowMode(deps){
-const appModeMod = deps.appModeMod;
 const creatorOpen = deps.creatorOpen;   // 읽는 함수
 const desktopMode = deps.desktopMode;
 const floor = deps.floor;
@@ -17,6 +17,7 @@ const setFocusGateSleep = deps.setFocusGateSleep;   // 쓰는 함수
 const focusLevelMod = deps.focusLevelMod;
 const focusWindowMs = deps.focusWindowMs;
 const key = deps.key;
+const launcherState = deps.launcherState;   // 🧭 앱 모드 · 마이홈 열림(launcher-state.js) — 읽기만
 const mhStLayoutMod = deps.mhStLayoutMod;
 const officeModeMod = deps.officeModeMod;
 const seatStateMod = deps.seatStateMod;
@@ -55,8 +56,6 @@ function _applyActiveAppState(state){
   if(nextGate !== null) setFocusGateSleep(nextGate);
   _focusWasActive = !!(state.hasAnyRegistered && state.isFocusedAppRegistered) || mobOn;
 }
-let myHomeOpen = false;   // ★ 마이홈 팝업이 "런처에서" 열려있는지 — 이때만 창 크기를 생성기처럼 키움
-                          //   (실행 화면은 이미 전체화면이라 그 안에서 여는 건 그대로 둬도 잘 맞음)
 function applyDesktopRunClass(){ if(!desktopMode) return;
   const launcherOn = document.getElementById('launcher').classList.contains('on');
   /* 🪟 **여는 쪽 플래그가 아니라 화면을 본다.** 예전엔 myHomeOpen 만 봤는데, 그 플래그를 세우는
@@ -66,13 +65,13 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
      플래그를 세우는 것을 잊었다는 이유로 창 크기가 틀리는 일이 없어진다.
      ⚠️ 그래도 이 함수는 **누군가 불러줘야** 한다. 오버레이를 여는 새 경로를 만들면 여기도 부를 것. */
   const mhOv = document.getElementById('myHomeOverlay');
-  const mhOn = !!(mhOv && mhOv.classList.contains('on')) || myHomeOpen;
+  const mhOn = !!(mhOv && mhOv.classList.contains('on')) || launcherState.myHomeOpen();   // 마이홈이 «런처에서» 열렸는지 — 실행 화면은 이미 전체화면이라 그대로 둔다
   /* 🗂️ 방 찾기 · 만들기(로비)도 런처의 좁은 창에 갇히지 않게 마이홈 크기로 연다(창 자리도 마이홈과 같이 기억) */
   const lobbyOv = document.getElementById('inviteOverlay');
   const lobbyOn = !!(lobbyOv && lobbyOv.classList.contains('on'));
   const showMyHomeSized = (mhOn || lobbyOn) && launcherOn;
   const config = launcherOn || creatorOpen();
-  const runOverlay = appModeMod.appMode()==='run' && !config;
+  const runOverlay = launcherState.appMode()==='run' && !config;
   document.body.classList.toggle('runmode', runOverlay);
   document.body.classList.toggle('config', config);   // 런처/생성기 열림 여부 — CSS에서 #scene 숨김에 사용
   if(typeof floor!=='undefined') floor.visible = !runOverlay;        // 투명 오버레이일 땐 바닥 숨김(데스크톱 비침)
@@ -86,8 +85,6 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
 
 return {
   _applyActiveAppState,
-  myHomeOpen: ()=>myHomeOpen,
-  setMyHomeOpen: (v)=>{ myHomeOpen = v; },
   applyDesktopRunClass,
 };
 }

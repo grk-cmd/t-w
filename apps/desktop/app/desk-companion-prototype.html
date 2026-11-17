@@ -8363,7 +8363,8 @@
 <script src="parts/room/room-invite-rt.js"></script>   <!-- 🙋 방 초대 포트(window.TwRoomInviteRt — roomInvite · roomInvited · roomInviteClear) — rt-hub.js 다음 · app.js 보다 먼저 -->
 <script src="parts/shared/update-flow.js"></script>   <!-- 🔄 켤 때 업데이트 흐름(window.TwUpdateFlow — 업데이트 창 → 공지 창 → 로그인 · 강제 / 선택 · 켜 둔 동안 최소 버전이 오르면 강제 창) — remote-config.js 다음 · app.js 보다 먼저 -->
 <script src="parts/purikura/purikura-rt.js"></script>   <!-- 📷 스티커사진 세션 포트(window.TwPurikuraRt — photo* 메시지 · 정원 GET /v1/rooms/photo-quota · 자리 넷 · 방장은 서버가 정한다) — rt-hub.js · purikura-net.js 다음 · app.js 보다 먼저(app.js _purikura() 가 만든다) -->
-<script src="parts/room/room-state.js"></script>   <!-- 🧭 방 공용 상태(지금 채널 · 방 meta 사본) — 읽는 모듈 · app.js 보다 먼저 -->
+<script src="parts/room/room-state.js"></script>
+<script src="parts/launcher/launcher-state.js"></script>   <!-- 🧭 런처 공용 상태(앱 모드 · 마이홈이 런처 위에 열려 있나) — 읽는 · 바꾸는 모듈 · app.js 보다 먼저 -->   <!-- 🧭 방 공용 상태(지금 채널 · 방 meta 사본) — 읽는 모듈 · app.js 보다 먼저 -->
 <script src="parts/chat/demoji-catalog.js"></script>   <!-- 😊 기본 이모티콘 목록 — 채팅 · 말풍선 · 마이홈 바탕화면이 읽는 맨 아래 표 · 읽는 파일 · app.js 보다 먼저 -->
 <script src="parts/myhome/myhome-state.js"></script>   <!-- 🏠 마이홈 공용 상태(데이터 · 관람 중 uid · 미리보기 깃발) — 읽는 모듈 · app.js 보다 먼저 -->
 <script src="parts/myhome/myhome-hooks.js"></script>   <!-- 🪝 마이홈 고리판(저장 · 배경 · 테마 · BGM 을 이름으로 부르는 한 곳) — 거는 · 쓰는 모듈 · app.js 보다 먼저 -->
