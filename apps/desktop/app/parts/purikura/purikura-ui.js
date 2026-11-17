@@ -531,7 +531,7 @@ function _pkPaintFilterNote(){
   const P = _pkP(), locked = _pkFilterLocked();
   /* 🆙 업데이트 안 한 참가자는 이 필터를 몰라서 그 사람 사진만 필터 없이 찍힌다. 막지 않고 방장에게만 알린다. */
   const lag = (PK.host && P.filterLaggards) ? P.filterLaggards(PK.members, PK.filter, myCode()) : [];
-  const lagMsg = lag.length ? lag.join(' · ') + '님은 업데이트가 필요해서 필터 없이 찍혀요' : '';
+  const lagMsg = lag.length ? lag.map((n) => TwPersonName.shown(n)).join(' · ') + '님은 업데이트가 필요해서 필터 없이 찍혀요' : '';
   const msg = _pkEl('pkFilterMsg');
   if(msg) msg.textContent = locked ? '곧 찍어요 — 이번 컷은 이대로'
                           : (PK.host ? lagMsg : '방장이 고른 필터예요');
@@ -823,7 +823,7 @@ function _pkPaintSlots(){
     d.className = 'pk-slot' + (m ? (i===_pkHostSlot() ? ' host' : '') : ' empty');
     const mine = m && m.uid === myCode();
     d.innerHTML = '<div class="pk-av"></div>'
-      + '<div>' + (m ? (mine ? '나' : TwSafeHtml.text(m.name || '손님')) : '비어 있음') + '</div>'
+      + '<div>' + (m ? (mine ? '나' : TwSafeHtml.text(TwPersonName.shown(m.name))) : '비어 있음') + '</div>'
       + '<div class="pk-rl">' + (m ? (i===_pkHostSlot() ? '👑 시작 권한' : '참가') : '먼저 온 순서') + '</div>';
     el.appendChild(d);
   }

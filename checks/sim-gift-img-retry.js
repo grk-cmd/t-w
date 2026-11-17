@@ -8,6 +8,7 @@
    ・4절: 일부러 깨 보기 — 다시 받기 없음 · 끝없이 다시 받음 · 말랑이 · 등록 칸 · 선물 고르기 칸에 안 걺 · html 싣는 순서
    [실행] node checks/run.js sim-gift-img-retry */
 'use strict';
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
 const fs = require('fs');
 const vm = require('vm');
 let pass = 0, fail = 0;
@@ -115,6 +116,7 @@ function mkEnv(mallangSrc, retrySrc){
   };
   ctx.window = ctx;
   ctx.TwSafeHtml = loadSafe();
+  ctx.TwPersonName = globalThis.TwPersonName;
   ctx.TwImgRetry = loadRetry(retrySrc);
   vm.createContext(ctx);
   vm.runInContext(mallangSrc, ctx, { filename: 'mallang.js' });

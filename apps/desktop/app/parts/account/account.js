@@ -79,7 +79,7 @@ function _enterAccount(me, login){
   let old = null; try{ old = localStorage.getItem(MY_FRIEND_CODE_KEY); }catch(_){}
   if(old && old !== me.friendCode) _rememberOldFriendCode(old);   // 진단 기록 — 코드가 바뀌었다는 제보가 오면 본다
   try{ localStorage.setItem(MY_FRIEND_CODE_KEY, me.friendCode); }catch(_){}
-  try{ if(me.displayName) localStorage.setItem(USER_NAME_KEY, me.displayName); }catch(_){}
+  try{ if(me.displayName) localStorage.setItem(USER_NAME_KEY, me.displayName); else localStorage.removeItem(USER_NAME_KEY); }catch(_){}   // 서버에 이름이 없으면 옛 사본도 지운다
   return { ok:true, switched };
 }
 /* 로그인 흐름의 결과 → 이 PC 맞추기. 못 맞추면 로그인도 놓는다 — «로그인은 됐는데 이 기기는 딴 사람» 을 남기지 않는다. */

@@ -395,7 +395,7 @@ function _officeDemojiHtml(html){
    여기서 다른 이름을 고르면 머리 위 라벨과 발밑 이름표가 서로 다른 사람처럼 보인다. */
 function _seatLabelName(seat){
   if(!seat) return '';
-  if(seat.remote) return seat.friendName || '';
+  if(seat.remote) return TwPersonName.shown(seat.friendName);
   if(seat.isMe) return getDisplayName();
   return '';
 }

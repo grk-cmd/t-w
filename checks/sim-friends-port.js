@@ -10,6 +10,7 @@
    ・4절: 일부러 깨 보기 — 하나라도 못 잡으면 빨강
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
 const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
@@ -117,7 +118,7 @@ async function judge(S){
     const k1 = FA.friendOf(CARD);
     chk(k1.name === '라온' && k1.level === 12 && k1.cyc === 1 && k1.clv === 3 && k1.starC === 'gold' && k1.avatar === 'https://img/av.png' && k1.bio === '안녕', 'friendOf(명함) — 이름 · 레벨 · 회차 · 소개 · 사진');
     const k2 = FA.friendOf({ name: '', avatar: null, bio: '', level: null });
-    chk(k2.name === '(이름 없음)' && k2.level === null && k2.avatar === null, '  ↳ 이름이 비면 «(이름 없음)» · 레벨 null 은 그대로(배지 숨김)');
+    chk(k2.name === '' && k2.level === null && k2.avatar === null && TwPersonName.shown(k2.name) === '나', '  ↳ 이름이 비면 \'\' 그대로(자리표시 없음 — 그릴 때 «나») · 레벨 null 은 그대로(배지 숨김)');
     const p = FA.profileOf(CARD);
     chk(p.name === '라온' && p.level === 12 && p.starC === 'gold' && !('bio' in p) && !('avatar' in p), 'profileOf — 이름 · 레벨 · 회차만(소개 · 사진은 덮지 않는다)');
   }
@@ -297,7 +298,7 @@ const BREAKS = [
   ['FAPI', "if(n && typeof n.subject === 'string' && want.has(n.subject))", "if(n && typeof n.subject === 'string')", '남의 명함 알림에도 받음'],
   ['FAPI', "      if(n && n.resync) return all();\n", "", '오래 끊긴 뒤 다시 받기를 안 함'],
   ['FAPI', "    catch(e){ if(!(e && e.code === 'SOCIAL_NOT_FRIEND')) throw e; }", "    catch(e){ throw e; }", '이미 친구가 아닌 끊기를 실패로 봄'],
-  ['FAPI', "name: card.name || NO_NAME", "    name: card.name", '이름이 비면 빈 이름'],
+  ['FAPI', "return { name: card.name, level", "return { name: card.name || '(이름 없음)', level", '이름이 비면 자리표시를 다시 만듦'],
   ['FAPI', "    if(!card){ const e = new Error('명함 없음'); e.code = 'NO_CARD'; throw e; }", "", '명함 없는데 던지지 않음'],
   ['PORT', "function readFriend(fid){ return apiProvider.readFriend(fid); }", "function readFriend(fid){ return null; }", '친구 한 명은 서버를 안 봄'],
   ['PORT', "function removeFriend(myId, fid){ return apiProvider.removeFriend(fid); }", "async function removeFriend(myId, fid){ try{ return await apiProvider.removeFriend(fid); }catch(e){ return undefined; } }", '끊기 실패를 삼킴'],

@@ -333,6 +333,8 @@ const PRELOAD = ['human-ear.js', 'wd-ear.js'];
 /* mac-tooltip.js — 💬 맥 설명 말풍선. 싣기만 하면 맥에서 스스로 건다(smoke 무대는 맥이 아니라 안 건다). */
 PRELOAD.push('mac-tooltip.js');
 PRELOAD.push('safe-html.js');
+/* person-name.js — 🏷️ 사람 이름을 화면 글로(window.TwPersonName). 이름을 그리는 모듈 · app.js 가 부를 때 읽는다. */
+PRELOAD.push('person-name.js');
 /* account-store.js — 🗂️ 계정별 로컬 칸(window.TwAccountStore). app.js 가 getMyUserId 바로 뒤에서 만들므로 그보다 먼저. */
 PRELOAD.push('account-store.js');
 /* session.js — 🔐 로그인 세션 하나(window.TwSession). app.js 가 app-boot 에 넘기는 newSession 이 부를 때 읽는다 — app-boot.js 보다 먼저. */

@@ -106,6 +106,18 @@ sec('── 5. 업데이트 안 한 참가자', () => {
   chk(JSON.stringify(P.filterLaggards(slots, 'fish', 'me')) === '["옛판"]', 'fx 가 없는 자리만 «업데이트 필요»');
   chk(P.filterLaggards(slots, 'mono', 'me').length === 0 && P.filterLaggards(slots, 'none', 'me').length === 0, '옛 앱도 아는 필터면 아무도 안 알린다');
   chk(P.filterLaggards(null, 'fish', 'me').length === 0, '자리를 아직 못 받았으면 빈 목록');
+  {
+    const TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => fs.existsSync(p)));
+    const lagOf = (net) => { const M = { exports: {} }; new Function('module', 'window', 'exports', net)(M, undefined, M.exports); return (M.exports.filterLaggards || P.filterLaggards); };
+    const noName = { 0: { uid: 'me', name: '방장', fx: 1 }, 1: { uid: 'u1', name: '', at: 1 }, 2: { uid: 'u2', name: null, at: 1 } };
+    const shownOf = (f) => f(noName, 'fish', 'me').map((n) => TwPersonName.shown(n)).join(' · ');
+    chk(JSON.stringify(P.filterLaggards(noName, 'fish', 'me')) === '["",""]' && shownOf(P.filterLaggards) === '나 · 나',
+      '★ 이름 없는 참가자(\'\' · null) — 순수 모듈은 이름 그대로(\'\') · 화면이 TwPersonName 으로 «나»(«참가자» 자리표시 없음)');
+    const brk = SRC['purikura-net.js'].replace("out.push(typeof v.name === 'string' ? v.name : '');", "out.push(String(v.name || '참가자'));");
+    let red = brk === SRC['purikura-net.js'];
+    if(!red){ try{ red = shownOf(lagOf(brk)) !== '나 · 나'; }catch(_){ red = true; } }
+    chk(red && brk !== SRC['purikura-net.js'], '  깨 보기 — «참가자» 자리표시를 다시 만들면 빨강');
+  }
   /* 자리를 잡을 때 내 앱의 필터 판(fx)을 서버에 알린다 — 서버가 자리 칸에 적어 모두에게 돌려준다(photoWelcome · photoSlots) */
   const sent = [];
   const hub = { onMessage(){}, on(){}, onState(){}, isReady: () => true, send(m){ sent.push(m); return true; } };
@@ -131,7 +143,7 @@ sec('── 7. app.js · html', () => {
   const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
   /* 📷 화면 쪽은 parts/purikura-ui.js 로 옮겼다(앱 FSD 3번) — 렌더러 쪽 한 벌 = app.js + 그 파일 */
   const A = strip(SRC['app.js'] + '\n' + SRC['purikura-ui.js']), HTML = SRC['desk-companion-prototype.html'];
-  chk(/P\.filterLaggards\(PK\.members, PK\.filter, myCode\(\)\)/.test(A) && /'님은 업데이트가 필요해서 필터 없이 찍혀요'/.test(A), '방장 화면에 «○○님은 업데이트가 필요해서 필터 없이 찍혀요»');
+  chk(/P\.filterLaggards\(PK\.members, PK\.filter, myCode\(\)\)/.test(A) && /'님은 업데이트가 필요해서 필터 없이 찍혀요'/.test(A) && /lag\.map\(\(n\) => TwPersonName\.shown\(n\)\)\.join\(' · '\)/.test(A), '방장 화면에 «○○님은 업데이트가 필요해서 필터 없이 찍혀요»');
   chk(/const lag = \(PK\.host && /.test(A), '안내는 방장에게만');
   chk(/_pkPaintSlots\(\);\s*_pkPaintFilterNote\(\);/.test(A), '자리가 바뀌면 안내를 다시 쓴다(축소판은 다시 안 그린다)');
   chk(/let r; try\{ r = await pk\.open\(room, \{ userCode: myCode\(\) \}\); \}\s*catch\(e\)\{ console\.warn\('\[스티커사진\] 자리 잡기 실패', e\); r = \{ ok:false, reason:'error' \}; \}/.test(A)

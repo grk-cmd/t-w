@@ -39,7 +39,7 @@ const canFly = deps.canFly;
 const canvas = deps.canvas;
 const creatorOpen = deps.creatorOpen;   // 읽는 함수
 const flySeed = deps.flySeed;
-const getDisplayName = deps.getDisplayName;
+const getUserName = deps.getUserName;   // 내 이름 사본 — 이름이 없으면 '' (서버 대화 기록에 «나» 를 싣지 않는다)
 const myCode = deps.myCode;   // 방 서버의 내 코드 — 방장 · 내 좌석 · 내가 때린 것 판정은 이 값(TwRoomRt.store.myCode)
 const chatNet = deps.chatNet;   // 💬 대화 포트(chat-rt.js) — 기록 줄은 서버가 문장을 만든다
 const measureBodyBox = deps.measureBodyBox;
@@ -225,7 +225,7 @@ function registerFlyHit(){
     if(!(typeof officeMode() !== 'undefined' && officeMode())){
       toast('어지러워요 — ' + (FLY_COOL_MS/1000) + '초 동안 쉬어가요 💫');
     }
-    _flyChatLog(getDisplayName() + '님은 잠시 쉬어갑니다.');
+    { const nm = getUserName(); _flyChatLog(nm ? nm + '님은 잠시 쉬어갑니다.' : '잠시 쉬어갑니다.'); }   // 이름이 없으면 주어 없이
   }, FLY_MS + FLY_RETURN_MS);
 }
 let _myFlyHits = 0, _myFlyLastHit = 0;

@@ -1,5 +1,5 @@
 /* room-entry.js — 🛰 방 입장 · 나가기 · 승계 · 해산 · 🔢 방 만들기 · 랜덤 참여 · 갈아타기 · 코드 입력칸
-   방 통신은 room-rt.js 방 포트 하나(realtime 연결 위 · 서버 통신 규약 pv 2). 정원 · 채널 · 방 상한 · 시크릿룸 입장 · 승계 · 해산 · 버전은 서버가 판정한다 —
+   방 통신은 room-rt.js 방 포트 하나(realtime 연결 위 · 서버 통신 규약 pv 4). 정원 · 채널 · 방 상한 · 시크릿룸 입장 · 승계 · 해산 · 버전은 서버가 판정한다 —
    여기서는 입장 결과({ ok, code })를 문구로 바꾸고, 빈 방 접두어 맞추기 · 시크릿룸 «내 방을 비어 있을 때 열기»(같이 듣기)만 가른다.
    ★ 밖에서 부르는 이름: CHANNEL_NAMES · ROOM_PREFIX · _mockRoomAllowed · _srFmtDate · doLeaveRoom · makeMockProvider · refreshInviteUI · startRoom · syncFriendSeats ·
      doCreateRoomInChannel · _myRoomLicensed · onRoomChanged — app.js 는 roomEntryMod.이름 으로 부른다.
@@ -28,7 +28,6 @@ const curSlot = deps.curSlot;   // 읽는 함수
 const deserializeDefFromNetwork = deps.deserializeDefFromNetwork;
 const retryDefAfter = deps.retryDefAfter;   // 얼굴 못 받은 def 를 다시 풀 때까지 기다릴 ms(room-sync.js)
 const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
-const getDisplayName = deps.getDisplayName;
 const myCode = deps.myCode;   // 방 서버의 내 코드 — 남이 보낸 seatedOn.host · ridingOn(userCode)과 견주는 값
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const isPremium = deps.isPremium;   // 읽는 함수
@@ -339,6 +338,7 @@ function syncFriendSeats(friends){
         }
       }
     }
+    // friendName 은 서버 이름 그대로(이름 없음 = null) — 그리는 곳이 TwPersonName.shown
     s.friendName=friends[id].name; s.remoteState=friends[id].state; s.remoteUserStatus=friends[id].userStatus||null;
     s.remoteDanceStyle = friends[id].danceStyle || null;   // 💃 친구가 추는 춤 종류 — animateRig의 dance 분기용
     s._remoteRidingOn = friends[id].ridingOn || null;   // 🐾 누구 위에 타고 있는지(식별자) — 아래에서 좌석 관계로 복원
@@ -584,7 +584,7 @@ async function startRoom(code){
   _clearHiddenSeats();   // 🙈 숨김은 그 방에 있는 동안만
   const t = setTimeout(()=>{ if(!roomRt.isReady()) toast('📡 서버에 연결하는 중…'); }, ROOM_CONNECTING_TOAST_MS);
   let r;
-  try{ r = await Presence.start(code, myDef, getDisplayName(), presenceChanged, { provider: makeRoomProvider(create) }); }
+  try{ r = await Presence.start(code, myDef, presenceChanged, { provider: makeRoomProvider(create) }); }
   finally{ clearTimeout(t); }
   if(!(r && r.ok)){
     const why = _roomJoinMessage(r && r.code, isSecret);

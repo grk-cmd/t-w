@@ -9,14 +9,13 @@
 (function(){
 
 function createUserName(deps){
-const Presence = deps.Presence;
 const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
 const getUserName = deps.getUserName;
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const setUserName = deps.setUserName;
 const toast = deps.toast;
-const saveNameOnServer = deps.saveNameOnServer;   // (name) => Promise<{ ok, err }> — 서버 계정 이름(PATCH /v2/me — login-flow patchMe)
+const saveNameOnServer = deps.saveNameOnServer;   // (name) => Promise<{ ok, err }> — 서버 계정 이름(PATCH /v2/me — login-flow patchMe) · '' 은 이름 지우기(서버가 null 로 둔다)
 const notifyError = deps.notifyError;   // 번호 토스트(error-codes.js)
 const USER_NAME_MAX = 12;   // ⚠️ 옛 모달은 이 값을 HTML 의 maxlength 로 들고 있었다. 이제 여기가 유일한 자리다.
 function commitUserName(raw){
@@ -27,7 +26,7 @@ function commitUserName(raw){
     return;
   }
   const prev = getUserName();
-  const next = v || '나';
+  const next = v;   // 빈 글 = 이름 지우기(서버에 "" — 서버도 이 PC 도 «나» 를 적지 않는다 · 그릴 때만 «나»)
   setUserName(next);
   refreshNameViews();
   // ★ 이름의 원본은 서버 계정(0.13) — 친구 화면 · 명함이 거기서 읽는다. 서버가 거절하면 이 PC 에도 남기지 않고 이전 이름으로 되돌린다(다음 켤 때 서버 이름으로 덮이므로).
@@ -40,9 +39,8 @@ function commitUserName(raw){
     else notifyError('E-ACC-01', e);
   });
 }
-// 🏷️ 방에 들어가 있으면 친구 화면의 내 이름표도 즉시 갱신 — 예전엔 방을 다시 들어가야 바뀌었다. 마이홈 페이지가 열려있으면 표시도 같이.
+// 🏷️ 마이홈 페이지가 열려 있으면 표시도 같이. 방 사람들의 화면은 서버가 바뀐 이름을 patch 로 알린다(pv 4 — 앱은 이름을 싣지 않는다).
 function refreshNameViews(){
-  try{ if(typeof Presence!=='undefined' && Presence.active() && Presence.setName) Presence.setName(getDisplayName()); }catch(_){}
   const nameEl=document.getElementById('mhMyName'); if(nameEl) nameEl.textContent=getDisplayName();
 }
 window.commitUserName = commitUserName;

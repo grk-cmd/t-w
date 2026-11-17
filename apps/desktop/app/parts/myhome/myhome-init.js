@@ -94,7 +94,7 @@ async function initMyHome(code, me, session){
           // 새로 들어온 요청만 추림 (앱 시작 시 기존 것이 우르르 뜨지 않게)
           const newIds = Object.keys(_myFriendRequests()).filter(id => !prevIds.includes(id));
           newIds.forEach(fromId=>{
-            const nm = (_myFriendRequests()[fromId]||{}).name || '누군가';
+            const nm = TwPersonName.shown((_myFriendRequests()[fromId]||{}).name);
             toast('👋 '+nm+' 님이 친구 요청을 보냈어요');
           });
           /* 🪟 팝업은 **새로 온 요청**에만, 그리고 그 목록을 지금 보고 있지 않을 때만.

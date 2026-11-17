@@ -11,6 +11,7 @@
    ・4절: 일부러 깨 보기 — 하나라도 못 잡으면 빨강
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
 const say = (s) => { if(!quiet) console.log(s); };

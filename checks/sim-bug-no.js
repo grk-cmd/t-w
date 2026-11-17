@@ -4,6 +4,7 @@
  * 4. 백필 계획  5. index.js 연결  6. 규칙(no 모양 · 글쓴이는 no 못 넣음 · seq 클라이언트 못 씀)  7. 앱은 관리자에게만 보인다
  */
 'use strict';
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기(이름 없음 → «나») — 진짜 파일
 const fs = require('fs');
 const path = require('path');
 let pass = 0, fail = 0;
@@ -54,7 +55,7 @@ async function detailHtml(src, admin, number){
   const ctx = { document, console: { warn() {}, log() {} }, navigator: { userAgent: 'Windows' }, TwNetReady: { whenNetReady() {} },
     setTimeout: () => 0, setInterval: () => 0, Math, JSON, String, Number, Array, Object, Promise, Map, Set, Date, Boolean, Error, RegExp };
   ctx.window = ctx;
-  vm.createContext(ctx);
+  ctx.TwPersonName = globalThis.TwPersonName; vm.createContext(ctx);
   try { vm.runInContext(src, ctx, { filename: 'bug-board-ui.js' }); } catch (_) { return null; }
   const post = { number, vis: 'pub', cat: 'bug', title: '제목', status: 'new', notice: false, byAdmin: false, anon: false, name: '에이', mine: false,
     likeN: 0, ansN: 0, createdAt: 1, answeredAt: 0, authorReplied: false, unseen: false, body: '본문', env: null, canReply: false, liked: false, version: 1, comments: [] };

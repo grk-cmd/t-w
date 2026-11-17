@@ -229,13 +229,14 @@ function _plNowHere(){
      «의 플레이리스트 · 이름» 보다 짧게 간다. 미니미(236px)는 이름만 남기므로 여기 안 온다. */
 function _plViewTitle(v){
   const nm = v && v.setName ? String(v.setName) : '';
-  return nm ? ('🎵 [' + v.name + ']의 「' + nm + '」')
-            : ('🎵 [' + v.name + ']의 플레이리스트');
+  const who = TwPersonName.shown(v && v.name);
+  return nm ? ('🎵 [' + who + ']의 「' + nm + '」')
+            : ('🎵 [' + who + ']의 플레이리스트');
 }
 /* 자식창 제목 — **트고 있는** 목록의 이름이다(보고 있는 것이 아니다).
    파도타기로 넘어가도 창 제목은 지금 나오는 곡의 주인을 그대로 말한다. */
 function _plNowTitle(){
-  if(_plNowView) return _plMini ? _plNowView.name : _plViewTitle(_plNowView);
+  if(_plNowView) return _plMini ? TwPersonName.shown(_plNowView.name) : _plViewTitle(_plNowView);
   const nm = _plSetName(_plNowSet);
   if(_plMini) return nm || getDisplayName();
   if(nm) return '🎵 ' + nm;
@@ -286,7 +287,7 @@ function _plToggleLock(i){
 function _plWindowTitle(){
   /* 미니미는 폭 236px 에 제목·버튼 세 개가 같이 들어가므로 "[아무개]의 플레이리스트"가 통째로 잘린다.
      접혔을 때는 이름만 남긴다 — 사진은 제목 앞(.plHeadAva)에 따로 붙는다. */
-  if(_plMini) return _plView ? _plView.name : (_plSetName(_plCur) || getDisplayName());
+  if(_plMini) return _plView ? TwPersonName.shown(_plView.name) : (_plSetName(_plCur) || getDisplayName());
   if(_plView) return _plViewTitle(_plView);
   /* ⚠️ 첫 프리셋만은 이름이 없을 때 옛 문구를 지킨다 — 이관된 사람의 창 제목이 업데이트 한 번에
      바뀌지 않게. 둘째·셋째는 새로 생긴 자리라 번호로 부르는 것이 오히려 필요하다. */
@@ -675,7 +676,7 @@ function _plRenderHead(){
   const card = ro ? (_plViewCard || {}) : (_plMyCard || {});
 
   // 닉네임 — 남의 목록은 색인에 실려 온 이름이 내가 보는 이름과 같으므로 그걸 먼저 쓴다.
-  const nick = ro ? (_plView.name || card.name || '(이름 없음)')
+  const nick = ro ? TwPersonName.shown(_plView.name || card.name)
                   : getDisplayName();
   const nickEl = document.getElementById('myPlNick');
   if(nickEl){ nickEl.textContent = nick; nickEl.title = nick; }
@@ -1222,9 +1223,9 @@ function _plRenderFriendPick(){
     const f=src[fid]||{};
     const row=document.createElement('div'); row.className='pfRow';
     const dot=document.createElement('span'); dot.className='dot'+(f.online?' on':''); row.appendChild(dot);
-    const nm=document.createElement('span'); nm.className='nm'; nm.textContent=f.name||'(이름 없음)'; row.appendChild(nm);
-    row.title=(f.name||'친구')+' 님의 플레이리스트로 파도타기';
-    row.addEventListener('click', e=>{ e.stopPropagation(); _plPeekFriend(fid, f.name||'친구'); });
+    const nm=document.createElement('span'); nm.className='nm'; nm.textContent=TwPersonName.shown(f.name); row.appendChild(nm);
+    row.title=TwPersonName.shown(f.name)+' 님의 플레이리스트로 파도타기';
+    row.addEventListener('click', e=>{ e.stopPropagation(); _plPeekFriend(fid, f.name); });
     el.appendChild(row);
   });
 }
@@ -1234,8 +1235,8 @@ async function _plPeekFriend(fid, name){
   catch(e){ notifyError('E-PL-02', e); return; }
   /* ★ "친구지만 목록이 비었다"를 그대로 말해준다 — 무작위 파도타기의 '아직 파도탈 목록이 없어요'와
      뭉뚱그리면 내 친구가 목록을 안 만든 건지 앱이 고장난 건지 구분이 안 된다. */
-  if(!r){ toast(name + ' 님은 아직 공개한 목록이 없어요'); return; }
-  _plView = { uid:r.uid, name:name || '(이름 없음)', items:r.items,
+  if(!r){ toast(TwPersonName.shown(name) + ' 님은 아직 공개한 목록이 없어요'); return; }
+  _plView = { uid:r.uid, name:name || '', items:r.items,
     bio:r.bio || '', homePublic:!!r.homePublic };
   _plSel = -1;   // 🎵 재생 위치는 그대로 — 무작위 파도타기와 같은 규칙이다(듣던 곡이 안 끊긴다)
   _plCloseFriendPick();

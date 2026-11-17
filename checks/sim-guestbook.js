@@ -11,6 +11,7 @@
    ・6절: 일부러 깨 보기
    [실행] guestbook.js · guestbook-feed.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
 globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
@@ -108,7 +109,8 @@ function mkEnv(opt){
   };
   ctx.window = ctx;
   ctx.open = () => { if(opt.blocked) return null; const w = mkChildWin(env); env.wins.push(w); return w; };
-  ctx.TwSafeHtml = globalThis.TwSafeHtml; vm.createContext(ctx);
+  ctx.TwSafeHtml = globalThis.TwSafeHtml;
+  ctx.TwPersonName = globalThis.TwPersonName; vm.createContext(ctx);
   vm.runInContext(opt.src || SRC['guestbook.js'], ctx, { filename: 'guestbook.js' });
   env.ctx = ctx; env.els = mainEls;
   env.mk = () => ctx.TwGuestbook.createGuestbook({
@@ -173,7 +175,7 @@ async function judge(S){
   });
 
   await sec('── 3. 창 — 열기 · 받는 중 · 목록 · 못 받음 · 닫힘 · 관람', async () => {
-    const e = mkEnv({ src: MOD, answers: { view: bookOf({ entries: [ent('g2', { name: '나', text: '두번째', ts: 20, mine: true }), ent('g1', { name: '밥', text: '<b>안녕</b>', ts: 10 })], clap: { count: 7, img: 'https://img.test/c.png', emoji: '🎉', todayLeft: 5, dailyMax: 5 } }) } });
+    const e = mkEnv({ src: MOD, answers: { view: bookOf({ entries: [ent('g2', { name: '나', text: '두번째', ts: 20, mine: true }), ent('g1', { name: '밥', text: '<b>안녕</b>', ts: 10 }), ent('g0', { name: '', text: '이름 없는 글', ts: 5 })], clap: { count: 7, img: 'https://img.test/c.png', emoji: '🎉', todayLeft: 5, dailyMax: 5 } }) } });
     e.mk(); e.ctx._mhGbStartWatch(); await flush(); e.calls.length = 0;
     const hold = deferred(); const real = e.answers.view; e.answers.view = () => hold.p;   // 받는 중 모습을 붙잡아 두고 본다
     e.ctx.openMyGuestbook();
@@ -191,9 +193,10 @@ async function judge(S){
     chk(typeof d.getElementById('gbClose').onclick === 'function' && (d._L.keydown || []).length === 1 && (w._WL.pagehide || []).length === 1, '✕ · ESC 로 닫기 · 창이 닫히는 것을 지켜본다(pagehide)');
     hold.res(real); e.answers.view = real; await flush();
     const list = d.getElementById('gbList');
-    chk(list.children.length === 2 && /두번째/.test(list.children[0].innerHTML) && /&lt;b&gt;안녕/.test(list.children[1].innerHTML), '받으면 목록 — 서버가 준 순서(최신이 위) · 글은 escHtml 을 지난다');
+    chk(list.children.length === 3 && /두번째/.test(list.children[0].innerHTML) && /&lt;b&gt;안녕/.test(list.children[1].innerHTML), '받으면 목록 — 서버가 준 순서(최신이 위) · 글은 escHtml 을 지난다');
+    chk(/<b>나<\/b>/.test(list.children[2].innerHTML) && /이름 없는 글/.test(list.children[2].innerHTML), '★ 글쓴이 이름이 없으면(서버 null → \'\') 그릴 때 «나»');
     const delOf = (row) => row.querySelector('.gb-meta').children[0];
-    chk(delOf(list.children[0]) && delOf(list.children[0]).textContent === '삭제' && !delOf(list.children[1]), '삭제 링크는 서버가 내 글이라고 한(mine) 글에만');
+    chk(delOf(list.children[0]) && delOf(list.children[0]).textContent === '삭제' && !delOf(list.children[1]) && !delOf(list.children[2]), '삭제 링크는 서버가 내 글이라고 한(mine) 글에만');
     chk(d.getElementById('gbInputRow').style.display === 'flex' && d.getElementById('gbGuestNote').style.display === 'none', '  서버가 canWrite 라 하니 입력칸이 보인다');
     chk(d.getElementById('gbClapTotal').textContent === 'TOTAL CLAP : 7' && d.getElementById('gbClapImg').style.display === 'block' && d.getElementById('gbClapEmoji').value === '🎉', '박수 — 합계 · 이미지 · 폭죽 이모지');
     e.answers.view = bookOf({ entries: [], clap: { count: 8, img: null, emoji: '', todayLeft: 5, dailyMax: 5 } }); e.notify({ subject: 'uA' }); await flush();

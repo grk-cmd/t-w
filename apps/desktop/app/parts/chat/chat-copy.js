@@ -21,7 +21,7 @@
     if(!msg) return null;
     const body = bodyText(msg.text);
     if(!body) return null;
-    return String(msg.name || '?') + ': ' + body;
+    return TwPersonName.shown(msg.name) + ': ' + body;
   }
   function textFor(msgs){
     return (msgs || []).map(lineFor).filter(Boolean).join('\n');

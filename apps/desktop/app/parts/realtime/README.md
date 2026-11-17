@@ -5,7 +5,7 @@
   다시 붙기 백오프(1 · 2 · 4 · 8 · 15초) · rid 요청과 답 짝짓기 · 쉬면 닫기 · 못 붙은 주소 1분 쉬기.
   무엇을 주고받는지(방 · 친구 접속 상태)는 모른다 — 연결 위의 메시지는 `hooks.onMessage`, 끊김은 `hooks.onClosed(wasReady, fatal)` 로 넘긴다.
   다시 붙을지 · 언제 포기할지는 부르는 쪽이 정한다(`scheduleReconnect()` 를 부르면 그때 백오프로 붙는다).
-- 쓰는 곳: `realtime/rt-hub.js`(pv 3 — 로그인 뒤 늘 붙는 연결 하나). 방은 그 위의 방 포트(`room/room-rt.js`)로 — 옛 방 연결(pv 1 · room-server-net.js)은 걷었다.
+- 쓰는 곳: `realtime/rt-hub.js`(pv 4 — 로그인 뒤 늘 붙는 연결 하나). 방은 그 위의 방 포트(`room/room-rt.js`)로 — 옛 방 연결(pv 1 · room-server-net.js)은 걷었다.
 - pv 2 부터 hello 에 `userId` 를 싣지 않는다(서버는 모르는 칸을 `badRequest` 로 거절 · 신원은 토큰뿐). 연결마다 · 갱신마다 달라지는 칸은 `helloFields(phase)`(`'open'` · `'refresh'`).
 - `hooks.onReady(readyMsg)` · `hooks.onClosed(wasReady, fatal, closeCode)` — 닫힘 번호는 부르는 쪽이 판단한다. ready 전 `error` auth · protocol 은 먼저 끊되 서버가 실을 번호(4001 · 4003)를 넘긴다.
 - `scheduleReconnect({ delayMs, readyWaitMs })` — 백오프 대신 정한 시간 뒤 · 그 연결의 ready 기다림(서버 재시작 1001). `reconnectNow()` — 기다리는 다시 붙기를 지금 한 번(네트워크 돌아옴).
@@ -30,8 +30,8 @@
   - ready 전의 `error` auth · version · protocol 은 서버가 곧 끊는 신호라 바로 닫고 `onClosed(false, fatal, 4001 | 4003 | null)` — auth 를 한 번 더 시도할지는 부르는 쪽(`markAuthRetry`). 토큰을 못 받은 것(이 PC 사정)은 `fatal` auth · 번호 없음.
   - 검사: `checks/sim-realtime-link.js`(공통부) · `checks/sim-rt-hub.js` · `checks/sim-room-rt.js`(연결 하나 · 방 포트가 이 위에서 그대로 도는지).
 
-## rt-hub.js — realtime 연결 하나(pv 3 · classic script `window.TwRtHub`)
-- 책임: 로그인 뒤 늘 붙어 있는 웹소켓 하나 — `hello { pv:3, token, ver, deviceId, session, claim? }`(`session` 은 연결마다 새로 뽑는 값 — `stop` · `bye` · `quit` 뒤 처음 `session()` · `start` 가 새로 뽑고, 다시 붙기 · 토큰 갱신 · «여기서 계속»은 같은 값 · 기기 등록이 연결보다 먼저 `session()` 으로 같은 값을 싣는다 · 자리는 등록이 정하고 서버는 `claim` 을 보지 않는다) · `ready{ userCode, graceMs }` · 닫힘 번호 표 · 작별(`bye`) · 살아 있음 확인(`ping`) · 알림(`notify`) → 건 함수 표 · 오래 끊겼다 붙으면 한 번씩 다시 받기. 방 · 친구 · 알림함 같은 «무엇» 은 모른다.
+## rt-hub.js — realtime 연결 하나(pv 4 · classic script `window.TwRtHub`)
+- 책임: 로그인 뒤 늘 붙어 있는 웹소켓 하나 — `hello { pv:4, token, ver, deviceId, session, claim? }`(`session` 은 연결마다 새로 뽑는 값 — `stop` · `bye` · `quit` 뒤 처음 `session()` · `start` 가 새로 뽑고, 다시 붙기 · 토큰 갱신 · «여기서 계속»은 같은 값 · 기기 등록이 연결보다 먼저 `session()` 으로 같은 값을 싣는다 · 자리는 등록이 정하고 서버는 `claim` 을 보지 않는다) · `ready{ userCode, graceMs }` · 닫힘 번호 표 · 작별(`bye`) · 살아 있음 확인(`ping`) · 알림(`notify`) → 건 함수 표 · 오래 끊겼다 붙으면 한 번씩 다시 받기. 방 · 친구 · 알림함 같은 «무엇» 은 모른다.
 - 켜기 · 끄기: `TwRtHub.store.start({ claim })`(로그인 · 가입 확인 뒤 — B 묶음 · 멈춘 뒤 [다시 연결]은 `claim:false`) · `bye(why)`(로그아웃 `logout` · 탈퇴 `withdraw` · 계정 바꾸기 `switch` — 방 leave 는 부르는 쪽이 먼저 · bye 뒤 서버 닫힘 1초 기다림 · Promise) · `stop()`(작별 없이 끄기). 앱 끄기는 `quit()`(bye{quit} 뒤 바로 닫음 — 실릴 때 beforeunload 에 건다).
 - 닫힘 번호: `CLOSE_CODES`(서버 통신 규약 7-1 과 같은 이름 · 값) → `closeAction(code, reason)` 한 곳 — 4004 는 닫힘 까닭으로 가른다(`deviceRemoved` = 이 PC 가 지워짐 · 그 밖 = 이 PC 의 새 세션) · «서버가 이 PC 연결을 끝냄» 판정은 `isDeviceOff(state)` 한 곳(로그인 흐름 · 방 · 방명록 · 계정이 부른다)(설계 04-realtime-disconnect 4-D-2). 다시 붙기 — 1006(번호 없음) · 1009 · 4005 · 4008 · 모르는 1000번대 · 1001(첫 시도 0~30초 흩고 ready 35초 기다림) · 4001 한 번(새 토큰). 멈춤 — 1000 끝 · 4001 두 번(ready 전 error auth 도 셈) · 4003 · 4004 · 4006 · 4007 · 모르는 4000번대. 멈춘 뒤엔 사용자 누름 · 서버 신호로만 `start`.
 - 살아 있음: `checkAlive()` — 깨어남(main powerMonitor `resume` · `unlock-screen` → preload `companion.onWake`) · 창 `online` 때(실릴 때 건다). 그리고 ready 인 채 `KEEPALIVE_IDLE_MS`(15초) 동안 아무 메시지도 못 받았을 때. ready 면 `ping` → 5초(`PONG_WAIT_MS`) 안에 `pong` 이 없으면 끊고 다시 붙기 · 다시 붙는 중이면 기다림을 건너뛰고 지금. 조용함 확인이 있는 까닭: 서버의 웹소켓 ping 은 브라우저가 알아서 답해 앱 코드가 못 본다 — 서버가 TCP 닫힘 없이 사라지면(`docker pause` 등) 앱은 ready 로 남았다. 이제 늦어도 약 20초 안에 끊고 다시 붙는다. 타이머는 ready 동안 하나(ready 가 될 때 걸고 ready 를 벗어날 때 · `bye` 때 푼다).

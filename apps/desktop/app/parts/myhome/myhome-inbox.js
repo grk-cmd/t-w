@@ -267,14 +267,14 @@ function renderMyHomeFriendList(){
       row.innerHTML = `<span class="mh-fdot ${f.online?'on':'off'}"></span>
         <span class="mh-favatar" style="cursor:pointer;"></span>
         <span class="mh-fmain">
-          <span class="mh-fname">${_mhHl(f.name||'(이름 없음)', _q)}${_lvBadge(f.level, f)}${inRoom?' 🏠':''}</span>
+          <span class="mh-fname">${_mhHl(TwPersonName.shown(f.name), _q)}${_lvBadge(f.level, f)}${inRoom?' 🏠':''}</span>
           <span class="mh-fsub">${escHtml(sub)}</span>
         </span>${pill}
         <span class="mh-fremove" title="친구 삭제">✕</span>`;
       // 마이홈2-B: 아바타 클릭 → 그 친구의 마이홈으로 진입 (읽기 전용)
       const avatarEl=row.querySelector('.mh-favatar');
       if(avatarEl){
-        avatarEl.title = '클릭 = ' + (f.name || '친구') + ' 마이홈 관람';   // 프로퍼티 = 마크업 경로가 아니다
+        avatarEl.title = '클릭 = ' + TwPersonName.shown(f.name) + ' 마이홈 관람';   // 프로퍼티 = 마크업 경로가 아니다
         /* 아바타 이미지도 만들어 붙인다. 스킴은 한 번 본다 — 지금 저장은 `pickImage` 가 만드는
            `data:image/…` 이고 Storage URL(http(s))도 있을 수 있다. 그 둘만 통과시킨다.
            (`<img src>` 는 `javascript:` 를 실행하지 않지만, 통과 목록을 좁혀 두면 나중에
@@ -311,7 +311,7 @@ function renderMyHomeFriendList(){
       // 🎁 우클릭 → 말랑이 선물 보내기 창
       row.addEventListener('contextmenu', e=>{
         e.preventDefault(); e.stopPropagation();
-        mallangMod.openGift(fid, f.name||'친구');
+        mallangMod.openGift(fid, f.name);
       });
       row.title = (row.title ? row.title + ' · ' : '') + '우클릭: 말랑이 선물';
       list.appendChild(row);
@@ -412,7 +412,7 @@ function _giftBoxPaint(listEl, b){
     const when = _inboxTimeStr(g.sentAt);
     const star = g.starred === true;
     const next = full && !star && i === items.length - 1;
-    const who = (g.senderName||'친구') + ' 님이 선물했어요';
+    const who = TwPersonName.shown(g.senderName) + ' 님이 선물했어요';
     const tip = who + (g.message ? ('\n“'+g.message+'”') : '') + (when ? ('\n'+when) : '')
               + '\n' + (g.hidden ? '클릭하면 마이홈에 다시 불러와요' : '마이홈에 나와 있어요')
               + (next ? '\n새 선물이 오면 이 선물이 먼저 지워져요' : '');
@@ -451,7 +451,7 @@ function _giftBoxPaint(listEl, b){
       return;
     }
     _mhAsk('선물 저장 · 삭제',
-      (g.senderName||'친구')+' 님의 선물을 저장하거나 삭제할 수 있어요.\n삭제하면 되돌릴 수 없어요. 마이홈에 나와 있으면 같이 사라져요.',
+      TwPersonName.shown(g.senderName)+' 님의 선물을 저장하거나 삭제할 수 있어요.\n삭제하면 되돌릴 수 없어요. 마이홈에 나와 있으면 같이 사라져요.',
       [saveBtn,
        { label:'삭제', danger:true, run: async ()=>{
           const r = await giftBox.remove(k);   // 실패 번호 · 안내는 gift-box 가 띄운다

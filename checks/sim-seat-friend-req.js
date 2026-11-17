@@ -7,6 +7,7 @@
    ・3절: 앞단 검사 · 결과 문구 — 준비 안 됨 · 나 · 이미 친구 · 정원(경계 MAX−1 / MAX) · 서버 결과 셋 · 던짐
    ・4절: app.js 연결 · 5절: 일부러 깨 보기 */
 'use strict';
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기(이름 없음 → «나») — 진짜 파일
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
@@ -51,7 +52,10 @@ async function behave(src) {
   t(w.log.sends.length === 0, '다른 사람을 누르면 다시 처음부터');
   w = world(src);
   w.out._friendReqAsk('u2', {}); w.fire(); w.out._friendReqAsk('u2', {}); await flush();
-  t(w.log.sends.length === 0 && /^이 사람님은/.test(lastT(w)), '5초가 지나면 처음부터 · 이름 없으면 «이 사람»');
+  t(w.log.sends.length === 0 && /^나님은/.test(lastT(w)), '5초가 지나면 처음부터 · 좌석 이름이 없으면(null) «나»(TwPersonName)');
+  w = world(src);
+  w.out._friendReqAsk('u2', null); await flush();
+  t(/^이 사람님은/.test(lastT(w)), '  좌석 자체가 없으면 «이 사람»');
 
   const twice = async (o, uid = 'u2') => { const x = world(src, o); x.out._friendReqAsk(uid, seat); x.out._friendReqAsk(uid, seat); await flush(); await flush(); return x; };
   let x = await twice({ noApi: true });

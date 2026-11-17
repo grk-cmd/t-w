@@ -311,7 +311,7 @@ const errorText = deps.errorText;                         // 오류 번호 → �
     if(!v.entries.length){ listEl.innerHTML='<div class="gb-empty">아직 방명록이 없어요 — 첫 글을 남겨보세요!</div>'; return; }
     v.entries.forEach(en=>{   // 서버가 최신 글이 위로 준다
       const row=d.createElement('div'); row.className='gb-row';
-      row.innerHTML='<div class="gb-head"><b>'+escHtml(en.name||'(이름 없음)')+'</b><span class="gb-meta"><span>'+relTime(en.ts)+'</span></span></div>'
+      row.innerHTML='<div class="gb-head"><b>'+escHtml(TwPersonName.shown(en.name))+'</b><span class="gb-meta"><span>'+relTime(en.ts)+'</span></span></div>'
         +'<div class="gb-text">'+escHtml(en.text||'')+'</div>';
       // ★ 내가 쓴 글(서버가 준 mine)만 삭제 링크 표시 — 글쓴이를 모르는 옛 글은 아무도 못 지운다
       if(en.mine){

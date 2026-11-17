@@ -13,6 +13,7 @@
    ・7절: 🐞 버그 제보 탭 — app.js 에 없고 bug-board-ui.js 끝(IIFE 밖 · 전역 그대로) · 링크 구독 · 관리자만 편집 · 링크 모양 · 공지는 그대로 실어 보냄
    [실행] friend-manage.js · bug-board-ui.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const vm = require('vm');
@@ -85,7 +86,7 @@ function mkEnv(opt){
       getUserNameById: async (uid) => { env.lookups.push(uid); return env.names[uid] || null; },
     },
   };
-  ctx.window = ctx;
+  ctx.window = ctx; ctx.TwPersonName = globalThis.TwPersonName;
   vm.createContext(ctx);
   vm.runInContext(MOD, ctx, { filename: 'friend-manage.js' });
   env.ctx = ctx; env.els = els; env.q = q; env.body = body;

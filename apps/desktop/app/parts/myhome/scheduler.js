@@ -910,7 +910,7 @@ function _applyAnnivHeight(px){
           const cb = document.createElement('input'); cb.type='checkbox'; cb.value=fid;
           cb.checked = _schedTagSel.includes(fid);
           const nm = document.createElement('span');
-          nm.textContent = (myHomeFriends()[fid]||{}).name || '(이름 없음)';
+          nm.textContent = TwPersonName.shown((myHomeFriends()[fid]||{}).name);
           lbl.appendChild(cb); lbl.appendChild(nm);
           tagList.appendChild(lbl);
         });
@@ -1051,7 +1051,7 @@ function _applyAnnivHeight(px){
           const cb = document.createElement('input'); cb.type='checkbox'; cb.value=fid;
           cb.checked = _ddayTagSel.includes(fid);
           const nm = document.createElement('span');
-          nm.textContent = (myHomeFriends()[fid]||{}).name || '(이름 없음)';
+          nm.textContent = TwPersonName.shown((myHomeFriends()[fid]||{}).name);
           lbl.appendChild(cb); lbl.appendChild(nm);
           tagList.appendChild(lbl);
         });
@@ -1176,7 +1176,7 @@ async function _bellLoadNotices(){
   Object.keys(_bellNotices).forEach(id=>{
     const n = _bellNotices[id];
     if(!prevIds.includes(id) && (n.ts||0) > seen){
-      toast('🔔 ' + (n.fromName||'친구') + ' 님이 일정에 태그했어요');
+      toast('🔔 ' + TwPersonName.shown(n.fromName) + ' 님이 일정에 태그했어요');
     }
   });
 }
@@ -1284,7 +1284,7 @@ function renderBellList(){
     const row = document.createElement('div'); row.className = 'bell-row today';
     const main = document.createElement('div'); main.className='bmain';
     const t = document.createElement('div'); t.className='btitle'; t.textContent = n.text||''; t.title = n.text||'';
-    const f = document.createElement('div'); f.className='bfrom'; f.textContent = (n.fromName||'친구') + ' 님이 태그함';
+    const f = document.createElement('div'); f.className='bfrom'; f.textContent = TwPersonName.shown(n.fromName) + ' 님이 태그함';
     main.appendChild(t); main.appendChild(f);
     const meta = document.createElement('div'); meta.className='bmeta'; meta.textContent = 'D-DAY';
     const x = document.createElement('span'); x.className='bx'; x.textContent='×'; x.title='알림 지우기';

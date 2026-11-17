@@ -21,7 +21,7 @@ const toast = deps.toast;
 let _friendReqArmed = null, _friendReqTimer = null;
 const FRIEND_REQ_ARM_MS = 5000;   // 이 시간 안에 메뉴에서 한 번 더 고르면 전송
 function _friendReqAsk(uid, seat){
-  const name = (seat && seat.friendName) || '이 사람';
+  const name = seat ? TwPersonName.shown(seat.friendName) : '이 사람';
   if(_friendReqArmed !== uid){
     _friendReqArmed = uid;
     clearTimeout(_friendReqTimer);

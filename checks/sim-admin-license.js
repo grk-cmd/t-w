@@ -11,6 +11,7 @@
    [실행] app.js · desk-companion-prototype.html · admin-license.js · admin-notice.js · admin-category.js 가 있는 폴더에서
      (러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기(이름 없음 → «나») — 진짜 파일
 globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
@@ -225,7 +226,7 @@ async function judgeAll(m, app, html){
 
   say('── 6. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
   const breaks = [
-    ['요청한 사람 이름을 HTML 로 읽음', { lic: s => s.replace("b.textContent = req.name || '(이름 없음)';", "b.innerHTML = req.name || '(이름 없음)';") }],
+    ['요청한 사람 이름을 HTML 로 읽음', { lic: s => s.replace("b.textContent = TwPersonName.shown(req.name);", "b.innerHTML = TwPersonName.shown(req.name);") }],
     ['친구코드 후보 차례 바뀜', { lic: s => s.replace("['MATE-' + code, 'COZY-' + code]", "['COZY-' + code, 'MATE-' + code]") }],
     ['회수에 판(version)을 안 실음', { lic: s => s.replace('adminApi.revokeLicense(d.id, d.version)', 'adminApi.revokeLicense(d.id, 0)') }],
     ['409 를 덮어쓰기로', { lic: s => s.replace("if(kind === 'refetch'){ toast(REFETCH_TEXT); renderLicenseGenList(); return; }", '') }],

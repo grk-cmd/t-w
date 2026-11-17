@@ -750,7 +750,7 @@ function _chatTabsRender(){
   // 입력 중이면 다시 그리지 않는다 — 치던 글자가 날아간다
   if(_chatTabEdit && bar.querySelector('.ct-edit input') === document.activeElement) return;
   const tabs = ChatTabs.list(_chatTabMeta()), cur = _chatMyTabId();
-  const people = seats.filter(st => st && (st.isMe || st.friendName)).map(st => ({ tab: st.isMe ? cur : (st.chatTabId || 'general') }));
+  const people = seats.filter(st => st && (st.isMe || st.remote)).map(st => ({ tab: st.isMe ? cur : (st.chatTabId || 'general') }));
   const cnt = ChatTabs.counts(people, _chatTabMeta());
   const host = _chatIsHost();
   const h = tabs.map(t => {
@@ -890,7 +890,7 @@ function _renderChatLog(list){
   if(_chatHistFail) html.push('<div class="cm-row cm-hist-fail" style="text-align:center;color:#7a2718;">지난 대화를 불러오지 못했어요 <button type="button" class="lc-btn" data-hist-retry="1" style="margin-left:6px;padding:2px 8px;">다시 시도</button></div>');
   rows.forEach((m, i)=>{
     if(i===dividerAt) html.push('<div class="cm-unread-sep" id="cmUnreadSep"><span>여기까지 읽었습니다</span></div>');
-    const nm=_chatEsc(m.name||'?');
+    const nm=_chatEsc(TwPersonName.shown(m.name));
     let tx=_renderChatText(m.text||'');
     // 내 발화는 이름을 테마 강조색으로 — 긴 대화에서 내 줄을 눈으로 찾기 위함(uid 기준이라 동명이인 안전).
     const mine = !!(_myUid && m.uid && m.uid === _myUid);
@@ -1195,7 +1195,7 @@ function _saveChatLog(){
   const room=(typeof Presence()!=='undefined' && Presence().roomCode)?Presence().roomCode():'room';
   // 🚪 입장 이전 대화는 파일로도 안 나간다 — 화면에서 가려놓고 저장 버튼 한 번으로 다 보이면 의미가 없다.
   //    ⚠️ [지우기]로 접은 것은 그대로 저장된다(예전 동작 유지 — 그건 내가 잠시 접어둔 것뿐이다).
-  const lines=_chatSinceJoin(_chatLogCache()).map(m => `${m.name||'?'} : ${m.text||''}`);
+  const lines=_chatSinceJoin(_chatLogCache()).map(m => `${TwPersonName.shown(m.name)} : ${m.text||''}`);
   const header=`대화 기록 — ${room}\n저장 시각: ${new Date().toLocaleString()}\n${'='.repeat(30)}\n`;
   const blob=new Blob([header+lines.join('\n')], {type:'text/plain;charset=utf-8'});
   const url=URL.createObjectURL(blob);

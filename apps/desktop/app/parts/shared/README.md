@@ -279,6 +279,14 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 앱 안 그림의 **상대 경로**(`emoji/…` · `assets/…`)는 `safeUrl` 이 막는다 — 그런 고정 경로는 감싸지 않는다(검사는 앞 글자가 주소를 정한 길 조각을 통과시킨다).
   - **다른 escape 를 새로 만들지 않는다.** `checks/sim-safe-html.js` 가 parts/ 전체 · html `<script>` · main.js · preload.js 를 typescript 파서로 읽어 innerHTML · outerHTML · insertAdjacentHTML · `.src` · `.href` · `style.background*` · `url(` 에 들어가는 값을 끝까지 따라가고, 씻지 않은 잎 · 집에서 만든 escape 가 있으면 빨강. 예외는 그 파일 `ALLOW` 에 이유와 함께만.
 
+## `person-name.js` — 🏷️ 사람 이름을 화면 글로
+
+- **책임**: 서버가 준 사람 이름(문자열 | `null` — 우리 화면 모양에서는 `''` 로도 온다)을 화면 글로 바꾸는 한 곳. 이름이 없으면 **그리는 순간에만** «나». 서버 · 이 PC 저장 칸(`tw.userName`) · 방에 보내는 값에는 «나» 를 적지 않는다 — 이름의 주인은 서버 계정이다(방 이름 · 레벨도 서버가 채운다 · realtime pv 4). 서버가 모르는 사람(탈퇴 · 옛 기록)은 서버가 «알 수 없음» 글자로 주므로 그대로 그린다.
+- **쓰는 법**: 만들지 않는다. `TwPersonName.shown(name)` → 앞뒤 공백을 걷은 이름 · 없으면 `TwPersonName.NO_NAME`(«나»). html · `checks/smoke.js` PRELOAD 에서 쓰는 모듈 · app.js 보다 먼저 싣는다. 이름을 HTML 에 넣을 땐 이 값을 다시 `TwSafeHtml.text` 로 씻는다.
+- **지금 쓰는 곳**: 내 이름(`getDisplayName` — app.js) · 방 좌석(`room-entry.js` 좌석 `friendName` · 이름표) · 대화 줄 · 복사 · 저장 · 같이 듣기 · 스티커사진 자리 · 방 초대 팝업 · 친구 목록 · 친구 요청 · 선물함 · 말랑이 선물 창 · 방명록 · 일정 태그 · 플레이리스트 · 버그 게시판 글쓴이 · 관리자 신고 · 라이선스 요청 목록.
+- **함정**: 받는 쪽(`*-api.js` · `*-rt.js`)에서 «(이름 없음)» · «친구» 같은 자리표시를 새로 만들지 않는다 — 이름 칸은 `''` 그대로 두고 그리는 곳이 이 함수를 부른다. 입력칸(내 이름 고치기)에는 `getUserName()`(이름이 없으면 빈칸)을 넣는다 — «나» 를 넣으면 진짜 이름으로 저장된다.
+- 검사: `checks/sim-person-name.js`.
+
 ## `drag-scroll.js` — 🖱 목록을 마우스로 끌어 움직이기
 
 - **책임**: 스크롤바를 숨긴 목록을 왼쪽 버튼으로 끌어 위아래로 움직인다(휠은 브라우저가 그대로). 도메인을 모르는 DOM 도우미.

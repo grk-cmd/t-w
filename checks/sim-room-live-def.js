@@ -12,6 +12,7 @@
    3. 줄 — launchApp 이 Presence.myDef 를 보고 updateDef 를 부른다 · 옛 줄(안 보냄)이면 빨강
    ⚠ smoke.js 의 스텁을 빌려 쓴다 — 같은 폴더에 있어야 한다. */
 'use strict';
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기(이름 없음 → «나») — 진짜 파일
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 
@@ -90,7 +91,7 @@ const defSends = () => sent.filter(s => s.how === 'update' && s.payload && s.pay
   P.setCurSlot(0);
   P.launchApp({ mode: 'run' });
   sent = [];
-  await P.Presence.start('WORK-TEST', P.slots[0], '나', () => {}, { provider: rt.makeProvider({ serializeDef: P.serializeDefForNetwork }, null) });
+  await P.Presence.start('WORK-TEST', P.slots[0], () => {}, { provider: rt.makeProvider({ serializeDef: P.serializeDefForNetwork }, null) });
   chk(sent.length && sent[0].how === 'join', '입장 — join 메시지로 갔다');
   chk(P.Presence.myDef() === OLD, 'Presence.myDef 는 입장 때 보낸 def 다');
 
@@ -136,7 +137,7 @@ const defSends = () => sent.filter(s => s.how === 'update' && s.payload && s.pay
   P.slots[0] = OLD;
   P.setCurSlot(0);
   P.launchApp({ mode: 'run' });
-  await P.Presence.start('WORK-AB12', P.slots[0], '나', () => {}, { provider: fakeServer });
+  await P.Presence.start('WORK-AB12', P.slots[0], () => {}, { provider: fakeServer });
   chk(!!P.Presence.serverProvider(), '서버 provider 로 붙었다');
   P.launchApp({ mode: 'run' });
   await tick();

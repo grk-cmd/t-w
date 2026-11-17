@@ -475,7 +475,7 @@ const tricksMod = TwTricks.createTricks({
   canvas: canvas,
   creatorOpen: ()=>creatorOpen,
   flySeed: (...a)=>flySeed(...a),
-  getDisplayName: (...a)=>getDisplayName(...a),
+  getUserName: (...a)=>getUserName(...a),
   myCode: ()=>TwRoomRt.store.myCode(),
   chatNet: TwChatRt.store,
   measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
@@ -1969,7 +1969,7 @@ const rouletteMod = TwRoulette.createRoulette({
   canFly: (...a)=>canFly(...a),
   diceMod: diceMod,
   findMySeat: (...a)=>findMySeat(...a),
-  getDisplayName: (...a)=>getDisplayName(...a),
+  getUserName: (...a)=>getUserName(...a),
   officeMode: ()=>officeModeMod.officeMode(),
   showChatBubble: (...a)=>showChatBubble(...a),
   toast: (...a)=>toast(...a),
@@ -3506,7 +3506,7 @@ const listenUi = TwListenUi.createListenUi({
   nameOf: (uid)=>{
     if(uid === TwRoomRt.store.myCode()) return getDisplayName();
     const f = Object.values(Presence.friendsObj() || {}).find(x=>x && x.userId === uid);
-    return (f && f.name) || '(이름 없음)';
+    return TwPersonName.shown(f && f.name);
   },
   djItems: ()=>plMod.mine().slice(),
   stopPersonal: ()=>plMod.stopIfPlaying(),
@@ -3548,7 +3548,6 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   curSlot: ()=>curSlot,
   deserializeDefFromNetwork: (...a)=>roomSyncMod.deserializeDefFromNetwork(...a),
   focusLevelMod: ()=>focusLevelMod,
-  getDisplayName: (...a)=>getDisplayName(...a),
   myCode: ()=>TwRoomRt.store.myCode(),
   isAdmin: ()=>isAdmin,
   isPremium: ()=>isPremium,
@@ -3613,16 +3612,17 @@ TwRoomLobbyUi.createRoomLobbyUi({
 });
 const USER_NAME_KEY = 'tw.userName';
 
+// 내 이름 — 서버 계정 이름의 이 PC 사본. 이름이 없으면 '' (칸을 지운다 — «나» 를 적지 않는다)
 function getUserName(){
-  try{ return localStorage.getItem(USER_NAME_KEY) || '나'; }catch(e){ return '나'; }
+  try{ return localStorage.getItem(USER_NAME_KEY) || ''; }catch(e){ return ''; }
 }
 
 function setUserName(name){
-  try{ localStorage.setItem(USER_NAME_KEY, name || '나'); }catch(e){}
+  try{ localStorage[name ? 'setItem' : 'removeItem'](USER_NAME_KEY, name); }catch(e){}   // 이름이 없으면 칸을 지운다
 }
 
-// 머리 위 이름표 등 "다른 사람에게 보이는" 표시용 — 이름을 저장한 적 없으면 (이름 없음)으로 표시
-function getDisplayName(){ const n=getUserName(); return (n==='나' || !n.trim()) ? '(이름 없음)' : n; }
+// 화면에 그릴 내 이름 — 이름이 없으면 그릴 때만 «나»(shared/person-name.js)
+function getDisplayName(){ return TwPersonName.shown(getUserName()); }
 
 /* ═══ 🏷️ 닉네임 저장 — **모달이 아니라 제자리 편집**이 부르는 한 벌 ══════════
    [경위] 예전엔 #userNameOverlay 모달이 이 일을 했다. 그 모달은 런처 시절 창이라(z-index:80)
@@ -3638,7 +3638,6 @@ function getDisplayName(){ const n=getUserName(); return (n==='나' || !n.trim()
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 /* 🏷️ 닉네임 저장 — 본문은 account/user-name.js(모듈 순환 끊기 7 — 설정 창과 떼어 마이홈 편집 · 내 정보가 설정 창을 바라보지 않게). 원래 자리라 여기서 만든다 */
 const userNameMod = TwUserName.createUserName({
-  Presence: Presence,
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   getUserName: (...a)=>getUserName(...a),

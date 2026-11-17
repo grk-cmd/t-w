@@ -145,6 +145,8 @@ async function judge(S){
     chk(b.items[0].sentAt === Date.parse('2026-11-10T01:02:03Z') && b.items[1].sentAt === 0, '  sentAt ISO → ms · 깨지면 0');
     chk(b.items[1].message === '' && b.items[1].hidden === true, '  메시지 없음 → \'\' · 치움 = hidden');
     chk(b.unseenCount === 3 && b.starCount === 1 && b.boxKeep === 30 && b.starMax === 20, '숫자 칸은 서버 값(새 선물 수 · ⭐ 수 · 보관 상한 · ⭐ 상한)');
+    const nn = await mk(LIB, { 'GET /v2/me/gifts': boxRes([gift('n', { senderName: null }), gift('k', { senderName: 3 })], { unseenCount: 0, starCount: 0 }) }).m.fetchBox();
+    chk(nn.items.length === 1 && nn.items[0].id === 'n' && nn.items[0].senderName === '', '★ 보낸 사람 이름이 없으면(null) 줄을 버리지 않고 \'\' — 화면이 «나» 로 그린다 · 글도 null 도 아닌 이름은 깨진 줄');
     const e0 = await mk(LIB, { 'GET /v2/me/gifts': boxRes([], { unseenCount: 0, starCount: 0 }) }).m.fetchBox();
     chk(e0.items.length === 0 && e0.unseenCount === 0, '빈 선물함은 { items:[] } — 실패가 아니다');
     const d = await throws(() => mk(LIB, { 'GET /v2/me/gifts': apiErr(500, 'X') }).m.fetchBox());
@@ -305,6 +307,7 @@ async function runAll(){
     ['이모지 짝을 깨고 자름', S.API.replace("if(last >= 0xD800 && last <= 0xDBFF) t = t.slice(0, -1);", ""), '이모지 경계'],
     ['겹친 칸 번호를 받음', S.API.replace(" || seen.has(s.slot)", ""), '겹침'],
     ['칸을 slot 차례로 안 줄 세움', S.API.replace("list.sort((a, b) => a.slot - b.slot);", ""), 'slot 차례'],
+    ['이름 없는 선물을 버림', S.API.replace("(raw.senderName !== null && typeof raw.senderName !== 'string')", "typeof raw.senderName !== 'string'"), 'null 이름'],
     ['sentAt 을 ms 로 안 바꿈', S.API.replace("sentAt: msOf(raw.sentAt) };", "sentAt: raw.sentAt };"), 'ms'],
     ['닿지 못함을 공통 번호로', S.API.replace("else kind = KIND.SITE;", "else kind = KIND.COMMON;"), 'site'],
     ['그림 크기를 안 거름', S.IMG.replace("img.bytes.length > o.maxBytes", "false"), '1MB', 'IMG'],

@@ -24,7 +24,7 @@ function _mhViewingDisplayName(){
   const uid = myhomeStore.viewing();
   if(!uid) return '';
   const f = _myHomeFriends()[uid];
-  if(f && f.name) return f.name;
+  if(f && typeof f.name === 'string') return TwPersonName.shown(f.name);   // 친구면 그 이름 — 이름이 없으면 «나»
   const hint = myhomeStore.viewName();
   if(hint) return hint;
   return '친구';

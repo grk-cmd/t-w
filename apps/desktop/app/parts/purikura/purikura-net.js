@@ -420,7 +420,7 @@ function filterLaggards(slots, id, meId){
   for(var k in slots){
     var v = slots[k];
     if(!v || typeof v !== 'object' || (meId && v.uid === meId)) continue;
-    if(!((+v.fx || 0) >= need)) out.push(String(v.name || '참가자'));
+    if(!((+v.fx || 0) >= need)) out.push(typeof v.name === 'string' ? v.name : '');   // 이름 그대로(없으면 '') — 그리는 쪽이 TwPersonName.shown
   }
   return out;
 }

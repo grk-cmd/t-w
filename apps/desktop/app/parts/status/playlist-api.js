@@ -71,7 +71,7 @@ function pickOf(d){
   const items = itemsOf(d.set.tracks);
   if(!items || !items.length) return undefined;
   const idx = (typeof d.setNo === 'number' && isFinite(d.setNo) && d.setNo >= 0) ? d.setNo : 0;
-  return { uid: d.userCode, name: str(d.displayName) || '(이름 없음)', items, setName: str(d.set.name), setIdx: idx,
+  return { uid: d.userCode, name: str(d.displayName), items, setName: str(d.set.name), setIdx: idx,
     bio: str(d.bio), homePublic: d.homePublic === true };
 }
 
