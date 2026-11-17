@@ -1,6 +1,6 @@
 import { useState, type KeyboardEvent } from 'react';
 import { MONTHS_MAX, takenWarning } from '@/entities/secret-room';
-import { errorMessage } from '@/shared/lib';
+import { errorMessage, shownName } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
 import { useGrantSecretRoomPort } from '../api';
 import { isServerPlan, type AnySecretPlan, type GrantResult, type SecretGrantInput } from '../api/port';
@@ -17,7 +17,7 @@ function resultMessage(r: Extract<GrantResult, { ok: true }>, plan: AnySecretPla
         ? '수령함으로 보냈어요'
         : '수령함 전송 실패. 코드를 직접 전달해 주세요',
     // 잘못 간 뒤에 어디로 갔는지 되짚을 수 있게 받는 계정을 늘 남긴다.
-    `받는 계정 ${r.recipient}${r.recipientName ? ` (${r.recipientName})` : ''}`,
+    `받는 계정 ${r.recipient} (${shownName(r.recipientName)})`,
   ];
   if (plan.confusing) parts.push('0 · O · 1 · I 가 섞여 있어요');
   if (r.expiredOld) parts.push(`옛 코드 ${r.expiredOld} 를 만료 처리했어요`);

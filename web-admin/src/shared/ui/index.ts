@@ -8,3 +8,4 @@ export { DailyBars, type DailyMarker, type DailyPoint } from './DailyBars';
 export { StatSection, type Stat } from './StatSection';
 export { useModalDialog } from './useModalDialog';
 export { VersionInput } from './VersionInput';
+export { PersonName } from './PersonName';

@@ -18,7 +18,7 @@ import type { BulkGrantPort } from './port';
 
 const LOOKUP_BATCH = 5;
 
-type Lookup = { uid: string; code: string; name: string } | 'err' | null;
+type Lookup = { uid: string; code: string; name: string | null } | 'err' | null;
 
 /**
  * 미리보기용 조회 — 친구코드 → 주인 · 이름만 읽고 아무것도 쓰지 않는다.
@@ -36,7 +36,7 @@ export async function lookupRows(
     let hit: Lookup;
     try {
       const user = await findUserByFriendCode(db, code);
-      hit = user ? { ...user, name: (await getUserName(db, user.uid)) ?? '' } : null;
+      hit = user ? { ...user, name: await getUserName(db, user.uid) } : null;
     } catch {
       hit = 'err';
     }
@@ -60,7 +60,7 @@ export async function lookupRows(
       memo: d.memo,
       code: user?.code ?? '',
       uid: user?.uid ?? null,
-      name: user?.name ?? '',
+      name: user?.name ?? null,
       // 결과 파일을 다시 올렸을 때 키가 이미 나간 행은 또 만들지 않는다. 코드는 풀어 두어 뒷 행의 중복 판정에 쓴다.
       base: d.hasKey ? 'haskey' : base,
       st: d.hasKey ? 'haskey' : base,

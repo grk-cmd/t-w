@@ -339,6 +339,7 @@ describe('관리자 화면 글쓴이 이름 — 비공개 글은 «익명 (닉�
     expect(bugAuthorName({ vis: 'prv', name: '익명' }, null)).toBe('익명');
     expect(bugAuthorName({ vis: 'prv', name: '익명' }, '   ')).toBe('익명');
     expect(bugAuthorName({ vis: 'prv', name: '' }, '고로케')).toBe('이름 없음 (고로케)');
+    expect(bugAuthorName({ vis: 'pub', name: null }, undefined)).toBe('이름 없음');
   });
   it('닉네임을 읽는 건 비공개 글이고 글쓴이 코드가 있을 때만(공개 글은 읽지 않는다)', () => {
     expect(needsAuthorLookup({ vis: 'prv', code: 'MATE-AB12' })).toBe(true);

@@ -1,5 +1,5 @@
 import type { LicenseRequest } from '@/entities/license-request';
-import { errorMessage } from '@/shared/lib';
+import { errorMessage, shownName } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
 import { useApproveRequest, useRejectRequest } from '../model/useApproveRequest';
 
@@ -7,7 +7,7 @@ export function RequestActions({ request }: { request: LicenseRequest }) {
   const toast = useToast();
   const approve = useApproveRequest();
   const reject = useRejectRequest();
-  const who = `${request.name || '이름 없음'} 님`;
+  const who = `${shownName(request.name)} 님`;
 
   // 요청 목록은 실시간 구독이라 쓰는 순간 이 줄이 사라진다 — mutate 의 콜백은 언마운트되면 불리지 않아
   // 알림이 사라지므로 mutateAsync 의 결과를 기다려 알린다.

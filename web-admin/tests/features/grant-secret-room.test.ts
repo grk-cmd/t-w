@@ -42,6 +42,14 @@ describe('시크릿룸 발급 — 확인', () => {
     expect(withoutAudits(writes)).toEqual([]);
   });
 
+  it('name 이 공백뿐 · 옛 placeholder 이면 방 이름은 빈 문자열', async () => {
+    for (const stored of ['   ', '(이름 없음)']) {
+      const { db } = fakeDb({ ...alive, 'users/u1/profile/name': stored });
+      const r = await prepareSecretGrant(db, input({ months: '3' }), NOW, () => 'SCRT-ZZZZ');
+      expect(r.ok && r.plan.name).toBe('');
+    }
+  });
+
   it('입력 오류는 아무것도 읽기 전에 막는다', async () => {
     const { db } = fakeDb(alive);
     expect(await prepareSecretGrant(db, input({ target: ' ' }))).toMatchObject({ ok: false });

@@ -20,7 +20,8 @@ import { INVITE_ISSUER_ADMIN } from '@/entities/invite/@x/user';
 import type { KeysetPage } from '@/shared/lib';
 import type { DetailSecretRoom, Invitee, UserDetail } from '../model/detail';
 import type { UserInvite } from '../model/live';
-import { realName, type LiveUserRow, type UserLicense } from '../model/userRow';
+import { realName } from '@/shared/lib';
+import type { LiveUserRow, UserLicense } from '../model/userRow';
 import type { UserDetailPort } from './port';
 
 /** 서버 `license.state` → 줄의 라이선스 상태. 모르는 값은 짐작하지 않고 던진다. */
@@ -62,7 +63,7 @@ export function toServerUserRow(w: unknown): LiveUserRow {
   const invite = inviteOf(o.invite, userCode);
   return {
     userCode,
-    name: realName(wireString(o.name, what('name'))),
+    name: realName(wireNullableString(o.name, what('name'))),
     friendCode: wireString(o.friendCode, what('friendCode')),
     license: license.key,
     licenseState: license.state,

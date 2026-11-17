@@ -472,6 +472,19 @@ describe('방 닫기 · 목록 — 결과를 그대로 알리고 모양이 틀�
     expect(isPortError(error, 'invalid')).toBe(true);
   });
 
+  it('이름이 없는 참여자(name: null)는 null 그대로', async () => {
+    const room = { code: 'A', channel: 'workingroom', secret: false, open: true, host: null };
+    const wire = {
+      ...listing,
+      rooms: [{ ...room, members: [{ userCode: 'u1', name: null }] }],
+      counts: { workingroom: 1, togetherroom: 0 },
+    };
+    const port = createServerRoomPort(fake({ 'GET /v2/admin/rooms': () => wire }).api);
+    expect(await port.probeRooms(['A'], new Set())).toEqual({
+      A: { members: 1, lastSeen: null, people: [{ userId: 'u1', name: null }] },
+    });
+  });
+
   it('방 목록의 칸이 틀리면(채널 · 참여자 이름) 그 방을 빼거나 빈 이름으로 두지 않고 던진다', async () => {
     const room = { code: 'A', channel: 'workingroom', secret: false, open: true, host: null, members: [] };
     const bad = [

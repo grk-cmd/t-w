@@ -7,7 +7,7 @@ export interface KeptItem {
 /** API 판 미리 보기 — 서버가 센 양과 계정 소개. */
 export interface ServerDeletePreview {
   userCode: string;
-  name: string;
+  name: string | null;
   friendCode: string;
   /** DB 에서 지울 곳 수. */
   items: number;

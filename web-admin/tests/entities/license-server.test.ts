@@ -108,6 +108,19 @@ describe('라이선스 요청 — API 판', () => {
     createdAt: '2026-11-01T00:00:00Z',
   });
 
+  it('이름이 없는 사람(name: null)은 null 그대로', async () => {
+    const s = fakeApiOf({
+      'GET /v2/admin/license-requests': () => ({
+        items: [{ ...req('a'), name: null }],
+        nextCursor: null,
+        total: 1,
+      }),
+    });
+    const port = createServerLicenseRequestPort(s.api);
+    if (port.kind !== 'poll') throw new Error('API 판은 poll');
+    expect((await port.page(undefined, 100)).items[0].name).toBeNull();
+  });
+
   it('한 쪽씩 받고 첫 쪽 total 을 그대로 쓴다', async () => {
     const s = fakeApiOf({
       'GET /v2/admin/license-requests': ({ query }) =>

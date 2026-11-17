@@ -54,6 +54,11 @@ describe('사용자 한 사람 — API 판', () => {
     expect(s.calls).toHaveLength(1);
   });
 
+  it('이름이 없는 사람(name: null)은 null 그대로', async () => {
+    const s = fakeApiOf({ 'GET /v2/admin/users/u1': () => detail('u1', { name: null }) });
+    expect((await createServerUserPort(s.api).detail('u1')).row.name).toBeNull();
+  });
+
   it('online null 은 «모름» 으로 남는다 — false 로 바꾸지 않는다', async () => {
     const s = fakeApiOf({ 'GET /v2/admin/users/u1': () => detail('u1', { online: null, room: null }) });
     const p = await createServerUserPort(s.api).presence('u1');

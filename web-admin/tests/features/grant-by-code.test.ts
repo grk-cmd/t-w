@@ -24,6 +24,17 @@ describe('친구코드로 발급', () => {
     expect(writes[1][1]).toMatch(/^inbox\/u1\//);
   });
 
+  it('name 이 공백뿐 · 옛 placeholder 이면 이름 없이(null) — 메모에도 싣지 않는다', async () => {
+    for (const stored of ['   ', '(이름 없음)']) {
+      const { db, writes } = fakeDb({
+        'friendCodes/COZY-AB12': { userId: 'u1' },
+        'users/u1/profile/name': stored,
+      });
+      expect(await grantByFriendCode(db, 'ab12', () => 'KEY')).toMatchObject({ ok: true, name: null });
+      expect((writes[0][2] as { note: string }).note).toBe('친구코드 발급: COZY-AB12');
+    }
+  });
+
   it('수령함 쓰기가 거부되면 키도 남지 않는다', async () => {
     const { db, writes } = fakeDb({ 'friendCodes/MATE-AB12': { userId: 'u1' } }, (p) =>
       p.startsWith('inbox/'),

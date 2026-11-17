@@ -105,6 +105,22 @@ describe('제보 목록 — API 판', () => {
     expect(page.items[0]).not.toHaveProperty('authUid');
   });
 
+  it('이름이 없는 글쓴이(author.name: null) — 공개 글은 null, 비공개 글은 «익명» · nick 필드 없음', async () => {
+    const none = { userCode: 'u1', name: null, anonymous: false };
+    const s = fakeApiOf({
+      [LIST]: () => ({
+        items: [summary(1, { author: none }), summary(2, { visibility: 'PRIVATE', author: none })],
+        nextCursor: null,
+        total: 2,
+      }),
+    });
+    const { items } = await createServerBugBoardPort(s.api).page('all', undefined, 100);
+    expect(items[0].name).toBeNull();
+    expect(items[1]).toMatchObject({ name: '익명' });
+    expect(items[1]).not.toHaveProperty('nick');
+    expect(bugAuthorName(items[0], undefined)).toBe('이름 없음');
+  });
+
   it('공지도 같은 키셋 쪽 — filter=notices, total 은 서버 값(웹이 세지 않는다)', async () => {
     const s = fakeApiOf({
       [LIST]: () => ({ items: [summary(1, { notice: true })], nextCursor: 'c2', total: 7 }),

@@ -17,11 +17,12 @@ import {
   useRoomProbes,
   useRoomStats,
   useSnapshotNow,
+  type RoomPerson,
   type RoomRow,
   type RoomState,
 } from '@/entities/room';
 import { CloseRoomButton, CloseSelectedRoomsButton } from '@/features/room/close-room';
-import { errorMessage, formatDate, usePaging, useSelection } from '@/shared/lib';
+import { errorMessage, formatDate, shownName, usePaging, useSelection } from '@/shared/lib';
 import { Pager, RowCheckbox, SelectAllCheckbox, SelectionBar } from '@/shared/ui';
 import styles from './RoomList.module.css';
 
@@ -31,7 +32,7 @@ const PEOPLE_SHOWN = 3;
 function People({ row, pending }: { row: RoomRow; pending: boolean }) {
   if (!row.people) return <span className="soft">{pending ? '…' : '—'}</span>;
   if (!row.people.length) return <span className="soft">—</span>;
-  const label = (p: { name: string; userId: string | null }) => p.name || p.userId || '(이름 없음)';
+  const label = (p: RoomPerson) => shownName(p.name);
   const all = row.people.map((p) => (p.userId ? `${label(p)} (${p.userId})` : label(p))).join('\n');
   const shown = row.people.slice(0, PEOPLE_SHOWN).map(label).join(' · ');
   const more = row.people.length - PEOPLE_SHOWN;

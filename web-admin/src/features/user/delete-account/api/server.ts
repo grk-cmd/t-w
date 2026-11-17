@@ -7,6 +7,7 @@ import {
   wireArray,
   wireBool,
   wireNullableNumber,
+  wireNullableString,
   wireNumber,
   wireObject,
   wireString,
@@ -22,7 +23,7 @@ export function toServerDeletePreview(w: unknown): ServerDeletePreview {
   const onlineRaw = o.online;
   return {
     userCode: wireString(o.userCode, '삭제 미리 보기의 userCode'),
-    name: wireString(o.name, '삭제 미리 보기의 name'),
+    name: wireNullableString(o.name, '삭제 미리 보기의 name'),
     friendCode: wireString(o.friendCode, '삭제 미리 보기의 friendCode'),
     items: wireNumber(o.items, '삭제 미리 보기의 items'),
     files: wireNullableNumber(o.files, '삭제 미리 보기의 files'),

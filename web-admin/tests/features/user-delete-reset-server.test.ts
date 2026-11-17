@@ -39,6 +39,11 @@ describe('계정 삭제 — API 판', () => {
     expect(acceptedText({ items: 12, files: 3 })).toBe('삭제를 시작했어요 — DB 12곳 · 파일 3개를 지워요');
   });
 
+  it('이름이 없는 사람(name: null)은 null 그대로', async () => {
+    const s = fakeApiOf({ 'GET /v2/admin/users/u1/deletion-preview': () => preview({ name: null }) });
+    expect((await createServerDeleteAccountPort(s.api).preview('u1')).name).toBeNull();
+  });
+
   it('칸이 약속과 다르면 던진다', async () => {
     const s = fakeApiOf({ 'GET /v2/admin/users/u1/deletion-preview': () => preview({ hasLogin: 'yes' }) });
     const e = await createServerDeleteAccountPort(s.api)

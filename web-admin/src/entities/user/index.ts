@@ -49,7 +49,6 @@ export {
   isBadLicense,
   LICENSE_LABEL,
   licenseUseCounts,
-  realName,
   sameLicenseUsers,
   type LiveUserRow,
   type UserLicense,
