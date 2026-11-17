@@ -75,7 +75,7 @@ export interface BugItem {
   vis: BugVis;
   status: BugStatus;
   cat: string;
-  /** 글쓴이 이름 — 이름이 없는 사람은 null(그릴 때 «나»). */
+  /** 글쓴이 이름 — 이름이 없는 사람은 null(그릴 때 «이름 없음»). */
   name: string | null;
   /** Firebase 판 — 비공개 글 경로를 만드는 데만 쓴다. API 줄에는 없다. */
   authUid?: string;

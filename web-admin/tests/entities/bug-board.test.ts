@@ -334,12 +334,12 @@ describe('관리자 화면 글쓴이 이름 — 비공개 글은 «익명 (닉�
     expect(bugAuthorName({ vis: 'prv', name: '익명' }, '고로케')).toBe('익명 (고로케)');
     expect(bugAuthorName({ vis: 'pub', name: '고로케' }, '다른이름')).toBe('고로케');
   });
-  it('경계 — 닉네임을 아직 못 읽음 · 없음 · 빈칸이면 그대로, 목록 칸 이름이 없으면 «나»', () => {
+  it('경계 — 닉네임을 아직 못 읽음 · 없음 · 빈칸이면 그대로, 목록 칸 이름이 없으면 «이름 없음»', () => {
     expect(bugAuthorName({ vis: 'prv', name: '익명' }, undefined)).toBe('익명');
     expect(bugAuthorName({ vis: 'prv', name: '익명' }, null)).toBe('익명');
     expect(bugAuthorName({ vis: 'prv', name: '익명' }, '   ')).toBe('익명');
-    expect(bugAuthorName({ vis: 'prv', name: '' }, '고로케')).toBe('나 (고로케)');
-    expect(bugAuthorName({ vis: 'pub', name: null }, undefined)).toBe('나');
+    expect(bugAuthorName({ vis: 'prv', name: '' }, '고로케')).toBe('이름 없음 (고로케)');
+    expect(bugAuthorName({ vis: 'pub', name: null }, undefined)).toBe('이름 없음');
   });
   it('닉네임을 읽는 건 비공개 글이고 글쓴이 코드가 있을 때만(공개 글은 읽지 않는다)', () => {
     expect(needsAuthorLookup({ vis: 'prv', code: 'MATE-AB12' })).toBe(true);

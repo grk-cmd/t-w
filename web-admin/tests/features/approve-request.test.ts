@@ -25,14 +25,16 @@ describe('요청 승인', () => {
     expect((writes[4][2] as { body: string }).body).toContain('KEY');
   });
 
-  it('이름이 없는 요청(null)은 발급 메모에서 이름을 뺀다 — «null» · «나» 를 적지 않는다', async () => {
-    const { db, writes } = fakeDb({ 'friendCodes/MATE-AB12': { userId: 'u1' } });
-    await approveRequest(db, { ...req, name: null }, () => 'KEY');
-    expect(writes[0]).toEqual([
-      'commit',
-      'licenses/KEY',
-      expect.objectContaining({ note: '요청: 친구코드 MATE-AB12' }),
-    ]);
+  it('이름이 없는 요청(null · 빈 글 · 공백뿐)은 발급 메모에서 이름을 뺀다 — «null» · «이름 없음» 을 적지 않는다', async () => {
+    for (const name of [null, '', '   ']) {
+      const { db, writes } = fakeDb({ 'friendCodes/MATE-AB12': { userId: 'u1' } });
+      await approveRequest(db, { ...req, name }, () => 'KEY');
+      expect(writes[0]).toEqual([
+        'commit',
+        'licenses/KEY',
+        expect.objectContaining({ note: '요청: 친구코드 MATE-AB12' }),
+      ]);
+    }
   });
 
   it('친구코드 주인이 없으면 수령함만 빼고 발급한다', async () => {

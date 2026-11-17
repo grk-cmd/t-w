@@ -1,7 +1,7 @@
 // 앱의 요청 화면이 licenseRequests/{id} 의 status · issuedKey 를 지켜본다 — 모양을 바꾸지 않는다.
 export interface LicenseRequest {
   id: string;
-  /** 요청한 사람 이름 — 이름이 없으면 null(그릴 때 «나»). */
+  /** 요청한 사람 이름 — 이름이 없으면 null(그릴 때 «이름 없음»). */
   name: string | null;
   /** Firebase 판 — 요청이 적어 온 친구코드. API 판 요청에는 없다(`userCode` 로 가린다). */
   friendCode?: string;

@@ -22,8 +22,8 @@ export async function approveRequest(
   const user = await findUserByFriendCode(db, friendCode);
   const { key, write } = newLicenseWrite(
     db,
-    // 발급 메모는 저장되는 글 — 이름이 없으면 빼고 «나» 를 적지 않는다
-    `요청: ${req.name ? `${req.name} · ` : ''}친구코드 ${friendCode}`,
+    // 발급 메모는 저장되는 글 — 이름이 없으면(빈 글 · 공백뿐 포함) 빼고 «이름 없음» · «null» 을 적지 않는다
+    `요청: ${req.name?.trim() ? `${req.name.trim()} · ` : ''}친구코드 ${friendCode}`,
     genKey,
   );
   const updates = {

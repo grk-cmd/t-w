@@ -360,7 +360,7 @@ describe('시크릿룸 발급 — API 판', () => {
     expect(result.ok && result.period).toMatch(/^3개월 · \d{4}-\d{2}-\d{2} 까지$/);
   });
 
-  it('받는 사람 이름이 null 이면 방 이름은 빈 글로 보낸다(«나» 를 싣지 않는다)', async () => {
+  it('받는 사람 이름이 null 이면 방 이름은 빈 글로 보낸다(«이름 없음» 을 싣지 않는다)', async () => {
     const s = fakeApiOf({
       'POST /v2/admin/licenses/preview': () => [found({ name: null })],
       'GET /v2/admin/secret-rooms': () => [],

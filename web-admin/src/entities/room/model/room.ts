@@ -55,7 +55,7 @@ export const isMemberKey = (key: string) => !key.startsWith('_') && key !== 'cha
 /** 방에 들어간 사람 한 명 — 사용자 코드(없을 수 있음) · 방에 보낸 이름(앱이 20자로 자른다). */
 export interface RoomPerson {
   userId: string | null;
-  /** 이름이 없는 사람은 null(그릴 때 «나»). */
+  /** 이름이 없는 사람은 null(그릴 때 «이름 없음»). */
   name: string | null;
 }
 
