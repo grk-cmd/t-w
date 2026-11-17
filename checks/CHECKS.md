@@ -408,9 +408,9 @@
 | **sim-roulette.js** | 96 | **a75ac3bfd7dd** |
 | **sim-floaters.js** | 96 | **a4edf1183dd7** |
 | **sim-add-friend.js** | 96 | **6f1a6fef415e** |
-| **sim-device-lost.js** | 169 | **28de25802ce2** |
+| **sim-device-lost.js** | 169 | **e2e7bfad6ed8** |
 | **sim-device-register.js** | 123 | **d344472d25a8** |
-| **sim-device-limit-dialog.js** | 117 | **f530f31a0d7f** |
+| **sim-device-limit-dialog.js** | 120 | **7dc89f204d65** |
 | **sim-myhome-page.js** | 154 | **ae6bbb03faec** |
 | **sim-myhome-preset.js** | 153 | **c794b274d05b** |
 | **sim-inbox-sections.js** | 134 | **7562fc1e8229** |

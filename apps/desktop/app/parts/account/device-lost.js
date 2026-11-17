@@ -18,12 +18,8 @@ const continueHere = deps.continueHere;   // 이 PC 다시 등록 → realtime �
 window._deviceSessionLost = false;
 const DEVICE_LOST_KIND = Object.freeze({ REMOVED: 'deviceRemoved', SESSION: 'sessionLost' });
 const DEVICE_LOST_TEXT = Object.freeze({
-  [DEVICE_LOST_KIND.REMOVED]: { title: '🖥️ 다른 PC에서 이 기기를 지웠어요', btn: '이 PC 다시 등록',
-    msg: '다른 PC에서 이 PC를 기기 목록에서 지웠어요.\n이 PC의 캐릭터·기록은 그대로예요. 다시 등록하면 바로 이어서 쓸 수 있어요.',
-    note: '한 계정은 PC 3대까지 쓸 수 있어요. 3대가 다 차 있으면 가장 오래된 기기를 지울지 먼저 물어봐요.' },
-  [DEVICE_LOST_KIND.SESSION]: { title: '🖥️ 이 PC의 다른 창에서 쓰는 중이에요', btn: '여기서 계속 쓰기',
-    msg: '이 PC에서 투게더워킹을 새로 열어 이 창의 연결이 끊겼어요.\n이 창의 캐릭터·기록은 그대로예요.',
-    note: '«여기서 계속 쓰기»를 누르면 새로 연 창의 연결이 끊겨요.' },
+  [DEVICE_LOST_KIND.REMOVED]: { title: '다른 PC에서 이 기기를 지웠어요', btn: '이 PC 다시 등록', msg: '다시 등록하면 바로 이어서 쓸 수 있어요.' },
+  [DEVICE_LOST_KIND.SESSION]: { title: '이 PC의 다른 창에서 쓰는 중이에요', btn: '여기서 계속 쓰기', msg: '' },
 });
 
 let _devLostBusy = false;
@@ -33,10 +29,9 @@ function _onDeviceSessionLost(kind){
   const first = !window._deviceSessionLost;
   window._deviceSessionLost = true;
   if(first){ try{ Promise.resolve(twNav.go(twNav.NAV.LEAVE_ROOM)).catch(()=>{}); }catch(_){} }
-  const ti = _devLostEl('deviceSessionTitle'), mi = _devLostEl('deviceSessionMsg'), b1 = _devLostEl('deviceSessionContinue'), no = _devLostEl('deviceSessionNote');
+  const ti = _devLostEl('deviceSessionTitle'), mi = _devLostEl('deviceSessionMsg'), b1 = _devLostEl('deviceSessionContinue');
   if(ti) ti.textContent = t.title;
-  if(mi) mi.textContent = t.msg;
-  if(no) no.textContent = t.note;
+  if(mi){ mi.textContent = t.msg; mi.style.display = t.msg ? '' : 'none'; }
   if(b1){ b1.textContent = t.btn; b1.disabled = _devLostBusy; }
   const ov = _devLostEl('deviceSessionOverlay');
   if(ov) ov.style.display = 'flex';
