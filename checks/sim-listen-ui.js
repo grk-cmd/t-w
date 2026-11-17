@@ -16,7 +16,7 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const need = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } };
 const SRC = need('listen-ui.js'), MODEL_SRC = need('listen-model.js');
 const APP = need('app.js'), HTML = need('desk-companion-prototype.html'), RE = need('room-entry.js'), ACC = need('account.js');
-const FI = need('firebase-init.js'), OH = need('overhead.js'), PL = need('playlist.js');
+const FI = need('firebase-init.js'), OH = need('overhead.js'), PL = need('playlist.js'), FL = need('frame-loop.js');   // frame() 은 launcher/frame-loop.js
 const MODEL = (() => { const w = {}; new Function('window', MODEL_SRC)(w); return w.TwListenModel; })();
 const flush = () => new Promise(r => setImmediate(r));
 const T0 = 1700000000000;
@@ -372,11 +372,11 @@ say('── 8. 이어 붙인 곳');
   chk(/closeChipPopups: \(id\)=>chipPopupsMod\._closeChipPopups\(id\)/.test(APP), '  app.js: 상태칩 «한 번에 하나» 닫기를 넘긴다');
   chk(/provider: TwListenProvider\.createListenProvider\(\{ server: \(\)=>Presence\.serverProvider\(\), model: TwListenModel \}\)/.test(APP) && /stopPersonal: \(\)=>plMod\.stopIfPlaying\(\)/.test(APP), '  provider(지금 방의 방 포트 provider) · 내 플레이리스트 멈추기');
   chk(/stopIfPlaying: \(\)=>\{ if\(_plNow < 0\) return false; _plStop\(\); return true; \}/.test(PL), 'playlist.js: 나고 있을 때만 멈추고 true');
-  const fr = (APP.match(/\nfunction frame\(now, manual\)\{[\s\S]*?\n\}\n/) || [''])[0];
-  const iDj = fr.indexOf('const _djNow = listenUi.djId();'), iLoop = fr.indexOf('  seats.forEach(seat=>{');
-  chk(iDj > 0 && iLoop > iDj && (fr.match(/listenUi\.djId\(\)/g) || []).length === 1, '이름표 «🎧 DJ» — DJ 판정은 프레임에 한 번, 좌석 줄 앞에서(좌석마다 방 사람 목록을 다시 만들지 않게)');
-  chk(/setSeatNamePlate\(seat, lv, seat\.friendName\|\|'\(이름 없음\)', st, !!seat\.friendUserId && _djNow === seat\.friendUserId\)/.test(APP)
-    && /setSeatNamePlate\(seat, lv, getDisplayName\(\), st, !!_myRoomCode && _djNow === _myRoomCode\)/.test(APP), '  남 · 나 둘 다 그 값으로(내 코드가 없으면 null===null 로 켜지지 않게)');
+  const fr = (FL.match(/\nfunction frame\(now, manual\)\{[\s\S]*?\n\}\n/) || [''])[0];
+  const iDj = fr.indexOf('const _djNow = listenUi().djId();'), iLoop = fr.indexOf('  seats.forEach(seat=>{');
+  chk(iDj > 0 && iLoop > iDj && (fr.match(/listenUi\(\)\.djId\(\)/g) || []).length === 1 && /listenUi: \(\)=>listenUi,/.test(APP), '이름표 «🎧 DJ» — DJ 판정은 프레임에 한 번, 좌석 줄 앞에서(좌석마다 방 사람 목록을 다시 만들지 않게)');
+  chk(/setSeatNamePlate\(seat, lv, seat\.friendName\|\|'\(이름 없음\)', st, !!seat\.friendUserId && _djNow === seat\.friendUserId\)/.test(FL)
+    && /setSeatNamePlate\(seat, lv, getDisplayName\(\), st, !!_myRoomCode && _djNow === _myRoomCode\)/.test(FL), '  남 · 나 둘 다 그 값으로(내 코드가 없으면 null===null 로 켜지지 않게)');
   chk(/function setSeatNamePlate\(seat, level, name, star, dj\)/.test(OH) && /\+ \(dj \? '\|dj' : ''\)/.test(OH) && /b\.className = 'np-dj'; b\.textContent = '🎧 DJ';/.test(OH), '  overhead.js: 딱지는 열쇠에 들어가 바뀔 때만 다시 그린다');
   const chip = HTML.slice(HTML.indexOf('<div id="myStatusChip"'), HTML.indexOf('<!-- 캐릭터 머리 위 설정 패널'));
   chk(['listenBox', 'lsClose', 'lsTitle', 'lsDj', 'lsBar', 'lsNow', 'lsLen', 'lsMsg', 'lsRetry', 'lsCtl', 'lsPrev', 'lsPlay', 'lsSkip', 'lsNext', 'lsVol', 'lsMute', 'lsEdit', 'lsHint'].every(id => chip.indexOf('id="' + id + '"') > 0),

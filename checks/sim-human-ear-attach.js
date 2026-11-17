@@ -107,7 +107,8 @@ say('§4 연결');
   chk(/const humanEarAttachMod = TwHumanEarAttach\.createHumanEarAttach\(\{[\s\S]*?seats: \(\)=>seats,[\s\S]*?\}\);/.test(code), 'app.js — 원래 자리에서 만들고 늦게 생기는 것(seats · partPaintMod · wardrobeMod · rideBenchMod)은 읽는 함수로 넘긴다');
   chk(['humanEar', '_humanEarMat', '_humanEarPic', '_syncHumanEarRig', '_attachHumanEars'].every(n => new RegExp('^const ' + n + ' = humanEarAttachMod\\.' + n + ';', 'm').test(code)), '  옛 이름 다섯을 const 로 받는다');
   chk(!/function (_humanEarMat|_humanEarPic|_syncHumanEarRig|_attachHumanEars)\b|HumanEar\.createHumanEar/.test(code), '  app.js 에 귀 함수 · 귀 모듈 만드는 줄이 남아 있지 않다');
-  chk(/_attachHumanEars\(inst\.root, def\)/.test(code) && /_syncHumanEarRig\(seat\)/.test(code), '  부르는 곳(파츠 장착 · 좌석 입히기)은 옛 이름 그대로');
+  const CA = (read('character/char-apply.js') || '').replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');   // applyCharToSeat 는 app.js 분리 M12 에서 char-apply.js 로 옮겼다
+  chk(/_attachHumanEars\(inst\.root, def\)/.test(CA) && /_syncHumanEarRig\(seat\)/.test(CA), '  부르는 곳(파츠 장착 · 좌석 입히기 — char-apply.js)은 옛 이름 그대로');
 }
 
 say('§5 일부러 깨 보기');

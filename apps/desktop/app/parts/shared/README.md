@@ -79,7 +79,7 @@ const lightToneMod = TwLightTone.createLightTone({
   _fixGlbMatLighting: (...a)=>_fixGlbMatLighting(...a),   // 함수 — metalness 1 재질 눕히기(코어 fixMatLighting + 콘솔 한 줄)
   charCore: TwCharCore,                                   // 캐릭터 코어 — createTone 으로 toneCore 를 만든다
 });
-const LIGHT_PRESET = lightToneMod.LIGHT_PRESET;   // 옛 전역 이름(animal.js)
+const LIGHT_PRESET = lightToneMod.LIGHT_PRESET;   // 옛 전역 이름 — app.js 안에서 쓴다(animal.js 는 deps 로 받는다)
 ```
 
 **내놓는 것**
@@ -227,6 +227,13 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - Firebase presence 에 ver 를 싣던 길(`withVer` · `.info/connected` · `onVersion`)은 걷었다.
 
 검사: `checks/sim-app-version.js` (1절 모듈 · 2절 rt-bind 가 한 벌을 받음 · 3절 규칙 · 4절 accountSnap).
+
+## `api-client.js` · `api-errors.js` — 🌐 서버 API(/v2) 통로 · 오류 번역표
+**책임** — 앱이 우리 서버(`/v2`)와 말하는 길 한 벌. 시간 제한 · 봉투 풀기 · 실패 모양(`ApiError`) · 토큰 붙이기를 기능마다 따로 만들지 않는다. `TwApi.client`(로그인 없는 읽기 · 쉬기 있음) · `TwApi.authed`(로그인 통로 — 읽기 · `post` · `put` · `patch` · `del` · 쉬기 없음). 토큰은 `firebase-init.js` 가 `TwApi.bindToken` 으로 잇는다.
+**provider 자리** — 도메인 모듈은 `firebaseAPI` 를 부르지 않고 `*-api.js`(예: `support/report-api.js`) 한 파일의 함수만 부른다. 그 파일이 경로 · 본문 모양 · 서버 code 를 알고 `TwApi.authed` 를 deps 로 받는다.
+**실패** — 옛 Firebase 길로 넘어가지 않는다. 실패는 던지고, 부르는 쪽이 `TwApiErrors.translate` 로 갈래를 잡아 `TwErrorCodes.notify('E-영역-번호')` 로 보인다. 자동 재시도 없음(사용자가 버튼을 다시 누르는 것만).
+**두 번역표** — `data-gateway.js` 의 `ERROR_NOTICES`(E-DATA)는 범용 통로(옛 길) 몫이고 새 기능은 `api-errors.js`(E-NET)만 쓴다. 범용 통로를 걷을 때 앞의 표도 같이 걷는다.
+**함정** — 공개 읽기 통로(`api-public-reads.js` · `shouldFallback`)는 옛 길이 남은 동안만 쓰고 새 코드는 쓰지 않는다. 쓰기(`post` 등)는 로그인이 기본이다.
 
 ## `maintenance-gate.js` — 🛠 서버 점검 창
 
@@ -559,3 +566,32 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 조명은 여기 없다 — 조명 상수 · 재질 고치기는 app.js(T0 몫), 한 벌 만들기는 `light-tone.js addRunLights`. 메인 씬 빛은 app.js 가 만든 뒤 `key` 를 받는다.
   - 이 무대는 메인 창 하나다. 미리보기 창의 3D 장치 만들기는 따로(설계 F1 `gl-context.js`).
   - 검사: `checks/sim-stage.js`(옵션 · 배율 · 바닥 · 로더 · 실패 길 · 연결 · 깨 보기) · `sim-gl-recover.js` · `sim-frame-budget.js` 5절이 이 파일 글을 읽는다.
+
+## gl-context.js — 🧯 3D 장치를 만드는 단 한 곳
+
+- **책임**: `make(canvas, opts, role, extra)` — `new THREE.WebGLRenderer` 를 부르는 유일한 자리. `'main'` 은 만들기를 `extra.guard`(메인 무대의 `glFail.guard`)에 맡겨 옛 동작(안내 뒤 멈춤) 그대로. `'preview'` 는 못 만들면 던지지 않고 `null` 을 돌려주고, 실패 번호 `E-SYS-06` 로 알리고, 그 캔버스를 감싼 칸 안에 «3D 미리보기를 불러오지 못했어요 · [다시 시도]» 를 그린다(`extra.retry` 가 있을 때만 단추). 다시 만들어 성공하면 옛 안내를 지운다.
+- **쓰는 법**: 전역 `TwGlContext.make(...)`(classic script — stage · 미리보기 모듈이 전역으로 부른다). 부르는 쪽은 맨 앞에서 `if(!r) return`. 못 만든 채로 이어도 안전한지(그 창을 여는 함수가 renderer 를 읽는 곳)를 같이 본다 — 생성기는 `ensureCreatorPreview` 가 false 를 돌려 `openCreator` 가 열지 않는다.
+- **함정**: 개발용 `app/fx-preview.html` 만 직접 만든다. 새 3D 장치는 여기를 거친다(검사 `sim-gl-context.js` 가 이 파일 밖의 `new THREE.WebGLRenderer` 를 빨강으로). 화면에 안 붙은 캔버스(파츠 썸네일)는 안내 칸이 없어 번호만 낸다. 검사: `checks/sim-gl-context.js`.
+## ls-set.js — 💾 작은 설정 저장(`_lsSet`)
+
+- **책임**: `_lsSet(key, val)` — `setItem` 뒤 `getItem` 으로 왕복 확인 · 실패하면 콘솔 경고 + 세션당 한 번 토스트 · 성공 true / 실패 false. 설정처럼 작은 값 전용(슬롯 · 파츠 · 책상 같은 큰 값은 각자 처리).
+- **만드는 법**: `TwLsSet.createLsSet({ toast })`. **내보내는 것**: `_lsSet`(app.js 는 같은 이름 const 로 받고 deps 에서 `(...a)=>_lsSet(...a)` 로 넘긴다). 검사: `checks/sim-ls-set.js`.
+
+## hue-tint.js — 🎨 텍스처 파츠 색조 셰이더 이름 잇기
+
+- **책임**: 텍스처가 있는 파츠의 색을 «텍스처 × 색» 곱셈 대신 셰이더에서 색조(Hue)만 돌리는 일의 옛 이름 여섯(`_rgbHexToHsv` · `isHueTintMesh` · `_ensureHueUniforms` · `_hueOBC` · `applyHueTint` · `_hsvToHex`)을 캐릭터 코어(`createTone`)로 잇는다. 앱 FSD 분리 T1 — 0.13 app.js 글 그대로. 본문(셰이더 · HSV 환산)은 코어 `tone.ts` 한 곳.
+- **만드는 법**: `TwHueTint.createHueTint({ lightToneMod })` — 값 하나(`lightToneMod.toneCore` 를 읽는다). app.js 가 «색조 셰이더» 자리에서 만들고 여섯 이름을 const 로 받는다(꾸미기 · 도트 · 스티커사진이 부른다).
+- **함정**: r128 `Material.copy` 는 `onBeforeCompile` 을 복사하지 않는다 — 재질을 복제한 쪽은 `_hueOBC` 로 다시 건다. 검사: `checks/sim-hue-tint.js`.
+
+## image-bytes.js — 🖼 data: 그림 → 올릴 바이트 판정
+
+**책임** — 화면이 줄여 만든 `data:image/…;base64,…` 글을 풀어 «종류 · 비어 있지 않음 · 크기» 를 한 곳에서 판정한다(`inspect(u, { types, maxBytes })` → `{ ok, type, bytes }` 또는 `{ ok: false, why: 'format' | 'empty' | 'large' }`). 순수 — 아무것도 부르지 않는다.
+**만드는 법** — classic script(`window.TwImageBytes`)를 쓰는 provider · app.js 보다 먼저 싣고, app.js 가 provider 에 deps `imageBytes` 로 넘긴다(지금 쓰는 곳: `myhome/schedule-api.js` 카드 그림).
+**함정** — 종류 목록을 안 주면 아무것도 통과시키지 않는다. 상한과 같은 크기는 통과.
+검사: `checks/sim-image-bytes.js`.
+
+## request-id.js — 🔁 요청 번호
+
+**책임** — 새것을 만드는 쓰기의 본문 `requestId` 를 만든다(`newId()`). 같은 일을 다시 보낼 땐 같은 번호(`createPending` — 이 판에서는 쓰는 곳 없음). 서버 규칙 `^[A-Za-z0-9_-]{8,64}$`.
+**만드는 법** — classic script(`window.TwRequestId`)를 쓰는 provider · app.js 보다 먼저 싣는다. 아무것도 부르지 않는다.
+검사: `checks/sim-request-id.js`.

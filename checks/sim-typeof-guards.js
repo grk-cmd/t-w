@@ -29,13 +29,12 @@ const ENV = new Set([
 
 /* 일부러 남긴 가드 — 이름(window. 은 떼고) → { files: 그 파일 안에서만(없으면 어디서든), why }. 세지 않는다 */
 const EXEMPT = {
-  buildAnimalBase: { why: 'animal.js 가 app.js 뒤에 실려 app.js 가 부를 때 아직 없을 수 있다' },
-  reopenAnimalCreator: { why: 'animal.js 가 app.js 뒤에 실린다' },
-  _animalUnlocked: { why: 'animal.js 가 거는 고리 — 부르는 쪽이 먼저 실린다' },
+  buildAnimalBase: { why: 'animal.js 는 app.js 끝에서 만들어져, 그 전에 app.js 가 부르면 아직 없을 수 있다' },
+  reopenAnimalCreator: { why: 'animal.js 는 app.js 끝에서 만들어져, 그 전에 부르면 아직 없을 수 있다' },
+  _animalUnlocked: { why: 'animal.js 가 거는 고리 — app.js 끝에서 만들어져 부르는 쪽이 먼저 돈다' },
   _pomoShowText: { why: '포모도로 모듈을 만들기 전에 focus-share 가 먼저 불린다(pomodoro.js 머리 주석)' },
   __anpSetEarSide: { why: '동물 미리보기 창을 열 때만 걸린다' },
   __anpGoTab: { why: '동물 미리보기 창을 열 때만 걸린다' },
-  closeWardrobe: { files: ['app.js'], why: '옷장을 열기 전엔 없다 — app.js 의 생성기 열기 두 곳' },
   CreatorFlatView: { why: '생성기 평면 보기 모듈 — 없으면 null 로 두고 그 기능만 끈다' },
   DeskItemOrigin: { why: '책상 아이템 원점 모듈 — 없으면 null' },
   SeatSlot: { why: '좌석 칸 모듈 — 없으면 null' },
@@ -122,9 +121,9 @@ say('── 3. 가짜 입력으로 깨 보기');
   chk(compare(judge([['a.js', "if(typeof window.foo==='function') window.foo();\n"]]).counts, { 'a.js': 2 }).down.length === 1, '줄면 기준선을 내리라고 빨강');
   const env = judge([['d.js', "if(typeof window !== 'undefined' && typeof module !== 'undefined' && typeof require === 'function'){}\n/* typeof hid==='function' */\n"]]);
   chk(!env.total, '환경 검사(window · module · require)와 주석 안은 안 센다');
-  const ex = judge([['app.js', "if(typeof window.buildAnimalBase==='function'){}\nif(typeof window.closeWardrobe==='function'){}\nif(typeof HumanEar === 'undefined'){}\n"], ['x.js', "if(typeof window.closeWardrobe==='function'){}\n"]]);
-  chk(!ex.counts['app.js'] && ex.exempt.buildAnimalBase === 1 && ex.exempt.HumanEar === 1, '예외 이름은 안 센다');
-  chk(ex.counts['x.js'] === 1, '파일이 정해진 예외(closeWardrobe → app.js)는 다른 파일에선 센다');
+  const ex = judge([['app.js', "if(typeof window.buildAnimalBase==='function'){}\nif(typeof cb==='function'){}\nif(typeof HumanEar === 'undefined'){}\n"]]);
+  chk(ex.counts['app.js'] === 1 && ex.exempt.buildAnimalBase === 1 && ex.exempt.HumanEar === 1, '예외 이름은 안 센다(예외 아닌 이름은 센다)');
+  chk(ex.counts['app.js'] === 1, '파일이 정해진 예외(cb → catalog-source.js)는 다른 파일(app.js)에선 센다');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

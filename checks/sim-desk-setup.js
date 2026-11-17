@@ -210,7 +210,7 @@ function wire(app, html) {
   t(mk.split('\n').length === 31 && /  NO_DESK_ID: NO_DESK_ID,/.test(mk) && /  hideDeskBody: \(\.\.\.a\)=>deskVisualMod\.hideDeskBody\(\.\.\.a\),/.test(mk) && /  crState: crState,/.test(mk) && /  catalogAdmin: catalogAdmin,/.test(mk) && !/adminPartReg|crXformMod/.test(mk), '만드는 줄(가드 없이) · deps 29 · 서버 쓰기 길 한 줄 · 관리자 등록 · 기즈모 모듈은 받지 않는다(순환)');
   const iX = app.indexOf('const crXformMod = TwCreatorXform.'), iH = app.indexOf('deskSetupMod.setHooks({');
   t(iH > iX && /openDeskRegister: \(\.\.\.a\)=>adminPartReg\.openDeskRegister\(\.\.\.a\),/.test(app) && /attachItemGizmo: \(\)=>crXformMod\.attachItemGizmoToActive\(\),/.test(app), 'crXformMod 를 만든 뒤 갈고리 둘을 잇는다');
-  t(/function bindHold\(el, fn\)\{/.test(app), 'bindHold 는 app.js 에 남는다(animal.js 가 전역으로 읽는다)');
+  t(/function bindHold\(el, fn\)\{/.test(app), 'bindHold 는 app.js 에 남는다(animal.js 는 deps 로 받는다)');
   const iM = html.indexOf('<script src="parts/creator/desk-setup.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iM > 0 && iA > iM, 'html — creator/desk-setup.js 를 app.js 보다 먼저 싣는다');
   return r;

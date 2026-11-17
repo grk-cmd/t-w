@@ -220,3 +220,51 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 - 확인을 통과하기 전(보통 1~2초)에는 마이홈 · 일정 · 공지 같은 계정 화면이 비어 있다가 채워진다.
 - 함수 안의 `if(!uid) return` 입구 확인은 다른 길에서 불릴 수 있어 남겨 둔다.
 검사: `checks/sim-app-boot.js`(차례 · 한 번만 · 알림 없으면 0번 · 던져도 계속 · 깨 보기) · `checks/sim-license-gate.js`(게이트가 확인 뒤에만 알림) · `checks/sim-nav.js`.
+
+## app-mode.js — 🖥 런처 ↔ 실행 화면 전환
+
+- **책임**: `appMode`(run · editseat) · `applyAppMode`(좌석 슬라이더 · 상태 미리보기 · 제목 · 창 크기 맞춤 부르기) · `launchApp`(내 좌석 다시 만들기 · 방 친구 복원 · 방에 나간 def 와 달라졌을 때만 새 def 를 방에 보냄 · 솔로 자리 추가 복원 · Tab 힌트) · `backToLauncher`(꾸미기 · 마이홈 닫아 저장 · 포커스 · 달성표 · 가챠 서버 맞추기) · «런처로» 버튼.
+- **만드는 법**: `TwAppMode.createAppMode({ … 21개 })` — 읽는 함수 6(`curSlot` · `focusLevelMod` · `gachaMod` · `Presence` · `roomEntryMod` · `weeklyChal`) · 함수 3(`applyDesktopRunClass` · `toast` · `layoutSeats`) · 쓰는 함수 1(`setMyHomeOpen`) · 값 11. 원래 자리(설정 패널 «캐릭터» 탭 안내 뒤)에서 만든다.
+- **내보내는 것**: `appMode`(읽는 함수 — app.js 는 `appModeMod.appMode()`) · `showEl` · `applyAppMode` · `launchApp` · `backToLauncher`.
+- **함정**: `layoutSeats` 는 app.js 에서 이 모듈보다 뒤에 정의되므로 `(...a)=>layoutSeats(...a)` 로 넘긴다(부를 때 찾는다). 검사: `checks/sim-app-mode.js`.
+
+## office-mode.js — 🏢 데스크탑 · 피규어 · 회사원 모드 깃발
+
+- **책임**: `desktopMode` · `figureMode` · `officeMode`(저장 키 `tw.figureMode` · `tw.officeMode`) · `setOfficeHidden`(body.office-hidden · ■ 버튼 표시 · 칩 팝업 닫기) · `refreshOfficeChipUI` · 상태칩 ■ 우클릭 연결 · `window.__officeDiag`(읽기만).
+- **만드는 법**: `TwOfficeMode.createOfficeMode({ chipPopupsMod })` — 값 하나. 원래 자리(데스크탑 모드 구역)에서 만든다.
+- **내보내는 것**: `desktopMode` · `FIGURE_MODE_KEY` · `OFFICE_MODE_KEY` · `refreshOfficeChipUI`(값 · 함수) · `figureMode` · `officeMode` · `_officeHidden`(읽는 함수) · `setFigureMode` · `setOfficeMode`(쓰는 함수).
+- **함정**: 만들 때 깃발을 읽고 `refreshOfficeChipUI()` 를 부른다 — 깃발을 최상위에서 읽는 app.js 줄(`focusGateSleep` 등)은 만드는 줄 아래에 둔다(TDZ — `checks/smoke.js` 가 잡는다). 검사: `checks/sim-office-mode.js`.
+
+## frame-pace.js — 🔋 프레임 상한 · rAF 멈춤 감시
+
+- **책임**: `FrameBudget` 만들기 · «자동» 화질 감시 · `_gpuTimer`(1분 `[프레임]` 줄 꼬리) · `_uiHot`(손댐 상한 해제) · `_fbIsBusy`(입력칸 · 꾸미기 · 춤 · 생성기 — 0.5초에 한 번만 DOM 을 봄) · `_frameCap` · `_frameCapped` · rAF 가 1초 넘게 안 오면 타이머가 `frame()` 을 대신 돌림 · 포커스 · 손댐 듣기.
+- **만드는 법**: `TwFramePace.createFramePace({ … 8개 })` — 읽는 함수 2(`_flyActive` · `creatorOpen`) · 함수 1(`frame`) · 쓰는 함수 1(`setRunLowered`) · 값 4. 원래 자리에서 만든다 — 타이머 · 듣기가 이때 걸린다.
+- **내보내는 것**: `_FB` · `_frameBudget` · `_runSlowWatch` · `_gpuTimer` · `_frameJsStats` · `_lowerRunQuality` · `_uiHot` · `_frameCap` · `_frameCapped` · `_lastRafAt`(읽는 함수) · `setLastRafAt`.
+- **함정**: `mousemove` 는 «손댐» 으로 세지 않는다(클릭 통과 중에도 들어와 30 ↔ 60 이 오르내림). `frame()`(app.js)이 rAF 가 실제로 온 시각을 `setLastRafAt` 으로 알린다. 검사: `checks/sim-frame-pace.js`.
+
+## frame-loop.js — 🎞 프레임 한 장
+
+- **책임**: `frame(now, manual)`(rAF 콜백)과 `prev` — rAF 시각 알림 · 프레임 상한 건너뜀 · dt · 좌석마다(상태 판정 → 자세 → 올라타기 · 벤치 · 자리비움 → 라벨 · 경험치 바 · 이름표 · 말풍선) · 3D 그리기 · 히트 맵 표시 · 상태칩 위치 · 비용 재기.
+- **만드는 법**: `TwFrameLoop.createFrameLoop({ … 53개 })` — 읽는 함수 여덟(`_renderQuality` · `awayPicMod` · `desktopMode` · `expBarMod` · `focusLevelMod` · `focusProgressMod` · `listenUi` · `officeModeMod`) · 함수 `myCode`(방 서버의 내 코드 — 🎧 DJ 딱지) · 나머지는 값. 서버 레벨을 받기 전(`focusProgressMod.isReady()` 거짓)에는 내 레벨 · 바를 그리지 않고 방에도 싣지 않는다. 원래 자리에서 만든다 — 만들기만 하고 부르지 않는다.
+- **내보내는 것**: `frame` — app.js 는 같은 이름 const 로 받는다. 첫 `requestAnimationFrame(frame)` 은 app.js INIT, 타이머 대행은 `frame-pace.js`.
+- **함정**: 좌석 한 명 몫(`seat-frame`)을 따로 떼는 일은 글 그대로 옮기기로는 안 된다(`continue` → `return` 등) — R5 로 남김. 이름표는 경험치 바 뒤 · 말풍선은 이름표 뒤 순서를 바꾸지 말 것. 검사: `checks/sim-frame-loop.js`.
+
+## move-mode.js — ✥ 프로그램 이동 모드 · 🩺 캐릭터 화면 좌표
+
+- **책임**: `moveMode` · `_moveModeJustToggled` · `_suppressNextContextMenu` 깃발 · `bindMoveMode`(mousemove 로 카메라 pan 이동 · pointerdown(capture)으로 확정 · 위치 저장) · `_charBoundsLatest` · `_charBadWhy` · `_charProjSane` · `_twMoveSeenAt`(하트비트로 main 에 보냄).
+- **만드는 법**: `TwMoveMode.createMoveMode({ … 6개 })` — 값 넷 · 함수 둘(`layoutSeats` · `toast`). 원래 자리에서 만든다 — 듣기가 이때 걸린다.
+- **내보내는 것**: `_charProjSane`(함수) · 값 여섯은 읽는 함수 `이름()` + 쓰는 함수 `set이름(v)`.
+- **함정**: 확정 pointerdown 은 capture 로 클릭 통과 로직보다 먼저 잡는다. 검사: `checks/sim-move-mode.js`.
+
+## window-mode.js — 🪟 창 모드 정하기 · 활성 앱 판정
+
+- **책임**: `_applyActiveAppState`(포커싱 어플 폴링 결과로 누적 시간 · 게이트 · 달성표 · 자기 창 · 펜 앱을 갱신) · `myHomeOpen`(마이홈이 런처에서 열려 있는가) · `applyDesktopRunClass`(화면을 보고 `runmode` · `config` 클래스 · 바닥 · 그림자를 정하고 main 에 창 모드 creator · myhome · launcher · run 을 보낸다). 집중이 끝나면(쌓던 → 안 쌓음) `focusProgressMod.focusEnded()` 로 못 올린 몫을 올린다 · 로비(`#inviteOverlay`)가 떠 있어도 마이홈 크기로 연다.
+- **만드는 법**: `TwWindowMode.createWindowMode({ … 14개 })` — 읽는 함수 둘(`creatorOpen` · `focusProgressMod`) · 쓰는 함수 하나(`setFocusGateSleep`) · 값 열하나(`focusGate` — «투게더워킹 창이 앞이면 안 잠듦» 규칙, `focus/focus-gate.js` 포함). 원래 자리(데스크탑 실행 화면 구역 머리 앞)에서 만든다.
+- **내보내는 것**: `_applyActiveAppState` · `applyDesktopRunClass`(app.js 가 같은 이름 const 로) · `myHomeOpen()` · `setMyHomeOpen(v)`.
+- **함정**: `applyDesktopRunClass` 는 «누군가 불러줘야» 한다 — 오버레이를 여는 새 길이 생기면 여기도 부를 것. 여는 쪽 플래그가 아니라 화면(오버레이 `.on`)을 본다. 검사: `checks/sim-window-mode.js`.
+
+## run-boot.js — 🚀 켜는 차례 표
+
+- **책임**: app.js INIT 덩이의 차례를 표(`STEPS`) 한 곳으로 모은다 — 좌석 탭 → 앱 모드(+ 로비 창 크기 감시) → 관리자 UI → 라이선스 글 → 기본 몸 불러오기 → 프레임 루프 → 런처 루프 → 얼굴 복구 점검 → 창 크기 맞춤. 앱 FSD 분리 F3 · `app-boot.js` 와 같은 모양(계정 없이 도는 몫만 — 마이홈 시작 · 캐릭터 슬롯 받기 등 계정 기능은 `app-boot.js` 의 차례).
+- **만드는 법**: `TwRunBoot.createRunBoot({ starts, baseBody })` — `starts` 는 표에서 `baseBody` 를 뺀 여덟 이름마다 시작 함수 하나(없거나 남으면 만들 때 던진다), `baseBody` 는 `{ load, loadSkins, renderLauncher, onFailed }`. app.js 가 INIT 자리에서 만들고 `runBoot.begin()` 을 한 번 부른다.
+- **함정**: 만들 때는 일하지 않는다 — `begin` 이 부를 때만 돈다(두 번째 `begin` 은 아무것도 안 하고 false). 한 칸이 던져도 다음 칸은 돈다. 기본 몸을 못 읽으면(`load` 가 false 이거나 던짐) 안내(`E-SYS-08`)를 한 번 띄우고 대신 몸으로 이어 간다 · 어느 단계가 던져도 런처는 그린다. INIT 위치를 옮기지 말 것 — 뒤에서 만드는 모듈(투게더룸 초대 UI · 서버 모듈 감시견)은 INIT 이 안 부른다. 검사: `checks/sim-run-boot.js`.

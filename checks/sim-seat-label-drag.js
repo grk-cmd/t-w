@@ -12,8 +12,8 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const MOD = read('seat-label-drag.js'), APP_RAW = read('app.js'), OV = read('overhead.js'), EXP = read('exp-bar.js'), RUN = read('desktop-run.js'), HTML = read('desk-companion-prototype.html');
-if (!MOD || !APP_RAW || !OV || !EXP || !RUN || !HTML) { say('  ? 원본 못 찾음 — seat-label-drag.js · app.js · overhead.js · exp-bar.js · desktop-run.js · desk-companion-prototype.html'); process.exit(2); }
+const MOD = read('seat-label-drag.js'), APP_RAW = read('app.js'), OV = read('overhead.js'), EXP = read('exp-bar.js'), RUN = read('desktop-run.js'), HTML = read('desk-companion-prototype.html'), PTR = read('seat-pointer.js');   // _beginLabelSlotDrag · 캔버스 pointerdown · pointerup 은 app.js 분리 M11 에서 room/seat-pointer.js 로 옮겼다
+if (!PTR || !MOD || !APP_RAW || !OV || !EXP || !RUN || !HTML) { say('  ? 원본 못 찾음 — seat-label-drag.js · app.js · overhead.js · exp-bar.js · desktop-run.js · desk-companion-prototype.html'); process.exit(2); }
 const APP = _joinRenderer(APP_RAW);
 
 say('── 1. 판단 (seat-label-drag.js)');
@@ -43,8 +43,8 @@ aim.bonk = false; beginOk = false; e = ev(0);
 chk(D.onLabelPointerDown(e, s) === false && e.prevented === 0 && e.stopped === 0, '  시작이 거절되면(이미 끄는 중) 이벤트를 안 멈춘다');
 
 say('── 2. app.js 시작 함수 — 떼어 돌리기');
-const fnSrc = (APP_RAW.match(/function _beginLabelSlotDrag\(e, seat\)\{[\s\S]*?\n\}/) || [''])[0];
-chk(!!fnSrc, '_beginLabelSlotDrag 가 app.js 에 있다');
+const fnSrc = (PTR.match(/function _beginLabelSlotDrag\(e, seat\)\{[\s\S]*?\n\}/) || [''])[0];
+chk(!!fnSrc, '_beginLabelSlotDrag 가 seat-pointer.js 에 있다');
 if (fnSrc) {
   const st = { drag: null, hot: 0, sel: null, cap: null };
   const run = new Function('st', 'worldX', 'seatPanelMod', 'canvas', '_uiHot', 'performance',
@@ -64,20 +64,20 @@ say('── 3. 배선');
 chk(/function bindLabelDrag\(el, seat\)\{\s*el\.addEventListener\('pointerdown', e=>\{ if\(_labelDragFn\) _labelDragFn\(e, seat\); \}\);/.test(OV), 'overhead.js — 리스너는 늘 걸고 누를 때 갈고리를 본다(잇기 전에 만든 라벨도 듣게)');
 const np = OV.slice(OV.indexOf('function ensureSeatNamePlateEl'), OV.indexOf('seat.namePlateEl=el; return el;'));
 chk(/bindLabelDrag\(el, seat\);/.test(np), '★ 이름표가 건다');
-const judgeShared = (app, exp) => [
-  /if\(!TwSeatLabelDrag\.canGrabSeat\(seat\)\) return;/.test(app) && !/if\(seat\.fly\) return;/.test(app),
+const judgeShared = (ptr, app, exp) => [
+  /if\(!TwSeatLabelDrag\.canGrabSeat\(seat\)\) return;/.test(ptr) && !/if\(seat\.fly\) return;/.test(ptr),
   /^const bindLabelDrag = deps\.bindLabelDrag;/m.test(exp) && /\n  bindLabelDrag\(el, seat\);/.test(exp) && !/overheadMod\.bindLabelDrag/.test(exp)
     && /bindLabelDrag: \(\.\.\.a\)=>overheadMod\.bindLabelDrag\(\.\.\.a\)/.test(app),
 ];
-{ const [a, b] = judgeShared(APP_RAW, EXP);
+{ const [a, b] = judgeShared(PTR, APP_RAW, EXP);
   chk(a, '★ 캔버스 pointerdown 도 canGrabSeat 를 부른다(날기 판단 한 줄 — 다시 쓰지 않음)');
   chk(b, '★ 경험치 바는 방 모듈을 직접 안 부르고 deps.bindLabelDrag 로 받는다(app.js 가 잇는다)');
-  const [a2] = judgeShared(APP_RAW.replace('if(!TwSeatLabelDrag.canGrabSeat(seat)) return;', 'if(seat.fly) return;'), EXP);
-  const [, b2] = judgeShared(APP_RAW, EXP.replace('\n  bindLabelDrag(el, seat);', '\n  overheadMod.bindLabelDrag(el, seat);'));
+  const [a2] = judgeShared(PTR.replace('if(!TwSeatLabelDrag.canGrabSeat(seat)) return;', 'if(seat.fly) return;'), APP_RAW, EXP);
+  const [, b2] = judgeShared(PTR, APP_RAW, EXP.replace('\n  bindLabelDrag(el, seat);', '\n  overheadMod.bindLabelDrag(el, seat);'));
   chk(!a2 && !b2, '  깨 보기: 캔버스에 날기 조건을 다시 쓰거나 경험치 바가 overheadMod 를 바로 부르면 빨강'); }
-chk(/overheadMod\.setLabelDrag\(\(e, seat\)=>seatLabelDragMod\.onLabelPointerDown\(e, seat\)\);/.test(APP_RAW) && /beginDrag: _beginLabelSlotDrag/.test(APP_RAW), 'app.js 가 판단 모듈을 만들어 잇는다');
+chk(/overheadMod\.setLabelDrag\(\(e, seat\)=>seatLabelDragMod\.onLabelPointerDown\(e, seat\)\);/.test(APP_RAW) && /beginDrag: seatPointerMod\._beginLabelSlotDrag/.test(APP_RAW), 'app.js 가 판단 모듈을 만들어 잇는다');
 chk(/drag\.mode = \(drag\.targetType === 'char'\) \? 'shake' : 'slot';/.test(APP), '★ 끌면 책상 끌기(slot) — 자리 계산 · 맨 오른쪽 고정(dragIndex)이 같은 줄');
-const up = APP_RAW.slice(APP_RAW.indexOf("canvas.addEventListener('pointerup',e=>{"));   // app.js 본래 글 — 되살린 글엔 꾸미기 창의 pointerup 이 먼저 온다
+const up = PTR.slice(PTR.indexOf("canvas.addEventListener('pointerup',e=>{"));   // 모듈 본래 글
 const iL = up.indexOf("if(drag.targetType==='label'){"), iPet = up.indexOf('triggerPet(seat)');
 chk(iL > 0 && iPet > iL && up.indexOf('if(!drag.moved){') < iL, '★ 누르기만 하면 쓰다듬지 않는다(라벨 갈래가 쓰다듬기보다 먼저)');
 chk(/\.seat-exp\{[^}]*pointer-events:auto/.test(HTML) && /\.seat-nameplate\{[^}]*pointer-events:auto/.test(HTML), 'css — 이름표 · 경험치 바가 누름을 받는다');

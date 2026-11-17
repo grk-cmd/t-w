@@ -19,7 +19,7 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 const find = (n) => [n, 'parts/myhome/' + n, 'app/parts/myhome/' + n].map(read).find(Boolean);
 const SRC = {
   gb: find('guestbook.js'), feed: find('guestbook-feed.js'), ui: find('myhome-ui.js'), visit: find('myhome-visit.js'),
-  err: read('api-errors.js') || find('api-errors.js'), codes: read('error-codes.js'), app: read('app.js'),
+  err: read('api-errors.js') || find('api-errors.js'), codes: read('error-codes.js'), app: read('app-mode.js') || find('app-mode.js'),   // backToLauncher 는 launcher/app-mode.js(app.js 분리 M13)
 };
 for(const k of Object.keys(SRC)) if(SRC[k] == null){ say('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const flush = async (n = 8) => { for(let i = 0; i < n; i++) await new Promise(r => setImmediate(r)); };
@@ -130,7 +130,7 @@ function buildUi(env, src, o){
   api.createMyHomeUi(deps);
   return { open: () => win.openMyHome(), close: () => closeBtn._L.click.forEach(fn => fn({})), stats };
 }
-/* app.js 의 backToLauncher 한 함수만 떼어, 그 안의 이름을 «뭐든 받아 주는 가짜» 위에서 돌린다 — 방명록 고리와 마이홈 창 깃발만 진짜 */
+/* app-mode.js 의 backToLauncher 한 함수만 떼어, 그 안의 이름을 «뭐든 받아 주는 가짜» 위에서 돌린다 — 방명록 고리와 마이홈 창 깃발만 진짜 */
 function cutFn(src, name){
   const i = src.indexOf('function ' + name + '(');
   if(i < 0) throw new Error(name + ' 를 못 찾음');
@@ -268,7 +268,7 @@ async function judge(S){
     ['방명록 시작을 칸으로 안 감쌈(던지면 열기가 멈춤)', { ui: cut(S.ui, UI_START, '_mhGbStartWatch();') }, '열기는 끝까지'],
     ['앞 칸을 칸으로 안 감쌈(던지면 배지가 안 켜짐)', { ui: cut(S.ui, "_step('마이홈 페이지', ()=>{ loadMyHomePage(); });", 'loadMyHomePage();') }, '앞 칸'],
     ['마이홈을 닫아도 감시를 안 끔', { ui: cut(S.ui, UI_STOP, '') }, '모두 뗀다'],
-    ['런처로 갈 때 감시를 안 끔', { app: cut(S.app, /(mhOv\.classList\.remove\('on'\); myHomeOpen = false;\s*)_mhGbStopWatch\(\);/, '$1') }, '런처로 가면'],
+    ['런처로 갈 때 감시를 안 끔', { app: cut(S.app, /(mhOv\.classList\.remove\('on'\); setMyHomeOpen\(false\);\s*)_mhGbStopWatch\(\);/, '$1') }, '런처로 가면'],
     ['친구 홈에 들어가도 열린 창을 안 닫음', { visit: cut(S.visit, /(const r = await myhomeStore\.openView[\s\S]*?)window\._mhReSubscribeGuestbook\(\);/, '$1') }, '열려 있던 내 방명록 창'],
     ['친구 홈에 들어가도 배지를 안 숨김', { visit: cut(S.visit, 'window._mhGbRefreshBadge();   // 관람 모드', '// 관람 모드') }, '배지는 숨긴다'],
     ['내 홈으로 돌아와도 창을 안 닫음', { visit: S.visit.replace(/window\._mhReSubscribeGuestbook\(\);\n  window\._mhGbRefreshBadge\(\);   \/\/ 자기 홈 복귀/, 'window._mhGbRefreshBadge();   // 자기 홈 복귀') }, '친구 방명록 창을 닫는다'],

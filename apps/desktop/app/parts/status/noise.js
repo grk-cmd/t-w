@@ -20,15 +20,23 @@
 
    [전파] 방 payload 에 문자열 한 칸(noise) — Presence.setNoise. 상태는 이미 흐른다. 규칙 변경 없음.
 
-   [기댄 것 — 전부 app.js 의 전역(클래식 스크립트 최상위 let/const/function)]
-     seats · seatState · findMySeat · hiddenSeatsMod._seatHidden · officeMode · Presence · _plSyncBgmBounds · _plApplyPos
-     ⚠️ 이 파일은 app.js **뒤에** 실려야 한다(html 의 <script> 순서). 없으면 조용히 아무것도 안 한다.
+   [기댄 것 — app.js 가 createNoise(deps) 로 넘긴다(앱 FSD · M23)]
+     deps: seats · seatState · findMySeat · hiddenSeatsMod(_seatHidden) · officeModeMod(officeMode()) · Presence
+     window 고리(try 로 감싸 부름): _plSyncBgmBounds · _plApplyPos
+     ⚠️ app.js 가 INIT 을 마친 바로 뒤(옛 «app.js 다음 script» 와 같은 때)에 만든다 — 이 파일은 app.js 보다 먼저 싣는다.
 
    [소리 자료] parts/noise-sounds.js(window.TW_NOISE_SOUNDS · base64 WebM/Opus). 왜 base64 인지는 그 파일 머리 주석.
 
    [남은 판단 — 실기기에서 귀로]
      ① 📖 책장: 4.9초짜리라 루프가 티가 난다 → 지금은 «가끔 한 번»(NZ_PAGE_LOOP = false). 루프로 되돌리려면 true.
      ② 비율 50/70/90 · 3겹 상한(NZ_RATIO · NZ_MAX_LAYERS) ③ 음악과의 균형(NZ_VOL_DEFAULT). */
+function createNoise(deps){
+const officeModeMod = deps.officeModeMod;
+const seats = deps.seats;
+const findMySeat = deps.findMySeat;
+const seatState = deps.seatState;
+const hiddenSeatsMod = deps.hiddenSeatsMod;
+const Presence = deps.Presence;
 (function(){
   'use strict';
 
@@ -84,7 +92,7 @@
   }
 
   /* ── 지금 방 상태 읽기 ──────────────────────────────────────────────── */
-  function _office(){ try{ return !!officeMode; }catch(_){ return false; } }   // let TDZ 대비(_chatSfxOfficeLock 과 같은 이유)
+  function _office(){ try{ return !!officeModeMod.officeMode(); }catch(_){ return false; } }   // 모듈 안 let 을 읽는 함수로 읽는다 — 아직 안 만들어졌으면 던지므로 꺼짐으로 본다
   function gather(now){
     const inp = { office:_office(), mine:{ kind:nzKind, focus:false }, others:[], withOthers:nzOthers };
     let list = null;
@@ -278,3 +286,6 @@
                    layers: Object.fromEntries(Object.entries(layer).map(([k, L])=>[k, L.cur])) }),
   };
 })();
+}
+
+window.TwNoise = { createNoise };

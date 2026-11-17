@@ -70,7 +70,7 @@ function mkEl(tag, id){
 function mkEnv(opt){
   opt = opt || {};
   const env = { toasts: [], warns: [], esc: [], winL: {}, raf: [], subs: [], unsubs: 0, watch: 0, unwatch: 0,
-    closed: 0, configs: [], errors: [], frameWrites: [], pause: 0, resume: 0, plPlaying: !!opt.plPlaying, plRender: 0, office: !!opt.office,
+    closed: 0, starts: 0, notices: [], configs: [], errors: [], frameWrites: [], pause: 0, resume: 0, plPlaying: !!opt.plPlaying, plRender: 0, office: !!opt.office,
     room: opt.room === undefined ? 'ROOM1' : opt.room, audio: [], ls: Object.assign({}, opt.ls || {}), lsSets: [], mySlot: 0, host: true, mySeatCalls: 0 };
   const els = {};
   const getEl = id => (opt.noDom ? null : (els[id] || (els[id] = mkEl('div', id))));
@@ -81,7 +81,7 @@ function mkEnv(opt){
     watchQuota: cb => { env.watch++; env.quotaCb = cb; return () => { env.unwatch++; }; },
     setConfig: cfg => { env.configs.push(cfg); return Promise.resolve(true); },
     setFrameUrl: (i, u) => { env.frameWrites.push([i, u]); return Promise.resolve(true); },
-    start: async () => (opt.startRes || { ok: true, n: 1, left: 399, nth: '1번째 · 399회 남음' }),
+    start: async () => { env.starts++; return (opt.startRes || { ok: true, n: 1, left: 399, nth: '1번째 · 399회 남음' }); },
     setCut: (i, at) => { (env.cuts = env.cuts || []).push([i, at]); return Promise.resolve(true); },
     isHost: () => env.host, mySlot: () => env.mySlot, hostSlot: () => 0, serverNow: () => (opt.srvNow === undefined ? 1000 : opt.srvNow),
     slotsNow: () => slots0, framesNow: () => (opt.frames || {}), metaNow: () => (opt.meta === undefined ? null : opt.meta),
@@ -97,11 +97,11 @@ function mkEnv(opt){
     requestAnimationFrame: fn => { env.raf.push(fn); return env.raf.length; }, cancelAnimationFrame(){},
     performance: { now: () => 1000 }, devicePixelRatio: 1, innerWidth: 1280, innerHeight: 800,
     Audio: FakeAudio, Image: class { constructor(){ this.onload = null; } }, URL: { createObjectURL: () => 'blob:x', revokeObjectURL(){} },
-    confirm: () => true, THREE: U(),
+    confirm: () => true, THREE: U(), TwGlContext: { make: () => (opt.noGl ? null : U()) },
     localStorage: { getItem: (k) => (k in env.ls ? env.ls[k] : null) },
     companion: { pauseBgm(){ env.pause++; }, resumeBgm(){ env.resume++; } },
     firebaseAPI: { pkUploadFrame: async () => 'https://x' },   // 남은 Firebase 길은 프레임 Storage 올리기 하나
-    TwErrorCodes: { notify: (code, err, text) => { env.errors.push([code, err, text]); return true; } },
+    TwErrorCodes: { notify: (code, err, text) => { env.errors.push([code, err, text]); env.notices.push(code); return true; } },
   };
   ctx.window = ctx;
   ctx.addEventListener = (t, fn) => { (env.winL[t] = env.winL[t] || []).push(fn); };
@@ -184,6 +184,23 @@ await sec('── 2. 문 — 자리를 잡기 전에 막는다', async () => {
   chk(e.opened.me.userCode === 'uA' && !('userId' in e.opened.me) && !('name' in e.opened.me), '내 코드(userCode)만 넘긴다 — 이름은 서버가 방 멤버 이름으로 채운다');
 });
 
+await sec('── 3-2. 3D 없는 방장 — 촬영 시작을 막고 안내만(E-SYS-07)', async () => {
+  const e = mkEnv({ noGl: true }); const ui = e.mk(); await ui.open();
+  const PK = ui.state();
+  chk(ui.isOpen() && PK.host === true && !PK.renderer, '3D 를 못 만들어도 창은 열린다(방장) — 무대는 없음');
+  await e.els.pkStartBtn.onclick({ stopPropagation(){} });
+  chk(e.starts === 0 && e.notices.join() === 'E-SYS-07' && PK.state !== 'shooting' && PK.shots.length === 0, '★ 촬영 시작을 눌러도 시작하지 않는다(정원 차감 start 안 부름) · 안내 번호 E-SYS-07 한 번 · 촬영 중이 아님');
+  const ok = mkEnv({}); const ui2 = ok.mk(); await ui2.open();
+  await ok.els.pkStartBtn.onclick({ stopPropagation(){} });
+  chk(ok.starts === 1 && ok.notices.length === 0, '3D 가 있는 방장은 예전처럼 시작한다(다른 사람 영향 없음)');
+  const g = mkEnv({ noGl: true, openRes: { ok: true, slot: 1, host: false } }); g.host = false; g.mySlot = 1; const ui3 = g.mk(); await ui3.open();
+  await g.els.pkStartBtn.onclick({ stopPropagation(){} });
+  chk(g.starts === 0 && g.notices.length === 0, '방장이 아닌 참가자는 눌러도 아무 일 없고 안내도 없다(3D 없어도 로비 사용)');
+  const MUT = MOD.replace("if(!PK.renderer){ TwErrorCodes.notify('E-SYS-07'); return; }", '');
+  const m = mkEnv({ noGl: true, mod: MUT }); const um = m.mk(); await um.open(); let th = null;
+  try{ await m.els.pkStartBtn.onclick({ stopPropagation(){} }); }catch(err){ th = err; }
+  chk(MUT !== MOD && (m.starts === 1 || m.notices.length === 0), '깨 보기: 얼리 리턴을 지우면 3D 없는 방장도 시작해 버린다(정원 차감 start 가 불린다) → 빨강');
+});
 await sec('── 3. 열고 닫기 — 가짜 THREE · DOM 위에서', async () => {
   const e = mkEnv({ plPlaying: true }); const ui = e.mk();
   await ui.open();

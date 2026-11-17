@@ -37,7 +37,7 @@ const presenceMod = TwPresence.createPresence({
   USER_STATUSES: USER_STATUSES,          // 값 — 상태 목록(부팅 때 저장값 검사)
   roomSyncMod: roomSyncMod,              // 값 — 직렬화 · poke 신선도 · 자동 퇴장 안내
   focusLevelMod: ()=>focusLevelMod,      // 읽는 함수 — 만드는 줄보다 뒤에 선언되는 모듈
-  lastAnyInput: ()=>lastAnyInput,        // 읽는 함수 — app.js 가 다시 대입하는 let
+  lastAnyInput: ()=>seatStateMod.lastAnyInput(),   // 읽는 함수 — 활동 시각은 status/seat-state.js 가 갖는다
   toast: (...a)=>toast(...a),            // 함수
   // … 16개(함수 2 · 값 7 · 읽는 함수 7)
 });
@@ -105,12 +105,14 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
     setDeskPanX: (v)=>{ deskPanX = v; }, setDeskPanY: (v)=>{ deskPanY = v; },
     setCachedRowCenter: (v)=>{ _cachedRowCenter = v; }, setCachedRowSpan: (v)=>{ _cachedRowSpan = v; },
   });
-  function layoutSeats(){ seatLayoutMod.layoutSeatRow(); }   // 이름은 app.js 에 남긴다(아래 함정)
+  function layoutSeats(){ seatLayoutMod.layoutAndNotify(); }   // 이름은 app.js 에 남긴다(모든 부르는 곳이 이 이름을 본다)
+  seatLayoutMod.onLaidOut(()=>{ /* 데스크탑 창 크기 맞춤 */ });
   ```
-- **내보내는 것**: `layoutSeatRow()` — 직접 부르지 말고 app.js 의 `layoutSeats()` 를 부른다(좌석이 늘거나 줄 때 · 책상 크기가 바뀔 때 · 창 크기가 바뀔 때).
-- **확장할 때 고칠 자리**: 줄 폭 하한 `ROW_SPAN_MIN` · 간격 값은 app.js 의 `SPACING` · `MULTIPLAYER_SPACING`(설정 창이 바꾼다) · 책상 반폭 재기는 app.js `seatDeskHalfWidth` · 고정 규칙은 `seat-pin.js`.
+- **내보내는 것**: `layoutSeatRow()`(계산만) · `layoutAndNotify()`(계산 뒤 알림 — app.js 의 `layoutSeats()` 가 부른다. 좌석이 늘거나 줄 때 · 책상 크기가 바뀔 때 · 창 크기가 바뀔 때) · `onLaidOut(fn)` · `seatHalfWidth(s)` · `slotIndexAt(x, seat)`.
+- **배치한 뒤 알림**(F4) `layoutAndNotify()`(app.js 의 `layoutSeats()` 가 부른다) = `layoutSeatRow()` 뒤에 `onLaidOut(fn)` 으로 건 일을 거는 차례대로 부른다 — app.js 가 데스크탑 창 크기 맞춤(`resizeWidget` · `applyDesktopRunClass`)을 건다(옛: `layoutSeats` 를 감싸 다시 대입). `layoutSeatRow` 가 일찍 끝나도 알림은 간다.
+- **확장할 때 고칠 자리**: 줄 폭 하한 `ROW_SPAN_MIN` · 간격 값은 seats.js 의 `SPACING` · `MULTIPLAYER_SPACING`(설정 창이 바꾼다) · 책상 반폭 재기는 app.js `seatDeskHalfWidth` · 고정 규칙은 `seat-pin.js`.
 - **함정**
-  - app.js 맨 아래 «데스크탑 창 크기» 가 `layoutSeats` 를 감싸 **다시 대입**한다(앱 FSD 32번). 그래서 본문 이름은 `layoutSeatRow` 이고 app.js 에 `layoutSeats` 를 남긴다 — 모듈 안에서 `layoutSeatRow` 를 직접 부르면 창 크기 맞춤이 빠진다.
+  - 모듈 안에서 `layoutSeatRow` 를 직접 부르면 알림(데스크탑 창 크기 맞춤)이 빠진다 — 밖에서는 app.js 의 `layoutSeats()` 만 부른다.
   - `seats` 배열의 순서 · 내용은 안 바꾼다(좌석 탭 · 슬롯 드래그가 인덱스를 쓴다). 올라탄 좌석은 계산에서만 뺀다.
   - 1번 자리부터 책상 반폭에 줌 상한(1.1)이 걸리는 지금 동작은 `CONFIRM.md` 에 적어 둠(`seatDeskHalfWidth(s, i)` 가 인덱스를 forZoom 으로 넘김 — 몸 폭 규칙을 넣으면서도 그대로 뒀다).
   - 검사: `checks/sim-seat-layout.js`(4절 — 혼자 · 셋 · 친구 간격 · 올라탄 좌석 · 고정 · 오프셋 · 폭 0 · 빈 목록 · 책상 없는 좌석 몸 자리 · 🚫 책상 없음 표시).
@@ -187,7 +189,7 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
   - sink · 앞뒤 보정은 대상 크기 1 기준이고 쓰는 쪽이 × 대상 userScale 한다 — 작은 크기에서 맞춘 값을 박지 말 것.
   - 1층(팔 걸치기)과 2층+(발로 딛기)은 앞뒤 보정 부호가 반대라 상수가 따로다(`RIDE_Z_DEPTH_K_ON_ANIMAL` · `CIRCUS_Z_DEPTH_K_ON_ANIMAL`).
   - 임시 객체는 공유된다 — 값을 들고 있으려면 `clone()`.
-  - 동물 팔 기본각 `ANIMAL_HAND_REST` 는 animal.js 가 전역으로 읽어 app.js 에 남겼다.
+  - 동물 팔 기본각 `ANIMAL_HAND_REST` 는 app.js 에 남아 있다(animal.js 는 deps 로 받는다).
   - 검사: `checks/sim-ride-tuning.js`(4절 — 값 표 50개가 옮기기 전과 같다 · 임시 객체가 따로따로 · 값 범위).
 
 ## seat-refit.js — 🪑 파츠 구성이 바뀐 뒤 좌석 다시 맞추기
@@ -197,7 +199,7 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
   ```js
   const seatRefitMod = TwSeatRefit.createSeatRefit({
     fitModel: (...a)=>fitModel(...a),
-    layoutSeats: (...a)=>layoutSeats(...a),   // 맨 아래 «데스크탑 창 크기» 가 다시 대입하므로 화살표로
+    layoutSeats: (...a)=>layoutSeats(...a),   // 부를 때 찾게 화살표로
     requestFrame: (...a)=>requestAnimationFrame(...a),
     seats: seats,                              // 다음 프레임 맞추기는 실행 화면 좌석만
   });
@@ -430,3 +432,52 @@ roomEntryMod.onRoomChanged(()=>listenUi.sync());
   - `DEFAULT_DESK_OVERRIDE_ID`(`__default_desk__`) · `NO_DESK_ID`(`__no_desk__`)는 `deskCatalogId` 로 **저장되는 값**이다 — 글자를 바꾸면 옛 앱 · 방 서버가 못 읽는다.
   - 상판 이름 `deskTop` · `deskAnchor` 는 다른 곳(책상 크기 · 소품 장착)이 이름으로 찾는다.
   - 검사: `checks/sim-desk-build.js`(진짜 three 로 상판 · 다리 · 소품 · 대신 몸 · 연결 · 깨 보기).
+
+## seats.js — 🪑 좌석 목록 · 만들기 · 지우기 · 고른 좌석 · 간격
+
+- **책임**: `seats` 배열(좌석 객체의 단 하나의 목록) · `createSeat`(책상 + 대신 몸 + 앵커로 좌석 하나를 만들어 씬에 올리고 줄 배치) · `removeSeat` · 고른 좌석(`selected`) · 좌석 간격 솔로 · 멀티(`SPACING` · `MULTIPLAYER_SPACING` — 설정 › 캐릭터 슬라이더가 정하고 localStorage `tw.gapSolo` · `tw.gapMulti` 에 저장). 자리 셈은 `seat-layout.js`. 앱 FSD 분리 M6 — app.js SEATS 구역 머리를 글 그대로 옮겼다.
+- **만드는 법**: `TwSeats.createSeats({ CHAR_Z, buildDesk, buildPlaceholder, scene })` 뒤 `seatsMod.attach({ layoutSeats, selectSeat, renderSeatTabs })` — 줄 배치 · 좌석 탭 · 좌석 고르기는 위층(seat-layout · seat-panel)이 하는 일이라 deps 로 부르면 모듈 순환이 된다(sim-dep-cycles). app.js 가 seatPanelMod 를 만든 뒤 알림만 걸고, 이 모듈은 그것만 부른다(`createSeat` · `removeSeat` 보다 먼저). app.js 는 `seats` · `GAP_MIN` · `GAP_MAX` · `GAP_STEPS` · `saveGap` · `createSeat` 를 같은 이름 const 로 받는다.
+- **내보내는 것**: 위 여섯 + `removeSeat` + 다시 대입되는 셋의 읽는 · 쓰는 함수(`selected()` / `setSelected(v)` · `SPACING()` / `setSPACING(v)` · `MULTIPLAYER_SPACING()` / `setMULTIPLAYER_SPACING(v)`) — app.js 는 값으로 복사하지 않고 `seatsMod.selected()` 로 읽는다.
+- **함정**
+  - 간격 저장 키는 바꾸지 말 것(저장된 값이 사라진다). 최소 -0.3 은 책상 GLB 박스가 보이는 판보다 넓어서 «끝끼리 0» 이어도 벌어져 보이기 때문이다.
+  - `removeSeat` 는 한 칸만 남으면 아무것도 안 한다. 고른 좌석을 지우면 바로 앞(`max(0, i-1)`) 좌석을 고른다.
+  - 상판 재질은 좌석마다 복제한다(책상 색을 좌석별로 바꾸려고).
+  - 검사: `checks/sim-seats.js`(진짜 three · desk-build 로 좌석 만들기 · 지우기 · 간격 읽기 쓰기 · 깨 보기).
+
+## char-place.js — 🧍 캐릭터 높이 · 깊이 · 자리 · 크기 저장 · 끌기 한계 · 책상 반폭
+
+- **책임**: 캐릭터 기본 앞뒤 자리 `CHAR_Z` · 높이 상한 `CHAR_Y_MAX` · `clampCharY` · `seatCharZ` / 프로그램 이동 위치(`deskPanX` · `deskPanY` — localStorage `tw.deskPan`)의 저장 · 복원 · 안전 범위 `clampDeskPan`(실측 여백 `_myPanHalfFrac` · 없으면 폴백 0.02) / 실행 화면 캐릭터 크기 `focusCharScale` 의 모니터별 저장 · 복원(`tw.focusCharScale` — 디스플레이 id → 해상도 지문 → default 세 겹) · `refreshCharScaleForCurrentDisplay` / 책상 반폭 실측 `seatDeskHalfWidth` / 동물 실행 크기 `ANIMAL_RUN_SCALE`. 앱 FSD 분리 M7 — app.js 에서 글 그대로 옮겼다.
+- **만드는 법**: `TwCharPlace.createCharPlace({ camera, bodyMeasureMod, seats })` 뒤 `charPlaceMod.attachLayout({ layoutSeats })` — `seats` 는 더 아래에서 만들어져 읽는 함수. 줄 배치는 위층(`seat-layout`)이라 deps 로 부르면 모듈 순환이 되므로 app.js 가 알림만 건다(`layoutSeats` 는 뒤에서 정의돼 부를 때 찾는다). app.js 는 옛 이름 열하나를 const 로 받고, `window.ANIMAL_RUN_SCALE`(animal.js 가 읽는 고리)도 app.js 가 건다.
+- **내보내는 것**: `CHAR_Z` · `CHAR_Y_MAX` · `clampCharY` · `seatCharZ` · `BASE_PXW` · `ANIMAL_RUN_SCALE` · `saveCharPos` · `saveCharScale` · `refreshCharScaleForCurrentDisplay` · `clampDeskPan` · `seatDeskHalfWidth` · `attachLayout` + 다시 대입되는 여섯(`sizeFactor` · `deskPanX` · `deskPanY` · `focusCharScale` · `_cachedRowCenter` · `_cachedRowSpan`)의 읽는 · 쓰는 함수(`이름()` / `set이름(v)`) — app.js 는 `charPlaceMod.deskPanX()` 로 읽는다.
+- **함정**
+  - 크기는 id · 지문 · default 세 곳에 같이 쓴다 — id 하나만 쓰면 재부팅 · 드라이버 갱신으로 id 가 바뀌는 순간 저장값이 미아가 된다.
+  - `ANIMAL_RUN_SCALE` 은 `_animalPanExtra` 가 부를 때 읽는다(값을 미리 굳히면 TDZ 로 앱이 죽었던 자리).
+  - `seatDeskHalfWidth` 는 `updateWorldMatrix(true, true)` 로 조상부터 세운다(`fitModel` 직후 `matrixWorld` 캐시가 옛 값이라 간격이 부풀던 자리). 책상 위 아이템(`deskAnchor`)과 숨은 자식은 뺀다.
+  - 검사: `checks/sim-char-place.js`(저장 · 복원 · 모니터 바뀜 · 끌기 한계 표 · 책상 반폭 · 깨 보기).
+
+## seat-opacity.js — 👻 캐릭터 투명도(자리비움 영혼 효과)
+
+- **책임**: `setSeatOpacity(seat, op)` — 좌석 몸(`bodyWrap`) 아래 모든 mesh 의 material 투명도를 상태 투명도 × 파츠 원본 투명도로 쓰고, 자리비움(op≈0)이면 mesh 를 끈다. 앱 FSD 분리 M10 — app.js 캐릭터 투명도 구역을 글 그대로 옮겼다.
+- **만드는 법**: `TwSeatOpacity.createSeatOpacity({})` — deps 없음(좌석 객체만 읽고 쓴다). app.js 는 `setSeatOpacity` 를 같은 이름 const 로 받는다(`frame` 이 매 프레임 부른다).
+- **함정**
+  - 파츠 원본 투명도(`_baseOpacity` · `_baseTransparent`)는 **불투명할 때(op≥0.999) · 건드리기 전(`_opTouched` 없음)** 에만 잰다 — 숨은 동안 처음 만난 머티리얼의 0 이 원본으로 굳으면 머리가 영영 안 보인다(앱을 껐다 켜야 돌아옴).
+  - `seat._bodyOff` 는 `hidden-seats.js` 가 읽는다(몸을 껐다는 표시 — 투명도 기준은 여기 한 곳). `userData._prevVisible` 은 파츠 `hides` 로 숨긴 mesh 가 풀릴 때 다시 보이지 않게 하는 기억이다.
+  - 검사: `checks/sim-seat-opacity.js`(자리비움 풀림 사고 시나리오 — 이 파일의 본문을 떼어 돌린다) · `checks/sim-seat-opacity-mod.js`(자리비움 켜고 끄기 · 원본 투명도 기억 · 연결 · 깨 보기).
+
+## seat-pointer.js — 🖱 캔버스 누르기 · 끌기 · 흔들기 · 쓰다듬기 · 우클릭
+
+- **책임**: 캔버스 `contextmenu`(끄는 중 우클릭 = 그 자리 고정 · 조준 취소 · 좌석 메뉴) · `pointerdown`(좌석 잡기 · 조준 가로채기) · `pointermove`(흔들기 · 책상 끌기로 슬롯 옮기기 · 어지러움 누적) · `pointerup`(쓰다듬기 · 아이템 · 벤치 앉기 · 동물 얹기 · 어지러움 확정) · `pointercancel` · `blur` 안전망 · 이름표 끌기 시작(`_beginLabelSlotDrag`) · 전역 마우스 NDC. 끄는 중 상태 `drag` 의 주인. 앱 FSD 분리 M11 — app.js DRAG / PET 구역을 글 그대로 옮겼다.
+- **만드는 법**: `TwSeatPointer.createSeatPointer({ … 24개 })` — 값 13 · 함수 4 · 읽는 함수 6(`Presence` · `floatersMod` · `officeMode` · `roomSeatMode` · `seatMenuMod` · `suppressNextContextMenu`) · 쓰는 함수 1(`setSuppressNextContextMenu`). 만들 때 캔버스 · window 듣기를 한 번 건다.
+- **내보내는 것**: `ray` · `ndc` · `seatFromObject`(app.js 가 같은 이름 const 로 받아 다른 모듈 deps 에 넘긴다) · `drag()`(읽기만) · `mouseNdcX()` · `mouseNdcY()` · `_beginLabelSlotDrag`(이름표 끌기가 쓴다).
+- **함정**
+  - `pointerup` 본문은 `try/finally` 로 `drag = null` 을 보장한다 — 서버가 끊겨 `Presence.poke` 가 던지면 `drag` 가 남아 클릭 통과 판정 루프가 모든 mousemove 를 삼킨다(앱이 유령이 된다).
+  - 우클릭 메뉴는 preventDefault · 억제 깃발 · drag · 레이캐스트 · 회사원 모드 확인 **뒤**에 열어야 한다 — 앞에 붙이면 드래그 중 고정과 이동 확정이 깨진다.
+  - 옛 `typeof seats !== 'undefined'` 가드 하나는 걷었다(`seats` 는 이제 deps 값).
+  - 이름표 끌기 모듈(`seat-label-drag.js`)이 `beginDrag` 로 이 모듈의 `_beginLabelSlotDrag` 를 쓰고, 이 모듈이 `TwSeatLabelDrag.canGrabSeat` 를 부른다(순수 판단 한 줄) — 서로 부름이 `sim-dep-cycles` 기준선에 2건 올랐다. 이슈 #903.
+  - 검사: `checks/sim-seat-pointer.js`(듣기 · 우클릭 · 누르기 · 끌기 · 쓰다듬기 · 어지러움 · try/finally · 안전망 · 연결 · 깨 보기 · 가짜 THREE).
+
+## flying-chair.js — 🪑 플라잉체어
+
+- **책임**: `FLY_*` 상수 · `_flyRng`(시드 난수 — 같은 시드면 같은 궤적) · `flySeed` · `canFly`(막는 까닭 일곱 — 올라탄 좌석은 `allowTower` 면 허용) · `startFlight`(`seat.fly` 를 채우고 `_flyActive` 를 올림) · `_flyActive`(지금 날고 있는 좌석 수 — 프레임 상한이 비행 동안만 비켜 간다).
+- **만드는 법**: `TwFlyingChair.createFlyingChair({ seats, toast })`. **내보내는 것**: 상수 · `flySeed` · `canFly` · `startFlight`(app.js 가 같은 이름 const 로) · `_flyActive()` · `setFlyActive(v)`.
+- **함정**: `Math.random()` 은 `flySeed` 한 곳뿐이다(검사가 센다). 비행을 매 프레임 움직이는 쪽은 `tricks.js` · 프레임 루프. 검사: `checks/sim-flying-chair.js`.

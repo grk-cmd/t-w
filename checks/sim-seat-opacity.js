@@ -17,9 +17,10 @@
 const fs = require('fs');
 const path = require('path');
 
-const SRC_NAME = 'app.js';
-const SRC_PATH = path.join(__dirname, SRC_NAME);
-if (!fs.existsSync(SRC_PATH)){
+/* setSeatOpacity 는 app.js 분리 M10 에서 room/seat-opacity.js 로 옮겼다 — 본문을 떼는 원본이 그 파일이다(러너 스테이징에선 같은 폴더). */
+const SRC_NAME = 'seat-opacity.js';
+const SRC_PATH = [path.join(__dirname, SRC_NAME), path.join(__dirname, '..', 'app', 'parts', 'room', SRC_NAME)].find(p => fs.existsSync(p));
+if (!SRC_PATH){
   console.log('✗ ' + SRC_NAME + ' 를 못 찾음 — ' + SRC_NAME + ' 이 있는 폴더에서 실행할 것');
   process.exit(2);
 }
@@ -87,7 +88,7 @@ if (BODY === null){
   console.log('✗ ' + SRC_NAME + ' 안에서 setSeatOpacity 를 못 뗐다 — 서명이 바뀌었는지 확인할 것');
   process.exit(1);
 }
-/* ★ 이것이 검사의 핵심이다. 사본이 아니라 **app.js 에 실제로 들어 있는 본문**이 돈다. */
+/* ★ 이것이 검사의 핵심이다. 사본이 아니라 **app.js 에 실제로 들어 있는 본문(seat-opacity.js)**이 돈다. */
 const setOpacityNew = new Function('seat', 'op', BODY);
 
 /* 모형은 실물에 맞춘다 — 실물은 seat.meshes 가 아니라 seat.bodyWrap.traverse 를 돌고,

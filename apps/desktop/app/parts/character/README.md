@@ -232,6 +232,7 @@
 - **만드는 법**: deps 하나 — `const charMeasureMod = TwCharMeasure.createCharMeasure({ measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a) });`. 맨 몸 · 맨 머리 · 발밑 깊이는 `measureBodyBox`(body-measure.js)에 옵션만 고른다.
 - **내보내는 것**
   - `measureCharBox(root)` — 맨 몸 박스(스킨드 · 리깅 · 꾸미기 wrapper 제외). fitModel 의 키 정규화 분모.
+  - `measurePreviewBox(root)` — 꾸미기 미리보기 카메라 구도. 보이는 몸 · 보이는 일반 파츠는 세고 리깅 파츠(스키닝 전 원본 박스가 몇 배씩 크다) · 숨은 메시는 뺀다. 아무것도 안 잡히면 통째로. ⚠️ 통째로(setFromObject) 재면 리깅 파츠 하나에 카메라가 물러나 캐릭터가 점처럼 보인다.
   - `measureHeadBoxNoParts(root, outBoxes?, meshHost?)` — 맨 머리 박스(숨은 메쉬 · 꾸미기 파츠 제외, meshHost 를 주면 기본 장식 메쉬도). 올라타기 · 이름표 · 귀가 쓴다.
   - `headDecorMeshSet(meshHost)` — 기본 장식 메쉬(hatMesh · maskMesh · glassesMesh · wingMesh) Set.
   - `measureUnderfootDepth(root)` — 발 아래로 내려간 깊이(오차 0.005 이하면 0 · 상한 1.2).
@@ -326,6 +327,7 @@
   - `countsAsBody(mesh, root, opts)` · `isPartNode(node)` · `isPartByRigOrName(node)`(옛 판정 — 리깅 · 이름만, 표식은 안 봄) · `PART_WRAP_PREFIX`
   ```js
   measureCharBox(root)          // = measureBodyBox(root, { excludeParts: true })                       키 정규화 · 센터링 · 날기 벽(tricks — gltfRoot 를 재고 비면 rig 째 옵션 없음)
+  measurePreviewBox(root)       // = measureBodyBox(root, { excludeParts: 'rigged', visibleOnly: true }) 꾸미기 미리보기 카메라 구도(비면 통째로)
   measureHeadBoxNoParts(r,o,h)  // = { excludeParts: true, visibleOnly: true, skipMeshes: 장식 }         올라타기 · 맨 머리
   measureUnderfootDepth(root)   // = { excludeParts: 'rigged', visibleOnly: true } 의 min.y            발밑 파츠 바닥 맞춤
   _boxExcluding(root, skipSub)  // = { skipBranch: o => o.visible === false || skipSub(o) }            책상 바닥 맞춤(파츠 핀 빼기)
@@ -459,3 +461,66 @@
   - 생성기(`crState.cBase`)일 때만 선택 표시 · 처음 자리 기억 · 기즈모 해제를 한다.
   - 색 그룹이 있으면 비어 있어도 `colors` 를 항상 저장한다 — «초기화한 상태» 를 기록해야 옛 색이 안 남는다.
   - 검사: `checks/sim-desk-item-equip.js`(진짜 three 로 장착 · 해제 · 복원 · 재생 방식 · 색 · 저장 · 환산 · 깨 보기).
+
+## fit-model.js — 📐 몸 · 책상 맞춤
+
+- **책임**: `fitModel(seat)` — 캐릭터를 좌석 키에 맞춘다(몸을 재어 높이 1.45 로 정규화 · 동물은 정해진 배율 · 커미션 보정 · 몸 x 가운데 · 발바닥 맞춤 · 사용자 x · y(높이 상한) · 평준화 배율 · 리깅 파츠 xf 다시 굽기) / `fitDesk(seat)` — 책상 GLB 를 높이 0.6 에 맞추고 바닥 · 가운데 · 앞으로 0.45. 앱 FSD 분리 M8 — app.js FIT 구역을 글 그대로 옮겼다.
+- **만드는 법**: `TwFitModel.createFitModel({ ANIMAL_RUN_SCALE, COMMISSION_SCALE_CORRECTION, charMeasureMod, clampCharY, seatEqMod, refreshRiggedPartsXf, creatorPrevMod, restPoseMod, fitWatchMod })` — 앞 다섯 · 뒤 둘(`restPoseMod` 기본 자세로 재기 · `fitWatchMod` 설명 안 되는 높이 경고)은 값, `refreshRiggedPartsXf` 는 함수, `creatorPrevMod` 는 더 아래에서 만들어져 읽는 함수.
+- **내보내는 것**: `fitModel` · `fitDesk` — app.js 는 같은 이름 const 로 받는다.
+- **함정**
+  - 사용자 x · y 는 **raw `seat.userScale`** 로 나눈다(실효값 아님) — `bodyWrap.scale` 이 userScale × 평준화 k 라 raw 로 나눠야 이동량의 월드 값이 책상과 같은 배율로 따라온다. 실효값으로 나누면 평준화한 좌석에서 캐릭터가 책상을 파고든다.
+  - 동물은 x · y 이동량에 `ANIMAL_RUN_SCALE`(0.4)을 곱한다 — 생성기는 100% 로, 실행 화면은 40% 로 그리는데 이동량만 절대값이면 실행 화면에서 2.5배 크게 들려 보인다(`charLiftWorld` 도 같이 바꿀 것).
+  - 재는 동안 옮긴 `rig` · `bodyWrap` · `group` 은 값을 되돌린 뒤 **월드 행렬도 다시 세워 두고** 나간다 — 옛 행렬로 남으면 바로 뒤 `layoutSeats` 가 원점 근처에 있는 것처럼 읽는다.
+  - 앞뒤(z) 재센터링은 하지 않는다(미리보기가 정답 기준). 되돌리려면 주석에 적힌 한 줄.
+  - 검사: `checks/sim-fit-model.js`(진짜 three · body-measure · char-measure 로 정규화 · 이동량 · 동물 · 커미션 · 되돌리기 · 책상 · 깨 보기).
+
+## char-apply.js — 🧬 캐릭터 def 를 좌석에 입히기
+
+- **책임**: `applyCharToSeat(seat, def)` — 좌석에 저장된 캐릭터(def)를 입힌다(라이드 정리 · 옛 파츠 비우기 · 책상 배율(동물 60%) · 평준화 k 지움 · 커미션 / 동물 / 기본 몸 조립 · 크기 · 높이 넣기 · 파츠 · 책상 · 아이템 · 클릭 판정). 곁에 `_purgeSeatParts` · `refreshRiggedPartsXf` · `_setPlaceholderPickable` · `_registerAnimalEarOn`(동물 · 사람 귀 공용 등록) · `_sweepAnimalEars`. 앱 FSD 분리 M12 — app.js 에서 글 그대로 옮겼다.
+- **만드는 법**: `TwCharApply.createCharApply({ … 37개 })` — 값 19 · 함수 11 · 읽는 함수 7(`BASE_ANIMS` · `assetCodeMod` · `curSlot` · `customItems` · `deskItemsMod` · `deskPlaceMod` · `deskVisualMod`). 원래 자리에서 만든다.
+- **내보내는 것**: `applyCharToSeat` · `_purgeSeatParts` · `refreshRiggedPartsXf` · `_registerAnimalEarOn` — app.js 는 같은 이름 const 로 받는다.
+- **함정**
+  - `window.rebuildAnimalSeats`(동물 GLB 파싱 뒤 좌석 다시 입히기) · `window.registerAnimalEar`(귀가 붙을 때)는 **이 모듈을 만들 때** 건다 — `animal.js` 가 `window.` 로 부른다. 지우면 동물 귀가 안 붙고 동물이 인간으로 남는다. 반대로 이 모듈은 `window.buildAnimalBase`(animal.js)를 부른다 — 서로 부르는 고리라 `sim-dep-cycles` 기준선에 4건 올랐다(이슈 #903).
+  - 커미션 GLB 가 캐시에 없으면 파싱만 걸고 `return` 한다. 그 앞에서 책상 배율 · z 를 한 번 맞춰 두는 까닭(한 화면 옛 z 로 그려짐)이 주석에 있다 — 순서를 바꾸지 말 것.
+  - `seat._animalBuilt` 는 조건 밖에서 갱신한다 — 안 그러면 동물 GLB 파싱 전 인간 폴백일 때 직전 캐릭터의 판정이 남는다.
+  - 검사: `checks/sim-char-apply.js`(파츠 비우기 · 리깅 xf · 귀 등록 · window 고리 · 입히기 갈래 · 깨 보기).
+
+## rig-anim.js — 🕺 몸짓
+
+- **책임**: `STATES` · `targetFor`(상태 → 허리 · 호흡 · 눈 · 팔 목표) · `animateRig`(좌석 한 명의 뼈를 지금 시각에 맞춰 움직임 — 타자 · 잠 · 흔들림 · 어지러움 · 춤 · 귀 까닥임 · 클릭 반응) · `setClip`(믹서 클립) · 뼈대 상수 · `boneSide` · `setBone`.
+- **만드는 법**: `TwRigAnim.createRigAnim({ … 6개 })` — 모두 값(`ANIMAL_HAND_REST` · `camera` · `iDeskMod` · `rideTuneMod` · `seatPointerMod` · `userStatusMod`). 원래 자리에서 만든다.
+- **내보내는 것**: 상수 · 함수 열둘을 같은 이름 const 로 받는다(`lerp` 포함 — 다른 구역이 쓴다).
+- **함정**: 부호(`SPINE_AXIS` 등)와 각도 상수는 움직임 방향을 정한다 — 숫자를 바꾸면 자세가 뒤집힌다. 검사: `checks/sim-rig-anim.js`.
+
+## cloth-visibility.js — 👕 옷 겹침
+
+- **책임**: `_unequipClothCat`(옷 카테고리 충돌 정리 — def 는 안 건드림) · `applyClothVisibility`(착용 파츠의 `hides` 로 기본 상 · 하의 · 모자 · 안경 · 날개 · 손 메시를 보이거나 숨김). 앱 FSD 분리 T4 — app.js 글을 그대로 옮겼다(0.13 app.js 의 같은 글).
+- **만드는 법**: `TwClothVisibility.createClothVisibility({ decoPartsMod, premiumMod, rideBenchMod, unequipPartFromSeat })` — 값 3 · 함수 1. app.js 가 원래 자리(파츠 붙이기 · 떼기 바로 앞)에서 만들고 두 이름을 const 로 받는다.
+- **함정**
+  - 자리비움 중(`mesh.userData._prevVisible` 있음)에는 `visible` 을 직접 쓰지 않고 `_prevVisible` 에 적는다 — `setSeatOpacity`(`room/seat-opacity.js`)와 같은 한 표식이다.
+  - 끝의 `rideBenchMod._remeasureRideHeadTop(seat)` 가 «기본 메시 가시성이 확정된 순간» 의 머리 꼭대기 재측정이다 — `unequipPartFromSeat` 안으로 옮기지 말 것(그 함수가 끝난 뒤에 이 함수가 가시성을 되돌린다).
+  - 검사: `checks/sim-cloth-visibility.js`.
+
+## base-body.js — 🧍 기본 몸 모델 공급 · 복제 · 크기
+
+- **책임**: 사람 몸(기본 GLB) 읽기 · 복제 · 크기는 캐릭터 코어(`createBody`)가 하고, 이 모듈은 코어 몸 만들기 · 몸 모델 자산(`window.BASE_GLB_B64`) 공급(`loadBaseGLB`) · 복제 뒤 같은 뼈대 하나로(`instantiateBase`) · 커미션 GLB 파싱 캐시(`getCommissionScene`) · 얼굴 텍스처(`mkFaceTex`) · 크기(`normalizeModel`). 앱 FSD 분리 T2 — 0.13 app.js 글 그대로(옛 `measureBaseGeometry` · `calcMeshBox` · `BASE_MESH_*` 는 선언만 있고 안 읽혀 코어로 걷음).
+- **만드는 법**: `TwBaseBody.createBaseBody({ loader, skelShare, _fixGlbMatLighting, setFaceMap, applyLightPreset, assetCodeMod })` — 값 2 · 함수 3 · 읽는 함수 1(`assetCodeMod`). app.js 가 원래 자리에서 만들고 아홉 이름을 const 로 받는다. 몸 장면 · 애니메이션은 `bodyCore.baseScene()` · `baseAnims()`.
+- **함정**: #830 줄(`skelShare.shareSkeletons`)이 `instantiateBase` 안에 있다 — 지우면 몸 복제마다 Skeleton 이 따로 생긴다(`sim-skeleton-share`). 몸 모델이 아직 안 읽혔으면 `baseScene()` 은 없음 — 부르는 쪽(`_baseHeadTopAboveBone` 등)이 그 값을 본다. 검사: `checks/sim-base-body.js`.
+
+## part-xf.js — 🎀 파츠 저작 오프셋 · xf 적용
+
+- **책임**: 파츠를 캐릭터 본에 붙일 때의 저작 오프셋(`_computePartAuthorOffset` — 바인드 자세 역행렬 `_charBoneBindInverses` 로 환산) · 머리 계열 파츠 실측 진단(`_diagPartHeadSpace`) · 동물 머리 파츠 세로 보정(`_computeAnimalHeadDy` · `_headTopAboveBone` · `_baseHeadTopAboveBone`) · 옛 보정 판별(`_isLegacyAuthorCompensation`) · wrapper 에 xf 적용(`_applyXfToWrapper` · `applyPartXf` — 본체 · 다중 파츠 extras · stackable · 책상 위 파츠 바닥 맞춤). 앱 FSD 분리 T5 — 0.13 app.js 글 그대로. 계산 본문은 코어 `createParts`(`packages/char-core/src/parts.ts`).
+- **만드는 법**: `TwPartXf.createPartXf({ partsCore, PART_DEFAULT_OFFSET, premiumMod, partPaintMod, lightToneMod, bodyMeasureMod, charMeasureMod, instantiateBase })` — 값 7 · 함수 1. 코어 파츠(`partsCore = TwCharCore.createParts({…})`)는 app.js 가 모듈보다 먼저 만들어 넘긴다(`part-equip.js` 도 받는다). app.js 는 밖에서 부르는 여섯 이름을 const 로 받는다.
+- **함정**: `_computePartAuthorOffset` 의 `bb` 는 `equipPartOnSeat`(`part-equip.js`)가 피봇용으로 만든 것과 «같은» 박스여야 한다 — 한쪽만 고치면 피봇과 실제 위치가 어긋난다. 검사: `checks/sim-part-xf.js`.
+
+## part-equip.js — 🎀 파츠 붙이기 · 떼기 · def 대조
+
+- **책임**: 꾸미기 파츠를 좌석 본에 붙이는 일의 좌석 몫 — `equipPartOnSeat`(옷 겹침 정리 · GLB 받기 · 리깅 판정 · 장착 차례 · 귀 까닥임 · 애니메이션 · 진단) · 떼기(`unequipPartFromSeat` · `unequipStackablePart` · 비동기 장착 무효화 `_invalidatePendingEquip` · 유령 wrapper 청소 `_sweepOrphanPartWrappers` · 다시 맞추기 요청) · 좌석과 def 대조(`pruneSeatPartsAgainstDef`) · 저장된 파츠 한꺼번에 입히기(`applyEquippedPartsToSeat`) · 본 찾기(`extractBonesInto`). 앱 FSD 분리 T6 — 0.13 app.js 글 그대로(복제 · 재질 · _col · _pic · 리깅 다시 묶기 · wrapper 는 코어 `createParts` 호출).
+- **만드는 법**: `TwPartEquip.createPartEquip({ … })` — 21개(값 5 · 옛 이름으로 받은 part-xf · cloth-visibility · part-anim 함수 · 함수 2 · 읽는 함수 `partSceneMod`). app.js 가 `part-xf.js` 와 옷 겹침 뒤에서 만들고 밖에서 부르는 아홉 이름을 const 로 받는다.
+- **함정**: 해제는 먼저 `_invalidatePendingEquip` 으로 번호를 올려야 늦게 도착한 장착이 스스로 멈춘다(유령 파츠 방어). `pruneSeatPartsAgainstDef` 의 파츠 정보 조회 실패는 «없음» 이 아니라 «유지» 다(착용 파츠 증발 사고). `skelShare.shareSkeletons` 두 줄(#830 — 본체 · 다중 파츠 사본)을 지우지 말 것(`sim-skeleton-share`). 검사: `checks/sim-part-equip-mod.js`.
+
+## animal.js — 🐾 동물 생성기 · 동물 카드
+
+- **책임**: 예전엔 app.js 다음 `<script>` 로 실려 app.js 맨 위 이름을 그냥 불렀다(R7). 지금은 `TwAnimal.createAnimal(deps)` 로 받는다 — app.js 보다 먼저 싣고(html), app.js 끝의 «화면 모듈 둘(M23)» 줄에서 INIT 뒤에 만든다(옛 «app.js 다음 script» 와 같은 때 · 같은 차례).
+- **받는 deps**: 값 `lightToneMod` · `loader` · `focusLevelMod` · `accountStoreMod`(해금 기록 계정 칸) · `accountJsonStoreMod`(동물 프리셋 JSON 칸) · `ANIMAL_HAND_REST` · `partPaintMod` · `slots`(제자리 고침 — 다시 대입 안 됨) · `slotSaveMod` · `Presence` · `LIGHT_PRESET` · 함수 아홉(`normalizeModel` · `toast` · `bindHold` · `applyDesktopRunClass` · `renderLauncher` · `applyCharToSeat` · `layoutSeats` · `openCreator` · `saveCurSlot`) · 읽는 함수 넷(`isAdmin` · `curSlot` · `creatorMode` · `creatorOpen`) · 쓰는 함수 둘(`setCurSlot` · `setCreatorOpen`).
+- **함정**: `curSlot` · `creatorOpen` 은 이 모듈이 바꾸는 app.js 의 let 이라 쓰는 함수로만 바꾼다. 자료(`animal-glb.js` · `ears-glb.js`)는 이 모듈보다 먼저 싣는다. 검사: `checks/sim-global-deps.js`(deps 없이 app.js 이름을 부르는 곳 0 · deps 짝 · 연결).

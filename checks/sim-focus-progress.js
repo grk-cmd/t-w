@@ -20,6 +20,7 @@ const SRC0 = {
   MOD: pick(['focus-progress.js', 'parts/focus/focus-progress.js', 'app/parts/focus/focus-progress.js']),
   API: pick(['focus-api.js', 'parts/focus/focus-api.js', 'app/parts/focus/focus-api.js']),
   APP: pick(['app.js', 'parts/app.js', 'app/parts/app.js']),
+  WM: pick(['window-mode.js', 'parts/launcher/window-mode.js', 'app/parts/launcher/window-mode.js']),   // 활성 앱 판정(_applyActiveAppState)은 launcher/window-mode.js
   HTML: pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html']),
   SMOKE: pick(['smoke.js']),
 };
@@ -331,7 +332,7 @@ async function judge(S){
   chk(/const focusApiMod = TwFocusApi\.createFocusApi\(\{ authed: TwApi\.authed/.test(A) && /focusApi: focusApiMod,/.test(mk) && /focusStore: accountStoreMod/.test(mk) && /notifyError: \(\.\.\.a\)=>TwErrorCodes\.notify\(\.\.\.a\)/.test(mk) && /setServerDay: \(t\)=>focusTotalMod\.setServerDay\(t\)/.test(mk) && /addQuitListener/.test(mk), 'app.js — 진척 모듈을 서버 길 · 계정 칸 · 오류 번호 · 서버 날에 잇는다');
   chk(/focusLevel: \(code, me, session\)=>\{ focusProgressMod\.startFocus\(code, me, session\); focusLevelMod\.startMobile\(code, me, session\); \},/.test(A), 'app.js — app-boot 의 focusLevel 차례가 startFocus · startMobile(code, me, session) — 세션을 넘긴다');
   chk(!/startFocusSync|syncFocusTotalToServer/.test(A), '  옛 시작 · 동기화 부름이 없다');
-  chk(/else if\(_focusAccruedLast\) focusProgressMod\.focusEnded\(\);/.test(A), 'app.js — 집중이 끝나는 순간 focusEnded 를 부른다');
+  chk(/else if\(_focusAccruedLast\) focusProgressMod\(\)\.focusEnded\(\);/.test(S.WM) && /focusProgressMod: \(\)=>focusProgressMod,/.test(A), 'window-mode.js — 집중이 끝나는 순간 focusEnded 를 부른다(app.js 가 읽는 함수로 넘긴다)');
   const iP = S.HTML.indexOf('<script src="parts/focus/focus-progress.js"></script>'), iApi = S.HTML.indexOf('<script src="parts/focus/focus-api.js"></script>'), iApp = S.HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iP > 0 && iApp > iP && iApi > 0, 'html — focus-progress.js 를 app.js 앞에');
   chk(/PRELOAD\.push\('focus-progress\.js'\)/.test(S.SMOKE), 'smoke — PRELOAD');

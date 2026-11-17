@@ -1,5 +1,5 @@
 /* 🗂️ sim-lobby-window.js — 방 찾기 · 만들기(로비)를 런처에서 열면 앱 창이 마이홈 크기로 — node sim-lobby-window.js
-   app.js 의 applyDesktopRunClass 본문과 INIT 의 로비 감시(MutationObserver) 줄을 **실제로 떼어 돌린다**.
+   launcher/window-mode.js 의 applyDesktopRunClass 본문과 app.js 켜는 차례(run-boot appMode 칸)의 로비 감시(MutationObserver) 줄을 **실제로 떼어 돌린다**.
    ・1절: 화면 상태(런처 · 마이홈 · 로비 · 생성기) → main 에 보내는 창 모드 · 스티커 여백
    ・2절: 로비 .on 이 바뀌면 창 크기를 다시 맞춘다(감시 줄)
    ・3절: 깨 보기 — 로비를 안 보거나, 로비에도 스티커 여백을 보내면 빨강 */
@@ -10,6 +10,9 @@ const path = require('path');
 const SRC_PATH = path.join(__dirname, 'app.js');
 if(!fs.existsSync(SRC_PATH)){ console.log('✗ app.js 를 못 찾음 — node checks/run.js lobby-window 로 돌릴 것'); process.exit(2); }
 const SRC = fs.readFileSync(SRC_PATH, 'utf8');
+const WM_PATH = [path.join(__dirname, 'window-mode.js'), path.join(__dirname, 'launcher', 'window-mode.js')].find((f) => fs.existsSync(f));
+if(!WM_PATH){ console.log('✗ window-mode.js 를 못 찾음'); process.exit(2); }
+const WM = fs.readFileSync(WM_PATH, 'utf8');
 
 let fail = 0;
 const chk = (ok, msg) => { console.log((ok ? '  ✓ ' : '  ✗ ') + msg); if(!ok) fail++; };
@@ -51,8 +54,8 @@ function fnBody(src, sig){
   return null;
 }
 
-const BODY = fnBody(SRC, 'function applyDesktopRunClass()');
-if(BODY === null){ console.log('✗ app.js 에서 applyDesktopRunClass 를 못 뗐다 — 서명이 바뀌었는지 확인할 것'); process.exit(1); }
+const BODY = fnBody(WM, 'function applyDesktopRunClass()');
+if(BODY === null){ console.log('✗ window-mode.js 에서 applyDesktopRunClass 를 못 뗐다 — 서명이 바뀌었는지 확인할 것'); process.exit(1); }
 
 /* 가짜 화면 — 켜진 오버레이 id 묶음과 main 으로 간 마지막 요청만 본다 */
 function mkEnv(on){
@@ -69,9 +72,9 @@ function mkEnv(on){
 const PAD = { l: 30, r: 0, t: 0, b: 0 };
 function run(body, st){
   const env = mkEnv(new Set(st.on));
-  const fn = new Function('document', 'window', 'companion', 'desktopMode', 'creatorOpen', 'myHomeOpen', 'appMode', 'mhStLayoutMod', 'key', 'FrameBudget', body);
-  fn(env.document, { companion: env.companion }, env.companion, true, !!st.creator, false, 'run', { _mhStickerOverhang: () => PAD },
-    {}, { castShadowFor: () => false });   // 실행 화면 그림자 끄기(#810)는 이 검사 몫이 아니다 — sim-frame-budget
+  const fn = new Function('document', 'window', 'companion', 'desktopMode', 'creatorOpen', 'myHomeOpen', 'appModeMod', 'mhStLayoutMod', 'key', 'FrameBudget', 'floor', body);
+  fn(env.document, { companion: env.companion }, env.companion, true, () => !!st.creator, false, { appMode: () => 'run' }, { _mhStickerOverhang: () => PAD },
+    {}, { castShadowFor: () => false }, { visible: true });   // 실행 화면 그림자 끄기(#810)는 이 검사 몫이 아니다 — sim-frame-budget
   return env.sent[env.sent.length - 1];
 }
 const CASES = [
@@ -89,11 +92,11 @@ CASES.forEach(c => { const r = run(BODY, c); chk(r && r.mode === c.mode && r.ext
 
 console.log('\n=== 2. 로비 .on 이 바뀌면 창 크기를 다시 맞춘다 ===');
 {
-  const MARK = "{ const ov=document.getElementById('inviteOverlay');";
-  const at = SRC.indexOf(MARK);
-  chk(at >= 0, 'INIT 에 로비 감시 줄이 있다');
+  const MARK = "const ov=document.getElementById('inviteOverlay');";
+  const at = SRC.indexOf(MARK), iBoot = SRC.lastIndexOf('const runBoot = TwRunBoot.createRunBoot({', at);
+  chk(at >= 0 && iBoot > 0 && SRC.lastIndexOf('appMode: ()=>{', at) > iBoot, '켜는 차례(run-boot appMode 칸)에 로비 감시 줄이 있다');
   if(at >= 0){
-    const line = SRC.slice(at, SRC.indexOf('\n', at));
+    const line = SRC.slice(at, SRC.indexOf('\n', at)).replace(/ \},$/, '');
     const target = {}; let watched = null, opts = null, calls = 0;
     function MutationObserver(cb){ this.observe = (el, o) => { watched = { el, cb }; opts = o; }; }
     new Function('document', 'MutationObserver', 'applyDesktopRunClass', line)(

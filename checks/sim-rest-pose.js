@@ -110,8 +110,8 @@ function wired(app){
   return /const restPoseMod = TwRestPose\.createRestPose\(\);/.test(app) && iE > 0 && iT > iE && iM > iT && iU > iM && iL > iU && iR > iL;
 }
 chk(wired(SRC), '★ fitModel — 재기 전에 enter · 크기 · 발바닥 · 발밑 깊이를 잰 뒤 finally 에서 leave · 그다음 rig 되돌리기');
-const camOk = (src) => { const f = cut(src, 'refreshWdPreviewChar'); return /let box=measureCharBox\(g\);/.test(f) && !/const box=new THREE\.Box3\(\)\.setFromObject\(g\);/.test(f); };
-chk(camOk(WD), '★ 미리보기 카메라는 맨 몸(measureCharBox)으로 — 파츠까지 통째로 재지 않는다');
+const camOk = (src) => { const f = cut(src, 'refreshWdPreviewChar'); return /const box=measurePreviewBox\(g\);/.test(f) && !/const box=new THREE\.Box3\(\)\.setFromObject\(g\);/.test(f); };
+chk(camOk(WD), '★ 미리보기 카메라는 보이는 몸 · 일반 파츠(measurePreviewBox — 리깅 원본 · 숨은 메시 뺌)로 — 통째로 재지 않는다(재는 규칙은 sim-char-measure)');
 chk(/parts\/character\/rest-pose\.js[\s\S]*parts\/app\.js/.test(HTML.slice(HTML.indexOf('rest-pose.js') - 40)), '  html 에 app.js 보다 먼저 싣는다(smoke 는 html 목록을 그대로 싣는다)');
 
 say('── 3. 깨 보기');
@@ -119,7 +119,7 @@ chk(!(await behave(MOD.replace('t.now.forEach(put);', ''))).back, 'leave 가 자
 chk(!(await behave(MOD.replace('if(!root.userData[KEY]){', 'if(true){'))).partRest, '기본 자세를 매번 새로 재면(지금 자세를 기본으로) 위 ★ 가 빨강');
 chk(!(await behave(MOD.replace('if(bw) bw.rotation.set(0, 0, 0);', ''))).lieRest, '눕힘 되돌리기를 빼면 위 «누워 떼쓰기» ★ 가 빨강');
 chk(!wired(SRC.replace('const _rest = restPoseMod.enter(seat);', 'const _rest = null;')), 'fitModel 에서 enter 를 빼면 위 2절 ★ 가 빨강');
-chk(!camOk(WD.replace('let box=measureCharBox(g);', 'let box=new THREE.Box3().setFromObject(g);')), '카메라를 통째로 재면 위 2절 ★ 가 빨강');
+chk(!camOk(WD.replace('const box=measurePreviewBox(g);', 'const box=new THREE.Box3().setFromObject(g);')), '카메라를 통째로 재면 위 2절 ★ 가 빨강');
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);
