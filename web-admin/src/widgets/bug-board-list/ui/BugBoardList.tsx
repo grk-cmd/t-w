@@ -26,10 +26,11 @@ import {
   formatDate,
   pageForSize,
   readPageSize,
+  realName,
   savePageSize,
   useKeysetPaging,
 } from '@/shared/lib';
-import { Pager } from '@/shared/ui';
+import { Pager, PersonName } from '@/shared/ui';
 import styles from './BugBoardList.module.css';
 
 function Title({ item }: { item: BugItem }) {
@@ -87,7 +88,7 @@ function Row({ item, todo, onOpen }: { item: BugItem; todo?: Todo; onOpen: (id: 
         </button>
       </td>
       <td>
-        {bugAuthorName(item, nick.data)}
+        {realName(item.name) ? bugAuthorName(item, nick.data) : <PersonName name={null} />}
         {isStaffPost(item) && <span title="운영진 글"> 🛡</span>}{' '}
         <small className="soft key">{item.code}</small>
       </td>

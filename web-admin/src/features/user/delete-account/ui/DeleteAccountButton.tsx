@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { accountErrorMessage, useEnv, withProdMark } from '@/shared/api';
-import { ADMIN_MEMO_MAX, shownName } from '@/shared/lib';
-import { useModalDialog, useToast } from '@/shared/ui';
+import { ADMIN_MEMO_MAX } from '@/shared/lib';
+import { PersonName, useModalDialog, useToast } from '@/shared/ui';
 import { ONLINE_UNKNOWN_LABEL } from '@/entities/user';
 import { useDeleteAccountPort } from '../api/index';
 import { authLabel, confirmMatches, doneSummary, type AccountDeleteResult } from '../model/deleteAccount';
@@ -35,7 +35,9 @@ function Preview({ r }: { r: AccountDeleteResult }) {
     <>
       <dl className={styles.who}>
         <dt>이름</dt>
-        <dd>{shownName(r.name)}</dd>
+        <dd>
+          <PersonName name={r.name} />
+        </dd>
         <dt>친구 코드</dt>
         <dd>
           <code className="key">{r.friendCode ?? '—'}</code>
@@ -216,7 +218,9 @@ function ServerPreview({ p }: { p: ServerDeletePreview }) {
     <>
       <dl className={styles.who}>
         <dt>이름</dt>
-        <dd>{shownName(p.name)}</dd>
+        <dd>
+          <PersonName name={p.name} />
+        </dd>
         <dt>친구 코드</dt>
         <dd>
           <code className="key">{p.friendCode}</code>

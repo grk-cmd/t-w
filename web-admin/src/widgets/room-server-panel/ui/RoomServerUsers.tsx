@@ -21,7 +21,7 @@ import {
   shownName,
   useDebouncedValue,
 } from '@/shared/lib';
-import { Pager } from '@/shared/ui';
+import { Pager, PersonName } from '@/shared/ui';
 import styles from './RoomServerUsers.module.css';
 
 type Message = { text: string; error: boolean } | null;
@@ -61,7 +61,9 @@ function UserLine({
   const block = presence.isLoading ? null : appVerBlock(ver);
   return (
     <tr>
-      <td>{shownName(name)}</td>
+      <td>
+        <PersonName name={name} />
+      </td>
       <td>
         <code className="key">{row.friendCode ?? '—'}</code>
       </td>
