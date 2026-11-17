@@ -4,6 +4,7 @@ import { newLicenseWrite } from '@/entities/license';
 import { approvedWrite, removeRequestWrite, type LicenseRequest } from '@/entities/license-request';
 import { findUserByFriendCode } from '@/entities/user';
 import { maskKey, withAudit, type Db } from '@/shared/api';
+import { realName } from '@/shared/lib';
 import type { ApproveRequestPort, BulkResult } from './port';
 
 // 기록의 대상은 친구코드 — 신청자 이름은 남기지 않는다. 친구코드 없이 온 옛 신청은 신청 id.
@@ -19,11 +20,12 @@ export async function approveRequest(
   genKey?: () => string,
 ): Promise<{ key: string; delivered: boolean }> {
   const friendCode = req.friendCode ?? '';
+  const name = realName(req.name);
   const user = await findUserByFriendCode(db, friendCode);
   const { key, write } = newLicenseWrite(
     db,
-    // 발급 메모는 저장되는 글 — 이름이 없으면(빈 글 · 공백뿐 포함) 빼고 «이름 없음» · «null» 을 적지 않는다
-    `요청: ${req.name?.trim() ? `${req.name.trim()} · ` : ''}친구코드 ${friendCode}`,
+    // 메모는 저장되므로 이름이 없으면 NO_NAME · «null» 대신 이름 부분을 뺀다.
+    `요청: ${name ? `${name} · ` : ''}친구코드 ${friendCode}`,
     genKey,
   );
   const updates = {

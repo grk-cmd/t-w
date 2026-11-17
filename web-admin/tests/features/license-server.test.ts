@@ -246,15 +246,17 @@ describe('엑셀 일괄 발급 — API 판', () => {
     expect(judge(rows, { dupFirst: false, reissue: true }, issued)[0].st).toBe('send');
   });
 
-  it('찾은 사람의 이름이 null 이면 null 그대로 — 자리 표시 글을 채우지 않는다', async () => {
-    const s = fakeApiOf({
-      'POST /v2/admin/licenses/preview': () => [
-        { friendCode: 'MATE-AAAA', found: true, name: null, hasValidLicense: false },
-      ],
-    });
-    const [row] = await createServerBulkGrantPort(s.api).lookup([sheet(2, 'MATE-AAAA')]);
-    expect([row.base, row.code, row.name]).toEqual(['send', 'MATE-AAAA', null]);
-    expect(rowNote(row)).toBe('친구코드 MATE-AAAA');
+  it('찾은 사람의 이름이 null · 공백뿐 · 옛 placeholder 이면 null — 메모에 NO_NAME 을 넣지 않는다', async () => {
+    for (const name of [null, '   ', '(이름 없음)']) {
+      const s = fakeApiOf({
+        'POST /v2/admin/licenses/preview': () => [
+          { friendCode: 'MATE-AAAA', found: true, name, hasValidLicense: false },
+        ],
+      });
+      const [row] = await createServerBulkGrantPort(s.api).lookup([sheet(2, 'MATE-AAAA')]);
+      expect([row.base, row.code, row.name]).toEqual(['send', 'MATE-AAAA', null]);
+      expect(rowNote(row)).toBe('친구코드 MATE-AAAA');
+    }
   });
 
   it('발급 — 줄마다 한 요청으로 보내고 결과를 행에 싣는다(재발급 체크는 reissue)', async () => {
@@ -360,17 +362,19 @@ describe('시크릿룸 발급 — API 판', () => {
     expect(result.ok && result.period).toMatch(/^3개월 · \d{4}-\d{2}-\d{2} 까지$/);
   });
 
-  it('받는 사람 이름이 null 이면 방 이름은 빈 글로 보낸다(«이름 없음» 을 싣지 않는다)', async () => {
-    const s = fakeApiOf({
-      'POST /v2/admin/licenses/preview': () => [found({ name: null })],
-      'GET /v2/admin/secret-rooms': () => [],
-      'POST /v2/admin/secret-rooms': () => roomAnswer({ name: null }),
-    });
-    const { port, r } = await prepared(s);
-    if (!r.ok) throw new Error('확인이 통과해야 해요');
-    expect(r.plan.name).toBe('');
-    await port.grant(r.plan);
-    expect(s.calls[2].body).toMatchObject({ name: '' });
+  it('받는 사람 이름이 null · 공백뿐 · 옛 placeholder 이면 방 이름은 빈 문자열로 보낸다', async () => {
+    for (const name of [null, '   ', '(이름 없음)']) {
+      const s = fakeApiOf({
+        'POST /v2/admin/licenses/preview': () => [found({ name })],
+        'GET /v2/admin/secret-rooms': () => [],
+        'POST /v2/admin/secret-rooms': () => roomAnswer({ name: null }),
+      });
+      const { port, r } = await prepared(s);
+      if (!r.ok) throw new Error('확인이 통과해야 해요');
+      expect(r.plan.name).toBe('');
+      await port.grant(r.plan);
+      expect(s.calls[2].body).toMatchObject({ name: '' });
+    }
   });
 
   it('영구는 months: null · 코드를 비우면 code 를 보내지 않는다', async () => {

@@ -15,7 +15,7 @@ import {
   wireString,
   type Api,
 } from '@/shared/api';
-import { createPayloadRequestId } from '@/shared/lib';
+import { createPayloadRequestId, realName } from '@/shared/lib';
 import { CODE_RE, isActionable, normalizeCode, rowNote, type BaseStatus, type PlanRow } from '../model/rows';
 import type { BulkGrantPort } from './port';
 
@@ -36,7 +36,7 @@ function toPreview(w: unknown, index: number): Preview {
   return {
     code: wireString(o.friendCode, `${at} friendCode`),
     found,
-    name: found ? wireNullableString(o.name, `${at} name`) : null,
+    name: found ? realName(wireNullableString(o.name, `${at} name`)) : null,
     hasLicense: wireBool(o.hasValidLicense, `${at} hasValidLicense`),
   };
 }

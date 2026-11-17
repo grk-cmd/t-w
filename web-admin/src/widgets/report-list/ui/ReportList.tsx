@@ -1,7 +1,7 @@
 import { reportReason, type ReportTarget } from '@/entities/report';
-import { realName, useUserBrief } from '@/entities/user';
+import { useUserBrief } from '@/entities/user';
 import { ReportActions } from '@/features/user/moderate-report';
-import { formatDate, shownName, type Selection } from '@/shared/lib';
+import { formatDate, realName, shownName, type Selection } from '@/shared/lib';
 import { RowCheckbox } from '@/shared/ui';
 import styles from './ReportList.module.css';
 

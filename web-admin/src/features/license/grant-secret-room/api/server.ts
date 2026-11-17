@@ -27,7 +27,7 @@ import {
   wireString,
   type Api,
 } from '@/shared/api';
-import { createPayloadRequestId } from '@/shared/lib';
+import { createPayloadRequestId, realName } from '@/shared/lib';
 import { isServerPlan, type GrantSecretRoomPort, type ServerSecretPlan } from './port';
 
 const PREVIEW = adminPath('/licenses/preview');
@@ -105,8 +105,8 @@ function build(api: Api | null): GrantSecretRoomPort {
       const plan: ServerSecretPlan = {
         via: 'server',
         friendCode,
-        // 방 이름 칸은 글자로 보낸다 — 받는 사람 이름이 없으면(null) 빈 이름.
-        name: (wireNullableString(o.name, '미리 보기 줄의 name') ?? '').slice(0, OWNER_NAME_MAX),
+        // API 의 name 은 문자열만 받는다 — 이름이 없으면 빈 문자열.
+        name: (realName(wireNullableString(o.name, '미리 보기 줄의 name')) ?? '').slice(0, OWNER_NAME_MAX),
         code: wantCode,
         months: months.months,
         confusing: hasConfusingChars(wanted.want),

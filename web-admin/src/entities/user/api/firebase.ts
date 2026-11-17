@@ -1,5 +1,6 @@
 // Firebase 판 — 지금 코드 그대로: users/{uid}/… 의 작은 칸을 하나씩 읽는다.
 import type { Db } from '@/shared/api';
+import { realName } from '@/shared/lib';
 import { licenseStatus, type License } from '@/entities/license/@x/user';
 import { toIssuedInvites, type IssuedInvite } from '@/entities/invite/@x/user';
 import type { Presence, UserInvite } from '../model/live';
@@ -33,9 +34,9 @@ export async function listFriendCodes(db: Db): Promise<Record<string, { userId?:
   return (await db.get<Record<string, { userId?: string }>>('friendCodes')) ?? {};
 }
 
-// 프로필 전체가 아니라 이름 한 칸만 읽는다.
-export function getUserName(db: Db, uid: string): Promise<string | null> {
-  return db.get<string>(`users/${uid}/profile/name`).catch(() => null);
+// 프로필 전체가 아니라 name 필드만 읽는다. 빈 값 · 옛 placeholder 는 null 로 돌려 저장하는 메모에 실리지 않게 한다.
+export async function getUserName(db: Db, uid: string): Promise<string | null> {
+  return realName(await db.get<string>(`users/${uid}/profile/name`).catch(() => null));
 }
 
 /** 마지막 접속 시각(ms). 기록이 없거나 읽지 못하면 null. */

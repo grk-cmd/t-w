@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildUserRows, licenseUseCounts, realName } from '@/entities/user';
+import { buildUserRows, licenseUseCounts } from '@/entities/user';
+import { realName } from '@/shared/lib';
 
 import { accounts, friendCodes, licenses } from '../shared/userFixtures';
 

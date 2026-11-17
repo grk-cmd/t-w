@@ -61,4 +61,4 @@ export {
 } from './keysetPaging';
 export { BULK_SEND_MAX, chunks } from './bulk';
 export { ADMIN_MEMO_MAX } from './memo';
-export { NO_NAME, shownName } from './personName';
+export { NO_NAME, realName, shownName } from './personName';

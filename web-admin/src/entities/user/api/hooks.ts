@@ -2,7 +2,8 @@ import { queryOptions, useInfiniteQuery, useQuery, useQueryClient } from '@tanst
 import { KEYSET_PAGE_MAX } from '@/shared/lib';
 import { userInviteKey } from '@/entities/invite/@x/user';
 import type { UserInvite } from '../model/live';
-import { realName, type UserRow } from '../model/userRow';
+import { realName } from '@/shared/lib';
+import type { UserRow } from '../model/userRow';
 import { userBriefKey, userDetailKey, userPresenceKey } from './keys';
 import type { UserBrief, UserCellsPort, UserPort } from './port';
 import { useUserPort } from './index';

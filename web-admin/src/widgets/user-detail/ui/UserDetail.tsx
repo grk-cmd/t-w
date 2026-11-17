@@ -8,7 +8,6 @@ import {
   ONLINE_UNKNOWN_LABEL,
   onlineUnknownText,
   LICENSE_LABEL,
-  realName,
   useUserBrief,
   useInvitees,
   useIssuedInvites,
@@ -26,7 +25,7 @@ import { DeleteAccountButton } from '@/features/user/delete-account';
 import { ResetPasswordButton } from '@/features/user/reset-password';
 import { GrantInvitesButton } from '@/features/user/grant-invites';
 import { useSameLicenseUsers, useUserByCode, useUsersByCode } from '@/features/user/user-rows';
-import { copyText, formatDate, formatHours, shownName, useKeysetPaging } from '@/shared/lib';
+import { copyText, formatDate, formatHours, realName, shownName, useKeysetPaging } from '@/shared/lib';
 import { Pager, useModalDialog, useToast } from '@/shared/ui';
 import styles from './UserDetail.module.css';
 
