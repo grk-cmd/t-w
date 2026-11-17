@@ -26,7 +26,7 @@ function commitUserName(raw){
     return;
   }
   const prev = getUserName();
-  const next = v;   // 빈 글 = 이름 지우기(서버에 "" — 서버도 이 PC 도 «나» 를 적지 않는다 · 그릴 때만 «나»)
+  const next = v;   // 빈 글 = 이름 지우기(서버에 "" — 서버도 이 PC 도 «이름 없음» 을 적지 않는다 · 그릴 때만 «이름 없음»)
   setUserName(next);
   refreshNameViews();
   // ★ 이름의 원본은 서버 계정(0.13) — 친구 화면 · 명함이 거기서 읽는다. 서버가 거절하면 이 PC 에도 남기지 않고 이전 이름으로 되돌린다(다음 켤 때 서버 이름으로 덮이므로).

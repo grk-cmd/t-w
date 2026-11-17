@@ -1,10 +1,10 @@
 /* sim-person-name.js — 🏷️ 사람 이름을 화면 글로(shared/person-name.js) · 받는 쪽은 자리표시를 만들지 않는다
    실행:  node sim-person-name.js   (person-name.js · friends-api.js · room-invite-rt.js · desk-companion-prototype.html · smoke.js 가 있는 폴더에서)
-   ★ 왜 이 검사가 있는가 — 이름의 주인은 서버 계정이다(이름 없음 = null). 예전엔 앱이 빈 이름을 «나» 로 바꿔 이 PC · 서버에 적고,
-     받는 쪽마다 «(이름 없음)» · «친구» · «손님» · «?» 를 따로 골랐다. 이제 «나» 는 그리는 순간에만 — 이 파일 한 곳.
+   ★ 왜 이 검사가 있는가 — 이름의 주인은 서버 계정이다(이름 없음 = null). 받는 쪽마다 placeholder 를 따로 고르거나
+     이 PC · 서버에 적지 않게, «이름 없음» 은 그리는 순간에만 — 이 파일 한 곳. 사용자가 저장한 «나» 는 진짜 이름이다.
    ・1절: shown — 이름 · 공백 · null · 빈 글 · 글이 아닌 값 · «알 수 없음»(서버가 모르는 사람)은 그대로
-   ・2절: 받는 쪽 — 친구 명함 · 방 초대가 이름 없는 사람을 '' 로 들고(자리표시 없음) 화면이 «나» 로 그린다
-   ・3절: 깨 보기 · 4절: 배선(html · smoke 순서 · 렌더러에 옛 자리표시가 안 남음) */
+   ・2절: 받는 쪽 — 친구 명함 · 방 초대가 이름 없는 사람을 '' 로 들고(placeholder 없음) 화면이 «이름 없음» 으로 그린다
+   ・3절: mutation test · 4절: 배선(html · smoke 순서 · 렌더러에 옛 placeholder 가 안 남음) */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -23,11 +23,12 @@ const load = (src, name) => { const w = { TwRtHub: { store: { onMessage(){}, sen
 function behave(src, fapi, inv){
   const r = []; const t = (ok, m) => r.push([!!ok, m]);
   const N = load(src, 'TwPersonName');
-  t(N && typeof N.shown === 'function' && N.NO_NAME === '나', '싣기만 하면 window.TwPersonName · 이름 없음 글은 «나»');
+  t(N && typeof N.shown === 'function' && N.NO_NAME === '이름 없음', '싣기만 하면 window.TwPersonName · 이름 없음 글은 «이름 없음»');
   t(N.shown('민수') === '민수' && N.shown('  민수 ') === '민수', '★ 이름이 있으면 그 이름(앞뒤 공백은 걷음)');
-  t(N.shown(null) === '나' && N.shown(undefined) === '나', '★ null(서버의 «이름 없음») · 칸 없음 → «나»');
-  t(N.shown('') === '나' && N.shown('   ') === '나', '★ 빈 글 · 공백뿐 → «나»');
-  t(N.shown(0) === '나' && N.shown({}) === '나' && N.shown(false) === '나', '  글이 아닌 값 → «나»(숫자 · 객체를 이름으로 그리지 않는다)');
+  t(N.shown(null) === '이름 없음' && N.shown(undefined) === '이름 없음', '★ null · 필드 없음 → «이름 없음»');
+  t(N.shown('') === '이름 없음' && N.shown('   ') === '이름 없음', '★ 빈 글 · 공백뿐 → «이름 없음»');
+  t(N.shown(0) === '이름 없음' && N.shown({}) === '이름 없음' && N.shown(false) === '이름 없음', '  글이 아닌 값 → «이름 없음»(숫자 · 객체를 이름으로 그리지 않는다)');
+  t(N.shown('나') === '나' && N.shown(' 나 ') === '나', '★ 사용자가 저장한 «나» 는 진짜 이름 — 그대로 «나»');
   t(N.shown('알 수 없음') === '알 수 없음', '  서버가 모르는 사람(«알 수 없음»)은 그대로 — 앱이 따로 고르지 않는다');
   t(N.shown('<b>나비</b>') === '<b>나비</b>', '  씻지 않는다(HTML 에 넣을 땐 TwSafeHtml.text 몫 · 두 번 씻으면 &lt; 가 글자로 보인다)');
   t(Object.isFrozen(N), '  고칠 수 없는 객체');
@@ -36,7 +37,7 @@ function behave(src, fapi, inv){
   const F = load(fapi, 'TwFriendsApi');
   const p0 = F.profileOf({ name: '', level: 3, cyc: null, clv: null, starC: null });
   const p1 = F.profileOf({ name: '나비', level: 3 });
-  t(p0.name === '' && p1.name === '나비' && N.shown(p0.name) === '나', '★ 친구 명함 — 이름이 없으면 \'\' 그대로(자리표시 없음) · 그릴 때 «나»');
+  t(p0.name === '' && p1.name === '나비' && N.shown(p0.name) === '이름 없음', '★ 친구 명함 — 이름이 없으면 \'\' 그대로(placeholder 없음) · 그릴 때 «이름 없음»');
 
   /* 방 초대 — 서버가 이름 없는 보낸 사람을 빈 글로 준다 */
   const I = load(inv, 'TwRoomInviteRt');
@@ -47,19 +48,20 @@ function behave(src, fapi, inv){
   hs.roomInvited({ t: 'roomInvited', from: 'uA', fromName: '', room: 'PLAY-1', ts: 5 });
   hs.roomInvited({ t: 'roomInvited', from: 'uB', fromName: '두부', room: 'PLAY-2', ts: 6 });
   hs.roomInvited({ t: 'roomInvited', from: 'uC', room: 'PLAY-3', ts: 7 });
-  t(got && got.uA.fromName === '' && got.uB.fromName === '두부' && got.uC.fromName === '' && N.shown(got.uA.fromName) === '나',
-    '★ 방 초대 — 이름 없는 보낸 사람은 \'\' 로 든다(«친구» 자리표시 없음) · 그릴 때 «나»');
+  t(got && got.uA.fromName === '' && got.uB.fromName === '두부' && got.uC.fromName === '' && N.shown(got.uA.fromName) === '이름 없음',
+    '★ 방 초대 — 이름 없는 보낸 사람은 \'\' 로 든다(«친구» placeholder 없음) · 그릴 때 «이름 없음»');
   return r;
 }
 
 say('── 1 · 2. 이름 그리기 · 받는 쪽');
 behave(MOD, FAPI, INV).forEach(([ok, m]) => chk(ok, m));
 
-say('── 3. 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['이름 없음을 빈 글로 그림', 'm', (s) => s.replace("return s || NO_NAME;", "return s;")],
   ['공백을 안 걷음', 'm', (s) => s.replace("name.trim()", "name")],
-  ['자리표시를 «(이름 없음)» 으로', 'm', (s) => s.replace("const NO_NAME = '나';", "const NO_NAME = '(이름 없음)';")],
+  ['placeholder 를 «나» 로', 'm', (s) => s.replace("const NO_NAME = '이름 없음';", "const NO_NAME = '나';")],
+  ['저장한 «나» 를 이름 없음으로', 'm', (s) => s.replace("return s || NO_NAME;", "return (s && s !== '나') ? s : NO_NAME;")],
   ['글이 아닌 값도 이름으로', 'm', (s) => s.replace("(typeof name === 'string') ? name.trim() : ''", "String(name == null ? '' : name).trim()")],
   ['친구 명함에 자리표시를 다시 만듦', 'f', (s) => s.replace("return { name: card.name, level", "return { name: card.name || '(이름 없음)', level")],
   ['방 초대에 «친구» 자리표시를 다시 만듦', 'i', (s) => s.replace("fromName: (typeof m.fromName === 'string') ? m.fromName : ''", "fromName: (typeof m.fromName === 'string' && m.fromName) ? m.fromName : '친구'")],
@@ -83,11 +85,11 @@ const late = users.map((f) => path.basename(f)).filter((b) => { const i = HTML.s
 chk(users.length >= 15 && late.length === 0, '★ 이름을 그리는 모듈 ' + users.length + '개 — 모두 person-name.js 뒤에 싣는다' + (late.length ? ' · 앞: ' + late.join(', ') : ''));
 const sN = SMOKE.indexOf("PRELOAD.push('person-name.js');");
 chk(sN > 0, 'smoke PRELOAD — person-name.js');
-/* 옛 자리표시(«(이름 없음)» 을 사람 이름 대신)가 렌더러에 다시 생기지 않는다 — 이름은 이 파일 한 곳이 정한다 */
-const OLD = /(?<!bone)\.(name|friendName|fromName|senderName)\s*\|\|\s*'(\(이름 없음\)|친구|손님|누군가|참가자|요청|\?)'/;
+/* 이름 대신 쓰는 placeholder 가 렌더러에 다시 생기지 않는다 — 이름 없음 글은 person-name.js 한 곳이 정한다 */
+const OLD = /(?<!bone)\.(name|friendName|fromName|senderName)\s*\|\|\s*'(이름 없음|\(이름 없음\)|나|친구|손님|누군가|참가자|요청|\?)'/;
 const left = files.filter((f) => OLD.test(fs.readFileSync(f, 'utf8'))).map((f) => path.basename(f));
 chk(files.length > 50 && left.length === 0, '★ 렌더러에 «이름 || \'(이름 없음)\' · \'친구\' · \'손님\' · \'?\'» 자리표시가 없다' + (left.length ? ' — ' + left.join(', ') : ''));
 
 say('');
-say(fail ? ('✗ ' + fail + '건 어긋남 · 통과 ' + pass) : ('✅ 전부 통과 ' + pass + ' — 이름이 없으면 그릴 때만 «나»'));
+say(fail ? ('✗ ' + fail + '건 어긋남 · 통과 ' + pass) : ('✅ 전부 통과 ' + pass + ' — 이름이 없으면 그릴 때만 «이름 없음»'));
 process.exit(fail ? 1 : 0);

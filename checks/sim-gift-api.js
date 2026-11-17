@@ -146,7 +146,7 @@ async function judge(S){
     chk(b.items[1].message === '' && b.items[1].hidden === true, '  메시지 없음 → \'\' · 치움 = hidden');
     chk(b.unseenCount === 3 && b.starCount === 1 && b.boxKeep === 30 && b.starMax === 20, '숫자 칸은 서버 값(새 선물 수 · ⭐ 수 · 보관 상한 · ⭐ 상한)');
     const nn = await mk(LIB, { 'GET /v2/me/gifts': boxRes([gift('n', { senderName: null }), gift('k', { senderName: 3 })], { unseenCount: 0, starCount: 0 }) }).m.fetchBox();
-    chk(nn.items.length === 1 && nn.items[0].id === 'n' && nn.items[0].senderName === '', '★ 보낸 사람 이름이 없으면(null) 줄을 버리지 않고 \'\' — 화면이 «나» 로 그린다 · 글도 null 도 아닌 이름은 깨진 줄');
+    chk(nn.items.length === 1 && nn.items[0].id === 'n' && nn.items[0].senderName === '', '★ 보낸 사람 이름이 없으면(null) 줄을 버리지 않고 \'\' — 화면이 «이름 없음» 으로 그린다 · 글도 null 도 아닌 이름은 깨진 줄');
     const e0 = await mk(LIB, { 'GET /v2/me/gifts': boxRes([], { unseenCount: 0, starCount: 0 }) }).m.fetchBox();
     chk(e0.items.length === 0 && e0.unseenCount === 0, '빈 선물함은 { items:[] } — 실패가 아니다');
     const d = await throws(() => mk(LIB, { 'GET /v2/me/gifts': apiErr(500, 'X') }).m.fetchBox());

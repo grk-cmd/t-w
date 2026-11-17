@@ -8,7 +8,7 @@
    ・3절: 깨 보기 — 규칙 · 부르는 자리를 망가뜨리면 1 · 2절 판정이 빨강
    ・4절: 배선 — html · smoke 에서 room-entry.js 보다 먼저 싣는다 */
 'use strict';
-globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기(이름 없음 → «나») — 진짜 파일
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기(이름 없음 → «이름 없음») — 진짜 파일
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);

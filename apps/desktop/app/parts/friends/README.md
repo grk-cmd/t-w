@@ -38,7 +38,7 @@
   const socialApiMod = TwSocialApi.createSocialApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) });
   const friendsApiMod = TwFriendsApi.createFriendsApi({ social: socialApiMod, rt: TwRtHub.store, warn: (...a)=>console.warn(...a) });
   ```
-- 친구 하나: `{ addedAt, name, level, cyc, clv, starC, bio, avatar }`. 명함의 이름 그대로(이름 없는 사람은 `''` — 그릴 때 «나», `shared/person-name.js`) · 명함이 아예 없는 친구는 이름 칸을 덮지 않는다(friends-sub 의 `'...'`). 접속 상태는 realtime(`friends-presence-rt.js`).
+- 친구 하나: `{ addedAt, name, level, cyc, clv, starC, bio, avatar }`. 명함의 이름 그대로(이름 없는 사람은 `''` — 그릴 때 «이름 없음», `shared/person-name.js`) · 명함이 아예 없는 친구는 name 필드를 덮지 않는다(friends-sub 의 `'...'`). 접속 상태는 realtime(`friends-presence-rt.js`).
   «마지막 접속»(`lastSeenAt`)은 화면에 안 쓴다(설계 D3-Q1 «안 넣음»).
 - 옛 provider(5초 제한 · 1초 · 3초 뒤 다시 묻기 · `X-User-Code` 머리 · 옛 응답 모양 `{ friends:[{ id }] }` · 공개 명함 `fetchUserCardApi`)는 걷었다.
 - 검사: `checks/sim-friends-port.js` 2-2절.
@@ -54,7 +54,7 @@
 - 함정:
   - 쓰기는 **읽은 토큰의 주인**과 묶는다(`expectOwner`) — 내 친구 · 요청을 받기 전엔 `NOT_RECEIVED` 로 요청 0. 명함 · 친구 한 명 읽기는 주인을 남기지 않는다. 계정을 놓을 때 `reset()`.
   - 나는 토큰으로만 — 경로 · 본문에 내 코드 · 이름을 싣지 않는다(보내기 본문은 `{ to }` 만).
-  - 이름이 없으면 `''` 그대로 — «나» 같은 자리표시를 여기서 만들지 않는다(그리는 곳이 `TwPersonName.shown`).
+  - 이름이 없으면 `''` 그대로 — «이름 없음» 같은 placeholder 를 여기서 만들지 않는다(그리는 곳이 `TwPersonName.shown`).
   - 마지막 접속(`lastSeenAt`)은 데이터에만 싣는다 — 화면에 쓰지 않는다(설계 D3-Q1 «안 넣음»).
   - 검사: `checks/sim-social-api.js`(가짜 통로 · 진짜 api-client · 진짜 api-errors · 깨 보기).
 

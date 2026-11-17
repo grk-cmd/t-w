@@ -13,7 +13,7 @@
    ・4절: 일부러 깨 보기
    [실행] app.js · desk-companion-prototype.html · report.js · admin-report.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
-globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기(이름 없음 → «나») — 진짜 파일
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기(이름 없음 → «이름 없음») — 진짜 파일
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
@@ -251,9 +251,9 @@ async function judgeAll(rep, adm, app, html, rapi){
   t(gets(B.calls).length === 1 && ovUser.removed && ovAdm && ovAdm !== ovUser && ovAdm.attached, '다시 대입된 isAdmin 을 읽고 · 열면 신고 창은 닫히고 팝업 칸을 이어받는다 · 목록 받기 한 번');
   const T1 = texts(el1);
   t(btnsIn(el1, '문제없음').length === 2 && btnsIn(el1, '그림 내리기').length === 1 && /이름ua/.test(T1) && /🚩 3명/.test(T1)
-    && /· 나 #0002 — 기타 · 욕설/.test(T1) && /· 갑옛 #1111 — 닉네임/.test(T1) && /· 병 #3333 — 기타/.test(T1) && /서로 다른 3명 이상이 신고한 사람만 보여요 · 2명 넘게/.test(T1)
+    && /· 이름 없음 #0002 — 기타 · 욕설/.test(T1) && /· 갑옛 #1111 — 닉네임/.test(T1) && /· 병 #3333 — 기타/.test(T1) && /서로 다른 3명 이상이 신고한 사람만 보여요 · 2명 넘게/.test(T1)
     && T1.indexOf('#0002') < T1.indexOf('#1111'),
-    '받음 — 사람마다 이름 · 수 · 신고자 줄(최근 것이 위 · 신고할 때 이름 · 친구 코드 뒷자리 — 없으면 사용자 코드 뒷자리 · 이름 없으면 «나») · 우리 Storage 그림만 [그림 내리기] · total 없으면 머리 «2명 넘게»');
+    '받음 — 사람마다 이름 · 수 · 신고자 줄(최근 것이 위 · 신고할 때 이름 · 친구 코드 뒷자리 — 없으면 사용자 코드 뒷자리 · 이름 없으면 «이름 없음») · 우리 Storage 그림만 [그림 내리기] · total 없으면 머리 «2명 넘게»');
   t(el1.some(x => x.textContent === 'FC-ua') && !el1.some(x => x.textContent === 'ua'), '대상 코드 — 친구 코드(사용자 코드 아님)');
   /* 더 보기 */
   const more = btnsIn(el1, '더 보기')[0];

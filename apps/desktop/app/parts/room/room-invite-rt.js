@@ -1,6 +1,6 @@
 /* room-invite-rt.js — 🙋 방 초대 포트(realtime 연결 하나 · 서버 통신 규약 4-3) (검사 sim-room-invite-rt.js)
    [책임] 초대 보내기 roomInvite{ to } · 받기 roomInvited{ from, fromName, room, ts } · 지우기 roomInviteClear{ from }.
-     방 코드 · 보낸 이름은 서버가 지금 방 · 계정 이름으로 채운다(앱이 싣지 않는다 · 이름이 없으면 빈 글 — 그대로 들고 화면이 그릴 때 «나») · 친구가 아니면 ROOM_INVITE_NOT_FRIEND · 한 쌍에 하나 · 10분 보관.
+     방 코드 · 보낸 이름은 서버가 지금 방 · 계정 이름으로 채운다(앱이 싣지 않는다 · 이름이 없으면 빈 글 — 그대로 들고 화면이 그릴 때 «이름 없음») · 친구가 아니면 ROOM_INVITE_NOT_FRIEND · 한 쌍에 하나 · 10분 보관.
      받은 초대는 보낸 사람(userCode)마다 하나로 들고 있다가 바뀔 때마다 { 보낸 사람: { fromName, roomCode, ts } } 로 알린다(화면이 읽던 모양).
    [서버 답] 보내기는 rid 요청 — 성공은 roomInviteSent{ to, rid } · 실패는 error{ code, ref:'roomInvite', rid }. 답이 안 오면 실패(timeout)다(조용하다고 보낸 것으로 보지 않는다).
    classic script(window.TwRoomInviteRt) — rt-hub.js 다음 · app.js 보다 먼저. 앱 한 벌은 TwRoomInviteRt.store. */
