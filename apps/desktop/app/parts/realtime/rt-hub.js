@@ -147,8 +147,8 @@ function createRtHub(deps){
     const gap = (lostAt == null) ? null : now() - lostAt;
     lostAt = null;
     lastInAt = now();
+    armKeep(KEEPALIVE_IDLE_MS);   // setState 보다 먼저 — 상태 알림을 받은 쪽이 그 자리에서 끄면 setState(OFF) 가 이 타이머를 푼다
     setState(STATE.READY);
-    armKeep(KEEPALIVE_IDLE_MS);
     if(gap != null && gap > graceOf(m)) resync();
   }
   function clearPong(){ if(pongTimer){ tClear(pongTimer); pongTimer = null; } }
@@ -160,7 +160,7 @@ function createRtHub(deps){
   function onKeep(){
     keepTimer = null;
     const idle = now() - lastInAt;
-    if(idle < KEEPALIVE_IDLE_MS){ armKeep(KEEPALIVE_IDLE_MS - idle); return; }
+    if(idle >= 0 && idle < KEEPALIVE_IDLE_MS){ armKeep(KEEPALIVE_IDLE_MS - idle); return; }   // 음수 = PC 시계가 뒤로 감 — 남은 때를 믿지 않고 지금 확인
     checkAlive();
     armKeep(KEEPALIVE_IDLE_MS);
   }

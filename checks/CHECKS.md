@@ -515,7 +515,7 @@
 | **sim-gift-img-retry.js** | 207 | **1053b262fc34** |
 | **sim-device-id.js** | 103 | **44a934497fba** |
 | **sim-account-store.js** | 624 | **d65c22de53e9** |
-| **sim-rt-hub.js** | 636 | **0b159862ae56** |
+| **sim-rt-hub.js** | 652 | **98e46c3a71ad** |
 | **sim-rt-status-ui.js** | 245 | **64adff52d476** |
 | **sim-run-verdict.js** | 67 | **4303b789970f** |
 | **sim-user-api.js** | 223 | **6ff09db9033e** |

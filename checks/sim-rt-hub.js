@@ -35,7 +35,7 @@ const loadHub = (src, win) => { const m = { exports: {} }; new Function('module'
 
 const tick = async () => { for(let i = 0; i < 20; i++) await Promise.resolve(); await new Promise((r) => setImmediate(r)); };
 function mkClock(){
-  const c = { t: 1_800_000_000_000, q: [], id: 0 };
+  const c = { t: 1_800_000_000_000, q: [], id: 0, skew: 0 };   // skew — PC 시계(now)만 앞뒤로 옮김 · 타이머는 그대로
   c.setTimeout = (f, ms) => { const h = { id: ++c.id, at: c.t + Math.max(0, ms | 0), f }; c.q.push(h); return h; };
   c.clearTimeout = (h) => { const i = c.q.indexOf(h); if(i >= 0) c.q.splice(i, 1); };
   c.advance = async (ms) => {
@@ -78,7 +78,7 @@ function mk(S, tokenOk, url){
     createLink: L.createRealtimeLink, WebSocket: FakeWS, url,
     getToken: async (force) => { forces.push(!!force); if(!tokenOk()) throw new Error('offline'); return 'tok' + forces.length; },
     getVersion: async () => '0.13.0', deviceId: () => 'dev-0001', newSession: () => { const s = 'sess0' + (++nSess.n); nSess.ids.push(s); return s; },
-    now: () => clock.t, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout, random: () => 0.5, log: { warn(){} },
+    now: () => clock.t + clock.skew, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout, random: () => 0.5, log: { warn(){} },
   });
   const states = [];
   hub.onState((s) => states.push(s));
@@ -473,6 +473,20 @@ async function judge(S){
       await e.clock.advance(IDLE);
       chk(w.all('ping').length === 1 && e.socks.slice(0, -1).every((x) => x.all('ping').length === 0), '  ↳ 지금 연결에만 ping 한 번');
     }
+    { /* PC 시계가 뒤로 감(시간 동기화 · 사용자가 바꿈) — 타이머는 그대로 · now 만 1시간 뒤로 */
+      const e = mk(S); e.hub.start(); const w = await readyOn(e);
+      await e.clock.advance(5000); e.clock.skew = -3_600_000;
+      await e.clock.advance(IDLE - 5000);
+      chk(w.all('ping').length === 1, 'PC 시계가 1시간 뒤로 가도 15초에 ping(남은 때를 믿지 않음)');
+      await e.clock.advance(5000);
+      chk(w.closed && e.hub.state() === 'retrying', '  ↳ pong 이 없으면 5초에 끊는다');
+    }
+    { /* 상태 알림을 받은 쪽이 ready 그 자리에서 끔 */
+      const e = mk(S);
+      e.hub.onState((st) => { if(st === 'ready') e.hub.stop(); });
+      e.hub.start(); await readyOn(e);
+      chk(e.hub.state() === 'off' && keeps(e) === 0, 'ready 알림 안에서 stop 해도 조용함 타이머가 남지 않는다');
+    }
     { /* ready 인 채 주소가 바뀜(dev 앱 tw.realtimeUrl) — link 가 close 하고(onClosed 없음) 새 연결이 ready → onReady 가 한 번 더 */
       let u = 'wss://realtime.together-working.com';
       const e = mk(S, null, () => u); e.hub.start(); const w = await readyOn(e);
@@ -600,8 +614,10 @@ const BREAKS = [
   ['HUB', "      pongTimer = tSet(() => { pongTimer = null; if(started) link.drop(); }, PONG_WAIT_MS);", "", 'pong 이 없어도 안 끊음'],
   ['HUB', "    if(m.t === 'pong'){ clearPong(); return; }", "", 'pong 을 받아도 끊음'],
   ['HUB', "    if(state === STATE.READY){", "    if(true){", 'ready 전에도 ping(서버가 auth)'],
-  ['HUB', "    setState(STATE.READY);\n    armKeep(KEEPALIVE_IDLE_MS);", "    setState(STATE.READY);", 'ready 가 돼도 조용함 타이머 안 검(서버가 사라져도 ready 로 남음)'],
+  ['HUB', "    armKeep(KEEPALIVE_IDLE_MS);   // setState 보다 먼저", "    //", 'ready 가 돼도 조용함 타이머 안 검(서버가 사라져도 ready 로 남음)'],
   ['HUB', "    lastInAt = now();\n    if(m.t === 'notify'){", "    if(m.t === 'notify'){", '받은 메시지가 조용함을 다시 안 셈(쓸데없는 ping)'],
+  ['HUB', "    if(idle >= 0 && idle < KEEPALIVE_IDLE_MS)", "    if(idle < KEEPALIVE_IDLE_MS)", 'PC 시계가 뒤로 가면 되감긴 만큼 ping 이 늦음'],
+  ['HUB', "    armKeep(KEEPALIVE_IDLE_MS);   // setState 보다 먼저 — 상태 알림을 받은 쪽이 그 자리에서 끄면 setState(OFF) 가 이 타이머를 푼다\n    setState(STATE.READY);", "    setState(STATE.READY);\n    armKeep(KEEPALIVE_IDLE_MS);", 'ready 알림 안에서 끄면 타이머가 남음'],
   ['HUB', "  function armKeep(ms){ clearKeep(); keepTimer", "  function armKeep(ms){ keepTimer", '타이머를 걸 때 앞의 것을 안 풂(주소가 바뀌어 ready 가 또 오면 둘)'],
   ['HUB', "    if(s !== STATE.READY) clearKeep();", "", 'ready 를 벗어나도 타이머가 남음(stop · 끊김 · 멈춤 · 다시 붙을 때마다 늘어남)'],
   ['HUB', "    clearPong(); clearKeep();   //", "    clearPong();   //", 'bye 가 타이머를 안 풂'],
