@@ -2,7 +2,7 @@
    app.js 의 앱 모드 구역(appMode · showEl · applyAppMode · launchApp · backToLauncher · «런처로» 버튼)을 글 그대로 옮긴 모듈이다.
    동작은 옛 자리와 같다(다시 대입되는 값을 읽는 함수 · 쓰는 함수로 받는 줄만 달라진다).
    앱 모드 · 마이홈 열림 값의 주인은 launcher-state.js 다 — 여기는 바꾸는 쪽이다(읽는 모듈이 이 모듈을 바라보면 순환이 됐다).
-   ・책임: appMode(run | editseat) · applyAppMode(화면 요소 보이기 · 창 크기 맞춤 부르기) · launchApp(런처 → 실행: 내 좌석 만들기 · 방 친구 복원 · Tab 힌트) · backToLauncher(실행 → 런처: 꾸미기 · 마이홈 닫기).
+   ・책임: 앱 모드 바꾸기(run · editseat — 값은 launcher-state.js) · applyAppMode(화면 요소 보이기 · 창 크기 맞춤 부르기) · launchApp(런처 → 실행: 내 좌석 만들기 · 방 친구 복원 · Tab 힌트) · backToLauncher(실행 → 런처: 꾸미기 · 마이홈 닫기).
    ・내놓는 것: showEl · applyAppMode · launchApp · backToLauncher — app.js 는 같은 이름 const 로 받는다(앱 모드는 launcherStateMod.appMode() 로 읽는다).
    ⚠️ 만드는 줄은 옛 자리(설정 패널 «캐릭터» 탭 안내 뒤)에 둔다 — «런처로» 버튼 연결이 만들 때 걸린다.
    검사: checks/sim-app-mode.js */
