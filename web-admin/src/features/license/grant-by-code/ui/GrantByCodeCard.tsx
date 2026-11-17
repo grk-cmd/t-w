@@ -19,7 +19,7 @@ export function GrantByCodeCard() {
       onSuccess: (r) => {
         if (r.ok) {
           setMessage({
-            text: `${r.name ?? r.code} 님의 수령함으로 보냈어요`,
+            text: `${r.name?.trim() || r.code} 님의 수령함으로 보냈어요`,
             error: false,
           });
           setCode('');
