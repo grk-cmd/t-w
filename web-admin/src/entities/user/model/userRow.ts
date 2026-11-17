@@ -38,7 +38,7 @@ export interface UserRow {
   live: UserLive | null;
 }
 
-// 앱은 이름을 안 정한 사람에게 이 글자를 실제 이름처럼 저장한다 — 이름이 없는 것으로 본다.
+// 옛 앱은 이름을 안 정한 사람에게 이 글자를 실제 이름처럼 저장했다 — 읽을 때 이름이 없는 것(null)으로 본다.
 const NO_NAME = '(이름 없음)';
 
 export function realName(name: string | null | undefined): string | null {

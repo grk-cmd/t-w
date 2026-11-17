@@ -188,7 +188,7 @@ describe('rooms 키만 보고 — 고아 · 시크릿룸 · 인원', () => {
     db.get = (path) => (read.push(path), get(path));
     const people = [
       { userId: 'uMINSU0001', name: '민수' },
-      { userId: null, name: '' }, // 모양이 틀린 칸은 빈 이름 · null
+      { userId: null, name: null }, // 모양이 틀린 칸은 null
     ];
     expect(await probeRoom(db, 'WORK-A', false)).toEqual({ members: 2, lastSeen: null, people });
     expect(read.sort()).toEqual([

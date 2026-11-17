@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRefreshLicenses } from '@/entities/license';
 import { useEnv, withProdMark } from '@/shared/api';
-import { copyText, errorMessage, usePaging } from '@/shared/lib';
+import { copyText, errorMessage, shownName, usePaging } from '@/shared/lib';
 import { Pager, useToast } from '@/shared/ui';
 import { useBulkGrantPort } from '../api';
 import { downloadBytes, readSheetFile, writeXlsx, type Grid } from '../lib/sheet';
@@ -319,7 +319,7 @@ export function BulkGrantCard() {
                       {r.raw || <span className="soft">비어 있음</span>}
                       {r.code && r.code !== shown && <span className="soft"> → {r.code}</span>}
                     </td>
-                    <td>{r.name || '—'}</td>
+                    <td>{r.code ? shownName(r.name) : '—'}</td>
                     <td className={styles.memo} title={r.memo}>
                       {r.memo}
                     </td>

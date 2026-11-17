@@ -10,6 +10,7 @@ import {
   wireArray,
   wireBool,
   wireError,
+  wireNullableString,
   wireObject,
   wireString,
   type Api,
@@ -23,7 +24,7 @@ const PREVIEW = adminPath('/licenses/preview');
 interface Preview {
   code: string;
   found: boolean;
-  name: string;
+  name: string | null;
   hasLicense: boolean;
 }
 
@@ -35,7 +36,7 @@ function toPreview(w: unknown, index: number): Preview {
   return {
     code: wireString(o.friendCode, `${at} friendCode`),
     found,
-    name: found ? wireString(o.name, `${at} name`) : '',
+    name: found ? wireNullableString(o.name, `${at} name`) : null,
     hasLicense: wireBool(o.hasValidLicense, `${at} hasValidLicense`),
   };
 }
@@ -80,7 +81,7 @@ function build(api: Api | null): BulkGrantPort {
           memo: d.memo,
           code: user?.code ?? '',
           uid: null,
-          name: user?.name ?? '',
+          name: user?.name ?? null,
           hasLicense: user?.hasLicense ?? false,
           // 결과 파일을 다시 올렸을 때 키가 이미 나간 행은 또 만들지 않는다.
           base: d.hasKey ? 'haskey' : base,

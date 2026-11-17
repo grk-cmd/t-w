@@ -1,7 +1,7 @@
 import { reportReason, type ReportTarget } from '@/entities/report';
 import { realName, useUserBrief } from '@/entities/user';
 import { ReportActions } from '@/features/user/moderate-report';
-import { formatDate, type Selection } from '@/shared/lib';
+import { formatDate, shownName, type Selection } from '@/shared/lib';
 import { RowCheckbox } from '@/shared/ui';
 import styles from './ReportList.module.css';
 
@@ -31,14 +31,14 @@ function ReportRow({ item, selection }: { item: ReportTarget; selection: Selecti
       </div>
       <div className={styles.body}>
         <span className="grow">
-          <b>{name ?? (brief.isLoading ? '…' : '이름 없음')}</b>
+          <b>{brief.isLoading && !name ? '…' : shownName(name)}</b>
           <code className="key">{b?.friendCode ?? item.target}</code>
           <b className="warn">🚩 {item.openCount ?? item.reports.length}명</b>
         </span>
         <ul className={styles.reasons}>
           {item.reports.map((r, i) => (
             <li key={i}>
-              {r.nick || '이름 없음'} #{r.code4 || '----'} · {reportReason(r)}
+              {shownName(r.nick)} #{r.code4 || '----'} · {reportReason(r)}
               {r.ts ? <small className="soft"> · {formatDate(r.ts)}</small> : null}
             </li>
           ))}

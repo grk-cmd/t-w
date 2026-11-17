@@ -34,7 +34,8 @@ export interface PlanRow {
   /** 조회로 찾은 정식 친구코드(MATE-XXXX). */
   code: string;
   uid: string | null;
-  name: string;
+  /** 받는 사람 이름 — 이름이 없거나 못 찾으면 null(그릴 때 «나»). */
+  name: string | null;
   /** API 판 — 미리 보기가 알려 준 «이미 유효한 키가 있는 사람». Firebase 판은 없다(발급 메모 표로 가른다). */
   hasLicense?: boolean;
   base: BaseStatus;

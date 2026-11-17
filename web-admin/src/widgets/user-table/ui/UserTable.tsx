@@ -11,15 +11,15 @@ import {
   type UserRow,
 } from '@/entities/user';
 import { GrantInvitesButton } from '@/features/user/grant-invites';
-import { formatDate, formatHours, type Selection } from '@/shared/lib';
+import { formatDate, formatHours, shownName, type Selection } from '@/shared/lib';
 import { RowCheckbox, SelectAllCheckbox } from '@/shared/ui';
 import styles from './UserTable.module.css';
 
 // 계정 요약에 이름이 없으면 그 사람 이름 한 칸만 읽는다. 화면에 보이는 줄만 읽고, 한 번 읽은 이름은 캐시에 남는다.
 function NameCell({ row }: { row: UserRow }) {
   const { name, loading } = useRowName(row);
-  if (name) return <>{name}</>;
-  return <span className="soft">{loading ? '…' : '이름 없음'}</span>;
+  if (!name && loading) return <span className="soft">…</span>;
+  return <>{shownName(name)}</>;
 }
 
 // 마지막 접속 — 계정 요약은 계정이 있는 사람만 있어서, 옛 앱을 포함한 모두가 쓰는 presence 를 줄마다 읽는다(API 판은 줄이 싣고 온다).

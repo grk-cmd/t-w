@@ -190,9 +190,9 @@ describe('일괄 발급 — 조회 · 발급', () => {
     ]);
     expect(rows.map((r) => [r.base, r.code, r.uid, r.name])).toEqual([
       ['send', 'COZY-AB12', 'u1', '철수'],
-      ['nouser', '', null, ''],
-      ['badcode', '', null, ''],
-      ['key', '', null, ''],
+      ['nouser', '', null, null],
+      ['badcode', '', null, null],
+      ['key', '', null, null],
       ['haskey', 'COZY-AB12', 'u1', '철수'],
     ]);
     expect(withoutAudits(writes)).toEqual([]);

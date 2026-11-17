@@ -1,5 +1,5 @@
 import type { ApiFallback } from '@/shared/api';
-import { kstDateKey } from '@/shared/lib';
+import { kstDateKey, shownName } from '@/shared/lib';
 
 /*
  * 🐞 버그제보 게시판 — 앱 app/parts/bug-board.js 와 같은 모양 · 같은 규칙을 따른다.
@@ -75,7 +75,8 @@ export interface BugItem {
   vis: BugVis;
   status: BugStatus;
   cat: string;
-  name: string;
+  /** 글쓴이 이름 — 이름이 없는 사람은 null(그릴 때 «나»). */
+  name: string | null;
   /** Firebase 판 — 비공개 글 경로를 만드는 데만 쓴다. API 줄에는 없다. */
   authUid?: string;
   /** 글쓴이 사용자코드. 운영진이 쓴 글(API 판)은 없다. */
@@ -151,7 +152,7 @@ export function toBugItem(id: string, v: unknown): BugItem | null {
     vis: r.vis,
     status,
     cat: str(r.cat) ?? 'etc',
-    name: str(r.name) ?? '',
+    name: str(r.name) || null,
     authUid: str(r.authUid) ?? '',
     code: str(r.code) ?? '',
     ts: r.ts,
@@ -183,7 +184,7 @@ export function bugAuthorName(
   item: Pick<BugItem, 'vis' | 'name' | 'nick'>,
   nickname: string | null | undefined,
 ): string {
-  const base = item.name || '이름 없음';
+  const base = shownName(item.name);
   const nick = (typeof nickname === 'string' ? nickname : (item.nick ?? '')).trim();
   return item.vis === 'prv' && nick ? `${base} (${nick})` : base;
 }

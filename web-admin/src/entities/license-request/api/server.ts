@@ -27,7 +27,7 @@ function toRequest(w: unknown): LicenseRequest {
   if (Number.isNaN(at)) throw wireError(`라이선스 요청 ${id} 의 createdAt`, 'ISO 시각');
   return {
     id,
-    name: wireString(o.name, `라이선스 요청 ${id} 의 name`),
+    name: wireNullableString(o.name, `라이선스 요청 ${id} 의 name`),
     userCode: wireString(o.requesterUserCode, `라이선스 요청 ${id} 의 requesterUserCode`),
     requestedAt: at,
   };

@@ -54,7 +54,7 @@ function parse(data: unknown, receivedAt: number): Listing {
       members: wireArray(x.members, `rooms[${i}].members`).map((m, k) => {
         const member = wireObject(m, `rooms[${i}].members[${k}]`);
         return toRoomPerson(
-          wireString(member.name, `rooms[${i}].members[${k}].name`),
+          wireNullableString(member.name, `rooms[${i}].members[${k}].name`),
           wireString(member.userCode, `rooms[${i}].members[${k}].userCode`),
         );
       }),

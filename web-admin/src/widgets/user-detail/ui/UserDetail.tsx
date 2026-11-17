@@ -26,7 +26,7 @@ import { DeleteAccountButton } from '@/features/user/delete-account';
 import { ResetPasswordButton } from '@/features/user/reset-password';
 import { GrantInvitesButton } from '@/features/user/grant-invites';
 import { useSameLicenseUsers, useUserByCode, useUsersByCode } from '@/features/user/user-rows';
-import { copyText, formatDate, formatHours, useKeysetPaging } from '@/shared/lib';
+import { copyText, formatDate, formatHours, shownName, useKeysetPaging } from '@/shared/lib';
 import { Pager, useModalDialog, useToast } from '@/shared/ui';
 import styles from './UserDetail.module.css';
 
@@ -223,7 +223,7 @@ function FirebaseBody({ row, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'>
     <>
       <Section title="계정 정보">
         <Field label="이름">
-          {name ?? <span className="soft">{brief.isLoading ? '…' : '이름 없음'}</span>}
+          {brief.isLoading && !name ? <span className="soft">…</span> : shownName(name)}
         </Field>
         <Field label="친구코드">
           <code className="key">{row.friendCode ?? '—'}</code>
@@ -488,7 +488,7 @@ function ServerBody({ row, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> &
   return (
     <>
       <Section title="계정 정보">
-        <Field label="이름">{row.name ?? <span className="soft">이름 없음</span>}</Field>
+        <Field label="이름">{shownName(row.name)}</Field>
         <Field label="친구코드">
           <code className="key">{row.friendCode ?? '—'}</code>
         </Field>

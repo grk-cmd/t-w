@@ -11,6 +11,7 @@ import {
   errorMessage,
   formatDate,
   keysetView,
+  shownName,
   useKeysetPaging,
   usePaging,
   useSelection,
@@ -70,13 +71,13 @@ function RequestView({ requests, error, paging, more = false }: ViewProps) {
         {paging.items.map((req, i) => (
           <div key={req.id} className="row">
             <RowCheckbox
-              label={`${req.name} 선택`}
+              label={`${shownName(req.name)} 선택`}
               checked={selection.isSelected(req.id)}
               onChange={() => selection.toggle(req.id)}
             />
             <span className="grow">
               <span className={styles.num}>{paging.start + i + 1}</span>
-              <b>{req.name || '(이름 없음)'}</b>
+              <b>{shownName(req.name)}</b>
               <code className="key">{req.friendCode ?? req.userCode}</code>
               <small className="soft">{formatDate(req.requestedAt)}</small>
               {req.ver && <small className="soft">v{req.ver}</small>}

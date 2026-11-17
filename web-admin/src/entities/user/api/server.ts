@@ -62,7 +62,7 @@ export function toServerUserRow(w: unknown): LiveUserRow {
   const invite = inviteOf(o.invite, userCode);
   return {
     userCode,
-    name: realName(wireString(o.name, what('name'))),
+    name: realName(wireNullableString(o.name, what('name'))),
     friendCode: wireString(o.friendCode, what('friendCode')),
     license: license.key,
     licenseState: license.state,

@@ -87,7 +87,7 @@ function Row({ item, todo, onOpen }: { item: BugItem; todo?: Todo; onOpen: (id: 
         </button>
       </td>
       <td>
-        {item.name ? bugAuthorName(item, nick.data) : <span className="soft">이름 없음</span>}
+        {bugAuthorName(item, nick.data)}
         {isStaffPost(item) && <span title="운영진 글"> 🛡</span>}{' '}
         <small className="soft key">{item.code}</small>
       </td>

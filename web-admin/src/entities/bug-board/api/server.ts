@@ -58,7 +58,8 @@ function named<T>(table: Record<string, T>, value: unknown, what: string): T {
 }
 
 /** 비공개 글은 목록 칸 이름이 «익명», 서버가 준 이름은 닉네임 칸. */
-const names = (vis: BugVis, name: string) => (vis === 'prv' ? { name: '익명', nick: name } : { name });
+const names = (vis: BugVis, name: string | null) =>
+  vis === 'prv' ? { name: '익명', ...(name !== null ? { nick: name } : {}) } : { name };
 
 /** 글 한 줄 · 상세가 같이 가진 칸. `lastAnswerAt` · `lastAuthorReplyAt` 의 null 만 문서가 약속한 «없음». */
 function toBase(o: Record<string, unknown>): BugItem {
@@ -76,7 +77,7 @@ function toBase(o: Record<string, unknown>): BugItem {
     status: named(STATUS, o.status, what('status')),
     cat: named(CATEGORY, o.category, what('category')),
     // 비공개 글은 «익명 (닉네임)» 으로 보인다 — 서버가 관리자에게 주는 이름은 닉네임 칸에.
-    ...names(vis, wireString(author.name, what('author.name'))),
+    ...names(vis, wireNullableString(author.name, what('author.name'))),
     ...(code !== null ? { code } : {}),
     ts: wireTime(o.createdAt, what('createdAt')),
     notice: wireBool(o.notice, what('notice')),

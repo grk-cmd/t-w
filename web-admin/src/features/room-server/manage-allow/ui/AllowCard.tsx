@@ -9,7 +9,7 @@ import {
   useUserPresence,
   type UserLicense,
 } from '@/entities/user';
-import { errorMessage } from '@/shared/lib';
+import { errorMessage, shownName } from '@/shared/lib';
 import { appVerBlock, type AppVerInfo } from '../model/manageAllow';
 import { ServerSelect } from './ServerSelect';
 
@@ -47,7 +47,7 @@ function AllowRow({
       : appVerBlock(currentVer(presence.data ?? null, summary ?? { ver: null, hasAccount: false }));
   return (
     <div className="row">
-      <span className="grow">{name.data ?? (name.isPending ? '…' : '이름 없음')}</span>
+      <span className="grow">{name.isPending ? '…' : shownName(name.data)}</span>
       <code className="key soft">{userCode}</code>
       <LicenseMark state={license.data} />
       {block && <small className="warn">⚠ {block} — Firebase 로 열림</small>}

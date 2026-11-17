@@ -105,7 +105,8 @@ function build(api: Api | null): GrantSecretRoomPort {
       const plan: ServerSecretPlan = {
         via: 'server',
         friendCode,
-        name: wireString(o.name, '미리 보기 줄의 name').slice(0, OWNER_NAME_MAX),
+        // 방 이름 칸은 글자로 보낸다 — 받는 사람 이름이 없으면(null) 빈 이름.
+        name: (wireNullableString(o.name, '미리 보기 줄의 name') ?? '').slice(0, OWNER_NAME_MAX),
         code: wantCode,
         months: months.months,
         confusing: hasConfusingChars(wanted.want),

@@ -55,7 +55,8 @@ export const isMemberKey = (key: string) => !key.startsWith('_') && key !== 'cha
 /** 방에 들어간 사람 한 명 — 사용자 코드(없을 수 있음) · 방에 보낸 이름(앱이 20자로 자른다). */
 export interface RoomPerson {
   userId: string | null;
-  name: string;
+  /** 이름이 없는 사람은 null(그릴 때 «나»). */
+  name: string | null;
 }
 
 /** rooms/{방} 을 키만 받아 본 결과. lastSeen 은 roomIndex 에 없는 방만 멤버 신호에서 직접 읽는다. */
@@ -66,11 +67,11 @@ export interface RoomProbe {
   people?: RoomPerson[];
 }
 
-/** 멤버 칸에서 읽은 name · userId 를 사람 하나로 — 모양이 틀린 칸은 빈 이름 · null. */
+/** 멤버 칸에서 읽은 name · userId 를 사람 하나로 — 빈 칸 · 모양이 틀린 칸은 null. */
 export function toRoomPerson(name: unknown, userId: unknown): RoomPerson {
   return {
     userId: typeof userId === 'string' && userId ? userId : null,
-    name: typeof name === 'string' ? name : '',
+    name: typeof name === 'string' && name ? name : null,
   };
 }
 

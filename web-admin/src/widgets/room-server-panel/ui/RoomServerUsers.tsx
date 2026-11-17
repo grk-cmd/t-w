@@ -18,6 +18,7 @@ import {
   pageForSize,
   readPageSize,
   savePageSize,
+  shownName,
   useDebouncedValue,
 } from '@/shared/lib';
 import { Pager } from '@/shared/ui';
@@ -53,14 +54,14 @@ function UserLine({
   onResult: (text: string, error: boolean) => void;
 }) {
   const name = useRowName(row);
-  const who = `${name ?? '이름 없음'}(${row.friendCode ?? row.userCode})`;
+  const who = `${shownName(name)}(${row.friendCode ?? row.userCode})`;
   // 앱 버전 — 마지막 접속과 같은 presence 한 번(따로 안 읽음).
   const presence = useRowPresence(row);
   const ver = currentVer(presence.data ?? null, row);
   const block = presence.isLoading ? null : appVerBlock(ver);
   return (
     <tr>
-      <td>{name ?? <span className="soft">이름 없음</span>}</td>
+      <td>{shownName(name)}</td>
       <td>
         <code className="key">{row.friendCode ?? '—'}</code>
       </td>
