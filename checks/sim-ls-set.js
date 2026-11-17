@@ -92,7 +92,8 @@ const SITES = {
   'account/account-state.js': { lsSave: 1 },
   'account/license-gate.js': { lsSave: 11, lsRemove: 2 },
   'character/slot-save.js': { lsSave: 1 },
-  'character/commission.js': { lsSaveJson: 1 },
+  'character/commission.js': { lsSaveJson: 2 },           // 책상 · 아이템 — 같은 번호라 한 저장에 안내 하나
+  'character/premium-assets.js': { lsSaveJson: 1 },
   'room/hidden-seats.js': { lsSave: 1 },
   'status/user-status.js': { lsSave: 2 },
   'myhome/mallang.js': { lsSave: 1, lsSaveJson: 1 },

@@ -7,7 +7,7 @@
      · 멀쩡한 저장분 — 그 값을 읽고 · 쓰면 바뀐다
    ・2절: 번호 표 · 문서
    ・3절: 일부러 깨 보기 — 쓰기를 옛 모양(그냥 setItem)으로 · 읽기를 옛 모양(빈 catch)으로 되돌리면 빨강 · json-store 의 막기를 빼면 빨강
-   쓰기 쪽은 ls-set 의 JSON 칸(lsSaveJson · lsSetJson)이 막은 쓰기를 E-SYS-11 로 알린다(커미션 책상 · 저장 파츠는 옛 토스트 그대로라 직접).
+   쓰기 쪽은 ls-set 의 JSON 칸(lsSaveJson · lsSetJson)이 막은 쓰기를 E-SYS-11 로 알린다.
    [실행] node checks/run.js sim-no-overwrite */
 'use strict';
 const fs = require('fs');
@@ -58,7 +58,7 @@ function env(stored, jsSrc){
     set: (t, k, v) => { t[k] = v; return true; },
   });
   const run = (code) => new Function('__s', 'with(__s){ ' + code + ' }')(scope);
-  return { m, notes, toasts, vars, run };
+  return { m, ls, notes, toasts, vars, run };
 }
 /* 자리 — key: 저장 키 · def: 읽은 기본값 판정 · good: 멀쩡한 저장분 · load / save: 돌릴 글 · got(): 읽은 값 · change(): 쓰기 전에 바꿀 것 */
 const SITES = [
@@ -130,6 +130,20 @@ say('── 1. 자리마다');
 for(const s of SITES){
   const bad = judge(s, SRC[s.file]);
   chk(!bad.length, s.name + '(' + s.key + ') — 망가지면 기본값 · E-SYS-11 · 덮어쓰지 않음 / 없으면 조용히 기본값 · 씀 / 멀쩡하면 읽고 씀' + (bad.length ? ' — ' + bad.join(' · ') : ''));
+}
+
+{
+  /* 저장 공간이 차서 책상 · 아이템 두 칸이 다 못 남아도 한 저장에 안내는 하나(E-SYS-10 · 옛 토스트 없음) */
+  const s = SITES.find(x => x.name === '커미션 책상'), c = code(s, SRC.commission);
+  const e = env({}); Object.assign(e.vars, s.vars); e.run(c.def + '\n' + c.load);
+  e.ls.setItem = () => { throw Object.assign(new Error('quota'), { name: 'QuotaExceededError' }); };
+  e.run(c.def + '\n' + c.save); e.run(c.def + '\n' + c.save);
+  chk(e.notes.join() === 'E-SYS-10' && !e.toasts.length, '커미션 — 공간이 차서 두 칸 다 못 남아도 안내는 E-SYS-10 하나(세션당 한 번) · 옛 토스트 없음' + (e.notes.length !== 1 ? ' — ' + e.notes.join('|') : ''));
+  const p = SITES.find(x => x.name === '저장 파츠'), cp = code(p, SRC.premium);
+  const f = env({}); Object.assign(f.vars, p.vars); f.run(cp.def + '\n' + cp.load);
+  f.ls.setItem = () => { throw new Error('quota'); };
+  f.run(cp.def + '\n' + cp.save);
+  chk(f.notes.join() === 'E-SYS-10' && !f.toasts.length, '저장 파츠 — 못 남기면 E-SYS-10 · 옛 토스트 없음');
 }
 
 say('── 2. 번호');

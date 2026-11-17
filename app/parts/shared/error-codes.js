@@ -37,7 +37,7 @@ const CODES = {
   'E-SYS-07': { msg: '3D 를 불러오지 못해 사진을 찍을 수 없어요 — 창을 닫고 다시 열어 주세요', where: 'purikura/purikura-ui.js — 스티커사진 방장의 3D 무대가 없을 때 「촬영 시작」(다른 참가자의 촬영은 막지 않음)' },
   'E-SYS-08': { msg: '캐릭터 몸 파일을 불러오지 못했어요 — 앱을 다시 설치해 주세요', where: 'launcher/run-boot.js — 켤 때 기본 몸(window.BASE_GLB_B64)을 못 읽음(대신 몸으로 계속). 설치 파일이 깨졌을 수 있다' },
   'E-SYS-09': { msg: '이 PC 에 설정을 저장하지 못했어요 — 저장 공간이 가득 찼을 수 있어요', where: 'shared/ls-set.js — 설정(테마 · 채팅 · 표시 토글 · 자리 · 소리 · 뽀모도로 · 별 색 등) 쓰기 · 지우기가 남지 않음(lsSet · lsUnset · app.js _lsSet — 세션당 한 번)' },
-  'E-SYS-10': { msg: '이 PC 에 저장하지 못했어요 — 저장 공간이 가득 찼을 수 있어요(다시 켜면 사라질 수 있어요)', where: 'shared/ls-set.js — 사용자가 만든 데이터(계정 · 라이선스 · 이름 · 친구 코드 · 캐릭터 슬롯 · 커미션 아이템 · 신고 숨김 · 상태 · 말랑 · 바탕화면 · 북마크) 쓰기 · 지우기가 남지 않음(lsSave · lsRemove — 세션당 한 번)' },
+  'E-SYS-10': { msg: '이 PC 에 저장하지 못했어요 — 저장 공간이 가득 찼을 수 있어요(다시 켜면 사라질 수 있어요)', where: 'shared/ls-set.js — 사용자가 만든 데이터(계정 · 라이선스 · 이름 · 친구 코드 · 캐릭터 슬롯 · 커미션 책상 · 아이템 · 저장 파츠 · 신고 숨김 · 상태 · 말랑 · 바탕화면 · 북마크) 쓰기 · 지우기가 남지 않음(lsSave · lsRemove — 세션당 한 번)' },
   'E-SYS-11': { msg: '이 PC 에 저장된 내용을 읽지 못해 덮어쓰지 않았어요 — 바꾼 것은 저장되지 않아요', where: 'json-store 로 읽는 자리 · shared/ls-set.js lsSetJson · lsSaveJson — 저장분이 해석이 안 됨(읽기 실패 · 그 위 저장을 막음 blocked — 막은 쓰기 안내는 세션당 한 번): 커미션 책상 · 아이템(character/commission.js) · 저장 파츠(character/premium-assets.js) · 북마크(myhome/bookmark.js) · 뽀모도로 설정(focus/pomodoro.js) · 말랑 백업(myhome/mallang.js) · 바탕화면 모험(myhome/myhome-desktop.js)' },
   'E-FR-01': { msg: '친구 요청을 수락하지 못했어요', where: 'myhome/friend-manage.js — 요청 팝업 · 받은 요청 [수락]' },
   'E-FR-02': { msg: '친구 요청을 거절하지 못했어요', where: 'myhome/friend-manage.js — 요청 팝업 · 받은 요청 [거절]' },

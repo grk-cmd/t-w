@@ -445,8 +445,7 @@ function persistSavedParts(){
     if(p.fromCatalog && p.glbUrl){ const clone={...p}; delete clone.glb; return clone; }
     return p;
   });
-  const r = TwJsonStore.save(SAVED_PARTS_KEY, stripped);
-  if(r.blocked) TwErrorCodes.notify('E-SYS-11', r.err); else if(!r.ok) toast('저장 공간이 부족해요');
+  TwLsSet.lsSaveJson(SAVED_PARTS_KEY, stripped);   // 해석 안 되는 저장분 위엔 안 씀(E-SYS-11) · 못 남기면 E-SYS-10
 }
 function partsInCat(cat){ return savedParts.filter(p=>p.cat===cat); }
 /* 🎰 카테고리 상한은 "꾸미기 창에 진열되는 파츠"의 상한이다.

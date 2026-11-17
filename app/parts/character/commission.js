@@ -15,7 +15,6 @@ function createCommission(deps){
 const _b64 = deps._b64;
 const _deriveKey = deps._deriveKey;
 const _unb64 = deps._unb64;
-const toast = deps.toast;
 const MAX_COMMISSION_BYTES = 2 * 1024 * 1024;   // 2MB
 const COMMISSION_TEX_SIZE = 512;
 /* 이미지 Blob → 512×512 캔버스 → PNG 데이터 URL */
@@ -114,8 +113,7 @@ function persistSavedAssets(){
     if(catalogBacked(p)){ const clone={...p}; delete clone.glb; return clone; }
     return p;
   });
-  const d = TwJsonStore.save(SAVED_DESK_KEY, stripDesks);
-  if(d.blocked) TwErrorCodes.notify('E-SYS-11', d.err); else if(!d.ok) toast('저장 공간이 부족해요');
+  TwLsSet.lsSaveJson(SAVED_DESK_KEY, stripDesks);   // 책상 · 아이템이 같은 번호(세션당 한 번)라 한 저장에 안내는 하나
   TwLsSet.lsSaveJson(SAVED_ITEM_KEY, stripItems);   // 해석 안 되는 저장분 위엔 안 씀(E-SYS-11) · 못 남기면 E-SYS-10
 }
 loadSavedAssets();
