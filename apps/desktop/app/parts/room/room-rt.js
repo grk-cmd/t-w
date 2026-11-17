@@ -153,7 +153,7 @@ function memberFrom(view){
 }
 
 /** @param {{ hub: { onMessage: Function, onState: Function, send: Function, request: Function, state: () => string, isReady: () => boolean, userCode: () => (string|null) },
- *   STATE: { READY: string, OFF: string, SESSION_LOST: string, UPDATE: string, AUTH_FAILED: string },
+ *   STATE: { READY: string, OFF: string, SESSION_LOST: string, DEVICE_REMOVED: string, UPDATE: string, AUTH_FAILED: string },
  *   timing?: () => ({ joinWaitMs?: number, clientGiveUpMs?: number } | null),
  *   now?: () => number, setTimeout?: Function, clearTimeout?: Function, setInterval?: Function, clearInterval?: Function, log?: { warn: Function } }} deps */
 function createRoomRt(deps){
@@ -200,10 +200,9 @@ function createRoomRt(deps){
       return;
     }
     if(!P || !P.inRoom || P.leaving) return;
-    if(s === S.SESSION_LOST){   // 다른 기기가 이 계정을 차지 — 방 자리도 서버가 바로 뺐다
+    if(s === S.SESSION_LOST || s === S.DEVICE_REMOVED){   // 이 PC 의 연결이 서버에서 끊김(지워짐 · 새 세션) — 방 자리도 서버가 바로 뺐다 · 안내 화면은 로그인 흐름 몫
       if(P.joinWaiter && !P.joined){ finishJoin(P, { ok: false, code: 'sessionLost' }); return; }
-      detach(P);
-      try{ if(P.hooks.onReplaced) P.hooks.onReplaced(); }catch(_){}
+      lost(P, 'sessionLost');
       return;
     }
     if(STOPPED[s]){
@@ -469,7 +468,7 @@ function createRoomRt(deps){
       case 'left':
         if(m.memberId === P.memberId){
           if(m.reason === 'replaced'){
-            // 같은 계정이 다른 곳에서 들어와 내 자리를 가져갔다 — 한 계정 한 기기에서 밀려난 것과 같다
+            // 같은 계정이 다른 PC 에서 이 방에 들어와 내 자리를 가져갔다 — 한 방에 한 계정 한 자리 · 연결은 그대로(기기 안내 화면이 아니다)
             detach(P);
             try{ if(P.hooks.onReplaced) P.hooks.onReplaced(); }catch(_){}
           }else if(m.reason === 'closed'){
@@ -623,7 +622,7 @@ function createRoomRt(deps){
         return new Promise((res) => {
           let st = null;
           try{ st = hub.state(); }catch(_){ st = S.OFF; }
-          if(st === S.SESSION_LOST || STOPPED[st]){
+          if(st === S.SESSION_LOST || st === S.DEVICE_REMOVED || STOPPED[st]){
             P.joinWaiter = { res, timer: null };
             finishJoin(P, { ok: false, code: STOPPED[st] || 'sessionLost' });
             return;

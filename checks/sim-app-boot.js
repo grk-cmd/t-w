@@ -3,7 +3,8 @@
    ★ 왜 이 검사가 있는가 — 기능마다 «계정 확인 전 · 실패 · 나중에 확인» 을 버티는 장치가 서른 개 생겼고, 검토 때마다 다른 갈래로 같은 구멍이 나왔다
      (접속 고정이 지난 사본을 읽음 · 가입 필요인데 마이홈이 이미 씀 · 옛 값 옮기기가 확인 전에 엉뚱한 칸으로). 시작을 «들어간 뒤» 한 곳으로 모았으니 그 한 곳을 실제로 돌려 본다.
    ・1절: 만들기만 하면 아무것도 안 부른다 · 차례 표(스물하나 — 공지는 계정과 무관해 표에 없다 · 맨 앞 userLocal 은 이 계정이 고른 것을 계정 칸에서 읽는 칸) 그대로 · «계정에 들어감» 알림(nav)에 begin 을 건다
-   ・2절: 들어감 알림 — 옛 값 옮기기(그 코드) → 계정 칸 열기 → realtime → 표 순서대로 한 번씩(코드 · me 를 받음)
+   ・2절: 들어감 알림 — 옛 값 옮기기(그 코드) → 계정 칸 열기 → 이 PC 등록 → realtime → 표 순서대로 한 번씩(코드 · me 를 받음) ·
+     등록을 [취소]하면 세션을 끝내고 로그인 화면(realtime · 기능 0) · 등록이 실패하면 그대로 이어 간다(기기 안내 화면이 [다시 등록]을 준다)
    ・3절: 알림이 없으면(로그인 필요 · 가입 필요 · 서버 안 됨 · 바뀐 계정) 시작 0번 · 계정 없음(빈 me)도 0번
    ・4절: 두 번 부르면 두 번째는 무시(시작 한 번뿐) · 한 칸이 던져도(동기 · 비동기) 다음 칸은 돈다 · 표와 starts 가 어긋나면 만들 때 던진다
    ・5절: 같은 알림이 또 와도 시작은 한 번 · 로그아웃 차례는 account.js 한 곳(이 모듈은 건드리지 않음)
@@ -40,6 +41,8 @@ function build(src, o) {
     migrateLegacy: (code) => { ev.push('migrate:' + code); },
     twNav,
     newSession: (me) => { const s = { me, disposed: 0, openStore: () => { ev.push('open:' + me.userCode); if (o.openThrow) throw new Error('깨짐 open'); return o.openFail ? false : true; }, dispose: () => { s.disposed++; ev.push('dispose'); return true; } }; made.push(s); return s; },
+    registerDevice: () => { ev.push('register'); if (o.regThrow) return Promise.reject(new Error('깨짐 등록')); return Promise.resolve(o.reg || 'ok'); },
+    toLogin: () => { ev.push('toLogin'); },
     goOnline: () => { ev.push('online'); },
     starts,
   };
@@ -67,10 +70,20 @@ async function judge(src) {
   /* 2 */
   b = build(src);
   const r1 = await quiet(async () => b.notify(ME));
-  t(r1[0] === true && b.ev.join() === ['migrate:u1', 'open:u1', 'online'].concat(ORDER.map((n) => 'start:' + n + ':u1:u1')).join(), '들어감 알림 — 옛 값 옮기기(그 코드) → 계정 칸 열기 → realtime → 표 순서대로 한 번씩(코드 · me 를 받음)');
+  t(r1[0] === true && b.ev.join() === ['migrate:u1', 'open:u1', 'register', 'online'].concat(ORDER.map((n) => 'start:' + n + ':u1:u1')).join(), '들어감 알림 — 옛 값 옮기기(그 코드) → 계정 칸 열기 → 이 PC 등록 → realtime → 표 순서대로 한 번씩(코드 · me 를 받음)');
+  b = build(src, { reg: 'canceled' });
+  const rc = await quiet(async () => b.notify(ME));
+  t(rc[0] === false && b.ev.join() === 'migrate:u1,open:u1,register,dispose,toLogin' && b.boot.getSession() === null && b.made[0].disposed === 1,
+    '★ 등록 [취소](넷째 PC 에서 지우지 않음) — 세션을 끝내고 로그인 화면 · realtime · 기능 시작 0번');
+  for (const [lab, opt] of [['실패', { reg: 'failed' }], ['던짐', { regThrow: true }]]) {
+    b = build(src, opt);
+    const rf = await quiet(async () => b.notify(ME));
+    t(rf[0] === true && b.ev.slice(0, 4).join() === 'migrate:u1,open:u1,register,online' && !b.ev.includes('toLogin') && b.ev.filter((e) => e.startsWith('start:')).length === ORDER.length,
+      '  등록 ' + lab + '(서버에 못 닿음) — 로그인 화면으로 보내지 않고 그대로 이어 간다(realtime 이 안 들이면 기기 안내 화면이 [다시 등록])');
+  }
   const iMig = b.ev.indexOf('migrate:u1'), iOn = b.ev.indexOf('online'), iFirst = b.ev.findIndex((e) => e.startsWith('start:'));
   const iOpen = b.ev.indexOf('open:u1');
-  t(iMig === 0 && iOpen === 1 && iOpen < iOn && iOn < iFirst, '  옛 값 옮기기 → 계정 칸 열기(옮긴 뒤에야 연다) → realtime → 모든 기능 시작');
+  t(iMig === 0 && iOpen === 1 && iOpen < iOn && iOn < iFirst && b.ev.indexOf('register') === iOn - 1, '  옛 값 옮기기 → 계정 칸 열기(옮긴 뒤에야 연다) → 등록 → realtime → 모든 기능 시작');
   t(ORDER.every((n) => b.ev.filter((e) => e.startsWith('start:' + n + ':')).length === 1), '  각 기능은 정확히 한 번');
   t(b.made.length === 1 && b.boot.getSession() === b.made[0] && b.made[0].me === ME && b.made[0].disposed === 0, '  들어가면 세션을 하나 만들어 들고 있다(getSession) — 아직 끝내지 않음');
   t(b.given.length === ORDER.length && b.given.every((g) => g === b.made[0]), '  모든 시작이 같은 세션을 세 번째 인자로 받는다');
@@ -84,16 +97,16 @@ async function judge(src) {
   t(ot[0] === false && b.ev.join() === 'migrate:u1,open:u1,dispose' && b.boot.getSession() === null, '계정 칸 열기가 던져도 시작 0번 · 세션 끝냄');
   b = build(src);
   t(b.ev.length === 0, '알림이 없으면(로그인 필요 · 가입 필요 · 서버 안 됨 · 바뀐 계정 → 게이트가 알리지 않음) 시작 0번');
-  const e0 = await quiet(async () => [b.notify(null), b.notify({}), b.notify({ userCode: '' })]);
+  const e0 = await quiet(async () => [await b.notify(null), await b.notify({}), await b.notify({ userCode: '' })]);
   t(e0[0].join() === 'false,false,false' && b.ev.length === 0, '계정이 없는 me(빈 값 · 코드 없음)로는 시작 0번');
   /* 4 */
   b = build(src);
-  const dbl = await quiet(async () => [b.notify(ME), b.notify(ME), b.boot.begin(ME)]);
+  const dbl = await quiet(async () => Promise.all([b.notify(ME), b.notify(ME), b.boot.begin(ME)]));
   t(dbl[0][0] === true && dbl[0][1] === false && dbl[0][2] === false && b.ev.filter((e) => e.startsWith('start:')).length === ORDER.length && b.ev.filter((e) => e === 'migrate:u1').length === 1 && b.ev.filter((e) => e === 'online').length === 1,
     '두 번 부르면 두 번째부터 무시 — 옮기기 · realtime · 시작이 한 번씩뿐');
   t(dbl[1].some((w) => /이미 시작했어요/.test(w)), '  무시할 때 콘솔에 경고 한 줄');
   b = build(src, { throwAt: 'gacha', rejectAt: 'closet' });
-  const th = await quiet(async () => { const v = b.notify(ME); await flush(); return v; });
+  const th = await quiet(async () => { const v = await b.notify(ME); await flush(); return v; });
   t(th[0] === true && ORDER.every((n) => b.ev.some((e) => e.startsWith('start:' + n + ':'))) && th[1].some((w) => /gacha 실패/.test(w)) && th[1].some((w) => /closet 실패/.test(w)),
     '한 칸이 던져도(동기 gacha · 비동기 closet) 다음 칸은 돈다 · 어느 칸이 깨졌는지 경고');
   const miss = build(src, { omit: 'closet' });
@@ -148,6 +161,10 @@ async function judge(src) {
     ['표에서 한 기능을 뺌(closet)', (m) => m.replace("  'closet',          // 🧬 옷장(슬롯 5칸 · 보관함 · 휴지통) 서버에서 받기\n", '')],
     ['표에 있는 시작이 빠져도 통과', (m) => m.replace("    if(typeof starts[name] !== 'function') throw new Error('[app-boot] 시작 함수가 없어요: ' + name);", '')],
     ['계정이 없는 me 로도 시작', (m) => m.replace('if(!me || !me.userCode) return false;', '')],
+    ['등록을 안 기다리고 realtime', (m) => m.replace('    try{ reg = await registerDevice(); }', '    try{ registerDevice().catch(() => {}); reg = "ok"; }')],
+    ['취소해도 그대로 시작', (m) => m.replace("    if(reg === 'canceled'){", "    if(reg === 'never'){")],
+    ['취소했는데 로그인 화면으로 안 감', (m) => m.replace("      guard('로그인 화면', () => toLogin());\n", '')],
+    ['실패면 로그인 화면으로 보냄', (m) => m.replace("    if(reg === 'canceled'){", "    if(reg !== 'ok'){")],
   ];
   for (const [name, fm] of breaks) {
     const m2 = fm(MOD);

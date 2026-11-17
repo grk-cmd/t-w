@@ -52,6 +52,7 @@ const CODES = {
   'E-ACC-01': { msg: '닉네임을 저장하지 못했어요 — 다시 해 주세요', where: 'account/user-name.js — 닉네임 저장 뒤 서버 계정 이름(PATCH /v2/me — login-flow patchMe) 실패' },
   'E-ACC-02': { msg: '비밀번호를 확인하지 못했어요 — 잠시 뒤 다시 해 주세요', where: 'account/account.js — 비밀번호 바꾸기 · 탈퇴 · 붙이기 전 «비밀번호 확인» 창에서 너무 많이 틀림(too-many-requests) · 네트워크 실패(틀린 비밀번호는 창 안에 알림)' },
   'E-ACC-03': { msg: '서버에 연결하지 못했어요 — 인터넷 연결을 확인하고 다시 시도해 주세요', where: 'account/license-gate.js — «서버에 연결할 수 없어요» 화면에서 누른 [다시 시도] 가 또 닿지 못함(켤 때 자동으로 한 확인에는 번호 없음)' },
+  'E-ACC-04': { msg: '이 PC를 등록하지 못했어요 — 인터넷 연결을 확인하고 다시 해 주세요', where: 'account/device-register.js — 켤 때 · [이 PC 다시 등록] 의 이 PC 등록(POST /v2/me/devices)이 «PC 3대가 다 참» 밖의 까닭으로 실패' },
   'E-MH-01': { msg: '도움말을 불러오지 못했어요 — 인터넷 연결을 확인하고 다시 시도해 주세요', where: 'myhome/help-tab.js — 도움말 탭 틀에서 페이지 알림이 시간 안에 안 옴(LOAD_MS)' },
   'E-MH-02': { msg: '배경 그림을 불러오지 못했어요 — https 로 시작하는 주소를 써 주세요', where: 'myhome/mh-bg-url.js — http 배경 주소를 https 로 바꿔 불러 봤는데 못 받음(내 마이홈 · 바탕화면만)' },
   'E-MH-03': { msg: '선물 그림을 저장하지 못했어요 — 잠시 뒤에 다시 해 주세요', where: 'myhome/gift-save.js — 선물함 우클릭 [저장]에서 그림을 못 받음(주소 없음 · 네트워크 · 그림 아님)' },

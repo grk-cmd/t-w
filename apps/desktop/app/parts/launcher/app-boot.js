@@ -2,7 +2,9 @@
    0.13 의 켜는 순서는 한 줄이다: ① 계정 없이 돌아도 되는 것(창 · 테마 · 그리기 · 입력 · 원격 설정 · 점검 · 카탈로그)은 바로 →
    ② 계정 확인(license-gate.js checkInviteGate → login-flow.js confirm) → 서버 계정으로 이 PC 맞추기(account.js _enterAccount — 계정 코드 확정) →
    ③ 안 바뀐 계정이면 게이트가 nav 로 «계정에 들어감»(NAV.ACCOUNT_ENTERED)을 알리고, 이 모듈이 한 번 —
-   옛 PC 값 옮기기(migrateLegacy) → 계정 칸 열기 → realtime 연결 → 계정 기능 시작(아래 STEPS 표 순서).
+   옛 PC 값 옮기기(migrateLegacy) → 계정 칸 열기 → 이 PC 등록(registerDevice — 계정마다 PC 셋) → realtime 연결 → 계정 기능 시작(아래 STEPS 표 순서).
+   등록을 [취소]하면(넷째 PC 에서 가장 오래된 기기를 지우지 않음) 등록하지 않고 로그인 화면으로(toLogin) — realtime · 기능을 시작하지 않는다.
+   등록이 실패하면(서버에 못 닿음 — 번호는 등록 쪽이 알림) 그대로 이어 간다 — realtime 이 이 PC 를 들이지 않으면 기기 안내 화면이 [다시 등록]을 준다.
    로그인 필요 · 가입 필요 · 서버 안 됨이면 ③은 돌지 않는다. 계정이 바뀌었으면(switched) 앱을 다시 켜므로 그때도 돌지 않는다 — 다시 켠 뒤 새로 돈다.
    ★ 게이트가 이 모듈을 직접 부르지 않고 nav 로 부탁한다 — 이 모듈은 모든 계정 기능을 부르는 맨 위층이라, 아래 층(게이트)이 부르면 서로 부르는 순환이 된다(sim-dep-cycles).
    맨 앞 칸 userLocal 은 «이 계정이 이 PC 에서 고른 것» 을 계정 칸에서 읽어 채운다(user-local.js) — 모듈이 만들 때 읽던 값이라 다른 기능보다 먼저.
@@ -42,6 +44,8 @@ const STEPS = [
  *   twNav: { on: (name: string, fn: Function) => void, NAV: Record<string, string> },   // 창 열기 통로(shared/nav.js) — NAV.ACCOUNT_ENTERED 를 여기서 받는다
  *   migrateLegacy: (code: string) => unknown,                  // 옛 PC 값을 이 계정 칸으로(shared/account-store.js)
  *   newSession: (me: object) => { openStore: () => boolean, dispose: () => boolean },   // 로그인 세션 만들기(shared/session.js) — 계정 칸 열기는 세션이 한다(옮기기 직후 — 열기 전엔 읽기 null · 쓰기 거절). 못 열면 기능을 시작하지 않는다
+ *   registerDevice: () => Promise<'ok' | 'canceled' | 'failed'>,   // 이 PC 등록(account/device-register.js ensure) — realtime 보다 먼저
+ *   toLogin: () => unknown,                                    // 등록을 취소했을 때 — 로그인 화면으로(로그아웃 · 다시 켜기)
  *   goOnline: () => void,                                      // realtime 연결(login-flow.js goOnline)
  *   starts: Record<string, (code: string, me: object, session: object) => unknown>,   // STEPS 이름마다 하나 — 계정 기능의 시작 함수(없거나 남으면 만들 때 던진다)
  * }} deps */
@@ -50,6 +54,8 @@ const twNav = deps.twNav;
 const migrateLegacy = deps.migrateLegacy;
 const newSession = deps.newSession;
 const goOnline = deps.goOnline;
+const registerDevice = deps.registerDevice;
+const toLogin = deps.toLogin;
 const starts = deps.starts;
 
   for(const name of STEPS){
@@ -67,9 +73,9 @@ const starts = deps.starts;
     catch(e){ console.warn('[app-boot] ' + label + ' 실패', e); }
   }
 
-  /* 서버가 계정을 돌려주고 이 PC 를 맞춘 뒤(_enterAccount ok · switched 아님) 게이트가 알리면 한 번 — 옛 값 옮기기 → realtime → 기능 시작.
-     @return 돌렸으면 true · 계정 없음(me 비었음) 또는 이미 돌았으면 false */
-  function begin(me){
+  /* 서버가 계정을 돌려주고 이 PC 를 맞춘 뒤(_enterAccount ok · switched 아님) 게이트가 알리면 한 번 — 옛 값 옮기기 → 등록 → realtime → 기능 시작.
+     @return Promise — 돌렸으면 true · 계정 없음(me 비었음) · 이미 돌았음 · 등록 취소면 false */
+  async function begin(me){
     if(!me || !me.userCode) return false;
     if(began){ console.warn('[app-boot] 이미 시작했어요 — 두 번째 시작은 무시해요'); return false; }
     began = true;
@@ -80,6 +86,13 @@ const starts = deps.starts;
     if(!opened){
       console.warn('[app-boot] 계정 칸을 열지 못해 계정 기능을 시작하지 않아요');
       if(session){ session.dispose(); session = null; }
+      return false;
+    }
+    let reg = 'failed';
+    try{ reg = await registerDevice(); }catch(e){ console.warn('[app-boot] 이 PC 등록 실패', e); }
+    if(reg === 'canceled'){
+      session.dispose(); session = null;
+      guard('로그인 화면', () => toLogin());
       return false;
     }
     guard('realtime 연결', () => goOnline());

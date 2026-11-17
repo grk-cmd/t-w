@@ -2,7 +2,7 @@
    진짜로 쓰는 것: api-errors.js(오류 → 할 일) · request-id.js(같은 일 다시 보내기 번호) · user-api.js(문구 표)
    ・1절: 판정 — 로그인 없음 · 익명은 login · 계정 있으면 in(사본은 로그인과 묶어 적음) · 가입 전은 signup(사본 지움) ·
           닿지 못함은 local(me 는 늘 null — 로컬 모드 없음) · 토큰 끝남은 login · 모양이 틀린 답은 local
-   ・2절: realtime — goOnline 은 claim 으로 한 번 · 밀려나면 onSessionLost
+   ・2절: realtime — goOnline 은 늘 rt.start(켜져 있으면 허브가 아무 일도 안 함 · 끊겼으면 다시) · 끊기면 onSessionLost(까닭)
    ・3절: 서버에 닿지 못한 화면 — waitForServer(claim 으로 realtime) · ready 신호 / retryNow 가 한 번 묻고 · 닿으면 알림 한 번(같은 연결 유지) · 타이머 없음 · 429 는 limited
    ・4절: 로그인 — 구글 창 닫음은 조용히 · Auth 실패 문구 · 계정 있음 · 가입 전 · 친구코드 로그인에서 계정이 없으면 로그인을 놓음
    ・5절: 가입 — 비밀번호: 닿지 못해 다시 누르면 같은 요청 번호 · 서버가 거절하면 새 번호 · 비밀번호를 바꾸면 새 번호 · 받은 친구코드로 로그인 ·
@@ -58,18 +58,18 @@ function mkEnv(S, o){
     signOut: async () => { authLog.push('out'); user = null; },
   };
   const rtLog = []; let stateFn = null;
-  /* 서버 규칙 흉내(realtime SessionTable admit) — 다른 기기가 지금 세션이면 claim 없는 hello 는 4004(sessionLost), claim 이면 ready */
-  const rt = { start: (x) => { rtLog.push('start:' + JSON.stringify(x)); if(opt.otherSession && stateFn) stateFn(x && x.claim === true ? 'ready' : 'sessionLost'); }, stop: () => rtLog.push('stop'),
+  /* 서버 흉내 — otherSession 이면 등록 전 세션이라 claim 과 상관없이 4004(sessionLost)로 끊는다(자리는 등록이 정하고 realtime 은 claim 을 보지 않는다) */
+  const rt = { start: (x) => { rtLog.push('start:' + JSON.stringify(x)); if(opt.otherSession && stateFn) stateFn('sessionLost'); }, stop: () => rtLog.push('stop'),
     bye: async (why) => { rtLog.push('bye:' + why); await tick(); rtLog.push('closed'); }, onState: (fn) => { stateFn = fn; return () => {}; } };
   /* 방 나가기 흉내 — leave 를 보내고 left 를 기다렸다 풀린다(방 밖이면 바로) */
   const leaveRoom = opt.leaveHang ? () => { rtLog.push('leave'); return new Promise(() => {}); }   // 오프라인 — 방 나가기 쓰기가 끝나지 않음
     : async () => { rtLog.push('leave'); await tick(); rtLog.push('left'); };
-  let lost = 0;
+  let lost = 0; const lostKinds = [];
   const ids = RI.createPending();
   const flow = LF.createLoginFlow({
     userApi, translate: AE.translate, reasonOf: UA.reasonOf, auth,
     googleWindow: async () => (opt.gWin ? opt.gWin() : { ok: true, idToken: 'gtok' }),
-    rt, leaveRoom, pending: ids, storage, onSessionLost: () => { lost++; }, forgetSession: () => { rtLog.push('forget'); },
+    rt, leaveRoom, pending: ids, storage, onSessionLost: (k) => { lost++; lostKinds.push(k); }, forgetSession: () => { rtLog.push('forget'); },
     now: () => clock.t,
   });
   const advance = async (ms) => {
@@ -77,7 +77,7 @@ function mkEnv(S, o){
     for(;;){ await tick(); clock.q.sort((a, b) => a.at - b.at); const h = clock.q[0]; if(!h || h.at > end) break; clock.t = h.at; clock.q.shift(); h.fn(); }
     clock.t = end; await tick();
   };
-  return { LF, flow, srv, store, storage, authLog, rtLog, log, clock, advance, lost: () => lost, fireState: (s) => stateFn && stateFn(s),
+  return { LF, flow, srv, store, storage, authLog, rtLog, log, clock, advance, lost: () => lost, lostKinds, fireState: (s) => stateFn && stateFn(s),
     setUser: (u) => { user = u; } };
 }
 
@@ -125,11 +125,13 @@ async function judge(S){
   {
     const e = mkEnv(S);
     e.flow.goOnline(); e.flow.goOnline();
-    chk(e.rtLog.join() === 'start:{"claim":true}', 'goOnline — claim 으로 한 번만');
+    chk(e.rtLog.join() === 'start:{"claim":true},start:{"claim":true}' && e.flow.mode() === 'in', 'goOnline — 부를 때마다 rt.start(켜져 있으면 허브가 무시 · 기다리는 동안 켠 연결이 끊겼으면 다시 켠다)');
     e.fireState('ready');
     chk(e.lost() === 0, '  ↳ 다른 상태는 밀려남이 아님');
     e.fireState('sessionLost');
-    chk(e.lost() === 1, '밀려나면(4004) onSessionLost');
+    chk(e.lost() === 1 && e.lostKinds[0] === 'sessionLost', '이 PC 의 새 세션에 밀리면(4004) onSessionLost(sessionLost)');
+    e.fireState('deviceRemoved');
+    chk(e.lost() === 2 && e.lostKinds[1] === 'deviceRemoved', '★ 다른 PC 가 이 기기를 지우면(4004 deviceRemoved) onSessionLost(deviceRemoved) — 안내 화면이 까닭을 가른다');
   }
 
   say('── 3. 서버에 닿지 못한 화면 (waitForServer · retryNow)');
@@ -162,7 +164,7 @@ async function judge(S){
     const s1 = mkEnv(S, { otherSession: true });
     s1.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
     s1.flow.waitForServer(() => {}); await tick();
-    chk(s1.lost() === 0 && s1.log.length === 1, '★ 다른 기기가 지금 세션이어도(서버 규칙: claim 없는 hello 는 4004) claim 으로 켜므로 ready 가 와서 계정을 묻는다');
+    chk(s1.lost() === 0 && s1.log.length === 1, '★ 기다리는 동안 켠 연결이 등록 전이라 4004 로 끊겨도 «서버가 답함» 으로 보고 계정을 묻는다 · 안내 화면은 안 띄운다');
     const g = mkEnv(S);
     g.srv.me = () => { throw apiErr('auth', 'USER_CODE_NOT_BOUND'); };
     const bg = []; g.flow.waitForServer((r) => bg.push(r.state));
@@ -170,8 +172,16 @@ async function judge(S){
     chk(bg.join() === 'signup' && g.rtLog.join() === 'start:{"claim":true},stop', '  ↳ 돌아와 보니 계정이 없으면(signup) 알리고 켜 둔 연결을 끈다');
     const h = mkEnv(S);
     h.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
-    h.flow.waitForServer(() => {}); h.fireState('sessionLost');
-    chk(h.lost() === 1, '  ↳ 밀려남(4004)은 늘 화면에 알린다(계정 확인 전이라고 따로 가르지 않는다)');
+    h.flow.waitForServer(() => {}); h.fireState('deviceRemoved'); await tick(); await tick();
+    chk(h.lost() === 0 && h.log.length === 1, '  ↳ 기다리는 화면 동안의 4004(deviceRemoved 도)는 안내 화면이 아니라 계정 다시 묻기');
+    const k = mkEnv(S);
+    k.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
+    let backK = null; k.flow.waitForServer((r) => { backK = r.state; });
+    k.srv.me = () => ME(2);
+    k.fireState('ready'); await tick(); await tick(); await tick();
+    chk(backK === 'in' && k.rtLog.join() === 'start:{"claim":true}', '★ 닿으면(in) 여기서 realtime 을 다시 켜지 않는다 — 등록 뒤 app-boot 의 goOnline 이 켠다(등록 전 세션으로 붙지 않게)');
+    k.flow.goOnline();
+    chk(k.rtLog.join() === 'start:{"claim":true},start:{"claim":true}', '  ↳ 등록 뒤 goOnline 은 켜 둔 연결이 끊겼어도 다시 켠다');
   }
 
   say('── 4. 로그인');
@@ -314,14 +324,15 @@ const BREAKS = [
   ['LF', "    if(!o || !o.me || typeof o.at !== 'number' || !u || o.authUid !== u.uid) return null;", "    if(!o || !o.me) return null;", '남의 로그인 사본을 읽음'],
   ['LF', "      if(t.action === 'signup'){ clearCache(); return { state: STATE.SIGNUP, me: null }; }", "      if(t.action === 'signup'){ return { state: STATE.SIGNUP, me: null }; }", '탈퇴한 계정 사본을 남김'],
   ['LF', "      if(t.action === 'login') return { state: STATE.LOGIN, me: null, reason: deps.reasonOf(e) };", "", '끝난 토큰을 로컬 모드로'],
-  ['LF', "    if(online) return;\n    online = true;", "", 'realtime 을 두 번 켬'],
-  ['LF', "      if(s === RT_SESSION_LOST) deps.onSessionLost();", "      if(false){ }", '밀려남을 화면에 안 알림'],
+  ['LF', "    online = true;\n    deps.rt.start({ claim: true });\n  }", "    if(online) return;\n    online = true;\n    deps.rt.start({ claim: true });\n  }", '켜 둔 연결이 끊긴 뒤 goOnline 이 다시 안 켬'],
+  ['LF', "      else if(s === RT_SESSION_LOST || s === RT_DEVICE_REMOVED) deps.onSessionLost(s);", "      else if(false){ }", '밀려남을 화면에 안 알림'],
+  ['LF', "      else if(s === RT_SESSION_LOST || s === RT_DEVICE_REMOVED) deps.onSessionLost(s);", "      else if(s === RT_SESSION_LOST || s === RT_DEVICE_REMOVED) deps.onSessionLost('sessionLost');", '지워짐 · 새 세션을 안 가름'],
+  ['LF', "      if((s === RT_SESSION_LOST || s === RT_DEVICE_REMOVED) && waitBack) retryNow();\n", "", '기다리는 화면에서 등록 전 4004 를 안내 화면으로'],
   ['LF', "      else if(s === RT_READY && waitBack) retryNow();", "      else if(waitBack) retryNow();", 'ready 아닌 신호에도 묻음'],
   ['LF', "      else if(s === RT_READY && waitBack) retryNow();", "", 'realtime ready 신호가 와도 안 물음'],
   ['LF', "    if(checking) return null;\n", "", '묻는 중에 또 물음'],
-  ['LF', "    if(r.state === STATE.IN) goOnline();\n    else if(rtWait)", "    if(false) goOnline();\n    else if(rtWait)", '닿아도 realtime 안 켬'],
+  ['LF', "    if(r.state === STATE.IN){ mode = 'in'; rtWait = false; }", "    if(r.state === STATE.IN){ goOnline(); }", '닿자마자 등록 전 세션으로 realtime 을 켬'],
   ['LF', "    if(!online){ online = true; rtWait = true; deps.rt.start({ claim: true }); }", "", '기다리는 동안 realtime 을 안 켬(신호가 안 옴)'],
-  ['LF', "    if(!online){ online = true; rtWait = true; deps.rt.start({ claim: true }); }", "    if(!online){ online = true; rtWait = true; deps.rt.start({ claim: false }); }", '기다리는 연결을 claim 없이 켬(다른 기기 세션이면 4004)'],
   ['LF', "    else if(rtWait){ rtWait = false; online = false; try{ deps.rt.stop(); }catch(_){} }", "", '계정이 없는데 켜 둔 연결을 안 끔'],
   ['LF', "limited: !!(e && e.status === 429)", "limited: false", '429 를 못 알림'],
   ['LF', "    if(c.state === STATE.SIGNUP && !keepOnSignup){ try{ await auth.signOut(); }catch(_){} }", "", '가입 전 구글 로그인을 남김'],

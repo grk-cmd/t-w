@@ -400,7 +400,7 @@ app.js 9,746 → 9,476줄(270줄) · 구역 167 → 130개. 남긴 빈 머리 �
 | 42 | 7388–7853 | 466 | 📝 꾸미기 초안(draft) — 미리보기 캐릭터 · 저장(`commitWdDraft`) · 색 영역 | features | animal.js gacha.js | 24 (#41 #146 #1) | 17 (#75 #79 #162) |  |
 | 43 | 7854–8657 | 804 | 🖍️ 파츠에 직접 그리기 | features | animal.js key-input.js paint-tools.js purikura-ui.js uv-fill.js | 17 (#146 #41 #77) | 19 (#42 #91 #92) |  |
 | 44 | 8658–8745 | 88 | 🏠 마이홈 친구 탭 상수 · 상태 | pages | bug-board-ui.js friend-manage.js myhome-inbox.js scheduler.js | 12 (#55 #118 #79) | 15 (#46 #61 #54) | 끝에 📅 스케줄러 · 🔔 일정 알림 연결(`MhScheduler.createScheduler` — scheduler.js · 원래 자리) · 👥 친구 관리 연결(`TwFriendManage.createFriendManage` — friend-manage.js · 옛 #29 자리). 🐞 버그 제보 탭(오픈카톡 기본 링크)은 bug-board-ui.js 끝으로 |
-| 45 | 8746–8776 | 31 | 🖥️ 한 계정 한 기기 — 밀려난 기기 처리 | features |  | 4 (#6 #115 #118) | 2 (#46 #115) |  |
+| 45 | 8746–8776 | 31 | 🖥️ 계정마다 PC 셋 — 이 PC 등록 · 연결이 끊긴 PC 의 처리 | features |  | 4 (#6 #115 #118) | 2 (#46 #115) |  |
 | 46 | 8777–8889 | 113 | 🏠 마이홈 열기(`initMyHome`) · 소유자 쓰기 거부 안내 | pages | bug-board-ui.js friend-manage.js guestbook.js myhome-inbox.js scheduler.js | 9 (#44 #161 #6) | 1 (#35) |  |
 | 47 | 8890–8896 | 7 | 📩 수령함 상태 · 안 읽은 수 · 친구 탭 배지 | entities |  | 1 (#161) | 4 (#52 #46 #161) | 15번으로 함수는 myhome-inbox.js 로 — 남은 것은 구독이 다시 대입하는 `_myInbox` · `_myInboxReady` · `_inboxBroadcast` 와 로그아웃이 같이 쓰는 `INBOX_BC_READ_KEY` |
 | 48 | 8897–8914 | 18 | 공용 HTML 이스케이프 `escHtml` | shared | myhome-inbox.js | 1 (#64) | 12 (#44 #51 #52) | 0단계 shared 감 |

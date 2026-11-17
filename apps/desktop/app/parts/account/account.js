@@ -49,7 +49,7 @@ const toast = deps.toast;
 const tricksMod = deps.tricksMod;
 const weeklyChal = deps.weeklyChal;   // 읽는 함수
 const loginFlowMod = deps.loginFlowMod;   // 🔑 로그인 흐름(login-flow.js) — 로그인 · 서버 가입 확인 · realtime · 로그아웃
-const sessionLost = deps.sessionLost;   // () => boolean — 다른 기기에 밀렸나(realtime sessionLost) · 그 접속 표시는 이긴 쪽 것
+const sessionLost = deps.sessionLost;   // () => boolean — 이 PC 연결이 서버에서 끊겼나(realtime sessionLost · deviceRemoved) · 그 접속 표시는 지금 연결된 PC 것
 const ME_CACHE_KEY = deps.ME_CACHE_KEY;   // 내 계정 사본(login-flow.js) — 계정 몫이라 로그아웃이 지운다
 const userApiMod = deps.userApiMod;   // 🪪 계정 provider(user-api.js) — 비밀번호 붙이기 · 바꾸기 · 탈퇴 · 화면 문구(reasonOf)
 const setFocusTodaySec = deps.setFocusTodaySec;   // 쓰는 함수

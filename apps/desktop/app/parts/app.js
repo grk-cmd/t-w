@@ -1278,14 +1278,24 @@ function _waitForFirebaseAPI(cb){
      permission_denied 로 떨어진다. 거부는 화면에 아무 표시도 안 남긴다 — 유저에게는
      "이름이 안 바뀐다 / 친구가 사라졌다"로만 보인다.
    ⚠️ 막지 않는다. 알려주기만 한다 — 고치는 방법은 재시작 한 번이다(부팅 게이트 K 가 로그인을 받는다 · 개정 16: 설정 › 계정 로그인은 걷었다). */
-/* ═══ 🖥️ 한 계정 한 기기 — 밀려난 기기의 처리 [2026-09-17 제보 3 · 시안 확정(왼쪽)] ═══════════════
-   0.13 — 지금 기기는 realtime 서버가 정한다(hello claim · 밀리면 sessionLost 4004 — rt-hub.js · login-flow.js). 여기는 «밀려난 뒤 이 기기가 하는 일» 뿐이다.
-   ★ 로그아웃하지 않는다 — 캐릭터·기록·신원 그대로. «여기서 계속 쓰기» = 다시 claim → 반대쪽이 이 화면을 본다. «앱 닫기» = quitApp. */
-/* 본문은 device-lost.js 로 옮겼다(앱 FSD 46번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+/* ═══ 🖥️ 계정마다 PC 셋 — 이 PC 등록 · 연결이 끊긴 PC 의 처리 ═══════════════
+   자리(기기 등록)는 서버 API 가 정한다 — 켤 때 realtime 보다 먼저 등록(device-register.js · 넷째 PC 면 확인창 device-limit-dialog.js) · 끊기면 안내(device-lost.js).
+   ★ 로그아웃하지 않는다 — 캐릭터·기록·신원 그대로. «다시 등록 · 여기서 계속» = 등록 → 같은 realtime 연결로 다시 붙기. «앱 닫기» = quitApp. */
+const deviceLimitDialog = TwDeviceLimitDialog.createDeviceLimitDialog({ document: document });
+const deviceRegisterMod = TwDeviceRegister.createDeviceRegister({
+  registerDevice: (o)=>TwUserApi.store.registerDevice(o),
+  limitOldestOf: (e)=>TwUserApi.limitOldestOf(e),
+  deviceId: ()=>TwDeviceId.store.get(),   // API 머리 X-Device-Id · hello.deviceId 와 같은 값
+  session: ()=>TwRtHub.store.session(),   // hello.session 과 같은 값 — 등록이 연결보다 먼저 뽑는다
+  os: ()=>TwDeviceRegister.osOf(navigator),
+  ask: (question)=>deviceLimitDialog.ask(question),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+});
+/* 본문은 device-lost.js 로 옮겼다(앱 FSD 46번).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const deviceLostMod = TwDeviceLost.createDeviceLost({
   twNav: twNav,
-  continueHere: ()=>TwRtHub.store.start({ claim: true }),   // realtime 연결 하나로 다시 claim(login-flow 를 부르지 않는다 — 그쪽이 이 화면을 부른다)
+  continueHere: ()=>deviceRegisterMod.ensure().then((r)=>{ if(r !== 'ok') return false; TwRtHub.store.start({ claim: true }); return true; }),   // 등록 → realtime 연결 하나로 다시(login-flow 를 부르지 않는다 — 그쪽이 이 화면을 부른다)
 });
 
 /* ═══ 🏠 마이홈 열기(initMyHome) · 소유자 쓰기 거부 안내 ═══ */
@@ -2825,7 +2835,7 @@ const loginFlowMod = TwLoginFlow.createLoginFlow({
   leaveRoom: ()=>Promise.resolve(Presence.active() ? twNav.go(twNav.NAV.LEAVE_ROOM) : null),   // 로그아웃 차례 — 방 leave 가 realtime 작별보다 먼저(방 모듈은 창 열기 통로로 — 순환 없이)
   pending: TwRequestId.createPending(),
   storage: localStorage,
-  onSessionLost: ()=>deviceLostMod._onDeviceSessionLost(),
+  onSessionLost: (kind)=>deviceLostMod._onDeviceSessionLost(kind),
   forgetSession: ()=>TwApi.authed.forgetSession(),
   now: ()=>Date.now(),
 });
@@ -3527,7 +3537,6 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   _chatNotifyIncoming: (...a)=>chatPrefsMod._chatNotifyIncoming(...a),
   _clearHiddenSeats: (...a)=>hiddenSeatsMod._clearHiddenSeats(...a),
   _demojiNotifyIncoming: (...a)=>chatPrefsMod._demojiNotifyIncoming(...a),
-  _onDeviceSessionLost: (...a)=>deviceLostMod._onDeviceSessionLost(...a),
   _pokeFresh: (...a)=>roomSyncMod._pokeFresh(...a),
   _refreshChatMembers: (...a)=>chatPrefsMod._refreshChatMembers(...a),
   applyCharToSeat: (...a)=>applyCharToSeat(...a),
@@ -3712,7 +3721,7 @@ const accountMod = TwAccount.createAccount({
   loginFlowMod: loginFlowMod,
   ME_CACHE_KEY: TwLoginFlow.ME_CACHE_KEY,
   userApiMod: userApiMod,
-  sessionLost: ()=>TwRtHub.store.state() === TwRtHub.STATE.SESSION_LOST,
+  sessionLost: ()=>[TwRtHub.STATE.SESSION_LOST, TwRtHub.STATE.DEVICE_REMOVED].includes(TwRtHub.store.state()),
 });
 /* ═══ 🪪 [내 정보] — 런처 화면 전환 (CHECKS 개정 48 · 사용자 결정 · 회원가입 설계 §7 B2 · C4 · D · G) ═══════════════
    런처 [내 정보](#lcLoad)를 누르면 **런처 카드 안의 페이지(#lcMyInfo)가 제목줄 아래를 덮는다** — 따로 창도 겹창도 아니다. ◀ 로 돌아간다.
@@ -3942,6 +3951,7 @@ const slotSaveMod = TwSlotSave.createSlotSave({
   slots: slots,
   toast: (...a)=>toast(...a),
   setBlankFaceConfirmed: (v)=>{ _blankFaceConfirmed = v; },
+  withHeldAssets: (o, d)=>premiumMod.withHeldAssets(o, d),   // 접기는 화면에만 — 저장 모양은 사람이 고른 그대로
 });
 /* 슬롯 저장 · 복원 뒤 할 일 — 이 모듈보다 먼저 만들어지는 위층(프리미엄 · 꾸미기 · 설정 화면)은 여기서 건다.
    서버 원본 옷장(closet.js)은 자기를 만들 때 스스로 건다(onSaved). */
@@ -3951,7 +3961,6 @@ slotSaveMod.onLoaded(()=>gachaMod.pruneUnownedGachaParts());
 slotSaveMod.onSeatRelinked((old, cur)=>wardrobeMod.relinkDraftSrc(old, cur));
 slotSaveMod.onSlotsReplaced(()=>settingsMod.renderCharSlots());
 
-  withHeldAssets: (o, d)=>premiumMod.withHeldAssets(o, d),   // 접기는 화면에만 — 저장 모양은 사람이 고른 그대로
 /* ═══ 🧬 옷장 — 슬롯 5칸 · 보관함 · 휴지통 (서버 원본) ═══════════════════════════════════════
    캐릭터는 서버가 원본이다(0.13). 시작할 때 서버 옷장을 받아 slots[] 에 앉히고(closet.js startCloset — 계정 확인 뒤 app-boot),
    고치면 3초 묶음으로 서버에 쓰고, 슬롯 ↔ 보관함 · 휴지통 · 되살리기는 동작 하나에 요청 하나로 한다. 이 PC 에 캐릭터 저장본 · 보관함 사본 ·
@@ -4904,6 +4913,8 @@ const appBoot = TwAppBoot.createAppBoot({
     closeAccountStore: ()=>accountStoreMod.close(),
     timers: { setInterval: (f, ms)=>setInterval(f, ms), clearInterval: (h)=>clearInterval(h), setTimeout: (f, ms)=>setTimeout(f, ms), clearTimeout: (h)=>clearTimeout(h) },
   }),
+  registerDevice: ()=>deviceRegisterMod.ensure(),   // 🖥️ realtime 보다 먼저 이 PC 등록(넷째 PC 면 확인창)
+  toLogin: ()=>accountMod._loginDoLogout({ force:true }).then(()=>acctStateMod._acctRelaunchAfterDetach(null)),   // [취소] — 등록하지 않고 로그인 화면(다시 켜면 게이트가 로그인 화면)
   goOnline: ()=>loginFlowMod.goOnline(),
   starts: {
     userLocal: (code, me, session)=>userLocalMod.start(session),

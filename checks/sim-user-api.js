@@ -151,6 +151,33 @@ async function judge(S){
     chk(f.length === 1 && f[0].userCode === 'u9999999999' && e.sent[e.sent.length - 1].path === '/v2/users?friendCode=MATE-AB12', '친구코드 찾기 — 대문자 · [{ userCode · displayName }]');
   }
 
+  say('── 4-2. 이 PC 등록 — POST · GET /v2/me/devices');
+  {
+    const OLDEST = { deviceId: 'pc-old', os: 'windows', claimedAt: '2026-11-03T03:00:00Z', lastSeenAt: '2026-11-10T03:00:00Z' };
+    let full = true;
+    const e = mkEnv(S, (r) => {
+      if(r.path === '/v2/me/devices' && r.method === 'POST'){
+        if(full && !r.body.replaceOldest) return { status: 409, body: { success: false, code: 'USER_DEVICE_LIMIT', message: '서버 문구', items: [OLDEST] } };
+        return ok({ deviceId: r.body.deviceId, os: r.body.os, claimedAt: '2026-11-17T00:00:00Z', lastSeenAt: '2026-11-17T00:00:00Z', removed: r.body.replaceOldest || null });
+      }
+      if(r.path === '/v2/me/devices' && r.method === 'GET') return ok({ devices: [Object.assign({ current: false }, OLDEST), { deviceId: 'dev-0001', os: 'mac', claimedAt: 'a', lastSeenAt: 'b', current: true }, { os: 'x' }] });
+      return null;
+    });
+    const x = await threw(e.ua.registerDevice({ deviceId: 'dev-0001', session: 's1', os: 'mac' }));
+    chk(!!x && x.code === 'USER_DEVICE_LIMIT' && e.sent[0].auth === 'Bearer ' + TOKEN && JSON.stringify(e.sent[0].body) === '{"deviceId":"dev-0001","session":"s1","os":"mac"}',
+      '등록 — 토큰 · { deviceId, session, os } · 셋이 다 차면 409 USER_DEVICE_LIMIT 를 그대로 던진다');
+    const o = e.UA.limitOldestOf(x);
+    chk(!!o && o.deviceId === 'pc-old' && o.os === 'windows' && o.claimedAt === OLDEST.claimedAt && o.lastSeenAt === OLDEST.lastSeenAt, '★ limitOldestOf — 409 의 items[0] = 가장 오래된 기기 { deviceId, os, claimedAt, lastSeenAt }');
+    chk(e.UA.limitOldestOf(Object.assign(new Error('x'), { code: 'NETWORK', items: [OLDEST] })) === null && e.UA.limitOldestOf({ code: 'USER_DEVICE_LIMIT', items: [] }) === null, '  다른 실패 · 기기 없는 409 는 null(묻지 않는다)');
+    const d = await e.ua.registerDevice({ deviceId: 'dev-0001', session: 's1', os: 'mac', replaceOldest: 'pc-old' });
+    chk(d.deviceId === 'dev-0001' && d.removed === 'pc-old' && e.sent[1].body.replaceOldest === 'pc-old', '  replaceOldest 를 실으면 그 기기를 지우고 등록 · removed');
+    full = false;
+    const d2 = await e.ua.registerDevice({ deviceId: 'dev-0001', session: 's2', os: 'mac' });
+    chk(d2.removed === null && !('replaceOldest' in e.sent[2].body), '  자리가 있으면 replaceOldest 없이 · removed null');
+    const list = await e.ua.myDevices();
+    chk(list.length === 2 && list[1].current === true && list[0].current === false && list[0].os === 'windows', '내 기기 목록 — 기기 id 가 없는 줄은 버린다 · current');
+  }
+
   say('── 5. 방문 기록');
   {
     const e = mkEnv(S, (r) => (r.path === '/v2/metrics/visits') ? { status: 204, body: null } : null);

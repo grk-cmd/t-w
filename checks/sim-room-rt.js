@@ -55,7 +55,7 @@ function mkWS(){
     constructor(url){ this.url = url; this.sent = []; this.closed = false; socks.push(this); }
     send(s){ if(this.closed) throw new Error('closed'); this.sent.push(JSON.parse(s)); }
     close(code){ if(this.closed) return; this.closed = true; if(this.onclose) this.onclose({ code: (typeof code === 'number') ? code : 1000 }); }
-    kill(code){ this.closed = true; if(this.onclose) this.onclose({ code }); }
+    kill(code, reason){ this.closed = true; if(this.onclose) this.onclose({ code, reason: reason || '' }); }
     open(){ if(this.onopen) this.onopen(); }
     /* 서버는 join · meta 의 답 · 오류에 요청의 rid 를 그대로 돌려준다 — 시험이 rid 를 안 적은 welcome · join 오류 · meta 오류에는 마지막 요청의 rid 를 채운다(rid: null 이면 일부러 뺀다) */
     msg(m){
@@ -333,7 +333,11 @@ async function judge(S){
     const X = await joined(S);
     X.ws.msg({ t: 'sessionLost' }); X.ws.kill(4004);
     await tick();
-    chk(X.hl.L.indexOf('replaced') >= 0 && !X.e.rt.inRoom(), '다른 기기가 차지(4004) → onReplaced');
+    chk(X.hl.L.indexOf('lost:sessionLost') >= 0 && X.hl.L.indexOf('replaced') < 0 && !X.e.rt.inRoom(), '★ 이 PC 연결이 끊김(4004) → onLost(sessionLost) — 방 자리 «다른 PC 가 이 방에 들어옴» 알림(onReplaced)과 다르다');
+    const XR = await joined(S);
+    XR.ws.msg({ t: 'sessionLost' }); XR.ws.kill(4004, 'deviceRemoved');
+    await tick();
+    chk(XR.hl.L.indexOf('lost:sessionLost') >= 0 && XR.hl.L.indexOf('replaced') < 0 && !XR.e.rt.inRoom(), '  이 PC 가 지워짐(4004 deviceRemoved)도 같다 — 방에서만 놓고 안내는 로그인 흐름 몫');
     /* D2 — 연결이 멈추는 닫힘은 «다시 연결 중» 으로 90초 기다리지 않고 바로 방을 놓는다(04-realtime-disconnect 정책 표) */
     for(const [code, why] of [[4006, 'maintenance'], [4007, 'accountGone'], [4003, 'version']]){
       const Z = await joined(S);
