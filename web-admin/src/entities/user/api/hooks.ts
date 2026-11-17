@@ -1,4 +1,5 @@
-import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
+import { KEYSET_PAGE_MAX } from '@/shared/lib';
 import { userInviteKey } from '@/entities/invite/@x/user';
 import type { UserInvite } from '../model/live';
 import { realName, type UserRow } from '../model/userRow';
@@ -93,6 +94,20 @@ export function useUserDetail(uid: string) {
       if (port.kind !== 'detail') throw new Error('이 판은 사용자 상세를 칸마다 받아요');
       return port.detail(uid);
     },
+  });
+}
+
+/** API 판 상세의 «초대한 사람» — 쪽으로 받는다. 이어 붙이기 · 쪽 넘기기는 `useKeysetPaging` 이 한다. */
+export function useInvitees(uid: string) {
+  const port = useUserPort();
+  return useInfiniteQuery({
+    queryKey: ['invitees', uid],
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) => {
+      if (port.kind !== 'detail') throw new Error('이 판은 만든 초대 코드를 칸마다 받아요');
+      return port.invitees(uid, pageParam, KEYSET_PAGE_MAX);
+    },
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
 }
 

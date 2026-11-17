@@ -19,7 +19,7 @@ const row = (code: string, over: Record<string, unknown> = {}) => ({
 });
 
 describe('여러 명 코드 목록 — API 판', () => {
-  it('끝까지 이어 받고 줄을 화면 모양으로 바꾼다(번호 · 중지 시각 · 메모)', async () => {
+  it('한 쪽씩 받고 첫 쪽 total 을 쓰며 줄을 화면 모양으로 바꾼다(번호 · 중지 시각 · 메모)', async () => {
     const s = fakeApiOf({
       'GET /v2/admin/invites': (c) =>
         c.query?.cursor === undefined
@@ -32,10 +32,16 @@ describe('여러 명 코드 목록 — API 판', () => {
                 }),
               ],
               nextCursor: 'c1',
+              total: 2,
             }
-          : { items: [row('INVT-CCCC-DDDD')], nextCursor: null },
+          : { items: [row('INVT-CCCC-DDDD')], nextCursor: null, total: null },
     });
-    const list = await createServerInvitePort(s.api).groups();
+    const port = createServerInvitePort(s.api);
+    const first = await port.groups(undefined, 100);
+    const second = await port.groups('c1', 100);
+    expect(first).toMatchObject({ nextCursor: 'c1', total: 2 });
+    expect(second).toMatchObject({ nextCursor: null, total: null });
+    const list = [...first.items, ...second.items];
     expect(list.map((g) => g.code)).toEqual(['INVT-AAAA-BBBB', 'INVT-CCCC-DDDD']);
     expect(list[0]).toMatchObject({
       note: '봄',
@@ -51,11 +57,23 @@ describe('여러 명 코드 목록 — API 판', () => {
     ]);
   });
 
+  it('첫 쪽에 total 이 없으면 약속과 다른 응답', async () => {
+    const s = fakeApiOf({
+      'GET /v2/admin/invites': () => ({ items: [row('INVT-AAAA-BBBB')], nextCursor: null }),
+    });
+    const e = await caught(createServerInvitePort(s.api).groups(undefined, 100));
+    expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
+  });
+
   it('칸이 약속과 다르면 줄을 버리지 않고 던진다', async () => {
     const s = fakeApiOf({
-      'GET /v2/admin/invites': () => ({ items: [row('INVT-AAAA-BBBB', { version: '4' })], nextCursor: null }),
+      'GET /v2/admin/invites': () => ({
+        items: [row('INVT-AAAA-BBBB', { version: '4' })],
+        nextCursor: null,
+        total: 1,
+      }),
     });
-    const e = await caught(createServerInvitePort(s.api).groups());
+    const e = await caught(createServerInvitePort(s.api).groups(undefined, 100));
     expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
   });
 });

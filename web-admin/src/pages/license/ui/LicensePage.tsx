@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { usePendingRequests } from '@/entities/license-request';
+import { usePendingCount } from '@/entities/license-request';
 import { BulkGrantCard } from '@/features/license/bulk-grant';
 import { GrantByCodeCard } from '@/features/license/grant-by-code';
 import { SecretRoomCard } from '@/features/license/grant-secret-room';
@@ -14,7 +14,7 @@ type Tab = 'licenses' | 'requests' | 'bulk' | 'secret';
 export function LicensePage() {
   const [tab, setTab] = useState<Tab>('licenses');
   // 대기 건수를 탭에 보여야 해서 «발급된 키» 탭을 보고 있어도 요청을 지켜본다.
-  const { data: requests } = usePendingRequests();
+  const pending = usePendingCount();
 
   return (
     <>
@@ -40,7 +40,7 @@ export function LicensePage() {
           onClick={() => setTab('requests')}
         >
           대기 중인 요청
-          {requests && requests.length > 0 && <span className={styles.badge}>{requests.length}</span>}
+          {pending !== null && pending > 0 && <span className={styles.badge}>{pending}</span>}
         </button>
         <button type="button" role="tab" aria-selected={tab === 'bulk'} onClick={() => setTab('bulk')}>
           일괄 발급

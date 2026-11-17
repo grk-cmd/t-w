@@ -54,6 +54,7 @@ export {
   needsMore,
   resetKeyset,
   useKeysetPaging,
+  withKnownTotal,
   type KeysetPage,
   type KeysetPaging,
   type KeysetView,

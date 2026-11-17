@@ -1,7 +1,14 @@
 import { useMemo, useState } from 'react';
 import { INBOX_TAG_LABEL, useBroadcasts, useRefreshBroadcasts } from '@/entities/inbox';
 import { BroadcastActions, BulkBroadcastActions } from '@/features/notice/manage-broadcast';
-import { errorMessage, formatDate, readPageSize, usePaging, useSelection } from '@/shared/lib';
+import {
+  errorMessage,
+  formatDate,
+  readPageSize,
+  usePaging,
+  useSelection,
+  withKnownTotal,
+} from '@/shared/lib';
 import { Pager, RowCheckbox, SelectAllCheckbox, SelectionBar } from '@/shared/ui';
 import styles from './BroadcastList.module.css';
 
@@ -13,7 +20,11 @@ export function BroadcastList() {
   const broadcasts = data?.items;
   const refresh = useRefreshBroadcasts();
   const list = useMemo(() => broadcasts ?? [], [broadcasts]);
-  const paging = usePaging(list, LIST_KEY);
+  const total = data?.total ?? null;
+  const loadedPaging = usePaging(list, LIST_KEY);
+  const paging = total === null ? loadedPaging : withKnownTotal(loadedPaging, total);
+  // 전체 수를 모르는 판만 «n건+» · 끝 쪽 뒤로 넘기기.
+  const more = total === null && Boolean(data?.hasMore);
   // 통째로 받지 않는다 — 처음엔 첫 쪽만큼, 받아 둔 것보다 뒤쪽으로 가거나 개수를 늘리면 그 쪽까지만 더 받는다.
   const need = paging.want * paging.size;
   if (need > limit && data?.hasMore) setLimit(need);
@@ -26,7 +37,7 @@ export function BroadcastList() {
     <section className="card">
       <div className="card-head">
         <h2>보낸 전체 공지</h2>
-        <span className="soft">{broadcasts && `${broadcasts.length}건${data.hasMore ? '+' : ''}`}</span>
+        <span className="soft">{broadcasts && `${total ?? broadcasts.length}건${more ? '+' : ''}`}</span>
         <button type="button" className="btn" onClick={refresh}>
           새로고침
         </button>
@@ -68,7 +79,7 @@ export function BroadcastList() {
           </div>
         ))}
       </div>
-      <Pager paging={paging} more={data?.hasMore} />
+      <Pager paging={paging} more={more} />
     </section>
   );
 }

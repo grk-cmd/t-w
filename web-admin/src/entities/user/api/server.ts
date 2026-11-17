@@ -1,4 +1,5 @@
 // API 판 — `GET /v2/admin/users/{userCode}`(한 사람 몫을 한 번에). 작은 읽기(이름 · 소개 · 접속 · 집중 · 라이선스)는 모두 그 답의 한 칸이다.
+// 그 사람의 초대 코드로 들어온 사람은 `GET /v2/admin/users/{userCode}/invitees?cursor&limit`(가입 최근순 키셋 · 첫 쪽 `total` · 이름 · 친구코드 함께).
 import {
   adminPath,
   perApi,
@@ -16,7 +17,8 @@ import {
   type Api,
 } from '@/shared/api';
 import { INVITE_ISSUER_ADMIN } from '@/entities/invite/@x/user';
-import type { DetailSecretRoom, ServerIssuedInvite, UserDetail } from '../model/detail';
+import type { KeysetPage } from '@/shared/lib';
+import type { DetailSecretRoom, Invitee, UserDetail } from '../model/detail';
 import type { UserInvite } from '../model/live';
 import { realName, type LiveUserRow, type UserLicense } from '../model/userRow';
 import type { UserDetailPort } from './port';
@@ -86,15 +88,17 @@ function secretRoomOf(w: unknown, userCode: string): DetailSecretRoom | null {
   };
 }
 
-function issuedOf(w: unknown, userCode: string): ServerIssuedInvite {
-  const o = wireObject(w, `사용자 ${userCode} 의 issuedInvites 줄`);
-  const code = wireString(o.code, `사용자 ${userCode} 의 issuedInvites 줄의 code`);
+/** 들어온 사람 한 줄 — `name` · `friendCode` 의 null 만 문서가 약속한 «없음». */
+function toInvitee(w: unknown): Invitee {
+  const o = wireObject(w, '들어온 사람 줄');
+  const userCode = wireString(o.userCode, '들어온 사람 줄의 userCode');
+  const what = (field: string) => `들어온 사람 ${userCode} 의 ${field}`;
   return {
-    code,
-    createdAt: wireTime(o.createdAt, `초대 코드 ${code} 의 createdAt`),
-    usedBy: wireArray(o.usedBy, `초대 코드 ${code} 의 usedBy`).map((u) =>
-      wireString(u, `초대 코드 ${code} 의 usedBy 줄`),
-    ),
+    userCode,
+    name: wireNullableString(o.name, what('name')),
+    friendCode: wireNullableString(o.friendCode, what('friendCode')),
+    code: wireString(o.code, what('code')),
+    joinedAt: wireTime(o.joinedAt, what('joinedAt')),
   };
 }
 
@@ -121,7 +125,6 @@ export function toServerUserDetail(w: unknown): UserDetail {
       : null,
     openReports: wireNumber(o.openReports, what('openReports')),
     secretRoom: secretRoomOf(o.secretRoom, userCode),
-    issuedInvites: wireArray(o.issuedInvites, what('issuedInvites')).map((i) => issuedOf(i, userCode)),
     issuedInviteCount: wireNumber(o.issuedInviteCount, what('issuedInviteCount')),
     usedInviteCount: wireNumber(o.usedInviteCount, what('usedInviteCount')),
   };
@@ -145,6 +148,26 @@ function build(api: Api | null): UserDetailPort {
   return {
     kind: 'detail',
     detail,
+    invitees: (uid, cursor, limit) =>
+      portCall(
+        api,
+        async (a): Promise<KeysetPage<Invitee>> => {
+          const page = wireObject(
+            await a.get<unknown>(adminPath(`/users/${encodeURIComponent(uid)}/invitees`), { cursor, limit }),
+            '들어온 사람 쪽',
+          );
+          return {
+            items: wireArray(page.items, '들어온 사람 쪽의 items').map(toInvitee),
+            nextCursor: wireNullableString(page.nextCursor, '들어온 사람 쪽의 nextCursor'),
+            // `total` 은 첫 쪽에만 오고 다음 쪽은 null.
+            total:
+              cursor === undefined
+                ? wireNumber(page.total, '들어온 사람 첫 쪽의 total')
+                : wireNullableNumber(page.total, '들어온 사람 쪽의 total'),
+          };
+        },
+        '초대로 들어온 사람을 읽지 못했어요',
+      ),
     name: async (uid) => (await detail(uid)).row.name,
     brief: async (uid) => {
       const d = await detail(uid);

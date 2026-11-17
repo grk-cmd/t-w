@@ -1,12 +1,19 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { resetKeyset } from '@/shared/lib';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
+import { KEYSET_PAGE_MAX, resetKeyset } from '@/shared/lib';
 import { USER_KEYSET_KEY, type UserInvite } from '@/entities/user/@x/invite';
 import { GROUP_INVITES_KEY, invitesLeftKey, USER_INVITE, userInviteKey } from './keys';
 import { useInvitePort } from './index';
 
+/** 여러 명 코드 — 쪽으로 받는다. 이어 붙이기 · 쪽 넘기기는 `useKeysetPaging` 이 한다. */
 export function useGroupInvites(enabled: boolean) {
   const port = useInvitePort();
-  return useQuery({ queryKey: GROUP_INVITES_KEY, queryFn: () => port.groups(), enabled });
+  return useInfiniteQuery({
+    queryKey: GROUP_INVITES_KEY,
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) => port.groups(pageParam, KEYSET_PAGE_MAX),
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    enabled,
+  });
 }
 
 /** 한 사람 몫 한 칸 — 지급 창을 열 때만 읽는다. */

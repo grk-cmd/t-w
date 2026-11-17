@@ -1,6 +1,7 @@
 import type { IssuedInvite } from '@/entities/invite/@x/user';
 import type { Presence, UserInvite } from '../model/live';
-import type { UserDetail } from '../model/detail';
+import type { KeysetPage } from '@/shared/lib';
+import type { Invitee, UserDetail } from '../model/detail';
 import type { UserLicense } from '../model/userRow';
 
 export interface UserBrief {
@@ -41,4 +42,6 @@ export type UserDetailPort = UserReads & {
   kind: 'detail';
   /** 한 사람의 상세 — 줄 칸 · 접속 · 방 · 가입 · 초대 · 시크릿룸 · 신고 수. */
   detail(uid: string): Promise<UserDetail>;
+  /** 그 사람의 개인 초대 코드로 들어온 사람 한 쪽(가입 최근순) — 첫 쪽은 `cursor` 없음 · 첫 쪽만 `total`. */
+  invitees(uid: string, cursor: string | undefined, limit: number): Promise<KeysetPage<Invitee>>;
 };

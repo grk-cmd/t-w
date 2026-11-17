@@ -15,7 +15,7 @@ export function useTakeDownAwayImg(target: string) {
     onSuccess: (r) => {
       if (r.ok) {
         forgetAwayImg(target);
-        forgetReports(target);
+        forgetReports([target]);
       } else {
         // API 판은 목록이 서버 것이라 그 사이 바뀐 줄을 다시 받는다. Firebase 판은 지금처럼 사람 정보만.
         if (r.refreshList) refreshReports();
@@ -30,7 +30,7 @@ export function useDismissReports(target: string) {
   const forgetReports = useForgetReports();
   return useMutation({
     mutationFn: () => port.dismiss(target),
-    onSuccess: () => forgetReports(target),
+    onSuccess: () => forgetReports([target]),
   });
 }
 
@@ -39,6 +39,6 @@ export function useDismissReportsMany() {
   const forgetReports = useForgetReports();
   return useMutation({
     mutationFn: (targets: string[]) => port.dismissMany(targets),
-    onSuccess: (r) => r.dismissed.forEach(forgetReports),
+    onSuccess: (r) => forgetReports(r.dismissed),
   });
 }

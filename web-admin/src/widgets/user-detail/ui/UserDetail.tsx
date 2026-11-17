@@ -10,6 +10,7 @@ import {
   LICENSE_LABEL,
   realName,
   useUserBrief,
+  useInvitees,
   useIssuedInvites,
   useUserDetail,
   useUserFocusSec,
@@ -25,8 +26,8 @@ import { DeleteAccountButton } from '@/features/user/delete-account';
 import { ResetPasswordButton } from '@/features/user/reset-password';
 import { GrantInvitesButton } from '@/features/user/grant-invites';
 import { useSameLicenseUsers, useUserByCode, useUsersByCode } from '@/features/user/user-rows';
-import { copyText, formatDate, formatHours } from '@/shared/lib';
-import { useModalDialog, useToast } from '@/shared/ui';
+import { copyText, formatDate, formatHours, useKeysetPaging } from '@/shared/lib';
+import { Pager, useModalDialog, useToast } from '@/shared/ui';
 import styles from './UserDetail.module.css';
 
 interface Q<T> {
@@ -408,6 +409,41 @@ function ServerPeople({ codes, onOpen }: { codes: string[]; onOpen: (uid: string
   );
 }
 
+/** 이 사람의 초대 코드로 들어온 사람 — 서버가 이름을 함께 준다(쪽마다 따로 묻지 않는다). `summary` 는 코드 수 줄. */
+function ServerInvitees({
+  uid,
+  onOpen,
+  summary,
+}: {
+  uid: string;
+  onOpen: (uid: string) => void;
+  summary: ReactNode;
+}) {
+  const query = useInvitees(uid);
+  const paging = useKeysetPaging(query, 'invitees');
+  return (
+    <>
+      <div className={styles.invitees}>
+        {query.isPending && <span className="soft">…</span>}
+        {query.isError && <span className="soft">읽지 못함</span>}
+        {paging.items.map((p) =>
+          p.name !== null || p.friendCode !== null ? (
+            <button key={p.userCode} type="button" className={styles.link} onClick={() => onOpen(p.userCode)}>
+              {p.name ?? p.friendCode}
+            </button>
+          ) : (
+            <code key={p.userCode} className="key soft">
+              {p.userCode}
+            </code>
+          ),
+        )}
+        {summary}
+      </div>
+      <Pager paging={paging} more={paging.more} />
+    </>
+  );
+}
+
 function ServerJoined({ invitedBy, onOpen }: { invitedBy: string | null; onOpen: (uid: string) => void }) {
   const kind = inviterKind(invitedBy);
   if (kind === 'existing' || !invitedBy) return <>기존</>;
@@ -508,17 +544,17 @@ function ServerBody({ row, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> &
           <Loaded q={detail}>
             {(d) => {
               if (d.issuedInviteCount === 0) return <>없음</>;
-              const users = [...new Set(d.issuedInvites.flatMap((i) => i.usedBy))];
               const unused = d.issuedInviteCount - d.usedInviteCount;
-              const cut = d.issuedInvites.length < d.issuedInviteCount;
               return (
-                <span className={styles.invitees}>
-                  <ServerPeople codes={users} onOpen={onOpen} />
-                  <small className="soft">
-                    코드 {d.issuedInviteCount}개 · 안 씀 {unused}
-                    {cut ? ` · 사람은 최근 ${d.issuedInvites.length}개 코드만` : ''}
-                  </small>
-                </span>
+                <ServerInvitees
+                  uid={uid}
+                  onOpen={onOpen}
+                  summary={
+                    <small className="soft">
+                      코드 {d.issuedInviteCount}개 · 안 씀 {unused}
+                    </small>
+                  }
+                />
               );
             }}
           </Loaded>

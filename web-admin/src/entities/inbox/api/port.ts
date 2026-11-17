@@ -8,6 +8,8 @@ export interface BroadcastPage {
   items: InboxBroadcast[];
   /** 최근 n 개를 꽉 채워 받았다 — 더 오래된 공지가 남아 있을 수 있다. */
   hasMore: boolean;
+  /** 공지 전체 수(고정 포함). 모르는 판은 null — 화면이 «n건+» 로 보인다. */
+  total: number | null;
 }
 
 /** 알림함 «소식» — 모두가 읽는 공용 공지. 고정 공지는 개수와 상관없이 맨 위에 온다. */

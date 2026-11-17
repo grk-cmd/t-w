@@ -108,19 +108,34 @@ describe('라이선스 요청 — API 판', () => {
     createdAt: '2026-11-01T00:00:00Z',
   });
 
-  it('대기 요청을 끝까지 이어 받는다', async () => {
+  it('한 쪽씩 받고 첫 쪽 total 을 그대로 쓴다', async () => {
     const s = fakeApiOf({
       'GET /v2/admin/license-requests': ({ query }) =>
-        query?.cursor ? { items: [req('b')], nextCursor: null } : { items: [req('a')], nextCursor: 'a' },
+        query?.cursor
+          ? { items: [req('b')], nextCursor: null, total: null }
+          : { items: [req('a')], nextCursor: 'a', total: 2 },
     });
     const port = createServerLicenseRequestPort(s.api);
     expect(port.kind).toBe('poll');
     if (port.kind !== 'poll') return;
     expect(port.intervalMs).toBe(30_000);
-    expect((await port.pending()).map((r) => [r.id, r.userCode, r.name])).toEqual([
-      ['a', 'u-a', '이름 a'],
-      ['b', 'u-b', '이름 b'],
+    const first = await port.page(undefined, 100);
+    expect(first.items.map((r) => [r.id, r.userCode, r.name])).toEqual([['a', 'u-a', '이름 a']]);
+    expect(first).toMatchObject({ nextCursor: 'a', total: 2 });
+    expect(await port.page('a', 100)).toMatchObject({ nextCursor: null, total: null });
+    expect(s.calls.map((c) => c.query)).toEqual([
+      { cursor: undefined, limit: 100 },
+      { cursor: 'a', limit: 100 },
     ]);
+  });
+
+  it('첫 쪽에 total 이 없으면 약속과 다른 응답', async () => {
+    const s = fakeApiOf({
+      'GET /v2/admin/license-requests': () => ({ items: [req('a')], nextCursor: null }),
+    });
+    const port = createServerLicenseRequestPort(s.api);
+    if (port.kind !== 'poll') throw new Error('poll 이어야 해요');
+    await shapeError(port.page(undefined, 100));
   });
 
   it('칸이 모자라면 던진다', async () => {
@@ -128,11 +143,12 @@ describe('라이선스 요청 — API 판', () => {
       'GET /v2/admin/license-requests': () => ({
         items: [{ id: 'a', name: 'x', createdAt: '2026-11-01T00:00:00Z' }],
         nextCursor: null,
+        total: 1,
       }),
     });
     const port = createServerLicenseRequestPort(s.api);
     if (port.kind !== 'poll') throw new Error('poll 이어야 해요');
-    await shapeError(port.pending());
+    await shapeError(port.page(undefined, 100));
   });
 });
 
@@ -148,23 +164,25 @@ describe('시크릿룸 읽기 — API 판', () => {
     version: 1,
     ...over,
   });
-  const ofUser = (rows: unknown[]) =>
-    createServerSecretRoomPort(fakeApiOf({ 'GET /v2/admin/secret-rooms': () => rows }).api).ofUser('u1');
+  const ofUser = async (rows: unknown[]) => {
+    const s = fakeApiOf({ 'GET /v2/admin/secret-rooms': () => rows });
+    const info = await createServerSecretRoomPort(s.api).ofUser('u1');
+    // 열린 방만 서버가 거른다.
+    expect(s.calls.map((c) => c.query)).toEqual([{ ownerUserCode: 'u1', live: 'true' }]);
+    return info;
+  };
 
-  it('끝나지 않은 방이 그 사람의 방이다', async () => {
-    const info = await ofUser([
-      room({ secretRoomId: 'old', code: null, endedAt: '2026-10-01T00:00:00Z' }),
-      room({ expiresAt: '2026-12-31T00:00:00Z' }),
-    ]);
+  it('live=true 로 받은 방이 그 사람의 방이다', async () => {
+    const info = await ofUser([room({ expiresAt: '2026-12-31T00:00:00Z' })]);
     expect(info).toEqual({
       code: 'SCRT-AAAA',
       pub: { owner: 'u1', name: '철수', exp: Date.parse('2026-12-31T00:00:00Z') },
     });
   });
 
-  it('열린 방이 없으면 null · 둘이면 약속과 다른 응답', async () => {
+  it('열린 방이 없으면 null · 둘이거나 끝난 방이 섞이면 약속과 다른 응답', async () => {
     expect(await ofUser([])).toBeNull();
-    expect(await ofUser([room({ endedAt: '2026-10-01T00:00:00Z' })])).toBeNull();
+    await shapeError(ofUser([room({ endedAt: '2026-10-01T00:00:00Z' })]));
     await shapeError(ofUser([room({}), room({ secretRoomId: 'r2' })]));
     await shapeError(ofUser([room({ code: null })]));
   });

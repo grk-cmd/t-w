@@ -11,8 +11,8 @@ export function uniqueUserIds(friendCodes: Record<string, { userId?: string }>):
 }
 
 /**
- * 여러 명 지급의 결과. `null` 인 칸은 이 판이 세지 않는 값이다(API 판에서 «전체» 는 서버가 한 번에 처리해
- * 바뀐 사람 수만 알려 준다) — 0 으로 보이지 않게 화면이 «모름» 으로 다룬다.
+ * 여러 명 지급의 결과. `null` 인 칸은 모르는 값이다(API 판에서 그 칸이 생기기 전에 적힌 요청 기록을
+ * 같은 요청 번호로 다시 받으면 서버가 대상 수 · 건너뛴 수를 싣지 않는다) — 0 으로 보이지 않게 화면이 «모름» 으로 다룬다.
  */
 export interface GrantAllResult {
   total: number | null;
@@ -36,13 +36,13 @@ export interface BatchOpts {
 }
 
 export interface RevokeAllResult {
-  total: number | null;
+  total: number;
   /** 0 장으로 바꾼 사람. */
   revoked: number;
-  /** 거둔 장수의 합. 서버가 합을 알려 주지 않는 API 판은 null. */
-  taken: number | null;
+  /** 거둔 장수의 합. */
+  taken: number;
   /** 초대권 칸이 없거나 이미 0 장 이하인 사람. */
-  skipped: number | null;
+  skipped: number;
   failed: number;
   stopped: boolean;
 }

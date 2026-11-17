@@ -74,15 +74,14 @@ export function useKeysetPaging<T>(
   if (view.total === null) {
     return { ...paging, more: hasNext, fetchingMore: isFetchingNextPage };
   }
-  // 전체 수를 알면 아직 못 받은 쪽도 번호로 보인다 — 건너뛰면 위 효과가 그 쪽까지 받고, 그동안 받아 둔 끝 쪽을 보인다.
-  const pageCount = Math.max(1, Math.ceil(view.total / paging.size));
-  return {
-    ...paging,
-    pageCount,
-    total: view.total,
-    more: false,
-    fetchingMore: isFetchingNextPage,
-  };
+  return { ...withKnownTotal(paging, view.total), more: false, fetchingMore: isFetchingNextPage };
+}
+
+/**
+ * 서버가 전체 수를 주면 아직 못 받은 쪽도 번호로 보인다 — 건너뛰면 부르는 쪽이 그 쪽까지 받고, 그동안 받아 둔 끝 쪽을 보인다.
+ */
+export function withKnownTotal<T>(paging: Paging<T>, total: number): Paging<T> {
+  return { ...paging, pageCount: Math.max(1, Math.ceil(total / paging.size)), total };
 }
 
 /** 쓰기 뒤 — 이 목록을 첫 쪽부터 다시 받는다(옛 커서를 이어 쓰지 않는다). */
