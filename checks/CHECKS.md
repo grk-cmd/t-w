@@ -179,9 +179,9 @@
 | **sim-myhome-load.js** | 87 | **80598e5410f5** |
 | **sim-fix-0923.js** | 252 | **027994f930d3** |
 | **sim-noise.js** | 147 | **c7f261c4f2a1** |
-| **sim-mobile-focus.js** | 342 | **130f76ba80a9** |
-| **sim-figure-mode.js** | 175 | **65a1d7ee4adf** |
-| **sim-focus-gate-self.js** | 124 | **5a2405206abb** |
+| **sim-mobile-focus.js** | 352 | **2b50449828ff** |
+| **sim-figure-mode.js** | 175 | **62abfe324535** |
+| **sim-focus-gate-self.js** | 124 | **75f9f6f122b2** |
 | **sim-focus-gate.js** | 105 | **9c9b4639f7e7** |
 | **sim-mac-0923.js** | 79 | **8674be4d5b9f** |
 | **sim-bookmark.js** | 236 | **fbd1a1cead1a** |
@@ -247,7 +247,7 @@
 | **sim-ls-set.js** | 52 | **ad74c91268cc** |
 | **sim-rig-anim.js** | 92 | **57328d0eb014** |
 | **sim-frame-pace.js** | 110 | **b709e852945f** |
-| **sim-window-mode.js** | 142 | **17e28dcd6311** |
+| **sim-window-mode.js** | 151 | **cfe095eec6e6** |
 | **sim-creator-open.js** | 102 | **05bf93d66fe3** |
 | **sim-creator-canvas.js** | 132 | **7aaa8c152499** |
 | **sim-creator-face.js** | 97 | **2cf97066bb0f** |
@@ -366,7 +366,7 @@
 | **sim-tricks.js** | 120 | **058338ed6638** |
 | **sim-ride-bench.js** | 279 | **a7daa943540f** |
 | **sim-part-paint.js** | 94 | **ccaa45183979** |
-| **sim-focus-level.js** | 128 | **d1f0e0319230** |
+| **sim-focus-level.js** | 128 | **8bf4c5a5f93a** |
 | **sim-chat-ui.js** | 126 | **55fc3d864b1d** |
 | **sim-license-gate.js** | 350 | **c793ea68d3e8** |
 | **sim-account.js** | 174 | **ed8045d9dc22** |

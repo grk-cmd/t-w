@@ -44,10 +44,10 @@ function grabBlock(src, start){ const i = src.indexOf(start); if(i < 0) return n
 
 say('── 1. 판정 합치기 (_applyActiveAppState 를 실제로 돌린다)');
 {
-  const need = ['_mobileNow', '_mobileOn', '_mobileRoomLabel', '_applyActiveAppState'];
+  const need = ['_mobileNow', '_mobileOn', '_mobileCountsHere', '_mobileRoomLabel', '_applyActiveAppState'];
   const parts = need.map(n => grabFn(n));
   const maxM = /const MOBILE_MAX_ON_MS = ([^;]+);/.exec(SRC);
-  chk(parts.every(Boolean) && !!maxM, '함수 넷 + MOBILE_MAX_ON_MS 를 찾았다');
+  chk(parts.every(Boolean) && !!maxM, '함수 다섯 + MOBILE_MAX_ON_MS 를 찾았다');
   chk(maxM && eval(maxM[1]) === 4*60*60*1000, '안전 상한 = 4시간 (§6-2 확정)');
   if(parts.every(Boolean) && maxM){
   const mk = () => {
@@ -60,6 +60,7 @@ say('── 1. 판정 합치기 (_applyActiveAppState 를 실제로 돌린다)')
     vm.runInContext(`
       const MOBILE_MAX_ON_MS = ${maxM[1]};
       let _mobileFocus = { on:false, app:'', since:0, seen:false };
+      let _mobileKey = 'KEYKEYKEYKEYKEYKEYKEYKEY';   // 이 PC 가 폰을 연결했다(QR 키를 가짐)
       let lastActivity = 0, figureMode = false, focusGateSleep = true, _penAppFocused = false;
       function focusWindowMs(){ return 1500; }
       function addFocusSeconds(d){ env.added += d; }
@@ -70,7 +71,7 @@ say('── 1. 판정 합치기 (_applyActiveAppState 를 실제로 돌린다)')
       const focusGate = (function(){ const window = {}; ${GATE}\n; return window.TwFocusGate; })();
       ${parts.join('\n')}
       this.api = { apply: _applyActiveAppState, on: _mobileOn, label: _mobileRoomLabel,
-        setMob: (o) => { _mobileFocus = o; }, setAct: (t) => { lastActivity = t; },
+        setMob: (o) => { _mobileFocus = o; }, setAct: (t) => { lastActivity = t; }, setKey: (k) => { _mobileKey = k; },
         get: () => ({ gate: focusGateSleep, was: _focusWasActive }) };`, ctx);
     return ctx;
   };
@@ -100,6 +101,15 @@ say('── 1. 판정 합치기 (_applyActiveAppState 를 실제로 돌린다)')
     chk(A.on() === true, '4시간 안이면 켜짐');
     A.setMob({ on:true, app:'X', since:0, seen:true });
     chk(A.on() === false, 'since 가 없으면 켜짐으로 안 본다'); }
+  // (e) 폰을 연결하지 않은 PC — 같은 계정의 다른 PC 에도 폰 상태가 오지만 쌓지 않는다(PC 수만큼 곱절이 되지 않게)
+  { const c = mk(), A = c.api, E = c.env;
+    A.setKey(null); A.setMob({ on:true, app:'Procreate', since:E.srv - 60000, seen:true }); A.setAct(0);
+    A.apply(NOT_REG); E.now += 1000; A.apply(NOT_REG); const g = A.get();
+    chk(g.gate === false && g.was === false && E.added === 0, '★ 폰을 연결하지 않은 PC — 잠들지는 않지만(게이트 열림) 폰 시간은 안 쌓는다(연결한 PC 한 곳에서만)');
+    chk(A.label() === 'Procreate', '  방에 싣는 이름은 그대로(어느 PC 에서든 «폰 사용 중» 으로 보인다)');
+    E.srv = null;
+    vm.runInContext('_mobileKey = "KEYKEYKEYKEYKEYKEYKEYKEY";', c); E.now += 1000; A.apply(NOT_REG); E.now += 1000; A.apply(NOT_REG);
+    chk(E.added === 0, '★ 서버 시계를 모르면(밀려난 PC — rt-hub 가 놓음) 연결한 PC 라도 안 쌓는다'); }
   // (d) figureMode 는 예전 그대로 이긴다
   { const c = mk(), A = c.api;
     vm.runInContext('figureMode = true;', c); A.setMob({ on:false, app:'', since:0 }); A.apply(NOT_REG);
