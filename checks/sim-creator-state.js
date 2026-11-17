@@ -20,6 +20,7 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/
 const INIT = {
   cTopColor: '#9dba8a', cBotColor: '#d98e73', editingSlot: -1, pendingSlot: 0,
   crStep: 1, brushColor: '#333333', brushSize: 11, eraser: false, blinkEdited: false, skinIndex: 0, currentCreatorDef: null,
+  creatorMode: { kind: 'slot', edit: false },   // app.js 분리 F6 에서 app.js let 을 옮김
   cXform: { s: 0.7, y: 0, z: 0, rot: 0 }, cDeskColor: '#c9a36a', cDeskScale: 'DSD', cDeskLenX: 1, cDeskPos: { x: 0, y: 0, z: 0 },
   faceCamSaved: null, deskCamSaved: null, painting: false, lastPX: null, lastPY: null, lastSX: null, lastSY: null, symmetry: false,
   crPaintTool: null, _pLastScr: null, _pLastUV: null, _pLastPt: null, _pLastSUV: null,
@@ -66,7 +67,10 @@ function wire(app, html) {
   const reLet = new RegExp('^let [^\\n]*\\b(' + NAMES.map((n) => n.replace(/\$/g, '\\$')).join('|') + ')\\s*=', 'm');
   const lm = A.match(reLet);
   t(!lm, 'app.js 에 옛 let 이 없다(두 벌이 안 된다)' + (lm ? ' — ' + lm[0].slice(0, 60) : ''));
-  const bare = A.replace(/'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"/g, "''").replace(/\bcrState\.[\w$]+/g, ' ').match(NAME_RE);   // 문자열 · crState.이름 은 빼고
+  /* 조각 모듈이 deps 로 받은 읽는 함수(«const creatorMode = deps.creatorMode;» · creatorMode())는 app.js 가 crState 를 거쳐 넘긴 것이라 뺀다 */
+  const viaDeps = new Set([...A.matchAll(/^const ([\w$]+) = deps\.\1;/gm)].map((m) => m[1]));
+  const A2 = A.replace(/^const ([\w$]+) = deps\.\1;.*$/gm, ' ').replace(/\b([\w$]+)\(\)/g, (all, n) => (viaDeps.has(n) ? ' ' : all));
+  const bare = A2.replace(/'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"/g, "''").replace(/\bcrState\.[\w$]+/g, ' ').match(NAME_RE);   // 문자열 · crState.이름 은 빼고
   t(!bare, 'app.js 는 생성기 상태를 crState.이름 으로만 읽고 쓴다(맨 이름 참조 없음)' + (bare ? ' — «' + bare[2] + '»' : ''));
   const iD = app.indexOf('\nconst DESK_SCALE_DEFAULT = '), iC = app.indexOf('\nconst crState = TwCreatorState.'), iU = app.search(/\bcrState\.(?!createCreatorState)/);
   const iTop = app.indexOf('\n  crState.crPaintTool=PaintTools.createPaintTools(');

@@ -79,10 +79,11 @@ say('§3 연결');
   chk(iM > 0 && iA > iM, 'html — creator-open.js 를 app.js 보다 먼저 싣는다');
   const code = stripC(APP);
   const pairs = depPairs(APP, 'creatorOpenMod', 'TwCreatorOpen', 'createCreatorOpen');
-  const READ = ['assetCodeMod', 'catalogGlbMod', 'commissionMod', 'creatorMode', 'creatorOpen', 'curSlot', 'customItems', 'deskItemsMod', 'deskPlaceMod', 'deskVisualMod', 'isAdmin', 'isPremium', 'launcherCtlMod', 'launcherPrevMod', 'slotSyncMod'];
-  const SET = { setCreatorMode: '(v)=>{ creatorMode = v; }', setCreatorOpen: '(v)=>{ creatorOpen = v; }', setCustomItems: '(v)=>{ customItems = v; }' };
+  const READ = ['assetCodeMod', 'catalogGlbMod', 'commissionMod', 'creatorOpen', 'curSlot', 'customItems', 'deskItemsMod', 'deskPlaceMod', 'deskVisualMod', 'isAdmin', 'launcherCtlMod', 'launcherPrevMod', 'slotSyncMod'];
+  const SET = { setCreatorMode: '(v)=>{ crState.creatorMode = v; }',   // creatorMode 의 주인은 생성기 상태(creator-state.js — app.js 분리 F6)
+  setCreatorOpen: '(v)=>{ creatorOpen = v; }', setCustomItems: '(v)=>{ customItems = v; }' };
   const FN = ['loadSavedItemsIntoSession', 'toast', 'applyDesktopRunClass'];
-  const shape = (n, v) => SET[n] ? v === SET[n] : n === 'closeWardrobe' ? v === '(...a)=>window.closeWardrobe(...a)' : READ.includes(n) ? v === '()=>' + n : FN.includes(n) ? v === '(...a)=>' + n + '(...a)' : v === n;
+  const shape = (n, v) => SET[n] ? v === SET[n] : n === 'closeWardrobe' ? v === '(...a)=>window.closeWardrobe(...a)' : n === 'isPremium' ? v === '()=>acctStateMod.isPremium()' : n === 'creatorMode' ? v === '()=>crState.creatorMode' : READ.includes(n) ? v === '()=>' + n : FN.includes(n) ? v === '(...a)=>' + n + '(...a)' : v === n;
   const bad1 = (pairs || []).filter(([n, v]) => !shape(n, v)).map(p => p.join('='));
   chk(!!pairs && pairs.length >= 40 && !bad1.length, '★ deps ' + (pairs ? pairs.length : 0) + '개 모양 — 읽는 함수 · 쓰는 함수 · 함수 · window 고리(closeWardrobe) · 값' + (bad1.length ? ' — 어긋남: ' + bad1.join(' · ') : ''));
   const bad = pairs ? pairs.map(([n, v]) => n === 'curSlot' ? [n, 'curSlot'] : [n, v]) : [];

@@ -64,7 +64,8 @@ say('§3 app.js');
 const render = (APP.match(/function _renderChatLog\(list\)[\s\S]*?\n\}/) || [''])[0];
 const iHold = render.indexOf('if(_chatSelInBox())'), iHtml = render.indexOf('box.innerHTML');
 chk(iHold > 0 && iHold < iHtml, '★ 고르는 중이면 innerHTML 전에 돌아간다 (선택이 안 날아간다)');
-chk(render.indexOf('_chatLogCache = list') < iHold, '  보류해도 최신 list 는 받아 둔다');
+const iKeep = render.search(/setChatLogCache\(list\b|_chatLogCache = list\b/);   // 그린 목록의 주인은 chat-ui.js — 쓰는 함수로 받아 둔다(app.js 분리 F6)
+chk(iKeep > 0 && iKeep < iHold, '  보류해도 최신 list 는 받아 둔다');
 chk(/class="cm-row" data-i="' \+ i \+ '"/.test(render) && /_chatShownRows = rows/.test(render), '행마다 원문 번호(data-i) → _chatShownRows');
 chk(/ChatCopy\.textFor\(rows\)/.test(APP) && /_chatShownRows\[\+r\.dataset\.i\]/.test(APP), '★ 복사는 원문 기준 (DOM 의 img 를 빼는 방식 아님)');
 const bind = (APP.match(/function _bindChatCopy\(\)[\s\S]*?\n\}/) || [''])[0];

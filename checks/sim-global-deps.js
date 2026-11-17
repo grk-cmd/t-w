@@ -90,7 +90,7 @@ for(const m of MODS){
   const shapeOk = recv.every(([n]) => {
     const v = got.get(n) || '';
     if(/^set[A-Z]/.test(n)){ const t = n[3].toLowerCase() + n.slice(4); return v === '(v)=>{ ' + t + ' = v; }'; }
-    return v === n || v === '(...a)=>' + n + '(...a)' || v === '()=>' + n;
+    return v === n || v === '(...a)=>' + n + '(...a)' || v === '()=>' + n || new RegExp('^\\(\\)=>\\w+Mod\\.' + n + '\\(\\)$').test(v) || v === '()=>crState.' + n;   // 끝 둘: 주인 모듈의 같은 이름 읽는 함수 · 생성기 상태(app.js 분리 F6)
   });
   chk(shapeOk, '  모양 — 값 · 함수는 (...a)=> · 읽는 함수 ()=> · 쓰는 함수 (v)=>{ x = v; }');
   chk(new RegExp('window\\.' + m.glob + ' = \\{ ' + m.create + ' \\};').test(SRC[m.file]), '  window.' + m.glob + ' 로 내놓는다');
@@ -102,7 +102,7 @@ for(const m of MODS){
 }
 {
   const m = MODS[3], head = m.glob + '.' + m.create + '({', i = APP.indexOf(head), j = APP.indexOf('\n});', i);
-  const broke = APP.slice(0, i) + APP.slice(i, j).replace('\n  creatorMode: ()=>creatorMode,', '') + APP.slice(j);
+  const broke = APP.slice(0, i) + APP.slice(i, j).replace('\n  creatorMode: ()=>crState.creatorMode,', '') + APP.slice(j);
   const names = [...SRC[m.file].matchAll(/^const (\w+) = deps\.(\w+);/gm)].map(x => x[1]);
   const given = new Set(broke.slice(i, broke.indexOf('\n});', i)).split('\n').map(l => (/^\s*(\w+):/.exec(l) || [])[1]).filter(Boolean));
   chk(broke !== APP && names.some(n => !given.has(n)), '깨 보기: 넘기는 줄 하나를 빼면 위 짝 검사가 어긋난다(빨강)');

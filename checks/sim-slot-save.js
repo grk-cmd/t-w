@@ -19,11 +19,11 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/
 
 const FN_DEPS = ["_isBlankDraw","charDef","loadImg","newCanvas","toast"];
 const VAL_DEPS = ["CHAR_SLOT_MAX","_blinkEverDrawn","_faceEverDrawn","seats","slots"];
-const GET_DEPS = ["_blankFaceConfirmed"];
-const SET_DEPS = ["_blankFaceConfirmed"];
-const EXPORTS = ["LS_KEY","_relinkSeatsToSlots","loadSlots","onLoaded","onSaved","onSeatRelinked","onSlotsReplaced","saveSlots","slotToObj","slotsReplaced"];
+const GET_DEPS = [];
+const SET_DEPS = [];   // «비운 채 저장» 확인(_blankFaceConfirmed)은 이 모듈이 주인 — deps 로 받지 않고 setBlankFaceConfirmed 를 내놓는다(app.js 분리 F6)
+const EXPORTS = ["setBlankFaceConfirmed","LS_KEY","_relinkSeatsToSlots","loadSlots","onLoaded","onSaved","onSeatRelinked","onSlotsReplaced","saveSlots","slotToObj","slotsReplaced"];
 const MOVED = ["LS_KEY","_slotImgToDataUrl","slotToObj","_relinkSeatsToSlots","saveSlots","loadSlots"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  _blankFaceConfirmed: ()=>_blankFaceConfirmed,","  _blinkEverDrawn: _blinkEverDrawn,","  _faceEverDrawn: _faceEverDrawn,","  _isBlankDraw: (...a)=>_isBlankDraw(...a),","  charDef: (...a)=>charDef(...a),","  loadImg: (...a)=>loadImg(...a),","  newCanvas: (...a)=>newCanvas(...a),","  seats: seats,","  slots: slots,","  toast: (...a)=>toast(...a),","  setBlankFaceConfirmed: (v)=>{ _blankFaceConfirmed = v; },"];
+const GLUE = ["  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  _blinkEverDrawn: _blinkEverDrawn,","  _faceEverDrawn: _faceEverDrawn,","  _isBlankDraw: (...a)=>_isBlankDraw(...a),","  charDef: (...a)=>charDef(...a),","  loadImg: (...a)=>loadImg(...a),","  newCanvas: (...a)=>newCanvas(...a),","  seats: seats,","  slots: slots,","  toast: (...a)=>toast(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */

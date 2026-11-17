@@ -122,7 +122,8 @@ crState.camYaw += dx * 0.01;
 **확장할 때 고칠 자리** — 새 세션 값은 모듈의 `let` 줄(처음 값)과 맨 아래 `return { get … set … }` 한 줄 · `checks/sim-creator-state.js` 의 `INIT` 표. app.js 에 생성기 값을 새 꼭대기 `let` 으로 만들지 않는다.
 
 **함정**
-- `creatorOpen` · `creatorMode` · `curSlot` 은 여기 없다 — app.js 에 남아 있다(animal.js 는 M23 에서 deps 로 받게 됐으니 옮길 수 있다).
+- `creatorMode` 는 app.js 분리 F6 에서 여기로 옮겼다(바꾸는 곳은 `openCreator` 하나 — 조각 모듈에는 `()=>crState.creatorMode` 로 넘긴다).
+- `creatorOpen` · `curSlot` 은 여기 없다 — 여러 도메인(생성기 · 동물 · 설정 · 런처 · 내 정보)이 바꾸는 값이라 app.js 에 남아 있다.
 - `crState` 는 만드는 줄보다 앞에서 부팅 때 바로 쓰면 TDZ — 함수 안(나중에 불림)은 괜찮다.
 - 처음 값의 객체(`cXform` · `cDeskPos` · `stampPlace`)는 만들 때마다 새것이다 — 다른 곳과 같이 쓰는 객체로 바꾸지 말 것.
 
@@ -253,7 +254,7 @@ const deskPresetMod = TwDeskPreset.createDeskPreset({
   crState: crState,                          // 값 — cDesk* · cXform · activeCustomDeskId · cDeskGlbB64 · deskCamSaved · crStep
   deskPresetStoreMod: deskPresetStoreMod,    // 값 — 5칸 읽기 · 쓰기
   premiumMod: premiumMod,                    // 값 — 라이선스 전용 책상 판정
-  isPremium: ()=>isPremium,                  // 읽는 함수
+  isPremium: ()=>acctStateMod.isPremium(),   // 읽는 함수 — 주인은 account/account-state.js
   // … 함수 15 · 읽는 함수 8 · DEFAULT_DESK_OVERRIDE_ID
 });
 ```

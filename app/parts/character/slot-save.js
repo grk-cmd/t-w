@@ -2,7 +2,7 @@
    app.js «💾 슬롯 저장 · 복원(localStorage)» 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 43번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 4줄 —
-     _blankFaceConfirmed 를 이름() 으로 읽는다(app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setBlankFaceConfirmed(…).
+     «비운 채 저장» 확인(_blankFaceConfirmed)은 이 모듈이 주인이다(app.js 분리 F6) — 읽기는 _blankFaceConfirmed(), 세우기 · 내리기는 setBlankFaceConfirmed(…)(생성기 [완료] 는 내놓는 setBlankFaceConfirmed 로 세운다).
    ★ 저장 · 복원 뒤 할 일은 위층(동기화 · 보관함 · 꾸미기 · 프리미엄 · 설정 화면)을 직접 부르지 않고 알림으로 내보낸다(모듈 순환 끊기 3) —
      onSaved(fn(out, changed)) · onLoaded(fn) · onSeatRelinked(fn(old, cur)) · onSlotsReplaced(fn) 에 위층이 건다. 거는 차례대로 부른다.
      slotsReplaced() 는 동기화 · 보관함이 서버 것으로 칸을 갈아 끼운 뒤 부른다(캐릭터 탭 다시 그리기).
@@ -16,7 +16,6 @@
 
 function createSlotSave(deps){
 const CHAR_SLOT_MAX = deps.CHAR_SLOT_MAX;
-const _blankFaceConfirmed = deps._blankFaceConfirmed;   // 읽는 함수
 const _blinkEverDrawn = deps._blinkEverDrawn;
 const _faceEverDrawn = deps._faceEverDrawn;
 const _isBlankDraw = deps._isBlankDraw;
@@ -26,7 +25,10 @@ const newCanvas = deps.newCanvas;
 const seats = deps.seats;
 const slots = deps.slots;
 const toast = deps.toast;
-const setBlankFaceConfirmed = deps.setBlankFaceConfirmed;   // 쓰는 함수
+/* 생성기에서 «비운 채 저장»을 확인한 직후, 바로 뒤 saveSlots 1회만 소비 — 주인은 이 모듈(app.js 분리 F6). 세우는 곳은 생성기 [완료](creator-save.js) */
+let _blankFaceOnce = false;
+const _blankFaceConfirmed = ()=>_blankFaceOnce;   // 읽는 함수
+const setBlankFaceConfirmed = (v)=>{ _blankFaceOnce = v; };   // 쓰는 함수 — 생성기 [완료] 가 세우고 · 저장이 한 번 쓰고 내린다
 const _savedFns = [], _loadedFns = [], _relinkFns = [], _replacedFns = [];
 function onSaved(fn){ _savedFns.push(fn); }
 function onLoaded(fn){ _loadedFns.push(fn); }
@@ -183,6 +185,7 @@ async function loadSlots(){let raw;try{raw=localStorage.getItem(LS_KEY);}catch(e
 }
 
 return {
+  setBlankFaceConfirmed,
   LS_KEY,
   _relinkSeatsToSlots,
   loadSlots,
