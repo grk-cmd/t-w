@@ -85,9 +85,9 @@
 | **sim-char-z.js** | 225 | **92fb9efdb2c1** |
 | **sim-cfg-fit.js** | 337 | **8ec155c34b48** |
 | **sim-chat-fly.js** | 360 | **b52fd913a6d7** |
-| **sim-bug-board.js** | 537 | **8b4b94a90e1d** |
+| **sim-bug-board.js** | 537 | **c5d858ba0e37** |
 | **sim-bug-api.js** | 305 | **89942cf7127a** |
-| **sim-bug-no.js** | 211 | **682bb75abb61** |
+| **sim-bug-no.js** | 211 | **3645402defdd** |
 | **sim-bug-cleanup.js** | 191 | **7c41fc91c912** |
 | **sim-bump-version.js** | 108 | **9c635d7b9caa** |
 | **sim-chat-history.js** | 248 | **804f6c1b3395** |
@@ -96,9 +96,9 @@
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
 | **sim-seat-label-drag.js** | 91 | **e8f28020c983** |
 | **sim-friend-requests.js** | 170 | **39737b624809** |
-| **sim-friend-visit.js** | 116 | **96a7c53b7cd6** |
+| **sim-friend-visit.js** | 116 | **1116656e7e53** |
 | **sim-friends-sub.js** | 642 | **d9cee57cc23b** |
-| **sim-friends-port.js** | 325 | **01fcc3dc4cb6** |
+| **sim-friends-port.js** | 325 | **a13429b7792b** |
 | **sim-friends-presence-rt.js** | 361 | **d7264878dfc0** |
 | **sim-social-api.js** | 275 | **3c3a4c43d6fa** |
 | **sim-friend-profile-live.js** | 217 | **2181899bb261** |
@@ -113,7 +113,7 @@
 | **sim-fix-1016.js** | 170 | **7724abcbddfe** |
 | **sim-gl-recover.js** | 166 | **344df22755fb** |
 | **sim-gl-context.js** | 114 | **f26b91a466fd** |
-| **sim-chat-copy.js** | 88 | **14b2690be81d** |
+| **sim-chat-copy.js** | 88 | **09ab1df757a9** |
 | **sim-chat-delete-log.js** | 90 | **d987e49be2b8** |
 | **sim-chat-log-persist.js** | 56 | **e5249c021a8d** |
 | **sim-child-theme.js** | 104 | **365ddf210e7d** |
@@ -131,7 +131,7 @@
 | **sim-fly-click-through.js** | 131 | **d3a06f4b89f9** |
 | **sim-fly-egg.js** | 259 | **e92b86d5702f** |
 | **sim-fly-replay.js** | 158 | **7c9f3cd49f17** |
-| **sim-fly-roulette.js** | 167 | **92aeca242a38** |
+| **sim-fly-roulette.js** | 167 | **9effc4943e02** |
 | **sim-license-xlsx.js** | 121 | **cbf29f53976d** |
 | **sim-secret-room-grant.js** | 162 | **d5486d919f20** |
 | **sim-room-meta-cleanup.js** | 250 | **9c9b9de5850b** |
@@ -141,7 +141,7 @@
 | **sim-room-info-ui.js** | 189 | **7b31765b704c** |
 | **sim-listen-model.js** | 90 | **ee080c7f5c9c** |
 | **sim-listen-provider.js** | 95 | **b5e087ed6ce4** |
-| **sim-listen-ui.js** | 432 | **df72603fa985** |
+| **sim-listen-ui.js** | 432 | **7a144314a8c0** |
 | **sim-room-settings.js** | 222 | **e4793b3f67ad** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
 | **sim-visit-ping.js** | 151 | **9f3a61fcae2c** |
@@ -151,7 +151,7 @@
 | **sim-password-reset.js** | 154 | **5c0d85ec06ed** |
 | **sim-part-equip.js** | 134 | **2bfa1e861e1b** |
 | **sim-room-parity.js** | 111 | **737a33966e0d** 
-| **sim-room-live-def.js** | 164 | **fcecdeec3cc3** |
+| **sim-room-live-def.js** | 164 | **d27c99b834a7** |
 | **sim-app-version.js** | 109 | **6dee4558ad2b** |
 | **sim-app-version-sync.js** | 178 | **f67e03834602** |
 | **sim-update-flow.js** | 499 | **571de5cf6990** |
@@ -198,7 +198,7 @@
 | **sim-presence.js** | 264 | **2d4bbda11234** |
 | **sim-light-tone.js** | 281 | **2240049cb22b** |
 | **sim-paint-geom.js** | 107 | **0c187cb7b3d7** |
-| **sim-seat-friend-req.js** | 121 | **be6e776a637b** |
+| **sim-seat-friend-req.js** | 121 | **5ae4e9f4b64c** |
 | **sim-seat-menu.js** | 167 | **8e644bfd709d** |
 | **sim-publish-fields.js** | 91 | **20498c9b954b** |
 | **sim-purikura-deco.js** | 953 | **1d529bcb0f22** |
@@ -269,7 +269,7 @@
 | **sim-help-search.js** | 174 | **6bf3c53eea80** |
 | **sim-help-tab.js** | 200 | **1877f429bfdc** |
 | **sim-unfocused-fps.js** | 177 | **8a40c76659ec** |
-| **sim-purikura-fish.js** | 158 | **7a9106984713** |
+| **sim-purikura-fish.js** | 158 | **85b583f3a013** |
 | **sim-creator-flat-view.js** | 128 | **98d31f12c529** |
 | **sim-creator-xform.js** | 207 | **971fbaef381e** |
 | **sim-cr-stamp.js** | 210 | **26af24c0b206** |
@@ -298,13 +298,13 @@
 | **sim-image-bytes.js** | 113 | **cdcd8d61fb71** |
 | **sim-request-id.js** | 94 | **34021f461cd5** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
-| **sim-guestbook.js** | 482 | **49b984064743** |
+| **sim-guestbook.js** | 482 | **216a4f2bb05e** |
 | **sim-friend-manage-module.js** | 274 | **a72b2d9a94c5** |
 | **sim-pomodoro-module.js** | 251 | **c0cf84fa986c** |
 | **sim-myhome-sticker.js** | 422 | **8a87e9d41a86** |
 | **sim-gacha.js** | 490 | **afa8bdc8a698** |
 | **sim-myhome-edit.js** | 611 | **5153af8f699f** |
-| **sim-room-invite-ui.js** | 402 | **ddcd3d1df421** |
+| **sim-room-invite-ui.js** | 402 | **8c2ff0ef752e** |
 | **sim-focus-log.js** | 333 | **12cbc193fd77** |
 | **sim-focus-progress.js** | 391 | **015a0e14e7d3** |
 | **sim-chat-window.js** | 565 | **9b933ee52a05** |
@@ -315,11 +315,11 @@
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
 | **sim-remote-config.js** | 386 | **dd3f1bd1dc84** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
-| **sim-myhome-inbox.js** | 769 | **379cc2555170** |
+| **sim-myhome-inbox.js** | 769 | **492e75ee68c5** |
 | **sim-playlist.js** | 1138 | **71e097c106eb** |
-| **sim-playlist-api.js** | 308 | **efacccd03e81** |
+| **sim-playlist-api.js** | 308 | **0c487d1f5d4d** |
 | **sim-inbox-api.js** | 203 | **302ad48aa944** |
-| **sim-gift-api.js** | 327 | **ae72dd2dd5fe** |
+| **sim-gift-api.js** | 327 | **c10ce4eec175** |
 | **sim-gift-box.js** | 562 | **ddc5d4a2c9cc** |
 | **sim-mallang-module.js** | 355 | **c66bdec5e83c** |
 | **sim-mallang-store.js** | 251 | **44ab2dc587eb** |
@@ -352,12 +352,12 @@
 | **sim-kb-blind.js** | 180 | **7d9f3fe5e684** |
 | **sim-mhd-hidefolders.js** | 133 | **7a61ee3d6c05** |
 | **sim-pomodoro.js** | 131 | **03a73d7ae51e** |
-| **sim-admin-license.js** | 253 | **8b28d53f1667** |
+| **sim-admin-license.js** | 253 | **e78dccd63d1c** |
 | **sim-admin-part-register.js** | 171 | **612dc767d408** |
 | **sim-admin-users-launcher.js** | 240 | **70d402d196c8** |
 | **sim-admin-asset.js** | 129 | **d1fca5392c26** |
 | **sim-admin-mode.js** | 234 | **227db9b51f75** |
-| **sim-report.js** | 421 | **9e2fa78c12e7** |
+| **sim-report.js** | 421 | **bacd115fbf67** |
 | **sim-my-info.js** | 98 | **4e58bce6234f** |
 | **sim-my-info-box.js** | 208 | **a80135e14b2c** |
 | **sim-renderer-src.js** | 298 | **393a65da6dd3** |
@@ -373,7 +373,7 @@
 | **sim-wardrobe.js** | 229 | **9d73edf6c925** |
 | **sim-settings-panel.js** | 96 | **b5ef74cdd479** |
 | **sim-desktop-run.js** | 94 | **d6ec948cc841** |
-| **sim-room-entry.js** | 348 | **d843bbfe09e8** |
+| **sim-room-entry.js** | 348 | **7cdcec06e25a** |
 | **sim-overhead.js** | 161 | **169c381103c3** |
 | **sim-room-sync.js** | 123 | **ba1af4a95d89** |
 | **sim-status-chip.js** | 123 | **7743a21efa1e** |
@@ -382,7 +382,7 @@
 | **sim-dice-games.js** | 95 | **1debed57a729** |
 | **sim-program-settings.js** | 148 | **63ad8f3b844f** |
 | **sim-chat-prefs.js** | 95 | **26c68ca8bbfe** |
-| **sim-chat-read-on-send.js** | 270 | **8ed525b9baa7** |
+| **sim-chat-read-on-send.js** | 270 | **e5797705b870** |
 | **sim-rich-text.js** | 95 | **c8ee332ad595** |
 | **sim-win-stack.js** | 145 | **0137e9fde6ef** |
 | **sim-sfx.js** | 96 | **d24a22a1d75f** |
@@ -445,7 +445,7 @@
 | **sim-global-deps.js** | 122 | **aa387f6f597c** |
 | **sim-room-state.js** | 58 | **ddcd7ec6a8ac** |
 | **sim-error-codes.js** | 110 | **5f949216e20f** |
-| **sim-myhome-state.js** | 90 | **2f6968901ece** |
+| **sim-myhome-state.js** | 90 | **1a88b30843d2** |
 | **sim-launcher-state.js** | 91 | **53332b32063d** |
 | **sim-account-state.js** | 108 | **148155f17f1a** |
 | **sim-nav.js** | 91 | **aa8cab6dd39f** |
@@ -458,7 +458,7 @@
 | **sim-demoji-catalog.js** | 78 | **51109652b2f6** |
 | **sim-hook-guards.js** | 75 | **cb32158c9f2b** |
 | **sim-typeof-guards.js** | 130 | **3570af9e6ae7** |
-| **sim-user-name.js** | 132 | **0cadcdf01a9d** |
+| **sim-user-name.js** | 132 | **8541ba31e879** |
 | **sim-part-scene.js** | 215 | **81ae3f394347** |
 | **sim-admin-thumbs.js** | 145 | **b8bfec2cc80a** |
 | **sim-glb-idb-cache.js** | 172 | **fda2ba697435** |
@@ -489,7 +489,7 @@
 | **sim-stage.js** | 153 | **bdb26584e8e1** |
 | **sim-floor-snap-diag.js** | 142 | **3aa611d6946d** |
 | **sim-seat-model-load.js** | 194 | **7ff56380f12a** |
-| **sim-seat-panel.js** | 164 | **69191779a835** |
+| **sim-seat-panel.js** | 164 | **02fd739b4001** |
 | **sim-user-status-table.js** | 125 | **bdd2736a9e39** |
 | **sim-chip-popups.js** | 128 | **e21adf9aca11** |
 | **sim-rules-keys.js** | 315 | **900b0851a11b** |
@@ -500,7 +500,7 @@
 | **sim-label-measure.js** | 261 | **807b311a47d3** |
 | **sim-safe-html.js** | 734 | **f11bcf1c5ea2** |
 | **sim-label-anim-paint.js** | 232 | **621cd3a555de** |
-| **sim-seat-sync-diff.js** | 201 | **daee50f16e18** |
+| **sim-seat-sync-diff.js** | 201 | **fc832913af21** |
 | **sim-release-notes.js** | 75 | **37e41b730e37** |
 | **sim-native-peek.js** | 168 | **10af633f27f9** |
 | **sim-seat-regions.js** | 170 | **4d0140706088** |
@@ -551,7 +551,7 @@
 | **sim-app-wiring.js** | 130 | **28b14e6e9990** |
 | **sim-move-verbatim.js** | 164 | **9ce76281dec0** |
 | **sim-lint.js** | 139 | **7a8961f8468c** |
-| **sim-person-name.js** | 93 | **43f4d2629ed1** |
+| **sim-person-name.js** | 95 | **c1333f370957** |
 | **sim-room-parity.js** | 108 | **56dc81055ed8** |
 
 ### `sim-sysinput.js` 판 계보

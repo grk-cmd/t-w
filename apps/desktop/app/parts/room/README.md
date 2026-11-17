@@ -417,7 +417,7 @@ roomEntryMod.onRoomChanged(()=>listenUi.sync());
 - 검사: `checks/sim-room-rt.js`(진짜 rt-hub · 연결 공통부 위에서 · 깨 보기).
 
 ## `room-invite-rt.js` — 🙋 방 초대 포트(realtime 연결 하나)
-- 책임: 초대 보내기 `roomInvite{ to }` · 받기 `roomInvited{ from, fromName, room, ts }` · 지우기 `roomInviteClear{ from }`. 방 코드 · 보낸 이름은 서버가 채운다(이름이 없으면 `fromName` 은 빈 글 — 그대로 들고, 화면이 그릴 때 «나») · 친구가 아니면 `ROOM_INVITE_NOT_FRIEND` · 한 쌍에 하나 · 10분 보관(로그인 뒤 붙으면 남은 초대를 서버가 다시 보낸다).
+- 책임: 초대 보내기 `roomInvite{ to }` · 받기 `roomInvited{ from, fromName, room, ts }` · 지우기 `roomInviteClear{ from }`. 방 코드 · 보낸 이름은 서버가 채운다(이름이 없으면 `fromName` 은 빈 글 — 그대로 들고, 화면이 그릴 때 «이름 없음») · 친구가 아니면 `ROOM_INVITE_NOT_FRIEND` · 한 쌍에 하나 · 10분 보관(로그인 뒤 붙으면 남은 초대를 서버가 다시 보낸다).
 - 만드는 법: classic script(`window.TwRoomInviteRt`) — `rt-hub.js` 다음 · app.js 보다 먼저. 앱 한 벌 `TwRoomInviteRt.store` 를 `room-invite-ui.js` 가 deps `invites` 로 받는다.
 - 내놓는 것: `send(to)` → `{ ok }` | `{ ok:false, code }` · `onInvites(fn)`(지금 것을 바로 한 번 · `{ 보낸 사람: { fromName, roomCode, ts } }`) · `clear(from)`.
 - 함정: 보내기는 rid 요청이다 — 성공은 서버 `roomInviteSent` · 실패는 같은 rid 의 `error`(`ROOM_INVITE_NOT_FRIEND` 등) · 답이 안 오면 `timeout`(조용하다고 성공으로 보지 않는다). 앱은 받은 초대의 `ts` 를 PC 시계와 견주지 않는다(서버가 10분 보관 · 남은 것만 다시 보낸다). 받는 사람은 userCode — 친구 목록이 userCode 로 바뀌어야(친구 묶음) 맞는 사람에게 간다.

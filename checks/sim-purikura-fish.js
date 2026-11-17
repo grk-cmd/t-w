@@ -111,8 +111,8 @@ sec('── 5. 업데이트 안 한 참가자', () => {
     const lagOf = (net) => { const M = { exports: {} }; new Function('module', 'window', 'exports', net)(M, undefined, M.exports); return (M.exports.filterLaggards || P.filterLaggards); };
     const noName = { 0: { uid: 'me', name: '방장', fx: 1 }, 1: { uid: 'u1', name: '', at: 1 }, 2: { uid: 'u2', name: null, at: 1 } };
     const shownOf = (f) => f(noName, 'fish', 'me').map((n) => TwPersonName.shown(n)).join(' · ');
-    chk(JSON.stringify(P.filterLaggards(noName, 'fish', 'me')) === '["",""]' && shownOf(P.filterLaggards) === '나 · 나',
-      '★ 이름 없는 참가자(\'\' · null) — 순수 모듈은 이름 그대로(\'\') · 화면이 TwPersonName 으로 «나»(«참가자» 자리표시 없음)');
+    chk(JSON.stringify(P.filterLaggards(noName, 'fish', 'me')) === '["",""]' && shownOf(P.filterLaggards) === '이름 없음 · 이름 없음',
+      '★ 이름 없는 참가자(\'\' · null) — 순수 모듈은 이름 그대로(\'\') · 화면이 TwPersonName 으로 «이름 없음»(«참가자» placeholder 없음)');
     const brk = SRC['purikura-net.js'].replace("out.push(typeof v.name === 'string' ? v.name : '');", "out.push(String(v.name || '참가자'));");
     let red = brk === SRC['purikura-net.js'];
     if(!red){ try{ red = shownOf(lagOf(brk)) !== '나 · 나'; }catch(_){ red = true; } }

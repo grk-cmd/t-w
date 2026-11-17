@@ -2,7 +2,7 @@
    실행:  node sim-user-name.js   (러너 스테이징 또는 저장소 루트에서)
    ★ 왜 이 검사가 있는가 — 닉네임 저장은 마이홈 이름 · 내 정보 두 제자리 편집이 같이 부르는 한 벌이다. 설정 창(program-settings.js)에 같이
      있어서 두 화면이 설정 창을 바라봤고, 설정 창은 다른 기능을 많이 부르는 위층이라 순환이 됐다(sim-dep-cycles · 모듈 순환 끊기 7).
-   ・1절: 저장 — 12자로 자른다 · 비우면 이름 지우기(서버에 "" · 이 PC 도 빈칸 — «나» 를 적지 않는다) · 운영진처럼 보이는 이름은 막는다(관리자 · 이미 그 이름이면 예외) · 프로필 · 마이홈 표시 갱신 · 방 이름표는 서버 몫(앱이 방에 이름을 싣지 않는다 · pv 4)
+   ・1절: 저장 — 12자로 자른다 · 비우면 이름 지우기(서버에 "" · 이 PC 도 빈칸 — «이름 없음» 을 적지 않는다) · 운영진처럼 보이는 이름은 막는다(관리자 · 이미 그 이름이면 예외) · 프로필 · 마이홈 표시 갱신 · 방 이름표는 서버 몫(앱이 방에 이름을 싣지 않는다 · pv 4)
    ・2절: 연결 — HTML 순서(name-guard.js 뒤 · app.js 앞) · app.js 는 설정 창 만드는 줄 바로 앞에서 만든다 · 부르는 곳은 userNameMod.이름
    ・3절: 일부러 깨 보기 */
 'use strict';
@@ -23,7 +23,7 @@ function build(mod, o) {
   const isStaffName = new Function(GUARD + '\nreturn isStaffName;')();   // name-guard.js 는 맨 위 함수 선언(app.js 앞 classic script)
   const api = new Function('window', 'document', 'firebaseAPI', 'isStaffName', 'module', mod + '\nreturn window.TwUserName;')(win, document, win.firebaseAPI, isStaffName, undefined);
   const m = api.createUserName({
-    getDisplayName: () => env.name || '나', getMyUserId: () => ('uid' in o ? o.uid : 'u1'), getUserName: () => env.name,
+    getDisplayName: () => env.name || '이름 없음', getMyUserId: () => ('uid' in o ? o.uid : 'u1'), getUserName: () => env.name,
     isAdmin: () => env.admin, setUserName: (v) => { env.name = v; }, toast: (t) => env.toasts.push(t),
     saveNameOnServer: (n) => { env.profiles.push([n]); return Promise.resolve(o.reject ? { ok: false, err: { kind: 'request', code: o.reject } } : { ok: true }); },
     notifyError: (code, e) => { env.errs.push(code); },
@@ -38,7 +38,7 @@ function judge(mod, html, app) {
     b.m.commitUserName('  가나다라마바사아자차카타파하  ');
     r.cut = b.env.name === '가나다라마바사아자차카타';
     r.side = b.env.profiles.length === 1 && b.env.profiles[0].join() === '가나다라마바사아자차카타' && b.nameEl.textContent === '가나다라마바사아자차카타';
-    b.m.commitUserName('   '); r.empty = b.env.name === '' && b.env.profiles.length === 2 && b.env.profiles[1][0] === '' && b.nameEl.textContent === '나';
+    b.m.commitUserName('   '); r.empty = b.env.name === '' && b.env.profiles.length === 2 && b.env.profiles[1][0] === '' && b.nameEl.textContent === '이름 없음';
     b = build(mod, {}); b.m.commitUserName('운영자'); r.staff = b.env.name === '' && /운영진/.test(b.env.toasts[0] || '') && !b.env.profiles.length;
     b = build(mod, { admin: true }); b.m.commitUserName('운영자'); r.admin = b.env.name === '운영자';
     b = build(mod, { name: '운영자', uid: null }); b.m.commitUserName('운영자'); r.same = b.env.toasts[0] === '이름이 저장됐어요';
@@ -59,7 +59,7 @@ const R = judge(MOD, HTML, APP);
 say('── 1. 저장');
 chk(!R.err && R.max && R.cut, '앞뒤 빈칸을 지우고 12자로 자른다' + (R.err ? ' — ' + R.err : ''));
 chk(R.side, '저장 뒤 서버 계정 이름(PATCH /v2/me) · 마이홈 표시를 같은 값으로 갱신');
-chk(R.empty, '★ 비우면 이름 지우기 — 서버에 ""(«나» 를 보내지 않음) · 이 PC 도 빈칸 · 화면만 «나»');
+chk(R.empty, '★ 비우면 이름 지우기 — 서버에 ""(«이름 없음» 을 보내지 않음) · 이 PC 도 빈칸 · 화면만 «이름 없음»');
 chk(R.staff && R.admin && R.same, '운영진처럼 보이는 이름은 막는다 — 관리자 · 이미 그 이름인 사람은 예외(name-guard.js)');
 chk(R.win, 'window.commitUserName 도 예전처럼 건다');
 chk(R.noUid, '내 코드 없음(로그인 전) — 서버 요청 0 · 이름은 이 기기에 저장 · «이름이 저장됐어요» 그대로');
@@ -95,19 +95,19 @@ function localJudge(app) {
   const r = {};
   try {
     const { f, st } = local(app);
-    r.none = f.getUserName() === '' && f.getDisplayName() === '나' && !('tw.userName' in st);
+    r.none = f.getUserName() === '' && f.getDisplayName() === '이름 없음' && !('tw.userName' in st);
     f.setUserName('나비'); r.set = st['tw.userName'] === '나비' && f.getUserName() === '나비' && f.getDisplayName() === '나비';
-    f.setUserName(''); r.clear = !('tw.userName' in st) && f.getUserName() === '' && f.getDisplayName() === '나';
+    f.setUserName(''); r.clear = !('tw.userName' in st) && f.getUserName() === '' && f.getDisplayName() === '이름 없음';
     f.setUserName(null); r.nul = !('tw.userName' in st);
   } catch (e) { r.err = String(e && e.message || e); }
   return r;
 }
 const L = localJudge(APP);
-chk(!L.err && L.none, '이름이 없으면 사본은 빈칸(\'\') · 화면은 «나»' + (L.err ? ' — ' + L.err : ''));
+chk(!L.err && L.none, '이름이 없으면 사본은 빈칸(\'\') · 화면은 «이름 없음»' + (L.err ? ' — ' + L.err : ''));
 chk(L.set, '이름이 있으면 그 이름을 적고 그린다');
-chk(L.clear && L.nul, '★ 이름 지우기(\'\' · null) — 칸을 지운다(«나» 를 적지 않는다) · 화면은 «나»');
-chk(!localJudge(APP.replace("localStorage[name ? 'setItem' : 'removeItem'](USER_NAME_KEY, name);", "localStorage.setItem(USER_NAME_KEY, name || '나');")).clear, '깨 보기 — 빈 이름을 «나» 로 적으면 빨강');
-chk(!localJudge(APP.replace("return localStorage.getItem(USER_NAME_KEY) || '';", "return localStorage.getItem(USER_NAME_KEY) || '나';")).none, '깨 보기 — 이름 없음을 «나» 로 읽으면 빨강(입력칸에 «나» 가 들어가 저장된다)');
+chk(L.clear && L.nul, '★ 이름 지우기(\'\' · null) — localStorage 키를 지운다(«이름 없음» 을 적지 않는다) · 화면은 «이름 없음»');
+chk(!localJudge(APP.replace("localStorage[name ? 'setItem' : 'removeItem'](USER_NAME_KEY, name);", "localStorage.setItem(USER_NAME_KEY, name || '이름 없음');")).clear, 'mutation test — 빈 이름을 «이름 없음» 으로 적으면 빨강');
+chk(!localJudge(APP.replace("return localStorage.getItem(USER_NAME_KEY) || '';", "return localStorage.getItem(USER_NAME_KEY) || '이름 없음';")).none, 'mutation test — 이름 없음을 «이름 없음» 글로 읽으면 빨강(입력 필드에 들어가 저장된다)');
 
 say('── 2. 연결');
 chk(R.order, 'html — name-guard.js 뒤 · app.js 앞에 싣는다');
@@ -116,7 +116,7 @@ chk(R.callers >= 3 && R.old === 0, '부르는 곳은 userNameMod.이름(' + R.ca
 
 say('── 3. 일부러 깨 보기');
 chk(!judge(MOD.replace('.slice(0, USER_NAME_MAX)', ''), HTML, APP).cut, '자르기를 빼면 빨강');
-chk(!judge(MOD.replace('const next = v;', "const next = v || '나';"), HTML, APP).empty, '빈 이름을 «나» 로 저장하면 빨강(서버 · 이 PC 에 «나»)');
+chk(!judge(MOD.replace('const next = v;', "const next = v || '이름 없음';"), HTML, APP).empty, '빈 이름을 «이름 없음» 으로 저장하면 빨강(서버 · 이 PC 에 placeholder)');
 chk(!judge(MOD.replace("  if(isStaffName(v) && v !== getUserName().trim() && !(typeof isAdmin() !== 'undefined' && isAdmin())){", '  if(false){'), HTML, APP).staff, '운영진 이름 막기를 빼면 빨강');
 chk(!judge(MOD.replace('if(!getMyUserId()){ toast', 'if(false){ toast'), HTML, APP).noUid, '내 코드 확인을 빼면 빨강');
 chk(!judge(MOD, HTML.replace('<script src="parts/account/user-name.js"></script>', ''), APP).order, 'html 줄이 빠지면 빨강');

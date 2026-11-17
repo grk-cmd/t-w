@@ -103,7 +103,7 @@ async function judge(S){
     const n = mkApi(LIB, { 'GET /v2/playlists/random': null });
     chk((await n.m.fetchRandom(null)) === null, '★ 들을 것 없음(data:null) — null(실패 아님)');
     const noName = mkApi(LIB, { 'GET /v2/playlists/random': Object.assign({}, pickData, { displayName: '' }) });
-    chk((await noName.m.fetchRandom(null)).name === '', '  이름이 비면 \'\' 그대로(자리표시 없음 — 화면이 그릴 때 «나»)');
+    chk((await noName.m.fetchRandom(null)).name === '', '  이름이 비면 \'\' 그대로(placeholder 없음 — 화면이 그릴 때 «이름 없음»)');
     let thrown = null;
     try{ await mkApi(LIB, { 'GET /v2/playlists/random': apiErr(503, 'PLAYLIST_NOT_READY') }).m.fetchRandom(null); }catch(e){ thrown = e; }
     chk(thrown && thrown.status === 503, '★ 실패 — 던진다(null 과 다르다)');

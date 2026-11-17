@@ -388,8 +388,8 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
      ⚠️ 관람(_mhViewingUserId)·미리보기(_mhPreviewMode)에서는 막는다 — _mhApplyVisitUI 가
         「수정」 링크를 숨기는 기준과 같아야 한다. 더블클릭 진입로가 따로 있어서 링크를 숨기는
         것만으로는 부족하다.
-     ⚠️ 표시값과 편집값이 다르다. 화면은 getDisplayName()(이름이 없으면 «나»)이지만 입력칸에는
-        getUserName()(이름이 없으면 빈칸)을 넣는다 — getDisplayName() 으로 채우면 «나» 를 진짜 이름으로 저장하게 된다. */
+     ⚠️ 표시값과 편집값이 다르다. 화면은 getDisplayName()(이름이 없으면 «이름 없음»)이지만 입력 필드에는
+        getUserName()(이름이 없으면 빈칸)을 넣는다 — getDisplayName() 으로 채우면 «이름 없음» 을 진짜 이름으로 저장하게 된다. */
   function _mhBeginNameEdit(){
     const nameEl=document.getElementById('mhMyName'); if(!nameEl) return;
     if(_mhViewingUserId() || window._mhPreviewMode) return;   // 관람·미리보기에선 편집 불가

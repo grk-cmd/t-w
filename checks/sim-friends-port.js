@@ -118,7 +118,7 @@ async function judge(S){
     const k1 = FA.friendOf(CARD);
     chk(k1.name === '라온' && k1.level === 12 && k1.cyc === 1 && k1.clv === 3 && k1.starC === 'gold' && k1.avatar === 'https://img/av.png' && k1.bio === '안녕', 'friendOf(명함) — 이름 · 레벨 · 회차 · 소개 · 사진');
     const k2 = FA.friendOf({ name: '', avatar: null, bio: '', level: null });
-    chk(k2.name === '' && k2.level === null && k2.avatar === null && TwPersonName.shown(k2.name) === '나', '  ↳ 이름이 비면 \'\' 그대로(자리표시 없음 — 그릴 때 «나») · 레벨 null 은 그대로(배지 숨김)');
+    chk(k2.name === '' && k2.level === null && k2.avatar === null && TwPersonName.shown(k2.name) === '이름 없음', '  ↳ 이름이 비면 \'\' 그대로(placeholder 없음 — 그릴 때 «이름 없음») · 레벨 null 은 그대로(배지 숨김)');
     const p = FA.profileOf(CARD);
     chk(p.name === '라온' && p.level === 12 && p.starC === 'gold' && !('bio' in p) && !('avatar' in p), 'profileOf — 이름 · 레벨 · 회차만(소개 · 사진은 덮지 않는다)');
   }

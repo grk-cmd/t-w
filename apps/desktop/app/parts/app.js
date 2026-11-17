@@ -3612,7 +3612,7 @@ TwRoomLobbyUi.createRoomLobbyUi({
 });
 const USER_NAME_KEY = 'tw.userName';
 
-// 내 이름 — 서버 계정 이름의 이 PC 사본. 이름이 없으면 '' (칸을 지운다 — «나» 를 적지 않는다)
+// 내 이름 — 서버 계정 이름의 이 PC 사본. 이름이 없으면 '' (localStorage 키를 지운다 — «이름 없음» 을 적지 않는다)
 function getUserName(){
   try{ return localStorage.getItem(USER_NAME_KEY) || ''; }catch(e){ return ''; }
 }
@@ -3621,7 +3621,7 @@ function setUserName(name){
   try{ localStorage[name ? 'setItem' : 'removeItem'](USER_NAME_KEY, name); }catch(e){}   // 이름이 없으면 칸을 지운다
 }
 
-// 화면에 그릴 내 이름 — 이름이 없으면 그릴 때만 «나»(shared/person-name.js)
+// 화면에 그릴 내 이름 — 이름이 없으면 그릴 때만 «이름 없음»(shared/person-name.js)
 function getDisplayName(){ return TwPersonName.shown(getUserName()); }
 
 /* ═══ 🏷️ 닉네임 저장 — **모달이 아니라 제자리 편집**이 부르는 한 벌 ══════════

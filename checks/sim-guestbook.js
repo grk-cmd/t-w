@@ -194,7 +194,7 @@ async function judge(S){
     hold.res(real); e.answers.view = real; await flush();
     const list = d.getElementById('gbList');
     chk(list.children.length === 3 && /두번째/.test(list.children[0].innerHTML) && /&lt;b&gt;안녕/.test(list.children[1].innerHTML), '받으면 목록 — 서버가 준 순서(최신이 위) · 글은 escHtml 을 지난다');
-    chk(/<b>나<\/b>/.test(list.children[2].innerHTML) && /이름 없는 글/.test(list.children[2].innerHTML), '★ 글쓴이 이름이 없으면(서버 null → \'\') 그릴 때 «나»');
+    chk(/<b>이름 없음<\/b>/.test(list.children[2].innerHTML) && /이름 없는 글/.test(list.children[2].innerHTML), '★ 글쓴이 이름이 없으면(서버 null → \'\') 그릴 때 «이름 없음»');
     const delOf = (row) => row.querySelector('.gb-meta').children[0];
     chk(delOf(list.children[0]) && delOf(list.children[0]).textContent === '삭제' && !delOf(list.children[1]) && !delOf(list.children[2]), '삭제 링크는 서버가 내 글이라고 한(mine) 글에만');
     chk(d.getElementById('gbInputRow').style.display === 'flex' && d.getElementById('gbGuestNote').style.display === 'none', '  서버가 canWrite 라 하니 입력칸이 보인다');

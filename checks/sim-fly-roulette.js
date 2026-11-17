@@ -91,7 +91,7 @@ function run(o){
   r = run({ room: true, ch: 2, rolls: [0.01, 0.01] });          // 1 · 1
   chk(r.chatLog.length === 1 && /님이 룰렛/.test(r.chatLog[0]) && !/날아갔|살아남/.test(r.chatLog[0]), '투게더룸 → 기록 한 줄(«님이» · 결과 꼬리 없음)');
   r = run({ room: true, ch: 2, rolls: [0.5, 0.5], name: '' });
-  chk(r.chatLog.length === 1 && /^룰렛을 돌려 /.test(r.chatLog[0]) && !/나님/.test(r.chatLog[0]), '★ 이름이 없으면 주어 없이 «룰렛을 돌려 …» — 서버 대화 기록에 «나» 를 싣지 않는다');
+  chk(r.chatLog.length === 1 && /^룰렛을 돌려 /.test(r.chatLog[0]) && !/나님|이름 없음/.test(r.chatLog[0]), '★ 이름이 없으면 주어 없이 «룰렛을 돌려 …» — 서버 대화 기록에 placeholder 를 싣지 않는다');
   r = run({ room: true, ch: 2, rolls: [0.5, 0.5] });
   chk(r.chatLog.length === 1 && !/날아갔|살아남/.test(r.chatLog[0]), '투게더룸 · 1 없음도 같은 모양 한 줄');
   r = run({ room: false, ch: 0, rolls: [0.01, 0.5] });

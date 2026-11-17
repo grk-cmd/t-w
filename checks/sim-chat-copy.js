@@ -12,7 +12,7 @@
      §2 HTML — 스크립트 순서 · 선택 허용 범위 · 칩/메뉴/토스트가 #chatWindow 안
      §3 app.js — 보류 분기가 innerHTML 앞 · 원문 번호(data-i) · Ctrl/Cmd 둘 다 · 우클릭 메뉴 · 선택 풀리면 그림 */
 'use strict';
-globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기(이름 없음 → «나») — 진짜 파일
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기(이름 없음 → «이름 없음») — 진짜 파일
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const say = console.log;
@@ -44,7 +44,7 @@ chk(lines[1] === '영희: 좋아요 진짜로', '이모티콘 마커는 생략, 
 chk(lines[2] === '민수: 여기 https://example.com/a?b=1 봐', '링크는 원문 URL 그대로');
 chk(!/\[(?:emoji|demoji):/.test(out), '결과에 [emoji:…] · [demoji:…] 가 남지 않는다');
 chk(C.lineFor({ name: 'a', text: '   ' }) === null && C.lineFor(null) === null, '빈 내용 · 없는 메시지는 null');
-chk(C.lineFor({ name: null, text: '안녕' }) === '나: 안녕' && C.lineFor({ name: '', text: '안녕' }) === '나: 안녕' && C.lineFor({ name: '알 수 없음', text: '안녕' }) === '알 수 없음: 안녕', '★ 이름 없는 글쓴이(null · 빈 글)는 «나» · 서버가 모르는 사람은 «알 수 없음» 그대로');
+chk(C.lineFor({ name: null, text: '안녕' }) === '이름 없음: 안녕' && C.lineFor({ name: '', text: '안녕' }) === '이름 없음: 안녕' && C.lineFor({ name: '알 수 없음', text: '안녕' }) === '알 수 없음: 안녕', '★ 이름 없는 글쓴이(null · 빈 글)는 «이름 없음» · 서버가 모르는 사람은 «알 수 없음» 그대로');
 chk(String(C.EMOJI_RE) === String(/\[(?:emoji|demoji):[^\]]*\]/g), '마커 정규식이 사양과 같다');
 
 /* ── §2 ── */
