@@ -750,7 +750,7 @@ function _chatTabsRender(){
   // 입력 중이면 다시 그리지 않는다 — 치던 글자가 날아간다
   if(_chatTabEdit && bar.querySelector('.ct-edit input') === document.activeElement) return;
   const tabs = ChatTabs.list(_chatTabMeta()), cur = _chatMyTabId();
-  const people = seats.filter(st => st && (st.isMe || st.friendName)).map(st => ({ tab: st.isMe ? cur : (st.chatTabId || 'general') }));
+  const people = seats.filter(st => st && (st.isMe || st.remote)).map(st => ({ tab: st.isMe ? cur : (st.chatTabId || 'general') }));
   const cnt = ChatTabs.counts(people, _chatTabMeta());
   const host = _chatIsHost();
   const h = tabs.map(t => {

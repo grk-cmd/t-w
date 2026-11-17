@@ -205,7 +205,7 @@ const LIC = ['admin-license.js', 'parts/admin/admin-license.js', 'app/parts/admi
   .map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean);
 if(!LIC){ console.log('  ? 원본 못 찾음 — admin-license.js'); process.exit(2); }
 // 요청자 이름(남이 쓴 값)은 글자로만 넣는다 — textContent 로 넣거나, HTML 에 보간하면 이스케이프를 거쳐야 한다
-chk(/\.textContent\s*=\s*req\.name\b/.test(LIC) || /🙋 <b>\$\{_chatEsc\(/.test(LIC),
+chk(/\.textContent\s*=\s*(TwPersonName\.shown\()?req\.name\b/.test(LIC) || /🙋 <b>\$\{_chatEsc\(/.test(LIC),
     '★ req.name 이 글자로만 들어간다 (licenseRequests 는 .write:true 다)');
 chk(!/\b(innerHTML|outerHTML|insertAdjacentHTML)\b/.test(LIC),
     '★ admin-license.js 는 HTML 문자열을 넣지 않는다(innerHTML · outerHTML · insertAdjacentHTML 0) — 요청자 이름 · 메모가 HTML 로 들어갈 길을 막는다');

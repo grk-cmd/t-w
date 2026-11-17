@@ -84,7 +84,7 @@ chk(users.length >= 15 && late.length === 0, '★ 이름을 그리는 모듈 ' +
 const sN = SMOKE.indexOf("PRELOAD.push('person-name.js');");
 chk(sN > 0, 'smoke PRELOAD — person-name.js');
 /* 옛 자리표시(«(이름 없음)» 을 사람 이름 대신)가 렌더러에 다시 생기지 않는다 — 이름은 이 파일 한 곳이 정한다 */
-const OLD = /(?<!bone)\.(name|friendName|fromName|senderName)\s*\|\|\s*'(\(이름 없음\)|친구|손님|누군가|\?)'/;
+const OLD = /(?<!bone)\.(name|friendName|fromName|senderName)\s*\|\|\s*'(\(이름 없음\)|친구|손님|누군가|참가자|요청|\?)'/;
 const left = files.filter((f) => OLD.test(fs.readFileSync(f, 'utf8'))).map((f) => path.basename(f));
 chk(files.length > 50 && left.length === 0, '★ 렌더러에 «이름 || \'(이름 없음)\' · \'친구\' · \'손님\' · \'?\'» 자리표시가 없다' + (left.length ? ' — ' + left.join(', ') : ''));
 

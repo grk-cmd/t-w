@@ -147,15 +147,15 @@ function drawRequests(listEl, page){
     const no = mkBtn('거절', true); no.style.padding = '3px 10px'; no.style.fontSize = '11px';
     ok.onclick = async () => {
       if(reqBusy) return; reqBusy = true; ok.disabled = true; no.disabled = true; ok.textContent = '발급 중...';
-      try{ await adminApi.approveRequest(req.id); toast((req.name || '요청') + ' 님에게 발급했어요'); renderLicenseGenList(); loadRequests(); }
+      try{ await adminApi.approveRequest(req.id); toast(TwPersonName.shown(req.name) + ' 님에게 발급했어요'); renderLicenseGenList(); loadRequests(); }
       catch(e){ const kind = fail(e, () => notifyError('E-ADM-24', e)); if(kind === 'refetch'){ toast(REFETCH_TEXT); loadRequests(); } else { ok.disabled = false; no.disabled = false; ok.textContent = '발급'; } }
       finally{ reqBusy = false; }
     };
     no.onclick = async () => {
       if(reqBusy) return;
-      if(!confirm((req.name || '요청') + ' 님의 요청을 거절할까요? (거절해도 상대는 다시 요청할 수 있어요)')){ window.focus(); return; } window.focus();
+      if(!confirm(TwPersonName.shown(req.name) + ' 님의 요청을 거절할까요? (거절해도 상대는 다시 요청할 수 있어요)')){ window.focus(); return; } window.focus();
       reqBusy = true; ok.disabled = true; no.disabled = true; no.textContent = '거절 중...';
-      try{ await adminApi.rejectRequest(req.id); toast((req.name || '요청') + ' 님의 요청을 거절했어요'); loadRequests(); }
+      try{ await adminApi.rejectRequest(req.id); toast(TwPersonName.shown(req.name) + ' 님의 요청을 거절했어요'); loadRequests(); }
       catch(e){ const kind = fail(e, () => notifyError('E-ADM-24', e)); if(kind === 'refetch'){ toast(REFETCH_TEXT); loadRequests(); } else { ok.disabled = false; no.disabled = false; no.textContent = '거절'; } }
       finally{ reqBusy = false; }
     };

@@ -64,7 +64,7 @@ function run(o){
     firebaseAPI: { sendChatLog: (room, m) => log.chatLog.push(m.text) },
     Presence: { active: () => !!o.room, roomCode: () => o.room ? 'R1' : null, sendChat: (t) => log.chat.push(t), pokeSelf: (t) => log.pokeSelf.push(t) },
     _chatMyTabId: () => 'general',   // 대화창 지금 보는 탭 — 앱 코드가 typeof 가드 없이 바로 부른다
-    getDisplayName: () => '나', _flyChatLog: (t) => log.chatLog.push(t),
+    getUserName: () => ('name' in o ? o.name : '민수'), _flyChatLog: (t) => log.chatLog.push(t),
     TwErrorCodes: { notify: (c) => log.errs.push(c) },
     chatNet: { sendGame: (room, g) => o.rejectGame ? Promise.reject(new Error('net')) : log.chatLog.push(g.dice ? '나님이 주사위 [dice:' + g.dice[0] + '][dice:' + g.dice[1] + '] 가 나왔습니다.' : JSON.stringify(g)) },   // 서버가 만드는 문장 모양을 흉내 낸다
     canFly: () => o.cantFly ? { ok: false, why: '이미 날아가는 중이에요' } : { ok: true },
@@ -90,6 +90,8 @@ function run(o){
   chk(r.pokeSelf.length === 1 && r.pokeSelf[0] === 'fly:42' && !r.remoteFly.length, '1 있음 → pokeSelf(\'fly:시드\') 한 번 · 로컬 직접 재생 없음');
   r = run({ room: true, ch: 2, rolls: [0.01, 0.01] });          // 1 · 1
   chk(r.chatLog.length === 1 && /님이 룰렛/.test(r.chatLog[0]) && !/날아갔|살아남/.test(r.chatLog[0]), '투게더룸 → 기록 한 줄(«님이» · 결과 꼬리 없음)');
+  r = run({ room: true, ch: 2, rolls: [0.5, 0.5], name: '' });
+  chk(r.chatLog.length === 1 && /^룰렛을 돌려 /.test(r.chatLog[0]) && !/나님/.test(r.chatLog[0]), '★ 이름이 없으면 주어 없이 «룰렛을 돌려 …» — 서버 대화 기록에 «나» 를 싣지 않는다');
   r = run({ room: true, ch: 2, rolls: [0.5, 0.5] });
   chk(r.chatLog.length === 1 && !/날아갔|살아남/.test(r.chatLog[0]), '투게더룸 · 1 없음도 같은 모양 한 줄');
   r = run({ room: false, ch: 0, rolls: [0.01, 0.5] });

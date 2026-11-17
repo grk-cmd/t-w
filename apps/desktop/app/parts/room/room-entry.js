@@ -338,7 +338,8 @@ function syncFriendSeats(friends){
         }
       }
     }
-    s.friendName=TwPersonName.shown(friends[id].name); s.remoteState=friends[id].state; s.remoteUserStatus=friends[id].userStatus||null;
+    // friendName 은 서버 이름 그대로(이름 없음 = null) — 그리는 곳이 TwPersonName.shown
+    s.friendName=friends[id].name; s.remoteState=friends[id].state; s.remoteUserStatus=friends[id].userStatus||null;
     s.remoteDanceStyle = friends[id].danceStyle || null;   // 💃 친구가 추는 춤 종류 — animateRig의 dance 분기용
     s._remoteRidingOn = friends[id].ridingOn || null;   // 🐾 누구 위에 타고 있는지(식별자) — 아래에서 좌석 관계로 복원
     s._remoteSeatedOn = friends[id].seatedOn || null;   // 🪑 어느 벤치 슬롯에 앉았는지 {host,slot}

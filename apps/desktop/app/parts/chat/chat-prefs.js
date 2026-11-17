@@ -297,8 +297,8 @@ function _refreshChatMembers(){
       if(!st.isMe && chatUiMod()._chatTabResolve(st.chatTabId || 'general') !== chatUiMod()._chatMyTabId()) continue;
       if(st.isMe){
         names.push({ name:getDisplayName(), isHost:(hostUserId && myCode()===hostUserId) });
-      }else if(st.friendName){
-        names.push({ name:st.friendName, isHost:(hostUserId && st.friendUserId===hostUserId) });
+      }else if(st.remote){
+        names.push({ name:TwPersonName.shown(st.friendName), isHost:(hostUserId && st.friendUserId===hostUserId) });
       }
     }
   }catch(_){}

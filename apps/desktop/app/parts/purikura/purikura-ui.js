@@ -531,7 +531,7 @@ function _pkPaintFilterNote(){
   const P = _pkP(), locked = _pkFilterLocked();
   /* 🆙 업데이트 안 한 참가자는 이 필터를 몰라서 그 사람 사진만 필터 없이 찍힌다. 막지 않고 방장에게만 알린다. */
   const lag = (PK.host && P.filterLaggards) ? P.filterLaggards(PK.members, PK.filter, myCode()) : [];
-  const lagMsg = lag.length ? lag.join(' · ') + '님은 업데이트가 필요해서 필터 없이 찍혀요' : '';
+  const lagMsg = lag.length ? lag.map((n) => TwPersonName.shown(n)).join(' · ') + '님은 업데이트가 필요해서 필터 없이 찍혀요' : '';
   const msg = _pkEl('pkFilterMsg');
   if(msg) msg.textContent = locked ? '곧 찍어요 — 이번 컷은 이대로'
                           : (PK.host ? lagMsg : '방장이 고른 필터예요');
