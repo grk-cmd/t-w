@@ -159,7 +159,7 @@
 | **sim-ghost-heal.js** | 88 | **918a9097dda9** |
 | **sim-catalog-cache.js** | 391 | **79b8e26cd2d6** |
 | **sim-broadcast-cache.js** | 282 | **febd97c6e90e** |
-| **sim-friend-code-keep.js** | 220 | **425af0ccbcf4** |
+| **sim-friend-code-keep.js** | 220 | **21eb19c16876** |
 | **sim-google-login.js** | 656 | **99e6d39cc736** |
 | **sim-invite-gate.js** | 136 | **e28cff183251** |
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
@@ -319,9 +319,9 @@
 | **sim-def-size.js** | 157 | **7232fc10e9dc** |
 | **sim-todo-cli.js** | 157 | **a7469ac82852** |
 | **sim-folder-free.js** | 190 | **b48c8b4f9389** |
-| **sim-chat-sfx.js** | 224 | **a0f1b6331821** |
+| **sim-chat-sfx.js** | 224 | **95af0ad5d383** |
 | **sim-mac-update.js** | 212 | **dda6802135c3** |
-| **sim-focus-cap.js** | 329 | **fa1f12f0dc74** |
+| **sim-focus-cap.js** | 329 | **a0076eeb1c8b** |
 | **sim-focus-show.js** | 86 | **0581901a27fa** |
 | **sim-win-front.js** | 110 | **946f2d7cde7c** |
 | **sim-win-layers.js** | 203 | **cab1b61e089c** |
