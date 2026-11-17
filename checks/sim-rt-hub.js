@@ -5,6 +5,7 @@
    ・4절: 닫힘 번호 표 — 서버 표와 같은 이름 · 값 · 코드마다 처리(1000 끝 · 1001 흩어 다시 · 1006 · 1009 · 4005 · 4008 다시 붙기 · 4001 새 토큰으로 한 번 ·
           ready 전 error auth 도 4001 로 셈 · 4003 업데이트 · 4004 밀려남 · 4006 점검 · 4007 계정 없음 · 모르는 4000번대 멈춤 · 모르는 1000번대 다시)
    ・4-2절: 작별 · 살아 있음 — bye(leave 는 부르는 쪽) → 서버 닫힘 기다림 1초 · 못 받으면 앱이 닫음 · quit 은 바로 닫음 · ping 5초 · 다시 붙는 중엔 바로 한 번
+   ・4-3절: 조용함 확인 — ready 인 채 15초 아무것도 못 받으면 ping · 5초 안에 pong 없으면 끊기 · 받은 메시지가 15초를 다시 셈 · stop · bye · quit · 끊김 뒤 타이머 없음 · 다시 붙어도 하나
    ・5절: 그 밖의 메시지 · 요청 — onMessage(방 메시지 자리 포함) · request 의 rid 짝 · send 는 ready 일 때만
    ・6절: 순수 · 배선 — 주소(운영 · dev · 시험 주소) · 세션 id 모양 · window.TwRtHub · bind 전 start 는 던짐 · html 차례 · firebase-init bind
    ・7절: 일부러 깨 보기 */
@@ -93,6 +94,8 @@ async function readyOn(e, code, graceMs){
   await tick();
   return ws;
 }
+
+const e0KeepConst = (S) => loadHub(S.HUB).KEEPALIVE_IDLE_MS;
 
 async function judge(S){
   let E;
@@ -403,6 +406,74 @@ async function judge(S){
     }
   }
 
+  say('── 4-3. 조용함 확인(ready 인 채 15초 못 받으면 ping)');
+  {
+    const IDLE = 15000;
+    const keeps = (e) => e.clock.q.filter((h) => h.f.name === 'onKeep').length;   // 걸려 있는 조용함 타이머 수
+    chk(e0KeepConst(S) === IDLE, 'KEEPALIVE_IDLE_MS = 15000 을 내놓는다(PONG_WAIT_MS 옆)');
+    { /* 15초 조용 → ping · 5초 안에 pong 없으면 끊고 다시 */
+      const e = mk(S); e.hub.start(); const w = await readyOn(e);
+      chk(keeps(e) === 1, 'ready 가 되면 조용함 타이머 하나');
+      await e.clock.advance(IDLE - 1);
+      chk(w.all('ping').length === 0, '  ↳ 15초 전엔 ping 없음');
+      await e.clock.advance(1);
+      chk(w.all('ping').length === 1 && !w.closed, '  ↳ 15초 아무것도 못 받으면 ping 한 번(checkAlive 길)');
+      await e.clock.advance(4999);
+      chk(!w.closed && e.hub.isReady(), '  ↳ pong 기다림 5초 전엔 그대로');
+      await e.clock.advance(1);
+      chk(w.closed && e.hub.state() === 'retrying' && keeps(e) === 0, '  ↳ 5초에 pong 이 없으면 끊고 retrying · 조용함 타이머 없음');
+      await waitNewSock(e, 1); const w2 = await readyOn(e);
+      chk(e.hub.isReady() && w2 !== w && keeps(e) === 1, '  ↳ 다시 붙으면 타이머 하나 다시');
+    }
+    { /* pong 이 오면 그대로 · 다음 ping 은 pong 뒤 15초 */
+      const e = mk(S); e.hub.start(); const w = await readyOn(e);
+      await e.clock.advance(IDLE); w.msg({ t: 'pong' }); await tick();
+      await e.clock.advance(IDLE - 1);
+      chk(!w.closed && e.hub.isReady() && w.all('ping').length === 1, 'pong 이 오면 그대로 · 다음 15초 전엔 또 안 보냄');
+      await e.clock.advance(1);
+      chk(w.all('ping').length === 2, '  ↳ pong 뒤 15초 조용하면 다시 ping');
+    }
+    { /* 받은 메시지가 15초를 다시 센다 */
+      const e = mk(S); e.hub.start(); const w = await readyOn(e);
+      await e.clock.advance(10000); w.msg({ t: 'announce', text: 'x' }); await tick();
+      await e.clock.advance(10000);
+      chk(w.all('ping').length === 0, '받은 메시지(announce)가 있으면 그 뒤 15초까지 ping 없음(ready 뒤로는 20초)');
+      w.msg({ t: 'notify', kind: 'friends' }); await tick();
+      await e.clock.advance(IDLE - 1);
+      chk(w.all('ping').length === 0 && keeps(e) === 1, '  ↳ 알림(notify)도 다시 센다 · 타이머는 하나');
+      await e.clock.advance(1);
+      chk(w.all('ping').length === 1, '  ↳ 마지막 메시지 뒤 15초에 ping');
+    }
+    { /* 끄면 타이머 없음 */
+      const s1 = mk(S); s1.hub.start(); const a = await readyOn(s1);
+      s1.hub.stop();
+      chk(keeps(s1) === 0, 'stop — 조용함 타이머를 푼다');
+      await s1.clock.advance(120000);
+      chk(a.all('ping').length === 0 && s1.socks.length === 1, '  ↳ 2분 지나도 ping · 다시 붙기 없음');
+      const s2 = mk(S); s2.hub.start(); const b = await readyOn(s2);
+      const p = s2.hub.bye('logout'); await tick();
+      chk(keeps(s2) === 0, 'bye — 서버 닫힘을 기다리는 동안에도 타이머 없음');
+      b.kill(1000); await p; await s2.clock.advance(120000);
+      chk(b.all('ping').length === 0, '  ↳ 작별 뒤 ping 없음');
+      const s3 = mk(S); s3.hub.start(); const c = await readyOn(s3);
+      s3.hub.quit();
+      chk(keeps(s3) === 0, 'quit — 타이머를 푼다');
+      const s4 = mk(S); s4.hub.start(); const d = await readyOn(s4);
+      d.kill(1006); await tick();
+      chk(s4.hub.state() === 'retrying' && keeps(s4) === 0, '끊겨 retrying — 타이머를 푼다');
+      const s5 = mk(S); s5.hub.start(); const f = await readyOn(s5);
+      f.kill(4006); await tick();
+      chk(s5.hub.state() === 'maintenance' && keeps(s5) === 0, '멈춤 번호(4006 점검) — 타이머를 푼다');
+    }
+    { /* 다시 붙기를 여러 번 해도 타이머는 하나 */
+      const e = mk(S); e.hub.start(); let w = await readyOn(e);
+      for(let i = 0; i < 3; i++){ const n0 = e.socks.length; w.kill(1006); await tick(); await waitNewSock(e, n0); w = await readyOn(e); }
+      chk(e.hub.isReady() && keeps(e) === 1, '세 번 다시 붙은 뒤에도 조용함 타이머 하나');
+      await e.clock.advance(IDLE);
+      chk(w.all('ping').length === 1 && e.socks.slice(0, -1).every((x) => x.all('ping').length === 0), '  ↳ 지금 연결에만 ping 한 번');
+    }
+  }
+
   say('── 5. 그 밖의 메시지 · 요청');
   {
     const e = mk(S);
@@ -489,7 +560,7 @@ await judge(SRC0);
 say('── 7. 일부러 깨 보기');
 const BREAKS = [
   ['HUB', "    started = false; lostAt = null; userCode = null; sessionId = null; clockOff = null;\n    clearPong();\n    if(link) link.close();", "    started = false; lostAt = null; userCode = null; clockOff = null;\n    clearPong();\n    if(link) link.close();", 'stop 이 세션 id 를 안 비움(다음 로그인이 앞 id 를 씀)'],
-  ['HUB', "    started = false; lostAt = null; userCode = null; sessionId = null; clockOff = null;\n    clearPong();\n    if(!link.send", "    started = false; lostAt = null; userCode = null; clockOff = null;\n    clearPong();\n    if(!link.send", 'bye 가 세션 id 를 안 비움(로그아웃 뒤 같은 id)'],
+  ['HUB', "    started = false; lostAt = null; userCode = null; sessionId = null; clockOff = null;\n    clearPong(); clearKeep();", "    started = false; lostAt = null; userCode = null; clockOff = null;\n    clearPong(); clearKeep();", 'bye 가 세션 id 를 안 비움(로그아웃 뒤 같은 id)'],
   ['HUB', "    started = false; sessionId = null; clockOff = null;\n    clearPong();\n    link.send({ t: 'bye', why: BYE_WHY.QUIT });", "    started = false; clockOff = null;\n    clearPong();\n    link.send({ t: 'bye', why: BYE_WHY.QUIT });", 'quit 이 세션 id 를 안 비움'],
   ['HUB', "    if(sessionId === null) sessionId = sessionIdOf(deps.newSession());", "    sessionId = sessionIdOf(deps.newSession());", '시작마다 새 id(다시 붙기 · 여기서 계속도 바뀜)'],
   ['HUB', "        if(phase === 'open' && claimNext) o.claim = true;", "        o.claim = true;", '다시 붙기 · 토큰 갱신에도 claim(밀려난 앱이 남을 밈)'],
@@ -519,6 +590,13 @@ const BREAKS = [
   ['HUB', "      pongTimer = tSet(() => { pongTimer = null; if(started) link.drop(); }, PONG_WAIT_MS);", "", 'pong 이 없어도 안 끊음'],
   ['HUB', "    if(m.t === 'pong'){ clearPong(); return; }", "", 'pong 을 받아도 끊음'],
   ['HUB', "    if(state === STATE.READY){", "    if(true){", 'ready 전에도 ping(서버가 auth)'],
+  ['HUB', "    setState(STATE.READY);\n    armKeep(KEEPALIVE_IDLE_MS);", "    setState(STATE.READY);", 'ready 가 돼도 조용함 타이머 안 검(서버가 사라져도 ready 로 남음)'],
+  ['HUB', "    lastInAt = now();\n    if(m.t === 'notify'){", "    if(m.t === 'notify'){", '받은 메시지가 조용함을 다시 안 셈(쓸데없는 ping)'],
+  ['HUB', "    if(s !== STATE.READY) clearKeep();", "", 'ready 를 벗어나도 타이머가 남음(stop · 끊김 · 멈춤 · 다시 붙을 때마다 늘어남)'],
+  ['HUB', "    clearPong(); clearKeep();   //", "    clearPong();   //", 'bye 가 타이머를 안 풂'],
+  ['HUB', "    checkAlive();\n    armKeep(KEEPALIVE_IDLE_MS);", "    armKeep(KEEPALIVE_IDLE_MS);", '조용해도 ping 안 보냄'],
+  ['HUB', "    checkAlive();\n    armKeep(KEEPALIVE_IDLE_MS);", "    checkAlive();", 'ping 한 번 뒤 조용함 확인이 멈춤'],
+  ['HUB', "const KEEPALIVE_IDLE_MS = 15000;", "const KEEPALIVE_IDLE_MS = 30000;", '조용함 기준이 15초가 아님'],
   ['HUB', "    link.reconnectNow();\n  }", "  }", '다시 붙는 중 online 에 기다림 그대로'],
   ['HUB', "  win.addEventListener('beforeunload', () => hub.quit());", "", '앱 끄기에 작별 안 함'],
   ['HUB', "  if(win.companion) win.companion.onWake(() => hub.checkAlive());", "", '깨어남에 확인 안 함'],

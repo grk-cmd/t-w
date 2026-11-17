@@ -11,8 +11,10 @@
      사용자 누름 · 서버 신호(점검 해제)로만 start 를 다시 부른다(자동 재시도 없음). 4001 은 새 토큰으로 한 번 더 — ready 전 error auth 도 같게 센다.
    [작별] bye(why) — 로그아웃 · 탈퇴 · 계정 바꾸기: bye 를 보내고 서버의 닫힘(1000)을 BYE_WAIT_MS 기다린다(못 받으면 앱이 닫음). 방 leave 는 부르는 쪽이 먼저.
      quit() — 앱 끄기(beforeunload): bye{quit} 를 보내고 바로 닫는다. 작별 뒤 서버는 유예 없이 오프라인 · 자리 비움.
-   [살아 있음] checkAlive() — 깨어남(main powerMonitor) · 네트워크 돌아옴(online) 때. ready 면 ping → PONG_WAIT_MS 안에 pong 이 없으면 끊고 다시 붙기,
-     다시 붙는 중이면 기다림을 건너뛰고 바로 한 번. 주기 ping 은 없다(서버 웹소켓 ping 몫).
+   [살아 있음] checkAlive() — 깨어남(main powerMonitor) · 네트워크 돌아옴(online) 때, 그리고 ready 인 채 KEEPALIVE_IDLE_MS 동안 아무 메시지도 못 받았을 때.
+     ready 면 ping → PONG_WAIT_MS 안에 pong 이 없으면 끊고 다시 붙기, 다시 붙는 중이면 기다림을 건너뛰고 바로 한 번.
+     조용함 확인이 따로 있는 까닭: 서버 웹소켓 ping 은 브라우저가 알아서 답해 앱 코드는 못 본다 — 서버가 TCP 닫힘 없이 사라지면 앱은 ready 로 남는다.
+     조용함 타이머는 ready 동안 하나만 돈다(ready 될 때 걸고, ready 를 벗어나거나 stop · bye · quit 이면 푼다).
    [알림] on(종류, fn) — 묶음마다 자기 종류를 건다(KINDS 밖 이름은 던짐 — 오타가 조용히 안 오지 않게). 모르는 종류가 오면 버린다.
      fn({ kind, subject, section, resync:false }). **서버 유예(ready.graceMs)보다 오래 끊겼다 붙으면** 건 함수마다 한 번씩
      fn({ kind, resync:true }) — 끊긴 동안 놓친 알림을 메운다(서버가 ready 를 흩어 보내니 앱이 더 몰아 부르지 않는다).
@@ -62,7 +64,8 @@ const START_WAIT_MS = 10000;     // start 가 첫 ready 를 기다리는 시간 
 const RESTART_SPREAD_MS = 30000;   // 1001(서버 재시작) 뒤 첫 시도를 0~이만큼 흩는다 — 모든 앱이 한꺼번에 몰리지 않게
 const RESTART_READY_WAIT_MS = 35000;   // 그 연결의 ready 기다림 — 서버가 재시작 뒤 ready 를 0~30초 흩어 보낸다(흩기 상한 + 여유)
 const BYE_WAIT_MS = 1000;        // bye 뒤 서버의 닫힘(1000)을 기다리는 시간 — 못 받으면 앱이 닫는다
-const PONG_WAIT_MS = 5000;       // 깨어남 · online 때 보낸 ping 의 답 기다림
+const PONG_WAIT_MS = 5000;       // checkAlive 가 보낸 ping 의 답 기다림
+const KEEPALIVE_IDLE_MS = 15000;   // ready 인 채 이만큼 아무것도 못 받으면 checkAlive — 서버가 사라진 걸 늦어도 이 값 + PONG_WAIT_MS(약 20초) 안에 안다
 
 /* 붙을 주소 — 운영 · dev 앱. dev 서버는 이 PC 로컬(dev 용 공개 이름은 없다)이라 dev 기본은 로컬 8787 —
    dev 앱만 tw.realtimeUrl(같은 묶음의 wss · 로컬 8787)로 바꿀 수 있다. CSP connect-src 안이어야 한다(ws://127.0.0.1:8787 은 이미 열려 있다). */
@@ -95,6 +98,7 @@ function createRtHub(deps){
   let state = STATE.OFF, userCode = null, lastClose = null;
   let clockOff = null;   // 서버 시계 − PC 시계(ms) — ready.now 로 맞춘다(연결이 ready 될 때마다). 아직 못 맞췄으면 null(PC 시계로 대신하지 않는다)
   let pongTimer = null;
+  let keepTimer = null, lastInAt = 0;   // 조용함 타이머 · 마지막으로 서버 메시지를 받은 때(허브까지 오는 것 — 요청 답 · 토큰 갱신 ready 는 link 가 먼저 가져가 안 센다)
   let byeDone = null;   // bye 뒤 서버 닫힘을 기다리는 쪽 — { timer, res }
   const tSet = deps.setTimeout || ((f, ms) => setTimeout(f, ms));
   const tClear = deps.clearTimeout || ((h) => clearTimeout(h));
@@ -104,6 +108,7 @@ function createRtHub(deps){
   function setState(s){
     if(s === state) return;
     state = s;
+    if(s !== STATE.READY) clearKeep();
     for(const fn of stateFns.slice()){ try{ fn(s); }catch(e){ warn('상태 알림 실패', e); } }
   }
   function emitKind(kind, payload){
@@ -121,6 +126,7 @@ function createRtHub(deps){
     }
   }
   function onServerMessage(m){
+    lastInAt = now();
     if(m.t === 'notify'){
       if(!kindFns.has(m.kind)) return;   // 모르는 종류는 버린다(서버가 종류를 더해도 옛 앱이 깨지지 않게)
       emitKind(m.kind, { kind: m.kind, subject: (typeof m.subject === 'string') ? m.subject : null, section: (typeof m.section === 'string') ? m.section : null, resync: false });
@@ -140,10 +146,23 @@ function createRtHub(deps){
     if(m && typeof m.now === 'number' && isFinite(m.now)) clockOff = m.now - now();   // 연결이 ready 될 때마다(다시 붙은 뒤 포함) 다시 맞춘다
     const gap = (lostAt == null) ? null : now() - lostAt;
     lostAt = null;
+    lastInAt = now();
     setState(STATE.READY);
+    armKeep(KEEPALIVE_IDLE_MS);
     if(gap != null && gap > graceOf(m)) resync();
   }
   function clearPong(){ if(pongTimer){ tClear(pongTimer); pongTimer = null; } }
+  function clearKeep(){ if(keepTimer){ tClear(keepTimer); keepTimer = null; } }
+  /* 조용함 타이머 — ready 동안만 하나. ready 가 될 때 걸고, ready 를 벗어나면 setState 가 푼다(그래서 다시 붙어도 하나).
+     메시지마다 다시 걸지 않고, 울릴 때 마지막 받은 때를 보고 남은 만큼 다시 건다. */
+  function armKeep(ms){ keepTimer = tSet(onKeep, ms); }
+  function onKeep(){
+    keepTimer = null;
+    const idle = now() - lastInAt;
+    if(idle < KEEPALIVE_IDLE_MS){ armKeep(KEEPALIVE_IDLE_MS - idle); return; }
+    checkAlive();
+    armKeep(KEEPALIVE_IDLE_MS);
+  }
   function finishBye(){
     if(!byeDone) return;
     const b = byeDone; byeDone = null;
@@ -208,7 +227,7 @@ function createRtHub(deps){
   function bye(why){
     if(!started || !link){ stop(); return Promise.resolve(); }
     started = false; lostAt = null; userCode = null; sessionId = null; clockOff = null;
-    clearPong();
+    clearPong(); clearKeep();   // 서버 닫힘을 기다리는 동안 상태는 아직 ready — 조용함 확인은 여기서 푼다
     if(!link.send({ t: 'bye', why })){ link.close(); setState(STATE.OFF); return Promise.resolve(); }
     return new Promise((res) => {
       byeDone = { res, timer: tSet(() => { byeDone = null; link.close(); setState(STATE.OFF); res(); }, BYE_WAIT_MS) };
@@ -223,7 +242,7 @@ function createRtHub(deps){
     link.close();
     setState(STATE.OFF);
   }
-  /* 살아 있음 확인 — 깨어남 · 네트워크 돌아옴. ready 면 ping(이미 기다리는 중이면 그대로) · 다시 붙는 중이면 기다림을 건너뛰고 지금. */
+  /* 살아 있음 확인 — 깨어남 · 네트워크 돌아옴 · 조용함(onKeep). ready 면 ping(이미 기다리는 중이면 그대로) · 다시 붙는 중이면 기다림을 건너뛰고 지금. */
   function checkAlive(){
     if(!started || !link) return;
     if(state === STATE.READY){
@@ -272,7 +291,7 @@ function bindWindowEvents(win, hub){
 }
 
 const api = { PV, KINDS, ROOM_TYPES, MESSAGE_TYPES, REQUEST_KINDS, ANSWERS, CLOSE_CODES, ACTION, CLOSE_ACTIONS, closeAction, STATE, BYE_WHY,
-  START_WAIT_MS, RESTART_SPREAD_MS, RESTART_READY_WAIT_MS, BYE_WAIT_MS, PONG_WAIT_MS,
+  START_WAIT_MS, RESTART_SPREAD_MS, RESTART_READY_WAIT_MS, BYE_WAIT_MS, PONG_WAIT_MS, KEEPALIVE_IDLE_MS,
   REALTIME_URLS, DEV_URL_KEY, DEV_URL_RE, realtimeUrlFor, sessionIdOf, createRtHub, bindWindowEvents };
 if(typeof window !== 'undefined'){
   /* 앱 한 벌 — 연결 공통부 · 토큰 · 버전은 rt-bind.js 가 bind 로 잇는다(ES 모듈이라 이 파일보다 늦게 돈다). */
