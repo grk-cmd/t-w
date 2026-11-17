@@ -59,7 +59,11 @@ function mkWS(){
   const socks = [];
   class FakeWS {
     constructor(url){ this.url = url; this.sent = []; this.closed = false; socks.push(this); }
-    send(s){ if(this.closed) throw new Error('closed'); this.sent.push(JSON.parse(s)); }
+    send(s){
+      if(this.closed) throw new Error('closed');
+      const m = JSON.parse(s); this.sent.push(m);
+      if(m.t === 'ping') queueMicrotask(() => { if(!this.closed) this.msg({ t: 'pong' }); });   // 살아 있는 서버처럼 답한다 — 조용하면 허브가 끊는다(rt-hub 조용함 확인)
+    }
     close(code){ if(this.closed) return; this.closed = true; if(this.onclose) this.onclose({ code: (typeof code === 'number') ? code : 1000 }); }
     kill(code){ this.closed = true; if(this.onclose) this.onclose({ code }); }
     open(){ if(this.onopen) this.onopen(); }
