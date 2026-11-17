@@ -24,7 +24,6 @@ const findMySeat = deps.findMySeat;
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const isPremium = deps.isPremium;   // 읽는 함수
 const licenseAssetBlocked = deps.licenseAssetBlocked;   // 전용 자산을 지금 막아야 하나(account-state.js — 판단 한 곳)
-const saveSlots = deps.saveSlots;
 const savedDesks = deps.savedDesks;   // 읽는 함수
 const savedItems = deps.savedItems;   // 읽는 함수
 const seats = deps.seats;
@@ -114,7 +113,8 @@ function pruneUnownedLicenseAssets(){
   // 3) 생성기가 열려 있으면 그 초안도 — 안 그러면 완료를 누를 때 crDone 이 되살린다
   try{ if(typeof cBase() !== 'undefined' && cBase() && cBase().charDef){ const h = _holdDef(cBase().charDef); n += (h.desk?1:0) + h.items.length; } }catch(_){}
   if(!n) return 0;
-  try{ saveSlots(); }catch(_){}
+  /* 저장하지 않는다 — 접기는 이 PC 의 화면 · 방 전송만이다. 계정의 캐릭터는 여러 PC 가 같이 쓰므로, 접은 모양을 저장하면
+     라이선스 없는 PC 가 공용 캐릭터에서 책상을 지우고 라이선스 있는 PC 가 되돌리기를 되풀이한다. 저장 모양은 withHeldAssets 가 되돌려 만든다. */
   // 방에 있으면 즉시 다시 내보낸다 — 이 한 줄이 친구 화면에서 사라지게 하는 자리다
   try{
     const me = findMySeat();
@@ -144,10 +144,21 @@ function restoreLicenseHeldAssets(){
   try{ seats.forEach(s => { if(s && !s.remote && s.charDef) n += _restoreDef(s.charDef); }); }catch(_){}
   try{ slots().forEach(d => { n += _restoreDef(d); }); }catch(_){}
   try{ if(typeof cBase() !== 'undefined' && cBase() && cBase().charDef) n += _restoreDef(cBase().charDef); }catch(_){}
-  if(!n) return 0;
-  try{ saveSlots(); }catch(_){}
+  if(!n) return 0;   // 저장하지 않는다 — 저장 모양은 접기 전과 같다(withHeldAssets)
   console.warn('[라이선스] 접어 뒀던 전용 자산 ' + n + '개를 되돌렸습니다');
   return n;
+}
+
+/* 저장 모양(slotToObj 결과 o)에 접어 둔 것을 되돌려 싣는다 — 접기는 화면에만, 서버 캐릭터에는 늘 사람이 고른 그대로.
+   책상은 그사이 다른 책상을 골랐으면(deskCatalogId 가 있음) 고른 것이 이긴다. 아이템은 접어 둔 것을 지금 것 위에 합친다. */
+function withHeldAssets(o, def){
+  if(!o || !def) return o;
+  const heldDesk = def[DESK_LICENSE_HOLD], heldItems = def[ITEM_LICENSE_HOLD];
+  if(!heldDesk && !(heldItems && Object.keys(heldItems).length)) return o;
+  const out = Object.assign({}, o);
+  if(heldDesk && !out.deskCatalogId) out.deskCatalogId = heldDesk;
+  if(heldItems && Object.keys(heldItems).length) out.deskItems = Object.assign({}, heldItems, out.deskItems || {});
+  return out;
 }
 
 const SAVED_PARTS_KEY='tw.savedParts';
@@ -540,6 +551,7 @@ return {
   savedParts: ()=>savedParts,   // 읽는 함수
   setSavedParts: (v)=>{ savedParts = v; },   // 쓰는 함수 — app.js 가 비운다
   setPartEntryInstanceXf,
+  withHeldAssets,
   toHidesForSave,
 };
 }

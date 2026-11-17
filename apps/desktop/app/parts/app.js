@@ -2075,7 +2075,6 @@ const premiumMod = TwPremiumAssets.createPremiumAssets({
   isAdmin: ()=>isAdmin,
   isPremium: ()=>isPremium,
   licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),
-  saveSlots: (...a)=>slotSaveMod.saveSlots(...a),
   savedDesks: ()=>commissionMod.savedDesks(),
   savedItems: ()=>commissionMod.savedItems(),
   seats: seats,
@@ -3952,6 +3951,7 @@ slotSaveMod.onLoaded(()=>gachaMod.pruneUnownedGachaParts());
 slotSaveMod.onSeatRelinked((old, cur)=>wardrobeMod.relinkDraftSrc(old, cur));
 slotSaveMod.onSlotsReplaced(()=>settingsMod.renderCharSlots());
 
+  withHeldAssets: (o, d)=>premiumMod.withHeldAssets(o, d),   // 접기는 화면에만 — 저장 모양은 사람이 고른 그대로
 /* ═══ 🧬 옷장 — 슬롯 5칸 · 보관함 · 휴지통 (서버 원본) ═══════════════════════════════════════
    캐릭터는 서버가 원본이다(0.13). 시작할 때 서버 옷장을 받아 slots[] 에 앉히고(closet.js startCloset — 계정 확인 뒤 app-boot),
    고치면 3초 묶음으로 서버에 쓰고, 슬롯 ↔ 보관함 · 휴지통 · 되살리기는 동작 하나에 요청 하나로 한다. 이 PC 에 캐릭터 저장본 · 보관함 사본 ·
