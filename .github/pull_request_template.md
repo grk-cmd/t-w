@@ -19,6 +19,13 @@
 - 앱 릴리스 필요: 예 / 아니오
 - 규칙·Functions 배포 필요: 예 / 아니오 (예면 순서 적기)
 
+## 설계 한 장 — 앱 · API 서버 · realtime 중 둘 이상을 건드리거나 데이터가 사는 곳을 새로 두거나 옮기면 필수
+<!-- 해당 없으면 이 칸을 지운다. 공개 저장소라 서버 내부(경로 · 설정 · 표 이름)는 적지 않는다. 기준은 .claude/agents/tw-confirmer.md «설계 한 장» -->
+- ① 주인: API+DB / realtime 메모리 / 파일 / 이 PC localStorage
+- ② 재시작하면:
+- ③ 서버 2대 · PC 2~3대면:
+- ④ 시간으로 지우기(TTL) · 될 때까지 다시 · 읽을 때 고치기(있으면 왜):
+
 ## 서버(AWS) 이관 — 규칙(`firebase-database-rules.json`)을 바꿨으면 필수
 - 바뀐 경로: 예) `rooms/$room/_meta/tabs`, `users/$id/bugSeen`
 - 무엇이 바뀌었나: 새 칸 · 모양(형식 · 길이) · 누가 읽고 쓰나(권한) · 지우기
