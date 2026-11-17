@@ -9,7 +9,7 @@
    ⚠️ 러너는 검사를 저장소 밖 임시 폴더(스테이징)에서 돌리고 NODE_PATH 로 저장소 node_modules 를 넘긴다.
      스테이징엔 앱 · 검사 · 루트 파일이 한 층에 섞여 있어 린트 대상을 그대로 못 쓴다 — 그래서 저장소 앱 폴더를
      NODE_PATH(…/node_modules 의 위)에서 찾아 그곳을 돌린다.
-   ⚠️ eslint 가 안 깔렸으면(루트 npm install 전) «원본 없음» 으로 물러난다 — 빨강이 아니다. */
+   ⚠️ eslint 가 안 깔렸으면(루트 npm install 전) 로컬은 «원본 없음» 으로 물러나고, CI 에서는 빨강(설치 줄이 빠지면 검사가 조용히 꺼지지 않게). */
 'use strict';
 const fs = require('fs');
 const os = require('os');
@@ -42,7 +42,10 @@ for (const from of [DESKTOP, __dirname, process.cwd()]) {
     break;
   } catch (_) { /* 다음 자리 */ }
 }
-if (!eslintMod) { say("  ? 원본 못 찾음 — Cannot find module 'eslint' (저장소 루트에서 npm install)"); process.exit(2); }
+if (!eslintMod) {
+  if (process.env.CI) { say('  ✗ eslint 를 못 찾음 — checks.yml 의 설치 줄을 확인'); process.exit(1); }
+  say("  ? 원본 못 찾음 — Cannot find module 'eslint' (저장소 루트에서 npm install)"); process.exit(2);
+}
 const NODE_MODULES = path.resolve(path.dirname(ESLINT_BIN), '..', '..');
 
 const runCli = (cwd, args) => spawnSync(process.execPath, [ESLINT_BIN, ...args], {
