@@ -9,6 +9,7 @@
    ・5절: 일부러 깨 보기
    [실행] guestbook.js · guestbook-feed.js · myhome-ui.js · myhome-visit.js · app.js 가 있는 폴더에서. */
 'use strict';
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
 globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));
 const fs = require('fs');
 const vm = require('vm');
@@ -89,7 +90,8 @@ function mkEnv(opt){
   };
   ctx.window = ctx;
   ctx.open = () => { const w = mkChildWin(env); env.wins.push(w); return w; };
-  ctx.TwSafeHtml = globalThis.TwSafeHtml; vm.createContext(ctx);
+  ctx.TwSafeHtml = globalThis.TwSafeHtml;
+  ctx.TwPersonName = globalThis.TwPersonName; vm.createContext(ctx);
   vm.runInContext(SRC.gb, ctx, { filename: 'guestbook.js' });
   ctx.TwGuestbook.createGuestbook({
     feed: env.feed, errorText: (c) => TwErrorCodes.toastText(c), getMyUserId: () => env.me, getDisplayName: () => '나', toast(){},

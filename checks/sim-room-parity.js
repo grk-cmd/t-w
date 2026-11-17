@@ -2,7 +2,7 @@
  * 방에 싣는 칸 ↔ 방 포트 짝 맞추기 — presence.js 가 방에 싣는 칸 · 부르는 provider 메서드가 room-rt.js 와 어긋나지 않는지.
  * 서버는 모르는 칸이 하나라도 있으면 patch 를 통째로 거절하고, room-rt.js 는 MEMBER_FIELDS 밖의 칸을 조용히 거른다 —
  * 칸을 새로 실으면서 MEMBER_FIELDS(와 서버 통신 규약 3장)를 안 늘리면 그 칸이 남에게 안 보인다.
- * 1. _basePayload · 입장(provider.join) · setName 이 싣는 칸 ⊆ MEMBER_FIELDS ∪ {def, chat, chatTab} — userId · lic 는 걷었다(서버 badRequest)
+ * 1. _basePayload · 입장(provider.join) 이 싣는 칸 ⊆ MEMBER_FIELDS ∪ {def, chat, chatTab} — userId · lic · name · level 은 걷었다(서버 badRequest · 이름 · 레벨은 서버가 채운다)
  * 2. presence.js 가 부르는 provider 메서드 ⊆ 방 포트 provider 메서드(진짜 room-rt.js 로 만들어 본다)
  */
 'use strict';
@@ -89,11 +89,8 @@ const jp = jAt >= 0 ? braceBlock(APP, jAt) : null;
 const jKeys = jp ? payloadKeys(jp) : [];
 chk(jKeys.length >= 10 && jKeys.includes('def') && bad(jKeys).length === 0, '입장(provider.join) 칸 ' + jKeys.length + '개가 다 서버 멤버 칸 ∪ {def}' + (bad(jKeys).length ? ' — 밖: ' + bad(jKeys).join(', ') : ''));
 
-const snAt = APP.indexOf('function setName(');
-const sn = snAt >= 0 ? braceBlock(APP, snAt) : '';
-const snObj = (sn.match(/Object\.assign\(_basePayload\(\), (\{[^{}]*\})\)/) || [])[1];
-const snKeys = snObj ? topKeys(snObj).keys : [];
-chk(snKeys.length > 0 && bad(snKeys).length === 0, 'setName 이 더 싣는 칸(' + snKeys.join(', ') + ')도 서버 멤버 칸');
+chk(!FIELDS.has('name') && !FIELDS.has('level') && !bpKeys.includes('name') && !bpKeys.includes('level') && !jKeys.includes('name') && !jKeys.includes('level') && APP.indexOf('function setName(') < 0,
+  '★ 이름 · 레벨은 멤버 칸 · 평소 · 입장 payload 어디에도 없다(서버가 계정에서 채운다 · 실으면 badRequest · pv 4) · setName 길 없음');
 
 const extra = [...APP.matchAll(/provider\.update\(Object\.assign\(_basePayload\(\), (\{[^{}]*\})\)\)/g)].flatMap((m) => topKeys(m[1]).keys);
 chk(extra.length >= 3 && bad(extra).length === 0, '_basePayload 에 덧붙여 보내는 칸(' + [...new Set(extra)].join(', ') + ')도 허용 안');

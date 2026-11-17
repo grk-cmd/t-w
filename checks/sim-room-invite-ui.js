@@ -12,6 +12,7 @@
            빈 껍데기 · html 순서 · 전역 이름
    [실행] room-invite-ui.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기(이름 없음 → «나») — 진짜 파일
 globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
@@ -87,7 +88,7 @@ function mkEnv(opt, mod){
     TwErrorCodes: { notify: (c, e) => env.errs.push(c) },
   };
   ctx.window = ctx;
-  ctx.TwSafeHtml = globalThis.TwSafeHtml; vm.createContext(ctx);
+  ctx.TwSafeHtml = globalThis.TwSafeHtml; ctx.TwPersonName = globalThis.TwPersonName; vm.createContext(ctx);
   vm.runInContext(SRC['net-ready.js'], ctx, { filename: 'net-ready.js' });
   vm.runInContext(mod || MOD, ctx, { filename: 'room-invite-ui.js' });
   env.ctx = ctx; env.els = els;
@@ -213,7 +214,7 @@ await sec('── 2. 친구 고르기 창', () => {
 
 await sec('── 3. 초대 보내기', async () => {
   const e = mkEnv({ friends: { a: { name: '가나', online: true }, b: { name: '나비', online: true, room: 'R2' }, c: { online: true } } }); e.mk(); e.open();
-  chk([0, 1, 2].map(e.nameOf).join() === '(이름 없음),가나,나비', '이름 없는 친구는 «(이름 없음)» · 이름순 맨 앞');
+  chk([0, 1, 2].map(e.nameOf).join() === '나,가나,나비', '★ 이름 없는 친구는 그릴 때 «나» · 이름순 맨 앞(빈 이름으로 정렬)');
   const b0 = e.btnBy('가나');
   chk(b0.textContent === '초대' && b0.className === 'lc-btn', '줄마다 [초대] 버튼');
   b0.onclick();
@@ -226,11 +227,11 @@ await sec('── 3. 초대 보내기', async () => {
   b1.onclick(); await flush();
   chk(e.sent.length === 2 && e.sent[1][0] === 'b' && b1.textContent === '완료', '  한 번 더 누르면 보낸다');
   e.sendFail = true;
-  const b2 = e.btnBy('(이름 없음)'); b2.onclick(); await flush();
+  const b2 = e.btnBy('나'); b2.onclick(); await flush();
   chk(e.errs.pop() === 'E-ROOM-09' && b2.disabled === false && b2.textContent === '초대', '실패하면 오류 번호(E-ROOM-09) · 버튼을 되살린다');
   e.sendFail = false;
   b2.onclick(); await flush();
-  chk(e.toasts.pop() === '친구 님에게 초대를 보냈어요', '  이름 없는 친구는 «친구»');
+  chk(e.toasts.pop() === '나 님에게 초대를 보냈어요', '  ★ 이름 없는 친구는 그릴 때 «나»(«친구» 자리표시 없음)');
 });
 
 await sec('── 3-2. 열려 있는 동안 목록이 바뀌면 다시 그린다(이름 · 사진 도착) · 닫으면 그만', async () => {
@@ -300,6 +301,13 @@ await sec('── 5. 방 초대 받기', async () => {
     o.subs[0].cb({ old: { ts: o.now - 11 * 60 * 1000, fromName: '옛', roomCode: 'OLD' } });
     await flush();
     chk(o.ctx.document.body.children.length === 1 && o.api.busy() && o.cleared.length === 0, '★ ts 가 11분 전이어도 앱은 버리지 않는다(서버가 10분 보관 · PC 시계로 가르지 않는다)');
+  }
+  {
+    /* 이름 없는 보낸 사람 — 서버가 fromName 을 빈 글로 준다 · 그릴 때 «나» */
+    const o = mkEnv({ active: true }); o.mk();
+    o.subs[0].cb({ n: { ts: o.now, fromName: '', roomCode: 'RN' } });
+    await flush();
+    chk(/<b>나<\/b> 님이 함께하자고/.test(o.popup().children[0].innerHTML), '★ 이름 없는 사람의 초대 — 그릴 때 «나»(«친구» 자리표시 없음)');
   }
   cb({ x: { ts: e.now - 9 * 60 * 1000, fromName: '<b>가</b>', roomCode: 'RX' }, y: { ts: e.now - 1000, fromName: '나비', roomCode: 'RY' } });
   const ov = e.popup();

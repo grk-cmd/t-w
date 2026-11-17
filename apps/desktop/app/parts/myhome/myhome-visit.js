@@ -148,7 +148,7 @@ function _mhApplyVisitUI(){
   const avatarBtn=document.getElementById('mhAvatarChangeBtn'); if(avatarBtn) avatarBtn.style.display = visiting?'none':'';
   /* 🏷️ 닉네임 「수정」 링크 — 편집 중이면 관람이 아니어도 계속 숨긴다(입력칸이 그 자리를 쓰고 있다).
      관람으로 넘어갔다면 열려 있던 입력칸을 **취소로** 접는다.
-     ⚠️ 값을 비우고 blur 하면 안 된다 — blur 는 저장 경로라 그 순간 이름이 '나' 로 덮인다.
+     ⚠️ 값을 비우고 blur 하면 안 된다 — blur 는 저장 경로라 그 순간 이름이 지워진다.
         반드시 _mhCancelNameEdit(취소 깃발을 세우고 접는 길)을 쓸 것. */
   if(visiting && mhHooks.has(mhHooks.HOOK.CANCEL_NAME_EDIT)) mhHooks.call(mhHooks.HOOK.CANCEL_NAME_EDIT);
   const nameEditLink=document.getElementById('mhNameEditLink');

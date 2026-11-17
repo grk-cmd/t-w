@@ -95,7 +95,7 @@ async function seedAndEnter(slotArr, idx){
   await P.applySlotObjs(slotArr);   // 서버에서 받은 칸을 앉히는 길(이 PC 저장본에서 읽지 않는다)
   P.setCurSlot(idx);
   sent = null;
-  await P.Presence.start('WORK-TEST', P.slots[idx], '나', () => {}, { provider: rt.makeProvider({ serializeDef: P.serializeDefForNetwork }, null) });
+  await P.Presence.start('WORK-TEST', P.slots[idx], () => {}, { provider: rt.makeProvider({ serializeDef: P.serializeDefForNetwork }, null) });
   return sent;
 }
 

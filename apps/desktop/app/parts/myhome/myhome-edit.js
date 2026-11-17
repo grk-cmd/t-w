@@ -388,10 +388,8 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
      ⚠️ 관람(_mhViewingUserId)·미리보기(_mhPreviewMode)에서는 막는다 — _mhApplyVisitUI 가
         「수정」 링크를 숨기는 기준과 같아야 한다. 더블클릭 진입로가 따로 있어서 링크를 숨기는
         것만으로는 부족하다.
-     ⚠️ 표시값과 편집값이 다르다. 화면은 getDisplayName()('(이름 없음)')이지만 입력칸에는
-        getUserName() 을 넣되 기본값 '나' 는 빈칸으로 준다 — 옛 모달과 같은 규칙이다.
-        여기를 getDisplayName() 으로 채우면 이름을 정한 적 없는 사람이 '(이름 없음)' 을
-        진짜 자기 이름으로 저장하게 된다. */
+     ⚠️ 표시값과 편집값이 다르다. 화면은 getDisplayName()(이름이 없으면 «나»)이지만 입력칸에는
+        getUserName()(이름이 없으면 빈칸)을 넣는다 — getDisplayName() 으로 채우면 «나» 를 진짜 이름으로 저장하게 된다. */
   function _mhBeginNameEdit(){
     const nameEl=document.getElementById('mhMyName'); if(!nameEl) return;
     if(_mhViewingUserId() || window._mhPreviewMode) return;   // 관람·미리보기에선 편집 불가
@@ -399,7 +397,7 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
     const editLink=document.getElementById('mhNameEditLink');
     const inp=document.createElement('input');
     inp.id='mhMyNameInput'; inp.type='text'; inp.maxLength=USER_NAME_MAX();
-    inp.value = getUserName()==='나' ? '' : getUserName();
+    inp.value = getUserName();
     inp.placeholder='닉네임';
     /* 글씨 크기·굵기는 원래 이름표를 실측해 따라간다 — 숫자를 박아 두면 테마나 폰트가 바뀔 때
        입력칸만 혼자 어긋난다. 색은 테마가 nameEl 에 칠하므로(_mhApplyTheme 의 t.name) 건드리지 않는다. */

@@ -189,7 +189,7 @@ function _miNameEditStart(){
   const row = $e('miNameRow'), ed = $e('miNameEditRow'), inp = $e('miNameInput'); if(!row || !ed || !inp) return;
   let n = ''; try{ n = getUserName(); }catch(_){}
   inp.maxLength = USER_NAME_MAX;
-  inp.value = (n === '나') ? '' : n;
+  inp.value = n;
   row.style.display = 'none'; ed.style.display = 'flex';
   try{ inp.focus(); inp.select(); }catch(_){}
 }

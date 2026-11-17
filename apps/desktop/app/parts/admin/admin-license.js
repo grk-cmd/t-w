@@ -142,7 +142,7 @@ function drawRequests(listEl, page){
   page.items.forEach((req) => {
     const row = document.createElement('div');
     row.style.cssText = 'padding:5px 0;border-bottom:1px solid rgba(201,165,123,.15);display:flex;justify-content:space-between;align-items:center;gap:6px;';
-    const who = document.createElement('span'); who.textContent = '🙋 '; const b = document.createElement('b'); b.textContent = req.name || '(이름 없음)'; who.appendChild(b);
+    const who = document.createElement('span'); who.textContent = '🙋 '; const b = document.createElement('b'); b.textContent = TwPersonName.shown(req.name); who.appendChild(b);
     const ok = mkBtn('발급'); ok.style.padding = '3px 10px'; ok.style.fontSize = '11px';
     const no = mkBtn('거절', true); no.style.padding = '3px 10px'; no.style.fontSize = '11px';
     ok.onclick = async () => {

@@ -76,13 +76,13 @@ async function behave(src) {
   try { w = world(src); } catch (e) { err = e; }
   t(!err && w && Object.keys(w.out).join() === 'Presence', '만들 때 던지지 않고 { Presence } 하나를 내놓는다' + (err ? ' — ' + String(err.message || err).slice(0, 80) : ''));
   if (!w) return r;
-  const API = ['restoreBootStatus', 'resetBootStatus', 'start', 'setState', 'setUserStatus', 'setCustomStatus', 'setFocusShow', 'setAwayImg', 'setAwaySz', 'setNoise', 'setLevel', 'setName', 'poke', 'pokeSelf', 'updateDef', 'sendChat', 'stop', 'broadcastRide', 'broadcastNow', 'active', 'roomCode', 'friendsObj', 'myDef', 'serverProvider'];
+  const API = ['restoreBootStatus', 'resetBootStatus', 'start', 'setState', 'setUserStatus', 'setCustomStatus', 'setFocusShow', 'setAwayImg', 'setAwaySz', 'setNoise', 'setLevel', 'poke', 'pokeSelf', 'updateDef', 'sendChat', 'stop', 'broadcastRide', 'broadcastNow', 'active', 'roomCode', 'friendsObj', 'myDef', 'serverProvider'];
   t(API.every((n) => typeof w.P[n] === 'function'), 'Presence 의 함수 ' + API.length + '개');
   t(w.timers.length === 1 && w.timers[0][1] === 60000, '첫 자동 자리비움 틱을 60초 뒤로 예약한다');
   t(w.P.active() === false && w.P.roomCode() === null && w.P.serverProvider() === null, '처음엔 방 밖(active false · roomCode null)');
 
   /* 2. 부팅 상태 되살리기 — 상태는 join payload 의 userStatus 로 본다 */
-  const bootOf = async (store) => { const x = world(src, { store }); const made = x.log.reads.length; x.P.restoreBootStatus(); await x.P.start('R1', {}, '나'); return { x, made, st: x.log.joins[0].payload.userStatus, tick: x.timers[x.timers.length - 1][1] }; };   // 상태는 만들 때가 아니라 확인 뒤 restoreBootStatus 가 계정 칸에서 읽는다
+  const bootOf = async (store) => { const x = world(src, { store }); const made = x.log.reads.length; x.P.restoreBootStatus(); await x.P.start('R1', {}); return { x, made, st: x.log.joins[0].payload.userStatus, tick: x.timers[x.timers.length - 1][1] }; };   // 상태는 만들 때가 아니라 확인 뒤 restoreBootStatus 가 계정 칸에서 읽는다
   let b = await bootOf({ 'tw.userStatus': 'away' });
   t(b.st === 'away' && b.x.timers[b.x.timers.length - 1][1] === 5000 && b.made === 0, '저장된 away · 종류 기록 없음 → 자동으로 본다(복귀 감시 5초 틱) · 만들 때 계정 칸 읽기 0번');
   b = await bootOf({ 'tw.userStatus': 'away', 'tw.awayKind': JSON.stringify({ k: 'manual' }) });
@@ -93,15 +93,15 @@ async function behave(src) {
   t(b.st === null, '모르는 상태 값은 버린다(null)');
   b = await bootOf({});
   t(b.st === null, '저장값이 없으면 null');
-  { const x = world(src, { store: { 'tw.userStatus': 'meal' } }); x.P.restoreBootStatus(); x.P.resetBootStatus(); await x.P.start('R1', {}, '나'); t(x.log.joins[0].payload.userStatus === null, '세션이 끝나면(resetBootStatus) 되살린 상태를 비운다 — 다음 계정 입장에 안 실린다'); }
+  { const x = world(src, { store: { 'tw.userStatus': 'meal' } }); x.P.restoreBootStatus(); x.P.resetBootStatus(); await x.P.start('R1', {}); t(x.log.joins[0].payload.userStatus === null, '세션이 끝나면(resetBootStatus) 되살린 상태를 비운다 — 다음 계정 입장에 안 실린다'); }
 
   /* 3. 방 입장 · payload */
   w = world(src, { focusShow: { emo: '🕒', text: '오늘 1:00' } });
-  const ret = await w.P.start('ROOM1', { d: 1 }, '', (fr) => w.log.changes.push(fr), { provider: w.provider });   // 방 서버 길 — 들어온 서버 시각(serverNow)은 입장 결과가 준다
+  const ret = await w.P.start('ROOM1', { d: 1 }, (fr) => w.log.changes.push(fr), { provider: w.provider });   // 방 서버 길 — 들어온 서버 시각(serverNow)은 입장 결과가 준다
   const j = w.log.joins[0];
   t(ret && ret.ok === true && w.P.active() && w.P.roomCode() === 'ROOM1', '들어가면 { ok:true } · active · roomCode 가 선다');
-  t(j && j.payload.name === '나' && j.payload.level === 7 && !('userId' in j.payload) && j.payload.awaySz === 80 && j.payload.noise === '' && !('lic' in j.payload) && j.payload.awayImg === '',
-    'join payload — 이름 없으면 «나» · 레벨 · 그림 크기 80 · 소음 빈 값 · awayImg · userId · lic 는 싣지 않는다(서버가 토큰 · 라이선스로 안다)');
+  t(j && !('name' in j.payload) && !('level' in j.payload) && !('userId' in j.payload) && j.payload.awaySz === 80 && j.payload.noise === '' && !('lic' in j.payload) && j.payload.awayImg === '',
+    '★ join payload — 이름 · 레벨 · userId · lic 는 싣지 않는다(서버가 계정 · 토큰 · 라이선스로 채운다 · pv 4) · 그림 크기 80 · 소음 빈 값 · awayImg');
   t(j && j.payload.userStatus === 'custom' && j.payload.customStatus.text === '오늘 1:00', '상태가 없으면 오늘 기록 전시를 custom 칸으로 싣는다');
   t(w.P.friendsObj().f1 && w.log.changes.length === 1, 'friends 콜백 → friendsObj · onChange');
   t(w.P.myDef().d === 1, 'myDef — 방에 보낸 def');
@@ -119,10 +119,9 @@ async function behave(src) {
   w.P.setAwayImg('https://ok/a.webp');
   t(n2 === w.log.updates.length - 1 && last(w).awayImg === 'https://ok/a.webp', '허용 안 된 그림 주소는 빈 값(이미 빈 값이라 안 보냄) · 허용 주소는 보낸다');
   const n3 = w.log.updates.length; w.P.setLevel(7); w.P.setLevel(7);
-  t(w.log.updates.length === n3 + 1, '레벨은 바뀔 때만(같은 값 두 번 → 한 번)');
-  w.P.setName(''); const n4 = w.log.updates.length; w.P.setName('');
-  w.P.setName('민수');
-  t(n4 === w.log.updates.length - 1 && last(w).name === '민수', '이름 — 빈 값은 «나»(처음과 같아 안 보냄) · 바뀐 이름만 name 칸에 얹는다');
+  t(w.log.updates.length === n3 + 1, '레벨 경계 · 회차 칸은 바뀔 때만(같은 값 두 번 → 한 번)');
+  t(w.log.updates.every((u) => !('name' in u) && !('level' in u)), '★ 방에 보내는 칸에 이름 · 레벨이 없다(서버가 정한다 · pv 4)');
+  t(!('setName' in w.P), '  이름 바꾸기 길(setName)이 없다 — 이름이 바뀌면 서버가 방에 patch 로 알린다');
   const n5 = w.log.updates.length; w.P.setState('idle');
   w.P.setState('focus');
   t(w.log.updates.length === n5 + 1 && last(w).state === 'focus', '상태(state)도 같은 값은 안 보낸다');
@@ -161,22 +160,22 @@ async function behave(src) {
 
   /* provider 없음 · 가짜 방 막힘 */
   const w2 = world(src, { mockOk: false });
-  const r2 = await w2.P.start('R2', {}, '나');
+  const r2 = await w2.P.start('R2', {});
   t(r2 && r2.ok === false && r2.code === 'noProvider' && !w2.P.active() && w2.log.joins.length === 0, 'provider 없음 · 가짜 방 막힘 → 들어가지 않는다({ ok:false, code:noProvider })');
   const w3 = world(src, { joinRes: Promise.resolve({ ok: false, code: 'full' }) });
-  const r3 = await w3.P.start('R3', {}, '나', null, { provider: w3.provider });
+  const r3 = await w3.P.start('R3', {}, null, { provider: w3.provider });
   t(r3 && r3.ok === false && r3.code === 'full' && !w3.P.active(), '방 서버 입장 실패 → { ok:false, code } · 방 밖');
 
   /* 🛰 «들어오기 전 알림» 기준은 입장 결과(welcome)의 서버 시각이다 — PC 시계(roomSyncMod._srvNow 가짜 5000)가 아니다 */
   { const wj = world(src, { joinRes: Promise.resolve({ ok: true, others: 0, meta: null, serverNow: 100000 }) });
-    await wj.P.start('RJ', {}, '나', null, { provider: wj.provider });
+    await wj.P.start('RJ', {}, null, { provider: wj.provider });
     wj.poke({ type: 'pet', ts: 30000 });
     t(wj.log.pets === 0, '★ 들어온 서버 시각(100000)보다 60초 넘게 앞서 찍힌 알림(30000)은 버린다 — PC 시계(5000)로 견주지 않는다');
     wj.poke({ type: 'pet', ts: 99000 });
     t(wj.log.pets === 1, '  들어온 뒤에 찍힌 알림(99000)은 재생한다');
     const wn = world(src, { joinRes: Promise.resolve({ ok: true, others: 0, meta: null }) });
     const w0 = console.warn; let warns = 0; console.warn = () => { warns++; };
-    await wn.P.start('RN', {}, '나', null, { provider: wn.provider });
+    await wn.P.start('RN', {}, null, { provider: wn.provider });
     wn.poke({ type: 'pet', ts: 99000 }); console.warn = w0;
     t(wn.log.pets === 0 && warns >= 2, '★ 입장 결과에 서버 시각이 없으면 ts 있는 알림을 버리고 console.warn 한다 — PC 시계로 대신하지 않는다');
     wn.poke({ type: 'pet' });
@@ -184,7 +183,7 @@ async function behave(src) {
   }
 
   /* 5. 자동 자리비움 */
-  w = world(src); await w.P.start('R', {}, '나');
+  w = world(src); await w.P.start('R', {});
   w.P.setUserStatus('busy');
   w.env.idleSec = 19 * 60; await w.tick();
   t(!w.log.winStatus.includes('away'), '19분 무반응은 그대로');
@@ -237,6 +236,8 @@ function wire(app, html) {
   say('── 7. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['140자 자르기를 141로', (m) => m.replace('const CHAT_TEXT_MAX = 140;', 'const CHAT_TEXT_MAX = 141;'), null, null],
+    ['입장에 이름을 다시 실음', (m) => m.replace('provider.join(room, {def:myDef,', "provider.join(room, {def:myDef,name:'나',"), null, null],
+    ['상태 칸에 레벨을 다시 실음', (m) => m.replace('return {state:myState, userStatus:_st.userStatus, customStatus:_st.customStatus, exp:', 'return {state:myState, userStatus:_st.userStatus, customStatus:_st.customStatus, level:1, exp:'), null, null],
     ['같은 소음도 다시 보냄', (m) => m.replace('if(v === myNoise) return;', ''), null, null],
     ['들어온 시각을 PC 시계로 잡음', (m) => m.replace("if(typeof r.serverNow === 'number') _joinedAt = r.serverNow;", "if(true) _joinedAt = roomSyncMod._srvNow();"), null, null],
     ['poke 중복 거르기 없앰', (m) => m.replace('if(_pts <= _myPokeSeenTs) return;', ''), null, null],

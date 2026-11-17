@@ -36,7 +36,7 @@ const FLY_COLOR_MAX = 16;    // 날리기 색 글
 const FLY_SIZE_MAX = 2;      // 날리기 크기 글('m' · 's')
 const AWAY_SZ_DEFAULT = 80;  // 자리비움 그림 화면 크기 처음 값(awayPicMod 의 기본과 같은 값)
 const Presence=(()=>{
-  let provider=null, room=null, friends={}, myDef=null, myName='나', myState='idle', myUserStatus=null, myLevel=1, onChange=null;
+  let provider=null, room=null, friends={}, myDef=null, myState='idle', myUserStatus=null, onChange=null;
   /* 🛰 내 노드 poke 의 중복·유통기한 판정용. friends 쪽 `_lastPokeTs` 와 같은 역할이다.
      _joinedAt 은 '이 방에 들어온 시각' — 들어오기 전에 찍힌 알림(내가 없던 사이의 마지막 값)을 거른다. */
   let _myPokeSeenTs = 0, _joinedAt = 0;
@@ -174,9 +174,9 @@ const Presence=(()=>{
 
   /* opts.provider — 방 포트 provider(room-entry makeRoomProvider · room-rt.js). 입장 결과를 기다려 { ok, code, others, meta } 를 돌려준다.
      없으면 가짜 방(개발 표식 tw.mockRoom=1)일 때만 — 가짜 캐릭터가 실제 방으로 새지 않게. 그 밖은 { ok:false, code:'noProvider' }. */
-  async function start(roomCode, def, name, changeCb, opts){
+  async function start(roomCode, def, changeCb, opts){
     if(provider) await stop();   // 이미 연결돼있는데 다시 시작하면(연결끊기 없이 재접속 등) 이전 접속 삭제가 끝난 뒤에 새로 join — 안 그러면 옛 항목이 아직 안 지워진 채로 남아 자기 자신이 중복으로 보일 수 있음
-    room=roomCode; myDef=def; myName=name||'나'; myLevel=focusLevelMod().getFocusLevel(); _lvKey=''; onChange=changeCb||onChange; friends={};
+    room=roomCode; myDef=def; _lvKey=''; onChange=changeCb||onChange; friends={};
     _myPokeSeenTs = 0; _joinedAt = 0;   // 🛰 새 방 = 새 우편함. 들어온 서버 시각은 welcome 이 알려 준다(아래 join 결과 serverNow) — 그 전 알림은 안 읽는다
     // ✨ 앱 재시작 후 첫 접속 — localStorage에서 복원된 커스텀 상태 문구를 join 페이로드에 실어보냄
     //   (setCustomStatus를 거치지 않고 바로 join하는 경로라 여기서 한 번 동기화해줘야 친구 화면에 문구가 보임)
@@ -197,7 +197,7 @@ const Presence=(()=>{
     try{ myFocusShow = focusShareMod()._focusShowConf(); focusShareMod()._focusShowMarkSent(myFocusShow); }catch(_){ myFocusShow = null; }   // 📊 입장 때 한 번 — 입장 페이로드에 싣고 5분 시계를 여기서 시작
     try{ myNoise = (window.TW_NOISE && TW_NOISE.kind) ? TW_NOISE.kind() : ''; }catch(_){ myNoise = ''; }   // 🌙 입장 때 한 번
     const _st0 = _statusOut();
-    const _joinRes = provider.join(room, {def:myDef,name:myName,awaySz:myAwaySz,state:myState,userStatus:_st0.userStatus,customStatus:_st0.customStatus,level:myLevel, ...focusLevelMod().myStarOut(),mobile:focusLevelMod()._mobileRoomLabel(), noise:myNoise, awayImg:myAwayImg}, fr=>{ friends=fr; if(onChange)onChange(friends); },
+    const _joinRes = provider.join(room, {def:myDef,awaySz:myAwaySz,state:myState,userStatus:_st0.userStatus,customStatus:_st0.customStatus, ...focusLevelMod().myStarOut(),mobile:focusLevelMod()._mobileRoomLabel(), noise:myNoise, awayImg:myAwayImg}, fr=>{ friends=fr; if(onChange)onChange(friends); },
       // 다른 사람이 내 캐릭터를 쓰다듬거나 흔들었을 때 — 내 화면의 'me' 좌석에 그 반응을 그대로 재생
       p=>{ const me=seats.find(s=>s.isMe); if(!me||!p) return;
         /* 🛰 같은 알림을 두 번 재생하지 않고, 지나간 알림은 아예 보지 않는다 — poke 자리는 마지막 값을 들고 있어
@@ -327,7 +327,7 @@ const Presence=(()=>{
     myFocusShow = v;
     if(provider && provider.update) provider.update(_basePayload());
   }
-  function _basePayload(){ const _st=_statusOut(); return {state:myState, userStatus:_st.userStatus, customStatus:_st.customStatus, level:myLevel, exp:_myExpCells(), ...focusLevelMod().myStarOut(), awaySz:myAwaySz, awayImg:myAwayImg, ridingOn:_myRidingOn(), seatedOn:_mySeatedOn(), bench:_myBench(), mobile:focusLevelMod()._mobileRoomLabel(), danceStyle:_myDanceStyle(), tab:chatUiMod._chatTabOut(), flyCool:_myFlyCool(), noise:myNoise}; }
+  function _basePayload(){ const _st=_statusOut(); return {state:myState, userStatus:_st.userStatus, customStatus:_st.customStatus, exp:_myExpCells(), ...focusLevelMod().myStarOut(), awaySz:myAwaySz, awayImg:myAwayImg, ridingOn:_myRidingOn(), seatedOn:_mySeatedOn(), bench:_myBench(), mobile:focusLevelMod()._mobileRoomLabel(), danceStyle:_myDanceStyle(), tab:chatUiMod._chatTabOut(), flyCool:_myFlyCool(), noise:myNoise}; }
   /* 올라타기/하차 직후 즉시 반영 — 상태 틱을 기다리면 상대 화면에 몇 초 늦게 나타난다. */
   function broadcastRide(){ try{ if(provider && provider.update) provider.update(_basePayload()); }catch(_){} }
   function setState(s){ if(s===myState)return; myState=s; if(provider&&provider.update)provider.update(_basePayload()); }
@@ -343,20 +343,10 @@ const Presence=(()=>{
     _saveAwayKind(s === 'away' ? 'manual' : null);
     if(provider&&provider.update)provider.update(_basePayload());
   }
-  /* 🌟 회차에서는 해금 레벨(n)이 999 에 머문다 — 이번 바퀴 레벨·회차·색도 같이 보고 바뀌었을 때만 보낸다.
-     ★ 매 프레임 불린다(좌석 루프) — 값 비교만 하고 쓰기는 바뀔 때 한 번. */
+  /* 🌟 회차 칸(cyc · clv · starC)이 바뀌었을 때만 보낸다 — 레벨 · 이름은 서버가 계정에서 채워 방에 알린다(pv 4 — 싣지 않는다).
+     ★ 매 프레임 불린다(좌석 루프) — 값 비교만 하고 쓰기는 바뀔 때 한 번. 해금 레벨(n)도 키에 넣어 레벨 경계에서 회차 칸을 다시 본다. */
   let _lvKey = '';
-  function setLevel(n){ const so=focusLevelMod().myStarOut(), k=n+'|'+so.cyc+'|'+so.clv+'|'+so.starC; if(k===_lvKey)return; _lvKey=k; myLevel=n; if(provider&&provider.update)provider.update(_basePayload()); }
-  /* 🏷️ 닉네임 변경을 방에 즉시 반영 — myName 은 start() 에서 한 번만 잡히므로 '남에게 보이는 내 이름' 은 여기서 보낸다.
-     (내 화면의 내 이름표는 매 프레임 getDisplayName() 을 직접 읽는다.) */
-  function setName(n){
-    const v = n || '나';
-    if(v === myName) return;
-    myName = v;
-    // ⚠️ _basePayload 에는 name 이 없다(입장 뒤로는 안 바뀌는 값이라 매 틱 실어보내지 않는다).
-    //   여기서만 얹어 보낸다 — provider.update 는 델타 병합이라 이 한 항목만 나간다.
-    if(provider && provider.update) provider.update(Object.assign(_basePayload(), { name: myName }));
-  }
+  function setLevel(n){ const so=focusLevelMod().myStarOut(), k=n+'|'+so.cyc+'|'+so.clv+'|'+so.starC; if(k===_lvKey)return; _lvKey=k; if(provider&&provider.update)provider.update(_basePayload()); }
   // ✨ 커스텀 상태 문구 등록/변경 — 지금 custom 상태를 쓰고 있으면 친구 화면도 즉시 갱신됨
   function setCustomStatus(conf){
     myCustomStatus = (conf && conf.text) ? {emo: conf.emo||'', text: conf.text} : null;
@@ -400,7 +390,7 @@ const Presence=(()=>{
     provider=null; room=null; friends={}; if(onChange)onChange({});
     return p;   // 호출부에서 await하면 서버에 삭제가 반영된 뒤에 재접속하도록 할 수 있음
   }
-  return { start, restoreBootStatus, resetBootStatus, setState, setUserStatus, setCustomStatus, setFocusShow, setAwayImg, setAwaySz, setNoise, setLevel, setName, poke, pokeSelf, updateDef, sendChat, stop, broadcastRide,
+  return { start, restoreBootStatus, resetBootStatus, setState, setUserStatus, setCustomStatus, setFocusShow, setAwayImg, setAwaySz, setNoise, setLevel, poke, pokeSelf, updateDef, sendChat, stop, broadcastRide,
            /* 🪑 상태 변화를 지금 당장 방에 실어 보낸다(같은 _basePayload). 쉬는 시간처럼
               "다음 상태 틱까지 기다리면 늦는" 값이 생겼을 때 부른다. */
            broadcastNow: broadcastRide,

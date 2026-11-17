@@ -263,7 +263,7 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
     if(seat.remote){
       const st = seat.friendStar || null, lv = st ? st.lv : (seat.friendLevel||1);
       expBarMod().updateSeatExpBar(seat, lv, (seat.friendExp==null ? null : seat.friendExp), st);
-      overheadMod.setSeatNamePlate(seat, lv, seat.friendName||'(이름 없음)', st, !!seat.friendUserId && _djNow === seat.friendUserId);
+      overheadMod.setSeatNamePlate(seat, lv, TwPersonName.shown(seat.friendName), st, !!seat.friendUserId && _djNow === seat.friendUserId);
     }
     else if(seat.isMe){
       const st = focusLevelMod().myFocusShow(), lv = !focusProgressMod().isReady() ? null : (st ? st.lv : focusLevelMod().getFocusLevel());   // 서버 답 전 · 실패면 레벨 · 바를 그리지 않는다

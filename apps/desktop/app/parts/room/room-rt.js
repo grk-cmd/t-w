@@ -1,4 +1,4 @@
-/* room-rt.js — 🛰 방 포트(realtime 연결 하나 위의 방 provider · 서버 통신 규약 pv 2) (검사 sim-room-rt.js)
+/* room-rt.js — 🛰 방 포트(realtime 연결 하나 위의 방 provider · 서버 통신 규약 pv 4) (검사 sim-room-rt.js)
    [책임] 방 하나에 들어가 있는 동안의 통신 — join(resume) · patch · def · chat(말풍선) · poke · meta · music · leave 와
      방 밖의 random · peek. 받은 메시지는 친구 객체(presence.js 가 받던 모양)로 바꿔 changeCb 에 넘긴다.
      연결 · 토큰 · 다시 붙기는 rt-hub.js 가 한다 — 여기는 그 위에서 «방 안이면 다시 붙을 때 resume», «오래 못 돌아오면 포기» 만 본다.
@@ -6,7 +6,7 @@
    [앱과 서버의 모양 차이 — 이 파일 한 곳에서만 바꾼다]
      · 대화 탭: 앱 안은 's1' · 's2'(chat-tabs.js SLOTS) · 서버는 'S1' · 'S2'(멤버 칸 tab · 말풍선 tab · meta.tabs 키). tabToWire · tabFromWire.
      · 사람: 서버가 멤버마다 붙여 주는 userCode 를 친구 객체 userId 칸에도 둔다(올라타기 · 벤치 · 신고 숨김이 그 칸으로 사람을 찾는다).
-     · 걷은 칸: me.userId · lic(실으면 서버가 badRequest) — 신원은 토큰, 프리미엄은 서버가 판정.
+     · 걷은 칸: me.userId · lic · name · level(실으면 서버가 badRequest) — 신원은 토큰, 프리미엄은 서버가 판정, 이름 · 레벨은 서버가 계정에서 채운다.
    [모양] classic script(window.TwRoomRt) — rt-hub.js 다음 · app.js 보다 먼저 싣는다. 앱 한 벌은 TwRoomRt.store(TwRtHub.store 위).
      provider 모양은 presence.js 가 부르는 join · update · poke · pokeSelf · leave + 방장 setMeta · 같이 듣기 onMusic · sendMusic · serverNow. */
 (function(){
@@ -28,7 +28,8 @@ const TIMING_DEFAULTS = Object.freeze({ joinWaitMs: 10 * 1000, clientGiveUpMs: 9
 const RECONNECT_NOTICE_MS = 15 * 1000;
 
 // 서버가 받는 멤버 칸(서버 규약 3장). 모르는 칸이 하나라도 있으면 patch 통째로 거절되므로 여기서 거른다.
-const MEMBER_FIELDS = Object.freeze(['name', 'state', 'userStatus', 'customStatus', 'level', 'exp', 'cyc', 'clv', 'starC',
+// name · level 은 서버가 계정에서 채운다(pv 4) — 실으면 badRequest 라 여기 넣지 않는다. 받는 멤버 · patch 의 name 은 문자열 | null(이름 없음).
+const MEMBER_FIELDS = Object.freeze(['state', 'userStatus', 'customStatus', 'exp', 'cyc', 'clv', 'starC',
   'awaySz', 'awayImg', 'ridingOn', 'seatedOn', 'bench', 'mobile', 'danceStyle', 'flyCool', 'noise', 'tab']);
 const CHAT_FIELDS = Object.freeze(['text', 'fly', 'flyColor', 'flySize']);
 const CHANNELS = Object.freeze(['workingroom', 'togetherroom']);

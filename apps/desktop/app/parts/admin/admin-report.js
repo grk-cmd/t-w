@@ -81,14 +81,14 @@ async function _openReportAdmin(){
     else th.textContent = '그림 없음';
     const mid = document.createElement('div'); mid.style.cssText = 'flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;';
     const nm = document.createElement('div');
-    const nb = document.createElement('b'); nb.textContent = r.name || '(이름 없음)'; nm.appendChild(nb);
+    const nb = document.createElement('b'); nb.textContent = TwPersonName.shown(r.name); nm.appendChild(nb);
     const cd = document.createElement('span'); cd.style.cssText = 'font-family:"Courier New",monospace;font-size:10.5px;margin-left:5px;'; cd.textContent = r.friendCode || r.target;
     nm.appendChild(cd); mid.appendChild(nm);
     const cnt = document.createElement('span'); cnt.style.cssText = 'color:#B22222;font-weight:bold;font-size:10.5px;'; cnt.textContent = '🚩 ' + r.count + '명';
     mid.appendChild(cnt);
     r.reporters.forEach(rc=>{
       const ln = document.createElement('div'); ln.style.cssText = 'font-size:10.5px;word-break:break-all;';
-      ln.textContent = '· ' + (rc.name || '(이름 없음)') + ' #' + _code4(_codeOf(rc)) + ' — ' + _reportReasonText(rc);
+      ln.textContent = '· ' + TwPersonName.shown(rc.name) + ' #' + _code4(_codeOf(rc)) + ' — ' + _reportReasonText(rc);
       mid.appendChild(ln);
     });
     const act = document.createElement('div'); act.style.cssText = 'display:flex;flex-direction:column;gap:4px;flex:none;';

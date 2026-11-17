@@ -1,5 +1,5 @@
 /* sim-room-rt.js — 🛰 방 포트(room/room-rt.js) 검사 — 진짜 연결 공통부(realtime-link.js) · 진짜 rt-hub.js · 가짜 웹소켓 · 가짜 시계로 그대로 돌린다
-   ・1절: 입장 — join.me 에 userId · lic 없음 · 탭 s1 → S1 · create 그대로 · welcome → 친구 객체(userId = userCode · 탭 · 말풍선 자리) · meta 탭 키
+   ・1절: 입장 — join.me 에 userId · lic · name · level 없음 · 받은 patch 의 name:null · 탭 s1 → S1 · create 그대로 · welcome → 친구 객체(userId = userCode · 탭 · 말풍선 자리) · meta 탭 키
    ・2절: 연결 전 입장 — 붙으면 그때 join · 연결이 꺼져 있으면 바로 'off' · 안 붙으면 시간 초과
    ・3절: 보내기 — 바뀐 칸만 · 집중 상태 1초에 한 번 · def 따로 · 탭 말풍선 tab:'S1' · 받은 patch 의 탭은 앱 id
    ・4절: 찌르기 — 방 전원 찌르기 all · 나 찌르기 · 끊긴 동안 들고 있다가 다시 붙으면 보냄(15초 넘은 것은 버림)
@@ -131,8 +131,8 @@ async function judge(S){
   try{
     const J = await joined(S, { create: { channel: 'togetherroom', open: true, title: '방' } });
     const jm = J.ws.all('join')[0];
-    chk(jm && jm.room === 'PLAY-AB12' && jm.me && !('userId' in jm.me) && !('lic' in jm.me) && jm.me.tab === 'S1' && jm.me.name === '나' && jm.me.def && jm.me.def.skin === 1,
-      'join.me — userId · lic 없음 · 탭 s1 → S1 · def 실음');
+    chk(jm && jm.room === 'PLAY-AB12' && jm.me && !('userId' in jm.me) && !('lic' in jm.me) && jm.me.tab === 'S1' && !('name' in jm.me) && !('level' in jm.me) && jm.me.def && jm.me.def.skin === 1,
+      '★ join.me — userId · lic · name · level 없음(서버가 채운다 · pv 4) · 탭 s1 → S1 · def 실음');
     chk(jm && jm.create && jm.create.channel === 'togetherroom' && jm.create.title === '방', '  ↳ create 그대로');
     chk(J.res && J.res.ok === true && J.res.memberId === 'm1' && J.res.others === 1 && J.res.meta && J.res.meta.tabs.s1 && J.res.meta.tabs.s1.name === '공부' && !J.res.meta.tabs.S1,
       'welcome → { ok, memberId, others, meta } · meta.tabs 키는 앱 id(s1)');
@@ -194,6 +194,12 @@ async function judge(S){
     ws.msg({ t: 'patch', memberId: 'm2', tab: 'S1', state: 'focus' });
     await tick();
     chk(J.friends.m2.tab === 's1' && J.friends.m2.state === 'focus', '받은 patch 의 탭은 앱 id');
+    p.update({ name: '새이름', level: 9, state: 'focus' });
+    await e.clock.advance(1000);
+    chk(ws.all('patch').every((x) => !('name' in x) && !('level' in x)), '★ 보내는 patch 에 name · level 이 없다(앱이 실어도 거른다 · 서버 badRequest)');
+    ws.msg({ t: 'patch', memberId: 'm2', name: null, level: 12 });
+    await tick();
+    chk(J.friends.m2.name === null && J.friends.m2.level === 12, '★ 서버가 보낸 patch{ name:null, level } — 이름 없음(null)을 그대로 · 레벨도 서버 값');
   }catch(err){ chk(false, '3절 던짐 — ' + err.message); }
 
   say('── 4. 찌르기');
@@ -389,7 +395,9 @@ say('── 8. 일부러 깨 보기');
 const BREAKS = [
   ['RT', "    out[k] = (k === 'tab') ? tabToWire(o[k]) : o[k];", "    out[k] = o[k];", '탭을 앱 id 그대로 보냄(서버 badRequest)'],
   ['RT', "  if(typeof v.userCode === 'string') v.userId = v.userCode;", "", '친구 객체에 userId 없음(올라타기 · 벤치가 사람을 못 찾음)'],
-  ['RT', "const MEMBER_FIELDS = Object.freeze(['name',", "const MEMBER_FIELDS = Object.freeze(['lic', 'name',", 'lic 를 실음(서버 badRequest)'],
+  ['RT', "const MEMBER_FIELDS = Object.freeze(['state',", "const MEMBER_FIELDS = Object.freeze(['lic', 'state',", 'lic 를 실음(서버 badRequest)'],
+  ['RT', "const MEMBER_FIELDS = Object.freeze(['state',", "const MEMBER_FIELDS = Object.freeze(['name', 'state',", '이름을 다시 실음(pv 4 — 서버 badRequest)'],
+  ['RT', "const MEMBER_FIELDS = Object.freeze(['state',", "const MEMBER_FIELDS = Object.freeze(['level', 'state',", '레벨을 다시 실음(pv 4 — 서버 badRequest)'],
   ['RT', "        if(P.joined) sendJoin(P, !P.resume);   // 다시 붙음 — resume 먼저", "        if(P.joined) sendJoin(P, true);", '다시 붙을 때 resume 없이(남에게 나갔다 들어온 것처럼 보임)'],
   ['RT', "      if(m.code === 'resumeFailed'){ sendJoin(P, true); return; }", "", 'resumeFailed 뒤 다시 안 들어감'],
   ['RT', "        lost(P, 'unreachable');", "", '오래 끊겨도 포기 안 함'],

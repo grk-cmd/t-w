@@ -13,6 +13,7 @@
    ・7절: 일부러 깨 보기 — 고친 줄을 되돌리면 빨강
    [실행] chat-ui.js · chat-tabs.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기(이름 없음 → «나») — 진짜 파일
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);

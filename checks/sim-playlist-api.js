@@ -9,6 +9,7 @@
    ・5절: 일부러 깨 보기
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
 const say = (s) => { if(!quiet) console.log(s); };
@@ -102,7 +103,7 @@ async function judge(S){
     const n = mkApi(LIB, { 'GET /v2/playlists/random': null });
     chk((await n.m.fetchRandom(null)) === null, '★ 들을 것 없음(data:null) — null(실패 아님)');
     const noName = mkApi(LIB, { 'GET /v2/playlists/random': Object.assign({}, pickData, { displayName: '' }) });
-    chk((await noName.m.fetchRandom(null)).name === '(이름 없음)', '  이름이 비면 «(이름 없음)»');
+    chk((await noName.m.fetchRandom(null)).name === '', '  이름이 비면 \'\' 그대로(자리표시 없음 — 화면이 그릴 때 «나»)');
     let thrown = null;
     try{ await mkApi(LIB, { 'GET /v2/playlists/random': apiErr(503, 'PLAYLIST_NOT_READY') }).m.fetchRandom(null); }catch(e){ thrown = e; }
     chk(thrown && thrown.status === 503, '★ 실패 — 던진다(null 과 다르다)');
@@ -275,7 +276,7 @@ async function judge(S){
     ['API', "    ...(lockable ? { locked: !!(s && s.locked) } : {}),", "    locked: !!(s && s.locked),", '잠금을 모르는 서버에도 locked 를 보냄'],
     ['API', "    if(s.locked === true) one.locked = true;", "", '받은 잠금을 버림'],
     ['API', "Math.min(cand.length - 1, Math.floor(random() * cand.length))", "Math.floor(random() * cand.length) + 1", '고르는 번호가 범위 밖'],
-    ['API', "  return { uid: d.userCode, name: str(d.displayName) || '(이름 없음)'", "  return { uid: d.userCode, name: str(d.displayName)", '이름이 비면 빈 칸'],
+    ['API', "  return { uid: d.userCode, name: str(d.displayName),", "  return { uid: d.userCode, name: str(d.displayName) || '(이름 없음)',", '이름이 비면 자리표시를 다시 만듦'],
     ['API', "    if(!uid){ const e = new Error('내 코드 없음'); e.code = 'NO_USER'; throw e; }\n    return readMine(uid);", "    return readMine(uid);", '내 코드 없이도 읽음'],
     ['API', "    const path = PATHS.random + (excludeUid ? '?exclude=' + encodeURIComponent(excludeUid) : '');", "    const path = PATHS.random;", '방금 본 사람을 제외하지 않음'],
     ['API', "  of: (userCode) => '/v2/playlists/' + encodeURIComponent(userCode),", "  of: (userCode) => '/v2/playlists/' + userCode,", '남의 코드를 인코딩 없이 경로에'],

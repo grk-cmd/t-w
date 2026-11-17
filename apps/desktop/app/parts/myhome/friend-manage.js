@@ -56,7 +56,7 @@ async function showFriendRequestPopup(onlyIds){
     // 처리 도중 이미 사라진 요청은 건너뜀 (다른 클라이언트에서 처리됐거나 상대가 취소)
     if(!_myFriendRequests()[fromId]) continue;
     const req = _myFriendRequests()[fromId];
-    const nm = req.name || '(이름 없음)';
+    const nm = TwPersonName.shown(req.name);
     const answer = await new Promise(resolve=>{
       const ov = document.createElement('div');
       ov.className = 'friend-req-popup-ov app-popup-ov';
@@ -352,7 +352,7 @@ function renderFriendRequests(){
 
     const main = document.createElement('div'); main.className = 'mh-req-main';
     const nm = document.createElement('div'); nm.className = 'mh-req-nm';
-    nm.textContent = req.name || '(이름 없음)'; nm.title = req.name || '';
+    nm.textContent = TwPersonName.shown(req.name); nm.title = nm.textContent;
     const sub = document.createElement('div'); sub.className = 'mh-req-sub';
     sub.textContent = req.ts ? _inboxTimeStr(req.ts) : '';
     main.appendChild(nm); main.appendChild(sub);
@@ -367,7 +367,7 @@ function renderFriendRequests(){
     okBtn.onclick = async ()=>{
       lock();
       const r = await _fmAcceptOne(fromId, _fmSeatsLeft());
-      if(r === 'ok'){ toast((req.name || '친구') + ' 님과 친구가 됐어요'); _fmPicked.delete(fromId); return; }
+      if(r === 'ok'){ toast(TwPersonName.shown(req.name) + ' 님과 친구가 됐어요'); _fmPicked.delete(fromId); return; }
       // 자리가 없으면 요청은 **남겨둔다** — 지우면 상대가 다시 보내야 한다
       if(r === 'full') toast('친구는 최대 ' + FRIEND_MAX + '명까지만 추가할 수 있어요');
       else if(r === 'err') TwErrorCodes.notify('E-FR-01');

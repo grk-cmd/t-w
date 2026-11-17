@@ -111,7 +111,7 @@ const _friendsClose = deps.friendsClose;       // (key) — 목록을 닫았다
         const inRoom = _friendInRoom(f);
         const nm = document.createElement('span');
         nm.style.cssText = 'color:var(--ink);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-        nm.textContent = f.name || '(이름 없음)';
+        nm.textContent = TwPersonName.shown(f.name);
         const meta = document.createElement('span');
         meta.style.cssText = 'font-size:10px;color:var(--ink-soft);margin-left:4px;';
         meta.textContent = 'Lv.' + (f.level || 1) + (inRoom ? ' 🏠' : '');
@@ -128,7 +128,7 @@ const _friendsClose = deps.friendsClose;       // (key) — 목록을 닫았다
           st.sending.add(fid);
           const r = await invites.send(fid);
           if(r && r.ok){
-            toast((f.name||'친구') + ' 님에게 초대를 보냈어요');
+            toast(TwPersonName.shown(f.name) + ' 님에게 초대를 보냈어요');
             btn.textContent='완료';
             st.sent.add(fid);
           }else{
@@ -145,7 +145,7 @@ const _friendsClose = deps.friendsClose;       // (key) — 목록을 닫았다
                우리 방으로 부르는 정상적인 경우까지 못 하게 된다 — 그건 과하다. */
           if(inRoom && !warned){
             warned = true; st.warned.add(fid);
-            toast((f.name||'친구') + ' 님은 현재 다른 방에 입장 중입니다');
+            toast(TwPersonName.shown(f.name) + ' 님은 현재 다른 방에 입장 중입니다');
             btn.textContent = '그래도';
             btn.title = '한 번 더 누르면 초대를 보냅니다';
             return;
@@ -255,7 +255,7 @@ function _bindRoomInviteReceiver(session){
     ids.sort((a,b)=> (got[b].ts||0) - (got[a].ts||0));
     const fromId = ids[0];
     const inv = got[fromId];
-    showRoomInvitePopup(inv.fromName || '친구', inv.roomCode, async (accepted)=>{
+    showRoomInvitePopup(TwPersonName.shown(inv.fromName), inv.roomCode, async (accepted)=>{
       if(accepted && inv.roomCode){
         // 이미 다른 방이면 나간 뒤 이동
         try{ if(typeof Presence!=='undefined' && Presence.active()) await doLeaveRoom({ wipeChat: true }); }catch(_){}

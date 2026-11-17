@@ -1,5 +1,5 @@
 /* sim-rt-hub.js — 🛰 realtime 연결 하나(realtime/rt-hub.js) 검사 — 진짜 연결 공통부(realtime-link.js) · 가짜 웹소켓 · 가짜 시계로 그대로 돌린다
-   ・1절: 켜기 — hello { pv:3 · token · ver · deviceId · session · claim } · userId 없음 · ready 의 userCode · 상태
+   ・1절: 켜기 — hello { pv:4 · token · ver · deviceId · session · claim } · userId 없음 · ready 의 userCode · 상태
    ・2절: 늘 붙음 — 끊기면 백오프로 다시 · 다시 붙기 hello 에는 claim 없음 · 세션 · 기기는 같음 · stop 하면 안 붙음
    ・3절: 알림 표 — 건 종류만 · 모르는 종류는 버림 · 모르는 이름을 걸면 던짐 · 끊긴 시간이 ready.graceMs 를 넘으면 건 함수마다 한 번 다시 받기(짧으면 없음)
    ・4절: 닫힘 번호 표 — 서버 표와 같은 이름 · 값 · 코드마다 처리(1000 끝 · 1001 흩어 다시 · 1006 · 1009 · 4005 · 4008 다시 붙기 · 4001 새 토큰으로 한 번 ·
@@ -91,7 +91,7 @@ async function readyOn(e, code, graceMs){
   await tick();
   const ws = e.last();
   ws.open(); await tick();
-  ws.msg({ t: 'ready', pv: 3, now: e.clock.t, userCode: code || 'u1', graceMs: (graceMs == null) ? 20000 : graceMs });
+  ws.msg({ t: 'ready', pv: 4, now: e.clock.t, userCode: code || 'u1', graceMs: (graceMs == null) ? 20000 : graceMs });
   await tick();
   return ws;
 }
@@ -109,8 +109,8 @@ async function judge(S){
     e.hub.start();
     const ws = await readyOn(e, 'u777');
     const h = ws.all('hello')[0];
-    chk(h && h.pv === 3 && h.token === 'tok1' && h.ver === '0.13.0' && h.deviceId === 'dev-0001' && h.session === 'sess01' && h.claim === true && !('userId' in h),
-      'hello { pv:3 · token · ver · deviceId · session · claim:true } · userId 없음');
+    chk(h && h.pv === 4 && h.token === 'tok1' && h.ver === '0.13.0' && h.deviceId === 'dev-0001' && h.session === 'sess01' && h.claim === true && !('userId' in h),
+      'hello { pv:4 · token · ver · deviceId · session · claim:true } · userId 없음');
     chk(e.hub.isReady() && e.hub.userCode() === 'u777' && e.states.join() === 'connecting,ready', '  ↳ ready 의 userCode · 상태 connecting → ready');
     e.hub.start();
     chk(e.socks.length === 1, '  ↳ 이미 켜져 있으면 다시 안 연다');
@@ -149,7 +149,7 @@ async function judge(S){
     chk(e.hub.serverNow() === null, '★ ready 전에는 null — PC 시계로 대신하지 않는다');
     e.hub.start();
     await tick(); const ws = e.last(); ws.open(); await tick();
-    ws.msg({ t: 'ready', pv: 3, now: e.clock.t + 5000, userCode: 'u1', graceMs: 20000 }); await tick();
+    ws.msg({ t: 'ready', pv: 4, now: e.clock.t + 5000, userCode: 'u1', graceMs: 20000 }); await tick();
     chk(e.hub.serverNow() === e.clock.t + 5000, '★ ready.now 와 PC 시계의 차이를 더한다(서버가 5초 앞)');
     await e.clock.advance(1000);
     chk(e.hub.serverNow() === e.clock.t + 5000, '  ↳ 시간이 가면 같은 차이로 따라간다');
@@ -319,7 +319,7 @@ async function judge(S){
         const c = mkClock(); const { FakeWS, socks } = mkWS();
         const hb = Hx.createRtHub({ createLink: L.createRealtimeLink, WebSocket: FakeWS, url: () => 'wss://x', getToken: async () => 't', getVersion: async () => '0.13.0',
           deviceId: () => 'd', newSession: () => 's', now: () => c.t, setTimeout: c.setTimeout, clearTimeout: c.clearTimeout, random: () => v, log: { warn(){} } });
-        hb.start(); await tick(); socks[0].open(); await tick(); socks[0].msg({ t: 'ready', pv: 3, now: 0, userCode: 'u', graceMs: 20000 }); await tick();
+        hb.start(); await tick(); socks[0].open(); await tick(); socks[0].msg({ t: 'ready', pv: 4, now: 0, userCode: 'u', graceMs: 20000 }); await tick();
         socks[0].kill(1001); await tick();
         let at = null; for(let i = 0; i < 400 && at == null; i++){ await c.advance(100); if(socks.length > 1) at = i * 100 + 100; }
         spread.push(at);
@@ -656,6 +656,7 @@ const BREAKS = [
   ['HUB', "    if(!kindFns.has(kind)) throw new Error('[realtime] 모르는 알림 종류 — ' + kind);", "    if(!kindFns.has(kind)) kindFns.set(kind, []);", '모르는 이름을 조용히 받음'],
   ['HUB', "    if(link) link.close();\n    setState(STATE.OFF);", "    setState(STATE.OFF);", 'stop 이 연결을 안 닫음'],
   ['LINK', "const base = { t: 'hello', pv: deps.pv, token: tk, ver: helloVer };", "const base = { t: 'hello', pv: deps.pv, token: tk, userId: 'u1', ver: helloVer };", 'pv 2 hello 에 userId(서버가 모르는 칸 — badRequest)'],
+  ['HUB', "const PV = 4;", "const PV = 3;", 'pv 3 으로 붙음(서버가 4003 으로 닫음 — 이름 · 레벨을 앱이 싣던 판)'],
   ['HTML', '<script src="parts/realtime/rt-hub.js"></script>', '', 'html 에 안 실음'],
   ['RB', "  createLink: createRealtimeLink,\n", '', 'rt-bind 가 연결 만들기를 안 건넴'],
 ];

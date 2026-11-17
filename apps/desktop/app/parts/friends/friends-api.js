@@ -14,16 +14,14 @@
    }
      순수: friendOf(card) · profileOf(card) (TwFriendsApi 위)
    친구 하나: { addedAt, name, level, cyc, clv, starC, bio, avatar } — 접속 상태는 realtime(friends-presence-rt.js). «마지막 접속» 은 화면에 안 쓴다(설계 D3-Q1 안 넣음).
-   이름: 명함이 있는데 이름이 비면 '(이름 없음)' — 명함 자체가 없는 친구는 이름 칸을 덮지 않는다(friends-sub 의 '...' 자리표시).
+   이름: 명함의 이름 그대로(이름 없는 사람은 '') — «나» 는 그리는 곳이 정한다(shared/person-name.js). 명함 자체가 없는 친구는 이름 칸을 덮지 않는다(friends-sub 의 '...' 자리표시).
    검사: checks/sim-friends-port.js */
 (function(){
 'use strict';
 
-const NO_NAME = '(이름 없음)';
-
 /* 명함 → 프로필(이름 · 레벨 · 회차) */
 function profileOf(card){
-  return { name: card.name || NO_NAME, level: card.level, cyc: card.cyc, clv: card.clv, starC: card.starC };
+  return { name: card.name, level: card.level, cyc: card.cyc, clv: card.clv, starC: card.starC };
 }
 /* 명함 → 친구 칸(프로필 + 소개 · 사진) */
 function friendOf(card){

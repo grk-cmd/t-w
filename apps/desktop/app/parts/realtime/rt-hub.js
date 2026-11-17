@@ -1,7 +1,7 @@
-/* rt-hub.js — 🛰 realtime 연결 하나(pv 3) — 로그인 뒤 늘 붙어 있는 웹소켓 · 닫힘 번호 표 · 작별(bye) · 살아 있음 확인 · 알림 → «다시 받기» 표 (검사 sim-rt-hub.js)
-   [왜] 방 · 친구 접속 상태 · 알림 · 방 초대 · 대화 · 스티커사진이 **한 연결** 로 온다(서버 통신 규약 pv 3). 기능마다 연결을 따로 열지 않고,
+/* rt-hub.js — 🛰 realtime 연결 하나(pv 4) — 로그인 뒤 늘 붙어 있는 웹소켓 · 닫힘 번호 표 · 작별(bye) · 살아 있음 확인 · 알림 → «다시 받기» 표 (검사 sim-rt-hub.js)
+   [왜] 방 · 친구 접속 상태 · 알림 · 방 초대 · 대화 · 스티커사진이 **한 연결** 로 온다(서버 통신 규약 pv 4). 기능마다 연결을 따로 열지 않고,
      알림(notify — «바뀌었다» 만 · 데이터 없음)을 받으면 그 기능이 자기 자원을 다시 GET(ETag)한다.
-   [연결] start({ claim }) — hello { pv:3, token, ver, deviceId, session, claim? } → ready{ userCode, graceMs }. 사고로 끊기면 다시 붙는다
+   [연결] start({ claim }) — hello { pv:4, token, ver, deviceId, session, claim? } → ready{ userCode, graceMs }. 사고로 끊기면 다시 붙는다
      (realtime-link.js 백오프 1 · 2 · 4 · 8 · 15초 ±50%). 토큰은 만료 5분 전 같은 연결로 hello(link 가 한다).
      claim 은 앱을 켤 때 · «여기서 계속» 의 첫 hello 에만 싣는다. 자리(기기 등록)는 서버 API(POST /v2/me/devices)가 정하고 realtime 은 claim 을 보지 않는다 —
      등록은 연결 전에 부르는 쪽(account/device-register.js)이 같은 세션 id(session())로 한다.
@@ -27,7 +27,7 @@
 (function(){
 'use strict';
 
-const PV = 3;
+const PV = 4;
 /* 알림 종류 — 서버 규약 6장. 더할 땐 여기에 한 줄(서버는 종류를 더해도 pv 를 올리지 않는다) */
 const KINDS = Object.freeze(['friends', 'friendRequests', 'card', 'notification', 'guestbook', 'gifts', 'collection', 'avatars', 'schedule',
   'license', 'photoQuota', 'notices', 'catalog', 'config', 'licenseRequests', 'friendSchedule']);

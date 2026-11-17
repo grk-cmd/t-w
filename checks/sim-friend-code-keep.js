@@ -108,6 +108,21 @@ if(!fEnter){
   r = e.enter(ME, {});
   chk(!r.ok && /저장하지 못했어요/.test(r.reason || ''), 'uid 를 못 적으면 실패(부르는 쪽이 로그인도 놓는다)');
   chk(!e.enter(null, {}).ok, '계정이 없으면 실패');
+  /* 이름 없음 — 서버 displayName 이 null(우리 모양 '')이면 옛 사본(«나» 포함)을 지운다 · «나» 를 적지 않는다 */
+  e = mkEnter({ ls: { 'tw.myUserId': 'u_new_000001', 'tw.userName': '나' } });
+  r = e.enter(Object.assign({}, ME, { displayName: '' }), { email: null, uid: 'auth1' });
+  chk(r.ok && e.LS.getItem('tw.userName') === null, '★ 서버에 이름이 없으면(\'\') 이 PC 의 옛 이름 사본(«나» 포함)을 지운다 — 다른 PC 에서 지운 이름이 여기 남지 않는다');
+  const fBrk = fEnter.replace(" else localStorage.removeItem(USER_NAME_KEY);", "");
+  if(fBrk === fEnter){ chk(false, '깨 볼 글을 못 찾음 — 이름 없음이면 사본 지우기'); }
+  else {
+    const LS2 = mkLS(); LS2.setItem('tw.myUserId', 'u_new_000001'); LS2.setItem('tw.userName', '옛이름');
+    const f2 = new Function('localStorage', [
+      "const MY_USER_ID_KEY='tw.myUserId', MY_FRIEND_CODE_KEY='tw.myFriendCode', MY_FRIEND_CODE_PREV_KEY='tw.myFriendCodePrev', LOGIN_EMAIL_KEY='tw.loginEmail', LOGIN_UID_KEY='tw.loginAuthUid', USER_NAME_KEY='tw.userName';",
+      "const IDENTITY_KEYS = () => [MY_FRIEND_CODE_KEY, MY_FRIEND_CODE_PREV_KEY];", "const getMyLoginEmail=()=>null;", "const _rememberOldFriendCode=()=>{};", "const _wipeAccountLocal=()=>{};", "const _setMyUserId=()=>true;",
+      fBrk, "return _enterAccount;"].join('\n'))(LS2);
+    f2(Object.assign({}, ME, { displayName: '' }), {});
+    chk(LS2.getItem('tw.userName') === '옛이름', '  깨 보기 — 지우기를 빼면 옛 이름이 남는다(위 줄이 잡는다)');
+  }
 }
 
 say('');

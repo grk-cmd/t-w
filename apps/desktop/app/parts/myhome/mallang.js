@@ -941,7 +941,7 @@ function createMallang(deps){
   /* 안내 줄 — 가득 참과 하루 한도를 다른 문구로 가른다(둘을 뭉치면 «오늘 다 썼나? 상대가 꽉 찼나?» 를 알 수 없다) */
   function giftNote(p){
     if(giftFull(p)){
-      return '<div class="ml-note ml-full"><b>'+esc(p.name||'친구')+'</b> 님의 마이홈에 말랑이가 가득 찼어요 ('+esc(p.theirs.visibleCount)+'/'+esc(p.theirs.recipientCap)+')<br>몇 마리 치우면 다시 보낼 수 있어요.</div>';
+      return '<div class="ml-note ml-full"><b>'+esc(TwPersonName.shown(p.name))+'</b> 님의 마이홈에 말랑이가 가득 찼어요 ('+esc(p.theirs.visibleCount)+'/'+esc(p.theirs.recipientCap)+')<br>몇 마리 치우면 다시 보낼 수 있어요.</div>';
     }
     const r = giftRemain(p);
     return '<div class="ml-note">보낼 말랑이를 고르세요. 오늘 남은 횟수: <b>'+(r === null ? '확인하지 못했어요' : esc(r)+'/'+esc(p.sent.dailyMax))+'</b></div>';
@@ -969,7 +969,7 @@ function createMallang(deps){
     const r = await giftBox.send(p.to, { mallang: item, message: inp ? inp.value : '' });
     if(giftPop !== p) return;   // 그사이 창을 닫았거나 계정을 놓았다 — 이 답은 화면에 쓰지 않는다
     p.busy = false;
-    if(r.ok){ toast('🎁 '+(p.name||'친구')+'에게 말랑이를 보냈어요!'); closeGiftPopup(); return; }   // 토스트는 textContent — 씻으면 &lt; 가 글자로 보인다
+    if(r.ok){ toast('🎁 '+TwPersonName.shown(p.name)+'에게 말랑이를 보냈어요!'); closeGiftPopup(); return; }   // 토스트는 textContent — 씻으면 &lt; 가 글자로 보인다
     if(r.kind === 'guide' && r.message) toast(r.message);   // 서버 문구(숫자가 들어 있다) — 번호 없음
     if(r.kind === 'changed') mallangStore.pullMine();   // 누른 그림이 서버 칸에 없다(저장 전 새 칸 · 다른 기기에서 바꿈) — 칸을 다시 받으면 구독이 격자를 다시 그린다. 안내는 gift-box 가 E-GIFT-08 로 냈다
     renderGiftGrid(p);   // 격자를 다시 켠다
@@ -988,7 +988,7 @@ function createMallang(deps){
     const pop = document.createElement('div');
     pop.id = 'mlGift';
     pop.innerHTML =
-      '<div class="ml-hd"><span>🎁 '+esc(friendName||'친구')+'에게 말랑이 선물</span><span class="x" id="mlGiftClose">×</span></div>'+
+      '<div class="ml-hd"><span>🎁 '+esc(TwPersonName.shown(friendName))+'에게 말랑이 선물</span><span class="x" id="mlGiftClose">×</span></div>'+
       '<div class="ml-bd">'+giftNote(p)+
       '<div id="mlGiftGrid"></div>'+
       '<div class="ml-msgrow"><label>함께 보낼 메시지 (선택)</label>'+

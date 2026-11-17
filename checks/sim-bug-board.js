@@ -16,6 +16,7 @@
      §6 상세 화면의 바깥 주소 열기(openDetailLink) — 다시 거르기 · 오픈카톡만
      §7 일부러 깨 보기 */
 'use strict';
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기(이름 없음 → «나») — 진짜 파일
 const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const fs = require('fs');
 const vm = require('vm');
@@ -186,7 +187,7 @@ function boot(src) {
     setTimeout: () => { env.timers++; return 0; }, setInterval: () => { env.timers++; return 0; },
     Math, JSON, String, Number, Array, Object, Promise, Map, Set, Date, Boolean, Error, RegExp };
   ctx.window = ctx;
-  vm.createContext(ctx);
+  ctx.TwPersonName = globalThis.TwPersonName; vm.createContext(ctx);
   vm.runInContext(src, ctx, { filename: 'bug-board-ui.js' });
   const calls = [], impl = {};
   const n = (k) => calls.filter(c => c[0] === k).length;

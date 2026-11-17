@@ -149,7 +149,7 @@ async function judge(S){
       const band = { shown: null, press: null, show(v, p){ this.shown = v; this.press = p; }, hide(){ this.shown = null; } };
       U.createRtStatusUi({ rt: hub, inRoom: () => false, band, notifyError: (c) => log.push('err:' + c), toLogin: () => log.push('toLogin'), withdrawing: () => false,
         forceUpdate: () => log.push('update'), maintenance: () => log.push('maint'), setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout });
-      const ready = async () => { await tick(); const w = socks[socks.length - 1]; w.open(); await tick(); w.msg({ t: 'ready', pv: 3, now: 0, userCode: 'u', graceMs: 20000 }); await tick(); return w; };
+      const ready = async () => { await tick(); const w = socks[socks.length - 1]; w.open(); await tick(); w.msg({ t: 'ready', pv: 4, now: 0, userCode: 'u', graceMs: 20000 }); await tick(); return w; };
       return { hub, clock, socks, log, band, ready };
     };
     const e = mk(); e.hub.start(); const w = await e.ready();

@@ -14,6 +14,7 @@
    ・9절: app.js 배선 — 정의는 모듈에만 · 만드는 곳 한 곳 · 원래 자리 · deps 모양 · window 고리 이름 · 빈 껍데기 · html 순서 · 전역 이름
    [실행] myhome-edit.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
 globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
@@ -86,7 +87,7 @@ function mkEnv(opt){
   const env = {
     toasts: [], saves: [], saveRes: undefined, saveThrows: false, commitsName: [], renders: 0, origRenders: 0, page: 0, clicks: [], exec: [],
     prompts: [], promptAns: [], viewing: opt.viewing || null, loaded: opt.loaded !== false, homeUid: 'u1', uid: 'u1', setLoaded: [],
-    dragDist: 0, dragSets: [], premium: !!opt.premium, admin: false, userName: '나', nameMaxReady: !opt.lateConst, sticker: { open: 0, render: 0 },
+    dragDist: 0, dragSets: [], premium: !!opt.premium, admin: false, userName: '', nameMaxReady: !opt.lateConst, sticker: { open: 0, render: 0 },
     timers: [], docL: {}, els: {}, ls: {}, comp: [], compCb: {}, rt: [], uploads: [], opened: [], themeChild: [], watchedChild: [], tipChild: [], raf: [],
     data: Object.assign({ avatar: null, bio: '', postTitle: '', post: '', stickers: {}, bgm: null, bg: null, theme: null }, opt.data || {}),
   };
@@ -156,7 +157,8 @@ function mkEnv(opt){
   ctx.window = ctx;
   ctx.document.defaultView = { innerWidth: 1600, innerHeight: 900 };
   ctx.innerWidth = 1600; ctx.innerHeight = 900;
-  ctx.TwSafeHtml = globalThis.TwSafeHtml; vm.createContext(ctx);
+  ctx.TwSafeHtml = globalThis.TwSafeHtml;
+  ctx.TwPersonName = globalThis.TwPersonName; vm.createContext(ctx);
   vm.runInContext(SRC['myhome-hooks.js'], ctx, { filename: 'myhome-hooks.js' });   // 🪝 마이홈 고리판 — 편집 묶음이 만들 때 건다(순환 끊기 8)
   vm.runInContext(SRC['myhome-preset.js'], ctx, { filename: 'myhome-preset.js' });   // 👑 디자인 프리셋 규칙 — 편집 묶음이 만들 때 받는다
   vm.runInContext(SRC['mh-bg-url.js'], ctx, { filename: 'mh-bg-url.js' });   // 🖼️ 배경 그림 주소 규칙 — 편집 묶음이 만들 때 받는다
@@ -182,7 +184,7 @@ function mkEnv(opt){
     watchMaintenanceInput: (d) => env.watchedChild.push(d),
     installMacTip: (d, w) => env.tipChild.push([d, w]),
     commitUserName: (v) => env.commitsName.push(v),
-    getDisplayName: () => env.userName === '나' ? '(이름 없음)' : env.userName,
+    getDisplayName: () => TwPersonName.shown(env.userName),
     getUserName: () => env.userName,
     getMyUserId: () => env.uid,
     myHomeData: () => env.data,
@@ -369,7 +371,7 @@ await sec('── 5. 닉네임 · 게시글 제목', async () => {
   chk(nameEl.title === '더블클릭해서 닉네임 수정' && nameEl.style.cursor === 'pointer', '닉네임 — 더블클릭 안내');
   nameEl.fire('dblclick');
   let inp = e.els.mhMyNameInput;
-  chk(!!inp && inp.value === '' && inp.maxLength === 20 && inp.placeholder === '닉네임' && nameEl.style.display === 'none' && e.focused === inp, '★ 편집 — 기본값 «나» 는 빈칸 · 길이 상한은 열 때 읽는다(USER_NAME_MAX) · 이름표 숨김');
+  chk(!!inp && inp.value === '' && inp.maxLength === 20 && inp.placeholder === '닉네임' && nameEl.style.display === 'none' && e.focused === inp, '★ 편집 — 이름이 없으면(\'\') 입력칸은 빈칸(«나» 를 넣지 않는다) · 길이 상한은 열 때 읽는다(USER_NAME_MAX) · 이름표 숨김');
   chk(/font-size:15px;font-weight:700;/.test(inp.style.cssText), '  글씨 크기 · 굵기는 이름표를 실측해 따른다');
   chk(e.H.has(e.K.CANCEL_NAME_EDIT), '  밖에서 접는 길(고리판 CANCEL_NAME_EDIT)을 건다');
   M.beginNameEdit();

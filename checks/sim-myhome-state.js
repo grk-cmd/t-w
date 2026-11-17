@@ -6,6 +6,7 @@
    ・2절: HTML 순서(미리보기 깃발을 읽는 · 바꾸는 파일 · app.js 보다 먼저) · 만드는 줄
    ・3절: 일부러 깨 보기 */
 'use strict';
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
 const fs = require('fs');
 const path = require('path');
 let pass = 0, fail = 0;
@@ -38,6 +39,7 @@ function judge(mod, html, files, app) {
     fs_.st.owner = 'u9'; r.fallback = st._mhViewingDisplayName() === '친구';
     fs_.st.name = '힌트'; r.hint = st._mhViewingDisplayName() === '힌트' && st._mhViewingName() === '힌트';
     friends.u9 = { name: '친구목록' }; r.friend = st._mhViewingDisplayName() === '친구목록';
+    friends.u9 = { name: '' }; r.noName = st._mhViewingDisplayName() === '나';
     const nd = { bio: 'b' }; fs_.st.page = nd; fs_.st.load = 'ready';
     r.mirror = st._myHomeData() === nd && st._myHomeLoaded() === true && st._mhViewingUserId() === 'u9';
     r.noSetters = Object.keys(st).filter((k) => /^set/.test(k)).length === 0 && !('_mhHomeFromServer' in st) && !('_myHomeUid' in st);
@@ -61,6 +63,7 @@ const R = judge(MOD, HTML, FILES, APP);
 say('── 1. 처음 값 · 읽기');
 chk(!R.err && R.init, '싣고 만들면 미리보기 깃발 false · store 의 페이지 · 안 불러옴 · 관람 · 이름 null' + (R.err ? ' — ' + R.err : ''));
 chk(R.notViewing && R.fallback && R.hint && R.friend, '이름 창구 — 관람 안 하면 빈 글 · 친구 목록 → 진입 힌트 → «친구» 차례');
+chk(R.noName, '★ 친구인데 이름이 없으면(\'\') «나»(힌트 · «친구» 로 넘어가지 않는다)');
 chk(R.mirror, '읽는 함수는 store 가 바뀌면 그대로 따라간다(사본 없음)');
 chk(R.noSetters, '쓰는 함수 · 서버 모양 맞추기 · 계정 칸이 없다(값의 주인은 store)');
 

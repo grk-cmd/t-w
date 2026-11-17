@@ -91,7 +91,7 @@ const rtOn = deps.rtOn;
     : '<span class="bb-chip ' + esc(it.status) + '">' + esc(lib.BUG_STATUS[it.status] || '접수') + '</span>';
   const canSeePrv = (it) => it.mine || admin();
   // 🛡 운영진 글 — 이름이 아니라 byAdmin(서버가 관리자 글에만 단다)으로 가른다. 공지도 관리자만 쓴다. 비공개 글은 늘 «익명».
-  const whoName = (it) => ((it.vis === 'prv' || it.anon) ? esc(lib.BUG_ANON) : esc(it.name)) + ((it.byAdmin === true || it.notice) ? ' <span class="bb-adm" title="운영진">🛡</span>' : '');
+  const whoName = (it) => ((it.vis === 'prv' || it.anon) ? esc(lib.BUG_ANON) : esc(TwPersonName.shown(it.name))) + ((it.byAdmin === true || it.notice) ? ' <span class="bb-adm" title="운영진">🛡</span>' : '');
   const backBtn = '<button class="bb-btn bb-back" type="button" data-act="back">◀ 목록</button>';
   const retryHtml = (text, act) => '<div class="bb-empty">' + esc(text) + ' <button class="bb-btn" type="button" data-act="' + esc(act) + '">다시 시도</button></div>';
 

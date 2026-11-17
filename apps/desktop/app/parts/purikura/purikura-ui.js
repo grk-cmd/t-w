@@ -823,7 +823,7 @@ function _pkPaintSlots(){
     d.className = 'pk-slot' + (m ? (i===_pkHostSlot() ? ' host' : '') : ' empty');
     const mine = m && m.uid === myCode();
     d.innerHTML = '<div class="pk-av"></div>'
-      + '<div>' + (m ? (mine ? '나' : TwSafeHtml.text(m.name || '손님')) : '비어 있음') + '</div>'
+      + '<div>' + (m ? (mine ? '나' : TwSafeHtml.text(TwPersonName.shown(m.name))) : '비어 있음') + '</div>'
       + '<div class="pk-rl">' + (m ? (i===_pkHostSlot() ? '👑 시작 권한' : '참가') : '먼저 온 순서') + '</div>';
     el.appendChild(d);
   }

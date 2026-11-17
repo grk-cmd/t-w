@@ -103,9 +103,9 @@ function slotsBody(version, slots){
 
 /* 선물함 한 줄 → 화면 한 줄. 모양이 틀리면 undefined */
 function giftOf(raw){
-  if(!isObj(raw) || !nonEmpty(raw.id) || typeof raw.senderName !== 'string' || !nonEmpty(raw.imageUrl)
+  if(!isObj(raw) || !nonEmpty(raw.id) || (raw.senderName !== null && typeof raw.senderName !== 'string') || !nonEmpty(raw.imageUrl)
     || typeof raw.starred !== 'boolean' || typeof raw.hidden !== 'boolean') return undefined;
-  return { id: raw.id, senderName: raw.senderName, imageUrl: raw.imageUrl, message: str(raw.message), starred: raw.starred, hidden: raw.hidden, sentAt: msOf(raw.sentAt) };
+  return { id: raw.id, senderName: str(raw.senderName), imageUrl: raw.imageUrl, message: str(raw.message), starred: raw.starred, hidden: raw.hidden, sentAt: msOf(raw.sentAt) };
 }
 /* GET /v2/me/gifts → 선물함. 한 줄이 깨져 있으면 그 줄만 뺀다 · 숫자 칸이 틀리면 undefined */
 function boxOf(d){

@@ -16,6 +16,7 @@
    ・8절: 일부러 깨 보기 — 모듈 · app.js 글을 조금씩 망가뜨려 2~7절이 잡아내는지(이 검사가 헛돌지 않는지) 스스로 확인
    [실행] myhome-inbox.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
 globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
 globalThis.TwImgRetry = require([__dirname, process.cwd()].flatMap(d => ['img-retry.js', 'parts/shared/img-retry.js', 'app/parts/shared/img-retry.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🖼 선물 칸 그림 한 번 더 받기 — 진짜 파일
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
@@ -502,6 +503,8 @@ async function behave(src){
     const ov3 = (list.oncontextmenu({ target: tg('g2', false), preventDefault(){}, stopPropagation(){} }), homeWin.children[0]);
     ov3.fire('click', { target: ov3 });
     chk(ov3.removed && e.calls.length === 1, '  바깥(배경) 누르면 그냥 닫힌다');
+    e.giftSrv = [{ id: 'n0', senderName: '', imageUrl: 'https://i/n.png', message: '', starred: false, hidden: false, sentAt: 2 }]; await e.giftBox.pull(false); await flush();
+    chk(/나 님이 선물했어요/.test(list.innerHTML) && !/친구 님이 선물했어요/.test(list.innerHTML), '★ 보낸 사람 이름이 없으면(서버 null → \'\') 그릴 때 «나 님이 선물했어요»');
     e.giftSrv = [{ id: 'z', senderName: 'z', imageUrl: 'https://i/z.png', message: '', starred: false, hidden: false, sentAt: 1 }]; await e.giftBox.pull(false); await flush();
     const noImgs = [{ src: 'https://i/9.png' }];
     list._qa = { '.gift-item img': noImgs };
