@@ -55,16 +55,14 @@ onApplied(()=>{
   });
 });
 function setTheme(t){
-  try{
-    localStorage.setItem(THEME_KEY, (t==='bubble') ? 'bubble' : 'default');
-    // 테마를 바꾸면 그 테마의 기본색으로 따라간다 — 색표가 테마마다 달라서 칸 번호를 그대로 두면
-    // 엉뚱한 색(기본의 퍼플 → 버블의 그레이)으로 튀어 "왜 회색이 됐지"가 된다.
-    localStorage.setItem(ACCENT_KEY, THEME_DEFAULT_ACCENT[(t==='bubble')?'bubble':'default']);
-  }catch(_){}
+  TwLsSet.lsSet(THEME_KEY, (t==='bubble') ? 'bubble' : 'default');
+  // 테마를 바꾸면 그 테마의 기본색으로 따라간다 — 색표가 테마마다 달라서 칸 번호를 그대로 두면
+  // 엉뚱한 색(기본의 퍼플 → 버블의 그레이)으로 튀어 "왜 회색이 됐지"가 된다.
+  TwLsSet.lsSet(ACCENT_KEY, THEME_DEFAULT_ACCENT[(t==='bubble')?'bubble':'default']);
   applyTheme(); refreshThemeUI();
 }
 function setAccent(a){
-  try{ localStorage.setItem(ACCENT_KEY, a); }catch(_){}
+  TwLsSet.lsSet(ACCENT_KEY, a);
   applyTheme(); refreshThemeUI();
 }
 /* 설정 패널의 테마·색상 칩을 지금 상태에 맞춰 다시 그린다. 패널이 없으면 조용히 넘어간다. */

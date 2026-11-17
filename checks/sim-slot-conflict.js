@@ -14,6 +14,8 @@
           ⑥ 받아 적으면 seen = 서버 ts · 올리면 seen = 내 ts · 쓰기가 거부되면 seen 은 그대로(다음 판에 또 잡힌다)
    [실행] app.js 가 있는 폴더에서. firebase-init.js · 규칙 파일이 있으면 1-b 도 본다(없으면 검사못함). 판정 줄은 맨 끝. */
 'use strict';
+/* 모듈이 저장을 shared/ls-set.js(TwLsSet)로 한다 — 이 검사의 저장소 위에 하나 만든다(안내는 받지 않음) */
+const lsSetOn = (ls) => { const src = ['ls-set.js', 'app/parts/shared/ls-set.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const w = { TwErrorCodes: { notify(){ return true; } } }; new Function('window', 'localStorage', 'console', 'module', src)(w, ls, { warn(){} }, undefined); return w.TwLsSet; };
 const fs = require('fs');
 if(!fs.existsSync('app.js')) process.exit(2);
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
@@ -131,12 +133,12 @@ function mkEnv(){
     "async function loadSlots(){ let arr; try{ arr=JSON.parse(localStorage.getItem(LS_KEY)||'null'); }catch(_){ return; } if(!Array.isArray(arr)) return; for(let i=0;i<CHAR_SLOT_MAX;i++){ if(arr[i]) slots[i]=Object.assign({}, arr[i]); } }",
   ].join('\n');
   const body = [fHash, fCL, fCS, fOne, fImg, fSlotToObj, fSave, block].join('\n');
-  const f = new Function('env', 'localStorage', 'window', 'firebaseAPI', decl + '\n' + body +
+  const f = new Function('env', 'localStorage', 'window', 'firebaseAPI', 'TwLsSet', decl + '\n' + body +
     "\nreturn { sync:syncSlotsToServer, save:saveSlots, load:loadSlots, slots, ts:()=>_slotsTs, filled:_slotsFilledCount," +
     "\n  seen:(typeof _slotsSeenSet==='function'?_slotsSeenSet:null), seenTs:()=>(typeof _slotsSeen==='number'?_slotsSeen:null)," +
     "\n  conflict:()=>(typeof _slotsConflict==='undefined'?undefined:_slotsConflict), resolve:(typeof resolveSlotsConflict==='function'?resolveSlotsConflict:null)," +
     "\n  setHandler:(h)=>{ _slotsConflictHandler=h; } };");
-  env.m = f(env, localStorage, window, firebaseAPI);
+  env.m = f(env, localStorage, window, firebaseAPI, lsSetOn(localStorage));
   env.LS = localStorage; env.api = firebaseAPI;
   return env;
 }

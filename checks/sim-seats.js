@@ -8,6 +8,8 @@
    ・6절: 일부러 깨 보기
    [실행] 러너 스테이징 또는 저장소 루트에서. three 는 vendor/three/three.min.js. */
 'use strict';
+/* 모듈이 저장을 shared/ls-set.js(TwLsSet)로 한다 — 이 검사의 저장소 위에 하나 만든다(안내는 받지 않음) */
+const lsSetOn = (ls) => { const src = ['ls-set.js', 'app/parts/shared/ls-set.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const w = { TwErrorCodes: { notify(){ return true; } } }; new Function('window', 'localStorage', 'console', 'module', src)(w, ls, { warn(){} }, undefined); return w.TwLsSet; };
 const fs = require('fs');
 const path = require('path');
 let pass = 0, fail = 0;
@@ -33,7 +35,7 @@ function build(src, o){
   const calls = { layout: 0, select: [], tabs: 0 };
   const scene = new THREE.Scene();
   const win = {};
-  new Function('THREE', 'TwBlinkTiming', 'localStorage', 'performance', 'window', 'module', src)(THREE, TwBlinkTiming, localStorage, performance, win, undefined);
+  new Function('THREE', 'TwBlinkTiming', 'localStorage', 'performance', 'window', 'module', 'TwLsSet', src)(THREE, TwBlinkTiming, localStorage, performance, win, undefined, lsSetOn(localStorage));
   const mod = win.TwSeats.createSeats({ CHAR_Z: -0.47, buildDesk: DB.buildDesk, buildPlaceholder: DB.buildPlaceholder, scene });
   if(!o.noAttach) mod.attach({ layoutSeats: () => { calls.layout++; }, selectSeat: (s) => calls.select.push(s), renderSeatTabs: () => calls.tabs++ });
   return { mod, store, writes, calls, scene };
@@ -125,7 +127,7 @@ say('§6 일부러 깨 보기');
   chk(!!m3 && (() => { const b = build(m3); const a = b.mod.createSeat(), c = b.mod.createSeat(); return a.deskMat === c.deskMat; })(), '상판 재질을 복제하지 않으면 빨강');
   const m4 = brk('scene.add(group); seats.push(seat); hooks.layoutSeats(); return seat;', 'seats.push(seat); hooks.layoutSeats(); return seat;');
   chk(!!m4 && (() => { const b = build(m4); const s = b.mod.createSeat(); return s.group.parent === null; })(), '씬에 안 올리면 빨강');
-  const m5 = brk("localStorage.setItem(GAP_KEY_MULTI, String(MULTIPLAYER_SPACING));", '');
+  const m5 = brk(" TwLsSet.lsSet(GAP_KEY_MULTI, String(MULTIPLAYER_SPACING));", '');
   chk(!!m5 && (() => { const b = build(m5); b.mod.saveGap(); return b.writes.length === 1; })(), '멀티 간격을 안 쓰면 빨강');
   const m6 = brk('if(selected===seat) hooks.selectSeat(', 'if(false) hooks.selectSeat(');
   chk(!!m6 && (() => { const b = build(m6); const a = b.mod.createSeat(), c = b.mod.createSeat(); b.mod.setSelected(c); b.mod.removeSeat(c); return b.calls.select.length === 0; })(), '고른 좌석을 지워도 이웃을 안 고르면 빨강');

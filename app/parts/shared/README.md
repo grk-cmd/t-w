@@ -474,10 +474,13 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **책임**: `make(canvas, opts, role, extra)` — `new THREE.WebGLRenderer` 를 부르는 유일한 자리. `'main'` 은 만들기를 `extra.guard`(메인 무대의 `glFail.guard`)에 맡겨 옛 동작(안내 뒤 멈춤) 그대로. `'preview'` 는 못 만들면 던지지 않고 `null` 을 돌려주고, 실패 번호 `E-SYS-06` 로 알리고, 그 캔버스를 감싼 칸 안에 «3D 미리보기를 불러오지 못했어요 · [다시 시도]» 를 그린다(`extra.retry` 가 있을 때만 단추). 다시 만들어 성공하면 옛 안내를 지운다.
 - **쓰는 법**: 전역 `TwGlContext.make(...)`(classic script — stage · 미리보기 모듈이 전역으로 부른다). 부르는 쪽은 맨 앞에서 `if(!r) return`. 못 만든 채로 이어도 안전한지(그 창을 여는 함수가 renderer 를 읽는 곳)를 같이 본다 — 생성기는 `ensureCreatorPreview` 가 false 를 돌려 `openCreator` 가 열지 않는다.
 - **함정**: 개발용 `app/fx-preview.html` 만 직접 만든다. 새 3D 장치는 여기를 거친다(검사 `sim-gl-context.js` 가 이 파일 밖의 `new THREE.WebGLRenderer` 를 빨강으로). 화면에 안 붙은 캔버스(파츠 썸네일)는 안내 칸이 없어 번호만 낸다. 검사: `checks/sim-gl-context.js`.
-## ls-set.js — 💾 작은 설정 저장(`_lsSet`)
+## ls-set.js — 💾 localStorage 쓰기 · 지우기 한 곳(`TwLsSet`)
 
-- **책임**: `_lsSet(key, val)` — `setItem` 뒤 `getItem` 으로 왕복 확인 · 실패하면 콘솔 경고 + 세션당 한 번 토스트 · 성공 true / 실패 false. 설정처럼 작은 값 전용(슬롯 · 파츠 · 책상 같은 큰 값은 각자 처리).
-- **만드는 법**: `TwLsSet.createLsSet({ toast })`. **내보내는 것**: `_lsSet`(app.js 는 같은 이름 const 로 받고 deps 에서 `(...a)=>_lsSet(...a)` 로 넘긴다). 검사: `checks/sim-ls-set.js`.
+- **책임**: 쓰기 · 지우기 뒤 `getItem` 으로 왕복 확인 · 실패하면 콘솔 경고(매번) + 번호 안내(번호마다 세션당 한 번) · 성공 true / 실패 false · 던지지 않는다.
+  - 설정(테마 · 토글 · 크기 · 소리 같은 작은 값): `lsSet(key, val)` · `lsUnset(key)` → `E-SYS-09`
+  - 사용자가 만든 데이터(계정 · 라이선스 · 이름 · 친구 코드 · 캐릭터 슬롯 · 숨김 목록 · 상태 · 말랑 · 바탕화면 · 북마크): `lsSave(key, val)` · `lsRemove(key)` → `E-SYS-10`
+- **만드는 법**: 렌더러에서는 `window.TwLsSet`(`lsSet` · `lsUnset` · `lsSave` · `lsRemove`)를 바로 쓴다. app.js 는 원래 자리에서 `TwLsSet.createLsSet({ notifyError })` 로 만들어 옛 이름 `_lsSet` 으로 받는다(deps 로 `_lsSet` 을 받는 모듈 몫).
+- **함정**: «세션당 한 번» 기억은 파일 위에 있다 — app.js 가 만든 것과 window 것이 같이 센다. 캐시 · 창 위치 · 읽음 표시처럼 못 남겨도 잃는 게 없는 값은 여기로 보내지 않는다(알리면 소음). 새로 부르는 자리는 검사의 자리 표(`SITES`)에 더한다. 검사: `checks/sim-ls-set.js`.
 
 ## hue-tint.js — 🎨 텍스처 파츠 색조 셰이더 이름 잇기
 

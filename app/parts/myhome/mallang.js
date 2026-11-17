@@ -67,7 +67,7 @@
   function hasLicense(){ try{ return !!window._premiumOn(); }catch(_){ return false; } }
   function esc(s){ return TwSafeHtml.text(s); }   // 마크업 글자 안에 넣을 값 — 공용(shared/safe-html.js)
   function lsKey(){ return 'tw.mallang.' + (myId()||'anon'); }
-  function saveLocal(){ try{ localStorage.setItem(lsKey(), JSON.stringify(imgs)); }catch(_){} }
+  function saveLocal(){ TwLsSet.lsSave(lsKey(), JSON.stringify(imgs)); }
   /* 💾 로컬 먼저, 서버는 그 다음. **이 함수는 던지지 않는다.**
      [무엇이 문제였나] 예전 판은 `await firebaseAPI.saveMallangImgs(...)` 한 줄이었다. 위험이 둘이다.
        ① **결과를 버린다.** saveMallangImgs 는 실패해도 예외 대신 `{ok:false}` 를 돌려주므로
@@ -881,7 +881,7 @@
          return new Set(Array.isArray(a) ? a : []); }catch(_){ return new Set(); }
   }
   function _saveHidden(set){
-    try{ localStorage.setItem(GIFT_HIDE_KEY, JSON.stringify([...set])); }catch(_){}
+    TwLsSet.lsSave(GIFT_HIDE_KEY, JSON.stringify([...set]));
   }
   function _hideGift(giftId){ const h=_hiddenSet(); h.add(giftId); _saveHidden(h); }
   window._mallangIsGiftHidden = function(giftId){ return _hiddenSet().has(giftId); };

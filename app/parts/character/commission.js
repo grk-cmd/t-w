@@ -112,7 +112,7 @@ function persistSavedAssets(){
     return p;
   });
   try{ localStorage.setItem(SAVED_DESK_KEY,JSON.stringify(stripDesks)); }catch(_){ toast('저장 공간이 부족해요'); }
-  try{ localStorage.setItem(SAVED_ITEM_KEY,JSON.stringify(stripItems)); }catch(_){}
+  TwLsSet.lsSave(SAVED_ITEM_KEY, JSON.stringify(stripItems));
 }
 loadSavedAssets();
 

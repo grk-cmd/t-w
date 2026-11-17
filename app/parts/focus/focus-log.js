@@ -60,7 +60,7 @@ const figureMode = deps.figureMode;                    // 읽는 함수 — 피�
   try{ window._focusLogClamp = clampWin; }catch(_){}
   function setMini(on, {persist=true}={}){
     miniOn=!!on;
-    if(persist){ try{ localStorage.setItem(MINI_KEY, miniOn?'1':'0'); }catch(_){} }
+    if(persist) TwLsSet.lsSet(MINI_KEY, miniOn?'1':'0');
     // 이미 열려있을 때만 좌상단 고정 — 닫혀있으면 getBoundingClientRect가 0이라 좌표가 망가진다.
     if(overlay.classList.contains('on')){
       const r=win.getBoundingClientRect();

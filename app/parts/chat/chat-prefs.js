@@ -72,7 +72,7 @@ function _applyChatOpacity(){
 }
 function _setChatOpacity(v){
   const pct = _clampChatOpacity(v);
-  try{ localStorage.setItem(CHAT_OPACITY_KEY, String(pct)); }catch(_){}
+  TwLsSet.lsSet(CHAT_OPACITY_KEY, String(pct));
   _applyChatOpacity();
 }
 
@@ -99,7 +99,7 @@ function _applyChatFontSize(){
 }
 function _setChatFontSize(px){
   if(!CHAT_FONT_ALLOWED.includes(px)) return;
-  try{ localStorage.setItem(CHAT_FONT_KEY, String(px)); }catch(_){}
+  TwLsSet.lsSet(CHAT_FONT_KEY, String(px));
   _applyChatFontSize();
   // 글자가 커지면 스크롤 위치가 어긋나므로 맨 아래로 — 방금 읽던 자리가 화면 밖으로 나가는 게 더 어색하다
   const box = document.getElementById('chatMessages');
@@ -124,13 +124,13 @@ function _chatSfxOfficeLock(){
   try{ return !!officeMode(); }catch(_){ return false; }
 }
 function _setChatSfxOn(on){
-  try{ localStorage.setItem(CHAT_SFX_ON_KEY, on ? '1' : '0'); }catch(_){}
-  if(!on){ try{ localStorage.setItem(DEMOJI_SFX_ON_KEY, '0'); }catch(_){} }   // 채팅 알림음을 끄면 이모티콘 소리도 끈다(다시 켤 땐 따로)
+  TwLsSet.lsSet(CHAT_SFX_ON_KEY, on ? '1' : '0');
+  if(!on) TwLsSet.lsSet(DEMOJI_SFX_ON_KEY, '0');   // 채팅 알림음을 끄면 이모티콘 소리도 끈다(다시 켤 땐 따로)
   _applyChatSfxUI();
 }
 function _setChatSfxId(id){
   if(!CHAT_SFX_LIST.some(x => x.id === id)) return;
-  try{ localStorage.setItem(CHAT_SFX_ID_KEY, String(id)); }catch(_){}
+  TwLsSet.lsSet(CHAT_SFX_ID_KEY, String(id));
   _applyChatSfxUI();
 }
 /* 메뉴 표시 — 켜짐이면 ✓ 와 소리 목록(● 고른 것), 꺼짐이면 목록을 통째로 숨긴다(시안 B). */
@@ -188,7 +188,7 @@ function _demojiSfxOn(){
   return v === '1' && _chatSfxOn();
 }
 function _setDemojiSfxOn(on){
-  try{ localStorage.setItem(DEMOJI_SFX_ON_KEY, on ? '1' : '0'); }catch(_){}
+  TwLsSet.lsSet(DEMOJI_SFX_ON_KEY, on ? '1' : '0');
   if(on && !_chatSfxOn()) _setChatSfxOn(true);
 }
 /* 워킹룸에는 대화창이 없어서 «창이 열려 있으면 조용» 게이트는 두지 않는다. */

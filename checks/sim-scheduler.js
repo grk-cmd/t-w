@@ -12,6 +12,8 @@
    ・9절: 일부러 깨 보기
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
+/* 모듈이 저장을 shared/ls-set.js(TwLsSet)로 한다 — 이 검사의 저장소 위에 하나 만든다(안내는 받지 않음) */
+const lsSetOn = (ls) => { const src = ['ls-set.js', 'app/parts/shared/ls-set.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const w = { TwErrorCodes: { notify(){ return true; } } }; new Function('window', 'localStorage', 'console', 'module', src)(w, ls, { warn(){} }, undefined); return w.TwLsSet; };
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
@@ -116,8 +118,8 @@ function mkEnv(opt){
   const setTimeoutF = opt.nowTimers ? (fn) => { fn(); return 0; } : setTimeout;
   const noop = () => {};
   new Function('window', 'module', 'document', 'localStorage', 'setInterval', 'requestAnimationFrame', 'innerWidth', 'innerHeight', 'setTimeout',
-    'TwSafeHtml', 'firebaseAPI', SRC['net-ready.js'] + '\nvar TwNetReady = window.TwNetReady;\n' + (opt.src || MOD))
-    (win, undefined, document, localStorage, setInterval, noop, 1280, 800, setTimeoutF, { cssUrl: (u) => 'url(' + u + ')' }, fb);
+    'TwSafeHtml', 'firebaseAPI', 'TwLsSet', SRC['net-ready.js'] + '\nvar TwNetReady = window.TwNetReady;\n' + (opt.src || MOD))
+    (win, undefined, document, localStorage, setInterval, noop, 1280, 800, setTimeoutF, { cssUrl: (u) => 'url(' + u + ')' }, fb, lsSetOn(localStorage));
   const apiMod = {}; new Function('window', 'module', opt.apiSrc || SRC['schedule-api.js'])(apiMod, undefined);
   const scheduleApi = apiMod.TwScheduleApi.createScheduleApi({
     authed, newId: () => 'req-abcdefgh-' + authed.log.length,

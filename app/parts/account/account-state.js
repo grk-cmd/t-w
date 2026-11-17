@@ -22,7 +22,7 @@ const _premiumFns = [];
 function onPremiumChanged(fn){ _premiumFns.push(fn); }
 function _premiumChanged(){ _premiumFns.forEach(fn=>fn()); }   // «프리미엄이 바뀌었다» — 초대 게이트가 _refreshPremiumGatedUI 를 건다
 const INVITE_PASS_KEY = 'tw.invitePassed';  // 한 번 통과하면 로컬에 기록 → 다음 실행부터 바로 통과
-function _markInvitePassed(){ try{ localStorage.setItem(INVITE_PASS_KEY, '1'); }catch(e){} }
+function _markInvitePassed(){ TwLsSet.lsSave(INVITE_PASS_KEY, '1'); }
 
 const LICENSE_KEY_STORAGE = 'tw.licenseKey';
 /* 🔑 [2026-09-15 제보 3] isPremium 은 **이 함수로만** 바꾼다.

@@ -790,7 +790,7 @@ document.addEventListener('keydown', e=>{
   e.preventDefault();
   if(_tabHintTimer){ clearTimeout(_tabHintTimer); _tabHintTimer=null; }   // 이미 스스로 찾았으니 안내 토스트는 취소
   const collapsed = chip.classList.toggle('collapsed');
-  try{ localStorage.setItem('tw.chipCollapsed', collapsed?'1':'0'); }catch(err){}
+  TwLsSet.lsSet('tw.chipCollapsed', collapsed?'1':'0');
   // 세로 A안 전환: 상태 메뉴뿐 아니라 더보기·채팅·알림 팝업도 함께 닫음(접힌 상태에서 유령처럼 떠 있는 팝업 방지).
   /* 🎵 단, 꺼내 둔 창(_CHIP_POPUPS 의 keep)은 남긴다 — 판단 기준을 그 표 하나로 모은다.
      [경위] 여기만 규칙을 모른 채 목록을 따로 들고 있었다. 그래서 드롭메뉴를 열어도 안 닫히던

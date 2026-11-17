@@ -42,7 +42,7 @@ var _pomoRun = null;   // { phase:'focus'|'short'|'long', endAt, left(일시정�
 try{ const c = JSON.parse(localStorage.getItem(POMO_KEY) || 'null'); if(c && typeof c === 'object') Object.assign(_pomoCfg, c); }catch(_){}
 try{ const r = JSON.parse(localStorage.getItem(POMO_RUN_KEY) || 'null'); if(r && r.phase && r.total > 0) _pomoRun = r; }catch(_){}
 function _pomoClampMin(v, lo, hi, d){ const n = parseInt(v, 10); return (n >= lo && n <= hi) ? n : d; }
-function _pomoSaveCfg(){ try{ localStorage.setItem(POMO_KEY, JSON.stringify(_pomoCfg)); }catch(_){} }
+function _pomoSaveCfg(){ TwLsSet.lsSet(POMO_KEY, JSON.stringify(_pomoCfg)); }
 function _pomoSaveRun(){ try{ if(_pomoRun) localStorage.setItem(POMO_RUN_KEY, JSON.stringify(_pomoRun)); else localStorage.removeItem(POMO_RUN_KEY); }catch(_){} }
 function _pomoPhaseMs(phase){ return 60 * 1000 * (phase === 'focus' ? _pomoCfg.f : phase === 'long' ? _pomoCfg.l : _pomoCfg.s); }
 function _pomoLeftMs(now){

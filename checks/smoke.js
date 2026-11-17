@@ -723,7 +723,7 @@ PRELOAD.push('char-apply.js');
 PRELOAD.push('app-mode.js');
 /* office-mode.js — 🏢 데스크탑 · 피규어 · 회사원 모드 깃발. app.js 가 원래 자리에서 createOfficeMode 로 만든다. */
 PRELOAD.push('office-mode.js');
-/* ls-set.js — 💾 작은 설정 저장 — 남았는지 왕복 확인. app.js 가 원래 자리에서 createLsSet 로 만든다. */
+/* ls-set.js — 💾 localStorage 쓰기 — 남았는지 왕복 확인 · 못 남기면 번호 안내(window.TwLsSet). app.js 가 원래 자리에서 createLsSet 로도 만든다. */
 PRELOAD.push('ls-set.js');
 /* rig-anim.js — 🕺 몸짓 — 자세 목표 · 뼈 움직이기 · 클립. app.js 가 원래 자리에서 createRigAnim 로 만든다. */
 PRELOAD.push('rig-anim.js');

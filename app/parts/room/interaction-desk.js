@@ -206,7 +206,7 @@ function isDeskUnlocked(def){
 // 현재 내가 쓰는 상호작용 책상 id(교체 방식) — localStorage 보관.
 const ACTIVE_IDESK_KEY = 'tw.activeInteractionDesk';
 function getActiveInteractionDeskId(){ try{ return localStorage.getItem(ACTIVE_IDESK_KEY) || null; }catch(_){ return null; } }
-function setActiveInteractionDeskId(id){ try{ if(id) localStorage.setItem(ACTIVE_IDESK_KEY, id); else localStorage.removeItem(ACTIVE_IDESK_KEY); }catch(_){} }
+function setActiveInteractionDeskId(id){ if(id) TwLsSet.lsSet(ACTIVE_IDESK_KEY, id); else TwLsSet.lsUnset(ACTIVE_IDESK_KEY); }
 
 /* 🐾 "남의 캐릭터는 못 올려요" 토스트 스로틀 — 드래그를 연달아 시도해도 토스트가 쌓이지 않게. */
 let _rideDenyToastAt = 0;

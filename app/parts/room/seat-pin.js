@@ -12,7 +12,7 @@ const MODE_KEY = 'tw.roomSeatMode';
 const ROW = 'row', RIGHT = 'right';
 
 function loadMode(ls){ try{ return ls.getItem(MODE_KEY) === RIGHT ? RIGHT : ROW; }catch(_){ return ROW; } }
-function saveMode(ls, mode){ try{ ls.setItem(MODE_KEY, mode === RIGHT ? RIGHT : ROW); }catch(_){} }
+function saveMode(save, mode){ return save(MODE_KEY, mode === RIGHT ? RIGHT : ROW); }   // save = TwLsSet.lsSet(실패 알림은 그쪽)
 /* 지금 고정이 걸리는가 — 맨 오른쪽 고정이고 방에 다른 사람이 있을 때만(혼자 · 자리 추가만 있으면 예전 그대로) */
 function pinned(mode, seats){ return mode === RIGHT && (seats || []).some(s => s && s.remote); }
 /* 고를 때 · 다른 사람이 들어왔을 때 — 내가 0번이 아니면 0번으로. 옮겼으면 true(부르는 쪽이 좌석 탭을 다시 그린다). */
