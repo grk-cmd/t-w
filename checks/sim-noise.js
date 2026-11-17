@@ -9,6 +9,8 @@
    ・5절: 소리 자료 · 재생 상수 — 셋 다 WebM · 루프 앞뒤 0.15초 · 페이드 0.1/0.5 · 책장 «가끔 한 번».
    [실행] app.js · desk-companion-prototype.html · noise.js · noise-sounds.js 가 있는 폴더에서. */
 'use strict';
+/* 모듈이 저장을 shared/ls-set.js(TwLsSet)로 한다 — 이 검사의 저장소 위에 하나 만든다(안내는 받지 않음) */
+const lsSetOn = (ls) => { const src = ['ls-set.js', 'app/parts/shared/ls-set.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const w = { TwErrorCodes: { notify(){ return true; } } }; new Function('window', 'localStorage', 'console', 'module', src)(w, ls, { warn(){} }, undefined); return w.TwLsSet; };
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 let pass = 0, fail = 0;
@@ -62,6 +64,7 @@ const ctx = {
 ctx.officeModeMod = { officeMode: ()=>env.office };   // 회사원 모드 깃발은 launcher/office-mode.js 가 갖는다(noise.js 는 deps 로 받는다)
 ctx.window = ctx;
 ctx.window.addEventListener = (ev)=>env.listeners.push(ev);
+ctx.TwLsSet = lsSetOn(ctx.localStorage);
 vm.createContext(ctx);
 vm.runInContext(SND, ctx, { filename:'noise-sounds.js' });
 vm.runInContext(NZ, ctx, { filename:'noise.js' });

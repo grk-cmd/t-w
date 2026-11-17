@@ -118,8 +118,7 @@ function saveSlots(){
        받은 것을 도로 올리는 핑퐁이 여기서 막힌다. */
   let _str = null;
   try{ _str = JSON.stringify(out); }catch(_){ _str = null; }
-  try{ if(_str !== null) localStorage.setItem(LS_KEY, _str); }
-  catch(e){ console.warn('[슬롯] 저장 실패', e); }
+  if(_str !== null) TwLsSet.lsSave(LS_KEY, _str);   // 못 남기면 그쪽이 알린다(다시 켜면 꾸민 것이 사라진다)
   /* 달라졌을 때만 동기화가 시각을 찍고 올리기를 예약한다(slot-sync.js). 보관함(chars.js)은 안 달라진 저장에서도 받는다 —
      기준(h)이 빈 항목을 잡는 데만 쓴다(_charsAfterSave 주석). */
   const _changed = _str !== null && _str !== prevRaw;

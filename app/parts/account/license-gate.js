@@ -127,11 +127,9 @@ async function _signupClaimCode(p, persist){
 /* 가입 끝 — 이 기기에 적는다. uid 기록은 _setMyUserId 하나로. 거울(users/{uid}/friendCode)은 ⑥ 거울 정정의 근거라 여기서 남긴다. */
 async function _signupFinishLocal(p, email, authUid){
   if(!_setMyUserId(p.uid)) return { ok:false, reason:'이 기기에 저장하지 못했어요 — 다시 시도해 주세요' };
-  try{
-    localStorage.setItem(MY_FRIEND_CODE_KEY, p.code);
-    localStorage.setItem(LOGIN_EMAIL_KEY(), email || '');
-    localStorage.setItem(LOGIN_UID_KEY(), authUid || '');
-  }catch(_){}
+  TwLsSet.lsSave(MY_FRIEND_CODE_KEY, p.code);
+  TwLsSet.lsSave(LOGIN_EMAIL_KEY(), email || '');
+  TwLsSet.lsSave(LOGIN_UID_KEY(), authUid || '');
   try{ if(firebaseAPI.setUserFriendCode) await firebaseAPI.setUserFriendCode(p.uid, p.code); }catch(_){}
   await _inviteFinishPending();   // 초대 토큰 → uid (못 하면 토큰이 남아 다음 부팅에 다시)
   _markInvitePassed();
@@ -170,7 +168,7 @@ async function _signupDoGoogle(){
   if(!r || !r.ok) return { ok:false, reason:(r && r.reason) || '구글 가입에 실패했어요' };
   if(r.userCode !== p.uid){
     if(!_setMyUserId(r.userCode)) return { ok:false, reason:'이 기기에 저장하지 못했어요 — 다시 시도해 주세요' };
-    try{ localStorage.setItem(LOGIN_EMAIL_KEY(), r.email || ''); localStorage.setItem(LOGIN_UID_KEY(), r.uid || ''); }catch(_){}
+    TwLsSet.lsSave(LOGIN_EMAIL_KEY(), r.email || ''); TwLsSet.lsSave(LOGIN_UID_KEY(), r.uid || '');
     try{ await _applyTransferSnapshot(await firebaseAPI.fetchAccountSnapshot(r.userCode)); }catch(e){ console.warn('[가입] 기존 계정 복원 중 오류', e); }
     await _inviteFinishPending();
     _markInvitePassed();
@@ -240,11 +238,9 @@ async function _existingSignupDoPassword(st, password){
   if(!l || !l.ok) return l || { ok:false, reason:'계정을 만들지 못했어요' };
   const b = await firebaseAPI.authSignupBind(st.uid);
   if(!b || !b.ok) return b || { ok:false, reason:'계정 연결에 실패했어요' };
-  try{
-    localStorage.setItem(MY_FRIEND_CODE_KEY, st.code);
-    localStorage.setItem(LOGIN_EMAIL_KEY(), l.email || '');
-    localStorage.setItem(LOGIN_UID_KEY(), b.authUid || '');
-  }catch(_){}
+  TwLsSet.lsSave(MY_FRIEND_CODE_KEY, st.code);
+  TwLsSet.lsSave(LOGIN_EMAIL_KEY(), l.email || '');
+  TwLsSet.lsSave(LOGIN_UID_KEY(), b.authUid || '');
   try{ if(firebaseAPI.setUserFriendCode) await firebaseAPI.setUserFriendCode(st.uid, st.code); }catch(_){}
   /* 구글 첫 결속과 같은 일 — 다른 PC 가 이 계정으로 들어올 때 받을 스냅샷(레벨원본·이름·코드·라이선스)을 남긴다. */
   try{ if(firebaseAPI.setAccountSnapshot) await firebaseAPI.setAccountSnapshot(st.uid, _loginLocalSnapshot()); }catch(_){}
@@ -823,7 +819,7 @@ async function _licenseSnapForPush(){
   snap.license = k;                                    // ★ 이 PC 에 없다고 계정의 라이선스를 지우지 않는다(구멍 ③)
   let opt = null; try{ opt = localStorage.getItem(LICENSE_OPTOUT_KEY); }catch(_){}
   if(v.ok && opt !== k){
-    try{ localStorage.setItem(LICENSE_KEY_STORAGE, k); }catch(_){}
+    TwLsSet.lsSave(LICENSE_KEY_STORAGE, k);
     _setPremium(true);
     try{ refreshLicenseUI(); }catch(_){}
     try{ toast('🎫 계정에 등록된 라이선스를 이 PC에서도 켰어요'); }catch(_){}
@@ -833,7 +829,7 @@ async function _licenseSnapForPush(){
 async function activateLicense(key){
   const r = await verifyLicense(key);
   if(r.ok){
-    try{ localStorage.setItem(LICENSE_KEY_STORAGE, key.trim().toUpperCase()); localStorage.removeItem(LICENSE_OPTOUT_KEY); }catch(e){}
+    TwLsSet.lsSave(LICENSE_KEY_STORAGE, key.trim().toUpperCase()); TwLsSet.lsRemove(LICENSE_OPTOUT_KEY);
     _setPremium(true);
     _licenseSnapPushNow();   // 🎫 다른 PC 가 곧바로 받을 수 있게(구멍 ①)
   }
@@ -841,7 +837,7 @@ async function activateLicense(key){
 }
 function deactivateLicense(){
   let _k = null; try{ _k = localStorage.getItem(LICENSE_KEY_STORAGE); }catch(_){}
-  try{ localStorage.removeItem(LICENSE_KEY_STORAGE); if(_k) localStorage.setItem(LICENSE_OPTOUT_KEY, _k); }catch(e){}   // 🎫 이 기기만 해제 — 부팅 때 다시 켜지 않는다
+  TwLsSet.lsRemove(LICENSE_KEY_STORAGE); if(_k) TwLsSet.lsSave(LICENSE_OPTOUT_KEY, _k);   // 🎫 이 기기만 해제 — 부팅 때 다시 켜지 않는다
   // 프리미엄이 풀렸는데 커스텀 상태를 쓰고 있었으면 기본 상태로 되돌림
   if(typeof userStatus()!=='undefined' && userStatus()==='custom') setUserStatus(null);
   _setPremium(false);

@@ -227,8 +227,7 @@ function _starPicked(){
 }
 function setStarColor(c){
   if(!_starColorOk(c)) return false;
-  try{ localStorage.setItem(STAR_COLOR_KEY, c); }catch(_){ return false; }
-  return true;
+  return TwLsSet.lsSet(STAR_COLOR_KEY, c);   // 못 남기면 그쪽이 알린다(눌러도 아무 일 없어 보이지 않게)
 }
 /* 누적초 → { cycle: 채운 바퀴 수, lv: 이번 바퀴 안의 레벨(1~999), leftSec: 다음 바퀴까지 남은 초 } */
 function focusCycleOf(sec){
@@ -557,7 +556,7 @@ async function _mobMakeKey(){
   const key = _mobileNewKey();
   const ok = await firebaseAPI.mobileSetKey(uid, key);
   if(!ok){ toast('연결 키를 저장하지 못했어요 — 잠시 뒤 다시 눌러 주세요'); return false; }
-  try{ localStorage.setItem(MOBILE_KEY_LS, JSON.stringify({ u:uid, k:key })); }catch(_){}
+  TwLsSet.lsSave(MOBILE_KEY_LS, JSON.stringify({ u:uid, k:key }));
   try{ if(_mobileStop) _mobileStop(); }catch(_){}
   _mobileStop = null;
   _mobileApplyState(null);

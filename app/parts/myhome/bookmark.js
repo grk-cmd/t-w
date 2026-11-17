@@ -85,8 +85,7 @@
     try{ bmData = bmClean(JSON.parse(localStorage.getItem(BM_KEY) || '{}')); }catch(_){ bmData = { order:[], items:{}, ts:0 }; }
   }
   function bmSaveLocal(){
-    try{ localStorage.setItem(BM_KEY, JSON.stringify({ order:bmData.order.join(','), items:bmData.items, ts:bmData.ts })); }
-    catch(_){ /* 용량이 차도 서버 사본이 기준이라 다음 부팅에 돌아온다 */ }
+    TwLsSet.lsSave(BM_KEY, JSON.stringify({ order:bmData.order.join(','), items:bmData.items, ts:bmData.ts }));
   }
   async function bmPull(){
     const u = uid(), a = api();

@@ -10,6 +10,8 @@
    ・7절: app.js 배선 — 정의는 모듈에만 · createPomodoro 는 원래 자리 · deps 모양 · 빈 껍데기 · _focusShowConf 는 typeof 가드 · html 순서 · 전역 이름
    [실행] pomodoro.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+/* 모듈이 저장을 shared/ls-set.js(TwLsSet)로 한다 — 이 검사의 저장소 위에 하나 만든다(안내는 받지 않음) */
+const lsSetOn = (ls) => { const src = ['ls-set.js', 'app/parts/shared/ls-set.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean); const w = { TwErrorCodes: { notify(){ return true; } } }; new Function('window', 'localStorage', 'console', 'module', src)(w, ls, { warn(){} }, undefined); return w.TwLsSet; };
 const fs = require('fs');
 const vm = require('vm');
 let pass = 0, fail = 0, done = false;
@@ -57,6 +59,7 @@ function mkEnv(opt){
     _focusLogClamp: () => { env.clamps++; },
   };
   ctx.window = ctx;
+  ctx.TwLsSet = lsSetOn(ctx.localStorage);
   vm.createContext(ctx);
   vm.runInContext(MOD, ctx, { filename: 'pomodoro.js' });
   env.ctx = ctx; env.els = els;

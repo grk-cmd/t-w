@@ -143,7 +143,7 @@ function advLoad(){
   return { slots:[blankSlot(),blankSlot(),blankSlot()], active:0, st:100, stLevel:null, hp:100,
            inf:0, inv:{}, weapons:[], scene:'camp', bg:null };
 }
-function advSave(){ try{ localStorage.setItem(ADV_KEY, JSON.stringify(ADV)); }catch(_){} }
+function advSave(){ TwLsSet.lsSave(ADV_KEY, JSON.stringify(ADV)); }
 // 🖥️ 바탕화면 배경을 서버에도 저장 — 방문자가 집주인 바탕화면을 볼 수 있게 + 🩹 내 다른 기기와 맞추려고.
 //   ★ ts(고른 시각)를 같이 싣는다 — 기기끼리 «누가 더 최근에 골랐나» 를 가르는 유일한 근거다(advPullBg).
 function advSaveBgRemote(){

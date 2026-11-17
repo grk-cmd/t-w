@@ -22,7 +22,7 @@ chk(!!P && P.MODE_KEY === 'tw.roomSeatMode', '싣기만 하면 window.TwSeatPin 
 const ls = (v) => ({ getItem: () => v, setItem: (k, x) => { ls.last = [k, x]; } });
 chk(P.loadMode(ls(null)) === 'row' && P.loadMode(ls('right')) === 'right' && P.loadMode(ls('???')) === 'row', '기본은 «줄 안에 함께» · 이상한 값도 기본');
 chk(P.loadMode({ getItem: () => { throw new Error('x'); } }) === 'row', 'localStorage 가 던져도 기본');
-P.saveMode(ls(null), 'right'); chk(ls.last && ls.last[1] === 'right', '저장');
+{ const got = []; const r = P.saveMode((k, v) => { got.push([k, v]); return true; }, 'right'); chk(r === true && got.length === 1 && got[0][0] === P.MODE_KEY && got[0][1] === 'right', '저장 — 받은 저장 함수(TwLsSet.lsSet — 실패 안내는 그쪽)로 쓰고 결과를 돌려준다'); }
 chk(P.label('right') === '맨 오른쪽 고정' && P.label('row') === '줄 안에 함께' && P.next('row') === 'right' && P.next('right') === 'row', '버튼 글 · 번갈아 바꾸기');
 const me = { isMe: true }, a = { remote: true, n: 'a' }, b = { remote: true, n: 'b' }, ex = { isExtra: true };
 chk(!P.pinned('right', [me, ex]) && !P.pinned('row', [a, me]), '★ 혼자(자리 추가만) · «줄 안에 함께» 면 고정 안 걸림 — 예전 그대로');
@@ -42,7 +42,7 @@ const layout = (APP.match(/function layoutSeatRow\(\)\{[\s\S]*?const placed = /)
 chk(/TwSeatPin\.pinFirst\(seats, roomSeatMode\)/.test(layout) && /renderSeatTabs\(\)/.test(layout), 'layoutSeats 가 자리를 계산하기 전에 고정을 건다 · 옮겼으면 좌석 탭도');
 chk(/idx = TwSeatPin\.dragIndex\(idx, drag\.seat, seats, roomSeatMode\)/.test(APP), '책상 끌기 자리가 고정을 지난다');
 chk(/let roomSeatMode = window\.TwSeatPin \? TwSeatPin\.loadMode\(localStorage\) : 'row';/.test(APP), '부팅 때 저장값 읽기 · 모듈이 없으면 예전 그대로');
-chk(/rsBtn\.onclick=\(\)=>\{\s*roomSeatMode = TwSeatPin\.next\(roomSeatMode\);\s*TwSeatPin\.saveMode\(localStorage, roomSeatMode\);\s*refreshToggleBtns\(\);\s*layoutSeats\(\);/.test(APP), '버튼 — 바꾸고 · 저장하고 · 글 바꾸고 · 다시 배치');
+chk(/rsBtn\.onclick=\(\)=>\{\s*roomSeatMode = TwSeatPin\.next\(roomSeatMode\);\s*TwSeatPin\.saveMode\(TwLsSet\.lsSet, roomSeatMode\);\s*refreshToggleBtns\(\);\s*layoutSeats\(\);/.test(APP), '버튼 — 바꾸고 · 저장하고 · 글 바꾸고 · 다시 배치');
 chk(/id="fsRoomSeatModeToggle"/.test(HTML) && /방에서 내 자리/.test(HTML), '설정 › 캐릭터 «방에서 내 자리» 버튼');
 const iMod = HTML.indexOf('parts/room/seat-pin.js'), iApp = HTML.indexOf('parts/app.js"');
 chk(iMod > 0 && iApp > iMod, 'seat-pin.js 를 app.js 보다 먼저 싣는다');

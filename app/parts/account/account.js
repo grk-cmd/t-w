@@ -177,10 +177,8 @@ async function _loginDoGoogle(){
   const r = await firebaseAPI.authSignInWithGoogle(g.idToken, offer);
   if(!r || !r.ok) return { ok:false, reason:(r && r.reason) || '로그인에 실패했어요', needCode:!!(r && r.needCode) };
 
-  try{
-    localStorage.setItem(LOGIN_EMAIL_KEY, r.email || '');
-    localStorage.setItem(LOGIN_UID_KEY, r.uid || '');
-  }catch(_){}
+  TwLsSet.lsSave(LOGIN_EMAIL_KEY, r.email || '');
+  TwLsSet.lsSave(LOGIN_UID_KEY, r.uid || '');
 
   if(r.userCode === before){
     /* 이 기기가 이미 그 계정이다 — 갈아탈 것이 없다. 첫 결속이면 스냅샷을 한 벌 올려둔다
@@ -213,7 +211,7 @@ async function _loginDoGoogle(){
     try{ localStorage.removeItem(LOGIN_EMAIL_KEY); localStorage.removeItem(LOGIN_UID_KEY); }catch(_){}
     return { ok:false, reason:'이 기기에 계정을 저장하지 못했어요 — 다시 시도해 주세요' };
   }
-  try{ localStorage.setItem(LOGIN_EMAIL_KEY, r.email || ''); localStorage.setItem(LOGIN_UID_KEY, r.uid || ''); }catch(_){}   // 내려놓기(detach)가 지웠을 수 있다
+  TwLsSet.lsSave(LOGIN_EMAIL_KEY, r.email || ''); TwLsSet.lsSave(LOGIN_UID_KEY, r.uid || '');   // 내려놓기(detach)가 지웠을 수 있다
   try{
     const snap = await firebaseAPI.fetchAccountSnapshot(r.userCode);
     await _applyTransferSnapshot(snap);   // 계정 연동과 **같은 함수** — 복원 규칙은 한 벌뿐이다
@@ -245,10 +243,8 @@ async function _loginDoFriendCode(code, password){
       return { ok:false, reason:'이 기기에 계정을 저장하지 못했어요 — 다시 시도해 주세요' };
     }
   }
-  try{
-    localStorage.setItem(LOGIN_EMAIL_KEY, r.email || '');
-    localStorage.setItem(LOGIN_UID_KEY, r.uid || '');
-  }catch(_){}
+  TwLsSet.lsSave(LOGIN_EMAIL_KEY, r.email || '');
+  TwLsSet.lsSave(LOGIN_UID_KEY, r.uid || '');
   if(r.userCode === before){ try{ acctStateMod._markInvitePassed(); }catch(_){} return { ok:true, switched:false }; }
   try{
     const snap = await firebaseAPI.fetchAccountSnapshot(r.userCode);
@@ -405,14 +401,14 @@ async function _acctPreflight(uid, opt){
      (게이트 주석 «로그아웃 직후 만들어진 임시 유저 코드»). 여기서 막지 않는다. */
 function _wipeAccountLocal(){
   setAcctDetached(true);
-  for(const k of ACCOUNT_LOCAL_KEYS()){ try{ localStorage.removeItem(k); }catch(_){} }
+  for(const k of ACCOUNT_LOCAL_KEYS()) TwLsSet.lsRemove(k);
   try{
     const drop = [];
     for(let i = 0; i < localStorage.length; i++){
       const k = localStorage.key(i);
       if(k && ACCOUNT_LOCAL_KEY_PREFIXES.some(p => k.startsWith(p))) drop.push(k);
     }
-    drop.forEach(k => { try{ localStorage.removeItem(k); }catch(_){} });
+    drop.forEach(k => TwLsSet.lsRemove(k));
   }catch(_){}
   /* 메모리 — 위 주석 참고. 각 값은 그 모듈의 «빈 기기» 초기값과 같다. */
   try{ setFocusTotalSec(0); setFocusTodaySec(0); }catch(_){}
@@ -681,7 +677,7 @@ function _adoptAccountFriendCode(r, opts){
   if(FRIEND_CODE_LOGIN_RE.test(typed)){
     if(old === typed) return 'typed';
     if(old) _rememberOldFriendCode(old);
-    try{ localStorage.setItem(MY_FRIEND_CODE_KEY, typed); }catch(_){}
+    TwLsSet.lsSave(MY_FRIEND_CODE_KEY, typed);
     return 'typed';
   }
   if(!old) return 'none';
@@ -704,7 +700,7 @@ async function _applyTransferSnapshot(r, opts){
   if(r){
   /* 🔑 [2026-09-15 제보 3] 키만 저장하고 isPremium 을 안 올리던 자리 — 재시작 전까지 내 전용 책상이 기본으로 보였다.
      loadLicenseFromStorage 와 같은 태도(로컬 키 = 일단 프리미엄, 재검증은 다음 부팅의 initLicense). */
-  try{ if(r.license){ localStorage.setItem(acctStateMod.LICENSE_KEY_STORAGE, r.license); acctStateMod._setPremium(true); } }catch(_){}
+  try{ if(r.license){ TwLsSet.lsSave(acctStateMod.LICENSE_KEY_STORAGE, r.license); acctStateMod._setPremium(true); } }catch(_){}
   try{
     if(Number.isFinite(r.focusTotalSec) && r.focusTotalSec >= 0){
       /* 🕒 ★ 포커스 누적만은 **덮어쓰지 않는다 — max 다.**
@@ -715,23 +711,23 @@ async function _applyTransferSnapshot(r, opts){
          ⚠️ 대가: 연동 전 이 기기에 쌓여 있던 시간이 연동해 온 계정으로 합쳐진다.
             "기록은 항상 큰 쪽을 따라간다"는 요청의 직접적인 귀결이다. */
       const _merged = Math.max(Number(_focusTotalSec())||0, r.focusTotalSec);
-      localStorage.setItem(FOCUS_TOTAL_KEY(), String(_merged));
+      TwLsSet.lsSave(FOCUS_TOTAL_KEY(), String(_merged));
       /* 🕒 마크도 합친 값으로 맞춘다 — 안 맞추면 "이 기기의 옛 누적치 − 옛 마크"가 증분으로
          잡혀서, 연동해 온 계정에 이 기기 시간이 통째로 한 번 더 더해진다.
          마크 = 로컬이면 증분 0 이고, 아래 즉시 동기화는 max 바닥만 태운다(= 서버가 더 크면
          그 값을 받아오고, 이 기기가 더 크면 서버를 끌어올린다). */
-      localStorage.setItem(focusLevelMod().FOCUS_SYNCED_KEY, String(_merged));
+      TwLsSet.lsSave(focusLevelMod().FOCUS_SYNCED_KEY, String(_merged));
       /* 메모리 값도 같이 맞춘다 — 즉시 동기화가 localStorage 가 아니라 이 값을 본다. */
       setFocusTotalSec(_merged);
     }
   }catch(_){}
-  try{ if(r.name) localStorage.setItem(USER_NAME_KEY, r.name); }catch(_){}
+  if(r.name) TwLsSet.lsSave(USER_NAME_KEY, r.name);
   try{
     if(r.friendCode){
       // 🔗 스냅샷 코드로 덮기 전에, 이 기기가 쓰던 코드를 적어둔다(진단용 기록 — getOldFriendCodes).
       let old = null; try{ old = localStorage.getItem(MY_FRIEND_CODE_KEY); }catch(_){}
       if(old && old !== r.friendCode) _rememberOldFriendCode(old);
-      localStorage.setItem(MY_FRIEND_CODE_KEY, r.friendCode);
+      TwLsSet.lsSave(MY_FRIEND_CODE_KEY, r.friendCode);
     }
   }catch(_){}
   }   // ← 여기까지가 스냅샷이 있어야만 할 수 있는 일. 아래 셋은 스냅샷과 무관하다(제보 3-1).

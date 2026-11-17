@@ -37,7 +37,7 @@ function saveCustomStatusConf(emo, text){
     emo: (emo || '').slice(0,2),            // 비워두면 이모지 없이 문구만 표시
     text: (text || '').slice(0, userStatusTableMod.CUSTOM_STATUS_MAXLEN),
   });
-  try{ localStorage.setItem(userStatusTableMod.CUSTOM_STATUS_KEY, JSON.stringify(userStatusTableMod.customStatusConf())); }catch(e){}
+  TwLsSet.lsSave(userStatusTableMod.CUSTOM_STATUS_KEY, JSON.stringify(userStatusTableMod.customStatusConf()));
   // 지금 커스텀 상태를 쓰고 있다면 즉시 반영(말풍선/이모지 갱신) + 친구에게도 전파
   statusHooks.setCustomStatus(userStatusTableMod.customStatusConf());
   refreshCustomStatusMenuItem();
@@ -66,7 +66,7 @@ let userStatus=null;
 function setUserStatus(v){
   if(!v || !userStatusTableMod.USER_STATUSES[v]) v=null;
   userStatus=v;
-  try{ localStorage.setItem('tw.userStatus', v||''); }catch(e){}
+  TwLsSet.lsSave('tw.userStatus', v||'');
   refreshMyStatusUI();
   statusHooks.setUserStatus(v);
 }
