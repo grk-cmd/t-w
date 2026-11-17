@@ -303,7 +303,7 @@
 | **sim-pomodoro-module.js** | 251 | **c0cf84fa986c** |
 | **sim-myhome-sticker.js** | 422 | **8a87e9d41a86** |
 | **sim-gacha.js** | 490 | **afa8bdc8a698** |
-| **sim-myhome-edit.js** | 611 | **5153af8f699f** |
+| **sim-myhome-edit.js** | 611 | **c82e8ed22fb7** |
 | **sim-room-invite-ui.js** | 402 | **8c2ff0ef752e** |
 | **sim-focus-log.js** | 333 | **12cbc193fd77** |
 | **sim-focus-progress.js** | 391 | **015a0e14e7d3** |

@@ -371,7 +371,7 @@ await sec('── 5. 닉네임 · 게시글 제목', async () => {
   chk(nameEl.title === '더블클릭해서 닉네임 수정' && nameEl.style.cursor === 'pointer', '닉네임 — 더블클릭 안내');
   nameEl.fire('dblclick');
   let inp = e.els.mhMyNameInput;
-  chk(!!inp && inp.value === '' && inp.maxLength === 20 && inp.placeholder === '닉네임' && nameEl.style.display === 'none' && e.focused === inp, '★ 편집 — 이름이 없으면(\'\') 입력칸은 빈칸(«나» 를 넣지 않는다) · 길이 상한은 열 때 읽는다(USER_NAME_MAX) · 이름표 숨김');
+  chk(!!inp && inp.value === '' && inp.maxLength === 20 && inp.placeholder === '닉네임' && nameEl.style.display === 'none' && e.focused === inp, '★ 편집 — 이름이 없으면(\'\') 입력 필드는 빈칸(«이름 없음» 을 넣지 않는다) · 길이 상한은 열 때 읽는다(USER_NAME_MAX) · 이름표 숨김');
   chk(/font-size:15px;font-weight:700;/.test(inp.style.cssText), '  글씨 크기 · 굵기는 이름표를 실측해 따른다');
   chk(e.H.has(e.K.CANCEL_NAME_EDIT), '  밖에서 접는 길(고리판 CANCEL_NAME_EDIT)을 건다');
   M.beginNameEdit();
