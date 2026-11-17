@@ -158,9 +158,9 @@ npm --prefix web-admin run lint   # oxlint + steiger(FSD 층 규칙) — CI 에�
 - 새 로직은 `firebase-init.js` · `app.js` 에 쌓지 말고 도메인 모듈 파일로 만든다(위 구조 표). 모듈마다 검사(`sim-*.js`)를 붙인다. 두 파일은 줄 상한 · 새 구역 머리를 `sim-app-size` 가 막는다 — 옮겨서 줄었으면 같은 PR 에서 `node checks/sim-app-size.js --write-baseline`(지도 `docs/APP_FSD_MAP.md`).
 - UI 를 고치거나 새로 만들 때는 `docs/design-system/` (원칙 · 토큰 · 부품 지침)을 따른다. 그 폴더의 토큰(`tokens.json`)을 고쳤으면 `npm run design:build` 로 도움말 사이트 토큰(`hosting/help/tokens.css`)도 다시 만든다.
 - 주석은 한국어로, **코드만 봐서는 모를 이유**만 짧게. 변경 이력 · 날짜 · 실측치는 커밋 메시지와 PR 에 적고, 이모지 꼬리표는 쓰지 않는다. 할 일은 `TODO:`.
-  - 옛 코드엔 이 규칙 전에 쓴 **이야기형 주석**(제보 사연 · «개정 n 에서» · 날짜 · 실측치 · 코드를 말로 다시 쓴 줄)이 많다. 한 번에 걷는 PR 은 만들지 않고, **손대는 구역만 같은 PR 에서** 줄인다 — «왜 · 다시 넣지 말 것 · ⚠️ 함정» 은 1~3줄로 남기고, 나머지는 걷는다(사연은 커밋에 이미 있다). 동작 코드는 건드리지 않는다.
+  - 옛 코드엔 이 규칙 전에 쓴 **이야기형 주석**(제보 사연 · «개정 n 에서» · 날짜 · 실측치 · 코드를 말로 다시 쓴 줄)이 많다. 한 번에 지우는 PR 은 만들지 않고, **손대는 구역만 같은 PR 에서** 줄인다 — «왜 · 다시 넣지 말 것 · ⚠️ 함정» 은 1~3줄로 남기고, 나머지는 지운다(사연은 커밋에 이미 있다). 동작 코드는 건드리지 않는다.
 - 주석 · 커밋 · PR 본문 · README · 설계 글은 **업계 표준 기술 용어**로 쓴다 — 번역체나 새로 지은 우리말 비유를 쓰지 않는다. 코드 이름(식별자)은 그대로 적는다. 비유 대신 그것이 **무엇인지**(어디에 · 어떤 모양으로 저장되는지)로 부른다.
-  - 나쁜 예 → 좋은 예: 씨앗 → restore snapshot(파일로 저장되는 스냅샷) · 깨 보기 → mutation test / break test · 톱니 → ratchet · 빚 → tech debt · 길 → endpoint / route / path · 칸 → field / column · 걷기 → remove / deprecate · 줄 → row.
+  - 나쁜 예 → 좋은 예(괄호는 그 뜻으로 쓸 때만 — «2칸 들여쓰기» · «한 줄» 같은 일상 뜻은 그대로): 씨앗 → restore snapshot(파일로 저장되는 스냅샷) · 깨 보기 → mutation test / break test · 톱니 → ratchet · 빚 → tech debt · 길(API 주소) → endpoint / route / path · 칸(DB · payload 항목) → field / column · 걷기(코드 · 기능을 없앰) → remove / deprecate · 줄(표 · DB 의 한 건) → row.
 - **빨리 만드는 길보다 좋은 설계 · 안전한 설계를 먼저 고른다**(기능이 크고 사용자가 많다 — 10-17 사용자). 선택지를 낼 때 «빠름» 을 추천 까닭으로 쓰지 않는다.
   - 신원은 로그인 토큰에서만 정한다. 경로 · 헤더 · 본문에 실린 코드를 «누구인지» 로 믿지 않는다(경로 속 코드는 데이터 주소일 뿐 — 내 데이터는 `me`).
   - 권한은 서버 코드와 시험으로 지킨다. 처리기가 없는 경로 · 요청은 거절한다.
@@ -184,7 +184,7 @@ npm --prefix web-admin run lint   # oxlint + steiger(FSD 층 규칙) — CI 에�
   - 모듈 모양: `window.TwXxx = { createXxx(deps) }` · 모듈 안은 `const X = deps.X;` · app.js 원래 자리에서 `const xMod = TwXxx.createXxx({...})`(TDZ 안 생기게) · html 과 `checks/smoke.js` PRELOAD 에 app.js 보다 먼저 · 그 도메인 폴더 `README.md` 에 절 하나(책임 · deps · 내놓는 것 · 함정).
   - 일찍 끝내기(얼리 리턴)를 넣을 땐 끝내기 전 그 함수가 하던 «요청 아닌 일»(상태 정리 · 빈 화면 표시 · 구독 해제)을 확인하고, 실제 앱에서 그 화면을 직접 열어 본다.
   - 클릭 통과(setIgnoreMouseEvents) 조건은 `app/parts/launcher/click-through-policy.js` 한 곳에만 쓴다(다른 파일에 쓰면 `sim-click-through-policy.js` 빨강).
-- **검사(`sim-*.js`)는 실제로 돌려서 판정한다** — 글자를 찾는 정규식 판정 대신 함수를 불러 입력 → 출력 · 경계값(0 · 빈 값 · 상한)을 보고, 일부러 깨 봐서(«깨 보기») 빨강이 나는지까지 넣는다.
+- **검사(`sim-*.js`)는 실제로 돌려서 판정한다** — 글자를 찾는 정규식 판정 대신 함수를 불러 입력 → 출력 · 경계값(0 · 빈 값 · 상한)을 보고, 코드를 일부러 바꿔 빨강이 나는지(mutation test)까지 넣는다.
 - 남이 쓸 수 있는 값을 화면(HTML · 속성 · 주소 · CSS)에 넣을 땐 `shared/safe-html.js`(`TwSafeHtml`)만 쓴다 — 다른 escape 를 새로 만들지 않는다(검사 `sim-safe-html.js` 가 빨강).
 - localStorage 키는 `tw.` 접두사.
 - 사용자에게 보이는 **실패**(저장 · 불러오기 · 요청 실패)는 토스트 대신 `TwErrorCodes.notify('E-영역-번호', err)` — 번호는 `app/parts/shared/error-codes.js` 표에 먼저 넣고, 한 번 쓴 번호는 다시 쓰지 않는다(규칙 · 목록 `docs/ERROR_CODES.md` · 검사 `sim-error-codes`).
