@@ -107,7 +107,7 @@ chk(!L.err && L.none, '이름이 없으면 사본은 빈칸(\'\') · 화면은 �
 chk(L.set, '이름이 있으면 그 이름을 적고 그린다');
 chk(L.clear && L.nul, '★ 이름 지우기(\'\' · null) — localStorage 키를 지운다(«이름 없음» 을 적지 않는다) · 화면은 «이름 없음»');
 chk(!localJudge(APP.replace("localStorage[name ? 'setItem' : 'removeItem'](USER_NAME_KEY, name);", "localStorage.setItem(USER_NAME_KEY, name || '이름 없음');")).clear, 'mutation test — 빈 이름을 «이름 없음» 으로 적으면 빨강');
-chk(!localJudge(APP.replace("return localStorage.getItem(USER_NAME_KEY) || '';", "return localStorage.getItem(USER_NAME_KEY) || '이름 없음';")).none, 'mutation test — 이름 없음을 «이름 없음» 글로 읽으면 빨강(입력 필드에 들어가 저장된다)');
+chk(!localJudge(APP.replace("return localStorage.getItem(USER_NAME_KEY) || '';", "return localStorage.getItem(USER_NAME_KEY) || '이름 없음';")).none, 'mutation test — 빈 이름을 «이름 없음» 글로 읽으면 빨강(입력 필드에 들어가 저장된다)');
 
 say('── 2. 연결');
 chk(R.order, 'html — name-guard.js 뒤 · app.js 앞에 싣는다');

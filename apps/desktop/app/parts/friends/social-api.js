@@ -4,7 +4,7 @@
      명함 묶음(GET /v2/myhomes/cards?codes=). 서버 모양(userCode · ISO 시각 · displayName · cycle …)을 화면 모양
      (친구 칸 name · level · cyc · clv · starC · bio · avatar · 시각 ms)으로 맞추는 곳은 여기뿐이다.
    신원: 나는 서버가 토큰에서 정한다 — 경로 · 본문에 내 코드 · 이름을 싣지 않는다. 경로의 코드는 상대(데이터 주소).
-   이름: 이름이 없으면 '' 그대로 넘긴다 — «(이름 없음)» 같은 자리표시는 화면 한 곳이 정한다(여기서 새로 만들지 않는다).
+   이름: 이름이 없으면 '' 그대로 넘긴다 — «이름 없음» 같은 placeholder 는 화면 한 곳(shared/person-name.js)이 정한다(여기서 새로 만들지 않는다).
    다시 묻지 않는다: 실패는 한 번에 던진다 — 다시 받기는 사용자가 목록을 다시 열거나 realtime 알림(friends · friendRequests · card)이 올 때.
    deps: authed — 로그인 API 통로(TwApi.authed — get(path, { auth, onOwner }) · post · del(…, { expectOwner }) → Promise<data> · ETag 는 통로가 맡는다)
          warn(...a)(진단 로그)
