@@ -66,15 +66,16 @@ function mkWS(){
   return { FakeWS, socks };
 }
 
-function mk(S, tokenOk){
+function mk(S, tokenOk, url){
   tokenOk = tokenOk || (() => true);
+  url = url || (() => 'wss://realtime.together-working.com');
   const L = loadLink(S.LINK), H = loadHub(S.HUB);
   const clock = mkClock();
   const { FakeWS, socks } = mkWS();
   const forces = [];
   const nSess = { n: 0, ids: [] };   // 새 세션 id 를 뽑은 횟수 — 연결(로그인)마다 하나
   const hub = H.createRtHub({
-    createLink: L.createRealtimeLink, WebSocket: FakeWS, url: () => 'wss://realtime.together-working.com',
+    createLink: L.createRealtimeLink, WebSocket: FakeWS, url,
     getToken: async (force) => { forces.push(!!force); if(!tokenOk()) throw new Error('offline'); return 'tok' + forces.length; },
     getVersion: async () => '0.13.0', deviceId: () => 'dev-0001', newSession: () => { const s = 'sess0' + (++nSess.n); nSess.ids.push(s); return s; },
     now: () => clock.t, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout, random: () => 0.5, log: { warn(){} },
@@ -472,6 +473,15 @@ async function judge(S){
       await e.clock.advance(IDLE);
       chk(w.all('ping').length === 1 && e.socks.slice(0, -1).every((x) => x.all('ping').length === 0), '  ↳ 지금 연결에만 ping 한 번');
     }
+    { /* ready 인 채 주소가 바뀜(dev 앱 tw.realtimeUrl) — link 가 close 하고(onClosed 없음) 새 연결이 ready → onReady 가 한 번 더 */
+      let u = 'wss://realtime.together-working.com';
+      const e = mk(S, null, () => u); e.hub.start(); const w = await readyOn(e);
+      u = 'ws://127.0.0.1:8787';
+      e.hub.request({ t: 'presenceGet', ids: ['u2'] }); await tick();
+      chk(w.closed && e.socks.length === 2, '  (주소가 바뀌면 link 가 앞 연결을 닫고 새로 연다)');
+      await readyOn(e);
+      chk(e.hub.isReady() && keeps(e) === 1, '주소가 바뀌어 ready 가 한 번 더 와도 조용함 타이머 하나');
+    }
   }
 
   say('── 5. 그 밖의 메시지 · 요청');
@@ -592,6 +602,7 @@ const BREAKS = [
   ['HUB', "    if(state === STATE.READY){", "    if(true){", 'ready 전에도 ping(서버가 auth)'],
   ['HUB', "    setState(STATE.READY);\n    armKeep(KEEPALIVE_IDLE_MS);", "    setState(STATE.READY);", 'ready 가 돼도 조용함 타이머 안 검(서버가 사라져도 ready 로 남음)'],
   ['HUB', "    lastInAt = now();\n    if(m.t === 'notify'){", "    if(m.t === 'notify'){", '받은 메시지가 조용함을 다시 안 셈(쓸데없는 ping)'],
+  ['HUB', "  function armKeep(ms){ clearKeep(); keepTimer", "  function armKeep(ms){ keepTimer", '타이머를 걸 때 앞의 것을 안 풂(주소가 바뀌어 ready 가 또 오면 둘)'],
   ['HUB', "    if(s !== STATE.READY) clearKeep();", "", 'ready 를 벗어나도 타이머가 남음(stop · 끊김 · 멈춤 · 다시 붙을 때마다 늘어남)'],
   ['HUB', "    clearPong(); clearKeep();   //", "    clearPong();   //", 'bye 가 타이머를 안 풂'],
   ['HUB', "    checkAlive();\n    armKeep(KEEPALIVE_IDLE_MS);", "    armKeep(KEEPALIVE_IDLE_MS);", '조용해도 ping 안 보냄'],

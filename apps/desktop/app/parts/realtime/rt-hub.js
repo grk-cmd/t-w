@@ -153,9 +153,10 @@ function createRtHub(deps){
   }
   function clearPong(){ if(pongTimer){ tClear(pongTimer); pongTimer = null; } }
   function clearKeep(){ if(keepTimer){ tClear(keepTimer); keepTimer = null; } }
-  /* 조용함 타이머 — ready 동안만 하나. ready 가 될 때 걸고, ready 를 벗어나면 setState 가 푼다(그래서 다시 붙어도 하나).
+  /* 조용함 타이머 — ready 동안만 하나. ready 가 될 때 걸고, ready 를 벗어나면 setState 가 푼다.
+     걸 때도 앞의 것을 푼다 — 주소가 바뀌어 link 가 close 하면(onClosed 없음) 상태가 ready 인 채 onReady 가 한 번 더 온다.
      메시지마다 다시 걸지 않고, 울릴 때 마지막 받은 때를 보고 남은 만큼 다시 건다. */
-  function armKeep(ms){ keepTimer = tSet(onKeep, ms); }
+  function armKeep(ms){ clearKeep(); keepTimer = tSet(onKeep, ms); }
   function onKeep(){
     keepTimer = null;
     const idle = now() - lastInAt;
