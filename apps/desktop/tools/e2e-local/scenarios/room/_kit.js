@@ -147,7 +147,12 @@ function openUser(t, out, label){
   const u = { label, A, fc: '', pw: PW, code: '', uid: '' };
   wrapLaunch(A);
   u.start = async () => { u.w = await A.launch(); };
-  u.shot = (n) => u.w.screenshot({ path: path.join(out, n + '.png') });
+  // 실패 때 남기는 것 — 화면과, 그때까지 뜬 토스트 글(조용히 돌아선 까닭이 토스트로만 남는 길이 있다 — 예: 입장 중 · 캐릭터 없음)
+  u.shot = async (n) => {
+    await u.w.screenshot({ path: path.join(out, n + '.png') });
+    const ts = await u.toasts().catch(() => null);
+    if(ts) fs.writeFileSync(path.join(out, n + '-toasts.txt'), ts.join('\n') + '\n');
+  };
   u.eval = (fn, arg) => u.w.evaluate(fn, arg);
   // 사람처럼 누르되, 책상 모드처럼 런처 단추가 가려진 화면이면 같은 처리기를 부른다(3초 안에 못 누르면)
   u.press = async (sel) => {
