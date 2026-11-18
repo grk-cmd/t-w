@@ -43,7 +43,7 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 | 초대 코드로 가입 | `flow.js «초대 화면» «초대 코드 입력» «가입»` | `signup` `license-gate` `name-guard` | e2e |
 | 가입 뒤 다시 켜기 · 로그인 유지 | `flow.js «시작하기 → 다시 켜기» «로그인된 책상»`(로그인이 남았는지는 뒤 단계 «얼굴 올리기 · 받기» 의 내 정보 요청이 성공해야 통과) | `login-flow` `account` `session` `session-baseline` `account-state` `account-store` `user-api` `first-run-013` | e2e |
 | 로그인 화면(친구 코드 · 비밀번호 · 구글) · 구글로 가입 | `scenarios/account/login.js`(틀린 모양 · 틀린 비밀번호 · 로그인 · 구글 가입 기록 없음 → 초대 코드 → 구글 가입 · 다른 PC 에서 같은 구글). 구글 창은 진짜 OAuth 라 Auth 에뮬레이터가 받는 가짜 구글 ID 토큰을 main 의 구글 창 IPC 자리에서 돌려준다 | `login-flow` `account` `session` | e2e |
-| 비밀번호 바꾸기 · 구글 계정에 비밀번호 붙이기 | `scenarios/account/password.js`(바꾸기 → 새 비밀번호만 로그인 · 붙이기 → 친구 코드로도 같은 계정). 붙인 뒤 이 PC 로그인이 끊김 — BUG-ACCT-1 | `user-api` `account` | e2e |
+| 비밀번호 바꾸기 · 구글 계정에 비밀번호 붙이기 | `scenarios/account/password.js`(바꾸기 → 새 비밀번호만 로그인 · 붙이기 → 이 PC 로그인이 이어지고 친구 코드로도 같은 계정) | `user-api` `account` | e2e |
 | 회원 탈퇴 | `scenarios/account/withdraw.js`(미리보기 · 체크 + «탈퇴» 둘 다 · 서버 탈퇴 → 로그인 화면 · 계정 없음) | `account-delete` `account` `my-info` `user-api` | e2e |
 | 친구 코드 고정 | `flow.js «초대 코드 입력»` 이 가입 화면의 친구 코드를 읽어 `account.json` 에 적음(바뀌지 않는지는 안 봄) | `friend-code-keep` | 부분 |
 | 로그아웃 | `scenarios/account/switch-account.js`(확인창 → 다시 켜기 → 로그인 화면 · 이 PC 계정 사본 없음 · 서버 기기 목록에서 빠짐) · `REPL «로그아웃»` | `account` `account-switch` `signup` | e2e |
@@ -170,7 +170,6 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 
 | 번호 | 무엇이 틀렸나 | 다시 만들기 | 시나리오 |
 |---|---|---|---|
-| BUG-ACCT-1 | **고침 — #1017**(비밀번호를 만든 뒤 새 비밀번호로 곧바로 다시 로그인). 옛 증상: 구글로만 가입한 계정에 [비밀번호 만들기]를 하면 서버가 비밀번호를 붙이고(200) Auth 가 그 계정의 옛 로그인 토큰을 끊는데, 앱은 다시 로그인하지 않는다(바꾸기 C2 는 다시 로그인함). 탭이 «비밀번호 바꾸기» 로 안 바뀌고(`accounts:lookup` 400 `TOKEN_EXPIRED`), 이 PC 의 토큰 새로 받기도 실패한다 — 다음 API 요청부터 로그인이 풀린다 | 구글로 가입 → 내 정보 › 계정 → 새 비밀번호 두 칸 → [비밀번호 만들기] → «✅ 비밀번호를 만들었어요» 는 뜨지만 버튼은 «비밀번호 만들기» 그대로 · `firebaseAPI.getIdToken(true)` 실패 | `scenarios/account/password.js` — `t.knownBug` 를 일반 단계로 바꾸기는 후속 |
 | BUG-ROOM-1 | 레벨 80 으로 올린 계정(시드 `seed/focus-level.sql`)을 다시 켠 뒤 로비 코드 칸에 `WORK-xxxx` 를 넣고 [입장] 을 누르면 realtime `join` 을 보내지 않고 아무 안내도 없다(앱은 레벨 80 을 받음 · 같은 흐름의 레벨 1 계정은 들어감). `doJoinRoom` 이 말없이 돌아서는 길(`_joinBusy` 등) 후보 | `node run-all.js room/games` — b 를 레벨 80 으로 올리고 다시 켠 뒤 a 의 워킹룸에 참여. 기록: 결과 폴더 `room/games/b/`(console.txt · ws.txt — hello 뿐 join 없음 · fail-*.png · fail-*-toasts.txt) | `scenarios/room/games.js` — 고쳐지면 그대로 통과(시나리오는 약하게 하지 않음) |
 
 ## 할 일 — e2e 가 없거나 일부만 있는 기능
