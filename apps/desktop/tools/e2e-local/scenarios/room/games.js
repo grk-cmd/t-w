@@ -62,20 +62,20 @@ kit.scenario(__filename, async (t) => {
     await kit.wait(1500);
     t.eq('a 안 날아감', await a.eval(myFly), false);
   });
+  // 깜짝쇼는 날아간 뒤 쉬는 시간(flyCool)이 있는 사람을 조용히 건너뛴다 — 그래서 주사위 1 보다 먼저 한다
+  await t.step('💃 깜짝쇼 — b 가 /80 세 번 → 방의 다른 사람(a)이 날아감 · b 화면 · a 화면 둘 다', async () => {
+    for(let i = 0; i < 3; i++){ await b.say('/80'); await kit.wait(700); }
+    await t.until('b 화면에서 a 날아감', () => b.eval(remoteFly), 15000);
+    await t.until('a 화면에서 내가 날아감', () => a.eval(myFly), 15000);
+  });
   await t.step('🎲 주사위(눈 1·1) → a 가 날아감(플라잉체어) · b 화면에서도 a 가 날아감', async () => {
+    await t.until('a 착지', async () => !(await a.eval(myFly)) && !(await b.eval(remoteFly)), 30000);
     await kit.wait(3500);   // 주사위 연타 쉬는 시간
     await a.eval(fixRandom, 0);
     await a.w.click('#chatDiceBtn');
     await a.eval(realRandom);
     await t.until('a 화면 a 날아감', () => a.eval(myFly), 8000);
     await t.until('b 화면 a 날아감', () => b.eval(remoteFly), 8000);
-  });
-  await t.step('💃 깜짝쇼 — b 가 /80 세 번 → a 화면에서 b 가 날아감 · a 쪽에서도 b 가 날아감', async () => {
-    await t.until('a 착지', async () => !(await a.eval(myFly)) && !(await b.eval(remoteFly)), 30000);
-    await kit.wait(2000);
-    for(let i = 0; i < 3; i++){ await b.say('/80'); await kit.wait(700); }
-    await t.until('b 화면에서 a 날아감', () => b.eval(remoteFly), 15000);
-    await t.until('a 화면에서 내가 날아감', () => a.eval(myFly), 15000);
   });
   await t.step('🪄 때리기 — a 가 b 좌석 메뉴 «때리기» → 하루 남은 수가 줄고 b 에게 bonk 가 감', async () => {
     await t.until('착지', async () => !(await b.eval(remoteFly)) && !(await a.eval(myFly)), 30000);

@@ -36,6 +36,8 @@ if(!picked.length){ console.error('돌릴 시나리오가 없다: ' + filters.jo
       const steps = fs.existsSync(path.join(out, 'steps.txt')) ? fs.readFileSync(path.join(out, 'steps.txt'), 'utf8') : '';
       const fail = steps.split('\n').find((l) => /^(FAIL|ABORT)/.test(l));
       rows.push({ name, ok: r.status === 0, sec: Math.round((Date.now() - t0) / 1000), why: r.status === 0 ? '' : (fail || `종료 코드 ${r.status}`) });
+      // 창이 조용하지 않았으면(TW_E2E_QUIET_FAIL 파일이 생김) 여기서 멈춘다 — 이 PC 화면을 더 건드리지 않게
+      if(process.env.TW_E2E_QUIET_FAIL && fs.existsSync(process.env.TW_E2E_QUIET_FAIL)){ console.log('조용한 창 실패 — 멈춤: ' + process.env.TW_E2E_QUIET_FAIL); break; }
     }
   } finally { release(); }
   console.log('\n── 요약 ──');

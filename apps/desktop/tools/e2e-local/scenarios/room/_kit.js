@@ -69,7 +69,12 @@ function scenario(file, body){
         // 단계마다 창이 조용한지 본다(화면 밖 · 투명 · 맨 위 아님 · 포커스 없음) — 앱이 창을 앞으로 올리면 그 단계가 실패한다
         for(const u of users){
           const bad = await u.A.quietReport().catch(() => []);
-          if(bad.length) throw new Error(`${u.label}: 창이 조용하지 않음 — ${bad.join(' / ')}`);
+          if(bad.length){
+            const msg = `${u.label}: 창이 조용하지 않음 — ${bad.join(' / ')}`;
+            // TW_E2E_QUIET_FAIL=<파일> 이면 그 파일에 적어 둔다 — run-all 은 그 파일이 생기면 남은 시나리오를 돌리지 않는다
+            if(process.env.TW_E2E_QUIET_FAIL) fs.writeFileSync(process.env.TW_E2E_QUIET_FAIL, `${area}/${name} · ${label}\n${msg}\n`);
+            throw new Error(msg);
+          }
         }
         steps.push(`ok   ${label} (${Date.now() - t0}ms)`); return r;
       }

@@ -2,17 +2,22 @@
 'use strict';
 const kit = require('./_kit.js');
 
-// 화면 자리(창 좌표) — 내 몸의 mesh 만 잰 가운데(누를 곳 · 머리 위 Z 같은 스프라이트는 뺀다) · 내 rig 원점 · 남의 머리
+// 화면 자리(창 좌표) — 누를 곳 · 내 rig 원점 · 남의 머리.
+// 누를 곳은 앱과 같은 레이캐스트로 찾는다 — rig 에서 위로 훑어 처음 맞는 것이 내 좌석인 점(몸 상자 가운데는 빈 곳일 수 있다)
 const points = () => {
-  const proj = (v) => { const p = v.clone().project(camera); const rc = canvas.getBoundingClientRect(); return { x: rc.left + (p.x + 1) / 2 * rc.width, y: rc.top + (1 - p.y) / 2 * rc.height }; };
+  const rc = canvas.getBoundingClientRect();
+  const proj = (v) => { const p = v.clone().project(camera); return { x: rc.left + (p.x + 1) / 2 * rc.width, y: rc.top + (1 - p.y) / 2 * rc.height }; };
   const me = seats.find((s) => !s.remote), host = seats.find((s) => s.remote);
-  const box = new THREE.Box3();
-  (me.bodyWrap || me.rig).traverse((o) => { if(o.isMesh && !o.isSprite && o.visible) box.expandByObject(o); });
-  return {
-    grab: proj(box.getCenter(new THREE.Vector3())),
-    rig: proj(me.rig.getWorldPosition(new THREE.Vector3())),
-    head: proj(((host.bones && host.bones.head) || host.headAnchor).getWorldPosition(new THREE.Vector3())),
-  };
+  const rig = proj(me.rig.getWorldPosition(new THREE.Vector3()));
+  const ray = new THREE.Raycaster();
+  let grab = null;
+  for(let dy = 0; dy <= 300 && !grab; dy += 6){
+    const x = rig.x, y = rig.y - dy;
+    ray.setFromCamera(new THREE.Vector2((x - rc.left) / rc.width * 2 - 1, -((y - rc.top) / rc.height) * 2 + 1), camera);
+    const hit = ray.intersectObjects(seats.map((s) => s.group), true).find((h) => h.object.visible);
+    if(hit && seatFromObject(hit.object) === me) grab = { x, y };
+  }
+  return { grab, rig, head: proj(((host.bones && host.bones.head) || host.headAnchor).getWorldPosition(new THREE.Vector3())) };
 };
 const riding = () => { const s = seats.find((x) => !x.remote); return !!(s && s.ridingOn); };
 const remoteRiding = () => { const s = seats.find((x) => x.remote); return !!(s && s.ridingOn); };
@@ -50,6 +55,7 @@ kit.scenario(__filename, async (t) => {
   await t.step('a: 내 동물을 끌어 b 머리 위에 놓음 → 올라탐', async () => {
     const p0 = await a.eval(points);
     t.note('누름 ' + JSON.stringify(p0));
+    t.ok('내 동물을 누를 자리를 찾음', !!p0.grab);
     let x = p0.grab.x, y = p0.grab.y;
     await a.w.mouse.move(x, y);
     await a.w.mouse.down();
