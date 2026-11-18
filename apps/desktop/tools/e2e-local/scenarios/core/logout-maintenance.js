@@ -27,8 +27,10 @@ run('logout-maintenance', async (t) => {
     try {
       await t.step('점검 켬 → B 가 서버 설정으로 받음(/v2/config maintenance.on)', async () => {
         await setMaintenance(t, A, true);
-        const r = await t.api(B, 'GET', '/v2/config');
-        t.check(r.body.data.maintenance && r.body.data.maintenance.on === true, '/v2/config 에 점검이 안 실림');
+        // 서버 설정 읽기는 잠깐 캐시될 수 있다 — 15초 안에 실리는지
+        let last;
+        await t.poll(async () => { const r = await t.api(B, 'GET', '/v2/config'); last = r.body && r.body.data && r.body.data.maintenance; return last && last.on === true; }, 15000, '/v2/config 에 점검이 실림')
+          .catch((e) => { throw new Error(e.message + ' — 마지막 값 ' + JSON.stringify(last)); });
       });
       await t.step('B 다시 켜면(켤 때 /v2/config) 서버를 쓰는 단추(내 정보) → «서버 점검 중» 창', async () => {
         await t.relaunch(B);
