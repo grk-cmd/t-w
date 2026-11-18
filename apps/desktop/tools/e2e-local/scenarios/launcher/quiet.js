@@ -1,7 +1,7 @@
 // 조용한 창(quiet-main.js) 확인 — 네 묶음이 같이 쓰는 검사라 lib.js 만 쓴다(계정 · 서버 시드 없이 돈다)
 // ① 켠 뒤 몇 초 — 모든 창의 진짜 자리(__e2eRealBounds)가 화면 밖 · 진짜 투명도 0 · 소리 끔 · 포커스 받은 창 없음
 // ② 앱이 창을 앞으로 · 화면 안으로 부르는 길을 main 에서 직접 부른다(show · focus · moveTop · center · maximize ·
-//    setAlwaysOnTop(true) · setBounds · setPosition · app.focus) → 그래도 진짜 창은 화면 밖 · 투명 · 소리 끔 · 포커스 없음 · 크기는 따름 ·
+//    setAlwaysOnTop(true) · setPosition · app.focus — 크기 · setBounds 는 같은 하위 클래스로 만든 시험 창) → 그래도 진짜 창은 화면 밖 · 투명 · 소리 끔 · 포커스 없음 · 크기는 따름 ·
 //    앱이 읽는 값(getBounds · getPosition · isAlwaysOnTop · getOpacity · isAudioMuted)은 앱이 정한 값
 // 결과: <결과 폴더>/steps.txt(ok · FAIL) · 종료 코드 0/1. TW_E2E_QUIET=0 이면 볼 것이 없어 건너뛴다
 'use strict';
@@ -54,34 +54,39 @@ const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(pa
     await A.launch();
     await step('켠 뒤 4초 — 모든 창이 화면 밖 · 투명 · 소리 끔 · 포커스 없음', () => holdQuiet('켠 뒤'));
     await step('앱이 부르는 앞으로 · 화면 안 · 보이기 · 소리 길을 직접 불러도 진짜 창은 그대로 · 앱이 읽는 값은 앱이 정한 값', async () => {
+      // 앱 창은 앱이 크기를 정해 두기도 해서(런처 고정 크기) 크기 판정은 같은 하위 클래스로 만든 시험 창에서 본다 — 앱 창은 앞으로 · 화면 안 길만 부른다
       await A.app.evaluate(({ app, BrowserWindow }) => {
+        const W = BrowserWindow.getAllWindows()[0].constructor;
+        globalThis.__twQuietProbe = new W({ width: 300, height: 200, show: true, webPreferences: { offscreen: false } });
         for(const w of BrowserWindow.getAllWindows()){
           w.show(); w.focus(); w.moveTop(); w.center(); w.maximize();
           w.setAlwaysOnTop(true, 'screen-saver');
-          w.setBounds({ x: 0, y: 0, width: 520, height: 410 });
           w.setPosition(10, 10);
         }
+        const p = globalThis.__twQuietProbe;
+        p.setBounds({ x: 0, y: 0, width: 520, height: 410 });
+        p.setPosition(10, 10);
         app.focus({ steal: true });
       });
       const s = await holdQuiet('부른 뒤');   // 진짜 창은 화면 밖 · 투명 · 소리 끔 그대로
       for(const w of s.wins){
-        if(w.real.width !== 520 || w.real.height !== 410) throw new Error('크기를 안 따름 ' + JSON.stringify(w.real));
         if(w.aot !== true) throw new Error('isAlwaysOnTop 이 기억한 값(true)이 아님');
-        // setPosition(10,10) 이 마지막 — 앱이 읽는 자리는 그것, 크기는 setBounds 그대로
-        if(JSON.stringify(w.app) !== JSON.stringify({ x: 10, y: 10, width: 520, height: 410 })) throw new Error('getBounds 가 앱이 정한 값이 아님 ' + JSON.stringify(w.app));
+        if(w.app.x !== 10 || w.app.y !== 10) throw new Error('getBounds 자리가 앱이 정한 10,10 이 아님 ' + JSON.stringify(w.app));
       }
-      const c = await A.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map((w) => {
+      const c = await A.app.evaluate(() => {
+        const w = globalThis.__twQuietProbe;
+        const first = { app: w.getBounds(), real: w.__e2eRealBounds() };
         w.setBounds({ x: 0, y: 0, width: 520, height: 410 });
         w.setOpacity(1); w.setIgnoreMouseEvents(false); w.webContents.setAudioMuted(false);
-        return { app: w.getBounds(), pos: w.getPosition(), real: w.__e2eRealBounds(), op: w.getOpacity(), realOp: w.__e2eRealOpacity(),
+        return { first, app: w.getBounds(), pos: w.getPosition(), real: w.__e2eRealBounds(), op: w.getOpacity(), realOp: w.__e2eRealOpacity(),
           muted: w.webContents.isAudioMuted(), realMuted: w.webContents.__e2eRealAudioMuted(), ignore: w.__e2eIgnoreMouse() };
-      }));
-      for(const w of c){
-        if(JSON.stringify(w.app) !== JSON.stringify({ x: 0, y: 0, width: 520, height: 410 }) || w.pos[0] !== 0 || w.pos[1] !== 0) throw new Error('getBounds · getPosition 이 {0,0,520,410} 이 아님 ' + JSON.stringify(w));
-        if(w.op !== 1 || w.realOp !== 0) throw new Error('투명도 — 앱 값 1 · 진짜 0 이어야 ' + JSON.stringify(w));
-        if(w.muted !== false || w.realMuted !== true) throw new Error('소리 — 앱 값 false · 진짜 끔이어야 ' + JSON.stringify(w));
-        if(w.ignore !== false) throw new Error('클릭 통과 기억 값이 false 가 아님');
-      }
+      });
+      if(JSON.stringify(c.first.app) !== JSON.stringify({ x: 10, y: 10, width: 520, height: 410 })) throw new Error('시험 창 getBounds 가 앱이 정한 {10,10,520,410} 이 아님 ' + JSON.stringify(c.first));
+      if(c.real.width !== 520 || c.real.height !== 410) throw new Error('진짜 크기가 setBounds 를 안 따름 ' + JSON.stringify(c.real));
+      if(JSON.stringify(c.app) !== JSON.stringify({ x: 0, y: 0, width: 520, height: 410 }) || c.pos[0] !== 0 || c.pos[1] !== 0) throw new Error('getBounds · getPosition 이 {0,0,520,410} 이 아님 ' + JSON.stringify(c));
+      if(c.op !== 1 || c.realOp !== 0) throw new Error('투명도 — 앱 값 1 · 진짜 0 이어야 ' + JSON.stringify(c));
+      if(c.muted !== false || c.realMuted !== true) throw new Error('소리 — 앱 값 false · 진짜 끔이어야 ' + JSON.stringify(c));
+      if(c.ignore !== false) throw new Error('클릭 통과 기억 값이 false 가 아님');
       await holdQuiet('앱이 되돌리려 한 뒤', 2000);   // 진짜 창은 여전히 화면 밖 · 투명 · 소리 끔
     });
   } catch(e){
