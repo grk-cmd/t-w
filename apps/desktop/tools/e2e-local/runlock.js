@@ -23,7 +23,7 @@ async function acquire(owner){
     try { fs.rmSync(LOCK + '/owner', { force: true }); fs.rmdirSync(LOCK); } catch(_){}
   };
   process.on('exit', release);
-  for(const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { release(); process.exit(130); });
+  for(const [sig, code] of [['SIGINT', 130], ['SIGTERM', 143]]) process.on(sig, () => { release(); process.exit(code); });
   return release;
 }
 
