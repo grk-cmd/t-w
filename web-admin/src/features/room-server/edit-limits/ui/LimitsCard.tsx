@@ -46,7 +46,7 @@ function ServerCount({ name, url }: { name: string; url: string }) {
             return (
               <span key={ch} className={styles.count}>
                 {CHANNEL_LABEL[ch]} {d[ch]}
-                {lim !== undefined && <small className="soft">/{lim ?? '…'}</small>}
+                {lim !== undefined && <small className="soft">/{lim}</small>}
               </span>
             );
           })}
@@ -103,7 +103,7 @@ function TotalCount({ healthUrl }: { healthUrl: string | null }) {
                   </small>
                 )}
                 <b className={lim !== null && total >= lim ? 'warn' : undefined}>{total}</b>
-                <small className="soft">/{lim}</small>
+                <small className="soft">/{lim ?? '…'}</small>
               </span>
             );
           })}
