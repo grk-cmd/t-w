@@ -105,8 +105,8 @@ const NO_FIREBASE_DATA = {
         if(!FIREBASE_DATA_SDK.test(String(node.source.value))) return;
         for(const sp of node.specifiers){ sdkNames.add(sp.local.name); context.report({ node: sp, message: FIREBASE_MSG }); }
       },
-      ImportExpression(node){
-        if(node.source.type === 'Literal' && FIREBASE_DATA_SDK.test(String(node.source.value))) context.report({ node, message: FIREBASE_MSG });
+      'ImportExpression, ExportNamedDeclaration, ExportAllDeclaration'(node){
+        if(node.source && node.source.type === 'Literal' && FIREBASE_DATA_SDK.test(String(node.source.value))) context.report({ node, message: FIREBASE_MSG });
       },
       CallExpression(node){
         const c = node.callee;
@@ -118,9 +118,9 @@ const NO_FIREBASE_DATA = {
 };
 
 /* g. 이름 placeholder(«이름 없음») 를 저장 · 전송 값에 싣기 — placeholder 는 그릴 때만 만든다(shared/person-name.js).
-   저장 · 보내기 함수(setItem · emit · save… · send… · post… · put… · patch… · upload… · commit… · write… · update…)의 인자 안에서
+   저장 · 보내기 함수(setItem · _lsSet · lsSet · emit · request(realtime) · save… · send… · post… · put… · patch… · upload… · commit… · write… · update…)의 인자 안에서
    TwPersonName.shown() · getDisplayName() · NO_NAME · 글자 '이름 없음' 을 찾는다. 이름 칸이 비면 '' 그대로 싣는다. */
-const STORE_CALL = "CallExpression:matches([callee.property.name=/^(setItem|emit|(save|send|post|put|patch|upload|commit|write|update)[A-Za-z0-9_]*)$/], [callee.name=/^(save|send|post|put|patch|upload|commit|write|update)[A-Za-z0-9_]*$/])";
+const STORE_CALL = "CallExpression:matches([callee.property.name=/^(setItem|emit|request|_?lsSet|(save|send|post|put|patch|upload|commit|write|update)[A-Za-z0-9_]*)$/], [callee.name=/^(_?lsSet|(save|send|post|put|patch|upload|commit|write|update)[A-Za-z0-9_]*)$/])";
 const PLACEHOLDER = [
   "CallExpression[callee.property.name='shown'][callee.object.name=/PersonName$/]",
   "CallExpression[callee.name='getDisplayName']",
