@@ -62,6 +62,6 @@ scenario('mallang-gift', async (t) => {
     assert(Array.isArray(gifts) && gifts.length === 1, '받은 선물 ' + JSON.stringify(gifts).slice(0, 300));
     await openMyHome(b, 'friend');
     await b.w.click('#mhFmTabs .mh-ibx-tab[data-fm="gift"]');
-    await b.until(() => document.querySelectorAll('#mhFmList .gift-grid > *').length === 1, null, { what: '선물함 칸' });
+    await b.until(() => document.querySelectorAll('#mhFmList .gift-grid .gift-item').length === 1, null, { what: '선물함 칸' });
   });
 });

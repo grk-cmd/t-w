@@ -38,9 +38,10 @@ scenario('report', async (t) => {
     await a.w.locator('button.lc-btn', { hasText: /^신고$/ }).click();
     await a.until(() => /신고했어요/.test(document.getElementById('toast').textContent), null, { what: '신고 토스트' });
     assert(a.sawReq(/^POST \/v2\/reports 20\d$/), '신고 API');
-    const hidden = await a.eval((uc) => hiddenSeatsMod && [...(hiddenSeatsMod._reportHiddenUids || hiddenSeatsMod.reportHiddenUids || new Set())].includes(uc), b.me.userCode).catch(() => null);
-    t.note('숨김 Set 확인 ' + hidden);
-    await a.until(() => { const e = [...document.querySelectorAll('.seat-nameplate')].find((n) => /비이/.test(n.textContent)); return !e || getComputedStyle(e).display === 'none' || getComputedStyle(e).visibility === 'hidden' || e.offsetParent === null; }, null, { what: 'b 이름표 숨음' });
+    // 숨김은 앱의 판정 한 곳(hidden-seats.js _seatHidden — 그리기 · 누르기가 이것을 본다)으로 본다
+    const hidden = await a.until(() => { const s = seats.find((x) => x.remote); return !!s && hiddenSeatsMod._seatHidden(s); }, null, { what: 'b 좌석 숨김' });
+    assert(hidden === true, 'b 좌석이 숨지 않음');
+    assert(await a.eval((uc) => hiddenSeatsMod._reportHiddenUids.has(uc), b.me.userCode), '신고 숨김 목록에 b 없음');
   });
 
   await t.step('관리자 목록에 b 가 오른다', async () => {

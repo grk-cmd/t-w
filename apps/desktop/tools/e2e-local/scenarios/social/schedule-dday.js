@@ -44,7 +44,14 @@ scenario('schedule-dday', async (t) => {
     await b.eval(() => document.getElementById('myBellBtn').click());   // 상태칩 줄의 🔔 — 런처 화면에선 줄이 숨어 있어 단추를 직접 누른다
     const txt = await b.until((x) => { const l = document.getElementById('bellList'); return l && l.textContent.includes(x) && l.textContent; }, SCHED, { what: '알림창 줄' });
     assert(/에이/.test(txt), '알림창에 보낸 사람 이름 ' + txt.slice(0, 200));
-    await b.until(() => !document.getElementById('myBellBadge').classList.contains('on'), null, { what: '열면 배지 꺼짐' });
+    // 배지는 🔔 몫(태그 알림 · 오늘 일정 · D-day) + 알림함 안 읽은 소식이다. 소식은 같이 쓰는 로컬 서버에 다른 시나리오가 올린 것이 남아 있을 수 있다 —
+    // 창을 열면 🔔 몫만 0 이 되어 배지는 «안 읽은 소식 수» 만 남는다(0 이면 꺼짐)
+    const left = await b.until(() => {
+      const bd = document.getElementById('myBellBadge'), inbox = inboxMod.inboxUnreadCount();
+      const want = inbox > 9 ? '9+' : String(inbox);
+      return (inbox === 0 ? !bd.classList.contains('on') : bd.textContent === want) && { inbox, badge: bd.classList.contains('on') ? bd.textContent : '꺼짐' };
+    }, null, { what: '열면 🔔 몫이 빠짐' });
+    t.note('연 뒤 배지 ' + JSON.stringify(left));
   });
 
   await t.step('a: 오늘 칸 우클릭 → D-day(알림 켬) 저장 → 배너 · 서버', async () => {
