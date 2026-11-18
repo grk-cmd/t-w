@@ -3,6 +3,7 @@
 // ② 앱이 창을 앞으로 · 화면 안으로 부르는 길을 main 에서 직접 부른다(show · focus · moveTop · center · maximize ·
 //    setAlwaysOnTop(true) · setPosition · app.focus — 크기 · setBounds 는 같은 하위 클래스로 만든 시험 창) → 그래도 진짜 창은 화면 밖 · 투명 · 소리 끔 · 포커스 없음 · 크기는 따름 ·
 //    앱이 읽는 값(getBounds · getPosition · isAlwaysOnTop · getOpacity · isAudioMuted)은 앱이 정한 값
+// ③ 창 목록(getAllWindows · fromWebContents · getFocusedWindow)이 감싸지 않았을 때와 같다 · ④ 렌더러 window.open 자식 창(방명록 길)도 조용
 // 결과: <결과 폴더>/steps.txt(ok · FAIL) · 종료 코드 0/1. TW_E2E_QUIET=0 이면 볼 것이 없어 건너뛴다
 'use strict';
 const fs = require('fs');
@@ -26,7 +27,8 @@ const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(pa
       const b = typeof w.__e2eRealBounds === 'function' ? w.__e2eRealBounds() : null;
       return { real: b, app: w.getBounds(), focus: w.isFocused(), aot: w.isAlwaysOnTop(),
         opacity: typeof w.__e2eRealOpacity === 'function' ? w.__e2eRealOpacity() : null,
-        muted: typeof w.webContents.__e2eRealAudioMuted === 'function' ? w.webContents.__e2eRealAudioMuted() : null };
+        muted: typeof w.webContents.__e2eRealAudioMuted === 'function' ? w.webContents.__e2eRealAudioMuted() : null,
+        realAot: typeof w.__e2eRealAlwaysOnTop === 'function' ? w.__e2eRealAlwaysOnTop() : null };
     }),
     focused: !!BrowserWindow.getFocusedWindow(),
     displays: screen.getAllDisplays().map((d) => d.bounds),
@@ -39,7 +41,7 @@ const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(pa
     let s;
     while(Date.now() - t0 < ms){
       s = await look();
-      const bad = s.wins.filter((w) => !w.real || !offscreen(w.real, s.displays) || w.focus || w.opacity !== 0 || w.muted !== true);
+      const bad = s.wins.filter((w) => !w.real || !offscreen(w.real, s.displays) || w.focus || w.opacity !== 0 || w.muted !== true || w.realAot !== false);
       if(!s.wins.length || bad.length || s.focused) throw new Error(where + ' — 화면 안 · 포커스 · 보임 · 소리 · 감싸지 않은 창: ' + JSON.stringify(s));
       await wait(250);
     }
@@ -88,6 +90,35 @@ const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(pa
       if(c.muted !== false || c.realMuted !== true) throw new Error('소리 — 앱 값 false · 진짜 끔이어야 ' + JSON.stringify(c));
       if(c.ignore !== false) throw new Error('클릭 통과 기억 값이 false 가 아님');
       await holdQuiet('앱이 되돌리려 한 뒤', 2000);   // 진짜 창은 여전히 화면 밖 · 투명 · 소리 끔
+    });
+    await step('창 목록 — getAllWindows · fromWebContents 가 감싸지 않았을 때와 같다(수 · 같은 창)', async () => {
+      const r = await A.app.evaluate(({ BrowserWindow, BaseWindow, webContents }) => {
+        const all = BrowserWindow.getAllWindows(), base = BaseWindow.getAllWindows();
+        return { n: all.length, base: base.length, same: base.every((w) => all.includes(w)),
+          from: all.every((w) => BrowserWindow.fromWebContents(w.webContents) === w), name: all[0] && all[0].constructor.name,
+          focused: BrowserWindow.getFocusedWindow() };
+      });
+      if(!r.n || r.n !== r.base || !r.same) throw new Error('getAllWindows 가 BaseWindow 와 다름 ' + JSON.stringify(r));
+      if(!r.from) throw new Error('fromWebContents 가 같은 창을 돌려주지 않음');
+      if(r.name !== 'BrowserWindow') throw new Error('constructor.name ' + r.name);
+      if(r.focused) throw new Error('getFocusedWindow 가 창을 돌려줌(포커스를 받은 창)');
+    });
+    await step('자식 창(렌더러 window.open → 앱의 setWindowOpenHandler · did-create-window 길)도 조용', async () => {
+      const n0 = (await look()).wins.length;
+      // 방명록과 같은 길 — 앱 handler 가 mhGuestbook* 이름에 alwaysOnTop · parent 를 붙여 연다
+      await A.app.windows()[0].evaluate(() => { window.__twQuietChild = window.open('', 'mhGuestbookE2E'); });
+      let s;
+      for(let k = 0; k < 40; k++){ s = await look(); if(s.wins.length > n0) break; await wait(250); }
+      if(s.wins.length <= n0) throw new Error('자식 창이 안 열림 ' + JSON.stringify(s.wins.length));
+      s = await holdQuiet('자식 창');
+      const kid = await A.app.evaluate(({ BrowserWindow }) => {
+        const w = BrowserWindow.getAllWindows().find((x) => x.getParentWindow());
+        return w ? { aot: w.isAlwaysOnTop(), realAot: w.__e2eRealAlwaysOnTop(), app: w.getBounds(), real: w.__e2eRealBounds(), name: w.constructor.name } : null;
+      });
+      if(!kid) throw new Error('부모가 있는 자식 창을 못 찾음');
+      if(kid.aot !== true || kid.realAot !== false) throw new Error('자식 창 늘 위 — 앱 값 true · 진짜 false 여야 ' + JSON.stringify(kid));
+      if(kid.real.width !== 320 || kid.real.height !== 560) throw new Error('자식 창 크기가 앱 옵션(320x560)이 아님 ' + JSON.stringify(kid.real));
+      await A.app.windows()[0].evaluate(() => { try { window.__twQuietChild.close(); } catch(_){} });
     });
   } catch(e){
     code = 1;
