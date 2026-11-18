@@ -7,6 +7,8 @@ dev 앱(`--tw-firebase=dev`)을 켜서 화면을 누르고 결과를 파일로 �
 | `lib.js` | 격리된 앱 한 벌 켜기 · 끄기 · 주소 돌리기 · 오프라인 흉내 |
 | `flow.js` | 정해진 흐름 한 바퀴(가입 → 다시 켜기 → 로그인된 책상 → 얼굴 PNG · GLB 올리기 · 받기 → 오프라인 · 온라인) |
 | `repl.js` · `run.sh` | 앱을 켜 둔 채 JS 명령을 하나씩 보내기 |
+| `run-all.js` · `scenarios/<묶음>/*.js` | 기능마다 판정까지 하는 시나리오 — 하나씩 또는 한꺼번에 돌리고 요약을 찍는다 |
+| `seed/*.sql` | 시나리오가 로컬 DB 에 넣는 시험 값(초대 코드 · 관리자 · 레벨 · 가챠 보너스) |
 | `FEATURES.md` | 앱 기능마다 이 도구의 시나리오 · `checks/` sim 이 있는지 적은 지도 — 빈 곳(할 일)부터 시나리오를 더한다 |
 
 ## 준비
@@ -66,6 +68,31 @@ node repl.js /tmp/tw-e2e/a
 ```
 
 명령마다 `console.txt` · `requests.txt` 를 다시 쓴다. 창을 바꿔 끼워야 하면 `c.w = …` 로 넣는다. 두 사람(친구 · 같은 방)을 보려면 결과 폴더를 둘 쓴다(`/tmp/tw-e2e/a` · `/tmp/tw-e2e/b`) — 앱 두 벌이 따로 돈다.
+
+### run-all.js — 시나리오 돌리기
+
+```bash
+cd apps/desktop/tools/e2e-local
+node run-all.js                       # scenarios/ 아래 전부
+node run-all.js core/keepalive admin  # 경로에 이 글자가 든 것만
+node scenarios/core/keepalive.js      # 하나만
+```
+
+시나리오 하나 = 파일 하나. 스스로 새 계정을 만들고(친구 코드가 매번 새것) 결과를 `/tmp/tw-e2e/<묶음>/<이름>/` 에 남긴다(`steps.txt` 에 단계마다 ok · FAIL · BUG). 단계 하나라도 FAIL 이면 종료 코드 1. `_` 로 시작하는 파일은 같이 쓰는 도구라 러너가 돌리지 않는다.
+
+- **BUG** 줄 — FEATURES.md «발견한 버그» 의 알려진 앱 버그를 다시 봤다는 표시다. 시나리오는 그 버그를 비켜 가서 나머지를 판정한다(단계는 통과).
+- `seed/*.sql` 은 `psql -v 이름=값` 으로 돌린다 — 시나리오가 알아서 부른다. 손으로 넣을 때: `docker exec -i <postgres 컨테이너> psql -U tw_api_dev -d tw_dev -v uid=<uid> < seed/admin.sql`.
+
+환경 값:
+
+| 값 | 뜻 |
+|---|---|
+| `TW_E2E_QUIET` | 기본 켬 — 감싸는 진입점이 앱보다 먼저 창 덮개를 건다(`lib.js` `quietWindows`): 실제 창은 화면 밖(x −20000) · 투명 · 마우스 통과, `focus` · `moveTop` · `app.focus` · `app.show` 는 아무것도 안 함, `show` 는 `showInactive`, `setAlwaysOnTop` 은 값만 기억(`isAlwaysOnTop` 이 돌려줌), `setBounds` · `setPosition` 은 크기는 따르고 자리만 밖으로(앱이 읽으면 앱이 정한 자리를 준다). 맥은 `setActivationPolicy('accessory')`(Dock · 앞으로 안 나옴). 화면 밖 창도 타이머 · WebGL 이 돌게 배경 늦추기를 끈다. 지켜지는지는 `core/quiet-check.js`. 눈으로 보려면 `TW_E2E_QUIET=0` |
+| `TW_E2E_RUN_LOCK` | 앱(Electron)을 켜는 동안만 잡는 잠금 폴더(`mkdir` · 30초마다 다시 시도). 같은 PC 에서 시험 묶음 여럿이 돌 때 한 번에 하나만 앱을 켠다. run-all 은 처음에 한 번 잡아 끝까지 든다(시나리오가 다시 잡지 않음). 비면 안 잡는다 |
+| `TW_E2E_STACK_LOCK` | 공유 컨테이너(realtime 등)를 멈췄다 풀 때만 잡는 잠금 폴더. 비어 있으면 컨테이너를 건드리는 시나리오(keepalive · 오프라인 → 온라인 · 점검)는 멈춘다 |
+| `TW_E2E_OUT` · `TW_E2E_INVITE` | 결과 폴더 뿌리(기본 `/tmp/tw-e2e/core`) · 가입에 쓰는 초대 코드(기본 `seed/core-invite.sql` 의 코드) |
+| `TW_E2E_PG` · `TW_E2E_RT` | DB · realtime 컨테이너 이름(기본 `tw-dev-local-postgres-1` · `tw-dev-local-rooms-dev-1`) |
+| `TW_E2E_ADMIN_PASS` | 앱 관리자 비밀번호. 없으면 시험 글자 하나만 앱의 비밀번호 해시로 바꿔 주는 덮개를 창에 건다(비교 · 서버 확인 · 모드 켜기는 앱 코드 그대로) |
 
 ## 해 본 것 — REPL 로 (2026-11-17 확인)
 
