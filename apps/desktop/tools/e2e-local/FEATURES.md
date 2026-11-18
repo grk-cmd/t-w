@@ -71,28 +71,28 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 
 | 기능 | e2e | sim | 상태 |
 |---|---|---|---|
-| 방 만들기 · 참여(로비 · 방 코드) | `REPL «방 만들기 · 참여»`(결과 폴더 둘로 앱 두 벌) | `room-entry` `room-lobby-ui` `room-lobby` `room-settings` `lobby-window` `room-code-len` `recent-rooms` | REPL |
-| 투게더룸(프리미엄 방) | `REPL «투게더룸»`(로컬 DB 에서 관리자로 만들어 프리미엄을 붙임) | `license-premium` `room-entry` `dice-games` | REPL |
-| 방 나가기 · 방장 넘기기 · 해산 |  | `room-entry` `room-order` `room-meta-cleanup` | **할 일** |
-| 시크릿룸 · 채팅 잠금 |  | `chat-lock` `secret-room-grant` `room-order` | **할 일** |
-| 방 정보 · 방 설정(제목 · 공개 · 인원) |  | `room-info-ui` `room-settings` | **할 일** |
-| 좌석 배치 · 내 자리 고정 · 자리 바꾸기 |  | `seats` `seat-layout` `seat-camera` `seat-pin` `seat-label-drag` `seat-sync-diff` `seat-refit` `seat-equalize` `seat-eq` `seat-eq-clamp` `seat-slot` `seat-model-load` `char-place` `fit-model` `fit-watch` | **할 일** |
-| 같은 계정은 한 자리만 |  | `room-rt` `room-entry` | **할 일** |
-| 좌석 우클릭 메뉴 · 숨기기 · 투명도 · 쓰다듬기 |  | `seat-menu` `seat-panel` `seat-hide` `hidden-seats` `seat-opacity` `seat-opacity-mod` `seat-pointer` `seat-hit-targets` `seat-regions` | **할 일** |
-| 내 모습이 남 화면에 맞게 가기(방 동기화) |  | `room-sync` `room-parity` `room-live-def` `def-send` `room-rt` `room-state` | **할 일** |
-| 방 놀이(깜짝쇼 · 때리기 · 러시안룰렛 · 주사위 · 이모지 · 플라잉체어 · 올라타기) |  | `tricks` `fly-egg` `fly-replay` `fly-roulette` `roulette` `dice-games` `floaters` `flying-chair` `ride-bench` `ride-chain` `ride-height` `ride-measure` `ride-part-top` `ride-tuning` | **할 일** |
-| 자리비움 그림 |  | `away-pic` `away-follow` `away-start` | **할 일** |
-| 방 접속 상태 · 활동 상태 · 상태칩 |  | `presence` `user-status` `user-status-table` `seat-state` `status-chip` `chip-popups` `chip-chat-ui` `app-version` | **할 일** |
-| 같이 듣기 · DJ |  | `listen-model` `listen-provider` `listen-ui` | **할 일** |
-| 스티커사진(purikura) |  | `purikura-ui` `purikura-net` `purikura-rt` `purikura-rules` `purikura-stage` `purikura-deco` `purikura-fish` `pk-bgm` `pk-fit` `ps1-dither` | **할 일** |
+| 방 만들기 · 참여(로비 · 방 코드) | `room/create-join`(로비 [방 만들기] · 로비 카드로 참여 · 서로 보임 · 최근 방 · 나가기) · 코드 칸 참여는 다른 방 시나리오가 모두 지나감 | `room-entry` `room-lobby-ui` `room-lobby` `room-settings` `lobby-window` `room-code-len` `recent-rooms` | REPL |
+| 투게더룸(프리미엄 방) | `room/together-disband`(라이선스 없으면 만들기 창의 투게더룸 단추 꺼짐 · 관리자로 PLAY- 방 · 손님 참여) — 관리자는 `seed/admin.sql` | `license-premium` `room-entry` `dice-games` | REPL |
+| 방 나가기 · 방장 넘기기 · 해산 | `room/host-settings`(방장이 나가면 남은 사람이 방장 · 다시 들어와도 그대로) · `room/together-disband`(이어받을 보유자 없으면 해산) · `room/create-join`(나가기) | `room-entry` `room-order` `room-meta-cleanup` | **할 일** |
+| 시크릿룸 · 채팅 잠금 | `room/secret-room`(관리자 API 로 발급 · 주인이 «내 시크릿룸» 으로 열기 · 공개 목록에 없음 · 별표 없이는 다른 방 · «코드*» 로 손님 · 방장 잠금 · 풀기) | `chat-lock` `secret-room-grant` `room-order` | **할 일** |
+| 방 정보 · 방 설정(제목 · 공개 · 인원) | `room/host-settings`(방장만 [방 설정] · 제목 · 비공개로 바꾸면 남도 받고 로비 API 에서 빠짐) · `room/create-join`(만들 때 제목 · 공개). 인원은 만들 때만 정한다(설계) | `room-info-ui` `room-settings` | **할 일** |
+| 좌석 배치 · 내 자리 고정 · 자리 바꾸기 | `room/seat-status`(둘이 겹치지 않는 한 줄 · «맨 오른쪽 고정» 이면 내가 0번 · 되돌리기). 책상 · 이름표를 끌어 자리 바꾸기는 시나리오 없음 | `seats` `seat-layout` `seat-camera` `seat-pin` `seat-label-drag` `seat-sync-diff` `seat-refit` `seat-equalize` `seat-eq` `seat-eq-clamp` `seat-slot` `seat-model-load` `char-place` `fit-model` `fit-watch` | **할 일** |
+| 같은 계정은 한 자리만 | `room/same-account`(둘째 PC 가 친구 코드 · 비밀번호로 로그인해 같은 방 → 먼저 PC 토스트 · 방 밖 · 남 화면엔 한 자리) | `room-rt` `room-entry` | **할 일** |
+| 좌석 우클릭 메뉴 · 숨기기 · 투명도 · 쓰다듬기 | `room/seat-status`(이름표 우클릭 메뉴 남 · 나 · 숨기기 · 다시 보이기 · 자리비움이면 몸 투명 · 눌러 쓰다듬기 → 상대 화면 이모지) | `seat-menu` `seat-panel` `seat-hide` `hidden-seats` `seat-opacity` `seat-opacity-mod` `seat-pointer` `seat-hit-targets` `seat-regions` | **할 일** |
+| 내 모습이 남 화면에 맞게 가기(방 동기화) | `room/sync`(내 좌석 메뉴 › 캐릭터 편집 · 상의 색 → 남 화면 같은 색 · def 메시지) · `room/create-join`(서버 이름 · 레벨 · 이름 없으면 «이름 없음») | `room-sync` `room-parity` `room-live-def` `def-send` `room-rt` `room-state` | **할 일** |
+| 방 놀이(깜짝쇼 · 때리기 · 러시안룰렛 · 주사위 · 이모지 · 플라잉체어 · 올라타기) | `room/games`(워킹룸 이모티콘 말풍선 · 룰렛 · 투게더룸 주사위 · 1 이면 내가 날아감 · /80 세 번 깜짝쇼 · 때리기 · 💣 레벨 100 문턱 — 주사위 눈은 Math.random 고정) · `room/riding`(동물 숨김 해금 → 끌어 머리 위에 올라타기 · 남 화면). 💣 로 남을 날리기는 레벨 100 이 필요해 문턱만 본다 | `tricks` `fly-egg` `fly-replay` `fly-roulette` `roulette` `dice-games` `floaters` `flying-chair` `ride-bench` `ride-chain` `ride-height` `ride-measure` `ride-part-top` `ride-tuning` | **할 일** |
+| 자리비움 그림 | `room/away-pic`(프리미엄 아니면 등록 막힘 · 내 정보에서 PNG 등록 → 서버 주소 · 자리비움이면 남 화면에 그림 · [기본으로]) | `away-pic` `away-follow` `away-start` | **할 일** |
+| 방 접속 상태 · 활동 상태 · 상태칩 | `room/seat-status`(상태칩 «밥 먹는 중» · «온라인» 을 남이 받음 · 나가면 남 화면 좌석이 빠짐) | `presence` `user-status` `user-status-table` `seat-state` `status-chip` `chip-popups` `chip-chat-ui` `app-version` | **할 일** |
+| 같이 듣기 · DJ | `room/listen`(서버 플레이리스트 곡 · 같이 듣기 방 · 방장 DJ 판정 · 이름표 «🎧 DJ» · 첫 곡 music 이 남에게 · 같이 듣기 창 곡 제목 · DJ 가 나가면 새 방장이 DJ) — 소리는 조용히 켜기가 끈다 | `listen-model` `listen-provider` `listen-ui` | **할 일** |
+| 스티커사진(purikura) | `room/purikura`(정원 API · 둘이 같은 세션 · 방장만 [시작] · 시작하면 정원 하나 줄어듦 · 나가기). 촬영 · 꾸미기 · 저장은 시나리오 없음 | `purikura-ui` `purikura-net` `purikura-rt` `purikura-rules` `purikura-stage` `purikura-deco` `purikura-fish` `pk-bgm` `pk-fit` `ps1-dither` | **할 일** |
 
 ## 채팅
 
 | 기능 | e2e | sim | 상태 |
 |---|---|---|---|
-| 채팅 보내기 · 받기 · 기록 | `REPL «채팅»` | `chat-rt` `chat-ui` `chat-window` `chat-tabs` `chat-layout` `chat-read-on-send` `chat-history` `chat-log-persist` | REPL |
-| 채팅 기록 지우기(방장) · 투명도 · 글자 크기 · 알림음 |  | `chat-prefs` `chat-sfx` `chat-delete-log` | **할 일** |
-| 이모티콘 · 날리기 · 머리 위 말풍선 · 복사 |  | `demoji-catalog` `demoji-palette` `chat-fly` `overhead` `chat-copy` | **할 일** |
+| 채팅 보내기 · 받기 · 기록 | `chat/send-receive`(둘이 주고받기 · 서버 기록 API) | `chat-rt` `chat-ui` `chat-window` `chat-tabs` `chat-layout` `chat-read-on-send` `chat-history` `chat-log-persist` | REPL |
+| 채팅 기록 지우기(방장) · 투명도 · 글자 크기 · 알림음 | `chat/send-receive`(내 화면 지우기 · 되돌리기 · 방장만 기록 삭제 → 남 화면 · 서버에서 사라짐 · 창 닫아 두면 알림음) · `chat/prefs-emoji-fly`(투명도 · 글자 크기 · 알림음 끄기 · 소리 고르기 — 다시 켜도 남음) | `chat-prefs` `chat-sfx` `chat-delete-log` | **할 일** |
+| 이모티콘 · 날리기 · 머리 위 말풍선 · 복사 | `chat/prefs-emoji-fly`(기본 이모티콘 → 남 대화창 그림 · 날리기 → 남 화면) · `chat/send-receive`(머리 위 말풍선 · «이 메시지 복사» — 클립보드는 가로채 셈). 내 이모티콘 등록은 시나리오 없음 | `demoji-catalog` `demoji-palette` `chat-fly` `overhead` `chat-copy` | **할 일** |
 
 ## 친구 · 초대
 

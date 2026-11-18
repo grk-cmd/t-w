@@ -7,6 +7,9 @@ dev 앱(`--tw-firebase=dev`)을 켜서 화면을 누르고 결과를 파일로 �
 | `lib.js` | 격리된 앱 한 벌 켜기 · 끄기 · 주소 돌리기 · 오프라인 흉내 |
 | `flow.js` | 정해진 흐름 한 바퀴(가입 → 다시 켜기 → 로그인된 책상 → 얼굴 PNG · GLB 올리기 · 받기 → 오프라인 · 온라인) |
 | `repl.js` · `run.sh` | 앱을 켜 둔 채 JS 명령을 하나씩 보내기 |
+| `scenarios/<영역>/*.js` | 기능마다 스스로 판정하는 시나리오(새 계정 · 앱 여러 벌 · 끝나면 종료 코드 0/1 · `steps.txt`) — 아래 «시나리오» |
+| `run-all.js` | 시나리오를 차례로 돌리고 한 줄씩 요약 |
+| `seed/*.sql` | 시나리오가 로컬 DB 에 넣는 값(초대 코드 · 관리자) |
 | `FEATURES.md` | 앱 기능마다 이 도구의 시나리오 · `checks/` sim 이 있는지 적은 지도 — 빈 곳(할 일)부터 시나리오를 더한다 |
 
 ## 준비
@@ -27,6 +30,18 @@ dev 앱(`--tw-firebase=dev`)을 켜서 화면을 누르고 결과를 파일로 �
 | `https://api-dev.together-working.com` | `http://127.0.0.1:8080`(API 서버) |
 | `identitytoolkit` · `securetoken.googleapis.com` | `http://127.0.0.1:9099`(Auth 에뮬레이터) |
 | `firebasestorage.googleapis.com` | `http://127.0.0.1:9199`(Storage 에뮬레이터) |
+
+## 조용히 켜기(기본)
+
+시험 앱은 기본으로 **안 보이게** 뜬다(`lib.js` 의 `quietWindows` — 감싸는 진입점이 앱 main.js 보다 먼저 부른다).
+
+- 창은 만들 때부터 숨긴 채 · 맨 위 아님으로 만들고, 화면 밖으로 밀고, 투명(불투명도 0)하게 하고, 마우스를 통과시킨 뒤 포커스 없이 보인다.
+- 앱이 창을 옮기거나 올려도 그대로다 — 창마다 `setBounds` · `setPosition` 은 크기만 따르고 자리는 화면 밖에 두며, `focus` · `moveTop` · `setAlwaysOnTop` · `maximize` · 전체 화면은 아무 일도 안 하고, `show` 는 포커스 없는 보이기다. 앱이 읽는 자리(`getBounds` 등)는 앱이 마지막으로 정한 값이다(실제 자리에서 거꾸로 세지 않는다 — 맥은 창을 가장자리에 붙여 값이 틀어진다).
+- 맥은 Dock 아이콘이 없고(`accessory`) 앱 전체도 앞으로 안 나온다(`app.focus` · `app.show` · `dock.show` 막음). 소리는 끈다.
+- 화면 밖 · 가려진 창도 타이머 · 그리기 · WebGL 이 멈추지 않게 크로미움 백그라운드 늦추기를 끈다. 시험의 누르기 · 화면 찍기는 CDP 로 들어가 OS 창 자리와 상관없다.
+- 시나리오는 **단계마다** 모든 창이 조용한지 잰다(`quietReport` — 실제 자리가 화면 밖 · 투명 · 맨 위 아님 · 포커스 없음). 어긋나면 그 단계가 실패한다.
+
+눈으로 보려면 `TW_E2E_QUIET=0` 을 붙인다. 창 앞뒤 · 바깥 클릭처럼 OS 창이 화면에 있어야 하는 시나리오만 그 파일에서 끄고, 끈 까닭을 파일 머리에 적는다.
 
 ## 왜 감싸는 진입점을 쓰나
 
@@ -66,6 +81,22 @@ node repl.js /tmp/tw-e2e/a
 ```
 
 명령마다 `console.txt` · `requests.txt` 를 다시 쓴다. 창을 바꿔 끼워야 하면 `c.w = …` 로 넣는다. 두 사람(친구 · 같은 방)을 보려면 결과 폴더를 둘 쓴다(`/tmp/tw-e2e/a` · `/tmp/tw-e2e/b`) — 앱 두 벌이 따로 돈다.
+
+## 시나리오
+
+```bash
+cd apps/desktop/tools/e2e-local
+node run-all.js                         # 전부
+node run-all.js room/ chat/send-receive # 거르기(앞부분이 맞는 것)
+node scenarios/room/create-join.js /tmp/tw-e2e/x   # 하나만 · 결과 폴더를 줌
+```
+
+- 결과 폴더는 `<TW_E2E_OUT 또는 /tmp/tw-e2e>/<영역>/<이름>` — 시작할 때 비운다. `steps.txt`(단계마다 `ok` · `FAIL` · 마지막 줄 `PASS` 또는 `ABORT`) · 사람마다 `a/` `b/` … 폴더(`console.txt` · `requests.txt` · `account.json` · 실패 화면 `fail-<n>.png`).
+- 시나리오마다 새 계정을 가입시킨다(친구 코드는 서버가 새로 뽑는다). 두 사람 기능은 앱 두 벌(같은 계정 둘째 PC 는 그 계정으로 로그인한 셋째 벌).
+- 판정은 앱 상태(방 meta · 좌석 · 대화창 글) · 화면 글 · API 응답으로 한다. realtime 이 오간 글은 `ws.txt` 에 남기지만(실패를 볼 때 참고) 창이 뜨자마자 붙은 연결은 놓칠 수 있어 판정에 쓰지 않는다. 소리 재생 · 복사는 이 PC 의 스피커 · 클립보드를 건드리지 않게 그 자리에서 가로채 센다.
+- 시드: `seed/room.sql`(초대 코드 `INVT-RMRM-E2E3`)은 시나리오가 켤 때마다 넣는다(이미 있으면 그대로). 투게더룸 · 시크릿룸 · 프리미엄 기능은 `seed/admin.sql` 로 그 계정의 로그인 uid 를 관리자로 넣고 다시 켠다(서버가 관리자에게 프리미엄을 붙인다). DB 컨테이너 이름은 `TW_E2E_PG`(기본 `tw-dev-local-postgres-1`).
+- 한 PC 에서 여럿이 돌릴 때: `TW_E2E_RUN_LOCK=<폴더>` 면 그 폴더를 `mkdir` 로 잡은 동안만 앱을 켠다(있으면 30초마다 다시) · 다 돌면 지운다.
+- 단계 하나는 3분, 시나리오 하나는 `TW_E2E_SCENARIO_MIN`(기본 20)분을 넘으면 앱을 끄고 실패로 끝낸다.
 
 ## 해 본 것 — REPL 로 (2026-11-17 확인)
 
