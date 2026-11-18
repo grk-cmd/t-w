@@ -1,6 +1,6 @@
 // 주소 돌리기(route-main.js) 확인 — 네 묶음이 같이 쓰는 검사라 lib.js 만 쓴다(계정 · 시드 없이 돈다)
 // ① 켤 때 lib.launch 가 이미 확인한다(창에서 https://api-dev…/actuator/health → 이 PC API 200 · 막힌 요청 없음)
-// ② 창에서 진짜 주소를 부르면 이 PC 가 답한다 — API · Auth 에뮬레이터 · Storage 에뮬레이터(돌린 기록 REQ 에 남음)
+// ② 창에서 진짜 주소를 부르면 이 PC 가 답한다 — API · Auth 에뮬레이터 · Storage 에뮬레이터 · 도움말(저장소 파일)(돌린 기록 REQ 에 남음)
 // ③ 막는 목록(우리 데이터를 실을 수 있는 곳)의 https · wss 는 막히고 기록된다 — 창은 네트워크 오류, lib.quietProblems 가 그 주소를 문제로 낸다 · 목록 밖(글꼴)은 그대로
 // 결과: <결과 폴더>/steps.txt(ok · FAIL · 끝 줄 PASS) · 종료 코드 0/1. 막는 것을 일부러 만드는 시험이라 e2e-quiet-fail 은 쓰지 않는다
 'use strict';
@@ -58,6 +58,16 @@ const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(pa
       if(typeof s !== 'number') throw new Error('네트워크 오류 ' + s);
       if(!(await logged(/^GET firebasestorage\.googleapis\.com\/v0\/b\/e2e-routing\/o \d+$/))) throw new Error('돌린 기록 없음');
     });
+    await step('도움말 — https://help.together-working.com/… → 저장소 firebase/hosting/help 파일(cleanUrls · 없는 길 404)', async () => {
+      const page = await w.evaluate(async () => { try { const r = await fetch('https://help.together-working.com/privacy', { cache: 'no-store' }); return { s: r.status, t: (await r.text()).slice(0, 4000) }; } catch(e){ return { s: 'ERR ' + e.message }; } });
+      if(page.s !== 200) throw new Error('privacy 상태 ' + page.s);
+      const want = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', '..', 'firebase', 'hosting', 'help', 'privacy.html'), 'utf8').slice(0, 200);
+      if(!page.t.startsWith(want)) throw new Error('저장소 privacy.html 과 다름');
+      const miss = await call(w, 'https://help.together-working.com/e2e-routing-none');
+      if(miss !== 404) throw new Error('없는 길 상태 ' + miss);
+      if(!(await logged(/^GET help\.together-working\.com\/privacy 200$/))) throw new Error('돌린 기록 없음');
+      if(A.blocked.some((b) => b.includes('help.together-working.com'))) throw new Error('도움말 주소를 막음');
+    });
     await step('막는 목록 밖(fonts.googleapis.com)은 막지 않음', async () => {
       await call(w, 'https://fonts.googleapis.com/css2?family=Roboto');   // 바깥 망 답은 상관없다 — 막힌 기록에 없어야 한다
       await wait(400);
@@ -70,7 +80,7 @@ const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(pa
       if(!A.blocked.some((b) => b.includes('firestore.googleapis.com/e2e-routing'))) throw new Error('막은 기록에 없음 — ' + JSON.stringify(A.blocked));
     });
     await step('짝이 없는 진짜 주소(https · wss)는 막히고 기록되며 quietProblems 가 문제로 냄', async () => {
-      const s = await call(w, 'https://help.together-working.com/e2e-routing');
+      const s = await call(w, 'https://www.together-working.com/e2e-routing');
       if(typeof s === 'number') throw new Error('막혀야 할 요청이 답을 받음 ' + s);
       await w.evaluate(() => new Promise((res) => {
         const ws = new WebSocket('wss://realtime.together-working.com/e2e-routing');
@@ -78,7 +88,7 @@ const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(pa
         setTimeout(res, 5000);
       }));
       await wait(500);
-      const want = ['firestore.googleapis.com/e2e-routing', 'help.together-working.com/e2e-routing', 'realtime.together-working.com/e2e-routing'];
+      const want = ['firestore.googleapis.com/e2e-routing', 'www.together-working.com/e2e-routing', 'realtime.together-working.com/e2e-routing'];
       for(const x of want) if(!A.blocked.some((b) => b.includes(x))) throw new Error('막은 기록에 없음 ' + x + ' — ' + JSON.stringify(A.blocked));
       const bad = await quietProblems(A.app);
       for(const x of want) if(!bad.some((b) => b.includes(x))) throw new Error('quietProblems 가 안 냄 ' + x + ' — ' + JSON.stringify(bad));
