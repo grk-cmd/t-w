@@ -59,6 +59,7 @@ function makeApp(outArg, opts = {}){
     // 조용한 창(TW_E2E_QUIET, 기본 켬) — 시험 창이 화면 밖에 뜨고 포커스 · Dock 을 빼앗지 않게(quiet-main.js). 끄려면 TW_E2E_QUIET=0
     // route-main.js 가 남기는 줄(REQ · BLOCK)을 읽어 reqs · blocked 에 옮긴다 — 켤 때마다 새 파일
     readNet();   // 앞 판(다시 켜기 전)이 남긴 줄을 먼저 옮긴다 — 파일을 비우면 사라진다
+    const b0 = blocked.length;   // 이번 켜기에 막힌 것만 본다(앞 판에서 막힌 것은 그때 이미 보고됨)
     netLog = path.join(out, 'net.txt');
     fs.writeFileSync(netLog, '');
     netPos = 0;
@@ -89,16 +90,18 @@ function makeApp(outArg, opts = {}){
     // 주소 돌리기가 정말 걸렸나 — 앱 세션으로 진짜 API 주소를 부르면 이 PC 의 API 가 답해야 한다(돌린 기록에 남음).
     // 창이 아니라 세션(main)에서 부른다 — 창은 켜는 동안 스스로 다시 읽어서 그 사이에 부르면 맥락이 사라진다. 창의 길은 launcher/routing.js 가 본다.
     // 다시 읽기 · 다시 켜기로 감추지 않는다 — 안 걸렸으면 앱을 끄고 실패한다(진짜 서버로 나간 요청이 있으면 그것도 실패)
+    readNet();
+    const r0 = reqs.length;   // 확인은 이번 부름의 줄로만 — 앞 켜기의 줄로 통과하면 안 된다
     const probe = await app.evaluate(async ({ session }, h) => {
       try { const r = await session.defaultSession.fetch(`https://${h}/actuator/health`, { cache: 'no-store' }); return r.status; }
       catch(e){ return 'ERR ' + e.message; }
     }, API_HOST);
     await wait(400); readNet();
-    if(probe !== 200 || !reqs.some((r) => /^GET \/actuator\/health 200$/.test(r))){
+    if(probe !== 200 || !reqs.slice(r0).some((r) => /^GET \/actuator\/health 200$/.test(r))){
       await quit();
-      throw new Error(`주소 돌리기가 안 걸림 — 창의 https://${API_HOST}/actuator/health → ${probe} · 돌린 기록 ${reqs.slice(-3).join(' | ') || '없음'}`);
+      throw new Error(`주소 돌리기가 안 걸림 — 앱 세션의 https://${API_HOST}/actuator/health → ${probe} · 돌린 기록 ${reqs.slice(-3).join(' | ') || '없음'}`);
     }
-    if(blocked.length){ await quit(); throw new Error('진짜 서버로 나간 요청을 막음: ' + blocked.join(' | ')); }
+    if(blocked.length > b0){ await quit(); throw new Error('진짜 서버로 나간 요청을 막음: ' + blocked.slice(b0).join(' | ')); }
     return w;
   }
 
