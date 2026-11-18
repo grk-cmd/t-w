@@ -1,49 +1,55 @@
-// 시나리오를 차례로 돌리고 한 줄씩 요약한다 — 하나라도 FAIL 이면 종료 코드 1
-// node run-all.js [거르기…]   예) node run-all.js room/   ·  node run-all.js room/create-join chat/
-// 결과 폴더는 시나리오마다 <TW_E2E_OUT 또는 /tmp/tw-e2e>/<영역>/<이름> · 각 폴더의 steps.txt 에 단계별 ok · FAIL
-// TW_E2E_RUN_LOCK=<폴더> 면 runlock.js 로 한 번 잡고 다 돈 뒤 놓는다(한 PC 에서 여럿이 돌릴 때 앱이 겹치지 않게)
+// scenarios/<영역>/*.js 를 하나씩 돌리고 요약을 찍는다 — 결과는 /tmp/tw-e2e/<영역>/<이름>/(steps.txt · 앱마다 console.txt · requests.txt · fail-*.png)
+// node run-all.js [거르기…]   예) node run-all.js account   · node run-all.js account/login
+// 시나리오는 `node <파일> <결과 폴더>` 로 따로 돌릴 수도 있다. 하나라도 실패하면 종료 코드 1
 'use strict';
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { acquire } = require('./runlock.js');
 
-const DIR = path.join(__dirname, 'scenarios');
+const ROOT = path.join(__dirname, 'scenarios');
 const OUT = process.env.TW_E2E_OUT || '/tmp/tw-e2e';
 const filters = process.argv.slice(2);
 
-// 이름이 _ 로 시작하는 파일은 공통부라 시나리오가 아니다
-const all = fs.readdirSync(DIR).flatMap((area) => {
-  const d = path.join(DIR, area);
-  if(!fs.statSync(d).isDirectory()) return [];
-  return fs.readdirSync(d).filter((f) => f.endsWith('.js') && !f.startsWith('_')).sort().map((f) => `${area}/${f.slice(0, -3)}`);
-}).sort();
-const picked = filters.length ? all.filter((n) => filters.some((f) => n.startsWith(f))) : all;
-if(!picked.length){ console.error('돌릴 시나리오가 없다: ' + filters.join(' ')); process.exit(2); }
-
-(async () => {
-  // 실행 잠금(runlock.js) — 한 번 잡고 다 돈 뒤 놓는다. 시나리오에는 TW_E2E_RUN_LOCK_HELD=1 을 넘겨 다시 안 잡게
-  const lock = process.env.TW_E2E_RUN_LOCK;
-  const release = await acquire('run-all ' + (filters.join(' ') || '전부'));
-  const rows = [];
-  try {
-    for(const name of picked){
-      if(process.env.TW_E2E_QUIET_FAIL && fs.existsSync(process.env.TW_E2E_QUIET_FAIL)){ console.log('조용한 창 실패 파일이 있어 멈춤: ' + process.env.TW_E2E_QUIET_FAIL); break; }
-      const out = path.join(OUT, name);
-      const t0 = Date.now();
-      const r = spawnSync(process.execPath, [path.join(DIR, name + '.js'), out], {
-        stdio: 'inherit', env: { ...process.env, TW_E2E_RUN_LOCK_HELD: lock ? '1' : '' },
-      });
-      const steps = fs.existsSync(path.join(out, 'steps.txt')) ? fs.readFileSync(path.join(out, 'steps.txt'), 'utf8') : '';
-      const fail = steps.split('\n').find((l) => /^(FAIL|ABORT)/.test(l));
-      rows.push({ name, ok: r.status === 0, sec: Math.round((Date.now() - t0) / 1000), why: r.status === 0 ? '' : (fail || `종료 코드 ${r.status}`) });
-      // 창이 조용하지 않았으면(TW_E2E_QUIET_FAIL 파일이 생김) 여기서 멈춘다 — 이 PC 화면을 더 건드리지 않게
-      if(process.env.TW_E2E_QUIET_FAIL && fs.existsSync(process.env.TW_E2E_QUIET_FAIL)){ console.log('조용한 창 실패 — 멈춤: ' + process.env.TW_E2E_QUIET_FAIL); break; }
+function list(){
+  const all = [];
+  for(const area of fs.readdirSync(ROOT).sort()){
+    const dir = path.join(ROOT, area);
+    if(!fs.statSync(dir).isDirectory()) continue;
+    for(const f of fs.readdirSync(dir).sort()){
+      if(!f.endsWith('.js') || f.startsWith('_')) continue;   // _kit.js 같은 공통부는 시나리오가 아니다
+      const id = area + '/' + f.replace(/\.js$/, '');
+      if(filters.length && !filters.some((x) => id === x || id.startsWith(x.replace(/\/?$/, '/')) || area === x)) continue;
+      all.push({ id, file: path.join(dir, f), out: path.join(OUT, id) });
     }
-  } finally { release(); }
+  }
+  return all;
+}
+
+if(require.main === module) (async () => {
+  const items = list();
+  if(!items.length){ console.error('돌릴 시나리오가 없다: ' + (filters.join(' ') || '(전부)')); process.exit(2); }
+  const unlock = await acquire('run-all ' + (filters.join(' ') || 'all'));
+  const env = Object.assign({}, process.env, { TW_E2E_RUN_LOCK_HELD: '1' });
+  const rows = [];
+  // 다른 묶음이 조용한 창이 깨진 것을 남겼으면(잠금 폴더 옆 e2e-quiet-fail) 다음 시나리오를 켜지 않는다
+  const quietFail = process.env.TW_E2E_RUN_LOCK ? path.join(path.dirname(process.env.TW_E2E_RUN_LOCK), 'e2e-quiet-fail') : '';
+  for(const it of items){
+    if(quietFail && fs.existsSync(quietFail)){ console.error('e2e-quiet-fail 이 있어 멈춤: ' + quietFail); rows.push({ id: it.id, ok: false, sec: 0, bugs: 0, why: '멈춤 — e2e-quiet-fail' }); break; }
+    const t0 = Date.now();
+    const r = spawnSync(process.execPath, [it.file, it.out], { cwd: __dirname, env, stdio: 'inherit', timeout: 15 * 60 * 1000 });
+    let steps = '';
+    try { steps = fs.readFileSync(path.join(it.out, 'steps.txt'), 'utf8'); } catch(_){}
+    const ok = r.status === 0 && /^PASS$/m.test(steps);
+    const bugs = (steps.match(/^BUG .*/gm) || []).length;
+    rows.push({ id: it.id, ok, sec: Math.round((Date.now() - t0) / 1000), bugs,
+      why: ok ? '' : ((steps.match(/^(FAIL|ABORT) .*/m) || [r.error ? String(r.error.message) : 'steps.txt 없음 · 종료 코드 ' + r.status])[0]) });
+    console.log(`${ok ? 'ok  ' : 'FAIL'} ${it.id} (${rows[rows.length - 1].sec}s)${bugs ? ' · 알려진 버그 ' + bugs : ''}`);
+  }
+  unlock();
+  const fail = rows.filter((x) => !x.ok);
   console.log('\n── 요약 ──');
-  for(const r of rows) console.log(`${r.ok ? 'PASS' : 'FAIL'} ${r.name} (${r.sec}s)${r.why ? ' — ' + r.why : ''}`);
-  const bad = rows.filter((r) => !r.ok).length;
-  console.log(`${rows.length - bad}/${rows.length} 통과`);
-  process.exit(bad ? 1 : 0);
+  for(const x of rows) console.log(`${x.ok ? 'ok  ' : 'FAIL'} ${x.id.padEnd(32)} ${String(x.sec).padStart(4)}s${x.bugs ? '  BUG×' + x.bugs : ''}${x.why ? '  ' + x.why : ''}`);
+  console.log(`${rows.length - fail.length}/${rows.length} 통과 · 결과 ${OUT}`);
+  process.exit(fail.length ? 1 : 0);
 })();

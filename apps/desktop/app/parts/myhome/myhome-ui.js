@@ -28,7 +28,6 @@ const friendsForCheck = deps.friendsForCheck;   // 👥 판정용 친구 목록(
 const friendsRetry = deps.friendsRetry;   // 👥 친구 목록을 못 불러왔으면 다시 건다(친구 탭을 열 때)
 const friendsOpen = deps.friendsOpen;     // 👥 친구 목록이 보이기 시작함(friends-sub open — 이름 · 사진 다시 받기)
 const friendsClose = deps.friendsClose;   // 👥 친구 목록이 안 보이게 됨
-const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
 const helpTab = deps.helpTab;   // 📘 도움말 탭(help-tab.js) — 탭에 들어올 때 enter
 const inboxMod = deps.inboxMod;
@@ -303,19 +302,14 @@ function syncFriendsOpen(){
     if(myCode && candidates.includes(myCode)){ toast('내 코드는 추가할 수 없어요'); return; }
     try{
       let friendId = null;
-      let matchedCode = null;
       for(const cand of candidates){
         friendId = await friendRequests().lookupFriendCode(cand);
-        if(friendId){ matchedCode = cand; break; }
+        if(friendId) break;
       }
       if(!friendId){ toast('존재하지 않는 코드예요'); return; }
       if(_fr[friendId] || _myHomeFriends()[friendId]){ toast('이미 친구예요'); return; }
-      /* 📤 뒤 두 인자는 **보낸 요청 목록에 보여줄 이름표**다. 코드로 추가하면 상대 이름을 모르니
-         프로필에서 한 번 읽어 넘긴다 — 목록에 '닉네임 (MATE-5H3K)' 로 뜨게 하는 값이다.
-         ⚠️ 실패해도 그냥 보낸다(null). 이름은 목록 렌더가 _fmLookupName 으로 다시 시도하고,
-           그것도 안 되면 코드만 뜬다 — 이름 조회 때문에 친구 요청 자체가 막히면 안 된다. */
-      const toName = await friendManage.lookupName(friendId);
-      const res = await friendRequests().send(getMyUserId(), friendId, getDisplayName(), toName, matchedCode);
+      /* 이름 · 코드는 싣지 않는다 — 서버가 보낸 요청 목록의 이름을 채운다. */
+      const res = await friendRequests().send(getMyUserId(), friendId);
       if(res && res.ok){ toast('친구 요청을 보냈어요 — 상대가 수락하면 친구가 돼요'); ai.value=''; }
       else if(res && res.reason==='already'){ toast('이미 친구예요'); }
       else if(res && res.reason==='self'){ toast('내 코드는 추가할 수 없어요'); }

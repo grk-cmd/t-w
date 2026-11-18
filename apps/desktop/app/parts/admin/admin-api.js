@@ -99,6 +99,8 @@ function createAdminApi(deps){
   const ids = deps.pending;
   const fetchBoard = deps.fetchBoard;
   const errs = deps.errs;
+  /* 관리자 읽기는 이 한 곳으로 — authed.get 은 auth:true 일 때만 토큰을 싣는다(쓰기만 로그인이 기본). 빠지면 서버가 401 로 거절해 관리자 모드에 못 들어간다. */
+  const adminGet = (path) => authed.get(path, { auth: true });
 
   /* 새로 만드는 쓰기 — 서버가 답했으면(성공이든 거절이든) 요청 번호를 버리고, 닿지 못했으면 남겨 다시 눌러도 두 번 생기지 않게 */
   async function create(key, send){
@@ -110,7 +112,7 @@ function createAdminApi(deps){
   }
 
   async function me(){
-    const d = await authed.get(PATHS.me);
+    const d = await adminGet(PATHS.me);
     if(!isObj(d)) throw shapeError();
     return { name: str(d.name), version: (typeof d.version === 'number') ? d.version : 0 };
   }
@@ -133,7 +135,7 @@ function createAdminApi(deps){
   async function withdrawUpdateNotice(id){ await authed.del(PATHS.updateNotice(id)); }
 
   async function fetchBanner(){
-    const out = bannerOf(await authed.get(PATHS.banner));
+    const out = bannerOf(await adminGet(PATHS.banner));
     if(!out) throw shapeError();
     return out;
   }
@@ -157,7 +159,7 @@ function createAdminApi(deps){
     const q = [];
     if(o.q) q.push('q=' + encodeURIComponent(o.q));
     if(o.cursor) q.push('cursor=' + encodeURIComponent(o.cursor));
-    const d = await authed.get(PATHS.licenses + (q.length ? '?' + q.join('&') : ''), { auth: true });
+    const d = await adminGet(PATHS.licenses + (q.length ? '?' + q.join('&') : ''));
     if(!isObj(d) || !Array.isArray(d.items)) throw shapeError();
     return { items: d.items.map(licenseOf), next: str(d.nextCursor) || null, total: (typeof d.total === 'number') ? d.total : null };
   }
@@ -183,7 +185,7 @@ function createAdminApi(deps){
   async function deleteLicense(id, version){ await authed.del(PATHS.license(id) + '?version=' + encodeURIComponent(version)); }
 
   async function pendingRequests(cursor){
-    const d = await authed.get(PATHS.licenseRequests + (cursor ? '?cursor=' + encodeURIComponent(cursor) : ''), { auth: true });
+    const d = await adminGet(PATHS.licenseRequests + (cursor ? '?cursor=' + encodeURIComponent(cursor) : ''));
     if(!isObj(d) || !Array.isArray(d.items)) throw shapeError();
     return { items: d.items.map((r) => { if(!isObj(r) || !str(r.id)) throw shapeError(); return { id: r.id, name: str(r.name), userCode: str(r.requesterUserCode) }; }), next: str(d.nextCursor) || null };
   }
@@ -196,7 +198,7 @@ function createAdminApi(deps){
   }
 
   async function totals(){
-    const d = await authed.get(PATHS.totals, { auth: true });
+    const d = await adminGet(PATHS.totals);
     if(!isObj(d) || typeof d.users !== 'number' || !isObj(d.licenses)) throw shapeError();
     return { users: num(d.users), premiumUsers: num(d.premiumUsers), licValid: num(d.licenses.valid), licUsed: num(d.licenses.used) };
   }

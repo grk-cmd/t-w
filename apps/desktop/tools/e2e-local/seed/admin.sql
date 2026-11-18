@@ -1,3 +1,4 @@
--- 로그인 uid 하나를 관리자로 — 앱은 관리자에게 프리미엄을 붙인다(투게더룸 · 시크릿룸 발급). psql -v uid=<Auth 에뮬레이터 uid>
-INSERT INTO admin (auth_uid, granted_at, granted_by) VALUES (:'uid', now(), 'e2e-seed')
-ON CONFLICT DO NOTHING;
+-- 로그인 uid 하나를 관리자로 — psql -v uid=<Auth uid>. 관리자는 프리미엄 · 초대장 무제한 · 라이선스 발급이 된다
+INSERT INTO admin (auth_uid, granted_at, granted_by, name)
+VALUES (:'uid', now(), 'e2e-seed', 'e2e')
+ON CONFLICT (auth_uid) DO NOTHING;

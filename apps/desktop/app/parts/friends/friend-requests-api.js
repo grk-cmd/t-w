@@ -8,7 +8,7 @@
      listSent(myId) → Promise<{ 받는이id: { ts, toName } }>   못 받으면 던진다
      accept(myId, fromId) · reject(myId, fromId) → Promise<void>   못 하면 던진다
      cancel(myId, toId) → Promise<{ ok, reason? }>     reason = 서버 코드
-     send(myId, toId, myName, toName, toCode) → Promise<{ ok, reason? }>   reason = 'already' | 'self' | 서버 코드(이름 · 코드는 서버가 알아서 — 안 보냄)
+     send(myId, toId) → Promise<{ ok, reason? }>   reason = 'already' | 'self' | 서버 코드(이름 · 코드는 서버가 채운다)
      lookupName(uid) → Promise<string | null>
      lookupFriendCode(code) → Promise<userCode | null>
    }

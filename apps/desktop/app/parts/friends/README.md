@@ -61,7 +61,7 @@
 ## friend-requests-port.js · friend-requests-api.js — 👋 친구 요청(0.13)
 - 층: 화면(friend-manage · myhome-ui · seat-friend-req · myhome-init) → **포트**(`friend-requests-port.js`) → 서버 provider(`friend-requests-api.js`). 화면은 API 를 모른다.
 - 서버 한 길 — 쓰기(수락 · 거절 · 취소 · 보내기)도 읽기도 못 하면 던진다(옛 Firebase 길로 물러나지 않는다).
-- 포트가 내보내는 것: `watchReceived(myId, onChange, onError)`(→ 해제 함수 · `{ 보낸이id: { name, ts } }`) · `listSent(myId)`(`{ 받는이id: { ts, toName? } }`) · `accept` · `reject`(못 하면 던짐) · `cancel` · `send(myId, toId, myName, toName, toCode)`(→ `{ ok, reason? }` · reason `already` · `self` · 서버 코드) · `lookupName(uid)` · `lookupFriendCode(code)`.
+- 포트가 내보내는 것: `watchReceived(myId, onChange, onError)`(→ 해제 함수 · `{ 보낸이id: { name, ts } }`) · `listSent(myId)`(`{ 받는이id: { ts, toName? } }`) · `accept` · `reject`(못 하면 던짐) · `cancel` · `send(myId, toId)`(→ `{ ok, reason? }` · reason `already` · `self` · 서버 코드) · `lookupName(uid)` · `lookupFriendCode(code)`.
 - 서버 provider: 받은 요청은 처음 한 번 + `friendRequests` 알림(· resync)마다 다시 받고 상대 이름은 명함(`fetchCards`)으로 얹는다. 받는 중 알림이 여럿 와도 요청은 하나. 이름을 못 받아도 요청은 그린다. 보낼 때 이름 · 코드는 안 싣는다(서버가 안다).
 - 만드는 법: app.js `friendRequestsApiMod`(`social: socialApiMod`, `rt: TwRtHub.store`) · `friendRequestsPortMod`. 화면 deps 는 `()=>friendRequestsPortMod`(읽는 함수) — 만드는 줄이 화면 모듈보다 뒤다.
 - 친구코드(MATE-XXXX)로 찾기: `GET /v2/users?friendCode=`(`social-api.js findByFriendCode`) — 없으면 `null`.

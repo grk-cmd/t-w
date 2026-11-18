@@ -1554,7 +1554,6 @@ const myHomeUiMod = TwMyHomeUi.createMyHomeUi({
   friendsRetry: (...a)=>friendsSubMod.retryIfFailed(...a),
   friendsOpen: (...a)=>friendsSubMod.open(...a),
   friendsClose: (...a)=>friendsSubMod.close(...a),
-  getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   helpTab: helpTabMod,
   inboxMod: inboxMod,
@@ -2213,7 +2212,6 @@ const seatFriendReqMod = TwSeatFriendReq.createSeatFriendReq({
   FRIEND_MAX: FRIEND_MAX,
   _myHomeFriends: ()=>_myHomeFriends,
   friendNet: ()=>({ sendFriendRequest: (...a)=>friendRequestsPortMod.send(...a) }),
-  getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
 });

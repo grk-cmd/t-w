@@ -4,14 +4,17 @@
 설정은 `apps/desktop/eslint.config.js`, 기준선은 `apps/desktop/eslint-suppressions.json`, 검사는 `checks/sim-lint.js`.
 
 - 모양(띄어쓰기 · 따옴표 등) 규칙과 ESLint 기본 추천 규칙은 켜지 않는다. 렌더러는 classic script 라 전역이 많아서 «정의 안 된 변수» 같은 규칙은 쓸모없는 경고만 낸다.
-- 금지마다 규칙 이름을 따로 단다(`tw/…`). 규칙 몸은 내장 `no-restricted-syntax`(구문 트리 선택자)를 그대로 쓴다. 기준선은 «파일 × 규칙 이름» 으로 개수를 세서, 이름을 나눠야 «타이머 하나 지우고 firebaseAPI 하나 더하기» 가 빨강이 된다.
+- 금지마다 규칙 이름을 따로 단다(`tw/…`). 규칙 몸은 내장 `no-restricted-syntax`(구문 트리 선택자)를 그대로 쓰고, 경로를 풀어야 하는 것(메인 ↔ 렌더러 경계 · Firebase SDK 이름 따라가기)만 설정 파일 안의 작은 규칙 객체다. 기준선은 «파일 × 규칙 이름» 으로 개수를 세서, 이름을 나눠야 «타이머 하나 지우고 firebaseAPI 하나 더하기» 가 빨강이 된다.
 
 | 규칙 | 막는 것 | 대신 할 것 | 대상 |
 |---|---|---|---|
 | `tw/no-timer` | `setTimeout` · `requestAnimationFrame` 새 호출 | 준비 알림(이벤트 · Promise · 모듈의 on…)을 받는다 | `app/parts/**` |
 | `tw/no-firebase-api` | `firebaseAPI` · `window.firebaseAPI` 를 직접 부르기 | 도메인 provider(`…-api.js` · `…-provider.js`)를 deps 로 받는다 | `app/parts/**` (만드는 · 잇는 곳 넷은 뺀다 — 설정 파일에 까닭) |
 | `tw/ls-key-prefix` | `localStorage.setItem/getItem/removeItem` 에 `tw.` 로 시작하지 않는 글자 키 | 키를 모듈 위 상수 한 곳에 `tw.…` 로 둔다 | `app/parts/**` |
-| `tw/no-main-require-renderer` | 메인 쪽 파일이 `require('./app/…')` | 두 쪽이 같이 쓰는 순수 규칙은 공용 자리로 옮긴다 | 앱 폴더 맨 위 `*.js` |
+| `tw/no-main-require-renderer` | 메인 쪽 파일이 `app/` (렌더러) 파일을 가져오기(`require` · `import` · `import()` — 경로를 풀어서 본다) | 두 쪽이 같이 쓰는 순수 규칙은 공용 자리로 옮긴다 | 앱 폴더 맨 위 `*.js` |
+| `tw/no-renderer-import-main` | 렌더러가 `require` 를 부르기 · Node · Electron 모듈 가져오기 · `app/` 밖 메인 쪽 파일 가져오기 | 메인의 기능은 preload 가 내놓은 `window.…` 와 IPC 로 부른다 | `app/**` |
+| `tw/no-firebase-data` | Firebase DB · Storage SDK 함수를 새로 가져오기 · 새로 부르기 | 서버 API(도메인 `…-api.js`)로 만든다 | `app/parts/**` |
+| `tw/no-placeholder-store` | 저장 · 보내기 함수(`setItem` · `_lsSet` · `lsSet` · `emit` · `request`(realtime) · `save…` · `send…` · `post…` · `put…` · `patch…` · `upload…` · `commit…` · `write…` · `update…`) 인자에 이름 placeholder(`TwPersonName.shown()` · `getDisplayName()` · `NO_NAME` · `'이름 없음'`) | 이름 그대로(없으면 `''`)를 싣고, placeholder 는 그릴 때만 만든다 | `app/parts/**` |
 
 ## 돌리기
 
@@ -38,4 +41,4 @@ node checks/run.js sim-lint
 2. 오류 문구는 «무엇을 대신 쓰라 — 까닭» 한 줄(한국어).
 3. 먼저 `npm run lint` 로 실제 코드에서 몇 곳을 잡는지 세 보고, 엉뚱한 곳을 잡으면 선택자나 대상 파일을 좁힌다.
 4. `npm run lint:baseline` 으로 지금 있는 것을 얼린다.
-5. `checks/sim-lint.js` 의 `RULES` 와 2절 깨 보기에 나쁜 예 · 좋은 예를 더하고, `checks/CHECKS.md` §3 해시를 같은 커밋에서 맞춘다.
+5. `checks/sim-lint.js` 의 `RULES` 와 2절 mutation test 에 나쁜 예 · 좋은 예를 더하고, `checks/CHECKS.md` §3 해시를 같은 커밋에서 맞춘다.

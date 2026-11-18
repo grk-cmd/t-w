@@ -90,7 +90,6 @@ function makeApp(outArg, opts = {}){
   return { launch, quit, net, logs, reqs, out, quiet, get app(){ return app; } };
 }
 
-
 /** 조용한 창이 지켜지나 — 켜 둔 앱의 창마다 진짜 자리 · 투명도 · 소리 · 포커스를 보고 어긋난 것을 글로 돌려준다(빈 배열 = 조용함).
  *  화면 밖: mac 은 화면 밖 창을 화면 끝으로 당겨 놓아, 어느 화면과도 4분의 1 넘게 겹치지 않으면 밖으로 본다.
  *  조용히 켜지 않은 앱(makeApp 의 quiet — TW_E2E_QUIET=0 · opts.quiet:false)은 부르는 쪽이 건너뛴다(앱 객체의 .quiet) */

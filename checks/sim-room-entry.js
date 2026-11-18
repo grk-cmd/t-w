@@ -201,7 +201,7 @@ async function flow(src, o){
   deps.roomSettings = RS;
   deps.maxPeople = () => 10;
   deps.isPremium = () => !!o.premium; deps.isAdmin = () => false;
-  deps._rcStore = () => ({ refresh: async () => {}, minRoomVer: () => null, maxPeople: () => 10, roomLimitOf: () => 300, onChange: () => {} });
+  deps._rcStore = () => ({ refresh: async () => {}, minRoomVer: () => null, maxPeople: () => 10, roomLimitOf: () => 500, onChange: () => {} });
   const win = new Proxy({ companion: undefined, _deviceSessionLost: false, _pendingRoomChannel: null, _pendingRoomOpen: false }, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   globalThis.TwErrorCodes = { notify: (c) => log.errs.push(c) };
   const ls = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
