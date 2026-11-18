@@ -86,7 +86,7 @@ async function launchRetry(A){
 }
 
 // 조용한 창 규칙(scenarios/launcher/quiet.js 와 같음) — 단계마다 모든 창이: 진짜 창이 어느 화면과도 창 넓이의 4분의 1 넘게 겹치지 않음(mac 은 화면 끝으로 당겨 놓는다) ·
-// 포커스 없음 · 진짜 투명도 0 · 진짜 소리 끔 · 진짜 «늘 위» 아님. 앱이 읽는 값(getBounds · isAlwaysOnTop …)은 앱이 정한 값이라 보지 않는다. TW_E2E_QUIET=0 이면 안 본다
+// 포커스 없음 · 진짜 투명도 0 · 진짜 소리 끔 · 진짜 «늘 위» 아님. window.open 자식 창도 getAllWindows 에 들어 같은 판정을 받는다. 앱이 읽는 값(getBounds · isAlwaysOnTop …)은 앱이 정한 값이라 보지 않는다. TW_E2E_QUIET=0 이면 안 본다
 async function assertQuiet(u, where){
   if(process.env.TW_E2E_QUIET === '0' || !u.A.app) return;
   const s = await u.A.app.evaluate(({ BrowserWindow, screen }) => ({
@@ -97,7 +97,8 @@ async function assertQuiet(u, where){
         focus: w.isFocused(),
         opacity: wrapped ? w.__e2eRealOpacity() : null,
         muted: typeof w.webContents.__e2eRealAudioMuted === 'function' ? w.webContents.__e2eRealAudioMuted() : null,
-        top: wrapped ? Object.getPrototypeOf(Object.getPrototypeOf(w)).isAlwaysOnTop.call(w) : null,   // QuietWindow 위의 BrowserWindow 것 = 진짜 값
+        top: typeof w.__e2eRealAlwaysOnTop === 'function' ? w.__e2eRealAlwaysOnTop() : null,   // 앱의 isAlwaysOnTop 은 기억한 값 — 진짜 값은 이것
+        child: !!w.getParentWindow() || w.webContents.getURL() === 'about:blank',   // window.open 자식 창(방명록 등)도 같은 규칙 — 판정이 깨질 때 어느 창인지 보려고
       };
     }),
     focused: !!BrowserWindow.getFocusedWindow(),
