@@ -85,16 +85,29 @@ async function launchRetry(A){
   }
 }
 
-// 조용한 창 규칙(scenarios/launcher/quiet.js 와 같음) — 단계마다 모든 창의 진짜 자리가 화면 밖이고 포커스가 없어야 한다. TW_E2E_QUIET=0 이면 안 본다
+// 조용한 창 규칙(scenarios/launcher/quiet.js 와 같음) — 단계마다 모든 창이: 진짜 창이 어느 화면과도 창 넓이의 4분의 1 넘게 겹치지 않음(mac 은 화면 끝으로 당겨 놓는다) ·
+// 포커스 없음 · 진짜 투명도 0 · 진짜 소리 끔 · 진짜 «늘 위» 아님. 앱이 읽는 값(getBounds · isAlwaysOnTop …)은 앱이 정한 값이라 보지 않는다. TW_E2E_QUIET=0 이면 안 본다
 async function assertQuiet(u, where){
   if(process.env.TW_E2E_QUIET === '0' || !u.A.app) return;
-  const s = await u.A.app.evaluate(({ BrowserWindow }) => ({
-    wins: BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed()).map((w) => ({ real: typeof w.__e2eRealBounds === 'function' ? w.__e2eRealBounds() : null, focus: w.isFocused() })),
+  const s = await u.A.app.evaluate(({ BrowserWindow, screen }) => ({
+    wins: BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed()).map((w) => {
+      const wrapped = typeof w.__e2eRealBounds === 'function';
+      return {
+        real: wrapped ? w.__e2eRealBounds() : null,
+        focus: w.isFocused(),
+        opacity: wrapped ? w.__e2eRealOpacity() : null,
+        muted: typeof w.webContents.__e2eRealAudioMuted === 'function' ? w.webContents.__e2eRealAudioMuted() : null,
+        top: wrapped ? Object.getPrototypeOf(Object.getPrototypeOf(w)).isAlwaysOnTop.call(w) : null,   // QuietWindow 위의 BrowserWindow 것 = 진짜 값
+      };
+    }),
     focused: !!BrowserWindow.getFocusedWindow(),
+    displays: screen.getAllDisplays().map((d) => d.bounds),
   })).catch(() => null);
   if(!s) return;   // 앱을 다시 켜는 중
-  const bad = s.wins.filter((w) => !w.real || w.real.x > -10000 || w.real.y > -10000 || w.focus);
-  if(bad.length || s.focused) throw new Error(`${u.label}: 조용한 창이 깨짐(${where}) — 화면 안 · 포커스 · 감싸지 않은 창 ${JSON.stringify(s)}`);
+  const overlap = (r, d) => Math.max(0, Math.min(r.x + r.width, d.x + d.width) - Math.max(r.x, d.x)) * Math.max(0, Math.min(r.y + r.height, d.y + d.height) - Math.max(r.y, d.y));
+  const offscreen = (r) => s.displays.every((d) => overlap(r, d) <= 0.25 * r.width * r.height);
+  const bad = s.wins.filter((w) => !w.real || !offscreen(w.real) || w.focus || w.opacity !== 0 || w.muted !== true || w.top !== false);
+  if(bad.length || s.focused) throw new Error(`${u.label}: 조용한 창이 깨짐(${where}) — 화면 안 · 포커스 · 보임 · 소리 · 늘 위 · 감싸지 않은 창 ${JSON.stringify(s)}`);
 }
 
 function scenario(name, body){
