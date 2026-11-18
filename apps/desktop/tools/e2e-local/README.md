@@ -45,7 +45,7 @@ dev 앱은 `userData` 를 `appData/<이름>-dev` 로 바꾼다(`main.js`). 그�
 
 감싸는 진입점이 앱 `main.js` 보다 먼저 `route-main.js` 를 부른다(조용한 창과 상관없이 늘). 세션마다 앱의 창 · 요청보다 먼저 걸린다.
 
-- **돌리기** — 세션의 https 처리기(`protocol.handle`)가 이 PC 주소로 대신 받아 원래 주소의 답으로 준다(redirect 가 아니라 창에서 본 주소 · 출처가 그대로). `api-dev.together-working.com` → `127.0.0.1:8080` · `identitytoolkit` · `securetoken.googleapis.com` → Auth 에뮬레이터 `127.0.0.1:9099/<호스트>/…` · `firebasestorage.googleapis.com` → Storage 에뮬레이터 `127.0.0.1:9199`. realtime 은 dev 판이 처음부터 `ws://127.0.0.1:8787` 이다.
+- **돌리기** — 세션의 https 처리기(`protocol.handle`)가 이 PC 주소로 대신 받아 원래 주소의 답으로 준다(redirect 가 아니라 창에서 본 주소 · 출처가 그대로). `api-dev.together-working.com` → `127.0.0.1:8080` · `identitytoolkit` · `securetoken.googleapis.com` → Auth 에뮬레이터 `127.0.0.1:9099/<호스트>/…` · `firebasestorage.googleapis.com` → Storage 에뮬레이터 `127.0.0.1:9199`. `help.together-working.com` → 저장소 `firebase/hosting/help` 파일(firebase.json help 사이트처럼 cleanUrls · 없는 길 404). realtime 은 dev 판이 처음부터 `ws://127.0.0.1:8787` 이다.
 - **막기** — 우리 데이터를 실을 수 있거나 우리 백엔드에 닿는 곳만 네트워크 오류로 끝낸다(ws · wss 포함): `*.together-working.com` · `identitytoolkit` · `securetoken` · `firebasestorage` · `firestore` · `firebaseinstallations.googleapis.com` · `*.firebaseio.com` · `*.firebasedatabase.app` · `*.firebaseapp.com` · `*.web.app`(돌릴 세 짝은 먼저 돌린다). 그 밖(유튜브 플레이어 · 글꼴 등)은 그대로 둔다. 막은 것은 결과 폴더 `net.txt` 에 `BLOCK` 줄로 남고 `lib.quietProblems` 가 문제로 낸다(시나리오는 그 단계가 실패하고 `e2e-quiet-fail` 에 주소가 남는다).
 - **켤 때 확인** — `lib.launch` 가 창에서 `https://api-dev.together-working.com/actuator/health` 를 불러 이 PC API 가 200 으로 답했는지(돌린 기록) · 막힌 요청이 없는지 본다. 아니면 앱을 끄고 실패한다(다시 읽기 · 다시 켜기로 감추지 않는다).
 - 돌린 요청은 `net.txt` 의 `REQ` 줄 → `A.reqs`(옛 모양 `<방법> <길> <상태>` 그대로). 확인 시나리오는 `scenarios/launcher/routing.js`.

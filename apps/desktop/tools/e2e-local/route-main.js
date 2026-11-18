@@ -9,6 +9,7 @@
        https://api-dev.together-working.com/<길>              → <api>/<길>
        https://identitytoolkit|securetoken.googleapis.com/<길> → <auth>/<그 호스트>/<길>(Auth 에뮬레이터는 원래 호스트를 앞에 붙여 받는다)
        https://firebasestorage.googleapis.com/<길>             → <storage>/<길>
+       https://help.together-working.com/<길>               → 저장소 firebase/hosting/help 파일(o.helpDir · cleanUrls)
      realtime 은 dev 판이 처음부터 ws://127.0.0.1:8787 을 쓴다(rt-hub.js) — 돌릴 것이 없다
    ・막기 — 우리 데이터를 실을 수 있는 곳만: *.together-working.com · identitytoolkit · securetoken · firebasestorage · firestore · firebaseinstallations.googleapis.com ·
      *.firebaseio.com · *.firebasedatabase.app · *.firebaseapp.com · *.web.app(돌릴 세 짝은 먼저 돌린다). 그 밖(유튜브 · 글꼴 등)은 그대로 둔다.
@@ -19,11 +20,16 @@
    ・돌린 요청은 «REQ <방법> <표시> <상태>» 로 남긴다 — lib.js 가 읽어 A.reqs 에 옛 모양 그대로 넣는다 */
 'use strict';
 const fs = require('fs');
+const path = require('path');
 const { app, session, net } = require('electron');
 
 const API_HOST = 'api-dev.together-working.com';
 const AUTH_HOSTS = ['identitytoolkit.googleapis.com', 'securetoken.googleapis.com'];
 const STORAGE_HOST = 'firebasestorage.googleapis.com';
+const HELP_HOST = 'help.together-working.com';   // 도움말 사이트 — 저장소의 firebase/hosting/help 파일로 답한다(firebase.json help 사이트 · cleanUrls)
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml',
+  '.woff2': 'font/woff2', '.woff': 'font/woff', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8' };
 // 막는 곳 — 우리 데이터를 실을 수 있거나 우리 백엔드에 닿는 호스트만(돌릴 세 짝은 위에서 먼저 돌린다).
 // 그 밖(유튜브 플레이어 · 글꼴 fonts.googleapis.com · fonts.gstatic.com · ytimg · googlevideo 등)은 그대로 둔다
 const BLOCK_HOSTS = new Set(['identitytoolkit.googleapis.com', 'securetoken.googleapis.com', 'firebasestorage.googleapis.com',
@@ -48,6 +54,27 @@ module.exports = function routeMain(o){
   }
   const isBlocked = (raw) => { try { return blockedHost(new URL(raw).hostname); } catch(_){ return false; } };
 
+  // 도움말 사이트 파일 — firebase.json 의 help 사이트처럼 cleanUrls(/privacy → privacy.html · 폴더 → index.html). 폴더 밖은 404
+  function help(req, u){
+    const tag = `${req.method} ${HELP_HOST}${u.pathname}`;
+    const root = path.resolve(o.helpDir);
+    let rel = decodeURIComponent(u.pathname).replace(/^\/+/, '');
+    const cands = [];
+    if(!rel || rel.endsWith('/')) cands.push(rel + 'index.html');
+    else { cands.push(rel); if(!path.extname(rel)) cands.push(rel + '.html', rel + '/index.html'); }
+    for(const c of cands){
+      const f = path.resolve(root, c);
+      if(f !== root && !f.startsWith(root + path.sep)) break;
+      try {
+        if(!fs.statSync(f).isFile()) continue;
+        write(`REQ ${tag} 200`);
+        return new Response(fs.readFileSync(f), { status: 200, headers: { 'content-type': MIME[path.extname(f).toLowerCase()] || 'application/octet-stream' } });
+      } catch(_){}
+    }
+    write(`REQ ${tag} 404`);
+    return new Response('not found', { status: 404, headers: { 'content-type': 'text/plain' } });
+  }
+
   async function https(req){
     const u = new URL(req.url);
     const m = map(u);
@@ -69,6 +96,7 @@ module.exports = function routeMain(o){
         return r;
       } catch(e){ write(`REQ ${tag} ERR ${e.message}`); return Response.error(); }
     }
+    if(u.hostname === HELP_HOST && o.helpDir) return help(req, u);
     if(isBlocked(req.url)){ block(req.method, req.url); return Response.error(); }
     return net.fetch(req, { bypassCustomProtocolHandlers: true });   // 그 밖의 https(유튜브 등)는 그대로
   }
@@ -82,7 +110,7 @@ module.exports = function routeMain(o){
     // ⚠️ 돌릴 https 주소는 건너뛴다 — webRequest 가 처리기보다 먼저 보는 판이면 여기서 막아 버린다
     ses.webRequest.onBeforeRequest((d, cb) => {
       let u = null; try { u = new URL(d.url); } catch(_){}
-      if(u && map(u)) return cb({});
+      if(u && (map(u) || (u.protocol === 'https:' && u.hostname === HELP_HOST && o.helpDir))) return cb({});
       if(isBlocked(d.url)){ block(d.method, d.url); return cb({ cancel: true }); }
       cb({});
     });

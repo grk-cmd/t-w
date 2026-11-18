@@ -65,7 +65,7 @@ function makeApp(outArg, opts = {}){
       `require('electron').app.setPath('appData', ${JSON.stringify(path.join(out, 'appdata'))});\n`
       + quietJs
       // 주소 돌리기 · 진짜 서버 막기(route-main.js) — 조용한 창과 상관없이 늘 건다. 앱 main.js 보다 먼저 'ready' 를 들어 첫 요청부터 걸린다
-      + `require(${JSON.stringify(path.join(__dirname, 'route-main.js'))})(${JSON.stringify({ log: netLog, api: API, auth: AUTH_EMU, storage: STORAGE_EMU })});\n`
+      + `require(${JSON.stringify(path.join(__dirname, 'route-main.js'))})(${JSON.stringify({ log: netLog, api: API, auth: AUTH_EMU, storage: STORAGE_EMU, helpDir: path.resolve(APP_DIR, '..', '..', 'firebase', 'hosting', 'help') })});\n`
       + `require(${JSON.stringify(path.join(APP_DIR, pkg.main || 'main.js'))});\n`);
     app = await _electron.launch({
       args: [wrap, '--tw-firebase=dev'],
