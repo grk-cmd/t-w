@@ -64,7 +64,14 @@ node scenarios/social/report.js  # 하나만
 
 ### 조용한 창(TW_E2E_QUIET)
 
-기본으로 켜져 있다 — 시험 앱이 Dock 아이콘 없이(mac `accessory`) 뜨고 창은 화면 밖(-20000, -20000)에 둬서 이 PC 의 화면 · 포커스를 가져가지 않는다. 창은 누를 수 있게 두고(포커스 못 받게 하면 입력이 막힌다) 화면 밖에서도 타이머 · WebGL 이 돌게 배경 늦추기를 끈다. 눈으로 보며 고칠 땐 `TW_E2E_QUIET=0 node …`.
+기본으로 켜져 있다. 시험 앱이 이 PC 의 화면 · 포커스 · 소리를 가져가지 않게, 감싸는 진입점(`wrap/main.js`)이 앱 `main.js` 보다 먼저 `lib.js` 의 `quietWindows()` 를 돌린다.
+
+- 맥: ready 전후로 `setActivationPolicy('accessory')`(Dock 아이콘 없음 · 앞으로 안 나옴) · `app.focus` · `app.show` 는 아무것도 안 한다.
+- 창마다(만들어질 때) 앱이 부르는 단추를 이 시험에서만 바꾼다 — `focus` · `moveTop` · `setAlwaysOnTop` · `maximize` · 전체 화면은 아무것도 안 하고, `show` 는 `showInactive` 로. `setBounds` · `setPosition` 은 크기는 그대로 두고 실제 창만 화면 밖(x − 20000)으로 민다. 앱이 자리를 읽으면(`getBounds` · `getPosition`) 앱이 정한 값을 돌려줘 «지난 자리» 저장이 어긋나지 않는다.
+- 맥은 창을 화면 밖으로 다 못 밀어 가장자리가 남는다 — 창을 투명(opacity 0)하게 하고 마우스를 통과시킨다. 시험의 누르기는 CDP 로 들어가 OS 마우스와 상관없다.
+- 화면 밖 창도 타이머 · 그리기 · WebGL 이 돌게 배경 늦추기를 끄고, 소리는 끈다.
+
+눈으로 보며 고칠 땐 `TW_E2E_QUIET=0 node …`. 한 앱만 끄려면 `makeApp(dir, { quiet: false })`(그 시나리오에 까닭을 적는다). `scenarios/social/quiet-check.js` 가 이 동작을 확인한다.
 
 ### repl.js · run.sh — 켜 둔 앱에 명령 보내기
 
