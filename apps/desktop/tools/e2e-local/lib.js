@@ -14,76 +14,6 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // opts.version — 앱이 스스로 아는 판(app.getVersion)을 바꾼다(판 확인 시나리오가 «옛 판 · 새 판 PC» 를 흉내 낼 때)
 // opts.quiet — 이 앱만 조용한 창을 켜고 끈다(없으면 TW_E2E_QUIET)
-// 감싸는 진입점에 글로 박혀 앱 main.js 보다 먼저 돈다(이 파일의 다른 이름을 쓰지 않는다 — toString 으로 옮겨 적는다).
-// 앱은 창을 스스로 옮기고(setBounds · setPosition) 앞으로 올린다(show · focus · moveTop · setAlwaysOnTop).
-// 그 단추들을 창마다 이 시험에서만 바꿔 끼워, 앱이 무엇을 불러도 창이 화면 밖 · 투명 · 포커스 없음으로 남게 한다.
-function quietWindows(){
-  const { app } = require('electron');
-  const OFF = -20000;
-  // 화면 밖 · 가려진 창도 타이머 · 그리기 · WebGL 이 멈추지 않게
-  app.commandLine.appendSwitch('disable-renderer-backgrounding');
-  app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
-  // 맥: Dock 아이콘 없음 · 앞으로 안 나옴 — ready 전에 한 번, ready 뒤에 한 번(ready 전 값을 덮는 판이 있다)
-  if(process.platform === 'darwin'){
-    try { app.setActivationPolicy('accessory'); } catch(_){}
-    app.whenReady().then(() => { try { app.setActivationPolicy('accessory'); } catch(_){} });
-    if(app.dock){ app.dock.show = () => Promise.resolve(); app.dock.bounce = () => 0; try { app.dock.hide(); } catch(_){} }
-    app.setActivationPolicy = () => {};
-  }
-  app.focus = () => {};
-  app.show = () => {};
-  // 창을 만드는 순간부터 — 앞에 뜨지 않게(alwaysOnTop · show 끔) 만들고, 아래 손질이 끝난 뒤 포커스 없이 보인다.
-  // ⚠️ 앱 main.js 는 이 진입점 다음에 require('electron').BrowserWindow 를 읽으므로 여기서 바꿔 끼우면 그쪽에도 간다
-  const electron = require('electron');
-  const Base = electron.BrowserWindow;
-  class QuietWindow extends Base {
-    constructor(o = {}){
-      super({ ...o, show: false, alwaysOnTop: false, x: typeof o.x === 'number' ? OFF + o.x : OFF });
-      if(o.show !== false && !this.isDestroyed()) this.showInactive();
-    }
-  }
-  try { Object.defineProperty(electron, 'BrowserWindow', { value: QuietWindow, configurable: true, enumerable: true }); }
-  catch(e){ console.error('[e2e 조용히] BrowserWindow 를 못 바꿔 끼움 — 창이 잠깐 보일 수 있음', e && e.message); }
-  app.on('browser-window-created', (_e, w) => {
-    w.webContents.setBackgroundThrottling(false);
-    w.webContents.setAudioMuted(true);   // 같이 듣기 · 효과음이 이 PC 스피커로 나가지 않게
-    // 앱이 정한 자리는 기억해 두고(앱이 읽으면 이 값을 준다) 실제 창만 화면 밖으로 민다. 크기는 앱 값 그대로.
-    // ⚠️ 실제 자리에서 거꾸로 셈하면 안 된다 — 맥은 창을 화면 밖으로 다 못 밀어 가장자리에 붙이므로
-    //   거꾸로 센 값이 엉뚱해지고(예: 19660) 앱이 그 값을 «지난 자리» 로 저장한다
-    const real = { setBounds: w.setBounds.bind(w), getBounds: w.getBounds.bind(w), setPosition: w.setPosition.bind(w) };
-    const b0 = real.getBounds();
-    let vx = b0.x < OFF / 2 ? b0.x - OFF : b0.x, vy = b0.y;   // QuietWindow 가 만들 때 이미 민 x 는 되돌려 기억
-    const keep = (b) => { if(b && typeof b.x === 'number'){ vx = b.x; vy = typeof b.y === 'number' ? b.y : vy; } };
-    const offBounds = (b) => (b && typeof b.x === 'number' ? { ...b, x: OFF + b.x } : b);
-    w.setBounds = (b, an) => { keep(b); real.setBounds(offBounds(b), an); };
-    w.getBounds = () => ({ ...real.getBounds(), x: vx, y: vy });
-    const setCB = w.setContentBounds.bind(w), getCB = w.getContentBounds.bind(w);
-    w.setContentBounds = (b, an) => { keep(b); setCB(offBounds(b), an); };
-    w.getContentBounds = () => { const c = getCB(), r = real.getBounds(); return { ...c, x: vx + (c.x - r.x), y: vy + (c.y - r.y) }; };
-    w.setPosition = (x, y, an) => { vx = x; vy = y; real.setPosition(OFF + x, y, an); };
-    w.getPosition = () => [vx, vy];
-    w.center = () => {};
-    // 앞으로 올리기 · 포커스 — 하지 않는다. 보이기는 포커스 없이만
-    w.focus = () => {};
-    w.moveTop = () => {};
-    w.setAlwaysOnTop = () => {};
-    w.setVisibleOnAllWorkspaces = () => {};
-    w.setFullScreen = () => {};
-    w.setSimpleFullScreen = () => {};
-    w.maximize = () => {};
-    w.show = () => w.showInactive();
-    // 맥은 창을 화면 밖으로 다 못 민다(가장자리가 남는다) — 안 보이게 하고 마우스도 통과시킨다.
-    // 시험의 누르기는 CDP 로 들어가 OS 마우스와 상관없다
-    w.setOpacity(0);
-    w.setOpacity = () => {};
-    w.setIgnoreMouseEvents(true, { forward: false });
-    w.setIgnoreMouseEvents = () => {};
-    real.setPosition(OFF + vx, vy);
-    // 그래도 OS 나 다른 길로 화면 안에 들어오면(예: 화면 배치가 바뀜) 바로 다시 민다
-    w.on('move', () => { try { if(!w.isDestroyed() && real.getBounds().x > OFF / 2) real.setPosition(OFF + vx, vy); } catch(_){} });
-  });
-}
-
 function makeApp(outArg, opts = {}){
   const out = path.resolve(outArg);
   const logs = [], reqs = [];
@@ -118,11 +48,12 @@ function makeApp(outArg, opts = {}){
     fs.mkdirSync(wrap, { recursive: true });
     const pkg = JSON.parse(fs.readFileSync(path.join(APP_DIR, 'package.json'), 'utf8'));
     fs.writeFileSync(path.join(wrap, 'package.json'), JSON.stringify({ name: pkg.name, version: opts.version || pkg.version, main: 'main.js' }));
-    // 조용한 창(TW_E2E_QUIET, 기본 켬) — quietWindows 를 감싸는 진입점에 옮겨 적는다. opts.quiet 가 있으면 이 앱만 그 값
+    // 조용한 창(TW_E2E_QUIET, 기본 켬) — 시험 창이 화면 밖에 뜨고 포커스 · Dock 을 빼앗지 않게(quiet-main.js). 끄려면 TW_E2E_QUIET=0
     const quiet = opts.quiet !== undefined ? !!opts.quiet : process.env.TW_E2E_QUIET !== '0';
+    const quietJs = quiet ? `require(${JSON.stringify(path.join(__dirname, 'quiet-main.js'))});\n` : '';
     fs.writeFileSync(path.join(wrap, 'main.js'),
       `require('electron').app.setPath('appData', ${JSON.stringify(path.join(out, 'appdata'))});\n`
-      + (quiet ? `(${quietWindows.toString()})();\n` : '')
+      + quietJs
       + `require(${JSON.stringify(path.join(APP_DIR, pkg.main || 'main.js'))});\n`);
     app = await _electron.launch({
       args: [wrap, '--tw-firebase=dev'],

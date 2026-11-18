@@ -6,6 +6,8 @@ dev 앱(`--tw-firebase=dev`)을 켜서 화면을 누르고 결과를 파일로 �
 |---|---|
 | `lib.js` | 격리된 앱 한 벌 켜기 · 끄기 · 주소 돌리기 · 오프라인 흉내 |
 | `flow.js` | 정해진 흐름 한 바퀴(가입 → 다시 켜기 → 로그인된 책상 → 얼굴 PNG · GLB 올리기 · 받기 → 오프라인 · 온라인) |
+| `quiet-main.js` | 조용한 창 — 시험 앱의 창 · 포커스를 화면 밖에 묶는다(아래 «조용한 창») |
+| `runlock.js` | 여러 사람 · 세션이 한 PC 에서 돌릴 때 한 번에 한 실행만 Electron 을 켜게 하는 잠금 |
 | `repl.js` · `run.sh` | 앱을 켜 둔 채 JS 명령을 하나씩 보내기 |
 | `scenarios/<묶음>/*.js` · `run-all.js` | 기능마다 스스로 판정하는 시나리오(종료 코드 0 · 1) · 전부(또는 이름 일부로 골라) 돌리고 요약 |
 | `seed/*.sql` | 시나리오가 쓰는 준비 데이터(관리자 · 초대 코드 · 포커스 누적) — 앱 코드를 고치지 않고 로컬 DB 에 넣는다 |
@@ -62,16 +64,10 @@ node scenarios/social/report.js  # 하나만
 - `social` 묶음 공통부는 `scenarios/social/_kit.js`(`_` 로 시작하는 파일은 run-all 이 돌리지 않는다). 관리자 · 포커스 누적은 `seed/social.sql` · `seed/focus.sql` 을 로컬 DB 컨테이너(`TW_E2E_PG_CONTAINER`, 기본 `tw-dev-local-postgres-1`)에 넣는다.
 - 시험이 누를 수 없는 OS 창(파일 고르기)은 main 의 `dialog.showOpenDialog` 를 «이 파일을 골랐다» 로 바꿔 두고, 바깥 사이트(유튜브 제목 · 도움말 페이지)는 길 돌리기로 답을 준다 — 앱 코드는 그대로다.
 
-### 조용한 창(TW_E2E_QUIET)
+### 조용한 창 · 실행 잠금
 
-기본으로 켜져 있다. 시험 앱이 이 PC 의 화면 · 포커스 · 소리를 가져가지 않게, 감싸는 진입점(`wrap/main.js`)이 앱 `main.js` 보다 먼저 `lib.js` 의 `quietWindows()` 를 돌린다.
-
-- 맥: ready 전후로 `setActivationPolicy('accessory')`(Dock 아이콘 없음 · 앞으로 안 나옴) · `app.focus` · `app.show` 는 아무것도 안 한다.
-- 창마다(만들어질 때) 앱이 부르는 단추를 이 시험에서만 바꾼다 — `focus` · `moveTop` · `setAlwaysOnTop` · `maximize` · 전체 화면은 아무것도 안 하고, `show` 는 `showInactive` 로. `setBounds` · `setPosition` 은 크기는 그대로 두고 실제 창만 화면 밖(x − 20000)으로 민다. 앱이 자리를 읽으면(`getBounds` · `getPosition`) 앱이 정한 값을 돌려줘 «지난 자리» 저장이 어긋나지 않는다.
-- 맥은 창을 화면 밖으로 다 못 밀어 가장자리가 남는다 — 창을 투명(opacity 0)하게 하고 마우스를 통과시킨다. 시험의 누르기는 CDP 로 들어가 OS 마우스와 상관없다.
-- 화면 밖 창도 타이머 · 그리기 · WebGL 이 돌게 배경 늦추기를 끄고, 소리는 끈다.
-
-눈으로 보며 고칠 땐 `TW_E2E_QUIET=0 node …`. 한 앱만 끄려면 `makeApp(dir, { quiet: false })`(그 시나리오에 까닭을 적는다). `scenarios/social/quiet-check.js` 가 이 동작을 확인한다.
+- **조용한 창(`TW_E2E_QUIET`, 기본 켬 · `quiet-main.js`)** — 감싸는 진입점이 앱 main.js 보다 먼저 `quiet-main.js` 를 불러, 시험 프로세스 안에서만 electron 을 감싼다(앱 코드는 그대로). 앱은 «보조 앱»(mac `setActivationPolicy('accessory')` — Dock 아이콘 없음)으로 켜지고 `app.focus` · `app.show` · `dock.show` 는 아무것도 안 한다. 앱이 받는 `BrowserWindow` 는 하위 클래스로 바뀌어 처음부터 화면 밖(-20000, -20000) · 포커스 없이 보이고(`show` → `showInactive`), `focus` · `moveTop` · `center` · `maximize` · 전체 화면은 아무것도 안 하며, `setAlwaysOnTop` 은 값만 기억하고, `setBounds` · `setContentBounds` · `setPosition` 은 폭 · 높이만 따르고 자리는 화면 밖에 둔다. `isAlwaysOnTop` 은 앱이 부른 값을 돌려준다(진짜 창은 늘 위가 아님) · 시험이 진짜 자리 · 크기를 볼 땐 `w.__e2eRealBounds()`. 창은 누를 수 있게 두고(Playwright 입력은 OS 포커스 없이 간다), 화면 밖에서도 타이머 · WebGL 이 돌게 배경 늦추기를 끈다. 네 묶음이 이 한 벌을 같이 쓴다. 확인은 `scenarios/launcher/quiet.js`(lib.js 만 써서 계정 · 시드 없이 돈다 — 켠 뒤 · 앱이 창을 앞으로 부르는 길을 main 에서 직접 부른 뒤 진짜 자리가 화면 밖 · 포커스 없음). 눈으로 보려면 `TW_E2E_QUIET=0`. 화면에 꼭 떠야 하는 시나리오(창 앞뒤 · 바깥 눌러 닫기)는 `makeApp(out, { quiet: false })` 로 그 앱만 끄고 시나리오 머리에 까닭을 적는다.
+- **실행 잠금(`TW_E2E_RUN_LOCK`)** — 잠금 폴더 경로를 주면 `mkdir` 로 잡고(있으면 30초마다 다시) 끝나면 `rmdir` 한다. `run-all.js` 가 잡으면 시나리오는 다시 잡지 않는다. 비워 두면 잠그지 않는다.
 
 ### repl.js · run.sh — 켜 둔 앱에 명령 보내기
 
