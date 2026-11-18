@@ -157,6 +157,9 @@
     }
   },
   "app/parts/firebase-init.js": {
+    "tw/no-firebase-data": {
+      "count": 29
+    },
     "tw/no-timer": {
       "count": 1
     }
@@ -230,6 +233,9 @@
     }
   },
   "app/parts/myhome/myhome-ui.js": {
+    "tw/no-placeholder-store": {
+      "count": 1
+    },
     "tw/no-timer": {
       "count": 1
     }
@@ -240,6 +246,9 @@
     }
   },
   "app/parts/myhome/seat-friend-req.js": {
+    "tw/no-placeholder-store": {
+      "count": 1
+    },
     "tw/no-timer": {
       "count": 1
     }

@@ -23,7 +23,8 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 
 const CONFIG = 'eslint.config.js';
 const SUPPRESS = 'eslint-suppressions.json';
-const RULES = ['tw/no-timer', 'tw/no-firebase-api', 'tw/ls-key-prefix', 'tw/no-main-require-renderer', 'tw/no-renderer-import-main'];
+const RULES = ['tw/no-timer', 'tw/no-firebase-api', 'tw/ls-key-prefix', 'tw/no-main-require-renderer', 'tw/no-renderer-import-main',
+  'tw/no-firebase-data', 'tw/no-placeholder-store'];
 
 /* ── 찾기 ─────────────────────────────────────────────────────────────── */
 const nodePaths = (process.env.NODE_PATH || '').split(path.delimiter).filter(Boolean);
@@ -117,6 +118,14 @@ const parseJson = (s) => { try { return JSON.parse(s); } catch (_) { return null
     ['tw/no-renderer-import-main', ESM_R, "import { a } from './realtime-link.js'; import { b } from '../shared/app-version.js'; import { c } from 'https://www.gstatic.com/x.js';", false],
     ['tw/no-renderer-import-main', R, "if(typeof module !== 'undefined') module.exports = api; window.companion.send('x');", false],
     ['tw/no-renderer-import-main', MAIN, "const fs = require('fs');", false],
+    ['tw/no-firebase-data', ESM_R, "import { ref, onValue } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js'; onValue(ref(db, 'a'), f);", true],
+    ['tw/no-firebase-data', ESM_R, "import { getStorage } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';", true],
+    ['tw/no-firebase-data', ESM_R, "import { getAuth } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js'; getAuth(); api.get('/me');", false],
+    ['tw/no-placeholder-store', R, "localStorage.setItem('tw.userName', TwPersonName.shown(n));", true],
+    ['tw/no-placeholder-store', R, "api.saveProfile(uid, { name: getDisplayName() });", true],
+    ['tw/no-placeholder-store', R, "net.sendInvite(uid, TwPersonName.NO_NAME);", true],
+    ['tw/no-placeholder-store', R, "postName('이름 없음');", true],
+    ['tw/no-placeholder-store', R, "el.textContent = TwPersonName.shown(n); el.setAttribute('title', getDisplayName()); api.saveProfile(uid, { name: getUserName() });", false],
   ];
   for (const [rule, file, code, bad] of cases) {
     const [res] = await eslint.lintText(code, { filePath: path.join(DESKTOP, file) });

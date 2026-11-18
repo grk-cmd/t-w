@@ -3,7 +3,7 @@
      «정의 안 된 변수» 같은 규칙은 소음만 낸다.
    ★ 지금 있는 위반은 eslint-suppressions.json 에 얼려 두었다(새 위반만 빨강). 고쳐서 줄면 `npm run lint:prune`.
    ★ 금지마다 이름을 따로 단다(tw/…). 몸은 내장 no-restricted-syntax 이거나(선택자로 되는 것), 경로를 풀어야 하는
-     것(메인 ↔ 렌더러 경계)만 아래 작은 규칙 객체다 — 억제 파일은 «파일 × 규칙 이름» 으로
+     것(메인 ↔ 렌더러 경계 · Firebase SDK 이름 따라가기)만 아래 작은 규칙 객체다 — 억제 파일은 «파일 × 규칙 이름» 으로
      개수를 세서, 한 이름에 몰면 타이머 하나를 지우고 firebaseAPI 하나를 더해도 통과한다.
    ⚠️ 파일 경로는 이 파일 자리(apps/desktop) 기준이다. 루트에서는 `npm run lint`. */
 'use strict';
@@ -90,6 +90,42 @@ const RENDERER_TO_MAIN = boundaryRule((spec, file, node) => {
     : null;
 });
 
+/* f. Firebase DB · Storage 의존 늘리기 — 0.13 은 서버(API · realtime)가 원본이다. 남은 SDK 함수 가져오기 · 부르기는
+   기준선에 얼려 두고, 새 함수를 가져오거나 새로 부르면(새 경로 · 새 쓰기 · 새 구독) 빨강. */
+const FIREBASE_DATA_SDK = /\/firebasejs\/[^/]+\/firebase-(database|storage)\.js$/;
+const FIREBASE_MSG = 'Firebase DB · Storage 를 새로 쓰지 마세요 — 0.13 은 서버 API(provider)가 원본입니다. 새 읽기 · 쓰기 · 구독은 도메인의 …-api.js 로 서버에 만드세요.';
+const NO_FIREBASE_DATA = {
+  meta: { type: 'problem', schema: [] },
+  create(context){
+    const sdkNames = new Set();
+    return {
+      ImportDeclaration(node){
+        if(!FIREBASE_DATA_SDK.test(String(node.source.value))) return;
+        for(const sp of node.specifiers){ sdkNames.add(sp.local.name); context.report({ node: sp, message: FIREBASE_MSG }); }
+      },
+      CallExpression(node){
+        if(node.callee.type === 'Identifier' && sdkNames.has(node.callee.name)) context.report({ node, message: FIREBASE_MSG });
+      },
+    };
+  },
+};
+
+/* g. 이름 placeholder(«이름 없음») 를 저장 · 전송 값에 싣기 — placeholder 는 그릴 때만 만든다(shared/person-name.js).
+   저장 · 보내기 함수(setItem · save… · send… · post… · put… · patch… · upload… · commit… · write…)의 인자 안에서
+   TwPersonName.shown() · getDisplayName() · NO_NAME · 글자 '이름 없음' 을 찾는다. 이름 칸이 비면 '' 그대로 싣는다. */
+const STORE_CALL = "CallExpression:matches([callee.property.name=/^(setItem|(save|send|post|put|patch|upload|commit|write)[A-Za-z0-9_]*)$/], [callee.name=/^(save|send|post|put|patch|upload|commit|write)[A-Za-z0-9_]*$/])";
+const PLACEHOLDER = [
+  "CallExpression[callee.property.name='shown'][callee.object.name=/PersonName$/]",
+  "CallExpression[callee.name='getDisplayName']",
+  "CallExpression[callee.property.name='getDisplayName']",
+  "MemberExpression[property.name='NO_NAME']",
+  "Literal[value='이름 없음']",
+];
+const NO_PLACEHOLDER_STORE = PLACEHOLDER.map((ph) => ({
+  selector: `${STORE_CALL} > .arguments ${ph}, ${STORE_CALL} > ${ph}.arguments`,
+  message: "이름 placeholder(«이름 없음» · shown() · getDisplayName())를 저장 · 전송 값에 싣지 마세요 — 서버 · localStorage · 방에는 이름 그대로(없으면 '')를 보내고, placeholder 는 그릴 때만 만듭니다.",
+}));
+
 /* ── 파일 무리 ──────────────────────────────────────────────────────────── */
 
 const RENDERER = ['app/parts/**/*.js'];
@@ -128,6 +164,8 @@ module.exports = [
       'ls-key-prefix': restrict,
       'no-main-require-renderer': MAIN_TO_RENDERER,
       'no-renderer-import-main': RENDERER_TO_MAIN,
+      'no-firebase-data': NO_FIREBASE_DATA,
+      'no-placeholder-store': restrict,
     } } },
     languageOptions: { ecmaVersion: 'latest', sourceType: 'script' },
     /* 옛 코드의 eslint-disable 줄은 여기서 안 켜는 규칙을 가리킨다 — 쓸모없다고 경고하지 않는다 */
@@ -141,6 +179,8 @@ module.exports = [
     'tw/no-timer': ['error', ...NO_TIMER],
     'tw/no-firebase-api': ['error', ...NO_FIREBASE_API],
     'tw/ls-key-prefix': ['error', ...LS_KEY_PREFIX],
+    'tw/no-firebase-data': 'error',
+    'tw/no-placeholder-store': ['error', ...NO_PLACEHOLDER_STORE],
   } },
   { files: FIREBASE_API_OK, rules: { 'tw/no-firebase-api': 'off' } },
 ];
