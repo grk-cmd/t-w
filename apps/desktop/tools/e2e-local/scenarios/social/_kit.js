@@ -4,7 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { makeApp, wait, API_HOST } = require('../../lib.js');
+const { makeApp, wait, API_HOST, quietProblems } = require('../../lib.js');
 const { acquire } = require('../../runlock.js');
 
 const INVITE = process.env.TW_E2E_INVITE || 'INVT-SCAL-E2E3';   // seed/social-invite.sql
@@ -85,30 +85,13 @@ async function launchRetry(A){
   }
 }
 
-// 조용한 창 규칙(scenarios/launcher/quiet.js 와 같음) — 단계마다 모든 창이: 진짜 창이 어느 화면과도 창 넓이의 4분의 1 넘게 겹치지 않음(mac 은 화면 끝으로 당겨 놓는다) ·
-// 포커스 없음 · 진짜 투명도 0 · 진짜 소리 끔 · 진짜 «늘 위» 아님. window.open 자식 창도 getAllWindows 에 들어 같은 판정을 받는다. 앱이 읽는 값(getBounds · isAlwaysOnTop …)은 앱이 정한 값이라 보지 않는다. TW_E2E_QUIET=0 이면 안 본다
+// 조용한 창 — 단계마다 lib.js 의 quietProblems(네 묶음 · launcher/quiet.js 와 같은 판정 한 곳: 화면 밖 · 투명 · 모든 webContents 소리 끔 · 포커스 없음 · 진짜 늘 위 아님 · 자식 창 포함)
+// 조용히 켜지 않은 앱(TW_E2E_QUIET=0 · opts.quiet:false)은 건너뛴다
 async function assertQuiet(u, where){
-  if(process.env.TW_E2E_QUIET === '0' || !u.A.app) return;
-  const s = await u.A.app.evaluate(({ BrowserWindow, screen }) => ({
-    wins: BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed()).map((w) => {
-      const wrapped = typeof w.__e2eRealBounds === 'function';
-      return {
-        real: wrapped ? w.__e2eRealBounds() : null,
-        focus: w.isFocused(),
-        opacity: wrapped ? w.__e2eRealOpacity() : null,
-        muted: typeof w.webContents.__e2eRealAudioMuted === 'function' ? w.webContents.__e2eRealAudioMuted() : null,
-        top: typeof w.__e2eRealAlwaysOnTop === 'function' ? w.__e2eRealAlwaysOnTop() : null,   // 앱의 isAlwaysOnTop 은 기억한 값 — 진짜 값은 이것
-        child: !!w.getParentWindow() || w.webContents.getURL() === 'about:blank',   // window.open 자식 창(방명록 등)도 같은 규칙 — 판정이 깨질 때 어느 창인지 보려고
-      };
-    }),
-    focused: !!BrowserWindow.getFocusedWindow(),
-    displays: screen.getAllDisplays().map((d) => d.bounds),
-  })).catch(() => null);
-  if(!s) return;   // 앱을 다시 켜는 중
-  const overlap = (r, d) => Math.max(0, Math.min(r.x + r.width, d.x + d.width) - Math.max(r.x, d.x)) * Math.max(0, Math.min(r.y + r.height, d.y + d.height) - Math.max(r.y, d.y));
-  const offscreen = (r) => s.displays.every((d) => overlap(r, d) <= 0.25 * r.width * r.height);
-  const bad = s.wins.filter((w) => !w.real || !offscreen(w.real) || w.focus || w.opacity !== 0 || w.muted !== true || w.top !== false);
-  if(bad.length || s.focused) throw new Error(`${u.label}: 조용한 창이 깨짐(${where}) — 화면 안 · 포커스 · 보임 · 소리 · 늘 위 · 감싸지 않은 창 ${JSON.stringify(s)}`);
+  if(!u.A.quiet || !u.A.app) return;
+  let bad;
+  try { bad = await quietProblems(u.A.app); } catch(_){ return; }   // 앱을 다시 켜는 중
+  if(bad.length) throw new Error(`${u.label}: 조용한 창이 깨짐(${where}) — ${bad.join(' / ')}`);
 }
 
 function scenario(name, body){
