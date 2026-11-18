@@ -103,30 +103,25 @@ async function hardQuit(A){
   killAppPids(A, pid);
 }
 
-// 여러 앱이 같이 돌면 켜기(첫 창 · 다시 읽기)가 가끔 30초를 넘겨 멈춘다 — 끄고 두 번까지 다시 켠다
-// 켠 뒤 주소 돌리기가 실제로 걸렸는지도 본다 — 가끔 요청이 돌리기를 거치지 않고 바깥 dev 주소로 나간다(502)
+// 켜기 — 주소 돌리기 확인은 lib.js launch 가 한다(안 걸렸거나 진짜 서버로 나간 요청이 있으면 던진다).
+// 그 실패는 다시 켜서 덮지 않는다: 앱을 끄고 e2e-quiet-fail 에 남긴 뒤 멈춘다(요청이 바깥 dev 로 갔을 수 있다).
+// 그 밖의 켜기 실패(바쁜 PC 에서 첫 창이 늦음 등)만 두 번까지 다시 켠다
 const LAUNCH_MARK = '--- launch ---';
+const isLeak = (e) => /주소 돌리기가 안 걸림|진짜 서버로 나간 요청/.test(String(e && e.message));
+function flagLeak(A, why){
+  if(QUIET_FAIL) try { fs.writeFileSync(QUIET_FAIL, new Date().toISOString() + ' e2e-core ' + A.out + ': ' + why + '\n', { flag: 'a' }); } catch(_){}
+}
 async function launchRetry(A){
   for(let i = 0; ; i++){
     try {
       A.reqs.push(LAUNCH_MARK);   // 이 켜기 뒤 앱이 보낸 요청만 골라 볼 때 기준
-      const w = await A.launch();
-      const n = A.reqs.length;
-      await w.evaluate((h) => fetch(`https://${h}/v2/config?e2e-probe=1`).catch(() => null), API_HOST);
-      if(!A.reqs.slice(n).some((r) => r.includes('/v2/config'))) throw Object.assign(new Error('주소 돌리기가 안 걸림'), { routeMiss: true });
-      return w;
+      return await A.launch();
     }
     catch(e){
       A.logs.push('--- launch 실패: ' + String(e.message).split('\n')[0]);
-      // 주소 돌리기가 안 걸린 앱은 이미 바깥 dev 로 요청을 보냈을 수 있다 — 다시 켜서 덮지 않고 모두 멈추게 남긴다
-      if(e.routeMiss){
-        await hardQuit(A);
-        if(QUIET_FAIL) try { fs.writeFileSync(QUIET_FAIL, new Date().toISOString() + ' e2e-core ' + A.out + ': 주소 돌리기가 안 걸린 채 켜짐(요청이 바깥 dev 로 갔을 수 있음)\n', { flag: 'a' }); } catch(_){}
-        throw e;
-      }
       await hardQuit(A);
-      // 켜다 멈춘 앱이 남아 있으면 같은 폴더의 다음 앱이 «두 번째 실행» 으로 바로 꺼진다
-      killAppPids(A);
+      killAppPids(A);   // 켜다 멈춘 앱이 남아 있으면 같은 폴더의 다음 앱이 «두 번째 실행» 으로 바로 꺼진다
+      if(isLeak(e)){ flagLeak(A, String(e.message).split('\n')[0]); throw e; }
       await wait(1000);
       if(i >= 2) throw e;
     }
@@ -209,6 +204,13 @@ function run(name, body){
     // 깨지면 앱을 모두 끄고 e2e-quiet-fail 에 남긴다(다른 묶음도 멈춘다). 꺼진 앱은 건너뛴다
     async assertQuiet(){
       for(const a of apps){
+        // 진짜 서버로 나가려다 막힌 요청(lib.js blocked)이 있으면 — 앱을 다 끄고 e2e-quiet-fail 에 남기고 멈춘다
+        if(a.blocked && a.blocked.length){
+          const why = '진짜 서버로 나간 요청을 막음: ' + a.blocked.slice(0, 3).join(' | ');
+          for(const x of apps) await hardQuit(x);
+          flagLeak(a, why);
+          throw new Error(why);
+        }
         if(!a.app || !a.quiet) continue;   // 조용히 켜지 않은 앱(TW_E2E_QUIET=0)은 보지 않는다 — lib.js quietProblems 규약
         let bad;
         try { bad = await quietProblems(a.app); }
