@@ -4,7 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { makeApp, wait, API_HOST, APP_DIR } = require('../../lib.js');
+const { makeApp, wait, quietProblems, API_HOST, APP_DIR } = require('../../lib.js');
 
 const ROOT = process.env.TW_E2E_OUT || '/tmp/tw-e2e/core';
 const PW = 'e2e-pass-1234';   // 에뮬레이터 안에서만 쓰는 시험 비밀번호
@@ -37,7 +37,9 @@ function seed(file, vars){
 
 // 앱(Electron)을 켜는 동안만 잡는 실행 잠금 — 네 묶음이 같이 쓰는 runlock.js(TW_E2E_RUN_LOCK · run-all 이 들고 있으면 다시 안 잡음)
 const { acquire } = require('../../runlock.js');
-const QUIET = process.env.TW_E2E_QUIET !== '0';
+// 조용한 창이 깨졌다는 표(모든 묶음이 본다) — 실행 잠금 폴더 옆 e2e-quiet-fail. 있으면 시나리오를 시작하지 않는다
+const QUIET_FAIL = process.env.TW_E2E_RUN_LOCK ? path.join(path.dirname(process.env.TW_E2E_RUN_LOCK), 'e2e-quiet-fail') : '';
+const quietFailed = () => !!QUIET_FAIL && fs.existsSync(QUIET_FAIL);
 
 async function withStackLock(fn, maxWaitMs = 600000){
   if(!LOCK) throw new Error('TW_E2E_STACK_LOCK(공유 스택 잠금 경로)가 없다 — 컨테이너를 건드리지 않고 멈춤');
@@ -144,31 +146,19 @@ function run(name, body){
       } finally { save(); }
     },
     check(cond, msg){ if(!cond) throw new Error(msg); },
-    // 조용한 창이 지켜지는가(단계마다) — scenarios/launcher/quiet.js 와 같은 판정: 진짜 창(__e2eRealBounds)이 어느 화면과도 창 넓이의 4분의 1 넘게
-    // 겹치지 않음(mac 은 화면 밖 창을 끝으로 당긴다) · 포커스 받은 창 없음 · 진짜 투명도 0 · 진짜 소리 끔 · 진짜 창은 맨 위 아님. 꺼진 앱은 건너뛴다
+    // 조용한 창이 지켜지는가(단계마다) — 판정은 lib.js quietProblems 한 벌(launcher/quiet.js 와 같음 · 자식 창 · 진짜 늘 위까지).
+    // 깨지면 앱을 모두 끄고 e2e-quiet-fail 에 남긴다(다른 묶음도 멈춘다). 꺼진 앱은 건너뛴다
     async assertQuiet(){
-      if(!QUIET) return;
-      const overlap = (r, d) => Math.max(0, Math.min(r.x + r.width, d.x + d.width) - Math.max(r.x, d.x)) * Math.max(0, Math.min(r.y + r.height, d.y + d.height) - Math.max(r.y, d.y));
-      const offscreen = (r, ds) => ds.every((d) => overlap(r, d) <= 0.25 * r.width * r.height);
       for(const a of apps){
         if(!a.app) continue;
-        let s;
-        try {
-          s = await a.app.evaluate(({ BrowserWindow, screen }) => ({
-            wins: BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed()).map((w) => {
-              const real = typeof w.__e2eRealBounds === 'function' ? w.__e2eRealBounds() : null;
-              const base = Object.getPrototypeOf(Object.getPrototypeOf(w));
-              return { title: w.getTitle(), real, focus: w.isFocused(), realTop: real ? base.isAlwaysOnTop.call(w) : null,
-                opacity: typeof w.__e2eRealOpacity === 'function' ? w.__e2eRealOpacity() : null,
-                muted: typeof w.webContents.__e2eRealAudioMuted === 'function' ? w.webContents.__e2eRealAudioMuted() : null };
-            }),
-            focused: !!BrowserWindow.getFocusedWindow(),
-            displays: screen.getAllDisplays().map((d) => d.bounds),
-          }));
-        } catch(e){ if(/closed|Target/.test(String(e.message))) continue; throw e; }
-        const bad = s.wins.filter((w) => !w.real || !offscreen(w.real, s.displays) || w.focus || w.realTop || w.opacity !== 0 || w.muted !== true);
-        if(!s.wins.length) throw new Error('조용한 창 판정: 창을 못 셈(' + path.basename(a.out) + ') — getAllWindows 가 빈 목록');
-        if(bad.length || s.focused) throw new Error('조용한 창이 깨짐(' + path.basename(a.out) + '): ' + JSON.stringify(bad.length ? bad : s).slice(0, 300));
+        let bad;
+        try { bad = await quietProblems(a.app); }
+        catch(e){ if(/closed|Target/.test(String(e.message))) continue; throw e; }
+        if(!bad.length) continue;
+        const msg = `e2e-core ${name} (${path.basename(a.out)}): ` + bad.join(' / ');
+        for(const x of apps) await x.quit().catch(() => {});
+        if(QUIET_FAIL) try { fs.writeFileSync(QUIET_FAIL, new Date().toISOString() + ' ' + msg + '\n', { flag: 'a' }); } catch(_){}
+        throw new Error('조용한 창이 깨짐: ' + msg);
       }
     },
     // 격리된 앱 한 벌(결과 폴더 안 label 폴더) — 켜기만 한다
@@ -343,7 +333,9 @@ function run(name, body){
     async shot(A, n){ await A.w.screenshot({ path: path.join(A.out, n + '.png') }).catch(() => {}); },
   };
   (async () => {
+    if(quietFailed()){ console.log(`FAIL ${name}  e2e-quiet-fail 이 있어 시작하지 않음`); process.exit(1); }
     const unlock = await acquire('e2e-core ' + name);
+    if(quietFailed()){ unlock(); console.log(`FAIL ${name}  e2e-quiet-fail 이 있어 시작하지 않음`); process.exit(1); }
     // 이 묶음의 초대 코드 — 이미 있으면 그대로(묶음을 새로 만든 빈 DB 에서도 돌게)
     try { seed('core-invite.sql'); } catch(e){ steps.push('ABORT 초대 코드 seed: ' + String(e.message).split('\n')[0]); failed = true; }
     try { if(!failed) await body(t); }

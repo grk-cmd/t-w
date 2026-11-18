@@ -28,8 +28,11 @@ if(!files.length){ console.error('돌릴 시나리오가 없다'); process.exit(
   const unlock = await acquire('run-all ' + filters.join(' '));
   const rows = [];
   const env = Object.assign({}, process.env, process.env.TW_E2E_RUN_LOCK ? { TW_E2E_RUN_LOCK_HELD: '1' } : {});
+  // 다른 묶음이 조용한 창이 깨진 것을 남겼으면(잠금 폴더 옆 e2e-quiet-fail) 다음 시나리오를 켜지 않는다
+  const quietFail = process.env.TW_E2E_RUN_LOCK ? path.join(path.dirname(process.env.TW_E2E_RUN_LOCK), 'e2e-quiet-fail') : '';
   for(const f of files){
     const rel = path.relative(DIR, f);
+    if(quietFail && fs.existsSync(quietFail)){ console.error('e2e-quiet-fail 이 있어 멈춤: ' + quietFail); rows.push({ rel, ok: false, sec: 0 }); break; }
     const t0 = Date.now();
     console.log(`▶ ${rel}`);
     const r = spawnSync(process.execPath, [f], { stdio: 'inherit', cwd: __dirname, env });
