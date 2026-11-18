@@ -103,7 +103,9 @@ const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(pa
         ws.onerror = ws.onclose = () => res();
         setTimeout(res, 5000);
       }));
-      await call(w, 'https://x.e2e-routing.invalid/');
+      // 앱의 것이 불리는지는 세션에서 부른다 — 창은 앱 CSP(connect-src) 때문에 낯선 주소로 아예 요청을 못 낸다.
+      // 처리기가 그대로 보내는 길(ses.fetch · bypassCustomProtocolHandlers)과 같은 부름이다
+      await A.app.evaluate(({ session }) => session.defaultSession.fetch('https://x.e2e-routing.invalid/', { bypassCustomProtocolHandlers: true }).catch(() => null));
       await wait(500);
       if(!A.blocked.some((b) => b.includes('e2e-routing.firebasedatabase.app'))) throw new Error('앱이 건 뒤 wss 를 안 막음 — ' + JSON.stringify(A.blocked));
       const hits = await A.app.evaluate(() => global.__e2eAppHits);
