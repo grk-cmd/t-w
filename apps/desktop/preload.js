@@ -38,6 +38,14 @@ contextBridge.exposeInMainWorld('companion', {
     ipcRenderer.send('companion:quitApp');
   },
 
+  // 🚪 앱을 끄기 전 — main 이 끄기를 붙잡고 묻는다 · 렌더러는 못 올린 저장을 끝내고 답한다(채널 이름은 app/parts/shared/leave-flush.js CH 와 같아야 한다)
+  onQuitFlush(callback) {
+    ipcRenderer.on('companion:quitFlush', () => callback());
+  },
+  quitFlushDone() {
+    ipcRenderer.send('companion:quitFlushDone');
+  },
+
   // 🔁 앱 재시작 — 계정 연동 해제 / 구글 로그아웃이 부른다. 껐다 켜야 초대 게이트가 다시 돈다
   //   (게이트는 부팅 때 한 번만 도는 검사라, 세션 도중에 신원을 놓아도 화면은 그대로 남는다).
   // ⚠️ 구버전 앱에는 이 채널이 없다 — 부르는 쪽은 반드시 존재 여부를 확인하고,

@@ -99,7 +99,9 @@ const fFlush = grabFn(SRC, '_acctFlushToServer', 'async function ');
 const fPre = grabFn(SRC, '_acctPreflight', 'async function ');
 const fWipe = /let _acctDetached = false;/.test(SRC) ? ('let _acctDetached = false;\n' + (grabFn(SRC, '_wipeAccountLocal') || '')) : null;
 const fDet = grabFn(SRC, '_detachAccountLocal', 'async function ');
-const tmo = (SRC.match(/const ACCT_FLUSH_TIMEOUT_MS = \d+;/) || [])[0] || null;
+/* 올리기 상한(8초)은 앱 끄기와 같은 한 벌(shared/leave-flush.js) — 진짜 파일을 같은 무대에 싣는다(타이머는 무대의 가짜 setTimeout) */
+const LF_FILE = ['leave-flush.js', 'parts/shared/leave-flush.js', 'app/parts/shared/leave-flush.js'].find(c => fs.existsSync(c));
+const tmo = LF_FILE ? fs.readFileSync(LF_FILE, 'utf8') + '\nconst leaveFlush = window.TwLeaveFlush;' : null;
 if(!fList || !fFlush || !fPre || !fWipe || !fDet || !tmo){
   huh('본문을 못 떼어 옴 — list:' + !!fList + ' flush:' + !!fFlush + ' pre:' + !!fPre + ' wipe:' + !!fWipe + ' det:' + !!fDet);
 }else{

@@ -14,7 +14,7 @@
    deps: closetApi · codec(slot-codec.js) · roomFaceCache{ load, save } · slots · CHAR_SLOT_MAX · slotSave{ applySlotObjs, lastOut, onSaved, pullForward, _relinkSeatsToSlots, slotsReplaced } ·
          getMyUserId · rtOn · toast · notifyError · renderLauncher · creatorOpen(읽는 함수) · migrate 에 쓰는 storage(localStorage)
    내놓는 것: startCloset(session) · useSession(session) · pullCloset(notify) · state() · boxItems() · boxCount() · boxFull() · moveToBox(i) · boxToSlot(avatarId) · trashSlot(i) · trashBox(ids) ·
-     trashRows() · restore(trashId) · onChange(fn) · resetCloset() · legacyStep() · unsavedCount() · flushSlots() · waitFlush() · requireReady() · BOX_MAX · deleteWords() · reportFail(r)
+     trashRows() · restore(trashId) · onChange(fn) · resetCloset() · legacyStep() · unsavedCount() · flushSlots() · flushUnsaved() · waitFlush() · requireReady() · BOX_MAX · deleteWords() · reportFail(r)
    ⚠️ 전역 이름은 TwCloset. 만들 때는 요청 · 구독 · 타이머를 하지 않는다 — 시작은 startCloset 한 번(app-boot — 구독 · 저장 모으기 타이머 · 비우기는 세션이 쥔다).
    검사: checks/sim-closet.js */
 (function(){
@@ -194,6 +194,8 @@ function scheduleSave(){
 /* 바뀐 칸만 올린다. 빈 칸은 지우지 않는다(지우기는 휴지통 이동뿐). 이미지 복원에 실패한 칸은 건너뛴다(빈 그림이 서버에 굳지 않게).
    줄에 서서 돈다 — 옮기기 · 받기와 엇갈리지 않는다. @return 못 올린 칸이 있었나 */
 function flushSlots(){ return inLane(() => flushNow()); }
+/* 앱을 끄기 전(shared/leave-flush.js) — 못 올린 고침이 있을 때만 줄 끝에서 올린다. 없으면 요청도 기다림도 없다(끄기가 바로 된다). */
+function flushUnsaved(){ return unsavedCount() ? flushSlots() : null; }
 /* 줄 안에서만 부른다(flushSlots · 동작 안의 settleSlot) */
 async function flushNow(){
   if(load !== 'ready') return false;
@@ -536,7 +538,7 @@ return {
   boxItems, boxCount, boxFull, BOX_MAX,
   moveToBox, boxToSlot, trashSlot, trashBox, trashRows, restore, reportFail,
   deleteWords: () => DELETE_WORDS,
-  legacyStep, flushSlots, waitFlush, unsavedCount, requireReady,
+  legacyStep, flushSlots, flushUnsaved, waitFlush, unsavedCount, requireReady,
   test: { known: () => known.slice(), heads: () => heads.slice(), isDirty },
 };
 }

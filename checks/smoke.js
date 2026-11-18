@@ -339,6 +339,8 @@ PRELOAD.push('person-name.js');
 PRELOAD.push('account-store.js');
 /* session.js — 🔐 로그인 세션 하나(window.TwSession). app.js 가 app-boot 에 넘기는 newSession 이 부를 때 읽는다 — app-boot.js 보다 먼저. */
 PRELOAD.push('session.js');
+/* leave-flush.js — 🚪 떠나기 전 저장 기다리기(window.TwLeaveFlush). app.js 가 계정 deps 로 넘기고 끄기 답을 건다 — app.js 보다 먼저. */
+PRELOAD.push('leave-flush.js');
 /* idle-gate.js — 😴 닫힌 창의 반복 재우기(window.TwIdleGate). playlist · wardrobe · launcher-preview 가 만들 때 부른다. */
 PRELOAD.push('idle-gate.js');
 /* skeleton-share.js — 🦴 같은 뼈대는 Skeleton 하나(window.TwSkeletonShare). app.js 가 최상위에서 받는다. */

@@ -29,6 +29,7 @@ const { createDevtoolsGate } = require('./devtools-gate');
 const { createHttpCacheReset } = require('./http-cache-reset');   // 🧹 버전이 바뀐 뒤 첫 실행에 웹 캐시 한 번 비우기
 const { createUpdateDiag } = require('./update-diag');   // 🩺 업데이트 진행 · 실패를 진단 기록에
 const { createErrorLog } = require('./error-log');   // 🧯 오류만 모으는 파일(tw-error.log)
+const { createQuitHold } = require('./quit-hold');   // 🚪 끄기 전 렌더러의 못 올린 저장을 기다린다(상한 있음)
 /* 오류 기록 — 경로는 적을 때 찾는다(ready 전에도 userData 는 읽힌다 · 실패는 error-log 가 삼킨다) */
 const _errorLog = createErrorLog({ fs, path, dir: () => app.getPath('userData'), version: app.getVersion(), home: require('os').homedir() });
 /* 메인 프로세스의 잡히지 않은 오류 — Monitor 라 원래 처리(오류 창 · 종료)는 그대로 두고 적기만 한다 */
@@ -637,6 +638,9 @@ function _exitNow(){
   try{ BrowserWindow.getAllWindows().forEach(w=>{ try{ if(!w.isDestroyed()) w.destroy(); }catch(_){} }); }catch(_){}
   try{ app.exit(0); }catch(_){}
 }
+/* 🚪 app.quit() 으로 끄는 길(제목줄 × · 내 정보 · 다른 기기 안내 · Cmd+Q · 재시작) · 메인 창 닫기 · 업데이트 설치를 한 곳에서 붙잡아
+   렌더러가 못 올린 캐릭터 고침을 끝내기를 기다린다(없으면 바로 · 상한 있음). _exitNow · session-end 는 거치지 않는다 — OS 종료를 막지 않게. */
+const _quitHold = createQuitHold({ getWindow: () => mainWindow, ipcMain, quit: () => app.quit(), setTimeout, clearTimeout });
 let _saveFailLogged = false;
 function saveSettings(){
   if(!SETTINGS_PATH) return false;
@@ -2771,6 +2775,7 @@ function createWindow() {
   /* 🔍 저장된 줌을 건다 — 파일 로드가 끝난 뒤가 확실하다(그 전에 걸면 로드가 되돌린다). */
   mainWindow.webContents.on('did-finish-load', () => { try{ applyUiZoom(uiZoom, 'boot'); }catch(_){} });
 
+  mainWindow.on('close', (e) => { _quitHold.windowClose(e); });   // Alt+F4 · 작업표시줄 닫기도 끄기로 — 저장을 기다린 뒤 닫힌다
   mainWindow.on('closed', () => {
     // BGM 자식창을 수동으로 정리 (parent를 안 쓰기 때문에 자동 소멸이 없음)
     if(bgmWin && !bgmWin.isDestroyed()){ try{ bgmWin.destroy(); }catch(e){} }
@@ -2820,7 +2825,7 @@ function createWindow() {
   // 🍎 맥은 autoUpdater 를 안 탄다 — 갈래는 startUpdateCheck() 안에 있다(위 주석).
 
   // 렌더러가 "지금 재시작해서 설치" 버튼을 눌렀을 때 — 다운로드 완료된 업데이트를 설치하며 앱 재시작
-  ipcMain.on('companion:installUpdate', () => { autoUpdater.quitAndInstall(); });
+  ipcMain.on('companion:installUpdate', () => { _quitHold.flushThen(() => autoUpdater.quitAndInstall()); });   // 설치는 창부터 닫아(맥) before-quit 로는 못 묻는다 — 먼저 묻는다
   // 업데이트 흐름(update-flow.js)의 확인 · 강제 창 «다시 시도». 갈래는 startUpdateCheck 한 곳.
   ipcMain.on('companion:checkUpdate', () => { startUpdateCheck(); });
 
@@ -4144,7 +4149,7 @@ function createWindow() {
     keydown:   (e) => { _inputDiag.key++;   _onGlobalKeyDown(e); },
   });
   if(sysinput.nativeLoadFailed().length) _nativeShowGuide();   // 로드 실패 기록은 바로 위 startGlobalHooks 가 흘렸다
-  app.on('before-quit', () => { try { sysinput.stopGlobalHooks(); } catch (_) {} if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } if(_resTimer){ clearInterval(_resTimer); _resTimer = null; } try { _flushLauncherPos(); } catch (_) {} });   // 끄는 순서는 _exitNow 와 같다 — 훅 · 타이머 먼저
+  app.on('before-quit', (e) => { if(_quitHold.beforeQuit(e)) return; try { sysinput.stopGlobalHooks(); } catch (_) {} if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } if(_resTimer){ clearInterval(_resTimer); _resTimer = null; } try { _flushLauncherPos(); } catch (_) {} });   // 끄는 순서는 _exitNow 와 같다 — 훅 · 타이머 먼저
   /* ═══ 🖥️ 윈도우 세션 종료(로그오프·재시작·종료) ══════════════════════════
      [제보] 컴퓨터를 끄려 하면 "이 앱 때문에 종료할 수 없습니다"가 뜨고, [확인]을 눌러야
        종료된다. 그때 'unknown software exception (0x80000003)' 오류창이 같이 뜬다.
