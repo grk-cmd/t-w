@@ -35,27 +35,9 @@ function seed(file, vars){
   return docker(args, { input: fs.readFileSync(path.join(__dirname, '..', '..', 'seed', file), 'utf8') }).trim();
 }
 
-// 앱(Electron)을 켜는 동안만 잡는 실행 잠금 — 같은 PC 에서 시험 묶음이 한 번에 하나만 앱을 켠다(TW_E2E_RUN_LOCK · 비면 안 잡음)
-const RUN_LOCK = process.env.TW_E2E_RUN_LOCK || '';
-let runLockHeld = false;
-async function takeRunLock(){
-  if(!RUN_LOCK || process.env.TW_E2E_RUN_LOCK_HELD) return;   // run-all 이 이미 들고 있다
-  fs.mkdirSync(path.dirname(RUN_LOCK), { recursive: true });
-  for(;;){
-    try { fs.mkdirSync(RUN_LOCK); break; }
-    catch(e){ if(e.code !== 'EEXIST') throw e; await wait(30000); }
-  }
-  runLockHeld = true;
-  try { fs.writeFileSync(path.join(RUN_LOCK, 'owner'), `e2e-core ${process.pid} ${new Date().toISOString()}`); } catch(_){}
-}
-function dropRunLock(){
-  if(!runLockHeld) return;
-  runLockHeld = false;
-  try { fs.rmSync(path.join(RUN_LOCK, 'owner'), { force: true }); } catch(_){}
-  try { fs.rmdirSync(RUN_LOCK); } catch(_){}
-}
-process.on('exit', dropRunLock);
-for(const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { dropRunLock(); process.exit(1); });
+// 앱(Electron)을 켜는 동안만 잡는 실행 잠금 — 네 묶음이 같이 쓰는 runlock.js(TW_E2E_RUN_LOCK · run-all 이 들고 있으면 다시 안 잡음)
+const { acquire } = require('../../runlock.js');
+const QUIET = process.env.TW_E2E_QUIET !== '0';
 
 async function withStackLock(fn, maxWaitMs = 600000){
   if(!LOCK) throw new Error('TW_E2E_STACK_LOCK(공유 스택 잠금 경로)가 없다 — 컨테이너를 건드리지 않고 멈춤');
@@ -153,7 +135,7 @@ function run(name, body){
     bug(id, s){ if(bugs.has(id)) return; bugs.add(id); steps.push(`BUG  ${id}: ${s}`); save(); },
     async step(label, fn){
       const t0 = Date.now();
-      try { const r = await fn(); steps.push(`ok   ${label} (${Date.now() - t0}ms)`); return r; }
+      try { const r = await fn(); await t.assertQuiet(); steps.push(`ok   ${label} (${Date.now() - t0}ms)`); return r; }
       catch(e){
         failed = true;
         steps.push(`FAIL ${label}: ${String(e && e.message || e).split('\n')[0]}`);
@@ -162,6 +144,27 @@ function run(name, body){
       } finally { save(); }
     },
     check(cond, msg){ if(!cond) throw new Error(msg); },
+    // 조용한 창이 지켜지는가(단계마다) — scenarios/launcher/quiet.js 와 같은 판정: 진짜 창 자리(__e2eRealBounds)가 x · y 모두 -10000 아래 ·
+    // 포커스 받은 창 없음 · 진짜 창은 맨 위가 아님(앱이 부른 맨 위는 isAlwaysOnTop 이 기억한 값으로만). 꺼진 앱은 건너뛴다
+    async assertQuiet(){
+      if(!QUIET) return;
+      for(const a of apps){
+        if(!a.app) continue;
+        let s;
+        try {
+          s = await a.app.evaluate(({ BrowserWindow }) => ({
+            wins: BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed()).map((w) => {
+              const real = typeof w.__e2eRealBounds === 'function' ? w.__e2eRealBounds() : null;
+              const base = Object.getPrototypeOf(Object.getPrototypeOf(w));
+              return { title: w.getTitle(), real, focus: w.isFocused(), realTop: real ? base.isAlwaysOnTop.call(w) : null };
+            }),
+            focused: !!BrowserWindow.getFocusedWindow(),
+          }));
+        } catch(e){ if(/closed|Target/.test(String(e.message))) continue; throw e; }
+        const bad = s.wins.filter((w) => !w.real || w.real.x > -10000 || w.real.y > -10000 || w.focus || w.realTop);
+        if(bad.length || s.focused) throw new Error('조용한 창이 깨짐(' + path.basename(a.out) + '): ' + JSON.stringify(bad.length ? bad : s).slice(0, 300));
+      }
+    },
     // 격리된 앱 한 벌(결과 폴더 안 label 폴더) — 켜기만 한다
     async launch(label = 'a'){
       const A = makeApp(path.join(out, label));
@@ -348,14 +351,14 @@ function run(name, body){
     async shot(A, n){ await A.w.screenshot({ path: path.join(A.out, n + '.png') }).catch(() => {}); },
   };
   (async () => {
-    await takeRunLock();
+    const unlock = await acquire('e2e-core ' + name);
     // 이 묶음의 초대 코드 — 이미 있으면 그대로(묶음을 새로 만든 빈 DB 에서도 돌게)
     try { seed('core-invite.sql'); } catch(e){ steps.push('ABORT 초대 코드 seed: ' + String(e.message).split('\n')[0]); failed = true; }
     try { if(!failed) await body(t); }
     catch(e){ if(!failed) steps.push('ABORT ' + String(e && e.message || e).split('\n')[0]); failed = true; }
     save();
     for(const a of apps) await a.quit().catch(() => {});
-    dropRunLock();
+    unlock();
     steps.push(failed ? 'RESULT FAIL' : 'RESULT ok');
     save();
     console.log(`${failed ? 'FAIL' : 'ok  '} ${name}${bugs.size ? '  BUG ' + [...bugs].join(',') : ''}  (${out}/steps.txt)`);

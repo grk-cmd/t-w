@@ -7,6 +7,7 @@ dev 앱(`--tw-firebase=dev`)을 켜서 화면을 누르고 결과를 파일로 �
 | `lib.js` | 격리된 앱 한 벌 켜기 · 끄기 · 주소 돌리기 · 오프라인 흉내 |
 | `flow.js` | 정해진 흐름 한 바퀴(가입 → 다시 켜기 → 로그인된 책상 → 얼굴 PNG · GLB 올리기 · 받기 → 오프라인 · 온라인) |
 | `quiet-main.js` | 조용한 창 — 시험 앱의 창 · 포커스를 화면 밖에 묶는다(아래 «조용한 창») |
+| `runlock.js` | 여러 사람 · 세션이 한 PC 에서 돌릴 때 한 번에 한 실행만 Electron 을 켜게 하는 잠금(run-all · 시나리오가 같이 씀) |
 | `repl.js` · `run.sh` | 앱을 켜 둔 채 JS 명령을 하나씩 보내기 |
 | `run-all.js` · `scenarios/<묶음>/*.js` | 기능마다 판정까지 하는 시나리오 — 하나씩 또는 한꺼번에 돌리고 요약을 찍는다 |
 | `seed/*.sql` | 시나리오가 로컬 DB 에 넣는 시험 값(초대 코드 · 관리자 · 레벨 · 가챠 보너스) |
@@ -90,7 +91,7 @@ node scenarios/core/keepalive.js      # 하나만
 
 | 값 | 뜻 |
 |---|---|
-| `TW_E2E_RUN_LOCK` | 앱(Electron)을 켜는 동안만 잡는 잠금 폴더(`mkdir` · 30초마다 다시 시도). 같은 PC 에서 시험 묶음 여럿이 돌 때 한 번에 하나만 앱을 켠다. run-all 은 처음에 한 번 잡아 끝까지 든다(시나리오가 다시 잡지 않음). 비면 안 잡는다 |
+| `TW_E2E_RUN_LOCK` | 앱(Electron)을 켜는 동안만 잡는 잠금 폴더(`runlock.js` — `mkdir` · 30초마다 다시 시도). 같은 PC 에서 시험 묶음 여럿이 돌 때 한 번에 하나만 앱을 켠다. run-all 은 처음에 한 번 잡아 끝까지 든다(시나리오가 다시 잡지 않음). 비면 안 잡는다 |
 | `TW_E2E_STACK_LOCK` | 공유 컨테이너(realtime 등)를 멈췄다 풀 때만 잡는 잠금 폴더. 비어 있으면 컨테이너를 건드리는 시나리오(keepalive · 오프라인 → 온라인 · 점검)는 멈춘다 |
 | `TW_E2E_OUT` · `TW_E2E_INVITE` | 결과 폴더 뿌리(기본 `/tmp/tw-e2e/core`) · 가입에 쓰는 초대 코드(기본 `seed/core-invite.sql` 의 코드) |
 | `TW_E2E_PG` · `TW_E2E_RT` | DB · realtime 컨테이너 이름(기본 `tw-dev-local-postgres-1` · `tw-dev-local-rooms-dev-1`) |
