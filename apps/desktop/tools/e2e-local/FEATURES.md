@@ -82,7 +82,7 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 | 같은 계정은 한 자리만 | `room/same-account`(둘째 PC 가 친구 코드 · 비밀번호로 로그인해 같은 방 → 먼저 PC 토스트 · 방 밖 · 남 화면엔 한 자리) | `room-rt` `room-entry` | e2e |
 | 좌석 우클릭 메뉴 · 숨기기 · 투명도 · 쓰다듬기 | `room/seat-status`(이름표 우클릭 메뉴 남 · 나 · 숨기기 · 다시 보이기 · 자리비움이면 몸 투명 · 눌러 쓰다듬기 → 상대 화면 이모지) | `seat-menu` `seat-panel` `seat-hide` `hidden-seats` `seat-opacity` `seat-opacity-mod` `seat-pointer` `seat-hit-targets` `seat-regions` | e2e |
 | 내 모습이 남 화면에 맞게 가기(방 동기화) | `room/sync`(내 좌석 메뉴 › 캐릭터 편집 · 상의 색 → 남 화면 같은 색 · def 메시지) · `room/create-join`(서버 이름 · 레벨 · 이름 없으면 «이름 없음») | `room-sync` `room-parity` `room-live-def` `def-send` `room-rt` `room-state` | e2e |
-| 방 놀이(깜짝쇼 · 때리기 · 러시안룰렛 · 주사위 · 이모지 · 플라잉체어 · 올라타기) | `room/games`(워킹룸 이모티콘 말풍선 · 룰렛 · 투게더룸 주사위 · 1 이면 내가 날아감 · /80 레벨 80 문턱 · 레벨 80(시드)으로 /80×3 깜짝쇼 · 때리기 · 💣 레벨 100 문턱 — 주사위 눈은 Math.random 고정) · `room/riding`(동물 숨김 해금 → 끌어 머리 위에 올라타기 · 남 화면). 💣 로 남을 날리기(레벨 100)는 문턱만 본다 | `tricks` `fly-egg` `fly-replay` `fly-roulette` `roulette` `dice-games` `floaters` `flying-chair` `ride-bench` `ride-chain` `ride-height` `ride-measure` `ride-part-top` `ride-tuning` | 부분 |
+| 방 놀이(깜짝쇼 · 때리기 · 러시안룰렛 · 주사위 · 이모지 · 플라잉체어 · 올라타기) | `room/games`(워킹룸 이모티콘 말풍선 · 룰렛 · 투게더룸 주사위 · 1 이면 내가 날아감 · /80 레벨 80 문턱 · 레벨 80(시드)으로 /80×3 깜짝쇼 · 때리기 · 💣 레벨 100 문턱 — 주사위 눈은 Math.random 고정) · `room/riding`(동물 숨김 해금 → 끌어 머리 위에 올라타기 · 남 화면). 💣 로 남을 날리기(레벨 100)는 문턱만 본다 | `tricks` `fly-egg` `fly-replay` `fly-roulette` `roulette` `dice-games` `floaters` `flying-chair` `ride-bench` `ride-chain` `ride-height` `ride-measure` `ride-part-top` `ride-tuning` | 막힘: BUG-ROOM-1 |
 | 자리비움 그림 | `room/away-pic`(프리미엄 아니면 등록 막힘 · 내 정보에서 PNG 등록 → 서버 주소 · 자리비움이면 남 화면에 그림 · [기본으로]) | `away-pic` `away-follow` `away-start` | e2e |
 | 방 접속 상태 · 활동 상태 · 상태칩 | `room/seat-status`(상태칩 «밥 먹는 중» · «온라인» 을 남이 받음 · 나가면 남 화면 좌석이 빠짐) | `presence` `user-status` `user-status-table` `seat-state` `status-chip` `chip-popups` `chip-chat-ui` `app-version` | e2e |
 | 같이 듣기 · DJ | `room/listen`(서버 플레이리스트 곡 · 같이 듣기 방 · 방장 DJ 판정 · 이름표 «🎧 DJ» · 첫 곡 music 이 남에게 · 같이 듣기 창 곡 제목 · DJ 가 나가면 새 방장이 DJ) — 소리는 조용히 켜기가 끈다 | `listen-model` `listen-provider` `listen-ui` | e2e |
@@ -169,7 +169,8 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 
 | 번호 | 무엇이 틀렸나 | 다시 만들기 | 시나리오 |
 |---|---|---|---|
-| BUG-ACCT-1 | 구글로만 가입한 계정에 [비밀번호 만들기]를 하면 서버가 비밀번호를 붙이고(200) Auth 가 그 계정의 옛 로그인 토큰을 끊는데, 앱은 다시 로그인하지 않는다(바꾸기 C2 는 다시 로그인함). 탭이 «비밀번호 바꾸기» 로 안 바뀌고(`accounts:lookup` 400 `TOKEN_EXPIRED`), 이 PC 의 토큰 새로 받기도 실패한다 — 다음 API 요청부터 로그인이 풀린다 | 구글로 가입 → 내 정보 › 계정 → 새 비밀번호 두 칸 → [비밀번호 만들기] → «✅ 비밀번호를 만들었어요» 는 뜨지만 버튼은 «비밀번호 만들기» 그대로 · `firebaseAPI.getIdToken(true)` 실패 | `scenarios/account/password.js` |
+| BUG-ACCT-1 | **고침 — #1017**(비밀번호를 만든 뒤 새 비밀번호로 곧바로 다시 로그인). 옛 증상: 구글로만 가입한 계정에 [비밀번호 만들기]를 하면 서버가 비밀번호를 붙이고(200) Auth 가 그 계정의 옛 로그인 토큰을 끊는데, 앱은 다시 로그인하지 않는다(바꾸기 C2 는 다시 로그인함). 탭이 «비밀번호 바꾸기» 로 안 바뀌고(`accounts:lookup` 400 `TOKEN_EXPIRED`), 이 PC 의 토큰 새로 받기도 실패한다 — 다음 API 요청부터 로그인이 풀린다 | 구글로 가입 → 내 정보 › 계정 → 새 비밀번호 두 칸 → [비밀번호 만들기] → «✅ 비밀번호를 만들었어요» 는 뜨지만 버튼은 «비밀번호 만들기» 그대로 · `firebaseAPI.getIdToken(true)` 실패 | `scenarios/account/password.js` — `t.knownBug` 를 일반 단계로 바꾸기는 후속 |
+| BUG-ROOM-1 | 레벨 80 으로 올린 계정(시드 `seed/focus-level.sql`)을 다시 켠 뒤 로비 코드 칸에 `WORK-xxxx` 를 넣고 [입장] 을 누르면 realtime `join` 을 보내지 않고 아무 안내도 없다(앱은 레벨 80 을 받음 · 같은 흐름의 레벨 1 계정은 들어감). `doJoinRoom` 이 말없이 돌아서는 길(`_joinBusy` 등) 후보 | `node run-all.js room/games` — b 를 레벨 80 으로 올리고 다시 켠 뒤 a 의 워킹룸에 참여. 기록: 결과 폴더 `room/games/b/`(console.txt · ws.txt — hello 뿐 join 없음 · fail-*.png · fail-*-toasts.txt) | `scenarios/room/games.js` — 고쳐지면 그대로 통과(시나리오는 약하게 하지 않음) |
 
 ## 할 일 — e2e 가 없거나 일부만 있는 기능
 
