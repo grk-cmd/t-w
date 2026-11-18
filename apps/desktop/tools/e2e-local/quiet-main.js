@@ -38,7 +38,8 @@ const orig = {
 };
 const num = (v) => typeof v === 'number' && isFinite(v);
 
-class QuietWindow extends Base {
+// 이름은 BrowserWindow 여야 한다 — electron 의 getAllWindows · getFocusedWindow · fromWebContents 가 constructor.name 으로 BrowserWindow 를 가린다
+const QuietWindow = class BrowserWindow extends Base {
   constructor(options = {}){
     const wantShow = options.show !== false;
     super(Object.assign({}, options, { x: OFF, y: OFF, show: false }));
@@ -112,8 +113,8 @@ class QuietWindow extends Base {
   /** 진짜 창 자리 · 크기(감싸지 않은 getBounds) — 시험이 «화면 밖인가» 를 볼 때 */
   __e2eRealBounds(){ return orig.getBounds.call(this); }
   /** 진짜 창 투명도 */
-  __e2eRealOpacity(){ return Object.getPrototypeOf(QuietWindow.prototype).getOpacity.call(this); }
-}
+  __e2eRealOpacity(){ return P.getOpacity.call(this); }
+};
 
 // 앱의 require('electron') 에 BrowserWindow 만 바꾼 겉 객체를 준다 — 나머지 이름은 진짜 electron 을 그때그때 읽는 게터.
 // Proxy 는 쓰지 않는다(바꿀 수 없는 칸이면 다른 값을 돌려줄 때 TypeError)
