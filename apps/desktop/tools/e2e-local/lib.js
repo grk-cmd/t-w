@@ -102,12 +102,14 @@ async function quietProblems(app){
       real: typeof w.__e2eRealBounds === 'function' ? w.__e2eRealBounds() : w.getBounds(),
       opacity: typeof w.__e2eRealOpacity === 'function' ? w.__e2eRealOpacity() : w.getOpacity(),
       muted: typeof w.webContents.__e2eRealAudioMuted === 'function' ? w.webContents.__e2eRealAudioMuted() : w.webContents.isAudioMuted(),
+      realAot: typeof w.__e2eRealAlwaysOnTop === 'function' ? w.__e2eRealAlwaysOnTop() : w.isAlwaysOnTop(),
       focus: w.isFocused(), title: w.getTitle(),
     })),
   }));
   const overlap = (r, d) => Math.max(0, Math.min(r.x + r.width, d.x + d.width) - Math.max(r.x, d.x)) * Math.max(0, Math.min(r.y + r.height, d.y + d.height) - Math.max(r.y, d.y));
   const bad = [];
   if(s.focused) bad.push('포커스 받은 창이 있음');
+  if(!s.wins.length) bad.push('창이 하나도 안 보임(getAllWindows 0 — 감싸기가 창 목록을 가림)');
   for(const w of s.wins){
     const why = [];
     if(!w.wrapped) why.push('감싸지 않은 창');
@@ -115,6 +117,7 @@ async function quietProblems(app){
     if(w.opacity !== 0) why.push('보임(opacity ' + w.opacity + ')');
     if(w.muted !== true) why.push('소리 켜짐');
     if(w.focus) why.push('포커스');
+    if(w.realAot) why.push('늘 위');
     if(why.length) bad.push('«' + w.title + '» ' + why.join(' · '));
   }
   return bad;
