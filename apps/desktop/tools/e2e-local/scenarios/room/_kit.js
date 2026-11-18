@@ -240,6 +240,13 @@ function openUser(t, out, label){
     await w.click('#crDone');
     await until(`${label}: 슬롯 저장`, () => u.eval(() => Array.isArray(slots) && slots.some(Boolean) && getComputedStyle(document.getElementById('crDone')).display === 'none' || !document.getElementById('crDone').offsetParent), 30000);
     await until(`${label}: 슬롯 저장됨`, () => u.eval(() => slots.some(Boolean)), 30000);
+    // 서버에 올라갈 때까지 — 보관함은 3초 몰아 저장(closet.js)이라, 그 전에 앱을 끄면(다시 켜기) 캐릭터가 사라진다
+    await until(`${label}: 캐릭터가 서버에 올라감`, async () => {
+      if(await u.eval(() => closetMod.unsavedCount()) !== 0) return false;
+      await u.eval(() => closetMod.waitFlush());
+      const r = await u.api('GET', '/v2/me/avatars');
+      return r.status === 200 && !!r.body.data && (r.body.data.slots || []).some(Boolean);   // 옷장 { slots: [avatarId|null ×5], … }
+    }, 30000);
   };
   // 방 상태 한 장 — 판정은 이 값과 화면 글로 한다
   u.room = () => u.eval(() => ({
