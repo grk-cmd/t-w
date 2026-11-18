@@ -21,8 +21,12 @@ const { app } = electron;
 const OFF = -20000;
 const isOff = (x) => x <= OFF / 2;
 
+// 화면 밖 · 투명(가려진 것으로 보이는) 창도 타이머 · 그리기 · WebGL 이 멈추지 않게
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 if(process.platform === 'darwin'){
   try { app.setActivationPolicy('accessory'); } catch(_){}
+  app.whenReady().then(() => { try { app.setActivationPolicy('accessory'); } catch(_){} });
 }
 app.focus = () => {};
 app.show = () => {};
