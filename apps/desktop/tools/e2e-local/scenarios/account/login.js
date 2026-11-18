@@ -12,15 +12,13 @@ K.scenario('login', async (t) => {
   await t.step('친구 코드 모양이 틀리면 서버에 묻지 않고 막는다', async () => {
     await K.waitShown(a.w, '#inviteGateFc', 30000);
     const n = a.A.reqs.length;
-    await a.w.fill('#inviteGateFc', 'HELLO');
-    await a.w.fill('#inviteGatePw', K.PW);
+    await K.fillChecked(a.w, [['#inviteGateFc', 'HELLO'], ['#inviteGatePw', K.PW]]);
     await a.w.click('#inviteGateFcBtn');
     await K.waitFor(async () => (await msg()) === '친구 코드는 MATE-XXXX 모양이에요', 5000, '모양 안내');
     if(a.A.reqs.slice(n).some((r) => /identitytoolkit/.test(r))) throw new Error('모양이 틀렸는데 로그인 요청을 보냄');
   });
   await t.step('비밀번호가 틀리면 «맞지 않아요» · 게이트 그대로', async () => {
-    await a.w.fill('#inviteGateFc', acct.fc);
-    await a.w.fill('#inviteGatePw', 'wrong-pass-999');
+    await K.fillChecked(a.w, [['#inviteGateFc', acct.fc], ['#inviteGatePw', 'wrong-pass-999']]);
     await a.w.click('#inviteGateFcBtn');
     await K.waitFor(async () => (await msg()) === '친구 코드나 비밀번호가 맞지 않아요', 15000, '틀린 비밀번호 안내');
     if(!(await K.shown(a.w, '#inviteGateCard'))) throw new Error('게이트가 닫힘');

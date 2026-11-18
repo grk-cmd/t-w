@@ -26,8 +26,7 @@ K.scenario('device-limit', async (t) => {
   // 로그아웃된 PC 에서 로그인하면 계정을 맞추며 다시 켠다 — 등록(과 확인창)은 다시 켠 뒤
   const login = async () => {
     await K.waitShown(pc.w, '#inviteGateFc', 30000);
-    await pc.w.fill('#inviteGateFc', acct.fc);
-    await pc.w.fill('#inviteGatePw', acct.pw);
+    await K.fillChecked(pc.w, [['#inviteGateFc', acct.fc], ['#inviteGatePw', acct.pw]]);
     await pc.relaunchAfter(() => pc.w.click('#inviteGateFcBtn'));
     await K.waitShown(pc.w, '#devLimitQ', 30000);
   };

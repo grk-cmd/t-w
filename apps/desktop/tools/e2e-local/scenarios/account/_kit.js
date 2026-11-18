@@ -301,8 +301,9 @@ async function signupUi(t, inst, invite = INVITE){
   await w.fill('#inviteGateInput', invite);
   await w.click('#inviteGateOk');
   await waitShown(w, '#signupPw');
-  await w.fill('#signupPw', PW);
-  await w.fill('#signupPw2', PW);
+  // 가입 화면은 50ms 뒤 첫 칸에 포커스를 준다 — 그 전에 둘째 칸을 채우면 글이 첫 칸으로 들어간다(바쁜 PC)
+  await waitFor(() => w.evaluate(() => document.activeElement && document.activeElement.id === 'signupPw'), 5000, '첫 비밀번호 칸 포커스');
+  await fillChecked(w, [['#signupPw', PW], ['#signupPw2', PW]]);
   await w.click('#signupOk');
   await waitShown(w, '#sdStart', 30000);
   const fc = await text(w, '#sdCode');
@@ -312,10 +313,19 @@ async function signupUi(t, inst, invite = INVITE){
   return withToken({ fc, pw: PW });
 }
 /** 게이트에서 친구 코드 + 비밀번호 로그인 → (처음 쓰는 PC 라) 다시 켜기 → 들어감 */
+/** 칸 여럿 채우기 — 화면이 늦게 포커스를 옮기면(바쁜 PC) 글이 다른 칸으로 가는 때가 있어, 채운 뒤 값을 보고 다르면 한 번 더 채운다 */
+async function fillChecked(w, pairs){
+  for(let k = 0; k < 3; k++){
+    for(const [sel, v] of pairs) await w.fill(sel, v);
+    await wait(100);
+    const got = await w.evaluate((sels) => sels.map((s) => { const e = document.querySelector(s); return e ? e.value : null; }), pairs.map((p) => p[0]));
+    if(got.every((v, i) => v === pairs[i][1])) return;
+  }
+  throw new Error('칸 값이 안 맞음: ' + pairs.map((p) => p[0]).join(' · '));
+}
 async function loginUi(inst, fc, pw = PW){
   await waitShown(inst.w, '#inviteGateFc', 30000);
-  await inst.w.fill('#inviteGateFc', fc);
-  await inst.w.fill('#inviteGatePw', pw);
+  await fillChecked(inst.w, [['#inviteGateFc', fc], ['#inviteGatePw', pw]]);
   await inst.relaunchAfter(() => inst.w.click('#inviteGateFcBtn'));
   await waitEntered(inst);
 }
@@ -346,5 +356,5 @@ async function openMyInfo(inst, tab){
   }
 }
 
-module.exports = { scenario, emuSignIn, adminAccount, issueLicense, apiAvatar, apiAccount, withToken, sql, sqlQuery, http, fakeGoogleIdToken, uniq, setGoogle,
+module.exports = { scenario, fillChecked, emuSignIn, adminAccount, issueLicense, apiAvatar, apiAccount, withToken, sql, sqlQuery, http, fakeGoogleIdToken, uniq, setGoogle,
   shown, waitShown, waitFor, text, waitEntered, signupUi, loginUi, googleSignupUi, newGoogle, openMyInfo, PW, INVITE, API };
