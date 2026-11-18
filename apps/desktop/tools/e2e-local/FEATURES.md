@@ -81,7 +81,7 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 | 같은 계정은 한 자리만 | `room/same-account`(둘째 PC 가 친구 코드 · 비밀번호로 로그인해 같은 방 → 먼저 PC 토스트 · 방 밖 · 남 화면엔 한 자리) | `room-rt` `room-entry` | e2e |
 | 좌석 우클릭 메뉴 · 숨기기 · 투명도 · 쓰다듬기 | `room/seat-status`(이름표 우클릭 메뉴 남 · 나 · 숨기기 · 다시 보이기 · 자리비움이면 몸 투명 · 눌러 쓰다듬기 → 상대 화면 이모지) | `seat-menu` `seat-panel` `seat-hide` `hidden-seats` `seat-opacity` `seat-opacity-mod` `seat-pointer` `seat-hit-targets` `seat-regions` | e2e |
 | 내 모습이 남 화면에 맞게 가기(방 동기화) | `room/sync`(내 좌석 메뉴 › 캐릭터 편집 · 상의 색 → 남 화면 같은 색 · def 메시지) · `room/create-join`(서버 이름 · 레벨 · 이름 없으면 «이름 없음») | `room-sync` `room-parity` `room-live-def` `def-send` `room-rt` `room-state` | e2e |
-| 방 놀이(깜짝쇼 · 때리기 · 러시안룰렛 · 주사위 · 이모지 · 플라잉체어 · 올라타기) | `room/games`(워킹룸 이모티콘 말풍선 · 룰렛 · 투게더룸 주사위 · 1 이면 내가 날아감 · /80 세 번 깜짝쇼 · 때리기 · 💣 레벨 100 문턱 — 주사위 눈은 Math.random 고정) · `room/riding`(동물 숨김 해금 → 끌어 머리 위에 올라타기 · 남 화면). 💣 로 남을 날리기는 레벨 100 이 필요해 문턱만 본다 | `tricks` `fly-egg` `fly-replay` `fly-roulette` `roulette` `dice-games` `floaters` `flying-chair` `ride-bench` `ride-chain` `ride-height` `ride-measure` `ride-part-top` `ride-tuning` | 부분 |
+| 방 놀이(깜짝쇼 · 때리기 · 러시안룰렛 · 주사위 · 이모지 · 플라잉체어 · 올라타기) | `room/games`(워킹룸 이모티콘 말풍선 · 룰렛 · 투게더룸 주사위 · 1 이면 내가 날아감 · /80 레벨 80 문턱 · 때리기 · 💣 레벨 100 문턱 — 주사위 눈은 Math.random 고정) · `room/riding`(동물 숨김 해금 → 끌어 머리 위에 올라타기 · 남 화면). 💣 로 남을 날리기(레벨 100) · 깜짝쇼 /80×3(레벨 80)은 새 계정으로 못 해서 문턱만 본다 | `tricks` `fly-egg` `fly-replay` `fly-roulette` `roulette` `dice-games` `floaters` `flying-chair` `ride-bench` `ride-chain` `ride-height` `ride-measure` `ride-part-top` `ride-tuning` | 부분 |
 | 자리비움 그림 | `room/away-pic`(프리미엄 아니면 등록 막힘 · 내 정보에서 PNG 등록 → 서버 주소 · 자리비움이면 남 화면에 그림 · [기본으로]) | `away-pic` `away-follow` `away-start` | e2e |
 | 방 접속 상태 · 활동 상태 · 상태칩 | `room/seat-status`(상태칩 «밥 먹는 중» · «온라인» 을 남이 받음 · 나가면 남 화면 좌석이 빠짐) | `presence` `user-status` `user-status-table` `seat-state` `status-chip` `chip-popups` `chip-chat-ui` `app-version` | e2e |
 | 같이 듣기 · DJ | `room/listen`(서버 플레이리스트 곡 · 같이 듣기 방 · 방장 DJ 판정 · 이름표 «🎧 DJ» · 첫 곡 music 이 남에게 · 같이 듣기 창 곡 제목 · DJ 가 나가면 새 방장이 DJ) — 소리는 조용히 켜기가 끈다 | `listen-model` `listen-provider` `listen-ui` | e2e |
@@ -181,7 +181,7 @@ e2e 가 있지만 일부만 보는 기능(`부분`):
 - 앱 켜기 순서 · 오프라인 → 온라인 — 화면만 찍고 판정하지 않는다. 다시 잇기는 README «함정» 처럼 realtime 컨테이너를 멈췄다 풀어야 실제로 끊긴다.
 - 런처 화면 · 마이홈 열기 · 친구 코드 고정 · 캐릭터 슬롯 저장 — 다른 흐름이 지나가기만 한다(마이홈 꾸미기는 e2e 없음).
 - 좌석 배치 — 책상 · 이름표를 끌어 자리 바꾸기는 시나리오가 없다.
-- 방 놀이 — 💣 로 남을 날리기는 레벨 100 이 있어야 해서 문턱(안내 토스트)만 본다.
+- 방 놀이 — 💣 로 남을 날리기(레벨 100) · 깜짝쇼 /80×3(레벨 80)은 레벨이 있어야 해서 문턱(안내 토스트)만 본다.
 - 스티커사진 — 세션 · 시작 · 정원까지. 촬영 · 꾸미기 · 저장은 시나리오가 없다.
 - 이모티콘 — 내 이모티콘 등록(그림 올리기)은 시나리오가 없다.
 
