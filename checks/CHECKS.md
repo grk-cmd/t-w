@@ -325,7 +325,7 @@
 | **sim-mallang-store.js** | 251 | **44ab2dc587eb** |
 | **sim-mail-feed.js** | 361 | **2bcd1eeabc34** |
 | **sim-notice-api.js** | 159 | **0d412e593953** |
-| **sim-admin-api.js** | 249 | **9a3ca66c0eda** |
+| **sim-admin-api.js** | 253 | **bd5caa83ce0e** |
 | **sim-catalog-admin-api.js** | 182 | **dbb857dfeb05** |
 | **sim-admin-notice.js** | 212 | **af861ec471bc** |
 | **sim-notice-feed.js** | 266 | **c80dd0979f9b** |
