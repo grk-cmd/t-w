@@ -26,7 +26,7 @@ K.scenario('renderer-crash', async (t) => {
     await K.waitFor(async () => (await size()) === launcher, 15000, '창이 런처 크기로');
     await K.waitFor(() => a.A.logs.some((l) => /\[렌더러\] 자동 재로드 실행/.test(l)), 15000, '자동 다시 불러오기');
     const L = a.A.logs.join('\n');
-    const iGone = L.search(/reason=crashed/), iReset = L.indexOf('다시 불러오기 전 창을 런처로 되돌림'), iReload = L.indexOf('자동 재로드 실행');
+    const iGone = L.search(/reason=crashed/), iReset = L.indexOf('다시 불러오기 전 창을 런처로 되돌림', iGone), iReload = L.indexOf('자동 재로드 실행', iGone);   // 로그인 뒤 다시 켜기에도 «되돌림» 줄이 나온다 — 죽은 뒤만 본다
     if(!(iGone >= 0 && iGone < iReset && iReset < iReload)) throw new Error('main 로그 순서가 crashed → 되돌림 → 다시 불러오기가 아님');
   });
 });

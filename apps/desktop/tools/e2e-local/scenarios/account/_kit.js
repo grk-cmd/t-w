@@ -189,7 +189,11 @@ function scenario(name, body){
         // 앱은 꺼졌는데 붙어 있는 디버거(--inspect)를 기다리며 남는 때가 있다 — 그 줄이 보이면 끝난 것으로 보고 끈다
         const exiting = waitFor(() => A.logs.slice(l0).some((l) => /Waiting for the debugger to disconnect/.test(l)), ms, '종료')
           .then(() => { try { process.kill(pid, 'SIGKILL'); } catch(_){} }, () => new Promise(() => {}));
-        await Promise.race([closed, exiting, wait(ms).then(() => { throw new Error(ms / 1000 + '초 안에 꺼지지 않음'); })]);
+        await Promise.race([closed, exiting, wait(ms).then(async () => {
+          const asked = A.logs.slice(l0).some((l) => /\[e2e\] relaunch 요청/.test(l));
+          const msg = await inst.w.evaluate(() => { const e = document.getElementById('inviteGateLoginMsg'); return e ? e.textContent : ''; }).catch(() => '');
+          throw new Error(ms / 1000 + '초 안에 꺼지지 않음(다시 켜기 요청 ' + (asked ? '있음' : '없음') + (msg ? ' · 안내 «' + msg + '»' : '') + ')');
+        })]);
         await gone(pid);   // 옛 프로세스가 남아 있으면 새 앱이 «두 번째 실행» 으로 바로 꺼진다
         if(!A.logs.slice(l0).some((l) => /\[e2e\] relaunch 요청/.test(l))) throw new Error('앱이 다시 켜기를 부르지 않고 꺼짐');
         A.logs.push('--- relaunch ---'); A.reqs.push('--- relaunch ---');
