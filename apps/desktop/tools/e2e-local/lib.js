@@ -87,16 +87,24 @@ function makeApp(outArg, opts = {}){
     await app.evaluate(({ session }, o) => session.defaultSession.enableNetworkEmulation({ offline: o }), off);
   }
 
-  // 조용한 창이 정말 조용한가 — scenarios/launcher/quiet.js 와 같은 규칙: 창마다 진짜 자리(__e2eRealBounds)가 화면 밖 ·
-  // 포커스 받은 창 없음 · 감싸지 않은 창 없음(진짜 맨 위는 quiet-main.js 가 아예 안 건다). 문제 목록(빈 배열이면 통과)
+  // 조용한 창이 정말 조용한가 — scenarios/launcher/quiet.js 와 같은 규칙: 창마다 진짜 창(__e2eRealBounds)이 어느 화면과도
+  // 4분의 1 넘게 겹치지 않음(mac 은 화면 밖 창을 끝으로 당긴다) · 포커스 없음 · 진짜 불투명도 0 · 진짜 소리 끔 · 진짜 맨 위 아님 ·
+  // 감싸지 않은 창 없음. 문제 목록(빈 배열이면 통과)
   async function quietReport(){
     if(!quietOn || !app) return [];
-    return app.evaluate(({ BrowserWindow }) => {
+    return app.evaluate(({ BrowserWindow, screen }) => {
+      const ds = screen.getAllDisplays().map((d) => d.bounds);
+      const overlap = (r, d) => Math.max(0, Math.min(r.x + r.width, d.x + d.width) - Math.max(r.x, d.x)) * Math.max(0, Math.min(r.y + r.height, d.y + d.height) - Math.max(r.y, d.y));
       const bad = BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed()).flatMap((w) => {
-        const r = typeof w.__e2eRealBounds === 'function' ? w.__e2eRealBounds() : null, why = [];
-        if(!r) why.push('감싸지 않은 창');
-        else if(r.x > -10000 || r.y > -10000) why.push(`화면 안 ${r.x},${r.y}`);
+        const why = [];
+        if(typeof w.__e2eRealBounds !== 'function') return [w.getTitle() + ': 감싸지 않은 창'];
+        const r = w.__e2eRealBounds();
+        if(!ds.every((d) => overlap(r, d) <= 0.25 * r.width * r.height)) why.push(`화면 안 ${r.x},${r.y} ${r.width}x${r.height}`);
         if(w.isFocused()) why.push('포커스');
+        if(w.__e2eRealOpacity() !== 0) why.push('불투명 ' + w.__e2eRealOpacity());
+        if(w.webContents.__e2eRealAudioMuted() !== true) why.push('소리 켜짐');
+        // isAlwaysOnTop 은 앱이 부른 값을 돌려준다 — 진짜 값은 감싸기 전 BrowserWindow 의 것
+        if(Object.getPrototypeOf(Object.getPrototypeOf(w)).isAlwaysOnTop.call(w)) why.push('진짜 맨 위');
         return why.length ? [w.getTitle() + ': ' + why.join(' · ')] : [];
       });
       if(BrowserWindow.getFocusedWindow() && !bad.length) bad.push('포커스 받은 창 있음');
