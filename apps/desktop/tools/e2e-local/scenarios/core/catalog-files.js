@@ -64,10 +64,10 @@ run('catalog-files', async (t) => {
       const card = B.w.locator('#wardrobePanel .wd-card', { hasText: name }).first();
       await card.waitFor({ state: 'visible', timeout: 15000 });
       await card.click();
-      // 입었다 = 다시 그린 칸이 «입음»(.wd-card.on). 모델은 앱이 카탈로그를 받을 때 미리 받아 둘 수 있어(이 PC 캐시) 누른 뒤가 아니라 이번 켜기 뒤 어느 때든 서버에서 받았는지 본다
+      // 입었다 = 다시 그린 칸이 «입음»(.wd-card.on). 모델은 앱이 카탈로그를 받을 때 미리 받아 이 PC 캐시에 둔다 —
+      // B 는 파츠가 생긴 뒤에 처음 켰으니 B 의 요청 기록 어디서든 서버에서 받았으면 된다(다시 켠 뒤는 캐시에서 읽어 요청이 없다)
       await t.poll(() => B.w.locator('#wardrobePanel .wd-card.on', { hasText: name }).count(), 10000, '그 파츠 칸이 «입음»');
-      const since = B.reqs.lastIndexOf('--- launch ---');
-      t.check(B.reqs.slice(since + 1).some((r) => r.startsWith('GET /v2/catalog/assets/' + part.model) && / 200$/.test(r)), 'B 앱이 이번 켜기에 모델 파일을 서버에서 받지 않음');
+      t.check(B.reqs.some((r) => r.startsWith('GET /v2/catalog/assets/' + part.model) && / 200$/.test(r)), 'B 앱이 모델 파일을 서버에서 받지 않음');
       t.check(!/E-CHAR/.test(await B.w.textContent('#toast')), '입기 실패 알림: ' + await B.w.textContent('#toast'));
       await t.shot(B, '02-worn');
     });
