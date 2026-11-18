@@ -7,10 +7,10 @@ dev 앱(`--tw-firebase=dev`)을 켜서 화면을 누르고 결과를 파일로 �
 | `lib.js` | 격리된 앱 한 벌 켜기 · 끄기 · 주소 돌리기 · 오프라인 흉내 |
 | `flow.js` | 정해진 흐름 한 바퀴(가입 → 다시 켜기 → 로그인된 책상 → 얼굴 PNG · GLB 올리기 · 받기 → 오프라인 · 온라인) |
 | `quiet-main.js` | 조용한 창 — 시험 앱의 창 · 포커스를 화면 밖에 묶는다(아래 «조용한 창») |
+| `run-all.js` · `scenarios/<영역>/*.js` | 자동 판정 시나리오 — 하나씩 돌리고 요약(종료 코드 · `steps.txt` 의 ok · FAIL) |
 | `runlock.js` | 여러 사람 · 세션이 한 PC 에서 돌릴 때 한 번에 한 실행만 Electron 을 켜게 하는 잠금 |
+| `seed/*.sql` | 시나리오가 쓰는 로컬 DB 시드(초대 코드 · 관리자 · 포커스 누적) |
 | `repl.js` · `run.sh` | 앱을 켜 둔 채 JS 명령을 하나씩 보내기 |
-| `scenarios/<묶음>/*.js` · `run-all.js` | 기능마다 스스로 판정하는 시나리오(종료 코드 0 · 1) · 전부(또는 이름 일부로 골라) 돌리고 요약 |
-| `seed/*.sql` | 시나리오가 쓰는 준비 데이터(관리자 · 초대 코드 · 포커스 누적) — 앱 코드를 고치지 않고 로컬 DB 에 넣는다 |
 | `FEATURES.md` | 앱 기능마다 이 도구의 시나리오 · `checks/` sim 이 있는지 적은 지도 — 빈 곳(할 일)부터 시나리오를 더한다 |
 
 ## 준비
@@ -52,15 +52,8 @@ node flow.js /tmp/tw-e2e/flow2 INVT-XXXX-XXXX   # 다른 초대 코드
 
 결과 폴더에 남는 것: `steps.txt`(단계마다 ok · FAIL · 걸린 시간) · `console.txt`(렌더러 · 메인 로그) · `requests.txt`(돌린 요청 · 응답 코드) · 단계 화면 `01-invite.png` … · 실패 화면 `fail-<n>.png` · `account.json`(이번에 만든 친구 코드 · 시험 비밀번호 — 에뮬레이터 안에만 있는 계정). 끝나면 종료 코드 0, 실패하면 1.
 
-### 시나리오 · run-all.js
+### social 묶음
 
-```bash
-node run-all.js                 # scenarios/ 아래 전부
-node run-all.js social/guestbook # 이름 일부로 고르기
-node scenarios/social/report.js  # 하나만
-```
-
-- 시나리오마다 새 계정을 만들고(가입 → [시작하기] → 다시 켜기) 두 사람 기능은 앱 두 벌로 돈다. 결과는 `/tmp/tw-e2e/<묶음>/<시나리오>/` — `steps.txt`(ok · FAIL) · 사람마다 `console.txt` · `requests.txt` · 실패 화면. 통과하면 앱 데이터 폴더는 지운다.
 - `social` 묶음 공통부는 `scenarios/social/_kit.js`(`_` 로 시작하는 파일은 run-all 이 돌리지 않는다). 관리자 · 포커스 누적은 `seed/social.sql` · `seed/focus.sql` 을 로컬 DB 컨테이너(`TW_E2E_PG_CONTAINER`, 기본 `tw-dev-local-postgres-1`)에 넣는다.
 - 시험이 누를 수 없는 OS 창(파일 고르기)은 main 의 `dialog.showOpenDialog` 를 «이 파일을 골랐다» 로 바꿔 두고, 바깥 사이트(유튜브 제목 · 도움말 페이지)는 길 돌리기로 답을 준다 — 앱 코드는 그대로다.
 
@@ -87,6 +80,21 @@ node repl.js /tmp/tw-e2e/a
 ```
 
 명령마다 `console.txt` · `requests.txt` 를 다시 쓴다. 창을 바꿔 끼워야 하면 `c.w = …` 로 넣는다. 두 사람(친구 · 같은 방)을 보려면 결과 폴더를 둘 쓴다(`/tmp/tw-e2e/a` · `/tmp/tw-e2e/b`) — 앱 두 벌이 따로 돈다.
+
+### run-all.js — 시나리오
+
+```bash
+node run-all.js                 # 전부
+node run-all.js account         # 한 영역
+node scenarios/account/login.js /tmp/tw-e2e/account/login   # 하나만
+```
+
+시나리오는 저마다 새 계정(새 친구 코드)을 만들고, 결과 폴더(`/tmp/tw-e2e/<영역>/<이름>`)를 비우고 시작한다. 판정은 화면 글 · 앱 상태 · 돌린 요청 기록 · API 응답으로 한다. 끝 줄이 `PASS` 면 통과(종료 코드 0). `BUG  <번호>` 줄은 FEATURES.md «발견한 버그» 에 적힌 버그가 아직 그대로라는 뜻이다(통과 판정은 바꾸지 않는다) — `FIXED` 로 바뀌면 그 버그를 표에서 지우고 시나리오의 그 자리를 일반 단계로 바꾼다.
+
+### 조용한 창 · 실행 잠금
+
+- **조용한 창(`TW_E2E_QUIET`, 기본 켬 · `quiet-main.js`)** — 감싸는 진입점이 앱 main.js 보다 먼저 `quiet-main.js` 를 불러, 시험 프로세스 안에서만 electron 을 감싼다(앱 코드는 그대로). 앱은 «보조 앱»(mac `setActivationPolicy('accessory')` — Dock 아이콘 없음)으로 켜지고 `app.focus` · `app.show` · `dock.show` 는 아무것도 안 한다. 앱이 받는 `BrowserWindow` 는 하위 클래스로 바뀌어 처음부터 화면 밖(-20000, -20000) · 포커스 없이 보이고(`show` → `showInactive`), `focus` · `moveTop` · `maximize` · 전체 화면은 아무것도 안 하며, `setAlwaysOnTop` 은 값만 기억하고, `setBounds` · `setContentBounds` · `setPosition` · `center` 는 폭 · 높이만 따르고 자리는 «앱이 아는 자리» 로만 기억한다 — `getBounds` · `getPosition` · `getContentBounds` 는 그 자리를 돌려줘 앱이 화면 밖 값을 마지막 자리로 저장하지 않는다. 진짜 창은 투명(opacity 0) · 클릭 통과 · 소리 끔(mac 은 화면 밖 창을 화면 끝으로 당겨 놓아 끝자락이 보이고 눌릴 수 있다) — 앱이 부르는 `setAlwaysOnTop` · `setOpacity` · `setIgnoreMouseEvents` · `webContents.setAudioMuted`(BrowserView 등 모든 webContents) 는 값만 기억하고 `isAlwaysOnTop` · `getOpacity` · `isAudioMuted` 는 그 값을 돌려준다. 렌더러의 `window.open` 창(방명록 · 디자인 스튜디오)은 electron 이 안에서 만들어서, 모든 webContents 의 `setWindowOpenHandler` 를 감싸 처음부터 숨김 · 화면 밖 · 투명 · 늘 위 끔으로 열고, 만들어지자마자 같은 조용한 처리를 건다. 시험이 진짜 값을 볼 땐 `w.__e2eRealBounds()` · `w.__e2eRealOpacity()` · `w.webContents.__e2eRealAudioMuted()` · `w.__e2eRealAlwaysOnTop()` · 앱이 정한 클릭 통과는 `w.__e2eIgnoreMouse()`. Playwright 입력은 CDP 로 가서 포커스 · 클릭 통과와 상관없고, 화면 밖에서도 타이머 · WebGL 이 돌게 배경 늦추기를 끈다. 네 묶음이 이 한 벌을 같이 쓴다. 확인은 `scenarios/launcher/quiet.js`(lib.js 만 써서 계정 · 시드 없이 돈다 — 켠 뒤 · 앱이 창을 앞으로 부르는 길을 부른 뒤 · 창 목록 · window.open 자식 창 · BrowserView 소리 — 판정은 `lib.quietProblems` 한 곳 · 화면 · 포커스 · 소리로 새는 실패만 `e2e-quiet-fail` 에 남김). 시나리오 안에서는 `lib.quietProblems(app)` 이 단계마다 같은 규칙을 보고(계정 묶음은 `t.step` 끝마다), 깨지면 잠금 폴더 옆 `e2e-quiet-fail` 에 까닭을 남긴다 — `run-all.js` 는 그 파일이 있으면 다음 시나리오를 켜지 않는다. 그 파일은 아무도 저절로 지우지 않는다: 까닭을 보고 고친 뒤(`scenarios/launcher/quiet.js` 가 다시 통과한 뒤) 사람 · 세션이 지운다. `quiet:false` 로 켠 앱은 단계 판정에서 건너뛴다. 눈으로 보려면 `TW_E2E_QUIET=0`. 화면에 꼭 떠야 하는 시나리오(창 앞뒤 · 바깥 눌러 닫기)는 `makeApp(out, { quiet: false })` 로 그 앱만 끄고 시나리오 머리에 까닭을 적는다.
+- **실행 잠금(`TW_E2E_RUN_LOCK`)** — 잠금 폴더 경로를 주면 `mkdir` 로 잡고(있으면 30초마다 다시) 끝나면 `rmdir` 한다. `run-all.js` 가 잡으면 시나리오는 다시 잡지 않는다. 비워 두면 잠그지 않는다. 잡은 프로세스가 SIGKILL · 전원 꺼짐으로 죽으면 잠금 폴더가 남는다 — `owner` 의 pid 가 살아 있지 않으면(`ps -p <pid>`) 손으로 `rm <잠금>/owner; rmdir <잠금>`.
 
 ## 해 본 것 — REPL 로 (2026-11-17 확인)
 

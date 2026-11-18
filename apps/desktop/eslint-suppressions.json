@@ -157,6 +157,9 @@
     }
   },
   "app/parts/firebase-init.js": {
+    "tw/no-firebase-data": {
+      "count": 29
+    },
     "tw/no-timer": {
       "count": 1
     }
