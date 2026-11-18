@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
-const { makeApp, wait, API_HOST } = require('../../lib.js');
+const { makeApp, wait, quietProblems, API_HOST } = require('../../lib.js');
 const { acquire } = require('../../runlock.js');
 
 const API = 'http://127.0.0.1:8080';
@@ -132,12 +132,34 @@ function scenario(name, body){
       fs.writeFileSync(path.join(i.dir, 'requests.txt'), i.A.reqs.join('\n'));
     }
   };
+  // 단계마다 조용한 창을 본다 — 어긋나면 앱을 다 끄고(잠금은 끝에서 놓음) 같이 쓰는 표시 파일(잠금 폴더 옆 e2e-quiet-fail)에 까닭을 남긴다
+  const assertQuiet = async (label) => {
+    const bad = [];
+    for(const i of insts){
+      let app = null;
+      try { app = i.A.app; if(app && app.process().exitCode !== null) app = null; } catch(_){ app = null; }
+      if(!app) continue;
+      const b = await within(quietProblems(app), 10000).catch(() => []);
+      for(const x of b) bad.push(i.id + ' ' + x);
+    }
+    if(!bad.length) return;
+    const msg = '조용한 창이 깨짐(' + label + '): ' + bad.join(' / ');
+    if(process.env.TW_E2E_RUN_LOCK){
+      try { fs.writeFileSync(path.join(path.dirname(process.env.TW_E2E_RUN_LOCK), 'e2e-quiet-fail'), new Date().toISOString() + ' ' + name + ' ' + msg + '\n', { flag: 'a' }); } catch(_){}
+    }
+    for(const i of insts) await within(i.A.quit(), 20000).catch(() => { try { process.kill(i.A.app.process().pid, 'SIGKILL'); } catch(_){} });
+    throw new Error(msg);
+  };
   const t = {
     out, steps, wait, API_HOST,
     note: (s) => { steps.push('     ' + s); },
     async step(label, fn){
       const t0 = Date.now();
-      try { const v = await within(fn(), STEP_MAX_MS); steps.push(`ok   ${label} (${Date.now() - t0}ms)`); return v; }
+      try {
+        const v = await within(fn(), STEP_MAX_MS);
+        await assertQuiet(label);
+        steps.push(`ok   ${label} (${Date.now() - t0}ms)`); return v;
+      }
       catch(e){
         steps.push(`FAIL ${label}: ${String(e && e.message || e).split('\n')[0]}`);
         for(const i of insts) if(i.w) await within(i.w.screenshot({ path: path.join(i.dir, `fail-${steps.length}.png`), timeout: 5000 }), 8000).catch(() => {});

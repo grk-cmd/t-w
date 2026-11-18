@@ -90,4 +90,34 @@ function makeApp(outArg, opts = {}){
   return { launch, quit, net, logs, reqs, out, get app(){ return app; } };
 }
 
-module.exports = { makeApp, wait, APP_DIR, API_HOST };
+/** 조용한 창이 지켜지나 — 켜 둔 앱의 창마다 진짜 자리 · 투명도 · 소리 · 포커스를 보고 어긋난 것을 글로 돌려준다(빈 배열 = 조용함).
+ *  화면 밖: mac 은 화면 밖 창을 화면 끝으로 당겨 놓아, 어느 화면과도 4분의 1 넘게 겹치지 않으면 밖으로 본다. TW_E2E_QUIET=0 이면 늘 빈 배열 */
+async function quietProblems(app){
+  if(process.env.TW_E2E_QUIET === '0' || !app) return [];
+  const s = await app.evaluate(({ BrowserWindow, screen }) => ({
+    displays: screen.getAllDisplays().map((d) => d.bounds),
+    focused: !!BrowserWindow.getFocusedWindow(),
+    wins: BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed()).map((w) => ({
+      wrapped: typeof w.__e2eRealBounds === 'function',
+      real: typeof w.__e2eRealBounds === 'function' ? w.__e2eRealBounds() : w.getBounds(),
+      opacity: typeof w.__e2eRealOpacity === 'function' ? w.__e2eRealOpacity() : w.getOpacity(),
+      muted: typeof w.webContents.__e2eRealAudioMuted === 'function' ? w.webContents.__e2eRealAudioMuted() : w.webContents.isAudioMuted(),
+      focus: w.isFocused(), title: w.getTitle(),
+    })),
+  }));
+  const overlap = (r, d) => Math.max(0, Math.min(r.x + r.width, d.x + d.width) - Math.max(r.x, d.x)) * Math.max(0, Math.min(r.y + r.height, d.y + d.height) - Math.max(r.y, d.y));
+  const bad = [];
+  if(s.focused) bad.push('포커스 받은 창이 있음');
+  for(const w of s.wins){
+    const why = [];
+    if(!w.wrapped) why.push('감싸지 않은 창');
+    if(s.displays.some((d) => overlap(w.real, d) > 0.25 * w.real.width * w.real.height)) why.push('화면 안 ' + JSON.stringify(w.real));
+    if(w.opacity !== 0) why.push('보임(opacity ' + w.opacity + ')');
+    if(w.muted !== true) why.push('소리 켜짐');
+    if(w.focus) why.push('포커스');
+    if(why.length) bad.push('«' + w.title + '» ' + why.join(' · '));
+  }
+  return bad;
+}
+
+module.exports = { makeApp, wait, quietProblems, APP_DIR, API_HOST };
