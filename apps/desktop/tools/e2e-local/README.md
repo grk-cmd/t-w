@@ -7,6 +7,8 @@ dev 앱(`--tw-firebase=dev`)을 켜서 화면을 누르고 결과를 파일로 �
 | `lib.js` | 격리된 앱 한 벌 켜기 · 끄기 · 주소 돌리기 · 오프라인 흉내 |
 | `flow.js` | 정해진 흐름 한 바퀴(가입 → 다시 켜기 → 로그인된 책상 → 얼굴 PNG · GLB 올리기 · 받기 → 오프라인 · 온라인) |
 | `repl.js` · `run.sh` | 앱을 켜 둔 채 JS 명령을 하나씩 보내기 |
+| `scenarios/<묶음>/*.js` · `run-all.js` | 기능마다 스스로 판정하는 시나리오(종료 코드 0 · 1) · 전부(또는 이름 일부로 골라) 돌리고 요약 |
+| `seed/*.sql` | 시나리오가 쓰는 준비 데이터(관리자 · 초대 코드 · 포커스 누적) — 앱 코드를 고치지 않고 로컬 DB 에 넣는다 |
 | `FEATURES.md` | 앱 기능마다 이 도구의 시나리오 · `checks/` sim 이 있는지 적은 지도 — 빈 곳(할 일)부터 시나리오를 더한다 |
 
 ## 준비
@@ -47,6 +49,22 @@ node flow.js /tmp/tw-e2e/flow2 INVT-XXXX-XXXX   # 다른 초대 코드
 ```
 
 결과 폴더에 남는 것: `steps.txt`(단계마다 ok · FAIL · 걸린 시간) · `console.txt`(렌더러 · 메인 로그) · `requests.txt`(돌린 요청 · 응답 코드) · 단계 화면 `01-invite.png` … · 실패 화면 `fail-<n>.png` · `account.json`(이번에 만든 친구 코드 · 시험 비밀번호 — 에뮬레이터 안에만 있는 계정). 끝나면 종료 코드 0, 실패하면 1.
+
+### 시나리오 · run-all.js
+
+```bash
+node run-all.js                 # scenarios/ 아래 전부
+node run-all.js social/guestbook # 이름 일부로 고르기
+node scenarios/social/report.js  # 하나만
+```
+
+- 시나리오마다 새 계정을 만들고(가입 → [시작하기] → 다시 켜기) 두 사람 기능은 앱 두 벌로 돈다. 결과는 `/tmp/tw-e2e/<묶음>/<시나리오>/` — `steps.txt`(ok · FAIL) · 사람마다 `console.txt` · `requests.txt` · 실패 화면. 통과하면 앱 데이터 폴더는 지운다.
+- `social` 묶음 공통부는 `scenarios/social/_kit.js`(`_` 로 시작하는 파일은 run-all 이 돌리지 않는다). 관리자 · 포커스 누적은 `seed/social.sql` · `seed/focus.sql` 을 로컬 DB 컨테이너(`TW_E2E_PG_CONTAINER`, 기본 `tw-dev-local-postgres-1`)에 넣는다.
+- 시험이 누를 수 없는 OS 창(파일 고르기)은 main 의 `dialog.showOpenDialog` 를 «이 파일을 골랐다» 로 바꿔 두고, 바깥 사이트(유튜브 제목 · 도움말 페이지)는 길 돌리기로 답을 준다 — 앱 코드는 그대로다.
+
+### 조용한 창(TW_E2E_QUIET)
+
+기본으로 켜져 있다 — 시험 앱이 Dock 아이콘 없이(mac `accessory`) 뜨고 창은 화면 밖(-20000, -20000)에 둬서 이 PC 의 화면 · 포커스를 가져가지 않는다. 창은 누를 수 있게 두고(포커스 못 받게 하면 입력이 막힌다) 화면 밖에서도 타이머 · WebGL 이 돌게 배경 늦추기를 끈다. 눈으로 보며 고칠 땐 `TW_E2E_QUIET=0 node …`.
 
 ### repl.js · run.sh — 켜 둔 앱에 명령 보내기
 
