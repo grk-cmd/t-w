@@ -84,10 +84,11 @@ function makeApp(outArg, opts = {}){
     app.on('window', hook);
     app.windows().forEach(hook);
     const w = await app.firstWindow({ timeout: 90000 });   // 바쁜 PC 에서는 30초 안에 첫 창이 안 뜨는 때가 있다
-    // 주소 돌리기가 정말 걸렸나 — 창에서 진짜 API 주소를 부르면 이 PC 의 API 가 답해야 한다(돌린 기록에 남음).
+    // 주소 돌리기가 정말 걸렸나 — 앱 세션으로 진짜 API 주소를 부르면 이 PC 의 API 가 답해야 한다(돌린 기록에 남음).
+    // 창이 아니라 세션(main)에서 부른다 — 창은 켜는 동안 스스로 다시 읽어서 그 사이에 부르면 맥락이 사라진다. 창의 길은 launcher/routing.js 가 본다.
     // 다시 읽기 · 다시 켜기로 감추지 않는다 — 안 걸렸으면 앱을 끄고 실패한다(진짜 서버로 나간 요청이 있으면 그것도 실패)
-    const probe = await w.evaluate(async (h) => {
-      try { const r = await fetch(`https://${h}/actuator/health`, { cache: 'no-store' }); return r.status; }
+    const probe = await app.evaluate(async ({ session }, h) => {
+      try { const r = await session.defaultSession.fetch(`https://${h}/actuator/health`, { cache: 'no-store' }); return r.status; }
       catch(e){ return 'ERR ' + e.message; }
     }, API_HOST);
     await wait(400); readNet();
