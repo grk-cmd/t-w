@@ -9,7 +9,8 @@ const { tinyGlb } = require('./_glb.js');
 const openWardrobe = async (t, A) => {
   if(await A.w.evaluate(() => document.getElementById('myChipMore').classList.contains('hidden'))) await A.w.click('#myChipMoreBtn');
   await A.w.click('#myWardrobeBtn');
-  await A.w.locator('#wardrobePanel .wd-grid').first().waitFor({ state: 'visible', timeout: 15000 });
+  // 빈 칸이면 목록(.wd-grid)이 안 그려진다 — 위 탭으로 창이 열렸는지 본다
+  await A.w.locator('#wardrobePanel .wd-group-btn').first().waitFor({ state: 'visible', timeout: 15000 });
 };
 
 run('catalog-files', async (t) => {
