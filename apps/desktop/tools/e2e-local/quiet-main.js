@@ -41,8 +41,13 @@ const num = (v) => typeof v === 'number' && isFinite(v);
 // 이름은 BrowserWindow 여야 한다 — electron 의 getAllWindows · getFocusedWindow · fromWebContents 가 constructor.name 으로 BrowserWindow 를 가린다
 const QuietWindow = class BrowserWindow extends Base {
   constructor(options = {}){
-    const wantShow = options.show !== false;
-    super(Object.assign({}, options, { x: OFF, y: OFF, show: false }));
+    super(Object.assign({}, options, { x: OFF, y: OFF, show: false, alwaysOnTop: false }));
+    this.__twInit(options, options.show !== false);
+  }
+  /** 조용한 창으로 만들기 — 새로 만든 창과, electron 이 안에서 만든 창(window.open)을 이 클래스로 바꿔 넣은 뒤 같이 부른다 */
+  __twInit(options, wantShow){
+    if(this.__twReady) return;
+    this.__twReady = true;
     // 앱이 아는 자리(가상) — 앱이 정한 x,y 를 기억해 getBounds 등으로 돌려준다(진짜 화면 밖 값을 저장하지 않게). 크기는 진짜 그대로
     const r = orig.getBounds.call(this);
     let vx = options.x, vy = options.y;
@@ -51,7 +56,7 @@ const QuietWindow = class BrowserWindow extends Base {
       catch(_){ vx = 0; vy = 0; }
     }
     this.__twV = { x: vx, y: vy };
-    this.__twAot = false;
+    this.__twAot = !!options.alwaysOnTop;
     this.__twOpacity = num(options.opacity) ? options.opacity : 1;
     this.__twIgnore = false;
     try { orig.setAlwaysOnTop.call(this, false); } catch(_){}
@@ -114,7 +119,41 @@ const QuietWindow = class BrowserWindow extends Base {
   __e2eRealBounds(){ return orig.getBounds.call(this); }
   /** 진짜 창 투명도 */
   __e2eRealOpacity(){ return P.getOpacity.call(this); }
+  /** 진짜 늘 위 */
+  __e2eRealAlwaysOnTop(){ return P.isAlwaysOnTop.call(this); }
 };
+
+// 렌더러의 window.open(방명록 · 꾸미기 창 등)은 electron 이 안에서 진짜 BrowserWindow 로 만든다 — 앱이 고른 창 옵션을
+// 처음부터 숨김 · 화면 밖으로 바꾸고(앱이 보이라고 한 것 · 자리는 기억), 만들어지자마자(browser-window-created — 앱의 did-create-window 보다 먼저)
+// 이 클래스로 바꿔 넣는다
+let openIntent = null;
+const patchedWc = new WeakSet();
+function patchOpenHandler(wc){
+  if(patchedWc.has(wc)) return;
+  patchedWc.add(wc);
+  const set = wc.setWindowOpenHandler;
+  wc.setWindowOpenHandler = function(handler){
+    return set.call(this, (details) => {
+      const r = handler(details);
+      if(r && r.action === 'allow'){
+        const o = r.overrideBrowserWindowOptions || {};
+        openIntent = { x: o.x, y: o.y, opacity: o.opacity, alwaysOnTop: o.alwaysOnTop, show: o.show !== false };
+        r.overrideBrowserWindowOptions = Object.assign({}, o, { x: OFF, y: OFF, show: false, opacity: 0, alwaysOnTop: false });
+      }
+      return r;
+    });
+  };
+  // 앱이 handler 를 걸지 않아도 window.open 은 열린다 — 그때도 숨김 · 화면 밖으로
+  wc.setWindowOpenHandler(() => ({ action: 'allow' }));
+}
+app.on('web-contents-created', (_e, wc) => patchOpenHandler(wc));
+app.on('browser-window-created', (_e, w) => {
+  if(w instanceof QuietWindow) return;   // 이 클래스로 만든 창은 생성자가 맡는다(이 알림은 super() 안에서 먼저 온다)
+  const intent = openIntent || { show: w.isVisible() };
+  openIntent = null;
+  Object.setPrototypeOf(w, QuietWindow.prototype);
+  w.__twInit(intent, intent.show);
+});
 
 // 앱의 require('electron') 에 BrowserWindow 만 바꾼 겉 객체를 준다 — 나머지 이름은 진짜 electron 을 그때그때 읽는 게터.
 // Proxy 는 쓰지 않는다(바꿀 수 없는 칸이면 다른 값을 돌려줄 때 TypeError)
