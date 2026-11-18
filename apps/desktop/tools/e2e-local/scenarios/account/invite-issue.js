@@ -52,8 +52,7 @@ K.scenario('invite-issue', async (t) => {
     await K.waitShown(c.w, '#inviteGateInput', 30000);
     await c.w.fill('#inviteGateInput', code);
     await c.w.click('#inviteGateOk');
-    await K.waitFor(async () => { const m = await K.text(c.w, '#inviteGateMsg'); return m && m !== '확인 중…' ? m : null; }, 15000, '거절 문구');
+    await K.waitFor(async () => (await K.text(c.w, '#inviteGateMsg')) === '이미 다 쓴 초대 코드예요', 15000, '«이미 다 쓴 초대 코드예요»');
     if(await K.shown(c.w, '#signupCard')) throw new Error('쓴 코드로 가입 화면이 열림');
-    t.note('거절 문구: ' + await K.text(c.w, '#inviteGateMsg'));
   });
 });

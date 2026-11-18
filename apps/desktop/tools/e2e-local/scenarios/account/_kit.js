@@ -61,6 +61,36 @@ async function emuSignIn(fc, pw){
   const r = await http('POST', AUTH_EMU + '/accounts:signInWithPassword?key=e2e', { email: String(fc).toLowerCase() + '@tw.local', password: pw, returnSecureToken: true });
   return { ok: !!(r.body && r.body.idToken), idToken: r.body && r.body.idToken, uid: r.body && r.body.localId, error: r.body && r.body.error && r.body.error.message };
 }
+/** 관리자 계정 — API 로 만들고 seed/admin.sql 로 관리자 표에 넣는다. 서버는 역할 판정을 잠깐(10초) 들고 있어 관리자로 보일 때까지 기다린다 */
+async function adminAccount(){
+  const a = await apiAccount();
+  await a.token();
+  sql('admin.sql', { uid: a.authUid });
+  const t0 = Date.now();
+  while(Date.now() - t0 < 30000){
+    const me = await a.api('GET', '/v2/me');
+    if(me.data && me.data.admin === true) return a;
+    await wait(2000);
+  }
+  throw new Error('관리자로 보이지 않음');
+}
+/** 관리자가 라이선스 키 한 장 발급 → 키 */
+async function issueLicense(admin){
+  const r = await admin.api('POST', '/v2/admin/licenses', { requestId: crypto.randomUUID(), grants: [{ note: 'e2e account' }] });
+  const k = r.data && r.data[0] && r.data[0].key;
+  if(!k) throw new Error('라이선스 발급 실패 ' + r.status + ' ' + JSON.stringify(r.body));
+  return k;
+}
+/** 이 계정 옷장에 캐릭터 하나(최소 def) — place 'BOX' 면 보관함으로 옮긴다. avatarId */
+async function apiAvatar(acct, slot, place){
+  const r = await acct.api('POST', '/v2/me/avatars', { requestId: crypto.randomUUID(), def: { race: 'human', name: 'e2e' }, slot });
+  if(!r.data) throw new Error('캐릭터 만들기 실패 ' + JSON.stringify(r.body));
+  if(place === 'BOX'){
+    const m = await acct.api('POST', '/v2/me/avatars/' + r.data.avatarId + '/move', { to: 'BOX' });
+    if(!m.data) throw new Error('보관함 옮기기 실패 ' + JSON.stringify(m.body));
+  }
+  return r.data.avatarId;
+}
 /** API 로 비밀번호 계정 하나 — 화면을 지나갈 필요 없는 상대 계정 · 미리 채울 기기용 */
 async function apiAccount(invite = INVITE){
   const r = await http('POST', API + '/v2/users', { password: PW, requestId: crypto.randomUUID(), inviteCode: invite });
@@ -85,7 +115,8 @@ function withToken(acct){
 
 /** 한 시나리오 — 결과 폴더를 비우고, 단계마다 steps.txt 에 ok · FAIL 을 적고, 끝나면 앱을 다 끄고 종료 코드로 알린다 */
 function scenario(name, body){
-  const out = path.resolve(process.argv[2] || path.join('/tmp/tw-e2e/account', name));
+  const area = path.basename(path.dirname(require.main.filename));   // scenarios/<area>/<이름>.js
+  const out = path.resolve(process.argv[2] || path.join('/tmp/tw-e2e', area, name));
   if(!out.startsWith('/tmp/') && !out.startsWith('/private/tmp/')) { console.error('결과 폴더는 /tmp 아래로: ' + out); process.exit(2); }
   // 전에 끊긴 실행이 남긴 앱이 같은 폴더를 쥐고 있으면 새 앱이 «두 번째 실행» 으로 바로 꺼진다 — 이 폴더의 앱만 끈다
   try { execFileSync('pkill', ['-9', '-f', out + '/[^ ]*/wrap']); } catch(_){}
@@ -163,6 +194,17 @@ function scenario(name, body){
         A.logs.push('--- relaunch ---'); A.reqs.push('--- relaunch ---');
         return inst.launch();
       };
+      // GET /v2/config 응답을 이 앱에만 고쳐 준다(edit(data) → data). 설정은 같이 쓰는 로컬 묶음 전체에 걸려 다른 시험을 막으므로 서버 값은 건드리지 않는다
+      inst.editConfig = async (edit) => {
+        await A.app.context().route(/^https:\/\/api-dev\.together-working\.com\/v2\/config(\?|$)/, async (route) => {
+          const u = new URL(route.request().url());
+          const resp = await route.fetch({ url: 'http://127.0.0.1:8080' + u.pathname + u.search });
+          const j = await resp.json();
+          if(j && j.data) j.data = edit(j.data);
+          A.reqs.push('GET /v2/config ' + resp.status() + ' (시험이 고침)');
+          await route.fulfill({ status: resp.status(), contentType: 'application/json', body: JSON.stringify(j) });
+        });
+      };
       inst.google = null;   // { sub, email } — 구글 창 대신 돌려줄 계정
       inst.reqsSince = (n) => A.reqs.slice(n);
       insts.push(inst);
@@ -173,7 +215,7 @@ function scenario(name, body){
   };
   let unlock = () => {};
   (async () => {
-    unlock = await acquire('account/' + name);
+    unlock = await acquire(area + '/' + name);
     sql('account.sql');
     await body(t);
     steps.push('PASS');
@@ -277,5 +319,5 @@ async function openMyInfo(inst, tab){
   }
 }
 
-module.exports = { scenario, emuSignIn, apiAccount, withToken, sql, sqlQuery, http, fakeGoogleIdToken, uniq, setGoogle,
+module.exports = { scenario, emuSignIn, adminAccount, issueLicense, apiAvatar, apiAccount, withToken, sql, sqlQuery, http, fakeGoogleIdToken, uniq, setGoogle,
   shown, waitShown, waitFor, text, waitEntered, signupUi, loginUi, googleSignupUi, newGoogle, openMyInfo, PW, INVITE, API };
