@@ -41,25 +41,22 @@ export function parseRoomLimits(raw: unknown): Record<Channel, number | null> {
 
 /**
  * 채널별 전체 방 상한 — 저장된 값(칸이 없으면 null)과 기본값. API 판은 서버가 비운 칸도 기본값으로 채워 주어 saved 가 null 이 아니다.
- * 기본값은 판마다 다르다 — API 판은 서버 `room.limits` 의 기본값, Firebase 판은 옛 앱 기본값(api/firebase.ts). 모르면 null.
+ * 기본값은 판마다 다르다 — API 판은 서버 `room.limits` 의 기본값, Firebase 판은 옛 앱 기본값(api/firebase.ts).
  */
 export interface RoomLimits {
   saved: Record<Channel, number | null>;
-  defaults: Record<Channel, number> | null;
+  defaults: Record<Channel, number>;
 }
 
-/** 지금 적용되는 전체 상한 — 칸이 없으면 기본값 · 기본값도 모르면 null. */
+/** 지금 적용되는 전체 상한 — 칸이 없으면 기본값. 아직 못 읽었으면(limits 없음) null. */
 export const totalLimitOf = (limits: RoomLimits | null | undefined, ch: Channel): number | null =>
-  limits?.saved[ch] ?? limits?.defaults?.[ch] ?? null;
+  limits ? (limits.saved[ch] ?? limits.defaults[ch]) : null;
 
 export const roomMaxPeopleOf = (saved: number | null | undefined): number => saved ?? ROOM_MAX_PEOPLE_DEFAULT;
 
-/** 바뀐 채널만 «워킹룸 400 → 500» — 전에 칸이 없었고 기본값도 모르면 «기본값 → 500». */
-export function roomLimitChanges(
-  before: RoomLimits | null | undefined,
-  next: Record<Channel, number>,
-): string[] {
-  return ROOM_LIMIT_CHANNELS.filter((ch) => before?.saved[ch] !== next[ch]).map(
-    (ch) => `${CHANNEL_LABEL[ch]} ${totalLimitOf(before, ch) ?? '기본값'} → ${next[ch]}`,
+/** 바뀐 채널만 «워킹룸 400 → 500» — 전에 칸이 없었으면 기본값으로 보여 준다. */
+export function roomLimitChanges(before: RoomLimits, next: Record<Channel, number>): string[] {
+  return ROOM_LIMIT_CHANNELS.filter((ch) => before.saved[ch] !== next[ch]).map(
+    (ch) => `${CHANNEL_LABEL[ch]} ${before.saved[ch] ?? before.defaults[ch]} → ${next[ch]}`,
   );
 }

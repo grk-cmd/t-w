@@ -44,11 +44,7 @@ export async function getRoomMaxPeople(db: Db): Promise<number | null> {
 }
 
 /** 전체 방 상한 — 두 채널을 한 객체로 쓴다(한쪽만 있는 모양이 남지 않게). 바뀐 게 없으면 쓰지 않는다. */
-export function saveRoomLimits(
-  db: Db,
-  before: RoomLimits | null | undefined,
-  next: Record<Channel, number>,
-): Promise<void> {
+export function saveRoomLimits(db: Db, before: RoomLimits, next: Record<Channel, number>): Promise<void> {
   const changes = roomLimitChanges(before, next);
   if (!changes.length) return Promise.resolve();
   const value = { workingroom: next.workingroom, togetherroom: next.togetherroom };
@@ -196,6 +192,8 @@ export function createFirebaseRoomPort(db: Db, api: Api | null): RoomPort {
   return {
     features: { ghostCleanup: true, lastSeen: true },
     closeMax: null,
+    limitsNote:
+      '방 서버 장부 등록이 켜져 있으면 Firebase 방 + 방 서버 방 합계로, 꺼져 있으면 Firebase 방만 이 값과 견줌.',
     getLimits: async () => unversioned(await getRoomLimits(db)),
     getMaxPeople: async () => unversioned(await getRoomMaxPeople(db)),
     saveLimits: (from, next) => saveRoomLimits(db, from.value, next),

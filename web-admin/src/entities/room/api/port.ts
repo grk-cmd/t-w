@@ -18,7 +18,9 @@ export interface RoomPort {
   readonly features: { ghostCleanup: boolean; lastSeen: boolean };
   /** 한 번에 닫을 수 있는 방 수 — 제한이 없는 판은 null. 화면이 고르는 수를 여기에 맞춘다. */
   readonly closeMax: number | null;
-  /** 채널별 전체 방 상한 — 저장된 값 · 서버가 알려 준 기본값(Firebase 판은 기본값 없음). */
+  /** 상한 카드 안내 끝에 붙일 이 판만의 설명(없으면 ''). Firebase 판은 방 서버 장부 등록에 따라 세는 법이 달라 그것을 적는다. */
+  readonly limitsNote: string;
+  /** 채널별 전체 방 상한 — 저장된 값 · 기본값(API 판은 서버 기본값 · Firebase 판은 옛 앱 기본값). */
   getLimits(): Promise<Versioned<RoomLimits>>;
   /** 방 하나 정원 — 서버에 정해 둔 값. 없으면 null. */
   getMaxPeople(): Promise<Versioned<number | null>>;

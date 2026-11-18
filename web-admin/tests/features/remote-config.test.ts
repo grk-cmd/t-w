@@ -25,7 +25,7 @@ const brief = (writes: Parameters<typeof auditsOf>[0]) =>
 describe('전체 방 상한 — config/roomLimits(Firebase 판) · room.limits(API 판)', () => {
   const fb = (saved: { workingroom: number | null; togetherroom: number | null }) => ({
     saved,
-    defaults: null,
+    defaults: { workingroom: 300, togetherroom: 300 },
   });
   const api = (saved: { workingroom: number; togetherroom: number }) => ({
     saved,
@@ -39,7 +39,7 @@ describe('전체 방 상한 — config/roomLimits(Firebase 판) · room.limits(A
       defaults: { workingroom: 300, togetherroom: 300 },
     });
     expect(totalLimitOf(empty, 'workingroom')).toBe(300);
-    expect(totalLimitOf(fb({ workingroom: null, togetherroom: null }), 'workingroom')).toBeNull();
+    expect(totalLimitOf(undefined, 'workingroom')).toBeNull(); // 아직 못 읽음
     expect(parseRoomLimits({ workingroom: 10_000, togetherroom: 10_001 })).toEqual({
       workingroom: 10_000,
       togetherroom: null,
@@ -87,7 +87,7 @@ describe('전체 방 상한 — config/roomLimits(Firebase 판) · room.limits(A
     });
   });
 
-  it('확인 창 — 바뀐 채널만 «지금 → 새 값» · 칸이 없고 기본값도 모르면 «기본값»', () => {
+  it('확인 창 — 바뀐 채널만 «지금 → 새 값» · 칸이 없으면 기본값으로', () => {
     expect(
       roomLimitsConfirmText(api({ workingroom: 400, togetherroom: 500 }), {
         workingroom: 400,
@@ -101,7 +101,7 @@ describe('전체 방 상한 — config/roomLimits(Firebase 판) · room.limits(A
         workingroom: 400,
         togetherroom: 600,
       }),
-    ).toContain('투게더룸 기본값 → 600');
+    ).toContain('투게더룸 300 → 600');
   });
 
   it('두 채널을 한 객체로 쓰고 기록과 한 묶음 · 바뀐 게 없으면 쓰지 않는다', async () => {

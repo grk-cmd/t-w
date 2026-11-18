@@ -63,6 +63,7 @@ export function createServerRoomPort(api: Api | null): RoomPort {
     ...board,
     features: { ghostCleanup: false, lastSeen: false },
     closeMax: CLOSE_MAX,
+    limitsNote: '',
     async saveChatKeep(from, updates) {
       const { effective, defaults } = rawOf(from, 'chat.keepDays');
       const base = wireObject(effective, 'chat.keepDays');

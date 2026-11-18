@@ -8,6 +8,7 @@ import {
   totalLimitOf,
   useRoomLimits,
   useRoomMaxPeople,
+  useRoomPort,
 } from '@/entities/room';
 import { useEnv, withProdMark } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
@@ -37,14 +38,14 @@ function RoomLimitsForm() {
     workingroom: String(totalLimitOf(saved, 'workingroom') ?? ''),
     togetherroom: String(totalLimitOf(saved, 'togetherroom') ?? ''),
   };
-  const defaults = saved?.defaults;
+  const { limitsNote } = useRoomPort();
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!from) return;
-    const r = checkRoomLimits(saved, inputs);
+    const r = checkRoomLimits(from.value, inputs);
     if (!r.ok) return setMessage({ text: r.error, error: true });
-    if (!confirm(withProdMark(env, roomLimitsConfirmText(saved, r.next)))) return;
+    if (!confirm(withProdMark(env, roomLimitsConfirmText(from.value, r.next)))) return;
     save.mutate(
       { from, next: r.next },
       {
@@ -85,11 +86,10 @@ function RoomLimitsForm() {
           {save.isPending ? '저장 중…' : '저장'}
         </button>
         <small className={`soft ${styles.hint}`}>
-          채널마다 열 수 있는 방 수(시크릿룸 제외) ·{' '}
-          {defaults
-            ? `값이 없으면 기본 ${CHANNEL_LABEL.workingroom} ${defaults.workingroom} · ${CHANNEL_LABEL.togetherroom} ${defaults.togetherroom}`
-            : '값이 없으면 앱이 자기 기본값을 씀'}{' '}
-          · 낮춰도 열린 방은 그대로 — 새 방만 막음.
+          채널마다 열 수 있는 방 수(시크릿룸 제외)
+          {saved && ` · 서버 값 없음 → 기본 ${saved.defaults.workingroom}`} · 낮춰도 열린 방은 그대로 — 새
+          방만 막음.
+          {limitsNote && ` ${limitsNote}`}
         </small>
       </form>
       {message && <p className={message.error ? 'msg err' : 'msg'}>{message.text}</p>}

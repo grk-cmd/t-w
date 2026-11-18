@@ -17,7 +17,7 @@ import {
 import { refreshOnConflict, type Versioned } from '@/shared/api';
 
 export type RoomLimitInputs = Record<Channel, string>;
-type Saved = RoomLimits | null | undefined;
+type Saved = RoomLimits;
 type Check<T> = { ok: true; next: T } | { ok: false; error: string };
 
 /** 저장 뒤 안내 — 앱은 다음에 읽을 때 바로, 방 서버는 1분마다 다시 읽는다. */
