@@ -12,11 +12,12 @@ import {
   useRefreshRoomConfig,
   useRoomPort,
   type Channel,
+  type RoomLimits,
 } from '@/entities/room';
 import { refreshOnConflict, type Versioned } from '@/shared/api';
 
 export type RoomLimitInputs = Record<Channel, string>;
-type Saved = Record<Channel, number | null> | null | undefined;
+type Saved = RoomLimits;
 type Check<T> = { ok: true; next: T } | { ok: false; error: string };
 
 /** 저장 뒤 안내 — 앱은 다음에 읽을 때 바로, 방 서버는 1분마다 다시 읽는다. */
@@ -56,13 +57,8 @@ export function useSaveRoomLimits() {
   const port = useRoomPort();
   const refresh = useRefreshRoomConfig();
   return useMutation({
-    mutationFn: ({
-      from,
-      next,
-    }: {
-      from: Versioned<Record<Channel, number | null>>;
-      next: Record<Channel, number>;
-    }) => port.saveLimits(from, next),
+    mutationFn: ({ from, next }: { from: Versioned<RoomLimits>; next: Record<Channel, number> }) =>
+      port.saveLimits(from, next),
     onSuccess: refresh,
     onError: refreshOnConflict(refresh),
   });

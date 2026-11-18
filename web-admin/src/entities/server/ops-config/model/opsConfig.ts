@@ -191,10 +191,3 @@ export interface Maintenance {
 }
 
 export const MAINTENANCE_MESSAGE_MAX = 200;
-
-/** 서버 한 대의 채널별 방 상한 — 서버 설정 키 `room.serverLimits`. */
-export const SERVER_LIMIT_CHANNELS = ['workingroom', 'togetherroom'] as const;
-export type ServerLimits = Record<(typeof SERVER_LIMIT_CHANNELS)[number], number>;
-export const SERVER_LIMIT_MIN = 1;
-export const SERVER_LIMIT_MAX = 100_000;
-export const SERVER_LIMIT_DEFAULT = 250;

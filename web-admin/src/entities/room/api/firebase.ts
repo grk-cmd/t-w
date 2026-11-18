@@ -23,11 +23,18 @@ import {
   roomMaxPeopleOf,
   ROOM_LIMITS_PATH,
   ROOM_MAX_PEOPLE_PATH,
+  type RoomLimits,
 } from '../model/roomConfig';
 import type { RoomPort } from './port';
 
-export async function getRoomLimits(db: Db): Promise<Record<Channel, number | null>> {
-  return parseRoomLimits(await db.get<unknown>(ROOM_LIMITS_PATH));
+/**
+ * Firebase 판(0.13 전환 전 운영)의 기본값 — config/roomLimits 가 비면 0.12 앱 · 방 서버가 쓰는 값.
+ * 0.13 의 기본값은 서버 `room.limits` 가 알려 준다(API 판) — 여기 숫자는 Firebase 판에서만 쓴다.
+ */
+export const LEGACY_ROOM_LIMITS: Record<Channel, number> = { workingroom: 300, togetherroom: 300 };
+
+export async function getRoomLimits(db: Db): Promise<RoomLimits> {
+  return { saved: parseRoomLimits(await db.get<unknown>(ROOM_LIMITS_PATH)), defaults: LEGACY_ROOM_LIMITS };
 }
 
 /** 정원 — 서버에 정해 둔 값. 없거나 범위 밖이면 null(앱 · 방 서버는 기본값). */
@@ -37,11 +44,7 @@ export async function getRoomMaxPeople(db: Db): Promise<number | null> {
 }
 
 /** 전체 방 상한 — 두 채널을 한 객체로 쓴다(한쪽만 있는 모양이 남지 않게). 바뀐 게 없으면 쓰지 않는다. */
-export function saveRoomLimits(
-  db: Db,
-  before: Record<Channel, number | null> | null | undefined,
-  next: Record<Channel, number>,
-): Promise<void> {
+export function saveRoomLimits(db: Db, before: RoomLimits, next: Record<Channel, number>): Promise<void> {
   const changes = roomLimitChanges(before, next);
   if (!changes.length) return Promise.resolve();
   const value = { workingroom: next.workingroom, togetherroom: next.togetherroom };
@@ -189,6 +192,8 @@ export function createFirebaseRoomPort(db: Db, api: Api | null): RoomPort {
   return {
     features: { ghostCleanup: true, lastSeen: true },
     closeMax: null,
+    limitsNote:
+      '방 서버 장부 등록이 켜져 있으면 Firebase 방 + 방 서버 방 합계로, 꺼져 있으면 Firebase 방만 이 값과 견줌.',
     getLimits: async () => unversioned(await getRoomLimits(db)),
     getMaxPeople: async () => unversioned(await getRoomMaxPeople(db)),
     saveLimits: (from, next) => saveRoomLimits(db, from.value, next),

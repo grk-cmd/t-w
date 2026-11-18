@@ -1,5 +1,5 @@
 import type { AuditAction, Versioned } from '@/shared/api';
-import type { IntGroup, IntValues, LogLevel, LogLevels, Maintenance, ServerLimits } from '../model/opsConfig';
+import type { IntGroup, IntValues, LogLevel, LogLevels, Maintenance } from '../model/opsConfig';
 
 /** 정수 칸 묶음 셋 — 어떤 칸이 있는지는 판마다 다르다(서버 판의 캐시 초는 `ranking` 이 있고 `count` 가 없다). */
 export interface OpsGroups {
@@ -10,22 +10,16 @@ export interface OpsGroups {
   dailyLimits: readonly IntGroup[] | null;
 }
 
-/** API 판에만 있는 카드 — Firebase 판은 null(그 일은 따로 한다: 점검은 런북, 방 서버 한 대 상한은 방 서버 화면). */
+/** API 판에만 있는 카드 — Firebase 판은 null(점검은 런북으로 한다). */
 export interface MaintenanceControl {
   get(): Promise<Versioned<Maintenance>>;
   save(from: Versioned<Maintenance>, next: Maintenance): Promise<void>;
-}
-
-export interface ServerLimitsControl {
-  get(): Promise<Versioned<ServerLimits>>;
-  save(from: Versioned<ServerLimits>, next: ServerLimits): Promise<void>;
 }
 
 /** 서버 운영 설정 — 정수 칸 묶음 · 로그 수준 · API CORS 허용 출처. 빈 값 = 지움(서버 기본값). */
 export interface OpsConfigPort {
   readonly groups: OpsGroups;
   readonly maintenance: MaintenanceControl | null;
-  readonly serverLimits: ServerLimitsControl | null;
   getIntGroup(group: IntGroup): Promise<Versioned<IntValues>>;
   getLogLevels(): Promise<Versioned<LogLevels>>;
   getCorsOrigins(): Promise<Versioned<string[]>>;

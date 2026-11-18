@@ -4,6 +4,7 @@
 import { opsConfigClient, PortError, wireNumber, wireObject, type Api, type Versioned } from '@/shared/api';
 import { CHAT_KEEP_PATH, type ChatKeep } from '../model/chatKeep';
 import type { Channel } from '../model/room';
+import type { RoomLimits } from '../model/roomConfig';
 import { CLOSE_MAX, type RoomPort } from './port';
 import { createServerRoomBoard } from './serverBoard';
 
@@ -15,16 +16,24 @@ function rawOf(from: Versioned<unknown>, key: string): Raw {
   return from.raw;
 }
 
+/** `room.limits` 값 — 채널마다 숫자(서버는 비운 칸에도 기본값을 값으로 준다). */
+function limitsOf(raw: unknown, name: string): Record<Channel, number> {
+  const o = wireObject(raw, name);
+  return {
+    workingroom: wireNumber(o.workingroom, `${name}.workingroom`),
+    togetherroom: wireNumber(o.togetherroom, `${name}.togetherroom`),
+  };
+}
+
 export function createServerRoomPort(api: Api | null): RoomPort {
   const config = opsConfigClient(api);
   const board = createServerRoomBoard(api);
   return {
     async getLimits() {
       const { effective, default: defaults, version } = await config.read('room.limits');
-      const o = wireObject(effective, 'room.limits');
-      const value: Record<Channel, number> = {
-        workingroom: wireNumber(o.workingroom, 'room.limits.workingroom'),
-        togetherroom: wireNumber(o.togetherroom, 'room.limits.togetherroom'),
+      const value: RoomLimits = {
+        saved: limitsOf(effective, 'room.limits'),
+        defaults: limitsOf(defaults, 'room.limits 기본값'),
       };
       return { value, version, raw: { effective, defaults } };
     },
@@ -54,6 +63,7 @@ export function createServerRoomPort(api: Api | null): RoomPort {
     ...board,
     features: { ghostCleanup: false, lastSeen: false },
     closeMax: CLOSE_MAX,
+    limitsNote: '',
     async saveChatKeep(from, updates) {
       const { effective, defaults } = rawOf(from, 'chat.keepDays');
       const base = wireObject(effective, 'chat.keepDays');

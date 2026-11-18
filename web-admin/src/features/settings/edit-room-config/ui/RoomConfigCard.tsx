@@ -4,11 +4,11 @@ import {
   CHANNEL_LABEL,
   ROOM_LIMIT_CHANNELS,
   ROOM_MAX_PEOPLE_DEFAULT,
-  ROOM_TOTAL_LIMITS,
   roomMaxPeopleOf,
   totalLimitOf,
   useRoomLimits,
   useRoomMaxPeople,
+  useRoomPort,
 } from '@/entities/room';
 import { useEnv, withProdMark } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
@@ -26,7 +26,7 @@ import styles from './RoomConfigCard.module.css';
 
 type Message = { text: string; error: boolean } | null;
 
-// 채널별 전체 방 상한 — config/roomLimits. 방 서버 한 대 보호용 상한(방 서버 페이지)과 다르다.
+// 채널별 전체 방 상한 — API 판은 서버 설정 키 `room.limits`, Firebase 판은 config/roomLimits.
 function RoomLimitsForm() {
   const env = useEnv();
   const { data: from, error, isPending } = useRoomLimits();
@@ -35,16 +35,17 @@ function RoomLimitsForm() {
   const [draft, setDraft] = useState<RoomLimitInputs | null>(null);
   const [message, setMessage] = useState<Message>(null);
   const inputs: RoomLimitInputs = draft ?? {
-    workingroom: String(totalLimitOf(saved, 'workingroom')),
-    togetherroom: String(totalLimitOf(saved, 'togetherroom')),
+    workingroom: String(totalLimitOf(saved, 'workingroom') ?? ''),
+    togetherroom: String(totalLimitOf(saved, 'togetherroom') ?? ''),
   };
+  const { limitsNote } = useRoomPort();
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!from) return;
-    const r = checkRoomLimits(saved, inputs);
+    const r = checkRoomLimits(from.value, inputs);
     if (!r.ok) return setMessage({ text: r.error, error: true });
-    if (!confirm(withProdMark(env, roomLimitsConfirmText(saved, r.next)))) return;
+    if (!confirm(withProdMark(env, roomLimitsConfirmText(from.value, r.next)))) return;
     save.mutate(
       { from, next: r.next },
       {
@@ -74,7 +75,7 @@ function RoomLimitsForm() {
               value={isPending ? '' : inputs[ch]}
               onChange={(e) => setDraft({ ...inputs, [ch]: e.target.value })}
             />
-            {!isPending && saved?.[ch] == null && <small className="soft">기본값</small>}
+            {!isPending && saved?.saved[ch] == null && <small className="soft">기본값</small>}
           </label>
         ))}
         <button
@@ -85,9 +86,10 @@ function RoomLimitsForm() {
           {save.isPending ? '저장 중…' : '저장'}
         </button>
         <small className={`soft ${styles.hint}`}>
-          채널마다 열 수 있는 방 수(시크릿룸 제외) · 서버 값 없음 → 기본 {ROOM_TOTAL_LIMITS.workingroom} ·
-          낮춰도 열린 방은 그대로 — 새 방만 막음. 방 서버 장부 등록이 켜져 있으면 Firebase 방 + 방 서버 방
-          합계로, 꺼져 있으면 Firebase 방만 이 값과 견줌.
+          채널마다 열 수 있는 방 수(시크릿룸 제외)
+          {saved && ` · 서버 값 없음 → 기본 ${saved.defaults.workingroom}`} · 낮춰도 열린 방은 그대로 — 새
+          방만 막음.
+          {limitsNote && ` ${limitsNote}`}
         </small>
       </form>
       {message && <p className={message.error ? 'msg err' : 'msg'}>{message.text}</p>}

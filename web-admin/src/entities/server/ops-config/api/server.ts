@@ -1,4 +1,4 @@
-// API 판 — 설정 키 `api.cacheSec` · `room.frame` · `room.timing` · `log.level` · `api.cors`, 그리고 API 판에만 있는 `app.maintenance` · `room.serverLimits`.
+// API 판 — 설정 키 `api.cacheSec` · `room.frame` · `room.timing` · `log.level` · `api.cors`, 그리고 API 판에만 있는 `app.maintenance`.
 // 값이 여럿인 키는 화면이 읽은 값에 고친 칸만 바꿔 통째로 보낸다(칸을 비우면 그 칸에 기본값). 하루 한도는 키 하나가 값 하나라
 // 키마다 따로 저장하고, 비우면 `DELETE …?version=` 으로 값을 비워 기본값을 따르게 한다.
 // 읽은 번호(`version`)는 화면이 들고 있다가 저장에 돌려준다 — 포트는 기억하지 않는다.
@@ -26,7 +26,6 @@ import {
   type IntValues,
   type LogLevels,
   type Maintenance,
-  type ServerLimits,
 } from '../model/opsConfig';
 import type { OpsConfigPort, OpsGroups } from './port';
 
@@ -99,14 +98,6 @@ function maintenanceOf(effective: unknown): Maintenance {
   };
 }
 
-function serverLimitsOf(effective: unknown): ServerLimits {
-  const o = wireObject(effective, 'room.serverLimits');
-  return {
-    workingroom: wireNumber(o.workingroom, 'room.serverLimits.workingroom'),
-    togetherroom: wireNumber(o.togetherroom, 'room.serverLimits.togetherroom'),
-  };
-}
-
 export function createServerOpsConfigPort(api: Api | null): OpsConfigPort {
   const config = opsConfigClient(api);
 
@@ -171,15 +162,6 @@ export function createServerOpsConfigPort(api: Api | null): OpsConfigPort {
           on: next.on,
           endsAt: next.endsAt,
           message: next.message?.trim().slice(0, MAINTENANCE_MESSAGE_MAX) || null,
-        });
-      },
-    },
-    serverLimits: {
-      get: () => read('room.serverLimits', serverLimitsOf),
-      async save(from, next) {
-        await config.write('room.serverLimits', from.version, {
-          workingroom: next.workingroom,
-          togetherroom: next.togetherroom,
         });
       },
     },

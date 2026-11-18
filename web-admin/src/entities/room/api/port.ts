@@ -1,6 +1,7 @@
 import type { Versioned } from '@/shared/api';
 import type { ChatKeep } from '../model/chatKeep';
 import type { Channel, LiveRooms, RoomIndexEntry, RoomProbe, RoomStats } from '../model/room';
+import type { RoomLimits } from '../model/roomConfig';
 
 /** 서버가 한 번에 받는 방 코드 수(API 판). */
 export const CLOSE_MAX = 500;
@@ -17,12 +18,14 @@ export interface RoomPort {
   readonly features: { ghostCleanup: boolean; lastSeen: boolean };
   /** 한 번에 닫을 수 있는 방 수 — 제한이 없는 판은 null. 화면이 고르는 수를 여기에 맞춘다. */
   readonly closeMax: number | null;
-  /** 채널별 전체 방 상한 — 칸이 없으면 null(앱 · 방 서버는 기본값). */
-  getLimits(): Promise<Versioned<Record<Channel, number | null>>>;
+  /** 상한 카드 안내 끝에 붙일 이 판만의 설명(없으면 ''). Firebase 판은 방 서버 장부 등록에 따라 세는 법이 달라 그것을 적는다. */
+  readonly limitsNote: string;
+  /** 채널별 전체 방 상한 — 저장된 값 · 기본값(API 판은 서버 기본값 · Firebase 판은 옛 앱 기본값). */
+  getLimits(): Promise<Versioned<RoomLimits>>;
   /** 방 하나 정원 — 서버에 정해 둔 값. 없으면 null. */
   getMaxPeople(): Promise<Versioned<number | null>>;
   /** 저장은 화면이 읽은 값 · 번호(`from`)로 한다 — 그 사이 바뀌었으면 `conflict`. 바뀐 게 없으면 쓰지 않는다. */
-  saveLimits(from: Versioned<Record<Channel, number | null>>, next: Record<Channel, number>): Promise<void>;
+  saveLimits(from: Versioned<RoomLimits>, next: Record<Channel, number>): Promise<void>;
   saveMaxPeople(from: Versioned<number | null>, next: number): Promise<void>;
   getChatKeep(): Promise<Versioned<ChatKeep>>;
   /** `updates` 는 바뀐 칸만(null = 지움). */

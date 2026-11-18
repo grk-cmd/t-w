@@ -24,9 +24,8 @@ interface Row {
 }
 
 const DEFAULTS: Record<string, unknown> = {
-  'room.limits': { workingroom: 300, togetherroom: 300 },
+  'room.limits': { workingroom: 500, togetherroom: 500 },
   'room.maxPeople': 10,
-  'room.serverLimits': { workingroom: 250, togetherroom: 250 },
   'room.timing': {
     joinWaitMs: 10_000,
     roomStatsRefreshMs: 15_000,
@@ -250,8 +249,17 @@ describe('방 설정 · 대화 보관', () => {
     const s = fakeServer();
     const room = createServerRoomPort(s.api);
     const limits = await room.getLimits();
-    expect(limits.value).toEqual({ workingroom: 300, togetherroom: 300 });
+    expect(limits.value).toEqual({
+      saved: { workingroom: 500, togetherroom: 500 },
+      defaults: { workingroom: 500, togetherroom: 500 },
+    });
     await room.saveLimits(limits, { workingroom: 400, togetherroom: 300 });
+    // 저장된 값과 기본값을 따로 받는다 — 화면은 저장된 값을 칸에, 기본값은 안내에
+    s.other('room.limits', { workingroom: 600, togetherroom: 400 });
+    expect((await room.getLimits()).value).toEqual({
+      saved: { workingroom: 600, togetherroom: 400 },
+      defaults: { workingroom: 500, togetherroom: 500 },
+    });
     expect(lastPut(s).body).toEqual({ version: 0, value: { workingroom: 400, togetherroom: 300 } });
     const people = await room.getMaxPeople();
     await room.saveMaxPeople(people, 20);
@@ -416,27 +424,16 @@ describe('서버 운영 설정', () => {
     expect(isPortError(error, 'invalid')).toBe(true);
   });
 
-  it('방 서버 한 대의 방 상한: 기본 250 · 두 채널을 한 객체로', async () => {
-    const s = fakeServer();
-    const { serverLimits } = createServerOpsConfigPort(s.api);
-    const read = await serverLimits!.get();
-    expect(read.value).toEqual({ workingroom: 250, togetherroom: 250 });
-    await serverLimits!.save(read, { workingroom: 100, togetherroom: 250 });
-    expect(lastPut(s).body).toEqual({ version: 0, value: { workingroom: 100, togetherroom: 250 } });
-  });
-
-  it('정수 묶음 · 로그 수준 · 방 서버 상한 응답의 모양이 틀리면 던진다', async () => {
+  it('정수 묶음 · 로그 수준 응답의 모양이 틀리면 던진다', async () => {
     const s = fakeServer();
     s.breakWire('api.cacheSec', { config: 'x', card: 1, ranking: 2 });
     s.breakWire('log.level', { api: 'loud', realtime: 'info' });
     s.breakWire('api.cors', 'https://a.example.com');
-    s.breakWire('room.serverLimits', { workingroom: 1 });
     const ops = createServerOpsConfigPort(s.api);
     const reads = [
       () => ops.getIntGroup(ops.groups.apiCache),
       () => ops.getLogLevels(),
       () => ops.getCorsOrigins(),
-      () => ops.serverLimits!.get(),
     ];
     for (const read of reads)
       expect(isPortError(await read().catch((e: unknown) => e), 'invalid')).toBe(true);

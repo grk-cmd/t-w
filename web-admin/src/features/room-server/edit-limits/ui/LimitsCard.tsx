@@ -69,7 +69,7 @@ function ServerCount({ name, url }: { name: string; url: string }) {
  */
 function TotalCount({ healthUrl }: { healthUrl: string | null }) {
   const stats = useRoomStats();
-  // 전체 상한 — config/roomLimits(없거나 못 읽으면 기본값). 앱 · 방 서버가 견주는 값과 같다.
+  // 전체 상한 — config/roomLimits(없으면 기본값 · 아직 못 읽었으면 «…»). 앱 · 방 서버가 견주는 값과 같다.
   const limits = useRoomLimits();
   const now = useSnapshotNow(stats.dataUpdatedAt);
   const s = now !== null ? roomStatsSummary(stats.data ?? null, now) : null;
@@ -102,8 +102,8 @@ function TotalCount({ healthUrl }: { healthUrl: string | null }) {
                     {live !== undefined ? '(실제)' : ''} ={' '}
                   </small>
                 )}
-                <b className={total >= lim ? 'warn' : undefined}>{total}</b>
-                <small className="soft">/{lim}</small>
+                <b className={lim !== null && total >= lim ? 'warn' : undefined}>{total}</b>
+                <small className="soft">/{lim ?? '…'}</small>
               </span>
             );
           })}

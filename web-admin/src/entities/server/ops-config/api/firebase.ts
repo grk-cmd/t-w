@@ -78,7 +78,6 @@ export function createFirebaseOpsConfigPort(db: Db): OpsConfigPort {
   return {
     groups: { apiCache: API_CACHE, roomFrame: ROOM_FRAME, roomTiming: ROOM_TIMING, dailyLimits: null },
     maintenance: null,
-    serverLimits: null,
     getIntGroup: async (group) => unversioned(await getIntGroup(db, group)),
     getLogLevels: async () => unversioned(await getLogLevels(db)),
     getCorsOrigins: async () => unversioned(await getCorsOrigins(db)),

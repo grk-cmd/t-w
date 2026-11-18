@@ -23,12 +23,6 @@ export const ROOM_LIVE_MS = 90 * 1000;
 // functions 가 1분마다 쓰므로 이보다 낡았으면 함수가 멈춘 것이다 — 앱 ROOM_STATS_FRESH_MS 와 같다.
 export const ROOM_STATS_FRESH_MS = 3 * 60 * 1000;
 
-/**
- * 전체 채널별 방 상한의 기본값 — config/roomLimits 가 없을 때 앱 · 방 서버가 쓰는 값(0.11.4 원격 설정).
- * 실제 값은 config/roomLimits(model/roomConfig.ts). config/roomServer/limits 는 방 서버 한 대 보호용이라 이것과 다르다.
- */
-export const ROOM_TOTAL_LIMITS: Record<Channel, number> = { workingroom: 300, togetherroom: 300 };
-
 export const CHANNEL_LABEL: Record<Channel, string> = {
   workingroom: '워킹룸',
   togetherroom: '투게더룸',

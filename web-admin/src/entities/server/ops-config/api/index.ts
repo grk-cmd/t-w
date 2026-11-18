@@ -18,4 +18,4 @@ export function useOpsConfigPort(): OpsConfigPort {
   );
 }
 
-export type { MaintenanceControl, OpsConfigPort, OpsGroups, ServerLimitsControl } from './port';
+export type { MaintenanceControl, OpsConfigPort, OpsGroups } from './port';

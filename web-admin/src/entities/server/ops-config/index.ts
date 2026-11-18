@@ -1,18 +1,5 @@
-export {
-  useCorsOrigins,
-  useIntGroup,
-  useLogLevels,
-  useMaintenance,
-  useRefreshOpsConfig,
-  useServerLimits,
-} from './api/hooks';
-export {
-  useOpsConfigPort,
-  type MaintenanceControl,
-  type OpsConfigPort,
-  type OpsGroups,
-  type ServerLimitsControl,
-} from './api/index';
+export { useCorsOrigins, useIntGroup, useLogLevels, useMaintenance, useRefreshOpsConfig } from './api/hooks';
+export { useOpsConfigPort, type MaintenanceControl, type OpsConfigPort, type OpsGroups } from './api/index';
 export {
   API_CACHE,
   API_CORS_MAX,
@@ -41,11 +28,6 @@ export {
   type IntValues,
   type LogLevel,
   type LogLevels,
-  SERVER_LIMIT_CHANNELS,
-  SERVER_LIMIT_DEFAULT,
-  SERVER_LIMIT_MAX,
-  SERVER_LIMIT_MIN,
   type LogTarget,
   type Maintenance,
-  type ServerLimits,
 } from './model/opsConfig';
