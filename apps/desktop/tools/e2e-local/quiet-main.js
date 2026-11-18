@@ -8,8 +8,8 @@
      setAlwaysOnTop · setOpacity · setIgnoreMouseEvents · webContents.setAudioMuted → 값만 기억(isAlwaysOnTop · getOpacity · isAudioMuted 는 기억한 값) ·
      setBounds · setContentBounds · setPosition · center → 크기는 따르고 x,y 는 «앱이 아는 자리» 로만 기억 — 진짜 창은 화면 밖
    ・읽기: getBounds · getPosition · getContentBounds 는 앱이 아는 자리(가상 — 화면 밖 값을 마지막 자리로 저장하지 않게) ·
-     진짜 값은 w.__e2eRealBounds() · w.__e2eRealOpacity() · w.webContents.__e2eRealAudioMuted() · 앱이 정한 클릭 통과는 w.__e2eIgnoreMouse()
-   ・진짜 창은 투명(opacity 0) · 클릭 통과 · 소리 끔 — mac 은 화면 밖 창을 화면 끝으로 당겨 놓아 끝자락이 보이고 눌릴 수 있다
+     진짜 값은 w.__e2eRealBounds() · w.__e2eRealOpacity() · w.__e2eRealAlwaysOnTop() · wc.__e2eRealAudioMuted()(모든 webContents) · 앱이 정한 클릭 통과는 w.__e2eIgnoreMouse()
+   ・진짜 창은 투명(opacity 0) · 클릭 통과 · 소리 끔(BrowserView 등 모든 webContents) — mac 은 화면 밖 창을 화면 끝으로 당겨 놓아 끝자락이 보이고 눌릴 수 있다
    ・창이 다른 길로 화면 안에 들어오면(move) 다시 밖으로 · 화면 밖 창도 타이머 · WebGL 이 돌게 배경 늦추기를 끈다
    Playwright 의 입력은 CDP 로 가서 OS 포커스 · 클릭 통과와 상관없다(setFocusable(false) 는 쓰지 않는다 — 입력을 막는다).
    확인: 네 묶음이 같이 쓰는 시나리오 scenarios/launcher/quiet.js(lib.js 만 씀) — 진짜 창이 화면 밖 · 투명 · 소리 끔 · 포커스 받은 창 없음 · 앱이 읽는 자리는 앱이 정한 값 */
@@ -67,13 +67,8 @@ const QuietWindow = class BrowserWindow extends Base {
     // 안 보이고 · 눌리지 않게 — mac 은 화면 밖 창을 화면 끝으로 당겨 놓아 끝자락이 보이고 눌린다. Playwright 입력은 CDP 로 가서 막히지 않는다
     try { orig.setOpacity.call(this, 0); } catch(_){}
     try { orig.setIgnoreMouseEvents.call(this, true, { forward: false }); } catch(_){}
-    // 소리 끔(듣기 · 유튜브 · 채팅 알림음) — 앱이 다시 켜지 못하게 이 창의 setAudioMuted 는 값만 기억
     const wc = this.webContents;
-    try { wc.setAudioMuted(true); } catch(_){}
-    let muted = false;
-    wc.setAudioMuted = (m) => { muted = !!m; };
-    wc.isAudioMuted = () => muted;
-    wc.__e2eRealAudioMuted = () => Object.getPrototypeOf(wc).isAudioMuted.call(wc);
+    muteWc(wc);
     try { wc.setBackgroundThrottling(false); } catch(_){}
     this.__twPushOff();
     // 다른 길로 화면 안에 들어오면 다시 밖으로 — 밖으로 민 뒤 mac 이 당겨 놓은 자리면 그대로 둔다(끝없이 되밀지 않게)
@@ -150,7 +145,19 @@ function patchOpenHandler(wc){
   // 앱이 handler 를 걸지 않아도 window.open 은 열린다 — 그때도 숨김 · 화면 밖으로
   wc.setWindowOpenHandler(() => ({ action: 'allow' }));
 }
-app.on('web-contents-created', (_e, wc) => patchOpenHandler(wc));
+// 소리 끔(듣기 · 유튜브 · 채팅 알림음) — 창만이 아니라 모든 webContents(BrowserView 의 BGM · 같이 듣기 포함).
+// 앱이 다시 켜지 못하게 그 webContents 의 setAudioMuted 는 값만 기억하고, 진짜 값은 __e2eRealAudioMuted()
+function muteWc(wc){
+  if(!wc || wc.__twMuted) return;
+  wc.__twMuted = true;
+  const proto = Object.getPrototypeOf(wc);
+  try { proto.setAudioMuted.call(wc, true); } catch(_){}
+  let muted = false;
+  wc.setAudioMuted = (m) => { muted = !!m; };
+  wc.isAudioMuted = () => muted;
+  wc.__e2eRealAudioMuted = () => proto.isAudioMuted.call(wc);
+}
+app.on('web-contents-created', (_e, wc) => { muteWc(wc); patchOpenHandler(wc); });
 app.on('browser-window-created', (_e, w) => {
   if(w instanceof QuietWindow) return;   // 이 클래스로 만든 창은 생성자가 맡는다(이 알림은 super() 안에서 먼저 온다)
   const intent = openIntent || { show: w.isVisible() };
