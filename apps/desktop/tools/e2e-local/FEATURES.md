@@ -118,7 +118,7 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 | 일정 · 디데이 · 일정 알림 | `scenarios/social/schedule-dday.js`(일정 · 친구 태그 → 🔔 · D-day · 공개 범위) | `schedule-api` `scheduler` | e2e |
 | 플레이리스트 | `scenarios/social/playlist.js`(곡 추가 — 유튜브 제목 조회는 가짜 답 · 서버 사본 · 친구 파도타기. 실제 재생은 유튜브라 안 봄) | `playlist` `playlist-api` `pl-grab-pick` `pl-loop` `pl-next` `pl-watchdog` `api-public-reads` `bgm-diag` | 부분 |
 | 백색소음 | `scenarios/social/white-noise.js`(고르기 · 음량 · 같은 방 전파 · 남의 소리 끄기 · 다시 켜도 기억. 소리가 나는 때(타이핑 자세)는 OS 전역 키 입력이라 안 봄) | `noise` | 부분 |
-| 도움말 탭 | `scenarios/social/help-tab.js`(저장소의 도움말 페이지를 돌려줌 · 목차 · 편 이동 · 못 불러옴 E-MH-01) | `help-tab` | e2e |
+| 도움말 탭 |  | `help-tab` | **할 일** — 도움말 사이트(help.together-working.com)는 시험 앱에서 막힌다(route-main.js). 저장소의 `firebase/hosting/help` 를 돌려줄 짝이 route-main 에 생기면 시나리오를 다시 넣는다 |
 
 ## 포커스 · 레벨
 

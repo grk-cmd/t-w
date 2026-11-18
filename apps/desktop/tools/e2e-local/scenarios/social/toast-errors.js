@@ -1,5 +1,5 @@
-// 토스트 · 오류 번호 알림 — 보통 안내는 토스트 글 그대로 · 서버가 실패하면(시험이 그 요청 하나만 500 으로 돌려준다) «⚠️ … · 오류 E-FR-01» 토스트 ·
-// 같은 번호는 잠깐 사이 한 번만 · 오류 기록(tw-error.log)에 번호 한 줄 · 실패한 요청은 화면에 남는다(다시 누르면 된다)
+// 토스트 · 오류 번호 알림 — 보통 안내는 토스트 글 그대로(번호 없음) · 요청이 서버에 못 닿으면(이 앱만 오프라인 — lib.js net) «⚠️ … · 오류 E-…» 토스트 ·
+// 오류 기록(tw-error.log)에 같은 번호 한 줄 · 실패한 요청은 화면에 남고 · 다시 연결하면 다시 누른 [수락] 이 된다
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -26,27 +26,29 @@ scenario('toast-errors', async (t) => {
     await b.until(() => document.querySelectorAll('#mhFmList .mh-req').length === 1, null, { what: '받은 요청 줄' });
   });
 
-  let hits = 0;
-  await t.step('서버 500 → [수락] → «오류 E-FR-01» 토스트 · 요청은 남는다', async () => {
-    await b.A.app.context().route(/\/v2\/me\/friend-requests\/[^/]+\/accept$/, (r) => { hits++; return r.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ success: false, data: null, code: 'INTERNAL_ERROR', message: 'e2e' }) }); });
+  let code = null;
+  await t.step('오프라인 → [수락] → 오류 번호 토스트 · 요청은 남는다', async () => {
+    await b.A.net(true);
     await b.w.click('#mhFmList .mh-req button.ok');
-    const tt = await b.until(() => /오류 E-/.test(document.getElementById('toast').textContent) && document.getElementById('toast').textContent, null, { what: '오류 토스트' });
-    assert(tt === '⚠️ 친구 요청을 수락하지 못했어요 · 오류 E-FR-01', '오류 토스트 ' + tt);
-    assert(hits === 1, '수락 요청 수 ' + hits);
+    const tt = await b.until(() => { const x = document.getElementById('toast').textContent; return /오류 E-[A-Z]+-\d\d/.test(x) && x; }, null, { what: '오류 토스트' });
+    code = tt.match(/E-[A-Z]+-\d\d/)[0];
+    t.note('오프라인 [수락] 토스트: ' + tt);
+    assert(/^⚠️ .+ · 오류 E-[A-Z]+-\d\d$/.test(tt), '오류 토스트 모양 ' + tt);
+    assert(b.sawReq(/^POST \/v2\/me\/friend-requests\/[^ ]+\/accept OFFLINE$/), '수락 요청이 오프라인으로 끝나지 않음 — ' + b.A.reqs.filter((l) => /accept/.test(l)).join(','));
+    await b.A.net(false);
     await b.until(() => { const btn = document.querySelector('#mhFmList .mh-req button.ok'); return btn && !btn.disabled; }, null, { what: '줄이 남고 다시 누를 수 있음' });
     const rb = (await b.api('GET', '/v2/me/friend-requests')).json.data;
     assert(rb.received.length === 1, '서버 요청이 사라짐');
   });
 
-  await t.step('오류 기록(tw-error.log)에 번호 한 줄', async () => {
+  await t.step('오류 기록(tw-error.log)에 같은 번호 한 줄', async () => {
     const log = path.join(b.A.out, 'appdata', 'together-working-dev', 'tw-error.log');
     let txt = '';
-    for(let i = 0; i < 20 && !/E-FR-01/.test(txt); i++){ try { txt = fs.readFileSync(log, 'utf8'); } catch(_){} await t.wait(300); }
-    assert(/E-FR-01/.test(txt), 'tw-error.log 에 E-FR-01 없음');
+    for(let i = 0; i < 20 && !txt.includes(code); i++){ try { txt = fs.readFileSync(log, 'utf8'); } catch(_){} await t.wait(300); }
+    assert(txt.includes(code), 'tw-error.log 에 ' + code + ' 없음');
   });
 
-  await t.step('길을 되돌리면 다시 누른 [수락] 이 된다', async () => {
-    await b.A.app.context().unroute(/\/v2\/me\/friend-requests\/[^/]+\/accept$/);
+  await t.step('다시 연결하면 다시 누른 [수락] 이 된다', async () => {
     await b.w.click('#mhFmList .mh-req button.ok');
     await b.until(() => /친구가 됐어요/.test(document.getElementById('toast').textContent), null, { what: '수락 토스트' });
     const fb = (await b.api('GET', '/v2/me/friends')).json.data;

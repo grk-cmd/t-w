@@ -61,25 +61,17 @@ async function until(w, fn, arg, { timeout = 20000, every = 300, what = '조건'
 function killLeft(dir){ try { execFileSync('pkill', ['-9', '-f', 'Electron.*' + dir + '/']); } catch(_){} }   // 앱 프로세스만(이 폴더 이름이 든 셸 명령까지 죽이지 않게)
 
 async function launchRetry(A){
+  // 켜기가 아무 답 없이 멈출 때만(디버그 포트 연결 등 · 90초) 그 한 벌을 죽이고 다시 켠다.
+  // 주소 돌리기는 lib.js · route-main.js 가 main 에서 건다 — 돌리지 못한 요청은 막히고 quietProblems 가 그 단계를 실패시킨다(다시 읽어 숨기지 않는다)
   for(let i = 1; ; i++){
     let timer;
     try {
-      // 켜기가 아무 답 없이 멈출 때가 있다(디버그 포트 연결 등) — 90초 넘으면 그 한 벌을 죽이고 다시
-      const w = await Promise.race([A.launch(), new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('켜기 90초 넘김')), 90000); })]);
-      // 주소 돌리기가 안 걸린 채 첫 화면이 바깥 dev 주소로 나갈 때가 있다(요청 기록이 비고 502) — 다시 읽고, 그래도면 다시 켠다
-      const n0 = A.reqs.length;
-      for(let k = 0; k < 2; k++){
-        for(let j = 0; j < 40 && A.reqs.length === n0; j++) await wait(250);
-        if(A.reqs.length > n0) return w;
-        A.logs.push('--- 요청이 도구를 안 거침 — 다시 읽기 ---');
-        await w.reload();
-      }
-      throw new Error('주소 돌리기가 안 걸림');
+      return await Promise.race([A.launch(), new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('켜기 90초 넘김')), 90000); })]);
     } catch(e){
       A.logs.push(`--- 켜기 실패 ${i}: ${String(e.message).split('\n')[0]} ---`);
       await A.quit().catch(() => {});
       killLeft(A.out);   // 도우미 프로세스(GPU · 렌더러)까지 — 남으면 다음 켜기도 같은 폴더에서 멈춘다
-      if(i >= 3) throw e;
+      if(i >= 3 || !/90초 넘김/.test(String(e.message))) throw e;   // 멈춤이 아닌 실패(주소 돌리기 확인 등)는 다시 켜지 않는다
       await wait(3000);
     } finally { clearTimeout(timer); }
   }

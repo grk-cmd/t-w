@@ -65,7 +65,7 @@ node flow.js /tmp/tw-e2e/flow2 INVT-XXXX-XXXX   # 다른 초대 코드
 ### social 묶음
 
 - `social` 묶음 공통부는 `scenarios/social/_kit.js`(`_` 로 시작하는 파일은 run-all 이 돌리지 않는다). 관리자 · 포커스 누적은 `seed/social.sql` · `seed/focus.sql` 을 로컬 DB 컨테이너(`TW_E2E_PG_CONTAINER`, 기본 `tw-dev-local-postgres-1`)에 넣는다.
-- 시험이 누를 수 없는 OS 창(파일 고르기)은 main 의 `dialog.showOpenDialog` 를 «이 파일을 골랐다» 로 바꿔 두고, 바깥 사이트(유튜브 제목 · 도움말 페이지)는 길 돌리기로 답을 준다 — 앱 코드는 그대로다.
+- 시험이 누를 수 없는 OS 창(파일 고르기)은 main 의 `dialog.showOpenDialog` 를 «이 파일을 골랐다» 로 바꿔 두고, 바깥 사이트 유튜브 제목 조회는 렌더러 fetch 를 그 주소에서만 가짜 답으로 바꾼다 — 앱 코드는 그대로다. 서버 실패는 이 앱만 오프라인(lib.js `net`)으로 만든다.
 
 ### 조용한 창 · 실행 잠금
 

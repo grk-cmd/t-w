@@ -1,5 +1,5 @@
 // 🎵 플레이리스트 — 창 열기 · 유튜브 링크 추가(제목 자동) · 서버 사본 · 친구가 [🌊] 우클릭으로 내 목록 파도타기
-// 유튜브 제목 조회(oembed)는 바깥 사이트라 시험이 가짜 답을 준다
+// 유튜브 제목 조회(oembed)는 바깥 사이트라 렌더러 fetch 를 그 주소에서만 가짜 답으로 바꾼다
 'use strict';
 const { scenario, assert, befriend, answerPrompt } = require('./_kit.js');
 
@@ -8,7 +8,8 @@ scenario('playlist', async (t) => {
   const b = await t.user('b', { name: '비이' });
   await t.step('준비: 친구 맺기(API)', () => befriend(a, b));
   const VID = 'dQw4w9WgXcQ', TITLE = 'e2e 노래 ' + Date.now().toString(36);
-  await a.A.app.context().route(/youtube\.com\/oembed/, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ title: TITLE }) }));
+  // 유튜브 제목 조회(oEmbed)는 바깥 사이트 — 진짜로 나가지 않게 렌더러의 fetch 를 그 주소에서만 가짜 답으로 바꾼다(앱이 부르는 순간의 전역 fetch 를 쓴다 · playlist.js _ytFetchTitle)
+  await a.eval((title) => { const real = window.fetch.bind(window); window.fetch = (u, o) => (/^https:\/\/www\.youtube\.com\/oembed/.test(String(u)) ? Promise.resolve(new Response(JSON.stringify({ title }), { status: 200, headers: { 'Content-Type': 'application/json' } })) : real(u, o)); }, TITLE);
   const openPl = async (u) => {
     await u.eval(() => document.getElementById('myPlBtn').click());   // 상태칩 줄의 🎵 — 런처 화면에선 줄이 숨어 있어 단추를 직접 누른다
     await u.until(() => !document.getElementById('myPlaylistBox').classList.contains('hidden'), null, { what: '플레이리스트 창' });
