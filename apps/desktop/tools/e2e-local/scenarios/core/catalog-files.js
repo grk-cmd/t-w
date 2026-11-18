@@ -1,6 +1,6 @@
 // 카탈로그 파일 — 파츠 등록(파일 올리기) · 받기 · 꾸미기에서 입기
 // 관리자 A 가 책상 모드 🎨 꾸미기 › 모자 › [+ 등록] 에 GLB 를 넣어 등록하면(POST /v2/admin/catalog/assets → 파츠 쓰기) 서버 카탈로그에 그 파츠와 모델 해시가 실리고
-// 그 파일을 받을 수 있다(GET /v2/catalog/assets/<해시>.glb). 그 뒤에 켠 B(라이선스 등록 — 꾸미기는 프리미엄)가 꾸미기 › 모자에서 그 파츠를 누르면 앱이 그 GLB 를 받아 입힌다.
+// 그 파일을 받을 수 있다(GET /v2/catalog/assets/<해시>.glb). 그 뒤에 켠 B(라이선스 등록 — 꾸미기는 프리미엄)의 앱이 그 GLB 를 서버에서 받고, 꾸미기 › 모자에서 그 파츠를 누르면 입는다.
 // 로컬 묶음 API 에 Storage 에뮬레이터 연결이 있어야 돈다(없으면 올리기가 503 — FEATURES.md «부분: Storage»). 시험 파츠는 끝에 단종으로 내린다.
 'use strict';
 const { run } = require('./_kit.js');
@@ -61,11 +61,13 @@ run('catalog-files', async (t) => {
     await t.step('B 꾸미기 › 모자에서 그 파츠를 누르면 앱이 GLB 를 받아 입힘', async () => {
       await t.createCharacter(B); await t.enterDesk(B);
       await openWardrobe(t, B);
-      const card = B.w.locator('#wardrobePanel .wd-grid >> text=' + name).first();
+      const card = B.w.locator('#wardrobePanel .wd-card', { hasText: name }).first();
       await card.waitFor({ state: 'visible', timeout: 15000 });
-      const n = B.reqs.length;
       await card.click();
-      await t.poll(() => B.reqs.slice(n).some((r) => r.startsWith('GET /v2/catalog/assets/' + part.model) && / 200$/.test(r)), 20000, 'B 앱이 모델 파일을 받음');
+      // 입었다 = 다시 그린 칸이 «입음»(.wd-card.on). 모델은 앱이 카탈로그를 받을 때 미리 받아 둘 수 있어(이 PC 캐시) 누른 뒤가 아니라 이번 켜기 뒤 어느 때든 서버에서 받았는지 본다
+      await t.poll(() => B.w.locator('#wardrobePanel .wd-card.on', { hasText: name }).count(), 10000, '그 파츠 칸이 «입음»');
+      const since = B.reqs.lastIndexOf('--- launch ---');
+      t.check(B.reqs.slice(since + 1).some((r) => r.startsWith('GET /v2/catalog/assets/' + part.model) && / 200$/.test(r)), 'B 앱이 이번 켜기에 모델 파일을 서버에서 받지 않음');
       t.check(!/E-CHAR/.test(await B.w.textContent('#toast')), '입기 실패 알림: ' + await B.w.textContent('#toast'));
       await t.shot(B, '02-worn');
     });
