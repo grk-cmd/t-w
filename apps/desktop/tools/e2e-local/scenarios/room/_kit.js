@@ -174,7 +174,7 @@ function openUser(t, out, label){
     await w.locator('#inviteGateInput').waitFor({ state: 'visible', timeout: 45000 });
     await w.fill('#inviteGateInput', INVITE);
     await w.click('#inviteGateOk');
-    await w.locator('#signupPw').waitFor({ state: 'visible', timeout: 20000 });
+    await w.locator('#signupPw').waitFor({ state: 'visible', timeout: 45000 });   // 바쁜 PC 에선 초대 코드 확인이 20초를 넘는다
     u.fc = (await w.textContent('#signupCode')).trim();
     await w.fill('#signupPw', PW);
     await w.fill('#signupPw2', PW);
