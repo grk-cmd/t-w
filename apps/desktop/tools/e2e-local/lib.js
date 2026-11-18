@@ -17,6 +17,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 function makeApp(outArg, opts = {}){
   const out = path.resolve(outArg);
   const logs = [], reqs = [];
+  const quiet = opts.quiet !== undefined ? !!opts.quiet : process.env.TW_E2E_QUIET !== '0';
   let offline = false, app = null;
 
   // 앱이 부르는 dev 주소를 이 PC 의 서버 · 에뮬레이터로 돌린다. keepHost: Auth 에뮬레이터는 주소 앞에 원래 호스트를 붙여 받는다
@@ -49,7 +50,6 @@ function makeApp(outArg, opts = {}){
     const pkg = JSON.parse(fs.readFileSync(path.join(APP_DIR, 'package.json'), 'utf8'));
     fs.writeFileSync(path.join(wrap, 'package.json'), JSON.stringify({ name: pkg.name, version: opts.version || pkg.version, main: 'main.js' }));
     // 조용한 창(TW_E2E_QUIET, 기본 켬) — 시험 창이 화면 밖에 뜨고 포커스 · Dock 을 빼앗지 않게(quiet-main.js). 끄려면 TW_E2E_QUIET=0
-    const quiet = opts.quiet !== undefined ? !!opts.quiet : process.env.TW_E2E_QUIET !== '0';
     const quietJs = quiet ? `require(${JSON.stringify(path.join(__dirname, 'quiet-main.js'))});\n` : '';
     fs.writeFileSync(path.join(wrap, 'main.js'),
       `require('electron').app.setPath('appData', ${JSON.stringify(path.join(out, 'appdata'))});\n`
@@ -87,15 +87,18 @@ function makeApp(outArg, opts = {}){
     await app.evaluate(({ session }, o) => session.defaultSession.enableNetworkEmulation({ offline: o }), off);
   }
 
-  return { launch, quit, net, logs, reqs, out, get app(){ return app; } };
+  return { launch, quit, net, logs, reqs, out, quiet, get app(){ return app; } };
 }
 
 /** 조용한 창이 지켜지나 — 켜 둔 앱의 창마다 진짜 자리 · 투명도 · 소리 · 포커스를 보고 어긋난 것을 글로 돌려준다(빈 배열 = 조용함).
- *  화면 밖: mac 은 화면 밖 창을 화면 끝으로 당겨 놓아, 어느 화면과도 4분의 1 넘게 겹치지 않으면 밖으로 본다. TW_E2E_QUIET=0 이면 늘 빈 배열 */
+ *  화면 밖: mac 은 화면 밖 창을 화면 끝으로 당겨 놓아, 어느 화면과도 4분의 1 넘게 겹치지 않으면 밖으로 본다.
+ *  조용히 켜지 않은 앱(makeApp 의 quiet — TW_E2E_QUIET=0 · opts.quiet:false)은 부르는 쪽이 건너뛴다(앱 객체의 .quiet) */
 async function quietProblems(app){
-  if(process.env.TW_E2E_QUIET === '0' || !app) return [];
-  const s = await app.evaluate(({ BrowserWindow, screen }) => ({
+  if(!app) return [];
+  const s = await app.evaluate(({ BrowserWindow, screen, webContents }) => ({
     displays: screen.getAllDisplays().map((d) => d.bounds),
+    // 창에 안 달린 webContents(BrowserView 의 BGM · 같이 듣기)도 소리를 본다
+    loud: webContents.getAllWebContents().filter((c) => !c.isDestroyed() && (typeof c.__e2eRealAudioMuted === 'function' ? !c.__e2eRealAudioMuted() : !c.isAudioMuted())).map((c) => c.getURL().slice(0, 80)),
     focused: !!BrowserWindow.getFocusedWindow(),
     wins: BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed()).map((w) => ({
       wrapped: typeof w.__e2eRealBounds === 'function',
@@ -109,6 +112,7 @@ async function quietProblems(app){
   const overlap = (r, d) => Math.max(0, Math.min(r.x + r.width, d.x + d.width) - Math.max(r.x, d.x)) * Math.max(0, Math.min(r.y + r.height, d.y + d.height) - Math.max(r.y, d.y));
   const bad = [];
   if(s.focused) bad.push('포커스 받은 창이 있음');
+  if(s.loud.length) bad.push('소리 켜진 webContents ' + JSON.stringify(s.loud));
   if(!s.wins.length) bad.push('창이 하나도 안 보임(getAllWindows 0 — 감싸기가 창 목록을 가림)');
   for(const w of s.wins){
     const why = [];

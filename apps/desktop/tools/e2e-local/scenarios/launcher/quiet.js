@@ -3,12 +3,13 @@
 // ② 앱이 창을 앞으로 · 화면 안으로 부르는 길을 main 에서 직접 부른다(show · focus · moveTop · center · maximize ·
 //    setAlwaysOnTop(true) · setPosition · app.focus — 크기 · setBounds 는 같은 하위 클래스로 만든 시험 창) → 그래도 진짜 창은 화면 밖 · 투명 · 소리 끔 · 포커스 없음 · 크기는 따름 ·
 //    앱이 읽는 값(getBounds · getPosition · isAlwaysOnTop · getOpacity · isAudioMuted)은 앱이 정한 값
-// ③ 창 목록(getAllWindows · fromWebContents · getFocusedWindow)이 감싸지 않았을 때와 같다 · ④ 렌더러 window.open 자식 창(방명록 길)도 조용
+// ③ 창 목록(getAllWindows · fromWebContents · getFocusedWindow)이 감싸지 않았을 때와 같다 · ④ 렌더러 window.open 자식 창(방명록 길)도 조용 ·
+// ⑤ BrowserView(BGM 길)도 소리 끔 — 판정은 lib.quietProblems 한 곳
 // 결과: <결과 폴더>/steps.txt(ok · FAIL) · 종료 코드 0/1. TW_E2E_QUIET=0 이면 볼 것이 없어 건너뛴다
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { makeApp, wait } = require('../../lib.js');
+const { makeApp, wait, quietProblems } = require('../../lib.js');
 const { acquire } = require('../../runlock.js');
 
 const out = path.resolve(process.argv[2] || '/tmp/tw-e2e/launcher/quiet');
@@ -33,19 +34,15 @@ const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(pa
     focused: !!BrowserWindow.getFocusedWindow(),
     displays: screen.getAllDisplays().map((d) => d.bounds),
   }));
-  // 화면 밖인가 — mac 은 화면 밖 창을 화면 끝으로 당겨 놓는다. 진짜 창이 어느 화면과도 4분의 1 넘게 겹치지 않으면 밖으로 본다(투명 · 클릭 통과는 따로 본다)
-  const overlap = (r, d) => Math.max(0, Math.min(r.x + r.width, d.x + d.width) - Math.max(r.x, d.x)) * Math.max(0, Math.min(r.y + r.height, d.y + d.height) - Math.max(r.y, d.y));
-  const offscreen = (r, ds) => ds.every((d) => overlap(r, d) <= 0.25 * r.width * r.height);
+  // 조용한가는 lib.quietProblems 한 곳이 판정한다(단계마다 보는 것과 같은 규칙) — look 은 앱이 읽는 값(늘 위 · 가상 자리)만 본다
   const holdQuiet = async (where, ms = 4000) => {
     const t0 = Date.now();
-    let s;
     while(Date.now() - t0 < ms){
-      s = await look();
-      const bad = s.wins.filter((w) => !w.real || !offscreen(w.real, s.displays) || w.focus || w.opacity !== 0 || w.muted !== true || w.realAot !== false);
-      if(!s.wins.length || bad.length || s.focused) throw new Error(where + ' — 화면 안 · 포커스 · 보임 · 소리 · 감싸지 않은 창: ' + JSON.stringify(s));
+      const bad = await quietProblems(A.app);
+      if(bad.length) throw new Error(where + ' — ' + bad.join(' / '));
       await wait(250);
     }
-    return s;
+    return look();
   };
   const step = async (label, fn) => {
     const t0 = Date.now();
@@ -120,9 +117,25 @@ const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(pa
       if(kid.real.width !== 320 || kid.real.height !== 560) throw new Error('자식 창 크기가 앱 옵션(320x560)이 아님 ' + JSON.stringify(kid.real));
       await A.app.windows()[0].evaluate(() => { try { window.__twQuietChild.close(); } catch(_){} });
     });
+    await step('BrowserView(BGM · 같이 듣기 길)도 소리 끔 — 앱이 setAudioMuted(false) 를 불러도 진짜는 끔', async () => {
+      const r = await A.app.evaluate(({ BrowserWindow, BrowserView }) => {
+        const v = new BrowserView();
+        BrowserWindow.getAllWindows()[0].addBrowserView(v);
+        v.webContents.setAudioMuted(false);
+        const out = { app: v.webContents.isAudioMuted(), real: typeof v.webContents.__e2eRealAudioMuted === 'function' ? v.webContents.__e2eRealAudioMuted() : null };
+        globalThis.__twQuietView = v;
+        return out;
+      });
+      if(r.app !== false || r.real !== true) throw new Error('BrowserView 소리 — 앱 값 false · 진짜 끔이어야 ' + JSON.stringify(r));
+      await holdQuiet('BrowserView 뒤', 1000);
+      await A.app.evaluate(({ BrowserWindow }) => { const v = globalThis.__twQuietView; BrowserWindow.getAllWindows()[0].removeBrowserView(v); v.webContents.close(); });
+    });
   } catch(e){
     code = 1;
     if(!steps.some((l) => l.startsWith('FAIL'))) steps.push('FAIL ' + e.message);
+    if(process.env.TW_E2E_RUN_LOCK){
+      try { fs.appendFileSync(path.join(path.dirname(process.env.TW_E2E_RUN_LOCK), 'e2e-quiet-fail'), new Date().toISOString() + ' launcher/quiet ' + e.message + '\n'); } catch(_){}
+    }
     steps.push('ABORT ' + e.message);
   } finally {
     if(!code) steps.push('PASS');   // run-all 은 steps.txt 의 PASS 줄로 통과를 본다
