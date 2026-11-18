@@ -1,6 +1,6 @@
 // 카탈로그 파일 — 파츠 등록(파일 올리기) · 받기 · 꾸미기에서 입기
 // 관리자 A 가 책상 모드 🎨 꾸미기 › 모자 › [+ 등록] 에 GLB 를 넣어 등록하면(POST /v2/admin/catalog/assets → 파츠 쓰기) 서버 카탈로그에 그 파츠와 모델 해시가 실리고
-// 그 파일을 받을 수 있다(GET /v2/catalog/assets/<해시>.glb). 그 뒤에 켠 B 가 꾸미기 › 모자에서 그 파츠를 누르면 앱이 그 GLB 를 받아 입힌다.
+// 그 파일을 받을 수 있다(GET /v2/catalog/assets/<해시>.glb). 그 뒤에 켠 B(라이선스 등록 — 꾸미기는 프리미엄)가 꾸미기 › 모자에서 그 파츠를 누르면 앱이 그 GLB 를 받아 입힌다.
 // 로컬 묶음 API 에 Storage 에뮬레이터 연결이 있어야 돈다(없으면 올리기가 503 — FEATURES.md «부분: Storage»). 시험 파츠는 끝에 단종으로 내린다.
 'use strict';
 const { run } = require('./_kit.js');
@@ -47,6 +47,17 @@ run('catalog-files', async (t) => {
       t.note(`파츠 ${part.partId} · 모델 ${part.model.slice(0, 12)}… · ${body.length}B`);
     });
     const B = await t.newUser('user');
+    // 꾸미기는 라이선스(프리미엄)가 있어야 열린다 — 관리자가 B 에게 키를 내고 B 가 등록한 뒤 다시 켠다
+    await t.step('B 라이선스 받아 등록 → 프리미엄 · 다시 켜기', async () => {
+      const g = await ADM.call('POST', '/v2/admin/licenses', { requestId: 'e2e-cf-' + tag, grants: [{ friendCode: B.fc, note: 'e2e catalog-files' }], reissue: false });
+      const row = g.body && Array.isArray(g.body.data) && g.body.data[0];
+      t.check(g.status === 200 && row && row.ok && row.key, '라이선스 발급 ' + g.status + ' ' + JSON.stringify(g.body).slice(0, 160));
+      const r = await t.api(B, 'POST', '/v2/me/license', { key: row.key, device: { id: await B.w.evaluate(() => TwDeviceId.store.get()), name: 'e2e' } });
+      t.check(r.status === 200, '라이선스 등록 ' + r.status + ' ' + JSON.stringify(r.body).slice(0, 160));
+      await t.poll(async () => { const m = await t.api(B, 'GET', '/v2/me'); return m.body && m.body.data && m.body.data.premium === true; }, 10000, 'B premium true');
+      await t.relaunch(B);
+      await t.waitLoggedIn(B);
+    });
     await t.step('B 꾸미기 › 모자에서 그 파츠를 누르면 앱이 GLB 를 받아 입힘', async () => {
       await t.createCharacter(B); await t.enterDesk(B);
       await openWardrobe(t, B);
