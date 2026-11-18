@@ -4,10 +4,10 @@
 모양: **무엇을 보면 → 왜 문제 → 어떻게 찾나**. 검사가 생기면 줄을 «검사로 옮김» 으로 남긴다. «검사로 옮김» 의 검사는 0.13 판(`release/0.13.0` · #1014)부터 있다 — 그 전 판 PR 은 그 줄도 사람이 본다.
 
 ## 데이터 · Firebase
-- **노드 통째 읽기 · 구독**(`get(ref(db,'x'))` · `onValue` 를 상위 노드에) → 요금은 내려받은 바이트, 자식 하나만 쓰는데 다 받는다 → 바뀐 줄의 경로가 «필요한 하위 경로» 인지, 같은 값을 다른 곳이 이미 받고 있지 않은지. Firebase SDK 를 새로 부르는 곳은 `tw/no-firebase-data` 가 막지만, 린트는 파일마다 호출 개수만 센다 — 이미 있는 Firebase 호출 · `firebaseAPI.x(path)` 래퍼의 경로가 상위 노드로 바뀐 곳, 규칙이 꺼진 파일(app.js · firebase-init.js · net-ready.js · rt-bind.js), 서버 API · realtime 구독이 받는 범위는 사람이 본다.
+- **노드 통째 읽기 · 구독**(`get(ref(db,'x'))` · `onValue` 를 상위 노드에) → 요금은 내려받은 바이트, 자식 하나만 쓰는데 다 받는다 → 바뀐 줄의 경로가 «필요한 하위 경로» 인지, 같은 값을 다른 곳이 이미 받고 있지 않은지. Firebase SDK 를 새로 부르는 곳은 `tw/no-firebase-data` 가 막지만, 린트는 파일마다 호출 개수만 센다 — 이미 있는 Firebase 호출 · `firebaseAPI.x(path)` 래퍼의 경로가 상위 노드로 바뀐 곳, 서버 API · realtime 구독이 받는 범위는 사람이 본다.
 - **숫자 하나(배지 · 개수)를 위해 목록 통째 구독**(예: 방명록 새 글 배지가 방명록 전체를 상시 구독) → 요약 값 · 서버 요약 API 로 → 구독 결과에서 `.length` · 개수만 쓰는 곳.
 - **사람 수만큼 구독**(친구마다 `onValue`) → N 배로 늘어난다 → 반복문 안의 구독 · 친구 목록을 돌며 거는 리스너.
-- **Firebase 의존을 새로 늘림** → 검사로 옮김: `tw/no-firebase-data`(앱 렌더러 `app/parts/**` 가 Firebase DB · Storage SDK 함수를 새로 가져오거나 부르면 빨강) · `tw/no-firebase-api`(도메인 모듈이 `firebaseAPI` 를 직접 부르면 빨강) — `docs/LINT.md`. 린트가 못 보는 것만 사람이 → 이미 있는 래퍼(`firebaseAPI.x(path, …)`)에 새 경로를 넘기는 곳 · 웹 관리자(`apps/admin`)의 새 Firebase 경로 · functions · 규칙 파일의 새 경로.
+- **Firebase 의존을 새로 늘림** → 검사로 옮김: `tw/no-firebase-data`(앱 렌더러 `app/parts/**` 가 Firebase DB · Storage SDK 함수를 새로 가져오거나 부르면 빨강) · `tw/no-firebase-api`(도메인 모듈이 `firebaseAPI` 를 직접 부르면 빨강) — `docs/LINT.md`. 린트가 못 보는 것만 사람이 → 이미 있는 래퍼(`firebaseAPI.x(path, …)`)에 새 경로를 넘기는 곳 · `tw/no-firebase-api` 가 꺼진 파일 넷(app.js · firebase-init.js · shared/net-ready.js · realtime/rt-bind.js — 특히 조립 자리 app.js)에서 `firebaseAPI` 를 새로 부르는 곳 · 웹 관리자(`apps/admin`)의 새 Firebase 경로 · functions · 규칙 파일의 새 경로.
 - **이름 placeholder(«이름 없음») 를 저장 · 전송 값에 싣기** → 검사로 옮김: `tw/no-placeholder-store`(`setItem` · `save…` · `send…` 같은 저장 · 보내기 인자 안의 `TwPersonName.shown()` · `getDisplayName()` · `NO_NAME` · `'이름 없음'` 이면 빨강). 변수에 담아 넘기는 것은 못 보니 → 저장 · 전송 값이 그린 이름이 아니라 이름 그대로(없으면 `''`)인가.
 - **규칙을 좁힐 때 실제로 쓰는 모양으로 시험 안 함**(말랑이 사고 — 앱이 보내는 칸을 규칙이 거절) → 규칙 diff 가 있으면 앱 · 웹 관리자 · functions · 서버가 그 경로에 실제로 쓰는 payload 를 grep 해 그 모양으로 통과/거절 시험이 있는가.
 
