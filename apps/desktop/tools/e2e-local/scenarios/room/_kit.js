@@ -68,7 +68,7 @@ function scenario(file, body){
         const r = await Promise.race([fn(), limit]);
         // 단계마다 창이 조용한지 본다(lib.js quietProblems — 네 묶음 같은 판정: 자식 창까지 · 화면 밖 · 투명 · 소리 끔 · 포커스 없음 · 진짜 늘 위 아님)
         for(const u of users){
-          const bad = await quietProblems(u.A.app).catch(() => []);
+          const bad = u.A.quiet ? await quietProblems(u.A.app).catch((e) => ['판정 못 함 ' + e.message]) : [];
           if(bad.length){
             const msg = `${u.label}: 창이 조용하지 않음 — ${bad.join(' / ')}`;
             // TW_E2E_QUIET_FAIL=<파일> 이면 그 파일에 적어 둔다 — run-all 은 그 파일이 생기면 남은 시나리오를 돌리지 않는다
