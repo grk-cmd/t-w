@@ -652,7 +652,8 @@ document.getElementById('lcNameBtn').onclick=()=>{
 /* --- 방 개수 표시(n/상한) + 정원 초과 시 생성 차단 --- */
 /* 채널별 방 개수 상한 — 원격 설정 room.limits(채널마다 1~10000). 판정은 서버(새 방만 · channelFull) — 앱은 꽉 찼을 때 문구에만 쓴다. */
 const CHANNEL_NAMES = { workingroom: '워킹룸', togetherroom: '투게더룸' };
-function roomLimitOf(channel){ const s = _rcStore(); return s ? s.roomLimitOf(channel) : 300; }
+/* 기본값은 remote-config.js 한 곳(DEFAULTS) — store 는 이 파일보다 먼저 싣는 remote-config.js 가 늘 만든다. */
+function roomLimitOf(channel){ return _rcStore().roomLimitOf(channel); }
 /* 꽉 찼을 때 문구 — 서버 channelFull(방 만들기 · 빈 방 열기)이 쓴다. */
 function _channelFullMsg(channel){
   const limit = roomLimitOf(channel), name = CHANNEL_NAMES[channel] || '방';
