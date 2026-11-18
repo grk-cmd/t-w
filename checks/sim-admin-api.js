@@ -36,6 +36,8 @@ function mk(src, o){
   const call = (m) => async (path, a) => {
     log.push([m === 'del' ? 'DELETE' : m.toUpperCase(), path, m === 'del' || m === 'get' ? undefined : a]);
     if(m === 'del' || m === 'get') log[log.length - 1][3] = a;
+    /* 진짜 통로(api-client.js)처럼 — 읽기는 auth:true 일 때만 토큰을 싣는다. 토큰 없는 관리자 읽기는 서버가 401 로 거절한다 */
+    if(m === 'get' && !(a && a.auth === true)) throw apiErr(401, 'AUTH_REQUIRED');
     const r = o[m]; const v = typeof r === 'function' ? r(path, a) : r;
     if(v instanceof Error) throw v;
     return v;
@@ -56,6 +58,7 @@ async function judge(S){
     const me = await t.m.me();
     chk(t.log[0][0] === 'GET' && t.log[0][1] === '/v2/admin/admins/me' && me.name === '관리자' && me.version === 4, '관리자 확인 — GET /v2/admin/admins/me → { name, version }');
     chk(await mk(LIB, { get: { name: null, version: 1 } }).m.me().then((x) => x.name === ''), '  이름이 없어도(null) 확인은 통한다');
+    chk(t.log[0][3] && t.log[0][3].auth === true, '  ↳ 관리자 확인은 로그인 토큰을 싣는다(auth:true — 빠지면 401 로 관리자 모드에 못 들어감)');
 
     const a = mk(LIB, { post: null, del: null });
     await a.m.announce('가'.repeat(200));
@@ -233,6 +236,7 @@ async function runAll(){
     ['닿지 못해도 번호 버림', { API: S.API.replace("if(e && e.status) ids.settle(key); throw e;", "ids.settle(key); throw e;") }, '번호를 남긴다'],
     ['ACCESS_DENIED 가 공통 번호로', { API: S.API.replace("'E-ADM-05'", "'E-NET-02'") }, 'E-ADM-05'],
     ['걷은 Firebase 쓰기가 남음', { FI: S.FI + "\n    async publishAnnounce(text){ return 1; }," }, '걷은 관리자 쓰기'],
+    ['관리자 읽기에 토큰을 안 실음', { API: S.API.replace("authed.get(path, { auth: true })", "authed.get(path)") }, 'auth:true'],
     ['html 순서 틀림', { HTML: S.HTML.replace('<script src="parts/admin/admin-api.js"></script>', '') }, 'html'],
   ];
   for(const [name, over, what] of breaks){
