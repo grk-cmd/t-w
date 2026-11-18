@@ -7,6 +7,7 @@ dev 앱(`--tw-firebase=dev`)을 켜서 화면을 누르고 결과를 파일로 �
 | `lib.js` | 격리된 앱 한 벌 켜기 · 끄기 · 주소 돌리기 · 오프라인 흉내 |
 | `flow.js` | 정해진 흐름 한 바퀴(가입 → 다시 켜기 → 로그인된 책상 → 얼굴 PNG · GLB 올리기 · 받기 → 오프라인 · 온라인) |
 | `quiet-main.js` | 조용한 창 — 시험 앱의 창 · 포커스를 화면 밖에 묶는다(아래 «조용한 창») |
+| `route-main.js` | 주소 돌리기 — 시험 앱의 요청을 이 PC 서버 · 에뮬레이터로 돌리고 진짜 서버로는 못 나가게 막는다(아래 «주소 돌리기») |
 | `run-all.js` · `scenarios/<영역>/*.js` | 자동 판정 시나리오 — 하나씩 돌리고 요약(종료 코드 · `steps.txt` 의 ok · FAIL) |
 | `runlock.js` | 여러 사람 · 세션이 한 PC 에서 돌릴 때 한 번에 한 실행만 Electron 을 켜게 하는 잠금 |
 | `seed/*.sql` | 시나리오가 쓰는 로컬 DB 시드(초대 코드 · 관리자) |
@@ -39,6 +40,15 @@ dev 앱은 `userData` 를 `appData/<이름>-dev` 로 바꾼다(`main.js`). 그�
 `lib.js` 는 결과 폴더에 작은 진입점(`wrap/main.js`)을 만든다. 이 진입점이 `appData` 를 `<결과 폴더>/appdata` 로 돌린 뒤 앱 `main.js` 를 부른다. 켠 뒤 `userData` 가 결과 폴더 안인지 보고, 밖이면 바로 끄고 멈춘다.
 
 결과 폴더는 **저장소 밖**에 둔다(예: `/tmp/tw-e2e/...`). 앱 데이터가 통째로 쌓이고, 저장소 안에 두면 검사 러너가 복사한다. 폴더를 지우면 앱 한 벌이 깨끗이 사라진다.
+
+## 주소 돌리기 — 진짜 서버로는 안 나간다
+
+감싸는 진입점이 앱 `main.js` 보다 먼저 `route-main.js` 를 부른다(조용한 창과 상관없이 늘). 세션마다 앱의 창 · 요청보다 먼저 걸린다.
+
+- **돌리기** — 세션의 https 처리기(`protocol.handle`)가 이 PC 주소로 대신 받아 원래 주소의 답으로 준다(redirect 가 아니라 창에서 본 주소 · 출처가 그대로). `api-dev.together-working.com` → `127.0.0.1:8080` · `identitytoolkit` · `securetoken.googleapis.com` → Auth 에뮬레이터 `127.0.0.1:9099/<호스트>/…` · `firebasestorage.googleapis.com` → Storage 에뮬레이터 `127.0.0.1:9199`. realtime 은 dev 판이 처음부터 `ws://127.0.0.1:8787` 이다.
+- **막기** — 짝이 없는 `*.together-working.com` · `*.googleapis.com` · `*.firebaseio.com` · `*.firebaseapp.com` · `*.web.app`(ws · wss 포함)은 네트워크 오류로 끝낸다. 막은 것은 결과 폴더 `net.txt` 에 `BLOCK` 줄로 남고 `lib.quietProblems` 가 문제로 낸다(시나리오는 그 단계가 실패하고 `e2e-quiet-fail` 에 주소가 남는다).
+- **켤 때 확인** — `lib.launch` 가 창에서 `https://api-dev.together-working.com/actuator/health` 를 불러 이 PC API 가 200 으로 답했는지(돌린 기록) · 막힌 요청이 없는지 본다. 아니면 앱을 끄고 실패한다(다시 읽기 · 다시 켜기로 감추지 않는다).
+- 돌린 요청은 `net.txt` 의 `REQ` 줄 → `A.reqs`(옛 모양 `<방법> <길> <상태>` 그대로). 확인 시나리오는 `scenarios/launcher/routing.js`.
 
 ## 돌리기
 
