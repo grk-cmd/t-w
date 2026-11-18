@@ -12,7 +12,9 @@ const STORAGE_EMU = 'http://127.0.0.1:9199';
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function makeApp(outArg){
+// opts.version — 앱이 스스로 아는 판(app.getVersion)을 바꾼다(판 확인 시나리오가 «옛 판 · 새 판 PC» 를 흉내 낼 때)
+// opts.quiet — 이 앱만 조용한 창을 켜고 끈다(없으면 TW_E2E_QUIET)
+function makeApp(outArg, opts = {}){
   const out = path.resolve(outArg);
   const logs = [], reqs = [];
   let offline = false, app = null;
@@ -45,15 +47,31 @@ function makeApp(outArg){
     const wrap = path.join(out, 'wrap');
     fs.mkdirSync(wrap, { recursive: true });
     const pkg = JSON.parse(fs.readFileSync(path.join(APP_DIR, 'package.json'), 'utf8'));
-    fs.writeFileSync(path.join(wrap, 'package.json'), JSON.stringify({ name: pkg.name, version: pkg.version, main: 'main.js' }));
+    fs.writeFileSync(path.join(wrap, 'package.json'), JSON.stringify({ name: pkg.name, version: opts.version || pkg.version, main: 'main.js' }));
+    // 조용한 창(TW_E2E_QUIET, 기본 켬) — 시험 창이 화면 밖에 뜨고 포커스 · Dock 을 빼앗지 않게. 끄려면 TW_E2E_QUIET=0.
+    // 창은 누를 수 있게 둔다(setFocusable(false) 는 입력을 막는다). 화면 밖 창도 타이머 · WebGL 이 돌게 배경 늦추기를 끈다
+    const quiet = opts.quiet !== undefined ? !!opts.quiet : process.env.TW_E2E_QUIET !== '0';
+    const quietJs = quiet ? [
+      `const { app: __a } = require('electron');`,
+      `if(process.platform === 'darwin') __a.setActivationPolicy('accessory');`,
+      `__a.on('browser-window-created', (_e, w) => {`,
+      `  const off = () => { try { if(!w.isDestroyed()) w.setPosition(-20000, -20000); } catch(_){} };`,
+      `  off(); w.on('move', () => { const [x] = w.getPosition(); if(x > -10000) off(); });`,
+      `  try { w.webContents.setBackgroundThrottling(false); } catch(_){}`,
+      `});`,
+    ].join('\n') + '\n' : '';
     fs.writeFileSync(path.join(wrap, 'main.js'),
       `require('electron').app.setPath('appData', ${JSON.stringify(path.join(out, 'appdata'))});\n`
+      + quietJs
       + `require(${JSON.stringify(path.join(APP_DIR, pkg.main || 'main.js'))});\n`);
     app = await _electron.launch({
       args: [wrap, '--tw-firebase=dev'],
       cwd: APP_DIR,
       executablePath: require(path.join(APP_DIR, 'node_modules', 'electron')),
     });
+    // 메인 로그는 켜자마자 건다 — 첫 창이 안 뜨는 실패도 까닭이 남게
+    app.process().stdout.on('data', (d) => logs.push('[main] ' + String(d).trim().slice(0, 300)));
+    app.process().stderr.on('data', (d) => logs.push('[main-err] ' + String(d).trim().slice(0, 300)));
     const ud = await app.evaluate(({ app: a }) => a.getPath('userData'));
     if(!ud.startsWith(out)){ await quit(); throw new Error('userData 가 시험 폴더 밖: ' + ud); }
     const ctx = app.context();
@@ -64,11 +82,9 @@ function makeApp(outArg){
       p.on('console', (m) => logs.push(`[${m.type()}] ${m.text()}`));
       p.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}`));
     };
-    app.process().stdout.on('data', (d) => logs.push('[main] ' + String(d).trim().slice(0, 300)));
-    app.process().stderr.on('data', (d) => logs.push('[main-err] ' + String(d).trim().slice(0, 300)));
     app.on('window', hook);
     app.windows().forEach(hook);
-    const w = await app.firstWindow();
+    const w = await app.firstWindow({ timeout: 90000 });   // 바쁜 PC 에서는 30초 안에 첫 창이 안 뜨는 때가 있다
     // 길 돌리기가 걸리기 전에 첫 화면이 이미 요청을 보냈다 — 다시 읽어 처음부터 돌린 길로 가게 한다
     await w.reload();
     return w;
