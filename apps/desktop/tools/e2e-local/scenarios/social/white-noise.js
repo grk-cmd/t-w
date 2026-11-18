@@ -3,6 +3,7 @@
 // 실제로 소리가 나는 때(타이핑 자세)는 OS 전역 키 입력(uiohook)으로 정해져 시험이 만들 수 없다 — 소리 합성 비율은 sim-noise 가 본다
 'use strict';
 const { scenario, assert, makeCharacter, createRoom, remoteSeats, wait } = require('./_kit.js');
+const { enterDesk } = require('./_kit.js');
 
 scenario('white-noise', async (t) => {
   const a = await t.user('a', { name: '에이' });
@@ -19,6 +20,9 @@ scenario('white-noise', async (t) => {
     code = await createRoom(a);
     await b.eval((c) => roomEntryMod.startRoom(c), code);
     await b.until((c) => Presence.active() && Presence.roomCode() === c, code, { timeout: 30000, what: 'b 입장' });
+    // 남의 좌석은 내 좌석이 있을 때만 만든다(room-entry presenceChanged) — 내 좌석은 책상 모드에서 생긴다
+    await enterDesk(a);
+    await enterDesk(b);
   });
 
   await t.step('a: ⌨️ 키보드 고르기 · 음량 30 → 기억', async () => {

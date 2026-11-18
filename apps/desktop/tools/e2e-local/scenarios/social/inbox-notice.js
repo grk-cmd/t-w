@@ -31,8 +31,8 @@ scenario('inbox-notice', async (t) => {
     await b.w.locator('#mhInboxList .mh-ibx-card', { hasText: MAIL }).click();
     await b.until((x) => [...document.querySelectorAll('#mhInboxList .mh-ibx-card.read .mh-ibx-title')].some((e) => e.textContent === x), MAIL, { what: '읽음 카드' });
     let m;
-    for(let i = 0; i < 20; i++){ m = find(await mine(), MAIL); if(m && m.read) break; await t.wait(300); }
-    assert(m && m.read === true, '서버 읽음 ' + JSON.stringify(m));
+    for(let i = 0; i < 20; i++){ m = find(await mine(), MAIL); if(m && m.readAt) break; await t.wait(300); }
+    assert(m && !!m.readAt, '서버 읽음 ' + JSON.stringify(m));
   });
 
   await t.step('b: × 지우기 → 서버에서도 없다', async () => {

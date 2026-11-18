@@ -40,7 +40,7 @@ scenario('bug-board', async (t) => {
     await makeAdmin(a);
     const d = await a.api('GET', '/v2/bugs/' + encodeURIComponent(num));
     assert(d.status === 200 && JSON.stringify(d.json.data).includes(BODY), '관리자가 비공개 본문을 못 읽음 ' + d.status);
-    const r = await a.api('POST', `/v2/admin/bugs/${encodeURIComponent(num)}/answers`, { requestId: 'e2e-ans-' + tag, text: ANS });
+    const r = await a.api('POST', `/v2/admin/bugs/${encodeURIComponent(num)}/answers`, { requestId: 'e2e-ans-' + tag, text: ANS, status: 'CHECKING' });
     assert(r.status === 200, '답변 ' + r.status + ' ' + JSON.stringify(r.json));
   });
 

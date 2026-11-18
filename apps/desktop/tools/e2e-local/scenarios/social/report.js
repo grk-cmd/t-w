@@ -2,6 +2,7 @@
 // 관리자 목록(GET /v2/admin/reports?minReporters=1)에 그 사람이 오른다 — 관리자 쪽은 seed/social.sql 로 만든 관리자 c 로 본다
 'use strict';
 const { scenario, assert, makeCharacter, createRoom, makeAdmin, remoteSeats, wait } = require('./_kit.js');
+const { enterDesk } = require('./_kit.js');
 
 scenario('report', async (t) => {
   const a = await t.user('a', { name: '신고자' });
@@ -13,6 +14,9 @@ scenario('report', async (t) => {
     code = await createRoom(a);
     await b.eval((c) => roomEntryMod.startRoom(c), code);
     await b.until((c) => Presence.active() && Presence.roomCode() === c, code, { timeout: 30000, what: 'b 입장' });
+    // 남의 좌석은 내 좌석이 있을 때만 만든다(room-entry presenceChanged) — 내 좌석은 책상 모드에서 생긴다
+    await enterDesk(a);
+    await enterDesk(b);
   });
 
   await t.step('a: b 이름표 우클릭 → 좌석 메뉴 → 🚩 신고하기…', async () => {

@@ -356,7 +356,8 @@ module.exports.answerPrompt = answerPrompt;
 // 책상 모드(실행 화면)로 — 포커스 기록 · ⚙ 설정 패널은 이 화면에 있다(캐릭터가 있어야 들어간다)
 async function enterDesk(u){
   if(!(await u.shown('#lcPreview'))) await makeCharacter(u);
-  await u.w.click('#lcPreview');
+  // 방을 만든 뒤에는 방 창이 런처를 덮고 있어 화면 누르기가 막힌다 — 런처 미리보기의 누름을 직접 부른다(누르면 같은 처리)
+  await u.eval(() => document.getElementById('lcPreview').click());
   await u.until(() => { const b = document.getElementById('myFocusGearBtn'); return !!b && getComputedStyle(b).display !== 'none'; }, null, { timeout: 30000, what: '책상 모드' });
 }
 // ⚙ 설정 패널 열기(F1 과 같은 단추)
