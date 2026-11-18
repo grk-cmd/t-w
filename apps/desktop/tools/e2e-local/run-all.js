@@ -5,6 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { acquire } = require('./runlock.js');
 
 const DIR = path.join(__dirname, 'scenarios');
 const filters = process.argv.slice(2);
@@ -20,12 +21,14 @@ function list(d){
 
 const files = list(DIR).filter((f) => !filters.length || filters.some((s) => path.relative(DIR, f).includes(s)));
 if(!files.length){ console.error('돌릴 시나리오가 없다'); process.exit(2); }
+(async () => {
+await acquire('run-all ' + (filters.join(' ') || 'all'));   // TW_E2E_RUN_LOCK — 시나리오는 다시 잡지 않는다(TW_E2E_RUN_LOCK_HELD)
 const rows = [];
 for(const f of files){
   const rel = path.relative(DIR, f);
   const t0 = Date.now();
   console.log(`▶ ${rel}`);
-  const r = spawnSync(process.execPath, [f], { stdio: 'inherit', cwd: __dirname });
+  const r = spawnSync(process.execPath, [f], { stdio: 'inherit', cwd: __dirname, env: { ...process.env, TW_E2E_RUN_LOCK_HELD: '1' } });
   rows.push({ rel, ok: r.status === 0, sec: Math.round((Date.now() - t0) / 1000) });
 }
 console.log('\n요약');
@@ -33,3 +36,4 @@ for(const r of rows) console.log(`${r.ok ? 'ok  ' : 'FAIL'} ${r.rel} (${r.sec}s)
 const bad = rows.filter((r) => !r.ok).length;
 console.log(`${rows.length - bad}/${rows.length} 통과`);
 process.exit(bad ? 1 : 0);
+})();

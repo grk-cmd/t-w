@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { makeApp, wait, API_HOST } = require('../../lib.js');
+const { acquire } = require('../../runlock.js');
 
 const INVITE = process.env.TW_E2E_INVITE || 'INVT-SCAL-E2E3';   // seed/social-invite.sql
 const PW = 'e2e-pass-1234';   // 에뮬레이터 안에서만 쓰는 시험 비밀번호
@@ -84,6 +85,18 @@ async function launchRetry(A){
   }
 }
 
+// 조용한 창 규칙(scenarios/launcher/quiet.js 와 같음) — 단계마다 모든 창의 진짜 자리가 화면 밖이고 포커스가 없어야 한다. TW_E2E_QUIET=0 이면 안 본다
+async function assertQuiet(u, where){
+  if(process.env.TW_E2E_QUIET === '0' || !u.A.app) return;
+  const s = await u.A.app.evaluate(({ BrowserWindow }) => ({
+    wins: BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed()).map((w) => ({ real: typeof w.__e2eRealBounds === 'function' ? w.__e2eRealBounds() : null, focus: w.isFocused() })),
+    focused: !!BrowserWindow.getFocusedWindow(),
+  })).catch(() => null);
+  if(!s) return;   // 앱을 다시 켜는 중
+  const bad = s.wins.filter((w) => !w.real || w.real.x > -10000 || w.real.y > -10000 || w.focus);
+  if(bad.length || s.focused) throw new Error(`${u.label}: 조용한 창이 깨짐(${where}) — 화면 안 · 포커스 · 감싸지 않은 창 ${JSON.stringify(s)}`);
+}
+
 function scenario(name, body){
   const area = 'social';
   const out = path.join(OUT_ROOT, area, name);
@@ -106,6 +119,7 @@ function scenario(name, body){
     const t0 = Date.now();
     try {
       const r = await fn();
+      for(const u of users) await assertQuiet(u, label);
       steps.push(`ok   ${label} (${Date.now() - t0}ms)`);
       return r;
     } catch(e){
@@ -194,6 +208,7 @@ function scenario(name, body){
 
   const t = { out, step, user, note, wait, assert, apiIn, until, users };
   (async () => {
+    await acquire('social/' + name);   // TW_E2E_RUN_LOCK 이 있으면 잡는다(run-all 이 잡았으면 그대로) — 나갈 때 runlock 이 놓는다
     try {
       await body(t);
       steps.push('PASS');
