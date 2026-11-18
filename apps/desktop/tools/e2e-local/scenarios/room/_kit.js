@@ -7,8 +7,7 @@ const { execFileSync } = require('child_process');
 const { makeApp, wait, quietProblems, API_HOST } = require('../../lib.js');
 const { acquire } = require('../../runlock.js');
 // 조용한 창이 깨졌을 때 적는 곳 — account 묶음 kit · run-all.js 와 같은 자리(잠금 폴더 옆 e2e-quiet-fail)
-const QUIET_FAIL = process.env.TW_E2E_QUIET_FAIL
-  || (process.env.TW_E2E_RUN_LOCK ? path.join(path.dirname(process.env.TW_E2E_RUN_LOCK), 'e2e-quiet-fail') : '');
+const QUIET_FAIL = process.env.TW_E2E_RUN_LOCK ? path.join(path.dirname(process.env.TW_E2E_RUN_LOCK), 'e2e-quiet-fail') : '';
 
 const REPO = path.resolve(__dirname, '..', '..', '..', '..', '..', '..');
 const SEED = path.resolve(__dirname, '..', '..', 'seed');
@@ -74,7 +73,7 @@ function scenario(file, body){
           const bad = u.A.quiet ? await quietProblems(u.A.app).catch((e) => ['판정 못 함 ' + e.message]) : [];
           if(bad.length){
             const msg = `${u.label}: 창이 조용하지 않음 — ${bad.join(' / ')}`;
-            // 잠금 폴더 옆 e2e-quiet-fail(또는 TW_E2E_QUIET_FAIL)에 덧붙인다 — run-all 은 그 파일이 있으면 다음 시나리오를 켜지 않는다
+            // 잠금 폴더 옆 e2e-quiet-fail 에 덧붙인다 — run-all 은 그 파일이 있으면 다음 시나리오를 켜지 않는다
             if(QUIET_FAIL) fs.appendFileSync(QUIET_FAIL, `${area}/${name} · ${label}\n${msg}\n`);
             throw new Error(msg);
           }

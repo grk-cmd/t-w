@@ -51,7 +51,7 @@ K.scenario('password', async (t) => {
     await K.waitFor(async () => (await K.text(b.w, '#acctPwMsg') || '').startsWith('✅ 비밀번호를 만들었어요. 이제 친구 코드 ' + fc), 30000, '만듦 안내');
     if(!b.A.reqs.some((r) => /^POST \/v2\/me\/password-login 200/.test(r))) throw new Error('POST /v2/me/password-login 200 없음');
   });
-  // 서버가 로그인 수단을 바꾸면 Auth 가 이 계정의 옛 토큰을 끊는다 — 앱은 새 비밀번호로 곧바로 다시 로그인한다(#1017 · 옛 BUG-ACCT-1)
+  // 서버가 로그인 수단을 바꾸면 Auth 가 이 계정의 옛 토큰을 끊는다 — 앱은 새 비밀번호로 곧바로 다시 로그인해야 한다
   await t.step('비밀번호를 붙인 뒤에도 이 PC 로그인이 이어지고 탭이 «바꾸기» 로', async () => {
     await K.waitFor(async () => (await K.text(b.w, '#acctPwBtn')) === '비밀번호 바꾸기', 15000, '탭이 «비밀번호 바꾸기» 로');
     const tok = await b.w.evaluate(() => window.firebaseAPI.getIdToken(true).then((x) => !!x, (e) => 'ERR ' + (e && e.code)));
