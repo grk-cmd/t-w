@@ -557,7 +557,7 @@
 | **sim-public-secrets.js** | 140 | **0816691ffdda** |
 | **sim-person-name.js** | 95 | **c1333f370957** |
 | **sim-room-parity.js** | 108 | **56dc81055ed8** |
-| **sim-account-password.js** | 134 | **f896fe59f99a** |
+| **sim-account-password.js** | 134 | **b8e26f4b38eb** |
 
 ### `sim-sysinput.js` 판 계보
 

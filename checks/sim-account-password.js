@@ -70,7 +70,7 @@ function load(src, w){
   return f(w);
 }
 
-/* 판정 한 벌 — 원본은 0 · 깨 본 글은 1 이상이어야 한다 */
+/* 판정 한 벌 — 원본은 실패 0 · mutation test 로 바꾼 글은 1 이상이어야 한다 */
 async function judge(src, report){
   const r = [];
   const t = (ok, msg) => { r.push(!!ok); if(report) chk(ok, msg); };
@@ -128,7 +128,7 @@ async function judge(src, report){
     if(s === A0){ missed.push('글 못 찾음: ' + what); continue; }
     if((await judge(s, false)) === 0) missed.push(what);
   }
-  chk(!missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+  chk(!missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
   say('\n' + pass + ' · ' + fail);
   process.exit(fail ? 1 : 0);
 })().catch((e) => { say('  ✗ 예외: ' + (e && e.stack || e)); process.exit(1); });
