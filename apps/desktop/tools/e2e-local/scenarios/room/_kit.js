@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { makeApp, wait, API_HOST } = require('../../lib.js');
+const { acquire } = require('../../runlock.js');
 
 const REPO = path.resolve(__dirname, '..', '..', '..', '..', '..', '..');
 const SEED = path.resolve(__dirname, '..', '..', 'seed');
@@ -39,19 +40,6 @@ async function gone(pid){
   if(alive()){ try { process.kill(pid, 'SIGKILL'); } catch(_){} await wait(500); }
 }
 const ok = (what, v) => { if(!v) throw new Error(what); };
-
-// 여러 사람이 한 PC 에서 돌릴 때 — TW_E2E_RUN_LOCK=<폴더> 면 그 폴더를 mkdir 로 잡은 동안만 앱을 켠다(이미 있으면 30초마다 다시).
-// run-all.js 가 잡았으면(TW_E2E_RUN_LOCK_HELD=1) 다시 잡지 않는다
-async function runLock(steps){
-  const dir = process.env.TW_E2E_RUN_LOCK;
-  if(!dir || process.env.TW_E2E_RUN_LOCK_HELD === '1') return false;
-  for(let n = 0; ; n++){
-    try { fs.mkdirSync(dir); fs.writeFileSync(path.join(dir, 'owner'), `e2e ${process.pid} ${new Date().toISOString()}\n`); return true; }
-    catch(e){ if(e.code !== 'EEXIST') throw e; }
-    if(n === 0) console.log('실행 자물쇠 기다림 — ' + dir);
-    await wait(30000);
-  }
-}
 
 function scenario(file, body){
   const area = path.basename(path.dirname(file)), name = path.basename(file, '.js');
@@ -115,19 +103,20 @@ function scenario(file, body){
     steps.push(`ABORT 시나리오가 ${limitMin}분 안에 끝나지 않음`);
     save();
     for(const u of users){ try { process.kill(u.A.app.process().pid, 'SIGKILL'); } catch(_){} }
-    if(locked) fs.rmSync(process.env.TW_E2E_RUN_LOCK, { recursive: true, force: true });
+    unlock();
     console.log(`FAIL ${area}/${name} — ${out}/steps.txt`);
     process.exit(1);
   }, limitMin * 60000).unref();
-  let locked = false;
+  // 실행 잠금은 runlock.js 한 벌(TW_E2E_RUN_LOCK · run-all.js 가 잡았으면 다시 안 잡음)
+  let unlock = () => {};
   // 손으로 끊어도(Ctrl+C · kill) 앱과 자물쇠를 남기지 않는다
   for(const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => {
     for(const u of users){ try { process.kill(u.A.app.process().pid, 'SIGKILL'); } catch(_){} }
-    if(locked) fs.rmSync(process.env.TW_E2E_RUN_LOCK, { recursive: true, force: true });
+    unlock();
     process.exit(130);
   });
   (async () => {
-    locked = await runLock(steps);
+    unlock = await acquire(`${area}/${name}`);
     watchdog();
     seed('room.sql');
     await body(t);
@@ -138,7 +127,7 @@ function scenario(file, body){
   }).finally(async () => {
     save();
     for(const u of users) await u.A.quit().catch(() => {});
-    if(locked) fs.rmSync(process.env.TW_E2E_RUN_LOCK, { recursive: true, force: true });
+    unlock();
     console.log(`${process.exitCode ? 'FAIL' : 'PASS'} ${area}/${name} — ${out}/steps.txt`);
     process.exit(process.exitCode || 0);
   });
