@@ -279,19 +279,6 @@ function run(name, body){
       }, { pass, hash });
       return pass;
     },
-    // 발견한 버그 B1: 앱의 관리자 GET(관리자 확인 /v2/admin/admins/me · 배너 읽기)이 로그인 토큰을 안 싣는다(401).
-    // 그 요청에만 토큰을 붙여 보내고 버그로 적는다 — 고쳐지면 이 덮개는 불리지 않는다
-    async patchAdminAuth(A){
-      if(A.adminAuthPatched) return;
-      A.adminAuthPatched = true;
-      await A.app.context().route(/\/v2\/admin\//, async (r) => {
-        const h = r.request().headers();
-        if(h.authorization) return r.fallback();
-        t.bug('B1', '관리자 GET 요청에 로그인 토큰이 없음: ' + new URL(r.request().url()).pathname);
-        const tk = await A.w.evaluate(() => window.firebaseAPI.getIdToken());
-        return r.fallback({ headers: Object.assign({}, h, { authorization: 'Bearer ' + tk }) });
-      });
-    },
     // 관리자 비밀번호 창 열기 — Ctrl(맥 ⌘)+후원 버튼
     async openAdminPrompt(A){
       await A.w.click('#lcDonateBtn', { modifiers: [process.platform === 'darwin' ? 'Meta' : 'Control'] });
@@ -300,7 +287,6 @@ function run(name, body){
     // 앱 관리자 모드 켜기 — 비밀번호 창 → 서버 관리자 확인 → body.admin
     async enterAdmin(A){
       const pass = await t.adminPass(A);
-      await t.patchAdminAuth(A);
       await t.openAdminPrompt(A);
       await A.w.fill('#adminPassInput', pass);
       await A.w.click('#adminPassOk');

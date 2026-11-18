@@ -12,7 +12,6 @@ run('admin-mode', async (t) => {
   const A = await t.newUser('admin');
   const B = await t.newUser('user');
   await t.step('B 비밀번호 창 — 로그인한 uid 가 보임', async () => {
-    await t.patchAdminAuth(B);
     await t.openAdminPrompt(B);
     const uid = await t.uid(B);
     const line = await B.w.textContent('#adminAuthLine');

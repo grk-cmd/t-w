@@ -60,12 +60,12 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 | 기능 | e2e | sim | 상태 |
 |---|---|---|---|
 | 캐릭터 만들기(생성기 · 종족 고르기 · 얼굴 그리기) | `core/creator-desk.js`(+ → 인간 → 완성 → 서버 보관함 슬롯 · def). 얼굴 그리기(붓질)는 안 거침 | `creator-flow` `creator-open` `creator-state` `creator-save` `creator-preview` `creator-face` `creator-canvas` `creator-xform` `creator-flat-view` `race-picker` `paint-stroke` `paint-tools` `paint-geom` `uv-fill` `cr-stamp` `animal-edit-route` `animal-cast` `animal-tex` | 부분 |
-| 꾸미기(옷장 · 파츠 · 귀 · 색칠) | 로컬 묶음에서 못 돎 — API 에 Storage 봇이 없어 카탈로그 파츠 GLB 를 받지 못한다(`GET /v2/catalog/assets/*` 503 STORAGE_UNAVAILABLE). 서버 묶음 compose.emulator.yml 에 Storage 봇(에뮬레이터 주소 · 봇 계정)이 생기면 시나리오를 더한다 | `wardrobe` `wardrobe-panel` `wd-ear` `human-ear` `human-ear-attach` `part-equip-mod` `part-xf` `part-paint` `part-color-entry` `part-ao-clean` `part-scene` `part-anim` `cloth-visibility` `deco-parts` `deco-parts-visibility` `closet` `closet-api` `wd-parts-persist` | **할 일** |
+| 꾸미기(옷장 · 파츠 · 귀 · 색칠) | 로컬 묶음에서 못 돎 — API 에 Storage 봇이 없어 카탈로그 파츠 GLB 를 받지 못한다(`GET /v2/catalog/assets/*` 503 STORAGE_UNAVAILABLE). 서버 묶음 compose.emulator.yml 에 Storage 봇(에뮬레이터 주소 · 봇 계정)이 생기면 시나리오를 더한다 | `wardrobe` `wardrobe-panel` `wd-ear` `human-ear` `human-ear-attach` `part-equip-mod` `part-xf` `part-paint` `part-color-entry` `part-ao-clean` `part-scene` `part-anim` `cloth-visibility` `deco-parts` `deco-parts-visibility` `closet` `closet-api` `wd-parts-persist` | 부분: Storage |
 | 캐릭터 슬롯 저장 · 서버에 올리기 | `flow.js «GLB 올리기 · 받기»`(파일 왕복만 · 슬롯 화면은 안 거침) | `slot-save` `slot-codec` `char-apply` `def-size` `def-send` `char-identity` | 부분 |
 | 얼굴 그림 올리기 · 받기 | `flow.js «얼굴 올리기 · 받기»`(파일 왕복 · 화면에서 다시 받기) | `upload-cache` `image-bytes` `face-loss` `face-heal` `room-face-load` `img-retry` | e2e |
 | 캐릭터 · 커미션 코드(복제 · 가져오기) | `core/char-code.js`(복제 코드 DCC1 내보내기 → 다른 사람이 틀린 암호 거절 · 맞는 암호로 같은 캐릭터 · 커미션 zip → DCM1 → 등록) | `char-code` `clone-code-entry` `code-crypto` `commission` `commission-import` `asset-code` `asset-import` `asset-cards` | e2e |
-| 책상 세팅 · 프리셋 · 책상 위 아이템 | `core/creator-desk.js`(책상 색 · 크기 → 프리셋 저장 · 불러오기 · 서버 def · 다시 켜도 프리셋). 책상 위 아이템 · 카탈로그 책상 모델은 Storage 봇이 없어 안 거침(꾸미기 줄과 같은 까닭) | `desk-setup` `desk-preset` `desk-items` `desk-item-equip` `desk-item-origin` `desk-place` `desk-visual` `desk-build` `desk-floor-clamp` `desk-part-scale` `item-rot` `interaction-desk` `saved-lists-wiring` | 부분 |
-| 카탈로그 받기 · 갱신 | `core/catalog-gacha.js «카탈로그»`(seed/catalog-parts.sql 줄 → 관리자 이름 고침 → 서버 카탈로그 · 앱 다시 받기). 파일(GLB · 썸네일) 받기는 Storage 봇이 없어 안 거침 | `catalog-api` `catalog-sync` `catalog-glb` `catalog-cache` `glb-idb-cache` `http-cache-reset` | 부분 |
+| 책상 세팅 · 프리셋 · 책상 위 아이템 | `core/creator-desk.js`(책상 색 · 크기 → 프리셋 저장 · 불러오기 · 서버 def · 다시 켜도 프리셋). 책상 위 아이템 · 카탈로그 책상 모델은 Storage 봇이 없어 안 거침(꾸미기 줄과 같은 까닭) | `desk-setup` `desk-preset` `desk-items` `desk-item-equip` `desk-item-origin` `desk-place` `desk-visual` `desk-build` `desk-floor-clamp` `desk-part-scale` `item-rot` `interaction-desk` `saved-lists-wiring` | 부분: Storage |
+| 카탈로그 받기 · 갱신 | `core/catalog-gacha.js «카탈로그»`(seed/catalog-parts.sql 줄 → 관리자 이름 고침 → 서버 카탈로그 · 앱 다시 받기). 파일(GLB · 썸네일) 받기는 Storage 봇이 없어 안 거침 | `catalog-api` `catalog-sync` `catalog-glb` `catalog-cache` `glb-idb-cache` `http-cache-reset` | 부분: Storage |
 | 가챠 · 모은 파츠 | `core/catalog-gacha.js «가챠»`(레벨 12 + 보너스 1 → 서버 earned 2 · bonus 1 · left 3 = floor(12/5)+1 · 앱 «남은 뽑기 3회» · 다음 Lv 15 · 1회 뽑기 → 2회 · 보유분) | `gacha` `gacha-api` `gacha-prune` `gacha-race` `wd-parts-persist` | e2e |
 
 ## 방
@@ -155,7 +155,7 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 | 관리자 모드 들어가기 · 개발자 도구 열기 | `core/admin-mode.js`(비밀번호 창 uid · 틀린 비밀번호 · 서버 관리자 아님 · 관리자 → 모드 켜짐 · Ctrl+E 끔). 개발자 도구 막기는 설치본에서만 돌아(dev 판은 늘 열림) 안 봄 — sim 몫 | `admin-mode` `admin-active` `admin-api` `admin-rules` `devtools-gate` | 부분 |
 | 사용자 관리 · 초대권 주기 · 관리자 런처 | `core/admin-license.js «초대권»`(친구 코드로 2장 → 서버 남은 장 · 다시 켠 런처 수). 📊 통계 창은 안 거침 | `admin-users-launcher` | 부분 |
 | 라이선스 발급 · 엑셀 일괄 발급 · 시크릿룸 발급 | `core/admin-license.js`(친구 코드로 발급 → 수령함 키 → 등록 → premium · 새 키 목록 · 시크릿룸 SCRT 코드 주인). 엑셀 일괄은 안 거침 | `admin-license` `license-xlsx` `secret-room-grant` | 부분 |
-| 파츠 · 책상 · 아이템 등록 · 카탈로그 쓰기 | `core/catalog-gacha.js`(카탈로그 이름 고침 · 단종) · `core/ad-banner.js`(게임 설정 해금 레벨) · `core/admin-content.js`(카테고리). 등록 창(파일 올리기)은 Storage 봇이 없어 `POST /v2/admin/catalog/assets` 가 503 — 못 돎 | `admin-part-register` `admin-asset` `admin-thumbs` `catalog-admin-api` `publish-fields` | 부분 |
+| 파츠 · 책상 · 아이템 등록 · 카탈로그 쓰기 | `core/catalog-gacha.js`(카탈로그 이름 고침 · 단종) · `core/ad-banner.js`(게임 설정 해금 레벨) · `core/admin-content.js`(카테고리). 등록 창(파일 올리기)은 Storage 봇이 없어 `POST /v2/admin/catalog/assets` 가 503 — 못 돎 | `admin-part-register` `admin-asset` `admin-thumbs` `catalog-admin-api` `publish-fields` | 부분: Storage |
 | 공지 · 업데이트 공지 편집 | `core/admin-content.js`(확성기 → 다른 사람 머리 위 · 종료 · 업데이트 공지 → 다시 켤 때 공지 창) | `admin-notice` | e2e |
 | 신고 목록 | `core/admin-content.js «신고»`(앱 없는 세 계정이 신고 → 관리자 목록 «3명» · 문제없음 → 빠짐) | `report` | e2e |
 | 카테고리 관리 | `core/admin-content.js «카테고리»`(추가 → 다른 사람 카탈로그에 · 끝에 지움) | `admin-license` `admin-mode` | e2e |
@@ -182,12 +182,10 @@ e2e 가 있지만 일부만 보는 기능(`부분`):
 
 REPL 순서만 있는 기능(`REPL` — 자동 판정 없음): 방 만들기 · 참여 · 투게더룸 · 채팅 · 친구 요청 보내기.
 
-core 시나리오가 일부만 보는 기능(`부분` — 까닭은 표의 e2e 열): 캐릭터 만들기(얼굴 그리기) · 책상 세팅(책상 위 아이템 · 카탈로그 책상) · 카탈로그(파일 받기) · 관리자 모드(개발자 도구 — 설치본만) · 초대권(통계 창) · 라이선스(엑셀 일괄) · 파츠 등록 창(파일 올리기 — Storage 봇).
+core 시나리오가 일부만 보는 기능(`부분` — 까닭은 표의 e2e 열): 캐릭터 만들기(얼굴 그리기) · 책상 세팅(책상 위 아이템 · 카탈로그 책상) · 카탈로그(파일 받기) · 관리자 모드(개발자 도구 — 설치본만) · 초대권(통계 창) · 라이선스(엑셀 일괄) · 파츠 등록 창(파일 올리기 — Storage 봇). `부분: Storage` 줄은 로컬 묶음 API 의 Storage 에뮬레이터 연결이 들어오면 다시 돌린다.
 
 ## 발견한 버그
 
 시나리오가 찾은 앱 버그. 시나리오는 비켜 가서 나머지를 판정하고, `steps.txt` · 러너 요약에 `BUG <번호>` 로 남긴다. 고치면 이 줄과 비켜 가는 코드를 같이 지운다.
 
-| 번호 | 무엇 | 다시 보기 | 비켜 가는 곳 |
-|---|---|---|---|
-| B1 | 앱 관리자 GET 요청(관리자 확인 `GET /v2/admin/admins/me` · 배너 읽기 `GET /v2/admin/notices/launcher-banner`)에 로그인 토큰이 안 실린다 → 서버 401 → 관리자 계정이어도 «서버에서 관리자 권한을 확인하지 못했어요» 로 관리자 모드에 못 들어간다. `admin/admin-api.js` 의 `authed.get(PATHS.me)` · `authed.get(PATHS.banner)` 가 `{ auth: true }` 없이 부른다(`api-client.js` 의 get 은 auth 가 기본 꺼짐 · 쓰기만 기본 켬) | 관리자로 seed 한 계정(seed/admin.sql)으로 런처 ⌘/Ctrl+후원 버튼 → 비밀번호 → 확인 · `requests.txt` 에 `GET /v2/admin/admins/me 401` | `scenarios/core/_kit.js` `patchAdminAuth` — 그 요청에만 토큰을 붙이고 BUG B1 을 적는다 |
+지금 없음. 적을 때는 `| 번호 | 무엇 | 다시 보기 | 비켜 가는 곳 |` 표로 쓴다(시나리오는 `t.bug(번호, 글)`).
