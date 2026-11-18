@@ -144,24 +144,29 @@ function run(name, body){
       } finally { save(); }
     },
     check(cond, msg){ if(!cond) throw new Error(msg); },
-    // 조용한 창이 지켜지는가(단계마다) — scenarios/launcher/quiet.js 와 같은 판정: 진짜 창 자리(__e2eRealBounds)가 x · y 모두 -10000 아래 ·
-    // 포커스 받은 창 없음 · 진짜 창은 맨 위가 아님(앱이 부른 맨 위는 isAlwaysOnTop 이 기억한 값으로만). 꺼진 앱은 건너뛴다
+    // 조용한 창이 지켜지는가(단계마다) — scenarios/launcher/quiet.js 와 같은 판정: 진짜 창(__e2eRealBounds)이 어느 화면과도 창 넓이의 4분의 1 넘게
+    // 겹치지 않음(mac 은 화면 밖 창을 끝으로 당긴다) · 포커스 받은 창 없음 · 진짜 투명도 0 · 진짜 소리 끔 · 진짜 창은 맨 위 아님. 꺼진 앱은 건너뛴다
     async assertQuiet(){
       if(!QUIET) return;
+      const overlap = (r, d) => Math.max(0, Math.min(r.x + r.width, d.x + d.width) - Math.max(r.x, d.x)) * Math.max(0, Math.min(r.y + r.height, d.y + d.height) - Math.max(r.y, d.y));
+      const offscreen = (r, ds) => ds.every((d) => overlap(r, d) <= 0.25 * r.width * r.height);
       for(const a of apps){
         if(!a.app) continue;
         let s;
         try {
-          s = await a.app.evaluate(({ BrowserWindow }) => ({
+          s = await a.app.evaluate(({ BrowserWindow, screen }) => ({
             wins: BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed()).map((w) => {
               const real = typeof w.__e2eRealBounds === 'function' ? w.__e2eRealBounds() : null;
               const base = Object.getPrototypeOf(Object.getPrototypeOf(w));
-              return { title: w.getTitle(), real, focus: w.isFocused(), realTop: real ? base.isAlwaysOnTop.call(w) : null };
+              return { title: w.getTitle(), real, focus: w.isFocused(), realTop: real ? base.isAlwaysOnTop.call(w) : null,
+                opacity: typeof w.__e2eRealOpacity === 'function' ? w.__e2eRealOpacity() : null,
+                muted: typeof w.webContents.__e2eRealAudioMuted === 'function' ? w.webContents.__e2eRealAudioMuted() : null };
             }),
             focused: !!BrowserWindow.getFocusedWindow(),
+            displays: screen.getAllDisplays().map((d) => d.bounds),
           }));
         } catch(e){ if(/closed|Target/.test(String(e.message))) continue; throw e; }
-        const bad = s.wins.filter((w) => !w.real || w.real.x > -10000 || w.real.y > -10000 || w.focus || w.realTop);
+        const bad = s.wins.filter((w) => !w.real || !offscreen(w.real, s.displays) || w.focus || w.realTop || w.opacity !== 0 || w.muted !== true);
         if(bad.length || s.focused) throw new Error('조용한 창이 깨짐(' + path.basename(a.out) + '): ' + JSON.stringify(bad.length ? bad : s).slice(0, 300));
       }
     },
