@@ -24,7 +24,7 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 |---|---|---|---|
 | 앱 켜기 순서 | `flow.js «로그인된 책상»`(다시 켠 뒤 15초 기다려 화면만 찍음) | `app-boot` `run-boot` `dom-boot` `user-local` · 부팅 스모크 `checks/smoke.js` | 부분 |
 | 두 번째 실행(이미 켠 창을 앞으로) | `scenarios/launcher/second-instance.js`(멀쩡하면 새 실행이 바로 꺼지고 옛 앱이 신호를 받음 · 렌더러가 죽은 채면 옛 앱이 다시 켜기) | `second-instance` | e2e |
-| 렌더러가 죽었을 때 런처로 되돌리기 | `scenarios/launcher/renderer-crash.js`(마이홈 창 모드에서 렌더러를 crashed 로 죽임 → 창이 런처 크기 · 한 번 다시 불러와 런처 화면). 실행 화면은 캐릭터가 있어야 들어가서 마이홈으로 본다(되돌리는 길은 같다) · 다시 불러온 렌더러에는 Playwright 가 다시 붙지 않아 그 뒤 로그인 유지(서버 요청)는 못 본다 | `renderer-gone-reset` | e2e |
+| 렌더러가 죽었을 때 런처로 되돌리기 | `scenarios/launcher/renderer-crash.js`(마이홈 창 모드에서 렌더러를 crashed 로 죽임 → 창이 런처 크기 · main 로그 crashed → 되돌림 → 자동 다시 불러오기 한 번). 실행 화면은 캐릭터가 있어야 들어가서 마이홈으로 본다(되돌리는 길은 같다) · Playwright 로 붙인 앱은 다시 뜬 렌더러가 로드를 끝내지 못해 다시 불러온 화면 · 로그인 유지는 빠짐 | `renderer-gone-reset` | 부분 |
 | 런처 화면(미리보기 · 슬롯 · 타이틀바 · 컨트롤) | `REPL «캐릭터 만들기»` 가 런처에서 시작(런처 자체는 판정 안 함) | `launcher-chrome` `launcher-controls` `launcher-preview` `launcher-state` `app-mode` `cfg-fit` `slot-fit` `zoom-window` | 부분 |
 | 런처 광고 배너 · 게임 설정 |  | `ad-banner` | **할 일** |
 | 책상 모드(데스크톱 실행 화면 · 클릭 통과) | `REPL «책상 모드»` | `desktop-run` `click-through-policy` `hit-map` `hit-shadow` `overlay-gap` `overlay-layered` `top-level` `run-rect` `display-pick` `system-prompt` `pen-forward` `hover-poke` `fly-click-through` | REPL |
@@ -188,6 +188,7 @@ e2e 가 없는 기능(위 표의 **할 일**):
 e2e 가 있지만 일부만 보는 기능(`부분`):
 
 - 앱 켜기 순서 · 오프라인 → 온라인 — 화면만 찍고 판정하지 않는다. 다시 잇기는 README «함정» 처럼 realtime 컨테이너를 멈췄다 풀어야 실제로 끊긴다.
+- 렌더러가 죽었을 때 — main 쪽(창 크기 · 다시 불러오기)까지만 본다. 다시 불러온 화면은 Playwright 아래에서 로드가 끝나지 않는다.
 - 설정 창 — 런처 ⚙️ 설정만 본다(실행 화면 F1 설정 패널 — 캐릭터 크기 · 포커싱 어플 · 화면 표시 — 은 캐릭터가 있는 실행 화면이 필요해 빠짐).
 - 런처 화면 · 마이홈 열기 · 친구 코드 고정 · 캐릭터 슬롯 저장 — 다른 흐름이 지나가기만 한다(마이홈 꾸미기는 e2e 없음).
 

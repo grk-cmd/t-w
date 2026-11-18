@@ -53,6 +53,7 @@ async function gone(pid, ms = 10000){
     await wait(200);
   }
 }
+const STEP_MAX_MS = 5 * 60 * 1000;   // 한 단계가 끝없이 기다리지 않게(앱 다시 켜기 · 확인창을 넉넉히 품는 상한)
 const within = (p, ms) => Promise.race([p, wait(ms).then(() => { throw new Error(ms / 1000 + '초 넘김'); })]);
 const uniq = () => Date.now().toString(36) + crypto.randomBytes(3).toString('hex');
 
@@ -136,7 +137,7 @@ function scenario(name, body){
     note: (s) => { steps.push('     ' + s); },
     async step(label, fn){
       const t0 = Date.now();
-      try { const v = await fn(); steps.push(`ok   ${label} (${Date.now() - t0}ms)`); return v; }
+      try { const v = await within(fn(), STEP_MAX_MS); steps.push(`ok   ${label} (${Date.now() - t0}ms)`); return v; }
       catch(e){
         steps.push(`FAIL ${label}: ${String(e && e.message || e).split('\n')[0]}`);
         for(const i of insts) if(i.w) await within(i.w.screenshot({ path: path.join(i.dir, `fail-${steps.length}.png`), timeout: 5000 }), 8000).catch(() => {});
