@@ -366,13 +366,12 @@ const toastSpy = () => {
     }).observe(document.documentElement, { subtree: true, childList: true, characterData: true });
 };
 
-// 켠 직전 창의 첫 읽기가 길 돌리기보다 먼저 떠나 처음 요청이 바깥 dev 주소로 새는 때가 있다 —
-// 돌린 요청이 하나도 안 찍히면 다시 읽는다. 토스트 기록도 켤 때마다 다시 건다
+// 켤 때마다 토스트 기록을 다시 건다. 주소 돌리기는 main 에서 처음부터 걸리고(route-main.js) lib.launch 가 확인한다 — 여기서 다시 읽지 않는다
 function wrapLaunch(A){
   const launch = A.launch;
   A.wsIn = []; A.wsOut = [];
   A.launch = async () => {
-    let n = A.reqs.length, w;
+    let w;
     // 여러 벌이 같이 뜨는 동안 첫 창이 30초 안에 안 오는 때가 있다 — 그 프로세스만 끄고 세 번까지 다시 켠다
     for(let i = 0; ; i++){
       try { w = await launch(); break; }
@@ -383,13 +382,6 @@ function wrapLaunch(A){
         await A.quit().catch(() => {});
         if(pid) await gone(pid);
       }
-    }
-    for(let i = 0; i < 3; i++){
-      const routed = await until('돌린 요청', () => A.reqs.length > n, 12000).then(() => true, () => false);
-      if(routed) break;
-      A.logs.push('--- 돌린 요청이 없어 다시 읽음 ---');
-      n = A.reqs.length;
-      await w.reload();
     }
     await w.evaluate(toastSpy).catch(() => {});
     // realtime 이 오간 글(ws.txt · 실패를 볼 때 참고) — 앱이 창을 띄우자마자 붙은 연결은 놓칠 수 있어 판정에는 쓰지 않는다
