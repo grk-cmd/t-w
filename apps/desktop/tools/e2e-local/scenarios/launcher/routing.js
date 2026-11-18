@@ -93,6 +93,23 @@ const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(pa
       const bad = await quietProblems(A.app);
       for(const x of want) if(!bad.some((b) => b.includes(x))) throw new Error('quietProblems 가 안 냄 ' + x + ' — ' + JSON.stringify(bad));
     });
+    await step('앱이 세션에 자기 onBeforeRequest 를 걸어도(BGM 창 길) 막기는 그대로 · 앱의 것도 불림', async () => {
+      await A.app.evaluate(({ session }) => {
+        global.__e2eAppHits = 0;
+        session.defaultSession.webRequest.onBeforeRequest({ urls: ['*://*.e2e-routing.invalid/*'] }, (d, cb) => { global.__e2eAppHits++; cb({ cancel: true }); });
+      });
+      await w.evaluate(() => new Promise((res) => {
+        const ws = new WebSocket('wss://e2e-routing.firebasedatabase.app/.ws');
+        ws.onerror = ws.onclose = () => res();
+        setTimeout(res, 5000);
+      }));
+      await call(w, 'https://x.e2e-routing.invalid/');
+      await wait(500);
+      if(!A.blocked.some((b) => b.includes('e2e-routing.firebasedatabase.app'))) throw new Error('앱이 건 뒤 wss 를 안 막음 — ' + JSON.stringify(A.blocked));
+      const hits = await A.app.evaluate(() => global.__e2eAppHits);
+      if(!(hits > 0)) throw new Error('앱이 건 onBeforeRequest 가 안 불림');
+      await A.app.evaluate(({ session }) => session.defaultSession.webRequest.onBeforeRequest(null));
+    });
   } catch(e){
     code = 1;
     if(!steps.some((l) => l.startsWith('FAIL'))) steps.push('FAIL ' + e.message);
