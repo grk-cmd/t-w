@@ -6,6 +6,7 @@ dev 앱(`--tw-firebase=dev`)을 켜서 화면을 누르고 결과를 파일로 �
 |---|---|
 | `lib.js` | 격리된 앱 한 벌 켜기 · 끄기 · 주소 돌리기 · 오프라인 흉내 |
 | `flow.js` | 정해진 흐름 한 바퀴(가입 → 다시 켜기 → 로그인된 책상 → 얼굴 PNG · GLB 올리기 · 받기 → 오프라인 · 온라인) |
+| `quiet-main.js` | 조용한 창 — 시험 앱의 창 · 포커스를 화면 밖에 묶는다(아래 «조용한 창») |
 | `repl.js` · `run.sh` | 앱을 켜 둔 채 JS 명령을 하나씩 보내기 |
 | `run-all.js` · `scenarios/<묶음>/*.js` | 기능마다 판정까지 하는 시나리오 — 하나씩 또는 한꺼번에 돌리고 요약을 찍는다 |
 | `seed/*.sql` | 시나리오가 로컬 DB 에 넣는 시험 값(초대 코드 · 관리자 · 레벨 · 가챠 보너스) |
@@ -83,11 +84,12 @@ node scenarios/core/keepalive.js      # 하나만
 - **BUG** 줄 — FEATURES.md «발견한 버그» 의 알려진 앱 버그를 다시 봤다는 표시다. 시나리오는 그 버그를 비켜 가서 나머지를 판정한다(단계는 통과).
 - `seed/*.sql` 은 `psql -v 이름=값` 으로 돌린다 — 시나리오가 알아서 부른다. 손으로 넣을 때: `docker exec -i <postgres 컨테이너> psql -U tw_api_dev -d tw_dev -v uid=<uid> < seed/admin.sql`.
 
+- **조용한 창(`TW_E2E_QUIET`, 기본 켬 · `quiet-main.js`)** — 감싸는 진입점이 앱 main.js 보다 먼저 `quiet-main.js` 를 불러, 시험 프로세스 안에서만 electron 을 감싼다(앱 코드는 그대로). 앱은 «보조 앱»(mac `setActivationPolicy('accessory')` — Dock 아이콘 없음)으로 켜지고 `app.focus` · `app.show` · `dock.show` 는 아무것도 안 한다. 앱이 받는 `BrowserWindow` 는 하위 클래스로 바뀌어 처음부터 화면 밖(-20000, -20000) · 포커스 없이 보이고(`show` → `showInactive`), `focus` · `moveTop` · `center` · `maximize` · 전체 화면은 아무것도 안 하며, `setAlwaysOnTop` 은 값만 기억하고, `setBounds` · `setContentBounds` · `setPosition` 은 폭 · 높이만 따르고 자리는 화면 밖에 둔다. `isAlwaysOnTop` 은 앱이 부른 값을 돌려준다(진짜 창은 늘 위가 아님) · 시험이 진짜 자리 · 크기를 볼 땐 `w.__e2eRealBounds()`. 창은 누를 수 있게 두고(Playwright 입력은 OS 포커스 없이 간다), 화면 밖에서도 타이머 · WebGL 이 돌게 배경 늦추기를 끈다. 네 묶음이 이 한 벌을 같이 쓴다. 확인은 `scenarios/launcher/quiet.js`(lib.js 만 써서 계정 · 시드 없이 돈다 — 켠 뒤 · 앱이 창을 앞으로 부르는 길을 main 에서 직접 부른 뒤 진짜 자리가 화면 밖 · 포커스 없음). 눈으로 보려면 `TW_E2E_QUIET=0`. 화면에 꼭 떠야 하는 시나리오(창 앞뒤 · 바깥 눌러 닫기)는 `makeApp(out, { quiet: false })` 로 그 앱만 끄고 시나리오 머리에 까닭을 적는다.
+
 환경 값:
 
 | 값 | 뜻 |
 |---|---|
-| `TW_E2E_QUIET` | 기본 켬 — 감싸는 진입점이 앱보다 먼저 창 덮개를 건다(`lib.js` `quietWindows`): 실제 창은 화면 밖(x −20000) · 투명 · 마우스 통과, `focus` · `moveTop` · `app.focus` · `app.show` 는 아무것도 안 함, `show` 는 `showInactive`, `setAlwaysOnTop` 은 값만 기억(`isAlwaysOnTop` 이 돌려줌), `setBounds` · `setPosition` 은 크기는 따르고 자리만 밖으로(앱이 읽으면 앱이 정한 자리를 준다). 맥은 `setActivationPolicy('accessory')`(Dock · 앞으로 안 나옴). 화면 밖 창도 타이머 · WebGL 이 돌게 배경 늦추기를 끈다. 지켜지는지는 `core/quiet-check.js`. 눈으로 보려면 `TW_E2E_QUIET=0` |
 | `TW_E2E_RUN_LOCK` | 앱(Electron)을 켜는 동안만 잡는 잠금 폴더(`mkdir` · 30초마다 다시 시도). 같은 PC 에서 시험 묶음 여럿이 돌 때 한 번에 하나만 앱을 켠다. run-all 은 처음에 한 번 잡아 끝까지 든다(시나리오가 다시 잡지 않음). 비면 안 잡는다 |
 | `TW_E2E_STACK_LOCK` | 공유 컨테이너(realtime 등)를 멈췄다 풀 때만 잡는 잠금 폴더. 비어 있으면 컨테이너를 건드리는 시나리오(keepalive · 오프라인 → 온라인 · 점검)는 멈춘다 |
 | `TW_E2E_OUT` · `TW_E2E_INVITE` | 결과 폴더 뿌리(기본 `/tmp/tw-e2e/core`) · 가입에 쓰는 초대 코드(기본 `seed/core-invite.sql` 의 코드) |

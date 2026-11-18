@@ -12,61 +12,9 @@ const STORAGE_EMU = 'http://127.0.0.1:9199';
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// 조용히 켜기(기본) — 창을 화면 밖에 두고 포커스 · 앞으로 나오기 · Dock 을 막는다. TW_E2E_QUIET=0 이면 창이 보인다(눈으로 볼 때)
-// e2e-room 묶음의 덮개에 맨 위(setAlwaysOnTop) · app.show 막기와 준비 전 accessory 를 더한 것 — 네 묶음이 같은 글을 쓴다
-const QUIET = process.env.TW_E2E_QUIET !== '0';
-
-// 감싸는 진입점에 글로 박혀 앱 main.js 보다 먼저 돈다(이 파일의 다른 이름을 쓰지 않는다)
-function quietWindows(){
-  const { app } = require('electron');
-  const OFF = -20000;
-  // 화면 밖 · 가려진 창도 타이머 · 그리기 · WebGL 이 멈추지 않게
-  app.commandLine.appendSwitch('disable-renderer-backgrounding');
-  app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
-  if(process.platform === 'darwin'){
-    try { app.setActivationPolicy('accessory'); } catch(_){}   // 준비 전에도 — Dock 아이콘 없음 · 앞으로 안 나옴
-    app.whenReady().then(() => { app.setActivationPolicy('accessory'); });
-  }
-  app.focus = () => {};
-  app.show = () => {};
-  app.on('browser-window-created', (_e, w) => {
-    w.webContents.setBackgroundThrottling(false);
-    w.webContents.setAudioMuted(true);   // 같이 듣기 · 효과음이 이 PC 스피커로 나가지 않게
-    // 앱이 정한 자리는 그대로 기억해 두고(앱이 읽으면 이 값을 준다) 실제 창만 화면 밖으로 민다.
-    // ⚠️ 실제 자리에서 거꾸로 셈하면 안 된다 — 맥은 창을 화면 밖으로 다 못 밀어 가장자리에 붙이므로
-    //   거꾸로 센 값이 엉뚱해지고(예: 19660) 앱이 그 값을 «지난 자리» 로 저장한다
-    const real = { setBounds: w.setBounds.bind(w), getBounds: w.getBounds.bind(w), setPosition: w.setPosition.bind(w) };
-    const b0 = real.getBounds();
-    let vx = b0.x, vy = b0.y;
-    const keep = (b) => { if(b && typeof b.x === 'number'){ vx = b.x; vy = typeof b.y === 'number' ? b.y : vy; } };
-    w.setBounds = (b, an) => { keep(b); real.setBounds(b && typeof b.x === 'number' ? { ...b, x: OFF + b.x } : b, an); };
-    w.getBounds = () => ({ ...real.getBounds(), x: vx, y: vy });
-    const setCB = w.setContentBounds.bind(w), getCB = w.getContentBounds.bind(w);
-    w.setContentBounds = (b, an) => { keep(b); setCB(b && typeof b.x === 'number' ? { ...b, x: OFF + b.x } : b, an); };
-    w.getContentBounds = () => { const c = getCB(), r = real.getBounds(); return { ...c, x: vx + (c.x - r.x), y: vy + (c.y - r.y) }; };
-    w.setPosition = (x, y, an) => { vx = x; vy = y; real.setPosition(OFF + x, y, an); };
-    w.getPosition = () => [vx, vy];
-    w.focus = () => {};
-    w.moveTop = () => {};
-    w.show = () => w.showInactive();
-    // 맨 위 — 실제 창은 늘 보통 층에 두고, 앱이 바란 값만 기억해 isAlwaysOnTop 으로 돌려준다(시나리오가 «맨 위로 했나» 를 본다)
-    const realTop = w.setAlwaysOnTop.bind(w);
-    let top = false;
-    realTop(false);
-    w.setAlwaysOnTop = (v) => { top = !!v; };
-    w.isAlwaysOnTop = () => top;
-    // 맥은 창을 화면 밖으로 다 못 민다(가장자리가 남는다) — 안 보이게 하고 마우스도 통과시킨다.
-    // 시험의 누르기는 CDP 로 들어가 OS 마우스와 상관없다. 앱의 setIgnoreMouseEvents 는 실제로 걸지 않는다(시나리오가 부른 값만 본다)
-    w.setOpacity(0);
-    w.setOpacity = () => {};
-    w.setIgnoreMouseEvents(true, { forward: false });
-    w.setIgnoreMouseEvents = () => {};
-    w.__e2eRealBounds = () => real.getBounds();   // 조용한 창 시험(scenarios/core/quiet-check.js)이 실제 자리를 본다
-    real.setPosition(OFF + vx, vy);
-  });
-}
-
-function makeApp(outArg){
+// opts.version — 앱이 스스로 아는 판(app.getVersion)을 바꾼다(판 확인 시나리오가 «옛 판 · 새 판 PC» 를 흉내 낼 때)
+// opts.quiet — 이 앱만 조용한 창을 켜고 끈다(없으면 TW_E2E_QUIET)
+function makeApp(outArg, opts = {}){
   const out = path.resolve(outArg);
   const logs = [], reqs = [];
   let offline = false, app = null;
@@ -99,16 +47,22 @@ function makeApp(outArg){
     const wrap = path.join(out, 'wrap');
     fs.mkdirSync(wrap, { recursive: true });
     const pkg = JSON.parse(fs.readFileSync(path.join(APP_DIR, 'package.json'), 'utf8'));
-    fs.writeFileSync(path.join(wrap, 'package.json'), JSON.stringify({ name: pkg.name, version: pkg.version, main: 'main.js' }));
+    fs.writeFileSync(path.join(wrap, 'package.json'), JSON.stringify({ name: pkg.name, version: opts.version || pkg.version, main: 'main.js' }));
+    // 조용한 창(TW_E2E_QUIET, 기본 켬) — 시험 창이 화면 밖에 뜨고 포커스 · Dock 을 빼앗지 않게(quiet-main.js). 끄려면 TW_E2E_QUIET=0
+    const quiet = opts.quiet !== undefined ? !!opts.quiet : process.env.TW_E2E_QUIET !== '0';
+    const quietJs = quiet ? `require(${JSON.stringify(path.join(__dirname, 'quiet-main.js'))});\n` : '';
     fs.writeFileSync(path.join(wrap, 'main.js'),
       `require('electron').app.setPath('appData', ${JSON.stringify(path.join(out, 'appdata'))});\n`
-      + (QUIET ? `(${quietWindows.toString()})();\n` : '')
+      + quietJs
       + `require(${JSON.stringify(path.join(APP_DIR, pkg.main || 'main.js'))});\n`);
     app = await _electron.launch({
       args: [wrap, '--tw-firebase=dev'],
       cwd: APP_DIR,
       executablePath: require(path.join(APP_DIR, 'node_modules', 'electron')),
     });
+    // 메인 로그는 켜자마자 건다 — 첫 창이 안 뜨는 실패도 까닭이 남게
+    app.process().stdout.on('data', (d) => logs.push('[main] ' + String(d).trim().slice(0, 300)));
+    app.process().stderr.on('data', (d) => logs.push('[main-err] ' + String(d).trim().slice(0, 300)));
     const ud = await app.evaluate(({ app: a }) => a.getPath('userData'));
     if(!ud.startsWith(out)){ await quit(); throw new Error('userData 가 시험 폴더 밖: ' + ud); }
     const ctx = app.context();
@@ -119,11 +73,9 @@ function makeApp(outArg){
       p.on('console', (m) => logs.push(`[${m.type()}] ${m.text()}`));
       p.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}`));
     };
-    app.process().stdout.on('data', (d) => logs.push('[main] ' + String(d).trim().slice(0, 300)));
-    app.process().stderr.on('data', (d) => logs.push('[main-err] ' + String(d).trim().slice(0, 300)));
     app.on('window', hook);
     app.windows().forEach(hook);
-    const w = await app.firstWindow();
+    const w = await app.firstWindow({ timeout: 90000 });   // 바쁜 PC 에서는 30초 안에 첫 창이 안 뜨는 때가 있다
     // 길 돌리기가 걸리기 전에 첫 화면이 이미 요청을 보냈다 — 다시 읽어 처음부터 돌린 길로 가게 한다
     await w.reload();
     return w;
