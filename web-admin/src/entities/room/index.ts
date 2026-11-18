@@ -27,7 +27,6 @@ export {
   parseLiveRooms,
   ROOM_LIVE_MS,
   ROOM_STATS_FRESH_MS,
-  ROOM_TOTAL_LIMITS,
   roomChannel,
   roomRows,
   roomStateOf,
@@ -67,6 +66,7 @@ export {
   roomLimitChanges,
   roomMaxPeopleOf,
   totalLimitOf,
+  type RoomLimits,
 } from './model/roomConfig';
 export { useChatKeep, useRefreshChatKeep } from './api/chatKeep';
 export {

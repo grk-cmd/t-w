@@ -23,11 +23,13 @@ import {
   roomMaxPeopleOf,
   ROOM_LIMITS_PATH,
   ROOM_MAX_PEOPLE_PATH,
+  type RoomLimits,
 } from '../model/roomConfig';
 import type { RoomPort } from './port';
 
-export async function getRoomLimits(db: Db): Promise<Record<Channel, number | null>> {
-  return parseRoomLimits(await db.get<unknown>(ROOM_LIMITS_PATH));
+/** Firebase 판은 기본값을 모른다 — 칸이 비면 앱마다 자기 기본값을 쓴다. */
+export async function getRoomLimits(db: Db): Promise<RoomLimits> {
+  return { saved: parseRoomLimits(await db.get<unknown>(ROOM_LIMITS_PATH)), defaults: null };
 }
 
 /** 정원 — 서버에 정해 둔 값. 없거나 범위 밖이면 null(앱 · 방 서버는 기본값). */
@@ -39,7 +41,7 @@ export async function getRoomMaxPeople(db: Db): Promise<number | null> {
 /** 전체 방 상한 — 두 채널을 한 객체로 쓴다(한쪽만 있는 모양이 남지 않게). 바뀐 게 없으면 쓰지 않는다. */
 export function saveRoomLimits(
   db: Db,
-  before: Record<Channel, number | null> | null | undefined,
+  before: RoomLimits | null | undefined,
   next: Record<Channel, number>,
 ): Promise<void> {
   const changes = roomLimitChanges(before, next);

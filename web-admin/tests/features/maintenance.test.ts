@@ -5,7 +5,6 @@ import {
   toDraft,
   toLocalInput,
 } from '@/features/settings/edit-maintenance';
-import { checkServerLimits, serverLimitsConfirmText } from '@/features/settings/edit-server-limits';
 
 const off = { on: false, endsAt: null, message: null };
 
@@ -41,26 +40,5 @@ describe('점검 안내 입력', () => {
   it('확인 창 글', () => {
     expect(maintenanceConfirmText(off)).toContain('꺼요');
     expect(maintenanceConfirmText({ on: true, endsAt: null, message: '점검' })).toContain('문구: 점검');
-  });
-});
-
-describe('방 서버 한 대의 방 상한 입력', () => {
-  const saved = { workingroom: 250, togetherroom: 250 };
-
-  it('범위 · 숫자 · 같은 값을 거른다', () => {
-    expect(checkServerLimits(saved, { workingroom: '250', togetherroom: '250' })).toEqual({
-      ok: false,
-      error: '지금 값과 같음',
-    });
-    expect(checkServerLimits(saved, { workingroom: '0', togetherroom: '250' }).ok).toBe(false);
-    expect(checkServerLimits(saved, { workingroom: '100001', togetherroom: '250' }).ok).toBe(false);
-    expect(checkServerLimits(saved, { workingroom: 'ab', togetherroom: '250' }).ok).toBe(false);
-  });
-
-  it('바뀐 채널만 확인 창에 적는다', () => {
-    const r = checkServerLimits(saved, { workingroom: '100', togetherroom: '250' });
-    if (!r.ok) throw new Error(r.error);
-    expect(serverLimitsConfirmText(saved, r.next)).toContain('워킹룸 250 → 100');
-    expect(serverLimitsConfirmText(saved, r.next)).not.toContain('투게더룸');
   });
 });

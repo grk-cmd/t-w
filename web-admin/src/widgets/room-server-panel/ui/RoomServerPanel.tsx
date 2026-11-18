@@ -1,6 +1,5 @@
 import { useRoomServerConfig } from '@/entities/room-server';
 import { DefaultCard } from '@/features/room-server/edit-default';
-import { LimitsCard } from '@/features/room-server/edit-limits';
 import { ServersCard } from '@/features/room-server/edit-servers';
 import { AllowCard } from '@/features/room-server/manage-allow';
 import { RoomServerSwitchCard } from '@/features/room-server/switch-room-server';
@@ -19,7 +18,6 @@ export function RoomServerPanel() {
         <ServersCard />
       </div>
       <DefaultCard />
-      <LimitsCard />
       <AllowCard summaryOf={byCode ? (code) => byCode.get(code) : error ? undefined : null} />
       <RoomServerUsers />
     </>

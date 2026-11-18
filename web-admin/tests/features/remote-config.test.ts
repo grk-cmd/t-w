@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ACTION_LABEL } from '@/entities/admin-log';
-import {
-  parseRoomLimits,
-  ROOM_MAX_PEOPLE_DEFAULT,
-  ROOM_TOTAL_LIMITS,
-  roomMaxPeopleOf,
-  totalLimitOf,
-} from '@/entities/room';
+import { parseRoomLimits, ROOM_MAX_PEOPLE_DEFAULT, roomMaxPeopleOf, totalLimitOf } from '@/entities/room';
 import {
   getRoomLimits,
   getRoomMaxPeople,
@@ -28,11 +22,20 @@ import { auditsOf, fakeDb, withoutAudits } from '../shared/fakeDb';
 const brief = (writes: Parameters<typeof auditsOf>[0]) =>
   auditsOf(writes).map((a) => [a.action, a.target, a.detail]);
 
-describe('전체 방 상한 — config/roomLimits', () => {
-  it('없으면 채널마다 기본 300 · 범위(1~10000 정수) 밖 칸은 버린다', async () => {
-    expect(ROOM_TOTAL_LIMITS).toEqual({ workingroom: 300, togetherroom: 300 });
-    expect(await getRoomLimits(fakeDb().db)).toEqual({ workingroom: null, togetherroom: null });
-    expect(totalLimitOf(null, 'workingroom')).toBe(300);
+describe('전체 방 상한 — config/roomLimits(Firebase 판) · 기본값은 서버가 알려 줄 때만', () => {
+  const fb = (saved: { workingroom: number | null; togetherroom: number | null }) => ({
+    saved,
+    defaults: null,
+  });
+  const api = (saved: { workingroom: number; togetherroom: number }) => ({
+    saved,
+    defaults: { workingroom: 500, togetherroom: 500 },
+  });
+
+  it('Firebase 판은 기본값을 모른다(박힌 숫자 없음) · 범위(1~10000 정수) 밖 칸은 버린다', async () => {
+    const empty = await getRoomLimits(fakeDb().db);
+    expect(empty).toEqual({ saved: { workingroom: null, togetherroom: null }, defaults: null });
+    expect(totalLimitOf(empty, 'workingroom')).toBeNull();
     expect(parseRoomLimits({ workingroom: 10_000, togetherroom: 10_001 })).toEqual({
       workingroom: 10_000,
       togetherroom: null,
@@ -42,27 +45,35 @@ describe('전체 방 상한 — config/roomLimits', () => {
     const saved = await getRoomLimits(
       fakeDb({ 'config/roomLimits': { workingroom: 400, togetherroom: 1 } }).db,
     );
-    expect(saved).toEqual({ workingroom: 400, togetherroom: 1 });
+    expect(saved.saved).toEqual({ workingroom: 400, togetherroom: 1 });
     expect(totalLimitOf(saved, 'togetherroom')).toBe(1);
+    // 저장된 칸이 없으면 서버가 알려 준 기본값
+    expect(
+      totalLimitOf(
+        { saved: { workingroom: null, togetherroom: 7 }, defaults: { workingroom: 500, togetherroom: 500 } },
+        'workingroom',
+      ),
+    ).toBe(500);
   });
 
   it('입력 검사 — 두 칸 다 1~10000 정수 · 같은 값은 저장 안 함', () => {
-    expect(checkRoomLimits(null, { workingroom: '0', togetherroom: '300' })).toEqual({
+    const none = fb({ workingroom: null, togetherroom: null });
+    expect(checkRoomLimits(none, { workingroom: '0', togetherroom: '300' })).toEqual({
       ok: false,
       error: '워킹룸 — 1~10000 사이 정수',
     });
-    expect(checkRoomLimits(null, { workingroom: '300', togetherroom: '10001' })).toEqual({
+    expect(checkRoomLimits(none, { workingroom: '300', togetherroom: '10001' })).toEqual({
       ok: false,
       error: '투게더룸 — 1~10000 사이 정수',
     });
-    expect(checkRoomLimits(null, { workingroom: '2.5', togetherroom: '300' }).ok).toBe(false);
-    // 서버 값이 없을 때 기본값과 같은 300 을 넣으면 «기본값을 명시» 로 저장한다.
-    expect(checkRoomLimits(null, { workingroom: '300', togetherroom: '300' })).toEqual({
+    expect(checkRoomLimits(none, { workingroom: '2.5', togetherroom: '300' }).ok).toBe(false);
+    // 칸이 비어 있으면 어떤 숫자든 처음 저장은 된다
+    expect(checkRoomLimits(none, { workingroom: '500', togetherroom: '500' })).toEqual({
       ok: true,
-      next: { workingroom: 300, togetherroom: 300 },
+      next: { workingroom: 500, togetherroom: 500 },
     });
-    const saved = { workingroom: 400, togetherroom: 300 };
-    expect(checkRoomLimits(saved, { workingroom: ' 400 ', togetherroom: '300' })).toEqual({
+    const saved = api({ workingroom: 400, togetherroom: 500 });
+    expect(checkRoomLimits(saved, { workingroom: ' 400 ', togetherroom: '500' })).toEqual({
       ok: false,
       error: '지금 값과 같음',
     });
@@ -72,30 +83,35 @@ describe('전체 방 상한 — config/roomLimits', () => {
     });
   });
 
-  it('확인 창 — 바뀐 채널만 «지금 → 새 값» · 반영 안내', () => {
+  it('확인 창 — 바뀐 채널만 «지금 → 새 값» · 칸이 없고 기본값도 모르면 «기본값»', () => {
     expect(
-      roomLimitsConfirmText(
-        { workingroom: 400, togetherroom: null },
-        { workingroom: 400, togetherroom: 500 },
-      ),
+      roomLimitsConfirmText(api({ workingroom: 400, togetherroom: 500 }), {
+        workingroom: 400,
+        togetherroom: 600,
+      }),
     ).toBe(
-      '전체 방 상한 투게더룸 300 → 500 — 이미 열린 방은 그대로이고 새 방부터 적용돼요. 앱은 바로 · 방 서버는 1분 안에 반영.',
+      '전체 방 상한 투게더룸 500 → 600 — 이미 열린 방은 그대로이고 새 방부터 적용돼요. 앱은 바로 · 방 서버는 1분 안에 반영.',
     );
+    expect(
+      roomLimitsConfirmText(fb({ workingroom: 400, togetherroom: null }), {
+        workingroom: 400,
+        togetherroom: 600,
+      }),
+    ).toContain('투게더룸 기본값 → 600');
   });
 
   it('두 채널을 한 객체로 쓰고 기록과 한 묶음 · 바뀐 게 없으면 쓰지 않는다', async () => {
     const { db, writes } = fakeDb();
     await saveRoomLimits(db, null, { workingroom: 400, togetherroom: 300 });
-    await saveRoomLimits(
-      db,
-      { workingroom: 400, togetherroom: 300 },
-      { workingroom: 400, togetherroom: 300 },
-    );
+    await saveRoomLimits(db, fb({ workingroom: 400, togetherroom: 300 }), {
+      workingroom: 400,
+      togetherroom: 300,
+    });
     expect(withoutAudits(writes)).toEqual([
       ['commit', 'config/roomLimits', { workingroom: 400, togetherroom: 300 }],
     ]);
     expect(brief(writes)).toEqual([
-      ['settings.roomLimits', 'roomLimits', '워킹룸 300 → 400 · 투게더룸 300 → 300'],
+      ['settings.roomLimits', 'roomLimits', '워킹룸 기본값 → 400 · 투게더룸 기본값 → 300'],
     ]);
     expect(ACTION_LABEL['settings.roomLimits']).toBe('전체 방 상한');
   });

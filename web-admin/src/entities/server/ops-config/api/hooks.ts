@@ -33,13 +33,3 @@ export function useMaintenance() {
     enabled: maintenance !== null,
   });
 }
-
-/** API 판에만 있는 «방 서버 한 대의 채널별 방 상한». */
-export function useServerLimits() {
-  const { serverLimits } = useOpsConfigPort();
-  return useQuery({
-    queryKey: [...OPS_KEY, 'serverLimits'],
-    queryFn: () => (serverLimits as NonNullable<typeof serverLimits>).get(),
-    enabled: serverLimits !== null,
-  });
-}

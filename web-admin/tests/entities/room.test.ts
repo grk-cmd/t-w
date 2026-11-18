@@ -13,7 +13,6 @@ import {
   orphanCodes,
   parseLiveRooms,
   ROOM_LIVE_MS,
-  ROOM_TOTAL_LIMITS,
   roomRows,
   roomStateOf,
   roomStatsSummary,
@@ -236,8 +235,7 @@ describe('방 서버 줄 — roomIndex 에 srv 가 있는 줄', () => {
     'WORK-FB01': { lastSeen: NOW - 200_000 },
   };
 
-  it('전체 상한 기본값은 채널마다 300 (config/roomLimits 가 없을 때)', () => {
-    expect(ROOM_TOTAL_LIMITS).toEqual({ workingroom: 300, togetherroom: 300 });
+  it('방 서버 이름 — srv 칸', () => {
     expect(serverOf(index['WORK-SRV1'])).toBe('realtime-1');
     expect(serverOf({ srv: '' })).toBeNull();
     expect(serverOf(index['WORK-FB01'])).toBeNull();

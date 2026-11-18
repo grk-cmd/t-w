@@ -3,7 +3,6 @@ import {
   fetchServerHealth,
   getRoomServerConfig,
   healthUrl,
-  parseLimitInput,
   isAppServerUrl,
   parseRoomServerConfig,
   removeAllow,
@@ -13,7 +12,6 @@ import {
   serverProblem,
   setAllow,
   setRegisterIndex,
-  setRoomLimits,
   setRoomServerSwitch,
   uptimeLabel,
 } from '@/entities/room-server';
@@ -25,7 +23,6 @@ describe('방 서버 설정 읽기', () => {
       on: false,
       servers: {},
       allow: {},
-      limits: { workingroom: null, togetherroom: null },
       default: null,
       defaultPercent: 0,
       registerIndex: false,
@@ -38,7 +35,6 @@ describe('방 서버 설정 읽기', () => {
       follow: 'yes',
       servers: { 'rooms-1': 'wss://rooms.togetherworking.duckdns.org', BAD: 'wss://x', n: 3 },
       allow: { u1abc2345: 'rooms-1', 'MATE-AB12': 'rooms-1', u2abc2345: 7 },
-      limits: { workingroom: 400, togetherroom: 2.5, other: 3 },
       default: 'BAD NAME',
       defaultPercent: 101,
       registerIndex: 'yes',
@@ -47,7 +43,6 @@ describe('방 서버 설정 읽기', () => {
       on: true,
       servers: { 'rooms-1': 'wss://rooms.togetherworking.duckdns.org' },
       allow: { u1abc2345: 'rooms-1' },
-      limits: { workingroom: 400, togetherroom: null },
       default: null,
       defaultPercent: 0,
       registerIndex: false,
@@ -150,30 +145,7 @@ describe('방 서버 설정 바꾸기', () => {
   });
 });
 
-describe('방 개수 상한', () => {
-  it('입력 글자 — 정수 1~100000 만', () => {
-    expect(parseLimitInput(' 400 ')).toBe(400);
-    expect(parseLimitInput('100000')).toBe(100_000);
-    for (const bad of ['0', '100001', '2.5', '-1', '', 'abc', '1e3']) expect(parseLimitInput(bad)).toBeNull();
-  });
-
-  it('바뀐 채널만 쓰고 기록은 «지금(없으면 기본 250) → 새 값»', async () => {
-    const { db, writes } = fakeDb();
-    const empty = parseRoomServerConfig({});
-    await setRoomLimits(db, empty, { workingroom: 400, togetherroom: 250 });
-    const set = parseRoomServerConfig({ limits: { workingroom: 400, togetherroom: 250 } });
-    await setRoomLimits(db, set, { workingroom: 400, togetherroom: 300 });
-    expect(writes.filter((w) => !w[1].startsWith('adminLog/'))).toEqual([
-      ['commit', 'config/roomServer/limits/workingroom', 400],
-      ['commit', 'config/roomServer/limits/togetherroom', 250],
-      ['commit', 'config/roomServer/limits/togetherroom', 300],
-    ]);
-    expect(auditsOf(writes).map((a) => [a.action, a.target, a.detail])).toEqual([
-      ['roomServer.limits', 'limits', '워킹룸 250 → 400 · 투게더룸 250 → 250'],
-      ['roomServer.limits', 'limits', '투게더룸 250 → 300'],
-    ]);
-  });
-
+describe('방 서버 상태', () => {
   it('서버 상태 주소 · /health 읽기(옛 서버는 limits 없음)', async () => {
     expect(healthUrl('wss://rooms.togetherworking.duckdns.org/')).toBe(
       'https://rooms.togetherworking.duckdns.org/health',

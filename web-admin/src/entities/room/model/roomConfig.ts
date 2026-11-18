@@ -1,7 +1,7 @@
-import { CHANNEL_LABEL, ROOM_TOTAL_LIMITS, type Channel } from './room';
+import { CHANNEL_LABEL, type Channel } from './room';
 
 // 원격 설정 — 앱 · 방 서버가 읽는 방 규칙. 범위는 규칙 .validate 와 같다.
-// config/roomLimits = { workingroom, togetherroom } — 채널별 전체 방 상한(Firebase 방 + 방 서버 방). 없으면 ROOM_TOTAL_LIMITS.
+// config/roomLimits = { workingroom, togetherroom } — 채널별 전체 방 상한(Firebase 판). API 판은 서버 설정 키 `room.limits`.
 export const ROOM_LIMITS_PATH = 'config/roomLimits';
 export const ROOM_TOTAL_LIMIT_MIN = 1;
 export const ROOM_TOTAL_LIMIT_MAX = 10_000;
@@ -39,18 +39,27 @@ export function parseRoomLimits(raw: unknown): Record<Channel, number | null> {
   };
 }
 
-/** 지금 적용되는 전체 상한 — 칸이 없으면 기본값. */
-export const totalLimitOf = (saved: Record<Channel, number | null> | null | undefined, ch: Channel): number =>
-  saved?.[ch] ?? ROOM_TOTAL_LIMITS[ch];
+/**
+ * 채널별 전체 방 상한 — 저장된 값(칸이 없으면 null)과 기본값.
+ * 기본값은 서버가 알려 줄 때만 있다(API 판 `room.limits` 의 기본값). Firebase 판은 null — 칸이 비면 앱마다 자기 기본값을 쓴다.
+ */
+export interface RoomLimits {
+  saved: Record<Channel, number | null>;
+  defaults: Record<Channel, number> | null;
+}
+
+/** 지금 적용되는 전체 상한 — 칸이 없으면 기본값 · 기본값도 모르면 null. */
+export const totalLimitOf = (limits: RoomLimits | null | undefined, ch: Channel): number | null =>
+  limits?.saved[ch] ?? limits?.defaults?.[ch] ?? null;
 
 export const roomMaxPeopleOf = (saved: number | null | undefined): number => saved ?? ROOM_MAX_PEOPLE_DEFAULT;
 
-/** 바뀐 채널만 «워킹룸 300 → 400» — 전에 칸이 없었으면 기본값으로 보여 준다. */
+/** 바뀐 채널만 «워킹룸 400 → 500» — 전에 칸이 없었고 기본값도 모르면 «기본값 → 500». */
 export function roomLimitChanges(
-  before: Record<Channel, number | null> | null | undefined,
+  before: RoomLimits | null | undefined,
   next: Record<Channel, number>,
 ): string[] {
-  return ROOM_LIMIT_CHANNELS.filter((ch) => before?.[ch] !== next[ch]).map(
-    (ch) => `${CHANNEL_LABEL[ch]} ${totalLimitOf(before, ch)} → ${next[ch]}`,
+  return ROOM_LIMIT_CHANNELS.filter((ch) => before?.saved[ch] !== next[ch]).map(
+    (ch) => `${CHANNEL_LABEL[ch]} ${totalLimitOf(before, ch) ?? '기본값'} → ${next[ch]}`,
   );
 }
