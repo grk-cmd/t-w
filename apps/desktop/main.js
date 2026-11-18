@@ -2114,6 +2114,7 @@ function _watchRendererHealth(win){
     if(reason === 'clean-exit' || reason === 'killed') return;   // 앱이 닫히는 중 · 사용자가 끈 것
     _errorLog.write('CRASH', '렌더러 종료', 'reason=' + reason + ' exitCode=' + (d && d.exitCode));
     /* 다시 불러오든(런처로 돌아옴) 안 불러오든(죽은 화면) 모니터 전체를 덮은 채 둘 수는 없다 — 횟수 판정보다 먼저 */
+    if(win === mainWindow) _quitHold.rendererReset();   // 죽은 화면은 끄기에 답하지 못한다 — 다시 불러온 화면이 알릴 때까지 붙잡지 않는다
     if(win === mainWindow){ try{ reloadReset.beforeReload(); }catch(err){ _diagLog('[렌더러] 창 되돌리기 실패 — ' + (err && err.message)); } }
     if(_rendererReloads >= RENDERER_AUTO_RELOAD_MAX) return;
     _rendererReloads++;
@@ -2124,6 +2125,7 @@ function _watchRendererHealth(win){
     wc.on('did-finish-load', () => reloadReset.onFinishLoad());
     /* ⚠️ did-start-navigation 이 아니라 did-navigate — 시작은 main 이 막는 이동(바깥 링크 · file:// 밖)에도 와서 실행 화면이 끼어 버린다 */
     wc.on('did-navigate', () => {
+      _quitHold.rendererReset();   // 새 화면이 leave-flush.js 를 실어 «답할 수 있다» 고 알릴 때까지 붙잡지 않는다
       try{ reloadReset.onNavigate(); }
       catch(err){ _diagLog('[렌더러] 창 되돌리기 실패 — ' + (err && err.message)); }
     });

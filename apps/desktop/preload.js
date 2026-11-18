@@ -38,9 +38,11 @@ contextBridge.exposeInMainWorld('companion', {
     ipcRenderer.send('companion:quitApp');
   },
 
-  // 🚪 앱을 끄기 전 — main 이 끄기를 붙잡고 묻는다 · 렌더러는 못 올린 저장을 끝내고 답한다(채널 이름은 app/parts/shared/leave-flush.js CH 와 같아야 한다)
+  // 🚪 앱을 끄기 전 — main 이 끄기를 붙잡고 묻는다 · 렌더러는 못 올린 저장을 끝내고 답한다(채널 이름은 apps/desktop/quit-hold.js CH 와 같아야 한다)
+  //   듣기를 걸면 main 에 «답할 수 있다» 를 알린다 — 그 전(불러오는 중 · 화면이 죽음)에는 main 이 붙잡지 않는다
   onQuitFlush(callback) {
     ipcRenderer.on('companion:quitFlush', () => callback());
+    ipcRenderer.send('companion:quitFlushReady');
   },
   quitFlushDone() {
     ipcRenderer.send('companion:quitFlushDone');

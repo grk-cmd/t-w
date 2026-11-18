@@ -1,10 +1,11 @@
 /* sim-leave-flush.js — 🚪 떠나기 전 저장 기다리기(shared/leave-flush.js) · 끄기 붙잡기(quit-hold.js) · 앱 끄기가 캐릭터 저장을 기다린다
    ・1절: flushWithin — 일이 없으면 바로(타이머 없음) · 던지는 일도 끝난 것 · 안 끝나면 8초에 timedOut
-   ・2절: createQuitHold(main) — 붙잡기 · 답이 오면 다시 끄기 · 한 번 끝나면 다시 안 붙잡음 · 창이 없거나 죽었으면 안 붙잡음 · 9초 상한 · 창 닫기 · 업데이트 설치
-   ・3절: 끝까지 — 진짜 옷장(closet.js) + 진짜 끄기 붙잡기 + 렌더러 답(answerQuit)을 가짜 IPC 로 이어 돌린다:
-          캐릭터를 만들자마자 끄면 만들기 요청(POST)이 끝난 뒤에 꺼진다 · 못 올린 것이 없으면 바로 꺼진다(요청 0) · 요청이 안 끝나면 8초에 꺼진다 · 렌더러가 멈췄으면 9초에
-   ・4절: 배선 — main.js(before-quit 맨 앞 · 창 닫기 · 업데이트 설치 · session-end 는 그대로) · preload 채널 · app.js 답 · html 순서 · 로그아웃이 같은 한 벌
-   ・5절: mutation test — 끄기를 안 붙잡는 옛 길(main 이 바로 app.quit)은 3절 첫 판정이 빨강 · 렌더러가 옷장 일을 안 넘기면 빨강
+   ・2절: createQuitHold(main) — 붙잡기 · 답이 오면 다시 끄기 · 한 번 끝나면 다시 안 붙잡음 · 창이 없거나 죽었거나 «답할 수 있다» 전이면 안 붙잡음 · 9초 상한 · 창 닫기 · 업데이트 설치
+   ・3절: 끝까지 — 진짜 옷장(closet.js) + 진짜 끄기 붙잡기(quit-hold.js) + 진짜 렌더러 답(leave-flush.js)을 가짜 IPC 로 이어 돌린다:
+          캐릭터를 만들자마자 끄면 만들기 요청(POST)이 끝난 뒤에 꺼진다 · 못 올린 것이 없으면 바로 꺼진다(요청 0) · 요청이 안 끝나면 8초 · 렌더러가 멈췄으면 9초 ·
+          app.js 가 켜다 죽은 화면 · leave-flush.js 가 아직 안 실린 화면은 바로
+   ・4절: 배선 — main.js(before-quit 맨 앞 · 창 닫기 · 업데이트 설치 · 새 화면 · 렌더러 죽음 · session-end 는 그대로) · preload 채널 · app.js 일 · html 순서 · 로그아웃이 같은 한 벌
+   ・5절: mutation test — 끄기를 안 붙잡는 옛 길(main 이 바로 app.quit)은 3절 첫 판정이 빨강 · 렌더러가 옷장 일을 안 넘기면 빨강 · «답할 수 있다» 를 안 보면 9초
    [실행] 저장소 루트에서 node checks/run.js sim-leave-flush */
 'use strict';
 const fs = require('fs');
@@ -44,13 +45,17 @@ function mkClock(){
   };
   return c;
 }
-/* leave-flush.js(렌더러)를 그 시계 위에 싣고, quit-hold.js(main)를 함께 붙인다 — 렌더러 쪽은 window, main 쪽은 module.exports */
-function loadLF(src, clock, qhSrc){
-  const ctx = { window: {}, Promise, Object, Error, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout };
-  vm.createContext(ctx); vm.runInContext(src, ctx);
+/* quit-hold.js(main)를 싣는다 — module.exports */
+function loadQH(qhSrc){
   const mod = { exports: {} };
   new Function('module', 'exports', qhSrc || QH)(mod, mod.exports);
-  return Object.assign({}, ctx.window.TwLeaveFlush, mod.exports, { QUIT_GUARD_MS: mod.exports.GUARD_MS });
+  return Object.assign({}, mod.exports, { QUIT_GUARD_MS: mod.exports.GUARD_MS });
+}
+/* leave-flush.js(렌더러)를 그 시계 위에 싣는다 — companion 이 있으면 실리면서 끄기 물음 듣기를 건다(진짜 html 과 같다) */
+function loadLF(src, clock, companion){
+  const ctx = { window: companion ? { companion } : {}, Promise, Object, Error, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout };
+  vm.createContext(ctx); vm.runInContext(src || LF, ctx);
+  return ctx.window.TwLeaveFlush;
 }
 
 /* 가짜 main — app.quit 이 before-quit 을 돌리고, 막히지 않으면 끈다 */
@@ -75,6 +80,8 @@ function mkMain(L, clock, opt){
   };
   m.hold = L.createQuitHold({ getWindow: () => m.win, ipcMain, quit: () => m.app.quit(), setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout });
   m.done = () => (m.handlers[L.CH.DONE] || []).forEach(fn => fn());
+  m.ready = (sender) => (m.handlers[L.CH.READY] || []).forEach(fn => fn({ sender: sender || (m.win && m.win.webContents) }));
+  if(!o.noReady && !o.renderer) m.ready();   // 2절 — 렌더러가 «답할 수 있다» 를 알린 뒤(3절은 진짜 leave-flush.js 가 알린다)
   return m;
 }
 
@@ -109,26 +116,26 @@ function mkCloset(clock, opt){
   return env;
 }
 
-/* 렌더러와 main 을 가짜 IPC 로 잇는다 — preload 의 onQuitFlush · quitFlushDone 과 같은 모양 */
-function wire(L, m, jobs, opt){
+/* 가짜 preload — onQuitFlush 를 걸면 main 에 READY · 물음(ASK)은 걸어 둔 함수로 · quitFlushDone 은 DONE 으로(preload.js 와 같은 모양) */
+function fakePreload(Q, m, opt){
   const o = opt || {};
   let cb = null;
-  const companion = { onQuitFlush: (fn) => { cb = fn; }, quitFlushDone: () => { m.log.push('done'); m.done(); } };
-  L.answerQuit(companion, jobs);
-  m.onSend = (ch) => { if(ch === L.CH.ASK && cb && !o.rendererHung) Promise.resolve().then(cb); };
+  m.onSend = (ch) => { if(ch === Q.CH.ASK && cb && !o.rendererHung) Promise.resolve().then(cb); };
+  return { onQuitFlush: (fn) => { cb = fn; m.ready(); }, quitFlushDone: () => { m.log.push('done'); m.done(); } };
 }
 
 /* 한 장면 — 캐릭터를 만들고(또는 안 만들고) 곧바로 제목줄 × 를 누른다 */
 async function scene(src, opt, qhSrc){
   const o = opt || {};
   const clock = mkClock();
-  const L = loadLF(src || LF, clock, qhSrc);
+  const Q = loadQH(qhSrc);
   const log = [];
-  const m = mkMain(L, clock, o);
+  const m = mkMain(Q, clock, Object.assign({ renderer: true }, o));
   m.log = log;
+  const R = o.rendererNotLoaded ? null : loadLF(src, clock, fakePreload(Q, m, o));   // html 이 app.js 보다 먼저 싣는다
   const e = mkCloset(clock, Object.assign({ log }, o));
   await e.C.pullCloset(false);
-  wire(L, m, o.jobs ? o.jobs(e.C) : [e.C.flushUnsaved], o);
+  if(R && !o.appDied) (o.jobs ? o.jobs(e.C) : [e.C.flushUnsaved]).forEach(j => R.addQuitJob(j));   // app.js 가 옷장을 만든 뒤 일을 더한다
   if(o.edit !== false) e.edit(0, { skin: 'new' });   // 새 캐릭터 저장 — 3초 묶음이 예약된다
   await clock.advance(o.waitBefore || 50);
   const t0 = clock.now;
@@ -142,7 +149,7 @@ async function scene(src, opt, qhSrc){
 say('── 1. flushWithin — 일이 없으면 바로 · 던지는 일도 끝난 것 · 안 끝나면 8초');
 {
   const clock = mkClock(); const L = loadLF(LF, clock);
-  chk(L.LEAVE_FLUSH_MAX_MS === 8000 && L.QUIT_GUARD_MS > L.LEAVE_FLUSH_MAX_MS, '상한 8초 · main 쪽 상한은 그보다 길다 (' + L.LEAVE_FLUSH_MAX_MS + ' · ' + L.QUIT_GUARD_MS + ')');
+  chk(L.LEAVE_FLUSH_MAX_MS === 8000 && loadQH().QUIT_GUARD_MS > L.LEAVE_FLUSH_MAX_MS, '상한 8초 · main 쪽 상한은 그보다 길다 (' + L.LEAVE_FLUSH_MAX_MS + ' · ' + loadQH().QUIT_GUARD_MS + ')');
   let r = null; L.flushWithin([]).then(x => { r = x; }); await tick();
   chk(r && r.timedOut === false && clock.pending() === 0, '일이 없으면 타이머 없이 바로 { timedOut:false }');
   r = null; L.flushWithin([() => { throw new Error('x'); }, () => null]).then(x => { r = x; }); await tick(); await tick();
@@ -160,7 +167,7 @@ say('── 1. flushWithin — 일이 없으면 바로 · 던지는 일도 끝�
 /* ── 2. createQuitHold ── */
 say('── 2. createQuitHold — 붙잡기 · 다시 끄기 · 상한 · 창 없음 · 창 닫기 · 업데이트 설치');
 {
-  let clock = mkClock(), L = loadLF(LF, clock), m = mkMain(L, clock);
+  let clock = mkClock(), L = loadQH(), m = mkMain(L, clock);
   m.app.quit();
   chk(m.held === 1 && m.sent.join() === L.CH.ASK && !m.log.length, '첫 app.quit — 붙잡고 렌더러에 한 번 묻는다');
   m.app.quit();
@@ -172,23 +179,36 @@ say('── 2. createQuitHold — 붙잡기 · 다시 끄기 · 상한 · 창 �
   m.quitAt = null; m.log.length = 0; m.app.quit();
   chk(m.log.join() === 'quit' && m.sent.length === 1, '  한 번 끝난 뒤의 끄기는 붙잡지 않는다');
 
-  clock = mkClock(); L = loadLF(LF, clock); m = mkMain(L, clock);
+  clock = mkClock(); L = loadQH(); m = mkMain(L, clock);
   m.app.quit(); await clock.advance(L.QUIT_GUARD_MS - 1);
   chk(!m.log.length, '렌더러가 답하지 않으면 — 상한 직전까지 기다린다');
   await clock.advance(1);
   chk(m.log.join() === 'quit' && m.quitAt === L.QUIT_GUARD_MS, '  상한(' + L.QUIT_GUARD_MS + 'ms)에 끈다');
 
   for(const [name, o] of [['창이 없으면', { noWin: true }], ['렌더러가 죽었으면', { crashed: true }]]){
-    clock = mkClock(); L = loadLF(LF, clock); m = mkMain(L, clock, o);
+    clock = mkClock(); L = loadQH(); m = mkMain(L, clock, o);
     m.app.quit();
     chk(m.log.join() === 'quit' && m.held === 0 && m.sent.length === 0 && clock.pending() === 0, name + ' — 붙잡지 않고 바로 끈다');
   }
-  clock = mkClock(); L = loadLF(LF, clock); m = mkMain(L, clock);
+  clock = mkClock(); L = loadQH(); m = mkMain(L, clock, { noReady: true });
+  m.app.quit();
+  chk(m.log.join() === 'quit' && m.sent.length === 0, '렌더러가 «답할 수 있다» 를 알리기 전(불러오는 중) — 붙잡지 않고 바로 끈다');
+  clock = mkClock(); L = loadQH(); m = mkMain(L, clock, { noReady: true });
+  m.ready({ other: true }); m.app.quit();
+  chk(m.log.join() === 'quit' && m.sent.length === 0, '  다른 창이 보낸 READY 는 세지 않는다');
+  clock = mkClock(); L = loadQH(); m = mkMain(L, clock);
+  m.hold.rendererReset(); m.app.quit();
+  chk(m.log.join() === 'quit' && m.sent.length === 0, '  화면을 새로 불러오거나 렌더러가 죽은 뒤(rendererReset) — 다시 알리기 전에는 붙잡지 않는다');
+  clock = mkClock(); L = loadQH(); m = mkMain(L, clock);
+  m.hold.rendererReset(); m.ready(); m.app.quit();
+  chk(m.held === 1 && m.sent.length === 1, '  새 화면이 다시 알리면 붙잡는다');
+
+  clock = mkClock(); L = loadQH(); m = mkMain(L, clock);
   m.win.webContents.send = () => { throw new Error('gone'); };
   m.app.quit();
   chk(m.log.join() === 'quit' && clock.pending() === 0, '묻기가 던지면 — 붙잡지 않고 바로 끈다');
 
-  clock = mkClock(); L = loadLF(LF, clock); m = mkMain(L, clock);
+  clock = mkClock(); L = loadQH(); m = mkMain(L, clock);
   let prevented = false;
   m.hold.windowClose({ preventDefault(){ prevented = true; } });
   chk(prevented && m.held === 1 && m.sent.length === 1, '메인 창 닫기(Alt+F4) — 닫기를 막고 끄기로 모은다(묻는다)');
@@ -196,16 +216,16 @@ say('── 2. createQuitHold — 붙잡기 · 다시 끄기 · 상한 · 창 �
   m.hold.windowClose({ preventDefault(){ prevented = true; } });
   chk(!prevented && m.log.join() === 'quit', '  끝난 뒤 끄기가 창을 닫을 때는 막지 않는다');
 
-  clock = mkClock(); L = loadLF(LF, clock); m = mkMain(L, clock);
+  clock = mkClock(); L = loadQH(); m = mkMain(L, clock);
   const up = [];
   m.hold.flushThen(() => up.push('install'));
   chk(!up.length && m.sent.length === 1, '업데이트 설치 — 먼저 묻는다');
   m.done();
   chk(up.join() === 'install' && !m.log.length, '  답이 오면 설치(app.quit 이 아니라 설치 함수)');
-  clock = mkClock(); L = loadLF(LF, clock); m = mkMain(L, clock);
+  clock = mkClock(); L = loadQH(); m = mkMain(L, clock);
   m.app.quit(); m.hold.flushThen(() => up.push('install2')); m.done();
   chk(up.includes('install2') && !m.log.length, '  끄기를 묻는 사이 설치를 누르면 — 답이 오면 설치로 이어 간다');
-  clock = mkClock(); L = loadLF(LF, clock); m = mkMain(L, clock, { noWin: true });
+  clock = mkClock(); L = loadQH(); m = mkMain(L, clock, { noWin: true });
   m.hold.flushThen(() => up.push('install3'));
   chk(up.includes('install3'), '  창이 없으면 바로 설치');
 }
@@ -226,6 +246,10 @@ const Cc = await scene(null, { createHang: true });
 chk(Cc.quitAfter === 8000 && !Cc.log.includes('create-done'), '★ 요청이 안 끝나면 — 8초 상한에 꺼진다(' + Cc.quitAfter + 'ms)');
 const D = await scene(null, { rendererHung: true });
 chk(D.quitAfter === 9000, '  렌더러가 답하지 못하면 — main 상한 9초에 꺼진다(' + D.quitAfter + 'ms)');
+const F = await scene(null, { appDied: true });   /* 끈 뒤에도 시뮬레이션은 돌아 3초 묶음이 뒤에 찍힌다 — 앞 두 줄만 본다 */
+chk(F.quitAfter === 0 && F.log.slice(0, 2).join() === 'done,quit', '★ app.js 가 켜다 죽은 화면(WebGL 못 만듦 등 · 일 0개) — leave-flush.js 가 이미 답하고 있어 그 자리에서 꺼진다(' + F.quitAfter + 'ms)');
+const G = await scene(null, { rendererNotLoaded: true });
+chk(G.quitAfter === 0 && G.log[0] === 'quit', '  leave-flush.js 가 아직 안 실린 화면(불러오는 중) — 붙잡지 않고 바로 꺼진다(' + G.quitAfter + 'ms)');
 const E = await scene(null, { createMs: 3000 });
 chk(E.quitAfter === 3000 && E.log.join(' → ') === 'create-done → done → quit', '  요청이 3초 걸리면 3초 기다렸다 끈다');
 
@@ -241,11 +265,13 @@ say('── 4. 배선');
   chk(/ipcMain\.on\('companion:installUpdate', \(\) => \{ _quitHold\.flushThen\(\(\) => autoUpdater\.quitAndInstall\(\)\); \}\)/.test(MAIN), '  업데이트 설치 앞에서 묻는다');
   chk(/ipcMain\.on\('companion:quitApp', \(\) => \{ app\.quit\(\); \}\)/.test(MAIN) && /app\.on\('session-end', \(\) => \{ _exitNow\(\); \}\)/.test(MAIN) && !/_quitHold/.test((MAIN.match(/function _exitNow\(\)\{[\s\S]*?\n\}/) || [''])[0]),
     '  제목줄 × 는 그대로 app.quit(부르는 곳마다 코드 없음) · OS 세션 종료 · _exitNow 는 붙잡지 않는다');
-  const L = loadLF(LF, mkClock());
-  chk(PRE.includes("ipcRenderer.on('" + L.CH.ASK + "'") && PRE.includes("ipcRenderer.send('" + L.CH.DONE + "')"), 'preload — 채널 이름이 quit-hold.js CH 와 같다');
-  chk(/TwLeaveFlush\.answerQuit\(window\.companion, \[closetMod\.flushUnsaved\]\);/.test(APP), 'app.js — 끄기 답에 옷장의 못 올린 고침만 넘긴다');
+  const L = loadQH();
+  chk(PRE.includes("ipcRenderer.on('" + L.CH.ASK + "'") && PRE.includes("ipcRenderer.send('" + L.CH.DONE + "')") && PRE.includes("ipcRenderer.send('" + L.CH.READY + "')"), 'preload — 채널 이름 셋이 quit-hold.js CH 와 같다');
+  chk(/wc\.on\('did-navigate', \(\) => \{\n      _quitHold\.rendererReset\(\);/.test(MAIN) && /if\(win === mainWindow\) _quitHold\.rendererReset\(\);/.test(MAIN), 'main.js — 새 화면으로 옮겨 갈 때 · 렌더러가 죽을 때 «답할 수 있다» 를 지운다');
+  chk(/TwLeaveFlush\.addQuitJob\(closetMod\.flushUnsaved\);/.test(APP) && (APP.match(/addQuitJob\(/g) || []).length === 1, 'app.js — 끄기에 옷장의 못 올린 고침만 더한다');
   const iL = HTML.indexOf('<script src="parts/shared/leave-flush.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
-  chk(iL > 0 && iA > iL, 'html — leave-flush.js 를 app.js 보다 먼저 싣는다');
+  const iE = HTML.indexOf('<script src="parts/shared/error-report.js"></script>'), firstScript = HTML.indexOf('<script src="parts/');
+  chk(iL > 0 && iA > iL && firstScript === iE && HTML.indexOf('<script src=', iE + 1) === iL, 'html — leave-flush.js 를 오류 기록 바로 뒤 · 다른 모든 스크립트보다 먼저 싣는다(뒤가 죽어도 답하게)');
   chk(/return leaveFlush\.flushWithin\(\[/.test(ACC) && !/Promise\.race/.test(ACC) && /leaveFlush: TwLeaveFlush,/.test(APP), '로그아웃 올리기도 같은 한 벌(flushWithin) — 상한 경주를 따로 두지 않는다');
 }
 
@@ -258,6 +284,8 @@ say('── 5. mutation test');
   chk(noJob.log.slice(0, 2).join(' → ') === 'done → quit' && noJob.quitAfter === 0, '렌더러가 옷장 일을 안 넘기면 — 요청 없이 바로 꺼진다 → 빨강');
   const noFilter = await scene(null, { edit: false, jobs: (C) => [() => C.waitFlush().then(() => new Promise(() => {}))] });
   chk(noFilter.quitAfter === 8000, '못 올린 것이 없어도 기다리는 일을 넘기면 — 8초를 기다린다 → 2번째 ★ 판정이 빨강');
+  const noReadyGate = await scene(null, { rendererNotLoaded: true }, QH.replace('if(!w || !ready) return null;', 'if(!w) return null;'));
+  chk(noReadyGate.quitAfter === 9000, '«답할 수 있다» 를 안 보고 붙잡으면 — 불러오는 중인 화면에서 9초를 기다린다 → 위 «안 실린 화면» 판정이 빨강(' + noReadyGate.quitAfter + 'ms)');
   const broken = await scene(null, {}, QH.replace('if(stage === \'idle\' && !ask(quit)) return false;', 'return false;'));
   chk(broken.log[0] === 'quit', 'beforeQuit 가 붙잡지 않으면 — 요청 전에 꺼진다 → 빨강');
 }

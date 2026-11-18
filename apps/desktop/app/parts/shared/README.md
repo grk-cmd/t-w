@@ -471,10 +471,11 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 ## `leave-flush.js` — 🚪 떠나기 전 저장 기다리기(로그아웃 · 앱 끄기 · 상한 8초)
 
-- **책임**: 로그아웃 올리기(`account/account.js`)와 앱 끄기가 같은 «일 여럿을 돌리고 다 끝나거나 8초가 지나면 돌아온다» 한 벌을 쓴다. 끄기는 main 이 붙잡고 묻는다(`apps/desktop/quit-hold.js` — before-quit 한 곳) — 이 파일의 `answerQuit` 가 받아 올리고 답한다.
-- **내놓는 것**: `LEAVE_FLUSH_MAX_MS`(8000) · `flushWithin(jobs)` → `{ timedOut }`(일이 없으면 타이머 없이 바로 · 던진 일도 끝난 것) · `answerQuit(companion, jobs)`(물으면 올리고 `quitFlushDone` · companion 이 없으면 안 건다).
-- **함정**: ① 끄기에서 기다리는 것은 캐릭터(`closet.flushUnsaved`)뿐이다 — 못 올린 고침이 없으면 일이 null 이라 바로 끈다. 집중 시간 · 플레이리스트 등은 다음 켤 때 보내므로 예전처럼 `beforeunload` 에서 기다리지 않고 보낸다. ② main 의 상한(`quit-hold.js` GUARD_MS 9초)은 이 상한보다 길어야 한다 — 렌더러가 멈췄을 때만 걸리게. ③ OS 세션 종료 · `_exitNow`(app.exit)는 묻지 않고 바로 끈다.
+- **책임**: 로그아웃 올리기(`account/account.js`)와 앱 끄기가 같은 «일 여럿을 돌리고 다 끝나거나 8초가 지나면 돌아온다» 한 벌을 쓴다. 끄기는 main 이 붙잡고 묻는다(`apps/desktop/quit-hold.js` — before-quit 한 곳) — 이 파일이 실릴 때 건 듣기가 더해 둔 일을 올리고 답한다.
+- **내놓는 것**: `LEAVE_FLUSH_MAX_MS`(8000) · `flushWithin(jobs)` → `{ timedOut }`(일이 없으면 타이머 없이 바로 · 던진 일도 끝난 것) · `addQuitJob(fn)`(끄기 전에 올릴 일 — app.js 가 옷장을 만든 뒤 더한다). 듣기는 실릴 때 `window.companion.onQuitFlush` 로 건다(preload 가 그때 main 에 «답할 수 있다» 를 알린다 · companion 이 없으면 안 건다).
+- **함정**: ① 끄기에서 기다리는 것은 캐릭터(`closet.flushUnsaved`)뿐이다 — 못 올린 고침이 없으면 일이 null 이라 바로 끈다. 집중 시간 · 플레이리스트 등은 다음 켤 때 보내므로 예전처럼 `beforeunload` 에서 기다리지 않고 보낸다. ② main 의 상한(`quit-hold.js` GUARD_MS 9초)은 이 상한보다 길어야 한다 — 렌더러가 멈췄을 때만 걸리게. ③ OS 세션 종료(윈도우) · `_exitNow`(app.exit)는 묻지 않고 바로 끈다. ④ html 에서 오류 기록 바로 뒤 · 다른 스크립트보다 먼저 싣는다 — app.js 가 켜다 죽어도 일 0개로 바로 답하게.
 - 검사: `checks/sim-leave-flush.js`.
+
 ## `front-diag.js` — 🩺 앞 창 진단(1분 `[프레임]` 줄 끝에 앞 창 · 전체화면 비율)
 
 - **책임**: «앱을 켜 두면 게임 · 영상이 버벅인다» 제보를 진단 기록(`tw-mouse-diag.log`) 한 장으로 가르게, 렌더러가 1분마다 보내는 `[프레임]` 줄 끝에 그 1분 동안 가장 오래 앞에 있던 실행 파일과 그 창이 모니터를 꽉 채운 비율을 붙인다. main 만 싣는다(`module.exports` — 렌더러는 앞 창을 모른다).
