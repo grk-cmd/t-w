@@ -310,8 +310,6 @@
 
     /* 🔐 로그인 수단 — 계정 탭이 «구글 · 친구 코드+비밀번호» 를 보인다. authProviders() → null(세션 없음) | { authUid, anonymous, google, googleEmail, password, passwordEmail } */
     authProviders(){ return _providersOf(auth && auth.currentUser); },
-    /* 서버가 로그인 수단을 바꾼 뒤(비밀번호 붙이기) 이 PC 의 Auth 사본을 다시 읽는다 */
-    async authReload(){ if(auth && auth.currentUser){ try{ await auth.currentUser.reload(); }catch(_){} } },
     /* 비밀번호로 다시 확인(구글 없는 계정 — 5분 안 로그인이 필요한 일) — 지금 세션을 바꾸지 않고 최근 로그인만 새로 한다.
        이메일은 이 세션이 가진 비밀번호 로그인의 것(authProviders().passwordEmail — 친구 코드 로그인이 만드는 모양과 같다).
        → { ok:true } | { ok:false, wrong:true }(비밀번호가 다름 — 창에서 다시 입력) | { ok:false, reason } */
