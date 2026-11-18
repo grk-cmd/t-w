@@ -46,6 +46,7 @@ function makeApp(outArg, opts = {}){
     await app.evaluate(({ app: a }) => setTimeout(() => a.exit(0), 50)).catch(() => {});
     await Promise.race([closed, wait(10000)]);
     try { process.kill(pid, 0); process.kill(pid, 'SIGKILL'); } catch(_){}
+    readNet();   // 끄기 직전 줄까지
   }
 
   async function launch(){
@@ -57,6 +58,7 @@ function makeApp(outArg, opts = {}){
     fs.writeFileSync(path.join(wrap, 'package.json'), JSON.stringify({ name: pkg.name, version: opts.version || pkg.version, main: 'main.js' }));
     // 조용한 창(TW_E2E_QUIET, 기본 켬) — 시험 창이 화면 밖에 뜨고 포커스 · Dock 을 빼앗지 않게(quiet-main.js). 끄려면 TW_E2E_QUIET=0
     // route-main.js 가 남기는 줄(REQ · BLOCK)을 읽어 reqs · blocked 에 옮긴다 — 켤 때마다 새 파일
+    readNet();   // 앞 판(다시 켜기 전)이 남긴 줄을 먼저 옮긴다 — 파일을 비우면 사라진다
     netLog = path.join(out, 'net.txt');
     fs.writeFileSync(netLog, '');
     netPos = 0;
@@ -111,7 +113,9 @@ function makeApp(outArg, opts = {}){
     await app.evaluate((_e, a) => { global.__e2eEdits.push({ method: a.method, re: new RegExp(a.re), fn: (0, eval)('(' + a.src + ')') }); },
       { method, re: pathRe, src: edit.toString() });
   }
-  return { launch, quit, net, editJson, logs, reqs, blocked, out, quiet, get app(){ return app; } };
+  // reqs · blocked 는 읽을 때마다 기록 파일을 따라잡는다 — 타이머만 믿으면 앱이 답을 받은 뒤 0~200ms 동안 줄이 비어 바로 본 검사가 흔들린다
+  return { launch, quit, net, editJson, logs, out, quiet,
+    get reqs(){ readNet(); return reqs; }, get blocked(){ readNet(); return blocked; }, get app(){ return app; } };
 }
 
 /** 조용한 창이 지켜지나 — 켜 둔 앱의 창마다 진짜 자리 · 투명도 · 소리 · 포커스를 보고 어긋난 것을 글로 돌려준다(빈 배열 = 조용함).

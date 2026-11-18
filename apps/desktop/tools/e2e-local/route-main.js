@@ -21,7 +21,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { app, session, net } = require('electron');
+const { app, session } = require('electron');
 
 const API_HOST = 'api-dev.together-working.com';
 const AUTH_HOSTS = ['identitytoolkit.googleapis.com', 'securetoken.googleapis.com'];
@@ -58,7 +58,9 @@ module.exports = function routeMain(o){
   function help(req, u){
     const tag = `${req.method} ${HELP_HOST}${u.pathname}`;
     const root = path.resolve(o.helpDir);
-    let rel = decodeURIComponent(u.pathname).replace(/^\/+/, '');
+    let rel;
+    try { rel = decodeURIComponent(u.pathname).replace(/^\/+/, ''); }
+    catch(_){ write(`REQ ${tag} 404`); return new Response('not found', { status: 404, headers: { 'content-type': 'text/plain' } }); }
     const cands = [];
     if(!rel || rel.endsWith('/')) cands.push(rel + 'index.html');
     else { cands.push(rel); if(!path.extname(rel)) cands.push(rel + '.html', rel + '/index.html'); }
@@ -75,7 +77,7 @@ module.exports = function routeMain(o){
     return new Response('not found', { status: 404, headers: { 'content-type': 'text/plain' } });
   }
 
-  async function https(req){
+  async function https(ses, req){
     const u = new URL(req.url);
     const m = map(u);
     if(m){
@@ -83,14 +85,17 @@ module.exports = function routeMain(o){
       if(global.__e2eOffline){ write(`REQ ${tag} OFFLINE`); return Response.error(); }
       try {
         const body = (req.method === 'GET' || req.method === 'HEAD') ? undefined : req.body;
-        const r = await net.fetch(m.to, { method: req.method, headers: req.headers, body, duplex: 'half', bypassCustomProtocolHandlers: true, redirect: 'manual' });
+        const r = await ses.fetch(m.to, { method: req.method, headers: req.headers, body, duplex: 'half', bypassCustomProtocolHandlers: true, redirect: 'manual' });
         // 시험이 고친 답(lib.js editJson — 이 앱 하나만 · 서버 값은 그대로): JSON 답의 data 를 고쳐 준다
         const ed = global.__e2eEdits.find((e) => e.method === req.method && e.re.test(u.pathname + u.search));
         if(ed){
-          const j = await r.json();
+          const text = await r.text();
+          let j = null; try { j = JSON.parse(text); } catch(_){}
           if(j && j.data) j.data = ed.fn(j.data);
-          write(`REQ ${tag} ${r.status} (시험이 고침)`);
-          return new Response(JSON.stringify(j), { status: r.status, headers: { 'content-type': 'application/json' } });
+          write(`REQ ${tag} ${r.status}${j ? ' (시험이 고침)' : ''}`);
+          // 원래 답의 헤더(CORS 등)는 그대로 — 몸이 바뀌어 길이 · 압축 헤더만 뺀다
+          const h = new Headers(r.headers); h.delete('content-length'); h.delete('content-encoding');
+          return new Response(j ? JSON.stringify(j) : text, { status: r.status, statusText: r.statusText, headers: h });
         }
         write(`REQ ${tag} ${r.status}`);
         return r;
@@ -98,22 +103,36 @@ module.exports = function routeMain(o){
     }
     if(u.hostname === HELP_HOST && o.helpDir) return help(req, u);
     if(isBlocked(req.url)){ block(req.method, req.url); return Response.error(); }
-    return net.fetch(req, { bypassCustomProtocolHandlers: true });   // 그 밖의 https(유튜브 등)는 그대로
+    return ses.fetch(req, { bypassCustomProtocolHandlers: true });   // 그 밖의 https(유튜브 등)는 그 세션으로 그대로
   }
 
+  // webRequest 주소 고르개(<scheme>://<host>/<path> · * 허용) → 정규식
+  const toRe = (p) => new RegExp('^' + String(p).split('*').map((x) => x.replace(/[.+?^${}()|[\]\\/]/g, '\\$&')).join('.*') + '$');
   const done = new Set();
   function wire(ses){
     if(!ses || done.has(ses)) return;
     done.add(ses);
-    ses.protocol.handle('https', https);
-    // https 처리기를 거치지 않는 요청(ws · wss · http · main 이 따로 부르는 것)의 마지막 그물
+    ses.protocol.handle('https', (req) => https(ses, req));
+    // https 처리기를 거치지 않는 요청(ws · wss · http · main 이 따로 부르는 것)의 마지막 그물.
+    // ⚠️ 세션의 onBeforeRequest 는 하나뿐이라 앱이 나중에 걸면(예: BGM 창) 이 그물이 갈린다 — 앱이 거는 것을 받아 두고,
+    //   막기 판정을 먼저 한 뒤 앱의 것을 그 고르개(urls)대로 부른다
     // ⚠️ 돌릴 https 주소는 건너뛴다 — webRequest 가 처리기보다 먼저 보는 판이면 여기서 막아 버린다
-    ses.webRequest.onBeforeRequest((d, cb) => {
+    const wr = ses.webRequest;
+    const set = wr.onBeforeRequest.bind(wr);
+    let appFn = null, appRes = null;
+    set((d, cb) => {
       let u = null; try { u = new URL(d.url); } catch(_){}
-      if(u && (map(u) || (u.protocol === 'https:' && u.hostname === HELP_HOST && o.helpDir))) return cb({});
-      if(isBlocked(d.url)){ block(d.method, d.url); return cb({ cancel: true }); }
+      const ours = u && (map(u) || (u.protocol === 'https:' && u.hostname === HELP_HOST && o.helpDir));
+      if(!ours && isBlocked(d.url)){ block(d.method, d.url); return cb({ cancel: true }); }
+      if(appFn && (!appRes || appRes.some((re) => re.test(d.url)))) return appFn(d, cb);
       cb({});
     });
+    wr.onBeforeRequest = (a, b) => {
+      const filter = (typeof a === 'function' || a == null) ? null : a;
+      const fn = (typeof a === 'function' || a == null) ? a : b;
+      appFn = fn || null;
+      appRes = filter && Array.isArray(filter.urls) && filter.urls.length ? filter.urls.map(toRe) : null;
+    };
   }
   app.on('session-created', (ses) => { if(app.isReady()) wire(ses); });
   // 처리기는 ready 뒤에 걸 수 있다 — 이 파일이 앱 main.js 보다 먼저 'ready' 를 들으므로 앱의 창 · 요청보다 먼저 걸린다
