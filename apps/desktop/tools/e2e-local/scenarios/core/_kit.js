@@ -6,9 +6,10 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const { makeApp, wait, quietProblems, API_HOST, APP_DIR } = require('../../lib.js');
 
-const ROOT = process.env.TW_E2E_OUT || '/tmp/tw-e2e/core';
+// 결과 폴더 — run-all 이 `node <파일> <결과 폴더>` 로 넘긴다. 따로 돌리면 <TW_E2E_OUT 또는 /tmp/tw-e2e>/core/<이름>
+const ROOT = path.join(process.env.TW_E2E_OUT || '/tmp/tw-e2e', 'core');
 const PW = 'e2e-pass-1234';   // 에뮬레이터 안에서만 쓰는 시험 비밀번호
-// 이 묶음이 쓰는 초대 코드 — seed/core-invite.sql 이 넣는다(다른 묶음과 사용 횟수를 나눠 쓰지 않게)
+// 이 묶음이 쓰는 초대 코드 — seed/core-invite.sql 이 이 값으로 넣는다(다른 묶음과 사용 횟수를 나눠 쓰지 않게)
 const INVITE = process.env.TW_E2E_INVITE || 'INVT-C2RE-TEST';
 const PG = process.env.TW_E2E_PG || 'tw-dev-local-postgres-1';
 const RT = process.env.TW_E2E_RT || 'tw-dev-local-rooms-dev-1';
@@ -54,12 +55,26 @@ async function withStackLock(fn, maxWaitMs = 600000){
     }
   }
   try { fs.writeFileSync(path.join(LOCK, 'owner'), `e2e-core ${process.pid} ${new Date().toISOString()}`); } catch(_){}
+  // 신호로 끝나도 잠금 폴더를 남기지 않는다(남으면 다른 세션이 10분 기다리다 실패한다)
+  const drop = () => { try { fs.rmSync(path.join(LOCK, 'owner'), { force: true }); } catch(_){} try { fs.rmdirSync(LOCK); } catch(_){} };
+  process.on('exit', drop);
   try { return await fn(); }
-  finally {
-    try { fs.rmSync(path.join(LOCK, 'owner'), { force: true }); } catch(_){}
-    try { fs.rmdirSync(LOCK); } catch(_){}
-  }
+  finally { process.removeListener('exit', drop); drop(); }
 }
+
+// 공유 realtime 컨테이너 멈추기 · 풀기 — 스택 잠금 안에서만 부른다. 신호로 끝나도 exit 에서 푼다(멈춘 채 남으면 다른 세션의 realtime 이 멈춘다)
+let rtPaused = false;
+function pauseRt(){
+  if(!LOCK || !fs.existsSync(LOCK)) throw new Error('스택 잠금 밖에서 realtime 을 멈추려 함');
+  docker(['pause', RT]); rtPaused = true;
+}
+function unpauseRt(){
+  if(!rtPaused) return;
+  try { docker(['unpause', RT]); rtPaused = false; } catch(e){ throw new Error('realtime 풀기 실패: ' + String(e.message).split('\n')[0]); }
+}
+process.on('exit', () => { if(rtPaused){ try { docker(['unpause', RT]); } catch(_){} } });
+// 신호를 받으면 exit 처리기(잠금 · realtime 풀기)가 돌게 끝낸다 — run-all 아래에서는 runlock 처리기가 없다
+for(const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => process.exit(130));
 
 async function poll(fn, ms, what, every = 300){
   const t0 = Date.now();
@@ -71,23 +86,30 @@ async function poll(fn, ms, what, every = 300){
   }
 }
 
-// 앱 끄기 — 15초 안에 안 꺼지면 그 앱의 프로세스(이 결과 폴더로 켠 Electron 만)를 PID 로 끝낸다. 끄다 멈추면 다음 시나리오가 잠금을 못 받는다
+// 이 결과 폴더(wrap 경로)로 켠 Electron 만 PID 로 끝낸다 — 다른 묶음 · 다른 폴더 앱은 건드리지 않는다
+function killAppPids(A, extra){
+  let pids = [];
+  try { pids = execFileSync('pgrep', ['-f', path.join(A.out, 'wrap')], { encoding: 'utf8' }).split('\n').map(Number).filter(Boolean); } catch(_){}
+  if(extra) pids.push(extra);
+  for(const p of new Set(pids)){ try { process.kill(p, 'SIGKILL'); } catch(_){} }
+}
+
+// 앱 끄기 — 15초 안에 안 꺼지면 killAppPids. 끄다 멈추면 다음 시나리오가 잠금을 못 받는다
 async function hardQuit(A){
   const pid = (() => { try { return A.app && A.app.process().pid; } catch(_){ return null; } })();
   const done = await Promise.race([A.quit().then(() => true, () => true), wait(15000).then(() => false)]);
   if(done) return;
   A.logs.push('--- 15초 안에 안 꺼져 PID 로 끝냄 ---');
-  let pids = [];
-  try { pids = execFileSync('pgrep', ['-f', path.join(A.out, 'wrap')], { encoding: 'utf8' }).split('\n').map(Number).filter(Boolean); } catch(_){}
-  if(pid) pids.push(pid);
-  for(const p of new Set(pids)){ try { process.kill(p, 'SIGKILL'); } catch(_){} }
+  killAppPids(A, pid);
 }
 
 // 여러 앱이 같이 돌면 켜기(첫 창 · 다시 읽기)가 가끔 30초를 넘겨 멈춘다 — 끄고 두 번까지 다시 켠다
 // 켠 뒤 주소 돌리기가 실제로 걸렸는지도 본다 — 가끔 요청이 돌리기를 거치지 않고 바깥 dev 주소로 나간다(502)
+const LAUNCH_MARK = '--- launch ---';
 async function launchRetry(A){
   for(let i = 0; ; i++){
     try {
+      A.reqs.push(LAUNCH_MARK);   // 이 켜기 뒤 앱이 보낸 요청만 골라 볼 때 기준
       const w = await A.launch();
       const n = A.reqs.length;
       await w.evaluate((h) => fetch(`https://${h}/v2/config?e2e-probe=1`).catch(() => null), API_HOST);
@@ -97,10 +119,8 @@ async function launchRetry(A){
     catch(e){
       A.logs.push('--- launch 실패: ' + String(e.message).split('\n')[0]);
       await hardQuit(A);
-      // 켜다 멈춘 앱이 남아 있으면 같은 폴더의 다음 앱이 «두 번째 실행» 으로 바로 꺼진다 — 이 폴더로 켠 앱만 끈다
-      let pids = [];
-      try { pids = execFileSync('pgrep', ['-f', path.join(A.out, 'wrap')], { encoding: 'utf8' }).split('\n').map(Number).filter(Boolean); } catch(_){}
-      for(const pid of pids){ try { process.kill(pid, 'SIGKILL'); } catch(_){} }
+      // 켜다 멈춘 앱이 남아 있으면 같은 폴더의 다음 앱이 «두 번째 실행» 으로 바로 꺼진다
+      killAppPids(A);
       await wait(1000);
       if(i >= 2) throw e;
     }
@@ -128,7 +148,7 @@ async function headlessUser(){
 }
 
 function run(name, body){
-  const out = path.join(ROOT, name);
+  const out = path.resolve(process.argv[2] || path.join(ROOT, name));
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
   const steps = [];
@@ -143,7 +163,7 @@ function run(name, body){
   let failed = false;
   const bugs = new Set();   // 이미 알려진 앱 버그(FEATURES.md «발견한 버그») 가운데 이번에 다시 본 것
   const t = {
-    out, steps, PW, API_HOST, wait, poll, sql, seed, docker, withStackLock, RT, PG, headlessUser,
+    out, steps, PW, API_HOST, wait, poll, sql, seed, docker, withStackLock, pauseRt, unpauseRt, RT, PG, headlessUser,
     note(s){ steps.push('     ' + s); save(); },
     // 알려진 앱 버그를 다시 봤다 — 단계는 통과로 두고 steps.txt · 요약에 BUG 로 남긴다
     bug(id, s){ if(bugs.has(id)) return; bugs.add(id); steps.push(`BUG  ${id}: ${s}`); save(); },
@@ -158,6 +178,27 @@ function run(name, body){
       } finally { save(); }
     },
     check(cond, msg){ if(!cond) throw new Error(msg); },
+    // 모두가 보는 서버 값 되돌리기 — fn 이 돌려준 응답(또는 응답 배열)이 2xx 가 아니거나 던지면 «FAIL 정리» 로 남기고 시나리오를 실패로.
+    // 되돌리지 못한 것을 눈에 띄게 하려는 것이다(다른 묶음 · 다른 사람의 시험이 그 값을 본다)
+    async cleanup(label, fn){
+      try {
+        const r = await fn();
+        for(const x of [].concat(r == null ? [] : r)){
+          if(x && typeof x.status === 'number' && (x.status < 200 || x.status >= 300)) throw new Error('응답 ' + x.status + ' ' + JSON.stringify(x.body).slice(0, 120));
+        }
+        steps.push(`ok   정리: ${label}`);
+      } catch(e){ failed = true; steps.push(`FAIL 정리: ${label}: ${String(e && e.message || e).split('\n')[0]}`); }
+      save();
+    },
+    // 정리용 관리자 — 앱 없는 계정을 관리자로(seed/admin.sql). 앱이 죽었어도 되돌리기가 돈다. 한 시나리오에 한 번만 만든다
+    async headlessAdmin(){
+      if(t._admin) return t._admin;
+      const u = await headlessUser();
+      seed('admin.sql', { uid: u.uid });
+      await poll(async () => (await u.call('GET', '/v2/admin/admins/me')).status === 200, 40000, '정리용 관리자 /v2/admin/admins/me 200');
+      t._admin = u;
+      return u;
+    },
     // 조용한 창이 지켜지는가(단계마다) — 판정은 lib.js quietProblems 한 벌(launcher/quiet.js 와 같음 · 자식 창 · 진짜 늘 위까지).
     // 깨지면 앱을 모두 끄고 e2e-quiet-fail 에 남긴다(다른 묶음도 멈춘다). 꺼진 앱은 건너뛴다
     async assertQuiet(){
@@ -222,6 +263,10 @@ function run(name, body){
         await Promise.race([closed, wait(20000).then(() => { throw new Error('20초 안에 꺼지지 않음'); })]);
         A.logs.push('--- relaunch ---');
         w = A.w = await launchRetry(A);
+        // 시험이 API 를 부르기 전에 — 다시 켠 앱이 스스로 계정 확인(/v2/me)을 보냈는가
+        const mark = A.reqs.lastIndexOf(LAUNCH_MARK);
+        await poll(() => A.reqs.slice(mark + 1).some((r) => /^GET \/v2\/me 200/.test(r)), 30000, '다시 켠 앱이 스스로 /v2/me 200');
+        A.bootMeByApp = true;
         await t.waitLoggedIn(A);
       });
       fs.writeFileSync(path.join(A.out, 'account.json'), JSON.stringify({ fc: A.fc, pw: PW }));
@@ -349,13 +394,13 @@ function run(name, body){
     const unlock = await acquire('e2e-core ' + name);
     if(quietFailed()){ unlock(); console.log(`FAIL ${name}  e2e-quiet-fail 이 있어 시작하지 않음`); process.exit(1); }
     // 이 묶음의 초대 코드 — 이미 있으면 그대로(묶음을 새로 만든 빈 DB 에서도 돌게)
-    try { seed('core-invite.sql'); } catch(e){ steps.push('ABORT 초대 코드 seed: ' + String(e.message).split('\n')[0]); failed = true; }
+    try { seed('core-invite.sql', { code: INVITE }); } catch(e){ steps.push('ABORT 초대 코드 seed: ' + String(e.message).split('\n')[0]); failed = true; }
     try { if(!failed) await body(t); }
     catch(e){ if(!failed) steps.push('ABORT ' + String(e && e.message || e).split('\n')[0]); failed = true; }
     save();
     for(const a of apps) await hardQuit(a);
     unlock();
-    steps.push(failed ? 'RESULT FAIL' : 'RESULT ok');
+    steps.push(failed ? 'RESULT FAIL' : 'PASS');   // run-all 은 종료 코드와 PASS 줄을 함께 본다
     save();
     console.log(`${failed ? 'FAIL' : 'ok  '} ${name}${bugs.size ? '  BUG ' + [...bugs].join(',') : ''}  (${out}/steps.txt)`);
     process.exit(failed ? 1 : 0);

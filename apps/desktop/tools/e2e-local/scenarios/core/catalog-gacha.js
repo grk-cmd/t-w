@@ -17,16 +17,18 @@ run('catalog-gacha', async (t) => {
     t.seed('catalog-parts.sql', { tag });
   });
   try {
-    await t.step('A 이름 고침(PATCH) → 서버 카탈로그에 새 이름 · 가챠 표시', async () => {
+    await t.step('A 이름 고침(PATCH) → 서버 카탈로그에 새 이름 · 가챠 표시 · B 앱이 알림을 받고 다시 받음', async () => {
       const newName = 'e2e새이름 ' + tag;
+      // B 앱의 요청 기록에는 앱 스스로 보낸 것만 남게 한다 — 서버 확인은 앱 없는 계정(C)으로
+      const C = await t.headlessUser();
+      const n = B.reqs.length;
       const r = await t.api(A, 'PATCH', '/v2/admin/catalog/parts/' + gid, { version: 0, name: newName });
       t.check(r.status === 200, 'PATCH ' + r.status + ' ' + JSON.stringify(r.body).slice(0, 160));
-      const cat = await t.poll(async () => { const x = await t.api(B, 'GET', '/v2/catalog'); const p = (x.body.data.parts || []); return p.some((q) => q.partId === gid && q.name === newName) && p; }, 15000, 'B 카탈로그에 새 이름');
+      const cat = await t.poll(async () => { const x = await C.call('GET', '/v2/catalog'); const p = (x.body && x.body.data && x.body.data.parts) || []; return p.some((q) => q.partId === gid && q.name === newName) && p; }, 15000, '서버 카탈로그에 새 이름');
       const g = cat.find((q) => q.partId === cid);
       t.check(g && JSON.stringify(g).includes('GACHA'), '가챠 파츠가 가챠로 안 실림: ' + JSON.stringify(g).slice(0, 200));
-      // 앱은 서버 알림(catalog)을 받으면 카탈로그를 다시 받는다 — 그 요청이 PATCH 뒤에 나갔는가
-      const n = B.reqs.length;
-      await t.poll(() => B.reqs.slice(n - 40).some((x) => /^GET \/v2\/catalog 200/.test(x)), 70000, 'B 앱이 카탈로그를 다시 받음');
+      // 앱은 서버 알림(catalog)을 받으면 카탈로그를 다시 받는다 — PATCH 뒤 B 앱이 스스로 보낸 요청에 있는가(이 단계는 B 창으로 API 를 부르지 않는다)
+      await t.poll(() => B.reqs.slice(n).some((x) => /^GET \/v2\/catalog 200/.test(x)), 70000, 'B 앱이 카탈로그를 다시 받음');
     });
     await t.step('B 레벨 12 · 보너스 1 → 서버 뽑기 수 = floor(12/5) + 1 = 3', async () => {
       const uid = await t.uid(B);
@@ -59,9 +61,12 @@ run('catalog-gacha', async (t) => {
     });
   } finally {
     // 시험 파츠는 단종(ARCHIVED)으로 내린다 — 관리자 쓰기라 서버 카탈로그 캐시도 같이 비워진다(줄을 SQL 로 지우면 캐시에 남는다)
+    const ADM = await t.headlessAdmin();
     for(const id of [gid, cid]){
-      const v = Number(t.sql(`SELECT version FROM part WHERE part_id = '${id}'`) || 0);
-      await t.api(A, 'POST', '/v2/admin/catalog/listings/bulk', { action: 'ARCHIVE', items: [{ kind: 'part', id, version: v }] }).catch(() => {});
+      await t.cleanup('시험 파츠 ' + id + ' 단종', () => {
+        const v = Number(t.sql(`SELECT version FROM part WHERE part_id = '${id}'`) || 0);
+        return ADM.call('POST', '/v2/admin/catalog/listings/bulk', { action: 'ARCHIVE', items: [{ kind: 'part', id, version: v }] });
+      });
     }
   }
 });

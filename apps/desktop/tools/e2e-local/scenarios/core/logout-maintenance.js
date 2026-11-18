@@ -52,7 +52,16 @@ run('logout-maintenance', async (t) => {
         await t.shot(B, '02-maintenance-off');
       });
     } finally {
-      await setMaintenance(t, A, false).catch(() => {});
+      // 점검이 켜진 채 남으면 같은 스택을 쓰는 모든 시험이 막힌다 — 앱 없는 관리자로 끄고, 못 끄면 «FAIL 정리»
+      const ADM = await t.headlessAdmin();
+      await t.cleanup('점검(app.maintenance) 끔', async () => {
+        const list = await ADM.call('GET', '/v2/admin/config');
+        if(list.status !== 200) return list;
+        const row = (list.body.data || []).find((x) => x.key === 'app.maintenance');
+        if(!row) throw new Error('설정 목록에 app.maintenance 가 없음');
+        if(!(row.value && row.value.on)) return null;
+        return ADM.call('PUT', KEY, { version: row.version, value: { on: false, endsAt: null, message: null } });
+      });
     }
   });
   await t.step('B 로그아웃 → 다시 켜기 → 초대 · 로그인 화면', async () => {

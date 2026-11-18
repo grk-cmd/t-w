@@ -3,7 +3,7 @@
 // 📰 업데이트 공지: A 가 발행하면 B 가 다음에 켤 때 공지 창이 뜬다(제목 · 본문). 끝에 A 가 지운다.
 // 📁 카테고리: A 가 새 카테고리를 더하면 B 가 받는 카탈로그에 실린다. 끝에 지운다.
 // 🚩 신고 목록: 서로 다른 세 사람(앱 없이 만든 계정)이 B 를 신고하면 A 목록에 B 가 «3명» 으로 뜨고, [문제없음] 이면 목록에서 빠진다.
-// 확성기 · 업데이트 공지 · 카테고리는 모두가 보는 서버 값이라 끝에(실패해도) 되돌린다.
+// 확성기 · 업데이트 공지 · 카테고리는 모두가 보는 서버 값이라 끝에(실패해도) 되돌린다 — 못 되돌리면 «FAIL 정리».
 'use strict';
 const { run } = require('./_kit.js');
 
@@ -87,12 +87,22 @@ run('admin-content', async (t) => {
       await B.w.click('#updateNoticeOkBtn');
     });
   } finally {
-    // 모두가 보는 값 되돌리기 — 업데이트 공지 · 카테고리(앞 단계가 실패했어도)
-    const un = await t.api(A, 'GET', '/v2/notices').catch(() => null);
-    const cur = un && un.body && un.body.data && un.body.data.updateNotice;
-    if(cur && cur.id && /^e2e /.test(cur.title || '')) await t.api(A, 'DELETE', '/v2/admin/notices/update-notices/' + encodeURIComponent(cur.id)).catch(() => {});
-    const cat = await t.api(A, 'GET', '/v2/catalog').catch(() => null);
-    const row = cat && cat.body && (cat.body.data.categories || []).find((c) => c.code === catId);
-    if(row) await t.api(A, 'DELETE', `/v2/admin/catalog/categories/${catId}?version=${row.version}`).catch(() => {});
+    // 모두가 보는 값 되돌리기 — 확성기 · 업데이트 공지 · 카테고리(앞 단계가 실패했어도 · 앱이 죽었어도 돌게 앱 없는 관리자로)
+    const ADM = await t.headlessAdmin();
+    await t.cleanup('확성기 끄기', () => ADM.call('DELETE', '/v2/admin/notices/announcements/current'));
+    await t.cleanup('시험 업데이트 공지 내리기', async () => {
+      const un = await ADM.call('GET', '/v2/notices');
+      if(un.status !== 200) return un;
+      const cur = un.body.data.updateNotice;
+      if(!(cur && cur.id && /^e2e /.test(cur.title || ''))) return null;
+      return ADM.call('DELETE', '/v2/admin/notices/update-notices/' + encodeURIComponent(cur.id));
+    });
+    await t.cleanup('시험 카테고리 ' + catId + ' 지우기', async () => {
+      const cat = await ADM.call('GET', '/v2/catalog');
+      if(cat.status !== 200) return cat;
+      const row = (cat.body.data.categories || []).find((c) => c.code === catId);
+      if(!row) return null;
+      return ADM.call('DELETE', `/v2/admin/catalog/categories/${catId}?version=${row.version}`);
+    });
   }
 });

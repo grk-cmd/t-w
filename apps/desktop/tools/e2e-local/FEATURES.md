@@ -22,14 +22,14 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 
 | 기능 | e2e | sim | 상태 |
 |---|---|---|---|
-| 앱 켜기 순서 | `core/boot-offline-online.js «켜기 순서»`(다시 켠 뒤 /v2/me 200 · realtime ready · 런처 · 화면 오류 없음) | `app-boot` `run-boot` `dom-boot` `user-local` · 부팅 스모크 `checks/smoke.js` | e2e |
+| 앱 켜기 순서 | `core/boot-offline-online.js «켜기»`(다시 켠 앱이 시험보다 먼저 스스로 /v2/me 200 · realtime ready · 런처 · 화면 오류 없음). /v2/me 와 realtime 의 앞뒤 순서는 안 봄(웹소켓은 요청 기록에 없음) | `app-boot` `run-boot` `dom-boot` `user-local` · 부팅 스모크 `checks/smoke.js` | e2e |
 | 두 번째 실행(이미 켠 창을 앞으로) |  | `second-instance` | **할 일** |
 | 렌더러가 죽었을 때 런처로 되돌리기 |  | `renderer-gone-reset` | **할 일** |
 | 런처 화면(미리보기 · 슬롯 · 타이틀바 · 컨트롤) | `REPL «캐릭터 만들기»` 가 런처에서 시작(런처 자체는 판정 안 함) | `launcher-chrome` `launcher-controls` `launcher-preview` `launcher-state` `app-mode` `cfg-fit` `slot-fit` `zoom-window` | 부분 |
 | 런처 광고 배너 · 게임 설정 | `core/ad-banner.js`(관리자 배너 저장 → 다른 사람 런처에 서버 알림으로 · 4초 넘김 · 비우면 숨음 · 동물 해금 레벨이 카탈로그에) | `ad-banner` | e2e |
 | 책상 모드(데스크톱 실행 화면 · 클릭 통과) | `core/desk-mode.js`(작업 영역 크기 · 맨 위 · setIgnoreMouseEvents true · 이름표 · 런처로 돌아오기). 캐릭터 위에서만 클릭 받기는 OS 마우스 자리로 판정해서 안 봄(합성 마우스는 OS 커서를 안 움직임) — sim 몫 | `desktop-run` `click-through-policy` `hit-map` `hit-shadow` `overlay-gap` `overlay-layered` `top-level` `run-rect` `display-pick` `system-prompt` `pen-forward` `hover-poke` `fly-click-through` | e2e |
 | 피규어 · 회사원 모드 | `core/figure-office.js`(피규어 끔 → 잠듦 Z · 켬 → 안 잠듦 · 회사원 ■ 우클릭 숨김 · 다시 켜도 유지) | `office-mode` `figure-mode` `window-mode` | e2e |
-| 프로그램 이동 모드 | `core/move-mode.js`(마우스 따라 이동 · 눌러 확정 · tw.deskPan 저장 · 다시 켜도 같은 자리) | `move-mode` | e2e |
+| 프로그램 이동 모드 | `core/move-mode.js`(앱이 그리는 지금 자리 기준 — 이동 모드에서 마우스를 따라감 · 눌러 확정하면 tw.deskPan 저장값 = 지금 자리 · 확정 뒤 안 따라감 · 다시 켜면 지금 자리가 저장값으로 되살아남) | `move-mode` | e2e |
 | 설정 창(캐릭터 크기 · 포커싱 어플 · 테마 · 화면 크기 · 화질 · 단축키) |  | `settings-panel` `program-settings` `panel-fit` `winlist` `theme` `theme-ui` `child-theme` `ui-zoom` `fn-keys` `key-input` `no-default-menu` `frame-budget` `unfocused-fps` | **할 일** |
 | 오픈소스 라이선스 창 |  | `oss-licenses` | **할 일** |
 | 창 앞뒤 · 바깥 눌러 닫기 | `core/win-stack.js`(마이홈 · 포커스 기록 창 누른 창 맨 앞 · ESC 는 나중 연 창부터 · 프로그램 설정 바깥 눌러 닫기). OS 창끼리의 앞뒤(다른 프로그램 위)는 OS 창 순서를 못 읽어 안 봄 — 맨 위(alwaysOnTop)만 desk-mode.js | `win-stack` `win-front` `win-layers` `z-layers` `outside-close` | e2e |

@@ -76,11 +76,11 @@ node repl.js /tmp/tw-e2e/a
 ```bash
 cd apps/desktop/tools/e2e-local
 node run-all.js                       # scenarios/ 아래 전부
-node run-all.js core/keepalive admin  # 경로에 이 글자가 든 것만
+node run-all.js core/keepalive core/desk-mode  # 이 시나리오만(영역 이름만 주면 그 영역 전부)
 node scenarios/core/keepalive.js      # 하나만
 ```
 
-시나리오 하나 = 파일 하나. 스스로 새 계정을 만들고(친구 코드가 매번 새것) 결과를 `/tmp/tw-e2e/<묶음>/<이름>/` 에 남긴다(`steps.txt` 에 단계마다 ok · FAIL · BUG). 단계 하나라도 FAIL 이면 종료 코드 1. `_` 로 시작하는 파일은 같이 쓰는 도구라 러너가 돌리지 않는다.
+시나리오 하나 = 파일 하나. 스스로 새 계정을 만들고(친구 코드가 매번 새것) 결과를 `/tmp/tw-e2e/<묶음>/<이름>/` 에 남긴다(`steps.txt` 에 단계마다 ok · FAIL · BUG, 끝 줄이 `PASS` 면 통과). 단계 하나라도 FAIL 이면 종료 코드 1. 되돌리지 못한 공유 서버 값은 `FAIL 정리: …` 줄로 남고 실패가 된다. `_` 로 시작하는 파일은 같이 쓰는 도구라 러너가 돌리지 않는다.
 
 - **BUG** 줄 — FEATURES.md «발견한 버그» 의 알려진 앱 버그를 다시 봤다는 표시다. 시나리오는 그 버그를 비켜 가서 나머지를 판정한다(단계는 통과).
 - `seed/*.sql` 은 `psql -v 이름=값` 으로 돌린다 — 시나리오가 알아서 부른다. 손으로 넣을 때: `docker exec -i <postgres 컨테이너> psql -U tw_api_dev -d tw_dev -v uid=<uid> < seed/admin.sql`.

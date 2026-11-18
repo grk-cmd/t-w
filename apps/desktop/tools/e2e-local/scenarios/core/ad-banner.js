@@ -34,6 +34,13 @@ run('ad-banner', async (t) => {
   await t.step('A 관리자 모드', async () => { await t.makeAdmin(A); await t.enterAdmin(A); });
   const lv0 = await animalUnlock(t, B);
   t.note('처음 동물 해금 레벨 ' + lv0);
+  // 되돌릴 처음 배너 — 정리는 앱이 죽었어도 돌게 앱 없는 관리자로
+  const ADM = await t.headlessAdmin();
+  const BANNER = '/v2/admin/notices/launcher-banner';
+  const b0 = await ADM.call('GET', BANNER);
+  t.check(b0.status === 200 && b0.body && b0.body.data && Array.isArray(b0.body.data.slides), '처음 배너를 못 읽음 ' + b0.status);
+  const slides0 = b0.body.data.slides;
+  t.note('처음 배너 ' + slides0.length + '장');
   try {
     await t.step('A 배너 두 장 저장 → 저장 알림 · A 런처에 첫 장', async () => {
       await fillBanner(A, SLIDES);
@@ -67,13 +74,19 @@ run('ad-banner', async (t) => {
       await t.poll(async () => !(await bannerOf(B)).shown, 70000, 'B 배너 숨음');
     });
   } finally {
-    // 모두가 보는 값이라 되돌린다(앞 단계가 실패했어도)
-    await t.api(A, 'GET', '/v2/admin/notices/launcher-banner').then((r) => r.body && r.body.data && r.body.data.version != null
-      && t.api(A, 'PUT', '/v2/admin/notices/launcher-banner', { version: r.body.data.version, slides: [] })).catch(() => {});
-    if(lv0 != null){
-      const r = await t.api(A, 'GET', '/v2/catalog').catch(() => null);
-      const u = r && ((r.body.data.unlocks) || []).find((x) => x.kind === 'ANIMAL_CHARACTER' && x.key === 'animal');
-      if(u && u.level !== lv0) await t.api(A, 'PUT', '/v2/admin/catalog/unlocks/ANIMAL_CHARACTER/animal', { version: u.version, level: lv0, label: u.label }).catch(() => {});
-    }
+    // 모두가 보는 값이라 처음 값으로 되돌린다(앞 단계가 실패했어도) — 못 되돌리면 «FAIL 정리» 로 남는다
+    await t.cleanup('광고 배너 처음 값(' + slides0.length + '장)', async () => {
+      const g = await ADM.call('GET', BANNER);
+      if(g.status !== 200) return g;
+      return ADM.call('PUT', BANNER, { version: g.body.data.version, slides: slides0 });
+    });
+    if(lv0 != null) await t.cleanup('동물 해금 레벨 ' + lv0, async () => {
+      const r = await ADM.call('GET', '/v2/catalog');
+      if(r.status !== 200) return r;
+      const u = (r.body.data.unlocks || []).find((x) => x.kind === 'ANIMAL_CHARACTER' && x.key === 'animal');
+      if(!u) throw new Error('해금 줄이 없음');
+      if(u.level === lv0) return null;
+      return ADM.call('PUT', '/v2/admin/catalog/unlocks/ANIMAL_CHARACTER/animal', { version: u.version, level: lv0, label: u.label });
+    });
   }
 });

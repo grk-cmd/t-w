@@ -10,16 +10,16 @@ run('keepalive', async (t) => {
   await t.step('realtime ready', () => t.poll(() => A.w.evaluate(() => TwRtHub.store.state() === 'ready'), 20000, 'ready'));
   await watchRealtime(A.w);
   await t.withStackLock(async () => {
-    let paused = false;
     try {
-      const t0 = await t.step('realtime 컨테이너 멈춤(pause)', async () => { t.docker(['pause', t.RT]); paused = true; return Date.now(); });
+      const t0 = await t.step('realtime 컨테이너 멈춤(pause)', async () => { t.pauseRt(); return Date.now(); });
       await t.step('조용함 15초 → ping → 5초 뒤 끊음', async () => {
         const r = await t.poll(() => A.w.evaluate(() => {
           const s = window.__e2eRt;
           const drop = s.states.find((x) => x.s !== 'ready');
           return drop && { drop, pings: s.sent.filter((m) => m.t === 'ping'), states: s.states };
         }), 45000, 'ready 를 벗어남');
-        const ping = r.pings.find((p) => p.at <= r.drop.at);
+        // 끊기 직전 마지막 ping — 멈추기 전 평소 keepalive ping 을 고르면 간격이 커져 거짓 실패
+        const ping = r.pings.filter((p) => p.at <= r.drop.at).pop();
         t.check(ping, 'ping 을 보내지 않고 끊김');
         const gap = r.drop.at - ping.at;
         t.note(`멈춤 뒤 ${Math.round((r.drop.at - t0) / 1000)}s 에 끊김 · ping → 끊김 ${gap}ms · 상태 ${r.states.map((x) => x.s).join('→')}`);
@@ -36,7 +36,7 @@ run('keepalive', async (t) => {
         await t.shot(A, '01-band');
       });
       await t.step('컨테이너 풀기(unpause) → 다시 ready · 띠 사라짐', async () => {
-        t.docker(['unpause', t.RT]); paused = false;
+        t.unpauseRt();
         const t1 = Date.now();
         // 백오프 상한 15초 ±50% + 연결 대기
         await t.poll(() => A.w.evaluate(() => TwRtHub.store.state() === 'ready'), 40000, '다시 ready');
@@ -44,7 +44,7 @@ run('keepalive', async (t) => {
         await t.poll(async () => !(await t.shown(A, '#rtBand')), 5000, '#rtBand 사라짐');
       });
     } finally {
-      if(paused){ try { t.docker(['unpause', t.RT]); } catch(_){} }
+      t.unpauseRt();
     }
   });
   await t.step('다시 붙은 연결로 요청이 오간다(presenceGet 답)', async () => {

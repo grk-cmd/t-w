@@ -16,7 +16,7 @@ const steps = [];
 const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(path.join(out, 'steps.txt'), steps.join('\n') + '\n'); };
 
 (async () => {
-  if(process.env.TW_E2E_QUIET === '0'){ steps.push('ok   TW_E2E_QUIET=0 — 건너뜀'); save(); return; }
+  if(process.env.TW_E2E_QUIET === '0'){ steps.push('ok   TW_E2E_QUIET=0 — 건너뜀', 'PASS'); save(); return; }
   if(!out.startsWith('/tmp/') && !out.startsWith('/private/tmp/')) { console.error('결과 폴더는 /tmp 아래로: ' + out); process.exit(2); }
   fs.rmSync(out, { recursive: true, force: true });
   const unlock = await acquire('launcher/quiet');
@@ -125,6 +125,7 @@ const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(pa
     if(!steps.some((l) => l.startsWith('FAIL'))) steps.push('FAIL ' + e.message);
     steps.push('ABORT ' + e.message);
   } finally {
+    if(!code) steps.push('PASS');   // run-all 은 steps.txt 의 PASS 줄로 통과를 본다
     save();
     try { fs.writeFileSync(path.join(out, 'pc', 'console.txt'), A.logs.join('\n') + '\n'); } catch(_){}
     await A.quit().catch(() => {});
