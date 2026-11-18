@@ -87,7 +87,7 @@ function RoomLimitsForm() {
         <small className={`soft ${styles.hint}`}>
           채널마다 열 수 있는 방 수(시크릿룸 제외) ·{' '}
           {defaults
-            ? `서버 기본 ${CHANNEL_LABEL.workingroom} ${defaults.workingroom} · ${CHANNEL_LABEL.togetherroom} ${defaults.togetherroom}`
+            ? `값이 없으면 기본 ${CHANNEL_LABEL.workingroom} ${defaults.workingroom} · ${CHANNEL_LABEL.togetherroom} ${defaults.togetherroom}`
             : '값이 없으면 앱이 자기 기본값을 씀'}{' '}
           · 낮춰도 열린 방은 그대로 — 새 방만 막음.
         </small>

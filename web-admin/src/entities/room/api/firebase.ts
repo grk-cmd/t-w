@@ -27,9 +27,14 @@ import {
 } from '../model/roomConfig';
 import type { RoomPort } from './port';
 
-/** Firebase 판은 기본값을 모른다 — 칸이 비면 앱마다 자기 기본값을 쓴다. */
+/**
+ * Firebase 판(0.13 전환 전 운영)의 기본값 — config/roomLimits 가 비면 0.12 앱 · 방 서버가 쓰는 값.
+ * 0.13 의 기본값은 서버 `room.limits` 가 알려 준다(API 판) — 여기 숫자는 Firebase 판에서만 쓴다.
+ */
+export const LEGACY_ROOM_LIMITS: Record<Channel, number> = { workingroom: 300, togetherroom: 300 };
+
 export async function getRoomLimits(db: Db): Promise<RoomLimits> {
-  return { saved: parseRoomLimits(await db.get<unknown>(ROOM_LIMITS_PATH)), defaults: null };
+  return { saved: parseRoomLimits(await db.get<unknown>(ROOM_LIMITS_PATH)), defaults: LEGACY_ROOM_LIMITS };
 }
 
 /** 정원 — 서버에 정해 둔 값. 없거나 범위 밖이면 null(앱 · 방 서버는 기본값). */

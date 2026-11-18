@@ -86,7 +86,7 @@ export function RoomServerSwitchCard() {
               셈.
             </small>
             <small className="soft">
-              끄면 Firebase 방만 전체 상한과 견주고, 방 서버 방은 방 서버가 자기 상한으로 따로 막음.
+              끄면 Firebase 방만 전체 상한과 견주고, 방 서버 방은 아래 «서버 한 대 상한» 으로 따로 막음.
             </small>
           </div>
         </>

@@ -22,7 +22,7 @@ import { auditsOf, fakeDb, withoutAudits } from '../shared/fakeDb';
 const brief = (writes: Parameters<typeof auditsOf>[0]) =>
   auditsOf(writes).map((a) => [a.action, a.target, a.detail]);
 
-describe('전체 방 상한 — config/roomLimits(Firebase 판) · 기본값은 서버가 알려 줄 때만', () => {
+describe('전체 방 상한 — config/roomLimits(Firebase 판) · room.limits(API 판)', () => {
   const fb = (saved: { workingroom: number | null; togetherroom: number | null }) => ({
     saved,
     defaults: null,
@@ -32,10 +32,14 @@ describe('전체 방 상한 — config/roomLimits(Firebase 판) · 기본값은 
     defaults: { workingroom: 500, togetherroom: 500 },
   });
 
-  it('Firebase 판은 기본값을 모른다(박힌 숫자 없음) · 범위(1~10000 정수) 밖 칸은 버린다', async () => {
+  it('Firebase 판은 예전처럼 비면 옛 앱 기본 300 · 범위(1~10000 정수) 밖 칸은 버린다', async () => {
     const empty = await getRoomLimits(fakeDb().db);
-    expect(empty).toEqual({ saved: { workingroom: null, togetherroom: null }, defaults: null });
-    expect(totalLimitOf(empty, 'workingroom')).toBeNull();
+    expect(empty).toEqual({
+      saved: { workingroom: null, togetherroom: null },
+      defaults: { workingroom: 300, togetherroom: 300 },
+    });
+    expect(totalLimitOf(empty, 'workingroom')).toBe(300);
+    expect(totalLimitOf(fb({ workingroom: null, togetherroom: null }), 'workingroom')).toBeNull();
     expect(parseRoomLimits({ workingroom: 10_000, togetherroom: 10_001 })).toEqual({
       workingroom: 10_000,
       togetherroom: null,
@@ -102,7 +106,7 @@ describe('전체 방 상한 — config/roomLimits(Firebase 판) · 기본값은 
 
   it('두 채널을 한 객체로 쓰고 기록과 한 묶음 · 바뀐 게 없으면 쓰지 않는다', async () => {
     const { db, writes } = fakeDb();
-    await saveRoomLimits(db, null, { workingroom: 400, togetherroom: 300 });
+    await saveRoomLimits(db, await getRoomLimits(db), { workingroom: 400, togetherroom: 300 });
     await saveRoomLimits(db, fb({ workingroom: 400, togetherroom: 300 }), {
       workingroom: 400,
       togetherroom: 300,
@@ -111,7 +115,7 @@ describe('전체 방 상한 — config/roomLimits(Firebase 판) · 기본값은 
       ['commit', 'config/roomLimits', { workingroom: 400, togetherroom: 300 }],
     ]);
     expect(brief(writes)).toEqual([
-      ['settings.roomLimits', 'roomLimits', '워킹룸 기본값 → 400 · 투게더룸 기본값 → 300'],
+      ['settings.roomLimits', 'roomLimits', '워킹룸 300 → 400 · 투게더룸 300 → 300'],
     ]);
     expect(ACTION_LABEL['settings.roomLimits']).toBe('전체 방 상한');
   });

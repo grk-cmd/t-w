@@ -17,7 +17,7 @@ import styles from './ServersCard.module.css';
 
 type Message = { text: string; error: boolean } | null;
 
-// 서버가 지금 돌리는 코드 · 켜진 시간 · 쓰는 상한 — 방 서버 /health(공개).
+// 서버가 지금 돌리는 코드 · 켜진 시간 · 쓰는 상한 — 방 서버 /health(공개, 방 개수 상한 카드와 같은 캐시).
 function ServerLive({ url }: { url: string }) {
   const h = useServerHealth(url);
   if (h.isPending) return <small className="soft">…</small>;

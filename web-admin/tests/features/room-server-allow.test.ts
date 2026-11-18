@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { ACTION_LABEL, LOG_GROUPS } from '@/entities/admin-log';
+import { parseRoomServerConfig } from '@/entities/room-server';
 import { getUserLicense } from '@/entities/user';
+import { checkLimits, limitsConfirmText } from '@/features/room-server/edit-limits';
 import {
   allowChange,
   allowConfirmText,
@@ -91,5 +93,32 @@ describe('사용자별 서버 드롭다운', () => {
     expect(await getUserLicense(db, 'u2abc2345')).toBe('unknown');
     expect(await getUserLicense(db, 'u3abc2345')).toBe('revoked');
     expect(await getUserLicense(db, 'u4abc2345')).toBe('none');
+  });
+});
+
+describe('방 개수 상한 카드', () => {
+  it('확인 창 — 두 채널 모두 «지금 → 새 값» (칸이 없으면 기본 250)', () => {
+    const cfg = parseRoomServerConfig({});
+    expect(limitsConfirmText(cfg, { workingroom: 400, togetherroom: 400 })).toBe(
+      '방 개수 상한을 워킹룸 250 → 400 · 투게더룸 250 → 400 으로 바꿀까요? 이미 열린 방은 그대로이고 새 방부터 적용돼요.',
+    );
+  });
+
+  it('입력 검사 — 범위 밖 · 같은 값은 저장하지 않는다', () => {
+    const cfg = parseRoomServerConfig({ limits: { workingroom: 300, togetherroom: 250 } });
+    expect(checkLimits(cfg, { workingroom: '0', togetherroom: '250' })).toEqual({
+      ok: false,
+      error: '워킹룸 — 1~100000 사이 정수',
+    });
+    expect(checkLimits(cfg, { workingroom: '300', togetherroom: '250' })).toEqual({
+      ok: false,
+      error: '지금 값과 같음',
+    });
+    expect(checkLimits(cfg, { workingroom: '300', togetherroom: '400' })).toEqual({
+      ok: true,
+      next: { workingroom: 300, togetherroom: 400 },
+    });
+    // 칸이 비어 있으면(기본값을 보여 주는 중) 같은 숫자라도 처음 저장은 된다
+    expect(checkLimits(parseRoomServerConfig({}), { workingroom: '250', togetherroom: '250' }).ok).toBe(true);
   });
 });

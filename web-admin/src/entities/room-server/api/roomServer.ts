@@ -1,7 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDb, withAudit, type Db } from '@/shared/api';
 import {
+  CHANNEL_LABEL,
   CHANNELS,
+  effectiveLimit,
   healthUrl,
   parseRoomServerConfig,
   ROOM_SERVER_PATH,
@@ -53,6 +55,25 @@ export function setRegisterIndex(db: Db, value: boolean): Promise<void> {
       onOff(value),
     ),
   );
+}
+
+/**
+ * 채널별 방 개수 상한 — 방 서버가 1분마다 읽어 새 방부터 적용한다(열린 방은 그대로).
+ * 바뀐 채널만 쓴다. 기록에는 «워킹룸 250 → 400» 처럼(전에 칸이 없었으면 기본값으로 보여 준다).
+ */
+export function setRoomLimits(
+  db: Db,
+  cfg: RoomServerConfig | undefined,
+  next: Record<Channel, number>,
+): Promise<void> {
+  const updates: Record<string, unknown> = {};
+  const changes: string[] = [];
+  for (const ch of CHANNELS) {
+    if (cfg?.limits[ch] === next[ch]) continue;
+    updates[`${ROOM_SERVER_PATH}/limits/${ch}`] = next[ch];
+    changes.push(`${CHANNEL_LABEL[ch]} ${effectiveLimit(cfg, ch)} → ${next[ch]}`);
+  }
+  return db.commit(withAudit(db, updates, 'roomServer.limits', 'limits', changes.join(' · ')));
 }
 
 export interface DefaultRouting {
