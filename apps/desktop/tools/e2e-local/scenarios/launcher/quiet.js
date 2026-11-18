@@ -14,6 +14,8 @@ const { acquire } = require('../../runlock.js');
 
 const out = path.resolve(process.argv[2] || '/tmp/tw-e2e/launcher/quiet');
 const steps = [];
+// 이 PC 화면 · 포커스 · 소리로 새는 실패(leak)만 e2e-quiet-fail 에 남긴다 — 켜기 실패 · 감싸기 값 어긋남은 이 시나리오만 실패(다른 묶음을 멈추지 않음)
+const leak = (msg) => Object.assign(new Error(msg), { leak: true });
 const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(path.join(out, 'steps.txt'), steps.join('\n') + '\n'); };
 
 (async () => {
@@ -39,7 +41,7 @@ const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(pa
     const t0 = Date.now();
     while(Date.now() - t0 < ms){
       const bad = await quietProblems(A.app);
-      if(bad.length) throw new Error(where + ' — ' + bad.join(' / '));
+      if(bad.length) throw leak(where + ' — ' + bad.join(' / '));
       await wait(250);
     }
     return look();
@@ -83,8 +85,8 @@ const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(pa
       if(JSON.stringify(c.first.app) !== JSON.stringify({ x: 10, y: 10, width: 520, height: 410 })) throw new Error('시험 창 getBounds 가 앱이 정한 {10,10,520,410} 이 아님 ' + JSON.stringify(c.first));
       if(c.real.width !== 520 || c.real.height !== 410) throw new Error('진짜 크기가 setBounds 를 안 따름 ' + JSON.stringify(c.real));
       if(JSON.stringify(c.app) !== JSON.stringify({ x: 0, y: 0, width: 520, height: 410 }) || c.pos[0] !== 0 || c.pos[1] !== 0) throw new Error('getBounds · getPosition 이 {0,0,520,410} 이 아님 ' + JSON.stringify(c));
-      if(c.op !== 1 || c.realOp !== 0) throw new Error('투명도 — 앱 값 1 · 진짜 0 이어야 ' + JSON.stringify(c));
-      if(c.muted !== false || c.realMuted !== true) throw new Error('소리 — 앱 값 false · 진짜 끔이어야 ' + JSON.stringify(c));
+      if(c.op !== 1 || c.realOp !== 0) throw leak('투명도 — 앱 값 1 · 진짜 0 이어야 ' + JSON.stringify(c));
+      if(c.muted !== false || c.realMuted !== true) throw leak('소리 — 앱 값 false · 진짜 끔이어야 ' + JSON.stringify(c));
       if(c.ignore !== false) throw new Error('클릭 통과 기억 값이 false 가 아님');
       await holdQuiet('앱이 되돌리려 한 뒤', 2000);   // 진짜 창은 여전히 화면 밖 · 투명 · 소리 끔
     });
@@ -98,7 +100,7 @@ const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(pa
       if(!r.n || r.n !== r.base || !r.same) throw new Error('getAllWindows 가 BaseWindow 와 다름 ' + JSON.stringify(r));
       if(!r.from) throw new Error('fromWebContents 가 같은 창을 돌려주지 않음');
       if(r.name !== 'BrowserWindow') throw new Error('constructor.name ' + r.name);
-      if(r.focused) throw new Error('getFocusedWindow 가 창을 돌려줌(포커스를 받은 창)');
+      if(r.focused) throw leak('getFocusedWindow 가 창을 돌려줌(포커스를 받은 창)');
     });
     await step('자식 창(렌더러 window.open → 앱의 setWindowOpenHandler · did-create-window 길)도 조용', async () => {
       const n0 = (await look()).wins.length;
@@ -113,7 +115,7 @@ const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(pa
         return w ? { aot: w.isAlwaysOnTop(), realAot: w.__e2eRealAlwaysOnTop(), app: w.getBounds(), real: w.__e2eRealBounds(), name: w.constructor.name } : null;
       });
       if(!kid) throw new Error('부모가 있는 자식 창을 못 찾음');
-      if(kid.aot !== true || kid.realAot !== false) throw new Error('자식 창 늘 위 — 앱 값 true · 진짜 false 여야 ' + JSON.stringify(kid));
+      if(kid.aot !== true || kid.realAot !== false) throw leak('자식 창 늘 위 — 앱 값 true · 진짜 false 여야 ' + JSON.stringify(kid));
       if(kid.real.width !== 320 || kid.real.height !== 560) throw new Error('자식 창 크기가 앱 옵션(320x560)이 아님 ' + JSON.stringify(kid.real));
       await A.app.windows()[0].evaluate(() => { try { window.__twQuietChild.close(); } catch(_){} });
     });
@@ -126,14 +128,20 @@ const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(pa
         globalThis.__twQuietView = v;
         return out;
       });
-      if(r.app !== false || r.real !== true) throw new Error('BrowserView 소리 — 앱 값 false · 진짜 끔이어야 ' + JSON.stringify(r));
+      if(r.app !== false || r.real !== true) throw leak('BrowserView 소리 — 앱 값 false · 진짜 끔이어야 ' + JSON.stringify(r));
       await holdQuiet('BrowserView 뒤', 1000);
-      await A.app.evaluate(({ BrowserWindow }) => { const v = globalThis.__twQuietView; BrowserWindow.getAllWindows()[0].removeBrowserView(v); v.webContents.close(); });
+      // 떼면 webContents 가 사라지는 판이 있다(Electron 44) — 먼저 닫고 뗀다
+      await A.app.evaluate(({ BrowserWindow }) => {
+        const v = globalThis.__twQuietView; if(!v) return;
+        try { if(v.webContents && !v.webContents.isDestroyed()) v.webContents.close(); } catch(_){}
+        try { BrowserWindow.getAllWindows()[0].removeBrowserView(v); } catch(_){}
+        globalThis.__twQuietView = null;
+      });
     });
   } catch(e){
     code = 1;
     if(!steps.some((l) => l.startsWith('FAIL'))) steps.push('FAIL ' + e.message);
-    if(process.env.TW_E2E_RUN_LOCK){
+    if(e && e.leak && process.env.TW_E2E_RUN_LOCK){
       try { fs.appendFileSync(path.join(path.dirname(process.env.TW_E2E_RUN_LOCK), 'e2e-quiet-fail'), new Date().toISOString() + ' launcher/quiet ' + e.message + '\n'); } catch(_){}
     }
     steps.push('ABORT ' + e.message);
