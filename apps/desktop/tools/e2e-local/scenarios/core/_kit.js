@@ -71,6 +71,18 @@ async function poll(fn, ms, what, every = 300){
   }
 }
 
+// 앱 끄기 — 15초 안에 안 꺼지면 그 앱의 프로세스(이 결과 폴더로 켠 Electron 만)를 PID 로 끝낸다. 끄다 멈추면 다음 시나리오가 잠금을 못 받는다
+async function hardQuit(A){
+  const pid = (() => { try { return A.app && A.app.process().pid; } catch(_){ return null; } })();
+  const done = await Promise.race([A.quit().then(() => true, () => true), wait(15000).then(() => false)]);
+  if(done) return;
+  A.logs.push('--- 15초 안에 안 꺼져 PID 로 끝냄 ---');
+  let pids = [];
+  try { pids = execFileSync('pgrep', ['-f', path.join(A.out, 'wrap')], { encoding: 'utf8' }).split('\n').map(Number).filter(Boolean); } catch(_){}
+  if(pid) pids.push(pid);
+  for(const p of new Set(pids)){ try { process.kill(p, 'SIGKILL'); } catch(_){} }
+}
+
 // 여러 앱이 같이 돌면 켜기(첫 창 · 다시 읽기)가 가끔 30초를 넘겨 멈춘다 — 끄고 두 번까지 다시 켠다
 // 켠 뒤 주소 돌리기가 실제로 걸렸는지도 본다 — 가끔 요청이 돌리기를 거치지 않고 바깥 dev 주소로 나간다(502)
 async function launchRetry(A){
@@ -84,7 +96,7 @@ async function launchRetry(A){
     }
     catch(e){
       A.logs.push('--- launch 실패: ' + String(e.message).split('\n')[0]);
-      await A.quit().catch(() => {});
+      await hardQuit(A);
       // 켜다 멈춘 앱이 남아 있으면 같은 폴더의 다음 앱이 «두 번째 실행» 으로 바로 꺼진다 — 이 폴더로 켠 앱만 끈다
       let pids = [];
       try { pids = execFileSync('pgrep', ['-f', path.join(A.out, 'wrap')], { encoding: 'utf8' }).split('\n').map(Number).filter(Boolean); } catch(_){}
@@ -156,7 +168,7 @@ function run(name, body){
         catch(e){ if(/closed|Target/.test(String(e.message))) continue; throw e; }
         if(!bad.length) continue;
         const msg = `e2e-core ${name} (${path.basename(a.out)}): ` + bad.join(' / ');
-        for(const x of apps) await x.quit().catch(() => {});
+        for(const x of apps) await hardQuit(x);
         if(QUIET_FAIL) try { fs.writeFileSync(QUIET_FAIL, new Date().toISOString() + ' ' + msg + '\n', { flag: 'a' }); } catch(_){}
         throw new Error('조용한 창이 깨짐: ' + msg);
       }
@@ -341,7 +353,7 @@ function run(name, body){
     try { if(!failed) await body(t); }
     catch(e){ if(!failed) steps.push('ABORT ' + String(e && e.message || e).split('\n')[0]); failed = true; }
     save();
-    for(const a of apps) await a.quit().catch(() => {});
+    for(const a of apps) await hardQuit(a);
     unlock();
     steps.push(failed ? 'RESULT FAIL' : 'RESULT ok');
     save();

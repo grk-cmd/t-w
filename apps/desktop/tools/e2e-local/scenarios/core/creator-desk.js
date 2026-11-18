@@ -21,7 +21,8 @@ run('creator-desk', async (t) => {
     await A.w.locator('#crNext').waitFor({ state: 'visible', timeout: 20000 });
     // 생성기 위 탭(캐릭터 · 책상 · 좌석 세팅) 가운데 «책상 세팅»
     await A.w.click('[data-stg="1"]');
-    await A.w.locator('#deskColor').waitFor({ state: 'visible', timeout: 10000 });
+    // 색 칸(#deskColor)은 겉모양을 따로 그려 그 자체는 «보임» 판정이 안 된다 — 탭 안 «책상 색» 글로 기다린다
+    await A.w.locator('text=책상 색').first().waitFor({ state: 'visible', timeout: 10000 });
   });
   await t.step('책상 색 · 크기 바꾸고 프리셋 1번에 저장', async () => {
     await setVal(A, '#deskColor', COLOR_A);
