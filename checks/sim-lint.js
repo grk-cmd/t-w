@@ -5,7 +5,8 @@
    ・1절: 저장소 앱 폴더를 ESLint(CLI 그대로)로 돌려 — 기준선 밖 위반 0 · 기준선에 낡은 줄 없음(줄었으면 prune) ·
           기준선이 가리키는 파일이 다 있음 · 대상 파일(main.js · app/parts/app.js)을 정말 읽었음.
    ・2절: 깨 보기 — 규칙마다 나쁜 예는 그 규칙 이름으로 빨강 · 좋은 예는 통과(ESLint Node API lintText).
-   ・3절: 기준선 톱니 — 임시 폴더에서 «기준선 1개 + 같은 위반 1개 더» 는 빨강 · «하나 지움» 은 낡은 줄로 빨강.
+   ・3절: 기준선 톱니 — 임시 폴더에서 «기준선 1개 + 같은 위반 1개 더» 는 빨강 · «하나 지움» 은 낡은 줄로 빨강 ·
+          메인 ↔ 렌더러 경계를 넘는 파일을 넣으면 빨강(mutation test).
    ⚠️ 러너는 검사를 저장소 밖 임시 폴더(스테이징)에서 돌리고 NODE_PATH 로 저장소 node_modules 를 넘긴다.
      스테이징엔 앱 · 검사 · 루트 파일이 한 층에 섞여 있어 린트 대상을 그대로 못 쓴다 — 그래서 저장소 앱 폴더를
      NODE_PATH(…/node_modules 의 위)에서 찾아 그곳을 돌린다.
@@ -22,7 +23,7 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 
 const CONFIG = 'eslint.config.js';
 const SUPPRESS = 'eslint-suppressions.json';
-const RULES = ['tw/no-timer', 'tw/no-firebase-api', 'tw/ls-key-prefix', 'tw/no-main-require-renderer'];
+const RULES = ['tw/no-timer', 'tw/no-firebase-api', 'tw/ls-key-prefix', 'tw/no-main-require-renderer', 'tw/no-renderer-import-main'];
 
 /* ── 찾기 ─────────────────────────────────────────────────────────────── */
 const nodePaths = (process.env.NODE_PATH || '').split(path.delimiter).filter(Boolean);
@@ -84,6 +85,7 @@ const parseJson = (s) => { try { return JSON.parse(s); } catch (_) { return null
   const eslint = new eslintMod.ESLint({ cwd: DESKTOP, overrideConfigFile: path.join(DESKTOP, CONFIG) });
   const R = 'app/parts/room/zz-sim-lint.js';
   const MAIN = 'main.js';
+  const ESM_R = 'app/parts/realtime/rt-bind.js';   // ES 모듈로 읽는 렌더러 파일(import 구문)
   const cases = [
     ['tw/no-timer', R, 'setTimeout(()=>go(), 0);', true],
     ['tw/no-timer', R, 'window.setTimeout(go, 50);', true],
@@ -104,6 +106,17 @@ const parseJson = (s) => { try { return JSON.parse(s); } catch (_) { return null
     ['tw/no-main-require-renderer', 'overlay-win.js', "require('../desktop/app/parts/x');", true],
     ['tw/no-main-require-renderer', MAIN, "const o = require('./overlay-win'); const e = require('electron'); const p = require('path').join(__dirname, 'app');", false],
     ['tw/no-main-require-renderer', R, "require('./app/parts/x');", false],
+    ['tw/no-main-require-renderer', MAIN, "import('./app/parts/x.js');", true],
+    ['tw/no-main-require-renderer', 'preload.js', "const h = require('./app/parts/shared/help-site.js');", true],
+    ['tw/no-renderer-import-main', R, "const fs = require('fs');", true],
+    ['tw/no-renderer-import-main', R, "const { ipcRenderer } = require('electron');", true],
+    ['tw/no-renderer-import-main', R, "import('node:path').then(go);", true],
+    ['tw/no-renderer-import-main', R, "import('../../../main.js');", true],
+    ['tw/no-renderer-import-main', ESM_R, "import { x } from '../../../preload.js';", true],
+    ['tw/no-renderer-import-main', ESM_R, "export * from '../../../overlay-win.js';", true],
+    ['tw/no-renderer-import-main', ESM_R, "import { a } from './realtime-link.js'; import { b } from '../shared/app-version.js'; import { c } from 'https://www.gstatic.com/x.js';", false],
+    ['tw/no-renderer-import-main', R, "if(typeof module !== 'undefined') module.exports = api; window.companion.send('x');", false],
+    ['tw/no-renderer-import-main', MAIN, "const fs = require('fs');", false],
   ];
   for (const [rule, file, code, bad] of cases) {
     const [res] = await eslint.lintText(code, { filePath: path.join(DESKTOP, file) });
@@ -130,6 +143,20 @@ const parseJson = (s) => { try { return JSON.parse(s); } catch (_) { return null
     chk(other.status !== 0 && /tw\/no-firebase-api/.test(other.stdout), '타이머를 지우고 다른 금지를 넣어도 빨강(규칙 이름이 따로)');
     const fewer = step('go();\n');
     chk(fewer.status === 2 && /do not occur anymore/.test(fewer.stderr), '줄면 낡은 줄로 빨강(prune 하라고)');
+
+    /* 경계 mutation test — 기준선이 빈 폴더에 경계를 넘는 파일을 하나씩 넣으면 빨강, 빼면 통과 */
+    fs.writeFileSync(f, 'go();\n');
+    fs.writeFileSync(path.join(tmp, SUPPRESS), '{}');
+    const clean = runCli(tmp, ['.']);
+    chk(clean.status === 0, '경계: 넘는 파일이 없으면 통과' + (clean.status ? ' — ' + (clean.stdout + clean.stderr).trim().split('\n').slice(-2).join(' / ') : ''));
+    const mainBad = path.join(tmp, 'zz-main.js');
+    fs.writeFileSync(mainBad, "const X = require('./app/parts/room/a.js');\n");
+    const m2r = runCli(tmp, ['.']);
+    chk(m2r.status === 1 && /tw\/no-main-require-renderer/.test(m2r.stdout), '경계: 메인 파일이 app/ 를 require 하면 빨강');
+    fs.rmSync(mainBad);
+    fs.writeFileSync(f, "const X = require('../../../zz-main.js');\n");
+    const r2m = runCli(tmp, ['.']);
+    chk(r2m.status === 1 && /tw\/no-renderer-import-main/.test(r2m.stdout), '경계: 렌더러 파일이 메인 쪽 파일을 require 하면 빨강');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
