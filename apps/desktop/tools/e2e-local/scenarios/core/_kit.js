@@ -167,6 +167,7 @@ function run(name, body){
           }));
         } catch(e){ if(/closed|Target/.test(String(e.message))) continue; throw e; }
         const bad = s.wins.filter((w) => !w.real || !offscreen(w.real, s.displays) || w.focus || w.realTop || w.opacity !== 0 || w.muted !== true);
+        if(!s.wins.length) throw new Error('조용한 창 판정: 창을 못 셈(' + path.basename(a.out) + ') — getAllWindows 가 빈 목록');
         if(bad.length || s.focused) throw new Error('조용한 창이 깨짐(' + path.basename(a.out) + '): ' + JSON.stringify(bad.length ? bad : s).slice(0, 300));
       }
     },

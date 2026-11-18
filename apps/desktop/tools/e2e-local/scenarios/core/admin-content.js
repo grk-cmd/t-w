@@ -70,6 +70,9 @@ run('admin-content', async (t) => {
       await t.poll(async () => /신고를 비웠어요/.test(await A.w.textContent('#toast')), 8000, '«신고를 비웠어요»');
       const r = await t.api(A, 'GET', '/v2/admin/reports');
       t.check(!JSON.stringify(r.body).includes(uc), '비운 뒤에도 목록에 B 가 있음');
+      // 신고 목록 창은 닫기 단추가 없다 — 어두운 바탕(창 밖)을 눌러 닫는다
+      await A.w.mouse.click(5, 5);
+      await t.poll(() => A.w.evaluate(() => !document.querySelector('.app-popup-ov')), 3000, '신고 목록 창 닫힘');
     });
     await t.step('📰 업데이트 공지 발행 → B 를 다시 켜면 공지 창', async () => {
       const title = 'e2e 업데이트 ' + tag;

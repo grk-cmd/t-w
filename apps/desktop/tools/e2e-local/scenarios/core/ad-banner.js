@@ -38,8 +38,9 @@ run('ad-banner', async (t) => {
     await t.step('A 배너 두 장 저장 → 저장 알림 · A 런처에 첫 장', async () => {
       await fillBanner(A, SLIDES);
       await t.poll(async () => /배너가 저장됐어요 \(2개\)/.test(await A.w.textContent('#toast')), 8000, '저장 알림');
-      const b = await bannerOf(A);
-      t.check(b.shown && b.src === SLIDES[0].img && b.href === SLIDES[0].link, 'A 배너: ' + JSON.stringify(b));
+      // 저장 알림 뒤 앱이 공지 한 판을 다시 받아 그린다 — 그때까지 기다린다
+      let b;
+      await t.poll(async () => { b = await bannerOf(A); return b.shown && b.src === SLIDES[0].img && b.href === SLIDES[0].link; }, 10000, 'A 런처에 첫 장').catch((e) => { throw new Error(e.message + ' ' + JSON.stringify(b)); });
     });
     await t.step('B 런처에 서버 알림으로 배너가 뜬다', async () => {
       const b = await t.poll(async () => { const x = await bannerOf(B); return x.shown && x; }, 70000, 'B 배너 보임');
