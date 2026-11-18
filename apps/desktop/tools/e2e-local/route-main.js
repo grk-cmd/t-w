@@ -1,9 +1,9 @@
 /* route-main.js — 시험 앱의 요청이 진짜 서버로 나가지 않게(주소 돌리기 · 막기). 감싸는 진입점(lib.js 의 wrap/main.js)이
-   앱 main.js 보다 먼저 require 하고 곧바로 부른다: require('route-main.js')({ log, api, auth, storage }).
+   앱 main.js 보다 먼저 require 하고 곧바로 부른다: require('route-main.js')({ log, api, auth, storage, helpDir }).
    앱 코드는 바꾸지 않는다 — 시험 프로세스의 main 에서 세션마다 건다.
 
-   ・왜 main 에서: Playwright 의 ctx.route 는 앱 창에 붙은 뒤에야 걸리고, 안 걸린 채 뜬 판이 있었다(그 판은 앱이 진짜
-     api-dev.together-working.com 으로 나가 502 를 받았다). 세션 처리기는 앱이 창 · 요청을 만들기 전에 걸린다
+   ・왜 main 에서: Playwright 의 ctx.route 는 앱 창에 붙은 뒤에야 걸려, 안 걸린 채 뜬 앱은 진짜 서버로 나간다.
+     세션 처리기는 앱이 창 · 요청을 만들기 전에 걸린다
    ・돌리기 — 세션의 https 처리기(protocol.handle)가 이 PC 주소로 대신 받아 그 답을 원래 주소의 답으로 준다.
      redirect 가 아니라서 창에서 보면 주소 · 출처(CORS)가 그대로다(Playwright 의 fulfill 과 같은 모양). lib.js 가 하던 짝 그대로:
        https://api-dev.together-working.com/<길>              → <api>/<길>
