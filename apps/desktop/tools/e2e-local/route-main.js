@@ -14,6 +14,7 @@
      https 는 처리기가 네트워크 오류로 끝내고, 그 밖(ws · wss · http · main 의 요청)은 webRequest 가 막는다.
      막은 것은 log 에 «BLOCK <방법> <주소>» 로 남기고 global.__e2eBlocked 에 쌓는다 — lib.quietProblems 가 읽어 그 단계를 실패시킨다
    ・오프라인 흉내(global.__e2eOffline — lib.js net) — 돌릴 요청을 네트워크 오류로 끝내고 «OFFLINE» 으로 남긴다
+   ・시험이 고친 답(global.__e2eEdits · lib.js editJson) — 돌린 API 답 JSON 의 data 를 함수로 고쳐 준다(이 앱 하나만 · 서버 값은 그대로)
    ・돌린 요청은 «REQ <방법> <표시> <상태>» 로 남긴다 — lib.js 가 읽어 A.reqs 에 옛 모양 그대로 넣는다 */
 'use strict';
 const fs = require('fs');
@@ -27,6 +28,7 @@ const BLOCK = /(^|\.)(together-working\.com|googleapis\.com|firebaseio\.com|fire
 module.exports = function routeMain(o){
   global.__e2eBlocked = [];
   global.__e2eOffline = false;
+  global.__e2eEdits = [];   // { method, re, fn } — lib.js editJson 이 넣는다
   const write = (line) => { try { fs.appendFileSync(o.log, line + '\n'); } catch(_){} };
   const block = (method, url) => { global.__e2eBlocked.push(url); write(`BLOCK ${method} ${url}`); };
 
@@ -49,6 +51,14 @@ module.exports = function routeMain(o){
       try {
         const body = (req.method === 'GET' || req.method === 'HEAD') ? undefined : req.body;
         const r = await net.fetch(m.to, { method: req.method, headers: req.headers, body, duplex: 'half', bypassCustomProtocolHandlers: true, redirect: 'manual' });
+        // 시험이 고친 답(lib.js editJson — 이 앱 하나만 · 서버 값은 그대로): JSON 답의 data 를 고쳐 준다
+        const ed = global.__e2eEdits.find((e) => e.method === req.method && e.re.test(u.pathname + u.search));
+        if(ed){
+          const j = await r.json();
+          if(j && j.data) j.data = ed.fn(j.data);
+          write(`REQ ${tag} ${r.status} (시험이 고침)`);
+          return new Response(JSON.stringify(j), { status: r.status, headers: { 'content-type': 'application/json' } });
+        }
         write(`REQ ${tag} ${r.status}`);
         return r;
       } catch(e){ write(`REQ ${tag} ERR ${e.message}`); return Response.error(); }
