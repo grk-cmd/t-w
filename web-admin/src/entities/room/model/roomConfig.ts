@@ -40,7 +40,7 @@ export function parseRoomLimits(raw: unknown): Record<Channel, number | null> {
 }
 
 /**
- * 채널별 전체 방 상한 — 저장된 값(칸이 없으면 null)과 기본값.
+ * 채널별 전체 방 상한 — 저장된 값(칸이 없으면 null)과 기본값. API 판은 서버가 비운 칸도 기본값으로 채워 주어 saved 가 null 이 아니다.
  * 기본값은 서버가 알려 줄 때만 있다(API 판 `room.limits` 의 기본값). Firebase 판은 null — 칸이 비면 앱마다 자기 기본값을 쓴다.
  */
 export interface RoomLimits {
