@@ -24,7 +24,7 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 |---|---|---|---|
 | 앱 켜기 순서 | `flow.js «로그인된 책상»`(다시 켠 뒤 15초 기다려 화면만 찍음) | `app-boot` `run-boot` `dom-boot` `user-local` · 부팅 스모크 `checks/smoke.js` | 부분 |
 | 두 번째 실행(이미 켠 창을 앞으로) | `scenarios/launcher/second-instance.js`(멀쩡하면 새 실행이 바로 꺼지고 옛 앱이 신호를 받음 · 렌더러가 죽은 채면 옛 앱이 다시 켜기) | `second-instance` | e2e |
-| 렌더러가 죽었을 때 런처로 되돌리기 | `scenarios/launcher/renderer-crash.js`(마이홈 창 모드에서 렌더러를 죽임 → 창이 런처 크기 · 로그인 그대로. 실행 화면은 캐릭터가 있어야 들어가서 마이홈으로 본다 — 되돌리는 길은 같다) | `renderer-gone-reset` | e2e |
+| 렌더러가 죽었을 때 런처로 되돌리기 | `scenarios/launcher/renderer-crash.js`(마이홈 창 모드에서 렌더러를 crashed 로 죽임 → 창이 런처 크기 · 한 번 다시 불러와 런처 화면). 실행 화면은 캐릭터가 있어야 들어가서 마이홈으로 본다(되돌리는 길은 같다) · 다시 불러온 렌더러에는 Playwright 가 다시 붙지 않아 그 뒤 로그인 유지(서버 요청)는 못 본다 | `renderer-gone-reset` | e2e |
 | 런처 화면(미리보기 · 슬롯 · 타이틀바 · 컨트롤) | `REPL «캐릭터 만들기»` 가 런처에서 시작(런처 자체는 판정 안 함) | `launcher-chrome` `launcher-controls` `launcher-preview` `launcher-state` `app-mode` `cfg-fit` `slot-fit` `zoom-window` | 부분 |
 | 런처 광고 배너 · 게임 설정 |  | `ad-banner` | **할 일** |
 | 책상 모드(데스크톱 실행 화면 · 클릭 통과) | `REPL «책상 모드»` | `desktop-run` `click-through-policy` `hit-map` `hit-shadow` `overlay-gap` `overlay-layered` `top-level` `run-rect` `display-pick` `system-prompt` `pen-forward` `hover-poke` `fly-click-through` | REPL |
