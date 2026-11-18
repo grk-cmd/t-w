@@ -4,8 +4,8 @@
      규칙 · 기준선을 더하는 법은 docs/LINT.md.
    ・1절: 저장소 앱 폴더를 ESLint(CLI 그대로)로 돌려 — 기준선 밖 위반 0 · 기준선에 낡은 줄 없음(줄었으면 prune) ·
           기준선이 가리키는 파일이 다 있음 · 대상 파일(main.js · app/parts/app.js)을 정말 읽었음.
-   ・2절: 깨 보기 — 규칙마다 나쁜 예는 그 규칙 이름으로 빨강 · 좋은 예는 통과(ESLint Node API lintText).
-   ・3절: 기준선 톱니 — 임시 폴더에서 «기준선 1개 + 같은 위반 1개 더» 는 빨강 · «하나 지움» 은 낡은 줄로 빨강 ·
+   ・2절: mutation test — 규칙마다 나쁜 예는 그 규칙 이름으로 빨강 · 좋은 예는 통과(ESLint Node API lintText).
+   ・3절: 기준선 ratchet — 임시 폴더에서 «기준선 1개 + 같은 위반 1개 더» 는 빨강 · «하나 지움» 은 낡은 줄로 빨강 ·
           메인 ↔ 렌더러 경계를 넘는 파일을 넣으면 빨강(mutation test).
    ⚠️ 러너는 검사를 저장소 밖 임시 폴더(스테이징)에서 돌리고 NODE_PATH 로 저장소 node_modules 를 넘긴다.
      스테이징엔 앱 · 검사 · 루트 파일이 한 층에 섞여 있어 린트 대상을 그대로 못 쓴다 — 그래서 저장소 앱 폴더를
@@ -81,8 +81,8 @@ const parseJson = (s) => { try { return JSON.parse(s); } catch (_) { return null
   for (const rules of Object.values(sup)) for (const [id, v] of Object.entries(rules)) total[id] = (total[id] || 0) + v.count;
   say('      기준선: ' + RULES.map((id) => `${id} ${total[id] || 0}`).join(' · '));
 
-  /* ── 2절: 깨 보기 ──────────────────────────────────────────────────── */
-  say('2절 — 깨 보기(규칙마다 나쁜 예 빨강 · 좋은 예 통과)');
+  /* ── 2절: mutation test ──────────────────────────────────────────────────── */
+  say('2절 — mutation test(규칙마다 나쁜 예 빨강 · 좋은 예 통과)');
   const eslint = new eslintMod.ESLint({ cwd: DESKTOP, overrideConfigFile: path.join(DESKTOP, CONFIG) });
   const R = 'app/parts/room/zz-sim-lint.js';
   const MAIN = 'main.js';
@@ -118,6 +118,12 @@ const parseJson = (s) => { try { return JSON.parse(s); } catch (_) { return null
     ['tw/no-renderer-import-main', ESM_R, "import { a } from './realtime-link.js'; import { b } from '../shared/app-version.js'; import { c } from 'https://www.gstatic.com/x.js';", false],
     ['tw/no-renderer-import-main', R, "if(typeof module !== 'undefined') module.exports = api; window.companion.send('x');", false],
     ['tw/no-renderer-import-main', MAIN, "const fs = require('fs');", false],
+    ['tw/no-main-require-renderer', MAIN, "const A = require('./app');", true],
+    ['tw/no-renderer-import-main', R, "const fs = window.require('fs');", true],
+    ['tw/no-renderer-import-main', R, "import('@electron/remote');", true],
+    ['tw/no-firebase-data', ESM_R, "import * as db from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js'; db.set(db.ref(x, 'a'), 1);", true],
+    ['tw/no-firebase-data', R, "import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');", true],
+    ['tw/no-placeholder-store', R, "rt.emit('name', TwPersonName.shown(n)); api.updateProfile({ name: getDisplayName() });", true],
     ['tw/no-firebase-data', ESM_R, "import { ref, onValue } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js'; onValue(ref(db, 'a'), f);", true],
     ['tw/no-firebase-data', ESM_R, "import { getStorage } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';", true],
     ['tw/no-firebase-data', ESM_R, "import { getAuth } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js'; getAuth(); api.get('/me');", false],
@@ -135,8 +141,8 @@ const parseJson = (s) => { try { return JSON.parse(s); } catch (_) { return null
     chk(ok, `${bad ? '빨강' : '통과'} ${rule} · ${file} · ${code.slice(0, 48)}` + (broken.length ? ' — 읽기 오류 ' + broken[0].message : ''));
   }
 
-  /* ── 3절: 기준선 톱니 ──────────────────────────────────────────────── */
-  say('3절 — 기준선 톱니(임시 폴더)');
+  /* ── 3절: 기준선 ratchet ──────────────────────────────────────────────── */
+  say('3절 — 기준선 ratchet(임시 폴더)');
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'tw-sim-lint-'));
   try {
     fs.copyFileSync(path.join(DESKTOP, CONFIG), path.join(tmp, CONFIG));

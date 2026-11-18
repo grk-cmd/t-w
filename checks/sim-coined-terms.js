@@ -16,7 +16,8 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 
-/* [낱말, 찾는 식, 대신 쓸 말] — CLAUDE.md «업계 표준 기술 용어» 의 나쁜 예 가운데 뜻이 하나뿐인 것 */
+/* [낱말, 찾는 식, 대신 쓸 말] — CLAUDE.md «업계 표준 기술 용어»(지금은 main 의 CLAUDE.md · 판을 합치면 여기도) 나쁜 예 가운데
+   뜻이 하나뿐인 것. 목록의 정본은 이 표다. */
 const TERMS = [
   ['씨앗', /씨앗/g, 'restore snapshot(파일로 저장되는 스냅샷)'],
   ['깨 보기', /깨 ?(보기|봄|본|봤|보고|보면|보니|보자|봐)/g, 'mutation test / break test'],

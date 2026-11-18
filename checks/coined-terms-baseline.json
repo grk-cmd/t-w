@@ -619,10 +619,6 @@
   "checks/sim-light-tone.js": {
     "깨 보기": 1
   },
-  "checks/sim-lint.js": {
-    "깨 보기": 2,
-    "톱니": 2
-  },
   "checks/sim-listen-model.js": {
     "깨 보기": 1
   },

@@ -49,7 +49,7 @@ const LS_KEY_PREFIX = [
 const DESKTOP_DIR = __dirname;
 const RENDERER_DIR = path.join(DESKTOP_DIR, 'app');
 const NODE_ONLY = new Set([...require('module').builtinModules, 'electron']);
-const inside = (dir, p) => { const r = path.relative(dir, p); return !!r && !r.startsWith('..') && !path.isAbsolute(r); };
+const inside = (dir, p) => { const r = path.relative(dir, p); return !r.startsWith('..') && !path.isAbsolute(r); };   // dir 자신도 안
 /* 노드가 가져오는 모듈 이름(글자 그대로 쓴 것만) — 못 읽으면 null */
 const importSource = (node) => {
   if(node.type === 'CallExpression'){
@@ -79,10 +79,12 @@ const MAIN_TO_RENDERER = boundaryRule((spec, file) => {
     : null;
 });
 const RENDERER_TO_MAIN = boundaryRule((spec, file, node) => {
-  if(node.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === 'require')
+  const callee = node.type === 'CallExpression' ? node.callee : null;
+  if(callee && (callee.type === 'Identifier' ? callee.name === 'require'
+    : callee.type === 'MemberExpression' && /^(window|globalThis|self)$/.test(callee.object.name || '') && callee.property.name === 'require'))
     return '렌더러에서 require 하지 마세요 — 렌더러는 Node 가 없습니다(nodeIntegration 끔). 메인의 기능은 preload 가 내놓은 window.… 와 IPC 로 부르세요.';
   if(!spec) return null;
-  if(spec.startsWith('node:') || NODE_ONLY.has(spec.split('/')[0]))
+  if(spec.startsWith('node:') || spec.startsWith('@electron/') || NODE_ONLY.has(spec.split('/')[0]))
     return `렌더러에서 Node · Electron 모듈(${spec})을 가져오지 마세요 — 메인 쪽 일은 preload 가 내놓은 window.… 와 IPC 로 부르세요.`;
   const to = resolveRel(spec, file);
   return to && inside(DESKTOP_DIR, to) && !inside(RENDERER_DIR, to)
@@ -91,29 +93,34 @@ const RENDERER_TO_MAIN = boundaryRule((spec, file, node) => {
 });
 
 /* f. Firebase DB · Storage 의존 늘리기 — 0.13 은 서버(API · realtime)가 원본이다. 남은 SDK 함수 가져오기 · 부르기는
-   기준선에 얼려 두고, 새 함수를 가져오거나 새로 부르면(새 경로 · 새 쓰기 · 새 구독) 빨강. */
+   기준선에 얼려 두고, 새 함수를 가져오거나 새로 부르면 빨강(파일마다 개수로 센다 — 이미 있는 래퍼에 새 경로를 넘기는 것은 못 본다). */
 const FIREBASE_DATA_SDK = /\/firebasejs\/[^/]+\/firebase-(database|storage)\.js$/;
 const FIREBASE_MSG = 'Firebase DB · Storage 를 새로 쓰지 마세요 — 0.13 은 서버 API(provider)가 원본입니다. 새 읽기 · 쓰기 · 구독은 도메인의 …-api.js 로 서버에 만드세요.';
 const NO_FIREBASE_DATA = {
   meta: { type: 'problem', schema: [] },
   create(context){
-    const sdkNames = new Set();
+    const sdkNames = new Set();   // 가져온 함수 이름 · namespace 이름(import * as db)
     return {
       ImportDeclaration(node){
         if(!FIREBASE_DATA_SDK.test(String(node.source.value))) return;
         for(const sp of node.specifiers){ sdkNames.add(sp.local.name); context.report({ node: sp, message: FIREBASE_MSG }); }
       },
+      ImportExpression(node){
+        if(node.source.type === 'Literal' && FIREBASE_DATA_SDK.test(String(node.source.value))) context.report({ node, message: FIREBASE_MSG });
+      },
       CallExpression(node){
-        if(node.callee.type === 'Identifier' && sdkNames.has(node.callee.name)) context.report({ node, message: FIREBASE_MSG });
+        const c = node.callee;
+        const name = c.type === 'Identifier' ? c.name : (c.type === 'MemberExpression' && c.object.type === 'Identifier' ? c.object.name : null);
+        if(name && sdkNames.has(name)) context.report({ node, message: FIREBASE_MSG });
       },
     };
   },
 };
 
 /* g. 이름 placeholder(«이름 없음») 를 저장 · 전송 값에 싣기 — placeholder 는 그릴 때만 만든다(shared/person-name.js).
-   저장 · 보내기 함수(setItem · save… · send… · post… · put… · patch… · upload… · commit… · write…)의 인자 안에서
+   저장 · 보내기 함수(setItem · emit · save… · send… · post… · put… · patch… · upload… · commit… · write… · update…)의 인자 안에서
    TwPersonName.shown() · getDisplayName() · NO_NAME · 글자 '이름 없음' 을 찾는다. 이름 칸이 비면 '' 그대로 싣는다. */
-const STORE_CALL = "CallExpression:matches([callee.property.name=/^(setItem|(save|send|post|put|patch|upload|commit|write)[A-Za-z0-9_]*)$/], [callee.name=/^(save|send|post|put|patch|upload|commit|write)[A-Za-z0-9_]*$/])";
+const STORE_CALL = "CallExpression:matches([callee.property.name=/^(setItem|emit|(save|send|post|put|patch|upload|commit|write|update)[A-Za-z0-9_]*)$/], [callee.name=/^(save|send|post|put|patch|upload|commit|write|update)[A-Za-z0-9_]*$/])";
 const PLACEHOLDER = [
   "CallExpression[callee.property.name='shown'][callee.object.name=/PersonName$/]",
   "CallExpression[callee.name='getDisplayName']",
