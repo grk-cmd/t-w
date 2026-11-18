@@ -113,11 +113,17 @@ async function launchRetry(A){
       const w = await A.launch();
       const n = A.reqs.length;
       await w.evaluate((h) => fetch(`https://${h}/v2/config?e2e-probe=1`).catch(() => null), API_HOST);
-      if(!A.reqs.slice(n).some((r) => r.includes('/v2/config'))) throw new Error('주소 돌리기가 안 걸림');
+      if(!A.reqs.slice(n).some((r) => r.includes('/v2/config'))) throw Object.assign(new Error('주소 돌리기가 안 걸림'), { routeMiss: true });
       return w;
     }
     catch(e){
       A.logs.push('--- launch 실패: ' + String(e.message).split('\n')[0]);
+      // 주소 돌리기가 안 걸린 앱은 이미 바깥 dev 로 요청을 보냈을 수 있다 — 다시 켜서 덮지 않고 모두 멈추게 남긴다
+      if(e.routeMiss){
+        await hardQuit(A);
+        if(QUIET_FAIL) try { fs.writeFileSync(QUIET_FAIL, new Date().toISOString() + ' e2e-core ' + A.out + ': 주소 돌리기가 안 걸린 채 켜짐(요청이 바깥 dev 로 갔을 수 있음)\n', { flag: 'a' }); } catch(_){}
+        throw e;
+      }
       await hardQuit(A);
       // 켜다 멈춘 앱이 남아 있으면 같은 폴더의 다음 앱이 «두 번째 실행» 으로 바로 꺼진다
       killAppPids(A);
