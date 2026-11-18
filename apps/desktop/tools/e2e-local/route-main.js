@@ -10,7 +10,8 @@
        https://identitytoolkit|securetoken.googleapis.com/<길> → <auth>/<그 호스트>/<길>(Auth 에뮬레이터는 원래 호스트를 앞에 붙여 받는다)
        https://firebasestorage.googleapis.com/<길>             → <storage>/<길>
      realtime 은 dev 판이 처음부터 ws://127.0.0.1:8787 을 쓴다(rt-hub.js) — 돌릴 것이 없다
-   ・막기 — 위 짝이 아닌 *.together-working.com · *.googleapis.com · *.firebaseio.com · *.firebaseapp.com · *.web.app.
+   ・막기 — 우리 데이터를 실을 수 있는 곳만: *.together-working.com · identitytoolkit · securetoken · firebasestorage · firestore · firebaseinstallations.googleapis.com ·
+     *.firebaseio.com · *.firebasedatabase.app · *.firebaseapp.com · *.web.app(돌릴 세 짝은 먼저 돌린다). 그 밖(유튜브 · 글꼴 등)은 그대로 둔다.
      https 는 처리기가 네트워크 오류로 끝내고, 그 밖(ws · wss · http · main 의 요청)은 webRequest 가 막는다.
      막은 것은 log 에 «BLOCK <방법> <주소>» 로 남기고 global.__e2eBlocked 에 쌓는다 — lib.quietProblems 가 읽어 그 단계를 실패시킨다
    ・오프라인 흉내(global.__e2eOffline — lib.js net) — 돌릴 요청을 네트워크 오류로 끝내고 «OFFLINE» 으로 남긴다
@@ -23,7 +24,12 @@ const { app, session, net } = require('electron');
 const API_HOST = 'api-dev.together-working.com';
 const AUTH_HOSTS = ['identitytoolkit.googleapis.com', 'securetoken.googleapis.com'];
 const STORAGE_HOST = 'firebasestorage.googleapis.com';
-const BLOCK = /(^|\.)(together-working\.com|googleapis\.com|firebaseio\.com|firebaseapp\.com|web\.app)$/;
+// 막는 곳 — 우리 데이터를 실을 수 있거나 우리 백엔드에 닿는 호스트만(돌릴 세 짝은 위에서 먼저 돌린다).
+// 그 밖(유튜브 플레이어 · 글꼴 fonts.googleapis.com · fonts.gstatic.com · ytimg · googlevideo 등)은 그대로 둔다
+const BLOCK_HOSTS = new Set(['identitytoolkit.googleapis.com', 'securetoken.googleapis.com', 'firebasestorage.googleapis.com',
+  'firestore.googleapis.com', 'firebaseinstallations.googleapis.com']);
+const BLOCK_SUFFIX = /(^|\.)(together-working\.com|firebaseio\.com|firebasedatabase\.app|firebaseapp\.com|web\.app)$/;
+const blockedHost = (h) => BLOCK_HOSTS.has(h) || BLOCK_SUFFIX.test(h);
 
 module.exports = function routeMain(o){
   global.__e2eBlocked = [];
@@ -40,7 +46,7 @@ module.exports = function routeMain(o){
     if(u.hostname === STORAGE_HOST) return { to: o.storage + u.pathname + u.search, tag: u.hostname + u.pathname };
     return null;
   }
-  const isBlocked = (raw) => { try { return BLOCK.test(new URL(raw).hostname); } catch(_){ return false; } };
+  const isBlocked = (raw) => { try { return blockedHost(new URL(raw).hostname); } catch(_){ return false; } };
 
   async function https(req){
     const u = new URL(req.url);
@@ -63,7 +69,7 @@ module.exports = function routeMain(o){
         return r;
       } catch(e){ write(`REQ ${tag} ERR ${e.message}`); return Response.error(); }
     }
-    if(BLOCK.test(u.hostname)){ block(req.method, req.url); return Response.error(); }
+    if(isBlocked(req.url)){ block(req.method, req.url); return Response.error(); }
     return net.fetch(req, { bypassCustomProtocolHandlers: true });   // 그 밖의 https(유튜브 등)는 그대로
   }
 
