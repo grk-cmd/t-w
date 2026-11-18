@@ -155,7 +155,7 @@
 | **sim-app-version.js** | 109 | **6dee4558ad2b** |
 | **sim-app-version-sync.js** | 178 | **f67e03834602** |
 | **sim-update-flow.js** | 499 | **571de5cf6990** |
-| **sim-firebase-left.js** | 174 | **775ff888bbb9** |
+| **sim-firebase-left.js** | 174 | **60c330274574** |
 | **sim-maintenance-gate.js** | 380 | **ee8f07b284a7** |
 | **sim-room-invite-wait.js** | 44 | **2327a1043182** |
 | **sim-friend-manage.js** | 251 | **5849b1a8292c** |
@@ -557,6 +557,7 @@
 | **sim-public-secrets.js** | 140 | **0816691ffdda** |
 | **sim-person-name.js** | 95 | **c1333f370957** |
 | **sim-room-parity.js** | 108 | **56dc81055ed8** |
+| **sim-account-password.js** | 134 | **f896fe59f99a** |
 
 ### `sim-sysinput.js` 판 계보
 

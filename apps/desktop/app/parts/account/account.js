@@ -366,14 +366,21 @@ async function _withRecentLogin(fn){
   catch(e){ return { ok:false, reason:userApiMod.reasonOf(e), code:(e && e.code) || '' }; }
 }
 /* C3 — 구글만 있는 계정에 `{내 친구코드}@tw.local` + 비밀번호 로그인을 붙인다(서버가 붙인다 — 앱이 붙이면 남의 코드 이메일을 차지할 수 있어서).
-   붙인 뒤 이 PC 의 Auth 사본을 다시 읽어 계정 탭이 C2 로 바뀐다. */
+   붙인 뒤 새 비밀번호로 다시 로그인해 세션을 잇는다 — 새 세션은 두 로그인 수단을 다 가져서 계정 탭이 C2 로 바뀐다. */
 async function _acctCreatePassword(pw){
   const c = _acctPwCode();
   if(!c.ok) return c;
+  let pv = null; try{ pv = firebaseAPI.authProviders(); }catch(_){}
   const r = await _withRecentLogin(() => userApiMod.attachPasswordLogin(pw));
   if(!r.ok) return r;
-  try{ await firebaseAPI.authReload(); }catch(_){}
-  return { ok:true, code:c.code };
+  return { ok:true, code:c.code, relogged: await _reloginWithPassword(c.code, pw, pv && pv.authUid) };
+}
+/* 서버가 비밀번호를 붙이거나 바꾸면 Firebase Auth 가 이 계정의 로그인(refresh token)을 모두 끊는다 — 이 PC 의 세션도 같이 죽어
+   다시 읽기(reload) · 토큰 새로 받기가 TOKEN_EXPIRED 로 실패한다. 그래서 방금 정한 비밀번호로 곧바로 다시 로그인해 세션을 잇는다.
+   같은 authUid 로 들어왔을 때만 이었다고 본다(다르면 relogged:false — 부르는 쪽이 «다시 시작» 을 안내). */
+async function _reloginWithPassword(code, pw, authUid){
+  let l = null; try{ l = await firebaseAPI.authSignInWithFriendCode(code, pw); }catch(_){}
+  return !!(authUid && l && l.ok && l.uid === authUid);
 }
 /* C2 — 서버가 바꾸고 이 계정의 모든 로그인을 끊는다 → 이 PC 는 새 비밀번호로 곧바로 다시 로그인(같은 계정). 다시 로그인이 실패해도 바꾸기는 성공(relogged:false). */
 async function _acctChangePassword(pw){
@@ -381,8 +388,7 @@ async function _acctChangePassword(pw){
   if(!pv || !pv.passwordEmail) return { ok:false, reason:'비밀번호가 없는 계정이에요 — 먼저 비밀번호를 만들어 주세요' };
   const r = await _withRecentLogin(() => userApiMod.changePassword(pw));
   if(!r.ok) return r;
-  let l = null; try{ l = await firebaseAPI.authSignInWithFriendCode(String(pv.passwordEmail).split('@')[0], pw); }catch(_){}
-  return { ok:true, relogged: !!(l && l.ok && l.uid === pv.authUid) };
+  return { ok:true, relogged: await _reloginWithPassword(String(pv.passwordEmail).split('@')[0], pw, pv.authUid) };
 }
 let _acctMethodsLast = null;
 /* keepMsg — 방금 한 일의 안내 줄을 남긴 채 모양만 다시 그린다(C3 → C2 로 바뀌는 순간). 탭을 열 때는 입력·안내를 비운다. */
@@ -471,7 +477,8 @@ function refreshAccountTab(){
       if(p1) p1.value = ''; if(p2) p2.value = '';
       if(c3){
         try{ await _acctMethodsRender(true); }catch(_){}
-        say('✅ 비밀번호를 만들었어요. 이제 친구 코드 ' + (r.code || '') + ' + 비밀번호로도 로그인할 수 있어요.', 'ok');
+        say('✅ 비밀번호를 만들었어요. 이제 친구 코드 ' + (r.code || '') + ' + 비밀번호로도 로그인할 수 있어요.'
+          + (r.relogged ? '' : ' 이 PC는 다시 로그인이 필요할 수 있어요 — 앱을 다시 시작하면 로그인 화면이 나와요.'), 'ok');
       } else if(r.relogged){
         say('✅ 비밀번호를 바꿨어요. 다른 PC는 새 비밀번호로 다시 로그인해야 해요.', 'ok');
       } else {
