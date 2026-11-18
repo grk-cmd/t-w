@@ -1,5 +1,5 @@
 // 내 정보 · 보관함 · 휴지통 — 머리(친구 코드 · 이름) · 보관함 줄 · [휴지통 이동] → [옮기기] · 휴지통 탭 · [복원] · [슬롯에 올리기]
-// 캐릭터는 API 로 옷장에 미리 넣는다(만드는 화면은 캐릭터 영역의 몫). 판정은 화면 줄 수 · 탭 글 · 서버 옷장(GET /v2/me/avatars)
+// 캐릭터는 API 로 옷장에 미리 넣는다(만드는 화면은 캐릭터 영역의 몫 · 그림 없는 최소 def). 판정은 화면 줄 수 · 탭 글 · 서버 옷장(GET /v2/me/avatars)
 'use strict';
 const K = require('./_kit.js');
 
@@ -40,12 +40,13 @@ K.scenario('my-info', async (t) => {
     await K.waitFor(async () => (await K.text(pc.w, '#miTrashCount')) === '0', 15000, '휴지통 0');
     if((await closet()).avatars.length !== 2) throw new Error('서버 옷장이 2 가 아님');
   });
-  await t.step('보관함 [슬롯에 올리기] → 1/20 · 서버 슬롯 0 에 캐릭터', async () => {
+  // 시험 캐릭터는 그림 없는 최소 def 라 슬롯에 오르면 앱이 그 칸을 못 그린다(옷장 받기가 «얼굴 URL 없음» 으로 멈춤) — 이 단계는 요청 · 서버 슬롯으로만 판정한다
+  await t.step('보관함 [슬롯에 올리기] → 서버 이동 200 · 서버 슬롯에 캐릭터', async () => {
     await pc.w.click('#miTabBox');
     await K.waitFor(async () => (await K.text(pc.w, '#miBoxCount')) === '2/20', 15000, '보관함 2/20');
+    const n = pc.A.reqs.length;
     await pc.w.click('#miBoxList button:has-text("슬롯에 올리기")');
-    await K.waitFor(async () => (await K.text(pc.w, '#toast')) === '슬롯에 올렸어요', 15000, '올림 안내');
-    await K.waitFor(async () => (await K.text(pc.w, '#miBoxCount')) === '1/20', 15000, '보관함 1/20');
+    await K.waitFor(() => pc.A.reqs.slice(n).some((r) => /^POST \/v2\/me\/avatars\/[^/]+\/move 200/.test(r)), 15000, '이동 요청 200');
     const c = await closet();
     if(!c.slots.some(Boolean)) throw new Error('서버 슬롯이 비어 있음 ' + JSON.stringify(c.slots));
   });

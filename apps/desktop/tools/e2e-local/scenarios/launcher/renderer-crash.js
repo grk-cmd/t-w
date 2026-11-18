@@ -18,11 +18,15 @@ K.scenario('renderer-crash', async (t) => {
   });
   await t.step('렌더러를 죽인다 → 다시 불러옴 → 창이 런처 크기 · 런처 보임 · 로그인 그대로', async () => {
     const n = a.A.reqs.length;
-    await a.A.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((x) => !x.getParentWindow()).webContents.forcefullyCrashRenderer());
+    // forcefullyCrashRenderer 는 까닭이 killed(사용자가 끈 것)라 main 이 일부러 넘긴다 — 진짜 사고처럼 crashed 로 죽인다
+    const cdp = await a.w.context().newCDPSession(a.w);
+    await cdp.send('Page.crash').catch(() => {});
     await K.waitFor(async () => (await size()) === launcher, 15000, '창이 런처 크기로');
+    // 죽은 렌더러의 페이지 손잡이는 다시 불러온 뒤 쓸 수 없다 — 메인 창의 지금 페이지를 다시 잡는다
+    await K.waitFor(() => a.A.reqs.slice(n).some((r) => /^GET \/v2\/me 200/.test(r)), 40000, '다시 불러온 화면의 내 계정 확인');
+    a.w = a.A.app.windows().filter((p) => !p.isClosed() && /desk-companion-prototype\.html/.test(p.url())).pop();
     await K.waitFor(async () => { try { return await K.shown(a.w, '#lcLoad'); } catch(_){ return false; } }, 40000, '런처 보임');
     if(await K.shown(a.w, '#inviteGateCard')) throw new Error('로그인이 풀림');
-    if(!a.A.reqs.slice(n).some((r) => /^GET \/v2\/me 200/.test(r))) throw new Error('다시 불러온 뒤 내 계정 확인이 없음');
-    if(!a.A.logs.some((l) => /다시 불러오기 전 창을 런처로 되돌림/.test(l))) throw new Error('main 로그에 되돌림이 없음');
+    if(!a.A.logs.some((l) => /reason=crashed/.test(l)) || !a.A.logs.some((l) => /다시 불러오기 전 창을 런처로 되돌림/.test(l))) throw new Error('main 로그에 되돌림이 없음');
   });
 });
