@@ -20,6 +20,7 @@ const STALE_MS = 60 * 1000;
 
 const CHANNELS = ['workingroom', 'togetherroom'];
 const ROOM_LIMIT_MIN = 1, ROOM_LIMIT_MAX = 10000;
+const ROOM_LIMIT_DEFAULT = 500;   // 채널마다 방 개수 상한 기본값(서버 room.limits 기본값과 같다)
 const MAX_PEOPLE_MIN = 2, MAX_PEOPLE_MAX = 50;
 const BUG_DAILY_MIN = 1, BUG_DAILY_MAX = 100;
 const CLAP_DAILY_MIN = 1, CLAP_DAILY_MAX = 100;
@@ -34,7 +35,7 @@ const KEYS = ['roomLimits', 'roomMaxPeople', 'inviteGate', 'roomServerTiming', '
 const BANNED_WORDS_MAX = 500;     // 금칙어 줄 수 상한(서버 room.bannedWords 500 · 판정 banned-words.js BANNED_MAX 와 같은 값)
 const BANNED_WORD_LEN_MAX = 20;   // 한 낱말 길이 상한(서버와 같은 값)
 const DEFAULTS = Object.freeze({
-  roomLimits: Object.freeze({ workingroom: 300, togetherroom: 300 }),
+  roomLimits: Object.freeze({ workingroom: ROOM_LIMIT_DEFAULT, togetherroom: ROOM_LIMIT_DEFAULT }),
   roomMaxPeople: 10,
   inviteGate: true,
   roomServerTiming: Object.freeze({ joinWaitMs: TIMING_RANGES.joinWaitMs[2], clientGiveUpMs: TIMING_RANGES.clientGiveUpMs[2] }),
@@ -226,7 +227,7 @@ function createRemoteConfig(){
 }
 
 const api = { CONFIG_PATH, CACHE_KEY, CACHE_VERSION, STALE_MS,
-  KEYS, CHANNELS, DEFAULTS, TIMING_RANGES, ROOM_LIMIT_MIN, ROOM_LIMIT_MAX, MAX_PEOPLE_MIN, MAX_PEOPLE_MAX, BUG_DAILY_MIN, BUG_DAILY_MAX,
+  KEYS, CHANNELS, DEFAULTS, TIMING_RANGES, ROOM_LIMIT_MIN, ROOM_LIMIT_MAX, ROOM_LIMIT_DEFAULT, MAX_PEOPLE_MIN, MAX_PEOPLE_MAX, BUG_DAILY_MIN, BUG_DAILY_MAX,
   CLAP_DAILY_MIN, CLAP_DAILY_MAX, GIFT_DAILY_MIN, GIFT_DAILY_MAX,
   cleanRoomLimits, cleanMaxPeople, cleanFlag, cleanBugDailyMax, cleanClapDailyMax, cleanGiftDailySendMax, cleanBugReport, cleanMinVersion, cleanTiming,
   cleanBannedWords, BANNED_WORDS_MAX, BANNED_WORD_LEN_MAX, fieldsOf, looksLikeConfig,

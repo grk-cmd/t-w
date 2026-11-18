@@ -313,7 +313,7 @@
 | **sim-api-routes.js** | 256 | **c65dfca05922** |
 | **sim-api-errors.js** | 128 | **b13cd4fb40bc** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
-| **sim-remote-config.js** | 386 | **dd3f1bd1dc84** |
+| **sim-remote-config.js** | 388 | **5303038ac25f** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
 | **sim-myhome-inbox.js** | 769 | **492e75ee68c5** |
 | **sim-playlist.js** | 1138 | **71e097c106eb** |
@@ -373,7 +373,7 @@
 | **sim-wardrobe.js** | 229 | **9d73edf6c925** |
 | **sim-settings-panel.js** | 96 | **b5ef74cdd479** |
 | **sim-desktop-run.js** | 94 | **d6ec948cc841** |
-| **sim-room-entry.js** | 348 | **7cdcec06e25a** |
+| **sim-room-entry.js** | 348 | **85ab163eb005** |
 | **sim-overhead.js** | 161 | **169c381103c3** |
 | **sim-room-sync.js** | 123 | **ba1af4a95d89** |
 | **sim-status-chip.js** | 123 | **7743a21efa1e** |
