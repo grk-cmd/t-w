@@ -6,7 +6,7 @@
      watchReceived(myId, onChange, onError) → 해제 함수   onChange({ 보낸이id: { name, ts } })
      listSent(myId) → Promise<{ 받는이id: { ts, toName?, toCode? } }>
      accept(myId, fromId) · reject(myId, fromId) → Promise<void>(못 하면 던진다)
-     cancel(myId, toId) · send(myId, toId, myName, toName, toCode) → Promise<{ ok, reason? }>
+     cancel(myId, toId) · send(myId, toId) → Promise<{ ok, reason? }>
      lookupName(uid) → Promise<string | null> · lookupFriendCode(code) → Promise<상대 id | null>
    }
    검사: checks/sim-friend-requests.js */

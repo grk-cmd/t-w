@@ -1,0 +1,28 @@
+# ═══ PR 제목 — GitHub 멘션(@글자)이 없는가 ═══════════════════════════════════
+# 제목은 squash 커밋 제목 · 릴리스 본문(자동 PR 목록)이 된다. «@v5» 같은 글자는 사람 멘션으로 읽혀
+# 릴리스 Contributors 에 남의 계정이 붙는다. 판정은 checks/sim-pr-title.js 한 곳.
+# checks.yml 과 나눈 까닭: 제목을 고칠 때(edited)도 돌아야 하는데, checks.yml 에 edited 를 걸면 본문만 고쳐도 검사 전체가 다시 돈다.
+name: pr-title
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  title:
+    name: PR 제목에 멘션 없음
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: checks/sim-pr-title.js
+          sparse-checkout-cone-mode: false
+
+      - name: 제목 판정
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: node checks/sim-pr-title.js --title "$TITLE"
