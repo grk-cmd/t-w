@@ -134,7 +134,7 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 | 기능 | e2e | sim | 상태 |
 |---|---|---|---|
 | 토스트 · 오류 번호 알림 | `scenarios/social/toast-errors.js`(안내 토스트 · 서버 500 → E-FR-01 · tw-error.log · 다시 누르면 됨) | `toast` `error-codes` `api-errors` `error-log` | e2e |
-| 버그 제보 게시판 | `scenarios/social/bug-board.js`(비공개 글 · 잠긴 줄 · 관리자 답변 · 새 답변 배지 · 우편) | `bug-board` `bug-api` `bug-no` `bug-cleanup` | e2e |
+| 버그 제보 게시판 | `scenarios/social/bug-board.js`(비공개 글 · 남에게 잠긴 줄 · 관리자가 본문 읽기 · 관리자 답변(API — 앱의 관리자 모드는 비밀번호 창이라 시험이 못 켠다) · 글쓴이 «새 답변» · 우편 · 열면 안 본 답 0. 관리자 답변 화면은 안 봄) | `bug-board` `bug-api` `bug-no` `bug-cleanup` | 부분 |
 | 신고하기 | `scenarios/social/report.js`(이름표 우클릭 › 신고 · 숨김 · 관리자 목록) | `report` `report-away` | e2e |
 
 일정 알림 · 채팅 알림음 · 방 초대 · 공지는 위 «마이홈» · «채팅» · «친구 · 초대» 표에 있다.
