@@ -551,6 +551,7 @@
 | **sim-app-wiring.js** | 130 | **28b14e6e9990** |
 | **sim-move-verbatim.js** | 164 | **9ce76281dec0** |
 | **sim-lint.js** | 175 | **b30a89012b52** |
+| **sim-app-hosts.js** | 117 | **94ef7667d1d0** |
 | **sim-coined-terms.js** | 152 | **c9906bf8c1ca** |
 | **sim-public-secrets.js** | 140 | **0816691ffdda** |
 | **sim-person-name.js** | 95 | **c1333f370957** |
