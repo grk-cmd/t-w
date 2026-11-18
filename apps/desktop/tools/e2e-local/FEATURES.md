@@ -30,6 +30,7 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 | 피규어 · 회사원 모드 |  | `office-mode` `figure-mode` `window-mode` | **할 일** |
 | 프로그램 이동 모드 |  | `move-mode` | **할 일** |
 | 설정 창(캐릭터 크기 · 포커싱 어플 · 테마 · 화면 크기 · 화질 · 단축키) |  | `settings-panel` `program-settings` `panel-fit` `winlist` `theme` `theme-ui` `child-theme` `ui-zoom` `fn-keys` `key-input` `no-default-menu` `frame-budget` `unfocused-fps` | **할 일** |
+| 오픈소스 라이선스 창 |  | `oss-licenses` | **할 일** |
 | 창 앞뒤 · 바깥 눌러 닫기 |  | `win-stack` `win-front` `win-layers` `z-layers` `outside-close` | **할 일** |
 
 ## 계정 · 로그인 · PC 등록
@@ -37,17 +38,19 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 | 기능 | e2e | sim | 상태 |
 |---|---|---|---|
 | 초대 코드로 가입 | `flow.js «초대 화면» «초대 코드 입력» «가입»` | `signup` `license-gate` `name-guard` | e2e |
-| 가입 뒤 다시 켜기 · 로그인 유지 | `flow.js «시작하기 → 다시 켜기» «로그인된 책상»` | `login-flow` `account` `session` `session-baseline` `account-state` `account-store` `user-api` `first-run-013` | e2e |
-| 로그인 화면(이메일 · 비밀번호 입력) |  | `login-flow` `account` `session` | **할 일** |
+| 가입 뒤 다시 켜기 · 로그인 유지 | `flow.js «시작하기 → 다시 켜기» «로그인된 책상»`(로그인이 남았는지는 뒤 단계 «얼굴 올리기 · 받기» 의 내 정보 요청이 성공해야 통과) | `login-flow` `account` `session` `session-baseline` `account-state` `account-store` `user-api` `first-run-013` | e2e |
+| 로그인 화면(친구 코드 · 비밀번호 · 구글) · 구글로 가입 |  | `login-flow` `account` `session` | **할 일** |
+| 비밀번호 바꾸기 · 구글 계정에 비밀번호 붙이기 |  | `user-api` `account` | **할 일** |
+| 회원 탈퇴 |  | `account-delete` `account` `my-info` `user-api` | **할 일** |
 | 친구 코드 고정 | `flow.js «초대 코드 입력»` 이 가입 화면의 친구 코드를 읽어 `account.json` 에 적음(바뀌지 않는지는 안 봄) | `friend-code-keep` | 부분 |
 | 로그아웃 | `REPL «로그아웃»` | `account` `account-switch` `signup` | REPL |
 | 같은 PC 에서 계정 바꾸기 |  | `account-switch` `account-store` | **할 일** |
-| 닉네임 바꾸기 · 운영진처럼 보이는 이름 막기 |  | `user-name` `program-settings` `name-guard` `person-name` | **할 일** |
+| 닉네임 바꾸기 · 운영진처럼 보이는 이름 막기 |  | `user-name` `name-guard` `person-name` | **할 일** |
 | 내 정보 · 보관함 · 휴지통 |  | `my-info` `my-info-box` | **할 일** |
 | 초대장 발급(친구를 가입에 초대) |  | `license-gate` `user-api` | **할 일** |
 | 라이선스 · 프리미엄 등록 |  | `license-api` `license-key` `license-ui` `license-screen` `license-premium` `license-leak` `premium-assets` `premium-desk` | **할 일** |
 | PC 등록(계정마다 3대 · 넷째 PC 는 묻고 하나 지움) |  | `device-register` `device-limit-dialog` `device-id` `license-screen` | **할 일** |
-| 한 계정 한 기기(다른 PC 에서 들어오면 이 PC 를 끊음) |  | `device-lost` | **할 일** |
+| PC 연결이 끊긴 뒤 안내(다른 PC 에서 이 PC 를 지움 · 이 PC 에서 새로 연 앱에 밀림) |  | `device-lost` | **할 일** |
 | 서버 점검 화면 | `REPL «점검 켜고 끄기»` | `maintenance-gate` `remote-config` | REPL |
 | 판 확인(강제 · 선택 업데이트 · 최소 판) |  | `update-flow` `app-version-sync` `app-version` `remote-config` `mac-update` `update-diag` | **할 일** |
 
@@ -74,7 +77,7 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 | 시크릿룸 · 채팅 잠금 |  | `chat-lock` `secret-room-grant` `room-order` | **할 일** |
 | 방 정보 · 방 설정(제목 · 공개 · 인원) |  | `room-info-ui` `room-settings` | **할 일** |
 | 좌석 배치 · 내 자리 고정 · 자리 바꾸기 |  | `seats` `seat-layout` `seat-camera` `seat-pin` `seat-label-drag` `seat-sync-diff` `seat-refit` `seat-equalize` `seat-eq` `seat-eq-clamp` `seat-slot` `seat-model-load` `char-place` `fit-model` `fit-watch` | **할 일** |
-| 같은 계정은 한 자리만 |  | `room-rt` `device-lost` | **할 일** |
+| 같은 계정은 한 자리만 |  | `room-rt` `room-entry` | **할 일** |
 | 좌석 우클릭 메뉴 · 숨기기 · 투명도 · 쓰다듬기 |  | `seat-menu` `seat-panel` `seat-hide` `hidden-seats` `seat-opacity` `seat-opacity-mod` `seat-pointer` `seat-hit-targets` `seat-regions` | **할 일** |
 | 내 모습이 남 화면에 맞게 가기(방 동기화) |  | `room-sync` `room-parity` `room-live-def` `def-send` `room-rt` `room-state` | **할 일** |
 | 방 놀이(깜짝쇼 · 때리기 · 러시안룰렛 · 주사위 · 이모지 · 플라잉체어 · 올라타기) |  | `tricks` `fly-egg` `fly-replay` `fly-roulette` `roulette` `dice-games` `floaters` `flying-chair` `ride-bench` `ride-chain` `ride-height` `ride-measure` `ride-part-top` `ride-tuning` | **할 일** |
@@ -106,7 +109,7 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 
 | 기능 | e2e | sim | 상태 |
 |---|---|---|---|
-| 마이홈 열기 · 꾸미기(배경 · 스티커 · 디자인 프리셋 · 본문 링크) | `REPL «친구 요청»` 이 열기만 지나감 | `myhome-init` `myhome-page` `myhome-load` `myhome-store` `myhome-wire` `myhome-ui` `myhome-steps` `myhome-state` `myhome-edit` `myhome-hooks` `myhome-preset` `myhome-links` `myhome-sticker` `myhome-sticker-layout` `myhome-sticker-render` `myhome-sticker-rules` `myhome-api` `mh-bg-url` `mh-pad-pos` `mh-title-nodrag` | **할 일** |
+| 마이홈 열기 · 꾸미기(배경 · 스티커 · 디자인 프리셋 · 본문 링크) | `REPL «친구 요청»` 이 열기만 지나감(꾸미기는 안 거침) | `myhome-init` `myhome-page` `myhome-load` `myhome-store` `myhome-wire` `myhome-ui` `myhome-steps` `myhome-state` `myhome-edit` `myhome-hooks` `myhome-preset` `myhome-links` `myhome-sticker` `myhome-sticker-layout` `myhome-sticker-render` `myhome-sticker-rules` `myhome-api` `mh-bg-url` `mh-pad-pos` `mh-title-nodrag` | 부분 |
 | 마이홈 바탕화면 · 폴더 · 책장 북마크 |  | `folder-free` `mhd-envsub` `mhd-hidefolders` `bookmark` `bookshelf-store` | **할 일** |
 | 방명록 · 웹박수 |  | `guestbook` `guestbook-api` `guestbook-feed` `guestbook-wiring` `mh-sanitize` `rich-text` | **할 일** |
 | 말랑이 · 선물 보내기 · 받기 |  | `mallang-module` `mallang-store` `mallang-gift` `mallang-hide` `gift-api` `gift-box` `gift-save` `gift-img-retry` | **할 일** |
@@ -153,6 +156,8 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 | 라이선스 발급 · 엑셀 일괄 발급 · 시크릿룸 발급 |  | `admin-license` `license-xlsx` `secret-room-grant` | **할 일** |
 | 파츠 · 책상 · 아이템 등록 · 카탈로그 쓰기 |  | `admin-part-register` `admin-asset` `admin-thumbs` `catalog-admin-api` `publish-fields` | **할 일** |
 | 공지 · 업데이트 공지 편집 |  | `admin-notice` | **할 일** |
+| 신고 목록 |  | `report` | **할 일** |
+| 카테고리 관리 |  | `admin-license` `admin-mode` | **할 일** |
 
 웹 관리자(`apps/admin`, 데스크톱 앱 밖)는 따로 Playwright e2e 가 있다 — `apps/admin/e2e/*.spec.ts`(`auth` `users` `license` `license-bulk` `secret-room` `notices` `reports` `rooms` `room-server` `settings` `metrics` `usage` `admin-log` `catalog-categories` `catalog-parts` `catalog-desks-items` `catalog-gacha` `catalog-diagnose` `smoke`), 돌리기는 `npm --prefix apps/admin run e2e`. 이 표에는 넣지 않았다.
 
@@ -160,13 +165,13 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 
 e2e 가 없는 기능(위 표의 **할 일**):
 
-- 켜기 · 런처: 두 번째 실행 · 렌더러가 죽었을 때 런처로 · 광고 배너 · 피규어 · 회사원 모드 · 이동 모드 · 설정 창 · 창 앞뒤
-- 계정: 로그인 화면 · 같은 PC 계정 바꾸기 · 닉네임 · 내 정보 · 초대장 발급 · 라이선스 · 프리미엄 등록 · **PC 등록(3대 · 넷째 PC 확인)** · 한 계정 한 기기 · 판 확인(업데이트)
+- 켜기 · 런처: 두 번째 실행 · 렌더러가 죽었을 때 런처로 · 광고 배너 · 피규어 · 회사원 모드 · 이동 모드 · 설정 창 · 오픈소스 라이선스 창 · 창 앞뒤
+- 계정: 로그인 화면 · 구글 로그인 · 가입 · 비밀번호 바꾸기 · 회원 탈퇴 · 같은 PC 계정 바꾸기 · 닉네임 · 내 정보 · 초대장 발급 · 라이선스 · 프리미엄 등록 · **PC 등록(3대 · 넷째 PC 확인)** · PC 연결이 끊긴 뒤 안내 · 판 확인(업데이트)
 - 캐릭터: 꾸미기 · 캐릭터 · 커미션 코드 · 책상 세팅 · 카탈로그 · 가챠
 - 방: 나가기 · 방장 넘기기 · 시크릿룸 · 방 설정 · 좌석 배치 · **같은 계정 한 자리** · 좌석 메뉴 · 방 동기화 · 방 놀이 · 자리비움 그림 · 접속 · 활동 상태 · 같이 듣기 · 스티커사진
 - 채팅: 기록 지우기 · 채팅 설정 · 이모티콘 · 날리기 · 말풍선
 - 친구 · 초대: 요청 받기 · 수락 · 친구 목록 · 친구 접속 표시 · 친구 방 · 마이홈 놀러 가기 · 방 초대
-- 마이홈: 꾸미기 · 바탕화면 · 방명록 · 말랑이 · 선물 · 우편함 · 공지 · 일정 · 디데이 · 플레이리스트 · 백색소음 · 도움말 탭
+- 마이홈: 바탕화면 · 방명록 · 말랑이 · 선물 · 우편함 · 공지 · 일정 · 디데이 · 플레이리스트 · 백색소음 · 도움말 탭
 - 포커스: 포커스 시간 · 레벨 · 포커스 기록 · 뽀모도로 · 달성표 · 폰 연결
 - 알림 · 제보: 토스트 · 오류 번호 · 버그 제보 · 신고
 - 연결: keepalive · 3D 끊김 복구
@@ -175,6 +180,6 @@ e2e 가 없는 기능(위 표의 **할 일**):
 e2e 가 있지만 일부만 보는 기능(`부분`):
 
 - 앱 켜기 순서 · 오프라인 → 온라인 — 화면만 찍고 판정하지 않는다. 다시 잇기는 README «함정» 처럼 realtime 컨테이너를 멈췄다 풀어야 실제로 끊긴다.
-- 런처 화면 · 친구 코드 고정 · 캐릭터 슬롯 저장 — 다른 흐름이 지나가기만 한다.
+- 런처 화면 · 마이홈 열기 · 친구 코드 고정 · 캐릭터 슬롯 저장 — 다른 흐름이 지나가기만 한다(마이홈 꾸미기는 e2e 없음).
 
 REPL 순서만 있는 기능(`REPL` — 자동 판정 없음): 책상 모드 · 로그아웃 · 서버 점검 · 캐릭터 만들기 · 방 만들기 · 참여 · 투게더룸 · 채팅 · 친구 요청 보내기.
