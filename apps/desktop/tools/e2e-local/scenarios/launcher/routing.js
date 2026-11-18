@@ -31,7 +31,11 @@ const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(pa
   const logged = async (re) => { await wait(400); return A.reqs.some((r) => re.test(r)); };
   try {
     let w;
-    await step('켜기 — lib.launch 의 확인(API 주소가 이 PC API 로 · 막힌 요청 없음)', async () => { w = await A.launch(); });
+    await step('켜기 — lib.launch 의 확인(API 주소가 이 PC API 로 · 막힌 요청 없음)', async () => {
+      w = await A.launch();
+      // 앱은 켜는 동안 창을 한 번 더 읽는다 — 다 읽힌 뒤(앱 준비)에 창에서 부른다
+      await w.waitForFunction(() => document.readyState === 'complete' && !!window.firebaseAPI, null, { timeout: 60000 });
+    });
     await step('API — https://api-dev.together-working.com/actuator/health → 이 PC API 200', async () => {
       const s = await call(w, 'https://api-dev.together-working.com/actuator/health');
       if(s !== 200) throw new Error('상태 ' + s);
