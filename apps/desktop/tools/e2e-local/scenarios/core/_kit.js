@@ -297,7 +297,8 @@ function run(name, body){
         // 앱 API 통로처럼 이 PC 의 기기 id 를 싣는다(프리미엄 같은 «이 기기» 판정이 이것을 본다)
         const h = { Authorization: 'Bearer ' + tk, 'X-Device-Id': window.TwDeviceId.store.get() };
         if(body !== undefined) h['Content-Type'] = 'application/json';
-        const r = await fetch(`https://${host}${p}`, { method, headers: h, body: body === undefined ? undefined : JSON.stringify(body) });
+        // 시험의 읽기는 늘 서버에 묻는다 — 주소 돌리기가 main 으로 옮겨 크로미움 HTTP 캐시가 옛 답(예: /v2/config)을 돌려줄 수 있다
+        const r = await fetch(`https://${host}${p}`, { method, headers: h, cache: 'no-store', body: body === undefined ? undefined : JSON.stringify(body) });
         let j = null; try { j = await r.json(); } catch(_){}
         return { status: r.status, body: j };
       }, { host: API_HOST, method, p, body });
