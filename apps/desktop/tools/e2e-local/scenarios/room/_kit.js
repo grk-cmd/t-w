@@ -288,6 +288,12 @@ function openUser(t, out, label){
     await until(`${label}: 서버가 관리자 · 프리미엄으로 봄`, async () => { const me = await u.whoami(); return me.admin && me.premium; });
     await until(`${label}: 앱이 프리미엄으로 봄`, () => u.eval(() => roomEntryMod._myRoomLicensed()), 30000);
   };
+  // 포커스 레벨을 정한다(seed/focus-level.sql — 서버 레벨 = 1 + 누적초/3600) → 다시 켜서 앱이 그 레벨을 받았는지
+  u.setLevel = async (level) => {
+    seed('focus-level.sql', { uid: u.uid, level: String(level) });
+    await u.relaunch();
+    await until(`${label}: 앱 레벨 ${level}`, () => u.eval(() => focusLevelMod.getFocusLevel()).then((lv) => lv >= level), 30000);
+  };
   u.toastSeen = (re, ms = 15000) => until(`${label}: 토스트 ${re}`, async () => (await u.toasts()).some((x) => re.test(x)), ms);
   u.text = (sel) => u.eval((s) => { const e = document.querySelector(s); return e ? e.textContent.trim() : null; }, sel);
   u.shown = (sel) => u.eval((s) => { const e = document.querySelector(s); return !!e && !e.hidden && getComputedStyle(e).display !== 'none'; }, sel);

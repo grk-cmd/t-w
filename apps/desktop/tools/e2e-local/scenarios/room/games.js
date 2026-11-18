@@ -1,4 +1,4 @@
-// 방 놀이 — 워킹룸: 🔫 러시안룰렛 · 😊 이모티콘(머리 위) / 투게더룸: 🎲 주사위(1 이면 내가 날아감 = 플라잉체어) · 💃 /80 레벨 문턱 · 🪄 때리기 · 💣 레벨 문턱
+// 방 놀이 — 워킹룸: 🔫 러시안룰렛 · 😊 이모티콘(머리 위) / 투게더룸: 🎲 주사위(1 이면 내가 날아감 = 플라잉체어) · 💃 /80 레벨 문턱 · 깜짝쇼(/80×3 → 남이 날아감) · 🪄 때리기 · 💣 레벨 문턱
 // 주사위 · 룰렛 눈은 Math.random 을 정해 두고 굴린다(결과 갈래를 매번 같게)
 'use strict';
 const kit = require('./_kit.js');
@@ -12,6 +12,7 @@ kit.scenario(__filename, async (t) => {
   const a = await t.user('a');
   const b = await t.user('b');
   await t.step('a: 관리자(프리미엄)로', () => a.makeAdmin());
+  await t.step('b: 포커스 레벨 80(시드) — /80 깜짝쇼에 필요', () => b.setLevel(80));
   const wcode = await t.step('a: 워킹룸 만들기 · b 참여', async () => {
     const c = await a.createRoom({ channel: 'working', title: '놀이1' });
     await b.joinRoom(c);
@@ -62,14 +63,19 @@ kit.scenario(__filename, async (t) => {
     await kit.wait(1500);
     t.eq('a 안 날아감', await a.eval(myFly), false);
   });
-  // 💃 /80 은 서버 해금 표(unlock DANCE 80)가 레벨 80 을 요구한다 — 레벨 1 새 계정은 문턱만 본다(깜짝쇼 /80×3 은 레벨 80 이 있어야 해서 시나리오 없음)
-  await t.step('💃 /80 레벨 문턱 — b(레벨 1)가 치면 «Lv.80 달성 시» 안내 · 대화에 안 실림', async () => {
-    const m = await b.eval(() => document.querySelectorAll('#chatMessages .cm-row').length);
-    await b.say('/80');
-    await b.toastSeen(/Lv\.?80/);
+  // 💃 /80 은 서버 해금 표(unlock DANCE 80)가 레벨 80 을 요구한다 — a(레벨 1)로 문턱, b 는 시드로 레벨 80
+  await t.step('💃 /80 레벨 문턱 — a(레벨 1)가 치면 «Lv.80 달성 시» 안내 · 대화에 안 실림', async () => {
+    await a.say('/80');
+    await a.toastSeen(/Lv\.?80/);
     await kit.wait(1500);
-    t.eq('b 대화 줄 수 그대로', await b.eval(() => document.querySelectorAll('#chatMessages .cm-row').length), m);
-    t.ok('a 대화창에 /80 없음', !(await a.chatText()).includes('/80'));
+    t.ok('b 대화창에 /80 없음', !(await b.chatText()).includes('/80'));
+  });
+  // 깜짝쇼는 날아간 뒤 쉬는 시간(flyCool)이 있는 사람을 조용히 건너뛴다 — 그래서 주사위 1 보다 먼저 한다.
+  // 춤 명령은 5초에 한 번이라 세 번은 한 줄 이어쓰기(/80/80/80 — 앱이 세 번으로 센다)
+  await t.step('💃 깜짝쇼 — b(레벨 80)가 /80/80/80 → 방의 다른 사람(a)이 날아감 · b 화면 · a 화면 둘 다', async () => {
+    await b.say('/80/80/80');
+    await t.until('b 화면에서 a 날아감', () => b.eval(remoteFly), 15000);
+    await t.until('a 화면에서 내가 날아감', () => a.eval(myFly), 15000);
   });
   await t.step('🎲 주사위(눈 1·1) → a 가 날아감(플라잉체어) · b 화면에서도 a 가 날아감', async () => {
     await t.until('a 착지', async () => !(await a.eval(myFly)) && !(await b.eval(remoteFly)), 30000);
