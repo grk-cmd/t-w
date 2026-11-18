@@ -63,8 +63,9 @@ kit.scenario(__filename, async (t) => {
     t.eq('a 안 날아감', await a.eval(myFly), false);
   });
   // 깜짝쇼는 날아간 뒤 쉬는 시간(flyCool)이 있는 사람을 조용히 건너뛴다 — 그래서 주사위 1 보다 먼저 한다
-  await t.step('💃 깜짝쇼 — b 가 /80 세 번 → 방의 다른 사람(a)이 날아감 · b 화면 · a 화면 둘 다', async () => {
-    for(let i = 0; i < 3; i++){ await b.say('/80'); await kit.wait(700); }
+  await t.step('💃 깜짝쇼 — b 가 /80/80/80 → 방의 다른 사람(a)이 날아감 · b 화면 · a 화면 둘 다', async () => {
+    // 춤 명령은 5초에 한 번이라 세 번은 한 줄 이어쓰기(/80/80/80 — 앱이 세 번으로 센다)
+    await b.say('/80/80/80');
     await t.until('b 화면에서 a 날아감', () => b.eval(remoteFly), 15000);
     await t.until('a 화면에서 내가 날아감', () => a.eval(myFly), 15000);
   });
