@@ -104,7 +104,13 @@ function makeApp(outArg, opts = {}){
     await app.evaluate(({ session }, o) => { global.__e2eOffline = o; session.defaultSession.enableNetworkEmulation({ offline: o }); }, off);
   }
 
-  return { launch, quit, net, logs, reqs, blocked, out, quiet, get app(){ return app; } };
+  // 이 앱이 받는 API JSON 답의 data 를 고친다(route-main.js 가 돌린 답에서) — 같이 쓰는 로컬 서버 값은 건드리지 않는다.
+  // edit 는 밖 값을 잡지 않는 순수 함수(글로 옮겨 main 에서 되살린다) · pathRe 는 «길?질의» 에 맞출 정규식 글
+  async function editJson(method, pathRe, edit){
+    await app.evaluate((_e, a) => { global.__e2eEdits.push({ method: a.method, re: new RegExp(a.re), fn: (0, eval)('(' + a.src + ')') }); },
+      { method, re: pathRe, src: edit.toString() });
+  }
+  return { launch, quit, net, editJson, logs, reqs, blocked, out, quiet, get app(){ return app; } };
 }
 
 /** 조용한 창이 지켜지나 — 켜 둔 앱의 창마다 진짜 자리 · 투명도 · 소리 · 포커스를 보고 어긋난 것을 글로 돌려준다(빈 배열 = 조용함).
