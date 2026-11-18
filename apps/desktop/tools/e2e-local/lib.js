@@ -48,18 +48,9 @@ function makeApp(outArg, opts = {}){
     fs.mkdirSync(wrap, { recursive: true });
     const pkg = JSON.parse(fs.readFileSync(path.join(APP_DIR, 'package.json'), 'utf8'));
     fs.writeFileSync(path.join(wrap, 'package.json'), JSON.stringify({ name: pkg.name, version: opts.version || pkg.version, main: 'main.js' }));
-    // 조용한 창(TW_E2E_QUIET, 기본 켬) — 시험 창이 화면 밖에 뜨고 포커스 · Dock 을 빼앗지 않게. 끄려면 TW_E2E_QUIET=0.
-    // 창은 누를 수 있게 둔다(setFocusable(false) 는 입력을 막는다). 화면 밖 창도 타이머 · WebGL 이 돌게 배경 늦추기를 끈다
+    // 조용한 창(TW_E2E_QUIET, 기본 켬) — 시험 창이 화면 밖에 뜨고 포커스 · Dock 을 빼앗지 않게(quiet-main.js). 끄려면 TW_E2E_QUIET=0
     const quiet = opts.quiet !== undefined ? !!opts.quiet : process.env.TW_E2E_QUIET !== '0';
-    const quietJs = quiet ? [
-      `const { app: __a } = require('electron');`,
-      `if(process.platform === 'darwin') __a.setActivationPolicy('accessory');`,
-      `__a.on('browser-window-created', (_e, w) => {`,
-      `  const off = () => { try { if(!w.isDestroyed()) w.setPosition(-20000, -20000); } catch(_){} };`,
-      `  off(); w.on('move', () => { const [x] = w.getPosition(); if(x > -10000) off(); });`,
-      `  try { w.webContents.setBackgroundThrottling(false); } catch(_){}`,
-      `});`,
-    ].join('\n') + '\n' : '';
+    const quietJs = quiet ? `require(${JSON.stringify(path.join(__dirname, 'quiet-main.js'))});\n` : '';
     fs.writeFileSync(path.join(wrap, 'main.js'),
       `require('electron').app.setPath('appData', ${JSON.stringify(path.join(out, 'appdata'))});\n`
       + quietJs
