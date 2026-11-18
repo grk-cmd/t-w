@@ -61,7 +61,7 @@ const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(pa
     await step('도움말 — https://help.together-working.com/… → 저장소 firebase/hosting/help 파일(cleanUrls · 없는 길 404)', async () => {
       const page = await w.evaluate(async () => { try { const r = await fetch('https://help.together-working.com/privacy', { cache: 'no-store' }); return { s: r.status, t: (await r.text()).slice(0, 4000) }; } catch(e){ return { s: 'ERR ' + e.message }; } });
       if(page.s !== 200) throw new Error('privacy 상태 ' + page.s);
-      const want = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', '..', 'firebase', 'hosting', 'help', 'privacy.html'), 'utf8').slice(0, 200);
+      const want = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', '..', '..', 'firebase', 'hosting', 'help', 'privacy.html'), 'utf8').slice(0, 200);
       if(!page.t.startsWith(want)) throw new Error('저장소 privacy.html 과 다름');
       const miss = await call(w, 'https://help.together-working.com/e2e-routing-none');
       if(miss !== 404) throw new Error('없는 길 상태 ' + miss);
