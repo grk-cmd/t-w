@@ -138,8 +138,8 @@ function scenario(name, body){
     for(const i of insts){
       let app = null;
       try { app = i.A.app; if(app && app.process().exitCode !== null) app = null; } catch(_){ app = null; }
-      if(!app) continue;
-      const b = await within(quietProblems(app), 10000).catch(() => []);
+      if(!app || !i.A.quiet) continue;   // 조용히 켜지 않은 앱(quiet:false)은 보지 않는다
+      const b = await within(quietProblems(app), 10000).catch((e) => { steps.push('     조용한 창 확인 못 함(' + label + '): ' + String(e && e.message || e).split('\n')[0]); return []; });
       for(const x of b) bad.push(i.id + ' ' + x);
     }
     if(!bad.length) return;
@@ -179,7 +179,7 @@ function scenario(name, body){
       fs.mkdirSync(dir, { recursive: true });
       const A = makeApp(dir, opts);
       const inst = { id, dir, A, w: null };
-      // 바쁜 PC 에서는 첫 창 기다리기(30초)가 넘치거나, 주소 돌리기가 안 걸린 채(진짜 dev 주소로 나가 502) 뜨는 때가 있다 —
+      // 바쁜 PC 에서는 첫 창 기다리기(90초)가 넘치거나, 주소 돌리기가 안 걸린 채(진짜 dev 주소로 나가 502) 뜨는 때가 있다 —
       // 그때는 끄고 다시 켠다(세 번까지). 돌았는지는 처음 화면이 늘 부르는 GET /v2/… 가 돌린 요청 기록에 있는지로 본다
       inst.launch = async () => {
         for(let k = 1; ; k++){
@@ -312,7 +312,6 @@ async function signupUi(t, inst, invite = INVITE){
   await waitEntered(inst);
   return withToken({ fc, pw: PW });
 }
-/** 게이트에서 친구 코드 + 비밀번호 로그인 → (처음 쓰는 PC 라) 다시 켜기 → 들어감 */
 /** 칸 여럿 채우기 — 화면이 늦게 포커스를 옮기면(바쁜 PC) 글이 다른 칸으로 가는 때가 있어, 채운 뒤 값을 보고 다르면 한 번 더 채운다 */
 async function fillChecked(w, pairs){
   for(let k = 0; k < 3; k++){
@@ -323,6 +322,7 @@ async function fillChecked(w, pairs){
   }
   throw new Error('칸 값이 안 맞음: ' + pairs.map((p) => p[0]).join(' · '));
 }
+/** 게이트에서 친구 코드 + 비밀번호 로그인 → (처음 쓰는 PC 라) 다시 켜기 → 들어감 */
 async function loginUi(inst, fc, pw = PW){
   await waitShown(inst.w, '#inviteGateFc', 30000);
   await fillChecked(inst.w, [['#inviteGateFc', fc], ['#inviteGatePw', pw]]);
