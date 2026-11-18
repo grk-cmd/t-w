@@ -96,7 +96,7 @@ async function judge(S){
     chk(Object.keys(sent).join() === 'c' && sent.c.ts === 300 && sent.c.toName === 'N-c', '보낸 요청 — { 받는이: { ts, toName } }');
     await k.api.accept('ME', 'a'); await k.api.reject('ME', 'a');
     chk(k.L.sent.join() === 'accept a,reject a', '수락 · 거절 — 상대 코드만 서버로(내 코드는 토큰)');
-    chk((await k.api.cancel('ME', 'c')).ok === true && (await k.api.send('ME', 'z', '나', '너', null)).ok === true, '취소 · 보내기 성공 → { ok:true }');
+    chk((await k.api.cancel('ME', 'c')).ok === true && (await k.api.send('ME', 'z')).ok === true, '취소 · 보내기 성공 → { ok:true }');
     k = mkSocial({ writeErr: Object.assign(new Error('e'), { code: 'SOCIAL_ALREADY_FRIEND' }) });
     let r = await k.api.send('ME', 'z');
     chk(!r.ok && r.reason === 'already', '★ 보내기 — 이미 친구 → reason already');
