@@ -28,6 +28,7 @@ if(!picked.length){ console.error('돌릴 시나리오가 없다: ' + filters.jo
   const rows = [];
   try {
     for(const name of picked){
+      if(process.env.TW_E2E_QUIET_FAIL && fs.existsSync(process.env.TW_E2E_QUIET_FAIL)){ console.log('조용한 창 실패 파일이 있어 멈춤: ' + process.env.TW_E2E_QUIET_FAIL); break; }
       const out = path.join(OUT, name);
       const t0 = Date.now();
       const r = spawnSync(process.execPath, [path.join(DIR, name + '.js'), out], {
