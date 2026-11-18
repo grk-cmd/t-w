@@ -203,7 +203,7 @@ function run(name, body){
     // 깨지면 앱을 모두 끄고 e2e-quiet-fail 에 남긴다(다른 묶음도 멈춘다). 꺼진 앱은 건너뛴다
     async assertQuiet(){
       for(const a of apps){
-        if(!a.app) continue;
+        if(!a.app || !a.quiet) continue;   // 조용히 켜지 않은 앱(TW_E2E_QUIET=0)은 보지 않는다 — lib.js quietProblems 규약
         let bad;
         try { bad = await quietProblems(a.app); }
         catch(e){ if(/closed|Target/.test(String(e.message))) continue; throw e; }
