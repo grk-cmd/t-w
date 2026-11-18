@@ -7,9 +7,6 @@
   "app/parts/account/account.js": {
     "tw/no-firebase-api": {
       "count": 18
-    },
-    "tw/no-timer": {
-      "count": 1
     }
   },
   "app/parts/account/license-gate.js": {
@@ -337,6 +334,11 @@
     }
   },
   "app/parts/shared/async-prompt.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/shared/leave-flush.js": {
     "tw/no-timer": {
       "count": 1
     }

@@ -25,6 +25,7 @@ const MY_USER_ID_KEY = deps.MY_USER_ID_KEY;
 const USER_NAME_KEY = deps.USER_NAME_KEY;
 const _focusTodaySec = deps._focusTodaySec;   // 읽는 함수
 const unsentSec = deps.unsentSec;   // 읽는 함수 — 아직 서버에 못 올린 집중 시간(초)
+const leaveFlush = deps.leaveFlush;   // 🚪 떠나기 전 저장 기다리기(shared/leave-flush.js — 앱 끄기와 같은 8초 상한)
 const flushFocus = deps.flushFocus;   // 로그아웃 올리기 — 못 올린 집중 시간 한 번(focus-progress.js)
 const _rememberOldFriendCode = deps._rememberOldFriendCode;
 const _setMyUserId = deps._setMyUserId;
@@ -137,27 +138,19 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
 
 /* 📤 지우기 전에 올린다 — 이 기기가 마지막으로 쌓은 것(≤10분치 시간·마지막 뽑기·저장한 캐릭터)을
    서버에 실어 보낸다. 실패는 여기서 판단하지 않는다 — 아래 검문(_acctPreflight)이 결과로 본다.
-   ⚠️ 무한정 기다리지 않는다. 슬롯 push 는 얼굴 업로드가 딸려 있어 느릴 수 있다. */
-const ACCT_FLUSH_TIMEOUT_MS = 8000;
+   ⚠️ 무한정 기다리지 않는다(8초 상한 — 앱 끄기와 같은 한 벌 shared/leave-flush.js). 슬롯 push 는 얼굴 업로드가 딸려 있어 느릴 수 있다.
+   상한에 걸렸는지(timedOut)를 돌려준다 — 검문이 «아직 올리는 중» 과 «서버가 거부» 를 다른 말로 하기 위해. */
 async function _acctFlushToServer(){
-  const jobs = [];
-  const call = (fn, ...a) => { try{ if(typeof fn === 'function') jobs.push(Promise.resolve(fn(...a))); }catch(_){} };
-  call(flushFocus);   // ⏱ 못 올린 집중 시간 한 번 — 계정을 놓으면 버려지므로
-  call(weeklyChal().flush);   // 👑 도는 달성표 쓰기(시작 · 수정 · 오늘 달성 · 보상)가 끝나기를 기다린다
-  call(plMod.flushPending, getMyUserId());   // 🎵 못 올린 목록 고침 한 번 — 계정을 놓으면 버려지므로
-  call(() => myhomeStore.flush());   // 🏠 저장 중이거나 못 올린 마이홈 페이지 고침 한 번
-  call(() => bookshelfStore.flush());   // 📚 저장 중이거나 못 올린 책장 고침 한 번
-  call(() => mallangStore.flush());   // 🧸 저장 중이거나 못 올린 말랑이 칸 고침 한 번
-  /* 슬롯은 아직 못 올린 고침만 올린다(3초 묶음을 기다릴 이유가 없다). 받기 전이면 쓴 것이 없어 즉시 돌아온다. */
-  call(async () => { await closetMod().waitFlush(); return closetMod().flushSlots(); });   // 도는 쓰기가 있으면 끝난 뒤 남은 고침을 올린다
-  if(!jobs.length) return { timedOut:false };
-  /* [2026-09-20 · §2] 상한에 걸렸는지 돌려준다 — 검문이 «아직 올리는 중» 과 «서버가 거부» 를 다른 말로 하기 위해.
-     둘은 사용자에게 다른 뜻이다: 전자는 기다리면 되고, 후자는 기다려도 안 된다. */
-  const timedOut = await Promise.race([
-    Promise.allSettled(jobs).then(() => false),
-    new Promise(res => setTimeout(() => res(true), ACCT_FLUSH_TIMEOUT_MS)),
+  return leaveFlush.flushWithin([
+    () => flushFocus(),   // ⏱ 못 올린 집중 시간 한 번 — 계정을 놓으면 버려지므로
+    () => weeklyChal().flush(),   // 👑 도는 달성표 쓰기(시작 · 수정 · 오늘 달성 · 보상)가 끝나기를 기다린다
+    () => plMod.flushPending(getMyUserId()),   // 🎵 못 올린 목록 고침 한 번 — 계정을 놓으면 버려지므로
+    () => myhomeStore.flush(),   // 🏠 저장 중이거나 못 올린 마이홈 페이지 고침 한 번
+    () => bookshelfStore.flush(),   // 📚 저장 중이거나 못 올린 책장 고침 한 번
+    () => mallangStore.flush(),   // 🧸 저장 중이거나 못 올린 말랑이 칸 고침 한 번
+    /* 슬롯은 아직 못 올린 고침만 올린다(3초 묶음을 기다릴 이유가 없다). 도는 쓰기가 있으면 끝난 뒤 남은 고침을 올린다 · 받기 전이면 즉시 돌아온다. */
+    async () => { await closetMod().waitFlush(); return closetMod().flushSlots(); },
   ]);
-  return { timedOut: timedOut === true };
 }
 
 /* 🛂 검문 — «로컬에만 있는 소지품» 이 남아 있으면 지우지 않는다.

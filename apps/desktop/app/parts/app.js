@@ -3692,6 +3692,7 @@ const accountMod = TwAccount.createAccount({
   USER_NAME_KEY: USER_NAME_KEY,
   _focusTodaySec: ()=>focusTotalMod._focusTodaySec(),
   unsentSec: (...a)=>focusProgressMod.unsentSec(...a),   // 🕒 로그아웃 검문이 보는 «못 올린 집중 시간»
+  leaveFlush: TwLeaveFlush,
   flushFocus: (...a)=>focusProgressMod.flushPending(...a),   // 📤 로그아웃 올리기
   _rememberOldFriendCode: (...a)=>_rememberOldFriendCode(...a),
   _setMyUserId: (...a)=>_setMyUserId(...a),
@@ -3999,9 +4000,10 @@ const closetMod = TwCloset.createCloset({
   creatorOpen: ()=>creatorOpen,
   storage: localStorage,
 });
-closetMod.onChange(()=>{ myInfoMod._miBoxChanged(); launcherCtlMod.renderEmptyState(); });
-/* 앱을 끌 때 못 올린 캐릭터 고침을 한 번 올려 본다(결과를 기다리지 않는다 — 🎵 플레이리스트 · 포커스 누적과 같은 방식). 옷장을 받기 전 · 로그아웃 뒤(idle)에는 쓰지 않는다 */
-window.addEventListener('beforeunload', ()=>{ closetMod.flushSlots(); });   // 옷장이 바뀌면 [내 정보] 보관함 줄을 다시 그린다 — 내 정보가 옷장보다 먼저 만들어져 여기서 건다
+closetMod.onChange(()=>{ myInfoMod._miBoxChanged(); launcherCtlMod.renderEmptyState(); });   // 옷장이 바뀌면 [내 정보] 보관함 줄을 다시 그린다 — 내 정보가 옷장보다 먼저 만들어져 여기서 건다
+/* 앱을 끄기 전 — main 이 끄기를 붙잡고 물으면 못 올린 캐릭터 고침을 올리고 기다린 뒤 답한다(상한 8초 · 없으면 바로 · shared/leave-flush.js) */
+TwLeaveFlush.addQuitJob(closetMod.flushUnsaved);
+window.addEventListener('beforeunload', ()=>{ closetMod.flushSlots(); });   // 다시 읽기(새로 고침)처럼 끄기를 거치지 않는 내림 — 결과를 기다리지 않는다
 
 /* --- 복제 코드 (현재 base64. 다음 단계에서 AES 암호화로 교체) --- */
 /* ★ onload 가 떴다고 그림이 있는 것은 아니다 — 잘린 dataURL, 0바이트 PNG 는 브라우저에 따라
