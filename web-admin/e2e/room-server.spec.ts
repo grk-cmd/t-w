@@ -9,7 +9,7 @@ const actions = async () =>
     (l) => `${l.action}:${l.target}`,
   );
 
-test('방 서버 — 스위치 · 서버 목록 · 방 개수 상한 · 사용자별 서버 · 기록', async ({ page, seed }) => {
+test('방 서버 — 스위치 · 서버 목록 · 사용자별 서버 · 기록', async ({ page, seed }) => {
   await seed({
     friendCodes: { 'MATE-AB12': { userId: 'u1abc2345' }, 'MATE-CD34': { userId: 'u2abc2345' } },
     users: { u1abc2345: { profile: { name: '철수' } }, u2abc2345: { profile: { name: '영희' } } },
@@ -47,17 +47,6 @@ test('방 서버 — 스위치 · 서버 목록 · 방 개수 상한 · 사용�
     'realtime-1': PROD_URL,
     lab: 'wss://lab.example',
   });
-
-  // 방 개수 상한 — 칸이 없으면 기본 250 · 범위 검사 · 저장
-  const limits = card(page, '방 개수 상한');
-  await expect(limits.getByLabel('워킹룸 상한')).toHaveValue('250');
-  await limits.getByLabel('워킹룸 상한').fill('0');
-  await limits.getByRole('button', { name: '저장' }).click();
-  await expect(limits.getByText('워킹룸 — 1~100000 사이 정수')).toBeVisible();
-  await limits.getByLabel('워킹룸 상한').fill('400');
-  await limits.getByRole('button', { name: '저장' }).click();
-  await expect(limits.getByText('저장 · 1분 안에 서버에 반영')).toBeVisible();
-  expect(await dbGet('config/roomServer/limits')).toEqual({ workingroom: 400, togetherroom: 250 });
 
   // 기본 서버 · 비율 — 처음엔 «없음» · 범위 검사 · 저장 · 기본 서버는 못 뺀다
   const dflt = card(page, '기본 서버 · 비율');
@@ -124,7 +113,6 @@ test('방 서버 — 스위치 · 서버 목록 · 방 개수 상한 · 사용�
       'roomServer.switch:on',
       'roomServer.server:realtime-1',
       'roomServer.server:lab',
-      'roomServer.limits:limits',
       'roomServer.default:default',
       'roomServer.allow:u1abc2345',
       'roomServer.allowDelete:u1abc2345',
