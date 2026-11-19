@@ -119,7 +119,7 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
   MY_FRIEND_CODE_PREV_KEY,     // 이 기기가 버린 코드 기록(진단용) — 다음 사람에게는 남의 코드다
   /* 라이선스 — 0.12 옛 값 중 요청 번호만 지운다. tw.licenseKey 는 지우지 않는다 —
      첫 실행(first-run-013.js licenseKey 단계)이 서버에 올린 뒤에야 지운다(올리기 전에 로그아웃이 지우면 키를 잃는다).
-     tw.licenseOptOut(이 기기에서 해제 표시)도 남긴다 — 라이선스 id 로 가려서 다른 계정에는 걸리지 않는다. */
+     tw.licenseOptOut(이 기기에서 해제 표시)도 남긴다 — 0.13 표시는 그 라이선스 id 에만 걸리고, 0.12 값은 켜고 첫 확인에서 바꾸거나 지워(license-premium.js) 다른 계정에 남지 않는다. */
   LICENSE_REQ_ID_KEY,   // 🎫 옛 값 지움
   /* 오늘치 · 못 올린 집중 시간은 계정별 칸(shared/account-store.js)이라 여기서 지우지 않는다 — 계정을 바꾸면 다른 칸이 열린다. */
   /* 캐릭터는 서버가 원본이라 이 PC 에 지울 저장본이 없다. 올리기 캐시 둘은 users/{uid}/ 경로의 URL 이라

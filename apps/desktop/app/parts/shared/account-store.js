@@ -29,7 +29,7 @@ const DEVICE_KEYS = Object.freeze([
   'tw_chat_win_pos', 'tw.bellWinPos', 'tw.gachaWinPos', 'tw.wdPreviewPos', 'tw.ideskInvPos',
   /* 신원 · 로그인 — 계정 코드를 정하는 쪽이라 계정 칸에 둘 수 없다(닭과 달걀). */
   'tw.myUserId', 'tw.loginEmail', 'tw.loginAuthUid', 'tw.myFriendCode', 'tw.myFriendCodePrev', 'tw.myPrevUserIds',
-  'tw.invitePassed', 'tw.inviteToken', 'tw.signupPending', 'tw.licenseKey', 'tw.licenseOptOut', 'tw.licenseReqId',
+  'tw.invitePassed', 'tw.inviteToken', 'tw.signupPending', 'tw.licenseKey', 'tw.licenseOptOut', 'tw.licenseFullNoticed', 'tw.licenseReqId',
   /* 0.13 첫 실행 — 옛 캐릭터를 이 PC 에서 이 계정으로 올렸다는 표시(값 = 계정 코드). 계정 칸이 열리기 전에 읽는 단계라 기기 공용 칸이다 */
   'tw.legacyCloset013',
   /* 이 PC 의 성질이거나 계정 코드를 정하기 전에 읽는 값 — 효과음 켜기(기기 설정) · 0.13 첫 실행을 끝낸 계정 코드 · 서버 확인 답 사본 · 그래픽 복구 시각 · 옛 값 옮기기 기록 */

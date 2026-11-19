@@ -2849,6 +2849,8 @@ const firstRunMod = TwFirstRun013.createFirstRun({
     licenseKey: TwFirstRun013.licenseKeyStep({
       storage: localStorage,
       activate: (key)=>licensePremiumMod.activate(key),
+      optOut: ()=>licensePremiumMod.optOutAtStart(),
+      optOutKey: TwLicensePremium.OPT_OUT_KEY,
     }),
     focus: TwFirstRun013.focusStep({
       storage: localStorage,
@@ -2922,6 +2924,7 @@ const licensePremiumMod = TwLicensePremium.createLicensePremium({
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   reasonOf: (e)=>TwUserApi.reasonOf(e),
   resetCustomStatus: ()=>{ if(userStatusMod.userStatus()==='custom') setUserStatus(null); },   // 프리미엄을 놓으면 커스텀 상태는 기본으로
+  storage: localStorage,
   toast: (...a)=>toast(...a),
 });
 

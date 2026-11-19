@@ -59,29 +59,35 @@ function pendingStep(name){ return async () => ({ ok: false, pending: true, reas
 function loginStep(isIn){ return async () => (isIn() ? { ok: true, wipe: LOGIN_LEGACY_KEYS.slice() } : { ok: false, reason: '서버 계정 확인 전' }); }
 
 /* 라이선스 키 단계(D8-3) — 이 PC 의 옛 키(tw.licenseKey)를 서버에 올리고 지우라고 한다.
-   · 키 없음 → 통과 · OptOut(이 PC 만 해제했던 표시) 있음 → 올리지 않고 키만 지움(사용자가 일부러 뺀 PC)
-     tw.licenseOptOut 은 지우지 않는다 — 0.13 에서도 «이 PC 는 자동 등록하지 않는다» 표시다(license-premium.js [자동 등록])
+   · 키 없음 → 통과
+   · 해제 표시(license-premium.js parseOptOut — 켤 때 본 값 optOutAtStart)가 0.12 값이고 이 PC 의 키와 같음(다듬고 대문자) → 올리지 않고 키만 지움(사용자가 일부러 뺀 키)
+     해제 표시는 남긴다 — 0.13 에서도 자동 등록을 막는 표시다(license-premium.js [자동 등록])
+   · 0.12 해제 표시가 다른 키 → 낡은 표시다(0.12 는 해제한 그 키만 막았다 — K1 을 해제하고 K2 를 넣은 PC). 키를 올리고 표시도 지운다
    · 등록 성공(내 키 다시 등록 = 기기 갱신) → 지움(프리미엄 다시 확인은 activate 가 한다)
    · 서버가 «이 키는 더 쓸 길이 없다» 고 답함(남의 키 · 없는 키 · 회수된 키) → 지움 + 안내 한 번 · 이미 이 계정에 라이선스 있음 → 안내 없이 지움(이미 프리미엄) · 기기 가득 → 지움 + 기기 관리 안내
    · 그 밖(네트워크 · 5xx · 로그인 풀림 · 응답 모양)은 멈춤(ok:false) — 아무것도 안 지운다 · 다음 실행에 다시
    서버 code 는 license-api.js CODE 와 같은 글자(sim-first-run-013 이 맞춰 본다). */
 const LICENSE_KEY_STORAGE = 'tw.licenseKey';
-const LICENSE_OPTOUT_KEY = 'tw.licenseOptOut';
 const LICENSE_CODE = Object.freeze({ DEVICE_FULL: 'LICENSE_DEVICE_FULL', NOT_FOUND: 'LICENSE_NOT_FOUND', REVOKED: 'LICENSE_REVOKED',
   OWNED_BY_OTHER: 'LICENSE_OWNED_BY_OTHER', ALREADY_HAVE: 'LICENSE_ALREADY_HAVE' });
 const LICENSE_NOTICE = Object.freeze({
   UNUSABLE: '이 PC 에 있던 옛 라이선스 키는 쓸 수 없어요 — 키를 받은 곳에 문의해 주세요',
   DEVICE_FULL: '기기를 모두 썼어요 — 설정 › 라이선스에서 하나를 빼 주세요',
 });
-/** @param {{ storage: { getItem: Function }, activate: (key: string) => Promise<{ ok: boolean, registered?: boolean, err?: any, reason?: string }> }} deps
- *   activate 는 license-premium.js 의 키 등록(사용자가 키를 넣을 때와 같은 함수 — 주인 읽기 · 등록 · 프리미엄 다시 확인까지 한다) */
+/** @param {{ storage: { getItem: Function }, activate: (key: string) => Promise<{ ok: boolean, registered?: boolean, err?: any, reason?: string }>,
+ *   optOut: () => ({ licenseId?: string, legacyKey?: string } | null), optOutKey: string }} deps
+ *   activate 는 license-premium.js 의 키 등록(사용자가 키를 넣을 때와 같은 함수 — 주인 읽기 · 등록 · 프리미엄 다시 확인까지 한다 · 해제 표시도 지운다)
+ *   optOut · optOutKey 는 license-premium.js 의 optOutAtStart · OPT_OUT_KEY */
 function licenseKeyStep(deps){
   const get = (k) => { try{ return deps.storage.getItem(k); }catch(_){ return null; } };
   return async () => {
-    const optOut = get(LICENSE_OPTOUT_KEY);
+    const opt = deps.optOut();
     const key = String(get(LICENSE_KEY_STORAGE) || '').trim();
-    const allWipe = get(LICENSE_KEY_STORAGE) !== null ? [LICENSE_KEY_STORAGE] : [];
-    if(!key || optOut) return { ok: true, wipe: allWipe };
+    const keyWipe = get(LICENSE_KEY_STORAGE) !== null ? [LICENSE_KEY_STORAGE] : [];
+    if(!key) return { ok: true, wipe: keyWipe };
+    const legacy = !!(opt && opt.legacyKey);
+    if(legacy && opt.legacyKey === key.toUpperCase()) return { ok: true, wipe: keyWipe };
+    const allWipe = legacy ? keyWipe.concat(deps.optOutKey) : keyWipe;
     let r;
     try{ r = await deps.activate(key); }catch(e){ r = { ok: false, err: e }; }
     if(r && (r.ok === true || r.registered === true)) return { ok: true, wipe: allWipe };   // 등록됐다(확인이 늦은 것은 알림 · 다음 켜기가 맡는다)
@@ -192,7 +198,7 @@ function createFirstRun(deps){
   return { run };
 }
 
-const api = { DONE_KEY, STEPS, LOGIN_LEGACY_KEYS, GACHA_LEGACY_KEYS, MALLANG_LEGACY_PREFIX, MALLANG_LEGACY_KEYS, pendingStep, licenseKeyStep, focusStep, chalStep, CHAL_LEGACY_KEY, FOCUS_LEGACY_KEYS, LICENSE_KEY_STORAGE, LICENSE_OPTOUT_KEY, LICENSE_NOTICE, loginStep, gachaStep, mallangStep, myhomeStep, MYHOME_LEGACY_KEYS, MYHOME_LEGACY_PREFIX, createFirstRun };
+const api = { DONE_KEY, STEPS, LOGIN_LEGACY_KEYS, GACHA_LEGACY_KEYS, MALLANG_LEGACY_PREFIX, MALLANG_LEGACY_KEYS, pendingStep, licenseKeyStep, focusStep, chalStep, CHAL_LEGACY_KEY, FOCUS_LEGACY_KEYS, LICENSE_KEY_STORAGE, LICENSE_NOTICE, loginStep, gachaStep, mallangStep, myhomeStep, MYHOME_LEGACY_KEYS, MYHOME_LEGACY_PREFIX, createFirstRun };
 if(typeof window !== 'undefined') window.TwFirstRun013 = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
