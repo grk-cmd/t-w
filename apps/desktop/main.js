@@ -1934,8 +1934,7 @@ function _fdInstrument(win){
   styleNames.forEach(n => patch(n, 'style'));
 }
 
-/* ⚠️ bgmAlive 를 인자로 받는다 — `bgmWin` 은 createWindow 안의 지역 변수라 이 함수에서 못 본다.
-   (모듈 스코프에서 바로 참조하면 ReferenceError 로 focus 핸들러가 통째로 죽는다.) */
+/* bgmAlive 는 부르는 쪽(메인 창 'focus')이 넘긴다 — 진단 함수가 BGM 창 상태를 따로 보지 않게. */
 function _fdOnFocus(bgmAlive){
   if(_isConfigMode) return;   // run 모드만 — config 모드 활성화는 정상
   const now = Date.now();
@@ -2291,15 +2290,9 @@ function _askLabVideoRestore(){
 
 /* 메인 창과 그 창에 딸린 자식 창 상태 — createWindow(창마다)와 _setupMainOnce(실행마다 한 번)가 같이 본다.
    mac 은 메인 창을 닫아도 앱이 Dock 에 남고, Dock 을 누르면 createWindow 가 새 창을 만든다. 그래서 상태를 함수 밖에 둔다. */
-// ★ renderer의 window.open 요청 처리 — 방명록('mhGuestbook…')은 Win98풍 프레임리스 독립 창으로.
-//   frameName을 매번 고유하게 만들어 열기 때문에(prefix 매칭) "닫았다 다시 열면 안 나오는" 문제
-//   (닫힌 이름있는 창의 프록시 재사용 이슈)가 없음. 유저가 옮겨둔 위치는 savedGbPos로 기억.
 let savedGbPos = null;   // { x, y } | null — 방명록 창을 옮겨둔 위치(세션 동안 기억)
 let savedDsPos = null;   // { x, y } | null — 👑 디자인 스튜디오 창 위치 기억
-// ★ 방명록 창 추적 — window.open으로 만들어진 자식 창은 Windows에서 opener 창이 최소화되면 같이
-//   숨는데, 복원 때 같이 안 돌아오는 경우가 있음(창은 살아있는데 안 보이는 상태 → 버튼을 다시 눌러도
-//   renderer의 _gbWin.closed가 false라 focus만 시도하고 끝나서 "안 나옴"처럼 보임).
-//   main에서 창 참조를 들고 있다가 메인 창이 복원/표시될 때 방명록 창도 같이 다시 보여줌.
+// 방명록 창 참조 — Windows 는 opener 가 최소화되면 자식 창도 숨기고 복원 때 안 되살리기도 해서, main 이 들고 있다가 메인 창과 함께 다룬다
 let gbWin = null;
 let dsWin = null;
 let gbHoldUntil = 0;   // 이 시각 전까지는 방명록 blur-닫힘을 무시 (파일 다이얼로그 등)
@@ -2400,6 +2393,7 @@ function createWindow() {
   /* 🔒 새 창은 앱이 직접 여는 자식 창(빈 문서 + 이름 머리 mhGuestbook · mhDesign)만 연다. 그 밖은 전부 막고,
      http(s) 주소면 기본 브라우저로 돌린다(광고 배너 target=_blank · window.open 웹 폴백 — 앱 창 안에 웹 페이지를 띄우지 않는다). */
   const _isChildDoc = (url) => !url || url === 'about:blank';
+  // 방명록('mhGuestbook…')은 프레임리스 독립 창 — frameName 을 매번 고유하게 열어 닫힌 이름 창의 프록시 재사용 문제를 피한다
   mainWindow.webContents.setWindowOpenHandler(({ url, frameName })=>{
     if(!_isChildDoc(url) || !frameName){
       if(url && /^https?:\/\//i.test(url)) shell.openExternal(url);
@@ -2472,25 +2466,15 @@ function createWindow() {
     _lockChildZoom(win);   // 자식 창은 100% 고정(_lockChildZoom 주석)
     if(details && details.frameName && details.frameName.startsWith('mhGuestbook')){
       gbWin = win;
-      /* ★ 창 레벨을 메인과 같은 단계까지 올린다 — 이게 "방명록이 마이홈 뒤로 숨는다"의 원인이었다.
-         생성 옵션의 alwaysOnTop:true 는 기본 단계('floating')다. 반면 mainWindow는 run 모드에서
-         setAlwaysOnTop(true, overlay.TOP_LEVEL)로 높은 단계를 쓴다. OS는 단계를 먼저 정렬하고 그 안에서만
-         포커스 순서를 보므로, 단계가 낮은 자식 창은 renderer에서 focus()를 몇 번 부르든 앞으로 못 온다
-         (실제로 app.js의 open()에는 focus()가 두 번 들어가 있었는데 소용이 없었다).
-         메인 오버레이는 투명이라 '뒤에 있어도' 대개는 보이지만, 마이홈 패널처럼 불투명한 DOM이
-         그려진 자리에서는 그 픽셀이 방명록 창을 그대로 덮는다 — 제보된 증상이 정확히 이것이다.
-         ⚠️ 색 선택 대화상자(companion:colorDialog)가 topmost를 잠시 내렸다 되돌리므로,
-            그쪽 복원도 같은 단계로 맞춰야 한다(아래 restore 참고). */
+      /* 메인 창과 같은 단계(overlay.TOP_LEVEL)로 — 단계가 낮으면 focus() 와 상관없이 메인 창 뒤에 깔린다(불투명한 마이홈 패널이 덮음).
+         ⚠️ 색 대화상자(companion:colorDialog)의 되돌리기도 같은 단계로 맞춘다. */
       try{ win.setAlwaysOnTop(true, overlay.TOP_LEVEL); }catch(_){}
       // 옮긴 위치 기억 — 다음에 열 때 같은 자리에 뜨게. ('moved'는 이동 완료 시 1회, 'move'는 연속 발생 —
       //  둘 다 걸어서 어느 환경에서든 확실히 기록)
       const remember = ()=>{ try{ const b=win.getBounds(); savedGbPos={ x:b.x, y:b.y }; }catch(e){} };
       win.on('moved', remember);
       win.on('move', remember);
-      // ★ 요청사항: 방명록 창은 "바깥 클릭(포커스 잃음)" 시 자동으로 닫힘 — 버튼을 누르면 기억된 자리에 재오픈.
-      //   (최소화 후 복원 시 위치 리셋/뒤에 숨는 문제를 복잡하게 고치는 대신, 깔끔하게 닫고 다시 여는 UX로)
-      //   단, 웹박수 이미지 등록처럼 파일 다이얼로그를 여는 동작은 blur가 나도 닫으면 안 되므로
-      //   renderer가 미리 gbHold를 보내두면 잠시(6초) 동안은 blur를 무시함.
+      // 바깥을 누르면(blur) 닫는다 — 다시 열면 기억한 자리. 파일 대화상자처럼 의도된 blur 는 renderer 가 gbHold 로 잠시 막는다.
       win.on('blur', ()=>{
         if(Date.now() < gbHoldUntil) return;   // 파일 선택 등 의도된 포커스 이탈 — 닫지 않음
         try{ if(!win.isDestroyed()) win.close(); }catch(e){}
@@ -2555,23 +2539,14 @@ function createWindow() {
     mainWindow = null;
   });
 
-  // ── active-win 폴링 실패 대응: 앱이 다른 창에 blur되는 순간을 별도 경로로 잡기 ──
-  //   폴링이 activeWin-returned-null 등으로 lastForeignWindow를 갱신 못하는 경우에도, 사용자가 다른 창을
-  //   클릭하는 순간엔 우리 창이 blur 이벤트를 받음. 그 순간 100ms 지연 후 activeWin 재호출하면 이미
-  //   다른 창이 활성이 된 상태라 안정적으로 잡힘. 폴링과 무관한 백업 경로.
-  /* ★ 우리 창이 포커스를 얻으면 펜 앱 상태를 풀고 마우스 설정을 다시 적용한다.
-     _penAppActive는 500ms 창 폴링으로만 해제되는데, 폴링이 펜 앱 종료를 놓치거나 activeWin()이
-     잠깐 실패하면 true로 남아버린다. 유저가 작업표시줄에서 앱을 고르는 순간 확실히 복구되게 하는 안전망. */
+  /* 우리 창이 포커스를 얻으면 펜 앱 상태를 풀고 마우스 설정을 다시 건다 — 창 폴링이 펜 앱 종료를 놓쳐 _penAppActive 가 남는 것을 막는 안전망. */
   mainWindow.on('focus', () => {
-    /* 🩺 [진단] 반드시 맨 앞에서 — 아래 _reapplyIgnoreMouse()가 스타일 표식을 덮어쓰기 전에
-       "활성화된 그 순간"의 상태(ignore 값·직전 호출)를 그대로 남겨야 한다. */
+    /* 🩺 진단은 맨 앞에서 — 아래 _reapplyIgnoreMouse() 가 표식을 덮기 전의 상태를 남긴다. */
     try{ _fdOnFocus(!!(bgmWin && !bgmWin.isDestroyed())); }catch(_){}
     _penAppActive = false;
     _penMouseNearChar = false;
     _reapplyIgnoreMouse();
-    /* 🔔 안전망 — 유저가 창을 본 순간 깜빡임을 끈다. 렌더러의 끄는 호출이 유실돼도
-       여기서 정리되므로 "영원히 깜빡이는" 상태가 남지 않는다.
-       ⚠️ 켜는 쪽은 여기 없다. 켜기는 초대가 왔을 때 renderer 가 시킬 때만이다. */
+    /* 🔔 창을 본 순간 깜빡임을 끈다(렌더러의 끄기가 빠져도 남지 않게). ⚠️ 켜기는 renderer 가 시킬 때만. */
     try{ mainWindow.flashFrame(false); }catch(_){}
   });
   mainWindow.on('blur', () => {
@@ -2593,9 +2568,7 @@ function createWindow() {
   // 창 이동/리사이즈 시 스크린 좌표 캐시 갱신 — 실제로는 전체화면 오버레이라 거의 안 바뀜.
   mainWindow.on('move', _refreshMainWinBounds);
   mainWindow.on('resize', _refreshMainWinBounds);
-  /* ★ [제보] 최소화→복귀 경로에는 이 둘이 **없었다.** 복귀해도 창 사각형이 최소화 전과 같아
-     'move'·'resize' 가 안 뜨므로, 이 두 줄이 없으면 캐시가 자리표(-32000)인 채로 남는다.
-     ⚠️ 'restore' 만으로는 부족하다 — 트레이/작업표시줄에서 show() 로 되살아나는 갈래가 따로 있다. */
+  /* 최소화에서 돌아올 때는 move · resize 가 안 떠 캐시가 자리표(-32000)로 남는다 — restore · show 둘 다 건다(show() 로 되살아나는 갈래가 따로 있다). */
   mainWindow.on('restore', _refreshMainWinBounds);
   mainWindow.on('show', _refreshMainWinBounds);
   _refreshMainWinBounds();
