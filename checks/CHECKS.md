@@ -221,7 +221,7 @@
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 130 | **4ddd42809f74** |
 | **sim-zoom-window.js** | 73 | **af1c0f53687b** |
-| **sim-z-layers.js** | 168 | **d58bbccfe7d4** |
+| **sim-z-layers.js** | 198 | **45d4d33de549** |
 | **sim-no-default-menu.js** | 95 | **75dc9981d8fb** |
 | **sim-winlist.js** | 117 | **264e376e72aa** |
 | **sim-ops-hot-config.js** | 163 | **6e732dcece07** |
@@ -347,7 +347,7 @@
 | **sim-chat-sfx.js** | 221 | **3e1e2b389eca** |
 | **sim-mac-update.js** | 269 | **ba778f7eaae1** |
 | **sim-focus-show.js** | 86 | **0581901a27fa** |
-| **sim-win-front.js** | 110 | **946f2d7cde7c** |
+| **sim-win-front.js** | 113 | **c8fd12a3c2c5** |
 | **sim-win-layers.js** | 203 | **cab1b61e089c** |
 | sim-yard-enter.js | 59 | c323aea595a5 |
 | **sim-away-follow.js** | 145 | **6f3fd7fc7064** |

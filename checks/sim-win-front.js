@@ -28,7 +28,8 @@ document.getElementById = id => {
 
 const probe = `
 ;globalThis.__P = {
-  LAYERS: _WIN_Z_LAYERS,
+  LAYERS: _WIN_Z_LAYERS.flat(),   // 창 id 목록 — 칸 하나가 «함께 뜨지 않는 창 묶음(배열)» 일 수 있다
+  SLOTS: _WIN_Z_LAYERS.map(s=>[].concat(s)),
   MIN: WIN_Z_MIN, MAX: WIN_Z_MAX,
   front: id=>bringWinToFront(id),
   z: id=>document.getElementById(id).style.zIndex,
@@ -93,9 +94,11 @@ say('\n── 4. 천장에서 다시 매긴다');
   const zs = P.LAYERS.map(id => parseInt(P.z(id), 10));
   chk(zs.every(z => z >= P.MIN && z <= P.MAX),
       '전부 ' + P.MIN + '~' + P.MAX + ' 안에 있다 (' + zs.join(',') + ')');
-  chk(new Set(zs).size === zs.length, '번호가 겹치지 않는다 — 겹치면 앞뒤가 다시 CSS 순서로 정해진다');
-  chk(P.LAYERS.length <= P.MAX - P.MIN + 1,
-      '창 수(' + P.LAYERS.length + ')가 칸 수(' + (P.MAX - P.MIN + 1) + ') 이내다');
+  const slotZ = P.SLOTS.map(ids => ids.map(id => P.z(id)));
+  chk(slotZ.every(a => new Set(a).size === 1), '한 칸 묶음 안의 창은 같은 번호');
+  chk(new Set(slotZ.map(a => a[0])).size === slotZ.length, '칸끼리 번호가 겹치지 않는다 — 겹치면 앞뒤가 다시 CSS 순서로 정해진다');
+  chk(P.SLOTS.length <= P.MAX - P.MIN + 1,
+      '칸 수(' + P.SLOTS.length + ')가 번호 수(' + (P.MAX - P.MIN + 1) + ') 이내다');
   say('    (칸이 모자라면 다시 매길 때 번호가 겹친다 — 창을 더 태울 때 이 줄을 볼 것)');
 }
 
