@@ -228,7 +228,7 @@
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 132 | **3a62138fcd8e** |
 | **sim-zoom-window.js** | 68 | **c130cf5b9af3** |
-| **sim-z-layers.js** | 198 | **ccb8a007287d** |
+| **sim-z-layers.js** | 214 | **4ab36a7bb0ca** |
 | **sim-no-default-menu.js** | 95 | **0f1c5f7e0d75** |
 | **sim-ops-hot-config.js** | 163 | **6e732dcece07** |
 | **sim-animal-cast.js** | 65 | **0e1031329e06** |
