@@ -2086,15 +2086,15 @@ function _applyConfigMode(isConfig, mode, extra){
     _noteApplied(runRect, wantTop);     // 🩺 위와 같은 이유. 실측 417회/9분을 만든 자리다
   }
 }
-/* 렌더러가 죽어 다시 불러오면 화면은 런처로 돌아오는데 창은 실행 화면(모니터 전체 · 클릭 통과 · 맨 위)으로 남아,
-   덮인 채 아무것도 못 누르게 된다 — 창부터 런처로 되돌리고 클릭을 받는다(다시 불러온 렌더러가 제 모드를 다시 보낸다). */
-/* 창을 런처 · 클릭 받기로 되돌린다 — 다시 불러오기 전(렌더러 사망 · 스스로 다시 불러옴)과 mac 에서 닫았다 다시 연 창이 같이 쓴다 */
+/* 창을 런처 · 클릭 받기로 되돌린다 — 다시 불러오기 전(렌더러 사망 · 스스로 다시 불러옴)과 mac 에서 닫았다 다시 연 창이 같이 쓴다.
+   화면은 런처로 돌아오는데 창만 실행 화면(모니터 전체 · 클릭 통과 · 맨 위)으로 남으면 덮인 채 아무것도 못 누른다(새 렌더러가 제 모드를 다시 보낸다).
+   ⚠️ 로그 «<why> 창을 런처로 되돌림» 은 e2e launcher/renderer-crash 가 글자로 찾는다(«다시 불러오기 전 창을 런처로 되돌림»). */
 function _resetWindowToLauncher(why){
   if(!mainWindow || mainWindow.isDestroyed()) return;
   _applyConfigMode(true, 'launcher');
   _lastIgnoreRequested = false;
   _reapplyIgnoreMouse();
-  _diagLog('[창] ' + why + ' — 창을 런처로 되돌림');
+  _diagLog('[렌더러] ' + why + ' 창을 런처로 되돌림');
 }
 /* 🩺 [2026-10-08 제보 #1 · 보류 #11 공용] 렌더러 · GPU 프로세스의 죽음과 로드 실패를 기록한다.
    [왜] «설치 후 아무것도 안 보이는데 클릭은 된다» 의 남은 갈래가 «렌더러가 한 번도 안 그려졌다(로드 실패 · 크래시 · 백신 격리)» 인데,
@@ -2383,7 +2383,7 @@ function createWindow() {
   _fdInstrument(mainWindow);   // 🩺 [진단] 활성화 원인 추적 — 창을 올리는 메서드에 표식만 심는다(동작 불변)
 
   /* mac 에서 닫았다 다시 연 창 — 닫힌 창의 모드(실행 화면 · 클릭 통과)가 남아 있다 */
-  if(_mainWindowCreated) _resetWindowToLauncher('mac 에서 다시 연 창');
+  if(_mainWindowCreated) _resetWindowToLauncher('mac 에서 다시 열어');
   _mainWindowCreated = true;
   _watchRendererHealth(mainWindow);   // 🩺 렌더러 사망 · 로드 실패 · 무응답 기록(+ 사망 시 1회 재로드) — 제보 #1
   _logGpuOnce(mainWindow);            // 🩺 그래픽카드 · GPU 기능 상태 · 시험 스위치 한 줄 — 제보 #1-B
