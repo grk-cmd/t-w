@@ -1832,7 +1832,7 @@ function _resetAnimalState(){
     _clearPaintHistory();   // ⚠️ length=0 만으로는 캔버스 백킹스토어가 GC 때까지 남는다
     // 모델이 이미 로드돼 있으면 초기화한 값으로 즉시 다시 그림
     if(model){ try{ applyFace(); applyScale(); applyEars(); ensurePaintTex(); }catch(_){} }
-    markFaceBtns();
+    if(overlay) markFaceBtns();   // 처음 열 때는 창이 아직 없다 — 여기서 던지면 아래 «고치던 칸» 표시가 안 지워져 새 동물이 그 칸을 덮어쓴다
     // ★ 새로 만드는 것이므로 '빈 슬롯에 저장' 흐름이 되도록 편집 표식을 지운다.
     if(typeof creatorMode!=='undefined' && creatorMode){ creatorMode.edit=false; creatorMode.slot=null; }
   }catch(e){ console.warn('[동물] 신규 상태 초기화 실패', e); }

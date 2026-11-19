@@ -3,7 +3,8 @@
    ・1절 종족 선택 창을 닫고 연다 — 인간 카드처럼. 남겨 두면 창 쌓기가 올린 선택 창(83~)이 동물 만들기 창(56)을 덮는다(B-1119-5)
    ・2절 신규 컨텍스트 — 편집 대상(_editSrcDef · _editSeat)을 비우고 [＋]가 정한 칸을 받는다 · 칸이 숫자가 아니면 null
    ・3절 카드의 두 길(정상 · 숨김 해금)이 모두 이 한 벌을 부른다 — 카드 안에서 따로 openPreview 를 부르지 않는다
-   ・4절 깨 보기 */
+   ・4절 깨 보기
+   ・5절 신규 상태 초기화(_resetAnimalState) — 앱을 켜고 처음 열 때(창이 아직 없음)도 끝까지 돌아 «고치던 칸» 표시(creatorMode)를 지운다 */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -69,6 +70,34 @@ say('── 4절 깨 보기');
 if (FN){
   const broken = FN.replace(/\n[^\n]*raceOverlay[^\n]*/, '');
   chk(broken !== FN && world(broken, { slot: 1 }).raceOn(), '깨 보기 — 선택 창 닫는 줄을 빼면 창이 남는다(1절이 잡는 모양)');
+}
+
+say('── 5절 신규 상태 초기화');
+const RESET = cutFn(SRC, '_resetAnimalState'), MARK = cutFn(SRC, 'markFaceBtns');
+/** 오려 낸 _resetAnimalState 를 돌린다 — overlay 가 null 이면 «처음 열기» */
+function reset(code, overlay){
+  const mode = { kind: 'slot', edit: true, slot: 3 };
+  const warns = [];
+  const console = { warn: (...a) => warns.push(a.join(' ')) };
+  const r = new Function('console', 'overlay', 'mode',
+    "let curFace = 2, curEarL = 'e', curEarR = 'e', earAdjSide = 'R', _blinkTouched = true; const scl = { x: 2, y: 2, all: 2 }, earAdj = {};\n" +
+    'const _earAdjNew = () => ({}), pFaceC = null, pBlinkC = null, pEar = {}, P_SZ = 1, model = null, _clearPaintHistory = () => {};\n' +
+    // creatorMode 는 판마다 모양이 다르다 — 읽는 함수(deps) 또는 app.js 의 공용 값. 원본이 쓰는 모양을 그대로 준다
+    (/creatorMode\(\)/.test(code) ? 'const creatorMode = () => mode;\n' : 'const creatorMode = mode;\n') + MARK + '\n' + code + '\n_resetAnimalState(); return curFace;')(console, overlay, mode);
+  return { mode, warns, curFace: r };
+}
+if (!RESET || !MARK){ chk(false, 'animal.js 에 _resetAnimalState · markFaceBtns 가 없다'); }
+else {
+  const first = reset(RESET, null);
+  chk(!first.warns.length && first.mode.edit === false && first.mode.slot === null, '처음 열기(창 없음) — 경고 없이 «고치던 칸» 표시를 지운다(새 동물이 그 칸을 덮어쓰지 않게)');
+  chk(first.curFace === 0, '  ↳ 얼굴 · 귀 · 크기도 처음 값으로');
+  const btns = [{ on: null }, { on: null }];
+  const ov = { querySelectorAll: () => btns.map(b => ({ classList: { toggle: (c, v) => { b.on = v; } } })) };
+  const again = reset(RESET, ov);
+  chk(again.mode.edit === false && btns[0].on === true && btns[1].on === false, '다시 열기(창 있음) — 얼굴 단추 표시까지');
+  const broken = RESET.replace('if(overlay) markFaceBtns();', 'markFaceBtns();');
+  const b = reset(broken, null);
+  chk(broken !== RESET && b.mode.edit === true && b.warns.length === 1, '깨 보기 — 창이 없을 때도 단추를 고치면 던져서 표시가 남는다(위가 잡는 모양)');
 }
 
 say(`\n${fail ? '✗' : '✓'} ${pass} 통과 · ${fail} 실패`);
