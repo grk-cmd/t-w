@@ -11,6 +11,7 @@ const path = require('path');
 const net = require('net');
 const tls = require('tls');
 const http = require('http');
+const crypto = require('crypto');
 const { spawn, execFileSync } = require('child_process');
 const { _electron } = require('playwright-core');
 const { wait, quietProblems } = require('../../lib.js');
@@ -108,7 +109,10 @@ function selfCert(dir){
   const key = path.join(dir, 'rtdb.key'), crt = path.join(dir, 'rtdb.crt');
   execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '2', '-subj', '/CN=tw-e2e-rtdb',
     '-addext', 'subjectAltName=DNS:' + RTDB_HOST, '-keyout', key, '-out', crt], { stdio: 'ignore' });
-  return { key: fs.readFileSync(key), cert: fs.readFileSync(crt) };
+  const cert = fs.readFileSync(crt);
+  // Electron 의 certificate.fingerprint 와 같은 모양(sha256/<DER 의 SHA-256 base64>) — 시험 앱이 운영 RTDB 이름에 이 인증서만 받게 고정한다
+  const fingerprint = 'sha256/' + crypto.createHash('sha256').update(new crypto.X509Certificate(cert).raw).digest('base64');
+  return { key: fs.readFileSync(key), cert, fingerprint };
 }
 
 // 웹소켓 틀 하나 읽기 — { fin, op, payload(가림 풀린 글), raw 길이 } · 모자라면 null
@@ -135,7 +139,8 @@ async function startRelay(dir, emu, logFile){
   const port = await freePort();
   const out = fs.createWriteStream(logFile, { flags: 'a' });
   const note = (dirn, text) => out.write(`${new Date().toISOString()} ${dirn} ${text.slice(0, 600)}\n`);
-  const srv = tls.createServer(selfCert(dir), (c) => {
+  const tlsOpts = selfCert(dir);
+  const srv = tls.createServer({ key: tlsOpts.key, cert: tlsOpts.cert }, (c) => {
     const up = net.connect(emu.db, '127.0.0.1');
     let cHead = true, cBuf = Buffer.alloc(0), ws = false;
     let sHead = true, sBuf = Buffer.alloc(0), sFirst = true;
@@ -178,7 +183,7 @@ async function startRelay(dir, emu, logFile){
     c.on('error', end); up.on('error', end); c.on('close', end); up.on('close', end);
   });
   await new Promise((r) => srv.listen(port, '127.0.0.1', r));
-  return { port, stop: () => { srv.close(); out.end(); } };
+  return { port, fingerprint: tlsOpts.fingerprint, stop: () => { srv.close(); out.end(); } };
 }
 
 // rtdb.txt 에서 앱이 보낸 쓰기(set p · update m · onDisconnect o/om)와 거절(permission_denied)을 센다. since = ISO 시각
@@ -226,15 +231,15 @@ async function startApiStub(logFile){
 // ── 앱 한 벌 ───────────────────────────────────────────────
 // lib.makeApp 과 같은 모양(감싸는 진입점이 appData 를 결과 폴더로 · quiet-main.js) — 앱 폴더 · 주소 돌리기(_main012.js) · 운영 설정만 다르다
 // 시험 앱 main(_main012.js)에 넘기는 값 — 문지기 · 확인용 실행 · 앱이 같은 한 벌을 쓴다
-const routeOpts = (env, log, extra) => Object.assign({ log, proxyPort: env.relay.port, db: env.emu.dbUrl, auth: env.emu.authUrl, storage: env.emu.storageUrl, api: env.api.url, rejectRefresh: !!env.rejectRefresh }, extra || {});
+const routeOpts = (env, log, extra) => Object.assign({ log, proxyPort: env.relay.port, fingerprint: env.relay.fingerprint, db: env.emu.dbUrl, auth: env.emu.authUrl, storage: env.emu.storageUrl, api: env.api.url, rejectRefresh: !!env.rejectRefresh }, extra || {});
 
 // ── 켜기 전 문지기 ─────────────────────────────────────────
 // ① 표(_route012.js)만 보고: 앱이 쓸 수 있는 Firebase · 우리 백엔드 이름이 이름 풀이 · https · wss 모두 이 PC 로만 가거나 막히는가
-// ② 확인용 실행(앱 없이 같은 진입점 · 같은 규칙으로 Electron 을 켬): 크로미움이 정말 그렇게 푸는가(resolveHost) · 막을 wss 가 막히는가.
-//    표지 이름(.invalid)이 규칙대로 풀린 뒤에만 다른 이름을 묻는다. 어긋나면 앱을 켜지 않고 실패한다
+// ② 확인용 실행(앱 없이 같은 진입점 · 같은 스위치로 Electron 을 켬): 프록시가 DIRECT 인가(아니면 아무것도 열지 않음) · Chromium 이 정말 그렇게 푸는가(resolveHost) ·
+//    중계 wss 가 고정 인증서로 열리는가 · 막을 wss 가 막히는가. 표지 이름(.invalid)이 규칙대로 풀린 뒤에만 다른 이름을 묻는다. 판정은 R.probeProblems · 어긋나면 앱을 켜지 않는다
 async function guardLaunch(out, env){
   const o = routeOpts(env, path.join(out, 'probe', 'net.txt'));
-  const bad = R.guard({ relayPort: env.relay.port, o });
+  const bad = R.guard({ relayPort: env.relay.port, o, fingerprint: env.relay.fingerprint });
   if(bad.length) throw new Error('켜기 전 문지기 — 표가 진짜 서버로 샐 수 있음: ' + bad.join(' / '));
   const dir = path.join(out, 'probe');
   const wrap = path.join(dir, 'wrap');
@@ -249,23 +254,10 @@ async function guardLaunch(out, env){
   const done = await Promise.race([new Promise((r) => p.once('exit', () => r(true))), wait(60000).then(() => false)]);
   if(!done){ try { p.kill('SIGKILL'); } catch(_){} }
   const lines = fs.readFileSync(o.log, 'utf8').split('\n');
-  const dns = Object.fromEntries(lines.filter((l) => l.startsWith('DNS ')).map((l) => { const [, h, ...v] = l.split(' '); return [h, v.join(' ')]; }));
-  const why = [];
-  if(!lines.includes('PROBE-END')) why.push('확인용 실행이 끝나지 않음');
-  if(dns[R.SENTINEL_HOST] !== '127.0.0.1') why.push(`표지 이름이 규칙대로 안 풀림(${dns[R.SENTINEL_HOST]}) — 크로미움이 규칙을 안 쓴다`);
-  else for(const { host } of R.GUARD_HOSTS){
-    const v = dns[host];
-    if(host === RTDB_HOST ? v !== '127.0.0.1' : !/NAME_NOT_RESOLVED/.test(v || '')) why.push(`${host} → ${v || '안 물음'}`);
-  }
-  let wssBlockedByWebRequest = 0;
-  for(const url of R.PROBE_WSS){
-    const r = (lines.find((l) => l.startsWith('WSS ' + url + ' ')) || '').split(' ').pop();
-    if(r !== 'ERROR') why.push(`wss ${url} → ${r || '안 열어 봄'}`);
-    if(lines.some((l) => l === 'BLOCK GET ' + url)) wssBlockedByWebRequest++;
-  }
-  // webRequest 가 wss 를 못 막는 판이면 이름 풀이(~NOTFOUND)만 남는다 — 위에서 그 이름이 안 풀리는 것을 이미 봤다
+  const why = R.probeProblems(lines, env.relay.fingerprint);
   if(why.length) throw new Error('켜기 전 문지기 — 확인용 실행: ' + why.join(' / '));
-  return `이름 ${R.GUARD_HOSTS.length}개 이 PC 로만 · 막을 wss ${R.PROBE_WSS.length}개 중 webRequest 가 막음 ${wssBlockedByWebRequest} · 나머지는 이름 풀이 ~NOTFOUND`;
+  const wssBlockedByWebRequest = R.PROBE_WSS.filter((url) => lines.includes('BLOCK GET ' + url)).length;
+  return `프록시 DIRECT · 이름 ${R.GUARD_HOSTS.length}개 이 PC 로만 · 중계 wss 가 고정 인증서로 열림 · 막을 wss ${R.PROBE_WSS.length}개 중 webRequest 가 막음 ${wssBlockedByWebRequest} · 나머지는 이름 풀이 ~NOTFOUND`;
 }
 
 function makeApp012(outArg, env){
