@@ -5,7 +5,7 @@
      main 이 막는 이동(바깥 링크 · file:// 밖)에도 와서, 화면은 그대로인데 실행 화면이 런처 크기로 끼어 버린다 — 쓰지 말 것.
    ★ 렌더러 사망 길은 다시 불러오지 않을 때도 덮인 채 두지 않으려고 먼저 부르므로, 한 번 로드되는 사이에는 한 번만 되돌린다.
    ★ 순수 판단만 — 창 · 로그는 deps.reset 이 한다. main.js 가 require 한다(설치본은 app/** 로 들어간다).
-   deps: reset() — 창을 런처로(main.js _resetWindowForReload) */
+   deps: reset() — 창을 런처로(main.js _resetWindowToLauncher) */
 'use strict';
 
 function createReloadReset(deps){
