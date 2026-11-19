@@ -1,11 +1,13 @@
-export { getBugDailyMax, saveBugDailyMax, useBugDailyMax, useRefreshBugDailyMax } from './api/dailyMax';
+export { useBugDailyMax, useRefreshBugDailyMax } from './api/dailyMax';
 export {
   fetchBugList,
+  getBugDailyMax,
   getBugItem,
   getBugPost,
   getDayOrder,
   getStaffAnswers,
   listBugPage,
+  saveBugDailyMax,
 } from './api/firebase';
 export {
   refreshBugBoard,
@@ -21,8 +23,15 @@ export {
   useRefreshPrvTitle,
 } from './api/hooks';
 export { changeBugStatus } from './api/changeStatus';
-export { createServerBugBoardPort } from './api/server';
-export { useBugBoardPort, type BugBoardPort, type BugListQuery, type BugPost } from './api/index';
+export { createServerBugBoardPort, createServerBugDailyMaxPort } from './api/server';
+export {
+  useBugBoardPort,
+  useBugDailyMaxPort,
+  type BugBoardPort,
+  type BugDailyMaxPort,
+  type BugListQuery,
+  type BugPost,
+} from './api/index';
 export {
   answerDeleteWrite,
   answerEditChanges,

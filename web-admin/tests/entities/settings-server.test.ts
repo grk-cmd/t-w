@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createServerAdBannerPort } from '@/entities/ad-banner/api/server';
+import { createServerBugDailyMaxPort } from '@/entities/bug-board/api/server';
 import { createServerBugReportPort } from '@/entities/bug-report/api/server';
 import { createServerGameConfigPort } from '@/entities/game-config/api/server';
 import { createServerMinVersionPort } from '@/entities/min-version/api/server';
@@ -371,6 +372,49 @@ describe('방 제목 금칙어(room.bannedWords)', () => {
         .catch((e: unknown) => e);
       expect(isPortError(error, 'invalid')).toBe(true);
     }
+  });
+});
+
+describe('제보 하루 상한(bug.dailyMax)', () => {
+  it('저장한 값이 없으면 null(화면은 «서버 값 없음 → 기본 5건») · 있으면 그 수', async () => {
+    const s = fakeServer();
+    const port = createServerBugDailyMaxPort(s.api);
+    expect(await port.get()).toMatchObject({ value: null, version: 0 });
+    s.other('bug.dailyMax', 9);
+    expect(await port.get()).toMatchObject({ value: 9, version: 1 });
+  });
+
+  it('저장 — 숫자 하나를 읽은 번호와 함께 PUT', async () => {
+    const s = fakeServer();
+    const port = createServerBugDailyMaxPort(s.api);
+    await port.save(await port.get(), 8);
+    expect(lastPut(s)).toMatchObject({
+      method: 'PUT',
+      path: '/v2/admin/config/bug.dailyMax',
+      body: { version: 0, value: 8 },
+    });
+    expect((await port.get()).value).toBe(8);
+  });
+
+  it('서버 오류(400)는 invalid 로 던진다 · 값은 그대로', async () => {
+    const s = fakeServer();
+    const port = createServerBugDailyMaxPort(s.api);
+    const read = await port.get();
+    s.rejectNext(new ApiError('request', 400, 'OPS_INVALID_VALUE', '1~100'));
+    const error = await port.save(read, 101).catch((e: unknown) => e);
+    expect(isPortError(error, 'invalid')).toBe(true);
+    expect(s.rows.get('bug.dailyMax')!.value).toBeNull();
+  });
+
+  it('옛 번호면 conflict · 숫자가 아닌 응답은 던진다 · 안내는 서버가 막는다고 말한다', async () => {
+    const s = fakeServer();
+    const port = createServerBugDailyMaxPort(s.api);
+    const old = await port.get();
+    s.other('bug.dailyMax', 7);
+    expect(isPortError(await port.save(old, 3).catch((e: unknown) => e), 'conflict')).toBe(true);
+    s.breakWire('bug.dailyMax', '7');
+    expect(isPortError(await port.get().catch((e: unknown) => e), 'invalid')).toBe(true);
+    expect(port.enforcedBy).toContain('서버');
   });
 });
 

@@ -1,3 +1,4 @@
+import type { Versioned } from '@/shared/api';
 import type { KeysetPage } from '@/shared/lib';
 import type { BugAnswer, BugContent, BugItem, BugListView, BugFilter, BugCursor } from '../model/bugBoard';
 
@@ -44,3 +45,15 @@ export type BugBoardKeysetPort = BugBoardReads & {
   /** 한 쪽 — 첫 쪽은 `cursor` 없음. 첫 쪽만 `total`(그 갈래의 전체 글 수). */
   page(filter: BugFilter, cursor: string | undefined, limit: number): Promise<KeysetPage<BugItem>>;
 };
+
+/** 한 사람 하루 제보 상한 — 판마다 지키는 곳이 다르다(Firebase 판은 앱 · API 판은 서버). */
+export interface BugDailyMaxPort {
+  /** 이 판에서 누가 막는지 — 카드 안내에 그대로 싣는다. */
+  readonly enforcedBy: string;
+  /** 저장한 값이 언제부터 먹는지 — 확인 창에 그대로 싣는다. */
+  readonly appliesFrom: string;
+  /** 저장한 상한 — 없으면 null(기본 `BUG_DAILY_MAX_DEFAULT`). */
+  get(): Promise<Versioned<number | null>>;
+  /** `from` 은 화면이 읽은 값 · 번호 — 그 사이 다른 곳이 고쳤으면 `conflict`. */
+  save(from: Versioned<number | null>, max: number): Promise<void>;
+}

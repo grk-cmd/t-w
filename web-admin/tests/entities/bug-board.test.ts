@@ -1,3 +1,4 @@
+import { createFirebaseBugDailyMaxPort } from '@/entities/bug-board/api/firebase';
 import { describe, expect, it } from 'vitest';
 import {
   bugAuthorName,
@@ -69,6 +70,18 @@ describe('하루 상한 · 운영진 글', () => {
       target: '하루 8건',
       detail: '기본 5 → 8',
     });
+  });
+
+  it('Firebase 판 포트 — 읽은 값을 «이전» 으로 기록하고 안내는 앱에서만 막는다고 말한다(지금과 같음)', async () => {
+    const { db, writes } = fakeDb({ 'config/bugDailyMax': 3 });
+    const port = createFirebaseBugDailyMaxPort(db);
+    const read = await port.get();
+    expect(read).toEqual({ value: 3, version: 0 });
+    await port.save(read, 9);
+    expect(withoutAudits(writes)).toEqual([['commit', 'config/bugDailyMax', 9]]);
+    expect(auditsOf(writes)[0]).toMatchObject({ detail: '3 → 9' });
+    expect(port.enforcedBy).toBe('앱에서만 막는 제한');
+    expect(port.appliesFrom).toBe('게시판을 새로 여는 사용자부터');
   });
 
   it('🛡 — byAdmin(관리자만 쓰는 칸) 또는 공지일 때만, 이름은 보지 않는다', () => {
