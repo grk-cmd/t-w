@@ -25,9 +25,15 @@ service firebase.storage {
     match /users/{userId}/{allPaths=**} {
       allow read: if true;
       allow write: if isBot()
+                   && allPaths[0] != 'giftimg'
                    && (request.resource == null
                        || request.resource.size < 2 * 1024 * 1024
                        || isBotMyHomeImage());
+    }
+    match /users/{userId}/giftimg/{file} {
+      allow write: if isBot()
+                   && (request.resource == null
+                       || request.resource.size < 2 * 1024 * 1024);
     }
 
     match /away/{userId}/{allPaths=**} {

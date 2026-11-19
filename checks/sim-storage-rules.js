@@ -1,12 +1,12 @@
 /* sim-storage-rules.js — Storage 규칙 두 벌: 0.13 규칙(storage.rules)과 점검 동안의 쓰기 잠금(storage-lock.rules)
    실행: node checks/run.js storage-rules
-   [왜] Storage 규칙은 콘솔에만 있다가 컷오버를 앞두고 저장소로 왔다. 컷오버 T+2 에 잠금을, 점검 끝 무렵에 0.13 규칙을 올린다(tw-docs 06-cutover.md 8장 ② · ⑧).
-     기본 설정(firebase.json)의 storage 칸이 잠금이나 다른 파일을 가리키면 평소 배포가 잠금을 풀거나 걸고, 잠금 설정에 database · hosting 칸이 끼면
+   [왜] 컷오버 T+2 에 잠금을, 점검 끝 무렵에 0.13 규칙을 올린다(tw-docs 06-cutover.md 8장 ② · ⑧).
+     기본 설정(firebase.json)의 storage 항목(키)이 잠금이나 다른 파일을 가리키면 평소 배포가 잠금을 풀거나 걸고, 잠금 설정에 database · hosting 항목이 끼면
      잠금을 올리는 명령이 RTDB 규칙 · 사이트까지 바꾼다. 두 파일의 경로가 어긋나면 잠금이 어떤 경로를 열어 두거나 0.13 에서 읽기가 끊긴다.
-   [무엇을 본다] 1절: 설정 — firebase.json 은 storage.rules · 컷오버 RTDB 규칙 그대로 · 잠금 설정은 storage 칸 하나(일부러 깬 설정이 빨강인지도).
+   [무엇을 본다] 1절: 설정 — firebase.json 은 storage.rules · 컷오버 RTDB 규칙 그대로 · 잠금 설정은 storage 항목 하나(일부러 깬 설정이 빨강인지도).
      2절: 두 파일의 경로 · 봇 uid 가 같다.
      3절: 실제 판정 — Storage 에뮬레이터(firebase CLI + Java)가 있으면 두 규칙을 올려 REST 로 하나씩 보낸다. 봇 상한(마이홈 8MB · assets PNG · WebP 512KB · GLB 1MB)은 0.13 서버와 같다.
-     깨 보기: 지우기 항을 뺀 규칙 · 봇 검사를 뺀 규칙 · 봇 마이홈 상한을 뺀 규칙이 각각 다르게 판정되는지 본다.
+     mutation test: 지우기 항을 뺀 규칙 · 봇 검사를 뺀 규칙 · 봇 마이홈 상한을 뺀 규칙이 각각 다르게 판정되는지 본다.
      없으면 건너뛴다(CI 에는 없다 — 규칙을 바꾼 PR 은 손으로 돌려 본문에 붙인다). */
 'use strict';
 const fs = require('fs');
@@ -41,16 +41,16 @@ const matchPaths = (src) => [...src.matchAll(/^\s*match (\/[^\s{]*(?:\{[^}]*\}[^
 function mainCfgProblems(cfg) {
   const out = [];
   const st = cfg && cfg.storage;
-  if (!st || Array.isArray(st) || typeof st !== 'object') out.push('storage 가 규칙 한 벌을 가리키는 칸이 아니다');
+  if (!st || Array.isArray(st) || typeof st !== 'object') out.push('storage 가 규칙 한 벌을 가리키는 항목이 아니다');
   else if (st.rules !== MAIN_FILE) out.push('storage.rules 가 ' + MAIN_FILE + ' 이 아니다: ' + st.rules);
   if (!cfg || !cfg.database || cfg.database.rules !== CUTOVER_DB) out.push('database.rules 가 ' + CUTOVER_DB + ' 이 아니다');
   return out;
 }
-/* 잠금 설정의 잘못 목록 — storage 말고 다른 칸이 있으면 --config 로 올릴 때 그것까지 바뀐다 */
+/* 잠금 설정의 잘못 목록 — storage 말고 다른 항목이 있으면 --config 로 올릴 때 그것까지 바뀐다 */
 function lockCfgProblems(cfg) {
   const out = [];
   const keys = Object.keys(cfg || {});
-  if (keys.join() !== 'storage') out.push('storage 말고 다른 칸이 있다: ' + keys.join(' · '));
+  if (keys.join() !== 'storage') out.push('storage 말고 다른 항목이 있다: ' + keys.join(' · '));
   const st = cfg && cfg.storage;
   if (!st || Array.isArray(st) || st.rules !== LOCK_FILE) out.push('storage.rules 가 ' + LOCK_FILE + ' 이 아니다');
   return out;
@@ -139,6 +139,8 @@ function lockCases() {
     ['users — 서버 봇은 마이홈 그림 8MB', 'up', 'users/u1/mh_big.png', 8 * MB, 'image/png', true, BOT],
     ['users — 서버 봇도 8MB 넘으면 거절', 'up', 'users/u1/mh_big2.png', 8 * MB + 1, 'image/png', false, BOT],
     ['users — 로그인한 사용자 1KB 도 거절', 'up', 'users/u1/small.png', KB, 'image/png', false, USER],
+    ['giftimg — 잠금 중에도 서버 봇은 2MB 미만', 'up', 'users/u1/giftimg/lock_a.png', 2 * MB - 1, 'image/png', true, BOT],
+    ['giftimg — 잠금 중 서버 봇이 2MB 올리면 거절(마이홈 8MB 를 빌리지 못함)', 'up', 'users/u1/giftimg/lock_b.png', 2 * MB, 'image/png', false, BOT],
     ['away — 서버 봇도 그림 아니면 거절', 'up', 'away/u1/c.txt', 10, 'text/plain', false, BOT],
     ['assets — 로그인 없이 읽기 거절', 'get', 'assets/read.png', 0, '', false, ANON],
     ['assets — 서버 봇 PNG 올리기', 'up', 'assets/a.png', 10, 'image/png', true, BOT],
@@ -205,19 +207,19 @@ async function main() {
   const cfg = JSON.parse(CFG_SRC), lockCfg = JSON.parse(LOCK_CFG_SRC);
   const mp = mainCfgProblems(cfg), lp = lockCfgProblems(lockCfg);
   chk(mp.length === 0, 'firebase.json 의 storage 는 ' + MAIN_FILE + ' · database 는 컷오버 규칙 그대로' + (mp.length ? ': ' + mp.join(' · ') : ''));
-  chk(!('functions' in cfg) && Array.isArray(cfg.hosting) && cfg.hosting.length === 3, 'functions 칸 없음 · Hosting 세 사이트 그대로');
-  chk(lp.length === 0, LOCK_CFG + ' 는 storage 칸 하나 · ' + LOCK_FILE + (lp.length ? ': ' + lp.join(' · ') : ''));
-  for (const [name, c] of [['storage 가 잠금 규칙', { ...cfg, storage: { rules: LOCK_FILE } }], ['storage 칸 없음', { database: cfg.database, hosting: cfg.hosting }], ['storage 를 대상 여럿(배열)으로', { ...cfg, storage: [{ bucket: 'a', rules: MAIN_FILE }] }]])
+  chk(!('functions' in cfg) && Array.isArray(cfg.hosting) && cfg.hosting.length === 3, 'functions 항목 없음 · Hosting 세 사이트 그대로');
+  chk(lp.length === 0, LOCK_CFG + ' 는 storage 항목 하나 · ' + LOCK_FILE + (lp.length ? ': ' + lp.join(' · ') : ''));
+  for (const [name, c] of [['storage 가 잠금 규칙', { ...cfg, storage: { rules: LOCK_FILE } }], ['storage 항목 없음', { database: cfg.database, hosting: cfg.hosting }], ['storage 를 대상 여럿(배열)으로', { ...cfg, storage: [{ bucket: 'a', rules: MAIN_FILE }] }]])
     chk(mainCfgProblems(c).length > 0, '일부러 깸(firebase.json) «' + name + '» → 빨강');
-  for (const [name, c] of [['database 칸이 낌', { ...lockCfg, database: { rules: CUTOVER_DB } }], ['hosting 칸이 낌', { ...lockCfg, hosting: [] }], ['0.13 규칙을 가리킴', { storage: { rules: MAIN_FILE } }]])
+  for (const [name, c] of [['database 항목이 낌', { ...lockCfg, database: { rules: CUTOVER_DB } }], ['hosting 항목이 낌', { ...lockCfg, hosting: [] }], ['0.13 규칙을 가리킴', { storage: { rules: MAIN_FILE } }]])
     chk(lockCfgProblems(c).length > 0, '일부러 깸(잠금 설정) «' + name + '» → 빨강');
 
   console.log('\n── 2. 두 파일의 짝');
   const mPaths = matchPaths(MAIN_SRC), lPaths = matchPaths(LOCK_SRC);
-  const lockMissing = mPaths.filter((p) => !lPaths.includes(p) && p !== '/users/{userId}/giftimg/{file}');
-  chk(lockMissing.length === 0 && lPaths.every((p) => mPaths.includes(p)), '경로가 같다(잠금에는 giftimg 블록이 따로 없다 — users 블록이 봇만 받는다): ' + lPaths.join(' · ') + (lockMissing.length ? ' / 잠금에 없음: ' + lockMissing.join(' · ') : ''));
+  const lockMissing = mPaths.filter((p) => !lPaths.includes(p));
+  chk(lockMissing.length === 0 && lPaths.every((p) => mPaths.includes(p)), '경로가 같다: ' + lPaths.join(' · ') + (lockMissing.length ? ' / 잠금에 없음: ' + lockMissing.join(' · ') : ''));
   chk(!!BOT && botUid(LOCK_SRC) === BOT, '서버 봇 uid 가 두 파일에서 같다');
-  chk(/rules_version = '2';/.test(MAIN_SRC) && /rules_version = '2';/.test(LOCK_SRC), "두 파일 모두 rules_version = '2'(** 가 0칸 이상)");
+  chk(/rules_version = '2';/.test(MAIN_SRC) && /rules_version = '2';/.test(LOCK_SRC), "두 파일 모두 rules_version = '2'(** 가 0단계 이상 경로)");
 
   console.log('\n── 3. 실제 판정(에뮬레이터)');
   const have = spawnSync('firebase', ['--version'], { encoding: 'utf8' }).status === 0 && spawnSync('java', ['-version'], { encoding: 'utf8' }).status === 0;
@@ -225,9 +227,9 @@ async function main() {
   const noDelete = MAIN_SRC.replace(/request\.resource == null\s*\|\|\s*/g, '');
   const openBot = MAIN_SRC.replace(/return request\.auth != null && request\.auth\.uid == '[^']+';/, 'return true;');
   const noBotCap = MAIN_SRC.replace(/\s*\|\|\s*isBotMyHomeImage\(\)/, '');
-  chk(noDelete !== MAIN_SRC && openBot !== MAIN_SRC && noBotCap !== MAIN_SRC, '깨 보기용 규칙 셋(지우기 항 · 봇 검사 · 봇 마이홈 상한을 뺌)을 만들었다');
-  for (const [set, src, title] of [['main', MAIN_SRC, MAIN_FILE], ['lock', LOCK_SRC, LOCK_FILE], ['nodelete', noDelete, '깨 보기 — 지우기 항 없는 ' + MAIN_FILE],
-    ['openbot', openBot, '깨 보기 — 봇 검사 없는 ' + MAIN_FILE], ['nobotcap', noBotCap, '깨 보기 — 봇 마이홈 상한 없는 ' + MAIN_FILE]]) {
+  chk(noDelete !== MAIN_SRC && openBot !== MAIN_SRC && noBotCap !== MAIN_SRC, 'mutation test 용 규칙 셋(지우기 항 · 봇 검사 · 봇 마이홈 상한을 뺌)을 만들었다');
+  for (const [set, src, title] of [['main', MAIN_SRC, MAIN_FILE], ['lock', LOCK_SRC, LOCK_FILE], ['nodelete', noDelete, 'mutation test — 지우기 항 없는 ' + MAIN_FILE],
+    ['openbot', openBot, 'mutation test — 봇 검사 없는 ' + MAIN_FILE], ['nobotcap', noBotCap, 'mutation test — 봇 마이홈 상한 없는 ' + MAIN_FILE]]) {
     console.log('  [' + title + ']');
     const r = await emulate(set, src);
     if (!r.lines.length) { chk(false, '에뮬레이터 출력을 못 읽음: ' + r.out.slice(-300)); continue; }
