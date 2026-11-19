@@ -59,7 +59,8 @@ function pendingStep(name){ return async () => ({ ok: false, pending: true, reas
 function loginStep(isIn){ return async () => (isIn() ? { ok: true, wipe: LOGIN_LEGACY_KEYS.slice() } : { ok: false, reason: '서버 계정 확인 전' }); }
 
 /* 라이선스 키 단계(D8-3) — 이 PC 의 옛 키(tw.licenseKey)를 서버에 올리고 지우라고 한다.
-   · 키 없음 → 통과(남은 tw.licenseOptOut 만 지움) · OptOut(이 PC 만 해제했던 표시) 있음 → 올리지 않고 둘 다 지움(사용자가 일부러 뺀 PC)
+   · 키 없음 → 통과 · OptOut(이 PC 만 해제했던 표시) 있음 → 올리지 않고 키만 지움(사용자가 일부러 뺀 PC)
+     tw.licenseOptOut 은 지우지 않는다 — 0.13 에서도 «이 PC 는 자동 등록하지 않는다» 표시다(license-premium.js [자동 등록])
    · 등록 성공(내 키 다시 등록 = 기기 갱신) → 지움(프리미엄 다시 확인은 activate 가 한다)
    · 서버가 «이 키는 더 쓸 길이 없다» 고 답함(남의 키 · 없는 키 · 회수된 키) → 지움 + 안내 한 번 · 이미 이 계정에 라이선스 있음 → 안내 없이 지움(이미 프리미엄) · 기기 가득 → 지움 + 기기 관리 안내
    · 그 밖(네트워크 · 5xx · 로그인 풀림 · 응답 모양)은 멈춤(ok:false) — 아무것도 안 지운다 · 다음 실행에 다시
@@ -79,7 +80,7 @@ function licenseKeyStep(deps){
   return async () => {
     const optOut = get(LICENSE_OPTOUT_KEY);
     const key = String(get(LICENSE_KEY_STORAGE) || '').trim();
-    const allWipe = [LICENSE_KEY_STORAGE, LICENSE_OPTOUT_KEY].filter((k) => get(k) !== null);
+    const allWipe = get(LICENSE_KEY_STORAGE) !== null ? [LICENSE_KEY_STORAGE] : [];
     if(!key || optOut) return { ok: true, wipe: allWipe };
     let r;
     try{ r = await deps.activate(key); }catch(e){ r = { ok: false, err: e }; }

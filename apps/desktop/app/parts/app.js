@@ -2907,7 +2907,8 @@ const adminUsers = TwAdminUsers.createAdminUsers({
   apiErrors: TwApiErrors.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
-/* 🔑 프리미엄 판정(account/license-premium.js) — 서버 확인(GET /v2/me 의 premium)만 isPremium 에 반영한다. 시작은 켜는 차례(app-boot 의 licensePremium) 한 곳.
+/* 🔑 프리미엄 판정(account/license-premium.js) — 서버 확인(GET /v2/me 의 premium)만 isPremium 에 반영한다. 시작은 켜는 차례(app-boot 의 licensePremium) 한 곳 —
+   아니면 계정의 라이선스에 이 기기를 자동 등록해 본다(해제 표시 tw.licenseOptOut 이 있으면 안 한다).
    키 등록 · 이 기기 해제 버튼(license-key.js)도 여기를 부른다. */
 const licensePremiumMod = TwLicensePremium.createLicensePremium({
   userApi: userApiMod,
@@ -2921,6 +2922,7 @@ const licensePremiumMod = TwLicensePremium.createLicensePremium({
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   reasonOf: (e)=>TwUserApi.reasonOf(e),
   resetCustomStatus: ()=>{ if(userStatusMod.userStatus()==='custom') setUserStatus(null); },   // 프리미엄을 놓으면 커스텀 상태는 기본으로
+  toast: (...a)=>toast(...a),
 });
 
 /* ═══ 🔐 라이선스 · 초대 게이트 시작 · 관리자 모드 진입 ═══ */

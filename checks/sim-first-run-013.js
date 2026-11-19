@@ -216,13 +216,13 @@ async function judge(S){
     let e = mkStep({}, {}); let r = await e.step();
     chk(r.ok === true && r.wipe.length === 0 && !r.notice && e.calls.act.length === 0, '키 없음 → 통과 · 지울 것 없음 · 요청 0');
     e = mkStep({ 'tw.licenseOptOut': '1' }, {}); r = await e.step();
-    chk(r.ok === true && r.wipe.join() === 'tw.licenseOptOut' && e.calls.act.length === 0, '키 없고 해제 표시만 있음 → 그것만 지움');
+    chk(r.ok === true && r.wipe.length === 0 && e.calls.act.length === 0, '키 없고 해제 표시만 있음 → 아무것도 안 지움(해제 표시는 켤 때 자동 등록을 막는다 — license-premium.js)');
     e = mkStep(KEY, {}); r = await e.step();
     chk(r.ok === true && r.wipe.join() === 'tw.licenseKey' && !r.notice && e.calls.act.length === 1 && e.calls.act[0] === 'abcd-1234', '키 있음 → 키 등록 함수(activate) 한 번(앞뒤 공백 다듬음) → 지움');
     e = mkStep(KEY, { notConfirmed: true }); r = await e.step();
     chk(r.ok === true && r.wipe.join() === 'tw.licenseKey' && !r.notice, '등록은 됐는데 확인이 늦음 → 지움(서버엔 이미 올라감)');
     e = mkStep({ 'tw.licenseKey': 'K', 'tw.licenseOptOut': '1' }, {}); r = await e.step();
-    chk(r.ok === true && r.wipe.join() === 'tw.licenseKey,tw.licenseOptOut' && e.calls.act.length === 0, '해제했던 PC(OptOut 있음) → 올리지 않고(요청 0) 둘 다 지움');
+    chk(r.ok === true && r.wipe.join() === 'tw.licenseKey' && e.calls.act.length === 0, '해제했던 PC(OptOut 있음) → 올리지 않고(요청 0) 키만 지움 · 해제 표시는 남김');
     for(const n of ['OWNED_BY_OTHER', 'NOT_FOUND', 'REVOKED']){
       e = mkStep(KEY, { reg: err(API.CODE[n]) }); r = await e.step();
       chk(r.ok === true && r.wipe.join() === 'tw.licenseKey' && r.notice === F.LICENSE_NOTICE.UNUSABLE && !r.action, n + ' → 지움 + 안내 하나(쓸 수 없는 옛 키 — 갈 곳 없음)');
@@ -324,6 +324,7 @@ const BREAKS = [
   ['APP', "focus: TwFirstRun013.focusStep(", "focus: async ()=>({ ok: true, wipe: [] }) || TwFirstRun013.focusStep(", '포커스 단계를 안 채움'],
   ['HTML', '<script src="parts/account/first-run-013.js"></script>', '', 'html 에 안 실음'],
   ['FR', "    if(!key || optOut) return { ok: true, wipe: allWipe };", "    if(!key) return { ok: true, wipe: allWipe };", '해제 표시(OptOut)를 안 봄'],
+  ['FR', "const allWipe = get(LICENSE_KEY_STORAGE) !== null ? [LICENSE_KEY_STORAGE] : [];", "const allWipe = [LICENSE_KEY_STORAGE, LICENSE_OPTOUT_KEY].filter((k) => get(k) !== null);", '해제 표시를 지움(다음 켜기에 자동 등록됨)'],
   ['FR', "if(!e || e.kind === 'auth' || !Object.keys(LICENSE_CODE).some((n) => LICENSE_CODE[n] === code)) return", "if(false) return", '실패해도 지움(네트워크 · 로그인 풀림)'],
   ['FR', "    if(code === LICENSE_CODE.ALREADY_HAVE) return { ok: true, wipe: allWipe };", "", 'ALREADY_HAVE 에도 안내'],
   ['FR', "if(r && (r.ok === true || r.registered === true)) return", "if(r && r.ok === true) return", '등록은 됐는데 확인이 늦으면 멈춤(안 지워 두 번 올림)'],
