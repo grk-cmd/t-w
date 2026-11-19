@@ -88,7 +88,7 @@ function fakeAuth(n, opt = {}) {
       return { users, pageToken: start + max < uids.length ? String(start + max) : undefined };
     },
     async revokeRefreshTokens(uid) {
-      a.calls.push(Date.now());
+      a.calls.push(opt.now ? opt.now() : Date.now());
       if (opt.quota && opt.quota.has(uid) && !a.revoked.has(uid + '#q')) { a.revoked.set(uid + '#q', 1); const e = new Error('QUOTA_EXCEEDED'); e.code = 'auth/quota-exceeded'; throw e; }
       if (opt.broken === uid) { const e = new Error('bad'); e.code = 'auth/invalid-uid'; throw e; }
       if (opt.gone === uid) { const e = new Error('gone'); e.code = 'auth/user-not-found'; throw e; }
@@ -98,6 +98,27 @@ function fakeAuth(n, opt = {}) {
   a.sleeps = [];
   a.sleep = async (ms) => { a.sleeps.push(ms); };
   return { a, uids };
+}
+
+/* 가짜 시계 — 잠든 일을 깨울 시각 순서대로 하나씩 깨운다(진짜 타이머는 ±1ms 로 깨어나 «1초 창» 판정이 들쭉날쭉했다) */
+function vclock() {
+  const c = { t: 0, q: [] };
+  c.now = () => c.t;
+  c.sleep = (ms) => new Promise((res) => c.q.push({ at: c.t + ms, res }));
+  c.run = async (p) => {
+    let done = false;
+    p.then(() => { done = true; }, () => { done = true; });
+    for (let guard = 0; guard < 1e6; guard++) {
+      for (let k = 0; k < 20; k++) await new Promise((r) => setImmediate(r));
+      if (!c.q.length) { if (done) break; continue; }
+      c.q.sort((x, y) => x.at - y.at);
+      const x = c.q.shift();
+      c.t = Math.max(c.t, x.at);
+      x.res();
+    }
+    return p;
+  };
+  return c;
 }
 
 async function suite(mod, quiet) {
@@ -165,16 +186,15 @@ async function suite(mod, quiet) {
     chk(mod.isRetryable({ code: 'auth/quota-exceeded' }) && mod.isRetryable({ message: 'RESOURCE_EXHAUSTED' }) && !mod.isRetryable({ code: 'auth/user-not-found' }) && !mod.isRetryable({ code: 'auth/invalid-credential' }), '다시 시도할 오류 가르기');
   });
 
-  say('\n── 3-2. 초당 수(실제 시계)');
+  say('\n── 3-2. 초당 수(가짜 시계)');
   await run('초당 수', async () => {
-    const { a } = fakeAuth(250);
-    const t0 = Date.now();
-    await mod.runLogout(a, { apply: true, rate: 100, log });
-    const took = Date.now() - t0;
+    const c = vclock();
+    const { a } = fakeAuth(250, { now: c.now });
+    await c.run(mod.runLogout(a, { apply: true, rate: 100, log, now: c.now, sleep: c.sleep }));
     let worst = 0;
     for (let i = 0, j = 0; i < a.calls.length; i++) { while (a.calls[i] - a.calls[j] >= 1000) j++; worst = Math.max(worst, i - j + 1); }
-    chk(a.calls.length === 250 && worst <= 101, '초당 100 이면 어느 1초에도 100번 남짓을 넘지 않는다(최대 ' + worst + ')');
-    chk(took >= 2000, '250명에 2.5초 가까이 걸린다(' + took + 'ms)');
+    chk(a.calls.length === 250 && worst <= 100, '초당 100 이면 어느 1초에도 100번을 넘지 않는다(최대 ' + worst + ')');
+    chk(c.t >= 2490, '250명에 2.49초 넘게 걸린다(10ms 간격 · ' + c.t + 'ms)');
   });
 
   say('\n── 4. 인자');
