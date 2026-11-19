@@ -12,6 +12,14 @@ const STORAGE_EMU = 'http://127.0.0.1:9199';
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** 로컬 묶음 docker 를 부른다(시드 SQL 등). OrbStack 을 먼저 — /var/run/docker.sock 은 꺼진 Docker Desktop 을 가리킬 수 있다 */
+function docker(args, input){
+  const env = Object.assign({}, process.env);
+  const orb = path.join(process.env.HOME || '', '.orbstack/run/docker.sock');
+  if(!env.DOCKER_HOST && fs.existsSync(orb)) env.DOCKER_HOST = 'unix://' + orb;
+  return require('child_process').execFileSync('docker', args, { input, env, encoding: 'utf8' });
+}
+
 // opts.version — 앱이 스스로 아는 판(app.getVersion)을 바꾼다(판 확인 시나리오가 «옛 판 · 새 판 PC» 를 흉내 낼 때)
 // opts.quiet — 이 앱만 조용한 창을 켜고 끈다(없으면 TW_E2E_QUIET)
 function makeApp(outArg, opts = {}){
@@ -160,4 +168,4 @@ async function quietProblems(app){
   return bad;
 }
 
-module.exports = { makeApp, wait, quietProblems, APP_DIR, API_HOST };
+module.exports = { makeApp, wait, quietProblems, docker, APP_DIR, API_HOST };
