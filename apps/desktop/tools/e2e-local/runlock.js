@@ -9,7 +9,8 @@ const LOCK = process.env.TW_E2E_RUN_LOCK || '';
 const QUIET_FAIL = LOCK ? path.join(path.dirname(LOCK), 'e2e-quiet-fail') : '';
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function acquire(owner){
+// opts.signals:false — 신호를 받아도 바로 끝내지 않는다(부르는 쪽이 신호 때 할 일을 마친 뒤 끝낸다 · 잠금은 exit 에서 놓음)
+async function acquire(owner, opts = {}){
   if(!LOCK || process.env.TW_E2E_RUN_LOCK_HELD === '1') return () => {};
   for(let n = 0; ; n++){
     try { fs.mkdirSync(LOCK); break; }
@@ -26,7 +27,7 @@ async function acquire(owner){
     try { fs.rmSync(LOCK + '/owner', { force: true }); fs.rmdirSync(LOCK); } catch(_){}
   };
   process.on('exit', release);
-  for(const [sig, code] of [['SIGINT', 130], ['SIGTERM', 143]]) process.on(sig, () => { release(); process.exit(code); });
+  if(opts.signals !== false) for(const [sig, code] of [['SIGINT', 130], ['SIGTERM', 143]]) process.on(sig, () => { release(); process.exit(code); });
   return release;
 }
 

@@ -6,6 +6,7 @@
 
 - **e2e** 열
   - `flow.js «단계»` — `node flow.js <결과 폴더>` 가 스스로 도는 단계(README «flow.js — 한 바퀴»).
+  - `core/<이름>.js «단계»` — `scenarios/core/<이름>.js` 시나리오(`node run-all.js core/<이름>` · README «run-all.js»). 판정까지 한다.
   - `REPL «항목»` — README «해 본 것 — REPL 로» 에 적은, 손으로 명령을 보내 확인한 순서. 스크립트가 아니라 다시 돌리려면 사람이 `run.sh` 로 보낸다.
   - `scenarios/<영역>/<이름>.js` — `node run-all.js` 가 돌리는 자동 판정 시나리오(README «run-all.js — 시나리오»).
   - `<영역>/<이름>`(방 · 채팅 줄) — 같은 시나리오를 줄여 쓴 것(`scenarios/room/create-join.js` → `room/create-join`). 괄호 안은 그 시나리오가 보는 것.
@@ -23,17 +24,17 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 
 | 기능 | e2e | sim | 상태 |
 |---|---|---|---|
-| 앱 켜기 순서 | `flow.js «로그인된 책상»`(다시 켠 뒤 15초 기다려 화면만 찍음) | `app-boot` `run-boot` `dom-boot` `user-local` · 부팅 스모크 `checks/smoke.js` | 부분 |
+| 앱 켜기 순서 | `core/boot-offline-online.js «켜기»`(다시 켠 앱이 시험보다 먼저 스스로 /v2/me 200 · realtime ready · 런처 · 화면 오류 없음). /v2/me 와 realtime 의 앞뒤 순서는 안 봄(웹소켓은 요청 기록에 없음) | `app-boot` `run-boot` `dom-boot` `user-local` · 부팅 스모크 `checks/smoke.js` | e2e |
 | 두 번째 실행(이미 켠 창을 앞으로) | `scenarios/launcher/second-instance.js`(멀쩡하면 새 실행이 바로 꺼지고 옛 앱이 신호를 받음 · 렌더러가 죽은 채면 옛 앱이 다시 켜기) | `second-instance` | e2e |
 | 렌더러가 죽었을 때 런처로 되돌리기 | `scenarios/launcher/renderer-crash.js`(마이홈 창 모드에서 렌더러를 crashed 로 죽임 → 창이 런처 크기 · main 로그 crashed → 되돌림 → 자동 다시 불러오기 한 번). 실행 화면은 캐릭터가 있어야 들어가서 마이홈으로 본다(되돌리는 길은 같다) · Playwright 로 붙인 앱은 다시 뜬 렌더러가 로드를 끝내지 못해 다시 불러온 화면 · 로그인 유지는 빠짐 | `renderer-gone-reset` | 부분 |
 | 런처 화면(미리보기 · 슬롯 · 타이틀바 · 컨트롤) | `REPL «캐릭터 만들기»` 가 런처에서 시작(런처 자체는 판정 안 함) | `launcher-chrome` `launcher-controls` `launcher-preview` `launcher-state` `app-mode` `cfg-fit` `slot-fit` `zoom-window` | 부분 |
-| 런처 광고 배너 · 게임 설정 |  | `ad-banner` | **할 일** |
-| 책상 모드(데스크톱 실행 화면 · 클릭 통과) | `REPL «책상 모드»` | `desktop-run` `click-through-policy` `hit-map` `hit-shadow` `overlay-gap` `overlay-layered` `top-level` `run-rect` `display-pick` `system-prompt` `pen-forward` `hover-poke` `fly-click-through` | REPL |
-| 피규어 · 회사원 모드 |  | `office-mode` `figure-mode` `window-mode` | **할 일** |
-| 프로그램 이동 모드 |  | `move-mode` | **할 일** |
+| 런처 광고 배너 · 게임 설정 | `core/ad-banner.js`(관리자 배너 저장 → 다른 사람 런처에 서버 알림으로 · 4초 넘김 · 비우면 숨음 · 동물 해금 레벨이 카탈로그에) | `ad-banner` | e2e |
+| 책상 모드(데스크톱 실행 화면 · 클릭 통과) | `core/desk-mode.js`(작업 영역 크기 · 맨 위 · setIgnoreMouseEvents true · 이름표 · 런처로 돌아오기). 캐릭터 위에서만 클릭 받기는 OS 마우스 자리로 판정해서 안 봄(합성 마우스는 OS 커서를 안 움직임) — sim 몫 | `desktop-run` `click-through-policy` `hit-map` `hit-shadow` `overlay-gap` `overlay-layered` `top-level` `run-rect` `display-pick` `system-prompt` `pen-forward` `hover-poke` `fly-click-through` | e2e |
+| 피규어 · 회사원 모드 | `core/figure-office.js`(피규어 끔 → 잠듦 Z · 켬 → 안 잠듦 · 회사원 ■ 우클릭 숨김 · 다시 켜도 유지) | `office-mode` `figure-mode` `window-mode` | e2e |
+| 프로그램 이동 모드 | `core/move-mode.js`(앱이 그리는 지금 자리 기준 — 이동 모드에서 마우스를 따라감 · 눌러 확정하면 tw.deskPan 저장값 = 지금 자리 · 확정 뒤 안 따라감 · 다시 켜면 지금 자리가 저장값으로 되살아남) | `move-mode` | e2e |
 | 설정 창(캐릭터 크기 · 포커싱 어플 · 테마 · 화면 크기 · 화질 · 단축키) | `scenarios/launcher/settings.js`(런처 ⚙️ 설정 — 탭 · 판 표시 · 테마 · 화질 · 회사원 모드 · 다시 켠 뒤 유지). 실행 화면의 F1 설정 패널(캐릭터 크기 · 포커싱 어플 · 화면 표시)은 캐릭터가 있는 실행 화면이 필요해 빠짐 · 자동 실행 토글은 이 PC 로그인 항목을 바꿔 누르지 않음 | `settings-panel` `program-settings` `panel-fit` `winlist` `theme` `theme-ui` `child-theme` `ui-zoom` `fn-keys` `key-input` `no-default-menu` `frame-budget` `unfocused-fps` | 부분 |
 | 오픈소스 라이선스 창 | `scenarios/launcher/oss-licenses.js`(런처 · 설정 두 입구 · 줄 수 · 원문 펼침 · 이름 → 브라우저 요청 기록) | `oss-licenses` | e2e |
-| 창 앞뒤 · 바깥 눌러 닫기 |  | `win-stack` `win-front` `win-layers` `z-layers` `outside-close` | **할 일** |
+| 창 앞뒤 · 바깥 눌러 닫기 | `core/win-stack.js`(마이홈 · 포커스 기록 창 누른 창 맨 앞 · ESC 는 나중 연 창부터 · 프로그램 설정 바깥 눌러 닫기). OS 창끼리의 앞뒤(다른 프로그램 위)는 OS 창 순서를 못 읽어 안 봄 — 맨 위(alwaysOnTop)만 desk-mode.js | `win-stack` `win-front` `win-layers` `z-layers` `outside-close` | e2e |
 
 ## 계정 · 로그인 · PC 등록
 
@@ -45,7 +46,7 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 | 비밀번호 바꾸기 · 구글 계정에 비밀번호 붙이기 | `scenarios/account/password.js`(바꾸기 → 새 비밀번호만 로그인 · 붙이기 → 이 PC 로그인이 이어지고 친구 코드로도 같은 계정) | `user-api` `account` | e2e |
 | 회원 탈퇴 | `scenarios/account/withdraw.js`(미리보기 · 체크 + «탈퇴» 둘 다 · 서버 탈퇴 → 로그인 화면 · 계정 없음) | `account-delete` `account` `my-info` `user-api` | e2e |
 | 친구 코드 고정 | `flow.js «초대 코드 입력»` 이 가입 화면의 친구 코드를 읽어 `account.json` 에 적음(바뀌지 않는지는 안 봄) | `friend-code-keep` | 부분 |
-| 로그아웃 | `scenarios/account/switch-account.js`(확인창 → 다시 켜기 → 로그인 화면 · 이 PC 계정 사본 없음 · 서버 기기 목록에서 빠짐) · `REPL «로그아웃»` | `account` `account-switch` `signup` | e2e |
+| 로그아웃 | `core/logout-maintenance.js «로그아웃»`(내 정보 › 계정 › 로그아웃 → 다시 켜기 → 로그인 화면 · 토큰 없음 · 친구 코드로 다시 로그인하면 같은 계정) · `scenarios/account/switch-account.js`(확인창 → 다시 켜기 → 로그인 화면 · 이 PC 계정 사본 없음 · 서버 기기 목록에서 빠짐) | `account` `account-switch` `signup` | e2e |
 | 같은 PC 에서 계정 바꾸기 | `scenarios/account/switch-account.js`(A 로그아웃 → B 로그인 · 같은 기기 id 가 B 에 등록 · A 에서 빠짐) | `account-switch` `account-store` | e2e |
 | 닉네임 바꾸기 · 운영진처럼 보이는 이름 막기 | `scenarios/account/nickname.js`(저장 · 서버 이름 · «운영자» 화면에서 막음 · 서버도 거절 · 12자 · 다시 켜도 그대로) | `user-name` `name-guard` `person-name` | e2e |
 | 내 정보 · 보관함 · 휴지통 | `scenarios/account/my-info.js`(친구 코드 · 보관함 n/20 · 휴지통으로 옮기기 · 복원 · 슬롯에 올리기 — 캐릭터는 API 로 미리 넣음) | `my-info` `my-info-box` | e2e |
@@ -53,21 +54,21 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 | 라이선스 · 프리미엄 등록 | `scenarios/account/license.js`(없는 키 거절 · 관리자가 낸 키 등록 → 서버 프리미엄 · 남의 키 거절 · 이 기기 해제) | `license-api` `license-key` `license-ui` `license-screen` `license-premium` `license-leak` `premium-assets` `premium-desk` | e2e |
 | PC 등록(계정마다 3대 · 넷째 PC 는 묻고 하나 지움) | `scenarios/account/device-limit.js`(앞 셋은 API 등록 · 넷째 앱 → «가장 오래된 기기 … 이 기기를 지우고 이 PC를 쓸까요?» · [취소]는 아무것도 안 지우고 로그인 화면 · [지우고 사용]은 그 기기만 지움) | `device-register` `device-limit-dialog` `device-id` `license-screen` | e2e |
 | PC 연결이 끊긴 뒤 안내(다른 PC 에서 이 PC 를 지움 · 이 PC 에서 새로 연 앱에 밀림) | `scenarios/account/device-lost.js`(상대 PC · 새 세션은 API 등록으로 — 서버가 realtime 에 닫게 알림 · 두 안내 글 · 다시 등록 · 여기서 계속) | `device-lost` | e2e |
-| 서버 점검 화면 | `REPL «점검 켜고 끄기»` | `maintenance-gate` `remote-config` | REPL |
+| 서버 점검 화면 | `core/logout-maintenance.js «점검»`(관리자 PUT app.maintenance → 서버를 쓰는 단추에 점검 창 · 끄면 «다시 켜기» 안내 · 스택 잠금 안에서 · 끝에 끔) | `maintenance-gate` `remote-config` | e2e |
 | 판 확인(강제 · 선택 업데이트 · 최소 판) | `scenarios/account/version.js`(최소 판 강제 창 · 새 판 선택 창 [나중에] · 같은 계정 다른 PC 의 더 새 판으로 막힘). 최소 판은 같이 쓰는 로컬 설정을 바꿀 수 없어 이 앱의 `GET /v2/config` 응답만 고치고, «새 판 있음» 은 GitHub 릴리스 피드라 main 의 확인 IPC 자리에서 상태를 보낸다 · 실제 내려받기 · 설치는 빠짐 | `update-flow` `app-version-sync` `app-version` `remote-config` `mac-update` `update-diag` | e2e |
 
 ## 캐릭터 · 책상 · 가챠
 
 | 기능 | e2e | sim | 상태 |
 |---|---|---|---|
-| 캐릭터 만들기(생성기 · 종족 고르기 · 얼굴 그리기) | `REPL «캐릭터 만들기»` | `creator-flow` `creator-open` `creator-state` `creator-save` `creator-preview` `creator-face` `creator-canvas` `creator-xform` `creator-flat-view` `race-picker` `paint-stroke` `paint-tools` `paint-geom` `uv-fill` `cr-stamp` `animal-edit-route` `animal-cast` `animal-tex` | REPL |
-| 꾸미기(옷장 · 파츠 · 귀 · 색칠) |  | `wardrobe` `wardrobe-panel` `wd-ear` `human-ear` `human-ear-attach` `part-equip-mod` `part-xf` `part-paint` `part-color-entry` `part-ao-clean` `part-scene` `part-anim` `cloth-visibility` `deco-parts` `deco-parts-visibility` `closet` `closet-api` `wd-parts-persist` | **할 일** |
+| 캐릭터 만들기(생성기 · 종족 고르기 · 얼굴 그리기) | `core/creator-desk.js`(+ → 인간 → 완성 → 서버 보관함 슬롯 · def). 얼굴 그리기(붓질)는 안 거침 | `creator-flow` `creator-open` `creator-state` `creator-save` `creator-preview` `creator-face` `creator-canvas` `creator-xform` `creator-flat-view` `race-picker` `paint-stroke` `paint-tools` `paint-geom` `uv-fill` `cr-stamp` `animal-edit-route` `animal-cast` `animal-tex` | 부분 |
+| 꾸미기(옷장 · 파츠 · 귀 · 색칠) | `core/catalog-files.js`(라이선스 등록한 사람이 꾸미기 › 모자에서 새 파츠를 눌러 «입음» · 앱이 그 모델 GLB 를 서버에서 받음). 귀 탭 · 색칠 · 상세조정은 안 거침 | `wardrobe` `wardrobe-panel` `wd-ear` `human-ear` `human-ear-attach` `part-equip-mod` `part-xf` `part-paint` `part-color-entry` `part-ao-clean` `part-scene` `part-anim` `cloth-visibility` `deco-parts` `deco-parts-visibility` `closet` `closet-api` `wd-parts-persist` | 부분 |
 | 캐릭터 슬롯 저장 · 서버에 올리기 | `flow.js «GLB 올리기 · 받기»`(파일 왕복만 · 슬롯 화면은 안 거침) | `slot-save` `slot-codec` `char-apply` `def-size` `def-send` `char-identity` | 부분 |
 | 얼굴 그림 올리기 · 받기 | `flow.js «얼굴 올리기 · 받기»`(파일 왕복 · 화면에서 다시 받기) | `upload-cache` `image-bytes` `face-loss` `face-heal` `room-face-load` `img-retry` | e2e |
-| 캐릭터 · 커미션 코드(복제 · 가져오기) |  | `char-code` `clone-code-entry` `code-crypto` `commission` `commission-import` `asset-code` `asset-import` `asset-cards` | **할 일** |
-| 책상 세팅 · 프리셋 · 책상 위 아이템 |  | `desk-setup` `desk-preset` `desk-items` `desk-item-equip` `desk-item-origin` `desk-place` `desk-visual` `desk-build` `desk-floor-clamp` `desk-part-scale` `item-rot` `interaction-desk` `saved-lists-wiring` | **할 일** |
-| 카탈로그 받기 · 갱신 |  | `catalog-api` `catalog-sync` `catalog-glb` `catalog-cache` `glb-idb-cache` `http-cache-reset` | **할 일** |
-| 가챠 · 모은 파츠 |  | `gacha` `gacha-api` `gacha-prune` `gacha-race` `wd-parts-persist` | **할 일** |
+| 캐릭터 · 커미션 코드(복제 · 가져오기) | `core/char-code.js`(복제 코드 DCC1 내보내기 → 다른 사람이 틀린 암호 거절 · 맞는 암호로 같은 캐릭터 · 커미션 zip → DCM1 → 등록) | `char-code` `clone-code-entry` `code-crypto` `commission` `commission-import` `asset-code` `asset-import` `asset-cards` | e2e |
+| 책상 세팅 · 프리셋 · 책상 위 아이템 | `core/creator-desk.js`(책상 색 · 크기 → 프리셋 저장 · 불러오기 · 서버 def · 다시 켜도 프리셋). 책상 위 아이템 · 카탈로그 책상 모델은 시나리오 없음 | `desk-setup` `desk-preset` `desk-items` `desk-item-equip` `desk-item-origin` `desk-place` `desk-visual` `desk-build` `desk-floor-clamp` `desk-part-scale` `item-rot` `interaction-desk` `saved-lists-wiring` | 부분 |
+| 카탈로그 받기 · 갱신 | `core/catalog-gacha.js «카탈로그»`(관리자 이름 고침 → 서버 카탈로그 · 앱이 알림을 받고 다시 받음) · `core/catalog-files.js`(새 파츠의 모델 파일 `GET /v2/catalog/assets/<해시>.glb` 크기까지 · 앱이 받음) | `catalog-api` `catalog-sync` `catalog-glb` `catalog-cache` `glb-idb-cache` `http-cache-reset` | e2e |
+| 가챠 · 모은 파츠 | `core/catalog-gacha.js «가챠»`(레벨 12 + 보너스 1 → 서버 earned 2 · bonus 1 · left 3 = floor(12/5)+1 · 앱 «남은 뽑기 3회» · 다음 Lv 15 · 1회 뽑기 → 2회 · 보유분) | `gacha` `gacha-api` `gacha-prune` `gacha-race` `wd-parts-persist` | e2e |
 
 ## 방
 
@@ -145,21 +146,21 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 
 | 기능 | e2e | sim | 상태 |
 |---|---|---|---|
-| 오프라인 → 온라인 다시 잇기 | `flow.js «오프라인» «온라인»`(크로미움 오프라인 흉내라 열린 realtime 웹소켓은 안 끊김 · 화면만 찍음 — README «함정») | `rt-hub` `rt-status-ui` `realtime-link` `net-ready` | 부분 |
-| keepalive(조용하면 ping · 응답 없으면 끊고 다시 잇기) |  | `rt-hub` `realtime-link` `heartbeat` `heartbeat-policy` | **할 일** |
-| 3D 장치 끊김 복구 |  | `gl-recover` `gl-context` | **할 일** |
+| 오프라인 → 온라인 다시 잇기 | `core/boot-offline-online.js`(크로미움 오프라인 + realtime 컨테이너 멈춤 → retrying · API 막힘 → 풀고 online 이벤트 → 5초 안에 ready) | `rt-hub` `rt-status-ui` `realtime-link` `net-ready` | e2e |
+| keepalive(조용하면 ping · 응답 없으면 끊고 다시 잇기) | `core/keepalive.js`(realtime 컨테이너 pause → 조용함 뒤 ping · 5초 뒤 끊음 · 20초 안 · 15초 넘게 못 붙으면 «다시 연결하는 중» 띠 · unpause → ready · 띠 사라짐 · presenceGet 답) | `rt-hub` `realtime-link` `heartbeat` `heartbeat-policy` | e2e |
+| 3D 장치 끊김 복구 | `core/gl-recover.js`(WEBGL_lose_context — 6초 안 복구면 그대로 · 안 돌아오면 6초 뒤 다시 켜기 · 10분 안 또 끊기면 안내 창) | `gl-recover` `gl-context` | e2e |
 
 ## 관리자(앱 안)
 
 | 기능 | e2e | sim | 상태 |
 |---|---|---|---|
-| 관리자 모드 들어가기 · 개발자 도구 열기 |  | `admin-mode` `admin-active` `admin-api` `admin-rules` `devtools-gate` | **할 일** |
-| 사용자 관리 · 초대권 주기 · 관리자 런처 |  | `admin-users-launcher` | **할 일** |
-| 라이선스 발급 · 엑셀 일괄 발급 · 시크릿룸 발급 |  | `admin-license` `license-xlsx` `secret-room-grant` | **할 일** |
-| 파츠 · 책상 · 아이템 등록 · 카탈로그 쓰기 |  | `admin-part-register` `admin-asset` `admin-thumbs` `catalog-admin-api` `publish-fields` | **할 일** |
-| 공지 · 업데이트 공지 편집 |  | `admin-notice` | **할 일** |
-| 신고 목록 |  | `report` | **할 일** |
-| 카테고리 관리 |  | `admin-license` `admin-mode` | **할 일** |
+| 관리자 모드 들어가기 · 개발자 도구 열기 | `core/admin-mode.js`(비밀번호 창 uid · 틀린 비밀번호 · 서버 관리자 아님 · 관리자 → 모드 켜짐 · Ctrl+E 끔). 개발자 도구 막기는 설치본에서만 돌아(dev 판은 늘 열림) 안 봄 — sim 몫 | `admin-mode` `admin-active` `admin-api` `admin-rules` `devtools-gate` | 부분 |
+| 사용자 관리 · 초대권 주기 · 관리자 런처 | `core/admin-license.js «초대권»`(친구 코드로 2장 → 서버 남은 장 · 다시 켠 런처 수). 📊 통계 창은 안 거침 | `admin-users-launcher` | 부분 |
+| 라이선스 발급 · 엑셀 일괄 발급 · 시크릿룸 발급 | `core/admin-license.js`(친구 코드로 발급 → 수령함 키 → 등록 → premium · 새 키 목록 · 시크릿룸 SCRT 코드 주인). 엑셀 일괄은 안 거침 | `admin-license` `license-xlsx` `secret-room-grant` | 부분 |
+| 파츠 · 책상 · 아이템 등록 · 카탈로그 쓰기 | `core/catalog-files.js`(꾸미기 › 모자 › [+ 등록] 에 GLB → `POST /v2/admin/catalog/assets` · 등록 완료 · 끝에 단종) · `core/catalog-gacha.js`(이름 고침 · 단종) · `core/ad-banner.js`(해금 레벨) · `core/admin-content.js`(카테고리). 책상 · 아이템 등록 · 파츠 고치기는 안 거침 | `admin-part-register` `admin-asset` `admin-thumbs` `catalog-admin-api` `publish-fields` | 부분 |
+| 공지 · 업데이트 공지 편집 | `core/admin-content.js`(확성기 → 다른 사람 머리 위 · 종료 · 업데이트 공지 → 다시 켤 때 공지 창) | `admin-notice` | e2e |
+| 신고 목록 | `core/admin-content.js «신고»`(앱 없는 세 계정이 신고 → 관리자 목록 «3명» · 문제없음 → 빠짐) | `report` | e2e |
+| 카테고리 관리 | `core/admin-content.js «카테고리»`(추가 → 다른 사람 카탈로그에 · 끝에 지움) | `admin-license` `admin-mode` | e2e |
 
 웹 관리자(`apps/admin`, 데스크톱 앱 밖)는 따로 Playwright e2e 가 있다 — `apps/admin/e2e/*.spec.ts`(`auth` `users` `license` `license-bulk` `secret-room` `notices` `reports` `rooms` `room-server` `settings` `metrics` `usage` `admin-log` `catalog-categories` `catalog-parts` `catalog-desks-items` `catalog-gacha` `catalog-diagnose` `smoke`), 돌리기는 `npm --prefix apps/admin run e2e`. 이 표에는 넣지 않았다.
 
@@ -172,16 +173,10 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 
 ## 할 일 — e2e 가 없거나 일부만 있는 기능
 
-e2e 가 없는 기능(위 표의 **할 일**):
-
-- 켜기 · 런처: 광고 배너 · 피규어 · 회사원 모드 · 이동 모드 · 창 앞뒤
-- 캐릭터: 꾸미기 · 캐릭터 · 커미션 코드 · 책상 세팅 · 카탈로그 · 가챠
-- 연결: keepalive · 3D 끊김 복구
-- 관리자(앱 안): 전부
+e2e 가 없는 기능(위 표의 **할 일**): 없음 — 네 묶음(account · room · core · social)이 표의 모든 줄에 시나리오를 둔다.
 
 e2e 가 있지만 일부만 보는 기능(`부분`):
 
-- 앱 켜기 순서 · 오프라인 → 온라인 — 화면만 찍고 판정하지 않는다. 다시 잇기는 README «함정» 처럼 realtime 컨테이너를 멈췄다 풀어야 실제로 끊긴다.
 - 렌더러가 죽었을 때 — main 쪽(창 크기 · 다시 불러오기)까지만 본다. 다시 불러온 화면은 Playwright 아래에서 로드가 끝나지 않는다.
 - 설정 창 — 런처 ⚙️ 설정만 본다(실행 화면 F1 설정 패널 — 캐릭터 크기 · 포커싱 어플 · 화면 표시 — 은 캐릭터가 있는 실행 화면이 필요해 빠짐).
 - 런처 화면 · 마이홈 열기 · 친구 코드 고정 · 캐릭터 슬롯 저장 — 다른 흐름이 지나가기만 한다(마이홈 꾸미기는 e2e 없음).
@@ -189,6 +184,8 @@ e2e 가 있지만 일부만 보는 기능(`부분`):
 - 방 놀이 — 💣 로 남을 날리기(레벨 100)는 문턱(안내 토스트)만 본다.
 - 스티커사진 — 세션 · 시작 · 정원까지. 촬영 · 꾸미기 · 저장은 시나리오가 없다.
 - 이모티콘 — 내 이모티콘 등록(그림 올리기)은 시나리오가 없다.
-- 플레이리스트 · 백색소음 · 포커스 시간 · 레벨 · 포커스 기록 · 달성표 — 시험이 만들 수 없는 몫(유튜브 재생 · OS 전역 키 입력 · 앞 창 감지 · 포커싱 앱 등록)은 빼고 그 다음 단계부터 판정한다(표의 e2e 열에 무엇을 뺐는지).
+- 플레이리스트 · 백색소음 · 포커스 시간 · 레벨 · 포커스 기록 · 달성표 · 버그 제보 — 시험이 만들 수 없는 몫(유튜브 재생 · OS 전역 키 입력 · 앞 창 감지 · 포커싱 앱 등록 · 관리자 답변 화면)은 빼고 그 다음 단계부터 판정한다(표의 e2e 열에 무엇을 뺐는지).
 
-REPL 순서만 있는 기능(`REPL` — 자동 판정 없음): 책상 모드 · 서버 점검 · 캐릭터 만들기.
+REPL 순서만 있는 기능(`REPL` — 자동 판정 없음): 없음.
+
+core 시나리오가 일부만 보는 기능(`부분` — 까닭은 표의 e2e 열): 캐릭터 만들기(얼굴 그리기) · 책상 세팅(책상 위 아이템 · 카탈로그 책상) · 꾸미기(귀 · 색칠 · 상세조정) · 관리자 모드(개발자 도구 — 설치본만) · 초대권(통계 창) · 라이선스(엑셀 일괄) · 등록 창(책상 · 아이템 · 파츠 고치기).
