@@ -4,8 +4,8 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { makeApp, wait, API_HOST, quietProblems } = require('../../lib.js');
-const { acquire } = require('../../runlock.js');
+const { makeApp, wait, API_HOST, quietProblems, docker } = require('../../lib.js');
+const { acquire, markQuietFail } = require('../../runlock.js');
 
 const INVITE = process.env.TW_E2E_INVITE || 'INVT-SCAL-E2E3';   // seed/social-invite.sql
 const PW = 'e2e-pass-1234';   // 에뮬레이터 안에서만 쓰는 시험 비밀번호
@@ -16,14 +16,13 @@ const PG = {
   user: process.env.TW_E2E_PG_USER || 'tw_api_dev',
   db: process.env.TW_E2E_PG_DB || 'tw_dev',
 };
-const DOCKER_ENV = Object.assign({}, process.env, process.env.DOCKER_HOST ? {} : { DOCKER_HOST: 'unix://' + path.join(process.env.HOME, '.orbstack/run/docker.sock') });
 
 // seed/<file> 을 psql 로 넣는다 — vars 는 psql -v 이름=값
 function seedSql(file, vars){
   const args = ['exec', '-i', PG.container, 'psql', '-v', 'ON_ERROR_STOP=1', '-U', PG.user, '-d', PG.db];
   for(const [k, v] of Object.entries(vars || {})) args.push('-v', `${k}=${v}`);
   args.push('-f', '-');
-  return execFileSync('docker', args, { input: fs.readFileSync(path.join(__dirname, '..', '..', 'seed', file)), env: DOCKER_ENV }).toString();
+  return docker(args, fs.readFileSync(path.join(__dirname, '..', '..', 'seed', file)));
 }
 
 // 렌더러 안에서 앱 토큰으로 API 를 부른다 — 요청이 앱과 같은 길(주소 돌리기 · 요청 기록)로 간다
@@ -83,7 +82,10 @@ async function assertQuiet(u, where){
   if(!u.A.quiet || !u.A.app) return;
   let bad;
   try { bad = await quietProblems(u.A.app); } catch(_){ return; }   // 앱을 다시 켜는 중
-  if(bad.length) throw new Error(`${u.label}: 조용한 창이 깨짐(${where}) — ${bad.join(' / ')}`);
+  if(!bad.length) return;
+  const msg = `${u.label}: 조용한 창이 깨짐(${where}) — ${bad.join(' / ')}`;
+  markQuietFail('social · ' + msg);   // run-all 이 다음 시나리오를 켜지 않게(네 묶음 같은 규칙)
+  throw new Error(msg);
 }
 
 function scenario(name, body){
