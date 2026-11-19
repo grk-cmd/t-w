@@ -186,8 +186,9 @@ release/0.12.1    ●──●──●── …           ← 다음 판. 앞 
 5. PR로 합친 **뒤에** `main`에서 배포합니다.
    ```bash
    firebase deploy --only database     # 규칙
-   firebase deploy --only functions    # 함수
+   firebase deploy --only functions    # 함수(0.12 까지)
    ```
+   **0.13 부터**: 기본 설정(`firebase/firebase.json`)은 컷오버 규칙(`firebase-database-rules-cutover.json`)만 올리고 `functions` 칸이 없습니다. 운영 규칙은 컷오버 날 T+2 에 한 번 올리고 Functions 는 T+8 에 지운 뒤 다시 올리지 않습니다(tw-docs `docs/design/06-cutover.md`). 컷오버 전에 `firebase deploy --only database` 를 치면 운영 RTDB 쓰기가 바로 잠깁니다. 큰 규칙(`firebase-database-rules.json`)은 검사가 읽는 파일로만 남고 배포하지 않습니다 — 기본 설정이 큰 규칙 · `functions` 로 돌아가면 `sim-rules-cutover.js` 가 빨강입니다.
 6. 배포 전에 콘솔 규칙 탭의 현재 버전을 확인합니다. 저장소와 다르면 누군가 콘솔에서 직접 고친 것이니, 먼저 저장소에 반영합니다.
 7. **콘솔에서 규칙을 직접 고치지 않습니다.** 급해서 고쳤다면 같은 날 저장소에 커밋합니다.
 
@@ -221,7 +222,7 @@ Firebase 에서 하던 일을 자체 서버(AWS — 방 서버 · 이후 API 서
   - `MAJOR`: 데이터 구조나 규칙이 바뀌어 **옛 앱이 동작하지 않게 될 때**
 - 순서는 **⓪ 판 브랜치 → main 합치기(merge commit) → ① 규칙 → ② 최신화 → ③ 빌드**입니다 (버전 올림은 `main`에 직접 커밋합니다).
 
-  **① 규칙**: 규칙이나 Functions 변경이 있을 때만 합니다.
+  **① 규칙**: 규칙이나 Functions 변경이 있을 때만 합니다. **0.13 부터는 이 단계가 없습니다** — 운영 규칙은 컷오버 날 T+2 에 한 번 올리고 Functions 는 지운 채 둡니다(4장 5).
   1. 규칙 파일 변경을 먼저 커밋·push합니다. 배포는 **커밋된 파일 기준**으로 합니다.
   2. dev에 먼저 배포합니다: `firebase deploy --only database --project together-working-dev`
   3. 운영에 배포합니다: `firebase deploy --only database` (Functions면 `--only functions`)

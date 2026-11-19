@@ -1,11 +1,13 @@
 /* sim-leave-flush.js — 🚪 떠나기 전 저장 기다리기(shared/leave-flush.js) · 끄기 붙잡기(quit-hold.js) · 앱 끄기가 캐릭터 저장을 기다린다
    ・1절: flushWithin — 일이 없으면 바로(타이머 없음) · 던지는 일도 끝난 것 · 안 끝나면 8초에 timedOut
-   ・2절: createQuitHold(main) — 붙잡기 · 답이 오면 다시 끄기 · 한 번 끝나면 다시 안 붙잡음 · 창이 없거나 죽었거나 «답할 수 있다» 전이면 안 붙잡음 · 9초 상한 · 창 닫기 · 업데이트 설치
+   ・2절: createQuitHold(main) — 붙잡기 · 답이 오면 다시 끄기 · 한 번 끝나면 다시 안 붙잡음 · 창이 없거나 죽었거나 «답할 수 있다» 전이면 안 붙잡음 · 9초 상한 · 창 닫기 · 업데이트 설치 ·
+          맥 창 닫기(저장을 기다린 뒤 창만 닫고 앱은 남음 · 다시 연 창이 알리면 끄기를 또 붙잡음 · 묻는 사이 Cmd+Q 는 끄기)
    ・3절: 끝까지 — 진짜 옷장(closet.js) + 진짜 끄기 붙잡기(quit-hold.js) + 진짜 렌더러 답(leave-flush.js)을 가짜 IPC 로 이어 돌린다:
           캐릭터를 만들자마자 끄면 만들기 요청(POST)이 끝난 뒤에 꺼진다 · 못 올린 것이 없으면 바로 꺼진다(요청 0 · 옷장 줄에 멈춘 받기가 있어도) · 요청이 안 끝나면 8초 · 렌더러가 멈췄으면 9초 ·
           app.js 가 켜다 죽은 화면 · leave-flush.js 가 아직 안 실린 화면은 바로
    ・4절: 배선 — main.js(before-quit 맨 앞 · 창 닫기 · 업데이트 설치 · 새 화면 · 렌더러 죽음 · session-end 는 그대로) · preload 채널 · app.js 일 · html 순서 · 로그아웃이 같은 한 벌
-   ・5절: mutation test — 끄기를 안 붙잡는 옛 길(main 이 바로 app.quit)은 3절 첫 판정이 빨강 · 렌더러가 옷장 일을 안 넘기면 빨강 · closet.js 의 «못 올린 것이 있을 때만» 거름을 걷으면 8초 · «답할 수 있다» 를 안 보면 9초
+   ・5절: mutation test — 끄기를 안 붙잡는 옛 길(main 이 바로 app.quit)은 3절 첫 판정이 빨강 · 렌더러가 옷장 일을 안 넘기면 빨강 · closet.js 의 «못 올린 것이 있을 때만» 거름을 걷으면 8초 · «답할 수 있다» 를 안 보면 9초 ·
+          맥도 창 닫기를 끄기로 모으면 빨강 · 맥 창 닫기 뒤 단계가 done 에 남으면 다시 연 창의 Cmd+Q 가 저장을 안 기다려 빨강
    [실행] 저장소 루트에서 node checks/run.js sim-leave-flush */
 'use strict';
 const fs = require('fs');
@@ -63,11 +65,20 @@ function mkMain(L, clock, opt){
   const o = opt || {};
   const m = { log: [], quitCount: 0, handlers: {}, sent: [], win: null, held: 0 };
   const ipcMain = { on: (ch, fn) => { (m.handlers[ch] = m.handlers[ch] || []).push(fn); } };
-  m.win = o.noWin ? null : {
-    destroyed: false, crashed: !!o.crashed,
-    isDestroyed(){ return this.destroyed; },
-    webContents: { isDestroyed: () => false, isCrashed: () => !!o.crashed, send: (ch) => { m.sent.push(ch); if(m.onSend) m.onSend(ch); } },
+  /* 창 — close() 는 진짜처럼 'close' 를 거쳐(windowClose) 막히지 않으면 닫힌다 */
+  m.mkWin = () => {
+    const w = {
+      destroyed: false, crashed: !!o.crashed, closing: 0,
+      isDestroyed(){ return this.destroyed; },
+      close(){
+        if(++w.closing > 3){ m.log.push('close-loop'); return; }   // 닫는 close 가 다시 묻고 또 닫기를 되풀이하면 끊고 남긴다(끝없이 돌지 않게)
+        m.log.push('close'); let prevented = false; m.hold.windowClose({ preventDefault(){ prevented = true; } }); if(!prevented){ w.destroyed = true; m.log.push('closed'); }
+      },
+      webContents: { isDestroyed: () => false, isCrashed: () => !!o.crashed, send: (ch) => { m.sent.push(ch); if(m.onSend) m.onSend(ch); } },
+    };
+    return w;
   };
+  m.win = o.noWin ? null : m.mkWin();
   m.app = {
     quit(){
       m.quitCount++;
@@ -78,7 +89,7 @@ function mkMain(L, clock, opt){
       if(!m.quitAt){ m.quitAt = clock.now; m.log.push('quit'); }
     },
   };
-  m.hold = L.createQuitHold({ getWindow: () => m.win, ipcMain, quit: () => m.app.quit(), setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout });
+  m.hold = L.createQuitHold({ getWindow: () => (m.win && !m.win.destroyed ? m.win : null), ipcMain, quit: () => m.app.quit(), platform: o.platform || 'win32', setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout });
   m.done = () => (m.handlers[L.CH.DONE] || []).forEach(fn => fn());
   m.ready = (sender) => (m.handlers[L.CH.READY] || []).forEach(fn => fn({ sender: sender || (m.win && m.win.webContents) }));
   if(!o.noReady && !o.renderer) m.ready();   // 2절 — 렌더러가 «답할 수 있다» 를 알린 뒤(3절은 진짜 leave-flush.js 가 알린다)
@@ -142,9 +153,10 @@ async function scene(src, opt, qhSrc){
   if(o.edit !== false) e.edit(0, { skin: 'new' });   // 새 캐릭터 저장 — 3초 묶음이 예약된다
   await clock.advance(o.waitBefore || 50);
   const t0 = clock.now;
-  m.app.quit();                                         // 제목줄 × → companion:quitApp → app.quit()
+  if(o.closeWindow) m.win.close();                      // 메인 창 닫기(맥 빨간 단추 · 윈도우 Alt+F4)
+  else m.app.quit();                                    // 제목줄 × → companion:quitApp → app.quit()
   await clock.advance(o.runFor || 20000);
-  return { log, m, e, clock, quitAfter: m.quitAt == null ? null : m.quitAt - t0, calls: e.calls };
+  return { log, m, e, clock, quitAfter: m.quitAt == null ? null : m.quitAt - t0, calls: e.calls, qh: qhSrc };
 }
 
 (async () => {
@@ -232,6 +244,52 @@ say('── 2. createQuitHold — 붙잡기 · 다시 끄기 · 상한 · 창 �
   m.hold.flushThen(() => up.push('install3'));
   chk(up.includes('install3'), '  창이 없으면 바로 설치');
 }
+await macClose(QH, true);
+
+/* 맥 창 닫기 — 저장을 기다린 뒤 창만 닫는다 · 다시 연 창이 알리면 끄기를 또 붙잡는다. ok=false 면 판정을 거꾸로 센다(mutation test) */
+async function macClose(qhSrc, ok){
+  const res = [];
+  const put = (cond, msg) => { res.push(!!cond); if(ok) chk(cond, msg); };
+  let clock = mkClock(), L = loadQH(qhSrc), m = mkMain(L, clock, { platform: 'darwin' });
+  m.win.close();
+  put(m.sent.join() === L.CH.ASK && !m.log.includes('closed') && m.quitCount === 0, '맥 창 닫기 — 닫기를 막고 렌더러에 묻는다(끄지 않는다)');
+  m.done();
+  m.done();   // 닫는 close 가 다시 물었다면 그 답 — closeOnly 가 «답할 수 있다» 를 지웠으면 물음이 없어 아무 일 없다
+  put(m.log.join() === 'close,close,closed' && m.sent.length === 1 && m.quitCount === 0 && !m.log.includes('quit') && m.hold.stage() === 'idle' && clock.pending() === 0,
+    '  답이 오면 창만 닫는다 — 앱은 Dock 에 남고(끄기 0) 단계는 처음(idle)으로 [' + m.log.join() + ']');
+  m.app.quit();
+  put(m.log.includes('quit') && m.sent.length === 1, '  다시 연 창이 «답할 수 있다» 를 알리기 전 Cmd+Q — 붙잡지 않고 바로 끈다');
+  clock = mkClock(); L = loadQH(qhSrc); m = mkMain(L, clock, { platform: 'darwin' });
+  m.win.close(); m.done();
+  m.win = m.mkWin(); m.ready();                          // activate 가 창을 다시 연다 → 새 렌더러가 알린다
+  m.app.quit();
+  put(m.held === 1 && m.sent.length === 2 && !m.log.includes('quit'), '  다시 연 창이 알린 뒤 Cmd+Q — 저장을 다시 묻는다(붙잡는다)');
+  m.done();
+  put(m.log.includes('quit'), '  답이 오면 끈다');
+  clock = mkClock(); L = loadQH(qhSrc); m = mkMain(L, clock, { platform: 'darwin' });
+  m.win.close(); m.app.quit();
+  put(m.held === 1 && m.sent.length === 1, '  창 닫기를 묻는 사이 Cmd+Q — 붙잡기만 하고 다시 묻지 않는다');
+  m.done();
+  put(m.log.includes('quit'), '  답이 오면 창만 닫지 않고 끈다 [' + m.log.join() + ']');
+  clock = mkClock(); L = loadQH(qhSrc); m = mkMain(L, clock, { platform: 'darwin' });
+  m.app.quit(); m.win.close();
+  put(m.held === 1 && m.sent.length === 1 && m.log.join() === 'close', '  Cmd+Q 를 묻는 사이 창 닫기 — 닫기를 막기만 하고 다시 묻지 않는다 [' + m.log.join() + ']');
+  await clock.advance(L.QUIT_GUARD_MS - 1);
+  put(!m.log.includes('quit'), '    상한 타이머는 Cmd+Q 때 건 그대로(덮어써 일찍 끝나지 않음)');
+  m.done();
+  put(m.log.includes('quit') && clock.pending() === 0, '    답이 오면 창만 닫지 않고 끈다 [' + m.log.join() + ']');
+  clock = mkClock(); L = loadQH(qhSrc); m = mkMain(L, clock, { platform: 'darwin', noReady: true });
+  m.win.close();
+  put(m.log.join() === 'close,closed' && m.hold.stage() === 'idle' && m.sent.length === 0, '  물을 상대가 없으면(불러오는 중) — 창은 바로 닫히고 단계는 처음 그대로');
+  m.win = m.mkWin(); m.ready(); m.app.quit();
+  put(m.held === 1 && m.sent.length === 1, '  그 뒤 다시 연 창이 알리면 Cmd+Q 를 붙잡는다');
+  clock = mkClock(); L = loadQH(qhSrc); m = mkMain(L, clock, { platform: 'win32' });
+  m.win.close();
+  put(m.held === 1 && m.sent.length === 1, '윈도우 · 리눅스 창 닫기(Alt+F4) — 끄기로 모아 묻는다');
+  m.done();
+  put(m.log.includes('quit'), '  답이 오면 끈다');
+  return res.every(Boolean);
+}
 
 /* ── 3. 끝까지 ── */
 say('── 3. 끝까지 — 진짜 옷장 + 끄기 붙잡기 + 렌더러 답');
@@ -257,6 +315,9 @@ const G = await scene(null, { rendererNotLoaded: true });
 chk(G.quitAfter === 0 && G.log[0] === 'quit', '  leave-flush.js 가 아직 안 실린 화면(불러오는 중) — 붙잡지 않고 바로 꺼진다(' + G.quitAfter + 'ms)');
 const E = await scene(null, { createMs: 3000 });
 chk(E.quitAfter === 3000 && E.log.join(' → ') === 'create-done → done → quit', '  요청이 3초 걸리면 3초 기다렸다 끈다');
+const M = await scene(null, { platform: 'darwin', closeWindow: true, runFor: 1000 });
+chk(M.calls.join() === 'create:0' && M.log.join(' → ') === 'close → create-done → done → close → closed' && M.m.quitCount === 0,
+  '★ 맥 — 캐릭터를 만들자마자 창을 닫으면 만들기 요청이 끝난 뒤 창만 닫힌다(앱은 남음) [' + M.log.join(' → ') + ']');
 
 /* ── 4. 배선 ── */
 say('── 4. 배선');
@@ -264,6 +325,7 @@ say('── 4. 배선');
   const MAIN = SRC['main.js'], PRE = SRC['preload.js'], APP = SRC['app/parts/app.js'], HTML = SRC['app/desk-companion-prototype.html'], ACC = SRC['app/parts/account/account.js'];
   chk(/const \{ createQuitHold \} = require\('\.\/quit-hold'\);/.test(MAIN) && /const _quitHold = createQuitHold\(\{ getWindow: \(\) => mainWindow, ipcMain, quit: \(\) => app\.quit\(\)/.test(MAIN) && !/require\('\.\/app\/parts\/shared\/leave-flush'\)/.test(MAIN),
     'main.js — quit-hold.js 로 끄기 붙잡기를 만든다(렌더러 파일은 가져오지 않는다)');
+  chk(/createQuitHold\(\{[^}]*platform: process\.platform/.test(MAIN), '  플랫폼을 넘긴다 — 맥은 창 닫기가 창만 닫는다');
   chk(/"quit-hold\.js"/.test(SRC['package.json']), '  설치 목록(package.json files)에 quit-hold.js — 빠지면 설치본이 켜지지 않는다');
   chk(/app\.on\('before-quit', \(e\) => \{ if\(_quitHold\.beforeQuit\(e\)\) return; try \{ sysinput\.stopGlobalHooks/.test(MAIN), '  before-quit 맨 앞 — 붙잡았으면 훅 · 타이머 정리를 건너뛴다(기다리는 동안 앱이 그대로 돈다)');
   chk(/mainWindow\.on\('close', \(e\) => \{ _quitHold\.windowClose\(e\); \}\)/.test(MAIN), '  메인 창 닫기(Alt+F4)도 끄기로 모은다');
@@ -293,8 +355,16 @@ say('── 5. mutation test');
   chk(noFilter.quitAfter === 8000, 'closet.js 의 거름을 걷으면(늘 flushSlots) — 줄에 멈춘 받기 뒤에서 8초를 기다린다 → 3절 «멈춘 받기» ★ 판정이 빨강(' + noFilter.quitAfter + 'ms)');
   const noReadyGate = await scene(null, { rendererNotLoaded: true }, QH.replace('if(!w || !ready) return null;', 'if(!w) return null;'));
   chk(noReadyGate.quitAfter === 9000, '«답할 수 있다» 를 안 보고 붙잡으면 — 불러오는 중인 화면에서 9초를 기다린다 → 위 «안 실린 화면» 판정이 빨강(' + noReadyGate.quitAfter + 'ms)');
-  const broken = await scene(null, {}, QH.replace('if(stage === \'idle\' && !ask(quit)) return false;', 'return false;'));
+  const BQ = "if(stage === 'idle' && !ask(quit)){ stage = 'done'; return false; }";
+  chk(QH.includes(BQ), 'quit-hold.js beforeQuit 원문이 그대로 있다(아래 변이의 바탕)');
+  const broken = await scene(null, {}, QH.replace(BQ, 'return false;'));
   chk(broken.log[0] === 'quit', 'beforeQuit 가 붙잡지 않으면 — 요청 전에 꺼진다 → 빨강');
+  const KEEP = "const keepAppOnClose = deps.platform === 'darwin';", IDLE = "stage = 'idle'; ready = false;", ASKING = "    if(stage === 'asking'){ e.preventDefault(); return; }";
+  chk(QH.includes(KEEP) && QH.includes(IDLE) && QH.includes(ASKING), 'quit-hold.js 맥 창 닫기 원문이 그대로 있다(아래 변이의 바탕)');
+  chk(!(await macClose(QH.replace(ASKING, ''), false)), '맥에서 묻는 중 창 닫기를 막지 않으면 — Cmd+Q 를 묻는 사이 창을 닫을 때 끄지 않고 창만 닫아 빨강');
+  chk(!(await macClose(QH.replace(IDLE, "stage = 'idle';"), false)), 'closeOnly 가 «답할 수 있다» 를 안 지우면 — 닫는 close 가 다시 물어 창이 안 닫혀 빨강');
+  chk(!(await macClose(QH.replace(KEEP, 'const keepAppOnClose = false;'), false)), '맥도 창 닫기를 끄기로 모으면 — «창만 닫는다» 판정이 빨강');
+  chk(!(await macClose(QH.replace(IDLE, 'ready = false;'), false)), '맥 창 닫기 뒤 단계가 done 에 남으면 — 다시 연 창의 Cmd+Q 가 저장을 안 기다려 빨강');
 }
 
 say('');
