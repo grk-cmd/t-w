@@ -5,6 +5,7 @@
      → 이어서 끈다. 렌더러가 답하지 못하면 GUARD_MS 에 끈다.
    ★ 렌더러가 «답할 수 있다»(READY — leave-flush.js 가 실리며 듣기를 걸 때)고 알린 뒤에만 붙잡는다. 창이 없거나 · 렌더러가 죽었거나 ·
      화면을 새로 불러오는 중(rendererReset 뒤 READY 전)이면 붙잡지 않는다 — 답할 상대 없이 9초를 기다리지 않게.
+     READY 는 렌더러가 실릴 때 한 번만 온다 — 맥 창 닫기(closeOnly)가 ready 를 지우고 닫는 close 가 다시 묻지 않는 것은 이 전제에 기댄다.
    ⚠️ OS 세션 종료 · _exitNow(app.exit)는 before-quit 를 거치지 않는다 — 기다리지 않고 바로 끈다(OS 종료를 막지 않게).
    ⚠️ 채널 이름은 preload.js(onQuitFlush · quitFlushDone)와 같아야 한다 — 검사가 견준다.
    ★ 메인 창 닫기: 윈도우 · 리눅스는 끄기로 모은다. 맥은 예전처럼 창만 닫고 앱은 Dock 에 남는다(activate 가 창을 다시 연다) —
