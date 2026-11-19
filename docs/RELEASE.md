@@ -2,6 +2,8 @@
 
 > 릴리스 순서는 **① 규칙 → ② 최신화 → ③ 빌드**입니다. 이 문서는 ②와 ③을 다룹니다.
 > ①(Firebase 규칙)은 dev 만 자동입니다. 규칙 파일을 바꿔 `main`에 push하면 **dev에 자동 반영**되고(`deploy-dev.yml`), **운영은 태그 전에 사람이 직접** `firebase deploy --only database --project together-working` 합니다. `release.yml` 은 규칙을 확인하거나 배포하지 않습니다.
+>
+> **0.13 부터는 다릅니다.** 기본 설정(`firebase/firebase.json`)은 컷오버 규칙(`firebase/firebase-database-rules-cutover.json` — `config/maintenance` · `minAppVer` · `minRoomVer` 읽기와 점검 칸 관리자 쓰기만)을 올리고 `functions` 칸이 없습니다. 운영 규칙은 **컷오버 날 T+2 에 한 번** 올리고(tw-docs `docs/design/06-cutover.md` 8장 ②), Functions 는 T+8 에 지운 뒤 다시 올리지 않습니다. 컷오버 **전**에 «태그 전 규칙 배포» 로 `firebase deploy --only database` 를 치면 운영 RTDB 쓰기가 바로 잠기니 치지 않습니다. 컷오버 뒤 RTDB 에는 점검 · 최소 버전 · `admins` 만 남고, 큰 규칙(`firebase-database-rules.json`)은 0.12 호환 검사 · 판끼리 견주기가 읽는 파일로만 남습니다(배포하지 않음).
 
 ---
 
@@ -137,7 +139,7 @@ git push --follow-tags
 | | 테스트 빌드 (`v0.10.2-beta.0`) | 정식 빌드 (`v0.10.2`) |
 |---|---|---|
 | 앱이 접속하는 Firebase | 운영 (`together-working`) — **실제 데이터** | 운영 (`together-working`) |
-| 운영 규칙 배포 | 하지 않음 | 하지 않음(태그 전에 사람이 직접) |
+| 운영 규칙 배포 | 하지 않음 | 하지 않음(0.12 까지는 태그 전에 사람이 직접 · 0.13 부터는 컷오버 날 T+2 에 한 번) |
 | Releases 표시 | **Pre-release** | Latest |
 | 일반 사용자 자동 업데이트 | **받지 않음** | 받음 |
 | 설치 | 내부 사람이 Releases 페이지에서 직접 받음 | 자동 |
