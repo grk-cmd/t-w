@@ -101,44 +101,44 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 
 | 기능 | e2e | sim | 상태 |
 |---|---|---|---|
-| 친구 요청 보내기 | `REPL «친구 요청»` | `friend-requests` `social-api` `add-friend` `seat-friend-req` | REPL |
-| 친구 요청 받기 · 수락 · 거절 |  | `friend-requests` `social-api` `friend-manage` | **할 일** |
-| 친구 목록 · 관리 · 끊기 |  | `friends-port` `friends-sub` `friend-manage` `friend-manage-module` `friend-profile-live` | **할 일** |
-| 친구 접속 표시(온라인으로 보이기) |  | `friends-presence-rt` `presence-lock` | **할 일** |
-| 친구 방 놀러 가기 · 친구 마이홈 구경 |  | `friend-visit` `myhome-visit` | **할 일** |
-| 방 초대 보내기 · 받기(3분 뒤 자동 거절) |  | `room-invite-rt` `room-invite-ui` `room-invite-wait` | **할 일** |
+| 친구 요청 보내기 | `scenarios/social/friend-request-accept.js`(마이홈 › 친구 코드 → 보낸 요청 · 서버) | `friend-requests` `social-api` `add-friend` `seat-friend-req` | e2e |
+| 친구 요청 받기 · 수락 · 거절 | `scenarios/social/friend-request-accept.js`(토스트 · 배지 · 목록 [수락]) · `scenarios/social/friend-request-decline.js`(팝업 [거절] · 목록 [거절] · 보낸 요청 취소) | `friend-requests` `social-api` `friend-manage` | e2e |
+| 친구 목록 · 관리 · 끊기 | `scenarios/social/friend-list-remove.js`(이름 · Lv · 온라인 묶음 · 검색 · ✕ 끊기 · 상대 화면) | `friends-port` `friends-sub` `friend-manage` `friend-manage-module` `friend-profile-live` | e2e |
+| 친구 접속 표시(온라인으로 보이기) | `scenarios/social/friend-presence.js`(토글 · 🔒 고정 show_online · 다시 켜도 숨김 · 앱 끄면 오프라인) | `friends-presence-rt` `presence-lock` | e2e |
+| 친구 방 놀러 가기 · 친구 마이홈 구경 | `scenarios/social/friend-visit.js` | `friend-visit` `myhome-visit` | e2e |
+| 방 초대 보내기 · 받기(3분 뒤 자동 거절) | `scenarios/social/room-invite.js`(수락 · 거절 · 3분은 렌더러 시계를 앞으로) | `room-invite-rt` `room-invite-ui` `room-invite-wait` | e2e |
 
 ## 마이홈
 
 | 기능 | e2e | sim | 상태 |
 |---|---|---|---|
 | 마이홈 열기 · 꾸미기(배경 · 스티커 · 디자인 프리셋 · 본문 링크) | `REPL «친구 요청»` 이 열기만 지나감(꾸미기는 안 거침) | `myhome-init` `myhome-page` `myhome-load` `myhome-store` `myhome-wire` `myhome-ui` `myhome-steps` `myhome-state` `myhome-edit` `myhome-hooks` `myhome-preset` `myhome-links` `myhome-sticker` `myhome-sticker-layout` `myhome-sticker-render` `myhome-sticker-rules` `myhome-api` `mh-bg-url` `mh-pad-pos` `mh-title-nodrag` | 부분 |
-| 마이홈 바탕화면 · 폴더 · 책장 북마크 |  | `folder-free` `mhd-envsub` `mhd-hidefolders` `bookmark` `bookshelf-store` | **할 일** |
-| 방명록 · 웹박수 |  | `guestbook` `guestbook-api` `guestbook-feed` `guestbook-wiring` `mh-sanitize` `rich-text` | **할 일** |
-| 말랑이 · 선물 보내기 · 받기 |  | `mallang-module` `mallang-store` `mallang-gift` `mallang-hide` `gift-api` `gift-box` `gift-save` `gift-img-retry` | **할 일** |
-| 우편함 · 공지 |  | `inbox-api` `inbox-sections` `mail-feed` `myhome-inbox` `notice-api` `notice-feed` `drag-scroll` | **할 일** |
-| 일정 · 디데이 · 일정 알림 |  | `schedule-api` `scheduler` | **할 일** |
-| 플레이리스트 |  | `playlist` `playlist-api` `pl-grab-pick` `pl-loop` `pl-next` `pl-watchdog` `api-public-reads` `bgm-diag` | **할 일** |
-| 백색소음 |  | `noise` | **할 일** |
-| 도움말 탭 |  | `help-tab` | **할 일** |
+| 마이홈 바탕화면 · 폴더 · 책장 북마크 | `scenarios/social/myhome-desktop.js`(폴더 숨기기 · 책 꽂기 · 공개 책만 친구에게) | `folder-free` `mhd-envsub` `mhd-hidefolders` `bookmark` `bookshelf-store` | e2e |
+| 방명록 · 웹박수 | `scenarios/social/guestbook.js`(친구만 · 쓰기 · 박수 · 새 글 배지 · 지우기 — 창이 포커스를 잃으면 닫히는 동작은 막고 돌림) | `guestbook` `guestbook-api` `guestbook-feed` `guestbook-wiring` `mh-sanitize` `rich-text` | e2e |
+| 말랑이 · 선물 보내기 · 받기 | `scenarios/social/mallang-gift.js`(라이선스 잠김 · 그림 등록(POST /v2/me/images → 칸 저장) — OS 파일 창은 main 의 dialog 를 바꿔 고른 파일을 준다 · 폴더 누르면 소환 · 친구 줄 우클릭 선물 보내기(서버 사본) · 받은 쪽 선물함) | `mallang-module` `mallang-store` `mallang-gift` `mallang-hide` `gift-api` `gift-box` `gift-save` `gift-img-retry` | e2e |
+| 우편함 · 공지 | `scenarios/social/inbox-notice.js`(관리자 우편 · 읽음 · 지우기 · 소식) | `inbox-api` `inbox-sections` `mail-feed` `myhome-inbox` `notice-api` `notice-feed` `drag-scroll` | e2e |
+| 일정 · 디데이 · 일정 알림 | `scenarios/social/schedule-dday.js`(일정 · 친구 태그 → 🔔 · D-day · 공개 범위) | `schedule-api` `scheduler` | e2e |
+| 플레이리스트 | `scenarios/social/playlist.js`(곡 추가 — 유튜브 제목 조회는 가짜 답 · 서버 사본 · 친구 파도타기. 실제 재생은 유튜브라 안 봄) | `playlist` `playlist-api` `pl-grab-pick` `pl-loop` `pl-next` `pl-watchdog` `api-public-reads` `bgm-diag` | 부분 |
+| 백색소음 | `scenarios/social/white-noise.js`(고르기 · 음량 · 같은 방 전파 · 남의 소리 끄기 · 다시 켜도 기억. 소리가 나는 때(타이핑 자세)는 OS 전역 키 입력이라 안 봄) | `noise` | 부분 |
+| 도움말 탭 | `scenarios/social/help-tab.js`(도움말 사이트는 route-main.js 가 저장소의 firebase/hosting/help 로 답한다 · 목차 · 묶음 펴기 · 편 이동. 못 불러옴 E-MH-01 은 sim-help-tab 이 본다) | `help-tab` | e2e |
 
 ## 포커스 · 레벨
 
 | 기능 | e2e | sim | 상태 |
 |---|---|---|---|
-| 포커스 시간 · 레벨 · 경험치 바 |  | `focus-progress` `focus-total` `focus-day` `focus-level` `focus-api` `focus-gate` `focus-gate-self` `exp-bar` `exp-bar-color` `lv-tier` `idle-gate` `gamepad-activity` | **할 일** |
-| 포커스 기록 · 오늘 기록 보여 주기 |  | `focus-log` `focus-share` `focus-show` | **할 일** |
-| 뽀모도로 |  | `pomodoro` `pomodoro-module` | **할 일** |
-| 달성표(한 주 도전) |  | `weekly-challenge` `chal-store` | **할 일** |
-| 폰 · 태블릿 연결 |  | `mobile-focus` `focus-api` `mobile-link-trim` | **할 일** |
+| 포커스 시간 · 레벨 · 경험치 바 | `scenarios/social/focus-level.js`(올리기 API · 레벨 식 경계 0 · 3599 · 3600 · 999 상한 · 경험치 칸 · 내 정보 · 친구 Lv. «집중» 판정(앞 창 감지)은 OS 라 그 뒤 단계부터) | `focus-progress` `focus-total` `focus-day` `focus-level` `focus-api` `focus-gate` `focus-gate-self` `exp-bar` `exp-bar-color` `lv-tier` `idle-gate` `gamepad-activity` | 부분 |
+| 포커스 기록 · 오늘 기록 보여 주기 | `scenarios/social/pomodoro.js` · `scenarios/social/weekly-challenge.js` 가 포커스 기록 창을 연다(누적 · 오늘 숫자 판정은 없음) | `focus-log` `focus-share` `focus-show` | 부분 |
+| 뽀모도로 | `scenarios/social/pomodoro.js`(시작 · 일시정지 · 시간 다 됨 · 건너뛰기 · 다시 켜도 이어짐 · 멈춤) | `pomodoro` `pomodoro-module` | e2e |
+| 달성표(한 주 도전) | `scenarios/social/weekly-challenge.js`(잠김 · 📋 규칙 만들기 · 오늘 달성 · 포기. 🎯 집중 · 🔁 반복은 포커싱 앱 등록이 OS 라 안 봄) | `weekly-challenge` `chal-store` | 부분 |
+| 폰 · 태블릿 연결 | `scenarios/social/phone-link.js`(키 만들기 · 폰 신호는 폰 자동화와 같은 API · 사용 중 · 쉬는 중 · 잘못된 키 · 끊기) | `mobile-focus` `focus-api` `mobile-link-trim` | e2e |
 
 ## 알림 · 제보 · 신고
 
 | 기능 | e2e | sim | 상태 |
 |---|---|---|---|
-| 토스트 · 오류 번호 알림 |  | `toast` `error-codes` `api-errors` `error-log` | **할 일** |
-| 버그 제보 게시판 |  | `bug-board` `bug-api` `bug-no` `bug-cleanup` | **할 일** |
-| 신고하기 |  | `report` `report-away` | **할 일** |
+| 토스트 · 오류 번호 알림 | `scenarios/social/toast-errors.js`(안내 토스트 · 서버 500 → E-FR-01 · tw-error.log · 다시 누르면 됨) | `toast` `error-codes` `api-errors` `error-log` | e2e |
+| 버그 제보 게시판 | `scenarios/social/bug-board.js`(비공개 글 · 남에게 잠긴 줄 · 관리자가 본문 읽기 · 관리자 답변(API — 앱의 관리자 모드는 비밀번호 창이라 시험이 못 켠다) · 글쓴이 «새 답변» · 우편 · 열면 안 본 답 0. 관리자 답변 화면은 안 봄) | `bug-board` `bug-api` `bug-no` `bug-cleanup` | 부분 |
+| 신고하기 | `scenarios/social/report.js`(이름표 우클릭 › 신고 · 숨김 · 관리자 목록) | `report` `report-away` | e2e |
 
 일정 알림 · 채팅 알림음 · 방 초대 · 공지는 위 «마이홈» · «채팅» · «친구 · 초대» 표에 있다.
 
@@ -173,12 +173,7 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 
 ## 할 일 — e2e 가 없거나 일부만 있는 기능
 
-e2e 가 없는 기능(위 표의 **할 일**):
-
-- 친구 · 초대: 요청 받기 · 수락 · 친구 목록 · 친구 접속 표시 · 친구 방 · 마이홈 놀러 가기 · 방 초대
-- 마이홈: 바탕화면 · 방명록 · 말랑이 · 선물 · 우편함 · 공지 · 일정 · 디데이 · 플레이리스트 · 백색소음 · 도움말 탭
-- 포커스: 포커스 시간 · 레벨 · 포커스 기록 · 뽀모도로 · 달성표 · 폰 연결
-- 알림 · 제보: 토스트 · 오류 번호 · 버그 제보 · 신고
+e2e 가 없는 기능(위 표의 **할 일**): 없음 — 네 묶음(account · room · core · social)이 표의 모든 줄에 시나리오를 둔다.
 
 e2e 가 있지만 일부만 보는 기능(`부분`):
 
@@ -189,7 +184,8 @@ e2e 가 있지만 일부만 보는 기능(`부분`):
 - 방 놀이 — 💣 로 남을 날리기(레벨 100)는 문턱(안내 토스트)만 본다.
 - 스티커사진 — 세션 · 시작 · 정원까지. 촬영 · 꾸미기 · 저장은 시나리오가 없다.
 - 이모티콘 — 내 이모티콘 등록(그림 올리기)은 시나리오가 없다.
+- 플레이리스트 · 백색소음 · 포커스 시간 · 레벨 · 포커스 기록 · 달성표 · 버그 제보 — 시험이 만들 수 없는 몫(유튜브 재생 · OS 전역 키 입력 · 앞 창 감지 · 포커싱 앱 등록 · 관리자 답변 화면)은 빼고 그 다음 단계부터 판정한다(표의 e2e 열에 무엇을 뺐는지).
 
-REPL 순서만 있는 기능(`REPL` — 자동 판정 없음): 친구 요청 보내기.
+REPL 순서만 있는 기능(`REPL` — 자동 판정 없음): 없음.
 
 core 시나리오가 일부만 보는 기능(`부분` — 까닭은 표의 e2e 열): 캐릭터 만들기(얼굴 그리기) · 책상 세팅(책상 위 아이템 · 카탈로그 책상) · 꾸미기(귀 · 색칠 · 상세조정) · 관리자 모드(개발자 도구 — 설치본만) · 초대권(통계 창) · 라이선스(엑셀 일괄) · 등록 창(책상 · 아이템 · 파츠 고치기).

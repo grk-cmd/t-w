@@ -10,7 +10,7 @@ dev 앱(`--tw-firebase=dev`)을 켜서 화면을 누르고 결과를 파일로 �
 | `route-main.js` | 주소 돌리기 — 시험 앱의 요청을 이 PC 서버 · 에뮬레이터로 돌리고 진짜 서버로는 못 나가게 막는다(아래 «주소 돌리기») |
 | `run-all.js` · `scenarios/<영역>/*.js` | 자동 판정 시나리오 — 하나씩 돌리고 요약(종료 코드 · `steps.txt` 의 ok · FAIL) |
 | `runlock.js` | 여러 사람 · 세션이 한 PC 에서 돌릴 때 한 번에 한 실행만 Electron 을 켜게 하는 잠금 |
-| `seed/*.sql` | 시나리오가 쓰는 로컬 DB 시드(초대 코드 · 관리자 · 레벨 · 가챠 보너스 · 시험 파츠) |
+| `seed/*.sql` | 시나리오가 쓰는 로컬 DB 시드(초대 코드 · 관리자 · 레벨 · 가챠 보너스 · 시험 파츠 · 포커스 누적) |
 | `repl.js` · `run.sh` | 앱을 켜 둔 채 JS 명령을 하나씩 보내기 |
 | `FEATURES.md` | 앱 기능마다 이 도구의 시나리오 · `checks/` sim 이 있는지 적은 지도 — 빈 곳(할 일)부터 시나리오를 더한다 |
 
@@ -61,6 +61,11 @@ node flow.js /tmp/tw-e2e/flow2 INVT-XXXX-XXXX   # 다른 초대 코드
 ```
 
 결과 폴더에 남는 것: `steps.txt`(단계마다 ok · FAIL · 걸린 시간) · `console.txt`(렌더러 · 메인 로그) · `requests.txt`(돌린 요청 · 응답 코드) · 단계 화면 `01-invite.png` … · 실패 화면 `fail-<n>.png` · `account.json`(이번에 만든 친구 코드 · 시험 비밀번호 — 에뮬레이터 안에만 있는 계정). 끝나면 종료 코드 0, 실패하면 1.
+
+### social 묶음
+
+- `social` 묶음 공통부는 `scenarios/social/_kit.js`(`_` 로 시작하는 파일은 run-all 이 돌리지 않는다). 관리자 · 초대 코드 · 포커스 누적은 `seed/admin.sql` · `seed/core-invite.sql`(코드를 넘김) · `seed/focus.sql` 을 로컬 DB 컨테이너(`TW_E2E_PG`, 기본 `tw-dev-local-postgres-1`)에 넣는다.
+- 시험이 누를 수 없는 OS 창(파일 고르기)은 main 의 `dialog.showOpenDialog` 를 «이 파일을 골랐다» 로 바꿔 두고, 바깥 사이트 유튜브 제목 조회는 렌더러 fetch 를 그 주소에서만 가짜 답으로 바꾼다 — 앱 코드는 그대로다. 서버 실패는 이 앱만 오프라인(lib.js `net`)으로 만든다.
 
 ### repl.js · run.sh — 켜 둔 앱에 명령 보내기
 
