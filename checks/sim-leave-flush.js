@@ -68,9 +68,12 @@ function mkMain(L, clock, opt){
   /* 창 — close() 는 진짜처럼 'close' 를 거쳐(windowClose) 막히지 않으면 닫힌다 */
   m.mkWin = () => {
     const w = {
-      destroyed: false, crashed: !!o.crashed,
+      destroyed: false, crashed: !!o.crashed, closing: 0,
       isDestroyed(){ return this.destroyed; },
-      close(){ m.log.push('close'); let prevented = false; m.hold.windowClose({ preventDefault(){ prevented = true; } }); if(!prevented){ w.destroyed = true; m.log.push('closed'); } },
+      close(){
+        if(++w.closing > 3){ m.log.push('close-loop'); return; }   // 닫는 close 가 다시 묻고 또 닫기를 되풀이하면 끊고 남긴다(끝없이 돌지 않게)
+        m.log.push('close'); let prevented = false; m.hold.windowClose({ preventDefault(){ prevented = true; } }); if(!prevented){ w.destroyed = true; m.log.push('closed'); }
+      },
       webContents: { isDestroyed: () => false, isCrashed: () => !!o.crashed, send: (ch) => { m.sent.push(ch); if(m.onSend) m.onSend(ch); } },
     };
     return w;
@@ -251,7 +254,8 @@ async function macClose(qhSrc, ok){
   m.win.close();
   put(m.sent.join() === L.CH.ASK && !m.log.includes('closed') && m.quitCount === 0, '맥 창 닫기 — 닫기를 막고 렌더러에 묻는다(끄지 않는다)');
   m.done();
-  put(m.log.join() === 'close,close,closed' && m.quitCount === 0 && !m.log.includes('quit') && m.hold.stage() === 'idle' && clock.pending() === 0,
+  m.done();   // 닫는 close 가 다시 물었다면 그 답 — closeOnly 가 «답할 수 있다» 를 지웠으면 물음이 없어 아무 일 없다
+  put(m.log.join() === 'close,close,closed' && m.sent.length === 1 && m.quitCount === 0 && !m.log.includes('quit') && m.hold.stage() === 'idle' && clock.pending() === 0,
     '  답이 오면 창만 닫는다 — 앱은 Dock 에 남고(끄기 0) 단계는 처음(idle)으로 [' + m.log.join() + ']');
   m.app.quit();
   put(m.log.includes('quit') && m.sent.length === 1, '  다시 연 창이 «답할 수 있다» 를 알리기 전 Cmd+Q — 붙잡지 않고 바로 끈다');
@@ -267,6 +271,13 @@ async function macClose(qhSrc, ok){
   put(m.held === 1 && m.sent.length === 1, '  창 닫기를 묻는 사이 Cmd+Q — 붙잡기만 하고 다시 묻지 않는다');
   m.done();
   put(m.log.includes('quit'), '  답이 오면 창만 닫지 않고 끈다 [' + m.log.join() + ']');
+  clock = mkClock(); L = loadQH(qhSrc); m = mkMain(L, clock, { platform: 'darwin' });
+  m.app.quit(); m.win.close();
+  put(m.held === 1 && m.sent.length === 1 && m.log.join() === 'close', '  Cmd+Q 를 묻는 사이 창 닫기 — 닫기를 막기만 하고 다시 묻지 않는다 [' + m.log.join() + ']');
+  await clock.advance(L.QUIT_GUARD_MS - 1);
+  put(!m.log.includes('quit'), '    상한 타이머는 Cmd+Q 때 건 그대로(덮어써 일찍 끝나지 않음)');
+  m.done();
+  put(m.log.includes('quit') && clock.pending() === 0, '    답이 오면 창만 닫지 않고 끈다 [' + m.log.join() + ']');
   clock = mkClock(); L = loadQH(qhSrc); m = mkMain(L, clock, { platform: 'darwin', noReady: true });
   m.win.close();
   put(m.log.join() === 'close,closed' && m.hold.stage() === 'idle' && m.sent.length === 0, '  물을 상대가 없으면(불러오는 중) — 창은 바로 닫히고 단계는 처음 그대로');
@@ -348,8 +359,10 @@ say('── 5. mutation test');
   chk(QH.includes(BQ), 'quit-hold.js beforeQuit 원문이 그대로 있다(아래 변이의 바탕)');
   const broken = await scene(null, {}, QH.replace(BQ, 'return false;'));
   chk(broken.log[0] === 'quit', 'beforeQuit 가 붙잡지 않으면 — 요청 전에 꺼진다 → 빨강');
-  const KEEP = "const keepAppOnClose = deps.platform === 'darwin';", IDLE = "stage = 'idle'; ready = false;";
-  chk(QH.includes(KEEP) && QH.includes(IDLE), 'quit-hold.js 맥 창 닫기 원문이 그대로 있다(아래 변이의 바탕)');
+  const KEEP = "const keepAppOnClose = deps.platform === 'darwin';", IDLE = "stage = 'idle'; ready = false;", ASKING = "    if(stage === 'asking'){ e.preventDefault(); return; }";
+  chk(QH.includes(KEEP) && QH.includes(IDLE) && QH.includes(ASKING), 'quit-hold.js 맥 창 닫기 원문이 그대로 있다(아래 변이의 바탕)');
+  chk(!(await macClose(QH.replace(ASKING, ''), false)), '맥에서 묻는 중 창 닫기를 막지 않으면 — Cmd+Q 를 묻는 사이 창을 닫을 때 끄지 않고 창만 닫아 빨강');
+  chk(!(await macClose(QH.replace(IDLE, "stage = 'idle';"), false)), 'closeOnly 가 «답할 수 있다» 를 안 지우면 — 닫는 close 가 다시 물어 창이 안 닫혀 빨강');
   chk(!(await macClose(QH.replace(KEEP, 'const keepAppOnClose = false;'), false)), '맥도 창 닫기를 끄기로 모으면 — «창만 닫는다» 판정이 빨강');
   chk(!(await macClose(QH.replace(IDLE, 'ready = false;'), false)), '맥 창 닫기 뒤 단계가 done 에 남으면 — 다시 연 창의 Cmd+Q 가 저장을 안 기다려 빨강');
 }
