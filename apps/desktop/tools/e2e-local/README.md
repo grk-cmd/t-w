@@ -10,7 +10,7 @@ dev 앱(`--tw-firebase=dev`)을 켜서 화면을 누르고 결과를 파일로 �
 | `route-main.js` | 주소 돌리기 — 시험 앱의 요청을 이 PC 서버 · 에뮬레이터로 돌리고 진짜 서버로는 못 나가게 막는다(아래 «주소 돌리기») |
 | `run-all.js` · `scenarios/<영역>/*.js` | 자동 판정 시나리오 — 하나씩 돌리고 요약(종료 코드 · `steps.txt` 의 ok · FAIL) |
 | `runlock.js` | 여러 사람 · 세션이 한 PC 에서 돌릴 때 한 번에 한 실행만 Electron 을 켜게 하는 잠금 |
-| `seed/*.sql` | 시나리오가 쓰는 로컬 DB 시드(초대 코드 · 관리자) |
+| `seed/*.sql` | 시나리오가 쓰는 로컬 DB 시드(초대 코드 · 관리자 · 레벨 · 가챠 보너스 · 시험 파츠) |
 | `repl.js` · `run.sh` | 앱을 켜 둔 채 JS 명령을 하나씩 보내기 |
 | `FEATURES.md` | 앱 기능마다 이 도구의 시나리오 · `checks/` sim 이 있는지 적은 지도 — 빈 곳(할 일)부터 시나리오를 더한다 |
 
@@ -86,10 +86,11 @@ node repl.js /tmp/tw-e2e/a
 ```bash
 node run-all.js                 # 전부
 node run-all.js account         # 한 영역
-node scenarios/account/login.js /tmp/tw-e2e/account/login   # 하나만
+node run-all.js core/keepalive  # 시나리오 하나
+node scenarios/account/login.js /tmp/tw-e2e/account/login   # 하나만(러너 없이)
 ```
 
-시나리오는 저마다 새 계정(새 친구 코드)을 만들고, 결과 폴더(`/tmp/tw-e2e/<영역>/<이름>`)를 비우고 시작한다. 판정은 화면 글 · 앱 상태 · 돌린 요청 기록 · API 응답으로 한다. 끝 줄이 `PASS` 면 통과(종료 코드 0). `BUG  <번호>` 줄은 FEATURES.md «발견한 버그» 에 적힌 버그가 아직 그대로라는 뜻이다(통과 판정은 바꾸지 않는다) — `FIXED` 로 바뀌면 그 버그를 표에서 지우고 시나리오의 그 자리를 일반 단계로 바꾼다.
+시나리오는 저마다 새 계정(새 친구 코드)을 만들고, 결과 폴더(`/tmp/tw-e2e/<영역>/<이름>`)를 비우고 시작한다. 판정은 화면 글 · 앱 상태 · 돌린 요청 기록 · API 응답으로 한다. 끝 줄이 `PASS` 면 통과(종료 코드 0). `BUG  <번호>` 줄은 FEATURES.md «발견한 버그» 에 적힌 버그가 아직 그대로라는 뜻이다(통과 판정은 바꾸지 않는다) — `FIXED` 로 바뀌면 그 버그를 표에서 지우고 시나리오의 그 자리를 일반 단계로 바꾼다. 모두가 보는 서버 값을 바꾸는 시나리오(core 의 배너 · 점검 · 공지 · 카테고리 · 시험 파츠)는 끝에 되돌리고, 못 되돌리면 `FIXED` 대신 `FAIL 정리: …` 줄로 실패가 된다.
 
 #### 방 · 채팅(`scenarios/room` · `scenarios/chat`)
 
@@ -109,6 +110,15 @@ node run-all.js room/create-join
 
 - **조용한 창(`TW_E2E_QUIET`, 기본 켬 · `quiet-main.js`)** — 감싸는 진입점이 앱 main.js 보다 먼저 `quiet-main.js` 를 불러, 시험 프로세스 안에서만 electron 을 감싼다(앱 코드는 그대로). 앱은 «보조 앱»(mac `setActivationPolicy('accessory')` — Dock 아이콘 없음)으로 켜지고 `app.focus` · `app.show` · `dock.show` 는 아무것도 안 한다. 앱이 받는 `BrowserWindow` 는 하위 클래스로 바뀌어 처음부터 화면 밖(-20000, -20000) · 포커스 없이 보이고(`show` → `showInactive`), `focus` · `moveTop` · `maximize` · 전체 화면은 아무것도 안 하며, `setAlwaysOnTop` 은 값만 기억하고, `setBounds` · `setContentBounds` · `setPosition` · `center` 는 폭 · 높이만 따르고 자리는 «앱이 아는 자리» 로만 기억한다 — `getBounds` · `getPosition` · `getContentBounds` 는 그 자리를 돌려줘 앱이 화면 밖 값을 마지막 자리로 저장하지 않는다. 진짜 창은 투명(opacity 0) · 클릭 통과 · 소리 끔(mac 은 화면 밖 창을 화면 끝으로 당겨 놓아 끝자락이 보이고 눌릴 수 있다) — 앱이 부르는 `setAlwaysOnTop` · `setOpacity` · `setIgnoreMouseEvents` · `webContents.setAudioMuted`(BrowserView 등 모든 webContents) 는 값만 기억하고 `isAlwaysOnTop` · `getOpacity` · `isAudioMuted` 는 그 값을 돌려준다. 렌더러의 `window.open` 창(방명록 · 디자인 스튜디오)은 electron 이 안에서 만들어서, 모든 webContents 의 `setWindowOpenHandler` 를 감싸 처음부터 숨김 · 화면 밖 · 투명 · 늘 위 끔으로 열고, 만들어지자마자 같은 조용한 처리를 건다. 시험이 진짜 값을 볼 땐 `w.__e2eRealBounds()` · `w.__e2eRealOpacity()` · `w.webContents.__e2eRealAudioMuted()` · `w.__e2eRealAlwaysOnTop()` · 앱이 정한 클릭 통과는 `w.__e2eIgnoreMouse()`. Playwright 입력은 CDP 로 가서 포커스 · 클릭 통과와 상관없고, 화면 밖에서도 타이머 · WebGL 이 돌게 배경 늦추기를 끈다. 네 묶음이 이 한 벌을 같이 쓴다. 확인은 `scenarios/launcher/quiet.js`(lib.js 만 써서 계정 · 시드 없이 돈다 — 켠 뒤 · 앱이 창을 앞으로 부르는 길을 부른 뒤 · 창 목록 · window.open 자식 창 · BrowserView 소리 — 판정은 `lib.quietProblems` 한 곳 · 화면 · 포커스 · 소리로 새는 실패만 `e2e-quiet-fail` 에 남김). 시나리오 안에서는 `lib.quietProblems(app)` 이 단계마다 같은 규칙을 보고(계정 묶음은 `t.step` 끝마다), 깨지면 잠금 폴더 옆 `e2e-quiet-fail` 에 까닭을 남긴다 — `run-all.js` 는 그 파일이 있으면 다음 시나리오를 켜지 않는다. 그 파일은 아무도 저절로 지우지 않는다: 까닭을 보고 고친 뒤(`scenarios/launcher/quiet.js` 가 다시 통과한 뒤) 사람 · 세션이 지운다. `quiet:false` 로 켠 앱은 단계 판정에서 건너뛴다. 눈으로 보려면 `TW_E2E_QUIET=0`. 화면에 꼭 떠야 하는 시나리오(창 앞뒤 · 바깥 눌러 닫기)는 `makeApp(out, { quiet: false })` 로 그 앱만 끄고 시나리오 머리에 까닭을 적는다.
 - **실행 잠금(`TW_E2E_RUN_LOCK`)** — 잠금 폴더 경로를 주면 `mkdir` 로 잡고(있으면 30초마다 다시) 끝나면 `rmdir` 한다. `run-all.js` 가 잡으면 시나리오는 다시 잡지 않는다. 비워 두면 잠그지 않는다. 잡은 프로세스가 SIGKILL · 전원 꺼짐으로 죽으면 잠금 폴더가 남는다 — `owner` 의 pid 가 살아 있지 않으면(`ps -p <pid>`) 손으로 `rm <잠금>/owner; rmdir <잠금>`.
+
+core 묶음 환경 값(`scenarios/core/_kit.js`):
+
+| 값 | 뜻 |
+|---|---|
+| `TW_E2E_STACK_LOCK` | 공유 컨테이너(realtime 등)를 멈췄다 풀 때만 잡는 잠금 폴더. 비어 있으면 컨테이너를 건드리는 시나리오(keepalive · 오프라인 → 온라인 · 점검)는 멈춘다. 신호로 끝나도 exit 에서 잠금을 지우고 멈춘 realtime 을 푼다 |
+| `TW_E2E_INVITE` | 가입에 쓰는 초대 코드(기본 `INVT-C2RE-TEST` — 시나리오가 `seed/core-invite.sql` 로 넣는다) |
+| `TW_E2E_PG` · `TW_E2E_RT` | DB · realtime 컨테이너 이름(기본 `tw-dev-local-postgres-1` · `tw-dev-local-rooms-dev-1`) |
+| `TW_E2E_ADMIN_PASS` | 앱 관리자 비밀번호. 없으면 시험 글자 하나만 앱의 비밀번호 해시로 바꿔 주는 덮개를 창에 건다(비교 · 서버 확인 · 모드 켜기는 앱 코드 그대로) |
 
 ## 해 본 것 — REPL 로 (2026-11-17 확인)
 
