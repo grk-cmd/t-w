@@ -1,6 +1,6 @@
 // 렌더러가 죽었을 때 런처로 되돌리기 — 런처 밖 창 모드(마이홈 — 창이 커진다)에서 렌더러를 죽이면 한 번 다시 불러오고,
 // 다시 불러오기 전에 창부터 런처 크기로 되돌린다. 판정: 창 크기(main 의 BrowserWindow)가 처음 런처 크기 · main 로그 순서(crashed → 되돌림 → 다시 불러옴)
-// 실행 화면(모니터 전체 오버레이)은 캐릭터가 있어야 들어가서 마이홈 창 모드로 본다 — 되돌리는 길(_resetWindowForReload)은 같다
+// 실행 화면(모니터 전체 오버레이)은 캐릭터가 있어야 들어가서 마이홈 창 모드로 본다 — 되돌리는 길(_resetWindowToLauncher)은 같다
 'use strict';
 const K = require('../account/_kit.js');
 

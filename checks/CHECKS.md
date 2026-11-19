@@ -84,7 +84,7 @@
 | **sim-char-foot.js** | 142 | **17f2aa70cc31** |
 | **sim-char-identity.js** | 188 | **9aa1d07d92b1** |
 | **sim-char-z.js** | 225 | **92fb9efdb2c1** |
-| **sim-cfg-fit.js** | 338 | **0924c6748705** |
+| **sim-cfg-fit.js** | 338 | **469f9184cd07** |
 | **sim-chat-fly.js** | 360 | **b52fd913a6d7** |
 | **sim-bug-board.js** | 537 | **c5d858ba0e37** |
 | **sim-bug-api.js** | 305 | **89942cf7127a** |
@@ -184,6 +184,7 @@
 | **sim-focus-gate-self.js** | 124 | **75f9f6f122b2** |
 | **sim-focus-gate.js** | 105 | **9c9b4639f7e7** |
 | **sim-mac-0923.js** | 79 | **8674be4d5b9f** |
+| **sim-mac-reopen.js** | 298 | **41a4618c2d97** |
 | **sim-bookmark.js** | 236 | **fbd1a1cead1a** |
 | **sim-overlay-gap.js** | 345 | **eeee70a317a5** |
 | **sim-overlay-layered.js** | 361 | **fdb1ca616576** |
@@ -497,6 +498,7 @@
 | **sim-rules-src.js** | 78 | **12241e59c87b** |
 | **sim-rules-drift.js** | 175 | **2782c5c73084** |
 | **sim-rules-cutover.js** | 157 | **88aff836d62f** |
+| **sim-cutover-logout.js** | 262 | **7ff949879bb5** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |
 | **sim-label-measure.js** | 261 | **807b311a47d3** |
 | **sim-safe-html.js** | 734 | **f11bcf1c5ea2** |
@@ -510,7 +512,7 @@
 | **sim-part-ao-clean.js** | 128 | **8e04843bb818** |
 | **sim-img-retry.js** | 117 | **144a66e6e8df** |
 | **sim-input-diag.js** | 148 | **09d9fb9484c8** |
-| **sim-renderer-gone-reset.js** | 141 | **658540a6ea08** |
+| **sim-renderer-gone-reset.js** | 141 | **adfb84a9b053** |
 | **sim-room-code-len.js** | 173 | **0fe4247870a6** |
 | **sim-recent-rooms.js** | 215 | **b398d3a91c3c** |
 | **sim-mh-pad-pos.js** | 164 | **260e17077454** |
