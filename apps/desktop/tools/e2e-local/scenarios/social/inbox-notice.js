@@ -47,7 +47,7 @@ scenario('inbox-notice', async (t) => {
     const r = await a.api('POST', '/v2/admin/notices/broadcasts', { requestId: 'e2e-news-' + tag, tag: 'NOTICE', title: NEWS, body: '공지 본문 ' + tag });
     assert(r.status === 200, '공지 올리기 ' + r.status + ' ' + JSON.stringify(r.json));
     await b.w.click('#mhInboxRail .mh-ibx-sec[data-sec="news"]');
-    await b.until((x) => [...document.querySelectorAll('#mhNewsList .mh-news-item.unread .mh-news-title')].some((e) => e.textContent === x), NEWS, { timeout: 30000, what: '소식 줄' });
+    await b.until((x) => [...document.querySelectorAll('#mhNewsList .mh-news-item.unread .mh-news-title')].some((e) => e.textContent === x), NEWS, { timeout: 75000, what: '소식 줄' });   // 전체 공지는 realtime 이 모두에게 0~60초 사이로 흩어 보낸다(ALL_NOTIFY_SPREAD_MS) — 그보다 길게 기다린다
     await b.w.locator('#mhNewsList .mh-news-item', { hasText: NEWS }).click();
     await b.until((x) => [...document.querySelectorAll('#mhNewsList .mh-news-item.read .mh-news-title')].some((e) => e.textContent === x), NEWS, { what: '소식 읽음' });
     const body = await b.text('#mhNewsView');
