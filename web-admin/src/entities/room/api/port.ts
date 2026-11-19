@@ -12,6 +12,14 @@ export interface CloseResult {
   missing: string[];
 }
 
+/** 방 제목 금칙어 — API 판에만 있다(서버 키 `room.bannedWords`). Firebase 판은 null(0.13 판의 Firebase 카드는 이 판에 넣지 않는다 — D12-M). */
+export interface BannedWordsControl {
+  /** 지금 먹는 목록 — 저장한 값이 없으면 서버 기본값(빈 목록). */
+  get(): Promise<Versioned<string[]>>;
+  /** 목록을 통째로 쓴다(빈 목록 = 거르지 않음). 그 사이 다른 곳이 고쳤으면 `conflict`. */
+  save(from: Versioned<string[]>, next: readonly string[]): Promise<void>;
+}
+
 /** 방 쪽 — 원격 설정(전체 방 상한 · 정원 · 대화 보관 일수)과 열린 방 보기 · 닫기. */
 export interface RoomPort {
   /** 이 판에서 되는 화면 일 — 유령 방 청소(Firebase 판 전용) · 방의 «마지막 신호» 칸(방이 realtime 메모리인 API 판에는 없다). */
@@ -20,6 +28,7 @@ export interface RoomPort {
   readonly closeMax: number | null;
   /** 상한 카드 안내 끝에 붙일 이 판만의 설명(없으면 ''). Firebase 판은 방 서버 장부 등록에 따라 세는 법이 달라 그것을 적는다. */
   readonly limitsNote: string;
+  readonly bannedWords: BannedWordsControl | null;
   /** 채널별 전체 방 상한 — 저장된 값 · 기본값(API 판은 서버 기본값 · Firebase 판은 옛 앱 기본값). */
   getLimits(): Promise<Versioned<RoomLimits>>;
   /** 방 하나 정원 — 서버에 정해 둔 값. 없으면 null. */

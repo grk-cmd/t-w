@@ -18,4 +18,4 @@ export function useRoomPort(): RoomPort {
   );
 }
 
-export type { CloseResult, RoomPort } from './port';
+export type { BannedWordsControl, CloseResult, RoomPort } from './port';
