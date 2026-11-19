@@ -2,7 +2,7 @@
    실행: node checks/run.js cutover-logout
    가짜 DB · 가짜 Auth 로 도구를 그대로 돌린다(firebase-admin 은 쓰지 않는다 — 에뮬레이터 확인은 scripts/cutover-logout-emu-check.js).
    1. 멤버 형식이 규칙의 $memberId 와 같다  2. 방: 미리 보기는 안 씀 · 실제는 멤버 자리만 지움 · 다시 돌려도 같음
-   3. 로그아웃: 쪽마다 전부 · 한도 오류 다시 시도 · 실패 보고 · 초당 수  4. 인자 · 에뮬레이터 섞임  5. mutation test */
+   3. 로그아웃: 쪽마다 전부 · 한도 오류 다시 시도 · 실패 보고 · 초당 수 · 다시 시도 상한(6번 · 1·2·4·8·16초)  4. 인자 · 에뮬레이터 섞임  5. mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -198,6 +198,20 @@ async function suite(mod, quiet) {
     chk(c.t >= 2490, '250명에 2.49초 넘게 걸린다(10ms 간격 · ' + c.t + 'ms)');
   });
 
+  say('\n── 3-3. 다시 시도 상한(가짜 시계)');
+  await run('다시 시도 상한', async () => {
+    const c = vclock();
+    const waits = [];
+    const store = fakeStore(clone(fixture()));
+    let tries = 0;
+    // 늘 일시 오류 — 10번을 넘으면 다시 시도하지 않을 오류로 끊어 상한이 크게 바뀌어도 바로 빨강이 난다
+    store.update = async () => { tries++; throw new Error(tries > 10 ? 'stop' : 'PATCH 503 Service Unavailable'); };
+    let threw = null;
+    try { await c.run(mod.runRooms(store, { apply: true, log, sleep: (ms) => { waits.push(ms); return c.sleep(ms); } })); } catch (e) { threw = e; }
+    chk(threw && /503/.test(threw.message) && tries === 6, '늘 일시 오류면 6번째에 멈추고 던진다(시도 ' + tries + '번)');
+    chk(waits.join() === '1000,2000,4000,8000,16000' && c.t === 31000, '그 사이 1 · 2 · 4 · 8 · 16초를 기다린다(합 ' + c.t + 'ms · ' + waits.join() + ')');
+  });
+
   say('\n── 4. 인자');
   await run('인자', async () => {
     chk(!!mod.parseArgs(['--rooms']).error, '--project 없으면 거절(기본값 없음)');
@@ -227,6 +241,7 @@ const MUTANTS = [
   ['초당 수 제한 없음', 'await gate(); ', ''],
   ['roomAlive 를 안 봄', "const PRESENCE_ROOTS = ['rooms', 'roomAlive'];", "const PRESENCE_ROOTS = ['rooms'];"],
   ['fetch 네트워크 끊김을 다시 시도하지 않음', '|ETIMEDOUT|fetch failed/', '|ETIMEDOUT/'],
+  ['다시 시도 횟수를 늘림', 'const RETRIES = 6;', 'const RETRIES = 7;'],
 ];
 
 (async () => {
