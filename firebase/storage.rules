@@ -1,0 +1,79 @@
+rules_version = '2';
+// Storage 보안 규칙(0.13). 기본 설정(firebase.json)의 storage 항목(키)이 이 파일을 가리킨다 — 컷오버 날 점검 끝 무렵에 올린다(tw-docs docs/design/06-cutover.md 8장 ⑧).
+// 점검 동안(T+2 부터)은 storage-lock.rules 가 올라가 있다. 두 파일의 경로 · 크기 상한은 같이 고친다(sim-storage-rules.js).
+//
+// 함정 셋 — 새 match 블록을 만들 때 먼저 읽을 것
+// - 쓰기 조건은 `request.resource == null`(지우기)을 맨 앞에 둔다. 지우기 요청엔 request.resource 가 없어서, 이 항이 없으면 null.size 를 읽다 평가가 깨져 지우기가 전부 거부된다.
+// - 같은 파일에 맞는 블록이 여럿이면 하나만 허용해도 통과한다(OR). 작은 상한 · 좁은 권한을 넓은 블록 아래에 두면 지켜지지 않으니 겹치지 않는 경로로 두거나 넓은 블록에서 빼 준다.
+// - 맞는 블록이 없는 경로는 기본 거부다.
+service firebase.storage {
+  match /b/{bucket}/o {
+    // API 서버의 Storage 봇(Firebase 이메일/비밀번호 계정). Storage 규칙은 RTDB apiBots 를 못 읽어서 uid 를 적는다.
+    function isBot() {
+      return request.auth != null && request.auth.uid == '8K1ebHP37EQ2hbKpdgV3TVK6mDq2';
+    }
+    // 봇이 올리는 마이홈 그림 — 0.13 서버(MyHomeImage)가 형식 · 크기를 먼저 보고 올린다. 앱은 2MB 미만 그대로.
+    function isBotMyHomeImage() {
+      return isBot()
+          && request.resource.size <= 8 * 1024 * 1024
+          && request.resource.contentType in ['image/png', 'image/webp', 'image/jpeg'];
+    }
+
+    // 카탈로그 파일(파츠 · 책상 · 아이템 GLB · 썸네일). 카탈로그 GLB 는 커야 1.5MB 안팎이라 5MB 면 넉넉하다.
+    match /catalog/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.resource == null
+                   || request.resource.size < 5 * 1024 * 1024;
+    }
+
+    // 사람 파일(마이홈 그림 · 스탠딩 · 말랑이 · 이모티콘 · 디데이 · 슬롯 GLB 등).
+    // 경로가 uid 가 아니라 사람 코드라 주인 검사를 할 수 없어 크기 상한이 유일한 방어선이다 — 무제한으로 열지 않는다.
+    // 2MB 를 내리면 앱이 큰 그림을 dataURL 로 RTDB 에 넣던 방식이 되살아난다(마이홈 스티커가 300~500KB PNG).
+    // 선물 사본(giftimg/)은 API 서버만 만든다 — 아래 블록. OR 규칙이라 여기서 빼 줘야 닫힌다.
+    match /users/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if allPaths[0] != 'giftimg'
+                   && (request.resource == null
+                       || request.resource.size < 2 * 1024 * 1024
+                       || isBotMyHomeImage());
+    }
+    match /users/{userId}/giftimg/{file} {
+      allow write: if isBot()
+                   && (request.resource == null
+                       || request.resource.size < 2 * 1024 * 1024);
+    }
+
+    // 자리비움 그림 — 방 사람 전원의 화면에 그려져서 이미지로 묶는다. users/ 아래면 2MB 블록이 300KB 를 덮어서 따로 둔다.
+    match /away/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.resource == null
+                   || (request.resource.size < 300 * 1024
+                       && request.resource.contentType.matches('image/.*'));
+    }
+
+    // 북마크 책등 그림 — 주인만 보지만 다운로드 URL 이 곧 읽기 통로라 읽기를 연다. users/ 와 따로 두는 까닭은 away/ 와 같다.
+    match /bookmarks/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.resource == null
+                   || (request.resource.size < 200 * 1024
+                       && request.resource.contentType.matches('image/.*'));
+    }
+
+    // 스티커사진 프레임 — 방 단위로 지울 수 있게 users/ 밖에 둔다. 남이 URL 로 받아 그리는 것이 기능의 요점이라 읽기를 연다.
+    match /purikura/{room}/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.resource == null
+                   || request.resource.size < 2 * 1024 * 1024;
+    }
+
+    // 상품 파일(assets/{해시}.{확장자}) — 서버 봇만 올리고 · 받고 · 지운다. 앱은 API 로만 받는다. 형식 · 상한은 0.13 서버 AssetKind 와 같다.
+    match /assets/{file} {
+      allow read, delete: if isBot();
+      allow create, update: if isBot()
+                            && ((request.resource.contentType in ['image/png', 'image/webp']
+                                 && request.resource.size <= 512 * 1024)
+                                || (request.resource.contentType == 'model/gltf-binary'
+                                    && request.resource.size <= 1024 * 1024));
+    }
+  }
+}

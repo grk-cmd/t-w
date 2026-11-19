@@ -498,6 +498,7 @@
 | **sim-rules-src.js** | 78 | **12241e59c87b** |
 | **sim-rules-drift.js** | 175 | **2782c5c73084** |
 | **sim-rules-cutover.js** | 157 | **88aff836d62f** |
+| **sim-storage-rules.js** | 242 | **42f1c9060342** |
 | **sim-cutover-logout.js** | 262 | **7ff949879bb5** |
 | **sim-e2e-cutover-guard.js** | 151 | **fbe748d17b73** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |
@@ -552,7 +553,7 @@
 | **sim-seat-hit-targets.js** | 211 | **fe65419f52f2** |
 | **sim-idle-gate.js** | 104 | **c991db71104e** |
 | **sim-skeleton-share.js** | 253 | **eab356f2fb39** |
-| **sim-app-wiring.js** | 130 | **28b14e6e9990** |
+| **sim-app-wiring.js** | 149 | **bd1c79ce17cb** |
 | **sim-move-verbatim.js** | 164 | **9ce76281dec0** |
 | **sim-lint.js** | 184 | **a12dcb8d9090** |
 | **sim-pr-title.js** | 42 | **6e06bfa2d832** |
