@@ -4,9 +4,8 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { execFileSync } = require('child_process');
-const { makeApp, wait, quietProblems, API_HOST } = require('../../lib.js');
-const { acquire } = require('../../runlock.js');
+const { makeApp, wait, quietProblems, docker, API_HOST } = require('../../lib.js');
+const { acquire, markQuietFail } = require('../../runlock.js');
 
 const API = 'http://127.0.0.1:8080';
 const AUTH_EMU = 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1';
@@ -15,13 +14,6 @@ const INVITE = 'INVT-ACCT-E2E5';   // seed/account.sql 이 넣는 이 묶음의 
 const PG = process.env.TW_E2E_PG || 'tw-dev-local-postgres-1';   // 로컬 묶음의 DB 컨테이너
 const SEED_DIR = path.resolve(__dirname, '..', '..', 'seed');
 
-// OrbStack 을 먼저 — /var/run/docker.sock 은 꺼진 Docker Desktop 을 가리킬 수 있다
-function docker(args, input){
-  const env = Object.assign({}, process.env);
-  const orb = path.join(process.env.HOME || '', '.orbstack/run/docker.sock');
-  if(!env.DOCKER_HOST && fs.existsSync(orb)) env.DOCKER_HOST = 'unix://' + orb;
-  return execFileSync('docker', args, { input, env, encoding: 'utf8' });
-}
 /** seed/<file> 을 psql 로 돌린다. vars 는 psql 변수(:'name') */
 function sql(file, vars = {}){
   const args = ['exec', '-i', PG, 'psql', '-v', 'ON_ERROR_STOP=1', '-qtA', '-U', 'tw_api_dev', '-d', 'tw_dev'];
@@ -144,9 +136,7 @@ function scenario(name, body){
     }
     if(!bad.length) return;
     const msg = '조용한 창이 깨짐(' + label + '): ' + bad.join(' / ');
-    if(process.env.TW_E2E_RUN_LOCK){
-      try { fs.writeFileSync(path.join(path.dirname(process.env.TW_E2E_RUN_LOCK), 'e2e-quiet-fail'), new Date().toISOString() + ' ' + name + ' ' + msg + '\n', { flag: 'a' }); } catch(_){}
-    }
+    markQuietFail(name + ' ' + msg);
     for(const i of insts) await within(i.A.quit(), 20000).catch(() => { try { process.kill(i.A.app.process().pid, 'SIGKILL'); } catch(_){} });
     throw new Error(msg);
   };

@@ -1,5 +1,5 @@
 // 주소 돌리기(route-main.js) 확인 — 네 묶음이 같이 쓰는 검사라 lib.js 만 쓴다(계정 · 시드 없이 돈다)
-// ① 켤 때 lib.launch 가 이미 확인한다(창에서 https://api-dev…/actuator/health → 이 PC API 200 · 막힌 요청 없음)
+// ① 켤 때 lib.launch 가 이미 확인한다(앱 세션 fetch 로 https://api-dev…/actuator/health → 이 PC API 200 · 막힌 요청 없음)
 // ② 창에서 진짜 주소를 부르면 이 PC 가 답한다 — API · Auth 에뮬레이터 · Storage 에뮬레이터 · 도움말(저장소 파일)(돌린 기록 REQ 에 남음)
 // ③ 막는 목록(우리 데이터를 실을 수 있는 곳)의 https · wss 는 막히고 기록된다 — 창은 네트워크 오류, lib.quietProblems 가 그 주소를 문제로 낸다 · 목록 밖(글꼴)은 그대로
 // 결과: <결과 폴더>/steps.txt(ok · FAIL · 끝 줄 PASS) · 종료 코드 0/1. 막는 것을 일부러 만드는 시험이라 e2e-quiet-fail 은 쓰지 않는다

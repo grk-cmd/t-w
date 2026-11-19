@@ -47,7 +47,7 @@ dev 앱은 `userData` 를 `appData/<이름>-dev` 로 바꾼다(`main.js`). 그�
 
 - **돌리기** — 세션의 https 처리기(`protocol.handle`)가 이 PC 주소로 대신 받아 원래 주소의 답으로 준다(redirect 가 아니라 창에서 본 주소 · 출처가 그대로). `api-dev.together-working.com` → `127.0.0.1:8080` · `identitytoolkit` · `securetoken.googleapis.com` → Auth 에뮬레이터 `127.0.0.1:9099/<호스트>/…` · `firebasestorage.googleapis.com` → Storage 에뮬레이터 `127.0.0.1:9199`. `help.together-working.com` → 저장소 `firebase/hosting/help` 파일(firebase.json help 사이트처럼 cleanUrls · 없는 길 404). realtime 은 dev 판이 처음부터 `ws://127.0.0.1:8787` 이다.
 - **막기** — 우리 데이터를 실을 수 있거나 우리 백엔드에 닿는 곳만 네트워크 오류로 끝낸다(ws · wss 포함): `*.together-working.com` · `identitytoolkit` · `securetoken` · `firebasestorage` · `firestore` · `firebaseinstallations.googleapis.com` · `*.firebaseio.com` · `*.firebasedatabase.app` · `*.firebaseapp.com` · `*.web.app`(돌릴 세 짝은 먼저 돌린다). 그 밖(유튜브 플레이어 · 글꼴 등)은 그대로 둔다. 막은 것은 결과 폴더 `net.txt` 에 `BLOCK` 줄로 남고 `lib.quietProblems` 가 문제로 낸다(시나리오는 그 단계가 실패하고 `e2e-quiet-fail` 에 주소가 남는다).
-- **켤 때 확인** — `lib.launch` 가 창에서 `https://api-dev.together-working.com/actuator/health` 를 불러 이 PC API 가 200 으로 답했는지(돌린 기록) · 막힌 요청이 없는지 본다. 아니면 앱을 끄고 실패한다(다시 읽기 · 다시 켜기로 감추지 않는다).
+- **켤 때 확인** — `lib.launch` 가 앱 세션(main 의 `session.defaultSession.fetch`)으로 `https://api-dev.together-working.com/actuator/health` 를 불러 이 PC API 가 200 으로 답했는지(돌린 기록) · 막힌 요청이 없는지 본다. 아니면 앱을 끄고 실패한다(다시 읽기 · 다시 켜기로 감추지 않는다).
 - 돌린 요청은 `net.txt` 의 `REQ` 줄 → `A.reqs`(옛 모양 `<방법> <길> <상태>` 그대로). 확인 시나리오는 `scenarios/launcher/routing.js`.
 
 ## 돌리기
@@ -126,4 +126,3 @@ node run-all.js room/create-join
 - **앱을 다시 켜는 흐름**(가입 끝의 [시작하기] 등)은 먼저 `await app.evaluate(({ app: a }) => { a.relaunch = () => {}; })` 로 다시 켜기 예약을 막는다. 막지 않으면 도구가 모르는 앱이 하나 더 뜬다. 앱이 꺼진 뒤에는 도구를 새로 띄운다(repl 은 `repl.js` 를 같은 결과 폴더로 다시 켬 · flow.js 는 스스로 다시 켠다).
 - **런처의 × 는 앱을 끈다.** 창을 닫으려고 누르면 repl 도 할 일이 없어진다 — 끄려면 `'QUIT'` 을 쓴다.
 - **보이는지 확인**: 화면에 고정된 겹창(fixed)은 `offsetParent === null` 이라 «안 보임» 으로 잘못 읽힌다. `getComputedStyle(el).display` 를 본다.
-- **켤 때 한 번 새로 읽는다**(주소 돌리기를 건 뒤 첫 화면을 다시 부르려고). 그래서 한 번만 뜨는 알림(예: «로그아웃했어요»)은 그 새로 읽기에 먹혀 안 보일 수 있다.
