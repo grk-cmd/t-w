@@ -116,7 +116,8 @@ function bootAccount(S, hub, timers, userCode, held){
   /* 라이선스 */
   let premium = false;
   const lp = LIC.createLicensePremium({ userApi: { me: async () => ({ premium: false }) }, licenseApi: {}, deviceId: () => 'd', deviceName: () => 'n', setPremium: (v) => { premium = v; }, isPremium: () => premium,
-    rtOn: (k, f) => hub.on(k, f), resetKnown: () => { premium = false; }, notifyError: () => {}, reasonOf: () => '', resetCustomStatus: () => {} });
+    rtOn: (k, f) => hub.on(k, f), resetKnown: () => { premium = false; }, notifyError: () => {}, reasonOf: () => '', resetCustomStatus: () => {},
+    storage: { getItem: () => null, setItem(){}, removeItem(){} }, toast: () => {}, toastFull: () => {}, legacyKeyName: 'tw.licenseKey' });
   /* 켜는 차례 — app.js starts 와 같은 걸기(mhInit · licensePremium) */
   session.onReset(() => { presence.reset(); });
   feed.start(userCode, session);

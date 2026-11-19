@@ -64,7 +64,9 @@ function loginStep(isIn){ return async () => (isIn() ? { ok: true, wipe: LOGIN_L
      해제 표시는 남긴다 — 0.13 에서도 자동 등록을 막는 표시다(license-premium.js [자동 등록])
    · 0.12 해제 표시가 다른 키 → 낡은 표시다(0.12 는 해제한 그 키만 막았다 — K1 을 해제하고 K2 를 넣은 PC). 키를 올리고 표시도 지운다
    · 등록 성공(내 키 다시 등록 = 기기 갱신) → 지움(프리미엄 다시 확인은 activate 가 한다)
-   · 서버가 «이 키는 더 쓸 길이 없다» 고 답함(남의 키 · 없는 키 · 회수된 키) → 지움 + 안내 한 번 · 이미 이 계정에 라이선스 있음 → 안내 없이 지움(이미 프리미엄) · 기기 가득 → 지움 + 기기 관리 안내
+   · 서버가 «이 키는 더 쓸 길이 없다» 고 답함(남의 키 · 없는 키 · 회수된 키) → 지움 + 안내 한 번 · 이미 이 계정에 라이선스 있음 → 안내 없이 지움(이미 프리미엄)
+   · 기기 가득 → 지움 + 기기 관리 안내(글은 license-premium.js FULL_NOTICE — deps.fullNotice). 그 라이선스에 이미 안내했으면(activate 의 showFull false) 안내 없이
+   · 이 키가 남아 있는 동안 켤 때 자동 등록은 건너뛴다(license-premium.js — 키 칸이 비었나만 본다). 등록은 이 단계 한 곳이다
    · 그 밖(네트워크 · 5xx · 로그인 풀림 · 응답 모양)은 멈춤(ok:false) — 아무것도 안 지운다 · 다음 실행에 다시
    서버 code 는 license-api.js CODE 와 같은 글자(sim-first-run-013 이 맞춰 본다). */
 const LICENSE_KEY_STORAGE = 'tw.licenseKey';
@@ -72,12 +74,11 @@ const LICENSE_CODE = Object.freeze({ DEVICE_FULL: 'LICENSE_DEVICE_FULL', NOT_FOU
   OWNED_BY_OTHER: 'LICENSE_OWNED_BY_OTHER', ALREADY_HAVE: 'LICENSE_ALREADY_HAVE' });
 const LICENSE_NOTICE = Object.freeze({
   UNUSABLE: '이 PC 에 있던 옛 라이선스 키는 쓸 수 없어요 — 키를 받은 곳에 문의해 주세요',
-  DEVICE_FULL: '기기를 모두 썼어요 — 설정 › 라이선스에서 하나를 빼 주세요',
 });
 /** @param {{ storage: { getItem: Function }, activate: (key: string) => Promise<{ ok: boolean, registered?: boolean, err?: any, reason?: string }>,
- *   optOut: () => ({ licenseId?: string, legacyKey?: string } | null), optOutKey: string }} deps
+ *   optOut: () => ({ licenseId?: string, legacyKey?: string } | null), optOutKey: string, fullNotice: string }} deps
  *   activate 는 license-premium.js 의 키 등록(사용자가 키를 넣을 때와 같은 함수 — 주인 읽기 · 등록 · 프리미엄 다시 확인까지 한다 · 해제 표시도 지운다)
- *   optOut · optOutKey 는 license-premium.js 의 optOutAtStart · OPT_OUT_KEY */
+ *   optOut · optOutKey · fullNotice 는 license-premium.js 의 optOutAtStart · OPT_OUT_KEY · FULL_NOTICE */
 function licenseKeyStep(deps){
   const get = (k) => { try{ return deps.storage.getItem(k); }catch(_){ return null; } };
   return async () => {
@@ -94,7 +95,8 @@ function licenseKeyStep(deps){
     const e = (r && r.err) || null, code = String((e && e.code) || '');
     if(!e || e.kind === 'auth' || !Object.keys(LICENSE_CODE).some((n) => LICENSE_CODE[n] === code)) return { ok: false, reason: '라이선스 키 올리기 실패 — ' + String((r && r.reason) || code || '알 수 없음') };
     if(code === LICENSE_CODE.ALREADY_HAVE) return { ok: true, wipe: allWipe };
-    return code === LICENSE_CODE.DEVICE_FULL ? { ok: true, wipe: allWipe, notice: LICENSE_NOTICE.DEVICE_FULL, action: 'openSettings' } : { ok: true, wipe: allWipe, notice: LICENSE_NOTICE.UNUSABLE };
+    if(code === LICENSE_CODE.DEVICE_FULL) return r.showFull === false ? { ok: true, wipe: allWipe } : { ok: true, wipe: allWipe, notice: deps.fullNotice, action: 'openSettings' };
+    return { ok: true, wipe: allWipe, notice: LICENSE_NOTICE.UNUSABLE };
   };
 }
 

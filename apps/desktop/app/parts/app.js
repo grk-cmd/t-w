@@ -2839,6 +2839,8 @@ const loginFlowMod = TwLoginFlow.createLoginFlow({
   now: ()=>Date.now(),
 });
 /* 🚚 0.13 첫 실행(account/first-run-013.js) — 로그인 → 캐릭터 올리기 → 라이선스 키 → 포커스 옛 누적 → 이 PC 키 지우기. 라이선스 단계는 이 PC 의 옛 키를 서버에 등록한다(D8-3). */
+/* 설정 › 라이선스로 가는 [설정 열기] 달린 안내 — 첫 실행 기기 가득 안내 · 자동 등록 기기 가득 안내가 같이 쓴다 */
+const licenseSettingsToast = (msg)=>toast(msg, undefined, 7000, { label: '설정 열기', onClick: ()=>twNav.go(twNav.NAV.PROGRAM_SETTINGS, 'license') });
 const firstRunMod = TwFirstRun013.createFirstRun({
   steps: {
     login: TwFirstRun013.loginStep(()=>loginFlowMod.mode() === 'in'),
@@ -2851,6 +2853,7 @@ const firstRunMod = TwFirstRun013.createFirstRun({
       activate: (key)=>licensePremiumMod.activate(key),
       optOut: ()=>licensePremiumMod.optOutAtStart(),
       optOutKey: TwLicensePremium.OPT_OUT_KEY,
+      fullNotice: TwLicensePremium.FULL_NOTICE,
     }),
     focus: TwFirstRun013.focusStep({
       storage: localStorage,
@@ -2867,7 +2870,7 @@ const firstRunMod = TwFirstRun013.createFirstRun({
   },
   storage: localStorage,
   userCode: ()=>getMyUserId(),
-  notify: (msg, action)=>{ if(action === 'openSettings') toast(msg, undefined, 7000, { label: '설정 열기', onClick: ()=>twNav.go(twNav.NAV.PROGRAM_SETTINGS, 'license') }); else toast(msg); },
+  notify: (msg, action)=>{ if(action === 'openSettings') licenseSettingsToast(msg); else toast(msg); },
 });
 /* 본문은 license-gate.js 로 옮겼다(앱 FSD 31번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
@@ -2926,6 +2929,8 @@ const licensePremiumMod = TwLicensePremium.createLicensePremium({
   resetCustomStatus: ()=>{ if(userStatusMod.userStatus()==='custom') setUserStatus(null); },   // 프리미엄을 놓으면 커스텀 상태는 기본으로
   storage: localStorage,
   toast: (...a)=>toast(...a),
+  toastFull: (msg)=>licenseSettingsToast(msg),
+  legacyKeyName: acctStateMod.LICENSE_KEY_STORAGE,
 });
 
 /* ═══ 🔐 라이선스 · 초대 게이트 시작 · 관리자 모드 진입 ═══ */
