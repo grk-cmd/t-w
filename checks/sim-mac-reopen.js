@@ -117,7 +117,8 @@ function sandbox(src){
     setTimeout: (fn) => { E.timers.push(fn); return E.timers.length; }, clearTimeout(){} });
   const _applyConfigMode = (isConfig, mode) => { E.calls.push('mode ' + mode); V._curMode = isConfig ? mode : 'run'; V._isConfigMode = !!isConfig; };
   const _reapplyIgnoreMouse = () => E.calls.push('ignore ' + V._lastIgnoreRequested);
-  const own = { ipcMain, app, screen, BrowserWindow, dialog, sysinput, overlay, _quitHold: quitHold, _applyConfigMode, _reapplyIgnoreMouse,
+  const _resetWindowToLauncher = (why) => { E.calls.push('reset ' + why); _applyConfigMode(true, 'launcher'); V._lastIgnoreRequested = false; _reapplyIgnoreMouse(); };   // 본문은 sim-cfg-fit · sim-renderer-gone-reset 이 진짜로 돌린다
+  const own = { ipcMain, app, screen, BrowserWindow, dialog, sysinput, overlay, _quitHold: quitHold, _applyConfigMode, _reapplyIgnoreMouse, _resetWindowToLauncher,
     setTimeout: (fn) => { E.timers.push(fn); return E.timers.length; }, clearTimeout(){}, setInterval: () => 0, clearInterval(){}, console: { warn(){}, log(){} } };
   const scope = new Proxy({}, {
     has(t, k){ return typeof k === 'string' && (k in own || k in V || !(k in globalThis)); },
@@ -241,8 +242,8 @@ const BREAKS = [
   [(m) => { const l = "  screen.on('display-added', _onDisplaysChanged);\n"; if(m.indexOf(l) < 0) return null;
     return m.replace(l, '').replace('\n  _setupMainOnce();\n}\n', "\n  screen.on('display-added', () => {});\n  _setupMainOnce();\n}\n"); }, 'screen 듣기를 createWindow 안으로'],
   [(m) => m.replace('\n  _setupMainOnce();\n}\n', '\n}\n'), 'createWindow 가 _setupMainOnce 를 안 부름'],
-  [(m) => m.replace("  if(_mainWindowCreated){ _applyConfigMode(true, 'launcher'); _lastIgnoreRequested = false; _reapplyIgnoreMouse(); }\n", ''), '다시 연 창의 모드 맞추기를 뺌'],
-  [(m) => m.replace("  if(_mainWindowCreated){ _applyConfigMode(", "  if(true){ _applyConfigMode("), '첫 창에서도 모드를 다시 맞춤(켤 때 동작이 바뀜)'],
+  [(m) => m.replace("  if(_mainWindowCreated) _resetWindowToLauncher('mac 에서 다시 연 창');\n", ''), '다시 연 창의 모드 맞추기를 뺌'],
+  [(m) => m.replace("  if(_mainWindowCreated) _resetWindowToLauncher(", "  if(true) _resetWindowToLauncher("), '첫 창에서도 모드를 다시 맞춤(켤 때 동작이 바뀜)'],
   [(m) => m.replace(/\n {4}mainWindow\.once\('closed', \(\)=>\{ _layDone = true;[^\n]*/, ''), '닫힌 창의 gpu-info-update 재시도 듣기를 안 뗌'],
   [(m) => { const l = "  mainWindow.on('close', (e) => { _quitHold.windowClose(e); });"; const i = m.indexOf(l); if(i < 0) return null;
     const line = m.slice(i, m.indexOf('\n', i) + 1); return m.replace(line, '').replace('  _mainSetupDone = true;\n', '  _mainSetupDone = true;\n' + line); },

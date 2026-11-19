@@ -130,19 +130,19 @@ chk((code.match(/_curMode\s*=[^=]/g) || []).length === 2, '  값을 적는 곳�
 const acBody = grabFn(MAIN, '_applyConfigMode') || '';
 chk(/^function _applyConfigMode\(isConfig, mode, extra\)\{\s*const prevMode = _curMode;[^\n]*\n\s*_curMode = isConfig \?/.test(acBody), '★ _applyConfigMode 가 맨 앞에서 받은 모드를 적는다(뒤의 어느 길로 일찍 나가도 기억은 끝난 뒤)');
 chk(!/_ovSkipped\+\+; return;[\s\S]{0,40}_curMode =/.test(acBody), '  일찍 나가는 줄 뒤에서 모드를 적지 않는다');
-const rrBody = grabFn(MAIN, '_resetWindowForReload') || '';
-chk(/_applyConfigMode\(true, 'launcher'\)/.test(rrBody), '★ 다시 불러오기 전 되돌리기는 같은 통로로 «런처» 를 적는다(한 줄)');
+const rrBody = grabFn(MAIN, '_resetWindowToLauncher') || '';
+chk(/_applyConfigMode\(true, 'launcher'\)/.test(rrBody), '★ 런처로 되돌리기(다시 불러오기 전 · mac 다시 연 창)는 같은 통로로 «런처» 를 적는다(한 줄)');
 const users = (code.match(/_configModeNow\(\)/g) || []).length;
 chk(users >= 5, '모드를 읽는 다섯 자리(moved · 줌 · 모니터 옮기기 · 표시설정 · 생성기 진입)가 한 읽기 함수를 쓴다(' + users + ')');
 
 /* 모드 표 — 다섯 모드 × 줌 × 작업영역보다 큼/작음 을 진짜 _applyConfigMode 로 돌린다 */
 say('── 3-b. 모드 표(다섯 모드 × 줌 × 작업영역) — 진짜 _applyConfigMode 를 돌린다');
 let MhP = null; for(const f of ['./mh-pad-pos.js', '../app/parts/shared/mh-pad-pos.js', '../app/parts/launcher/mh-pad-pos.js', '../app/parts/myhome/mh-pad-pos.js']){ try{ MhP = require(f); break; }catch(_){} }
-const NAMES3 = ['_applyConfigMode', '_resetWindowForReload', '_configModeNow', '_fitConfigRect', '_modeSize', '_mhPadDip', '_mhPadOf', '_rememberPos', '_clampZoom'];
+const NAMES3 = ['_applyConfigMode', '_resetWindowToLauncher', '_configModeNow', '_fitConfigRect', '_modeSize', '_mhPadDip', '_mhPadOf', '_rememberPos', '_clampZoom'];
 const fnsOf = (src) => NAMES3.map((n) => grabFn(src, n));
 const FN = fnsOf(MAIN);
 let harness = null;
-if(!MhP || FN.some((x) => !x)){ huh('모드 표를 못 돌림 — ' + (!MhP ? 'mh-pad-pos.js ' : '') + ['_applyConfigMode', '_resetWindowForReload', '_configModeNow', '_fitConfigRect', '_modeSize', '_mhPadDip', '_mhPadOf', '_rememberPos', '_clampZoom'].filter((n, i) => !FN[i]).join(',')); fail++; }
+if(!MhP || FN.some((x) => !x)){ huh('모드 표를 못 돌림 — ' + (!MhP ? 'mh-pad-pos.js ' : '') + ['_applyConfigMode', '_resetWindowToLauncher', '_configModeNow', '_fitConfigRect', '_modeSize', '_mhPadDip', '_mhPadOf', '_rememberPos', '_clampZoom'].filter((n, i) => !FN[i]).join(',')); fail++; }
 else{
   harness = (wa, zoom, FNx) => {
     FNx = FNx || FN;
@@ -157,7 +157,7 @@ else{
       + 'const overlay = { runOverlayHeight: (h) => h, logGeometry(){} }; const _setRunTop = () => {}; const _noteApplied = () => {}; const _reapplyIgnoreMouse = () => {}; const _diagLog = (m) => log.push(m); const _saveLauncherPosSoon = () => {};\n'
       + 'const _winAlreadyIs = (r) => W.x === r.x && W.y === r.y && W.width === r.width && W.height === r.height;\n'
       + 'const mainWindow = { isDestroyed: () => false, getBounds: () => ({ x: W.x, y: W.y, width: W.width, height: W.height }), isResizable: () => W.res, setResizable(v){ W.res = v; }, setAlwaysOnTop(){}, setBounds(r){ Object.assign(W, r); } };\n'
-      + FNx.join('\n') + '\nreturn { apply: (c, m, e) => _applyConfigMode(c, m, e), reset: () => _resetWindowForReload(), mode: () => _curMode, now: () => _configModeNow(), size: (m) => _modeSize(m), savedPos };')(MhP, W, D, log, zoom);
+      + FNx.join('\n') + '\nreturn { apply: (c, m, e) => _applyConfigMode(c, m, e), reset: () => _resetWindowToLauncher(\'다시 불러오기 전\'), mode: () => _curMode, now: () => _configModeNow(), size: (m) => _modeSize(m), savedPos };')(MhP, W, D, log, zoom);
     return { W, f, log };
   };
   const MODES = ['launcher', 'creator', 'animal', 'myhome'];
@@ -190,7 +190,7 @@ else{
   /* 다시 불러오기 — 실행 화면에서 화면이 다시 불러와지면 창은 런처 */
   { const wa = { x: 0, y: 0, width: 1920, height: 1040 }; const h = harness(wa, 1);
     h.f.apply(false, 'run'); h.f.reset();
-    chk(h.f.mode() === 'launcher' && h.W.width === 380 && h.W.height === 680, '★ 실행 화면에서 다시 불러오기 → 모드 launcher · 창 380×680(_resetWindowForReload)');
+    chk(h.f.mode() === 'launcher' && h.W.width === 380 && h.W.height === 680, '★ 실행 화면에서 다시 불러오기 → 모드 launcher · 창 380×680(_resetWindowToLauncher)');
     h.f.apply(true, 'myhome', { x: 0, y: 0 }); h.f.reset();
     chk(h.f.mode() === 'launcher', '  마이홈에서도 launcher'); }
   /* 같은 요청을 되풀이해도(이미 그 상태라 일찍 나가도) 모드는 적혀 있다 */
@@ -207,7 +207,7 @@ if(MhP && harness){
   chk(!!m1 && (() => { const h = harness({ x: 0, y: 0, width: 3840, height: 2160 }, 1, fnsOf(m1)); h.f.apply(true, 'launcher'); h.W.x = 111; h.W.y = 77; h.f.apply(true, 'creator'); return h.W.x !== 111; })(), '생성기 진입이 직전 모드를 안 보면 빨강');
   const m2 = mutate("  _isConfigMode = !!isConfig;", "  _isConfigMode = !!isConfig; _curMode = 'launcher';");
   chk(!!m2 && (() => { const h = harness({ x: 0, y: 0, width: 3840, height: 2160 }, 1, fnsOf(m2)); h.f.apply(true, 'myhome', { x: 0, y: 0 }); return h.f.mode() !== 'myhome'; })(), '받은 모드를 덮어쓰면 빨강');
-  const m3 = mutate("function _resetWindowForReload(){\n  if(!mainWindow || mainWindow.isDestroyed()) return;\n  _applyConfigMode(true, 'launcher');", "function _resetWindowForReload(){\n  if(!mainWindow || mainWindow.isDestroyed()) return;");
+  const m3 = mutate("function _resetWindowToLauncher(why){\n  if(!mainWindow || mainWindow.isDestroyed()) return;\n  _applyConfigMode(true, 'launcher');", "function _resetWindowToLauncher(why){\n  if(!mainWindow || mainWindow.isDestroyed()) return;");
   chk(!!m3 && (() => { const h = harness({ x: 0, y: 0, width: 1920, height: 1040 }, 1, fnsOf(m3)); h.f.apply(false, 'run'); h.f.reset(); return h.f.mode() !== 'launcher'; })(), '다시 불러오기가 런처로 안 되돌리면 빨강');
 }
 

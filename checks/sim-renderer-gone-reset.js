@@ -5,7 +5,7 @@
    ・1절: _watchRendererHealth 의 render-process-gone 을 가짜 창 위에서 실제로 불러 본다 — 차례(되돌리기 → 다시 불러오기) ·
           두 번째 죽음(횟수 다 참)에도 되돌리기 · 정상 종료 · 사용자가 끈 것은 손대지 않음 · 다른 창은 손대지 않음
           · 화면이 스스로 다시 불러와도(did-navigate · WebGL 복구 — B-1114-5) 되돌리기 · 처음 로드 · 막힐 이동의 시작(did-start-navigation) · 해시 이동은 넘김 · 한 로드 사이 한 번만(launcher/reload-reset.js)
-   ・2절: _resetWindowForReload — 런처 모드로 창 맞추기 · 클릭 통과 끄기 · 창이 없으면 아무것도 안 함
+   ・2절: _resetWindowToLauncher — 런처 모드로 창 맞추기 · 클릭 통과 끄기 · 창이 없으면 아무것도 안 함
    ・3절: 일부러 깨 보기
    [실행] node checks/run.js sim-renderer-gone-reset */
 'use strict';
@@ -48,7 +48,7 @@ function runGone(main, reasons, opts, rrSrc){
   const timers = [];
   const env = {
     mainWindow: o.other ? { isDestroyed: () => false } : win,
-    _resetWindowForReload: () => log.push('reset'),
+    _resetWindowToLauncher: () => log.push('reset'),
     ReloadReset: loadRR(rrSrc || RR),
     _diagLog: () => {},
     _errorLog: { write(){} },   // 🧯 오류 기록(error-log.js) — 여기서는 적지 않는다
@@ -92,8 +92,8 @@ function judgeGone(main, rrSrc){
 }
 
 function runReset(main, hasWin){
-  const fn = grabFn(main, 'function _resetWindowForReload(){');
-  if(!fn) throw new Error('_resetWindowForReload 를 못 찾음');
+  const fn = grabFn(main, 'function _resetWindowToLauncher(why){');
+  if(!fn) throw new Error('_resetWindowToLauncher 를 못 찾음');
   const log = [];
   const st = { ignore: true };
   const env = {
@@ -102,7 +102,7 @@ function runReset(main, hasWin){
     _reapplyIgnoreMouse: () => log.push('ignore:' + st.ignore),
     _diagLog: () => log.push('log'),
   };
-  new Function('st', ...Object.keys(env), 'let _lastIgnoreRequested = st.ignore;\n' + fn.replace(/_lastIgnoreRequested = false;/, '_lastIgnoreRequested = false; st.ignore = _lastIgnoreRequested;') + '\n_resetWindowForReload();')(st, ...Object.values(env));
+  new Function('st', ...Object.keys(env), 'let _lastIgnoreRequested = st.ignore;\n' + fn.replace(/_lastIgnoreRequested = false;/, '_lastIgnoreRequested = false; st.ignore = _lastIgnoreRequested;') + '\n_resetWindowToLauncher(\'시험\');')(st, ...Object.values(env));
   return log.join(' ');
 }
 function judgeReset(main){

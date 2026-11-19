@@ -137,7 +137,7 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 
 ## reload-reset.js — 🪟 화면을 다시 불러오기 전에 창을 런처로
 
-- **책임**: 메인 창 화면이 다시 불러와질 때(렌더러가 죽어 다시 불러옴 · 화면이 스스로 다시 불러옴 등 어느 길이든) 창을 먼저 런처 크기로 되돌릴지 정한다(순수 판단 · main.js 가 require). 창 맞추기 자체는 main.js `_resetWindowForReload`.
+- **책임**: 메인 창 화면이 다시 불러와질 때(렌더러가 죽어 다시 불러옴 · 화면이 스스로 다시 불러옴 등 어느 길이든) 창을 먼저 런처 크기로 되돌릴지 정한다(순수 판단 · main.js 가 require). 창 맞추기 자체는 main.js `_resetWindowToLauncher`(mac 에서 다시 연 창도 같이 쓴다).
 - **만드는 법**: main.js `_watchRendererHealth` 가 창마다 `ReloadReset.createReloadReset({ reset })` 한 벌.
 - **내놓는 것**: `onFinishLoad()`(did-finish-load) · `onNavigate()`(did-navigate — 메인 프레임이 실제로 다른 문서로 넘어감 · 다시 불러오기 포함) · `beforeReload()`(렌더러 사망 길 — 다시 불러오지 않을 때도 덮인 채 두지 않게).
 - **함정**

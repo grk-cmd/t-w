@@ -329,7 +329,7 @@ function _launcherPosOf(v){
 /* 🪟 창 모드 — 렌더러가 보낸 모드('launcher' | 'creator' | 'animal' | 'myhome' | 'run') **한 값**. 창 크기를 보고 되짚지 않는다.
    [왜] 예전엔 «지금 창이 어느 모드 크기인가» 를 크기(허용 오차 · 줄인 크기 표 · 줌)로 되짚었다. 작업영역이 작아 줄인 창이나
      OS 가 깎은 창은 놓치고, 작은 모니터에서는 실행 화면 크기가 런처 크기와 같아져 실행 화면을 런처로 읽었다.
-   ★ 받은 모드는 _applyConfigMode 가 맨 먼저 적는다. 다시 불러오기(_resetWindowForReload)도 같은 통로로 런처가 된다.
+   ★ 받은 모드는 _applyConfigMode 가 맨 먼저 적는다. 다시 불러오기 · mac 에서 다시 연 창(_resetWindowToLauncher)도 같은 통로로 런처가 된다.
    ⚠️ 모드를 크기에서 구하는 길을 새로 만들지 말 것(sim-cfg-fit 이 getBounds 로 모드를 정하는 글을 찾는다). */
 let _curMode = 'launcher';
 function _configModeNow(){ return _curMode === 'run' ? null : _curMode; }   // 런처 · 생성기 · 동물 · 마이홈이면 그 모드, 실행 화면이면 null
@@ -2013,7 +2013,7 @@ const CONFIG_WIDTH = MODE_SIZE.launcher.w;
 const CONFIG_HEIGHT = MODE_SIZE.launcher.h;
 
 /* config 모드(런처 · 생성기 · 마이홈) ↔ run 모드(캐릭터 실행) 창 맞추기 — 렌더러 요청(companion:setConfigMode)과
-   렌더러가 죽어 다시 불러올 때(_resetWindowForReload) 같이 쓴다. mode: 'launcher' | 'creator' | 'myhome' | 'animal' | 'run' */
+   렌더러가 죽어 다시 불러올 때 · mac 에서 다시 연 창(_resetWindowToLauncher) 같이 쓴다. mode: 'launcher' | 'creator' | 'myhome' | 'animal' | 'run' */
 function _applyConfigMode(isConfig, mode, extra){
   const prevMode = _curMode;   // creator 로 들어올 때 «지금 config 창인가(그 자리를 잇는다) · 실행 화면인가(중앙)» 판단용
   _curMode = isConfig ? (MODE_SIZE[mode] ? mode : 'launcher') : 'run';   // 🪟 창 모드 한 값(위 _curMode 주석)
@@ -2089,12 +2089,13 @@ function _applyConfigMode(isConfig, mode, extra){
 }
 /* 렌더러가 죽어 다시 불러오면 화면은 런처로 돌아오는데 창은 실행 화면(모니터 전체 · 클릭 통과 · 맨 위)으로 남아,
    덮인 채 아무것도 못 누르게 된다 — 창부터 런처로 되돌리고 클릭을 받는다(다시 불러온 렌더러가 제 모드를 다시 보낸다). */
-function _resetWindowForReload(){
+/* 창을 런처 · 클릭 받기로 되돌린다 — 다시 불러오기 전(렌더러 사망 · 스스로 다시 불러옴)과 mac 에서 닫았다 다시 연 창이 같이 쓴다 */
+function _resetWindowToLauncher(why){
   if(!mainWindow || mainWindow.isDestroyed()) return;
   _applyConfigMode(true, 'launcher');
   _lastIgnoreRequested = false;
   _reapplyIgnoreMouse();
-  _diagLog('[렌더러] 다시 불러오기 전 창을 런처로 되돌림');
+  _diagLog('[창] ' + why + ' — 창을 런처로 되돌림');
 }
 /* 🩺 [2026-10-08 제보 #1 · 보류 #11 공용] 렌더러 · GPU 프로세스의 죽음과 로드 실패를 기록한다.
    [왜] «설치 후 아무것도 안 보이는데 클릭은 된다» 의 남은 갈래가 «렌더러가 한 번도 안 그려졌다(로드 실패 · 크래시 · 백신 격리)» 인데,
@@ -2107,7 +2108,7 @@ const _unresponsiveSince = new WeakMap();   // 창 → 'unresponsive' 가 시작
 function _watchRendererHealth(win){
   if(!win || win.isDestroyed()) return;
   const wc = win.webContents;
-  const reloadReset = ReloadReset.createReloadReset({ reset: () => _resetWindowForReload() });   // 창마다 한 벌 — 다시 불러오기 전 런처로
+  const reloadReset = ReloadReset.createReloadReset({ reset: () => _resetWindowToLauncher('다시 불러오기 전') });   // 창마다 한 벌 — 다시 불러오기 전 런처로
   wc.on('render-process-gone', (e, d) => {
     const reason = (d && d.reason) || '?';
     _diagLog('[렌더러] 프로세스 종료 — reason=' + reason + ' exitCode=' + (d && d.exitCode) + ' | 자동 재로드 ' + _rendererReloads + '/' + RENDERER_AUTO_RELOAD_MAX);
@@ -2388,8 +2389,8 @@ function createWindow() {
 
   _fdInstrument(mainWindow);   // 🩺 [진단] 활성화 원인 추적 — 창을 올리는 메서드에 표식만 심는다(동작 불변)
 
-  /* mac 에서 닫았다 다시 연 창 — 닫힌 창의 모드(실행 화면 · 클릭 통과)가 남아 있다. 다시 불러오기(_resetWindowForReload)처럼 런처로 맞춘다 */
-  if(_mainWindowCreated){ _applyConfigMode(true, 'launcher'); _lastIgnoreRequested = false; _reapplyIgnoreMouse(); }
+  /* mac 에서 닫았다 다시 연 창 — 닫힌 창의 모드(실행 화면 · 클릭 통과)가 남아 있다 */
+  if(_mainWindowCreated) _resetWindowToLauncher('mac 에서 다시 연 창');
   _mainWindowCreated = true;
   _watchRendererHealth(mainWindow);   // 🩺 렌더러 사망 · 로드 실패 · 무응답 기록(+ 사망 시 1회 재로드) — 제보 #1
   _logGpuOnce(mainWindow);            // 🩺 그래픽카드 · GPU 기능 상태 · 시험 스위치 한 줄 — 제보 #1-B
