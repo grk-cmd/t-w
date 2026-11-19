@@ -1,5 +1,5 @@
-// 방 제목 금칙어 — 앱(방 만들기 · 방 설정)과 서버 함수(방 목록 사본)가 config/bannedWords 를 읽어 거른다.
-// 판정(NFKC · 소문자 · 글자만 남기고 부분 일치)은 firebase/functions/banned-words.js 한 벌 — 여기는 목록 고치기와 안내만 한다.
+// 방 제목 금칙어 — 앱(방 만들기 · 방 설정)과 realtime 서버(방 목록 로비)가 config/bannedWords 를 읽어 거른다.
+// 판정(NFKC · 소문자 · 글자만 남기고 부분 일치)은 앱 shared/banned-words.js 와 realtime 이 같은 규칙 — 여기는 목록 고치기와 안내만 한다.
 // 상한은 규칙 config/bannedWords($i 0~499 · 1~20자 · 목록만) · 판정 BANNED_MAX(500)와 같다.
 export const BANNED_WORDS_PATH = 'config/bannedWords';
 export const BANNED_WORD_MAX_LEN = 20;
