@@ -24,6 +24,7 @@ const SRC0 = {
   MHD: pick(at('myhome-desktop.js', 'myhome')),
   BOOT: pick(at('myhome-desktop-boot.js', 'myhome')),
   ACC: pick(at('account.js', 'account')),
+  LEAVE: pick(at('leave-flush.js', 'shared')),
   APP: pick(['app.js', 'parts/app.js', 'app/parts/app.js']),
   HTML: pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html']),
   SMOKE: pick(['smoke.js']),
@@ -497,6 +498,7 @@ async function judge(S){
       accountLegacyStore: { migrateLegacy: (c) => { rec.push('migrate:' + c); return {}; } },
       plMod: { st: {}, reset(){}, flushPending: () => new Promise((r) => setTimeout(() => { rec.push('plFlushDone'); r(); }, 5)) },
       setAcctDetached: (v) => { if(v) rec.push('wipe'); },
+      leaveFlush: new Function('window', 'module', S.LEAVE + '\nreturn window.TwLeaveFlush;')({}, undefined),   // 올리기 상한 한 벌(shared/leave-flush.js) — 진짜로 기다린다
       focusLevelMod: () => ({ DANCE_NOTIFIED_KEY: 'x1', DANCE_REPAIR_KEY: 'x2' }),
       acctStateMod: { INVITE_PASS_KEY: 'x3', LICENSE_KEY_STORAGE: 'x4', LICENSE_OPTOUT_KEY: 'x5' },
       LOGIN_EMAIL_KEY: 'x6', LOGIN_UID_KEY: 'x7',

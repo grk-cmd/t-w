@@ -52,6 +52,7 @@ function runGone(main, reasons, opts, rrSrc){
     ReloadReset: loadRR(rrSrc || RR),
     _diagLog: () => {},
     _errorLog: { write(){} },   // 🧯 오류 기록(error-log.js) — 여기서는 적지 않는다
+    _quitHold: { rendererReset(){} },   // 🚪 끄기 붙잡기(quit-hold.js) — sim-leave-flush 가 본다
     app: { on(){} },
     setTimeout: (fn) => { timers.push(fn); },
   };
