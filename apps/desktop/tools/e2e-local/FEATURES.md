@@ -52,7 +52,7 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 | 닉네임 바꾸기 · 운영진처럼 보이는 이름 막기 | `scenarios/account/nickname.js`(저장 · 서버 이름 · «운영자» 화면에서 막음 · 서버도 거절 · 12자 · 다시 켜도 그대로) | `user-name` `name-guard` `person-name` | e2e |
 | 내 정보 · 보관함 · 휴지통 | `scenarios/account/my-info.js`(친구 코드 · 보관함 n/20 · 휴지통으로 옮기기 · 복원 · 슬롯에 올리기 — 캐릭터는 API 로 미리 넣음) | `my-info` `my-info-box` | e2e |
 | 초대장 발급(친구를 가입에 초대) | `scenarios/account/invite-issue.js`(남은 장수 · [취소]는 차감 없음 · 발급 · 그 코드로 친구 가입 · 쓴 코드 거절) | `license-gate` `user-api` | e2e |
-| 라이선스 · 프리미엄 등록 | `scenarios/account/license.js`(없는 키 거절 · 관리자가 낸 키 등록 → 서버 프리미엄 · 남의 키 거절 · 이 기기 해제) · `scenarios/account/license-no-key.js`(이 PC 에 키(`tw.licenseKey`)가 없을 때 0.12.3 과 견줌 — 라이선스 없는 계정은 같음 · 다른 PC 에 라이선스가 있는 계정은 «발견한 버그» 1) | `license-api` `license-key` `license-ui` `license-screen` `license-premium` `license-leak` `premium-assets` `premium-desk` | e2e |
+| 라이선스 · 프리미엄 등록 | `scenarios/account/license.js`(없는 키 거절 · 관리자가 낸 키 등록 → 서버 프리미엄 · 남의 키 거절 · 이 기기 해제) · `scenarios/account/license-no-key.js`(이 PC 에 키(`tw.licenseKey`)가 없을 때 0.12.3 과 견줌 — 라이선스 없는 계정은 같음 · 다른 PC 에 라이선스가 있는 계정은 이 기기 자동 등록 · 프리미엄 · 안내) | `license-api` `license-key` `license-ui` `license-screen` `license-premium` `license-leak` `premium-assets` `premium-desk` | e2e |
 | PC 등록(계정마다 3대 · 넷째 PC 는 묻고 하나 지움) | `scenarios/account/device-limit.js`(앞 셋은 API 등록 · 넷째 앱 → «가장 오래된 기기 … 이 기기를 지우고 이 PC를 쓸까요?» · [취소]는 아무것도 안 지우고 로그인 화면 · [지우고 사용]은 그 기기만 지움) | `device-register` `device-limit-dialog` `device-id` `license-screen` | e2e |
 | PC 연결이 끊긴 뒤 안내(다른 PC 에서 이 PC 를 지움 · 이 PC 에서 새로 연 앱에 밀림) | `scenarios/account/device-lost.js`(상대 PC · 새 세션은 API 등록으로 — 서버가 realtime 에 닫게 알림 · 두 안내 글 · 다시 등록 · 여기서 계속) | `device-lost` | e2e |
 | 서버 점검 화면 | `core/logout-maintenance.js «점검»`(관리자 PUT app.maintenance → 서버를 쓰는 단추에 점검 창 · 끄면 «다시 켜기» 안내 · 스택 잠금 안에서 · 끝에 끔) | `maintenance-gate` `remote-config` | e2e |
@@ -171,7 +171,6 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 
 | 번호 | 무엇이 틀렸나 | 다시 만들기 | 시나리오 |
 |---|---|---|---|
-| 1 | 다른 PC 에 라이선스를 등록한 계정으로, 키(`tw.licenseKey`)가 없는 PC 에서 켜면 0.13 은 프리미엄을 켜지 않고 아무 안내도 없다(설정 › 라이선스를 열어야 «이 기기는 아직 등록되지 않았어요» · [이 기기 등록]). 0.12.3 은 켜고 6초 뒤 계정의 라이선스를 이 PC 에서도 켜고(키를 적음) «🎫 계정에 등록된 라이선스를 이 PC에서도 켰어요» 를 띄웠다(`v0.12.3:app/parts/account/license-gate.js` `_licenseSnapForPush`). 0.13 은 일부러 바꾼 것으로 적혀 있다(`license-premium.js` «[기기 등록] 앱이 알아서 등록하지 않는다») — 0.12.3 과 맞출지 정해야 한다 | ① 계정 A 로 PC1 에 라이선스 등록 ② 같은 계정으로 키가 없는 PC2 에서 로그인 · 켜기 ③ PC2 가 프리미엄이 아니고 안내도 없음 | `account/license-no-key` |
 
 ## 할 일 — e2e 가 없거나 일부만 있는 기능
 
