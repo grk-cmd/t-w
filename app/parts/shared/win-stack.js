@@ -184,11 +184,19 @@ function _escSync(){
     else if(!open && i >= 0) _escOrder.splice(i, 1);
   });
 }
+/* 열려 있어도 안 보이는 창은 ESC 가 건너뛴다 — 사람 편집 · 동물 만들기가 열린 동안 마이홈 · 방명록은 숨겨져(visibility:hidden)
+   있는데, 그것을 닫으면 보이지 않는 창이 사라진다. 건너뛰고 그다음 보이는 창을 닫는다(없으면 옛 핸들러에게 넘긴다). */
+function _escShown(w){
+  try{ return getComputedStyle(w.el).visibility !== 'hidden'; }catch(_){ return true; }
+}
 function _escTop(){
   _escSync();
-  if(!_escOrder.length) return null;
-  const key = (ESC_CLOSE_ORDER === 'fifo') ? _escOrder[0] : _escOrder[_escOrder.length - 1];
-  return _escWins.find(w => w.key === key) || null;
+  const keys = (ESC_CLOSE_ORDER === 'fifo') ? _escOrder.slice() : _escOrder.slice().reverse();
+  for(const key of keys){
+    const w = _escWins.find(x => x.key === key);
+    if(w && _escShown(w)) return w;
+  }
+  return null;
 }
 /* 지금 글자를 넣고 있는 칸인가 — input·textarea·select·contenteditable. */
 function _escEditable(t){
