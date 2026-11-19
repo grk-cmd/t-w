@@ -156,6 +156,10 @@ async function judge(MAIN){
   const nHandle = Object.keys(S.ipcHandlers).length, ipcCounts = JSON.stringify(Object.keys(S.ipcOn.L).map(k => [k, S.ipcOn.count(k)]));
   const win1Close = win1.count('close');
 
+  /* 색 대화상자를 연 채로 창을 닫는다 — 닫힌 창 때문에 남은 대화상자 상태가 다시 연 창의 요청을 막으면 3절 colorDialog 가 빨강 */
+  win1.top = true;
+  S.ipcOn.emit('companion:colorDialog', {}, true);
+  chk(win1.top === false && win1.count('closed') >= 2, '색 대화상자를 열면 «항상 위» 를 내리고, 창이 닫힐 때 되돌릴 고리를 건다');
   /* 저장을 묻고 창만 닫는 mac 창 닫기(#1043) — 렌더러가 알리고 · 답한다 */
   S.ipcOn.emit(S.CH.READY, { sender: win1.webContents });
   win1.close();
@@ -189,7 +193,14 @@ async function judge(MAIN){
   chk(win2.bounds.length === 1 && win2.bounds[0].x === 15 && win1.bounds.length === 0, 'moveWindow — 새 창이 움직인다');
   win2.top = true;
   S.ipcOn.emit('companion:colorDialog', {}, true);
-  chk(win2.top === false, 'colorDialog — 새 창의 «항상 위» 를 내린다');
+  chk(win2.top === false, '★ colorDialog — 새 창의 «항상 위» 를 내린다(옛 창에서 연 대화상자 상태가 창 닫기로 풀렸다)');
+  const c0 = win2.count('closed');
+  S.ipcOn.emit('companion:colorDialog', {}, false);
+  chk(win2.count('closed') === c0 - 1, '  대화상자를 닫으면 창 닫힘 고리를 뗀다(열 때마다 쌓이지 않게)');
+  win2.top = true;
+  S.ipcOn.emit('companion:colorDialog', {}, true);
+  chk(win2.top === false && win2.count('closed') === c0, '  다시 열면 또 내린다 — 상태가 풀려 있다(고리는 하나)');
+  S.ipcOn.emit('companion:colorDialog', {}, false);
   chk(S.V._curMode === 'launcher' && S.V._isConfigMode === true && S.V._lastIgnoreRequested === false && S.calls.includes('ignore false'),
     '★ 새 창은 _applyConfigMode 로 런처 · 클릭 받기(닫힌 창의 실행 화면 값이 남지 않는다)');
   const child = withStub(Object.assign(mkEmitter(), { closed: 0, isDestroyed(){ return false; }, close(){ this.closed++; } }));
@@ -237,6 +248,8 @@ const BREAKS = [
     const line = m.slice(i, m.indexOf('\n', i) + 1); return m.replace(line, '').replace('  _mainSetupDone = true;\n', '  _mainSetupDone = true;\n' + line); },
     "창 'close'(끄기 붙잡기)를 _setupMainOnce 로 옮김 — 다시 연 창엔 안 붙음"],
   [(m) => m.replace(/\nlet gbWin = null;\n/, '\n').replace("  const _isChildDoc = ", '  let gbWin = null;\n  const _isChildDoc = '), 'gbWin 을 createWindow 안 지역 변수로 되돌림'],
+  [(m) => m.replace("    try{ if(mw && !mw.isDestroyed()) mw.once('closed', restore); }catch(_){}\n", ''), '색 대화상자 상태를 창이 닫힐 때 안 풂 — 다시 연 창의 요청을 90초 무시'],
+  [(m) => m.replace("      try{ if(mw && !mw.isDestroyed()) mw.removeListener('closed', restore); }catch(_){}\n", ''), '색 대화상자를 닫아도 창 닫힘 고리를 안 뗌 — 열 때마다 쌓임'],
 ];
 
 (async () => {

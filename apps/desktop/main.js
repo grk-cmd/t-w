@@ -2632,9 +2632,10 @@ function _setupMainOnce() {
             이건 렌더러가 만드는 대화상자라 부모를 지정할 방법이 없다.
      [대응] 대화상자가 열려 있는 동안만 topmost를 내린다. 끄기 전 상태를 창마다 기억해서 그대로
             되돌리므로, 런처 모드(원래 false)에서 켜져버리는 일은 없다.
-     [복귀 신호 3중] ① 렌더러가 색을 고르거나 취소하면 open=false 를 보낸다
-                     ② 대화상자가 닫히면 포커스가 우리 창으로 돌아온다 → 'focus' 1회 구독
-                     ③ 위 둘이 다 안 오는 경우(다른 앱으로 전환 등)를 위해 90초 안전망
+     [복귀 신호] ① 렌더러가 색을 고르거나 취소하면 open=false 를 보낸다
+                 ② 대화상자가 닫히면 포커스가 우리 창으로 돌아온다 → 'focus' 1회 구독
+                 ③ 메인 창이 닫히면(mac 은 앱이 남는다) — 남겨 두면 Dock 으로 다시 연 창의 요청을 90초 동안 무시한다
+                 ④ 위가 다 안 오는 경우(다른 앱으로 전환 등)를 위해 90초 안전망
             어느 쪽이 먼저 오든 한 번만 복구되고(_colorDlgRestore=null) 나머지는 무시된다. */
   let _colorDlgRestore = null;
   ipcMain.on('companion:colorDialog', (e, open) => {
@@ -2648,8 +2649,10 @@ function _setupMainOnce() {
     });
     dsHoldUntil = Date.now() + 120000;                 // 그동안 스튜디오가 blur로 닫히지 않게
     let done = false;
+    const mw = mainWindow;
     const restore = ()=>{
       if(done) return; done = true; _colorDlgRestore = null;
+      try{ if(mw && !mw.isDestroyed()) mw.removeListener('closed', restore); }catch(_){}
       dsHoldUntil = Date.now() + 3000;                 // 평소 값으로 되돌림
       lowered.forEach(w=>{
         try{
@@ -2664,6 +2667,7 @@ function _setupMainOnce() {
     };
     _colorDlgRestore = restore;
     lowered.forEach(w=>{ try{ w.once('focus', restore); }catch(_){} });
+    try{ if(mw && !mw.isDestroyed()) mw.once('closed', restore); }catch(_){}
     setTimeout(restore, 90000);
   });
   // 👑 네이티브 이미지 파일 선택 — 별도 창(디자인 스튜디오 등)에서 <input type=file>.click()이
