@@ -2,10 +2,10 @@
    ・1절: flushWithin — 일이 없으면 바로(타이머 없음) · 던지는 일도 끝난 것 · 안 끝나면 8초에 timedOut
    ・2절: createQuitHold(main) — 붙잡기 · 답이 오면 다시 끄기 · 한 번 끝나면 다시 안 붙잡음 · 창이 없거나 죽었거나 «답할 수 있다» 전이면 안 붙잡음 · 9초 상한 · 창 닫기 · 업데이트 설치
    ・3절: 끝까지 — 진짜 옷장(closet.js) + 진짜 끄기 붙잡기(quit-hold.js) + 진짜 렌더러 답(leave-flush.js)을 가짜 IPC 로 이어 돌린다:
-          캐릭터를 만들자마자 끄면 만들기 요청(POST)이 끝난 뒤에 꺼진다 · 못 올린 것이 없으면 바로 꺼진다(요청 0) · 요청이 안 끝나면 8초 · 렌더러가 멈췄으면 9초 ·
+          캐릭터를 만들자마자 끄면 만들기 요청(POST)이 끝난 뒤에 꺼진다 · 못 올린 것이 없으면 바로 꺼진다(요청 0 · 옷장 줄에 멈춘 받기가 있어도) · 요청이 안 끝나면 8초 · 렌더러가 멈췄으면 9초 ·
           app.js 가 켜다 죽은 화면 · leave-flush.js 가 아직 안 실린 화면은 바로
    ・4절: 배선 — main.js(before-quit 맨 앞 · 창 닫기 · 업데이트 설치 · 새 화면 · 렌더러 죽음 · session-end 는 그대로) · preload 채널 · app.js 일 · html 순서 · 로그아웃이 같은 한 벌
-   ・5절: mutation test — 끄기를 안 붙잡는 옛 길(main 이 바로 app.quit)은 3절 첫 판정이 빨강 · 렌더러가 옷장 일을 안 넘기면 빨강 · «답할 수 있다» 를 안 보면 9초
+   ・5절: mutation test — 끄기를 안 붙잡는 옛 길(main 이 바로 app.quit)은 3절 첫 판정이 빨강 · 렌더러가 옷장 일을 안 넘기면 빨강 · closet.js 의 «못 올린 것이 있을 때만» 거름을 걷으면 8초 · «답할 수 있다» 를 안 보면 9초
    [실행] 저장소 루트에서 node checks/run.js sim-leave-flush */
 'use strict';
 const fs = require('fs');
@@ -89,6 +89,7 @@ function mkMain(L, clock, opt){
 function mkCloset(clock, opt){
   const o = opt || {};
   const env = { log: o.log, calls: [] };
+  let loads = 0;
   const slots = [null, null, null, null, null];
   let last = new Array(5).fill(null);
   const savedFns = [];
@@ -99,13 +100,14 @@ function mkCloset(clock, opt){
   };
   env.edit = (i, val) => { slots[i] = val; const was = JSON.stringify(last); const nl = last.slice(); nl[i] = val; last = nl; savedFns.forEach(fn => fn(last, JSON.stringify(last) !== was)); };
   const api = {
-    load: async () => ({ slots: [null, null, null, null, null], avatars: [], defs: {} }),
+    // laneBusy — 처음 받기만 끝나고 그 뒤 받기는 안 끝난다(옷장 줄에 멈춘 일이 서 있는 상태)
+    load: () => { loads++; if(o.laneBusy && loads > 1) return new Promise(() => {}); return Promise.resolve({ slots: [null, null, null, null, null], avatars: [], defs: {} }); },
     create: (slot) => { env.calls.push('create:' + slot); if(o.createHang) return new Promise(() => {}); return new Promise(r => clock.setTimeout(() => { env.log.push('create-done'); r({ avatarId: 'n' + slot, version: 1 }); }, o.createMs || 400)); },
     update: async () => ({ version: 2 }), move: async () => ({}), trash: async () => [], trashPage: async () => ({ items: [], nextCursor: null }), restore: async () => ({}), legacySync: async () => ({}), fetchOne: async () => ({}), reset(){},
   };
   const codec = { SLOT_JSON_MAX: 150000, _slotGlbCacheLoad: () => ({}), _slotGlbCacheSave(){}, _slotToServerObj: async (uid, x) => Object.assign({}, x), _slotFromServerObj: async (d) => d };
   const ctx = { window: {}, JSON, Object, Array, Number, String, Error, Promise, Math, Date, Set, isFinite, console: { warn(){}, log(){} }, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout };
-  vm.createContext(ctx); vm.runInContext(CLOSET, ctx);
+  vm.createContext(ctx); vm.runInContext(o.closetSrc || CLOSET, ctx);
   const C = ctx.window.TwCloset.createCloset({
     CHAR_SLOT_MAX: 5, closetApi: api, codec, roomFaceCache: { load: () => ({}), save(){} }, slots, slotSave,
     getMyUserId: () => 'u1', rtOn: () => () => {}, toast(){}, notifyError: () => {}, renderLauncher(){}, creatorOpen: () => false,
@@ -135,6 +137,7 @@ async function scene(src, opt, qhSrc){
   const R = o.rendererNotLoaded ? null : loadLF(src, clock, fakePreload(Q, m, o));   // html 이 app.js 보다 먼저 싣는다
   const e = mkCloset(clock, Object.assign({ log }, o));
   await e.C.pullCloset(false);
+  if(o.laneBusy) e.C.pullCloset(false);   // 줄에 받기 하나를 세운다 — 끝나지 않는다
   if(R && !o.appDied) (o.jobs ? o.jobs(e.C) : [e.C.flushUnsaved]).forEach(j => R.addQuitJob(j));   // app.js 가 옷장을 만든 뒤 일을 더한다
   if(o.edit !== false) e.edit(0, { skin: 'new' });   // 새 캐릭터 저장 — 3초 묶음이 예약된다
   await clock.advance(o.waitBefore || 50);
@@ -240,6 +243,8 @@ await A.clock.advance(5000);
 chk(A.calls.length === 1, '  3초 묶음이 뒤늦게 돌아도 같은 캐릭터를 또 올리지 않는다');
 const B = await scene(null, { edit: false });
 chk(B.quitAfter === 0 && B.calls.length === 0 && B.log.join() === 'done,quit', '★ 못 올린 것이 없으면 — 요청 0 · 그 자리에서 꺼진다(' + B.quitAfter + 'ms)');
+const H = await scene(null, { edit: false, laneBusy: true });
+chk(H.quitAfter === 0 && H.calls.length === 0 && H.log.join() === 'done,quit', '★ 못 올린 것이 없으면 — 옷장 줄에 멈춘 받기가 서 있어도 기다리지 않고 그 자리에서 꺼진다(' + H.quitAfter + 'ms)');
 const B2 = await scene(null, { waitBefore: 3500 });
 chk(B2.calls.length === 1 && B2.log.join(' → ') === 'create-done → done → quit' && B2.quitAfter === 0, '  3초 묶음이 이미 올린 뒤에 끄면 — 다시 올리지 않고 바로 꺼진다');
 const Cc = await scene(null, { createHang: true });
@@ -282,8 +287,10 @@ say('── 5. mutation test');
   chk(old.log[0] === 'quit' && old.quitAfter === 0,   /* 시뮬레이션은 끈 뒤에도 돌아 3초 묶음이 뒤에 찍힌다 — 실제 앱은 이미 꺼졌다 */ '옛 길(main 이 끄기를 붙잡지 않음) — 만들기 요청이 끝나기 전에 꺼진다 → 3절 첫 판정이 빨강 [' + old.log.join(' → ') + ']');
   const noJob = await scene(null, { jobs: () => [] });
   chk(noJob.log.slice(0, 2).join(' → ') === 'done → quit' && noJob.quitAfter === 0, '렌더러가 옷장 일을 안 넘기면 — 요청 없이 바로 꺼진다 → 빨강');
-  const noFilter = await scene(null, { edit: false, jobs: (C) => [() => C.waitFlush().then(() => new Promise(() => {}))] });
-  chk(noFilter.quitAfter === 8000, '못 올린 것이 없어도 기다리는 일을 넘기면 — 8초를 기다린다 → 2번째 ★ 판정이 빨강');
+  const FILTER = 'return unsavedCount() ? flushSlots() : null;';
+  chk(CLOSET.includes(FILTER), 'closet.js flushUnsaved 에 «못 올린 것이 있을 때만» 거름이 그대로 있다(아래 변이의 바탕)');
+  const noFilter = await scene(null, { edit: false, laneBusy: true, closetSrc: CLOSET.replace(FILTER, 'return flushSlots();') });
+  chk(noFilter.quitAfter === 8000, 'closet.js 의 거름을 걷으면(늘 flushSlots) — 줄에 멈춘 받기 뒤에서 8초를 기다린다 → 3절 «멈춘 받기» ★ 판정이 빨강(' + noFilter.quitAfter + 'ms)');
   const noReadyGate = await scene(null, { rendererNotLoaded: true }, QH.replace('if(!w || !ready) return null;', 'if(!w) return null;'));
   chk(noReadyGate.quitAfter === 9000, '«답할 수 있다» 를 안 보고 붙잡으면 — 불러오는 중인 화면에서 9초를 기다린다 → 위 «안 실린 화면» 판정이 빨강(' + noReadyGate.quitAfter + 'ms)');
   const broken = await scene(null, {}, QH.replace('if(stage === \'idle\' && !ask(quit)) return false;', 'return false;'));
