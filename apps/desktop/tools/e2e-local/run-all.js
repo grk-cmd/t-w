@@ -5,7 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { acquire } = require('./runlock.js');
+const { acquire, QUIET_FAIL } = require('./runlock.js');
 
 const ROOT = path.join(__dirname, 'scenarios');
 const OUT = process.env.TW_E2E_OUT || '/tmp/tw-e2e';
@@ -33,9 +33,8 @@ if(require.main === module) (async () => {
   const env = Object.assign({}, process.env, { TW_E2E_RUN_LOCK_HELD: '1' });
   const rows = [];
   // 다른 묶음이 조용한 창이 깨진 것을 남겼으면(잠금 폴더 옆 e2e-quiet-fail) 다음 시나리오를 켜지 않는다
-  const quietFail = process.env.TW_E2E_RUN_LOCK ? path.join(path.dirname(process.env.TW_E2E_RUN_LOCK), 'e2e-quiet-fail') : '';
   for(const it of items){
-    if(quietFail && fs.existsSync(quietFail)){ console.error('e2e-quiet-fail 이 있어 멈춤: ' + quietFail); rows.push({ id: it.id, ok: false, sec: 0, bugs: 0, why: '멈춤 — e2e-quiet-fail' }); break; }
+    if(QUIET_FAIL && fs.existsSync(QUIET_FAIL)){ console.error('e2e-quiet-fail 이 있어 멈춤: ' + QUIET_FAIL); rows.push({ id: it.id, ok: false, sec: 0, bugs: 0, why: '멈춤 — e2e-quiet-fail' }); break; }
     const t0 = Date.now();
     const r = spawnSync(process.execPath, [it.file, it.out], { cwd: __dirname, env, stdio: 'inherit', timeout: 15 * 60 * 1000 });
     let steps = '';

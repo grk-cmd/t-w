@@ -4,7 +4,7 @@ dev 앱(`--tw-firebase=dev`)을 켜서 화면을 누르고 결과를 파일로 �
 
 | 파일 | 하는 일 |
 |---|---|
-| `lib.js` | 격리된 앱 한 벌 켜기 · 끄기 · 주소 돌리기 · 오프라인 흉내 |
+| `lib.js` | 격리된 앱 한 벌 켜기 · 끄기 · 켤 때 주소 돌리기 확인 · 오프라인 흉내 · 조용한 창 · 막힌 요청 판정(`quietProblems`) |
 | `flow.js` | 정해진 흐름 한 바퀴(가입 → 다시 켜기 → 로그인된 책상 → 얼굴 PNG · GLB 올리기 · 받기 → 오프라인 · 온라인) |
 | `quiet-main.js` | 조용한 창 — 시험 앱의 창 · 포커스를 화면 밖에 묶는다(아래 «조용한 창») |
 | `route-main.js` | 주소 돌리기 — 시험 앱의 요청을 이 PC 서버 · 에뮬레이터로 돌리고 진짜 서버로는 못 나가게 막는다(아래 «주소 돌리기») |
@@ -47,7 +47,7 @@ dev 앱은 `userData` 를 `appData/<이름>-dev` 로 바꾼다(`main.js`). 그�
 
 - **돌리기** — 세션의 https 처리기(`protocol.handle`)가 이 PC 주소로 대신 받아 원래 주소의 답으로 준다(redirect 가 아니라 창에서 본 주소 · 출처가 그대로). `api-dev.together-working.com` → `127.0.0.1:8080` · `identitytoolkit` · `securetoken.googleapis.com` → Auth 에뮬레이터 `127.0.0.1:9099/<호스트>/…` · `firebasestorage.googleapis.com` → Storage 에뮬레이터 `127.0.0.1:9199`. `help.together-working.com` → 저장소 `firebase/hosting/help` 파일(firebase.json help 사이트처럼 cleanUrls · 없는 길 404). realtime 은 dev 판이 처음부터 `ws://127.0.0.1:8787` 이다.
 - **막기** — 우리 데이터를 실을 수 있거나 우리 백엔드에 닿는 곳만 네트워크 오류로 끝낸다(ws · wss 포함): `*.together-working.com` · `identitytoolkit` · `securetoken` · `firebasestorage` · `firestore` · `firebaseinstallations.googleapis.com` · `*.firebaseio.com` · `*.firebasedatabase.app` · `*.firebaseapp.com` · `*.web.app`(돌릴 세 짝은 먼저 돌린다). 그 밖(유튜브 플레이어 · 글꼴 등)은 그대로 둔다. 막은 것은 결과 폴더 `net.txt` 에 `BLOCK` 줄로 남고 `lib.quietProblems` 가 문제로 낸다(시나리오는 그 단계가 실패하고 `e2e-quiet-fail` 에 주소가 남는다).
-- **켤 때 확인** — `lib.launch` 가 창에서 `https://api-dev.together-working.com/actuator/health` 를 불러 이 PC API 가 200 으로 답했는지(돌린 기록) · 막힌 요청이 없는지 본다. 아니면 앱을 끄고 실패한다(다시 읽기 · 다시 켜기로 감추지 않는다).
+- **켤 때 확인** — `lib.launch` 가 앱 세션(main 의 `session.defaultSession.fetch`)으로 `https://api-dev.together-working.com/actuator/health` 를 불러 이 PC API 가 200 으로 답했는지(돌린 기록) · 막힌 요청이 없는지 본다. 아니면 앱을 끄고 실패한다(다시 읽기 · 다시 켜기로 감추지 않는다).
 - 돌린 요청은 `net.txt` 의 `REQ` 줄 → `A.reqs`(옛 모양 `<방법> <길> <상태>` 그대로). 확인 시나리오는 `scenarios/launcher/routing.js`.
 
 ## 돌리기
@@ -66,11 +66,6 @@ node flow.js /tmp/tw-e2e/flow2 INVT-XXXX-XXXX   # 다른 초대 코드
 
 - `social` 묶음 공통부는 `scenarios/social/_kit.js`(`_` 로 시작하는 파일은 run-all 이 돌리지 않는다). 관리자 · 포커스 누적은 `seed/social.sql` · `seed/focus.sql` 을 로컬 DB 컨테이너(`TW_E2E_PG_CONTAINER`, 기본 `tw-dev-local-postgres-1`)에 넣는다.
 - 시험이 누를 수 없는 OS 창(파일 고르기)은 main 의 `dialog.showOpenDialog` 를 «이 파일을 골랐다» 로 바꿔 두고, 바깥 사이트 유튜브 제목 조회는 렌더러 fetch 를 그 주소에서만 가짜 답으로 바꾼다 — 앱 코드는 그대로다. 서버 실패는 이 앱만 오프라인(lib.js `net`)으로 만든다.
-
-### 조용한 창 · 실행 잠금
-
-- **조용한 창(`TW_E2E_QUIET`, 기본 켬 · `quiet-main.js`)** — 감싸는 진입점이 앱 main.js 보다 먼저 `quiet-main.js` 를 불러, 시험 프로세스 안에서만 electron 을 감싼다(앱 코드는 그대로). 앱은 «보조 앱»(mac `setActivationPolicy('accessory')` — Dock 아이콘 없음)으로 켜지고 `app.focus` · `app.show` · `dock.show` 는 아무것도 안 한다. 앱이 받는 `BrowserWindow` 는 하위 클래스로 바뀌어 처음부터 화면 밖(-20000, -20000) · 포커스 없이 보이고(`show` → `showInactive`), `focus` · `moveTop` · `center` · `maximize` · 전체 화면은 아무것도 안 하며, `setAlwaysOnTop` 은 값만 기억하고, `setBounds` · `setContentBounds` · `setPosition` · `center` 는 폭 · 높이만 따르고 자리는 «앱이 아는 자리» 로만 기억한다 — `getBounds` · `getPosition` · `getContentBounds` 는 그 자리를 돌려줘 앱이 화면 밖 값을 마지막 자리로 저장하지 않는다. 진짜 창은 투명(opacity 0) · 클릭 통과 · 소리 끔(mac 은 화면 밖 창을 화면 끝으로 당겨 놓아 끝자락이 보이고 눌릴 수 있다) — 앱이 부르는 `setAlwaysOnTop` · `setOpacity` · `setIgnoreMouseEvents` · `webContents.setAudioMuted` 는 값만 기억하고 `isAlwaysOnTop` · `getOpacity` · `isAudioMuted` 는 그 값을 돌려준다. 시험이 진짜 값을 볼 땐 `w.__e2eRealBounds()` · `w.__e2eRealOpacity()` · `w.webContents.__e2eRealAudioMuted()` · 앱이 정한 클릭 통과는 `w.__e2eIgnoreMouse()`. Playwright 입력은 CDP 로 가서 포커스 · 클릭 통과와 상관없고, 화면 밖에서도 타이머 · WebGL 이 돌게 배경 늦추기를 끈다. 네 묶음이 이 한 벌을 같이 쓴다. 확인은 `scenarios/launcher/quiet.js`(lib.js 만 써서 계정 · 시드 없이 돈다 — 켠 뒤 · 앱이 창을 앞으로 부르는 길을 main 에서 직접 부른 뒤 진짜 자리가 화면 밖 · 포커스 없음). 눈으로 보려면 `TW_E2E_QUIET=0`. 화면에 꼭 떠야 하는 시나리오(창 앞뒤 · 바깥 눌러 닫기)는 `makeApp(out, { quiet: false })` 로 그 앱만 끄고 시나리오 머리에 까닭을 적는다.
-- **실행 잠금(`TW_E2E_RUN_LOCK`)** — 잠금 폴더 경로를 주면 `mkdir` 로 잡고(있으면 30초마다 다시) 끝나면 `rmdir` 한다. `run-all.js` 가 잡으면 시나리오는 다시 잡지 않는다. 비워 두면 잠그지 않는다.
 
 ### repl.js · run.sh — 켜 둔 앱에 명령 보내기
 
@@ -101,6 +96,20 @@ node scenarios/account/login.js /tmp/tw-e2e/account/login   # 하나만
 
 시나리오는 저마다 새 계정(새 친구 코드)을 만들고, 결과 폴더(`/tmp/tw-e2e/<영역>/<이름>`)를 비우고 시작한다. 판정은 화면 글 · 앱 상태 · 돌린 요청 기록 · API 응답으로 한다. 끝 줄이 `PASS` 면 통과(종료 코드 0). `BUG  <번호>` 줄은 FEATURES.md «발견한 버그» 에 적힌 버그가 아직 그대로라는 뜻이다(통과 판정은 바꾸지 않는다) — `FIXED` 로 바뀌면 그 버그를 표에서 지우고 시나리오의 그 자리를 일반 단계로 바꾼다.
 
+#### 방 · 채팅(`scenarios/room` · `scenarios/chat`)
+
+```bash
+node run-all.js room chat       # 방 · 채팅 전부
+node run-all.js room/create-join
+```
+
+- 결과 폴더는 `<TW_E2E_OUT 또는 /tmp/tw-e2e>/<영역>/<이름>` — 시작할 때 비운다. `steps.txt`(단계마다 `ok` · `FAIL` · 마지막 줄 `PASS` 또는 `ABORT`) · 사람마다 `a/` `b/` … 폴더(`console.txt` · `requests.txt` · `account.json` · 실패 화면 `fail-<n>.png`).
+- 시나리오마다 새 계정을 가입시킨다(친구 코드는 서버가 새로 뽑는다). 두 사람 기능은 앱 두 벌(같은 계정 둘째 PC 는 그 계정으로 로그인한 셋째 벌).
+- 판정은 앱 상태(방 meta · 좌석 · 대화창 글) · 화면 글 · API 응답으로 한다. realtime 이 오간 글은 `ws.txt` 에 남기지만(실패를 볼 때 참고) 창이 뜨자마자 붙은 연결은 놓칠 수 있어 판정에 쓰지 않는다. 소리 재생 · 복사는 이 PC 의 스피커 · 클립보드를 건드리지 않게 그 자리에서 가로채 센다.
+- 시드: `seed/room.sql`(초대 코드 `INVT-RMRM-E2E3`)은 시나리오가 켤 때마다 넣는다(이미 있으면 그대로). 투게더룸 · 시크릿룸 · 프리미엄 기능은 `seed/admin.sql` 로 그 계정의 로그인 uid 를 관리자로 넣고 다시 켠다(서버가 관리자에게 프리미엄을 붙인다). DB 컨테이너 이름은 `TW_E2E_PG`(기본 `tw-dev-local-postgres-1`).
+- 방 · 채팅 시나리오(`scenarios/room/_kit.js`)는 **단계마다** `quietProblems(app)`(lib.js · 네 묶음 공용)로 창이 조용한지 잰다 — 자식 창까지 진짜 창이 어느 화면과도 4분의 1 넘게 겹치지 않음 · 포커스 없음 · 진짜 불투명도 0 · 진짜 소리 끔 · 진짜 늘 위 아님 · 감싸지 않은 창 없음. 어긋나면 잠금 폴더 옆 `e2e-quiet-fail` 에 남기고 `run-all` 은 다음 시나리오를 켜지 않는다. 어긋나면 그 단계가 실패한다.
+- 단계 하나는 3분, 시나리오 하나는 `TW_E2E_SCENARIO_MIN`(기본 20)분을 넘으면 앱을 끄고 실패로 끝낸다.
+
 ### 조용한 창 · 실행 잠금
 
 - **조용한 창(`TW_E2E_QUIET`, 기본 켬 · `quiet-main.js`)** — 감싸는 진입점이 앱 main.js 보다 먼저 `quiet-main.js` 를 불러, 시험 프로세스 안에서만 electron 을 감싼다(앱 코드는 그대로). 앱은 «보조 앱»(mac `setActivationPolicy('accessory')` — Dock 아이콘 없음)으로 켜지고 `app.focus` · `app.show` · `dock.show` 는 아무것도 안 한다. 앱이 받는 `BrowserWindow` 는 하위 클래스로 바뀌어 처음부터 화면 밖(-20000, -20000) · 포커스 없이 보이고(`show` → `showInactive`), `focus` · `moveTop` · `maximize` · 전체 화면은 아무것도 안 하며, `setAlwaysOnTop` 은 값만 기억하고, `setBounds` · `setContentBounds` · `setPosition` · `center` 는 폭 · 높이만 따르고 자리는 «앱이 아는 자리» 로만 기억한다 — `getBounds` · `getPosition` · `getContentBounds` 는 그 자리를 돌려줘 앱이 화면 밖 값을 마지막 자리로 저장하지 않는다. 진짜 창은 투명(opacity 0) · 클릭 통과 · 소리 끔(mac 은 화면 밖 창을 화면 끝으로 당겨 놓아 끝자락이 보이고 눌릴 수 있다) — 앱이 부르는 `setAlwaysOnTop` · `setOpacity` · `setIgnoreMouseEvents` · `webContents.setAudioMuted`(BrowserView 등 모든 webContents) 는 값만 기억하고 `isAlwaysOnTop` · `getOpacity` · `isAudioMuted` 는 그 값을 돌려준다. 렌더러의 `window.open` 창(방명록 · 디자인 스튜디오)은 electron 이 안에서 만들어서, 모든 webContents 의 `setWindowOpenHandler` 를 감싸 처음부터 숨김 · 화면 밖 · 투명 · 늘 위 끔으로 열고, 만들어지자마자 같은 조용한 처리를 건다. 시험이 진짜 값을 볼 땐 `w.__e2eRealBounds()` · `w.__e2eRealOpacity()` · `w.webContents.__e2eRealAudioMuted()` · `w.__e2eRealAlwaysOnTop()` · 앱이 정한 클릭 통과는 `w.__e2eIgnoreMouse()`. Playwright 입력은 CDP 로 가서 포커스 · 클릭 통과와 상관없고, 화면 밖에서도 타이머 · WebGL 이 돌게 배경 늦추기를 끈다. 네 묶음이 이 한 벌을 같이 쓴다. 확인은 `scenarios/launcher/quiet.js`(lib.js 만 써서 계정 · 시드 없이 돈다 — 켠 뒤 · 앱이 창을 앞으로 부르는 길을 부른 뒤 · 창 목록 · window.open 자식 창 · BrowserView 소리 — 판정은 `lib.quietProblems` 한 곳 · 화면 · 포커스 · 소리로 새는 실패만 `e2e-quiet-fail` 에 남김). 시나리오 안에서는 `lib.quietProblems(app)` 이 단계마다 같은 규칙을 보고(계정 묶음은 `t.step` 끝마다), 깨지면 잠금 폴더 옆 `e2e-quiet-fail` 에 까닭을 남긴다 — `run-all.js` 는 그 파일이 있으면 다음 시나리오를 켜지 않는다. 그 파일은 아무도 저절로 지우지 않는다: 까닭을 보고 고친 뒤(`scenarios/launcher/quiet.js` 가 다시 통과한 뒤) 사람 · 세션이 지운다. `quiet:false` 로 켠 앱은 단계 판정에서 건너뛴다. 눈으로 보려면 `TW_E2E_QUIET=0`. 화면에 꼭 떠야 하는 시나리오(창 앞뒤 · 바깥 눌러 닫기)는 `makeApp(out, { quiet: false })` 로 그 앱만 끄고 시나리오 머리에 까닭을 적는다.
@@ -122,4 +131,3 @@ node scenarios/account/login.js /tmp/tw-e2e/account/login   # 하나만
 - **앱을 다시 켜는 흐름**(가입 끝의 [시작하기] 등)은 먼저 `await app.evaluate(({ app: a }) => { a.relaunch = () => {}; })` 로 다시 켜기 예약을 막는다. 막지 않으면 도구가 모르는 앱이 하나 더 뜬다. 앱이 꺼진 뒤에는 도구를 새로 띄운다(repl 은 `repl.js` 를 같은 결과 폴더로 다시 켬 · flow.js 는 스스로 다시 켠다).
 - **런처의 × 는 앱을 끈다.** 창을 닫으려고 누르면 repl 도 할 일이 없어진다 — 끄려면 `'QUIT'` 을 쓴다.
 - **보이는지 확인**: 화면에 고정된 겹창(fixed)은 `offsetParent === null` 이라 «안 보임» 으로 잘못 읽힌다. `getComputedStyle(el).display` 를 본다.
-- **켤 때 한 번 새로 읽는다**(주소 돌리기를 건 뒤 첫 화면을 다시 부르려고). 그래서 한 번만 뜨는 알림(예: «로그아웃했어요»)은 그 새로 읽기에 먹혀 안 보일 수 있다.

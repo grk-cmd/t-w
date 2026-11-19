@@ -2,8 +2,11 @@
 // 비어 있으면 잠그지 않는다. run-all.js 가 잡으면 TW_E2E_RUN_LOCK_HELD=1 을 넘겨 시나리오는 다시 잡지 않는다
 'use strict';
 const fs = require('fs');
+const path = require('path');
 
 const LOCK = process.env.TW_E2E_RUN_LOCK || '';
+// 조용한 창이 깨졌다는 표시 파일 — 잠금 폴더 옆 하나. run-all 은 이 파일이 있으면 다음 시나리오를 켜지 않는다(사람이 까닭을 보고 지운다). 잠그지 않고 돌면 ''
+const QUIET_FAIL = LOCK ? path.join(path.dirname(LOCK), 'e2e-quiet-fail') : '';
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function acquire(owner){
@@ -27,4 +30,10 @@ async function acquire(owner){
   return release;
 }
 
-module.exports = { acquire };
+/** 표시 파일에 한 줄 덧붙인다(시각 · 글). 잠그지 않고 돌면 아무것도 안 한다 */
+function markQuietFail(text){
+  if(!QUIET_FAIL) return;
+  try { fs.appendFileSync(QUIET_FAIL, new Date().toISOString() + ' ' + text + '\n'); } catch(_){}
+}
+
+module.exports = { acquire, QUIET_FAIL, markQuietFail };
