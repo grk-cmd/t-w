@@ -1,5 +1,5 @@
-/* room-lobby-model.js — 🗂️ 방 목록 로비 규칙(목록 사본 → 카드 · 거르기 · 정렬 · 쪽 · 빠른시작) — 순수 함수 · DOM · firebase 없음.
-   사본 모양은 서버 함수 firebase/functions/room-lobby.js 의 roomLobby/{채널} = { at, rooms: { 코드: { t, n, max, hn, mu, since } } }.
+/* room-lobby-model.js — 🗂️ 방 목록 로비 규칙(목록 → 카드 · 거르기 · 정렬 · 쪽 · 빠른시작) — 순수 함수 · DOM · firebase 없음.
+   목록 모양은 { at, rooms: { 코드: { t, n, max, hn, mu, since } } } — room-lobby-provider.js 가 API(GET /v2/rooms/lobby) 답을 이 모양으로 바꿔 넘긴다.
    정렬은 설계(docs/ROOM_LOBBY.md 1장)대로 입장 가능 먼저 → 인원 많은 순 → 오래 열린 순. 방 번호는 이 순서의 번호다(방 코드 아님).
    classic script(window.TwRoomLobbyModel) — room-settings.js 뒤 · room-lobby-ui.js · app.js 보다 먼저. 검사: checks/sim-room-lobby-ui.js */
 (function(){
@@ -8,7 +8,7 @@ const roomCap = window.TwRoomSettings.roomCap;   // 방 정원 규칙은 입장 
 const displayTitle = window.TwRoomSettings.displayTitle;   // 제목 기본값(«○○ 님의 방») 은 방 안 제목과 같은 한 곳
 
 const PER_PAGE = 12;                 // 한 쪽 3 × 4
-const STALE_MS = 3 * 60 * 1000;      // 사본은 1분마다 — 3분 넘게 그대로면 서버 함수가 멈춘 것으로 본다
+const STALE_MS = 3 * 60 * 1000;      // at(서버가 답을 만든 시각)이 이 기기 시각보다 3분 넘게 뒤지면 «늦게 갱신» 안내
 
 /** 방 한 줄 → 카드. cap = 원격 정원(방 최대 인원이 더 크면 정원으로 줄인다 — roomCap). */
 function cardOf(code, row, cap){
@@ -37,8 +37,8 @@ function compare(a, b){
   return a.code < b.code ? -1 : a.code > b.code ? 1 : 0;
 }
 
-/** 채널 사본 → { state, list, total, open, ageMs }.
- *  state: 'failed'(못 읽음 · null) · 'missing'(칸이 없음 — 서버 함수가 안 돎) · 'stale'(3분 넘게 그대로) · 'ok'.
+/** 채널 목록 → { state, list, total, open, ageMs }.
+ *  state: 'failed'(못 읽음 · null) · 'missing'(at 이 없음) · 'stale'(at 이 3분 넘게 뒤짐) · 'ok'.
  *  list 는 정렬 · 거르기(onlyOpen = 빈자리 있는 방만)를 마친 카드, no 는 1부터.
  *  @param {{ at: number|null, rooms: object }|null} node  @param {{ now: number, cap: number, onlyOpen: boolean }} o */
 function cardsFrom(node, o){

@@ -21,7 +21,7 @@
 | 내 시크릿룸 | 로비 맨 위에 방장 본인에게만 보이는 줄(이름 · 인원 · 바로 들어가기) |
 | 방 만들기 | 제목(20자) · 워킹룸 / 투게더룸 · 최대 인원(2명 ~ 방 정원) · 목록에 공개 · 같이 듣기 |
 | 방 설정 바꾸기 | 현재 방장은 방 안에서 제목 · 공개를 바꿀 수 있다(5장) |
-| 금칙어 | 방 제목에 금칙어를 거른다 — 만들 때 · 바꿀 때 앱이 막고, 목록에는 서버 함수가 한 번 더 가려서 낸다(5장) |
+| 금칙어 | 방 제목에 금칙어를 거른다 — 만들 때 · 바꿀 때 앱이 막고, 목록에는 realtime 서버가 한 번 더 가려서 낸다(5장) |
 | 방장 승계 | 워킹룸도 승계한다 — 별도 PR(#475). 로비는 그 위에서 «현재 방장» 을 보인다 |
 
 ## 2. 데이터
@@ -38,16 +38,15 @@
 - 지금 `_meta` 는 `.write: true` + 모양 검사다(방장을 서버가 확인하지 못한다 — chatOff · tabs 와 같은 처지). 이 설계도 같은 수준에서 시작하고, 방 서버로 옮기면서 «방장만 쓸 수 있다» 를 서버가 지킨다(4장).
 - 제목은 남이 쓴 글이다 — 화면에는 `TwSafeHtml.text` 로만 넣는다.
 
-### 2.2 목록 사본 `roomLobby/{채널}` (새 경로 · 서버 함수만 씀)
+### 2.2 목록 — API `GET /v2/rooms/lobby?channel=` (Firebase 사본 없음)
 ```
-roomLobby/workingroom = { at: 1729500000000, rooms: { 'WORK-AB12': { t: '방 제목', n: 3, max: 10, hn: '방장 닉네임', mu: false, since: 1729400000000 } } }
+GET /v2/rooms/lobby?channel=workingroom
+→ { at: '2026-11-19T12:00:00Z', rooms: [{ code: 'WORK-AB12', title: '방 제목', people: 3, max: 10, hostName: '방장 닉네임', music: false, since: … }] }
 ```
-- 채널마다 `at`(만든 시각)이 있어 방이 없는 채널도 칸이 남는다 — 앱이 «빈 목록» 과 «못 불러옴 · 낡음(at 이 3분 넘게 지남)» 을 가른다.
-- **쓰는 곳**: `firebase/functions/room-stats.js` 의 1분 주기 실행. 이미 `roomIndex` 와 `roomAlive` 전체를 읽고 있어(유령 청소) 인원 `n` 을 새로 읽지 않고 센다. `_meta` 는 공개(`open`) 방만 그 방 칸 몇 개(`title` · `max` · `hostName` · `music`)를 읽는다.
-- **넣는 방**: 공개 · 시크릿룸 아님 · 90초 안에 살아 있음 · 사람 1명 이상.
-- **앱이 읽는 것**: 지금 탭의 `roomLobby/{채널}` 하나(방 하나 ~80바이트 · 300개여도 ~24KB). 로비를 열 때 · [새로 고침] · 열려 있는 동안 60초마다. 로비가 닫히면 읽지 않는다(구독하지 않고 `get`).
-- **규칙**: `.read` 는 `roomIndex` 와 같은 조건, `.write: false`(함수만 · Admin SDK).
-- 인원은 최대 1분 늦다 — 들어갈 때는 지금처럼 그 방의 정원을 다시 확인한다(목록 숫자로 막지 않는다).
+- **만드는 곳**: realtime 서버가 메모리에 들고 있는 지금 연 방을 그 자리에서 센다. API 는 그 답을 그대로 넘긴다(저장 · 캐시 없음). Firebase 에 목록 사본 노드 · 만드는 함수는 없다 — 0.13 앱이 여는 방은 모두 realtime 서버 방이다.
+- **넣는 방**: 그 채널 · 공개(`open`) · 시크릿룸 아님 · 사람 1명 이상. 인원은 재접속 유예 중인 자리까지 센다.
+- **앱이 읽는 것**: 지금 탭 채널 하나(`room/room-lobby-provider.js` 의 `listRooms` — 답을 `{ at, rooms: { 코드: { t, n, max, hn, mu, since } } }` 모양으로 바꿔 화면에 넘긴다). 모달을 열 때 · [새로 고침] · 탭을 바꿀 때 · 방을 나와 로비가 다시 보일 때만 읽는다(구독 · 주기 갱신 없음). 못 읽으면(닿지 못함 · 답 모양이 틀림) Firebase 로 돌아가지 않고 «못 불러옴»(`E-ROOM-03`)을 그린다.
+- 인원은 읽은 그 순간 값이다 — 들어갈 때는 지금처럼 그 방의 정원을 다시 확인한다(목록 숫자로 막지 않는다).
 
 ### 2.3 내 시크릿룸 — 이미 있는 `users/{나}/secretRoom` 을 쓴다
 - 이 칸은 지금도 있다: 관리자가 시크릿룸을 발급할 때(앱 `admin-license-bulk.js` · 웹 관리자 `grantSecretRoom`) 받는 사람 칸에 코드를 적고, 앱 참여 화면이 `getMySecretRoom` 으로 읽어 «내 시크릿룸» 을 채운다. 새 칸 · 규칙 변경은 없다.
@@ -58,9 +57,9 @@ roomLobby/workingroom = { at: 1729500000000, rooms: { 'WORK-AB12': { t: '방 제
 
 | 파일 | 할 일 |
 |---|---|
-| `room/room-lobby-model.js` (새 · 순수) | 목록 줄 → 카드: 탭 · «빈자리» 거르기 · 정렬 · 쪽 나누기 · 가득 참 판정 · 제목 기본값. DOM · firebase 없음 — `sim-room-lobby-model.js` |
-| `room/room-lobby.js` (새 · `TwRoomLobby`) | 로비 창: 탭 · 거르기 · 카드 · 쪽 · [방 만들기] · [빠른시작] · 코드 칸 · 내 시크릿룸 줄 · 비었음 / 못 불러옴(`E-ROOM-03`). deps 로 provider 를 받는다 |
-| `room/room-lobby-provider.js` (새) | `listRooms(channel)` — API(`GET /v2/rooms/lobby?channel=`) 먼저, 안 되면 Firebase `roomLobby/{채널}` (지금 `api-public-reads.js` 의 count · random 과 같은 모양) |
+| `room/room-lobby-model.js` (새 · 순수) | 목록 줄 → 카드: 탭 · «빈자리» 거르기 · 정렬 · 쪽 나누기 · 가득 참 판정 · 제목 기본값. DOM · firebase 없음 — `sim-room-lobby-ui.js` |
+| `room/room-lobby-ui.js` (새 · `TwRoomLobbyUi`) | 로비 창: 탭 · 거르기 · 카드 · 쪽 · [방 만들기] · [빠른시작] · 코드 칸 · 내 시크릿룸 줄 · 비었음 / 못 불러옴(`E-ROOM-03`). deps 로 provider 를 받는다 |
+| `room/room-lobby-provider.js` (새) | `listRooms(channel)` — API(`GET /v2/rooms/lobby?channel=`)만 읽는다. Firebase 로 돌아가는 길 없음 |
 | `room/room-entry.js` | 방 만들기에 제목 · 최대 인원 · 공개 · 같이 듣기를 받아 `_meta` 에 · 정원 검사 `min(meta.max, maxPeople())` · 빠른시작이 지금 탭 채널로 |
 | `room/room-channel.js` | (#475) 승계 규칙 — 승계할 때 `hostName` 도 같이 |
 | `firebase-init.js` | `setRoomChannel` · `claimEmptyRoom` · `claimHostIfVacant` 가 `hostName` 을 같이 쓴다 · `findRandomRooms(channel)` |
@@ -71,27 +70,27 @@ roomLobby/workingroom = { at: 1729500000000, rooms: { 'WORK-AB12': { t: '방 제
 - 새 오류 번호: `E-ROOM-03` 방 목록을 못 불러옴(빈 목록과 다르게 그린다).
 
 ## 4. 서버 작업 필요 (`t-w-server` — 이 저장소 밖)
-- **`GET /v2/rooms/lobby?channel=workingroom|togetherroom`** — 공개 방 목록. 출력 `[{ code, t, n, max, hn, mu }]` · 방 서버 방과 Firebase `roomLobby` 를 합친 것. 시크릿룸 · 비공개는 빼고, 남의 userId 는 내보내지 않는다(닉네임만).
+- **`GET /v2/rooms/lobby?channel=workingroom|togetherroom`** — 공개 방 목록. 출력 `{ at, rooms: [{ code, title, people, max, hostName, music, since }] }` · realtime 서버가 메모리의 방으로 바로 낸다(2.2). 시크릿룸 · 비공개는 빼고, 남의 userId 는 내보내지 않는다(닉네임만).
 - **방 만들기(`join` 의 `create`)** 에 `title` · `max` · `music` · `hostName` 을 받는다(지금 서버는 모르는 칸을 거절한다). `meta` 메시지로 **방장만** `title` · `open` 을 바꿀 수 있게. `title` 은 금칙어 판정(5.2)을 거친다.
 - **정원**: 서버 `join` 이 `min(max, 원격 설정 정원)` 으로 막는다.
 - **승계**: 워킹룸도 입장순 첫 사람 · 해산 없음(#475 와 같은 규칙) · 승계 때 `hostName` 갱신.
 - **랜덤(`random`)**: 채널 인자 · 투게더룸 공개 방도 · `max` 기준 빈자리.
-- 서버가 생기기 전 앱의 옛 길: Firebase `roomLobby`(함수) · `_meta` 칸. 서버가 생기면 바꿀 자리: `room-lobby-provider.js`.
+- 앱의 옛 길(Firebase 목록 사본)은 두지 않는다 — 목록은 API 하나다.
 
 ## 5. 방 설정 바꾸기 · 금칙어
 
 ### 5.1 방 안에서 바꾸기
 - 방 안 정보 칸(지금 `#inviteActive` — 방 코드 · 복사 · 친구 초대 · 나가기)에 현재 방장에게만 [방 설정] 을 둔다. 제목 · 공개를 고쳐 `_meta` 에 쓴다(`update` — 다른 칸은 안 건드림).
 - 방장이 바뀌면(승계) 새 방장에게 버튼이 보이고 옛 방장에게서는 사라진다 — `_roomMetaCache.host` 를 따른다.
-- 목록에는 다음 함수 주기(최대 1분)에 반영된다. 방 안 사람들 화면의 제목은 `_meta` 구독으로 바로 바뀐다.
+- 목록에는 다음에 로비를 읽을 때 바로 반영된다. 방 안 사람들 화면의 제목은 `_meta` 구독으로 바로 바뀐다.
 - 최대 인원 · 같이 듣기는 이번 판에서 만들 때만 정한다(바꾸면 이미 들어온 사람 처리 · 재생 넘기기가 따로 필요해서).
 - 권한: 지금 `_meta` 는 누구나 쓸 수 있다(2.1). 이 버튼은 화면에서만 방장으로 막는다 — chatOff · tabs 와 같다. 방 서버가 «방장만» 을 지킨다(4장).
 
 ### 5.2 금칙어
 - **목록**: 원격 설정 `config/bannedWords`(문자열 배열 · 웹 관리자 ⚙️ 설정에서 고침). 기본값은 비어 있다 — 처음 목록은 관리자가 넣는다.
-- **판정**(순수 함수 한 벌 — 앱 `shared/banned-words.js` · 함수 `functions/banned-words.js` 가 같은 규칙, 검사가 두 판의 결과를 견준다): 공백 · 기호 · 숫자 사이 끼움을 빼고 소문자로 맞춘 뒤 부분 일치.
+- **판정**(같은 규칙 — 앱 `shared/banned-words.js` · realtime 서버 `realtime/src/domain/bannedWords.ts`, 서버 검사가 앱 판정 결과와 견준다): 공백 · 기호 · 숫자 사이 끼움을 빼고 소문자로 맞춘 뒤 부분 일치.
 - **앱**: 만들기 · 바꾸기에서 걸리면 저장하지 않고 «방 제목에 쓸 수 없는 말이 있어요» 를 칸 아래에 보인다(토스트 아님 · 오류 번호 아님 — 사용자가 고칠 입력이라).
-- **서버 함수**: `roomLobby` 에 옮길 때 다시 판정해 걸리면 제목을 비운다(목록에는 «○○ 님의 방» 기본값). 앱을 고쳐 막기를 건너뛰어도 목록에는 안 나간다.
+- **로비 목록**: realtime 서버가 답을 만들 때 지금 목록으로 다시 판정해 걸리면 제목을 비운다(목록에는 «○○ 님의 방» 기본값). 앱을 고쳐 막기를 건너뛰어도 · 만든 뒤 금칙어가 더해져도 목록에는 안 나간다.
 - **방 안**: 방 안 사람들 화면의 제목도 같은 판정으로 걸리면 기본값으로 그린다.
 - **방 서버**: 방 만들기 · `meta` 의 `title` 에 같은 판정(4장).
 
@@ -100,13 +99,13 @@ roomLobby/workingroom = { at: 1729500000000, rooms: { 'WORK-AB12': { t: '방 제
 - 옛 앱이 만든 방은 `title` · `hostName` 이 없다 — 목록에서 «이름 없는 방» 기본값 · 방장 칸 비움으로 그린다. 옛 앱의 방은 `open` 이 워킹룸에만 있으니 옛 투게더룸은 목록에 안 나온다(지금과 같음).
 
 ## 7. 배포 순서
-1. 규칙(`_meta` 새 칸 · `roomLobby` · `config/bannedWords`) — dev 먼저, 운영은 앱 태그 전에. 처음 금칙어 목록도 이때 넣는다.
-2. 함수 `room-stats`(목록 사본) — 앱 태그 전에.
+1. 규칙(`_meta` 새 칸 · `config/bannedWords`) — dev 먼저, 운영은 앱 태그 전에. 처음 금칙어 목록도 이때 넣는다.
+2. 서버(API · realtime — `GET /v2/rooms/lobby`) — 앱 태그 전에.
 3. 앱 0.13.0.
 4. 사용자 대부분이 올라온 뒤 `minRoomVer` 0.13.0.
 
 ## 8. 나눠 올릴 PR
-1. 규칙 + 함수(`roomLobby` · `_meta` 칸 · 금칙어 판정 · `config/bannedWords`) + 검사
+1. 규칙(`_meta` 칸 · `config/bannedWords`) + 금칙어 판정 + 검사
 2. 앱 — 방 만들기 칸(제목 · 최대 인원 · 공개) · `hostName` · 정원 · 금칙어 판정 · 웹 관리자 금칙어 칸
 3. 앱 — 로비 창(model · provider · 화면) · 빠른시작 · 내 시크릿룸
 4. 앱 — 방 안 [방 설정](제목 · 공개 바꾸기)

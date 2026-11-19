@@ -346,9 +346,9 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 ## banned-words.js — 방 제목 금칙어 판정(한 벌)
 
-**책임** — 금칙어 목록 맞추기(`cleanBannedList`)와 판정(`hasBannedWord` — 글자만 남기고 소문자로 맞춘 뒤 부분 일치). 앱(방 만들기 · 방 설정)과 서버 함수(목록 사본 `roomLobby`)가 같은 판정을 쓴다.
+**책임** — 금칙어 목록 맞추기(`cleanBannedList`)와 판정(`hasBannedWord` — 글자만 남기고 소문자로 맞춘 뒤 부분 일치). 앱(방 만들기 · 방 설정 · 방 안 제목 · 최근 방 제목)이 이 판정을 쓴다. 방 목록 로비에서는 realtime 서버가 같은 규칙(서버 `realtime/src/domain/bannedWords.ts`)으로 한 번 더 거른다.
 
-**만드는 법** — 이 파일은 서버 함수 `firebase/functions/banned-words.js` 와 **글자까지 같은 사본**이다. 원본은 서버 함수 쪽 — 고칠 땐 두 파일을 같이(`sim-room-settings` 가 견준다). 앱에서는 classic script(`window.TwBannedWords`), 서버 함수에서는 `require`.
+**만드는 법** — 앱에서는 classic script(`window.TwBannedWords`), 검사(node)에서는 `require`. 판정 규칙을 바꾸면 realtime 서버의 판정도 같이 고친다(서버 `tests/lobby.test.ts` 가 이 파일의 결과와 견준다).
 
 **내놓는 것** — `BANNED_MAX` · `normalizeWord` · `cleanBannedList` · `hasBannedWord`.
 

@@ -1,20 +1,20 @@
 /*
  * 방 설정(제목 · 최대 인원 · 방장 닉네임 · 공개)과 방 만들기 창 검사 — 모듈을 그대로 불러 돌린다.
- * 1. banned-words.js 한 벌(앱 사본 = 서버 함수 글자까지 같음 · 두 길로 실림)  2. room-settings.js(순수)  3. 범위가 규칙 · 서버 함수와 같다
+ * 1. banned-words.js 판정(두 길로 실림 · 상한이 규칙과 같다)  2. room-settings.js(순수)  3. 범위가 규칙과 같다
  * 4. room-create-ui.js(가짜 DOM)  5. room-entry doCreateRoomInChannel  6. firebase-init 쓰기(setRoomChannel · claimHostIfVacant · claimEmptyRoom)
  * 7. remote-config bannedWords  8. 깨 보기
  * 설계: docs/ROOM_LOBBY.md 1 · 2.1 · 5.2
  */
 'use strict';
+const { stripReadGate } = require('./sim-rules-src.js');
 const fs = require('fs');
 const path = require('path');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const need = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } };
-const BW_APP = need('banned-words.js'), BW_FN = need('functions/banned-words.js');
+const BW_APP = need('banned-words.js');
 const RS_SRC = need('room-settings.js'), UI_SRC = need('room-create-ui.js'), RE_SRC = need('room-entry.js'), FI = need('firebase-init.js');
-const RL = require(path.resolve('functions/room-lobby.js'));
 const RULES = JSON.parse(need('firebase-database-rules.json')).rules;
 const RCM = require(path.resolve('remote-config.js'));
 
@@ -33,13 +33,29 @@ const BW = classic(BW_APP, 'TwBannedWords');
 const RS = classic(RS_SRC, 'TwRoomSettings');
 
 (async () => {
-say('── 1. banned-words.js — 한 벌');
+say('── 1. banned-words.js — 금칙어 판정');
 {
-  chk(BW_APP === BW_FN, '★ 앱 사본(shared/banned-words.js)이 서버 함수(functions/banned-words.js)와 글자까지 같다 — 판정이 두 벌로 갈라지지 않게');
-  const BWN = require(path.resolve('functions/banned-words.js'));
-  chk(typeof BWN.hasBannedWord === 'function' && typeof BW.hasBannedWord === 'function', '  require(서버 함수) · classic script(앱 window.TwBannedWords) 두 길로 실린다');
-  const L = BW.cleanBannedList(['나쁜말']);
+  const BWN = require(path.resolve('banned-words.js'));
+  chk(typeof BWN.hasBannedWord === 'function' && typeof BW.hasBannedWord === 'function', '  require(검사) · classic script(앱 window.TwBannedWords) 두 길로 실린다');
+  chk(BW.normalizeWord(' 나 쁜.말1! ') === '나쁜말', '공백 · 기호 · 숫자를 빼고 맞춘다 — 끼워서 피해 가지 못하게');
+  chk(BW.normalizeWord('BAD Word') === 'badword', '  영문은 소문자로');
+  chk(BW.normalizeWord('ＢＡＤ') === 'bad', '  전각 글자도 같은 글자로(NFKC)');
+  chk(BW.normalizeWord(null) === '' && BW.normalizeWord(undefined) === '', '  없음 → 빈 글');
+  const L = BW.cleanBannedList(['나쁜말', ' 나 쁜 말 ', '', 3, null, 'Bad']);
+  chk(JSON.stringify(L) === '["나쁜말","bad"]', '목록: 맞춘 뒤 겹침 · 빈 낱말 · 문자열 아닌 값은 버린다');
+  chk(JSON.stringify(BW.cleanBannedList({ 0: '욕', 1: '욕설' })) === '["욕","욕설"]', '  규칙에 저장된 {0:…} 모양도 받는다');
+  chk(BW.cleanBannedList(null).length === 0 && BW.cleanBannedList('욕').length === 0, '  없음 · 문자열 하나는 빈 목록(목록이 아니다)');
+  chk(BW.cleanBannedList(Array.from({ length: BW.BANNED_MAX + 50 }, (_, i) => '가' + 'ㄱ'.repeat(i % 5) + i)).length <= BW.BANNED_MAX, '  상한(BANNED_MAX)까지만');
+  chk(BW.hasBannedWord('오늘 나.쁜.말 하는 방', L) === true, '★ 기호를 끼운 금칙어도 잡는다');
+  chk(BW.hasBannedWord('B a d 방', L) === true, '  대소문자 · 띄어쓰기 섞어도 잡는다');
+  chk(BW.hasBannedWord('조용히 그림만 그려요', L) === false, '  금칙어 없으면 통과');
+  chk(BW.hasBannedWord('나쁜말', []) === false && BW.hasBannedWord('', L) === false, '  목록이 비었거나 제목이 비면 걸지 않는다');
   chk(BW.hasBannedWord('나.쁜 말1', L) === BWN.hasBannedWord('나.쁜 말1', BWN.cleanBannedList(['나쁜말'])), '  두 길의 판정이 같다');
+  const B = RULES.config.bannedWords;
+  chk(B && /admins/.test(B['.write']) && JSON.parse(stripReadGate(need('firebase-database-rules.json'))).rules.config.bannedWords['.read'] === true && /<= 20/.test(B.$i['.validate']), 'config/bannedWords — 관리자만 쓰고 누구나 읽는다(옛 앱 읽기 막기 조건만) · 낱말 20자');
+  chk(B['.validate'] === 'newData.hasChildren()', '  목록(자식 있음)만 받는다 — 글 하나를 통째로 넣지 못하게');
+  const keyRe = new RegExp(B.$i['.validate'].match(/\$i\.matches\(\/(.+?)\/\)/)[1]);
+  chk(keyRe.test(String(BW.BANNED_MAX - 1)) && !keyRe.test(String(BW.BANNED_MAX)) && keyRe.test('0') && !keyRe.test('00'), '★ 칸 번호 0 ~ BANNED_MAX-1 만 — 규칙 상한이 판정 상한(' + BW.BANNED_MAX + ')과 같다(넘는 낱말이 저장만 되고 안 걸리지 않게)');
 }
 
 say('── 2. room-settings.js — 순수 규칙');
@@ -63,12 +79,12 @@ say('── 2. room-settings.js — 순수 규칙');
   chk(RS.hostNameOf('') === null && RS.hostNameOf('   ') === null && RS.hostNameOf(null) === null, '  비면 null(칸을 쓰지 않는다)');
 }
 
-say('── 3. 범위가 규칙 · 서버 함수와 같다');
+say('── 3. 범위가 규칙과 같다');
 {
   const M = RULES.rooms.$room._meta;
-  chk(RS.TITLE_MAX === RL.TITLE_MAX && M.title['.validate'].includes('<= ' + RS.TITLE_MAX), '제목 길이 — 규칙 · 함수 · 앱이 같다');
-  chk(RS.HOST_NAME_MAX === RL.HOST_NAME_MAX && M.hostName['.validate'].includes('<= ' + RS.HOST_NAME_MAX), '방장 닉네임 길이');
-  chk(RS.ROOM_MAX_MIN === RL.ROOM_MAX_MIN && RS.ROOM_MAX_MAX === RL.ROOM_MAX_MAX && M.max['.validate'].includes('>= ' + RS.ROOM_MAX_MIN) && M.max['.validate'].includes('<= ' + RS.ROOM_MAX_MAX), '최대 인원 범위');
+  chk(RS.TITLE_MAX === 20 && M.title['.validate'].includes('<= ' + RS.TITLE_MAX), '제목 길이(20) — 규칙 · 앱이 같다');
+  chk(RS.HOST_NAME_MAX === 20 && M.hostName['.validate'].includes('<= ' + RS.HOST_NAME_MAX), '방장 닉네임 길이(20)');
+  chk(RS.ROOM_MAX_MIN === 2 && RS.ROOM_MAX_MAX === 50 && M.max['.validate'].includes('>= ' + RS.ROOM_MAX_MIN) && M.max['.validate'].includes('<= ' + RS.ROOM_MAX_MAX), '최대 인원 범위(2~50)');
 }
 
 say('── 4. room-create-ui.js — 가짜 DOM');
@@ -206,7 +222,8 @@ say('── 8. 깨 보기');
   chk(broken.roomCap({ max: 4 }, 10) === 10, '방 최대 인원을 안 보면 2절 «작은 쪽» 이 빨강이 된다');
   const noBan = classic(RS_SRC.replace("if(bw.hasBannedWord(title, banned)) return { ok: false, reason: 'banned' };", ''), 'TwRoomSettings');
   chk(noBan.checkTitle('나쁜말', ['나쁜말'], BW).ok === true, '금칙어 확인을 빼면 2절 «banned» 가 빨강이 된다');
-  chk(BW_APP.replace('500', '400') !== BW_FN, '앱 사본만 바꾸면 1절 «글자까지 같다» 가 빨강이 된다');
+  const noStrip = classic(BW_APP.replace(".replace(/[^\\p{L}]/gu, '')", ''), 'TwBannedWords');
+  chk(noStrip.hasBannedWord('나.쁜 말', noStrip.cleanBannedList(['나쁜말'])) === false, '글자만 남기기를 빼면 1절 «기호를 끼운 금칙어도 잡는다» 가 빨강이 된다');
   const noRange = classic(RS_SRC.replace('if(Number.isInteger(e.max) && e.max >= ROOM_MAX_MIN && e.max <= ROOM_MAX_MAX) out.max = e.max;', 'if(e.max != null) out.max = e.max;'), 'TwRoomSettings');
   chk('max' in noRange.serverCreateOf('workingroom', true, { max: 99 }), '최대 인원 범위 거르기를 빼면 5-2절 «범위 밖은 뺀다» 가 빨강이 된다');
   const noSecret = classic(RS_SRC.replace("return secretOpen ? { channel: SECRET_ROOM_CHANNEL, music: !!secretOpen.music } : null;", 'return null;'), 'TwRoomSettings');
