@@ -111,7 +111,7 @@
 | **sim-fix-1008.js** | 407 | **64868283da6c** |
 | **sim-fix-1016b.js** | 59 | **77a024839b06** |
 | **sim-display-pick.js** | 171 | **547c17431d42** |
-| **sim-fix-1016.js** | 170 | **7724abcbddfe** |
+| **sim-fix-1016.js** | 175 | **6421ef00043b** |
 | **sim-gl-recover.js** | 166 | **344df22755fb** |
 | **sim-gl-context.js** | 114 | **f26b91a466fd** |
 | **sim-chat-copy.js** | 88 | **09ab1df757a9** |
