@@ -2,7 +2,7 @@
    실행: node checks/run.js cutover-logout
    가짜 DB · 가짜 Auth 로 도구를 그대로 돌린다(firebase-admin 은 쓰지 않는다 — 에뮬레이터 확인은 scripts/cutover-logout-emu-check.js).
    1. 멤버 형식이 규칙의 $memberId 와 같다  2. 방: 미리 보기는 안 씀 · 실제는 멤버 자리만 지움 · 다시 돌려도 같음
-   3. 로그아웃: 쪽마다 전부 · 한도 오류 다시 시도 · 실패 보고 · 초당 수  4. 인자 · 에뮬레이터 섞임  5. 깨 보기 */
+   3. 로그아웃: 쪽마다 전부 · 한도 오류 다시 시도 · 실패 보고 · 초당 수  4. 인자 · 에뮬레이터 섞임  5. mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -209,7 +209,7 @@ const MUTANTS = [
 
 (async () => {
   const real = await suite(load(SRC), false);
-  console.log('\n── 5. 깨 보기');
+  console.log('\n── 5. mutation test');
   let mpass = 0, mfail = 0;
   for (const [name, from, to] of MUTANTS) {
     const ok = SRC.includes(from);
