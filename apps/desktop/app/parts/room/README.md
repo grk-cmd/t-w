@@ -262,8 +262,8 @@ overheadMod.setSeatMenu((...a)=>seatMenuMod._seatCtxMenu(...a));   // 이름표 
 **내놓는 것** — `TITLE_MAX` · `HOST_NAME_MAX` · `ROOM_MAX_MIN` · `ROOM_MAX_MAX` · `TITLE_ERROR_TEXT` · `OPEN_HINT` · `checkTitle` · `displayTitle` · `clampMax` · `roomCap` · `hostNameOf` · `serverCreateOf` · `serverJoinCreate`.
 
 **함정**
-- 범위(제목 20 · 닉네임 20 · 인원 2~50)는 규칙 `rooms/$room/_meta` 와 서버 함수 `firebase/functions/room-lobby.js` 와 같아야 한다 — `sim-room-settings` 가 견준다.
-- 금칙어 판정은 여기서 다시 쓰지 않는다 — `shared/banned-words.js`(서버 함수와 글자까지 같은 한 벌)를 넘겨받아 부른다.
+- 범위(제목 20 · 닉네임 20 · 인원 2~50)는 규칙 `rooms/$room/_meta` 와 같아야 한다 — `sim-room-settings` 가 견준다.
+- 금칙어 판정은 여기서 다시 쓰지 않는다 — `shared/banned-words.js`(앱 한 벌)를 넘겨받아 부른다.
 
 검사: `checks/sim-room-settings.js`.
 
@@ -286,7 +286,7 @@ TwRoomCreateUi.createRoomCreateUi({
 **함정**
 - 모달(#inviteOverlay) 안이라 클릭 통과 목록(`UI_HIT_SEL`)을 늘리지 않는다 — 창을 모달 밖으로 빼면 거기에 더해야 눌린다.
 - 만들기를 room-entry 가 부르면 room-entry ↔ 이 모듈이 서로를 부르는 순환이 된다(`sim-dep-cycles`) — 창은 로비가 deps `openCreate` 로 연다.
-- 금칙어는 원격 설정 `bannedWords`(API 를 못 받으면 Firebase `config/bannedWords`) — API 가 이 칸을 아직 안 주면 앱은 거르지 못하고, 목록에는 서버 함수가 한 번 더 거른다.
+- 금칙어는 원격 설정 `bannedWords`(API `/v2/config` 의 `room.bannedWords` — Firebase 로 넘어가는 경로는 없다) — API 가 이 칸을 아직 안 주면 앱은 거르지 못하고, 목록에는 realtime 서버가 로비 답을 만들 때 한 번 더 거른다(걸린 제목은 비워서 «○○ 님의 방»).
 
 검사: `checks/sim-room-settings.js`.
 
@@ -339,7 +339,7 @@ room-entry 는 이 모듈을 모른다 — «방에 연결됨» 알림(`onRoomJo
 ## room-lobby-model.js · room-lobby-provider.js · room-lobby-ui.js — 방 목록 로비
 
 **책임**
-- `room-lobby-model.js`(순수 · 정원은 `TwRoomSettings.roomCap` — room-settings.js 뒤에 싣는다) — 채널 목록(`{ at, rooms: { 코드: { t, n, max, hn, mu, since } } }` — provider 가 API 답을 이 모양으로 바꾼다) → 카드 · 상태(`failed` 못 읽음 · `missing` 칸 없음 · `stale` 3분 넘게 그대로 · `ok`) · 정렬(입장 가능 → 인원 많은 순 → 오래 열린 순) · «빈자리 있는 방» 거르기 · 번호 · 쪽(12장) · 빠른시작 고르기.
+- `room-lobby-model.js`(순수 · 정원은 `TwRoomSettings.roomCap` — room-settings.js 뒤에 싣는다) — 채널 목록(`{ at, rooms: { 코드: { t, n, max, hn, mu, since } } }` — provider 가 API 답을 이 모양으로 바꾼다) → 카드 · 상태(`failed` 못 읽음 · `missing` at 없음 · `stale` at 이 3분 넘게 뒤짐 · `ok`) · 정렬(입장 가능 → 인원 많은 순 → 오래 열린 순) · «빈자리 있는 방» 거르기 · 번호 · 쪽(12장) · 빠른시작 고르기.
 - `room-lobby-provider.js` — 로비가 읽는 것 한 곳: `listRooms(채널)`(API `GET /v2/rooms/lobby?channel=` — realtime 서버가 지금 연 공개 방 · 못 받거나 모양이 틀리면 `null`) · `mySecretRoom()`(`GET /v2/me/secret-room` → `{ code, name, expiresAt }` — 로그인마다 한 번 읽고 기억 · 만료 전만 · `null` 은 «없음» 뿐 — 읽기 실패 · 읽는 중 계정이 바뀜은 던진다. 비우는 일은 `reset()`(session.onReset · license 알림)만, uid 를 견주어 스스로 비우지 않는다) · `secretGuests(코드)`(손님 수 — 방 포트 `peek` · 내가 그 방 안이면 나를 뺀다 · 로비 줄만 부른다). F1 «멀티모드» 탭의 시크릿룸 칸 · 방 입장(내 시크릿룸이면 주인이 늘 `create{ music }` 를 싣는다 — 비었는지는 서버가 가른다)도 deps `mySecretRoom` 으로 같은 판정을 쓴다. 방 입장은 내 방인지 읽기가 실패하면 손님으로 들어가지 않고 `E-ROOM-08` 로 멈춘다.
 - `room-lobby-ui.js` — 방 찾기 · 만들기 모달 안 `#lobbyMain`: 탭 · 거르기 · 카드(위 띠 «입장 가능» / «가득 참») · 쪽 · [방 만들기] · [빠른시작] · 아래 줄 방 코드 칸과 [입장](room-entry 가 건다 — 빈 칸이면 «방 코드를 입력하세요» 만 · 랜덤 입장은 [빠른시작] 하나) · «내 시크릿룸» 줄. 모달을 열 때 · [새로 고침] · 탭을 바꿀 때만 읽는다(주기 갱신 없음) — 방 안이면(모달이 «연결된 방» 화면) 읽지 않는다.
 

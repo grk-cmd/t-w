@@ -62,7 +62,7 @@ function mkUi(o, src){
     chk(d('', '도토리').text === '도토리 님의 방' && d('', '도토리').isDefault && d('  ', ' 도토리 ').text === '도토리 님의 방', '  빈 제목(공백만 포함) → «닉네임 님의 방»');
     chk(d(undefined, '').text === '이름 없는 방' && d(null, null).isDefault, '  닉네임도 없으면 «이름 없는 방»');
     chk(d('바보방', '도토리', ['바보']).text === '도토리 님의 방' && d('바보방', '도토리', ['바보']).isDefault, '★ 금칙어에 걸린 제목은 기본값으로(방 안은 _meta 를 그대로 받으니 여기서 거른다)');
-    chk(d('바보방', '도토리').text === '바보방', '  목록을 안 주면 거르지 않는다(로비 사본은 서버 함수가 이미 거름)');
+    chk(d('바보방', '도토리').text === '바보방', '  목록을 안 주면 거르지 않는다(로비 목록은 realtime 서버가 이미 거름)');
     chk(typeof RS.OPEN_HINT.on === 'string' && typeof RS.OPEN_HINT.off === 'string' && Object.isFrozen(RS.OPEN_HINT), '«방 목록에 공개» 안내 한 벌');
   }
 

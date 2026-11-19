@@ -908,9 +908,6 @@
   "checks/sim-room-lobby-ui.js": {
     "깨 보기": 1
   },
-  "checks/sim-room-lobby.js": {
-    "깨 보기": 1
-  },
   "checks/sim-room-meta-cleanup.js": {
     "깨 보기": 2
   },
