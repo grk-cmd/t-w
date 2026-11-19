@@ -640,7 +640,7 @@ function _exitNow(){
 }
 /* 🚪 app.quit() 으로 끄는 길(제목줄 × · 내 정보 · 다른 기기 안내 · Cmd+Q · 재시작) · 메인 창 닫기 · 업데이트 설치를 한 곳에서 붙잡아
    렌더러가 못 올린 캐릭터 고침을 끝내기를 기다린다(없으면 바로 · 상한 있음). _exitNow · session-end 는 거치지 않는다 — OS 종료를 막지 않게. */
-const _quitHold = createQuitHold({ getWindow: () => mainWindow, ipcMain, quit: () => app.quit(), setTimeout, clearTimeout });
+const _quitHold = createQuitHold({ getWindow: () => mainWindow, ipcMain, quit: () => app.quit(), platform: process.platform, setTimeout, clearTimeout });
 let _saveFailLogged = false;
 function saveSettings(){
   if(!SETTINGS_PATH) return false;
@@ -2777,7 +2777,7 @@ function createWindow() {
   /* 🔍 저장된 줌을 건다 — 파일 로드가 끝난 뒤가 확실하다(그 전에 걸면 로드가 되돌린다). */
   mainWindow.webContents.on('did-finish-load', () => { try{ applyUiZoom(uiZoom, 'boot'); }catch(_){} });
 
-  mainWindow.on('close', (e) => { _quitHold.windowClose(e); });   // Alt+F4 · 작업표시줄 닫기도 끄기로 — 저장을 기다린 뒤 닫힌다
+  mainWindow.on('close', (e) => { _quitHold.windowClose(e); });   // 저장을 기다린 뒤 — 윈도우 · 리눅스(Alt+F4 · 작업표시줄)는 끄기, 맥은 창만 닫는다(Dock 에 남음)
   mainWindow.on('closed', () => {
     // BGM 자식창을 수동으로 정리 (parent를 안 쓰기 때문에 자동 소멸이 없음)
     if(bgmWin && !bgmWin.isDestroyed()){ try{ bgmWin.destroy(); }catch(e){} }
