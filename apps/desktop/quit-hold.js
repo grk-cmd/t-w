@@ -26,7 +26,6 @@ function createQuitHold(deps){
   const clearT = deps.clearTimeout;
   let stage = 'idle';   // 'idle' | 'asking' | 'done'
   let next = null, timer = null;
-  let letClose = false;   // 저장을 기다린 뒤 우리가 창을 닫는 중(맥) — 그 close 한 번은 막지 않는다(close 가 언제 오는지 몰라 그 close 가 지운다)
   let ready = false;   // 지금 화면의 렌더러가 답할 수 있다고 알렸나
 
   /* 물을 수 있는 렌더러 — 창이 없거나 · 닫혔거나 · 죽었으면 null(기다릴 상대가 없다) */
@@ -59,12 +58,12 @@ function createQuitHold(deps){
     timer = setT(finish, GUARD_MS);
     return true;
   }
-  /* 맥 창 닫기의 답 — 창만 닫고 처음으로. 다시 연 창은 새 렌더러라 «답할 수 있다» 를 새로 알려야 붙잡는다 */
+  /* 맥 창 닫기의 답 — 창만 닫고 처음으로. «답할 수 있다» 를 먼저 지워 이 close 는 windowClose 의 «물을 상대 없음» 길로 그대로 닫히고,
+     다시 연 창은 새 렌더러라 새로 알려야 끄기를 붙잡는다 */
   function closeOnly(){
     stage = 'idle'; ready = false;
     const w = getWindow();
     if(!w || w.isDestroyed()) return;
-    letClose = true;
     w.close();
   }
   function beforeQuit(e){
@@ -76,11 +75,10 @@ function createQuitHold(deps){
   }
   function windowClose(e){
     if(stage === 'done') return;
-    if(letClose){ letClose = false; return; }
     if(!keepAppOnClose){ e.preventDefault(); quit(); return; }
     if(stage === 'asking'){ e.preventDefault(); return; }   // 이미 묻는 중 — 답이 오면 그 일(창 닫기 · 끄기)을 한다
     if(ask(closeOnly)){ e.preventDefault(); return; }
-    ready = false;   // 물을 상대가 없다 — 창은 그대로 닫히고 다시 연 창이 알릴 때까지 붙잡지 않는다
+    ready = false;   // 물을 상대가 없다(불러오는 중 · closeOnly 가 닫는 close) — 창은 그대로 닫히고 다시 연 창이 알릴 때까지 붙잡지 않는다
   }
   function flushThen(fn){
     if(stage === 'asking'){ next = fn; return; }   // 끄기 · 창 닫기를 묻는 중 — 답이 오면 이것으로 끈다
