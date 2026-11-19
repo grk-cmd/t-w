@@ -16,6 +16,11 @@ run('catalog-gacha', async (t) => {
     await t.makeAdmin(A);
     t.seed('catalog-parts.sql', { tag });
   });
+  // 시험 파츠는 단종(ARCHIVED)으로 내린다 — 관리자 쓰기라 서버 카탈로그 캐시도 같이 비워진다(줄을 SQL 로 지우면 캐시에 남는다)
+  const undos = [gid, cid].map((id) => t.undo('시험 파츠 ' + id + ' 단종', (ADM) => {
+    const v = Number(t.sql(`SELECT version FROM part WHERE part_id = '${id}'`) || 0);
+    return ADM.call('POST', '/v2/admin/catalog/listings/bulk', { action: 'ARCHIVE', items: [{ kind: 'part', id, version: v }] });
+  }));
   try {
     await t.step('A 이름 고침(PATCH) → 서버 카탈로그에 새 이름 · 가챠 표시 · B 앱이 알림을 받고 다시 받음', async () => {
       const newName = 'e2e새이름 ' + tag;
@@ -60,13 +65,6 @@ run('catalog-gacha', async (t) => {
       await t.shot(B, '02-drawn');
     });
   } finally {
-    // 시험 파츠는 단종(ARCHIVED)으로 내린다 — 관리자 쓰기라 서버 카탈로그 캐시도 같이 비워진다(줄을 SQL 로 지우면 캐시에 남는다)
-    const ADM = await t.headlessAdmin();
-    for(const id of [gid, cid]){
-      await t.cleanup('시험 파츠 ' + id + ' 단종', () => {
-        const v = Number(t.sql(`SELECT version FROM part WHERE part_id = '${id}'`) || 0);
-        return ADM.call('POST', '/v2/admin/catalog/listings/bulk', { action: 'ARCHIVE', items: [{ kind: 'part', id, version: v }] });
-      });
-    }
+    for(const u of undos) await u();
   }
 });

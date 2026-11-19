@@ -41,6 +41,20 @@ run('ad-banner', async (t) => {
   t.check(b0.status === 200 && b0.body && b0.body.data && Array.isArray(b0.body.data.slides), '처음 배너를 못 읽음 ' + b0.status);
   const slides0 = b0.body.data.slides;
   t.note('처음 배너 ' + slides0.length + '장');
+  // 모두가 보는 값이라 처음 값으로 되돌린다(앞 단계가 실패했어도 · 신호로 끝나도) — 못 되돌리면 «FAIL 정리» 로 남는다
+  const undoBanner = t.undo('광고 배너 처음 값(' + slides0.length + '장)', async (ADM) => {
+    const g = await ADM.call('GET', BANNER);
+    if(g.status !== 200) return g;
+    return ADM.call('PUT', BANNER, { version: g.body.data.version, slides: slides0 });
+  });
+  const undoLv = lv0 == null ? async () => {} : t.undo('동물 해금 레벨 ' + lv0, async (ADM) => {
+    const r = await ADM.call('GET', '/v2/catalog');
+    if(r.status !== 200) return r;
+    const u = (r.body.data.unlocks || []).find((x) => x.kind === 'ANIMAL_CHARACTER' && x.key === 'animal');
+    if(!u) throw new Error('해금 줄이 없음');
+    if(u.level === lv0) return null;
+    return ADM.call('PUT', '/v2/admin/catalog/unlocks/ANIMAL_CHARACTER/animal', { version: u.version, level: lv0, label: u.label });
+  });
   try {
     await t.step('A 배너 두 장 저장 → 저장 알림 · A 런처에 첫 장', async () => {
       await fillBanner(A, SLIDES);
@@ -74,19 +88,7 @@ run('ad-banner', async (t) => {
       await t.poll(async () => !(await bannerOf(B)).shown, 70000, 'B 배너 숨음');
     });
   } finally {
-    // 모두가 보는 값이라 처음 값으로 되돌린다(앞 단계가 실패했어도) — 못 되돌리면 «FAIL 정리» 로 남는다
-    await t.cleanup('광고 배너 처음 값(' + slides0.length + '장)', async () => {
-      const g = await ADM.call('GET', BANNER);
-      if(g.status !== 200) return g;
-      return ADM.call('PUT', BANNER, { version: g.body.data.version, slides: slides0 });
-    });
-    if(lv0 != null) await t.cleanup('동물 해금 레벨 ' + lv0, async () => {
-      const r = await ADM.call('GET', '/v2/catalog');
-      if(r.status !== 200) return r;
-      const u = (r.body.data.unlocks || []).find((x) => x.kind === 'ANIMAL_CHARACTER' && x.key === 'animal');
-      if(!u) throw new Error('해금 줄이 없음');
-      if(u.level === lv0) return null;
-      return ADM.call('PUT', '/v2/admin/catalog/unlocks/ANIMAL_CHARACTER/animal', { version: u.version, level: lv0, label: u.label });
-    });
+    await undoBanner();
+    await undoLv();
   }
 });

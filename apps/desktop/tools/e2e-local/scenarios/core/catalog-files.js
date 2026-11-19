@@ -25,6 +25,12 @@ run('catalog-files', async (t) => {
   });
   const ADM = await t.headlessAdmin();
   let part;
+  const undoPart = t.undo('시험 파츠 단종', async (adm) => {
+    const id = part && part.partId || t.sql(`SELECT part_id FROM part WHERE name = '${name.replace(/'/g, "''")}' LIMIT 1`);
+    if(!id) return null;
+    const v = Number(t.sql(`SELECT version FROM part WHERE part_id = '${id}'`) || 0);
+    return adm.call('POST', '/v2/admin/catalog/listings/bulk', { action: 'ARCHIVE', items: [{ kind: 'part', id, version: v }] });
+  });
   try {
     await t.step('A 모자 [+ 등록] → GLB 올리기 · «등록 완료»', async () => {
       await A.w.locator('#wardrobePanel .wd-add').first().click();
@@ -72,11 +78,6 @@ run('catalog-files', async (t) => {
       await t.shot(B, '02-worn');
     });
   } finally {
-    await t.cleanup('시험 파츠 단종', async () => {
-      const id = part && part.partId || t.sql(`SELECT part_id FROM part WHERE name = '${name.replace(/'/g, "''")}' LIMIT 1`);
-      if(!id) return null;
-      const v = Number(t.sql(`SELECT version FROM part WHERE part_id = '${id}'`) || 0);
-      return ADM.call('POST', '/v2/admin/catalog/listings/bulk', { action: 'ARCHIVE', items: [{ kind: 'part', id, version: v }] });
-    });
+    await undoPart();
   }
 });

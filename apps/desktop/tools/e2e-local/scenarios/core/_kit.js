@@ -64,8 +64,17 @@ function unpauseRt(){
   try { docker(['unpause', RT]); rtPaused = false; } catch(e){ throw new Error('realtime 풀기 실패: ' + String(e.message).split('\n')[0]); }
 }
 process.on('exit', () => { if(rtPaused){ try { docker(['unpause', RT]); } catch(_){} } });
-// 신호를 받으면 exit 처리기(잠금 · realtime 풀기)가 돌게 끝낸다 — run-all 아래에서는 runlock 처리기가 없다
-for(const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => process.exit(130));
+// 신호(Ctrl+C · run-all 시간 초과의 SIGTERM)를 받으면 t.undo 로 등록한 «모두가 보는 서버 값 되돌리기» 를 상한 안에서 돌린 뒤 끝낸다.
+// 바로 끝내면 점검 같은 값이 켜진 채 남아 같은 스택을 쓰는 모든 시험이 막힌다. 두 번째 신호는 바로 끝낸다. 잠금 · realtime 은 exit 에서 푼다
+const SIGNAL_UNDO_MS = 20000;
+let onSignal = null;   // run() 이 건다
+let signalled = false;
+for(const sig of ['SIGINT', 'SIGTERM']) process.on(sig, async () => {
+  if(signalled) process.exit(130);
+  signalled = true;
+  try { if(onSignal) await Promise.race([onSignal(sig), wait(SIGNAL_UNDO_MS)]); } catch(_){}
+  process.exit(130);
+});
 
 async function poll(fn, ms, what, every = 300){
   const t0 = Date.now();
@@ -152,6 +161,25 @@ function run(name, body){
       fs.writeFileSync(path.join(a.out, 'requests.txt'), a.reqs.join('\n'));
     }
   };
+  // t.undo 로 건 «되돌릴 일» — 이름 → fn(정리용 관리자). 돈 것은 빠진다
+  const undos = new Map();
+  const runUndo = async (label) => {
+    const fn = undos.get(label);
+    if(!fn) return;
+    await t.cleanup(label, async () => fn(await t.headlessAdmin()));
+    undos.delete(label);
+  };
+  onSignal = async (sig) => {
+    steps.push(`ABORT 신호 ${sig} — 되돌릴 일 ${undos.size}개를 돌림`); save();
+    for(const label of [...undos.keys()]) await runUndo(label);
+  };
+  process.on('exit', () => {
+    if(!undos.size) return;
+    const left = [...undos.keys()].join(' · ');
+    failed = true;
+    steps.push(`FAIL 정리 못 함(끝날 때 남음): ${left}`); save();
+    markQuietFail(`e2e-core ${name}: 되돌리지 못한 서버 값 — ${left}`);
+  });
   let failed = false;
   const bugs = new Set();   // 이미 알려진 앱 버그(FEATURES.md «발견한 버그») 가운데 이번에 다시 본 것
   const t = {
@@ -181,6 +209,13 @@ function run(name, body){
         steps.push(`ok   정리: ${label}`);
       } catch(e){ failed = true; steps.push(`FAIL 정리: ${label}: ${String(e && e.message || e).split('\n')[0]}`); }
       save();
+    },
+    // 되돌릴 일 등록 — 모두가 보는 값을 바꾸기 전에 건다. 돌려받은 함수를 finally 에서 부르면 정리(cleanup)를 돌고 목록에서 빠진다.
+    // 신호로 끝나면 신호 처리기가 남은 것을 돌리고, 끝날 때까지 못 돈 것은 «FAIL 정리 못 함» · e2e-quiet-fail 로 남는다(다음 실행이 멈춘다).
+    // fn 은 정리용 관리자(headlessAdmin)를 받는다 — 관리자 만들기가 실패해도 «FAIL 정리» 로 남게 정리 안에서 만든다
+    undo(label, fn){
+      undos.set(label, fn);
+      return () => runUndo(label);
     },
     // 정리용 관리자 — 앱 없는 계정을 관리자로(seed/admin.sql). 앱이 죽었어도 되돌리기가 돈다. 한 시나리오에 한 번만 만든다
     async headlessAdmin(){
@@ -391,7 +426,7 @@ function run(name, body){
   };
   (async () => {
     if(quietFailed()){ console.log(`FAIL ${name}  e2e-quiet-fail 이 있어 시작하지 않음`); process.exit(1); }
-    const unlock = await acquire('e2e-core ' + name);
+    const unlock = await acquire('e2e-core ' + name, { signals: false });
     if(quietFailed()){ unlock(); console.log(`FAIL ${name}  e2e-quiet-fail 이 있어 시작하지 않음`); process.exit(1); }
     // 이 묶음의 초대 코드 — 이미 있으면 그대로(묶음을 새로 만든 빈 DB 에서도 돌게)
     try { seed('core-invite.sql', { code: INVITE }); } catch(e){ steps.push('ABORT 초대 코드 seed: ' + String(e.message).split('\n')[0]); failed = true; }

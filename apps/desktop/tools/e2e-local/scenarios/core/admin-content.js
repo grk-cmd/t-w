@@ -16,6 +16,24 @@ run('admin-content', async (t) => {
   });
   const tag = Date.now().toString(36);
   const catId = 'e2e' + tag;
+  // 모두가 보는 값 되돌리기 — 확성기 · 업데이트 공지 · 카테고리(앞 단계가 실패했어도 · 앱이 죽었어도 · 신호로 끝나도 돌게 앱 없는 관리자로)
+  const undos = [
+    t.undo('확성기 끄기', (ADM) => ADM.call('DELETE', '/v2/admin/notices/announcements/current')),
+    t.undo('시험 업데이트 공지 내리기', async (ADM) => {
+      const un = await ADM.call('GET', '/v2/notices');
+      if(un.status !== 200) return un;
+      const cur = un.body.data.updateNotice;
+      if(!(cur && cur.id && /^e2e /.test(cur.title || ''))) return null;
+      return ADM.call('DELETE', '/v2/admin/notices/update-notices/' + encodeURIComponent(cur.id));
+    }),
+    t.undo('시험 카테고리 ' + catId + ' 지우기', async (ADM) => {
+      const cat = await ADM.call('GET', '/v2/catalog');
+      if(cat.status !== 200) return cat;
+      const row = (cat.body.data.categories || []).find((c) => c.code === catId);
+      if(!row) return null;
+      return ADM.call('DELETE', `/v2/admin/catalog/categories/${catId}?version=${row.version}`);
+    }),
+  ];
   try {
     await t.step('📣 확성기 → B 머리 위에 글 · 종료하면 사라짐', async () => {
       const text = 'e2e 확성기 ' + tag;
@@ -87,22 +105,6 @@ run('admin-content', async (t) => {
       await B.w.click('#updateNoticeOkBtn');
     });
   } finally {
-    // 모두가 보는 값 되돌리기 — 확성기 · 업데이트 공지 · 카테고리(앞 단계가 실패했어도 · 앱이 죽었어도 돌게 앱 없는 관리자로)
-    const ADM = await t.headlessAdmin();
-    await t.cleanup('확성기 끄기', () => ADM.call('DELETE', '/v2/admin/notices/announcements/current'));
-    await t.cleanup('시험 업데이트 공지 내리기', async () => {
-      const un = await ADM.call('GET', '/v2/notices');
-      if(un.status !== 200) return un;
-      const cur = un.body.data.updateNotice;
-      if(!(cur && cur.id && /^e2e /.test(cur.title || ''))) return null;
-      return ADM.call('DELETE', '/v2/admin/notices/update-notices/' + encodeURIComponent(cur.id));
-    });
-    await t.cleanup('시험 카테고리 ' + catId + ' 지우기', async () => {
-      const cat = await ADM.call('GET', '/v2/catalog');
-      if(cat.status !== 200) return cat;
-      const row = (cat.body.data.categories || []).find((c) => c.code === catId);
-      if(!row) return null;
-      return ADM.call('DELETE', `/v2/admin/catalog/categories/${catId}?version=${row.version}`);
-    });
+    for(const u of undos) await u();
   }
 });
