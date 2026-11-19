@@ -260,7 +260,7 @@ const BREAKS = [
   [(m) => { const l = "  screen.on('display-added', _onDisplaysChanged);\n"; if(m.indexOf(l) < 0) return null;
     return m.replace(l, '').replace('\n  _setupMainOnce();\n}\n', "\n  screen.on('display-added', () => {});\n  _setupMainOnce();\n}\n"); }, 'screen 듣기를 createWindow 안으로'],
   [(m) => m.replace('\n  _setupMainOnce();\n}\n', '\n}\n'), 'createWindow 가 _setupMainOnce 를 안 부름'],
-  [(m) => m.replace("  if(_mainWindowCreated) _resetWindowToLauncher('mac 에서 다시 연 창');\n", ''), '다시 연 창의 모드 맞추기를 뺌'],
+  [(m) => m.replace("  if(_mainWindowCreated) _resetWindowToLauncher('mac 에서 다시 열어');\n", ''), '다시 연 창의 모드 맞추기를 뺌'],
   [(m) => m.replace("  if(_mainWindowCreated) _resetWindowToLauncher(", "  if(true) _resetWindowToLauncher("), '첫 창에서도 모드를 다시 맞춤(켤 때 동작이 바뀜)'],
   [(m) => m.replace(/\n {4}mainWindow\.once\('closed', \(\)=>\{ _layDone = true;[^\n]*/, ''), '닫힌 창의 gpu-info-update 재시도 듣기를 안 뗌'],
   [(m) => { const l = "  mainWindow.on('close', (e) => { _quitHold.windowClose(e); });"; const i = m.indexOf(l); if(i < 0) return null;
@@ -270,8 +270,10 @@ const BREAKS = [
   [(m) => { const l = '  devtoolsGate.attach(mainWindow.webContents);'; const i = m.indexOf(l); if(i < 0) return null;
     const line = m.slice(i, m.indexOf('\n', i) + 1); return m.replace(line, '').replace('  _mainSetupDone = true;\n', '  _mainSetupDone = true;\n' + line); },
     '창마다 거는 devtoolsGate.attach(설치본 F12 막기)를 _setupMainOnce 로 옮김 — 다시 연 창엔 안 붙음'],
-  [(m) => { const re = /\n  mainWindow\.webContents\.on\('did-create-window', /; const i = m.search(re); if(i < 0) return null;
-    return m.slice(0, i + 1) + '  if(!_mainWindowCreated) ' + m.slice(i + 3); },
+  [(m) => { const re = /\n  mainWindow\.webContents\.on\('did-create-window', /; const i = m.search(re); const c = '  _mainWindowCreated = true;\n';
+    if(i < 0 || m.indexOf(c) < 0 || m.indexOf(c) > i) return null;
+    const m2 = m.slice(0, i + 1) + '  if(_firstW) ' + m.slice(i + 3);   // 등록 줄 앞에서 «첫 창인가» 를 따로 잡아 둔다(_mainWindowCreated 는 그 줄보다 먼저 참이 된다)
+    return m2.replace(c, '  const _firstW = !_mainWindowCreated; _mainWindowCreated = true;\n'); },
     "webContents 'did-create-window' 를 첫 창에만 검"],
   [(m) => m.replace("    try{ if(mw && !mw.isDestroyed()) mw.once('closed', restore); }catch(_){}\n", ''), '색 대화상자 상태를 창이 닫힐 때 안 풂 — 다시 연 창의 요청을 90초 무시'],
   [(m) => m.replace("      try{ if(mw && !mw.isDestroyed()) mw.removeListener('closed', restore); }catch(_){}\n", ''), '색 대화상자를 닫아도 창 닫힘 고리를 안 뗌 — 열 때마다 쌓임'],
