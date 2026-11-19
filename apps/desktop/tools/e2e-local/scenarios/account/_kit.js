@@ -4,9 +4,8 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { execFileSync } = require('child_process');
-const { makeApp, wait, quietProblems, API_HOST } = require('../../lib.js');
-const { acquire } = require('../../runlock.js');
+const { makeApp, wait, quietProblems, docker, API_HOST } = require('../../lib.js');
+const { acquire, markQuietFail } = require('../../runlock.js');
 
 const API = 'http://127.0.0.1:8080';
 const AUTH_EMU = 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1';
@@ -15,13 +14,6 @@ const INVITE = 'INVT-ACCT-E2E5';   // seed/account.sql 이 넣는 이 묶음의 
 const PG = process.env.TW_E2E_PG || 'tw-dev-local-postgres-1';   // 로컬 묶음의 DB 컨테이너
 const SEED_DIR = path.resolve(__dirname, '..', '..', 'seed');
 
-// OrbStack 을 먼저 — /var/run/docker.sock 은 꺼진 Docker Desktop 을 가리킬 수 있다
-function docker(args, input){
-  const env = Object.assign({}, process.env);
-  const orb = path.join(process.env.HOME || '', '.orbstack/run/docker.sock');
-  if(!env.DOCKER_HOST && fs.existsSync(orb)) env.DOCKER_HOST = 'unix://' + orb;
-  return execFileSync('docker', args, { input, env, encoding: 'utf8' });
-}
 /** seed/<file> 을 psql 로 돌린다. vars 는 psql 변수(:'name') */
 function sql(file, vars = {}){
   const args = ['exec', '-i', PG, 'psql', '-v', 'ON_ERROR_STOP=1', '-qtA', '-U', 'tw_api_dev', '-d', 'tw_dev'];
@@ -144,9 +136,7 @@ function scenario(name, body){
     }
     if(!bad.length) return;
     const msg = '조용한 창이 깨짐(' + label + '): ' + bad.join(' / ');
-    if(process.env.TW_E2E_RUN_LOCK){
-      try { fs.writeFileSync(path.join(path.dirname(process.env.TW_E2E_RUN_LOCK), 'e2e-quiet-fail'), new Date().toISOString() + ' ' + name + ' ' + msg + '\n', { flag: 'a' }); } catch(_){}
-    }
+    markQuietFail(name + ' ' + msg);
     for(const i of insts) await within(i.A.quit(), 20000).catch(() => { try { process.kill(i.A.app.process().pid, 'SIGKILL'); } catch(_){} });
     throw new Error(msg);
   };
@@ -179,18 +169,16 @@ function scenario(name, body){
       fs.mkdirSync(dir, { recursive: true });
       const A = makeApp(dir, opts);
       const inst = { id, dir, A, w: null };
-      // 바쁜 PC 에서는 첫 창 기다리기(90초)가 넘치거나, 주소 돌리기가 안 걸린 채(진짜 dev 주소로 나가 502) 뜨는 때가 있다 —
-      // 그때는 끄고 다시 켠다(세 번까지). 돌았는지는 처음 화면이 늘 부르는 GET /v2/… 가 돌린 요청 기록에 있는지로 본다
+      // 바쁜 PC 에서는 첫 창 기다리기(90초)가 넘치는 때가 있다 — 그때만 끄고 다시 켠다(세 번까지).
+      // 주소 돌리기가 안 걸렸으면 lib.launch 가 실패한다 — 다시 켜서 감추지 않는다
       inst.launch = async () => {
         for(let k = 1; ; k++){
           A.reqs.push('--- launch ---');
-          const n0 = A.reqs.length;
           try {
             inst.w = await A.launch();
-            await waitFor(() => A.reqs.slice(n0).some((r) => /^GET \/v2\//.test(r)), 15000, 'API 요청 돌리기');
             break;
           } catch(e){
-            if(k >= 3 || !/firstWindow|API 요청 돌리기/.test(String(e && e.message))) throw e;
+            if(k >= 3 || !/firstWindow/.test(String(e && e.message))) throw e;
             A.logs.push('--- 다시 켬: ' + String(e.message).split('\n')[0] + ' ---');
             await A.quit().catch(() => {});
           }
@@ -221,17 +209,9 @@ function scenario(name, body){
         A.logs.push('--- relaunch ---'); A.reqs.push('--- relaunch ---');
         return inst.launch();
       };
-      // GET /v2/config 응답을 이 앱에만 고쳐 준다(edit(data) → data). 설정은 같이 쓰는 로컬 묶음 전체에 걸려 다른 시험을 막으므로 서버 값은 건드리지 않는다
-      inst.editConfig = async (edit) => {
-        await A.app.context().route(/^https:\/\/api-dev\.together-working\.com\/v2\/config(\?|$)/, async (route) => {
-          const u = new URL(route.request().url());
-          const resp = await route.fetch({ url: 'http://127.0.0.1:8080' + u.pathname + u.search });
-          const j = await resp.json();
-          if(j && j.data) j.data = edit(j.data);
-          A.reqs.push('GET /v2/config ' + resp.status() + ' (시험이 고침)');
-          await route.fulfill({ status: resp.status(), contentType: 'application/json', body: JSON.stringify(j) });
-        });
-      };
+      // GET /v2/config 응답을 이 앱에만 고쳐 준다(edit(data) → data · 밖 값을 잡지 않는 순수 함수). 설정은 같이 쓰는 로컬 묶음 전체에 걸려 다른 시험을 막으므로 서버 값은 건드리지 않는다.
+      // 고치는 자리는 main 의 주소 돌리기(route-main.js) — lib.js editJson
+      inst.editConfig = (edit) => A.editJson('GET', '^/v2/config(\\?|$)', edit);
       inst.google = null;   // { sub, email } — 구글 창 대신 돌려줄 계정
       inst.reqsSince = (n) => A.reqs.slice(n);
       insts.push(inst);

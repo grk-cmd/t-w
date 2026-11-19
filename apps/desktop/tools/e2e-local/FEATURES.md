@@ -8,6 +8,7 @@
   - `flow.js «단계»` — `node flow.js <결과 폴더>` 가 스스로 도는 단계(README «flow.js — 한 바퀴»).
   - `REPL «항목»` — README «해 본 것 — REPL 로» 에 적은, 손으로 명령을 보내 확인한 순서. 스크립트가 아니라 다시 돌리려면 사람이 `run.sh` 로 보낸다.
   - `scenarios/<영역>/<이름>.js` — `node run-all.js` 가 돌리는 자동 판정 시나리오(README «run-all.js — 시나리오»).
+  - `<영역>/<이름>`(방 · 채팅 줄) — 같은 시나리오를 줄여 쓴 것(`scenarios/room/create-join.js` → `room/create-join`). 괄호 안은 그 시나리오가 보는 것.
   - 비어 있으면 e2e 가 없다.
 - **sim** 열 — `checks/sim-<이름>.js` 의 `<이름>`. 돌리기는 `node checks/run.js <이름>`. sim 은 모듈을 가짜 화면 · 가짜 서버로 돌려 로직을 보는 검사라, 앱을 켜서 화면을 끝까지 누르지 않는다.
 - **상태**
@@ -41,7 +42,7 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 | 초대 코드로 가입 | `flow.js «초대 화면» «초대 코드 입력» «가입»` | `signup` `license-gate` `name-guard` | e2e |
 | 가입 뒤 다시 켜기 · 로그인 유지 | `flow.js «시작하기 → 다시 켜기» «로그인된 책상»`(로그인이 남았는지는 뒤 단계 «얼굴 올리기 · 받기» 의 내 정보 요청이 성공해야 통과) | `login-flow` `account` `session` `session-baseline` `account-state` `account-store` `user-api` `first-run-013` | e2e |
 | 로그인 화면(친구 코드 · 비밀번호 · 구글) · 구글로 가입 | `scenarios/account/login.js`(틀린 모양 · 틀린 비밀번호 · 로그인 · 구글 가입 기록 없음 → 초대 코드 → 구글 가입 · 다른 PC 에서 같은 구글). 구글 창은 진짜 OAuth 라 Auth 에뮬레이터가 받는 가짜 구글 ID 토큰을 main 의 구글 창 IPC 자리에서 돌려준다 | `login-flow` `account` `session` | e2e |
-| 비밀번호 바꾸기 · 구글 계정에 비밀번호 붙이기 | `scenarios/account/password.js`(바꾸기 → 새 비밀번호만 로그인 · 붙이기 → 친구 코드로도 같은 계정). 붙인 뒤 이 PC 로그인이 끊김 — BUG-ACCT-1 | `user-api` `account` | e2e |
+| 비밀번호 바꾸기 · 구글 계정에 비밀번호 붙이기 | `scenarios/account/password.js`(바꾸기 → 새 비밀번호만 로그인 · 붙이기 → 이 PC 로그인이 이어지고 친구 코드로도 같은 계정) | `user-api` `account` | e2e |
 | 회원 탈퇴 | `scenarios/account/withdraw.js`(미리보기 · 체크 + «탈퇴» 둘 다 · 서버 탈퇴 → 로그인 화면 · 계정 없음) | `account-delete` `account` `my-info` `user-api` | e2e |
 | 친구 코드 고정 | `flow.js «초대 코드 입력»` 이 가입 화면의 친구 코드를 읽어 `account.json` 에 적음(바뀌지 않는지는 안 봄) | `friend-code-keep` | 부분 |
 | 로그아웃 | `scenarios/account/switch-account.js`(확인창 → 다시 켜기 → 로그인 화면 · 이 PC 계정 사본 없음 · 서버 기기 목록에서 빠짐) · `REPL «로그아웃»` | `account` `account-switch` `signup` | e2e |
@@ -72,28 +73,28 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 
 | 기능 | e2e | sim | 상태 |
 |---|---|---|---|
-| 방 만들기 · 참여(로비 · 방 코드) | `REPL «방 만들기 · 참여»`(결과 폴더 둘로 앱 두 벌) | `room-entry` `room-lobby-ui` `room-lobby` `room-settings` `lobby-window` `room-code-len` `recent-rooms` | REPL |
-| 투게더룸(프리미엄 방) | `REPL «투게더룸»`(로컬 DB 에서 관리자로 만들어 프리미엄을 붙임) | `license-premium` `room-entry` `dice-games` | REPL |
-| 방 나가기 · 방장 넘기기 · 해산 |  | `room-entry` `room-order` `room-meta-cleanup` | **할 일** |
-| 시크릿룸 · 채팅 잠금 |  | `chat-lock` `secret-room-grant` `room-order` | **할 일** |
-| 방 정보 · 방 설정(제목 · 공개 · 인원) |  | `room-info-ui` `room-settings` | **할 일** |
-| 좌석 배치 · 내 자리 고정 · 자리 바꾸기 |  | `seats` `seat-layout` `seat-camera` `seat-pin` `seat-label-drag` `seat-sync-diff` `seat-refit` `seat-equalize` `seat-eq` `seat-eq-clamp` `seat-slot` `seat-model-load` `char-place` `fit-model` `fit-watch` | **할 일** |
-| 같은 계정은 한 자리만 |  | `room-rt` `room-entry` | **할 일** |
-| 좌석 우클릭 메뉴 · 숨기기 · 투명도 · 쓰다듬기 |  | `seat-menu` `seat-panel` `seat-hide` `hidden-seats` `seat-opacity` `seat-opacity-mod` `seat-pointer` `seat-hit-targets` `seat-regions` | **할 일** |
-| 내 모습이 남 화면에 맞게 가기(방 동기화) |  | `room-sync` `room-parity` `room-live-def` `def-send` `room-rt` `room-state` | **할 일** |
-| 방 놀이(깜짝쇼 · 때리기 · 러시안룰렛 · 주사위 · 이모지 · 플라잉체어 · 올라타기) |  | `tricks` `fly-egg` `fly-replay` `fly-roulette` `roulette` `dice-games` `floaters` `flying-chair` `ride-bench` `ride-chain` `ride-height` `ride-measure` `ride-part-top` `ride-tuning` | **할 일** |
-| 자리비움 그림 |  | `away-pic` `away-follow` `away-start` | **할 일** |
-| 방 접속 상태 · 활동 상태 · 상태칩 |  | `presence` `user-status` `user-status-table` `seat-state` `status-chip` `chip-popups` `chip-chat-ui` `app-version` | **할 일** |
-| 같이 듣기 · DJ |  | `listen-model` `listen-provider` `listen-ui` | **할 일** |
-| 스티커사진(purikura) |  | `purikura-ui` `purikura-net` `purikura-rt` `purikura-rules` `purikura-stage` `purikura-deco` `purikura-fish` `pk-bgm` `pk-fit` `ps1-dither` | **할 일** |
+| 방 만들기 · 참여(로비 · 방 코드) | `room/create-join`(로비 [방 만들기] · 로비 카드로 참여 · 서로 보임 · 최근 방 · 나가기) · 코드 칸 참여는 다른 방 시나리오가 모두 지나감 | `room-entry` `room-lobby-ui` `room-lobby` `room-settings` `lobby-window` `room-code-len` `recent-rooms` | e2e |
+| 투게더룸(프리미엄 방) | `room/together-disband`(라이선스 없으면 만들기 창의 투게더룸 단추 꺼짐 · 관리자로 PLAY- 방 · 손님 참여) — 관리자는 `seed/admin.sql` | `license-premium` `room-entry` `dice-games` | e2e |
+| 방 나가기 · 방장 넘기기 · 해산 | `room/host-settings`(방장이 나가면 남은 사람이 방장 · 다시 들어와도 그대로) · `room/together-disband`(이어받을 보유자 없으면 해산) · `room/create-join`(나가기) | `room-entry` `room-order` `room-meta-cleanup` | e2e |
+| 시크릿룸 · 채팅 잠금 | `room/secret-room`(관리자 API 로 발급 · 주인이 «내 시크릿룸» 으로 열기 · 공개 목록에 없음 · 별표 없이는 다른 방 · «코드*» 로 손님 · 방장 잠금 · 풀기) | `chat-lock` `secret-room-grant` `room-order` | e2e |
+| 방 정보 · 방 설정(제목 · 공개 · 인원) | `room/host-settings`(방장만 [방 설정] · 제목 · 비공개로 바꾸면 남도 받고 로비 API 에서 빠짐) · `room/create-join`(만들 때 제목 · 공개). 인원은 만들 때만 정한다(설계) | `room-info-ui` `room-settings` | e2e |
+| 좌석 배치 · 내 자리 고정 · 자리 바꾸기 | `room/seat-status`(둘이 겹치지 않는 한 줄 · «맨 오른쪽 고정» 이면 내가 0번 · 되돌리기). 책상 · 이름표를 끌어 자리 바꾸기는 시나리오 없음 | `seats` `seat-layout` `seat-camera` `seat-pin` `seat-label-drag` `seat-sync-diff` `seat-refit` `seat-equalize` `seat-eq` `seat-eq-clamp` `seat-slot` `seat-model-load` `char-place` `fit-model` `fit-watch` | 부분 |
+| 같은 계정은 한 자리만 | `room/same-account`(둘째 PC 가 친구 코드 · 비밀번호로 로그인해 같은 방 → 먼저 PC 토스트 · 방 밖 · 남 화면엔 한 자리) | `room-rt` `room-entry` | e2e |
+| 좌석 우클릭 메뉴 · 숨기기 · 투명도 · 쓰다듬기 | `room/seat-status`(이름표 우클릭 메뉴 남 · 나 · 숨기기 · 다시 보이기 · 자리비움이면 몸 투명 · 눌러 쓰다듬기 → 상대 화면 이모지) | `seat-menu` `seat-panel` `seat-hide` `hidden-seats` `seat-opacity` `seat-opacity-mod` `seat-pointer` `seat-hit-targets` `seat-regions` | e2e |
+| 내 모습이 남 화면에 맞게 가기(방 동기화) | `room/sync`(내 좌석 메뉴 › 캐릭터 편집 · 상의 색 → 남 화면 같은 색 · def 메시지) · `room/create-join`(서버 이름 · 레벨 · 이름 없으면 «이름 없음») | `room-sync` `room-parity` `room-live-def` `def-send` `room-rt` `room-state` | e2e |
+| 방 놀이(깜짝쇼 · 때리기 · 러시안룰렛 · 주사위 · 이모지 · 플라잉체어 · 올라타기) | `room/games`(워킹룸 이모티콘 말풍선 · 룰렛 · 투게더룸 주사위 · 1 이면 내가 날아감 · /80 레벨 80 문턱 · 레벨 80(시드)으로 /80×3 깜짝쇼 · 때리기 · 💣 레벨 100 문턱 — 주사위 눈은 Math.random 고정) · `room/riding`(동물 숨김 해금 → 끌어 머리 위에 올라타기 · 남 화면). 💣 로 남을 날리기(레벨 100)는 문턱만 본다 | `tricks` `fly-egg` `fly-replay` `fly-roulette` `roulette` `dice-games` `floaters` `flying-chair` `ride-bench` `ride-chain` `ride-height` `ride-measure` `ride-part-top` `ride-tuning` | 부분 |
+| 자리비움 그림 | `room/away-pic`(프리미엄 아니면 등록 막힘 · 내 정보에서 PNG 등록 → 서버 주소 · 자리비움이면 남 화면에 그림 · [기본으로]) | `away-pic` `away-follow` `away-start` | e2e |
+| 방 접속 상태 · 활동 상태 · 상태칩 | `room/seat-status`(상태칩 «밥 먹는 중» · «온라인» 을 남이 받음 · 나가면 남 화면 좌석이 빠짐) | `presence` `user-status` `user-status-table` `seat-state` `status-chip` `chip-popups` `chip-chat-ui` `app-version` | e2e |
+| 같이 듣기 · DJ | `room/listen`(서버 플레이리스트 곡 · 같이 듣기 방 · 방장 DJ 판정 · 이름표 «🎧 DJ» · 첫 곡 music 이 남에게 · 같이 듣기 창 곡 제목 · DJ 가 나가면 새 방장이 DJ) — 소리는 조용히 켜기가 끈다 | `listen-model` `listen-provider` `listen-ui` | e2e |
+| 스티커사진(purikura) | `room/purikura`(정원 API · 둘이 같은 세션 · 방장만 [시작] · 시작하면 정원 하나 줄어듦 · 나가기). 촬영 · 꾸미기 · 저장은 시나리오 없음 | `purikura-ui` `purikura-net` `purikura-rt` `purikura-rules` `purikura-stage` `purikura-deco` `purikura-fish` `pk-bgm` `pk-fit` `ps1-dither` | 부분 |
 
 ## 채팅
 
 | 기능 | e2e | sim | 상태 |
 |---|---|---|---|
-| 채팅 보내기 · 받기 · 기록 | `REPL «채팅»` | `chat-rt` `chat-ui` `chat-window` `chat-tabs` `chat-layout` `chat-read-on-send` `chat-history` `chat-log-persist` | REPL |
-| 채팅 기록 지우기(방장) · 투명도 · 글자 크기 · 알림음 |  | `chat-prefs` `chat-sfx` `chat-delete-log` | **할 일** |
-| 이모티콘 · 날리기 · 머리 위 말풍선 · 복사 |  | `demoji-catalog` `demoji-palette` `chat-fly` `overhead` `chat-copy` | **할 일** |
+| 채팅 보내기 · 받기 · 기록 | `chat/send-receive`(둘이 주고받기 · 서버 기록 API) | `chat-rt` `chat-ui` `chat-window` `chat-tabs` `chat-layout` `chat-read-on-send` `chat-history` `chat-log-persist` | e2e |
+| 채팅 기록 지우기(방장) · 투명도 · 글자 크기 · 알림음 | `chat/send-receive`(내 화면 지우기 · 되돌리기 · 방장만 기록 삭제 → 남 화면 · 서버에서 사라짐 · 창 닫아 두면 알림음) · `chat/prefs-emoji-fly`(투명도 · 글자 크기 · 알림음 끄기 · 소리 고르기 — 다시 켜도 남음) | `chat-prefs` `chat-sfx` `chat-delete-log` | e2e |
+| 이모티콘 · 날리기 · 머리 위 말풍선 · 복사 | `chat/prefs-emoji-fly`(기본 이모티콘 → 남 대화창 그림 · 날리기 → 남 화면) · `chat/send-receive`(머리 위 말풍선 · «이 메시지 복사» — 클립보드는 가로채 셈). 내 이모티콘 등록은 시나리오 없음 | `demoji-catalog` `demoji-palette` `chat-fly` `overhead` `chat-copy` | 부분 |
 
 ## 친구 · 초대
 
@@ -168,7 +169,6 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 
 | 번호 | 무엇이 틀렸나 | 다시 만들기 | 시나리오 |
 |---|---|---|---|
-| BUG-ACCT-1 | 구글로만 가입한 계정에 [비밀번호 만들기]를 하면 서버가 비밀번호를 붙이고(200) Auth 가 그 계정의 옛 로그인 토큰을 끊는데, 앱은 다시 로그인하지 않는다(바꾸기 C2 는 다시 로그인함). 탭이 «비밀번호 바꾸기» 로 안 바뀌고(`accounts:lookup` 400 `TOKEN_EXPIRED`), 이 PC 의 토큰 새로 받기도 실패한다 — 다음 API 요청부터 로그인이 풀린다 | 구글로 가입 → 내 정보 › 계정 → 새 비밀번호 두 칸 → [비밀번호 만들기] → «✅ 비밀번호를 만들었어요» 는 뜨지만 버튼은 «비밀번호 만들기» 그대로 · `firebaseAPI.getIdToken(true)` 실패 | `scenarios/account/password.js` |
 
 ## 할 일 — e2e 가 없거나 일부만 있는 기능
 
@@ -176,8 +176,6 @@ e2e 가 없는 기능(위 표의 **할 일**):
 
 - 켜기 · 런처: 광고 배너 · 피규어 · 회사원 모드 · 이동 모드 · 창 앞뒤
 - 캐릭터: 꾸미기 · 캐릭터 · 커미션 코드 · 책상 세팅 · 카탈로그 · 가챠
-- 방: 나가기 · 방장 넘기기 · 시크릿룸 · 방 설정 · 좌석 배치 · **같은 계정 한 자리** · 좌석 메뉴 · 방 동기화 · 방 놀이 · 자리비움 그림 · 접속 · 활동 상태 · 같이 듣기 · 스티커사진
-- 채팅: 기록 지우기 · 채팅 설정 · 이모티콘 · 날리기 · 말풍선
 - 친구 · 초대: 요청 받기 · 수락 · 친구 목록 · 친구 접속 표시 · 친구 방 · 마이홈 놀러 가기 · 방 초대
 - 마이홈: 바탕화면 · 방명록 · 말랑이 · 선물 · 우편함 · 공지 · 일정 · 디데이 · 플레이리스트 · 백색소음 · 도움말 탭
 - 포커스: 포커스 시간 · 레벨 · 포커스 기록 · 뽀모도로 · 달성표 · 폰 연결
@@ -191,5 +189,9 @@ e2e 가 있지만 일부만 보는 기능(`부분`):
 - 렌더러가 죽었을 때 — main 쪽(창 크기 · 다시 불러오기)까지만 본다. 다시 불러온 화면은 Playwright 아래에서 로드가 끝나지 않는다.
 - 설정 창 — 런처 ⚙️ 설정만 본다(실행 화면 F1 설정 패널 — 캐릭터 크기 · 포커싱 어플 · 화면 표시 — 은 캐릭터가 있는 실행 화면이 필요해 빠짐).
 - 런처 화면 · 마이홈 열기 · 친구 코드 고정 · 캐릭터 슬롯 저장 — 다른 흐름이 지나가기만 한다(마이홈 꾸미기는 e2e 없음).
+- 좌석 배치 — 책상 · 이름표를 끌어 자리 바꾸기는 시나리오가 없다.
+- 방 놀이 — 💣 로 남을 날리기(레벨 100)는 문턱(안내 토스트)만 본다.
+- 스티커사진 — 세션 · 시작 · 정원까지. 촬영 · 꾸미기 · 저장은 시나리오가 없다.
+- 이모티콘 — 내 이모티콘 등록(그림 올리기)은 시나리오가 없다.
 
-REPL 순서만 있는 기능(`REPL` — 자동 판정 없음): 책상 모드 · 서버 점검 · 캐릭터 만들기 · 방 만들기 · 참여 · 투게더룸 · 채팅 · 친구 요청 보내기.
+REPL 순서만 있는 기능(`REPL` — 자동 판정 없음): 책상 모드 · 서버 점검 · 캐릭터 만들기 · 친구 요청 보내기.

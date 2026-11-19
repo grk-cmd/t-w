@@ -10,7 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 const { makeApp, wait, quietProblems } = require('../../lib.js');
-const { acquire } = require('../../runlock.js');
+const { acquire, markQuietFail } = require('../../runlock.js');
 
 const out = path.resolve(process.argv[2] || '/tmp/tw-e2e/launcher/quiet');
 const steps = [];
@@ -141,9 +141,7 @@ const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(pa
   } catch(e){
     code = 1;
     if(!steps.some((l) => l.startsWith('FAIL'))) steps.push('FAIL ' + e.message);
-    if(e && e.leak && process.env.TW_E2E_RUN_LOCK){
-      try { fs.appendFileSync(path.join(path.dirname(process.env.TW_E2E_RUN_LOCK), 'e2e-quiet-fail'), new Date().toISOString() + ' launcher/quiet ' + e.message + '\n'); } catch(_){}
-    }
+    if(e && e.leak) markQuietFail('launcher/quiet ' + e.message);
     steps.push('ABORT ' + e.message);
   } finally {
     if(!code) steps.push('PASS');   // run-all 은 steps.txt 의 PASS 줄로 통과를 본다
