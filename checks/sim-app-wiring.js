@@ -7,6 +7,7 @@
    ・세는 것(typescript 파서 — 주석 · 문자열 · 템플릿 안은 안 센다):
        함수 — 맨 위(파일 꼭대기)의 function 선언 · let — 맨 위 let 이름 수(한 줄에 여럿이면 여럿) ·
        듣기 — 어디서든 `.addEventListener(` 부름 · 저장 — 어디서든 `localStorage` 이름(window.localStorage 포함) · try — 어디서든 try 문
+       단 저장은 모듈에 deps 로 넘기는 것(`createX({ storage: localStorage })` — create… 부름의 객체 속성 값이 localStorage 그 자체)은 안 센다 — 조립이다(규칙은 «필요한 것은 deps 로»)
    ・다섯이 모두 0 이 되면 기준선을 걷고 «0 이 아니면 빨강» 으로 바꾼다(설계 2-3).
    ・1절: 읽었다 · 기준선 · 2절: 늘지 않았다 · 줄었으면 내린다 · 3절: 가짜 입력으로 깨 보기(진짜 app.js 에 한 줄씩 더해 본다 포함) */
 'use strict';
@@ -33,6 +34,17 @@ const APP = fs.readFileSync(path.join(BASE, 'parts', 'app.js'), 'utf8');
 const KEYS = ['functions', 'lets', 'listeners', 'storage', 'tries'];
 const LABEL = { functions: '맨 위 함수', lets: '맨 위 let', listeners: 'addEventListener', storage: 'localStorage', tries: 'try' };
 
+/* `createX({ key: localStorage })` · `Mod.createX({ key: localStorage })` 의 속성 값 자리인가 — 모듈에 deps 로 넘기기(조립)라 저장 표지로 안 센다.
+   값이 localStorage 그 자체일 때만(localStorage.getItem(…) · 함수 안 · create 가 아닌 부름은 그대로 센다) */
+function isDepsValue(id) {
+  const pa = id.parent;
+  if (!pa || !ts.isPropertyAssignment(pa) || pa.initializer !== id) return false;
+  const obj = pa.parent, call = obj && obj.parent;
+  if (!obj || !ts.isObjectLiteralExpression(obj) || !call || !ts.isCallExpression(call) || !call.arguments.includes(obj)) return false;
+  const callee = call.expression;
+  const name = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : '';
+  return /^create[A-Z]/.test(name);
+}
 /* 글 → { functions, lets, listeners, storage, tries } (파싱이 깨지면 던진다 — 조용히 0 으로 세지 않게) */
 function count(src) {
   const sf = ts.createSourceFile('app.js', src, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
@@ -45,7 +57,7 @@ function count(src) {
   (function walk(node) {
     if (ts.isTryStatement(node)) n.tries++;
     else if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'addEventListener') n.listeners++;
-    else if (ts.isIdentifier(node) && node.text === 'localStorage') n.storage++;
+    else if (ts.isIdentifier(node) && node.text === 'localStorage' && !isDepsValue(node)) n.storage++;
     ts.forEachChild(node, walk);
   })(sf);
   return n;
@@ -100,12 +112,14 @@ say('── 3. 깨 보기');
     'const s = "function no(){} localStorage try{";',
     'const t = `addEventListener localStorage`;',
     'if(true){ let inBlock = 1; function inBlockFn(){} }',
+    'const m1 = TwX.createX({ storage: localStorage, a: 1 }); const m2 = createY({ storage: localStorage });',
+    'foo({ storage: localStorage }); TwX.createZ({ s: localStorage.getItem("k") }); TwX.createW({ s: () => localStorage }); TwX.createV(localStorage);',
   ].join('\n');
   const F = count(fake);
   chk(F.functions === 1, '맨 위 함수만 센다(안쪽 함수 · 블록 안 함수 · 주석 · 문자열은 안 센다) — ' + F.functions);
   chk(F.lets === 2, '맨 위 let 은 이름 수(한 줄 둘 = 2) · const · var · 블록 안 let 은 안 센다 — ' + F.lets);
   chk(F.listeners === 1, 'addEventListener 는 부른 곳만(주석 · 템플릿 글은 안 센다) — ' + F.listeners);
-  chk(F.storage === 2, 'localStorage 는 이름(window.localStorage 포함 · 주석 · 문자열은 안 센다) — ' + F.storage);
+  chk(F.storage === 6, 'localStorage 는 이름(window.localStorage 포함 · 주석 · 문자열은 안 센다) · create…({ 키: localStorage }) deps 넘기기만 뺀다(create 가 아닌 부름 · .getItem · 함수 안 · 그냥 인자는 센다) — ' + F.storage);
   chk(F.tries === 2, 'try 는 어디서든 try 문(함수 안 포함) — ' + F.tries);
   let threw = false; try { count('function (('); } catch (_) { threw = true; }
   chk(threw, '파싱이 깨진 글은 0 으로 세지 않고 던진다');
@@ -122,6 +136,11 @@ say('── 3. 깨 보기');
     const c = compare(N2, NOW);
     chk(c.up.length === 1 && c.up[0].startsWith(LABEL[k]) && !c.down.length, 'app.js 에 ' + LABEL[k] + ' 하나를 더하면 그 표지만 늘어 빨강');
   }
+  /* deps 로 넘기기는 안 늘고 · 그 밖은 는다 — 빼는 조건이 넓어지거나(로직을 숨김) 사라지면(deps 넘기기가 빨강) 둘 중 하나가 빨강 */
+  const dep = compare(count(APP + '\nconst _wiringDeps = TwX.createX({ storage: localStorage });\n'), NOW);
+  chk(!dep.up.length && !dep.down.length, 'app.js 에 모듈 deps 로 localStorage 를 넘기는 줄을 더해도 표지는 그대로(조립)');
+  const notDep = compare(count(APP + '\nconst _wiringDeps = foo({ storage: localStorage });\n'), NOW);
+  chk(notDep.up.length === 1 && notDep.up[0].startsWith(LABEL.storage), '  create 가 아닌 부름에 넘기면 localStorage 가 늘어 빨강');
   const c2 = compare(count(APP.replace(/\nfunction ([A-Za-z_$][\w$]*)\(/, '\nconst $1 = function(')), NOW);
   chk(c2.down.length === 1 && c2.down[0].startsWith(LABEL.functions), '맨 위 함수 하나를 걷으면(옮기면) 줄었다고 빨강 — 기준선을 내리게');
 }
