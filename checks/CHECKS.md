@@ -500,6 +500,7 @@
 | **sim-rules-cutover.js** | 157 | **88aff836d62f** |
 | **sim-storage-rules.js** | 242 | **42f1c9060342** |
 | **sim-cutover-logout.js** | 262 | **7ff949879bb5** |
+| **sim-e2e-cutover-guard.js** | 151 | **fbe748d17b73** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |
 | **sim-label-measure.js** | 261 | **807b311a47d3** |
 | **sim-safe-html.js** | 734 | **f11bcf1c5ea2** |
