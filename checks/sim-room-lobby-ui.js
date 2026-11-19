@@ -249,7 +249,7 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
   chk(order.every((v, i) => v > 0 && (i === 0 || v > order[i - 1])), '  스크립트 순서: model → provider → ui → app.js');
   chk(/TwRoomLobbyUi\.createRoomLobbyUi\(\{/.test(APP) && /openCreate: \(ch\)=>roomCreateUi\.open\(ch\)/.test(APP) && /joinRoom: \(code\)=>roomEntryMod\.joinRoom\(code\),/.test(APP), '  app.js 가 만들고 방 만들기 창 · 입장으로 잇는다');
   chk(/TwRoomLobbyProvider\.createRoomLobbyProvider\(\{ apiGet: \(p, o\)=>TwApi\.authed\.get\(p, o\), peek: \(code\)=>TwRoomRt\.store\.peek\(code\),/.test(APP), '  app.js: 로비 provider 에 로그인 API 통로 · 방 포트 peek 을 넘긴다');
-  chk(!/getRoomLobby|roomLobby\//.test(FI), '  firebase-init 에 로비 사본(roomLobby) 읽기가 없다');
+  chk(!/getRoomLobby|roomLobby\b/.test(FI), '  firebase-init 에 로비 사본(roomLobby) 읽기가 없다');
   chk(/'E-ROOM-03'/.test(EC), '  오류 번호 E-ROOM-03 이 표에 있다');
   chk(!/innerHTML/.test(U_SRC), '★ 로비 화면은 innerHTML 을 안 쓴다 — 남이 쓴 제목 · 닉네임은 글로만');
 
