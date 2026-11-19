@@ -1,6 +1,6 @@
-/* sim-device-limit-dialog.js — 🖥️ «PC 3대가 다 찼어요» 확인창(account/device-limit-dialog.js) — 디자인 시스템 확인창 규칙대로 실제로 눌러 본다
+/* sim-device-limit-dialog.js — 🖥️ «등록할 수 있는 PC를 다 썼어요» 확인창(account/device-limit-dialog.js) — 디자인 시스템 확인창 규칙대로 실제로 눌러 본다
    실행:  node sim-device-limit-dialog.js   (러너 스테이징 또는 저장소 루트에서)
-   ・1절: 모양 — role=alertdialog + aria-labelledby · 제목 질문(받은 글을 글자로만) · 이모지 없음 · 260px · 버튼 [취소] · [지우고 사용](오른쪽 정렬) · 기본 포커스 취소 ·
+   ・1절: 모양 — 앱이 쓰는 글(TEXT · 화면 글)에 대수(숫자)가 없다(상한은 서버가 정한다) · role=alertdialog + aria-labelledby · 제목 질문(받은 글을 글자로만) · 이모지 없음 · 260px · 버튼 [취소] · [지우고 사용](오른쪽 정렬) · 기본 포커스 취소 ·
           껍데기 app-popup-ov(클릭 통과 목록) · 기기 안내 화면과 같은 층(--z-gate-device)
    ・2절: 누르기 — [지우고 사용] true · [취소] false · Esc false · 닫히면 창이 사라진다 · 새로 물으면 앞 창은 취소로 닫힌다
    ・3절: 연결 — app.js · html · smoke PRELOAD · 클릭 통과
@@ -65,8 +65,10 @@ async function judge(src) {
   t(no && ok && no.textContent === '취소' && ok.textContent === '지우고 사용' && no.parent === ok.parent && no.parent.children.indexOf(no) < no.parent.children.indexOf(ok) && /justify-content:flex-end/.test(no.parent.style.cssText),
     '★ 버튼 [취소] · [지우고 사용] — 오른쪽 정렬 · 실행이 오른쪽(디자인 시스템 확인창)');
   t(w.doc.focused === no, '  기본 포커스는 [취소] — Enter 한 번에 기기가 지워지지 않게');
-  t(w.ov.textContent === 'PC 3대가 다 찼어요' + Q + '취소지우고 사용' && !/\p{Extended_Pictographic}/u.test(w.ov.textContent) && /width:260px/.test(w.box.style.cssText),
-    '  제목줄 «PC 3대가 다 찼어요» · 질문 · 버튼 둘뿐(덧붙이는 설명 없음) · 이모지 없음 · 확인창 폭 260px(디자인 시스템)');
+  t(w.ov.textContent === '등록할 수 있는 PC를 다 썼어요' + Q + '취소지우고 사용' && !/\p{Extended_Pictographic}/u.test(w.ov.textContent) && /width:260px/.test(w.box.style.cssText),
+    '  제목줄 «등록할 수 있는 PC를 다 썼어요» · 질문 · 버튼 둘뿐(덧붙이는 설명 없음) · 이모지 없음 · 확인창 폭 260px(디자인 시스템)');
+  const own = Object.values(w.win.TwDeviceLimitDialog.TEXT).join('') + w.ov.textContent.replace(Q, '');
+  t(!/\d/.test(own), '★ 앱이 쓰는 글에 대수가 없다 — 상한은 서버가 정한다(받은 질문 글은 빼고 본다)');
   t(w.ov.className === 'app-popup-ov' && /pointer-events:none/.test(w.ov.style.cssText) && /z-index:var\(--z-gate-device\)/.test(w.ov.style.cssText) && /pointer-events:auto/.test(w.box.style.cssText),
     '  껍데기 app-popup-ov(클릭 통과 목록) · 화면 전체를 막지 않음 · 기기 안내 화면과 같은 층(뒤에 붙어 그 위에 뜬다)');
   /* 2 */
@@ -104,7 +106,9 @@ async function judge(src) {
     ['Esc 가 안 먹음', (m) => m.replace("if(e.key === 'Escape'){", "if(e.key === 'NoSuchKey'){")],
     ['취소가 true', (m) => m.replace('      no.onclick = () => close(false);', '      no.onclick = () => close(true);')],
     ['역할 표시 없음', (m) => m.replace("      box.setAttribute('role', 'alertdialog');\n", '')],
-    ['확인창에 이모지', (m) => m.replace("  title: 'PC 3대가 다 찼어요',", "  title: '🖥️ PC 3대가 다 찼어요',")],
+    ['확인창에 이모지', (m) => m.replace("  title: '등록할 수 있는 PC를 다 썼어요',", "  title: '🖥️ 등록할 수 있는 PC를 다 썼어요',")],
+    ['제목에 대수', (m) => m.replace("  title: '등록할 수 있는 PC를 다 썼어요',", "  title: 'PC 5대가 다 찼어요',")],
+    ['단추에 대수', (m) => m.replace("  ok: '지우고 사용',", "  ok: '지우고 5대째로 사용',")],
     ['폭이 확인창과 다름', (m) => m.replace('width:260px;', 'width:300px;')],
     ['클릭 통과 목록에서 빠짐', (m) => m.replace("      ov.className = 'app-popup-ov';", "      ov.className = 'x';")],
   ];

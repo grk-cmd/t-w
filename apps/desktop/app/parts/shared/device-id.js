@@ -1,5 +1,5 @@
 /* device-id.js — 🖥️ 이 기기 id(tw.deviceId) 한 곳 (검사 sim-device-id.js)
-   [왜] 서버는 프리미엄을 «이 기기» 로 판정한다(라이선스 등록 기기 3대). 로그인 요청 머리 X-Device-Id 와 realtime hello.deviceId 에
+   [왜] 서버는 프리미엄을 «이 기기» 로 판정한다(라이선스 등록 기기 — 상한은 서버가 정한다). 로그인 요청 머리 X-Device-Id 와 realtime hello.deviceId 에
      **같은 값** 을 싣는다 — 신원이 아니라 등록 기기 칸의 이름이다(신원은 로그인 토큰뿐).
    [모양] ^[A-Za-z0-9_-]{8,64}$ — API(요청 머리) · realtime(hello) 둘 다 받는 모양. 만드는 값은 uuid(request-id.js newId).
    [언제] 처음 부를 때 한 번 만들어 저장하고 그 뒤로는 저장값. 저장값이 모양 밖이면(손으로 고침 · 깨짐) 새로 만들어 덮는다.

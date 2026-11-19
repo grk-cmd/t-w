@@ -68,9 +68,9 @@
   - 연결을 놓는 차례(설계 04-realtime-disconnect 4-D-3): 방 leave → left 기다림 → realtime `bye{why}` → 서버 닫힘 기다림(1초) → 그 뒤에 로그인을 놓는다. 거꾸로 하면 방 사람들 · 친구는 유예(20초) 뒤에야 나간 것을 본다.
 - 검사: `checks/sim-login-flow.js`.
 
-## device-register.js · device-limit-dialog.js · device-lost.js — 계정마다 PC 셋(classic script `window.TwDeviceRegister` · `window.TwDeviceLimitDialog` · `window.TwDeviceLost`)
-- 책임: 한 계정은 PC 3대까지. 자리는 서버가 정한다 — 켤 때 realtime 보다 먼저 이 PC 를 등록(`POST /v2/me/devices { deviceId, session, os }` — `device-register.js ensure()` → `ok` · `canceled` · `failed`).
-  넷째 PC 면 서버가 409 `USER_DEVICE_LIMIT` 와 가장 오래 안 쓴 기기(`items[0]`)를 준다 → 확인창(`device-limit-dialog.js`) «가장 오래된 기기 Windows PC (11월 3일 등록) · 마지막 사용 11월 10일 — 이 기기를 지우고 이 PC를 쓸까요?» [취소] · [지우고 사용].
+## device-register.js · device-limit-dialog.js · device-lost.js — 계정마다 PC 는 서버가 정한 상한까지(classic script `window.TwDeviceRegister` · `window.TwDeviceLimitDialog` · `window.TwDeviceLost`)
+- 책임: 한 계정은 PC 를 서버가 정한 상한까지 쓴다(앱은 대수를 모른다 — 글에 숫자를 쓰지 않는다). 자리는 서버가 정한다 — 켤 때 realtime 보다 먼저 이 PC 를 등록(`POST /v2/me/devices { deviceId, session, os }` — `device-register.js ensure()` → `ok` · `canceled` · `failed`).
+  다 찬 계정에 새 PC 면 서버가 409 `USER_DEVICE_LIMIT` 와 가장 오래 안 쓴 기기(`items[0]`)를 준다 → 확인창(`device-limit-dialog.js`) «가장 오래된 기기 Windows PC (11월 3일 등록) · 마지막 사용 11월 10일 — 이 기기를 지우고 이 PC를 쓸까요?» [취소] · [지우고 사용].
   [지우고 사용]이면 보여 준 그 기기 id 를 `replaceOldest` 로 다시 — 그사이 바뀌었으면 서버가 또 409(새 기기로 다시 묻는다). [취소]면 등록하지 않고 로그인 화면(app-boot `toLogin`). 저절로 지우지 않는다.
   realtime 이 이 연결을 4004 로 끊으면(까닭 `deviceRemoved` — 다른 PC 가 이 기기를 지움 · `sessionLost` — 이 PC 에서 앱을 새로 엶) `device-lost.js` 안내 화면 · 단추는 같은 등록 흐름 → 되면 같은 realtime 연결로 다시.
 - 기기 이름: OS + 처음 등록한 날(`deviceLabel` — «Windows PC (11월 3일 등록)» · «Mac (…)» · 모르면 «PC»), 마지막 사용은 따로. **호스트 이름은 쓰지 않는다**(사람 이름이 든 경우가 많다).

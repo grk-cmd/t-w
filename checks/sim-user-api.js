@@ -165,7 +165,7 @@ async function judge(S){
     });
     const x = await threw(e.ua.registerDevice({ deviceId: 'dev-0001', session: 's1', os: 'mac' }));
     chk(!!x && x.code === 'USER_DEVICE_LIMIT' && e.sent[0].auth === 'Bearer ' + TOKEN && JSON.stringify(e.sent[0].body) === '{"deviceId":"dev-0001","session":"s1","os":"mac"}',
-      '등록 — 토큰 · { deviceId, session, os } · 셋이 다 차면 409 USER_DEVICE_LIMIT 를 그대로 던진다');
+      '등록 — 토큰 · { deviceId, session, os } · 상한이 다 차면 409 USER_DEVICE_LIMIT 를 그대로 던진다');
     const o = e.UA.limitOldestOf(x);
     chk(!!o && o.deviceId === 'pc-old' && o.os === 'windows' && o.claimedAt === OLDEST.claimedAt && o.lastSeenAt === OLDEST.lastSeenAt, '★ limitOldestOf — 409 의 items[0] = 가장 오래된 기기 { deviceId, os, claimedAt, lastSeenAt }');
     chk(e.UA.limitOldestOf(Object.assign(new Error('x'), { code: 'NETWORK', items: [OLDEST] })) === null && e.UA.limitOldestOf({ code: 'USER_DEVICE_LIMIT', items: [] }) === null, '  다른 실패 · 기기 없는 409 는 null(묻지 않는다)');

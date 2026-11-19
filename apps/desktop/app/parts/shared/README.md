@@ -385,7 +385,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 - **책임**: 서버가 프리미엄을 «이 기기» 로 판정할 때 쓰는 기기 칸 이름 하나. 로그인 API 요청 머리 `X-Device-Id`(api-client.js 가 붙인다)와 realtime `hello.deviceId` 에 같은 값을 싣는다. 신원이 아니다(신원은 로그인 토큰뿐).
 - **쓰는 법**: `TwDeviceId.store.get()` — 처음 부를 때 한 번 만들어(`TwRequestId.newId` · uuid) `localStorage` 에 두고, 그 뒤로는 저장값. 저장값이 모양(`^[A-Za-z0-9_-]{8,64}$`) 밖이면 새로 만들어 덮는다.
-- **함정**: 계정을 바꿔도 **지우지 않는다**(계정 전환 지움 목록에 넣지 말 것) — 값이 바뀌면 같은 PC 가 등록 기기(3대)를 하나 더 차지한다. 저장이 막힌 PC 는 실행마다 다른 기기로 보인다.
+- **함정**: 계정을 바꿔도 **지우지 않는다**(계정 전환 지움 목록에 넣지 말 것) — 값이 바뀌면 같은 PC 가 등록 기기(서버가 정한 상한)를 하나 더 차지한다. 저장이 막힌 PC 는 실행마다 다른 기기로 보인다.
 - 검사: `checks/sim-device-id.js`.
 
 ## `api-client.js` — 🌐 앱 공통 API 통로(`/v2`)

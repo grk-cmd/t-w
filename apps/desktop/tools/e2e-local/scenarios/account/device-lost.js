@@ -14,18 +14,24 @@ K.scenario('device-lost', async (t) => {
   // realtime 이 붙은 뒤여야 서버가 닫을 연결이 있다
   await t.step('realtime 연결', () => K.waitFor(() => pc.w.evaluate(() => window.TwRtHub && window.TwRtHub.store.state && /ready|open|online/i.test(String(window.TwRtHub.store.state()))), 30000, 'realtime ready'));
 
-  const ids = ['e2e-b-' + K.uniq(), 'e2e-c-' + K.uniq(), 'e2e-d-' + K.uniq()];
-  await t.step('다른 PC 둘 등록 → 넷째가 이 PC 를 지우고 들어옴', async () => {
-    for(const id of ids.slice(0, 2)){ await acct.api('POST', '/v2/me/devices', { deviceId: id, session: 's-' + id, os: 'windows' }, id); await t.wait(1100); }
-    const r = await acct.api('POST', '/v2/me/devices', { deviceId: ids[2], session: 's-' + ids[2], os: 'windows', replaceOldest: me }, ids[2]);
-    if(r.status !== 200 || r.data.removed !== me) throw new Error('이 PC 를 못 지움 ' + JSON.stringify(r.body));
+  await t.step('다른 PC 를 상한까지 등록 → 다 찬 뒤 새 PC 가 이 PC 를 지우고 들어옴', async () => {
+    for(let i = 0; ; i++){
+      if(i > 20) throw new Error('20대를 넘게 등록해도 409 가 오지 않음');
+      const id = 'e2e-' + i + '-' + K.uniq();
+      const r = await acct.api('POST', '/v2/me/devices', { deviceId: id, session: 's-' + id, os: 'windows' }, id);
+      if(r.status === 200){ await t.wait(1100); continue; }
+      if(r.status !== 409 || !r.body || r.body.code !== 'USER_DEVICE_LIMIT') throw new Error(id + ' 등록 ' + r.status + ' ' + JSON.stringify(r.body));
+      const again = await acct.api('POST', '/v2/me/devices', { deviceId: id, session: 's-' + id, os: 'windows', replaceOldest: me }, id);
+      if(again.status !== 200 || again.data.removed !== me) throw new Error('이 PC 를 못 지움 ' + JSON.stringify(again.body));
+      break;
+    }
   });
   await t.step('① 안내 «다른 PC에서 이 기기를 지웠어요» · [이 PC 다시 등록]', async () => {
     await K.waitShown(pc.w, ov, 30000);
     if((await K.text(pc.w, '#deviceSessionTitle')) !== '다른 PC에서 이 기기를 지웠어요') throw new Error('제목: ' + await K.text(pc.w, '#deviceSessionTitle'));
     if((await K.text(pc.w, '#deviceSessionContinue')) !== '이 PC 다시 등록') throw new Error('단추 글');
   });
-  await t.step('[이 PC 다시 등록] → 셋이 찼으니 확인창 → [지우고 사용] → 안내 닫힘 · 서버 목록에 이 PC', async () => {
+  await t.step('[이 PC 다시 등록] → 상한이 찼으니 확인창 → [지우고 사용] → 안내 닫힘 · 서버 목록에 이 PC', async () => {
     await pc.w.click('#deviceSessionContinue');
     await K.waitFor(() => pc.w.evaluate(() => !!document.querySelector('[role="alertdialog"]')), 15000, '확인창');
     await pc.w.click('[role="alertdialog"] button[data-a="ok"]');

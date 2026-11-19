@@ -410,9 +410,9 @@
 | **sim-roulette.js** | 96 | **0641e7ec0df6** |
 | **sim-floaters.js** | 96 | **a4edf1183dd7** |
 | **sim-add-friend.js** | 96 | **6f1a6fef415e** |
-| **sim-device-lost.js** | 169 | **e2e7bfad6ed8** |
-| **sim-device-register.js** | 123 | **d344472d25a8** |
-| **sim-device-limit-dialog.js** | 120 | **7dc89f204d65** |
+| **sim-device-lost.js** | 169 | **cc1d4b538516** |
+| **sim-device-register.js** | 123 | **87bc08c16989** |
+| **sim-device-limit-dialog.js** | 124 | **218f451e6c3f** |
 | **sim-myhome-page.js** | 154 | **ae6bbb03faec** |
 | **sim-myhome-preset.js** | 153 | **c794b274d05b** |
 | **sim-inbox-sections.js** | 134 | **7562fc1e8229** |
@@ -451,7 +451,7 @@
 | **sim-launcher-state.js** | 91 | **53332b32063d** |
 | **sim-account-state.js** | 108 | **148155f17f1a** |
 | **sim-nav.js** | 91 | **aa8cab6dd39f** |
-| **sim-app-boot.js** | 183 | **1f1ceb6d9c9f** |
+| **sim-app-boot.js** | 183 | **1d38b0203ea5** |
 | **sim-away-start.js** | 120 | **c501f6a3d5f6** |
 | **sim-user-local.js** | 207 | **1242a80d61b4** |
 | **sim-saved-lists-wiring.js** | 91 | **38b630d814d6** |
@@ -523,7 +523,7 @@
 | **sim-rt-hub.js** | 677 | **40091f35ca70** |
 | **sim-rt-status-ui.js** | 245 | **0007b74785ea** |
 | **sim-run-verdict.js** | 67 | **4303b789970f** |
-| **sim-user-api.js** | 250 | **2d4fc2ad2565** |
+| **sim-user-api.js** | 250 | **96d97e35df9c** |
 | **sim-login-flow.js** | 386 | **a2b9a84c9a58** |
 | **sim-first-run-013.js** | 350 | **7436521829cc** |
 | **sim-lobby-window.js** | 119 | **277eac451d99** |
