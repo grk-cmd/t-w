@@ -1,9 +1,12 @@
 /* sim-rules-cutover.js — 🔐 컷오버용 작은 규칙(firebase-database-rules-cutover.json) 한 벌
    실행: node checks/run.js rules-cutover
-   [왜] 컷오버 T+2 에 큰 규칙을 이 작은 규칙으로 바꿔 올린다(런북 8장 ②). 0.12.1 앱이 켜질 때 읽는 세 칸(점검 · 최소 앱 버전 · 최소 방 버전)은
+   [왜] 컷오버 T+2 에 큰 규칙을 이 작은 규칙으로 바꿔 올린다(런북 8장 ②). 0.13 부터는 기본 설정(firebase.json)이 이 규칙만 올리고 functions 칸이 없다 —
+     0.13 을 낸 뒤 평소 절차(firebase deploy)를 따른 사람이 RTDB 쓰기를 다시 열거나 T+8 에 지운 함수를 다시 올리지 않게.
+     큰 규칙(firebase-database-rules.json)은 0.12 호환 검사 · 판끼리 견주기가 읽어서 파일만 남는다. 0.12.1 앱이 켜질 때 읽는 세 칸(점검 · 최소 앱 버전 · 최소 방 버전)은
      로그인 없이 읽혀야 하고(안 읽히면 옛 앱이 업데이트 창 · 점검 창 없이 켜진다), 그 밖의 모든 맨 위 칸은 읽기 · 쓰기가 막혀야 하며(옮기는 동안 데이터가 바뀌면 안 된다),
      점검 칸은 관리자(admins)만 쓸 수 있어야 한다.
-   [무엇을 본다] 1절: 규칙 글 — 큰 규칙의 맨 위 칸 이름을 하나씩 대어 «작은 규칙이 그 칸을 열지 않는다» · 열린 곳은 셋뿐 · 설정 파일이 그 규칙을 가리킨다.
+   [무엇을 본다] 1절: 규칙 글 — 큰 규칙의 맨 위 칸 이름을 하나씩 대어 «작은 규칙이 그 칸을 열지 않는다» · 열린 곳은 셋뿐.
+     1-2절: 기본 설정 — firebase.json 이 작은 규칙만 가리키고 functions 가 없다(일부러 깬 설정 셋이 빨강인지도 본다).
      2절: 실제 판정 — Firebase 데이터베이스 에뮬레이터(firebase CLI + Java)가 있으면 규칙을 올려 REST 로 하나씩 보낸다. 없으면 건너뛴다(CI 에는 없다 — 규칙을 바꾼 PR 은 손으로 돌려 본문에 붙인다). */
 'use strict';
 const fs = require('fs');
@@ -15,14 +18,25 @@ const { spawnSync } = require('child_process');
 const read = (f) => { for (const c of [f, path.join(__dirname, f), path.join(__dirname, '..', 'firebase', f)]) { try { return fs.readFileSync(c, 'utf8'); } catch (_) {} } return null; };
 const SMALL_SRC = read('firebase-database-rules-cutover.json');
 const BIG_SRC = read('firebase-database-rules.json');
-const CFG_SRC = read('firebase.cutover.json');
-if (!SMALL_SRC || !BIG_SRC || !CFG_SRC) { console.log('  ? 원본 못 찾음 — firebase-database-rules-cutover.json · firebase-database-rules.json · firebase.cutover.json'); process.exit(2); }
+const CFG_SRC = read('firebase.json');
+if (!SMALL_SRC || !BIG_SRC || !CFG_SRC) { console.log('  ? 원본 못 찾음 — firebase-database-rules-cutover.json · firebase-database-rules.json · firebase.json'); process.exit(2); }
 
 const PROJECT = 'demo-tw-rules-cutover';
 const NS = PROJECT + '-default-rtdb';
 const ADMIN = 'adminA', USER = 'userB';
 const OWNER = '!owner';
 const OPEN = ['config/minAppVer', 'config/minRoomVer', 'config/maintenance'];
+const SMALL_FILE = 'firebase-database-rules-cutover.json';
+
+/* 기본 설정(firebase.json)의 잘못 목록 — 비면 통과. database 가 배열(대상 여럿)이면 대상마다 다른 규칙을 올릴 수 있어 막는다. */
+function defaultCfgProblems(cfg) {
+  const out = [];
+  const db = cfg && cfg.database;
+  if (!db || Array.isArray(db) || typeof db !== 'object') out.push('database 가 규칙 한 벌을 가리키는 칸이 아니다');
+  else if (db.rules !== SMALL_FILE) out.push('database.rules 가 ' + SMALL_FILE + ' 이 아니다: ' + db.rules);
+  if (cfg && 'functions' in cfg) out.push('functions 칸이 있다(0.13 은 함수를 올리지 않는다)');
+  return out;
+}
 
 function userToken(uid) {
   const b = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
@@ -115,7 +129,18 @@ function main() {
   chk(/auth != null/.test(small.config.maintenance['.write']) && /root\.child\('admins'\)\.child\(auth\.uid\)\.val\(\) === true/.test(small.config.maintenance['.write']), '점검 칸 쓰기는 로그인 + admins 에 있는 사람만');
   chk(small.admins['.read'] === false && small.admins.$uid['.write'] === false, 'admins 는 읽기 · 쓰기 모두 막힘(규칙이 admins 를 읽는 것은 읽기 규칙과 상관없다)');
   chk(small.config.maintenance['.validate'] === big.config.maintenance['.validate'] && JSON.stringify(small.config.maintenance.$other) === JSON.stringify(big.config.maintenance.$other), '점검 칸 모양 검사가 큰 규칙과 같다(0.12.1 앱 · 웹 관리자가 쓰던 모양)');
-  chk(JSON.parse(CFG_SRC).database.rules === 'firebase-database-rules-cutover.json', '설정 파일(firebase.cutover.json)이 작은 규칙을 가리킨다');
+
+  console.log('\n── 1-2. 기본 설정(firebase.json)');
+  const cfg = JSON.parse(CFG_SRC);
+  const probs = defaultCfgProblems(cfg);
+  chk(probs.length === 0, '기본 설정이 작은 규칙만 올리고 functions 가 없다' + (probs.length ? ': ' + probs.join(' · ') : ''));
+  chk(Array.isArray(cfg.hosting) && ['main', 'help', 'home'].every((t) => cfg.hosting.some((h) => h.target === t)), 'Hosting 세 사이트(main · help · home)는 그대로 있다');
+  const broken = [
+    ['큰 규칙으로 되돌림', { ...cfg, database: { rules: 'firebase-database-rules.json' } }],
+    ['functions 칸을 다시 넣음', { ...cfg, functions: [{ source: 'functions', codebase: 'default' }] }],
+    ['database 를 대상 여럿(배열)으로 — 큰 규칙 섞음', { ...cfg, database: [{ target: 'main', rules: SMALL_FILE }, { target: 'old', rules: 'firebase-database-rules.json' }] }],
+  ];
+  for (const [name, c] of broken) chk(defaultCfgProblems(c).length > 0, '일부러 깸 «' + name + '» → 빨강');
 
   console.log('\n── 2. 실제 판정(에뮬레이터)');
   const have = spawnSync('firebase', ['--version'], { encoding: 'utf8' }).status === 0 && spawnSync('java', ['-version'], { encoding: 'utf8' }).status === 0;
