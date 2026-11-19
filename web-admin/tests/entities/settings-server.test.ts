@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createServerAdBannerPort } from '@/entities/ad-banner/api/server';
+import { createServerBugDailyMaxPort } from '@/entities/bug-board/api/server';
 import { createServerBugReportPort } from '@/entities/bug-report/api/server';
 import { createServerGameConfigPort } from '@/entities/game-config/api/server';
 import { createServerMinVersionPort } from '@/entities/min-version/api/server';
@@ -45,6 +46,8 @@ const DEFAULTS: Record<string, unknown> = {
   'user.signupDailyMax': 2000,
   'guestbook.clapDailyMax': 5,
   'gift.dailySendMax': 10,
+  'room.bannedWords': [],
+  'bug.dailyMax': 5,
 };
 
 /** 설정 목록 · 한 키 쓰기 · 배너 · 카탈로그를 흉내 내는 가짜 서버. */
@@ -55,6 +58,7 @@ function fakeServer() {
   const calls: string[] = [];
   const puts: { path: string; body: unknown; method: string; query?: unknown }[] = [];
   let conflictOnce = false;
+  let failOnce: ApiError | null = null;
   let banner = { version: 4, slides: [{ imageUrl: 'https://a.test/1.png', linkUrl: null as string | null }] };
   let unlock = { kind: 'ANIMAL_CHARACTER', key: 'animal', level: 50, label: '동물 캐릭터', version: 2 };
 
@@ -71,6 +75,11 @@ function fakeServer() {
       calls.push(`${method} ${path}`);
       puts.push({ path, body: options?.body, method, query: options?.query });
       const body = options?.body as { version: number; value?: unknown; slides?: never; level?: number };
+      if (failOnce) {
+        const error = failOnce;
+        failOnce = null;
+        throw error;
+      }
       if (conflictOnce) {
         conflictOnce = false;
         throw new ApiError('request', 409, 'CONCURRENT_UPDATE', '겹침');
@@ -109,6 +118,10 @@ function fakeServer() {
     puts,
     failNext: () => {
       conflictOnce = true;
+    },
+    /** 다음 쓰기 한 번을 이 서버 오류로 거절한다. */
+    rejectNext: (error: ApiError) => {
+      failOnce = error;
     },
     other: (key: string, value: unknown) => {
       const r = rows.get(key)!;
@@ -303,6 +316,105 @@ describe('방 설정 · 대화 보관', () => {
     for (const read of [() => room.getLimits(), () => room.getMaxPeople(), () => room.getChatKeep()]) {
       expect(isPortError(await read().catch((e: unknown) => e), 'invalid')).toBe(true);
     }
+  });
+});
+
+describe('방 제목 금칙어(room.bannedWords)', () => {
+  const words = () => createServerRoomPort(fakeServer().api).bannedWords!;
+
+  it('API 판에만 있다 — 저장한 값이 없으면 서버 기본값(빈 목록)', async () => {
+    expect(words()).not.toBeNull();
+    const s = fakeServer();
+    const read = await createServerRoomPort(s.api).bannedWords!.get();
+    expect(read).toMatchObject({ value: [], version: 0 });
+  });
+
+  it('저장 — 목록을 통째로 읽은 번호와 함께 보낸다 · 다시 읽으면 새 값', async () => {
+    const s = fakeServer();
+    const control = createServerRoomPort(s.api).bannedWords!;
+    const read = await control.get();
+    await control.save(read, ['바보', '멍청']);
+    expect(lastPut(s)).toMatchObject({
+      method: 'PUT',
+      path: '/v2/admin/config/room.bannedWords',
+      body: { version: 0, value: ['바보', '멍청'] },
+    });
+    expect(await control.get()).toMatchObject({ value: ['바보', '멍청'], version: 1 });
+  });
+
+  it('서버가 값을 거절하면(400 OPS_INVALID_VALUE) 조용히 넘기지 않고 invalid 로 던진다', async () => {
+    const s = fakeServer();
+    const control = createServerRoomPort(s.api).bannedWords!;
+    const read = await control.get();
+    s.rejectNext(new ApiError('request', 400, 'OPS_INVALID_VALUE', '[0] 는 1~20자 글자여야 한다'));
+    const error = await control.save(read, ['가'.repeat(21)]).catch((e: unknown) => e);
+    expect(isPortError(error, 'invalid')).toBe(true);
+    expect(error).toMatchObject({ code: 'OPS_INVALID_VALUE', message: '설정 값이 올바르지 않아요' });
+    expect(s.rows.get('room.bannedWords')!.value).toBeNull();
+  });
+
+  it('옛 화면의 번호로는 저장되지 않는다 — conflict, 덮어쓰지 않는다', async () => {
+    const s = fakeServer();
+    const control = createServerRoomPort(s.api).bannedWords!;
+    const old = await control.get();
+    s.other('room.bannedWords', ['먼저']);
+    const error = await control.save(old, ['나중']).catch((e: unknown) => e);
+    expect(isPortError(error, 'conflict')).toBe(true);
+    expect(s.rows.get('room.bannedWords')!.value).toEqual(['먼저']);
+  });
+
+  it('응답 모양이 틀리면(목록이 아님 · 글자 아닌 칸) 빈 목록으로 덮지 않고 던진다', async () => {
+    for (const bad of ['바보', ['바보', 3]]) {
+      const s = fakeServer();
+      s.breakWire('room.bannedWords', bad);
+      const error = await createServerRoomPort(s.api)
+        .bannedWords!.get()
+        .catch((e: unknown) => e);
+      expect(isPortError(error, 'invalid')).toBe(true);
+    }
+  });
+});
+
+describe('제보 하루 상한(bug.dailyMax)', () => {
+  it('저장한 값이 없으면 null(화면은 «서버 값 없음 → 기본 5건») · 있으면 그 수', async () => {
+    const s = fakeServer();
+    const port = createServerBugDailyMaxPort(s.api);
+    expect(await port.get()).toMatchObject({ value: null, version: 0 });
+    s.other('bug.dailyMax', 9);
+    expect(await port.get()).toMatchObject({ value: 9, version: 1 });
+  });
+
+  it('저장 — 숫자 하나를 읽은 번호와 함께 PUT', async () => {
+    const s = fakeServer();
+    const port = createServerBugDailyMaxPort(s.api);
+    await port.save(await port.get(), 8);
+    expect(lastPut(s)).toMatchObject({
+      method: 'PUT',
+      path: '/v2/admin/config/bug.dailyMax',
+      body: { version: 0, value: 8 },
+    });
+    expect((await port.get()).value).toBe(8);
+  });
+
+  it('서버 오류(400)는 invalid 로 던진다 · 값은 그대로', async () => {
+    const s = fakeServer();
+    const port = createServerBugDailyMaxPort(s.api);
+    const read = await port.get();
+    s.rejectNext(new ApiError('request', 400, 'OPS_INVALID_VALUE', '1~100'));
+    const error = await port.save(read, 101).catch((e: unknown) => e);
+    expect(isPortError(error, 'invalid')).toBe(true);
+    expect(s.rows.get('bug.dailyMax')!.value).toBeNull();
+  });
+
+  it('옛 번호면 conflict · 숫자가 아닌 응답은 던진다 · 안내는 서버가 막는다고 말한다', async () => {
+    const s = fakeServer();
+    const port = createServerBugDailyMaxPort(s.api);
+    const old = await port.get();
+    s.other('bug.dailyMax', 7);
+    expect(isPortError(await port.save(old, 3).catch((e: unknown) => e), 'conflict')).toBe(true);
+    s.breakWire('bug.dailyMax', '7');
+    expect(isPortError(await port.get().catch((e: unknown) => e), 'invalid')).toBe(true);
+    expect(port.enforcedBy).toContain('서버');
   });
 });
 

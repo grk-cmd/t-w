@@ -1,12 +1,23 @@
-// API 판 — 설정 키 `room.limits` · `room.maxPeople` · `chat.keepDays`. 서버는 칸이 비면 기본값을 값으로 돌려준다(null 이 없다).
+// API 판 — 설정 키 `room.limits` · `room.maxPeople` · `room.bannedWords` · `chat.keepDays`. 서버는 칸이 비면 기본값을 값으로 돌려준다(null 이 없다).
 // 칸을 비우는 저장(= 기본값 따르기)은 그 칸에 기본값을 써서 보낸다. 값이 여럿인 키는 화면이 읽은 값에 고친 칸만 바꿔 통째로 보낸다.
 // 읽은 번호(`version`)는 화면이 들고 있다가 저장에 돌려준다 — 포트는 기억하지 않는다.
-import { opsConfigClient, PortError, wireNumber, wireObject, type Api, type Versioned } from '@/shared/api';
+import {
+  opsConfigClient,
+  PortError,
+  wireArray,
+  wireNumber,
+  wireObject,
+  wireString,
+  type Api,
+  type Versioned,
+} from '@/shared/api';
 import { CHAT_KEEP_PATH, type ChatKeep } from '../model/chatKeep';
 import type { Channel } from '../model/room';
 import type { RoomLimits } from '../model/roomConfig';
 import { CLOSE_MAX, type RoomPort } from './port';
 import { createServerRoomBoard } from './serverBoard';
+
+const BANNED_WORDS_KEY = 'room.bannedWords';
 
 type Raw = NonNullable<Versioned<unknown>['raw']>;
 
@@ -64,6 +75,18 @@ export function createServerRoomPort(api: Api | null): RoomPort {
     features: { ghostCleanup: false, lastSeen: false },
     closeMax: CLOSE_MAX,
     limitsNote: '',
+    bannedWords: {
+      async get() {
+        const { effective, default: defaults, version } = await config.read(BANNED_WORDS_KEY);
+        const value = wireArray(effective, BANNED_WORDS_KEY).map((w, i) =>
+          wireString(w, `${BANNED_WORDS_KEY}[${i}]`),
+        );
+        return { value, version, raw: { effective, defaults } };
+      },
+      async save(from, next) {
+        await config.write(BANNED_WORDS_KEY, from.version, [...next]);
+      },
+    },
     async saveChatKeep(from, updates) {
       const { effective, defaults } = rawOf(from, 'chat.keepDays');
       const base = wireObject(effective, 'chat.keepDays');

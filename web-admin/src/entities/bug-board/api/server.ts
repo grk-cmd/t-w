@@ -4,6 +4,7 @@
 // 거르기 · 세기(미해결 · 건의 · 공지 · 전체 수 · 답변 수)는 서버가 한다. 서버가 원본이라 사본 지연도 날짜 순번 세기도 없다.
 import {
   ApiError,
+  opsConfigClient,
   perApi,
   portCall,
   PortError,
@@ -20,7 +21,7 @@ import {
 } from '@/shared/api';
 import type { KeysetPage } from '@/shared/lib';
 import type { BugAnswer, BugContent, BugFilter, BugItem, BugStatus, BugVis } from '../model/bugBoard';
-import type { BugBoardKeysetPort, BugPost } from './port';
+import type { BugBoardKeysetPort, BugDailyMaxPort, BugPost } from './port';
 
 const BUGS = '/v2/bugs';
 const NOT_FOUND = 'BUG_NOT_FOUND';
@@ -209,3 +210,23 @@ function build(api: Api | null): BugBoardKeysetPort {
 
 /** `api` 마다 하나 — 상태가 없다. */
 export const createServerBugBoardPort = perApi(build);
+
+const DAILY_MAX_KEY = 'bug.dailyMax';
+
+/** 서버 설정 키 `bug.dailyMax` — 서버가 `POST /v2/bugs` 에서 막는다(`429 BUG_DAILY_LIMIT` · 관리자 제외 · 저장 값을 요청마다 DB 에서 읽는다). */
+export function createServerBugDailyMaxPort(api: Api | null): BugDailyMaxPort {
+  const config = opsConfigClient(api);
+  return {
+    enforcedBy: '서버가 제보를 받을 때 막는 제한',
+    appliesFrom: '저장한 뒤 들어오는 제보부터',
+    async get() {
+      const { effective, saved, version } = await config.read(DAILY_MAX_KEY);
+      // 비운 키는 서버 기본값을 따른다 — 화면은 «서버 값 없음 → 기본» 으로 보인다.
+      const value = wireNumber(effective, DAILY_MAX_KEY);
+      return { value: saved ? value : null, version };
+    },
+    async save(from, max) {
+      await config.write(DAILY_MAX_KEY, from.version, max);
+    },
+  };
+}

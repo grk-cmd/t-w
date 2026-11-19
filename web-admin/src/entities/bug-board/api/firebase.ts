@@ -1,8 +1,10 @@
 // Firebase 판 — 지금 코드 그대로: 글 목록 · 상세를 RTDB 에서 읽고(목록은 예전 API 사본을 먼저 묻고 닿지 못하면 RTDB 로), 앞쪽 번호는 날짜 순번을 세어 붙인다.
-import { viaApiOr, type Api, type ApiFallback, type Db } from '@/shared/api';
+import { unversioned, viaApiOr, withAudit, type Api, type ApiFallback, type Db } from '@/shared/api';
 import { DAY_MS, kstDayStart } from '@/shared/lib';
 import {
   bugListFromApi,
+  BUG_DAILY_MAX_DEFAULT,
+  BUG_DAILY_MAX_PATH,
   BUG_LIST,
   BUG_PAGE,
   BUG_ROOT,
@@ -22,7 +24,7 @@ import {
   type BugListView,
   type BugPage,
 } from '../model/bugBoard';
-import type { BugBoardPagedPort, BugListQuery, BugPost } from './port';
+import type { BugBoardPagedPort, BugDailyMaxPort, BugListQuery, BugPost } from './port';
 
 // 하루 순번을 셀 때 한 날짜에서 받을 쪽 수 상한 — 하루 제보가 이걸 넘으면 앞쪽 번호는 «?».
 const DAY_PAGES_MAX = 10;
@@ -143,5 +145,29 @@ export function createFirebaseBugBoardPort(api: Api | null, db: Db): BugBoardPag
     prvTitle: async (item) =>
       (await db.get<string>(`${BUG_ROOT}/prv/${item.authUid}/${item.id}/title`)) ?? '',
     dayOrder: (day) => getDayOrder(db, day),
+  };
+}
+
+/** 하루 제보 상한 — 서버에 정해 둔 값. 없으면 null(앱은 기본값 5). */
+export async function getBugDailyMax(db: Db): Promise<number | null> {
+  const v = await db.get<unknown>(BUG_DAILY_MAX_PATH);
+  return typeof v === 'number' ? v : null;
+}
+
+/** 상한 저장 + 작업 기록(이전 → 다음) 한 묶음. */
+export function saveBugDailyMax(db: Db, max: number, before: number | null): Promise<void> {
+  const detail = `${before ?? `기본 ${BUG_DAILY_MAX_DEFAULT}`} → ${max}`;
+  return db.commit(
+    withAudit(db, { [BUG_DAILY_MAX_PATH]: max }, 'settings.bugDailyMax', `하루 ${max}건`, detail),
+  );
+}
+
+/** `config/bugDailyMax` — 앱이 버그 게시판을 열 때 한 번 읽고 앱에서만 막는다. */
+export function createFirebaseBugDailyMaxPort(db: Db): BugDailyMaxPort {
+  return {
+    enforcedBy: '앱에서만 막는 제한',
+    appliesFrom: '게시판을 새로 여는 사용자부터',
+    get: async () => unversioned(await getBugDailyMax(db)),
+    save: (from, max) => saveBugDailyMax(db, max, from.value),
   };
 }

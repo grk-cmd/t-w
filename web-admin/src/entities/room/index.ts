@@ -49,7 +49,16 @@ export {
   type RoomStatsSummary,
 } from './model/room';
 export { useRefreshRoomConfig, useRoomLimits, useRoomMaxPeople } from './api/roomConfig';
-export { useRoomPort, type CloseResult, type RoomPort } from './api/index';
+export { useRoomPort, type BannedWordsControl, type CloseResult, type RoomPort } from './api/index';
+export { useBannedWords, useRefreshBannedWords } from './api/bannedWords';
+export {
+  BANNED_WORD_MAX_LEN,
+  BANNED_WORDS_MAX,
+  bannedWordsDetail,
+  bannedWordsProblem,
+  parseBannedInput,
+  type BannedWordsInput,
+} from './model/bannedWords';
 export {
   isRoomMaxPeople,
   isRoomTotalLimit,
