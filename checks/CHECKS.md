@@ -551,7 +551,7 @@
 | **sim-seat-hit-targets.js** | 211 | **fe65419f52f2** |
 | **sim-idle-gate.js** | 104 | **c991db71104e** |
 | **sim-skeleton-share.js** | 253 | **eab356f2fb39** |
-| **sim-app-wiring.js** | 130 | **28b14e6e9990** |
+| **sim-app-wiring.js** | 149 | **bd1c79ce17cb** |
 | **sim-move-verbatim.js** | 164 | **9ce76281dec0** |
 | **sim-lint.js** | 184 | **a12dcb8d9090** |
 | **sim-pr-title.js** | 42 | **6e06bfa2d832** |
