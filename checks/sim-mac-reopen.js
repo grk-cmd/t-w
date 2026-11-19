@@ -96,7 +96,8 @@ function sandbox(src){
         send(ch){ this.sent.push(ch); }, setWindowOpenHandler(fn){ w.openHandler = fn; },
       }));
       E.wins.push(w);
-      return withStub(w);
+      w.proxy = withStub(w);
+      return w.proxy;
     }
     static getAllWindows(){ return E.wins.filter(w => !w.destroyed); }
   }
@@ -120,9 +121,16 @@ function sandbox(src){
   const _resetWindowToLauncher = (why) => { E.calls.push('reset ' + why); _applyConfigMode(true, 'launcher'); V._lastIgnoreRequested = false; _reapplyIgnoreMouse(); };   // 본문은 sim-cfg-fit · sim-renderer-gone-reset 이 진짜로 돌린다
   const own = { ipcMain, app, screen, BrowserWindow, dialog, sysinput, overlay, _quitHold: quitHold, _applyConfigMode, _reapplyIgnoreMouse, _resetWindowToLauncher,
     setTimeout: (fn) => { E.timers.push(fn); return E.timers.length; }, clearTimeout(){}, setInterval: () => 0, clearInterval(){}, console: { warn(){}, log(){} } };
+  /* 모르는 맨 위 이름(devtoolsGate · _watchRendererHealth 등)은 빈 함수 — 창이나 그 webContents 를 받아 불리면 그 창에 이름을 적는다(창마다 한 번 걸어야 할 것) */
+  const winOf = (a) => a && E.wins.find((w) => a === w || a === w.proxy || a === w.webContents);
+  const rec = (name) => new Proxy(function(){}, {
+    get(t, k){ if(k === Symbol.toPrimitive) return (h) => h === 'number' ? 0 : ''; if(k === 'then' || k === Symbol.iterator) return undefined; return rec(name + '.' + String(k)); },
+    apply(t, self, args){ for(const a of args){ const w = winOf(a); if(w) (w.ext = w.ext || []).push(name); } return rec(name + '()'); },
+    construct(){ return rec(name + '#'); },
+  });
   const scope = new Proxy({}, {
     has(t, k){ return typeof k === 'string' && (k in own || k in V || !(k in globalThis)); },
-    get(t, k){ if(k === Symbol.unscopables) return undefined; if(k in V) return V[k]; if(k in own) return own[k]; return STUB; },
+    get(t, k){ if(k === Symbol.unscopables) return undefined; if(k in V) return V[k]; if(k in own) return own[k]; return rec(String(k)); },
     set(t, k, v){ V[k] = v; return true; },
   });
   const api = new Function('S', 'with(S){ return (function(){\n' + block + '\nreturn { createWindow, setupDone: () => _mainSetupDone, gb: () => gbWin };\n})(); }')(scope);
@@ -152,6 +160,13 @@ async function judge(MAIN){
   chk(!err1, '첫 createWindow 가 안 던진다' + (err1 ? ' — ' + err1.message : ''));
   const win1 = S.V.mainWindow;
   chk(!!win1 && S.setupDone(), '  창이 서고 등록이 끝났다');
+  /* 창마다 거는 것 한 장 — 창 · webContents 이벤트별 듣기 수와 창을 받아 부른 바깥 함수. 다시 연 창도 같아야 한다 */
+  const perWin = (w) => JSON.stringify({
+    win: Object.keys(w.L).filter((k) => w.count(k)).sort().map((k) => k + ':' + w.count(k)),
+    wc: Object.keys(w.webContents.L).filter((k) => w.webContents.count(k)).sort().map((k) => k + ':' + w.webContents.count(k)),
+    ext: (w.ext || []).slice().sort(),
+  });
+  const win1Per = win1 ? perWin(win1) : '';
   chk(!S.calls.some(c => c.startsWith('mode ')), '  첫 창은 모드를 다시 맞추지 않는다(켤 때 동작은 예전과 같다)');
   if(!win1) return;
   const nHandle = Object.keys(S.ipcHandlers).length, ipcCounts = JSON.stringify(Object.keys(S.ipcOn.L).map(k => [k, S.ipcOn.count(k)]));
@@ -184,6 +199,9 @@ async function judge(MAIN){
   chk(win1.count('close') === win1Close, '  옛 창에 듣기가 더 붙지 않았다');
   chk(win2.count('close') === 1 && win2.count('closed') >= 1 && win2.count('focus') >= 1 && win2.count('minimize') >= 2, '  새 창에 창 듣기(close · closed · focus · minimize)가 붙었다');
   chk(typeof win2.openHandler === 'function', '  새 창에 window.open 처리기');
+  const win2Per = perWin(win2);
+  chk(win2Per === win1Per, '★ 다시 연 창에 붙은 것(창 · webContents 이벤트별 듣기 수 · 창을 받아 부른 함수)이 첫 창과 같다' + (win2Per === win1Per ? '' : ' — 첫 ' + win1Per + ' / 다시 ' + win2Per));
+  chk(JSON.parse(win1Per).ext.some((n) => /devtoolsGate\.attach/.test(n)) && JSON.parse(win1Per).wc.length > 3, '  (견주는 장이 비어 있지 않다 — devtoolsGate.attach · webContents 듣기가 잡힌다)');
 
   say('── 3. 다시 연 창 — 처리기가 새 창을 쓴다');
   await S.ipcHandlers['companion:pickImage']();
@@ -249,6 +267,12 @@ const BREAKS = [
     const line = m.slice(i, m.indexOf('\n', i) + 1); return m.replace(line, '').replace('  _mainSetupDone = true;\n', '  _mainSetupDone = true;\n' + line); },
     "창 'close'(끄기 붙잡기)를 _setupMainOnce 로 옮김 — 다시 연 창엔 안 붙음"],
   [(m) => m.replace(/\nlet gbWin = null;\n/, '\n').replace("  const _isChildDoc = ", '  let gbWin = null;\n  const _isChildDoc = '), 'gbWin 을 createWindow 안 지역 변수로 되돌림'],
+  [(m) => { const l = '  devtoolsGate.attach(mainWindow.webContents);'; const i = m.indexOf(l); if(i < 0) return null;
+    const line = m.slice(i, m.indexOf('\n', i) + 1); return m.replace(line, '').replace('  _mainSetupDone = true;\n', '  _mainSetupDone = true;\n' + line); },
+    '창마다 거는 devtoolsGate.attach(설치본 F12 막기)를 _setupMainOnce 로 옮김 — 다시 연 창엔 안 붙음'],
+  [(m) => { const re = /\n  mainWindow\.webContents\.on\('did-create-window', /; const i = m.search(re); if(i < 0) return null;
+    return m.slice(0, i + 1) + '  if(!_mainWindowCreated) ' + m.slice(i + 3); },
+    "webContents 'did-create-window' 를 첫 창에만 검"],
   [(m) => m.replace("    try{ if(mw && !mw.isDestroyed()) mw.once('closed', restore); }catch(_){}\n", ''), '색 대화상자 상태를 창이 닫힐 때 안 풂 — 다시 연 창의 요청을 90초 무시'],
   [(m) => m.replace("      try{ if(mw && !mw.isDestroyed()) mw.removeListener('closed', restore); }catch(_){}\n", ''), '색 대화상자를 닫아도 창 닫힘 고리를 안 뗌 — 열 때마다 쌓임'],
 ];

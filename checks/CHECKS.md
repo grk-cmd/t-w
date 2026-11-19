@@ -184,7 +184,7 @@
 | **sim-focus-gate-self.js** | 124 | **75f9f6f122b2** |
 | **sim-focus-gate.js** | 105 | **9c9b4639f7e7** |
 | **sim-mac-0923.js** | 79 | **8674be4d5b9f** |
-| **sim-mac-reopen.js** | 272 | **05b04566f3c7** |
+| **sim-mac-reopen.js** | 296 | **950349fa372f** |
 | **sim-bookmark.js** | 236 | **fbd1a1cead1a** |
 | **sim-overlay-gap.js** | 345 | **eeee70a317a5** |
 | **sim-overlay-layered.js** | 361 | **fdb1ca616576** |
