@@ -13,7 +13,7 @@ import styles from './BannedWordsCard.module.css';
 
 type Message = { text: string; error: boolean } | null;
 
-/** config/bannedWords — 앱이 방을 만들 · 바꿀 때 막고, realtime 서버가 방 목록 로비를 낼 때 한 번 더 걸러 제목을 비운다. */
+/** config/bannedWords — 앱이 방을 만들 · 바꿀 때 막고, 서버 함수가 방 목록에서 한 번 더 걸러 제목을 비운다. */
 export function BannedWordsCard() {
   const env = useEnv();
   const { data: saved = [], error, isPending } = useBannedWords();
@@ -47,7 +47,7 @@ export function BannedWordsCard() {
       !confirm(
         withProdMark(
           env,
-          `방 제목 금칙어 — ${bannedWordsDetail(saved, parsed.words)}\n방 목록은 realtime 서버가 설정을 다시 받으면 걸러져요. 방 만들기 창의 막기는 앱이 원격 설정을 다시 읽을 때(5분 안)부터 — 원격 설정 API 가 이 칸을 주기 전에는 API 를 못 받은 앱만 막아요.${warn}`,
+          `방 제목 금칙어 — ${bannedWordsDetail(saved, parsed.words)}\n방 목록은 1분 안에 걸러져요. 방 만들기 창의 막기는 앱이 원격 설정을 다시 읽을 때(5분 안)부터 — 원격 설정 API 가 이 칸을 주기 전에는 API 를 못 받은 앱만 막아요.${warn}`,
         ),
       )
     )

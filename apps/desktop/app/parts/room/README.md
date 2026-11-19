@@ -286,7 +286,7 @@ TwRoomCreateUi.createRoomCreateUi({
 **함정**
 - 모달(#inviteOverlay) 안이라 클릭 통과 목록(`UI_HIT_SEL`)을 늘리지 않는다 — 창을 모달 밖으로 빼면 거기에 더해야 눌린다.
 - 만들기를 room-entry 가 부르면 room-entry ↔ 이 모듈이 서로를 부르는 순환이 된다(`sim-dep-cycles`) — 창은 로비가 deps `openCreate` 로 연다.
-- 금칙어는 원격 설정 `bannedWords`(API 를 못 받으면 Firebase `config/bannedWords`) — API 가 이 칸을 아직 안 주면 앱은 거르지 못하고, 목록에는 realtime 서버가 로비 답을 만들 때 한 번 더 거른다(걸린 제목은 비워서 «○○ 님의 방»).
+- 금칙어는 원격 설정 `bannedWords`(API `/v2/config` 의 `room.bannedWords` — Firebase 로 물러서는 길은 없다) — API 가 이 칸을 아직 안 주면 앱은 거르지 못하고, 목록에는 realtime 서버가 로비 답을 만들 때 한 번 더 거른다(걸린 제목은 비워서 «○○ 님의 방»).
 
 검사: `checks/sim-room-settings.js`.
 
