@@ -28,7 +28,7 @@ service firebase.storage {
 
     // 사람 파일(마이홈 그림 · 스탠딩 · 말랑이 · 이모티콘 · 디데이 · 슬롯 GLB 등).
     // 경로가 uid 가 아니라 사람 코드라 주인 검사를 할 수 없어 크기 상한이 유일한 방어선이다 — 무제한으로 열지 않는다.
-    // 2MB 를 내리면 앱이 큰 그림을 dataURL 로 RTDB 에 넣던 길이 되살아난다(마이홈 스티커가 300~500KB PNG).
+    // 2MB 를 내리면 앱이 큰 그림을 dataURL 로 RTDB 에 넣던 방식이 되살아난다(마이홈 스티커가 300~500KB PNG).
     // 선물 사본(giftimg/)은 API 서버만 만든다 — 아래 블록. OR 규칙이라 여기서 빼 줘야 닫힌다.
     match /users/{userId}/{allPaths=**} {
       allow read: if true;
