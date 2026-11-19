@@ -87,7 +87,7 @@ GET /v2/rooms/lobby?channel=workingroom
 - 권한: 지금 `_meta` 는 누구나 쓸 수 있다(2.1). 이 버튼은 화면에서만 방장으로 막는다 — chatOff · tabs 와 같다. 방 서버가 «방장만» 을 지킨다(4장).
 
 ### 5.2 금칙어
-- **목록**: 서버 운영 설정 `room.bannedWords`(문자열 배열 · 앱은 API `/v2/config`, realtime 은 `/internal/v2/config` 로 받는다). 기본값은 비어 있다 — 처음 목록은 관리자가 넣는다.
+- **목록**: 서버 운영 설정 `room.bannedWords`(문자열 배열 · 앱은 API `/v2/config`, realtime 은 서버 안에서 API 설정 endpoint 로 받는다). 기본값은 비어 있다 — 처음 목록은 관리자가 넣는다.
 - **판정**(같은 규칙 — 앱 `shared/banned-words.js` · realtime 서버 `realtime/src/domain/bannedWords.ts`, 서버 검사가 앱 판정 결과와 견준다): 공백 · 기호 · 숫자 사이 끼움을 빼고 소문자로 맞춘 뒤 부분 일치.
 - **앱**: 만들기 · 바꾸기에서 걸리면 저장하지 않고 «방 제목에 쓸 수 없는 말이 있어요» 를 칸 아래에 보인다(토스트 아님 · 오류 번호 아님 — 사용자가 고칠 입력이라).
 - **로비 목록**: realtime 서버가 답을 만들 때 지금 목록으로 다시 판정해 걸리면 제목을 비운다(목록에는 «○○ 님의 방» 기본값). 앱을 고쳐 막기를 건너뛰어도 · 만든 뒤 금칙어가 더해져도 목록에는 안 나간다.
