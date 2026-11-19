@@ -75,14 +75,17 @@ function judge(html, ws) {
   t(!wrongName.length, '창마다 맞는 층 이름 — 편집 · 종족 = 작업창, 코드 · 등록 = 대화상자, 마이홈 · 대화창 … = 창 쌓기, 가입 · 로그인 = 막는 창' + (wrongName.length ? ' — 다름: ' + wrongName.join(' · ') : ''));
   /* 층 차례 */
   const zmax = +((/WIN_Z_MIN = \d+, WIN_Z_MAX = (\d+)/.exec(ws || '') || [])[1] || NaN);
-  const layers = ((/const _WIN_Z_LAYERS = \[([^\]]*)\]/.exec(ws || '') || [])[1] || '').match(/'[\w-]+'/g) || [];
+  /* 칸 하나 = id 하나 또는 함께 뜨지 않는 창 묶음(배열) — 칸 수는 묶음을 하나로 센다 */
+  const listText = ((/const _WIN_Z_LAYERS = \[([\s\S]*?)\];/.exec(ws || '') || [])[1] || '');
+  const layers = listText.match(/'[\w-]+'/g) || [];
+  const slots = listText.trim() ? listText.replace(/\[[^\]]*\]/g, 'G').split(',').filter((x) => x.trim()).length : 0;
   const dMin = Math.min(...DIALOGS.map((n) => T[n])), dMax = Math.max(...DIALOGS.map((n) => T[n])), gMin = Math.min(...GATES.map((n) => T[n]));
   t(dMin > zmax && dMin > T['--z-wardrobe'], '★ 대화상자는 창 쌓기 맨 위(' + zmax + ') · 꾸미기(' + T['--z-wardrobe'] + ')보다 위 — 편집 · 마이홈 위에서 연 대화상자가 숨지 않는다(' + dMin + ')');
   t(gMin > dMax && T['--z-mh-design'] > dMax, '막는 창(가입 · 로그인 · 기기) · 마이홈 디자인은 대화상자보다 위(예전 차례 그대로)');
   t(DIALOGS.map((n) => T[n]).every((v, i, a) => !i || v > a[i - 1]), '대화상자끼리 차례는 예전 그대로(코드 < 묶음 < 프로그램 설정 < 관리자 < 공지)');
-  t(["'creatorOverlay'", "'raceOverlay'", "'myHomeOverlay'", "'chatOverlay'"].every((x) => layers.includes(x)), '★ 편집 · 종족 창도 창 쌓기 목록에 있다(마이홈 · 대화창과 같은 규칙)');
+  t(["'creatorOverlay'", "'animalCreatorOverlay'", "'raceOverlay'", "'myHomeOverlay'", "'chatOverlay'"].every((x) => layers.includes(x)), '★ 편집 · 동물 만들기 · 종족 창도 창 쌓기 목록에 있다(마이홈 · 대화창과 같은 규칙)');
   const zmin = +((/WIN_Z_MIN = (\d+)/.exec(ws || '') || [])[1] || NaN);
-  t(zmax - zmin + 1 >= layers.length, '창 쌓기 칸(' + zmin + '~' + zmax + ')이 목록 창 수(' + layers.length + ')보다 모자라지 않는다');
+  t(slots > 0 && zmax - zmin + 1 >= slots, '창 쌓기 칸(' + zmin + '~' + zmax + ')이 목록 칸 수(' + slots + ' — 창 ' + layers.length + '개 · 함께 뜨지 않는 묶음은 한 칸)보다 모자라지 않는다');
   return r;
 }
 
@@ -91,14 +94,17 @@ function runStack(ws) {
   const els = {}, obs = [], L = {};
   const mk = (id) => (els[id] = { id, shown: false, style: { zIndex: '' }, classList: { contains: () => false } });
   ['chatOverlay', 'focusSettingsPanel', 'myStatusChip', 'focusLogOverlay', 'bellWin', 'myHomeOverlay', 'mhGbOverlay', 'pkOverlay', 'creatorOverlay', 'raceOverlay'].forEach(mk);
-  const doc = { getElementById: (id) => els[id] || null, addEventListener: (t, f) => { (L[t] = L[t] || []).push(f); }, querySelector: () => null };
-  class MO { constructor(cb) { this.cb = cb; obs.push(this); } observe(el) { this.el = el; } }
+  const body = { id: 'body' };
+  const doc = { body, getElementById: (id) => els[id] || null, addEventListener: (t, f) => { (L[t] = L[t] || []).push(f); }, querySelector: () => null };
+  class MO { constructor(cb) { this.cb = cb; obs.push(this); } observe(el) { this.el = el; } disconnect() { this.el = null; } }
   const win = {};
   const api = new Function('window', 'document', 'MutationObserver', 'getComputedStyle', 'module', ws + '\nreturn window.TwWinStack;')(win, doc, MO, (el) => ({ display: el.shown ? 'block' : 'none', visibility: 'visible' }), undefined);
   const out = api.createWinStack({});
   const show = (id, v) => { els[id].shown = v; obs.filter((o) => o.el === els[id]).forEach((o) => o.cb([])); };
   const press = (id) => (L.pointerdown || []).forEach((f) => f({ composedPath: () => [els[id], doc], target: els[id] }));
-  return { els, show, press, out, z: (id) => parseInt(els[id].style.zIndex, 10) || 0 };
+  /* 처음 열 때 만들어 body 에 붙는 창(동물 만들기) — 붙인 뒤 body 관찰을 부른다 */
+  const append = (id, shown) => { mk(id).shown = !!shown; obs.filter((o) => o.el === body).forEach((o) => o.cb([])); };
+  return { els, show, press, append, out, z: (id) => parseInt(els[id].style.zIndex, 10) || 0 };
 }
 function judgeStack(ws) {
   const r = [];
@@ -124,6 +130,21 @@ function judgeStack(ws) {
   w.show('raceOverlay', false);
   w.show('raceOverlay', true);
   t(w.z('raceOverlay') > w.z('chatOverlay'), '종족 선택도 열면 맨 앞');
+  /* 동물 만들기 — 실을 때 없고 처음 열 때 body 에 붙는다 · 사람 편집과 한 칸 */
+  w.show('creatorOverlay', false); w.show('raceOverlay', false);
+  w.press('myHomeOverlay'); w.press('chatOverlay');
+  w.append('animalCreatorOverlay', true);
+  t(w.z('animalCreatorOverlay') > w.z('chatOverlay') && w.z('animalCreatorOverlay') > w.z('myHomeOverlay'), '★ 처음 열 때 만들어진 동물 만들기 창도 열면 맨 앞(마이홈 · 대화창 위)');
+  t(w.z('animalCreatorOverlay') === w.z('creatorOverlay'), '  ↳ 사람 편집과 한 칸 — 같은 숫자(둘은 함께 뜨지 않는다)');
+  w.press('myHomeOverlay');
+  t(w.z('myHomeOverlay') > w.z('animalCreatorOverlay'), '  ↳ 그 뒤 마이홈을 누르면 마이홈이 위');
+  w.press('animalCreatorOverlay');
+  t(w.z('animalCreatorOverlay') > w.z('myHomeOverlay'), '  ↳ 동물 창을 누르면 다시 위');
+  w.show('animalCreatorOverlay', false); w.press('chatOverlay'); w.show('animalCreatorOverlay', true);
+  t(w.z('animalCreatorOverlay') > w.z('chatOverlay'), '  ↳ 닫았다 다시 열어도 맨 앞(붙은 뒤엔 보통 창처럼 관찰)');
+  const ids2 = Object.keys(w.els);
+  for (let k = 0; k < 3; k++) ids2.forEach((id) => w.press(id));
+  t(ids2.every((id) => w.z(id) >= 83 && w.z(id) <= 92), '창이 11개(칸 10)여도 83~92 를 넘지 않는다');
   return r;
 }
 
@@ -153,9 +174,11 @@ const breaks = [
   ['표 이름 빠짐', (h) => h.replace(/\n\s*--z-win-bell: 62;[^\n]*/, '')],
   ['대화상자를 창 쌓기 아래로(옛 57)', (h) => h.replace('--z-dialog: 101;', '--z-dialog: 57;')],
   ['막는 창이 대화상자 아래로', (h) => h.replace('--z-gate-invite: 111;', '--z-gate-invite: 95;')],
-  ['편집 창을 창 쌓기에서 뺌', null, (w) => w.replace(", 'creatorOverlay', 'raceOverlay'];", ", 'raceOverlay'];")],
+  ['편집 창을 창 쌓기에서 뺌', null, (w) => w.replace(", ['creatorOverlay', 'animalCreatorOverlay'], 'raceOverlay'];", ", 'raceOverlay'];")],
+  ['동물 만들기를 칸 묶음에서 뺌', null, (w) => w.replace("['creatorOverlay', 'animalCreatorOverlay']", "'creatorOverlay'")],
+  ['나중에 붙는 창 관찰 없앰', null, (w) => w.replace('late.observe(document.body, { childList:true });', '')],
   ['열면 맨 앞 규칙 없앰', null, (w) => w.replace('if(now && !shown) bringWinToFront(id);', '')],
-  ['천장에서 올리는 창까지 다시 매김', null, (w) => w.replace('.filter(e2=>e2 && e2!==el)', '.filter(Boolean)')],
+  ['천장에서 올리는 창까지 다시 매김', null, (w) => w.replace('.filter(x=>x!==slot && _winSlotEls(x).length)', '.filter(x=>_winSlotEls(x).length)')],
 ];
 for (const [name, f, fw] of breaks) {
   const h2 = f ? f(HTML) : HTML, w2 = fw ? fw(WS) : WS;

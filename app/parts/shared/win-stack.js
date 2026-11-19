@@ -54,27 +54,34 @@ const WIN_Z_MIN = 83, WIN_Z_MAX = 92;
        없으면 어떤 창을 눌러도 그 위로 못 올라온다. 대화창의 📷 로 여는 창이라 둘이 같이
        떠 있는 것이 기본 상황이고, 그래서 앞뒤가 바뀌어야 한다. */
 /*     - #creatorOverlay · #raceOverlay  🧍 캐릭터 편집 · 🐾 종족 선택(큰 작업창) — 목록 밖 고정값(55)이면 마이홈(71) · 대화창(82)이 늘 위에 겹쳤다(B-1016-4).
-       목록에 넣고 «열면 맨 앞» 규칙을 따른다. 그 안에서 여는 대화상자는 창 층 표의 대화상자 층(창 쌓기 위)이라 숨지 않는다. */
+       목록에 넣고 «열면 맨 앞» 규칙을 따른다. 그 안에서 여는 대화상자는 창 층 표의 대화상자 층(창 쌓기 위)이라 숨지 않는다.
+       #animalCreatorOverlay 🐾 동물 만들기는 사람 편집과 **한 칸**을 같이 쓴다(칸 묶음 — 아래). 둘은 함께 뜨지 않는다
+       (동물 → 책상 · 좌석은 동물 창을 닫고 사람 편집을 연다). 칸은 83~92 열 개뿐이라 따로 한 칸을 더 쓰면 꾸미기(93)에 닿는다. */
+/* 칸 하나 = 창 id 하나, 또는 함께 뜨지 않는 창 묶음(배열) — 묶음은 같은 숫자를 받는다 */
 const _WIN_Z_LAYERS = ['chatOverlay', 'focusSettingsPanel', 'myStatusChip', 'focusLogOverlay',
-                       'bellWin', 'myHomeOverlay', 'mhGbOverlay', 'pkOverlay', 'creatorOverlay', 'raceOverlay'];
+                       'bellWin', 'myHomeOverlay', 'mhGbOverlay', 'pkOverlay', ['creatorOverlay', 'animalCreatorOverlay'], 'raceOverlay'];
+const _winSlotIds = (slot) => (Array.isArray(slot) ? slot : [slot]);
+const _winSlotOf = (id) => _WIN_Z_LAYERS.find(slot => _winSlotIds(slot).indexOf(id) >= 0);
+const _winSlotEls = (slot) => _winSlotIds(slot).map(x=>document.getElementById(x)).filter(Boolean);
 let _winZTop = WIN_Z_MIN - 1;
 function _winZOf(el){
   const v = parseInt(el && el.style && el.style.zIndex, 10);
   return isFinite(v) ? v : 0;
 }
+const _winSlotZ = (slot) => Math.max(0, ..._winSlotEls(slot).map(_winZOf));
+function _winSetSlotZ(slot, z){ _winSlotEls(slot).forEach(e2=>{ e2.style.zIndex = String(z); }); }
 function bringWinToFront(id){
-  const el = document.getElementById(id);
-  if(!el) return;
-  if(_winZTop >= WIN_Z_MIN && _winZOf(el) === _winZTop) return;   // 이미 맨 앞 — 건드릴 것 없다
+  const slot = _winSlotOf(id);
+  if(!slot || !document.getElementById(id)) return;
+  if(_winZTop >= WIN_Z_MIN && _winSlotZ(slot) === _winZTop) return;   // 이미 맨 앞 — 건드릴 것 없다
   if(_winZTop >= WIN_Z_MAX){
-    /* 올리려는 창은 빼고 다시 매긴다 — 넣으면 창이 칸 수(10)만큼일 때 마지막 창이 천장을 넘는다(93 = 꾸미기 자리). */
-    const order = _WIN_Z_LAYERS.map(x=>document.getElementById(x)).filter(e2=>e2 && e2!==el)
-                               .sort((a,b)=>_winZOf(a)-_winZOf(b));
+    /* 올리려는 칸은 빼고 다시 매긴다 — 넣으면 창이 칸 수(10)만큼일 때 마지막 창이 천장을 넘는다(93 = 꾸미기 자리). */
+    const order = _WIN_Z_LAYERS.filter(x=>x!==slot && _winSlotEls(x).length).sort((a,b)=>_winSlotZ(a)-_winSlotZ(b));
     _winZTop = WIN_Z_MIN - 1;
-    order.forEach(e2=>{ e2.style.zIndex = String(++_winZTop); });
+    order.forEach(x=>{ _winSetSlotZ(x, ++_winZTop); });
   }
   _winZTop++;
-  el.style.zIndex = String(_winZTop);
+  _winSetSlotZ(slot, _winZTop);
 }
 /* 누른 순간 올린다 — click 이 아니라 pointerdown 캡처다.
    ① 창 안의 버튼이 stopPropagation 을 해도 캡처 단계는 먼저 지나간다(칩 버튼들이 전부 그렇다).
@@ -83,24 +90,39 @@ function bringWinToFront(id){
      여기서 따로 걸러낼 필요가 없는 이유다. */
 /* 열면 맨 앞 — 목록의 창이 «안 보임 → 보임» 이 되는 순간 올린다(누를 때만 올리면 나중에 연 창이 먼저 있던 창 뒤에 깔린다 — B-1016-4).
    ★ 여는 길(버튼 · F 키 · 다른 창이 여는 경우)마다 훅을 심지 않고 class · style 을 관찰한다 — ESC 스택과 같은 까닭(어느 길로 열려도 맞는다).
-   ⚠️ 보임은 계산된 display · visibility 로 본다(창마다 .on · .hidden · style.display 가 섞여 있다). 올릴 때 바꾸는 style.zIndex 는 보임을 안 바꿔 되풀이되지 않는다. */
+   ⚠️ 보임은 계산된 display · visibility 로 본다(창마다 .on · .hidden · style.display 가 섞여 있다). 올릴 때 바꾸는 style.zIndex 는 보임을 안 바꿔 되풀이되지 않는다.
+   ★ 처음 열 때 만들어지는 창(#animalCreatorOverlay)은 실을 때 없다 — body 에 붙는 순간 관찰을 건다. */
 function _winShown(el){
   try{ const cs = getComputedStyle(el); return cs.display !== 'none' && cs.visibility !== 'hidden'; }catch(_){ return false; }
 }
-_WIN_Z_LAYERS.forEach(id=>{
+const _winWatched = new Set();
+function _winWatch(id){
   const el = document.getElementById(id);
-  if(!el) return;
+  if(!el || _winWatched.has(id)) return;
+  _winWatched.add(id);
   let shown = _winShown(el);
   try{
     new MutationObserver(()=>{ const now = _winShown(el); if(now && !shown) bringWinToFront(id); shown = now; })
       .observe(el, { attributes:true, attributeFilter:['class','style'] });
   }catch(_){}
-});
+  if(shown) bringWinToFront(id);   // 보이는 채로 붙은 창(만들자마자 연 창)도 맨 앞
+}
+const _winAllIds = _WIN_Z_LAYERS.flatMap(_winSlotIds);
+_winAllIds.forEach(_winWatch);
+if(_winWatched.size < _winAllIds.length && document.body){
+  try{
+    const late = new MutationObserver(()=>{
+      _winAllIds.forEach(_winWatch);
+      if(_winWatched.size >= _winAllIds.length) late.disconnect();
+    });
+    late.observe(document.body, { childList:true });
+  }catch(_){}
+}
 document.addEventListener('pointerdown', e=>{
   const path = (e.composedPath && e.composedPath()) || [e.target];
-  for(let i = 0; i < _WIN_Z_LAYERS.length; i++){
-    const el = document.getElementById(_WIN_Z_LAYERS[i]);
-    if(el && path.indexOf(el) >= 0){ bringWinToFront(_WIN_Z_LAYERS[i]); return; }
+  for(const id of _winAllIds){
+    const el = document.getElementById(id);
+    if(el && path.indexOf(el) >= 0){ bringWinToFront(id); return; }
   }
 }, true);
 
