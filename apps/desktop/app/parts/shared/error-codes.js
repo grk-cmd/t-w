@@ -69,7 +69,7 @@ const CODES = {
   'E-MH-24': { msg: '그림을 올리지 못했어요', where: 'myhome/myhome-store.js · myhome/bookmark.js — 그림 올리기 실패(사진 · 스티커 · 배경 · 디자인 · 책등 · IMAGE_UPLOAD 올리기 전 걸러냄 포함)' },
   'E-ROOM-01': { msg: '방 목록을 불러오지 못했어요 — 잠시 후 다시 시도해 주세요', where: 'room/room-entry.js — 랜덤 참여 · 갈아타기 (findRandomRooms)' },
   'E-ROOM-02': { msg: '방을 옮기지 못했어요 — 참여를 다시 눌러 주세요', where: 'room/room-entry.js — 갈아타기 뒤 방 밖에 남음' },
-  'E-ROOM-03': { msg: '방 목록을 불러오지 못했어요 — 다시 불러오기를 눌러 주세요', where: 'room/room-lobby-ui.js — 로비 목록 사본(roomLobby/{채널}) 읽기 실패' },
+  'E-ROOM-03': { msg: '방 목록을 불러오지 못했어요 — 다시 불러오기를 눌러 주세요', where: 'room/room-lobby-ui.js — 로비 목록 API(GET /v2/rooms/lobby) 읽기 실패(닿지 못함 · 답 모양이 틀림)' },
   'E-ROOM-04': { msg: '방 설정을 저장하지 못했어요 — 잠시 후 다시 눌러 주세요', where: 'room/room-info-ui.js — 방 안 [방 설정] 제목 · 공개 쓰기(setRoomInfo) 실패' },
   'E-ROOM-05': { msg: '같이 듣기 곡을 바꾸지 못했어요 — 잠시 후 다시 눌러 주세요', where: 'room/listen-ui.js — DJ 의 곡 칸(rooms/{방}/_music) 쓰기 실패' },
   'E-ROOM-06': { msg: '이 곡은 여기서 틀 수 없어요 — 다음 곡을 기다려 주세요', where: 'room/listen-ui.js — 재생 창이 곡을 못 틂(유튜브 재생 불가 · 지역 제한)' },

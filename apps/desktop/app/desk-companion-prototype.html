@@ -8089,7 +8089,7 @@
     <h2><span>방 찾기 · 만들기</span><button type="button" class="lb-x" id="inviteClose" aria-label="닫기" title="닫기">✕</button></h2>
     <p>같은 방 코드로 연결하면, 서로의 시메지가 옆자리에 나타나 상태를 실시간으로 공유해요.(최대 <span data-tw-max-people>10</span>명)</p>
     <div id="inviteIdle">
-      <!-- 🗂️ 방 목록 로비(room/room-lobby-ui.js) — 목록은 서버 함수가 1분마다 만드는 사본(roomLobby)을 모달을 열 때 · 새로 고침 · 60초마다 읽는다 -->
+      <!-- 🗂️ 방 목록 로비(room/room-lobby-ui.js) — 목록은 API(GET /v2/rooms/lobby — realtime 서버가 지금 연 방)를 모달을 열 때 · 새로 고침 · 탭을 바꿀 때 · 방을 나와 로비가 다시 보일 때 읽는다(주기 갱신 없음) -->
       <div id="lobbyMain">
         <!-- 내 시크릿룸 — 방장 본인에게만(발급 칸 + secretRooms pub.owner 가 나일 때) -->
         <div id="lobbySecret" class="lb-secret" hidden>
@@ -8469,7 +8469,7 @@
 <script src="parts/room/seat-hit-targets.js"></script>   <!-- 🎯 좌석의 누를 수 있는 조각 · 히트 맵 만들기(window.TwSeatHitTargets) — app.js 보다 먼저 -->
 <script src="parts/launcher/run-diag-minute.js"></script>   <!-- 🩺 1분 진단 줄 — app.js 보다 먼저(app.js 가 원래 자리에서 TwRunDiagMinute.createRunDiagMinute 로 만든다) -->
 <script src="parts/launcher/desktop-run.js"></script>   <!-- 🖥️ 데스크탑 실행 화면 — app.js 보다 먼저(app.js 가 원래 자리에서 TwDesktopRun.createDesktopRun 로 만든다) -->
-<script src="parts/shared/banned-words.js"></script>   <!-- 🏷️ 방 제목 금칙어 판정(window.TwBannedWords) — 서버 함수 firebase/functions/banned-words.js 와 글자까지 같다 -->
+<script src="parts/shared/banned-words.js"></script>   <!-- 🏷️ 방 제목 금칙어 판정(window.TwBannedWords) — realtime 서버의 판정과 같은 규칙 -->
 <script src="parts/room/room-settings.js"></script>   <!-- 🏷️ 방 설정 규칙(제목 · 최대 인원 · 방장 닉네임 — window.TwRoomSettings) — app.js · firebase-init.js 보다 먼저 -->
 <script src="parts/room/room-create-ui.js"></script>   <!-- 🏷️ 방 만들기 창(window.TwRoomCreateUi) — app.js 가 방 입장 모듈 뒤에서 만든다 -->
 <script src="parts/room/listen-model.js"></script>   <!-- 🎧 같이 듣기 규칙(window.TwListenModel — 위치 · DJ · 곡 끝 · 다음 곡) -->

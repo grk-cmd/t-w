@@ -73,7 +73,7 @@
 
 | 파일 | 줄 | sha256[:12] |
 |---|---|---|
-| **audit.py** | 930 | **b1682e92b518** |
+| **audit.py** | 929 | **2878d5948967** |
 | **sim-leave-flush.js** | 303 | **a43823aa058d** |
 | **sim-session.js** | 221 | **37c9ae623d30** |
 | **sim-session-baseline.js** | 189 | **e423f7a0a454** |
@@ -137,13 +137,12 @@
 | **sim-secret-room-grant.js** | 162 | **d5486d919f20** |
 | **sim-room-meta-cleanup.js** | 250 | **9c9b9de5850b** |
 | **sim-room-stats.js** | 155 | **a02149187d49** |
-| **sim-room-lobby.js** | 196 | **8350cc76c150** |
-| **sim-room-lobby-ui.js** | 281 | **b87094d6aa72** |
-| **sim-room-info-ui.js** | 189 | **7b31765b704c** |
+| **sim-room-lobby-ui.js** | 281 | **216a459d1f48** |
+| **sim-room-info-ui.js** | 189 | **2e31e4bb6ab8** |
 | **sim-listen-model.js** | 90 | **ee080c7f5c9c** |
 | **sim-listen-provider.js** | 95 | **b5e087ed6ce4** |
 | **sim-listen-ui.js** | 432 | **7a144314a8c0** |
-| **sim-room-settings.js** | 222 | **e4793b3f67ad** |
+| **sim-room-settings.js** | 239 | **3a8cf013351b** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
 | **sim-visit-ping.js** | 151 | **9f3a61fcae2c** |
 | **sim-usage-snapshot.js** | 194 | **a2cfdf538af3** |
