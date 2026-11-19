@@ -125,6 +125,12 @@ core 묶음 환경 값(`scenarios/core/_kit.js`):
 | `TW_E2E_PG` · `TW_E2E_RT` | DB · realtime 컨테이너 이름(기본 `tw-dev-local-postgres-1` · `tw-dev-local-rooms-dev-1`) |
 | `TW_E2E_ADMIN_PASS` | 앱 관리자 비밀번호. 없으면 시험 글자 하나만 앱의 비밀번호 해시로 바꿔 주는 덮개를 창에 건다(비교 · 서버 확인 · 모드 켜기는 앱 코드 그대로) |
 
+### 앱 끄기(`scenarios/core/quit-*.js`)
+
+- 공통부는 `scenarios/core/_quit.js`. 캐릭터를 고쳐 3초 묶음 저장이 예약된 채(`closetMod.unsavedCount() > 0`) 끄고, main 의 `before-quit` 을 `net.txt` 에 `E2E <시각> before-quit held|go` 줄로 남긴다 — 같은 파일의 `REQ PUT /v2/me/avatars/…` 줄과 앞뒤를 견줘 «붙잡음 → 저장 200 → 놓아 줌» 을 본다.
+- 메뉴 «종료» 는 main 에서 앱 메뉴의 role quit 항목을 찾아 누른다(OS 키는 보내지 않는다). mac 의 role quit 은 네이티브 항목이라 `MenuItem.click()` 이 아무것도 안 해서, 메뉴가 누를 때 보내는 `Menu.sendActionToFirstResponder('terminate:')` 를 보낸다(Cmd+Q 와 같은 길). 윈도우 · 리눅스는 앱 메뉴가 없어 제목줄 × 와 같은 `companion:quitApp`.
+- mac 에서 메인 창을 닫으면 창이 0개가 되어 단계 끝의 조용한 창 판정(«창이 하나도 안 보임»)이 틀리게 걸린다 — `quit-close.js` 는 닫기부터 Dock 누르기(`app.emit('activate')`)로 다시 열기까지를 한 단계로 둔다.
+
 ## 해 본 것 — REPL 로 (2026-11-17 확인)
 
 - **캐릭터 만들기**: `#lcEmpty` → `#raceHuman` → «다음» 을 «완성 → 저장» 이 나올 때까지 누른다 → «완성 → 저장».
