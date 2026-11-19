@@ -73,7 +73,7 @@ function isRetryable(e) {
   const code = String((e && (e.code || (e.errorInfo && e.errorInfo.code))) || '');
   const msg = String((e && e.message) || '');
   return /quota-exceeded|too-many-requests|internal-error|network-error|network-timeout|unavailable/.test(code)
-    || /QUOTA_EXCEEDED|RESOURCE_EXHAUSTED|TOO_MANY|429|503|ECONNRESET|ETIMEDOUT/.test(msg);
+    || /QUOTA_EXCEEDED|RESOURCE_EXHAUSTED|TOO_MANY|429|503|ECONNRESET|ETIMEDOUT|fetch failed/.test(msg);   // fetch failed — Node fetch 가 네트워크가 끊기면 던지는 글(방 키 읽기)
 }
 
 async function withRetry(fn, sleep, onRetry) {

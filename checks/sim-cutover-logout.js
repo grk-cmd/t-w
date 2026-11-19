@@ -184,6 +184,7 @@ async function suite(mod, quiet) {
     chk(lines.some((l) => /실패 1/.test(l) && /uid02000/.test(lines.join('\n'))), '끝에 실패 수 · uid 를 찍는다');
     chk(a.sleeps.includes(1000), '다시 시도 전에 기다린다(1초부터 두 배씩)');
     chk(mod.isRetryable({ code: 'auth/quota-exceeded' }) && mod.isRetryable({ message: 'RESOURCE_EXHAUSTED' }) && !mod.isRetryable({ code: 'auth/user-not-found' }) && !mod.isRetryable({ code: 'auth/invalid-credential' }), '다시 시도할 오류 가르기');
+    chk(mod.isRetryable(new TypeError('fetch failed')), '방 키 읽기(fetch)가 네트워크 끊김으로 던지는 «fetch failed» 도 다시 시도한다');
   });
 
   say('\n── 3-2. 초당 수(가짜 시계)');
@@ -225,6 +226,7 @@ const MUTANTS = [
   ['한도 오류를 다시 시도하지 않음', 'if (n >= RETRIES || !isRetryable(e)) throw e;', 'throw e;'],
   ['초당 수 제한 없음', 'await gate(); ', ''],
   ['roomAlive 를 안 봄', "const PRESENCE_ROOTS = ['rooms', 'roomAlive'];", "const PRESENCE_ROOTS = ['rooms'];"],
+  ['fetch 네트워크 끊김을 다시 시도하지 않음', '|ETIMEDOUT|fetch failed/', '|ETIMEDOUT/'],
 ];
 
 (async () => {
