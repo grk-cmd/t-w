@@ -2,6 +2,9 @@
   "database": {
     "rules": "firebase-database-rules-cutover.json"
   },
+  "storage": {
+    "rules": "storage.rules"
+  },
   "hosting": [{
     "target": "main",
     "public": "hosting",
