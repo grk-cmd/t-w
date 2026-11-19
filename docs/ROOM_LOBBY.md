@@ -87,7 +87,7 @@ GET /v2/rooms/lobby?channel=workingroom
 - 권한: 지금 `_meta` 는 누구나 쓸 수 있다(2.1). 이 버튼은 화면에서만 방장으로 막는다 — chatOff · tabs 와 같다. 방 서버가 «방장만» 을 지킨다(4장).
 
 ### 5.2 금칙어
-- **목록**: 서버 운영 설정 `room.bannedWords`(문자열 배열 · API `/v2/config` 로 앱 · realtime 이 받는다). 기본값은 비어 있다 — 처음 목록은 관리자가 넣는다.
+- **목록**: 서버 운영 설정 `room.bannedWords`(문자열 배열 · 앱은 API `/v2/config`, realtime 은 `/internal/v2/config` 로 받는다). 기본값은 비어 있다 — 처음 목록은 관리자가 넣는다.
 - **판정**(같은 규칙 — 앱 `shared/banned-words.js` · realtime 서버 `realtime/src/domain/bannedWords.ts`, 서버 검사가 앱 판정 결과와 견준다): 공백 · 기호 · 숫자 사이 끼움을 빼고 소문자로 맞춘 뒤 부분 일치.
 - **앱**: 만들기 · 바꾸기에서 걸리면 저장하지 않고 «방 제목에 쓸 수 없는 말이 있어요» 를 칸 아래에 보인다(토스트 아님 · 오류 번호 아님 — 사용자가 고칠 입력이라).
 - **로비 목록**: realtime 서버가 답을 만들 때 지금 목록으로 다시 판정해 걸리면 제목을 비운다(목록에는 «○○ 님의 방» 기본값). 앱을 고쳐 막기를 건너뛰어도 · 만든 뒤 금칙어가 더해져도 목록에는 안 나간다.
@@ -99,7 +99,7 @@ GET /v2/rooms/lobby?channel=workingroom
 - 옛 앱이 만든 방은 `title` · `hostName` 이 없다 — 목록에서 «이름 없는 방» 기본값 · 방장 칸 비움으로 그린다. 옛 앱의 방은 `open` 이 워킹룸에만 있으니 옛 투게더룸은 목록에 안 나온다(지금과 같음).
 
 ## 7. 배포 순서
-1. 규칙(`_meta` 새 칸 · `config/bannedWords`) — dev 먼저, 운영은 앱 태그 전에. 처음 금칙어 목록도 이때 넣는다.
+1. 규칙(`_meta` 새 칸 · `config/bannedWords`) — dev 먼저, 운영은 앱 태그 전에. 처음 금칙어 목록은 서버 운영 설정 `room.bannedWords` 에 넣는다(5.2).
 2. 서버(API · realtime — `GET /v2/rooms/lobby`) — 앱 태그 전에.
 3. 앱 0.13.0.
 4. 사용자 대부분이 올라온 뒤 `minRoomVer` 0.13.0.

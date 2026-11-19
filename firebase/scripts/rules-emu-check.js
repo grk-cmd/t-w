@@ -129,7 +129,7 @@ const LIMIT_CASES = [
   ['_music — 차례 번호 소수', 'PUT', `rooms/${ROOM}/_music`, { ...MUSIC, seq: 100.5 }, false],
   ['_music — 멤버 칸 이름으로 착각되지 않음(밑줄로 시작하는 다른 칸은 거절 — 멤버 필수 칸을 갖춰도)', 'PUT', `rooms/${ROOM}/_musik`, { name: '민수', state: 'focus' }, false],
   ['금칙어 — 관리자가 목록 저장', 'PUT', 'config/bannedWords', ['나쁜말', '욕'], true, ADMIN_A],
-  ['금칙어 — 사용자가 읽기(방 만들기 판정)', 'GET', 'config/bannedWords', null, true],
+  ['금칙어 — 사용자가 읽기', 'GET', 'config/bannedWords', null, true],
   ['금칙어 — 사용자는 못 씀', 'PUT', 'config/bannedWords', ['x'], false],
   ['금칙어 — 21자 낱말', 'PUT', 'config/bannedWords', ['가'.repeat(21)], false, ADMIN_A],
   ['금칙어 — 문자열 아닌 값', 'PUT', 'config/bannedWords', [1], false, ADMIN_A],
