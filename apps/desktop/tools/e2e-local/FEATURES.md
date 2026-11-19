@@ -164,7 +164,7 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 
 ## 컷오버 — 운영 0.12.3 앱(옛 판)
 
-0.13 앱이 아니라 지금 사용자 PC 에 깔린 0.12.3 이 컷오버 차례(tw-docs `docs/design/06-cutover.md` 6장)를 만나면 무엇을 보이나. 이 PC 의 Firebase 에뮬레이터(demo- 프로젝트)에 붙여 돌린다(README «cutover-012»).
+0.13 앱이 아니라 지금 사용자 PC 에 깔린 0.12.3 이 컷오버 차례(tw-docs `docs/design/06-cutover.md` 6장)를 만나면 무엇을 보이나. 이 PC 의 Firebase 에뮬레이터(demo- 프로젝트)에 붙여 돌린다(README «cutover-012»). 시나리오마다 앱을 켜기 전에 문지기가 주소 표 · 이름 풀이를 확인한다(`e2e-cutover-guard`).
 
 | 기능 | e2e | sim | 상태 |
 |---|---|---|---|

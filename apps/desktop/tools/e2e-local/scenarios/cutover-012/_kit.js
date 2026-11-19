@@ -15,6 +15,7 @@ const { spawn, execFileSync } = require('child_process');
 const { _electron } = require('playwright-core');
 const { wait, quietProblems } = require('../../lib.js');
 const { acquire, QUIET_FAIL, markQuietFail } = require('../../runlock.js');
+const R = require('./_route012.js');
 
 const REPO = path.resolve(__dirname, '..', '..', '..', '..', '..', '..');
 // 0.12.3 폴더 — TW_E2E_APP012, 없으면 저장소 옆 worktree(<저장소>/../.wt/app-0123 또는 worktree 끼리 <저장소>/../app-0123)
@@ -24,7 +25,7 @@ const APP_DIR = path.resolve(process.env.TW_E2E_APP012
 // 실행마다 다른 demo- 프로젝트 — 앞 실행의 에뮬레이터 기록(허브 위치 파일)과 부딪히지 않게. RTDB 이름공간은 운영 이름 그대로
 const PROJECT = 'demo-tw-c012-' + process.pid;
 const NS = 'together-working-default-rtdb';
-const RTDB_HOST = NS + '.asia-southeast1.firebasedatabase.app';
+const RTDB_HOST = R.RTDB_HOST;
 const RULES_012 = path.join(APP_DIR, 'firebase-database-rules.json');
 const RULES_CUTOVER = path.join(REPO, 'firebase', 'firebase-database-rules-cutover.json');
 
@@ -224,6 +225,49 @@ async function startApiStub(logFile){
 
 // ── 앱 한 벌 ───────────────────────────────────────────────
 // lib.makeApp 과 같은 모양(감싸는 진입점이 appData 를 결과 폴더로 · quiet-main.js) — 앱 폴더 · 주소 돌리기(_main012.js) · 운영 설정만 다르다
+// 시험 앱 main(_main012.js)에 넘기는 값 — 문지기 · 확인용 실행 · 앱이 같은 한 벌을 쓴다
+const routeOpts = (env, log, extra) => Object.assign({ log, proxyPort: env.relay.port, db: env.emu.dbUrl, auth: env.emu.authUrl, storage: env.emu.storageUrl, api: env.api.url, rejectRefresh: !!env.rejectRefresh }, extra || {});
+
+// ── 켜기 전 문지기 ─────────────────────────────────────────
+// ① 표(_route012.js)만 보고: 앱이 쓸 수 있는 Firebase · 우리 백엔드 이름이 이름 풀이 · https · wss 모두 이 PC 로만 가거나 막히는가
+// ② 확인용 실행(앱 없이 같은 진입점 · 같은 규칙으로 Electron 을 켬): 크로미움이 정말 그렇게 푸는가(resolveHost) · 막을 wss 가 막히는가.
+//    표지 이름(.invalid)이 규칙대로 풀린 뒤에만 다른 이름을 묻는다. 어긋나면 앱을 켜지 않고 실패한다
+async function guardLaunch(out, env){
+  const o = routeOpts(env, path.join(out, 'probe', 'net.txt'));
+  const bad = R.guard({ relayPort: env.relay.port, o });
+  if(bad.length) throw new Error('켜기 전 문지기 — 표가 진짜 서버로 샐 수 있음: ' + bad.join(' / '));
+  const dir = path.join(out, 'probe');
+  const wrap = path.join(dir, 'wrap');
+  fs.mkdirSync(wrap, { recursive: true });
+  fs.writeFileSync(o.log, '');
+  fs.writeFileSync(path.join(wrap, 'package.json'), JSON.stringify({ name: 'tw-e2e-c012-probe', version: '0.0.0', main: 'main.js' }));
+  fs.writeFileSync(path.join(wrap, 'main.js'),
+    `require('electron').app.setPath('appData', ${JSON.stringify(path.join(dir, 'appdata'))});\n`
+    + (process.env.TW_E2E_QUIET !== '0' ? `require(${JSON.stringify(path.join(__dirname, '..', '..', 'quiet-main.js'))});\n` : '')
+    + `require(${JSON.stringify(path.join(__dirname, '_main012.js'))})(${JSON.stringify(Object.assign({}, o, { probe: true }))});\n`);
+  const p = spawn(require(path.join(APP_DIR, 'node_modules', 'electron')), [wrap], { stdio: 'ignore' });
+  const done = await Promise.race([new Promise((r) => p.once('exit', () => r(true))), wait(60000).then(() => false)]);
+  if(!done){ try { p.kill('SIGKILL'); } catch(_){} }
+  const lines = fs.readFileSync(o.log, 'utf8').split('\n');
+  const dns = Object.fromEntries(lines.filter((l) => l.startsWith('DNS ')).map((l) => { const [, h, ...v] = l.split(' '); return [h, v.join(' ')]; }));
+  const why = [];
+  if(!lines.includes('PROBE-END')) why.push('확인용 실행이 끝나지 않음');
+  if(dns[R.SENTINEL_HOST] !== '127.0.0.1') why.push(`표지 이름이 규칙대로 안 풀림(${dns[R.SENTINEL_HOST]}) — 크로미움이 규칙을 안 쓴다`);
+  else for(const { host } of R.GUARD_HOSTS){
+    const v = dns[host];
+    if(host === RTDB_HOST ? v !== '127.0.0.1' : !/NAME_NOT_RESOLVED/.test(v || '')) why.push(`${host} → ${v || '안 물음'}`);
+  }
+  let wssBlockedByWebRequest = 0;
+  for(const url of R.PROBE_WSS){
+    const r = (lines.find((l) => l.startsWith('WSS ' + url + ' ')) || '').split(' ').pop();
+    if(r !== 'ERROR') why.push(`wss ${url} → ${r || '안 열어 봄'}`);
+    if(lines.some((l) => l === 'BLOCK GET ' + url)) wssBlockedByWebRequest++;
+  }
+  // webRequest 가 wss 를 못 막는 판이면 이름 풀이(~NOTFOUND)만 남는다 — 위에서 그 이름이 안 풀리는 것을 이미 봤다
+  if(why.length) throw new Error('켜기 전 문지기 — 확인용 실행: ' + why.join(' / '));
+  return `이름 ${R.GUARD_HOSTS.length}개 이 PC 로만 · 막을 wss ${R.PROBE_WSS.length}개 중 webRequest 가 막음 ${wssBlockedByWebRequest} · 나머지는 이름 풀이 ~NOTFOUND`;
+}
+
 function makeApp012(outArg, env){
   const out = path.resolve(outArg);
   const logs = [];
@@ -248,7 +292,7 @@ function makeApp012(outArg, env){
     const ud = path.join(out, 'appdata', pkg.name);
     fs.mkdirSync(ud, { recursive: true });
     for(const f of ['kb-guide-off', 'lab-video-guide-off']) fs.writeFileSync(path.join(ud, f), '1');
-    const o = { log: netLog, rtdbHost: RTDB_HOST, proxyPort: env.relay.port, db: env.emu.dbUrl, auth: env.emu.authUrl, storage: env.emu.storageUrl, api: env.api.url, rejectRefresh: !!env.rejectRefresh };
+    const o = routeOpts(env, netLog);
     fs.writeFileSync(path.join(wrap, 'main.js'),
       `require('electron').app.setPath('appData', ${JSON.stringify(path.join(out, 'appdata'))});\n`
       + (quiet ? `require(${JSON.stringify(path.join(__dirname, '..', '..', 'quiet-main.js'))});\n` : '')
@@ -315,6 +359,7 @@ async function run(name, body){
     env.emu = await startEmulators(path.join(out, 'emu'));
     env.relay = await startRelay(path.join(out, 'emu'), env.emu, path.join(out, 'rtdb.txt'));
     env.api = await startApiStub(path.join(out, 'api.txt'));
+    steps.push('ok   켜기 전 문지기 — ' + await guardLaunch(out, env)); save();
     t.db = rtdb(env.emu);
     t.auth = authEmu(env.emu);
     t.rtdbStats = (since) => rtdbStats(path.join(out, 'rtdb.txt'), since);

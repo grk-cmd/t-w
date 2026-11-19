@@ -497,6 +497,7 @@
 | **sim-rules-src.js** | 78 | **12241e59c87b** |
 | **sim-rules-drift.js** | 175 | **2782c5c73084** |
 | **sim-rules-cutover.js** | 157 | **88aff836d62f** |
+| **sim-e2e-cutover-guard.js** | 72 | **fdc5d9ff6876** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |
 | **sim-label-measure.js** | 261 | **807b311a47d3** |
 | **sim-safe-html.js** | 734 | **f11bcf1c5ea2** |
