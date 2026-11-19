@@ -235,6 +235,7 @@
 | **sim-part-anim.js** | 177 | **849cae964607** |
 | **sim-desk-item-equip.js** | 279 | **1828ed4292d3** |
 | **sim-animal-edit-route.js** | 113 | **0edbcfc7c733** |
+| **sim-animal-new.js** | 103 | **00e2a8b637ba** |
 | **sim-seats.js** | 135 | **2648d31e6ff2** |
 | **sim-char-place.js** | 181 | **0ef82979bff9** |
 | **sim-fit-model.js** | 168 | **5d5104954b65** |

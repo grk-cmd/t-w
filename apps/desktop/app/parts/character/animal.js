@@ -195,12 +195,7 @@ function initCard(){
           _cheatOn=true; try{ accountStoreMod.set(CHEAT_KEY,'1'); }catch(_){}
           initCard();   // 잠금 안내 문구 갱신
           toast('🔓 동물 캐릭터가 해금됐어요!');
-          // ★ 이 경로도 '신규 생성'이다 — 아래 정상 경로와 동일하게 컨텍스트를 초기화하고
-          //   [＋]가 정한 칸을 받아둔다. 안 하면 직전 편집의 타깃이 남아 엉뚱한 칸에 저장될 수 있음.
-          _editSrcDef=null; _editSeat=null;
-          _targetSlot = (typeof window.__twRaceTargetSlot==='number') ? window.__twRaceTargetSlot : null;
-          _resetAnimalState();
-          openPreview();
+          startNewAnimal();   // 이 경로도 '신규 생성' — 아래 정상 경로와 같은 한 벌
           return;
         }
         toast('🔓 '+_cheatCount+' / '+CHEAT_CLICKS);
@@ -209,12 +204,19 @@ function initCard(){
       toast('🔒 동물 캐릭터는 Lv.'+UNLOCK_LEVEL+' 달성 보상이에요 (현재 Lv.'+lv+')');
       return;
     }
-    _editSrcDef=null; _editSeat=null;   // 신규 생성 — 이전 편집 컨텍스트가 남아있으면 엉뚱한 슬롯/좌석에 덮어씀
-    // app.js가 openRacePicker(칸번호)에서 window에 실어 보낸 값 (IIFE라 window 경유만 가능)
-    _targetSlot = (typeof window.__twRaceTargetSlot==='number') ? window.__twRaceTargetSlot : null;
-    _resetAnimalState();                // 직전에 만든 동물의 얼굴·귀·페인트가 그대로 남아있지 않게 초기화
-    openPreview();
+    startNewAnimal();
   };
+}
+/* 새 동물 만들기 — 카드의 정상 · 숨김 해금 두 길이 같이 부른다(검사 sim-animal-new.js).
+   ★ 종족 선택 창을 닫는다 — 인간 카드(race-picker.js)와 같이. 창 쌓기(win-stack)가 연 창을 맨 앞으로 올려서,
+     남겨 두면 선택 창(83~)이 동물 만들기 창(56)을 덮어 누르는 것이 다 막힌다(B-1119-5). */
+function startNewAnimal(){
+  _editSrcDef=null; _editSeat=null;   // 이전 편집 컨텍스트가 남아있으면 엉뚱한 슬롯/좌석에 덮어씀
+  // app.js가 openRacePicker(칸번호)에서 window에 실어 보낸 값 (IIFE라 window 경유만 가능)
+  _targetSlot = (typeof window.__twRaceTargetSlot==='number') ? window.__twRaceTargetSlot : null;
+  const race=document.getElementById('raceOverlay'); if(race) race.classList.remove('on');
+  _resetAnimalState();                // 직전에 만든 동물의 얼굴·귀·페인트가 그대로 남아있지 않게 초기화
+  openPreview();
 }
 
 /* ── 생성 창 — 인간 생성기(#creatorModal)와 동일한 클래스·구조를 그대로 사용 ── */
@@ -1871,7 +1873,7 @@ function _resetAnimalState(){
     _clearPaintHistory();   // ⚠️ length=0 만으로는 캔버스 백킹스토어가 GC 때까지 남는다
     // 모델이 이미 로드돼 있으면 초기화한 값으로 즉시 다시 그림
     if(model){ try{ applyFace(); applyScale(); applyEars(); ensurePaintTex(); }catch(_){} }
-    markFaceBtns();
+    if(overlay) markFaceBtns();   // 처음 열 때는 창이 아직 없다 — 여기서 던지면 아래 «고치던 칸» 표시가 안 지워져 새 동물이 그 칸을 덮어쓴다
     // ★ 새로 만드는 것이므로 '빈 슬롯에 저장' 흐름이 되도록 편집 표식을 지운다.
     if(creatorMode()){ creatorMode().edit=false; creatorMode().slot=null; }
   }catch(e){ console.warn('[동물] 신규 상태 초기화 실패', e); }
