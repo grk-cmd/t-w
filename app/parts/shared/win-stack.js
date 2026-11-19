@@ -68,7 +68,9 @@ function _winZOf(el){
   const v = parseInt(el && el.style && el.style.zIndex, 10);
   return isFinite(v) ? v : 0;
 }
-const _winSlotZ = (slot) => Math.max(0, ..._winSlotEls(slot).map(_winZOf));
+/* 칸의 숫자는 묶음 안 가장 낮은 창으로 본다 — 가장 높은 창으로 보면, 사람 편집이 맨 앞인 채 동물 창(56)이 붙을 때
+   «이미 맨 앞» 으로 보고 안 올린다. */
+const _winSlotZ = (slot) => Math.min(..._winSlotEls(slot).map(_winZOf));
 function _winSetSlotZ(slot, z){ _winSlotEls(slot).forEach(e2=>{ e2.style.zIndex = String(z); }); }
 function bringWinToFront(id){
   const slot = _winSlotOf(id);

@@ -145,6 +145,12 @@ function judgeStack(ws) {
   const ids2 = Object.keys(w.els);
   for (let k = 0; k < 3; k++) ids2.forEach((id) => w.press(id));
   t(ids2.every((id) => w.z(id) >= 83 && w.z(id) <= 92), '창이 11개(칸 10)여도 83~92 를 넘지 않는다');
+  /* 사람 편집이 맨 앞 숫자를 가진 채 동물 창이 처음 붙는 길(편집 창에서 동물 캐릭터 고치기 — 종족 선택을 안 거친다) */
+  const v = runStack(ws);
+  v.show('myHomeOverlay', true); v.show('chatOverlay', true);
+  v.show('creatorOverlay', true); v.show('creatorOverlay', false);
+  v.append('animalCreatorOverlay', true);
+  t(v.z('animalCreatorOverlay') > v.z('chatOverlay') && v.z('animalCreatorOverlay') > v.z('myHomeOverlay'), '★ 사람 편집이 맨 앞인 채 붙은 동물 창도 맨 앞(묶음의 높은 숫자를 «이미 맨 앞» 으로 보지 않는다)');
   return r;
 }
 
@@ -178,6 +184,7 @@ const breaks = [
   ['동물 만들기를 칸 묶음에서 뺌', null, (w) => w.replace("['creatorOverlay', 'animalCreatorOverlay']", "'creatorOverlay'")],
   ['나중에 붙는 창 관찰 없앰', null, (w) => w.replace('late.observe(document.body, { childList:true });', '')],
   ['열면 맨 앞 규칙 없앰', null, (w) => w.replace('if(now && !shown) bringWinToFront(id);', '')],
+  ['칸 숫자를 묶음의 가장 높은 창으로', null, (w) => w.replace('Math.min(..._winSlotEls(slot).map(_winZOf))', 'Math.max(0, ..._winSlotEls(slot).map(_winZOf))')],
   ['천장에서 올리는 창까지 다시 매김', null, (w) => w.replace('.filter(x=>x!==slot && _winSlotEls(x).length)', '.filter(x=>_winSlotEls(x).length)')],
 ];
 for (const [name, f, fw] of breaks) {
