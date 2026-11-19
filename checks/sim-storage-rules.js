@@ -5,7 +5,8 @@
      잠금을 올리는 명령이 RTDB 규칙 · 사이트까지 바꾼다. 두 파일의 경로가 어긋나면 잠금이 어떤 경로를 열어 두거나 0.13 에서 읽기가 끊긴다.
    [무엇을 본다] 1절: 설정 — firebase.json 은 storage.rules · 컷오버 RTDB 규칙 그대로 · 잠금 설정은 storage 칸 하나(일부러 깬 설정이 빨강인지도).
      2절: 두 파일의 경로 · 봇 uid 가 같다.
-     3절: 실제 판정 — Storage 에뮬레이터(firebase CLI + Java)가 있으면 두 규칙을 올려 REST 로 하나씩 보낸다. 지우기 항을 뺀 규칙이 지우기를 거절하는지도 본다.
+     3절: 실제 판정 — Storage 에뮬레이터(firebase CLI + Java)가 있으면 두 규칙을 올려 REST 로 하나씩 보낸다. 봇 상한(마이홈 8MB · assets PNG · WebP 512KB · GLB 1MB)은 0.13 서버와 같다.
+     깨 보기: 지우기 항을 뺀 규칙 · 봇 검사를 뺀 규칙 · 봇 마이홈 상한을 뺀 규칙이 각각 다르게 판정되는지 본다.
      없으면 건너뛴다(CI 에는 없다 — 규칙을 바꾼 PR 은 손으로 돌려 본문에 붙인다). */
 'use strict';
 const fs = require('fs');
@@ -76,6 +77,12 @@ function mainCases() {
     ...['users/u1/del.png', 'users/u1/giftimg/del.png', 'catalog/del.glb', 'away/u1/del.webp', 'bookmarks/u1/del.webp', 'purikura/R/u1/del.webp', 'assets/del.png', 'assets/read.png'].map(seed),
     ['users — 로그인 없이 2MB 아래 올리기', 'up', 'users/u1/a.png', 2 * MB - 1, 'image/png', true, ANON],
     ['users — 2MB 는 거절', 'up', 'users/u1/b.png', 2 * MB, 'image/png', false, ANON],
+    ['users — 로그인한 사용자도 2MB 는 거절', 'up', 'users/u1/b.png', 2 * MB, 'image/png', false, USER],
+    ['users — 서버 봇은 마이홈 그림 8MB(PNG)', 'up', 'users/u1/mh_a.png', 8 * MB, 'image/png', true, BOT],
+    ['users — 서버 봇 WebP 3MB', 'up', 'users/u1/mh_b.webp', 3 * MB, 'image/webp', true, BOT],
+    ['users — 서버 봇 JPEG 3MB', 'up', 'users/u1/mh_c.jpg', 3 * MB, 'image/jpeg', true, BOT],
+    ['users — 서버 봇도 8MB 넘으면 거절', 'up', 'users/u1/mh_d.png', 8 * MB + 1, 'image/png', false, BOT],
+    ['users — 서버 봇도 2MB 이상은 마이홈 그림 형식만(GIF 거절)', 'up', 'users/u1/mh_e.gif', 3 * MB, 'image/gif', false, BOT],
     ['users — 지우기', 'del', 'users/u1/del.png', 0, '', true, ANON],
     ['users — 읽기 · 목록은 로그인 없이', 'list', 'users/u1/', 0, '', true, ANON],
     ['giftimg — 로그인 없이 올리기 거절', 'up', 'users/u1/giftimg/x.png', 10, 'image/png', false, ANON],
@@ -105,7 +112,12 @@ function mainCases() {
     ['assets — 사용자 올리기 거절', 'up', 'assets/u.png', 10, 'image/png', false, USER],
     ['assets — 서버 봇 PNG 512KB', 'up', 'assets/a.png', 512 * KB, 'image/png', true, BOT],
     ['assets — 서버 봇도 512KB 넘으면 거절', 'up', 'assets/b.png', 512 * KB + 1, 'image/png', false, BOT],
-    ['assets — 서버 봇도 PNG 아니면 거절', 'up', 'assets/c.webp', 10, 'image/webp', false, BOT],
+    ['assets — 서버 봇 WebP 512KB', 'up', 'assets/c.webp', 512 * KB, 'image/webp', true, BOT],
+    ['assets — 서버 봇도 WebP 512KB 넘으면 거절', 'up', 'assets/d.webp', 512 * KB + 1, 'image/webp', false, BOT],
+    ['assets — 서버 봇 GLB 1MB', 'up', 'assets/e.glb', MB, 'model/gltf-binary', true, BOT],
+    ['assets — 서버 봇도 GLB 1MB 넘으면 거절', 'up', 'assets/f.glb', MB + 1, 'model/gltf-binary', false, BOT],
+    ['assets — 서버 봇도 PNG 가 1MB 면 거절(GLB 상한을 빌리지 못함)', 'up', 'assets/g.png', MB, 'image/png', false, BOT],
+    ['assets — 서버 봇도 받는 형식(PNG · WebP · GLB)이 아니면 거절', 'up', 'assets/h.jpg', 10, 'image/jpeg', false, BOT],
     ['assets — 사용자 지우기 거절', 'del', 'assets/del.png', 0, '', false, USER],
     ['assets — 서버 봇 지우기', 'del', 'assets/del.png', 0, '', true, BOT],
     ['규칙 없는 경로 — 올리기 거절', 'up', 'other/a.png', 10, 'image/png', false, USER],
@@ -124,10 +136,15 @@ function lockCases() {
       [`${p} — 서버 봇은 올리기`, 'up', p, size, ct, true, BOT],
       [`${p} — 서버 봇은 지우기`, 'del', p, 0, '', true, BOT],
     ]),
-    ['users — 서버 봇도 2MB 는 거절', 'up', 'users/u1/big.png', 2 * MB, 'image/png', false, BOT],
+    ['users — 서버 봇은 마이홈 그림 8MB', 'up', 'users/u1/mh_big.png', 8 * MB, 'image/png', true, BOT],
+    ['users — 서버 봇도 8MB 넘으면 거절', 'up', 'users/u1/mh_big2.png', 8 * MB + 1, 'image/png', false, BOT],
+    ['users — 로그인한 사용자 1KB 도 거절', 'up', 'users/u1/small.png', KB, 'image/png', false, USER],
     ['away — 서버 봇도 그림 아니면 거절', 'up', 'away/u1/c.txt', 10, 'text/plain', false, BOT],
     ['assets — 로그인 없이 읽기 거절', 'get', 'assets/read.png', 0, '', false, ANON],
     ['assets — 서버 봇 PNG 올리기', 'up', 'assets/a.png', 10, 'image/png', true, BOT],
+    ['assets — 서버 봇 WebP 512KB', 'up', 'assets/b.webp', 512 * KB, 'image/webp', true, BOT],
+    ['assets — 서버 봇 GLB 1MB', 'up', 'assets/c.glb', MB, 'model/gltf-binary', true, BOT],
+    ['assets — 서버 봇도 GLB 1MB 넘으면 거절', 'up', 'assets/d.glb', MB + 1, 'model/gltf-binary', false, BOT],
     ['assets — 서버 봇 읽기', 'get', 'assets/read.png', 0, '', true, BOT],
   ];
 }
@@ -137,7 +154,16 @@ function noDeleteCases() {
     ['지우기 항 없음 — users 지우기가 거절된다', 'del', 'users/u1/del.png', 0, '', false, ANON],
     ['지우기 항 없음 — catalog 지우기가 거절된다', 'del', 'catalog/del.glb', 0, '', false, ANON]];
 }
-const SETS = { main: mainCases, lock: lockCases, nodelete: noDeleteCases };
+/* 봇 상한을 사람에게도 연 규칙(isBot 을 뺌) — 앱이 2MB 이상 · assets 를 올리면 거절돼야 하므로 빨강이 나야 한다 */
+function openBotCases() {
+  return [['봇 검사 없음 — 사용자가 users 에 3MB 를 올리면 통과해 버린다', 'up', 'users/u1/x.png', 3 * MB, 'image/png', true, USER],
+    ['봇 검사 없음 — 사용자가 assets 에 GLB 를 올리면 통과해 버린다', 'up', 'assets/x.glb', MB, 'model/gltf-binary', true, USER]];
+}
+/* 봇 마이홈 상한을 뺀 규칙 — 봇의 8MB 가 거절돼야 한다 */
+function noBotCapCases() {
+  return [['봇 마이홈 상한 없음 — 봇 3MB 가 거절된다', 'up', 'users/u1/x.png', 3 * MB, 'image/png', false, BOT]];
+}
+const SETS = { main: mainCases, lock: lockCases, nodelete: noDeleteCases, openbot: openBotCases, nobotcap: noBotCapCases };
 
 async function inner() {
   const H = `http://127.0.0.1:${Number(process.env.TW_EMU_PORT)}`;
@@ -197,8 +223,11 @@ async function main() {
   const have = spawnSync('firebase', ['--version'], { encoding: 'utf8' }).status === 0 && spawnSync('java', ['-version'], { encoding: 'utf8' }).status === 0;
   if (!have) { console.log('  - firebase CLI 또는 Java 가 없어 건너뜀(CI · 규칙을 바꾼 PR 은 손으로 돌려 결과를 본문에 붙인다)'); return finish(); }
   const noDelete = MAIN_SRC.replace(/request\.resource == null\s*\|\|\s*/g, '');
-  chk(noDelete !== MAIN_SRC, '깨 보기용 규칙(지우기 항을 뺌)을 만들었다');
-  for (const [set, src, title] of [['main', MAIN_SRC, MAIN_FILE], ['lock', LOCK_SRC, LOCK_FILE], ['nodelete', noDelete, '깨 보기 — 지우기 항 없는 ' + MAIN_FILE]]) {
+  const openBot = MAIN_SRC.replace(/return request\.auth != null && request\.auth\.uid == '[^']+';/, 'return true;');
+  const noBotCap = MAIN_SRC.replace(/\s*\|\|\s*isBotMyHomeImage\(\)/, '');
+  chk(noDelete !== MAIN_SRC && openBot !== MAIN_SRC && noBotCap !== MAIN_SRC, '깨 보기용 규칙 셋(지우기 항 · 봇 검사 · 봇 마이홈 상한을 뺌)을 만들었다');
+  for (const [set, src, title] of [['main', MAIN_SRC, MAIN_FILE], ['lock', LOCK_SRC, LOCK_FILE], ['nodelete', noDelete, '깨 보기 — 지우기 항 없는 ' + MAIN_FILE],
+    ['openbot', openBot, '깨 보기 — 봇 검사 없는 ' + MAIN_FILE], ['nobotcap', noBotCap, '깨 보기 — 봇 마이홈 상한 없는 ' + MAIN_FILE]]) {
     console.log('  [' + title + ']');
     const r = await emulate(set, src);
     if (!r.lines.length) { chk(false, '에뮬레이터 출력을 못 읽음: ' + r.out.slice(-300)); continue; }

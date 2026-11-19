@@ -12,6 +12,12 @@ service firebase.storage {
     function isBot() {
       return request.auth != null && request.auth.uid == '8K1ebHP37EQ2hbKpdgV3TVK6mDq2';
     }
+    // 봇이 올리는 마이홈 그림 — 0.13 서버(MyHomeImage)가 형식 · 크기를 먼저 보고 올린다. 앱은 2MB 미만 그대로.
+    function isBotMyHomeImage() {
+      return isBot()
+          && request.resource.size <= 8 * 1024 * 1024
+          && request.resource.contentType in ['image/png', 'image/webp', 'image/jpeg'];
+    }
 
     // 카탈로그 파일(파츠 · 책상 · 아이템 GLB · 썸네일). 카탈로그 GLB 는 커야 1.5MB 안팎이라 5MB 면 넉넉하다.
     match /catalog/{allPaths=**} {
@@ -28,7 +34,8 @@ service firebase.storage {
       allow read: if true;
       allow write: if allPaths[0] != 'giftimg'
                    && (request.resource == null
-                       || request.resource.size < 2 * 1024 * 1024);
+                       || request.resource.size < 2 * 1024 * 1024
+                       || isBotMyHomeImage());
     }
     match /users/{userId}/giftimg/{file} {
       allow write: if isBot()
@@ -59,12 +66,14 @@ service firebase.storage {
                    || request.resource.size < 2 * 1024 * 1024;
     }
 
-    // 상품 파일(assets/{해시}.{확장자}) — 서버 봇만 올리고 · 받고 · 지운다. 앱은 API 로만 받는다.
+    // 상품 파일(assets/{해시}.{확장자}) — 서버 봇만 올리고 · 받고 · 지운다. 앱은 API 로만 받는다. 형식 · 상한은 0.13 서버 AssetKind 와 같다.
     match /assets/{file} {
       allow read, delete: if isBot();
       allow create, update: if isBot()
-                            && request.resource.size <= 512 * 1024
-                            && request.resource.contentType == 'image/png';
+                            && ((request.resource.contentType in ['image/png', 'image/webp']
+                                 && request.resource.size <= 512 * 1024)
+                                || (request.resource.contentType == 'model/gltf-binary'
+                                    && request.resource.size <= 1024 * 1024));
     }
   }
 }

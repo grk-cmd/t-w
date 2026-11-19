@@ -497,7 +497,7 @@
 | **sim-rules-src.js** | 78 | **12241e59c87b** |
 | **sim-rules-drift.js** | 175 | **2782c5c73084** |
 | **sim-rules-cutover.js** | 157 | **88aff836d62f** |
-| **sim-storage-rules.js** | 211 | **138814ee7568** |
+| **sim-storage-rules.js** | 240 | **57500149771f** |
 | **sim-cutover-logout.js** | 262 | **7ff949879bb5** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |
 | **sim-label-measure.js** | 261 | **807b311a47d3** |
