@@ -111,6 +111,28 @@ node run-all.js room/create-join
 - 방 · 채팅 시나리오(`scenarios/room/_kit.js`)는 **단계마다** `quietProblems(app)`(lib.js · 네 묶음 공용)로 창이 조용한지 잰다 — 자식 창까지 진짜 창이 어느 화면과도 4분의 1 넘게 겹치지 않음 · 포커스 없음 · 진짜 불투명도 0 · 진짜 소리 끔 · 진짜 늘 위 아님 · 감싸지 않은 창 없음. 어긋나면 잠금 폴더 옆 `e2e-quiet-fail` 에 남기고 `run-all` 은 다음 시나리오를 켜지 않는다. 어긋나면 그 단계가 실패한다.
 - 단계 하나는 3분, 시나리오 하나는 `TW_E2E_SCENARIO_MIN`(기본 20)분을 넘으면 앱을 끄고 실패로 끝낸다.
 
+#### 컷오버 — 운영 0.12.3(`scenarios/cutover-012`)
+
+지금 사용자 PC 에 깔린 **운영 0.12.3** 이 컷오버 차례(tw-docs `docs/design/06-cutover.md` 6장 — T-5 로그아웃 · T+0 점검 · T+2 규칙 · T+136 최소 버전 · T+145 점검 끔)를 만나면 무엇을 보이나 본다. 0.13 앱이 아니다.
+
+```bash
+git worktree add --detach ../.wt/app-0123 v0.12.3 && (cd ../.wt/app-0123 && npm install)   # 저장소 맨 위에서 한 번
+cd apps/desktop/tools/e2e-local
+TW_E2E_QUIET=1 TW_E2E_RUN_LOCK=<잠금 폴더> node run-all.js cutover-012
+```
+
+- **필요한 것**: `firebase` CLI · Java 11+ · `openssl`. tw-dev-local docker 묶음은 쓰지 않는다(건드리지 않음).
+- **0.12.3 폴더**: `TW_E2E_APP012`, 없으면 저장소 옆 worktree(`<저장소>/../.wt/app-0123` 또는 worktree 끼리 `<저장소>/../app-0123`). `--tw-firebase=dev` 없이(운영 설정) 켠다 — 앱 코드는 그대로다.
+- **띄우는 것**(시나리오마다 새로 · 빈 포트 · 끝나면 끔): Firebase 에뮬레이터(Database · Auth · Storage, 프로젝트 `demo-tw-c012`) · TLS 중계 · API stub. 운영 Firebase 프로젝트 · 운영 주소에는 닿지 않는다.
+- **주소 돌리기(`_main012.js`)** — `route-main.js` 는 dev 주소(api-dev)만 알고, 운영 RTDB 는 wss 로 붙는데 webRequest 의 redirect 는 웹소켓에 듣지 않는다(해 보면 진짜 서버로 붙는다). 그래서:
+  - 운영 RTDB 이름만 `host-resolver-rules` 로 TLS 중계(127.0.0.1)에 풀고, 그 이름의 인증서만 중계의 자체 서명 인증서를 받는다. 중계는 에뮬레이터로 넘기며 첫 handshake 의 `h`(에뮬레이터 주소)를 운영 이름으로 바꾸고(안 바꾸면 SDK 가 다음 연결을 `wss://127.0.0.1:<포트>` 로 열어 CSP 에 막힌다) 오간 글을 `rtdb.txt` 에 남긴다 — 쓰기 시도 · 거절은 여기서 센다. 긴 폴링(`.lp`) 답의 `h` 도 같이 바꾼다.
+  - https 처리기: `api.together-working.com` → API stub(`/v1/config` 는 시나리오가 고른 답 · 그 밖은 503 — 옛 API 를 멈춘 뒤와 같음) · identitytoolkit · securetoken → Auth 에뮬레이터 · firebasestorage → Storage 에뮬레이터 · `*.cloudfunctions.net` → stub 503 · `www.gstatic.com/firebasejs/` 만 그대로(앱이 SDK 를 받는 곳). **그 밖은 전부 막고** `net.txt` 에 `BLOCK` — 단계가 실패한다. 같은 꼬리의 다른 이름(`*.firebasedatabase.app` 등 · GitHub)은 이름 풀이부터 못 하게 둔다.
+  - main 의 Node 요청(맥 업데이트 확인 `api.github.com`)은 stub 으로 · `shell.openExternal` · 시스템 창(`dialog`)은 열지 않고 `OPEN` · `DIALOG` 줄로만 남긴다 — 업데이트 단추를 눌러도 아무것도 내려받지 않는다.
+- **사용자**(`_kit.prepareUser`): 로그인을 연결한 옛 사용자 — Auth 계정 · `userAuth` · `authUsers` · 친구 코드를 넣고, 앱을 한 번 켜 `tw.myUserId` 를 적은 뒤 다시 켜 «로그인 필요» 창에서 친구 코드 비밀번호로 로그인하고, 한 번 더 켠다. 0.12.3 규칙(`v0.12.3:firebase-database-rules.json`)에서 시작해 시나리오가 컷오버 규칙(`firebase/firebase-database-rules-cutover.json`)을 에뮬레이터에 올린다(REST `.settings/rules.json` · owner). Storage 규칙은 0.12.3 저장소에 없어(콘솔 관리) «로그인한 사람은 읽고 씀» 으로 둔다.
+- **판정 · 기록**: `steps.txt`(단계 줄 끝에 사용자가 본 창 · 토스트 · 🔑 띠) · 화면 `NN-*.png` · `pc/net.txt` · `rtdb.txt` · `api.txt` · `emu/emulators.log`. 단계마다 `lib.quietProblems` 로 조용한 창 · 막힌 요청을 본다(화면 · 포커스 · 소리로 새면 `e2e-quiet-fail`).
+- **시나리오**: `maintenance`(T+0) · `rule-lock`(T+2 · T+145) · `force-update`(T+136 — /v1/config 503 · minVersion 0.13.0 · `config:{}`) · `revoked-login`(T-5).
+- **함정**: T+2 뒤 0.12.3 은 «옛 버전 투게더워킹이 켜져 있어요» 창으로 앱 전체를 덮는다 — `rule-lock` 은 그 창을 찍은 뒤 **시험만** 창을 숨겨 그 아래 저장이 막히는지 본다(사용자는 할 수 없는 길). 점검 중에는 서버를 부르는 동작마다 점검 창이 떠 다음 누르기를 가리므로 `_kit.closeMaint` 로 닫고 누른다. Auth 에뮬레이터는 `validSince`(토큰 끊기)를 지키지 않는다 — `revoked-login` 은 토큰 다시 받기에 진짜 서버의 답(400 `TOKEN_EXPIRED`)을 대신 준다(단계 글에 적힘).
+
 ### 조용한 창 · 실행 잠금
 
 - **조용한 창(`TW_E2E_QUIET`, 기본 켬 · `quiet-main.js`)** — 감싸는 진입점이 앱 main.js 보다 먼저 `quiet-main.js` 를 불러, 시험 프로세스 안에서만 electron 을 감싼다(앱 코드는 그대로). 앱은 «보조 앱»(mac `setActivationPolicy('accessory')` — Dock 아이콘 없음)으로 켜지고 `app.focus` · `app.show` · `dock.show` 는 아무것도 안 한다. 앱이 받는 `BrowserWindow` 는 하위 클래스로 바뀌어 처음부터 화면 밖(-20000, -20000) · 포커스 없이 보이고(`show` → `showInactive`), `focus` · `moveTop` · `maximize` · 전체 화면은 아무것도 안 하며, `setAlwaysOnTop` 은 값만 기억하고, `setBounds` · `setContentBounds` · `setPosition` · `center` 는 폭 · 높이만 따르고 자리는 «앱이 아는 자리» 로만 기억한다 — `getBounds` · `getPosition` · `getContentBounds` 는 그 자리를 돌려줘 앱이 화면 밖 값을 마지막 자리로 저장하지 않는다. 진짜 창은 투명(opacity 0) · 클릭 통과 · 소리 끔(mac 은 화면 밖 창을 화면 끝으로 당겨 놓아 끝자락이 보이고 눌릴 수 있다) — 앱이 부르는 `setAlwaysOnTop` · `setOpacity` · `setIgnoreMouseEvents` · `webContents.setAudioMuted`(BrowserView 등 모든 webContents) 는 값만 기억하고 `isAlwaysOnTop` · `getOpacity` · `isAudioMuted` 는 그 값을 돌려준다. 렌더러의 `window.open` 창(방명록 · 디자인 스튜디오)은 electron 이 안에서 만들어서, 모든 webContents 의 `setWindowOpenHandler` 를 감싸 처음부터 숨김 · 화면 밖 · 투명 · 늘 위 끔으로 열고, 만들어지자마자 같은 조용한 처리를 건다. 시험이 진짜 값을 볼 땐 `w.__e2eRealBounds()` · `w.__e2eRealOpacity()` · `w.webContents.__e2eRealAudioMuted()` · `w.__e2eRealAlwaysOnTop()` · 앱이 정한 클릭 통과는 `w.__e2eIgnoreMouse()`. Playwright 입력은 CDP 로 가서 포커스 · 클릭 통과와 상관없고, 화면 밖에서도 타이머 · WebGL 이 돌게 배경 늦추기를 끈다. 네 묶음이 이 한 벌을 같이 쓴다. 확인은 `scenarios/launcher/quiet.js`(lib.js 만 써서 계정 · 시드 없이 돈다 — 켠 뒤 · 앱이 창을 앞으로 부르는 길을 부른 뒤 · 창 목록 · window.open 자식 창 · BrowserView 소리 — 판정은 `lib.quietProblems` 한 곳 · 화면 · 포커스 · 소리로 새는 실패만 `e2e-quiet-fail` 에 남김). 시나리오 안에서는 `lib.quietProblems(app)` 이 단계마다 같은 규칙을 보고(계정 묶음은 `t.step` 끝마다), 깨지면 잠금 폴더 옆 `e2e-quiet-fail` 에 까닭을 남긴다 — `run-all.js` 는 그 파일이 있으면 다음 시나리오를 켜지 않는다. 그 파일은 아무도 저절로 지우지 않는다: 까닭을 보고 고친 뒤(`scenarios/launcher/quiet.js` 가 다시 통과한 뒤) 사람 · 세션이 지운다. `quiet:false` 로 켠 앱은 단계 판정에서 건너뛴다. 눈으로 보려면 `TW_E2E_QUIET=0`. 화면에 꼭 떠야 하는 시나리오(창 앞뒤 · 바깥 눌러 닫기)는 `makeApp(out, { quiet: false })` 로 그 앱만 끄고 시나리오 머리에 까닭을 적는다.
