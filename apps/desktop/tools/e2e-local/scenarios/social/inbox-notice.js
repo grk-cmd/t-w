@@ -1,5 +1,5 @@
 // 📩 알림함 — 관리자 우편 한 통(받는 사람에게만) · 📢 소식(모두에게 공지) · 안 읽은 수 · 펼치면 읽음 · × 지우기
-// 보내는 쪽은 관리자 API(웹 관리자와 같은 길) — 관리자 계정은 seed/social.sql 로 만든다
+// 보내는 쪽은 관리자 API(웹 관리자와 같은 길) — 관리자 계정은 seed/admin.sql 로 만든다
 'use strict';
 const { scenario, assert, openMyHome, makeAdmin } = require('./_kit.js');
 

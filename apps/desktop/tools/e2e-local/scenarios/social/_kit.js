@@ -7,19 +7,15 @@ const { execFileSync } = require('child_process');
 const { makeApp, wait, API_HOST, quietProblems, docker } = require('../../lib.js');
 const { acquire, markQuietFail } = require('../../runlock.js');
 
-const INVITE = process.env.TW_E2E_INVITE || 'INVT-SCAL-E2E3';   // seed/social-invite.sql
+const INVITE = process.env.TW_E2E_INVITE || 'INVT-SCAL-E2E3';   // seed/core-invite.sql 에 code 로 넘겨 넣는다(묶음마다 코드를 따로 — 사용 횟수를 나눠 쓰지 않게)
 const PW = 'e2e-pass-1234';   // 에뮬레이터 안에서만 쓰는 시험 비밀번호
 const OUT_ROOT = process.env.TW_E2E_OUT || '/tmp/tw-e2e';
-// 로컬 묶음의 DB 컨테이너 — 시드 SQL 을 넣을 때만 쓴다(서버 저장소 dev-local 묶음의 기본 이름)
-const PG = {
-  container: process.env.TW_E2E_PG_CONTAINER || 'tw-dev-local-postgres-1',
-  user: process.env.TW_E2E_PG_USER || 'tw_api_dev',
-  db: process.env.TW_E2E_PG_DB || 'tw_dev',
-};
+// 로컬 묶음의 DB 컨테이너 — 시드 SQL 을 넣을 때만 쓴다(다른 묶음 kit 과 같은 TW_E2E_PG)
+const PG = process.env.TW_E2E_PG || 'tw-dev-local-postgres-1';
 
 // seed/<file> 을 psql 로 넣는다 — vars 는 psql -v 이름=값
 function seedSql(file, vars){
-  const args = ['exec', '-i', PG.container, 'psql', '-v', 'ON_ERROR_STOP=1', '-U', PG.user, '-d', PG.db];
+  const args = ['exec', '-i', PG, 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'tw_api_dev', '-d', 'tw_dev'];
   for(const [k, v] of Object.entries(vars || {})) args.push('-v', `${k}=${v}`);
   args.push('-f', '-');
   return docker(args, fs.readFileSync(path.join(__dirname, '..', '..', 'seed', file)));
@@ -93,7 +89,7 @@ function scenario(name, body){
   const out = path.join(OUT_ROOT, area, name);
   killLeft(out);
   fs.rmSync(out, { recursive: true, force: true });
-  if(!process.env.TW_E2E_INVITE) seedSql('social-invite.sql');   // 이 묶음 초대 코드(있으면 그대로)
+  if(!process.env.TW_E2E_INVITE) seedSql('core-invite.sql', { code: INVITE });   // 이 묶음 초대 코드(있으면 그대로)
   fs.mkdirSync(out, { recursive: true });
   const steps = [];
   const users = [];
@@ -308,9 +304,9 @@ async function stubFileDialog(u, filePath){
   await u.A.app.evaluate(({ dialog }, fp) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [fp] }); }, filePath);
 }
 
-// 관리자로 만들고(seed/social.sql) 앱을 다시 켠다 — 관리자는 프리미엄(라이선스 기능)이 붙는다
+// 관리자로 만들고(seed/admin.sql) 앱을 다시 켠다 — 관리자는 프리미엄(라이선스 기능)이 붙는다
 async function makeAdmin(u){
-  seedSql('social.sql', { uid: await u.uid() });
+  seedSql('admin.sql', { uid: await u.uid() });
   // 서버가 관리자 목록을 잠깐 기억해 두는지 바로 안 바뀔 때가 있다 — /v2/me 가 관리자 · 프리미엄이 될 때까지(최대 60초) 본 뒤 앱을 다시 켠다
   let me;
   for(let i = 0; i < 120; i++){ me = (await u.api('GET', '/v2/me')).json.data; if(me.admin && me.premium) break; await wait(500); }

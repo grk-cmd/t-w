@@ -14,7 +14,7 @@ scenario('mallang-gift', async (t) => {
     assert(!(await a.shown('#mlFolder')), '라이선스 없는데 말랑이 폴더가 보임');
   });
 
-  await t.step('준비: a 를 관리자(프리미엄)로 — seed/social.sql · 다시 켜기', () => makeAdmin(a));
+  await t.step('준비: a 를 관리자(프리미엄)로 — seed/admin.sql · 다시 켜기', () => makeAdmin(a));
 
   await t.step('a: 말랑이 폴더 우클릭 → 칸 → 그림 등록 → 서버 칸 1', async () => {
     await openMyHome(a, 'home');
