@@ -98,13 +98,15 @@ function runStack(ws) {
   const doc = { body, getElementById: (id) => els[id] || null, addEventListener: (t, f) => { (L[t] = L[t] || []).push(f); }, querySelector: () => null };
   class MO { constructor(cb) { this.cb = cb; obs.push(this); } observe(el) { this.el = el; } disconnect() { this.el = null; } }
   const win = {};
-  const api = new Function('window', 'document', 'MutationObserver', 'getComputedStyle', 'module', ws + '\nreturn window.TwWinStack;')(win, doc, MO, (el) => ({ display: el.shown ? 'block' : 'none', visibility: 'visible' }), undefined);
+  const api = new Function('window', 'document', 'MutationObserver', 'getComputedStyle', 'module', ws + '\nreturn window.TwWinStack;')(win, doc, MO, (el) => ({ display: el.shown ? 'block' : 'none', visibility: el.invisible ? 'hidden' : 'visible' }), undefined);
   const out = api.createWinStack({});
   const show = (id, v) => { els[id].shown = v; obs.filter((o) => o.el === els[id]).forEach((o) => o.cb([])); };
   const press = (id) => (L.pointerdown || []).forEach((f) => f({ composedPath: () => [els[id], doc], target: els[id] }));
   /* 처음 열 때 만들어 body 에 붙는 창(동물 만들기) — 붙인 뒤 body 관찰을 부른다 */
   const append = (id, shown) => { mk(id).shown = !!shown; obs.filter((o) => o.el === body).forEach((o) => o.cb([])); };
-  return { els, show, press, append, out, z: (id) => parseInt(els[id].style.zIndex, 10) || 0 };
+  /* ESC 를 누른다 — 창 쌓기가 받아 닫았으면 true(옛 핸들러에게 안 넘김) */
+  const esc = () => { let taken = false; (L.keydown || []).forEach((f) => f({ key: 'Escape', defaultPrevented: false, target: body, preventDefault: () => { taken = true; }, stopPropagation: () => {} })); return taken; };
+  return { els, show, press, append, esc, out, z: (id) => parseInt(els[id].style.zIndex, 10) || 0 };
 }
 function judgeStack(ws) {
   const r = [];
@@ -151,6 +153,19 @@ function judgeStack(ws) {
   v.show('creatorOverlay', true); v.show('creatorOverlay', false);
   v.append('animalCreatorOverlay', true);
   t(v.z('animalCreatorOverlay') > v.z('chatOverlay') && v.z('animalCreatorOverlay') > v.z('myHomeOverlay'), '★ 사람 편집이 맨 앞인 채 붙은 동물 창도 맨 앞(묶음의 높은 숫자를 «이미 맨 앞» 으로 보지 않는다)');
+  /* ESC — 열려 있어도 안 보이는 창(편집 중 숨긴 마이홈)은 건너뛴다 */
+  const e = runStack(ws), closed = [];
+  const reg = (id) => e.out.escRegisterWindow({ key: id, el: e.els[id], isOpen: () => e.els[id].shown, close: () => { closed.push(id); e.show(id, false); } });
+  ['focusLogOverlay', 'myHomeOverlay'].forEach(reg);
+  e.show('focusLogOverlay', true); e.show('myHomeOverlay', true);
+  e.els.myHomeOverlay.invisible = true;   // 편집 창이 열려 마이홈이 숨음
+  const took1 = e.esc();
+  t(closed.join() === 'focusLogOverlay' && took1, '★ 편집 중 ESC — 숨긴 마이홈은 남기고 그 아래 보이는 창(포커스 기록)을 닫는다');
+  const took2 = e.esc();
+  t(closed.join() === 'focusLogOverlay' && !took2 && e.els.myHomeOverlay.shown, '  ↳ 보이는 창이 없으면 아무것도 안 닫고 옛 핸들러에게 넘긴다(숨긴 마이홈은 그대로)');
+  e.els.myHomeOverlay.invisible = false;   // 편집 창을 닫음
+  const took3 = e.esc();
+  t(closed.join() === 'focusLogOverlay,myHomeOverlay' && took3, '  ↳ 편집 창을 닫아 다시 보이면 ESC 가 마이홈을 닫는다');
   return r;
 }
 
@@ -185,6 +200,7 @@ const breaks = [
   ['나중에 붙는 창 관찰 없앰', null, (w) => w.replace('late.observe(document.body, { childList:true });', '')],
   ['열면 맨 앞 규칙 없앰', null, (w) => w.replace('if(now && !shown) bringWinToFront(id);', '')],
   ['칸 숫자를 묶음의 가장 높은 창으로', null, (w) => w.replace('Math.min(..._winSlotEls(slot).map(_winZOf))', 'Math.max(0, ..._winSlotEls(slot).map(_winZOf))')],
+  ['ESC 가 안 보이는 창도 닫음', null, (w) => w.replace('if(w && _escShown(w)) return w;', 'if(w) return w;')],
   ['천장에서 올리는 창까지 다시 매김', null, (w) => w.replace('.filter(x=>x!==slot && _winSlotEls(x).length)', '.filter(x=>_winSlotEls(x).length)')],
 ];
 for (const [name, f, fw] of breaks) {
