@@ -4,7 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { makeApp, wait, quietProblems, API_HOST, APP_DIR } = require('../../lib.js');
+const { makeApp, wait, quietProblems, docker, API_HOST, APP_DIR } = require('../../lib.js');
 
 // 결과 폴더 — run-all 이 `node <파일> <결과 폴더>` 로 넘긴다. 따로 돌리면 <TW_E2E_OUT 또는 /tmp/tw-e2e>/core/<이름>
 const ROOT = path.join(process.env.TW_E2E_OUT || '/tmp/tw-e2e', 'core');
@@ -17,29 +17,20 @@ const RT = process.env.TW_E2E_RT || 'tw-dev-local-rooms-dev-1';
 // 기본값을 두지 않는다 — 비어 있으면 컨테이너를 건드리는 시나리오가 시작 전에 멈춘다
 const LOCK = process.env.TW_E2E_STACK_LOCK || '';
 
-function docker(args, opts){
-  const env = Object.assign({}, process.env);
-  // /var/run/docker.sock 이 꺼진 Docker Desktop 을 가리킬 수 있다 — OrbStack 소켓이 있으면 그쪽
-  const orb = path.join(process.env.HOME || '', '.orbstack/run/docker.sock');
-  if(!env.DOCKER_HOST && fs.existsSync(orb)) env.DOCKER_HOST = 'unix://' + orb;
-  return execFileSync('docker', args, Object.assign({ env, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }, opts || {}));
-}
-
 // psql 한 번 — 결과는 칸 구분 '|' 줄들(머리 없음)
 function sql(query){
-  return docker(['exec', '-i', PG, 'psql', '-U', 'tw_api_dev', '-d', 'tw_dev', '-v', 'ON_ERROR_STOP=1', '-At', '-F', '|'], { input: query }).trim();
+  return docker(['exec', '-i', PG, 'psql', '-U', 'tw_api_dev', '-d', 'tw_dev', '-v', 'ON_ERROR_STOP=1', '-At', '-F', '|'], query).trim();
 }
 // seed/ 의 SQL 파일을 :'이름' 변수와 함께 돌린다
 function seed(file, vars){
   const args = ['exec', '-i', PG, 'psql', '-U', 'tw_api_dev', '-d', 'tw_dev', '-v', 'ON_ERROR_STOP=1', '-At'];
   for(const [k, v] of Object.entries(vars || {})) args.push('-v', `${k}=${v}`);
-  return docker(args, { input: fs.readFileSync(path.join(__dirname, '..', '..', 'seed', file), 'utf8') }).trim();
+  return docker(args, fs.readFileSync(path.join(__dirname, '..', '..', 'seed', file), 'utf8')).trim();
 }
 
 // 앱(Electron)을 켜는 동안만 잡는 실행 잠금 — 네 묶음이 같이 쓰는 runlock.js(TW_E2E_RUN_LOCK · run-all 이 들고 있으면 다시 안 잡음)
-const { acquire } = require('../../runlock.js');
-// 조용한 창이 깨졌다는 표(모든 묶음이 본다) — 실행 잠금 폴더 옆 e2e-quiet-fail. 있으면 시나리오를 시작하지 않는다
-const QUIET_FAIL = process.env.TW_E2E_RUN_LOCK ? path.join(path.dirname(process.env.TW_E2E_RUN_LOCK), 'e2e-quiet-fail') : '';
+// 조용한 창이 깨졌다는 표(모든 묶음이 본다 · 자리는 runlock.js 한 곳). 있으면 시나리오를 시작하지 않는다
+const { acquire, QUIET_FAIL, markQuietFail } = require('../../runlock.js');
 const quietFailed = () => !!QUIET_FAIL && fs.existsSync(QUIET_FAIL);
 
 async function withStackLock(fn, maxWaitMs = 600000){
@@ -109,7 +100,7 @@ async function hardQuit(A){
 const LAUNCH_MARK = '--- launch ---';
 const isLeak = (e) => /주소 돌리기가 안 걸림|진짜 서버로 나간 요청/.test(String(e && e.message));
 function flagLeak(A, why){
-  if(QUIET_FAIL) try { fs.writeFileSync(QUIET_FAIL, new Date().toISOString() + ' e2e-core ' + A.out + ': ' + why + '\n', { flag: 'a' }); } catch(_){}
+  markQuietFail('e2e-core ' + A.out + ': ' + why);
 }
 async function launchRetry(A){
   for(let i = 0; ; i++){
@@ -218,7 +209,7 @@ function run(name, body){
         if(!bad.length) continue;
         const msg = `e2e-core ${name} (${path.basename(a.out)}): ` + bad.join(' / ');
         for(const x of apps) await hardQuit(x);
-        if(QUIET_FAIL) try { fs.writeFileSync(QUIET_FAIL, new Date().toISOString() + ' ' + msg + '\n', { flag: 'a' }); } catch(_){}
+        markQuietFail(msg);
         throw new Error('조용한 창이 깨짐: ' + msg);
       }
     },
