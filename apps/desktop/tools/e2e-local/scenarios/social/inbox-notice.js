@@ -43,14 +43,24 @@ scenario('inbox-notice', async (t) => {
     assert(!m, '지운 우편이 서버에 남음');
   });
 
-  await t.step('관리자 공지(소식) → b 📢 소식 칸', async () => {
-    const r = await a.api('POST', '/v2/admin/notices/broadcasts', { requestId: 'e2e-news-' + tag, tag: 'NOTICE', title: NEWS, body: '공지 본문 ' + tag });
-    assert(r.status === 200, '공지 올리기 ' + r.status + ' ' + JSON.stringify(r.json));
-    await b.w.click('#mhInboxRail .mh-ibx-sec[data-sec="news"]');
-    await b.until((x) => [...document.querySelectorAll('#mhNewsList .mh-news-item.unread .mh-news-title')].some((e) => e.textContent === x), NEWS, { timeout: 75000, what: '소식 줄' });   // 전체 공지는 realtime 이 모두에게 0~60초 사이로 흩어 보낸다(ALL_NOTIFY_SPREAD_MS) — 그보다 길게 기다린다
-    await b.w.locator('#mhNewsList .mh-news-item', { hasText: NEWS }).click();
-    await b.until((x) => [...document.querySelectorAll('#mhNewsList .mh-news-item.read .mh-news-title')].some((e) => e.textContent === x), NEWS, { what: '소식 읽음' });
-    const body = await b.text('#mhNewsView');
-    assert(body && body.includes('공지 본문 ' + tag), '소식 본문 ' + (body || '').slice(0, 100));
-  });
+  // 📢 소식은 로컬 스택의 모든 계정이 보는 공지 판에 남는다 — 앞 단계가 실패해도 끝에 내리고, 못 내리면 «정리» 단계가 실패한다
+  let news = null;
+  try {
+    await t.step('관리자 공지(소식) → b 📢 소식 칸', async () => {
+      const r = await a.api('POST', '/v2/admin/notices/broadcasts', { requestId: 'e2e-news-' + tag, tag: 'NOTICE', title: NEWS, body: '공지 본문 ' + tag });
+      assert(r.status === 200, '공지 올리기 ' + r.status + ' ' + JSON.stringify(r.json));
+      news = r.json && r.json.data;
+      await b.w.click('#mhInboxRail .mh-ibx-sec[data-sec="news"]');
+      await b.until((x) => [...document.querySelectorAll('#mhNewsList .mh-news-item.unread .mh-news-title')].some((e) => e.textContent === x), NEWS, { timeout: 75000, what: '소식 줄' });   // 전체 공지는 realtime 이 모두에게 0~60초 사이로 흩어 보낸다(ALL_NOTIFY_SPREAD_MS) — 그보다 길게 기다린다
+      await b.w.locator('#mhNewsList .mh-news-item', { hasText: NEWS }).click();
+      await b.until((x) => [...document.querySelectorAll('#mhNewsList .mh-news-item.read .mh-news-title')].some((e) => e.textContent === x), NEWS, { what: '소식 읽음' });
+      const body = await b.text('#mhNewsView');
+      assert(body && body.includes('공지 본문 ' + tag), '소식 본문 ' + (body || '').slice(0, 100));
+    });
+  } finally {
+    if(news && news.id) await t.step('정리: 시험 소식 내리기', async () => {
+      const r = await a.api('DELETE', '/v2/admin/notices/broadcasts/' + encodeURIComponent(news.id) + '?version=' + encodeURIComponent(news.version || 0));
+      assert(r.status >= 200 && r.status < 300, '소식 내리기 ' + r.status + ' ' + JSON.stringify(r.json));
+    });
+  }
 });
