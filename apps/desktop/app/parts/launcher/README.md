@@ -210,6 +210,7 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 | 15 | licensePremium | 🔑 프리미엄 판정 반영(서버 확인) · 라이선스 알림 받기 |
 | 16 | adminMode | 🔐 세션이 끝나면 관리자 모드를 조용히 끈다(`twNav.go(NAV.ADMIN_EXIT)` → admin-mode 가 끈다 — 요청 0 · 비우기만 세션에) |
 | 17 | firstRun | 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기) |
+| 18 | licenseAutoRegister | 🔑 계정 라이선스에 이 기기 자동 등록 — 첫 실행이 끝나거나 멈춘 뒤 한 번(`licensePremium.autoRegisterAfter(firstRunMod.licenseDone())` — 0.12 키로 첫 실행이 등록을 해 봤으면 건너뜀) |
 
 **내놓는 것** — `begin(me)`(보통은 nav 로 불린다) · `getSession()`(들어가기 전·못 열었으면 null). 두 번 불러도 두 번째는 아무것도 안 하고 `false`(콘솔 경고). 한 칸이 던져도(동기 · 비동기) 다음 칸은 돈다.
 

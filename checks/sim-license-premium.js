@@ -59,22 +59,23 @@ function env(src, o){
     storage: { getItem: (k) => (e.store.has(k) ? e.store.get(k) : null), setItem: (k, v) => { e.store.set(k, String(v)); }, removeItem: (k) => { e.store.delete(k); } },
     toast: (m) => { e.toasts.push(m); },
     toastFull: (m) => { e.toasts.push(m); e.fulls.push(m); },
-    legacyKeyName: 'tw.licenseKey',
   });
   e.mod = mod;
+  e.boot = async (me, took) => { const r = await mod.start(me); const a = await mod.autoRegisterAfter(took === true); return r || a; };   // 켜는 차례 — licensePremium 칸 → … → firstRun → licenseAutoRegister 칸
   e.push = () => e.handlers.filter(([k]) => k === 'license').forEach(([, f]) => f({ kind: 'license' }));
   return e;
 }
 
 async function judge(S){
   const rows = [];
+  let e2;
   const t = (ok, msg) => rows.push([!!ok, msg]);
   const LP = S.LP;
 
   /* 1. 켤 때 반영 */
   {
     let e = env(LP, { me: [ME(true)], mine: lic([ID]) });
-    const r = await e.mod.start(ME(true));
+    const r = await e.boot(ME(true));
     t(r === true && e.sets.join() === 'true' && !e.calls.includes('mine') && !e.calls.includes('me'), '프리미엄 참 → 알린다(참) 한 번 · 내 라이선스를 읽지도 확인을 다시 묻지도 않는다');
     t(e.handlers.length === 1 && e.handlers[0][0] === 'license', '  서버 알림 license 를 건다(한 번)');
 
@@ -82,36 +83,36 @@ async function judge(S){
     const puts = (x) => x.calls.filter((c) => c.startsWith('put:')).length;
     e = env(LP, { me: [ME(true)], mine: lic(['dev-other001']) });
     e.putPremium = true;
-    let r1 = await e.mod.start(ME(false));
+    let r1 = await e.boot(ME(false));
     e.push(); await tick(); await tick(); await tick();
     t(r1 === true && e.calls.slice(0, 2).join() === 'mine,put:' + ID + ':' + NAME && e.sets.slice(0, 2).join() === 'false,true' && e.premium === true,
       '★ 라이선스는 있는데 이 기기만 목록에 없는 새 PC → 읽고 · [이 기기 등록] 과 같은 PUT 하나 → 프리미엄 켬(0.12 와 같게)');
     t(e.toasts.length === 1 && e.toasts[0] === AUTO && e.notes.length === 0 && puts(e) === 1, '  ↳ 토스트 «' + AUTO + '» 한 번 · 알림 뒤에도 다시 등록하지 않는다');
 
     e = env(LP, { me: [ME(true)], mine: lic(['dev-other001']) });
-    await e.mod.start(ME(false)); await tick();
+    await e.boot(ME(false)); await tick();
     t(e.calls.filter((c) => c === 'me').length === 1 && e.premium === true && e.toasts.length === 1, '  ↳ PUT 응답에 premium 이 없으면 GET /v2/me 로 한 번 더 묻고 켠다');
 
     e = env(LP, { me: [ME(false)], mine: lic(['dev-other001']), opt: 'id:L' });
-    t((await e.mod.start(ME(false))) === false && puts(e) === 0 && e.toasts.length === 0 && e.sets.join() === 'false', '★ 이 라이선스를 이 기기에서 해제했다(tw.licenseOptOut = id:라이선스 id) → 등록 0 · 토스트 0');
+    t((await e.boot(ME(false))) === false && puts(e) === 0 && e.toasts.length === 0 && e.sets.join() === 'false', '★ 이 라이선스를 이 기기에서 해제했다(tw.licenseOptOut = id:라이선스 id) → 등록 0 · 토스트 0');
     e = env(LP, { me: [ME(false)], mine: lic(['dev-other001']), opt: 'ABCD-EFGH-JKLM-NPQR' });
-    await e.mod.start(ME(false));
+    await e.boot(ME(false));
     t(puts(e) === 0 && e.toasts.length === 0 && e.store.get('tw.licenseOptOut') === 'id:L', '★ 0.12 가 남긴 해제 표시(키 글자) → 등록 0 · 지금 라이선스 id 로 바꿔 적는다');
     e = env(LP, { me: [ME(false)], mine: lic(['dev-other001']), opt: 'id:OTHER' });
     e.putPremium = true;
-    await e.mod.start(ME(false));
+    await e.boot(ME(false));
     t(puts(e) === 1 && e.premium === true && e.toasts.length === 1, '  ↳ 다른 라이선스를 해제한 표시(다른 계정 · 새 라이선스) → 등록한다');
 
     e = env(LP, { me: [ME(false)], mine: null });
-    t((await e.mod.start(ME(false))) === false && e.calls.join() === 'mine' && e.toasts.length === 0 && e.notes.length === 0, '★ 계정에 라이선스가 없음 → 읽기 하나뿐 · 등록 0 · 토스트 0');
+    t((await e.boot(ME(false))) === false && e.calls.join() === 'mine' && e.toasts.length === 0 && e.notes.length === 0, '★ 계정에 라이선스가 없음 → 읽기 하나뿐 · 등록 0 · 토스트 0');
     e = env(LP, { me: [ME(false)], mine: lic(['dev-other001'], 'REVOKED') });
-    await e.mod.start(ME(false));
+    await e.boot(ME(false));
     t(puts(e) === 0 && e.toasts.length === 0, '  ↳ 회수된 라이선스 → 등록 0');
     e = env(LP, { me: [ME(false)], mine: lic([ID]) });
-    await e.mod.start(ME(false));
+    await e.boot(ME(false));
     t(puts(e) === 0 && e.toasts.length === 0 && e.premium === false, '  ↳ 이 기기가 이미 목록에 있는데 아님 → 서버 판정 그대로(등록 0)');
     e = env(LP, { me: [ME(false)], mine: apiErr(503, '', 'unavailable') });
-    await e.mod.start(ME(false));
+    await e.boot(ME(false));
     t(puts(e) === 0 && e.notes.length === 0 && e.toasts.length === 0, '  ↳ 라이선스를 못 읽음 → 등록 0 · 번호 0');
 
     /* 0.12 해제 표시는 한 번만 — 바꾸지 않는 갈래에서는 지운다(다른 계정에 남지 않게) */
@@ -119,30 +120,30 @@ async function judge(S){
     {
       const store = new Map([['tw.licenseOptOut', LEG]]);
       e = env(LP, { me: [ME(false)], mine: null, store });
-      await e.mod.start(ME(false));
+      await e.boot(ME(false));
       t(!store.has('tw.licenseOptOut') && puts(e) === 0, '★ 0.12 해제 표시 + 계정에 라이선스 없음 → 표시를 지운다(등록 0)');
       e = env(LP, { me: [ME(false)], mine: lic(['dev-other001']), store });
       e.putPremium = true;
-      await e.mod.start(ME(false));
+      await e.boot(ME(false));
       t(puts(e) === 1 && e.premium === true && e.toasts.length === 1, '  ↳ 같은 PC 에 다음 계정(유효 · 이 기기 없음) → 앞 계정의 0.12 표시에 막히지 않고 자동 등록');
     }
     for(const [what, o2, pre] of [['회수됨', { mine: lic(['dev-other001'], 'REVOKED') }, false], ['이미 목록에 있음', { mine: lic([ID]) }, false], ['이미 프리미엄', { mine: lic([ID]) }, true]]){
       const store = new Map([['tw.licenseOptOut', LEG]]);
       e = env(LP, Object.assign({ me: [ME(pre)], store }, o2));
-      await e.mod.start(ME(pre));
+      await e.boot(ME(pre));
       t(!store.has('tw.licenseOptOut') && puts(e) === 0, '  ↳ 0.12 표시 + ' + what + ' → 지운다');
     }
     {
       const store = new Map([['tw.licenseOptOut', LEG]]);
       e = env(LP, { me: [ME(false)], mine: apiErr(503, '', 'unavailable'), store });
-      await e.mod.start(ME(false));
+      await e.boot(ME(false));
       t(store.get('tw.licenseOptOut') === LEG, '  ↳ 라이선스를 못 읽음 → 0.12 표시 그대로(다음 켜기에 가른다)');
       e = env(LP, { me: [ME(false)], store, mine: (x) => { x.store.delete('tw.licenseOptOut'); return lic(['dev-other001']); } });
-      await e.mod.start(ME(false));
+      await e.boot(ME(false));
       t(!store.has('tw.licenseOptOut') && puts(e) === 0, '★ 읽는 사이 키 등록이 표시를 지웠다 → 옛 값을 다시 적지 않는다');
       store.set('tw.licenseOptOut', LEG);
       e = env(LP, { me: [ME(false)], mine: null, store });
-      const pend = e.mod.start(ME(false));
+      const pend = e.boot(ME(false));
       const seen = e.mod.optOutAtStart();
       await pend;
       t(seen && seen.legacyKey === 'ABCD-EFGH-JKLM-NPQR' && !store.has('tw.licenseOptOut') && e.mod.optOutAtStart() === seen, '★ optOutAtStart — 켤 때 본 0.12 값(다듬고 대문자)을 지운 뒤에도 그대로 준다(첫 실행이 같은 값으로 가른다)');
@@ -153,19 +154,19 @@ async function judge(S){
       const FULL = '라이선스 기기를 모두 썼어요 — 설정 › 라이선스에서 하나를 빼면 이 PC를 등록할 수 있어요';
       const store = new Map();
       e = env(LP, { me: [ME(false)], mine: lic(['a', 'b', 'c']), putError: apiErr(409, 'LICENSE_DEVICE_FULL'), store });
-      const rr = await e.mod.start(ME(false));
+      const rr = await e.boot(ME(false));
       e.push(); e.push(); await tick(); await tick(); await tick(); await tick();
       t(rr === false && puts(e) === 1 && e.toasts.join() === FULL && e.notes.length === 0 && e.premium === false && e.fulls.length === 1 && store.get('tw.licenseFullNoticed') === '["L"]',
         '★ 기기 가득(409 LICENSE_DEVICE_FULL) → PUT 한 번뿐 · 안내 토스트 «' + FULL + '» 한 번 · 번호 0 · 아님 그대로');
       e = env(LP, { me: [ME(false)], mine: lic(['a', 'b', 'c']), putError: apiErr(409, 'LICENSE_DEVICE_FULL'), store });
-      await e.mod.start(ME(false));
+      await e.boot(ME(false));
       t(puts(e) === 1 && e.toasts.length === 0, '★ 다음 켜기 — 같은 라이선스 → 다시 해 보지만 안내는 다시 안 띄운다');
       e = env(LP, { me: [ME(true)], mine: lic([ID]), store }); e.putPremium = true;
       await e.mod.registerDevice();
       t(!store.has('tw.licenseFullNoticed'), '★ [이 기기 등록] 이 되면 안내 기록을 지운다');
       store.set('tw.licenseFullNoticed', '["L"]');
       e = env(LP, { me: [ME(false)], mine: lic(['dev-other001']), store }); e.putPremium = true;
-      await e.mod.start(ME(false));
+      await e.boot(ME(false));
       t(!store.has('tw.licenseFullNoticed'), '  ↳ 자동 등록이 되어도 지운다');
       store.set('tw.licenseFullNoticed', '["L"]');
       e = env(LP, { me: [ME(true)], mine: null, regPremium: true, store });
@@ -174,7 +175,7 @@ async function judge(S){
 
       /* 계정 A → B → A — 안내한 라이선스를 여럿 기억한다 */
       const licOf = (id) => Object.assign(lic(['a', 'b', 'c']), { licenseId: id });
-      const fullStart = async (id) => { const x = env(LP, { me: [ME(false)], mine: licOf(id), putError: apiErr(409, 'LICENSE_DEVICE_FULL'), store }); await x.mod.start(ME(false)); return x.fulls.length; };
+      const fullStart = async (id) => { const x = env(LP, { me: [ME(false)], mine: licOf(id), putError: apiErr(409, 'LICENSE_DEVICE_FULL'), store }); await x.boot(ME(false)); return x.fulls.length; };
       store.clear();
       const ab = [await fullStart('A'), await fullStart('B'), await fullStart('A'), await fullStart('B')];
       t(ab.join() === '1,1,0,0' && store.get('tw.licenseFullNoticed') === '["A","B"]', '★ 계정 A → B → A → B(둘 다 기기 가득) → 라이선스마다 한 번씩만(' + ab.join() + ')');
@@ -201,7 +202,10 @@ async function judge(S){
         const x = env(LP, Object.assign({ me: [ME(false)], mine: lic(['a', 'b', 'c']), legacyKey: true, register: apiErr(409, 'LICENSE_DEVICE_FULL'), putError: apiErr(409, 'LICENSE_DEVICE_FULL'), store }, opts || {}));
         const step = FR({ storage: { getItem: (k) => (store.has(k) ? store.get(k) : null) }, activate: (k) => x.mod.activate(k),
           optOut: () => x.mod.optOutAtStart(), optOutKey: LPX.OPT_OUT_KEY, fullNotice: LPX.FULL_NOTICE });
-        const [, r] = await Promise.all([x.mod.start(ME(false)), step()]);
+        await x.mod.start(ME(false));   // licensePremium 칸
+        let tookIs; const took = new Promise((ok) => { tookIs = ok; });
+        const auto = x.mod.autoRegisterAfter(took);   // licenseAutoRegister 칸 — 첫 실행이 끝나기를 기다린다
+        const r = await step(); tookIs(!!(r && r.took)); await auto;
         if(r && r.notice) x.toasts.push(r.notice);   // 첫 실행 notify 가 띄우는 토스트
         if(r && r.ok) for(const k of r.wipe || []) store.delete(k);   // 첫 실행이 끝나며 지운다
         return { x, r };
@@ -213,19 +217,28 @@ async function judge(S){
         '★ 0.12 키 + 기기 가득 · 자동 등록과 첫 실행이 나란히 돎 → 쓰기 요청 하나(첫 실행의 키 등록) · 안내 하나([설정 열기] 달린 같은 글) — ' + writes.join(' ') + ' · 토스트 ' + x.toasts.length);
       t(store.get('tw.licenseFullNoticed') === '["L"]', '  ↳ 첫 실행의 기기 가득도 같은 기억에 적는다');
       x = env(LP, { me: [ME(false)], mine: lic(['a', 'b', 'c']), putError: apiErr(409, 'LICENSE_DEVICE_FULL'), store });
-      await x.mod.start(ME(false));
+      await x.boot(ME(false));
       t(puts(x) === 1 && x.toasts.length === 0, '  ↳ 키를 지운 다음 켜기 — 자동 등록이 해 보지만 같은 라이선스라 안내 0');
       ({ x, r } = await side(store));
       t(x.toasts.length === 0 && !r.notice, '  ↳ 이미 안내한 라이선스면 첫 실행도 안내 0(showFull false)');
-      x = env(LP, { me: [ME(false)], mine: lic(['dev-other001']), legacyKey: true });
-      await x.mod.start(ME(false));
-      t(x.calls.length === 0, '★ 0.12 키가 남은 동안 켤 때 자동 등록은 요청 0(첫 실행이 맡는다)');
-      x = env(LP, { me: [ME(false)], mine: lic(['dev-other001']), legacyKey: '   ' }); x.putPremium = true;
-      await x.mod.start(ME(false));
-      t(puts(x) === 1, '  ↳ 빈 키 칸이면 비켜서지 않는다');
+      x = env(LP, { me: [ME(false)], mine: lic(['dev-other001']) });
+      await x.boot(ME(false), true);
+      t(x.calls.length === 0, '★ 첫 실행이 0.12 키로 등록을 해 봤다(took) → 자동 등록 요청 0(주인은 첫 실행)');
+      x = env(LP, { me: [ME(false)], mine: lic(['dev-other001']) }); x.putPremium = true;
+      await x.boot(ME(false), false);
+      t(puts(x) === 1 && x.toasts.length === 1, '  ↳ 첫 실행이 등록하지 않았다(키 없음 · 해제한 키 · 멈춤) → 자동 등록이 한다');
+      x = env(LP, { me: [ME(false)], mine: lic(['dev-other001']) });
+      await x.mod.start(ME(false)); await tick(); await tick();
+      t(x.calls.length === 0, '★ start 만으로는 요청 0 — 자동 등록은 첫 실행 뒤 칸(autoRegisterAfter)에서');
+      x = env(LP, { me: [ME(false)], mine: lic(['dev-other001']), putError: apiErr(503, '', 'unavailable') });
+      await x.boot(ME(false)); await x.mod.autoRegisterAfter(false);
+      t(puts(x) === 1 && x.calls.filter((c) => c === 'mine').length === 1, '  ↳ autoRegisterAfter 를 두 번 불러도 한 번만(실패한 뒤에도 다시 안 함)');
+      x = env(LP, { me: [ME(false)], mine: lic(['dev-other001']) }); x.putPremium = true;
+      await x.mod.autoRegisterAfter(false);
+      t(x.calls.length === 0, '  ↳ start 전에 부르면 아무것도 안 함');
     }
     e = env(LP, { me: [ME(false)], mine: lic(['a', 'b', 'c']), putError: apiErr(503, '', 'unavailable') });
-    const r5 = await e.mod.start(ME(false));
+    const r5 = await e.boot(ME(false));
     e.push(); e.push(); await tick(); await tick(); await tick(); await tick();
     t(r5 === false && puts(e) === 1 && e.toasts.length === 0 && e.notes.length === 0 && e.premium === false && !e.store.has('tw.licenseFullNoticed'),
       '★ 그 밖 거절(5xx) → PUT 한 번뿐(알림 뒤에도 다시 안 함) · 토스트 0 · 번호 0 · 아님 그대로');
@@ -234,15 +247,32 @@ async function judge(S){
       let release; const slow = new Promise((r) => { release = r; });
       e = env(LP, { me: [ME(true)], mine: lic(['dev-other001']), onPut: () => slow });
       e.putPremium = true;
-      const p = e.mod.start(ME(false)); await tick(); await tick();
+      const p = e.boot(ME(false)); await tick(); await tick();
       e.mod.reset(); release(); await p; await tick();
       t(puts(e) === 1 && e.toasts.length === 0 && e.premium === false && !e.sets.includes(true), '★ PUT 을 기다리는 동안 계정이 바뀜(reset) → 프리미엄 반영 0 · 토스트 0');
     }
 
     {
       let release; const slow = new Promise((r) => { release = r; });
+      const store = new Map();
+      e = env(LP, { me: [ME(false)], mine: lic(['a', 'b', 'c']), putError: apiErr(409, 'LICENSE_DEVICE_FULL'), onPut: () => slow, store });
+      const p = e.boot(ME(false)); await tick(); await tick(); await tick();
+      e.mod.reset(); release(); await p; await tick();
+      t(puts(e) === 1 && e.toasts.length === 0 && !store.has('tw.licenseFullNoticed'), '★ 기기 가득으로 거절되는 PUT 을 기다리는 동안 계정이 바뀜(reset) → 옛 세션의 기억 쓰기 0 · 토스트 0');
+    }
+    for(const bad of ['', undefined]){
+      const store = new Map();
+      e = env(LP, { me: [ME(false)], mine: Object.assign(lic(['a', 'b', 'c']), { licenseId: bad }), putError: apiErr(409, 'LICENSE_DEVICE_FULL'), store });
+      await e.boot(ME(false));
+      e2 = env(LP, { me: [ME(false)], mine: Object.assign(lic(['a', 'b', 'c']), { licenseId: bad }), register: apiErr(409, 'LICENSE_DEVICE_FULL'), store });
+      const ra = await e2.mod.activate('KEY');
+      t(e.toasts.length === 0 && !store.has('tw.licenseFullNoticed') && ra.showFull === false, '★ 라이선스 id 가 ' + JSON.stringify(bad) + ' → 기기 가득 기억 · 안내 없음([null] 같은 값을 적지 않는다 · 첫 실행도 안내 0)');
+    }
+
+    {
+      let release; const slow = new Promise((r) => { release = r; });
       e = env(LP, { me: [ME(false)], mine: () => slow });
-      const p = e.mod.start(ME(false)); await tick();
+      const p = e.boot(ME(false)); await tick();
       e.mod.reset(); release(lic(['dev-other001'])); await p; await tick();
       t(puts(e) === 0 && e.toasts.length === 0, '★ 라이선스를 읽는 동안 계정이 바뀜(reset) → 옛 계정으로 등록 0');
     }
@@ -378,7 +408,7 @@ async function judge(S){
     t(!e.calls.some((c) => c.startsWith('put:')) && e.store.get('tw.licenseOptOut') === 'id:L', '  ↳ 해제 표시(id:라이선스 id)를 적는다 — 다음에 켜도 자동 등록하지 않는다 · 해제 직후 다시 등록 0');
     e = env(LP, { me: [ME(false)], mine: lic(['dev-other001']), remPremium: false, premium: true });
     await e.mod.deactivate({ ownerKnown: true });
-    e.mod.reset(); await e.mod.start(ME(false));
+    e.mod.reset(); await e.boot(ME(false));
     t(!e.calls.some((c) => c.startsWith('put:')) && e.toasts.length === 0, '★ 해제 → 다음 켜기 → 자동 등록 0(0.12 «이 기기에서 해제» 와 같게)');
     e = env(LP, { me: [ME(true)], mine: null, regPremium: true, opt: 'id:L' });
     await e.mod.activate('KEY');
@@ -439,7 +469,7 @@ async function judge(S){
         userApi: { me: async () => ME(o.premium) }, licenseApi: { mine: async () => null, putDevice: async () => lic([ID]), register: async () => lic([ID]), removeDevice: async () => lic([]), reasonOf: () => null },
         deviceId: () => ID, deviceName: () => NAME, setPremium: (v) => asApi._setPremium(v), isPremium: () => world.premium,
         rtOn: () => () => {}, notifyError: () => {}, reasonOf: () => '', resetCustomStatus: () => {},
-        storage: { getItem: () => null, setItem(){}, removeItem(){} }, toast: () => {}, toastFull: () => {}, legacyKeyName: 'tw.licenseKey',
+        storage: { getItem: () => null, setItem(){}, removeItem(){} }, toast: () => {}, toastFull: () => {},
       });
       // 켜기 순서 — ① 슬롯 불러오기(onLoaded)가 접기를 부른다(서버 확인 전) ② 카탈로그 도착이 또 부른다 ③ 서버 확인이 온다
       const early = [PA.pruneUnownedLicenseAssets(), PA.pruneUnownedLicenseAssets()];
@@ -499,12 +529,15 @@ async function judge(S){
     ['[이 기기 등록] 뒤 안내 기록을 안 지움', mut('LP', (s) => s.replace("clearOptOut(); registered(l.licenseId);\n    await fromWrite(l);", "clearOptOut();\n    await fromWrite(l);"))],
     ['키 등록이 해제 표시를 안 지움', mut('LP', (s) => s.replace("clearOptOut(); registered(l.licenseId);\n    notified = false;", "registered(l.licenseId);\n    notified = false;"))],
     ['[이 기기 등록] 이 해제 표시를 안 지움', mut('LP', (s) => s.replace("clearOptOut(); registered(l.licenseId);\n    await fromWrite(l);", "registered(l.licenseId);\n    await fromWrite(l);"))],
-    ['0.12 키가 남아도 자동 등록함(요청 · 안내 두 벌)', mut('LP', (s) => s.replace("      if(legacyKeyLeft()) return on;", ""))],
-    ['빈 키 칸에도 비켜섬', mut('LP', (s) => s.replace("return !!String(storage.getItem(deps.legacyKeyName) || '').trim();", "return storage.getItem(deps.legacyKeyName) !== null;"))],
+    ['첫 실행이 0.12 키로 등록했어도 자동 등록함(요청 · 안내 두 벌)', mut('LP', (s) => s.replace("firstRunTook === true || ", ""))],
+    ['첫 실행 전에 start 에서 바로 자동 등록', mut('LP', (s) => s.replace("      return on;\n    });\n    return startP;", "      return on || autoRegister(g, raw);\n    });\n    return startP;"))],
+    ['autoRegisterAfter 를 두 번 부르면 두 번 함', mut('LP', (s) => s.replace("if(!started || autoAsked) return", "if(!started) return"))],
+    ['기기 가득 거절이 reset 뒤에도 옛 세션 기억 · 안내를 씀', mut('LP', (s) => s.replace("if(g === gen && licenseApi.isDeviceFull(e) && markFull(l.licenseId))", "if(licenseApi.isDeviceFull(e) && markFull(l.licenseId))"))],
+    ['라이선스 id 가 비어도 기억에 적음', mut('LP', (s) => s.replace("    if(typeof licenseId !== 'string' || !licenseId) return false;   // id 없는 라이선스 — 기억 · 안내 없음\n", ""))],
     ['첫 실행의 기기 가득을 같은 기억에 안 적음', mut('LP', (s) => s.replace("if(owned && g === gen && licenseApi.isDeviceFull(e)) r.showFull = markFull(owned.licenseId);", ""))],
     ['첫 실행이 showFull 을 안 봄(이미 안내한 라이선스에 또)', mut('FR', (s) => s.replace("r.showFull === false ?", "false ?"))],
     ['0.12 표시를 안 바꾸는 갈래에서 안 지움', mut('LP', (s) => s.replace("if(licenseId) setOptOut(licenseId); else clearOptOut();", "if(licenseId) setOptOut(licenseId);"))],
-    ['이미 프리미엄일 때 0.12 표시를 안 지움', mut('LP', (s) => s.replace("if(on){ if(seenAtStart && seenAtStart.legacyKey) settleLegacy(raw, null); return on; }", "if(on) return on;"))],
+    ['이미 프리미엄일 때 0.12 표시를 안 지움', mut('LP', (s) => s.replace("if(g === gen && on && seenAtStart && seenAtStart.legacyKey) settleLegacy(raw, null);", ""))],
     ['0.12 표시를 그사이 바뀌었어도 덮어씀', mut('LP', (s) => s.replace("if(optOut() !== raw) return;", ""))],
     ['optOutAtStart 가 켤 때 값이 아니라 지금 값', mut('LP', (s) => s.replace("return started ? seenAtStart : parseOptOut(optOut());", "return parseOptOut(optOut());"))],
     ['PUT 중 reset 뒤에도 반영', mut('LP', (s) => s.replace("    if(g !== gen) return isPremium();\n    registered(l.licenseId);", "    registered(l.licenseId);"))],

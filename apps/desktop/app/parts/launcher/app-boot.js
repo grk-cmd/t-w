@@ -38,6 +38,7 @@ const STEPS = [
   'appVersion',      // 🔄 이 PC 앱 판을 서버에 알리기 — 더 새 판을 쓰는 기기가 있으면 업데이트 창(account/app-version-sync.js · 가입 전 로그인은 이 차례에 오지 않는다)
   'adminMode',       // 🔐 세션이 끝나면 관리자 모드 끄기(요청 0 — 세션 비우기에 걸기만)
   'firstRun',        // 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기)
+  'licenseAutoRegister',  // 🔑 계정 라이선스에 이 기기 자동 등록 — 첫 실행이 끝나거나 멈춘 뒤(0.12 키로 첫 실행이 등록했으면 건너뜀 · license-premium.js autoRegisterAfter)
 ];
 
 /** @param {{
