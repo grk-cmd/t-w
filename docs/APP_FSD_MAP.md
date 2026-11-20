@@ -87,7 +87,7 @@ shared 는 머리를 달기 전 0.7% 였다 — 공용 도구가 따로 구역 �
 ### 줄 수 말고 «조립만» — `checks/sim-app-wiring.js`
 
 줄 상한은 줄 수만 본다. app.js 의 끝 모양(모듈을 만들고 deps 를 잇는 글만 — 설계 tw-docs `docs/design/app/app-js-split.md` 2-1 · 2-3)은 로직 표지 다섯으로 본다:
-맨 위 함수 선언 · 맨 위 `let` 이름 · `addEventListener` 부름 · `localStorage` 이름 · `try` 문(typescript 파서로 센다 — 주석 · 문자열 안은 안 센다).
+맨 위 함수 선언 · 맨 위 `let` 이름 · `addEventListener` 부름 · `localStorage` 이름 · `try` 문(typescript 파서로 센다 — 주석 · 문자열 안은 안 센다). 모듈에 deps 로 넘기는 `createX({ storage: localStorage })`(create… 부름의 객체 속성 값이 그 이름 자체)는 조립이라 안 센다.
 기준선 `checks/app-wiring-baseline.json` 보다 **늘면 빨강**, 줄면 같은 PR 에서 내린다(`node checks/sim-app-wiring.js --write-baseline` — 늘었으면 쓰기를 거절한다).
 처음 값(0.12.4 · P3 뒤): 함수 209 · let 77 · 듣기 71 · 저장 47 · try 139. 다섯이 모두 0 이 되면 기준선을 걷고 «0 이 아니면 빨강» 으로 바꾼다.
 

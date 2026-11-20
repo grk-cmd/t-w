@@ -162,6 +162,17 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 | 신고 목록 | `core/admin-content.js «신고»`(앱 없는 세 계정이 신고 → 관리자 목록 «3명» · 문제없음 → 빠짐) | `report` | e2e |
 | 카테고리 관리 | `core/admin-content.js «카테고리»`(추가 → 다른 사람 카탈로그에 · 끝에 지움) | `admin-license` `admin-mode` | e2e |
 
+## 컷오버 — 운영 0.12.3 앱(옛 판)
+
+0.13 앱이 아니라 지금 사용자 PC 에 깔린 0.12.3 이 컷오버 차례(tw-docs `docs/design/06-cutover.md` 6장)를 만나면 무엇을 보이나. 이 PC 의 Firebase 에뮬레이터(demo- 프로젝트)에 붙여 돌린다(README «cutover-012»). 시나리오마다 앱을 켜기 전에 문지기가 주소 표 · 이름 풀이를 확인한다(`e2e-cutover-guard`).
+
+| 기능 | e2e | sim | 상태 |
+|---|---|---|---|
+| T+0 점검 창(`config/maintenance`) | `cutover-012/maintenance`(동작 없으면 창 없음 · 방 만들기 / 참여하기 → «서버 점검 중» · 문구 · 끝 시각 · «확인» 으로 닫힘 · 점검 늘리기 → 새 문구) | `maintenance-gate`(0.13 판 — 0.12.3 은 `v0.12.3` 태그의 검사) | e2e |
+| T+2 규칙 잠금 · T+145 점검 끔 | `cutover-012/rule-lock`(«옛 버전 투게더워킹이 켜져 있어요» 창 · 방에서 나감 · 캐릭터 · 마이홈 저장이 서버에 안 들어감 · 대화창 없음 · 30초 되풀이 쓰기 없음 · 점검 끔 → «점검이 끝났어요» [지금 다시 켜기] [나중에]). 창 아래 세 저장은 시험만 창을 숨기고 본다 | `rules-cutover` | e2e |
+| T+136 최소 버전(`config/minAppVer`) | `cutover-012/force-update`((a) /v1/config 503 → RTDB 로 막음 · (b) minVersion 0.13.0 → 막음 · (c) `config:{}` → 안 막힘 · 단추는 브라우저 열기 요청만). 윈도우 자동 업데이트(electron-updater) 길은 맥에서 못 봄 | `remote-config`(0.13 판 — 0.12.3 의 `app-version-gate` 는 `v0.12.3` 태그의 검사) | 부분 |
+| T-5 전원 로그아웃 | `cutover-012/revoked-login`(켜 둔 앱 30초 그대로 · ID 토큰이 끝난 뒤 다시 켜면 «로그인 필요» 창 · 🔑 띠). Auth 에뮬레이터가 validSince 를 안 지켜 토큰 다시 받기 거절은 시험이 진짜 서버의 답(400 TOKEN_EXPIRED)을 대신 준다 | | 부분 |
+
 웹 관리자(`apps/admin`, 데스크톱 앱 밖)는 따로 Playwright e2e 가 있다 — `apps/admin/e2e/*.spec.ts`(`auth` `users` `license` `license-bulk` `secret-room` `notices` `reports` `rooms` `room-server` `settings` `metrics` `usage` `admin-log` `catalog-categories` `catalog-parts` `catalog-desks-items` `catalog-gacha` `catalog-diagnose` `smoke`), 돌리기는 `npm --prefix apps/admin run e2e`. 이 표에는 넣지 않았다.
 
 ## 발견한 버그
