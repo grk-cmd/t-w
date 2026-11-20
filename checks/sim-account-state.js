@@ -31,7 +31,7 @@ function judge(mod, html, files, app) {
   try {
     const win = {};
     const { st, store, prem } = build(mod, win);
-    r.keys = st.LICENSE_KEY_STORAGE === 'tw.licenseKey' && st.LICENSE_OPTOUT_KEY === 'tw.licenseOptOut'
+    r.keys = st.LICENSE_KEY_STORAGE === 'tw.licenseKey' && !('LICENSE_OPTOUT_KEY' in st)
       && st.LOGIN_EMAIL_KEY === 'tw.loginEmail' && st.LOGIN_UID_KEY === 'tw.loginAuthUid';
     r.re = st.FRIEND_CODE_LOGIN_RE.test('MATE-AB12') && !st.FRIEND_CODE_LOGIN_RE.test('mate-ab12') && !st.FRIEND_CODE_LOGIN_RE.test('MATE-AB123');
     r.email = st.getMyLoginEmail() === null && (store['tw.loginEmail'] = 'a@b.c', st.getMyLoginEmail() === 'a@b.c');

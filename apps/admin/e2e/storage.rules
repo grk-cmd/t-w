@@ -1,6 +1,6 @@
 rules_version = '2';
-// e2e 에뮬레이터 전용 — 저장소에 실제 Storage 규칙 파일이 없어(콘솔에서 관리) 로그인한 사용자에게 열어 둔다.
-// 이 파일은 e2e/firebase.json 만 쓴다. 저장소 루트 firebase.json 에는 storage 설정을 넣지 않는다(배포 때 콘솔 규칙을 덮어쓴다).
+// e2e 에뮬레이터 전용 — 웹 관리자 시험이 올리는 파일을 받게 로그인한 사용자에게 열어 둔다. 운영 규칙은 firebase/storage.rules.
+// 이 파일은 e2e/firebase.json 만 쓴다.
 service firebase.storage {
   match /b/{bucket}/o {
     match /{allPaths=**} {
