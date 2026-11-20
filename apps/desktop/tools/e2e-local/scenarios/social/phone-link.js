@@ -3,7 +3,7 @@
 // 키는 [복사] 가 클립보드에 쓰는 값을 받는다(이 PC 클립보드를 건드리지 않게 렌더러의 clipboard.writeText 만 가로챈다)
 'use strict';
 const { scenario, assert, enterDesk, openSettings } = require('./_kit.js');
-const API = 'http://127.0.0.1:8080';
+const { API } = require('../../lib.js');
 
 async function phone(key, on, app){
   const r = await fetch(API + '/v2/focus/mobile-link/state', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Mobile-Key': key }, body: JSON.stringify({ on, app }) });

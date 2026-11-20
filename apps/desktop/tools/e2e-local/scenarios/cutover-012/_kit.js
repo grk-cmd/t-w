@@ -16,6 +16,7 @@ const { spawn, execFileSync } = require('child_process');
 const { _electron } = require('playwright-core');
 const { wait, quietProblems } = require('../../lib.js');
 const { acquire, QUIET_FAIL, markQuietFail } = require('../../runlock.js');
+const { outDir, quietFailed } = require('../_shared.js');
 const R = require('./_route012.js');
 
 const REPO = path.resolve(__dirname, '..', '..', '..', '..', '..', '..');
@@ -307,16 +308,15 @@ function makeApp012(outArg, env){
 // ── 시나리오 틀 ─────────────────────────────────────────────
 // run(name, async (t) => { … }) — 잠금 · 에뮬레이터 · 중계 · stub 을 띄우고 steps.txt 를 쓴다. t: { step, env, db, auth, app(), shot, note }
 async function run(name, body){
-  const out = path.resolve(process.argv[2] || path.join(process.env.TW_E2E_OUT || '/tmp/tw-e2e', 'cutover-012', name));
-  if(!out.startsWith('/tmp/') && !out.startsWith('/private/tmp/')){ console.error('결과 폴더는 /tmp 아래로: ' + out); process.exit(2); }
-  if(QUIET_FAIL && fs.existsSync(QUIET_FAIL)){ console.error('e2e-quiet-fail 이 있어 켜지 않음: ' + QUIET_FAIL); process.exit(3); }
+  const out = outDir('cutover-012', name);
+  if(quietFailed()){ console.error('e2e-quiet-fail 이 있어 켜지 않음: ' + QUIET_FAIL); process.exit(3); }
   if(!fs.existsSync(path.join(APP_DIR, 'node_modules', 'electron'))){ console.error('0.12.3 앱 폴더에 npm install 이 안 됨: ' + APP_DIR); process.exit(2); }
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
   const steps = [];
   const save = () => fs.writeFileSync(path.join(out, 'steps.txt'), steps.join('\n') + '\n');
   const unlock = await acquire('cutover-012/' + name);
-  if(QUIET_FAIL && fs.existsSync(QUIET_FAIL)){ steps.push('ABORT e2e-quiet-fail 이 있음'); save(); unlock(); process.exit(3); }
+  if(quietFailed()){ steps.push('ABORT e2e-quiet-fail 이 있음'); save(); unlock(); process.exit(3); }
   const apps = [];
   let shotN = 0, code = 0;
   const env = {};

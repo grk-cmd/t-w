@@ -9,6 +9,9 @@ const API_HOST = 'api-dev.together-working.com';
 const API = 'http://127.0.0.1:8080';
 const AUTH_EMU = 'http://127.0.0.1:9099';
 const STORAGE_EMU = 'http://127.0.0.1:9199';
+const PW = 'e2e-pass-1234';   // 에뮬레이터 안에서만 쓰는 시험 비밀번호
+// 앱 메인 창 제목에 든 글 — main 에서 메인 창을 찾을 때(getTitle().includes)
+const MAIN_WIN_TITLE = 'Desk Companion';
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -168,4 +171,4 @@ async function quietProblems(app){
   return bad;
 }
 
-module.exports = { makeApp, wait, quietProblems, docker, APP_DIR, API_HOST };
+module.exports = { makeApp, wait, quietProblems, docker, APP_DIR, API_HOST, API, AUTH_EMU, MAIN_WIN_TITLE, PW };

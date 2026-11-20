@@ -1,23 +1,13 @@
-// 방 · 채팅 시나리오 공통부 — 새 계정 만들기 · 캐릭터 · 방 들어가기 · 단계 기록 · 판정
-// 시나리오 파일은 kit.scenario(__filename, async (t) => { ... }) 한 번만 부른다. 끝나면 종료 코드 0(전부 ok) · 1(FAIL)
+// 방 · 채팅 시나리오 공통부 — 새 계정 만들기 · 캐릭터 · 방 들어가기 · 좌석 · 대화창 도우미
+// 단계 기록 · 판정 · 앱 켜기 · 가입 · 시드 SQL 은 ../_shared.js. 시나리오 파일은 kit.scenario(__filename, async (t) => { ... }) 한 번만 부른다
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { makeApp, wait, quietProblems, docker, API_HOST } = require('../../lib.js');
-const { acquire, markQuietFail } = require('../../runlock.js');
+const { makeApp } = require('../../lib.js');
+const S = require('../_shared.js');
+const { wait, PW, seedSql: seed } = S;
 
-const REPO = path.resolve(__dirname, '..', '..', '..', '..', '..', '..');
-const SEED = path.resolve(__dirname, '..', '..', 'seed');
-const PW = 'e2e-pass-1234';   // 에뮬레이터 안에서만 쓰는 시험 비밀번호
-const INVITE = 'INVT-RMRM-E2E3';   // seed/room.sql 이 넣는 초대 코드(여러 번 쓸 수 있게 크게 잡음)
-const PG = process.env.TW_E2E_PG || 'tw-dev-local-postgres-1';
-
-// 로컬 묶음의 DB 에 시드 SQL 을 넣는다 — 이미 있으면 그대로(ON CONFLICT DO NOTHING)
-function seed(file, vars){
-  const args = ['exec', '-i', PG, 'psql', '-v', 'ON_ERROR_STOP=1', '-q', '-U', 'tw_api_dev', '-d', 'tw_dev'];
-  for(const [k, v] of Object.entries(vars || {})) args.push('-v', `${k}=${v}`);
-  return docker(args, fs.readFileSync(path.join(SEED, file), 'utf8'));
-}
+const INVITE = 'INVT-RMRM-E2E3';   // seed/invite.sql 로 넣는 이 묶음의 초대 코드
 
 const until = async (what, fn, ms = 20000, gap = 250) => {
   const end = Date.now() + ms;
@@ -31,60 +21,17 @@ const until = async (what, fn, ms = 20000, gap = 250) => {
 const eq = (what, got, want) => {
   if(JSON.stringify(got) !== JSON.stringify(want)) throw new Error(`${what}: ${JSON.stringify(got)} ≠ 기대 ${JSON.stringify(want)}`);
 };
-// 앱은 한 폴더에 한 벌만 뜬다(single instance) — 앞 프로세스가 다 끝난 뒤 다시 켠다
-async function gone(pid){
-  const alive = () => { try { process.kill(pid, 0); return true; } catch(_){ return false; } };
-  for(let i = 0; i < 40 && alive(); i++) await wait(250);
-  if(alive()){ try { process.kill(pid, 'SIGKILL'); } catch(_){} await wait(500); }
-}
 const ok = (what, v) => { if(!v) throw new Error(what); };
 
 function scenario(file, body){
-  const area = path.basename(path.dirname(file)), name = path.basename(file, '.js');
-  const out = path.resolve(process.argv[2] || path.join(process.env.TW_E2E_OUT || '/tmp/tw-e2e', area, name));
-  if(out === REPO || out.startsWith(REPO + path.sep)){ console.error('결과 폴더는 저장소 밖에: ' + out); process.exit(2); }
-  fs.rmSync(out, { recursive: true, force: true });
-  fs.mkdirSync(out, { recursive: true });
-  const steps = [], users = [];
-  const save = () => {
-    fs.writeFileSync(path.join(out, 'steps.txt'), steps.join('\n') + '\n');
-    for(const u of users){
-      fs.writeFileSync(path.join(u.A.out, 'console.txt'), u.A.logs.join('\n'));
-      fs.writeFileSync(path.join(u.A.out, 'requests.txt'), u.A.reqs.join('\n'));
-      fs.writeFileSync(path.join(u.A.out, 'ws.txt'), [...u.A.wsOut.map((x) => '> ' + x), ...u.A.wsIn.map((x) => '< ' + x)].join('\n'));
-    }
-  };
+  const F = S.frame(path.basename(path.dirname(file)), path.basename(file, '.js'), { stepMs: 180000 });
+  const users = F.insts;
   const t = {
-    out, steps, until, eq, ok, wait, users,
-    note: (s) => { steps.push('     ' + s); },
-    // 단계 하나가 멈춰 있으면(앱이 답하지 않음) ms 뒤 실패로 끊는다
-    async step(label, fn, ms = 180000){
-      const t0 = Date.now();
-      let timer;
-      const limit = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error(`${ms}ms 안에 끝나지 않음`)), ms); });
-      try {
-        const r = await Promise.race([fn(), limit]);
-        // 단계마다 창이 조용한지 본다(lib.js quietProblems — 네 묶음 같은 판정: 자식 창까지 · 화면 밖 · 투명 · 소리 끔 · 포커스 없음 · 진짜 늘 위 아님)
-        for(const u of users){
-          const bad = u.A.quiet ? await quietProblems(u.A.app).catch((e) => ['판정 못 함 ' + e.message]) : [];
-          if(bad.length){
-            const msg = `${u.label}: 창이 조용하지 않음 — ${bad.join(' / ')}`;
-            markQuietFail(`${area}/${name} · ${label} ${msg}`);
-            throw new Error(msg);
-          }
-        }
-        steps.push(`ok   ${label} (${Date.now() - t0}ms)`); return r;
-      }
-      catch(e){
-        steps.push(`FAIL ${label}: ${String(e.message).split('\n')[0]}`); console.error(e.stack);
-        for(const u of users) await u.shot(`fail-${steps.length}`).catch(() => {});
-        throw e;
-      } finally { clearTimeout(timer); save(); }
-    },
+    out: F.out, steps: F.steps, until, eq, ok, wait, users,
+    note: F.note, step: F.step, knownBug: F.knownBug,
     // 새 계정 하나 = 격리된 앱 한 벌(결과 폴더 아래 <이름>/). 가입 → 다시 켜기 → 캐릭터 만들기까지
     async user(label, opts = {}){
-      const u = openUser(t, path.join(out, label), label);
-      users.push(u);
+      const u = F.add(openUser(t, path.join(F.out, label), label));
       await t.step(`${label}: 켜기`, () => u.start(), 300000);
       await t.step(`${label}: 가입`, () => u.signup(), 360000);
       if(opts.character !== false) await t.step(`${label}: 캐릭터 만들기`, () => u.makeCharacter());
@@ -92,47 +39,13 @@ function scenario(file, body){
     },
     // 같은 계정을 다른 PC(앱 한 벌 더)에서 친구 코드 · 비밀번호로 로그인
     async sameAccount(src, label){
-      const u = openUser(t, path.join(out, label), label);
-      users.push(u);
+      const u = F.add(openUser(t, path.join(F.out, label), label));
       await t.step(`${label}: 켜기`, () => u.start(), 300000);
       await t.step(`${label}: ${src.label} 계정으로 로그인`, () => u.login(src.fc, src.pw), 360000);
       return u;
     },
   };
-  // 시나리오 전체 상한 — 넘으면 앱을 모두 끄고 실패로 끝낸다(러너가 다음 시나리오로 가게)
-  const limitMin = Number(process.env.TW_E2E_SCENARIO_MIN || 20);
-  const watchdog = () => setTimeout(() => {
-    steps.push(`ABORT 시나리오가 ${limitMin}분 안에 끝나지 않음`);
-    save();
-    for(const u of users){ try { process.kill(u.A.app.process().pid, 'SIGKILL'); } catch(_){} }
-    unlock();
-    console.log(`FAIL ${area}/${name} — ${out}/steps.txt`);
-    process.exit(1);
-  }, limitMin * 60000).unref();
-  // 실행 잠금은 runlock.js 한 벌(TW_E2E_RUN_LOCK · run-all.js 가 잡았으면 다시 안 잡음)
-  let unlock = () => {};
-  // 손으로 끊어도(Ctrl+C · kill) 앱과 자물쇠를 남기지 않는다
-  for(const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => {
-    for(const u of users){ try { process.kill(u.A.app.process().pid, 'SIGKILL'); } catch(_){} }
-    unlock();
-    process.exit(130);
-  });
-  (async () => {
-    unlock = await acquire(`${area}/${name}`);
-    watchdog();
-    seed('room.sql');
-    await body(t);
-    steps.push('PASS');
-  })().catch((e) => {
-    if(!steps.some((s) => s.startsWith('FAIL'))) steps.push('ABORT ' + String(e.message).split('\n')[0]);
-    process.exitCode = 1;
-  }).finally(async () => {
-    save();
-    for(const u of users) await u.A.quit().catch(() => {});
-    unlock();
-    console.log(`${process.exitCode ? 'FAIL' : 'PASS'} ${area}/${name} — ${out}/steps.txt`);
-    process.exit(process.exitCode || 0);
-  });
+  S.drive(F, { prepare: () => seed('invite.sql', { code: INVITE }), body: () => body(t) });
 }
 
 function openUser(t, out, label){
@@ -154,15 +67,11 @@ function openUser(t, out, label){
     catch(_){ await u.eval((x) => document.querySelector(x).click(), sel); }
   };
   // 앱의 로그인 토큰으로 API 를 부른다(길 돌리기를 거쳐 로컬 API 로 · 요청은 requests.txt 에 남는다)
-  u.api = (method, p, body) => u.w.evaluate(async ({ host, method, p, body }) => {
-    const r = await fetch(`https://${host}${p}`, { method, headers: { Authorization: 'Bearer ' + await window.firebaseAPI.getIdToken(), ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
-    let j = null; try { j = await r.json(); } catch(_){}
-    return { status: r.status, body: j };
-  }, { host: API_HOST, method, p, body });
+  u.api = (method, p, body) => S.apiIn(u.w, method, p, body, { device: false, noStore: false });
   u.relaunch = async () => {
     const pid = A.app.process().pid;
     await A.quit();
-    await gone(pid);
+    await S.gone(pid);
     A.logs.push('--- relaunch ---');
     u.w = await A.launch();
     await u.waitDesk();
@@ -173,23 +82,9 @@ function openUser(t, out, label){
   }), 60000);
   u.signup = async () => {
     const w = u.w;
-    await w.locator('#inviteGateInput').waitFor({ state: 'visible', timeout: 45000 });
-    await w.fill('#inviteGateInput', INVITE);
-    await w.click('#inviteGateOk');
-    await w.locator('#signupPw').waitFor({ state: 'visible', timeout: 45000 });   // 바쁜 PC 에선 초대 코드 확인이 20초를 넘는다
-    u.fc = (await w.textContent('#signupCode')).trim();
-    await w.fill('#signupPw', PW);
-    await w.fill('#signupPw2', PW);
-    await w.click('#signupOk');
-    await w.locator('#sdStart').waitFor({ state: 'visible', timeout: 30000 });
+    u.fc = await S.signupForm(w, INVITE);
     // [시작하기] 는 앱을 다시 켠다 — relaunch 예약만 막고 같은 결과 폴더로 다시 켠다(README «함정»)
-    await A.app.evaluate(({ app: a }) => { a.relaunch = () => {}; });
-    const pid = A.app.process().pid;
-    const closed = new Promise((r) => A.app.once('close', r));
-    await w.click('#sdStart');
-    if(!await Promise.race([closed.then(() => true), wait(20000).then(() => false)])) await A.quit();
-    await gone(pid);
-    A.logs.push('--- relaunch ---');
+    await S.restartAfter(A, () => w.click('#sdStart'));
     u.w = await A.launch();
     await u.waitDesk();
     await u.whoami();
@@ -200,7 +95,7 @@ function openUser(t, out, label){
     const me = await until(`${label}: /v2/me`, async () => { const r = await u.api('GET', '/v2/me'); return r.status === 200 && r.body; });
     u.code = me.data.userCode;
     u.fc = me.data.friendCode;   // 가입 화면은 친구 코드를 가려 보인다 — 서버 값을 쓴다
-    u.uid = await u.eval(async () => JSON.parse(atob((await window.firebaseAPI.getIdToken()).split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).user_id);
+    u.uid = await S.uidOf(u.w);
     return me.data;
   };
   u.login = async (fc, pw) => {
@@ -214,7 +109,7 @@ function openUser(t, out, label){
     await w.click('#inviteGateFcBtn');
     // 로그인 뒤 다시 켜는 판과 그 자리에서 이어 가는 판이 있다 — 꺼지면 다시 켠다
     const r = await Promise.race([closed.then(() => 'closed'), until(`${label}: 로그인 뒤 런처`, () => u.eval(() => typeof roomEntryMod === 'object' && TwRoomRt.store.isReady()), 40000).then(() => 'stay')]);
-    if(r === 'closed'){ await gone(pid); A.logs.push('--- relaunch ---'); u.w = await A.launch(); }
+    if(r === 'closed'){ await S.gone(pid); A.logs.push('--- relaunch ---'); u.w = await A.launch(); }
     await u.waitDesk();
     await u.whoami();
   };
@@ -294,9 +189,9 @@ function openUser(t, out, label){
     await until(`${label}: 서버가 관리자 · 프리미엄으로 봄`, async () => { const me = await u.whoami(); return me.admin && me.premium; });
     await until(`${label}: 앱이 프리미엄으로 봄`, () => u.eval(() => roomEntryMod._myRoomLicensed()), 30000);
   };
-  // 포커스 레벨을 정한다(seed/focus-level.sql — 서버 레벨 = 1 + 누적초/3600) → 다시 켜서 앱이 그 레벨을 받았는지
+  // 포커스 레벨을 정한다(seed/focus.sql — 서버 레벨 = 1 + 누적초/3600) → 다시 켜서 앱이 그 레벨을 받았는지
   u.setLevel = async (level) => {
-    seed('focus-level.sql', { uid: u.uid, level: String(level) });
+    seed('focus.sql', { uid: u.uid, sec: (level - 1) * 3600 });
     await u.relaunch();
     await until(`${label}: 앱 레벨 ${level}`, () => u.eval(() => focusLevelMod.getFocusLevel()).then((lv) => lv >= level), 30000);
   };
@@ -378,23 +273,12 @@ const toastSpy = () => {
     }).observe(document.documentElement, { subtree: true, childList: true, characterData: true });
 };
 
-// 켤 때마다 토스트 기록을 다시 건다. 주소 돌리기는 main 에서 처음부터 걸리고(route-main.js) lib.launch 가 확인한다 — 여기서 다시 읽지 않는다
+// 켤 때마다 토스트 기록 · realtime 기록을 다시 건다. 주소 돌리기는 main 에서 처음부터 걸리고(route-main.js) lib.launch 가 확인한다
 function wrapLaunch(A){
   const launch = A.launch;
   A.wsIn = []; A.wsOut = [];
   A.launch = async () => {
-    let w;
-    // 여러 벌이 같이 뜨는 동안 첫 창이 30초 안에 안 오는 때가 있다 — 그 프로세스만 끄고 세 번까지 다시 켠다
-    for(let i = 0; ; i++){
-      try { w = await launch(); break; }
-      catch(e){
-        if(i >= 3 || !/firstWindow/.test(e.message)) throw e;
-        A.logs.push('--- 첫 창이 안 와서 다시 켬 ---');
-        const pid = A.app && A.app.process().pid;
-        await A.quit().catch(() => {});
-        if(pid) await gone(pid);
-      }
-    }
+    const w = await S.launchRetry(A, launch);
     await w.evaluate(toastSpy).catch(() => {});
     // realtime 이 오간 글(ws.txt · 실패를 볼 때 참고) — 앱이 창을 띄우자마자 붙은 연결은 놓칠 수 있어 판정에는 쓰지 않는다
     w.on('websocket', (ws) => {

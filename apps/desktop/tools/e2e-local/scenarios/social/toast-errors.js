@@ -22,6 +22,8 @@ scenario('toast-errors', async (t) => {
   await t.step('준비: a → b 요청(API) · b 받은 요청 목록', async () => {
     const s = await a.api('POST', '/v2/me/friend-requests', { to: b.me.userCode });
     assert(s.status === 200, '요청 ' + s.status);
+    // 요청 알림이 마이홈을 여는 사이에 오면 «👋 친구 요청» 창(myhome-init.js)이 탭을 가린다 — 알림(친구 탭 배지)을 받은 뒤 연다
+    await b.until(() => { const e = document.querySelector('#myHomeTabs .mh-tab[data-tab="friend"] .mh-tab-badge'); return e && e.style.display !== 'none' && e.textContent; }, null, { what: '친구 탭 배지' });
     await openMyHome(b, 'friend');
     await b.until(() => document.querySelectorAll('#mhFmList .mh-req').length === 1, null, { what: '받은 요청 줄' });
   });

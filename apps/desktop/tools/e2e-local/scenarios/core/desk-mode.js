@@ -3,14 +3,15 @@
 // 클릭 통과의 «캐릭터 위에서만 받기» 는 OS 마우스 자리로 판정해서(합성 마우스는 OS 커서를 안 움직인다) 여기서 보지 않는다(sim hit-map · click-through-policy).
 'use strict';
 const { run } = require('./_kit.js');
+const { MAIN_WIN_TITLE } = require('../../lib.js');
 
 // 메인 창의 클릭 통과 호출을 기록한다(값만 적고 원래 함수를 그대로 부른다)
-const watchIgnore = (A) => A.app.evaluate(({ BrowserWindow }) => {
-  const m = BrowserWindow.getAllWindows().find((x) => /Desk Companion/.test(x.getTitle()));
+const watchIgnore = (A) => A.app.evaluate(({ BrowserWindow }, title) => {
+  const m = BrowserWindow.getAllWindows().find((x) => x.getTitle().includes(title));
   global.__e2eIgn = [];
   const f = m.setIgnoreMouseEvents.bind(m);
   m.setIgnoreMouseEvents = (v, o) => { global.__e2eIgn.push(!!v); return f(v, o); };
-});
+}, MAIN_WIN_TITLE);
 const lastIgnore = (A) => A.app.evaluate(() => global.__e2eIgn[global.__e2eIgn.length - 1]);
 
 run('desk-mode', async (t) => {
