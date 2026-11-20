@@ -16,16 +16,7 @@ const apiIn = (w, method, p, body) => S.apiIn(w, method, p, body, { noStore: fal
 function assert(cond, msg){ if(!cond) throw new Error(msg); }
 
 // 페이지 안 조건이 참이 될 때까지(기본 20초) — 값을 돌려준다
-async function until(w, fn, arg, { timeout = 20000, every = 300, what = '조건' } = {}){
-  const end = Date.now() + timeout;
-  let last;
-  for(;;){
-    try { last = await w.evaluate(fn, arg); } catch(e){ last = 'ERR ' + e.message.split('\n')[0]; }
-    if(last && !(typeof last === 'string' && last.startsWith('ERR '))) return last;
-    if(Date.now() > end) throw new Error(`${what} — ${timeout}ms 안에 안 됨(마지막 값 ${JSON.stringify(last)})`);
-    await wait(every);
-  }
-}
+const until = (w, fn, arg, { timeout = 20000, every = 300, what = '조건' } = {}) => S.waitUntil(() => w.evaluate(fn, arg), { ms: timeout, every, what });
 
 function scenario(name, body){
   const F = S.frame('social', name);
@@ -90,7 +81,8 @@ function scenario(name, body){
 
   const t = { out: F.out, step, user, note, wait, assert, apiIn, until, users, knownBug: F.knownBug };
   S.drive(F, {
-    prepare: () => seedSql('invite.sql', { code: INVITE }),
+    // TW_E2E_INVITE 로 받은 코드는 그 사람이 넣어 둔 것이라 건드리지 않는다
+    prepare: () => { if(!process.env.TW_E2E_INVITE) seedSql('invite.sql', { code: INVITE }); },
     body: () => body(t),
     // 통과하면 앱 데이터(수백 MB)는 지우고 기록만 남긴다 — 도우미 프로세스가 다 끝난 뒤에(남아서 쓰면 지우기가 ENOTEMPTY 로 실패한다)
     onPass: async () => {

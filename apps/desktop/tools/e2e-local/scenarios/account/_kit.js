@@ -124,17 +124,8 @@ async function setGoogle(inst, g){
 // ── 화면 도우미 ──
 // 조상까지 본다(checkVisibility) — 고정 겹창은 offsetParent 가 null 이라 그것으로는 못 가린다
 const shown = (w, sel) => w.evaluate((s) => { const e = document.querySelector(s); return !!e && e.checkVisibility({ visibilityProperty: true }); }, sel);
-async function waitShown(w, sel, ms = 20000){
-  const t0 = Date.now();
-  while(Date.now() - t0 < ms){ if(await shown(w, sel).catch(() => false)) return; await wait(250); }
-  throw new Error(sel + ' 가 ' + ms / 1000 + '초 안에 안 보임');
-}
-async function waitFor(fn, ms = 20000, what = '조건'){
-  const t0 = Date.now();
-  let last;
-  while(Date.now() - t0 < ms){ try { last = await fn(); if(last) return last; } catch(_){} await wait(300); }
-  throw new Error(what + ' 가 ' + ms / 1000 + '초 안에 안 됨');
-}
+const waitShown = (w, sel, ms = 20000) => S.waitUntil(() => shown(w, sel), { ms, every: 250, what: sel + ' 보임' }).then(() => {});
+const waitFor = (fn, ms = 20000, what = '조건') => S.waitUntil(fn, { ms, what });
 const text = (w, sel) => w.evaluate((s) => { const e = document.querySelector(s); return e ? e.textContent.trim() : null; }, sel);
 // 로그인돼 계정에 들어간 런처 — 서버가 이 PC 를 들였다(POST /v2/me/devices 200) · 런처가 보인다
 async function waitEntered(inst, ms = 40000){

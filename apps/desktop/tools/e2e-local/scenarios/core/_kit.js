@@ -48,15 +48,7 @@ function unpauseRt(){
 }
 process.on('exit', () => { if(rtPaused){ try { docker(['unpause', RT]); } catch(_){} } });
 
-async function poll(fn, ms, what, every = 300){
-  const t0 = Date.now();
-  let last;
-  for(;;){
-    try { last = await fn(); if(last) return last; } catch(e){ last = e; }
-    if(Date.now() - t0 > ms) throw new Error(`${what} — ${ms}ms 안에 안 됨` + (last instanceof Error ? ` (${last.message.split('\n')[0]})` : ''));
-    await wait(every);
-  }
-}
+const poll = (fn, ms, what, every = 300) => S.waitUntil(fn, { ms, what, every });
 
 // 앱 없이 만드는 계정 — 신고자처럼 «사람 수» 만 필요한 쪽 · 정리용 관리자. { fc, uid, userCode, call }
 async function headlessUser(){

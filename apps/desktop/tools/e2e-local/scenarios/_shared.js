@@ -19,6 +19,16 @@ const SIGNAL_UNDO_MS = 20000;
 
 const firstLine = (e) => String(e && e.message || e).split('\n')[0];
 const quietFailed = () => !!QUIET_FAIL && fs.existsSync(QUIET_FAIL);
+/** fn() 이 참인 값을 줄 때까지 every ms 마다 묻는다 — 던지면 «아직» 으로 본다. ms 넘으면 마지막 값 · 오류를 실어 던진다 */
+async function waitUntil(fn, { ms = 20000, every = 300, what = '조건' } = {}){
+  const t0 = Date.now();
+  let last;
+  for(;;){
+    try { last = await fn(); if(last) return last; } catch(e){ last = e; }
+    if(Date.now() - t0 > ms) throw new Error(`${what} — ${ms}ms 안에 안 됨` + (last instanceof Error ? ` (${firstLine(last)})` : ` (마지막 값 ${String(JSON.stringify(last)).slice(0, 200)})`));
+    await wait(every);
+  }
+}
 async function within(p, ms){
   let timer;
   try { return await Promise.race([p, new Promise((_, rej) => { timer = setTimeout(() => rej(new Error(ms + 'ms 안에 끝나지 않음')), ms); })]); }
@@ -178,8 +188,7 @@ async function signupForm(w, invite){
   await w.click('#inviteGateOk');
   await w.locator('#signupPw').waitFor({ state: 'visible', timeout: 45000 });   // 바쁜 PC 에선 초대 코드 확인이 20초를 넘는다
   // 가입 화면은 50ms 뒤 첫 칸에 포커스를 준다 — 그 전에 둘째 칸을 채우면 글이 첫 칸으로 들어간다
-  const t0 = Date.now();
-  while(Date.now() - t0 < 5000 && !(await w.evaluate(() => !!document.activeElement && document.activeElement.id === 'signupPw').catch(() => false))) await wait(100);
+  await waitUntil(() => w.evaluate(() => !!document.activeElement && document.activeElement.id === 'signupPw'), { ms: 5000, every: 100, what: '첫 비밀번호 칸 포커스' }).catch(() => {});
   await fillChecked(w, [['#signupPw', PW], ['#signupPw2', PW]]);
   await w.click('#signupOk');
   await w.locator('#sdStart').waitFor({ state: 'visible', timeout: 40000 });
@@ -202,17 +211,19 @@ async function restartAfter(A, click, ms = 20000){
 
 // ── 시나리오 틀 ──
 
-const underOut = (p) => [OUT_ROOT, '/tmp', '/private/tmp'].some((r) => p.startsWith(path.resolve(r) + path.sep));
-/** 결과 폴더 — run-all 이 `node <파일> <결과 폴더>` 로 넘긴다. 따로 돌리면 <TW_E2E_OUT 또는 /tmp/tw-e2e>/<영역>/<이름>. 지우는 폴더라 /tmp · TW_E2E_OUT 아래만 */
+const REPO = path.resolve(__dirname, '..', '..', '..', '..', '..');
+const inside = (p, root) => p.startsWith(path.resolve(root) + path.sep);
+const underOut = (p) => !inside(p, REPO) && p !== REPO && [OUT_ROOT, '/tmp', '/private/tmp'].some((r) => inside(p, r));
+/** 결과 폴더 — run-all 이 `node <파일> <결과 폴더>` 로 넘긴다. 따로 돌리면 <TW_E2E_OUT 또는 /tmp/tw-e2e>/<영역>/<이름>. 지우는 폴더라 /tmp · TW_E2E_OUT 아래이고 저장소 밖만 */
 function outDir(area, name){
   const out = path.resolve(process.argv[2] || path.join(OUT_ROOT, area, name));
-  if(!underOut(out)){ console.error('결과 폴더는 /tmp 또는 TW_E2E_OUT 아래로: ' + out); process.exit(2); }
+  if(!underOut(out)){ console.error('결과 폴더는 저장소 밖 /tmp 또는 TW_E2E_OUT 아래로: ' + out); process.exit(2); }
   return out;
 }
 
 /** 한 시나리오의 기록 — 결과 폴더를 비우고 steps.txt 에 단계마다 ok · FAIL 을 적는다.
  *  insts 는 앱 한 벌마다 { label, A, w, shot? }(묶음 kit 이 F.add 로 넣는다 · shot(n) 이 없으면 화면만 찍는다).
- *  opts.stepMs — 한 단계 상한(없으면 상한 없음) */
+ *  opts.stepMs — 한 단계 상한(없으면 상한 없음) · opts.quietGuard:false — 단계 끝 조용한 창 판정을 끈다(그것 자체를 시험하는 launcher 시나리오) */
 function frame(area, name, opts = {}){
   const out = outDir(area, name);
   killDir(out);   // 전에 끊긴 실행이 남긴 앱이 같은 폴더를 쥐고 있으면 새 앱이 «두 번째 실행» 으로 바로 꺼진다
@@ -237,7 +248,8 @@ function frame(area, name, opts = {}){
     async quitAll(){ for(const i of insts) await hardQuit(i.A); },
     killAll(){ for(const i of insts){ const pid = pidOf(i.A); if(pid){ try { process.kill(pid, 'SIGKILL'); } catch(_){} } } },
     // 단계마다 조용한 창(lib.js quietProblems — 자식 창까지 · 화면 밖 · 투명 · 소리 끔 · 포커스 없음 · 진짜 늘 위 아님)과 막힌 요청을 본다.
-    // 어긋나면 앱을 다 끄고 잠금 폴더 옆 e2e-quiet-fail 에 까닭을 남긴다(run-all 이 다음 시나리오를 켜지 않는다). 꺼진 앱 · 조용히 켜지 않은 앱은 건너뛴다
+    // 어긋나면 앱을 다 끄고 잠금 폴더 옆 e2e-quiet-fail 에 까닭을 남긴다(run-all 이 다음 시나리오를 켜지 않는다). 꺼진 앱 · 조용히 켜지 않은 앱은 건너뛴다.
+    // 판정을 못 했으면(오류 · 10초 넘김) 조용하다고 볼 수 없어 어긋난 것과 같게 다룬다 — 앱이 다시 켜지는 중(창 · 대상 닫힘)만 건너뛴다
     async quietGuard(label){
       const bad = [];
       for(const i of insts){
@@ -248,7 +260,7 @@ function frame(area, name, opts = {}){
         if(!app || !A.quiet) continue;
         let b;
         try { b = await within(quietProblems(app), QUIET_CHECK_MS); }
-        catch(e){ if(!/closed|Target/.test(firstLine(e))) steps.push(`     조용한 창 확인 못 함(${label}): ${firstLine(e)}`); continue; }
+        catch(e){ if(!/closed|Target/.test(firstLine(e))) bad.push(i.label + ' 판정 못 함: ' + firstLine(e)); continue; }
         for(const x of b) bad.push(i.label + ' ' + x);
       }
       if(!bad.length) return;
@@ -261,7 +273,7 @@ function frame(area, name, opts = {}){
       const t0 = Date.now();
       try {
         const r = await (ms ? within(fn(), ms) : fn());
-        await F.quietGuard(label);
+        if(opts.quietGuard !== false) await F.quietGuard(label);
         steps.push(`ok   ${label} (${Date.now() - t0}ms)`);
         return r;
       } catch(e){
@@ -287,8 +299,9 @@ function frame(area, name, opts = {}){
 
 /** 시나리오를 돌린다 — e2e-quiet-fail 이 있으면 켜지 않음 · 실행 잠금(runlock.js) · prepare(시드) · body · 앱 끄기 · 끝 줄(PASS · ABORT · RESULT FAIL) · 종료 코드.
  *  단계 하나라도 FAIL 이면 실패(종료 코드 1). 신호(Ctrl+C · run-all 시간 초과의 SIGTERM) · 시나리오 상한(TW_E2E_SCENARIO_MIN, 기본 20분)이면
- *  onSignal(되돌리기 등)을 상한 안에서 돌린 뒤 앱을 죽이고 끝낸다. 두 번째 신호는 바로 끝낸다. onPass 는 통과해 앱을 끈 뒤 */
-function drive(F, { prepare, body, onSignal, onPass }){
+ *  onSignal(되돌리기 등)을 상한 안에서 돌린 뒤 앱을 죽이고 끝낸다. 두 번째 신호는 바로 끝낸다. onPass 는 통과해 앱을 끈 뒤.
+ *  evenIfQuietFail — e2e-quiet-fail 이 있어도 돈다(조용한 창 자체를 확인하는 launcher/quiet — 그 파일을 지우기 전에 다시 통과해야 한다) */
+function drive(F, { prepare, body, onSignal, onPass, evenIfQuietFail = false }){
   const id = `${F.area}/${F.name}`;
   let unlock = () => {};
   let stopping = false;
@@ -304,13 +317,14 @@ function drive(F, { prepare, body, onSignal, onPass }){
   };
   for(const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => stop('신호 ' + sig, 130));
   (async () => {
-    if(quietFailed()){ console.log(`FAIL ${id}  e2e-quiet-fail 이 있어 시작하지 않음`); process.exit(1); }
+    const blocked = () => !evenIfQuietFail && quietFailed();
+    if(blocked()){ console.log(`FAIL ${id}  e2e-quiet-fail 이 있어 시작하지 않음`); process.exit(1); }
     unlock = await acquire(id, { signals: false });
     const limitMin = Number(process.env.TW_E2E_SCENARIO_MIN || 20);
     setTimeout(() => stop(`시나리오가 ${limitMin}분 안에 끝나지 않음`, 1), limitMin * 60000).unref();
     let err = null;
     try {
-      if(quietFailed()) throw new Error('e2e-quiet-fail 이 있어 시작하지 않음');
+      if(blocked()) throw new Error('e2e-quiet-fail 이 있어 시작하지 않음');
       if(prepare) await prepare();
       await body();
     } catch(e){ err = e; }
@@ -331,7 +345,7 @@ function drive(F, { prepare, body, onSignal, onPass }){
 }
 
 module.exports = {
-  PW, PG, OUT_ROOT, LAUNCH_MARK, API, API_HOST, wait, within, firstLine, quietFailed,
+  PW, PG, OUT_ROOT, LAUNCH_MARK, API, API_HOST, wait, waitUntil, within, firstLine, quietFailed,
   seedSql, query, http, emuSignIn, headlessLogin, apiUser, withToken, apiIn, uidOf,
   killDir, goneDir, gone, hardQuit, launchRetry, fillChecked, signupForm, restartAfter,
   outDir, frame, drive,

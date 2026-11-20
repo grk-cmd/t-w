@@ -9,15 +9,7 @@ const { wait, PW, seedSql: seed } = S;
 
 const INVITE = 'INVT-RMRM-E2E3';   // seed/invite.sql 로 넣는 이 묶음의 초대 코드
 
-const until = async (what, fn, ms = 20000, gap = 250) => {
-  const end = Date.now() + ms;
-  let last;
-  for(;;){
-    try { last = await fn(); if(last) return last; } catch(e){ last = e.message; }
-    if(Date.now() > end) throw new Error(`${what} — ${ms}ms 안에 안 됨 (마지막 값 ${JSON.stringify(last)?.slice(0, 200)})`);
-    await wait(gap);
-  }
-};
+const until = (what, fn, ms = 20000, gap = 250) => S.waitUntil(fn, { ms, every: gap, what });
 const eq = (what, got, want) => {
   if(JSON.stringify(got) !== JSON.stringify(want)) throw new Error(`${what}: ${JSON.stringify(got)} ≠ 기대 ${JSON.stringify(want)}`);
 };

@@ -108,7 +108,7 @@ node run-all.js room/create-join
 - 결과 폴더는 `<TW_E2E_OUT 또는 /tmp/tw-e2e>/<영역>/<이름>` — 시작할 때 비운다. `steps.txt`(단계마다 `ok` · `FAIL` · 마지막 줄 `PASS` 또는 `ABORT`) · 사람마다 `a/` `b/` … 폴더(`console.txt` · `requests.txt` · `account.json` · 실패 화면 `fail-<n>.png`).
 - 시나리오마다 새 계정을 가입시킨다(친구 코드는 서버가 새로 뽑는다). 두 사람 기능은 앱 두 벌(같은 계정 둘째 PC 는 그 계정으로 로그인한 셋째 벌).
 - 판정은 앱 상태(방 meta · 좌석 · 대화창 글) · 화면 글 · API 응답으로 한다. realtime 이 오간 글은 `ws.txt` 에 남기지만(실패를 볼 때 참고) 창이 뜨자마자 붙은 연결은 놓칠 수 있어 판정에 쓰지 않는다. 소리 재생 · 복사는 이 PC 의 스피커 · 클립보드를 건드리지 않게 그 자리에서 가로채 센다.
-- 시드: 초대 코드 `INVT-RMRM-E2E3` 은 시나리오가 켤 때마다 `seed/invite.sql` 로 넣는다(이미 있으면 그대로). 투게더룸 · 시크릿룸 · 프리미엄 기능은 `seed/admin.sql` 로 그 계정의 로그인 uid 를 관리자로 넣고 다시 켠다(서버가 관리자에게 프리미엄을 붙인다). DB 컨테이너 이름은 `TW_E2E_PG`(기본 `tw-dev-local-postgres-1`).
+- 시드: 초대 코드 `INVT-RMRM-E2E3` 은 시나리오가 켤 때마다 `seed/invite.sql` 로 넣는다(이미 있으면 남기되, 쓴 횟수가 상한에 가까우면 0 으로 되돌리고 멈춤 · 만료를 푼다). 투게더룸 · 시크릿룸 · 프리미엄 기능은 `seed/admin.sql` 로 그 계정의 로그인 uid 를 관리자로 넣고 다시 켠다(서버가 관리자에게 프리미엄을 붙인다). DB 컨테이너 이름은 `TW_E2E_PG`(기본 `tw-dev-local-postgres-1`).
 - 방 · 채팅 시나리오도 **단계마다** `quietProblems(app)`(lib.js · 공통부 `_shared.js` 의 `quietGuard`)로 창이 조용한지 잰다 — 자식 창까지 진짜 창이 어느 화면과도 4분의 1 넘게 겹치지 않음 · 포커스 없음 · 진짜 불투명도 0 · 진짜 소리 끔 · 진짜 늘 위 아님 · 감싸지 않은 창 없음. 어긋나면 잠금 폴더 옆 `e2e-quiet-fail` 에 남기고 `run-all` 은 다음 시나리오를 켜지 않는다. 어긋나면 그 단계가 실패한다.
 - 단계 하나는 3분(계정 묶음 5분 · core · social 은 상한 없음), 시나리오 하나는 `TW_E2E_SCENARIO_MIN`(기본 20)분을 넘으면 앱을 끄고 실패로 끝낸다(네 묶음 같음).
 
@@ -140,13 +140,14 @@ TW_E2E_QUIET=1 TW_E2E_RUN_LOCK=<잠금 폴더> node run-all.js cutover-012
 
 ### 공통부(`scenarios/_shared.js`)
 
-account · room · core · social 네 묶음의 `_kit.js` 가 같이 쓰는 한 벌이다. 묶음 kit 은 이것으로 시나리오 틀을 짜고, 그 묶음에만 있는 것(계정의 구글 로그인 흉내 · 방 · 좌석 도우미 · core 의 되돌리기 · 공유 스택 잠금 · social 의 마이홈 도우미)만 더한다.
+account · room · core · social 네 묶음의 `_kit.js` 와 `launcher` 시나리오가 같이 쓰는 한 벌이다. 묶음 kit 은 이것으로 시나리오 틀을 짜고, 그 묶음에만 있는 것(계정의 구글 로그인 흉내 · 방 · 좌석 도우미 · core 의 되돌리기 · 공유 스택 잠금 · social 의 마이홈 도우미)만 더한다.
 
-- **틀** — `frame(영역, 이름)` 이 결과 폴더(`/tmp` · `TW_E2E_OUT` 아래만)를 비우고 그 폴더에 남은 앱을 끈다. `step`(ok · FAIL 줄 · 실패 화면 `fail-<n>.png` · 단계 끝마다 조용한 창 판정) · `knownBug`(BUG · FIXED 줄) · `note`. `drive` 가 `e2e-quiet-fail` 확인 · 실행 잠금 · 시드 · 본문 · 앱 끄기 · 끝 줄(`PASS` · `ABORT` · `RESULT FAIL`) · 종료 코드를 맡는다. 단계 하나라도 FAIL 이면 실패다. 신호 · 시간 초과면 묶음이 건 `onSignal`(core 는 되돌리기)을 돌린 뒤 끝낸다.
-- **조용한 창** — 단계마다 `lib.quietProblems` 와 막힌 요청을 보고, 어긋나면 앱을 다 끄고 `runlock.markQuietFail` 로 `e2e-quiet-fail` 에 남긴다.
+- **틀** — `frame(영역, 이름)` 이 결과 폴더(`/tmp` · `TW_E2E_OUT` 아래 · 저장소 밖만)를 비우고 그 폴더에 남은 앱을 끈다. `step`(ok · FAIL 줄 · 실패 화면 `fail-<n>.png` · 단계 끝마다 조용한 창 판정) · `knownBug`(BUG · FIXED 줄) · `note`. `drive` 가 `e2e-quiet-fail` 확인 · 실행 잠금 · 시드 · 본문 · 앱 끄기 · 끝 줄(`PASS` · `ABORT` · `RESULT FAIL`) · 종료 코드를 맡는다. 단계 하나라도 FAIL 이면 실패다. 신호 · 시간 초과면 묶음이 건 `onSignal`(core 는 되돌리기)을 돌린 뒤 끝낸다.
+- **조용한 창** — 단계마다 `lib.quietProblems` 와 막힌 요청을 보고, 어긋나면 앱을 다 끄고 `runlock.markQuietFail` 로 `e2e-quiet-fail` 에 남긴다. 판정을 못 했을 때(오류 · 10초 넘김)도 조용하다고 볼 수 없어 같게 다룬다 — 앱이 다시 켜지는 중(창 · 대상 닫힘)만 건너뛴다. 조용한 창 · 막힌 요청 자체를 시험하는 `launcher/quiet.js` · `launcher/routing.js` 는 `quietGuard: false` 로 이 판정을 끄고 스스로 본다(`quiet.js` 는 화면 · 포커스 · 소리로 새는 실패만 남기고, `e2e-quiet-fail` 이 있어도 돈다 — 지우기 전에 다시 통과해야 하므로).
 - **앱 켜기 · 가입** — `launchRetry`(주소 돌리기가 안 걸린 실패는 다시 켜지 않고 `e2e-quiet-fail` 에 남김 · 그 밖의 실패만 세 번까지) · `signupForm`(초대 코드 → 비밀번호 가입 → 완료 화면) · `restartAfter`([시작하기] 처럼 앱이 스스로 다시 켜는 단추).
+- **기다리기** — `waitUntil(fn, { ms, every, what })` 한 벌(core `poll` · account `waitFor` · room · social `until` 이 이것을 감싼다).
 - **API** — `apiIn`(앱 창 안에서 앱 토큰으로) · `http` · `emuSignIn` · `headlessLogin`(Auth 에뮬레이터 로그인) · `apiUser`(앱 없는 계정) · `uidOf`.
-- **시드** — `seedSql(파일, 변수)` · `query(SQL)` 은 `lib.docker` 로 로컬 DB 컨테이너(`TW_E2E_PG`)에 넣는다. 초대 코드는 묶음마다 다른 코드로 `seed/invite.sql` 한 벌(쓴 횟수가 상한에 가까우면 0 으로 되돌린다).
+- **시드** — `seedSql(파일, 변수)` · `query(SQL)` 은 `lib.docker` 로 로컬 DB 컨테이너(`TW_E2E_PG`)에 넣는다. 초대 코드는 묶음마다 다른 코드로 `seed/invite.sql` 한 벌(쓴 횟수가 상한에 가까우면 0 으로 되돌린다). social 은 `TW_E2E_INVITE` 를 받으면 그 코드를 건드리지 않는다.
 - cutover-012 는 0.12.3 앱을 자기 문지기와 켜서 이 틀을 쓰지 않는다 — 결과 폴더(`outDir`) · `e2e-quiet-fail` 확인만 빌려 쓴다.
 
 ### 조용한 창 · 실행 잠금
@@ -159,7 +160,7 @@ core · social 묶음 환경 값(`scenarios/core/_kit.js` · `scenarios/social/_
 | 값 | 뜻 |
 |---|---|
 | `TW_E2E_STACK_LOCK` | 공유 컨테이너(realtime 등)를 멈췄다 풀 때만 잡는 잠금 폴더. 비어 있으면 컨테이너를 건드리는 시나리오(keepalive · 오프라인 → 온라인 · 점검)는 멈춘다. 신호로 끝나도 exit 에서 잠금을 지우고 멈춘 realtime 을 푼다 |
-| `TW_E2E_INVITE` | 가입에 쓰는 초대 코드(core 기본 `INVT-C2RE-TEST` · social 기본 `INVT-SCAL-E2E3` — 시나리오가 `seed/invite.sql` 로 넣는다) |
+| `TW_E2E_INVITE` | 가입에 쓰는 초대 코드(core 기본 `INVT-C2RE-TEST` · social 기본 `INVT-SCAL-E2E3`). 기본 코드는 시나리오가 `seed/invite.sql` 로 넣는다 — core 는 준 코드도 넣고, social 은 준 코드를 건드리지 않는다 |
 | `TW_E2E_PG` · `TW_E2E_RT` | DB · realtime 컨테이너 이름(기본 `tw-dev-local-postgres-1` · `tw-dev-local-rooms-dev-1`) |
 | `TW_E2E_ADMIN_PASS` | 앱 관리자 비밀번호. 없으면 시험 글자 하나만 앱의 비밀번호 해시로 바꿔 주는 덮개를 창에 건다(비교 · 서버 확인 · 모드 켜기는 앱 코드 그대로) |
 
