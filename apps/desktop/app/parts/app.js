@@ -1278,8 +1278,8 @@ function _waitForFirebaseAPI(cb){
      permission_denied 로 떨어진다. 거부는 화면에 아무 표시도 안 남긴다 — 유저에게는
      "이름이 안 바뀐다 / 친구가 사라졌다"로만 보인다.
    ⚠️ 막지 않는다. 알려주기만 한다 — 고치는 방법은 재시작 한 번이다(부팅 게이트 K 가 로그인을 받는다 · 개정 16: 설정 › 계정 로그인은 걷었다). */
-/* ═══ 🖥️ 계정마다 PC 셋 — 이 PC 등록 · 연결이 끊긴 PC 의 처리 ═══════════════
-   자리(기기 등록)는 서버 API 가 정한다 — 켤 때 realtime 보다 먼저 등록(device-register.js · 넷째 PC 면 확인창 device-limit-dialog.js) · 끊기면 안내(device-lost.js).
+/* ═══ 🖥️ 계정마다 PC 는 서버가 정한 상한까지 — 이 PC 등록 · 연결이 끊긴 PC 의 처리 ═══════════════
+   자리(기기 등록)는 서버 API 가 정한다 — 켤 때 realtime 보다 먼저 등록(device-register.js · 상한이 다 찼으면 확인창 device-limit-dialog.js) · 끊기면 안내(device-lost.js).
    ★ 로그아웃하지 않는다 — 캐릭터·기록·신원 그대로. «다시 등록 · 여기서 계속» = 등록 → 같은 realtime 연결로 다시 붙기. «앱 닫기» = quitApp. */
 const deviceLimitDialog = TwDeviceLimitDialog.createDeviceLimitDialog({ document: document });
 const deviceRegisterMod = TwDeviceRegister.createDeviceRegister({
@@ -4922,7 +4922,7 @@ const appBoot = TwAppBoot.createAppBoot({
     closeAccountStore: ()=>accountStoreMod.close(),
     timers: { setInterval: (f, ms)=>setInterval(f, ms), clearInterval: (h)=>clearInterval(h), setTimeout: (f, ms)=>setTimeout(f, ms), clearTimeout: (h)=>clearTimeout(h) },
   }),
-  registerDevice: ()=>deviceRegisterMod.ensure(),   // 🖥️ realtime 보다 먼저 이 PC 등록(넷째 PC 면 확인창)
+  registerDevice: ()=>deviceRegisterMod.ensure(),   // 🖥️ realtime 보다 먼저 이 PC 등록(상한이 다 찼으면 확인창)
   toLogin: ()=>accountMod._loginDoLogout({ force:true }).then(()=>acctStateMod._acctRelaunchAfterDetach(null)),   // [취소] — 등록하지 않고 로그인 화면(다시 켜면 게이트가 로그인 화면)
   goOnline: ()=>loginFlowMod.goOnline(),
   starts: {

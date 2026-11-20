@@ -1,7 +1,7 @@
-/* sim-device-register.js — 🖥️ 이 PC 등록(account/device-register.js) — 계정마다 PC 셋 · 넷째 PC 는 묻고 지운다 · 저절로 지우지 않는다
+/* sim-device-register.js — 🖥️ 이 PC 등록(account/device-register.js) — 계정마다 PC 는 서버가 정한 상한까지 · 다 찼으면 새 PC 는 묻고 지운다 · 저절로 지우지 않는다
    실행:  node sim-device-register.js   (러너 스테이징 또는 저장소 루트에서)
    ・1절: 이름 · 글 — OS 이름(호스트 이름 없음) · 처음 등록한 날 · 마지막 사용 · 묻는 글 한 줄 · navigator → os
-   ・2절: 흐름을 실제로 돌린다 — 바로 됨 · 셋이 다 참(묻기 → [지우고 사용] → 보여 준 그 기기 id 로 다시) · [취소] · 그사이 바뀐 가장 오래된 기기(다시 묻기) ·
+   ・2절: 흐름을 실제로 돌린다 — 바로 됨 · 상한이 다 참(묻기 → [지우고 사용] → 보여 준 그 기기 id 로 다시) · [취소] · 그사이 바뀐 가장 오래된 기기(다시 묻기) ·
           실패(번호 한 번) · 겹쳐 부르기(한 번) · 끝없이 바뀌면 멈춤
    ・3절: 연결 — app.js(등록 → 확인창 · 기기 id · 세션 id · os) · html · smoke PRELOAD
    ・4절: 일부러 깨 보기 */
@@ -17,7 +17,7 @@ if (!MOD || !APP || !HTML) { say('  ? 원본 못 찾음 — device-register.js �
 
 function load(src) { const win = {}; new Function('window', 'module', src)(win, undefined); return win.TwDeviceRegister; }
 const OLD = (id, os, claimedAt, lastSeenAt) => ({ deviceId: id, os, claimedAt, lastSeenAt });
-const limitErr = (oldest) => Object.assign(new Error('셋'), { kind: 'request', status: 409, code: 'USER_DEVICE_LIMIT', items: [oldest] });
+const limitErr = (oldest) => Object.assign(new Error('다 참'), { kind: 'request', status: 409, code: 'USER_DEVICE_LIMIT', items: [oldest] });
 /* 서버 흉내 — answers 를 차례로(없으면 'ok'). 받은 본문을 남긴다 */
 function world(src, answers, o) {
   o = o || {};
@@ -61,7 +61,7 @@ async function judge(src) {
   w = world(src, [limitErr(A)]);
   res = await w.mod.ensure();
   t(res === 'ok' && w.asked.length === 1 && w.asked[0][1] === 'pc-a' && /Windows PC \(11월 3일 등록\)/.test(w.asked[0][0]) && w.sent.length === 2 && w.sent[1].replaceOldest === 'pc-a' && !('replaceOldest' in w.sent[0]),
-    '★ 셋이 다 참 — 가장 오래된 기기를 묻고 [지우고 사용]이면 보여 준 그 기기 id 를 replaceOldest 로 실어 다시(처음엔 싣지 않는다)');
+    '★ 상한이 다 참 — 가장 오래된 기기를 묻고 [지우고 사용]이면 보여 준 그 기기 id 를 replaceOldest 로 실어 다시(처음엔 싣지 않는다)');
   w = world(src, [limitErr(A)], { yes: false });
   res = await w.mod.ensure();
   t(res === 'canceled' && w.sent.length === 1 && w.asked.length === 1 && !w.errs.length, '★ [취소] — 지우지 않고 등록하지 않는다(canceled · 번호 없음)');
