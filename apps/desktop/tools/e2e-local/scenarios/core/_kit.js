@@ -128,8 +128,17 @@ async function launchRetry(A){
   }
 }
 
+// 앱 없이 그 친구 코드로 Auth 에뮬레이터에 로그인 — 앱과 같은 길(친구 코드 → <코드>@tw.local · firebase-init.js). { token, uid }
+async function headlessLogin(fc, pw){
+  const r = await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=e2e', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: fc.toLowerCase() + '@tw.local', password: pw, returnSecureToken: true }) });
+  let b = null; try { b = await r.json(); } catch(_){}
+  if(!b || !b.idToken) throw new Error('에뮬레이터 로그인 실패 ' + JSON.stringify(b).slice(0, 120));
+  return { token: b.idToken, uid: b.localId };
+}
+
 // 앱 없이 만드는 계정 — 신고자처럼 «사람 수» 만 필요한 쪽. 가입(POST /v2/users) → Auth 에뮬레이터에 친구 코드 메일로 로그인 → 그 토큰으로 API
-// 앱과 같은 길(친구 코드 → <코드>@tw.local)을 쓴다 — firebase-init.js
 async function headlessUser(){
   const API = 'http://127.0.0.1:8080';
   const j = async (r) => { let b = null; try { b = await r.json(); } catch(_){} return { status: r.status, body: b }; };
@@ -137,15 +146,11 @@ async function headlessUser(){
     body: JSON.stringify({ password: PW, requestId: 'e2e-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8), inviteCode: INVITE }) }));
   if(join.status !== 200) throw new Error('앱 없는 가입 ' + join.status + ' ' + JSON.stringify(join.body).slice(0, 120));
   const fc = join.body.data.friendCode;
-  const login = await j(await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=e2e', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: fc.toLowerCase() + '@tw.local', password: PW, returnSecureToken: true }) }));
-  if(!login.body || !login.body.idToken) throw new Error('에뮬레이터 로그인 실패 ' + JSON.stringify(login.body).slice(0, 120));
-  const token = login.body.idToken;
+  const { token, uid } = await headlessLogin(fc, PW);
   const call = async (method, p, b) => j(await fetch(API + p, { method,
     headers: Object.assign({ Authorization: 'Bearer ' + token }, b === undefined ? {} : { 'Content-Type': 'application/json' }),
     body: b === undefined ? undefined : JSON.stringify(b) }));
-  return { fc, uid: login.body.localId, userCode: join.body.data.userCode, call };
+  return { fc, uid, userCode: join.body.data.userCode, call };
 }
 
 function run(name, body){
@@ -442,4 +447,4 @@ function run(name, body){
   })();
 }
 
-module.exports = { run, sql, seed, docker, withStackLock, poll, wait, PW, INVITE, PG, RT, ROOT };
+module.exports = { run, headlessLogin, sql, seed, docker, withStackLock, poll, wait, PW, INVITE, PG, RT, ROOT };

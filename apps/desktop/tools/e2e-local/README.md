@@ -154,7 +154,9 @@ core 묶음 환경 값(`scenarios/core/_kit.js`):
 ### 앱 끄기(`scenarios/core/quit-*.js`)
 
 - 공통부는 `scenarios/core/_quit.js`. 캐릭터를 고쳐 3초 묶음 저장이 예약된 채(`closetMod.unsavedCount() > 0`) 끄고, main 의 `before-quit` 을 `net.txt` 에 `E2E <시각> before-quit held|go` 줄로 남긴다 — 같은 파일의 `REQ PUT /v2/me/avatars/…` 줄과 앞뒤를 견줘 «붙잡음 → 저장 200 → 놓아 줌» 을 본다.
-- 메뉴 «종료» 는 main 에서 앱 메뉴의 role quit 항목을 찾아 누른다(OS 키는 보내지 않는다). mac 의 role quit 은 네이티브 항목이라 `MenuItem.click()` 이 아무것도 안 해서, 메뉴가 누를 때 보내는 `Menu.sendActionToFirstResponder('terminate:')` 를 보낸다(Cmd+Q 와 같은 길). 윈도우 · 리눅스는 앱 메뉴가 없어 제목줄 × 와 같은 `companion:quitApp`.
+- 메인 창 닫기는 그 창의 `close` 를 같은 방법으로 `E2E <시각> close held|go` · `E2E <시각> closed` 줄로 남기고 «close held → 저장 200 → close go → closed» 를 본다(`checkHeldClose`). 앱의 `beforeunload` 가 저장 PUT 을 기다리지 않고 보내고 그 요청은 main 을 거쳐 렌더러가 사라진 뒤에도 200 으로 닿을 수 있어, «닫힌 뒤 PUT 200» 만으로는 닫기를 붙잡았는지 모른다. mac 에서 다시 연 창은 새 창이라 `watchClose` 를 다시 건다.
+- 서버 값은 앱 없이 core 묶음의 `headlessLogin(친구 코드, 비밀번호)`(Auth 에뮬레이터 로그인)으로 본다 — `headlessUser` 도 같은 것을 쓴다.
+- 메뉴 «종료» 는 main 에서 앱 메뉴의 role quit 항목을 찾아 누른다(OS 키는 보내지 않는다). mac 의 role quit 은 네이티브 항목이라 `MenuItem.click()` 이 아무것도 안 해서, 메뉴가 누를 때 보내는 `Menu.sendActionToFirstResponder('terminate:')` 를 보낸다(Cmd+Q 와 같은 길). mac 에서 그 항목이 없으면 실패다. 윈도우 · 리눅스는 앱 메뉴가 없어 제목줄 × 와 같은 `companion:quitApp` — 앱이 먼저 꺼져 «Target closed» 로 끝나는 것만 받아 준다.
 - mac 에서 메인 창을 닫으면 창이 0개가 되어 단계 끝의 조용한 창 판정(«창이 하나도 안 보임»)이 틀리게 걸린다 — `quit-close.js` 는 닫기부터 Dock 누르기(`app.emit('activate')`)로 다시 열기까지를 한 단계로 둔다.
 
 ## 해 본 것 — REPL 로 (2026-11-17 확인)

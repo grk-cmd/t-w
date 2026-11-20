@@ -11,6 +11,8 @@ const OTHER_DEV = 'e2e-nokey-other-pc';
 const TOAST_0123 = /계정에 등록된 라이선스를 이 PC에서도 켰어요/;
 // 0.12.3 은 켜고 6초 뒤에 켰다 — 그보다 넉넉히 본다
 const WATCH_MS = 12000;
+// 안내가 뜬 뒤 더 지켜보는 시간 — 한 번만 뜨는지 다시 센다
+const AFTER_TOAST_MS = 2000;
 
 // 이 PC 에 키를 없앤 채 다시 켠다 · 켜는 차례의 프리미엄 확인이 끝날 때까지 · 그동안 뜬 안내 글을 모은다
 async function relaunchNoKey(pc){
@@ -61,10 +63,13 @@ K.scenario('license-no-key', async (t) => {
   });
   await t.step('② 이 기기 등록(PUT) · 프리미엄 · «이 PC에서도 켰어요» 안내 한 번(0.12.3 과 같음)', async () => {
     await K.waitFor(() => pc.w.evaluate(() => isPremium), WATCH_MS, '이 PC 프리미엄');
+    const shown = (x) => x.toasts.filter((y) => TOAST_0123.test(y)).length;
+    await K.waitFor(async () => shown(await seen(pc)) >= 1, WATCH_MS, '«이 PC에서도 켰어요» 안내');
+    await t.wait(AFTER_TOAST_MS);
     const s = await seen(pc);
     t.note('본 것 ' + JSON.stringify(s));
     if(!await serverPremium()) throw new Error('서버가 프리미엄으로 보지 않음');
     if(!licenseWrites(pc).some((r) => r.startsWith('PUT /v2/me/license/devices/'))) throw new Error('이 기기 등록 요청이 없음');
-    if(s.toasts.filter((x) => TOAST_0123.test(x)).length !== 1) throw new Error('«이 PC에서도 켰어요» 안내가 한 번이 아님: ' + s.toasts.join(' | '));
+    if(shown(s) !== 1) throw new Error('«이 PC에서도 켰어요» 안내가 한 번이 아님: ' + s.toasts.join(' | '));
   });
 });
