@@ -1,15 +1,15 @@
-/* device-limit-dialog.js — 🖥️ «PC 3대가 다 찼어요» 확인창 (검사 checks/sim-device-limit-dialog.js)
-   [왜] 넷째 PC 로 들어오면 가장 오래 안 쓴 기기를 지울지 사람에게 묻는다(account/device-register.js 가 부른다). 저절로 지우지 않는다.
+/* device-limit-dialog.js — 🖥️ «등록할 수 있는 PC를 다 썼어요» 확인창 (검사 checks/sim-device-limit-dialog.js)
+   [왜] 서버가 정한 상한까지 PC 를 등록한 계정으로 새 PC 에서 들어오면 가장 오래 안 쓴 기기를 지울지 사람에게 묻는다(account/device-register.js 가 부른다). 저절로 지우지 않는다.
    [모양] 디자인 시스템 확인창(260px · 확인창에는 이모지를 쓰지 않는다) — 제목 질문 + 버튼 둘(오른쪽 정렬: [취소] · [지우고 사용]) · 기본 포커스는 [취소] · Esc = 취소 ·
      role="alertdialog" + aria-labelledby. 껍데기는 app-popup-ov + pointer-events:none(클릭 통과 목록에 걸리고 화면 전체를 막지 않는다).
      층은 기기 안내 화면(#deviceSessionOverlay)과 같은 --z-gate-device 로 그 뒤에 붙인다 — «다시 등록» 에서 그 화면 위에 뜬다.
-   [글] 질문은 부르는 쪽(device-register.js limitQuestion)이 만든 글을 받아 textContent 로만 넣는다(HTML 로 읽지 않는다).
+   [글] 대수는 쓰지 않는다 — 상한은 서버가 정한다. 질문은 부르는 쪽(device-register.js limitQuestion)이 만든 글을 받아 textContent 로만 넣는다(HTML 로 읽지 않는다).
    classic script — app.js 보다 먼저 싣는다(window.TwDeviceLimitDialog). */
 (function(){
 'use strict';
 
 const TEXT = Object.freeze({
-  title: 'PC 3대가 다 찼어요',
+  title: '등록할 수 있는 PC를 다 썼어요',
   cancel: '취소',
   ok: '지우고 사용',
 });

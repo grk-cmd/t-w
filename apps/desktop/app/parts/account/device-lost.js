@@ -1,9 +1,9 @@
 /* device-lost.js — 🖥️ 이 PC 의 연결이 서버에서 끊긴 뒤(지워짐 · 새 세션) — 안내 · 다시 등록 · 여기서 계속 (검사 checks/sim-device-lost.js)
-   0.13 — 한 계정은 PC 3대까지 쓴다. 자리(기기 등록)는 서버 API 가 정하고 realtime 이 그대로 따른다(account/device-register.js).
+   0.13 — 한 계정은 PC 를 서버가 정한 상한까지 쓴다. 자리(기기 등록)는 서버 API 가 정하고 realtime 이 그대로 따른다(account/device-register.js).
    realtime 이 이 연결을 sessionLost · 닫힘 4004 로 끊으면(realtime/rt-hub.js) login-flow.js 가 여기 _onDeviceSessionLost(kind) 를 부른다.
      kind 'deviceRemoved' — 다른 PC 에서 이 기기를 지웠다(또는 등록돼 있지 않음) → «이 PC 다시 등록»
      kind 'sessionLost'   — 이 PC 에서 앱을 새로 열어 이 창의 세션이 밀렸다 → «여기서 계속 쓰기»
-   두 단추 모두 continueHere() — 이 PC 를 다시 등록하고(셋이 다 찼으면 확인창) 같은 realtime 연결 하나로 다시 붙는다. 등록하지 못하면(취소 · 실패) 화면을 그대로 둔다.
+   두 단추 모두 continueHere() — 이 PC 를 다시 등록하고(상한이 다 찼으면 확인창) 같은 realtime 연결 하나로 다시 붙는다. 등록하지 못하면(취소 · 실패) 화면을 그대로 둔다.
    같은 계정이 다른 PC 에서 같은 방에 들어온 것(left replaced)은 이 화면이 아니다 — 방에서만 나온다(room-entry.js).
    여기는 «끊긴 뒤 이 PC 가 하는 일» 뿐이다 — 방에서 나온다 · 방 입장을 막는다(window._deviceSessionLost — room-entry) · 안내 화면.
    ★ 로그아웃하지 않는다 — 캐릭터 · 기록 · 신원 그대로. «앱 닫기» = quitApp.
