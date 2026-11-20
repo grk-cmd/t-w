@@ -1,6 +1,6 @@
-/* device-register.js — 🖥️ 이 PC 등록(계정마다 PC 셋) — 켤 때 · «다시 등록» 에서 realtime 보다 먼저 (검사 checks/sim-device-register.js)
-   [왜] 한 계정은 PC 3대까지 쓴다. 자리는 서버가 정한다(POST /v2/me/devices — 이 PC 의 기기 id · 이번 세션 id · OS).
-     넷째 PC 면 서버가 409 USER_DEVICE_LIMIT 와 «가장 오래 안 쓴 기기» 를 돌려준다 — 그 기기를 지울지 사람에게 묻고(ask),
+/* device-register.js — 🖥️ 이 PC 등록(계정마다 PC 는 서버가 정한 상한까지) — 켤 때 · «다시 등록» 에서 realtime 보다 먼저 (검사 checks/sim-device-register.js)
+   [왜] 한 계정이 쓰는 PC 수는 서버가 정한 상한까지다. 자리는 서버가 정한다(POST /v2/me/devices — 이 PC 의 기기 id · 이번 세션 id · OS).
+     다 찬 계정에 새 PC 면 서버가 409 USER_DEVICE_LIMIT 와 «가장 오래 안 쓴 기기» 를 돌려준다 — 그 기기를 지울지 사람에게 묻고(ask),
      [지우고 사용]이면 그 기기 id 를 replaceOldest 로 실어 다시 부른다. 그사이 가장 오래된 기기가 바뀌었으면 서버가 또 409 — 새 기기로 다시 묻는다.
      아무것도 조용히 · 저절로 지우지 않는다. [취소]면 등록하지 않는다(부르는 쪽이 로그인 화면으로).
    [이름] 기기 이름은 OS + 처음 등록한 날(«Windows PC (11월 3일 등록)»), 마지막 사용은 따로. PC 이름(호스트 이름)은 쓰지 않는다 — 사람 이름이 든 경우가 많다.

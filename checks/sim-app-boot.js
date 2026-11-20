@@ -74,7 +74,7 @@ async function judge(src) {
   b = build(src, { reg: 'canceled' });
   const rc = await quiet(async () => b.notify(ME));
   t(rc[0] === false && b.ev.join() === 'migrate:u1,open:u1,register,dispose,toLogin' && b.boot.getSession() === null && b.made[0].disposed === 1,
-    '★ 등록 [취소](넷째 PC 에서 지우지 않음) — 세션을 끝내고 로그인 화면 · realtime · 기능 시작 0번');
+    '★ 등록 [취소](다 찬 계정에서 지우지 않음) — 세션을 끝내고 로그인 화면 · realtime · 기능 시작 0번');
   for (const [lab, opt] of [['실패', { reg: 'failed' }], ['던짐', { regThrow: true }]]) {
     b = build(src, opt);
     const rf = await quiet(async () => b.notify(ME));

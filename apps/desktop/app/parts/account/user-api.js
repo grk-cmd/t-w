@@ -87,8 +87,8 @@ function deviceFrom(d){
   if(!isObj(d) || !str(d.deviceId)) return null;
   return { deviceId: d.deviceId, os: str(d.os) || null, claimedAt: str(d.claimedAt) || null, lastSeenAt: str(d.lastSeenAt) || null };
 }
-const DEVICE_LIMIT = 'USER_DEVICE_LIMIT';   // 서버 code — 계정의 PC 셋이 다 참
-/* 등록 실패가 «셋이 다 참» 이면 가장 오래 안 쓴 기기(err.items[0]), 아니면 null */
+const DEVICE_LIMIT = 'USER_DEVICE_LIMIT';   // 서버 code — 계정의 등록 PC 가 서버가 정한 상한까지 다 참
+/* 등록 실패가 «등록 PC 가 다 참» 이면 가장 오래 안 쓴 기기(err.items[0]), 아니면 null */
 function limitOldestOf(err){
   if(!err || err.code !== DEVICE_LIMIT || !Array.isArray(err.items)) return null;
   return deviceFrom(err.items[0]);
@@ -153,8 +153,8 @@ function createUserApi(deps){
     return { code: isObj(d) ? str(d.code) : '' };
   }
 
-  /* 이 PC 등록(계정마다 PC 셋) — { deviceId, session, os, replaceOldest? } → { deviceId, os, claimedAt, lastSeenAt, removed }.
-     셋이 다 찼으면 409 USER_DEVICE_LIMIT 를 그대로 던진다(err.items[0] = 가장 오래 안 쓴 기기 — deviceFrom 으로 읽는다).
+  /* 이 PC 등록(계정마다 PC 는 서버가 정한 상한까지) — { deviceId, session, os, replaceOldest? } → { deviceId, os, claimedAt, lastSeenAt, removed }.
+     상한이 다 찼으면 409 USER_DEVICE_LIMIT 를 그대로 던진다(err.items[0] = 가장 오래 안 쓴 기기 — deviceFrom 으로 읽는다).
      replaceOldest 는 사용자에게 보여 준 그 기기 id 일 때만 서버가 지운다(그사이 바뀌었으면 또 409). */
   async function registerDevice(o){
     const body = { deviceId: String(o.deviceId || ''), session: String(o.session || ''), os: String(o.os || '') };
