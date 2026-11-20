@@ -55,7 +55,6 @@ const K = {};
 ['MY_USER_ID_KEY','MY_FRIEND_CODE_KEY','LOGIN_EMAIL_KEY','LOGIN_UID_KEY',   // (개정 56) MY_PREV_USER_IDS_KEY 걷음
  'MY_FRIEND_CODE_PREV_KEY','LICENSE_KEY_STORAGE','LICENSE_REQ_ID_KEY','FOCUS_TODAY_SEC_KEY',
  'FOCUS_TODAY_DATE_KEY',
- 'LICENSE_OPTOUT_KEY',   // (개정 238) 목록에 들어온 뒤 여기 없어 2절이 «?» 로 통째 안 돌았다
  'USER_NAME_KEY','BELL_SEEN_KEY','INBOX_BC_READ_KEY','BONK_DAY_KEY',
 ].forEach(n => { K[n] = constVal(n); });
 const missingConst = Object.keys(K).filter(n => !K[n]);
@@ -66,7 +65,7 @@ say('── 1. ACCOUNT_LOCAL_KEYS — 제보의 다섯 자리 · 두 경로가 �
 const listSrc = (SRC.match(/const ACCOUNT_LOCAL_KEYS = \(\)=>\[([\s\S]*?)\n\];/) || [])[1] || '';
 chk(!!listSrc, '★ ACCOUNT_LOCAL_KEYS 가 있다 (지움 목록은 코드 한 벌이어야 한다 — 주석으로 «같은 목록» 이면 또 새는 자리)');
 const has = n => new RegExp('\\b' + n + '\\b').test(listSrc);
-chk(!has('LICENSE_KEY_STORAGE') && !has('LICENSE_OPTOUT_KEY') && has('LICENSE_REQ_ID_KEY'), '① 라이선스 옛 키 · 해제 표시는 로그아웃이 지우지 않는다(첫 실행이 서버에 올린 뒤에야 지움 — 프리미엄은 서버 판정이라 남아도 열리지 않는다) · 요청 번호만 지운다');
+chk(!has('LICENSE_KEY_STORAGE') && !has('LICENSE_OPTOUT_KEY') && !has('OPT_OUT_KEY') && has('LICENSE_REQ_ID_KEY'), '① 라이선스 옛 키 · 해제 표시는 로그아웃이 지우지 않는다(첫 실행이 서버에 올린 뒤에야 지움 — 프리미엄은 서버 판정이라 남아도 열리지 않는다) · 요청 번호만 지운다');
 chk(!has('FOCUS_TODAY_SEC_KEY') && !has('FOCUS_TODAY_DATE_KEY') && !/focusTotalSec|focusSyncedSec|focusPendingSec|starColor|danceNotified|ideskNotified|DANCE_NOTIFIED|DANCE_REPAIR/.test(listSrc), '③ 오늘치 · 못 올린 집중 시간은 계정별 칸(shared/account-store.js)이라 지움 목록에 없다 — 걷은 옛 키(누적 · 마크 · 별 색 · 해금 안내 기록)는 첫 실행이 지운다');
 chk(!has('GACHA_OWNED_KEY') && !has('GACHA_TS_KEY') && !has('GACHA_BONUS_KEY') && !/tw\.gacha/.test(listSrc), '④ 가챠는 서버가 원본이라 이 PC 에 지울 값이 없다(지움 목록에 없다)');
 chk(!has('LS_KEY') && !/deskFriends\./.test(listSrc), '② 캐릭터는 서버가 원본이라 이 PC 에 지울 슬롯 저장본·ts 가 없다(지움 목록에 없다)');

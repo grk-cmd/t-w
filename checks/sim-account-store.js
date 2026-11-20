@@ -500,7 +500,7 @@ async function judge(S){
       setAcctDetached: (v) => { if(v) rec.push('wipe'); },
       leaveFlush: new Function('window', 'module', S.LEAVE + '\nreturn window.TwLeaveFlush;')({}, undefined),   // 올리기 상한 한 벌(shared/leave-flush.js) — 진짜로 기다린다
       focusLevelMod: () => ({ DANCE_NOTIFIED_KEY: 'x1', DANCE_REPAIR_KEY: 'x2' }),
-      acctStateMod: { INVITE_PASS_KEY: 'x3', LICENSE_KEY_STORAGE: 'x4', LICENSE_OPTOUT_KEY: 'x5' },
+      acctStateMod: { INVITE_PASS_KEY: 'x3', LICENSE_KEY_STORAGE: 'x4' },
       LOGIN_EMAIL_KEY: 'x6', LOGIN_UID_KEY: 'x7',
     });
     const win = { firebaseAPI: { deviceSessionLost: () => true, authSignOut(){}, chatHistory: { wipeAll(){} } } };
