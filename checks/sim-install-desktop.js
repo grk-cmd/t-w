@@ -3,7 +3,7 @@
    1. 부르는 모양 — 가짜 npm(npm_execpath)을 실제로 불러: cwd = apps/desktop · 인자 install · 표시(GUARD) · local_prefix 지움 · 종료 코드 그대로
    2. 한 번만 — 표시가 있으면 npm 을 부르지 않고 알아볼 문구와 함께 실패 · 가짜 npm 이 «루트를 다시 까는»(Windows 증상) 흉내를 내도 한 번에 멈추고 설치 전체가 실패로 끝난다
    3. 실제 npm 으로 — 의존성 없는 가짜 저장소에서 루트 → 앱 postinstall 이 한 번씩만 돈다
-   4. 깨 보기 — 표시를 빼거나 cwd 를 루트로 바꾼 사본은 위 판정에 걸린다
+   4. mutation test — 표시를 빼거나 cwd 를 루트로 바꾼 사본은 위 판정에 걸린다
    [실행] 러너 스테이징 또는 저장소 루트에서(`scripts/install-desktop.js` 를 cwd 상대로 찾는다). */
 'use strict';
 const fs = require('fs');
@@ -49,7 +49,7 @@ function runScript(root, env){
 }
 const baseEnv = () => { const e = { ...process.env }; delete e.TW_DESKTOP_INSTALL; return e; };
 
-/* 판정 묶음 — 깨 보기에서 같은 판정을 고친 사본에 다시 건다 */
+/* 판정 묶음 — mutation test 에서 같은 판정을 고친 사본에 다시 건다 */
 function judge(src){
   const out = [];
   const t = (ok, msg) => out.push([!!ok, msg]);
@@ -98,7 +98,7 @@ say('── 3. 실제 npm 으로 — 루트 → 앱 postinstall 이 한 번씩')
   }
 }
 
-say('── 4. 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 4. mutation test — 하나라도 못 잡으면 빨강');
 {
   const noGuard = SRC.replace(/if\s*\(process\.env\[GUARD\]\)\s*\{[^}]*\}/, '');
   const atRoot = SRC.replace(/cwd: DESKTOP/g, "cwd: path.join(__dirname, '..')").replace(/\['install'\]/g, "['--prefix', 'apps/desktop', 'install']");

@@ -2,7 +2,7 @@
    ・1절: trim — 상한 이하 그대로 · 넘치면 옛 해시 → 섬네일 10 → 오래 안 쓴 것부터 · 통째로 비우지 않는다 · 빈 값
    ・2절: touch · merge · once(같은 키 동시 업로드는 한 번)
    ・3절: 쓰는 곳 — 얼굴 · GLB 캐시(쓴 것 맨 뒤 · 같은 업로드 한 번 · 저장 때 합치기) · 업로드(이름이 내용 해시면 있나 먼저) · 런처 섬네일(외모 지문)
-   ・4절: 깨 보기 */
+   ・4절: mutation test */
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (m) => console.log(m);
@@ -64,7 +64,7 @@ say('── 1·2. 규칙');
 (await judge(SRC)).forEach(([o, m]) => chk(o, m));
 say('── 3. 쓰는 곳');
 judgeUses(ROOM, SLOT, FI, EDIT, LCP).forEach(([o, m]) => chk(o, m));
-say('── 4. 깨 보기');
+say('── 4. mutation test');
 const bad = (rows) => rows.some(([o]) => !o);
 chk(bad(await judge(SRC.replace('  for(let i = 0; i < rest.length - max; i++) delete st[rest[i]];\n  return st;', '  if(rest.length > max) return {};\n  return st;'))), '넘치면 통째로 비우게 되돌리면 빨강');
 chk(bad(await judge(SRC.replace('    if(inflight.has(key)) return inflight.get(key);\n', ''))), '같은 키 동시 업로드 묶기를 빼면 빨강');

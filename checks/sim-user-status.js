@@ -6,7 +6,7 @@
    ・4절: 칩 · 메뉴 — refreshMyStatusUI(칩 없음 · 상태 있음 · 없음 · 활성 표시) · refreshCustomStatusMenuItem(프리미엄 아니면 숨김 · 문구 · 표식) · _premiumOn(TDZ 로 던져도 false)
    ・5절: saveSeatXf — 크기 · 높이(상한) · 방향을 def.xf 와 슬롯에 저장
    ・6절: 연결 — html · 만드는 줄 · 알림 걸기 · 옛 이름 · window.setUserStatus 고리(presence.js 가 부름) · app.js 에 해당 코드가 안 남음
-   ・7절: 일부러 깨 보기
+   ・7절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. */
 'use strict';
 const fs = require('fs');
@@ -161,7 +161,7 @@ say('§6 연결');
   const PRES = read('room/presence.js') || '', RS = read('room/room-sync.js') || '';
   chk(/window\.setUserStatus\(v\)/.test(PRES) && /window\.setUserStatus/.test(RS), '  그 고리를 부르는 쪽(presence.js · room-sync.js)이 그대로 있다');
 }
-say('§7 일부러 깨 보기');
+say('§7 mutation test');
 {
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const m1 = brk("if(!v || !userStatusTableMod.USER_STATUSES[v]) v=null;", '');

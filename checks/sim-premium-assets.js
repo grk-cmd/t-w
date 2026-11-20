@@ -3,7 +3,7 @@
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(DESK_LICENSE_HOLD · ITEM_LICENSE_HOLD · MAX_GACHA_PARTS_PER_CAT · MAX_PARTS_PER_CAT · PART_CATS · PART_GROUPS · WD_DESK_TAB · _licenseLockedDeskId · _normPartRec · _wdLicenseDesks · addEntryToCat · addPartEntryInstance · catEquippedIds · customPartCats · setCustomPartCats · defaultPartXf · entriesForCat · findEntryById · firstEntryForCat · getRecHides · groupOfCat · isDeskPartCat · loadSavedParts · partAttachTarget · partCatInfo · partCatLimit · partCatOverrides · setPartCatOverrides · partEntryId · partEntryInstanceCount · partEntryInstances · partEntryXf · partsInCat · partsInCatFor · partsInGroup · persistSavedParts · pruneUnownedLicenseAssets · rebuildPartCats · removeEntryFromCat · removePartEntryInstance · renderWdDeskSection · reorderSavedPart · restoreLicenseHeldAssets · savedParts · setSavedParts · setPartEntryInstanceXf · toHidesForSave · wdEar)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 32줄 그대로 · 부르는 곳은 premiumMod.이름 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · premium-assets.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -102,13 +102,13 @@ function behave(mod){
   chk(R.reset && R.closedLoud, '세션이 끝나면 이 계정 몫만 비운다 · 계정 칸이 닫혀 있으면 쓰기를 알린다');
   const br = (from, to) => MOD.includes(from) ? behave(MOD.replace(from, to)) : null;
   const b1 = br("savedParts = savedParts.concat(a.filter(p=>!have.has(p.id)).map(_normPartRec));", "savedParts = a.map(_normPartRec);");
-  chk(b1 && !b1.load, '깨 보기 — 로그인 때 읽은 값으로 카탈로그 몫을 덮으면 빨강');
+  chk(b1 && !b1.load, 'mutation test — 로그인 때 읽은 값으로 카탈로그 몫을 덮으면 빨강');
   const b2 = br("JSON.parse(raw).filter(p=>!p.fromCatalog)", "JSON.parse(raw)");
-  chk(b2 && !b2.load, '깨 보기 — 옛 칸의 카탈로그 사본까지 읽으면 빨강');
+  chk(b2 && !b2.load, 'mutation test — 옛 칸의 카탈로그 사본까지 읽으면 빨강');
   const b3 = br("JSON.stringify(savedParts.filter(p=>!p.fromCatalog))", "JSON.stringify(savedParts)");
-  chk(b3 && !b3.persist, '깨 보기 — 카탈로그 몫까지 계정 칸에 쓰면 빨강');
+  chk(b3 && !b3.persist, 'mutation test — 카탈로그 몫까지 계정 칸에 쓰면 빨강');
 }
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/character/premium-assets.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
@@ -117,7 +117,7 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const premiumMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('premiumMod.' + x)); if(n){ ls[i] = ls[i].replace('premiumMod.' + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 던짐', m => m.replace('function createPremiumAssets(deps){', 'function createPremiumAssets(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createPremiumAssets(deps){', 'function createPremiumAssets(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
@@ -150,7 +150,7 @@ async function reorderBehave(mod){
   chk(R.ok2, '★ 서버가 못 받으면(번호로 알림) 이 PC 순서는 그대로다 — 화면이 서버와 어긋나지 않는다');
   chk(R.ok3, '  서버 카탈로그 파츠가 없는 목록은 서버를 부르지 않고 이 PC 에서만 바꾼다');
   const bad = await reorderBehave(MOD.replace('if(ids.length && !(await catalogAdmin.saveShelfOrReport(\'CATEGORY:\'+cat, ids))) return false;', ''));
-  chk(!bad.ok2, '깨 보기 — 서버 결과를 안 보고 바로 바꾸면 빨강');
+  chk(!bad.ok2, 'mutation test — 서버 결과를 안 보고 바로 바꾸면 빨강');
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

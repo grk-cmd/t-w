@@ -3,7 +3,7 @@
    ・2절: myHomeOpen — 런처 상태(launcher-state.js)의 깃발을 읽는다(이 모듈은 들지 않는다) · 오버레이 .on 이 곧 «마이홈이 떠 있다»
    ・3절: _applyActiveAppState — 상태 없음 · 누적(조건 · 상한) · 집중 끝남 알림 · 달성표 · 플랫폼 · 게이트(focus-gate.js 규칙) · 자기 창 · 펜 앱
    ・4절: 연결 — 옛 이름 · deps 모양 · 만드는 줄
-   ・5절: 일부러 깨 보기 */
+   ・5절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -123,7 +123,7 @@ say('§4 연결');
   const shape = (n, v) => n === 'launcherState' ? v === 'launcherStateMod' : n === 'creatorOpen' ? v === '()=>creatorOpen' : n === 'focusProgressMod' ? v === '()=>focusProgressMod' : n === 'focusGate' ? v === 'TwFocusGate' : n === 'setFocusGateSleep' ? v === '(v)=>{ focusGateSleep = v; }' : v === n;
   chk(!!pairs && pairs.length === 14 && pairs.every(([n, v]) => shape(n, v)), '★ deps 14개 모양 — 읽는 함수 둘(creatorOpen · focusProgressMod) · 쓰는 함수 하나 · 게이트 규칙 TwFocusGate · 런처 상태 launcherStateMod · 값 아홉(이미 만들어진 것)');
   const bad = pairs ? pairs.map(([n, v]) => n === 'creatorOpen' ? [n, 'creatorOpen'] : [n, v]) : [];
-  chk(!bad.every(([n, v]) => shape(n, v)), '  깨 보기: 읽는 함수를 값으로 넘기면 빨강');
+  chk(!bad.every(([n, v]) => shape(n, v)), '  mutation test: 읽는 함수를 값으로 넘기면 빨강');
   chk(/^const _applyActiveAppState = windowModeMod\._applyActiveAppState;/m.test(code) && /^const applyDesktopRunClass = windowModeMod\.applyDesktopRunClass;/m.test(code) && !/function (_applyActiveAppState|applyDesktopRunClass)\b/.test(code) && !/^let myHomeOpen\b/m.test(code), '옛 이름 둘을 const 로 받고 본문 · let 이 안 남음');
   chk(/setMyHomeOpen: \(v\)=>\{ launcherStateMod\.setMyHomeOpen\(v\); \}/.test(code) && (code.match(/launcherStateMod\.myHomeOpen\(\)/g) || []).length >= 3 && !/windowModeMod\.(set)?[mM]yHomeOpen\b/.test(code), 'myHomeOpen 은 런처 상태의 읽는 · 쓰는 함수로 읽고 쓴다(window-mode 를 바라보지 않음 — 순환)');
   const iLs = code.indexOf('const launcherStateMod = TwLauncherState.createLauncherState();'), iFm = code.indexOf('const friendManage = TwFriendManage');
@@ -131,7 +131,7 @@ say('§4 연결');
   const iMk = code.indexOf('const windowModeMod = TwWindowMode'), iDr = code.indexOf('const desktopRunMod = TwDesktopRun');
   chk(iMk > 0 && iDr > iMk, '만드는 줄이 desktop-run 만드는 줄보다 앞(_applyActiveAppState 를 deps 로 넘기기 전)');
 }
-say('§5 일부러 깨 보기');
+say('§5 mutation test');
 {
   const brk = (a, c) => { const m = SRC.replace(a, c); return m === SRC ? null : m; };
   const m1 = brk("const mode = creatorOpen() ? 'creator' : (showMyHomeSized ? 'myhome' : (launcherOn ? 'launcher' : 'run'));", "const mode = creatorOpen() ? 'creator' : (launcherOn ? 'launcher' : 'run');");

@@ -105,7 +105,7 @@ say('── 2. 소리 풀');
 say('── 3. 울리는 자리');
 {
   const calls = SRC.split('_chatNotifyIncoming()').length - 1;
-  /* 💬 채팅 탭(2026-10-08) — `chatTab` 칸(#일반 외 탭의 말풍선)이 두 번째 수신 분기다. 한 줄에 한 칸만 오므로
+  /* 💬 채팅 탭(2026-10-08) — `chatTab` field(#일반 외 탭의 말풍선)이 두 번째 수신 분기다. 한 줄에 한 칸만 오므로
      두 번 울리지 않는다. 대화창 기록 구독(chatLog · _chatTab)에는 여전히 없어야 한다. */
   chk(calls === 3, '★ 호출은 정의 1 + 부르는 자리 2 (chat · chatTab) 뿐 [' + calls + ']');
   const tabRecv = (SRC.match(/const ctab = friends\[id\]\.chatTab;[\s\S]*?\n    \}/) || [''])[0];
@@ -182,11 +182,11 @@ say('── 3-2. 워킹룸 받은 이모티콘 소리 (실행)');
     chk(R.offKeepsChat, '  끄면 이모티콘 소리만 꺼지고 채팅 알림음은 그대로');
     chk(R.chatOffOff && R.chatBackStaysOff, '★ 채팅 알림음을 끄면 이모티콘 소리도 꺼지고, 채팅을 다시 켜도 저절로 켜지지 않는다');
     const b1 = run(SRC.replace("  if(on && !_chatSfxOn()) _setChatSfxOn(true);\n", ''));
-    chk(!!b1 && !b1.onTurnsChat, '  깨 보기 — 켤 때 채팅 알림음을 안 켜면 빨강');
+    chk(!!b1 && !b1.onTurnsChat, '  mutation test — 켤 때 채팅 알림음을 안 켜면 빨강');
     const b2 = run(SRC.replace("_chatSfxPreview(DEMOJI_SFX_ID);", "_chatSfxPreview(_chatSfxId());"));
-    chk(!!b2 && !b2.sound1, '  깨 보기 — 고른 소리를 따라가면 빨강');
+    chk(!!b2 && !b2.sound1, '  mutation test — 고른 소리를 따라가면 빨강');
     const b3 = run(SRC.replace("  if(!on){ try{ localStorage.setItem(DEMOJI_SFX_ON_KEY, '0'); }catch(_){} }", ''));
-    chk(!!b3 && !b3.chatBackStaysOff, '  깨 보기 — 채팅을 끌 때 이모티콘 소리를 안 끄면 빨강');
+    chk(!!b3 && !b3.chatBackStaysOff, '  mutation test — 채팅을 끌 때 이모티콘 소리를 안 끄면 빨강');
   }
   const recv = (SRC.match(/const chat=friends\[id\]\.chat;[\s\S]*?\n    \}/) || [''])[0];
   chk(/if\(_chatShown && window\._activeChannel === 2\) _chatNotifyIncoming\(\);\s*else if\(_chatShown && window\._activeChannel === 1\) _demojiNotifyIncoming\(\);/.test(recv),

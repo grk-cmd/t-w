@@ -2,7 +2,7 @@
    animal.js 의 _texFromDataURL 본문을 떼어 진짜 THREE.CanvasTexture 로 돌린다.
    ・1절: r128 Texture 에는 userData 가 없다(이 검사가 지키는 함정의 전제)
    ・2절: 만들 때 던지지 않고 · 원본 주소 · 바탕색을 텍스처에 남긴다(face-heal.js 가 다시 그릴 때 읽는다) · 주소 없음 · 허용 안 된 주소
-   ・3절: 깨 보기 — 없는 userData 에 바로 쓰면 던진다(동물 조립이 멈추고 사람 모델로 대신 그려지던 것) */
+   ・3절: mutation test — 없는 userData 에 바로 쓰면 던진다(동물 조립이 멈추고 사람 모델로 대신 그려지던 것) */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -55,7 +55,7 @@ console.log('\n=== 2. 지금 코드 ===');
   chk(!c.err && c.t.userData.twSrc === null, '허용 안 된 주소는 남기지 않는다');
 }
 
-console.log('\n=== 3. 깨 보기 ===');
+console.log('\n=== 3. mutation test ===');
 {
   const broken = FN.replace(/t\.userData=Object\.assign\([^;]*\);/, "t.userData.twSrc=src||null; t.userData.twFill=fallbackFill||'#ffffff';");
   chk(broken !== FN, '  바꿀 줄을 찾았다');

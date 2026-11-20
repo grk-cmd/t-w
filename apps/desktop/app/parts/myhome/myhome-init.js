@@ -104,7 +104,7 @@ async function initMyHome(code, me, session){
           if(myHomeOpen() && newIds.length && !friendManage.reqVisible()){
             friendManage.showFriendRequestPopup(newIds);
           }
-        }, e=>console.warn('[친구 요청] 받은 요청을 못 받음 — 알림이 오면 다시 받아요', e)));   // 해제 함수는 세션이 쥔다(Firebase 길도 서버 길도 같다 — 이미 끝난 세션이면 바로 푼다)
+        }, e=>console.warn('[친구 요청] 받은 요청을 못 받음 — 알림이 오면 다시 받아요', e)));   // 해제 함수는 세션이 쥔다(Firebase 경로도 서버 경로도 같다 — 이미 끝난 세션이면 바로 푼다)
       }
       // 📩 우편 받기 — 새 우편은 realtime 알림이 오면 다시 받는다(mail-feed.js). 계정이 바뀌면 앞 계정의 우편은 비운다.
       mailFeed.start(myId, session);

@@ -6,7 +6,7 @@
           숨긴 좌석은 뺌 · 회사원 숨김 / run 화면 아님이면 빈 목록 · 화면 밖으로 걸치면 잘라서 · 화면 밖 · 터진 투영은 뺌 · 상한
    ・2절: main 에 regions 를 보내는 두 길 — 하트비트(app.js)와 클릭받기 전환 이유(desktop-run.js _pushIgnoreWhy) — 를 실제로 돌려
           보낸 payload 에 좌석 사각형이 있는지 · main 의 _ptOnOurUI 가 그 사각형 안 점을 «UI 위» 로 본다(진짜 함수)
-   ・3절: 일부러 깨 보기
+   ・3절: mutation test
    [실행] node checks/run.js sim-seat-regions */
 'use strict';
 const fs = require('fs');
@@ -145,7 +145,7 @@ say('── 1. 좌석 사각형');
 judge(MOD, APP).forEach(([ok, msg]) => chk(ok, msg));
 say('── 2. main 에 보내는 두 길');
 judgePaths(DR, APP).forEach(([ok, msg]) => chk(ok, msg));
-say('── 3. 일부러 깨 보기');
+say('── 3. mutation test');
 const breaks = [
   ['내 좌석도 담음', "if(!s || s.isMe || !s.group || s.fly || _seatHidden(s)) continue;", "if(!s || !s.group || s.fly || _seatHidden(s)) continue;", null],
   ['숨긴 좌석도 담음', "if(!s || s.isMe || !s.group || s.fly || _seatHidden(s)) continue;", "if(!s || s.isMe || !s.group || s.fly) continue;", null],

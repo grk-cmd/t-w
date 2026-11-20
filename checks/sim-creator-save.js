@@ -2,7 +2,7 @@
    app.js 의 생성기 완료 — def 만들기 · 용량 재기 · 저장 을 parts/creator/creator-save.js 로 옮겼다(글자 그대로 · 바뀐 줄 45 — 읽는 · 쓰는 함수로 바꾼 자리).
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(DEF_SIZE_TOAST_MS · _creatorBuildDef · _creatorSizeGrow · _defSizeFile)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 만드는 줄 · deps 48줄 그대로 · 부르는 곳은 creatorSaveMod.이름 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    ・4절: 동작 — 가짜 DOM · deps 로 모듈을 만들어 입력 → 결과(경계값 포함)를 본다
    [실행] app.js · desk-companion-prototype.html · creator-save.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
@@ -77,14 +77,14 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/creator/creator-save.js"></script>', '')],
   ['deps 하나 빠짐', null, GLUE.length ? (a => { const i = a.indexOf("const creatorSaveMod = TwCreatorSave.createCreatorSave({"); const j = a.indexOf('\n});', i); const blk = a.slice(i, j); return a.slice(0, i) + blk.replace(/\n[^\n]*$/, '') + a.slice(j); }) : (a => a.replace("const creatorSaveMod = TwCreatorSave.createCreatorSave({", "const creatorSaveMod = TwCreatorSave.createCreatorSave({" + '\n  _extra: 1,')), null],
   ['전역 이름 안 걺', m => m.replace('window.TwCreatorSave = api;', ''), null, null],
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith("const creatorSaveMod =")) continue; const n = EXPORTS.filter(x => ![].includes(x)).find(x => ls[i].includes("creatorSaveMod." + x)); if(n){ ls[i] = ls[i].replace("creatorSaveMod." + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 던짐', m => m.replace('function createCreatorSave(deps){', 'function createCreatorSave(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createCreatorSave(deps){', 'function createCreatorSave(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [nm, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
@@ -183,7 +183,7 @@ function rigS(o){
 { const r = rigS({ items: { cup: 1, cat: 1, gone: 1 }, custom: { cup: { name: 'C', glb: 'g1' }, cat: { name: 'K', glb: 'g2' } }, savedItems: [{ id: 'cat', fromCatalog: true }] });
   const d = r.api._creatorBuildDef(false);
   chk(JSON.stringify(d.customItems) === '{"cup":{"name":"C","glb":"g1"}}', '커스텀 아이템 — 로컬 것만 GLB 를 박는다(카탈로그 · 세션에 없는 것은 뺀다)'); }
-{ const r = rigS(); const d = r.api._creatorBuildDef(false); chk(!('deskLenX' in d), '길이 1 이면 deskLenX 칸 없음'); }
+{ const r = rigS(); const d = r.api._creatorBuildDef(false); chk(!('deskLenX' in d), '길이 1 이면 deskLenX field 없음'); }
 /* 용량 재기 */
 { const r = rigS({ items: { cup: 1 }, custom: { cup: { name: 'C', glb: 'g' } } });
   r.api._creatorSizeGrow((n) => { n.customItems.extra = { glb: 'x' }; n.big = 1; });
@@ -196,7 +196,7 @@ function rigS(o){
   chk(r.slots[2] && r.slots[2].skin === 2 && r.st.cur === 2 && r.n('save') === 1 && r.n('saveCur') === 1, '[＋] 로 정한 칸에 새 캐릭터 · 현재 칸 · 저장(서버에 올리는 것은 옷장이 저장 알림을 받아 한다)');
   chk(r.n('close') === 1 && r.last('toast') === '슬롯에 저장했어요', '닫고 «슬롯에 저장했어요»'); }
 { const r = rigS({ slots: ['a', null, null], cur: 0, mode: { kind: 'slot', edit: false } }); r.el('crDone').fire('click');
-  chk(r.slots[1] && r.st.cur === 1, '칸이 안 정해졌으면(옛 길) 지금 칸이 차 있을 때 첫 빈 칸'); }
+  chk(r.slots[1] && r.st.cur === 1, '칸이 안 정해졌으면(옛 경로) 지금 칸이 차 있을 때 첫 빈 칸'); }
 { const r = rigS({ slots: ['a', 'b', 'c'], mode: { kind: 'slot', edit: false } }); r.el('crDone').fire('click');
   chk(r.last('toast') === '빈 슬롯이 없어요' && r.n('save') === 0, '빈 칸이 없으면 «빈 슬롯이 없어요» · 저장 안 함'); }
 { const r = rigS({ slots: [null, 'b', null], mode: { kind: 'slot', edit: false, slot: 1 } }); r.el('crDone').fire('click');

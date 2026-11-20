@@ -5,7 +5,7 @@
    [서버가 정하는 것] 정원 · 같은 계정 중복 · 방장 승계 · 해산 · 채널 · 시크릿룸 입장 · 방 상한 · 버전 — 여기서 다시 판단하지 않는다.
    [앱과 서버의 모양 차이 — 이 파일 한 곳에서만 바꾼다]
      · 대화 탭: 앱 안은 's1' · 's2'(chat-tabs.js SLOTS) · 서버는 'S1' · 'S2'(멤버 칸 tab · 말풍선 tab · meta.tabs 키). tabToWire · tabFromWire.
-     · 사람: 서버가 멤버마다 붙여 주는 userCode 를 친구 객체 userId 칸에도 둔다(올라타기 · 벤치 · 신고 숨김이 그 칸으로 사람을 찾는다).
+     · 사람: 서버가 멤버마다 붙여 주는 userCode 를 친구 객체 userId field 에도 둔다(올라타기 · 벤치 · 신고 숨김이 그 칸으로 사람을 찾는다).
      · 걷은 칸: me.userId · lic · name · level(실으면 서버가 badRequest) — 신원은 토큰, 프리미엄은 서버가 판정, 이름 · 레벨은 서버가 계정에서 채운다.
    [모양] classic script(window.TwRoomRt) — rt-hub.js 다음 · app.js 보다 먼저 싣는다. 앱 한 벌은 TwRoomRt.store(TwRtHub.store 위).
      provider 모양은 presence.js 가 부르는 join · update · poke · pokeSelf · leave + 방장 setMeta · 같이 듣기 onMusic · sendMusic · serverNow. */
@@ -369,7 +369,7 @@ function createRoomRt(deps){
     try{ if(P.hooks.onMeta) P.hooks.onMeta(meta, prev); }catch(_){}
   }
 
-  /* 같이 듣기 곡 — welcome · music 으로 온다(null = 틀 곡 없음). now 칸으로 서버 시계를 맞춘다.
+  /* 같이 듣기 곡 — welcome · music 으로 온다(null = 틀 곡 없음). now field 로 서버 시계를 맞춘다.
      srvSeq — 서버가 마지막으로 받아들인 차례(곡을 지워도 남는다 — 지운 뒤 새 곡을 0 부터 쓰면 stale). */
   function setClock(P, srvNow){ if(typeof srvNow === 'number' && isFinite(srvNow)) P.clockOff = srvNow - now(); }
   function setMusic(P, music, srvSeq){
@@ -514,7 +514,7 @@ function createRoomRt(deps){
         }
         const cur = P.members[m.to];
         if(!cur) return;
-        cur.poke = p;   // 대상 멤버의 poke 칸 — 좌석 그리기가 ts 로 한 번만 재생한다
+        cur.poke = p;   // 대상 멤버의 poke field — 좌석 그리기가 ts 로 한 번만 재생한다
         emit(P);
         return;
       }

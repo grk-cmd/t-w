@@ -3,7 +3,7 @@
    ・2절: 모듈을 가짜 DOM 으로 실제로 돌린다 — 켤 때 계정 확인의 me 에서 고정값 · 받기 전 누름은 덮지 않음 ·
           고정 중 토글만 저장 · 🔒 누르면 지금 값으로 저장 · 로그인 없음 · 저장 실패는 E-MH-13
    ・4절: 배선 — Firebase 접속 표시 없음 · html 버튼 · 싣는 순서 · app.js · myhome-init · myhome-ui 옛 토글 걷음 · 규칙 · 오류 번호 · smoke
-   ・5절: 깨 보기 */
+   ・5절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -23,7 +23,7 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { if(ok){ pass++; say('  ✓ ' + msg); } else { fail++; say('  ✗ ' + msg); } };
 const tick = async (n = 6) => { for(let i = 0; i < n; i++) await new Promise(r => setImmediate(r)); };
-/* 깨 보기가 영원히 안 풀리는 Promise 를 만들 수 있다 — 기다림에 상한을 둔다(안 풀리면 STUCK) */
+/* mutation test 가 영원히 안 풀리는 Promise 를 만들 수 있다 — 기다림에 상한을 둔다(안 풀리면 STUCK) */
 const STUCK = { stuck: true };
 const settle = (p) => Promise.race([p, tick(20).then(() => STUCK)]);
 let done = false;
@@ -148,7 +148,7 @@ function report(r){
     chk(!/loadPref/.test(AP) && !/firstConfirm/.test(AP) && !/firstConfirm/.test(LF), '★ 접속 고정을 따로 읽거나(loadPref) 첫 확인을 기다리는(firstConfirm) 길이 없다');
     chk(/mhInit: \(code, me, session\)=>\{[^\n]*mhInitMod\.initMyHome\(code, me, session\);/.test(AP), '  app-boot 차례가 마이홈 시작에 코드 · 확인의 me 를 넘긴다');
     const old = AP.replace('return mhInitMod.initMyHome(code, me, session); }', 'return mhInitMod.initMyHome(); }');
-    chk(!/mhInit: \(code, me, session\)=>\{[^\n]*mhInitMod\.initMyHome\(code, me, session\);/.test(old), '깨 보기 — me 를 안 넘기는 모양이면 빨강');
+    chk(!/mhInit: \(code, me, session\)=>\{[^\n]*mhInitMod\.initMyHome\(code, me, session\);/.test(old), 'mutation test — me 를 안 넘기는 모양이면 빨강');
   }
 
   say('── 4. 배선');
@@ -179,7 +179,7 @@ function report(r){
     chk(!/setMyPresenceState|setMyPresenceRoom|myPresence\b|setPresence/.test(code(AP)) && !/_presenceOff|getPresence/.test(code(AC)), '★ app.js · account.js 에 Firebase 접속 표시 객체를 쓰는 길이 없다(토글 · 방 표시 · 로그아웃 «꺼짐»)');
   }
 
-  say('── 5. 깨 보기');
+  say('── 5. mutation test');
   {
     const br = async (from, to) => MOD.includes(from) ? behave(MOD.replace(from, to)) : null;
     const b1 = await br("function startOnline(p){ return !(p && p.lock === true && p.online === false); }", "function startOnline(p){ return true; }");

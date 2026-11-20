@@ -4,7 +4,7 @@
    ・1절: 만들 때 — 던지지 않는다 · 60초 타이머 하나 · 내놓는 이름(없음)
    ・2절: 돌려 보기 — 실행 화면이 아니어도 1분 몫(히트 맵 그림자 운행 포함)을 비운다 · 실행 화면이면 [비용] → [프레임] 두 줄 · 그 뒤에 [지도] 줄들(판정이 없던 분은 없음) · 다시 대입되는 값은 그때 값 · 프레임 상한 모듈이 없으면 아무것도 안 한다
    ・3절: app.js 연결 — 1분 타이머가 app.js 에 안 남음 · deps 15줄 그대로 · 만드는 줄은 쓰는 값 선언 뒤 · html(app.js 앞)
-   ・4절: 일부러 깨 보기
+   ・4절: mutation test
    [실행] 스테이징(node checks/run.js run-diag-minute) 또는 저장소 루트에서. */
 'use strict';
 const fs = require('fs');
@@ -106,12 +106,12 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 4) say('── 2. 돌려 보기'); if(i === 11) say('── 3. app.js 연결'); chk(ok, msg); });
-say('── 4. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 4. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/launcher/run-diag-minute.js"></script>', '')],
   ['deps 하나 빠짐', null, a => a.replace('\n  key: key,\n', '\n'), null],
   ['전역 이름 안 걺', m => m.replace('window.TwRunDiagMinute = api;', ''), null, null],
-  ['만들 때 던짐', m => m.replace('function createRunDiagMinute(deps){', 'function createRunDiagMinute(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createRunDiagMinute(deps){', 'function createRunDiagMinute(deps){ throw new Error("mutation");'), null, null],
   ['실행 화면 확인을 비우기 앞으로', m => m.replace("    if(!document.body.classList.contains('runmode')) return;\n", '').replace('    const t = performance.now();\n', "    if(!document.body.classList.contains('runmode')) return;\n    const t = performance.now();\n"), null, null],
   ['두 줄 차례 바뀜', m => { const a = m.match(/\n    companion\.diagNote\(TwRunCostDiag\.line[^\n]*/)[0], b = m.match(/\n    companion\.diagNote\(_FB\.diagLine[^\n]*/)[0]; return m.replace(a, '\u0000').replace(b, a).replace('\u0000', b); }, null, null],
   ['읽는 함수를 값처럼 씀', m => m.replace('m.q = _renderQuality();', 'm.q = _renderQuality;'), null, null],

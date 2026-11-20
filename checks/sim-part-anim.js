@@ -6,7 +6,7 @@
    ・4절: 아이템 idle 재생 — focus 면 재생 · 아니면 정지 · 빡일중(grind)은 2배속 · 눌러 재생(playItemIdle)
    ・5절: 손 따라가기 — 손 본의 월드 위치를 부모 기준 좌표로
    ・6절: 연결 — html · 만드는 줄 · 옛 이름 · app.js 에 재생 함수가 남지 않음 · 알림(_partAnimNotice)은 꺼져 있다
-   ・7절: 일부러 깨 보기
+   ・7절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. three 는 vendor/three/three.min.js. */
 'use strict';
 const fs = require('fs');
@@ -156,7 +156,7 @@ say('§6 연결');
   const r = mod._partAnimNotice({ id: 'p', name: 'n' }, '안내');
   chk(r === undefined && st.toasts.length === 0, '_partAnimNotice — 첫 줄 return 으로 꺼져 있어 관리자에게도 토스트를 안 낸다');
 }
-say('§7 일부러 깨 보기');
+say('§7 mutation test');
 {
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const m1 = brk("a.paused = true;                 // 그 자리에 정지 — 되감지 않음", "a.stop();");

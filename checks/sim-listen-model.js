@@ -1,7 +1,7 @@
 /*
  * 🎧 같이 듣기 규칙(room/listen-model.js) 검사 — 모듈을 그대로 불러 돌린다.
  * 1. 위치 · 어긋남  2. 지금 DJ  3. 곡 끝 · 다음 곡  4. `_music` 한 줄(만들기 · 멈춤 · 다시 · 길이)  5. 하트비트 읽기
- * 6. 범위가 규칙(rooms/$room/_music)과 같다  7. 깨 보기
+ * 6. 범위가 규칙(rooms/$room/_music)과 같다  7. mutation test
  * 설계: docs/LISTEN_TOGETHER.md 2.2 · 3 · 4장
  */
 'use strict';
@@ -76,7 +76,7 @@ say('── 6. 범위가 규칙과 같다');
   chk(keys.length === 7 && keys.every(k => made.includes(k)) && made.every(k => k in R), '★ 만든 한 줄이 규칙의 필수 칸을 다 갖고 · 규칙에 없는 칸이 없다');
 }
 
-say('── 7. 깨 보기');
+say('── 7. mutation test');
 {
   const B1 = load(SRC.replace("return (h && Array.isArray(ids) && ids.indexOf(h) >= 0) ? h : null;", 'return h || null;'));
   chk(B1.djOf({ host: 'u1' }, ['u2']) !== null, '«방에 없어도 방장이 DJ» 로 깨면 2절이 빨강');

@@ -6,7 +6,7 @@
    ・5절: 좌표 · 사건 보내기 — 안 움직이면 안 보냄 · 10Hz · force · 못 보냈으면 기억하지 않음
    ・6절: 자리를 잃을 때 — 연결 끊김 · 방 밖 답 · 혼자 다시 들어가지 않음 · 닫기 · 놓기
    ・7절: 정원 — GET 모양(못 읽음은 던짐 ≠ 0회 남음) · 알림이 오면 한 번 다시 읽기 · 창을 닫으면 안 받음 · 경계값
-   ・8절: 서버 규약 대조 · 배선(html 순서) · 걷은 길 · 깨 보기 */
+   ・8절: 서버 규약 대조 · 배선(html 순서) · 걷은 길 · mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
@@ -317,7 +317,7 @@ async function judge(S){
   for(let i = 0; i < 20; i++){ e.st.clock += 120; e.sess.sendPos(1.2, 3.0, false, i / 20, -i / 20); }
   chk(e.sent.length === n2, '★ 시선만 바뀌면 한 번도 안 보낸다(마우스를 흔들어도 메시지가 안 는다)');
   e.st.clock += 120; e.sess.sendPos(1.6, 3.0, false, 0.3, -0.2, 1.5);
-  chk(e.last().p === '160,300,30,-20,75' && wireProblem(e.last()) === null, '움직이면 시선 · 몸 회전이 함께 실려 가고 서버 길이 상한(24) 안이다');
+  chk(e.last().p === '160,300,30,-20,75' && wireProblem(e.last()) === null, '움직이면 시선 · 몸 회전이 함께 실려 가고 서버 경로가 상한(24) 안이다');
   const worst = (() => { e.st.clock += 120; e.sess.sendPos(-2.24, 5.4, true, -1, -1, -Math.PI); return e.last(); })();
   chk(worst.p.length <= 24 && wireProblem(worst) === null, '  가장 긴 좌표도 상한 안 — ' + worst.p);
   chk(e.sess.sendEvent('jump') === true && JSON.stringify(e.last()) === '{"t":"photoEvent","k":"jump","v":null}', '점프 = 사건 한 번(v null)');
@@ -403,7 +403,7 @@ let finished = false;
 process.on('exit', (c) => { if(!finished && c === 0){ console.log('✗ 검사가 끝까지 돌지 못했다(기다리는 약속이 안 풀림)'); process.exitCode = 1; } });
 (async () => {
   try{ await judged(SRC0); }catch(e){ chk(false, '판정을 끝까지 못 돌았다 — ' + (e && e.message)); }
-  say('── 9. 깨 보기');
+  say('── 9. mutation test');
   const BREAKS = [
     ['RT', "e.timer = tSet(() => {\n        /* 늦게 도착할", "e.timer = tSet(() => { if(1) return;\n        /* 늦게 도착할", '시간 초과를 접지 않음'],
     ['RT', "        hub.send({ t: 'photoLeave' });\n      }, OPEN_WAIT_MS)", "      }, OPEN_WAIT_MS)", '시간 초과 때 자리를 안 놓음'],
@@ -451,7 +451,7 @@ process.on('exit', (c) => { if(!finished && c === 0){ console.log('✗ 검사가
     quiet = true; qfail = 0; try{ await judged(S); }catch(_){ qfail++; } quiet = false;
     if(!qfail) missed.push(what);
   }
-  chk(!missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — ' + missed.join(' · ') : ''));
+  chk(!missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — ' + missed.join(' · ') : ''));
   console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
   finished = true;
   process.exit(fail ? 1 : 0);

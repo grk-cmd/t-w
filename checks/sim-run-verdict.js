@@ -3,7 +3,7 @@
    중간 ✗ 줄은 안 봄)을 막았는지, 임시 저장소에 가짜 sim 을 두고 run.js 를 진짜로 돌려 판정을 본다.
    ・1절: 멈춤(끝나지 않는 await) · ✗ 뒤 종료코드 0 · 요약 없이 끝남 → 빨강 / 정상 둘(요약 모양 `결과 N · M` · `✓ 통과 N · 실패 M`) → 초록
    ・2절: 요약 모양 — 러너가 읽는 모양들과 본문 속 «3 · 0» 은 요약이 아님
-   ・3절: 일부러 깨 보기 — 러너의 그 판정을 빼 본 사본은 위 빨강을 놓친다
+   ・3절: mutation test — 러너의 그 판정을 빼 본 사본은 위 빨강을 놓친다
    [실행] 러너 스테이징에서 run.js 도 같은 폴더에 있다(없으면 checks/run.js). */
 'use strict';
 const fs = require('fs'), os = require('os'), path = require('path');
@@ -55,7 +55,7 @@ say('── 2. 요약 모양');
 chk(real.mark['sim-t-section-stall.js'] === '✗', '절 요약(`1절: 통과 3 · 실패 0`)만 찍고 멈춘 sim → 빨강(앞쪽 요약은 최종이 아니다)');
 chk(real.mark['sim-t-body-stall.js'] === '✗', '줄 전체가 `✓ 3 · 0` 인 본문 뒤 멈춘 sim → 빨강');
 chk(real.mark['sim-t-body-nums.js'] === '✗', '본문 속 «3 · 0» 은 요약이 아니다(줄 전체가 그 모양일 때만)');
-say('── 3. 일부러 깨 보기 — 판정을 빼면 놓친다');
+say('── 3. mutation test — 판정을 빼면 놓친다');
 const cut = (from, to) => { const s = RUN_SRC.replace(from, to); return s === RUN_SRC ? null : s; };
 const noQuiet = cut("fs.existsSync(mark) && !sum && !end", "false");
 const noX = cut("const xmarks = out.split('\\n').filter(l => /^\\s*✗/.test(l)).length;", "const xmarks = 0;");

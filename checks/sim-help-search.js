@@ -3,7 +3,7 @@
    ・2절: 질문 → 답 — 실제 검색표로 사람이 칠 만한 질문을 돌려 맞는 편 · 소제목이 맨 위에 오는가
    ・3절: 낱말 다루기 — 말끝 떼기 · 군말 빼기 · 띄어쓰기 합치기 · 거미줄 무게 · 토막 · 주소
    ・4절: 경계 — 빈 질문 · 군말뿐 · 모르는 말 · 아주 긴 질문 · HTML · 목록 겹침 · 한 편 상한
-   ・5절: 깨 보기 */
+   ・5절: mutation test */
 'use strict';
 const fs = require('fs');
 const os = require('os');
@@ -20,7 +20,7 @@ const GEN = path.join(ROOT, 'scripts', 'build-help-search.js');
 if (!fs.existsSync(GEN) || !fs.existsSync(path.join(DIR, 'search.js'))){ say('  ? 원본 못 찾음 — scripts/build-help-search.js · firebase/hosting/help/search.js'); process.exit(2); }
 const { build, withIds } = require(GEN);
 const SRC = fs.readFileSync(path.join(DIR, 'search.js'), 'utf8');
-/* search.js 를 화면 없이 불러 규칙(core)만 받는다 — 고친 글로도 불러 깨 보기에 쓴다 */
+/* search.js 를 화면 없이 불러 규칙(core)만 받는다 — 고친 글로도 불러 mutation test 에 쓴다 */
 const load = (src) => { const m = { exports: {} }; new Function('module', 'window', 'document', src)(m, undefined, undefined); return m.exports; };
 const C = load(SRC);
 const IX = JSON.parse(fs.readFileSync(path.join(DIR, 'search.json'), 'utf8'));
@@ -130,7 +130,7 @@ for (const q of ['캐릭터', '꾸미기 색', '방 만들기', '친구', '설�
 }
 chk(shapeOk, '결과 — 같은 자리 두 번 없음 · 목록 ' + C.LIST + '줄 · 한 편 ' + C.PER_PAGE + '개까지' + (why ? ' (' + why + ')' : ''));
 
-say('── 5. 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 5. mutation test — 하나라도 못 잡으면 빨강');
 const page1 = html['1'];
 chk(withIds(page1.replace(/ id="s\d+"/g, '')) === page1, '소제목 id 는 다시 매겨도 같다');
 chk(withIds(page1.replace('<h2 id="s1">', '<h2 id="s1">새 소제목</h2>\n<h2>')) !== page1, '  편에 소제목을 더하고 다시 안 만들면 1절이 잡는다');

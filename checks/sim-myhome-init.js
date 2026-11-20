@@ -5,7 +5,7 @@
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 그대로 · 부르는 곳은 mhInitMod.이름 · html(app.js 앞)
    ・2-2절: 내 코드 없음 — initMyHome 이 내 경로를 하나도 안 부르고 우편만 멈춘다(공지는 notice-feed 가 따로)
    ・2-3절: 받은 뒤 화면 — 우편 · 소식이 바뀌면 목록 · 🔔 다시 그리고 새로 온 것만 토스트(우편은 종류 이름 · 소식은 업데이트/우편/공지 표시) · 🐞 답변이면 배지(해금 안내 우편은 서버 알림이라 앱이 따라잡지 않는다)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · myhome-init.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -170,7 +170,7 @@ async function sessionRun(src, endFirst, ended, room){
   const dead = await sessionRun(MOD, false, true);
   chk(dead.log.presence.length === 0 && dead.session.timers.length === 0 && dead.log.watch === 0, '  기다리는 사이 끝난 세션이면 아무것도 만들지 않는다(풀어 줄 세션이 없다)');
 }
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 {
   const m2 = MOD.replace(/\n *if\(!myId\)\{ friendsSub\.start\(null\); mailFeed\.stop\(\); return; \}[^\n]*/, '');
   const m3 = MOD.replace('if(!myId){ friendsSub.start(null); ', 'if(!myId){ ');
@@ -192,7 +192,7 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const mhInitMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('mhInitMod.' + x)); if(n){ ls[i] = ls[i].replace('mhInitMod.' + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 던짐', m => m.replace('function createMyHomeInit(deps){', 'function createMyHomeInit(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createMyHomeInit(deps){', 'function createMyHomeInit(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;

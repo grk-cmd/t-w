@@ -873,7 +873,7 @@ const demojiPalMod = TwDemojiPalette.createDemojiPalette({
      _plHasSavedPos · _plApplyPos · _plSyncBgmBounds 는 모듈이 window 고리로도 건다.
    함수 deps 는 화살표로 감싼다(부를 때 찾게). _myHomeLoaded · _myHomeData · _myHomeFriends 는 이 줄보다 뒤에 선언되고 다시 대입되는 let 이라 읽는 함수로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const playlistApiMod = TwPlaylistApi.createPlaylistApi({ authed: TwApi.authed, random: ()=>Math.random(), warn: (...a)=>console.warn(...a) });   // 🌐 플레이리스트 서버 길(/v2/me/playlist · /v2/playlists/…)
+const playlistApiMod = TwPlaylistApi.createPlaylistApi({ authed: TwApi.authed, random: ()=>Math.random(), warn: (...a)=>console.warn(...a) });   // 🌐 플레이리스트 서버 endpoint(/v2/me/playlist · /v2/playlists/…)
 const plMod = TwPlaylist.createPlaylist({
   playlistAccountStore: accountStoreMod,
   playlistApi: playlistApiMod,
@@ -1221,7 +1221,7 @@ const DS_IMG_QUALITY   = 0.82;   // JPEG 품질 — 이 정도면 눈에 띄는 
    함수 deps 도 화살표로 감싼다(부를 때 찾게). ⚠️ 이름을 Scheduler · scheduler 로 짓지 말 것 — 크로미움(Electron) 내장 전역(작업 예약 API)과
      겹쳐 typeof 가드가 늘 통과하고, 모듈이 안 실렸을 때 내장 생성자에 createScheduler 를 부르다 app.js 가 선다. */
 const BELL_SEEN_KEY = 'tw.bellSeenTs';   // 🔔 마지막으로 알림창을 연 시각 — 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)도 쓴다
-const scheduleApiMod = TwScheduleApi.createScheduleApi({   // 🌐 일정 · 디데이 · 일정 알림 서버 길(/v2/me/schedules · /v2/me/ddays · /v2/me/notifications) — 원본은 서버
+const scheduleApiMod = TwScheduleApi.createScheduleApi({   // 🌐 일정 · 디데이 · 일정 알림 서버 endpoint(/v2/me/schedules · /v2/me/ddays · /v2/me/notifications) — 원본은 서버
   authed: TwApi.authed,
   newId: ()=>TwRequestId.newId(),
   imageBytes: TwImageBytes,
@@ -1301,8 +1301,8 @@ const deviceLostMod = TwDeviceLost.createDeviceLost({
 /* ═══ 🏠 마이홈 열기(initMyHome) · 소유자 쓰기 거부 안내 ═══ */
 /* 본문은 myhome-init.js 로 옮겼다(앱 FSD 44번 남은 몫). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
-/* 👥 친구 데이터는 포트(friends/friends-port.js) 하나로 — 그 뒤 서버 provider(friends-api.js)가 있다. friends-sub · 화면은 서버 길을 모른다. */
-const socialApiMod = TwSocialApi.createSocialApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) });   // 🌐 친구 · 친구 요청 · 명함 서버 길(social-api.js)
+/* 👥 친구 데이터는 포트(friends/friends-port.js) 하나로 — 그 뒤 서버 provider(friends-api.js)가 있다. friends-sub · 화면은 서버 경로를 모른다. */
+const socialApiMod = TwSocialApi.createSocialApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) });   // 🌐 친구 · 친구 요청 · 명함 서버 경로(social-api.js)
 const apiPublicReadsMod = TwApiPublicReads.createApiPublicReads({ fetchCards: (codes)=>socialApiMod.fetchCards(codes) });   // 🌐 플레이리스트 명함 읽기(api-public-reads.js — 같은 틱에 모인 코드는 요청 하나)
 const friendsApiMod = TwFriendsApi.createFriendsApi({
   social: socialApiMod,
@@ -1349,7 +1349,7 @@ const presenceLockMod = TwPresenceLock.createPresenceLock({
   setVisible: (v)=>presenceSelfMod.setVisible(v),
   startVisible: (v)=>presenceSelfMod.start(v),
 });
-/* 📩 우편 · 📢 공지 — 원본은 서버. 서버 길(inbox-api.js · notice-api.js)과 받아 들고 있는 한 벌(mail-feed.js · notice-feed.js).
+/* 📩 우편 · 📢 공지 — 원본은 서버. 서버 경로(inbox-api.js · notice-api.js)과 받아 들고 있는 한 벌(mail-feed.js · notice-feed.js).
    받은 뒤 화면 · 토스트는 마이홈 처음 준비 모듈(onMailChanged · onNewsChanged)이 맡는다 — 만드는 줄보다 뒤에 도는 arrow 라 TDZ 없음. */
 const mailFeed = TwMailFeed.createMailFeed({
   api: TwInboxApi.createInboxApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),   // 🌐 /v2/me/notifications
@@ -1358,7 +1358,7 @@ const mailFeed = TwMailFeed.createMailFeed({
 });
 mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));
 const noticeApi = TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) });   // 🌐 /v2/notices
-/* 🛠️ 앱 관리자 창의 서버 길(/v2/admin/...) — 관리자 모드 · 확성기 · 업데이트 공지 · 배너 · 방 종료가 쓴다. 지금 업데이트 공지의 id 는 공지 한 판에서 받는다 */
+/* 🛠️ 앱 관리자 창의 서버 endpoint(/v2/admin/...) — 관리자 모드 · 확성기 · 업데이트 공지 · 배너 · 방 종료가 쓴다. 지금 업데이트 공지의 id 는 공지 한 판에서 받는다 */
 const adminApi = TwAdminApi.createAdminApi({ authed: TwApi.authed, pending: TwRequestId.createPending(), fetchBoard: ()=>noticeApi.fetchBoard(), errs: TwApiErrors });
 /* 🛠️ 카탈로그 관리자 쓰기(파츠 · 책상 · 소품 · 진열 순서 · 카테고리 · 게임 설정) — 고칠 판(version)은 마지막으로 받은 서버 한 벌에서 읽고, 쓴 뒤 한 번 다시 받는다 */
 const catalogAdmin = TwCatalogAdminApi.createCatalogAdminApi({
@@ -1440,7 +1440,7 @@ const richTextMod = TwRichText.createRichText({
 });
 
 /* 🧸 말랑이 칸 상태 주인(myhome/mallang-store.js) — 원본은 서버(/v2/me/mallangs · /v2/mallangs/{code}). 말랑이 화면 · 로그아웃 올리기가 받는다. */
-const giftApiMod = TwGiftApi.createGiftApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) });   // 🌐 말랑이 · 선물 서버 길
+const giftApiMod = TwGiftApi.createGiftApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) });   // 🌐 말랑이 · 선물 서버 경로
 const mallangStoreMod = TwMallangStore.createMallangStore({
   api: giftApiMod, giftLib: TwGiftApi, errs: TwApiErrors, apiErrors: TwApiErrors.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
@@ -1456,7 +1456,7 @@ const giftBoxMod = TwGiftBox.createGiftBox({
   requestIds: TwRequestId.createPending(),   // 보내기 요청 번호 — 받는 사람마다 하나(닿지 못했으면 같은 번호)
 });
 /* 📚 책장 상태 주인(myhome/bookshelf-store.js) — 원본은 서버(/v2/me/myhome/bookshelf · /v2/myhomes/{code}/bookshelf). 북마크 서랍 · 로그아웃 올리기가 받는다. 만들 때 도는 일 없음. */
-const bookshelfApiMod = TwMyHomeApi.createMyHomeApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) });   // 🌐 마이홈 서버 길(책장 몫)
+const bookshelfApiMod = TwMyHomeApi.createMyHomeApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) });   // 🌐 마이홈 서버 경로(책장 몫)
 const bookshelfStoreMod = TwBookshelfStore.createBookshelfStore({
   api: bookshelfApiMod, lib: TwMyHomeApi, errs: TwApiErrors, apiErrors: TwApiErrors.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
@@ -1464,7 +1464,7 @@ const bookshelfStoreMod = TwBookshelfStore.createBookshelfStore({
 });
 window.addEventListener('beforeunload', ()=>{ bookshelfStoreMod.flush(); });   // 앱을 끌 때 못 올린 책장 고침 한 번(결과를 기다리지 않음)
 /* 🏠 마이홈 상태 주인(myhome/myhome-store.js) — 원본은 서버(/v2/me/myhome · /v2/myhomes/{code}). 마이홈 화면 · 채팅 · 내 정보 · 플레이리스트가 내 사진 · 페이지를 여기서 읽고, 로그아웃 올리기 · 앱 끄기가 flush 한다. 만들 때 도는 일 없음(받기는 마이홈을 열 때). */
-const myhomeApiMod = TwMyHomeApi.createMyHomeApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) });   // 🌐 마이홈 서버 길(페이지 · 디자인 몫)
+const myhomeApiMod = TwMyHomeApi.createMyHomeApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) });   // 🌐 마이홈 서버 경로(페이지 · 디자인 몫)
 const myhomeStoreMod = TwMyHomeStore.createMyHomeStore({
   api: myhomeApiMod, lib: TwMyHomeApi, errs: TwApiErrors, apiErrors: TwApiErrors.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
@@ -1529,7 +1529,7 @@ const inboxMod = TwMyHomeInbox.createMyHomeInbox({
   renderMhProfileRail: (...a)=>myHomeUiMod.renderMhProfileRail(...a),
   mallangMod: mallangMod,
   giftBox: giftBoxMod,
-  // 👥 친구 끊기 — 포트가 서버 · 옛 길을 고른다
+  // 👥 친구 끊기 — 포트가 서버 · 옛 경로를 고른다
   removeFriend: (...a)=>friendsPortMod.removeFriend(...a),
 });
 /* ═══ 🏠 마이홈 창 버튼 연결(bindMyHomeUI) ═══ */
@@ -1746,7 +1746,7 @@ const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
    부르는 곳은 예전처럼 window 고리(_mhGbStartWatch · _mhGbStopWatch · _mhGbRefreshBadge · _mhReSubscribeGuestbook · openMyGuestbook)를 typeof 로 보고 부른다 — 모듈이 없으면 고리가 없어 조용히 넘어간다.
    💬 showChatBubble(머리 위 말풍선)은 방명록이 아니라 바로 아래에 남겼다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const guestbookFeed = TwGuestbookFeed.createGuestbookFeed({   // 🌐 방명록 · 웹박수 서버 길(/v2/guestbooks · /v2/me/guestbook) — 원본은 서버. 받기 · 쓰기 · 알림은 feed 가 한다
+const guestbookFeed = TwGuestbookFeed.createGuestbookFeed({   // 🌐 방명록 · 웹박수 서버 endpoint(/v2/guestbooks · /v2/me/guestbook) — 원본은 서버. 받기 · 쓰기 · 알림은 feed 가 한다
   api: TwGuestbookApi.createGuestbookApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) }),
   rt: TwRtHub.store,
   rtState: TwRtHub.STATE,
@@ -3974,7 +3974,7 @@ slotSaveMod.onSlotsReplaced(()=>settingsMod.renderCharSlots());
    고치면 3초 묶음으로 서버에 쓰고, 슬롯 ↔ 보관함 · 휴지통 · 되살리기는 동작 하나에 요청 하나로 한다. 이 PC 에 캐릭터 저장본 · 보관함 사본 ·
    고친 시각 · 백업 · 충돌 판정은 없다(0.12 의 slot-sync.js · chars.js 맞추기 장치는 걷었다).
    · slot-codec.js — 화면의 캐릭터 한 칸(그림은 dataURL) ↔ 서버 def(그림은 Storage 주소) 바꾸기 + 올리기 캐시
-   · closet-api.js — /v2/me/avatars… 서버 길(provider) · closet.js — 받기 · 쓰기 · 동작 · 0.13 첫 실행 올리기(legacy-sync)
+   · closet-api.js — /v2/me/avatars… 서버 경로(provider) · closet.js — 받기 · 쓰기 · 동작 · 0.13 첫 실행 올리기(legacy-sync)
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const slotCodecMod = TwSlotCodec.createSlotCodec({
   glbUploadCache: uploadCacheMod,
@@ -4525,7 +4525,7 @@ const awayPicMod = TwAwayPic.createAwayPic({
 
 /* ═══ 🚩 신고하기 ═══════════════════════════════════════════════════════════
    좌석 · 책상 · 이름표 우클릭 «🚩 신고하기…» → 사유 라디오(캐릭터 · 자리비움 그림 · 닉네임 · 기타 40자) → [신고].
-   ★ 신고는 서버 길(support/report-api.js — POST /v2/reports) — 신고한 사람은 서버가 토큰에서 정한다.
+   ★ 신고는 서버 경로(support/report-api.js — POST /v2/reports) — 신고한 사람은 서버가 토큰에서 정한다.
    ★ 신고하면 내 화면에서 그 사람을 숨긴다(_reportHiddenUids · 계정 기준 · 모든 방).
    신고 창 · 공용 도우미는 report.js, 관리자 신고 목록은 admin/admin-report.js. 팝업 칸은 report.js 가 가진다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
@@ -4615,7 +4615,7 @@ focusProgressMod.onChange(()=>{ myInfoMod.onProgressChanged(); });   // 진척�
    부르는 곳은 gachaMod.이름(전부 이 줄보다 늦게 돈다). 바로 아래 🔑 «서버가 조용히 거부하는 기기» 안내는 캐릭터 슬롯도 써서 여기 남겼다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다.
    ⚠️ 이름을 gacha 로 짓지 않은 까닭 — partsInCatFor(cat, gacha) · 파츠 등록의 const gacha 가 가린다. */
-/* 🎰 가챠 서버 길 — 서버가 뽑고 저장한다(character/gacha-api.js) · 로그인 통로는 TwApi.authed */
+/* 🎰 가챠 서버 경로 — 서버가 뽑고 저장한다(character/gacha-api.js) · 로그인 통로는 TwApi.authed */
 const gachaApiMod = TwGachaApi.createGachaApi({
   authed: TwApi.authed,
   newRequestId: ()=>TwRequestId.newId(),

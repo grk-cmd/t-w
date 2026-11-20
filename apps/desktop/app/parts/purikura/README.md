@@ -22,7 +22,7 @@ const session = TwPurikuraRt.createPhotoSession({
 **내놓는 것** — `open(방, { userCode })` → `{ ok, slot, host }` | `{ ok:false, reason }`(`busy` 촬영 중 · `full` 넷이 참 · `notInRoom` 방 밖 · `notReady` 연결 없음 · `timeout` · `error`) · `close()` · `release()`(꾸미기로 넘어갈 때 — 같은 일) · `isHost()` · `mySlot()` · `hostSlot()` · `setConfig` · `setFilter` · `setCam` · `setCut(i, 0|시각)` · `setDone` · `setFrameUrl(i, url|null)` · `fireShutter(n)`(방장 일 — 방장이 아니면 `false`) · `start()` → `{ ok, n, left, nth }` | `{ ok:false, reason, message }`(`closed` 정원 다 씀 · `unavailable` 정원을 못 물음 · `not-host` · `notInRoom` · `notReady` · `timeout` · `error`) · `sendPos` · `sendEvent` · `checkQuota()`(`GET /v2/rooms/photo-quota` — 못 읽으면 던짐) · `watchQuota(cb)`(창이 열려 있는 동안만 — 알림 `photoQuota`가 오면 다시 GET) · `slotsNow` · `framesNow` · `metaNow` · `peersNow` · `serverNow`.
 
 **함정** — ⓪ open · start 는 요청마다 rid 를 실어 보내고, 서버가 그 rid 를 답(photoWelcome · photoStarted · 오류)에 돌려준다 — 답은 rid 로 제 요청에 짝짓는다. 시간 초과로 지운 요청의 늦은 답은 모르는 rid 라 버려진다(start 만 stale 로 남겨 늦은 photoStarted 로 방장 화면이 이어 간다 · 끊기거나 자리를 잃으면 모두 지운다). ① 자리 칸은 `{ uid, name, fx }` 이고 `uid` 는 userCode(연결의 나 · 방 포트 `myCode`) — 좌석의 `friendUserId` 와 견준다. ② 연결이 끊기거나 서버가 «방 밖» 이라고 답하면 세션을 버리고 `onSlots({})` 로 알린다 — 혼자 다시 들어가지 않는다(창을 닫았다 다시 열면 서버가 같은 자리를 돌려준다). ③ 방 코드는 싣지 않는다 — 서버가 지금 방으로 정한다. ④ `setCut` 의 시각은 서버가 찍는다(앱 시계를 싣지 않는다). ⑤ 프레임 그림은 Storage 에 올리고 주소만 `setFrameUrl` — 경로는 `purikura/{방}/{방장 userCode}/{i}.webp` 여야 서버가 받는다.
-검사: `checks/sim-purikura-rt.js`(가짜 연결 · 서버 규약 대조 · 깨 보기).
+검사: `checks/sim-purikura-rt.js`(가짜 연결 · 서버 규약 대조 · mutation test).
 
 ## `purikura-ui.js` — 화면에 넣는 값
 

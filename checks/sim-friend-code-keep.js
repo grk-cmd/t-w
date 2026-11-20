@@ -121,7 +121,7 @@ if(!fEnter){
       "const IDENTITY_KEYS = () => [MY_FRIEND_CODE_KEY, MY_FRIEND_CODE_PREV_KEY];", "const getMyLoginEmail=()=>null;", "const _rememberOldFriendCode=()=>{};", "const _wipeAccountLocal=()=>{};", "const _setMyUserId=()=>true;",
       fBrk, "return _enterAccount;"].join('\n'))(LS2);
     f2(Object.assign({}, ME, { displayName: '' }), {});
-    chk(LS2.getItem('tw.userName') === '옛이름', '  깨 보기 — 지우기를 빼면 옛 이름이 남는다(위 줄이 잡는다)');
+    chk(LS2.getItem('tw.userName') === '옛이름', '  mutation test — 지우기를 빼면 옛 이름이 남는다(위 줄이 잡는다)');
   }
 }
 

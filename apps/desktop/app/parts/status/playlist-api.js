@@ -6,7 +6,7 @@
          random() → 0 이상 1 미만 수(친구 목록에서 곡 있는 벌을 고를 때) · warn(...a)(진단 로그)
    내보냄: createPlaylistApi(deps) → {
      fetchMine(uid) → Promise<{ sets:[{name, items:[{id,title}], locked?}], bio, homePublic, private, lockable }> — 목록이 비어도 객체(빈 목록 ≠ 못 읽음). 못 읽으면 던진다.
-      lockable = 서버가 프리셋 🔒 나만 보기를 안다(세 벌 모두 locked 칸을 돌려줌). 모르는 서버면 false — 앱은 자물쇠를 안 보이고 locked 를 보내지 않는다.
+      lockable = 서버가 프리셋 🔒 나만 보기를 안다(세 벌 모두 locked field 를 돌려줌). 모르는 서버면 false — 앱은 자물쇠를 안 보이고 locked 를 보내지 않는다.
      saveMine(uid, sets, meta) → Promise<'ok'|'conflict'|'stale'|'failed'> — meta = { bio, homePublic, private }. 곡이 하나도 없는 세 벌을 보내면 «비움»(노드를 지우지 않고 빈 목록 저장).
      fetchRandom(excludeUid) → Promise<목록 한 벌 | null(들을 것 없음)> — 못 읽으면 던진다.
      fetchOf(userCode) → Promise<목록 한 벌 | null(곡 있는 벌 없음 · 열어 주지 않음)> — 못 읽으면 던진다.

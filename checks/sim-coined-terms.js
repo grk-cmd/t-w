@@ -6,7 +6,9 @@
    ・1절: git 추적 파일의 주석(JS · TS — typescript 파서로 주석만 · Python · YAML · 셸 — # 뒤)과 Markdown 전체에서 낱말을 세어
           기준선(checks/coined-terms-baseline.json · «파일 × 낱말» 개수)과 견준다 — 늘면 빨강 · 줄었으면 기준선을 내리라고 빨강.
    ・2절: mutation test — 주석의 낱말은 세고 · 문자열 · 코드 이름은 안 센다 · 기준선보다 하나 늘면 빨강 · 하나 줄면 빨강.
-   ⚠️ 코드의 문자열(검사 출력 문구 등)은 세지 않는다 — 주석 · 문서만. */
+   ・3절: checks/ · apps/ · docs/ 에서는 «깨 보기» 를 문자열까지 하나도 두지 않는다(기준선 없이 0) — mutation test 로 다 바꿨다.
+   ・4절: 3절의 mutation test — 문자열 · 붙여 쓴 꼴도 잡고 · 그 밖 폴더와 «깨진» 같은 일상어는 안 잡는다.
+   ⚠️ 1절은 코드의 문자열(검사 출력 문구 등)을 세지 않는다 — 주석 · 문서만. 3절만 문자열까지 본다. */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -24,6 +26,10 @@ const TERMS = [
   ['톱니', /톱니/g, 'ratchet'],
   ['빚', /빚(?!어|은|는다|다|고)/g, 'tech debt'],
 ];
+/* 3절 — 기준선 없이 0 이어야 하는 낱말 · 폴더. 문자열까지 본다(검사 출력 문구 · 테스트 이름도 사람이 읽는다). */
+const ZERO_TERMS = ['깨 보기'];
+const ZERO_DIRS = /^(checks|apps|docs)\//;
+const TEXT_FILE = /\.(m|c)?[jt]sx?$|\.(md|html|css|json|py|ya?ml|sh|sql|txt)$/;
 const SELF = ['checks/sim-coined-terms.js', 'checks/coined-terms-baseline.json'];
 const SKIP_DIR = /(^|\/)(node_modules|vendor|dist|build)\//;
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -87,6 +93,29 @@ function scanRepo(root){
   }
   return { read, counts };
 }
+/** 3절 — 한 파일의 글 전체에서 ZERO_TERMS 를 센다 · 폴더 밖이나 글이 아닌 파일은 0 */
+function zeroHits(file, text){
+  if(!ZERO_DIRS.test(file) || !TEXT_FILE.test(file)) return 0;
+  let n = 0;
+  for(const [name, re] of TERMS) if(ZERO_TERMS.includes(name)) n += (text.match(re) || []).length;
+  return n;
+}
+function scanZero(root){
+  const r = spawnSync('git', ['ls-files', '-z', 'checks', 'apps', 'docs'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  if(r.status !== 0) return null;
+  const hits = [];
+  let read = 0;
+  for(const f of r.stdout.split('\0').filter(Boolean)){
+    if(SELF.includes(f) || SKIP_DIR.test(f) || !TEXT_FILE.test(f)) continue;
+    const abs = path.join(root, f);
+    let st; try { st = fs.statSync(abs); } catch (_) { continue; }
+    if(!st.isFile() || st.size > MAX_BYTES) continue;
+    read++;
+    const n = zeroHits(f, fs.readFileSync(abs, 'utf8'));
+    if(n) hits.push(f + ' ' + n);
+  }
+  return { read, hits };
+}
 /** 기준선과 견줌 → { more: [...], fewer: [...] } */
 function compare(counts, base){
   const more = [], fewer = [];
@@ -148,6 +177,30 @@ const other = compare({ 'x.js': { '씨앗': 1 } }, b0);
 chk(other.more.length === 1 && other.fewer.length === 1, '하나 지우고 다른 낱말을 넣어도 빨강(낱말마다 센다)');
 const down = compare({}, b0);
 chk(down.more.length === 0 && down.fewer.length === 1, '줄면 낡은 줄로 빨강(기준선을 내리라고)');
+
+say('3절 — checks/ · apps/ · docs/ 에 «깨 보기» 0(문자열까지)');
+const zr = scanZero(ROOT);
+chk(!!zr && zr.read > 100, '세 폴더의 글 파일을 읽었다' + (zr ? ` — ${zr.read}개` : ' — git ls-files 실패'));
+if(zr){
+  for(const h of zr.hits.slice(0, 20)) say('      ' + h);
+  chk(zr.hits.length === 0, '«깨 보기» 0' + (zr.hits.length ? ` — ${zr.hits.length}개 파일(대신 mutation test)` : ''));
+}
+
+say('4절 — 3절의 mutation test');
+const zcases = [
+  ['checks/sim-x.js', "chk(ok, '깨 보기 — 빨강');", 1],
+  ['checks/sim-x.js', "throw new Error('깨 봄');", 1],
+  ['apps/desktop/app/x.js', "say('── 3. 일부러 깨보기');", 1],
+  ['docs/x.md', '# 안내\n일부러 깨 본 셋', 1],
+  ['apps/admin/tests/x.test.ts', "it('자리표가 빠지면 던진다(깨 보기)', () => {});", 1],
+  ['packages/x/tests/a.test.ts', "it('깨 보기', () => {});", 0],
+  ['checks/sim-x.js', "// 글자가 깨진다 · 깨지면 · 잠을 깨우기", 0],
+  ['checks/sim-x.png', '깨 보기', 0],
+];
+for(const [file, text, want] of zcases){
+  const got = zeroHits(file, text);
+  chk(got === want, `${file} · ${text.slice(0, 30).replace(/\n/g, ' ')} → ${want}` + (got === want ? '' : ' — 실제 ' + got));
+}
 
 say(`통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

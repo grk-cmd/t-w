@@ -4,7 +4,7 @@
    ・1절: 코어 몸 만들기 — THREE · 로더 · 재질 고치기 · 얼굴 맵 · 조명 프리셋을 그대로 넘긴다(뒤에서 만들어지는 것은 부를 때 찾는다)
    ・2절: loadBaseGLB — 자리표(@@)나 없음이면 false · 있으면 바이트를 풀어 코어에 넘기고 결과 그대로
    ・3절: instantiateBase — 코어 복제 + 뼈대 하나로(빈 결과면 안 부름) · normalizeModel 배율 · getCommissionScene 캐시 · mkFaceTex
-   ・4절: 연결(html 순서 · 만드는 줄 · 옛 이름 · 걷은 본문) · 5절: 일부러 깨 보기
+   ・4절: 연결(html 순서 · 만드는 줄 · 옛 이름 · 걷은 본문) · 5절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. */
 'use strict';
 const fs = require('fs');
@@ -86,7 +86,7 @@ function build(src, o){
     chk(!/function (instantiateBase|normalizeModel|loadBaseGLB|b64ToBuf|getCommissionScene|mkFaceTex|measureBaseGeometry|calcMeshBox)\b|let BASE_SCENE|BASE_ANIMS\s*=/.test(code), '  app.js 에 본문이 안 남음(기본 몸 장면 · 애니메이션은 bodyCore 에서 읽는다)');
     chk(/BASE_SCENE: \(\)=>bodyCore\.baseScene\(\)/.test(code) && /BASE_ANIMS: \(\)=>bodyCore\.baseAnims\(\)/.test(code), '  장면 · 애니메이션은 읽는 함수로 코어에서');
   }
-  say('§5 일부러 깨 보기');
+  say('§5 mutation test');
   {
     const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
     const m1 = brk('if(inst) skelShare.shareSkeletons(skelShare.skinnedMeshesOf(inst.root));', '');

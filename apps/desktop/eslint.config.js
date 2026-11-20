@@ -30,7 +30,7 @@ const NO_TIMER = [
 /* b. 도메인 모듈에서 firebaseAPI 직접 부르기 */
 const NO_FIREBASE_API = [
   { selector: "Identifier[name='firebaseAPI']:not(MemberExpression > Identifier.property):not(Property > Identifier.key)",
-    message: 'firebaseAPI 를 직접 부르지 마세요 — 도메인의 provider(…-api.js · …-provider.js)를 deps 로 받아 부르세요. 0.13 은 서버 API 가 원본이라 Firebase 길을 늘리면 다시 걷어야 합니다.' },
+    message: 'firebaseAPI 를 직접 부르지 마세요 — 도메인의 provider(…-api.js · …-provider.js)를 deps 로 받아 부르세요. 0.13 은 서버 API 가 원본이라 Firebase 경로를 늘리면 다시 걷어야 합니다.' },
   { selector: "MemberExpression[object.name=/^(window|globalThis|self)$/][property.name='firebaseAPI']",
     message: 'window.firebaseAPI 를 직접 부르지 마세요 — 도메인의 provider(…-api.js · …-provider.js)를 deps 로 받아 부르세요. 준비 여부는 shared/net-ready.js(TwNetReady)로 봅니다.' },
 ];
@@ -137,7 +137,7 @@ const NO_PLACEHOLDER_STORE = PLACEHOLDER.map((ph) => ({
 
 const RENDERER = ['app/parts/**/*.js'];
 /* firebaseAPI 를 만들거나 잇는 자리 — 여기서만 직접 쓴다(코드를 읽고 정함):
-   · firebase-init.js — window.firebaseAPI 를 만드는 곳(옛 Firebase 길의 끝).
+   · firebase-init.js — window.firebaseAPI 를 만드는 곳(옛 Firebase 경로의 끝).
    · shared/net-ready.js — «네트워크 준비됨» 을 보는 한 곳(서버 이관 때 갈아 끼울 자리).
    · realtime/rt-bind.js — realtime 연결에 로그인 토큰(firebaseAPI.getIdToken) 출처를 거는 한 줄.
    · app.js — 조립 자리. provider · 도메인 deps 로 firebaseAPI 를 잇는다(조립만 — 로직은 모듈로).

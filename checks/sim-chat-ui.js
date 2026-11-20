@@ -3,8 +3,8 @@
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(DEMOJI_BY_CMD · DEMOJI_BY_ID · DEMOJI_DIR · DEMOJI_LIST · EMOJI_SLOTS · FLY_COLOR_LEVEL · _bindChatCopy · _bindChatTabs · _chatClearNow · _chatClearUndo · _chatFlyColor · setChatFlyColor · _chatFlyOn · setChatFlyOn · _chatFlyRefreshUI · _chatFlySize · setChatFlySize · _chatIsMinimized · _chatMyTabId · _chatTabName · _chatTabOut · _chatTabResolve · _chatTabsOnMeta · _chatTabsRender · _chatWindowIsOpen · _deleteEmoji · _emojiCache · _flyLaneFreeAt · setFlyLaneFreeAt · _flySizeOk · _onEmojiFilePicked · _onEmojiSlotClick · _renderChatLog · _saveChatLog · _saveChatWinPos · _sendChatWindowMsg · _setChatMinimized · _syncChatBadgeSub · _toggleEmojiPanel · closeChatWindow · openChatWindow · sendMyChat · showFlyText)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 36줄 그대로 · 부르는 곳은 chatUiMod.이름 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
-   ・4절: 채팅 글 그리기(_renderChatText) — 공용 linkify 로 주소 칸 · 마커(이모티콘 · 기본 이모티콘 · 주사위)는 그대로 · 받은 \u0000 로 토큰 흉내 못 냄 · 깨 보기
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・4절: 채팅 글 그리기(_renderChatText) — 공용 linkify 로 주소 칸 · 마커(이모티콘 · 기본 이모티콘 · 주사위)는 그대로 · 받은 \u0000 로 토큰 흉내 못 냄 · mutation test
    [실행] app.js · desk-companion-prototype.html · chat-ui.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -78,7 +78,7 @@ rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i =
 chk(/_chatHistFail = true;[\s\S]{0,200}TwErrorCodes\.notify\('E-CHAT-02', e\)[\s\S]{0,200}_renderChatLog\(_chatLogCache\(\)\)/.test(MOD) && /data-hist-retry="1"[^\n]*다시 시도/.test(MOD) && /rb\.onclick = _chatRetryHistory/.test(MOD) && /function _chatRetryHistory\(\)\{ if\(_chatHistRoom\) _chatSubscribeTab\(_chatHistRoom\); \}/.test(MOD) && /_chatHistFail = false; _chatHistRoom = room;/.test(MOD),
   '★ 지난 기록을 못 받으면 대화 맨 위에 «못 불러왔어요 + [다시 시도]» — 누르면 같은 방 · 탭을 처음부터 다시 받고 · 새로 구독할 때 안내를 지운다(E-CHAT-02)');
 chk(!/CHAT_BURST_N|CHAT_BURST_MS|_chatSendTimes/.test(MOD) && /CHAT_TOO_FAST/.test(MOD), '★ R7 — 앱이 5초 8줄을 따로 세지 않는다(서버 CHAT_TOO_FAST 가 막고 CHAT_SAY_REFUSED 가 «조금 천천히» 를 안내)');
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/chat/chat-ui.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
@@ -87,7 +87,7 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const chatUiMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('chatUiMod.' + x)); if(n){ ls[i] = ls[i].replace('chatUiMod.' + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 던짐', m => m.replace('function createChatUi(deps){', 'function createChatUi(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createChatUi(deps){', 'function createChatUi(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
@@ -116,9 +116,9 @@ function renderOf(src){
     chk(R('a\u00000\u0000b [dice:2]') === 'a0b <svg data-n="2"></svg>', '★ 받은 글의 \\u0000 은 지운다 — 토큰을 흉내 내 다른 마커 HTML 을 못 끼운다');
     chk(R('') === '' && R(null) === '' && R(undefined) === '', '  빈 값');
     const B1 = renderOf(MOD.replace("let t=String(rawText == null ? '' : rawText).replace(/\\u0000/g, '');", "let t=String(rawText == null ? '' : rawText);"));
-    chk(B1 && B1('a\u00000\u0000b [dice:2]') !== 'a0b <svg data-n="2"></svg>', '깨 보기 — \\u0000 을 안 지우면 토큰 흉내가 통한다(위 ★ 가 빨강)');
+    chk(B1 && B1('a\u00000\u0000b [dice:2]') !== 'a0b <svg data-n="2"></svg>', 'mutation test — \\u0000 을 안 지우면 토큰 흉내가 통한다(위 ★ 가 빨강)');
     const B2 = renderOf(MOD.replace('t=TwSafeHtml.linkify(t);', 't=TwSafeHtml.text(t);'));
-    chk(B2 && B2('봐 https://a.io/x?y=1&z=2.') !== R('봐 https://a.io/x?y=1&z=2.'), '깨 보기 — 공용 linkify 를 안 부르면 주소 칸이 없다(위 ★ 가 빨강)');
+    chk(B2 && B2('봐 https://a.io/x?y=1&z=2.') !== R('봐 https://a.io/x?y=1&z=2.'), 'mutation test — 공용 linkify 를 안 부르면 주소 칸이 없다(위 ★ 가 빨강)');
   }
 }
 

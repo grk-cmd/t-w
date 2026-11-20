@@ -191,7 +191,7 @@ const noOf = (r) => r;
     const real = ok(await judge(UI));
     chk(real.userHidden, '상세 머리 고정 번호 — 일반 사용자에겐 안 보인다');
     chk(real.adminShown, '  ↳ 관리자에겐 보인다 · esc 를 거친다(번호 속 HTML 은 글자로)');
-    /* 깨 보기 — 관리자 조건을 걷거나 esc 를 빼면 위 판정이 빨강이어야 한다 */
+    /* mutation test — 관리자 조건을 걷거나 esc 를 빼면 위 판정이 빨강이어야 한다 */
     const HEAD = "(admin() ? '<span class=\"bb-no\">' + esc(d.number) + '</span> · ' : '')";
     const mutants = [
       ['관리자 조건을 걷음', HEAD.replace('admin() ?', 'true ?'), (r) => !r.userHidden],
@@ -200,7 +200,7 @@ const noOf = (r) => r;
     ];
     for (const [name, rep, red] of mutants) {
       const bad = UI.split(HEAD).join(rep);
-      chk(bad !== UI && red(ok(await judge(bad))), '  깨 보기 — ' + name + ' → 빨강');
+      chk(bad !== UI && red(ok(await judge(bad))), '  mutation test — ' + name + ' → 빨강');
     }
     const APP = (read('bug-board.js') || '') + (read('firebase-init.js') || '');
     chk(!!APP && !/bugBoard\/seq/.test(APP) && !/\bno:/.test(strip(read('bug-board.js') || '')), '앱은 번호를 만들거나 카운터를 만지지 않는다');

@@ -2,7 +2,7 @@
    ・1절: 보내기 — roomInvite{ to, rid }(방 코드 · 이름은 싣지 않는다) · 성공은 서버 roomInviteSent · ROOM_INVITE_NOT_FRIEND · 답이 없으면 timeout(조용함 ≠ 성공) · 연결 없음
    ・2절: 받기 — roomInvited → { 보낸 사람: { fromName, roomCode, ts } } · 같은 사람은 하나 · 듣자마자 지금 것 · 지우기(roomInviteClear)
    ・계정이 바뀌면 reset — 받은 초대를 비운다
-   ・3절: 배선 · 깨 보기 */
+   ・3절: 배선 · mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
@@ -65,7 +65,7 @@ async function judge(S){
 }
 (async () => {
   await judge(SRC0);
-  say('── 4. 깨 보기');
+  say('── 4. mutation test');
   const BREAKS = [
     ['IR', "    return { ok: false, code: !hub.isReady() ? 'notReady' : 'timeout' };", "    return { ok: true };", '답이 없어도 성공으로 봄'],
     ['IR', "function reset(){ for(const k of Object.keys(invites)) delete invites[k]; }", "function reset(){}", 'reset 이 초대를 안 비움'],
@@ -79,7 +79,7 @@ async function judge(S){
     quiet = true; qfail = 0; try{ await judge(S); }catch(_){ qfail++; } quiet = false;
     if(!qfail) missed.push(what);
   }
-  chk(!missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — ' + missed.join(' · ') : ''));
+  chk(!missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — ' + missed.join(' · ') : ''));
   console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
   process.exit(fail ? 1 : 0);
 })();

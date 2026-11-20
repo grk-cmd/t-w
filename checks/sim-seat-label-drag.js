@@ -74,7 +74,7 @@ const judgeShared = (ptr, app, exp) => [
   chk(b, '★ 경험치 바는 방 모듈을 직접 안 부르고 deps.bindLabelDrag 로 받는다(app.js 가 잇는다)');
   const [a2] = judgeShared(PTR.replace('if(!TwSeatLabelDrag.canGrabSeat(seat)) return;', 'if(seat.fly) return;'), APP_RAW, EXP);
   const [, b2] = judgeShared(PTR, APP_RAW, EXP.replace('\n  bindLabelDrag(el, seat);', '\n  overheadMod.bindLabelDrag(el, seat);'));
-  chk(!a2 && !b2, '  깨 보기: 캔버스에 날기 조건을 다시 쓰거나 경험치 바가 overheadMod 를 바로 부르면 빨강'); }
+  chk(!a2 && !b2, '  mutation test: 캔버스에 날기 조건을 다시 쓰거나 경험치 바가 overheadMod 를 바로 부르면 빨강'); }
 chk(/overheadMod\.setLabelDrag\(\(e, seat\)=>seatLabelDragMod\.onLabelPointerDown\(e, seat\)\);/.test(APP_RAW) && /beginDrag: seatPointerMod\._beginLabelSlotDrag/.test(APP_RAW), 'app.js 가 판단 모듈을 만들어 잇는다');
 chk(/drag\.mode = \(drag\.targetType === 'char'\) \? 'shake' : 'slot';/.test(APP), '★ 끌면 책상 끌기(slot) — 자리 계산 · 맨 오른쪽 고정(dragIndex)이 같은 줄');
 const up = PTR.slice(PTR.indexOf("canvas.addEventListener('pointerup',e=>{"));   // 모듈 본래 글

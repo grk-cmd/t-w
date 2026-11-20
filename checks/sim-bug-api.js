@@ -7,7 +7,7 @@
    ・4절: 배지 수 — 받으면 기억 · reset 뒤 null · reset 전에 보낸 받기의 늦은 답은 버림
    ・4-2절: 관리자 — 답변(본 시각 · 요청 번호 · 입력 거름) · 오픈카톡 기본 링크 받기 · 저장(판 · 안내 글 그대로)
    ・5절: 오류 갈래(failOf — 진짜 api-errors.js 의 translate 로)
-   ・6절: 일부러 깨 보기
+   ・6절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -136,7 +136,7 @@ async function judge(S){
     chk(['name', 'code', 'authUid', 'nick', 'userCode'].every(k => !(k in b)) && Object.keys(b).sort().join() === 'body,category,env,requestId,title,visibility',
       '  내 이름 · 코드 · uid 를 싣지 않는다(글쓴이는 서버가 토큰에서 정한다)');
     await m.write({ vis: 'pub', cat: 'etc', title: 't', body: 'b', notice: true });
-    chk(authed.log[1].body.notice === true && !('env' in authed.log[1].body), '공지 글은 notice: true 를 싣는다 · 환경이 없으면 env 칸 없음');
+    chk(authed.log[1].body.notice === true && !('env' in authed.log[1].body), '공지 글은 notice: true 를 싣는다 · 환경이 없으면 env field 없음');
     const id1 = authed.log[0].body.requestId, id2 = authed.log[1].body.requestId;
     mode = 'off';
     await throws(() => m.write({ vis: 'pub', cat: 'bug', title: 't', body: 'b' }));
@@ -278,7 +278,7 @@ async function judge(S){
 async function runAll(){
   const S = Object.assign({}, SRC0);
   await judge(S);
-  say('── 6. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+  say('── 6. mutation test — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['줄 맞춤에서 mine 을 뺌', S.API.replace("mine: s.mine === true,", 'mine: false,'), '«내 글» 표시'],
     ['못 받음을 빈 목록으로 돌림', S.API.replace("return pageOf(await get(PATHS.list + queryOf({ filter, limit: n, cursor: nonEmpty(cursor) ? cursor : null })));",

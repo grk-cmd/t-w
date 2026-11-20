@@ -4,7 +4,7 @@
    ・2절: 시각 — activity · anyInput · 듣기(mousemove · keydown · wheel · blur · focus) · 읽는 함수 · 쓰는 함수 · 펜 앱 창(4초)
    ・3절: triggerPet — 쓰다듬기 시작 · 눈 깜빡임 펄스
    ・4절: 연결 — html 순서 · 만드는 줄 · 옛 이름 · app.js 에 본문이 안 남음
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. */
 'use strict';
 const fs = require('fs');
@@ -133,7 +133,7 @@ say('§4 연결');
   chk(!/(?<![\w$.'"])(lastActivity|lastAnyInput|_penAppFocused|_selfAppActive)(?![\w$'":])/.test(code.replace(/\b_penAppFocused: seatStateMod/g, '').replace(/\b(lastActivity|lastAnyInput): seatStateMod/g, '')), '  시각 · 펜 앱 값은 어디서나 seatStateMod 로 읽는다');
   chk(/setLastActivity: \(v\)=>\{ seatStateMod\.setLastActivity\(v\); \}/.test(code) && /setLastAnyInput: \(v\)=>\{ seatStateMod\.setLastAnyInput\(v\); \}/.test(code) && /seatStateMod\.setPenAppFocused\(!!state\.isPenApp\)/.test(code) && /seatStateMod\.setSelfAppActive\(focusGate\.selfFront\(state\)\)/.test(code), '  쓰는 곳 넷(desktop-run 둘 · 활성 앱 판정 둘)이 모듈을 거친다');
 }
-say('§5 일부러 깨 보기');
+say('§5 mutation test');
 {
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const m1 = brk("if(seat.beingShaken) return 'shaking';", '');

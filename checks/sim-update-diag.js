@@ -2,7 +2,7 @@
    [왜] «업데이트를 받기 시작하면 먹통» 제보(B-1110-6)를 진단 기록 한 장으로 가르게 — electron-updater 의 자기 기록 · 받는 % · 오류를 남긴다.
    ・1절: 모듈을 불러 돌린다 — logger 세 갈래 · debug 버림 · 홈 폴더 → ~ · 줄바꿈 · 길이 상한 · 진행은 10% 칸마다 · reset
    ・2절: 배선 — main.js 가 autoUpdater.logger 를 걸고 진행 · 새 판에서 부른다 · 설치 목록(package.json files)
-   ・3절: 깨 보기
+   ・3절: mutation test
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
 'use strict';
 const fs = require('fs');
@@ -65,7 +65,7 @@ chk(/autoUpdater\.on\('update-available', \(info\) => \{ _updateDiag\.reset\(\);
 chk(/createUpdateDiag\(\{ log: \(m\) => _diagLog\(m\), home: require\('os'\)\.homedir\(\) \}\)/.test(MAIN), '  기록은 _diagLog · 홈 폴더를 넘긴다');
 chk(/"update-diag\.js"/.test(PKG), '설치 목록(package.json files)에 update-diag.js — 빠지면 설치본이 켜지지 않는다');
 
-say('── 3. 깨 보기');
+say('── 3. mutation test');
 chk(!behave(MOD.replace('s = maskHome(s, home);', '')).home, '홈 폴더 가리기를 빼면 위 1절 «~» 가 빨강');
 chk(!behave(MOD.replace('if(step === lastStep) return false;', '')).step, '칸 검사를 빼면 위 1절 «10% 칸마다» 가 빨강');
 chk(!behave(MOD.replace('debug: () => {},', 'debug: (m) => log(TAG + clean(m)),')).levels, 'debug 를 적으면 위 1절 logger 가 빨강');

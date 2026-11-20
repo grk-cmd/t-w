@@ -146,13 +146,13 @@ await sec('── 1. 만들 때', () => {
     s2.dispose();
     const s3 = q.sess(); q.api.startReceive(s3);
     s3.dispose();
-    /* 깨 보기 — 구독을 세션에 맡기지 않으면(session.on 을 빼면) dispose 뒤에도 듣기가 남아 빨강 · 세션 없음을 조용히 넘기면 빨강 */
+    /* mutation test — 구독을 세션에 맡기지 않으면(session.on 을 빼면) dispose 뒤에도 듣기가 남아 빨강 · 세션 없음을 조용히 넘기면 빨강 */
     const bad1 = mkEnv({ noStart: true }, MOD.replace('session.on(invites.onInvites(', '(invites.onInvites(')); bad1.mk();
     const sb = bad1.sess(); bad1.api.startReceive(sb); sb.dispose();
-    chk(MOD.includes('session.on(invites.onInvites(') && bad1.subs[0].off !== true, '  깨 보기: session.on 을 빼면 «dispose → 듣기 끊김» 이 빨강');
+    chk(MOD.includes('session.on(invites.onInvites(') && bad1.subs[0].off !== true, '  mutation test: session.on 을 빼면 «dispose → 듣기 끊김» 이 빨강');
     const bad2 = mkEnv({ noStart: true }, MOD.replace("if(!session) throw new Error('[room-invite] startReceive 에 세션이 없어요');", 'if(!session) return;')); bad2.mk();
     let t2 = false; try{ bad2.api.startReceive(); }catch(_){ t2 = true; }
-    chk(!t2, '  깨 보기: 세션 없이도 조용히 넘기게 하면 «세션 없으면 던진다» 가 빨강');
+    chk(!t2, '  mutation test: 세션 없이도 조용히 넘기게 하면 «세션 없으면 던진다» 가 빨강');
   }
   const api = e.mk();
   chk(Object.keys(api).join() === 'startReceive,stopReceive,showPopup,busy' && api.busy() === false, '반환값은 시작 · 놓기 둘과 검사용 둘(startReceive · stopReceive · showPopup · busy)');

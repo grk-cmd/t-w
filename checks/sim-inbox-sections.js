@@ -4,7 +4,7 @@
    ★ 사용자 결정: 모두에게 보낸 «📩 우편»(이벤트 보상)은 우편 칸 · 📌 고정 소식은 어떤 종류를 골라도 맨 위 · 처음엔 안 읽은 우편이 있으면 우편, 없으면 소식.
    ・1절: 순수 함수 입력 → 출력 · 경계값(빈 값 · null · 모르는 태그 · 옛 필터 값 · 같은 시각) · 받은 값을 고치지 않는다
    ・2절: 연결 — html 이 myhome-inbox.js · app.js 보다 먼저 싣는다 · smoke 가 싣는다 · 수령함 모듈이 받아 부른다
-   ・3절: 일부러 깨 보기 */
+   ・3절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -101,7 +101,7 @@ chk(W.smoke, 'smoke 가 myhome-inbox.js 보다 먼저 싣는다');
 chk(W.takes && !W.calls.length, '수령함 모듈이 받아 부른다' + (W.calls.length ? ' — 안 부름: ' + W.calls.join(' · ') : ''));
 chk(!W.dup.length, '같은 판단을 수령함 모듈에 다시 쓰지 않는다' + (W.dup.length ? ' — ' + W.dup.join(' · ') : ''));
 
-say('── 3. 일부러 깨 보기');
+say('── 3. mutation test');
 const BREAKS = [
   ['MOD', "return (t === 'notice' || t === 'update') ? 'news' : 'mail';", "return (t === 'notice' || t === 'update' || t === 'reward') ? 'news' : 'mail';", '모두에게 보낸 우편이 소식으로', 'sectionOf'],
   ['MOD', "if(!m || m._src !== 'broadcast') return 'mail';", "if(!m) return 'mail';", '개인 공지가 소식으로', 'sectionOf'],
@@ -128,7 +128,7 @@ for (const [where, from, to, what, key] of BREAKS) {
   else { const w = where === 'INBOX' ? wiring(bad, HTML, SMOKE) : wiring(INBOX, bad, SMOKE); caught = !w.order || !w.takes || w.calls.length > 0 || w.dup.length > 0; }
   if (!caught) missed.push(what);
 }
-chk(!missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+chk(!missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
 say('\n통과 ' + pass + ' · 실패 ' + fail);
 process.exit(fail ? 1 : 0);

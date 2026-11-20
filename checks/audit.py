@@ -353,16 +353,16 @@ else:
 section('검사 8 · firebaseAPI 호출-정의 계약 (파일 버전 어긋남 감지)')
 _callers = {}
 # scheduler.js — app.js 에서 옮긴 📅 스케줄러 · 🔔 일정 알림(앱 FSD 1번). 빼면 일정 · D-day 호출이 이 검사의 시야에서 사라진다.
-# weekly-challenge.js — 👑 달성표(앱 FSD 2번). 0.13 에서 서버 길(chal-store.js)로 옮겨 firebaseAPI 를 더는 안 부른다.
+# weekly-challenge.js — 👑 달성표(앱 FSD 2번). 0.13 에서 서버 경로(chal-store.js)로 옮겨 firebaseAPI 를 더는 안 부른다.
 # purikura-ui.js — 📷 스티커사진 창(앱 FSD 3번). 0.13 — 세션은 서버라 firebaseAPI 로는 pkUploadFrame(프레임 Storage 올리기) · serverNow 만 부른다.
-# guestbook.js — 📖 방명록(앱 FSD 4번). 0.13 에서 서버 길(guestbook-api.js · guestbook-feed.js)로 옮겨 firebaseAPI 를 더는 안 부른다.
+# guestbook.js — 📖 방명록(앱 FSD 4번). 0.13 에서 서버 경로(guestbook-api.js · guestbook-feed.js)로 옮겨 firebaseAPI 를 더는 안 부른다.
 # friend-manage.js — 👥 친구 관리(앱 FSD 5번). acceptFriendRequest · rejectFriendRequest · getSentFriendRequests · isFriendRequestAlive · pruneSentFriendRequest · cancelFriendRequest · getUserNameById 를 부른다.
-# bug-board-ui.js — 🐞 버그 제보 탭. 서버 길(bug-api.js)로 받고 쓰며 firebaseAPI 를 더는 부르지 않는다(오픈카톡 기본 링크 setBugReport · subscribeBugReport 도 서버 설정 bug.report 로 옮겼다).
+# bug-board-ui.js — 🐞 버그 제보 탭. 서버 경로(bug-api.js)로 받고 쓰며 firebaseAPI 를 더는 부르지 않는다(오픈카톡 기본 링크 setBugReport · subscribeBugReport 도 서버 설정 bug.report 로 옮겼다).
 # gacha.js — 🎰 파츠 가챠 코어 · 보관함(앱 FSD 8번). 서버 원본이라 firebaseAPI 를 부르지 않는다(gacha-api.js).
 # myhome-edit.js — 🏠 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오(앱 FSD 7-2). saveMyHome · uploadUserImage 를 부른다.
 # room-invite-ui.js — 🙋 투게더룸 친구 초대 · 🚪 방 초대 받기(앱 FSD 10번). sendRoomInvite · subscribeRoomInvites · clearRoomInvite 를 부른다.
-# myhome-inbox.js — 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(앱 FSD 15번). removeFriend 를 부른다(선물함은 서버 길 gift-box.js · 우편 · 소식은 서버 길 mail-feed.js · notice-feed.js).
-# playlist.js — 🎵 상태칩 플레이리스트(앱 FSD 16번). 명함은 deps(api-public-reads.js)로 · 내 목록 · 파도타기는 서버 길 playlist-api.js — firebaseAPI 를 부르지 않는다.
+# myhome-inbox.js — 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(앱 FSD 15번). removeFriend 를 부른다(선물함은 서버 경로 gift-box.js · 우편 · 소식은 서버 경로 mail-feed.js · notice-feed.js).
+# playlist.js — 🎵 상태칩 플레이리스트(앱 FSD 16번). 명함은 deps(api-public-reads.js)로 · 내 목록 · 파도타기는 서버 경로 playlist-api.js — firebaseAPI 를 부르지 않는다.
 # admin/*.js — 🛠️ 관리자 코드는 parts/admin/ 에 모은다(관리자 코드 admin 폴더). 러너 스테이징은 한 층만 펼쳐서 이 폴더가
 #   parts/admin/ 로 남는다 — 이름만으로 못 열면 그 자리도 본다(_open_part). admin-license-bulk.js 는 createLicense · sendInboxMessage ·
 #   lookupFriendCode · listLicenses · getUserNameById · issueSecretRoom · expireSecretRoom · getSecretRoomPub · getMySecretRoom ·
@@ -406,7 +406,7 @@ _BASELINE_GET = {'rooms': 3, 'users': 2, 'licenses': 0, 'parties': 1, 'roomIndex
                  'friendCodes': 0, 'reports': 1, 'roomAlive': 1}   # rooms 3곳 = 관리자 함수만(카운트 폴백 제거됨)
 # roomAlive · rooms 읽기는 유령 방 청소(cleanGhostRooms · 관리자 전용)가 걷히며 0곳이 됐다 — 아래 숫자는 위쪽 한도로만 남는다.
 # reports 1곳 = 🚩 listReports(관리자 전용 · [신고 목록] 버튼 누를 때 1회 · 규칙상 관리자만 읽힘 · 2026-09-23 개정 60).
-# friendCodes · licenses 0곳 = 관리자 라이선스 · 초대권(전체 지급 · 전체 회수 · 목록 · 통계)이 서버 길로 옮겨 가며 걷혔다(D11-3).
+# friendCodes · licenses 0곳 = 관리자 라이선스 · 초대권(전체 지급 · 전체 회수 · 목록 · 통계)이 서버 경로로 옮겨 가며 걷혔다(D11-3).
 #   users 전체 읽기는 규칙상 거부되므로(.read는 users/$userId에만 존재) uid 목록을 얻는 대체 인덱스로 사용.
 #   code→{userId}만 담겨 유저당 약 50바이트 — users 전체(수 KB/명)보다 훨씬 가볍다.
 _gets = {}

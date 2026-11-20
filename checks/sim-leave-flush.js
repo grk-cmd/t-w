@@ -6,7 +6,7 @@
           캐릭터를 만들자마자 끄면 만들기 요청(POST)이 끝난 뒤에 꺼진다 · 못 올린 것이 없으면 바로 꺼진다(요청 0 · 옷장 줄에 멈춘 받기가 있어도) · 요청이 안 끝나면 8초 · 렌더러가 멈췄으면 9초 ·
           app.js 가 켜다 죽은 화면 · leave-flush.js 가 아직 안 실린 화면은 바로
    ・4절: 배선 — main.js(before-quit 맨 앞 · 창 닫기 · 업데이트 설치 · 새 화면 · 렌더러 죽음 · session-end 는 그대로) · preload 채널 · app.js 일 · html 순서 · 로그아웃이 같은 한 벌
-   ・5절: mutation test — 끄기를 안 붙잡는 옛 길(main 이 바로 app.quit)은 3절 첫 판정이 빨강 · 렌더러가 옷장 일을 안 넘기면 빨강 · closet.js 의 «못 올린 것이 있을 때만» 거름을 걷으면 8초 · «답할 수 있다» 를 안 보면 9초 ·
+   ・5절: mutation test — 끄기를 안 붙잡는 옛 경로(main 이 바로 app.quit)은 3절 첫 판정이 빨강 · 렌더러가 옷장 일을 안 넘기면 빨강 · closet.js 의 «못 올린 것이 있을 때만» 거름을 걷으면 8초 · «답할 수 있다» 를 안 보면 9초 ·
           맥도 창 닫기를 끄기로 모으면 빨강 · 맥 창 닫기 뒤 단계가 done 에 남으면 다시 연 창의 Cmd+Q 가 저장을 안 기다려 빨강
    [실행] 저장소 루트에서 node checks/run.js sim-leave-flush */
 'use strict';
@@ -346,7 +346,7 @@ say('── 4. 배선');
 say('── 5. mutation test');
 {
   const old = await scene(null, { oldPath: true });
-  chk(old.log[0] === 'quit' && old.quitAfter === 0,   /* 시뮬레이션은 끈 뒤에도 돌아 3초 묶음이 뒤에 찍힌다 — 실제 앱은 이미 꺼졌다 */ '옛 길(main 이 끄기를 붙잡지 않음) — 만들기 요청이 끝나기 전에 꺼진다 → 3절 첫 판정이 빨강 [' + old.log.join(' → ') + ']');
+  chk(old.log[0] === 'quit' && old.quitAfter === 0,   /* 시뮬레이션은 끈 뒤에도 돌아 3초 묶음이 뒤에 찍힌다 — 실제 앱은 이미 꺼졌다 */ '옛 경로(main 이 끄기를 붙잡지 않음) — 만들기 요청이 끝나기 전에 꺼진다 → 3절 첫 판정이 빨강 [' + old.log.join(' → ') + ']');
   const noJob = await scene(null, { jobs: () => [] });
   chk(noJob.log.slice(0, 2).join(' → ') === 'done → quit' && noJob.quitAfter === 0, '렌더러가 옷장 일을 안 넘기면 — 요청 없이 바로 꺼진다 → 빨강');
   const FILTER = 'return unsavedCount() ? flushSlots() : null;';

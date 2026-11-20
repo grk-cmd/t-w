@@ -2,7 +2,7 @@
    실행:  node sim-drag-scroll.js   (drag-scroll.js · myhome-ui.js · desk-companion-prototype.html · smoke.js 가 있는 폴더에서)
    ★ 왜 이 검사가 있는가 — 끌기와 누르기가 섞이면 끌다가 엉뚱한 글이 열리거나(클릭이 새어 나감), 반대로 살짝 떨린 누르기가 안 먹는다.
    ・1절: 끌기 — 문턱(DRAG_PX) 아래는 누르기 그대로 · 넘으면 따라 움직이고 그 뒤 클릭은 막는다 · 다음 누르기는 다시 열린다 · 오른쪽 버튼 · 두 번 걸기
-   ・2절: 깨 보기 · 3절: 배선(html 순서 · 우편 · 소식 목록에 건다 · 스크롤바 숨김 css · smoke) */
+   ・2절: mutation test · 3절: 배선(html 순서 · 우편 · 소식 목록에 건다 · 스크롤바 숨김 css · smoke) */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -76,7 +76,7 @@ function behave(src){
 
 say('── 1. 끌기');
 behave(MOD).forEach(([ok, m]) => chk(ok, m));
-say('── 2. 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 2. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['문턱 없음(누르기도 끌기로)', (s) => s.replace('if(Math.abs(dy) < DRAG_PX) return;', '')],
   ['끈 뒤 클릭을 안 막음', (s) => s.replace('e.preventDefault(); e.stopPropagation();', '')],

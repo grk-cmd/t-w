@@ -348,7 +348,7 @@ await sec('── 4. 새 스티커 · 스티커 끌기 · 삭제 저장', async 
   z2.fire('click', { target: tgt2, clientX: 0, clientY: 0, button: 0 });
   chk(e.sticker.open === 1, '  숨긴 버튼(관람 중)은 통과하지 않는다');
   }
-  /* 깨 보기 — 누를 때 버튼 자리였는지 안 보면 «끌어 와 버튼 위에서 놓기» 가 관리 창을 연다 */
+  /* mutation test — 누를 때 버튼 자리였는지 안 보면 «끌어 와 버튼 위에서 놓기» 가 관리 창을 연다 */
   const dropOnBtn = async (src) => {
     const e = mkEnv({ src, data: { stickers: { a: { x: 10, y: 10 } } } }); e.mk();
     e.els.mhStickerAddBtn._rect = { left: 300, top: 300, width: 60, height: 20 };
@@ -362,7 +362,7 @@ await sec('── 4. 새 스티커 · 스티커 끌기 · 삭제 저장', async 
     return e.sticker.open;
   };
   const brokeSrc = MOD.replace('if(e.button || !go || !passToAdd(e)) return;', 'if(e.button || !passToAdd(e)) return;');
-  chk(await dropOnBtn() === 0 && brokeSrc !== MOD && await dropOnBtn(brokeSrc) === 1, '  깨 보기 — 누른 자리를 안 보면 놓기만으로 관리 창이 열린다(빨강)');
+  chk(await dropOnBtn() === 0 && brokeSrc !== MOD && await dropOnBtn(brokeSrc) === 1, '  mutation test — 누른 자리를 안 보면 놓기만으로 관리 창이 열린다(빨강)');
 });
 
 await sec('── 5. 닉네임 · 게시글 제목', async () => {

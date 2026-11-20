@@ -51,19 +51,19 @@ else{
   chk(blocked({ locked: true }, true, false) === true && blocked({ locked: true }, false, true) === true && blocked({ locked: true }, false, false, false) === true,
     '★ 프리미엄 · 관리자 · 확인 전(모름)이어도 앱이 다시 가리지 않는다 — 서버가 locked 를 참으로 줬으면 막는다(서버가 사람마다 정해 준 값이라 관리자 · 보유자에게는 애초에 거짓으로 온다)');
   chk(blocked({ locked: false, licenseOnly: true }, false, false) === false, '★ locked:false 면 전용 분류(licenseOnly)여도 막지 않는다 — 분류는 막기 판정이 아니다');
-  chk(blocked({ licenseOnly: true }, false, false) === false && blocked({}, false, false) === false, '일반 자산 · locked 칸이 없는 레코드(받기 전)는 막지 않는다');
+  chk(blocked({ licenseOnly: true }, false, false) === false && blocked({}, false, false) === false, '일반 자산 · locked field 가 없는 레코드(받기 전)는 막지 않는다');
   chk(blocked(null, false, false) === false && blocked(undefined, false, false) === false, '경계: 레코드가 없으면(null · undefined) 막지 않는다');
   chk(blocked({ locked: 1 }, false, false) === false && blocked({ locked: 'true' }, false, false) === false, '경계: locked 는 참(true)일 때만 막는다');
   chk(typeof blocked({ locked: true }, false, false) === 'boolean' && typeof blocked({}, false, false) === 'boolean', '돌려주는 값은 true · false');
-  /* 깨 보기 — 앱이 다시 가리게 되돌리면 진리표가 달라져야 한다 */
+  /* mutation test — 앱이 다시 가리게 되돌리면 진리표가 달라져야 한다 */
   const table = (src) => { const out = []; for(const it of [{ locked: true }, { locked: false, licenseOnly: true }, { licenseOnly: true }, null]) for(const pr of [false, true]) for(const ad of [false, true]) for(const kn of [true, false]){
     try{ const st = { premium: pr, admin: ad }; const pa = buildPA(src, st); if(kn) pa._setPremium(pr); out.push(pa.licenseAssetBlocked(it)); }catch(_){ out.push('x'); } } return out.join(); };
   const base = table(PASRC);
   const brk = (a, b) => PASRC.includes(a) && table(PASRC.replace(a, b)) !== base;
-  chk(brk('return !!(item && item.locked === true);', 'return !!(item && item.locked === true) && !isPremium();'), '  ↳ 깨 보기: 프리미엄을 다시 가리면 빨강');
-  chk(brk('return !!(item && item.locked === true);', 'return !!(item && item.locked === true) && !isAdmin();'), '  ↳ 깨 보기: 관리자를 다시 가리면 빨강');
-  chk(brk('return !!(item && item.locked === true);', 'return !!(item && item.locked === true) && _premiumKnown;'), '  ↳ 깨 보기: «모름» 을 다시 가리면 빨강');
-  chk(brk('return !!(item && item.locked === true);', 'return !!(item && item.licenseOnly);'), '  ↳ 깨 보기: 분류(licenseOnly)로 막으면 빨강');
+  chk(brk('return !!(item && item.locked === true);', 'return !!(item && item.locked === true) && !isPremium();'), '  ↳ mutation test: 프리미엄을 다시 가리면 빨강');
+  chk(brk('return !!(item && item.locked === true);', 'return !!(item && item.locked === true) && !isAdmin();'), '  ↳ mutation test: 관리자를 다시 가리면 빨강');
+  chk(brk('return !!(item && item.locked === true);', 'return !!(item && item.locked === true) && _premiumKnown;'), '  ↳ mutation test: «모름» 을 다시 가리면 빨강');
+  chk(brk('return !!(item && item.locked === true);', 'return !!(item && item.licenseOnly);'), '  ↳ mutation test: 분류(licenseOnly)로 막으면 빨강');
 }
 say('── 1-2. 부르는 곳 — 복사된 조건이 없고 모두 그 함수를 부른다');
 {
@@ -73,7 +73,7 @@ say('── 1-2. 부르는 곳 — 복사된 조건이 없고 모두 그 함수�
   for(const [f, t] of FILES.concat([['app.js', fs.readFileSync('app.js', 'utf8')]])){ if(!t) { huh(f + ' 를 못 읽음'); continue; } if(/licenseOnly[^\n]{0,80}!\s*isPremium|!\s*isPremium\(?\)?\s*&&\s*!\s*isAdmin/.test(strip2(t))) copies.push(f); }
   chk(!copies.length, '★ 「전용 && !isPremium && !isAdmin」 복사본이 없다' + (copies.length ? ' — ' + copies.join(' · ') : ''));
   const COPY_RE = /licenseOnly[^\n]{0,80}!\s*isPremium|!\s*isPremium\(?\)?\s*&&\s*!\s*isAdmin/;
-  chk(COPY_RE.test('if(rec.licenseOnly && !isPremium() && !isAdmin()){') && COPY_RE.test('if(on && x && !isPremium && !isAdmin){') && !COPY_RE.test('if(licenseAssetBlocked(rec)){'), '  ↳ 깨 보기: 옛 조건을 다시 쓰면 위 검사가 빨강이 된다');
+  chk(COPY_RE.test('if(rec.licenseOnly && !isPremium() && !isAdmin()){') && COPY_RE.test('if(on && x && !isPremium && !isAdmin){') && !COPY_RE.test('if(licenseAssetBlocked(rec)){'), '  ↳ mutation test: 옛 조건을 다시 쓰면 위 검사가 빨강이 된다');
   const T = Object.fromEntries(FILES);
   chk(/!seat\.remote && licenseAssetBlocked\(rec\)/.test(strip2(T['character/desk-visual.js'] || '')), '책상 그리기 — 내 좌석(!remote)만 · 판단 함수');
   chk(/licenseAssetBlocked\(rec\)/.test(strip2(T['creator/desk-setup.js'] || '')) && /if\(licenseAssetBlocked\(rec\)\)\{/.test(strip2(T['creator/desk-setup.js'] || '')), '생성기 — 책상 카드 · 아이템 카드');

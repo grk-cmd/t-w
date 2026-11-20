@@ -4,7 +4,7 @@
      계정 ↔ 게이트 ↔ 내 정보 ↔ 포커스 레벨이 서로를 불렀다(sim-dep-cycles). 맨 아래 한 파일에 두고, 쓰는 모듈보다 먼저 싣는다.
    ・1절: 값 · 함수 — 저장 키 · 친구코드 모양 · 로그인 이메일 · 초대 통과 표시는 없음(0.13 — 서버가 가입을 판정) · 프리미엄(첫 확인은 알림 · 같은 값이면 알림 없음 · 바뀌면 건 차례대로 한 번) · «모름» · 신원 놓음 · 원격 설정
    ・2절: HTML 순서(쓰는 모듈 · app.js 보다 먼저) · 알림을 거는 곳 · 바꾸는 곳
-   ・3절: 일부러 깨 보기 */
+   ・3절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -91,7 +91,7 @@ chk(R.gateHooks && R.onPrem.length === 1 && R.onPrem[0] === 'account/license-gat
 chk(R.detachWriters, '신원 놓음을 바꾸는 곳은 계정(_wipeAccountLocal) 하나 — app.js 는 계정 만드는 줄에서만 쓰는 함수를 넘긴다');
 chk(R.made, 'app.js 는 isPremium 바로 뒤 · 초대 게이트보다 먼저 계정 핵심 상태를 만든다');
 
-say('── 3. 일부러 깨 보기');
+say('── 3. mutation test');
 const line = '<script src="parts/account/account-state.js"></script>';
 const lateHtml = HTML.indexOf(line) < 0 ? HTML : HTML.replace(line, '').replace('<script src="parts/app.js"></script>', '<script src="parts/app.js"></script>\n' + line);
 chk(judge(MOD, lateHtml, FILES, APP).late.length > 0, 'account-state.js 를 app.js 뒤로 옮기면 빨강');

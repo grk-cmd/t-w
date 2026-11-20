@@ -5,7 +5,7 @@
    ・1절: 고리판 — 걸고 부르면 그 함수 · 인자 · 돌려준 값 그대로 · 안 걸린 이름은 던진다(예전 window.이름() 과 같다) · has · null 로 내리기
    ・2절: 이름마다 거는 곳이 정해진 한 파일 · 부르는 곳이 있다 · 아는 이름만 · 글자 이름으로 부르지 않음 · 받는 줄 모양 · 표
    ・3절: HTML 순서(쓰는 모듈 · app.js 보다 먼저) · smoke.js 가 진짜로 싣는다
-   ・4절: 일부러 깨 보기 */
+   ・4절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -81,7 +81,7 @@ say('── 3. 싣는 순서');
 chk(R.users >= 8 && !R.late.length, '쓰는 파일 ' + R.users + '개 · app.js 보다 myhome-hooks.js 를 먼저 싣는다' + (R.late.length ? ' — 먼저 실리는 것: ' + R.late.join(' · ') : ''));
 chk(/PRELOAD\.push\('myhome-hooks\.js'\)/.test(SMOKE), 'smoke.js 가 진짜로 싣는다(빈 이름이면 거는 줄에서 선다)');
 
-say('── 4. 일부러 깨 보기');
+say('── 4. mutation test');
 const twice = FILES.map(([f, t]) => [f, f === 'myhome/myhome-page.js' ? t + '\nmhHooks.on(mhHooks.HOOK.APPLY_BG, ()=>{});\n' : t]);
 chk(judge(MOD, HTML, twice).badOwner.includes('APPLY_BG'), '다른 파일이 같은 이름을 또 걸면 빨강');
 const unk = FILES.map(([f, t]) => [f, f === 'myhome/myhome-page.js' ? t + '\nmhHooks.call(mhHooks.HOOK.APPLY_BGG);\n' : t]);

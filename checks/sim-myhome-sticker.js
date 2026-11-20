@@ -287,13 +287,13 @@ await sec('── 5-2. 🔒 잠금 · ▲▼ 순서 (관리 창 · 편집모드 
   const cE = e.commits; lbtn('✎').click();
   chk(e.data.stickers.a.x === 0 && e.editSid === 'a' && e.data.stickers.a.locked === true && e.commits === cE + 1, '★ 창 밖의 잠긴 스티커도 ✎ — 창 안으로 당겨 편집모드 · 잠금은 그대로 · 저장');
   e.editSid = null; e.docL = {};
-  { /* 깨 보기 — ✎ 가 ◎ 처럼 잠긴 것을 건너뛰면 창 밖에 남은 채 편집모드(안 보임) */
+  { /* mutation test — ✎ 가 ◎ 처럼 잠긴 것을 건너뛰면 창 밖에 남은 채 편집모드(안 보임) */
     const bad = MOD.replace("if(_mhStickerOutOfView(s)){ const t=_mhClampStickerPos(Object.assign({}, s)); myhomeStore.editSticker(sid, { x: t.x, y: t.y }); }", 'if(_mhStickerOutOfView(s)){ _mhBringStickerIn(sid); }');
     const b = mkEnv({ src: bad, stickers: { a: { x: -500, y: 10, locked: true } } }); b.mk().open();
     const br = b.els.stMgrList.children.find(r => /locked/.test(r.className));
     const pen = br && b.walk(b.part(br, 'st-mgr-btns')).find(x => x.tagName === 'BUTTON' && x.textContent.split(' ')[0] === '✎');
     if(pen) pen.click();
-    chk(bad !== MOD && !!pen && b.data.stickers.a.x === -500, '  깨 보기 — ✎ 가 잠긴 것을 건너뛰면 창 밖에 남는다(빨강)');
+    chk(bad !== MOD && !!pen && b.data.stickers.a.x === -500, '  mutation test — ✎ 가 잠긴 것을 건너뛰면 창 밖에 남는다(빨강)');
   }
   e.data.stickers.a.x = 10;
   const t0 = e.toasts.length; M.editStart('a');

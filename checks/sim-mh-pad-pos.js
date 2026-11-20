@@ -6,7 +6,7 @@
           마이홈(창 좌상단 + 여백)이 사용자가 둔 자리에 있다. 'moved' 가 오는 OS · 안 오는 OS 둘 다
           + 여백 120 · 줌 1 → 1.25 → 메뉴 누름에서 창이 튀지 않는다(_refitConfigForZoom 을 떼어 와 돌림)
           + 실제 _applyConfigMode 에 여백 0 → 120 → 120 → 40 — 마이홈 제자리 · 창 너비에 그때 여백
-   ・3절: 일부러 깨 보기 — 예전 «바뀐 만큼» 공식 · 여백 안 빼고 기억하기 · 줌 맞춤에서 여백 안 맞추기 · 여백을 크기 잰 뒤에 바꾸기는 빨강
+   ・3절: mutation test — 예전 «바뀐 만큼» 공식 · 여백 안 빼고 기억하기 · 줌 맞춤에서 여백 안 맞추기 · 여백을 크기 잰 뒤에 바꾸기는 빨강
    [실행] node checks/run.js sim-mh-pad-pos */
 'use strict';
 const fs = require('fs');
@@ -133,7 +133,7 @@ for(const mv of [false, true]){
   chk(zoomSteady(r), "★ 여백 120 · 줌 1 → 1.25 → 메뉴 누름 — 창이 튀지 않는다(" + (mv ? "'moved' 오는 OS" : "'moved' 안 오는 OS") + ' · ' + (r ? r.afterZoom + ' → ' + r.afterMenu : '함수를 못 찾음') + ')');
 }
 
-say('── 3. 일부러 깨 보기');
+say('── 3. mutation test');
 if(REM){
   chk(!steady(run(REM, OLD_PLACE, false)), "예전 «바뀐 만큼» 공식 — 'moved' 가 안 오면 움직인다(빨강이어야 함)");
   const noPad = REM.replace('MhPadPos.rememberOf(b, _mhPadApplied)', '{ x: b.x, y: b.y }');

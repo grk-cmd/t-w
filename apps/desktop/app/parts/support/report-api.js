@@ -1,11 +1,11 @@
-/* report-api.js — 🚩 신고 provider — 신고 서버 길(POST /v2/reports) · 관리자 신고 목록 길(/v2/admin/reports*) 한 벌 (검사 sim-report.js)
+/* report-api.js — 🚩 신고 provider — 신고 서버 endpoint(POST /v2/reports) · 관리자 신고 목록 길(/v2/admin/reports*) 한 벌 (검사 sim-report.js)
    [왜] 신고는 서버가 원본이다. 신고한 사람은 서버가 로그인 토큰에서 정한다 — 앱은 내 이름 · 코드를 싣지 않는다.
      신고 창(report.js)은 경로 · 본문 모양 · 서버 종류 이름을 모르고 이 파일의 함수만 부른다.
    [모양] file(target, kind, note) → Promise<void>. 성공이면 끝, 실패는 api-client.js 의 ApiError 그대로 던진다.
      failOf(err) → 갈래 하나(FAIL) — 신고 창은 서버 code 를 모르고 갈래만 보고 문구를 고른다.
      kind 는 신고 창의 사유 이름(char · away · nick · etc) — 서버 이름(KIND)으로 바꾸는 곳은 여기뿐이다.
      보내기 전에 틀린 값(대상 없음 · 모르는 사유 · 사유가 40자를 넘음)이면 요청 없이 code 'INVALID' 로 던진다(갈래 site).
-   [신원] target 은 신고할 사람의 사용자 코드 — 데이터 주소일 뿐이다. 같은 사람을 다시 신고하면 서버가 열린 신고를 고친다(같은 결과라 requestId 칸이 없다).
+   [신원] target 은 신고할 사람의 사용자 코드 — 데이터 주소일 뿐이다. 같은 사람을 다시 신고하면 서버가 열린 신고를 고친다(같은 결과라 requestId field 가 없다).
    [관리자] createAdminReportApi(deps) → { page(cursor), dismiss(target), takeDown(target, url), failOf(err) } — 관리자 신고 목록(admin/admin-report.js)이 부른다.
      서로 다른 3명 이상 거르기 · 이름 · 그림 붙이기 · 그림 칸과 파일 지우기는 서버가 한다. 서버 줄 → 화면 줄 바꾸기(targetOf)는 여기 한 곳.
    ⚠️ 실패해도 다시 보내지 않는다 — 다시 하는 길은 사용자가 [신고] · [다시 시도] · 버튼을 다시 누르는 것뿐.

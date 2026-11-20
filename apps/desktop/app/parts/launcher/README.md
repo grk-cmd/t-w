@@ -19,7 +19,7 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
   슬롯을 당기는 일이 하나 더 생기면 doDeleteCurSlot · doMoveCurSlotToBox 와 같은 모양(자리 추가 번호 · 현재 칸 정리)을 지킨다.
 - **함정**: 네이티브 확인 대화상자를 쓰지 않는다(Electron 투명 창이 멈춘 것처럼 보인다 · audit 검사 4).
   보관함 이동은 기다린 뒤 번호가 아니라 그 캐릭터로 칸을 다시 찾는다 — 번호로 당기면 연타 · 동기화 때 엉뚱한 칸을 당긴다.
-- **검사**: `checks/sim-launcher-controls.js` — 모듈 모양 · app.js 연결 · 깨 보기 · 버튼 동작(감아 돌기 · 당기기 · 자리 추가 번호 · 보관함 이동 실패 · 연타 막기).
+- **검사**: `checks/sim-launcher-controls.js` — 모듈 모양 · app.js 연결 · mutation test · 버튼 동작(감아 돌기 · 당기기 · 자리 추가 번호 · 보관함 이동 실패 · 연타 막기).
 
 ## launcher-preview.js — 🖼️ 런처 미리보기 · 슬롯 섬네일
 
@@ -40,7 +40,7 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - **함정**: 캔버스에 px 를 박지 않는다(박은 값을 다시 읽어 크기가 굳는다). 섬네일은 render 와 같은 틱에서 복사한다(렌더러에 preserveDrawingBuffer 없음).
   `launcherLoop` 는 `FrameBudget.FPS_LAUNCHER`(30)까지만 그린다 — 상한을 빼면 주사율만큼 그려 런처 GPU 부하가 3~4배. 깜빡임 박자를 여기서 따로 세지 않는다(프레임 수로 세면 주사율 따라 달라진다 — `shared/blink-timing.js`).
   프레임 높이는 파츠를 뺀 몸 박스로 잰다 — 파츠까지 넣으면 파츠가 튈 때 캐릭터가 작아진다.
-- **검사**: `checks/sim-launcher-preview.js` — 모듈 모양 · 연결 · 깨 보기 + 4절 런처 부하(120Hz 에서 30번 · 깜빡임 횟수 주사율 무관 · 후원 반짝임 steps).
+- **검사**: `checks/sim-launcher-preview.js` — 모듈 모양 · 연결 · mutation test + 4절 런처 부하(120Hz 에서 30번 · 깜빡임 횟수 주사율 무관 · 후원 반짝임 steps).
 
 ## click-through-policy.js — 🖱 클릭 통과 판단 규칙 한 곳
 
@@ -63,7 +63,7 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
   문턱을 바꾸면 `checks/sim-click-through-policy.js` 1절 상수 표도 같이 고친다(값이 곧 동작이다).
 - **함정**: 같은 조건(`drag() && _ignoreSent` · `offOverlay === true` · `_isConfigMode || _lastIgnoreRequested` · `FWD_*` 상수 등)을 다른 파일에 다시 쓰면 검사 5절이 빨강이다.
   사다리는 펜 앱 · 다른 모니터 · 휠에서 돌지 않는다 — 3단계(받아 보기)가 남의 창 포커스를 뺏는 유일한 자리다. 통과를 임의로 «받기» 로 푸는 규칙은 넣지 않는다(예전 워치독 사고).
-- **검사**: `checks/sim-click-through-policy.js` — 모양 · 상수 값 · 렌더러/main 표(상황 → 결정, 경계값) · 네 길 연결 · 같은 조건 재사용 금지(+깨 보기).
+- **검사**: `checks/sim-click-through-policy.js` — 모양 · 상수 값 · 렌더러/main 표(상황 → 결정, 경계값) · 네 길 연결 · 같은 조건 재사용 금지(+mutation test).
   동작 판정은 원래 검사들(`sim-ghost-cache-sync` · `sim-wheel-kick` · `sim-hover-poke` 등)도 그대로 본다.
 
 ## heartbeat-policy.js — 🩺 하트비트에 무거운 칸을 실을지
@@ -75,7 +75,7 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - **내놓는 것**: `fullStep({ shown, sinceFull })` → true 면 잰다 · `HIDDEN_FULL_EVERY_MS`(1000 — 숨김 중에도 이 간격마다 한 번은 잰다).
 - **함정**: «모름»(신호 전 · `null`)은 보임으로 친다 — 확인 못 한 채 빼면 클릭 통과 판정 재료가 낡는다. 칸을 빼면 main 은 마지막 값을 그대로 둔다(덮지 않음).
   런처에서는 `__uiRegions` 가 이미 빈 목록이라 여기서 따로 보지 않는다.
-- **검사**: `checks/sim-heartbeat-policy.js` — 판단 표(경계값) · 하트비트(`heartbeat.js`)를 가짜 타이머로 돌려 «보임 → 숨김 → 복귀» · main 알림을 가짜 창으로 돌려 보기 · 깨 보기.
+- **검사**: `checks/sim-heartbeat-policy.js` — 판단 표(경계값) · 하트비트(`heartbeat.js`)를 가짜 타이머로 돌려 «보임 → 숨김 → 복귀» · main 알림을 가짜 창으로 돌려 보기 · mutation test.
 
 ## heartbeat.js — 🩺 0.1초 하트비트
 
@@ -87,7 +87,7 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
   - 함수: `otherSeatCircles`(= `statusChipMod.otherSeatCircles`)
 - **내놓는 것**: 없음.
 - **함정**: `_charBoundsLatest` 객체에 칸을 덧붙이지 않는다 — 다음 주기에도 다시 쓰는 값이라 매번 새 객체로 보낸다. 주기 100ms 는 main 생존 신호의 기준이다.
-- **검사**: `checks/sim-heartbeat.js` — 모듈 모양 · 만들 때 구독 · 타이머 · app.js 연결 · 깨 보기. 보내는 값은 `sim-heartbeat-policy.js` 2절이 돌려 본다.
+- **검사**: `checks/sim-heartbeat.js` — 모듈 모양 · 만들 때 구독 · 타이머 · app.js 연결 · mutation test. 보내는 값은 `sim-heartbeat-policy.js` 2절이 돌려 본다.
 
 ## run-diag-minute.js — 🩺 1분 진단 줄
 
@@ -99,7 +99,7 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
   - 함수: `_frameCap` · `_bodyHidden`(= `hiddenSeatsMod._bodyHidden`)
 - **내놓는 것**: 없음.
 - **함정**: 줄 모양은 `frame-budget.js`(`diagLine`) · `gpu-timer.js`(`suffix`) · `run-cost-diag.js`(`line`) · `hit-shadow.js`(`lines`)가 정한다 — 여기서 글을 만들지 않는다. `[비용]` 줄은 `[프레임]` 줄 바로 앞에, `[지도]` 줄들은 `[프레임]` 뒤에 적는다.
-- **검사**: `checks/sim-run-diag-minute.js` — 모듈 모양 · 가짜 타이머로 한 번 돌려 보기(실행 화면 아님 · 맞음 · 상한 모듈 없음 · 그림자) · app.js 연결 · 깨 보기. 줄 내용은 `sim-frame-budget` · `sim-gpu-timer` · `sim-run-cost-diag`.
+- **검사**: `checks/sim-run-diag-minute.js` — 모듈 모양 · 가짜 타이머로 한 번 돌려 보기(실행 화면 아님 · 맞음 · 상한 모듈 없음 · 그림자) · app.js 연결 · mutation test. 줄 내용은 `sim-frame-budget` · `sim-gpu-timer` · `sim-run-cost-diag`.
 
 ## hit-map.js — 🗺️ 클릭 통과 히트 맵(순수 계산)
 
@@ -107,7 +107,7 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - **모양**: 순수 모듈 `window.TwHitMap` + `module.exports`(main 이 나중에 require — click-through-policy.js 와 같은 모양). THREE · DOM · 좌석을 모른다 — 숫자만 받는다.
 - **내놓는 것**: `sphereRect` · `createMap` · `reset` · `addSphere` · `addFull` · `candidates` · `pointIn` · `fresh` · `skipWhy` · 상수 `HIT_MAP_PAD_PX`(8) · `HIT_MAP_STALE_MS`(250) · `EMPTY` · `RECT` · `FULL`.
 - **함정**: 모르면 «전체»(카메라가 구 안 · 원근이 아닌 투영 · NaN · 캔버스 넓이 0) — «모른다» 를 «멀다» 로 바꾸지 않는다. 카메라 뒤 구만 «없음». 화면 밀기(`setViewOffset`)도 투영 행렬 모양 그대로 받는다.
-- **검사**: `checks/sim-hit-map.js` — 진짜 three 로 구 위의 점 · 사각형 밖 광선 · 경계 · 깨 보기.
+- **검사**: `checks/sim-hit-map.js` — 진짜 three 로 구 위의 점 · 사각형 밖 광선 · 경계 · mutation test.
 
 ## hit-shadow.js — 🗺️ 히트 맵 그림자 운행의 셈 · 1분 `[지도]` 줄
 
@@ -115,7 +115,7 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - **모양**: `window.TwHitShadow = { createHitShadow({ now }), line, detailLine, lines, … }`. app.js 가 하나 만들어(`hitShadow`) 지도 만들기(`noteBuild`) · desktop-run(`record` · `allow`) · 1분 진단(`take`)에 같은 것을 넘긴다.
 - **함정**: 새 판정은 옛 판정을 한 번 더 도는 셈이라 광선 · 지도 만들기 몫은 1초 창마다 `BUDGET_MS`(10ms)까지만 쓰고 넘으면 건너뛴다(`allow` — 건너뛴 판정은 지도도 다시 안 만든다). 그림자는 받기 · 통과를 main 에 보낸 뒤 `_updateIgnore` 끝에서 돈다(desktop-run `_shadowArm` · `_hitShadowRun`) — 받기가 늦지 않고 `[비용]` 의 통과 시간에 안 든다(옛 판정만의 시간으로 0.12.4-beta.0 과 견준다). 다를 때 줄(`[지도✗]`)은 종류마다 1분에 첫 번째 하나. 줄은 200자 안.
 - **끝내는 조건**: 설계 3-4 — 7일 · PC 10대 넘게 · 지도만통과 0 · 지도만받기 0 · 지도 만들기 평균(좌석 8) 0.2ms 아래. 설계와 다른 점: 지도를 판정이 찾을 때 만들어서 «낡음» 칸이 없고 «만듦 · 판정당 %» 를 적는다. 채우면 둘째 PR 에서 `pick` 이 답을 정한다.
-- **검사**: `checks/sim-hit-shadow.js` — 셈 · 줄 모양 · 예산 · desktop-run 을 가짜 창에서 만들어 mousemove 로 «통과 결과는 옛 판정대로» · app.js 연결 · 깨 보기.
+- **검사**: `checks/sim-hit-shadow.js` — 셈 · 줄 모양 · 예산 · desktop-run 을 가짜 창에서 만들어 mousemove 로 «통과 결과는 옛 판정대로» · app.js 연결 · mutation test.
 
 ## oss-licenses.js — 📄 오픈소스 라이선스 창
 - 책임: «개인정보 처리방침» 옆 링크 둘(⚙️ 설정 › 시스템 › 프로그램 정보 `#progOssLink` · 내 정보 맨 아래 `#miOssLink`)을 누르면 고정 크기 창(`OSS_WIN` 440×460 · 화면이 작으면 92vw / 80vh 안으로)에 목록을 보인다. 한 줄 = 이름(누르면 홈페이지) · 판 · 라이선스 칩 · [원문] 펼치기. 목록 · 원문은 창 안에서만 스크롤.
@@ -144,7 +144,7 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
   - `did-start-navigation` 을 쓰지 않는다 — main 이 막는 이동(바깥 링크 · file:// 밖 · blob:)에도 시작은 와서, 화면은 그대로인데 실행 화면이 런처 크기로 끼어 버린다.
   - 처음 로드 · 해시 이동(did-navigate-in-page)은 되돌리지 않는다.
   - 한 로드 사이에는 한 번만 되돌린다 — 사망 길이 먼저 되돌리고 이어서 다시 불러와도 두 번 안 한다.
-  - 검사: `checks/sim-renderer-gone-reset.js`(죽음 · 다시 불러오기 · 막힐 이동의 시작 차례를 가짜 창에서 실제로 돌림 · 깨 보기).
+  - 검사: `checks/sim-renderer-gone-reset.js`(죽음 · 다시 불러오기 · 막힐 이동의 시작 차례를 가짜 창에서 실제로 돌림 · mutation test).
 
 ## `notice-api.js` · `notice-feed.js` — 📢 공지 한 판(소식 · 업데이트 공지 · 런처 배너)
 
@@ -174,8 +174,8 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 - **사본 없음**: 공지는 모두에게 같은 공용 데이터라 계정 확인을 기다리지 않고 켤 때 받는다(로그인 화면 위에도 업데이트 공지 · 런처 배너가 뜬다). 서버가 원본이라 이 PC 에 사본을 남기지 않는다.
 - 소식 읽음은 서버에 없다 — 이 PC(`tw.inboxBcRead`)에 남는다. 계정이 바뀌어도 같은 PC 면 같은 읽음이다(계정별 저장은 A2 몫).
 - 업데이트 공지의 «다시 보지 않기» 는 공지 시각(ms)을 기억한다 — 서버 시각으로 바뀌어 Firebase 시절 기억값과는 달라 한 번 더 뜰 수 있다.
-- 관리자 편집 창(`admin/`)은 아직 Firebase 로 쓴다 — 서버 길로 옮기기 전에는 거기서 올린 확성기 · 업데이트 공지 · 배너가 앱에 안 보인다(관리자 묶음 몫).
-검사: `checks/sim-notice-api.js` · `checks/sim-notice-feed.js`(입력 → 출력 · 상태 · 409 · 깨 보기) · `checks/sim-ad-banner.js`(배너 그리기).
+- 관리자 편집 창(`admin/`)은 아직 Firebase 로 쓴다 — 서버 경로로 옮기기 전에는 거기서 올린 확성기 · 업데이트 공지 · 배너가 앱에 안 보인다(관리자 묶음 몫).
+검사: `checks/sim-notice-api.js` · `checks/sim-notice-feed.js`(입력 → 출력 · 상태 · 409 · mutation test) · `checks/sim-ad-banner.js`(배너 그리기).
 
 ## `user-local.js` — 🗂️ 이 계정이 이 PC 에서 고른 것을 확인 뒤에 읽는 한 칸
 
@@ -220,7 +220,7 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 - 계정 칸은 열기 전까지 닫혀 있고, 계정 칸 주인 모듈(포커스 누적 · 레벨 · 오늘 기록 전시 · 바탕화면)은 시작 전이면 입구에서도 읽기 · 쓰기를 안 한다.
 - 확인을 통과하기 전(보통 1~2초)에는 마이홈 · 일정 · 공지 같은 계정 화면이 비어 있다가 채워진다.
 - 함수 안의 `if(!uid) return` 입구 확인은 다른 길에서 불릴 수 있어 남겨 둔다.
-검사: `checks/sim-app-boot.js`(차례 · 한 번만 · 알림 없으면 0번 · 던져도 계속 · 깨 보기) · `checks/sim-license-gate.js`(게이트가 확인 뒤에만 알림) · `checks/sim-nav.js`.
+검사: `checks/sim-app-boot.js`(차례 · 한 번만 · 알림 없으면 0번 · 던져도 계속 · mutation test) · `checks/sim-license-gate.js`(게이트가 확인 뒤에만 알림) · `checks/sim-nav.js`.
 
 ## launcher-state.js — 🧭 런처 공용 상태(앱 모드 · 마이홈 열림)
 

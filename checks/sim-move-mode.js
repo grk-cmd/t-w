@@ -3,7 +3,7 @@
    ・2절: _charProjSane — 투영 결과가 쓸 만한가(경계값)
    ・3절: 읽는 · 쓰는 함수(여섯 값)
    ・4절: 연결 — 깃발 읽는 자리 · 쓰는 자리 · deps 모양
-   ・5절: 일부러 깨 보기 */
+   ・5절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -80,11 +80,11 @@ say('§4 연결');
   const shape = (n, v) => FN.includes(n) ? v === '(...a)=>' + n + '(...a)' : v === n;
   chk(!!pairs && pairs.length === 6 && pairs.every(([n, v]) => shape(n, v)), '★ deps 6개 모양 — 함수 둘은 (...a)=>이름(...a) · 값 넷은 이름 그대로');
   const bad = pairs ? pairs.map(([n, v]) => n === 'toast' ? [n, 'toast'] : [n, v]) : [];
-  chk(!bad.every(([n, v]) => shape(n, v)), '  깨 보기: 함수를 값으로 넘기면 빨강');
+  chk(!bad.every(([n, v]) => shape(n, v)), '  mutation test: 함수를 값으로 넘기면 빨강');
   chk(/^const _charProjSane = moveModeMod\._charProjSane;/m.test(code) && !/^let (moveMode|_charBoundsLatest|_charBadWhy|_twMoveSeenAt|_suppressNextContextMenu|_moveModeJustToggled)\b/m.test(code), '옛 이름 const · let 이 app.js 에 안 남음');
   chk(/setMoveMode: \(v\)=>\{ moveModeMod\.setMoveMode\(v\); \}/.test(code) && (code.match(/moveModeMod\.moveMode\(\)/g) || []).length >= 3, '쓰는 자리 · 읽는 자리가 moveModeMod 를 부른다');
 }
-say('§5 일부러 깨 보기');
+say('§5 mutation test');
 {
   const brk = (a, c) => { const m = SRC.replace(a, c); return m === SRC ? null : m; };
   const m1 = brk("let nx = startPanX - dxPix/Math.max(1, innerWidth);", "let nx = startPanX + dxPix/Math.max(1, innerWidth);");

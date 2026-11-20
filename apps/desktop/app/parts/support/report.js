@@ -1,6 +1,6 @@
 /* report.js — 🚩 신고하기(좌석 · 책상 · 이름표 우클릭 «🚩 신고하기…» → 사유 → 신고) · 신고 창 공용 도우미
    관리자 신고 목록은 admin/admin-report.js — 이 파일의 도우미(창 틀 · 닫기 · 신고 종류 · 팝업 칸)를 받아 쓴다.
-   ★ 신고는 서버 길(report-api.js — POST /v2/reports) 하나로 보낸다. 신고한 사람은 서버가 토큰에서 정하니 내 이름 · 코드를 싣지 않는다.
+   ★ 신고는 서버 경로(report-api.js — POST /v2/reports) 하나로 보낸다. 신고한 사람은 서버가 토큰에서 정하니 내 이름 · 코드를 싣지 않는다.
      성공하면 내 화면에서 그 사람을 숨기고(hidden-seats.js 의 같은 Set) 창을 닫는다. 실패하면 숨기지 않고 [신고] 를 다시 켠다 — 다시 보내지 않는다.
    ★ 팝업 칸(_reportOv · _reportEsc)은 신고 창과 관리자 목록이 함께 쓰는 «한 번에 하나만 열리는 자리»라 이 파일이 가진다.
      관리자 목록은 읽는 함수 · 쓰는 함수(ov · setOv · esc · setEsc)로만 만진다.
@@ -17,7 +17,7 @@ const _seatLabelName = deps.seatLabelName;
 const _awayUrlOk = deps.awayUrlOk;             // 자리비움 그림 주소가 우리 Storage 인가
 const _reportHiddenSave = deps.reportHiddenSave;
 const _reportHiddenUids = deps.reportHiddenUids; // 신고해서 숨긴 사용자 코드(Set — hidden-seats.js 의 같은 객체)
-const reportApi = deps.reportApi;               // 🌐 신고 서버 길(TwReportApi — file(대상, 사유, 글) · failOf(오류) → 갈래)
+const reportApi = deps.reportApi;               // 🌐 신고 서버 경로(TwReportApi — file(대상, 사유, 글) · failOf(오류) → 갈래)
 const apiErrors = deps.apiErrors;               // 🧭 공통 code → 할 일 · 번호(TwApiErrors.store — 로그인 풀림 · 점검 · 닿지 못함)
 const notifyError = deps.notifyError;           // 실패 번호 토스트(TwErrorCodes.notify)
 var REPORT_ADMIN_MIN = 3;   // 안내 문구용 — 관리자 목록 거르기는 서버 기본(3)이 한다. 서버 기본이 바뀌면 같이 고친다

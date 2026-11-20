@@ -4,7 +4,7 @@
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(layoutSeatRow)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 16줄 그대로 · 부르는 곳은 seatLayoutMod.이름 · html(app.js 앞)
    ・4절: 동작 — 순수 판정 · 가짜 객체로 입력 → 출력 · 경계값(옮기기 전 app.js 글로도 같은 판정이 돈다)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · seat-layout.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -77,7 +77,7 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/room/seat-layout.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
@@ -87,7 +87,7 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const seatLayoutMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('seatLayoutMod.' + x)); if(n){ ls[i] = ls[i].replace('seatLayoutMod.' + n, n); return ls.join('\n'); } } return a + '\n' + EXPORTS[0] + '(true);'; }, null],   // app.js 에 부르는 자리가 없으면(다른 모듈만 부른다) 옛 이름 부름을 끼워 본다
-  ['만들 때 던짐', m => m.replace('function createSeatLayout(deps){', 'function createSeatLayout(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createSeatLayout(deps){', 'function createSeatLayout(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
@@ -240,7 +240,7 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
       chk(J(o.xs) === J([0, -2.2, -4.4]) && o.slot === 2, '  책상 폭이 바뀐 뒤 줄 배치는 새 폭으로(0 · -2.2 · -4.4) · 끌기도 새 폭 기준 칸');
       const once = MOD.replace('_bodyHalfMemo.set(s, body); _halfMemo.set(s, measureRowHalf(s, body));', '_bodyHalfMemo.set(s, body); if(!_halfMemo.has(s)) _halfMemo.set(s, measureRowHalf(s, body));');
       const b = once !== MOD ? remeasure(once) : null;
-      chk(!!b && J(b.xs) !== J(o.xs), '  깨 보기 — 한 번 잰 반폭을 다시 쓰면(새로 안 잼) 위 판정이 빨강');
+      chk(!!b && J(b.xs) !== J(o.xs), '  mutation test — 한 번 잰 반폭을 다시 쓰면(새로 안 잼) 위 판정이 빨강');
     }
     /* 0번(맨 오른쪽) 좌석은 줌 상한 없이 실제 반폭 · 1번부터 상한 1.1(옛 map 그대로) */
     {
@@ -249,7 +249,7 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
       chk(J(rr.xs) === J([0, -2.9]), '  0번 큰 책상은 실제 반폭(1.5) · 1번은 상한(1.1) — 1.5 + 0.3 + 1.1');
       const cap0 = MOD.replace('  return v[i ? 1 : 0];', '  return v[1];');
       const rb = cap0 !== MOD ? runLayout([{ isMe: true, hw: 1.5 }, { hw: 1.5 }], { spacing: 0.3, src: cap0 }) : null;
-      chk(!!rb && J(rb.xs) !== J([0, -2.9]), '  깨 보기 — 0번에도 상한을 걸면 빨강');
+      chk(!!rb && J(rb.xs) !== J([0, -2.9]), '  mutation test — 0번에도 상한을 걸면 빨강');
     }
     const ride = [{ isMe: true, hw: 0.85 }, { hw: 0.85 }, { hw: 0.85 }, { hw: 0.85 }];
     ride[2].ridingOn = ride[1];
@@ -257,14 +257,14 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
     chk(rr.api.slotIndexAt(-100, ride[3]) === 2 && rr.api.slotIndexAt(0.2, ride[3]) === 0, '  올라탄 좌석은 자리가 없어 건너뛴다(왼쪽 끝 = 남은 줄의 마지막)');
     const re = runLayout([{ isMe: true, hw: 0.85 }], {});
     chk(re.api.slotIndexAt(-3, null) === 0 && re.api.slotIndexAt(-3, { hw: 1 }) === 0, '  경계 — 끄는 좌석이 없거나 줄에 없으면 0');
-    /* 깨 보기 — 옛 셈 둘: 지금 자리(targetX) 중 가장 가까운 것(폭이 섞이면 떨림) · 끈 거리 ÷ 간격(음수 간격에서 뒤집힘) */
+    /* mutation test — 옛 셈 둘: 지금 자리(targetX) 중 가장 가까운 것(폭이 섞이면 떨림) · 끈 거리 ÷ 간격(음수 간격에서 뒤집힘) */
     const nearest = MOD.replace(/function slotIndexAt\(x, dragSeat\)\{[\s\S]*?\n\}\n/, 'function slotIndexAt(x){ let b = 0, bd = Infinity; seats.forEach((s, i)=>{ if(s.ridingOn) return; const d = Math.abs((s.targetX || 0) - x); if(d < bd){ bd = d; b = i; } }); return b; }\n');
     let caught = nearest !== MOD && dragRun(nearest, [0.85, 0.4, 2], 1, 0.3).shaky > 0;
-    chk(caught, '  깨 보기 — 지금 자리 중 가장 가까운 것으로 고르면 폭이 섞인 줄에서 떨린다');
+    chk(caught, '  mutation test — 지금 자리 중 가장 가까운 것으로 고르면 폭이 섞인 줄에서 떨린다');
     const divide = MOD.replace(/function slotIndexAt\(x, dragSeat\)\{[\s\S]*?\n\}\n/, 'function slotIndexAt(x){ return Math.max(0, Math.min(seats.length - 1, Math.round(-x / SPACING()))); }\n');
     caught = false;
     if(divide !== MOD){ const o = dragRun(divide, [0.85, 0.85, 0.85], 2, -0.3); caught = o.end !== o.n - 1 || o.back > 0; }
-    chk(caught, '  깨 보기 — 끈 거리 ÷ 간격으로 되돌리면 음수 간격에서 빨강');
+    chk(caught, '  mutation test — 끈 거리 ÷ 간격으로 되돌리면 음수 간격에서 빨강');
   }
   /* 🧍 책상이 없거나 작은 좌석 — 몸 반폭 + 여유(0.15)만큼 자리를 잡아 옆 책상과 안 겹친다(건의). 책상 있는 좌석끼리는 그대로 */
   {
@@ -288,10 +288,10 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
     chk(fs1.rig.position.x === 6 && fs1.rig.rotation.z === 2.5 && fs1.rig.n === 2, '  잰 뒤 날아가는 자세는 그대로 되돌린다(행렬도 다시 맞춤)');
     const noRest = MOD.replace('const b = measureAtRest(s);', 'const b = measureCharBox(s.gltfRoot);');
     const rn = noRest !== MOD ? runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, flying()], { src: noRest }) : null;
-    chk(!!rn && J(rn.cache) !== J(rest.cache), '  깨 보기 — 날아가는 자세 그대로 재면 위 판정이 빨강');
+    chk(!!rn && J(rn.cache) !== J(rest.cache), '  mutation test — 날아가는 자세 그대로 재면 위 판정이 빨강');
     const broken = MOD.replace('function seatRoomHalf(deskHalf, bodyHalf){ return Math.max(deskHalf, bodyHalf > 0 ? bodyHalf + BODY_ROOM : 0); }', 'function seatRoomHalf(deskHalf){ return deskHalf; }');
     const rb = broken !== MOD ? runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, { hw: 0.15, gltfRoot: body(0.3) }], { src: broken }) : null;
-    chk(!!rb && J(rb.xs) !== J([0, -1.7]), '  깨 보기 — 몸 폭을 안 보면(책상 폭만) 위 판정이 빨강');
+    chk(!!rb && J(rb.xs) !== J([0, -1.7]), '  mutation test — 몸 폭을 안 보면(책상 폭만) 위 판정이 빨강');
     /* 🚫 «책상 없음»(desk.userData.noDesk) — 잴 책상이 없어 seatDeskHalfWidth 가 기본 폭 0.85 를 내도 몸 자리만 쓴다 */
     const nd = (bw) => ({ hw: 0.85, gltfRoot: body(bw), desk: { userData: { noDesk: true } } });
     r = runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, nd(0.25), nd(0.25)], {});
@@ -303,7 +303,7 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
     chk(J(r.xs) === J([0, -2.1]), '  표시가 없는 좌석(책상 있음)은 그대로');
     const brokenNd = MOD.replace('if(bodyHalf > 0 && s && s.desk && s.desk.userData && s.desk.userData.noDesk) return 0;', '');
     const rnd = brokenNd !== MOD ? runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, nd(0.25), nd(0.25)], { src: brokenNd }) : null;
-    chk(!!rnd && J(rnd.xs) !== J([0, -1.65, -2.85]), '  깨 보기 — 책상 없음 표시를 안 보면 위 판정이 빨강');
+    chk(!!rnd && J(rnd.xs) !== J([0, -1.65, -2.85]), '  mutation test — 책상 없음 표시를 안 보면 위 판정이 빨강');
     /* 좌석 반폭(seatHalfWidth) — 평준화 가두기가 받는 값. 줄 배치와 같은 규칙 · 마지막 배치에서 잰 몸 폭을 다시 쓴다 */
     if(!process.env.TW_PREMOVE){
       const seatsH = [{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, nd(0.25), { hw: 1.4, gltfRoot: body(0.3) }, { hw: 0.15, gltfRoot: body(0.5) }];
@@ -316,7 +316,7 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
       chk(+r.api.seatHalfWidth(fresh).toFixed(6) === 0.35, '  아직 줄 배치에 없던 좌석은 지금 잰다');
       const bh = MOD.replace('  return seatRoomHalf(seatDeskHalf(s, false, body), body);', '  return seatDeskHalfWidth(s, false);');
       const rh = bh !== MOD ? runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, nd(0.25)], { src: bh }) : null;
-      chk(!!rh && +rh.api.seatHalfWidth(nd(0.25)).toFixed(6) !== 0.4, '  깨 보기 — 책상 폭만 보면(옛 가두기) 위 판정이 빨강');
+      chk(!!rh && +rh.api.seatHalfWidth(nd(0.25)).toFixed(6) !== 0.4, '  mutation test — 책상 폭만 보면(옛 가두기) 위 판정이 빨강');
     }
   }
   let threw = null; try{ r = runLayout([], {}); }catch(e){ threw = e; }
@@ -338,7 +338,7 @@ say('── 6. 배치한 뒤 알림(F4 — layoutSeats 감싸 다시 대입을 �
   chk(/function layoutSeats\(\)\{ seatLayoutMod\.layoutAndNotify\(\); \}/.test(code) && /seatLayoutMod\.onLaidOut\(\(\)=>\{[\s\S]*?applyDesktopRunClass\(\); \}\);/.test(code) && !/layoutSeats\s*=\s*function|const _layoutSeats/.test(code), 'app.js — layoutSeats 는 한 번만 정의하고 창 크기 맞춤은 알림에 건다(감싸 다시 대입 없음)');
   const brk = MODX.replace('function layoutAndNotify(){ layoutSeatRow(); laidOutFns.forEach(fn=>fn()); }', 'function layoutAndNotify(){ layoutSeatRow(); }');
   const m3 = build(brk); let k3 = 0; m3.onLaidOut(() => k3++); m3.layoutAndNotify();
-  chk(brk !== MODX && k3 === 0, '깨 보기: 알림을 안 부르면 빨강');
+  chk(brk !== MODX && k3 === 0, 'mutation test: 알림을 안 부르면 빨강');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

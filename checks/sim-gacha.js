@@ -71,7 +71,7 @@ function mkEnv(opt){
     saved: opt.saved || [], cats: opt.cats || [{ cat:'hat', label:'모자', icon:'🎩' }, { cat:'glasses', label:'안경', icon:'👓' }],
     draft: null, adj: null, equips: [], commits: 0, denied: [], deleted: [], regs: [], prunedDef: [], saves: 0, colorRefresh: 0,
     seats: [], slots: [], errs: [], rt: {}, rand: [0], randI: 0,
-    /* 🎰 서버 길 — gs = 서버 상태({ owned, unlocked, earned, bonus, left, season }) · gsFail = 뽑기 실패 이유 · gsLoadFail = 받기 실패 · gsOut = 이번 뽑기 결과 */
+    /* 🎰 서버 경로 — gs = 서버 상태({ owned, unlocked, earned, bonus, left, season }) · gsFail = 뽑기 실패 이유 · gsLoadFail = 받기 실패 · gsOut = 이번 뽑기 결과 */
     gs: opt.gs || null, gsFail: null, gsLoadFail: false, gsOut: [], gsLoads: 0, gsDraws: [], gsHold: null,
   };
   const els = {};
@@ -411,7 +411,7 @@ await sec('── 6. 뽑기 창', async () => {
   chk(e.toasts.join() === '남은 뽑기가 없어요' || e.els.gachaDraw1.disabled, '남은 뽑기가 없으면 버튼이 꺼져 있다(눌러도 서버에 안 간다)');
   M.renderGachaDraw();   // 결과 없이 다시 그리기 — 남은 뽑기 0 이면 무대에 안내
   chk(/레벨 5부터 1회가 생겨요/.test(e.els.gachaDrawStage.children[0] ? e.els.gachaDrawStage.children[0].textContent : ''), '  무대 문구에 다음 뽑기 레벨(5)');
-  /* 뽑기 안에서 던지면(여기서는 서버 길) 에러코드로 알리고 잠금을 푼다 */
+  /* 뽑기 안에서 던지면(여기서는 서버 경로) 에러코드로 알리고 잠금을 푼다 */
   e = mkEnv({ saved: [G('a')] }); M = await open(e, ST({}, { earned: 2, left: 2 }));
   e.els.gachaGoDraw.onclick(); e.gsThrows = true;
   await e.els.gachaDraw1.onclick();
@@ -451,7 +451,7 @@ await sec('── 7. app.js 배선', () => {
   const getters = ['isAdmin: ()=>isAdmin,', 'savedParts: ()=>savedParts,', 'partCats: ()=>PART_CATS,', 'wdDraftDef: ()=>wdDraftDef,', 'activeWdAdj: ()=>activeWdAdj,', 'setActiveWdAdj: (v)=>{ activeWdAdj = v; },'];
   const vals = ['seats: seats,', 'slots: slots,', 'presence: Presence,'];
   chk(deps.length === 37 && fnDeps.length === 25 && getters.every(g => deps.includes(g)) && vals.every(v => deps.includes(v)) && deps.some(l => /^levelCap: (focusTotalMod\.)?FOCUS_LEVEL_CAP_HOURS,$/.test(l)),
-      'deps 37개 — 함수 25는 화살표 · 다시 대입되는 let 5는 읽는 함수 + 쓰는 함수 1 · const 셋 · 레벨 상한은 값 · 서버 길과 구독은 만든 것 (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
+      'deps 37개 — 함수 25는 화살표 · 다시 대입되는 let 5는 읽는 함수 + 쓰는 함수 1 · const 셋 · 레벨 상한은 값 · 서버 경로와 구독은 만든 것 (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
   chk(['seats', 'slots', 'Presence'].every(n => { const i = APP.search(new RegExp('^const ' + n + '\\s*=', 'm')); return i > 0 && i < iMk; }), '  seats · slots · Presence 는 만드는 줄보다 앞에 선언된 const');
   const m = strip(MOD);
   chk(!/[^.\w$](activeWdAdj|isAdmin|savedParts|PART_CATS|wdDraftDef)\s*=[^=]/.test(m.replace(/const (activeWdAdj|isAdmin|savedParts|PART_CATS|wdDraftDef) = deps\.\w+;/g, '')), '모듈은 app.js 의 let 에 직접 쓰지 않는다(쓰는 함수로)');
@@ -472,7 +472,7 @@ await sec('── 7. app.js 배선', () => {
   const iGs = HTML.indexOf('<script src="parts/character/gacha-api.js"></script>');
   chk(iGs > 0 && iGs < iA && deps.includes('gachaApi: gachaApiMod,') && deps.some(l => /^rtOn: \(kind, fn\)=>TwRtHub\.store\.on\(kind, fn\),/.test(l))
       && APP.indexOf('const gachaApiMod = TwGachaApi.createGachaApi({') > 0 && APP.indexOf('const gachaApiMod') < iMk && !/gachaSource|TwSourceSwitch\.store\.pick\('gacha'\)|TwGachaServer|gacha-server/.test(APP + MOD + HTML),
-      '  서버 길 — gacha-api.js 를 app.js 앞에 · 만든 것을 deps 로 · 서버 신호(rtOn) · 옛 길(source-switch · gacha-server)은 없다');
+      '  서버 경로 — gacha-api.js 를 app.js 앞에 · 만든 것을 deps 로 · 서버 신호(rtOn) · 옛 경로(source-switch · gacha-server)은 없다');
   chk(/^Tw[A-Z]/.test('TwGacha') && !/window\.Gacha\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
   /* 모듈이 없을 때 — 빈 껍데기 줄만 떼어 굴린다 */
   const wire = (APP.match(/const GACHA_OFF = [\s\S]*?\n\}\);/) || [''])[0];

@@ -4,7 +4,7 @@
    ・2절: 떼기 — 비동기 장착 무효화(번호 올리기) · 해제 순서(무효화 → 지우기 → 유령 청소 → 다시 맞추기) · stackable 한 개만 · 다시 맞추기가 던져도 삼킴
    ・3절: 유령 wrapper 청소 · def 대조(pruneSeatPartsAgainstDef — 조회 실패는 유지, stackable 은 id 단위)
    ・4절: 장착 입구 — 카테고리 정보 없으면 세션당 1회 경고 · applyEquippedPartsToSeat 뒷정리(가시성 · _lastOp) · 조회 실패 경고
-   ・5절: 연결(html 순서 · 만드는 줄 · 옛 이름 아홉 · 본문 안 남음 · #830 두 줄) · 6절: 일부러 깨 보기
+   ・5절: 연결(html 순서 · 만드는 줄 · 옛 이름 아홉 · 본문 안 남음 · #830 두 줄) · 6절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. */
 'use strict';
 const fs = require('fs');
@@ -131,7 +131,7 @@ say('§4 장착 입구 · 일괄');
     chk(!/function (extractBonesInto|equipPartOnSeat|unequipPartFromSeat|unequipStackablePart|pruneSeatPartsAgainstDef|applyEquippedPartsToSeat|_invalidatePendingEquip|_disposeWrapperFromSeat|_sweepOrphanPartWrappers|_refitAfterUnequip|_equipWarnOnce)\b/.test(code), '  app.js 에 본문이 안 남음');
     chk((SRC.match(/skelShare\.shareSkeletons\(/g) || []).length === 2, '★ 같은 뼈대 한 벌(#830) 두 줄(본체 · 다중 파츠 사본)이 그대로 있다');
   }
-  say('§6 일부러 깨 보기');
+  say('§6 mutation test');
   {
     const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
     const m1 = brk("  _invalidatePendingEquip(seat, cat, null, includeStackable);\n", '');

@@ -1,7 +1,7 @@
 /*
  * 📱 폰 연결 주소 공백 떼기(functions/mobile-link-trim.js) 검사 — 함수를 그대로 불러 가짜 DB 로 돌린다.
  * 1. 옮기기 · 지우기 갈래  2. 정상 칸은 읽지도 않음  3. index.js 연결(진짜 index.js 를 가짜 모듈로 돌려 처리기를 부른다)
- * 4. 규칙과 같은 코드 모양  5. 깨 보기
+ * 4. 규칙과 같은 코드 모양  5. mutation test
  */
 'use strict';
 const fs = require('fs');
@@ -110,7 +110,7 @@ async function cases(mod){
     chk(!diff.length, '규칙이 받는 폰 연결 칸 = 함수가 옮기는 코드' + (diff.length ? ' — 다름: ' + JSON.stringify(diff) : ''));
   }
 
-  say('── 5. 깨 보기 — 함수를 망가뜨리면 빨강');
+  say('── 5. mutation test — 함수를 망가뜨리면 빨강');
   {
     const breaks = [
       ['연결 키를 안 봄', (s) => s.replace("|| val.key !== want", '')],
@@ -121,7 +121,7 @@ async function cases(mod){
     ];
     for (const [name, fn] of breaks) {
       const src = fn(SRC);
-      if (src === SRC) { chk(false, `깨 보기 «${name}» — 고칠 자리를 못 찾음`); continue; }
+      if (src === SRC) { chk(false, `mutation test «${name}» — 고칠 자리를 못 찾음`); continue; }
       const r2 = await cases(load(src));
       const same = JSON.stringify(Object.keys(r).map(k => [r[k].res, r[k].log])) === JSON.stringify(Object.keys(r2).map(k => [r2[k].res, r2[k].log]));
       chk(!same, `«${name}» 이면 결과가 달라져 잡힌다`);

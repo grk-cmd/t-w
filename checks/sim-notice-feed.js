@@ -5,8 +5,8 @@
    ・2절: 알림 — notices 알림이 오면(바뀜 · 오래 끊겼다 붙음 모두) 다시 받음 · 새로 늘어난 소식 id 만 addedIds
    ・3절: 못 받음 — error · 자동 받기(켤 때 · 알림)가 실패하면 번호 없이 상태만 · 혼자 다시 받지 않음(타이머 0) · 사용자가 연 · 누른 받기(manual)에서만 E-MH-09(이어지는 동안 한 번) · 못 받아도 앞서 받은 판은 그대로 · 한 번도 못 받았으면 ready 아님
    ・4절: 관리자 쓰기 — 올리기(성공 → 다시 받음 · pinFailed → 다시 받고 번호 E-MH-12) · 고정 토글은 받은 판(version)으로 · 없는 id 는 요청 0 · 409 는 다시 받고 번호 · 실패는 번호
-   ・5절: 배선 — app.js 가 서버 길로 만듦 · 업데이트 공지 팝업은 처음 받았을 때 한 번 · 배너 · 확성기 · 소식이 같은 한 벌을 읽음 · html · smoke
-   ・6절: 일부러 깨 보기
+   ・5절: 배선 — app.js 가 서버 경로로 만듦 · 업데이트 공지 팝업은 처음 받았을 때 한 번 · 배너 · 확성기 · 소식이 같은 한 벌을 읽음 · html · smoke
+   ・6절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -216,9 +216,9 @@ async function judge(S){
   say('── 5. 배선');
   {
     const A = strip(S.APP);
-    chk(/TwNoticeFeed\.createNoticeFeed\(\{[\s\S]*?rt: TwRtHub\.store[\s\S]*?\}\);/.test(A) && !/createNoticeFeed\(\{[\s\S]*?store: accountStoreMod[\s\S]*?\}\);/.test(A), 'app.js — 서버 길과 realtime 알림을 넘겨 만든다(계정 칸 사본은 없다)');
+    chk(/TwNoticeFeed\.createNoticeFeed\(\{[\s\S]*?rt: TwRtHub\.store[\s\S]*?\}\);/.test(A) && !/createNoticeFeed\(\{[\s\S]*?store: accountStoreMod[\s\S]*?\}\);/.test(A), 'app.js — 서버 경로와 realtime 알림을 넘겨 만든다(계정 칸 사본은 없다)');
     chk(/^TwNetReady\.whenNetReady\(\(\)=>noticeFeed\.start\(\)\);$/m.test(A) && !/ notice: \(\)=>noticeFeed\.start\(\),/.test(A) && /function _showUpdateNoticeOnce/.test(A) && !/firebaseAPI\.getUpdateNotice/.test(A), 'app.js — 켤 때(계정 확인을 기다리지 않고) 받고 · 업데이트 공지 팝업은 공지 한 판에서(옛 getUpdateNotice 읽기가 없다)');
-    chk(!/ notice: \(\)=>noticeFeed\.start\(\),/.test(A.replace('TwNetReady.whenNetReady(()=>noticeFeed.start());', '')) && !/^TwNetReady\.whenNetReady\(\(\)=>noticeFeed\.start\(\)\);$/m.test(A.replace('TwNetReady.whenNetReady(()=>noticeFeed.start());', '')), '  깨 보기 — 켤 때 받기를 빼면 빨강(로그인 전에 공지가 안 뜬다)');
+    chk(!/ notice: \(\)=>noticeFeed\.start\(\),/.test(A.replace('TwNetReady.whenNetReady(()=>noticeFeed.start());', '')) && !/^TwNetReady\.whenNetReady\(\(\)=>noticeFeed\.start\(\)\);$/m.test(A.replace('TwNetReady.whenNetReady(()=>noticeFeed.start());', '')), '  mutation test — 켤 때 받기를 빼면 빨강(로그인 전에 공지가 안 뜬다)');
     chk(!/isViewing|_mailboxVisible|retryDelay/.test(A) && /noticeOnce: \(fn\)=>noticeFeed\.onceReady\(fn\)/.test(A) && /showNotice: \(n, done\)=>_showUpdateNoticeOnce\(n, done\)/.test(A), 'app.js — 보는 중 거르기 · 다시 받기 재료를 안 넘기고 · 업데이트 공지 팝업은 onceReady 한 번');
     const B = strip(S.BANNER);
     chk(/noticeFeed\.onChange\(/.test(B) && !/localStorage\.setItem\(AD_BANNER_KEY/.test(B) && !/subscribeAdBanner/.test(B), '배너 — 공지 한 판이 바뀔 때 그린다 · 이 PC 사본(localStorage)을 안 남긴다');
@@ -232,7 +232,7 @@ async function judge(S){
 async function runAll(){
   const S = SRC0;
   await judge(S);
-  say('── 6. 일부러 깨 보기');
+  say('── 6. mutation test');
   const F = S.FEED;
   const breaks = [
     ['busy 가 늘 false', F.replace('busy: () => flying', 'busy: () => false'), 'busy()'],

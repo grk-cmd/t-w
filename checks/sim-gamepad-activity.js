@@ -6,7 +6,7 @@
    ・2절: app.js 배선 — 펜 활동과 같은 처리(anyInput · 포커싱 앱일 때만 activity) · 모듈 없으면 건너뜀 · html 순서
    ・3절: 게임이 앞일 때(10-16 제보 7) — Windows 는 XInput 을 직접 읽는다. 읽기 규칙(pad-xinput.js)을 가짜 koffi 로 돌려 Gamepad API 모양 ·
      빈 자리를 덜 묻는지 · 못 불러오면 빈 목록인지, 일꾼(pad-worker.js) · sysinput-win.js readPads 를 가짜 Worker 로 돌려 main 이 기다리지 않는지 ·
-     일꾼이 죽으면 빈 목록 · 기록 한 번인지, 진짜 worker_threads 로 띄워 앱 종료를 붙잡지 않는지, main 이 같은 판정 · 같은 통로로 보내는지 · 설치본 목록 · 깨 보기 */
+     일꾼이 죽으면 빈 목록 · 기록 한 번인지, 진짜 worker_threads 로 띄워 앱 종료를 붙잡지 않는지, main 이 같은 판정 · 같은 통로로 보내는지 · 설치본 목록 · mutation test */
 'use strict';
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
@@ -97,7 +97,7 @@ for(const [nm, m2] of [
   ['빼도 안 멈춤', MOD.replace('      stop();\n      Object.keys(last)', '      Object.keys(last)')],
 ]){
   let r2; try{ r2 = sleepCase(m2); }catch(_){ r2 = [[false, '던짐']]; }
-  chk(m2 !== MOD && r2.some(([ok]) => !ok), '  깨 보기: ' + nm + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+  chk(m2 !== MOD && r2.some(([ok]) => !ok), '  mutation test: ' + nm + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
 }
 
 say('── 2. app.js 배선 · html');
@@ -272,9 +272,9 @@ chk(real.ended && real.pads === '1', '★ 진짜 일꾼 — 패드 값을 받아
   const NEW_W = "  try{ _padWorker = new Worker(file); }\n  catch(err){ _log('게임패드 일꾼을 못 띄움: ' + (err && err.message || err)); return; }\n";
   const bad = WIN.includes(UNREF) && WIN.includes(NEW_W) ? WIN.replace(UNREF, '').replace(NEW_W, NEW_W + '  _padWorker.unref();\n') : WIN;
   const rb = bad !== WIN ? realRun(bad) : { ended: true };
-  chk(bad !== WIN && rb.ended === false, '깨 보기 — unref 를 리스너 앞으로 되돌리면 프로세스가 안 끝난다 → 빨강' + (bad !== WIN ? '' : ' (바꿀 글을 못 찾음)'));
+  chk(bad !== WIN && rb.ended === false, 'mutation test — unref 를 리스너 앞으로 되돌리면 프로세스가 안 끝난다 → 빨강' + (bad !== WIN ? '' : ' (바꿀 글을 못 찾음)'));
 }
-/* 깨 보기 — 고친 줄을 되돌리면 위 판정이 빨강인가 */
+/* mutation test — 고친 줄을 되돌리면 위 판정이 빨강인가 */
 const mkSpy = (sl) => class extends FakeWorker { constructor(f){ super(f); sl.push(this); } };
 const breaks = [
   ['readPads 가 일꾼을 기다림', '  return _lastPads;\n}', '  const t = Date.now(); while(Date.now() - t < 80){}\n  return _lastPads;\n}',
@@ -288,7 +288,7 @@ for (const [name, a, b, ok] of breaks) {
   const src = WIN.replace(a, b);
   let r = true;
   if (src !== WIN) { try { const sl = []; r = ok(loadWin(mkSpy(sl), [], src), sl); } catch (_) { r = false; } }
-  chk(src !== WIN && r === false, '깨 보기 — ' + name + ' → 빨강' + (src !== WIN ? '' : ' (바꿀 글을 못 찾음)'));
+  chk(src !== WIN && r === false, 'mutation test — ' + name + ' → 빨강' + (src !== WIN ? '' : ' (바꿀 글을 못 찾음)'));
 }
 const expNames = (src) => ((src.match(/module\.exports\s*=\s*\{([\s\S]*?)\};/) || ['', ''])[1]).split(/[\s,]+/).filter(Boolean).sort().join(',');
 chk(expNames(WIN) === expNames(MAC) && /function readPads\(\)\{ return \[\]; \}/.test(MAC), '★ sysinput-mac.js 도 같은 이름(readPads — 빈 목록) · 두 파일 export 이름이 같다');

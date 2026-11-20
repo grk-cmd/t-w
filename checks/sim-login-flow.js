@@ -10,7 +10,7 @@
    ・6절: 내 계정 고치기 — 사본 version · 다른 곳이 먼저 바꿨으면 다시 받아 한 번 더 · 그 밖 실패는 ok:false
    ・7절: 로그아웃 · 프리미엄 유예 — realtime 끔 · API 로그인 읽기 뗌 · 로그인 놓음 · 사본 지움 · 유예 안 · 밖
    ・8절: 배선 — html 차례(user-api · api-errors · rt-hub 다음 · app.js 앞)
-   ・9절: 일부러 깨 보기 */
+   ・9절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
@@ -322,7 +322,7 @@ async function judge(S){
 (async () => {
 await judge(SRC0);
 
-say('── 9. 일부러 깨 보기');
+say('── 9. mutation test');
 const BREAKS = [
   ['LF', "    if(!u || u.anonymous) return { state: STATE.LOGIN, me: null };", "    if(!u) return { state: STATE.LOGIN, me: null };", '익명 세션을 로그인으로 봄'],
   ['LF', "    if(!o || !o.me || typeof o.at !== 'number' || !u || o.authUid !== u.uid) return null;", "    if(!o || !o.me) return null;", '남의 로그인 사본을 읽음'],
@@ -360,7 +360,7 @@ const BREAKS = [
   ['HTML', '<script src="parts/account/login-flow.js"></script>', '', 'html 에 안 실음'],
 ];
 let finished = false;
-process.on('exit', () => { if(!finished){ console.log('  ✗ 끝까지 돌지 못하고 멈췄다(깨 보기 ' + ran + '/' + BREAKS.length + ')'); process.exitCode = 1; } });   // 약속이 안 끝나 node 가 조용히 0 으로 끝나는 것을 막는다
+process.on('exit', () => { if(!finished){ console.log('  ✗ 끝까지 돌지 못하고 멈췄다(mutation test ' + ran + '/' + BREAKS.length + ')'); process.exitCode = 1; } });   // 약속이 안 끝나 node 가 조용히 0 으로 끝나는 것을 막는다
 const BREAK_MS = 5000;
 let ran = 0;
 const caught = [];
@@ -368,7 +368,7 @@ for(const [where, from, to, what] of BREAKS){
   if(SRC0[where].indexOf(from) < 0){ chk(false, '깨 볼 글을 못 찾음 — ' + what); ran++; continue; }
   const S = Object.assign({}, SRC0); S[where] = S[where].split(from).join(to);
   quiet = true; qfail = 0;
-  /* 깨 본 글이 끝나지 않는 약속을 기다리면(멈춤) 그것도 «잡음» 이다 — 안 그러면 node 가 조용히 종료코드 0 으로 끝나 뒤 깨 보기가 검사되지 않는다 */
+  /* 망가뜨린 글이 끝나지 않는 약속을 기다리면(멈춤) 그것도 «잡음» 이다 — 안 그러면 node 가 조용히 종료코드 0 으로 끝나 뒤 mutation test 가 검사되지 않는다 */
   let timer;
   try{ await Promise.race([judge(S), new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('멈춤')), BREAK_MS); })]); }catch(_){ qfail++; }
   clearTimeout(timer);
@@ -377,9 +377,9 @@ for(const [where, from, to, what] of BREAKS){
   caught.push([what, qfail]);
 }
 const missed = caught.filter(([, k]) => k === 0).map(([w]) => w);
-chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
-chk(ran === BREAKS.length, '깨 보기 ' + BREAKS.length + '가지를 끝까지 돌았다(' + ran + ')');
+chk(ran === BREAKS.length, 'mutation test ' + BREAKS.length + '가지를 끝까지 돌았다(' + ran + ')');
 console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 finished = true;
 process.exit(fail ? 1 : 0);

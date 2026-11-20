@@ -6,9 +6,9 @@
    ・3절: 창 — 가짜 자식 창에 GB_HTML 을 쓰고 테마를 넣는다 · 받는 중(입력칸 숨김) → 목록(서버 순서 · 내 글만 삭제 · escHtml) · 못 받음(다시 시도) ·
           친구가 아니면(canWrite:false) 입력칸 대신 안내 · 이미 떠 있으면 앞으로만 · 창이 닫히면(pagehide) 받은 것 비우고 «보는 중» 뗌 ·
           👀 관람(친구 것 · 이미지 등록 숨김 · 홈 주인이 바뀌면 열린 창을 닫음)
-   ・4절: 쓰기 · 삭제 · 박수 · 폭죽 — 서버에 보내는 모양 · 실패는 창 안 안내줄에도(오류 번호 글) · 박수 하루 몫은 서버 값 · 보내는 중엔 또 안 보냄 · 폭죽 한 글자 · 그림 올리기는 옛 길
+   ・4절: 쓰기 · 삭제 · 박수 · 폭죽 — 서버에 보내는 모양 · 실패는 창 안 안내줄에도(오류 번호 글) · 박수 하루 몫은 서버 값 · 보내는 중엔 또 안 보냄 · 폭죽 한 글자 · 그림 올리기는 옛 경로
    ・5절: 배선 — 정의는 모듈에만 · createGuestbook 은 원래 자리 · deps 모양 · 부르는 곳은 window 고리 그대로 · html 순서 · 옛 장치(친구 목록 게이트 · localStorage 박수 5번)가 없음
-   ・6절: 일부러 깨 보기
+   ・6절: mutation test
    [실행] guestbook.js · guestbook-feed.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
 globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
@@ -316,7 +316,7 @@ async function judge(S){
     em.value = '🎊'; await em.onchange(); await flush();   // 다시 켜 둔다(서버 값 🎊)
     e.answers.look = { status: 'failed', err: apiErr(400, 'GUESTBOOK_EMOJI_INVALID') }; em.value = '🎈'; await em.onchange(); await flush();
     chk(/오류 E-GB-05/.test(msg.textContent) && em.value === '🎊', '  저장 실패 — 오류 글 · 입력칸을 서버 값으로 되돌린다');
-    /* 그림 — 서버에 길이 생길 때까지 옛 길 */
+    /* 그림 — 서버에 길이 생길 때까지 옛 경로 */
     d.getElementById('gbImgSet').onclick();
     chk(e.held === 1 && d.getElementById('gbClapImgFile').clicked === 1, '이미지 등록 — 창이 안 닫히게 유예하고 자식 창의 파일 칸을 누른다');
     chk(!/firebaseAPI|setClapImage/.test(strip(MOD)) && /feed\.setImage\(data\)/.test(MOD), '  그림 올리기는 feed.setImage(서버 그림 길 → PATCH)를 부른다 — 모듈이 Firebase 를 안 만진다');
@@ -433,7 +433,7 @@ async function judge(S){
 (async () => {
   const S = { MOD: SRC['guestbook.js'] };
   await judge(S);
-  say('── 6. 일부러 깨 보기');
+  say('── 6. mutation test');
   const M = S.MOD;
   const breaks = [
     ['친구 목록으로 쓰기를 다시 판정', M.replace("row.style.display = (v && v.canWrite) ? 'flex' : 'none';", "row.style.display = 'flex';"), 'canWrite'],
@@ -467,7 +467,7 @@ async function judge(S){
   ];
   for(const [name, src, what, feedSrc] of breaks){
     if(src === M && !feedSrc){ chk(false, name + ' — 바꿀 글을 못 찾음'); continue; }
-    quiet = true; qfail = 0; const cw = console.warn; console.warn = () => {};   // 깨 본 모듈이 내는 경고는 소리 없이
+    quiet = true; qfail = 0; const cw = console.warn; console.warn = () => {};   // 망가뜨린 모듈이 내는 경고는 소리 없이
     try{ await judge({ MOD: src, FEED: feedSrc }); }catch(_){ qfail++; }
     quiet = false; console.warn = cw;
     chk(qfail > 0, name + ' → 빨강(' + what + ')');

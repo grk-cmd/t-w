@@ -6,7 +6,7 @@
    ・2절: 창마다 — 표의 이름만 쓴다(숫자를 직접 적지 않는다) · 풀어 본 값
    ・3절: 층 차례 — 대화상자는 창 쌓기(83~92) · 꾸미기 위 · 막는 창은 대화상자 위 · 편집 · 종족은 창 쌓기 목록 안
    ・4절: 창 쌓기를 실제로 돌려 본다 — 마이홈을 누른 뒤 편집을 열면 편집이 위 · 그 뒤 마이홈을 누르면 마이홈이 위(B-1016-4)
-   ・5절: 일부러 깨 보기 */
+   ・5절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -186,7 +186,7 @@ say('── 1 · 2 · 3. 창 층 표 · 창마다 · 층 차례');
 judge(HTML, WS).forEach(([ok, msg]) => chk(ok, msg));
 say('── 4. 창 쌓기를 돌려 본다');
 judgeStack(WS).forEach(([ok, msg]) => chk(ok, msg));
-say('── 5. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 5. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['마이홈이 숫자를 직접', (h) => h.replace('#myHomeOverlay{display:none;position:fixed;inset:0;z-index:var(--z-win-myhome);', '#myHomeOverlay{display:none;position:fixed;inset:0;z-index:71;')],
   ['편집 창이 대화상자 층', (h) => h.replace('#creatorOverlay{position:fixed;inset:0;z-index:var(--z-work);', '#creatorOverlay{position:fixed;inset:0;z-index:var(--z-dialog);')],

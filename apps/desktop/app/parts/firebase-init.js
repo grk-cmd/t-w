@@ -198,7 +198,7 @@
       return { ok:true, url };
     },
 
-    /* 📚 마이홈 북마크 책장은 서버 길(myhome/bookshelf-store.js · myhome-api.js)로 옮겼다 — Firebase 책장 메서드는 없다. */
+    /* 📚 마이홈 북마크 책장은 서버 경로(myhome/bookshelf-store.js · myhome-api.js)로 옮겼다 — Firebase 책장 메서드는 없다. */
 
     /* ===== 🫧 자리비움 그림 (2026-09-23 · handoff-2026-09-21-features §2 · 시안 A 확정) =====
        Storage `away/{uid}/away_{ts}.webp`(규칙: 300KB 미만 · 삭제 허용) → URL 은 서버로(PUT /v2/me/away-image — away-pic.js).
@@ -222,7 +222,7 @@
     // 읽기 · 쓰기 · 그림 올리기는 서버 API(myhome/myhome-api.js · 상태 주인 myhome-store.js)로 옮겼다 — 여기 남은 길 없음(getMyHome · saveMyHome · _myHomeLimits 걷음).
     // ===== 방명록 / 웹박수 =====
     // 읽기 · 쓰기 · 박수 · 폭죽 · 그림은 서버 API(myhome/guestbook-api.js)로 옮겼다 — 여기 남은 길 없음.
-    // 🔒 시크릿룸 — 발급 · 만료 · 조회는 전부 서버 API 다(Firebase 길 없음).
+    // 🔒 시크릿룸 — 발급 · 만료 · 조회는 전부 서버 API 다(Firebase 경로 없음).
     /* 발급 · 만료 처리는 서버(POST /v2/admin/secret-rooms · 앱 admin/admin-license-bulk.js)가 한다 — Firebase 로 쓰던 issueSecretRoom · expireSecretRoom 은 D8-5 에서 걷었다. */
     /* ═══════════════════ 🎟️ 초대장 (앱 접근 제한) ═══════════════════
        스키마:
@@ -235,7 +235,7 @@
     ─────────────────────────────────────────────────────────── */
 
     // 이 uid가 이미 등록된 사용자인지 (친구 시스템을 쓴 적 있으면 profile/home 등이 남아있음)
-    /* 💬 대화 기록(서버 3일 · 이 PC 화면 캐시 · 시각으로 이어 받기) — 규칙은 chat-history.js · 서버 길은 대화 포트(chat/chat-rt.js). 여기는 연결만. */
+    /* 💬 대화 기록(서버 3일 · 이 PC 화면 캐시 · 시각으로 이어 받기) — 규칙은 chat-history.js · 서버 경로는 대화 포트(chat/chat-rt.js). 여기는 연결만. */
     chatHistory: createChatHistory({
       store: createIdbChatStore(typeof indexedDB !== 'undefined' ? indexedDB : null, (firebaseConfig && firebaseConfig.databaseURL) || ''),
       subscribeSince: (room, tab, since, onMsg, onReady, onFail) => window.TwChatRt.store.subscribeSince(room, tab, since, onMsg, onReady, onFail),
@@ -291,7 +291,7 @@
       }
     },
     /* 🔗 지금 로그인(비밀번호로 가입)에 구글을 **붙인다** — 같은 authUid 그대로. 그 구글이 이미 다른 계정 것이면 거절(자동 병합 없음).
-       TODO: 서버 길이 없다(지도 6장 ⑧) — 생기면 서버 길로 옮긴다. */
+       TODO: 서버 경로가 없다(지도 6장 ⑧) — 생기면 서버 경로로 옮긴다. */
     async authLinkGoogle(idToken){
       if(!auth || !auth.currentUser) return { ok:false, reason:'로그인 상태가 아니에요 — 다시 시도해 주세요' };
       try{

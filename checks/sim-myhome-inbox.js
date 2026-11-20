@@ -13,7 +13,7 @@
            시크릿룸 코드 숨김 · 🏠 · 선택 · 놀러 가기 칸 · 삭제 확인 · 검색줄 닫으면 검색어도 비움
    ・7절: app.js 배선 — 정의는 모듈에만 · 만드는 곳 한 곳 · 원래 자리 · deps 모양 · 빈 껍데기 · 부르는 곳 · html 순서 · 전역 이름
    ・5절 안: 선물함 칸 그림 — 못 받으면 img-retry.js retryOnError 로 한 번 더(표식 twr=1) · 선물이 없으면 안 건다
-   ・8절: 일부러 깨 보기 — 모듈 · app.js 글을 조금씩 망가뜨려 2~7절이 잡아내는지(이 검사가 헛돌지 않는지) 스스로 확인
+   ・8절: mutation test — 모듈 · app.js 글을 조금씩 망가뜨려 2~7절이 잡아내는지(이 검사가 헛돌지 않는지) 스스로 확인
    [실행] myhome-inbox.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
 globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
@@ -119,7 +119,7 @@ function mkEnv(o){
     togglePin: async (id) => { const next = !(env.bc[id] && env.bc[id].pinned); env.calls.push('pin ' + id + ' ' + next); if(env.pinOk === false) return false; env.bc[id].pinned = next; return true; },   // 서버가 됐다 하면 다시 받아 판이 바뀐다
     sendBroadcast: async (o) => { env.calls.push('send ' + o.tag + ' ' + o.title + ' ' + !!o.pinned); return env.sendOk !== false; },
   };
-  /* 🎁 선물 상태 주인 — 진짜 gift-box.js 위에 가짜 서버 길(env.giftSrv 가 서버 선물함 · 부른 것은 env.calls 에) */
+  /* 🎁 선물 상태 주인 — 진짜 gift-box.js 위에 가짜 서버 경로(env.giftSrv 가 서버 선물함 · 부른 것은 env.calls 에) */
   env.giftSrv = []; env.giftUnseen = 0; env.giftErr = null;
   const lm = (src) => { const m = { exports: {} }; new Function('window', 'module', src)(undefined, m); return m.exports; };
   const find = (id) => env.giftSrv.find((x) => x.id === id);
@@ -162,7 +162,7 @@ function mkEnv(o){
   return env;
 }
 
-/* 2~6절 — 8절(일부러 깨 보기)이 망가뜨린 글로 다시 굴린다 */
+/* 2~6절 — 8절(mutation test)이 망가뜨린 글로 다시 굴린다 */
 async function behave(src){
   const E = (o) => mkEnv(Object.assign({ src }, o || {}));
   const today = new Date(2026, 9, 13, 15, 7).getTime();
@@ -688,7 +688,7 @@ async function runAll(MI, APP, HTML){
   }
   await runAll(MI, APP, HTML);
 
-  say('── 8. 일부러 깨 보기');
+  say('── 8. mutation test');
   const BREAKS = [
     ['MI', '_inboxFilter = inboxSec.normCat(_inboxFilter);', '', "옛 'gift' 필터를 안 되돌림"],
     ['MI', "[saveBtn, { label:'취소' }]);", "[saveBtn, { label:'삭제', danger:true }, { label:'취소' }]);", '⭐ 선물 우클릭에 삭제 단추가 붙음'],
@@ -762,7 +762,7 @@ async function runAll(MI, APP, HTML){
     caught.push([what, qfail]);
   }
   const missed = caught.filter(([, n]) => n === 0).map(([w]) => w);
-  chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+  chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
   say('\n통과 ' + pass + ' · 실패 ' + fail);
   process.exit(fail ? 1 : 0);

@@ -105,20 +105,20 @@ if(!fnPrune || !fnRestore || !fnLockD || !fnLockI || !constHold || !ASSRC){
     chk(n === 0 && d.deskCatalogId === 'desk_gaming',
       '★ 카탈로그 미도착 → 아무것도 안 접는다 (조회 실패를 «전용 아님»으로도 «전용»으로도 단정하지 않는다)');
   }
-  /* (가-2) 서버 locked 를 모르는 레코드(분류만 있고 locked 칸이 없다 — 받기 전 모양)는 접지 않는다. 앱이 분류(licenseOnly)로 판정하지 않는다 */
+  /* (가-2) 서버 locked 를 모르는 레코드(분류만 있고 locked field 가 없다 — 받기 전 모양)는 접지 않는다. 앱이 분류(licenseOnly)로 판정하지 않는다 */
   {
     const d = mkDef();
     const c = makeCtx({ desks: [{ id: 'desk_gaming', licenseOnly: true }], items: [{ id: 'item_neon', licenseOnly: true }], seats: [{ isMe: true, charDef: d }], slots: [d] });
     const n = vm.runInContext('pruneUnownedLicenseAssets()', c);
     chk(n === 0 && d.deskCatalogId === 'desk_gaming' && c._saved === 0 && c._redrawn.length === 0 && c._pushed === 0,
-      '★ locked 칸이 없으면 접지도 · 저장도 · 다시 그리기도 · 방에 내보내기도 없다(분류만으로 막지 않는다)');
-    /* 깨 보기 — 분류(licenseOnly)로 접게 되돌리면 위 판정이 빨강이어야 한다 */
+      '★ locked field 가 없으면 접지도 · 저장도 · 다시 그리기도 · 방에 내보내기도 없다(분류만으로 막지 않는다)');
+    /* mutation test — 분류(licenseOnly)로 접게 되돌리면 위 판정이 빨강이어야 한다 */
     const brokenD = fnLockD.replace('rec.locked === true', 'rec.licenseOnly');
     const brokenI = fnLockI.replace('rec.locked === true', 'rec.licenseOnly');
     const d2 = mkDef();
     const cb = makeCtx({ desks: [{ id: 'desk_gaming', licenseOnly: true }], items: [{ id: 'item_neon', licenseOnly: true }], slots: [d2] });
     vm.runInContext(brokenD + '\n' + brokenI, cb);
-    chk(brokenD !== fnLockD && brokenI !== fnLockI && vm.runInContext('pruneUnownedLicenseAssets()', cb) > 0 && d2.deskCatalogId === null, '  ↳ 깨 보기: 분류로 접으면 모르는 동안에도 접는다(= 위 검사가 빨강이 된다)');
+    chk(brokenD !== fnLockD && brokenI !== fnLockI && vm.runInContext('pruneUnownedLicenseAssets()', cb) > 0 && d2.deskCatalogId === null, '  ↳ mutation test: 분류로 접으면 모르는 동안에도 접는다(= 위 검사가 빨강이 된다)');
   }
   /* (나) 라이선스 보유자·관리자는 통째로 건너뛴다 */
   {
@@ -151,7 +151,7 @@ if(!fnPrune || !fnRestore || !fnLockD || !fnLockI || !constHold || !ASSRC){
     const picked = held && held({ deskCatalogId: 'desk_free', deskItems: null }, d);
     chk(!!picked && picked.deskCatalogId === 'desk_free', '  그사이 다른 책상을 골랐으면 고른 것이 이긴다');
     const brokenHeld = fnHeld && new Function('DESK_LICENSE_HOLD', 'ITEM_LICENSE_HOLD', fnHeld.replace("if(heldDesk && !out.deskCatalogId) out.deskCatalogId = heldDesk;", "") + ' return withHeldAssets;')(constHold[1], constHold[2]);
-    chk(!!brokenHeld && brokenHeld({ deskCatalogId: null }, d).deskCatalogId !== 'desk_gaming', '  ↳ 깨 보기: 책상을 안 되돌리면 위 판정이 빨강');
+    chk(!!brokenHeld && brokenHeld({ deskCatalogId: null }, d).deskCatalogId !== 'desk_gaming', '  ↳ mutation test: 책상을 안 되돌리면 위 판정이 빨강');
   }
   /* (라) 남의 좌석은 절대 건드리지 않는다 — 되돌리면 옛 제보가 되살아난다 */
   {

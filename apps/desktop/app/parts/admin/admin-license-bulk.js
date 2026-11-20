@@ -2,10 +2,10 @@
    app.js 의 두 구역(«📄 엑셀로 라이선스 일괄 발급» · «🔒 시크릿룸 발급(관리자)»)을 그대로 옮긴 관리자 모듈이다
    (관리자 코드 admin 폴더 1번 · 앱 FSD 순서표 9번 — docs/APP_FSD_MAP.md). 동작은 옮기기 전과 같다.
 
-   ★ D8-5: «🔒 시크릿룸 발급» 절은 서버 길(POST /v2/admin/secret-rooms)로 다시 썼다. D11-3: «📄 엑셀 일괄 발급» 절도 서버 길로 — 미리보기는
+   ★ D8-5: «🔒 시크릿룸 발급» 절은 서버 endpoint(POST /v2/admin/secret-rooms)로 다시 썼다. D11-3: «📄 엑셀 일괄 발급» 절도 서버 경로로 — 미리보기는
      POST /v2/admin/licenses/preview(있는 사람 · 이름 · 이미 유효한 키), 발급은 POST /v2/admin/licenses 한 번(줄마다 결과). 키 만들기 · 우편 · 사람 찾기는 서버가 한다.
    ★ 파일 읽기 · 쓰기(xlsx · csv) 순수 함수는 옮긴 그대로다.
-   ★ app.js 함수 넷(escHtml · toast · renderLicenseGenList · downloadBlob · _srFmtDate)과 서버 길(adminApi · apiErrors · notifyError)은 app.js 가 넘긴다.
+   ★ app.js 함수 넷(escHtml · toast · renderLicenseGenList · downloadBlob · _srFmtDate)과 서버 경로(adminApi · apiErrors · notifyError)은 app.js 가 넘긴다.
    ★ 밖에서 부르는 이름은 없다 — 두 즉시 실행 함수(bindLicenseXlsxBulk · bindSecretRoomGrant)가 버튼을 만들 때 건다.
      발급 창을 다시 열 때 부르는 window._lxHideWin 도 예전처럼 만들 때 건다.
    ★ createAdminLicenseBulk 는 app.js 의 원래 자리(두 구역 머리 아래)에서 부른다 — 예전과 같은 때에 돈다.
@@ -18,7 +18,7 @@
 function createAdminLicenseBulk(deps){
 const escHtml = deps.escHtml;
 const toast = deps.toast;
-const adminApi = deps.adminApi;                        // 서버 길(admin-api.js)
+const adminApi = deps.adminApi;                        // 서버 경로(admin-api.js)
 const apiErrors = deps.apiErrors;                      // 서버 오류 → 오류 번호(TwApiErrors.store)
 const notifyError = deps.notifyError;                  // 번호 알림(TwErrorCodes.notify)
 const renderLicenseGenList = deps.renderLicenseGenList; // 발급 창의 키 목록 다시 받기

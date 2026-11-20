@@ -18,7 +18,7 @@
 function createScheduler(deps){
 const scheduleAccountStore = deps.scheduleAccountStore;         // 🗂️ 계정별 칸(shared/account-store.js) — 기념일 보기는 이 계정이 이 PC 에서 고른 것
 const twNav = deps.twNav;                       // 🧭 창 열기 통로(nav.js) — 🏠 마이홈 열기
-const scheduleApi = deps.scheduleApi;           // 🌐 일정 · 디데이 · 알림 서버 길(schedule-api.js)
+const scheduleApi = deps.scheduleApi;           // 🌐 일정 · 디데이 · 알림 서버 경로(schedule-api.js)
 const apiErrors = deps.apiErrors;               // 🧭 서버 오류 → 할 일 · 오류 번호(TwApiErrors.store)
 const notifyError = deps.notifyError;           // 사용자에게 보이는 실패 — 번호 표(shared/error-codes.js)
 const rtOn = deps.rtOn;                         // 🛰 서버가 «바뀌었다» 고 알리는 길(TwRtHub.store.on) → 해제 함수

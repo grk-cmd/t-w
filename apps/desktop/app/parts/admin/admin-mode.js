@@ -8,7 +8,7 @@
    ★ 밖에서 부르는 이름은 refreshAdminVisibility 하나 — 부팅 때 관리자 전용 UI 를 숨길 때 app.js 가 부른다. 세션이 끝나면 app-boot 의 adminMode 칸이 NAV.ADMIN_EXIT 로 알려 모드를 조용히 끈다.
    ⚠️ document · window · companion · crypto · TextEncoder · hotkeyLetter(key-input.js) · navigator 는 예전처럼 전역 이름으로 쓴다
      (이 파일은 app.js 앞 · key-input.js 뒤에 싣는 classic script).
-   deps: session — 켜는 차례의 세션(appBoot.getSession) · identity — 로그인 흐름의 { email, uid } · twNav — 창 열기 통로(shared/nav.js) · adminApi — 서버 길(admin-api.js, 켜기 전 관리자 확인) · apiErrors — 서버 오류 → 오류 번호(TwApiErrors.store)
+   deps: session — 켜는 차례의 세션(appBoot.getSession) · identity — 로그인 흐름의 { email, uid } · twNav — 창 열기 통로(shared/nav.js) · adminApi — 서버 경로(admin-api.js, 켜기 전 관리자 확인) · apiErrors — 서버 오류 → 오류 번호(TwApiErrors.store)
    ⚠️ 전역 이름은 TwAdminMode — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-admin-mode.js */
 (function(){

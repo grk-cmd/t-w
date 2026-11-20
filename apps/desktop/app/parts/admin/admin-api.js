@@ -1,4 +1,4 @@
-/* admin-api.js — 🛠️ 앱 관리자 서버 길 provider (검사 sim-admin-api.js)
+/* admin-api.js — 🛠️ 앱 관리자 서버 경로 provider (검사 sim-admin-api.js)
    책임: 앱 관리자 창이 쓰는 서버 관리자 API(/v2/admin/...) 중 «관리자 확인 · 📣 확성기 · 📰 업데이트 공지 · 📢 런처 배너 · 🛑 방 종료 ·
      🎟️ 라이선스 키(목록 · 발급 · 회수 · 삭제 · 엑셀 미리보기) · 🙋 대기 요청 · 📊 통계 · 🎟️ 초대권 지급 · 회수» 의 요청 모양 한 곳.
      서버 모양(imageUrl · linkUrl · publishedAt)을 화면 모양(img · link · ts)으로 맞추는 곳도 여기뿐이다. 화면 · 알림은 모른다 — 실패는 던진다(ApiError).

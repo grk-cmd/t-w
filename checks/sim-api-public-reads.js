@@ -1,6 +1,6 @@
 /* ═══ 🌐 sim-api-public-reads.js — 플레이리스트 명함 읽기(api-public-reads.js · window.TwApiPublicReads) ═══════════════
    [왜] 명함을 서버 «명함 묶음» 한 길(GET /v2/myhomes/cards?codes= — 키는 userCode)에서 읽는다 — 못 받으면 Firebase 로 물러나지 않고 던진다(0.13 E-2 · R4: 못 받음 + 알림).
-     옛 길 GET /v2/users/{uid}/card 는 서버에 없다(#887 의 실수) — 다시 부르지 않는다(길 목록 대조는 sim-api-routes.js).
+     옛 endpoint GET /v2/users/{uid}/card 는 서버에 없다(#887 의 실수) — 다시 부르지 않는다(endpoint 목록 대조는 sim-api-routes.js).
      firebaseAPI 에 바꿔 끼우던 wrap 은 걷었다 — app.js 가 만들어 playlist.js 에 deps(fetchPlaylistCard)로 넘긴다.
    1. 모양 — 이 모듈에 파도타기 · 랭킹 · 방 개수 · 걷은 이름이 없다 · wrap 이 없다
    2. 명함 — 진짜 social-api.js fetchCards 위에서: 길 · 키(userCode) · 모양 · 없는 사람 = 빈 명함 · 실패 → 던짐
@@ -105,17 +105,17 @@ const rej = async (p) => { try{ await p; return null; }catch(e){ return e || new
       if(!threw) ok = false;
     }
     chk(ok, '★ 닿지 못함 · 시간 초과 · 쉬는 중 · 503 *_NOT_READY · RTDB_UNAVAILABLE · 400 · 401 · 길 없음 · 그 밖 오류 → 모두 던진다');
-    /* 깨 보기 — 실패하면 빈 명함으로 꾸미게 되돌리면 위가 빨강 */
+    /* mutation test — 실패하면 빈 명함으로 꾸미게 되돌리면 위가 빨강 */
     const back = SRC.replace("async function fetchPlaylistCard(userCode){ return cardOf(await ask(String(userCode))); }", "async function fetchPlaylistCard(userCode){ try{ return cardOf(await ask(String(userCode))); }catch(_){ return cardOf(null); } }");
     const bk = mkReads(mkAuthed(() => ERR('unavailable', 0, 'NETWORK')), load(back));
     let bt = false; try{ await bk.fetchPlaylistCard('u'); }catch(_){ bt = true; }
-    chk(back !== SRC && !bt, '  깨 보기: 실패에 빈 명함으로 꾸미게 되돌리면 위 판정(던짐)이 빨강');
-    /* 깨 보기 — 묶지 않고 사람마다 따로 부르면 2-B 가 빨강 */
+    chk(back !== SRC && !bt, '  mutation test: 실패에 빈 명함으로 꾸미게 되돌리면 위 판정(던짐)이 빨강');
+    /* mutation test — 묶지 않고 사람마다 따로 부르면 2-B 가 빨강 */
     const split = SRC.replace("    if(!batch){", "    if(true){");
     const sa = mkAuthed((p) => ({ cards: decodeURIComponent(p.split('codes=')[1]).split(',').map((c) => card(c)) }));
     const sr = mkReads(sa, load(split));
     await Promise.all([sr.fetchPlaylistCard('u1'), sr.fetchPlaylistCard('u2')]);
-    chk(split !== SRC && sa.calls.length !== 1, '  깨 보기: 묶지 않고 사람마다 따로 부르게 하면 2-B 의 «요청 하나» 판정이 빨강');
+    chk(split !== SRC && sa.calls.length !== 1, '  mutation test: 묶지 않고 사람마다 따로 부르게 하면 2-B 의 «요청 하나» 판정이 빨강');
   }
 
   say('── 6. 배선');
@@ -128,7 +128,7 @@ const rej = async (p) => { try{ await p; return null; }catch(e){ return e || new
     const html = read('desk-companion-prototype.html');
     const iS = html ? html.indexOf('<script src="parts/friends/social-api.js"></script>') : -1, iR = html ? html.indexOf('<script src="parts/shared/api-public-reads.js"></script>') : -1, iA = html ? html.indexOf('<script src="parts/app.js"></script>') : -1;
     chk(iS > 0 && iR > iS && iA > iR, '  ↳ html 이 api-public-reads.js 를 social-api.js 다음 · app.js 앞에 싣는다');
-    chk(!/\/v2\/users\/[^'"`]*card/.test(strip(SRC)) && !/\/v2\/users\/[^'"`]*card/.test(fi) && !/readCell|avatarInline/.test(strip(SRC)), '★ 옛 길(/v2/users/{uid}/card) · 사진 칸을 Firebase 에서 따로 읽는 길(readCell · avatarInline)이 없다');
+    chk(!/\/v2\/users\/[^'"`]*card/.test(strip(SRC)) && !/\/v2\/users\/[^'"`]*card/.test(fi) && !/readCell|avatarInline/.test(strip(SRC)), '★ 옛 endpoint(/v2/users/{uid}/card) · 사진 칸을 Firebase 에서 따로 읽는 길(readCell · avatarInline)이 없다');
     const s1 = takeFn(a, 'async function _refreshChatProfile('), s2 = takeFn(a, 'async function _miRenderAvatar(');
     const line = /await ensureMyHome\(\{ site: 'quiet' \}\)/;
     chk(!!s1 && !!s2 && line.test(s1) && line.test(s2) && !/getMyHome/.test(s1 + s2), '★ app.js 사진 두 곳(대화창 · 내 정보) — 내 홈 상태 주인에서 읽는다(home 통째 읽기 길 없음)');

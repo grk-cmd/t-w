@@ -10,7 +10,7 @@
   - 실패는 ApiError 를 그대로 던진다 — «가입 전(401 `USER_CODE_NOT_BOUND`)» 과 «닿지 못함» 을 부르는 쪽이 가른다. 빈 값으로 바꾸지 않는다.
   - 토큰 없는 길은 셋뿐(초대 확인 · 비밀번호 가입 · 방문 기록). 구글 가입에 `password` · `requestId` 를 실으면 서버가 거절한다.
   - 화면 문구는 `reasonOf` 표로 — 서버 message 를 그대로 보여 주지 않는다.
-- 검사: `checks/sim-user-api.js`(진짜 api-client 위에서 · 깨 보기).
+- 검사: `checks/sim-user-api.js`(진짜 api-client 위에서 · mutation test).
 
 ## app-version-sync.js — 계정 단위 판 맞추기(classic script `window.TwAppVersionSync`)
 - 책임: 계정에 들어간 뒤 이 앱 판을 서버에 알리고(`POST /v2/me/app-version`, 본문 `{ version }` 만 — 계정은 토큰으로 서버가 정한다), 응답이 `behind: true`(이 계정이 더 새 판을 쓰는 기기가 있다)면 업데이트 강제 창으로 막는다. 판 비교는 서버가 한다 — 앱은 `behind` 만 믿는다.
@@ -56,7 +56,7 @@
   - «이 기기» 는 기기 id 가 같을 때만 · 기기 상한은 서버 `deviceLimit`(없으면 «모름» — 가득 참을 미리 판단하지 않고 서버 거절 `LICENSE_DEVICE_FULL` 을 따른다). 서버가 준 기기 이름은 `textContent` 로만 넣는다.
   - 이 기기를 «빼기» 로 뺄 수 없다 — 프리미엄 판정을 같이 다시 정해야 해서 «이 기기에서 해제» 로만.
   - 계정이 바뀌면 `reset()` — 알림 구독을 풀고 `gen` 을 올려 늦게 온 옛 답을 버린다(S-4 세션 `dispose` 가 부를 자리).
-- 검사: `checks/sim-license-screen.js`(상태 · 그리기 · 깨 보기) · `checks/sim-license-ui.js` · `checks/sim-license-key.js`(모듈 모양 · 단추 연결).
+- 검사: `checks/sim-license-screen.js`(상태 · 그리기 · mutation test) · `checks/sim-license-ui.js` · `checks/sim-license-key.js`(모듈 모양 · 단추 연결).
 
 ## login-flow.js — 로그인 흐름(classic script `window.TwLoginFlow`)
 - 책임: 로그인(Auth) → 서버 가입 확인(`GET /v2/me`) → (이 PC 등록 뒤 app-boot 가 부르는) realtime 켜기(`TwRtHub.store.start({claim:true})`) · 서버에 닿지 못한 화면에서 기다리기(로컬 모드 없음) · 내 계정 사본(`tw.me` — 로그인 계정과 묶음).

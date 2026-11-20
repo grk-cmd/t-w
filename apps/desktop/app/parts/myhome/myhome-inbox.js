@@ -58,7 +58,7 @@ const openFriendHomeView = deps.openFriendHomeView;  // 아바타 클릭 → 친
 const renderMhProfileRail = deps.renderMhProfileRail;   // (제거된 프로필 레일 — 빈 함수)
 const mallangMod = deps.mallangMod;                        // 🧸 말랑이(mallang.js) — 선물 보내기 창
 const giftBox = deps.giftBox;                              // 🎁 선물 상태 주인(gift-box.js) — 선물함 값 · ⭐ · 치움 · 지우기
-const removeFriend = deps.removeFriend;                // 👥 친구 끊기(friends-port — 서버면 서버 길 · 아니면 옛 길)
+const removeFriend = deps.removeFriend;                // 👥 친구 끊기(friends-port — 서버면 서버 경로 · 아니면 옛 경로)
 let _mhSelectedFriend = null;   // (구 DM 자리) 지금은 사용하지 않지만 다른 곳에서 참조할 수 있어 유지
 function _inboxBcReadSet(){ try{ return new Set(JSON.parse(localStorage.getItem(INBOX_BC_READ_KEY)||'[]')); }catch(e){ return new Set(); } }
 function _inboxBcMarkRead(id){ try{ const s=_inboxBcReadSet(); s.add(id); localStorage.setItem(INBOX_BC_READ_KEY, JSON.stringify([...s])); }catch(e){} }

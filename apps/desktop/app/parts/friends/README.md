@@ -5,7 +5,7 @@
 
 ## friends-port.js — 친구 데이터 포트
 - 책임: 친구 목록 받기(`listFriends`) · 목록(추가 · 삭제) 듣기(`watchList`) · 접속 상태 듣기(`watchPresence`) · 프로필 듣기(`watchProfile`) 를 provider 로 잇는다.
-  전부 **서버 provider(api) 한 길** — 못 받으면 던진다(옛 Firebase 길로 물러나지 않는다). 접속 상태(듣기 · 읽기)는 **realtime provider 하나**(`friends-presence-rt.js`).
+  전부 **서버 provider(api) 한 길** — 못 받으면 던진다(옛 Firebase 경로로 물러나지 않는다). 접속 상태(듣기 · 읽기)는 **realtime provider 하나**(`friends-presence-rt.js`).
 - 만드는 법(app.js):
   ```js
   const friendsPortMod = TwFriendsPort.createFriendsPort({
@@ -28,7 +28,7 @@
 - 함정: 포트 위(도메인 · 화면)에서 `firebaseAPI` 친구 함수를 직접 부르지 않는다(sim-friends-port 3절이 센다).
 
 ## friends-api.js — 서버 provider(`social-api.js` 위 — 친구 목록 + 명함 → 친구 칸 · 알림)
-- 책임: 포트가 부르는 모양 하나로 서버 친구 데이터를 낸다. 서버 길(경로 · 모양 맞춤 · 오류 갈래)은 `social-api.js`, 여기는 «목록 + 명함 → 친구 칸» 합치기와 realtime 알림(`friends` · `card`)을 받으면 다시 받기뿐이다.
+- 책임: 포트가 부르는 모양 하나로 서버 친구 데이터를 낸다. 서버 경로(경로 · 모양 맞춤 · 오류 갈래)은 `social-api.js`, 여기는 «목록 + 명함 → 친구 칸» 합치기와 realtime 알림(`friends` · `card`)을 받으면 다시 받기뿐이다.
   다시 묻지 않는다 — 못 받으면 던지거나(`listFriends` · `readFriend` · `readProfile`) `onError` 로 알린다(`watchList` → friends-sub 가 «못 불러옴» · 목록을 다시 열 때 다시).
 - 내보내는 것: `listFriends(myId, opts)`(목록 1번 + 명함 한 묶음 · `opts.idsOnly` 면 명함 없이 addedAt 만) · `readFriend(fid)`(친구 아님 · 명함 없음 → `null`) ·
   `watchList(myId, onChange, onError)`(처음 한 번 + `friends` 알림 · resync 마다 · 받기는 한 번에 하나 — 겹치면 끝난 뒤 한 번 더) · `watchProfile(myId, ids, onChange)`(처음 한 번 + `card` 알림은 듣는 친구 한 명만 · resync 는 전부) ·
@@ -43,7 +43,7 @@
 - 옛 provider(5초 제한 · 1초 · 3초 뒤 다시 묻기 · `X-User-Code` 머리 · 옛 응답 모양 `{ friends:[{ id }] }` · 공개 명함 `fetchUserCardApi`)는 걷었다.
 - 검사: `checks/sim-friends-port.js` 2-2절.
 
-## social-api.js — 친구 · 친구 요청 · 명함 서버 길 provider(0.13 · 친구 목록 · 명함은 `friends-api.js` 가 부름 · 요청은 다음 PR)
+## social-api.js — 친구 · 친구 요청 · 명함 서버 경로 provider(0.13 · 친구 목록 · 명함은 `friends-api.js` 가 부름 · 요청은 다음 PR)
 - 책임: 내 친구 목록(`GET /v2/me/friends` — 객체 배열) · 친구 한 명(`GET …/{code}`) · 끊기(`DELETE …/{code}`) · 친구 요청 목록(`GET /v2/me/friend-requests`) · 보내기 · 수락 · 거절 · 취소 · 명함 묶음(`GET /v2/myhomes/cards?codes=`)을 서버에서. 서버 모양(userCode · ISO 시각 · displayName · cycle …)을 화면 모양(친구 칸 `name · level · cyc · clv · starC · bio · avatar` · 시각 ms)으로 맞추는 곳은 여기뿐이다.
 - 만드는 법(app.js — `socialApiMod`): `TwSocialApi.createSocialApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) })`. 만들 때 요청 없음.
 - 내보내는 것: `fetchFriends()` → `[{ userCode, addedAt, lastSeenAt }]`(오래 사귄 순 · ms · 마지막 접속 기록 없음 `null`) · `fetchFriend(code)` → 한 줄 | `null`(친구가 아님) · `removeFriend(code)` ·
@@ -56,11 +56,11 @@
   - 나는 토큰으로만 — 경로 · 본문에 내 코드 · 이름을 싣지 않는다(보내기 본문은 `{ to }` 만).
   - 이름이 없으면 `''` 그대로 — «이름 없음» 같은 placeholder 를 여기서 만들지 않는다(그리는 곳이 `TwPersonName.shown`).
   - 마지막 접속(`lastSeenAt`)은 데이터에만 싣는다 — 화면에 쓰지 않는다(설계 D3-Q1 «안 넣음»).
-  - 검사: `checks/sim-social-api.js`(가짜 통로 · 진짜 api-client · 진짜 api-errors · 깨 보기).
+  - 검사: `checks/sim-social-api.js`(가짜 통로 · 진짜 api-client · 진짜 api-errors · mutation test).
 
 ## friend-requests-port.js · friend-requests-api.js — 👋 친구 요청(0.13)
 - 층: 화면(friend-manage · myhome-ui · seat-friend-req · myhome-init) → **포트**(`friend-requests-port.js`) → 서버 provider(`friend-requests-api.js`). 화면은 API 를 모른다.
-- 서버 한 길 — 쓰기(수락 · 거절 · 취소 · 보내기)도 읽기도 못 하면 던진다(옛 Firebase 길로 물러나지 않는다).
+- 서버 한 길 — 쓰기(수락 · 거절 · 취소 · 보내기)도 읽기도 못 하면 던진다(옛 Firebase 경로로 물러나지 않는다).
 - 포트가 내보내는 것: `watchReceived(myId, onChange, onError)`(→ 해제 함수 · `{ 보낸이id: { name, ts } }`) · `listSent(myId)`(`{ 받는이id: { ts, toName? } }`) · `accept` · `reject`(못 하면 던짐) · `cancel` · `send(myId, toId)`(→ `{ ok, reason? }` · reason `already` · `self` · 서버 코드) · `lookupName(uid)` · `lookupFriendCode(code)`.
 - 서버 provider: 받은 요청은 처음 한 번 + `friendRequests` 알림(· resync)마다 다시 받고 상대 이름은 명함(`fetchCards`)으로 얹는다. 받는 중 알림이 여럿 와도 요청은 하나. 이름을 못 받아도 요청은 그린다. 보낼 때 이름 · 코드는 안 싣는다(서버가 안다).
 - 만드는 법: app.js `friendRequestsApiMod`(`social: socialApiMod`, `rt: TwRtHub.store`) · `friendRequestsPortMod`. 화면 deps 는 `()=>friendRequestsPortMod`(읽는 함수) — 만드는 줄이 화면 모듈보다 뒤다.
@@ -76,7 +76,7 @@
   - `rid` 가 붙은 presence 는 `presenceGet` 의 답이다 — 시간 초과 뒤 늦게 온 것은 듣기 값이 아니라 버린다.
   - 읽기는 **못 받으면 던진다**(빈 값 `{}` 와 다르다). 조각 중 하나라도 못 받으면 던진다. 서버는 친구가 아닌 id · 친구 목록을 못 받았을 때 그 id 를 답에서 빼니 «답에 없음» 은 «모름» 이다(오프라인으로 꾸미지 않는다).
   - 듣기는 하나뿐 — 새로 걸면 앞의 것을 푼다.
-  - 검사: `checks/sim-friends-presence-rt.js`(진짜 rt-hub · 가짜 웹소켓 — 250명 나눠 보내기 · 다시 붙기 · 깨 보기).
+  - 검사: `checks/sim-friends-presence-rt.js`(진짜 rt-hub · 가짜 웹소켓 — 250명 나눠 보내기 · 다시 붙기 · mutation test).
 
 ## presence-self.js — 내 접속 표시를 realtime 에 알림
 - 책임: 친구에게 «온라인 / 오프라인으로 보일지»(`status { visible }`)를 알린다. 서버는 알린 적 없는 사람을 오프라인으로 보므로 `start(visible)`(마이홈 처음 준비 — 🔒 고정값을 앉힌 뒤) 부터, 값이 바뀔 때(`setVisible`) · **연결이 붙을 때마다** 보낸다. 방 · 방 안 여부는 서버가 안다.

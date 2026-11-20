@@ -1,4 +1,4 @@
-/* ═══ 🛠️ sim-catalog-admin-api.js — 앱 관리자 카탈로그 쓰기 서버 길(admin/catalog-admin-api.js · D11-4) ═══════════
+/* ═══ 🛠️ sim-catalog-admin-api.js — 앱 관리자 카탈로그 쓰기 서버 경로(admin/catalog-admin-api.js · D11-4) ═══════════
    [왜] 파츠 · 책상 · 소품 등록 · 진열 순서 · 카테고리 · 게임 설정이 Firebase 로 쓰이던 것을 서버 /v2/admin/catalog/* 로 옮겼다. 서버가 «어느 칸이 왜» 로 거절하니
      이 검사는 요청 모양(길 · 메서드 · 본문 · version) · 쓰는 차례(파일 → 물건) · 쓴 뒤 다시 받기 · 실패 알림을 가짜 통로 위에서 굴려 지킨다.
    1. 길 · 칸 — 서버 정본의 길 · 본문 칸(PART · DESK · PROP_FIELDS) · 진열 권한 규칙
@@ -6,7 +6,7 @@
    3. 단종 · 진열 순서 — 일괄 단종 길(줄 ok 아니면 code 로 던짐) · 진열대 version(줄 없으면 0) · 순서 전체
    4. 카테고리 · 해금 — 만들기 · 이름 고치기 · 원래대로 · 지우기(?version=) · 해금 만들기 / 고치기
    5. 실패 알림 — 파일 올리기 실패 E-ADM-06 · 판이 달라지면 다시 받고 «받아왔어요» · 그 밖은 쓰던 자리 번호
-   6. 일부러 깨 보기
+   6. mutation test
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
 'use strict';
 const fs = require('fs');
@@ -141,12 +141,12 @@ const PF = { name: '모자', icon: '🎩', category: 'hat', glow: false, multi: 
   chk(got2[0][0] === 'E-ADM-07' && got2[0][1] === '진열 중인 책상은 6개까지예요' && !/[0-9]/.test(AAPI.match(/CATALOG_SHELF_FULL:[^\n]*/)[0].replace(/E-ADM-07/, '')), '★ 책상 · 소품 진열 상한 거절(CATALOG_SHELF_FULL) — 서버 message(숫자 포함)를 그대로 싣고 그대로 싣는다(앱 글에 개수를 박지 않는다)');
   const badAA = load(AAPI.replace("notifyError('E-ADM-07', e, e && e.message) },\n  CATALOG_BUILTIN", "notifyError('E-ADM-07', e, '진열 중인 책상은 6개까지예요') },\n  CATALOG_BUILTIN")), got3 = [];
   badAA.ERRORS.CATALOG_SHELF_FULL.notice((c, e, t) => got3.push(t), { message: '진열 중인 소품은 50개까지예요' });
-  chk(got3[0] !== '진열 중인 소품은 50개까지예요', '  깨 보기 — 앱 글에 개수를 박으면(서버 message 를 안 싣고) 빨강');
+  chk(got3[0] !== '진열 중인 소품은 50개까지예요', '  mutation test — 앱 글에 개수를 박으면(서버 message 를 안 싣고) 빨강');
   chk(got[0][0] === 'E-ADM-07' && /30개/.test(got[0][1]), '  거절 번호(E-ADM-07)에 서버가 준 «어느 칸이 왜» 글을 싣는다');
 
   w = world(SRC); w.api.notifyLocalOnly();
   chk(w.shown.join() === 'E-ADM-12,' && !w.log.length, '서버에 없는(이 PC 에만 있는) 파츠를 고치려 하면 서버를 부르지 않고 E-ADM-12 로 알린다');
-  say('── 6. 일부러 깨 보기');
+  say('── 6. mutation test');
   const breaks = [
     ['고치기에 version 안 실음', (s) => s.replace('return authed.put(path, version == null ? body : Object.assign({ version }, body));', 'return authed.put(path, body);')],
     ['파일 올리기 전에 물건부터 씀', (s) => s.replace('const g = await withFiles(f);\n    const v = (opt && opt.create) ? null : versionIn(\'parts\', \'partId\', id);', 'const v = (opt && opt.create) ? null : versionIn(\'parts\', \'partId\', id); const g = f;')],

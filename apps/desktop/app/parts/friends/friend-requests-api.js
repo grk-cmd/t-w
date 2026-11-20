@@ -1,5 +1,5 @@
 /* friend-requests-api.js — 👋 친구 요청 서버 provider — social-api.js 위: 받은 요청 · 보낸 요청(이름 얹기) · 보내기 · 수락 · 거절 · 취소 · 친구코드 찾기 · 알림(friendRequests)
-   책임: 요청 목록 한 번 받기 + 상대 이름(명함)을 얹어 화면 칸({ 상대id: { name, ts } })으로 맞춘다. 서버 길 자체는 social-api.js.
+   책임: 요청 목록 한 번 받기 + 상대 이름(명함)을 얹어 화면 칸({ 상대id: { name, ts } })으로 맞춘다. 서버 경로 자체는 social-api.js.
      다시 묻지 않는다 — 받은 요청 듣기는 처음 한 번 + friendRequests 알림(· 오래 끊겼다 붙을 때)마다 다시 받고, 받는 중에 알림이 여럿 와도 요청은 하나(끝난 뒤 한 번 더).
      이름 명함을 못 받아도 요청 목록은 그린다(이름은 빈칸 — 화면이 «이름 없음») — 요청을 못 받는 것보다 낫다.
    deps: social — createSocialApi 가 돌려준 것 · rt — 알림 걸기(TwRtHub.store.on) · warn(...a)

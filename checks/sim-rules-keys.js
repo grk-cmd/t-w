@@ -295,7 +295,7 @@ console.log('\n── 3. 폰 연결 — 공백 낀 칸은 연결 키가 맞는 s
   chk(typeof lv === 'string' && run(lv, U, { at: 1 }) && !run(lv, ' ' + U, { at: 1 }), 'live 는 정상 칸만(PC 는 공백 칸에 쓰지 않는다)');
 }
 
-console.log('\n── 4. 깨 보기 — 형식 검사를 빼거나 느슨하게 하면 빨강');
+console.log('\n── 4. mutation test — 형식 검사를 빼거나 느슨하게 하면 빨강');
 {
   const mutate = (fn) => { const r = JSON.parse(RULES_TEXT).rules; try { fn(r); } catch (_) { return 1; }   // 고칠 자리가 없는 규칙(옛 판)은 빨강으로 친다
    const f0 = fail; check(r, true); const n = fail - f0; fail = f0; return n; };

@@ -1,11 +1,11 @@
 /* ═══ 🏠 sim-myhome-wire.js — 마이홈 화면을 상태 주인(myhome-store.js)에 잇는 배선 (0.13 앱 묶음 D2-2b) ═══
    [왜] 마이홈 페이지의 원본이 서버가 되면서 화면 파일 열다섯이 «고친 사본(_myHomeData 를 직접 고침) → firebaseAPI.saveMyHome» 에서
-     «상태 주인의 동작 함수 → 서버(PATCH · PUT)» 로 바뀌었다. 이 검사는 그 이음 자리가 한 곳씩인지, 옛 길이 안 남았는지,
+     «상태 주인의 동작 함수 → 서버(PATCH · PUT)» 로 바뀌었다. 이 검사는 그 이음 자리가 한 곳씩인지, 옛 경로가 안 남았는지,
      그리고 상태 · 읽기 창구 · 친구 홈 구경이 진짜 상태 주인 위에서 맞게 도는지 본다(저장 줄 · 409 · 올리기 규칙 자체는 sim-myhome-store).
-   ・1절: 배선 — app.js 가 서버 길(api)과 상태 주인을 상태 창구 · 화면보다 먼저 만든다 · 앱 끄기 flush · 로그아웃 flush → reset · firebase-init 에 옛 길(getMyHome · saveMyHome)이 없다
+   ・1절: 배선 — app.js 가 서버 경로(api)과 상태 주인을 상태 창구 · 화면보다 먼저 만든다 · 앱 끄기 flush · 로그아웃 flush → reset · firebase-init 에 옛 경로(getMyHome · saveMyHome)이 없다
    ・2절: 화면이 값을 직접 고치지 않는다 — 마이홈 화면 파일에 «_myHomeData().X = » · «delete …stickers[» 같은 직접 쓰기가 없다 · 옛 saveMyHome · commit 인자 없음
    ・3절: 진짜 상태 주인 위에서 — 받기 → 읽기 창구가 얼린 값 · 친구 홈 구경은 내 홈을 건드리지 않고 돌아오면 그대로(백업 · 복원 없음) · 사진은 store.avatar() 한 곳
-   ・4절: 일부러 깨 보기
+   ・4절: mutation test
    [실행] 러너 스테이징(평면). */
 'use strict';
 const fs = require('fs');
@@ -26,9 +26,9 @@ function wiring(S){
   const t = (ok, msg) => r.push([!!ok, msg]);
   const app = S['app.js'];
   const iApi = app.indexOf('const myhomeApiMod = TwMyHomeApi.createMyHomeApi('), iSt = app.indexOf('const myhomeStoreMod = TwMyHomeStore.createMyHomeStore('), iState = app.indexOf('const mhStateMod = TwMyHomeState.createMyHomeState(');
-  t(iApi > 0 && iSt > iApi && iState > iSt && (app.match(/TwMyHomeStore\.createMyHomeStore\(/g) || []).length === 1, 'app.js — 서버 길(api) → 상태 주인 → 상태 창구 순서 · 상태 주인은 한 곳에서만 만든다');
+  t(iApi > 0 && iSt > iApi && iState > iSt && (app.match(/TwMyHomeStore\.createMyHomeStore\(/g) || []).length === 1, 'app.js — 서버 경로(api) → 상태 주인 → 상태 창구 순서 · 상태 주인은 한 곳에서만 만든다');
   const mk = (app.match(/TwMyHomeStore\.createMyHomeStore\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
-  t(/api: myhomeApiMod,/.test(mk) && /lib: TwMyHomeApi,/.test(mk) && /previewOn: \(\)=>!!window\._mhPreviewMode,/.test(mk) && /rules: TwMyHomeStickerRules,/.test(mk), '  deps — 서버 길 · 라이브러리 · 미리보기 깃발 · 스티커 규칙');
+  t(/api: myhomeApiMod,/.test(mk) && /lib: TwMyHomeApi,/.test(mk) && /previewOn: \(\)=>!!window\._mhPreviewMode,/.test(mk) && /rules: TwMyHomeStickerRules,/.test(mk), '  deps — 서버 경로 · 라이브러리 · 미리보기 깃발 · 스티커 규칙');
   t(/myhomeStoreMod\.onChange\(\(\)=>mhPageMod\.onStoreChange\(\)\);/.test(app) && /function onStoreChange\(\)\{\n  if\(!myHomeOpen\(\)\) return;[\s\S]*?if\(sig === _renderSig\) return;/.test(S['myhome-page.js']), '값이 바뀌면 열려 있는 마이홈만 다시 그린다(같은 값이면 안 그림 — 판단은 myhome-page.js)');
   t(/const ae = document\.activeElement;/.test(S['myhome-page.js']), '  쓰는 중인 글 칸은 다시 그리면서 갈아 끼우지 않는다');
   t(/beforeunload', \(\)=>\{ myhomeStoreMod\.flush\(\); \}/.test(app), '앱을 끌 때 못 올린 고침을 한 번 올린다(flush · 결과는 안 기다림)');
@@ -38,7 +38,7 @@ function wiring(S){
   t(/commitMyHomePage\(true\); myhomeStore\.flush\(\)/.test(S['app-mode.js']) && /myhomeStore: myhomeStoreMod,/.test(app), '런처로 돌아갈 때도 마이홈 마지막 저장 뒤 flush(launcher/app-mode.js)');
   const fi = strip(S['firebase-init.js']);
   t(!/getMyHome|saveMyHome|_myHomeLimits/.test(fi), 'firebase-init.js — 옛 마이홈 길(getMyHome · saveMyHome)이 없다');
-  t(!/(?:firebaseAPI\.)?(?:getMyHome|saveMyHome)\b/.test(strip(app) + ['chat-ui.js', 'my-info.js', 'playlist.js'].map((f) => strip(S[f])).join('')), '화면 · 모듈 어디서도 옛 길을 부르지 않는다');
+  t(!/(?:firebaseAPI\.)?(?:getMyHome|saveMyHome)\b/.test(strip(app) + ['chat-ui.js', 'my-info.js', 'playlist.js'].map((f) => strip(S[f])).join('')), '화면 · 모듈 어디서도 옛 경로를 부르지 않는다');
   for(const [f, tag] of [['chat-ui.js', 'ensureMyHome({ site: \'quiet\' })'], ['my-info.js', 'ensureMyHome({ site: \'quiet\' })']]) t(S[f].includes(tag) && /myhomeAvatar\(\)/.test(S[f]), '사진 — ' + f + ' 는 상태 주인의 avatar() 를 읽고 없으면 한 번 받는다');
   t(/const av = myhomeAvatar\(\);/.test(S['playlist.js']) && /myhomeAvatar: \(\)=>myhomeStoreMod\.avatar\(\),/.test(app), '  플레이리스트 명함 사진도 같은 곳');
   return r;
@@ -101,7 +101,7 @@ async function runReal(S, o){
   direct(SRC).forEach(([ok, m]) => chk(ok, m));
   say('── 3. 진짜 상태 주인 위에서');
   (await runReal(SRC)).forEach(([ok, m]) => chk(ok, m));
-  say('── 4. 일부러 깨 보기');
+  say('── 4. mutation test');
   const cases = [
     ['상태 주인을 상태 창구보다 뒤에 만들면', (S) => { S['app.js'] = S['app.js'].replace('const myhomeStoreMod = TwMyHomeStore.createMyHomeStore(', 'const myhomeStoreLate = TwMyHomeStore.createMyHomeStore('); return wiring(S); }],
     ['로그아웃에서 reset 을 빼면', (S) => { S['account.js'] = S['account.js'].split('myhomeStore.reset()').join('void 0'); return wiring(S); }],

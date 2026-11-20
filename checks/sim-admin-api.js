@@ -1,4 +1,4 @@
-/* ═══ 🛠️ sim-admin-api.js — 앱 관리자 서버 길 provider (0.13 앱 묶음 D11-1) ═══
+/* ═══ 🛠️ sim-admin-api.js — 앱 관리자 서버 경로 provider (0.13 앱 묶음 D11-1) ═══
    [왜] 앱 관리자 창의 확성기 · 업데이트 공지 · 런처 배너 · 방 종료 · 관리자 확인이 Firebase 직접 쓰기 대신 서버 관리자 API(/v2/admin/...)를 쓴다.
      요청 모양(경로 · 본문 칸 이름 · 판(version) · 요청 번호)이 서버 계약과 맞아야 하므로 provider 를 실제로 불러 판정한다.
    ・1절: 요청 모양 — 관리자 확인 · 확성기(켜기 140자 · 끄기) · 업데이트 공지(올리기 60 · 800자 · 내리기는 id 로 · 지금 id 는 공지 한 판에서) ·
@@ -6,7 +6,7 @@
    ・2절: 요청 번호 — 닿지 못하면 같은 번호 · 서버가 답했으면 버림 / 모양 틀림은 던짐 / 실패는 그대로 던짐(빈 값으로 숨기지 않음)
    ・3절: 오류 표 — 서버 code 마다 오류 번호 · 진짜 api-errors.js 로 번역(409 는 다시 받기)
    ・4절: 배선 — html 순서 · smoke · app.js 가 로그인 통로로 만듦 · 걷은 Firebase 관리자 쓰기가 firebase-init 에 없음
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -204,14 +204,14 @@ async function judge(S){
     const FI = strip(S.FI);
     chk(!/\b(publishAnnounce|clearAnnounce|publishUpdateNotice|clearUpdateNotice|getUpdateNotice|publishAdBanner|publishGameConfig|closeAllRooms)\s*\(/.test(FI), 'firebase-init 에 걷은 관리자 쓰기(확성기 · 업데이트 공지 · 배너 · 게임 설정 · 방 종료)가 없다');
     chk(!/\bfirebaseAPI\.(publishAnnounce|clearAnnounce|publishUpdateNotice|clearUpdateNotice|getUpdateNotice|publishAdBanner|publishGameConfig|closeAllRooms)\b/.test(A), 'app.js 가 걷은 Firebase 관리자 쓰기를 안 부른다');
-    chk(!/subscribeGameConfig|publishCustomCat|publishCatOverride|updatePartsOrder|publishPart\s*\(/.test(FI), '  카탈로그 쓰기 · 게임 설정 · 카테고리 읽기의 Firebase 길이 firebase-init 에 없다(서버 한 벌 · catalog-admin-api.js)');
+    chk(!/subscribeGameConfig|publishCustomCat|publishCatOverride|updatePartsOrder|publishPart\s*\(/.test(FI), '  카탈로그 쓰기 · 게임 설정 · 카테고리 읽기의 Firebase 경로가 firebase-init 에 없다(서버 한 벌 · catalog-admin-api.js)');
   }
 }
 
 async function runAll(){
   const S = SRC0;
   await judge(S);
-  say('── 5. 일부러 깨 보기');
+  say('── 5. mutation test');
   const breaks = [
     ['발급에 요청 번호 없음', { API: S.API.replace("{ requestId, grants: body, reissue: !!reissue }", "{ grants: body, reissue: !!reissue }") }, 'requestId'],
     ['회수에 판 안 실음', { API: S.API.replace("{ version, status: 'REVOKED' }", "{ status: 'REVOKED' }") }, 'version'],

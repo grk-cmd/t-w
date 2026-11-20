@@ -2,7 +2,7 @@
  * 🎧 같이 듣기 곡 칸 provider(room/listen-provider.js) 검사 — 가짜 방 provider 로 돌린다.
  * 1. 방 안 — music 메시지 구독(불러오는 중 undefined → 값 | null) · 쓰기 · 지우기 · 거절 · 서버 시계 · 앞 차례
  * 2. 방 밖 — 구독 · 쓰기 안 함 · 시각은 기기 시계 · 앞 차례 -1
- * 3. 깨 보기
+ * 3. mutation test
  * 설계: docs/LISTEN_TOGETHER.md 2.2 · 2.4 · 5장(0.13 — 곡 칸은 realtime 서버 music 메시지 하나. Firebase _music 칸은 걷었다)
  */
 'use strict';
@@ -75,7 +75,7 @@ say('── 2. 방 밖');
   chk(wc.ok === true && sent === 1, '  지우기(null)는 시각이 필요 없어 그대로 보낸다');
 }
 
-say('── 3. 깨 보기');
+say('── 3. mutation test');
 {
   const { sp } = fakeServer();
   const B = load(SRC.replace('  cb(undefined);\n', '')).createListenProvider({ server: () => sp, model: MODEL });

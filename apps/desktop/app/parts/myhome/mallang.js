@@ -14,7 +14,7 @@
      deps 5 — toast · getMyUserId · premiumOn(프리미엄 판정 — app.js _premiumOn) · mallangStore(칸 상태 주인 — mallang-store.js) · giftBox(선물 상태 주인 — gift-box.js).
      🎁 받은 선물은 선물 상태 주인(gift-box.js)이 서버에서 받아 오고 «내 선물 중 무엇이 화면에 나와야 하나» 도 정한다(onScreen) — 이 파일은 그 목록을 그리고(syncGifts) 🎁 배지를 맡는다. 선물 id 를 따로 들지 않는다.
      화면 자리(MAX_LIVE 동시 상한)는 이 파일의 사실이라 attachScreen 으로 선물함에 알린다. 남의 집에 나온 선물(방문자)은 이 파일이 한 번 그린다.
-     🎁 보내기 창도 서버 길이다(giftBox.send · fetchSentToday — 창 상태는 이 파일 안). 보낸 사람 · 이름은 서버가 토큰에서 정한다.
+     🎁 보내기 창도 서버 경로다(giftBox.send · fetchSentToday — 창 상태는 이 파일 안). 보낸 사람 · 이름은 서버가 토큰에서 정한다.
    검사: checks/sim-mallang-module.js · sim-mallang-store.js · sim-gift-box.js
    ═══════════════════════════════════════════════════════════════════════ */
 (function(){

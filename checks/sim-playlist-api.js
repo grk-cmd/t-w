@@ -6,7 +6,7 @@
    ・3절: 저장 — 읽은 뒤 토큰 주인이 바뀌면 'stale'(진짜 api-client 로) · 본문 모양(version · tracks · listed) · 상한 깎기 · 판 기억(계정별) · 읽은 판 없으면 안 보냄 · 409 는 'conflict'(다시 보내지 않음) · 실패는 'failed'
    ・3-2절: 🔒 프리셋 나만 보기 — 세 벌 모두 locked 를 주는 서버만 «안다»(lockable) · 아는 서버에만 locked 를 싣는다 · 남의 목록의 잠긴 벌은 고르지 않는다
    ・4절: 배선 — 부르는 곳이 firebaseAPI 로 플레이리스트를 안 부름 · firebase-init 에 옛 메서드가 없음 · html · smoke 순서
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
@@ -216,7 +216,7 @@ async function judge(S){
     const L = (lk) => MINE({ sets: [Object.assign(serverSet('A', tr('aaaaaaaaaaa', '가')), lk[0]), Object.assign(serverSet(''), lk[1]), Object.assign(serverSet(''), lk[2])] });
     const lib = load(LIB);
     const mine0 = lib.mineOf(MINE()), mine1 = lib.mineOf(L([{ locked: true }, { locked: false }, { locked: false }]));
-    chk(mine0.lockable === false && !('locked' in mine0.sets[0]), '★ locked 칸이 없는 서버 → lockable false · 잠금 없음');
+    chk(mine0.lockable === false && !('locked' in mine0.sets[0]), '★ locked field 가 없는 서버 → lockable false · 잠금 없음');
     chk(mine1.lockable === true && mine1.sets[0].locked === true && !('locked' in mine1.sets[1]), '  세 벌 모두 locked(참/거짓)를 주면 lockable · 참인 벌만 locked');
     chk(lib.mineOf(L([{ locked: true }, {}, { locked: false }])).lockable === false && lib.mineOf(L([{ locked: 'yes' }, { locked: false }, { locked: false }])).lockable === false, '  경계 — 한 벌이라도 빠지거나 참/거짓이 아니면 모르는 서버로 본다');
     chk(lib.mineOf(MINE({ sets: [] })).lockable === false, '  경계 — 빈 세트 목록은 모름');
@@ -254,7 +254,7 @@ async function judge(S){
 (async () => {
   await judge(SRC0);
 
-  say('── 5. 일부러 깨 보기');
+  say('── 5. mutation test');
   const BREAKS = [
     ['API', "private: !d.listed, lockable", "private: !!d.listed, lockable", 'listed 를 거꾸로 읽음'],
     ['API', "  return { version, sets: ss, bio: str(m.bio).slice(0, LIMITS.BIO), listed: !m.private, homePublic: !!m.homePublic };", "  return { version, sets: ss, bio: str(m.bio).slice(0, LIMITS.BIO), listed: !!m.private, homePublic: !!m.homePublic };", 'private 를 거꾸로 저장'],
@@ -301,7 +301,7 @@ async function judge(S){
     caught.push([what, qfail]);
   }
   const missed = caught.filter(([, n]) => n === 0).map(([w]) => w);
-  chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+  chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
   console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
   process.exit(fail ? 1 : 0);

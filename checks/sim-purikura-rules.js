@@ -225,9 +225,9 @@ say('· §5 기존 앱이 쓰던 길이 안 막혔는가 (잠그는 사고가 �
 }
 
 /* ══════════════════════════════════════════════════════════════════ */
-say('· §6 Firebase 길이 줄었는가 — 프레임 올리기 하나만 남는다');
+say('· §6 Firebase 경로가 줄었는가 — 프레임 올리기 하나만 남는다');
 {
-  /* 세션 · 정원은 realtime · API 로 갔다(purikura-rt.js). firebase-init.js 에 pk* 어댑터가 되살아나면 앱이 다시 옛 길을 부를 수 있다. */
+  /* 세션 · 정원은 realtime · API 로 갔다(purikura-rt.js). firebase-init.js 에 pk* 어댑터가 되살아나면 앱이 다시 옛 경로를 부를 수 있다. */
   const src = fs.existsSync('firebase-init.js') ? fs.readFileSync('firebase-init.js', 'utf8') : '';
   chk(!!src, 'firebase-init.js 를 읽었다');
   const left = [...src.matchAll(/^\s{4}(?:async\s+)?(pk[A-Z]\w*)\(/gm)].map(m => m[1]);

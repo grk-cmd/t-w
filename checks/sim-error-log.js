@@ -3,7 +3,7 @@
    ・1절: main 쪽 error-log.js — 한 줄 모양 · 홈 폴더 ~ · 줄바꿈 한 줄로 · 길이 상한 · 몰아치면 거르고 «n번 더» · 시간이 지나면 다시 · 파일 회전 · 쓰기 실패 삼킴
    ・2절: 화면 쪽 error-report.js — 잡히지 않은 오류 · 처리 안 된 Promise · console.error / warn(원래 출력은 그대로) · 에러코드 알림은 다시 안 보냄 · 같은 줄 10초 · 보내다 난 오류로 되돌아 들어오지 않음
    ・3절: 배선 — main(Monitor · 렌더러 종료 · 로드 실패 · 프로세스 종료 · 업데이트 오류 · IPC 종류 거르기 · 보낸 창 확인) · preload · html 맨 먼저 · 에러코드는 진단 기록이 아니라 오류 기록 · 설치 목록
-   ・4절: 깨 보기
+   ・4절: mutation test
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
 'use strict';
 const fs = require('fs');
@@ -28,7 +28,7 @@ const HM = pick(['home-mask.js', path.join(DESK, 'home-mask.js')]);
 if(!HM){ say('  ? 원본 못 찾음 — home-mask.js'); process.exit(2); }
 const loadPlain = (src) => { const m = { exports: {} }; new Function('module', 'require', src)(m, require); return m.exports; };
 let HMOD = loadPlain(HM);
-const req = (m) => (m === './home-mask' ? HMOD : require(m));   // 모듈이 부르는 이웃 파일 — 깨 보기에서 바꿔 끼운다
+const req = (m) => (m === './home-mask' ? HMOD : require(m));   // 모듈이 부르는 이웃 파일 — mutation test 에서 바꿔 끼운다
 const load = (src) => { const m = { exports: {} }; new Function('module', 'require', src)(m, req); return m.exports; };
 
 /* 가짜 파일 — appendFileSync · 크기 · 이름 바꾸기 */
@@ -185,7 +185,7 @@ const codesOk = (c) => /diag: \(line\)=>\{ if\(window\.companion && window\.comp
 chk(codesOk(CODES), '★ 에러코드 알림은 진단 기록이 아니라 오류 기록(CODE)으로');
 chk(/"error-log\.js"/.test(PKG) && /"home-mask\.js"/.test(PKG), '설치 목록(package.json files)에 error-log.js · home-mask.js — 빠지면 설치본이 켜지지 않는다');
 
-say('── 4. 깨 보기');
+say('── 4. mutation test');
 chk(!behaveLog(LOG.replace('s = maskHome(s, home);', '')).home, '홈 가리기를 빼면 위 1절 «~» 가 빨강');
 chk(!behaveMask(HM.replace("  for(const f of forms(home)) out = out.replace(new RegExp(esc(f) + AFTER, 'gi'), '~');\n", '').replace("return out.replace(WIN_USER_RE, '~').replace(POSIX_USER_RE, '~');", 'return out;')).none, '퍼센트 · 빗금 모양 가리기를 빼면 위 0절 ★ 가 빨강');
 chk(!behaveMask(HM.replace("  for(const f of forms(home)) out = out.replace(new RegExp(esc(f) + AFTER, 'gi'), '~');\n", '')).space, '내 홈 글자 바꾸기만 빼면 위 «빈칸 이름» 이 빨강');

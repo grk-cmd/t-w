@@ -6,7 +6,7 @@
    ・2절: sysinput-win.js · sysinput-mac.js — 실패한 부품 이름(nativeLoadFailed) · 기록 한 줄에 peek · 다 실리면 빈 목록
    ・3절: main.js — 실패면 키보드 안내는 건너뛰고 «다시 설치» 안내(Windows · mac 문구 · 실행마다 한 번) · 부팅 때 훅 건 바로 뒤에서 부름
    ・4절: 설치본에 native-peek.js 가 들어간다(package.json build.files)
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] node checks/run.js sim-native-peek */
 'use strict';
 const fs = require('fs');
@@ -149,7 +149,7 @@ say('── 3. main.js 안내');
 judgeMain(MAIN).forEach(([ok, msg]) => chk(ok, msg));
 say('── 4. 설치본');
 judgePkg(PKG).forEach(([ok, msg]) => chk(ok, msg));
-say('── 5. 일부러 깨 보기');
+say('── 5. mutation test');
 const breaks = [
   ['글자 아닌 바이트를 그대로 둠', () => judgePeek(PEEK.replace("(b >= 0x20 && b < 0x7f) ? String.fromCharCode(b) : '.'", 'String.fromCharCode(b)'))],
   ['못 읽음 까닭을 버림', () => judgePeek(PEEK.replace("'풀린 package.json 못 읽음(' + ((e && (e.code || e.message)) || '?') + ')'", "'못 읽음'"))],

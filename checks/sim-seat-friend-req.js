@@ -5,7 +5,7 @@
    ・1절: 만들 때 — 던지지 않고 _friendReqAsk 하나를 내놓는다
    ・2절: 두 번 눌러 보내기 — 첫 번째는 안내만 · 같은 사람 두 번째에 보냄 · 다른 사람이면 다시 처음부터 · 5초 지나면 처음부터
    ・3절: 앞단 검사 · 결과 문구 — 준비 안 됨 · 나 · 이미 친구 · 정원(경계 MAX−1 / MAX) · 서버 결과 셋 · 던짐
-   ・4절: app.js 연결 · 5절: 일부러 깨 보기 */
+   ・4절: app.js 연결 · 5절: mutation test */
 'use strict';
 globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기(이름 없음 → «이름 없음») — 진짜 파일
 const fs = require('fs');
@@ -98,14 +98,14 @@ function wire(app, html) {
   B.forEach(([ok, msg], i) => { const s = { 0: '── 1. 만들 때', 1: '── 2. 두 번 눌러 보내기', 6: '── 3. 앞단 검사 · 결과 문구' }; if (s[i]) say(s[i]); chk(ok, msg); });
   say('── 4. app.js 연결');
   wire(APP, HTML).forEach(([ok, msg]) => chk(ok, msg));
-  say('── 5. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+  say('── 5. mutation test — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['한 번에 보냄', (m) => m.replace('if(_friendReqArmed !== uid){', 'if(false){'), null, null],
     ['5초를 50초로', (m) => m.replace('const FRIEND_REQ_ARM_MS = 5000;', 'const FRIEND_REQ_ARM_MS = 50000;'), null, null],
     ['정원 검사 >= 를 > 로', (m) => m.replace('.length >= FRIEND_MAX', '.length > FRIEND_MAX'), null, null],
     ['이미 친구 검사 없앰', (m) => m.replace("if(_myHomeFriends() && _myHomeFriends()[uid]){ toast('이미 친구예요'); return; }", ''), null, null],
     ['provider 대신 전역 firebaseAPI 를 부름', (m) => m.replace('await net.sendFriendRequest(', 'await firebaseAPI.sendFriendRequest('), null, null],
-    ['만들 때 던짐', (m) => m.replace('function createSeatFriendReq(deps){', 'function createSeatFriendReq(deps){ throw new Error("깨 봄");'), null, null],
+    ['만들 때 던짐', (m) => m.replace('function createSeatFriendReq(deps){', 'function createSeatFriendReq(deps){ throw new Error("mutation");'), null, null],
     ['app.js 에 본문이 남음', null, (a) => a + '\nfunction _friendReqSend(){}', null],
     ['deps 하나 빠짐', null, (a) => a.replace('createSeatFriendReq({\n  FRIEND_MAX: FRIEND_MAX,\n', 'createSeatFriendReq({\n'), null],
     ['html 줄 빠짐', null, null, (h) => h.replace('<script src="parts/myhome/seat-friend-req.js"></script>', '')],

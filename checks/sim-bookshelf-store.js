@@ -1,12 +1,12 @@
 /* ═══ 📚 sim-bookshelf-store.js — 책장 상태 주인 (0.13 앱 묶음 D2-4) ═══
    [왜] 책장(추가 · 고치기 · 빼기 · 순서 · 👀 공개)의 원본이 서버가 됐다. 저장은 통째 PUT 하나(판 version)라 겹쳐 보내면 409 로 내 고침이 사라지고,
-     늦게 온 답이 새 집 · 새 계정 화면을 덮는다. 그래서 진짜 모듈을 가짜 서버 길 위에서 돌려 순서를 본다.
+     늦게 온 답이 새 집 · 새 계정 화면을 덮는다. 그래서 진짜 모듈을 가짜 서버 경로 위에서 돌려 순서를 본다.
    ・1절: 받기 — 받기 전 고치기 잠금(요청 0) · 서랍 열기 GET 1 · 다시 열기(ready) 0 · 빈 책장 ≠ 못 받음 · 못 받음 E-MH-26 한 번 · 다시 시도 GET 1 · 모듈만 만들면 요청 0
    ・2절: 저장 — PUT 통째(책 목록) · 저장 중 고침 두 번 → PUT 둘(겹치지 않음 · 두 번째가 최신) · 응답 책으로 다시 그림 · 50권 → 요청 0
    ・3절: 409 · 실패 — 409 → 잠그고 GET 1 · 서버 것 · 알림 · 실패 E-MH-27 한 번 · 혼자 다시 안 보냄 · flush
    ・4절: 구경 — 공개 책 · 없는 사람(missing) · 못 받음(번호 없음 → 다시 시도가 또 실패하면 E-MH-26) · 집 gen · 닫는 중 답 버림
    ・5절: 계정 — reset 뒤 늦은 답 버림 · 주인 바뀜은 조용히 · 그림 올리기
-   ・6절: 배선 · 7절: 일부러 깨 보기
+   ・6절: 배선 · 7절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -29,7 +29,7 @@ const flush = async () => { for(let i = 0; i < 6; i++) await new Promise((r) => 
 const apiErr = (status, code) => Object.assign(new Error(code || String(status)), { status, code: code || '', kind: status >= 500 || status === 0 ? 'unavailable' : (status === 401 || status === 403) ? 'auth' : 'request' });
 const book = (id, o) => Object.assign({ id, url: '', title: id, w: 'thin', h: 'short', color: '#8f5a4a', tcolor: '#ffffff', hideTitle: false, pub: false, at: 1000 }, o || {});
 
-/* 가짜 서버 길 — 부른 것을 적고, 답은 손으로 푼다(hold) 또는 바로(auto) */
+/* 가짜 서버 경로 — 부른 것을 적고, 답은 손으로 푼다(hold) 또는 바로(auto) */
 function mk(S, server){
   const log = [], waits = [];
   const srv = Object.assign({ books: [book('a'), book('b')], version: 3, auto: true }, server || {});
@@ -217,7 +217,7 @@ async function judge(S){
     chk(S.SMOKE.indexOf("PRELOAD.push('bookshelf-store.js')") > S.SMOKE.indexOf("PRELOAD.push('myhome-api.js')") && S.SMOKE.indexOf("PRELOAD.push('bookmark.js')") > S.SMOKE.indexOf("PRELOAD.push('bookshelf-store.js')"), 'smoke PRELOAD 에 bookshelf-store.js · bookmark.js(myhome-api.js 뒤)');
     const A = strip(S.APP);
     const iApi = A.indexOf('const bookshelfApiMod = TwMyHomeApi.createMyHomeApi({ authed: TwApi.authed'), iSt = A.indexOf('const bookshelfStoreMod = TwBookshelfStore.createBookshelfStore('), iBm = A.indexOf('TwBookmark.createBookmark({');
-    chk(iApi > 0 && iSt > iApi && iBm > iSt && (A.match(/TwBookshelfStore\.createBookshelfStore\(/g) || []).length === 1, 'app.js — 서버 길 → 책장 상태 주인 → 서랍 차례로 한 번');
+    chk(iApi > 0 && iSt > iApi && iBm > iSt && (A.match(/TwBookshelfStore\.createBookshelfStore\(/g) || []).length === 1, 'app.js — 서버 경로 → 책장 상태 주인 → 서랍 차례로 한 번');
     chk(/addEventListener\('beforeunload', \(\)=>\{ bookshelfStoreMod\.flush\(\); \}\)/.test(A), '  앱을 끌 때 못 올린 고침 한 번(flush)');
     const ST = strip(S.ST);
     chk(!/firebase|localStorage|setTimeout|setInterval/.test(ST), '책장 상태 주인은 Firebase · 로컬 저장 · 타이머를 쓰지 않는다(4초 뒤 받기 · 자동 재시도 없음)');
@@ -226,7 +226,7 @@ async function judge(S){
 
 (async () => {
   await judge(SRC0);
-  say('── 7. 일부러 깨 보기');
+  say('── 7. mutation test');
   const S = SRC0;
   const breaks = [
     ['저장 중 고침을 끝난 뒤 안 보냄(again 빠짐)', S.ST.replace("if(saving){ again = true; return saveP; }", "if(saving){ return saveP; }"), 'again'],

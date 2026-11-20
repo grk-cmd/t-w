@@ -2,7 +2,7 @@
    ride-bench.js 의 _rideBottom 을 순수 모듈 ride-chain.js 로 내렸다(글자 그대로) — 좌석 줄 배치가 올라타기 모듈을 부르지 않고 같이 쓰게.
    ・1절: 동작 — 안 탄 좌석 · 사슬 · 순환(상한 16) · 빈 값
    ・2절: 연결 — app.js 가 ride-bench 보다 먼저 만든다 · ride-bench 는 deps 로 받아 예전처럼 내놓는다 · 정의가 한 벌 · html 순서
-   ・3절: 일부러 깨 보기
+   ・3절: mutation test
    [실행] ride-chain.js · ride-bench.js · app.js · desk-companion-prototype.html 이 있는 폴더에서(러너 스테이징). */
 'use strict';
 const fs = require('fs');
@@ -42,7 +42,7 @@ function judge(mod, rb, app, html){
 }
 say('── 2. 연결');
 judge(MOD, RB, APP, HTML).forEach(([ok, m]) => chk(ok, m));
-say('── 3. 일부러 깨 보기');
+say('── 3. mutation test');
 const breaks = [
   ['ride-bench 에 정의가 다시 생김', [MOD, RB + '\nfunction _rideBottom(s){ return s; }', APP, HTML]],
   ['ride-bench 가 deps 로 안 받음', [MOD, RB.replace('const _rideBottom = deps._rideBottom;', ''), APP, HTML]],

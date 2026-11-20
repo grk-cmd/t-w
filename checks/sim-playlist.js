@@ -12,7 +12,7 @@
    ・6절: 🐕 재생 감시견 — 신호 없음 30초 · 끝에서 신호 놓침(정상 종료) · 끝에 선 채 재생 없음(실패) · 일시정지 중엔 판정 안 함 · 실패가 목록 길이면 멈춤
    ・7절: 상태 묶음 · window 고리 — st 의 getter · setter 가 모듈 상태와 같은 칸 · 창 위치 고리
    ・8절: app.js 배선 — 정의는 모듈에만 · 만드는 곳 한 곳 · 원래 자리(머리 다섯 · 👤 · 🏅 는 남김) · deps 모양 · 빈 껍데기 · 부르는 곳 · html 순서 · 전역 이름
-   ・9절: 일부러 깨 보기 — 모듈 · app.js · html 글을 조금씩 망가뜨려 2~8절이 잡아내는지(이 검사가 헛돌지 않는지) 스스로 확인
+   ・9절: mutation test — 모듈 · app.js · html 글을 조금씩 망가뜨려 2~8절이 잡아내는지(이 검사가 헛돌지 않는지) 스스로 확인
    [실행] playlist.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
 globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
@@ -128,8 +128,8 @@ function mkEnv(o){
   };
   /* 명함 읽기 — app.js 가 api-public-reads.js 로 만들어 deps 로 넘긴다. 막히면(noApi) 던진다 */
   const fetchPlaylistCard = async (uid) => { env.calls.push('card ' + uid); if(o.noApi || env.cardFail) throw new Error('card down'); return env.cards[uid] || null; };
-  /* 🌐 서버 길 provider(playlist-api.js)의 가짜 — 모양은 진짜와 같다(내 목록 / 저장 / 무작위 / 남의 목록). 막히면(noApi) 던진다 */
-  const down = async () => { throw new Error('서버 길 막힘'); };
+  /* 🌐 서버 경로 provider(playlist-api.js)의 가짜 — 모양은 진짜와 같다(내 목록 / 저장 / 무작위 / 남의 목록). 막히면(noApi) 던진다 */
+  const down = async () => { throw new Error('서버 경로 막힘'); };
   const playlistApi = o.noApi ? { fetchMine: down, saveMine: down, fetchRandom: down, fetchOf: down } : {
     saveMine: async (uid, sets, meta) => { env.lastSets = sets; const empty = sets.every(s => !s.items.length); env.calls.push((empty ? 'removePl ' : 'publish ') + uid + ' ' + JSON.stringify(sets.map(s => s.items.length)) + ' ' + JSON.stringify(meta)); if(env.saveHold) await env.saveHold; return env.saveRes || 'ok'; },
     fetchRandom: async (ex) => { env.calls.push('random ' + ex); return env.randomPl || null; },
@@ -184,7 +184,7 @@ function mkEnv(o){
 const songs = (n, pre) => Array.from({ length: n }, (_, i) => ({ id: (pre || 'v') + String(i).padStart(10, '0'), title: '곡 ' + i }));
 const setsOf = (a, b, c) => JSON.stringify([{ name: '', items: a || [] }, { name: '', items: b || [] }, { name: '', items: c || [] }]);
 
-/* 2~7절 — 9절(일부러 깨 보기)이 망가뜨린 글로 다시 굴린다 */
+/* 2~7절 — 9절(mutation test)이 망가뜨린 글로 다시 굴린다 */
 async function behave(src){
   /* 목록이 미리 앉아 있는 상태로 시작하는 도우미 — store 의 'tw.playlistSets'(검사 안에서만 쓰는 이름)를 «서버가 이미 가진 목록» 으로 바꿔
      진짜 부팅 받기로 앉힌다(await 필요). 모듈 자체는 그 키를 읽지 않는다(1절 · 2절 · 5-2절이 확인) */
@@ -786,11 +786,11 @@ async function behave(src){
       const e = mkEnv({ noGatePull: true }); e.srv = srvOf(2, 'n'); const m = e.mk(); await flush();
       let threw = null; try{ oneMore(m); m.save(); }catch(x){ threw = x; }
       chk(threw && /세션이 없어요/.test(String(threw.message)) && e.timers.filter(t => !t.every && t.at - e.t === 3000).length === 0, '★ 세션 없이 올리기 예약을 하면 던진다 — 조용히 안 걸지 않는다(타이머 0)');
-      /* 깨 보기 — 세션 없을 때 조용히 null 로 넘기게 되돌리면 위가 빨강 */
+      /* mutation test — 세션 없을 때 조용히 null 로 넘기게 되돌리면 위가 빨강 */
       const bad = (SRC['playlist.js'] || '').replace("function _plTimeout(fn, ms){ return _plSession().setTimeout(fn, ms); }", "function _plTimeout(fn, ms){ return _plSess ? _plSess.setTimeout(fn, ms) : null; }");
       const eb = mkEnv({ noGatePull: true, src: bad }); eb.srv = srvOf(2, 'n'); const mb = eb.mk(); await flush();
       let threwB = false; try{ oneMore(mb); mb.save(); }catch(_){ threwB = true; }
-      chk(bad !== SRC['playlist.js'] && !threwB, '  깨 보기: 세션 없으면 null 로 넘기게 하면 «던진다» 가 빨강');
+      chk(bad !== SRC['playlist.js'] && !threwB, '  mutation test: 세션 없으면 null 로 넘기게 하면 «던진다» 가 빨강');
     }
     {
       const e = E(); e.srv = srvOf(2, 'n'); const m = await e.mk();
@@ -858,7 +858,7 @@ async function behave(src){
   {
     const e = E({ noApi: true, friends: { F1: { name: '민서', online: true } }, store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = await e.mk();
     e.byId.myPlPeek.fire('click'); await flush();
-    chk(e.errors.join() === 'E-PL-02' && e.errArgs[0] instanceof Error && e.toasts.length === 0, '서버 길이 막히면(던짐) 파도타기는 오류 E-PL-02 로 알린다(원인 오류를 넘긴다)');
+    chk(e.errors.join() === 'E-PL-02' && e.errArgs[0] instanceof Error && e.toasts.length === 0, '서버 경로가 막히면(던짐) 파도타기는 오류 E-PL-02 로 알린다(원인 오류를 넘긴다)');
     e.byId.myPlPeek.fire('contextmenu'); await flush();
     e.byId.myPlFriendPick.children[0].fire('click'); await flush();
     chk(e.errors.join() === 'E-PL-02,E-PL-02' && e.errArgs[1] instanceof Error && e.toasts.length === 0, '  친구 지목 파도타기도 같은 번호로 알린다');
@@ -973,7 +973,7 @@ function wiring(PL, APP, HTML){
     ['bringWinToFront', 'bringWinToFront'], ['escRegisterWindow', 'escRegisterWindow'], ['escEditable', '_escEditable'], ['friendsRefreshPresence', 'friendsSubMod.refreshPresence']];
   const want = fnNames.map(([k, f]) => k + ': (...a)=>' + f + '(...a),').concat(['playlistAccountStore: accountStoreMod,', 'myhomeAvatar: ()=>myhomeStoreMod.avatar(),', 'myHomeFriends: ()=>_myHomeFriends,', 'playlistApi: playlistApiMod,', 'fetchPlaylistCard: (...a)=>apiPublicReadsMod.fetchPlaylistCard(...a),', 'notifyError: (...a)=>TwErrorCodes.notify(...a),']);
   const miss = want.filter(w => !deps.includes(w));
-  chk(deps.length === 24 && !miss.length, 'deps 24개 — 함수 19는 화살표 · 다시 대입되는 let 하나는 읽는 함수 · 내 사진은 마이홈 상태 주인 · 서버 길 provider · 계정 칸 (' + deps.length + (miss.length ? ' · 없음 ' + miss[0] : '') + ')');
+  chk(deps.length === 24 && !miss.length, 'deps 24개 — 함수 19는 화살표 · 다시 대입되는 let 하나는 읽는 함수 · 내 사진은 마이홈 상태 주인 · 서버 경로 provider · 계정 칸 (' + deps.length + (miss.length ? ' · 없음 ' + miss[0] : '') + ')');
   const decl = (n) => APP.indexOf('\nlet ' + n + ' = ');
   chk(['_myHomeFriends'].every(n => decl(n) > iMk), '  _myHomeFriends 는 만드는 줄보다 뒤에 선언 — 값이면 TDZ');
   const usedIn = (re) => [...new Set((A.match(re) || []).map(s => s.split('.').pop()))];
@@ -1027,7 +1027,7 @@ async function runAll(PL, APP, HTML){
   }
   await runAll(PL, APP, HTML);
 
-  say('── 9. 일부러 깨 보기');
+  say('── 9. mutation test');
   const BREAKS = [
     ['PL', "? s.items.filter(x => x && x.id).slice(0, PL_MAX).map(", "? s.items.filter(x => x && x.id).map(", '관문이 20곡으로 안 깎음'],
     ['PL', "out[i].name  = (typeof s.name === 'string') ? s.name.slice(0, PL_TITLE_MAX) : '';", 'out[i].name  = String(s.name || \'\').slice(0, PL_TITLE_MAX);', '깨진 이름을 «[object Object]» 로'],
@@ -1131,7 +1131,7 @@ async function runAll(PL, APP, HTML){
     caught.push([what, qfail]);
   }
   const missed = caught.filter(([, n]) => n === 0).map(([w]) => w);
-  chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+  chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
   say('\n통과 ' + pass + ' · 실패 ' + fail);
   process.exit(fail ? 1 : 0);

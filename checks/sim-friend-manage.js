@@ -140,7 +140,7 @@ if (RULES) {
       'friendRequests/$toId 가 읽기 가능하다 (존재 확인이 성립하는 근거)');
 }
 
-/* 미러를 쓰는 Firebase 길(sendFriendRequest · accept · reject · cancel · 존재 확인 3종)은 firebaseAPI 에서 걷었다 —
+/* 미러를 쓰는 Firebase 경로(sendFriendRequest · accept · reject · cancel · 존재 확인 3종)은 firebaseAPI 에서 걷었다 —
    요청은 서버 provider(friend-requests-api.js)가 맡는다. 규칙 쪽 확인(위)과 app.js 쪽 확인(아래)만 남긴다. */
 const sentFn = (SRC.match(/async function renderSentRequests[\s\S]*?\n\}/) || [''])[0];
 chk(!!sentFn, 'renderSentRequests() 를 찾았다');
@@ -183,7 +183,7 @@ const probe = `
   setFriends: f => { _myHomeFriends = f; },
   picked:     () => friendManage.picked,
   setTab:     t => { friendManage.setTab(t); },
-  stubReqApi: o => Object.assign(friendRequestsApiMod, o),   /* 요청 포트가 쥔 서버 provider 의 쓰기를 가짜로 — 서버 길의 끝(로그인 통로)까지는 안 간다 */
+  stubReqApi: o => Object.assign(friendRequestsApiMod, o),   /* 요청 포트가 쥔 서버 provider 의 쓰기를 가짜로 — 서버 경로의 끝(로그인 통로)까지는 안 간다 */
 };`;
 
 let accepted = [];

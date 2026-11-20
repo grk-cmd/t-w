@@ -152,26 +152,26 @@ need('functions/room-stats.js');
       chk('rooms/Q8/chatLog/k1' in w.srv && w.srv['chatPurge/Q8'] === now, '  ↳ 맨 앞에서 읽은 뒤 예약이 새로 적혔으면 그 방 대화는 이번에 안 지운다');
       w = await sweep(Object.assign(chatOf('Q9'), { 'chatPurge/Q9': 'abc' }));
       chk('rooms/Q9/chatLog/k1' in w.srv && !('chatPurge/Q9' in w.srv), '  ↳ 숫자가 아닌 예약은 대화를 두고 예약만 걷는다 (1분마다 다시 지우지 않게)');
-      // 깨 보기 — 예약 걷기를 그냥 지우기로 바꾸면 새 예약이 사라진다
+      // mutation test — 예약 걷기를 그냥 지우기로 바꾸면 새 예약이 사라진다
       {
         const src = need('functions/room-stats.js').replace(/await ref\.transaction\(cur => \(cur === null \|\| cur === mark\) \? null : undefined, undefined, false\);/, 'await ref.remove();');
         const M = { exports: {} }; new Function('module', 'exports', 'require', src)(M, M.exports, require);
         const m = mkDb(Object.assign(chatOf('QB'), { 'chatPurge/QB': now - H - 1000 }), raceAt('QB'));
         let lost = false; try{ await M.exports.sweepChatPurge(m.db, now); lost = !('chatPurge/QB' in m.L.srv); }catch(e){ lost = false; }
-        chk(src !== need('functions/room-stats.js') && lost, '  ↳ 깨 보기: 예약 걷기를 그냥 지우기로 바꾸면 새 예약이 사라진다 (위 ★ 가 빨강이 된다)');
+        chk(src !== need('functions/room-stats.js') && lost, '  ↳ mutation test: 예약 걷기를 그냥 지우기로 바꾸면 새 예약이 사라진다 (위 ★ 가 빨강이 된다)');
       }
       w = await sweep(chatOf('Q5'));
       chk('rooms/Q5/chatLog/k1' in w.srv && w.out.purged === 0 && w.out.waiting === 0, '  ↳ 예약이 없으면 아무것도 안 지운다');
       const many = {}; for(let i = 0; i < f.CHAT_PURGE_MAX + 5; i++) many['chatPurge/M' + i] = now - H - 1000;
       w = await sweep(many);
       chk(w.out.purged === f.CHAT_PURGE_MAX && Object.keys(w.srv).filter(k => k.startsWith('chatPurge/')).length === 5, '  ↳ 한 번에 CHAT_PURGE_MAX 개만 (나머지는 다음 주기)');
-      // 깨 보기 — 1시간 대신 0 이면 59분짜리도 지워진다
+      // mutation test — 1시간 대신 0 이면 59분짜리도 지워진다
       const m = mkDb(Object.assign(chatOf('Q6'), { 'chatPurge/Q6': now - H + 60 * 1000 }));
       const saved = f.CHAT_KEEP_EMPTY_MS; let broke = false;
       try{ const src = need('functions/room-stats.js').replace(/const CHAT_KEEP_EMPTY_MS = [^;]+;/, 'const CHAT_KEEP_EMPTY_MS = 0;');
            const M = { exports: {} }; new Function('module', 'exports', 'require', src)(M, M.exports, require);
            await M.exports.sweepChatPurge(m.db, now); broke = !('rooms/Q6/chatLog/k1' in m.L.srv); }catch(e){ broke = false; }
-      chk(saved === 60 * 60 * 1000 && broke, '  ↳ 깨 보기: 보관 시간을 0 으로 바꾸면 59분짜리도 지워진다 (검사가 시간을 실제로 본다)');
+      chk(saved === 60 * 60 * 1000 && broke, '  ↳ mutation test: 보관 시간을 0 으로 바꾸면 59분짜리도 지워진다 (검사가 시간을 실제로 본다)');
       r = await run(Object.assign(room('P9'), { 'chatPurge/OLD9': now - H - 1000, 'rooms/OLD9/chatLog/k1': { text: 'x', ts: 1 } }));
       chk(!('rooms/OLD9/chatLog/k1' in r.srv) && r.sum.chatPurge && r.sum.chatPurge.purged === 1, '  ↳ 1분 주기(runRoomStats)가 부른다 · 요약에 chatPurge');
     }

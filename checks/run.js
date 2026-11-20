@@ -383,7 +383,7 @@ function runOne(file, cwd){
        종료코드가 0 이어도 빨강이다. (가드 설명은 GUARD_SRC) */
   const quiet = !py && !killed && fs.existsSync(mark) && !sum && !end;
   /* ★ 출력에 `✗` 로 시작하는 줄이 하나라도 있으면 종료코드가 0 이어도 빨강이다 —
-       중간에 찍힌 ✗ 를 종료코드·끝줄만 보다 놓치던 구멍. (깨 보기용 «성공해야 하는 ✗» 는 없다 — 전체 실측) */
+       중간에 찍힌 ✗ 를 종료코드·끝줄만 보다 놓치던 구멍. (mutation test 용 «성공해야 하는 ✗» 는 없다 — 전체 실측) */
   const xmarks = out.split('\n').filter(l => /^\s*✗/.test(l)).length;
   const allPass = !sum && !!end && end.fail === 0 && (r.status === 0 || killed) && !xmarks;
   return {

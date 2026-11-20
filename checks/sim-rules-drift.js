@@ -5,7 +5,7 @@
    ・1절: 순수 함수 — 펴기 · 주석 · 세 갈래 판정(빠짐 · 확인 필요 · 통과 · 지운 칸 · 뒤 판만 더한 칸) · 묶음 · 판 이름 · 짝 고르기
    ・2절: 진짜 git 저장소(임시 · 원격 하나) — 자리 옮긴 규칙 파일 · main · 다른 판에 들어간 판 · --ref(PR 머지 결과) · 판 없음
    ・3절: 알리기 — GitHub 경고 줄(% · 줄바꿈) · 요약 표
-   ・4절: 일부러 깨 보기 — 두 갈래 판정 · 지운 칸 못 봄 · 곁가지끼리 짝 · 들어간 판 안 뺌 · 짝과 상관없이 판째로 빼기 */
+   ・4절: mutation test — 두 갈래 판정 · 지운 칸 못 봄 · 곁가지끼리 짝 · 들어간 판 안 뺌 · 짝과 상관없이 판째로 빼기 */
 'use strict';
 const fs = require('fs');
 const os = require('os');
@@ -149,9 +149,9 @@ say('── 3절 · 알리기');
   chk(M.formatAnnotations(res.slice(1)).length === 0, '다 맞으면 경고 없음');
 }
 
-say('── 4절 · 일부러 깨 보기');
+say('── 4절 · mutation test');
 function broken(label, from, to) {
-  if (!SRC.includes(from)) { chk(false, `깨 보기 «${label}» — 바꿀 글을 원본에서 못 찾음(검사를 원본에 맞출 것)`); return; }
+  if (!SRC.includes(from)) { chk(false, `mutation test «${label}» — 바꿀 글을 원본에서 못 찾음(검사를 원본에 맞출 것)`); return; }
   const B = load(SRC.replace(from, to));
   let caught = false;
   try {
@@ -162,7 +162,7 @@ function broken(label, from, to) {
       { name: 'release/0.13.0-server', core: [0, 13, 0] }, { name: 'release/0.14.0', core: [0, 14, 0] }], 'release/0.13.0');
     if (!same(P.map(p => p[0]), ['main', 'release/0.12.2'])) caught = true;
   } catch (_) { caught = true; }
-  chk(caught, `깨 보기 «${label}» → 빨강`);
+  chk(caught, `mutation test «${label}» → 빨강`);
 }
 broken('두 갈래 판정(따로 고친 것도 빠짐으로)', '(dst[k] === base[k] ? missing : diverged).push(k);', 'missing.push(k);');
 broken('지운 칸 못 봄(앞 판 칸만 훑음)', 'new Set([...Object.keys(base), ...Object.keys(src)])', 'new Set(Object.keys(src))');

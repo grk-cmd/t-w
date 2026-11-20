@@ -2,7 +2,7 @@
    ・1절: preview — 성공은 그대로 돌려줌 · 실패는 던지지 않고 null · 실패 번호 E-SYS-06 · 그 캔버스 칸 안에 안내 · [다시 시도] · 같은 캔버스 안내는 하나 · 성공하면 안내를 지움 · 칸 없는 캔버스는 번호만
    ・2절: main — 만들기를 guard 에 맡기고 던지면 그대로 던진다(옛 동작: 안내 뒤 멈춤)
    ・3절: 연결 — `new THREE.WebGLRenderer` 는 gl-context.js 밖에 없다(개발용 fx-preview.html 만 뺀다) · 여덟 곳이 preview 로 만들고 못 만들면 돌아간다 · html 순서 · 실패 번호 표
-   ・4절: 일부러 깨 보기 */
+   ・4절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -93,7 +93,7 @@ say('§3 연결');
   chk(oStart > 0 && iRet > 0 && OB.indexOf("TwGlContext.make(cv,") > 0 && OB.indexOf("TwGlContext.make(cv,") < iRet && !early.length && /if\(!openPreview\(\)\) return;/.test(AN), '동물 생성기 — 3D 를 못 만들면 false 로 돌아가는 줄(if(!r) return false)이 창 · 런처 · 창 크기 · 키 · 그리기를 바꾸는 줄보다 앞에 있다' + (early.length ? ' — 앞서 바꿈: ' + early.join(' · ') : ''));
   const OB2 = OB.replace('if(!r) return false;', 'if(!r) { /* moved */ }').replace('overlay.style.display=\'flex\';', 'if(!renderer) return false; overlay.style.display=\'flex\';');
   const early2 = MUT.filter(m => OB2.indexOf(m) >= 0 && OB2.indexOf(m) < OB2.indexOf('if(!renderer) return false;'));
-  chk(early2.length > 0, '  깨 보기: 가드를 창 바꾸기 뒤로 옮기면 빨강(앞서 바꾼 줄이 잡힌다)');
+  chk(early2.length > 0, '  mutation test: 가드를 창 바꾸기 뒤로 옮기면 빨강(앞서 바꾼 줄이 잡힌다)');
   const PU = read('purikura/purikura-ui.js');
   chk(!/retry:\(\)=>\{ _pkBuildStage/.test(PU), '스티커사진 — 루프를 못 거는 [다시 시도] 는 두지 않는다(무대 없는 방장의 촬영은 사용자 결정 대기 — PR 본문)');
   chk((read('creator/creator-open.js') || '').includes('if(!creatorPrevMod.ensureCreatorPreview()) return;'), 'creator-open.js openCreator — 3D 를 못 만들면 열지 않는다');
@@ -101,7 +101,7 @@ say('§3 연결');
   chk(iG > 0 && iG < iA && iG < iS, 'html — gl-context.js 를 stage.js · app.js 보다 먼저 싣는다');
   chk(/'E-SYS-06': \{ msg: '3D 미리보기를/.test(ERR), '실패 번호 E-SYS-06 이 표에 있다');
 }
-say('§4 일부러 깨 보기');
+say('§4 mutation test');
 {
   const brk = (a, c) => { const m = SRC.replace(a, c); return m === SRC ? null : m; };
   const m1 = brk("showNotice(canvas, extra.retry);\n      return null;", "return null;");

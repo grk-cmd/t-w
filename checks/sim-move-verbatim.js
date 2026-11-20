@@ -42,9 +42,9 @@ say('1. analyze(순수 함수)');
   const r = run(rows(APP, ['return n + 1;']), rows(MOD, [dep, 'return n() + 1;']));
   chk(r.violations.length === 0 && r.kinds['read-fn'] === 1, '읽는 함수(n → n()) → read-fn 으로 허용');
   const r2 = run(rows(APP, ['return n + 1;']), rows(MOD, [dep, 'return m() + 1;']));
-  chk(r2.violations.length === 2, '깨 보기: 다른 이름으로 바꾸면 허용 밖');
+  chk(r2.violations.length === 2, 'mutation test: 다른 이름으로 바꾸면 허용 밖');
   const r3 = run(rows(APP, ['return n + 1;']), rows(MOD, ['return n() + 1;']));
-  chk(r3.violations.length === 2, '깨 보기: deps 로 받지 않은 이름의 () 는 허용 밖(함수 참조 → 호출 변경을 못 숨김)');
+  chk(r3.violations.length === 2, 'mutation test: deps 로 받지 않은 이름의 () 는 허용 밖(함수 참조 → 호출 변경을 못 숨김)');
   const r4 = run(rows(APP, ['size=+v;']), rows(APP, ['charMod.setSize(+v);'], 10));
   chk(r4.violations.length === 0 && r4.kinds.setter === 1, '쓰는 함수(size=v → xMod.setSize(v)) 허용');
   const r5 = run(rows(APP, ['go(1);']), rows(APP, ['xMod.go(1);'], 10));
@@ -52,14 +52,14 @@ say('1. analyze(순수 함수)');
   const r6 = run(rows(APP, ["if(typeof P!=='undefined' && P.f) f();"]), rows(MOD, ['if(P.f) f();']));
   chk(r6.violations.length === 0 && r6.kinds['guard-drop'] === 1, 'typeof 가드 걷기 허용');
   const r7 = run(rows(APP, ['go(1);']), rows(APP, ['xMod.go(2);'], 10));
-  chk(r7.violations.length === 2, '깨 보기: 이름 바꿈에 인자도 바뀌면 허용 밖');
+  chk(r7.violations.length === 2, 'mutation test: 이름 바꿈에 인자도 바뀌면 허용 밖');
 }
 {
   const head = { [APP]: ['a', 'const xMod = TwX.createX({', '  foo: ()=>foo,', '  bar,', '});', 'b'].join('\n') };
   const r = run([], rows(APP, ['const xMod = TwX.createX({', '  foo: ()=>foo,', '  bar,', '});'], 2), head);
   chk(r.violations.length === 0 && r.kinds.wiring === 3, '만드는 줄과 deps 줄 → wiring(닫는 `});` 는 scaffold)');
   const r2 = run([], rows(APP, ['doSomethingNew();'], 6), head);
-  chk(r2.violations.length === 1, '깨 보기: 연결 블록 밖에 새 줄을 넣으면 허용 밖');
+  chk(r2.violations.length === 1, 'mutation test: 연결 블록 밖에 새 줄을 넣으면 허용 밖');
   const mhead = { [MOD]: ['x', 'function f(){}', 'return {', '  f,', '  g,', '};'].join('\n') };
   const r3 = run([], rows(MOD, ['return {', '  f,', '  g,', '};'], 3), mhead);
   chk(r3.violations.length === 0, '모듈 꼬리 return { … } → scaffold');
@@ -72,7 +72,7 @@ say('1. analyze(순수 함수)');
 
 {
   /* 숨기면 안 되는 고침 — 모두 허용 밖이어야 한다 */
-  const bad = (name, removed, added, head) => { const r = run(removed, added, head); chk(r.violations.length >= 1, '깨 보기: ' + name + ' → 허용 밖'); };
+  const bad = (name, removed, added, head) => { const r = run(removed, added, head); chk(r.violations.length >= 1, 'mutation test: ' + name + ' → 허용 밖'); };
   bad('deps 로 받았지만 읽는 함수가 아닌 이름의 함수 참조 → 호출', rows(APP, ['el.onclick = handler;']), rows(MOD, ['const handler = deps.handler;', 'el.onclick = handler();']));
   bad('함수 참조 → xMod.go() 호출', rows(APP, ['el.onclick = go;']), rows(APP, ['el.onclick = xMod.go();'], 10));
   bad('부르는 모듈 바꿈(aMod.f → bMod.f)', rows(APP, ['aMod.f(1);']), rows(APP, ['bMod.f(1);'], 10));
@@ -137,26 +137,26 @@ const WIRE = ['let n = 0;', 'const xMod = TwX.createX({', '  n: ()=>n,', '});', 
 {
   const d = repo();
   const r = moved(d, [...HEAD, 'function a(x){', '  return x + 2;', '}', 'function b(){', '  return n() + a(2);', '}', ...TAIL], WIRE);
-  chk(r.code === 1 && /return x \+ 2/.test(r.out), '깨 보기: 옮기며 한 글자(1→2) 바꿈 → 종료 1 · 그 줄이 목록에');
+  chk(r.code === 1 && /return x \+ 2/.test(r.out), 'mutation test: 옮기며 한 글자(1→2) 바꿈 → 종료 1 · 그 줄이 목록에');
   fs.rmSync(d, { recursive: true, force: true });
 }
 {
   const d = repo();
   const r = moved(d, [...HEAD, 'function a(x){', '  return x + 1;', '}', 'function b(){', '}', ...TAIL], WIRE);
-  chk(r.code === 1 && /return n \+ a\(2\)/.test(r.out), '깨 보기: 한 줄 빠뜨림 → 종료 1 · 빠진 줄이 목록에');
+  chk(r.code === 1 && /return n \+ a\(2\)/.test(r.out), 'mutation test: 한 줄 빠뜨림 → 종료 1 · 빠진 줄이 목록에');
   fs.rmSync(d, { recursive: true, force: true });
 }
 {
   const d = repo();
   const r = moved(d, [...HEAD, 'function a(x){', '  return x + 1;', '}', 'function b(){', '  return n() + a(2);', '}', ...TAIL], ['let n = 0;', 'const xMod = TwX.createX({', '  n: ()=>n,', '});', 'start(); leak();']);
-  chk(r.code === 1 && /leak/.test(r.out), '깨 보기: app.js 에 끼워 넣은 줄 → 종료 1');
+  chk(r.code === 1 && /leak/.test(r.out), 'mutation test: app.js 에 끼워 넣은 줄 → 종료 1');
   fs.rmSync(d, { recursive: true, force: true });
 }
 
 {
   const d = repo();
   const r = moved(d, [...HEAD, 'function a(x){', '  return x + 1;', '}', 'function b(){', '  return n() + a(2);', '}', ...TAIL], WIRE, 'main.js');
-  chk(r.code === 1 && /main\.js/.test(r.out), '깨 보기: app 밖 파일(main.js)이 같이 바뀜 → 종료 1 · 파일 이름이 목록에');
+  chk(r.code === 1 && /main\.js/.test(r.out), 'mutation test: app 밖 파일(main.js)이 같이 바뀜 → 종료 1 · 파일 이름이 목록에');
   fs.rmSync(d, { recursive: true, force: true });
 }
 

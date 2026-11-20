@@ -8,7 +8,7 @@
    ・5절: 주인 묶기 — 읽기 전 쓰기는 요청 0 · 진짜 api-client 위에서 토큰 주인이 바뀌면 요청 0 · reset 뒤 요청 0 · 명함 · 친구 한 명 읽기는 주인을 남기지 않음
    ・6절: 오류 갈래(failOf — 진짜 api-errors.js 의 translate 로)
    ・7절: 배선 — html · smoke 순서 · Firebase · 다시 묻기 타이머를 부르지 않음
-   ・8절: 일부러 깨 보기
+   ・8절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -241,7 +241,7 @@ async function judge(S){
 async function runAll(){
   const S = SRC0;
   await judge(S);
-  say('── 8. 일부러 깨 보기');
+  say('── 8. mutation test');
   const breaks = [
     ['보내기 본문에 내 코드를 실음', S.API.replace("authed.post(PATHS.requests, { to: c }, o)", "authed.post(PATHS.requests, { to: c, from: 'ME' }, o)"), '본문'],
     ['쓰기가 주인을 안 묶음', S.API.replace("try{ return await send({ expectOwner: owner }); }", "try{ return await send({}); }"), 'expectOwner'],

@@ -4,8 +4,8 @@
    ・1절: 만들 때 — 책상 · 아이템 등록 버튼 둘을 건다 · 내놓는 이름(넷) · 서버 안 부름
    ・2절: 파츠 삭제 — 서버 카탈로그의 파츠면 먼저 단종(못 하면 목록 그대로) · 지금 목록(다시 대입된 뒤)을 읽고 setSavedParts 로 바꿔 끼움 · 캐시 비움 · 입은 좌석에서 벗김 · 꾸미기 다시 그림
    ・3절: 값 여덟 개는 읽는 함수로만 — 모듈 안에 이름만 쓴 자리(값으로 붙잡는 자리)가 없다
-   ・4절: app.js 연결 — 본문이 안 남음 · 빈 껍데기 · 원래 자리 · deps 34(함수 22 · 좌석 1 · 읽는 함수 8 · 쓰는 함수 1 · 꾸미기에 거는 함수 1 · 서버 길 1) · 부르는 곳 13(갈고리 포함) · 🎰 gacha deps 셋 · html
-   ・5절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・4절: app.js 연결 — 본문이 안 남음 · 빈 껍데기 · 원래 자리 · deps 34(함수 22 · 좌석 1 · 읽는 함수 8 · 쓰는 함수 1 · 꾸미기에 거는 함수 1 · 서버 경로 1) · 부르는 곳 13(갈고리 포함) · 🎰 gacha deps 셋 · html
+   ・5절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · admin-part-register.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
@@ -117,7 +117,7 @@ async function judgeAll(src, app, html, ward = WARD){
   t(deps.length === 34 && FNS.every(n => deps.some(d => new RegExp('^' + reEsc(n) + ': \\(\\.\\.\\.a\\)=>(?:[\\w$]+\\.)?' + reEsc(n) + '\\(\\.\\.\\.a\\),$').test(d)))
     && VALUES.every(n => deps.some(d => new RegExp('^' + reEsc(n) + ': \\(\\)=>(?:[\\w$]+\\.)?' + reEsc(n) + '(?:\\(\\))?,$').test(d)))
     && deps.includes('catalogAdmin: catalogAdmin,') && deps.includes('seats,') && deps.includes('setSavedParts: (v)=>{ savedParts = v; },') && deps.some(d => /^setAdminPartActions: (wardrobeMod\.)?setAdminPartActions,$/.test(d)),
-    'deps 34 — 함수 22 화살표 · 좌석 1 · 값 8 읽는 함수 · 쓰는 함수 1 · 꾸미기에 거는 함수 1 · 서버 길 1 (' + deps.length + ')');
+    'deps 34 — 함수 22 화살표 · 좌석 1 · 값 8 읽는 함수 · 쓰는 함수 1 · 꾸미기에 거는 함수 1 · 서버 경로 1 (' + deps.length + ')');
   const h82 = app.indexOf('/* ═══ 🛠️ 파츠 · 책상 · 아이템 등록 모달(관리자) ═══ */');
   t(h82 > 0 && app.indexOf('const adminPartReg =') > h82, '만드는 줄은 원래 자리(🛠️ 등록 모달 머리 아래)');
   /* app.js 를 공용 도우미로 되살려 읽으면 꾸미기 본문이 이미 app.js 글 안에 있다 — 그때는 wardrobe.js 를 따로 세지 않는다(두 번 세기 방지) */
@@ -141,7 +141,7 @@ async function judgeAll(src, app, html, ward = WARD){
   const heads = { 0: '── 1 · 2. 만들 때 · 파츠 삭제', 8: '── 3. 값은 읽는 함수로만', 10: '── 4. app.js 연결' };
   rows.forEach(([ok, msg], i) => { if(heads[i]) say(heads[i]); chk(ok, msg); });
 
-  say('── 5. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+  say('── 5. mutation test — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['목록을 값으로 붙잡음', { mod: s => s.replace('const rec=savedParts().find(p=>p.id===id); if(!rec)return;', 'const rec=savedParts.find(p=>p.id===id); if(!rec)return;') }],
     ['삭제가 목록을 안 바꿔 끼움', { mod: s => s.replace('  setSavedParts(savedParts().filter(p=>p.id!==id));\n', '') }],

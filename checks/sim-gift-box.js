@@ -1,6 +1,6 @@
 /* ═══ 🎁 sim-gift-box.js — 선물 상태 주인 (0.13 앱 묶음 D7-3) — 옛 sim-gift-star.js 를 갈음 ═══
    [왜] 선물함(받기 · ⭐ · 치움 · 지우기 · 봤음)의 원본이 서버가 됐다. 받기와 쓰기가 겹치면 늦게 온 옛 답이 방금 누른 ⭐ 를 되돌리고,
-     같은 선물을 연타하면 요청이 겹치며, 계정을 놓은 뒤 늦은 답이 새 계정 화면을 덮는다. 그래서 진짜 모듈을 가짜 서버 길 위에서 돌려 순서를 본다.
+     같은 선물을 연타하면 요청이 겹치며, 계정을 놓은 뒤 늦은 답이 새 계정 화면을 덮는다. 그래서 진짜 모듈을 가짜 서버 경로 위에서 돌려 순서를 본다.
      ⭐ 는 서버에 남아 자동 정리(서버)가 지우지 않는다는 옛 검사의 뜻은 그대로 — 앱은 순서(⭐ 먼저)와 20 상한 안내만 맡는다.
    ・1절: 순서 — order() 순수 함수(⭐ 먼저 → 최신순 · 같은 시각은 받은 차례 · 원본 안 바꿈)
    ・2절: 받기 — idle → loading → ready · 값은 서버 숫자(받기 전 null) · 못 받음 failed · 누른 받기만 E-GIFT-04 · 받기 합치기(요청 1)
@@ -10,8 +10,8 @@
    ・6절: 신호 · 계정 — 신호 1번 → GET 1번 · idle 에서 신호 → 0 · reset 뒤 신호 → 0 · reset 뒤 늦은 답 버림
    ・7절: 그 집 선물 — 받음 · 없는 사람은 번호 0 · 실패는 notify 일 때만 E-GIFT-09
    ・8절: 화면 — onScreen(마이홈이 눈앞 + 받기 성공 뒤에만 · 치우는 중은 뺌) · 치움만 낙관 · 다시 부르기는 서버가 받아야 · 자리 없음 요청 0 · 채워진 사이 → 남음 · 마이홈 밖 · reset
-   ・9절: 배선 · 옛 길 걷음 — app.js 가 만드는 줄 · gift STEP · html · smoke · 옛 firebaseAPI 선물 메서드 · 로컬 치움 키가 없음 · 화면(확인창 · confirm 없음 · 상한 표시)
-   ・10절: 일부러 깨 보기
+   ・9절: 배선 · 옛 경로 걷음 — app.js 가 만드는 줄 · gift STEP · html · smoke · 옛 firebaseAPI 선물 메서드 · 로컬 치움 키가 없음 · 화면(확인창 · confirm 없음 · 상한 표시)
+   ・10절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -37,7 +37,7 @@ const apiErr = (status, code, msg) => Object.assign(new Error(msg || code || Str
 const gift = (id, t, o) => Object.assign({ id, senderName: '친구' + id, imageUrl: 'https://img/' + id + '.png', message: '', starred: false, hidden: false, sentAt: t }, o || {});
 const count = (log, re) => log.filter((l) => re.test(l)).length;
 
-/* 가짜 서버 길 — 부른 것을 적고, 답은 손으로 푼다(auto=false) 또는 바로 */
+/* 가짜 서버 경로 — 부른 것을 적고, 답은 손으로 푼다(auto=false) 또는 바로 */
 function mk(S, server){
   const log = [], waits = [], hooks = [];
   const srv = Object.assign({ items: [gift('a', 100), gift('b', 300, { starred: true }), gift('c', 200, { hidden: true })], unseen: 2, starMax: 20, boxKeep: 30, auto: true }, server || {});
@@ -381,7 +381,7 @@ async function judge(S){
     await rs.release(); await st2;
   }
 
-  say('── 9. 배선 · 옛 길 걷음');
+  say('── 9. 배선 · 옛 경로 걷음');
   wiring(S, true);
 }
 
@@ -426,7 +426,7 @@ function wiring(S, loud){
 (async () => {
   await judge(SRC0);
 
-  say('── 10. 일부러 깨 보기');
+  say('── 10. mutation test');
   {
     const run = async (name, src, fn) => {
       quiet = true; qfail = 0;

@@ -4,7 +4,7 @@
    ・2절: 까닥임 등록 _syncHumanEarRig — 붙은 귀는 동물 귀 등록으로 올리고 떨어진 옛 귀는 목록에서 걷는다 · 빈 입력은 조용히
    ・3절: 붙이기 _attachHumanEars — 동물 · 뿌리 없음 · 모듈 없음은 건너뜀 · 붙으면 그림 → 꾸미기 알림 → 좌석 까닥임 → 탑승 머리 높이 다시 재기 · 던져도 앱은 계속
    ・4절: 연결 — html · 만드는 줄 · 옛 이름 다섯 · app.js 에 귀 함수가 남지 않음
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. three 는 vendor/three/three.min.js. */
 'use strict';
 const fs = require('fs');
@@ -111,7 +111,7 @@ say('§4 연결');
   chk(/_attachHumanEars\(inst\.root, def\)/.test(CA) && /_syncHumanEarRig\(seat\)/.test(CA), '  부르는 곳(파츠 장착 · 좌석 입히기 — char-apply.js)은 옛 이름 그대로');
 }
 
-say('§5 일부러 깨 보기');
+say('§5 mutation test');
 {
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const m1 = brk('if(!humanEar || !root || (def && def.animal)) return;', 'if(!humanEar || !root) return;');

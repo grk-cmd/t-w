@@ -1,13 +1,13 @@
 /* ═══ 🎁 sim-mallang-gift.js — 선물 보내기 창 (0.13 앱 묶음 D7-5) — 옛 «사본 로직 뜯어 돌리기» 를 갈음 ═══
-   [왜] 보내기가 서버 길(POST /v2/gifts/{code})이 됐다. 그림 사본 · 하루 한도 · 정원 판정은 서버가 하고, 앱은 창 · 요청 번호(requestId) · 격자 잠금만 맡는다.
-     진짜 mallang.js · mallang-store.js · gift-box.js · request-id.js 를 가짜 DOM · 가짜 서버 길 위에서 돌려 부른 요청 · 화면을 본다.
+   [왜] 보내기가 서버 endpoint(POST /v2/gifts/{code})이 됐다. 그림 사본 · 하루 한도 · 정원 판정은 서버가 하고, 앱은 창 · 요청 번호(requestId) · 격자 잠금만 맡는다.
+     진짜 mallang.js · mallang-store.js · gift-box.js · request-id.js 를 가짜 DOM · 가짜 서버 경로 위에서 돌려 부른 요청 · 화면을 본다.
    ・1절: 열기 — 내 칸 · 오늘 보낸 수 · 상대 집 선물 수를 나란히 받는다 · 남은 횟수 · 칸이 비면 안내 · 내 칸 실패 E-GIFT-07(창 안 엶) · 남은 수 실패 «확인하지 못했어요» + 막지 않음
    ・2절: 보내기 — 본문은 요청 번호 · 고른 칸의 서버 번호 · 메시지만 · 성공은 안내 + 창 닫음 · 보내는 동안 격자 전체 잠김(다른 칸으로 두 번 안 감)
    ・3절: 요청 번호 — 닿지 못함 → 같은 번호 · 서버가 거절 → 새 번호 · 성공 → 새 번호
    ・4절: 실패 — 안내 코드는 서버 문구(번호 0) · 503 은 E-GIFT-08 · 격자는 다시 켜짐
    ・5절: 정원 · 한도 — 상대 가득 → 격자 흐림 · 눌러도 요청 0 · 남은 0 → 요청 0
    ・6절: 칸 저장이 끝나면 격자를 다시 그림 · 저장 중(칸 번호가 서버와 어긋남)에는 보내지 않음
-   ・7절: 옛 길 걷음 · 일부러 깨 보기
+   ・7절: 옛 경로 걷음 · mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
@@ -245,7 +245,7 @@ async function judge(S){
     chk(!closeFirst.byId.mlGift && !closeFirst.log.some((l) => l.startsWith('toast 🎁')), '보내는 중에 창을 닫으면 늦은 답이 화면을 건드리지 않는다');
   }
 
-  say('── 7. 옛 길 걷음');
+  say('── 7. 옛 경로 걷음');
   wiring(S, true);
 }
 
@@ -264,10 +264,10 @@ function wiring(S, loud){
   return ok;
 }
 
-process.on('unhandledRejection', () => { if(quiet) qfail++; else { fail++; console.log('  ✗ 처리 안 된 오류'); } });   // 깨 본 글이 누름 처리기에서 던지면 그것도 «잡힌 것»
+process.on('unhandledRejection', () => { if(quiet) qfail++; else { fail++; console.log('  ✗ 처리 안 된 오류'); } });   // 망가뜨린 글이 누름 처리기에서 던지면 그것도 «잡힌 것»
 (async () => {
   await judge(SRC0);
-  say('── 8. 일부러 깨 보기');
+  say('── 8. mutation test');
   const run = async (name, patch, fn) => {
     quiet = true; qfail = 0;
     try{ await fn(Object.assign({}, SRC0, patch)); }catch(_){ qfail++; }

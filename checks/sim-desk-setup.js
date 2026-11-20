@@ -5,7 +5,7 @@
    ・1절: 책상 카드 — 기본 책상 · 저장 책상(관리자 덮어쓰기 빼고 · 전용은 관리자만) · 고르기(URL 받기 · 용량 · 적용) · 기본으로 · 지우기(회수는 확인 뒤 서버에서 먼저 단종 — catalogAdmin)
    ・2절: 아이템 카드 — 5개씩 쪽 넘김 · 쪽 번호 · 기본 아이템 켜고 끄기(관리자 교체분) · 커스텀(아직 안 읽힘 · 용량 · 카탈로그는 안 잼) · 한도 표시 · 안내
    ・3절: 고르기 · 순서 · 갈고리 — 우클릭(관리자는 등록 창) · 놓인 아이템 고르기 · 순서 바꾸기(카탈로그 것만 순서 저장) · 미리보기 우클릭
-   ・4절: 입구 전제 · 5절: app.js 연결 · 6절: 일부러 깨 보기 */
+   ・4절: 입구 전제 · 5절: app.js 연결 · 6절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -222,7 +222,7 @@ function wire(app, html) {
   say('── 5. app.js 연결');
   wire(APP, HTML).forEach(([ok, msg]) => chk(ok, msg));
   chk(!SMOKE || /PRELOAD\.push\('desk-setup\.js'\);/.test(SMOKE), 'smoke 가 desk-setup.js 를 먼저 싣는다');
-  say('── 6. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+  say('── 6. mutation test — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['전용 책상을 모두에게', (m) => m.replace('(isAdmin() || !rec.licenseOnly)', 'true'), null, null],
     ['잠긴 책상도 골라짐', (m) => m.replace("if(deskLocked){ toast('🔒 ", "if(false){ toast('🔒 "), null, null],
@@ -239,7 +239,7 @@ function wire(app, html) {
     ['입구 전제 없앰(카드)', (m) => m.replace("  if(!document.getElementById('crDeskRow') || !document.getElementById('crItemRow') || !document.getElementById('deskColor')) return;\n", ''), null, null],
     ['책상 없음 칸 빠짐', (m) => m.replace('  dr.appendChild(noThumb);\n', ''), null, null],
     ['책상 없음이 저장 id 를 안 둠', (m) => m.replace('crState.activeCustomDeskId=NO_DESK_ID;', 'crState.activeCustomDeskId=null;'), null, null],
-    ['만들 때 던짐', (m) => m.replace('function createDeskSetup(deps){', 'function createDeskSetup(deps){ throw new Error("깨 봄");'), null, null],
+    ['만들 때 던짐', (m) => m.replace('function createDeskSetup(deps){', 'function createDeskSetup(deps){ throw new Error("mutation");'), null, null],
     ['app.js 에 본문이 남음', null, (a) => a + '\nfunction renderCrItems(){}', null],
     ['갈고리 줄 빠짐', null, (a) => a.replace('deskSetupMod.setHooks({', 'void({'), null],
     ['html 줄 빠짐', null, null, (h) => h.replace('<script src="parts/creator/desk-setup.js"></script>', '')],

@@ -4,7 +4,7 @@
    ・2절: applyGlowToMesh · applyGlowEffect — 재질 emissive 를 밝힌다(emissive 가 없거나 0 이면 색에서 · map 을 emissiveMap 으로) · 메시가 아니면 그대로
    ・3절: 실패 길 — 박스를 못 재면(던지면) null · 오브젝트를 건드리지 않는다
    ・4절: 연결 — html 이 app.js 보다 먼저 싣는다 · app.js 가 만든다 · app.js 에 발광 함수가 없다
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. three 는 vendor/three/three.min.js. */
 'use strict';
 const fs = require('fs');
@@ -82,7 +82,7 @@ say('§4 연결');
   chk(/const glowMod = TwGlow\.createGlow\(\{\s*\}\);/.test(code), 'app.js — 원래 자리(SETUP)에서 만든다');
   chk(!/function (addGlowSprite|applyGlowToMesh|applyGlowEffect|getGlowSpriteTexture)\b|GLOW_SIZE_MUL\s*=/.test(code), '  app.js 에 발광 함수 · 상수가 남아 있지 않다');
 }
-say('§5 일부러 깨 보기');
+say('§5 mutation test');
 {
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const m1 = brk('sp.renderOrder=900;', 'sp.renderOrder=0;');

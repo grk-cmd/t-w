@@ -42,7 +42,7 @@
 - **확장할 때 고칠 자리**: 단계 · 표는 이 파일 위 상수 두 개. 식을 바꾸면 `dot-render.js` 의 `_PS1_FRAG_INJECT`(GLSL 은 이 함수를 못 부르므로 같은 식을 글로 다시 쓴다)도 같이.
 - **함정**
   - `purikura-net.js` 는 `TwPs1Dither` 를 **부를 때** 읽는다 — 그 파일만 node 로 싣는 검사가 많아서, 실을 때 읽으면 그 검사들이 죽는다.
-  - 검사: `checks/sim-ps1-dither.js`(값 · 경계값 · 도트 셰이더 글 · 스티커사진 필터 결과가 묶기 전과 픽셀까지 같음 · 깨 보기).
+  - 검사: `checks/sim-ps1-dither.js`(값 · 경계값 · 도트 셰이더 글 · 스티커사진 필터 결과가 묶기 전과 픽셀까지 같음 · mutation test).
 
 ## glb-idb-cache.js — 💾 GLB 영구 캐시(IndexedDB)
 
@@ -111,7 +111,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - 실행 화면을 닮은 새 미리보기 씬은 빛을 손으로 만들지 말고 `addRunLights` 를 deps 로 받아 부른다(손으로 적으면 예산이 바뀔 때 그 화면만 톤이 달라진다 · `sim-light-tone` 7절이 잡는다).
 - 재질 색을 바꾸는 새 코드는 `color.set` 만 하지 말고 baseFlat 으로 emissive 를 다시 계산해야 한다(책상은 `_setDeskMatColor`).
 
-검사: `checks/sim-light-tone.js` (FLAT_EMISSIVE 식 · 경계 · 재질 함수 셋 · 연결 · 실행 화면 조명 여섯 자리 · 생성기 둘을 옛 글과 견주기 · 깨 보기).
+검사: `checks/sim-light-tone.js` (FLAT_EMISSIVE 식 · 경계 · 재질 함수 셋 · 연결 · 실행 화면 조명 여섯 자리 · 생성기 둘을 옛 글과 견주기 · mutation test).
 
 ## blink-timing.js — 👁 깜빡임 시간표
 
@@ -127,7 +127,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **확장할 때 고칠 자리**: 박자는 머리의 상수(`SINGLE_DUR_MS` · `SINGLE_GAP_*` · `TRIPLE_*` · `FIRST_*`). 바꾸면 실행 화면 좌석과 런처 미리보기가 같이 바뀐다.
 - **함정**
   - 프레임마다 고정 ms 를 더하는 식으로 다시 쓰지 않는다 — 주사율 · 프레임 상한에 따라 주기가 달라진다(예전 런처가 그랬다).
-  - `rand` 는 검사용(씨앗 고정). 앱에서는 비워 두면 `Math.random`.
+  - `rand` 는 검사용(seed 고정). 앱에서는 비워 두면 `Math.random`.
   - 검사: `checks/sim-blink-timing.js`(옮기기 전 글과 같은 결과 · 주사율 무관 · 연결).
 
 ## toast.js — 🍞 토스트 · 저장 실패 문구
@@ -168,7 +168,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - 옷처럼 몸통 · 소매가 겹친 파츠에서 0.6 을 물러나면 반대편 표면 대신 앞쪽 천에서 출발한다 — 그래서 `off` 를 열어 두었다.
 - 리깅 메쉬에 기본 레이캐스트(castFn 없음)를 쓰면 바인드 포즈를 맞혀 대칭이 빗나간다.
 
-검사: `checks/sim-paint-geom.js` (strokeSeg 점 · 잇기 · 0 · mirrorUVOn 반전 · 0.6 · off · cx 없음 · 법선 없음 · castFn 없음 · null · 연결 · 깨 보기 9).
+검사: `checks/sim-paint-geom.js` (strokeSeg 점 · 잇기 · 0 · mirrorUVOn 반전 · 0.6 · off · cx 없음 · 법선 없음 · castFn 없음 · null · 연결 · mutation test 9).
 
 ## `net-ready.js` — 🛰 네트워크(provider) 준비됨 기다리기
 
@@ -192,7 +192,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - 이벤트 자리에 함수를 그대로 넘기면 그 함수가 이벤트를 첫 인자로 받는다(예전과 같다). 인자를 받는 함수면 `()=>fn()` 으로 감싼다.
 - `onNetReady` 는 신호가 두 번 오면 두 번 부른다. overhead 의 once 없음은 원래 동작 그대로 둔 것이다(CONFIRM.md).
 
-검사: `checks/sim-net-ready.js` (바로 · once 한 번 · need · 이벤트 인자 · onNetReady 두 번 · waitNetReady 신호 · 시간 · 한 번만 풀림 · 직접 귀 0곳 · 쓰는 파일 11곳 · html 순서 · smoke · 깨 보기 9).
+검사: `checks/sim-net-ready.js` (바로 · once 한 번 · need · 이벤트 인자 · onNetReady 두 번 · waitNetReady 신호 · 시간 · 한 번만 풀림 · 직접 귀 0곳 · 쓰는 파일 11곳 · html 순서 · smoke · mutation test 9).
 
 ## `upload-cache.js` — 🗂️ 업로드 캐시 규칙 · 같은 그림 다시 안 올리기
 
@@ -231,9 +231,9 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 ## `api-client.js` · `api-errors.js` — 🌐 서버 API(/v2) 통로 · 오류 번역표
 **책임** — 앱이 우리 서버(`/v2`)와 말하는 길 한 벌. 시간 제한 · 봉투 풀기 · 실패 모양(`ApiError`) · 토큰 붙이기를 기능마다 따로 만들지 않는다. `TwApi.client`(로그인 없는 읽기 · 쉬기 있음) · `TwApi.authed`(로그인 통로 — 읽기 · `post` · `put` · `patch` · `del` · 쉬기 없음). 토큰은 `firebase-init.js` 가 `TwApi.bindToken` 으로 잇는다.
 **provider 자리** — 도메인 모듈은 `firebaseAPI` 를 부르지 않고 `*-api.js`(예: `support/report-api.js`) 한 파일의 함수만 부른다. 그 파일이 경로 · 본문 모양 · 서버 code 를 알고 `TwApi.authed` 를 deps 로 받는다.
-**실패** — 옛 Firebase 길로 넘어가지 않는다. 실패는 던지고, 부르는 쪽이 `TwApiErrors.translate` 로 갈래를 잡아 `TwErrorCodes.notify('E-영역-번호')` 로 보인다. 자동 재시도 없음(사용자가 버튼을 다시 누르는 것만).
-**두 번역표** — `data-gateway.js` 의 `ERROR_NOTICES`(E-DATA)는 범용 통로(옛 길) 몫이고 새 기능은 `api-errors.js`(E-NET)만 쓴다. 범용 통로를 걷을 때 앞의 표도 같이 걷는다.
-**함정** — 공개 읽기 통로(`api-public-reads.js` · `shouldFallback`)는 옛 길이 남은 동안만 쓰고 새 코드는 쓰지 않는다. 쓰기(`post` 등)는 로그인이 기본이다.
+**실패** — 옛 Firebase 경로로 넘어가지 않는다. 실패는 던지고, 부르는 쪽이 `TwApiErrors.translate` 로 갈래를 잡아 `TwErrorCodes.notify('E-영역-번호')` 로 보인다. 자동 재시도 없음(사용자가 버튼을 다시 누르는 것만).
+**두 번역표** — `data-gateway.js` 의 `ERROR_NOTICES`(E-DATA)는 범용 통로(옛 경로) 몫이고 새 기능은 `api-errors.js`(E-NET)만 쓴다. 범용 통로를 걷을 때 앞의 표도 같이 걷는다.
+**함정** — 공개 읽기 통로(`api-public-reads.js` · `shouldFallback`)는 옛 경로가 남은 동안만 쓰고 새 코드는 쓰지 않는다. 쓰기(`post` 등)는 로그인이 기본이다.
 
 ## `maintenance-gate.js` — 🛠 서버 점검 창
 
@@ -255,7 +255,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - 점검 때 Firebase 를 잠그는 규칙도 `config/maintenance` **읽기는 열어 둬야** 한다 — 닫으면 구독이 끊겨 끝난 것을 모른다.
 - 창이 떠 있는 동안 관리자가 끝 시각 · 문구를 바꾸면 바로 다시 그린다.
 
-검사: `checks/sim-maintenance-gate.js` (1절 순수 · 2절 창을 실제로 돌림 · 2-1절 입력 시각 판정 · 자식 창 · 2-2절 realtime 점검 · 3절 통로 고리 · 오류 토스트 조용히 · 4절 연결 · 규칙 · 5절 깨 보기 11).
+검사: `checks/sim-maintenance-gate.js` (1절 순수 · 2절 창을 실제로 돌림 · 2-1절 입력 시각 판정 · 자식 창 · 2-2절 realtime 점검 · 3절 통로 고리 · 오류 토스트 조용히 · 4절 연결 · 규칙 · 5절 mutation test 11).
 
 ## safe-html.js — 🛡️ 남이 쓸 수 있는 값을 화면에 넣는 단 한 곳
 
@@ -363,7 +363,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **지금 쓰는 곳**: `app.js` 맨 앞(WebGL 감시 옆) · `main.js` 활성 창 폴링(`startActiveWinPolling`).
 - **함정**: 크로미움(Electron 44 실측)은 칸을 옮기면 compositionend → blur → focusout(같은 틱), 다른 앱이 앞으로 오면 focusout(창 포커스 없음) → window blur → compositionend, 칸을 다시 그리면 compositionend 없이 focusout(그때는 아직 붙어 있음 — 그래서 `defer` 뒤에 `isConnected` 를 본다). 절전 · 잠자기(`LAG_SLEEP_MS` 넘게 건너뜀)는 멈춤으로 안 센다. 줄 수 상한 `MAX_LINES` — 클릭고착 · 포커스 기록을 밀어내지 않게.
 - **못 보는 것**: 조합 중 칸을 `display:none` 으로 숨기면 크로미움이 focusout · compositionend 를 둘 다 안 보낸다.
-- 검사: `checks/sim-input-diag.js`(깨 보기 열).
+- 검사: `checks/sim-input-diag.js`(mutation test 열).
 
 ## `image-bytes.js` — 🖼 data: 그림 → 올릴 바이트
 
@@ -485,7 +485,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 맥은 앞 창 크기를 안 읽는다(`bounds: null` — node-window-manager 맥 `getBounds` 가 창 목록을 통째로 다시 받고 사전을 놓아주지 않아 0.5초 폴링에 못 쓴다). 크기를 못 읽은 표본은 비율 분모에서 빠지고, 그것만 있으면 `전체화면 모름`.
   - 전체화면은 **크기만** 본다. Windows 의 창 좌표는 그 창 모니터 배율로 나눈 값이라 배율이 다른 모니터가 섞이면 Electron 좌표와 안 맞는다. 최대화 창은 작업표시줄만큼 작아서 안 걸린다.
   - 실행 화면이 아니면 `[프레임]` 줄이 안 와서 `take` 가 안 불린다 — `STALE_MS`(2분)보다 오래된 표본은 다음 `note` 때 버린다.
-- 검사: `checks/sim-front-diag.js`(깨 보기 열).
+- 검사: `checks/sim-front-diag.js`(mutation test 열).
 
 ## `error-report.js` — 🧯 화면 오류를 오류 기록(tw-error.log)으로
 
@@ -508,7 +508,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - `directComposition` · `supportsOverlays` 는 Windows 에만 온다 — 맥은 «모름».
   - 1분 사이에 죽은 프로세스(닫힌 자식 창 등)가 쓴 CPU 는 빠진다 — 앱 합이 조금 낮게 나올 수 있다.
   - 진단 기록은 256KB 에서 돌려 쓰고, `[자원]` 때문에 반나절이면 돈다. 그래서 `_diagLog` 는 `createHeaderKeep` 으로 `[환경]` · `[GPU]` · `[GPU 상세]` 의 마지막 줄을 기억하고, `rotateKeep` 이 새 파일 첫머리에 «(기록을 돌려 써서 다시 적음)» 을 붙여 다시 적는다. 이게 없으면 오래 켜 둔 PC 의 기록에 사양이 없다.
-- 검사: `checks/sim-env-diag.js`(깨 보기 열셋).
+- 검사: `checks/sim-env-diag.js`(mutation test 열셋).
 
 ## `gpu-timer.js` — 🩺 한 장에 그래픽 칩 · JS 시간(1분 `[프레임]` 줄 꼬리)
 
@@ -519,7 +519,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 기다리는 질의는 `MAX_PENDING` 까지만, `STALE_POLLS` 번 거둬도 안 오면 버린다(WebGL 연결 끊김 뒤 옛 질의는 영영 안 끝난다).
   - three.js 는 그림자 지도를 그리는 횟수를 `info.render.calls` 에 안 센다(그림자를 그린 뒤 `info.reset`). 그래서 `그림자` 는 그림자를 드리우는 보이는 메시 수를 따로 센다 — 장면을 다 도니 1분에 한 번만.
   - 재기만 한다 — 그리기 · 상한은 건드리지 않는다.
-- 검사: `checks/sim-gpu-timer.js`(깨 보기 여섯).
+- 검사: `checks/sim-gpu-timer.js`(mutation test 여섯).
 
 ## `run-cost-diag.js` — 🩺 그리기 밖 시간(1분 `[비용]` 줄)
 
@@ -531,7 +531,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - main 은 렌더러 진단 줄을 200자에서 자른다(`companion:diagNote`) — 줄은 `LINE_MAX` 안에서 끝낸다. `[프레임]` 으로 시작하지 않아 앞 창 꼬리(front-diag.js)가 안 붙는다.
   - 1분 몫은 실행 화면이 아니어도 비운다(take 를 runmode 확인보다 먼저). 창을 내려도 `runmode` 는 그대로라 그때도 남는다.
   - 재기만 한다 — 함수 본문은 안 고치고 부르는 곳을 감싼다. `timed` 는 던져도 시간을 더하고 그대로 던진다.
-- 검사: `checks/sim-run-cost-diag.js`(깨 보기 열).
+- 검사: `checks/sim-run-cost-diag.js`(mutation test 열).
 
 ## `system-prompt.js` — 🔐 시스템 확인 창이 맨 앞인가
 
@@ -541,7 +541,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **함정**
   - 표시 이름(«App Store» · «시스템 설정»)으로 가르지 않는다 — 현지화로 흔들린다. 번들 id 만.
   - 실행 화면 맨 위 설정은 main 의 `_setRunTop` 한 곳 — 창 배치 IPC(수백 번/분) · 표시 설정 변경 · 색 고르기 창 복구도 `_sysPromptFront` 를 봐서 확인 창 위로 되돌리지 않는다. 자식 창(방명록 · 디자인 · 구글 로그인)은 아직 그대로 맨 위다.
-- 검사: `checks/sim-system-prompt.js`(깨 보기 셋).
+- 검사: `checks/sim-system-prompt.js`(mutation test 셋).
 
 ## `skeleton-share.js` — 🦴 같은 뼈대는 Skeleton 하나
 
@@ -553,7 +553,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 복제 · 묶기 바로 뒤, 그리기 전에만 부른다. 그린 적 있는 메시를 옮기면 옛 Skeleton 의 뼈 텍스처가 그래픽 메모리에 남는다.
   - 함께 쓰는 Skeleton 의 뼈 · 역행렬을 바꾸지 않는다는 전제다. 다시 묶을 땐 지금처럼 `bind(new THREE.Skeleton(…))`.
   - r128 광선 판정은 `boneMatrices` 가 아니라 뼈 `matrixWorld` × 역행렬을 바로 셈한다(`boneTransform`) — 함께 써도 판정이 같다.
-- 검사: `checks/sim-skeleton-share.js`(진짜 기본 몸 · 동물 GLB 로 옛/새 뼈 행렬 · 스킨 자리 대조 · 깨 보기 둘).
+- 검사: `checks/sim-skeleton-share.js`(진짜 기본 몸 · 동물 GLB 로 옛/새 뼈 행렬 · 스킨 자리 대조 · mutation test 둘).
 
 ## `gl-recover.js` · `gl-fail-notice.js` — 🧯 3D(WebGL) 끊김 뒤 복구
 
@@ -569,7 +569,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 마지막으로 다시 켠 시각(`tw.glRelaunchAt`)은 localStorage — 앱을 다시 켜도 남아야 10분 규칙이 선다. 못 적으면 다시 켜지 않고 안내.
   - 처음 만들기 실패 안내는 뒤의 반쯤 죽은 런처를 덮고, 실행 중 끊김 안내는 모니터를 덮지 않는다(상자만 눌림). 창 크기는 main 이 정한다(launcher/reload-reset.js).
   - 안내는 렌더러를 못 만든 뒤 다시 던진다 — 뒤 코드는 렌더러 없이 돌 수 없다.
-  - 검사: `checks/sim-gl-recover.js`(규칙 · 안내를 실제로 돌림 · 연결 · 깨 보기).
+  - 검사: `checks/sim-gl-recover.js`(규칙 · 안내를 실제로 돌림 · 연결 · mutation test).
 
 ## stage.js — 🎬 3D 무대 한 벌
 
@@ -581,7 +581,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 연결 끊김 감시(`gl-recover`)의 «다시 켠 시각» 은 localStorage(`tw.glRelaunchAt`) — 앱을 다시 켜도 남아야 10분 규칙이 선다.
   - 조명은 여기 없다 — 조명 상수 · 재질 고치기는 app.js(T0 몫), 한 벌 만들기는 `light-tone.js addRunLights`. 메인 씬 빛은 app.js 가 만든 뒤 `key` 를 받는다.
   - 이 무대는 메인 창 하나다. 미리보기 창의 3D 장치 만들기는 따로(설계 F1 `gl-context.js`).
-  - 검사: `checks/sim-stage.js`(옵션 · 배율 · 바닥 · 로더 · 실패 길 · 연결 · 깨 보기) · `sim-gl-recover.js` · `sim-frame-budget.js` 5절이 이 파일 글을 읽는다.
+  - 검사: `checks/sim-stage.js`(옵션 · 배율 · 바닥 · 로더 · 실패 길 · 연결 · mutation test) · `sim-gl-recover.js` · `sim-frame-budget.js` 5절이 이 파일 글을 읽는다.
 
 ## gl-context.js — 🧯 3D 장치를 만드는 단 한 곳
 

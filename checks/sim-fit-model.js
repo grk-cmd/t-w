@@ -6,7 +6,7 @@
    ・4절: fitDesk — 책상 높이 0.6 에 맞춤 · 가운데 · 바닥 · 앞으로 0.45 · 좌석 자리 되돌림
    ・5절: 빈 입력 — 몸 · 책상이 없으면 그대로 · 빈 박스는 크기를 안 건드림
    ・6절: 연결 — html · 만드는 줄 · 옛 이름 · app.js 에 맞춤 함수가 남지 않음
-   ・7절: 일부러 깨 보기
+   ・7절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. three 는 vendor/three/three.min.js. */
 'use strict';
 const fs = require('fs');
@@ -147,7 +147,7 @@ say('§6 연결');
   chk(/^const fitModel = fitModelMod\.fitModel;/m.test(code) && /^const fitDesk = fitModelMod\.fitDesk;/m.test(code), '  옛 이름 둘을 const 로 받는다');
   chk(!/function (fitModel|fitDesk)\b/.test(code), '  app.js 에 맞춤 함수가 남아 있지 않다');
 }
-say('§7 일부러 깨 보기');
+say('§7 mutation test');
 {
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const m1 = brk('1.45/size.y:1', '1.5/size.y:1');

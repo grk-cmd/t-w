@@ -8,13 +8,13 @@
    ★ 무엇을 보는가
      §1 규칙 — ① prv · ans/prv 읽기가 관리자/본인 조건 ② ans 쓰기가 관리자 전용 ③ list 읽기에 limitToLast 상한 ④ inbox tag 에 bug …(컷오버 전 Firebase 규칙)
      §2 bug-board.js 를 실제로 돌린다 — 입력 확인 · 공개 범위 버튼 조건 · 분류 · 상태가 서버 이름과 같다 · 안내 문구가 갈래 표를 다 덮는다
-     §3 연결 — html 순서 · app.js 가 만들고 bugBadge 로 시작 · Firebase 길(bugBoard) 걷음 · 우편함에서 글 열기
+     §3 연결 — html 순서 · app.js 가 만들고 bugBadge 로 시작 · Firebase 경로(bugBoard) 걷음 · 우편함에서 글 열기
      §4 화면을 가짜 DOM · 가짜 provider 로 굴린다 — 로그인 전 · 시작(배지 한 번 · 타이머 0) · 목록 상태(받음 · 빈 · 못 받음 · 공지 실패) · 필터 gen ·
         글(없음 · 비공개 · 못 받음 · 봤음) · 글 gen · 글쓰기(남은 수 · 연타 · 429 안내 · 그 밖 번호) · 답글 · 👍(서버가 돌려준 수로) · 공개 범위 · reset · 새 답변 우편 · 관리자 표시
      §5 창이 안 늘어난다 — 버그제보 페이지 높이 고정(440px) · 목록은 #bbRows 안에서 스크롤 · [이전]/[다음] 은 안 줄어든다
      §4 끝 — 관리자 [답변 등록](본 시각 · 겹침 · 쓴 글 보존 · 번호) · 오픈카톡 기본 링크 폼(열 때 판 · 저장 · 겹침 · E-BUG-21 · 22)
      §6 상세 화면의 바깥 주소 열기(openDetailLink) — 다시 거르기 · 오픈카톡만
-     §7 일부러 깨 보기 */
+     §7 mutation test */
 'use strict';
 globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기(이름 없음 → «이름 없음») — 진짜 파일
 const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
@@ -127,7 +127,7 @@ say('§3 연결');
   const iAc = idx('shared/api-client.js'), iRid = idx('shared/request-id.js'), iNr = idx('shared/net-ready.js');
   chk(iB > 0 && iA > iB && iU > iA && iApp > iU && iAc > 0 && iAc < iA && iRid > 0 && iRid < iA && iNr > 0 && iNr < iU,
     'html — api-client · request-id → bug-board.js → bug-api.js → bug-board-ui.js(net-ready 뒤) → app.js');
-  chk(!/bugBoard\s*:|createBugBoard|support\/bug-board\.js/.test(FB) && !/firebaseAPI\.bugBoard/.test(APP + UI), 'Firebase 길 걷음 — firebase-init 에 bugBoard 연결 없음 · 부르는 곳 0');
+  chk(!/bugBoard\s*:|createBugBoard|support\/bug-board\.js/.test(FB) && !/firebaseAPI\.bugBoard/.test(APP + UI), 'Firebase 경로 걷음 — firebase-init 에 bugBoard 연결 없음 · 부르는 곳 0');
   chk(/const bugBoardUi = TwBugBoardUi\.createBugBoardUi\(\{/.test(APP) && /bugApi: TwBugApi\.createBugApi\(\{ authed: TwApi\.authed, errs: TwApiErrors, pending: \(\)=>TwRequestId\.createPending\(\) \}\)/.test(APP),
     'app.js 가 게시판을 만든다 — provider 는 로그인 통로 · 공통 표 · 요청 번호 기억');
   chk(/bugBadge: \(code, me, session\)=>\{ session\.onReset\(\(\)=>bugBoardUi\.reset\(\)\); return bugBoardUi\.start\(\); \}/.test(APP) && /'mhInit',[^\n]*\n(?:\s*'gift',[^\n]*\n)?\s*'bugBadge',/.test(BOOT), '시작은 app-boot STEPS 의 bugBadge(mhInit 다음) 한 곳');
@@ -499,7 +499,7 @@ say('§6 바깥 주소 열기');
   const none = runLink(UI, { closest: () => null }), noComp = runLink(UI, link('https://x.example/a'), false);
   chk(!!none && none.handled === false && !!noComp && !noComp.threw && noComp.handled, '  다른 곳을 누르면 false(버튼 처리로) · companion 이 없어도 던지지 않는다');
   const broke = runLink(UI.replace("const url = safeHtml.safeUrl(ln.dataset.url, 'link');", 'const url = ln.dataset.url;'), link('javascript:alert(1)'));
-  chk(!!broke && broke.opened.length === 1, '  깨 보기 — 다시 거르기를 빼면 javascript: 가 열린다 → 위 판정이 빨강');
+  chk(!!broke && broke.opened.length === 1, '  mutation test — 다시 거르기를 빼면 javascript: 가 열린다 → 위 판정이 빨강');
   chk(/\$\('bbDetailView'\)\.addEventListener\('click', \(e\) => \{\n\s*if\(openDetailLink\(e\)\) return;/.test(UI), '  상세 화면 누르기가 이 처리를 먼저 거친다');
   chk(/const linked = \(s\) => safeHtml\.linkify\(s\);/.test(UI) && /'<div class="bb-body">' \+ linked\(d\.body\)/.test(UI) && (UI.match(/<div class="bb-ans-t">' \+ linked\(a\.text\)/g) || []).length === 2,
     '본문 · 운영자 답변 · 글쓴이 답글의 주소는 linkify 로 누를 수 있는 칸이 된다');
@@ -508,7 +508,7 @@ chk(/\.ext-link\{[^}]*cursor:pointer/.test(HTML), '  주소 칸 모양(.ext-link
 
 (async () => {
   await judgeUi(UI);
-  say('§7 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+  say('§7 mutation test — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['목록 gen 비교를 뺌', UI.replace('if(g !== listGen) return;   // 그사이', 'if(false) return;   // 그사이'), '늦은 옛 필터 답이 덮음'],
     ['글 gen 비교를 뺌', UI.replace('if(g !== postGen) return;   // 그사이', 'if(false) return;   // 그사이'), '늦은 앞 글 답이 덮음'],
@@ -532,6 +532,6 @@ chk(/\.ext-link\{[^}]*cursor:pointer/.test(HTML), '  주소 칸 모양(.ext-link
     chk(qfail > 0, name + ' → 빨강(' + what + ')');
   }
   say('');
-  say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅ — 버그제보 게시판은 서버 길로 받고 쓰며, 늦은 답 · 연타 · 실패를 화면이 갈래대로 다룬다');
+  say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅ — 버그제보 게시판은 서버 경로로 받고 쓰며, 늦은 답 · 연타 · 실패를 화면이 갈래대로 다룬다');
   process.exit(fail ? 1 : 0);
 })();

@@ -131,7 +131,7 @@ function sentOf(d){
   if(!isObj(d) || !nonEmpty(d.giftId) || !cnt(d.sentToday) || !cnt(d.dailyMax)) return undefined;
   return { giftId: d.giftId, sentToday: d.sentToday, dailyMax: d.dailyMax };
 }
-/* UTF-16 n 자까지 — 끝이 이모지 짝(서로게이트)의 앞 반쪽이면 그것도 뺀다(입력칸 maxlength · 서버 길이 셈과 같은 단위) */
+/* UTF-16 n 자까지 — 끝이 이모지 짝(서로게이트)의 앞 반쪽이면 그것도 뺀다(입력칸 maxlength · 서버 경로가 셈과 같은 단위) */
 function clip(text, n){
   let t = text.slice(0, n);
   const last = t.charCodeAt(t.length - 1);

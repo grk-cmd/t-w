@@ -4,7 +4,7 @@
      app.js 쪽 연결은 아무 검사도 돌려 보지 않았다. app.js 의 조각 줄을 그대로 떼어 와 진짜 user-local.js 위에서 돌린다.
    ・1절: 조각 셋(savedDesks · savedItems · savedParts) — start 가 칸마다 따로 읽는다 · 아이템은 읽은 뒤 세션 등록 · 한 칸이 던져도 다른 칸은 읽힌다 · 비동기 등록 실패는 경고(던지지 않음)
    ・2절: 세션이 끝나면 — 계정 몫만 비운다(카탈로그 몫은 남음) · customItems 에서 계정 몫 id 만 지운다(비우기 전에 목록을 보고 지운다 — 순서) · 파츠도 계정 몫만
-   ・3절: 일부러 깨 보기 */
+   ・3절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -70,7 +70,7 @@ async function judge(app) {
 (async () => {
   say('── 1~2. app.js 의 저장 목록 세 조각을 진짜 user-local 위에서 돌린다');
   (await judge(APP)).forEach(([ok, msg]) => chk(ok, msg));
-  say('── 3. 일부러 깨 보기 — 빨강이 나야 한다');
+  say('── 3. mutation test — 빨강이 나야 한다');
   const breaks = [
     ['세 칸을 한 조각으로 묶음(책상 칸이 깨지면 나머지 안 읽힘)', (m) => m.replace("  { name: 'savedDesks', load: ()=>commissionMod.loadLocalDesks(), reset: ()=>{ commissionMod.resetLocalDesks(); } },\n", '').replace("load: ()=>{ commissionMod.loadLocalItems();", "load: ()=>{ commissionMod.loadLocalDesks(); commissionMod.loadLocalItems();")],
     ['아이템 비우기가 customItems 를 안 지움', (m) => m.replace("commissionMod.savedItems().filter(p=>!p.fromCatalog).forEach(p=>{ delete customItems[p.id]; }); ", '')],

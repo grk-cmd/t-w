@@ -6,7 +6,7 @@
           두 번째 죽음(횟수 다 참)에도 되돌리기 · 정상 종료 · 사용자가 끈 것은 손대지 않음 · 다른 창은 손대지 않음
           · 화면이 스스로 다시 불러와도(did-navigate · WebGL 복구 — B-1114-5) 되돌리기 · 처음 로드 · 막힐 이동의 시작(did-start-navigation) · 해시 이동은 넘김 · 한 로드 사이 한 번만(launcher/reload-reset.js)
    ・2절: _resetWindowToLauncher — 런처 모드로 창 맞추기 · 클릭 통과 끄기 · 창이 없으면 아무것도 안 함
-   ・3절: 일부러 깨 보기
+   ・3절: mutation test
    [실행] node checks/run.js sim-renderer-gone-reset */
 'use strict';
 const fs = require('fs');
@@ -120,7 +120,7 @@ say('── 1. 죽음 알림');
 judgeGone(MAIN).forEach(([ok, msg]) => chk(ok, msg));
 say('── 2. 창 되돌리기');
 judgeReset(MAIN).forEach(([ok, msg]) => chk(ok, msg));
-say('── 3. 일부러 깨 보기');
+say('── 3. mutation test');
 const GONE_LINE = /\n {4}if\(win === mainWindow\)\{ try\{ reloadReset\.beforeReload\(\);[^\n]*/;
 const breaks = [
   ['되돌리기를 안 부름', () => judgeGone(MAIN.replace(GONE_LINE, ''))],

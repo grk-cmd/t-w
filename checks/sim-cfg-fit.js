@@ -7,7 +7,7 @@
      ・4절: 런처 HTML 이 카드가 창보다 길 때 스크롤되는가 — 예전 align-items:center 가 위아래를 동시에 잘랐다.
      ・5절: 런처 자리를 설정 파일에 — 거르기 · 몰아 저장 · 읽기 · 첫 창.
      ・6절: 'moved' 가 어느 모드 자리로 적나 — 받은 창 모드(_configModeNow) 그대로라 배율이 다른 모니터(액정타블렛 등)로 끌어 크기가 어긋나도 런처 자리를 적는다 ·
-            실행 화면이면 안 적는다 · 끌 때 창 자리를 다시 재지 않는다 · 켤 때 진단 한 줄 · 깨 보기.
+            실행 화면이면 안 적는다 · 끌 때 창 자리를 다시 재지 않는다 · 켤 때 진단 한 줄 · mutation test.
    [실행] 원본(main.js · desk-companion-prototype.html)이 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
 const fs = require('fs');
@@ -199,8 +199,8 @@ else{
     chk(h.f.mode() === 'launcher', '같은 요청 되풀이 뒤에도 모드 그대로'); }
 }
 
-/* 일부러 깨 보기 — 하나라도 못 잡으면 빨강 */
-say('── 3-c. 일부러 깨 보기(모드 한 값)');
+/* mutation test — 하나라도 못 잡으면 빨강 */
+say('── 3-c. mutation test(모드 한 값)');
 if(MhP && harness){
   const mutate = (from, to) => { const m = MAIN.replace(from, to); return m === MAIN ? null : m; };
   const m1 = mutate("  const prevMode = _curMode;", "  const prevMode = 'run';");
@@ -259,7 +259,7 @@ else{
     chk((S.logs || []).length === 2 && S.logs[1] === '[창] 런처 자리 저장 5,6', '  쓸 때마다 진단 한 줄(«[창] 런처 자리 저장 x,y») — 같은 자리라 안 쓴 때는 안 남긴다');
     const B = mkStage(remSrc.replace('_saveLauncherPosSoon();', 'saveSettings();'), flushSrc);
     for(let i = 0; i < 30; i++) B.rem('launcher', { x: 100 + i, y: 200 });
-    chk(B.saved.length > 1, '  깨 보기 — 옮길 때마다 바로 쓰면 위 «아직 안 쓴다» 가 빨강(' + B.saved.length + ' 번)');
+    chk(B.saved.length > 1, '  mutation test — 옮길 때마다 바로 쓰면 위 «아직 안 쓴다» 가 빨강(' + B.saved.length + ' 번)');
     /* 다른 저장(줌 · 모니터 고르기)이 파일에 새 자리를 먼저 쓴 뒤 런처가 옛 자리로 돌아와도 그 자리를 쓴다 */
     const C = mkStage(remSrc, flushSrc);
     C.rem('launcher', { x: 1, y: 1 }); C.fire();              // 파일 = (1,1)
@@ -278,7 +278,7 @@ else{
   chk(/launcherPos: savedPos\.launcher,/.test(grabFn(MAIN, 'saveSettings') || ''), '  저장할 때 launcherPos 를 같이 적는다');
   chk(/_fitConfigRect\('launcher', _modeSize\('launcher'\), primaryDisplay, savedPos\.launcher\)/.test(grabFn(MAIN, 'createWindow') || ''), '첫 창은 기억한 자리로 — _fitConfigRect 가 그 자리의 모니터 작업영역 안으로 당긴다(1절)');
   const broke = mkPos(posSrc.replace('Math.abs(n) <= LAUNCHER_POS_MAX', 'true'));
-  chk(broke({ x: 0, y: 100001 }) !== null, '  깨 보기 — 상한 검사를 빼면 위 «모양이 틀린 값»(상한 넘음)이 빨강');
+  chk(broke({ x: 0, y: 100001 }) !== null, '  mutation test — 상한 검사를 빼면 위 «모양이 틀린 값»(상한 넘음)이 빨강');
 }
 
 /* ── 6. 'moved' 가 어느 모드 자리로 적나 ── */
@@ -288,7 +288,7 @@ if(!cmnSrc){ huh('_configModeNow 를 못 찾음'); fail++; }
 else{
   const nowOf = (src, mode) => new Function('_curMode', src + '\nreturn _configModeNow();')(mode);
   chk(['launcher', 'creator', 'animal', 'myhome'].every(m => nowOf(cmnSrc, m) === m) && nowOf(cmnSrc, 'run') === null, '런처 · 생성기 · 동물 · 마이홈이면 그 모드 · 실행 화면이면 null(적지 않는다)');
-  chk(nowOf(cmnSrc.replace("_curMode === 'run' ? null : _curMode", '_curMode'), 'run') === 'run', '  깨 보기 — 실행 화면을 거르지 않으면 빨강(전체화면 자리가 런처 자리로 적힌다)');
+  chk(nowOf(cmnSrc.replace("_curMode === 'run' ? null : _curMode", '_curMode'), 'run') === 'run', '  mutation test — 실행 화면을 거르지 않으면 빨강(전체화면 자리가 런처 자리로 적힌다)');
 }
 /* 배선 */
 /* 끌 때 창 자리를 다시 재지 않는다 — 액정타블렛을 꺼 둔 채 켜면 런처가 주 모니터로 당겨져 뜨는데, 끌 때 그 자리로 덮으면
@@ -325,7 +325,7 @@ chk(!Q0.err.length && Q0.reads === 0 && Q0.kept && Q0.saved === 0, '끌 때(_exi
 const helper = "function _remQ(){ const b = mainWindow.getBounds(); savedPos.launcher = { x: b.x, y: b.y }; }\n";
 const QB1 = runQuit(helper + MAIN.replace('try{ _flushLauncherPos(); }catch(_){}', 'try{ _remQ(); _flushLauncherPos(); }catch(_){}'));
 const QB2 = runQuit(helper + MAIN.replace("try { _flushLauncherPos(); } catch (_) {} });", "try { _remQ(); _flushLauncherPos(); } catch (_) {} });"));
-chk(QB1.reads > 0 && !QB1.kept && QB2.reads > 0 && !QB2.kept, '  깨 보기 — 끄는 두 길 어디든 도움 함수를 거쳐 창 자리를 다시 재면 빨강(_exitNow ' + QB1.reads + ' · before-quit ' + QB2.reads + ')');
+chk(QB1.reads > 0 && !QB1.kept && QB2.reads > 0 && !QB2.kept, '  mutation test — 끄는 두 길 어디든 도움 함수를 거쳐 창 자리를 다시 재면 빨강(_exitNow ' + QB1.reads + ' · before-quit ' + QB2.reads + ')');
 const acm = grabFn(MAIN, '_applyConfigMode') || '';
 chk(acm.indexOf('_curMode = ') > 0 && acm.indexOf('_curMode = ') < acm.indexOf('_fitConfigRect(') && acm.indexOf('_curMode = ') < acm.indexOf('setBounds('),
   '_applyConfigMode 가 창을 맞추기 전에 모드를 건다(맥은 setBounds 중에도 \'moved\' 가 온다)');

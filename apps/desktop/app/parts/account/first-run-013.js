@@ -59,19 +59,12 @@ function pendingStep(name){ return async () => ({ ok: false, pending: true, reas
 function loginStep(isIn){ return async () => (isIn() ? { ok: true, wipe: LOGIN_LEGACY_KEYS.slice() } : { ok: false, reason: '서버 계정 확인 전' }); }
 
 /* 라이선스 키 단계(D8-3) — 이 PC 의 옛 키(tw.licenseKey)를 서버에 올리고 지우라고 한다.
-   · 키 없음 → 통과
-   · 해제 표시(license-premium.js parseOptOut — 켤 때 본 값 optOutAtStart)가 0.12 값이고 이 PC 의 키와 같음(다듬고 대문자) → 올리지 않고 키만 지움(사용자가 일부러 뺀 키)
-     해제 표시는 남긴다 — 0.13 에서도 자동 등록을 막는 표시다(license-premium.js [자동 등록])
-   · 0.12 해제 표시가 다른 키 → 낡은 표시다(0.12 는 해제한 그 키만 막았다 — K1 을 해제하고 K2 를 넣은 PC). 키를 올리고 표시도 지운다
-   · 등록 성공(내 키 다시 등록 = 기기 갱신) → 지움(프리미엄 다시 확인은 activate 가 한다)
-   · 서버가 «이 키는 더 쓸 길이 없다» 고 답함(남의 키 · 없는 키 · 회수된 키) → 지움 + 안내 한 번 · 이미 이 계정에 라이선스 있음 → 안내 없이 지움(이미 프리미엄)
-   · 기기 가득 → 지움 + 기기 관리 안내(글은 license-premium.js FULL_NOTICE — deps.fullNotice). 그 라이선스에 이미 안내했으면(activate 의 showFull false) 안내 없이
-   · 이 단계가 키로 등록을 해 봤으면(성공 · 확인 늦음 · 기기 가득) took 을 단다 — licenseDone() 이 참이 되어 켤 때 자동 등록(license-premium.js autoRegisterAfter)이 비켜선다.
-     뒤 단계(포커스 · 달성표)가 멈춰도 took 은 그대로 간다(멈춘 결과에도 싣는다).
-     기기 가득 안내는 activate 가 기억에 적었을 때(showFull true)만 noticeNow 를 달아 멈출 때 띄운다 — 다음 실행은 showFull false 라 다시 안 띄운다.
-     기억에 못 적었으면(showFull 없음 — 계정에 아직 라이선스가 없어 id 를 모름) 다른 안내처럼 첫 실행이 끝날 때 한 번만 띄운다
-     이미 라이선스 있음 · 쓸 수 없는 키 · 해제한 키 · 멈춤은 took 없음 — 자동 등록이 이 기기를 맡는다
-   · 그 밖(네트워크 · 5xx · 로그인 풀림 · 응답 모양)은 멈춤(ok:false) — 아무것도 안 지운다 · 다음 실행에 다시
+   · 0.12 해제 표시가 이 키와 같으면 사용자가 일부러 뺀 키라 올리지 않는다. 표시는 남긴다 — 0.13 에서도 자동 등록을 막는다.
+     표시가 다른 키면 낡은 표시라(0.12 는 해제한 그 키만 막았다) 키를 올리고 표시도 지운다.
+   · 서버가 «다시 쓸 수 없는 키» 라고 답한 갈래는 다시 올려도 같으니 지운다. 네트워크 · 5xx · 로그인 풀림은 아무것도 안 지우고 멈춘다(다음 실행에 다시).
+   · 키로 등록을 해 봤으면 took 을 단다 — 켤 때 자동 등록(license-premium.js autoRegisterAfter)이 비켜서게. 뒤 단계가 멈춰도 싣는다.
+   · 기기 가득 안내는 activate 가 기억에 적었을 때만 멈출 때 바로(noticeNow) 띄운다 — 다음 실행은 기억을 보고 안 띄운다.
+     못 적었으면(라이선스 id 를 아직 모름) 다른 안내처럼 첫 실행이 끝날 때 한 번.
    서버 code 는 license-api.js CODE 와 같은 글자(sim-first-run-013 이 맞춰 본다). */
 const LICENSE_KEY_STORAGE = 'tw.licenseKey';
 const LICENSE_CODE = Object.freeze({ DEVICE_FULL: 'LICENSE_DEVICE_FULL', NOT_FOUND: 'LICENSE_NOT_FOUND', REVOKED: 'LICENSE_REVOKED',

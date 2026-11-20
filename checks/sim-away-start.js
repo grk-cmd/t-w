@@ -5,7 +5,7 @@
    ・2절: 크기만(url 없음) — 이 기기의 옛 그림은 비우고 크기는 서버 값으로
    ・3절: awayImage 없음 — 이 기기의 옛 그림을 비운다(관리자가 내렸거나 다른 기기에서 지움) · 크기는 이 기기 값 그대로
    ・4절: 서버에 크기가 없으면(그림만 · 고른 적 없음) 이 기기 크기를 그대로 둔다 · 같은 값이면 다시 쓰지 않는다 · 모양이 틀린 값(다른 사이트 주소 · 60/80/100 밖)은 받지 않는다
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -98,7 +98,7 @@ function judge(src){
 
 (function(){
   judge(MOD0);
-  say('── 5. 일부러 깨 보기');
+  say('── 5. mutation test');
   const BREAKS = [
     ["if(srv !== awayImgUrl){ _awaySetLocal(srv); _awayRenderUI(null); }", "", '서버 그림을 이 기기에 안 맞춘다'],
     ["const srv = (a && _awayUrlOk(a.url)) ? a.url : '';", "const srv = (a && _awayUrlOk(a.url)) ? a.url : awayImgUrl;", '서버에 그림이 없어도 이 기기 그림을 둔다'],
@@ -114,7 +114,7 @@ function judge(src){
     quiet = false;
     if(qfail === 0) missed.push(what);
   }
-  chk(!missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+  chk(!missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
   console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
   process.exit(fail ? 1 : 0);
 })();

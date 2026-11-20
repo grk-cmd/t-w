@@ -4,7 +4,7 @@
    §2 main.js 의 _setRunTop · _onSysPromptFront 를 꺼내 가짜 창에 돌린다 — 확인 창이 오면 내리고, 물러나면 다시 맨 위(screen-saver),
       런처 · 생성기(설정 모드)에서는 건드리지 않고, 같은 값이 다시 와도 다시 부르지 않는다
    §3 연결 — 활성 창 폴링이 판정을 부르고, 창 배치(run)도 같은 깃발로 맨 위를 정한다(수백 번/분 다시 올리지 않게)
-   §4 깨 보기 */
+   §4 mutation test */
 'use strict';
 const fs = require('fs');
 const say = console.log;
@@ -83,7 +83,7 @@ chk(/if\(w === mainWindow\) _setRunTop\(!_sysPromptFront\);/.test(MAIN), '색 �
 chk(/_winAlreadyIs\(rect, !_sysPromptFront\)\) return;/.test(MAIN) && /_noteApplied\(rect, !_sysPromptFront\);/.test(MAIN), '표시 설정이 바뀔 때도 같은 깃발로 판정 · 기록');
 chk(!/_winAlreadyIs\(rect, true\)/.test(MAIN), '  ↳ 실행 화면을 «늘 맨 위» 로 판정하는 자리가 남지 않음');
 
-say('§4 깨 보기');
+say('§4 mutation test');
 const b1 = MAIN.replace("  if(top) mainWindow.setAlwaysOnTop(true, overlay.TOP_LEVEL);\n  else mainWindow.setAlwaysOnTop(false);", "  mainWindow.setAlwaysOnTop(true, overlay.TOP_LEVEL);");
 const r1 = b1 !== MAIN ? run(b1) : null;
 if (r1) r1.api.on(true);

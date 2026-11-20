@@ -8,7 +8,7 @@
    ・3절: 키 등록 · 이 기기 해제 — 서버 확인으로만 성공 · 해제하면 해제 표시를 적음 · 키 등록 · [이 기기 등록] 은 지움
    ・4절: ★ 모름 동안 접기 0번 — 계정 핵심 상태 + 전용 자산 접기를 실제로 이어 붙여: 프리미엄은 한 번도 접히지 않고, 아님은 확인 뒤 접힌다
    ・5절: 배선 — 프리미엄을 바꾸는 곳 하나 · 쓰기 응답(PATCH /v2/me)을 따르지 않음 · 시작은 켜는 차례 한 곳
-   ・6절: 일부러 깨 보기
+   ・6절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -522,7 +522,7 @@ async function judge(S){
     t(none.early.join() === '0,0' && none.mid.join() === '0' && none.def.deskCatalogId === null && none.def.deskLicenseHold === 'desk_gaming' && none.world.saves === 0,
       '프리미엄이 아닌 사용자 — locked 를 받기 전은 그대로, 서버가 locked:true 로 주면 그때 화면에서만 접는다(저장 0)');
     const broken = await boot({ premium: true, paSrc: S.PA.split('rec.locked === true').join('rec.licenseOnly') });
-    t(S.PA.includes('rec.locked === true') && (broken.world.pushes > 0 || broken.def.deskCatalogId === null), '  ↳ 깨 보기: 분류(licenseOnly)로 접으면 프리미엄 사용자도 접힌다(= 위 판정이 빨강이 된다)');
+    t(S.PA.includes('rec.locked === true') && (broken.world.pushes > 0 || broken.def.deskCatalogId === null), '  ↳ mutation test: 분류(licenseOnly)로 접으면 프리미엄 사용자도 접힌다(= 위 판정이 빨강이 된다)');
   }
 
   /* 5. 배선 */
@@ -533,7 +533,7 @@ async function judge(S){
     const setCalls = (A.match(/_setPremium\(/g) || []).length;
     t(setCalls === 1 && /setPremium: \(v\)=>acctStateMod\._setPremium\(v\),/.test(A), 'app.js 에서 _setPremium 을 잇는 곳은 판정 모듈 하나');
     t((A.match(/licensePremiumMod\.start\(/g) || []).length === 1 && /licensePremium: \(code, me, session\)=>\{ session\.onReset\(\(\)=>licensePremiumMod\.reset\(\)\); return licensePremiumMod\.start\(me\); \}/.test(A), '시작은 켜는 차례 한 곳(계정 확인이 준 me 로) · 세션이 끝나면 reset 을 부른다 — 만들 때 요청 · 구독 없음');
-    t(!/loadLicenseFromStorage|startLicenseVerify|redeemLicense|verifyLicense/.test(A), '옛 길(이 PC 키로 먼저 켜기 · Firebase 로 재검증)이 app.js 에 없다');
+    t(!/loadLicenseFromStorage|startLicenseVerify|redeemLicense|verifyLicense/.test(A), '옛 경로(이 PC 키로 먼저 켜기 · Firebase 로 재검증)이 app.js 에 없다');
     t(/premium\.deactivate\(\{ ownerKnown: true \}\);\n\s*if\(g !== gen \|\| r\.stale\) return/.test(S.LS), '  reset 으로 버린 늦은 답(stale)은 부르는 쪽이 알리지 않는다(설정 › 라이선스 화면 해제)');
     t(/made = true|createLicensePremium/.test(A) && !/licensePremiumMod\.(refresh|activate|deactivate)\(/.test(A.replace('activate: (key)=>licensePremiumMod.activate(key),', '')), '  버튼은 모듈(license-screen.js)이 부른다 — app.js 는 첫 실행 키 올리기(D8-3)가 쓰는 activate 한 줄만');
   }
@@ -543,7 +543,7 @@ async function judge(S){
 (async () => {
   const rows = await judge(SRC);
   rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1~5. 판정 모듈을 실제로 돌려 본다'); chk(ok, msg); });
-  say('── 6. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+  say('── 6. mutation test — 하나라도 못 잡으면 빨강');
   const mut = (k, f) => Object.assign({}, SRC, { [k]: f(SRC[k]) });
   const breaks = [
     ['프리미엄을 확인 응답이 오기 전에 먼저 켬', mut('LP', (s) => s.replace("function settle(me){\n    setPremium(me.premium === true);", "function settle(me){\n    setPremium(true);\n    setPremium(me.premium === true);"))],

@@ -3,7 +3,7 @@
    여기서는 모듈 모양 · app.js 연결 · 서버 밖으로 아무것도 안 보내는 것을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름 17개(STAR_PALETTE · _mobile… · addFocusSeconds · focusCycleOf · formatHMS · getFocusLevel · getStarColor · lvStarStr · myFocusShow · myStarOut · setStarColor · starFromRemote)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 줄 그대로 · 부르는 곳은 focusLevelMod.이름 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · focus-level.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -96,8 +96,8 @@ const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
 say('── 2-2. 쌓기 — 서버에 올릴 몫으로만 넘긴다');
 chk(judgeAdd(MOD), '계정 칸이 열린 뒤: 오늘 시간에 더하고 3초를 미전송분에 넘긴다 · firebaseAPI 호출 0 · 열리기 전엔 아무것도 안 쌓는다');
-chk(!/sendInboxMessage|setMyProfile|syncFocusTotal|fetchProfileStarC|tw\.starColor|focusSyncedSec|danceNotified|ideskNotified/.test(strip(MOD)), '걷은 Firebase 길 · 해금 우편 · 옛 키 이름이 코드에 없다');
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+chk(!/sendInboxMessage|setMyProfile|syncFocusTotal|fetchProfileStarC|tw\.starColor|focusSyncedSec|danceNotified|ideskNotified/.test(strip(MOD)), '걷은 Firebase 경로 · 해금 우편 · 옛 키 이름이 코드에 없다');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 {
   const m1 = MOD.replace('progress.addSeconds(sec);', '');
   chk(m1 !== MOD && !judgeAdd(m1), '미전송분으로 안 넘기면 — 쌓기 판정이 빨강');
@@ -116,7 +116,7 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const focusLevelMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('focusLevelMod.' + x)); if(n){ ls[i] = ls[i].replace('focusLevelMod.' + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 던짐', m => m.replace('function createFocusLevel(deps){', 'function createFocusLevel(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createFocusLevel(deps){', 'function createFocusLevel(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;

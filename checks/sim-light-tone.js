@@ -5,7 +5,7 @@
    ・1절: 만들 때 · 상수 — 내놓는 이름 아홉 · LIGHT_PRESET · CREATOR_LIGHT_SL · TONE_FRONT_TOTAL · FLAT_EMISSIVE 식(조명 상수가 크면 0)
    ・2절: _applyPartMatTone — 텍스처 / 색 없음 / null · 3절: _applyItemMatTone — 텍스처 · solid · emissiveIntensity
    ・4절: _setDeskMatColor — 색 · baseFlat 처음 심기 / 지키기 · 색 없는 재질
-   ・5절: app.js 연결 · 6절: 일부러 깨 보기(코어 빌드 사본을 깨 보는 것 포함 — 파츠 톤 · baseFlatOf 는 코어 tone.ts)
+   ・5절: app.js 연결 · 6절: mutation test(코어 빌드 사본을 깨 보는 것 포함 — 파츠 톤 · baseFlatOf 는 코어 tone.ts)
    ・7절: 실행 화면 조명 addRunLights — 일곱 자리(메인 · 종족 선택 · 런처 · 꾸미기 · 스티커사진 · 썸네일 · 동물 카드)가 손으로 적던 빛과
      색 · 세기 · 자리 · 차례가 같은가(옛 글을 그대로 옮긴 기대값과 === 로 견줌) · 그 자리들이 빛을 다시 손으로 적지 않는가
      · 세기를 다시 정하는 생성기 둘(생성기 미리보기 creator-preview.js · 동물 생성기 animal.js)도 addRunLights 로 만들고 runLightInts 로 세기를 읽어
@@ -215,7 +215,7 @@ rigWire(APP, FILES).forEach(([ok, msg]) => chk(ok, msg));
 const ANI = read('character/animal.js');
 genLights(MOD, ANI).forEach(([ok, msg]) => chk(ok, msg));
 genWire(FILES['creator/creator-preview.js'], ANI).forEach(([ok, msg]) => chk(ok, msg));
-say('── 6. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 6. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['코어 총합 1.05 → 1.10', null, null, null, (c) => c.replace('var TONE_FRONT_TOTAL = 1.05;', 'var TONE_FRONT_TOTAL = 1.10;')],
   ['코어 0 아래 막기 없앰', null, null, null, (c) => c.replace('return Math.max(0, total -', 'return (0, total -')],
@@ -229,7 +229,7 @@ const breaks = [
   ['코어에 넘기는 FLAT 을 0 으로', (m) => m.replace('flatEmissive: FLAT_EMISSIVE,', 'flatEmissive: 0,'), null, null],
   ['solid 아이템 0 으로', (m) => m.replace('const ITEM_SOLID_FLAT = FLAT_EMISSIVE;', 'const ITEM_SOLID_FLAT = 0;'), null, null],
   ['책상 baseFlat 안 심음', (m) => m.replace('if(m.userData.baseFlat == null) m.userData.baseFlat = m.map ? FLAT_EMISSIVE : ITEM_SOLID_FLAT;', ''), null, null],
-  ['만들 때 던짐', (m) => m.replace('function createLightTone(deps){', 'function createLightTone(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', (m) => m.replace('function createLightTone(deps){', 'function createLightTone(deps){ throw new Error("mutation");'), null, null],
   ['app.js 에 본문이 남음', null, (a) => a + '\nfunction _setDeskMatColor(){}', null],
   ['옛 전역 이름 줄 빠짐', null, (a) => a.replace(/^const LIGHT_PRESET = lightToneMod\.LIGHT_PRESET;.*\n/m, ''), null],
   ['app.js 에 baseFlat 판단을 다시 씀', null, (a) => a + '\nconst _f = (m.userData && m.userData.baseFlat!=null) ? m.userData.baseFlat : 0.4;', null],

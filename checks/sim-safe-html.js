@@ -9,7 +9,7 @@
      마크업 글자 안 src="…" · href="…" · url(…) 바로 뒤의 값을 끝(잎)까지 따라간다.
      잎이 글자 · 숫자 리터럴 / TwSafeHtml 함수(text · attr · safeUrl · cssUrl) / 그 별칭(escHtml · _chatEsc · 리치 텍스트 _mhLoadRT · _mhPurify — DOMPurify) /
      숫자를 돌려주는 것 / 같은 파일 안 상수 표 가 아니면 빨강. 예외는 아래 ALLOW 에 «이유» 와 함께만(파일|식 글자).
-   ・3절: 깨 보기 — 날값을 붙인 가짜 파일 · 약한 escape · 위험한 주소가 빨강이 나는지 */
+   ・3절: mutation test — 날값을 붙인 가짜 파일 · 약한 escape · 위험한 주소가 빨강이 나는지 */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -679,15 +679,15 @@ if (oc) {
   chk(oc.blankOther.act === 'deny' && !oc.blankOther.ext.length, '모르는 이름의 빈 창은 막는다');
   chk(oc.remoteAsChild.act === 'deny' && oc.remoteAsChild.ext.length === 1, '원격 주소는 자식 창 이름을 달아도 앱 창으로 안 연다(기본 브라우저로)');
   chk(oc.file.act === 'deny' && !oc.file.ext.length && oc.js.act === 'deny' && !oc.js.ext.length, 'file: · javascript: 는 막고 아무것도 안 연다');
-  /* 깨 보기 — 맨 끝 막기를 옛 «그 외 allow» 로 되돌리면 빨강이 나야 한다 */
+  /* mutation test — 맨 끝 막기를 옛 «그 외 allow» 로 되돌리면 빨강이 나야 한다 */
   const broken = mainSrc.replace(/(setWindowOpenHandler[\s\S]*?)return \{ action:'deny' \};\n  \}\);/, "$1return { action:'allow' };\n  });");
   const ob = broken !== mainSrc && openCases(broken);
-  chk(!!ob && ob.blankOther.act === 'allow', '깨 보기 — 그 밖의 창을 allow 로 되돌리면 «모르는 이름의 빈 창» 이 열림 → 위 판정이 빨강');
+  chk(!!ob && ob.blankOther.act === 'allow', 'mutation test — 그 밖의 창을 allow 로 되돌리면 «모르는 이름의 빈 창» 이 열림 → 위 판정이 빨강');
 }
 
-/* ── 3절: 깨 보기 ────────────────────────────────────────────── */
-say('\n── 3절: 깨 보기');
-const red = (src, why) => chk(scanSource('fake.js', src).length > 0, '깨 보기 — ' + why + ' → 빨강');
+/* ── 3절: mutation test ────────────────────────────────────────────── */
+say('\n── 3절: mutation test');
+const red = (src, why) => chk(scanSource('fake.js', src).length > 0, 'mutation test — ' + why + ' → 빨강');
 const green = (src, why) => { const h = scanSource('fake.js', src); chk(!h.length, '안 깨짐 — ' + why + (h.length ? ' (잡힘: ' + h.map(x => x.expr).join(' · ') + ')' : '')); };
 red("function f(el, m){ el.innerHTML = '<div>' + m.name + '</div>'; }", '날값 이름을 innerHTML 에');
 red("function f(el, m){ el.innerHTML = `<b>${m.name}</b>`; }", '템플릿으로 날값');
@@ -704,7 +704,7 @@ red("function f(el, u){ el.style.background = u; }", 'style.background 에 날�
 red("function f(el, m){ el.innerHTML = '<div style=\"background:url(' + m.pic + ')\"></div>'; }", '마크업 안 url( 에 날 주소');
 red("function row(a){ return '<td>' + a + '</td>'; } function f(el, m){ el.innerHTML = row(m.name); }", '도우미 함수로 넘긴 날값');
 red("function esc(s){ return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]); } function f(el, m){ el.innerHTML = esc(m.name); }", '집에서 만든 escape(공용이 아님)');
-chk(homeMadeEscapes('fake.js', "function esc(s){ return String(s).replace(/[&<>\"]/g, c => ({'&':'&amp;','<':'&lt;'})[c]); }").length === 1, '깨 보기 — 집에서 만든 escape 함수 → 빨강');
+chk(homeMadeEscapes('fake.js', "function esc(s){ return String(s).replace(/[&<>\"]/g, c => ({'&':'&amp;','<':'&lt;'})[c]); }").length === 1, 'mutation test — 집에서 만든 escape 함수 → 빨강');
 green("function f(el, m){ el.innerHTML = '<div>' + TwSafeHtml.text(m.name) + '</div>'; }", 'TwSafeHtml.text 로 감쌈');
 green("const safeHtml = TwSafeHtml; function f(el, m){ el.innerHTML = `<b title=\"${safeHtml.attr(m.t)}\">${safeHtml.text(m.name)}</b>`; }", '별칭 safeHtml');
 green("const escHtml = deps.escHtml; function f(el, m){ el.innerHTML = '<i>' + escHtml(m.name) + '</i>'; }", 'deps.escHtml 별칭');
@@ -726,9 +726,9 @@ green("function f(el, t){ el.innerHTML = TwSafeHtml.text(t).replace(/\\n/g, '<br
   const src = fs.readFileSync(SAFE_PATH, 'utf8');
   const load = (code) => { const m = { exports: {} }; new Function('module', 'window', code)(m, undefined); return m.exports; };
   const raw = load(src.replace("attr(url) + '\">' + text(raw)", "url + '\">' + raw"));
-  chk(!raw.linkify('https://x.example/a?b=1&c=2').includes('&amp;'), '깨 보기 — linkify 가 주소를 안 씻으면 & 가 날로 들어감 → 위 «& 는 씻는다» 가 빨강');
+  chk(!raw.linkify('https://x.example/a?b=1&c=2').includes('&amp;'), 'mutation test — linkify 가 주소를 안 씻으면 & 가 날로 들어감 → 위 «& 는 씻는다» 가 빨강');
   const noFilter = load(src.replace("const url = safeUrl(raw, 'link');", 'const url = raw;'));
-  chk(noFilter.linkify('https://x.example/' + 'a'.repeat(2100)) !== SH.linkify('https://x.example/' + 'a'.repeat(2100)), '깨 보기 — safeUrl 을 빼면 상한 넘는 주소도 칸이 됨 → 위 판정이 빨강');
+  chk(noFilter.linkify('https://x.example/' + 'a'.repeat(2100)) !== SH.linkify('https://x.example/' + 'a'.repeat(2100)), 'mutation test — safeUrl 을 빼면 상한 넘는 주소도 칸이 됨 → 위 판정이 빨강');
 }
 say(`\n결과: ${pass}·${fail}`);
 process.exit(fail ? 1 : 0);

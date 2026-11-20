@@ -3,7 +3,7 @@
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(_mhStickerDragDist · setMhStickerDragDist · loadMyHomePage · renderMyHomePage)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 6줄 그대로 · 부르는 곳은 mhPageMod.이름 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · myhome-page.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -119,7 +119,7 @@ rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i =
 say('── 2-2. 받기 — 내 집이면 상태 주인에게 한 번 · 구경 중이면 0');
 chk(await judgeLoad(MOD), '내 집 → 받기 1 · 친구 홈 구경 중 → 받기 0(내 값을 덮지 않는다)');
 chk(judgeBoxes(MOD), '다시 그리기 — 쓰는 중인 글 칸은 그대로 · 같은 글이면 안 건드림 · 다르면 갈아 끼움');
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 {
   const m2 = MOD.replace("  if(mhStateMod._mhViewingUserId()) return;\n  const pulling", "  const pulling");
   chk(m2 !== MOD && !(await judgeLoad(m2)), '구경 중 확인을 빼면 — 받기 0 판정이 빨강');
@@ -141,7 +141,7 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const mhPageMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('mhPageMod.' + x)); if(n){ ls[i] = ls[i].replace('mhPageMod.' + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 던짐', m => m.replace('function createMyHomePage(deps){', 'function createMyHomePage(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createMyHomePage(deps){', 'function createMyHomePage(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;

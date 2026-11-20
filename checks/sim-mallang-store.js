@@ -1,13 +1,13 @@
 /* ═══ 🧸 sim-mallang-store.js — 말랑이 칸 상태 주인 (0.13 앱 묶음 D7-3) ═══
    [왜] 말랑이 칸(등록 · 켜고 끄기 · 지우기 · 내 집 · 남의 집)의 원본이 서버가 됐다. 저장은 통째 PUT 하나(판 version)라
-     겹쳐 보내면 409 로 내 고침이 사라지고, 늦게 온 답이 새 집 · 새 계정 화면을 덮는다. 그래서 진짜 모듈을 가짜 서버 길 위에서 돌려 순서를 본다.
+     겹쳐 보내면 409 로 내 고침이 사라지고, 늦게 온 답이 새 집 · 새 계정 화면을 덮는다. 그래서 진짜 모듈을 가짜 서버 경로 위에서 돌려 순서를 본다.
    ・1절: 받기 — 받기 전 고치기 잠금(요청 0) · 받은 칸(서버 번호 그대로) · 빈 칸 ≠ 못 받음 · 못 받음 E-GIFT-01 · 공통 code 는 공통 번호
    ・2절: 저장 — 저장 중 고침 두 번 → PUT 두 번(겹치지 않음 · 두 번째가 최신 · 앞 답이 고친 칸을 덮지 않음) · 끝나면 서버 칸 그대로 · 지우면 뒤 칸이 당겨짐
    ・3절: 409 · 실패 — 409 → 잠그고 GET 한 번 · 서버 것으로 · 알림 · 실패 → 화면 그대로 · 번호 한 번 · 혼자 다시 안 보냄 · flush 한 번
    ・4절: 등록 — 올리기 실패면 칸 그대로(E-GIFT-02 · PUT 0) · 올리는 중 또 → busy · 가득 → full · 성공은 PUT 뒤에 ok
    ・5절: 보는 집 · 계정 — 집 gen(앞 집 답이 늦게 와도 버림) · 없는 사람은 «없음»(번호 없음) · 내 집은 내 칸 · reset 뒤 답 버림 · 주인 바뀜은 조용히 · 저장 중 받기 요청 0
    ・6절: 배선 — html · smoke 순서 · app.js 가 만드는 줄 · Firebase · 로컬 저장 · 타이머 없음
-   ・7절: 일부러 깨 보기
+   ・7절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -30,7 +30,7 @@ const flush = async () => { for(let i = 0; i < 6; i++) await new Promise((r) => 
 const apiErr = (status, code) => Object.assign(new Error(code || String(status)), { status, code: code || '', kind: status >= 500 || status === 0 ? 'unavailable' : (status === 401 || status === 403) ? 'auth' : 'request' });
 const slot = (i, name, on) => ({ slot: i, imageUrl: 'https://img/' + name + '.png', enabled: on !== false });
 
-/* 가짜 서버 길 — 부른 것을 적고, 답은 손으로 푼다(hold) 또는 바로(auto) */
+/* 가짜 서버 경로 — 부른 것을 적고, 답은 손으로 푼다(hold) 또는 바로(auto) */
 function mk(S, server){
   const log = [], waits = [];
   const srv = Object.assign({ slots: [slot(0, 'a'), slot(1, 'b')], version: 3, auto: true }, server || {});
@@ -211,7 +211,7 @@ async function judge(S){
     chk(/PRELOAD\.push\('mallang-store\.js'\)/.test(S.SMOKE) && S.SMOKE.indexOf("PRELOAD.push('mallang-store.js')") > S.SMOKE.indexOf("PRELOAD.push('gift-api.js')"), 'smoke PRELOAD 에 mallang-store.js(gift-api.js 뒤)');
     const A = strip(S.APP);
     const iApi = A.indexOf('const giftApiMod = TwGiftApi.createGiftApi({ authed: TwApi.authed'), iSt = A.indexOf('const mallangStoreMod = TwMallangStore.createMallangStore('), iMl = A.indexOf('const mallangMod = TwMallang.createMallang(');
-    chk(iApi > 0 && iSt > iApi && iMl > iSt && (A.match(/TwMallangStore\.createMallangStore\(/g) || []).length === 1, 'app.js — 서버 길 → 칸 상태 주인 → 말랑이 화면 차례로 한 번');
+    chk(iApi > 0 && iSt > iApi && iMl > iSt && (A.match(/TwMallangStore\.createMallangStore\(/g) || []).length === 1, 'app.js — 서버 경로 → 칸 상태 주인 → 말랑이 화면 차례로 한 번');
     chk(/addEventListener\('beforeunload', \(\)=>\{ mallangStoreMod\.flush\(\); \}\)/.test(A), '  앱을 끌 때 못 올린 고침 한 번(flush)');
     const ST = strip(S.ST);
     chk(!/firebase|localStorage|setTimeout|setInterval/.test(ST), '칸 상태 주인은 Firebase · 로컬 저장 · 타이머를 쓰지 않는다(자동 재시도 없음)');
@@ -220,7 +220,7 @@ async function judge(S){
 
 (async () => {
   await judge(SRC0);
-  say('── 7. 일부러 깨 보기');
+  say('── 7. mutation test');
   const S = SRC0;
   const breaks = [
     ['저장 중 고침을 끝난 뒤 안 보냄(again 빠짐)', S.ST.replace("if(saving){ again = true; return saveP; }", "if(saving){ return saveP; }"), 'again'],
