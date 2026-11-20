@@ -322,6 +322,14 @@ async function judge(S){
         focus: async () => ({ ok: false, reason: '멈춤' }) }, storage: sto, userCode: () => 'u1234567890', log: { warn(){} }, notify: (m, a) => told.push([m, a]) });
       await fr.run();
       chk(told.length === 0 && (await fr.licenseDone()) === false, '  ↳ 쓸 수 없는 키 안내(took 아님) + 뒤 단계 멈춤 → 지금 띄우지 않는다(끝낼 때 지우고 한 번)');
+      /* activate 가 기기 가득인데 showFull 이 없음 — 계정에 아직 라이선스가 없어(쓰기 전 읽기가 null) 기억에 못 적었다 */
+      st.clear(); st.set('tw.licenseKey', 'K4'); told.length = 0;
+      const mkNoMark = (stl) => F.createFirstRun({ steps: { login: async () => OK(), gacha: async () => OK(), mallang: async () => OK(), myhome: async () => OK(), legacySync: async () => OK(),
+        licenseKey: F.licenseKeyStep({ storage: sto, optOut: () => null, optOutKey: OPT, fullNotice: LPM.FULL_NOTICE, activate: async () => ({ ok: false, err: err(API.CODE.DEVICE_FULL) }) }),
+        focus: async () => (stl ? { ok: false, reason: '멈춤' } : OK()) }, storage: sto, userCode: () => 'u1234567890', log: { warn(){} }, notify: (m, a) => told.push([m, a]) });
+      const n1 = await mkNoMark(true).run(), n2 = await mkNoMark(true).run(), n3 = await mkNoMark(false).run();
+      chk(!n1.ok && !n2.ok && n3.ok && n1.took.includes('licenseKey') && told.length === 1 && told[0][0] === LPM.FULL_NOTICE && told[0][1] === 'openSettings',
+        '★ activate 기기 가득 · showFull 없음(기억 못 적음) → 멈춤 · 멈춤 · 끝남 → 안내 정확히 한 번(끝날 때) · took 은 멈춰도 실림 — 안내 ' + told.length);
     }
   }
 
@@ -390,15 +398,16 @@ const BREAKS = [
   ['HTML', '<script src="parts/account/first-run-013.js"></script>', '', 'html 에 안 실음'],
   ['FR', "    if(legacy && opt.legacyKey === key.toUpperCase()) return { ok: true, wipe: keyWipe };", "", '해제 표시(OptOut)를 안 봄'],
   ['FR', "if(legacy && opt.legacyKey === key.toUpperCase()) return", "if(legacy) return", '다른 키를 해제한 낡은 표시에도 올리지 않음(0.12 프리미엄 PC 가 잃음)'],
-  ['FR', "return r.showFull === false ? { ok: true, wipe: allWipe, took: true } :", "return false ? { ok: true, wipe: allWipe, took: true } :", '이미 안내한 라이선스에 기기 가득 안내를 또'],
-  ['FR', "notice: deps.fullNotice, action: 'openSettings' };", "notice: '기기를 모두 썼어요', action: 'openSettings' };", '기기 가득 글을 따로 박음(두 벌)'],
+  ['FR', "if(r.showFull === false) return { ok: true, wipe: allWipe, took: true };", "if(false) return { ok: true, wipe: allWipe, took: true };", '이미 안내한 라이선스에 기기 가득 안내를 또'],
+  ['FR', "notice: deps.fullNotice, action: 'openSettings', noticeNow:", "notice: '기기를 모두 썼어요', action: 'openSettings', noticeNow:", '기기 가득 글을 따로 박음(두 벌)'],
   ['FR', "return { ok: true, wipe: allWipe, took: true };   // 등록됐다", "return { ok: true, wipe: allWipe };   // 등록됐다", '키 등록 성공에 took 없음(자동 등록이 또 함)'],
   ['FR', "{ ok: true, wipe: allWipe, took: true, notice: deps.fullNotice", "{ ok: true, wipe: allWipe, notice: deps.fullNotice", '기기 가득에 took 없음(자동 등록이 또 함)'],
   ['FR', "      if(r.took === true) took.push(name);\n", "", '단계의 took 을 모으지 않음'],
   ['FR', "!!(r && Array.isArray(r.took) && r.took.includes('licenseKey'))", "!!(r && r.ok)", 'licenseDone 이 라이선스 단계가 아니어도 참'],
-  ['FR', "        tell(notices.filter((n) => n.took));\n", "", '뒤 단계가 멈추면 키 단계의 기기 가득 안내가 영영 안 뜸'],
+  ['FR', "        tell(notices.filter((n) => n.now));\n", "", '뒤 단계가 멈추면 키 단계의 기기 가득 안내가 영영 안 뜸'],
+  ['FR', "noticeNow: r.showFull === true };", "noticeNow: true };", '기억에 못 적은 기기 가득 안내도 멈출 때마다 띄움(멈춤 두 번 + 끝남 = 세 번)'],
   ['FR', "reason: (r && r.reason) || '', took };", "reason: (r && r.reason) || '' };", '멈춘 결과에 took 을 안 실음(자동 등록이 또 함)'],
-  ['FR', "took: r.took === true });", "took: true });", '멈출 때 took 아닌 단계의 안내까지 띄움'],
+  ['FR', "now: r.noticeNow === true });", "now: true });", '멈출 때 noticeNow 아닌 안내까지 띄움'],
   ['FR', "    last = running;\n", "", 'licenseDone 이 끝난 첫 실행 결과를 잊음'],
   ['FR', "opt.legacyKey === key.toUpperCase()", "opt.legacyKey === key", '대문자로 맞추지 않고 견줌'],
   ['FR', "const allWipe = legacy ? keyWipe.concat(deps.optOutKey) : keyWipe;", "const allWipe = keyWipe;", '낡은 표시를 안 지움'],
@@ -409,7 +418,7 @@ const BREAKS = [
   ['FR', "if(r && (r.ok === true || r.registered === true)) return", "if(r && r.ok === true) return", '등록은 됐는데 확인이 늦으면 멈춤(안 지워 두 번 올림)'],
   ['FR', "if(deps.notify) for(const n of list)", "if(deps.notify) for(const n of list.concat(list))", '안내가 두 번'],
   ['FR', "deps.notify(n.msg, n.action)", "deps.notify(n.msg)", '갈 곳(action)을 안 넘김'],
-  ['FR', "notice: deps.fullNotice, action: 'openSettings' };", "notice: deps.fullNotice };", '기기 가득 안내에 갈 곳 없음'],
+  ['FR', "notice: deps.fullNotice, action: 'openSettings', noticeNow:", "notice: deps.fullNotice, noticeNow:", '기기 가득 안내에 갈 곳 없음'],
   ['APP', "licenseKey: TwFirstRun013.licenseKeyStep(", "licenseKey: TwFirstRun013.pendingStep(", '라이선스 단계를 안 채움'],
   ['ACC', "  LICENSE_REQ_ID_KEY,   // 🎫 옛 값 지움", "  acctStateMod.LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY,   // 🎫 옛 값 지움", '로그아웃이 옛 키를 지움'],
 ];
