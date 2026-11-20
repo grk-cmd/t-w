@@ -1,7 +1,7 @@
 // 메인 창 닫기도 못 올린 캐릭터 고침을 기다린다(#1024 · #1043)
 // mac: 고친 직후 메인 창을 닫으면 저장(PUT)한 뒤 창만 닫고 앱은 남는다(Dock) → Dock 누르기(activate)로 다시 연 창에서 또 고친 뒤
 //   메뉴 «종료» → 다시 붙잡아 둘째 저장까지 서버에 닿는다(다시 연 창이 «답할 수 있다» 를 알린 뒤 붙잡기가 다시 걸림).
-// 윈도우 · 리눅스: 창 닫기 = 끄기 — 붙잡고 저장한 뒤 9초 안에 꺼진다
+// 윈도우 · 리눅스: 창 닫기 = 끄기 — 붙잡고 저장한 뒤 상한(quit-hold.js GUARD_MS) 안에 꺼진다
 'use strict';
 const { run } = require('./_kit.js');
 const Q = require('./_quit.js');
@@ -21,17 +21,17 @@ run('quit-close', async (t) => {
   const A = await t.newUser('a');
   const id = await t.step('캐릭터 만들기 → 서버 슬롯 0', () => t.createCharacter(A));
   let trail0;
-  await t.step(mac ? '책상 색을 고친 직후 메인 창 닫기 → 저장(PUT 200) 뒤 창만 닫힘 · 앱은 남음 · 서버에 고친 색 → Dock 누르기(activate)' : '책상 색을 고친 직후 메인 창 닫기 → 붙잡고 저장한 뒤 9초 안에 꺼짐', async () => {
+  await t.step(mac ? '책상 색을 고친 직후 메인 창 닫기 → 저장(PUT 200) 뒤 창만 닫힘 · 앱은 남음 · 서버에 고친 색 → Dock 누르기(activate)' : `책상 색을 고친 직후 메인 창 닫기 → 붙잡고 저장한 뒤 ${Q.GUARD_S}초 안에 꺼짐`, async () => {
     await Q.watchQuit(A);
     await Q.pendingEdit(t, A, COLOR_1);
     trail0 = Q.quitTrail(A).length;
     t.check(await closeMain(A), '메인 창을 못 찾음');
     const at0 = Date.now();
     if(!mac){
-      const exitAt = await Q.waitExit(A, Q.GUARD_MS + 5000);
+      const exitAt = await Q.waitExit(A, Q.EXIT_WAIT_MS);
       const held = Q.checkHeldSave(t, Q.quitTrail(A), trail0);
       t.note(`붙잡은 시간 ${held}ms · 닫고 꺼질 때까지 ${exitAt - at0}ms`);
-      t.check(exitAt - at0 < Q.GUARD_MS, `9초 상한을 넘김(${exitAt - at0}ms)`);
+      t.check(exitAt - at0 < Q.GUARD_MS, `${Q.GUARD_S}초 상한을 넘김(${exitAt - at0}ms)`);
       return;
     }
     // mac 은 창이 없는 동안 단계 끝의 조용한 창 판정(창 0개 = 깨짐)이 틀리게 걸린다 — 닫기부터 다시 열기까지 한 단계로 둔다
@@ -67,11 +67,11 @@ run('quit-close', async (t) => {
     trail0 = Q.quitTrail(A).length;
     pressed = await Q.menuQuit(A);
   });
-  await t.step('[mac] 다시 붙잡고 둘째 저장 뒤 9초 안에 꺼짐 · 서버에 둘째 색', async () => {
-    const exitAt = await Q.waitExit(A, Q.GUARD_MS + 5000);
+  await t.step(`[mac] 다시 붙잡고 둘째 저장 뒤 ${Q.GUARD_S}초 안에 꺼짐 · 서버에 둘째 색`, async () => {
+    const exitAt = await Q.waitExit(A, Q.EXIT_WAIT_MS);
     const held = Q.checkHeldSave(t, Q.quitTrail(A), trail0);
     t.note(`붙잡은 시간 ${held}ms · 누르고 꺼질 때까지 ${exitAt - pressed.at}ms`);
-    t.check(exitAt - pressed.at < Q.GUARD_MS, `9초 상한을 넘김(${exitAt - pressed.at}ms)`);
+    t.check(exitAt - pressed.at < Q.GUARD_MS, `${Q.GUARD_S}초 상한을 넘김(${exitAt - pressed.at}ms)`);
     const def = await Q.serverDef(A.fc, t.PW, id);
     t.check(String(def.deskColor).toLowerCase() === COLOR_2, '서버 책상 색 ' + def.deskColor + ' ≠ ' + COLOR_2);
   });

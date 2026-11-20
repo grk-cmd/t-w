@@ -3,7 +3,10 @@
 const fs = require('fs');
 const path = require('path');
 
-const GUARD_MS = 9000;   // quit-hold.js GUARD_MS — 렌더러가 답하지 못해도 이 안에 끈다
+const { APP_DIR } = require('../../lib.js');
+const { GUARD_MS } = require(path.join(APP_DIR, 'quit-hold.js'));   // 앱 값 그대로 — 렌더러가 답하지 못해도 이 안에 끈다
+const EXIT_WAIT_MS = GUARD_MS + 5000;   // 꺼질 때까지 기다리는 한도 — 상한을 넘겨도 판정할 수 있게 넉넉히
+const GUARD_S = GUARD_MS / 1000;
 const API = 'http://127.0.0.1:8080';
 
 // main 의 before-quit 을 net.txt(route-main.js 의 요청 기록)에 «E2E <시각> before-quit held|go» 로 남긴다 — 같은 파일이라 저장 요청(REQ PUT)과 앞뒤를 견줄 수 있다.
@@ -110,4 +113,4 @@ function checkHeldSave(t, trail, from){
   return tr[go].at - tr[held].at;
 }
 
-module.exports = { GUARD_MS, watchQuit, quitTrail, pendingEdit, menuQuit, waitExit, serverDef, checkHeldSave };
+module.exports = { GUARD_MS, GUARD_S, EXIT_WAIT_MS, watchQuit, quitTrail, pendingEdit, menuQuit, waitExit, serverDef, checkHeldSave };

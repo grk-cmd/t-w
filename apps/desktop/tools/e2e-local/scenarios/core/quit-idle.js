@@ -20,7 +20,7 @@ run('quit-idle', async (t) => {
     t.note('끄기 길 ' + pressed.how);
   });
   await t.step(`저장 요청 없이 ${IDLE_MAX_MS}ms 안에 꺼짐`, async () => {
-    const exitAt = await Q.waitExit(A, Q.GUARD_MS + 5000);
+    const exitAt = await Q.waitExit(A, Q.EXIT_WAIT_MS);
     const took = exitAt - pressed.at;
     const tr = Q.quitTrail(A).slice(trail0);
     const held = tr.find((x) => x.kind === 'held'), go = tr.find((x) => x.kind === 'go');
