@@ -67,6 +67,7 @@ function loginStep(isIn){ return async () => (isIn() ? { ok: true, wipe: LOGIN_L
    · 서버가 «이 키는 더 쓸 길이 없다» 고 답함(남의 키 · 없는 키 · 회수된 키) → 지움 + 안내 한 번 · 이미 이 계정에 라이선스 있음 → 안내 없이 지움(이미 프리미엄)
    · 기기 가득 → 지움 + 기기 관리 안내(글은 license-premium.js FULL_NOTICE — deps.fullNotice). 그 라이선스에 이미 안내했으면(activate 의 showFull false) 안내 없이
    · 이 단계가 키로 등록을 해 봤으면(성공 · 확인 늦음 · 기기 가득) took 을 단다 — licenseDone() 이 참이 되어 켤 때 자동 등록(license-premium.js autoRegisterAfter)이 비켜선다.
+     뒤 단계(포커스 · 달성표)가 멈춰도 took 과 이 단계의 기기 가득 안내는 그대로 간다 — 멈춘 결과에도 took 을 싣고, 안내는 멈출 때 띄운다(다음 실행은 showFull false 라 다시 안 띄움)
      이미 라이선스 있음 · 쓸 수 없는 키 · 해제한 키 · 멈춤은 took 없음 — 자동 등록이 이 기기를 맡는다
    · 그 밖(네트워크 · 5xx · 로그인 풀림 · 응답 모양)은 멈춤(ok:false) — 아무것도 안 지운다 · 다음 실행에 다시
    서버 code 는 license-api.js CODE 와 같은 글자(sim-first-run-013 이 맞춰 본다). */
@@ -172,6 +173,8 @@ function createFirstRun(deps){
   const log = deps.log || console;
   let running = null, last = null;
 
+  /* 안내 띄우기 — action: 안내에서 바로 갈 곳(openSettings = 설정 › 라이선스) */
+  function tell(list){ if(deps.notify) for(const n of list){ try{ deps.notify(n.msg, n.action); }catch(_){} } }
   async function once(uc){
     const wipe = [], notices = [], took = [];
     for(const name of STEPS){
@@ -179,15 +182,17 @@ function createFirstRun(deps){
       try{ r = await deps.steps[name](); }catch(e){ r = { ok: false, reason: String((e && e.message) || e) }; }
       if(!r || r.ok !== true){
         if(!(r && r.pending)) try{ log.warn('[0.13 첫 실행] 멈춤 —', name, r && r.reason); }catch(_){}
-        return { ok: false, at: name, pending: !!(r && r.pending), reason: (r && r.reason) || '' };
+        /* 서버 쓰기를 이미 해 본 단계(took)의 안내는 지금 띄운다 — 다음 실행의 같은 단계는 «이미 안내함» 이라 다시 띄우지 않는다(기기 가득 — license-premium.js markFull) */
+        tell(notices.filter((n) => n.took));
+        return { ok: false, at: name, pending: !!(r && r.pending), reason: (r && r.reason) || '', took };
       }
-      if(typeof r.notice === 'string' && r.notice) notices.push({ msg: r.notice, action: typeof r.action === 'string' ? r.action : '' });
+      if(typeof r.notice === 'string' && r.notice) notices.push({ msg: r.notice, action: typeof r.action === 'string' ? r.action : '', took: r.took === true });
       if(r.took === true) took.push(name);
       if(Array.isArray(r.wipe)) for(const k of r.wipe) if(typeof k === 'string' && k && wipe.indexOf(k) < 0) wipe.push(k);
     }
     for(const k of wipe){ try{ storage.removeItem(k); }catch(_){} }
     try{ storage.setItem(DONE_KEY, uc); }catch(_){}
-    if(deps.notify) for(const n of notices){ try{ deps.notify(n.msg, n.action); }catch(_){} }   // 지운 뒤 안내 — 한 번만(끝냄 표시가 다시 돌리지 않는다) · action — 안내에서 바로 갈 곳(openSettings = 설정 › 라이선스)
+    tell(notices);   // 지운 뒤 안내 — 한 번만(끝냄 표시가 다시 돌리지 않는다)
     return { ok: true, wiped: wipe, notices: notices.map((n) => n.msg), took };
   }
   /* 한 번 돌리기 — 끝낸 계정이면 건너뜀 · 도는 중에 또 부르면 같은 약속 */
@@ -201,9 +206,9 @@ function createFirstRun(deps){
     last = running;
     return running;
   }
-  /* 이번 첫 실행의 라이선스 키 단계가 0.12 키로 등록을 해 봤나 — 도는 중이면 끝날 때까지 기다린다 · 돌지 않았으면(끝낸 계정) false · 던지지 않는다 */
+  /* 이번 첫 실행의 라이선스 키 단계가 0.12 키로 등록을 해 봤나 — 도는 중이면 끝날 때까지 기다린다 · 뒤 단계에서 멈췄어도 해 봤으면 true · 돌지 않았으면(끝낸 계정) false · 던지지 않는다 */
   function licenseDone(){
-    return (running || last || Promise.resolve(null)).then((r) => !!(r && r.ok && Array.isArray(r.took) && r.took.includes('licenseKey')), () => false);
+    return (running || last || Promise.resolve(null)).then((r) => !!(r && Array.isArray(r.took) && r.took.includes('licenseKey')), () => false);
   }
   return { run, licenseDone };
 }

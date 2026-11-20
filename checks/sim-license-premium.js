@@ -236,6 +236,39 @@ async function judge(S){
       x = env(LP, { me: [ME(false)], mine: lic(['dev-other001']) }); x.putPremium = true;
       await x.mod.autoRegisterAfter(false);
       t(x.calls.length === 0, '  ↳ start 전에 부르면 아무것도 안 함');
+      {
+        x = env(LP, { me: [ME(false)], mine: lic(['dev-other001']) }); x.putPremium = true;
+        await x.mod.start(ME(false));
+        let done; const firstRun = new Promise((r) => { done = r; });
+        const auto = x.mod.autoRegisterAfter(firstRun);
+        x.mod.reset(); done(false); await auto; await tick();
+        t(x.calls.length === 0 && x.toasts.length === 0, '★ 첫 실행을 기다리는 동안 계정이 바뀜(reset) → 요청 0 · 토스트 0');
+      }
+
+      /* 키 단계는 기기 가득(took)으로 끝났는데 뒤 단계가 멈춤 — 진짜 first-run-013.js createFirstRun 으로 */
+      {
+        const FRM = (() => { const m = { exports: {} }; new Function('window', 'module', S.FR)({}, m); return m.exports; })();
+        const store = new Map([['tw.licenseKey', 'K2']]);
+        const sto = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
+        const OKS = async () => ({ ok: true, wipe: [] });
+        const bootAll = async (stall) => {
+          const y = env(LP, { me: [ME(false)], mine: lic(['a', 'b', 'c']), register: apiErr(409, 'LICENSE_DEVICE_FULL'), putError: apiErr(409, 'LICENSE_DEVICE_FULL'), store });
+          const fr = FRM.createFirstRun({ steps: { login: OKS, gacha: OKS, mallang: OKS, myhome: OKS, legacySync: OKS, chal: OKS,
+            licenseKey: FRM.licenseKeyStep({ storage: sto, activate: (k) => y.mod.activate(k), optOut: () => y.mod.optOutAtStart(), optOutKey: LPX.OPT_OUT_KEY, fullNotice: LPX.FULL_NOTICE }),
+            focus: async () => (stall ? { ok: false, reason: '멈춤' } : OKS()) }, storage: sto, userCode: () => 'u12345678', log: { warn(){} }, notify: (m) => y.toasts.push(m) });
+          await y.mod.start(ME(false));                       // licensePremium 칸
+          const run = fr.run();                               // firstRun 칸
+          await y.mod.autoRegisterAfter(fr.licenseDone());   // licenseAutoRegister 칸
+          await run;
+          return y;
+        };
+        let y = await bootAll(true);
+        const w1 = y.calls.filter((c) => c.startsWith('put:') || c.startsWith('register:'));
+        t(w1.length === 1 && w1[0].startsWith('register:K2') && y.toasts.length === 1 && y.toasts[0] === LPX.FULL_NOTICE,
+          '★ 키 단계 기기 가득 + 뒤 단계 멈춤 → 자동 등록의 덧 요청 0(쓰기는 첫 실행의 키 등록 하나) · 기기 가득 안내 한 번 — ' + w1.join(' ') + ' · 토스트 ' + y.toasts.length);
+        y = await bootAll(false);
+        t(y.toasts.length === 0 && !y.calls.some((c) => c.startsWith('put:')), '  ↳ 다음 켜기(멈춤 풀림) — 첫 실행이 키를 다시 올려도 같은 라이선스라 안내 0 · 자동 등록 0');
+      }
     }
     e = env(LP, { me: [ME(false)], mine: lic(['a', 'b', 'c']), putError: apiErr(503, '', 'unavailable') });
     const r5 = await e.boot(ME(false));
@@ -530,6 +563,9 @@ async function judge(S){
     ['키 등록이 해제 표시를 안 지움', mut('LP', (s) => s.replace("clearOptOut(); registered(l.licenseId);\n    notified = false;", "registered(l.licenseId);\n    notified = false;"))],
     ['[이 기기 등록] 이 해제 표시를 안 지움', mut('LP', (s) => s.replace("clearOptOut(); registered(l.licenseId);\n    await fromWrite(l);", "registered(l.licenseId);\n    await fromWrite(l);"))],
     ['첫 실행이 0.12 키로 등록했어도 자동 등록함(요청 · 안내 두 벌)', mut('LP', (s) => s.replace("firstRunTook === true || ", ""))],
+    ['첫 실행을 기다린 뒤 reset 을 안 봄', mut('LP', (s) => s.replace("if(g !== gen || on || firstRunTook === true || isPremium()) return isPremium();", "if(on || firstRunTook === true || isPremium()) return isPremium();"))],
+    ['첫 실행 뒤 단계가 멈추면 took 을 잃음', mut('FR', (s) => s.replace("reason: (r && r.reason) || '', took };", "reason: (r && r.reason) || '' };"))],
+    ['첫 실행 뒤 단계가 멈추면 기기 가득 안내가 안 뜸', mut('FR', (s) => s.replace("        tell(notices.filter((n) => n.took));\n", ""))],
     ['첫 실행 전에 start 에서 바로 자동 등록', mut('LP', (s) => s.replace("      return on;\n    });\n    return startP;", "      return on || autoRegister(g, raw);\n    });\n    return startP;"))],
     ['autoRegisterAfter 를 두 번 부르면 두 번 함', mut('LP', (s) => s.replace("if(!started || autoAsked) return", "if(!started) return"))],
     ['기기 가득 거절이 reset 뒤에도 옛 세션 기억 · 안내를 씀', mut('LP', (s) => s.replace("if(g === gen && licenseApi.isDeviceFull(e) && markFull(l.licenseId))", "if(licenseApi.isDeviceFull(e) && markFull(l.licenseId))"))],
