@@ -66,7 +66,8 @@ function loginStep(isIn){ return async () => (isIn() ? { ok: true, wipe: LOGIN_L
    · 등록 성공(내 키 다시 등록 = 기기 갱신) → 지움(프리미엄 다시 확인은 activate 가 한다)
    · 서버가 «이 키는 더 쓸 길이 없다» 고 답함(남의 키 · 없는 키 · 회수된 키) → 지움 + 안내 한 번 · 이미 이 계정에 라이선스 있음 → 안내 없이 지움(이미 프리미엄)
    · 기기 가득 → 지움 + 기기 관리 안내(글은 license-premium.js FULL_NOTICE — deps.fullNotice). 그 라이선스에 이미 안내했으면(activate 의 showFull false) 안내 없이
-   · 이 키가 남아 있는 동안 켤 때 자동 등록은 건너뛴다(license-premium.js — 키 칸이 비었나만 본다). 등록은 이 단계 한 곳이다
+   · 이 단계가 키로 등록을 해 봤으면(성공 · 확인 늦음 · 기기 가득) took 을 단다 — licenseDone() 이 참이 되어 켤 때 자동 등록(license-premium.js autoRegisterAfter)이 비켜선다.
+     이미 라이선스 있음 · 쓸 수 없는 키 · 해제한 키 · 멈춤은 took 없음 — 자동 등록이 이 기기를 맡는다
    · 그 밖(네트워크 · 5xx · 로그인 풀림 · 응답 모양)은 멈춤(ok:false) — 아무것도 안 지운다 · 다음 실행에 다시
    서버 code 는 license-api.js CODE 와 같은 글자(sim-first-run-013 이 맞춰 본다). */
 const LICENSE_KEY_STORAGE = 'tw.licenseKey';
@@ -83,19 +84,20 @@ function licenseKeyStep(deps){
   const get = (k) => { try{ return deps.storage.getItem(k); }catch(_){ return null; } };
   return async () => {
     const opt = deps.optOut();
-    const key = String(get(LICENSE_KEY_STORAGE) || '').trim();
-    const keyWipe = get(LICENSE_KEY_STORAGE) !== null ? [LICENSE_KEY_STORAGE] : [];
+    const stored = get(LICENSE_KEY_STORAGE);
+    const key = String(stored || '').trim();
+    const keyWipe = stored !== null ? [LICENSE_KEY_STORAGE] : [];
     if(!key) return { ok: true, wipe: keyWipe };
     const legacy = !!(opt && opt.legacyKey);
     if(legacy && opt.legacyKey === key.toUpperCase()) return { ok: true, wipe: keyWipe };
     const allWipe = legacy ? keyWipe.concat(deps.optOutKey) : keyWipe;
     let r;
     try{ r = await deps.activate(key); }catch(e){ r = { ok: false, err: e }; }
-    if(r && (r.ok === true || r.registered === true)) return { ok: true, wipe: allWipe };   // 등록됐다(확인이 늦은 것은 알림 · 다음 켜기가 맡는다)
+    if(r && (r.ok === true || r.registered === true)) return { ok: true, wipe: allWipe, took: true };   // 등록됐다(확인이 늦은 것은 알림 · 다음 켜기가 맡는다)
     const e = (r && r.err) || null, code = String((e && e.code) || '');
     if(!e || e.kind === 'auth' || !Object.keys(LICENSE_CODE).some((n) => LICENSE_CODE[n] === code)) return { ok: false, reason: '라이선스 키 올리기 실패 — ' + String((r && r.reason) || code || '알 수 없음') };
     if(code === LICENSE_CODE.ALREADY_HAVE) return { ok: true, wipe: allWipe };
-    if(code === LICENSE_CODE.DEVICE_FULL) return r.showFull === false ? { ok: true, wipe: allWipe } : { ok: true, wipe: allWipe, notice: deps.fullNotice, action: 'openSettings' };
+    if(code === LICENSE_CODE.DEVICE_FULL) return r.showFull === false ? { ok: true, wipe: allWipe, took: true } : { ok: true, wipe: allWipe, took: true, notice: deps.fullNotice, action: 'openSettings' };
     return { ok: true, wipe: allWipe, notice: LICENSE_NOTICE.UNUSABLE };
   };
 }
@@ -168,10 +170,10 @@ function createFirstRun(deps){
   for(const n of STEPS) if(typeof deps.steps[n] !== 'function') throw new Error('[0.13 첫 실행] 단계 없음 — ' + n);
   const storage = deps.storage;
   const log = deps.log || console;
-  let running = null;
+  let running = null, last = null;
 
   async function once(uc){
-    const wipe = [], notices = [];
+    const wipe = [], notices = [], took = [];
     for(const name of STEPS){
       let r;
       try{ r = await deps.steps[name](); }catch(e){ r = { ok: false, reason: String((e && e.message) || e) }; }
@@ -180,12 +182,13 @@ function createFirstRun(deps){
         return { ok: false, at: name, pending: !!(r && r.pending), reason: (r && r.reason) || '' };
       }
       if(typeof r.notice === 'string' && r.notice) notices.push({ msg: r.notice, action: typeof r.action === 'string' ? r.action : '' });
+      if(r.took === true) took.push(name);
       if(Array.isArray(r.wipe)) for(const k of r.wipe) if(typeof k === 'string' && k && wipe.indexOf(k) < 0) wipe.push(k);
     }
     for(const k of wipe){ try{ storage.removeItem(k); }catch(_){} }
     try{ storage.setItem(DONE_KEY, uc); }catch(_){}
     if(deps.notify) for(const n of notices){ try{ deps.notify(n.msg, n.action); }catch(_){} }   // 지운 뒤 안내 — 한 번만(끝냄 표시가 다시 돌리지 않는다) · action — 안내에서 바로 갈 곳(openSettings = 설정 › 라이선스)
-    return { ok: true, wiped: wipe, notices: notices.map((n) => n.msg) };
+    return { ok: true, wiped: wipe, notices: notices.map((n) => n.msg), took };
   }
   /* 한 번 돌리기 — 끝낸 계정이면 건너뜀 · 도는 중에 또 부르면 같은 약속 */
   function run(){
@@ -195,9 +198,14 @@ function createFirstRun(deps){
     if(done === uc) return Promise.resolve({ ok: true, skipped: true, wiped: [] });
     if(running) return running;
     running = once(uc).finally(() => { running = null; });
+    last = running;
     return running;
   }
-  return { run };
+  /* 이번 첫 실행의 라이선스 키 단계가 0.12 키로 등록을 해 봤나 — 도는 중이면 끝날 때까지 기다린다 · 돌지 않았으면(끝낸 계정) false · 던지지 않는다 */
+  function licenseDone(){
+    return (running || last || Promise.resolve(null)).then((r) => !!(r && r.ok && Array.isArray(r.took) && r.took.includes('licenseKey')), () => false);
+  }
+  return { run, licenseDone };
 }
 
 const api = { DONE_KEY, STEPS, LOGIN_LEGACY_KEYS, GACHA_LEGACY_KEYS, MALLANG_LEGACY_PREFIX, MALLANG_LEGACY_KEYS, pendingStep, licenseKeyStep, focusStep, chalStep, CHAL_LEGACY_KEY, FOCUS_LEGACY_KEYS, LICENSE_KEY_STORAGE, LICENSE_NOTICE, loginStep, gachaStep, mallangStep, myhomeStep, MYHOME_LEGACY_KEYS, MYHOME_LEGACY_PREFIX, createFirstRun };

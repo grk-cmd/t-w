@@ -2930,7 +2930,6 @@ const licensePremiumMod = TwLicensePremium.createLicensePremium({
   storage: localStorage,
   toast: (...a)=>toast(...a),
   toastFull: (msg)=>licenseSettingsToast(msg),
-  legacyKeyName: acctStateMod.LICENSE_KEY_STORAGE,
 });
 
 /* ═══ 🔐 라이선스 · 초대 게이트 시작 · 관리자 모드 진입 ═══ */
@@ -4955,6 +4954,7 @@ const appBoot = TwAppBoot.createAppBoot({
     appVersion: (code, me, session)=>appVersionSyncMod.start(session),   // 🔄 이 PC 앱 판을 서버에 알림 — 더 새 판을 쓰는 기기가 있으면 업데이트 창
     adminMode: (code, me, session)=>{ session.onReset(()=>twNav.go(twNav.NAV.ADMIN_EXIT)); },   // 🔐 세션이 끝나면 관리자 모드를 조용히 끈다(요청 0 · 창 열기 통로로 — 모듈끼리 순환 없이)
     firstRun: ()=>firstRunMod.run().catch((e)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', e)),
+    licenseAutoRegister: ()=>licensePremiumMod.autoRegisterAfter(firstRunMod.licenseDone()),   // 첫 실행 뒤 — 0.12 키로 첫 실행이 등록했으면 건너뜀
   },
 });
 

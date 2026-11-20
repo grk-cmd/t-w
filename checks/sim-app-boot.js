@@ -21,7 +21,7 @@ const MOD = read('launcher/app-boot.js'), HTML = read('desk-companion-prototype.
 if (!MOD || !HTML || !APP) { say('  ? 원본 못 찾음 — app-boot.js · desk-companion-prototype.html · app.js'); process.exit(2); }
 
 /* 정본 차례 — app-boot.js STEPS 와 같아야 한다(바꾸려면 여기와 app-boot.js · app.js starts 를 같이) */
-const ORDER = ['userLocal', 'catalog', 'focusTotal', 'focusShare', 'focusLevel', 'weeklyChal', 'pomodoro', 'gacha', 'closet', 'mhInit', 'gift', 'bugBadge', 'scheduler', 'roomInvite', 'awayPic', 'desktopBg', 'playlist', 'licensePremium', 'appVersion', 'adminMode', 'firstRun'];
+const ORDER = ['userLocal', 'catalog', 'focusTotal', 'focusShare', 'focusLevel', 'weeklyChal', 'pomodoro', 'gacha', 'closet', 'mhInit', 'gift', 'bugBadge', 'scheduler', 'roomInvite', 'awayPic', 'desktopBg', 'playlist', 'licensePremium', 'appVersion', 'adminMode', 'firstRun', 'licenseAutoRegister'];
 
 function build(src, o) {
   o = o || {};
@@ -131,6 +131,8 @@ async function judge(src) {
     const starters = ['startFocusTotal', 'startFocus', 'startChallenge', 'startGacha', 'startCloset', 'startSchedule', 'startReceive', 'startBgSync'];
     chk(starters.every((n) => body.split(n + '(').length === 2) && starters.every((n) => !new RegExp('\\.' + n + '\\(').test(rest)), '  기능 시작은 app.js 에서 이 표 한 곳에서만 부른다(만든 자리에서 바로 부르지 않음)');
     chk(body.split('licensePremiumMod.start(').length === 2 && !/licensePremiumMod\.start\(/.test(rest), '  프리미엄 판정 시작(license-premium.js start — 받아 둔 확인을 반영하고 알림을 건다)도 이 표 한 곳에서만 부른다');
+    chk(/^ {4}licenseAutoRegister: \(\)=>licensePremiumMod\.autoRegisterAfter\(firstRunMod\.licenseDone\(\)\),/m.test(body) && !/autoRegisterAfter\(/.test(rest) && ORDER.indexOf('licenseAutoRegister') > ORDER.indexOf('firstRun'),
+      '  자동 등록은 첫 실행 뒤 칸(licenseAutoRegister) 한 곳 — 첫 실행의 라이선스 키 단계 결과(licenseDone)를 받아 주인을 하나로');
     /* 공지는 모두에게 같은 공용 데이터 — 계정 확인을 기다리지 않고 켤 때 받는다(로그인 화면 위에도 업데이트 공지 · 런처 배너) */
     const noticeAtBoot = (ap, bodyTxt) => /^TwNetReady\.whenNetReady\(\(\)=>noticeFeed\.start\(\)\);$/m.test(ap) && !/noticeFeed\.start\(\)/.test(bodyTxt);
     chk(noticeAtBoot(APP, body), '공지 받기는 계정 확인을 기다리지 않는다 — 켤 때(firebase-ready) 시작하고 차례 표에는 없다');
