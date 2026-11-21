@@ -5,7 +5,7 @@
    [서버가 정하는 것] 정원 · 같은 계정 중복 · 방장 승계 · 해산 · 채널 · 시크릿룸 입장 · 방 상한 · 버전 — 여기서 다시 판단하지 않는다.
    [앱과 서버의 모양 차이 — 이 파일 한 곳에서만 바꾼다]
      · 대화 탭: 앱 안은 's1' · 's2'(chat-tabs.js SLOTS) · 서버는 'S1' · 'S2'(멤버 칸 tab · 말풍선 tab · meta.tabs 키). tabToWire · tabFromWire.
-     · 사람: 서버가 멤버마다 붙여 주는 userCode 를 친구 객체 userId field 에도 둔다(올라타기 · 벤치 · 신고 숨김이 그 칸으로 사람을 찾는다).
+     · 사람: 서버가 멤버마다 붙여 주는 userCode 를 친구 객체 userId field 에도 둔다(올라타기 · 벤치 · 신고 숨김이 그 field 로 사람을 찾는다).
      · 걷은 칸: me.userId · lic · name · level(실으면 서버가 badRequest) — 신원은 토큰, 프리미엄은 서버가 판정, 이름 · 레벨은 서버가 계정에서 채운다.
    [모양] classic script(window.TwRoomRt) — rt-hub.js 다음 · app.js 보다 먼저 싣는다. 앱 한 벌은 TwRoomRt.store(TwRtHub.store 위).
      provider 모양은 presence.js 가 부르는 join · update · poke · pokeSelf · leave + 방장 setMeta · 같이 듣기 onMusic · sendMusic · serverNow. */
