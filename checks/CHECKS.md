@@ -303,9 +303,9 @@
 | **sim-guestbook.js** | 482 | **e0bafe53f31d** |
 | **sim-friend-manage-module.js** | 274 | **6258202fb47d** |
 | **sim-pomodoro-module.js** | 251 | **c0cf84fa986c** |
-| **sim-myhome-sticker.js** | 427 | **536a16f3b96d** |
+| **sim-myhome-sticker.js** | 434 | **77cd81d3622e** |
 | **sim-gacha.js** | 490 | **766f4b453dbc** |
-| **sim-myhome-edit.js** | 622 | **f4f253982923** |
+| **sim-myhome-edit.js** | 625 | **e467595caae1** |
 | **sim-room-invite-ui.js** | 402 | **465097d0d5a9** |
 | **sim-focus-log.js** | 333 | **20b5a9e9421e** |
 | **sim-focus-progress.js** | 391 | **4ae3c02059c7** |

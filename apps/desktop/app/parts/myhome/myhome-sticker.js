@@ -114,7 +114,7 @@ function renderStickerMgr(){
       + (locked ? ' · 🔒 잠김' : '');
     meta.appendChild(pos);
     const lk=document.createElement('span'); lk.className='lk';
-    lk.textContent = !s.link ? '링크 없음' : ((stRules.isLinkUrl(s.link) ? '🔗 ' : '💬 ') + s.link);   // 💬 = 누르면 안 열리고 마우스를 올리면 보이는 글
+    lk.textContent = s.link ? ('🔗 ' + s.link) : '링크 없음';
     lk.title = s.link || '';
     meta.appendChild(lk);
     row.appendChild(meta);
@@ -158,12 +158,15 @@ function renderStickerMgr(){
     }).disabled = locked;
     item('✨ 움직임', '움직임 고르기', ()=>{ _mhOpenStickerAnim(sid); });
     /* 🔗 링크 수정 — 삭제 후 다시 붙이지 않고 여기서 바꾼다(이미지를 다시 고를 필요가 없다). */
-    item('🔗 링크 바꾸기', '누르면 열릴 주소 · 마우스를 올리면 보일 글', async ()=>{
+    item('🔗 링크 바꾸기', '클릭하면 열릴 주소', async ()=>{
       const v=await asyncPrompt({ title:'스티커 링크',
-        message:'주소(http:// · https://)면 누르면 열리고, 그 밖의 글은 마우스를 올리면 보여요 (비우면 없음)\n\n※ 주소는 시스템 기본 브라우저에서 열려요.',
+        message:'클릭 시 이동할 링크 (비우면 링크 없음)\n\n※ 시스템 기본 브라우저에서 열려요.',
         defaultValue:s.link||'', maxLength:stRules.LINK_MAX });
       if(v===null || v===undefined) return;                 // 취소 — 그대로 둔다
-      myhomeStore.editSticker(sid, { link: stRules.cleanLink(v) });
+      const u=stRules.cleanLink(v);
+      if(u === stRules.cleanLink(s.link)) return;           // 안 바꿨으면 그대로 — 옛 글 링크를 확인만 눌러 지우게 하지 않는다
+      if(u && !stRules.isLinkUrl(u)){ toast('http:// 또는 https:// 로 시작하는 주소만 넣을 수 있어요'); return; }   // 새로 넣는 링크는 주소만
+      myhomeStore.editSticker(sid, { link: u });
       redraw();
     });
     item('× 삭제', '이 스티커 지우기', ()=>{
