@@ -1,6 +1,7 @@
 /* ═══ 🎨 sim-myhome-sticker-render.js — 마이홈 스티커 그리기(myhome/myhome-sticker-render.js · app.js 분리 M19) ═══════════════
    ・1절: 마이홈 탭이 아니면 숨기고 편집을 끝낸 채 돌아감 · 영역이 없으면 아무 일 없음
    ・2절: 그리기 — 순서대로 요소 · 이미지는 허용된 주소만 · 이모지 기본 ⭐ · 애니 · 크기 · 투명도 · 변형 · 편집 중 · 링크
+   ・3b절: 링크 — 주소(http · https)면 누르면 열고, 글이면 title 로만 보인다(열기에 안 넘김)
    ・3절: 편집 가능이면 ×(상태 주인 removeSticker → 다시 그림 — 저장은 상태 주인) · ✨ · 핸들 · 각도 · 못 하면 없음 · 우클릭
    ・5절: 연결 — 읽는 함수 · 옛 자리 · 감싸 다시 대입 · 그린 뒤 알림 없음
    ・6절: mutation test */
@@ -12,8 +13,9 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { for(const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f, f.split('/').pop()]) if(fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 const stripC = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 const depPairs = (APP, mod, glob, create) => { const m = APP.match(new RegExp('const ' + mod + ' = ' + glob + '\\.' + create + '\\(\\{\\n([\\s\\S]*?)\\n\\}\\);')); return m ? m[1].split('\n').map(l => /^  ([\w$]+): (.+),$/.exec(l)).filter(Boolean).map(x => [x[1], x[2]]) : null; };
-const SRC = read('myhome/myhome-sticker-render.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html');
-if(!SRC || !APP || !HTML){ say('  ? 원본 못 찾음'); process.exit(2); }
+const SRC = read('myhome/myhome-sticker-render.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html'), RULES = read('myhome/myhome-sticker-rules.js');
+if(!SRC || !APP || !HTML || !RULES){ say('  ? 원본 못 찾음'); process.exit(2); }
+const REAL_RULES = (() => { const w = {}; new Function('window', 'module', RULES)(w, undefined); return w.TwMyHomeStickerRules; })();   // 링크 판정은 진짜 규칙으로
 function mkEl(tag){
   const cl = new Set();
   const el = { tag, children: [], style: {}, dataset: {}, className: '', textContent: '', title: '', _l: {}, _innerHTML: '',
@@ -30,7 +32,7 @@ function build(src, o){
   const layout = { STICKER_BASE: 100, _mhFitWindowSafe: () => log.push('fit'), _mhStickersData: () => data, _mhCanEditStickers: () => st.canEdit, _mhStickerTransform: (s) => (s.rot ? 'rotate(' + s.rot + 'deg)' : ''), _mhStickerEditSid: () => st.editSid, _mhOpenStickerAnim: (sid) => log.push('anim:' + sid) };
   const sticker = { editEnd: () => log.push('editEnd'), editStart: (sid) => log.push('editStart:' + sid), bindResize: () => log.push('bindResize'), bindDrag: () => log.push('bindDrag'), bindRotate: () => log.push('bindRotate') };
   const win = { commitMyHomePage: (f) => log.push('commit:' + f), open: (u) => log.push('open:' + u), companion: o.companion };
-  const rules = { orderedIds: (d) => Object.keys(d), isLocked: (s) => !!s.locked };
+  const rules = { orderedIds: (d) => Object.keys(d), isLocked: (s) => !!s.locked, isLinkUrl: REAL_RULES.isLinkUrl };
   const safe = { safeUrl: (u) => (/^https:/.test(u) ? u : null) };
   const g = { window: win, document: doc, TwMyHomeStickerRules: rules, TwSafeHtml: safe, companion: o.companion, commitMyHomePage: (f) => log.push('commit:' + f), module: undefined };
   const names = Object.keys(g);
@@ -97,6 +99,15 @@ say('§3b 링크');
   chk(b.log.includes('open:https://l'), '  브라우저면 새 창');
   b = mk({}); b.st.drag = 9; b.mod.renderMyHomeStickers(); kids(b)[0]._l.click({ target: { classList: { contains: () => false } } });
   chk(!b.log.includes('open:https://l'), '  방금 드래그했으면(5px 넘음) 링크를 안 연다');
+  b = mk({ data: { d: { link: '우리 집 강아지' } }, companion: { openBrowser: (u) => b.log.push('browser:' + u) } }); b.mod.renderMyHomeStickers();
+  let D = kids(b)[0];
+  chk(D.title === '우리 집 강아지' && !D.classList.contains('linked') && !D._l.click, '★ 글만 든 링크 — 마우스를 올리면 보이고(title) linked · 누르면 열기는 없다');
+  b = mk({ data: { d: { link: 'javascript:alert(1)' } } }); b.mod.renderMyHomeStickers(); D = kids(b)[0];
+  chk(D.title === 'javascript:alert(1)' && !D.classList.contains('linked') && !D._l.click, '  http · https 가 아닌 주소도 글로만 보인다(열지 않음)');
+  b = mk({ data: { d: { link: '이름표' } }, canEdit: true }); b.mod.renderMyHomeStickers(); D = kids(b)[0];
+  chk(D.title === '이름표  (우클릭: 편집)' && !D.classList.contains('linked'), '  편집 가능이면 글 뒤에 우클릭 편집 문구');
+  b = mk({ data: { d: { link: 'HTTP://A.B' } } }); b.mod.renderMyHomeStickers(); D = kids(b)[0];
+  chk(D.classList.contains('linked') && typeof D._l.click === 'function', '  대문자 HTTP:// 도 주소(누르면 열림)');
 }
 say('§5 연결');
 {
@@ -117,6 +128,10 @@ say('§6 mutation test');
   chk(!!m2 && (() => { const b = build(m2, { tab: 'home', data: { c: { img: 'http://bad' } } }); b.mod.renderMyHomeStickers(); return !!kids(b)[0].children[0].src; })(), '그림 주소를 거르지 않으면 빨강(남의 스티커)');
   const m3 = brk("if(mhPageMod._mhStickerDragDist()>5) return;", "");
   chk(!!m3 && (() => { const b = build(m3, { tab: 'home', data: { d: { link: 'https://l' } } }); b.st.drag = 9; b.mod.renderMyHomeStickers(); kids(b)[0]._l.click({ target: { classList: { contains: () => false } } }); return b.log.includes('open:https://l'); })(), '드래그 직후 링크 막기를 빼면 빨강');
+  const m6 = brk("if(TwMyHomeStickerRules.isLinkUrl(s.link)){", "if(s.link){");
+  chk(!!m6 && (() => { const b = build(m6, { tab: 'home', data: { d: { link: '우리 집' } } }); b.mod.renderMyHomeStickers(); const D = kids(b)[0]; if(D._l.click) D._l.click({ target: { classList: { contains: () => false } } }); return b.log.includes('open:우리 집'); })(), '★ 주소 판정을 빼면(글도 열기로 넘김) 빨강');
+  const m7 = brk("if(s.link) el.title = canEdit ? (s.link + '  (우클릭: 편집)') : s.link;", "");
+  chk(!!m7 && (() => { const b = build(m7, { tab: 'home', data: { d: { link: '우리 집' } } }); b.mod.renderMyHomeStickers(); return kids(b)[0].title !== '우리 집'; })(), '글 링크 title 을 빼면 빨강');
   const m4 = brk("if(!canEdit) return;\n      myHomeSticker().editStart(sid);", "myHomeSticker().editStart(sid);");
   const m5 = brk("myhomeStore.removeSticker(sid);", "");
   chk(!!m5 && (() => { const b = build(m5, { tab: 'home', data: { a: {} }, canEdit: true }); b.mod.renderMyHomeStickers(); kids(b)[0].children.find(x => x.className === 'mh-sticker-del').onclick({ stopPropagation(){} }); return 'a' in b.data; })(), '× 에서 상태 주인 지우기를 빼면 빨강');

@@ -43,17 +43,23 @@ function judge(R){
     t(R.hitsAddBtn(br, 30, 28) === true && R.hitsAddBtn(br, 10, 20) === true, '[+ 스티커] 버튼 안 — 통과');
     t(R.hitsAddBtn(br, 60, 28) === false && R.hitsAddBtn(br, 30, 36) === false && R.hitsAddBtn(br, 9, 28) === false && R.hitsAddBtn(br, 30, 19) === false, '  버튼 밖(오른쪽 · 아래 끝은 밖)');
     t(R.hitsAddBtn({ left: 0, top: 0, width: 0, height: 0 }, 0, 0) === false && R.hitsAddBtn(null, 1, 1) === false, '  숨긴 버튼(크기 0) · 없음 — 통과 안 함');
+    t(R.isLinkUrl('https://a.b') === true && R.isLinkUrl('HTTP://a') === true && R.isLinkUrl('http://') === true, '링크 — http · https 면 주소(대소문자 무관)');
+    t(R.isLinkUrl('우리 집') === false && R.isLinkUrl('ftp://x') === false && R.isLinkUrl('javascript:alert(1)') === false && R.isLinkUrl(' https://a') === false && R.isLinkUrl('') === false && R.isLinkUrl(undefined) === false && R.isLinkUrl(7) === false, '  글 · 다른 주소 · 빈 값은 주소 아님');
+    t(R.cleanLink('  우리 집  ') === '우리 집' && R.cleanLink('a\u0000b\nc\td\u007fe\u0085f') === 'abcdef' && R.cleanLink(null) === '' && R.cleanLink(undefined) === '' && R.cleanLink('   ') === '', '링크 정리 — 앞뒤 공백 · 제어 문자 빼기 · 빈 값');
+    t(R.LINK_MAX === 300 && R.cleanLink('x'.repeat(301)) === 'x'.repeat(300) && R.cleanLink('x'.repeat(300)) === 'x'.repeat(300) && R.cleanLink('x'.repeat(299) + ' y') === 'x'.repeat(299), '  300자까지(자른 끝 공백도 뺀다)');
+    t(R.cleanLink('x'.repeat(299) + '😀') === 'x'.repeat(299), '  자른 끝 반쪽 이모지는 뺀다');
   } catch (e) { bad.push('던짐 — ' + (e && e.message)); }
   return bad;
 }
 
 say('── 1. 규칙 실제로 돌리기');
 const R = load(MOD);
-chk(!!R && ['isLocked', 'setLocked', 'orderedIds', 'nextZ', 'move', 'hitsAddBtn'].every(k => typeof R[k] === 'function'), '싣기만 하면 window.TwMyHomeStickerRules — 여섯 이름');
+chk(!!R && ['isLocked', 'setLocked', 'orderedIds', 'nextZ', 'move', 'hitsAddBtn', 'isLinkUrl', 'cleanLink'].every(k => typeof R[k] === 'function'), '싣기만 하면 window.TwMyHomeStickerRules — 함수 여덟 이름');
 const bad = judge(R);
 ['잠금 판정', '잠그기 · 풀면 칸 지움', '옛 스티커(z 없음)는 키 순서', 'z 작은 것부터(뒤 → 앞)', '옛 스티커는 z 받은 것보다 뒤', '같은 z 는 키 순서',
  '숫자 아닌 z 는 없는 것으로', '빈 묶음', '새 z = 맨 앞 + 1', '▲ 한 칸 앞 · 모두 다시 매김', '맨 앞에서 ▲ 는 안 함', '맨 뒤에서 ▼ 는 안 함', '▼ 한 칸 뒤',
- '없는 id · 잘못된 방향 · 빈 묶음', '옛 스티커도 옮기면 자리를 받는다', '[+ 스티커] 버튼 안 — 통과', '  버튼 밖(오른쪽 · 아래 끝은 밖)', '  숨긴 버튼(크기 0) · 없음 — 통과 안 함'].forEach(n => chk(!bad.includes(n), n));
+ '없는 id · 잘못된 방향 · 빈 묶음', '옛 스티커도 옮기면 자리를 받는다', '[+ 스티커] 버튼 안 — 통과', '  버튼 밖(오른쪽 · 아래 끝은 밖)', '  숨긴 버튼(크기 0) · 없음 — 통과 안 함',
+ '링크 — http · https 면 주소(대소문자 무관)', '  글 · 다른 주소 · 빈 값은 주소 아님', '링크 정리 — 앞뒤 공백 · 제어 문자 빼기 · 빈 값', '  300자까지(자른 끝 공백도 뺀다)', '  자른 끝 반쪽 이모지는 뺀다'].forEach(n => chk(!bad.includes(n), n));
 chk(!bad.some(n => /^던짐/.test(n)), '던지지 않는다' + (bad.find(n => /^던짐/.test(n)) ? ' — ' + bad.find(n => /^던짐/.test(n)) : ''));
 
 say('── 2. mutation test — 규칙을 망가뜨리면 1절이 빨강인가');
@@ -65,6 +71,10 @@ const BREAKS = [
   ['다시 매기지 않음', 'order.forEach((id, k) => { stickers[id].z = k; });', ''],
   ['끝 넘어 옮김', 'if(j < 0 || j >= order.length) return false;', ''],
   ['버튼 끝을 안 봄', 'x < rect.left + rect.width && ', ''],
+  ['아무 글이나 주소로', "typeof link === 'string' && /^https?:\\/\\//i.test(link)", "typeof link === 'string' && !!link"],
+  ['제어 문자를 남김', ".replace(/[\\u0000-\\u001f\\u007f-\\u009f]/g, '')", ''],
+  ['길이를 안 자름', '.slice(0, LINK_MAX)', ''],
+  ['반쪽 이모지를 남김', ".replace(/[\\uD800-\\uDBFF]$/, '')", ''],
 ];
 for (const [name, a, b] of BREAKS) {
   if (!MOD.includes(a)) { chk(false, 'mutation test «' + name + '» — 바꿀 글을 못 찾음(규칙 글이 바뀌었으면 이 표도)'); continue; }

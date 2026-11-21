@@ -300,6 +300,17 @@ await sec('── 4. 새 스티커 · 스티커 끌기 · 삭제 저장', async 
   const ad = e.saves.find(x => x[0] === 'addSticker');
   chk(ids.length === 1 && !!ad && ad[1] === 'data:image/png;ok' && ad[2].link === 'https://link.example' && ad[2].size === 1 && ad[2].w === 400 && ad[2].h === 200, '붙이기 — PNG 그림 · 링크 · 가로 400 으로 줄인 원본 비율을 상태 주인 addSticker 에 넘긴다(올리기 · 저장은 상태 주인)');
   chk(e.clamped === 1 && e.origRenders === 1 && e.saveCount() === 1 && e.sticker.render === 1, '  창 안으로 · 다시 그림(감싼 함수) · 저장 · 관리 창 목록');
+  {
+    const t = mkEnv(); t.mk();
+    t.promptAns = ['  우리 집\u0000 강아지  '];
+    t.els.mhStickerFileInput.files = [{ name: 't.png' }]; t.els.mhStickerFileInput.fire('change'); await flush(); await flush();
+    const ta = t.saves.find(x => x[0] === 'addSticker');
+    chk(!!ta && ta[2].link === '우리 집 강아지' && /그 밖의 글은 마우스를 올리면 보여요/.test(t.prompts[0].message) && t.prompts[0].maxLength === 300, '★ 붙이기 — 링크 칸에 글(주소 아님)도 받는다(제어 문자 · 앞뒤 공백 뺌 · 0.12 와 같음) · 안내 문구');
+    const tn = mkEnv(); tn.mk(); tn.promptAns = [null];
+    tn.els.mhStickerFileInput.files = [{ name: 'n.png' }]; tn.els.mhStickerFileInput.fire('change'); await flush(); await flush();
+    const na = tn.saves.find(x => x[0] === 'addSticker');
+    chk(!!na && na[2].link === undefined, '  링크를 비우면(취소) 링크 없이 붙인다');
+  }
   e.data.stickers = { a: {}, b: {}, c: {} }; e.clicks.length = 0; e.els.stMgrAdd.onclick();
   chk(e.toasts.includes('스티커는 최대 3개까지만 붙일 수 있어요') && !e.clicks.includes('mhStickerFileInput'), '  상한이면 안내만');
   /* 끌기 */

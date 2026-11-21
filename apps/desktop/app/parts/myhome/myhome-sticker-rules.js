@@ -5,7 +5,9 @@
      ⚠️ 옛 앱은 z · locked 를 모른다 — 옛 앱으로 보면 만든 차례로 그려지고 잠금도 없다(데이터는 그대로 남는다).
    ・[+ 스티커] 버튼 통과: 편집 중이 아닌 스티커가 버튼을 가려도 버튼 자리를 왼쪽 클릭하면 버튼이 눌린다(스티커는 안 끌리고 링크도 안 열림).
      버튼이 숨겨졌으면(관람 중 — 크기 0) 통과하지 않는다. 우클릭 편집은 스티커가 받는다.
-   내놓음: isLocked · setLocked · orderedIds · nextZ · move · hitsAddBtn
+   ・링크(link): 주소(http · https)뿐 아니라 이름 · 짧은 글도 담는다(0.12 부터 쓰던 모양 — 마우스를 올리면 보임). 누르면 여는 건 주소일 때만.
+     ⚠️ 글만 든 칸을 openBrowser · window.open 에 넘기지 않는다.
+   내놓음: isLocked · setLocked · orderedIds · nextZ · move · hitsAddBtn · isLinkUrl · cleanLink · LINK_MAX
    검사: checks/sim-myhome-sticker-rules.js */
 (function(){
 'use strict';
@@ -57,7 +59,18 @@ function hitsAddBtn(rect, x, y){
   return x >= rect.left && x < rect.left + rect.width && y >= rect.top && y < rect.top + rect.height;
 }
 
-const api = { isLocked, setLocked, orderedIds, nextZ, move, hitsAddBtn };
+/* 누르면 열 주소인가 — 아니면 마우스를 올렸을 때 보이는 글일 뿐이다 */
+function isLinkUrl(link){ return typeof link === 'string' && /^https?:\/\//i.test(link); }
+
+/* 사람이 친 링크 칸 — 제어 문자를 빼고 앞뒤 공백을 뺀 뒤 LINK_MAX 자까지(서버 규칙과 같다). 빈 글이면 링크 없음.
+   자른 끝에 반쪽 이모지(짝 잃은 서러게이트)가 남지 않게 뺀다. */
+const LINK_MAX = 300;
+function cleanLink(v){
+  return String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f-\u009f]/g, '').trim()
+    .slice(0, LINK_MAX).replace(/[\uD800-\uDBFF]$/, '').trim();
+}
+
+const api = { isLocked, setLocked, orderedIds, nextZ, move, hitsAddBtn, isLinkUrl, cleanLink, LINK_MAX };
 if(typeof window !== 'undefined') window.TwMyHomeStickerRules = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

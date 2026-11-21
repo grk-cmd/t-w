@@ -49,8 +49,10 @@ function renderMyHomeStickers(){
 
     if(sid === mhStLayoutMod._mhStickerEditSid() && canEdit) el.classList.add('editing');
 
-    if(s.link){
-      el.classList.add('linked'); el.title = canEdit ? (s.link + '  (우클릭: 편집)') : s.link;
+    if(s.link) el.title = canEdit ? (s.link + '  (우클릭: 편집)') : s.link;   // 주소든 글이든 마우스를 올리면 보인다
+    else if(canEdit) el.title = '우클릭: 편집';
+    if(TwMyHomeStickerRules.isLinkUrl(s.link)){   // 누르면 여는 건 주소일 때만 — 글만 든 링크는 열기에 넘기지 않는다
+      el.classList.add('linked');
       el.addEventListener('click', e=>{
         if(e.target.classList.contains('mh-sticker-del')) return;
         if(e.target.classList.contains('mh-sticker-anim')) return;
@@ -59,8 +61,6 @@ function renderMyHomeStickers(){
         if(window.companion && companion.openBrowser) companion.openBrowser(s.link);
         else window.open(s.link, '_blank');
       });
-    } else if(canEdit){
-      el.title = '우클릭: 편집';
     }
 
     // 우클릭 → 편집모드 진입 (본인만)

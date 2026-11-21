@@ -321,8 +321,7 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
         const h = Math.max(1, Math.round(img.height * scale));
         const c=document.createElement('canvas'); c.width=w; c.height=h;
         c.getContext('2d').drawImage(img, 0, 0, w, h);
-        let link=await asyncPrompt({title:'스티커 링크', message:'클릭 시 이동할 링크 (선택 — 비워두면 링크 없음)\n\n※ 나중에 [+ 스티커] → 관리 창에서 바꿀 수 있어요.', defaultValue:'', maxLength:300});
-        link=(link||'').trim().slice(0,300);
+        const link=mhStickerRules.cleanLink(await asyncPrompt({title:'스티커 링크', message:'주소(http:// · https://)면 누르면 열리고, 그 밖의 글은 마우스를 올리면 보여요 (선택 — 비워두면 없음)\n\n※ 나중에 [+ 스티커] → 관리 창에서 바꿀 수 있어요.', defaultValue:'', maxLength:mhStickerRules.LINK_MAX}));
         // 새 스티커는 창 가운데쯤에 놓아서 바로 눈에 띄게 (겹치지 않게 개수만큼 살짝 어긋냄)
         const n = Object.keys(_myHomeData().stickers||{}).length;
         const at = _mhClampStickerPos({ x: 60 + n*18, y: 60 + n*18, w, h, size: 1 });   // 창이 작으면 처음부터 밖에 놓일 수 있다 — 복사본에서 안으로

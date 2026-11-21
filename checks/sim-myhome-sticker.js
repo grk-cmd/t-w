@@ -155,11 +155,13 @@ await sec('── 2. 관리 창 — 열기 · 목록 · 닫기', () => {
   chk(!menu.classList.contains('on'), '  줄 밖으로 나가면 접는다');
   moreBtn.click(); e.btn(0, '✨').click();
   chk(!menu.classList.contains('on'), '  메뉴에서 고르면 접는다');
-  e.data.stickers = { a: { emoji: '🐱', x: -50, y: 5 }, b: {}, c: {}, d: {}, e: {} };
+  e.data.stickers = { a: { emoji: '🐱', x: -50, y: 5 }, b: {}, c: { link: '우리 집' }, d: {}, e: {} };
   M.render();
   chk(E.stMgrCount.textContent === '5 / 5' && E.stMgrAdd.disabled === true && E.stMgrBringAll.disabled === false, '다섯 개 — [＋] 꺼짐 · 밖에 하나 → [전부 화면 안으로] 켜짐');
   chk(e.part(e.row(0), 'st-mgr-th').textContent === '🐱' && /화면 밖/.test(e.part(e.row(0), 'st-mgr-meta').children[0].innerHTML) && e.part(e.row(1), 'st-mgr-th').textContent === '⭐', '  이모지 · «화면 밖» 표시 · 그림도 이모지도 없으면 ⭐');
   chk(e.part(e.row(1), 'st-mgr-meta').children[1].textContent === '링크 없음', '  링크 없으면 «링크 없음»');
+  const cRow = e.row(Object.keys(e.data.stickers).reverse().indexOf('c'));
+  chk(e.part(cRow, 'st-mgr-meta').children[1].textContent === '💬 우리 집' && e.part(cRow, 'st-mgr-meta').children[1].title === '우리 집', '  글만 든 링크는 💬(누르면 안 열림 · 마우스를 올리면 보임)');
   e.data.stickers = {}; M.render();
   chk(E.stMgrList.children.length === 1 && E.stMgrList.children[0].className === 'st-mgr-empty', '비면 안내 한 줄');
   E.stMgrClose.onclick();
@@ -184,8 +186,11 @@ await sec('── 3. 줄 버튼', async () => {
   chk(e.anims[0] === 'a', '✨ — 움직임 창(그 스티커)');
   e.promptAns = null; await e.btn(1, '🔗').click(); await flush();
   chk(e.data.stickers.b.link === 'https://old' && e.prompts[0].defaultValue === 'https://old' && e.prompts[0].maxLength === 300, '🔗 취소 — 그대로 · 지금 링크를 기본값으로');
-  e.promptAns = 'ftp://x'; await e.btn(1, '🔗').click(); await flush();
-  chk(e.data.stickers.b.link === 'https://old' && e.toasts[e.toasts.length - 1] === 'http:// 또는 https:// 로 시작하는 주소만 넣을 수 있어요', '🔗 http 아님 — 거절 · 안내');
+  chk(/주소\(http:\/\/ · https:\/\/\)면 누르면 열리고, 그 밖의 글은 마우스를 올리면 보여요/.test(e.prompts[0].message), '🔗 안내 — 주소면 열리고 글이면 마우스를 올리면 보인다');
+  e.promptAns = '  우리 집\n강아지\u0007  '; const c0b = e.commits; await e.btn(1, '🔗').click(); await flush();
+  chk(e.data.stickers.b.link === '우리 집강아지' && e.commits === c0b + 1, '★ 🔗 글(주소 아님)도 받는다 — 제어 문자 · 앞뒤 공백 빼고 저장(0.12 와 같음)');
+  e.promptAns = 'x'.repeat(320); await e.btn(1, '🔗').click(); await flush();
+  chk(e.data.stickers.b.link === 'x'.repeat(300), '  300자까지');
   e.promptAns = '  https://new  '; const c1 = e.commits; await e.btn(1, '🔗').click(); await flush();
   chk(e.data.stickers.b.link === 'https://new' && e.commits === c1 + 1, '🔗 — 바꿈(앞뒤 공백 뺌) · 저장');
   e.promptAns = ''; await e.btn(1, '🔗').click(); await flush();
