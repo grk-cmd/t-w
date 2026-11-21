@@ -89,6 +89,13 @@ describe('API 통로', () => {
     expect(calls).toHaveLength(0);
   });
 
+  it('공개 GET(anonymous)은 Authorization 머리 없이 — 서버 CORS 가 공개 경로에 그 머리를 받지 않는다 · 로그인 전에도 부른다', async () => {
+    const { client, calls } = api(() => json(200, { success: true, data: { ok: 1 } }), '');
+    await expect(client.get('/v2/notices', undefined, { anonymous: true })).resolves.toEqual({ ok: 1 });
+    expect(calls).toHaveLength(1);
+    expect((calls[0].init.headers as Record<string, string>).Authorization).toBeUndefined();
+  });
+
   it('401 · 403 은 권한 오류 — 폴백하지 않는다', async () => {
     const e401 = await failure(
       api(() =>

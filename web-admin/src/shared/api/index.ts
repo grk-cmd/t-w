@@ -26,6 +26,7 @@ export {
   type ApiErrorKind,
   type ApiParams,
   type ApiSendMethod,
+  type ApiGetOptions,
   type ApiSendOptions,
   type MissingRoute,
 } from './api';

@@ -1,4 +1,4 @@
-// API 판 — `GET /v2/notices`(고정 + 최신 30 · 고정 아닌 공지 `total`) · `GET /v2/notices/broadcasts?cursor&limit`(더 보기) ·
+// API 판 — `GET /v2/notices`(고정 + 최신 30 · 고정 아닌 공지 `total`) · `GET /v2/notices/broadcasts?cursor&limit`(더 보기 — 둘 다 공개 GET 이라 토큰 없이) ·
 // `POST /v2/admin/notices/broadcasts` · `PATCH · DELETE …/broadcasts/{id}` · `POST …/broadcasts/bulk`.
 // 고정 · 내리기는 읽을 때 받은 `version` 을 싣는다(그 사이 다른 관리자가 고쳤으면 409 → conflict).
 import {
@@ -68,7 +68,8 @@ function build(api: Api | null): BroadcastPort {
       api,
       async (a) => {
         const board = wireObject(
-          wireObject(await a.get<unknown>('/v2/notices'), '공지 판').broadcasts,
+          wireObject(await a.get<unknown>('/v2/notices', undefined, { anonymous: true }), '공지 판')
+            .broadcasts,
           '공지 판의 broadcasts',
         );
         const pinned = rows(board.pinned, 'broadcasts.pinned');
@@ -81,7 +82,11 @@ function build(api: Api | null): BroadcastPort {
         // 더 달라고 하면(n 이 늘면) 키셋으로 이어 받는다 — 받아 둔 쪽은 다시 받지 않을 수 없지만 한 번에 50개씩이다.
         while (cursor && recent < n) {
           const page = wireObject(
-            await a.get<unknown>('/v2/notices/broadcasts', { cursor, limit: Math.min(PAGE_MAX, n - recent) }),
+            await a.get<unknown>(
+              '/v2/notices/broadcasts',
+              { cursor, limit: Math.min(PAGE_MAX, n - recent) },
+              { anonymous: true },
+            ),
             '공지 쪽',
           );
           const more = rows(page.items, '공지 쪽의 items');

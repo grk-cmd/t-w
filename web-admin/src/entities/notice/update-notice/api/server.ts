@@ -35,7 +35,11 @@ function build(api: Api | null): UpdateNoticePort {
   return {
     async get() {
       const board = wireObject(
-        await portCall(api, (a) => a.get<unknown>('/v2/notices'), '업데이트 공지를 불러오지 못했어요'),
+        await portCall(
+          api,
+          (a) => a.get<unknown>('/v2/notices', undefined, { anonymous: true }),
+          '업데이트 공지를 불러오지 못했어요',
+        ),
         '공지 판',
       );
       if (!('updateNotice' in board)) throw wireError('공지 판', 'updateNotice 칸(없으면 null)');
