@@ -5,18 +5,19 @@
 // 윈도우 · 리눅스: 창 닫기 = 끄기 — 붙잡고 저장한 뒤 상한(quit-hold.js GUARD_MS) 안에 꺼진다
 'use strict';
 const { run } = require('./_kit.js');
+const { MAIN_WIN_TITLE } = require('../../lib.js');
 const Q = require('./_quit.js');
 
 const COLOR_1 = '#aa3377', COLOR_2 = '#3377aa';
 const mac = process.platform === 'darwin';
 
-const closeMain = (A) => A.app.evaluate(({ BrowserWindow }) => {
-  const m = BrowserWindow.getAllWindows().find((x) => /Desk Companion/.test(x.getTitle()));
+const closeMain = (A) => A.app.evaluate(({ BrowserWindow }, title) => {
+  const m = BrowserWindow.getAllWindows().find((x) => x.getTitle().includes(title));
   if(!m) return false;
   setTimeout(() => m.close(), 0);
   return true;
-});
-const mainOpen = (A) => A.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some((x) => !x.isDestroyed() && /Desk Companion/.test(x.getTitle())));
+}, MAIN_WIN_TITLE);
+const mainOpen = (A) => A.app.evaluate(({ BrowserWindow }, title) => BrowserWindow.getAllWindows().some((x) => !x.isDestroyed() && x.getTitle().includes(title)), MAIN_WIN_TITLE);
 
 run('quit-close', async (t) => {
   const A = await t.newUser('a');

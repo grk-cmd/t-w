@@ -3,11 +3,10 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { makeApp, wait, API_HOST } = require('./lib.js');
+const { makeApp, wait, API_HOST, PW } = require('./lib.js');
 
 const [outArg, invite = 'INVT-E2E2-TEST'] = process.argv.slice(2);
 if(!outArg){ console.error('쓰는 법: node flow.js <결과 폴더> [초대 코드]'); process.exit(2); }
-const PW = 'e2e-pass-1234';   // 에뮬레이터 안에서만 쓰는 시험 비밀번호
 const A = makeApp(outArg);
 const out = A.out;
 const steps = [];

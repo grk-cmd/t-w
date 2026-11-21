@@ -7,24 +7,21 @@
 // ⑤ BrowserView(BGM 길)도 소리 끔 — 판정은 lib.quietProblems 한 곳
 // 결과: <결과 폴더>/steps.txt(ok · FAIL) · 종료 코드 0/1. TW_E2E_QUIET=0 이면 볼 것이 없어 건너뛴다
 'use strict';
-const fs = require('fs');
 const path = require('path');
 const { makeApp, wait, quietProblems } = require('../../lib.js');
-const { acquire, markQuietFail } = require('../../runlock.js');
+const { markQuietFail } = require('../../runlock.js');
+const S = require('../_shared.js');
 
-const out = path.resolve(process.argv[2] || '/tmp/tw-e2e/launcher/quiet');
-const steps = [];
+const F = S.frame('launcher', 'quiet', { quietGuard: false });   // 단계 끝 판정 대신 이 시나리오가 직접 본다
 // 이 PC 화면 · 포커스 · 소리로 새는 실패(leak)만 e2e-quiet-fail 에 남긴다 — 켜기 실패 · 감싸기 값 어긋남은 이 시나리오만 실패(다른 묶음을 멈추지 않음)
 const leak = (msg) => Object.assign(new Error(msg), { leak: true });
-const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(path.join(out, 'steps.txt'), steps.join('\n') + '\n'); };
 
-(async () => {
-  if(process.env.TW_E2E_QUIET === '0'){ steps.push('ok   TW_E2E_QUIET=0 — 건너뜀', 'PASS'); save(); return; }
-  if(!out.startsWith('/tmp/') && !out.startsWith('/private/tmp/')) { console.error('결과 폴더는 /tmp 아래로: ' + out); process.exit(2); }
-  fs.rmSync(out, { recursive: true, force: true });
-  const unlock = await acquire('launcher/quiet');
-  const A = makeApp(path.join(out, 'pc'));
-  let code = 0;
+if(process.env.TW_E2E_QUIET === '0'){ F.steps.push('ok   TW_E2E_QUIET=0 — 건너뜀', 'PASS'); F.save(); process.exit(0); }
+const A = makeApp(path.join(F.out, 'pc'));
+const inst = F.add({ label: 'pc', A, w: null });
+const step = F.step;
+
+S.drive(F, { evenIfQuietFail: true, body: async () => {
   const look = () => A.app.evaluate(({ BrowserWindow, screen }) => ({
     wins: BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed()).map((w) => {
       const b = typeof w.__e2eRealBounds === 'function' ? w.__e2eRealBounds() : null;
@@ -46,13 +43,8 @@ const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(pa
     }
     return look();
   };
-  const step = async (label, fn) => {
-    const t0 = Date.now();
-    try { await fn(); steps.push('ok   ' + label + ' (' + (Date.now() - t0) + 'ms)'); }
-    catch(e){ steps.push('FAIL ' + label + ': ' + e.message); throw e; }
-  };
   try {
-    await A.launch();
+    inst.w = await A.launch();
     await step('켠 뒤 4초 — 모든 창이 화면 밖 · 투명 · 소리 끔 · 포커스 없음', () => holdQuiet('켠 뒤'));
     await step('앱이 부르는 앞으로 · 화면 안 · 보이기 · 소리 길을 직접 불러도 진짜 창은 그대로 · 앱이 읽는 값은 앱이 정한 값', async () => {
       // 앱 창은 앱이 크기를 정해 두기도 해서(런처 고정 크기) 크기 판정은 같은 하위 클래스로 만든 시험 창에서 본다 — 앱 창은 앞으로 · 화면 안 길만 부른다
@@ -139,17 +131,7 @@ const save = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(pa
       });
     });
   } catch(e){
-    code = 1;
-    if(!steps.some((l) => l.startsWith('FAIL'))) steps.push('FAIL ' + e.message);
     if(e && e.leak) markQuietFail('launcher/quiet ' + e.message);
-    steps.push('ABORT ' + e.message);
-  } finally {
-    if(!code) steps.push('PASS');   // run-all 은 steps.txt 의 PASS 줄로 통과를 본다
-    save();
-    try { fs.writeFileSync(path.join(out, 'pc', 'console.txt'), A.logs.join('\n') + '\n'); } catch(_){}
-    await A.quit().catch(() => {});
-    unlock();
+    throw e;
   }
-  console.log((code ? 'FAIL' : 'PASS') + ' launcher/quiet');
-  process.exit(code);
-})();
+} });

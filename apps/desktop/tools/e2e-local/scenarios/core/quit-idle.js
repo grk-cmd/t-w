@@ -1,11 +1,12 @@
-// 못 올린 고침이 없으면 끄기가 바로 된다 — 8초 상한을 기다리지 않는다(#1024)
+// 못 올린 고침이 없으면 끄기가 바로 된다 — 렌더러 상한(leave-flush.js LEAVE_FLUSH_MAX_MS)을 기다리지 않는다(#1024)
 // 캐릭터를 만들고 서버 저장이 끝난 뒤(못 올린 고침 0) 메뉴 «종료» → 붙잡아도 저장 요청 없이 곧바로 놓아 주고 앱이 IDLE_MAX_MS 안에 꺼진다
 'use strict';
 const { run } = require('./_kit.js');
 const Q = require('./_quit.js');
 
-// 바로 끄기의 상한 — 렌더러 상한(8초)을 기다렸다면 반드시 넘는 값
+// 바로 끄기의 상한 — 렌더러 상한(LEAVE_FLUSH_MAX_MS)을 기다렸다면 반드시 넘는 값
 const IDLE_MAX_MS = 4000;
+if(IDLE_MAX_MS >= Q.LEAVE_FLUSH_MAX_MS) throw new Error(`IDLE_MAX_MS ${IDLE_MAX_MS} 가 렌더러 상한 ${Q.LEAVE_FLUSH_MAX_MS} 보다 작아야 판정이 된다`);
 const HOLD_MAX_MS = 1000;
 
 run('quit-idle', async (t) => {
