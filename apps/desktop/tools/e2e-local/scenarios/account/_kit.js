@@ -6,9 +6,9 @@ const path = require('path');
 const crypto = require('crypto');
 const { makeApp, API_HOST } = require('../../lib.js');
 const S = require('../_shared.js');
-const { wait, PW, API, http, emuSignIn, withToken, seedSql: sql, query: sqlQuery, fillChecked } = S;
+const { wait, PW, API, http, emuSignIn, withToken, seedSql, query, fillChecked } = S;
 
-const INVITE = 'INVT-ACCT-E2E5';   // seed/invite.sql 로 넣는 이 묶음의 초대 코드
+const INVITE = S.inviteCode('INVT-ACCT-E2E5');   // 이 묶음의 초대 코드(규칙은 _shared.js inviteCode)
 const STEP_MAX_MS = 5 * 60 * 1000;   // 한 단계가 끝없이 기다리지 않게(앱 다시 켜기 · 확인창을 넉넉히 품는 상한)
 
 // 에뮬레이터는 서명을 보지 않는다 — 구글이 준 것처럼 생긴 서명 없는 ID 토큰
@@ -23,7 +23,7 @@ const uniq = () => Date.now().toString(36) + crypto.randomBytes(3).toString('hex
 async function adminAccount(){
   const a = await apiAccount();
   await a.token();
-  sql('admin.sql', { uid: a.authUid });
+  seedSql('admin.sql', { uid: a.authUid });
   const t0 = Date.now();
   while(Date.now() - t0 < 30000){
     const me = await a.api('GET', '/v2/me');
@@ -101,9 +101,9 @@ function scenario(name, body){
       await inst.launch();
       return inst;
     },
-    apiAccount, sql, sqlQuery, http, API,
+    apiAccount, seedSql, query, http, API,
   };
-  S.drive(F, { prepare: () => sql('invite.sql', { code: INVITE }), body: () => body(t) });
+  S.drive(F, { invite: INVITE, body: () => body(t) });
 }
 
 // 구글 로그인 창(main.js companion:signInWithGoogle)은 진짜 구글 OAuth 라 시험에서 열 수 없다 —
@@ -177,5 +177,5 @@ async function openMyInfo(inst, tab){
   }
 }
 
-module.exports = { scenario, fillChecked, emuSignIn, adminAccount, issueLicense, apiAvatar, apiAccount, withToken, sql, sqlQuery, http, fakeGoogleIdToken, uniq, setGoogle,
+module.exports = { scenario, fillChecked, emuSignIn, adminAccount, issueLicense, apiAvatar, apiAccount, withToken, seedSql, query, http, fakeGoogleIdToken, uniq, setGoogle,
   shown, waitShown, waitFor, text, waitEntered, signupUi, loginUi, googleSignupUi, newGoogle, openMyInfo, PW, INVITE, API };

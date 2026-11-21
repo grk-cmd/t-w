@@ -62,7 +62,7 @@ run('admin-license', async (t) => {
     const m = await t.poll(async () => { const s = (await A.w.textContent('#toast')) + ' ' + (await A.w.evaluate(() => document.body.innerText)); return (s.match(/SCRT-[A-Z0-9]{4}/) || [])[0]; }, 10000, 'SCRT 코드 안내');
     t.note('시크릿룸 ' + m);
     const uc = (await t.api(B, 'GET', '/v2/me')).body.data.userCode;
-    const row = t.sql(`SELECT owner_user_code FROM secret_room WHERE code = '${m}'`);
+    const row = t.query(`SELECT owner_user_code FROM secret_room WHERE code = '${m}'`);
     t.check(row === uc, `${m} 주인이 B(${uc})가 아님: ${row}`);
   });
 });

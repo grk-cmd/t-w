@@ -5,7 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { acquire, QUIET_FAIL } = require('./runlock.js');
+const { acquire, QUIET_FAIL, RUNNER_MS } = require('./runlock.js');
 
 const ROOT = path.join(__dirname, 'scenarios');
 const OUT = process.env.TW_E2E_OUT || '/tmp/tw-e2e';
@@ -36,7 +36,7 @@ if(require.main === module) (async () => {
   for(const it of items){
     if(QUIET_FAIL && fs.existsSync(QUIET_FAIL)){ console.error('e2e-quiet-fail 이 있어 멈춤: ' + QUIET_FAIL); rows.push({ id: it.id, ok: false, sec: 0, bugs: 0, why: '멈춤 — e2e-quiet-fail' }); break; }
     const t0 = Date.now();
-    const r = spawnSync(process.execPath, [it.file, it.out], { cwd: __dirname, env, stdio: 'inherit', timeout: 15 * 60 * 1000 });
+    const r = spawnSync(process.execPath, [it.file, it.out], { cwd: __dirname, env, stdio: 'inherit', timeout: RUNNER_MS });
     let steps = '';
     try { steps = fs.readFileSync(path.join(it.out, 'steps.txt'), 'utf8'); } catch(_){}
     const ok = r.status === 0 && /^PASS$/m.test(steps);

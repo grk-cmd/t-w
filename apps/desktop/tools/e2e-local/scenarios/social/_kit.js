@@ -8,7 +8,7 @@ const { makeApp, API_HOST } = require('../../lib.js');
 const S = require('../_shared.js');
 const { wait, PW, seedSql } = S;
 
-const INVITE = process.env.TW_E2E_INVITE || 'INVT-SCAL-E2E3';   // seed/invite.sql 에 code 로 넘겨 넣는다(묶음마다 코드를 따로 — 사용 횟수를 나눠 쓰지 않게)
+const INVITE = S.inviteCode('INVT-SCAL-E2E3');   // 이 묶음의 초대 코드(규칙은 _shared.js inviteCode)
 
 // 렌더러 안에서 앱 토큰으로 API 를 부른다 — 요청이 앱과 같은 길(주소 돌리기 · 요청 기록)로 간다
 const apiIn = (w, method, p, body) => S.apiIn(w, method, p, body, { noStore: false });
@@ -81,8 +81,7 @@ function scenario(name, body){
 
   const t = { out: F.out, step, user, note, wait, assert, apiIn, until, users, knownBug: F.knownBug };
   S.drive(F, {
-    // TW_E2E_INVITE 로 받은 코드는 그 사람이 넣어 둔 것이라 건드리지 않는다
-    prepare: () => { if(!process.env.TW_E2E_INVITE) seedSql('invite.sql', { code: INVITE }); },
+    invite: INVITE,
     body: () => body(t),
     // 통과하면 앱 데이터(수백 MB)는 지우고 기록만 남긴다 — 도우미 프로세스가 다 끝난 뒤에(남아서 쓰면 지우기가 ENOTEMPTY 로 실패한다)
     onPass: async () => {

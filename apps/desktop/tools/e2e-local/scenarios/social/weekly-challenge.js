@@ -42,8 +42,14 @@ scenario('weekly-challenge', async (t) => {
   await t.step('오늘 줄 체크 → «오늘 달성» 토스트 · 서버', async () => {
     const row = await a.until(() => !!document.querySelector('#chalToday [data-i]'), null, { what: '오늘 체크 줄' });
     assert(row, '오늘 줄');
+    // 주말엔 첫 달성에 이른 보상 칸이 바로 열려 «뽑기 n회» 토스트가 «오늘 달성» 을 곧 덮는다 — 지금 글만 보지 않고 뜬 글을 다 모은다
+    await a.eval(() => {
+      const el = document.getElementById('toast');
+      window.__chalToasts = [el.textContent];
+      new MutationObserver(() => window.__chalToasts.push(el.textContent)).observe(el, { subtree: true, childList: true, characterData: true });
+    });
     await a.eval(() => document.querySelector('#chalToday [data-i="0"]').click());
-    await a.until(() => /오늘 달성! 1일째/.test(document.getElementById('toast').textContent), null, { timeout: 20000, what: '오늘 달성 토스트' });
+    await a.until(() => window.__chalToasts.some((x) => /오늘 달성! 1일째/.test(x)), null, { timeout: 20000, what: '오늘 달성 토스트' });
     let s;
     for(let i = 0; i < 20; i++){ s = JSON.stringify((await a.api('GET', '/v2/me/focus/challenges/current')).json.data); if(/"(count|doneCount|days)":\s*1|true/.test(s)) break; await t.wait(300); }
     t.note(s.slice(0, 300));

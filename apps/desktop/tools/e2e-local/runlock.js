@@ -8,6 +8,11 @@ const LOCK = process.env.TW_E2E_RUN_LOCK || '';
 // 조용한 창이 깨졌다는 표시 파일 — 잠금 폴더 옆 하나. run-all 은 이 파일이 있으면 다음 시나리오를 켜지 않는다(사람이 까닭을 보고 지운다). 잠그지 않고 돌면 ''
 const QUIET_FAIL = LOCK ? path.join(path.dirname(LOCK), 'e2e-quiet-fail') : '';
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// 시간 상한 한 곳 — 시나리오 상한(TW_E2E_SCENARIO_MIN, 기본 20분 · 공유 스택 잠금을 기다린 시간은 빼고 잰다) · 그 잠금을 기다리는 상한.
+// run-all 은 둘을 더하고 되돌리기 · 끄기 몫을 얹은 뒤에야 끊는다 — 시나리오가 스스로 ABORT 로 끝낼 틈을 먼저 준다
+const SCENARIO_MS = Number(process.env.TW_E2E_SCENARIO_MIN || 20) * 60000;
+const STACK_WAIT_MS = 10 * 60000;
+const RUNNER_MS = SCENARIO_MS + STACK_WAIT_MS + 2 * 60000;
 
 // opts.signals:false — 신호를 받아도 바로 끝내지 않는다(부르는 쪽이 신호 때 할 일을 마친 뒤 끝낸다 · 잠금은 exit 에서 놓음)
 async function acquire(owner, opts = {}){
@@ -37,4 +42,4 @@ function markQuietFail(text){
   try { fs.appendFileSync(QUIET_FAIL, new Date().toISOString() + ' ' + text + '\n'); } catch(_){}
 }
 
-module.exports = { acquire, QUIET_FAIL, markQuietFail };
+module.exports = { acquire, QUIET_FAIL, markQuietFail, SCENARIO_MS, STACK_WAIT_MS, RUNNER_MS };

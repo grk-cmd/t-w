@@ -5,9 +5,9 @@ const fs = require('fs');
 const path = require('path');
 const { makeApp } = require('../../lib.js');
 const S = require('../_shared.js');
-const { wait, PW, seedSql: seed } = S;
+const { wait, PW, seedSql } = S;
 
-const INVITE = 'INVT-RMRM-E2E3';   // seed/invite.sql 로 넣는 이 묶음의 초대 코드
+const INVITE = S.inviteCode('INVT-RMRM-E2E3');   // 이 묶음의 초대 코드(규칙은 _shared.js inviteCode)
 
 const until = (what, fn, ms = 20000, gap = 250) => S.waitUntil(fn, { ms, every: gap, what });
 const eq = (what, got, want) => {
@@ -37,7 +37,7 @@ function scenario(file, body){
       return u;
     },
   };
-  S.drive(F, { prepare: () => seed('invite.sql', { code: INVITE }), body: () => body(t) });
+  S.drive(F, { invite: INVITE, body: () => body(t) });
 }
 
 function openUser(t, out, label){
@@ -176,14 +176,14 @@ function openUser(t, out, label){
   };
   // 관리자로 만든다(seed/admin.sql) → 다시 켜서 서버가 프리미엄을 붙인 것을 확인. 투게더룸 · 시크릿룸 · 프리미엄 기능에 쓴다
   u.makeAdmin = async () => {
-    seed('admin.sql', { uid: u.uid });
+    seedSql('admin.sql', { uid: u.uid });
     await u.relaunch();
     await until(`${label}: 서버가 관리자 · 프리미엄으로 봄`, async () => { const me = await u.whoami(); return me.admin && me.premium; });
     await until(`${label}: 앱이 프리미엄으로 봄`, () => u.eval(() => roomEntryMod._myRoomLicensed()), 30000);
   };
   // 포커스 레벨을 정한다(seed/focus.sql — 서버 레벨 = 1 + 누적초/3600) → 다시 켜서 앱이 그 레벨을 받았는지
   u.setLevel = async (level) => {
-    seed('focus.sql', { uid: u.uid, sec: (level - 1) * 3600 });
+    seedSql('focus.sql', { uid: u.uid, sec: (level - 1) * 3600 });
     await u.relaunch();
     await until(`${label}: 앱 레벨 ${level}`, () => u.eval(() => focusLevelMod.getFocusLevel()).then((lv) => lv >= level), 30000);
   };
@@ -281,4 +281,4 @@ function wrapLaunch(A){
   };
 }
 
-module.exports = { scenario, seed, until, eq, ok, wait, PW, INVITE };
+module.exports = { scenario, seedSql, until, eq, ok, wait, PW, INVITE };
