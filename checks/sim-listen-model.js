@@ -13,7 +13,10 @@ const need = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ say('  
 const SRC = need('listen-model.js');
 const RULES = JSON.parse(need('firebase-database-rules.json')).rules;
 const load = (src) => { const w = {}; new Function('window', src)(w); return w.TwListenModel; };
-const M = load(SRC);
+/* 🎧 스위치(ENABLED)는 지금 꺼져 있다 — 규칙 시험은 «켠 글» 로 돌리고(다시 켤 때 그대로 쓰이게), 꺼진 때의 판정은 원본 그대로 본다 */
+const ON_SRC = SRC.replace('const ENABLED = false;', 'const ENABLED = true;');
+const OFF = load(SRC);
+const M = load(ON_SRC);
 const T0 = 1700000000000;
 const song = (o) => Object.assign({ id: 'jfKfPfyJRdk', title: 'lofi', by: 'u1', at: T0, paused: false, pos: 0, seq: 3 }, o || {});
 
@@ -62,7 +65,12 @@ say('── 5. 하트비트 읽기');
 chk(JSON.stringify(M.parseBeat('hb:61|204|0|1')) === '{"pos":61,"dur":204,"paused":false,"ad":true}', "'hb:위치|길이|멈춤|광고' → 칸 넷");
 chk(JSON.stringify(M.parseBeat('hb:5|-1|1')) === '{"pos":5,"dur":-1,"paused":true,"ad":false}', '  옛 세 칸(광고 칸 없음)도 읽는다');
 chk(M.parseBeat('ended') === null && M.parseBeat('hb:x|1') === null && M.parseBeat(null) === null, '  하트비트가 아니면 null');
-chk(M.isMusicRoom({ music: true }) && !M.isMusicRoom({ music: 'true' }) && !M.isMusicRoom(null), '같이 듣기 방 = _meta.music === true 만');
+chk(M.isMusicRoom({ music: true }) && !M.isMusicRoom({ music: 'true' }) && !M.isMusicRoom(null), '같이 듣기 방 = _meta.music === true 만(스위치 켬)');
+chk(ON_SRC !== SRC && M.ENABLED === true && !M.isBlockedRoom({ music: true }), '  스위치 켬 — 막는 방이 없다');
+chk(OFF.ENABLED === false && OFF.isMusicRoom({ music: true }) === false, '★ 스위치 끔(지금) — 같이 듣기 방도 같이 듣기로 다루지 않는다');
+chk(OFF.isBlockedRoom({ music: true }) === true && OFF.isBlockedRoom({ music: false }) === false && OFF.isBlockedRoom({}) === false && OFF.isBlockedRoom(null) === false && OFF.isBlockedRoom({ music: 'true' }) === false,
+  '★ 스위치 끔 — 들어가면 안 되는 방 = music === true 만(보통 방 · meta 없음은 막지 않는다)');
+chk(typeof OFF.BLOCKED_TEXT === 'string' && OFF.BLOCKED_TEXT.length > 0, '  막을 때 보일 문구가 있다');
 
 say('── 6. 범위가 규칙과 같다');
 {

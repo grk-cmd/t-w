@@ -25,6 +25,7 @@ const TEXT = Object.freeze({
  *   twNav: typeof window.TwNav,
  *   maxPeople: () => number,
  *   isLicensed: () => boolean,
+ *   isBlocked: (card: { music: boolean }) => boolean,
  *   joinRoom: (code: string) => Promise<void>,
  *   openCreate: (channel: string) => void,
  *   toast: (msg: string) => void,
@@ -41,6 +42,7 @@ const twNav = deps.twNav;     // 방을 나와 로비가 다시 보이면 room-e
 const maxPeople = deps.maxPeople;
 const isLicensed = deps.isLicensed;
 const joinRoom = deps.joinRoom;
+const isBlocked = deps.isBlocked;   // 🎧 들어가지 못하는 방인가(listen-model.js isBlockedRoom) — 목록에서 뺀다
 const openCreate = deps.openCreate;
 const toast = deps.toast;
 const notifyError = deps.notifyError;
@@ -98,7 +100,7 @@ function measureTitles(){
 
 function paint(){
   const cap = maxPeople();
-  const r = model.cardsFrom(st.node === undefined ? { at: now(), rooms: {} } : st.node, { now: now(), cap, onlyOpen: st.onlyOpen });
+  const r = model.cardsFrom(st.node === undefined ? { at: now(), rooms: {} } : st.node, { now: now(), cap, onlyOpen: st.onlyOpen, isBlocked });
   $('lobbyTabWorking').classList.toggle('on', st.channel === 'workingroom');
   $('lobbyTabTogether').classList.toggle('on', st.channel === 'togetherroom');
   $('lobbyAll').classList.toggle('on', !st.onlyOpen);

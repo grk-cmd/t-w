@@ -138,12 +138,12 @@
 | **sim-secret-room-grant.js** | 162 | **f325a166a9c7** |
 | **sim-room-meta-cleanup.js** | 250 | **671ee02072a8** |
 | **sim-room-stats.js** | 155 | **a02149187d49** |
-| **sim-room-lobby-ui.js** | 281 | **2f2b78d8d616** |
+| **sim-room-lobby-ui.js** | 311 | **0e6a354d89e5** |
 | **sim-room-info-ui.js** | 189 | **556364aa869f** |
-| **sim-listen-model.js** | 90 | **80828567c3ca** |
+| **sim-listen-model.js** | 98 | **f2ad612fa0d4** |
 | **sim-listen-provider.js** | 95 | **742da2943880** |
-| **sim-listen-ui.js** | 432 | **7f601e7d2862** |
-| **sim-room-settings.js** | 239 | **147b9aeefc03** |
+| **sim-listen-ui.js** | 455 | **950ca39a5d9c** |
+| **sim-room-settings.js** | 249 | **8420ce9d2700** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
 | **sim-visit-ping.js** | 151 | **9f3a61fcae2c** |
 | **sim-usage-snapshot.js** | 194 | **a2cfdf538af3** |
@@ -375,7 +375,7 @@
 | **sim-wardrobe.js** | 229 | **637d90e6c5f6** |
 | **sim-settings-panel.js** | 96 | **f048483d1346** |
 | **sim-desktop-run.js** | 94 | **2370870711eb** |
-| **sim-room-entry.js** | 348 | **be40c72bb9e1** |
+| **sim-room-entry.js** | 364 | **0a52f8ee8a52** |
 | **sim-overhead.js** | 161 | **548871849555** |
 | **sim-room-sync.js** | 123 | **4b65e0692fb6** |
 | **sim-status-chip.js** | 123 | **23acdd14cd09** |

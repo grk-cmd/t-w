@@ -3538,6 +3538,7 @@ const roomInfoUi = TwRoomInfoUi.createRoomInfoUi({
 const roomLobbyProvider = TwRoomLobbyProvider.createRoomLobbyProvider({ apiGet: (p, o)=>TwApi.authed.get(p, o), peek: (code)=>TwRoomRt.store.peek(code),
   roomCode: ()=>(Presence.active() ? Presence.roomCode() : null), myUserId: ()=>getMyUserId(), now: ()=>Date.now() });
 const roomEntryMod = TwRoomEntry.createRoomEntry({
+  listen: TwListenModel,
   roomEntryAccountStore: accountStoreMod,
   EXP_CELLS: ()=>expBarMod.EXP_CELLS,
   FLOATER_BURST: floatersMod.FLOATER_BURST,
@@ -3600,6 +3601,7 @@ const roomCreateUi = TwRoomCreateUi.createRoomCreateUi({
   rcStore: ()=>acctStateMod._rcStore(),
   maxPeople: ()=>maxPeople(),
   isLicensed: ()=>roomEntryMod._myRoomLicensed(),
+  listenEnabled: TwListenModel.ENABLED,
   onCreate: (ch, settings)=>roomEntryMod.doCreateRoomInChannel(ch, settings),
 });
 // 🗂️ 방 목록 로비 — 목록 · 내 시크릿룸은 provider 로만 읽는다(room/room-lobby-*.js)
@@ -3610,6 +3612,7 @@ TwRoomLobbyUi.createRoomLobbyUi({
   twNav: twNav,
   maxPeople: ()=>maxPeople(),
   isLicensed: ()=>roomEntryMod._myRoomLicensed(),
+  isBlocked: (card)=>TwListenModel.isBlockedRoom(card),
   joinRoom: (code)=>roomEntryMod.joinRoom(code),   // 입장 중 막기는 room-entry 한 깃발(코드 칸 · 최근 방과 같이)
   openCreate: (ch)=>roomCreateUi.open(ch),
   toast: (...a)=>toast(...a),

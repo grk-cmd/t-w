@@ -13,6 +13,7 @@
  *   rcStore: () => { bannedWords(): string[] },
  *   maxPeople: () => number,
  *   isLicensed: () => boolean,
+ *   listenEnabled: boolean,
  *   onCreate: (channel: string, settings: { title: string, max: number, open: boolean, music: boolean }) => void,
  * }} deps
  */
@@ -23,6 +24,7 @@ const rcStore = deps.rcStore;
 const maxPeople = deps.maxPeople;
 const isLicensed = deps.isLicensed;
 const onCreate = deps.onCreate;
+const listenEnabled = deps.listenEnabled;   // 🎧 같이 듣기 스위치(listen-model.js ENABLED) — 꺼져 있으면 «같이 듣기 방» 칸을 숨기고 싣지 않는다
 
 const $ = (id) => document.getElementById(id);
 let channel = 'workingroom';
@@ -53,6 +55,7 @@ function open(ch){
   $('rcTitle').value = '';
   $('rcOpen').checked = true;
   $('rcMusic').checked = false;   // 만든 뒤엔 못 바꾸니 늘 꺼진 채로 연다(docs/LISTEN_TOGETHER.md 1장)
+  $('rcMusicRow').hidden = !listenEnabled;   // 🎧 스위치가 꺼져 있으면 칸째 숨긴다(listen-model.js ENABLED)
   showError('');
   setShown(true);
   paint();
@@ -64,7 +67,7 @@ function submit(){
   const r = roomSettings.checkTitle($('rcTitle').value, bannedWords.cleanBannedList(rcStore().bannedWords()), bannedWords);
   if(!r.ok){ showError(roomSettings.TITLE_ERROR_TEXT[r.reason]); $('rcTitle').focus(); return; }
   close();
-  onCreate(channel, { title: r.title, max: roomSettings.clampMax(max, maxPeople()), open: $('rcOpen').checked, music: $('rcMusic').checked });
+  onCreate(channel, { title: r.title, max: roomSettings.clampMax(max, maxPeople()), open: $('rcOpen').checked, music: listenEnabled && $('rcMusic').checked });
 }
 
 $('rcChWorking').onclick = () => { channel = 'workingroom'; paint(); };

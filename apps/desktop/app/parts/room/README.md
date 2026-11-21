@@ -372,6 +372,8 @@ TwRoomLobbyUi.createRoomLobbyUi({
 
 ## listen-model.js · listen-provider.js · listen-ui.js — 🎧 같이 듣기
 
+> ⚠️ **지금은 꺼져 있다** — `listen-model.js` 의 `ENABLED = false` 한 줄(다시 켜려면 `true`). 꺼진 동안: 방 만들기 창 «같이 듣기 방» 칸 · 설정 «내 시크릿룸을 같이 듣기로 열기» 칸을 숨기고 `music` 을 싣지 않는다 · 로비는 같이 듣기 방을 뺀다 · 옛 판 앱이 만든 같이 듣기 방에 들어가면 바로 나온다(`isBlockedRoom` — 판단은 이 모델 한 곳 · room-create-ui · room-lobby-ui · room-entry 는 app.js 가 넘긴 것만 쓴다). 검사는 «켠 글» 로도 굴려 다시 켰을 때의 흐름을 지킨다.
+
 **책임** (설계 `docs/LISTEN_TOGETHER.md`)
 - `listen-model.js`(순수 · `TwListenModel`) — 지금 위치(`posOf` — 서버 시각 기준) · 보낼 위치(`wirePos` — `posOf` 를 0~`MUSIC_POS_MAX`(86400초 · 방 서버 `music.pos` 범위)로 자름) · 어긋남(5초 넘고 광고가 아닐 때만 `needSeek`) · **지금 DJ 판정 한 곳**(`djOf` — 방에 있는 현재 방장 · 없으면 null) · 곡 끝 예비 판정(`isEnded` — 길이 + 3초) · 다음 · 이전 곡(`stepIndex` · `playableFrom`) · `_music` 한 줄(`makeMusic` · `paused` · `resumed` · `withDur` — 차례 +1 · 상한 10억) · 하트비트 읽기(`parseBeat`). 범위는 규칙 `rooms/$room/_music` 과 같다.
 - `listen-provider.js` — 곡 칸 구독(부르자마자 `undefined` = 불러오는 중 → 값 | `null` = 틀 곡 없음) · 쓰기 · `now()` · `lastSeq()`(칸이 빈 뒤 첫 곡의 앞 차례 — 서버가 마지막으로 받아들인 차례 · 방 밖이면 -1). 부를 때마다 deps `server()`(지금 방의 방 포트 provider) 로 — 서버 `music` 메시지(`onMusic` · `sendMusic` · `serverNow` = welcome · music 의 `now` 로 맞춘 시계 — 방 밖이거나 아직 못 맞췄으면 `null`, PC 시계로 대신하지 않는다: `now()` 도 `null` · 곡 쓰기는 `{ err:'noClock' }` + `console.warn`). 방 밖이면 아무 일 없음.
