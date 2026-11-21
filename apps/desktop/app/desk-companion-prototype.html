@@ -2407,6 +2407,9 @@
     border-radius:var(--win-radius-el) !important;}
   #gachaInvFoot{justify-content:space-between;}
   #gachaInvFoot #gachaGoDraw{margin-left:auto;}
+  /* [+ 등록](관리자)은 카테고리 고르기 · 쪽 넘기기와 한 줄이라 폭이 모자라면 글자가 «등 / 록» 으로 꺾였다 — 버튼 글은 한 줄로, 등록 버튼은 줄지 않게. */
+  #gachaInvFoot button{white-space:nowrap;}
+  #gachaInvFoot #gachaAdminAdd{flex:0 0 auto;}
   /* ◀ 1/2 ▶ 페이저 — 하단 버튼 줄의 비어 있던 왼쪽에 앉는다(창 높이가 안 늘어난다).
      ⚠️ #gachaInvFoot button 규칙이 이 안의 button 까지 잡아가므로(폰트 11px·패딩 4/12)
        여기서 다시 좁힌다. 안 그러면 화살표 버튼이 [가챠 뽑으러 가기] 만큼 커진다. */
