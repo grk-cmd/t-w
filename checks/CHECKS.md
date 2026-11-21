@@ -150,7 +150,6 @@
 | **sim-account-delete.js** | 498 | **ab7d05cc9583** |
 | **sim-password-reset.js** | 154 | **5c0d85ec06ed** |
 | **sim-part-equip.js** | 134 | **2bfa1e861e1b** |
-| **sim-room-parity.js** | 111 | **737a33966e0d** 
 | **sim-room-live-def.js** | 164 | **d27c99b834a7** |
 | **sim-app-version.js** | 109 | **6dee4558ad2b** |
 | **sim-app-version-sync.js** | 178 | **5acd89fd7806** |
