@@ -5,10 +5,9 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { acquire, QUIET_FAIL, RUNNER_MS } = require('./runlock.js');
+const { acquire, QUIET_FAIL, RUNNER_MS, OUT_ROOT: OUT } = require('./runlock.js');
 
 const ROOT = path.join(__dirname, 'scenarios');
-const OUT = process.env.TW_E2E_OUT || '/tmp/tw-e2e';
 const filters = process.argv.slice(2);
 
 function list(){

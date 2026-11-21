@@ -8,10 +8,9 @@ const path = require('path');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 const { wait, quietProblems, docker, API, AUTH_EMU, API_HOST, PW } = require('../lib.js');
-const { acquire, QUIET_FAIL, markQuietFail, SCENARIO_MS } = require('../runlock.js');
+const { acquire, QUIET_FAIL, markQuietFail, SCENARIO_MS, OUT_ROOT } = require('../runlock.js');
 
 const PG = process.env.TW_E2E_PG || 'tw-dev-local-postgres-1';   // 로컬 묶음의 DB 컨테이너
-const OUT_ROOT = path.resolve(process.env.TW_E2E_OUT || '/tmp/tw-e2e');
 const SEED_DIR = path.resolve(__dirname, '..', 'seed');
 const LAUNCH_MARK = '--- launch ---';   // A.reqs 에서 «이번 켜기 뒤» 를 가르는 줄
 const LAUNCH_MAX_MS = 120000;   // 켜기 한 번이 답 없이 멈출 때 끊는 상한(lib 의 첫 창 기다리기 90초 + 주소 돌리기 확인)
@@ -241,12 +240,13 @@ function outRootProblem(root){
   return /e2e/i.test(path.basename(root)) ? '' : '마지막 폴더 이름에 e2e 가 없음';
 }
 /** 결과 폴더 — run-all 이 `node <파일> <결과 폴더>` 로 넘긴다. 따로 돌리면 <결과 뿌리>/<영역>/<이름>.
- *  frame 이 통째로 지우는 폴더라 e2e 전용 결과 뿌리(outRootProblem) 아래만 받는다 */
+ *  frame 이 통째로 지우는 폴더라 e2e 전용 결과 뿌리(outRootProblem) 아래 꼭 <이 영역>/<이름> 두 단만 받는다(<뿌리>/<영역> 을 주면 영역 전체가 지워지므로) */
 function outDir(area, name){
   const bad = outRootProblem(OUT_ROOT);
   if(bad){ console.error(`결과 뿌리(TW_E2E_OUT)가 e2e 전용 폴더가 아님 — ${bad}: ${OUT_ROOT}`); process.exit(2); }
   const out = path.resolve(process.argv[2] || path.join(OUT_ROOT, area, name));
-  if(!inside(real(out), real(OUT_ROOT))){ console.error(`결과 폴더는 결과 뿌리 ${OUT_ROOT} 아래로: ${out}`); process.exit(2); }
+  const rel = path.relative(real(OUT_ROOT), real(out)).split(path.sep);
+  if(rel.length !== 2 || rel[0] !== area || !rel[1] || rel[1] === '..'){ console.error(`결과 폴더는 ${OUT_ROOT}/${area}/<이름> 으로: ${out}`); process.exit(2); }
   return out;
 }
 
@@ -331,15 +331,20 @@ function frame(area, name, opts = {}){
 /** 시나리오를 돌린다 — e2e-quiet-fail 이 있으면 켜지 않음 · 실행 잠금(runlock.js) · 초대 코드(seedInvite) · prepare(시드) · body · 앱 끄기 · 끝 줄(PASS · ABORT · RESULT FAIL) · 종료 코드.
  *  invite — 묶음의 초대 코드(inviteCode 로 고른 것). 단계 하나라도 FAIL 이면 실패(종료 코드 1).
  *  신호(Ctrl+C · run-all 시간 초과의 SIGTERM) · 시나리오 상한(runlock SCENARIO_MS · F.uncapped 로 기다린 시간은 빼고 잰다)이면
- *  onSignal(되돌리기 등)을 상한 안에서 돌린 뒤 앱을 죽이고 ABORT 로 끝낸다 — 그 사이 body 가 끝나도 PASS 로 끝내지 않는다. 두 번째 신호는 바로 끝낸다.
+ *  onSignal(되돌리기 등)을 상한 안에서 돌린 뒤 앱을 죽이고 ABORT 로 끝낸다 — 그 사이 body 가 끝나도 PASS 로 끝내지 않는다.
+ *  처음 끝내기가 상한 시계를 끄고, 그 뒤의 신호 · 상한은 처음 것(되돌리기 · 종료 코드)을 기다린다.
  *  onPass 는 통과해 앱을 끈 뒤. evenIfQuietFail — e2e-quiet-fail 이 있어도 돈다(조용한 창 자체를 확인하는 launcher/quiet — 그 파일을 지우기 전에 다시 통과해야 한다) */
 function drive(F, { invite, prepare, body, onSignal, onPass, evenIfQuietFail = false }){
   const id = `${F.area}/${F.name}`;
   let unlock = () => {};
-  let stopping = false;
-  const stop = async (why, code) => {
-    if(stopping){ F.killAll(); process.exit(code); }
-    stopping = true;
+  let stopping = null, capTimer = null;
+  const stop = (why, code) => {
+    clearTimeout(capTimer);
+    if(stopping) return stopping;
+    stopping = stopOnce(why, code);
+    return stopping;
+  };
+  const stopOnce = async (why, code) => {
     F.fail();
     F.steps.push('ABORT ' + why); F.save();
     try { if(onSignal) await Promise.race([onSignal(why), wait(SIGNAL_UNDO_MS)]); } catch(_){}
@@ -354,10 +359,10 @@ function drive(F, { invite, prepare, body, onSignal, onPass, evenIfQuietFail = f
     if(blocked()){ console.log(`FAIL ${id}  e2e-quiet-fail 이 있어 시작하지 않음`); process.exit(1); }
     unlock = await acquire(id, { signals: false });
     // 상한은 남은 시간으로 잰다 — F.uncapped 안에서는 시계를 멈췄다가 나올 때 남은 만큼 다시 건다(겹쳐 불러도 바깥 한 번만 센다)
-    let left = SCENARIO_MS, armedAt = 0, timer = null, held = 0;
-    const arm = () => { armedAt = Date.now(); timer = setTimeout(() => stop(`시나리오가 ${SCENARIO_MS / 60000}분 안에 끝나지 않음(잠금 기다린 시간 뺌)`, 1), Math.max(0, left)); timer.unref(); };
+    let left = SCENARIO_MS, armedAt = 0, held = 0;
+    const arm = () => { armedAt = Date.now(); capTimer = setTimeout(() => stop(`시나리오가 ${SCENARIO_MS / 60000}분 안에 끝나지 않음(잠금 기다린 시간 뺌)`, 1), Math.max(0, left)); capTimer.unref(); };
     F.uncapped = async (fn) => {
-      if(held++ === 0){ clearTimeout(timer); left -= Date.now() - armedAt; }
+      if(held++ === 0){ clearTimeout(capTimer); left -= Date.now() - armedAt; }
       try { return await fn(); }
       finally { if(--held === 0 && !stopping) arm(); }
     };
