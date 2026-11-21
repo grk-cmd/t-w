@@ -12,7 +12,10 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 // run-all 은 둘을 더하고 되돌리기 · 끄기 몫을 얹은 뒤에야 끊는다 — 시나리오가 스스로 ABORT 로 끝낼 틈을 먼저 준다
 const SCENARIO_MS = Number(process.env.TW_E2E_SCENARIO_MIN || 20) * 60000;
 const STACK_WAIT_MS = 10 * 60000;
-const RUNNER_MS = SCENARIO_MS + STACK_WAIT_MS + 2 * 60000;
+const RUNNER_SLACK_MS = 2 * 60000;   // run-all 이 상한 + 잠금 기다림 뒤에 더 주는 몫(되돌리기 · 앱 끄기)
+const RUNNER_MS = SCENARIO_MS + STACK_WAIT_MS + RUNNER_SLACK_MS;
+// 결과 뿌리 한 곳 — run-all 과 시나리오가 같은 값을 쓴다(지워도 되는 폴더인지는 _shared.js outDir 가 본다)
+const OUT_ROOT = path.resolve(process.env.TW_E2E_OUT || '/tmp/tw-e2e');
 
 // opts.signals:false — 신호를 받아도 바로 끝내지 않는다(부르는 쪽이 신호 때 할 일을 마친 뒤 끝낸다 · 잠금은 exit 에서 놓음)
 async function acquire(owner, opts = {}){
@@ -42,4 +45,4 @@ function markQuietFail(text){
   try { fs.appendFileSync(QUIET_FAIL, new Date().toISOString() + ' ' + text + '\n'); } catch(_){}
 }
 
-module.exports = { acquire, QUIET_FAIL, markQuietFail, SCENARIO_MS, STACK_WAIT_MS, RUNNER_MS };
+module.exports = { acquire, QUIET_FAIL, markQuietFail, SCENARIO_MS, STACK_WAIT_MS, RUNNER_SLACK_MS, RUNNER_MS, OUT_ROOT };

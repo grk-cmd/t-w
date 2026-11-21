@@ -110,7 +110,7 @@ node run-all.js room/create-join
 - 판정은 앱 상태(방 meta · 좌석 · 대화창 글) · 화면 글 · API 응답으로 한다. realtime 이 오간 글은 `ws.txt` 에 남기지만(실패를 볼 때 참고) 창이 뜨자마자 붙은 연결은 놓칠 수 있어 판정에 쓰지 않는다. 소리 재생 · 복사는 이 PC 의 스피커 · 클립보드를 건드리지 않게 그 자리에서 가로채 센다.
 - 시드: 초대 코드 `INVT-RMRM-E2E3` 은 시나리오가 켤 때마다 `seed/invite.sql` 로 넣는다(이미 있으면 남기되, 쓴 횟수가 상한에 가까우면 0 으로 되돌리고 멈춤 · 만료를 푼다). `TW_E2E_INVITE` 를 주면 그 코드를 쓰고 넣지 않는다(네 묶음 같음 · 아래 표). 투게더룸 · 시크릿룸 · 프리미엄 기능은 `seed/admin.sql` 로 그 계정의 로그인 uid 를 관리자로 넣고 다시 켠다(서버가 관리자에게 프리미엄을 붙인다). DB 컨테이너 이름은 `TW_E2E_PG`(기본 `tw-dev-local-postgres-1`).
 - 방 · 채팅 시나리오도 **단계마다** `quietProblems(app)`(lib.js · 공통부 `_shared.js` 의 `quietGuard`)로 창이 조용한지 잰다 — 자식 창까지 진짜 창이 어느 화면과도 4분의 1 넘게 겹치지 않음 · 포커스 없음 · 진짜 불투명도 0 · 진짜 소리 끔 · 진짜 늘 위 아님 · 감싸지 않은 창 없음. 어긋나면 잠금 폴더 옆 `e2e-quiet-fail` 에 남기고 `run-all` 은 다음 시나리오를 켜지 않는다. 어긋나면 그 단계가 실패한다.
-- 단계 하나는 3분(계정 묶음 5분 · core · social 은 상한 없음), 시나리오 하나는 `TW_E2E_SCENARIO_MIN`(기본 20)분을 넘으면 앱을 끄고 `ABORT` 로 끝낸다(네 묶음 같음). 공유 스택 잠금(`TW_E2E_STACK_LOCK`)을 기다린 시간(최대 10분)은 이 상한에 세지 않는다. `run-all` 은 그 상한 + 잠금 10분 + 2분이 지나야 시나리오를 끊는다 — 시나리오가 스스로 되돌리고 끝낼 틈을 먼저 준다. 상한 · 신호로 끝내는 중이면 그사이 본문이 끝나도 `PASS` 로 끝내지 않는다.
+- 단계 하나는 3분(계정 묶음 5분 · core · social 은 상한 없음), 시나리오 하나는 `TW_E2E_SCENARIO_MIN`(기본 20)분을 넘으면 앱을 끄고 `ABORT` 로 끝낸다(네 묶음 같음). 공유 스택 잠금(`TW_E2E_STACK_LOCK`)을 기다린 시간(최대 10분)은 이 상한에 세지 않는다. `run-all` 은 그 상한 + 잠금 10분 + 2분이 지나야 시나리오를 끊는다 — 시나리오가 스스로 되돌리고 끝낼 틈을 먼저 준다. 상한 · 신호로 끝내는 중이면 그사이 본문이 끝나도 `PASS` 로 끝내지 않는다. 처음 끝내기가 상한 시계를 끄고, 그 뒤의 신호 · 상한은 처음 것의 되돌리기 · 종료 코드를 기다린다. core 의 되돌릴 일은 돌리기 전에 목록에서 빼서 한 번만 돈다.
 
 #### 컷오버 — 운영 0.12.3(`scenarios/cutover-012`)
 
@@ -142,7 +142,7 @@ TW_E2E_QUIET=1 TW_E2E_RUN_LOCK=<잠금 폴더> node run-all.js cutover-012
 
 account · room · core · social 네 묶음의 `_kit.js` 와 `launcher` 시나리오가 같이 쓰는 한 벌이다. 묶음 kit 은 이것으로 시나리오 틀을 짜고, 그 묶음에만 있는 것(계정의 구글 로그인 흉내 · 방 · 좌석 도우미 · core 의 되돌리기 · 공유 스택 잠금 · social 의 마이홈 도우미)만 더한다.
 
-- **틀** — `frame(영역, 이름)` 이 결과 폴더를 비우고 그 폴더에 남은 앱을 끈다. 통째로 지우는 폴더라 결과 뿌리(`TW_E2E_OUT`, 기본 `/tmp/tw-e2e`) 아래만 받는다. 결과 뿌리는 e2e 전용 폴더여야 한다 — 마지막 폴더 이름에 `e2e` 가 있고, `/` · 홈 · `/tmp` · 시스템 임시 폴더 · 저장소 자신이나 그 위 폴더가 아니고, 저장소 안도 아니다(링크를 따라간 자리도 본다). 어긋나면 아무것도 지우지 않고 종료 코드 2 로 멈춘다. `step`(ok · FAIL 줄 · 실패 화면 `fail-<n>.png` · 단계 끝마다 조용한 창 판정) · `knownBug`(BUG · FIXED 줄) · `note`. `drive` 가 `e2e-quiet-fail` 확인 · 실행 잠금 · 시드 · 본문 · 앱 끄기 · 끝 줄(`PASS` · `ABORT` · `RESULT FAIL`) · 종료 코드를 맡는다. 단계 하나라도 FAIL 이면 실패다. 신호 · 시간 초과면 묶음이 건 `onSignal`(core 는 되돌리기)을 돌린 뒤 끝낸다.
+- **틀** — `frame(영역, 이름)` 이 결과 폴더를 비우고 그 폴더에 남은 앱을 끈다. 통째로 지우는 폴더라 결과 뿌리(`TW_E2E_OUT`, 기본 `/tmp/tw-e2e`) 아래만 받는다. 결과 뿌리는 e2e 전용 폴더여야 한다 — 마지막 폴더 이름에 `e2e` 가 있고, `/` · 홈 · `/tmp` · 시스템 임시 폴더 · 저장소 자신이나 그 위 폴더가 아니고, 저장소 안도 아니다(링크를 따라간 자리도 본다). 결과 폴더는 그 아래 꼭 `<영역>/<이름>` 두 단만 받는다(`<뿌리>/<영역>` 을 주면 영역 전체가 지워지므로). 어긋나면 아무것도 지우지 않고 종료 코드 2 로 멈춘다. `step`(ok · FAIL 줄 · 실패 화면 `fail-<n>.png` · 단계 끝마다 조용한 창 판정) · `knownBug`(BUG · FIXED 줄) · `note`. `drive` 가 `e2e-quiet-fail` 확인 · 실행 잠금 · 시드 · 본문 · 앱 끄기 · 끝 줄(`PASS` · `ABORT` · `RESULT FAIL`) · 종료 코드를 맡는다. 단계 하나라도 FAIL 이면 실패다. 신호 · 시간 초과면 묶음이 건 `onSignal`(core 는 되돌리기)을 돌린 뒤 끝낸다.
 - **조용한 창** — 단계마다 `lib.quietProblems` 와 막힌 요청을 보고, 어긋나면 앱을 다 끄고 `runlock.markQuietFail` 로 `e2e-quiet-fail` 에 남긴다. 판정을 못 했을 때(오류 · 10초 넘김)도 조용하다고 볼 수 없어 같게 다룬다 — 앱이 다시 켜지는 중(창 · 대상 닫힘)만 건너뛴다. 조용한 창 · 막힌 요청 자체를 시험하는 `launcher/quiet.js` · `launcher/routing.js` 는 `quietGuard: false` 로 이 판정을 끄고 스스로 본다(`quiet.js` 는 화면 · 포커스 · 소리로 새는 실패만 남기고, `e2e-quiet-fail` 이 있어도 돈다 — 지우기 전에 다시 통과해야 하므로).
 - **앱 켜기 · 가입** — `launchRetry`(주소 돌리기가 안 걸린 실패는 다시 켜지 않고 `e2e-quiet-fail` 에 남김 · 그 밖의 실패만 세 번까지) · `signupForm`(초대 코드 → 비밀번호 가입 → 완료 화면) · `restartAfter`([시작하기] 처럼 앱이 스스로 다시 켜는 단추).
 - **기다리기** — `waitUntil(fn, { ms, every, what })` 한 벌(core `poll` · account `waitFor` · room · social `until` 이 이것을 감싼다).
@@ -160,11 +160,12 @@ account · room · core · social 네 묶음의 `_kit.js` 와 `launcher` 시나�
 | 값 | 뜻 |
 |---|---|
 | `TW_E2E_INVITE` | 가입에 쓰는 초대 코드(네 묶음 같은 규칙). 주면 부른 사람의 코드라 그대로 쓰고 `seed/invite.sql` 을 돌리지 않는다(쓴 횟수 · 멈춤 · 만료를 건드리지 않음). 없으면 묶음 기본 코드(account `INVT-ACCT-E2E5` · room · chat `INVT-RMRM-E2E3` · core `INVT-C2RE-TEST` · social `INVT-SCAL-E2E3`)를 시나리오가 켤 때마다 넣는다 |
-| `TW_E2E_OUT` | 결과 뿌리(기본 `/tmp/tw-e2e`). e2e 전용 폴더만 받는다 — 위 «틀» 의 규칙 |
+| `TW_E2E_OUT` | 결과 뿌리(기본 `/tmp/tw-e2e` · `runlock.js` 한 곳). e2e 전용 폴더만 받는다 — 위 «틀» 의 규칙 |
 | `TW_E2E_SCENARIO_MIN` | 시나리오 하나의 상한(분 · 기본 20). 공유 스택 잠금을 기다린 시간은 빼고 잰다 |
 | `TW_E2E_STACK_LOCK` | core: 공유 컨테이너(realtime 등)를 멈췄다 풀 때만 잡는 잠금 폴더. 비어 있으면 컨테이너를 건드리는 시나리오(keepalive · 오프라인 → 온라인 · 점검)는 멈춘다. 신호로 끝나도 exit 에서 잠금을 지우고 멈춘 realtime 을 푼다 |
-| `TW_E2E_PG` · `TW_E2E_RT` | DB · realtime 컨테이너 이름(기본 `tw-dev-local-postgres-1` · `tw-dev-local-rooms-dev-1`) |
-| `TW_E2E_ADMIN_PASS` | 앱 관리자 비밀번호. 없으면 시험 글자 하나만 앱의 비밀번호 해시로 바꿔 주는 덮개를 창에 건다(비교 · 서버 확인 · 모드 켜기는 앱 코드 그대로) |
+| `TW_E2E_PG` | DB 컨테이너 이름(기본 `tw-dev-local-postgres-1`) |
+| `TW_E2E_RT` | core: realtime 컨테이너 이름(기본 `tw-dev-local-rooms-dev-1`) |
+| `TW_E2E_ADMIN_PASS` | core: 앱 관리자 비밀번호. 없으면 시험 글자 하나만 앱의 비밀번호 해시로 바꿔 주는 덮개를 창에 건다(비교 · 서버 확인 · 모드 켜기는 앱 코드 그대로) |
 
 ### 앱 끄기(`scenarios/core/quit-*.js`)
 

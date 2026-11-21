@@ -65,17 +65,21 @@ function run(name, body){
   const F = S.frame('core', name);
   const { out, steps } = F;
   uncapped = (fn) => F.uncapped(fn);
-  // t.undo 로 건 «되돌릴 일» — 이름 → fn(정리용 관리자). 돈 것은 빠진다
-  const undos = new Map();
-  const runUndo = async (label) => {
+  // t.undo 로 건 «되돌릴 일» — 이름 → fn(정리용 관리자). 돌리기 전에 빼서 한 번만 돈다(본문과 신호 처리기가 겹쳐도).
+  // 도는 중인 것은 running 에 두어, 신호 처리기가 다시 돌리지 않고 끝나기를 기다린다
+  const undos = new Map(), running = new Map();
+  const runUndo = (label) => {
+    if(running.has(label)) return running.get(label);
     const fn = undos.get(label);
-    if(!fn) return;
-    await t.cleanup(label, async () => fn(await t.headlessAdmin()));
+    if(!fn) return Promise.resolve();
     undos.delete(label);
+    const p = t.cleanup(label, async () => fn(await t.headlessAdmin())).finally(() => running.delete(label));
+    running.set(label, p);
+    return p;
   };
   process.on('exit', () => {
-    if(!undos.size) return;
-    const left = [...undos.keys()].join(' · ');
+    if(!undos.size && !running.size) return;
+    const left = [...undos.keys(), ...running.keys()].join(' · ');
     steps.push(`FAIL 정리 못 함(끝날 때 남음): ${left}`); F.save();
     markQuietFail(`core/${name}: 되돌리지 못한 서버 값 — ${left}`);
   });
@@ -258,7 +262,7 @@ function run(name, body){
     invite: INVITE,
     body: () => body(t),
     // 신호 · 시간 초과로 끝날 때 — 모두가 보는 서버 값을 되돌린 뒤 끝낸다(켜진 채 남으면 같은 스택을 쓰는 모든 시험이 막힌다)
-    onSignal: async () => { for(const label of [...undos.keys()]) await runUndo(label); },
+    onSignal: async () => { for(const label of [...running.keys(), ...undos.keys()]) await runUndo(label); },
   });
 }
 
