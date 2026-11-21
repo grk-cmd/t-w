@@ -3589,7 +3589,7 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
 });
 roomEntryMod.onRoomChanged(()=>listenUi.sync());   // 🎧 같이 듣기가 방 입장 모듈을 몰라도 되게(위층이 건다)
 // 🕘 최근 들어간 방 — 연결되면 기록하고, 로비 코드 칸을 누르면 펼친다(room/recent-rooms*.js)
-const recentRooms = TwRecentRooms.createRecentRooms({ storage: localStorage, getMyUserId: (...a)=>getMyUserId(...a), now: ()=>Date.now(), isRoomCode: roomEntryMod.isRoomCode });
+const recentRooms = TwRecentRooms.createRecentRooms({ storage: localStorage, getMyUserId: (...a)=>getMyUserId(...a), now: ()=>Date.now(), isRoomCode: roomEntryMod.isRoomCode, isSecretCode: TwRoomState.isSecretCode });
 roomEntryMod.onRoomJoined((code, meta)=>recentRooms.record(code, TwRoomSettings.displayTitle(meta && meta.title, meta && meta.hostName,
   TwBannedWords.cleanBannedList(acctStateMod._rcStore().bannedWords()), TwBannedWords).text));   // 제목은 방 안 제목 칸과 같은 판단(금칙어면 «○○ 님의 방»)
 TwRecentRoomsUi.createRecentRoomsUi({ document, recent: recentRooms, agoText: TwRecentRooms.agoText, now: ()=>Date.now(), joinRoom: (code)=>roomEntryMod.joinRoom(code), secretMask: TwRecentRooms.SECRET_MASK, secretCodeFrom: (v)=>roomEntryMod.secretCodeFrom(v), askCode: (o)=>asyncPromptMod.asyncPrompt(o) });

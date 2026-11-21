@@ -16,7 +16,7 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f, path.basename(f)]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 const SRC = { mod: read('room/recent-rooms.js'), ui: read('room/recent-rooms-ui.js'), entry: read('room/room-entry.js'), app: read('app.js'), html: read('desk-companion-prototype.html'),
-  settings: read('room/room-settings.js'), banned: read('shared/banned-words.js') };
+  settings: read('room/room-settings.js'), state: read('room/room-state.js'), banned: read('shared/banned-words.js') };
 for (const k of Object.keys(SRC)) if (SRC[k] == null) { say('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 
 const loadMod = (src) => { const m = { exports: {} }; new Function('window', 'module', src)(undefined, m); return m.exports; };
@@ -29,6 +29,8 @@ function grabFn(src, head){
   return null;
 }
 const grabLine = (src, head) => { const i = src.indexOf(head); return i < 0 ? null : src.slice(i, src.indexOf('\n', i)); };
+/* 시크릿룸 코드인가 — room-state.js 의 진짜 공용 판정 */
+function loadIsSecret(state){ const w = {}; new Function('window', state)(w); return w.TwRoomState.isSecretCode; }
 function loadSecretCode(entry){
   const parts = [grabLine(entry, 'const ROOM_CODE_BODY_RE ='), grabFn(entry, 'function _secretBodyOf(typed){'), grabFn(entry, 'function secretCodeFrom(typed){')];
   if (parts.some(x => !x)) throw new Error('room-entry.js 에서 _secretBodyOf · secretCodeFrom 을 못 찾음');
@@ -68,7 +70,8 @@ async function judge(src){
     const M = loadMod(src.mod);
     const isC = loadIsCode(src.entry);
     t(isC('WORK-AB2C') && isC('PLAY-1234') && isC('COZY-ZZ99') && isC('SCRT-AB2C') && !isC('ABCD-1234') && !isC('SCRT-AB') && !isC('work-ab2c') && !isC(null) && !isC('WORK-AB2C*'), 'isRoomCode(room-entry) — 공개 방 · 시크릿룸만 · 모르는 접두어 · 짧음 · 소문자 · null · 별표는 아님');
-    const add = (l, c, ti, at) => M.add(l, c, ti, at, isC), parse = (raw) => M.parse(raw, isC);
+    const isS = loadIsSecret(src.state);
+    const add = (l, c, ti, at) => M.add(l, c, ti, at, isC, isS), parse = (raw) => M.parse(raw, isC, isS);
     /* 1절 */
     let L = add([], 'WORK-AB2C', '조용한 방', 100);
     L = add(L, 'PLAY-K3MM', '수다방', 200);
@@ -101,7 +104,7 @@ async function judge(src){
     const store = new Map();
     let uid = 'U1', clock = 1000;
     const S = { getItem: (k) => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, v) };
-    const R = M.createRecentRooms({ storage: S, getMyUserId: () => uid, now: () => clock, isRoomCode: isC });
+    const R = M.createRecentRooms({ storage: S, getMyUserId: () => uid, now: () => clock, isRoomCode: isC, isSecretCode: isS });
     R.record('WORK-AB2C', '조용한 방');
     t(store.has('tw.recentRooms.U1') && R.list()[0].code === 'WORK-AB2C' && R.list()[0].at === 1000, '저장 — tw.recentRooms.<내 id> 에');
     uid = 'U2';
@@ -113,17 +116,19 @@ async function judge(src){
     R.record('COZY-1111', 'x');
     t(R.list().length === 0 && store.size === before, '  로그인 전 — 기록도 목록도 없음');
     uid = 'U1';
-    const Rbad = M.createRecentRooms({ storage: { getItem(){ throw new Error('막힘'); }, setItem(){ throw new Error('막힘'); } }, getMyUserId: () => 'U1', now: () => 1, isRoomCode: isC });
+    const Rbad = M.createRecentRooms({ storage: { getItem(){ throw new Error('막힘'); }, setItem(){ throw new Error('막힘'); } }, getMyUserId: () => 'U1', now: () => 1, isRoomCode: isC, isSecretCode: isS });
     let threw = false; try { Rbad.record('WORK-AB2C', 'x'); Rbad.list(); } catch (_) { threw = true; }
     t(!threw && Rbad.list().length === 0, '  저장소가 막혀도 던지지 않는다(입장은 그대로)');
     {
       const st2 = new Map([['tw.recentRooms.U9', JSON.stringify([{ code: 'SCRT-QQQ2', title: '옛 줄', at: 5 }, { code: 'WORK-AB2C', title: 'a', at: 4 }])]]);
       let writes = 0;
-      const R9 = M.createRecentRooms({ storage: { getItem: (k) => st2.get(k) || null, setItem: (k, v) => { writes++; st2.set(k, v); } }, getMyUserId: () => 'U9', now: () => 10, isRoomCode: isC });
+      const R9 = M.createRecentRooms({ storage: { getItem: (k) => st2.get(k) || null, setItem: (k, v) => { writes++; st2.set(k, v); } }, getMyUserId: () => 'U9', now: () => 10, isRoomCode: isC, isSecretCode: isS });
       const got = R9.list();
       t(got[0].code === M.SECRET_MASK && !/QQQ2/.test(st2.get('tw.recentRooms.U9')) && writes === 1, '★ 옛 판이 남긴 진짜 시크릿룸 코드 — 읽을 때 이 PC 저장본에서도 지운다(한 번)');
       R9.list();
       t(writes === 1, '  이미 가린 저장본은 다시 쓰지 않는다');
+      R9.record('WORK-AB2C', '제목에 "SCRT-AB2C" 가 든 방'); const wN = writes; R9.list(); R9.list();
+      t(writes === wN, '  제목에 SCRT- 글자가 들어 있어도 읽을 때 다시 쓰지 않는다(코드 칸만 본다)');
       R9.record('SCRT-ZZ99', '새 비밀');
       t(!/ZZ99/.test(st2.get('tw.recentRooms.U9')) && R9.list()[0].title === '새 비밀', '★ 시크릿룸에 들어가도 저장본에 코드가 안 남는다');
     }
@@ -203,11 +208,12 @@ function wire(s){
   const w = (ok, msg) => out.push([!!ok, msg]);
   w((s.entry.match(/toast\('방에 연결됐어요: '\+code\);\n(?:  _clearPendingCreate\(\);\n)?  _roomJoined\(code\);/g) || []).length === 1, 'room-entry — «연결됐어요» 자리(방 포트 하나)에서 알림');
   w(/function onRoomJoined\(fn\)\{ _roomJoinedFns\.push\(fn\); \}/.test(s.entry) && /\n  onRoomJoined,/.test(s.entry) && !/TwRecentRooms|recentRooms/.test(s.entry), '  알림 걸기를 내놓고 · 최근 방 모듈은 모른다');
+  w(!/startsWith\('SCRT|SCRT-\(|indexOf\('SCRT/.test(s.mod) && /isSecretCode: TwRoomState\.isSecretCode/.test(s.app), '  recent-rooms — 시크릿룸 코드인가를 다시 쓰지 않는다(room-state isSecretCode 를 받는다)');
   w(!/CODE_RE|[A-Z]\]\{4\}/.test(s.mod), 'recent-rooms — 방 코드 모양을 다시 쓰지 않는다(room-entry isRoomCode 를 받는다)');
-  w(/const recentRooms = TwRecentRooms\.createRecentRooms\(\{ storage: localStorage, getMyUserId: [^\n]*isRoomCode: roomEntryMod\.isRoomCode \}\);/.test(s.app) && /roomEntryMod\.onRoomJoined\(\(code, meta\)=>recentRooms\.record\(code, TwRoomSettings\.displayTitle\(meta && meta\.title, meta && meta\.hostName,\n  TwBannedWords\.cleanBannedList\(acctStateMod\._rcStore\(\)\.bannedWords\(\)\), TwBannedWords\)\.text\)\);/.test(s.app), 'app.js — 기록을 «연결됨» 알림에 건다(제목은 displayTitle 한 곳 · 방 안 제목 칸과 같이 금칙어 거름)');
+  w(/const recentRooms = TwRecentRooms\.createRecentRooms\(\{ storage: localStorage, getMyUserId: [^\n]*isRoomCode: roomEntryMod\.isRoomCode, isSecretCode: TwRoomState\.isSecretCode \}\);/.test(s.app) && /roomEntryMod\.onRoomJoined\(\(code, meta\)=>recentRooms\.record\(code, TwRoomSettings\.displayTitle\(meta && meta\.title, meta && meta\.hostName,\n  TwBannedWords\.cleanBannedList\(acctStateMod\._rcStore\(\)\.bannedWords\(\)\), TwBannedWords\)\.text\)\);/.test(s.app), 'app.js — 기록을 «연결됨» 알림에 건다(제목은 displayTitle 한 곳 · 방 안 제목 칸과 같이 금칙어 거름)');
   w(/TwRecentRoomsUi\.createRecentRoomsUi\(\{[^\n]*joinRoom: \(code\)=>roomEntryMod\.joinRoom\(code\)/.test(s.app), '  UI 의 입장은 로비 카드와 같은 joinRoom(입장 중 깃발 한 곳)');
   w(/createRecentRoomsUi\(\{[^\n]*secretMask: TwRecentRooms\.SECRET_MASK, secretCodeFrom: \(v\)=>roomEntryMod\.secretCodeFrom\(v\), askCode: \(o\)=>asyncPromptMod\.asyncPrompt\(o\)/.test(s.app), '  시크릿룸 줄 — 가린 코드 · 친 글 → 코드(room-entry 한 규칙) · 인앱 입력 창을 넘긴다');
-  w(!/function secretCodeFrom/.test(s.mod) && /\n  secretCodeFrom,/.test(s.entry) && /const code = secretCodeFrom\(c\);/.test(s.entry), '  친 글 → 시크릿룸 코드 규칙은 room-entry 한 곳 — 시크릿룸 칸(doJoinSecretRoom)도 그것을 부른다');
+  w(!/function secretCodeFrom/.test(s.mod) && /\n  secretCodeFrom,/.test(s.entry) && /const code = secretCodeFrom\(typed\);/.test(s.entry), '  친 글 → 시크릿룸 코드 규칙은 room-entry 한 곳 — 시크릿룸 칸(doJoinSecretRoom)도 그것을 부른다');
   const iM = s.html.indexOf('<script src="parts/room/recent-rooms.js"'), iU = s.html.indexOf('<script src="parts/room/recent-rooms-ui.js"'), iA = s.html.indexOf('<script src="parts/app.js"');
   w(iM > 0 && iU > iM && iA > iU, 'html — 두 모듈을 app.js 보다 먼저');
   const foot = (s.html.match(/<div class="lb-foot">([\s\S]*?)\n        <\/div>/) || [])[1] || '';
@@ -221,7 +227,7 @@ const BREAKS = [
   ['mod', ".concat(list.filter((r) => !sameRow(r, row)))", '.concat(list)', '같은 방이 두 줄로 쌓임'],
   ['mod', "const row = { code: isSecret(code) ? SECRET_MASK : code, title: t, at };", "const row = { code, title: t, at };", '시크릿룸 코드를 그대로 적음'],
   ['mod', "const row = { code: isSecret(r.code) ? SECRET_MASK : r.code,", "const row = { code: r.code,", '옛 저장본의 시크릿룸 코드를 안 가림'],
-  ['mod', "if(/\"SCRT-(?!\\*{4}\")/.test(raw)){ try{ storage.setItem(k, JSON.stringify(rows)); }catch(_){} }", '', '옛 저장본의 시크릿룸 코드를 이 PC 에서 안 지움'],
+  ['mod', "if(hasRealSecret(raw, isSecretCode)){ try{ storage.setItem(k, JSON.stringify(rows)); }catch(_){} }", '', '옛 저장본의 시크릿룸 코드를 이 PC 에서 안 지움'],
   ['ui', "if(r.code === secretMask) joinSecret(); else joinRoom(r.code);", "joinRoom(r.code);", '시크릿룸 줄을 코드를 묻지 않고 들어감'],
   ['ui', "validate: (v) => (secretCodeFrom(v) ? null : ASK.bad) }", "validate: () => null }", '입력 창이 틀린 모양을 안 거름'],
   ['entry', "if(c.length > 4) c = c.replace(/^SCRT-?/, '');", "c = c.replace(/^SCRT-?/, '');", '본문이 SCRT 인 코드를 접두어로 오인'],

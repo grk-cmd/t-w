@@ -515,8 +515,8 @@
 | **sim-img-retry.js** | 117 | **74cb4a8def40** |
 | **sim-input-diag.js** | 148 | **785498f2219b** |
 | **sim-renderer-gone-reset.js** | 141 | **57af0bb1cb76** |
-| **sim-room-code-len.js** | 173 | **df94f642b8ca** |
-| **sim-recent-rooms.js** | 261 | **7e71d8fbf242** |
+| **sim-room-code-len.js** | 185 | **71acbec5c211** |
+| **sim-recent-rooms.js** | 267 | **17a8973e7f40** |
 | **sim-mh-pad-pos.js** | 164 | **38659919b0b2** |
 | **sim-mh-bg-url.js** | 133 | **de01754f7292** |
 | **sim-gift-img-retry.js** | 209 | **3496e4f17f97** |

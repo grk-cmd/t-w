@@ -815,9 +815,9 @@ function secretCodeFrom(typed){
   return ROOM_CODE_BODY_RE.test(c) ? 'SCRT-' + c : null;
 }
 async function doJoinSecretRoom(codeInputEl){
-  const c = _secretBodyOf(codeInputEl && codeInputEl.value);
-  if(!c){ toast('시크릿룸 코드를 입력하세요'); return; }
-  const code = secretCodeFrom(c);
+  const typed = codeInputEl && codeInputEl.value;
+  if(!_secretBodyOf(typed)){ toast('시크릿룸 코드를 입력하세요'); return; }
+  const code = secretCodeFrom(typed);   // 친 글 그대로 — 다듬은 글을 다시 넣으면 접두어 떼기가 두 번 돈다
   if(!code){ toast('시크릿룸 코드는 4자리예요'); return; }
   await _whileJoining(() => startRoom(code));
 }
