@@ -14,11 +14,11 @@ run('catalog-gacha', async (t) => {
   const gid = 'e2eg' + tag, cid = 'e2ec' + tag;
   await t.step('A 서버 관리자 · 시험 파츠 두 줄', async () => {
     await t.makeAdmin(A);
-    t.seed('catalog-parts.sql', { tag });
+    t.seedSql('catalog-parts.sql', { tag });
   });
   // 시험 파츠는 단종(ARCHIVED)으로 내린다 — 관리자 쓰기라 서버 카탈로그 캐시도 같이 비워진다(줄을 SQL 로 지우면 캐시에 남는다)
   const undos = [gid, cid].map((id) => t.undo('시험 파츠 ' + id + ' 단종', (ADM) => {
-    const v = Number(t.sql(`SELECT version FROM part WHERE part_id = '${id}'`) || 0);
+    const v = Number(t.query(`SELECT version FROM part WHERE part_id = '${id}'`) || 0);
     return ADM.call('POST', '/v2/admin/catalog/listings/bulk', { action: 'ARCHIVE', items: [{ kind: 'part', id, version: v }] });
   }));
   try {
@@ -37,8 +37,8 @@ run('catalog-gacha', async (t) => {
     });
     await t.step('B 레벨 12 · 보너스 1 → 서버 뽑기 수 = floor(12/5) + 1 = 3', async () => {
       const uid = await t.uid(B);
-      t.seed('focus.sql', { uid, sec: (12 - 1) * 3600 });
-      t.seed('gacha-bonus.sql', { uid, tag: 'e2e-' + tag, amount: 1 });
+      t.seedSql('focus.sql', { uid, sec: (12 - 1) * 3600 });
+      t.seedSql('gacha-bonus.sql', { uid, tag: 'e2e-' + tag, amount: 1 });
       const g = await t.poll(async () => { const x = await t.api(B, 'GET', '/v2/me/gacha'); return x.body && x.body.data && x.body.data.left === 3 && x.body.data; }, 10000, '/v2/me/gacha left 3');
       t.check(g.earned === 2 && g.bonus === 1, '서버 earned · bonus: ' + JSON.stringify(g));
     });

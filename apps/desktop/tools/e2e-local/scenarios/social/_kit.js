@@ -8,7 +8,7 @@ const { makeApp, API_HOST } = require('../../lib.js');
 const S = require('../_shared.js');
 const { wait, PW, seedSql } = S;
 
-const INVITE = process.env.TW_E2E_INVITE || 'INVT-SCAL-E2E3';   // seed/invite.sql 에 code 로 넘겨 넣는다(묶음마다 코드를 따로 — 사용 횟수를 나눠 쓰지 않게)
+const INVITE = S.inviteCode('INVT-SCAL-E2E3');   // 이 묶음의 초대 코드(규칙은 _shared.js inviteCode)
 
 // 렌더러 안에서 앱 토큰으로 API 를 부른다 — 요청이 앱과 같은 길(주소 돌리기 · 요청 기록)로 간다
 const apiIn = (w, method, p, body) => S.apiIn(w, method, p, body, { noStore: false });
@@ -81,8 +81,7 @@ function scenario(name, body){
 
   const t = { out: F.out, step, user, note, wait, assert, apiIn, until, users, knownBug: F.knownBug };
   S.drive(F, {
-    // TW_E2E_INVITE 로 받은 코드는 그 사람이 넣어 둔 것이라 건드리지 않는다
-    prepare: () => { if(!process.env.TW_E2E_INVITE) seedSql('invite.sql', { code: INVITE }); },
+    invite: INVITE,
     body: () => body(t),
     // 통과하면 앱 데이터(수백 MB)는 지우고 기록만 남긴다 — 도우미 프로세스가 다 끝난 뒤에(남아서 쓰면 지우기가 ENOTEMPTY 로 실패한다)
     onPass: async () => {
@@ -208,7 +207,9 @@ module.exports.answerPrompt = answerPrompt;
 
 // 책상 모드(실행 화면)로 — 포커스 기록 · ⚙ 설정 패널은 이 화면에 있다(캐릭터가 있어야 들어간다)
 async function enterDesk(u){
-  if(!(await u.shown('#lcPreview'))) await makeCharacter(u);
+  // 다시 켠 직후엔 옷장을 받기 전이라 캐릭터가 있어도 미리보기가 안 보인다 — 받은 뒤의 슬롯으로 판정한다
+  await u.until(() => closetMod.state() === 'ready', null, { timeout: 30000, what: '옷장 받음' });
+  if(!(await u.eval(() => slots.some(Boolean)))) await makeCharacter(u);
   // 방을 만든 뒤에는 방 창이 런처를 덮고 있어 화면 누르기가 막힌다 — 런처 미리보기의 누름을 직접 부른다(누르면 같은 처리)
   await u.eval(() => document.getElementById('lcPreview').click());
   await u.until(() => { const b = document.getElementById('myFocusGearBtn'); return !!b && getComputedStyle(b).display !== 'none'; }, null, { timeout: 30000, what: '책상 모드' });

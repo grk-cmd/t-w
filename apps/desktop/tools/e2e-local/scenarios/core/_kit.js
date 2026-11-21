@@ -5,29 +5,33 @@ const fs = require('fs');
 const path = require('path');
 const { makeApp, docker, API_HOST, APP_DIR, MAIN_WIN_TITLE } = require('../../lib.js');
 const S = require('../_shared.js');
-const { wait, PW, PG, LAUNCH_MARK, headlessLogin, seedSql: seed, query: sql, launchRetry } = S;
-const { markQuietFail } = require('../../runlock.js');
+const { wait, PW, PG, LAUNCH_MARK, headlessLogin, seedSql, query, launchRetry } = S;
+const { markQuietFail, STACK_WAIT_MS } = require('../../runlock.js');
 
 const ROOT = path.join(S.OUT_ROOT, 'core');
-// 이 묶음이 쓰는 초대 코드 — seed/invite.sql 이 이 값으로 넣는다(다른 묶음과 사용 횟수를 나눠 쓰지 않게)
-const INVITE = process.env.TW_E2E_INVITE || 'INVT-C2RE-TEST';
+const INVITE = S.inviteCode('INVT-C2RE-TEST');   // 이 묶음의 초대 코드(규칙은 _shared.js inviteCode)
 const RT = process.env.TW_E2E_RT || 'tw-dev-local-rooms-dev-1';
 // 공유 컨테이너를 멈추거나 다시 켤 때만 잡는 잠금(mkdir 은 원자적). 같은 스택을 쓰는 모든 시험이 같은 경로를 써야 해서
 // 기본값을 두지 않는다 — 비어 있으면 컨테이너를 건드리는 시나리오가 시작 전에 멈춘다
 const LOCK = process.env.TW_E2E_STACK_LOCK || '';
 
-async function withStackLock(fn, maxWaitMs = 600000){
+// 잠금을 기다린 시간은 시나리오 상한에 세지 않는다(run 이 frame 의 uncapped 를 건다)
+let uncapped = (fn) => fn();
+
+async function withStackLock(fn, maxWaitMs = STACK_WAIT_MS){
   if(!LOCK) throw new Error('TW_E2E_STACK_LOCK(공유 스택 잠금 경로)가 없다 — 컨테이너를 건드리지 않고 멈춤');
   fs.mkdirSync(path.dirname(LOCK), { recursive: true });
-  const t0 = Date.now();
-  for(;;){
-    try { fs.mkdirSync(LOCK); break; }
-    catch(e){
-      if(e.code !== 'EEXIST') throw e;
-      if(Date.now() - t0 > maxWaitMs) throw new Error('스택 잠금을 못 잡음: ' + LOCK);
-      await wait(2000);
+  await uncapped(async () => {
+    const t0 = Date.now();
+    for(;;){
+      try { fs.mkdirSync(LOCK); return; }
+      catch(e){
+        if(e.code !== 'EEXIST') throw e;
+        if(Date.now() - t0 > maxWaitMs) throw new Error('스택 잠금을 못 잡음: ' + LOCK);
+        await wait(2000);
+      }
     }
-  }
+  });
   try { fs.writeFileSync(path.join(LOCK, 'owner'), `e2e-core ${process.pid} ${new Date().toISOString()}`); } catch(_){}
   // 신호로 끝나도 잠금 폴더를 남기지 않는다(남으면 다른 세션이 10분 기다리다 실패한다)
   const drop = () => { try { fs.rmSync(path.join(LOCK, 'owner'), { force: true }); } catch(_){} try { fs.rmdirSync(LOCK); } catch(_){} };
@@ -60,6 +64,7 @@ async function headlessUser(){
 function run(name, body){
   const F = S.frame('core', name);
   const { out, steps } = F;
+  uncapped = (fn) => F.uncapped(fn);
   // t.undo 로 건 «되돌릴 일» — 이름 → fn(정리용 관리자). 돈 것은 빠진다
   const undos = new Map();
   const runUndo = async (label) => {
@@ -75,7 +80,7 @@ function run(name, body){
     markQuietFail(`core/${name}: 되돌리지 못한 서버 값 — ${left}`);
   });
   const t = {
-    out, steps, PW, API_HOST, wait, poll, sql, seed, docker, withStackLock, pauseRt, unpauseRt, RT, PG, headlessUser,
+    out, steps, PW, API_HOST, wait, poll, query, seedSql, docker, withStackLock, pauseRt, unpauseRt, RT, PG, headlessUser,
     note: F.note, step: F.step, knownBug: F.knownBug,
     check(cond, msg){ if(!cond) throw new Error(msg); },
     // 모두가 보는 서버 값 되돌리기 — fn 이 돌려준 응답(또는 응답 배열)이 2xx 가 아니거나 던지면 «FAIL 정리» 로 남기고 시나리오를 실패로.
@@ -101,7 +106,7 @@ function run(name, body){
     async headlessAdmin(){
       if(t._admin) return t._admin;
       const u = await headlessUser();
-      seed('admin.sql', { uid: u.uid });
+      seedSql('admin.sql', { uid: u.uid });
       await poll(async () => (await u.call('GET', '/v2/admin/admins/me')).status === 200, 40000, '정리용 관리자 /v2/admin/admins/me 200');
       t._admin = u;
       return u;
@@ -164,7 +169,7 @@ function run(name, body){
     // 서버가 이 계정을 관리자로 알게 한다(seed/admin.sql) — 관리자 확인 길이 200 이 될 때까지
     async makeAdmin(A){
       const uid = await t.uid(A);
-      t.seed('admin.sql', { uid });
+      t.seedSql('admin.sql', { uid });
       await poll(async () => (await t.api(A, 'GET', '/v2/admin/admins/me')).status === 200, 40000, '/v2/admin/admins/me 200');
       return uid;
     },
@@ -250,11 +255,11 @@ function run(name, body){
     async shot(A, n){ await A.w.screenshot({ path: path.join(A.out, n + '.png') }).catch(() => {}); },
   };
   S.drive(F, {
-    prepare: () => seed('invite.sql', { code: INVITE }),
+    invite: INVITE,
     body: () => body(t),
     // 신호 · 시간 초과로 끝날 때 — 모두가 보는 서버 값을 되돌린 뒤 끝낸다(켜진 채 남으면 같은 스택을 쓰는 모든 시험이 막힌다)
     onSignal: async () => { for(const label of [...undos.keys()]) await runUndo(label); },
   });
 }
 
-module.exports = { run, headlessLogin, sql, seed, docker, withStackLock, poll, wait, PW, INVITE, PG, RT, ROOT };
+module.exports = { run, headlessLogin, query, seedSql, docker, withStackLock, poll, wait, PW, INVITE, PG, RT, ROOT };
