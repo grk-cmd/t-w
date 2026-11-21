@@ -186,7 +186,7 @@ npm -w @tw/char-core run build     # dist/ + 앱 사본(apps/desktop/app/vendor/
   - 필요한 값(파라미터 · 내 코드 · 준비 상태)이 없으면 함수 맨 앞에서 얼리 리턴. 흐름에서 모듈로 뺄 때 그 흐름이 보장하던 값도 입구에서 확인한다. 추가 장치(래퍼 · 경로 검사 함수)는 만들지 않는다. 예: 친구 구독 `if(!myId) return`.
   - 한 함수 · 한 모듈 = 한 책임. 계산 · 화면 · 저장을 섞지 않고, 순수 계산은 따로 떼어 검사한다.
   - 같은 판단 · 규칙이 여러 길(이벤트 처리기 · 파일 · main/렌더러)에 있으면 한 모듈로 묶고 모두 그것을 부른다. 새 길도 기존 판단 함수를 부른다(조건을 다시 쓰지 않음).
-  - 데이터는 화면 → 도메인 → provider(firebase 옛 길 · api · ws) 한 방향. 도메인은 `firebaseAPI` 를 직접 부르지 않고, 새 기능은 provider 모양으로.
+  - 데이터는 화면 → 도메인 → provider(firebase 옛 경로 · api · ws) 한 방향. 도메인은 `firebaseAPI` 를 직접 부르지 않고, 새 기능은 provider 모양으로.
   - 박힌 값(채널 이름 · 접두사 등)은 모듈 위 상수 한 곳에, 분기가 늘 자리는 표(맵)로.
   - 실패와 «없음» 을 구분해 그린다(빈 목록 ≠ 못 불러옴).
   - 동작이 바뀌는 수정은 사용자 확인 뒤에, 동작 무변경 정리 커밋과 섞지 않는다(`docs/GIT_CONVENTION.md` 1.4).
@@ -197,7 +197,7 @@ npm -w @tw/char-core run build     # dist/ + 앱 사본(apps/desktop/app/vendor/
   - 모듈 모양: `window.TwXxx = { createXxx(deps) }` · 모듈 안은 `const X = deps.X;` · app.js 원래 자리에서 `const xMod = TwXxx.createXxx({...})`(TDZ 안 생기게) · html 과 `checks/smoke.js` PRELOAD 에 app.js 보다 먼저 · 그 도메인 폴더 `README.md` 에 절 하나(책임 · deps · 내놓는 것 · 함정).
   - 일찍 끝내기(얼리 리턴)를 넣을 땐 끝내기 전 그 함수가 하던 «요청 아닌 일»(상태 정리 · 빈 화면 표시 · 구독 해제)을 확인하고, 실제 앱에서 그 화면을 직접 열어 본다.
   - 클릭 통과(setIgnoreMouseEvents) 조건은 `apps/desktop/app/parts/launcher/click-through-policy.js` 한 곳에만 쓴다(다른 파일에 쓰면 `sim-click-through-policy.js` 빨강).
-- **검사(`sim-*.js`)는 실제로 돌려서 판정한다** — 글자를 찾는 정규식 판정 대신 함수를 불러 입력 → 출력 · 경계값(0 · 빈 값 · 상한)을 보고, 일부러 깨 봐서(«깨 보기») 빨강이 나는지까지 넣는다.
+- **검사(`sim-*.js`)는 실제로 돌려서 판정한다** — 글자를 찾는 정규식 판정 대신 함수를 불러 입력 → 출력 · 경계값(0 · 빈 값 · 상한)을 보고, mutation test 로 일부러 바꿔 빨강이 나는지까지 넣는다.
 - 남이 쓸 수 있는 값을 화면(HTML · 속성 · 주소 · CSS)에 넣을 땐 `shared/safe-html.js`(`TwSafeHtml`)만 쓴다 — 다른 escape 를 새로 만들지 않는다(검사 `sim-safe-html.js` 가 빨강).
 - localStorage 키는 `tw.` 접두사.
 - 사용자에게 보이는 **실패**(저장 · 불러오기 · 요청 실패)는 토스트 대신 `TwErrorCodes.notify('E-영역-번호', err)` — 번호는 `apps/desktop/app/parts/shared/error-codes.js` 표에 먼저 넣고, 한 번 쓴 번호는 다시 쓰지 않는다(규칙 · 목록 `docs/ERROR_CODES.md` · 검사 `sim-error-codes`).
@@ -206,7 +206,7 @@ npm -w @tw/char-core run build     # dist/ + 앱 사본(apps/desktop/app/vendor/
 - 권한 검사는 서버에 없고 규칙 파일뿐이다. 남의 데이터에 쓰는 기능을 만들면 규칙도 같이 본다.
 - **앱에 새 사이트 · 바깥 주소를 넣을 땐(틀 · 요청 · CSP) 먼저 사용자에게 묻고, 주소는 우리 도메인(`*.together-working.com`)으로 한다** — 앱에 박힌 주소는 바꾸려면 앱을 다시 내야 한다. `*.web.app` 같은 기본 주소를 새로 박지 않는다(페이지가 Firebase Hosting 이면 맞춤 도메인을 붙인다). CSP 가 바뀌거나 그런 주소가 들어오면 `risk.py` 가 위험도 높음으로 건다.
 - **규칙이 바뀌는 기능 개발 · 수정은 PR 본문에 «서버(AWS) 이관» 안내를 쓴다**(바뀐 경로 · 칸 · 권한 · 앱에서 쓰는 곳, 방에 오가는 칸인지). 자체 서버(`t-w-server`, 비공개 · 방 서버는 모르는 칸을 받지 않음)로 옮기는 중이라 관리자가 이 안내로 서버에 옮긴다. 형식은 `docs/GIT_CONVENTION.md` 4.1 · `.github/pull_request_template.md`.
-- **서버는 이 저장소 주인 PC 에서만 고친다 — 서버에 손댈 수 없으면(이 계정 밖 · 다른 PC) PR 본문 «서버 작업 필요» 칸에 적는다**(`docs/GIT_CONVENTION.md` 4.2). 이 계정 · 이 PC 의 작업은 서버(`t-w-server`)까지 같이 고친다. 앱은 서버가 생길 때까지 옛 길(지금 동작)로 돌고, 갈아 끼울 provider 자리만 둔다 — Firebase 의존을 새로 늘리지 않는다.
+- **서버는 이 저장소 주인 PC 에서만 고친다 — 서버에 손댈 수 없으면(이 계정 밖 · 다른 PC) PR 본문 «서버 작업 필요» 칸에 적는다**(`docs/GIT_CONVENTION.md` 4.2). 이 계정 · 이 PC 의 작업은 서버(`t-w-server`)까지 같이 고친다. 앱은 서버가 생길 때까지 옛 경로(지금 동작)로 돌고, 갈아 끼울 provider 자리만 둔다 — Firebase 의존을 새로 늘리지 않는다.
 
 ## Firebase 규칙 · 배포
 - `firebase` 명령(deploy · emulators)은 **`firebase/` 폴더에서** 친다(`cd firebase` — `firebase.json` · `.firebaserc` 가 거기 있다).
