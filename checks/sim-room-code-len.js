@@ -40,12 +40,12 @@ function loadJoin(src, startRoom, o){
   o = o || {};
   const parts = [grabLine(src, 'const ROOM_CODE_BODY_RE ='), grabLine(src, 'let _joiningRoom = false;'), grabLine(src, 'const JOINING_MSG ='), grabFn(src, 'function _joinBusy(){'), grabFn(src, 'async function _whileJoining(fn){'), grabLine(src, 'function joinRoom(code){'),
     grabFn(src, 'async function doJoinRandomRoom(){'),
-    grabFn(src, 'async function doJoinRoom(codeInputEl, opts){'), grabFn(src, 'async function doJoinSecretRoom(codeInputEl){')];
-  if(parts.some(p => !p)) throw new Error('room-entry.js 에서 ROOM_CODE_BODY_RE · _joiningRoom · JOINING_MSG · _joinBusy · _whileJoining · joinRoom · doJoinRandomRoom · doJoinRoom · doJoinSecretRoom 을 못 찾음');
+    grabFn(src, 'async function doJoinRoom(codeInputEl, opts){'), grabFn(src, 'function _secretBodyOf(typed){'), grabFn(src, 'function secretCodeFrom(typed){'), grabFn(src, 'async function doJoinSecretRoom(codeInputEl){')];
+  if(parts.some(p => !p)) throw new Error('room-entry.js 에서 ROOM_CODE_BODY_RE · _joiningRoom · JOINING_MSG · _joinBusy · _whileJoining · joinRoom · doJoinRandomRoom · doJoinRoom · _secretBodyOf · secretCodeFrom · doJoinSecretRoom 을 못 찾음');
   const out = { room: null, rooms: [], toasts: [], random: 0 };
   /* 랜덤 참여는 진짜 doJoinRandomRoom — 후보 찾기(방 포트 random)만 가짜 */
   const fns = new Function('toast', 'startRoom', '_resolveRoomCode', '_randomRooms', 'TwErrorCodes', '_myRoomPrefix',
-    parts.join('\n') + '\nreturn { doJoinRoom, doJoinSecretRoom, joinRoom };')(
+    parts.join('\n') + '\nreturn { doJoinRoom, doJoinSecretRoom, joinRoom, secretCodeFrom };')(
     (m) => out.toasts.push(m), (code) => { out.room = code; out.rooms.push(code); return startRoom ? startRoom(code) : undefined; },
     (body, pre) => pre + body, async () => { out.random++; return ['WORK-RR77']; }, { notify(){} }, () => 'WORK-');
   return { fns, out };
@@ -112,6 +112,18 @@ async function judge(src){
     const s4 = await join(src, 'doJoinSecretRoom', 'ab2c');
     const s3 = await join(src, 'doJoinSecretRoom', 'ab2');
     t(s4.room === 'SCRT-AB2C' && s3.room === null && s3.toasts.join() === '시크릿룸 코드는 4자리예요', '  시크릿룸 칸 — 4자리만(같은 규칙)');
+    /* 접두어는 한 번만 뗀다 — 다듬은 글을 다시 다듬으면 «SCRT + 4자리» 가 4자리 코드로 들어가 버린다 */
+    for(const v of ['SCRT-SCRTAB2C', 'SCRTSCRTAB2C', 'S.C.R.T.AB2C']){
+      const o2 = await join(src, 'doJoinSecretRoom', v);
+      t(o2.room === null && o2.toasts.join() === '시크릿룸 코드는 4자리예요', '★ 시크릿룸 칸 «' + v + '» — 안 들어가고 «4자리예요»(접두어를 두 번 떼지 않는다)');
+    }
+    /* 시크릿룸 칸이 들어가는 코드 = secretCodeFrom(같은 글) — 최근 방 입력 창과 한 규칙 */
+    { const sc = loadJoin(src).fns.secretCodeFrom; let same = true; const seen = [];
+      for(const v of ['ab2c', 'AB2C*', 'SCRT-AB2C', 'SCRTAB2C', 'SCRT', 'SCRT*', 'AB 2C', 'A!B@2#C', '', '*', 'AB2', 'AB2CD', 'SCRT-SCRTAB2C', 'SCRT-']){
+        const o3 = await join(src, 'doJoinSecretRoom', v);
+        if(o3.room !== sc(v)){ same = false; seen.push(v + '→' + o3.room + '/' + sc(v)); }
+      }
+      t(same, '★ 시크릿룸 칸이 들어가는 코드 = secretCodeFrom(같은 글) — 입력 14가지' + (seen.length ? ' — ' + seen.join(' · ') : '')); }
   }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 100)); }
   return r;
 }

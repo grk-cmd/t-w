@@ -375,7 +375,7 @@
 | **sim-wardrobe.js** | 229 | **637d90e6c5f6** |
 | **sim-settings-panel.js** | 96 | **f048483d1346** |
 | **sim-desktop-run.js** | 94 | **2370870711eb** |
-| **sim-room-entry.js** | 401 | **808f3bdb388b** |
+| **sim-room-entry.js** | 401 | **37466e6f2531** |
 | **sim-overhead.js** | 161 | **548871849555** |
 | **sim-room-sync.js** | 123 | **4b65e0692fb6** |
 | **sim-status-chip.js** | 123 | **23acdd14cd09** |
@@ -515,8 +515,8 @@
 | **sim-img-retry.js** | 117 | **74cb4a8def40** |
 | **sim-input-diag.js** | 148 | **785498f2219b** |
 | **sim-renderer-gone-reset.js** | 141 | **57af0bb1cb76** |
-| **sim-room-code-len.js** | 173 | **aaa583f3e06e** |
-| **sim-recent-rooms.js** | 215 | **eede6aef51ba** |
+| **sim-room-code-len.js** | 185 | **71acbec5c211** |
+| **sim-recent-rooms.js** | 267 | **17a8973e7f40** |
 | **sim-mh-pad-pos.js** | 164 | **38659919b0b2** |
 | **sim-mh-bg-url.js** | 133 | **de01754f7292** |
 | **sim-gift-img-retry.js** | 209 | **3496e4f17f97** |
