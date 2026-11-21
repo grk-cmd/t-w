@@ -84,6 +84,7 @@
 | **sim-char-foot.js** | 142 | **17f2aa70cc31** |
 | **sim-char-identity.js** | 188 | **9aa1d07d92b1** |
 | **sim-char-z.js** | 225 | **92fb9efdb2c1** |
+| **sim-checks-manifest.js** | 92 | **5a22daaa811a** |
 | **sim-cfg-fit.js** | 338 | **cf8cb8a93581** |
 | **sim-chat-fly.js** | 360 | **b52fd913a6d7** |
 | **sim-bug-board.js** | 537 | **184504a72d2c** |
@@ -573,10 +574,11 @@
 ### 도구 — 러너가 안 돌리는 파일 (§13 이 만들라고 한 칸)
 
 `listChecks` 가 안 집으므로 §3 표에 안 들어간다. **판이 바뀌어도 아무도 모르는 자리**라
-해시만 여기 적는다. 검사 개수(54)에는 안 넣는다.
+해시만 여기 적는다. 검사 개수에는 안 넣는다.
 
 ```
-run.js                         625줄   05cce2b358ed   ← apps/desktop · firebase 로 옮긴 원본을 옛 평면 모양으로 되살려 스테이징
+run.js                         621줄   53b719341a93   ← apps/desktop · firebase 로 옮긴 원본을 옛 평면 모양으로 되살려 스테이징
+manifest.js                     20줄   30182f14a9d1   ← run.js 가 §3 표를 읽는 도우미(같은 이름 두 번이면 빨강)
 tools/trapscan.js              267줄   71a7d91b4979
 tools/mac-bundleid-probe.js    415줄   cb30d59cf85a   ← 2026-09-30 6절에 `.app` 폴더 경로 · 옛 규칙 (개정 75)
 CHECKS.md           (이 파일 · 자기 해시는 안 적는다)
@@ -1416,7 +1418,7 @@ vm.runInThisContext(smokeSrc, { filename: 'smoke-stubs.js' });
 ### `trapscan.js` 는 `checks/tools/` 에 둔다 — 실측으로 정했다
 
 `checks/` 바로 밑에 두면 **검사가 된다.** `listChecks` 가 `.js`·`.py` 를 전부 집고 예외는
-`run.js` 하나뿐이다(`run.js:73`). 세 가지를 실제로 돌려 봤다.
+`NOT_CHECKS`(`run.js` · `manifest.js`)뿐이다. 세 가지를 실제로 돌려 봤다.
 
 | 둔 자리 | 결과 |
 |---|---|

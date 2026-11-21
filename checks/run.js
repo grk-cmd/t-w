@@ -82,10 +82,11 @@ const say = console.log;
 const sha12 = (p) => crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex').slice(0, 12);
 
 /* ── 검사 목록 ─────────────────────────────────────────────────────────────
-   `run.js` 자신은 검사가 아니다. 빼지 않으면 자기를 돌리다 무한히 들어간다. */
+   `run.js` 자신은 검사가 아니다. 빼지 않으면 자기를 돌리다 무한히 들어간다. `manifest.js` 는 러너가 쓰는 도우미다. */
+const NOT_CHECKS = new Set(['run.js', 'manifest.js']);
 function listChecks(){
   return fs.readdirSync(CHECKS)
-    .filter(f => (f.endsWith('.js') || f.endsWith('.py')) && f !== 'run.js')
+    .filter(f => (f.endsWith('.js') || f.endsWith('.py')) && !NOT_CHECKS.has(f))
     .filter(f => !filters.length || filters.some(q => f.includes(q)))
     .sort();
 }
@@ -95,24 +96,19 @@ function listChecks(){
    (★낡음 · ← …) 이 붙어 있어도 이름과 12자리만 본다. */
 function readManifest(){
   if (!fs.existsSync(MANIFEST)) return null;
-  const m = new Map();
-  for (const line of fs.readFileSync(MANIFEST, 'utf8').split('\n')){
-    const cell = line.split('|').map(s => s.trim());
-    if (cell.length < 4) continue;
-    const name = cell[1].replace(/\*\*/g, '').trim();
-    const hash = (cell[3].match(/\b([0-9a-f]{12})\b/) || [])[1];
-    if (name && hash && /\.(js|py)$/.test(name)) m.set(name, hash);
-  }
-  return m.size ? m : null;
+  const r = require('./manifest.js').parseManifest(fs.readFileSync(MANIFEST, 'utf8'));
+  return r.map.size ? r : null;
 }
 
 function verify(files){
-  const man = readManifest();
+  const read = readManifest();
+  const man = read && read.map;
   if (!man){
     say('  ? CHECKS.md 를 못 읽었다 — 정본 대조 없이 돈다. 초록이어도 근거로 쓰지 말 것.');
     return { known: 0, bad: 0, missing: files.length };
   }
   let known = 0, bad = 0, missing = 0;
+  for (const name of read.dupes){ bad++; say(`  ✗ ${name} — 표에 두 번 있다. 옛 줄을 지울 것(뒤 줄로만 대조하면 옛 줄이 조용히 남는다)`); }
   for (const f of files){
     const want = man.get(f);
     const got = sha12(path.join(CHECKS, f));
