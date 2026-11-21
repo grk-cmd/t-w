@@ -272,6 +272,10 @@ const purikuraUi = deps.purikuraUi;                    // 📷 창 모듈(만드
       else if(e.key==='Escape'){ closeChatWindow(); }
     });
   }
+  /* [보내기] — Enter 와 같은 한 길(_sendChatWindowMsg). 누른 뒤 입력칸으로 포커스를 돌려 이어서 칠 수 있게.
+     ⚠️ mousedown 을 막지 않는다 — 버튼을 누르며 입력칸이 포커스를 잃어야 한글 조합이 먼저 확정된다(막으면 mac 에서 끝 글자가 한 번 더 간다 — 위 Enter 주석과 같은 까닭). */
+  const sendBtn=document.getElementById('chatSendBtn');
+  if(sendBtn) sendBtn.addEventListener('click', e=>{ e.stopPropagation(); _sendChatWindowMsg(); if(inp) inp.focus(); });
   try{ _bindChatCopy(); }catch(_){}   // 📋 드래그 · 복사 · 우클릭 메뉴
   try{ _bindChatTabs(); }catch(_){}   // 💬 채팅 탭 줄
   // 링크 클릭 → 외부 열기(Electron: shell.openExternal, 웹: 새 탭)
