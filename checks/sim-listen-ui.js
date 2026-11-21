@@ -18,7 +18,10 @@ const need = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ say('  
 const SRC = need('listen-ui.js'), MODEL_SRC = need('listen-model.js');
 const APP = need('app.js'), HTML = need('desk-companion-prototype.html'), RE = need('room-entry.js'), ACC = need('account.js');
 const FI = need('firebase-init.js'), OH = need('overhead.js'), PL = need('playlist.js'), FL = need('frame-loop.js');   // frame() 은 launcher/frame-loop.js
-const MODEL = (() => { const w = {}; new Function('window', MODEL_SRC)(w); return w.TwListenModel; })();
+/* 🎧 스위치(listen-model.js ENABLED)는 지금 꺼져 있다 — 창 시험은 «켠 글» 의 규칙으로 돌리고, 꺼진 때는 맨 아래 절에서 원본 규칙으로 본다 */
+const loadModel = (src) => { const w = {}; new Function('window', src)(w); return w.TwListenModel; };
+const MODEL_ON_SRC = MODEL_SRC.replace('const ENABLED = false;', 'const ENABLED = true;');
+const MODEL = loadModel(MODEL_ON_SRC), MODEL_OFF = loadModel(MODEL_SRC);
 const flush = () => new Promise(r => setImmediate(r));
 const T0 = 1700000000000;
 const A = 'aaaaaaaaaaa', B = 'bbbbbbbbbbb', C = 'ccccccccccc';
@@ -75,7 +78,7 @@ function mk(o, src){
     w, dom, ls, (f) => { timers.iv.push(f); return timers.iv.length; }, (id) => { timers.iv[id - 1] = null; },
     (f) => { timers.to.push(f); return 0; }, () => {});
   const ui = w.TwListenUi.createListenUi({
-    model: MODEL, provider: prov, companion: () => comp,
+    model: o.model || MODEL, provider: prov, companion: () => comp,
     roomCode: () => st.code, meta: () => st.meta, isSecretRoom: () => st.secret,
     myId: () => st.me, memberIds: () => st.members, nameOf: (u) => '닉_' + u,
     djItems: () => st.items, stopPersonal: () => { if(!st.plPlaying) return false; st.plPlaying = false; personalStops++; return true; }, positionPopup: () => {}, closeChipPopups: (id) => chipCloses.push(id),
@@ -90,6 +93,13 @@ const song = (o) => Object.assign({ id: A, title: '가', by: 'dj', at: T0 - 3000
 
 (async () => {
 say('── 1. 들어감 · 나감');
+{
+  /* 🎧 스위치 끔(지금 — 원본 규칙) — 같이 듣기 방의 meta 가 와도 창이 켜지지 않는다 */
+  const off = mk({ model: MODEL_OFF, meta: { host: 'dj', music: true } });
+  off.ui.sync();
+  chk(MODEL_OFF.ENABLED === false && off.prov.subs.length === 0 && off.el('myPlBtn').textContent === '🎵' && off.ui.djId() === null,
+    '★ 스위치 끔 — 같이 듣기 방이어도 구독하지 않고 🎵 그대로 · DJ 딱지 없음');
+}
 {
   let t = mk({ meta: { host: 'dj' } });
   t.ui.sync();
@@ -388,15 +398,16 @@ say('── 8. 이어 붙인 곳');
   {
     /* 시크릿룸 «연다» 판정 — room-entry 의 두 함수를 떼어 실제로 굴린다 */
     const fnOf = (src, head) => { const i = src.indexOf(head); return i < 0 ? '' : src.slice(i, src.indexOf('\n', i)); };
-    const mkOpen = (src, on) => new Function('roomEntryAccountStore', "const SECRET_MUSIC_KEY = 'tw.secretRoomMusic';\n" + fnOf(src, 'function _secretMusicOn(') + '\n' + fnOf(src, 'function _secretOpenFields(') + '\nreturn _secretOpenFields;')(
-      { get: (k) => (k === 'tw.secretRoomMusic' && on ? '1' : null) });
+    const mkOpen = (src, on, listenOn) => new Function('roomEntryAccountStore', 'listen', "const SECRET_MUSIC_KEY = 'tw.secretRoomMusic';\n" + fnOf(src, 'function _secretMusicOn(') + '\n' + fnOf(src, 'function _secretOpenFields(') + '\nreturn _secretOpenFields;')(
+      { get: (k) => (k === 'tw.secretRoomMusic' && on ? '1' : null) }, { ENABLED: listenOn !== false });
+    chk(mkOpen(RE, true, false)(true).music === false && mkOpen(RE, true, false)(false) === undefined, '★ 스위치 끔 — 주인이 켜 둔 선택이 남아 있어도 music:false 로 싣는다(같이 듣기 방을 열지 않는다)');
     const open1 = mkOpen(RE, true), open0 = mkOpen(RE, false);
     chk(open1(true).music === true && open0(true).music === false && open1(false) === undefined,
       '★ 시크릿룸: 주인이면 같이 듣기 선택을 늘 싣고 손님이면 싣지 않는다 — 빈 방을 여는 때인지는 서버가 가른다(create 는 방이 없을 때만 · music 은 주인이 연 때만 — R2)');
     chk(/srOpen = _secretOpenFields\(true\);/.test(RE) && !/roomRt\.peek\(code\)/.test(RE)
       && /roomSettings\.serverJoinCreate\(creating, [^\n]*, srOpen\);/.test(RE),
       '  내 시크릿룸일 때만 · 방 인원을 peek 으로 묻지 않는다(요청 −1) → create { channel: togetherroom, music }');
-    const broken = mkOpen(RE.replace('return isOwner ? { music: _secretMusicOn() } : undefined;', 'return { music: _secretMusicOn() };'), true);
+    const broken = mkOpen(RE.replace('return isOwner ? { music: listen.ENABLED && _secretMusicOn() } : undefined;', 'return { music: listen.ENABLED && _secretMusicOn() };'), true);
     chk(broken(false) !== undefined, '«손님은 안 싣는다» 거르기를 무르면 위 판정이 빨강');
   }
   chk(/const SECRET_MUSIC_KEY = 'tw\.secretRoomMusic';/.test(RE) && /roomEntryAccountStore\.get\(SECRET_MUSIC_KEY\)/.test(RE) && /roomEntryAccountStore\.set\(SECRET_MUSIC_KEY/.test(RE) && !/secretRoomMusic/.test(ACC), '  F1 칸은 이 PC 의 계정 칸에 기억 · 로그아웃이 지우지 않는다(S-3c — 계정 칸은 같은 계정이 돌아오면 이어진다)');

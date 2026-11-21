@@ -40,11 +40,12 @@ function compare(a, b){
 /** 채널 목록 → { state, list, total, open, ageMs }.
  *  state: 'failed'(못 읽음 · null) · 'missing'(at 이 없음) · 'stale'(at 이 3분 넘게 뒤짐) · 'ok'.
  *  list 는 정렬 · 거르기(onlyOpen = 빈자리 있는 방만)를 마친 카드, no 는 1부터.
- *  @param {{ at: number|null, rooms: object }|null} node  @param {{ now: number, cap: number, onlyOpen: boolean }} o */
+ *  @param {{ at: number|null, rooms: object }|null} node  @param {{ now: number, cap: number, onlyOpen: boolean, isBlocked?: (card: { music: boolean }) => boolean }} o */
 function cardsFrom(node, o){
   if(!node) return { state: 'failed', list: [], total: 0, open: 0, ageMs: null };
   if(!node.at) return { state: 'missing', list: [], total: 0, open: 0, ageMs: null };
-  const all = Object.keys(node.rooms || {}).map((c) => cardOf(c, node.rooms[c], o.cap)).filter((c) => c.n > 0).sort(compare);
+  const blocked = o.isBlocked || (() => false);   // 🎧 들어가지 못하는 방(같이 듣기 스위치가 꺼진 동안의 같이 듣기 방)은 목록 · 개수 · 빠른시작에서 뺀다
+  const all = Object.keys(node.rooms || {}).map((c) => cardOf(c, node.rooms[c], o.cap)).filter((c) => c.n > 0 && !blocked(c)).sort(compare);
   const open = all.filter((c) => !c.full).length;
   const list = (o.onlyOpen ? all.filter((c) => !c.full) : all).map((c, i) => Object.assign({ no: String(i + 1).padStart(3, '0') }, c));
   const ageMs = Math.max(0, o.now - node.at);

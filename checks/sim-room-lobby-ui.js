@@ -61,6 +61,17 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
   chk(by['WORK-BB22'].full && by['WORK-BB22'].title === '말랑 님의 방' && by['WORK-BB22'].titleIsDefault, '  가득 참 · 빈 제목은 «닉네임 님의 방»');
   chk(by['WORK-CC33'].hostLabel === '현재 방장' && by['WORK-DD44'].hostLabel === '현재 DJ' && by['WORK-DD44'].music, '  같이 듣기 방은 «현재 DJ»');
   chk(M.cardOf('X', { n: 1 }, 10).title === '이름 없는 방', '  제목 · 닉네임 둘 다 없으면 «이름 없는 방»');
+  {
+    /* 🎧 같이 듣기 스위치가 꺼진 동안 — 들어가지 못하는 방(listen-model.js isBlockedRoom)은 목록 · 개수 · 빠른시작에서 뺀다 */
+    const LM = classic(need('listen-model.js'), 'TwListenModel');
+    const b = M.cardsFrom(node, { now, cap: 10, onlyOpen: false, isBlocked: LM.isBlockedRoom });
+    chk(LM.ENABLED === false && b.total === 4 && b.open === 3 && !b.list.some((c) => c.code === 'WORK-DD44') && b.list.map((c) => c.no).join() === '001,002,003,004',
+      '★ 스위치 끔 — 같이 듣기 방은 목록에 없다(개수 · 번호도 뺀 목록 기준)');
+    const only = M.cardsFrom({ at: now, rooms: { 'WORK-DD44': node.rooms['WORK-DD44'] } }, { now, cap: 10, onlyOpen: false, isBlocked: LM.isBlockedRoom });
+    chk(only.total === 0 && M.pickQuick(only.list, 0) === null, '  같이 듣기 방뿐이면 빠른시작이 고를 방이 없다');
+    const LM_ON = classic(need('listen-model.js').replace('const ENABLED = false;', 'const ENABLED = true;'), 'TwListenModel');
+    chk(M.cardsFrom(node, { now, cap: 10, onlyOpen: false, isBlocked: LM_ON.isBlockedRoom }).total === 5, '  스위치 켬 — 다시 다 보인다');
+  }
   r = M.cardsFrom(node, { now, cap: 10, onlyOpen: true });
   chk(r.list.length === 4 && !r.list.some((c) => c.full) && r.list[3].no === '004', '빈자리 있는 방만 — 번호도 거른 목록 기준');
   chk(M.cardsFrom(null, { now, cap: 10 }).state === 'failed', '★ 못 읽음(null) → failed — 빈 목록과 다르다');

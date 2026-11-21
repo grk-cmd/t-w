@@ -25,12 +25,12 @@ const NET_PRE = NET + '\nvar TwNetReady = window.TwNetReady;\n' + SSD + '\nvar T
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["_chatNotifyIncoming","_clearHiddenSeats","_demojiNotifyIncoming","_pokeFresh","_rcStore","_refreshChatMembers","applyCharToSeat","applyEquippedPartsToSeat","createSeat","deserializeDefFromNetwork","layoutSeats","maxPeople","myCode","myExpCells","mySecretRoom","paintRoomInfo","pruneSeatPartsAgainstDef","refitSeatAfterParts","removeSeatLabels","renderSeatTabs","retryDefAfter","serializeDefForNetwork","showChatBubble","spawnFloater","toast","triggerPet","updateMyStatusChipPosition"];
-const VAL_DEPS = ["roomEntryAccountStore","FLOATER_BURST","Presence","chatUiMod","rideBenchMod","roomRt","roomSettings","scene","seats","settingsMod","slots","tricksMod","twNav","runCost"];
+const VAL_DEPS = ["listen","roomEntryAccountStore","FLOATER_BURST","Presence","chatUiMod","rideBenchMod","roomRt","roomSettings","scene","seats","settingsMod","slots","tricksMod","twNav","runCost"];
 const GET_DEPS = ["EXP_CELLS","awayPicMod","curSlot","focusLevelMod","isAdmin","isPremium","officeMode","myCode"];
 const SET_DEPS = [];
 const EXPORTS = ["doCreateRoomInChannel","_myRoomLicensed","CHANNEL_NAMES","ROOM_PREFIX","_mockRoomAllowed","_srFmtDate","doLeaveRoom","makeMockProvider","refreshInviteUI","startRoom","syncFriendSeats","onRoomChanged","onRoomJoined","isRoomCode","joinRoom"];
 const MOVED = ["_roomServerNet","_roomServerOn","_onServerRoomMeta","makeServerProvider","ROOM_SERVER_LOST_MSG","ROOM_SERVER_BUSY_MSG","_roomServerJoinMessage","ROOM_SERVER_CONNECTING_TOAST_MS","_myRoomLicensed","_startRoomOnServer","_serverRandomRooms","NET_READY_WAIT_MS","_mockRoomAllowed","_waitFirebaseApi","makeMockProvider","mockFriendDef","_charIdentityFingerprint","_deskStateFingerprint","_applyRemoteBenchSeats","_applyRemoteRides","syncFriendSeats","ROOM_PREFIX","ROOM_CODE_RE","_roomPrefixFor","_myRoomPrefix","genRoomCode","presenceChanged","_srFmtDate","_refreshSecretRoomUI","refreshInviteUI","_verLt","_ensureRoomVersionOk","startRoom","_bindDonate","CHANNEL_NAMES","roomLimitOf","_channelFullMsg","_paintMaxPeople","doCreateRoomInChannel","RANDOM_JOIN_TRIES","doJoinRandomRoom","_hoppingRoom","_setHopBusy","doHopRandomRoom","_joiningRoom","_resolveRoomCode","doJoinRoom","doJoinSecretRoom","doLeaveRoom","doCopyRoomCode","fsInviteCreate","fsInviteJoinBtn","fsInviteLeaveBtn","fsInviteRoomCopyBtn","_setupRoomCodeInput","_setupSecretCodeInput"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  roomEntryAccountStore: accountStoreMod,","  EXP_CELLS: ()=>expBarMod.EXP_CELLS,","  FLOATER_BURST: floatersMod.FLOATER_BURST,","  Presence: Presence,","  _chatNotifyIncoming: (...a)=>chatPrefsMod._chatNotifyIncoming(...a),","  _clearHiddenSeats: (...a)=>hiddenSeatsMod._clearHiddenSeats(...a),","  _demojiNotifyIncoming: (...a)=>chatPrefsMod._demojiNotifyIncoming(...a),","  _pokeFresh: (...a)=>roomSyncMod._pokeFresh(...a),","  _refreshChatMembers: (...a)=>chatPrefsMod._refreshChatMembers(...a),","  applyCharToSeat: (...a)=>applyCharToSeat(...a),","  applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),","  awayPicMod: ()=>awayPicMod,","  chatUiMod: chatUiMod,","  createSeat: (...a)=>createSeat(...a),","  curSlot: ()=>curSlot,","  deserializeDefFromNetwork: (...a)=>roomSyncMod.deserializeDefFromNetwork(...a),","  focusLevelMod: ()=>focusLevelMod,","  myCode: ()=>TwRoomRt.store.myCode(),","  isAdmin: ()=>isAdmin,","  isPremium: ()=>isPremium,","  layoutSeats: (...a)=>layoutSeats(...a),","  maxPeople: (...a)=>maxPeople(...a),","  myExpCells: (...a)=>expBarMod.myExpCells(...a),","  officeMode: ()=>officeMode,","  pruneSeatPartsAgainstDef: (...a)=>pruneSeatPartsAgainstDef(...a),","  refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),","  removeSeatLabels: (...a)=>overheadMod.removeSeatLabels(...a),","  renderSeatTabs: (...a)=>seatPanelMod.renderSeatTabs(...a),","  retryDefAfter: (...a)=>roomSyncMod.retryDefAfter(...a),","  rideBenchMod: rideBenchMod,","  scene: scene,","  seats: seats,","  serializeDefForNetwork: (...a)=>roomSyncMod.serializeDefForNetwork(...a),","  settingsMod: settingsMod,","  showChatBubble: (...a)=>showChatBubble(...a),","  slots: slots,","  spawnFloater: (...a)=>floatersMod.spawnFloater(...a),","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,","  triggerPet: (...a)=>triggerPet(...a),","  updateMyStatusChipPosition: (...a)=>statusChipMod.updateMyStatusChipPosition(...a),","  _rcStore: (...a)=>acctStateMod._rcStore(...a),","  twNav: twNav,","  mySecretRoom: ()=>roomLobbyProvider.mySecretRoom(),","  paintRoomInfo: ()=>roomInfoUi.paint(),","  roomSettings: TwRoomSettings,","  roomRt: TwRoomRt.store,","  runCost: runCost,   // 🩺 좌석 맞춤 시간(1분 [비용] 줄)"];
+const GLUE = ["  listen: TwListenModel,","  roomEntryAccountStore: accountStoreMod,","  EXP_CELLS: ()=>expBarMod.EXP_CELLS,","  FLOATER_BURST: floatersMod.FLOATER_BURST,","  Presence: Presence,","  _chatNotifyIncoming: (...a)=>chatPrefsMod._chatNotifyIncoming(...a),","  _clearHiddenSeats: (...a)=>hiddenSeatsMod._clearHiddenSeats(...a),","  _demojiNotifyIncoming: (...a)=>chatPrefsMod._demojiNotifyIncoming(...a),","  _pokeFresh: (...a)=>roomSyncMod._pokeFresh(...a),","  _refreshChatMembers: (...a)=>chatPrefsMod._refreshChatMembers(...a),","  applyCharToSeat: (...a)=>applyCharToSeat(...a),","  applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),","  awayPicMod: ()=>awayPicMod,","  chatUiMod: chatUiMod,","  createSeat: (...a)=>createSeat(...a),","  curSlot: ()=>curSlot,","  deserializeDefFromNetwork: (...a)=>roomSyncMod.deserializeDefFromNetwork(...a),","  focusLevelMod: ()=>focusLevelMod,","  myCode: ()=>TwRoomRt.store.myCode(),","  isAdmin: ()=>isAdmin,","  isPremium: ()=>isPremium,","  layoutSeats: (...a)=>layoutSeats(...a),","  maxPeople: (...a)=>maxPeople(...a),","  myExpCells: (...a)=>expBarMod.myExpCells(...a),","  officeMode: ()=>officeMode,","  pruneSeatPartsAgainstDef: (...a)=>pruneSeatPartsAgainstDef(...a),","  refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),","  removeSeatLabels: (...a)=>overheadMod.removeSeatLabels(...a),","  renderSeatTabs: (...a)=>seatPanelMod.renderSeatTabs(...a),","  retryDefAfter: (...a)=>roomSyncMod.retryDefAfter(...a),","  rideBenchMod: rideBenchMod,","  scene: scene,","  seats: seats,","  serializeDefForNetwork: (...a)=>roomSyncMod.serializeDefForNetwork(...a),","  settingsMod: settingsMod,","  showChatBubble: (...a)=>showChatBubble(...a),","  slots: slots,","  spawnFloater: (...a)=>floatersMod.spawnFloater(...a),","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,","  triggerPet: (...a)=>triggerPet(...a),","  updateMyStatusChipPosition: (...a)=>statusChipMod.updateMyStatusChipPosition(...a),","  _rcStore: (...a)=>acctStateMod._rcStore(...a),","  twNav: twNav,","  mySecretRoom: ()=>roomLobbyProvider.mySecretRoom(),","  paintRoomInfo: ()=>roomInfoUi.paint(),","  roomSettings: TwRoomSettings,","  roomRt: TwRoomRt.store,","  runCost: runCost,   // 🩺 좌석 맞춤 시간(1분 [비용] 줄)"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -178,6 +178,10 @@ say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 }
 /* 입장 흐름 — 가짜 방 포트(roomRt) · 가짜 Presence 위에서 startRoom · 만들기 · 랜덤을 실제로 굴린다 */
 const RS = (() => { const src = ["room-settings.js","parts/room/room-settings.js","app/parts/room/room-settings.js"].map(read).find(Boolean); const w = {}; new Function('window', src)(w); return w.TwRoomSettings; })();
+/* 🎧 같이 듣기 스위치 한 벌(listen-model.js) — 지금 원본은 꺼져 있다(LM_OFF). 켠 글(LM_ON)로도 굴려 다시 켰을 때의 흐름을 같이 지킨다 */
+const LM_SRC = ["listen-model.js","parts/room/listen-model.js","app/parts/room/listen-model.js"].map(read).find(Boolean);
+const lmOf = (src) => { const w = {}; new Function('window', src)(w); return w.TwListenModel; };
+const LM_OFF = lmOf(LM_SRC), LM_ON = lmOf(LM_SRC.replace('const ENABLED = false;', 'const ENABLED = true;'));
 async function flow(src, o){
   const any = anything();
   const log = { starts: [], toasts: [], stops: 0, peeks: [], errs: [] };
@@ -199,6 +203,7 @@ async function flow(src, o){
   deps.toast = (m) => { log.toasts.push(m); };
   deps.slots = [{ skin: 1 }]; deps.curSlot = () => 0;
   deps.roomSettings = RS;
+  deps.listen = o.listen || LM_OFF;
   deps.maxPeople = () => 10;
   deps.isPremium = () => !!o.premium; deps.isAdmin = () => false;
   deps._rcStore = () => ({ refresh: async () => {}, minRoomVer: () => null, maxPeople: () => 10, roomLimitOf: () => 500, onChange: () => {} });
@@ -224,7 +229,16 @@ const flowRows = async (src) => {
     t(f.log.errs.includes('E-ROOM-08') && !f.log.toasts.some(m => /연결하지 못했어요/.test(m)), '못 붙음(timeout 등) → 오류 번호 E-ROOM-08(문구 토스트 아님 — D8)');
     f = await flow(src, { results: [{ ok: true, others: 0, meta: { channel: 'togetherroom' } }, { ok: true, others: 0, meta: { channel: 'togetherroom' } }], run: (m) => m.startRoom('WORK-AB12') });
     t(f.log.stops === 1 && f.log.starts.map(x => x.code).join() === 'WORK-AB12,PLAY-AB12', '★ 빈 방이 투게더룸으로 열렸는데 접두어가 WORK- 면 PLAY- 로 옮겨 연다(한 번만)');
-    f = await flow(src, { run: (m) => m.doCreateRoomInChannel('togetherroom', { title: '수다', max: 4, open: true, music: true }) });
+    /* 🎧 스위치 끔(지금) — 옛 판 앱이 만든 같이 듣기 방은 들어온 답의 meta 로 보고 바로 나온다 */
+    { const w0 = console.warn; console.warn = () => {};
+      f = await flow(src, { results: [{ ok: true, others: 2, meta: { channel: 'workingroom', music: true } }], run: (m) => m.startRoom('WORK-AB12') }); console.warn = w0; }
+    t(f.log.starts.length === 1 && f.log.stops === 1 && f.log.toasts.includes(LM_OFF.BLOCKED_TEXT) && !f.log.toasts.some(x => /방에 연결됐어요/.test(x)) && f.win._roomMetaCache === null,
+      '★ 스위치 끔 — 같이 듣기 방이면 바로 나오고(stop 1 · meta 사본 비움) 안내 · «연결됐어요» 는 안 띄운다');
+    f = await flow(src, { results: [{ ok: true, others: 2, meta: { channel: 'workingroom', music: false } }], run: (m) => m.startRoom('WORK-AB12') });
+    t(f.log.stops === 0 && f.log.toasts.includes('방에 연결됐어요: WORK-AB12'), '  스위치 끔 — 보통 방은 그대로 들어간다');
+    f = await flow(src, { listen: LM_ON, results: [{ ok: true, others: 2, meta: { channel: 'workingroom', music: true } }], run: (m) => m.startRoom('WORK-AB12') });
+    t(f.log.stops === 0 && f.log.toasts.includes('방에 연결됐어요: WORK-AB12'), '  스위치 켬 — 같이 듣기 방에도 들어간다(다시 켰을 때)');
+    f = await flow(src, { listen: LM_ON, run: (m) => m.doCreateRoomInChannel('togetherroom', { title: '수다', max: 4, open: true, music: true }) });
     const c = f.log.starts[0] && f.log.starts[0].create;
     t(f.log.starts.length === 1 && /^PLAY-[A-Z0-9]{4}$/.test(f.log.starts[0].code) && JSON.stringify(c) === '{"channel":"togetherroom","open":true,"title":"수다","max":4,"music":true}', '★ 만들기 → PLAY- 코드 · join.create 에 고른 값');
     t(f.win._pendingRoomChannel === null && f.win._pendingRoomOpen === false, '  들어간 뒤 만들기 표시를 비운다');
@@ -270,6 +284,8 @@ globalThis.__rsCheck = (async () => {
   (await randomRows(MOD)).forEach(([ok, msg]) => chk(ok, msg));
   const broke = await flowRows(MOD.replace("    if(m && (m[1] + '-') !== want){", "    if(false){"));
   chk(broke.some(([ok]) => !ok), 'mutation test: 빈 방 접두어 옮기기를 빼면 입장 흐름이 빨강');
+  const brokeL = await flowRows(MOD.replace('  if(listen.isBlockedRoom(r.meta)){', '  if(false){'));
+  chk(brokeL.some(([ok]) => !ok), '같이 듣기 방 막기를 빼면 — 흐름 판정이 빨강');
   const broke2 = await flowRows(MOD.replace("srOpen = _secretOpenFields(true);", "srOpen = undefined;"));
   chk(broke2.some(([ok]) => !ok), 'mutation test: 시크릿룸 «주인이 연다» 를 빼면 입장 흐름이 빨강');
   const broke3 = await flowRows(MOD.replace("  const s = await mySecretRoom();\n  return (s && s.code === code) ? s : null;", "  let s = null;\n  try{ s = await mySecretRoom(); }catch(_){ s = null; }\n  return (s && s.code === code) ? s : null;"));

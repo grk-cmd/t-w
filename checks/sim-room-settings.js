@@ -102,7 +102,7 @@ say('── 4. room-create-ui.js — 가짜 DOM');
     let lic = !!o.licensed;
     const ui = global.window.TwRoomCreateUi.createRoomCreateUi({
       roomSettings: RS, bannedWords: BW, rcStore: () => ({ bannedWords: () => o.banned || [] }),
-      maxPeople: () => o.cap || 10, isLicensed: () => lic, onCreate: (ch, s) => made.push([ch, s]),
+      maxPeople: () => o.cap || 10, isLicensed: () => lic, listenEnabled: o.listen !== false, onCreate: (ch, s) => made.push([ch, s]),
     });
     return { ui, el, made, setLic: (v) => { lic = v; } };
   }
@@ -124,6 +124,15 @@ say('── 4. room-create-ui.js — 가짜 DOM');
   t.el('rcMusic').checked = true;
   t.el('rcCreate').onclick();
   chk(t.made.length === 2 && t.made[1][1].music === true, '★ 같이 듣기를 켜면 music:true 로 넘긴다');
+  {
+    /* 🎧 같이 듣기 스위치가 꺼져 있을 때(listen-model.js ENABLED = false — 지금) */
+    const off = mk({ cap: 8, listen: false });
+    off.ui.open('workingroom');
+    chk(off.el('rcMusicRow').hidden === true, '★ 스위치 끔 — «같이 듣기 방» 칸을 숨긴다');
+    off.el('rcTitle').value = '공부방'; off.el('rcMusic').checked = true;   // 숨은 칸이 어떻게든 켜져 있어도
+    off.el('rcCreate').onclick();
+    chk(off.made.length === 1 && off.made[0][1].music === false, '★ 스위치 끔 — music:false 로만 넘긴다(숨은 칸이 켜져 있어도)');
+  }
   t.made.length = 1;
   chk(t.el('roomCreatePanel').hidden && !t.el('lobbyMain').hidden, '  만들고 나면 창을 닫고 로비로');
 
