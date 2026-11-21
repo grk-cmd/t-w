@@ -162,6 +162,43 @@ const judgeSecret = (src) => { const r = callsWith(src, 'ME'); return !r.calls.i
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
+/* 🪟 방 안 화면 — 모달 폭을 좁히는 표시(#inviteModal.in-room)와 맨 아래 [닫기] 를 가짜 DOM 위에서 굴린다 */
+function inRoomWindow(src){
+  const any = anything();
+  let inRoom = false;
+  const deps = {};
+  FN_DEPS.forEach(n => { deps[n] = () => any; });
+  VAL_DEPS.forEach(n => { deps[n] = any; });
+  GET_DEPS.forEach(n => { deps[n] = () => any; });
+  deps.mySecretRoom = () => Promise.resolve(null);
+  deps.Presence = new Proxy({}, { get: (t, k) => k === 'active' ? () => inRoom : any });
+  const els = {};
+  const elOf = (id) => els[id] || (els[id] = new Proxy({ id, style: {}, cls: new Set(), clicks: 0,
+    classList: { toggle(c, on){ on ? els[id].cls.add(c) : els[id].cls.delete(c); }, add(c){ els[id].cls.add(c); }, remove(c){ els[id].cls.delete(c); }, contains(c){ return els[id].cls.has(c); } },
+    click(){ this.clicks++; if(typeof this.onclick === 'function') this.onclick(); } }, { get: (t, k) => (k in t ? t[k] : any), set: (t, k, v) => { t[k] = v; return true; } }));
+  const doc = new Proxy({ getElementById: elOf }, { get: (t, k) => (k in t ? t[k] : any) });
+  const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+  const ls = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
+    NET_PRE + src + '\nreturn window.TwRoomEntry;')(win, doc, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
+  const m = api.createRoomEntry(deps);
+  const modal = elOf('inviteModal'), ov = elOf('inviteOverlay');
+  const at = (room) => { inRoom = room; m.refreshInviteUI(); return modal.cls.has('in-room'); };
+  const out = [at(false), at(true), at(false)].join();
+  inRoom = true; ov.cls.add('on');
+  elOf('inviteCloseBtn').onclick();
+  return out + '|' + (ov.cls.has('on') ? 'open' : 'closed') + '|' + elOf('inviteClose').clicks;
+}
+{
+  let got = '';
+  try{ got = inRoomWindow(MOD); }catch(e){ got = 'threw ' + String(e && e.message || e).slice(0, 80); }
+  say('── 2-1. 방 안 화면 — 좁은 창 · [닫기]');
+  chk(got.split('|')[0] === 'false,true,false', '★ 방 안이면 모달에 in-room 표시(좁은 폭) · 방 밖(로비)이면 뗀다 — ' + got);
+  chk(got.split('|')[1] === 'closed' && got.split('|')[2] === '1', '★ 맨 아래 [닫기] 는 제목줄 ✕ 와 같은 한 길로 모달을 닫는다');
+  let b1 = ''; try{ b1 = inRoomWindow(MOD.replace("document.getElementById('inviteModal').classList.toggle('in-room', on);", '')); }catch(_){ b1 = 'threw'; }
+  chk(b1.split('|')[0] !== 'false,true,false', '  표시 줄을 빼면 위 판정이 빨강');
+  chk(/#inviteModal\.in-room\{width:380px;\}/.test(HTML) && /id="inviteCloseBtn"/.test(HTML), '  html: 좁은 폭 규칙 · [닫기] 버튼');
+}
 say('── 2-2. 내 시크릿룸 — 판정 한 곳');
 chk(judgeBench(MOD), '★ 남이 내 벤치에 앉음 · 내 머리에 올라탐 — 남이 보낸 host · ridingOn 을 내 코드(myCode)와 견줘 내 좌석에 잇는다 · 내 코드가 아니면 잇지 않는다');
 chk(judgeSecret(MOD), 'F1 시크릿룸 칸은 provider 의 mySecretRoom 에 한 번 묻는다 · firebaseAPI 를 직접 읽지 않는다');
