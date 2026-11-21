@@ -161,10 +161,11 @@ function renderStickerMgr(){
     item('🔗 링크 바꾸기', '클릭하면 열릴 주소', async ()=>{
       const v=await asyncPrompt({ title:'스티커 링크',
         message:'클릭 시 이동할 링크 (비우면 링크 없음)\n\n※ 시스템 기본 브라우저에서 열려요.',
-        defaultValue:s.link||'', maxLength:300 });
+        defaultValue:s.link||'', maxLength:stRules.LINK_MAX });
       if(v===null || v===undefined) return;                 // 취소 — 그대로 둔다
-      const u=(v||'').trim().slice(0,300);
-      if(u && !/^https?:\/\//i.test(u)){ toast('http:// 또는 https:// 로 시작하는 주소만 넣을 수 있어요'); return; }
+      const u=stRules.cleanLink(v);
+      if(u === stRules.cleanLink(s.link)) return;           // 안 바꿨으면 그대로 — 옛 글 링크를 확인만 눌러 지우게 하지 않는다
+      if(u && !stRules.isLinkUrl(u)){ toast('http:// 또는 https:// 로 시작하는 주소만 넣을 수 있어요'); return; }   // 새로 넣는 링크는 주소만
       myhomeStore.editSticker(sid, { link: u });
       redraw();
     });

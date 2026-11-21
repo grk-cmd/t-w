@@ -256,7 +256,7 @@
 | **sim-frame-loop.js** | 108 | **ab0f8015ceb8** |
 | **sim-flying-chair.js** | 96 | **20ddc6361846** |
 | **sim-move-mode.js** | 101 | **81d44a4a3a29** |
-| **sim-myhome-sticker-render.js** | 125 | **cda47ec729c3** |
+| **sim-myhome-sticker-render.js** | 140 | **72d1c69dfce7** |
 | **sim-cloth-visibility.js** | 108 | **80f6e256fe96** |
 | **sim-hue-tint.js** | 68 | **531e742d9208** |
 | **sim-base-body.js** | 104 | **b72705b733d2** |
@@ -303,9 +303,9 @@
 | **sim-guestbook.js** | 482 | **e0bafe53f31d** |
 | **sim-friend-manage-module.js** | 274 | **6258202fb47d** |
 | **sim-pomodoro-module.js** | 251 | **c0cf84fa986c** |
-| **sim-myhome-sticker.js** | 422 | **de5a12cc806a** |
+| **sim-myhome-sticker.js** | 434 | **77cd81d3622e** |
 | **sim-gacha.js** | 490 | **766f4b453dbc** |
-| **sim-myhome-edit.js** | 611 | **e6e9b86b761b** |
+| **sim-myhome-edit.js** | 625 | **e467595caae1** |
 | **sim-room-invite-ui.js** | 402 | **465097d0d5a9** |
 | **sim-focus-log.js** | 333 | **20b5a9e9421e** |
 | **sim-focus-progress.js** | 391 | **4ae3c02059c7** |
@@ -416,7 +416,7 @@
 | **sim-myhome-page.js** | 154 | **797084089867** |
 | **sim-myhome-preset.js** | 153 | **0e734e1dc896** |
 | **sim-inbox-sections.js** | 134 | **7dfbd6590f18** |
-| **sim-myhome-sticker-rules.js** | 91 | **1de102c76c56** |
+| **sim-myhome-sticker-rules.js** | 101 | **58c7155d77e0** |
 | **sim-myhome-links.js** | 95 | **e7c977b71789** |
 | **sim-async-prompt.js** | 112 | **d05446b1c09c** |
 | **sim-launcher-chrome.js** | 95 | **4a142df38cab** |

@@ -271,11 +271,12 @@ const mhStickerRules = TwMyHomeStickerRules;   // myhome-edit.js(스티커 끌�
 TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 ```
 
-**내놓는 것** — `isLocked(s)` · `setLocked(s, on)`(풀면 칸을 지운다) · `orderedIds(stickers)` → 뒤 → 앞 id 배열 · `nextZ(stickers)` → 새 스티커 z · `move(stickers, sid, ±1)` → 옮겼으면 true(모두에게 0,1,2… 를 다시 매긴다) · `hitsAddBtn(rect, x, y)` → 누른 자리가 [+ 스티커] 버튼 안인가(버튼을 가린 스티커가 그 자리 클릭을 버튼에 넘길 때 — `myhome-edit.js`).
+**내놓는 것** — `isLocked(s)` · `setLocked(s, on)`(풀면 칸을 지운다) · `orderedIds(stickers)` → 뒤 → 앞 id 배열 · `nextZ(stickers)` → 새 스티커 z · `move(stickers, sid, ±1)` → 옮겼으면 true(모두에게 0,1,2… 를 다시 매긴다) · `hitsAddBtn(rect, x, y)` → 누른 자리가 [+ 스티커] 버튼 안인가(버튼을 가린 스티커가 그 자리 클릭을 버튼에 넘길 때 — `myhome-edit.js`). · `isLinkUrl(link)` → 누르면 열 주소(http · https)인가 · `cleanLink(v)` → 사람이 친 링크 칸 정리(제어 문자 빼기 · 앞뒤 공백 빼기 · `LINK_MAX` 300자).
 
 **함정** — 순서를 키 이름으로 바꾸지 말 것: Realtime DB 는 키를 사전순으로 돌려준다. `z` 없는 옛 스티커는 키 순서대로 새 스티커들보다 뒤.
 잠금은 편집 모드 밖 끌기(`myhome-edit.js`) · ◎ · 전부 화면 안으로만 막는다. 우클릭 · ✎ 편집 모드(이동 · 크기 · 회전)는 잠겨도 되고 잠금은 그대로 남는다 — ✎ 는 창 밖의 잠긴 스티커도 창 안으로 당긴다. 지우기 · 링크 · 움직임 · 순서도 잠겨도 된다.
 옛 앱은 `z` · `locked` 를 모른다 — 만든 차례로 그리고 잠금 없이 움직인다(칸은 지우지 않고 남긴다).
+링크 칸(`link`): 새로 넣는 링크(붙일 때 창 · 🔗 링크 바꾸기)는 비우거나 http · https 주소만 받는다. 옛 앱이 넣은 글 링크(이름 · 짧은 글 — 운영에 많다)는 지우지 않는다 — 저장할 때 거르지 않고, 바꾸기 창에서 안 바꾸고 확인하면 그대로 둔다. 화면에서는 주소든 글이든 마우스를 올리면 보이고, 누르면 열기(`linked`)는 주소일 때만 — 글을 `openBrowser` · `window.open` 에 넘기지 않는다. 관리 창 목록은 모두 `🔗 링크`.
 검사: `checks/sim-myhome-sticker-rules.js`.
 
 ## 화면에 넣는 값 — `mallang.js` · `myhome-desktop.js` · 마이홈 창 공통
@@ -468,4 +469,4 @@ const mallangMod = TwMallang.createMallang({
 - **책임**: `renderMyHomeStickers` — 마이홈 탭에서만 스티커 영역을 보이고 z 순서대로 요소(이미지 · 이모지 · 움직임 · 크기 · 회전 · 링크 · 편집 핸들)를 다시 그린다. 친구 홈 구경에서는 허용된 그림 주소만. 앱 FSD 분리 M19.
 - **만드는 법**: `TwMyHomeStickerRender.createMyHomeStickerRender({ mhPageMod, mhStLayoutMod, myHomeSticker, myhomeStore })` — `myHomeSticker` 만 읽는 함수(뒤에서 만들어짐).
 - **내보내는 것**: `renderMyHomeStickers()`.
-- **함정**: × 로 지우기는 상태 주인 `myhomeStore.removeSticker` 가 하고 저장도 그쪽이 한다 — 편집 묶음이 그린 뒤에 덧붙이는 일(옛 «감싸 다시 대입» · 알림)은 없다. 검사: `checks/sim-myhome-sticker-render.js`.
+- **함정**: 링크 칸은 주소든 글이든 `title` 로 보이고, `linked` · 누르면 열기는 `isLinkUrl` 일 때만. × 로 지우기는 상태 주인 `myhomeStore.removeSticker` 가 하고 저장도 그쪽이 한다 — 편집 묶음이 그린 뒤에 덧붙이는 일(옛 «감싸 다시 대입» · 알림)은 없다. 검사: `checks/sim-myhome-sticker-render.js`.
