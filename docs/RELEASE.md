@@ -1,13 +1,15 @@
 # 릴리스 방법: 버전 올리기부터 배포까지
 
 > 릴리스 순서는 **① 규칙 → ② 최신화 → ③ 빌드**입니다. 이 문서는 ②와 ③을 다룹니다.
-> ①(Firebase 규칙)은 dev 만 자동입니다. 규칙 파일을 바꿔 `main`에 push하면 **dev에 자동 반영**되고(`deploy-dev.yml`), **운영은 태그 전에 사람이 직접** `firebase deploy --only database --project together-working` 합니다. `release.yml` 은 규칙을 확인하거나 배포하지 않습니다.
+> ①(Firebase 규칙)은 0.12 판까지 dev 만 자동입니다. 규칙 파일을 바꿔 push하면 **dev에 자동 반영**되고(`deploy-dev.yml` — 0.13 판은 push 로 올리지 않음), **운영은 태그 전에 사람이 직접** `firebase deploy --only database --project together-working` 합니다. `release.yml` 은 규칙을 확인하거나 배포하지 않습니다.
+>
+> **0.13 부터는 다릅니다.** 기본 설정(`firebase/firebase.json`)은 컷오버 규칙(`firebase/firebase-database-rules-cutover.json` — `config/maintenance` · `minAppVer` · `minRoomVer` 읽기와 점검 칸 관리자 쓰기만)을 올리고 `functions` 칸이 없습니다. 운영 규칙은 **컷오버 날 T+2 에 한 번** 올리고(tw-docs `docs/design/06-cutover.md` 8장 ②), Functions 는 T+8 에 지운 뒤 다시 올리지 않습니다. 컷오버 **전**에 «태그 전 규칙 배포» 로 `firebase deploy --only database` 를 치면 운영 RTDB 쓰기가 바로 잠기니 치지 않습니다. 컷오버 뒤 RTDB 에는 점검 · 최소 버전 · `admins` 만 남고, 큰 규칙(`firebase-database-rules.json`)은 0.12 호환 검사 · 판끼리 견주기가 읽는 파일로만 남습니다(배포하지 않음).
 
 ---
 
 ## 한눈에 보기
 
-**0. 내보내기 전 한 장 보기**: `python3 .claude/hooks/risk.py --release release/X.Y.Z` — 그 판에 머지된 PR 중 위험도 높았던 것(규칙 · 데이터 경로 · 서버 · 빌드 · main.js · 새 모듈 …)과 이유. PR 은 머지 때 승인을 받지 않으니(가드 자리를 바꾸는 하네스 PR 만 받는다), 승인자가 여기서 한 번 보고 내보낸다(이상하면 그 PR 을 열어 보고 고친 뒤에). 웹 관리자 길(`admin` 으로 가는 PR)은 판을 거치지 않아 이 한 장에 안 나온다 — 그 길의 위험도 높은 PR 은 머지 전에 승인을 받는다.
+**0. 내보내기 전 한 장 보기**: `python3 .claude/hooks/risk.py --release release/X.Y.Z` — 그 판에 머지된 PR 중 위험도 높았던 것(규칙 · 데이터 경로 · 서버 · 빌드 · apps/desktop/main.js · 새 모듈 …)과 이유. PR 은 머지 때 승인을 받지 않으니(가드 자리를 바꾸는 하네스 PR 만 받는다), 승인자가 여기서 한 번 보고 내보낸다(이상하면 그 PR 을 열어 보고 고친 뒤에). 웹 관리자 길(`admin` 으로 가는 PR)은 판을 거치지 않아 이 한 장에 안 나온다 — 그 길의 위험도 높은 PR 은 머지 전에 승인을 받는다.
 
 **0-1. 공지 글 쓰기(정식만)**: 판 브랜치에 `docs/release-notes/X.Y.Z.md` 를 넣는다 — 사용자가 읽는 말로 몇 줄(무엇이 생겼고 · 나아졌고 · 고쳐졌나). 이 글이 Releases 본문이 되고, PR 목록은 그 아래 «자세한 변경» 접기 안에 자동으로 붙는다. **없으면 정식 릴리스는 태그 전에 멈춘다**(release-start · release.yml 둘 다 `scripts/release-notes.js check`). 베타는 보지 않는다.
 
@@ -26,7 +28,7 @@
 ```bash
 git pull --rebase                  # 1. 최신 받기
 npm run check                      # 2. 검사 (마지막 줄 «빨강 0» 확인)
-npm version patch -m "chore: %s"   # 3. 버전 올리기 (숫자 수정 + 커밋 + 태그)
+npm run version:bump -- patch   # 3. 버전 올리기 (숫자 수정 + 커밋 + 태그)
 git push --follow-tags             # 4. 올리기 → 자동 빌드 시작
 ```
 5. 10~15분 뒤 검사를 모두 통과하면 GitHub **Releases**에 **자동으로 공개**됩니다. 하나라도 빨강이면 초안으로 남고 사용자에게 가지 않습니다.
@@ -43,21 +45,21 @@ git push --follow-tags             # 4. 올리기 → 자동 빌드 시작
 
 | 명령 | 결과 | 언제 고르나 |
 |---|---|---|
-| `npm version patch -m "chore: %s"` | **0.10.2** | 버그 수정, 작은 개선, 비용 최적화 |
-| `npm version minor -m "chore: %s"` | **0.11.0** | 새 기능 추가 |
-| `npm version major -m "chore: %s"` | **1.0.0** | 큰 변경, 옛 버전과 데이터·규칙 호환이 깨질 때 |
-| `npm version 0.12.0 -m "chore: %s"` | **0.12.0** | 원하는 번호를 직접 지정 |
+| `npm run version:bump -- patch` | **0.10.2** | 버그 수정, 작은 개선, 비용 최적화 |
+| `npm run version:bump -- minor` | **0.11.0** | 새 기능 추가 |
+| `npm run version:bump -- major` | **1.0.0** | 큰 변경, 옛 버전과 데이터·규칙 호환이 깨질 때 |
+| `npm run version:bump -- 0.12.0` | **0.12.0** | 원하는 번호를 직접 지정 |
 
 - 애매하면 **`patch`**를 고르면 됩니다.
 - `-m "chore: %s"`는 커밋 메시지 형식입니다. `%s`가 버전 번호로 바뀌어 `chore: 0.10.2`가 됩니다.
 
 ---
 
-## 2. `npm version`이 하는 일
+## 2. `npm run version:bump`이 하는 일
 
 명령 한 줄이 아래를 **한 번에** 합니다.
 
-1. `package.json`과 `package-lock.json`의 `version`을 새 번호로 고칩니다.
+1. 앱의 `apps/desktop/package.json`과 `package-lock.json`의 `version`을 새 번호로 고칩니다.
 2. 그 두 파일로 **커밋**을 만듭니다: `chore: 0.10.2`
 3. 그 커밋에 **태그**를 붙입니다: `v0.10.2`
 
@@ -89,7 +91,7 @@ GitHub → **Actions** → **release**에서 진행 상황을 볼 수 있습니�
 
 | 단계 | 내용 | 실패하면 |
 |---|---|---|
-| 버전 확인 | 태그와 `package.json` 버전이 같은가 | `npm version`을 안 쓰고 태그만 달았을 때 |
+| 버전 확인 | 태그와 `apps/desktop/package.json` 버전이 같은가 | `npm run version:bump`을 안 쓰고 태그만 달았을 때 |
 | | 마지막 공개 릴리스보다 **높은가** (같아도 막음) | 이미 나간 번호를 또 쓰려 할 때 |
 | Windows 빌드 | exe, `.blockmap`, `latest.yml` | |
 | Mac 빌드 | dmg × 2 (arm64, x64) | |
@@ -130,21 +132,21 @@ GitHub → **Actions** → **release**에서 진행 상황을 볼 수 있습니�
 정식 배포 전에 내부에서 먼저 써 볼 때 씁니다. 버전에 `-beta.N` 꼬리를 붙이면 됩니다.
 
 ```bash
-npm version prerelease --preid=beta -m "chore: %s"   # 0.10.1 → 0.10.2-beta.0 (다시 하면 -beta.1, -beta.2 …)
+npm run version:bump -- prerelease --preid=beta   # 0.10.1 → 0.10.2-beta.0 (다시 하면 -beta.1, -beta.2 …)
 git push --follow-tags
 ```
 
 | | 테스트 빌드 (`v0.10.2-beta.0`) | 정식 빌드 (`v0.10.2`) |
 |---|---|---|
 | 앱이 접속하는 Firebase | 운영 (`together-working`) — **실제 데이터** | 운영 (`together-working`) |
-| 운영 규칙 배포 | 하지 않음 | 하지 않음(태그 전에 사람이 직접) |
+| 운영 규칙 배포 | 하지 않음 | 하지 않음(0.12 까지는 태그 전에 사람이 직접 · 0.13 부터는 컷오버 날 T+2 에 한 번) |
 | Releases 표시 | **Pre-release** | Latest |
 | 일반 사용자 자동 업데이트 | **받지 않음** | 받음 |
 | 설치 | 내부 사람이 Releases 페이지에서 직접 받음 | 자동 |
 
 - 테스트 빌드도 **운영 데이터를 씁니다**(10-17 바뀜). 시험하는 동작이 실제 사용자 데이터에 남으니, 큰 변경은 미리 설정(`config/`) 백업을 받아 두세요. dev Firebase 는 아래 «내 PC에서 dev로 실행» 에서만 씁니다.
 - **내 PC에서 dev로 실행**: `npm run start:dev` (설치본에는 영향 없음)
-- 테스트가 끝나면 `npm version patch`로 정식 버전을 냅니다(`0.10.2-beta.N` → `0.10.2`).
+- 테스트가 끝나면 `npm run version:bump -- patch`로 정식 버전을 냅니다(`0.10.2-beta.N` → `0.10.2`).
 - dev 서버에서 **안 되는 기능**: 비밀번호 변경(Cloud Functions 없음), 폰 연결 QR(운영 호스팅 주소 고정). 구글 로그인은 dev 콘솔에서 허용 설정을 해야 됩니다.
 - dev DB는 운영과 **데이터가 분리**돼 있습니다. 계정도 따로 가입해야 하고, 카탈로그(파츠·책상·아이템)는 운영에서 복사해 둬야 보입니다.
 
@@ -154,7 +156,7 @@ git push --follow-tags
 
 | 상황 | 해결 |
 |---|---|
-| `npm version`이 `Git working directory not clean`으로 거부 | `git status`로 확인 → 커밋하거나 정리한 뒤 다시 실행 |
+| `npm run version:bump`이 `Git working directory not clean`으로 거부 | `git status`로 확인 → 커밋하거나 정리한 뒤 다시 실행 |
 | push가 `rejected` | 원격에 새 커밋이 있음 → `git pull --rebase` → `git push --follow-tags` |
 | 빌드가 중간에 실패 | 원인을 고친 뒤 Actions → release → **Run workflow** → 태그(예: `v0.10.2`) 입력해서 다시 빌드 |
 | 태그를 잘못 만들었다 (push 전) | `git tag -d v0.10.2` 후 `git reset --hard HEAD~1`로 버전 커밋 취소 |
@@ -165,6 +167,6 @@ git push --follow-tags
 
 ## 7. 하지 않는 것
 
-- **`package.json`의 `version`을 손으로 고치지 않습니다.** 항상 `npm version`을 씁니다.
+- **`apps/desktop/package.json`의 `version`을 손으로 고치지 않습니다.** 항상 `npm run version:bump`을 씁니다(`scripts/bump-version.js`).
 - **개발자 PC에서 `npm run release`를 쓰지 않습니다.** 같은 버전 초안에 파일이 섞이고 버전이 어긋날 수 있습니다. 빌드는 `release.yml`이 합니다.
 - 공개된 릴리스의 파일을 바꾸거나 태그를 옮기지 않습니다.

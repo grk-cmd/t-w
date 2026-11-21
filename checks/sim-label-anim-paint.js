@@ -9,7 +9,7 @@
    ・2절: 그림이 옛것과 같은가 — 경험치 바 띠(폭 · 무늬 칸 · 미는 거리)가 옛 background-position 흐름과 같은 값 ·
           별 빛 쓸기 창과 안쪽 글자가 서로 상쇄돼 글자가 제자리
    ・3절: 별 겹을 만드는 lv-tier.js npStarFill 을 가짜 DOM 에서 돌린다 — 글은 그대로 · 겹 클래스가 CSS 에 있다 · 다시 채워도 안 쌓인다
-   ・4절: 깨 보기 — background-position · filter · animation-name 을 다시 넣거나 움직임 최소화 줄을 빼면 빨강 */
+   ・4절: mutation test — background-position · filter · animation-name 을 다시 넣거나 움직임 최소화 줄을 빼면 빨강 */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -201,7 +201,7 @@ if (LV){
 }
 chk(/npStarFill\(sp, focusLevelMod\(\)\.lvStarStr\(star\.cyc\)\)/.test(OV), '  좌석 이름표는 npStarFill 로 별을 채운다(겹을 다른 곳에서 만들지 않는다)');
 
-say('── 4. 깨 보기');
+say('── 4. mutation test');
 const breakIt = (name, fn) => { const h = fn(HTML); const r = judge(h); return { r, changed: h !== HTML }; };
 {
   const a = breakIt('bg', h => h.replace(/@keyframes seatLvFlow\{[^}]*\}[^}]*\}\s*\}/, '@keyframes seatLvFlow{ from{background-position:0% 50%;} to{background-position:300% 50%;} }'));
@@ -220,7 +220,7 @@ const breakIt = (name, fn) => { const h = fn(HTML); const r = judge(h); return {
   chk(!J.used.has('mhLvShine') && (J.css.keyframes.mhLvFlow || []).length > 0, '  경계: 배지(.mh-flv) 전용 키프레임은 대상 밖 — 좌석 라벨 뿌리로만 고른다');
   const g = breakIt('root', h => h.replace('.mh-flv.lvx{ background-size:300% 100%;', '.mh-flv.lvx, .seat-announce .marquee b{ background-size:300% 100%;'));
   chk(g.changed && g.r.bad.some(x => /^mhLvFlow/.test(x)), '  같은 키프레임을 좌석 라벨 선택자가 같이 쓰기 시작하면 잡는다');
-  /* 그림 판정도 깨 본다 — 안쪽 글자 반대 이동을 틀리게 하면 글자가 흔들린다 */
+  /* 그림 판정도 mutation test 한다 — 안쪽 글자 반대 이동을 틀리게 하면 글자가 흔들린다 */
   const h2 = HTML.replace('@keyframes npSweepIn{ 0%{ transform:translateX(60%); }', '@keyframes npSweepIn{ 0%{ transform:translateX(50%); }');
   const css2 = flatten(parseCss(styleText(h2)));
   const v0 = tx(((css2.keyframes.npSweepIn || [])[0].decls.find(d => d.prop === 'transform') || {}).value);

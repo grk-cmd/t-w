@@ -7,12 +7,14 @@
 - **노드 통째 읽기 · 구독**(`get(ref(db,'x'))` · `onValue` 를 상위 노드에) → 요금은 내려받은 바이트, 자식 하나만 쓰는데 다 받는다 → 바뀐 줄의 경로가 «필요한 하위 경로» 인지, 같은 값을 다른 곳이 이미 받고 있지 않은지. Firebase SDK 를 새로 부르는 곳은 `tw/no-firebase-data` 가 막지만, 린트는 파일마다 호출 개수만 센다 — 이미 있는 Firebase 호출 · `firebaseAPI.x(path)` 래퍼의 경로가 상위 노드로 바뀐 곳, 서버 API · realtime 구독이 받는 범위는 사람이 본다.
 - **숫자 하나(배지 · 개수)를 위해 목록 통째 구독**(예: 방명록 새 글 배지가 방명록 전체를 상시 구독) → 요약 값 · 서버 요약 API 로 → 구독 결과에서 `.length` · 개수만 쓰는 곳.
 - **사람 수만큼 구독**(친구마다 `onValue`) → N 배로 늘어난다 → 반복문 안의 구독 · 친구 목록을 돌며 거는 리스너.
-- **Firebase 의존을 새로 늘림** → 검사로 옮김: `tw/no-firebase-data`(앱 렌더러 `app/parts/**` 가 Firebase DB · Storage SDK 함수를 새로 가져오거나 부르면 빨강) · `tw/no-firebase-api`(도메인 모듈이 `firebaseAPI` 를 직접 부르면 빨강) — `docs/LINT.md`. 린트가 못 보는 것만 사람이 → 이미 있는 래퍼(`firebaseAPI.x(path, …)`)에 새 경로를 넘기는 곳 · `tw/no-firebase-api` 가 꺼진 파일 넷(app.js · firebase-init.js · shared/net-ready.js · realtime/rt-bind.js — 특히 조립 자리 app.js)에서 `firebaseAPI` 를 새로 부르는 곳 · 웹 관리자(`apps/admin`)의 새 Firebase 경로 · functions · 규칙 파일의 새 경로.
+- **Firebase 의존을 새로 늘림** → 검사로 옮김: `tw/no-firebase-data`(앱 렌더러 `apps/desktop/app/parts/**` 가 Firebase DB · Storage SDK 함수를 새로 가져오거나 부르면 빨강) · `tw/no-firebase-api`(도메인 모듈이 `firebaseAPI` 를 직접 부르면 빨강) — `docs/LINT.md`. 린트가 못 보는 것만 사람이 → 이미 있는 래퍼(`firebaseAPI.x(path, …)`)에 새 경로를 넘기는 곳 · `tw/no-firebase-api` 가 꺼진 파일 넷(app.js · firebase-init.js · shared/net-ready.js · realtime/rt-bind.js — 특히 조립 자리 app.js)에서 `firebaseAPI` 를 새로 부르는 곳 · 웹 관리자(`apps/admin`)의 새 Firebase 경로 · functions · 규칙 파일의 새 경로.
 - **이름 placeholder(«이름 없음») 를 저장 · 전송 값에 싣기** → 검사로 옮김: `tw/no-placeholder-store`(`setItem` · `save…` · `send…` 같은 저장 · 보내기 인자 안의 `TwPersonName.shown()` · `getDisplayName()` · `NO_NAME` · `'이름 없음'` 이면 빨강). 변수에 담아 넘기는 것은 못 보니 → 저장 · 전송 값이 그린 이름이 아니라 이름 그대로(없으면 `''`)인가.
 - **규칙을 좁힐 때 실제로 쓰는 모양으로 시험 안 함**(말랑이 사고 — 앱이 보내는 칸을 규칙이 거절) → 규칙 diff 가 있으면 앱 · 웹 관리자 · functions · 서버가 그 경로에 실제로 쓰는 payload 를 grep 해 그 모양으로 통과/거절 시험이 있는가.
 
 ## 설계
 - **같은 판단이 여러 곳에**(조건을 다시 쓴 새 길 · 땜질) → 한 모듈로 묶고 모두 그것을 부르는 안이 기본 → 바뀐 조건식이 다른 파일에도 비슷하게 있는지 grep.
+- **원칙과 부딪치는 옛 장치를 고쳐 살림**(로컬 모드 · 사본 맞추기 · 대기 타이머 — 서버 없이 반쯤 켜진 상태. 0.13 은 서버가 원본 · 로그인 후 사용 · 혼자 되풀이 금지) → 고치는 지적보다 먼저 «걷기를 사용자에게 냈나» 를 PR «왜» 에서 보고, 기록이 없으면 «걷기 검토 기록 없음» 으로 건다(레벨 · 재화 · 남에게 보이는 값이 있어 오프라인 진행을 받아 주는 장치는 조작 통로) → diff 에서 `local` · `offline` · `retry` · `setTimeout(` 근처의 confirm · pull · sync 를 grep.
+- **기능이 계정 확인보다 먼저 켜짐**(0.13 은 «켜기 → 계정 확인 → 들어가면 시작») → 계정 코드 · 토큰 · 계정 칸이 필요한 기능을 만들 때 바로 시작하거나, 시작 전 상태를 버티는 장치(로그인 기다림 타이머 · `if(!uid)` 뒤 다시 부르기 · 지난 사본 · 첫 결과 약속)를 새로 붙이면 건다 — 시작 자리를 켜는 순서 쪽으로 옮기라고 낸다 → diff 에서 `create…(` 바로 뒤 호출 · `getMyUserId()` 가 null 일 때의 갈래를 본다. 같은 지적이 다른 갈래로 되풀이되면 갈래마다 고치지 말고 이 구조를 먼저 짚는다.
 - **같은 자리에 땜질을 또 붙임**(그때그때 재서 짐작하는 값에 보정 · 하한 · 다시 재기를 더함 — 좌석 폭) → 고칠 때마다 다른 쪽이 틀어진다 → 바뀐 줄의 상수 · 식별자로 `git log -S` · 주석을 찾아 같은 자리를 전에 고친 적이 있거나(이번이 두 번째 땜질부터) 고칠 때마다 다른 쪽이 틀어지면(CLAUDE.md «뭔가 이상하면 근본적으로 잘못된 부분부터 짚는다» 와 같은 기준), PR «왜» 에 근본 원인 · 근본 수정 방향이 적혀 있고 사용자가 «이번엔 땜질» 을 고른 기록이 있는가 · 없으면 오류있음.
 - **이미 있는 장치를 두고 새로 만듦**(원격 설정 · `dataRoutes` · `source-switch` · `data-gateway` · `TwErrorCodes` · `safe-html`) → 같은 일을 하는 기존 이름을 grep.
 

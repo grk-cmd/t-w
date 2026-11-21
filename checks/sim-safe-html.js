@@ -9,7 +9,7 @@
      마크업 글자 안 src="…" · href="…" · url(…) 바로 뒤의 값을 끝(잎)까지 따라간다.
      잎이 글자 · 숫자 리터럴 / TwSafeHtml 함수(text · attr · safeUrl · cssUrl) / 그 별칭(escHtml · _chatEsc · 리치 텍스트 _mhLoadRT · _mhPurify — DOMPurify) /
      숫자를 돌려주는 것 / 같은 파일 안 상수 표 가 아니면 빨강. 예외는 아래 ALLOW 에 «이유» 와 함께만(파일|식 글자).
-   ・3절: 깨 보기 — 날값을 붙인 가짜 파일 · 약한 escape · 위험한 주소가 빨강이 나는지 */
+   ・3절: mutation test — 날값을 붙인 가짜 파일 · 약한 escape · 위험한 주소가 빨강이 나는지 */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -36,16 +36,9 @@ if (!fs.existsSync(SAFE_PATH)) { say('  ? 원본 못 찾음 — parts/shared/saf
    ⚠️ «남은 구멍» 은 알고 남긴 자리다 — 고치면 지운다(안 쓰는 줄이 남으면 빨강). */
 const ALLOW = {};
 const allow = (file, reason, exprs) => exprs.forEach(e => { ALLOW[file + '|' + e] = reason; });
-allow('myhome-desktop.js', '🧟 모험 시나리오 · 지도 · 전투 — 이 파일 상수 표(ADV_WORLD · 스토리 비트 · 선택지 · ADV_THEMES)의 고정 마크업을 씨앗으로 이 기기에서 만든 글. 남의 이름 · 수는 넣을 때 esc', [
-  'ADV_COMBAT.log', 'ADV._campLog', 'b.cls', 'b.label', 'b.pool[Math.floor(Math.random()*b.pool.length)]', 'bd.t', 'beat.text', 'beat.text(st)', 'beat.text(stForText)',
-  'branch.txt', 'branch.txt(st)', 'c.fail.txt', 'c.fail()', 'c.label', 'c.noItem()', 'c.ok()', 'c.pre()', 'c.result||[]', 'c.resultNoWeapon||c.result||[]', 'c.run()',
-  'cbg', 'cc', 'cedge', 'ev.intro', 'f.bg', 'f.inner', 'gauge.label', 'gauge.meterCls', 'label', 'sceneIntro(sc)', 'sg.lv', 'sg.txt']);
-allow('myhome-desktop.js', '아이템 설명 — advItemTipHtml 이 상수 표로 만든 마크업을 esc 로 data-tip 에 넣었다가 꺼낸 것', ["el.getAttribute('data-tip')"]);
 allow('myhome-desktop.js', '다른 앱 모듈이 MYHOME_DESKTOP.addFolder 로 넘긴 앱 안 그림 경로(상대 경로 — safeUrl 은 상대 경로를 막는다)', ['a.iconSrc']);
-allow('myhome-desktop.js', '⚠️ 남은 구멍 — 파티 방장이 보낸 진행 비트 마크업(storyHtml)을 받은 그대로 그린다. 마크업 대신 비트 id 를 보내야 고쳐진다(동작 변경 — 따로 결정)', [
-  'lm.storyHtml']);
-allow('weekly-challenge.js', '👑 달성표 주기 표(상수 — 요일 이름 · 주기 이름 · 기준 수) · 팝업 버튼(부르는 곳 글자) · 시간 글(formatHMS 숫자) · 보상 안내(_chalRewardLine 고정 글)', [
-  '_chalCurPh().name', 'b.a', 'b.t', 'd', 'formatHMS(goal)', 'formatHMS(t.sec || 0)', 'line.t', 'ph.label', 'ph.label[0]', 'ph.label[i]', 'ph.label[idx]', 'ph.name', 'ph.need1']);
+allow('weekly-challenge.js', '👑 달성표 주기 표(상수 — 요일 이름 · 주기 이름 · 기준 수) · 팝업 버튼(부르는 곳 글자) · 시간 글(formatHMS 숫자) · 보상 안내(_chalRewardLine 고정 글) · 범위 글(서버 주 이름에서 뽑은 숫자 — chal-store rangeLabel) · 보상 받음 숫자(서버 답)', [
+  '_chalPh(v.phase).name', 'v.range', 'e.s', 'e.early', 'e.amount', 'b.a', 'b.t', 'd', 'formatHMS(goal)', 'formatHMS(t.sec || 0)', 'line.t', 'ph.label', 'ph.label[0]', 'ph.label[i]', 'ph.label[idx]', 'ph.name', 'ph.need1']);
 allow('fx-preview.html', '개발용 효과 미리보기 페이지 — 고정 표(FX_KINDS) · 이 페이지 슬라이더 값만', ['k', 'S.anchor', 'S.every', 'S.kind', 'S.mode', 'S.seats', 't.lab']);
 allow('help-tab.js', '📘 도움말 틀 주소 — help-site.js pageUrl 이 고정 출처(HELP_ORIGIN) + 편 이름 정규식(SLUG_RE)으로 거른 값 + 앱 테마 표로만 만든다(페이지 알림의 편 이름도 readMessage 가 같은 정규식으로 거른다)', ['helpSite.pageUrl(page, _theme)']);
 allow('purikura-ui.js', '📷 판 모양 고정 표(세로형 · 가로형 · 컷 수 — purikura-net.js 숫자)', ['g.cols', 'g.rows', 'hint', 'label', 'n']);
@@ -686,15 +679,15 @@ if (oc) {
   chk(oc.blankOther.act === 'deny' && !oc.blankOther.ext.length, '모르는 이름의 빈 창은 막는다');
   chk(oc.remoteAsChild.act === 'deny' && oc.remoteAsChild.ext.length === 1, '원격 주소는 자식 창 이름을 달아도 앱 창으로 안 연다(기본 브라우저로)');
   chk(oc.file.act === 'deny' && !oc.file.ext.length && oc.js.act === 'deny' && !oc.js.ext.length, 'file: · javascript: 는 막고 아무것도 안 연다');
-  /* 깨 보기 — 맨 끝 막기를 옛 «그 외 allow» 로 되돌리면 빨강이 나야 한다 */
+  /* mutation test — 맨 끝 막기를 옛 «그 외 allow» 로 되돌리면 빨강이 나야 한다 */
   const broken = mainSrc.replace(/(setWindowOpenHandler[\s\S]*?)return \{ action:'deny' \};\n  \}\);/, "$1return { action:'allow' };\n  });");
   const ob = broken !== mainSrc && openCases(broken);
-  chk(!!ob && ob.blankOther.act === 'allow', '깨 보기 — 그 밖의 창을 allow 로 되돌리면 «모르는 이름의 빈 창» 이 열림 → 위 판정이 빨강');
+  chk(!!ob && ob.blankOther.act === 'allow', 'mutation test — 그 밖의 창을 allow 로 되돌리면 «모르는 이름의 빈 창» 이 열림 → 위 판정이 빨강');
 }
 
-/* ── 3절: 깨 보기 ────────────────────────────────────────────── */
-say('\n── 3절: 깨 보기');
-const red = (src, why) => chk(scanSource('fake.js', src).length > 0, '깨 보기 — ' + why + ' → 빨강');
+/* ── 3절: mutation test ────────────────────────────────────────────── */
+say('\n── 3절: mutation test');
+const red = (src, why) => chk(scanSource('fake.js', src).length > 0, 'mutation test — ' + why + ' → 빨강');
 const green = (src, why) => { const h = scanSource('fake.js', src); chk(!h.length, '안 깨짐 — ' + why + (h.length ? ' (잡힘: ' + h.map(x => x.expr).join(' · ') + ')' : '')); };
 red("function f(el, m){ el.innerHTML = '<div>' + m.name + '</div>'; }", '날값 이름을 innerHTML 에');
 red("function f(el, m){ el.innerHTML = `<b>${m.name}</b>`; }", '템플릿으로 날값');
@@ -711,7 +704,7 @@ red("function f(el, u){ el.style.background = u; }", 'style.background 에 날�
 red("function f(el, m){ el.innerHTML = '<div style=\"background:url(' + m.pic + ')\"></div>'; }", '마크업 안 url( 에 날 주소');
 red("function row(a){ return '<td>' + a + '</td>'; } function f(el, m){ el.innerHTML = row(m.name); }", '도우미 함수로 넘긴 날값');
 red("function esc(s){ return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]); } function f(el, m){ el.innerHTML = esc(m.name); }", '집에서 만든 escape(공용이 아님)');
-chk(homeMadeEscapes('fake.js', "function esc(s){ return String(s).replace(/[&<>\"]/g, c => ({'&':'&amp;','<':'&lt;'})[c]); }").length === 1, '깨 보기 — 집에서 만든 escape 함수 → 빨강');
+chk(homeMadeEscapes('fake.js', "function esc(s){ return String(s).replace(/[&<>\"]/g, c => ({'&':'&amp;','<':'&lt;'})[c]); }").length === 1, 'mutation test — 집에서 만든 escape 함수 → 빨강');
 green("function f(el, m){ el.innerHTML = '<div>' + TwSafeHtml.text(m.name) + '</div>'; }", 'TwSafeHtml.text 로 감쌈');
 green("const safeHtml = TwSafeHtml; function f(el, m){ el.innerHTML = `<b title=\"${safeHtml.attr(m.t)}\">${safeHtml.text(m.name)}</b>`; }", '별칭 safeHtml');
 green("const escHtml = deps.escHtml; function f(el, m){ el.innerHTML = '<i>' + escHtml(m.name) + '</i>'; }", 'deps.escHtml 별칭');
@@ -733,9 +726,9 @@ green("function f(el, t){ el.innerHTML = TwSafeHtml.text(t).replace(/\\n/g, '<br
   const src = fs.readFileSync(SAFE_PATH, 'utf8');
   const load = (code) => { const m = { exports: {} }; new Function('module', 'window', code)(m, undefined); return m.exports; };
   const raw = load(src.replace("attr(url) + '\">' + text(raw)", "url + '\">' + raw"));
-  chk(!raw.linkify('https://x.example/a?b=1&c=2').includes('&amp;'), '깨 보기 — linkify 가 주소를 안 씻으면 & 가 날로 들어감 → 위 «& 는 씻는다» 가 빨강');
+  chk(!raw.linkify('https://x.example/a?b=1&c=2').includes('&amp;'), 'mutation test — linkify 가 주소를 안 씻으면 & 가 날로 들어감 → 위 «& 는 씻는다» 가 빨강');
   const noFilter = load(src.replace("const url = safeUrl(raw, 'link');", 'const url = raw;'));
-  chk(noFilter.linkify('https://x.example/' + 'a'.repeat(2100)) !== SH.linkify('https://x.example/' + 'a'.repeat(2100)), '깨 보기 — safeUrl 을 빼면 상한 넘는 주소도 칸이 됨 → 위 판정이 빨강');
+  chk(noFilter.linkify('https://x.example/' + 'a'.repeat(2100)) !== SH.linkify('https://x.example/' + 'a'.repeat(2100)), 'mutation test — safeUrl 을 빼면 상한 넘는 주소도 칸이 됨 → 위 판정이 빨강');
 }
 say(`\n결과: ${pass}·${fail}`);
 process.exit(fail ? 1 : 0);

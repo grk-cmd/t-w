@@ -1,0 +1,386 @@
+{
+  "app/parts/account/account-state.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/account/account.js": {
+    "tw/no-firebase-api": {
+      "count": 18
+    }
+  },
+  "app/parts/account/license-gate.js": {
+    "tw/no-firebase-api": {
+      "count": 3
+    },
+    "tw/no-timer": {
+      "count": 3
+    }
+  },
+  "app/parts/account/login-flow.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/admin/admin-category.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/admin/admin-license.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/admin/admin-mode.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/admin/admin-notice.js": {
+    "tw/no-timer": {
+      "count": 2
+    }
+  },
+  "app/parts/admin/admin-part-register.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/admin/admin-users.js": {
+    "tw/no-timer": {
+      "count": 2
+    }
+  },
+  "app/parts/app.js": {
+    "tw/no-timer": {
+      "count": 10
+    }
+  },
+  "app/parts/character/animal.js": {
+    "tw/no-timer": {
+      "count": 6
+    }
+  },
+  "app/parts/character/char-code.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/character/gacha.js": {
+    "tw/no-timer": {
+      "count": 4
+    }
+  },
+  "app/parts/character/human-ear-attach.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/character/part-equip.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/character/part-paint.js": {
+    "tw/no-firebase-api": {
+      "count": 3
+    },
+    "tw/no-timer": {
+      "count": 2
+    }
+  },
+  "app/parts/character/seat-model-load.js": {
+    "tw/no-timer": {
+      "count": 2
+    }
+  },
+  "app/parts/character/wardrobe.js": {
+    "tw/no-timer": {
+      "count": 8
+    }
+  },
+  "app/parts/chat/chat-history.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/chat/chat-prefs.js": {
+    "tw/no-firebase-api": {
+      "count": 3
+    }
+  },
+  "app/parts/chat/chat-rt.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/chat/chat-ui.js": {
+    "tw/no-firebase-api": {
+      "count": 3
+    },
+    "tw/no-timer": {
+      "count": 3
+    }
+  },
+  "app/parts/chat/chat-window.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/creator/creator-canvas.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/creator/creator-open.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/creator/creator-preview.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/creator/desk-preset.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/creator/race-picker.js": {
+    "tw/no-timer": {
+      "count": 2
+    }
+  },
+  "app/parts/firebase-init.js": {
+    "tw/no-firebase-data": {
+      "count": 29
+    },
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/focus/focus-level.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/launcher/app-mode.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/launcher/desktop-run.js": {
+    "tw/no-timer": {
+      "count": 4
+    }
+  },
+  "app/parts/launcher/frame-loop.js": {
+    "tw/no-timer": {
+      "count": 2
+    }
+  },
+  "app/parts/launcher/launcher-preview.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/launcher/program-settings.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/launcher/settings-panel.js": {
+    "tw/no-timer": {
+      "count": 3
+    }
+  },
+  "app/parts/myhome/guestbook.js": {
+    "tw/no-timer": {
+      "count": 2
+    }
+  },
+  "app/parts/myhome/help-tab.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/myhome/mallang.js": {
+    "tw/no-timer": {
+      "count": 5
+    }
+  },
+  "app/parts/myhome/myhome-desktop.js": {
+    "tw/no-firebase-api": {
+      "count": 3
+    },
+    "tw/no-timer": {
+      "count": 3
+    }
+  },
+  "app/parts/myhome/myhome-edit.js": {
+    "tw/no-timer": {
+      "count": 6
+    }
+  },
+  "app/parts/myhome/myhome-sticker.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/myhome/myhome-ui.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/myhome/scheduler.js": {
+    "tw/no-timer": {
+      "count": 4
+    }
+  },
+  "app/parts/myhome/seat-friend-req.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/purikura/purikura-rt.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/purikura/purikura-ui.js": {
+    "tw/no-firebase-api": {
+      "count": 1
+    },
+    "tw/no-timer": {
+      "count": 7
+    }
+  },
+  "app/parts/realtime/realtime-link.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/realtime/rt-hub.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/room/away-pic.js": {
+    "tw/no-firebase-api": {
+      "count": 2
+    }
+  },
+  "app/parts/room/dice-games.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/room/listen-ui.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/room/overhead.js": {
+    "tw/no-timer": {
+      "count": 2
+    }
+  },
+  "app/parts/room/presence.js": {
+    "tw/no-timer": {
+      "count": 3
+    }
+  },
+  "app/parts/room/room-entry.js": {
+    "tw/no-firebase-api": {
+      "count": 4
+    },
+    "tw/no-timer": {
+      "count": 3
+    }
+  },
+  "app/parts/room/room-rt.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/room/room-sync.js": {
+    "tw/no-firebase-api": {
+      "count": 4
+    },
+    "tw/no-timer": {
+      "count": 3
+    }
+  },
+  "app/parts/room/seat-menu.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/room/seat-pointer.js": {
+    "tw/no-timer": {
+      "count": 2
+    }
+  },
+  "app/parts/room/tricks.js": {
+    "tw/no-timer": {
+      "count": 3
+    }
+  },
+  "app/parts/shared/api-client.js": {
+    "tw/no-timer": {
+      "count": 2
+    }
+  },
+  "app/parts/shared/async-prompt.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/shared/leave-flush.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/shared/net-ready.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/shared/remote-config.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/shared/stage.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/shared/toast.js": {
+    "tw/no-timer": {
+      "count": 2
+    }
+  },
+  "app/parts/shared/update-flow.js": {
+    "tw/no-timer": {
+      "count": 3
+    }
+  },
+  "app/parts/status/bgm-diag.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/status/playlist.js": {
+    "tw/no-timer": {
+      "count": 8
+    }
+  },
+  "main.js": {
+    "tw/no-main-require-renderer": {
+      "count": 10
+    }
+  }
+}

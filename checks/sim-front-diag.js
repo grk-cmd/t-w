@@ -5,7 +5,7 @@
    ・1절: coversDisplay — 꽉 채움 · 최대화(작업표시줄) · 반올림 오차 · 빈 값
    ・2절: createFrontWatch — 비율 · 가장 많이 앞에 있던 exe · take 뒤 새로 셈 · 오래된 표본 버림 · 이름 길이 상한
    ・3절: suffix · isFrameLine — 꼬리 모양 · 표본 없음 · [프레임] 줄만
-   ・4절: 깨 보기 — 갈래를 하나씩 지운 모듈로 1 · 2절을 다시 돌려 빨강이 나는지
+   ・4절: mutation test — 갈래를 하나씩 지운 모듈로 1 · 2절을 다시 돌려 빨강이 나는지
    ・5절: 배선 — main 이 싣고 폴링에서 note · diagNote 에서 [프레임] 줄에만 붙임 · 창 제목 안 넘김 · sysinput 둘 다 bounds */
 'use strict';
 const fs = require('fs');
@@ -81,7 +81,7 @@ chk(F.isFrameLine('[GL] 복구') === false && F.isFrameLine('x [프레임]') ===
   } else chk(false, 'frame-budget.js 못 찾음');
 }
 
-say('── 4. 깨 보기');
+say('── 4. mutation test');
 const breaks = [
   ['크기 비교를 «작업 영역 아무거나» 로(최대화도 전체화면)', MOD.replace('return w >= dw - FULL_TOL && h >= dh - FULL_TOL;', 'return w >= dw - FULL_TOL;'), 'covers'],
   ['오차를 0 으로', MOD.replace('const FULL_TOL = 2;', 'const FULL_TOL = 0;'), 'covers'],
@@ -91,7 +91,7 @@ const breaks = [
   ['크기 못 읽음을 «아님» 으로 셈', MOD.replace("if(isFull === true || isFull === false){ sized++; if(isFull) full++; }", 'sized++; if(isFull) full++;'), 'watch'],
 ];
 for (const [name, src, which] of breaks) {
-  if (src === MOD) { chk(false, '깨 보기 «' + name + '» — 바꿀 글을 못 찾음(모듈이 바뀌었다)'); continue; }
+  if (src === MOD) { chk(false, 'mutation test «' + name + '» — 바꿀 글을 못 찾음(모듈이 바뀌었다)'); continue; }
   const r = which === 'covers' ? runCovers(load(src)) : runWatch(load(src));
   chk(r.some(ok => !ok), '깨면 빨강 — ' + name);
 }

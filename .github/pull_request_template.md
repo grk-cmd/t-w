@@ -3,7 +3,7 @@
 담당: <!-- 세션 · 사람 이름(남과 겹치지 않게) — 겹칠 때 누구와 맞출지 -->
 
 ## 건드리는 파일
-<!-- 착수 때 PR 을 먼저 열면 이 칸으로 남과 겹치는지 본다(코드가 오르면 실제 diff 도 같이). 한 줄에 하나 · 폴더는 끝에 / — 예) `app/parts/app.js` · `web-admin/src/widgets/room-list/` -->
+<!-- 착수 때 PR 을 먼저 열면 이 칸으로 남과 겹치는지 본다(코드가 오르면 실제 diff 도 같이). 한 줄에 하나 · 폴더는 끝에 / — 예) `apps/desktop/app/parts/app.js` · `apps/admin/src/widgets/room-list/` -->
 - 
 
 ## 무엇을

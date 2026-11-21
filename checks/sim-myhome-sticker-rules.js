@@ -3,7 +3,7 @@
    ★ 왜 이 검사가 있는가 — 순서를 키 이름에 기대면 서버가 사전순으로 돌려줘 ▲▼ 가 저장 뒤에 되돌아가고,
      z 없는 옛 스티커가 새 스티커 앞으로 튀어나오면 붙인 지 오래된 것이 갑자기 위를 덮는다. 잠금은 끌기 한 길이라도 빠지면 «잠갔는데 움직였다» 가 된다.
    ・1절: 규칙을 실제로 돌린다 — 잠금 · 풀기 · 순서(z · 옛 스티커 · 섞임 · 같은 z) · 새 z · ▲▼(끝 · 없는 id · 잘못된 방향 · 다시 매김)
-   ・2절: 깨 보기 — 규칙 글을 망가뜨려 1절 판정이 빨강이 되는지 스스로 굴린다
+   ・2절: mutation test — 규칙 글을 망가뜨려 1절 판정이 빨강이 되는지 스스로 굴린다
    ・3절: 배선 — 끌기(myhome-edit.js)가 잠금을 본다 · [+ 스티커] 버튼 통과는 이 규칙을 부른다 · 새 스티커 z · 그리기 순서(app.js) · html · smoke 순서 */
 'use strict';
 const fs = require('fs');
@@ -11,11 +11,11 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/parts/myhome/' + f, 'app/' + f, 'checks/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const MOD = read('myhome-sticker-rules.js'), EDIT = read('myhome-edit.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html'), SMOKE = read('smoke.js');
+const MOD = read('myhome-sticker-rules.js'), EDIT = read('myhome-edit.js'), STORE = read('myhome-store.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html'), SMOKE = read('smoke.js');
 if (!MOD || !EDIT || !APP || !HTML || !SMOKE) { say('  ? 원본 못 찾음 — myhome-sticker-rules.js · myhome-edit.js · app.js · desk-companion-prototype.html · smoke.js'); process.exit(2); }
 const load = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwMyHomeStickerRules; };
 
-/* 1절 판정 — 깨 보기(2절)가 같은 판정을 다시 굴린다. 실패한 줄 이름을 돌려준다. */
+/* 1절 판정 — mutation test(2절)가 같은 판정을 다시 굴린다. 실패한 줄 이름을 돌려준다. */
 function judge(R){
   const bad = [];
   const t = (ok, name) => { if (!ok) bad.push(name); };
@@ -56,7 +56,7 @@ const bad = judge(R);
  '없는 id · 잘못된 방향 · 빈 묶음', '옛 스티커도 옮기면 자리를 받는다', '[+ 스티커] 버튼 안 — 통과', '  버튼 밖(오른쪽 · 아래 끝은 밖)', '  숨긴 버튼(크기 0) · 없음 — 통과 안 함'].forEach(n => chk(!bad.includes(n), n));
 chk(!bad.some(n => /^던짐/.test(n)), '던지지 않는다' + (bad.find(n => /^던짐/.test(n)) ? ' — ' + bad.find(n => /^던짐/.test(n)) : ''));
 
-say('── 2. 깨 보기 — 규칙을 망가뜨리면 1절이 빨강인가');
+say('── 2. mutation test — 규칙을 망가뜨리면 1절이 빨강인가');
 const BREAKS = [
   ['옛 스티커를 앞으로', 'i - ids.length;', 'i + 1000;'],
   ['z 를 거꾸로', '(a.z - b.z) || (a.i - b.i)', '(b.z - a.z) || (a.i - b.i)'],
@@ -67,17 +67,18 @@ const BREAKS = [
   ['버튼 끝을 안 봄', 'x < rect.left + rect.width && ', ''],
 ];
 for (const [name, a, b] of BREAKS) {
-  if (!MOD.includes(a)) { chk(false, '깨 보기 «' + name + '» — 바꿀 글을 못 찾음(규칙 글이 바뀌었으면 이 표도)'); continue; }
+  if (!MOD.includes(a)) { chk(false, 'mutation test «' + name + '» — 바꿀 글을 못 찾음(규칙 글이 바뀌었으면 이 표도)'); continue; }
   let R2 = null; try { R2 = load(MOD.replace(a, b)); } catch (_) {}
-  chk(!R2 || judge(R2).length > 0, '깨 보기 «' + name + '» → 빨강');
+  chk(!R2 || judge(R2).length > 0, 'mutation test «' + name + '» → 빨강');
 }
 
 say('── 3. 배선');
 const zd = EDIT.slice(EDIT.indexOf("zone.addEventListener('mousedown'"), EDIT.indexOf('dragSticker=el;'));
 chk(/^const mhStickerRules = TwMyHomeStickerRules;/m.test(EDIT) && /mhStickerRules\.isLocked\(\(_myHomeData\(\)\.stickers\|\|\{\}\)\[el\.dataset\.sid\]\)\) return;/.test(zd), '★ 마이홈 스티커 끌기(편집모드 밖)도 잠긴 스티커는 안 잡는다');
 chk(/mhStickerRules\.hitsAddBtn\(stickerAddBtn\.getBoundingClientRect\(\), e\.clientX, e\.clientY\)/.test(EDIT), '  [+ 스티커] 버튼 통과는 hitsAddBtn 을 부른다(조건을 다시 쓰지 않음)');
-chk(/z: mhStickerRules\.nextZ\(_myHomeData\(\)\.stickers\),/.test(EDIT), '  새 스티커는 맨 앞 z');
-const rs = APP.slice(APP.indexOf('function renderMyHomeStickers(){'), APP.indexOf('function renderMyHomeStickers(){') + 1200);
+chk(/z: rules\.nextZ\(list\) \}\)/.test(STORE), '  새 스티커는 맨 앞 z(상태 주인이 붙일 때 정한다)');
+const SR = ['myhome-sticker-render.js', 'parts/myhome/myhome-sticker-render.js', 'app/parts/myhome/myhome-sticker-render.js'].map(read).find(Boolean) || '';   // 스티커 그리기는 myhome-sticker-render.js(M19)
+const rs = SR.slice(SR.indexOf('function renderMyHomeStickers(){'), SR.indexOf('function renderMyHomeStickers(){') + 1200);
 chk(/TwMyHomeStickerRules\.orderedIds\(data\)\.forEach\(sid=>/.test(rs) && !/Object\.keys\(data\)\.forEach\(sid=>/.test(rs), '★ 그리기는 z 순서(뒤 → 앞) — 키 순서로 그리지 않는다');
 chk(/TwMyHomeStickerRules\.isLocked\(s\)\) el\.classList\.add\('locked'\)/.test(rs) && /\.mh-sticker\.locked\{cursor:not-allowed;\}/.test(HTML), '  잠긴 스티커 표시(커서)');
 const iR = HTML.indexOf('<script src="parts/myhome/myhome-sticker-rules.js">');

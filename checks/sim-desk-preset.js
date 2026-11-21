@@ -7,7 +7,7 @@
    ・3절: 적용 — 캐릭터 없음 · 좌석 · 로컬 아이템(라이선스는 원본에서) · 책상 색 · 크기(clamp) · 길이 · 위치 · 카메라 기억 지우기
    ・4절: 책상 모델 — 프리셋 책상 · 못 읽음 · 라이선스 잠김 · 기본 책상(관리자 등록 · URL 받기 · 실패) · 내장 책상
    ・4-2절: 카탈로그 책상은 GLB 를 빼고 저장(10-16 제보 8 — 1MB 책상이면 4번째 칸부터 저장소가 넘쳤다) · 불러올 때 카탈로그에서 받기 · 못 찾으면 E-CHAR-08 · 옛 칸도 저장 때 가볍게
-   ・5절: 칸 화면 · 팝업 · 입구 전제 · 6절: app.js 연결 · 7절: 일부러 깨 보기 */
+   ・5절: 칸 화면 · 팝업 · 입구 전제 · 6절: app.js 연결 · 7절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -42,7 +42,7 @@ function world(src, o = {}) {
   const log = { toasts: [], calls: [], parsed: [], resolved: 0 };
   const call = (k) => (...a) => { log.calls.push([k, ...a]); };
   const ls = lsOf(o.ls || {});
-  const store = makeStore(CUR_STORE, ls);   // behave 가 받은 저장 모듈 글(깨 보기가 바꾼 글도 여기로)
+  const store = makeStore(CUR_STORE, ls);   // behave 가 받은 저장 모듈 글(mutation test 가 바꾼 글도 여기로)
   const E = {};
   ['crScale', 'crZ', 'crRot', 'deskColor', 'deskScale', 'deskLenX', 'crPresetSlots', 'crPresetBtn', 'crPresetPopup'].forEach((i) => { E[i] = el('div', i); });
   E.crPresetPopup.style.display = 'none';
@@ -59,7 +59,7 @@ function world(src, o = {}) {
   const T = new Function('window', 'document', 'localStorage', 'setTimeout', 'Event', 'module', src + '\nreturn window.TwDeskPreset;')({}, doc, ls, (f) => timers.push(f), class { constructor(t) { this.type = t; } }, undefined);
   const out = T.createDeskPreset({
     DEFAULT_DESK_OVERRIDE_ID: '__default_desk__', NO_DESK_ID: '__no_desk__', hideDeskBody: call('hide'), crState: st, deskPresetStoreMod: store,
-    premiumMod: { _licenseLockedDeskId: (id) => !!(o.locked && id) },
+    premiumMod: { _licenseLockedDeskId: (id) => !!(o.locked && id && !o.premium && !o.admin) }, licenseAssetBlocked: (r) => !!(r && r.locked === true),
     applyCreatorXform: call('xform'), applyDeskColorToCustom: call('color'), applyDeskItemsTo: call('items'), autoSaveDeskItemsNow: call('autosave'),
     assetCodeMod: () => ({ parseGlbBytes: (b) => { log.parsed.push(b); return o.parseFail || (o.overrideFail && b === 'B:OVGLB') ? Promise.reject(new Error('x')) : Promise.resolve({ scene: b }); } }),
     b64ToBuf: (s) => 'B:' + s,
@@ -69,7 +69,6 @@ function world(src, o = {}) {
     crXformMod: () => ({ updateDeskPosNum: call('posnum') }), customItems: () => customItems,
     deskItemsMod: () => ({ allDeskItems: () => [{ id: 'a' }, { id: 'b' }, { id: 'c' }] }),
     equipDeskItem: call('equip'), fitCreator: call('fit'), frameDeskCam: call('frame'),
-    isAdmin: () => !!o.admin, isPremium: () => !!o.premium,
     setCreatorDeskScale: call('scale'), setDeskPos: call('pos'), swapDeskVisual: call('swap'), toast: (m) => log.toasts.push(m), notifyError: (code) => log.toasts.push(code),
   });
   const calls = (k) => log.calls.filter((c) => c[0] === k);
@@ -123,6 +122,11 @@ async function behave(src, storeSrc) {
   t(w.st.cDeskColor === '#222222' && w.E.deskColor.value === '#222222' && (w.E.deskColor.dispatched || []).includes('input') && w.mat.c === '#222222' && w.calls('color')[0][2] === '#222222', '책상 색 — 상태 · 색 칸(input 이벤트) · 재질 · 커스텀 책상');
   t(w.st.cDeskScale === 0.3 && w.E.deskScale.value === 0.3 && w.st.cDeskLenX === 1.4 && w.calls('scale').length >= 2 && JSON.stringify(w.st.cDeskPos) === '{"x":1,"y":0,"z":0}' && w.calls('pos').length === 1 && w.calls('posnum').length === 1,
     '책상 크기(0.05~0.3 로 자름) · 길이 · 위치(숫자로 · 아니면 0) · 위치 숫자 칸');
+  { const x = world(src, { ls: { 'tw.deskPresets': JSON.stringify([P()]) } }); x.st.cBase._skippedItems = new Map([['old1', { adj: 1 }], ['old2', undefined]]); const sk = x.st.cBase._skippedItems;
+    btn(x, 0).onclick(); await flush();
+    t(sk.size === 0 && x.st.cBase._skippedItems === sk && x.calls('items').length === 1, '★ 프리셋을 얹기 전에 옛 «건너뜀» 표시를 비운다(소품을 교체하니 옛 표시가 저장 때 옛 항목을 되살리지 않는다) — 같은 Map 을 비우고 그 뒤에 얹는다');
+    const y = world(src, { ls: { 'tw.deskPresets': JSON.stringify([P()]) } }); btn(y, 0).onclick(); await flush();
+    t(y.calls('items').length === 1 && !y.st.cBase._skippedItems, '  표시가 없던 자리는 새로 만들지 않는다(던지지 않는다)'); }
   w = await apply({ customItems: { have: { name: '원래' } }, savedItems: [{ id: 'lic', licenseOnly: true }] }, P({ customItems: { lic: { name: 'L', glb: 'g' }, free: { name: 'F', glb: 'h' }, have: { name: '새' } } }));
   t(w.customItems.lic.licenseOnly === true && w.customItems.lic.name === 'L' && w.customItems.free.licenseOnly === false && w.customItems.free.deskItem === true && w.customItems.have.name === '원래',
     '로컬 아이템 — 없던 것만 넣고 라이선스 전용 여부는 원본 카탈로그에서(프리셋 값 아님)');
@@ -210,10 +214,10 @@ function wire(app, html) {
   const t = (ok, msg) => r.push([!!ok, msg]);
   const A = strip(app);
   t(!/function captureDeskPreset\b|function applyDeskPreset\b|function renderDeskPresetSlots\b|function loadDeskPresets\b|const PRESET_KEY\b/.test(A), 'app.js 에 옮긴 선언이 안 남았다');
-  t(/const deskPresetStoreMod = TwDeskPresetStore\.createDeskPresetStore\(\{\n  jsonStore: TwJsonStore,\n  notifyError: \(\.\.\.a\)=>TwErrorCodes\.notify\(\.\.\.a\),\n  isCatalogDesk: \(id\)=>commissionMod\.catalogBacked\(commissionMod\.savedDesks\(\)\.find\(d=>d\.id===id\)\),\n\}\);/.test(app),
-    '저장 만드는 줄(가드 없이) · deps 는 jsonStore · notifyError · isCatalogDesk(카탈로그 판단은 commission.js catalogBacked 한 곳)');
+  t(/const deskPresetStoreMod = TwDeskPresetStore\.createDeskPresetStore\(\{\n  jsonStore: accountJsonStoreMod,\n  notifyError: \(\.\.\.a\)=>TwErrorCodes\.notify\(\.\.\.a\),\n  isCatalogDesk: \(id\)=>commissionMod\.catalogBacked\(commissionMod\.savedDesks\(\)\.find\(d=>d\.id===id\)\),\n\}\);/.test(app),
+    '저장 만드는 줄(가드 없이) · deps 는 jsonStore(계정 칸 위 — S-3e) · notifyError · isCatalogDesk(카탈로그 판단은 commission.js catalogBacked 한 곳)');
   const mk = (app.match(/const deskPresetMod = TwDeskPreset\.createDeskPreset\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
-  t(mk.split('\n').length === 30 && /  NO_DESK_ID: NO_DESK_ID,/.test(mk) && /  hideDeskBody: \(\.\.\.a\)=>deskVisualMod\.hideDeskBody\(\.\.\.a\),/.test(mk) && /  crState: crState,/.test(mk) && /  deskPresetStoreMod: deskPresetStoreMod,/.test(mk) && app.indexOf('const deskPresetStoreMod =') < app.indexOf('const deskPresetMod ='), '프리셋 만드는 줄(가드 없이) · deps 27 · 저장 모듈을 먼저 만든다');
+  t(mk.split('\n').length === 29 && /  NO_DESK_ID: NO_DESK_ID,/.test(mk) && /  hideDeskBody: \(\.\.\.a\)=>deskVisualMod\.hideDeskBody\(\.\.\.a\),/.test(mk) && /  crState: crState,/.test(mk) && /  deskPresetStoreMod: deskPresetStoreMod,/.test(mk) && app.indexOf('const deskPresetStoreMod =') < app.indexOf('const deskPresetMod ='), '프리셋 만드는 줄(가드 없이) · deps 28 · 저장 모듈을 먼저 만든다');
   const iS = html.indexOf('<script src="parts/creator/desk-preset-store.js"></script>'), iM = html.indexOf('<script src="parts/creator/desk-preset.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iS > 0 && iM > 0 && iA > iS && iA > iM, 'html — 두 파일을 app.js 보다 먼저 싣는다');
   return r;
@@ -225,7 +229,7 @@ function wire(app, html) {
   say('── 6. app.js 연결');
   wire(APP, HTML).forEach(([ok, msg]) => chk(ok, msg));
   chk(!SMOKE || (/PRELOAD\.push\('desk-preset-store\.js'\);/.test(SMOKE) && /PRELOAD\.push\('desk-preset\.js'\);/.test(SMOKE)), 'smoke 가 두 파일을 먼저 싣는다');
-  say('── 7. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+  say('── 7. mutation test — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['저장 5칸 → 4칸', null, (s) => s.replace('const PRESET_SLOTS = 5;', 'const PRESET_SLOTS = 4;')],
     ['저장 키 바뀜', null, (s) => s.replace("const PRESET_KEY = 'tw.deskPresets';", "const PRESET_KEY = 'tw.deskPreset';")],
@@ -233,13 +237,14 @@ function wire(app, html) {
     ['적용이 옛 앞뒤 z 를 높이로', (m) => m.replace("if(typeof p.seat.y==='number')", "if(typeof p.seat.z==='number') p.seat.y=p.seat.z; if(typeof p.seat.y==='number')"), null],
     ['라이선스를 프리셋 값으로', (m) => m.replace('licenseOnly:!!(_rec && _rec.licenseOnly)', 'licenseOnly:false'), null],
     ['책상 크기 clamp 없앰', (m) => m.replace('crState.cDeskScale=clampDeskScale(p.deskScale);', 'crState.cDeskScale=p.deskScale;'), null],
+    ['건너뜀 표시를 안 비움', (m) => m.replace('crState.cBase._skippedItems.clear();', ''), null],
     ['카메라 기억 안 지움', (m) => m.replace('  crState.deskCamSaved = null;\n', ''), null],
-    ['라이선스 잠금 없앰', (m) => m.replace('(!isPremium() && !isAdmin()) && premiumMod._licenseLockedDeskId(p.deskCatalogId)', 'false'), null],
+    ['라이선스 잠금 없앰', (m) => m.replace('licenseAssetBlocked({ locked: premiumMod._licenseLockedDeskId(p.deskCatalogId) })', 'false'), null],
     ['기본 책상 덮어쓰기 표시 안 함', (m) => m.replace('swapDeskVisual(crState.cDesk, sc, true);', 'swapDeskVisual(crState.cDesk, sc);'), null],
     ['저장이 카탈로그 책상 바이트를 그대로', null, (s) => s.replace('return jsonStore.save(PRESET_KEY, slimPresets(arr.slice(0,PRESET_SLOTS)));', 'return jsonStore.save(PRESET_KEY, arr.slice(0,PRESET_SLOTS));')],
     ['불러올 때 카탈로그에서 안 받음', (m) => m.replace('  if(p.deskGlb) return p.deskGlb;\n', '  return p.deskGlb || null;\n'), null],
     ['못 찾으면 조용히 기본 책상', (m) => m.replace("if(!b64){ notifyError('E-CHAR-08'); applyDefaultDesk(); return; }", 'if(!b64){ applyDefaultDesk(); return; }'), null],
-    ['만들 때 던짐', (m) => m.replace('function createDeskPreset(deps){', 'function createDeskPreset(deps){ throw new Error("깨 봄");'), null],
+    ['만들 때 던짐', (m) => m.replace('function createDeskPreset(deps){', 'function createDeskPreset(deps){ throw new Error("mutation");'), null],
     ['app.js 에 본문이 남음', 'APP', (a) => a + '\nfunction applyDeskPreset(p){}'],
     ['html 줄 빠짐', 'HTML', (h) => h.replace('<script src="parts/creator/desk-preset.js"></script>', '')],
   ];

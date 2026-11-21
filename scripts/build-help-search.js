@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* ═══ scripts/build-help-search.js — 도움말 검색표(hosting/help/search.json) 만들기 ═══
+/* ═══ scripts/build-help-search.js — 도움말 검색표(firebase/hosting/help/search.json) 만들기 ═══
    도움말 편(toc.json 순서)을 소제목(h2 · h3) 단위 조각으로 나누고, 연관어 거미줄(docs/help-search/words.json) ·
    FAQ(docs/help-search/faq.json)를 함께 묶어 한 파일로 낸다. 페이지의 search.js 가 이것 하나만 받아 브라우저 안에서 찾는다.
    소제목에는 id(s1 · s2 …)를 붙여 다시 쓴다 — 검색 결과가 그 자리로 바로 가게. 편 안 순서가 바뀌면 번호도 바뀌니
@@ -14,7 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const HELP = 'hosting/help';
+const HELP = 'firebase/hosting/help';
 const OUT = HELP + '/search.json';
 const FAQ_PAGE = HELP + '/faq.html';
 const WORDS = 'docs/help-search/words.json';

@@ -2,7 +2,7 @@
    app.js 의 커미션 캐릭터 코드 입력 을 parts/creator/commission-import.js 로 옮겼다(글자 그대로 · 바뀐 줄 6 — 읽는 · 쓰는 함수로 바꾼 자리).
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(없음)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 만드는 줄 · deps 15줄 그대로 · 부르는 곳은 commImpMod.이름 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    ・4절: 동작 — 가짜 DOM · deps 로 모듈을 만들어 입력 → 결과(경계값 포함)를 본다
    [실행] app.js · desk-companion-prototype.html · commission-import.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
@@ -24,7 +24,7 @@ const GET_DEPS = ["charCodeMod","charsMod","commissionMod","curSlot","slotSaveMo
 const SET_DEPS = ["curSlot"];
 const EXPORTS = [];
 const MOVED = ["commImpOverlay","dataUrlToCanvas"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  CANVAS_SZ: CANVAS_SZ,","  charCodeMod: ()=>charCodeMod,","  charDef: (...a)=>charDef(...a),","  charsMod: ()=>charsMod,","  commissionMod: ()=>commissionMod,","  creatorSaveMod: creatorSaveMod,","  curSlot: ()=>curSlot,","  openCreator: (...a)=>openCreator(...a),","  racePickerMod: racePickerMod,","  renderLauncher: (...a)=>renderLauncher(...a),","  saveCurSlot: (...a)=>saveCurSlot(...a),","  slotSaveMod: ()=>slotSaveMod,","  slots: slots,","  toast: (...a)=>toast(...a),","  setCurSlot: (v)=>{ curSlot = v; },"];
+const GLUE = ["  CANVAS_SZ: CANVAS_SZ,","  charCodeMod: ()=>charCodeMod,","  charDef: (...a)=>charDef(...a),","  commissionMod: ()=>commissionMod,","  creatorSaveMod: creatorSaveMod,","  curSlot: ()=>curSlot,","  openCreator: (...a)=>openCreator(...a),","  racePickerMod: racePickerMod,","  renderLauncher: (...a)=>renderLauncher(...a),","  saveCurSlot: (...a)=>saveCurSlot(...a),","  slotSaveMod: ()=>slotSaveMod,","  slots: slots,","  toast: (...a)=>toast(...a),","  setCurSlot: (v)=>{ curSlot = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다. */
 function anything(){
@@ -78,14 +78,14 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/creator/commission-import.js"></script>', '')],
   ['deps 하나 빠짐', null, GLUE.length ? (a => { const i = a.indexOf("const commImpMod = TwCommissionImport.createCommissionImport({"); const j = a.indexOf('\n});', i); const blk = a.slice(i, j); return a.slice(0, i) + blk.replace(/\n[^\n]*$/, '') + a.slice(j); }) : (a => a.replace("const commImpMod = TwCommissionImport.createCommissionImport({", "const commImpMod = TwCommissionImport.createCommissionImport({" + '\n  _extra: 1,')), null],
   ['전역 이름 안 걺', m => m.replace('window.TwCommissionImport = api;', ''), null, null],
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
-  /* 내놓는 이름이 없다 — «부르는 곳이 옛 이름» 깨 보기는 해당 없음 */
-  ['만들 때 던짐', m => m.replace('function createCommissionImport(deps){', 'function createCommissionImport(deps){ throw new Error("깨 봄");'), null, null],
+  /* 내놓는 이름이 없다 — «부르는 곳이 옛 이름» mutation test 는 해당 없음 */
+  ['만들 때 던짐', m => m.replace('function createCommissionImport(deps){', 'function createCommissionImport(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [nm, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
@@ -138,7 +138,7 @@ function rigI(o){
     charCodeMod: () => ({ importCloneCode: async (c, p, t) => { calls.push(['clone', c, p, t]); return !!o.cloneOk; } }),
     commissionMod: () => ({ decryptCommission: async (c, p) => { if(o.badPass) throw new Error('bad'); return o.payload || { t: 'comm', name: '고양이', glb: 'GLB', face: 'data:image/png;base64,Zg==', blink: 'data:image/png;base64,Yg==' }; } }),
     creatorSaveMod: { _defSizeFile: (rest, bytes) => (calls.push(['size', rest, bytes]), o.tooBig ? { ok: false, message: '너무 커요' } : { ok: true }), DEF_SIZE_TOAST_MS: 4000 },
-    charsMod: () => ({ _charsBoxFull: () => !!o.boxFull, _charsOnNew: log('onNew') }), slotSaveMod: () => ({ saveSlots: log('save') }),
+    slotSaveMod: () => ({ saveSlots: log('save') }),
     curSlot: () => st.cur, setCurSlot: (v) => { st.cur = v; }, saveCurSlot: log('saveCur'), renderLauncher: log('render'),
     toast: log('toast'), openCreator: log('creator'), charDef: (skin, f, b, top, bot) => ({ skin, face: f, blink: b, top, bot }) };
   class Img { set src(v){ this._s = v; setImmediate(() => o.imgFail ? this.onerror() : this.onload()); } }
@@ -168,7 +168,7 @@ function rigI(o){
   { const r = rigI({ target: 1 }); await r.go('DCM1.x', 'pw');
     const d = r.slots[1];
     chk(d && d.isCommission && d.commName === '고양이' && d.commGlb === 'GLB' && JSON.stringify(d.xf) === '{"s":0.7,"y":0,"z":0,"rot":0,"x":0}' && d.top === '#ffffff', 'DCM1 — [＋] 칸에 커미션 캐릭터(이름 · GLB · 기본 xf · 흰 옷)');
-    chk(r.st.cur === 1 && r.n('save') === 1 && r.n('onNew') === 1 && r.n('render') === 1 && /"고양이" 캐릭터를 등록했어요/.test(r.last('toast')), '현재 칸 · 저장 · 보관함 번호 · 런처 다시 그림 · 안내');
+    chk(r.st.cur === 1 && r.n('save') === 1 && r.n('render') === 1 && /"고양이" 캐릭터를 등록했어요/.test(r.last('toast')), '현재 칸 · 저장 · 런처 다시 그림 · 안내');
     chk(JSON.stringify(r.last('creator')) === '{"kind":"slot","edit":true,"slot":1}', '바로 생성기(수정 모드 — 커미션은 책상부터)');
     const sz = r.calls.find(x => x[0] === 'size'); chk(sz && !('commGlb' in sz[1]) && sz[2] === 'GLB'.length + 2 + 12, '용량 — GLB 를 뺀 나머지에 GLB 바이트(+12)를 더해 잰다'); }
   { const r = rigI({ slots: ['a', null, null], target: 0 }); await r.go('DCM1.x', 'pw');
@@ -179,7 +179,7 @@ function rigI(o){
     chk(r.last('toast') === '등록 실패: 비밀번호를 확인해 주세요 (코드 형식은 맞아요)', '암호가 틀리면 «코드 형식은 맞아요» 를 붙여 안내'); }
   { const r = rigI({ tooBig: true }); await r.go('DCM1.x', 'pw');
     chk(r.last('toast') === '너무 커요' && !r.slots.some(Boolean), '디자인 용량을 넘으면 등록 안 함'); }
-  { const r = rigI({ boxFull: true }); await r.go('DCM1.x', 'pw'); chk(!r.slots.some(Boolean) && r.n('save') === 0, '보관함 문턱이 차면 등록 안 함'); }
+  { const r = rigI({}); await r.go('DCM1.x', 'pw'); chk(r.slots.some(Boolean) && r.n('save') === 1, '보관함이 가득 차 있어도 등록한다(새 캐릭터는 슬롯 — 서버가 보관함 문턱을 보지 않는다)'); }
   { const r = rigI({ imgFail: true }); await r.go('DCM1.x', 'pw'); chk(/비밀번호를 확인해 주세요/.test(r.last('toast')) && !r.slots.some(Boolean), '얼굴 그림을 못 읽으면 실패로 끝(칸은 그대로)'); }
   say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
   process.exit(fail ? 1 : 0);

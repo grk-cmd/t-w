@@ -180,7 +180,7 @@ else{
   chk(near(aBody, CHAR_H * ANIMAL_H, 1e-6) && aAll > aBody + 0.3, '⑩ 동물 귀는 몸 키에서 빠지고(귀를 뺀 몸 = CHAR_H × ANIMAL_H) 그 위에 그대로 그려진다');
   chk(aBody <= humH * 1.05, '★ ⑩ 귀를 뺀 동물 몸이 사람 키의 105% 를 넘지 않는다 — 귀 보정이 두 번 걸리지 않는다 (동물 ' + aBody.toFixed(3) + ' · 사람 ' + humH.toFixed(3) + ')');
   { const r130 = mkRun(1.30); const g2 = animal(); r130.fit(g2, { charDef: { animal: true } });
-    chk(earless(r130, g2) > humH * 1.05, '  깨 보기 — 옛 1.30 이면 위 판정이 빨강(동물 ' + earless(r130, g2).toFixed(3) + ')'); }
+    chk(earless(r130, g2) > humH * 1.05, '  mutation test — 옛 1.30 이면 위 판정이 빨강(동물 ' + earless(r130, g2).toFixed(3) + ')'); }
 }
 
 say('');

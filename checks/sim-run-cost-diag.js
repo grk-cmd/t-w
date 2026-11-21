@@ -6,7 +6,7 @@
    ・1절: createRunCostDiag(가짜 시계) — 더하기 · 세기 · since · timed(던져도 잼 · 돌려준 값 그대로) · take 뒤 비움 · 이상한 값 버림
    ・2절: countSeats · roomKind — 빈 값 · 몸 판단 함수(없으면 0) · 반짝임(.lvx · .np-star) · 숨긴 꾸밈은 안 셈 · 방 종류
    ・3절: line — 0 · 나머지 = 한 장 − 좌석 − 그리기(음수면 0) · 밖 초당 · 큰 값에도 200자 안 · [프레임] 줄로 안 읽힘
-   ・4절: 깨 보기 — 갈래를 하나씩 바꾼 모듈로 1~3절을 다시 돌려 빨강이 나는지
+   ・4절: mutation test — 갈래를 하나씩 바꾼 모듈로 1~3절을 다시 돌려 빨강이 나는지
    ・5절: 배선 — html 이 app.js 앞에 싣는다(firebase-init.js 는 module 이라 늦게 돈다) · smoke PRELOAD · 재는 자리 · 1분 줄 */
 'use strict';
 const fs = require('fs');
@@ -14,10 +14,11 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'parts/shared/' + f, 'parts/room/' + f, 'parts/launcher/' + f, 'app/' + f, 'app/parts/' + f, 'app/parts/shared/' + f, 'app/parts/room/' + f, 'app/parts/launcher/' + f, 'checks/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const MOD = read('run-cost-diag.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html'), SMOKE = read('smoke.js');
+const FLR = (() => { for(const c of ['frame-loop.js', 'parts/launcher/frame-loop.js', 'app/parts/launcher/frame-loop.js']) { const t = read(c); if(t) return t; } return ''; })();   // frame() 은 launcher/frame-loop.js(M17)
+const MOD = read('run-cost-diag.js'), APP = (read('app.js') || '') + '\n' + FLR, HTML = read('desk-companion-prototype.html'), SMOKE = read('smoke.js');
 const APPJ = APP && require('./sim-renderer-src.js').joinRenderer(APP);   // 하트비트 · 1분 진단 줄은 모듈(heartbeat.js · run-diag-minute.js)로 옮겼다 — «옮기기 전 app.js 글» 로 되살려 읽는다(판정 무변경)
-const RUN = read('desktop-run.js'), ENTRY = read('room-entry.js'), NET = read('room-server-net.js'), FBI = read('firebase-init.js');
-if (!MOD || !APP || !HTML || !SMOKE || !RUN || !ENTRY || !NET || !FBI) { say('  ? 원본 못 찾음 — run-cost-diag.js · app.js · html · smoke.js · desktop-run.js · room-entry.js · room-server-net.js · firebase-init.js'); process.exit(2); }
+const RUN = read('desktop-run.js'), ENTRY = read('room-entry.js'), NET = read('room-rt.js'), FBI = read('firebase-init.js');
+if (!MOD || !APP || !HTML || !SMOKE || !RUN || !ENTRY || !NET || !FBI) { say('  ? 원본 못 찾음 — run-cost-diag.js · app.js · html · smoke.js · desktop-run.js · room-entry.js · room-rt.js · firebase-init.js'); process.exit(2); }
 const load = (src) => { const w = {}; new Function('window', 'module', 'performance', src)(w, undefined, { now: () => 0 }); return w.TwRunCostDiag; };
 const near = (a, b) => Math.abs(a - b) < 1e-9;
 
@@ -119,7 +120,7 @@ chk(s3[3], '나머지는 음수로 안 간다');
 chk(s3[4], '큰 값에도 ' + T.LINE_MAX + '자 안(main 이 자르는 길이)');
 chk(s3[5], '[프레임] 줄로 안 읽힌다');
 
-say('── 4. 깨 보기');
+say('── 4. mutation test');
 const BREAKS = [
   ['take 뒤 안 비움', 'reset(); since = t;', 'since = t;', () => !runCore(load(brk))[1]],
   ['이상한 값도 받음', 'if(!(ms >= 0) || !isFinite(ms)) return;', '', () => !runCore(load(brk))[2]],
@@ -134,10 +135,10 @@ const BREAKS = [
 ];
 let brk = '';
 for (const [name, from, to, red] of BREAKS){
-  if (!MOD.includes(from)){ chk(false, '깨 보기 «' + name + '» — 바꿀 글을 못 찾음'); continue; }
+  if (!MOD.includes(from)){ chk(false, 'mutation test «' + name + '» — 바꿀 글을 못 찾음'); continue; }
   brk = MOD.replace(from, to);
   let ok = false; try { ok = red(); } catch (_) { ok = true; }
-  chk(ok, '깨 보기 «' + name + '» → 빨강');
+  chk(ok, 'mutation test «' + name + '» → 빨강');
 }
 
 say('── 5. 배선');
@@ -146,7 +147,7 @@ chk(iM > 0 && iA > iM && HTML.includes('<script type="module" src="parts/firebas
 chk(/PRELOAD\.push\('run-cost-diag\.js'\)/.test(SMOKE), 'smoke PRELOAD 에 run-cost-diag.js');
 chk(/const runCost = TwRunCostDiag\.page;/.test(APP) && /setInterval\(runCost\.timed\('hb', \(\)=>\{[\s\S]{0,2500}?companion\.setCharBounds\([\s\S]{0,1500}?\}\), 100\);/.test(APPJ), '하트비트(100ms)를 통째로 잰다');
 chk(/const _tSeat = performance\.now\(\);\s*seats\.forEach\(/.test(APP) && /runCost\.since\('seat', _tSeat\)/.test(APP), '좌석 반복을 잰다');
-chk(/const _tDraw = performance\.now\(\);\s*if\(!_officeHidden[^\n]*renderer\.render\(scene,camera\)[^\n]*\n\s*runCost\.since\('render', _tDraw\);/.test(APP), '그리기를 잰다');
+chk(/const _tDraw = performance\.now\(\);\s*if\(!officeModeMod\(\)\._officeHidden\(\)[^\n]*renderer\.render\(scene,camera\)[^\n]*\n\s*runCost\.since\('render', _tDraw\);/.test(APP), '그리기를 잰다');
 chk(/runCost\.since\('frame', _frameT0\)/.test(APP), '한 장 전체를 잰다');
 const iTake = APPJ.indexOf('run = runCost.take()'), iRun = APPJ.indexOf("if(!document.body.classList.contains('runmode')) return;", APPJ.indexOf('takeMinute(t)'));
 const iLine = APPJ.indexOf('companion.diagNote(TwRunCostDiag.line(run, TwRunCostDiag.countSeats(seats, _bodyHidden), TwRunCostDiag.roomKind(Presence.roomCode(), window._activeChannel, !!Presence.serverProvider())))');
@@ -155,7 +156,7 @@ const iFrame = APPJ.indexOf('companion.diagNote(_FB.diagLine(m) + TwGpuTimer.suf
 chk(iLine > iRun && iFrame > iLine && iFrame - iLine < 400, '[비용] 줄은 [프레임] 줄과 같은 조건(실행 화면 — 창을 내려도 runmode 그대로)에서 바로 앞에 적는다');
 chk(/const runCost = deps\.runCost;/.test(RUN) && /_hitPerf\.maxMs = d;\s*runCost\.add\('hit', d\);/.test(RUN), '통과 판정 — 기존 _hitPerf 자리에서 더한다');
 chk(/const syncFriendSeatsTimed = runCost\.timed\('sync', syncFriendSeats\);/.test(ENTRY) && /syncFriendSeatsTimed\(friends\)/.test(ENTRY) && /syncFriendSeats: syncFriendSeatsTimed,/.test(ENTRY), '좌석 맞춤 — 부르는 곳 둘(provider 변경 · app.js 복원)이 잰 것을 부른다');
-chk(/function presenceChanged\(friends\)\{\n  runCost\.count\('recv'\);/.test(ENTRY) && !/notePatch/.test(NET) && !/TwRunCostDiag/.test(FBI), '수신 — 두 길(방 서버 · Firebase)이 함께 지나는 presenceChanged 입구에서 센다(방 서버 · firebase-init 연결 없음)');
+chk(/function presenceChanged\(friends\)\{\n  runCost\.count\('recv'\);/.test(ENTRY) && !/notePatch/.test(NET) && !/TwRunCostDiag/.test(FBI), '수신 — 두 길(방 서버 · Firebase)이 함께 지나는 presenceChanged 입구에서 센다(방 realtime 포트 room-rt.js · firebase-init 연결 없음)');
 chk(/runCost: runCost,/.test(APP.slice(APP.indexOf('TwRoomEntry.createRoomEntry({'), APP.indexOf('});', APP.indexOf('TwRoomEntry.createRoomEntry({')))) && /runCost: runCost,/.test(APP.slice(APP.indexOf('TwDesktopRun.createDesktopRun({'), APP.indexOf('});', APP.indexOf('TwDesktopRun.createDesktopRun({')))), 'room-entry · desktop-run 에 deps 로 넘긴다');
 
 say('');

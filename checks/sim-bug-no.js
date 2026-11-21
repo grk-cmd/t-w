@@ -4,6 +4,7 @@
  * 4. 백필 계획  5. index.js 연결  6. 규칙(no 모양 · 글쓴이는 no 못 넣음 · seq 클라이언트 못 씀)  7. 앱은 관리자에게만 보인다
  */
 'use strict';
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기(이름 없음 → «이름 없음») — 진짜 파일
 const fs = require('fs');
 const path = require('path');
 let pass = 0, fail = 0;
@@ -40,6 +41,37 @@ function fakeDb(data){
   });
   return { ref };
 }
+/* 🐞 상세 화면을 가짜 DOM · 가짜 provider 로 굴려 글 하나를 연다 → 상세 칸의 HTML. 관리자 여부 · 글 번호를 바꿔 본다. */
+async function detailHtml(src, admin, number){
+  const vm = require('vm');
+  const lib = (() => { const m = { exports: {} }; new Function('module', 'window', need('bug-board.js'))(m, undefined); return m.exports; })();
+  const els = {};
+  const mkEl = (id) => ({ id, style: { display: '' }, dataset: {}, innerHTML: '', textContent: '', value: '', disabled: false, checked: false, options: [],
+    classList: { add() {}, remove() {}, contains: () => false, toggle() {} }, _L: {}, addEventListener(t, fn){ (this._L[t] || (this._L[t] = [])).push(fn); },
+    focus() {}, querySelector: () => null, appendChild() {} });
+  const el = (id) => els[id] || (els[id] = mkEl(id));
+  const document = { readyState: 'complete', addEventListener() {}, getElementById: el, createElement: () => mkEl('new'),
+    querySelector: () => null, querySelectorAll: () => [] };
+  const ctx = { document, console: { warn() {}, log() {} }, navigator: { userAgent: 'Windows' }, TwNetReady: { whenNetReady() {} },
+    setTimeout: () => 0, setInterval: () => 0, Math, JSON, String, Number, Array, Object, Promise, Map, Set, Date, Boolean, Error, RegExp };
+  ctx.window = ctx;
+  ctx.TwPersonName = globalThis.TwPersonName; vm.createContext(ctx);
+  try { vm.runInContext(src, ctx, { filename: 'bug-board-ui.js' }); } catch (_) { return null; }
+  const post = { number, vis: 'pub', cat: 'bug', title: '제목', status: 'new', notice: false, byAdmin: false, anon: false, name: '에이', mine: false,
+    likeN: 0, ansN: 0, createdAt: 1, answeredAt: 0, authorReplied: false, unseen: false, body: '본문', env: null, canReply: false, liked: false, version: 1, comments: [] };
+  const KIND = { MISSING: 'missing', PRIVATE: 'private', GUIDE: 'guide', COMMON: 'common', OTHER: 'other' };
+  const api = { KIND, ERRORS: {}, failOf: () => ({ kind: KIND.OTHER }), badgeCount: () => 0, reset() {}, refreshBadge: () => Promise.resolve(0),
+    detail: () => Promise.resolve(post), seen: () => Promise.resolve(), list: () => Promise.resolve({ items: [], next: null }), notices: () => Promise.resolve([]) };
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const ui = ctx.TwBugBoardUi.createBugBoardUi({ bugApi: api, lib, apiErrors: { notify() {} }, notifyError: () => true, toast() {},
+    escHtml: esc, safeHtml: { linkify: esc, safeUrl: () => null }, isAdmin: () => admin, rtOn: () => () => {} });
+  await ui.start();
+  const rows = els.bbRows; if (!rows || !rows._L.click) return null;
+  rows._L.click[0]({ target: { closest: (s) => s === '.bb-row[data-id]' ? { dataset: { id: number } } : null } });
+  for (let i = 0; i < 6; i++) await new Promise((r) => setImmediate(r));
+  return el('bbDetailView').innerHTML;
+}
+
 const ev = (id, v) => ({ params: { id }, data: { val: () => v } });
 const noOf = (r) => r;
 
@@ -148,8 +180,28 @@ const noOf = (r) => r;
 
   say('── 7. 앱');
   {
-    const U = strip(UI);
-    chk(/\(admin\(\) && it\.no\) \? '<span class="bb-no">' \+ esc\(it\.no\)/.test(U), '상세 머리에 고정 번호 — 관리자에게만 · esc 거침');
+    /* 화면을 실제로 굴린다 — 글을 열어 상세 머리에 번호가 누구에게 · 어떻게 찍히는지 본다(글자 찾기 아님).
+       번호에 HTML 을 넣어 esc 를 거쳤는지까지. */
+    const NO = '<b>B-1009-3</b>', NO_ESC = '&lt;b&gt;B-1009-3&lt;/b&gt;';
+    const judge = async (src) => ({ user: await detailHtml(src, false, NO), admin: await detailHtml(src, true, NO) });
+    const ok = (r) => ({
+      userHidden: !!r.user && !/bb-no/.test(r.user) && !r.user.includes('B-1009-3'),
+      adminShown: !!r.admin && r.admin.includes('<span class="bb-no">' + NO_ESC + '</span>') && !r.admin.includes(NO),
+    });
+    const real = ok(await judge(UI));
+    chk(real.userHidden, '상세 머리 고정 번호 — 일반 사용자에겐 안 보인다');
+    chk(real.adminShown, '  ↳ 관리자에겐 보인다 · esc 를 거친다(번호 속 HTML 은 글자로)');
+    /* mutation test — 관리자 조건을 걷거나 esc 를 빼면 위 판정이 빨강이어야 한다 */
+    const HEAD = "(admin() ? '<span class=\"bb-no\">' + esc(d.number) + '</span> · ' : '')";
+    const mutants = [
+      ['관리자 조건을 걷음', HEAD.replace('admin() ?', 'true ?'), (r) => !r.userHidden],
+      ['esc 를 뺌', HEAD.replace('esc(d.number)', 'd.number'), (r) => !r.adminShown],
+      ['번호를 아무에게도 안 찍음', "('')", (r) => !r.adminShown],
+    ];
+    for (const [name, rep, red] of mutants) {
+      const bad = UI.split(HEAD).join(rep);
+      chk(bad !== UI && red(ok(await judge(bad))), '  mutation test — ' + name + ' → 빨강');
+    }
     const APP = (read('bug-board.js') || '') + (read('firebase-init.js') || '');
     chk(!!APP && !/bugBoard\/seq/.test(APP) && !/\bno:/.test(strip(read('bug-board.js') || '')), '앱은 번호를 만들거나 카운터를 만지지 않는다');
   }

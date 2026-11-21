@@ -1,7 +1,7 @@
 /* ═══ 📄 sim-license-xlsx.js — 관리자 라이선스 엑셀(xlsx·csv) 일괄 발급 (개정 76 신설) ═══════════════════════
    ・1절: 배선 — 입구 버튼·두 번째 창이 #licenseGenOverlay 안 · 바깥 클릭 예외 · 외부 라이브러리 없음(JSZip 재사용)
-   ・2절: 순수 함수 실행 — csv 파싱 · 제목 줄/열 찾기 · 친구코드 후보 · «발급한 적 있음» 표 · 다시 올린 결과 파일(발급 키 열)
-   ・3절: 발급 순서 — createLicense → sendInboxMessage(reward) · note 100자 · 한 건씩 순서대로 · 미리보기는 쓰지 않는다
+   ・2절: 순수 함수 실행 — csv 파싱 · 제목 줄/열 찾기 · 친구코드 후보 · 다시 올린 결과 파일(발급 키 열)
+   ・3절: 발급 흐름(서버 경로) — 미리보기 = POST /v2/admin/licenses/preview · 발급 = POST /v2/admin/licenses 한 번 · note 100자 · 닿지 못하면 같은 요청으로 다시 · 줄마다 까닭
    ・4절: 관리자 모듈 연결 — 본문은 admin/admin-license-bulk.js(app.js 에서 옮김) · app.js 는 원래 자리에서 만들기만 · html 은 app.js 앞에 싣기
    ⚠️ xlsx 읽기/쓰기(_lxReadXlsx · _lxWriteXlsx)는 DOMParser·JSZip 이 있어야 돈다 — 여기서는 모양만 본다.
      실제 왕복은 2026-10-02 에 헤드리스 크로미움 + openpyxl · LibreOffice 로 확인했다(CHECKS.md 개정 76).
@@ -42,16 +42,16 @@ say('── 1. 배선');
   chk(/const fits = [^;]*ov\.clientWidth >= mainBox\.offsetWidth \+ GAP \+ WIN_W/.test(B) && /setSolo\(!fits\);/.test(B), '옆에 설 자리가 없으면 일괄 창만 보인다');
   chk(/function hideWin\(\)\{ win\.style\.display = 'none'; setSolo\(false\); \}/.test(B) && /gc\.addEventListener\('click', hideWin\)/.test(B)
     && /window\._lxHideWin = hideWin;/.test(B), '닫으면(✕ · 발급 창 닫기) 발급 창이 돌아온다');
-  chk(/o\.style\.display='flex';\s*window\._lxHideWin\(\);/.test(LIC), '발급 창을 다시 열면 발급 창부터');
+  chk(/o\.style\.display\s*=\s*'flex';\s*window\._lxHideWin\(\);/.test(LIC), '발급 창을 다시 열면 발급 창부터');
   chk(/JSZip\.loadAsync\(buf\)/.test(grab('_lxReadXlsx')) && /new JSZip\(\)/.test(grab('_lxWriteXlsx')), '읽기·쓰기 모두 JSZip');
 }
 
 say('── 2. 순수 함수 실행');
 {
   const consts = (LB.match(/const LX_MAX_ROWS = \d+;[\s\S]*?const LX_CODE_RE = [^\n]+\n/) || [''])[0];
-  const fns = ['_lxParseCsv', '_lxMapRows', '_lxCandidates', '_lxIssuedIndex', '_lxWasIssued'].map(grab);
-  chk(!!consts && fns.every(Boolean), '함수 다섯 · 상수를 찾았다');
-  const L = new Function(consts + fns.join('\n') + '\nreturn { _lxParseCsv, _lxMapRows, _lxCandidates, _lxIssuedIndex, _lxWasIssued };')();
+  const fns = ['_lxParseCsv', '_lxMapRows', '_lxCandidates'].map(grab);
+  chk(!!consts && fns.every(Boolean), '함수 셋 · 상수를 찾았다');
+  const L = new Function(consts + fns.join('\n') + '\nreturn { _lxParseCsv, _lxMapRows, _lxCandidates };')();
   const g = L._lxParseCsv('친구코드,메모\r\nMATE-AAAA,"쉼표, 있음"\n"bbbb","따옴표 ""안"""\n\n,빈 코드\n');
   chk(g.length === 5 && g[1][1] === '쉼표, 있음' && g[2][1] === '따옴표 "안"' && g[2][0] === 'bbbb', 'csv — 따옴표·쉼표·"" · CRLF');
   chk(L._lxParseCsv('a\tb\nc\td')[1][1] === 'd', 'csv — 쉼표 없고 탭이면 탭으로 가른다');
@@ -66,24 +66,23 @@ say('── 2. 순수 함수 실행');
   chk(m.keyCol === 2 && m.data[0].hasKey === true && m.data[1].hasKey === false, '다시 올린 결과 파일 — «발급 키» 가 찬 행을 알아본다');
   chk(JSON.stringify(L._lxCandidates(' 9k2m ')) === '["MATE-9K2M","COZY-9K2M"]' && JSON.stringify(L._lxCandidates('mate-9k2m')) === '["MATE-9K2M"]'
     && L._lxCandidates('').length === 0, '친구코드 후보 — 단건 발급과 같은 규칙(뒷 4자리 → MATE·COZY)');
-  const idx = L._lxIssuedIndex({ a:{ note:'콩떡이 · 친구코드 MATE-9K2M · 메모' }, b:{ note:'친구코드 발급: 4HTR' }, c:{ note:'엑셀 일괄 · 친구코드 아님' } });
-  chk(L._lxWasIssued(idx, 'MATE-9K2M') && L._lxWasIssued(idx, 'COZY-4HTR') && !L._lxWasIssued(idx, 'MATE-ZZZZ'), '발급한 적 있음 — 두 메모 모양을 다 읽는다');
-  chk(!idx.tail.has('MATE'), '«친구코드 MATE-…» 의 MATE 를 4자리 코드로 잘못 읽지 않는다');
 }
 
-say('── 3. 발급 순서');
+say('── 3. 발급 흐름 (서버 경로 · D11-3)');
 {
   const B = strip((LB.match(/\(function bindLicenseXlsxBulk\(\)\{[\s\S]*?\n\}\)\(\);/) || [''])[0]);
   chk(!!B, 'bindLicenseXlsxBulk 를 찾았다');
   const run = (B.match(/async function run\(\)\{[\s\S]*?\n  \}/) || [''])[0];
   const load = (B.match(/async function loadFile\(f\)\{[\s\S]*?\n  \}/) || [''])[0];
-  chk(run.indexOf('createLicense(key, note)') > 0 && run.indexOf('createLicense(key, note)') < run.indexOf("sendInboxMessage(r.uid, 'reward'"), 'createLicense 다음에 수령함(reward)');
-  chk(/for\(const r of todo\)\{/.test(run) && /await firebaseAPI\.createLicense/.test(run) && !/Promise\.all/.test(run), '한 건씩 순서대로(동시에 쏘지 않는다)');
-  chk(/\.slice\(0, LX_NOTE_MAX\)/.test(run) && /const LX_NOTE_MAX = 100;/.test(LB), 'note 는 규칙 상한 100자로 자른다');
+  chk(/adminApi\.issueLicenses\(grants, !!reissue\.checked\)/.test(run) && (run.match(/issueLicenses\(/g) || []).length === 1, '발급은 서버에 한 번 — 줄마다 키 · 친구코드 줄은 우편까지 서버가(앱이 키를 만들지 않고 수령함에 쓰지 않는다)');
+  chk(!/firebaseAPI|createLicense|sendInboxMessage|_genLicenseKey|for\(const r of todo\)/.test(run + load), '미리보기 · 발급에 Firebase · 앱이 만든 키 · 한 건씩 도는 길이 없다');
+  chk(/\.slice\(0, LX_NOTE_MAX\)/.test(run) && /const LX_NOTE_MAX = 100;/.test(LB), 'note 는 서버 상한 100자로 자른다');
   chk(/confirm\(/.test(run), '발급 전에 한 번 묻는다');
-  chk(!/createLicense|sendInboxMessage/.test(load), '미리보기(loadFile)는 키 생성·발송을 안 한다');
+  chk(/adminApi\.previewLicenses\(asked\)/.test(load) && !/issueLicenses/.test(load), '미리보기(loadFile)는 서버 미리보기만 부른다 — 키 생성 · 발송 없음');
+  chk(/r\.hasValid/.test(B) && !/_lxWasIssued|_lxIssuedIndex/.test(B), '«이미 유효한 키» 는 서버 미리보기(hasValidLicense)로 — 앱이 메모를 뒤져 짐작하지 않는다');
   chk(/if\(d\.hasKey\) r\.base = 'haskey';/.test(load) && /r\.base === 'haskey' && r\.code && !seen\.has\(r\.code\)/.test(B), '이미 키 있는 행은 다시 안 만들고, 그 코드의 뒷 행은 중복으로 거른다');
-  chk(/수령함 실패|sendfail/.test(run) && /r\.key = key;/.test(run), '수령함만 실패해도 키는 결과에 남긴다');
+  chk(/catch\(e\)\{[\s\S]*?renderPreview\(\);\s*return;/.test(run) && /LX_WHY\[it\.code\]/.test(run), '서버에 닿지 못하면 미리보기 그대로 두고(같은 요청 번호로 다시) · 줄마다 안 된 까닭을 사유로 남긴다');
+  chk(/if\(prevErr\)\{ look\.set\(raw, 'err'\); return; \}/.test(load), '미리보기가 실패하면 친구코드 줄은 «조회 실패» 로 두고 발급하지 않는다');
 }
 
 say('── 4. 관리자 모듈 연결 (admin/admin-license-bulk.js)');
@@ -91,13 +90,14 @@ say('── 4. 관리자 모듈 연결 (admin/admin-license-bulk.js)');
   chk(!/function _lx|LX_MAX_ROWS|bindLicenseXlsxBulk|bindSecretRoomGrant/.test(strip(SRC)), 'app.js 에 옮긴 본문이 남지 않았다(두 벌이면 버튼이 두 번 걸린다)');
   const mk = (SRC.match(/const adminLicenseBulk = TwAdminLicenseBulk\.createAdminLicenseBulk\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = mk.split('\n').map(l => l.trim()).filter(Boolean);
-  chk(deps.length === 7 && deps.every(l => /^\w+: \(\.\.\.a\)=>[\w$.]+\(\.\.\.a\),$/.test(l)), 'app.js 가 원래 자리에서 만든다 — deps 7개 · 모두 화살표(나중에 선언된 함수도 부를 때 찾는다 · 목록 다시 그리기는 adminLicense.이름)');
+  chk(deps.length === 8 && deps.includes('adminApi: adminApi,') && deps.includes('apiErrors: TwApiErrors.store,') && deps.includes('notifyError: (...a)=>TwErrorCodes.notify(...a),')
+    && deps.filter(l => /^\w+: \(\.\.\.a\)=>[\w$.]+\(\.\.\.a\),$/.test(l)).length === 6, 'app.js 가 원래 자리에서 만든다 — deps 8개(서버 경로 셋 + 화살표 여섯 — 나중에 선언된 함수도 부를 때 찾는다 · 목록 다시 받기는 adminLicense.이름)');
   chk(!/\bADMIN_LICENSE_BULK_OFF\b/.test(SRC), '빈 껍데기 없이 만든다(모듈은 늘 싣는다 — 가드 걷기 3차)');
-  const hA = SRC.indexOf('/* ═══ 📄 [2026-10-02]'), hS = SRC.indexOf('/* ═══ 🔒 시크릿룸 발급(관리자) ═══ */'), hM = SRC.indexOf('const adminLicenseBulk =');
-  chk(hA > 0 && hS > hA && hM > hS, '만드는 줄은 원래 자리(두 구역 머리 아래) — 버튼을 거는 때가 예전과 같다');
-  const used = ['escHtml', 'toast', '_genLicenseKey', '_saveFailMsg', 'renderLicenseGenList', 'downloadBlob', '_srFmtDate'];
+  const hS = SRC.indexOf('/* ═══ 🔒 시크릿룸 발급(관리자) ═══ */'), hM = SRC.indexOf('const adminLicenseBulk =');
+  chk(hS > 0 && hM > hS, '만드는 줄은 원래 자리(🔒 시크릿룸 발급 머리 아래) — 버튼을 거는 때가 예전과 같다');
+  const used = ['escHtml', 'toast', 'adminApi', 'apiErrors', 'notifyError', 'renderLicenseGenList', 'downloadBlob', '_srFmtDate'];
   const body = strip(LB.slice(LB.indexOf('function createAdminLicenseBulk(deps){')));
-  chk(used.every(n => new RegExp('const ' + n.replace('$', '\\$') + ' = deps\\.').test(body)), '본문이 쓰는 app.js 함수 일곱을 deps 로 받는다');
+  chk(used.every(n => new RegExp('const ' + n.replace('$', '\\$') + ' = deps\\.').test(body)), '본문이 쓰는 app.js 함수 · 서버 경로 여덟을 deps 로 받는다');
   chk(/window\.TwAdminLicenseBulk = api;/.test(LB) && /module\.exports = api;/.test(LB), '전역 이름 TwAdminLicenseBulk(Tw 접두사 — 크로미움 내장 전역과 안 겹침)');
   const iM = HTML.indexOf('<script src="parts/admin/admin-license-bulk.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iM > 0 && iA > iM, 'html — admin/admin-license-bulk.js 를 app.js 보다 먼저 싣는다');
@@ -106,15 +106,15 @@ say('── 4. 관리자 모듈 연결 (admin/admin-license-bulk.js)');
   const el = (id) => els[id] || (els[id] = { id, style:{}, value:'', checked:false, disabled:false, textContent:'', innerHTML:'', files:null,
     parentElement:null, firstElementChild:null, offsetWidth:300, clientWidth:900, _on:{}, addEventListener(t, f){ (this._on[t] = this._on[t] || []).push(f); }, click(){} });
   const win = { };
-  const g = { document:{ getElementById: el }, window: win, module: undefined };
-  const fn = new Function('document', 'window', 'module', LB + '\nreturn window.TwAdminLicenseBulk;');
+  const g = { document:{ addEventListener(t, f){ (this._h = this._h || {})[t] = ((this._h[t]) || []).concat(f); }, dispatchEvent(e){ ((this._h || {})[e.type] || []).forEach(f => f(e)); }, getElementById: el }, window: win, module: undefined };
+  const fn = new Function('document', 'window', 'module', 'var TwNav = { ADMIN_EXIT_EVENT: "tw-admin-exit" };\n' + LB + '\nreturn window.TwAdminLicenseBulk;');
   const api = fn(g.document, g.window, undefined);
   const noop = () => {};
-  const out = api.createAdminLicenseBulk({ escHtml: s => String(s), toast: noop, genLicenseKey: () => 'K', saveFailMsg: () => '', renderLicenseGenList: noop, downloadBlob: noop, srFmtDate: () => '' });
+  const out = api.createAdminLicenseBulk({ escHtml: s => String(s), toast: noop, adminApi: {}, apiErrors: {}, notifyError: noop, renderLicenseGenList: noop, downloadBlob: noop, srFmtDate: () => '' });
   chk(out && typeof out === 'object' && !Object.keys(out).length, '만들면 빈 객체를 돌려준다(밖에서 부르는 이름 없음)');
   chk(typeof win._lxHideWin === 'function', '만들 때 window._lxHideWin 을 건다(발급 창을 다시 열 때 부름)');
-  chk((els.licenseXlsxOpenBtn._on.click || []).length === 1 && (els.srGrantBtn._on.click || []).length === 1 && (els.srGrantKey._on.keydown || []).length === 1,
-    '만들 때 버튼을 한 번씩 건다 — 일괄 발급 입구 · 시크릿룸 발급 · 열쇠 칸 Enter');
+  chk((els.licenseXlsxOpenBtn._on.click || []).length === 1 && (els.srGrantBtn._on.click || []).length === 1 && (els.srGrantCode._on.keydown || []).length === 1,
+    '만들 때 버튼을 한 번씩 건다 — 일괄 발급 입구 · 시크릿룸 발급 · 코드 칸 Enter');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

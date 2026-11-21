@@ -5,7 +5,7 @@
    ・1절: isMac · place(커서 옆 · 화면 밖이면 접기) · 2절: 가짜 문서에서 install 을 실제로 — 올림 → title 떼기 → 잠깐 뒤 말풍선 → 내림 → 되돌리기 ·
      자식으로 옮김 · 다른 요소로 · 그 사이 코드가 title 을 새로 씀 · 누르기 · 빈 title · 두 번 걸기
    ・2-2절: 자식 창(방명록 · 디자인) — installChild 는 맥 창에만 · 거는 문서마다 css 한 벌 · 같은 동작
-   ・3절: 배선(맥에서만 스스로 건다 · 싣는 순서 · css 는 모듈 한 곳 · smoke) · 4절: 깨 보기 */
+   ・3절: 배선(맥에서만 스스로 건다 · 싣는 순서 · css 는 모듈 한 곳 · smoke) · 4절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -123,7 +123,7 @@ chk(iT > 0 && iT < iA, '싣는 순서 — app.js 보다 먼저');
 chk(!/#twMacTip\s*\{/.test(HTML), 'css 는 모듈 한 곳 — 메인 HTML 에 같은 규칙을 다시 두지 않는다(자식 창은 메인 style 을 못 본다)');
 chk(SMOKE.indexOf("PRELOAD.push('mac-tooltip.js');") > 0, 'smoke PRELOAD 에 mac-tooltip.js');
 
-say('\n── 4절: 깨 보기');
+say('\n── 4절: mutation test');
 const b1 = behave(MOD.replace("    if(!cur.hasAttribute('title') && cur.dataset[KEY] != null) cur.setAttribute('title', cur.dataset[KEY]);\n", ''));
 chk(!b1.restore, 'title 을 되돌리지 않으면 2절 «나가면 되돌린다» 가 빨강');
 const b2 = behave(MOD.replace("    cur.removeAttribute('title');\n    timer = win.setTimeout(show, DELAY_MS);", '    timer = win.setTimeout(show, DELAY_MS);'));

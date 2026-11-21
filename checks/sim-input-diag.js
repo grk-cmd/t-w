@@ -4,7 +4,7 @@
      줄이 안 남으면(이벤트 순서 · 절전 · 상한) 다시 받을 길이 없고, 너무 많이 남으면 다른 진단을 밀어낸다.
    ・1절: 조합 끊김(Electron 44 실측 순서) — 누르기 · Tab 으로 옮김은 조용 · 앱이 포커스를 뺏음 · 다른 앱이 앞으로 · 칸 다시 그림 · 글 내용 안 적음 · 연달아 한 줄 · 상한
    ・2절: 메인 멈춤 · 활성 창 조회 — 느린 것만 · 절전은 안 셈 · 1분에 한 줄 · 아무 일 없으면 조용
-   ・3절: 깨 보기 — 갈래를 하나씩 지운 모듈로 1 · 2절을 다시 돌려 빨강이 나는지
+   ・3절: mutation test — 갈래를 하나씩 지운 모듈로 1 · 2절을 다시 돌려 빨강이 나는지
    ・4절: 배선 — main 이 조회 시간을 넘기고 타이머를 끝낼 때 내림 · app.js 가 document 에 건다 · html 에서 app.js 보다 먼저 */
 'use strict';
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');
@@ -29,7 +29,7 @@ function fakeDom(){
 }
 const input = (id) => ({ tagName: 'TEXTAREA', id, classList: [], isConnected: true });
 
-/* 1 · 2절 묶음 — 깨 보기에서 같은 묶음을 망가진 모듈로 다시 돌린다. 돌려주는 것은 [통과 수, 실패 수] */
+/* 1 · 2절 묶음 — mutation test 에서 같은 묶음을 망가진 모듈로 다시 돌린다. 돌려주는 것은 [통과 수, 실패 수] */
 function suite(D, quiet){
   let p = 0, f = 0;
   const c = (ok, msg) => { ok ? p++ : f++; if(!quiet) chk(ok, msg); };
@@ -113,7 +113,7 @@ chk(!!D && typeof D.createImeWatch === 'function' && typeof D.createLagWatch ===
 const [p0, f0] = suite(D, false);
 pass += p0; fail += f0;
 
-say('── 3. 깨 보기');
+say('── 3. mutation test');
 const breaks = [
   ['조합이 끝난 직후 포커스 뺏김을 안 봄', /if\(ended && el === ended\.el/, 'if(false && ended'],
   ['사람이 옮긴 것도 남김(평소 입력이 잡음)', /if\(now\(\) - userMoveAt > USER_MOVE_MS\) /, ''],
@@ -128,9 +128,9 @@ const breaks = [
 ];
 for(const [name, re, to] of breaks){
   const src = MOD.replace(re, to);
-  if(src === MOD){ chk(false, '깨 보기 «' + name + '» — 바꿀 자리를 못 찾음(모듈이 바뀌었으면 이 줄도 고칠 것)'); continue; }
+  if(src === MOD){ chk(false, 'mutation test «' + name + '» — 바꿀 자리를 못 찾음(모듈이 바뀌었으면 이 줄도 고칠 것)'); continue; }
   let r; try{ r = suite(load(src), true); }catch(e){ r = [0, 1]; }
-  chk(r[1] > 0, '깨 보기 «' + name + '» → 빨강 ' + r[1]);
+  chk(r[1] > 0, 'mutation test «' + name + '» → 빨강 ' + r[1]);
 }
 
 say('── 4. 배선');

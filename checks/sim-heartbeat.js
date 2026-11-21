@@ -3,7 +3,7 @@
    보내는 값 · 창이 안 보일 때 빼는 판단은 sim-heartbeat-policy.js 2절이 모듈을 돌려 본다. 여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 가짜 deps 위에서 던지지 않고 만들어진다 · 창 보임 구독 하나 · 100ms 타이머 하나 · 내놓는 이름(없음)
    ・2절: app.js 연결 — 옮긴 선언 · setCharBounds 가 app.js 에 안 남음 · deps 5줄 그대로 · runCost 는 app.js 한 벌 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] 스테이징(node checks/run.js heartbeat) 또는 저장소 루트에서. */
 'use strict';
 const fs = require('fs');
@@ -22,7 +22,7 @@ const VAL_DEPS = ['runCost'];
 const GET_DEPS = ['_charBadWhy', '_charBoundsLatest', '_twMoveSeenAt'];
 const EXPORTS = [];
 const MOVED = ['_hbWinShown'];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ['  _charBadWhy: ()=>_charBadWhy,', '  _charBoundsLatest: ()=>_charBoundsLatest,', '  _twMoveSeenAt: ()=>_twMoveSeenAt,', '  otherSeatCircles: (...a)=>statusChipMod.otherSeatCircles(...a),', '  runCost: runCost,'];
+const GLUE = ['  _charBadWhy: ()=>moveModeMod._charBadWhy(),', '  _charBoundsLatest: ()=>moveModeMod._charBoundsLatest(),', '  _twMoveSeenAt: ()=>moveModeMod._twMoveSeenAt(),', '  otherSeatCircles: (...a)=>statusChipMod.otherSeatCircles(...a),', '  runCost: runCost,'];
 const MAKE = 'const heartbeatMod = TwHeartbeat.createHeartbeat({';
 
 /* 만들 때 건 것(구독 · 타이머)을 센다 — 타이머는 돌리지 않는다(돌려 보는 것은 sim-heartbeat-policy 2절) */
@@ -66,12 +66,12 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 4) say('── 2. app.js 연결'); chk(ok, msg); });
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/launcher/heartbeat.js"></script>', '')],
-  ['deps 하나 빠짐', null, a => a.replace('\n  _twMoveSeenAt: ()=>_twMoveSeenAt,\n  otherSeatCircles', '\n  otherSeatCircles'), null],
+  ['deps 하나 빠짐', null, a => a.replace('\n  _twMoveSeenAt: ()=>moveModeMod._twMoveSeenAt(),\n  otherSeatCircles', '\n  otherSeatCircles'), null],
   ['전역 이름 안 걺', m => m.replace('window.TwHeartbeat = api;', ''), null, null],
-  ['만들 때 던짐', m => m.replace('function createHeartbeat(deps){', 'function createHeartbeat(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createHeartbeat(deps){', 'function createHeartbeat(deps){ throw new Error("mutation");'), null, null],
   ['타이머 주기 바뀜', m => m.replace('}), 100);', '}), 1000);'), null, null],
   ['app.js 에 하트비트가 다시 생김', null, a => a + '\nsetInterval(()=>{ companion.setCharBounds({}); }, 100);', null],
   ['모듈이 상태칩을 직접 부름', m => m.replace('others: _hbFull ? otherSeatCircles()', 'others: _hbFull ? statusChipMod.otherSeatCircles()'), null, null],

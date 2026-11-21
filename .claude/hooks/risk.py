@@ -42,7 +42,8 @@ APPROVE_LINE = re.compile(r'^\s*승인\s+([0-9a-f]{7,40})\s*$', re.M)
 CHECKS_FILE = 'checks/CHECKS.md'
 CHECKS_ROW = re.compile(r'^([ +-]\| \*\*[^*|]+\*\* \|) \d+ \| \*\*[0-9a-f]{12}\*\* \|$')
 # Firebase 규칙 · 설정 — 위험도 표(RISKY_FILES)와 «같은 변경» 판정(_hunks)이 같이 쓴다
-FIREBASE_CONFIG = re.compile(r'^firebase-database-rules\.json$|^storage\.rules$|^firebase\.json$')
+# 0.13 은 firebase/ 아래 · admin 브랜치(웹 관리자 길)는 옛 모양이라 맨 위도 본다
+FIREBASE_CONFIG = re.compile(r'^(firebase/)?(firebase-database-rules\.json|storage\.rules|firebase\.json|\.firebaserc)$')
 # «같은 변경» 견주기: 규칙 · 설정 · 가드 파일은 줄 번호 그대로(생김새가 같은 묶음이 되풀이돼 덩어리 하나면 상대 줄로는 자리가 안 잡혀서).
 # 그 밖은 첫 덩어리에서 잰 상대 줄 — 다른 갈래가 위쪽을 고쳐 통째로 밀린 합치기는 같고, 덩어리 사이가 달라지면 다르다
 HUNK_HEAD = re.compile(r'^@@ -(\d+)(,\d+)? \+(\d+)(,\d+)? @@')
@@ -55,14 +56,14 @@ WAIT_SEC, WAIT_EVERY = 3600, 30
 # 이 파일을 바꾸면 늘 높음
 RISKY_FILES = [
     (FIREBASE_CONFIG, 'Firebase 규칙 · 설정'),
-    (re.compile(r'^app/parts/firebase-init\.js$'), 'firebase-init.js(DB 경로)'),
-    (re.compile(r'^app/parts/shared/(data-gateway|api-client|source-switch|remote-config)\.js$'), '서버 · 데이터 통로'),
-    (re.compile(r'^functions/'), 'Cloud Functions'),
-    (re.compile(r'^(main|preload)\.js$|^overlay-|^sysinput-'), 'Electron 메인 · IPC · 플랫폼'),
-    (re.compile(r'^package(-lock)?\.json$|^web-admin/package(-lock)?\.json$'), '의존성 · 빌드 설정'),
+    (re.compile(r'^apps/desktop/app/parts/firebase-init\.js$'), 'firebase-init.js(DB 경로)'),
+    (re.compile(r'^apps/desktop/app/parts/shared/(data-gateway|api-client|source-switch|remote-config)\.js$'), '서버 · 데이터 통로'),
+    (re.compile(r'^firebase/functions/'), 'Cloud Functions'),
+    (re.compile(r'^apps/desktop/((main|preload)\.js$|overlay-|sysinput-)'), 'Electron 메인 · IPC · 플랫폼'),
+    (re.compile(r'^((apps/[^/]+|packages/[^/]+)/)?package(-lock)?\.json$'), '의존성 · 빌드 설정'),
     (re.compile(r'^\.github/workflows/'), 'CI · 릴리스 워크플로'),
     (re.compile(r'^\.claude/'), '하네스 자체'),
-    (re.compile(r'^web-admin/src/.*(firebase|db|api)', re.I), '웹 관리자 데이터 접근'),
+    (re.compile(r'^(apps/admin|web-admin)/src/.*(firebase|db|api)', re.I), '웹 관리자 데이터 접근'),
 ]
 # 더한 줄에 이것이 있으면 높음(데이터 경로가 새로 생기거나 바뀜)
 RISKY_LINES = [
@@ -104,9 +105,9 @@ def assess(pr, files=None):
         for rx, why in RISKY_FILES:
             if rx.search(name):
                 reasons.add(f'{why}: {name}')
-        if f.get('status') == 'added' and name.startswith('app/parts/') and name.endswith('.js'):
+        if f.get('status') == 'added' and name.startswith('apps/desktop/app/parts/') and name.endswith('.js'):
             reasons.add(f'새 모듈: {name}')
-        if name.startswith(('checks/', 'web-admin/tests/', 'docs/')):  # 검사 · 문서의 가짜 호출은 데이터 경로가 아니다
+        if name.startswith(('checks/', 'apps/admin/tests/', 'docs/')):  # 검사 · 문서의 가짜 호출은 데이터 경로가 아니다
             continue
         for line in (f.get('patch') or '').splitlines():
             if not line.startswith('+') or line.startswith('+++'):

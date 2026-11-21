@@ -86,7 +86,8 @@ chk(calls >= 10, '부르는 곳 ' + calls + '곳');
 chk(!nonLiteral.length, '번호는 글자 그대로 쓴다(검사가 찾을 수 있게)' + (nonLiteral.length ? ' — ' + nonLiteral.join(', ') : ''));
 const unknown = [...used.keys()].filter(c => !E.CODES[c]);
 chk(!unknown.length, '부른 번호가 다 표에 있다' + (unknown.length ? ' — 없음: ' + unknown.join(', ') : ''));
-const unused = codes.filter(c => c !== 'E-SYS-01' && !used.has(c));
+/* where 에 «(예정:» 이 든 번호는 표를 먼저 둔 것(앱 묶음이 단계로 나뉘어 부르는 곳이 뒤에 온다) — 부르게 되면 그 글을 지운다 */
+const unused = codes.filter(c => c !== 'E-SYS-01' && !used.has(c) && E.CODES[c].where.indexOf('(예정:') < 0);
 chk(!unused.length, '표의 번호는 어디선가 쓴다(안 쓰게 되면 RETIRED 로)' + (unused.length ? ' — 안 씀: ' + unused.join(', ') : ''));
 const retiredUsed = [...used.keys()].filter(c => E.RETIRED[c]);
 chk(!retiredUsed.length, '걷은 번호를 다시 부르지 않는다');

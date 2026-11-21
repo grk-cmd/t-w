@@ -81,7 +81,7 @@ P.seats.length = 0;
 const me2 = seat({ isMe:true, userScale:1.0 });
 const bad = seat({ userScale:1.5 });
 let badThrows = true;
-Object.defineProperty(bad.desk.userData, 'eqK', { set(){ if (badThrows) throw new Error('깨 봄'); }, get(){ return undefined; }, configurable:true });
+Object.defineProperty(bad.desk.userData, 'eqK', { set(){ if (badThrows) throw new Error('mutation'); }, get(){ return undefined; }, configurable:true });
 const after = seat({ userScale:2.0 });
 P.seats.push(me2, bad, after);
 P.seats.forEach(s2 => P.setDeskScale(s2.desk, s2.userScale, 1));

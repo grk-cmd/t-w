@@ -4,7 +4,7 @@
      화면 전체가 클릭을 막았다.
    ・1절: 껍데기는 pointer-events:none · 배경 없음 · 상자만 auto (클릭 통과 영역 수집 _uiRegions 는 none 껍데기를 건너뛴다)
    ・2절: 3분 대기 → 거절과 같은 길(done(false)) · done 은 한 번만 · 남은 시간 표시 · 깜빡임은 done 에서 끈다
-   ・3절: 오래된 초대(10분 — 보낸 쪽 시계 오차 여유)는 띄우지 않고 지운다
+   ・3절: 오래됨을 앱이 PC 시계로 가르지 않는다(서버가 10분 보관 — 시계 오차로 새 초대를 버리지 않게)
    ⚠️ 실제 동작(밖 클릭 통과 · 만료 · 수락)은 2026-10-02 헤드리스 크로미움에서 함수 원문으로 확인했다.
    ・방 초대 받기(showRoomInvitePopup · _bindRoomInviteReceiver · 두 상수)는 parts/room/room-invite-ui.js 로 옮겼다(앱 FSD 10번) — 그 파일을 읽는다. 판정은 그대로.
    [실행] room-invite-ui.js 가 있는 폴더에서. */
@@ -36,8 +36,8 @@ chk(/_flashTaskbar\(true\);/.test(P) && /_flashTaskbar\(false\);/.test(P), '깜�
 chk(/data-a="left"/.test(grab('showRoomInvitePopup')), '남은 시간 줄');
 
 say('── 3. 오래된 초대');
-chk(/const ROOM_INVITE_STALE_MS = 10 \* 60 \* 1000;/.test(SRC), '오래됨 문턱 10분(보낸 쪽 시계 오차 여유)');
-chk(/_now - invites\[id\]\.ts > ROOM_INVITE_STALE_MS/.test(R) && /clearRoomInvite\(myId, id\)/.test(R), '오래된 초대는 띄우지 않고 지운다');
+chk(!/ROOM_INVITE_STALE_MS/.test(SRC), '★ 앱의 «오래됨 10분» 문턱이 없다 — 서버가 10분 보관하고 남은 것만 다시 보낸다(R5)');
+chk(!/_now - got\[id\]\.ts/.test(R) && !/Date\.now\(\) - got\[/.test(R), '  받은 초대의 ts 를 PC 시계와 견주지 않는다');
 chk(!/_now - invites\[id\]\.ts > ROOM_INVITE_WAIT_MS/.test(R), '3분으로 버리지 않는다(시계 오차로 새 초대를 버리게 된다)');
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

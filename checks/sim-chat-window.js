@@ -11,7 +11,7 @@
    ・7절: 🔇 잠금 · 🗑 기록 삭제 · 😊 이모티콘(그리드 · ＋ · 기본 · 내 것 · 파일) · 🎲 주사위
    ・8절: 💣 플라잉체어 조준 · 📷 스티커사진 — 채널 · 회사원 모드 · 레벨 · 혼자 · 준비 중 · 연타
    ・9절: app.js 배선 — 정의는 모듈에만 · 만드는 곳 한 곳 · 원래 자리 · deps 모양(함수는 화살표 · let 은 읽는/쓰는 함수 · 값) · 빈 껍데기 · html 순서 · 전역 이름
-   ・10절: 일부러 깨 보기 — 모듈 글을 조금씩 망가뜨려 2~8절이 잡아내는지(이 검사가 헛돌지 않는지) 스스로 확인
+   ・10절: mutation test — 모듈 글을 조금씩 망가뜨려 2~8절이 잡아내는지(이 검사가 헛돌지 않는지) 스스로 확인
    [실행] chat-window.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
@@ -165,7 +165,7 @@ function mkEnv(opt){
   return env;
 }
 
-/* 2~8절 — 10절(일부러 깨 보기)이 망가뜨린 글로 다시 굴린다 */
+/* 2~8절 — 10절(mutation test)이 망가뜨린 글로 다시 굴린다 */
 async function behave(src){
   const E = (o) => mkEnv(Object.assign({ src }, o || {}));
 
@@ -463,9 +463,9 @@ await sec('── 9. app.js 배선', () => {
   const defs = /function _wireChatWindow\(|function _bindChatDrag\(|function _bindChatResize\(|function _chatCloseMenus\(/;
   chk(!defs.test(code) && /function _wireChatWindow\(/.test(MOD) && /function _chatCloseMenus\(/.test(MOD), '대화창 배선 정의는 모듈에만');
   chk(/window\.TwChatWindow = api/.test(MOD) && (code.match(/TwChatWindow\.createChatWindow\(/g) || []).length === 1, '모듈은 window.TwChatWindow · 만드는 곳은 한 곳');
-  const iHead = APP.indexOf('/* ═══ 💬 대화창 배선 — 닫기 · 최소화 · 끌기 · 메뉴 · 버튼 ═══ */'), iMk = APP.indexOf('TwChatWindow.createChatWindow('), iNext = APP.indexOf('/* ═══ 🎛️ 꾸미기 상세조정 패널 · 색 고르기 ═══ */');
+  const iHead = APP.indexOf('/* ═══ 💬 대화창 배선 — 닫기 · 최소화 · 끌기 · 메뉴 · 버튼 ═══ */'), iMk = APP.indexOf('TwChatWindow.createChatWindow('), iNext = APP.indexOf('/* ═══ 🎨 텍스처 파츠 색조 셰이더 ═══ */');
   chk(iHead > 0 && iMk > iHead && iNext > iMk && /_selfFlyAfterDice\(\);\s*\n\}\s*\n\s*$/.test(APP.slice(iHead - 200, iHead)),
-    '원래 자리 — 🎡 룰렛 뒤 · 구역 머리 아래 · 🎛️ 꾸미기 상세조정 앞');
+    '원래 자리 — 🎡 룰렛 뒤 · 구역 머리 아래 · 🎨 텍스처 파츠 색조 셰이더 앞');
   const call = (APP.match(/TwChatWindow\.createChatWindow\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(s => s && !s.startsWith('//'));
   const FN = [['closeChatWindow', 'closeChatWindow'], ['chatWindowIsOpen', '_chatWindowIsOpen'], ['chatIsMinimized', '_chatIsMinimized'], ['setChatMinimized', '_setChatMinimized'],
@@ -507,7 +507,7 @@ await sec('── 9. app.js 배선', () => {
   chk(/^const chatWindowMod = TwChatWindow\.createChatWindow\(\{/m.test(APP), '만드는 줄에 «없으면 빈 껍데기» 가드가 없다 — 모듈이 안 실리면 그 줄에서 멈춘다(가드 걷기 3차)');
 });
 
-await sec('── 10. 일부러 깨 보기 — 이 검사가 헛돌지 않는가', async () => {
+await sec('── 10. mutation test — 이 검사가 헛돌지 않는가', async () => {
   const CASES = [
     ['✕ 연결 빠짐', s => s.replace('if(close) close.onclick=closeChatWindow;', '')],
     ['▁ 뒤집기 안 함', s => s.replace('_setChatMinimized(!_chatIsMinimized());', '_setChatMinimized(true);')],

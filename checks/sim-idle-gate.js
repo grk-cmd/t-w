@@ -2,8 +2,7 @@
    ・1절: rafWhile — 꺼져 있으면 rAF 를 안 건다 · 켜지면 wake 로 다음 rAF · 꺼진 것을 본 틱에 sleep 한 번 · 두 벌 안 됨 · 그린 장 수가 예전 반복과 같다
    ・2절: intervalWhile — idle 인 틱에 타이머를 지운다 · wake 는 자고 있을 때만 새로 걸고 깨웠는지 돌려준다
    ・3절: onClassChange — class 만 지켜본다 · 요소가 없으면 아무것도 안 건다
-   ・4절: 일부러 깨 보기
-   포커스 누적 저장(바뀐 칸만 쓰기)은 sim-focus-level.js 4절
+   ・4절: mutation test
    쓰는 곳의 동작(런처 · 꾸미기 미리보기 · 플레이리스트 폴링)은 각 모듈 검사가 본다:
      sim-launcher-preview 5절 · sim-wardrobe 5절 · sim-playlist 7-2절 · 게임패드는 idle-gate 를 안 쓰고 sim-gamepad-activity 1-2절
    [실행] idle-gate.js 가 있는 폴더에서(러너 스테이징). */
@@ -88,7 +87,7 @@ function judgeGate(src){
 const rows = judgeGate(GATE);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1~3. idle-gate.js'); chk(ok, msg); });
 
-say('── 4. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 4. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['꺼져도 rAF 를 계속', 'G', s => s.replace("if(!o.isOn()){ on = false; o.sleep(now); return; }", 'if(!o.isOn()){ o.raf(tick); return; }')],
   ['wake 가 두 벌을 건다', 'G', s => s.replace('if(on || !o.isOn()) return;', 'if(!o.isOn()) return;')],

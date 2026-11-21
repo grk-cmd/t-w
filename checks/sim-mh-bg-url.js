@@ -5,7 +5,7 @@
    ・2절: 불러 보기 — 바꾼 주소만 · 같은 주소는 한 번 · 못 받으면 onFail · 받으면 조용히
    ・3절: 실제 그리는 곳 — advApplyBg(바탕화면) · applyMyHomeBg(창 바깥)를 떼어 돌린다. 남의 집에서는 안내하지 않는다
    ・4절: 연결 — html 이 쓰는 모듈보다 먼저 싣는다 · 에러 번호가 표에 있다
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] node checks/run.js sim-mh-bg-url */
 'use strict';
 const fs = require('fs');
@@ -39,10 +39,10 @@ function paint(where, src, mod, bg, visiting){
   if (where === 'desk') {
     const fn = grabFn(src, 'function advApplyBg(){');
     if (!fn) throw new Error('advApplyBg 를 못 찾음');
-    new Function('document', 'TwMhBgUrl', 'TwSafeHtml', 'advVisiting', 'advVisitBg', 'ADV', 'advApplyFolderHide', fn + '\nadvApplyBg();')(
-      doc, B, SH, visiting, visiting ? bg : null, { bg: visiting ? null : bg }, () => {});
+    new Function('document', 'TwMhBgUrl', 'TwSafeHtml', 'advVisiting', 'mhdShown', 'myhomeStore', 'advApplyFolderHide', fn + '\nadvApplyBg();')(
+      doc, B, SH, visiting, () => ({ bg }), { viewing: () => (visiting ? 'friend' : null) }, () => {});
   } else {
-    const fn = grabFn(src, 'function applyMyHomeBg(){');
+    const fn = grabFn(src, 'function applyMyHomeBg(preview){');
     if (!fn) throw new Error('applyMyHomeBg 를 못 찾음');
     new Function('document', 'mhBgUrl', 'TwMhBgUrl', 'TwSafeHtml', '_myHomeData', '_mhViewingUserId', fn + '\napplyMyHomeBg();')(
       doc, B, B, SH, () => ({ bg }), () => (visiting ? 'friendUid' : null));
@@ -112,13 +112,13 @@ new Function('window', 'module', SRC.codes)(undefined, codes);
 chk(!!codes.exports.CODES['E-MH-02'] && /https/.test(codes.exports.CODES['E-MH-02'].msg), '에러 번호 E-MH-02 가 표에 있고 «https» 안내를 담는다');
 chk(/TwErrorCodes\.notify\('E-MH-02'/.test(SRC.mod), '모듈의 안내는 E-MH-02 로 낸다');
 
-say('── 5. 일부러 깨 보기');
+say('── 5. mutation test');
 const breaks = [
   ['바꾸기 없음(예전처럼 http 를 버림)', 'mod', "  if(typeof u !== 'string' || !HTTP_RE.test(u)) return u;\n  return 'https://' + u.trim().slice(7);", '  return u;'],
   ['같은 주소를 매번 부름', 'mod', '    if(!u || seen.has(u)) return false;', '    if(!u) return false;'],
   ['연결이 꺼진 실패도 안내', 'mod', '      if(deps.isOffline()){ seen.delete(u); return; }\n', ''],
   ['바탕화면이 예전 씻기(cssUrl)를 바로 부름', 'desk', 'TwSafeHtml.cssUrl(TwMhBgUrl.httpsOf(bg.img))', 'TwSafeHtml.cssUrl(bg.img)'],
-  ['바탕화면이 친구 집에서도 안내', 'desk', 'if(bg && !advVisiting) TwMhBgUrl.probeOwnerBg', 'if(bg) TwMhBgUrl.probeOwnerBg'],
+  ['바탕화면이 친구 집에서도 안내', 'desk', 'if(bg && !advVisiting && !myhomeStore.viewing()) TwMhBgUrl.probeOwnerBg', 'if(bg) TwMhBgUrl.probeOwnerBg'],
   ['창 바깥이 예전 씻기(cssUrl)를 바로 부름', 'edit', 'TwSafeHtml.cssUrl(mhBgUrl.httpsOf(bg.img))', 'TwSafeHtml.cssUrl(bg.img)'],
   ['창 바깥이 친구 집에서도 안내', 'edit', 'if(bg && !_mhViewingUserId()) mhBgUrl.probeOwnerBg', 'if(bg) mhBgUrl.probeOwnerBg'],
 ];

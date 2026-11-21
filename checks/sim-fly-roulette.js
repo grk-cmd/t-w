@@ -51,7 +51,7 @@ const flyBody = strip(FLY);
 
 say('── 3. 떼어 와 돌림');
 function run(o){
-  const log = { toast: [], bubble: [], chat: [], chatLog: [], pokeSelf: [], remoteFly: [] };
+  const log = { toast: [], bubble: [], chat: [], chatLog: [], pokeSelf: [], remoteFly: [], errs: [] };
   const timers = [];
   const rnd = (o.rolls || [0.5, 0.5]).slice();
   const M = Object.create(Math); M.random = () => rnd.length ? rnd.shift() : 0.5;
@@ -63,7 +63,10 @@ function run(o){
     getMyUserId: () => 'u1',
     firebaseAPI: { sendChatLog: (room, m) => log.chatLog.push(m.text) },
     Presence: { active: () => !!o.room, roomCode: () => o.room ? 'R1' : null, sendChat: (t) => log.chat.push(t), pokeSelf: (t) => log.pokeSelf.push(t) },
-    getDisplayName: () => '나', _flyChatLog: (t) => log.chatLog.push(t),
+    _chatMyTabId: () => 'general',   // 대화창 지금 보는 탭 — 앱 코드가 typeof 가드 없이 바로 부른다
+    getUserName: () => ('name' in o ? o.name : '민수'), _flyChatLog: (t) => log.chatLog.push(t),
+    TwErrorCodes: { notify: (c) => log.errs.push(c) },
+    chatNet: { sendGame: (room, g) => o.rejectGame ? Promise.reject(new Error('net')) : log.chatLog.push(g.dice ? '나님이 주사위 [dice:' + g.dice[0] + '][dice:' + g.dice[1] + '] 가 나왔습니다.' : JSON.stringify(g)) },   // 서버가 만드는 문장 모양을 흉내 낸다
     canFly: () => o.cantFly ? { ok: false, why: '이미 날아가는 중이에요' } : { ok: true },
     flySeed: () => 42, applyRemoteFly: (s, v) => log.remoteFly.push(v),
     setTimeout: (f) => timers.push(f), Date: { now: () => o.now || 100000 }, Math: M,
@@ -87,6 +90,8 @@ function run(o){
   chk(r.pokeSelf.length === 1 && r.pokeSelf[0] === 'fly:42' && !r.remoteFly.length, '1 있음 → pokeSelf(\'fly:시드\') 한 번 · 로컬 직접 재생 없음');
   r = run({ room: true, ch: 2, rolls: [0.01, 0.01] });          // 1 · 1
   chk(r.chatLog.length === 1 && /님이 룰렛/.test(r.chatLog[0]) && !/날아갔|살아남/.test(r.chatLog[0]), '투게더룸 → 기록 한 줄(«님이» · 결과 꼬리 없음)');
+  r = run({ room: true, ch: 2, rolls: [0.5, 0.5], name: '' });
+  chk(r.chatLog.length === 1 && /^룰렛을 돌려 /.test(r.chatLog[0]) && !/나님|이름 없음/.test(r.chatLog[0]), '★ 이름이 없으면 주어 없이 «룰렛을 돌려 …» — 서버 대화 기록에 placeholder 를 싣지 않는다');
   r = run({ room: true, ch: 2, rolls: [0.5, 0.5] });
   chk(r.chatLog.length === 1 && !/날아갔|살아남/.test(r.chatLog[0]), '투게더룸 · 1 없음도 같은 모양 한 줄');
   r = run({ room: false, ch: 0, rolls: [0.01, 0.5] });
@@ -146,5 +151,17 @@ say('── 5. 🎟️ 하루 6번 — 룰렛 · 🎲 각각 (개정 76)');
   chk(Dc.indexOf("_dailyPlayTake('dice')") > Dc.indexOf('_activeChannel !== 2') && Dc.indexOf("_dailyPlayTake('dice')") < Dc.indexOf('Math.random()'), '🎲: 투게더룸 게이트 뒤 · 굴리기 전에 센다');
 }
 
-say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
-process.exit(fail ? 1 : 0);
+say('── 8. 🎲 기록을 못 보내면 번호로 알린다(삼키지 않는다)');
+(async () => {
+  const go = async (o) => { const r = run(Object.assign({ fn: DICE, call: '_rollDice', ch: 2, room: true, rolls: [0.5, 0.9] }, o)); for(let i = 0; i < 6; i++) await Promise.resolve(); return r; };
+  const r = await go({ rejectGame: true });
+  chk(r.errs.join() === 'E-CHAT-01', '★ 기록(sendGame)이 거절되면 E-CHAT-01 로 알린다');
+  chk((await go({})).errs.length === 0, '  보내졌으면 조용');
+  const bad = DICE;   // mutation test 는 소스 교체 — 거절을 다시 삼키게
+  const swallowed = DICE.split(".catch(e=>{ TwErrorCodes.notify('E-CHAT-01', e); })").join(".then(null, ()=>{})");
+  const rb = swallowed === bad ? null : run({ fn: swallowed, call: '_rollDice', ch: 2, room: true, rolls: [0.5, 0.9], rejectGame: true });
+  for(let i = 0; i < 6; i++) await Promise.resolve();
+  chk(rb && rb.errs.length === 0, 'mutation test: 거절을 다시 삼키게 하면 8절이 빨강');
+  say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
+  process.exit(fail ? 1 : 0);
+})().catch((e) => { console.error(e); process.exit(1); });

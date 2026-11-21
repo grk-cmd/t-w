@@ -4,7 +4,7 @@
    §2 main.js 의 _setRunTop · _onSysPromptFront 를 꺼내 가짜 창에 돌린다 — 확인 창이 오면 내리고, 물러나면 다시 맨 위(screen-saver),
       런처 · 생성기(설정 모드)에서는 건드리지 않고, 같은 값이 다시 와도 다시 부르지 않는다
    §3 연결 — 활성 창 폴링이 판정을 부르고, 창 배치(run)도 같은 깃발로 맨 위를 정한다(수백 번/분 다시 올리지 않게)
-   §4 깨 보기 */
+   §4 mutation test */
 'use strict';
 const fs = require('fs');
 const say = console.log;
@@ -52,8 +52,8 @@ function run(src){
   if (!b) return null;
   const calls = [], logs = [];
   const win = { setAlwaysOnTop: (...a) => calls.push(a), isDestroyed: () => false };
-  const env = { mainWindow: win, _isConfigMode: false };
-  const api = new Function('env', '_diagLog', `let mainWindow = env.mainWindow; let _isConfigMode = env._isConfigMode;\n${b}\nreturn { on: _onSysPromptFront, setConfig: v => { _isConfigMode = v; }, front: () => _sysPromptFront };`)(env, (m) => logs.push(m));
+  const env = { mainWindow: win, _isConfigMode: false, overlay: { TOP_LEVEL: 'screen-saver' } };   // 단계는 플랫폼 모듈(overlay-*.js TOP_LEVEL) — 여기선 윈도우 값
+  const api = new Function('env', '_diagLog', `let mainWindow = env.mainWindow; let _isConfigMode = env._isConfigMode; const overlay = env.overlay;\n${b}\nreturn { on: _onSysPromptFront, setConfig: v => { _isConfigMode = v; }, front: () => _sysPromptFront };`)(env, (m) => logs.push(m));
   return { api, calls, logs };
 }
 
@@ -66,7 +66,7 @@ if (r) {
   r.api.on(true);
   chk(r.calls.length === 1, '  ↳ 같은 값이 다시 와도(0.5초마다) 다시 부르지 않음');
   r.api.on(false);
-  chk(JSON.stringify(r.calls[1]) === JSON.stringify([true, 'screen-saver']), '물러나면 다시 맨 위(screen-saver)');
+  chk(JSON.stringify(r.calls[1]) === JSON.stringify([true, 'screen-saver']), '물러나면 다시 맨 위(overlay.TOP_LEVEL — 윈도우 screen-saver · 맥 status)');
   r.api.setConfig(true); r.api.on(true); r.api.on(false);
   chk(r.calls.length === 2 && r.api.front() === false, '런처 · 생성기(설정 모드)에서는 창을 건드리지 않음(깃발만 따라감)');
   chk(r.logs.length === 4 && r.logs.every(l => l.startsWith('[확인창]')), '바뀔 때마다 진단 기록 한 줄');
@@ -77,14 +77,14 @@ chk(/_onSysPromptFront\(isSystemPrompt\(activeKey\)\);/.test(MAIN), '활성 창 
 chk(/require\('\.\/app\/parts\/shared\/system-prompt'\)/.test(MAIN), 'main 이 app/parts/shared/system-prompt.js 를 싣는다(설치 파일 app/** 에 든다)');
 const runBranch = (MAIN.match(/const wantTop = !_sysPromptFront;[\s\S]*?_noteApplied\(runRect, wantTop\);/) || [''])[0];
 chk(/_winAlreadyIs\(runRect, wantTop\)/.test(runBranch) && /_setRunTop\(wantTop\);/.test(runBranch), '창 배치(run)도 같은 깃발로 맨 위를 정한다 — 확인 창 위로 되돌리지 않음');
-chk(!/mainWindow\.setAlwaysOnTop\(true, 'screen-saver'\);\s*\n\s*_noteApplied\(runRect/.test(MAIN), '  ↳ run 갈래에 맨 위 고정 줄이 남지 않음');
+chk(!/mainWindow\.setAlwaysOnTop\(true, (?:'screen-saver'|overlay\.TOP_LEVEL)\);\s*\n\s*_noteApplied\(runRect/.test(MAIN), '  ↳ run 갈래에 맨 위 고정 줄이 남지 않음');
 
 chk(/if\(w === mainWindow\) _setRunTop\(!_sysPromptFront\);/.test(MAIN), '색 고르기 창을 닫을 때 메인 창도 같은 깃발로 되돌린다');
 chk(/_winAlreadyIs\(rect, !_sysPromptFront\)\) return;/.test(MAIN) && /_noteApplied\(rect, !_sysPromptFront\);/.test(MAIN), '표시 설정이 바뀔 때도 같은 깃발로 판정 · 기록');
 chk(!/_winAlreadyIs\(rect, true\)/.test(MAIN), '  ↳ 실행 화면을 «늘 맨 위» 로 판정하는 자리가 남지 않음');
 
-say('§4 깨 보기');
-const b1 = MAIN.replace("  if(top) mainWindow.setAlwaysOnTop(true, 'screen-saver');\n  else mainWindow.setAlwaysOnTop(false);", "  mainWindow.setAlwaysOnTop(true, 'screen-saver');");
+say('§4 mutation test');
+const b1 = MAIN.replace("  if(top) mainWindow.setAlwaysOnTop(true, overlay.TOP_LEVEL);\n  else mainWindow.setAlwaysOnTop(false);", "  mainWindow.setAlwaysOnTop(true, overlay.TOP_LEVEL);");
 const r1 = b1 !== MAIN ? run(b1) : null;
 if (r1) r1.api.on(true);
 chk(!!r1 && JSON.stringify(r1.calls) !== JSON.stringify([[false]]), '늘 맨 위로 고정하면 «내림» 이 빨강');
