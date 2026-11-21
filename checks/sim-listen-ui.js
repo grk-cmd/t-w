@@ -400,6 +400,18 @@ say('── 8. 이어 붙인 곳');
     const fnOf = (src, head) => { const i = src.indexOf(head); return i < 0 ? '' : src.slice(i, src.indexOf('\n', i)); };
     const mkOpen = (src, on, listenOn) => new Function('roomEntryAccountStore', 'listen', "const SECRET_MUSIC_KEY = 'tw.secretRoomMusic';\n" + fnOf(src, 'function _secretMusicOn(') + '\n' + fnOf(src, 'function _secretOpenFields(') + '\nreturn _secretOpenFields;')(
       { get: (k) => (k === 'tw.secretRoomMusic' && on ? '1' : null) }, { ENABLED: listenOn !== false });
+    {
+      const i = RE.indexOf('function _refreshSecretRoomUI(){'), j = RE.indexOf('\n}\n', i) + 2;
+      const row = async (listenOn, has) => {
+        const els = { fsInviteSecretWrap: { style: {} }, fsInviteSecretCode: { value: '' }, fsSecretMusicRow: { style: { display: 'x' } }, fsSecretMusic: { checked: false } };
+        new Function('document', 'mySecretRoom', 'listen', '_secretMusicOn', 'console', RE.slice(i, j) + '\n_refreshSecretRoomUI();')(
+          { getElementById: (id) => els[id] || null }, async () => (has ? { code: 'SCRT-AB12' } : null), { ENABLED: listenOn }, () => false, { warn(){} });
+        await flush(); await flush();
+        return els.fsSecretMusicRow.style.display;
+      };
+      chk(i > 0 && await row(false, true) === 'none' && await row(true, true) === '' && await row(true, false) === 'none',
+        '★ 스위치 끔 — 설정의 «내 시크릿룸을 같이 듣기로 열기» 칸을 숨긴다(켜면 내 시크릿룸이 있을 때만 보인다)');
+    }
     chk(mkOpen(RE, true, false)(true).music === false && mkOpen(RE, true, false)(false) === undefined, '★ 스위치 끔 — 주인이 켜 둔 선택이 남아 있어도 music:false 로 싣는다(같이 듣기 방을 열지 않는다)');
     const open1 = mkOpen(RE, true), open0 = mkOpen(RE, false);
     chk(open1(true).music === true && open0(true).music === false && open1(false) === undefined,

@@ -138,12 +138,12 @@
 | **sim-secret-room-grant.js** | 162 | **f325a166a9c7** |
 | **sim-room-meta-cleanup.js** | 250 | **671ee02072a8** |
 | **sim-room-stats.js** | 155 | **a02149187d49** |
-| **sim-room-lobby-ui.js** | 292 | **0fa90be34f3e** |
+| **sim-room-lobby-ui.js** | 311 | **0e6a354d89e5** |
 | **sim-room-info-ui.js** | 189 | **556364aa869f** |
 | **sim-listen-model.js** | 98 | **f2ad612fa0d4** |
 | **sim-listen-provider.js** | 95 | **742da2943880** |
-| **sim-listen-ui.js** | 443 | **87e61f98f048** |
-| **sim-room-settings.js** | 248 | **46970ddc1d2e** |
+| **sim-listen-ui.js** | 455 | **950ca39a5d9c** |
+| **sim-room-settings.js** | 249 | **8420ce9d2700** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
 | **sim-visit-ping.js** | 151 | **9f3a61fcae2c** |
 | **sim-usage-snapshot.js** | 194 | **a2cfdf538af3** |

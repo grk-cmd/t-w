@@ -132,6 +132,7 @@ say('── 4. room-create-ui.js — 가짜 DOM');
     off.el('rcTitle').value = '공부방'; off.el('rcMusic').checked = true;   // 숨은 칸이 어떻게든 켜져 있어도
     off.el('rcCreate').onclick();
     chk(off.made.length === 1 && off.made[0][1].music === false, '★ 스위치 끔 — music:false 로만 넘긴다(숨은 칸이 켜져 있어도)');
+    chk(/listenEnabled: TwListenModel\.ENABLED,/.test(need('app.js')), '  app.js 가 스위치(TwListenModel.ENABLED)를 방 만들기 창에 넘긴다(박아 둔 true 가 아니다)');
   }
   t.made.length = 1;
   chk(t.el('roomCreatePanel').hidden && !t.el('lobbyMain').hidden, '  만들고 나면 창을 닫고 로비로');
