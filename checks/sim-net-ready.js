@@ -5,7 +5,7 @@
    ・1절: whenNetReady — 준비면 바로(기다리지 않음) · 아니면 once 로 한 번 · need(함수 이름)가 없으면 기다림 · 신호 뒤 부름
    ・2절: onNetReady(once 없음 — 두 번 오면 두 번) · waitNetReady(ms) — 신호면 true · 시간이 다 되면 그때 연결 유무 · 한 번만 풀림
    ・3절: firebase-ready 에 직접 addEventListener 하는 곳 0곳(이 모듈 빼고) · 쓰는 파일(USERS)이 TwNetReady 를 부른다 · html 순서 · smoke PRELOAD
-   ・4절: 일부러 깨 보기 */
+   ・4절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -123,7 +123,7 @@ chk(!R.notUsing.length, '쓰는 파일 ' + USERS.length + '곳이 TwNetReady 로
 chk(!R.late.length && R.firstBeforeApp, 'html — net-ready.js 를 쓰는 모듈 · app.js 보다 먼저 싣는다' + (R.late.length ? ' — ' + R.late.join(' · ') : ''));
 chk(R.smoke, 'smoke.js PRELOAD 에 net-ready.js');
 
-say('── 4. 일부러 깨 보기');
+say('── 4. mutation test');
 const bk = async (mod, files, html, smoke) => judge(mod || MOD, html || HTML, smoke || SMOKE, files || FILES);
 let b = await bk(MOD.replace('window.addEventListener(NET_READY_EVENT, cb, { once:true });', 'window.addEventListener(NET_READY_EVENT, cb);'));
 chk(!b.waitOnce || !b.firedOnce, 'whenNetReady 에서 once 를 빼면 빨강');

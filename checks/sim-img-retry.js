@@ -2,7 +2,7 @@
    ・1절: retryUrl — http(s) 만 · ? 가 있으면 & · 고정 표식(같은 주소 → 같은 결과 = 캐시가 걸린다) · 이미 표식이면 null(두 번까지) · dataURL · 빈 값 null
    ・1-2절: loadWithRetry — 받기 함수를 실제로 불러 처음 실패면 표식 주소로 한 번 더 · dataURL · 이미 표식이면 처음 실패 그대로 · 둘 다 실패면 두 번째 실패
    ・2절: 쓰는 곳 — room-sync.js · face-heal.js 는 loadWithRetry, animal.js 는 retryUrl 을 부르고 표식 규칙을 따로 쓰지 않는다 · html 이 먼저 싣는다
-   ・3절: 일부러 깨 보기
+   ・3절: mutation test
    [실행] node checks/run.js sim-img-retry */
 'use strict';
 const fs = require('fs');
@@ -92,7 +92,7 @@ say('── 1-2. loadWithRetry');
 (await judgeLoad(MOD)).forEach(([ok, msg]) => chk(ok, msg));
 say('── 2. 쓰는 곳');
 judgeUse(RS, AN, HTML, FH).forEach(([ok, msg]) => chk(ok, msg));
-say('── 3. 일부러 깨 보기');
+say('── 3. mutation test');
 const breaks = [
   ['표식이 매번 달라짐', () => judgeFn(MOD.replace("const RETRY_MARK = 'twr=1';", "const RETRY_MARK = 'twr=' + Math.random();"))],
   ['? 를 안 가림', () => judgeFn(MOD.replace("(s.indexOf('?') >= 0 ? '&' : '?')", "'?'"))],

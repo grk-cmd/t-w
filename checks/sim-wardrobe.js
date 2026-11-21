@@ -3,7 +3,7 @@
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(ORBIT_DRAG_DIR · _clearMultiPanelRef · _wdAfterMainSwap · activeWdAdj · setActiveWdAdj · buildFreeColorPicker · clampWdPreviewIntoView · commitWdDraft · createWardrobeAdjPanel · currentWdTab · detachWdGizmo · ensureWdDraft · ensureWdGizmo · placeWdPreview · refreshWdPreviewChar · refreshWdPreviewColorSection · renderWardrobe · setWdGizmoMode · sizeWdPreview · syncWdGizmoToXf · syncWdPreviewOwner · toggleEquip · updateWdCam · updateWdGizmoForActivePanel · wdCam · wdDraftDef · wdGizmo · wdGizmoMode · wdPreviewBase · wdPreviewSavedPos · wdScene)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 71줄(LIGHT_PRESET 빼고 baseFlatOf 더함) · 부르는 곳은 wardrobeMod.이름 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · wardrobe.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -79,7 +79,7 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/character/wardrobe.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
@@ -88,7 +88,7 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const wardrobeMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('wardrobeMod.' + x)); if(n){ ls[i] = ls[i].replace('wardrobeMod.' + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 던짐', m => m.replace('function createWardrobe(deps){', 'function createWardrobe(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createWardrobe(deps){', 'function createWardrobe(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
@@ -123,7 +123,7 @@ const _part4 = (async () => {
     chk(JSON.stringify(c4) === '[["apply"],["render"]]', '  받으면 알림 없이 적용 · 다시 그림');
     const bb = deskClickOf(MOD.replace("(glbFailWhy(rec.glbUrl) || 'no-glb')", "'no-glb'"));
     const cb = bb ? await runDeskClick(bb, { rec: { id: 'a', glbUrl: 'u' }, why: 'net-fail X 1ms' }) : [];
-    chk(bb && JSON.stringify(cb) !== JSON.stringify([['E-CHAR-13', 'net-fail X 1ms']]), '깨 보기 — 이유를 안 실으면 위 판정이 빨강');
+    chk(bb && JSON.stringify(cb) !== JSON.stringify([['E-CHAR-13', 'net-fail X 1ms']]), 'mutation test — 이유를 안 실으면 위 판정이 빨강');
   }
 })();
 
@@ -180,15 +180,15 @@ function deskTab(mod){
     await T.settle();
     chk(T.log.layout === 3, '    다 그린 뒤 한 번 잡는다(책상 없음 → 진짜 책상의 큰 폭 차이)');
   }
-  /* 깨 보기 — 그리기를 안 기다리고 바로 잡으면(옛 순서) · 전용 책상 카드가 안 잡으면 위 판정이 빨강 */
+  /* mutation test — 그리기를 안 기다리고 바로 잡으면(옛 순서) · 전용 책상 카드가 안 잡으면 위 판정이 빨강 */
   const early = deskTab(MOD.replace('if(relayout) Promise.resolve(drawn).catch(()=>{}).then(()=>layoutSeats());', 'if(relayout) layoutSeats();'));
   let caught = false;
   if(early){ early.render(early.el()); early.cards.find(c => c.label === '책상 없음').onclick(); await tick(); caught = early.log.layout === 1; }
-  chk(caught, '  깨 보기 — 그리기가 끝나기 전에 좌석 줄을 잡으면 잡힌다');
+  chk(caught, '  mutation test — 그리기가 끝나기 전에 좌석 줄을 잡으면 잡힌다');
   const noLic = deskTab(MOD.replace('_wdApplyDeskChange(d=>{ d.deskCatalogId=rec.id; d.deskGlb=null; }, true);', '_wdApplyDeskChange(d=>{ d.deskCatalogId=rec.id; d.deskGlb=null; });'));
   caught = false;
   if(noLic){ noLic.render(noLic.el()); await noLic.cards.find(c => c.label === '전용').onclick(); await noLic.settle(); caught = noLic.log.layout === 0; }
-  chk(caught, '  깨 보기 — 전용 책상 카드가 좌석 줄을 안 잡으면 잡힌다');
+  chk(caught, '  mutation test — 전용 책상 카드가 좌석 줄을 안 잡으면 잡힌다');
   say('── 5. 닫힌 미리보기 창은 rAF 를 걸지 않는다 — 열리면 다음 rAF 에 다시(가짜 rAF · 가짜 MutationObserver)');
   const sleepRows = (mod) => {
     const r = [], t = (ok, msg) => r.push([!!ok, msg]);
@@ -222,7 +222,7 @@ function deskTab(mod){
     ['열려도 안 깨움', MOD.replace('TwIdleGate.onClassChange(p, ()=>loop.wake());', '')],
   ]){
     let r2; try{ r2 = sleepRows(m2); }catch(_){ r2 = [[false, '던짐']]; }
-    chk(m2 !== MOD && r2.some(([ok]) => !ok), '  깨 보기: ' + nm + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+    chk(m2 !== MOD && r2.some(([ok]) => !ok), '  mutation test: ' + nm + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
   }
   say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
   process.exit(fail ? 1 : 0);

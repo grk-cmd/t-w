@@ -3,7 +3,7 @@
    ・1절: 순수 — stateOf(모양 · 0 개 · 모르는 시즌) · resultsOf · reasonOf · clampCount
    ・2절: load — 두 GET · 토큰 주인 기억 · 모양이 틀리면 던짐 · 실패도 던짐
    ・3절: draw — 받기 전 거절 · 본문 · 주인 묶기 · 성공 · 실패 이유 · 틀린 응답
-   ・4절: 깨 보기
+   ・4절: mutation test
    [실행] 저장소 루트에서 node checks/run.js sim-gacha-api */
 'use strict';
 const path = require('path');
@@ -107,7 +107,7 @@ await sec('── 3. draw', async () => {
   chk(!r.ok && r.reason === 'nouser', '  reset 뒤에는 다시 읽기 전까지 보내지 않는다');
 });
 
-await sec('── 4. 깨 보기', async () => {
+await sec('── 4. mutation test', async () => {
   const broke = (from, to) => { const s = SRC.replace(from, to); return s === SRC ? null : load(s); };
   const B1 = broke('if(!n) continue;', '');
   chk(B1 && Object.keys(B1.stateOf(ITEMS.items, GACHA).owned).length !== 2, '0 개 줄을 거르지 않으면 1절이 빨강이 된다');

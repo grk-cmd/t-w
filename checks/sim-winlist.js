@@ -5,7 +5,7 @@
      게다가 무엇을 왜 뺐는지 · 무엇을 등록했는지가 진단 기록에 안 남아 제보를 가를 수 없었다.
    ・1절: 실물 listWindows 를 가짜 창 목록 · tasklist 로 돌린다 — 제목 없는 큰 창은 넣음(표시 글) · 작은 창은 뺌 · 같은 exe 의 제목 있는 창이 이김 ·
      경로 못 읽은 창은 tasklist 이름 · 진단 한 줄(뺀 까닭 · 개수 · 이름)
-   ・2절: main.js 등록 진단 줄(자동 · 실패 · 목록에서) · 3절: 깨 보기 */
+   ・2절: main.js 등록 진단 줄(자동 · 실패 · 목록에서) · 3절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -92,7 +92,7 @@ async function behave(src, noAddon){
   chk(b.titledWins, '  같은 exe 에 제목 있는 창이 있으면 그쪽(짧아도) — 한 줄만');
   chk(b.tasklist, '★ 경로 · 제목 둘 다 못 읽은 큰 창(안티치트 · 보호 프로세스)도 tasklist 이름으로(경로는 빈 채) — 라이브러리 getWindows 는 이 창을 버린다');
   const noAddon = await behave(SRC, true);
-  chk(noAddon.ok && noAddon.game && !noAddon.tasklist, '  addon 이 없는 판은 옛 길(경로 빈 창은 라이브러리가 버림) — 던지지 않는다');
+  chk(noAddon.ok && noAddon.game && !noAddon.tasklist, '  addon 이 없는 판은 옛 경로(경로 빈 창은 라이브러리가 버림) — 던지지 않는다');
   chk(b.noName, '  tasklist 에도 없으면 뺀다');
   chk(b.throws, '  제목 읽기가 던져도 큰 창이면 넣는다');
   chk(b.rest, '셸 · 숨김 · 작은 창은 그대로 뺀다');
@@ -103,7 +103,7 @@ async function behave(src, noAddon){
   chk(/_diagLog\('\[등록\] 슬롯 ' \+ \(idx \+ 1\) \+ ' ← ' \+ focusApps\[idx\]\.key \+ ' «' \+ focusApps\[idx\]\.name \+ '» 자동\(직전 창\)'\);/.test(MAIN), '자동 등록 — 무엇을(키 · 이름)');
   chk(/' «' \+ focusApps\[idx\]\.name \+ '» 목록에서' \+ \(pickedPath \? '' : ' \(경로 못 읽음 — 이름으로\)'\)\);/.test(MAIN), '목록에서 고름 — 무엇을 · 경로를 못 읽었는지');
 
-  say('\n── 3절: 깨 보기');
+  say('\n── 3절: mutation test');
   const old = await behave(SRC.replace("      if(!title && !big){ skip.untitledSmall++; continue; }", "      if(!title){ skip.untitledSmall++; continue; }"));
   chk(old.game === false, '제목 없는 창을 통째로 빼면(옛 동작) 1절 «안티치트 게임도 목록에» 가 빨강');
   const noLen = await behave(SRC.replace("(prev.title === UNTITLED_LABEL ? 0 : prev.title.length)", "prev.title.length"));

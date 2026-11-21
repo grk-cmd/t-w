@@ -4,7 +4,7 @@
    ・2절: 진짜 rt-hub · realtime-link 위에서 — 서버가 4999 로 닫으면 띠 · 4001 두 번이면 로그인 · 1006 이 15초 넘으면 띠
    ・3절: 띠 화면 — 글은 textContent · 단추는 있을 때만
    ・4절: 배선 — html 차례(rt-hub → rt-status-ui → app.js) · 클릭 통과 목록 #rtBand · app.js 가 만든다
-   ・5절: 일부러 깨 보기 */
+   ・5절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
@@ -204,7 +204,7 @@ async function judge(S){
 (async () => {
 await judge(SRC0);
 
-say('── 5. 일부러 깨 보기');
+say('── 5. mutation test');
 const BREAKS = [
   ['UI', "        if(rt.state() === S.RETRYING && !deps.inRoom()) band.show(", "        if(rt.state() === S.RETRYING) band.show(", '방 안에서도 띠'],
   ['UI', "      if(bandTimer || !sawReady) return;", "      if(bandTimer) return;", '켜는 중에도 «다시 연결» 띠'],
@@ -238,7 +238,7 @@ for(const [where, from, to, what] of BREAKS){
   caught.push([what, qfail]);
 }
 const missed = caught.filter(([, k]) => k === 0).map(([w]) => w);
-chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
 console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

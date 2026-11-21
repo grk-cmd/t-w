@@ -4,7 +4,7 @@
      있어서 두 화면이 설정 창을 바라봤고, 설정 창은 다른 기능을 많이 부르는 위층이라 순환이 됐다(sim-dep-cycles · 모듈 순환 끊기 7).
    ・1절: 저장 — 12자로 자른다 · 비우면 이름 지우기(서버에 "" · 이 PC 도 빈칸 — «이름 없음» 을 적지 않는다) · 운영진처럼 보이는 이름은 막는다(관리자 · 이미 그 이름이면 예외) · 프로필 · 마이홈 표시 갱신 · 방 이름표는 서버 몫(앱이 방에 이름을 싣지 않는다 · pv 4)
    ・2절: 연결 — HTML 순서(name-guard.js 뒤 · app.js 앞) · app.js 는 설정 창 만드는 줄 바로 앞에서 만든다 · 부르는 곳은 userNameMod.이름
-   ・3절: 일부러 깨 보기 */
+   ・3절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -114,7 +114,7 @@ chk(R.order, 'html — name-guard.js 뒤 · app.js 앞에 싣는다');
 chk(R.made, 'app.js 는 설정 창 만드는 줄 바로 앞(원래 자리)에서 만든다');
 chk(R.callers >= 3 && R.old === 0, '부르는 곳은 userNameMod.이름(' + R.callers + '곳) · 설정 창 이름으로 부르는 곳 없음');
 
-say('── 3. 일부러 깨 보기');
+say('── 3. mutation test');
 chk(!judge(MOD.replace('.slice(0, USER_NAME_MAX)', ''), HTML, APP).cut, '자르기를 빼면 빨강');
 chk(!judge(MOD.replace('const next = v;', "const next = v || '이름 없음';"), HTML, APP).empty, '빈 이름을 «이름 없음» 으로 저장하면 빨강(서버 · 이 PC 에 placeholder)');
 chk(!judge(MOD.replace("  if(isStaffName(v) && v !== getUserName().trim() && !(typeof isAdmin() !== 'undefined' && isAdmin())){", '  if(false){'), HTML, APP).staff, '운영진 이름 막기를 빼면 빨강');

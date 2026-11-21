@@ -3,7 +3,7 @@
    여기서는 모듈 모양 · app.js 연결 · 단추가 맞는 동작을 부르는지를 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(없음)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 4줄 그대로 · 부르는 곳은 licenseKeyMod.이름 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · license-key.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -108,7 +108,7 @@ const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
 say('── 2-2. 단추 연결');
 (await btnRows(MOD)).forEach(([ok, msg]) => chk(ok, msg));
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/account/license-key.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
@@ -121,7 +121,7 @@ const breaks = [
   ['실패해도 입력칸을 비움', m => m.replace("if(r && r.ok) input.value = '';", "input.value = '';"), null, null],
   ['다시 시도가 받기를 건너뛸 수 있게 함', m => m.replace("licenseScreenMod.open()", "licenseScreenMod.open({ ifNeeded: true })"), null, null],
   ['Enter 가 확인을 안 누름', m => m.replace("if(e.key==='Enter') licKeyEl('licenseSubmitBtn').click();", ""), null, null],
-  ['만들 때 던짐', m => m.replace('function createLicenseKey(deps){', 'function createLicenseKey(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createLicenseKey(deps){', 'function createLicenseKey(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;

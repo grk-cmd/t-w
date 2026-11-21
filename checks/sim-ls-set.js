@@ -1,7 +1,7 @@
 /* ═══ 💾 sim-ls-set.js — 작은 설정 저장 헬퍼(shared/ls-set.js · app.js 분리 M14) ═══════════════
    ・1절: 성공 · 값이 안 남는 환경 · setItem 이 던지는 환경 · 안내는 세션당 한 번
    ・2절: 연결 — html 순서 · 만드는 줄 · 옛 이름
-   ・3절: 일부러 깨 보기 */
+   ・3절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -41,7 +41,7 @@ say('§2 연결');
   chk(!!pairs && pairs.length === 1 && pairs[0][0] === 'toast' && pairs[0][1] === 'toast', 'app.js — 만든다 · deps 는 toast 하나(함수 선언이라 값으로 넘긴다)');
   chk(/^const _lsSet = lsSetMod\._lsSet;/m.test(code) && !/function _lsSet\b/.test(code), '  옛 이름을 const 로 받고 본문은 안 남음');
 }
-say('§3 일부러 깨 보기');
+say('§3 mutation test');
 {
   const brk = (a, b) => { const m = SRC.replace(a, b); return m === SRC ? null : m; };
   const m1 = brk("if(localStorage.getItem(key) !== s) throw new Error('값이 남지 않음');", "");

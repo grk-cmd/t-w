@@ -4,7 +4,7 @@
    ・2절: load — GET 한 번 · 주인 기억 · 모양이 틀리면 던짐 · 빈 옷장은 성공
    ・3절: 쓰기 — 읽기 전엔 보내지 않음 · 경로 · 본문 · 주인 묶기 · 새 요청 이름 · 응답 씻기 · 실패는 그대로 던짐(되풀이 없음)
    ・4절: 휴지통 · 첫 실행 올리기
-   ・5절: 깨 보기
+   ・5절: mutation test
    [실행] 저장소 루트에서 node checks/run.js sim-closet-api */
 'use strict';
 const path = require('path');
@@ -146,7 +146,7 @@ await sec('── 4. 휴지통 · 첫 실행 올리기', async () => {
   chk(th && th.code === 'OWNER_CHANGED', 'reset 뒤에는 다시 읽기 전까지 쓰지 않는다');
 });
 
-await sec('── 5. 깨 보기', async () => {
+await sec('── 5. mutation test', async () => {
   const broke = (from, to) => { const s = SRC.replace(from, to); return s === SRC ? null : load(s); };
   const B1 = broke('head.slot !== i || ', '');
   chk(B1 && B1.closetOf(Object.assign({}, CLOSET, { slots: ['b', null, 'a', null, null] })) !== null, '슬롯 칸 대조를 빼면 1절이 빨강이 된다');

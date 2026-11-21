@@ -3,7 +3,7 @@
    ・1절: 같은 값이면 건너뜀 · 자리비움(op<0.001)이면 mesh 를 끄고 원래 visible 을 기억 · 풀리면 복원 · _bodyOff 표시
    ・2절: 파츠 원본 투명도는 «불투명할 때 · 건드리기 전» 에만 잰다(머리가 영영 안 보이던 사고) · transparent · depthWrite
    ・3절: 연결 — html 순서 · 만드는 줄 · 옛 이름 · app.js 에 함수가 안 남음
-   ・4절: 일부러 깨 보기
+   ・4절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. */
 'use strict';
 const fs = require('fs');
@@ -65,7 +65,7 @@ say('§3 연결');
   chk(/const seatOpacityMod = TwSeatOpacity\.createSeatOpacity\(\{\s*\}\);\s*const setSeatOpacity = seatOpacityMod\.setSeatOpacity;/.test(code), 'app.js — 만들고 옛 이름 const 로 받는다');
   chk(!/function setSeatOpacity\b/.test(code), '  app.js 에 setSeatOpacity 본문이 안 남음');
 }
-say('§4 일부러 깨 보기');
+say('§4 mutation test');
 {
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const m1 = brk("if(seat._lastOp===op) return;", '');

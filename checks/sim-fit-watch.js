@@ -3,7 +3,7 @@
         console.warn 한 줄로 남겨 오류 기록(tw-error.log)으로 받는다.
    ・1절: 모듈을 불러 돌린다 — 첫 값 · 그대로 · 발밑 · 슬라이더 바뀜은 조용히 · 설명 안 되는 높이 · 크기 · rig 뜸은 경고 · 모델마다 따로 · 빈 값
    ・2절: 배선 — fitModel 이 기본 자세 안에서 발밑 깊이를 잰 뒤 note(값 다섯 · 상태) · html 에 app.js 보다 먼저
-   ・3절: 깨 보기
+   ・3절: mutation test
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
 'use strict';
 const fs = require('fs');
@@ -121,7 +121,7 @@ function wired(app){
 chk(wired(SRC), '★ fitModel — 기본 자세 안에서 발밑 깊이를 잰 바로 뒤 note(크기 · 발바닥 · 슬라이더 · 발밑 · 높이 + rig 높이 · 눕힘 · 액자 고정 · 올라탐 · 동물)');
 chk(/parts\/character\/fit-watch\.js[\s\S]*parts\/app\.js/.test(HTML.slice(HTML.indexOf('fit-watch.js') - 40)), '  html 에 app.js 보다 먼저');
 
-say('── 3. 깨 보기');
+say('── 3. mutation test');
 chk(!behave(MOD.replace('((t.under - p.under) + (t.lift - p.lift))', '(t.under - p.under)')).slider, '슬라이더 몫을 설명에서 빼면 위 «평소 조작은 조용히» 가 빨강');
 chk(!behave(MOD.replace("if(underMoved && parts === L.parts) warn(", "if(false) warn(")).under, '발밑 깊이 한 줄을 빼면 위 ★ 가 빨강');
 chk(!behave(MOD.replace(' && Math.abs((t.under + t.lift) - (p.under + p.lift)) > TOL_Y', '')).slider, '발밑 줄에서 슬라이더 몫을 안 빼면 위 «평소 조작은 조용히»(욕조 + 슬라이더) 가 빨강');

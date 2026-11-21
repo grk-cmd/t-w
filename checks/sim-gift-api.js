@@ -7,7 +7,7 @@
    ・4절: 주인 묶기 — 읽기 전 쓰기는 요청 0 · 진짜 api-client 위에서 토큰 주인이 바뀌면 요청 0 · reset 뒤 요청 0 · 남의 집 읽기는 주인을 남기지 않음
    ・5절: 오류 갈래(failOf — 진짜 api-errors.js 의 translate 로) — 안내 · 없는 선물 · 없는 사람 · 그 자리 번호 · 공통 · 409
    ・6절: 배선 — html · smoke 순서 · firebase 를 부르지 않음
-   ・7절: 일부러 깨 보기
+   ・7절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -26,7 +26,7 @@ const SRC0 = {
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const load = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwGiftApi; };
-let IMGSRC = null;   // 검사 중인 image-bytes.js 원본(깨 보기가 바꿔 끼운다)
+let IMGSRC = null;   // 검사 중인 image-bytes.js 원본(mutation test 가 바꿔 끼운다)
 const imgMod = () => { const w = {}; new Function('window', 'module', IMGSRC)(w, undefined); return w.TwImageBytes; };
 const loadMod = (src) => { const mod = { exports: {} }; new Function('module', 'window', src)(mod, undefined); return mod.exports; };
 const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
@@ -294,7 +294,7 @@ async function judge(S){
 async function runAll(){
   const S = SRC0;
   await judge(S);
-  say('── 7. 일부러 깨 보기');
+  say('── 7. mutation test');
   const breaks = [
     ['보내기 본문에 이름을 실음', S.API.replace("const body = { requestId: str(o && o.requestId), imageUrl };", "const body = { requestId: str(o && o.requestId), imageUrl, fromName: o && o.fromName };"), '본문'],
     ['칸 번호를 다시 매기지 않음', S.API.replace("map((s, i) => ({ slot: i,", "map((s, i) => ({ slot: s.slot,"), '0부터'],

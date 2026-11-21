@@ -6,7 +6,7 @@
    ・2절: 조각으로 건 모듈(꾸미기 파츠 보이기 · 좌석 평준화 · 반응 이모지)을 실제로 돌려 — 만들 때 계정 칸 읽기 0번 · load 가 읽는다 · reset 이 처음 값 · A 값이 B 로 안 넘어간다
    ・2b절: 현재 슬롯(app.js _loadCurSlot) · 자리 추가 슬롯(settings-panel.js loadExtraSeatSlots)을 가짜 계정 칸 위에서 돌려 — 만들 때 읽기 0 · load 가 읽음 · 범위 밖 · 깨진 값은 처음 값
    ・3절: 연결 — app.js 의 starts 맨 앞이 userLocal · 조각 목록 · 키가 옮긴 표(MOVED_KEYS)에 있다 · 모듈 소스가 PC 칸(localStorage)을 직접 읽지 않는다
-   ・4절: 일부러 깨 보기 */
+   ・4절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -160,7 +160,7 @@ function judgeConn(S) {
 say('── 2b~3. 현재 슬롯 · 자리 추가 슬롯 · 연결');
 judgeConn(SRC).forEach(([ok, m]) => chk(ok, m));
 
-say('── 4. 일부러 깨 보기 — 빨강이 나야 한다');
+say('── 4. mutation test — 빨강이 나야 한다');
 {
   const breaks = [
     ['UL', 'start 가 load 를 안 부름', (m) => m.replace("for(const p of parts) run(p, 'load');", '')],

@@ -4,7 +4,7 @@
      크게 옮긴 값을 손보정으로 잘못 보고 원래 자리로 되돌려 붙였다. 깨끗한 값은 xf.aoClean 으로 저장값에 남긴다.
    ・1절: 가짜 벡터 위에서 _applyXfToWrapper 를 실제로 돌린다 — 옛 값(표식 없음)은 예전처럼 되더함 · aoClean 이면 옮긴 자리 그대로 · 작은 조정은 둘 다 그대로
    ・2절: wardrobe.js — 기즈모 역함수(syncWdGizmoToXf) · 위치 초기화를 실제로 돌린다(크게 옮김 → 저장 → 새 wrapper 에서 같은 자리 · 초기화 값에 aoClean)
-   ・3절: 일부러 깨 보기
+   ・3절: mutation test
    [실행] app.js · wardrobe.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -39,7 +39,7 @@ class V3 {
   set(x, y, z){ this.x = x; this.y = y; this.z = z; return this; }
   lengthSq(){ return this.x * this.x + this.y * this.y + this.z * this.z; }
 }
-/* app.js 의 껍데기(_applyXfToWrapper)에 진짜 캐릭터 코어(partsCore)를 넘겨 만든다 — core 를 바꿔 끼우면 깨 보기 */
+/* app.js 의 껍데기(_applyXfToWrapper)에 진짜 캐릭터 코어(partsCore)를 넘겨 만든다 — core 를 바꿔 끼우면 mutation test */
 function mkApply(fns, core){
   const g = {}; new Function('self', (core || CORE) + '\n;self.C = TwCharCore;')(g);
   const partsCore = g.C.createParts({ THREE: { Vector3: V3 }, tone: {} });
@@ -114,7 +114,7 @@ say('── 1. 실행 화면 좌석에 걸어 본다');
 judgeApply(F).forEach(([ok, msg]) => chk(ok, msg));
 say('── 2. 꾸미기가 표식을 쓴다');
 judgeWd(WD, F).forEach(([ok, msg]) => chk(ok, msg));
-say('── 3. 일부러 깨 보기');
+say('── 3. mutation test');
 const breaks = [
   ['판정이 표식을 안 봄', () => judgeApply(F, CORE.replace('!xf.aoClean && ', '')), CORE],
   ['기즈모가 표식을 안 씀', () => judgeWd(WD.replace('if(ao) xf.aoClean = true;', '')), WD],

@@ -5,7 +5,7 @@
    ・3절: removeSeat — 한 칸만 남으면 안 지움 · 고른 좌석이면 이웃을 고름 · 모르는 좌석은 무시
    ・4절: 고른 좌석 · 간격 읽기 / 쓰기 함수
    ・5절: 연결 — html · 만드는 줄 · 옛 이름 · 다시 대입되는 셋은 seatsMod 로 읽는다 · app.js 에 좌석 목록 코드가 안 남음
-   ・6절: 일부러 깨 보기
+   ・6절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. three 는 vendor/three/three.min.js. */
 'use strict';
 const fs = require('fs');
@@ -114,7 +114,7 @@ say('§5 연결');
   chk(!/\blet (selected|SPACING|MULTIPLAYER_SPACING)\b|function (createSeat|removeSeat|saveGap|_loadGap)\b/.test(code) && !/(?<![\w$.])(selected|SPACING|MULTIPLAYER_SPACING) *=[^=]/.test(code), '  app.js 에 좌석 목록 코드 · 다시 대입되는 let 이 남아 있지 않다');
   chk(!/(?<![\w$.'"])selected(?![\w$'"]) *[.)\]=;,]/.test(code.replace(/seatsMod\.selected\(\)/g, '')), '  고른 좌석은 어디서나 seatsMod.selected() 로 읽는다');
 }
-say('§6 일부러 깨 보기');
+say('§6 mutation test');
 {
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const m1 = brk('if(i<0||seats.length<=1) return;', 'if(i<0) return;');

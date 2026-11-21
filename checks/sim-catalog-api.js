@@ -6,8 +6,8 @@
    3. 알림 — realtime catalog 알림이 다시 받기 · 받는 중 알림은 한 번 더 · 연결이 ready 가 되면 실패했을 때만 다시
    4. 실패 — E-CHAR-26 으로 드러냄 · 지난 목록을 비우지 않음 · Firebase 로 안 물러남 · 타이머로 두드리지 않음
    4-B. 로그인이 끝나면 — 마지막 구독자가 빠지면 값 · 알림 구독을 비운다(다음 로그인이 앞 사람의 locked 를 받지 않는다) · 늦게 온 앞 로그인의 답은 버린다
-   5. 배선 — app.js(만드는 줄 · 로그인 통로) · app-boot 차례 'catalog' · html · Firebase 에는 카탈로그가 없다 · 옛 길(/v2/catalog/{종류}) · catalogMeta 구독 · catalog-cache.js · catalog-source.js 가 없다
-   6. 일부러 깨 보기
+   5. 배선 — app.js(만드는 줄 · 로그인 통로) · app-boot 차례 'catalog' · html · Firebase 에는 카탈로그가 없다 · 옛 endpoint(/v2/catalog/{종류}) · catalogMeta 구독 · catalog-cache.js · catalog-source.js 가 없다
+   6. mutation test
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
 'use strict';
 const fs = require('fs');
@@ -63,14 +63,14 @@ const mkData = () => ({
       '★ 한 벌 → { parts · items · desks } — 서버 deskProps 가 items · 가챠 파츠는 parts 한 목록 안(옛 gachaParts 를 합친 모양)');
     const p = u.parts.hat1;
     chk(p.name === '모자' && p.icon === '🎩' && p.cat === 'hat' && p.multi === true && p.rideTop === true && p.animMode === 'loop' && p.charType === 'default' && p.hides.join() === 'mask' && p.gacha === undefined,
-      '  ↳ 파츠 칸 — category → cat · 숨김 · 모양 깃발 · 가챠 아님은 gacha 칸이 없다');
+      '  ↳ 파츠 칸 — category → cat · 숨김 · 모양 깃발 · 가챠 아님은 gacha field 가 없다');
     chk(p.glbUrl === assetUrl(H('a'), 'glb') && p.thumbUrl === assetUrl(H('b'), 'png') && p.order === 0 && u.parts.g2.order === 2,
       '★ 파일은 해시 → GET /v2/catalog/assets/{해시}.glb · .png 주소 · order = 서버 진열 순서(배열 순서)');
     chk(p.defaultXf && p.defaultXf.scale === 1.2 && p.defaultXf.pos.join() === '0,0.1,0' && p.defaultXf.rot.join() === '0,90,0' && Object.keys(p.defaultXf.color).length === 0 && !u.parts.g1.defaultXf,
       '  ↳ defaultTransform → defaultXf({ scale · pos · rot · color:{} }) · 없으면 칸 없음');
     chk(u.parts.g1.gacha === true && u.parts.g1.season === 'summer' && u.parts.g2.gacha === true && u.parts.g2.season === '' && u.parts.g1.stackable === false && u.parts.g1.noColor === true,
       '★ 가챠 — gacha:true · season(소문자 — gacha.js 가 읽는 이름 · ALWAYS 는 \'\' = 상시) · stackable 은 저장값 그대로(가챠 강제는 앱의 _normPartRec 몫)');
-    chk(!('thumbUrl' in u.parts.g1), '  ↳ 썸네일 해시가 없으면 thumbUrl 칸이 없다');
+    chk(!('thumbUrl' in u.parts.g1), '  ↳ 썸네일 해시가 없으면 thumbUrl field 가 없다');
     chk(u.parts.hat1.version === 3 && u.parts.hat1.modelHash === H('a') && u.parts.hat1.thumbHash === H('b') && u.parts.hat1.listingAccess.kind === 'everyone' && !('thumbHash' in u.parts.g1)
       && u.desks.d2.version === 2 && u.desks.d2.listingAccess.kind === 'entitlement' && u.items.i1.modelHash === H('2'),
       '★ 관리자가 되돌려 보낼 칸 — version · 파일 해시 · 진열 권한을 레코드에 싣는다(없는 해시는 칸이 없다)');
@@ -96,7 +96,7 @@ const mkData = () => ({
     chk(u.desks.d3.locked === false && u.desks.d3.licenseOnly === true && u.desks.d3.listingAccess.kind === 'entitlement' && d.locked === false && d.licenseOnly === false,
       '★ 진열이 전용이어도 서버 locked 가 거짓이면(이 사람은 쓸 수 있다) locked:false — 막기는 분류로 정하지 않는다. 분류(licenseOnly)는 그대로 true 라 «전용 책상» 탭에 그려진다');
     const nl = mkData(); delete nl.desks[0].locked; delete nl.deskProps[0].locked;
-    chk(M.unfoldCatalog(nl, assetUrl).desks.d1.locked === false, '  ↳ locked 칸이 없으면(null · 안 옴) 막지 않는다 — 서버가 «못 고름» 이라 한 것만 막는다');
+    chk(M.unfoldCatalog(nl, assetUrl).desks.d1.locked === false, '  ↳ locked field 가 없으면(null · 안 옴) 막지 않는다 — 서버가 «못 고름» 이라 한 것만 막는다');
     const it = u.items.i1;
     chk(it.attachTo === 'handL' && it.defaultSize === 0.5 && it.playMode === 'idle' && it.licenseOnly === false && it.locked === false, '  ↳ 소품 — attachTo · defaultSize · 재생 방식');
     const bad = mkData(); bad.parts[0].model = 'ZZ'; bad.parts.push({ name: 'id 없음' }); bad.parts.push(null);
@@ -235,14 +235,14 @@ const mkData = () => ({
     const iA = HTML.indexOf('<script src="parts/character/catalog-api.js">'), iApp = HTML.indexOf('<script src="parts/app.js">');
     chk(iA > 0 && iA < iApp && !/catalog-source\.js/.test(HTML), '  ↳ html 이 catalog-api.js 를 일반 스크립트로 app.js 앞에 싣는다 · catalog-source.js 는 없다');
     chk(!/catalogSrc|TwCatalogSource|catalogSourceMod/.test(app) && !exists('catalog-source.js'), '  ↳ 옛 provider 자리(catalog-source.js · catalogSrc* · «있으면 부르기» 가드)가 없다');
-    chk(!/\/v2\/catalog\/['"`]?\s*\+\s*kind|v2\/catalog\/(?:parts|gachaParts|items|desks)/.test(fi + strip(SRC)), '★ 옛 길 GET /v2/catalog/{종류}?v= 가 코드에 없다');
+    chk(!/\/v2\/catalog\/['"`]?\s*\+\s*kind|v2\/catalog\/(?:parts|gachaParts|items|desks)/.test(fi + strip(SRC)), '★ 옛 endpoint GET /v2/catalog/{종류}?v= 가 코드에 없다');
     chk(!/ref\(db,\s*['"`]catalogMeta/.test(fi) && !/onValue\([^)]*catalogMeta/.test(fi) && !/ref\(db,\s*['"`]catalog\/(?:parts|gachaParts|items|desks)['"`]\)[^;]{0,40}onValue/.test(fi), '★ Firebase catalogMeta 를 읽는 구독이 없다(쓰기쪽 올림은 옛 앱 호환이라 남는다)');
     chk(!exists('catalog-cache.js') && !/catalog-cache\.js/.test(fi), '  ↳ 옛 catalog-cache.js(버전 확인 · IndexedDB 캐시 · Firebase 로 물러나기)가 없다');
     chk(!/createApiCatalogFetch|firebaseGet/.test(fi), '  ↳ «API 실패면 Firebase get» 이 없다');
     chk(/locked: d\.locked === true/.test(strip(SRC)) && !/locked:\s*licenseOnlyOf|locked:[^,}]*access/.test(strip(SRC)), '★ 막기 칸(locked)은 서버 값 그대로 — 진열 access 로 만들지 않는다(access.kind 는 분류 칸 licenseOnly 를 채울 때만 쓴다)');
   }
 
-  say('── 6. 일부러 깨 보기');
+  say('── 6. mutation test');
   {
     const run = async (Mod, tweak) => {   // 핵심 동작 묶음 — 하나라도 틀리면 false
       const env = mkEnv(); const cat = env.make(Mod); const got = []; let okAll = true;
@@ -265,7 +265,7 @@ const mkData = () => ({
     };
     chk(await run(M), '원본은 핵심 동작을 다 지킨다');
     const BREAKS = [
-      ["api.get(CATALOG_PATH, { auth: true,", "api.get(CATALOG_PATH + '/parts', { auth: true,", '옛 길 /v2/catalog/{종류} 를 부름'],
+      ["api.get(CATALOG_PATH, { auth: true,", "api.get(CATALOG_PATH + '/parts', { auth: true,", '옛 endpoint /v2/catalog/{종류} 를 부름'],
       ["api.get(CATALOG_PATH, { auth: true,", "api.get(CATALOG_PATH, {", '로그인 없이 받음(locked 가 사람마다 달라지지 않음)'],
       ["      if(text === last[kind]) continue;", "", '바뀌지 않은 종류도 다시 넘김'],
       ["try{ onData(clone(cur[kind])); }", "try{ onData(cur[kind]); }", '값을 복제하지 않고 같은 객체를 넘김'],
@@ -281,14 +281,14 @@ const mkData = () => ({
       let good; try{ good = await run(load(SRC.split(from).join(to))); }catch(_){ good = false; }
       if(good) missed.push(what);
     }
-    chk(!missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
-    /* 비우기 · locked 깨 보기 — 4-B 와 2 절의 판정이 빨강이 되는지 */
+    chk(!missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+    /* 비우기 · locked mutation test — 4-B 와 2 절의 판정이 빨강이 되는지 */
     const dropless = SRC.replace("    cur = null; raw = null; running = null; again = false; failed = false;\n", "");
     const de = mkEnv(), dk = load(dropless).createCatalogApi({ api: de.api, rt: de.rt, notifyError: () => {}, warn: () => {} });
     const du = dk.subscribe('parts', () => {}); await flush(); du();
-    chk(dropless !== SRC && dk.current() !== null, '  깨 보기: 로그인이 끝나도 값을 안 비우면 4-B 의 «비운다» 판정이 빨강');
+    chk(dropless !== SRC && dk.current() !== null, '  mutation test: 로그인이 끝나도 값을 안 비우면 4-B 의 «비운다» 판정이 빨강');
     const own = SRC.replace("locked: d.locked === true,", "locked: licenseOnlyOf(d.listing),");
-    chk(own !== SRC && load(own).unfoldCatalog(mkData(), assetUrl).desks.d3.locked === true, '  깨 보기: 진열 access 로 locked 를 만들면 «서버 locked 그대로» 판정이 빨강');
+    chk(own !== SRC && load(own).unfoldCatalog(mkData(), assetUrl).desks.d3.locked === true, '  mutation test: 진열 access 로 locked 를 만들면 «서버 locked 그대로» 판정이 빨강');
   }
 
   say('\n' + pass + ' · ' + fail);

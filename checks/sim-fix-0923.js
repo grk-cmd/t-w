@@ -136,7 +136,7 @@ say('── 6. 🎫 라이선스 — 등록 · 해제는 서버에(0.13 — 판�
 {
   chk(!/setAccountSnapshot|fetchAccountSnapshot|_licenseSnapForPush/.test(CODE), '계정 사본(accountSnap) 길이 남지 않았다');
   chk(/LICENSE_REQ_ID_KEY,/.test(CODE) && !/LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY|LICENSE_REQ_ID_KEY, LICENSE_OPTOUT_KEY/.test(CODE), '로그아웃이 옛 키 · 해제 표시를 지우지 않는다(첫 실행이 올린 뒤 지움 — ACCOUNT_LOCAL_KEYS)');
-  chk(!/async function activateLicense\(|function deactivateLicense\(|function loadLicenseFromStorage\(|function verifyLicense\(/.test(CODE), '이 PC 의 키로 켜고 Firebase 로 확인하던 옛 길(activateLicense · deactivateLicense · loadLicenseFromStorage · verifyLicense)이 없다');
+  chk(!/async function activateLicense\(|function deactivateLicense\(|function loadLicenseFromStorage\(|function verifyLicense\(/.test(CODE), '이 PC 의 키로 켜고 Firebase 로 확인하던 옛 경로(activateLicense · deactivateLicense · loadLicenseFromStorage · verifyLicense)가 없다');
 }
 
 say('── 7. 🗼 탑에서 룰렛 — 나만 빠지고 탑은 한 칸 내려앉는다(A안)');
@@ -222,7 +222,7 @@ say('── 10. 📏 자리비움 그림 크기 60·80·100 — 그림 주인이
   const H = read('desk-companion-prototype.html') || '';
   chk(/id="miAwaySz"[\s\S]{0,400}data-sz="60"[\s\S]{0,120}data-sz="80"[\s\S]{0,120}data-sz="100"/.test(H) && H.indexOf('id="miAwaySzRow"') > H.indexOf('id="miAwayReset"'), 'HTML — [내 정보] 그림 칸 버튼 아래 60·80·100');
   const FI = read('firebase-init.js');
-  if(FI) chk(!/setAwaySz|getAwaySz|setAwayImg|getAwayImg|users\/\$\{userId\}\/awaySz/.test(FI), 'firebase-init — 자리비움 DB 길 없음(서버 /v2/me/away-image)');
+  if(FI) chk(!/setAwaySz|getAwaySz|setAwayImg|getAwayImg|users\/\$\{userId\}\/awaySz/.test(FI), 'firebase-init — 자리비움 DB 경로 없음(서버 /v2/me/away-image)');
   else say('  ? firebase-init.js 없음 — 건너뜀');
 }
 

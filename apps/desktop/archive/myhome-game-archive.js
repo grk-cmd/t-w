@@ -2,7 +2,7 @@
    [왜] 사용자 결정(2026-11-14 · 설계 d2-myhome.md Q2): 게임은 «끄고 별도 파일로 보관» — 지우지 않고 나중에 다시 설계할 때 꺼내 쓴다. 마이홈 바탕화면 본체(myhome-desktop.js)와 섞여 있던 것을 갈랐다(D2-6).
    [내용] ① 아래 «createMyHomeGameArchive» 안 — myhome-desktop.js createMyHomeDesktop(deps) 본문에서 떼어 낸 게임 문장(함수 · 상수 · 상태)을 글자 그대로. 닫힌 함수 안이라 실행되지 않고 문법만 맞다.
            ② 맨 아래 «// ── 떼어 낸 자리» 줄들 — 바탕화면 쪽에서 게임 창 HTML · 이벤트 연결 · 스위치를 걷어 낸 조각을 줄 주석으로(원래 자리와 이유).
-   [되살리려면] 새로 설계할 때 이 코드를 참고해 모듈(createX(deps))로 다시 짜고 서버 길을 붙인다 — 옛 코드는 firebaseAPI.adv*(Firebase)를 직접 불렀다. 그대로 되돌려 붙이지 말 것.
+   [되살리려면] 새로 설계할 때 이 코드를 참고해 모듈(createX(deps))로 다시 짜고 서버 경로를 붙인다 — 옛 코드는 firebaseAPI.adv*(Firebase)를 직접 불렀다. 그대로 되돌려 붙이지 말 것.
    [남긴 것] 게임 CSS(myhome-desktop.js 의 css 문자열 속 .adv-win · #advSimWin · #advCharWin 등)와 게임 저장(tw.advZ.v2 읽기 · 쓰기 · blankSlot · advLoad · advSave)은 바탕화면 쪽에 그대로 있다.
    검사: 없음(보관본) — node --check 로 문법만 본다. */
 function createMyHomeGameArchive(deps){

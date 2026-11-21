@@ -4,7 +4,7 @@
    ・2절: 줄 휴지통 — 붉은 아이콘 → 줄 안 되묻기(옷장이 준 문구) → [옮기기] 요청 하나 · 실패 문구
    ・3절: 가득 참(20) — 경고 · 체크칸 · 고른 수 · 한꺼번에 휴지통(요청 하나) · 19 면 접힘 · 받기 전엔 경고 없음
    ・4절: 휴지통 탭 — 줄(옮김 / 연동 교체 · 사라지는 날) · 비었을 때 / 못 읽음 · [복원] · 20 이면 붉은 상자(요청 없음) · 옷장이 바뀌면 다시 그림
-   ・5절: 깨 보기
+   ・5절: mutation test
    [실행] 저장소 루트에서 node checks/run.js sim-my-info-box */
 'use strict';
 const path = require('path');
@@ -186,7 +186,7 @@ async function behave(src){
 
 (async () => {
   (await behave(SRC)).forEach(([ok, msg]) => chk(ok, msg));
-  say('── 5. 일부러 깨 보기');
+  say('── 5. mutation test');
   const bb = [
     ['받기 전에도 빈 보관함으로 그림', "const failed = closetMod().state() === 'failed';", "const failed = false;"],
     ['올리기를 두 번 보냄', "if(_miBusy) return;\n  _miBusy = true;\n  if(btn){ btn.disabled = true; btn.textContent = '올리는 중…'; }", "if(btn){ btn.disabled = true; btn.textContent = '올리는 중…'; }"],

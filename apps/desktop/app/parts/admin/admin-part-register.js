@@ -18,7 +18,7 @@
 
 function createAdminPartRegister(deps){
 const _b64 = deps._b64;
-const catalogAdmin = deps.catalogAdmin;   // 카탈로그 쓰기 서버 길
+const catalogAdmin = deps.catalogAdmin;   // 카탈로그 쓰기 서버 경로
 const resolveCatalogGlb = deps.resolveCatalogGlb;
 const applyClothVisibility = deps.applyClothVisibility;
 const catEquippedIds = deps.catEquippedIds;

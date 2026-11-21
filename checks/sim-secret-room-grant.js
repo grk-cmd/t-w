@@ -1,11 +1,11 @@
-/* ═══ 🔒 sim-secret-room-grant.js — 관리자 시크릿룸 발급을 서버 길로(admin/admin-license-bulk.js · 0.13 앱 묶음 D8-5) ═══
+/* ═══ 🔒 sim-secret-room-grant.js — 관리자 시크릿룸 발급을 서버 경로로(admin/admin-license-bulk.js · 0.13 앱 묶음 D8-5) ═══
    [무엇을 지키나] 발급은 POST /v2/admin/secret-rooms 한 번이다. 친구코드 찾기 · 코드 뽑기 · 끝나는 날 셈 · 옛 코드 끝내기 · 우편은 서버가 한다.
      앱은 «남이 가진 코드» 일 때 서버가 실어 준 주인 · 끝나는 날로 한 번 경고하고, 같은 단추를 다시 누르면 confirmTakeover 로 넘긴다.
    ・1절: 한 번 발급 — 본문 모양(친구코드 · 유저 코드 · 뒷 4자리 → MATE · COZY) · 결과 문구(코드 · 끝나는 날) · Firebase 0
    ・2절: «이미 쓰이는 코드» 경고 — 주인 · 끝나는 날 · 끝난 방 · 같은 조건 다시 누름 = confirmTakeover · 조건을 고치면 다시 경고
    ・3절: requestId — 답 못 받고 다시 누르면 같은 번호 · 답을 받으면 새 번호 · 처리 중 두 번째 누름 = 요청 0
    ・4절: 실패 — 고칠 수 없는 실패 = E-LIC-07 한 번 · 없는 사람 · 입력 오류 문구 · 앱 날짜 셈 0 · 발급 열쇠 칸 없음
-   ・5절: 깨 보기 — 아래 고장을 하나씩 넣으면 빨강
+   ・5절: mutation test — 아래 고장을 하나씩 넣으면 빨강
    [실행] node checks/run.js sim-secret-room-grant */
 'use strict';
 const fs = require('fs');
@@ -134,10 +134,10 @@ async function judge(src){
 }
 
 (async () => {
-  say('── 1~4. 서버 길 발급 — 실제로 돌려 본다');
+  say('── 1~4. 서버 경로 발급 — 실제로 돌려 본다');
   const rows = await judge(LB);
   rows.forEach(([ok, msg]) => chk(ok, msg));
-  say('── 5. 깨 보기 — 고장을 넣으면 빨강');
+  say('── 5. mutation test — 고장을 넣으면 빨강');
   const BREAKS = [
     ['요청 번호를 매번 새로 만든다', (s) => s.replace('body.requestId = idPool().idFor(key);', 'body.requestId = window.TwRequestId.newId();')],
     ['경고 없이 바로 넘긴다', (s) => s.replace('const confirm = _armed === armKey;', 'const confirm = true;')],
@@ -155,7 +155,7 @@ async function judge(src){
     if(broken === LB){ chk(false, '깨 볼 글을 못 찾음 — ' + what); continue; }
     let caught = false;
     try{ caught = (await judge(broken)).some(([ok]) => !ok); }catch(_){ caught = true; }
-    chk(caught, '깨 보기 — ' + what);
+    chk(caught, 'mutation test — ' + what);
   }
   say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
   process.exit(fail ? 1 : 0);

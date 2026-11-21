@@ -1,10 +1,10 @@
 /* ═══ 🧱 sim-firebase-left.js — 마지막 방어선: firebase-init.js 는 Auth · Storage · 점검 칸 읽기 말고는 Firebase 를 쓰지 않는다 ═══
    ・1절: 진짜 firebase-init.js — 데이터베이스 import 는 getDatabase · ref · get 셋 · 읽기는 config/maintenance 한 곳(`ref(db, …)` 한 번 · `_sdkGet` 한 번)
           · 쓰기 · 구독 · 트랜잭션 · onDisconnect 이름이 코드에 없다 · window.firebaseAPI 의 이름은 Auth · Storage · 토큰 · 대화 기록 연결뿐
-   ・2절: 깨 보기 — 쓰기 import · DB 쓰기 호출 · 점검 말고 다른 경로 읽기 · 허용 밖 메서드를 일부러 넣으면 판정이 빨강을 내는지
+   ・2절: mutation test — 쓰기 import · DB 쓰기 호출 · 점검 말고 다른 경로 읽기 · 허용 밖 메서드를 일부러 넣으면 판정이 빨강을 내는지
    ・3절: html 의 CSP(두 줄 — 활성 1단계 · 주석 2단계)를 지시어 맵으로 풀어 기대 표와 **같은지**(주소가 늘어도 줄어도 빨강)
    ・4절: html <script> 목록 ↔ smoke.js(PRELOAD) — 목록에 없는 파일을 PRELOAD 가 싣지 않고 · html 이 싣는 파일이 디스크에 있고 · smoke 가 html 목록을 스스로 읽는다
-   ・5절: 깨 보기 — CSP 에 주소 하나를 더하거나 빼면 · html 에서 파일을 빼면 빨강
+   ・5절: mutation test — CSP 에 주소 하나를 더하거나 빼면 · html 에서 파일을 빼면 빨강
    [실행] node checks/run.js sim-firebase-left */
 'use strict';
 const fs = require('fs');
@@ -56,7 +56,7 @@ say('── 1. 진짜 firebase-init.js');
   chk(/_mt\.start\(\{ readServer:/.test(strip(FI)) && /readFlag:/.test(strip(FI)), '  ↳ 점검 칸 읽기는 _mt.start 의 readFlag 하나(서버 /v2/config 먼저 — Q1 둘 다)');
 }
 
-say('── 2. 깨 보기');
+say('── 2. mutation test');
 {
   const real = FI;
   const brk = [
@@ -150,7 +150,7 @@ say('── 4. html <script> ↔ smoke PRELOAD');
   chk(bad.length === 0, 'PRELOAD 는 html 목록 안 · html 파일은 모두 디스크에 있다 · smoke 가 html 목록을 스스로 읽는다' + (bad.length ? ' — ' + bad.slice(0, 5).join(' / ') : ''));
 }
 
-say('── 5. 깨 보기 — CSP · script 목록');
+say('── 5. mutation test — CSP · script 목록');
 {
   const brkC = [
     ['connect-src 에 주소 하나를 더함', (h) => h.replace('https://www.youtube.com', 'https://www.youtube.com https://x.example')],

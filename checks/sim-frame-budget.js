@@ -3,8 +3,8 @@
    ・1절: pickFps 표 — 최대 60 · 손 안 대면 30(실행 화면 · 포커스 · 하는 중 아님) · 다른 창 20 · hot 이면 60
    ・2절: admit — 예정 시각을 쌓아 144 · 165 · 120 · 75 · 60Hz 에서 평균이 상한에 맞는다 · 멈춤 뒤 몰아 그리지 않는다
    ・3절: runPixelRatio — 플랫폼 상관없이 1.5 · 도트 렌더 1 · 화질(선명하게 · 자동 · 가볍게) · antialiasFor · qualityFrom
-   ・3-1절: castShadowFor — 실행 화면에서는 그림자를 안 만든다 · 런처 · 꾸미기는 만든다 · 깨 보기
-   ・3-2절: createSlowWatch(«자동» 화질의 느림 감시) — 느린 PC 를 흉내 내 15초 뒤 한 번 낮춘다 · 잘 도는 PC · 쉼(창 가림) · 잠깐 튐은 안 낮춘다 · 깨 보기
+   ・3-1절: castShadowFor — 실행 화면에서는 그림자를 안 만든다 · 런처 · 꾸미기는 만든다 · mutation test
+   ・3-2절: createSlowWatch(«자동» 화질의 느림 감시) — 느린 PC 를 흉내 내 15초 뒤 한 번 낮춘다 · 잘 도는 PC · 쉼(창 가림) · 잠깐 튐은 안 낮춘다 · mutation test
    ・4절: 포커스 비율 · 진단 줄(짧게)
    ・5절: 배선 — html 이 app.js 앞에 싣는다 · app.js 가 runPixelRatio · 1분 진단을 쓴다 · 렌더러 antialias · 자동 감시 · 모니터 탭 칸
    [실행] frame-budget.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
@@ -87,8 +87,8 @@ say('── 3-1. castShadowFor — 실행 화면 그림자');
   const mut = (from, to) => { const src = SRC['frame-budget.js']; if(!src.includes(from)) return null; const w = {}; new Function('window', 'module', src.replace(from, to))(w, undefined); return w.FrameBudget; };
   const M1 = mut('function castShadowFor(runOverlay){ return !runOverlay; }', 'function castShadowFor(runOverlay){ return true; }');
   const M2 = mut('function castShadowFor(runOverlay){ return !runOverlay; }', 'function castShadowFor(runOverlay){ return false; }');
-  chk(M1 && !ok(M1), '깨 보기: 늘 만들면(예전) 빨강');
-  chk(M2 && !ok(M2), '깨 보기: 늘 끄면(런처 그림자까지 사라짐) 빨강');
+  chk(M1 && !ok(M1), 'mutation test: 늘 만들면(예전) 빨강');
+  chk(M2 && !ok(M2), 'mutation test: 늘 끄면(런처 그림자까지 사라짐) 빨강');
 }
 
 say('── 3-2. createSlowWatch — «자동» 화질의 느림 감시');
@@ -128,7 +128,7 @@ say('── 3-2. createSlowWatch — «자동» 화질의 느림 감시');
     chk(hits === 0, '★ 잠깐 튀는 건 넘긴다 — 느림이 «이어질» 때만(느림 · 정상 번갈아 1분)');
   }
   chk(simulate(F, 12, 0, 60).at === null, '  상한 0(예산 없음)이면 세지 않는다');
-  /* 깨 보기 — 규칙을 망가뜨리면 위 판정 중 하나가 빨강이 되는지 */
+  /* mutation test — 규칙을 망가뜨리면 위 판정 중 하나가 빨강이 되는지 */
   const mut = (from, to) => { const src = SRC['frame-budget.js']; if(!src.includes(from)) return null; const w = {}; new Function('window', 'module', src.replace(from, to))(w, undefined); return w.FrameBudget; };
   const red = (S) => {
     if(!S) return false;
@@ -143,10 +143,10 @@ say('── 3-2. createSlowWatch — «자동» 화질의 느림 감시');
     }
     return !(a != null && a >= 15 && a < 16.5) || b !== null || c !== null || h !== 0 || ha !== 0;
   };
-  chk(red(mut('if(streak < SLOW_WINDOWS) return false;', 'if(streak < 1) return false;')), '깨 보기: 한 구간만 느려도 낮추면 빨강');
-  chk(red(mut('const SLOW_SHARE = 0.6;', 'const SLOW_SHARE = 0.9;')), '깨 보기: 기준을 90% 로 올리면(40fps 도 낮춤) 빨강');
-  chk(red(mut('if(last == null || t - last > SLOW_GAP_MS || !(cap > 0)){', 'if(last == null || !(cap > 0)){')), '깨 보기: 쉼을 느림으로 치면 빨강');
-  chk(red(mut("streak = (frames < expected * SLOW_SHARE) ? streak + 1 : 0;", "streak = (frames < expected * SLOW_SHARE) ? streak + 1 : streak;")), '깨 보기: 정상 구간에서 이어짐을 안 끊으면 빨강');
+  chk(red(mut('if(streak < SLOW_WINDOWS) return false;', 'if(streak < 1) return false;')), 'mutation test: 한 구간만 느려도 낮추면 빨강');
+  chk(red(mut('const SLOW_SHARE = 0.6;', 'const SLOW_SHARE = 0.9;')), 'mutation test: 기준을 90% 로 올리면(40fps 도 낮춤) 빨강');
+  chk(red(mut('if(last == null || t - last > SLOW_GAP_MS || !(cap > 0)){', 'if(last == null || !(cap > 0)){')), 'mutation test: 쉼을 느림으로 치면 빨강');
+  chk(red(mut("streak = (frames < expected * SLOW_SHARE) ? streak + 1 : 0;", "streak = (frames < expected * SLOW_SHARE) ? streak + 1 : streak;")), 'mutation test: 정상 구간에서 이어짐을 안 끊으면 빨강');
 }
 
 say('── 4. 포커스 비율 · 진단 줄');
@@ -196,7 +196,7 @@ say('── 5. 배선');
   const DN = 'companion.diagNote(_FB.diagLine(m)';
   chk(RS.minuteTimerGuard(code, DN, 60000), '1분마다 · 실행 화면에서만 진단 줄(같은 60초 타이머 안에서 실행 화면 확인이 줄보다 먼저)');
   chk(!RS.minuteTimerGuard(code.replace("if(!document.body.classList.contains('runmode')) return;", ''), DN, 60000)
-    && !RS.minuteTimerGuard(code.replace(/\}, 60000\);/g, '}, 1000);'), DN, 60000), '  깨 보기: 실행 화면 확인을 빼거나 · 타이머를 1초로 바꾸면 빨강');
+    && !RS.minuteTimerGuard(code.replace(/\}, 60000\);/g, '}, 1000);'), DN, 60000), '  mutation test: 실행 화면 확인을 빼거나 · 타이머를 1초로 바꾸면 빨강');
   chk(!/requestAnimationFrame\([^)]*diag/i.test(code), '진단은 rAF 가 아니라 1분 타이머');
   chk(/floor\.visible = !runOverlay;[^\n]*\n\s*key\.castShadow = FrameBudget\.castShadowFor\(runOverlay\);/.test(code)
     && !/renderer\.shadowMap\.enabled\s*=\s*(?!true)/.test(code), '실행 화면 전환에서 바닥과 같이 빛의 castShadow 를 정한다(shadowMap.enabled 는 끄지 않는다 — 낡은 그림자 그림)');
@@ -205,7 +205,7 @@ say('── 5. 배선');
   chk(gate.ok && gate.renders === 1, '회사원 모드로 화면을 숨긴 동안 · 설정 화면에서는 3D 를 안 그린다(조건을 8가지 조합으로 돌려 봄 · 그리기 자리는 한 곳)' + (gate.bad ? ' — ' + gate.bad.slice(0, 120) : ''));
   const gBad = [code.replace('if(!_officeHidden && ', 'if('), code.replace(/(function _configHidesScene\(\)\{[^}]*?)&&/, '$1||'), code.replace('renderer.render(scene,camera);', 'renderer.render(scene,camera); renderer.render(scene,camera);')]
     .map(c => RS.frameDrawGate(c)).map(g => g.ok && g.renders === 1);
-  chk(gBad.every(x => !x), '  깨 보기: 회사원 숨김 조건 빠짐 · 설정 화면 판단을 || 로 · 그리기 자리 둘 → 모두 빨강 — ' + JSON.stringify(gBad));
+  chk(gBad.every(x => !x), '  mutation test: 회사원 숨김 조건 빠짐 · 설정 화면 판단을 || 로 · 그리기 자리 둘 → 모두 빨강 — ' + JSON.stringify(gBad));
 }
 
 say('');

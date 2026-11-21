@@ -7,7 +7,7 @@
    ・5절: 모으기 collectDeskItems · 켜고 끌 때 바로 저장 autoSaveDeskItemsNow · 불러와 입히기 applyDeskItemsTo(크기 비율 환산)
    ・6절: 생성기 몫 — 생성기 holder 만 선택 표시 · 기즈모 해제 · 처음 자리 기억
    ・7절: 연결 — html · 만드는 줄 · 옛 이름 · app.js 에 장착 함수가 남지 않음
-   ・8절: 일부러 깨 보기
+   ・8절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. three 는 vendor/three/three.min.js. */
 'use strict';
 const fs = require('fs');
@@ -87,9 +87,9 @@ say('§1 라이선스 전용 막기');
   b = build(SRC); h = mkHolder(); b.mod.equipDeskItem(h, cu, false);
   chk(b.log.toast.length === 0, '  ↳ 끄기는 기록이 없어도 막지 않는다');
   { const m2 = SRC.replace('&& !_siRec && !catalogReceived()', '&& !_siRec'); const b2 = build(m2, { received: true }); const h2 = mkHolder(); b2.mod.equipDeskItem(h2, cu, true);
-    chk(m2 !== SRC && !h2.deskItems, '  깨 보기: «받았는가» 를 안 보면 받은 뒤에도 막혀 버린다(= 위 «받은 뒤 · 기록 없음» 판정이 빨강)'); }
+    chk(m2 !== SRC && !h2.deskItems, '  mutation test: «받았는가» 를 안 보면 받은 뒤에도 막혀 버린다(= 위 «받은 뒤 · 기록 없음» 판정이 빨강)'); }
   { const mm = SRC.replace('if(def && def.custom && !_siRec && !catalogReceived()){ _markSkipped(holder, def.id); return; }', ''); const bb = build(mm); const hh = mkHolder(); bb.mod.equipDeskItem(hh, cu, true);
-    chk(mm !== SRC && !!(hh.deskItems && hh.deskItems.vip), '  깨 보기: 기록 없을 때 막는 줄을 지우면 장착돼 버린다(= 위 판정이 빨강)'); }
+    chk(mm !== SRC && !!(hh.deskItems && hh.deskItems.vip), '  mutation test: 기록 없을 때 막는 줄을 지우면 장착돼 버린다(= 위 판정이 빨강)'); }
   b = build(SRC, { saved: LOCKEDREC }); h = mkHolder(); b.mod.equipDeskItem(h, d, false);
   chk(b.log.toast.length === 0, '끄기(on=false)는 막지 않는다');
 }
@@ -218,8 +218,8 @@ say('§5-B 받기 전에 건너뛴 아이템은 저장본에서 지워지지 않
   const mm = SRC.replace("_sk.forEach((entry,id)=>{ if(entry && !d[id]){ d[id]=entry; any=true; } });", '');
   const rb = run(mm);
   const rbp = (() => { const c = mkHolder({ charDef: { deskItems: ORIG() } }); const bb = build(SRC.replace("if(holder._skippedItems && holder._skippedItems.has(id)) holder._skippedItems.set(id, e);", ''), { cBase: c, defs: { vip: mkDef('vip', { custom: true }) } }); bb.mod.applyDeskItemsTo(c, { vip: { adj: { x: 9 } } }); bb.mod.autoSaveDeskItemsNow(); return c; })();
-  chk(!rbp.charDef.deskItems || !rbp.charDef.deskItems.vip || rbp.charDef.deskItems.vip.adj.x !== 9, '  깨 보기: 건너뛰는 순간 원본을 붙잡지 않으면 프리셋 값이 저장본에 남지 않는다(= 위 «프리셋» 판정이 빨강)');
-  chk(mm !== SRC && Object.keys(rb.cb.charDef.deskItems || {}).sort().join() === 'plant', '  깨 보기: collectDeskItems 의 합치는 줄을 빼면 건너뛴 소품이 저장본에서 지워진다(= 위 판정이 빨강)');
+  chk(!rbp.charDef.deskItems || !rbp.charDef.deskItems.vip || rbp.charDef.deskItems.vip.adj.x !== 9, '  mutation test: 건너뛰는 순간 원본을 붙잡지 않으면 프리셋 값이 저장본에 남지 않는다(= 위 «프리셋» 판정이 빨강)');
+  chk(mm !== SRC && Object.keys(rb.cb.charDef.deskItems || {}).sort().join() === 'plant', '  mutation test: collectDeskItems 의 합치는 줄을 빼면 건너뛴 소품이 저장본에서 지워진다(= 위 판정이 빨강)');
   /* 저장 길 셋이 같은 결과 — 자동 저장 · 생성기 «완성 → 저장»(creator-save.js) · 프리셋 저장(desk-preset.js)은 모두 collectDeskItems 로 모은다 */
   const cb3 = mkHolder({ charDef: { deskItems: ORIG() } });
   const b3 = build(SRC, { cBase: cb3, defs: { vip: mkDef('vip', { custom: true }), other: mkDef('other', { custom: true }), plant: mkDef('plant') } });
@@ -258,7 +258,7 @@ say('§7 연결');
   chk(!/function (equipDeskItem|collectDeskItems|autoSaveDeskItemsNow|applyDeskItemsTo|_applyItemColor|applyDeskAdj|_rememberCrItemOrigin)\b/.test(code), '  app.js 에 장착 함수가 남아 있지 않다');
   chk(code.indexOf('const partAnimMod') < code.indexOf('const deskItemEquipMod'), '  재생 목록(part-anim)을 만든 뒤에 만든다(activeItemMixers · _idleItemPivots 를 값으로 받는다)');
 }
-say('§8 일부러 깨 보기');
+say('§8 mutation test');
 {
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const m1 = brk('!(holder && holder.remote)', 'true');

@@ -12,7 +12,7 @@
 
 function createAdminCategory(deps){
 const toast = deps.toast;
-const catalogAdmin = deps.catalogAdmin;   // 카탈로그 쓰기 서버 길(admin/catalog-admin-api.js)
+const catalogAdmin = deps.catalogAdmin;   // 카탈로그 쓰기 서버 경로(admin/catalog-admin-api.js)
 const asyncPrompt = deps.asyncPrompt;
 const PART_GROUPS = deps.partGroups;           // 읽는 함수 — 그룹 목록(app.js 가 뒤에서 선언하는 const)
 const PART_CATS = deps.partCats;               // 읽는 함수 — 기본 + 커스텀 카테고리(카탈로그 구독이 다시 대입)

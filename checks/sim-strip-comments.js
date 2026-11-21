@@ -9,7 +9,7 @@
    ⚠️ 따옴표('…' "…" `…`) 안은 건너뛴다. '…' "…" 는 줄이 바뀌면 끝난 것으로 본다 — 정규식 안의 따옴표(/'/g) · 글 속
      작은따옴표에 읽기가 꼬여도 그 줄에서 멈춘다. 따옴표 밖의 역슬래시 다음 글자도 그대로 둔다 — 정규식 /^https?:\/\//i 의
      «\/ /» 를 한 줄 주석으로 읽지 않게.
-   [직접 실행] 판정 · 일부러 깨 보기. 검사: 이 파일 자체. */
+   [직접 실행] 판정 · mutation test. 검사: 이 파일 자체. */
 'use strict';
 
 const blank = (m) => m.replace(/[^\n]/g, ' ');
@@ -36,7 +36,7 @@ const stripJs = (s) => stripComments(s, true);
 
 module.exports = { blank, stripComments, stripCss, stripJs };
 
-/* 판정 — api 를 받아 [ok, 이름] 목록. 깨 보기는 이 파일 글을 바꿔 다시 싣고 같은 판정을 돌린다. */
+/* 판정 — api 를 받아 [ok, 이름] 목록. mutation test 는 이 파일 글을 바꿔 다시 싣고 같은 판정을 돌린다. */
 function judge(api){
   const r = [];
   const t = (ok, msg) => r.push([!!ok, msg]);
@@ -60,7 +60,7 @@ if(require.main === module){
   const chk = (ok, msg) => { ok ? pass++ : fail++; console.log('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
   console.log('── 1. 판정');
   judge(module.exports).forEach(([ok, m]) => chk(ok, m));
-  console.log('── 2. 일부러 깨 보기');
+  console.log('── 2. mutation test');
   const SRC = fs.readFileSync(__filename, 'utf8');
   const load = (src) => { const m = { exports: {} }; new Function('module', 'require', src.slice(0, src.indexOf('module.exports = {')) + 'module.exports = { blank, stripComments, stripCss, stripJs };')(m, require); return m.exports; };
   const BREAKS = [

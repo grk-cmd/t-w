@@ -5,7 +5,7 @@
    ・2절: 쪽 — nextCursor 를 따라 이어 받음 · 쪽 상한(오래된 것은 안 받고 complete:false) · 서버가 센 안 읽은 수를 쓴다(받은 쪽지 수와 달라도)
    ・3절: 쓰기 — 읽음 · 모두 읽음 · 지우기 · 읽은 우편 한꺼번에(POST delete-read · 지운 수)의 경로 · 본문 · 읽은 토큰의 주인과 묶음(진짜 api-client 로: 주인이 바뀌면 요청 0 · 'stale') · 읽은 적 없으면 안 보냄 · 실패는 'failed'
    ・4절: 배선 — firebase-init 에 옛 수령함 읽기 · 쓰기가 없음 · 부르는 곳이 firebaseAPI 로 우편을 안 부름 · html · smoke 순서
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -176,7 +176,7 @@ async function judge(S){
 async function runAll(){
   const S = SRC0;
   await judge(S);
-  say('── 5. 일부러 깨 보기');
+  say('── 5. mutation test');
   const breaks = [
     ['모르는 종류를 버림', S.API.replace("TAG_BY_KIND[kind] || 'reward'", "TAG_BY_KIND[kind]"), '모르는 종류도 «우편»'],
     ['안 읽은 수를 받은 것에서 셈', S.API.replace("if(unread === undefined) unread = p.unread;", "unread = Object.keys(items).length;"), '서버가 센 값'],

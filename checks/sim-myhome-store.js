@@ -1,6 +1,6 @@
 /* ═══ 🏠 sim-myhome-store.js — 마이홈 상태 주인 (0.13 앱 묶음 D2-2) ═══
    [왜] 마이홈 페이지의 원본이 서버가 됐다. 판(page.version) 하나를 페이지 PATCH · 디자인 PUT 이 같이 올려서 겹쳐 보내면 409 가 나고,
-     늦게 온 답이 새 집 · 새 계정 화면을 덮는다. 진짜 모듈을 가짜 서버 길 위에서 돌려 순서를 본다.
+     늦게 온 답이 새 집 · 새 계정 화면을 덮는다. 진짜 모듈을 가짜 서버 경로 위에서 돌려 순서를 본다.
      저장소는 «서버 값(server) + 못 보낸 고침(pending)» 이다 — 고친 사본을 따로 두지 않아 다시 받아도 섞는 규칙이 없다. 받기 · 저장은 한 줄(lane).
    ・1절: 받기 — 받기 전 · 구경 중 · 미리보기 중 고치기 잠금(요청 0) · 받은 값 · 판 없는 답 = 못 받음(E-MH-20) · 공통 code 는 공통 번호
    ・2절: 저장 — 바뀐 칸만 · 바뀐 칸 없으면 요청 0 · 보내는 중 고침 → 끝난 뒤 한 번(판 이어 감) · 서버가 글을 씻어도 다시 보내지 않음 · 늘 판을 싣는다
@@ -12,7 +12,7 @@
    ・6절: 올리기 — 실패면 예전 값(E-MH-24) · 같은 칸 busy
    ・7절: 구경 · 계정 — gen · 없는 사람 · 집 실패(E-MH-21) · reset(저장 · 다시 받기 · 올리기 · 받기 도중) 뒤 답 버림 · 줄 새로 · 주인 바뀜은 조용히
    ・8절: 배선
-   ・9절: 일부러 깨 보기 — rebased 안 달기 · mergeOps 가 rebased 안 잇기 · adoptSeq 검사 빼기 · 본문을 화면 값에서 만들기 · 실패한 batch 안 되돌리기 · 409 에서 글 외 칸 남기기 · gen 검사 빼기 · 한 줄 우회 · 거절된 값 되돌리기 · 배경 «나중 것이 이김» 두 곳
+   ・9절: mutation test — rebased 안 달기 · mergeOps 가 rebased 안 잇기 · adoptSeq 검사 빼기 · 본문을 화면 값에서 만들기 · 실패한 batch 안 되돌리기 · 409 에서 글 외 칸 남기기 · gen 검사 빼기 · 한 줄 우회 · 거절된 값 되돌리기 · 배경 «나중 것이 이김» 두 곳
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -587,8 +587,8 @@ async function judge(withBreak){
 
 (async () => {
   await judge();
-  /* 깨 보기 — 모듈 글을 일부러 틀려 빨강이 나는지 */
-  say('── 9. 일부러 깨 보기');
+  /* mutation test — 모듈 글을 일부러 틀려 빨강이 나는지 */
+  say('── 9. mutation test');
   const base = { pass, fail };
   const breaks = [
     ['canEdit 를 빼면(미리보기에서 열림)', (s) => s.replace('load === LOAD.READY && !viewSt.owner && !previewOn()', 'load === LOAD.READY'), (s) => s.replace("if(viewSt.owner || previewOn()) return 'locked';", '')],

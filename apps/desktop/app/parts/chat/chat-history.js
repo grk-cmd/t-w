@@ -1,6 +1,6 @@
 /*
  * 💬 대화 기록 — 서버 3일 + 이 PC 화면 캐시 + 시각으로 이어 받기 (entities · 검사 sim-chat-history.js)
- * 서버 길을 모른다 — 이어 받기(subscribeSince) · 방장 지우기(clearLog)는 대화 포트(chat/chat-rt.js)를 firebase-init.js 가 잇는다.
+ * 서버 경로를 모른다 — 이어 받기(subscribeSince) · 방장 지우기(clearLog)는 대화 포트(chat/chat-rt.js)를 firebase-init.js 가 잇는다.
  *
  * [왜] 예전엔 대화창을 열 때마다 마지막 100줄을 onValue 로 통째 구독했다. 서버 기록에는 보관 기간이 없어 계속 쌓였고,
  *   그 100줄 밖의 대화는 볼 길이 없었다. 지금은 카카오톡처럼

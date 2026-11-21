@@ -6,7 +6,7 @@
    ・5절: 방문 기록 — 토큰이 있으면 싣고 · 토큰이 없거나 거절되면 토큰 없이 한 번 더 · 닿지 못함은 던짐
    ・6절: 문구 표 — 아는 code · 닿지 못함 · 그 밖 · 초대 까닭
    ・7절: 배선 — window.TwUserApi.store · html 차례(api-client · request-id 다음 · app.js 앞)
-   ・8절: 일부러 깨 보기 */
+   ・8절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
@@ -220,7 +220,7 @@ async function judge(S){
 (async () => {
 await judge(SRC0);
 
-say('── 8. 일부러 깨 보기');
+say('── 8. mutation test');
 const BREAKS = [
   ['UA', "return meFrom(await api().post('/v2/users', body, { auth: false }));", "return meFrom(await api().post('/v2/users', body));", '비밀번호 가입에 토큰을 실음'],
   ['UA', "    if(o.inviteCode) body.inviteCode = o.inviteCode;\n    return meFrom(await api().post('/v2/users', body, { auth: false }));", "    body.inviteCode = o.inviteCode || '';\n    return meFrom(await api().post('/v2/users', body, { auth: false }));", '빈 초대 코드를 실음'],
@@ -243,7 +243,7 @@ for(const [where, from, to, what] of BREAKS){
   caught.push([what, qfail]);
 }
 const missed = caught.filter(([, k]) => k === 0).map(([w]) => w);
-chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
 console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

@@ -9,11 +9,11 @@
    ・2-3b절: 새 친구 — 켠 뒤 늘어난 id 만 readFriend 로 한 명씩(listFriends 다시 안 부름) · 진행 중 · 실패 · 없음도 친구당 한 번 · 지난 실행 버림 ·
          실패면 자리표시 · 첫 구독 값 · 첫 받기 중엔 안 묻음 · 다시 받은 목록에 없는 새 친구는 알던 이름 남김
    ・2-4절: 접속 상태 — 목록이 열려 있는 동안만 듣는다(평소 0 · 열면 1벌 · 닫으면 0) · 그 친구만 한 번 읽기(refreshPresence)
-   ・3절: firebase-init.js 에 친구 목록 · 카드 · 프로필 · 요청의 Firebase 길이 없다(서버 한 길)
+   ・3절: firebase-init.js 에 친구 목록 · 카드 · 프로필 · 요청의 Firebase 경로가 없다(서버 한 길)
    ・4절: app.js _waitForFirebaseAPI — 포기 없음(타이머 안 씀) · firebase-ready 를 once 로 기다림 · 이미 준비면 바로
    ・5절: myhome-init.js — 친구 구독이 첫 await(쓰기)보다 먼저 · 쓰기가 영영 안 끝나도 구독은 걸림 · subscribeMyFriends 를 직접 안 부름
    ・5-2절: 부르는 곳 — 친구 추가 · 수락은 friendsForCheck 로 판정 · 친구 탭 · 초대 목록을 열 때 retryIfFailed · 다른 파일에 친구 경로 직접 읽기 0곳
-   ・6절: 일부러 깨 보기 — 하나라도 못 잡으면 빨강
+   ・6절: mutation test — 하나라도 못 잡으면 빨강
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -482,8 +482,8 @@ async function judge(S){
     chk(E.fetches.length === 0 && E.subs.length === 0 && E.toasts.length === 0 && r0 && !Object.keys(r0).length,
       '내 코드 없음 · 시작 전 판정 — 요청 0 · 빈 목록 · 토스트 0');
   }
-  /* ── 3. firebase-init.js 에 친구 읽기 · 구독이 없다(서버 한 길 — 옛 길은 걷었다) ── */
-  say('── 3. firebase-init.js — 친구 목록 · 카드 · 프로필 · 요청의 Firebase 길이 없다');
+  /* ── 3. firebase-init.js 에 친구 읽기 · 구독이 없다(서버 한 길 — 옛 경로는 걷었다) ── */
+  say('── 3. firebase-init.js — 친구 목록 · 카드 · 프로필 · 요청의 Firebase 경로가 없다');
   const OLD_FRIEND_FNS = ['watchMyFriendList', 'getMyFriendList', 'getFriendCard', 'watchFriendProfile', 'getFriendProfile', 'subscribeMyFriends', 'subscribeFriendRequests'];
   const left = OLD_FRIEND_FNS.filter((n) => new RegExp('^    (async )?' + n + '\\(', 'm').test(S.FB));
   chk(!left.length, '친구 목록 · 카드 · 프로필 구독 · 한 번 읽기 · 요청 구독이 firebaseAPI 에 없다' + (left.length ? ' — 남음: ' + left.join(' · ') : ''));
@@ -571,7 +571,7 @@ const withLimit = (p) => Promise.race([p, new Promise(r => setTimeout(() => r(ST
 (async () => {
 if(await withLimit(judge(SRC0)) === STALL) chk(false, '판정이 끝나지 않는다(멈춤)');
 
-say('── 6. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 6. mutation test — 하나라도 못 잡으면 빨강');
 const BREAKS = [
   ['FS', '  if(!myId){ _myId = null; _setStatus(STATUS.READY); return; }\n', '', '내 코드 없이 구독(users/null/friends)'],
   ['FS', 'const SUB_WAIT_MS = 3000;', 'const SUB_WAIT_MS = 0;', '대기 상한을 0 으로(구독과 같은 경로를 바로 또 읽음)'],
@@ -635,7 +635,7 @@ for(const [where, from, to, what] of BREAKS){
   caught.push([what, qfail]);
 }
 const missed = caught.filter(([, n]) => n === 0).map(([w]) => w);
-chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
 console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

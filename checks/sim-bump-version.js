@@ -4,7 +4,7 @@
      태그가 주석 태그가 아니면 «git push --follow-tags» 가 조용히 안 올리고, 커밋 이름이 달라지면 릴리스 기록이 어긋난다.
    ・1절: 진짜 git 저장소(임시)에서 돌려 본다 — 숫자 · lock · 커밋 이름 · 주석 태그 · 베타 번호 · prerelease --preid
    ・2절: 거절 — 더러운 작업 트리 · 이상한 인자(셸에 들어갈 글) · 빈 인자
-   ・3절: 일부러 깨 보기 — 가벼운 태그 · lock 빠짐 · 더러운 트리 통과 */
+   ・3절: mutation test — 가벼운 태그 · lock 빠짐 · 더러운 트리 통과 */
 'use strict';
 const fs = require('fs');
 const os = require('os');
@@ -91,7 +91,7 @@ chk(Array.isArray(R.badArgs) && R.badArgs.every(Boolean), '이상한 인자(셸 
 chk(R.badOpt, '--preid 에 다른 글이 붙으면 거절');
 chk(R.hacked === false && R.afterBad === '1.0.0', '거절한 인자는 아무것도 실행하지 않는다(파일 안 생김 · 숫자 그대로)');
 
-say('── 3절 · 일부러 깨 보기');
+say('── 3절 · mutation test');
 const MUT = [
   ['가벼운 태그', /git tag -a v\$\{v\} -m "chore: \$\{v\}"/, 'git tag v${v}'],
   ['lock 을 안 올림', /\$\{APP_DIR\}\/package\.json \$\{APP_DIR\}\/package-lock\.json/, '${APP_DIR}/package.json'],
@@ -99,7 +99,7 @@ const MUT = [
   ['인자 검사 없음', /if\(!kind \|\| !KIND_RE\.test\(kind\) \|\| !opts\.every\(o => OPT_RE\.test\(o\)\)\) throw new Error\(USAGE\);/, ''],
 ];
 for (const [name, re, to] of MUT) {
-  if (!re.test(SRC)) { chk(false, `깨 보기 자리를 못 찾음 — ${name}`); continue; }
+  if (!re.test(SRC)) { chk(false, `mutation test 자리를 못 찾음 — ${name}`); continue; }
   let r; try { r = judge(load(SRC.replace(re, to))); } catch (e) { r = { err: String(e) }; }
   chk(bad(r), `${name} → 빨강`);
 }

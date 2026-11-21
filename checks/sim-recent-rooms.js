@@ -6,7 +6,7 @@
    ・3절: 화면 — 진짜 UI 를 가짜 DOM 에서 돌린다(빈 칸이면 펼침 · 글자 치면 접힘 · 줄 누르면 입장 · 목록 없으면 숨김 · ESC · 제목은 글로만)
    ・3-2절: 기록하는 제목 — app.js 연결 줄을 진짜 room-settings · banned-words 로 돌림(금칙어면 «○○ 님의 방»)
    ・4절: 연결 — room-entry 가 «연결됨» 두 곳에서 알림 · app.js 가 기록 · UI 를 건다 · html 순서 · 칸 위치
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] node checks/run.js sim-recent-rooms */
 'use strict';
 const fs = require('fs');
@@ -176,7 +176,7 @@ function wire(s){
 }
 wire(SRC).forEach(([ok, m]) => chk(ok, m));
 
-say('── 5. 일부러 깨 보기');
+say('── 5. mutation test');
 const BREAKS = [
   ['mod', ".concat(list.filter((r) => r.code !== code))", '.concat(list)', '같은 방이 두 줄로 쌓임'],
   ['mod', '.slice(0, MAX);\n}', ';\n}', '3개를 넘게 쌓음'],

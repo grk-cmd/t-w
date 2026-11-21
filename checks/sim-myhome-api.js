@@ -2,7 +2,7 @@
    [왜] 마이홈 · 책장이 Firebase 대신 서버 API 를 쓴다. 서버 모양 → 화면 모양, 저장 본문(바뀐 칸만 · 통째)을 만드는 곳이 provider 하나라 실제로 불러서 판정한다.
    ・1절: 읽기 — 서버 홈 → 화면 홈(스티커 {sid} · img · 프리셋 3칸 · 배경) · 빈 홈 · 못 받음 · 모양 틀림 · 남의 집(프리셋 없음) · 책장
    ・2절: 쓰기 본문 — PATCH 바뀐 칸만 · 지우기 null · 스티커 순서 · 6장 옛 홈 · 디자인 3칸 · 바탕화면 통째 + https · 책 이름 바꿈 · addedAt · data: 없음
-   ・3절: 주인 묶기 · 그림 올리기 · 오류 갈래 · 배선 · 일부러 깨 보기
+   ・3절: 주인 묶기 · 그림 올리기 · 오류 갈래 · 배선 · mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -185,7 +185,7 @@ async function judge(S){
 async function runAll(){
   const S = SRC0;
   await judge(S);
-  say('── 5. 일부러 깨 보기');
+  say('── 5. mutation test');
   const breaks = [
     ['안 바뀐 칸도 실음', S.API.replace("for(const k of ['avatar', 'bio', 'postTitle', 'post']) if(own(f, k))", "for(const k of ['avatar', 'bio', 'postTitle', 'post'])"), '바뀐 칸만'],
     ['data: 를 걸러내지 않음', S.API.replace("if(hasData(body)) throw", "if(false) throw"), 'data:'],

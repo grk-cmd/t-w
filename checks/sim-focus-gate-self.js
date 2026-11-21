@@ -2,7 +2,7 @@
    ・1절: 진짜 _applyActiveAppState 를 가짜 환경에서 돌린다 — 포커싱 어플 → 투게더워킹: 깨어 있음 유지 · 브라우저 → 투게더워킹: 잠듦 유지 ·
           투게더워킹이 앞인 동안 포커스 시간은 안 쌓임 · 피규어 모드 · 폰 켜짐은 예전처럼 이긴다 · isSelf 없는 옛 main 은 예전 그대로
    ・2절: main.js — 활성 창 상태에 isSelf(우리 앱 = SELF_EXE) 를 싣는다
-   ・3절: 깨 보기 — 규칙(focus-gate.js)을 고쳐 돌린다 */
+   ・3절: mutation test — 규칙(focus-gate.js)을 고쳐 돌린다 */
 'use strict';
 const { joinRenderer } = require('./sim-renderer-src.js');
 const fs = require('fs'), vm = require('vm');
@@ -105,7 +105,7 @@ say('── 2. main.js');
   chk(m && /const SELF_EXE = sysinput\.selfProcName\(\);/.test(MAIN), '활성 창 상태에 isSelf — 우리 앱 이름(sysinput.selfProcName · win 실행 파일 · mac 번들 id)과 같을 때만');
 }
 
-say('── 3. 깨 보기');
+say('── 3. mutation test');
 {
   const SELF = 'return !!state && state.isSelf === true && !state.isFocusedAppRegistered;';
   const ORDER = 'if(o.figureMode || o.mobOn) return false;\n  if(selfFront(state)) return null;';

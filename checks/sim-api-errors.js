@@ -3,7 +3,7 @@
    ・2절: 기능 표 — 기능의 code 가 먼저 · 같은 code 도 기능 표가 이긴다 · 표에 없는 4xx 는 E-NET-08 · items · retryAfterMs 를 잇는다
    ・3절: 번호 — 표의 번호는 다 error-codes.js 에 있다 · 점검 · 가입 전은 토스트 없음
    ・4절: 배선 — window.TwApiErrors 한 벌이 TwErrorCodes.notify 를 부를 때 찾는다 · html 차례(error-codes · api-client → api-errors → app.js)
-   ・5절: 일부러 깨 보기 */
+   ・5절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
@@ -96,7 +96,7 @@ async function judge(S){
 (async () => {
 await judge(SRC0);
 
-say('── 5. 일부러 깨 보기');
+say('── 5. mutation test');
 const BREAKS = [
   ['AE', "  if(code && own(table, code)) row = table[code];\n  else if(code && own(COMMON, code)) row = COMMON[code];", "  if(code && own(COMMON, code)) row = COMMON[code];\n  else if(code && own(table, code)) row = table[code];", '공통 표가 기능 표를 덮음'],
   ['AE', "  SERVER_ADMIN_ONLY: { action: ACTION.MAINTENANCE, notice: null },", "", '점검을 닿지 못함으로 봄'],
@@ -121,7 +121,7 @@ for(const [where, from, to, what] of BREAKS){
   caught.push([what, qfail]);
 }
 const missed = caught.filter(([, k]) => k === 0).map(([w]) => w);
-chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
 console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

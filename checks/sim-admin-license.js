@@ -1,13 +1,13 @@
 /* ═══ 🎟️ sim-admin-license.js — 관리자 3번 모듈 셋 (2026-10-14 신설 · 관리자 코드 admin 폴더 3번) ═══════════════
    app.js «🛠️ 라이선스 발급 · 공지 · 업데이트 안내(관리자)» · «관리자 카테고리 관리» 의 관리자 몫을 parts/admin/ 세 파일로 옮겼다.
      admin-license.js(키 발급 · 목록 · 대기 요청 · 친구코드로 발급) · admin-category.js(📁 카테고리)
-     (📣 확성기 · 📰 업데이트 공지 편집 admin-notice.js 는 서버 길로 옮겨 sim-admin-notice.js 가 본다)
+     (📣 확성기 · 📰 업데이트 공지 편집 admin-notice.js 는 서버 경로로 옮겨 sim-admin-notice.js 가 본다)
    동작은 그대로여야 한다 — 가짜 DOM 위에서 굴린다.
    ・1절: 만들 때 — 버튼을 한 번씩 건다 · 돌려주는 이름 · 서버는 안 부른다
-   ・2절: 라이선스(서버 길 · D11-3) — 목록(서버 검색 · 쪽 · 총 수) · 회수 · 삭제(licenseId + version · 409 다시 받기) · 대기 요청(받기 · 발급 · 일괄) · 새 키 · 친구코드로 발급(MATE · COZY 차례 · 이미 있음 → 한 장 더) · 옛 답 버림 · 못 받음 번호
+   ・2절: 라이선스(서버 경로 · D11-3) — 목록(서버 검색 · 쪽 · 총 수) · 회수 · 삭제(licenseId + version · 409 다시 받기) · 대기 요청(받기 · 발급 · 일괄) · 새 키 · 친구코드로 발급(MATE · COZY 차례 · 이미 있음 → 한 장 더) · 옛 답 버림 · 못 받음 번호
    ・4절: 카테고리 — 읽는 함수로 받은 목록(다시 대입된 뒤)을 그린다 · 이름 바꾸기 · 되돌리기 · 추가 · 삭제는 서버 카탈로그(catalogAdmin) · 덮어쓴 이름만 ↺
    ・5절: app.js 연결 — 본문이 안 남음 · 빈 껍데기 셋 · 원래 자리 · deps · 바깥에서 부르던 곳(adminCategory · adminLicense) · 사용자 쪽 팝업은 app.js 에 · html 순서
-   ・6절: 일부러 깨 보기 — 모듈 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・6절: mutation test — 모듈 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · admin-license.js · admin-notice.js · admin-category.js 가 있는 폴더에서
      (러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
@@ -67,7 +67,7 @@ function build(src, glob, create, deps, fbOver){
   return { win, calls, toasts, out, els: D.els, fb };
 }
 const flush = () => new Promise(r => setImmediate(r));
-/* 서버 길 가짜 — 부른 것(calls) · 답은 st 가 정한다 */
+/* 서버 경로 가짜 — 부른 것(calls) · 답은 st 가 정한다 */
 function mkApi(st){
   const calls = [], shown = [];
   const rec = (n, f) => async (...a) => { calls.push([n, ...a]); return f ? f(...a) : undefined; };
@@ -224,7 +224,7 @@ async function judgeAll(m, app, html){
   const cut = [0, rows.findIndex(([, m]) => m.startsWith('카테고리')), rows.findIndex(([, m]) => m.startsWith('app.js 에 옮긴'))];
   rows.forEach(([ok, msg], i) => { if(cut.includes(i) && i >= 0) say(sec[k++]); chk(ok, msg); });
 
-  say('── 6. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+  say('── 6. mutation test — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['요청한 사람 이름을 HTML 로 읽음', { lic: s => s.replace("b.textContent = TwPersonName.shown(req.name);", "b.innerHTML = TwPersonName.shown(req.name);") }],
     ['친구코드 후보 차례 바뀜', { lic: s => s.replace("['MATE-' + code, 'COZY-' + code]", "['COZY-' + code, 'MATE-' + code]") }],

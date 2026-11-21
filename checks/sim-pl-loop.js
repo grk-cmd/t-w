@@ -384,7 +384,7 @@ else {
         'TWPL:loop 로는 곡을 넘기지도, 같은 곡을 다시 열지도 않는다');
   }
 
-  /* 3-4. 구버전 앱 — preload 에 setBgmLoop 가 없다. 옛 길이 그대로 살아 있어야 한다 */
+  /* 3-4. 구버전 앱 — preload 에 setBgmLoop 가 없다. 옛 경로가 그대로 살아 있어야 한다 */
   {
     const R = makeRenderer({ on: true, kind: 1, oldApp: true });
     let threw = false;
@@ -483,7 +483,7 @@ else {
     A._plWatchBeat('10|200|0'); B._plWatchBeat('10|200|0|1');
     chk(A._plWatchPos === B._plWatchPos && A._plWatchDur === B._plWatchDur && A._plWatchPos === 10, '플레이리스트는 하트비트 앞 세 칸만 읽는다 — 넷째 칸(광고)이 붙어도 같은 결과');
   }
-  /* 4-6. 깨 보기 — 하나라도 못 잡으면 빨강 */
+  /* 4-6. mutation test — 하나라도 못 잡으면 빨강 */
   {
     const brokeLoop = MAIN.replace("function bgmLoopOn(){ return bgmPlLoop && bgmMode === 'playlist'; }", 'function bgmLoopOn(){ return bgmPlLoop; }');
     const st = { bgmMode: 'listen', bgmVolume: 0.5, bgmPlLoop: true, console: { log(){} }, bgmView: null, ipcMain: { on(){} } };
@@ -491,14 +491,14 @@ else {
     vm.createContext(st);
     vm.runInContext([cutFn(brokeLoop, 'bgmExec'), cutConst(brokeLoop, 'BGM_IS_AD_JS'), cutFn(brokeLoop, 'bgmSignalChannel'), cutFn(brokeLoop, 'bgmLoopOn'), cutFn(brokeLoop, 'bgmForcePlay')].join('\n'), st);
     st.bgmForcePlay(); P.steps(60);
-    chk(brokeLoop !== MAIN && P.count(/^TWPL:ended$/) === 0, '깨 보기: 같이 듣기에서 반복을 안 끄면 곡 끝 신호가 사라진다 (4-1 이 잡는다)');
+    chk(brokeLoop !== MAIN && P.count(/^TWPL:ended$/) === 0, 'mutation test: 같이 듣기에서 반복을 안 끄면 곡 끝 신호가 사라진다 (4-1 이 잡는다)');
     const brokeSrc = MAIN.replace(" if(__twIsAd()) return; var v=", ' var v=');
     const brokeAd = cutFn(brokeSrc, 'bgmExec') + '\n' + cutConst(brokeSrc, 'BGM_IS_AD_JS') + '\n' + cutIpc(brokeSrc, 'companion:bgmSeek');
     const st2 = { bgmMode: 'listen', Math, Number, isFinite, ipcMain: { on: (c, f) => { st2.h = f; } } };
     const P2 = makePage(300); const ad = makeVideo(15); P2.ad = true; P2.video = ad; ad.currentTime = 3;
     st2.bgmView = { webContents: { isDestroyed: () => false, mainFrame: { executeJavaScript: c => { P2.run(c); return Promise.resolve(); } } } };
     vm.createContext(st2); vm.runInContext(brokeAd, st2); st2.h({}, 100);
-    chk(brokeSrc !== MAIN && ad.currentTime === 100, '깨 보기: 광고 확인을 빼면 광고 위치를 감는다 (4-3 이 잡는다)');
+    chk(brokeSrc !== MAIN && ad.currentTime === 100, 'mutation test: 광고 확인을 빼면 광고 위치를 감는다 (4-3 이 잡는다)');
     chk((MAIN.match(/ad-showing/g) || []).length === 1 && (MAIN.match(/__twIsAd\(\)/g) || []).length >= 3,
         '★ 광고 판정은 한 벌(BGM_IS_AD_JS) — 광고 게이트 · 감시 루프 · 위치 맞추기가 같은 것을 부른다');
   }

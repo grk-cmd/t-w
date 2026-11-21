@@ -3,7 +3,7 @@
    ・2절: 상한을 통과하면 한 장 — 비용 재기 · 그리기 한 번 · 히트 맵 표시 · 상태칩 위치 · 다음 프레임 · 회사원 숨김 / 설정 화면이면 그리지 않음 · 데스크탑이면 clear
    ・3절: 좌석 한 명 몫 — 좌석이 있어도 던지지 않고 내 좌석이면 방 상태를 보냄
    ・4절: 연결 — deps 모양 · 옛 이름 · 만드는 줄이 INIT 의 첫 rAF 보다 앞
-   ・5절: 일부러 깨 보기 */
+   ・5절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -88,12 +88,12 @@ say('§4 연결');
   const shape = (n, v) => n === '_renderQuality' ? v === '()=>_renderQuality' : n === 'myCode' ? v === '()=>TwRoomRt.store.myCode()' : READ.includes(n) ? v === '()=>' + n : v === n;
   chk(!!pairs && pairs.length === 53 && pairs.every(([n, v]) => shape(n, v)), '★ deps 53개 모양 — 읽는 함수 여덟은 ()=>이름 · 방 서버 내 코드 myCode · 나머지는 값(이미 만들어진 것)' + (pairs ? ' (' + pairs.length + '개)' : ''));
   const bad = pairs ? pairs.map(([n, v]) => n === 'desktopMode' ? [n, 'desktopMode'] : [n, v]) : [];
-  chk(!bad.every(([n, v]) => shape(n, v)), '  깨 보기: 읽는 함수를 값으로 넘기면 빨강');
+  chk(!bad.every(([n, v]) => shape(n, v)), '  mutation test: 읽는 함수를 값으로 넘기면 빨강');
   chk(/^const frame = frameLoopMod\.frame;/m.test(code) && !/function frame\(/.test(code) && !/^let prev=/m.test(code), '옛 이름 frame 을 const 로 받고 본문 · prev 는 안 남음');
   const iMk = code.indexOf('const frameLoopMod = TwFrameLoop'), iRaf = code.indexOf('requestAnimationFrame(frame)');
   chk(iMk > 0 && iRaf > iMk, '★ 만드는 줄이 첫 requestAnimationFrame(frame) 보다 앞(TDZ)');
 }
-say('§5 일부러 깨 보기');
+say('§5 mutation test');
 {
   const brk = (a, c) => { const m = SRC.replace(a, c); return m === SRC ? null : m; };
   const m1 = brk("if(!manual) framePaceMod.setLastRafAt(now);", "framePaceMod.setLastRafAt(now);");

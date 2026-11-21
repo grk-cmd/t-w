@@ -5,7 +5,7 @@
    ・1절: 통로 — 걸고 부르면 그 함수 · 인자 · 돌려준 값 그대로 · 안 걸린 이름은 아무 일도 안 함
    ・2절: 이름마다 거는 곳이 정확히 한 곳(정해진 파일) · 부르는 곳은 아는 이름만 · 글자 이름으로 부르지 않음 · 표
    ・3절: HTML 순서(쓰는 모듈 · app.js 보다 먼저) · app.js 연결(빈 껍데기 · deps)
-   ・4절: 일부러 깨 보기 */
+   ・4절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -73,7 +73,7 @@ chk(/^const twNav = TwNav;$/m.test(APP) && !/\bNAV_OFF\b/.test(APP), 'app.js —
 const glueN = (APP.match(/^  twNav: twNav,$/gm) || []).length;
 chk(glueN === FILES.filter(([f, t]) => f !== 'app.js' && f !== 'shared/nav.js' && /^const twNav = deps\.twNav;/m.test(t)).length && glueN >= 8, '모듈은 deps 로 받는다 — 받는 모듈 수 = 만드는 줄의 twNav 줄 수(' + glueN + ')');
 
-say('── 4. 일부러 깨 보기');
+say('── 4. mutation test');
 const twice = FILES.map(([f, t]) => [f, f === 'myhome/scheduler.js' ? t + '\ntwNav.on(twNav.NAV.MY_HOME, ()=>{});\n' : t]);
 chk(judge(MOD, HTML, twice).badOwner.includes('MY_HOME'), '다른 파일이 같은 이름을 또 걸면 빨강');
 const unk = FILES.map(([f, t]) => [f, f === 'myhome/scheduler.js' ? t + '\ntwNav.go(twNav.NAV.MY_HOMEE);\n' : t]);

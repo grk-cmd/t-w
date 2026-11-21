@@ -3,7 +3,7 @@
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(_escEditable · bringWinToFront · escRegisterWindow)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 0줄 그대로 · 부르는 곳은 winStackMod.이름 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · win-stack.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -110,7 +110,7 @@ function behave(mod){
   chk(R.goesOn && R.belowClosed, '  한 창이 못 닫혀도 나머지는 계속 닫고 런처로 돌아간다 — ESC 스택 꼭대기가 던지거나 안 닫혀도 그 아래 창이 닫힌다');
   chk(R.noStack, '  ESC 스택에 태운 창이 없어도 돈다');
 }
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/shared/win-stack.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
@@ -120,20 +120,20 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const winStackMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('winStackMod.' + x)); if(n){ ls[i] = ls[i].replace('winStackMod.' + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 던짐', m => m.replace('function createWinStack(deps){', 'function createWinStack(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createWinStack(deps){', 'function createWinStack(deps){ throw new Error("mutation");'), null, null],
 ];
 {
   const br = (from, to) => MOD.includes(from) ? behave(MOD.replace(from, to)) : null;
   const b1 = br("try{ backToLauncher(); }catch(e){", "try{ }catch(e){");
-  chk(b1 && !b1.all, '깨 보기 — 런처로 돌아가기를 빼면 빨강');
+  chk(b1 && !b1.all, 'mutation test — 런처로 돌아가기를 빼면 빨강');
   const b2 = br("console.warn('[창] 모두 닫기 — ' + w.key + ' 이(가) 닫히지 않았어요'); skip.add(w.key); stuck.push(w.key); }", "skip.add(w.key); }");
-  chk(b2 && !b2.loud, '깨 보기 — 닫히지 않은 ESC 창을 경고 없이 넘기면 빨강');
+  chk(b2 && !b2.loud, 'mutation test — 닫히지 않은 ESC 창을 경고 없이 넘기면 빨강');
   const b5 = br("skip.add(w.key); stuck.push(w.key); continue; }", "break; }");
-  chk(b5 && !b5.belowClosed, '깨 보기 — 꼭대기 창이 던졌을 때 멈추면(아래 창이 열린 채 남음) 빨강');
+  chk(b5 && !b5.belowClosed, 'mutation test — 꼭대기 창이 던졌을 때 멈추면(아래 창이 열린 채 남음) 빨강');
   const b3 = br("    if(still){ console.warn('[창] 모두 닫기 — ' + c.key + ' 이(가) 닫히지 않았어요'); stuck.push(c.key); }", "");
-  chk(b3 && !b3.loud, '깨 보기 — 닫았는데 열려 있는 표의 창을 못 알아채면 빨강');
+  chk(b3 && !b3.loud, 'mutation test — 닫았는데 열려 있는 표의 창을 못 알아채면 빨강');
   const b4 = br("if(!open) return;\n    try{ c.close(); }", "try{ c.close(); }");
-  chk(b4 && !b4.all, '깨 보기 — 안 열린 창까지 닫으면 빨강');
+  chk(b4 && !b4.all, 'mutation test — 안 열린 창까지 닫으면 빨강');
 }
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;

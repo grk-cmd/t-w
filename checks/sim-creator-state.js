@@ -5,7 +5,7 @@
    ・1절: 만들 때 — 이름 58개 · 처음 값(옮기기 전 let 초기값 그대로) · DESK_SCALE_DEFAULT 를 따른다
    ・2절: 읽기 · 쓰기 — 대입하면 읽힌다 · 안쪽을 바꾸면 같은 객체 · 만들 때마다 따로(객체 처음 값도 새것) · ++ · +=
    ・3절: app.js 연결 — 만드는 줄(가드 없이 · deps 1) · 옛 let 없음 · 맨 이름 참조 없음(crState.이름 으로만) · 부팅 순서 · html · smoke
-   ・4절: 일부러 깨 보기 */
+   ・4절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -82,14 +82,14 @@ behave(MOD).forEach(([ok, msg]) => chk(ok, msg));
 say('── 3. app.js 연결');
 wire(APP, HTML).forEach(([ok, msg]) => chk(ok, msg));
 chk(!SMOKE || /PRELOAD\.push\('creator-state\.js'\);/.test(SMOKE), 'smoke 가 creator-state.js 를 먼저 싣는다');
-say('── 4. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 4. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['붓 크기 처음 값 11 → 12', (m) => m.replace('brushSize=11', 'brushSize=12'), null, null],
   ['책상 크기 처음 값을 숫자로', (m) => m.replace('cDeskScale=DESK_SCALE_DEFAULT', 'cDeskScale=0.175'), null, null],
   ['setter 하나 빠짐', (m) => m.replace(', set cBase(v){ cBase = v; }', ''), null, null],
   ['getter 가 처음 값을 돌려줌', (m) => m.replace('get camYaw(){ return camYaw; }', 'get camYaw(){ return 0; }'), null, null],
   ['객체 처음 값을 같이 씀', (m) => m.replace('function createCreatorState(deps){', 'const _sharedPos = {x:0, y:0, z:0};\nfunction createCreatorState(deps){').replace('let cDeskPos = {x:0, y:0, z:0};', 'let cDeskPos = _sharedPos;'), null, null],
-  ['만들 때 던짐', (m) => m.replace('function createCreatorState(deps){', 'function createCreatorState(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', (m) => m.replace('function createCreatorState(deps){', 'function createCreatorState(deps){ throw new Error("mutation");'), null, null],
   ['app.js 에 옛 let 이 다시', null, (a) => a + '\nlet cBase=null;', null],
   ['app.js 에 맨 이름 참조', null, (a) => a.replace('crState.crPaintTool=PaintTools', 'crPaintTool=PaintTools'), null],
   ['만드는 줄 deps 빠짐', null, (a) => a.replace('createCreatorState({\n  DESK_SCALE_DEFAULT: DESK_SCALE_DEFAULT,\n});', 'createCreatorState({\n});'), null],

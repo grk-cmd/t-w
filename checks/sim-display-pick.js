@@ -6,7 +6,7 @@
    ・1절: 실물 _pickRunDisplay 를 모니터 배치 흉내로 — 주모니터 바꾸기(두 방향) · 같은 모델 둘 · 이름 없음(옛 동작) · 옛 저장(이름 없음) ·
      고른 모니터를 뺌 → 대체(저장 안 덮음) → 다시 꽂음 · 이름 길이 상한
    ・2절: 실물 getRunDisplay — 찾으면 새 id · 지문 · 이름으로 저장 · 약한 대체는 안 덮음 · 옛 저장에 이름 채움
-   ・3절: 배선(고를 때 이름 저장 · 읽기 · 쓰기 · 연결 · 해제도 같은 처리기) · 4절: 깨 보기 */
+   ・3절: 배선(고를 때 이름 저장 · 읽기 · 쓰기 · 연결 · 해제도 같은 처리기) · 4절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -157,7 +157,7 @@ chk(/screen\.on\('display-metrics-changed', _onDisplaysChanged\);/.test(MAIN) &&
   '★ 모니터 연결 · 해제도 같은 처리기 — 실행 중에 다시 찾아 옮긴다(예전엔 표시 설정 변경만)');
 chk(/_runRectOf\(getRunDisplay\(\)\)/.test(MAIN.slice(MAIN.indexOf('const _onDisplaysChanged = () => {'))), '  처리기는 실행 화면이면 getRunDisplay 로 다시 찾는다(실행 창 자리 _runRectOf 로)');
 
-say('\n── 4절: 깨 보기');
+say('\n── 4절: mutation test');
 const noNameFirst = behave(MAIN.replace("      if(!shape || _displayShape(byName[0]) === shape) return { display: byName[0], stage: 'name', strong: true };\n", ''));
 chk(!!noNameFirst && (noNameFirst.keepA === false || noNameFirst.keepB === false), '이름 찾기를 빼면 1절 «주모니터를 바꿔도 고른 모니터» 가 빨강(제보 그대로)');
 const noUniq = behave(MAIN.replace("    if(byName.length === 1 && saved.nameUnique === true){", "    if(byName.length === 1){"));

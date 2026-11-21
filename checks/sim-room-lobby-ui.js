@@ -1,7 +1,7 @@
 /*
  * 방 목록 로비 검사 — 모듈을 그대로 불러 돌린다(가짜 DOM · 가짜 provider).
  * 1. room-lobby-model.js(카드 · 상태 · 정렬 · 거르기 · 번호 · 쪽 · 빠른시작)  2. room-lobby-provider.js(API 목록 → 모델 모양 · 내 시크릿룸 · 세션 기억 · 손님 수 peek)
- * 3. room-lobby-ui.js(열기 · 그리기 · 위 띠 · 못 불러옴 · 탭 · 빠른시작 · 들어가기 · 만들기 · 시크릿룸 줄 · 글로만 그림 · 방 안 · 주기 갱신 없음)  4. 배선(html · app.js · firebase-init)  5. 깨 보기
+ * 3. room-lobby-ui.js(열기 · 그리기 · 위 띠 · 못 불러옴 · 탭 · 빠른시작 · 들어가기 · 만들기 · 시크릿룸 줄 · 글로만 그림 · 방 안 · 주기 갱신 없음)  4. 배선(html · app.js · firebase-init)  5. mutation test
  * 설계: docs/ROOM_LOBBY.md 1 · 2.2 · 3
  */
 'use strict';
@@ -253,7 +253,7 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
   chk(/'E-ROOM-03'/.test(EC), '  오류 번호 E-ROOM-03 이 표에 있다');
   chk(!/innerHTML/.test(U_SRC), '★ 로비 화면은 innerHTML 을 안 쓴다 — 남이 쓴 제목 · 닉네임은 글로만');
 
-  say('── 5. 깨 보기');
+  say('── 5. mutation test');
   {
     const noSort = model(M_SRC.replace('if(a.full !== b.full) return a.full ? 1 : -1;', ''));
     chk(noSort.cardsFrom(node, { now, cap: 10 }).list[0].code !== 'WORK-CC33', '«입장 가능 먼저» 를 빼면 1절 정렬이 빨강');

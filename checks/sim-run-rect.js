@@ -4,7 +4,7 @@
      시험 스위치는 «CPU 가 창 넓이에 따라 주는가» 를 재는 것이라, 스위치가 없을 때는 예전과 한 픽셀도 달라지면 안 된다.
    ・1절: parseBand — 없음 · 이상한 값 · 경계(0 · 1 · 하한) / runRect — 스위치 없음은 옛 식 그대로 · 띠는 아래 끝 고정
    ・2절: 연결 — main.js 세 자리가 _runRectOf 를 부르고, 그 밖에서 runOverlayHeight 로 사각형을 다시 만들지 않는다
-   ・3절: 일부러 깨 보기 */
+   ・3절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -58,7 +58,7 @@ say('── 2. 연결(main.js)');
   chk(/RunRect\.BAND_SWITCH\]/.test(code), '  [GPU] 줄의 시험 스위치 목록에 들어 있다(켰는지 로그로 보인다)');
 }
 
-say('── 3. 깨 보기');
+say('── 3. mutation test');
 {
   const broke = (from, to) => { const m = MOD.replace(from, to); return m === MOD ? null : judge(m); };
   const b1 = broke('const full = Math.round(overlayHeight);', 'const full = Math.round(overlayHeight) - 1;');

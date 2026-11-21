@@ -4,7 +4,7 @@
           파츠 그림 · 귀 그림의 dataURL 은 뺌 · 하나라도 못 올리면 null(칸을 얼굴 없이 올리지 않는다) · 이미 주소인 값은 그대로 · 원본 객체를 안 바꿈
    ・2절: 올리기 이름 — 내용 해시(다른 그림은 다른 이름 · 같은 그림은 한 번만 올림) · 캐시 합치기 · 상한
    ・3절: 서버에서 — 주소 → dataURL · 얼굴 / 감은눈 없으면 던짐 · GLB 되받기 · 섬네일 비움 · 올리고 되받은 값이 원래 저장 모양과 같다(되받아 저장해도 안 올라가는 핑퐁 없음)
-   ・4절: 깨 보기
+   ・4절: mutation test
    [실행] 저장소 루트에서 node checks/run.js sim-slot-codec */
 'use strict';
 const path = require('path');
@@ -112,7 +112,7 @@ async function behave(src){
 
 (async () => {
   (await behave(SRC)).forEach(([ok, msg]) => chk(ok, msg));
-  say('── 4. 일부러 깨 보기');
+  say('── 4. mutation test');
   const bb = [
     ['하나라도 못 올려도 계속 보냄', "if(!url) return null;\n    out[field + 'Url'] = url;", "out[field + 'Url'] = url;"],
     ['파츠 그림 원문을 안 뺌', "if(typeof v.pic === 'string' && v.pic.startsWith('data:')) delete v.pic;", ''],

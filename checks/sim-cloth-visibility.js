@@ -3,7 +3,7 @@
    ・1절: applyClothVisibility — hides 명시 · 옛 파츠 관례 기본값(onepiece · cape · 일반) · 꾸미기 파츠 꺼짐이면 «파츠 없음» · 없는 rec 건너뜀
    ・2절: 자리비움 중이면 visible 이 아니라 _prevVisible 에 적는다 · 끝에서 올라탄 좌석 머리 재측정(던져도 삼킴)
    ・3절: _unequipClothCat — 해제 + def 에서 지움
-   ・4절: 연결(html 순서 · 만드는 줄 · 옛 이름 · app.js 에 본문이 안 남음) · 5절: 일부러 깨 보기
+   ・4절: 연결(html 순서 · 만드는 줄 · 옛 이름 · app.js 에 본문이 안 남음) · 5절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. */
 'use strict';
 const fs = require('fs');
@@ -86,7 +86,7 @@ say('§4 연결');
   chk(/const _unequipClothCat = clothVisMod\._unequipClothCat;/.test(code) && /const applyClothVisibility = clothVisMod\.applyClothVisibility;/.test(code), '  옛 이름 const 둘');
   chk(!/function (applyClothVisibility|_unequipClothCat)\b/.test(code), '  app.js 에 본문이 안 남음');
 }
-say('§5 일부러 깨 보기');
+say('§5 mutation test');
 {
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const cases = [

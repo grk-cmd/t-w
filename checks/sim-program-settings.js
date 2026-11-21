@@ -3,9 +3,9 @@
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(USER_NAME_MAX · closeProgramSettings · commitUserName · openProgramSettings)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 26줄 그대로 · 부르는 곳은 progSettingsMod.이름 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    ・4절: 버전 표시 — 만들 때 data-app-version 칸(설정 › 프로그램 정보 · 첫 화면 맨 아래)을 모두 «v버전» 으로 · 못 받으면 «-» ·
-     첫 화면 맨 아래 개인정보 처리방침 링크 — 주소가 다른 두 링크와 같고 room-entry.js 가 시스템 브라우저로 연다(깨 보기 포함)
+     첫 화면 맨 아래 개인정보 처리방침 링크 — 주소가 다른 두 링크와 같고 room-entry.js 가 시스템 브라우저로 연다(mutation test 포함)
    [실행] app.js · desk-companion-prototype.html · program-settings.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -76,7 +76,7 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/launcher/program-settings.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
@@ -85,7 +85,7 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const progSettingsMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('progSettingsMod.' + x)); if(n){ ls[i] = ls[i].replace('progSettingsMod.' + n, n); return ls.join('\n'); } } return a + "\nopenProgramSettings('license');\n"; }, null],   /* app.js 에 부르는 곳이 없으면(창 열기는 통로 nav.js — 모듈 순환 끊기 6 · 7) 옛 이름 부름 한 줄을 넣어 본다 */
-  ['만들 때 던짐', m => m.replace('function createProgramSettings(deps){', 'function createProgramSettings(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createProgramSettings(deps){', 'function createProgramSettings(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
@@ -135,14 +135,14 @@ function linkJudge(html, roomEntry){
   chk(v.ok.every(t => t === 'v0.12.0'), '버전 칸 둘 다 «v0.12.0» — 만들 때 한 번 채운다 (' + v.ok.join(' · ') + ')');
   chk(v.none.every(t => t === '-') && v.bad.every(t => t === '-') && v.empty.every(t => t === '-'), 'companion 없음 · 실패 · 빈 값이면 «-»');
   const v2 = await versionCases(MOD.replace(/\nrefreshAppVersionUI\(\);\nreturn \{/, '\nreturn {'));
-  chk(!v2.ok.every(t => t === 'v0.12.0'), '깨 보기 — 만들 때 안 부르면 빨강(첫 화면은 설정 창을 못 연다)');
+  chk(!v2.ok.every(t => t === 'v0.12.0'), 'mutation test — 만들 때 안 부르면 빨강(첫 화면은 설정 창을 못 연다)');
   linkJudge(HTML, ROOM_ENTRY).forEach(([ok, msg]) => chk(ok, msg));
   const lb = [
     ['첫 화면 링크 주소가 다름', HTML.replace('<a id="gatePrivacyLink" href="https://help.together-working.com/privacy"', '<a id="gatePrivacyLink" href="https://example.com/privacy"'), ROOM_ENTRY],
     ['첫 화면 줄 빠짐', HTML.replace('id="inviteGateFoot"', 'id="x"'), ROOM_ENTRY],
     ['링크 안 엶', HTML, (ROOM_ENTRY || '').replace("_bindDonate(document.getElementById('gatePrivacyLink'));", '')],
   ];
-  for(const [name, h, re] of lb){ const changed = h !== HTML || re !== ROOM_ENTRY; chk(changed && linkJudge(h, re).some(([ok]) => !ok), '깨 보기 — ' + name + (changed ? '' : ' — 바꿀 글을 못 찾음')); }
+  for(const [name, h, re] of lb){ const changed = h !== HTML || re !== ROOM_ENTRY; chk(changed && linkJudge(h, re).some(([ok]) => !ok), 'mutation test — ' + name + (changed ? '' : ' — 바꿀 글을 못 찾음')); }
   say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
   process.exit(fail ? 1 : 0);
 })();

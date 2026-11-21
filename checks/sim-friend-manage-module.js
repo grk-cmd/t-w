@@ -259,7 +259,7 @@ await sec('── 6. app.js 배선', () => {
 await sec('── 7. 🐞 버그 제보 탭 — 오픈카톡 링크 폼은 bug-board-ui.js 안으로(서버 설정 bug.report)', async () => {
   const code = strip(APP);
   chk(!/bindBugReport|_bugReportConf|_bugReportLink|subscribeBugReport|setBugReport|mhBugEditBtn/.test(code), 'app.js 에 버그 제보 탭 코드가 없다');
-  chk(!/_bugReportConf|_bugReportLink|subscribeBugReport|setBugReport|firebaseAPI/.test(strip(BUG)), 'bug-board-ui.js 에 옛 전역 이름 · Firebase 길이 없다(굴려 보기는 sim-bug-board.js 관리자 절)');
+  chk(!/_bugReportConf|_bugReportLink|subscribeBugReport|setBugReport|firebaseAPI/.test(strip(BUG)), 'bug-board-ui.js 에 옛 전역 이름 · Firebase 경로가 없다(굴려 보기는 sim-bug-board.js 관리자 절)');
   const iBU = HTML.indexOf('<script src="parts/support/bug-board-ui.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iBU > 0 && iBU < iA, 'html — bug-board-ui.js 는 app.js 앞(게시판은 app.js 가 만든다)');
 });

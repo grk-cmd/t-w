@@ -5,7 +5,7 @@
    ・2절: desktop-run.js 를 가짜 창에서 진짜로 만들고 mousemove 를 넣어 본다 — 새 판정이 맞음 / 못 맞음 / 던짐 / 건너뜀이어도
           클릭 통과 결과(setIgnoreMouse)는 옛 판정대로 · 받기를 보낸 뒤에 그림자 · 그림자 셈이 옛 답 · 새 답 · 만듦을 받음 · [비용] 통과 시간에 그림자 몫이 안 듦
    ・3절: app.js · html 연결 — 그린 직후 표시 한 줄(markRendered) · 빈 지도 판단은 deps · desktop-run · 1분 진단에 같은 hitShadow · 싣는 차례
-   ・4절: 일부러 깨 보기
+   ・4절: mutation test
    [실행] 러너 스테이징(node checks/run.js hit-shadow) 또는 저장소 루트에서. */
 'use strict';
 const fs = require('fs');
@@ -81,7 +81,7 @@ function runDesktop(drSrc, opt){
   const st = { old: [], pickArgs: [], records: [] };
   const ray = { setFromCamera: noop, intersectObjects: () => opt.oldHit ? [{ object: { parent: null } }] : [], layers: {} };
   const seatHit = {
-    pick: (r, x, y, allow) => { st.pickArgs.push({ r, x, y, allow }); log.push('pick'); clock.t += opt.pickMs || 0; if(opt.pickThrows) throw new Error('깨 봄'); return opt.pick || { hit: false, inRect: false, stale: false, skipped: false, built: false }; },
+    pick: (r, x, y, allow) => { st.pickArgs.push({ r, x, y, allow }); log.push('pick'); clock.t += opt.pickMs || 0; if(opt.pickThrows) throw new Error('mutation'); return opt.pick || { hit: false, inRect: false, stale: false, skipped: false, built: false }; },
     describe: (obj, x, y, extra) => Object.assign({ obj, x, y }, extra || {}),
   };
   const hitShadow = { allow: () => opt.allow !== false, record: (rec) => st.records.push(rec) };
@@ -159,7 +159,7 @@ const rows = judgePure(MOD);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 셈 · 줄'); chk(ok, msg); });
 const rows2 = judgeWiring(DR, APP, HTML);
 rows2.forEach(([ok, msg], i) => { if(i === 0) say('── 2. desktop-run 나란히 돌리기'); if(i === 9) say('── 3. app.js · html 연결'); chk(ok, msg); });
-say('── 4. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 4. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['줄 길이 자르기 빠짐', 'm', m => m.replace('const cut = (s) => s.length > LINE_MAX ? s.slice(0, LINE_MAX) : s;', 'const cut = (s) => s;')],
   ['세는 칸 바뀜(지도만통과 ↔ 지도만받기)', 'm', m => m.replace("const k = r.old ? 'leak' : 'grab';", "const k = r.old ? 'grab' : 'leak';")],

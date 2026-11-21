@@ -6,7 +6,7 @@
    ・2절: 런처 도구 — 관리자 아니면 막힘(다시 대입된 isAdmin 을 읽음) · 방 종료는 «종료» 입력 후 서버 · 연타 한 번 · 실패는 오류 번호 · 게임 설정은 서버 해금 표에 쓴다(catalogAdmin) ·
         광고 배너는 열 때 서버에서 받고(받기 전엔 안 열림) 읽은 판으로 저장 · 저장하면 본인 런처 배너를 한 번 받음 · 409 는 다시 받아 채우고 번호 없이 문구 · 이 PC 사본 없음
    ・3절: app.js 연결 — 본문이 안 남음 · 사용자 쪽은 남음 · 빈 껍데기 · deps · 원래 자리(초대 창 안 · 런처 구역) · html
-   ・4절: 일부러 깨 보기
+   ・4절: mutation test
    [실행] app.js · desk-companion-prototype.html · admin-users.js · admin-launcher.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
@@ -53,7 +53,7 @@ function build(src, glob, deps, fbOver){
 async function judgeAll(m, app, html){
   const r = [];
   const t = (ok, msg) => r.push([!!ok, msg]);
-  /* 1. 통계 · 초대권 (서버 길 · D11-3) */
+  /* 1. 통계 · 초대권 (서버 경로 · D11-3) */
   const uc = [], us = { shown: [], err: null, totals: { users: 12, premiumUsers: 3, licValid: 4, licUsed: 2 }, hold: null };
   const uApi = { ERRORS: { MARK: 1 },
     totals: async () => { uc.push(['totals']); if(us.hold) await us.hold; if(us.err) throw us.err; return us.totals; },
@@ -206,7 +206,7 @@ async function judgeAll(m, app, html){
   const rows = await judgeAll(M, SRC, HTML);
   const heads = { 0: '── 1. 📊 통계 · 🎟️ 초대권 지급', 5: '── 2. 🧰 런처 도구', 20: '── 3. app.js 연결' };
   rows.forEach(([ok, msg], i) => { if(heads[i]) say(heads[i]); chk(ok, msg); });
-  say('── 4. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+  say('── 4. mutation test — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['초대권 상한이 안 걸림', { users: s => s.replace('if(_grantN<INVITE_GRANT_MAX){ _grantN++; renderN(); }', '{ _grantN++; renderN(); }') }],
     ['전체 지급이 한 번에', { users: s => s.replace("if(_armed !== 'grant'){ arm('grant', `⚠️ 정말 전체에게 ${_grantN}장씩? (다시 클릭)`); return; }", '') }],

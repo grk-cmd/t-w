@@ -14,7 +14,7 @@
 | `room/` ✅ | 🛰 방(워킹룸 · 투게더룸) — 입장 · 동기화 · 방 서버 · 방 안 놀이 | 21 | 7,200 |
 | `chat/` ✅ | 💬 채팅 — 대화창 · 기록 · 설정 · 이모티콘 | 8 | 2,600 |
 | `myhome/` ✅ | 🏠 마이홈 — 페이지 · 편집 · 스티커 · 친구 · 우편 · 방명록 · 바탕화면 앱 | 19 | 13,900 |
-| `friends/` | 👥 친구 데이터 — 포트 · provider(firebase 옛 길 · api · ws 자리). 화면 · 마이홈은 포트만 부른다 | 3 | 180 |
+| `friends/` | 👥 친구 데이터 — 포트 · provider(firebase 옛 경로 · api · ws 자리). 화면 · 마이홈은 포트만 부른다 | 3 | 180 |
 | `realtime/` | 🔌 realtime 서버 웹소켓 연결 공통부(열기 · hello · 토큰 · 백오프 · rid 요청) — realtime 연결 하나(`realtime/rt-hub.js` pv 2 — 방 · 대화 · 사진 · 친구 접속이 같은 연결) | 1 | 270 |
 | `character/` ✅ | 🧍 캐릭터 · 꾸미기 — 꾸미기 창 · 파츠 · 동물 · 슬롯 · 코드 · 가챠 | 19 | 10,500 |
 | `creator/` ✅ | 🎨 생성기 — 그리기 도구 · 단계 길잡이 (+ app.js 에 남은 생성기 묶음을 여기로) | 6 | 650 (+ 약 3,500) |
@@ -77,8 +77,8 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `guestbook.js` · `scheduler.js` | 방명록 · 스케줄러 · 일정 알림 | fb 15 · 24 |
 | `myhome-desktop.js` · `folder-free.js` · `bookmark.js` · `mallang.js` | 마이홈 바탕화면 · 폴더 자유배치 · 북마크 책장 · 말랑이 | fb 98 · 27 |
 | `myhome-links.js` · `myhome-diag.js` | 본문 링크 · 클릭 진단(콘솔) | — |
-| `inbox-api.js` · `mail-feed.js` | 📩 내 우편 — 서버 길(`/v2/me/notifications`) · 받아 들고 있는 한 벌(받는 중 · 못 받음 · 새 우편 알림 · 읽음 · 지우기). 사용법은 `README.md` | 서버 |
-| `gift-api.js` | 🧸 말랑이 · 🎁 선물 서버 길(`/v2/me/mallangs` · `/v2/me/gifts` · `/v2/gifts/{code}`) provider — 만드는 곳은 말랑이 칸(`mallang-store.js`) · 선물 상태 주인(`gift-box.js`). 사용법은 `README.md` | 서버 |
+| `inbox-api.js` · `mail-feed.js` | 📩 내 우편 — 서버 endpoint(`/v2/me/notifications`) · 받아 들고 있는 한 벌(받는 중 · 못 받음 · 새 우편 알림 · 읽음 · 지우기). 사용법은 `README.md` | 서버 |
+| `gift-api.js` | 🧸 말랑이 · 🎁 선물 서버 endpoint(`/v2/me/mallangs` · `/v2/me/gifts` · `/v2/gifts/{code}`) provider — 만드는 곳은 말랑이 칸(`mallang-store.js`) · 선물 상태 주인(`gift-box.js`). 사용법은 `README.md` | 서버 |
 | `gift-box.js` | 🎁 선물 상태 주인 — 내 선물함(받기 · ⭐ · 치움 · 지우기 · 봤음 · 신호 `gifts`) · 그 집에 나온 선물 받기. 사용법은 `README.md` | 서버 |
 | `launcher/notice-api.js` · `launcher/notice-feed.js` | 📢 공지 한 판(`/v2/notices` — 소식 · 업데이트 공지 · 런처 배너) + 관리자 소식 쓰기. 확성기는 realtime `announce`(`room/overhead.js`). 사용법은 `launcher/README.md` | 서버 |
 
@@ -88,7 +88,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 |---|---|---|
 | `friends-port.js` | 포트 — 친구 목록 받기 · 목록 듣기 · 접속 상태 듣기. friends-sub.js(마이홈)가 부른다 | — |
 | `friends-api.js` | 서버 provider — social-api 위 목록 + 명함 → 친구 칸 · 알림(friends · card)을 받으면 다시 받기 · 끊기 | api(로그인) · realtime 알림 |
-| `social-api.js` | 👥 친구 · 친구 요청 · 명함 서버 길(`/v2/me/friends` · `/v2/me/friend-requests` · `/v2/myhomes/cards`) provider — friends-api.js · friend-requests-api.js 가 부름. 사용법은 `README.md` | 서버 |
+| `social-api.js` | 👥 친구 · 친구 요청 · 명함 서버 endpoint(`/v2/me/friends` · `/v2/me/friend-requests` · `/v2/myhomes/cards`) provider — friends-api.js · friend-requests-api.js 가 부름. 사용법은 `README.md` | 서버 |
 | `friend-requests-port.js` · `friend-requests-api.js` | 👋 친구 요청 포트 · 서버 provider(받은 요청 · 이름 · 알림 friendRequests · 수락 · 거절 · 취소 · 보내기 · 친구코드 찾기) | api(로그인) · realtime 알림 |
 
 ## 5. 🧍 `character/` — 캐릭터 · 꾸미기 ✅ 옮김(폴더 10번)
@@ -159,7 +159,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 |---|---|---|
 | `bug-board-ui.js` | 버그 제보 게시판 화면 | fb 8 |
 | `report.js` | 신고하기 · 신고 창 도우미(관리자 목록은 `admin/admin-report.js`) | — |
-| `report-api.js` | 🚩 신고 서버 길(`POST /v2/reports`) provider — 사유 이름 → 서버 종류 이름. 사용법은 `README.md` | 서버 |
+| `report-api.js` | 🚩 신고 서버 endpoint(`POST /v2/reports`) provider — 사유 이름 → 서버 종류 이름. 사용법은 `README.md` | 서버 |
 | `bug-board.js` (ES) | 버그 게시판 데이터 | (firebase-init 이 연결) |
 
 ## 12. 📷 `purikura/` — 스티커사진 ✅ 옮김(폴더 1번)

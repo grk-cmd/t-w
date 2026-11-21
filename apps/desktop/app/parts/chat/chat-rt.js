@@ -1,5 +1,5 @@
 /* chat-rt.js — 💬 대화 포트(대화 기록 · 보내기 · 방장 지우기 · 내 이모티콘) — realtime 연결 하나 + API (검사 sim-chat-rt.js)
-   [책임] 투게더룸 · 시크릿룸 대화창의 서버 길 한 곳.
+   [책임] 투게더룸 · 시크릿룸 대화창의 서버 경로 한 곳.
      · 보내기 chatSay{ requestId, tab, text | game } → 보낸 연결에 chatSaid · 방 전원에 chatLine. 시간 안에 답이 없으면 실패로 끝낸다(자동으로 다시 보내지 않는다) — 사용자가 같은 글을 다시 누르면 같은 requestId 로 보낸다(서버가 처음 줄을 돌려줘 두 줄이 안 생긴다).
      · 지난 기록 GET /v2/rooms/{코드}/chats?tab=&since=&limit= → { lines, hasMore } — since 는 시각(이상) · hasMore 면 마지막 줄 시각으로 다시. 시크릿룸도 읽는다(서버가 3일 보관 — 사용자 결정 11-09). 못 받으면 onFail — 빈 대화로 그리지 않는다.
      · 방장 지우기 chatClear{ tab } → 서버가 지우기 표시 줄(CLEAR)을 방 전원에 보낸다(앱이 따로 표시 줄을 쓰지 않는다).

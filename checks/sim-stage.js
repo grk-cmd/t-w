@@ -4,7 +4,7 @@
    ・2절: 바닥 맞춤 sizeFloorTo — 입력 → 크기 · 자리(경계값: 작은 콘텐츠 · 빈 메시)
    ・3절: 실패 길 — 렌더러를 못 만들면 안내(glFail.show) 후 같은 오류를 던진다 · 감시 붙이기가 던져도 무대는 만들어진다 · DRACO 가 던져도 로더는 있다
    ・4절: 연결 — html 이 app.js 보다 먼저 싣는다 · app.js 가 _renderAA · afterRestore 를 넘겨 만들고 옛 이름을 받는다 · app.js 에 렌더러 · 씬 · 로더를 직접 만드는 줄이 없다
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. three 는 vendor/three/three.min.js. */
 'use strict';
 const fs = require('fs');
@@ -128,7 +128,7 @@ say('§4 연결');
   chk(iQ >= 0 && iM > iQ, '  화질(_renderQuality)을 읽은 다음에 무대를 만든다(antialias 는 만들 때만 정해진다)');
 }
 
-say('§5 일부러 깨 보기');
+say('§5 mutation test');
 {
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const m1 = brk('antialias:_renderAA', 'antialias:true');

@@ -21,7 +21,7 @@
   - 구운 PNG 는 서버 보관함에 올려 해시로 쓴다(`quiet` 으로 이어 쓰고 끝에서 서버 한 벌을 한 번만 다시 받는다).
   - 검사: `checks/sim-admin-thumbs.js`(4절 — 관리자 아님 · 없는 것만 · force · 서버에 쓰기 · 실패 건너뛰기 · 0개).
 
-## admin-api.js — 🛠️ 앱 관리자 서버 길 provider
+## admin-api.js — 🛠️ 앱 관리자 서버 경로 provider
 
 - **책임**: 앱 관리자 창이 쓰는 서버 관리자 API(`/v2/admin/...`) 요청 모양 한 곳. 지금: 관리자 확인(`me`) · 📣 확성기 · 📰 업데이트 공지 · 📢 런처 배너 · 🛑 전체 방 종료. 화면 · 알림은 모른다 — 실패는 `ApiError` 를 던진다.
 - **만드는 법**: app.js `noticeApi` 바로 뒤에서 `const adminApi = TwAdminApi.createAdminApi({ authed, pending, fetchBoard })`
@@ -31,9 +31,9 @@
   - 관리자 판정은 서버가 한다(`ACCESS_DENIED` → `E-ADM-05`). 앱은 «누가 했는지» 를 보내지 않는다.
   - 배너 저장은 읽은 판(`version`)을 싣는다 — 409 면 덮어쓰지 않고 다시 받는다. 링크 칸은 비워도 된다(서버가 «링크 없는 장» 으로 받고 런처는 누르면 아무 일 없게 그린다) · 채운 주소가 틀리면 `E-ADM-01` · 409 는 번호 없이 «다른 곳에서 바꾼 내용을 받아왔어요».
   - 카탈로그 쓰기(파츠 · 책상 · 소품 · 진열 순서 · 카테고리 · 게임 설정)의 요청 모양은 `catalog-admin-api.js`(아래) — 이 파일에는 그 실패 갈래 표(`ERRORS` 의 `CATALOG_*`)만 둔다. 🧹 유령 방 청소 · F12 카탈로그 도구 · 가챠 경로 이관은 D11-2 에서 걷었다(0.13 방은 realtime 메모리 · 서버 카탈로그엔 base64 레코드 · 가챠 경로 나누기가 없다). 관리자 모드는 세션이 끝나면 조용히 꺼진다(NAV.ADMIN_EXIT).
-  - 검사: `checks/sim-admin-api.js`(요청 모양 · 요청 번호 · 오류 표 · 배선 · 깨 보기).
+  - 검사: `checks/sim-admin-api.js`(요청 모양 · 요청 번호 · 오류 표 · 배선 · mutation test).
 
-## catalog-admin-api.js — 🛠️ 카탈로그 쓰기 서버 길 provider(D11-4)
+## catalog-admin-api.js — 🛠️ 카탈로그 쓰기 서버 경로 provider(D11-4)
 
 - **책임**: 파츠 · 책상 · 소품 등록 · 고치기 · 단종 · 진열 순서 · 카테고리 · 레벨 해금을 서버 `/v2/admin/catalog/*` 로 쓰는 요청 모양 한 곳(앱 칸 → 서버 본문 바꾸기도 여기뿐). 관리자 판정 · 상한 · 값 거르기는 서버가 하고 앱은 미리 거절하지 않는다.
 - **만드는 법**: app.js `adminApi` 뒤에서 `const catalogAdmin = TwCatalogAdminApi.createCatalogAdminApi({ authed, catalog: { current, load }, adminApi, apiErrors, notifyError, toast })` — `catalog` 는 `catalogApiMod.current()`(마지막으로 받은 서버 한 벌) · `catalogApiMod.load()`(쓴 뒤 다시 받기)
@@ -49,7 +49,7 @@
 
 ## admin-report.js — 🚩 신고 목록(관리자)
 
-- **책임**: 관리자 줄 [🚩 신고 목록](`#lcReportList`) 창 — 목록 받기 · [더 보기] · [문제없음] · [그림 내리기] 화면. 서버 길은 `support/report-api.js` 의 `createAdminReportApi` 하나(`/v2/admin/reports*`) — 거르기(서로 다른 3명 이상) · 이름 · 그림 붙이기 · 그림 칸과 파일 지우기는 서버가 한다.
+- **책임**: 관리자 줄 [🚩 신고 목록](`#lcReportList`) 창 — 목록 받기 · [더 보기] · [문제없음] · [그림 내리기] 화면. 서버 경로는 `support/report-api.js` 의 `createAdminReportApi` 하나(`/v2/admin/reports*`) — 거르기(서로 다른 3명 이상) · 이름 · 그림 붙이기 · 그림 칸과 파일 지우기는 서버가 한다.
 - **만드는 법**: app.js «🚩 신고하기» 자리, `reportMod` 바로 뒤에서 `const adminReport = TwAdminReport.createAdminReport({ … });`
   - `toast` · `awayUrlOk` · `isAdmin`(읽는 함수) · report.js 의 `reportClose` · `reportBox` · `kinds` · `adminMin` · 팝업 칸 `reportOv` · `setReportOv` · `reportEsc` · `setReportEsc` · `adminApi`(`TwReportApi.createAdminReportApi`) · `apiErrors`(`TwApiErrors.store`) · `notifyError`(`TwErrorCodes.notify`)
 - **내보내는 것**: 없음 — 버튼은 만들 때 건다.
@@ -59,4 +59,4 @@
   - 받은 답은 그 창 · 그 차례(gen)일 때만 그린다 — 창을 닫았거나 다시 받기가 시작됐으면 옛 답은 버린다.
   - 혼자 다시 받지 않는다 — [다시 시도] · [더 보기] · 버튼을 관리자가 누를 때만.
   - 서버가 준 그림 주소도 `awayUrlOk`(우리 Storage 주소)일 때만 그리고 [그림 내리기]를 켠다. [그림 내리기]는 목록에서 본 주소를 보낸다(서버가 지금 그림과 다르면 거절).
-  - 검사: `checks/sim-report.js`(2절 · 깨 보기) · `checks/sim-report-away.js`.
+  - 검사: `checks/sim-report.js`(2절 · mutation test) · `checks/sim-report-away.js`.

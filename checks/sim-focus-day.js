@@ -5,7 +5,7 @@
    ・3절: 경계 뒤 새 날 답이 오기 전에 쌓은 초는 새 날로 센다 · 계정 놓기(null) 뒤엔 요청 없음
    ・4절: 앱 날짜 셈이 오늘 시간에 쓰이지 않는다(PC 시간대를 바꿔도 같다)
    ・4-2절: 0.5초마다 더해도 값이 그대로면 칸에 쓰지 않는다(날 글자는 한 번) · 바뀌면 쓴다 · 칸이 비워졌으면 다시 쓴다
-   ・5절: 일부러 깨 보기 */
+   ・5절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
@@ -108,7 +108,7 @@ function judge(src){
 }
 
 judge(MOD0);
-say('── 5. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 5. mutation test — 하나라도 못 잡으면 빨강');
 const BREAKS = [
   ['경계를 PC 시각으로', "t && Date.now() >= t.dayEndsAt", "t && new Date().getHours() >= 6"],
   ['경계를 지나도 0 으로 안 돌림', "    _focusTodaySec = 0; _day = null; _saveToday();\n", ""],

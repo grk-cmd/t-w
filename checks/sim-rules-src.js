@@ -5,7 +5,7 @@
      · 조건 하나만 있던 자리("조건") → true · 다른 조건 뒤에 붙은 자리(« && 조건») → 걷음. 붙일 때 «걷으면 예전 글과 같도록» 붙였다.
    [조건] 읽는 사람 로그인(auth.uid) → authUsers/{authUid}.userCode → 그 코드의 presence 가 «켜짐(online:true) · ver 없음»(= 0.10.2 이하 앱이 켜져 있음)이면 거절.
      로그인 안 함 · 이어진 코드 없음(가입 중 익명 · 봇)은 막지 않는다. 실제 판정은 에뮬레이터(firebase/scripts/rules-emu-check.js)가 본다.
-   [직접 실행] 조건이 빠진 열린 읽기가 없는지 · 걷은 글이 JSON 인지 · 관리자 · 봇 · 폰 연결 읽기에는 안 붙었는지 · 깨 보기. */
+   [직접 실행] 조건이 빠진 열린 읽기가 없는지 · 걷은 글이 JSON 인지 · 관리자 · 봇 · 폰 연결 읽기에는 안 붙었는지 · mutation test. */
 'use strict';
 const fs = require('fs');
 
@@ -63,16 +63,16 @@ if(require.main === module){
   chk(/newData\.val\(\) === true \|\| newData\.parent\(\)\.child\('ver'\)\.exists\(\) \|\| !newData\.parent\(\)\.child\('inRoom'\)\.exists\(\)/.test(String(pres['.validate'])),
     '★ presence — ver 없는 수동 오프라인(inRoom 실림)은 거절 · onDisconnect(inRoom 없음)는 받는다(옛 앱이 꺼짐으로 빠져나가지 못하게)');
 
-  /* 깨 보기 — 조건 하나를 true 로 되돌리면 잡는가 */
+  /* mutation test — 조건 하나를 true 로 되돌리면 잡는가 */
   const broken = RAW.replace('"' + READ_GATE + '"', 'true');
-  chk(broken !== RAW && judge(broken).open.length === 1, '깨 보기 — 조건 하나를 빼면 «빠짐» 으로 잡는다');
-  /* 깨 보기 — 내 authUsers 를 남도 읽게 넓히면 «빠짐» 으로 잡는가 */
+  chk(broken !== RAW && judge(broken).open.length === 1, 'mutation test — 조건 하나를 빼면 «빠짐» 으로 잡는다');
+  /* mutation test — 내 authUsers 를 남도 읽게 넓히면 «빠짐» 으로 잡는가 */
   const auOpen = RAW.replace('"' + SELF_AUTH_READ + '"', '"auth != null"');
-  chk(auOpen !== RAW && judge(auOpen).open.some(r => r[0] === '/authUsers/$authUid'), '깨 보기 — 내 authUsers 를 «로그인만 하면 누구나» 로 넓히면 잡는다');
-  /* 깨 보기 — 최소 버전에 다시 조건을 붙이면 잡는가 · 다른 칸을 true 로 열면 잡는가 */
+  chk(auOpen !== RAW && judge(auOpen).open.some(r => r[0] === '/authUsers/$authUid'), 'mutation test — 내 authUsers 를 «로그인만 하면 누구나» 로 넓히면 잡는다');
+  /* mutation test — 최소 버전에 다시 조건을 붙이면 잡는가 · 다른 칸을 true 로 열면 잡는가 */
   const mrv = JSON.parse(RAW); mrv.rules.config.minRoomVer['.read'] = READ_GATE;
-  chk(!minRoomVerOpen(JSON.stringify(mrv)), '깨 보기 — 최소 버전에 조건을 다시 붙이면 «옛 앱도 읽는다» 가 빨강');
-  chk(bareReads(broken).length === 2, '깨 보기 — 다른 칸을 «.read: true» 로 열면 «한 칸뿐» 이 빨강');
+  chk(!minRoomVerOpen(JSON.stringify(mrv)), 'mutation test — 최소 버전에 조건을 다시 붙이면 «옛 앱도 읽는다» 가 빨강');
+  chk(bareReads(broken).length === 2, 'mutation test — 다른 칸을 «.read: true» 로 열면 «한 칸뿐» 이 빨강');
   console.log(fail ? `✗ 실패 ${fail}건` : '✓ 전부 통과');
   process.exit(fail ? 1 : 0);
 }

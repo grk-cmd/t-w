@@ -6,7 +6,7 @@
      다시 생기지 않게 여기서 막는다. 창을 열 때만 걸리는 고리(_mhCancelNameEdit 등)는 이 표에 넣지 않는다 — 그 가드는 필요하다.
    ・1절: 고리마다 거는 곳이 정해진 한 파일 · 부르는 곳이 있다
    ・2절: 부르는 곳에 typeof 가드가 없다
-   ・3절: 일부러 깨 보기 */
+   ・3절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -63,7 +63,7 @@ chk(!R.noCaller.length, '고리마다 부르는 곳이 있다(안 쓰는 고리�
 say('── 2. 가드 없음');
 chk(!R.guarded.length, '부르는 곳에 typeof 가드가 없다 — 고리가 없으면 그 자리에서 드러난다' + (R.guarded.length ? ' — ' + R.guarded.join(', ') : ''));
 
-say('── 3. 일부러 깨 보기');
+say('── 3. mutation test');
 const g = FILES.map(([f, t]) => [f, f === 'myhome/myhome-page.js' ? t + "\nif(typeof window._mhApplyBg==='function') window._mhApplyBg();\n" : t]);
 chk(judge(g).guarded.length > 0, '가드가 다시 생기면 빨강');
 const d = FILES.map(([f, t]) => [f, f === 'myhome/myhome-page.js' ? t + '\nwindow._mhApplyBg = ()=>{};\n' : t]);

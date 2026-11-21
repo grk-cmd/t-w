@@ -3,7 +3,7 @@
    ・2절: 그리기 — 순서대로 요소 · 이미지는 허용된 주소만 · 이모지 기본 ⭐ · 애니 · 크기 · 투명도 · 변형 · 편집 중 · 링크
    ・3절: 편집 가능이면 ×(상태 주인 removeSticker → 다시 그림 — 저장은 상태 주인) · ✨ · 핸들 · 각도 · 못 하면 없음 · 우클릭
    ・5절: 연결 — 읽는 함수 · 옛 자리 · 감싸 다시 대입 · 그린 뒤 알림 없음
-   ・6절: 일부러 깨 보기 */
+   ・6절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -108,7 +108,7 @@ say('§5 연결');
   chk(!!pairs && pairs.length === 4 && get('myHomeSticker') === '()=>myHomeSticker' && get('myhomeStore') === 'myhomeStoreMod' && get('mhPageMod') === 'mhPageMod' && get('mhStLayoutMod') === 'mhStLayoutMod', '★ deps 넷 — myHomeSticker 는 읽는 함수(뒤에서 만들어짐) · 상태 주인 myhomeStore · 나머지는 값');
   chk(!/function renderMyHomeStickers\b/.test(code) && (code.match(/stickerRenderMod\.renderMyHomeStickers\(\.\.\.a\)/g) || []).length >= 4 && !/onStickersRendered|stickerRenderMod\.onRendered/.test(code) && !/setRenderMyHomeStickers|getRenderMyHomeStickers/.test(code), '본문이 app.js 에 안 남고 부르는 자리는 그대로 부른다(감싸 다시 대입 · 그린 뒤 알림 없음)');
 }
-say('§6 일부러 깨 보기');
+say('§6 mutation test');
 {
   const brk = (a, c) => { const m = SRC.replace(a, c); return m === SRC ? null : m; };
   const m1 = brk("zone.classList.toggle('hidden', !onHomeTab);", "");

@@ -3,7 +3,7 @@
    ・2절: 만들기 — randomUUID · getRandomValues · random 세 길 모두 규칙 안 · 겹치지 않음 · randomUUID 가 이상한 값이면 다른 길
    ・3절: 다시 보내기 — 같은 키는 끝낼 때까지 같은 번호 · 끝내면 새 번호 · 다른 키는 다른 번호 · 상한 넘으면 오래된 것부터 버림
    ・4절: 배선 — window.TwRequestId · html 이 app.js 보다 먼저 싣는다(smoke 는 html 차례대로 싣는다)
-   ・5절: 일부러 깨 보기 */
+   ・5절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
@@ -67,7 +67,7 @@ function judge(S){
 
 judge(SRC0);
 
-say('── 5. 일부러 깨 보기');
+say('── 5. mutation test');
 const BREAKS = [
   ['RID', "const PATTERN = /^[A-Za-z0-9_-]{8,64}$/;", "const PATTERN = /^[A-Za-z0-9_.-]{1,64}$/;", '규칙이 서버와 다름'],
   ['RID', "      if(isValid(v)) return v;", "      return v;", 'randomUUID 값을 거르지 않음'],
@@ -88,7 +88,7 @@ for(const [where, from, to, what] of BREAKS){
   caught.push([what, qfail]);
 }
 const missed = caught.filter(([, k]) => k === 0).map(([w]) => w);
-chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
 console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

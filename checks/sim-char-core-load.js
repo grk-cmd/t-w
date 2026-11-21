@@ -5,7 +5,7 @@
      사본이 빌드와 같은지는 CI «캐릭터 코어» job 이 다시 빌드해 비교한다 — 여기는 앱 쪽(싣는 자리 · 실려서 도는가)만 본다.
    ・1절: 사본을 가짜 전역에서 실제로 돌려 본다 — window.TwCharCore · r128 three 로 만들기 · 다른 판 · three 없음 거절 · 판 머리
    ・2절: 싣는 자리 — three.min.js 다음 · app.js 보다 먼저 · 한 번만
-   ・3절: 일부러 깨 보기 */
+   ・3절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -66,7 +66,7 @@ chk(R.once, 'html 이 한 번만 싣는다');
 chk(R.afterThree, 'three.min.js 다음에 싣는다');
 chk(R.beforeApp, 'app.js 보다 먼저 싣는다');
 
-say('── 3절 · 일부러 깨 보기');
+say('── 3절 · mutation test');
 const MUT = [
   ['판 확인을 뺌', 'core', /if \(THREE\.REVISION !== THREE_REVISION\) \{/, 'if (false) {'],
   ['three 없음을 통과', 'core', /(deps\?\.THREE;\s*)if \(!THREE\) throw/, '$1if (false) throw'],
@@ -77,7 +77,7 @@ const MUT = [
 ];
 for (const [name, where, re, to] of MUT) {
   const src = where === 'core' ? CORE : HTML;
-  if (!re.test(src)) { chk(false, `깨 보기 자리를 못 찾음 — ${name}`); continue; }
+  if (!re.test(src)) { chk(false, `mutation test 자리를 못 찾음 — ${name}`); continue; }
   const bad = src.replace(re, to);
   let html = where === 'html' ? bad : HTML;
   if (name === 'app.js 뒤에 실음') html = html.replace(/(<script src="parts\/app\.js"><\/script>)/, '$1<script src="vendor/char-core/char-core.iife.js"></script>');

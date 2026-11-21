@@ -1,5 +1,5 @@
 /* ═══ 🌐 sim-api-client.js — 앱 공통 API 통로(api-client.js · window.TwApi) ═══════════════
-   [왜] 서버 API(t-w-server) 읽기 · 쓰기를 한 통로로. 실패해도 Firebase 길로 넘어가지 않는다. 시간 제한 · 봉투 · 실패 모양 · 쉬기를 한 곳에서.
+   [왜] 서버 API(t-w-server) 읽기 · 쓰기를 한 통로로. 실패해도 Firebase 경로로 넘어가지 않는다. 시간 제한 · 봉투 · 실패 모양 · 쉬기를 한 곳에서.
    1. 주소 — 운영 앱은 운영 API · dev 앱은 dev API(tw.apiBaseUrl 은 dev 만 · CSP 묶음 안 · 운영 API 아님) · 환경은 companion.firebaseEnv
    2. 성공 — 봉투 { success, data } 의 data · 토큰 · 쿠키 없이 · 주소 = 기본 + 경로
    3. 실패 한 모양 — 네트워크 · 시간 초과 · 5xx · 봉투 아님 → unavailable · 길 없는 404(NOT_FOUND) → noRoute(앱 버그 · console.error) · *_NOT_READY → notReady · 401/403 → auth · 그 밖 4xx → request · 넘어가기 장치(shouldFallback) 없음
@@ -72,7 +72,7 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
       ['500', () => res(500, { success: false, code: 'INTERNAL' }), 'unavailable', 'INTERNAL'],
       ['502 HTML', () => res(502, new SyntaxError('html')), 'unavailable', ''],
       ['404 길 없음', () => res(404, { success: false, code: 'NOT_FOUND' }), 'noRoute', 'NOT_FOUND'],
-      ['404 옛 길 없음', () => res(404, { success: false, code: 'DATA_ROUTE_NOT_FOUND' }), 'noRoute', 'DATA_ROUTE_NOT_FOUND'],
+      ['404 옛 경로 없음', () => res(404, { success: false, code: 'DATA_ROUTE_NOT_FOUND' }), 'noRoute', 'DATA_ROUTE_NOT_FOUND'],
       ['404 code 없음', () => res(404, {}), 'noRoute', 'NOT_FOUND'],
       ['200 인데 봉투 아님(HTML)', () => res(200, new SyntaxError('html')), 'unavailable', ''],
       ['200 인데 success:false', () => res(200, { success: false }), 'unavailable', ''],
@@ -352,7 +352,7 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
     chk(inCsp(PROD) && inCsp(DEV), '  ↳ 운영 · dev API 주소가 CSP connect-src(https://*.together-working.com) 안 · 옛 duckdns 는 CSP 에 없음');
   }
 
-  say('── 10. 일부러 깨 보기');
+  say('── 10. mutation test');
   {
     /* 깨진 원본으로 핵심 동작 몇 가지를 다시 돌려 하나라도 틀리는지 본다 */
     const loadSrc = (src) => { const m = { exports: {} }; new Function('module', 'window', src)(m, undefined); return m.exports; };
@@ -471,7 +471,7 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
       const bad = await Promise.race([probe(SRC.split(from).join(to)), new Promise((r) => setTimeout(() => r(99), 2500))]);   // 멈추면(시간 제한 밖 토큰 받기) 빨강
       if(bad === 0) missed.push(what);
     }
-    chk(!missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+    chk(!missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
   }
 
   say('\n' + pass + ' · ' + fail);

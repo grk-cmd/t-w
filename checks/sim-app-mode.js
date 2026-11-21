@@ -4,7 +4,7 @@
    ・2절: launchApp — 캐릭터 없음 · 좌석 다시 만들기 · edit/run 모드 · 방에 있을 때 친구 복원 · def 가 달라졌을 때만 방에 알림 · 솔로 자리 추가 복원 · Tab 힌트
    ・3절: backToLauncher — 모드 되돌리기 · 꾸미기 · 마이홈 닫기 · 서버 맞추기 셋
    ・4절: 연결 — html 순서 · 만드는 줄 · deps 모양(값 / 읽는 함수 / 함수) · appMode 를 읽는 자리(값의 주인은 launcher-state.js — 이 모듈은 바꾸기만)
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. */
 'use strict';
 const fs = require('fs');
@@ -118,13 +118,13 @@ say('§4 연결');
   chk(pairs.length === 23 && pairs.every(([n, v]) => shape(n, v)), '★ deps 23개 모양 — 읽는 함수 셋은 ()=>이름 · 함수 일곱(window 고리 넷 포함)은 (...a)=>…(...a) · 쓰는 함수 하나 · 상태 주인 myhomeStore · 값은 이름 그대로' + (pairs.length === 23 ? '' : ' — ' + pairs.length + '개'));
   const bad = (mk || '').replace('  curSlot: ()=>curSlot,', '  curSlot: curSlot,');
   const p2 = bad.split('\n').map(l => /^  ([\w$]+): (.+),$/.exec(l)).filter(Boolean).map(m => [m[1], m[2]]);
-  chk(!p2.every(([n, v]) => shape(n, v)), '  깨 보기: 읽는 함수를 값으로 넘기면 빨강');
+  chk(!p2.every(([n, v]) => shape(n, v)), '  mutation test: 읽는 함수를 값으로 넘기면 빨강');
   const WM = (read('launcher/window-mode.js') || '').replace(/\/\*[\s\S]*?\*\//g, ' ');
   chk((code.match(/launcherStateMod\.appMode\(\)/g) || []).length >= 2 && /launcherState\.appMode\(\)==='run'/.test(WM) && !/appModeMod\.appMode\b/.test(code + WM), '  읽는 자리(app.js · window-mode.js)가 런처 상태 launcherStateMod.appMode() 를 부른다(함수째 비교하는 실수 방지 · app-mode 를 바라보지 않음)');
   const S = SRC.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
   chk(!/\blet appMode\b|(?<!const )\bappMode\s*=[^=]|^  appMode:/m.test(S) && /^const launcherState = deps\.launcherState;/m.test(S), '  app-mode.js 는 앱 모드를 들지도 내놓지도 않는다 — 주인은 launcher-state.js(바꾸기만 setAppMode)');
 }
-say('§5 일부러 깨 보기');
+say('§5 mutation test');
 {
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const m1 = brk("launcherState.setAppMode((opts.mode==='edit') ? 'editseat' : 'run');", "launcherState.setAppMode('run');");

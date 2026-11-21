@@ -46,7 +46,7 @@ const Presence=(()=>{
      ⚠️ 초기값을 AWAY_PIC_SCREEN_PX 로 쓰지 말 것 — 그 var 는 파일 아래쪽이라 이 IIFE 가 도는 순간엔 undefined 이고,
        Firebase 는 undefined 가 든 payload 를 통째로 거절한다(방 입장이 깨진다). 이 파일 위 숫자 상수로 둔다. */
   let myAwaySz=AWAY_SZ_DEFAULT;
-  let myFocusShow=null;   // 📊 오늘 기록 전시 {emo,text} — 상태가 없을 때만 custom 칸으로 실어 보낸다(_statusOut)
+  let myFocusShow=null;   // 📊 오늘 기록 전시 {emo,text} — 상태가 없을 때만 custom field 로 실어 보낸다(_statusOut)
   let myCustomStatus=null;   // ✨ 커스텀 상태(프리미엄) {emo,text} — userStatus==='custom'일 때 친구에게 보여줄 문구
 
   // ────────────────────────────────────────────────────────────────────
@@ -295,7 +295,7 @@ const Presence=(()=>{
      ★ 상태(밥·자리비움·커스텀 …)가 있으면 그것이 그대로 나간다 = 상태 메시지 우선 · 남의 설정을 덮지 않는다.
      ⚠️ 규칙: customStatus.text ≤ 12 · emo ≤ 4 — «오늘 99:59» 10자 · 🕒 2 로 안에 든다(규칙 변경 없음). */
   function _statusOut(){
-    /* 📱 폰 켜짐이면 🕒 오늘 기록보다 «📱 앱» 이 먼저다(사용자가 고른 상태는 그대로 이긴다) — 받는 쪽이 mobile 칸을 띄운다. */
+    /* 📱 폰 켜짐이면 🕒 오늘 기록보다 «📱 앱» 이 먼저다(사용자가 고른 상태는 그대로 이긴다) — 받는 쪽이 mobile field 를 띄운다. */
     if(!myUserStatus && focusLevelMod()._mobileOn()) return { userStatus:myUserStatus, customStatus:myCustomStatus };
     if(!myUserStatus && myFocusShow) return { userStatus:'custom', customStatus:myFocusShow };
     return { userStatus:myUserStatus, customStatus:myCustomStatus };
@@ -371,7 +371,7 @@ const Presence=(()=>{
          friends[id].level 로 다시 한다 — 여기서만 막으면 값을 조작해 색을 쓸 수 있다. */
   /* 💬 tab — 채팅 탭. #일반이 아니면 `chat` 이 아니라 새 칸 `chatTab` 으로 보낸다.
      ★ 구버전은 chatTab 을 몰라 아예 안 띄운다 — 영화 탭의 말풍선 · 날리기가 #일반 사람 · 구버전에게 새지 않는 이유가 이것이다.
-       `chat` 칸으로 보내면 구버전이 탭을 모른 채 방 전원에게 띄운다(sim-chat-tabs ①). */
+       `chat` field 로 보내면 구버전이 탭을 모른 채 방 전원에게 띄운다(sim-chat-tabs ①). */
   function sendChat(text, fly, flyColor, flySize, tab){
     if(!(provider && provider.update)) return;
     const chat = { text:String(text).slice(0,CHAT_TEXT_MAX), ts:Date.now() };

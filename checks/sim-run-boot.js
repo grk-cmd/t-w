@@ -3,7 +3,7 @@
    ・1절: 차례 표 그대로(순서) · 만들 때 일하지 않음 · 표에 없는 이름 · 남는 이름 · baseBody 를 starts 로 주기 · 기본 몸 칸이 비면 던짐
    ・2절: begin — 표 순서대로 한 번씩 · 두 번 부르면 두 번째는 안 함(false · 경고) · 한 칸이 던져도 다음 칸은 돈다(비동기 거절 포함)
    ・3절: 기본 몸 — 읽기 → 피부 → 런처 그리기(캐릭터 슬롯은 계정 확인 뒤 app-boot 의 차례) · 못 읽으면(false) 안내 한 번 뒤 이어 감 · 읽다 던지면 안내 한 번 뒤 런처만 그린다 · 피부 읽기가 던져도 런처는 그린다
-   ・4절: 연결(html 순서 · app.js 가 표의 이름 그대로 이어 begin 한 번 · 옛 INIT 줄이 안 남음 · 안내는 E-SYS-08 · 번호가 표에 있음) · 5절: 일부러 깨 보기
+   ・4절: 연결(html 순서 · app.js 가 표의 이름 그대로 이어 begin 한 번 · 옛 INIT 줄이 안 남음 · 안내는 E-SYS-08 · 번호가 표에 있음) · 5절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. */
 'use strict';
 const fs = require('fs');
@@ -88,7 +88,7 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
     chk(!/^mhInitMod\.initMyHome\(\);/m.test(code) && !/^requestAnimationFrame\(frame\);/m.test(code) && !/^launcherPrevMod\.startLauncherLoop\(\);/m.test(code) && !/^loadBaseGLB\(\)\.then/m.test(code) && !/^seatPanelMod\.renderSeatTabs\(\);/m.test(code), '  옛 INIT 줄이 app.js 바닥에 안 남음');
     chk(/'E-SYS-08':/.test(ERR), 'E-SYS-08 이 에러 코드 표에 있다');
   }
-  say('§5 일부러 깨 보기');
+  say('§5 mutation test');
   {
     const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
     const m1 = brk("if(began){ console.warn('[run-boot] 이미 시작했어요 — 두 번째 시작은 무시해요'); return false; }", '');

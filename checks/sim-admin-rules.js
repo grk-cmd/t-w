@@ -87,7 +87,7 @@ console.log('\n── 3. 새는 곳이 없는가');
     else {
       const code = fb.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/mg, '');
       const whole = (code.match(/ref\(db, *'licenses'\)/g) || []).length;
-      chk(whole === 0, '  ↳ 앱은 라이선스 모음(licenses)을 Firebase 로 읽지 않는다 — 관리자 목록 · 통계는 서버 길(' + whole + '곳)');
+      chk(whole === 0, '  ↳ 앱은 라이선스 모음(licenses)을 Firebase 로 읽지 않는다 — 관리자 목록 · 통계는 서버 경로(' + whole + '곳)');
     }
   }
   chk(isAdmin(r('metrics')) && /auth != null/.test(r('metrics')) && !JSON.stringify(Object.assign({}, at('metrics') || {}, { improvements: undefined })).includes('.write'),
@@ -383,7 +383,7 @@ console.log('\n── 8. 서버 상품 API 원본(products · listings · assets
     if (typeof expr !== 'string') return expr === true;
     try { return !!new Function('auth', 'root', 'return (' + expr + ');')(uid ? { uid } : null, ROOT7); } catch (_) { return false; }
   };
-  /* 판정 한 벌 — 깨 보기가 같은 판정을 망가진 규칙에 다시 돌린다. 틀린 줄 이름을 돌려준다. */
+  /* 판정 한 벌 — mutation test 가 같은 판정을 망가진 규칙에 다시 돌린다. 틀린 줄 이름을 돌려준다. */
   const judge7 = (R) => {
     const bad = [];
     for (const [node, key] of [['products', '$id'], ['listings', '$id'], ['assets', '$hash']]) {
@@ -397,12 +397,12 @@ console.log('\n── 8. 서버 상품 API 원본(products · listings · assets
   };
   const bad = judge7(rules);
   chk(!bad.length, '봇만 읽고 쓴다 · 관리자 · 일반 · 로그인 안 함은 읽기 · 쓰기 없음 · 모음째 쓰기 없음' + (bad.length ? ' — ' + bad.join(', ') : ''));
-  // 깨 보기 — 사람에게 열거나 봇 조건을 빼면 위 판정이 빨강이 돼야 한다
+  // mutation test — 사람에게 열거나 봇 조건을 빼면 위 판정이 빨강이 돼야 한다
   const broken = (fn) => { const R = JSON.parse(JSON.stringify(rules)); fn(R); return judge7(R).length > 0; };
-  chk(broken(R => { R.products['.read'] = 'auth != null'; }), '  ↳ 깨 보기: 로그인한 누구나 읽게 하면 빨강');
-  chk(broken(R => { R.listings.$id['.write'] = "auth != null && root.child('admins').child(auth.uid).val() === true"; }), '  ↳ 깨 보기: 관리자에게 쓰기를 열면 빨강');
-  chk(broken(R => { delete R.assets.$hash['.write']; }), '  ↳ 깨 보기: 봇 쓰기를 빼면 빨강');
-  chk(broken(R => { R.products['.write'] = true; }), '  ↳ 깨 보기: 모음째 쓰기를 열면 빨강');
+  chk(broken(R => { R.products['.read'] = 'auth != null'; }), '  ↳ mutation test: 로그인한 누구나 읽게 하면 빨강');
+  chk(broken(R => { R.listings.$id['.write'] = "auth != null && root.child('admins').child(auth.uid).val() === true"; }), '  ↳ mutation test: 관리자에게 쓰기를 열면 빨강');
+  chk(broken(R => { delete R.assets.$hash['.write']; }), '  ↳ mutation test: 봇 쓰기를 빼면 빨강');
+  chk(broken(R => { R.products['.write'] = true; }), '  ↳ mutation test: 모음째 쓰기를 열면 빨강');
 }
 
 console.log(fail ? '\n✗ 실패 ' + fail + '건' : '\n✓ 전부 통과');

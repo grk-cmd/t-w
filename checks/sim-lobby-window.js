@@ -2,7 +2,7 @@
    launcher/window-mode.js 의 applyDesktopRunClass 본문과 app.js 켜는 차례(run-boot appMode 칸)의 로비 감시(MutationObserver) 줄을 **실제로 떼어 돌린다**.
    ・1절: 화면 상태(런처 · 마이홈 · 로비 · 생성기) → main 에 보내는 창 모드 · 스티커 여백
    ・2절: 로비 .on 이 바뀌면 창 크기를 다시 맞춘다(감시 줄)
-   ・3절: 깨 보기 — 로비를 안 보거나, 로비에도 스티커 여백을 보내면 빨강 */
+   ・3절: mutation test — 로비를 안 보거나, 로비에도 스티커 여백을 보내면 빨강 */
 
 const fs = require('fs');
 const path = require('path');
@@ -107,7 +107,7 @@ console.log('\n=== 2. 로비 .on 이 바뀌면 창 크기를 다시 맞춘다 ==
   }
 }
 
-console.log('\n=== 3. 깨 보기 ===');
+console.log('\n=== 3. mutation test ===');
 {
   const noLobby = BODY.replace('(mhOn || lobbyOn) && launcherOn', 'mhOn && launcherOn');
   chk(noLobby !== BODY && !passAll(noLobby), '  로비를 안 보면(런처 크기에 갇힘) → 빨강');

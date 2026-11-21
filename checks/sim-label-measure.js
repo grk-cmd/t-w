@@ -4,9 +4,9 @@
      좌석마다 몇 번씩 · 초당 최대 60번이라 사람이 많은 방에서 버벅임이 된다. 누가 «바로 재기» 를 다시 넣으면 여기서 빨강.
    ・1절: 기억 모듈(label-measure.js) — 캔버스는 프레임에 한 번 · 크기는 열쇠 · 시간 · 숨김 · 0 경계
    ・2절: 실제 overhead.js · exp-bar.js 를 가짜 DOM 에서 돌린다 — «쓰기 뒤 읽기»(강제 레이아웃)를 세고, 남긴 아래변이 화면 사각형과 같은지
-   ・3절: 깨 보기 — 옛 «바로 재기» 로 되돌리면 강제 레이아웃 수가 늘어 빨강
+   ・3절: mutation test — 옛 «바로 재기» 로 되돌리면 강제 레이아웃 수가 늘어 빨강
    ・4절: 배선 — frame() 이 상한 검사 뒤 맨 앞에서 beginLabelFrame · html · smoke 순서
-   ・5절: 숨은 말풍선(상태 없는 좌석)은 매 프레임 폭을 재지 않는다 — 움직이는 프레임마다 강제 레이아웃 하나였다 · 깨 보기 */
+   ・5절: 숨은 말풍선(상태 없는 좌석)은 매 프레임 폭을 재지 않는다 — 움직이는 프레임마다 강제 레이아웃 하나였다 · mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -156,7 +156,7 @@ function runFrames(b, seats, n, invertY, text){
   }
   return per;
 }
-/* 좌석은 프레임마다 조금씩 움직인다(자리 미끄러짐 · 끌기 · 카메라) — 제자리면 같은 값 쓰기라 «더러움» 이 안 생겨 옛 길도 0 으로 보인다 */
+/* 좌석은 프레임마다 조금씩 움직인다(자리 미끄러짐 · 끌기 · 카메라) — 제자리면 같은 값 쓰기라 «더러움» 이 안 생겨 옛 경로도 0 으로 보인다 */
 let _tick = 0;
 const mkSeats = (k, y) => Array.from({ length: k }, (_, i) => ({ isMe: i === 0, group: { getWorldPosition: (v) => { v.x = -8 + i * 3 + (_tick % 7) * 0.013; v.y = y; v.z = 0; return v; } } }));
 
@@ -170,7 +170,7 @@ let base = null;
   const seats = mkSeats(6, -2);
   const per = runFrames(b, seats, 40);
   const st = steady(per), total = st.reduce((a, c) => a + c, 0);
-  chk(total <= 12, '★ 6좌석 · 35프레임에 강제 레이아웃 ' + total + '번(옛 길은 좌석 × 프레임마다 여러 번 · 500ms 마다 다시 재는 몫만 남는다)');
+  chk(total <= 12, '★ 6좌석 · 35프레임에 강제 레이아웃 ' + total + '번(옛 경로는 좌석 × 프레임마다 여러 번 · 500ms 마다 다시 재는 몫만 남는다)');
   chk(st.filter(x => x > 0).length <= 6, '  강제 레이아웃이 난 프레임 ' + st.filter(x => x > 0).length + '개 — 대부분의 프레임은 0');
   /* 남긴 아래변이 실제 화면 사각형과 같은가 — 사각형 대신 읽어도 자리가 안 바뀐다 */
   const same = seats.every(s => ['expBarEl', 'namePlateEl'].every(k => { const e = s[k]; const r = e.getBoundingClientRect(); return Math.abs(r.bottom - e._bottom) < 1e-9; }));
@@ -198,7 +198,7 @@ let base = null;
   chk(rafCount === 2, '  글이 바뀌면 다시 잰다');
 }
 
-say('── 3. 깨 보기 — 옛 «바로 재기» 로 되돌리면 빨강');
+say('── 3. mutation test — 옛 «바로 재기» 로 되돌리면 빨강');
 {
   const count = (ov, ex, lm) => { const b = build(ov, ex, lm); return steady(runFrames(b, mkSeats(6, -2), 40)).reduce((a, c) => a + c, 0); };
   const breaks = [
@@ -253,7 +253,7 @@ say('── 5. 숨은 말풍선 — 상태 없는 좌석은 폭을 재지 않는
   const broken = OV.replace("if(el.style.display !== 'none' && (el._bxfHalfW == null || el._bxfDirty || el._bxfCls !== el.className || el._bxfDpr !== dpr)){",
     'if(el._bxfHalfW == null || el._bxfDirty || el._bxfCls !== el.className || el._bxfDpr !== dpr){');
   const old = bubbleReads(broken);
-  chk(broken !== OV && old.reads >= 30 * 4 && old.forced > now.forced, '깨 보기 — 숨은 말풍선도 재던 옛 길이면 폭 읽기 ' + old.reads + '번 · 강제 레이아웃 ' + now.forced + ' → ' + old.forced);
+  chk(broken !== OV && old.reads >= 30 * 4 && old.forced > now.forced, 'mutation test — 숨은 말풍선도 재던 옛 길이면 폭 읽기 ' + old.reads + '번 · 강제 레이아웃 ' + now.forced + ' → ' + old.forced);
 }
 
 say('');

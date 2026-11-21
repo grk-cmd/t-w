@@ -5,7 +5,7 @@
    ・2절: 저장(commit) · 초안 복사(copyIntoDraft)
    ・1절 끝: ✎ 그리기 대상 · 그림 저장 · 종류를 바꾸면 그림 버림
    ・3절: app.js 배선 — 조립 두 곳 · 초안 · 저장(지금 주인 · 원래 주인) · 탭 · 3-b 귀 그리기(대상 목록 · 대칭 · 저장 · 방 전송 · 지문) · 3-c 탑승 높이 · 3-d 귀 까닥임 · 기즈모 · 크기 · 귀 누르기 · 지문 · 카메라
-   ・3-f절: 귀 탭은 꾸미기 창이 떠 있고 파츠를 안 골랐을 때만 — 창을 닫은 뒤 보관함(T) 조절이 귀로 가던 것 · 깨 보기
+   ・3-f절: 귀 탭은 꾸미기 창이 떠 있고 파츠를 안 골랐을 때만 — 창을 닫은 뒤 보관함(T) 조절이 귀로 가던 것 · mutation test
    ・4절: html · smoke.js
    [실행] wd-ear.js · human-ear.js · app.js · base-glb.js · ears-glb.js · desk-companion-prototype.html · smoke.js 가 있는 폴더에서.
      three 는 vendor/three/three.min.js 를 쓴다. */
@@ -347,7 +347,7 @@ say('── 3-f. 귀 탭은 꾸미기 창이 떠 있을 때만 (제보: 귀를 �
   try{ o = run(SRC['wd-ear.js']); }catch(e){ chk(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 100)); }
   if(o) rows(o).forEach(([ok, msg]) => chk(ok, msg));
   chk(/isPanelOpen:\(\)=>!!document\.querySelector\('#wardrobePanel\.on'\),\s*hasPartSel:\(\)=>!!\(activeWdAdj && activeWdAdj\.cat\),/.test(A), '  app.js 배선 — 창 열림은 #wardrobePanel.on · 파츠 선택은 activeWdAdj');
-  /* 깨 보기 — 예전 판정(탭 이름만)으로 되돌리면 빨강 */
+  /* mutation test — 예전 판정(탭 이름만)으로 되돌리면 빨강 */
   const OLD = 'const isActive = ()=>deps.getTab() === WD_EAR_TAB;';
   const NEW = /const isActive = \(\)=>deps\.getTab\(\) === WD_EAR_TAB && deps\.isPanelOpen\(\) && !deps\.hasPartSel\(\);/;
   const breaks = [
@@ -359,7 +359,7 @@ say('── 3-f. 귀 탭은 꾸미기 창이 떠 있을 때만 (제보: 귀를 �
     const m2 = SRC['wd-ear.js'].replace(NEW, rep);
     let red = false;
     if(m2 !== SRC['wd-ear.js']){ try{ red = rows(run(m2)).some(([ok]) => !ok); }catch(_){ red = true; } }
-    chk(m2 !== SRC['wd-ear.js'] && red, '깨 보기 — ' + name + ' → 빨강' + (m2 !== SRC['wd-ear.js'] ? '' : ' (바꿀 글을 못 찾음)'));
+    chk(m2 !== SRC['wd-ear.js'] && red, 'mutation test — ' + name + ' → 빨강' + (m2 !== SRC['wd-ear.js'] ? '' : ' (바꿀 글을 못 찾음)'));
   }
 }
 

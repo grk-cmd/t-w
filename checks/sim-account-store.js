@@ -7,7 +7,7 @@
    ・6절: 옮겨 쓰는 모듈 — 포커스 누적(focus-total.js 실물)이 계정마다 따로 · 바탕화면 · 포커스 레벨은 PC 칸을 더는 직접 안 읽음
    ・6c절: migrateLegacy 를 부르는 곳 — 부팅 때 읽는 모듈보다 먼저(코드 없으면 안 함) · 로그아웃은 올리기 앞 · 플레이리스트 마지막 올리기 뒤 지우기
    ・7절: 배선 — app.js 가 getMyUserId 로 만든다 · html 차례 · smoke PRELOAD
-   ・8절: 일부러 깨 보기 */
+   ・8절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
@@ -538,7 +538,7 @@ function MIG(M){ return M.MIGRATED_KEY; }
 (async () => {
 await judge(SRC0);
 
-say('── 8. 일부러 깨 보기');
+say('── 8. mutation test');
 const BREAKS = [
   ['APP', "  migrateLegacy: (code)=>accountStoreMod.migrateLegacy(code),\n", "  migrateLegacy: (code)=>{},\n", '부팅 때 옛 값을 안 옮김'],
   ['ACC', "  if(uid) accountLegacyStore.migrateLegacy(uid);\n", "", '로그아웃이 옛 값을 안 옮김'],
@@ -619,7 +619,7 @@ for(const [where, from, to, what] of BREAKS){
   caught.push([what, qfail]);
 }
 const missed = caught.filter(([, k]) => k === 0).map(([w]) => w);
-chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
 console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

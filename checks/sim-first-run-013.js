@@ -7,7 +7,7 @@
    ・6절: 배선 — html(app.js 앞) · app.js 가 라이선스 단계를 채움 · 로그아웃이 옛 키를 안 지움
    ・6b절: 라이선스 키 단계(D8-3) — 키 없음 · 성공 · 서버 거절 갈래 · 해제 표시 · 네트워크
    ・6c절: 포커스 옛 누적 단계(D5-2) — 둘 다 있고 차가 양수 → 한 번 올림 · 마크 없음 → 안 올리고 지움 · 실패 → 아무것도 안 지우고 멈춤 · 이 PC 칸 · 계정 칸 둘 다 훑음
-   ・7절: 일부러 깨 보기 */
+   ・7절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
@@ -371,7 +371,7 @@ async function judge(S){
 (async () => {
 await judge(SRC0);
 
-say('── 7. 일부러 깨 보기');
+say('── 7. mutation test');
 const BREAKS = [
   ['FR', "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'legacySync', 'licenseKey', 'focus', 'chal']);", "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'licenseKey', 'legacySync', 'focus']);", '차례가 바뀜'],
   ['FR', "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'legacySync', 'licenseKey', 'focus', 'chal']);", "const STEPS = Object.freeze(['login', 'gacha', 'myhome', 'legacySync', 'licenseKey', 'focus', 'chal']);", '말랑이 단계가 빠짐'],
@@ -432,7 +432,7 @@ for(const [where, from, to, what] of BREAKS){
   caught.push([what, qfail]);
 }
 const missed = caught.filter(([, k]) => k === 0).map(([w]) => w);
-chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
 console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

@@ -5,7 +5,7 @@
    ・3절: 소품 셋 — 화분 · 머그컵 · 책(메시 수 · 재질 · 그림자) · 저장 id 글자(예약 책상 id)
    ・4절: 대신 몸 — 몸통 · 머리 · 눈 · 볼 · 입 · 귀 · 팔(자리 · 대칭)
    ・5절: 연결 — html · 만드는 줄 · 옛 이름 여덟 · app.js 에 만들기 함수가 남지 않음
-   ・6절: 일부러 깨 보기
+   ・6절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. three 는 vendor/three/three.min.js. */
 'use strict';
 const fs = require('fs');
@@ -79,7 +79,7 @@ say('§5 연결');
   chk(!/function (buildDesk|buildPlaceholder|buildDeskPlant|buildCup|buildBooks)\b|const (matSage|TORSO_Y)\b/.test(code), '  app.js 에 만들기 함수 · 이름 붙은 재질이 남아 있지 않다');
   chk(code.indexOf('const deskBuildMod') < code.indexOf('const floorMat=M('), '  M 을 쓰는 첫 줄(floorMat)보다 앞이다');
 }
-say('§6 일부러 깨 보기');
+say('§6 mutation test');
 {
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const m1 = brk('if(!plain){ const prop=buildDeskPlant();', 'if(true){ const prop=buildDeskPlant();');

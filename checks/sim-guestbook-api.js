@@ -5,7 +5,7 @@
    ・2절: 쓰기 — 글 쓰기 · 지우기 · 박수 · 겉모습의 경로 · 본문(requestId · 신원은 안 실림) · 읽은 토큰의 주인과 묶음(진짜 api-client 로: 주인이 바뀌면 요청 0 · 'stale') ·
           읽은 적 없으면 안 보냄 · 서버 거절은 'failed' + err(던지지 않음) · 폭죽 null(지움) 과 칸 없음(그대로)을 가름
    ・3절: 배선 — firebase-init 에 옛 방명록 읽기 · 쓰기가 없음(박수 그림 올리기만 남음) · guestbook.js 가 firebaseAPI 로 방명록을 안 부름 · html · smoke 순서
-   ・4절: 일부러 깨 보기
+   ・4절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -26,7 +26,7 @@ const SRC0 = {
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const load = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwGuestbookApi; };
-let IMGSRC = null;   // 검사 중인 image-bytes.js 원본(깨 보기가 바꿔 끼운다)
+let IMGSRC = null;   // 검사 중인 image-bytes.js 원본(mutation test 가 바꿔 끼운다)
 const imgMod = () => { const w = {}; new Function('window', 'module', IMGSRC)(w, undefined); return w.TwImageBytes; };
 const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 
@@ -201,7 +201,7 @@ async function judge(S){
     chk(!/subscribeGuestbook|addGuestbookEntry|deleteGuestbookEntry|clapOnce|subscribeClap|setClapEmoji/.test(fi), 'firebase-init 에 옛 방명록 읽기 · 쓰기 · 박수 · 폭죽이 없다');
     chk(!/setClapImage/.test(fi), '  박수 그림 올리기(setClapImage)도 없다 — 서버 그림 길(purpose=clap)로');
     const ui = strip(S.UI);
-    chk(!/firebaseAPI/.test(ui) && !/localStorage/.test(ui) && !/setClapImage/.test(ui), 'guestbook.js 가 firebaseAPI · localStorage 를 직접 안 만진다(서버 길은 feed 로)');
+    chk(!/firebaseAPI/.test(ui) && !/localStorage/.test(ui) && !/setClapImage/.test(ui), 'guestbook.js 가 firebaseAPI · localStorage 를 직접 안 만진다(서버 경로는 feed 로)');
     const app = strip(S.APP);
     chk(/TwGuestbookApi\.createGuestbookApi\(\{ authed: TwApi\.authed/.test(app) && /TwGuestbookFeed\.createGuestbookFeed\(/.test(app), 'app.js 가 로그인 통로(TwApi.authed)로 provider 를 만들어 feed 에 넘긴다');
     const tag = (f) => S.HTML.indexOf('<script src="parts/' + f + '"></script>');
@@ -214,7 +214,7 @@ async function judge(S){
 async function runAll(){
   const S = SRC0;
   await judge(S);
-  say('── 5. 일부러 깨 보기');
+  say('── 5. mutation test');
   const breaks = [
     ['글 이름을 안 읽음', S.API.replace("name: typeof it.authorName === 'string' ? it.authorName : ''", "name: ''"), '이름(authorName)'],
     ['내 글 표시를 항상 참', S.API.replace("mine: it.mine === true", "mine: true"), '내 글(mine)'],

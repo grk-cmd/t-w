@@ -106,7 +106,7 @@ say('\n── 3-2. 같은 일이 때리기(bonk)에도 일어난다 — /80 이 
 {
   const w = world();
   w.B._lastPokeTs = T0 - 1000;
-  // 예전에 한 번 맞았다 → B 의 poke 칸에 bonk 가 남아 있다
+  // 예전에 한 번 맞았다 → B 의 poke field 에 bonk 가 남아 있다
   P.sync(snap({ mB:{ type:'bonk:u_me:3', ts:T0-800 } }));
   const bonked1 = !!w.B.bonkStart;
   w.B.bonkStart = 0;

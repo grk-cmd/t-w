@@ -5,7 +5,7 @@
  * 3. DJ — 빈 칸이면 첫 곡 · 곡 끝 → 다음 곡(한 번만) · 승계(옛 DJ 곡 다음은 내 첫 곡 · 멈춘 채 나갔으면 다시) · 예비 판정 · 버튼
  * 4. 다른 음악이 이김 · [다시 듣기] · 내가 닫은 창은 이김이 아님
  * 5. 하트비트 — 어긋남 맞추기 · 광고 · 길이 적기   6. 실패 번호   7. 창 글 · DJ 딱지   8. 이어 붙인 곳(app.js · html · room-entry · account)
- * 9. 깨 보기
+ * 9. mutation test
  * 설계: docs/LISTEN_TOGETHER.md 1 · 4장
  */
 'use strict';
@@ -404,7 +404,7 @@ say('── 8. 이어 붙인 곳');
   chk(!/subscribeRoomMusic|setRoomMusic/.test(FI), '  firebase-init 에 곡 칸(Firebase _music) 길이 없다 — 곡은 방 포트 music 하나(sim-listen-provider 가 자세히)');
 }
 
-say('── 9. 깨 보기');
+say('── 9. mutation test');
 {
   {
     const Bs = SRC.replace('write(model.makeMusic(items[i], me, t, provider.lastSeq()));', 'write(model.makeMusic(items[i], me, t, -1));');

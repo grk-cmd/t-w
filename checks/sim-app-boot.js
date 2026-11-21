@@ -9,7 +9,7 @@
    ・4절: 두 번 부르면 두 번째는 무시(시작 한 번뿐) · 한 칸이 던져도(동기 · 비동기) 다음 칸은 돈다 · 표와 starts 가 어긋나면 만들 때 던진다
    ・5절: 같은 알림이 또 와도 시작은 한 번 · 로그아웃 차례는 account.js 한 곳(이 모듈은 건드리지 않음)
    ・6절: 연결 — app.js 의 starts 가 표와 같은 이름 · 각 시작은 app.js 에서 한 번만 · html 순서 · smoke PRELOAD
-   ・7절: 일부러 깨 보기 */
+   ・7절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -136,7 +136,7 @@ async function judge(src) {
     /* 공지는 모두에게 같은 공용 데이터 — 계정 확인을 기다리지 않고 켤 때 받는다(로그인 화면 위에도 업데이트 공지 · 런처 배너) */
     const noticeAtBoot = (ap, bodyTxt) => /^TwNetReady\.whenNetReady\(\(\)=>noticeFeed\.start\(\)\);$/m.test(ap) && !/noticeFeed\.start\(\)/.test(bodyTxt);
     chk(noticeAtBoot(APP, body), '공지 받기는 계정 확인을 기다리지 않는다 — 켤 때(firebase-ready) 시작하고 차례 표에는 없다');
-    chk(!noticeAtBoot(APP.replace('TwNetReady.whenNetReady(()=>noticeFeed.start());', ''), body) && !noticeAtBoot(APP, body + '\n notice: ()=>noticeFeed.start(),'), '  깨 보기 — 로그인 전에 공지 받기가 안 돌거나 다시 차례 표에 넣으면 빨강');
+    chk(!noticeAtBoot(APP.replace('TwNetReady.whenNetReady(()=>noticeFeed.start());', ''), body) && !noticeAtBoot(APP, body + '\n notice: ()=>noticeFeed.start(),'), '  mutation test — 로그인 전에 공지 받기가 안 돌거나 다시 차례 표에 넣으면 빨강');
     chk(!/accountStoreMod\.migrateLegacy\(getMyUserId\(\)\)/.test(APP) && !/mhInitMod\.initMyHome\(\);/.test(rest) && !/plMod\.pull\(\)/.test(rest.replace(/plPull[^\n]*\n/g, '')), '  확인 전에 돌던 자리(옮기기 줄 · initMyHome · 플레이리스트 받기)가 app.js 에 남지 않았다');
     chk(/^ {4}openAccountStore: \(code\)=>accountStoreMod\.open\(code\),$/m.test(APP) && APP.split('accountStoreMod.open(').length === 2, '  계정 칸 열기는 app-boot 연결 한 곳뿐(다른 길에서 열지 않는다)');
     const order = [...HTML.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<script\b[^>]*\bsrc="parts\/([^"]+\.js)"/g)].map((x) => x[1]);
@@ -145,7 +145,7 @@ async function judge(src) {
     chk(order.indexOf('launcher/user-local.js') > 0 && order.indexOf('launcher/user-local.js') < order.indexOf('app.js') && (!SMOKE || /PRELOAD\.push\('user-local\.js'\)/.test(SMOKE)), 'html — user-local.js(맨 앞 userLocal 칸이 부르는 조각 목록)를 app.js 보다 먼저 싣는다 · smoke PRELOAD 에도');
   }
 
-  say('── 7. 일부러 깨 보기 — 빨강이 나야 한다');
+  say('── 7. mutation test — 빨강이 나야 한다');
   const breaks = [
     ['차례를 바꿈(가챠 ↔ 달성표)', (m) => m.replace("  'weeklyChal',", "  'TMP',").replace("  'gacha', ", "  'weeklyChal', ").replace("  'TMP',", "  'gacha',")],
     ['옛 값 옮기기를 시작 뒤로', (m) => m.replace("    guard('옛 값 옮기기', () => migrateLegacy(code));\n", '').replace("    for(const name of STEPS) guard(name, () => starts[name](code, me, session));", "    for(const name of STEPS) guard(name, () => starts[name](code, me, session));\n    guard('옛 값 옮기기', () => migrateLegacy(code));")],

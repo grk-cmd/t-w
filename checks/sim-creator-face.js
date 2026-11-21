@@ -3,7 +3,7 @@
         0.12.4 의 #830 줄(shareSkeletons)은 defToBase 의 onRoot 에 남아야 한다.
    ・1절: 코어 얼굴 만들기 — 캔버스 만들기 · «그릴 수 있나» 판정을 넘긴다 · 얇은 이름이 코어로 간다
    ・2절: defToBase — 동물 길 · 사람 몸 조립 인자(커미션 배율 · 색 입힘) · onRoot(뼈대 하나로 + 귀) · charDef
-   ・3절: 연결(html 순서 · 만드는 줄 · 옛 이름 · 걷은 본문) · 4절: 일부러 깨 보기
+   ・3절: 연결(html 순서 · 만드는 줄 · 옛 이름 · 걷은 본문) · 4절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. */
 'use strict';
 const fs = require('fs');
@@ -80,7 +80,7 @@ say('§3 연결');
   const iMod = APP.indexOf('const creatorFaceMod = '), iUse = APP.indexOf('const faceC=newCanvas()');
   chk(iMod > 0 && iUse > iMod, '만드는 줄은 처음 쓰는 곳(faceC)보다 앞 — TDZ 안 남');
 }
-say('§4 일부러 깨 보기');
+say('§4 mutation test');
 {
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const m1 = brk('skelShare.shareSkeletons(skelShare.skinnedMeshesOf(root)); ', '');

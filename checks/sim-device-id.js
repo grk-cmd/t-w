@@ -3,7 +3,7 @@
    ・2절: 저장이 막혀도(읽기 · 쓰기 던짐 · 저장소 없음) 이번 실행 동안 같은 값 · 만든 값이 모양 밖이면 던짐(조용히 넘어가지 않음)
    ・3절: 모양 — API 머리 · realtime hello 둘 다 받는 규칙 · 저장 키 tw. 접두사
    ・4절: 배선 — window.TwDeviceId · 브라우저 한 벌이 request-id.js newId 로 만든다 · html 차례(request-id → device-id → api-client)
-   ・5절: 일부러 깨 보기 */
+   ・5절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
@@ -77,7 +77,7 @@ function judge(S){
 
 judge(SRC0);
 
-say('── 5. 일부러 깨 보기');
+say('── 5. mutation test');
 const BREAKS = [
   ['DID', "    if(cur) return cur;\n", "", '부를 때마다 새로 읽음(저장이 막히면 매번 다른 값)'],
   ['DID', "    if(saved){ cur = saved; return cur; }", "", '저장값을 안 쓰고 매번 새로 만듦'],
@@ -97,7 +97,7 @@ for(const [where, from, to, what] of BREAKS){
   caught.push([what, qfail]);
 }
 const missed = caught.filter(([, k]) => k === 0).map(([w]) => w);
-chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
 console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

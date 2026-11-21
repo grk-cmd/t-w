@@ -46,7 +46,7 @@ const HASH_RE = /^[0-9a-f]{64}$/;
 function urlOf(assetUrl, hash, ext){
   return (typeof hash === 'string' && HASH_RE.test(hash)) ? assetUrl(hash, ext) : null;
 }
-/* 진열 분류 — «라이선스 전용» 으로 진열된 물건인가(어느 탭 · 목록에 그릴지 · 관리자 칸). 막을지는 이것이 아니라 서버 locked 가 정한다(propRec 의 locked 칸) */
+/* 진열 분류 — «라이선스 전용» 으로 진열된 물건인가(어느 탭 · 목록에 그릴지 · 관리자 칸). 막을지는 이것이 아니라 서버 locked 가 정한다(propRec 의 locked field) */
 const licenseOnlyOf = (listing) => !!(isObj(listing) && isObj(listing.access) && listing.access.kind === 'entitlement');
 function put(rec, key, val){ if(val !== null && val !== undefined) rec[key] = val; }
 

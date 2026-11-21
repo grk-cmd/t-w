@@ -2,7 +2,7 @@
    모듈 모양 · app.js 연결 · 입장 흐름(가짜 방 포트 · 가짜 Presence 위에서 실제로 굴린다)을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(CHANNEL_NAMES · ROOM_PREFIX · _mockRoomAllowed · _srFmtDate · doLeaveRoom · makeMockProvider · refreshInviteUI · startRoom · syncFriendSeats · onRoomChanged · onRoomJoined · isRoomCode · joinRoom · doCreateRoomInChannel · _myRoomLicensed)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 42줄 그대로 · 부르는 곳은 roomEntryMod.이름 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · room-entry.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기(이름 없음 → «이름 없음») — 진짜 파일
@@ -167,7 +167,7 @@ chk(judgeBench(MOD), '★ 남이 내 벤치에 앉음 · 내 머리에 올라탐
 chk(judgeSecret(MOD), 'F1 시크릿룸 칸은 provider 의 mySecretRoom 에 한 번 묻는다 · firebaseAPI 를 직접 읽지 않는다');
 chk(judgeLeave(MOD), '★ 방 안 → 밖으로 바뀐 순간에만 로비에 알린다(NAV.ROOM_LOBBY) — 처음 · 계속 밖 · 계속 안은 안 알림');
 chk(judgeHop(MOD), '★ 방 갈아타기 — 새 방에 들어가면 알림 0 · 실패해 밖에 남으면 그때 한 번');
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 {
   const m2 = MOD.replace('Promise.resolve(mySecretRoom()).then(', "firebaseAPI.getMySecretRoom(getMyUserId()); Promise.resolve(mySecretRoom()).then(");
   chk(m2 !== MOD && !judgeSecret(m2), '방 창이 시크릿룸을 따로 읽으면 — 판정 한 곳이 빨강');
@@ -269,11 +269,11 @@ globalThis.__rsCheck = (async () => {
   F.forEach(([ok, msg]) => chk(ok, msg));
   (await randomRows(MOD)).forEach(([ok, msg]) => chk(ok, msg));
   const broke = await flowRows(MOD.replace("    if(m && (m[1] + '-') !== want){", "    if(false){"));
-  chk(broke.some(([ok]) => !ok), '깨 보기: 빈 방 접두어 옮기기를 빼면 입장 흐름이 빨강');
+  chk(broke.some(([ok]) => !ok), 'mutation test: 빈 방 접두어 옮기기를 빼면 입장 흐름이 빨강');
   const broke2 = await flowRows(MOD.replace("srOpen = _secretOpenFields(true);", "srOpen = undefined;"));
-  chk(broke2.some(([ok]) => !ok), '깨 보기: 시크릿룸 «주인이 연다» 를 빼면 입장 흐름이 빨강');
+  chk(broke2.some(([ok]) => !ok), 'mutation test: 시크릿룸 «주인이 연다» 를 빼면 입장 흐름이 빨강');
   const broke3 = await flowRows(MOD.replace("  const s = await mySecretRoom();\n  return (s && s.code === code) ? s : null;", "  let s = null;\n  try{ s = await mySecretRoom(); }catch(_){ s = null; }\n  return (s && s.code === code) ? s : null;"));
-  chk(broke3.some(([ok]) => !ok), '깨 보기: 읽기 실패를 «내 방 아님» 으로 삼키면 입장 흐름이 빨강');
+  chk(broke3.some(([ok]) => !ok), 'mutation test: 읽기 실패를 «내 방 아님» 으로 삼키면 입장 흐름이 빨강');
 })();
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/room/room-entry.js"></script>', '')],
@@ -283,7 +283,7 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const roomEntryMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('roomEntryMod.' + x)); if(n){ ls[i] = ls[i].replace('roomEntryMod.' + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 던짐', m => m.replace('function createRoomEntry(deps){', 'function createRoomEntry(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createRoomEntry(deps){', 'function createRoomEntry(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
@@ -301,7 +301,7 @@ function cardRig(src, o){
   const rc = new Proxy({}, { get: (t, k) => k in t ? t[k] : anything() });
   const Presence = { start: () => new Promise(r => setTimeout(() => r({ ok: false, code: 'timeout' }), 150)), active: () => false, serverProvider: () => null };
   /* o.throwOnce 면 첫 만들기 도중(최대 인원 맞추기) 한 번 던진다 */
-  const roomSettings = { clampMax: () => { asked++; if(o.throwOnce && !threw){ threw = true; throw new Error('깨 봄'); } return 10; }, serverJoinCreate: () => null };
+  const roomSettings = { clampMax: () => { asked++; if(o.throwOnce && !threw){ threw = true; throw new Error('mutation'); } return 10; }, serverJoinCreate: () => null };
   const api = build(src, { companion, win: { _deviceSessionLost: false }, deps: { _rcStore: () => rc, roomSettings, Presence } });
   const settings = { title: '', max: 10, open: false, music: false };
   return { card: { onclick: () => api.doCreateRoomInChannel('workingroom', settings) }, asked: () => asked };
@@ -323,12 +323,12 @@ async function scenario(src){
   out.afterThrow = r.asked();
   return out;
 }
-/* 깨 보기 — 바꿀 글을 못 찾으면 «못 찾음» 으로 따로 알린다(진짜 실패와 섞이지 않게) */
+/* mutation test — 바꿀 글을 못 찾으면 «못 찾음» 으로 따로 알린다(진짜 실패와 섞이지 않게) */
 async function breakWith(label, from, to, judge){
   const src = MOD.replace(from, to);
-  if(src === MOD){ chk(false, '  깨 보기 — ' + label + ': 바꿀 글을 못 찾음(검사를 고칠 것)'); return; }
+  if(src === MOD){ chk(false, '  mutation test — ' + label + ': 바꿀 글을 못 찾음(검사를 고칠 것)'); return; }
   const b = await scenario(src);
-  chk(!!b && judge(b), '  깨 보기 — ' + label + ' → 빨강');
+  chk(!!b && judge(b), '  mutation test — ' + label + ' → 빨강');
 }
 process.exitCode = 1;   // 아래가 끝까지 못 돌고 멈추면(기다림이 안 풀림) 초록으로 새지 않게
 const _watch = setTimeout(() => { say('  ✗ 5절이 10초 안에 안 끝남 — 기다림이 풀리지 않는다'); process.exit(1); }, 10000);

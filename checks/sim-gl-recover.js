@@ -8,7 +8,7 @@
    §1 gl-recover.js 실행 — 끊김 → 6초 → 앱 다시 켜기 · 시각 기록 · 10분 안에 또면 안내 · 경계 · 두 번째 끊김 · 저장소 못 씀
    §2 gl-fail-notice.js 실행 — 렌더러 만들기 실패 → 안내 · 다시 던짐 · 한 번만 · 버튼 · E-SYS-05
    §3 연결 — HTML 순서 · stage.js(app.js 가 만든다)가 렌더러를 guard 로 만들고 같은 캔버스에 붙임 · localStorage · preload/main 통로
-   §4 일부러 깨 보기 */
+   §4 mutation test */
 'use strict';
 const fs = require('fs');
 const say = console.log;
@@ -145,7 +145,7 @@ chk(/ipcMain\.on\('companion:diagNote'/.test(MAIN) && /e\.sender !== mainWindow\
 const iD = MAIN.indexOf('app.disableDomainBlockingFor3DAPIs();'), iReady = MAIN.indexOf('app.whenReady()');
 chk(iD > 0 && iReady > iD, '★ main — GPU 가 죽은 뒤 WebGL 을 막지 않게 한다 (ready 전에)');
 
-say('§4 깨 보기');
+say('§4 mutation test');
 const breakGR = (from, to) => { const m = GR.replace(from, to); return m === GR ? null : judgeGR(m); };
 const b1 = breakGR("if(decide(now, lastAt()) === 'notice') return giveUp();", '');
 chk(!!b1 && (!b1.recent || !b1.twice), '10분 규칙을 빼면(늘 다시 켬) 빨강');

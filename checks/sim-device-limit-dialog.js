@@ -4,7 +4,7 @@
           껍데기 app-popup-ov(클릭 통과 목록) · 기기 안내 화면과 같은 층(--z-gate-device)
    ・2절: 누르기 — [지우고 사용] true · [취소] false · Esc false · 닫히면 창이 사라진다 · 새로 물으면 앞 창은 취소로 닫힌다
    ・3절: 연결 — app.js · html · smoke PRELOAD · 클릭 통과
-   ・4절: 일부러 깨 보기 */
+   ・4절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -99,7 +99,7 @@ async function judge(src) {
   chk(!SMOKE || /PRELOAD\.push\([^)]*'device-limit-dialog\.js'/.test(SMOKE), 'smoke PRELOAD 에 device-limit-dialog.js');
   chk(!RUN || /\.app-popup-ov/.test(RUN), '클릭 통과 목록(UI_HIT_SEL)이 .app-popup-ov 를 받는다');
 
-  say('── 4. 일부러 깨 보기 — 빨강이 나야 한다');
+  say('── 4. mutation test — 빨강이 나야 한다');
   const breaks = [
     ['기본 포커스가 실행', (m) => m.replace('      try{ no.focus(); }catch(_){}', '      try{ ok.focus(); }catch(_){}')],
     ['버튼 순서가 뒤바뀜', (m) => m.replace('      acts.appendChild(no); acts.appendChild(ok);', '      acts.appendChild(ok); acts.appendChild(no);')],

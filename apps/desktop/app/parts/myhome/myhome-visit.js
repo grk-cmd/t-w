@@ -60,7 +60,7 @@ async function openFriendHomeView(friendId, nameHint){
     /* 🏷️ 이름은 받아 둔 것(목록 · 힌트)으로 먼저 그리고, 새로 받은 값이 다르면 바꾼다.
        · 친구면 그 친구 프로필만 한 번 새로 읽는다(friends-sub refreshProfile — 목록이 열려 있으면 이미 듣고 있어 읽지 않는다).
          목록은 이름을 실시간으로 듣는 게 «열려 있는 동안» 뿐이라, 닫힌 채 들어오면 목록의 이름이 옛것일 수 있다.
-       · 친구가 아니고 이름도 모르면(힌트 없음) 프로필에서 이름 한 줄(명함 fetchCards — 서버 길).
+       · 친구가 아니고 이름도 모르면(힌트 없음) 프로필에서 이름 한 줄(명함 fetchCards — 서버 경로).
        ⚠️ 조회가 끝나기 전에 다른 홈으로 넘어갔거나 관람을 닫았으면 결과를 버린다 —
           안 그러면 방금 나온 사람의 이름이 다음 화면에 뒤늦게 찍힌다. */
     const shownName = _mhViewingDisplayName();

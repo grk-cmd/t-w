@@ -6,7 +6,7 @@
    ・2절: 길마다 이 함수를 부른다 — 꾸미기 저장 두 곳 · 친구 파츠 변경 · 좌석 다시 짓기 · 카탈로그 늦게 붙은 파츠 · 관리자 다시 등록 / 옛 «.then(fitModel)» 이 남지 않음 / html · app.js 연결
    ・3절: 파츠 떼기 — 다음 프레임에 한 번(같은 프레임 여러 번 → 한 번) · 실행 화면 좌석만 · 진짜 app.js 떼기 함수가 부른다 · 가챠 회수 · 카탈로그 삭제 · 관리자 삭제 · 친구 화면 빼기가 그 함수를 지난다
      [제보] 칠판(rideTop)을 낀 사람 위에 동물이 탄 채 칠판을 빼면, 남의 화면에서 동물이 재실행 전까지 떠 있었다 — 떼는 길에 높이 다시 재기가 없었다.
-   ・4절: 일부러 깨 보기 */
+   ・4절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -154,7 +154,7 @@ async function judge(src) {
   chk(R.mkDeps, '  app.js 는 requestAnimationFrame · 실행 화면 좌석(seats)을 넘긴다');
   chk(R.paths, '가챠 회수 · 카탈로그 삭제 · 관리자 파츠 삭제 · 친구 화면 파츠 빼기(pruneSeatPartsAgainstDef)가 그 떼기 함수를 지난다');
 
-  say('── 4. 일부러 깨 보기');
+  say('── 4. mutation test');
   const BREAK = [
     ['순서가 바뀜(올라탄 사람 높이를 fitModel 앞에서)', { MOD: SRC.MOD.replace("  try{ fitModel(seat); if(o.layout) layoutSeats(); }catch(_){}\n  _notifyRefitted(seat);", "  _notifyRefitted(seat);\n  try{ fitModel(seat); if(o.layout) layoutSeats(); }catch(_){}") }, 'order'],
     ['거부를 안 받음', { MOD: SRC.MOD.replace(/try\{ await o\.wait; \}catch\(e\)\{[^}]*\}/, 'await o.wait;') }, 'rejectStill'],

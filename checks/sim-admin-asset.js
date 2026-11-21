@@ -6,7 +6,7 @@
    ・3절: 🎁 커미션 — zip 상한(지금 값) · 풀기 → 페이로드(t:'comm' · name · glb base64 · face · blink) → encryptCommission
    ・4절: 🔐 GLB 불러오기 — .dcc 는 비밀번호로 풀고 · .glb 는 그대로 → loadEncryptedGlbAsSeat(이름.glb)
    ・5절: app.js 연결 — 본문이 안 남음 · 사용자 쪽(코드로 추가하기 · 커미션 코드 입력)은 남음 · 빈 껍데기 · deps 12 · 원래 자리 · html
-   ・6절: 일부러 깨 보기
+   ・6절: mutation test
    [실행] app.js · desk-companion-prototype.html · admin-asset.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
@@ -107,7 +107,7 @@ async function judgeAll(src, app, html){
   const rows = await judgeAll(MOD, SRC, HTML);
   const heads = { 0: '── 1. 만들 때', 1: '── 2. 📦 책상·아이템 코드', 4: '── 3. 🎁 커미션', 6: '── 4. 🔐 GLB 불러오기', 9: '── 5. app.js 연결' };
   rows.forEach(([ok, msg], i) => { if(heads[i]) say(heads[i]); chk(ok, msg); });
-  say('── 6. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+  say('── 6. mutation test — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['상한을 값으로 붙잡음', { mod: s => s.replace('const MAX_GLB_BYTES = deps.maxGlbBytes;', 'const MAX_GLB_BYTES = ((v)=>()=>v)(deps.maxGlbBytes());') }],
     ['📦 상한 확인 빠짐', { mod: s => s.replace("if(f.size>MAX_GLB_BYTES()){toast(", "if(false){toast(") }],

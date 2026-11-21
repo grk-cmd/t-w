@@ -5,7 +5,7 @@
    ・2절: mallang.js 를 가짜 DOM 에서 실제로 돌린다 — 선물 말랑이 그림이 실패하면 표식 주소로 한 번 더 · 또 실패하면 그 말랑이를 치운다
    ・3절: mallang.js 등록 칸(우클릭 등록 창) · 선물 고르기 칸을 실제로 열어 그 칸 그림이 한 번 더 받는지 · html 싣는 순서
      (💝 선물함 칸은 sim-myhome-inbox 5절이 진짜 _giftBoxPaint 로 본다)
-   ・4절: 일부러 깨 보기 — 다시 받기 없음 · 끝없이 다시 받음 · 말랑이 · 등록 칸 · 선물 고르기 칸에 안 걺 · html 싣는 순서
+   ・4절: mutation test — 다시 받기 없음 · 끝없이 다시 받음 · 말랑이 · 등록 칸 · 선물 고르기 칸에 안 걺 · html 싣는 순서
    [실행] node checks/run.js sim-gift-img-retry */
 'use strict';
 globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
@@ -20,7 +20,7 @@ if(Object.values(SRC).some(v => !v)){ say('  ? 원본 못 찾음 — img-retry.j
 const STORE_SRC = { store: read('mallang-store.js'), gift: read('gift-api.js'), box: read('gift-box.js'), ae: read('api-errors.js') };
 if(!STORE_SRC.store || !STORE_SRC.gift || !STORE_SRC.box || !STORE_SRC.ae){ say('  ? 원본 못 찾음 — mallang-store.js · gift-api.js · api-errors.js'); process.exit(2); }
 
-/* 🧸 말랑이 칸 상태 주인 — 진짜 mallang-store.js 위에 가짜 서버 길(slotsOf: 집 코드 → 칸 · 내 집은 'me') */
+/* 🧸 말랑이 칸 상태 주인 — 진짜 mallang-store.js 위에 가짜 서버 경로(slotsOf: 집 코드 → 칸 · 내 집은 'me') */
 const loadMod = (src) => { const m = { exports: {} }; new Function('window', 'module', src)(undefined, m); return m.exports; };
 function mkStore(slotsOf){
   const copy = (who) => ({ slots: (slotsOf[who] || []).map((x, i) => ({ slot: i, imageUrl: x, enabled: true })), version: 1 });
@@ -63,7 +63,7 @@ function judgeUnit(retrySrc){
 }
 
 /* mallang.js 를 가짜 DOM 에서 — 이 모듈이 쓰는 만큼만 */
-/* 🎁 선물 상태 주인 — 진짜 gift-box.js 위에 가짜 서버 길(내 선물함 = gifts.home1 · 그 집 선물 = gifts[집 코드]) */
+/* 🎁 선물 상태 주인 — 진짜 gift-box.js 위에 가짜 서버 경로(내 선물함 = gifts.home1 · 그 집 선물 = gifts[집 코드]) */
 function mkBox(gifts){
   const row = (k, g) => ({ id: k, senderName: '친구', imageUrl: g.imgUrl, message: '', starred: false, hidden: false, sentAt: 1 });
   const api = {
@@ -186,7 +186,7 @@ function judgeWire(s){
   say('── 3. 등록 칸 · 선물 고르기 칸 · 연결');
   (await judgeSlots(SRC.mallang, SRC.retry)).forEach(([ok, m]) => chk(ok, m));
   judgeWire(SRC).forEach(([ok, m]) => chk(ok, m));
-  say('── 4. 일부러 깨 보기');
+  say('── 4. mutation test');
   const breaks = [
     ['다시 받기 없음(예전 — 바로 그만둠)', 'retry', s => s.replace("    if(again){ img.src = again; return; }\n", '')],
     ['표식을 안 봐서 끝없이 다시 받음', 'retry', s => s.replace("  if(/[?&]twr=1(?:&|$)/.test(s)) return null;   // 이미 다시 받은 주소 — 두 번까지만\n", '')],

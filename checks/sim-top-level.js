@@ -3,7 +3,7 @@
         단계는 플랫폼 모듈 한 곳에서 정하고, main.js 의 창 올리기(메인 · 방명록 · 디자인 · 구글 로그인 · 색 대화상자 복원)는 모두 그것을 따른다.
    ・1절: 플랫폼 모듈을 실제로 불러 단계를 본다 — 윈도우 'screen-saver' · 맥 'status' · 두 모듈 export 이름이 같다
    ・2절: main.js — 단계를 글자로 쓰지 않는다 · 단계를 주는 setAlwaysOnTop 은 모두 overlay.TOP_LEVEL
-   ・3절: 깨 보기
+   ・3절: mutation test
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
 'use strict';
 const fs = require('fs');
@@ -48,7 +48,7 @@ const r = mainCalls(MAIN);
 chk(r.calls.length >= 5, '  단계를 주는 창 올리기 ' + r.calls.length + '곳(메인 · 색 대화상자 복원 · 구글 로그인 · 방명록 · 디자인)');
 chk(mainOk(r), "★ 모두 overlay.TOP_LEVEL · 'screen-saver' 글자 없음");
 
-say('── 3. 깨 보기');
+say('── 3. mutation test');
 chk(platform(WIN, MAC.replace("const TOP_LEVEL = 'status';", "const TOP_LEVEL = 'screen-saver';")).mac !== 'status', "맥 단계를 'screen-saver' 로 되돌리면 위 1절 ★ 가 빨강");
 chk(!platform(WIN, MAC.replace('  TOP_LEVEL,\n', '')).same, '맥 모듈에서 TOP_LEVEL 을 빼면 위 «export 이름이 같다» 가 빨강');
 chk(!mainOk(mainCalls(MAIN.replace('mainWindow.setAlwaysOnTop(true, overlay.TOP_LEVEL);', "mainWindow.setAlwaysOnTop(true, 'screen-saver');"))), "main.js 한 곳을 'screen-saver' 로 쓰면 위 2절 ★ 가 빨강");

@@ -6,7 +6,7 @@
    ・3절: 못 알려도 안 막음(경고는 남김) — 닿지 못함 · 401 · 모양이 다른 답 · 던지는 getVersion · 다시 보내지 않음
    ・4절: 세션 — 답이 오기 전에 세션이 끝났으면 그 답을 버린다(막지 않음 · 경고 없음)
    ・5절: 연결 — html 에 일반 script 로 싣기 · app-boot 차례 appVersion 한 곳 · app.js 가 update-flow forceAccount 에 잇는다 · 앱 판은 sharedAppVersion 한 벌(rt-bind) · 가입 전(익명) 로그인은 계정 확인에서 걸러져 이 차례에 오지 않는다
-   ・6절: 일부러 깨 보기
+   ・6절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -143,7 +143,7 @@ function judge(S){
 (async () => {
   await judge(SRC0);
 
-  say('── 6. 일부러 깨 보기');
+  say('── 6. mutation test');
   const BREAKS = [
     ['SYNC', "{ version: my }", "{ version: my, device: 'x' }", '본문에 다른 값을 싣는다'],
     ['SYNC', "if(!data.behind) return { state: STATE.OK };", "", 'behind 거짓도 막는다'],
@@ -171,7 +171,7 @@ function judge(S){
     caught.push([what, qfail]);
   }
   const missed = caught.filter(([, k]) => k === 0).map(([w]) => w);
-  chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+  chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
   console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
   process.exit(fail ? 1 : 0);

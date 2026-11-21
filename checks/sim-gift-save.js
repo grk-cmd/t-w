@@ -4,7 +4,7 @@
    ・1절: 순수 함수 — fileName · extOf 입력 → 출력 · 경계값(빈 이름 · null · 못 쓰는 글자뿐 · 앞뒤 점 · 긴 이름 · 모르는 형식)
    ・2절: 저장 흐름 — 받기 → a.download 누르기 → 주소 놓기 예약 · 받은 시각이 없으면 지금 · 실패(HTTP · 그림 아님 · 받기 오류 · 주소 없음 · 막힌 주소)
    ・3절: 연결 — html 이 myhome-inbox.js · app.js 보다 먼저 싣는다 · app.js 가 deps 로 넘긴다 · 에러 번호가 표에 있다
-   ・4절: 일부러 깨 보기
+   ・4절: mutation test
    선물함 우클릭 창의 버튼([저장] [삭제] [취소] · ⭐ 는 [저장] [취소])은 sim-myhome-inbox.js 5절이 본다.
    [실행] node checks/run.js sim-gift-save */
 'use strict';
@@ -114,7 +114,7 @@ async function judge(src){
   const win = {}; new Function('window', 'module', SRC.mod)(win, undefined);
   chk(Object.keys(win).join() === 'TwGiftSave' && Object.isFrozen(win.TwGiftSave) && Object.keys(win.TwGiftSave).join() === 'fileName,extOf,createGiftSave', '싣기만 하면 window.TwGiftSave 하나 · 얼린 묶음');
 
-  say('── 4. 일부러 깨 보기');
+  say('── 4. mutation test');
   const BREAKS = [
     [".replace(BAD_CH, '_')", '', '못 쓰는 글자를 안 바꿈'],
     ["if(!who || /^_+$/.test(who)) who = '친구';", '', '빈 이름을 «친구» 로 안 채움'],
@@ -127,7 +127,7 @@ async function judge(src){
   ];
   for (const [from, to, why] of BREAKS) {
     const broken = SRC.mod.replace(from, to);
-    if (broken === SRC.mod) { chk(false, '깨 보기 자리를 못 찾음 — ' + why); continue; }
+    if (broken === SRC.mod) { chk(false, 'mutation test 자리를 못 찾음 — ' + why); continue; }
     const rr = await judge(broken);
     chk(rr.some(([ok]) => !ok), why + ' → 빨강');
   }

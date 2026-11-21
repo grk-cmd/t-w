@@ -8,7 +8,7 @@
    ・4절: 채팅 · poke · 나가기 — 140자 · 탭 · 날리기 칸 · poke 중복 / 지난 값 거르기 · 쓰다듬기 · stop
    ・5절: 자동 자리비움 — 20분 무반응이면 away(auto) · 돌아오면 직전 상태 · 밥 · 게임은 건너뜀 · 손으로 고르면 manual
    ・6절: app.js 연결 — 옮긴 선언이 app.js 에 안 남음 · deps 17줄 · 옛 전역 이름 한 줄 · html(app.js 앞) · smoke · 되살리기 도우미
-   ・7절: 일부러 깨 보기 */
+   ・7절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -97,12 +97,12 @@ async function behave(src) {
 
   /* 3. 방 입장 · payload */
   w = world(src, { focusShow: { emo: '🕒', text: '오늘 1:00' } });
-  const ret = await w.P.start('ROOM1', { d: 1 }, (fr) => w.log.changes.push(fr), { provider: w.provider });   // 방 서버 길 — 들어온 서버 시각(serverNow)은 입장 결과가 준다
+  const ret = await w.P.start('ROOM1', { d: 1 }, (fr) => w.log.changes.push(fr), { provider: w.provider });   // 방 서버 경로 — 들어온 서버 시각(serverNow)은 입장 결과가 준다
   const j = w.log.joins[0];
   t(ret && ret.ok === true && w.P.active() && w.P.roomCode() === 'ROOM1', '들어가면 { ok:true } · active · roomCode 가 선다');
   t(j && !('name' in j.payload) && !('level' in j.payload) && !('userId' in j.payload) && j.payload.awaySz === 80 && j.payload.noise === '' && !('lic' in j.payload) && j.payload.awayImg === '',
     '★ join payload — 이름 · 레벨 · userId · lic 는 싣지 않는다(서버가 계정 · 토큰 · 라이선스로 채운다 · pv 4) · 그림 크기 80 · 소음 빈 값 · awayImg');
-  t(j && j.payload.userStatus === 'custom' && j.payload.customStatus.text === '오늘 1:00', '상태가 없으면 오늘 기록 전시를 custom 칸으로 싣는다');
+  t(j && j.payload.userStatus === 'custom' && j.payload.customStatus.text === '오늘 1:00', '상태가 없으면 오늘 기록 전시를 custom field 로 싣는다');
   t(w.P.friendsObj().f1 && w.log.changes.length === 1, 'friends 콜백 → friendsObj · onChange');
   t(w.P.myDef().d === 1, 'myDef — 방에 보낸 def');
   w.log.updates.length = 0;
@@ -137,7 +137,7 @@ async function behave(src) {
   t(last(w).chat && last(w).chat.text.length === 140 && !('fly' in last(w).chat) && !('tab' in last(w).chat), '채팅 — 140자로 자름 · 날리기 아니면 fly 칸 없음 · #일반은 tab 칸 없음');
   w.P.sendChat('hi', true, '#fff', 'l', 'movie');
   t(last(w).chatTab && !last(w).chat && last(w).chatTab.tab === 'movie' && last(w).chatTab.fly === true && last(w).chatTab.flyColor === '#fff' && !('flySize' in last(w).chatTab),
-    '탭 채팅은 chatTab 칸 · 날리기 색 · 대(l)는 안 싣는다');
+    '탭 채팅은 chatTab field · 날리기 색 · 대(l)는 안 싣는다');
   w.P.sendChat('hi', true, null, 'm');
   t(last(w).chat.flySize === 'm', '날리기 크기 m 은 싣는다');
   w.P.poke('f1', 'pet'); w.P.pokeSelf('bonk:x');
@@ -233,7 +233,7 @@ function wire(app, html) {
   chk(!SMOKE || /PRELOAD\.push\('presence\.js'\);/.test(SMOKE), 'smoke 가 presence.js 를 먼저 싣는다');
   chk(!RSRC || /file: 'presence\.js', mod: 'presenceMod', glob: 'TwPresence'/.test(RSRC), '되살리기 도우미(sim-renderer-src) 목록에 있다');
 
-  say('── 7. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+  say('── 7. mutation test — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['140자 자르기를 141로', (m) => m.replace('const CHAT_TEXT_MAX = 140;', 'const CHAT_TEXT_MAX = 141;'), null, null],
     ['입장에 이름을 다시 실음', (m) => m.replace('provider.join(room, {def:myDef,', "provider.join(room, {def:myDef,name:'나',"), null, null],
@@ -246,7 +246,7 @@ function wire(app, html) {
     ['만들 때 상태를 읽음', (m) => m.replace('function resetBootStatus(){', 'restoreBootStatus();\n  function resetBootStatus(){'), null, null],
     ['manual 기록 무시', (m) => m.replace("if(rec && rec.k === 'manual') return;", ''), null, null],
     ['provider 없이 가짜 방으로 떨어짐', (m) => m.replace('if(!_srv && !roomEntryMod()._mockRoomAllowed()){', 'if(false){'), null, null],
-    ['만들 때 던짐', (m) => m.replace('function createPresence(deps){', 'function createPresence(deps){ throw new Error("깨 봄");'), null, null],
+    ['만들 때 던짐', (m) => m.replace('function createPresence(deps){', 'function createPresence(deps){ throw new Error("mutation");'), null, null],
     ['app.js 에 본문이 남음', null, (a) => a + '\nconst Presence=(()=>{ return {}; })();', null],
     /* presence 를 만드는 줄 안의 것을 지운다 — 같은 deps 줄이 다른 모듈(seat-panel 등)을 만드는 줄에도 있다 */
     ['deps 하나 빠짐', null, (a) => { const i = a.indexOf('const presenceMod = TwPresence.createPresence({'); const j = a.indexOf('\n});', i) + 1; return a.slice(0, i) + a.slice(i, j).replace('  triggerPet: (...a)=>triggerPet(...a),\n', '') + a.slice(j); }, null],

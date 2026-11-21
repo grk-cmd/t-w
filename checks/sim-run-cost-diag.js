@@ -6,7 +6,7 @@
    ・1절: createRunCostDiag(가짜 시계) — 더하기 · 세기 · since · timed(던져도 잼 · 돌려준 값 그대로) · take 뒤 비움 · 이상한 값 버림
    ・2절: countSeats · roomKind — 빈 값 · 몸 판단 함수(없으면 0) · 반짝임(.lvx · .np-star) · 숨긴 꾸밈은 안 셈 · 방 종류
    ・3절: line — 0 · 나머지 = 한 장 − 좌석 − 그리기(음수면 0) · 밖 초당 · 큰 값에도 200자 안 · [프레임] 줄로 안 읽힘
-   ・4절: 깨 보기 — 갈래를 하나씩 바꾼 모듈로 1~3절을 다시 돌려 빨강이 나는지
+   ・4절: mutation test — 갈래를 하나씩 바꾼 모듈로 1~3절을 다시 돌려 빨강이 나는지
    ・5절: 배선 — html 이 app.js 앞에 싣는다(firebase-init.js 는 module 이라 늦게 돈다) · smoke PRELOAD · 재는 자리 · 1분 줄 */
 'use strict';
 const fs = require('fs');
@@ -120,7 +120,7 @@ chk(s3[3], '나머지는 음수로 안 간다');
 chk(s3[4], '큰 값에도 ' + T.LINE_MAX + '자 안(main 이 자르는 길이)');
 chk(s3[5], '[프레임] 줄로 안 읽힌다');
 
-say('── 4. 깨 보기');
+say('── 4. mutation test');
 const BREAKS = [
   ['take 뒤 안 비움', 'reset(); since = t;', 'since = t;', () => !runCore(load(brk))[1]],
   ['이상한 값도 받음', 'if(!(ms >= 0) || !isFinite(ms)) return;', '', () => !runCore(load(brk))[2]],
@@ -135,10 +135,10 @@ const BREAKS = [
 ];
 let brk = '';
 for (const [name, from, to, red] of BREAKS){
-  if (!MOD.includes(from)){ chk(false, '깨 보기 «' + name + '» — 바꿀 글을 못 찾음'); continue; }
+  if (!MOD.includes(from)){ chk(false, 'mutation test «' + name + '» — 바꿀 글을 못 찾음'); continue; }
   brk = MOD.replace(from, to);
   let ok = false; try { ok = red(); } catch (_) { ok = true; }
-  chk(ok, '깨 보기 «' + name + '» → 빨강');
+  chk(ok, 'mutation test «' + name + '» → 빨강');
 }
 
 say('── 5. 배선');

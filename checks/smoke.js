@@ -348,15 +348,15 @@ PRELOAD.push('skeleton-share.js');
 /* img-retry.js — 🖼 남의 그림 한 번 더 받을 주소(window.TwImgRetry). room-sync.js · animal.js · myhome-inbox.js · mallang.js 가 부를 때 읽는다. */
 PRELOAD.push('img-retry.js');
 PRELOAD.push('image-bytes.js', 'request-id.js');   // 🖼 data: 그림 → 바이트 판정 · 🔁 요청 번호 — schedule-api.js 가 app.js 에서 넘겨 받는다
-PRELOAD.push('schedule-api.js');   // 🌐 일정 · 디데이 서버 길 provider — app.js 가 로그인 통로를 넘겨 만든다
+PRELOAD.push('schedule-api.js');   // 🌐 일정 · 디데이 서버 경로 provider — app.js 가 로그인 통로를 넘겨 만든다
 /* scheduler.js — 📅 스케줄러 · 🔔 일정 알림(앱 FSD 1번). app.js 는 없어도 빈 껍데기로 돌지만, 그러면 모듈이 만들 때 하는 일
    (버튼 연결 · 알림 구독 · 자정 타이머)을 아무도 안 굴린다 — 여기서 같이 싣고 굴린다.
    ⚠️ 윗줄 모양은 sim-wd-ear.js 가 글자 그대로 본다 — 목록에 끼우지 말고 여기서 붙인다. */
 PRELOAD.push('image-bytes.js');   // 🖼 data: 그림 → 바이트 판정(window.TwImageBytes) — 세 provider 가 app.js 에서 넘겨 받는다
-PRELOAD.push('schedule-api.js');   // 🌐 일정 · 디데이 · 알림 서버 길 provider — app.js 가 로그인 통로를 넘겨 만든다
-PRELOAD.push('myhome-api.js');   // 🏠 마이홈 서버 길 provider — 상태 주인(D2-2)이 deps 로 받는다
+PRELOAD.push('schedule-api.js');   // 🌐 일정 · 디데이 · 알림 서버 경로 provider — app.js 가 로그인 통로를 넘겨 만든다
+PRELOAD.push('myhome-api.js');   // 🏠 마이홈 서버 경로 provider — 상태 주인(D2-2)이 deps 로 받는다
 PRELOAD.push('myhome-store.js');   // 🏠 마이홈 상태 주인 — app.js 가 만든다(D2-2)
-PRELOAD.push('gift-api.js');   // 🧸 말랑이 · 🎁 선물 서버 길 provider — app.js 가 로그인 통로를 넘겨 만든다
+PRELOAD.push('gift-api.js');   // 🧸 말랑이 · 🎁 선물 서버 경로 provider — app.js 가 로그인 통로를 넘겨 만든다
 PRELOAD.push('gift-box.js');   // 🎁 선물 상태 주인 — app.js 가 말랑이 화면 · 수령함보다 먼저 만든다
 PRELOAD.push('mallang-store.js');   // 🧸 말랑이 칸 상태 주인 — app.js 가 말랑이 화면보다 먼저 만든다
 PRELOAD.push('bookshelf-store.js');   // 📚 책장 상태 주인 — app.js 가 북마크 서랍보다 먼저 만든다
@@ -371,10 +371,10 @@ PRELOAD.push('pk-bgm.js');
 /* purikura-ui.js — 📷 스티커사진 창(앱 FSD 3번). 같은 까닭 — 만들 때 하는 일(_pkWire: 버튼 · 창 끌기 · ⎋ 사다리 등록)을 같이 굴린다. */
 PRELOAD.push('purikura-rt.js');   // 📷 스티커사진 세션 포트 — app.js _purikura() 가 처음 부를 때 만든다
 PRELOAD.push('purikura-ui.js');
-/* focus-api.js · focus-progress.js — ⏱ 포커스 서버 길 provider · 진척(서버 값 · 못 올린 초). app.js 가 로그인 통로를 넘겨 만든다. */
+/* focus-api.js · focus-progress.js — ⏱ 포커스 서버 경로 provider · 진척(서버 값 · 못 올린 초). app.js 가 로그인 통로를 넘겨 만든다. */
 PRELOAD.push('focus-api.js');
 PRELOAD.push('focus-progress.js');
-/* guestbook-api.js · guestbook-feed.js — 📖 방명록 서버 길과 받아 들고 있는 한 벌. app.js 가 만들 때 TwGuestbookApi · TwGuestbookFeed 를 부른다. */
+/* guestbook-api.js · guestbook-feed.js — 📖 방명록 서버 경로와 받아 들고 있는 한 벌. app.js 가 만들 때 TwGuestbookApi · TwGuestbookFeed 를 부른다. */
 PRELOAD.push('guestbook-api.js');
 PRELOAD.push('guestbook-feed.js');
 /* guestbook.js — 📖 방명록(앱 FSD 4번). 같은 까닭 — 만들 때 하는 일(#mhGuestbookBtn 연결 · window 고리 등록)을 같이 굴린다. */
@@ -388,7 +388,7 @@ PRELOAD.push('pomodoro.js');
 PRELOAD.push('myhome-sticker-rules.js');
 PRELOAD.push('myhome-sticker.js');
 /* gacha.js — 🎰 파츠 가챠 코어 · 파츠 보관함(T) · 뽑기 창(앱 FSD 8번). 같은 까닭 — 만들 때 하는 일(보유분 · 보너스 읽기 · 부팅 동기화 4.2초 · 10분 tick · 창 버튼 · ESC · 바깥 클릭 연결)을 같이 굴린다. */
-PRELOAD.push('gacha-api.js');   // 🎰 가챠 서버 길 — app.js 가 만들 때 TwGachaApi 를 부른다
+PRELOAD.push('gacha-api.js');   // 🎰 가챠 서버 경로 — app.js 가 만들 때 TwGachaApi 를 부른다
 PRELOAD.push('gacha.js');
 /* myhome-edit.js — 🏠 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오 · 프리셋(앱 FSD 7-2). 같은 까닭 — 만들 때 하는 일(버튼 · 입력칸 연결 · window 고리 · BGM 창 구독)을 같이 굴린다. */
 PRELOAD.push('myhome-edit.js');
@@ -412,7 +412,7 @@ PRELOAD.push('inbox-sections.js');
 /* gift-save.js — 💾 선물 그림 저장. app.js 가 수령함 모듈을 만들 때 TwGiftSave.createGiftSave 를 부르므로 진짜가 먼저 있게. */
 PRELOAD.push('gift-save.js');
 PRELOAD.push('myhome-inbox.js');
-/* inbox-api.js · mail-feed.js · notice-api.js · notice-feed.js — 📩 우편 · 📢 공지 서버 길과 받아 들고 있는 한 벌. app.js 가 만들 때 TwInboxApi · TwMailFeed · TwNoticeApi · TwNoticeFeed 를 부른다. */
+/* inbox-api.js · mail-feed.js · notice-api.js · notice-feed.js — 📩 우편 · 📢 공지 서버 경로와 받아 들고 있는 한 벌. app.js 가 만들 때 TwInboxApi · TwMailFeed · TwNoticeApi · TwNoticeFeed 를 부른다. */
 PRELOAD.push('inbox-api.js');
 PRELOAD.push('mail-feed.js');
 PRELOAD.push('notice-api.js');
@@ -421,14 +421,14 @@ PRELOAD.push('notice-feed.js');
 PRELOAD.push('help-site.js');
 PRELOAD.push('help-tab.js');
 /* bgm-diag.js — 🔍 플레이리스트 소리 진단 줄. app.js 가 TwBgmDiag.createBgmDiag 로 만든다. */
-PRELOAD.push('playlist-api.js');   // 🌐 플레이리스트 서버 길 provider — app.js 가 로그인 통로(TwApi.authed)를 넘겨 만든다
+PRELOAD.push('playlist-api.js');   // 🌐 플레이리스트 서버 경로 provider — app.js 가 로그인 통로(TwApi.authed)를 넘겨 만든다
 PRELOAD.push('bgm-diag.js');   // 🔍 소리 진단 줄 — app.js 가 만들 때 TwBgmDiag 를 부른다
 /* playlist.js — 🎵 상태칩 플레이리스트(앱 FSD 16번). 같은 까닭 — 만들 때 하는 일(🪟 창 위치 초기화 등록 · 저장값 읽기 · 버튼 · ESC · 끌기 연결 · 미니미 ·
    300ms 폴링 · BGM 신호 구독 · 음량 한 번 · window 고리)과 app.js 가 원래 자리에서 부르는 createPlaylist 를 같이 굴린다. */
 PRELOAD.push('playlist.js');
-/* admin/admin-api.js — 🛠️ 앱 관리자 창의 서버 길 provider. app.js 가 만들 때 TwAdminApi 를 부른다. */
+/* admin/admin-api.js — 🛠️ 앱 관리자 창의 서버 경로 provider. app.js 가 만들 때 TwAdminApi 를 부른다. */
 PRELOAD.push('admin-api.js');
-/* admin/catalog-admin-api.js — 🛠️ 카탈로그 쓰기 서버 길 provider. app.js 가 만들 때 TwCatalogAdminApi 를 부른다. */
+/* admin/catalog-admin-api.js — 🛠️ 카탈로그 쓰기 서버 경로 provider. app.js 가 만들 때 TwCatalogAdminApi 를 부른다. */
 PRELOAD.push('catalog-admin-api.js');
 /* admin/admin-license-bulk.js — 🛠️ 📄 엑셀 라이선스 일괄 발급 · 🔒 시크릿룸 발급(관리자 코드 admin 폴더 1번). 같은 까닭 — 만들 때 하는 일
    (버튼 연결 · window._lxHideWin)과 app.js 가 원래 자리에서 부르는 createAdminLicenseBulk 를 같이 굴린다. 관리자 모듈은 parts/admin/ 에 있다. */
@@ -447,7 +447,7 @@ PRELOAD.push('admin-asset.js');
 /* admin/admin-mode.js — 🛠️ 🔐 관리자 모드 진입(관리자 코드 admin 폴더 7번). 같은 까닭 — 만들 때 하는 일(비밀번호 창 연결 · Ctrl+E · Ctrl·⌘+클릭 가로채기)과
    app.js 가 원래 자리에서 부르는 createAdminMode · 부팅 때 adminMode.refreshAdminVisibility 를 같이 굴린다. */
 PRELOAD.push('admin-mode.js');
-/* report-api.js · report.js · admin/admin-report.js — 🚩 신고 서버 길 · 신고하기 · 관리자 신고 목록. 같은 까닭 — 만들 때 하는 일(관리자 버튼 연결)과 create. */
+/* report-api.js · report.js · admin/admin-report.js — 🚩 신고 서버 경로 · 신고하기 · 관리자 신고 목록. 같은 까닭 — 만들 때 하는 일(관리자 버튼 연결)과 create. */
 PRELOAD.push('report-api.js', 'report.js', 'admin-report.js');
 /* my-info.js — 🪪 [내 정보] 화면 · 🏆 랭킹(앱 FSD 17번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyInfo 를 같이 굴린다. */
 PRELOAD.push('my-info.js');
@@ -634,7 +634,7 @@ PRELOAD.push('lv-tier.js');
 PRELOAD.push('friends-api.js');
 PRELOAD.push('friend-requests-api.js');
 PRELOAD.push('friend-requests-port.js');
-PRELOAD.push('social-api.js');   // 👥 친구 · 요청 · 명함 서버 길 provider — app.js 가 만든다(socialApiMod)
+PRELOAD.push('social-api.js');   // 👥 친구 · 요청 · 명함 서버 경로 provider — app.js 가 만든다(socialApiMod)
 PRELOAD.push('api-public-reads.js');   // 🌐 플레이리스트 명함 읽기 — app.js 가 social-api 위에 만든다(apiPublicReadsMod)
 PRELOAD.push('friends-presence-rt.js');
 PRELOAD.push('presence-self.js');

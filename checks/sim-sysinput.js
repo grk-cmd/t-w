@@ -84,7 +84,7 @@ say('── 1. 네이티브 접촉면이 이사 전후로 보존된다');
     ['uIOhook.on(...)',                 /uIOhook\s*\.\s*on\s*\(/g,                       3, '전역 훅 3종(mousedown·wheel·keydown)'],
     ['uIOhook.start()',                 /uIOhook\s*\.\s*start\s*\(/g,                    1, '훅 기동'],
     ['windowManager.getActiveWindow()', /windowManager\s*\.\s*getActiveWindow\s*\(/g,    1, 'activeWin() 어댑터 안'],
-    ['windowManager.getWindows()',      /windowManager\s*\.\s*getWindows\s*\(/g,         1, 'listWindows 핸들러 안(옛 길 — addon 이 없는 판)'],
+    ['windowManager.getWindows()',      /windowManager\s*\.\s*getWindows\s*\(/g,         1, 'listWindows 핸들러 안(옛 경로 — addon 이 없는 판)'],
     ['nwmAddon.getWindows()',           /nwmAddon\s*\.\s*getWindows\s*\(/g,             1, '_allWindows — 경로 필터 없이 열거(경로 못 읽은 창도 · sim-winlist.js)'],
     ["require('uiohook-napi')",         /require\(\s*['"]uiohook-napi['"]\s*\)/g,        1, ''],
     ["require('node-window-manager')",  /require\(\s*['"]node-window-manager['"]\s*\)/g, 1, ''],

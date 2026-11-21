@@ -5,7 +5,7 @@
      줄 배치에 닿는 변화만 다시 배치하고, 그런 변화를 놓치면(늦게 붙은 책상 · 올라타기 …) 화면이 어긋나므로 둘 다 지킨다.
    ・1절: 규칙 표(seat-sync-diff.js) — 이전 모양 · 이번 모양 → { layout, tabs } · 경계(처음 · 빈 방 · 못 읽는 값)
    ・2절: 실제 room-entry.js 의 syncFriendSeats 를 가짜 좌석 위에서 돌려 layoutSeats · renderSeatTabs · 상태칩 부른 수를 센다
-   ・3절: 깨 보기 — 규칙 · 부르는 자리를 망가뜨리면 1 · 2절 판정이 빨강
+   ・3절: mutation test — 규칙 · 부르는 자리를 망가뜨리면 1 · 2절 판정이 빨강
    ・4절: 배선 — html · smoke 에서 room-entry.js 보다 먼저 싣는다 */
 'use strict';
 globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기(이름 없음 → «이름 없음») — 진짜 파일
@@ -172,7 +172,7 @@ function judgeFlow(reSrc, ssdSrc){
 say('── 2. 실제 syncFriendSeats — 부른 수');
 judgeFlow(RE, SSD).forEach(([ok, m]) => chk(ok, m));
 
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 {
   const bad1 = SSD.replace("'lastSeen', 'poke'", "'lastSeen', 'ridingOn', 'bench', 'poke'");
   chk(bad1 !== SSD && judgeTable(loadSSD(bad1)).some(([ok]) => !ok), '올라타기 · 벤치를 «값만 적기» 에 넣으면 — 표가 빨강');

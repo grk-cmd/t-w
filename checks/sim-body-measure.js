@@ -10,7 +10,7 @@
    ・두 번째 묶음(1-b · 2-b · 3-b): 런처 미리보기 _lcBodyBox · 머리 공간 진단 _measureBodyBoxInLocal · 머리 여유 _headTopAboveBone ·
            책상 바닥 맞춤 _boxExcluding · 올라타기 머리 파츠 · 귀 박스 · 검증 로그 — 옵션 partTest · skipBranch · frame · 'skinned'
            (2-b 는 115afe0 원문과 지금 글을 떼어 무작위 트리 300벌 대조 · 진단 _floorSnapProbe 는 뺀 판정만 대조)
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. three 는 vendor/three/three.min.js. */
 'use strict';
 const fs = require('fs');
@@ -472,7 +472,7 @@ function equivalence2(mod, app, lcp, ride, cm = CM, fsd = FSD){
   const N = 300, bad = { lc: 0, local: 0, localRoot: 0, headTop: 0, excl: 0, wrap: 0, ear: 0, diag: 0, probe: 0 };
   const skipPin = o => o.name === PIN;
   for(let i = 1; i <= N; i++){
-    const mk = () => randTree2(i * 104729);   // 같은 씨앗 = 같은 트리 두 벌(옛 · 새 글이 서로의 행렬 갱신에 기대지 않게)
+    const mk = () => randTree2(i * 104729);   // 같은 seed = 같은 트리 두 벌(옛 · 새 글이 서로의 행렬 갱신에 기대지 않게)
     let s = mk(), s2 = mk();
     if(!sameBox(OLD2._lcBodyBox(s.root), lc(s2.root))) bad.lc++;
     s = mk(); s2 = mk();
@@ -625,7 +625,7 @@ wiring(APP, HTML, TRICKS, CHIP, AWAY, FILES, CM).forEach(([ok, msg]) => chk(ok, 
 say('── 3-b. 두 번째 묶음 연결 · 손으로 거르기 금지');
 wiring2(APP, LCP, RIDE, FILES).forEach(([ok, msg]) => chk(ok, msg));
 
-say('── 5. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 5. mutation test — 하나라도 못 잡으면 빨강');
 const allOk = (rows) => rows.every(([ok]) => ok);
 const breaks = [
   ['파츠 이름 판정 빠짐', () => !allOk(behave(MOD.replace("return typeof p.name === 'string' && p.name.indexOf(PART_WRAP_PREFIX) === 0;", 'return false;')).concat(equivalence(MOD.replace("return typeof p.name === 'string' && p.name.indexOf(PART_WRAP_PREFIX) === 0;", 'return false;'))))],

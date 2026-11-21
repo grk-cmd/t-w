@@ -6,7 +6,7 @@
    ・3절: 쓰기 — 읽기 전에는 요청 0(NOT_READ) · 읽은 주인을 expectOwner 로 · 경로 · 본문 모양 · 기기 id 는 경로에서 인코딩 · 주인이 바뀌면 요청 0(OWNER_CHANGED)
    ・4절: 라이선스 요청 · 오류 문구 표
    ・5절: 배선 — html 순서(api-client 다음 · license-premium · app.js 보다 먼저) · smoke PRELOAD · Firebase 를 모름
-   ・6절: 일부러 깨 보기
+   ・6절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -136,7 +136,7 @@ async function judge(src){
 (async () => {
   const rows = await judge(API);
   rows.forEach(([ok, msg]) => chk(ok, msg));
-  say('── 6. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+  say('── 6. mutation test — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['읽기 전 쓰기를 막는 줄을 지움', (s) => s.replace("if(!owner) throw", "if(false) throw")],
     ['쓰기에서 expectOwner 를 뺌', (s) => s.replace("return send({ expectOwner: owner });", "return send({});")],

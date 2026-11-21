@@ -3,7 +3,7 @@
    ・2절: startFlight — 같은 시드면 같은 궤적 · 속도 범위 · 각도 대역 · _flyActive +1 · quiet · 실패 안내
    ・3절: _flyActive 읽는 · 쓰는 함수 · flySeed 범위 · 상수 · 시드를 안 주면 새로 뽑음
    ・4절: 연결 — deps 모양 · 옛 이름 · app.js 가 _flyActive 를 읽는 함수로 읽음
-   ・5절: 일부러 깨 보기 */
+   ・5절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -81,7 +81,7 @@ say('§4 연결');
   chk(!/^let _flyActive\b/m.test(code) && !/function (canFly|startFlight|flySeed|_flyRng)\b/.test(code), '본문 · let 이 app.js 에 안 남음');
   chk((code.match(/flyChairMod\._flyActive\(\)/g) || []).length >= 3 && /setFlyActive: \(v\)=>\{ flyChairMod\.setFlyActive\(v\); \}/.test(code), '_flyActive 는 읽는 함수로 읽고 쓰는 함수로 쓴다');
 }
-say('§5 일부러 깨 보기');
+say('§5 mutation test');
 {
   const brk = (a, c) => { const m = SRC.replace(a, c); return m === SRC ? null : m; };
   const m1 = brk("if(seat.fly)                                 return {ok:false, why:'이미 날아가는 중이에요'};", "");

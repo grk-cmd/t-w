@@ -4,7 +4,7 @@
      이 파일은 읽는 함수만 내놓는다(쓰는 함수 없음 — 바꾸려면 store 의 동작 함수). 친구 홈 구경(myhome-visit.js)에 두면 읽는 모듈이 모두 visit 을 바라보고 순환이 됐다(sim-dep-cycles).
    ・1절: 처음 값 · 읽는 함수가 store 를 그대로 비춘다(쓰는 함수 없음) · 이름 창구(친구 목록 → 힌트 → «친구»)
    ・2절: HTML 순서(미리보기 깃발을 읽는 · 바꾸는 파일 · app.js 보다 먼저) · 만드는 줄
-   ・3절: 일부러 깨 보기 */
+   ・3절: mutation test */
 'use strict';
 globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
 const fs = require('fs');
@@ -74,7 +74,7 @@ chk(!R.previewWriters.length, '미리보기 깃발을 바꾸는 파일은 myhome
 chk(!R.setCalls.length && !/\bmhStateMod\.set\w+\(/.test(strip(APP)) && !/\bset(?:MyHomeData|MyHomeLoaded|MhViewingUserId|MhViewingName)\b/.test(strip(APP)), '상태를 바꾸는 쓰는 함수가 어디에도 없다 — 바꾸려면 store 동작 함수' + (R.setCalls.length ? ' — ' + R.setCalls.join(' · ') : ''));
 chk(R.made, 'app.js 는 store 를 먼저 만들고 그다음 상태 모듈(store 를 받음) · 친구 홈 구경보다 먼저 만든다');
 
-say('── 3. 일부러 깨 보기');
+say('── 3. mutation test');
 const line = '<script src="parts/myhome/myhome-state.js"></script>';
 const lateHtml = HTML.indexOf(line) < 0 ? HTML : HTML.replace(line, '').replace('<script src="parts/app.js"></script>', '<script src="parts/app.js"></script>\n' + line);
 chk(judge(MOD, lateHtml, FILES, APP).late.length > 0, 'myhome-state.js 를 app.js 뒤로 옮기면 빨강');

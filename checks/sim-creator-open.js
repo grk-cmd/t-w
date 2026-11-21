@@ -2,7 +2,7 @@
    ・1절: openCreator — 3D 를 못 만들면(ensureCreatorPreview false) 아무것도 안 바꿈 · 꾸미기 창을 닫아 저장 · 모드 기억 · 런처에서 왔는지 기억 · 동물 편집은 동물 생성기로 돌려보냄 · 새로 열기 값 · 열림 표시
    ・2절: renderLauncher — 런처 미리보기 · 초대 버튼 · 칸 번호 · 빈 칸 · 톱니 · 미리보기 표시 · 연동 띠가 던져도 이어 감
    ・3절: 연결 — deps 모양 · 옛 이름 · 만드는 줄
-   ・4절: 일부러 깨 보기 */
+   ・4절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -84,10 +84,10 @@ say('§3 연결');
   const bad1 = (pairs || []).filter(([n, v]) => !shape(n, v)).map(p => p.join('='));
   chk(!!pairs && pairs.length >= 40 && !bad1.length, '★ deps ' + (pairs ? pairs.length : 0) + '개 모양 — 읽는 함수 · 쓰는 함수 · 함수 · window 고리(closeWardrobe) · 값' + (bad1.length ? ' — 어긋남: ' + bad1.join(' · ') : ''));
   const bad = pairs ? pairs.map(([n, v]) => n === 'curSlot' ? [n, 'curSlot'] : [n, v]) : [];
-  chk(!bad.every(([n, v]) => shape(n, v)), '  깨 보기: 읽는 함수를 값으로 넘기면 빨강');
+  chk(!bad.every(([n, v]) => shape(n, v)), '  mutation test: 읽는 함수를 값으로 넘기면 빨강');
   chk(/^const openCreator = creatorOpenMod\.openCreator;/m.test(code) && /^const renderLauncher = creatorOpenMod\.renderLauncher;/m.test(code) && !/function (openCreator|renderLauncher)\b/.test(code), '옛 이름 둘을 const 로 받고 본문이 안 남음');
 }
-say('§4 일부러 깨 보기');
+say('§4 mutation test');
 {
   const brk = (a, c) => { const m = SRC.replace(a, c); return m === SRC ? null : m; };
   const m1 = brk("if(!creatorPrevMod.ensureCreatorPreview()) return;", "creatorPrevMod.ensureCreatorPreview();");

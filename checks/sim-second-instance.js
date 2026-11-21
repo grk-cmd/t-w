@@ -9,7 +9,7 @@
    ・2절: _mainWindowHealth — 가짜 창에서 신호를 읽는다(isDestroyed · webContents.isCrashed · 응답 없음 시작 시각 · 던지는 창)
    ・3절: second-instance 처리기 — focus 면 restore/show/focus 만 · relaunch 면 relaunch → 훅 · 타이머 정리 → 창 destroy → exit(0)(quit 아님)
    ・4절: 배선 — unresponsive 가 시작 시각을 적고(이미 있으면 그대로) / responsive 가 지우고 · 처리기가 지금 시각을 넘김 · 창을 만들 때 created 표시
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -195,7 +195,7 @@ function judge(MAIN){
 
 judge(MAIN0);
 
-say('── 5. 일부러 깨 보기');
+say('── 5. mutation test');
 const BREAKS = [
   ["  if(!s || !s.ready || !s.created) return 'wait';", "  if(!s) return 'wait';", '부팅 중에도 새로 띄움'],
   ["  if(s.hungSince == null || !(now - s.hungSince >= RELAUNCH_HUNG_MS)) return 'focus';\n  return 'relaunch';", "  return 'focus';", '응답 없음을 못 봄'],
@@ -220,7 +220,7 @@ for(const [from, to, what] of BREAKS){
   caught.push([what, qfail]);
 }
 const missed = caught.filter(([, n]) => n === 0).map(([w]) => w);
-chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
 console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

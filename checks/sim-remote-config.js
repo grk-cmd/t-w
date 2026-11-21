@@ -6,7 +6,7 @@
    4. app.js 배선 — 박힌 상수 없음 · 사용처가 설정값 · 부팅 스위치는 첫 답을 기다림 · 화면 숫자 다시 그리기
    5. 입장 거절 문구 — 서버가 판정한 channelFull · full 의 숫자가 설정값(만들기 · 빈 방 · 시크릿룸)
    6. html — 스크립트 순서 · 기본 표시 · CSP
-   7. 일부러 깨 보기
+   7. mutation test
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
 'use strict';
 const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
@@ -333,7 +333,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(/^https:\/\/[a-z0-9-]+\.together-working\.com$/.test(require(path.resolve(where('api-client.js'))).API_BASE_PROD), '  ↳ API 주소(api-client.js API_BASE_PROD)도 새 https 와일드카드 안(CSP 를 따로 열지 않음)');
     chk(conn.every((c) => !/rooms(-dev)?\.togetherworking/.test(c) && !/\bws:\/\/\*|wss:\/\/\*\.duckdns|\*\.duckdns\.org|https?:\/\/\*( |$)|\*\.com( |$)|\*-working/.test(c)), '  ↳ 다른 도메인은 그대로 막는다(duckdns 전체 · .com 전체 · ws 와일드카드 없음)');
   }
-  say('── 7. 일부러 깨 보기');
+  say('── 7. mutation test');
   {
     const loadRc = (src) => { const m = { exports: {} }; new Function('module', 'window', 'console', src)(m, undefined, { warn(){} }); return m.exports; };
     async function probe(src){
@@ -377,7 +377,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
       if(RC.indexOf(from) < 0){ missed.push('글 못 찾음: ' + what); continue; }
       if((await probe(RC.split(from).join(to))) === 0) missed.push(what);
     }
-    chk(!missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+    chk(!missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
   }
   finish();
 })().catch((e) => { fail++; say('  ✗ 예외: ' + (e && e.stack || e)); finish(); });

@@ -1,7 +1,7 @@
 /* admin-launcher.js — 🛑 전체 방 종료 · ⚙️ 게임 설정 · 📢 광고 배너 편집 (관리자 — 런처 관리자 줄의 단발 도구)
    서버에 쓰는 일은 admin-api.js(adminApi)가 한다(방 종료 · 배너). 사용자 쪽(광고 배너 그리기 · 게임 설정 구독)은 launcher/ad-banner.js.
    ★ 밖에서 부르는 이름은 없다 — 버튼 연결을 만들 때 건다.
-   deps: toast · asyncPrompt · catalogAdmin — 카탈로그 쓰기(게임 설정) — 안내 · 입력 창 · refreshBanner — 저장 뒤 관리자 본인 배너 받기 · isAdmin — 읽는 함수(app.js 의 let) · adminApi — 서버 길(admin-api.js) · apiErrors — 서버 오류 → 오류 번호(TwApiErrors.store)
+   deps: toast · asyncPrompt · catalogAdmin — 카탈로그 쓰기(게임 설정) — 안내 · 입력 창 · refreshBanner — 저장 뒤 관리자 본인 배너 받기 · isAdmin — 읽는 함수(app.js 의 let) · adminApi — 서버 경로(admin-api.js) · apiErrors — 서버 오류 → 오류 번호(TwApiErrors.store)
    ⚠️ 배너의 원본은 서버다 — 열 때 서버에서 받아 채우고(받기 전에는 창을 안 연다), 저장은 읽은 판을 실어 보낸다. 다른 관리자가 먼저 고쳤으면(409)
      덮어쓰지 않고 지금 서버 값으로 다시 채우고 알린다. 이 PC 에는 사본을 남기지 않는다.
    ⚙️ 게임 설정(동물 해금 레벨)은 서버 카탈로그의 해금 표에 쓴다(catalog-admin-api.js). 사용자 앱은 같은 표를 읽는다(character/catalog-sync.js).
@@ -19,7 +19,7 @@ const adminApi = deps.adminApi;
 const apiErrors = deps.apiErrors;
 const refreshBanner = deps.refreshBanner;           // 관리자 본인 런처 배너를 서버에서 한 번 다시 받기(noticeFeed.refresh)
 const fail = (e)=>apiErrors.notify(e, adminApi.ERRORS);
-const catalogAdmin = deps.catalogAdmin;           // 카탈로그 쓰기 서버 길(admin/catalog-admin-api.js) — 게임 설정 = 동물 해금 레벨
+const catalogAdmin = deps.catalogAdmin;           // 카탈로그 쓰기 서버 경로(admin/catalog-admin-api.js) — 게임 설정 = 동물 해금 레벨
 const ANIMAL_UNLOCK_KIND = 'ANIMAL_CHARACTER', ANIMAL_UNLOCK_KEY = 'animal';
 {
   // ★ 점검용 — 전체 방 종료(관리자). 실수 방지를 위해 '종료'를 직접 입력해야 실행된다(모달이라 Electron 포커스 문제 없음).

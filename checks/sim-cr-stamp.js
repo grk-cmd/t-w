@@ -6,7 +6,7 @@
    ・2절: 불러오기 · 초기화 — 그림 아님 무시 · 처음 배치(짧은 변 × 0.4 · 가운데 · 회전 0) · 만진 뒤(dirty)면 비율만 · (true) 는 위치까지
    ・3절: 찍기 — 얼굴 위 픽셀만 칠함 · 되돌리기 한 칸 · 감은눈 표시 · 90% 밖이면 안 찍음 · 20% 넘게 밖이면 알림 · 대칭(치우치면 거울 · 가운데면 생략)
    ・4절: 손잡이 — 끌기 이동 · Shift 가운데 맞춤 · 회전 Shift 15° · 모서리 최소 20 · dirty
-   ・5절: 입구 전제 · 6절: app.js 연결 · 7절: 일부러 깨 보기 */
+   ・5절: 입구 전제 · 6절: app.js 연결 · 7절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -183,7 +183,7 @@ B.forEach(([ok, msg], i) => { const s = { 0: '── 1. 모드', 6: '── 2. �
 say('── 6. app.js 연결');
 wire(APP, HTML).forEach(([ok, msg]) => chk(ok, msg));
 chk(!SMOKE || /PRELOAD\.push\('stamp\.js'\);/.test(SMOKE), 'smoke 가 stamp.js 를 먼저 싣는다');
-say('── 7. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 7. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['처음 너비 0.4 → 0.5', (m) => m.replace('const STAMP_FIRST_W = 0.4;', 'const STAMP_FIRST_W = 0.5;'), null, null],
   ['dirty 무시', (m) => m.replace('    if(!crState.stampDirty){', '    if(true){'), null, null],
@@ -195,7 +195,7 @@ const breaks = [
   ['회전 스냅 15° → 10°', (m) => m.replace('const STAMP_ROT_SNAP_DEG = 15;', 'const STAMP_ROT_SNAP_DEG = 10;'), null, null],
   ['모서리 최소 20 → 10', (m) => m.replace('const STAMP_MIN_PX = 20;', 'const STAMP_MIN_PX = 10;'), null, null],
   ['입구 전제 없앰(찍기)', (m) => m.replace("  if(!document.getElementById('creatorPreview')) return;   // 입구 전제 — 미리보기 캔버스\n  const cv=document.getElementById('creatorPreview'), r=cv.getBoundingClientRect();\n  // 도장", "  const cv=document.getElementById('creatorPreview'), r=cv.getBoundingClientRect();\n  // 도장"), null, null],
-  ['만들 때 던짐', (m) => m.replace('function createCrStamp(deps){', 'function createCrStamp(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', (m) => m.replace('function createCrStamp(deps){', 'function createCrStamp(deps){ throw new Error("mutation");'), null, null],
   ['app.js 에 본문이 남음', null, (a) => a + '\nfunction commitStamp(){}', null],
   ['deps 하나 빠짐', null, (a) => a.replace('createCrStamp({\n  CANVAS_SZ: CANVAS_SZ,\n', 'createCrStamp({\n'), null],
   ['html 줄 빠짐', null, null, (h) => h.replace('<script src="parts/creator/stamp.js"></script>', '')],

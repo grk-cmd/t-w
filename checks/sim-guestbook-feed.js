@@ -8,7 +8,7 @@
           박수(보내는 중 또 누르면 busy · 하루 몫 다 쓰면 limit 은 오류 번호 없음 · 서버 답의 수) · 폭죽(내 것만 · null 로 끔 · 409 면 다시 받고 번호)
    ・4절: 끝 — 연결이 끝나면(로그아웃 등) 스스로 비움 · 계정이 바뀌면 앞 계정 것을 비움 · 늦게 온 앞 계정 답은 버림
    ・5절: 배선 — createLastReadStore · app.js 에서 만드는 모양 · 오류 표 번호가 error-codes.js 에 다 있음
-   ・6절: 일부러 깨 보기
+   ・6절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -225,7 +225,7 @@ async function judge(S){
     // 박수
     e.answers.view = book({ clap: { count: 1, img: null, emoji: '🎉', todayLeft: 2, dailyMax: 5 } }); await f.refreshBook(); e.calls.length = 0;
     const dd = deferred(); e.answers.clap = () => dd.p;
-    const c1 = f.clap(); const c2 = await Promise.race([f.clap(), new Promise((r) => setTimeout(() => r({ reason: 'hang' }), 30))]);   // 깨 보면 답이 안 와 멈추니 시간을 둔다
+    const c1 = f.clap(); const c2 = await Promise.race([f.clap(), new Promise((r) => setTimeout(() => r({ reason: 'hang' }), 30))]);   // 망가뜨리면 답이 안 와 멈추니 시간을 둔다
     chk(f.clapBusy() === true && c2.reason === 'busy' && e.calls.filter((c) => c.startsWith('clap')).length === 1, '박수 — 답을 기다리는 동안 또 누르면 보내지 않는다(busy)');
     dd.res({ status: 'ok', count: 9, todayLeft: 1, dailyMax: 5 });
     const r1 = await c1;
@@ -352,7 +352,7 @@ async function judge(S){
 async function runAll(){
   const S = SRC0;
   await judge(S);
-  say('── 6. 일부러 깨 보기');
+  say('── 6. mutation test');
   const breaks = [
     ['배지를 상시 받음(알림 없이 켤 때 목록)', S.FEED.replace("api.fetchNewCount(who, lastRead.get(who))", "api.fetchNewCount(who, 0)"), 'since'],
     ['남의 방명록 알림에도 배지를 다시 받음', S.FEED.replace("if(badgeOn && subject === me) refreshBadge();", "if(badgeOn) refreshBadge();"), '남의 방명록 알림'],

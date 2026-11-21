@@ -13,7 +13,7 @@
      deps 가 부르는 app.js 함수 안으로 4단계까지 따라간다(부르면 바로 도는 줄만 · 값으로 넘기기만 한 함수는 안 따라감).
      10-15 에 실제로 난 둘을 고치기 전 코드에서 잡는다 — commissionMod(개정 235) · statusChipMod(개정 240, 상태를 저장해 둔 사람만 app.js 가 멈춤).
      조건문은 안 본다 — «그 길을 탈 수도 있으면» 빨강. 진짜 안 타는 길이면 부팅 줄을 만드는 줄 뒤로 옮겨 없앤다
-   ・3절: 일부러 깨 보기 */
+   ・3절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -237,7 +237,7 @@ if (baseAttach) {
 say('── 2-2. 만들 때 순서');
 chk(R.viol.length === 0, '모듈을 만드는 도중 아직 선언 전인 app.js let/const 를 읽는 deps 0' + (R.viol.length ? ' — ' + R.viol.slice(0, 8).join('\n      ') : ''));
 
-say('── 3. 일부러 깨 보기');
+say('── 3. mutation test');
 {
   const free = SRCS.map(([r]) => r).filter(r => r !== 'app.js' && [...R.instOf.values()].some(m => m.rel === r) && !R.cyc.some(k => k.split(' > ').includes(r)));
   const [fa, fb] = free;

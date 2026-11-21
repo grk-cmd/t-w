@@ -51,7 +51,7 @@ const Presence = presenceMod.Presence;   // 옛 전역 이름 — 나머지 코�
 | `start(room, def, onChange, opts)` | 방에 들어간다. `opts.provider`(방 포트 — room-entry `makeRoomProvider`)로 `{ ok, code, others, meta }` 를 돌려준다. provider 가 없으면 가짜 방(개발 표식 `tw.mockRoom=1`)일 때만 · 아니면 `{ ok:false, code:'noProvider' }` |
 | `stop()` | 나간다(서버 삭제를 기다리려면 `await`) |
 | `setState` · `setUserStatus` · `setCustomStatus` · `setFocusShow` · `setAwayImg` · `setAwaySz` · `setNoise` · `setLevel` | 내 값 하나를 바꾸고 **바뀌었을 때만** 방에 보낸다(`setLevel` 은 회차 칸만 — 이름 · 레벨은 서버가 채운다 · pv 4) |
-| `sendChat(text, fly, flyColor, flySize, tab)` | 채팅 한 줄(140자). #일반이 아니면 `chatTab` 칸으로 |
+| `sendChat(text, fly, flyColor, flySize, tab)` | 채팅 한 줄(140자). #일반이 아니면 `chatTab` field 로 |
 | `poke(friendId, type)` · `pokeSelf(type)` | 남 / 나에게 쓰다듬기 · 흔들기 · 날리기 알림 |
 | `updateDef(def)` | 방에 들어간 뒤 바뀐 내 캐릭터를 다시 보낸다 |
 | `broadcastRide()` · `broadcastNow()` | 지금 값을 바로 보낸다(올라타기 · 쉬는 시간처럼 틱을 기다리면 늦는 값) |
@@ -75,7 +75,7 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
 - 자동 퇴장 뒤 시계 되감기는 `window._autoAwayResetClock` — room-sync.js 는 이것을 app.js 가 넘기는 deps 로 부른다(모듈끼리 window 로 서로 부르면 순환 — `sim-dep-cycles`).
 - 만들자마자 부팅 상태를 되살리고(`tw.userStatus` · `tw.awayKind`) 첫 자동 자리비움 틱(60초)을 예약한다.
 
-검사: `checks/sim-presence.js` (부팅 상태 · payload · 채팅 · poke 거르기 · 자동 자리비움 · 연결 · 깨 보기).
+검사: `checks/sim-presence.js` (부팅 상태 · payload · 채팅 · poke 거르기 · 자동 자리비움 · 연결 · mutation test).
 
 ## ride-chain.js — 🗼 탑 바닥 찾기
 
@@ -142,7 +142,7 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
   - `NON_LAYOUT_FIELDS` 에는 «좌석에 값만 적고 프레임 반복 · 클릭이 그때그때 읽는» 칸만 둔다. 모르는 칸은 늘 다시 배치한다(새 판이 보낸 칸이 배치에 닿을 수 있다).
   - 책상 GLB 는 비동기로 늦게 붙고 그 자리에서 줄 배치를 부르지 않는다 — 모양(shape)에 책상 자식을 넣은 까닭이다. 빼면 늦게 붙은 책상이 옆 책상과 겹친 채 남는다.
   - 매 프레임 흔들리는 값(group.position · rig · bodyWrap.scale 호흡)을 모양에 넣으면 늘 «바뀜» 이라 건너뛰기가 죽는다.
-  - 검사: `checks/sim-seat-sync-diff.js`(표 · 실제 syncFriendSeats 부른 수 · 깨 보기).
+  - 검사: `checks/sim-seat-sync-diff.js`(표 · 실제 syncFriendSeats 부른 수 · mutation test).
 
 ## ride-measure.js — 📏 올라타기 실측
 
@@ -172,7 +172,7 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
 - **만드는 법**: `TwSeatHitTargets.createSeatHitTargets(deps)` — app.js 가 1분 진단 바로 앞에서. deps: `THREE` · `hitMap`(TwHitMap) · `seats` · `camera` · `ray`(통과 판정의 Raycaster) · `canvasRect`(= `overheadMod.canvasRect` — 이번 장에 한 번 잰 값) · `officeHidden` · `configHidden`(= app.js `_configHidesScene` — 그리기를 건너뛰는 조건과 같은 판단) · `isRunmode` · `partSkipped` · `skipHits`(= `hiddenSeatsMod._partSkipped` · `_skipUnhittable`) · `now` · `noteBuild`(= `hitShadow.build`).
 - **부르는 곳**: `frame()` 의 `renderer.render` 바로 뒤 `seatHitMod.markRendered()` 한 줄(표시만) · desktop-run 의 그림자 운행(`pick` · `describe`). 빈 지도 까닭(회사원 숨김 · 설정 화면 · 실행 화면 아님)은 모듈이 deps 로 판단한다.
 - **함정**: «파츠가 바뀌면 비운다» 같은 무효화를 두지 않는다 — 장 번호가 바뀌면 다시 만든다. 같은 장 안에서 지도를 만든 뒤 누가 `updateMatrixWorld` 를 따로 부르면(누르기 · 몸 재기) 광선은 새 행렬, 지도는 그 전 행렬을 본다 — 여유 8px 이 덮는지는 그림자 운행의 `지도만통과` 가 본다.
-- **검사**: `checks/sim-seat-hit-targets.js` — 진짜 three 좌석 넷(앉음 · 날아감 · 올라탐 · 자리비움 + 스프라이트 · 끈 대역 · 선)에서 화면 격자 1만 점을 옛 판정과 견줌 · 낡음 · 못 만듦 · 건너뜀 · 깨 보기.
+- **검사**: `checks/sim-seat-hit-targets.js` — 진짜 three 좌석 넷(앉음 · 날아감 · 올라탐 · 자리비움 + 스프라이트 · 끈 대역 · 선)에서 화면 격자 1만 점을 옛 판정과 견줌 · 낡음 · 못 만듦 · 건너뜀 · mutation test.
 
 ## ride-tuning.js — 🎛️ 올라타기 · 묘기 튜닝 값
 
@@ -223,7 +223,7 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
   - 생성기 미리보기(`fitCreator`) · 꾸미기 미리보기는 다른 맞추기라 이 함수를 쓰지 않는다(`requestRefit` 도 `seats` 밖 좌석은 건너뛴다).
   - 떼기 뒤 바로 재지 않고 다음 프레임인 까닭 — 뗀 뒤 `applyClothVisibility` 가 기본 메쉬(머리카락 등)를 되돌려야 맞는 높이가 나온다.
   - 방 동기화(`_applyRemoteRides`)의 «같은 상태면 건너뜀» 은 그대로 둔다 — 파츠가 바뀐 뒤 높이 다시 재기는 이 모듈이 판단한다.
-  - 검사: `checks/sim-seat-refit.js`(순서 · 거부 · 낡은 좌석 · 길마다 부르는지 · 깨 보기).
+  - 검사: `checks/sim-seat-refit.js`(순서 · 거부 · 낡은 좌석 · 길마다 부르는지 · mutation test).
 
 ## `seat-menu.js` — 🖱 좌석 우클릭 메뉴
 
@@ -414,7 +414,7 @@ roomEntryMod.onRoomChanged(()=>listenUi.sync());
 - 만드는 법: classic script(`window.TwRoomRt`) — `rt-hub.js` · `remote-config.js` 다음 · app.js 보다 먼저. 앱 한 벌은 `TwRoomRt.store`(`TwRtHub.store` 위). provider 는 `store.makeProvider(hooks, { create })` — hooks: `serializeDef` · `deserializeDef` · `retryDefAfter` · `getExp` · `onMeta` · `onDisband` · `onReplaced`(내 자리 `left{replaced}` — 같은 계정이 다른 PC 에서 이 방에 들어옴 · 연결은 그대로) · `onLost(code)`(이 PC 연결이 4004 로 끊기면 `sessionLost`) · `onReconnecting(on)` · `onJoined` · `onLeft`.
 - 내놓는 것: `makeProvider` · `random(limit, channel)` · `peek(code)`(못 물으면 `null`) · `roomCode()`(들어가 있는 방) · `myCode()`(연결의 나 — 방장 · 글쓴이 · 사진 자리 판정은 이 값) · `isReady()` · `inRoom()`.
 - 함정: 연결이 꺼져 있으면(로그인 전 · 로그아웃) 입장은 바로 `off` — 켜기(`TwRtHub.store.start`)는 로그인 흐름 몫이다. `error.ref` 가 방 요청(`join` · `meta` · `music` …)인 것만 받는다 — 대화(`chatSay`) · 사진(`photo*`) · 초대 오류는 그 포트가 받는다.
-- 검사: `checks/sim-room-rt.js`(진짜 rt-hub · 연결 공통부 위에서 · 깨 보기).
+- 검사: `checks/sim-room-rt.js`(진짜 rt-hub · 연결 공통부 위에서 · mutation test).
 
 ## `room-invite-rt.js` — 🙋 방 초대 포트(realtime 연결 하나)
 - 책임: 초대 보내기 `roomInvite{ to }` · 받기 `roomInvited{ from, fromName, room, ts }` · 지우기 `roomInviteClear{ from }`. 방 코드 · 보낸 이름은 서버가 채운다(이름이 없으면 `fromName` 은 빈 글 — 그대로 들고, 화면이 그릴 때 «이름 없음») · 친구가 아니면 `ROOM_INVITE_NOT_FRIEND` · 한 쌍에 하나 · 10분 보관(로그인 뒤 붙으면 남은 초대를 서버가 다시 보낸다).
@@ -431,7 +431,7 @@ roomEntryMod.onRoomChanged(()=>listenUi.sync());
 - **함정**
   - `DEFAULT_DESK_OVERRIDE_ID`(`__default_desk__`) · `NO_DESK_ID`(`__no_desk__`)는 `deskCatalogId` 로 **저장되는 값**이다 — 글자를 바꾸면 옛 앱 · 방 서버가 못 읽는다.
   - 상판 이름 `deskTop` · `deskAnchor` 는 다른 곳(책상 크기 · 소품 장착)이 이름으로 찾는다.
-  - 검사: `checks/sim-desk-build.js`(진짜 three 로 상판 · 다리 · 소품 · 대신 몸 · 연결 · 깨 보기).
+  - 검사: `checks/sim-desk-build.js`(진짜 three 로 상판 · 다리 · 소품 · 대신 몸 · 연결 · mutation test).
 
 ## seats.js — 🪑 좌석 목록 · 만들기 · 지우기 · 고른 좌석 · 간격
 
@@ -442,7 +442,7 @@ roomEntryMod.onRoomChanged(()=>listenUi.sync());
   - 간격 저장 키는 바꾸지 말 것(저장된 값이 사라진다). 최소 -0.3 은 책상 GLB 박스가 보이는 판보다 넓어서 «끝끼리 0» 이어도 벌어져 보이기 때문이다.
   - `removeSeat` 는 한 칸만 남으면 아무것도 안 한다. 고른 좌석을 지우면 바로 앞(`max(0, i-1)`) 좌석을 고른다.
   - 상판 재질은 좌석마다 복제한다(책상 색을 좌석별로 바꾸려고).
-  - 검사: `checks/sim-seats.js`(진짜 three · desk-build 로 좌석 만들기 · 지우기 · 간격 읽기 쓰기 · 깨 보기).
+  - 검사: `checks/sim-seats.js`(진짜 three · desk-build 로 좌석 만들기 · 지우기 · 간격 읽기 쓰기 · mutation test).
 
 ## char-place.js — 🧍 캐릭터 높이 · 깊이 · 자리 · 크기 저장 · 끌기 한계 · 책상 반폭
 
@@ -453,7 +453,7 @@ roomEntryMod.onRoomChanged(()=>listenUi.sync());
   - 크기는 id · 지문 · default 세 곳에 같이 쓴다 — id 하나만 쓰면 재부팅 · 드라이버 갱신으로 id 가 바뀌는 순간 저장값이 미아가 된다.
   - `ANIMAL_RUN_SCALE` 은 `_animalPanExtra` 가 부를 때 읽는다(값을 미리 굳히면 TDZ 로 앱이 죽었던 자리).
   - `seatDeskHalfWidth` 는 `updateWorldMatrix(true, true)` 로 조상부터 세운다(`fitModel` 직후 `matrixWorld` 캐시가 옛 값이라 간격이 부풀던 자리). 책상 위 아이템(`deskAnchor`)과 숨은 자식은 뺀다.
-  - 검사: `checks/sim-char-place.js`(저장 · 복원 · 모니터 바뀜 · 끌기 한계 표 · 책상 반폭 · 깨 보기).
+  - 검사: `checks/sim-char-place.js`(저장 · 복원 · 모니터 바뀜 · 끌기 한계 표 · 책상 반폭 · mutation test).
 
 ## seat-opacity.js — 👻 캐릭터 투명도(자리비움 영혼 효과)
 
@@ -462,7 +462,7 @@ roomEntryMod.onRoomChanged(()=>listenUi.sync());
 - **함정**
   - 파츠 원본 투명도(`_baseOpacity` · `_baseTransparent`)는 **불투명할 때(op≥0.999) · 건드리기 전(`_opTouched` 없음)** 에만 잰다 — 숨은 동안 처음 만난 머티리얼의 0 이 원본으로 굳으면 머리가 영영 안 보인다(앱을 껐다 켜야 돌아옴).
   - `seat._bodyOff` 는 `hidden-seats.js` 가 읽는다(몸을 껐다는 표시 — 투명도 기준은 여기 한 곳). `userData._prevVisible` 은 파츠 `hides` 로 숨긴 mesh 가 풀릴 때 다시 보이지 않게 하는 기억이다.
-  - 검사: `checks/sim-seat-opacity.js`(자리비움 풀림 사고 시나리오 — 이 파일의 본문을 떼어 돌린다) · `checks/sim-seat-opacity-mod.js`(자리비움 켜고 끄기 · 원본 투명도 기억 · 연결 · 깨 보기).
+  - 검사: `checks/sim-seat-opacity.js`(자리비움 풀림 사고 시나리오 — 이 파일의 본문을 떼어 돌린다) · `checks/sim-seat-opacity-mod.js`(자리비움 켜고 끄기 · 원본 투명도 기억 · 연결 · mutation test).
 
 ## seat-pointer.js — 🖱 캔버스 누르기 · 끌기 · 흔들기 · 쓰다듬기 · 우클릭
 
@@ -474,7 +474,7 @@ roomEntryMod.onRoomChanged(()=>listenUi.sync());
   - 우클릭 메뉴는 preventDefault · 억제 깃발 · drag · 레이캐스트 · 회사원 모드 확인 **뒤**에 열어야 한다 — 앞에 붙이면 드래그 중 고정과 이동 확정이 깨진다.
   - 옛 `typeof seats !== 'undefined'` 가드 하나는 걷었다(`seats` 는 이제 deps 값).
   - 이름표 끌기 모듈(`seat-label-drag.js`)이 `beginDrag` 로 이 모듈의 `_beginLabelSlotDrag` 를 쓰고, 이 모듈이 `TwSeatLabelDrag.canGrabSeat` 를 부른다(순수 판단 한 줄) — 서로 부름이 `sim-dep-cycles` 기준선에 2건 올랐다. 이슈 #903.
-  - 검사: `checks/sim-seat-pointer.js`(듣기 · 우클릭 · 누르기 · 끌기 · 쓰다듬기 · 어지러움 · try/finally · 안전망 · 연결 · 깨 보기 · 가짜 THREE).
+  - 검사: `checks/sim-seat-pointer.js`(듣기 · 우클릭 · 누르기 · 끌기 · 쓰다듬기 · 어지러움 · try/finally · 안전망 · 연결 · mutation test · 가짜 THREE).
 
 ## flying-chair.js — 🪑 플라잉체어
 

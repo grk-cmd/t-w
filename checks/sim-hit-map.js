@@ -3,7 +3,7 @@
    ・1절: sphereRect — 구 위의 점 수천 개를 투영해 모두 사각형 안 · 사각형 밖 화면 점의 광선은 구에 안 닿음 ·
           화면 밀기(setViewOffset) · 캔버스 자리 · 카메라 뒤 → 없음 · 카메라가 구 안 → 전체 · 반지름 0 · NaN · 직교 → 전체 · 사각형이 너무 크지 않음
    ・2절: 지도 — candidates(경계 위 점 · 여유 0 · 음수 여유 · 좌석 30) · pointIn · fresh(249/250/251 · 없음 · 못 만듦) · skipWhy
-   ・3절: 일부러 깨 보기 — 가운데 투영 ± 반지름 · 음수 여유 그대로 · 카메라 뒤 거르기 빠짐 · 신선도 경계 · 카메라 안 판정 빠짐
+   ・3절: mutation test — 가운데 투영 ± 반지름 · 음수 여유 그대로 · 카메라 뒤 거르기 빠짐 · 신선도 경계 · 카메라 안 판정 빠짐
    [실행] 러너 스테이징(node checks/run.js hit-map) 또는 저장소 루트에서. */
 'use strict';
 const fs = require('fs');
@@ -20,7 +20,7 @@ const THREE = require(path.resolve(threePath));
 
 function load(src){ const win = {}; new Function('window', 'module', src)(win, undefined); return win.TwHitMap; }
 
-/* 정해진 씨앗의 난수 — 매번 같은 구 · 같은 점 */
+/* 정해진 seed 의 난수 — 매번 같은 구 · 같은 점 */
 function rng(seed){ let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 
 const VP = { left: 13, top: 27, width: 800, height: 600 };
@@ -142,7 +142,7 @@ function judgeAll(src){
 
 const rows = judgeAll(MOD);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. sphereRect'); if(i === 10) say('── 2. 지도'); chk(ok, msg); });
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['사각형을 가운데 투영 ± 반지름으로', m => m.replace(/function ratioRange\(u, z, r\)\{[\s\S]*?\n\}/, 'function ratioRange(u, z, r){ if(z >= 0) return null; return [(u - r) / -z, (u + r) / -z]; }')],
   ['음수 여유를 그대로', m => m.replace('const p = pad >= 0 ? pad : 0;\n  for(let i = 0;', 'const p = pad;\n  for(let i = 0;')],

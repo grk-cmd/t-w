@@ -1,4 +1,4 @@
-/* catalog-admin-api.js — 🛠️ 앱 관리자 카탈로그 쓰기 서버 길 provider (검사 sim-catalog-admin-api.js)
+/* catalog-admin-api.js — 🛠️ 앱 관리자 카탈로그 쓰기 서버 경로 provider (검사 sim-catalog-admin-api.js)
    책임: 파츠 · 책상 · 소품 등록 · 고치기 · 단종 · 진열 순서 · 카테고리 · 레벨 해금을 서버 /v2/admin/catalog/* 로 쓰는 요청 모양 한 곳.
      앱 칸(rec) → 서버 본문 바꾸기도 여기뿐이다(서버 → 앱 쪽은 character/catalog-api.js). 화면은 모른다 — 실패는 던진다(ApiError).
    관리자 판정 · 상한(카테고리당 진열 수 · 파일 크기 · 모양) · 값 거르기는 서버가 한다. 앱이 미리 거절하지 않고 서버 오류를 번호로 보인다.

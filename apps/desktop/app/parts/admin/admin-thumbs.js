@@ -14,7 +14,7 @@
 (function(){
 
 function createAdminThumbs(deps){
-const catalogAdmin = deps.catalogAdmin;   // 카탈로그 쓰기 서버 길(admin/catalog-admin-api.js)
+const catalogAdmin = deps.catalogAdmin;   // 카탈로그 쓰기 서버 경로(admin/catalog-admin-api.js)
 const gachaMod = deps.gachaMod;   // 읽는 함수
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const partSceneMod = deps.partSceneMod;

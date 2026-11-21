@@ -1,4 +1,4 @@
-/* ═══ 🚩 sim-report.js — 신고 서버 길 · 신고하기 모듈 둘 ═══════════════
+/* ═══ 🚩 sim-report.js — 신고 서버 경로 · 신고하기 모듈 둘 ═══════════════
    report-api.js(신고 provider — POST /v2/reports · 관리자 /v2/admin/reports*) · report.js(신고 창 · 공용 도우미 · 팝업 칸) · admin/admin-report.js(관리자 신고 목록).
    신고 규칙 · 문구는 sim-report-away.js 가 본다. 여기서는 provider 본문 · 신고 창의 성공 / 실패 · 팝업 칸 나눠 쓰기 · app.js 연결을 본다 — 가짜 DOM · 가짜 통로 위에서 굴린다.
    ・0절: report-api.js — 사유 이름 → 서버 종류 이름 표 · 본문 = { target, kind, note? }(내 이름 · 코드 없음) · 틀린 값은 요청 0 · 실패는 그대로 던짐 ·
@@ -10,7 +10,7 @@
           열면 신고 창이 닫히고 팝업 칸을 이어받음 · 받음 / 빈 목록 / 못 받음(E-ADM-30 · [다시 시도]) · 공통 code 는 공통 표 · [더 보기] ·
           [문제없음](E-ADM-31) · [그림 내리기](REPORT_IMAGE_CHANGED → 다시 받기 · 그 밖 E-ADM-32) · 닫은 창에 늦은 답 안 그림 · ESC 로 닫힘
    ・3절: app.js 연결 — 본문이 안 남음 · 빈 껍데기 둘(관리자 목록은 report.js 없으면 안 만듦) · deps · 원래 자리 · 메뉴는 reportMod.openDialog · html
-   ・4절: 일부러 깨 보기
+   ・4절: mutation test
    [실행] app.js · desk-companion-prototype.html · report.js · admin-report.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기(이름 없음 → «이름 없음») — 진짜 파일
@@ -109,7 +109,7 @@ async function judgeAll(rep, adm, app, html, rapi){
   try{ B = build(rep, adm, st, rapi); }catch(e){ t(false, '모듈을 만들 수 없다 — ' + e.message); return r; }
   const { R, A, D, RA, ERRS } = B;
   /* 0. report-api.js — 진짜 함수를 부른다 */
-  t('§', '── 0. 🌐 신고 서버 길(report-api.js)');
+  t('§', '── 0. 🌐 신고 서버 경로(report-api.js)');
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const kinds = { char: 'CHARACTER', away: 'AWAY_IMAGE', nick: 'NICKNAME', etc: 'ETC' };
   t(Object.keys(kinds).every(k => same(RA.bodyOf('u9', k, ''), { target: 'u9', kind: kinds[k] })) && Object.keys(RA.KIND).length === 4,
@@ -350,12 +350,12 @@ async function judgeAll(rep, adm, app, html, rapi){
   const dr = block('reportMod'), da = block('adminReport');
   t(dr.length === 9 && dr.includes('reportHiddenUids: hiddenSeatsMod._reportHiddenUids,') && dr.some(l => l.startsWith('reportApi: TwReportApi.createReportApi({ authed: TwApi.authed, errs: TwApiErrors }),'))
     && dr.includes('apiErrors: TwApiErrors.store,') && dr.includes('notifyError: (...a)=>TwErrorCodes.notify(...a),') && !dr.some(l => /getDisplayName|myFriendCodeKey/.test(l)),
-    'deps — 신고 창 아홉(숨김 Set 은 값 · 신고 서버 길 · 공통 표 · 오류 번호 · 내 이름 · 친구 코드 키 없음)');
+    'deps — 신고 창 아홉(숨김 Set 은 값 · 신고 서버 경로 · 공통 표 · 오류 번호 · 내 이름 · 친구 코드 키 없음)');
   t(da.length === 14 && da.includes('isAdmin: ()=>isAdmin,') && da.includes('setReportOv: (...a)=>reportMod.setOv(...a),') && da.includes('kinds: reportMod.KINDS,')
     && da.some(l => l.startsWith('adminApi: TwReportApi.createAdminReportApi({ authed: TwApi.authed, errs: TwApiErrors }),')) && da.includes('apiErrors: TwApiErrors.store,')
     && da.includes('notifyError: (...a)=>TwErrorCodes.notify(...a),'),
-    'deps — 관리자 목록 열넷(isAdmin 은 읽는 함수 · 팝업 칸 · 창 틀은 reportMod 를 거침 · 관리자 서버 길 · 공통 표 · 오류 번호)');
-  t(!/firebaseAPI|listReports|clearReports|getUserBrief|setAwayImg|deleteStorageUrl/.test(strip(adm)), 'admin-report.js — Firebase 길을 부르지 않는다(목록 · 비우기 · 그림 내리기 모두 서버 길)');
+    'deps — 관리자 목록 열넷(isAdmin 은 읽는 함수 · 팝업 칸 · 창 틀은 reportMod 를 거침 · 관리자 서버 경로 · 공통 표 · 오류 번호)');
+  t(!/firebaseAPI|listReports|clearReports|getUserBrief|setAwayImg|deleteStorageUrl/.test(strip(adm)), 'admin-report.js — Firebase 경로를 부르지 않는다(목록 · 비우기 · 그림 내리기 모두 서버 경로)');
   const iH = app.indexOf('/* ═══ 🚩 신고하기'), iR = app.indexOf('const reportMod ='), iA2 = app.indexOf('const adminReport =');
   t(iH > 0 && iR > iH && iA2 > iR, '만드는 줄은 원래 자리 · report.js 먼저');
   t(/mk\('🚩 신고하기…', \(\)=>reportMod(?:\(\))?\.openDialog\(seat\)\)/.test(AP) && !/_openReportDialog\(/.test(AP), '좌석 우클릭 메뉴는 reportMod.openDialog');
@@ -368,7 +368,7 @@ async function judgeAll(rep, adm, app, html, rapi){
 (async () => {
   const rows = await judgeAll(REP, ADM, SRC, HTML, RAPI);
   rows.forEach(([ok, msg]) => { if(ok === '§') say(msg); else chk(ok, msg); });
-  say('── 4. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+  say('── 4. mutation test — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['신고 뒤에 안 숨김', { rep: s => s.replace('_reportHiddenUids.add(target); _reportHiddenSave();', '_reportHiddenSave();') }],
     ['실패해도 숨김', { rep: s => s.replace('      go.disabled = false;\n      if(Object', '      _reportHiddenUids.add(target);\n      go.disabled = false;\n      if(Object') }],
@@ -405,7 +405,7 @@ async function judgeAll(rep, adm, app, html, rapi){
     ['신고할 때 이름(nameSnapshot) 무시', { rapi: s => s.replace('str(r.nameSnapshot) || str(r.displayName)', 'str(r.displayName)') }],
     ['total 무시', { adm: s => s.replace('const total = pg.total;', 'const total = null;') }],
     ['옛 [더 보기] 답도 그림', { adm: s => s.replace("      if(!live(g)) return;\n      more.disabled = false;\n      add(p2);", "      more.disabled = false;\n      add(p2);") }],
-    ['관리자 서버 길 deps 빠짐', { app: s => s.replace(/  adminApi: TwReportApi\.createAdminReportApi[^\n]*\n/, '') }],
+    ['관리자 서버 경로 deps 빠짐', { app: s => s.replace(/  adminApi: TwReportApi\.createAdminReportApi[^\n]*\n/, '') }],
     ['메뉴가 옛 이름', { app: s => s.replace('()=>reportMod().openDialog(seat)', '()=>_openReportDialog(seat)') }],
     ['html 순서 틀림', { html: s => s.replace('<script src="parts/support/report.js"></script>', '').replace('<script src="parts/app.js"></script>', '<script src="parts/support/report.js"></script>\n<script src="parts/app.js"></script>') }],
     ['deps 하나 빠짐', { app: s => s.replace('  setReportEsc: (...a)=>reportMod.setEsc(...a),\n', '') }],

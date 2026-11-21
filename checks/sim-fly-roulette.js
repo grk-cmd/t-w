@@ -157,11 +157,11 @@ say('── 8. 🎲 기록을 못 보내면 번호로 알린다(삼키지 않는
   const r = await go({ rejectGame: true });
   chk(r.errs.join() === 'E-CHAT-01', '★ 기록(sendGame)이 거절되면 E-CHAT-01 로 알린다');
   chk((await go({})).errs.length === 0, '  보내졌으면 조용');
-  const bad = DICE;   // 깨 보기는 소스 교체 — 거절을 다시 삼키게
+  const bad = DICE;   // mutation test 는 소스 교체 — 거절을 다시 삼키게
   const swallowed = DICE.split(".catch(e=>{ TwErrorCodes.notify('E-CHAT-01', e); })").join(".then(null, ()=>{})");
   const rb = swallowed === bad ? null : run({ fn: swallowed, call: '_rollDice', ch: 2, room: true, rolls: [0.5, 0.9], rejectGame: true });
   for(let i = 0; i < 6; i++) await Promise.resolve();
-  chk(rb && rb.errs.length === 0, '깨 보기: 거절을 다시 삼키게 하면 8절이 빨강');
+  chk(rb && rb.errs.length === 0, 'mutation test: 거절을 다시 삼키게 하면 8절이 빨강');
   say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
   process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

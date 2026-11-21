@@ -2,12 +2,12 @@
    실행:  node sim-chat-tabs.js   (chat-tabs.js · app.js · firebase-init.js · desk-companion-prototype.html · firebase-database-rules.json 과 같은 폴더에서)
 
    ★ 왜 이 검사가 있는가 — 탭은 구버전과 같은 방을 쓴다. 조용히 새는 자리가 둘이다.
-     ① 영화 탭의 말풍선 · 날리기를 예전 `chat` 칸으로 보내면 **구버전은 탭을 모르니 방 전원에게 띄운다.**
+     ① 영화 탭의 말풍선 · 날리기를 예전 `chat` field 로 보내면 **구버전은 탭을 모르니 방 전원에게 띄운다.**
      ② 탭 기록 노드 이름이 `_` 로 시작하지 않으면 구버전 · 정리 코드가 그 키를 **사람으로 세서** 방이 안 사라진다.
 
    ★ 무엇을 보는가 (핸드오프 ④ 확인 ①~⑤ + 순수 함수)
      §1 chat-tabs.js 실행 — 목록 · [+] 조건(방장 · 3개) · 이름 · 지워진 탭 → #일반 · 탭별 인원 · 경로
-     §2 송수신 — ① 일반 외 탭은 chat 칸을 안 쓴다(실행) ② 수신부가 chatTab.tab 을 내 탭과 비교
+     §2 송수신 — ① 일반 외 탭은 chat field 를 안 쓴다(실행) ② 수신부가 chatTab.tab 을 내 탭과 비교
      §3 화면 — ③ [+] 표시가 canAdd(방장 · 상한) ⑤ 탭 줄에 가로 스크롤 없음 · 줄임표 · #chatWindow 안 확인창
      §4 규칙 · 정리 — ④ tabs 개수 상한 · _chatTab 검증이 chatLog 와 같은 식 · presence tab/chatTab · 빈 방 정리 */
 'use strict';
@@ -53,9 +53,9 @@ chk(!!sendChatSrc, 'Presence.sendChat(…, tab) 을 찾았다');
   run('같이 봐요', true, '#fff', 'm', 's2');
   run('일반이에요', false, '', '', 'general');
   run('옛 호출');
-  chk(!('chat' in sent[0]) && sent[0].chatTab && sent[0].chatTab.tab === 's2' && sent[0].chatTab.text === '안녕', '① 영화 탭 말풍선은 chat 이 아니라 chatTab 칸으로 (구버전은 안 띄운다)');
-  chk(!('chat' in sent[1]) && sent[1].chatTab.fly === true && sent[1].chatTab.flySize === 'm', '① 영화 탭 날리기도 chatTab 칸으로');
-  chk(sent[2].chat && !('chatTab' in sent[2]) && !('tab' in sent[2].chat), '#일반은 예전 chat 칸 그대로');
+  chk(!('chat' in sent[0]) && sent[0].chatTab && sent[0].chatTab.tab === 's2' && sent[0].chatTab.text === '안녕', '① 영화 탭 말풍선은 chat 이 아니라 chatTab field 로 (구버전은 안 띄운다)');
+  chk(!('chat' in sent[1]) && sent[1].chatTab.fly === true && sent[1].chatTab.flySize === 'm', '① 영화 탭 날리기도 chatTab field 로');
+  chk(sent[2].chat && !('chatTab' in sent[2]) && !('tab' in sent[2].chat), '#일반은 예전 chat field 그대로');
   chk(sent[3].chat && !('chatTab' in sent[3]), '탭을 안 넘기는 옛 호출(상태칩 이모티콘 등)도 #일반');
 }
 const recv = (APP.match(/const ctab = friends\[id\]\.chatTab;[\s\S]*?\n    \}/) || [''])[0];

@@ -2,7 +2,7 @@
    관리자가 쓰는 공지 두 가지의 화면. 서버에 쓰는 일은 admin-api.js(adminApi)가 한다 — 여기는 입력 확인 · 잠금 · 알림만.
    사용자가 보는 쪽(앱을 켤 때 업데이트 공지 팝업 _showUpdateNoticeOnce)은 app.js 에 있다.
    ★ 밖에서 부르는 이름은 없다 — 버튼 연결을 만들 때 건다.
-   deps: toast — 안내 토스트 · adminApi — 서버 길(admin-api.js) · apiErrors — 서버 오류 → 오류 번호(TwApiErrors.store)
+   deps: toast — 안내 토스트 · adminApi — 서버 경로(admin-api.js) · apiErrors — 서버 오류 → 오류 번호(TwApiErrors.store)
    ⚠️ 보내는 중에는 같은 버튼을 다시 눌러도 요청이 하나만 나간다(busy). 실패하면 창을 닫지 않는다(쓴 글이 사라지지 않게).
    ⚠️ 업데이트 공지 창은 지금 공지를 받는 동안 입력 · 저장 · 내리기를 잠근다 — 늦게 온 값이 쓰던 글을 덮지 않게(열 때마다 openGen +1 — 닫고 다시 열면 옛 답은 버림).
      못 받으면 «내리기» 는 가리킬 id 가 없어 잠긴 채고, 새 공지 올리기는 된다. 내리기는 창에서 본(또는 방금 올린) 공지의 id 로 요청 한 번.

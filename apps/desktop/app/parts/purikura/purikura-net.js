@@ -280,9 +280,9 @@ function bgAllowed(id){ return !!bgOf(id) && bgOf(id).id === id; }
      meta.bg 를 넓힌 것이라, 구버전 앱은 목록에서 못 찾아 «하양»으로 떨어질 뿐 안 깨진다.
    ★★ 섞는 것은 «각자 주사위를 굴리는 것»이 아니다. 사진은 넷이 각자 자기 화면에서 뜨므로
      각자 굴리면 **같은 촬영인데 사람마다 배경이 다른 사진**이 나온다. 그리고 그건 다 찍고
-     각자 저장한 뒤에야 안다. → 방 하나에 씨앗 하나(meta.startedAt)를 두고 «계산»으로 뽑는다.
+     각자 저장한 뒤에야 안다. → 방 하나에 seed 하나(meta.startedAt)를 두고 «계산»으로 뽑는다.
      점프 궤적을 각자 계산하는 것과 같은 방식이고, 그래서 **컷마다 드는 쓰기가 0회**다.
-   ⚠️ 씨앗이 아직 없을 때(0)도 값을 내야 한다 — 그때는 목록 순서대로 돈다. 촬영을 시작하면
+   ⚠️ seed 가 아직 없을 때(0)도 값을 내야 한다 — 그때는 목록 순서대로 돈다. 촬영을 시작하면
      startedAt 이 도착하면서 제 순서로 바뀐다. */
 var BG_MAX = 6;
 function bgParse(v){
@@ -295,7 +295,7 @@ function bgParse(v){
   return out.length ? out : ['white'];
 }
 function bgJoin(list){ return bgParse((list || []).join(',')).join(','); }
-/* 씨앗에서 0~1. 작고 결정적인 난수 하나 — 방 전원이 같은 값을 본다. */
+/* seed 에서 0~1. 작고 결정적인 난수 하나 — 방 전원이 같은 값을 본다. */
 function bgRnd(seed){
   var t = (seed | 0) + 0x6D2B79F5;
   t = Math.imul(t ^ (t >>> 15), t | 1);
@@ -315,7 +315,7 @@ function bgForCut(list, cutIdx, seed){
   for(var i = 0; i <= (cutIdx | 0); i++){
     if(!bag.length){
       bag = pool.slice();
-      for(var j = bag.length - 1; j > 0; j--){          // 피셔–예이츠, 씨앗으로
+      for(var j = bag.length - 1; j > 0; j--){          // 피셔–예이츠, seed 로
         var k = Math.floor(bgRnd(seed + (n++) * 104729) * (j + 1));
         var t = bag[j]; bag[j] = bag[k]; bag[k] = t;
       }
