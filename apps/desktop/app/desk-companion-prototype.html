@@ -2407,7 +2407,7 @@
     border-radius:var(--win-radius-el) !important;}
   #gachaInvFoot{justify-content:space-between;}
   #gachaInvFoot #gachaGoDraw{margin-left:auto;}
-  /* [+ 등록](관리자)은 카테고리 고르기 · 쪽 넘기기와 한 줄이라 폭이 모자라면 글자가 «등 / 록» 으로 꺾였다 — 버튼 글은 한 줄로, 등록 버튼은 줄지 않게. */
+  /* [+ 등록](관리자)은 카테고리 고르기 · 쪽 넘기기와 한 줄이라 폭이 모자라면 글자가 «등 / 록» 으로 꺾였다 — 버튼 글은 한 줄로, 등록 버튼은 줄지 않게. 쪽 넘기기가 붙는 «전체» 탭에서 좁아진다 — 모자라면 카테고리 고르기(#gachaAdminCat)가 줄어든다. */
   #gachaInvFoot button{white-space:nowrap;}
   #gachaInvFoot #gachaAdminAdd{flex:0 0 auto;}
   /* ◀ 1/2 ▶ 페이저 — 하단 버튼 줄의 비어 있던 왼쪽에 앉는다(창 높이가 안 늘어난다).
@@ -5076,7 +5076,7 @@
            ★ 이 줄 왼쪽은 원래 비어 있었다(#gachaGoDraw 가 margin-left:auto 로 오른쪽에 붙음).
              그 빈자리를 쓰므로 창 높이가 늘지 않는다 — 새 줄을 만들면 그만큼 창이 길어진다. -->
       <div id="gachaInvPager" class="gc-pg"></div>
-      <select id="gachaAdminCat" class="code-pass" style="display:none;width:auto;flex:0 0 auto;margin:0;font-size:10.5px;padding:3px 4px;"></select>
+      <select id="gachaAdminCat" class="code-pass" style="display:none;width:auto;flex:0 1 auto;min-width:0;margin:0;font-size:10.5px;padding:3px 4px;"></select>
       <button id="gachaAdminAdd" type="button" style="display:none;" title="가챠 전용 파츠를 GLB로 등록해요 (관리자)">+ 등록</button>
       <button id="gachaGoDraw" type="button">가챠 뽑으러 가기 ››</button>
     </div>
