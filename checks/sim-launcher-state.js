@@ -4,7 +4,7 @@
      그 모듈도 달성표 · 마이홈을 불러 순환이 됐다(sim-dep-cycles). 주인을 맨 아래 이 파일로 내렸으니 다시 위로 올라가지 않게 지킨다.
    ・1절: 처음 값 · 쓰고 읽기 · 만들 때마다 따로
    ・2절: 싣는 순서(읽는 · 바꾸는 모듈 · app.js 보다 먼저) · app.js 는 처음 읽는 모듈보다 먼저 만든다 · 값을 드는 곳은 여기 하나 · 바꾸는 곳은 정해진 곳뿐
-   ・3절: 일부러 깨 보기 */
+   ・3절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -74,7 +74,7 @@ chk(!R.oldReads.length, '옛 주인(appModeMod.appMode · windowModeMod.myHomeOp
 chk(R.appModeSet && !R.appModeWriters.length, '앱 모드를 바꾸는 곳은 app-mode.js 뿐' + (R.appModeWriters.length ? ' — 그 밖: ' + R.appModeWriters.join(' · ') : ''));
 chk(!R.mhWriters.length, '마이홈 열림을 바꾸는 곳은 app-mode.js · app.js(마이홈 창 · 구경에 넘기는 쓰는 함수)뿐' + (R.mhWriters.length ? ' — 그 밖: ' + R.mhWriters.join(' · ') : ''));
 
-say('── 3. 일부러 깨 보기');
+say('── 3. mutation test');
 chk(!judge(MOD.replace('setAppMode: (v)=>{ appMode = v; },', 'setAppMode: (v)=>{},'), HTML, FILES, APP).write, '앱 모드 쓰기를 빼면 빨강');
 chk(!judge(MOD.replace('setMyHomeOpen: (v)=>{ myHomeOpen = v; },', 'setMyHomeOpen: (v)=>{},'), HTML, FILES, APP).write, '마이홈 열림 쓰기를 빼면 빨강');
 chk(!judge(MOD.replace("let appMode = 'run';", "let appMode = 'editseat';"), HTML, FILES, APP).init, '처음 값을 바꾸면 빨강');

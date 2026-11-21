@@ -5,7 +5,7 @@
           🎯집중(달성표)에는 안 들어간다 · 폰 꺼짐이면 예전과 똑같다 · 안전 상한(4시간)을 넘으면 꺼짐.
    ・2절: 곁가지 — 집중 포즈(seatState) · 자동 자리비움 건너뜀 · lastActivity 를 건드리지 않음 · main.js 무관.
    ・3절: 방 — 평소·입장 payload 에 mobile 한 칸 · 받는 쪽 거르기 · 말풍선 순서(상태 > 📱 > 🕒) · _statusOut 을 실제로 돌려 본다.
-   ・4절: 서버 길 — 진짜 focus-level.js 를 가짜 deps 위에서 돌린다(D5-5). realtime mobileFocus{on} → 켜짐 · at 이 4시간 넘음 → 꺼짐(서버 시각) ·
+   ・4절: 서버 경로 — 진짜 focus-level.js 를 가짜 deps 위에서 돌린다(D5-5). realtime mobileFocus{on} → 켜짐 · at 이 4시간 넘음 → 꺼짐(서버 시각) ·
           계정 바뀜 뒤 신호 → 무시 · 키 만들기 · 끊기는 진척을 받은 뒤에만 부르고(읽기 전이면 요청 0 · E-FOCUS-08 · 09) · 실패 → 번호 · 키 유지 ·
           성공 → 계정 칸 tw.mobileKey · 끊기 → 키 지움 · 단추 잠금 · 늦은 답 버림 · 옛 { u, k } 칸 읽기.
    ・5절: 규칙 — mobileKeys 읽기 금지 · state 쓰기 = 주인 또는 (key 일치 + live 있음) · 방 mobile ≤ 40.
@@ -155,7 +155,7 @@ say('── 3. 방');
 }
 
 (async () => {
-say('── 4. 서버 길 (focus-level.js 를 돌린다)');
+say('── 4. 서버 경로 (focus-level.js 를 돌린다)');
 {
   const LEVEL = read('focus-level.js', path.join('app', 'parts', 'focus', 'focus-level.js'));
   if(!LEVEL){ chk(false, '원본 못 찾음 — focus-level.js'); }
@@ -163,7 +163,7 @@ say('── 4. 서버 길 (focus-level.js 를 돌린다)');
     const KEY = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
     const ids = ['fsMobSt', 'fsMobMain', 'fsMobSub', 'fsMobQr', 'fsMobUnlink', 'fsMobNote', 'mobLinkOverlay', 'mobLinkKey', 'mobLinkRenew', 'mobLinkCopy', 'mobLinkClose', 'mobLinkDone'];
     const tick = async () => { for(let i = 0; i < 6; i++) await new Promise((r) => setImmediate(r)); };
-    /* 모듈을 가짜 deps 위에서 만든다. opt: ready(진척을 받았나) · issue · unlink(api 가 줄 답) · store(계정 칸 처음 값) · src(깨 본 글) */
+    /* 모듈을 가짜 deps 위에서 만든다. opt: ready(진척을 받았나) · issue · unlink(api 가 줄 답) · store(계정 칸 처음 값) · src(망가뜨린 글) */
     function mk(opt){
       opt = opt || {};
       const env = { now: 5e12, calls: [], notes: [], toasts: [], bcast: 0, store: Object.assign({}, opt.store || {}), msgFns: [], subs: [], resets: [], ivs: [], ready: opt.ready !== false,
@@ -229,7 +229,7 @@ say('── 4. 서버 길 (focus-level.js 를 돌린다)');
       chk(w.api._mobileOn() === false, '  서버 시각이 흘러 상한을 넘으면 꺼짐(새 신호 없이)');
       const bk = LEVEL.replace('(now - m.since) < MOBILE_MAX_ON_MS', '(Date.now() - m.since) < MOBILE_MAX_ON_MS');
       const wb = bk !== LEVEL ? mk({ src: bk }) : null; if(wb){ wb.api.startMobile('u1', {}, wb.session); fire(wb, { on: true, app: 'A', at: wb.env.now - hours(4) - 1 }); }
-      chk(!!wb && wb.api._mobileOn() === true, '  (깨 보기) 4시간 셈을 PC 시계로 바꾸면 위 «4시간 넘음 → 꺼짐» 판정이 빨강'); }
+      chk(!!wb && wb.api._mobileOn() === true, '  (mutation test) 4시간 셈을 PC 시계로 바꾸면 위 «4시간 넘음 → 꺼짐» 판정이 빨강'); }
 
     /* 서버 시계를 모를 때(ready 전) — PC 시계로 어림하지 않고 «모름» 으로 본다 */
     { const w = mk(); w.api.startMobile('u1', {}, w.session);
@@ -289,7 +289,7 @@ say('── 4. 서버 길 (focus-level.js 를 돌린다)');
 
     /* (f) 글 — 걷은 길 */
     const LV = strip(LEVEL);
-    chk(!/firebaseAPI\.mobile|mobileDiag|mobileLinkStart|mobileSetKey|mobileUnlink|localStorage|getRandomValues|\bsetInterval\(/.test(LV.replace(/session\.setInterval\(/g, '')), 'Firebase 길 · 진단 줄 · PC 에서 키를 짓는 코드 · 모듈 꼭대기 타이머가 없다(키는 서버가 만든다)');
+    chk(!/firebaseAPI\.mobile|mobileDiag|mobileLinkStart|mobileSetKey|mobileUnlink|localStorage|getRandomValues|\bsetInterval\(/.test(LV.replace(/session\.setInterval\(/g, '')), 'Firebase 경로 · 진단 줄 · PC 에서 키를 짓는 코드 · 모듈 꼭대기 타이머가 없다(키는 서버가 만든다)');
     chk(!/mobile-diag|fsMobDiag/.test(HTML) && !read('mobile-diag.js', path.join('app', 'parts', 'focus', 'mobile-diag.js')), '설정 › 포커싱어플의 📱 진단 줄이 사라졌다(html · 파일)');
     const ak = (SRC.match(/const ACCOUNT_LOCAL_KEYS = \(\)=>\[([\s\S]*?)\n\];/) || [])[1] || '';
     chk(!/MOBILE_KEY|tw\.mobileKey/.test(ak), '  로그아웃 목록 밖(키는 계정 칸에 있다 — 계정을 바꾸면 안 보인다)');
@@ -342,7 +342,7 @@ say('── 6. 화면');
   if(HOST){
     chk(/location\.hash/.test(HOST) && !/location\.search/.test(HOST), '안내 페이지 — # 뒤에서 읽는다');
     chk(/method:'POST'/.test(HOST) && /'X-Mobile-Key': K/.test(HOST) && /API \+ '\/v2\/focus\/mobile-link\/state'/.test(HOST) && /https:\/\/api\.together-working\.com'/.test(HOST), '  서버 POST /v2/focus/mobile-link/state · 키는 머리(X-Mobile-Key)');
-    chk(!/firebasedatabase|\.sv|method:'PUT'|mobileLink\/'/.test(HOST) && !/key: K/.test(HOST), '  Firebase REST 길 · 본문 키가 없다');
+    chk(!/firebasedatabase|\.sv|method:'PUT'|mobileLink\/'/.test(HOST) && !/key: K/.test(HOST), '  Firebase REST endpoint · 본문 키가 없다');
     chk(/신호 보내 보기/.test(HOST) && /✓ PC에 신호가 갔어요/.test(HOST) && /iPhone·iPad/.test(HOST) && /갤럭시/.test(HOST), '  시안 ④ 문구(탭 · 테스트 · 결과)');
   } else say('  · hosting/help/link.html 을 못 찾음 — 안내 페이지 판정 건너뜀');
 }

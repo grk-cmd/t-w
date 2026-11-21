@@ -28,7 +28,7 @@ const findMySeat = deps.findMySeat;
 const escHtml = deps.escHtml;
 const notifyError = deps.notifyError;                          // ⚠️ 에러코드 알림 — TwErrorCodes.notify
 const isGachaPart = deps.isGachaPart;                          // 가챠 파츠인가(rec.gacha) — 카탈로그(premium-assets.js)가 정의한다
-const gachaApi = deps.gachaApi;                                // 🎰 서버 길 — gacha-api.js(서버가 뽑고 저장 · 원본)
+const gachaApi = deps.gachaApi;                                // 🎰 서버 경로 — gacha-api.js(서버가 뽑고 저장 · 원본)
 const rtOn = deps.rtOn;                                        // 🛰 서버가 «바뀌었다» 고 알리는 길(TwRtHub.store.on) → 해제 함수
 /* 🛠 관리자 파츠 등록 · 삭제 — app.js 가 setPartEditor 로 건다(가챠는 관리자 모듈을 부르지 않는다) */
 let openPartRegister = null, syncPartRegGachaLock = null, deletePart = null;

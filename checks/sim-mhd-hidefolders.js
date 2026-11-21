@@ -5,7 +5,7 @@
           ④ 북마크 아이콘을 그림 파일로(addFolder 의 iconSrc · 상대 경로만).
    ・1절: 마크업 · CSS · 배선(정적).
    ・2절: advApplyFolderHide — 내 집은 내 설정, 남의 집은 **그 집 주인** 설정. ✔ 표시는 내 설정만.
-   ・3절: 서버 기록 — 상태 주인이 통째 PUT(sim-myhome-store) · 여기서는 옛 길이 없고 부르는 자리만 본다.
+   ・3절: 서버 기록 — 상태 주인이 통째 PUT(sim-myhome-store) · 여기서는 옛 경로가 없고 부르는 자리만 본다.
    ・4절: iconSrc 걸러내기 — 바깥 주소 · 상위 폴더 · 스크립트는 받지 않는다.
    [실행] myhome-desktop.js · firebase-database-rules.json 이 있는 폴더에서. */
 'use strict';
@@ -73,7 +73,7 @@ say('── 2. advApplyFolderHide — 누구 설정을 따르나');
 
 say('── 3. 서버 기록 — 상태 주인(sim-myhome-store 5-2)이 통째 PUT 한다. 여기서는 부르는 자리만');
 {
-  chk(!/advSaveBgRemote|advPullBg|saveAdvBg|getAdvBg/.test(code), '옛 서버 길(advBg 기록 · 고른 시각 맞춤)이 남아 있지 않다');
+  chk(!/advSaveBgRemote|advPullBg|saveAdvBg|getAdvBg/.test(code), '옛 서버 경로(advBg 기록 · 고른 시각 맞춤)가 남아 있지 않다');
   const sb = strip(grabFn('advSetBg'));
   chk(/myhomeStore\.setDesktop\(\{ bg: bg \|\| null \}\);/.test(sb) && /advApplyBg\(\);/.test(sb), '배경을 바꾸면 상태 주인에 넘기고 바로 다시 칠한다(색 · 파일 · URL · 초기화가 모두 여기로)');
   const vb = code.slice(code.indexOf('window._advApplyVisitUI = function'));

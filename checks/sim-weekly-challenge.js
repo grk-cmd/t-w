@@ -267,7 +267,7 @@ await sec('── 7. 배선', () => {
   chk(/'weeklyChal',/.test(SRC['app-boot.js']), 'app-boot 차례 표에 weeklyChal');
 });
 
-await sec('── 8. 일부러 깨 보기', async () => {
+await sec('── 8. mutation test', async () => {
   const probes = {
     gate: async (src) => { const e = mkEnv({ src, premium: false }); e.mk(); e.els.chalBtn.click(); return !e.els.focusLogWin.classList.contains('chal-on'); },
     foreign: async (src) => { const e = mkEnv({ src, view: runView() }); const W = e.mk(); W.setKeyPlatform('mac'); W.focusTick({ key: 'win:chrome.exe' }, 1); return !e.calls.some(c => c[0] === 'addFocusSec'); },
@@ -283,7 +283,7 @@ await sec('── 8. 일부러 깨 보기', async () => {
     ['giveup', "[{a:'ok',t:'포기하기'},{a:'no',t:'취소',ghost:true}]).then(async a=>{\n      if(a !== 'ok') return;", "[{a:'ok',t:'포기하기'},{a:'no',t:'취소',ghost:true}]).then(async a=>{", '포기를 묻지 않고 보냄'],
   ];
   for(const [k, a, b, why] of BREAKS){
-    if(!MOD.includes(a)){ chk(false, '깨 보기 대상 글을 못 찾음 — ' + why); continue; }
+    if(!MOD.includes(a)){ chk(false, 'mutation test 대상 글을 못 찾음 — ' + why); continue; }
     chk(await probes[k](MOD) === true, '(원본은 통과) ' + why);
     chk(await probes[k](MOD.replace(a, b)) === false, '  깨면 빨강 — ' + why);
   }

@@ -3,7 +3,7 @@
    ・2절: 단추 연결 — ↶ 되돌리기 · 감은눈 초기화 · 표정 복사(막는 경우 · 되돌릴 자리를 먼저 남김) · 지우기 · 대칭
    ・3절: 피부 — SKIN_PNGS 가 없으면 안내 · 있으면 불러와 skinCanvases 에 · 전부 실패하면 안내
    ・4절: 연결 — deps 모양 · 옛 이름 · 만드는 줄
-   ・5절: 일부러 깨 보기 */
+   ・5절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -111,11 +111,11 @@ say('§4 연결');
   const shape = (n, v) => n === 'openCharColorPicker' ? v === '(...a)=>window.openCharColorPicker(...a)' : READ.includes(n) ? v === '()=>' + n : FN.includes(n) ? v === '(...a)=>' + n + '(...a)' : v === n;
   chk(!!pairs && pairs.length === 21 && pairs.every(([n, v]) => shape(n, v)), '★ deps 21개 모양 — 읽는 함수 다섯 · 함수 셋(window 고리 하나 포함) · 값 나머지' + (pairs ? ' (' + pairs.length + '개)' : ''));
   const bad = pairs ? pairs.map(([n, v]) => n === 'camTarget' ? [n, 'camTarget'] : [n, v]) : [];
-  chk(!bad.every(([n, v]) => shape(n, v)), '  깨 보기: 읽는 함수를 값으로 넘기면 빨강');
+  chk(!bad.every(([n, v]) => shape(n, v)), '  mutation test: 읽는 함수를 값으로 넘기면 빨강');
   chk(['_crDropEraser', 'histF', 'histB', 'redoF', 'redoB', 'isDrawStep', 'actC', 'blit', 'pushHistory', 'bindPaint', 'swEl', '_syncCrColorSwatches', 'loadSkins'].every(n => new RegExp('^const ' + n + ' = creatorCanvasMod\\.' + n + ';', 'm').test(code)), '옛 이름 열셋을 const 로 받는다');
   chk(!/function (pushHistory|undo|redo|blit|bindPaint|loadSkins|actC)\b/.test(code), '본문이 app.js 에 안 남음');
 }
-say('§5 일부러 깨 보기');
+say('§5 mutation test');
 {
   const brk = (a, c) => { const m = SRC.replace(a, c); return m === SRC ? null : m; };
   const m1 = brk("if(h.length>30)h.shift();", "");

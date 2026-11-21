@@ -8,7 +8,7 @@
  * 6. 화면 — 강제는 단추 하나·닫기 없음 · 선택은 둘 · textContent 만 · id 가 UI_HIT_SEL 에 있음
  * 6-2. 통신 판이 다름(realtime 4003) — forceProtocol: 최소 버전 없이 강제 창 · 한 번 묻기 · 선택 창을 강제로
  * 7. 연결 — app.js(초대 게이트 앞에서 흐름 → 강제면 로그인 안 함) · firebase-init 에 옛 게이트 없음 · main 이 타이머로 혼자 확인하지 않음 · 규칙 config/minAppVer
- * 8. 깨 보기 — 일부러 틀린 사본이 빨강이 나는가
+ * 8. mutation test — 일부러 틀린 사본이 빨강이 나는가
  */
 'use strict';
 const { stripReadGate } = require('./sim-rules-src.js');
@@ -413,19 +413,19 @@ async function suite(M, label){
     chk(typeof n['.write'] === 'string' && /admins/.test(n['.write']) && n['.read'] === true, '  ↳ 규칙 config/minAppVer(옛 앱용) — 관리자만 쓰기 · 누구나 읽기');
   }
 
-  say('── 8. 깨 보기');
+  say('── 8. mutation test');
   {
     // 동기 판정만으로 충분한 것은 suite 의 판정을 직접 부른다
     const chkBroken = (from, to, name, probe) => {
       const m = SRC.replace(from, to);
       if(m === SRC){ chk(false, name + ' — 바꿀 자리를 못 찾음'); return; }
       let ok = false; try{ ok = !probe(load(m)); }catch(_){ ok = true; }
-      chk(ok, '깨 보기 — ' + name + ' → 판정이 빨강');
+      chk(ok, 'mutation test — ' + name + ' → 판정이 빨강');
     };
     chkBroken('if(a[i] !== b[i]) return a[i] < b[i];', 'if(a[i] !== b[i]) return a[i] > b[i];', '비교 방향을 거꾸로', (X) => X.isBelow('0.9.8', '0.10.0') && !X.isBelow('0.10.0', '0.9.8'));
     chkBroken("if(min != null && min !== '' && isBelow(my, String(min))) return STAGE.FORCE;", '', '강제 판정을 지움', (X) => X.stageOf('0.12.0', '0.13.0', null) === 'force');
     chkBroken("if(latest != null && isBelow(my, String(latest))) return STAGE.OPTIONAL;", '', '선택 판정을 지움', (X) => X.stageOf('0.13.0', null, '0.13.1') === 'optional');
-    // 흐름 깨 보기 — 사본을 만들어 같은 시나리오를 돌린다
+    // 흐름 mutation test — 사본을 만들어 같은 시나리오를 돌린다
     const flowOf = (src, o) => {
       const X = load(src), comp = fakeCompanion(), ui = fakeUi(), order = [], hold = {}; let minNow = o.min;
       const subs = [];
@@ -434,7 +434,7 @@ async function suite(M, label){
       return { f, comp, ui, order, hold, setMin: (v) => { minNow = v; subs.forEach(g => g()); } };
     };
     const mutate = (from, to) => { const m = SRC.split(from).join(to); return m === SRC ? null : m; };
-    const redIf = (name, m, probe) => { if(!m){ chk(false, '깨 보기 — ' + name + ' — 바꿀 자리를 못 찾음'); return; } let red = false; return probe(m).then(ok => { red = !ok; chk(red, '깨 보기 — ' + name + ' → 빨강'); }, () => chk(true, '깨 보기 — ' + name + ' → 빨강(던짐)')); };
+    const redIf = (name, m, probe) => { if(!m){ chk(false, 'mutation test — ' + name + ' — 바꿀 자리를 못 찾음'); return; } let red = false; return probe(m).then(ok => { red = !ok; chk(red, 'mutation test — ' + name + ' → 빨강'); }, () => chk(true, 'mutation test — ' + name + ' → 빨강(던짐)')); };
     // 강제면 공지 안 돎 (판정: 강제인데 공지 창이 한 번도 안 뜬다)
     await redIf('강제인데 공지가 돈다', mutate('if(enforce(min)) return { proceed: false, stage: STAGE.FORCE };', 'enforce(min);') && mutate('if(enforce(min)) return { proceed: false, stage: STAGE.FORCE };', 'enforce(min);').split('if(forced) return { proceed: false, stage: STAGE.FORCE };   // 기다리는 사이 최소 버전이 올랐다').join(''),
       async (m) => { const x = flowOf(m, { my: '0.12.0', min: '0.13.0' }); await x.f.runBeforeLogin(); return !x.order.includes('notice'); });
@@ -469,13 +469,13 @@ async function suite(M, label){
         const f = X.createUpdateFlow({ readMin: () => '9.9.9', getMin: () => '9.9.9', onMinChange: () => () => {}, getVersion: () => null, companion: c, ui: fakeUi(), noticeOnce: (fn) => fn(null), showNotice: (n2, d) => d(), updateWaitMs: 10, noticeWaitMs: 10 });
         await f.runBeforeLogin(); n = c.calls.filter(x => x[0] === 'check').length;
       }catch(_){ n = -1; }
-      chk(m3 !== SRC && n !== 1, '깨 보기 — 버전을 모를 때 새 판 확인이 빠지면 빨강(checkUpdate ' + n + '번)');
+      chk(m3 !== SRC && n !== 1, 'mutation test — 버전을 모를 때 새 판 확인이 빠지면 빨강(checkUpdate ' + n + '번)');
     }
     await redIf('4003 에 강제 창을 안 띄운다', mutate('    showWindow(STAGE.FORCE, null);\n', ''),
       async (m) => { const x = flowOf(m, { my: '0.13.0', min: null }); const p = x.f.runBeforeLogin(); await sleep(2); x.comp.push({ status: 'none' }); await p; x.f.forceProtocol(); return x.f.current() === 'force'; });
     await redIf('4003 강제 창 글에 최소 버전 자리(null)', mutate("        : '이 버전' + (my ? '(' + my + ')' : '') + '은 서버와 맞지 않아", "        : '이 버전(' + my + ')은 ' + min + ' 서버와 맞지 않아"),
       async (m) => { const X = load(m); return !/null/.test(X.viewOf(X.STAGE.FORCE, '0.13.0', null, null, null).body); });
-    // 계정 판 맞추기 깨 보기
+    // 계정 판 맞추기 mutation test
     const accFlow = async (m) => { const x = flowOf(m, { my: '0.12.3', min: null }); const p = x.f.runBeforeLogin(); await sleep(2); x.comp.push({ status: 'none' }); await p; return x; };
     await redIf('계정 판 맞추기가 강제 창을 안 띄운다', mutate("    showWindow(STAGE.FORCE, String(highest), true);\n", ''),
       async (m) => { const x = await accFlow(m); x.f.forceAccount('0.12.4'); return x.f.current() === 'force'; });
@@ -490,7 +490,7 @@ async function suite(M, label){
       const m2 = SRC.split('return { proceed: false, stage: STAGE.FORCE };').join('return { proceed: true, stage: STAGE.FORCE };');
       let red = false;
       try{ const x = flowOf(m2, { my: '0.12.0', min: '0.13.0' }); red = (await x.f.runBeforeLogin()).proceed === true; }catch(_){ red = true; }
-      chk(m2 !== SRC && red, '깨 보기 — 강제인데 로그인으로 넘기면 빨강');
+      chk(m2 !== SRC && red, 'mutation test — 강제인데 로그인으로 넘기면 빨강');
     }
   }
 

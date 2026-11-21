@@ -11,7 +11,7 @@
        ③ 다른 도메인 파일이 거는 창 고리(`window.이름 =`)를 `window.이름` 으로 읽기
      도메인 → shared 는 아래로 가는 방향이라 세지 않는다. shared → 도메인은 센다(shared 는 도메인을 모른다).
    ・안 잡는 것: `window.` 없이 맨이름으로 부르는 창 고리 · deps 로 받은 함수(그건 잇는 쪽이 이은 것) · 문자열로 만든 이름.
-   ・1절: 파일 · 예외 · 기준선 · 2절: 파일마다 기준선 이하 · 줄었으면 내린다 · 3절: 가짜 입력으로 깨 보기 */
+   ・1절: 파일 · 예외 · 기준선 · 2절: 파일마다 기준선 이하 · 줄었으면 내린다 · 3절: 가짜 입력으로 mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -131,7 +131,7 @@ if (base) {
   chk(!c.down.length, '기준선보다 준 파일 0' + (c.down.length ? ' — 줄었어요. 같은 PR 에서 기준선을 내려 주세요: node checks/sim-domain-calls.js --write-baseline (' + c.down.join(' · ') + ')' : ''));
 }
 
-say('── 3. 가짜 입력으로 깨 보기');
+say('── 3. 가짜 입력으로 mutation test');
 {
   const app = "const overheadMod = TwOverhead.createOverhead({});\nconst barMod = TwBar.createBar({});\nconst netMod = TwNet.createNet({});\n";
   const lib = [

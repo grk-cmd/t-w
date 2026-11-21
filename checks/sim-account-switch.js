@@ -277,7 +277,7 @@ if(!fList || !fFlush || !fPre || !fWipe || !fDet || !tmo){
 /* ── 4. 플레이리스트 세 벌 복원 ── */
 function part4(){
   say('── 4. 플레이리스트 — 옛 읽기 · 옛 이어받기가 없다');
-  chk(!/fetchMyPlaylistSets|fetchPlaylistOf|_plPickSet/.test(FI), '★ firebase-init 에 옛 플레이리스트 읽기(한 벌 무작위 · 내 세 벌)가 없다 — 서버 길(playlist-api.js)로 옮겼다');
+  chk(!/fetchMyPlaylistSets|fetchPlaylistOf|_plPickSet/.test(FI), '★ firebase-init 에 옛 플레이리스트 읽기(한 벌 무작위 · 내 세 벌)가 없다 — 서버 경로(playlist-api.js)로 옮겼다');
   chk(!/function _restoreOwnedDataAfterTransfer\(/.test(SRC), '  로그인 때 서버 사본을 당겨 오던 옛 이어받기(_restoreOwnedDataAfterTransfer)는 0.13 에서 걷었다 — 서버에서 받는 길(plMod.pull)이 맡는다');
 }
 

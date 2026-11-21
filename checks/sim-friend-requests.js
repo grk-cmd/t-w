@@ -1,11 +1,11 @@
 /* ═══ 👋 sim-friend-requests.js — 친구 요청 포트 · 서버 provider (0.13 앱 묶음 D3 친구 요청) ═══
-   [왜] 받은 요청 · 보낸 요청 · 수락 · 거절 · 취소 · 보내기 · 친구코드 찾기를 서버 길(social-api.js)로 부른다. 서버 한 길이고(옛 Firebase 길 provider · 받는 곳 고르기는 걷었다 — D13 E-2),
+   [왜] 받은 요청 · 보낸 요청 · 수락 · 거절 · 취소 · 보내기 · 친구코드 찾기를 서버 경로(social-api.js)로 부른다. 서버 한 길이고(옛 Firebase 경로 provider · 받는 곳 고르기는 걷었다 — D13 E-2),
      못 하면 던진다. 알림(friendRequests)을 받으면 다시 받는다.
    ・1절: 포트 — 여덟 가지 모두 서버 provider · 못 하면 던진다
    ・2절: 서버 provider — 받은 요청 { 보낸이: { name, ts } } · 이름 못 받아도 요청은 그림 · 알림 · 한 번에 하나 · 해제 · 보낸 요청 · 수락 · 거절 · 취소/보내기 결과(already · self)
-   ・3절: (옛 길 provider 는 걷었다 — 없는지만 본다)
+   ・3절: (옛 경로 provider 는 걷었다 — 없는지만 본다)
    ・4절: 친구코드 찾기(social-api) — 0/1명 · 모양 틀림 던짐
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -46,7 +46,7 @@ async function judge(S){
     let r = await run({});
     chk(r.log.every((x) => x.startsWith('api:')) && r.log.length === 8, '★ 서버면 여덟 가지 모두 서버 provider');
     r = await run({ apiFail: true });
-    chk(r.log.every((x) => x.startsWith('api:')) && r.res.every((x) => x === 'throw'), '★ 서버가 못 하면 던진다 — 옛 길(Firebase)로 물러나지 않는다');
+    chk(r.log.every((x) => x.startsWith('api:')) && r.res.every((x) => x === 'throw'), '★ 서버가 못 하면 던진다 — 옛 경로(Firebase)로 물러나지 않는다');
   }
 
   say('── 2. 서버 provider');
@@ -111,10 +111,10 @@ async function judge(S){
     chk(ee && ee.code === 'SOCIAL_FRIEND_FULL', '  ↳ 수락 실패는 던진다(화면이 오류 번호)');
     k = mkSocial();
     chk((await k.api.lookupName('a')) === 'N-a' && (await k.api.lookupName('b')) === null, '이름 조회 — 명함 이름 · 없으면 null');
-    chk((await k.api.lookupFriendCode('MATE-AAAA')) === 'uAAA' && (await k.api.lookupFriendCode('MATE-ZZZZ')) === null, '친구코드 찾기 — 서버 길로');
+    chk((await k.api.lookupFriendCode('MATE-AAAA')) === 'uAAA' && (await k.api.lookupFriendCode('MATE-ZZZZ')) === null, '친구코드 찾기 — 서버 경로로');
   }
 
-  say('── 3. 옛 길 provider 는 없다');
+  say('── 3. 옛 경로 provider 는 없다');
   chk(!/firebase|source/i.test(strip(S.PORT)), '포트가 Firebase · 받는 곳 고르기를 모른다');
 
   say('── 4. 친구코드 찾기(social-api)');
@@ -139,10 +139,10 @@ async function judge(S){
 
 (async () => {
 await judge(SRC0);
-say('── 6. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 6. mutation test — 하나라도 못 잡으면 빨강');
 const BREAKS = [
   ['PORT', "const pick = () => deps.api;", "const pick = () => ({ watchReceived(){}, listSent(){}, accept(){}, reject(){}, cancel(){}, send(){}, lookupName(){}, lookupFriendCode(){} });", '서버 provider 를 안 씀'],
-  ['PORT', "const pick = () => deps.api;", "const pick = () => deps.api || deps.firebase;", '옛 길로 물러남'],
+  ['PORT', "const pick = () => deps.api;", "const pick = () => deps.api || deps.firebase;", '옛 경로로 물러남'],
   ['API', "    const off = rt.on('friendRequests', () => { run(); });", "    const off = () => {};", '알림을 안 건다'],
   ['API', "      if(flying){ again = true; return; }", "      if(flying){ return; }", '받는 중 알림을 버림'],
   ['API', "    return () => { dead = true; off(); };", "    return () => { };", '풀어도 알림이 남음'],
@@ -164,7 +164,7 @@ for(const [where, from, to, what] of BREAKS){
   caught.push([what, qfail]);
 }
 const missed = caught.filter(([, n]) => n === 0).map(([w]) => w);
-chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);
 })();

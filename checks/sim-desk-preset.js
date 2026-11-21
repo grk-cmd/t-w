@@ -7,7 +7,7 @@
    ・3절: 적용 — 캐릭터 없음 · 좌석 · 로컬 아이템(라이선스는 원본에서) · 책상 색 · 크기(clamp) · 길이 · 위치 · 카메라 기억 지우기
    ・4절: 책상 모델 — 프리셋 책상 · 못 읽음 · 라이선스 잠김 · 기본 책상(관리자 등록 · URL 받기 · 실패) · 내장 책상
    ・4-2절: 카탈로그 책상은 GLB 를 빼고 저장(10-16 제보 8 — 1MB 책상이면 4번째 칸부터 저장소가 넘쳤다) · 불러올 때 카탈로그에서 받기 · 못 찾으면 E-CHAR-08 · 옛 칸도 저장 때 가볍게
-   ・5절: 칸 화면 · 팝업 · 입구 전제 · 6절: app.js 연결 · 7절: 일부러 깨 보기 */
+   ・5절: 칸 화면 · 팝업 · 입구 전제 · 6절: app.js 연결 · 7절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -42,7 +42,7 @@ function world(src, o = {}) {
   const log = { toasts: [], calls: [], parsed: [], resolved: 0 };
   const call = (k) => (...a) => { log.calls.push([k, ...a]); };
   const ls = lsOf(o.ls || {});
-  const store = makeStore(CUR_STORE, ls);   // behave 가 받은 저장 모듈 글(깨 보기가 바꾼 글도 여기로)
+  const store = makeStore(CUR_STORE, ls);   // behave 가 받은 저장 모듈 글(mutation test 가 바꾼 글도 여기로)
   const E = {};
   ['crScale', 'crZ', 'crRot', 'deskColor', 'deskScale', 'deskLenX', 'crPresetSlots', 'crPresetBtn', 'crPresetPopup'].forEach((i) => { E[i] = el('div', i); });
   E.crPresetPopup.style.display = 'none';
@@ -229,7 +229,7 @@ function wire(app, html) {
   say('── 6. app.js 연결');
   wire(APP, HTML).forEach(([ok, msg]) => chk(ok, msg));
   chk(!SMOKE || (/PRELOAD\.push\('desk-preset-store\.js'\);/.test(SMOKE) && /PRELOAD\.push\('desk-preset\.js'\);/.test(SMOKE)), 'smoke 가 두 파일을 먼저 싣는다');
-  say('── 7. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+  say('── 7. mutation test — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['저장 5칸 → 4칸', null, (s) => s.replace('const PRESET_SLOTS = 5;', 'const PRESET_SLOTS = 4;')],
     ['저장 키 바뀜', null, (s) => s.replace("const PRESET_KEY = 'tw.deskPresets';", "const PRESET_KEY = 'tw.deskPreset';")],
@@ -244,7 +244,7 @@ function wire(app, html) {
     ['저장이 카탈로그 책상 바이트를 그대로', null, (s) => s.replace('return jsonStore.save(PRESET_KEY, slimPresets(arr.slice(0,PRESET_SLOTS)));', 'return jsonStore.save(PRESET_KEY, arr.slice(0,PRESET_SLOTS));')],
     ['불러올 때 카탈로그에서 안 받음', (m) => m.replace('  if(p.deskGlb) return p.deskGlb;\n', '  return p.deskGlb || null;\n'), null],
     ['못 찾으면 조용히 기본 책상', (m) => m.replace("if(!b64){ notifyError('E-CHAR-08'); applyDefaultDesk(); return; }", 'if(!b64){ applyDefaultDesk(); return; }'), null],
-    ['만들 때 던짐', (m) => m.replace('function createDeskPreset(deps){', 'function createDeskPreset(deps){ throw new Error("깨 봄");'), null],
+    ['만들 때 던짐', (m) => m.replace('function createDeskPreset(deps){', 'function createDeskPreset(deps){ throw new Error("mutation");'), null],
     ['app.js 에 본문이 남음', 'APP', (a) => a + '\nfunction applyDeskPreset(p){}'],
     ['html 줄 빠짐', 'HTML', (h) => h.replace('<script src="parts/creator/desk-preset.js"></script>', '')],
   ];

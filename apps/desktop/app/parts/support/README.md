@@ -1,7 +1,7 @@
 # app/parts/support — 🐞 버그 제보 · 🚩 신고
 
 ## report-api.js — 🚩 신고 provider(classic script `window.TwReportApi`)
-- 책임: 신고 서버 길(`POST /v2/reports`) · 관리자 신고 목록 길(`GET /v2/admin/reports` · `POST …/dismissals` · `POST …/{target}/take-down`) 한 벌. 경로 · 본문 모양 · 서버 종류 이름(`CHARACTER` · `AWAY_IMAGE` · `NICKNAME` · `ETC`) · 서버 줄 → 화면 줄 바꾸기는 여기만 안다.
+- 책임: 신고 서버 endpoint(`POST /v2/reports`) · 관리자 신고 목록 길(`GET /v2/admin/reports` · `POST …/dismissals` · `POST …/{target}/take-down`) 한 벌. 경로 · 본문 모양 · 서버 종류 이름(`CHARACTER` · `AWAY_IMAGE` · `NICKNAME` · `ETC`) · 서버 줄 → 화면 줄 바꾸기는 여기만 안다.
 - deps: `authed`(로그인 통로 `TwApi.authed` — `post(path, body)`) · `errs`(`TwApiErrors` — `translate` · `COMMON`).
 - 내놓는 것: `createReportApi(deps)` → `{ file(target, kind, note), failOf(err) }` — `target` 은 신고할 사람의 사용자 코드, `kind` 는 신고 창 사유 이름(`char` · `away` · `nick` · `etc`).
   `failOf` 는 실패 하나 → 갈래(`self` · `noAwayImage` · `noteRequired` · `common` · `site`). 서버 거절 code 는 기능 표 `ERRORS` 에만 있다(공통 표보다 먼저 본다).
@@ -13,7 +13,7 @@
   - 신고한 사람은 서버가 토큰에서 정한다 — 본문에 내 이름 · 코드를 싣지 않는다.
   - 실패는 ApiError 를 그대로 던진다. 다시 보내지 않는다(다시 하는 길은 사용자가 [신고] 를 다시 누르는 것뿐).
   - 틀린 값(대상 없음 · 모르는 사유 · 40자 넘는 글)은 요청 없이 code `INVALID` 로 던진다.
-  - 같은 사람을 다시 신고하면 서버가 열린 신고를 고친다 — 그래서 `requestId` 칸이 없다.
+  - 같은 사람을 다시 신고하면 서버가 열린 신고를 고친다 — 그래서 `requestId` field 가 없다.
   - 관리자 목록에 `minReporters` 를 싣지 않는다 — 서버 기본(3)이 신고 창 안내 «서로 다른 3명» 과 같다.
   - 관리자 응답 모양이 틀리면 code `SHAPE` 로 던진다(빈 목록으로 돌리지 않는다 — 실패 ≠ 없음). `dismiss` 는 그 사람 줄이 `ok` 가 아니면 그 줄의 code 로 던진다.
 - 검사: `checks/sim-report.js`.
@@ -34,7 +34,7 @@
 - 검사: `checks/sim-bug-board.js` 2절.
 
 ## bug-api.js — 🐞 버그제보 provider(classic script `window.TwBugApi`)
-- 책임: 게시판 서버 길 한 벌 — 목록(`GET /v2/bugs?filter=&limit=&cursor=` · 공지 `filter=notices`) · 글(`GET /v2/bugs/{number}`) · 새 글(`POST /v2/bugs`) · 답글(`POST …/{number}/replies`) · 관리자 답변(`POST /v2/admin/bugs/{number}/answers`) · 오픈카톡 기본 링크(`GET /v2/admin/config` 의 `bug.report` 줄 · `PUT /v2/admin/config/bug.report`) · 공개 범위(`PATCH …/{number}/visibility`) · 👍(`PUT …/{number}/like`) · 봤음(`PUT /v2/me/bugs/{number}/seen`) · 오늘 남은 수(`GET /v2/me/bugs/quota`) · 새 답변 배지 수(`GET /v2/me/bugs/unseen-count`).
+- 책임: 게시판 서버 경로 한 벌 — 목록(`GET /v2/bugs?filter=&limit=&cursor=` · 공지 `filter=notices`) · 글(`GET /v2/bugs/{number}`) · 새 글(`POST /v2/bugs`) · 답글(`POST …/{number}/replies`) · 관리자 답변(`POST /v2/admin/bugs/{number}/answers`) · 오픈카톡 기본 링크(`GET /v2/admin/config` 의 `bug.report` 줄 · `PUT /v2/admin/config/bug.report`) · 공개 범위(`PATCH …/{number}/visibility`) · 👍(`PUT …/{number}/like`) · 봤음(`PUT /v2/me/bugs/{number}/seen`) · 오늘 남은 수(`GET /v2/me/bugs/quota`) · 새 답변 배지 수(`GET /v2/me/bugs/unseen-count`).
   서버 모양(대문자 이름 · ISO 시각 · `author`) → 화면 모양(`vis` 'pub'|'prv' · 소문자 `cat` · `status` · ms · `anon` · `authorReplied`)은 여기 한 곳(`rowOf` · `postOf`).
 - deps: `authed`(`TwApi.authed`) · `errs`(`TwApiErrors` — `translate` · `COMMON`) · `pending`(요청 번호 기억 만들기 — `TwRequestId.createPending`).
 - 내놓는 것: `createBugApi(deps)` → `{ KIND, ERRORS, list, notices, detail, write, reply, answer, reportConfig, saveReportLink, setVis, like, seen, quota, refreshBadge, badgeCount, failOf, reset }`. 순수: `rowOf` · `postOf` · `pageOf` · `quotaOf` · `writeBody` · `failOf(err, errs)` · `PATHS` · `KIND` · `ERRORS` · `LIMIT_MAX`.

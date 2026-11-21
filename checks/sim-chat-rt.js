@@ -4,7 +4,7 @@
    ・3절: 지난 기록 — 시크릿룸도 서버에서 읽음(3일 · 사용자 결정 11-09) · since 없으면 최근 쪽 · 있으면 ISO 시각으로 쪽 넘김(hasMore) · 받는 동안 온 줄도 · 못 받으면 onFail(onReady 아님 — 빈 대화로 끝내지 않음) · 끊으면 안 부름
    ・4절: 방장 지우기 — chatClear{ tab } · 지우기 표시 줄이 오면 ok · CHAT_NOT_HOST 거절
    ・5절: 최근 줄 구독(안 읽은 수) · 내 이모티콘(slots → 칸 표 · PUT · DELETE · 못 받으면 던짐) · 계정이 바뀌면 reset
-   ・6절: 배선(html 차례 · firebase-init 이 대화 기록을 이 포트에 잇는다) · 깨 보기 */
+   ・6절: 배선(html 차례 · firebase-init 이 대화 기록을 이 포트에 잇는다) · mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
@@ -21,7 +21,7 @@ const SRC0 = {
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const loadCls = (src) => { const m = { exports: {} }; new Function('module', 'window', src)(m, undefined); return m.exports; };
-/* 안 끝나는 약속(깨 본 판)은 200ms 뒤 '__hang' — node 가 조용히 빠지지 않게 */
+/* 안 끝나는 약속(망가뜨린 판)은 200ms 뒤 '__hang' — node 가 조용히 빠지지 않게 */
 const within = (p) => Promise.race([p, new Promise((r) => setTimeout(() => r('__hang'), 200))]);
 const tick = async () => { for(let i = 0; i < 20; i++) await Promise.resolve(); await new Promise((r) => setImmediate(r)); };
 
@@ -213,7 +213,7 @@ async function judge(S){
 
 (async () => {
 await judge(SRC0);
-say('── 7. 일부러 깨 보기');
+say('── 7. mutation test');
 const BREAKS = [
   ['CR', "timer = tSet(() => w.done({ ok: false, code: 'timeout' }), SAY_WAIT_MS);", "timer = tSet(() => { w.done({ ok: false, code: 'timeout' }); hub.send(msg); }, SAY_WAIT_MS);", '못 받으면 자동으로 다시 보냄'],
   ['CR', "const requestId = (prev && nowMs() - prev.at <= RETRY_TTL_MS) ? prev.id : deps.newRequestId();", "const requestId = deps.newRequestId();", '다시 누른 같은 글에 새 requestId'],
@@ -239,7 +239,7 @@ for(const [where, from, to, what] of BREAKS){
   caught.push([what, qfail]);
 }
 const missed = caught.filter(([, k]) => k === 0).map(([w]) => w);
-chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

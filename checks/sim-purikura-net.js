@@ -10,7 +10,7 @@
      §2 좌표 인코딩 — 시선을 덤으로 얹기 · 옛 값 읽기 · 길이 상한
      §3 정원 문구 — 서버 답의 숫자를 문구로만 옮긴다(경계값)
      §4 자리 수 · 보내는 간격 상수
-     §5 통신이 없다 — Firebase 길 · 세션 만들기가 이 파일에 없다 */
+     §5 통신이 없다 — Firebase 경로 · 세션 만들기가 이 파일에 없다 */
 'use strict';
 const P = require('./purikura-net.js');
 /* ⚠️ 하루 상한을 **숫자로 적지 않는다.** 예전에는 200 을 스무 군데에 박아 뒀는데, 상한이
@@ -87,7 +87,7 @@ say('· §4 보내는 쪽(purikura-rt.js)이 읽는 상수');
 say('');
 
 /* ── §5 통신이 없다 ─────────────────────────────────────────────── */
-say('· §5 Firebase 길 · 세션 만들기가 이 파일에 없다');
+say('· §5 Firebase 경로 · 세션 만들기가 이 파일에 없다');
 {
   const src = require('fs').readFileSync(require('path').join(__dirname, 'purikura-net.js'), 'utf8');
   const code = src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');

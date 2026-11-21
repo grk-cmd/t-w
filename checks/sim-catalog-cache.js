@@ -35,7 +35,7 @@ say('── 1. firebase-init.js 연결');
   chk(!/onValue\(\s*(?:ref\(db,\s*['`"]catalog\/(?:parts|gachaParts|items|desks)['`"]\)|r1|r2)/.test(CODE) && !/ref\(db, 'catalogMeta\/' \+ kind\)/.test(CODE),
       'catalog/{parts·gachaParts·items·desks} 를 통째로 onValue 하는 곳도 catalogMeta 를 구독하는 곳도 없다');
 
-  /* 쓰기 — 카탈로그 쓰기는 서버 길(admin/catalog-admin-api.js)로 옮겼다. firebase-init.js 에는 카탈로그 경로에 쓰는 함수가 하나도 없다 */
+  /* 쓰기 — 카탈로그 쓰기는 서버 경로(admin/catalog-admin-api.js)로 옮겼다. firebase-init.js 에는 카탈로그 경로에 쓰는 함수가 하나도 없다 */
   const KIND = '(?:parts|gachaParts|items|desks|customCats|catOverrides|gameConfig)';
   chk(!new RegExp('(?:set|remove|update)\\(ref\\(db,\\s*[`\'"]catalog\\/' + KIND).test(CODE) && !/_catalogUpdate|_partPath|catalogMeta\//.test(CODE), 'catalog/{종류}/… 에 쓰는 곳 · _catalogUpdate · catalogMeta 올림이 없다(서버 한 벌이 원본)');
   const gone = ['publishDesk', 'unpublishDesk', 'publishItem', 'unpublishItem', 'updateDesksOrder', 'updateItemsOrder', 'publishPart', 'unpublishPart', 'updatePartsOrder',

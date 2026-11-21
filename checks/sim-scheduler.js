@@ -10,7 +10,7 @@
    ・6절: 👀 관람 — 친구 것(서버가 공개한 것만) · 편집 막음 · 늦게 온 친구 답 버림 · 끝나면 내 것
    ・7절: reset — 앞 계정 값 비움 · 늦게 온 앞 계정 답 버림
    ・8절: app.js 배선 · html
-   ・9절: 일부러 깨 보기
+   ・9절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
@@ -218,7 +218,7 @@ await sec('── 2. 만들 때', async () => {
 
 await sec('── 2-2. 내 코드 없음 — 요청 0', async () => {
   const noUid = async (src) => {
-    /* 서버 길(provider)에도 «내 코드 없음 → 던짐» 이 있다 — 모듈 쪽 확인만 보려고 그것은 걷고 돌린다 */
+    /* 서버 경로(provider)에도 «내 코드 없음 → 던짐» 이 있다 — 모듈 쪽 확인만 보려고 그것은 걷고 돌린다 */
     const apiSrc = SRC['schedule-api.js'].replace(/\n *if\(!uid\) throw codeError\('NO_USER'[^\n]*/g, '');
     const E = mkEnv({ uid: null, src, apiSrc });
     E.S.renderSchedCalendar(); E.S.loadBoard(); E.S.loadMine();
@@ -229,7 +229,7 @@ await sec('── 2-2. 내 코드 없음 — 요청 0', async () => {
   };
   chk(await noUid(), '내 코드 없음 → 달력 · 보드 · 오늘 일정 · 태그 알림 · 서버 알림 받기 모두 요청 0');
   const m2 = MOD.replace(/\n *if\(!me\) return;[^\n]*/g, '').replace(/\n *if\(!getMyUserId\(\)\) return;[^\n]*/g, '').replace(/\n *if\(!owner \|\| !_schedYM\) return;[^\n]*/, '');
-  chk(m2 !== MOD && !(await noUid(m2)), '  깨 보기 — 내 코드 확인을 빼면 빨강');
+  chk(m2 !== MOD && !(await noUid(m2)), '  mutation test — 내 코드 확인을 빼면 빨강');
 });
 
 await sec('── 3. 🔔 뱃지 · 알림 목록', async () => {
@@ -622,9 +622,9 @@ await sec('── 5-2. 📌 기념일 보기 — 타일형 · 목록형(이 PC �
     chk(L.el('mhDdayGrid').textContent.includes('불러오는 중이에요') && !L.el('mhDdayGrid').children.some(c => c.classList.contains('add')), '목록형도 받는 중엔 «불러오는 중이에요» · [+] 줄 없음(잠금)');
   }
   const noList = MOD.replace("if(view === 'list'){ _renderAnnivList(grid, ids, today); return; }", '');
-  chk(noList !== MOD && !(await run(noList)).list, '  깨 보기 — 목록형 분기를 빼면 빨강');
+  chk(noList !== MOD && !(await run(noList)).list, '  mutation test — 목록형 분기를 빼면 빨강');
   const noGuard = MOD.replace('if(viewBox && e.target && viewBox.contains(e.target)) return;', '');
-  chk(noGuard !== MOD && !(await run(noGuard)).noDrag, '  깨 보기 — 단추 누름 예외를 빼면 빨강(단추가 끌기를 시작)');
+  chk(noGuard !== MOD && !(await run(noGuard)).noDrag, '  mutation test — 단추 누름 예외를 빼면 빨강(단추가 끌기를 시작)');
   const iS = HTML.indexOf('<div id="mhSchedSplit">'), iV = HTML.indexOf('id="mhAnnivView"'), iA = HTML.indexOf('<div id="mhDdayArea">');
   chk(iS > 0 && iS < iV && iV < iA && /data-view="tile"/.test(HTML) && /data-view="list"/.test(HTML), 'html — ⌛ D-day 구분선 줄 안에 ▦ · ☰ 단추');
 });
@@ -798,14 +798,14 @@ await sec('── 3-2. 🔔 오늘 내 일정 — 만든 시각이 읽음 시각
   chk(E.el('myBellBadge').textContent === '1', '  열어 본 뒤 오늘 날짜로 새로 만든 일정은 다시 센다');
 });
 
-await sec('── 9. 일부러 깨 보기 (빨강이 나야 한다)', async () => {
+await sec('── 9. mutation test (빨강이 나야 한다)', async () => {
   const broken = async (label, patch, scenario) => {
     const src = patch(MOD);
-    if(src === MOD){ chk(false, '깨 보기 — ' + label + ' (바뀐 곳이 없다 — 판정 글자를 못 찾음)'); return; }
+    if(src === MOD){ chk(false, 'mutation test — ' + label + ' (바뀐 곳이 없다 — 판정 글자를 못 찾음)'); return; }
     quiet = true; qfail = 0;
     try{ await scenario(src); }catch(e){ qfail++; }
     quiet = false;
-    chk(qfail > 0, '깨 보기 — ' + label + ' → 빨강');
+    chk(qfail > 0, 'mutation test — ' + label + ' → 빨강');
   };
   await broken('다른 친구 알림도 다시 받는다', (x) => x.replace("if(friendId !== _visitFriend || viewingUserId() !== friendId) return;", ""), async (src) => {
     const E = mkEnv({ src, routes: { 'GET /v2/me/ddays': BOARD(), 'GET /v2/schedules/f1': [], 'GET /v2/ddays/f1': { cards: [], banners: [] }, 'GET /v2/ddays/f2': { cards: [], banners: [] } } });
@@ -862,7 +862,7 @@ await sec('── 9. 일부러 깨 보기 (빨강이 나야 한다)', async () =
     const d = deferred();
     let hold = false;
     const E = mkEnv({ src, routes: { 'GET /v2/me/schedules': () => (hold ? d.p : []), 'POST /v2/me/schedules': item('n', YM + '-' + DD, 'x') } });
-    await tick(); hold = true;   // 만들 때 오늘 일정을 한 번 받아 둔다 — 서버 길의 «받은 적 있나» 잠금은 풀려 있고, 모듈의 «이 달을 받았나» 잠금만 본다
+    await tick(); hold = true;   // 만들 때 오늘 일정을 한 번 받아 둔다 — 서버 경로의 «받은 적 있나» 잠금은 풀려 있고, 모듈의 «이 달을 받았나» 잠금만 본다
     E.S.renderSchedCalendar(); E.el('mhSchedInput').value = 'x'; E.el('mhSchedAddBtn').fire('click'); await tick();
     chk(E.calls('POST', /./).length === 0, 'x');
   });
@@ -943,7 +943,7 @@ await sec('── 9. 일부러 깨 보기 (빨강이 나야 한다)', async () =
   await broken('까닭 글을 안 보인다', (x) => x.replace("if(hint) hint.textContent = PUBLIC_TAG_HINT;", ""), async (src) => { await tagScenario(src, false); });
   await broken('늦게 온 🔔 알림 답의 세대 확인을 뺀다', (x) => x.replace("  if(gen !== _gen) return;\n  _loadFailing = false;\n  const prevIds", "  _loadFailing = false;\n  const prevIds"), async (src) => { await staleBell(src); });
   await broken('늦게 온 오늘 일정 답의 세대 확인을 뺀다', (x) => x.replace("    if(gen !== _gen) return;\n    const dayObj", "    const dayObj"), async (src) => { await staleBell(src); });
-  await broken('reset 이 서버 길의 «받음» 기억을 안 비운다', (x) => x.replace("  scheduleApi.reset();\n", ""), async (src) => { await staleBell(src); });
+  await broken('reset 이 서버 경로의 «받음» 기억을 안 비운다', (x) => x.replace("  scheduleApi.reset();\n", ""), async (src) => { await staleBell(src); });
   await broken('구경을 끝내도 늦게 온 친구 답을 받아 둔다', (x) => x.replace("function _visitStop(){ _visitSeq++; ", "function _visitStop(){ "), async (src) => {
     const dl = deferred();
     const E = mkEnv({ src, routes: { 'GET /v2/me/ddays': BOARD(), 'GET /v2/schedules/f1': [], 'GET /v2/ddays/f1': () => dl.p } });

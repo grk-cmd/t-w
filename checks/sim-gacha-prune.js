@@ -69,7 +69,7 @@ function freshWorld(){
 }
 const wearing = seat => P.catIds(seat.charDef, CAT).includes(REC.id);
 
-/* 서버 스텁 — 가챠 서버 길(gachaApi.load)을 갈아 끼운다. owned 를 비운 채 읽기에 성공한다(= B기기 / 초기화된 계정) */
+/* 서버 스텁 — 가챠 서버 경로(gachaApi.load)를 갈아 끼운다. owned 를 비운 채 읽기에 성공한다(= B기기 / 초기화된 계정) */
 function serverStub({ readOk = true, owned = {}, delay = 0 } = {}){
   P.setApi({ load: () => new Promise((res, rej) => realST(() => readOk ? res({ owned, unlocked: {}, earned: 0, bonus: 0, left: 0, season: 'summer' }) : rej(Object.assign(new Error('x'), { kind: 'unavailable' })), delay)) });
 }

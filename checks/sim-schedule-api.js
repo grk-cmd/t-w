@@ -9,7 +9,7 @@
    ・5절: 카드 그림 — data: 만 서버(POST /v2/me/images?purpose=dday · 바이트 그대로)에 올려 주소로 바꿈 · 1MB 넘음 · 형식 아님 · 400 / 413 / 415 → IMAGE_UPLOAD · 올리기 실패면 보드를 보내지 않음 · 계정 바뀜
    ・6절: 🔔 알림 — 일정 태그만 · 모양 · 지우기
    ・7절: 배선 — 부르는 곳이 firebaseAPI 로 일정을 안 부름 · firebase-init 에 옛 메서드가 없음 · html · smoke 순서
-   ・8절: 일부러 깨 보기
+   ・8절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -31,7 +31,7 @@ const SRC0 = {
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const load = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwScheduleApi; };
-let IMGSRC = SRC0.IMG;   // 검사 중인 image-bytes.js 원본(깨 보기가 바꿔 끼운다)
+let IMGSRC = SRC0.IMG;   // 검사 중인 image-bytes.js 원본(mutation test 가 바꿔 끼운다)
 const imgMod = () => { const w = {}; new Function('window', 'module', IMGSRC)(w, undefined); return w.TwImageBytes; };
 const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 
@@ -300,7 +300,7 @@ say('── 7. 배선');
   const FI = strip(SRC0.FI), APP = strip(SRC0.APP);
   const OLD = ['getScheduleMonth', 'subscribeScheduleMonth', 'addScheduleItem', 'removeScheduleItem', 'setScheduleItemPublic', 'subscribeDdays', 'saveDday', 'removeDday', 'setDdayOrder', 'sendScheduleNotices', 'subscribeSchedNotices', 'removeSchedNotice'];
   chk(OLD.every((n) => !new RegExp('\\b' + n + '\\b').test(FI)), 'firebase-init.js 에 일정 · 디데이 옛 메서드가 없다');
-  chk(!/uploadDdayImage/.test(FI) && !/uploadDdayImage/.test(APP) && !/uploadImage/.test(APP.match(/TwScheduleApi\.createScheduleApi\(\{[\s\S]*?\}\);/)[0]), '  카드 그림 올리기도 서버 길로 옮겼다 — firebase-init 에 uploadDdayImage 없음 · app.js 가 provider 에 올리기 함수를 넘기지 않는다');
+  chk(!/uploadDdayImage/.test(FI) && !/uploadDdayImage/.test(APP) && !/uploadImage/.test(APP.match(/TwScheduleApi\.createScheduleApi\(\{[\s\S]*?\}\);/)[0]), '  카드 그림 올리기도 서버 경로로 옮겼다 — firebase-init 에 uploadDdayImage 없음 · app.js 가 provider 에 올리기 함수를 넘기지 않는다');
   const callers = [strip(SRC0.SCH), strip(SRC0.INIT), strip(SRC0.VISIT)].join('\n');
   chk(OLD.every((n) => !new RegExp('firebaseAPI\\.' + n + '\\b').test(callers)) && !/firebaseAPI/.test(strip(SRC0.SCH)), '부르는 곳(scheduler · myhome-init · myhome-visit)이 firebaseAPI 로 일정을 안 부른다');
   chk(/TwScheduleApi\.createScheduleApi\(\{\s*authed: TwApi\.authed,/.test(APP) && /scheduleApi: scheduleApiMod/.test(APP), 'app.js 가 로그인 통로(TwApi.authed)로 provider 를 만들어 스케줄러에 넘긴다');
@@ -309,15 +309,15 @@ say('── 7. 배선');
   chk(/PRELOAD\.push\('schedule-api\.js'\)/.test(SRC0.SMOKE), 'smoke PRELOAD 에 schedule-api.js');
 }
 
-say('── 8. 일부러 깨 보기 (빨강이 나야 한다)');
+say('── 8. mutation test (빨강이 나야 한다)');
 {
   const broken = async (label, patch, scenario) => {
     const src = patch(SRC);
-    if(src === SRC){ chk(false, '깨 보기 — ' + label + ' (바뀐 곳이 없다 — 판정 글자를 못 찾음)'); return; }
+    if(src === SRC){ chk(false, 'mutation test — ' + label + ' (바뀐 곳이 없다 — 판정 글자를 못 찾음)'); return; }
     quiet = true; qfail = 0;
     try{ await scenario(src); }catch(e){ qfail++; }
     quiet = false;
-    chk(qfail > 0, '깨 보기 — ' + label + ' → 빨강');
+    chk(qfail > 0, 'mutation test — ' + label + ' → 빨강');
   };
   const oneSave = async (src) => {
     const { m, authed } = mk(src, { 'GET /v2/me/ddays': BOARD(), 'PUT /v2/me/ddays': BOARD({ version: 6 }) });
@@ -372,13 +372,13 @@ say('── 8. 일부러 깨 보기 (빨강이 나야 한다)');
     const e = await rej(f.m.saveBoard('me1', b, null));
     return { f, e };
   };
-  {   // 크기 판정은 shared/image-bytes.js 한 곳 — 거기를 깨 본다
+  {   // 크기 판정은 shared/image-bytes.js 한 곳 — 거기를 망가뜨려 본다
     const imgSrc = SRC0.IMG.replace('img.bytes.length > o.maxBytes', 'false');
-    chk(imgSrc !== SRC0.IMG, '깨 보기 — 1MB 를 넘어도 보낸다 (바뀐 곳이 있다)');
+    chk(imgSrc !== SRC0.IMG, 'mutation test — 1MB 를 넘어도 보낸다 (바뀐 곳이 있다)');
     IMGSRC = imgSrc; quiet = true; qfail = 0;
     try{ const { f } = await upOne(SRC, bigUrl); chk(f.ups.length === 0, 'x'); }catch(e){ qfail++; }
     quiet = false; IMGSRC = SRC0.IMG;
-    chk(qfail > 0, '깨 보기 — 1MB 를 넘어도 보낸다 → 빨강');
+    chk(qfail > 0, 'mutation test — 1MB 를 넘어도 보낸다 → 빨강');
   }
   await broken('상한을 두 배로 느슨하게 잡는다', (x) => x.replace('IMAGE_BYTES: 1024 * 1024', 'IMAGE_BYTES: 2048 * 1024'), async (src) => {
     const { f } = await upOne(src, bigUrl);

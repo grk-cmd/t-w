@@ -4,7 +4,7 @@
    ・1절: parseDataUrl — 바이트가 그대로 나온다 · 형식이 아니면 null · base64 가 깨지면 null · 종류 글자 모양
    ・2절: inspect — 허용 종류 · 빈 그림 · 상한 바로 아래 · 상한 · 상한 위 · 상한 안 줌
    ・3절: 배선 — html 에서 app.js 보다 먼저 · smoke PRELOAD · 세 provider 에 data: 풀기 사본이 없다(atob 0) · app.js 가 TwImageBytes 를 넘긴다
-   ・4절: 일부러 깨 보기
+   ・4절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -84,7 +84,7 @@ function judge(S){
 
 judge(SRC0);
 
-say('── 4. 일부러 깨 보기');
+say('── 4. mutation test');
 const BREAKS = [
   ['IMG', "img.bytes.length > o.maxBytes", "false", '상한 비교를 뺌'],
   ['IMG', "img.bytes.length > o.maxBytes", "img.bytes.length >= o.maxBytes", '상한과 같은 크기를 거절함'],
@@ -107,7 +107,7 @@ for(const [where, from, to, what] of BREAKS){
   caught.push([what, qfail]);
 }
 const missed = caught.filter(([, k]) => k === 0).map(([w]) => w);
-chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
 console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

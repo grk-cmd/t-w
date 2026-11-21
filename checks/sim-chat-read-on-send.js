@@ -10,7 +10,7 @@
    ・4절: 보내고 바로 나갔다 다시 들어와 셀 때 내 메시지가 안 읽음으로 안 잡힌다 · 열린 창의 구분선은 안 움직인다
    ・5절: 날리기(🌊)로 보내도 기록에 남으므로 읽음도 맞춘다
    ・(6절 걷음 — 서버가 chatSaid 로 줄의 id · 시각을 준다(chat-rt.js · sim-chat-rt.js))
-   ・7절: 일부러 깨 보기 — 고친 줄을 되돌리면 빨강
+   ・7절: mutation test — 고친 줄을 되돌리면 빨강
    [실행] chat-ui.js · chat-tabs.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기(이름 없음 → «이름 없음») — 진짜 파일
@@ -246,7 +246,7 @@ async function judgeAll(src){
 (async () => {
   let rows; try{ rows = await judgeAll(MOD); }catch(e){ rows = [[false, '돌리다 던짐 — ' + String(e && e.message || e).slice(0, 120)]]; }
   rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1~5. 실제로 돌려 보기'); chk(ok, msg); });
-  say('── 7. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+  say('── 7. mutation test — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['탭 실패를 «?» 로 그리지 않음', (s) => s.replace("const unk = t.id !== cur && _chatTabUnread[t.id] === null;", 'const unk = false;')],
     ['뱃지 실패를 알리지 않음(0 으로 보임)', (s) => s.replace("e => { _chatUnreadFailed(room, '', e); _setChatBadge(null); }", 'undefined')],
@@ -260,10 +260,10 @@ async function judgeAll(src){
   ];
   for(const [name, f] of breaks){
     const b = f(MOD);
-    if(b === MOD){ chk(false, '깨 보기 «' + name + '» — 바꿀 줄을 못 찾음'); continue; }
+    if(b === MOD){ chk(false, 'mutation test «' + name + '» — 바꿀 줄을 못 찾음'); continue; }
     let bad = 0;
     try{ bad = (await judgeAll(b)).filter(([ok]) => !ok).length; }catch(_){ bad = 1; }
-    chk(bad > 0, '깨 보기 «' + name + '» → 빨강 ' + bad + '건');
+    chk(bad > 0, 'mutation test «' + name + '» → 빨강 ' + bad + '건');
   }
   say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
   process.exit(fail ? 1 : 0);

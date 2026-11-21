@@ -9,7 +9,7 @@
    ・4절: 미니미 — _ □ 저장(tw.focusLogMini) · 제목 · 짧은 라벨 · 열려 있으면 좌상단 고정 · 본문 누름 토글(미니미에서만) · 저장값으로 시작
    ・5절: 화면 안 가두기 · 끌기 — 중앙정렬 상태는 안 건드림 · 옮긴 뒤엔 가둠 · _ □ ✕ 위 누름은 끌기 아님
    ・6절: app.js 배선 — 정의는 모듈에만 · 만드는 곳 한 곳 · 원래 자리 · deps 모양(함수는 화살표 · let 은 읽는 함수) · 빈 껍데기 · html 순서 · 전역 이름
-   ・7절: 일부러 깨 보기 — 모듈 글을 조금씩 망가뜨려 2~5절이 잡아내는지(이 검사가 헛돌지 않는지) 스스로 확인
+   ・7절: mutation test — 모듈 글을 조금씩 망가뜨려 2~5절이 잡아내는지(이 검사가 헛돌지 않는지) 스스로 확인
    [실행] focus-log.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
@@ -89,7 +89,7 @@ function mkEnv(opt){
   return env;
 }
 
-/* 2~5절 — 7절(일부러 깨 보기)이 망가뜨린 글로 다시 굴린다 */
+/* 2~5절 — 7절(mutation test)이 망가뜨린 글로 다시 굴린다 */
 function behave(src){
   const E = (o) => mkEnv(Object.assign({ src }, o || {}));
 
@@ -287,7 +287,7 @@ sec('── 6. app.js 배선', () => {
   chk(/^const focusLog = TwFocusLog\.createFocusLog\(\{/m.test(APP), '만드는 줄에 «없으면 빈 껍데기» 가드가 없다 — 모듈이 안 실리면 그 줄에서 멈춘다(가드 걷기 3차)');
 });
 
-sec('── 7. 일부러 깨 보기 — 이 검사가 헛돌지 않는가', () => {
+sec('── 7. mutation test — 이 검사가 헛돌지 않는가', () => {
   const CASES = [
     ['누적 기록을 값으로', s => s.replace('const total = _focusTotalSec();', 'const total = _focusTotalSec;')],
     ['못 받았는데 0 으로 그림', s => s.replace("total === null ? '--:--:--' : formatHMS(total)", 'formatHMS(total)')],

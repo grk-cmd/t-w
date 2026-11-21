@@ -1,5 +1,5 @@
 /* ═══ ⏱ sim-focus-progress.js — 포커스 진척(서버 값 · 못 올린 초 · 올리기 · 별 색) 실제로 돌려 본다 (0.13 앱 묶음 D5-2) ═══
-   focus-progress.js 를 가짜 서버 길(focusApi) · 가짜 계정 칸 · 가짜 세션 위에서 그대로 돌린다. 답은 손으로 풀어 줘서(deferred) «보내는 중» 의 모든 순간을 잡는다.
+   focus-progress.js 를 가짜 서버 경로(focusApi) · 가짜 계정 칸 · 가짜 세션 위에서 그대로 돌린다. 답은 손으로 풀어 줘서(deferred) «보내는 중» 의 모든 순간을 잡는다.
    ・1절: 시작 — GET 한 번 → loading → ready(레벨 · 회차 · 별은 서버 값) · 실패 → failed + 번호 0 · 다시 받기(창 열기) 실패 → E-FOCUS-01 한 번 · 두 번 시작해도 GET 한 번
    ・2절: 보내는 때 — 599 → 0번 · 600 → 1번 · 레벨 경계(3600)를 넘기는 순간 1번 · 집중 끝남은 60초 이상일 때만 · 켤 때 남은 몫 · 받기 전에는 안 보냄
    ・3절: 한 줄 — 보내는 중 1초씩 쌓기 → 남은 몫 = 쌓인 것 − 보낸 것 · busy 면 again 한 번 · acceptedSec < sent 면 나머지를 버림
@@ -8,7 +8,7 @@
    ・6절: 별 색 — 바로 보이고 · 한 줄 · 실패하면 이전 색 + E-FOCUS-03 · 받기 전 · 팔레트 밖은 거절
    ・7절: 읽기 — 해금 레벨 = 서버 레벨 · 별 모양 · 레벨 막대용 합계(받기 전 null) · 로그아웃 올리기 · 앱 끄기 · 옛 누적 올리기
    ・8절: 배선 — app.js · html · smoke
-   ・9절: 일부러 깨 보기 */
+   ・9절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
@@ -34,7 +34,7 @@ const prog = (total, o) => {
 };
 const load = (src, timers) => { const w = {}; new Function('window', 'module', 'setTimeout', 'setInterval', src)(w, undefined, timers.setTimeout, timers.setInterval); return w.TwFocusProgress; };
 
-/* 한 판 — 손으로 푸는 가짜 서버 길 · 가짜 계정 칸 · 가짜 세션 */
+/* 한 판 — 손으로 푸는 가짜 서버 경로 · 가짜 계정 칸 · 가짜 세션 */
 function world(S, o){
   o = o || {};
   const W = { gets: [], accrues: [], patches: [], notes: [], days: [], store: new Map(), storeWrites: 0, resets: [], quit: [], timers: 0, resetApi: 0 };
@@ -221,7 +221,7 @@ async function judge(S){
   W = world(S); W.start(); W.reset();
   await W.ok(W.gets[0], prog(9000));
   chk(W.mod.progress().load === 'idle' && W.mod.getFocusLevel() === 1 && W.days.every((d) => d === null), '★ reset 뒤 늦은 GET 답 → 아무것도 안 바뀐다(idle · 서버 날 안 채움)');
-  chk(W.resetApi === 1 && W.days[W.days.length - 1] === null, '  reset 은 서버 길의 «읽은 주인» 도 비우고 서버 날을 비운다');
+  chk(W.resetApi === 1 && W.days[W.days.length - 1] === null, '  reset 은 서버 경로의 «읽은 주인» 도 비우고 서버 날을 비운다');
   W = await world(S).up(0);
   W.add(600); const w0 = W.storeWrites;
   W.reset();
@@ -329,7 +329,7 @@ async function judge(S){
   say('── 8. 배선');
   const A = S.APP;
   const mk = (A.match(/const focusProgressMod = TwFocusProgress\.createFocusProgress\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
-  chk(/const focusApiMod = TwFocusApi\.createFocusApi\(\{ authed: TwApi\.authed/.test(A) && /focusApi: focusApiMod,/.test(mk) && /focusStore: accountStoreMod/.test(mk) && /notifyError: \(\.\.\.a\)=>TwErrorCodes\.notify\(\.\.\.a\)/.test(mk) && /setServerDay: \(t\)=>focusTotalMod\.setServerDay\(t\)/.test(mk) && /addQuitListener/.test(mk), 'app.js — 진척 모듈을 서버 길 · 계정 칸 · 오류 번호 · 서버 날에 잇는다');
+  chk(/const focusApiMod = TwFocusApi\.createFocusApi\(\{ authed: TwApi\.authed/.test(A) && /focusApi: focusApiMod,/.test(mk) && /focusStore: accountStoreMod/.test(mk) && /notifyError: \(\.\.\.a\)=>TwErrorCodes\.notify\(\.\.\.a\)/.test(mk) && /setServerDay: \(t\)=>focusTotalMod\.setServerDay\(t\)/.test(mk) && /addQuitListener/.test(mk), 'app.js — 진척 모듈을 서버 경로 · 계정 칸 · 오류 번호 · 서버 날에 잇는다');
   chk(/focusLevel: \(code, me, session\)=>\{ focusProgressMod\.startFocus\(code, me, session\); focusLevelMod\.startMobile\(code, me, session\); \},/.test(A), 'app.js — app-boot 의 focusLevel 차례가 startFocus · startMobile(code, me, session) — 세션을 넘긴다');
   chk(!/startFocusSync|syncFocusTotalToServer/.test(A), '  옛 시작 · 동기화 부름이 없다');
   chk(/else if\(_focusAccruedLast\) focusProgressMod\(\)\.focusEnded\(\);/.test(S.WM) && /focusProgressMod: \(\)=>focusProgressMod,/.test(A), 'window-mode.js — 집중이 끝나는 순간 focusEnded 를 부른다(app.js 가 읽는 함수로 넘긴다)');
@@ -342,7 +342,7 @@ async function judge(S){
 (async () => {
   await judge(SRC0);
 
-  say('── 9. 일부러 깨 보기');
+  say('── 9. mutation test');
   const BREAKS = [
     ['MOD', "    if(busy){ again = true; return running; }", "    if(false){ again = true; return running; }", '한 줄(busy)을 빼서 보내는 중에 또 보냄'],
     ['MOD', "            pendingRaw = Math.max(0, pendingRaw - sent);", "            pendingRaw = 0;", '남은 몫 셈을 = 0 으로'],
@@ -384,7 +384,7 @@ async function judge(S){
     caught.push([what, qfail]);
   }
   const missed = caught.filter(([, k]) => k === 0).map(([w]) => w);
-  chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+  chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
   console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
   process.exit(fail ? 1 : 0);

@@ -3,7 +3,7 @@
           꺼져 있으면 예전처럼 'sleep' · 자리비움 · 데스크톱 모드가 아닐 때는 예전 그대로.
    ・2절: 진짜 _applyActiveAppState 를 돌린다 — 피규어 모드면 등록한 포커싱 어플을 써도 · 폰이 켜져 있어도 안 쌓인다(👑 달성표 🎯집중도) ·
           켠 순간(직전 폴링이 «쌓는 중» 이어도)부터 멈춘다 · 끄면 예전처럼 쌓인다.
-   ・3절: 깨 보기 — 고친 줄을 옛 모양으로 되돌리면 1 · 2 · 4절이 빨강이 되는지.
+   ・3절: mutation test — 고친 줄을 옛 모양으로 되돌리면 1 · 2 · 4절이 빨강이 되는지.
    ・4절: 투게더워킹 창이 맨 앞(isSelf) — 등록 앱이 아니어도(게이트 닫힘) 손 뗀 지 8초까지 idle · 넘으면 sleep. */
 'use strict';
 const fs = require('fs'), vm = require('vm');
@@ -156,7 +156,7 @@ if(SS && AP && SLEEP_M){
   sec1(SS);
   sec2(AP);
   sec4(SS, AP);
-  say('── 3. 깨 보기');
+  say('── 3. mutation test');
   const ssOld = SS.replace(/if\(idle>SLEEP_MS && !\(desktopMode\(\) && figureMode\(\)\)\)return 'sleep';/, "if(idle>SLEEP_MS)return 'sleep';");
   chk(ssOld !== SS && !sec1(ssOld, true), '피규어 모드 조건을 빼면(옛 모양) 1절이 빨강');
   const apOld = AP.replace(/const accruing = !officeModeMod\.figureMode\(\) && _focusWasActive/, 'const accruing = _focusWasActive');

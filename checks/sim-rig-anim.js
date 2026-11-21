@@ -4,7 +4,7 @@
    ・3절: animateRig — 허리 기울임(집중 · 호흡 고정) · 본이 없는 좌석도 던지지 않음
    ・4절: setClip — 같은 클립이면 안 건드림 · 바꾸면 이전 것 페이드아웃 · 믹서 없음
    ・5절: 연결 — deps 모양 · 옛 이름 · html 순서
-   ・6절: 일부러 깨 보기 */
+   ・6절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -79,7 +79,7 @@ say('§5 연결');
   chk(['STATES', 'targetFor', 'lerp', 'SPINE_AXIS', 'HEAD_AXIS', 'HAND_REST', 'FOCUS_ARM_LIFT', 'SHAKE_ARM_DROOP', 'boneSide', 'setBone', 'animateRig', 'setClip'].every(n => new RegExp('^const ' + n + ' = rigAnimMod\\.' + n + ';', 'm').test(code)), '  옛 이름 열둘을 const 로 받는다');
   chk(!/function (targetFor|animateRig|setClip|setBone|boneSide)\b/.test(code), '  본문이 app.js 에 안 남음');
 }
-say('§6 일부러 깨 보기');
+say('§6 mutation test');
 {
   const brk = (a, c) => { const m = SRC.replace(a, c); return m === SRC ? null : m; };
   const m1 = brk("const breath = _focusLock ? 0 :", "const breath = false ? 0 :");

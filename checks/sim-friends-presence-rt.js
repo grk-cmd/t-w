@@ -11,7 +11,7 @@
    ・4절: presence-self — 시작 전엔 안 보냄 · start 하면 status · 붙을 때마다 다시 · 값이 바뀌면 바로 · 타이머 없음 ·
           reset(계정 놓기 — onUnload 에 걸림) 뒤엔 붙어도 안 보냄 · 다시 start 하면 새 값 하나만
    ・5절: 배선 — html 차례 · smoke PRELOAD · app.js 가 realtime 연결 하나를 넘김
-   ・6절: 일부러 깨 보기 */
+   ・6절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
@@ -317,7 +317,7 @@ async function judge(S){
 (async () => {
 await judge(SRC0);
 
-say('── 6. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 6. mutation test — 하나라도 못 잡으면 빨강');
 const BREAKS = [
   ['PRT', 'chunk(want, PRESENCE_IDS_MAX).map(', '[want].map(', '100명을 넘겨도 나누지 않음'],
   ['PRT', 'const want = Array.from(new Set((ids || []).filter(Boolean)));', 'const want = (ids || []);', '겹침 · 빈 값을 안 거름'],
@@ -354,7 +354,7 @@ for(const [where, from, to, what] of BREAKS){
   caught.push([what, qfail]);
 }
 const missed = caught.filter(([, n]) => n === 0).map(([w]) => w);
-chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
 console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

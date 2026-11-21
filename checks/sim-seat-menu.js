@@ -6,7 +6,7 @@
    ・2절: 내 좌석 — 캐릭터 편집 · 자리비움 / 해제
    ・3절: 때리기 — 프리미엄만 · 남은 횟수 · 0 이면 눌러도 안내만 · 숨긴 캐릭터는 없음
    ・4절: 닫기 — 뒷판 클릭 · 뒷판 우클릭 · ESC(전파 끊기) · 바깥 클릭 · 다시 열면 앞 메뉴를 지움 · 화면 밖이면 안쪽으로
-   ・5절: 입구 전제 · 6절: app.js 연결 · 7절: 일부러 깨 보기 */
+   ・5절: 입구 전제 · 6절: app.js 연결 · 7절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -142,7 +142,7 @@ B.forEach(([ok, msg], i) => { const s = { 0: '── 1. 남의 좌석', 10: '─
 say('── 6. app.js 연결');
 wire(APP, HTML, OVER).forEach(([ok, msg]) => chk(ok, msg));
 chk(!SMOKE || /PRELOAD\.push\('seat-menu\.js'\);/.test(SMOKE), 'smoke 가 seat-menu.js 를 먼저 싣는다');
-say('── 7. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 7. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['ESC 전파를 안 끊음', (m) => m.replace("if(e.key === 'Escape'){ e.stopPropagation(); close(); return; }", "if(e.key === 'Escape'){ close(); return; }"), null, null, null],
   ['뒷판을 안 지움', (m) => m.replace('    menu.remove();\n    backdrop.remove();', '    menu.remove();'), null, null, null],
@@ -151,7 +151,7 @@ const breaks = [
   ['숨긴 캐릭터도 때리기', (m) => m.replace('if(_premiumOn() && !hiddenSeatsMod._seatHidden(seat)){', 'if(_premiumOn()){'), null, null, null],
   ['비움 해제가 away', (m) => m.replace("setUserStatus(_away ? null : 'away');", "setUserStatus('away');"), null, null, null],
   ['입구 전제 없앰', (m) => m.replace('  if(!ev || !seat || !document.body) return;', ''), null, null, null],
-  ['만들 때 던짐', (m) => m.replace('function createSeatMenu(deps){', 'function createSeatMenu(deps){ throw new Error("깨 봄");'), null, null, null],
+  ['만들 때 던짐', (m) => m.replace('function createSeatMenu(deps){', 'function createSeatMenu(deps){ throw new Error("mutation");'), null, null, null],
   ['app.js 에 본문이 남음', null, (a) => a + '\nfunction _seatCtxMenu(ev, seat){}', null, null],
   ['잇는 줄 빠짐', null, (a) => a.replace(/\noverheadMod\.setSeatMenu\([^\n]*/, ''), null, null],
   ['이름표가 잇기 전에 부름', null, null, null, (v) => v.replace('if(_seatMenuFn) _seatMenuFn(e, seat);', '_seatMenuFn(e, seat);')],

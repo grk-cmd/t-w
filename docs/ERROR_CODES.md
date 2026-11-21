@@ -96,10 +96,10 @@
 | `E-CHAR-06` | 저장된 프리셋을 읽지 못해 덮어쓰지 않았어요 | `creator/desk-preset.js` — 책상 프리셋 저장 · 비우기를 막음(망가진 저장분 그대로 둠) |
 | `E-CHAR-07` | 저장된 프리셋을 읽지 못해 덮어쓰지 않았어요 | `character/animal.js` — 동물 프리셋 저장 · 삭제를 막음(망가진 저장분 그대로 둠) |
 | `E-CHAR-08` | 프리셋의 책상을 찾지 못해 기본 책상으로 열었어요 | `creator/desk-preset.js` — 프리셋 적용 중 카탈로그 책상을 못 찾음 · 못 받음(프리셋엔 카탈로그 책상 id 만 담는다) |
-| `E-CHAR-09` | 로그인이 풀려 있어 뽑지 않았어요 — 다시 로그인한 뒤 뽑아 주세요(횟수는 그대로예요) | `character/gacha.js` — 내 코드 없음 · 보유분을 받기 전 · 계정이 바뀜 · 서버 길 401/403 |
-| `E-CHAR-10` | 서버에 닿지 않아 뽑지 않았어요 — 인터넷 연결을 확인하고 다시 시도해 주세요(횟수는 그대로예요) | `character/gacha.js` — 서버 길 닿지 못함 · 5xx |
+| `E-CHAR-09` | 로그인이 풀려 있어 뽑지 않았어요 — 다시 로그인한 뒤 뽑아 주세요(횟수는 그대로예요) | `character/gacha.js` — 내 코드 없음 · 보유분을 받기 전 · 계정이 바뀜 · 서버 경로 401/403 |
+| `E-CHAR-10` | 서버에 닿지 않아 뽑지 않았어요 — 인터넷 연결을 확인하고 다시 시도해 주세요(횟수는 그대로예요) | `character/gacha.js` — 서버 경로 닿지 못함 · 5xx |
 | `E-CHAR-11` | 서버 응답이 늦어 뽑기 결과를 확인하지 못했어요 — 잠시 뒤 보관함을 열어 확인해 주세요 | `character/gacha.js` — 뽑기 응답 시간 초과(서버엔 들어갔을 수 있음 — 보관함을 열면 다시 받음) |
-| `E-CHAR-12` | 뽑기를 저장하지 못했어요 — 잠시 후 다시 시도해 주세요(횟수는 그대로예요) | `character/gacha.js` — 서버 길 서버 바쁨 · 카탈로그 준비 중 · 그 밖 4xx(`gacha-api.js` reasonOf) |
+| `E-CHAR-12` | 뽑기를 저장하지 못했어요 — 잠시 후 다시 시도해 주세요(횟수는 그대로예요) | `character/gacha.js` — 서버 경로 서버 바쁨 · 카탈로그 준비 중 · 그 밖 4xx(`gacha-api.js` reasonOf) |
 | `E-CHAR-13` | 책상 모델을 받지 못했어요 — 인터넷 연결을 확인하고 다시 눌러 주세요 | `character/wardrobe.js` — 꾸미기 책상 탭에서 카탈로그 책상 고르기(모델 받기 실패) |
 | `E-CHAR-14` | 책상 모델을 받지 못했어요 — 인터넷 연결을 확인하고 다시 눌러 주세요 | `creator/desk-setup.js` — 생성기 책상 카드 고르기(모델 받기 실패) |
 | `E-CHAR-15` | 가챠 보관함을 불러오지 못했어요 — 보관함에서 «다시 시도» 를 눌러 주세요 | `character/gacha.js` — 서버에서 보유분 · 뽑기 수 받기 실패(보관함을 열었거나 «다시 시도» 를 누른 받기만 알림 — 서버 신호 · 시작 때는 조용히 «못 불러왔어요» 표시) |
@@ -145,8 +145,8 @@
 | `E-FOCUS-05` | 달성표를 저장하지 못했어요 | `focus/chal-store.js` — 달성표 시작 · 수정 · 자동 · 포기 저장 실패(PUT /v2/me/focus/challenges/{주} — 409 는 번호 없이 받아 와서 알림) |
 | `E-FOCUS-06` | 오늘 달성을 적지 못했어요 | `focus/chal-store.js` — 오늘 달성 적기 실패(POST /v2/me/focus/challenges/today) · 이어지는 같은 실패는 한 번 · 혼자 다시 보내지 않고 서랍 [다시 적기] 로 |
 | `E-FOCUS-07` | 달성표 보상을 받지 못했어요 | `focus/chal-store.js` — 보상 칸 받기 실패(POST /v2/me/focus/challenges/{주}/rewards/{칸}) · NOT_YET · NOTHING 은 조용히 · 이어지는 같은 실패는 한 번 · 서랍 [보상 받기] 로 |
-| `E-FOCUS-08` | 폰 연결 키를 만들지 못했어요 | `focus/focus-api.js` 길 — 폰 연결 새 키 만들기(POST /v2/me/focus/mobile-link) |
-| `E-FOCUS-09` | 폰 연결을 끊지 못했어요 | `focus/focus-api.js` 길 — 폰 연결 끊기(DELETE /v2/me/focus/mobile-link) |
+| `E-FOCUS-08` | 폰 연결 키를 만들지 못했어요 | `focus/focus-api.js` endpoint — 폰 연결 새 키 만들기(POST /v2/me/focus/mobile-link) |
+| `E-FOCUS-09` | 폰 연결을 끊지 못했어요 | `focus/focus-api.js` endpoint — 폰 연결 끊기(DELETE /v2/me/focus/mobile-link) |
 | `E-BUG-01` | 제보 목록을 불러오지 못했어요 | `support/bug-board-ui.js` — 버그제보 탭 목록 · 필터 · [다음]/[이전] · [다시 시도](`GET /v2/bugs` — 기능 갈래도 공통 code(`api-errors.js`)도 아닌 실패 · «목록을 불러오지 못했어요 [다시 시도]» · 다시 보내지 않음 · 공지 받기 실패는 번호 없이 공지 칸만 비움) |
 | `E-BUG-02` | 제보를 불러오지 못했어요 | `support/bug-board-ui.js` — 글 열기 · 우편함 «가기» · [다시 시도](`GET /v2/bugs/{number}` — 없는 글 · 남의 비공개 글은 번호 없이 «없음» · «비공개» 화면) |
 | `E-BUG-03` | 제보를 올리지 못했어요 | `support/bug-board-ui.js` — 글쓰기 [등록](`POST /v2/bugs` — 하루 상한 · 공지 조건은 번호 없이 안내 · 입력은 그대로 · 다시 보내지 않음) |

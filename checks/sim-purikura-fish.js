@@ -116,7 +116,7 @@ sec('── 5. 업데이트 안 한 참가자', () => {
     const brk = SRC['purikura-net.js'].replace("out.push(typeof v.name === 'string' ? v.name : '');", "out.push(String(v.name || '참가자'));");
     let red = brk === SRC['purikura-net.js'];
     if(!red){ try{ red = shownOf(lagOf(brk)) !== '나 · 나'; }catch(_){ red = true; } }
-    chk(red && brk !== SRC['purikura-net.js'], '  깨 보기 — «참가자» 자리표시를 다시 만들면 빨강');
+    chk(red && brk !== SRC['purikura-net.js'], '  mutation test — «참가자» 자리표시를 다시 만들면 빨강');
   }
   /* 자리를 잡을 때 내 앱의 필터 판(fx)을 서버에 알린다 — 서버가 자리 칸에 적어 모두에게 돌려준다(photoWelcome · photoSlots) */
   const sent = [];

@@ -5,7 +5,7 @@
    ・1절: 창 열기 · 닫기 — 종류별 제목 · 입력 비우기 · 넣을 종류 기억
    ・2절: 거르기 — 복호화 없음 · 빈 입력 · 틀린 비밀번호 · 1MB 초과 · 개수 한도(파츠는 꾸미기 통만) · 캐릭터 용량(책상은 지금 책상을 빼고)
    ・3절: 등록 — 책상(바로 끼우기) · 아이템(등록 · 장착) · 파츠(이 기기 통 · 꾸미기 다시 그리기 구독)
-   ・4절: 입구 전제 · 5절: app.js 연결 · 6절: 일부러 깨 보기 */
+   ・4절: 입구 전제 · 5절: app.js 연결 · 6절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -148,7 +148,7 @@ function wire(app, html) {
   say('── 5. app.js 연결');
   wire(APP, HTML).forEach(([ok, msg]) => chk(ok, msg));
   chk(!SMOKE || /PRELOAD\.push\('asset-import\.js'\);/.test(SMOKE), 'smoke 가 asset-import.js 를 먼저 싣는다');
-  say('── 6. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+  say('── 6. mutation test — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['개수 한도 >= → >', (m) => m.replace('if(arr.length>=_maxAssets)', 'if(arr.length>_maxAssets)'), null, null],
     ['1MB 검사 없앰', (m) => m.replace("if(u.glbBuf.byteLength>commissionMod().MAX_GLB_BYTES){ toast('GLB가 1MB를 넘어요'); return; }", ''), null, null],
@@ -157,7 +157,7 @@ function wire(app, html) {
     ['꾸미기 다시 그리기 안 부름', (m) => m.replace('      _partAddedFns.forEach((f)=>f());', ''), null, null],
     ['책상 크기를 처음값으로', (m) => m.replace('setCreatorDeskScale(crState.cDeskScale)', 'setCreatorDeskScale(0.175)'), null, null],
     ['입구 전제 없앰(열기)', (m) => m.replace('function openAssetImport(kind, cat){ if(!assetImpOverlay) return;', 'function openAssetImport(kind, cat){'), null, null],
-    ['만들 때 던짐', (m) => m.replace('function createAssetImport(deps){', 'function createAssetImport(deps){ throw new Error("깨 봄");'), null, null],
+    ['만들 때 던짐', (m) => m.replace('function createAssetImport(deps){', 'function createAssetImport(deps){ throw new Error("mutation");'), null, null],
     ['app.js 에 본문이 남음', null, (a) => a + '\nfunction openAssetImport(){}', null],
     ['구독 줄 빠짐', null, (a) => a.replace(/\nassetImportMod\.onPartAdded\(\(\)=>wardrobeMod\.renderWardrobe\(\)\);[^\n]*/, ''), null],
     ['deps 하나 빠짐', null, (a) => a.replace('createAssetImport({\n  twNav: twNav,\n', 'createAssetImport({\n'), null],

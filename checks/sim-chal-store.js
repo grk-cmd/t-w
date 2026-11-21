@@ -1,5 +1,5 @@
 /* ═══ 👑 sim-chal-store.js — 달성표 저장소(서버 한 주 한 벌 · 쓰기 한 줄 · 오늘 판정 · 보상 받기) 실제로 돌려 본다 (0.13 앱 묶음 D5-4) ═══
-   chal-store.js 를 가짜 서버 길(chalApi — 답을 손으로 풀어 «보내는 중» 의 모든 순간을 잡는다) · 가짜 계정 칸 · 가짜 세션 위에서 그대로 돌린다.
+   chal-store.js 를 가짜 서버 경로(chalApi — 답을 손으로 풀어 «보내는 중» 의 모든 순간을 잡는다) · 가짜 계정 칸 · 가짜 세션 위에서 그대로 돌린다.
    ・1절: 셈 — 날 글자 → 요일 · 단계 · 주의 월요일 · 지난 주 이름 · 칸(✓ ✗ · ●) · 서버 목표 ↔ 화면 목표
    ・2절: 시작 · 받기 — 만들 때 요청 0 · 프리미엄이면 GET 한 번 · 아니면 0(켜지면 틱이 한 번) · PREMIUM_REQUIRED → locked(번호 0) · 실패 → failed + 번호 0 · 열기 실패 → E-FOCUS-04
    ・3절: 쓰기 한 줄 — 받기 전 누름 → 요청 0 · PUT 본문 모양 · 줄에서 차례가 왔을 때의 최신 판 · 409 → GET 1 + 잠금 + 알림 + 다시 안 보냄 · 실패 → E-FOCUS-05
@@ -7,7 +7,7 @@
    ・5절: 보상 — 열린 칸마다 POST 하나 · NOT_YET → 번호 0 · 실패 → E-FOCUS-07 한 번 + [보상 받기] · 정산 칸은 짝 선지급 칸을 같이 닫는다
    ・6절: 하루 경계 — dayEndsAt 이 지나면 GET(같은 경계에서 3번까지) · 새 날을 받으면 오늘 진행이 새로 시작
    ・7절: 계정 바뀜 — reset 뒤 늦은 답은 아무것도 안 바꾼다 · 타이머 · 구독은 세션이 정리 · 옛 오늘 진행 옮기기 · 쌓기 · 체크 · 반복
-   ・8절: 일부러 깨 보기 */
+   ・8절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
@@ -389,7 +389,7 @@ async function judge(S){
   say('── 7. 계정 바뀜 · 옛 기록 · 쌓기');
   W = world(S); W.day = today(); W.start(); W.reset();
   await W.ok(W.gets[0], week());
-  chk(W.mod.view().load === 'idle' && W.mod.view().week === null && W.apiReset === 1, '★ reset 뒤 늦은 GET 답은 아무것도 안 바꾼다 · 서버 길 주인 기억도 비운다');
+  chk(W.mod.view().load === 'idle' && W.mod.view().week === null && W.apiReset === 1, '★ reset 뒤 늦은 GET 답은 아무것도 안 바꾼다 · 서버 경로 주인 기억도 비운다');
   W = world(S); await W.up();
   pp = W.mod.setAutoNext('wd', true); await flush(); W.reset();
   await W.ok(W.puts[0], okW(week({ version: 9 }))); await pp;
@@ -440,7 +440,7 @@ async function judge(S){
   const S = { P, FP };
   await judge(S);
 
-  say('── 9. 일부러 깨 보기');
+  say('── 9. mutation test');
   const BREAKS = [
     ["if(prev.iso !== weekBefore(week.isoWeek) || prev.load === 'idle') loadPrev(true);", "loadPrev(true);", '못 받은 지난 주를 그릴 때마다 다시 받음(P3)'],
     ["if(w.version < week.version) return false;", "", '옛 판의 늦은 답을 막지 않음'],
@@ -459,7 +459,7 @@ async function judge(S){
   quiet = true;
   for(const [a, b, why] of BREAKS){
     total++;
-    if(!SRC0.MOD.includes(a)){ quiet = false; say('  ? 깨 보기 대상 글을 못 찾음 — ' + why); fail++; quiet = true; continue; }
+    if(!SRC0.MOD.includes(a)){ quiet = false; say('  ? mutation test 대상 글을 못 찾음 — ' + why); fail++; quiet = true; continue; }
     qfail = 0;
     try{
       const P2 = load(SRC0.MOD.replace(a, b));

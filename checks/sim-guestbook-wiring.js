@@ -6,7 +6,7 @@
    ・2절: 마이홈 ✕ — 알림 걸기를 떼고 배지를 숨긴다 · 뗀 뒤엔 알림이 와도 안 받는다
    ・3절: 런처로 돌아가기 — 마이홈이 열려 있었으면 감시를 끈다 · 안 열려 있었으면 건드리지 않는다
    ・4절: 친구 홈 구경 — 들어가면 열린 내 방명록 창을 닫고 배지를 숨긴다 · 돌아오면 배지를 다시 계산
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] guestbook.js · guestbook-feed.js · myhome-ui.js · myhome-visit.js · app.js 가 있는 폴더에서. */
 'use strict';
 globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
@@ -262,7 +262,7 @@ async function judge(S){
 (async () => {
   const S = { ui: SRC.ui, visit: SRC.visit, app: SRC.app };
   await judge(S);
-  say('── 5. 일부러 깨 보기');
+  say('── 5. mutation test');
   const cut = (src, a, b) => src.replace(a, b);
   const UI_START = "_step('방명록 뱃지', ()=>{ _mhGbStartWatch(); });", UI_STOP = "_step('방명록 뱃지', ()=>{ _mhGbStopWatch(); });";
   const breaks = [

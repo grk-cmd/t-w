@@ -4,8 +4,8 @@
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(_positionCascade · _positionInputBelowChar · _repositionOpenChipPopups · _tabHintTimer · setTabHintTimer · _wpTmp3 · hexToRgba · otherSeatRegions · otherSeatCircles · setSeatDeskEmoji · uiIconEl · updateMyStatusChipPosition)
      만들 때 deps 함수를 되부르지 않는다 — 만드는 도중엔 app.js 의 statusChipMod 가 아직 없어(TDZ) 되부른 refreshMyStatusUI 가 던졌다(상태를 저장해 둔 사람은 app.js 가 통째로 멈춘 사고)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 33줄 그대로 · 부르는 곳은 statusChipMod.이름 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
-   ・4절: 칩 자리 한 번에 칩 크기는 한 번만 잰다(그 사이 쓰기가 없어 두 번째 재기는 같은 값) · 깨 보기
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・4절: 칩 자리 한 번에 칩 크기는 한 번만 잰다(그 사이 쓰기가 없어 두 번째 재기는 같은 값) · mutation test
    [실행] app.js · desk-companion-prototype.html · status-chip.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -81,7 +81,7 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 5) say('── 2. app.js 연결'); chk(ok, msg); });
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/status/status-chip.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
@@ -90,9 +90,9 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const statusChipMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('statusChipMod.' + x)); if(n){ ls[i] = ls[i].replace('statusChipMod.' + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 deps 를 되부름', m => m.replace('function createStatusChip(deps){', 'function createStatusChip(deps){ setTimeout(()=>0); deps.toast("깨 봄");'), null, null],
+  ['만들 때 deps 를 되부름', m => m.replace('function createStatusChip(deps){', 'function createStatusChip(deps){ setTimeout(()=>0); deps.toast("mutation");'), null, null],
   ['부팅 줄 빠짐', null, a => a.replace('  refreshCharScaleForCurrentDisplay();\n  refreshCustomStatusMenuItem();\n}\n', '}\n'), null],
-  ['만들 때 던짐', m => m.replace('function createStatusChip(deps){', 'function createStatusChip(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createStatusChip(deps){', 'function createStatusChip(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
@@ -117,7 +117,7 @@ function chipRectReads(src){
   chk(r.n === 1 && r.left !== undefined, '★ 칩 자리 한 번에 칩 크기 읽기 ' + r.n + '번 · 자리는 적었다(left ' + r.left + ')');
   const broken = MOD.replace('const chipW = chipW0, chipH = chipH0;', 'const chipRect = chip.getBoundingClientRect();\n  const chipW = chipRect.width || chipW0, chipH = chipRect.height || chipH0;');
   const r2 = broken !== MOD ? chipRectReads(broken) : { n: 0 };
-  chk(broken !== MOD && r2.n === 2, '깨 보기 — 두 번 재던 옛 길이면 ' + r2.n + '번');
+  chk(broken !== MOD && r2.n === 2, 'mutation test — 두 번 재던 옛 길이면 ' + r2.n + '번');
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

@@ -3,7 +3,7 @@
    ・2절: 화면 숨김 — ■ 우클릭(회사원 모드가 꺼져 있으면 아무 일 없음) · body 클래스 · 버튼 표시 · 칩 팝업 닫기 · 모드를 끄면 숨김도 풀림
    ・3절: __officeDiag — 상태를 고치지 않고 읽기만
    ・4절: 연결 — html 순서 · 만드는 줄 · 옛 이름 · 읽는 자리 · focusGateSleep 이 만드는 줄 아래
-   ・5절: 일부러 깨 보기 */
+   ・5절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -80,7 +80,7 @@ say('§4 연결');
   const iMk = code.indexOf('const officeModeMod = TwOfficeMode'), iGate = code.indexOf('let focusGateSleep');
   chk(iMk > 0 && iGate > iMk, '★ focusGateSleep(깃발을 최상위에서 읽는 줄)은 만드는 줄 아래에 있다(TDZ)');
 }
-say('§5 일부러 깨 보기');
+say('§5 mutation test');
 {
   const brk = (a, c) => { const m = SRC.replace(a, c); return m === SRC ? null : m; };
   const m2 = brk("_officeHidden = !!on && officeMode;", "_officeHidden = !!on;");

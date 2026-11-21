@@ -7,7 +7,7 @@
    ・1절: 표 — 33개 · id 와 명령어가 겹치지 않음 · BY_ID · BY_CMD 가 목록과 같음 · 바꿀 수 없음 · 그림 파일이 다 있음
    ・2절: 한 곳 — 목록 글(파일 이름 줄)은 이 파일에만 · chat-ui 는 deps 로 받음 · (마이홈 바탕화면의 읽기는 게임 보관본으로 옮겨 D2-6 에서 뺐다)
    ・3절: HTML 순서(읽는 파일 · app.js 보다 먼저)
-   ・4절: 일부러 깨 보기 */
+   ・4절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -65,7 +65,7 @@ chk(/^const demojiCatalog = TwDemojiCatalog;/m.test(APP) && /^  demojiCatalog: d
 say('── 3. 싣는 순서');
 chk(R.users.length >= 1 && !R.late.length, '읽는 파일 ' + R.users.length + '개(' + R.users.join(' · ') + ')보다 먼저 싣는다' + (R.late.length ? ' — 먼저 실리는 것: ' + R.late.join(' · ') : ''));
 
-say('── 4. 일부러 깨 보기');
+say('── 4. mutation test');
 chk(judge(MOD.replace("{id:'d02',cmd:'ㄱ-'", "{id:'d01',cmd:'ㄱ-'"), HTML, FILES).uniq === false, 'id 가 겹치면 빨강');
 chk(judge(MOD.replace("const api = Object.freeze({", "const api = ({"), HTML, FILES).frozen === false, '표를 얼리지 않으면 빨강');
 const dupFiles = FILES.map(([f, t]) => [f, f === 'chat/chat-ui.js' ? t + "\nconst X = [{id:'d01',cmd:'...',file:'d01.png',w:19,h:19}];\n" : t]);

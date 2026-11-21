@@ -10,7 +10,7 @@
      남은 ① 중에는 화면 연출 · 창 위치 같은 계정 무관 타이머가 섞여 있다 — 하나씩 «계정 몫 / 무관» 가르는 일은 S-4d 앞에 한다(기준선은 늘지 않게 잡아 두기만 한다).
    ・1절: 파일을 읽었다 · 세는 법이 가짜 글에서 맞다 · 2절: 파일마다 기준선 이하 · 줄었으면 내린다
    ・3절: 실제로 돌려 본다 — 로그인 A 가 걸고 → 로그아웃(dispose) → 로그인 B: A 의 타이머 · 구독이 0 · B 는 처음부터 한 번씩 · A 의 늦은 답이 B 를 안 건드림
-   ・4절: app.js 켜는 차례(starts) 가 세션을 넘긴다 · 5절: 일부러 깨 보기 */
+   ・4절: app.js 켜는 차례(starts) 가 세션을 넘긴다 · 5절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -169,7 +169,7 @@ async function runAB(){
   ];
   for (const [name, re] of want) chk(re.test(APP), name + ' — 시작 함수가 세션을 받아 모듈에 넘긴다');
 
-  say('── 5. 일부러 깨 보기');
+  say('── 5. mutation test');
   /* 우편 구독을 세션에 안 맡기면 dispose 뒤에도 구독이 남는다 */
   { const orig = MAIL; const src = fs.readFileSync(path.join(PARTS, 'myhome/mail-feed.js'), 'utf8').replace("session.on(deps.rt.on('notification', onNotification));", "deps.rt.on('notification', onNotification);");
     const w = {}; new Function('window', 'module', src)(w, { exports: {} }); MAIL = w.TwMailFeed;

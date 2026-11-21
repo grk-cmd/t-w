@@ -1,6 +1,6 @@
 /* friends-port.js — 👥 친구 데이터 포트 — 도메인(friends-sub.js) · 화면이 부르는 모양 하나. 어디서 받을지는 provider 가 맡는다
    책임: 친구 목록 받기 · 목록(추가 · 삭제) 듣기 · 접속 상태 듣기 · 프로필(이름 · 레벨 · 회차) 듣기 · 끊기를 provider 로 잇는다. 이 파일 위로는 API · realtime 을 모른다.
-     서버 provider(friends-api.js) 한 길 — 못 받으면 던진다(옛 Firebase 길로 물러나지 않는다). 접속 상태(듣기 · 읽기)는 realtime provider(friends-presence-rt.js) 하나.
+     서버 provider(friends-api.js) 한 길 — 못 받으면 던진다(옛 Firebase 경로로 물러나지 않는다). 접속 상태(듣기 · 읽기)는 realtime provider(friends-presence-rt.js) 하나.
      목록 듣기 · 프로필 듣기는 알림 friends · card 를 받으면 다시 받는다.
    deps: presence — realtime provider(friends-presence-rt.js) { readPresence(ids) · watchPresence(ids, onChange, onStatus) · retryWatch() } ·
          api — 서버 provider(friends-api.js) { listFriends · readFriend · watchList · watchProfile · readProfile · removeFriend }

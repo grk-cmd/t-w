@@ -5,7 +5,7 @@
    ・1절: 격자 1만 점 — 같은 답 · 맞는 점 · 사각형 안 못 맞는 점이 실제로 있음(헛판정 아님) · 화면 밀기 · 캔버스 자리
    ・2절: 찾을 때 만들기 — 그린 장만 있고 판정이 없으면 안 만듦 · 판정이 찾을 때 한 번 · 다시 그리면 새 장으로 · 결과 객체 재사용 ·
           못 만든 지도 → 전체 광선 · allowRay 거짓이면 광선 안 쏨 · 회사원 숨김 · 설정 화면 · 실행 화면 아님(deps) → 빈 지도 · 다를 때 줄 재료
-   ・3절: 일부러 깨 보기 — 날아가는 몸을 지도에 · 스프라이트를 조각에서 뺌 · 숨은 책상 거르기 빠짐 · 매 장 만들기로 되돌림 ·
+   ・3절: mutation test — 날아가는 몸을 지도에 · 스프라이트를 조각에서 뺌 · 숨은 책상 거르기 빠짐 · 매 장 만들기로 되돌림 ·
           장 번호 비교 빠짐 · 결과 객체를 판정마다 새로 · 못 만든 지도에서 전체 광선 빠짐
    [실행] 러너 스테이징(node checks/run.js seat-hit-targets) 또는 저장소 루트에서. */
 'use strict';
@@ -154,7 +154,7 @@ function judgeAll(src, variant){
   t(lz && lz.same, '  pick 결과는 같은 객체를 다시 쓴다(판정마다 새 객체 없음)');
   let er = null;
   try{
-    const w4 = world(); const S4 = setup(src, w4, { canvasRect: () => { throw new Error('깨 봄'); } }); S4.mod.markRendered();
+    const w4 = world(); const S4 = setup(src, w4, { canvasRect: () => { throw new Error('mutation'); } }); S4.mod.markRendered();
     const p = (S4.old(VP.left + 100, VP.top + 300), S4.neu(VP.left + 100, VP.top + 300));
     er = { bb: S4.builds[0], stale: p.stale, g: grid(S4) };
   }catch(_){}
@@ -191,7 +191,7 @@ function judgeAll(src, variant){
 
 const rows = judgeAll(MOD);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 격자 1만 점'); if(i === 4) say('── 2. 찾을 때 만들기 · 못 만듦 · 건너뜀 · 빈 지도 · 다를 때 재료'); chk(ok, msg); });
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['날아가는 몸을 지도에 넣기', MOD, { setup: (w) => { const h = loadWin(HS, 'TwHiddenSeats', LS).createHiddenSeats({ _flyActive: () => 0, seatFromObject: () => null, seats: w.seats }); return { partSkipped: (o) => h._partSkipped(o) }; } }],
   ['스프라이트를 조각에서 빼기', MOD.replace('if(rc === NO_RC) return;', 'if(rc === NO_RC || o.isSprite) return;'), null],

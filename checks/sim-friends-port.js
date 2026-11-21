@@ -1,13 +1,13 @@
 /* ═══ 👥 sim-friends-port.js — 친구 데이터 포트 · provider (2026-10-17 신설) ═══
    [왜] 친구 정보를 Firebase 구독에서 서버(API)로 옮긴다. 도메인(friends-sub.js) · 화면은 포트 하나만 부르고,
      어디서 받을지는 provider(api · realtime)가 맡는다.
-   ・1절: 포트 — 모든 함수가 서버 provider(api) · realtime provider(접속 상태)로 그대로 · 못 받으면 던진다(옛 Firebase 길로 물러나지 않는다 — D13 E-2)
+   ・1절: 포트 — 모든 함수가 서버 provider(api) · realtime provider(접속 상태)로 그대로 · 못 받으면 던진다(옛 Firebase 경로로 물러나지 않는다 — D13 E-2)
    ・2-2절: 서버 provider(friends-api.js — social-api.js 위) — 목록 + 명함 → 친구 칸 · 판정용은 명함 안 받음 · 한 명 받기(친구 아님 · 명함 없음은 null) ·
          목록 듣기(처음 한 번 + friends 알림 · 한 번에 하나 · 해제하면 알림도 끊음 · 못 받으면 onError) · 프로필 듣기(card 알림은 그 친구만) · 끊기(이미 아니면 끝)
    ・2-3절: 끄는 스위치는 없다 — 0.13 설정에 친구 스위치 칸이 없다(서버 한 길)
-   ・3절: 배선 — app.js 가 포트 → provider 를 잇는다(옛 길 provider · source-switch 는 없다) · html 순서 · friends/ 파일은 firebaseAPI 를 모른다 ·
+   ・3절: 배선 — app.js 가 포트 → provider 를 잇는다(옛 경로 provider · source-switch 는 없다) · html 순서 · friends/ 파일은 firebaseAPI 를 모른다 ·
          화면 파일이 친구 데이터 firebaseAPI 함수를 직접 안 부른다
-   ・4절: 일부러 깨 보기 — 하나라도 못 잡으면 빨강
+   ・4절: mutation test — 하나라도 못 잡으면 빨강
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
@@ -67,7 +67,7 @@ async function judge(S){
     const u2 = port.watchPresence('ME', ['a', 'b'], () => {}, () => {});
     chk(u2 === un && log[3].join() === 'pres,a,b,function,function', '★ watchPresence(myId, ids, onChange, onStatus) — realtime provider 로(내 코드는 안 넘김) · 해제 함수 그대로');
     const rd = await port.readPresence(['a', 'b']);
-    chk(rd.a.online === true && log[4].join() === 'read,a,b', '  ↳ readPresence(ids) — ids 를 한 번에 realtime provider 로 · 옛 길(Firebase)은 안 거친다');
+    chk(rd.a.online === true && log[4].join() === 'read,a,b', '  ↳ readPresence(ids) — ids 를 한 번에 realtime provider 로 · 옛 경로(Firebase)는 안 거친다');
     chk(port.retryPresence() === true && log[5].join() === 'retry', '  ↳ retryPresence() — realtime provider 의 retryWatch 로 · 답 그대로');
   }
 
@@ -90,7 +90,7 @@ async function judge(S){
     chk(k.L.api[0][1] && k.L.api[0][1].idsOnly === true, '  ↳ 판정용(idsOnly)을 서버 provider 에도 넘긴다(명함을 안 받게)');
     k = mkPort({ fail: true });
     let e1 = null; try{ await k.port.listFriends('ME'); }catch(e){ e1 = e; }
-    chk(e1 && e1.status === 503 && k.L.api.length === 1, '★ 못 받으면 던진다 — 옛 길(Firebase)로 물러나 다시 읽지 않는다');
+    chk(e1 && e1.status === 503 && k.L.api.length === 1, '★ 못 받으면 던진다 — 옛 경로(Firebase)로 물러나 다시 읽지 않는다');
     k = mkPort({});
     v = await k.port.readFriend('u7');
     chk(v.from === 'api' && v.fid === 'u7', '★ readFriend — 서버 provider 로(그 친구 하나)');
@@ -107,7 +107,7 @@ async function judge(S){
     k = mkPort({ fail: true });
     let e2 = null; try{ await k.port.readProfile('a'); }catch(e){ e2 = e; }
     let e3 = null; try{ await k.port.removeFriend('ME', 'a'); }catch(e){ e3 = e; }
-    chk(!!e2 && !!e3 && k.L.api.length === 2, '★ 프로필 읽기 · 끊기도 못 하면 던진다(옛 길로 넘기지 않는다)');
+    chk(!!e2 && !!e3 && k.L.api.length === 2, '★ 프로필 읽기 · 끊기도 못 하면 던진다(옛 경로로 넘기지 않는다)');
   }
 
   say('── 2-2. 서버 provider — 목록 + 명함 → 친구 칸 · 알림');
@@ -149,7 +149,7 @@ async function judge(S){
     chk(v.u1.addedAt === 5 && !('name' in v.u1) && !k.L.cards.length, '★ 판정용(idsOnly) — 명함 요청 0');
     k = mkFake({ friendsFail: true });
     let e1 = null; try{ await k.fa.listFriends('ME'); }catch(e){ e1 = e; }
-    chk(e1 && !k.L.cards.length, '  ↳ 목록을 못 받으면 던진다(포트가 옛 길로) · 명함은 묻지 않음');
+    chk(e1 && !k.L.cards.length, '  ↳ 목록을 못 받으면 던진다(포트가 옛 경로로) · 명함은 묻지 않음');
     k = mkFake({ cardsFail: true });
     e1 = null; try{ await k.fa.listFriends('ME'); }catch(e){ e1 = e; }
     chk(!!e1, '  ↳ 명함을 못 받아도 던진다(한 조각이라도 — 이름이 반쯤 빈 목록을 «받음» 으로 치지 않는다)');
@@ -165,7 +165,7 @@ async function judge(S){
     chk(v.name === 'N-u1' && v.level === 2 && !('bio' in v), 'readProfile — 이름 · 레벨 · 회차');
     k = mkFake({ noCard: ['u1'] });
     let e2 = null; try{ await k.fa.readProfile('u1'); }catch(e){ e2 = e; }
-    chk(e2 && e2.code === 'NO_CARD', '  ↳ 명함이 없으면 던진다(포트가 옛 길로)');
+    chk(e2 && e2.code === 'NO_CARD', '  ↳ 명함이 없으면 던진다(포트가 옛 경로로)');
     k = mkFake();
     await k.fa.removeFriend('u1');
     chk(k.L.removed.join() === 'u1', '끊기 — 서버로 그 친구 코드');
@@ -245,11 +245,11 @@ async function judge(S){
   say('── 3. 배선');
   {
     const a = strip(S.APP);
-    chk(!/friendsFirebaseMod|friendRequestsFirebaseMod|TwFriendsFirebase|TwFriendRequestsFirebase|TwSourceSwitch/.test(a), 'app.js — 옛 길 provider(Firebase) · 받는 곳 고르기(source-switch)가 없다');
+    chk(!/friendsFirebaseMod|friendRequestsFirebaseMod|TwFriendsFirebase|TwFriendRequestsFirebase|TwSourceSwitch/.test(a), 'app.js — 옛 경로 provider(Firebase) · 받는 곳 고르기(source-switch)가 없다');
     chk(/  watchPresence: \(\.\.\.a\)=>friendsPortMod\.watchPresence\(\.\.\.a\),\n  readPresence: \(\.\.\.a\)=>friendsPortMod\.readPresence\(\.\.\.a\),\n  retryPresence: \(\)=>friendsPortMod\.retryPresence\(\),/.test(a), '  ↳ friends-sub 의 접속 상태 듣기 · 한 번 읽기 · 다시 묻기도 포트로');
     chk(/const friendsPresenceRtMod = TwFriendsPresenceRt\.createFriendsPresenceRt\(\{ rt: TwRtHub\.store \}\);/.test(a) && /const friendsPortMod = TwFriendsPort\.createFriendsPort\(\{\n  presence: friendsPresenceRtMod,\n  api: friendsApiMod,\n\}\);/.test(a),
-      'app.js — 포트는 realtime provider(접속 상태) · 서버 provider 둘만 받는다(옛 길 · 받는 곳 고르기 · 진단 줄 없음)');
-    chk(/const socialApiMod = TwSocialApi\.createSocialApi\(\{ authed: TwApi\.authed,[^\n]*\n/.test(a) && /const friendsApiMod = TwFriendsApi\.createFriendsApi\(\{\n  social: socialApiMod,\n  rt: TwRtHub\.store,/.test(a), '  ↳ 서버 provider 가 서버 길(social-api.js — 로그인 API 통로 TwApi.authed) · realtime 알림 걸기를 받는다');
+      'app.js — 포트는 realtime provider(접속 상태) · 서버 provider 둘만 받는다(옛 경로 · 받는 곳 고르기 · 진단 줄 없음)');
+    chk(/const socialApiMod = TwSocialApi\.createSocialApi\(\{ authed: TwApi\.authed,[^\n]*\n/.test(a) && /const friendsApiMod = TwFriendsApi\.createFriendsApi\(\{\n  social: socialApiMod,\n  rt: TwRtHub\.store,/.test(a), '  ↳ 서버 provider 가 서버 경로(social-api.js — 로그인 API 통로 TwApi.authed) · realtime 알림 걸기를 받는다');
     const fi = strip(S.FI);
     chk(/window\.TwApi\.bindToken\(_getIdToken\);/.test(fi) && !/apiGetAuthed|_authApi/.test(fi),
       '  ↳ firebase-init — 로그인 API 통로(api-client.js authed)에 Firebase ID 토큰만 잇는다 · 따로 부르는 길(apiGetAuthed)은 없다');
@@ -262,7 +262,7 @@ async function judge(S){
     const h = S.HTML;
     const hF = h.indexOf('<script src="parts/friends/friends-firebase.js">'), hS = h.indexOf('source-switch.js'), hP = h.indexOf('<script src="parts/friends/friends-port.js">'), hA = h.indexOf('<script src="parts/app.js">'),
       hI = h.indexOf('<script src="parts/friends/friends-api.js">'), hR = h.indexOf('<script src="parts/friends/friends-presence-rt.js">'), hH = h.indexOf('<script src="parts/realtime/rt-hub.js">'), hC = h.indexOf('<script src="parts/shared/api-client.js">');
-    chk(hF < 0 && hS < 0 && hP > 0 && hI > 0 && hP < hA && hI < hA && hR > hH && hH > 0 && hR < hP && hC > 0 && hC < hA, 'html — 옛 길 provider(friends-firebase.js) · source-switch.js 는 없고 friends-api.js · friends-presence-rt.js(rt-hub.js 다음) · friends-port.js(· api-client.js)를 app.js 보다 먼저 싣는다');
+    chk(hF < 0 && hS < 0 && hP > 0 && hI > 0 && hP < hA && hI < hA && hR > hH && hH > 0 && hR < hP && hC > 0 && hC < hA, 'html — 옛 경로 provider(friends-firebase.js) · source-switch.js 는 없고 friends-api.js · friends-presence-rt.js(rt-hub.js 다음) · friends-port.js(· api-client.js)를 app.js 보다 먼저 싣는다');
     chk(!/firebaseAPI|firebase-init|\bref\(db|onValue\(/.test(strip(S.PORT)) && !/firebaseAPI|firebase-init|\bref\(db|onValue\(/.test(strip(S.PRT)) && !/firebaseAPI|\bref\(db|onValue\(|\bfetch\(/.test(strip(S.FAPI)),
       'friends/ 파일은 firebaseAPI · SDK 를 직접 안 부른다(deps 로만)');
     chk(!/firebaseAPI|firebase-init|getIdToken|currentUser/.test(strip(S.AC)), 'shared/api-client.js 는 Firebase 를 모른다(토큰은 getToken deps 로만)');
@@ -281,7 +281,7 @@ async function judge(S){
 (async () => {
 await judge(SRC0);
 
-say('── 4. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 4. mutation test — 하나라도 못 잡으면 빨강');
 const BREAKS = [
   ['PORT', 'apiProvider.listFriends(myId, opts || {})', 'apiProvider.listFriends(myId, {})', 'opts 를 버림'],
   ['PORT', 'watchList(myId, onChange, onError); }\n  /* 접속 상태는', 'watchList(myId, onChange); }\n  /* 접속 상태는', '에러 콜백을 안 넘김'],
@@ -309,7 +309,7 @@ for(const [where, from, to, what] of BREAKS){
   if(SRC0[where].indexOf(from) < 0){ chk(false, '깨 볼 글을 못 찾음 — ' + what); continue; }
   const S = Object.assign({}, SRC0); S[where] = S[where].split(from).join(to);
   quiet = true; qfail = 0;
-  /* 깨 본 글이 판정을 영영 기다리게 만들 수 있다(예: 토큰 받기가 멈춤) — 끝나지 않은 약속만 남으면 node 가 0 으로 조용히 끝나
+  /* 망가뜨린 글이 판정을 영영 기다리게 만들 수 있다(예: 토큰 받기가 멈춤) — 끝나지 않은 약속만 남으면 node 가 0 으로 조용히 끝나
      초록처럼 보인다. 3초 안에 안 끝나면 «멈춤» 으로 잡은 것으로 센다. */
   let _hung = false;
   try{ await Promise.race([judge(S), new Promise((r) => setTimeout(() => { _hung = true; r(); }, 3000))]); }catch(_){ qfail++; }
@@ -318,7 +318,7 @@ for(const [where, from, to, what] of BREAKS){
   caught.push([what, qfail]);
 }
 const missed = caught.filter(([, n]) => n === 0).map(([w]) => w);
-chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
 console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

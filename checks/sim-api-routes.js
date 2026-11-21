@@ -1,12 +1,12 @@
-/* ═══ 🛣️ sim-api-routes.js — 앱이 부르는 /v2 길이 서버에 있는가 ═══════════════════════════
-   [왜] #887 이 앱의 서버 길 앞부분을 /v1 → /v2 로 기계적으로 바꾸며 서버에 없는 길이 둘 생겼다
-     (GET /v2/catalog/{parts·gachaParts·items·desks} · GET /v2/users/{uid}/card). 어느 검사도 «서버에 그 길이 있나» 를 보지 않아 그대로 나갔다.
-     이 검사는 앱 코드가 부르는 모든 /v2 길(메서드 포함)이 서버 길 목록 server-routes.json 에 있는지 본다 — 같은 실수를 앱에서 막는 장치다.
-   [서버 길 목록] checks/server-routes.json — origin/dev 컨트롤러에서 뽑아 커밋한 것(맨 위에 어느 커밋에서 뽑았는지 · 다시 뽑는 법). 서버 길이 바뀌면 같이 고친다.
+/* ═══ 🛣️ sim-api-routes.js — 앱이 부르는 /v2 endpoint 가 서버에 있는가 ═══════════════════════════
+   [왜] #887 이 앱의 서버 endpoint 앞부분을 /v1 → /v2 로 기계적으로 바꾸며 서버에 없는 endpoint 가 둘 생겼다
+     (GET /v2/catalog/{parts·gachaParts·items·desks} · GET /v2/users/{uid}/card). 어느 검사도 «서버에 그 endpoint 가 있나» 를 보지 않아 그대로 나갔다.
+     이 검사는 앱 코드가 부르는 모든 /v2 endpoint(메서드 포함)가 서버 endpoint 목록 server-routes.json 에 있는지 본다 — 같은 실수를 앱에서 막는 장치다.
+   [서버 endpoint 목록] checks/server-routes.json — origin/dev 컨트롤러에서 뽑아 커밋한 것(맨 위에 어느 커밋에서 뽑았는지 · 다시 뽑는 법). 서버 endpoint 가 바뀌면 같이 고친다.
    1. 목록 — 모양 · /v2 만 · 겹침 없음 · 어느 커밋에서 뽑았는지가 적혀 있다
-   2. 앱 길 뽑기 — 앱 코드(parts/ · hosting help)의 '/v2/…' 글(+ 이어 붙인 조각 · 템플릿)에서 길 · 메서드를 뽑는다. 뽑은 수가 바닥 아래로 내려가면 빨강(뽑기가 낡아 조용히 0개를 보는 것을 막는다)
-   3. 대조 — 뽑은 길마다: 메서드를 알면 «메서드 길» 이 서버 목록에 있어야 한다. 메서드를 못 정한 길(상수 표만 있고 부르는 줄이 따로 있는 것)은 어느 메서드로든 길이 있어야 한다
-   4. 일부러 깨 보기 — 없는 길(#887 의 둘 · 만든 길) · 틀린 메서드를 앱 글에 넣으면 빨강 · 서버 목록에서 길을 지우면 빨강 · 뽑기를 망가뜨리면 빨강
+   2. 앱 endpoint 뽑기 — 앱 코드(parts/ · hosting help)의 '/v2/…' 글(+ 이어 붙인 조각 · 템플릿)에서 endpoint · 메서드를 뽑는다. 뽑은 수가 바닥 아래로 내려가면 빨강(뽑기가 낡아 조용히 0개를 보는 것을 막는다)
+   3. 대조 — 뽑은 endpoint 마다: 메서드를 알면 «메서드 endpoint» 가 서버 목록에 있어야 한다. 메서드를 못 정한 endpoint(상수 표만 있고 부르는 줄이 따로 있는 것)는 어느 메서드로든 endpoint 가 있어야 한다
+   4. mutation test — 없는 endpoint(#887 의 둘 · 만든 endpoint) · 틀린 메서드를 앱 글에 넣으면 빨강 · 서버 목록에서 endpoint 를 지우면 빨강 · 뽑기를 망가뜨리면 빨강
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
 'use strict';
 const fs = require('fs');
@@ -107,8 +107,8 @@ function chain(code, i, base){
     if(code[k] === '\'' || code[k] === '"' || code[k] === '`'){ const s = readString(code, k); text += s.text; i = s.end; }
     else{
       const e = skipOperand(code, k);
-      if(/query|qs\(|search/i.test(code.slice(k, e).replace(/\s+/g, ''))){ text += '?'; i = e; break; }   // queryOf({ … }) 같은 쿼리 만들기 — 길이 아니다
-      if(!((base || '') + text).endsWith('/')){ text += '?'; i = e; break; }   // 길 칸 사이(/)가 아닌 자리에 붙는 변수(PATHS.list + q)는 쿼리 글이다
+      if(/query|qs\(|search/i.test(code.slice(k, e).replace(/\s+/g, ''))){ text += '?'; i = e; break; }   // queryOf({ … }) 같은 쿼리 만들기 — endpoint 가 아니다
+      if(!((base || '') + text).endsWith('/')){ text += '?'; i = e; break; }   // endpoint 조각 사이(/)가 아닌 자리에 붙는 변수(PATHS.list + q)는 쿼리 글이다
       text += '{}'; dynamic = true; i = e;
     }
     if(text.indexOf('?') >= 0) break;
@@ -116,7 +116,7 @@ function chain(code, i, base){
   return { text, end: i, dynamic };
 }
 
-/* '/v2/…' 로 시작하는 글을 찾아 이어 붙인 조각까지 모은 길을 돌려준다 → [{ file, line, path, prefix, key, method }] */
+/* '/v2/…' 로 시작하는 글을 찾아 이어 붙인 조각까지 모은 endpoint 를 돌려준다 → [{ file, line, path, prefix, key, method }] */
 function extract(files){
   const found = [];
   for(const [file, raw] of Object.entries(files)){
@@ -139,7 +139,7 @@ function extract(files){
 
 /* 메서드 — ① 바로 앞이 .get( · .post( … 이거나 ('GET', ② 상수 표의 칸(key: 또는 const KEY =)이면 같은 글에서 그 이름을 부르는 .get(…KEY … 를 찾는다. 못 정하면 '?' */
 const VERB = { get: 'GET', post: 'POST', put: 'PUT', patch: 'PATCH', del: 'DELETE', delete: 'DELETE' };
-/* 돌려줌: [{ method, extra }] — extra 는 부르는 줄에서 상수 뒤에 더 붙인 길(EMOJI_PATH + '/' + slot → '/{}') */
+/* 돌려줌: [{ method, extra }] — extra 는 부르는 줄에서 상수 뒤에 더 붙인 endpoint(EMOJI_PATH + '/' + slot → '/{}') */
 function methodOf(item){
   const { code, start } = item;
   const before = code.slice(Math.max(0, start - 80), start);
@@ -154,7 +154,7 @@ function methodOf(item){
     let u;
     while((u = use.exec(code))){
       let k = u.index + u[0].length;
-      if(code[k] === '('){ let d = 0; for(; k < code.length; k++){ if(code[k] === '(') d++; else if(code[k] === ')'){ d--; if(!d){ k++; break; } } } }   // PATHS.friend(code) — 이 함수가 길을 만든다
+      if(code[k] === '('){ let d = 0; for(; k < code.length; k++){ if(code[k] === '(') d++; else if(code[k] === ')'){ d--; if(!d){ k++; break; } } } }   // PATHS.friend(code) — 이 함수가 endpoint 를 만든다
       else{ const c = chain(code, k, path0); out.push({ method: VERB[u[1]], extra: c.text }); continue; }
       out.push({ method: VERB[u[1]], extra: chain(code, k, path0).text });
     }
@@ -174,7 +174,7 @@ function matches(appPath, serverPath){
 function parseRoutes(list){
   return list.map((r) => { const i = r.indexOf(' '); return { method: r.slice(0, i), path: norm(r.slice(i + 1)) }; });
 }
-/* 앱 길 하나가 서버에 있나 */
+/* 앱 endpoint 하나가 서버에 있나 */
 function exists(item, method, routes, extra){
   const ap = norm((item.path + (extra || '')).split('?')[0]);
   if(item.prefix) return routes.some((r) => (method === '?' || r.method === method) && r.path.startsWith(ap));
@@ -195,60 +195,60 @@ function judge(files, list){
 }
 
 (async () => {
-  say('── 1. 서버 길 목록(server-routes.json)');
+  say('── 1. 서버 endpoint 목록(server-routes.json)');
   {
     const L = SERVER.routes;
-    chk(Array.isArray(L) && L.length >= 150 && L.every((r) => /^(GET|POST|PUT|PATCH|DELETE) \/v2\/\S+$/.test(r)), '★ «메서드 /v2/길» 모양만 ' + (L ? L.length : 0) + '개 — /v1 · /internal 은 넣지 않는다');
+    chk(Array.isArray(L) && L.length >= 150 && L.every((r) => /^(GET|POST|PUT|PATCH|DELETE) \/v2\/\S+$/.test(r)), '★ «메서드 /v2/경로» 모양만 ' + (L ? L.length : 0) + '개 — /v1 · /internal 은 넣지 않는다');
     chk(new Set(L).size === L.length, '  ↳ 겹친 줄이 없다');
     chk(/origin\/dev [0-9a-f]{7,40}/.test(String(SERVER.source)) && Array.isArray(SERVER.howToRegenerate) && SERVER.howToRegenerate.length >= 3 && Object.keys(SERVER)[0] === 'source',
       '★ 맨 위에 어느 커밋에서 뽑았는지(source) · 다시 뽑는 법(howToRegenerate)이 적혀 있다');
     const need = ['GET /v2/catalog', 'GET /v2/myhomes/cards', 'GET /v2/config', 'GET /v2/me'];
-    chk(need.every((r) => L.includes(r)), '  ↳ 이번에 고친 길(GET /v2/catalog · GET /v2/myhomes/cards)과 점검 판정 길(GET /v2/config)이 들어 있다');
-    chk(!L.includes('GET /v2/users/{uid}/card') && !L.some((r) => /^GET \/v2\/catalog\/(parts|gachaParts|items|desks)$/.test(r)), '  ↳ #887 이 만든 없는 길 둘은 목록에 없다(있으면 목록이 거짓이다)');
+    chk(need.every((r) => L.includes(r)), '  ↳ 이번에 고친 endpoint(GET /v2/catalog · GET /v2/myhomes/cards)와 점검 판정 endpoint(GET /v2/config)가 들어 있다');
+    chk(!L.includes('GET /v2/users/{uid}/card') && !L.some((r) => /^GET \/v2\/catalog\/(parts|gachaParts|items|desks)$/.test(r)), '  ↳ #887 이 만든 없는 endpoint 둘은 목록에 없다(있으면 목록이 거짓이다)');
   }
 
-  say('── 2. 앱 길 뽑기');
+  say('── 2. 앱 endpoint 뽑기');
   const REAL = judge(FILES, SERVER.routes);
   {
     chk(Object.keys(FILES).length >= 100, '앱 코드 ' + Object.keys(FILES).length + '개 파일을 훑는다');
     chk(REAL.items.length >= 80, '★ 뽑은 /v2 글 ' + REAL.items.length + '개(바닥 80) — 0 에 가까우면 뽑기가 낡은 것이다');
     const cat = REAL.items.find((i) => i.file.endsWith('catalog-api.js') && i.path === '/v2/catalog');
     const assets = REAL.items.find((i) => i.file.endsWith('catalog-api.js') && i.path === '/v2/catalog/assets/');
-    chk(!!cat && methodOf(cat).some((x) => x.method === 'GET') && !!assets && assets.prefix, '  ↳ 표본 — 카탈로그 길(상수 + api.get)과 파일 길 머리(뒤를 따로 붙임)를 읽는다');
+    chk(!!cat && methodOf(cat).some((x) => x.method === 'GET') && !!assets && assets.prefix, '  ↳ 표본 — 카탈로그 endpoint(상수 + api.get)와 파일 endpoint 머리(뒤를 따로 붙임)를 읽는다');
     const frs = REAL.items.filter((i) => i.file.endsWith('social-api.js') && /accept$/.test(i.path));
-    chk(frs.length === 1 && frs[0].path === '/v2/me/friend-requests/{}/accept' && methodOf(frs[0]).map((x) => x.method).join() === 'POST', '  ↳ 표본 — 이어 붙인 길(\'/v2/me/friend-requests/\' + enc(from) + \'/accept\')은 {} 로 · 메서드는 부르는 줄(authed.post(PATHS.accept…))에서');
+    chk(frs.length === 1 && frs[0].path === '/v2/me/friend-requests/{}/accept' && methodOf(frs[0]).map((x) => x.method).join() === 'POST', '  ↳ 표본 — 이어 붙인 endpoint(\'/v2/me/friend-requests/\' + enc(from) + \'/accept\')은 {} 로 · 메서드는 부르는 줄(authed.post(PATHS.accept…))에서');
     const known = REAL.ok.length - REAL.unknown.length;
-    chk(REAL.ok.length >= 80, '  ↳ 서버에 있는 것으로 확인된 길 ' + REAL.ok.length + '줄(메서드까지 확인 ' + Math.max(0, known) + ' · 메서드를 못 정한 ' + REAL.unknown.length + ')');
+    chk(REAL.ok.length >= 80, '  ↳ 서버에 있는 것으로 확인된 endpoint ' + REAL.ok.length + '줄(메서드까지 확인 ' + Math.max(0, known) + ' · 메서드를 못 정한 ' + REAL.unknown.length + ')');
   }
 
-  say('── 3. 앱 길 ↔ 서버 길');
+  say('── 3. 앱 endpoint ↔ 서버 endpoint');
   {
-    chk(REAL.missing.length === 0, '★ 앱이 부르는 모든 /v2 길(메서드 포함)이 서버 길 목록에 있다' + (REAL.missing.length ? ' — 서버에 없음: ' + REAL.missing.join(' | ') : ''));
+    chk(REAL.missing.length === 0, '★ 앱이 부르는 모든 /v2 endpoint(메서드 포함)가 서버 endpoint 목록에 있다' + (REAL.missing.length ? ' — 서버에 없음: ' + REAL.missing.join(' | ') : ''));
   }
 
-  say('── 4. 일부러 깨 보기');
+  say('── 4. mutation test');
   {
     const inject = (extra) => Object.assign({}, FILES, { 'zz-inject.js': extra });
-    const red = (name, files, list, needle) => {   // 진짜 앱 글의 결과와 상관없이, 심은 것(또는 지운 길)이 «없음» 으로 잡혀야 한다
+    const red = (name, files, list, needle) => {   // 진짜 앱 글의 결과와 상관없이, 심은 것(또는 지운 endpoint)이 «없음» 으로 잡혀야 한다
       const r = judge(files, list || SERVER.routes), hit = r.missing.filter((x) => x.indexOf(needle || 'zz-inject') >= 0);
-      chk(hit.length > 0, '깨 보기: ' + name + ' → 빨강' + (hit.length ? ' (' + hit[0].split('  (')[0] + ')' : ''));
+      chk(hit.length > 0, 'mutation test: ' + name + ' → 빨강' + (hit.length ? ' (' + hit[0].split('  (')[0] + ')' : ''));
     };
     red('#887 의 첫 실수 — GET /v2/catalog/parts?v=', inject("const r = api.get('/v2/catalog/' + kind + '?v=' + ver);"));
     red('#887 의 둘째 실수 — GET /v2/users/{uid}/card', inject("const API_PATHS = { card: (uid) => '/v2/users/' + encodeURIComponent(uid) + '/card' };\nconst d = await api.get(API_PATHS.card(uid));"));
-    red('만든 길 — GET /v2/nothing/here', inject("await authed.get('/v2/nothing/here');"));
-    red('템플릿 글로 만든 없는 길', inject("await authed.get(`/v2/me/friends/${code}/nope`);"));
-    red('길은 있는데 메서드가 틀림 — DELETE /v2/me(서버는 GET · PATCH)', inject("await authed.del('/v2/me');"));
-    red('길은 있는데 메서드가 틀림 — POST /v2/catalog(서버는 GET)', inject("await authed.post('/v2/catalog', {});"));
-    red('상수 표의 길 + 틀린 메서드', inject("const PATHS = { cards: '/v2/myhomes/cards' };\nawait authed.post(PATHS.cards, {});"));
-    red('서버 목록에서 GET /v2/catalog 를 지움(서버가 길을 바꿈)', FILES, SERVER.routes.filter((r) => r !== 'GET /v2/catalog'), 'GET /v2/catalog ');
+    red('만든 endpoint — GET /v2/nothing/here', inject("await authed.get('/v2/nothing/here');"));
+    red('템플릿 글로 만든 없는 endpoint', inject("await authed.get(`/v2/me/friends/${code}/nope`);"));
+    red('endpoint 는 있는데 메서드가 틀림 — DELETE /v2/me(서버는 GET · PATCH)', inject("await authed.del('/v2/me');"));
+    red('endpoint 는 있는데 메서드가 틀림 — POST /v2/catalog(서버는 GET)', inject("await authed.post('/v2/catalog', {});"));
+    red('상수 표의 endpoint + 틀린 메서드', inject("const PATHS = { cards: '/v2/myhomes/cards' };\nawait authed.post(PATHS.cards, {});"));
+    red('서버 목록에서 GET /v2/catalog 를 지움(서버가 endpoint 를 바꿈)', FILES, SERVER.routes.filter((r) => r !== 'GET /v2/catalog'), 'GET /v2/catalog ');
     red('서버 목록에서 GET /v2/me/gacha 를 지움', FILES, SERVER.routes.filter((r) => r !== 'GET /v2/me/gacha'), 'GET /v2/me/gacha ');
     const ok1 = judge({ 'zz-inject.js': "await authed.get('/v2/me/friends/' + code);\nawait authed.get(`/v2/myhomes/${code}/bookshelf`);" }, SERVER.routes);
-    chk(ok1.missing.length === 0, '  ↳ 짝 확인: 서버에 있는 길을 이어 붙이거나 템플릿으로 써도 빨강이 아니다(오탐 없음)');
+    chk(ok1.missing.length === 0, '  ↳ 짝 확인: 서버에 있는 endpoint 를 이어 붙이거나 템플릿으로 써도 빨강이 아니다(오탐 없음)');
     const dead = judge({ 'zz.js': "await authed.get('/v2/nothing/here');" }, []);
-    chk(dead.items.length === 1 && dead.missing.length === 1, '  ↳ 서버 목록이 비면 앱 길이 전부 «없음» 으로 나온다(목록을 못 읽고 초록이 되지 않는다)');
+    chk(dead.items.length === 1 && dead.missing.length === 1, '  ↳ 서버 목록이 비면 앱 endpoint 가 전부 «없음» 으로 나온다(목록을 못 읽고 초록이 되지 않는다)');
     /* 뽑기를 망가뜨리면 바닥 판정이 빨강 */
     const cut = {}; for(const k of Object.keys(FILES)) cut[k] = FILES[k].replace(/['"`]\/v2\//g, '"/v3/');
-    chk(judge(cut, SERVER.routes).items.length < 80, '깨 보기: 앱 글의 /v2/ 를 못 알아보게 하면 뽑은 수가 바닥 아래로 내려가 빨강이 된다');
+    chk(judge(cut, SERVER.routes).items.length < 80, 'mutation test: 앱 글의 /v2/ 를 못 알아보게 하면 뽑은 수가 바닥 아래로 내려가 빨강이 된다');
   }
 
   say('\n' + pass + ' · ' + fail);

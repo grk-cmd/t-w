@@ -177,13 +177,13 @@ const macSrc = MAIN;
   }
   { const sent = await runMac(macSrc, () => {}, null); t(sent.length === 1 && sent[0][0] === 'error', '저장소 정보를 못 읽으면 error 한 번'); }
   { const sent = await runMac(macSrc, resp(200, rel('v0.9.8', 'https://github.com/o/r/releases/tag/v0.9.8')), undefined); t(sent[0][1].url === 'https://github.com/o/r/releases/tag/v0.9.8' && sent[0][1].version === '0.9.8', '새 판 — 버전 · 응답의 주소 그대로'); }
-  // 깨 보기 — 아무 상태도 안 보내는 옛 구조(새 판 없음에서 return 만)로 되돌리면 빨강
+  // mutation test — 아무 상태도 안 보내는 옛 구조(새 판 없음에서 return 만)로 되돌리면 빨강
   const old = macSrc.replace("if(!isNewerVersion(tag, app.getVersion())){ done('none'); return; }", "if(!isNewerVersion(tag, app.getVersion())) return;");
   const oldSent = old === macSrc ? null : await runMac(old, SCEN[1][1]);
-  t(oldSent !== null && !(oldSent.length === 1 && oldSent[0][0] === 'none'), '깨 보기 — 새 판 없음에서 none 을 안 보내면 위 판정(none 한 번)이 빨강이 된다(실제: ' + (oldSent || []).map(x => x[0]).join(',') + ')');
+  t(oldSent !== null && !(oldSent.length === 1 && oldSent[0][0] === 'none'), 'mutation test — 새 판 없음에서 none 을 안 보내면 위 판정(none 한 번)이 빨강이 된다(실제: ' + (oldSent || []).map(x => x[0]).join(',') + ')');
   const old2 = macSrc.replace("req.on('error', (e) => done('error', { message: String(e && e.message || e) }));", "req.on('error', () => {});");
   const old2Sent = old2 === macSrc ? null : await runMac(old2, SCEN[6][1]);
-  t(old2Sent !== null && old2Sent.length === 0, '깨 보기 — 네트워크 오류에서 error 를 안 보내면 상태 0번 → 위 판정이 빨강이 된다');
+  t(old2Sent !== null && old2Sent.length === 0, 'mutation test — 네트워크 오류에서 error 를 안 보내면 상태 0번 → 위 판정이 빨강이 된다');
   judge();
 })();
 

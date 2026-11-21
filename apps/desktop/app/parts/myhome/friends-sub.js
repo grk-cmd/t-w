@@ -194,7 +194,7 @@ function _keepKnown(next){
   for(const fid of Object.keys(_ids)) if(!out[fid] && _details[fid]) out[fid] = _details[fid];
   return out;
 }
-/* 이름 · 레벨 · 소개 · 사진 받기 — 포트가 서버 먼저 · 못 받으면 옛 길. 진행 중이면 그것을 같이 기다린다. 실패해도 목록은 그대로 그린다. */
+/* 이름 · 레벨 · 소개 · 사진 받기 — 포트가 서버 먼저 · 못 받으면 옛 경로. 진행 중이면 그것을 같이 기다린다. 실패해도 목록은 그대로 그린다. */
 function _loadDetails(){
   if(_detailsP) return _detailsP;
   if(!_myId) return Promise.resolve();

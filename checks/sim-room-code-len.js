@@ -4,7 +4,7 @@
    ・1절: doJoinRoom · doJoinSecretRoom 을 떼어 실제로 돌린다 — 4자리 · 접두어 붙여넣기 · 별표 시크릿 · 빈 칸(랜덤)은 그대로,
           1~3자 · 5자는 안내만 하고 방에 안 간다 · 로비 모달 칸(randomOnEmpty: false)은 빈 칸이면 안내만(랜덤은 [빠른시작])
    ・1-1절: 입장 중 막기 — 로비 카드(joinRoom) · 코드 칸 · 시크릿룸 칸 · 랜덤 참여가 깃발 하나를 같이 본다 · 막힌 누름은 안내 토스트 · 던져도 풀린다
-   ・2절: 일부러 깨 보기 — 길이 검사를 빼면 빨강
+   ・2절: mutation test — 길이 검사를 빼면 빨강
    [실행] node checks/run.js sim-room-code-len */
 'use strict';
 const fs = require('fs');
@@ -135,7 +135,7 @@ async function judge(src){
     ];
   };
   wire(MOD, H).forEach(([ok, msg]) => chk(ok, msg));
-  say('── 2. 일부러 깨 보기');
+  say('── 2. mutation test');
   const breaks = [
     ['일반 칸 길이 검사 없음', "  if(!ROOM_CODE_BODY_RE.test(c)){ toast('방 코드는 4자리예요'); return; }\n", ''],
     ['로비 모달 칸도 빈 칸이면 랜덤 참여', "if(!c && !(opts && opts.randomOnEmpty === false))", 'if(!c)'],

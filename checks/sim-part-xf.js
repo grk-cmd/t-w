@@ -2,7 +2,7 @@
    [왜] app.js 의 저작 오프셋 · xf 적용 구역을 0.13 글 그대로 모듈로 옮겼다. 계산 본문은 코어(createParts)이고 여기는 옛 이름 잇기 + applyPartXf 순서다.
    ・1절: 옛 이름 → 코어 호출(인자 그대로 · 기본 오프셋 표를 같이 넘김) · 그림칸은 wrapper 에 그림칸이 있을 때만
    ・2절: applyPartXf — 본체 wrapper 와 다중 파츠 extras 에 인스턴스 xf 를 차례로(모자란 칸은 기본값) · stackable 은 id 별 · 책상 위 파츠는 바닥 맞춤
-   ・3절: 연결(html 순서 · 만드는 줄 · 옛 이름 const 여섯 · 본문이 안 남음) · 4절: 일부러 깨 보기
+   ・3절: 연결(html 순서 · 만드는 줄 · 옛 이름 const 여섯 · 본문이 안 남음) · 4절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. */
 'use strict';
 const fs = require('fs');
@@ -90,7 +90,7 @@ say('§3 연결');
   chk(/const partsCore = TwCharCore\.createParts\(\{/.test(code) && code.indexOf('const partsCore = TwCharCore.createParts') < code.indexOf('const partXfMod = TwPartXf'), '  코어 파츠는 app.js 가 모듈보다 먼저 만들어 넘긴다');
   chk(!/function (_charBoneBindInverses|_computePartAuthorOffset|_diagPartHeadSpace|_measureBodyBoxInLocal|_headTopAboveBone|_baseHeadTopAboveBone|_computeAnimalHeadDy|_isLegacyAuthorCompensation|_applyXfToWrapper|applyPartXf)\b/.test(code), '  app.js 에 본문이 안 남음');
 }
-say('§4 일부러 깨 보기');
+say('§4 mutation test');
 {
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const m1 = brk('cat, charBones, PART_DEFAULT_OFFSET);', 'cat, charBones);');

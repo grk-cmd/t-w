@@ -9,7 +9,7 @@
        듣기 — 어디서든 `.addEventListener(` 부름 · 저장 — 어디서든 `localStorage` 이름(window.localStorage 포함) · try — 어디서든 try 문
        단 저장은 모듈에 deps 로 넘기는 것(`createX({ storage: localStorage })` — create… 부름의 객체 속성 값이 localStorage 그 자체)은 안 센다 — 조립이다(규칙은 «필요한 것은 deps 로»)
    ・다섯이 모두 0 이 되면 기준선을 걷고 «0 이 아니면 빨강» 으로 바꾼다(설계 2-3).
-   ・1절: 읽었다 · 기준선 · 2절: 늘지 않았다 · 줄었으면 내린다 · 3절: 가짜 입력으로 깨 보기(진짜 app.js 에 한 줄씩 더해 본다 포함) */
+   ・1절: 읽었다 · 기준선 · 2절: 늘지 않았다 · 줄었으면 내린다 · 3절: 가짜 입력으로 mutation test(진짜 app.js 에 한 줄씩 더해 본다 포함) */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -99,7 +99,7 @@ if (base && base.counts) {
   chk(!c.down.length, '기준선보다 준 표지 0' + (c.down.length ? ' — 줄었어요. 같은 PR 에서 기준선을 내려 주세요: node checks/sim-app-wiring.js --write-baseline (' + c.down.join(' · ') + ')' : ''));
 }
 
-say('── 3. 깨 보기');
+say('── 3. mutation test');
 {
   const fake = [
     'function a(){ function inner(){} try{}catch(_){} }',

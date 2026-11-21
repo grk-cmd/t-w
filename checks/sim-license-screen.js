@@ -9,7 +9,7 @@
    ・5절: 계정 바뀜 — reset 뒤 늦은 답 버림 · 알림 구독 해제
    ・6절: 그리기 — 상태마다 보이는 칸 · 단추 잠김 · 기기 이름은 textContent
    ・7절: 배선 — app.js 가 모듈을 만든다 · html 차례
-   ・8절: 일부러 깨 보기
+   ・8절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -380,7 +380,7 @@ function wiringRows(S){
 (async () => {
   const rows = (await judge(SRC)).concat(await drawRows(SRC), wiringRows(SRC));
   rows.forEach(([ok, msg]) => chk(ok, msg));
-  say('── 8. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+  say('── 8. mutation test — 하나라도 못 잡으면 빨강');
   const mut = (k, f) => Object.assign({}, SRC, { [k]: f(SRC[k]) });
   const breaks = [
     ['받기 전에도 동작이 나감', mut('LS', (s) => s.replace("if(load !== 'ready'){ deps.toast(MSG.LOADING); return { ok: false, why: 'not-ready' }; }", ""))],

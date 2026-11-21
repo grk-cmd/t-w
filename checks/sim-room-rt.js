@@ -6,7 +6,7 @@
    ・5절: 끊김 — 다시 붙으면 resume · resumed 면 전체 다시 · 15초 알림 · 돌아오면 거둠 · 90초 포기(onLost unreachable)
    ・6절: 서버 판정 — 정원 거절 · resumeFailed → 전체 join · meta 기다리기(된 · 거절 · 이미 그 값) · music stale · 밀려남 · 관리자 종료 · 해산
    ・7절: 방 밖 — random(rid) · peek · 못 물으면 null · 배선(html 차례 · TwRoomRt.store)
-   ・8절: 일부러 깨 보기 */
+   ・8절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
@@ -94,7 +94,7 @@ async function readyOn(e, code){
   await tick();
   return ws;
 }
-/* 기다리는 약속 — 가짜 시계를 조금씩 돌려 시간 초과도 끝나게(깨 본 판이 영영 안 끝나 node 가 조용히 빠지지 않게) */
+/* 기다리는 약속 — 가짜 시계를 조금씩 돌려 시간 초과도 끝나게(망가뜨린 판이 영영 안 끝나 node 가 조용히 빠지지 않게) */
 async function settle(p, clock){
   let done = false, val;
   p.then((v) => { done = true; val = v; }, () => { done = true; });
@@ -391,7 +391,7 @@ async function judge(S){
 (async () => {
 await judge(SRC0);
 
-say('── 8. 일부러 깨 보기');
+say('── 8. mutation test');
 const BREAKS = [
   ['RT', "    out[k] = (k === 'tab') ? tabToWire(o[k]) : o[k];", "    out[k] = o[k];", '탭을 앱 id 그대로 보냄(서버 badRequest)'],
   ['RT', "  if(typeof v.userCode === 'string') v.userId = v.userCode;", "", '친구 객체에 userId 없음(올라타기 · 벤치가 사람을 못 찾음)'],
@@ -420,7 +420,7 @@ for(const [where, from, to, what] of BREAKS){
   caught.push([what, qfail]);
 }
 const missed = caught.filter(([, k]) => k === 0).map(([w]) => w);
-chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
 console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

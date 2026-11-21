@@ -9,7 +9,7 @@
      안 세는 것: 값 모양 검사('string' · 'number' · 'object' · 'boolean') · 환경 검사(ENV 표 — `typeof window` 그 자체 등) · 주석 안 · EXEMPT 표.
    ・기준선은 파일별 개수(줄 번호는 흔들려서 안 씀). 구역을 옮겨 파일만 바뀌고 합계가 같으면 --write-baseline 으로 다시 쓴다
      — 합계가 기준선보다 많으면 쓰기를 거절한다(늘린 가드를 기준선에 넣지 말 것).
-   ・1절: 파일을 읽었다 · 예외가 실제로 있다 · 2절: 파일마다 기준선 이하 · 줄었으면 내린다 · 3절: 가짜 입력으로 깨 보기 */
+   ・1절: 파일을 읽었다 · 예외가 실제로 있다 · 2절: 파일마다 기준선 이하 · 줄었으면 내린다 · 3절: 가짜 입력으로 mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -109,7 +109,7 @@ if (base) {
   chk(!c.down.length, '기준선보다 준 파일 0' + (c.down.length ? ' — 줄었어요. 같은 PR 에서 기준선을 내려 주세요: node checks/sim-typeof-guards.js --write-baseline (' + c.down.join(' · ') + ')' : ''));
 }
 
-say('── 3. 가짜 입력으로 깨 보기');
+say('── 3. 가짜 입력으로 mutation test');
 {
   const fake = [['a.js', "if(typeof window.foo==='function') window.foo();\nif(typeof bar !== 'undefined') bar.x();\n"], ['b.js', "const s = typeof v === 'string';\n"]];
   const F = judge(fake);

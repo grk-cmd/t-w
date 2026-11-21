@@ -9,7 +9,7 @@
    ・5절: 세션 A 를 버리고 새 세션 B — B 는 A 의 것에 영향 없음 · A 의 늦은 답은 막힘(alive · ifAlive)
    ・6절: 계정 칸 열기 — 한 번만 · 못 열면 false · 열었을 때만 닫음 · 끝난 세션은 안 염
    ・7절: 연결 — html · smoke PRELOAD · app.js 의 newSession · typeof 가드 없음
-   ・8절: 일부러 깨 보기 */
+   ・8절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -178,7 +178,7 @@ function judge(src) {
     chk(!/\b(?:window\.)?(?:getMyUserId|localStorage|firebaseAPI)\b/.test(MOD.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')), 'session.js — 도메인 · 저장소를 모른다(deps 로만 받는다)');
   }
 
-  say('── 8. 일부러 깨 보기 — 빨강이 나야 한다');
+  say('── 8. mutation test — 빨강이 나야 한다');
   const breaks = [
     ['dispose 가 타이머를 안 끔', (m) => m.replace("      try{ timers.clearInterval(h); timers.clearTimeout(h); }catch(e){ console.warn('[session ' + id + '] 타이머 끄기 실패', e); }", '')],
     ['dispose 가 구독을 안 풂', (m) => m.replace("    for(const u of subs) runOnce(u, '구독 해제');", '')],

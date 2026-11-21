@@ -31,7 +31,7 @@ mk('👤 친구 신청', ()=>seatFriendReqMod._friendReqAsk(uid, seat));   // �
 **함정** — 확인창(native 다이얼로그 · 새 fixed 오버레이)으로 바꾸지 말 것: 실행 화면은 투명 전체화면이라 다이얼로그가 안 보이고, 새 오버레이는 audit 검사 여럿에 항목이 는다.
 회사원 모드에서는 부르는 쪽(app.js)이 먼저 막는다 — 토스트도 뜨면 안 된다.
 
-검사: `checks/sim-seat-friend-req.js` (두 번 눌러 보내기 · 앞단 검사 · 결과 문구 · 연결 · 깨 보기).
+검사: `checks/sim-seat-friend-req.js` (두 번 눌러 보내기 · 앞단 검사 · 결과 문구 · 연결 · mutation test).
 
 ## friends-sub.js — 내 친구 목록 구독 한 벌
 - 책임: 친구 목록 구독(포트 `friends/friends-port.js` 의 watchList)을 **동시에 하나만** 건다. 실패하면 **목록을 열 때만**(친구 탭 · 워킹룸 초대 목록) 다시 건다 — 타이머 재시도 · 연결 감시는 없다.
@@ -108,7 +108,7 @@ const inboxSec = TwInboxSections;   // myhome-inbox.js 머리(고리판 TwMyHome
 
 **함정** — 서버 태그 키는 그대로다(`reward` 를 바꾸면 이미 보낸 우편이 전부 공지로 떨어진다). 보이는 글자만 `myhome-inbox.js` 표에서 바꾼다.
 우편함 탭 배지 · 🔔 벨 수는 `unread().total` 과 같아야 한다 — 따로 세지 말 것.
-검사: `checks/sim-inbox-sections.js`(입력 → 출력 · 경계값 · 연결 · 깨 보기).
+검사: `checks/sim-inbox-sections.js`(입력 → 출력 · 경계값 · 연결 · mutation test).
 
 ## `inbox-api.js` · `mail-feed.js` — 📩 내 우편(서버 원본)
 
@@ -139,7 +139,7 @@ mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));   // 받은 뒤 화면 · �
 - 한 번에 4쪽(200통)까지만 받는다(`complete:false`) — 안 읽은 수는 그래도 서버 값이다. 더 보기 단추는 아직 없다.
 - 한 번도 못 받은 동안(받는 중 · 못 받음)은 «모두 읽음» · 읽음 · 지우기를 보내지 않는다. «받은 우편이 없어요» 는 받은 뒤 정말 비었을 때만 그린다.
 - 레벨 해금 · 버그 답변 우편은 서버가 만든다(앱이 자기 수령함에 쓰는 `sendInboxMessage` 는 걷었다 — 관리자 발급 우편도 서버가 보낸다).
-검사: `checks/sim-inbox-api.js` · `checks/sim-mail-feed.js`(입력 → 출력 · 상태 · 계정 바뀜 · 깨 보기).
+검사: `checks/sim-inbox-api.js` · `checks/sim-mail-feed.js`(입력 → 출력 · 상태 · 계정 바뀜 · mutation test).
 
 ## `guestbook-api.js` · `guestbook-feed.js` · `guestbook.js` — 📖 방명록 · 웹박수 (서버가 원본)
 
@@ -163,7 +163,7 @@ mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));   // 받은 뒤 화면 · �
 **함정** — 글 쓰기 · 박수는 `requestId` 를 싣는다. 닿지 못한 일은 같은 번호로 다시(서버가 한 번만 반영), 서버가 답한 일(거절 포함)은 번호를 놓는다.
 방명록 창은 main.js 가 blur 에서 닫기도 한다 → `pagehide` 에서 `closeBook()`. 받는 중 · 못 받음에는 입력칸이 보이지 않는다. 박수 그림은 요청 둘이다 — `POST /v2/me/images?purpose=clap`(바이트 그대로 · 512KB 이하 png/webp/jpeg → `{ url }`) 다음 `PATCH /v2/me/guestbook { version, clapImageUrl }`. 첫째가 실패하면 겉모습은 그대로, 둘째가 409 면 다시 받는다. 올리는 사이 연결이 끊기거나(`release()`) 계정 · 주인이 바뀌면 둘째를 보내지 않고 `{ ok:false, reason:'gone' }` — 겉모습을 못 바꿨는데 성공으로 돌려주지 않는다. `setImage(dataUrl)`.
 
-검사: `checks/sim-guestbook-api.js` · `checks/sim-guestbook-feed.js` · `checks/sim-guestbook.js`(입력 → 출력 · 상태 · 계정 바뀜 · 깨 보기).
+검사: `checks/sim-guestbook-api.js` · `checks/sim-guestbook-feed.js` · `checks/sim-guestbook.js`(입력 → 출력 · 상태 · 계정 바뀜 · mutation test).
 
 ## `help-tab.js` — 📘 마이홈 «도움말» 탭
 
@@ -184,7 +184,7 @@ const helpTabMod = TwHelpTab.createHelpTab({ getTheme: ()=>themeMod.getTheme() }
 틀은 sandbox `allow-scripts allow-same-origin`(같은 사이트 `toc.json` 받기 · 출처 확인에 필요) — 앱 문서(file://)와 출처가 달라 앱 쪽엔 손대지 못한다.
 틀이 옮겨 갈 수 있는 주소는 main.js `will-frame-navigate` 가 같은 `help-site.js` 로 본다 · 앱 CSP `frame-src` 도 그 사이트 하나 — 사이트 주소를 바꾸면 셋을 같이.
 도움말 페이지는 Hosting 배포가 따로다(`firebase deploy --only hosting`) — 앱보다 먼저 올라가 있어야 탭이 빈 칸이 안 된다.
-검사: `checks/sim-help-tab.js`(가짜 화면에서 돌림 · 깨 보기) · 페이지 쪽은 `checks/sim-help-pages.js`.
+검사: `checks/sim-help-tab.js`(가짜 화면에서 돌림 · mutation test) · 페이지 쪽은 `checks/sim-help-pages.js`.
 
 ## `myhome-preset.js` — 👑 디자인 프리셋 규칙
 
@@ -213,7 +213,7 @@ const next = mhPreset.apply(_myHomeData(), p, keys); myhomeStore.setDesign({ the
 **함정** — Realtime DB 는 빈 자리가 있는 배열을 `{0:…, 2:…}` 객체로 돌려준다 — `normalize` 를 거치지 않고 배열로 단정하지 말 것.
 그림은 올린 주소만 칸에 담는다(올릴 때마다 새 주소 — 칸끼리 같은 파일을 덮지 않는다). 옛 `design_bg.jpg` 같은 파일을 가리키는 칸은 그대로 둔다. `data:` 그림(옛 base64)은 칸에 담지 않는다 — 칸마다 복사되면 홈 노드가 몇 배로 커진다.
 옛 앱의 씻기는 `bg.img` · `img` 표시를 버린다 — 옛 앱이 새 저장본을 읽으면 그 칸은 «색만» 칸으로 보인다(깨지지 않는다).
-검사: `checks/sim-myhome-preset.js`(입력 → 출력 · 경계값 · 연결 · 깨 보기).
+검사: `checks/sim-myhome-preset.js`(입력 → 출력 · 경계값 · 연결 · mutation test).
 
 ## `presence-lock.js` — 🔒 친구 탭 온라인 고정
 
@@ -242,7 +242,7 @@ const mhBgUrl = TwMhBgUrl;   // myhome-edit.js 머리 — myhome-desktop.js(옛 
 **내놓는 것** — `httpsOf(u)` · `createBgProbe({ makeImage, onFail })` → `probe(raw)`(http 였던 주소만 · 같은 주소 한 번) · `probeOwnerBg(raw)`(앱이 쓰는 한 벌 — 못 받으면 `E-MH-02`).
 
 **함정** — 안내는 **내 배경일 때만** 부른다(바탕화면 `advApplyBg` 는 `!advVisiting`, 창 바깥 `applyMyHomeBg` 는 `!_mhViewingUserId()`) — 친구 홈 구경에서 남의 배경 오류를 띄우지 않는다. 진단 줄에 주소를 싣지 않는다.
-검사: `checks/sim-mh-bg-url.js`(입력 → 출력 · 불러 보기 · 그리는 곳 두 군데를 떼어 돌림 · 깨 보기).
+검사: `checks/sim-mh-bg-url.js`(입력 → 출력 · 불러 보기 · 그리는 곳 두 군데를 떼어 돌림 · mutation test).
 
 ## `gift-save.js` — 💾 받은 말랑이 선물 그림 저장
 
@@ -257,11 +257,11 @@ giftSave: TwGiftSave.createGiftSave({ fetch, document, URL, setTimeout, safeUrl:
 **내놓는 것** — `fileName(fromName, when, type)`(순수 — 못 쓰는 글자는 `_` · 빈 이름은 «친구») · `extOf(type)` · `createGiftSave(deps)` → `save(gift)`(`'ok'` · `'fail'`).
 
 **함정** — 저장 위치는 Electron 기본 저장 창이 묻는다(스티커사진 저장과 같다 — main.js 에 다운로드 처리 없음). 사용자가 창에서 취소할 수 있어 «저장했어요» 알림은 띄우지 않는다. 그림 주소는 친구가 정한 값이라 `safeUrl(…, 'image')` 를 거친 주소만 받는다.
-검사: `checks/sim-gift-save.js`(파일 이름 경계값 · 저장 흐름 · 실패 · 수령함 우클릭 버튼 · 연결 · 깨 보기).
+검사: `checks/sim-gift-save.js`(파일 이름 경계값 · 저장 흐름 · 실패 · 수령함 우클릭 버튼 · 연결 · mutation test).
 
 ## `myhome-sticker-rules.js` — 🔒 스티커 잠금 · 그리는 순서
 
-**책임** — 마이홈 스티커의 잠금 판단과 그리는 순서(뒤 → 앞) 한 벌. 순수 함수만 — DOM · firebase 를 모른다(받은 스티커 묶음의 `z` · `locked` 칸만 고친다).
+**책임** — 마이홈 스티커의 잠금 판단과 그리는 순서(뒤 → 앞) 한 벌. 순수 함수만 — DOM · firebase 를 모른다(받은 스티커 묶음의 `z` · `locked` field 만 고친다).
 
 **만드는 법** — 만들지 않는다(받는 것 없음). `myhome-sticker.js` · `myhome-edit.js` · app.js 보다 먼저 싣고 아래층으로 받는다:
 
@@ -296,9 +296,9 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 
 **함정** — Windows 는 `setBounds` 뒤 `'moved'` 가 안 온다. 창 좌상단(여백 포함)을 기억하면 같은 여백으로 다시 불릴 때(메뉴 누름) 옛 자리로 돌아간다 — 여백 없는 자리로 기억해야 `'moved'` 가 오든 안 오든 같다.
 
-검사: `checks/sim-mh-pad-pos.js` (함수 · 놓는 흐름 — `'moved'` 오는 OS · 안 오는 OS · 깨 보기).
+검사: `checks/sim-mh-pad-pos.js` (함수 · 놓는 흐름 — `'moved'` 오는 OS · 안 오는 OS · mutation test).
 
-## `schedule-api.js` — 🌐 일정 · 디데이 · 일정 알림 서버 길 provider
+## `schedule-api.js` — 🌐 일정 · 디데이 · 일정 알림 서버 경로 provider
 
 - **책임**: 내 달력 한 달 읽기 · 일정 쓰기 · 지우기(`GET` · `POST` · `DELETE /v2/me/schedules`) · 남의 공개 일정(`GET /v2/schedules/{userCode}`) · 디데이 보드 통째 읽기 · 통째 저장(`GET` · `PUT /v2/me/ddays`) · 남의 공개 보드(`GET /v2/ddays/{userCode}`) · 친구가 태그한 알림(`GET` · `DELETE /v2/me/notifications` 의 🔔 칸). 서버 모양(`visibility` · `countFromOne` · `bgImage` · `cards` / `banners` 두 목록)을 화면 모양(`public` · `base1` · `bgImg` · `kind` · `order`)으로 맞추는 곳은 여기뿐이다. 신원은 토큰(`/v2/me/…`) — 남의 것은 사용자 코드(경로의 코드는 데이터 주소일 뿐).
 - **만드는 법**: `TwScheduleApi.createScheduleApi({ authed, newId, warn })` — app.js 가 스케줄러보다 먼저 만들어 `scheduleApi` deps 로 넘긴다.
@@ -311,9 +311,9 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
   - 카드 그림은 `data:` 로 들고 있다가 저장할 때만 서버에 올린다(`POST /v2/me/images?purpose=dday` — 바이트 그대로 · `Content-Type` png / webp / jpeg · 1MB 이하 · 응답 `{ url }`, `authed` 의 `rawType` 길). 1MB 를 넘거나 형식이 아니면 요청 없이, 서버가 400 · 413 · 415 로 거절해도 `IMAGE_UPLOAD`(→ `E-MH-05`)로 던지고 보드를 보내지 않는다. 계정이 바뀐 것(`OWNER_CHANGED`)은 조용히 버린다.
   - 친구를 태그하면 서버가 공개로 바꾸고(provider 는 화면 값 그대로 보낸다 — 스케줄러가 태그할 때 «공개» 체크를 켜고 잠그고 까닭을 보이며, 태그를 빼면 원래 값으로 돌린다), **같은 요청이 알림까지 보낸다**(일정만 되고 알림만 빠지는 일이 없다). 보드는 «이번에 저장한 한 장이 속한 목록의 몇 번째» 로 태그를 싣는다.
   - 일정의 `ts` 는 서버가 준 `createdAt` 을 ms 로 옮긴 만든 시각이다(없거나 깨지면 0 = 오래된 것). 🔔 뱃지의 «오늘 내 일정» 은 `tw.bellSeenTs` 뒤에 만든 것만 센다.
-- **검사**: `checks/sim-schedule-api.js`(가짜 `authed` 로 실제로 불러 판정 · 일부러 깨 보기).
+- **검사**: `checks/sim-schedule-api.js`(가짜 `authed` 로 실제로 불러 판정 · mutation test).
 
-## `myhome-api.js` — 🏠 마이홈 서버 길 provider
+## `myhome-api.js` — 🏠 마이홈 서버 경로 provider
 
 - **책임**: 내 마이홈 읽기(`GET /v2/me/myhome` — 페이지 + 바탕화면 한 번) · 남의 마이홈(`GET /v2/myhomes/{userCode}`) · 내 책장(`GET /v2/me/myhome/bookshelf`) · 남의 공개 책(`GET /v2/myhomes/{userCode}/bookshelf`) · 페이지 칸 저장(`PATCH /v2/me/myhome`) · 디자인(`PUT …/design`) · 바탕화면(`PUT …/desktop`) · 책장(`PUT …/bookshelf`) · 그림 올리기(`POST /v2/me/images?purpose=myhome`). 서버 모양(스티커 목록 · `image` · 프리셋 `withImage` · 책 `width` · `titleColor` · `public` · `addedAt` ISO)을 화면 모양(스티커 `{sid:…}` · `img` · `img:true` · `w` · `tcolor` · `pub` · `at` ms)으로 맞추는 곳은 여기뿐이다. 신원은 토큰.
 - **만드는 법**: `TwMyHomeApi.createMyHomeApi({ authed, imageBytes, warn })` — 상태 주인(`myhome-store` · `bookshelf-store`, D2-2 · D2-4)이 받는다.
@@ -346,7 +346,7 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 - **로그아웃 · 앱 끄기**: `account.js` 가 `flush()` 뒤 `reset()`, `beforeunload` 가 `flush()`. 마이홈을 닫을 때(`COMMIT` 고리) 글 칸을 넘기고 못 올린 고침을 한 번 보낸다.
 - **검사**: `checks/sim-myhome-wire.js`(배선 · 직접 쓰기 없음 · 진짜 상태 주인 위의 읽기 창구) · 각 화면 파일 sim 은 가짜 상태 주인 위에서 «동작 함수를 부른다» 까지.
 
-## `gift-api.js` — 🧸 말랑이 · 🎁 선물 서버 길 provider
+## `gift-api.js` — 🧸 말랑이 · 🎁 선물 서버 경로 provider
 
 - **책임**: 내 말랑이 칸 읽기 · 통째 저장(`GET` · `PUT /v2/me/mallangs`) · 그림 올리기(`POST /v2/me/images?purpose=mallang`) · 남의 집 칸(`GET /v2/mallangs/{userCode}`) · 내 선물함(`GET /v2/me/gifts`) · 봤음(`POST /v2/me/gifts/seen`) · ⭐ · 치움(`PATCH /v2/me/gifts/{id}`) · 지우기(`DELETE /v2/me/gifts/{id}`) · 오늘 보낸 수(`GET /v2/me/gifts/sent-today`) · 그 집에 나온 선물(`GET /v2/gifts/{userCode}`) · 보내기(`POST /v2/gifts/{userCode}`). 서버 모양(`sentAt` ISO)을 화면 모양(`sentAt` ms)으로 맞추는 곳은 여기뿐이다. 신원은 토큰 — 보내기 본문에 내 코드 · 이름 · 날짜 · 그림 주소를 싣지 않는다.
 - **만드는 법**: app.js 가 `const giftApiMod = TwGiftApi.createGiftApi({ authed: TwApi.authed, warn })` 로 한 벌 만들어 상태 주인에 넘긴다 — 지금은 말랑이 칸(`mallang-store.js`)이 쓰고, 선물함 · 보내기는 선물 묶음에서 같은 한 벌을 받는다.
@@ -360,11 +360,11 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
   - 그림은 png · webp 만(말랑이는 JPEG 를 서버가 받지 않는다) · 1MB 이하 — 아니면 요청 없이 `IMAGE_UPLOAD`. 올리기는 칸을 바꾸지 않는다 — 받은 `url` 을 `saveMallangs` 에 넣어야 칸이 된다.
   - 메시지는 UTF-16 50자까지(입력칸 `maxlength` 와 같은 단위) — 끝이 이모지 짝의 앞 반쪽이면 그것도 뺀다.
   - `requestId` 는 부르는 쪽이 `TwRequestId.createPending()` 으로 정한다(닿지 못했으면 같은 번호로 다시).
-- **검사**: `checks/sim-gift-api.js`(가짜 `authed` · 진짜 `api-client` · 진짜 `api-errors` 로 실제로 불러 판정 · 일부러 깨 보기).
+- **검사**: `checks/sim-gift-api.js`(가짜 `authed` · 진짜 `api-client` · 진짜 `api-errors` 로 실제로 불러 판정 · mutation test).
 
 ## `mallang.js` — 🧸 말랑이 · 🎁 선물 화면
 
-- **책임**: 마이홈 바탕화면의 말랑이 폴더(부르기 · 등록 창) · 떠다니는 말랑이 · 마이홈에 나온 선물 말랑이(치우기) · 선물 보내기 창 · 친구 탭 🎁 배지 · 선물 말랑이를 띄우고 빼는 화면 연출 · 선물 보내기 창. 말랑이 칸은 상태 주인(`mallang-store.js`) · 받은 선물은 선물 상태 주인(`gift-box.js`)이 서버 길로 받고 고친다 — 이 파일은 그리기 · 누름만. 보내기도 서버 길(`giftBox.send` · `fetchSentToday` · `fetchVisible`)이다 — 창 상태(`giftPop`)는 이 파일 안.
+- **책임**: 마이홈 바탕화면의 말랑이 폴더(부르기 · 등록 창) · 떠다니는 말랑이 · 마이홈에 나온 선물 말랑이(치우기) · 선물 보내기 창 · 친구 탭 🎁 배지 · 선물 말랑이를 띄우고 빼는 화면 연출 · 선물 보내기 창. 말랑이 칸은 상태 주인(`mallang-store.js`) · 받은 선물은 선물 상태 주인(`gift-box.js`)이 서버 경로로 받고 고친다 — 이 파일은 그리기 · 누름만. 보내기도 서버 경로(`giftBox.send` · `fetchSentToday` · `fetchVisible`)다 — 창 상태(`giftPop`)는 이 파일 안.
 - **만드는 법**: app.js 가 마이홈 수령함(`createMyHomeInbox`)보다 먼저 만든다 — 수령함 · 마이홈 창 · 친구 홈 구경이 값으로 받는다.
 
 ```js
@@ -387,7 +387,7 @@ const mallangMod = TwMallang.createMallang({
   - 칸 값을 직접 고치지 않는다 — 등록 · 켜고 끄기 · 지우기는 `mallangStore.add(그림)` · `toggle(i)` · `remove(i)`. 등록 창은 칸이 바뀌면(`onChange`) 다시 그리고, 받기 전 · 받는 중 · 못 받음엔 칸 대신 «불러오는 중…» · «못 불러왔어요 [다시 시도]» 를 그린다.
   - 집을 옮기는 사이 늦게 온 앞 집 칸 · 선물 답은 `openView` 가 false · 집 번호(`houseSeq`)가 달라져 알려 준다 — 그때는 폴더 · 선물을 다시 그리지 않는다.
   - 내 선물 중 무엇이 화면에 나오는지는 선물함(`giftBox.onScreen()`)이 정한다 — 이 파일은 선물함이 바뀔 때마다(`syncGifts`) 목록에 없는 말랑이를 걷고 빠진 것을 자리(`MAX_LIVE`)가 있는 만큼 띄우며, 선물 id 를 따로 들지 않는다. 자리가 없어 못 뜬 선물은 «나와야 함» 으로 남아 자리가 나는 다음 emit 에 뜬다. 우클릭 치움은 `giftBox.hide(id)` — 누르는 즉시 목록에서 빠지고, 안 되면 목록이 서버 값으로 돌아가 다시 뜬다(손으로 다시 띄우지 않는다). 마이홈은 `enterHome()` · 나가면 `leaveHome()`(clearAll). 남의 집에선 `GET /v2/gifts/{code}`(`giftBox.fetchVisible`)로 받는다. 이 PC 에 «치움» 을 적지 않는다.
-- **검사**: `checks/sim-mallang-module.js`(가짜 DOM · 가짜 서버로 열기 → 치우기 → 다시 부르기 → 지우기 → 서브탭 → 새 선물 → 남의 집 → 닫기 → 보내기 창 → 계정 놓음을 실제로 불러 부른 순서 · 값을 견줌 · 배선 · 일부러 깨 보기).
+- **검사**: `checks/sim-mallang-module.js`(가짜 DOM · 가짜 서버로 열기 → 치우기 → 다시 부르기 → 지우기 → 서브탭 → 새 선물 → 남의 집 → 닫기 → 보내기 창 → 계정 놓음을 실제로 불러 부른 순서 · 값을 견줌 · 배선 · mutation test).
 
 ## `gift-box.js` — 🎁 선물 상태 주인 (서버가 원본)
 
@@ -400,7 +400,7 @@ const mallangMod = TwMallang.createMallang({
   - 화면 규칙: `onScreen()` 은 마이홈이 눈앞이고 들어온 뒤 받기가 한 번 성공했을 때만 목록이 있다. 낙관(요청 전에 화면을 바꿈)은 치움 하나뿐 — 다시 부르기 · ⭐ · 지우기는 서버가 받아야 바뀐다. 안 되는 답은 일(`pending`)만 지우면 서버 값으로 돌아간다. 화면이 가득이면 다시 부르기는 `'full'` 로 요청 0.
   - ⭐ 21번째 · ⭐ 지우기는 요청 없이 막는다. 쓰기가 성공하면 그 줄만 고쳐 그린다(서버 재조회 없음).
   - 계정을 놓으면(`reset`) gen 이 올라 늦게 온 답은 아무것도 적지 않는다. 이 PC 에 적는 키 없음 — 옛 `tw.mallangGiftHidden` 은 첫 실행 `mallang` 단계가 지운다.
-- **검사**: `checks/sim-gift-box.js`(진짜 모듈을 가짜 서버 길 위에서 — 순서 · 받기 · 한 줄 · busy · 쓰기 · 봤음 · 신호 · reset · 그 집 선물 · 배선 · 옛 길 걷음 · 일부러 깨 보기). 선물함 격자는 `sim-myhome-inbox.js`.
+- **검사**: `checks/sim-gift-box.js`(진짜 모듈을 가짜 서버 경로 위에서 — 순서 · 받기 · 한 줄 · busy · 쓰기 · 봤음 · 신호 · reset · 그 집 선물 · 배선 · 옛 경로 걷음 · mutation test). 선물함 격자는 `sim-myhome-inbox.js`.
 
 ## `mallang-store.js` — 🧸 말랑이 칸 상태 주인 (서버가 원본)
 
@@ -413,7 +413,7 @@ const mallangMod = TwMallang.createMallang({
   - 409 `CONCURRENT_UPDATE` 는 내 고침을 버리고 서버 것을 받아 «다른 기기에서 바꾼 내용을 받아왔어요». 실패는 화면을 고친 대로 두고 `E-GIFT-03` 한 번 — 혼자 다시 보내지 않는다(타이머 없음). 다음 고침 · `flush()` 가 한 번 보낸다.
   - 올리기(`POST /v2/me/images?purpose=mallang`) 실패는 칸을 그대로 두고 `E-GIFT-02`(PUT 없음). 올리는 중 또 등록은 `busy`. 409 로 다시 받는 사이 올리기가 끝나면 그 그림은 칸에 붙이지 않는다(파일은 남는다 — 탈퇴 때 서버가 지운다).
   - 오류: 받기 `E-GIFT-01`(보내기 창 열기는 `site: 'sendOpen'` → `E-GIFT-07`) · 공통 code(`PREMIUM_REQUIRED` 등)는 `TwApiErrors.store.notify` · 계정이 바뀌는 중(`OWNER_CHANGED` · `NOT_RECEIVED`)은 조용히 · 없는 사람(`USER_NOT_FOUND`)은 «말랑이 없음».
-- **검사**: `checks/sim-mallang-store.js`(진짜 모듈을 가짜 서버 길 위에서 — 저장 차례 · 409 · 실패 한 번 · 등록 · 집 gen · reset · 배선 · 일부러 깨 보기).
+- **검사**: `checks/sim-mallang-store.js`(진짜 모듈을 가짜 서버 경로 위에서 — 저장 차례 · 409 · 실패 한 번 · 등록 · 집 gen · reset · 배선 · mutation test).
 
 ## `bookshelf-store.js` · `bookmark.js` — 📚 책장 (서버가 원본)
 
@@ -426,7 +426,7 @@ const mallangMod = TwMallang.createMallang({
   - 구경: 공개 책을 못 받아도 폴더는 보이고 서랍에 «다시 시도»(시작하며 받다 실패하면 번호 없음 · 누른 다시 시도가 또 실패하면 `E-MH-26`). 없는 사람(`USER_NOT_FOUND`)은 폴더를 숨긴다. 집을 빨리 옮겨도 앞 집 답은 버린다(`gen`).
   - 책등 그림 올리기 실패는 창 안 글(«그림을 올리지 못했어요.»)만 — 그 실패는 `bookmark.js` 가 `E-MH-24` 를 한 번 띄운다(공통 번호를 이미 알렸으면 건너뜀). 새 책은 `addedAt` 을 싣지 않고(서버가 넣는다) 색이 없는 옛 책은 색 칸을 싣지 않는다. 뗀 그림 지우기는 서버 몫이다.
   - 이 PC 사본(`tw.bookmarks`)은 읽지 않는다 — 첫 실행 `myhome` 단계(`first-run-013.js`)가 지운다(올리지 않음).
-- **검사**: `checks/sim-bookshelf-store.js`(받기 · 저장 차례 · 409 · 실패 한 번 · 50권 · 구경 gen · reset · 배선 · 일부러 깨 보기) · `checks/sim-bookmark.js`(서랍 화면).
+- **검사**: `checks/sim-bookshelf-store.js`(받기 · 저장 차례 · 409 · 실패 한 번 · 50권 · 구경 gen · reset · 배선 · mutation test) · `checks/sim-bookmark.js`(서랍 화면).
 
 ## `scheduler.js` — 📅 스케줄러 · 🔔 일정 알림 (서버가 원본)
 
@@ -440,7 +440,7 @@ const mallangMod = TwMallang.createMallang({
   - 친구 구경 중 `schedule` 알림이 와도 달력은 건드리지 않는다(내 알림이라서) — 내 보드 · 오늘 일정 · 알림만 다시 받는다. 친구 것은 `friendSchedule` 의 `subject` 가 **지금 구경 중인 친구와 같을 때만** 보는 달 · 보드를 조용히 다시 받는다(아니면 요청 0 · 받는 중에 또 오면 끝난 뒤 한 번 더 · 실패하면 번호 없이 지금 화면 유지 · 구경을 끝냈거나 친구를 옮긴 뒤 늦게 온 답은 버림). 오래 끊겼다 붙을 때(`resync` — 친구 코드 없음)도 지금 구경 중인 친구를 같은 길로 한 번 다시 받는다(구경 중이 아니면 요청 0).
   - `reset()` 은 세대 번호를 올려 늦게 오는 앞 계정 답을 버린다 — 새 계정 것은 `loadBoard` / `loadMine` 이 받는다.
   - 계정별로 이 PC 에 남는 값: `tw.bellSeenTs`(app.js `BELL_SEEN_KEY` — 계정 전환 지움 목록). 기기 취향: `tw.annivAreaH`(구분선 높이) · `tw.bellWinPos`(알림창 자리).
-- **검사**: `checks/sim-scheduler.js`(진짜 provider + 가짜 authed 위에서 받는 상태 · 잠금 · 저장 줄 세우기 · 409 · 계정 바뀜 · 구경 · 깨 보기).
+- **검사**: `checks/sim-scheduler.js`(진짜 provider + 가짜 authed 위에서 받는 상태 · 잠금 · 저장 줄 세우기 · 409 · 계정 바뀜 · 구경 · mutation test).
 
 ## `myhome-desktop.js` — 🖥️ 마이홈 바탕화면 · 캐릭터세팅 창
 

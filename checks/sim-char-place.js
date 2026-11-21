@@ -7,7 +7,7 @@
    ・5절: 책상 반폭 seatDeskHalfWidth — 책상 없음 · 빈 책상 · 치우친 책상 · 책상 위 아이템 · 숨은 것 · 줌 상한
    ・6절: 다시 대입되는 값 읽기 · 쓰기 · attach
    ・7절: 연결 — html · 만드는 줄 · 옛 이름 · app.js 에 해당 코드가 안 남음
-   ・8절: 일부러 깨 보기
+   ・8절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. three 는 vendor/three/three.min.js. */
 'use strict';
 const fs = require('fs');
@@ -159,7 +159,7 @@ say('§3 모니터 바뀜');
   chk(!/\blet (sizeFactor|deskPanX|deskPanY|focusCharScale|_cachedRowCenter|_charScaleMap)\b|function (clampCharY|seatCharZ|clampDeskPan|seatDeskHalfWidth|saveCharPos|saveCharScale|_loadCharScale)\b/.test(code), '  app.js 에 해당 코드 · 다시 대입되는 let 이 남아 있지 않다');
   chk(!/(?<![\w$.])(sizeFactor|deskPanX|deskPanY|focusCharScale|_cachedRowCenter|_cachedRowSpan)(?![\w$:])/.test(code.replace(/charPlaceMod\.\w+/g, '')), '  그 값들은 어디서나 charPlaceMod 로 읽고 쓴다');
 
-  say('§8 일부러 깨 보기');
+  say('§8 mutation test');
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const m1 = brk('return (isFinite(n) && n > 0) ? Math.min(n, CHAR_Y_MAX) : 0;', 'return n;');
   chk(!!m1 && build(m1).mod.clampCharY(9) !== 0.6, 'clampCharY 상한을 빼면 빨강');

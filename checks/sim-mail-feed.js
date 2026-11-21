@@ -6,8 +6,8 @@
    ・3절: 못 받음 — error 상태 · 자동 받기(켤 때 · 알림) 실패는 번호 없이 상태만 · 연 · 누른 받기(manual)에서만 E-MH-08(이어지는 동안 한 번) · 받으면 다시 알림 가능 · 못 받아도 앞서 받은 우편은 그대로(ready 유지)
    ・4절: 계정 바뀜 — 바뀌면 비우고 새로 받음 · 늦게 끝난 앞 계정 응답은 버림(실패도 알리지 않음) · stop 은 비움
    ・5절: 읽음 · 지우기 — 받기 전 잠금 · 서버가 됐다 한 뒤에만 고침(읽음 → 안 읽은 수 -1 · 모두 읽음 → 0 · 지우기 → 목록 · 안 읽은 수) · stale 은 조용히 버림 · 실패는 번호(E-MH-10 · 07)와 그대로 · 여러 통은 첫 실패에서 멈춤
-   ・6절: 배선 — app.js 가 서버 길로 만듦 · 옛 let 이 없음 · html · smoke
-   ・7절: 일부러 깨 보기
+   ・6절: 배선 — app.js 가 서버 경로로 만듦 · 옛 let 이 없음 · html · smoke
+   ・7절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -308,7 +308,7 @@ async function judge(S){
   say('── 6. 배선');
   {
     const A = strip(S.APP);
-    chk(/TwMailFeed\.createMailFeed\(\{[\s\S]*?rt: TwRtHub\.store[\s\S]*?\}\);/.test(A) && /TwInboxApi\.createInboxApi\(\{ authed: TwApi\.authed/.test(A), 'app.js — 서버 길과 realtime 알림을 넘겨 만든다');
+    chk(/TwMailFeed\.createMailFeed\(\{[\s\S]*?rt: TwRtHub\.store[\s\S]*?\}\);/.test(A) && /TwInboxApi\.createInboxApi\(\{ authed: TwApi\.authed/.test(A), 'app.js — 서버 경로와 realtime 알림을 넘겨 만든다');
     chk(!/isViewing|_mailboxVisible|retryDelay|TwRetryDelay/.test(A), 'app.js — 보는 중 거르기 · 다시 받기 재료를 넘기지 않는다(혼자 다시 받지 않음)');
     chk(!/let _myInbox\b|let _myInboxReady\b|let _inboxBroadcast\b/.test(A), '옛 개인 수령함 · 공용 공지 let 이 app.js 에 없다(원본은 서버)');
     const h = S.HTML;
@@ -320,7 +320,7 @@ async function judge(S){
 async function runAll(){
   const S = SRC0;
   await judge(S);
-  say('── 7. 일부러 깨 보기');
+  say('── 7. mutation test');
   const breaks = [
     ['busy 가 늘 false', S.FEED.replace('busy: () => flying', 'busy: () => false'), 'busy()'],
     ['처음 받은 판도 새 우편으로', S.FEED.replace("everReady ? Object.keys", "true ? Object.keys"), '처음 받은 우편'],

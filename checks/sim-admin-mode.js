@@ -6,7 +6,7 @@
         확인 중 또 눌러도 한 번 · 다 맞으면 setIsAdmin(true) · body.admin · 버튼 보이기
    ・3절: 끄기 · 진입 — Ctrl+E 는 켜져 있을 때만 끈다 · Ctrl+클릭은 비밀번호 창을 열고 원래 동작을 막는다 · Mac 아닌 곳의 Meta(Win 키)는 무시 · 켜져 있으면 무시
    ・4절: app.js 연결 — 본문이 안 남음 · isAdmin 선언은 app.js · 빈 껍데기 · deps · 부팅 때 adminMode.refreshAdminVisibility · html(key-input.js 뒤 · app.js 앞)
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] app.js · desk-companion-prototype.html · admin-mode.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
@@ -197,7 +197,7 @@ async function judgeAll(src, app, html, platform, repOv){
   /* Mac 에서는 ⌘+클릭으로 열린다 */
   { const st = { admin: false, uid: 'u1', platform: 'MacIntel' }; const B = build(MOD, st); const c = click(B, 'lcDonateBtn', { metaKey: true });
     chk(c.prevented && B.els.adminPassOverlay.classList.contains('on'), 'Mac — ⌘+클릭(후원 버튼)으로도 연다'); }
-  say('── 5. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+  say('── 5. mutation test — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['로그인 확인 빠짐', { mod: s => s.replace("if(!_signedIn()){", "if(false){") }],
     ['서버 확인 빠짐', { mod: s => s.replace("try{ await adminApi.me(); }", "try{}") }],
@@ -221,7 +221,7 @@ async function judgeAll(src, app, html, platform, repOv){
     ['html 순서 틀림', { html: s => s.replace('<script src="parts/admin/admin-mode.js"></script>', '').replace('<script src="parts/shared/key-input.js"></script>', '<script src="parts/admin/admin-mode.js"></script>\n<script src="parts/shared/key-input.js"></script>') }],
     ['app.js 에 본문이 남음', { app: s => s + '\nfunction exitAdmin(){}' }],
     ['deps 하나 빠짐', { app: s => s.replace('  setIsAdmin: (v)=>{ isAdmin = v; },\n', '') }],
-    ['서버 길 deps 빠짐', { app: s => s.replace('  adminApi: adminApi,\n  apiErrors: TwApiErrors.store,\n});\n/* ═══ 💡', '});\n/* ═══ 💡') }],
+    ['서버 경로 deps 빠짐', { app: s => s.replace('  adminApi: adminApi,\n  apiErrors: TwApiErrors.store,\n});\n/* ═══ 💡', '});\n/* ═══ 💡') }],
   ];
   for(const [name, f] of breaks){
     const s2 = f.mod ? f.mod(MOD) : MOD, a2 = f.app ? f.app(SRC) : SRC, h2 = f.html ? f.html(HTML) : HTML;

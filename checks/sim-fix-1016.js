@@ -95,7 +95,7 @@ say('§11 캐릭터 편집 위로 마이홈 패널이 비침');
   const zOf = (sel) => { const m = all.match(new RegExp(sel + '\\{[^}]*z-index:([^;}]+)')); return m ? ZL.resolveZ(HTML, m[1]) : null; };
   const HIDE = /body:has\(#creatorOverlay\.on\) #myHomeOverlay, body:has\(#creatorOverlay\.on\) #mhGbOverlay\{visibility:hidden;\}/;
   chk(HIDE.test(all), '★ 편집창이 켜진 동안 마이홈 · 방명록 창을 숨긴다(CSS :has — #258 의 의도)');
-  chk(!HIDE.test(all.replace('body:has(#creatorOverlay.on) #myHomeOverlay, body:has(#creatorOverlay.on) #mhGbOverlay{visibility:hidden;}', '')), '  ↳ 깨 보기: 숨기는 줄을 걷으면 빨강');
+  chk(!HIDE.test(all.replace('body:has(#creatorOverlay.on) #myHomeOverlay, body:has(#creatorOverlay.on) #mhGbOverlay{visibility:hidden;}', '')), '  ↳ mutation test: 숨기는 줄을 걷으면 빨강');
   const AHIDE = 'body.animal-creator #myHomeOverlay, body.animal-creator #mhGbOverlay{visibility:hidden;}';
   chk(all.indexOf(AHIDE) >= 0, '★ 동물 만들기가 열린 동안에도 마이홈 · 방명록 창을 숨긴다(body.animal-creator)');
   const ASRC = ['animal.js', 'parts/character/animal.js', 'app/parts/character/animal.js'].map((f) => { try { return require('fs').readFileSync(f, 'utf8'); } catch (_) { return null; } }).find(Boolean) || '';

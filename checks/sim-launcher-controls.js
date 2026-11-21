@@ -2,7 +2,7 @@
    app.js 의 런처 컨트롤 구역 본문 을 parts/launcher/launcher-controls.js 로 옮겼다(글자 그대로 · 바뀐 줄 21 — 읽는 · 쓰는 함수로 바꾼 자리).
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(closeGearMenu)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 만드는 줄 · deps 13줄 그대로 · 부르는 곳은 launcherCtlMod.이름 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    ・4절: 동작 — 가짜 DOM · deps 로 모듈을 만들어 입력 → 결과(경계값 포함)를 본다
    [실행] app.js · desk-companion-prototype.html · launcher-controls.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
@@ -77,14 +77,14 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/launcher/launcher-controls.js"></script>', '')],
   ['deps 하나 빠짐', null, GLUE.length ? (a => { const i = a.indexOf("const launcherCtlMod = TwLauncherControls.createLauncherControls({"); const j = a.indexOf('\n});', i); const blk = a.slice(i, j); return a.slice(0, i) + blk.replace(/\n[^\n]*$/, '') + a.slice(j); }) : (a => a.replace("const launcherCtlMod = TwLauncherControls.createLauncherControls({", "const launcherCtlMod = TwLauncherControls.createLauncherControls({" + '\n  _extra: 1,')), null],
   ['전역 이름 안 걺', m => m.replace('window.TwLauncherControls = api;', ''), null, null],
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith("const launcherCtlMod =")) continue; const n = EXPORTS.filter(x => ![].includes(x)).find(x => ls[i].includes("launcherCtlMod." + x)); if(n){ ls[i] = ls[i].replace("launcherCtlMod." + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 던짐', m => m.replace('function createLauncherControls(deps){', 'function createLauncherControls(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createLauncherControls(deps){', 'function createLauncherControls(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [nm, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;

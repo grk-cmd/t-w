@@ -6,7 +6,7 @@
    ・3절: 고리 — firebase-init.js 의 Firebase 기본 동작 감쌈은 걷었다 · API 통로(api-client.js)는 실제로 보낼 때만 · 오류 번호 토스트는 점검 중 조용히(기록은 남김)
    ・2-3절: 점검 값 읽기(0.13) — 서버 /v2/config 먼저 · 네트워크 · 5xx · 시간 초과면 Firebase 한 칸 · 4xx 는 물러나지 않음 · 서버가 답하면 Firebase 를 안 읽음 · ISO 끝 시각 · 읽는 때(시작 · config 알림 · 4006 · 다시 시도)
    ・4절: 연결 · 규칙 — html 싣는 순서 · 클릭 통과 목록 · firebase-init 구독 · config/maintenance 누구나 읽기 · 관리자만 쓰기 · 모양
-   ・5절: 깨 보기 — (읽기) 4xx 도 물러나거나 · 서버가 답해도 Firebase 를 읽거나 · 서버 길을 건너뛰거나 · 알림 · 다시 시도에서 안 읽으면 빨강 · 사람이 누른 동작 확인을 빼거나 · 판정 폭을 5초로 · 창 안 입력도 세거나 · 다른 창 것을 안 숨기거나 · 오류 토스트 조용히를 빼거나 · on 판정을 느슨하게 하면 빨강
+   ・5절: mutation test — (읽기) 4xx 도 물러나거나 · 서버가 답해도 Firebase 를 읽거나 · 서버 경로를 건너뛰거나 · 알림 · 다시 시도에서 안 읽으면 빨강 · 사람이 누른 동작 확인을 빼거나 · 판정 폭을 5초로 · 창 안 입력도 세거나 · 다른 창 것을 안 숨기거나 · 오류 토스트 조용히를 빼거나 · on 판정을 느슨하게 하면 빨강
    [실행] node checks/run.js sim-maintenance-gate */
 'use strict';
 const fs = require('fs');
@@ -111,7 +111,7 @@ function run(M, label){
       '★ «확인» 으로 닫으면 다시 붙지 않고(자동 재시도 없음) 다시 붙기를 넘긴다(띠 [다시 연결]) · on() 은 거짓 — 오류 알림이 다시 켜진다');
     q.g.onValue({ on: true }); q.g.onValue({ on: false });
     chk(n === 1, '★ 닫은 뒤에도 점검 칸이 풀리면 한 번 붙는다');
-    if(handed) handed();   // 깨 본 판에선 안 넘어온다 — 위 줄이 이미 빨강
+    if(handed) handed();   // 망가뜨린 판에선 안 넘어온다 — 위 줄이 이미 빨강
     chk(n === 1, '  ↳ 그 뒤 띠 [다시 연결] 을 눌러도 또 붙지 않는다(먼저 온 쪽 하나)');
     q = rig(M, false); n = 0; handed = null;
     q.g.serverClosed(() => { n++; }, (f) => { handed = f; });
@@ -192,7 +192,7 @@ async function runRead(M, label){
     chk(q.g.on() === false && q.reads.flag === 0, '★ 서버가 «점검 아님» 이라 하면 Firebase 가 켜져 있어도 점검 아님(서버가 원본)');
     q = mk(null, null, true); q.server = { room: {} }; q.flag = { on: true };
     await q.g.check();
-    chk(q.g.on() === false && q.reads.flag === 0, '  ↳ 옛 서버(maintenance 칸 없음) — 점검 아님 · Firebase 안 읽음');
+    chk(q.g.on() === false && q.reads.flag === 0, '  ↳ 옛 서버(maintenance field 없음) — 점검 아님 · Firebase 안 읽음');
     for(const [name, err] of [['네트워크', { kind: 'unavailable', status: 0, code: 'NETWORK' }], ['시간 초과', { kind: 'unavailable', status: 0, code: 'TIMEOUT' }], ['5xx', { kind: 'unavailable', status: 502 }], ['5xx 상태만', { status: 502 }], ['503 본문', { kind: 'unavailable', status: 503, code: 'SERVER_ADMIN_ONLY' }], ['쉬는 중', { kind: 'unavailable', status: 0, code: 'BACKOFF' }]]){
       q = mk(null, null, true); q.server = () => Promise.reject(err); q.flag = { on: true, message: 'fb 문구', endsAt: 1e12 };
       await q.g.check();
@@ -316,7 +316,7 @@ say('── 3. 고리');
   chk(ev(n.endsAt['.validate'], 1) && !ev(n.endsAt['.validate'], 0) && ev(n.message['.validate'], 'x'.repeat(M.MESSAGE_MAX)) && !ev(n.message['.validate'], 'x'.repeat(M.MESSAGE_MAX + 1)) && n.$other['.validate'] === false,
       '  ↳ endsAt 양수 · message ' + M.MESSAGE_MAX + '자까지 · 다른 칸 거절');
 
-  say('── 5. 깨 보기');
+  say('── 5. mutation test');
   const broke = (src, from, to) => { const s = src.replace(from, to); return s === src ? null : s; };
   const saved = [pass, fail];
   const quietRun = (MM) => { const log = console.log; console.log = () => {}; const p0 = pass, f0 = fail; let ok; try{ ok = run(MM, ''); }finally{ console.log = log; } pass = p0; fail = f0; return ok; };
@@ -358,7 +358,7 @@ say('── 3. 고리');
   const r2 = broke(SRC, "apply(maintenanceOfServer(data.maintenance));", "apply(maintenanceOfServer(data.maintenance)); if(readFlag) try{ apply(maintenanceOf(await readFlag())); }catch(_){}");
   chk(r2 && !(await quietRead(asModule(r2))), '(읽기) 서버가 답해도 Firebase 를 또 읽으면 빨강');
   const r3 = broke(SRC, "try{ data = await readServer(); }", "try{ data = await Promise.reject({ kind: 'unavailable' }); }");
-  chk(r3 && !(await quietRead(asModule(r3))), '(읽기) 서버 길을 건너뛰고 Firebase 만 읽으면 빨강');
+  chk(r3 && !(await quietRead(asModule(r3))), '(읽기) 서버 경로를 건너뛰고 Firebase 만 읽으면 빨강');
   const r4 = broke(SRC, "return e.kind === 'unavailable' || (typeof e.status === 'number' && e.status >= 500);", "return e.kind === 'unavailable';");
   chk(r4 && !(await quietRead(asModule(r4))), '(읽기) 5xx 를 «닿지 못함» 으로 안 보면 빨강');
   const r5 = broke(SRC, "o.rt.on('config', () => { check(); });", "");

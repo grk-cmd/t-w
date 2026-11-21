@@ -4,7 +4,7 @@
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(MAX_COMMISSION_BYTES · MAX_CUSTOM_ASSETS · MAX_CUSTOM_ITEMS · MAX_GLB_BYTES · decryptCommission · encryptCommission · persistSavedAssets · savedDesks · setSavedDesks · savedItems · setSavedItems · unpackCommissionZip)
      만들 때 deps 함수를 되부르지 않는다 — 만드는 도중엔 app.js 의 commissionMod 가 아직 없어(TDZ) 되부른 함수가 던진다(부팅 저장 아이템 등록이 깨졌던 사고)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 4줄 그대로 · 부르는 곳은 commissionMod.이름 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · commission.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -115,15 +115,15 @@ function behave(mod){
   chk(R.closedLoud && R.closedRead, '계정 칸이 닫혀 있으면 — 쓰기는 알리고 읽기는 비워 둔다(조용히 옛 값을 쓰지 않는다)');
   const br = (from, to) => MOD.includes(from) ? behave(MOD.replace(from, to)) : null;
   const b1 = br("const have = new Set(cur.map(p=>p.id));\n  return cur.concat(_readLocal(key).filter(p=>!have.has(p.id)));", "return _readLocal(key);");
-  chk(b1 && !b1.load, '깨 보기 — 로그인 때 읽은 값으로 카탈로그 몫을 덮으면 빨강');
+  chk(b1 && !b1.load, 'mutation test — 로그인 때 읽은 값으로 카탈로그 몫을 덮으면 빨강');
   const b2 = br("JSON.parse(raw).filter(p=>!p.fromCatalog)", "JSON.parse(raw)");
-  chk(b2 && !b2.load, '깨 보기 — 옛 칸의 카탈로그 사본까지 읽으면 빨강');
+  chk(b2 && !b2.load, 'mutation test — 옛 칸의 카탈로그 사본까지 읽으면 빨강');
   const b3 = br("JSON.stringify(savedDesks.filter(p=>!p.fromCatalog))", "JSON.stringify(savedDesks)");
-  chk(b3 && !b3.persist, '깨 보기 — 카탈로그 몫까지 계정 칸에 쓰면 빨강');
+  chk(b3 && !b3.persist, 'mutation test — 카탈로그 몫까지 계정 칸에 쓰면 빨강');
   const b4 = br("savedDesks = savedDesks.filter(p=>p.fromCatalog);", "savedDesks = [];");
-  chk(b4 && !b4.reset, '깨 보기 — 세션 끝에 카탈로그 몫까지 비우면 빨강');
+  chk(b4 && !b4.reset, 'mutation test — 세션 끝에 카탈로그 몫까지 비우면 빨강');
 }
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/character/commission.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
@@ -133,9 +133,9 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const commissionMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('commissionMod.' + x)); if(n){ ls[i] = ls[i].replace('commissionMod.' + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 deps 를 되부름', m => m.replace('function resetLocalDesks(){', 'notifyError("깨 봄"); function resetLocalDesks(){'), null, null],
+  ['만들 때 deps 를 되부름', m => m.replace('function resetLocalDesks(){', 'notifyError("mutation"); function resetLocalDesks(){'), null, null],
   ['확인 뒤 등록 줄 빠짐', null, a => a.replace('return loadSavedItemsIntoSession(); },', '},'), null],
-  ['만들 때 던짐', m => m.replace('function createCommission(deps){', 'function createCommission(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createCommission(deps){', 'function createCommission(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;

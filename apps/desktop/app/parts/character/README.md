@@ -42,7 +42,7 @@
   동물 귀 말고도 얼굴과 함께 갈아야 하는 재질이 생기면 `userData` 등록표를 늘린다(호출부에 넣지 않는다).
 - **함정**: 깜빡임 스왑은 전부 `setFaceMap` 을 지나야 한다 — 호출부에서 `mat.map` 을 직접 갈면 귀만 뜬 채 남는다.
   텍스처 없는 메쉬도 평탄화해야 한다(건너뛰면 같은 흰색이 회색으로 보인다).
-- **검사**: `checks/sim-mat-tone.js` — 코어 빌드 사본으로 만든 진짜 톤으로 돈다 · 모듈 모양 · 연결 · 깨 보기 + 가짜 재질로 입력 → 결과(맵 · emissiveMap 동기화 · 귀 감김/뜸 · 같은 그림이면 안 감 · 빠진 재질 건너뛰기 · 평탄화 배율 · 텍스처 없는 메쉬 · 색 없는 재질 · FLAT_EMISSIVE 0).
+- **검사**: `checks/sim-mat-tone.js` — 코어 빌드 사본으로 만든 진짜 톤으로 돈다 · 모듈 모양 · 연결 · mutation test + 가짜 재질로 입력 → 결과(맵 · emissiveMap 동기화 · 귀 감김/뜸 · 같은 그림이면 안 감 · 빠진 재질 건너뛰기 · 평탄화 배율 · 텍스처 없는 메쉬 · 색 없는 재질 · FLAT_EMISSIVE 0).
 
 
 ## catalog-api.js — 🧩 카탈로그 서버 한 벌 받기(`GET /v2/catalog`)
@@ -54,7 +54,7 @@
 - **세션 한 번이 값을 쥔다**: 첫 구독이 받기를 시작하고, 마지막 구독자가 빠지면(로그인이 끝남) 받은 값 · 알림 구독 · 받는 중인 요청을 모두 비운다 — 다음 로그인이 앞 사람의 `locked` 를 받지 않고, 늦게 온 앞 로그인의 답은 버린다.
 - **버전 알림**: Firebase `catalogMeta` 는 걷었다(설계 `contexts/catalog.md` §2 · `d13-e-finish` §9). 바뀜 알림 = realtime `catalog` · 내 라이선스가 바뀌면 `license`(서버가 정하는 `locked` 가 바뀐다) — 다시 묻기 = ETag(304 면 같은 객체라 넘기지 않음). IndexedDB 24시간 캐시도 같이 걷었다.
 - **함정**: 못 받으면 Firebase 로 물러나지 않는다 — `E-CHAR-26` 으로 알리고 지난 목록은 그대로 둔다. 타이머로 다시 두드리지 않고, 알림 · 연결 복구(`ready`) 때 다시 받는다. 카테고리 · 해금 레벨도 같은 한 벌에서 받는다 — 추가 요청 없음.
-- 검사: `checks/sim-catalog-api.js`(펼치기 표 · 받기 · 알림 · 실패 · 비우기 · 깨 보기). 길이 서버에 있는지는 `checks/sim-api-routes.js`.
+- 검사: `checks/sim-catalog-api.js`(펼치기 표 · 받기 · 알림 · 실패 · 비우기 · mutation test). 길이 서버에 있는지는 `checks/sim-api-routes.js`.
 
 ## catalog-glb.js — 🔗 카탈로그 GLB 해결(glbUrl → rec.glb)
 
@@ -373,11 +373,11 @@
   - 읽기가 실패하면 던진다(못 읽음 ≠ 빈 보유분). 뽑기는 읽은 토큰의 주인과 묶는다(`expectOwner`) — 읽기 전에는 보내지 않는다.
   - 뽑기가 시간 초과여도 같은 요청을 다시 보내지 않는다. 서버엔 들어갔을 수 있어 사용자가 보관함을 여는 때 다시 받는다.
   - 서버 신호 `collection`(본인)이 오면 `gacha.js` 가 다시 받는다 — 달성표 보상(`bonus`)도 이 길로 온다.
-  - 검사: `checks/sim-gacha-api.js`(요청 모양 · 응답 씻기 · 실패 · 계정 묶기 · 깨 보기) · `checks/sim-gacha.js`(받기 · 뽑기 · 보관함).
+  - 검사: `checks/sim-gacha-api.js`(요청 모양 · 응답 씻기 · 실패 · 계정 묶기 · mutation test) · `checks/sim-gacha.js`(받기 · 뽑기 · 보관함).
 
 ## closet-api.js — 🧬 옷장 api provider
 
-- **책임**: 내 캐릭터 옷장(슬롯 5칸 · 보관함 20 · 휴지통)의 서버 길(`/v2/me/avatars…`) — 옷장 받기(슬롯 캐릭터 def 까지 한 번에) · 캐릭터 하나 읽기 · 만들기 · 고치기 · 슬롯 ↔ 보관함 옮기기 · 휴지통 보내기 · 휴지통 목록 · 되살리기 · 첫 실행 올리기(legacy-sync). 칸 수 · 상한 · 휴지통 기한은 서버가 정한다.
+- **책임**: 내 캐릭터 옷장(슬롯 5칸 · 보관함 20 · 휴지통)의 서버 endpoint(`/v2/me/avatars…`) — 옷장 받기(슬롯 캐릭터 def 까지 한 번에) · 캐릭터 하나 읽기 · 만들기 · 고치기 · 슬롯 ↔ 보관함 옮기기 · 휴지통 보내기 · 휴지통 목록 · 되살리기 · 첫 실행 올리기(legacy-sync). 칸 수 · 상한 · 휴지통 기한은 서버가 정한다.
 - **deps**: `authed`(`TwApi.authed`) · `newRequestId`.
 - **내보내는 것**: `createClosetApi(deps)` → `{ load, fetchOne, create, update, move, trash, trashPage, restore, legacySync, reset }` · 순수 `headOf` · `closetOf` · `trashOf` · `failOf`.
 - **함정**: 읽은 토큰 주인과 쓰기를 묶는다(읽기 전엔 쓰지 않음) · 고치기는 받은 판(baseVersion)을 싣는다 — 낡은 판이어도 서버가 받고 앞 모습을 휴지통 «연동 교체» 로 남긴다(409 가 아니다) · 실패는 서버 code 그대로 던지고 혼자 다시 보내지 않는다 · 옷장 응답은 슬롯 칸과 def 짝이 맞아야 쓴다(모자라면 «못 읽음»). 검사: `checks/sim-closet-api.js`.
@@ -417,7 +417,7 @@
   - 판정은 «합성 텍스처가 투명» 하나다 — 피부가 깔린 합성본 · 흰 바탕을 먼저 칠한 동물 텍스처는 정상이면 투명하지 않다. 받은 얼굴(`def.face`) 이 빈 것만 보면 얼굴을 안 그린 친구를 매번 잡는다.
   - 새로 받지 않는다 — 이미 받은 주소 · 원본만(캐시). 원본이 없거나 받기 실패면 처음 바탕색만 칠해 둔다(다시 투명이 아니라 헛돌지 않는다).
   - 피부 캔버스가 비었으면 남의 좌석은 그 차례를 건너뛴다(피부 없는 얼굴이 굳는다) — 피부는 `repairBlankFaces` 가 먼저 메운다.
-  - 검사: `checks/sim-face-heal.js` 4절(가짜 캔버스에서 실제로 돌림 · 깨 보기) · `checks/sim-gl-recover.js`.
+  - 검사: `checks/sim-face-heal.js` 4절(가짜 캔버스에서 실제로 돌림 · mutation test) · `checks/sim-gl-recover.js`.
 
 ## glow.js — ✨ 빛나는 스프라이트 · 재질 발광
 
@@ -427,7 +427,7 @@
 - **함정**
   - 지금 **부르는 곳이 없다** — 아이템 발광(`equipDeskItem` 의 `applyGlowEffect`)은 «발광 없는 게 나음» 요청으로 주석 처리돼 있다. 되살리려면 그 줄을 `glowMod.applyGlowEffect(obj)` 로 바꿔 부른다(app.js 에 옛 이름이 없다).
   - 스프라이트 텍스처는 첫 부름에 한 번만 만든다(캔버스 128×128 방사형 그라디언트).
-  - 검사: `checks/sim-glow.js`(진짜 three 오브젝트로 크기 · 자리 · 재질 · 실패 길 · 깨 보기).
+  - 검사: `checks/sim-glow.js`(진짜 three 오브젝트로 크기 · 자리 · 재질 · 실패 길 · mutation test).
 
 ## human-ear-attach.js — 🐾 사람 귀 붙이기
 
@@ -438,7 +438,7 @@
   - 바인드 자세(조립 직후 · 애니메이션 전)에 불러야 한다 — holder 와 옮길 양을 이때 잰다. 귀가 없어도 holder 는 만든다.
   - 귀는 늦게 붙는다 — 이 좌석 머리 위에 이미 누가 타 있으면 그 «머리 꼭대기» 는 귀 없던 값이라 `onAttach` 가 다시 잰다.
   - 사람 기본 모델의 ear 본은 웨이트가 없어 본만 돌리면 안 움직인다 — 부착물 자체를 돌려야 해서 동물 귀 등록을 같이 쓴다.
-  - 검사: `checks/sim-human-ear-attach.js`(가짜 귀 모듈 · 진짜 three 로 재질 · 등록 · 붙이기 · 실패 길 · 깨 보기).
+  - 검사: `checks/sim-human-ear-attach.js`(가짜 귀 모듈 · 진짜 three 로 재질 · 등록 · 붙이기 · 실패 길 · mutation test).
 
 ## part-anim.js — ▶ 파츠 · 책상 아이템 애니메이션 재생
 
@@ -449,7 +449,7 @@
   - 멈출 때 `stop()` 이 아니라 `paused = true` — stop 은 0프레임으로 되감아 파츠가 툭 튄다. 재생 판정은 `seatState(holder) === 'focus'` 일 때만(꾸미기 미리보기는 좌석이 아니라 늘 재생).
   - 옛 글의 `typeof isAdmin` · `typeof seats` 는 읽는 함수로 바뀌며 걷었다(앱이 돌기 시작한 뒤에만 불리므로 같은 뜻).
   - `_partAnimNotice` 는 첫 줄 `return` 으로 꺼져 있다(장착할 때마다 뜨던 토스트 잡음). 진단은 `console.log` 의 `[파츠 애니]` 로 본다.
-  - 검사: `checks/sim-part-anim.js`(진짜 three AnimationMixer · 클립 · 상태 표로 재생 판정 · 깨 보기).
+  - 검사: `checks/sim-part-anim.js`(진짜 three AnimationMixer · 클립 · 상태 표로 재생 판정 · mutation test).
 
 ## desk-item-equip.js — 🪑 책상 위 아이템 장착
 
@@ -460,7 +460,7 @@
   - 라이선스 전용 막기는 **친구 좌석(`holder.remote`)에는 걸지 않는다** — 보는 사람의 라이선스로 친구가 올린 아이템이 내 화면에서만 사라진다. 내 좌석은 카탈로그 기록(`savedItems`)의 서버 `locked` 만 본다(`def.licenseOnly` 는 분류라 안 본다). 커스텀 아이템인데 기록이 아직 없으면 `locked` 를 모르는 것이라 막는다(소리 없이) — 카탈로그가 오면 `catalog-sync` 가 좌석 아이템을 다시 적용해 `locked` 로 다시 판정한다.
   - 생성기(`crState.cBase`)일 때만 선택 표시 · 처음 자리 기억 · 기즈모 해제를 한다.
   - 색 그룹이 있으면 비어 있어도 `colors` 를 항상 저장한다 — «초기화한 상태» 를 기록해야 옛 색이 안 남는다.
-  - 검사: `checks/sim-desk-item-equip.js`(진짜 three 로 장착 · 해제 · 복원 · 재생 방식 · 색 · 저장 · 환산 · 깨 보기).
+  - 검사: `checks/sim-desk-item-equip.js`(진짜 three 로 장착 · 해제 · 복원 · 재생 방식 · 색 · 저장 · 환산 · mutation test).
 
 ## fit-model.js — 📐 몸 · 책상 맞춤
 
@@ -472,7 +472,7 @@
   - 동물은 x · y 이동량에 `ANIMAL_RUN_SCALE`(0.4)을 곱한다 — 생성기는 100% 로, 실행 화면은 40% 로 그리는데 이동량만 절대값이면 실행 화면에서 2.5배 크게 들려 보인다(`charLiftWorld` 도 같이 바꿀 것).
   - 재는 동안 옮긴 `rig` · `bodyWrap` · `group` 은 값을 되돌린 뒤 **월드 행렬도 다시 세워 두고** 나간다 — 옛 행렬로 남으면 바로 뒤 `layoutSeats` 가 원점 근처에 있는 것처럼 읽는다.
   - 앞뒤(z) 재센터링은 하지 않는다(미리보기가 정답 기준). 되돌리려면 주석에 적힌 한 줄.
-  - 검사: `checks/sim-fit-model.js`(진짜 three · body-measure · char-measure 로 정규화 · 이동량 · 동물 · 커미션 · 되돌리기 · 책상 · 깨 보기).
+  - 검사: `checks/sim-fit-model.js`(진짜 three · body-measure · char-measure 로 정규화 · 이동량 · 동물 · 커미션 · 되돌리기 · 책상 · mutation test).
 
 ## char-apply.js — 🧬 캐릭터 def 를 좌석에 입히기
 
@@ -483,7 +483,7 @@
   - `window.rebuildAnimalSeats`(동물 GLB 파싱 뒤 좌석 다시 입히기) · `window.registerAnimalEar`(귀가 붙을 때)는 **이 모듈을 만들 때** 건다 — `animal.js` 가 `window.` 로 부른다. 지우면 동물 귀가 안 붙고 동물이 인간으로 남는다. 반대로 이 모듈은 `window.buildAnimalBase`(animal.js)를 부른다 — 서로 부르는 고리라 `sim-dep-cycles` 기준선에 4건 올랐다(이슈 #903).
   - 커미션 GLB 가 캐시에 없으면 파싱만 걸고 `return` 한다. 그 앞에서 책상 배율 · z 를 한 번 맞춰 두는 까닭(한 화면 옛 z 로 그려짐)이 주석에 있다 — 순서를 바꾸지 말 것.
   - `seat._animalBuilt` 는 조건 밖에서 갱신한다 — 안 그러면 동물 GLB 파싱 전 인간 폴백일 때 직전 캐릭터의 판정이 남는다.
-  - 검사: `checks/sim-char-apply.js`(파츠 비우기 · 리깅 xf · 귀 등록 · window 고리 · 입히기 갈래 · 깨 보기).
+  - 검사: `checks/sim-char-apply.js`(파츠 비우기 · 리깅 xf · 귀 등록 · window 고리 · 입히기 갈래 · mutation test).
 
 ## rig-anim.js — 🕺 몸짓
 

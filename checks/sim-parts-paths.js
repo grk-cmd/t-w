@@ -6,7 +6,7 @@
      그래서 펴기 전 모양(스테이징의 parts/ 폴더째 사본 · 저장소의 app/)으로 경로를 직접 따라가 본다.
    ・1절: HTML 의 <script src> 가 가리키는 파일이 다 있다(외부 주소 제외)
    ・2절: parts/ 아래 .js 의 상대 import · export from · import() 가 가리키는 파일이 다 있다
-   ・3절: 일부러 깨 보기 — 없는 경로를 넣으면 잡는다 */
+   ・3절: mutation test — 없는 경로를 넣으면 잡는다 */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -29,7 +29,7 @@ function walk(d, out){
   return out;
 }
 
-/* 판정 — HTML 글 · { 파일 경로: 글 } 을 받아 빠진 경로 목록을 돌려준다(깨 보기에서 같은 판정을 다시 쓴다) */
+/* 판정 — HTML 글 · { 파일 경로: 글 } 을 받아 빠진 경로 목록을 돌려준다(mutation test 에서 같은 판정을 다시 쓴다) */
 function judge(html, files, exists){
   const missSrc = [], missImp = [];
   for (const m of html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g)){
@@ -63,12 +63,12 @@ chk(srcCount > 50, '<script src> ' + srcCount + '줄을 읽었다(너무 적으�
 chk(R.missSrc.length === 0, '가리키는 파일이 다 있다' + (R.missSrc.length ? ' — 없음: ' + R.missSrc.join(' · ') : ''));
 
 say('── 2. ES 모듈 상대 import');
-const IMPORT_MIN = 3;   // firebase-init.js 하나에 십수 줄 — 0.13 에서 Firebase 길을 걷을수록 준다
+const IMPORT_MIN = 3;   // firebase-init.js 하나에 십수 줄 — 0.13 에서 Firebase 경로를 걷을수록 준다
 const impCount = Object.values(FILES).reduce((n, t) => n + (t.match(/\bfrom\s*['"]\.\.?\//g) || []).length, 0);
 chk(impCount >= IMPORT_MIN, '상대 import ' + impCount + '줄을 읽었다(너무 적으면 파일을 잘못 읽은 것 — 걷을 때마다 맞추지 않게 넉넉한 문턱)');
 chk(R.missImp.length === 0, '가리키는 파일이 다 있다' + (R.missImp.length ? ' — 없음: ' + R.missImp.join(' · ') : ''));
 
-say('── 3. 일부러 깨 보기 — 없는 경로를 넣으면 잡는다');
+say('── 3. mutation test — 없는 경로를 넣으면 잡는다');
 {
   const h2 = HTML.replace('<script src="parts/app.js"></script>', '<script src="parts/room/app.js"></script>');
   chk(h2 !== HTML && judge(h2, FILES, real).missSrc.length === 1, '<script src> 하나가 없는 폴더를 가리키면 잡는다');

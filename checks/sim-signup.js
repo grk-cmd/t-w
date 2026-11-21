@@ -9,7 +9,7 @@
   11절 내 정보   런처 안 페이지(개정 48) · 작은 머리 · 보관함 표제 · 톱니 G · 계정 C4 · 걷은 것 · transferHash 지우기만
                  (보관함 목록 · 슬롯에 올리기 · 휴지통 · 가득 참의 동작은 서버 원본 옷장으로 옮기며 sim-my-info-box.js 가 실제로 돌려 본다)
   15절 별 색     (개정 69) [내 정보] 레벨 배지 = 버튼 · 누르면 머리 아래 «별 색» 구획 · 999 전 잠김(남은 시간) · 회차면 미리보기 + 16칸 · 열 때마다 닫힘 · 재료 함수(별 문자열 · 회차 파생 · 팔레트만 받음)
-  16절 랭킹      [내 정보] 순위 칸 · 왕관 · 후광 · 순위 올리기 · 읽기 · leaderboard 규칙을 걷었다(남으면 빨강 · 깨 보기) ·
+  16절 랭킹      [내 정보] 순위 칸 · 왕관 · 후광 · 순위 올리기 · 읽기 · leaderboard 규칙을 걷었다(남으면 빨강 · mutation test) ·
                  옛 포커스 누적 동기화는 걷었다
 
    실행: node sim-signup.js   (app.js · firebase-init.js · desk-companion-prototype.html 과 같은 폴더에서 — run.js 가 맞춰 준다)
@@ -286,7 +286,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     const left = gone(cur);
     chk(iPg >= 0 && !!RU && !left.length, '★ 순위 칸 · 왕관 · 후광 · CSS · 올리기 · 읽기 · 규칙이 없다' + (left.length ? ' — 남음: ' + left.join(' · ') : '') + (RU ? '' : ' — 규칙 파일을 못 읽음'));
     chk(/<div id="miAvatar"/.test(MI) && /<span id="miAvatarPh">사진<\/span><\/div>/.test(MI), '  사진 칸은 그대로');
-    /* 깨 보기 — 걷은 것을 하나씩 되살리면 잡혀야 한다 */
+    /* mutation test — 걷은 것을 하나씩 되살리면 잡혀야 한다 */
     const back = [
       Object.assign({}, cur, { mi: MI + '<div id="miRank" class="mi-rank"></div>' }),
       Object.assign({}, cur, { mi: MI + '<span id="miCrown"></span>' }),
@@ -296,7 +296,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
       Object.assign({}, cur, { fi: FI + "\n    get(ref(db, 'leaderboard'));" }),
       Object.assign({}, cur, { rules: Object.assign({}, RU, { leaderboard: { '.read': true } }) }),
     ];
-    chk(back.every(b => gone(b).length === 1), '  ↳ 깨 보기 — 칸 · 왕관 · CSS · 올리기 · 통로 · 경로 · 규칙을 하나씩 되살리면 각각 잡힌다');
+    chk(back.every(b => gone(b).length === 1), '  ↳ mutation test — 칸 · 왕관 · CSS · 올리기 · 통로 · 경로 · 규칙을 하나씩 되살리면 각각 잡힌다');
     /* 옛 포커스 누적 동기화(Firebase)는 걷었다(D5-2) — 서버 올리기는 focus-progress.js(sim-focus-progress.js) */
     chk(!/syncFocusTotalToServer|_focusSyncFailed|_setFocusSyncedMark/.test(A), '  옛 포커스 누적 동기화(마크 · 재시도)는 걷었다 — 서버 올리기는 focus-progress.js');
   }

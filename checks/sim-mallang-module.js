@@ -5,11 +5,11 @@
    ・1절: 만들 때 — 싣기만 하면 window.TwMallang 하나 · 만들 때 DOM · 서버 · 저장소 · 토스트를 안 건드림 · 내놓는 이름 열 개
    ・2절: 실제로 돌린다(가짜 DOM · 가짜 서버) — 내 집 열기 · 선물 치우기 · 다시 부르기 · 지우기 · 봤음 · 남의 집 · 닫기 · 보내기 창의
           서버 부름 · 토스트 · 이 PC 저장 · 화면 상태를 한 줄씩 적어 «옮기기 전과 같은 줄» 과 견준다
-          말랑이 칸은 D7-3 부터 칸 상태 주인(mallang-store.js — 진짜 모듈 · 가짜 서버 길)으로 받는다 — 받는 줄이 getMallangImgs 대신 fetchMine · fetchOf 다.
+          말랑이 칸은 D7-3 부터 칸 상태 주인(mallang-store.js — 진짜 모듈 · 가짜 서버 경로)으로 받는다 — 받는 줄이 getMallangImgs 대신 fetchMine · fetchOf 다.
           선물(받은 선물 · 치움 · 지우기 · 봤음 · 보내기 창)은 아직 옛 길이라 줄이 D7-2 그대로다(칸 상태 주인 검사는 sim-mallang-store.js).
    ・3절: 프리미엄 — deps premiumOn 이 폴더 · 보내기 창을 정한다(window._premiumOn 을 읽지 않는다)
    ・4절: 배선 — app.js 는 만드는 줄 하나(수령함 · 창 · 친구 홈 구경보다 먼저 · deps 5 — 칸 상태 주인은 그보다 먼저) · 세 모듈은 deps mallangMod · window._mallang* 없음 · html · smoke 순서
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
@@ -93,7 +93,7 @@ function mkEnv(src, o){
   ctx.TwSafeHtml = loadSafe();
   ctx.TwPersonName = globalThis.TwPersonName;
   ctx.TwImgRetry = loadRetry(ctx.TwSafeHtml);
-  /* 말랑이 칸 — 진짜 상태 주인(mallang-store.js) 위에 가짜 서버 길 */
+  /* 말랑이 칸 — 진짜 상태 주인(mallang-store.js) 위에 가짜 서버 경로 */
   const GL = loadMod(SRC.GIFT), AE = loadMod(SRC.AE);
   const giftApi = {
     fetchMine: rec('fetchMine', async () => ({ slots: slotsOf.me.map(x => Object.assign({}, x)), version: 1 })),
@@ -163,7 +163,7 @@ async function drive(src, o){
   return { log, e };
 }
 
-/* 부른 순서 · 값 — 말랑이 칸(fetchMine · fetchOf)과 선물(fetchBox · hide · star · remove · markSeen · fetchVisible · fetchSentToday)은 서버 길. 동작이 바뀌면 여기가 어긋난다 */
+/* 부른 순서 · 값 — 말랑이 칸(fetchMine · fetchOf)과 선물(fetchBox · hide · star · remove · markSeen · fetchVisible · fetchSentToday)은 서버 경로. 동작이 바뀌면 여기가 어긋난다 */
 const GOLDEN = [
   'api fetchMine',
   'api fetchBox',
@@ -218,7 +218,7 @@ const GOLDEN = [
   const NEW = await drive(SRC.ML, { premium: true });
   const L = NEW.log;
   const has = (s) => L.includes(s);
-  chk(L[0] === 'api fetchMine' && L[1] === 'api fetchBox', '내 집 열기 — 내 칸 · 내 선물함을 서버 길로 읽는다(옛 봤음 시각 읽기 없음)');
+  chk(L[0] === 'api fetchMine' && L[1] === 'api fetchBox', '내 집 열기 — 내 칸 · 내 선물함을 서버 경로로 읽는다(옛 봤음 시각 읽기 없음)');
   chk(has('state 내 집 열기 폴더=O 말랑이=2 배지=🎁2 선물창=X'), '  폴더 보임 · 치우지 않은 선물 둘이 뜸(g3 는 서버가 치움) · 배지 🎁2 는 서버 unseenCount');
   chk(has('api hide g1 true') && has('toast 🎁 선물함으로 돌아갔어요 (선물함에서 다시 부를 수 있어요)') && has('state 치움 폴더=O 말랑이=1 배지=🎁2 선물창=X'),
     '나온 선물 우클릭 — 서버에 치움 · 서버 답 뒤에 안내 · 한 마리 줄어듦(이 PC 에 적지 않음)');
@@ -231,7 +231,7 @@ const GOLDEN = [
   chk(has('api fetchOf f1') && has('api fetchVisible f1') && has('state 남의 집 폴더=O 말랑이=1 배지=🎁1 선물창=X') && has('toast 관람 중에는 이미지를 등록할 수 없어요'),
     '남의 집 — 그 집 그림 · 그 집에 나온 선물 · 폴더(그 집에 그림이 있음) · 등록 창은 막음');
   chk(has('state 닫기 폴더=O 말랑이=0 배지=🎁1 선물창=X'), '닫기 — 말랑이 전부 치움');
-  chk(L.filter(l => l === 'api fetchMine').length === 3 && has('api fetchSentToday') && has('api fetchVisible f1') && has('state 보내기 창 폴더=O 말랑이=0 배지=🎁1 선물창=O'), '보내기 창 — 내 그림 · 오늘 보낸 수 · 그 집 선물 수를 서버 길로 나란히 읽고 창을 연다');
+  chk(L.filter(l => l === 'api fetchMine').length === 3 && has('api fetchSentToday') && has('api fetchVisible f1') && has('state 보내기 창 폴더=O 말랑이=0 배지=🎁1 선물창=O'), '보내기 창 — 내 그림 · 오늘 보낸 수 · 그 집 선물 수를 서버 경로로 나란히 읽고 창을 연다');
   chk(has('state 계정 놓음 폴더=O 말랑이=0 배지=- 선물창=X'), '계정을 놓으면(reset) 말랑이 · 열린 창 · 배지를 걷음');
   const GOLD = goldOf(L);
   chk(GOLD === GOLDEN, '★ 부른 순서 · 값 전체가 옮기기 전과 같은 줄이다(' + L.length + '줄)' + (GOLD === GOLDEN ? '' : ' — 처음 어긋난 줄: ' + firstDiff(GOLD, GOLDEN)));
@@ -253,7 +253,7 @@ const GOLDEN = [
   say('── 4. 배선');
   wiring(SRC, true);
 
-  say('── 5. 일부러 깨 보기');
+  say('── 5. mutation test');
   {
     const brk = async (name, src, o) => { const r = await drive(src, o || { premium: true }); return goldOf(r.log) !== GOLDEN; };
     {
@@ -281,7 +281,7 @@ const GOLDEN = [
       chk(f.n0 === 30 && f.r === 'full' && f.noReq, '화면이 가득(30)이면 선물이 31개여도 30마리 · 치운 선물을 눌러도 full · 서버 요청 0');
       chk(f.spawned && f.n1 === 30, '  한 마리를 치우면 자리가 나 «나와야 함» 이던 31번째가 바로 뜬다(늦게 뜸)');
       const sv = SRC.ML.replace("    for(const it of want){\n      if(liveFull()) break;", "    for(const it of want){\n      if(true) break;");
-      chk(sv !== SRC.ML && !(await full(sv)).spawned, '  깨 보기 — 빠진 것을 띄우지 않으면 빨강');
+      chk(sv !== SRC.ML && !(await full(sv)).spawned, '  mutation test — 빠진 것을 띄우지 않으면 빨강');
     }
     {
       const late = async (src) => {
@@ -292,7 +292,7 @@ const GOLDEN = [
         return e.guys();
       };
       chk(await late(SRC.ML) === 0, '선물함 답을 기다리는 중 마이홈을 닫으면 늦게 온 답은 아무것도 안 띄운다');
-      chk(await late(SRC.ML.replace('    giftBox.leaveHome();   // 🎁 마이홈이', '    // 🎁 마이홈이')) !== 0, '  깨 보기 — 닫을 때 마이홈 밖으로 알리지 않으면 늦은 답이 닫은 뒤에 뜬다(빨강)');
+      chk(await late(SRC.ML.replace('    giftBox.leaveHome();   // 🎁 마이홈이', '    // 🎁 마이홈이')) !== 0, '  mutation test — 닫을 때 마이홈 밖으로 알리지 않으면 늦은 답이 닫은 뒤에 뜬다(빨강)');
     }
     chk(await brk('새 선물 띄우기', SRC.ML.replace("    syncBadge();\n    syncGifts();", "    syncBadge();")), '선물함이 바뀌어도 화면을 안 맞추면(새 선물 · 치움 · 지우기) 빨강');
     {
@@ -324,7 +324,7 @@ function todayStr(){ const d = new Date(); return d.getFullYear() + '-' + String
 function goldOf(log){ return log.map(l => l.split(todayStr()).join('<오늘>')).join('\n'); }
 function firstDiff(a, b){ const x = a.split('\n'), y = b.split('\n'); for(let i = 0; i < Math.max(x.length, y.length); i++) if(x[i] !== y[i]) return (i + 1) + '번째 «' + (x[i] || '없음') + '» ≠ «' + (y[i] || '없음') + '»'; return ''; }
 
-/* 4절 판정 — quiet 면 결과만 돌려준다(깨 보기) */
+/* 4절 판정 — quiet 면 결과만 돌려준다(mutation test) */
 function wiring(S, loud){
   let ok = true;
   const t = (c, msg) => { if(!c) ok = false; if(loud) chk(c, msg); };

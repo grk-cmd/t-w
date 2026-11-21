@@ -4,7 +4,7 @@
    ・2절: 동물 귀 등록 _registerAnimalEarOn(중복 · 본 없음 · 라이드 다시 잼) · window 고리(registerAnimalEar · rebuildAnimalSeats)
    ・3절: applyCharToSeat — 라이드 정리 · 책상 배율(동물 60%) · 평준화 지움 · 커미션 캐시 없음이면 파싱만 걸고 돌아감 · 인간 몸 · 동물 몸 · 기본 몸 폴백 · 크기 넣기(xf) · 클릭 판정
    ・4절: 연결 — html 순서 · 만드는 줄 · 옛 이름 · app.js 에 본문이 안 남음
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. */
 'use strict';
 const fs = require('fs');
@@ -169,11 +169,11 @@ say('§4 연결');
   chk(pairs.length === 37 && pairs.every(([n, v]) => shape(n, v)), '★ deps 37개 모양 — 읽는 함수 일곱은 ()=>이름 · 함수 열하나는 (...a)=>이름(...a) · 값 열아홉은 이름 그대로(값과 읽는 함수를 바꿔 넘기면 빨강)' + (pairs.length === 37 ? '' : ' — ' + pairs.length + '개'));
   const mk2 = mk.replace('  curSlot: ()=>curSlot,', '  curSlot: curSlot,').replace('  seats: seats,', '  seats: ()=>seats,');
   const p2 = mk2.split('\n').map(l => /^  ([\w$]+): (.+),$/.exec(l)).filter(Boolean).map(m => [m[1], m[2]]);
-  chk(!p2.every(([n, v]) => shape(n, v)), '  깨 보기: 읽는 함수를 값으로 · 값을 읽는 함수로 바꿔 넘기면 빨강');
+  chk(!p2.every(([n, v]) => shape(n, v)), '  mutation test: 읽는 함수를 값으로 · 값을 읽는 함수로 바꿔 넘기면 빨강');
   const AN = read('character/animal.js') || '';
   chk(/window\.rebuildAnimalSeats\(\)/.test(AN) && /window\.registerAnimalEar\(/.test(AN), '  그 고리를 부르는 쪽(animal.js)이 그대로 있다');
 }
-say('§5 일부러 깨 보기');
+say('§5 mutation test');
 {
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const m1 = brk("if(rideBenchMod._rideRiders(seat).length){", "if(false){");

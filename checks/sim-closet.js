@@ -1,12 +1,12 @@
 /* ═══ 🧬 sim-closet.js — 옷장(character/closet.js) · 서버 원본 ═══════════════
-   가짜 서버 길 · 가짜 slot-save 위에서 모듈을 통째로 굴린다.
+   가짜 서버 경로 · 가짜 slot-save 위에서 모듈을 통째로 굴린다.
    ・1절: 만들 때 — 요청 · 구독 · 타이머 · 저장소 접근 0 · startCloset 은 받기 한 번 + 서버 신호 한 번(두 번 불러도 한 번) · 주기 타이머 없음
    ・2절: 받기 — 슬롯 앉히기 · 같은 판은 그대로 · 못 받음(혼자 다시 안 함 · 번호는 누른 받기만) · 받기 전 쓰기 0 · 다른 기기에서 바뀐 칸 · 내 고침이 있는 칸은 덮지 않음 · 생성기 중 건너뜀
    ・3절: 쓰기 — 바뀐 칸만 3초 묶음(새 칸 만들기 · 있는 칸 고치기에 받은 판) · 빈 칸은 안 지움 · 이미지 복원 실패 칸 건너뜀 · 실패 번호(저장 · 크기 · 입을 수 없음) 한 번만 · 되풀이 없음 · 올리는 중 또 고침
    ・4절: 동작 — 보관함 이동(고침 먼저 올림 · 20 문턱 · 당기기) · 휴지통 · 슬롯에 올리기 · 여러 개 휴지통 · 휴지통 목록 · 되살리기 · 오류 이유
    ・5절: 계정 바뀜 — 비우면 진행 중인 받기 · 쓰기가 새 계정을 건드리지 않음
    ・6절: 0.13 첫 실행 올리기(legacySync)
-   ・7절: 깨 보기
+   ・7절: mutation test
    [실행] 저장소 루트에서 node checks/run.js sim-closet */
 'use strict';
 const path = require('path');
@@ -601,7 +601,7 @@ await sec('── 6. 0.13 첫 실행 올리기', async () => {
   chk(e.srv.legacyItems.length === 25 && e.srv.legacyItems[2].legacyCid === 'cc29', '25줄까지 — 슬롯이 먼저 · 남는 자리는 보관함 최근 순');
 });
 
-await sec('── 7. 깨 보기', async () => {
+await sec('── 7. mutation test', async () => {
   const broke = (from, to) => { const s = SRC.replace(from, to); return s === SRC ? null : s; };
   const run = async (src, fn) => { const e = mkEnv({ slots: ['a', 'b'], box: ['x'] }); const M = loadMod(src, e); e.mk = () => withSession(e, M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e.srv.api, codec: e.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e.slots, slotSave: e.slotSave,
     getMyUserId: () => e.uid, rtOn: (k, f) => { (e.rt[k] = e.rt[k] || []).push(f); return () => {}; }, toast: (m) => e.toasts.push(m), notifyError: (c) => e.errs.push(c), renderLauncher: () => {}, creatorOpen: () => e.creator,

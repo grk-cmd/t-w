@@ -2,7 +2,7 @@
    [왜] app.js 의 여섯 이름을 모듈로 옮겼다(글은 0.13 app.js 와 같다). 본문은 캐릭터 코어 — 여기는 옛 이름을 코어로 잇기만 한다.
    ・1절: 여섯 이름이 코어 이름(rgbHexToHsv · isHueTintMesh · ensureHueUniforms · hueOBC · applyHueTint · hsvToHex)으로 인자 그대로 가고 결과를 그대로 돌려준다
    ・2절: 진짜 코어(빌드 사본)로 — hex → HSV → hex 가 이어지고 색조를 걸면 재질에 색조 칸이 생긴다
-   ・3절: 연결(html 순서 · 만드는 줄 · 옛 이름 const 여섯 · app.js 에 본문이 안 남음) · 4절: 일부러 깨 보기
+   ・3절: 연결(html 순서 · 만드는 줄 · 옛 이름 const 여섯 · app.js 에 본문이 안 남음) · 4절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. */
 'use strict';
 const fs = require('fs');
@@ -53,7 +53,7 @@ say('§3 연결');
   chk(PAIRS.every(([n]) => new RegExp('const ' + n + ' = hueTintMod\\.' + n + ';').test(code)), '  옛 이름 const 여섯');
   chk(!/function (_rgbHexToHsv|isHueTintMesh|_ensureHueUniforms|_hueOBC|applyHueTint|_hsvToHex)\b|_HUE_GLSL/.test(code), '  app.js 에 본문이 안 남음');
 }
-say('§4 일부러 깨 보기');
+say('§4 mutation test');
 {
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const m1 = brk('toneCore.hsvToHex(h, sv, v)', 'toneCore.hsvToHex(h, sv)');

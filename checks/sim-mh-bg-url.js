@@ -5,7 +5,7 @@
    ・2절: 불러 보기 — 바꾼 주소만 · 같은 주소는 한 번 · 못 받으면 onFail · 받으면 조용히
    ・3절: 실제 그리는 곳 — advApplyBg(바탕화면) · applyMyHomeBg(창 바깥)를 떼어 돌린다. 남의 집에서는 안내하지 않는다
    ・4절: 연결 — html 이 쓰는 모듈보다 먼저 싣는다 · 에러 번호가 표에 있다
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] node checks/run.js sim-mh-bg-url */
 'use strict';
 const fs = require('fs');
@@ -112,7 +112,7 @@ new Function('window', 'module', SRC.codes)(undefined, codes);
 chk(!!codes.exports.CODES['E-MH-02'] && /https/.test(codes.exports.CODES['E-MH-02'].msg), '에러 번호 E-MH-02 가 표에 있고 «https» 안내를 담는다');
 chk(/TwErrorCodes\.notify\('E-MH-02'/.test(SRC.mod), '모듈의 안내는 E-MH-02 로 낸다');
 
-say('── 5. 일부러 깨 보기');
+say('── 5. mutation test');
 const breaks = [
   ['바꾸기 없음(예전처럼 http 를 버림)', 'mod', "  if(typeof u !== 'string' || !HTTP_RE.test(u)) return u;\n  return 'https://' + u.trim().slice(7);", '  return u;'],
   ['같은 주소를 매번 부름', 'mod', '    if(!u || seen.has(u)) return false;', '    if(!u) return false;'],

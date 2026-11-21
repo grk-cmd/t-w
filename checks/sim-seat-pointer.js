@@ -6,7 +6,7 @@
    ・4절: 쓰다듬기 · 어지러움 — 하트 · 남의 좌석 알림 · 내 좌석 알림(쓰로틀) · 어지러움 확정 · 던져도 drag 가 풀린다(try/finally)
    ・5절: 안전망 — blur · pointercancel 로 drag · beingShaken 풀기 · 전역 마우스 NDC
    ・6절: 연결 — html 순서 · 만드는 줄 · 옛 이름 · drag 읽는 곳 · app.js 에 본문이 안 남음
-   ・7절: 일부러 깨 보기
+   ・7절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. */
 'use strict';
 const fs = require('fs');
@@ -178,7 +178,7 @@ say('§6 연결');
   chk(!/(?<![\w$.'"])drag(?![\w$'":])/.test(code.replace(/seatPointerMod\.drag\(\)/g, '')), '  끄는 중 상태는 어디서나 seatPointerMod.drag() 로 읽는다');
   chk(/beginDrag: seatPointerMod\._beginLabelSlotDrag,/.test(code), '  이름표 끌기가 이 모듈의 시작 함수를 쓴다');
 }
-say('§7 일부러 깨 보기');
+say('§7 mutation test');
 {
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const m1 = brk("seat.pinned=true;", '');

@@ -4,7 +4,7 @@
      함수를 실제로 돌려 보는 것은 sim-focus-gate-self(활성 창 처리) · sim-figure-mode 4절(자세)도 한다 — 여기는 규칙 자체와 연결.
    ・1절: 순수 함수 입력 → 출력 · 경계값(isSelf 없음 · null · 딱 sleepMs) · 옛 두 식과 모든 경우가 같다 · 받은 값을 고치지 않는다
    ・2절: 연결 — html 이 app.js 보다 먼저 싣는다 · app.js 두 자리가 이 규칙을 부르고 같은 판단을 다시 쓰지 않는다
-   ・3절: 일부러 깨 보기 */
+   ・3절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -87,7 +87,7 @@ say('── 2. 연결');
   chk(!/state\.isSelf/.test(A + W + S) && !/keepGate/.test(A + W + S), '  app.js · window-mode · seat-state 는 isSelf 를 직접 보지 않는다(같은 판단을 다시 쓰지 않음)');
 }
 
-say('── 3. 깨 보기');
+say('── 3. mutation test');
 {
   const broke = (from, to) => { const m = MOD.replace(from, to); return m === MOD ? null : judge(m); };
   const b1 = broke('state.isSelf === true && !state.isFocusedAppRegistered', 'state.isSelf === true');

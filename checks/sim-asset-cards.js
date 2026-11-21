@@ -4,7 +4,7 @@
      가짜 DOM 위에서 돌려 고정한다.
    ・1절: swThumb — 상자 · 이름 · 켜짐 / 고름 색 · × 지우기(카드 클릭으로 번지지 않음)
    ・2절: applyDeskDotThumb — 배포 썸네일 우선 · 굽기(한 번만 · 실패 기억) · GLB 없음 · 이모지만 걷고 버튼은 둠 · 겹쳐 넣지 않음
-   ・3절: bindReorderHandle — 좌클릭만 · 끄는 동안 흐림 · 다른 카드 위 점선 · 놓으면 onDrop(나, 대상) · 정리 · 4절: 연결 · 5절: 깨 보기 */
+   ・3절: bindReorderHandle — 좌클릭만 · 끄는 동안 흐림 · 다른 카드 위 점선 · 놓으면 onDrop(나, 대상) · 정리 · 4절: 연결 · 5절: mutation test */
 'use strict';
 globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
 const fs = require('fs');
@@ -127,7 +127,7 @@ function wire(app, html) {
   say('── 4. app.js 연결');
   wire(APP, HTML).forEach(([ok, msg]) => chk(ok, msg));
   chk(!SMOKE || /PRELOAD\.push\('asset-cards\.js'\);/.test(SMOKE), 'smoke 가 asset-cards.js 를 먼저 싣는다');
-  say('── 5. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+  say('── 5. mutation test — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['× 가 번짐', (m) => m.replace('x.onclick=e=>{ e.stopPropagation(); onDelete(); };', 'x.onclick=e=>{ onDelete(); };'), null, null],
     ['고름 색이 켜짐 색에 밀림', (m) => m.replace("const borderColor = active ? '#e0842a' : (on?'#7ba05b':'#0002');", "const borderColor = on ? '#7ba05b' : (active?'#e0842a':'#0002');"), null, null],
@@ -136,7 +136,7 @@ function wire(app, html) {
     ['버튼까지 걷음', (m) => m.replace('if(n.nodeType===3) box.removeChild(n);', 'box.removeChild(n);'), null, null],
     ['오른쪽 단추도 받음', (m) => m.replace('if(e.button!==0) return;', ''), null, null],
     ['자기 위에도 점선', (m) => m.replace("if(card && card.dataset.reorderId!==id){", 'if(card){'), null, null],
-    ['만들 때 던짐', (m) => m.replace('function createAssetCards(deps){', 'function createAssetCards(deps){ throw new Error("깨 봄");'), null, null],
+    ['만들 때 던짐', (m) => m.replace('function createAssetCards(deps){', 'function createAssetCards(deps){ throw new Error("mutation");'), null, null],
     ['app.js 에 본문이 남음', null, (a) => a + '\nfunction swThumb(){}', null],
     ['html 줄 빠짐', null, null, (h) => h.replace('<script src="parts/creator/asset-cards.js"></script>', '')],
   ];

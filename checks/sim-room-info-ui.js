@@ -1,7 +1,7 @@
 /*
  * 방 안 정보 칸 — 제목 줄 · [방 설정](방장만 · 제목 · 공개 바꾸기) 검사 — 모듈을 그대로 불러 돌린다(가짜 DOM).
  * 1. room-settings.js 의 보일 제목(displayTitle) · 공개 안내  2. room-info-ui.js 그리기(방 밖 · 방 서버 · 방장 / 손님 · 금칙어 · 글로만)
- * 3. 바꾸기(열기 · 저장 · 금칙어 · 길이 · 시크릿룸 · 실패 · 연타 · 그새 방장이 바뀜)  4. 배선(html · app.js · room-entry · firebase-init · 로비 카드)  5. 깨 보기
+ * 3. 바꾸기(열기 · 저장 · 금칙어 · 길이 · 시크릿룸 · 실패 · 연타 · 그새 방장이 바뀜)  4. 배선(html · app.js · room-entry · firebase-init · 로비 카드)  5. mutation test
  * 설계: docs/ROOM_LOBBY.md 5.1 · 5.2
  */
 'use strict';
@@ -165,7 +165,7 @@ function mkUi(o, src){
     chk(c.title === RS.displayTitle('', '도토리').text && c.titleIsDefault && /displayTitle\(r\.t, hn\)/.test(M_SRC), '로비 카드 제목도 같은 규칙(room-settings displayTitle)');
   }
 
-  say('── 5. 깨 보기');
+  say('── 5. mutation test');
   {
     const noHost = UI_SRC.replace('$(\'riEdit\').hidden = !host;', '$(\'riEdit\').hidden = false;');
     const b1 = mkUi({ me: 'u2' }, noHost); b1.ui.paint();

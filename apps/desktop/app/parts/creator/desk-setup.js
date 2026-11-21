@@ -1,10 +1,10 @@
 /* desk-setup.js — 🪑 생성기 책상 세팅(5단계): 책상 카드 · 아이템 카드(쪽 넘김)를 그리고, 고르기 · 지우기(회수) · 순서 바꾸기 · 색 · 아이템 고르기를 잇는다
    app.js «책상 세팅(5단계)» 조각을 그대로 옮긴 모듈이다(C 구역 떼기 w4). 동작은 옮기기 전과 같다
-   (바뀐 줄은 읽는 함수 자리 · 갈고리 둘(setHooks) · 관리자 회수 · 순서를 서버 길(catalogAdmin)로 · 입구 가드 · 옛 이야기형 주석 줄이기).
+   (바뀐 줄은 읽는 함수 자리 · 갈고리 둘(setHooks) · 관리자 회수 · 순서를 서버 경로(catalogAdmin)로 · 입구 가드 · 옛 이야기형 주석 줄이기).
    ・책임: renderCrItems(기본 · 저장 책상 카드 — 라이선스 잠금 🔒 · 관리자 ✎ · ☰ / 기본 · 커스텀 아이템 카드 5개씩 쪽 넘김 · 개수 한도 표시) ·
      reorderSavedItem · reorderSavedDesk(관리자 순서 바꾸기 → 카탈로그 순서 저장) · selectDeskItemForAdjust(놓인 아이템 고르기) · 미리보기 우클릭으로 아이템 고르기 · 책상 색 칸.
    ・받는 deps 29 — 값 crState · assetCardsMod(카드 · 도트 썸네일 · ☰ 손잡이) · premiumMod · DESK_ITEMS · DESK_SCALE_DEFAULT · DEFAULT_DESK_OVERRIDE_ID · ndc · ray ·
-     함수 10 · 읽는 함수 10(뒤에서 만들어지는 모듈 · isAdmin)· catalogAdmin — 카탈로그 쓰기 서버 길(admin/catalog-admin-api.js).
+     함수 10 · 읽는 함수 10(뒤에서 만들어지는 모듈 · isAdmin)· catalogAdmin — 카탈로그 쓰기 서버 경로(admin/catalog-admin-api.js).
    ・내놓는 것: renderCrItems · selectDeskItemForAdjust · setHooks({ openDeskRegister, attachItemGizmo }) — app.js 가 crXformMod 를 만든 뒤 잇는다.
    ・입구 전제: 카드 줄(#crDeskRow · #crItemRow) · 색 칸(#deskColor) · 미리보기(#creatorPreview)가 없으면 그리지 · 걸지 않는다 · 아이템 고르기는 캐릭터(crState.cBase)가 있어야.
    ⚠️ document · confirm 은 전역 이름 그대로. 서버 쓰기는 catalogAdmin 으로만. 전역 이름은 TwDeskSetup(Tw 접두사 #103).
@@ -42,7 +42,7 @@ const ray = deps.ray;
 const setCreatorDeskScale = deps.setCreatorDeskScale;
 const swapDeskVisual = deps.swapDeskVisual;
 const toast = deps.toast;
-const catalogAdmin = deps.catalogAdmin;   // 카탈로그 쓰기 서버 길(admin/catalog-admin-api.js) — 회수(단종) · 진열 순서
+const catalogAdmin = deps.catalogAdmin;   // 카탈로그 쓰기 서버 경로(admin/catalog-admin-api.js) — 회수(단종) · 진열 순서
 /* 관리자 등록 창 열기 · 아이템 기즈모 붙이기 — 그 두 모듈(admin-part-register · creator-xform)은 책상 카드를 다시 그리려고 이 모듈을 부른다.
    여기서 그 둘을 deps 로 받으면 서로를 부르게 되어(sim-dep-cycles) app.js 가 crXformMod 를 만든 뒤 setHooks 로 잇는다. */
 const _hooks = { openDeskRegister: null, attachItemGizmo: null };

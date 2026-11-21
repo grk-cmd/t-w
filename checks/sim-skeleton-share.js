@@ -7,7 +7,7 @@
    ・3절: 리깅 파츠 — 역행렬이 같으면 몸과 함께(bindMatrix 가 달라도) · 다르면 따로(파츠 메시끼리만) · 입양 뼈 파츠는 따로
    ・4절: 한 장의 뼈대 갱신 수(three 의 skeleton.frame 거르기 그대로) · 숨긴 메시
    ・5절: 동물 몸 · 스티커사진식 복제 뒤 함께 쓰기
-   ・6절: 깨 보기 — 역행렬 견주기를 뺀 판은 다른 파츠까지 합쳐 스킨 자리가 달라진다(이 검사가 빨강을 낸다)
+   ・6절: mutation test — 역행렬 견주기를 뺀 판은 다른 파츠까지 합쳐 스킨 자리가 달라진다(이 검사가 빨강을 낸다)
    ・7절: 배선 — html 싣는 순서 · smoke PRELOAD
    [실행] skeleton-share.js · app.js · base-glb.js · animal-glb.js · desk-companion-prototype.html · smoke.js · char-core.iife.js 가 있는 폴더에서.
      three 는 vendor/three/ 의 three.min.js · GLTFLoader.js · SkeletonUtils.js 를 쓴다. */
@@ -221,10 +221,10 @@ say('── 5. 동물 몸 · 스티커사진식 복제');
   chk(skinned(cl).every(m => m.skeleton.bones.every(b => { let p = b; while(p.parent) p = p.parent; return p === cl; })), '복제본 Skeleton 은 복제본 뼈만 본다(원본과 안 섞임)');
 }
 
-say('── 6. 깨 보기');
+say('── 6. mutation test');
 { // 역행렬 견주기를 뺀 판 — 뼈만 같으면 합친다
   const broken = SRC['skeleton-share.js'].replace(/for\(let i = 0; i < n; i\+\+\)\{\n\s*const x = a\.boneInverses[\s\S]*?\n  \}\n/, '');
-  chk(broken !== SRC['skeleton-share.js'], '깨 보기 판을 만들었다(역행렬 견주기 뺌)');
+  chk(broken !== SRC['skeleton-share.js'], 'mutation test 판을 만들었다(역행렬 견주기 뺌)');
   const BS = loadShare(broken);
   const bo = seatWithParts(BS, false), bn = seatWithParts(BS, true);
   const bodySkB = skinned(bn.body).find(m => !m.userData._origBind).skeleton;

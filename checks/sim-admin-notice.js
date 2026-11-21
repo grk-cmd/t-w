@@ -1,5 +1,5 @@
 /* ═══ 📣 sim-admin-notice.js — 확성기 · 업데이트 공지 편집 화면 (0.13 앱 묶음 D11-1) ═══
-   [왜] 관리자가 올리는 확성기 · 업데이트 공지가 Firebase 에 쓰이던 것을 서버 길(adminApi)로 바꿨다. 사용자 앱은 공지를 서버에서 읽으므로
+   [왜] 관리자가 올리는 확성기 · 업데이트 공지가 Firebase 에 쓰이던 것을 서버 경로(adminApi)로 바꿨다. 사용자 앱은 공지를 서버에서 읽으므로
      Firebase 에 써서는 아무에게도 안 보였다. 화면은 그대로이고 안쪽만 바뀌었으니 가짜 DOM + 가짜 adminApi 위에서 실제로 굴려 판정한다.
    ・1절: 만들 때 — 버튼 여덟 · 서버 안 부름 · 빈 반환
    ・2절: 확성기 — 빈 글은 안 보냄 · 앞뒤 공백 빼고 보냄 · 성공하면 창을 닫음 · 실패하면 창을 안 닫고 오류 번호 · 끄기 · 보내는 중 두 번 눌러도 한 번
@@ -7,7 +7,7 @@
         올리면 응답 id 를 기억 · 실패하면 창 유지 · 내리기는 확인 뒤 기억한 id 로 요청 한 번(GET 0번) · 기억한 것이 없으면 안 내림 · 취소하면 서버 안 부름 ·
         창을 빠르게 닫고 다시 열면(openGen) 늦게 온 옛 받기 답이 폼을 덮지도 잠금을 먼저 풀지도 않음
    ・4절: 배선 — Firebase 직접 쓰기가 남지 않음 · app.js deps(adminApi · apiErrors) · 사용자 팝업은 app.js 에 남음
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -179,7 +179,7 @@ async function judge(S, app){
 async function runAll(){
   const S = SRC0;
   await judge(S, S.APP);
-  say('── 5. 일부러 깨 보기');
+  say('── 5. mutation test');
   const breaks = [
     ['빈 글도 보냄', { MOD: S.MOD.replace("if(!t){ toast('공지 문구를 입력해주세요'); return; }", '') }, '빈 글'],
     ['글을 안 다듬음', { MOD: S.MOD.replace("const t=$('announceInput').value.trim();", "const t=$('announceInput').value;") }, '공백'],

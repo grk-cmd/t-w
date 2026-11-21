@@ -17,7 +17,7 @@
 'use strict';
 
 /** @param {{
- *   bugApi: ReturnType<typeof window.TwBugApi.createBugApi>,   // 🌐 서버 길 · 배지 수(bug-api.js)
+ *   bugApi: ReturnType<typeof window.TwBugApi.createBugApi>,   // 🌐 서버 경로 · 배지 수(bug-api.js)
  *   lib: typeof window.TwBugBoard,                               // 규칙 · 상수 · 문구(bug-board.js)
  *   apiErrors: { notify: (err: any, table: object) => any },    // 공통 code 번호 알림(TwApiErrors.store) — 기능 표는 bugApi.ERRORS
  *   notifyError: (code: string, err?: any) => boolean,          // TwErrorCodes.notify

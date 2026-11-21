@@ -30,7 +30,7 @@ const seats = deps.seats;
 const slots = deps.slots;   // 읽는 함수
 const toast = deps.toast;
 const notifyError = deps.notifyError;
-const catalogAdmin = deps.catalogAdmin;   // 카탈로그 쓰기 서버 길(admin/catalog-admin-api.js) — 진열 순서
+const catalogAdmin = deps.catalogAdmin;   // 카탈로그 쓰기 서버 경로(admin/catalog-admin-api.js) — 진열 순서
 const WD_DESK_TAB = '__desk_model__';
 function _wdLicenseDesks(){
   let list = null; try{ list = savedDesks(); }catch(_){ return []; }

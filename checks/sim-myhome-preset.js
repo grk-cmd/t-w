@@ -7,7 +7,7 @@
    ・1절: 순수 함수 입력 → 출력 · 경계값(빈 값 · 객체 저장본 · 상한 · 틀린 번호 · data: 그림) · 받은 값을 고치지 않는다
    ・1-2절: 제보 순서 그대로 · 옛 앱(그림 담기 전 판)이 새 저장본을 읽고 · 불러오고 · 다시 써도 깨지지 않는다
    ・2절: 연결 — html 이 myhome-edit.js · app.js 보다 먼저 싣는다 · 편집 묶음이 이 모듈을 부른다(같은 판단을 다시 쓰지 않는다)
-   ・3절: 일부러 깨 보기 */
+   ・3절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -138,7 +138,7 @@ say('── 2. 연결');
 chk(W.order, 'html 이 myhome-preset.js 를 myhome-edit.js · app.js 보다 먼저 싣는다');
 chk(W.takes && !W.calls.length, '편집 묶음이 이 모듈을 받아 판단을 부른다' + (W.calls.length ? ' — 안 부르는 것: ' + W.calls.join(' · ') : ''));
 chk(!W.dup.length, '편집 묶음에 같은 판단을 다시 쓰지 않는다' + (W.dup.length ? ' — 남은 것: ' + W.dup.join(' · ') : ''));
-say('── 3. 일부러 깨 보기');
+say('── 3. mutation test');
 chk(!judge(MOD.replace("if(t[k] && (!keys.has(k) || _storable(t[k]))) theme[k] = t[k];", "if(!keys.has(k) && t[k]) theme[k] = t[k];")).snap, '칸에 그림 키를 안 담으면(예전 색만) 빨강');
 chk(!judge(MOD.replace("    bg   : _bgOf(h.bg, true),", "    bg   : _bgOf(h.bg, false),")).report, '칸에 바깥 그림을 안 담으면 제보 순서가 빨강');
 chk(!judge(MOD.replace("if(t[k] && (!keys.has(k) || _storable(t[k]))) theme[k] = t[k];", 'if(t[k]) theme[k] = t[k];')).snap, 'data: 그림까지 칸에 담으면 빨강');

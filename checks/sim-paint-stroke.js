@@ -5,7 +5,7 @@
    ・1절: 획 — 첫 점은 점 하나 · 이어지는 점은 선 · 화면 경로 쪼개기(6px 단위 · 최대 8) · 빗나가면 끊기 · 지우개 · 그리기 단계가 아니면 아무것도
    ・2절: 맞히기 — 옷이 앞에 있으면 안 칠함 · 숨은 옷 · 다른 장면의 옷은 무시 · 솔기(UV 가 크게 뛰면 잇지 않음)
    ・3절: 대칭 — 거울 자리에도 칠함 · 못 맞히면 거울 획만 끊기(거울 UV 수식은 sim-paint-geom)
-   ・4절: 페인트통 · 스포이드 · 5절: app.js 연결 · 6절: 일부러 깨 보기 */
+   ・4절: 페인트통 · 스포이드 · 5절: app.js 연결 · 6절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -169,7 +169,7 @@ B.forEach(([ok, msg], i) => { const s = { 0: '── 1. 획', 8: '── 2. 맞�
 say('── 5. app.js 연결');
 wire(APP, HTML).forEach(([ok, msg]) => chk(ok, msg));
 chk(!SMOKE || /PRELOAD\.push\('paint-stroke\.js'\);/.test(SMOKE), 'smoke 가 paint-stroke.js 를 먼저 싣는다');
-say('── 6. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 6. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['쪼개기 최대 8 → 9', (m) => m.replace('CR_PAINT_MAX_STEPS = 8', 'CR_PAINT_MAX_STEPS = 9'), null, null],
   ['쪼개기 6px → 5px', (m) => m.replace('CR_PAINT_STEP_PX = 6', 'CR_PAINT_STEP_PX = 5'), null, null],
@@ -179,7 +179,7 @@ const breaks = [
   ['스포이드 입구 전제 없앰', (m) => m.replace("  if(!crState.cBase.face || !document.getElementById('creatorPreview')) return false;\n", ''), null, null],
   ['스포이드 알파 8 → 0', (m) => m.replace('const EYEDROP_MIN_ALPHA = 8;', 'const EYEDROP_MIN_ALPHA = 0;'), null, null],
   ['지우개 되돌리기 없앰', (m) => m.replace("ctx.globalCompositeOperation='source-over'; blit(); }", 'blit(); }'), null, null],
-  ['만들 때 던짐', (m) => m.replace('function createPaintStroke(deps){', 'function createPaintStroke(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', (m) => m.replace('function createPaintStroke(deps){', 'function createPaintStroke(deps){ throw new Error("mutation");'), null, null],
   ['app.js 에 본문이 남음', null, (a) => a + '\nfunction paintAt(hit){}', null],
   ['deps 하나 빠짐', null, (a) => a.replace('  crState: crState,\n  isDrawStep:', '  isDrawStep:'), null],
   ['html 줄 빠짐', null, null, (h) => h.replace('<script src="parts/creator/paint-stroke.js"></script>', '')],

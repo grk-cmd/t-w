@@ -12,7 +12,7 @@
 const OS_NAMES = Object.freeze({ windows: 'Windows PC', mac: 'Mac', linux: 'Linux PC' });   // 그 밖 · 모름은 'PC'
 const MAX_ASKS = 5;   // 묻는 사이 가장 오래된 기기가 계속 바뀌는 드문 경우 — 이만큼 물었으면 실패로 끝낸다(끝없이 묻지 않게)
 
-/* 렌더러 navigator → 서버 os 칸('windows' · 'mac' · 'linux' · 'other') — 렌더러에는 process.platform 이 없다 */
+/* 렌더러 navigator → 서버 os field('windows' · 'mac' · 'linux' · 'other') — 렌더러에는 process.platform 이 없다 */
 function osOf(nav){
   const p = String((nav && nav.platform) || ''), ua = String((nav && nav.userAgent) || '');
   if(/^Win/i.test(p) || /Windows/i.test(ua)) return 'windows';

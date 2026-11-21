@@ -29,7 +29,7 @@ describe('fileToFaceImage — 고른 파일을 잘라 그린다', () => {
   function rig(w: number, h: number, opts: { drawThrows?: boolean; noCtx?: boolean } = {}) {
     const bmp = { width: w, height: h, close: vi.fn() };
     const drawImage = vi.fn(() => {
-      if (opts.drawThrows) throw new Error('깨 봄');
+      if (opts.drawThrows) throw new Error('mutation');
     });
     const canvas = {
       width: 0,

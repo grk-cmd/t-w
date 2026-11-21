@@ -8,7 +8,7 @@
    ・4-3절: 조용함 확인 — ready 인 채 15초 아무것도 못 받으면 ping · 5초 안에 pong 없으면 끊기 · 받은 메시지가 15초를 다시 셈 · stop · bye · quit · 끊김 뒤 타이머 없음 · 다시 붙어도 하나
    ・5절: 그 밖의 메시지 · 요청 — onMessage(방 메시지 자리 포함) · request 의 rid 짝 · send 는 ready 일 때만
    ・6절: 순수 · 배선 — 주소(운영 · dev · 시험 주소) · 세션 id 모양 · window.TwRtHub · bind 전 start 는 던짐 · html 차례 · firebase-init bind
-   ・7절: 일부러 깨 보기 */
+   ・7절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
@@ -600,7 +600,7 @@ async function judge(S){
 (async () => {
 await judge(SRC0);
 
-say('── 7. 일부러 깨 보기');
+say('── 7. mutation test');
 const BREAKS = [
   ['HUB', "    started = false; lostAt = null; userCode = null; sessionId = null; clockOff = null;\n    clearPong();\n    if(link) link.close();", "    started = false; lostAt = null; userCode = null; clockOff = null;\n    clearPong();\n    if(link) link.close();", 'stop 이 세션 id 를 안 비움(다음 로그인이 앞 id 를 씀)'],
   ['HUB', "    started = false; lostAt = null; userCode = null; sessionId = null; clockOff = null;\n    clearPong(); clearKeep();", "    started = false; lostAt = null; userCode = null; clockOff = null;\n    clearPong(); clearKeep();", 'bye 가 세션 id 를 안 비움(로그아웃 뒤 같은 id)'],
@@ -670,7 +670,7 @@ for(const [where, from, to, what] of BREAKS){
   caught.push([what, qfail]);
 }
 const missed = caught.filter(([, k]) => k === 0).map(([w]) => w);
-chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
 console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

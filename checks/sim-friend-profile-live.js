@@ -5,10 +5,10 @@
      목록이 닫혀 있을 때 마이홈 구경은 그 친구 프로필만 한 번 새로 읽는다.
    ・1절: 가짜 서버 provider(friends-api.js 모양) → 포트 → friends-sub 를 실제로 이어서 —
          평소 목록 듣기 1개 · 열면 프로필 듣기 1개(친구 n명을 한 번에) · 닫으면 해제 · 이름 바뀌면 목록 값이 바뀜(소개 · 사진은 그대로) ·
-         늦게 끝난 목록 받기가 들은 이름을 안 덮음. (옛 Firebase 길 provider · 카드 10분 기억은 걷었다 — D13 E-2)
+         늦게 끝난 목록 받기가 들은 이름을 안 덮음. (옛 Firebase 경로 provider · 카드 10분 기억은 걷었다 — D13 E-2)
    ・2절: refreshProfile — 닫혀 있으면 그 친구 프로필 한 번(소개 · 사진 · 다른 친구 안 읽음) · 열려 있으면 읽기 0 · 친구 아니면 false
-   ・3절: 마이홈 구경(myhome-visit.js openFriendHomeView) — 받아 둔 이름으로 먼저 그리고, 새 이름이 오면 다시 그림 · 친구 아니면 명함(서버 길)
-   ・4절: 일부러 깨 보기 — 하나라도 못 잡으면 빨강
+   ・3절: 마이홈 구경(myhome-visit.js openFriendHomeView) — 받아 둔 이름으로 먼저 그리고, 새 이름이 오면 다시 그림 · 친구 아니면 명함(서버 경로)
+   ・4절: mutation test — 하나라도 못 잡으면 빨강
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
@@ -147,7 +147,7 @@ async function judge(S){
     const run = async (friends, refresh, opts) => {
       const L = { renders: 0, titles: [], nameReads: 0 };
       const emptyP = { avatar: null, bio: '', postTitle: '', post: '', bgm: null, bg: null, stickers: {}, theme: null, themePresets: null, themePresetCur: null };
-      const store = load(S.MST, 'TwMyHomeStore').createMyHomeStore({   // 진짜 상태 주인 — 가짜 서버 길 위에서(집 받기만 쓴다)
+      const store = load(S.MST, 'TwMyHomeStore').createMyHomeStore({   // 진짜 상태 주인 — 가짜 서버 경로 위에서(집 받기만 쓴다)
         api: { fetchMine: async () => ({ page: emptyP, pageVersion: 1, desktop: { bg: null, hideFolders: false, folderPos: {} }, desktopVersion: 1 }),
           fetchOf: async () => ({ page: emptyP, desktop: { bg: null, hideFolders: false, folderPos: {} } }), patchPage(){}, putDesign(){}, uploadImage(){}, reset(){} },
         lib: load(S.MA, 'TwMyHomeApi'), errs: load(S.AE, 'TwApiErrors'), apiErrors: { notify(){} }, notifyError: () => true, toast(){}, previewOn: () => false, rules: load(S.RU, 'TwMyHomeStickerRules') });
@@ -178,7 +178,7 @@ async function judge(S){
     const L2 = await run(friends2, () => Promise.resolve(true), { hint: '같은이름' });
     chk(L2.renders === 1, '  ↳ 이름이 그대로면 다시 그리지 않는다(그리기 한 번)');
     const L3 = await run({ v: {} }, () => Promise.resolve(false), { fid: 'x9' });
-    chk(L3.nameReads === 1 && L3.titles[L3.titles.length - 1] === '🏠 서버이름의 마이홈', '  ↳ 친구가 아니고 이름도 모르면 명함(서버 길)으로 이름 한 줄');
+    chk(L3.nameReads === 1 && L3.titles[L3.titles.length - 1] === '🏠 서버이름의 마이홈', '  ↳ 친구가 아니고 이름도 모르면 명함(서버 경로)으로 이름 한 줄');
     const L4 = await run({ v: {} }, () => Promise.reject(new Error('x')), { fid: 'x9', hint: '힌트' });
     chk(L4.renders === 1 && L4.nameReads === 0, '  ↳ 새로 받기가 실패해도 던지지 않고 받아 둔 이름 그대로');
   }
@@ -187,7 +187,7 @@ async function judge(S){
 (async () => {
 await judge(SRC0);
 
-say('── 4. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 4. mutation test — 하나라도 못 잡으면 빨강');
 const BREAKS = [
   ['FS', "  try{ offs.push(watchProfile(_myId, ids, p=>{", "  try{ (()=>{})(watchProfile, (p=>{", '목록을 열어도 프로필을 안 들음(회귀 그대로)'],
   ['FS', "  _presOff = ()=>{ for(const off of offs){ if(off){ try{ off(); }catch(_){} } } };", "  _presOff = ()=>{ try{ offs[0](); }catch(_){} };", '닫아도 프로필 구독이 남음'],
@@ -210,7 +210,7 @@ for(const [where, from, to, what] of BREAKS){
   caught.push([what, qfail]);
 }
 const missed = caught.filter(([, n]) => n === 0).map(([w]) => w);
-chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
 console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

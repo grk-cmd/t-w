@@ -10,7 +10,7 @@
    ・4절: 세션 콜백 — onPeers · onMeta · onPeerEvent · onShot · onSlots · onFrames · onRefused 가 창이 닫혀 있어도 안 터진다
    ・4-2절: 서버 소식 — 자리가 바뀌면 다시 그림 · 자리를 잃으면 한 번만 안내 · 방장 일 거절은 E-PK-04 · 프레임 거절은 E-PK-05 · 촬영 시작 실패는 까닭마다(정원 닫힘은 안내만 · 나머지 E-PK-03)
    ・5절: app.js 배선 — 정의는 모듈에만 · createPurikuraUi 는 원래 자리(세션 입구 _purikura 뒤 · 🎟️ 하루 횟수 앞) · 세션 입구는 세션 포트 하나 ·
-          Firebase 길(pk*)이 화면 · app.js 에 없다 · 부르는 곳은 purikuraUi.이름 · deps 모양 · html 순서 · 전역 이름
+          Firebase 경로(pk*)가 화면 · app.js 에 없다 · 부르는 곳은 purikuraUi.이름 · deps 모양 · html 순서 · 전역 이름
    [실행] purikura-ui.js · purikura-net.js · ps1-dither.js · app.js · chat-window.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
@@ -100,7 +100,7 @@ function mkEnv(opt){
     confirm: () => true, THREE: U(), TwGlContext: { make: () => (opt.noGl ? null : U()) },
     localStorage: { getItem: (k) => (k in env.ls ? env.ls[k] : null) },
     companion: { pauseBgm(){ env.pause++; }, resumeBgm(){ env.resume++; } },
-    firebaseAPI: { pkUploadFrame: async () => 'https://x' },   // 남은 Firebase 길은 프레임 Storage 올리기 하나
+    firebaseAPI: { pkUploadFrame: async () => 'https://x' },   // 남은 Firebase 경로는 프레임 Storage 올리기 하나
     TwErrorCodes: { notify: (code, err, text) => { env.errors.push([code, err, text]); env.notices.push(code); return true; } },
   };
   ctx.window = ctx;
@@ -199,7 +199,7 @@ await sec('── 3-2. 3D 없는 방장 — 촬영 시작을 막고 안내만(E-
   const MUT = MOD.replace("if(!PK.renderer){ TwErrorCodes.notify('E-SYS-07'); return; }", '');
   const m = mkEnv({ noGl: true, mod: MUT }); const um = m.mk(); await um.open(); let th = null;
   try{ await m.els.pkStartBtn.onclick({ stopPropagation(){} }); }catch(err){ th = err; }
-  chk(MUT !== MOD && (m.starts === 1 || m.notices.length === 0), '깨 보기: 얼리 리턴을 지우면 3D 없는 방장도 시작해 버린다(정원 차감 start 가 불린다) → 빨강');
+  chk(MUT !== MOD && (m.starts === 1 || m.notices.length === 0), 'mutation test: 얼리 리턴을 지우면 3D 없는 방장도 시작해 버린다(정원 차감 start 가 불린다) → 빨강');
 });
 await sec('── 3. 열고 닫기 — 가짜 THREE · DOM 위에서', async () => {
   const e = mkEnv({ plPlaying: true }); const ui = e.mk();
@@ -285,7 +285,7 @@ await sec('── 4-2. 서버 시각을 모르면 컷을 열지 않는다', asyn
   chk(r.later.length === 1 && r.later[0][0] === 0 && r.later[0][1] === 5000 && r.waitAfter === -1, '  시각이 있으면 그 서버 시각으로 컷을 연다(setCut(0, 5000))');
   const bad = MOD.replace("const t = pk ? pk.serverNow() : null;", "const t = pk ? (pk.serverNow() === null ? Date.now() : pk.serverNow()) : Date.now();");
   const rb = bad === MOD ? null : await press(bad);
-  chk(rb && rb.cuts.length === 1, '깨 보기: 시각을 모를 때 기기 시계로 대신하게 되돌리면 4-2절이 빨강');
+  chk(rb && rb.cuts.length === 1, 'mutation test: 시각을 모를 때 기기 시계로 대신하게 되돌리면 4-2절이 빨강');
 });
 
 await sec('── 5. app.js 배선', () => {
@@ -299,7 +299,7 @@ await sec('── 5. app.js 배선', () => {
   chk(iEntry > 0 && iMk > iEntry && iNext > iMk, '원래 자리 — 세션 입구(_purikura) 뒤 · 🔫 러시안룰렛 앞');
   const entry = (APP.match(/function _purikura\(\)\{[\s\S]*?\n\}/) || [''])[0];
   chk(/TwPurikuraRt\.createPhotoSession\(\{/.test(entry) && /hub: TwRtHub\.store, api: TwApi\.authed, P: Purikura/.test(entry) && /p\.serverNow\(\)/.test(entry), '세션 입구 — 세션 포트 하나(realtime 연결 · 로그인 API · 순수 계산) · 서버 시각은 방 포트 시계');
-  chk(!/makeSession|firebaseAPI|pkGet|pkOnValue/.test(entry) && !/Purikura\.makeSession|firebaseAPI\.pk(?!UploadFrame)/.test(APP), '  Firebase 길(makeSession · pk*)이 app.js 에 없다');
+  chk(!/makeSession|firebaseAPI|pkGet|pkOnValue/.test(entry) && !/Purikura\.makeSession|firebaseAPI\.pk(?!UploadFrame)/.test(APP), '  Firebase 경로(makeSession · pk*)가 app.js 에 없다');
   chk(/onPeers: p => \{ purikuraUi\.onPeers\(p\); \}/.test(entry) && /onMeta : m => \{ purikuraUi\.onMeta\(m\); \}/.test(entry)
     && /onEvent: \(slot, ev\) => \{ purikuraUi\.onPeerEvent\(slot, ev\); \}/.test(entry) && /onShot : s => \{ purikuraUi\.onShot\(s\); \}/.test(entry)
     && /onSlots: o => \{ purikuraUi\.onSlots\(o\); \}/.test(entry) && /onFrames: o => \{ purikuraUi\.onFrames\(o\); \}/.test(entry) && /onRefused: o => \{ purikuraUi\.onRefused\(o\); \}/.test(entry) && /onLateStart: \(\) => \{ purikuraUi\.onLateStart\(\); \}/.test(entry),
@@ -327,7 +327,7 @@ await sec('── 5. app.js 배선', () => {
   const iU = at('purikura-ui.js'), iN = at('purikura-net.js'), iR = at('purikura-rt.js'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iN > 0 && iU > iN && iU < iA, 'html — purikura-ui.js 를 purikura-net.js 뒤 · app.js 앞에 싣는다');
   chk(iR > iN && iR < iA, 'html — purikura-rt.js 를 purikura-net.js 뒤 · app.js 앞에 싣는다');
-  chk(!/firebaseAPI\.(?!pkUploadFrame\()\w+/.test(m) && !/\bpk(?:OnValue|Update|Get|Set|Remove|Transaction)\(|\.peek\(|adoptSlots/.test(m), '화면(purikura-ui.js)에 Firebase 길이 없다 — 남은 것은 프레임 Storage 올리기(pkUploadFrame)뿐 · peek · adoptSlots 도 없다');
+  chk(!/firebaseAPI\.(?!pkUploadFrame\()\w+/.test(m) && !/\bpk(?:OnValue|Update|Get|Set|Remove|Transaction)\(|\.peek\(|adoptSlots/.test(m), '화면(purikura-ui.js)에 Firebase 경로가 없다 — 남은 것은 프레임 Storage 올리기(pkUploadFrame)뿐 · peek · adoptSlots 도 없다');
   /* #103 교훈 — 크로미움 내장 전역(Scheduler 등)과 겹치면 typeof 가드가 늘 통과한다. 접두사로 피한다(헤드리스 크로미움에서 typeof 확인) */
   chk(/^Tw[A-Z]/.test('TwPurikuraUi') && !/window\.(Purikura|PurikuraUi)\s*=/.test(MOD), '전역 이름은 Tw 접두사 — 내장 전역 · 통신 계층(window.Purikura)과 안 겹침');
 });

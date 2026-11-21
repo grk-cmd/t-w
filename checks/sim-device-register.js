@@ -4,7 +4,7 @@
    ・2절: 흐름을 실제로 돌린다 — 바로 됨 · 상한이 다 참(묻기 → [지우고 사용] → 보여 준 그 기기 id 로 다시) · [취소] · 그사이 바뀐 가장 오래된 기기(다시 묻기) ·
           실패(번호 한 번) · 겹쳐 부르기(한 번) · 끝없이 바뀌면 멈춤
    ・3절: 연결 — app.js(등록 → 확인창 · 기기 id · 세션 id · os) · html · smoke PRELOAD
-   ・4절: 일부러 깨 보기 */
+   ・4절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -94,13 +94,13 @@ async function judge(src) {
 
   say('── 3. 연결');
   chk(/const deviceRegisterMod = TwDeviceRegister\.createDeviceRegister\(\{\n  registerDevice: \(o\)=>TwUserApi\.store\.registerDevice\(o\),\n  limitOldestOf: \(e\)=>TwUserApi\.limitOldestOf\(e\),\n  deviceId: \(\)=>TwDeviceId\.store\.get\(\),[^\n]*\n  session: \(\)=>TwRtHub\.store\.session\(\),[^\n]*\n  os: \(\)=>TwDeviceRegister\.osOf\(navigator\),\n  ask: \(question\)=>deviceLimitDialog\.ask\(question\),\n  notifyError: \(\.\.\.a\)=>TwErrorCodes\.notify\(\.\.\.a\),\n\}\);/.test(APP),
-    'app.js — 서버 길(user-api) · 기기 id(X-Device-Id 와 같은 값) · 세션 id(hello.session 과 같은 값) · os · 확인창 · 오류 번호');
+    'app.js — 서버 경로(user-api) · 기기 id(X-Device-Id 와 같은 값) · 세션 id(hello.session 과 같은 값) · os · 확인창 · 오류 번호');
   chk(/registerDevice: \(\)=>deviceRegisterMod\.ensure\(\),/.test(APP), '  켜는 순서(app-boot)가 realtime 보다 먼저 등록한다');
   const order = [...HTML.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<script\b[^>]*\bsrc="parts\/([^"]+\.js)"/g)].map((x) => x[1]);
   chk(order.indexOf('account/device-register.js') > 0 && order.indexOf('account/device-register.js') < order.indexOf('app.js'), 'html — device-register.js 를 app.js 보다 먼저 싣는다');
   chk(!SMOKE || /PRELOAD\.push\([^)]*'device-register\.js'/.test(SMOKE), 'smoke PRELOAD 에 device-register.js');
 
-  say('── 4. 일부러 깨 보기 — 빨강이 나야 한다');
+  say('── 4. mutation test — 빨강이 나야 한다');
   const breaks = [
     ['보여 준 기기 대신 아무것도 안 싣고 다시', (m) => m.replace('        replaceOldest = oldest.deviceId;', '        replaceOldest = null;')],
     ['묻지 않고 지움', (m) => m.replace('        try{ yes = (await deps.ask(limitQuestion(oldest), oldest)) === true; }catch(_){ yes = false; }', '        yes = true;')],

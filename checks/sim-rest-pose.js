@@ -4,7 +4,7 @@
    ・1절: 진짜 사람 몸(base-glb.js) · 실제 몸 박스 규칙으로 — 누워 떼쓰기 · 뼈에 붙은 리깅 안 된 파츠가 enter 안에서 기본 자세 값 ·
           leave 뒤 그대로 · 기본 자세는 처음 본 모델에서 한 번 · 새 모델은 새로 · (사실) 스키닝 몸은 뼈 자세만으로는 안 뜬다
    ・2절: 배선 — fitModel 이 재기 전에 enter · finally 에서 leave · 미리보기 카메라는 measureCharBox · html · smoke 에 실림
-   ・3절: 깨 보기
+   ・3절: mutation test
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
 'use strict';
 const fs = require('fs');
@@ -114,7 +114,7 @@ const camOk = (src) => { const f = cut(src, 'refreshWdPreviewChar'); return /con
 chk(camOk(WD), '★ 미리보기 카메라는 보이는 몸 · 일반 파츠(measurePreviewBox — 리깅 원본 · 숨은 메시 뺌)로 — 통째로 재지 않는다(재는 규칙은 sim-char-measure)');
 chk(/parts\/character\/rest-pose\.js[\s\S]*parts\/app\.js/.test(HTML.slice(HTML.indexOf('rest-pose.js') - 40)), '  html 에 app.js 보다 먼저 싣는다(smoke 는 html 목록을 그대로 싣는다)');
 
-say('── 3. 깨 보기');
+say('── 3. mutation test');
 chk(!(await behave(MOD.replace('t.now.forEach(put);', ''))).back, 'leave 가 자세를 안 되돌리면 위 «leave 뒤 그대로» 가 빨강');
 chk(!(await behave(MOD.replace('if(!root.userData[KEY]){', 'if(true){'))).partRest, '기본 자세를 매번 새로 재면(지금 자세를 기본으로) 위 ★ 가 빨강');
 chk(!(await behave(MOD.replace('if(bw) bw.rotation.set(0, 0, 0);', ''))).lieRest, '눕힘 되돌리기를 빼면 위 «누워 떼쓰기» ★ 가 빨강');

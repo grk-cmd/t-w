@@ -6,7 +6,7 @@
    ・2절: 관리자 쓰기 — 올리기 본문(대문자 tag · 상한 깎기 · 요청 번호) · 같은 글을 닿지 못해 다시 보내면 같은 번호 · 서버가 답했으면 번호를 버림 · 고정은 올린 글의 판으로 이어서 · 고정만 실패하면 'pinFailed' ·
         고정 · 내리기는 읽은 판을 실음 · 409 는 'conflict' · 실패는 'failed'
    ・3절: 배선 — firebase-init 에 옛 공지 읽기 · 구독이 없음 · 부르는 곳이 firebaseAPI 로 소식을 안 부름 · html · smoke
-   ・4절: 일부러 깨 보기
+   ・4절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -132,7 +132,7 @@ async function judge(S){
 async function runAll(){
   const S = SRC0;
   await judge(S);
-  say('── 4. 일부러 깨 보기');
+  say('── 4. mutation test');
   const breaks = [
     ['고정을 합치지 않음', S.API.replace("!broadcastsOf(d.broadcasts.pinned, broadcasts) || ", ""), '고정 + 최신'],
     ['시각을 문자열로', S.API.replace("ts: msOf(b.publishedAt)", "ts: b.publishedAt"), '시각(ms)'],

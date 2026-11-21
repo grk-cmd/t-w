@@ -4,7 +4,7 @@
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(AD_BANNER_KEY · slides · refreshAdBanner)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 2줄 그대로 · 부르는 곳은 adBannerMod.이름 · html(app.js 앞)
    ・2-2절: 서버 배너 — 공지 한 판이 바뀔 때 그린다(그림 · 링크 · 숨김) · 같은 배너면 다시 안 그림 · 설정 패널 배너도 같이 · 이 PC 에 사본(localStorage)을 안 남김
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · ad-banner.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -110,7 +110,7 @@ function judgeBanner(mod){
 }
 judgeBanner(MOD).forEach(([ok, msg]) => chk(ok, msg));
 
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 {
   const cases = [
     ['같은 배너도 다시 그림', MOD.replace("if(key === _shownKey) return;", "")],
@@ -131,9 +131,9 @@ const breaks = [
   ['전역 이름 안 걺', m => m.replace('window.TwAdBanner = api;', ''), null, null],
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
-  /* app.js 에서 이 모듈의 이름을 부르는 곳이 지금은 없다(관리자 런처가 서버 길로 옮겨 감) — 옛 이름 그대로 부르는 줄을 끼워 넣어 본다 */
+  /* app.js 에서 이 모듈의 이름을 부르는 곳이 지금은 없다(관리자 런처가 서버 경로로 옮겨 감) — 옛 이름 그대로 부르는 줄을 끼워 넣어 본다 */
   ['부르는 곳이 옛 이름', null, a => a + '\nrefreshAdBanner();', null],
-  ['만들 때 던짐', m => m.replace('function createAdBanner(deps){', 'function createAdBanner(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createAdBanner(deps){', 'function createAdBanner(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;

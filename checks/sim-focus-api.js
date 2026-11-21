@@ -3,7 +3,7 @@
    ・1절: 읽기 — 진척 · 달성표 경로 · 모양 맞춤(날 경계 ms) · 모양 틀림은 던짐 · 이번 주(current) · PREMIUM_REQUIRED 는 던져서 갈래로
    ・2절: 쓰기 — 경로 · 메서드 · 본문 · 읽은 토큰의 주인과 묶음(읽은 적 없으면 요청 0) · 서버 거절은 failed + err · 상한 밖 deltaSec 는 요청 0 · 갈래(failOf)
    ・3절: 배선 — html 순서 · smoke · 오류 번호 표
-   ・4절: 일부러 깨 보기
+   ・4절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -162,7 +162,7 @@ async function judge(S){
 async function runAll(){
   const S = SRC0;
   await judge(S);
-  say('── 4. 일부러 깨 보기');
+  say('── 4. mutation test');
   const breaks = [
     ['진척 경로 틀림', S.API.replace("progress: BASE,", "progress: BASE + '/x',"), '/v2/me/focus'],
     ['올리기 경로 틀림', S.API.replace("'/accruals'", "'/accrual'"), 'accruals'],

@@ -2,7 +2,7 @@
  * 방 설정(제목 · 최대 인원 · 방장 닉네임 · 공개)과 방 만들기 창 검사 — 모듈을 그대로 불러 돌린다.
  * 1. banned-words.js 판정(두 길로 실림 · 상한이 규칙과 같다)  2. room-settings.js(순수)  3. 범위가 규칙과 같다
  * 4. room-create-ui.js(가짜 DOM)  5. room-entry doCreateRoomInChannel  6. firebase-init 쓰기(setRoomChannel · claimHostIfVacant · claimEmptyRoom)
- * 7. remote-config bannedWords  8. 깨 보기
+ * 7. remote-config bannedWords  8. mutation test
  * 설계: docs/ROOM_LOBBY.md 1 · 2.1 · 5.2
  */
 'use strict';
@@ -180,7 +180,7 @@ say('── 5-2. 방 서버 만들기 칸(serverCreateOf) · room-entry 가 싣�
   chk(!('max' in RS.serverCreateOf('workingroom', true, { max: 1 })) && !('max' in RS.serverCreateOf('workingroom', true, { max: 51 })) && RS.serverCreateOf('workingroom', true, { max: 2 }).max === 2
     && RS.serverCreateOf('workingroom', true, { max: 50 }).max === 50 && !('max' in RS.serverCreateOf('workingroom', true, { max: 4.5 })), '  최대 인원 경계 2 · 50 · 범위 밖 · 소수는 뺀다');
   chk(!('title' in RS.serverCreateOf('workingroom', true, { title: 'x'.repeat(21) })) && RS.serverCreateOf('workingroom', true, { title: 'x'.repeat(20) }).title.length === 20, '  제목 20자까지 · 21자는 뺀다');
-  chk(JSON.stringify(RS.serverCreateOf('workingroom', 1, null)) === '{"channel":"workingroom","open":true}', '  고른 값이 없으면(옛 길) 채널 · 공개만');
+  chk(JSON.stringify(RS.serverCreateOf('workingroom', 1, null)) === '{"channel":"workingroom","open":true}', '  고른 값이 없으면(옛 경로) 채널 · 공개만');
   // 어느 create 를 실을지 — 만들기 갈래 · 시크릿룸 갈래 · 그 밖
   const ex = { title: '수다', max: 4, hostName: '말랑', music: true };
   chk(JSON.stringify(RS.serverJoinCreate(true, 'workingroom', true, ex, { music: false })) === JSON.stringify(RS.serverCreateOf('workingroom', true, ex)),
@@ -216,7 +216,7 @@ say('── 7. remote-config — 금칙어 원문');
   chk(RCM.BANNED_WORDS_MAX === BW.BANNED_MAX, '★ 줄 수 상한이 판정(BANNED_MAX)과 같다 — 넘는 낱말을 받아 놓고 판정에서 버리지 않게');
 }
 
-say('── 8. 깨 보기');
+say('── 8. mutation test');
 {
   const broken = classic(RS_SRC.replace('if(Number.isInteger(m) && m >= ROOM_MAX_MIN && m <= ROOM_MAX_MAX) return Math.min(m, cap);', ''), 'TwRoomSettings');
   chk(broken.roomCap({ max: 4 }, 10) === 10, '방 최대 인원을 안 보면 2절 «작은 쪽» 이 빨강이 된다');

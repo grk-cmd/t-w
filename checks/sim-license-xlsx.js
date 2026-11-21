@@ -1,7 +1,7 @@
 /* ═══ 📄 sim-license-xlsx.js — 관리자 라이선스 엑셀(xlsx·csv) 일괄 발급 (개정 76 신설) ═══════════════════════
    ・1절: 배선 — 입구 버튼·두 번째 창이 #licenseGenOverlay 안 · 바깥 클릭 예외 · 외부 라이브러리 없음(JSZip 재사용)
    ・2절: 순수 함수 실행 — csv 파싱 · 제목 줄/열 찾기 · 친구코드 후보 · 다시 올린 결과 파일(발급 키 열)
-   ・3절: 발급 흐름(서버 길) — 미리보기 = POST /v2/admin/licenses/preview · 발급 = POST /v2/admin/licenses 한 번 · note 100자 · 닿지 못하면 같은 요청으로 다시 · 줄마다 까닭
+   ・3절: 발급 흐름(서버 경로) — 미리보기 = POST /v2/admin/licenses/preview · 발급 = POST /v2/admin/licenses 한 번 · note 100자 · 닿지 못하면 같은 요청으로 다시 · 줄마다 까닭
    ・4절: 관리자 모듈 연결 — 본문은 admin/admin-license-bulk.js(app.js 에서 옮김) · app.js 는 원래 자리에서 만들기만 · html 은 app.js 앞에 싣기
    ⚠️ xlsx 읽기/쓰기(_lxReadXlsx · _lxWriteXlsx)는 DOMParser·JSZip 이 있어야 돈다 — 여기서는 모양만 본다.
      실제 왕복은 2026-10-02 에 헤드리스 크로미움 + openpyxl · LibreOffice 로 확인했다(CHECKS.md 개정 76).
@@ -68,7 +68,7 @@ say('── 2. 순수 함수 실행');
     && L._lxCandidates('').length === 0, '친구코드 후보 — 단건 발급과 같은 규칙(뒷 4자리 → MATE·COZY)');
 }
 
-say('── 3. 발급 흐름 (서버 길 · D11-3)');
+say('── 3. 발급 흐름 (서버 경로 · D11-3)');
 {
   const B = strip((LB.match(/\(function bindLicenseXlsxBulk\(\)\{[\s\S]*?\n\}\)\(\);/) || [''])[0]);
   chk(!!B, 'bindLicenseXlsxBulk 를 찾았다');
@@ -91,13 +91,13 @@ say('── 4. 관리자 모듈 연결 (admin/admin-license-bulk.js)');
   const mk = (SRC.match(/const adminLicenseBulk = TwAdminLicenseBulk\.createAdminLicenseBulk\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = mk.split('\n').map(l => l.trim()).filter(Boolean);
   chk(deps.length === 8 && deps.includes('adminApi: adminApi,') && deps.includes('apiErrors: TwApiErrors.store,') && deps.includes('notifyError: (...a)=>TwErrorCodes.notify(...a),')
-    && deps.filter(l => /^\w+: \(\.\.\.a\)=>[\w$.]+\(\.\.\.a\),$/.test(l)).length === 6, 'app.js 가 원래 자리에서 만든다 — deps 8개(서버 길 셋 + 화살표 여섯 — 나중에 선언된 함수도 부를 때 찾는다 · 목록 다시 받기는 adminLicense.이름)');
+    && deps.filter(l => /^\w+: \(\.\.\.a\)=>[\w$.]+\(\.\.\.a\),$/.test(l)).length === 6, 'app.js 가 원래 자리에서 만든다 — deps 8개(서버 경로 셋 + 화살표 여섯 — 나중에 선언된 함수도 부를 때 찾는다 · 목록 다시 받기는 adminLicense.이름)');
   chk(!/\bADMIN_LICENSE_BULK_OFF\b/.test(SRC), '빈 껍데기 없이 만든다(모듈은 늘 싣는다 — 가드 걷기 3차)');
   const hS = SRC.indexOf('/* ═══ 🔒 시크릿룸 발급(관리자) ═══ */'), hM = SRC.indexOf('const adminLicenseBulk =');
   chk(hS > 0 && hM > hS, '만드는 줄은 원래 자리(🔒 시크릿룸 발급 머리 아래) — 버튼을 거는 때가 예전과 같다');
   const used = ['escHtml', 'toast', 'adminApi', 'apiErrors', 'notifyError', 'renderLicenseGenList', 'downloadBlob', '_srFmtDate'];
   const body = strip(LB.slice(LB.indexOf('function createAdminLicenseBulk(deps){')));
-  chk(used.every(n => new RegExp('const ' + n.replace('$', '\\$') + ' = deps\\.').test(body)), '본문이 쓰는 app.js 함수 · 서버 길 여덟을 deps 로 받는다');
+  chk(used.every(n => new RegExp('const ' + n.replace('$', '\\$') + ' = deps\\.').test(body)), '본문이 쓰는 app.js 함수 · 서버 경로 여덟을 deps 로 받는다');
   chk(/window\.TwAdminLicenseBulk = api;/.test(LB) && /module\.exports = api;/.test(LB), '전역 이름 TwAdminLicenseBulk(Tw 접두사 — 크로미움 내장 전역과 안 겹침)');
   const iM = HTML.indexOf('<script src="parts/admin/admin-license-bulk.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iM > 0 && iA > iM, 'html — admin/admin-license-bulk.js 를 app.js 보다 먼저 싣는다');

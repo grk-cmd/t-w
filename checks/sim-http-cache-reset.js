@@ -3,7 +3,7 @@
    ・1절: 버전이 바뀐 뒤 첫 실행에만 비운다 · 같은 버전이면 안 비운다 · 표시 파일 · 못 비우면 표시를 안 남김 · 오래 걸리면 기다리기를 그만둠
    ・2절: 책상 · 장신구 GLB 받기는 웹 캐시를 거치지 않는다(fetch cache: 'no-store') — catalog-api.js 의 함수를 떼어 돌린다
    ・3절: 배선 — main.js 가 창을 띄우기 전에 부른다 · 그동안 맥 activate 가 창을 먼저 만들지 않는다 · 설치 목록(package.json files)
-   ・4절: 깨 보기
+   ・4절: mutation test
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
 'use strict';
 const fs = require('fs');
@@ -101,7 +101,7 @@ function bootOrderOk(src){
   chk(bootOrderOk(MAIN), '  whenReady — 웹 캐시 비우기를 기다린 뒤 · createWindow 바로 앞에서 «부팅 끝» 표시');
   chk(/"http-cache-reset\.js"/.test(PKG), '설치 목록(package.json files)에 http-cache-reset.js — 빠지면 설치본이 켜지지 않는다');
 
-  say('── 4. 깨 보기');
+  say('── 4. mutation test');
   const b1 = await behave(MOD.replace('return !!o.version && lastVersion() !== String(o.version);', 'return !!o.version;'));
   chk(!b1.same, '같은 버전도 비우면 위 «같은 버전이면 안 비운다» 가 빨강');
   const b2 = await behave(MOD.replace("    await o.session.clearCache();\n    try{ o.fs.writeFileSync(file, String(o.version)); }catch(_){}", "    try{ o.fs.writeFileSync(file, String(o.version)); }catch(_){}\n    await o.session.clearCache();"));

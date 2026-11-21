@@ -3,7 +3,7 @@
  * 방 연결(room-server-net.js)이 이것 위에서 그대로 도는지는 sim-room-server-net.js 가 본다. 여기는 공통부만:
  * 1. 순수 — jwtExpMs · LINK_TIMING · import 없음
  * 2. 열기 · hello(선택 칸 helloExtra) · ready · 토큰 없음 → auth
- * 3. rid 요청 — answers 로 rid 로만 답 짝짓기 · rid 없는 답 · 모르는 rid 의 답은 warn 후 버림 · badRequest · unavailable(깨 보기) · 시간 초과 · 끊기면 null
+ * 3. rid 요청 — answers 로 rid 로만 답 짝짓기 · rid 없는 답 · 모르는 rid 의 답은 warn 후 버림 · badRequest · unavailable(mutation test) · 시간 초과 · 끊기면 null
  * 4. 끊김 → onClosed(wasReady, fatal) · 다시 붙기 백오프(reconnectWanted) · markAuthRetry → getToken(true)
  * 5. 토큰 갱신 hello 에도 선택 칸 · 쉬면 닫기(idleCloseMs · busy) · 못 붙은 주소 1분 쉼 · retry · 주소 바뀜(switchOk)
  * 6. rt-bind 연결 — import 하고 realtime 연결 하나(rt-hub)에 createLink 로 넘긴다
@@ -159,7 +159,7 @@ async function up(env){
       const MF = new Function('Buffer', fake.replace(/^export (const|function|async function) /gm, '$1 ') + '\nreturn {' + names.join(',') + '};')(Buffer);
       const ef = mk({ M: MF, getVersion: async () => null });
       ef.link.ensureReady(); await new Promise((r) => setImmediate(r)); await new Promise((r) => setImmediate(r));
-      chk(fake !== SRC && ef.socks.length === 1, '  깨 보기 — 가짜 버전으로 되돌리면 위 판정이 빨강');
+      chk(fake !== SRC && ef.socks.length === 1, '  mutation test — 가짜 버전으로 되돌리면 위 판정이 빨강');
     }
     const e3 = mk({ token: null });
     const r3 = await e3.link.ensureReady();
@@ -241,7 +241,7 @@ async function up(env){
     for(const [ok, msg] of await unavailableCase(M)) chk(ok, msg);
     const brokenSrc = SRC.split("if(requestKinds.indexOf(m.ref) >= 0){   // rid 요청 종류의 오류인데").join("if(false){   // rid 요청 종류의 오류인데");
     const MB = new Function('Buffer', brokenSrc.replace(/^export (const|function|async function) /gm, '$1 ') + '\nreturn {' + names.join(',') + '};')(Buffer);
-    chk(brokenSrc !== SRC && (await unavailableCase(MB)).some(([ok]) => !ok), '  깨 보기 — rid 없는 오류를 버리는 갈래를 빼면 위 판정이 빨강');
+    chk(brokenSrc !== SRC && (await unavailableCase(MB)).some(([ok]) => !ok), '  mutation test — rid 없는 오류를 버리는 갈래를 빼면 위 판정이 빨강');
 
     const p5 = e.link.request({ t: 'presenceGet', ids: ['d'] }, (m) => m);
     await e.clock.advance(4001);

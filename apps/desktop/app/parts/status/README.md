@@ -46,7 +46,7 @@
 - **끌 때 · 로그아웃**: 저장이 실패한 채이거나 고친 뒤 3초 모으기가 안 끝났으면 한 번만 올려 본다(`flushPending(uid)` 한 곳 — 둘이 다 와도 1). 앱을 끌 때(`beforeunload`)는 결과를 기다리지 않고, 로그아웃 올리기(account.js `_acctFlushToServer`)는 다른 항목처럼 기다린다(8초 상한). 되풀이 없음 · 로그인 전이면 요청 0.
 - **검사**: `checks/sim-playlist.js` 5-2절 · `checks/sim-account-switch.js`.
 
-## playlist-api.js — 🌐 플레이리스트 서버 길 provider
+## playlist-api.js — 🌐 플레이리스트 서버 경로 provider
 - **책임**: 내 프리셋 세 벌 읽기 · 통째 저장(`GET` · `PUT /v2/me/playlist`) · 무작위 파도타기(`GET /v2/playlists/random`) · 남의 목록(`GET /v2/playlists/{userCode}`). 서버 모양(`tracks[{videoId,title}]` · 늘 3칸 · `listed`)을 화면 모양(`items[{id,title}]` · `private`)으로 맞추는 곳은 여기뿐이다. 신원은 토큰(내 것은 `/v2/me/…`) — 남의 것은 사용자 코드(경로의 코드는 데이터 주소일 뿐).
 - **만드는 법**: `window.TwPlaylistApi.createPlaylistApi({ authed, random, warn })` — app.js 가 플레이리스트보다 먼저 만들어 playlist.js 에 `playlistApi` deps 로 넘긴다.
 - **deps**: `authed`(로그인 API 통로 `TwApi.authed` — `get(path, { auth: true })` · `put(path, body)`) · `random()`(곡 있는 벌을 고를 때) · `warn(...)`(진단 로그).
@@ -59,7 +59,7 @@
   - 저장은 서버 상한(세 벌 · 곡 20 · 이름 16 · 제목 60 · 한마디 140)으로 깎는다. 서버가 거절하면(400) 다시 보내지 않고 `'failed'`.
   - 파도타기 «없음»(`null`)과 «못 불러옴»(던짐)을 가른다 — 부르는 쪽(playlist.js)은 앞엣것에 «아직 파도탈 목록이 없어요» · 뒤엣것에 «인터넷 연결이 필요해요». 404 `USER_NOT_FOUND` 와 403 `PLAYLIST_FRIENDS_ONLY` 는 «없음» 쪽이다.
   - 명함(이름 · 레벨 · 사진)은 이 provider 가 아니라 deps `fetchPlaylistCard` 가 맡는다 — app.js 가 `shared/api-public-reads.js` 로 만들어 넘긴다(서버 명함 묶음`GET /v2/myhomes/cards?codes={userCode}` · firebaseAPI 를 거치지 않는다). 이 모듈이 다루는 `uid` 는 userCode 라 그대로 키가 된다. 한 틱에 여럿을 물으면 요청 하나로 묶고, 못 받으면 던진다(playlist.js 가 E-PL-03).
-- **검사**: `checks/sim-playlist-api.js`(가짜 `authed` 로 실제로 불러 판정 · 일부러 깨 보기).
+- **검사**: `checks/sim-playlist-api.js`(가짜 `authed` 로 실제로 불러 판정 · mutation test).
 
 ## user-status.js — 🫧 활동 상태 · 내 칩 · 커스텀 상태 · 좌석 xf 저장
 
