@@ -55,13 +55,13 @@ describe('코어 경계 — 덫 전역 위에서 돌려 본다', () => {
     await exercise(loadCore(readFileSync(IIFE_PATH, 'utf8'), touched));
     expect(touched).toEqual([]);
   });
-  it('깨 보기 — 코어가 localStorage 를 읽으면 잡힌다', async () => {
+  it('mutation test — 코어가 localStorage 를 읽으면 잡힌다', async () => {
     const touched: string[] = [];
     const src = readFileSync(IIFE_PATH, 'utf8').replace('function createTone(deps) {', 'function createTone(deps) { void localStorage;');
     await exercise(loadCore(src, touched));
     expect(touched).toContain('localStorage');
   });
-  it('깨 보기 — window 에 이름을 걸면 잡힌다', async () => {
+  it('mutation test — window 에 이름을 걸면 잡힌다', async () => {
     const touched: string[] = [];
     const src = readFileSync(IIFE_PATH, 'utf8').replace('function createFace(deps) {', 'function createFace(deps) { try { window.x = 1; } catch (_) {}');
     await exercise(loadCore(src, touched));
@@ -77,7 +77,7 @@ describe('유료 자산 모듈 이름이 번들에 없다', () => {
     try { esm = readFileSync(ESM_PATH, 'utf8'); } catch (_) { /* 빌드 전(시험이 빌드보다 먼저 도는 CI 차례) — 앱 사본으로 본다 */ }
     if (esm) expect(find(esm)).toEqual([]);
   });
-  it('깨 보기 — 가챠 모듈 이름이 섞이면 잡힌다', () => {
+  it('mutation test — 가챠 모듈 이름이 섞이면 잡힌다', () => {
     expect(find('var x = require("./gacha");')).toEqual(['gacha']);
   });
 });

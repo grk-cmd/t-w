@@ -364,7 +364,7 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 
 ## `mallang.js` — 🧸 말랑이 · 🎁 선물 화면
 
-- **책임**: 마이홈 바탕화면의 말랑이 폴더(부르기 · 등록 창) · 떠다니는 말랑이 · 마이홈에 나온 선물 말랑이(치우기) · 선물 보내기 창 · 친구 탭 🎁 배지 · 선물 말랑이를 띄우고 빼는 화면 연출 · 선물 보내기 창. 말랑이 칸은 상태 주인(`mallang-store.js`) · 받은 선물은 선물 상태 주인(`gift-box.js`)이 서버 경로로 받고 고친다 — 이 파일은 그리기 · 누름만. 보내기도 서버 경로(`giftBox.send` · `fetchSentToday` · `fetchVisible`)이다 — 창 상태(`giftPop`)는 이 파일 안.
+- **책임**: 마이홈 바탕화면의 말랑이 폴더(부르기 · 등록 창) · 떠다니는 말랑이 · 마이홈에 나온 선물 말랑이(치우기) · 선물 보내기 창 · 친구 탭 🎁 배지 · 선물 말랑이를 띄우고 빼는 화면 연출 · 선물 보내기 창. 말랑이 칸은 상태 주인(`mallang-store.js`) · 받은 선물은 선물 상태 주인(`gift-box.js`)이 서버 경로로 받고 고친다 — 이 파일은 그리기 · 누름만. 보내기도 서버 경로(`giftBox.send` · `fetchSentToday` · `fetchVisible`)다 — 창 상태(`giftPop`)는 이 파일 안.
 - **만드는 법**: app.js 가 마이홈 수령함(`createMyHomeInbox`)보다 먼저 만든다 — 수령함 · 마이홈 창 · 친구 홈 구경이 값으로 받는다.
 
 ```js

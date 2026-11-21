@@ -28,7 +28,7 @@
 - 함정: 포트 위(도메인 · 화면)에서 `firebaseAPI` 친구 함수를 직접 부르지 않는다(sim-friends-port 3절이 센다).
 
 ## friends-api.js — 서버 provider(`social-api.js` 위 — 친구 목록 + 명함 → 친구 칸 · 알림)
-- 책임: 포트가 부르는 모양 하나로 서버 친구 데이터를 낸다. 서버 경로(경로 · 모양 맞춤 · 오류 갈래)은 `social-api.js`, 여기는 «목록 + 명함 → 친구 칸» 합치기와 realtime 알림(`friends` · `card`)을 받으면 다시 받기뿐이다.
+- 책임: 포트가 부르는 모양 하나로 서버 친구 데이터를 낸다. 서버 경로(경로 · 모양 맞춤 · 오류 갈래)는 `social-api.js`, 여기는 «목록 + 명함 → 친구 칸» 합치기와 realtime 알림(`friends` · `card`)을 받으면 다시 받기뿐이다.
   다시 묻지 않는다 — 못 받으면 던지거나(`listFriends` · `readFriend` · `readProfile`) `onError` 로 알린다(`watchList` → friends-sub 가 «못 불러옴» · 목록을 다시 열 때 다시).
 - 내보내는 것: `listFriends(myId, opts)`(목록 1번 + 명함 한 묶음 · `opts.idsOnly` 면 명함 없이 addedAt 만) · `readFriend(fid)`(친구 아님 · 명함 없음 → `null`) ·
   `watchList(myId, onChange, onError)`(처음 한 번 + `friends` 알림 · resync 마다 · 받기는 한 번에 하나 — 겹치면 끝난 뒤 한 번 더) · `watchProfile(myId, ids, onChange)`(처음 한 번 + `card` 알림은 듣는 친구 한 명만 · resync 는 전부) ·

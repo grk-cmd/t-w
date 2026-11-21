@@ -261,7 +261,7 @@ function raster(tris: Tri[], size: number, lab: Int16Array, val: number): number
   return hit;
 }
 
-/** 그림판 하나의 조각 배치. 래스터에 한 칸도 안 걸린 조각(넓이 0 · 아주 가는 조각)은 꼭짓점 텍셀에 씨앗을 심는다. */
+/** 그림판 하나의 조각 배치. 래스터에 한 칸도 안 걸린 조각(넓이 0 · 아주 가는 조각)은 꼭짓점 텍셀에 seed 를 심는다. */
 export function canvasLayout(size: number, geos: (GeometryLike | null | undefined)[] | null | undefined): CanvasLayout {
   const list: GeometryLike[] = [];
   (geos || []).forEach((g) => {

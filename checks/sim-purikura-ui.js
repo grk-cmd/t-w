@@ -10,7 +10,7 @@
    ・4절: 세션 콜백 — onPeers · onMeta · onPeerEvent · onShot · onSlots · onFrames · onRefused 가 창이 닫혀 있어도 안 터진다
    ・4-2절: 서버 소식 — 자리가 바뀌면 다시 그림 · 자리를 잃으면 한 번만 안내 · 방장 일 거절은 E-PK-04 · 프레임 거절은 E-PK-05 · 촬영 시작 실패는 까닭마다(정원 닫힘은 안내만 · 나머지 E-PK-03)
    ・5절: app.js 배선 — 정의는 모듈에만 · createPurikuraUi 는 원래 자리(세션 입구 _purikura 뒤 · 🎟️ 하루 횟수 앞) · 세션 입구는 세션 포트 하나 ·
-          Firebase 경로(pk*)이 화면 · app.js 에 없다 · 부르는 곳은 purikuraUi.이름 · deps 모양 · html 순서 · 전역 이름
+          Firebase 경로(pk*)가 화면 · app.js 에 없다 · 부르는 곳은 purikuraUi.이름 · deps 모양 · html 순서 · 전역 이름
    [실행] purikura-ui.js · purikura-net.js · ps1-dither.js · app.js · chat-window.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
@@ -299,7 +299,7 @@ await sec('── 5. app.js 배선', () => {
   chk(iEntry > 0 && iMk > iEntry && iNext > iMk, '원래 자리 — 세션 입구(_purikura) 뒤 · 🔫 러시안룰렛 앞');
   const entry = (APP.match(/function _purikura\(\)\{[\s\S]*?\n\}/) || [''])[0];
   chk(/TwPurikuraRt\.createPhotoSession\(\{/.test(entry) && /hub: TwRtHub\.store, api: TwApi\.authed, P: Purikura/.test(entry) && /p\.serverNow\(\)/.test(entry), '세션 입구 — 세션 포트 하나(realtime 연결 · 로그인 API · 순수 계산) · 서버 시각은 방 포트 시계');
-  chk(!/makeSession|firebaseAPI|pkGet|pkOnValue/.test(entry) && !/Purikura\.makeSession|firebaseAPI\.pk(?!UploadFrame)/.test(APP), '  Firebase 경로(makeSession · pk*)이 app.js 에 없다');
+  chk(!/makeSession|firebaseAPI|pkGet|pkOnValue/.test(entry) && !/Purikura\.makeSession|firebaseAPI\.pk(?!UploadFrame)/.test(APP), '  Firebase 경로(makeSession · pk*)가 app.js 에 없다');
   chk(/onPeers: p => \{ purikuraUi\.onPeers\(p\); \}/.test(entry) && /onMeta : m => \{ purikuraUi\.onMeta\(m\); \}/.test(entry)
     && /onEvent: \(slot, ev\) => \{ purikuraUi\.onPeerEvent\(slot, ev\); \}/.test(entry) && /onShot : s => \{ purikuraUi\.onShot\(s\); \}/.test(entry)
     && /onSlots: o => \{ purikuraUi\.onSlots\(o\); \}/.test(entry) && /onFrames: o => \{ purikuraUi\.onFrames\(o\); \}/.test(entry) && /onRefused: o => \{ purikuraUi\.onRefused\(o\); \}/.test(entry) && /onLateStart: \(\) => \{ purikuraUi\.onLateStart\(\); \}/.test(entry),

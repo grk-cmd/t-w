@@ -1349,7 +1349,7 @@ const presenceLockMod = TwPresenceLock.createPresenceLock({
   setVisible: (v)=>presenceSelfMod.setVisible(v),
   startVisible: (v)=>presenceSelfMod.start(v),
 });
-/* 📩 우편 · 📢 공지 — 원본은 서버. 서버 경로(inbox-api.js · notice-api.js)과 받아 들고 있는 한 벌(mail-feed.js · notice-feed.js).
+/* 📩 우편 · 📢 공지 — 원본은 서버. 서버 경로(inbox-api.js · notice-api.js)와 받아 들고 있는 한 벌(mail-feed.js · notice-feed.js).
    받은 뒤 화면 · 토스트는 마이홈 처음 준비 모듈(onMailChanged · onNewsChanged)이 맡는다 — 만드는 줄보다 뒤에 도는 arrow 라 TDZ 없음. */
 const mailFeed = TwMailFeed.createMailFeed({
   api: TwInboxApi.createInboxApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),   // 🌐 /v2/me/notifications

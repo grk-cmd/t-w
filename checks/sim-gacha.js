@@ -472,7 +472,7 @@ await sec('── 7. app.js 배선', () => {
   const iGs = HTML.indexOf('<script src="parts/character/gacha-api.js"></script>');
   chk(iGs > 0 && iGs < iA && deps.includes('gachaApi: gachaApiMod,') && deps.some(l => /^rtOn: \(kind, fn\)=>TwRtHub\.store\.on\(kind, fn\),/.test(l))
       && APP.indexOf('const gachaApiMod = TwGachaApi.createGachaApi({') > 0 && APP.indexOf('const gachaApiMod') < iMk && !/gachaSource|TwSourceSwitch\.store\.pick\('gacha'\)|TwGachaServer|gacha-server/.test(APP + MOD + HTML),
-      '  서버 경로 — gacha-api.js 를 app.js 앞에 · 만든 것을 deps 로 · 서버 신호(rtOn) · 옛 경로(source-switch · gacha-server)은 없다');
+      '  서버 경로 — gacha-api.js 를 app.js 앞에 · 만든 것을 deps 로 · 서버 신호(rtOn) · 옛 경로(source-switch · gacha-server)는 없다');
   chk(/^Tw[A-Z]/.test('TwGacha') && !/window\.Gacha\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
   /* 모듈이 없을 때 — 빈 껍데기 줄만 떼어 굴린다 */
   const wire = (APP.match(/const GACHA_OFF = [\s\S]*?\n\}\);/) || [''])[0];

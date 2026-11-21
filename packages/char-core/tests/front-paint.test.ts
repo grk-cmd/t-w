@@ -91,7 +91,7 @@ describe('frontMap — 앱 기본 몸', () => {
     }
   });
 
-  it('위치 · UV 가 없으면 null(깨 보기)', () => {
+  it('위치 · UV 가 없으면 null(mutation test)', () => {
     expect(frontMap(null)).toBeNull();
     const noUv = faceGeo.clone();
     noUv.deleteAttribute('uv');
@@ -125,7 +125,7 @@ describe('frontMap — 앱 기본 몸', () => {
     expect(m.tris[0]!.dst[0]).toBeCloseTo(0.1, 6);
   });
 
-  it('머리 높이에 정면을 보는 조각이 없으면 null — 뒤를 보는 얼굴(깨 보기)', () => {
+  it('머리 높이에 정면을 보는 조각이 없으면 null — 뒤를 보는 얼굴(mutation test)', () => {
     // 위: 얼굴 자리 삼각형 · 아래: 정면을 보지만 머리 높이가 아닌 몸 삼각형(다른 UV 섬)
     const body = [0, -10, 0, 1, -10, 0, 0, -9, 0];
     const mk = (face: number[]) => {

@@ -46,8 +46,5 @@
   },
   "docs/APP_FSD_MAP.md": {
     "톱니": 3
-  },
-  "packages/char-core/src/uv-fill.ts": {
-    "씨앗": 1
   }
 }

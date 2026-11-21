@@ -30,7 +30,7 @@ const ticks = async (n) => { for(let i = 0; i < (n || 4); i++) await tick(); };
 const apiErr = (status, code, kind) => Object.assign(new Error(code || String(status)), { status, code: code || '', kind: kind || (status >= 500 ? 'unavailable' : 'request') });
 const HERE = 'dev-here0001', OTHER = 'dev-other001', THIRD = 'dev-third001';
 const dev = (id, name) => ({ deviceId: id, name: name || 'Mac', registeredAt: '2026-11-01T03:00:00Z', lastSeenAt: '2026-11-14T06:20:00Z' });
-const L = (ids, o) => Object.assign({ licenseId: 'L1', status: 'VALID', devices: ids.map((i) => dev(i)), premium: ids.includes(HERE), deviceLimit: 5 }, o || {});
+const L = (ids, o) => Object.assign({ licenseId: 'L1', status: 'VALID', devices: ids.map((i) => dev(i)), premium: ids.includes(HERE), deviceLimit: 3 }, o || {});
 function load(src, name, extra){ const w = {}; const m = { exports: {} }; new Function('window', 'module', 'document', 'localStorage', src)(w, m, extra && extra.document, extra && extra.localStorage); return m.exports[name]; }
 
 /* 가짜 서버 통로 + 판정 모듈(진짜) + 화면(진짜). o.mine: 받을 때마다 꺼내 쓰는 답(Error 면 던짐) */
@@ -81,7 +81,7 @@ async function judge(S){
     const v = e.screen.view();
     t(mines(e) === 1 && v.mode === 'registered' && v.canAct && v.devices.length === 2, '★ 창 열기 = 받기 한 번 · 이 기기가 목록에 있으면 «등록됨» · 단추 열림');
     t(v.devices.find((d) => d.id === HERE).here === true && v.devices.find((d) => d.id === OTHER).here === false, '  «이 기기» 표시는 id 가 같은 줄만(이름이 같아도 아님 — 둘 다 «Mac»)');
-    t(v.limit === 5 && v.full === false, '  기기 상한은 서버 값(deviceLimit) 그대로 · 2 / 5 이면 가득 아님');
+    t(v.limit === 3 && v.full === false, '  기기 상한은 서버 값(deviceLimit) 그대로 · 2 / 3 이면 가득 아님');
     t(v.devices[0].lastSeen !== '' && /^\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}$/.test(v.devices[0].lastSeen), '  마지막 사용 · 등록일은 읽을 수 있는 글로');
 
     e = env(S, { mine: L([HERE, OTHER, THIRD], { deviceLimit: 3 }) });
@@ -94,7 +94,7 @@ async function judge(S){
     e = env(S, { mine: L([OTHER, THIRD]) });
     await e.screen.open();
     t(e.screen.view().mode === 'unregistered' && e.screen.view().canAct, '라이선스는 있는데 이 기기가 목록에 없음 → «이 기기 등록» 상태');
-    e = env(S, { mine: L([OTHER, THIRD, 'dev-fourth01', 'dev-fifth001', 'dev-sixth001']) });
+    e = env(S, { mine: L([OTHER, THIRD, 'dev-fourth01']) });
     await e.screen.open();
     t(e.screen.view().mode === 'unregistered' && e.screen.view().full === true, '  기기가 가득 차 있으면 full(등록 단추 잠금 근거)');
 
@@ -311,7 +311,7 @@ async function drawRows(S){
     await ui.openLicenseUI(); await ticks();
     t(!SHOWN(D(f, 'licenseStatusBox')) && SHOWN(D(f, 'licenseActiveBox')) && SHOWN(D(f, 'licenseDeactivateBtn')) && !SHOWN(D(f, 'licenseRegisterThisBtn')) && !SHOWN(D(f, 'licenseKeyBox')), '★ 등록됨 → 기기 목록 · [이 기기에서 해제] 만(키 입력 · [이 기기 등록] 없음)');
     const rowsEl = D(f, 'licenseDeviceList').children;
-    t(rowsEl.length === 2 && D(f, 'licenseDeviceHead').textContent === '내 기기 2 / 5대', '  기기 줄 2개 · «내 기기 2 / 5대»');
+    t(rowsEl.length === 2 && D(f, 'licenseDeviceHead').textContent === '내 기기 2 / 3대', '  기기 줄 2개 · «내 기기 2 / 3대»');
     const here = rowsEl.find((r) => r.children[0].children[0].textContent.includes('이 기기'));
     const other = rowsEl.find((r) => !r.children[0].children[0].textContent.includes('이 기기'));
     t(here && here.children.length === 1 && other && other.children.length === 2 && other.children[1].textContent === '빼기', '  «이 기기» 줄에는 [빼기] 가 없고 다른 기기 줄에만 있다');
@@ -330,7 +330,7 @@ async function drawRows(S){
     await ui.openLicenseUI(); await ticks();
     t(SHOWN(D(f, 'licenseAdminNote')) && SHOWN(D(f, 'licenseKeyBox')), '관리자(라이선스 없음) → 관리자 한 줄 + 키 입력칸');
   });
-  await run({ mine: L([OTHER, THIRD, 'dev-fourth01', 'dev-fifth001', 'dev-sixth001']) }, async (e, f, ui) => {
+  await run({ mine: L([OTHER, THIRD, 'dev-fourth01']) }, async (e, f, ui) => {
     await ui.openLicenseUI(); await ticks();
     t(SHOWN(D(f, 'licenseRegisterThisBtn')) && D(f, 'licenseRegisterThisBtn').disabled === true && SHOWN(D(f, 'licenseDeviceNote')) && !SHOWN(D(f, 'licenseDeactivateBtn')), '★ 이 기기만 없음 + 가득 참 → [이 기기 등록] 잠김 · «기기를 모두 썼어요 — 하나를 빼면 등록할 수 있어요» · 해제 단추 없음');
   });

@@ -226,7 +226,7 @@ function _mobSetBusy(b){
   mobBusy = b;
   ['fsMobQr', 'fsMobUnlink', 'mobLinkRenew'].forEach((id)=>{ const e = document.getElementById(id); if(e) e.disabled = b; });
 }
-/* 서버 경로(focus-api.js)은 «읽은 진척의 주인» 과 묶여 있어 읽기 전에는 요청 없이 stale 이다 — 먼저 진척을 받는다(받는 중이면 기다린다 · 못 받으면 false) */
+/* 서버 경로(focus-api.js)는 «읽은 진척의 주인» 과 묶여 있어 읽기 전에는 요청 없이 stale 이다 — 먼저 진척을 받는다(받는 중이면 기다린다 · 못 받으면 false) */
 async function _mobServer(run, fail){
   const g = mobGen, uid = mobCode;
   if(!uid || mobBusy) return null;

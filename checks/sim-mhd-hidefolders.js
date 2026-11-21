@@ -73,7 +73,7 @@ say('── 2. advApplyFolderHide — 누구 설정을 따르나');
 
 say('── 3. 서버 기록 — 상태 주인(sim-myhome-store 5-2)이 통째 PUT 한다. 여기서는 부르는 자리만');
 {
-  chk(!/advSaveBgRemote|advPullBg|saveAdvBg|getAdvBg/.test(code), '옛 서버 경로(advBg 기록 · 고른 시각 맞춤)이 남아 있지 않다');
+  chk(!/advSaveBgRemote|advPullBg|saveAdvBg|getAdvBg/.test(code), '옛 서버 경로(advBg 기록 · 고른 시각 맞춤)가 남아 있지 않다');
   const sb = strip(grabFn('advSetBg'));
   chk(/myhomeStore\.setDesktop\(\{ bg: bg \|\| null \}\);/.test(sb) && /advApplyBg\(\);/.test(sb), '배경을 바꾸면 상태 주인에 넘기고 바로 다시 칠한다(색 · 파일 · URL · 초기화가 모두 여기로)');
   const vb = code.slice(code.indexOf('window._advApplyVisitUI = function'));

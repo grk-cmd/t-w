@@ -2,7 +2,7 @@
    [왜] 마이홈 페이지의 원본이 서버가 되면서 화면 파일 열다섯이 «고친 사본(_myHomeData 를 직접 고침) → firebaseAPI.saveMyHome» 에서
      «상태 주인의 동작 함수 → 서버(PATCH · PUT)» 로 바뀌었다. 이 검사는 그 이음 자리가 한 곳씩인지, 옛 경로가 안 남았는지,
      그리고 상태 · 읽기 창구 · 친구 홈 구경이 진짜 상태 주인 위에서 맞게 도는지 본다(저장 줄 · 409 · 올리기 규칙 자체는 sim-myhome-store).
-   ・1절: 배선 — app.js 가 서버 경로(api)과 상태 주인을 상태 창구 · 화면보다 먼저 만든다 · 앱 끄기 flush · 로그아웃 flush → reset · firebase-init 에 옛 경로(getMyHome · saveMyHome)이 없다
+   ・1절: 배선 — app.js 가 서버 경로(api)와 상태 주인을 상태 창구 · 화면보다 먼저 만든다 · 앱 끄기 flush · 로그아웃 flush → reset · firebase-init 에 옛 경로(getMyHome · saveMyHome)가 없다
    ・2절: 화면이 값을 직접 고치지 않는다 — 마이홈 화면 파일에 «_myHomeData().X = » · «delete …stickers[» 같은 직접 쓰기가 없다 · 옛 saveMyHome · commit 인자 없음
    ・3절: 진짜 상태 주인 위에서 — 받기 → 읽기 창구가 얼린 값 · 친구 홈 구경은 내 홈을 건드리지 않고 돌아오면 그대로(백업 · 복원 없음) · 사진은 store.avatar() 한 곳
    ・4절: mutation test

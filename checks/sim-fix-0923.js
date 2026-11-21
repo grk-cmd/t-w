@@ -136,7 +136,7 @@ say('── 6. 🎫 라이선스 — 등록 · 해제는 서버에(0.13 — 판�
 {
   chk(!/setAccountSnapshot|fetchAccountSnapshot|_licenseSnapForPush/.test(CODE), '계정 사본(accountSnap) 길이 남지 않았다');
   chk(/LICENSE_REQ_ID_KEY,/.test(CODE) && !/LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY|LICENSE_REQ_ID_KEY, LICENSE_OPTOUT_KEY/.test(CODE), '로그아웃이 옛 키 · 해제 표시를 지우지 않는다(첫 실행이 올린 뒤 지움 — ACCOUNT_LOCAL_KEYS)');
-  chk(!/async function activateLicense\(|function deactivateLicense\(|function loadLicenseFromStorage\(|function verifyLicense\(/.test(CODE), '이 PC 의 키로 켜고 Firebase 로 확인하던 옛 경로(activateLicense · deactivateLicense · loadLicenseFromStorage · verifyLicense)이 없다');
+  chk(!/async function activateLicense\(|function deactivateLicense\(|function loadLicenseFromStorage\(|function verifyLicense\(/.test(CODE), '이 PC 의 키로 켜고 Firebase 로 확인하던 옛 경로(activateLicense · deactivateLicense · loadLicenseFromStorage · verifyLicense)가 없다');
 }
 
 say('── 7. 🗼 탑에서 룰렛 — 나만 빠지고 탑은 한 칸 내려앉는다(A안)');

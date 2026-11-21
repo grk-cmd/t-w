@@ -67,7 +67,7 @@ async function judge(S){
     const u2 = port.watchPresence('ME', ['a', 'b'], () => {}, () => {});
     chk(u2 === un && log[3].join() === 'pres,a,b,function,function', '★ watchPresence(myId, ids, onChange, onStatus) — realtime provider 로(내 코드는 안 넘김) · 해제 함수 그대로');
     const rd = await port.readPresence(['a', 'b']);
-    chk(rd.a.online === true && log[4].join() === 'read,a,b', '  ↳ readPresence(ids) — ids 를 한 번에 realtime provider 로 · 옛 경로(Firebase)은 안 거친다');
+    chk(rd.a.online === true && log[4].join() === 'read,a,b', '  ↳ readPresence(ids) — ids 를 한 번에 realtime provider 로 · 옛 경로(Firebase)는 안 거친다');
     chk(port.retryPresence() === true && log[5].join() === 'retry', '  ↳ retryPresence() — realtime provider 의 retryWatch 로 · 답 그대로');
   }
 
