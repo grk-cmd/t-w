@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:api": "vite --mode api",
-    "build": "tsc -b && vite build --mode api --outDir node_modules/.tmp/admin-api-dist && vite build --mode firebase",
+    "build": "tsc -b && vite build --mode firebase --outDir node_modules/.tmp/admin-firebase-dist && vite build --mode api",
     "build:firebase": "tsc -b && vite build --mode firebase",
     "build:api": "tsc -b && vite build --mode api",
     "preview": "vite preview",
