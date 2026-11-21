@@ -309,7 +309,7 @@
 | **sim-room-invite-ui.js** | 402 | **465097d0d5a9** |
 | **sim-focus-log.js** | 333 | **20b5a9e9421e** |
 | **sim-focus-progress.js** | 391 | **4ae3c02059c7** |
-| **sim-chat-window.js** | 565 | **5a59850c9416** |
+| **sim-chat-window.js** | 571 | **8a2dfb1420a5** |
 | **sim-api-client.js** | 479 | **1bbdd29b8203** |
 | **sim-api-public-reads.js** | 140 | **c8ccfd0c544a** |
 | **sim-api-routes.js** | 256 | **8457b5a0cb34** |

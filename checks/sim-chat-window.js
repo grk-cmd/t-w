@@ -31,7 +31,7 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/
 const IDS = ['chatWindow', 'chatCloseBtn', 'chatMinBtn', 'chatFileMenu', 'chatViewMenu', 'chatFsMenu', 'chatFsSub', 'chatSfxToggle',
   'chatClearMenu', 'chatClearNow', 'chatClearUndo', 'chatOpacity', 'chatEmojiWin', 'chatSaveLog', 'chatInput', 'chatMessages',
   'chatFlyChk', 'chatFlySizes', 'chatFlySwatches', 'chatOffToggle', 'chatDelLog', 'chatDelOv', 'chatDelWin', 'chatDelX', 'chatDelCancel', 'chatDelOk',
-  'chatEmojiBtn', 'chatEmojiWinClose', 'chatDiceBtn', 'chatBombBtn', 'chatPhotoBtn', 'emojiGrid', 'emojiFileInput'];
+  'chatSendBtn', 'chatEmojiBtn', 'chatEmojiWinClose', 'chatDiceBtn', 'chatBombBtn', 'chatPhotoBtn', 'emojiGrid', 'emojiFileInput'];
 const RZ = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
 
 function mkEl(id, env, extra){
@@ -202,6 +202,9 @@ async function behave(src){
     chk(JSON.stringify(e.names()) === '["closeChatWindow"]', '  입력칸 ESC — 대화창을 닫는다');
     e.clear(); ev = inp.fire('keydown', { key: 'x', keyCode: 88 });
     chk(!e.log.length && ev._sp === 1, '  다른 키는 창 단축키로 새지 않게 막기만');
+    e.clear(); e.focused = null; ev = e.els.chatSendBtn.fire('click');
+    chk(JSON.stringify(e.names()) === '["sendChatWindowMsg"]' && ev._sp === 1 && e.focused === 'chatInput', '★ [보내기] 버튼 — Enter 와 같은 길로 보내고 입력칸으로 포커스를 돌린다(창 밖 누름으로 새지 않게 막음)');
+    chk(!(e.els.chatSendBtn._L.mousedown || []).length, '  [보내기] 는 mousedown 을 막지 않는다(누르며 입력칸이 포커스를 잃어야 한글 조합이 먼저 확정된다)');
     const a = { getAttribute: (k) => (k === 'data-url' ? 'https://example.com/x' : null) };
     ev = e.els.chatMessages.fire('click', { target: tgt({ '.ext-link': a }) });
     chk(JSON.stringify(e.opened) === '[["openBrowser","https://example.com/x"]]' && ev._pd === true, '링크 — Electron 이면 외부 브라우저로(companion.openBrowser)');
@@ -501,6 +504,7 @@ await sec('── 9. app.js 배선', () => {
   chk(!/\bCHAT_WINDOW_OFF\b/.test(APP), '빈 껍데기 CHAT_WINDOW_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const iF = HTML.indexOf('<script src="parts/focus/focus-log.js"></script>'), iC = HTML.indexOf('<script src="parts/chat/chat-window.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iF > 0 && iC > iF && iA > iC, 'html — chat-window.js 를 app.js 앞에 싣는다');
+  chk(/<div class="chat-input-line">\s*<input type="text" id="chatInput"[^>]*>\s*<button type="button" id="chatSendBtn" class="chat-send-btn"[^>]*>보내기<\/button>/.test(HTML), 'html — 입력칸과 [보내기] 가 한 줄(.chat-input-line)');
   chk(/^Tw[A-Z]/.test('TwChatWindow') && !/window\.ChatWindow\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
   const wire = (APP.match(/const CHAT_WINDOW_OFF = [\s\S]*?\n\}\);/) || [''])[0];
   let r = null; try{ r = vm.runInNewContext(wire + '\nchatWindowMod;', {}); }catch(_){}
@@ -537,6 +541,8 @@ await sec('── 10. mutation test — 이 검사가 헛돌지 않는가', asyn
     ['이모티콘 캐시를 값으로', s => s.replace('if(!(_emojiCache()[i]&&_emojiCache()[i].url))', 'if(!(_emojiCache[i]&&_emojiCache[i].url))')],
     ['기본 이모티콘 바로 보냄', s => s.replace("inp.value=(inp.value||'')+'/'+dc.getAttribute('data-cmd')+' '; inp.focus();", "inp.value='/'+dc.getAttribute('data-cmd'); inp.focus();")],
     ['저장값 반영 순서 바뀜', s => s.replace('_applyChatFontSize();   // 저장된 값 반영 + ✓ 표시\n  _applyChatSfxUI();', '_applyChatSfxUI();\n  _applyChatFontSize();')],
+    ['[보내기] 버튼 연결 빠짐', s => s.replace("if(sendBtn) sendBtn.addEventListener('click', e=>{ e.stopPropagation(); _sendChatWindowMsg(); if(inp) inp.focus(); });", '')],
+    ['[보내기] 뒤 포커스를 안 돌림', s => s.replace('_sendChatWindowMsg(); if(inp) inp.focus(); });', '_sendChatWindowMsg(); });')],
     ['링크 웹 폴백 noopener 빠짐', s => s.replace("else window.open(url, '_blank', 'noopener');", "else window.open(url, '_blank');")],
     ['열기 전에 주소를 다시 안 거름', s => s.replace("const url=TwSafeHtml.safeUrl(a.getAttribute('data-url'), 'link');", "const url=a.getAttribute('data-url');")],
   ];
