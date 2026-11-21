@@ -524,6 +524,7 @@ function refreshInviteUI(){ const on=Presence.active();
   _refreshSecretRoomUI();
   document.getElementById('inviteIdle').style.display=on?'none':'';
   document.getElementById('inviteActive').style.display=on?'':'none';
+  document.getElementById('inviteModal').classList.toggle('in-room', on);   // 방 안 화면은 버튼 몇 줄뿐 — 로비 폭 대신 좁게(CSS #inviteModal.in-room)
   if(on) document.getElementById('inviteRoomLbl').textContent=Presence.roomCode();
   // ★ 설정 패널 "멀티모드" 탭 안에 인라인으로 넣어둔 동일한 UI도 같이 갱신 — 모달(inviteOverlay)이든
   //   설정 패널 탭이든 어느 쪽에서 방을 만들거나 나가도 둘 다 항상 일치된 상태를 보여줌.
@@ -620,6 +621,7 @@ document.getElementById('inviteClose').onclick=()=>{
   document.getElementById('inviteOverlay').classList.remove('on');
   refreshInviteUI();   // 다음에 열 때 기본 화면부터
 };
+document.getElementById('inviteCloseBtn').onclick=()=>document.getElementById('inviteClose').click();   // 방 안 화면 맨 아래 [닫기] — 제목줄 ✕ 와 같은 한 길
 /* 💝 후원 링크 — 시스템 기본 브라우저로 연다. 모달의 <a>와 런처의 버튼이 같은 처리를 쓴다.
    ★ <a href>를 그대로 두면 Electron이 앱 창 안에서 페이지를 열어버려 캐릭터 오버레이가 통째로
      날아간다(방명록·광고 배너에서 겪은 것과 같은 문제). preventDefault 후 openBrowser로 넘긴다.
