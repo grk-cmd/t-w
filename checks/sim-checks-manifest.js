@@ -53,19 +53,23 @@ const ROW_X_OLD = '| **sim-x.js** | 1 | **000000000000** ';
 function runList(rows, runSrc = RUN_SRC){
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tw-manifest-'));
   const dir = path.join(root, 'checks');
-  fs.mkdirSync(dir);
-  fs.writeFileSync(path.join(dir, 'run.js'), runSrc);
-  fs.writeFileSync(path.join(dir, 'manifest.js'), ORIG);
-  fs.writeFileSync(path.join(dir, 'sim-x.js'), SIM_X);
-  fs.writeFileSync(path.join(dir, 'CHECKS.md'), T(rows) + '\n');
-  const r = spawnSync(process.execPath, [path.join(dir, 'run.js'), '--list'], { cwd: root, encoding: 'utf8', timeout: 60000 });
-  fs.rmSync(root, { recursive: true, force: true });
-  return { code: r.status, out: (r.stdout || '') + (r.stderr || '') };
+  try {
+    fs.mkdirSync(dir);
+    fs.writeFileSync(path.join(dir, 'run.js'), runSrc);
+    fs.writeFileSync(path.join(dir, 'manifest.js'), ORIG);
+    fs.writeFileSync(path.join(dir, 'sim-x.js'), SIM_X);
+    fs.writeFileSync(path.join(dir, 'CHECKS.md'), T(rows) + '\n');
+    const r = spawnSync(process.execPath, [path.join(dir, 'run.js'), '--list'], { cwd: root, encoding: 'utf8', timeout: 60000 });
+    return { code: r.status, out: (r.stdout || '') + (r.stderr || '') };
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 }
+const notListed = (o) => !/manifest\.js/.test(o) && /검사 1개/.test(o);
 {
   const clean = runList([ROW_X]);
   chk(clean.code === 0, '깨끗한 표 → 종료 코드 0');
-  chk(!/manifest\.js/.test(clean.out.split('정본 대조')[0] || ''), '검사 목록에 manifest.js 가 안 나온다');
+  chk(notListed(clean.out), '출력 어디에도 manifest.js 가 없고 검사는 sim-x.js 하나(목록에 들면 «표에 없다» 줄도 찍힌다)');
   const dup = runList([ROW_X_OLD, ROW_X]);
   chk(dup.code === 1 && /sim-x\.js — 표에 두 번 있다/.test(dup.out), '같은 이름 옛 줄(꼬리 | 없음) → «표에 두 번 있다» · 종료 코드 1');
 }
@@ -78,6 +82,9 @@ say('── 4. mutation test');
   chk(firstWins !== ORIG && load(firstWins)(T([A_OLD, A])).map.get('sim-a.js') === '000000000000', '앞 줄을 남기게 바꾸면 대조 값이 옛 해시가 된다(2절이 잡음)');
   const RUN_DUP = 'for (const name of read.dupes){ bad++;';
   const noBad = RUN_SRC.includes(RUN_DUP) ? RUN_SRC.replace(RUN_DUP, 'for (const name of read.dupes){') : null;
+  const NOT = "new Set(['run.js', 'manifest.js'])";
+  const listed = RUN_SRC.includes(NOT) ? RUN_SRC.replace(NOT, "new Set(['run.js'])") : null;
+  chk(listed !== null && !notListed(runList([ROW_X], listed).out), 'run.js 사본의 NOT_CHECKS 에서 manifest.js 를 빼면 3절 «목록에 없음» 판정이 빨강' + (listed ? '' : ' — 바꿀 글을 못 찾음'));
   chk(noBad !== null && runList([ROW_X_OLD, ROW_X], noBad).code === 0, 'run.js 사본에서 겹침의 bad++ 를 지우면 3절 판정(종료 코드 1)이 빨강' + (noBad ? '' : ' — 바꿀 글을 못 찾음'));
 }
 
