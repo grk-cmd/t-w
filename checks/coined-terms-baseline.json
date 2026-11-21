@@ -1,4 +1,10 @@
 {
+  "CLAUDE.md": {
+    "씨앗": 1,
+    "깨 보기": 1,
+    "톱니": 1,
+    "빚": 1
+  },
   "apps/admin/src/entities/invite/api/invite.ts": {
     "빚": 2
   },
