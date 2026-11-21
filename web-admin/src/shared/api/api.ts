@@ -65,6 +65,10 @@ export type ApiParams = Record<string, string | number | undefined>;
 
 export type ApiSendMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
+export interface ApiGetOptions {
+  anonymous?: boolean;
+}
+
 export interface ApiSendOptions {
   /** JSON 본문. DELETE 는 본문을 싣지 않는다(판은 `query.version`). */
   body?: unknown;
@@ -74,8 +78,11 @@ export interface ApiSendOptions {
 export interface Api {
   /** 서버 기준 주소(끝 `/` 없음) — 공개 파일 주소를 만들 때만 쓴다. */
   baseUrl: string;
-  /** 성공 봉투의 data 만 돌려준다. 실패는 ApiError. */
-  get<T>(path: string, params?: ApiParams): Promise<T>;
+  /**
+   * 성공 봉투의 data 만 돌려준다. 실패는 ApiError.
+   * `anonymous` — 서버 공개 GET(`/v2/notices` 등)은 CORS 가 Authorization 머리를 받지 않아 토큰 없이 부른다.
+   */
+  get<T>(path: string, params?: ApiParams, options?: ApiGetOptions): Promise<T>;
   /** 쓰기. 고쳐 쓰기는 본문에 `version`, DELETE 는 `query.version`. */
   send<T>(method: ApiSendMethod, path: string, options?: ApiSendOptions): Promise<T>;
   /** 파일 올리기(POST) — 본문은 바이트 그대로 · Content-Type 은 contentType. 실패 규칙은 send 와 같다. */
@@ -132,11 +139,14 @@ export function createApi({
     params?: ApiParams,
     body?: unknown,
     raw?: { bytes: Uint8Array; contentType: string },
+    anonymous = false,
   ): Promise<T> {
-    const idToken = await token();
-    if (!idToken) throw new ApiError('auth', 401, 'AUTH_REQUIRED', '로그인이 필요해요');
-
-    const headers: Record<string, string> = { Authorization: `Bearer ${idToken}` };
+    const headers: Record<string, string> = {};
+    if (!anonymous) {
+      const idToken = await token();
+      if (!idToken) throw new ApiError('auth', 401, 'AUTH_REQUIRED', '로그인이 필요해요');
+      headers.Authorization = `Bearer ${idToken}`;
+    }
     const init: RequestInit = { method, headers };
     if (body !== undefined && method !== 'GET' && method !== 'DELETE') {
       headers['Content-Type'] = 'application/json';
@@ -210,7 +220,8 @@ export function createApi({
 
   return {
     baseUrl,
-    get: (path, params) => request('GET', path, params),
+    get: (path, params, options) =>
+      request('GET', path, params, undefined, undefined, options?.anonymous === true),
     send: (method, path, options = {}) => request(method, path, options.query, options.body),
     upload: (path, bytes, contentType) => request('POST', path, undefined, undefined, { bytes, contentType }),
   };
