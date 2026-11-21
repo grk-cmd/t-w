@@ -320,7 +320,7 @@ const roomInfoUi = TwRoomInfoUi.createRoomInfoUi({ roomSettings: TwRoomSettings,
 
 **책임** — 방에 연결되면 코드 · 제목 · 시각을 이 PC 에 남기고(최대 3개 · 같은 방은 맨 앞으로), 로비 코드 칸을 비운 채 누르면 위로 펼쳐 보여 준다. 줄을 누르면 로비 카드와 같은 길(`roomEntryMod.joinRoom` — 입장 중이면 넘김)로 들어간다. 시크릿룸도 남긴다(사용자 결정).
 
-**시크릿룸** — 코드를 남기지 않는다. `SCRT-****`(`SECRET_MASK`)와 제목 · 시각만 적고, 그 줄을 누르면 코드 4자리를 물어(`askCode` — 인앱 입력 창) `secretCodeFrom` 으로 만든 코드로 들어간다(맞는지는 서버가 가른다). 코드를 모르고 들어와 본 사람(친구 방 놀러가기 등)이 최근 방으로 다시 들어가지 못하게 하려는 것이다. 옛 판이 남긴 진짜 코드는 `list()` 가 읽을 때 가린 줄로 바꿔 다시 저장한다. UI deps 에 `secretMask` · `secretCodeFrom` · `askCode` 가 더 있다.
+**시크릿룸** — 코드를 남기지 않는다. `SCRT-****`(`SECRET_MASK`)와 제목 · 시각만 적고, 그 줄을 누르면 코드 4자리를 물어(`askCode` — 인앱 입력 창) room-entry 의 `secretCodeFrom`(시크릿룸 칸과 같은 한 규칙)으로 만든 코드로 들어간다(맞는지는 서버가 가른다). 코드를 모르고 들어와 본 사람(친구 방 놀러가기 등)이 최근 방으로 다시 들어가지 못하게 하려는 것이다. 옛 판이 남긴 진짜 코드는 `list()` 가 읽을 때 가린 줄로 바꿔 다시 저장한다. UI deps 에 `secretMask` · `secretCodeFrom` · `askCode` 가 더 있다.
 
 **만드는 법** — app.js 가 방 입장 모듈 바로 뒤에서:
 

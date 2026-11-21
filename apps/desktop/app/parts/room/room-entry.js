@@ -801,19 +801,25 @@ async function doJoinRoom(codeInputEl, opts){
    미발급 · 기간이 끝난 코드는 서버가 막는다(secretClosed).
    ★ 이 칸은 '별표를 아는 사람'이 쓰는 전용 입구다. 일반 코드 칸에서 별표 없이 들어오는 길은
      없다(doJoinRoom 의 사양 주석 참고) — 그쪽에 구제 분기를 만들지 말 것. */
-async function doJoinSecretRoom(codeInputEl){
-  /* ★ 별표(*)를 비롯한 특수문자는 여기서 지운다. 이 칸은 이미 SCRT- 프리픽스가 붙어 있어서
-     별표가 필요 없는데, "시크릿룸은 뒤에 별표"만 듣고 여기에 치는 사람이 많았다.
-     예전엔 maxlength=4 라 다섯 번째 글자가 브라우저에서 막혀 **글자가 아예 안 찍혔고**,
-     설령 들어가도 아래 /^[A-Z0-9]{4}$/ 가 거부했다 — "별표가 입력이 안 된다" 제보의 정체. */
-  let c=((codeInputEl&&codeInputEl.value)||'').trim().toUpperCase().replace(/\*/g,'');
-  /* ⚠️ 접두어 제거도 5자 이상일 때만 — 코드 자체가 "SCRT" 일 수 있다(위 doJoinRoom 주석 참고).
-     무조건 지우면 SCRT 코드를 가진 방은 "코드를 입력하세요" 만 뜨고 영영 못 들어간다. */
+/* 친 글 → 시크릿룸 코드 본문. 시크릿룸 칸 · 최근 방의 코드 입력 창이 같이 쓴다(규칙 한 곳).
+   ★ 별표(*)를 비롯한 특수문자는 지운다 — «시크릿룸은 뒤에 별표» 만 듣고 SCRT- 칸에도 별표를 치는 사람이 많았다.
+   ⚠️ 접두어는 5자 이상일 때만 뗀다 — 코드 자체가 "SCRT" 일 수 있다(위 doJoinRoom 주석 참고). 무조건 떼면 그 방은 영영 못 들어간다. */
+function _secretBodyOf(typed){
+  let c = String(typed == null ? '' : typed).trim().toUpperCase().replace(/\*/g, '');
   if(c.length > 4) c = c.replace(/^SCRT-?/, '');
-  c = c.replace(/[^A-Z0-9]/g, '');
+  return c.replace(/[^A-Z0-9]/g, '');
+}
+/** 친 글 → 시크릿룸 코드(SCRT-XXXX) · 모양이 틀리면 null. @param {unknown} typed */
+function secretCodeFrom(typed){
+  const c = _secretBodyOf(typed);
+  return ROOM_CODE_BODY_RE.test(c) ? 'SCRT-' + c : null;
+}
+async function doJoinSecretRoom(codeInputEl){
+  const c = _secretBodyOf(codeInputEl && codeInputEl.value);
   if(!c){ toast('시크릿룸 코드를 입력하세요'); return; }
-  if(!ROOM_CODE_BODY_RE.test(c)){ toast('시크릿룸 코드는 4자리예요'); return; }
-  await _whileJoining(() => startRoom('SCRT-'+c));
+  const code = secretCodeFrom(c);
+  if(!code){ toast('시크릿룸 코드는 4자리예요'); return; }
+  await _whileJoining(() => startRoom(code));
 }
 /* ★ 방장 승계 알림 — 서버 meta 의 host 가 나로 바뀌면(_onServerRoomMeta) 부른다. */
 window._onHostSucceeded = function(meta){
@@ -994,6 +1000,7 @@ return {
   onRoomChanged,   // 🔔 «방이 바뀜» 알림 걸기 — 🎧 같이 듣기
   onRoomJoined,    // 🔔 «방에 연결됨» 알림 걸기 — 🕘 최근 방
   isRoomCode,      // 방 코드 모양 판정(공개 방 · 시크릿룸) — 🕘 최근 방
+  secretCodeFrom,  // 친 글 → 시크릿룸 코드 — 🕘 최근 방의 코드 입력 창
   joinRoom,        // 사람이 누른 입장(겹치면 안내하고 넘김 · _joiningRoom 한 깃발) — 로비 카드 · 🕘 최근 방
 };
 }

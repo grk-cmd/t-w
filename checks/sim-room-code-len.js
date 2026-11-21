@@ -40,12 +40,12 @@ function loadJoin(src, startRoom, o){
   o = o || {};
   const parts = [grabLine(src, 'const ROOM_CODE_BODY_RE ='), grabLine(src, 'let _joiningRoom = false;'), grabLine(src, 'const JOINING_MSG ='), grabFn(src, 'function _joinBusy(){'), grabFn(src, 'async function _whileJoining(fn){'), grabLine(src, 'function joinRoom(code){'),
     grabFn(src, 'async function doJoinRandomRoom(){'),
-    grabFn(src, 'async function doJoinRoom(codeInputEl, opts){'), grabFn(src, 'async function doJoinSecretRoom(codeInputEl){')];
+    grabFn(src, 'async function doJoinRoom(codeInputEl, opts){'), grabFn(src, 'function _secretBodyOf(typed){'), grabFn(src, 'function secretCodeFrom(typed){'), grabFn(src, 'async function doJoinSecretRoom(codeInputEl){')];
   if(parts.some(p => !p)) throw new Error('room-entry.js 에서 ROOM_CODE_BODY_RE · _joiningRoom · JOINING_MSG · _joinBusy · _whileJoining · joinRoom · doJoinRandomRoom · doJoinRoom · doJoinSecretRoom 을 못 찾음');
   const out = { room: null, rooms: [], toasts: [], random: 0 };
   /* 랜덤 참여는 진짜 doJoinRandomRoom — 후보 찾기(방 포트 random)만 가짜 */
   const fns = new Function('toast', 'startRoom', '_resolveRoomCode', '_randomRooms', 'TwErrorCodes', '_myRoomPrefix',
-    parts.join('\n') + '\nreturn { doJoinRoom, doJoinSecretRoom, joinRoom };')(
+    parts.join('\n') + '\nreturn { doJoinRoom, doJoinSecretRoom, joinRoom, secretCodeFrom };')(
     (m) => out.toasts.push(m), (code) => { out.room = code; out.rooms.push(code); return startRoom ? startRoom(code) : undefined; },
     (body, pre) => pre + body, async () => { out.random++; return ['WORK-RR77']; }, { notify(){} }, () => 'WORK-');
   return { fns, out };

@@ -25,7 +25,7 @@ function createRecentRoomsUi(deps){
   const now = deps.now;
   const joinRoom = deps.joinRoom;
   const secretMask = deps.secretMask;         // 시크릿룸 줄의 코드(recent-rooms.js SECRET_MASK)
-  const secretCodeFrom = deps.secretCodeFrom; // 친 글 → SCRT-XXXX | null(같은 파일 — 방 코드 모양은 room-entry isRoomCode)
+  const secretCodeFrom = deps.secretCodeFrom; // 친 글 → SCRT-XXXX | null(room-entry secretCodeFrom — 시크릿룸 칸과 같은 한 규칙)
   const askCode = deps.askCode;               // 인앱 입력 창(shared/async-prompt.js)
 
   const ASK = Object.freeze({ title: '🔒 시크릿룸 입장', message: '이 시크릿룸의 코드 4자리를 입력해 주세요', placeholder: '코드 4자리', bad: '코드 4자리를 입력해 주세요' });

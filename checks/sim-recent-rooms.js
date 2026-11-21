@@ -29,6 +29,11 @@ function grabFn(src, head){
   return null;
 }
 const grabLine = (src, head) => { const i = src.indexOf(head); return i < 0 ? null : src.slice(i, src.indexOf('\n', i)); };
+function loadSecretCode(entry){
+  const parts = [grabLine(entry, 'const ROOM_CODE_BODY_RE ='), grabFn(entry, 'function _secretBodyOf(typed){'), grabFn(entry, 'function secretCodeFrom(typed){')];
+  if (parts.some(x => !x)) throw new Error('room-entry.js 에서 _secretBodyOf · secretCodeFrom 을 못 찾음');
+  return new Function(parts.join('\n') + '\nreturn secretCodeFrom;')();
+}
 function loadIsCode(entry){
   const parts = [grabLine(entry, 'const ROOM_CODE_RE ='), grabLine(entry, 'const ROOM_CODE_BODY_RE ='), grabFn(entry, 'function isRoomCode(code){')];
   if (parts.some(x => !x)) throw new Error('room-entry.js 에서 ROOM_CODE_RE · ROOM_CODE_BODY_RE · isRoomCode 를 못 찾음');
@@ -79,9 +84,10 @@ async function judge(src){
       t(S2.length === 2 && S2[0].title === '비밀' && S2[0].at === 3, '  제목이 같은 시크릿룸 줄은 한 줄로 · 맨 앞으로');
       const old = parse(JSON.stringify([{ code: 'SCRT-QQQ2', title: '옛 줄', at: 9 }, { code: 'SCRT-****', title: '가린 줄', at: 8 }, { code: 'WORK-AB2C', title: 'a', at: 7 }]));
       t(old.map(x => x.code).join() === 'SCRT-****,SCRT-****,WORK-AB2C' && !/QQQ2/.test(JSON.stringify(old)), '★ parse — 옛 판이 남긴 진짜 시크릿룸 코드는 가린 줄로 바꾼다 · 가린 줄은 그대로 읽는다');
-      const sc = (v) => M.secretCodeFrom(v, isC);
-      t(sc('ab2c') === 'SCRT-AB2C' && sc(' AB2C* ') === 'SCRT-AB2C' && sc('SCRT-AB2C') === 'SCRT-AB2C' && sc('SCRT') === 'SCRT-SCRT', 'secretCodeFrom — 4자리 · 끝 별표 · 접두어째 넣은 것 · 본문이 SCRT 인 코드');
-      t(sc('') === null && sc('AB2') === null && sc('AB2CD') === null && sc('AB-C') === null && sc(null) === null && sc('****') === null, '  빈 글 · 3자리 · 5자리 · 틀린 글자 · null · 별표뿐 → null');
+      const sc = loadSecretCode(src.entry);
+      t(sc('ab2c') === 'SCRT-AB2C' && sc(' AB2C* ') === 'SCRT-AB2C' && sc('SCRT-AB2C') === 'SCRT-AB2C' && sc('SCRTAB2C') === 'SCRT-AB2C' && sc('SCRT') === 'SCRT-SCRT' && sc('AB 2C') === 'SCRT-AB2C',
+        'secretCodeFrom(room-entry — 시크릿룸 칸과 같은 한 규칙) — 4자리 · 끝 별표 · 접두어째 · 붙여 쓴 접두어 · 본문이 SCRT 인 코드 · 섞인 공백');
+      t(sc('') === null && sc('AB2') === null && sc('AB2CD') === null && sc(null) === null && sc('****') === null && sc('SCRT-AB') === null, '  빈 글 · 3자리 · 5자리 · null · 별표뿐 · 접두어 + 2자리 → null');
     }
     t(add(L, 'WORK-AB', 'x', 1).map(x => x.code).join() === L.map(x => x.code).join() && add(L, null, 'x', 1).length === 3 && add(L, 'work-ab2c', 'x', 1)[0].code === 'SCRT-****', '  틀린 코드(짧음 · null · 소문자)는 안 넣는다');
     t(add([], 'WORK-AB2C', ' ' + '가'.repeat(50) + ' ', 1)[0].title === '가'.repeat(40) && add([], 'WORK-AB2C', null, 1)[0].title === '', '  제목은 다듬어 40자까지 · 없으면 빈 글');
@@ -128,7 +134,7 @@ async function judge(src){
     let list = [{ code: 'WORK-AB2C', title: '<b>조용</b>', at: 1000 - 2 * HOUR }, { code: M.SECRET_MASK, title: '비밀방', at: 1000 }];
     const asks = []; let answer = null;
     U.createRecentRoomsUi({ document: doc, recent: { list: () => list }, agoText: M.agoText, now: () => 1000, joinRoom: (c) => joined.push(c),
-      secretMask: M.SECRET_MASK, secretCodeFrom: (v) => M.secretCodeFrom(v, isC), askCode: async (o) => { asks.push(o); return answer; } });
+      secretMask: M.SECRET_MASK, secretCodeFrom: loadSecretCode(src.entry), askCode: async (o) => { asks.push(o); return answer; } });
     const inp = doc.els.inviteCode, box = doc.els.lobbyRecent;
     inp.fire('focus');
     t(!box.hidden && rows(box).length === 2 && /최근 들어간 방/.test(box.textContent), '칸을 누르면(빈 칸) 최근 방이 펼쳐진다');
@@ -200,7 +206,8 @@ function wire(s){
   w(!/CODE_RE|[A-Z]\]\{4\}/.test(s.mod), 'recent-rooms — 방 코드 모양을 다시 쓰지 않는다(room-entry isRoomCode 를 받는다)');
   w(/const recentRooms = TwRecentRooms\.createRecentRooms\(\{ storage: localStorage, getMyUserId: [^\n]*isRoomCode: roomEntryMod\.isRoomCode \}\);/.test(s.app) && /roomEntryMod\.onRoomJoined\(\(code, meta\)=>recentRooms\.record\(code, TwRoomSettings\.displayTitle\(meta && meta\.title, meta && meta\.hostName,\n  TwBannedWords\.cleanBannedList\(acctStateMod\._rcStore\(\)\.bannedWords\(\)\), TwBannedWords\)\.text\)\);/.test(s.app), 'app.js — 기록을 «연결됨» 알림에 건다(제목은 displayTitle 한 곳 · 방 안 제목 칸과 같이 금칙어 거름)');
   w(/TwRecentRoomsUi\.createRecentRoomsUi\(\{[^\n]*joinRoom: \(code\)=>roomEntryMod\.joinRoom\(code\)/.test(s.app), '  UI 의 입장은 로비 카드와 같은 joinRoom(입장 중 깃발 한 곳)');
-  w(/createRecentRoomsUi\(\{[^\n]*secretMask: TwRecentRooms\.SECRET_MASK, secretCodeFrom: \(v\)=>TwRecentRooms\.secretCodeFrom\(v, roomEntryMod\.isRoomCode\), askCode: \(o\)=>asyncPromptMod\.asyncPrompt\(o\)/.test(s.app), '  시크릿룸 줄 — 가린 코드 · 친 글 → 코드(방 코드 모양은 room-entry) · 인앱 입력 창을 넘긴다');
+  w(/createRecentRoomsUi\(\{[^\n]*secretMask: TwRecentRooms\.SECRET_MASK, secretCodeFrom: \(v\)=>roomEntryMod\.secretCodeFrom\(v\), askCode: \(o\)=>asyncPromptMod\.asyncPrompt\(o\)/.test(s.app), '  시크릿룸 줄 — 가린 코드 · 친 글 → 코드(room-entry 한 규칙) · 인앱 입력 창을 넘긴다');
+  w(!/function secretCodeFrom/.test(s.mod) && /\n  secretCodeFrom,/.test(s.entry) && /const code = secretCodeFrom\(c\);/.test(s.entry), '  친 글 → 시크릿룸 코드 규칙은 room-entry 한 곳 — 시크릿룸 칸(doJoinSecretRoom)도 그것을 부른다');
   const iM = s.html.indexOf('<script src="parts/room/recent-rooms.js"'), iU = s.html.indexOf('<script src="parts/room/recent-rooms-ui.js"'), iA = s.html.indexOf('<script src="parts/app.js"');
   w(iM > 0 && iU > iM && iA > iU, 'html — 두 모듈을 app.js 보다 먼저');
   const foot = (s.html.match(/<div class="lb-foot">([\s\S]*?)\n        <\/div>/) || [])[1] || '';
@@ -217,6 +224,7 @@ const BREAKS = [
   ['mod', "if(/\"SCRT-(?!\\*{4}\")/.test(raw)){ try{ storage.setItem(k, JSON.stringify(rows)); }catch(_){} }", '', '옛 저장본의 시크릿룸 코드를 이 PC 에서 안 지움'],
   ['ui', "if(r.code === secretMask) joinSecret(); else joinRoom(r.code);", "joinRoom(r.code);", '시크릿룸 줄을 코드를 묻지 않고 들어감'],
   ['ui', "validate: (v) => (secretCodeFrom(v) ? null : ASK.bad) }", "validate: () => null }", '입력 창이 틀린 모양을 안 거름'],
+  ['entry', "if(c.length > 4) c = c.replace(/^SCRT-?/, '');", "c = c.replace(/^SCRT-?/, '');", '본문이 SCRT 인 코드를 접두어로 오인'],
   ['mod', '.slice(0, MAX);\n}', ';\n}', '3개를 넘게 쌓음'],
   ['mod', "return id ? KEY_PREFIX + id : null;", "return KEY_PREFIX + 'all';", '계정 구분 없이 한 키'],
   ['mod', "if(!isCode(code)) return list.slice();", "if(typeof code !== 'string') return list.slice();", '틀린 코드도 넣음'],
