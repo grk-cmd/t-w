@@ -42,12 +42,13 @@ scenario('friend-request-accept', async (t) => {
   });
 
   await t.step('화면: 두 사람 친구 목록에 서로가 온라인으로', async () => {
-    const rowB = await b.until(() => { const r = document.querySelector('#mhFriendList .mh-frow .mh-fname'); return r && r.textContent; }, null, { what: 'b 친구 줄' });
+    // 새 친구 줄은 이름을 받기 전까지 자리표시(friends-sub.js FRIEND_BLANK '...')로 먼저 그려진다 — 이름이 찬 뒤에 본다
+    const rowB = await b.until(() => { const r = document.querySelector('#mhFriendList .mh-frow .mh-fname'); return r && !r.textContent.startsWith('...') && r.textContent; }, null, { what: 'b 친구 줄' });
     assert(rowB.startsWith('보내는이'), 'b 친구 줄 ' + rowB);
     const head = await b.text('#mhFriendHeadCount');
     assert(head === '(1/100)', 'b 친구 수 ' + head);
     // a 는 마이홈이 열린 채 — 수락 알림(realtime)으로 목록이 바뀌어야 한다
-    const rowA = await a.until(() => { const r = document.querySelector('#mhFriendList .mh-frow:not(.off) .mh-fname'); return r && r.textContent; }, null, { what: 'a 친구 줄(온라인)' });
+    const rowA = await a.until(() => { const r = document.querySelector('#mhFriendList .mh-frow:not(.off) .mh-fname'); return r && !r.textContent.startsWith('...') && r.textContent; }, null, { what: 'a 친구 줄(온라인)' });
     assert(rowA.startsWith('받는이'), 'a 친구 줄 ' + rowA);
     await b.until(() => { const e = document.querySelector('#myHomeTabs .mh-tab[data-tab="friend"] .mh-tab-badge'); return !e || e.style.display === 'none'; }, null, { timeout: 15000, what: '수락 뒤 친구 탭 배지 꺼짐' });
   });

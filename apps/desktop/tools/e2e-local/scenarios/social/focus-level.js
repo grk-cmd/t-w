@@ -24,7 +24,7 @@ scenario('focus-level', async (t) => {
 
   for(const sec of [0, 3599, 3600, 7 * 3600 + 30 * 60, 998 * 3600 + 1, 1500 * 3600]){
     await t.step(`누적 ${sec}초 → Lv ${levelOf(sec)}`, async () => {
-      seedSql('focus.sql', { code: a.me.userCode, sec });
+      seedSql('focus.sql', { uid: await a.uid(), sec });
       const p = (await a.api('GET', '/v2/me/focus')).json.data;
       assert(p.totalSec === sec, '서버 누적 ' + p.totalSec);
       assert(p.level === levelOf(sec), `서버 레벨 ${p.level} ≠ ${levelOf(sec)}`);
@@ -42,7 +42,7 @@ scenario('focus-level', async (t) => {
 
   await t.step('내 정보 배지 · 친구 화면 Lv 가 서버 레벨', async () => {
     const sec = 41 * 3600 + 5;
-    seedSql('focus.sql', { code: a.me.userCode, sec });
+    seedSql('focus.sql', { uid: await a.uid(), sec });
     await a.eval(() => focusProgressMod.refreshDay());
     await a.until(() => focusProgressMod.getFocusLevel() === 42, null, { what: '앱 레벨 42' });
     await a.w.click('#lcLoad');

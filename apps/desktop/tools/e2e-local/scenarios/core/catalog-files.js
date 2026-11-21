@@ -5,6 +5,7 @@
 'use strict';
 const { run } = require('./_kit.js');
 const { tinyGlb } = require('./_glb.js');
+const { API } = require('../../lib.js');
 
 const openWardrobe = async (t, A) => {
   if(await A.w.evaluate(() => document.getElementById('myChipMore').classList.contains('hidden'))) await A.w.click('#myChipMoreBtn');
@@ -46,7 +47,7 @@ run('catalog-files', async (t) => {
     await t.step('서버 카탈로그에 그 파츠 · 모델 파일을 받을 수 있음', async () => {
       part = await t.poll(async () => { const x = await ADM.call('GET', '/v2/catalog'); return ((x.body && x.body.data && x.body.data.parts) || []).find((p) => p.name === name); }, 15000, '카탈로그에 새 파츠');
       t.check(part.model, '파츠에 모델 해시가 없음');
-      const r = await fetch('http://127.0.0.1:8080/v2/catalog/assets/' + part.model + '.glb');
+      const r = await fetch(API + '/v2/catalog/assets/' + part.model + '.glb');
       const body = Buffer.from(await r.arrayBuffer());
       t.check(r.status === 200, '모델 파일 받기 ' + r.status);
       t.check(body.length === glb.length, `받은 파일 크기 ${body.length} ≠ 올린 크기 ${glb.length}`);

@@ -3,12 +3,14 @@
 const fs = require('fs');
 const path = require('path');
 
-const { APP_DIR } = require('../../lib.js');
-const { headlessLogin } = require('./_kit.js');
+const { APP_DIR, API, MAIN_WIN_TITLE } = require('../../lib.js');
+const { headlessLogin } = require('../_shared.js');
 const { GUARD_MS } = require(path.join(APP_DIR, 'quit-hold.js'));   // 앱 값 그대로 — 렌더러가 답하지 못해도 이 안에 끈다
 const EXIT_WAIT_MS = GUARD_MS + 5000;   // 꺼질 때까지 기다리는 한도 — 상한을 넘겨도 판정할 수 있게 넉넉히
 const GUARD_S = GUARD_MS / 1000;
-const API = 'http://127.0.0.1:8080';
+// 렌더러가 못 올린 고침을 기다리는 상한 — 렌더러 스크립트(window 에 거는 classic script)라 require 하지 않고 글에서 읽는다
+const LEAVE_FLUSH_MAX_MS = Number((fs.readFileSync(path.join(APP_DIR, 'app', 'parts', 'shared', 'leave-flush.js'), 'utf8').match(/const LEAVE_FLUSH_MAX_MS = (\d+);/) || [])[1]);
+if(!LEAVE_FLUSH_MAX_MS) throw new Error('leave-flush.js 에서 LEAVE_FLUSH_MAX_MS 를 못 찾음');
 
 // main 의 before-quit 을 net.txt(route-main.js 의 요청 기록)에 «E2E <시각> before-quit held|go» 로 남긴다 — 같은 파일이라 저장 요청(REQ PUT)과 앞뒤를 견줄 수 있다.
 // held = 앱(quit-hold.js)이 막았다(붙잡음) · go = 막지 않았다(꺼짐). 앱 리스너보다 먼저 preventDefault 를 감싸 두고, 뒤에 붙인 리스너가 읽는다
@@ -28,8 +30,8 @@ async function watchQuit(A){
 // 지금 메인 창의 'close' 를 net.txt 에 «E2E <시각> close held|go» · 닫힌 뒤 «E2E <시각> closed» 로 남긴다 — watchQuit 와 같은 방법.
 // held = 앱(quit-hold.js windowClose)이 막았다 · go = 그대로 닫혔다. 창마다 다시 건다(맥에서 다시 연 창은 새 창)
 async function watchClose(A){
-  const ok = await A.app.evaluate(({ BrowserWindow }, f) => {
-    const m = BrowserWindow.getAllWindows().find((x) => !x.isDestroyed() && /Desk Companion/.test(x.getTitle()));
+  const ok = await A.app.evaluate(({ BrowserWindow }, { f, title }) => {
+    const m = BrowserWindow.getAllWindows().find((x) => !x.isDestroyed() && x.getTitle().includes(title));
     if(!m) return false;
     if(m.__e2eCloseWatch) return true;
     m.__e2eCloseWatch = true;
@@ -41,7 +43,7 @@ async function watchClose(A){
     m.on('close', (e) => fs.appendFileSync(f, `E2E ${Date.now()} close ${e.__e2eHeld || e.defaultPrevented ? 'held' : 'go'}\n`));
     m.on('closed', () => fs.appendFileSync(f, `E2E ${Date.now()} closed\n`));
     return true;
-  }, path.join(A.out, 'net.txt'));
+  }, { f: path.join(A.out, 'net.txt'), title: MAIN_WIN_TITLE });
   if(!ok) throw new Error('메인 창을 못 찾아 close 를 못 걺');
 }
 
@@ -126,6 +128,7 @@ async function serverDef(fc, pw, avatarId){
 }
 
 // 끄기 기록 판정 — 처음 before-quit 은 붙잡히고(held) · 그 뒤 저장 요청이 200 · 그 뒤 놓아 줌(go). 붙잡은 시간(ms)
+// 붙잡은 뒤 저장 전에 메인 창이 닫히면(close go · closed) 저장이 렌더러 없이 닿은 것일 수 있어 실패다 — 창 기록은 watchClose 를 건 때만 남는다
 function checkHeldSave(t, trail, from){
   const tr = trail.slice(from);
   const held = tr.findIndex((x) => x.kind === 'held');
@@ -133,6 +136,7 @@ function checkHeldSave(t, trail, from){
   const save = tr.findIndex((x, i) => i > held && x.kind === 'save' && x.method === 'PUT');
   t.check(save > held, '붙잡은 뒤 캐릭터 저장(PUT /v2/me/avatars/…)이 없음 — ' + JSON.stringify(tr));
   t.check(tr[save].status === '200', '저장 응답 ' + tr[save].status);
+  t.check(!tr.slice(held, save).some((x) => x.kind === 'close-go' || x.kind === 'closed'), '붙잡은 뒤 저장 전에 창이 닫힘 — ' + JSON.stringify(tr));
   const go = tr.findIndex((x, i) => i > save && x.kind === 'go');
   t.check(go > save, '저장 뒤 끄기(before-quit go)가 없음 — ' + JSON.stringify(tr));
   return tr[go].at - tr[held].at;
@@ -156,4 +160,4 @@ function checkHeldClose(t, trail, from){
   return tr[closed].at - tr[held].at;
 }
 
-module.exports = { GUARD_MS, GUARD_S, EXIT_WAIT_MS, watchQuit, watchClose, quitTrail, pendingEdit, menuQuit, waitExit, serverDef, checkHeldSave, checkHeldClose };
+module.exports = { GUARD_MS, GUARD_S, EXIT_WAIT_MS, LEAVE_FLUSH_MAX_MS, watchQuit, watchClose, quitTrail, pendingEdit, menuQuit, waitExit, serverDef, checkHeldSave, checkHeldClose };

@@ -37,7 +37,7 @@ run('catalog-gacha', async (t) => {
     });
     await t.step('B 레벨 12 · 보너스 1 → 서버 뽑기 수 = floor(12/5) + 1 = 3', async () => {
       const uid = await t.uid(B);
-      t.seed('focus-level.sql', { uid, level: 12 });
+      t.seed('focus.sql', { uid, sec: (12 - 1) * 3600 });
       t.seed('gacha-bonus.sql', { uid, tag: 'e2e-' + tag, amount: 1 });
       const g = await t.poll(async () => { const x = await t.api(B, 'GET', '/v2/me/gacha'); return x.body && x.body.data && x.body.data.left === 3 && x.body.data; }, 10000, '/v2/me/gacha left 3');
       t.check(g.earned === 2 && g.bonus === 1, '서버 earned · bonus: ' + JSON.stringify(g));

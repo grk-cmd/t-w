@@ -10,7 +10,8 @@ scenario('friend-list-remove', async (t) => {
   await t.step('a: 친구 목록에 b — 이름 · Lv · 온라인 묶음 · (1/100)', async () => {
     await openMyHome(a, 'friend');
     await openMyHome(b, 'friend');
-    const row = await a.until(() => { const r = document.querySelector('#mhFriendList .mh-frow'); return r && { cls: r.className, name: r.querySelector('.mh-fname').textContent, sub: r.querySelector('.mh-fsub').textContent }; }, null, { what: '친구 줄' });
+    // 이름을 받기 전 자리표시('...' · friends-sub.js FRIEND_BLANK)가 아닌 줄을 본다
+    const row = await a.until(() => { const r = document.querySelector('#mhFriendList .mh-frow'); return r && !r.querySelector('.mh-fname').textContent.startsWith('...') && { cls: r.className, name: r.querySelector('.mh-fname').textContent, sub: r.querySelector('.mh-fsub').textContent }; }, null, { what: '친구 줄' });
     assert(row.name.startsWith('비이') && /Lv\s*1/.test(row.name), '이름 · 레벨 ' + row.name);
     assert(!/\boff\b/.test(row.cls) && row.sub === '온라인', '온라인 표시 ' + JSON.stringify(row));
     assert((await a.text('#mhFriendList .mh-fgroup')) === '온라인 — 1', '묶음 머리');

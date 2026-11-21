@@ -1,5 +1,5 @@
 // 메뉴 «종료»(mac Cmd+Q 와 같은 길)로 끌 때 못 올린 캐릭터 고침을 기다린다(#1024)
-// 캐릭터를 고쳐 3초 묶음 저장이 예약된 채 앱 메뉴의 «종료» 를 누른다 → 끄기를 붙잡고(before-quit held) · 저장(PUT)이 200 · 그 뒤 놓아 준다 ·
+// 캐릭터를 고쳐 3초 묶음 저장이 예약된 채 앱 메뉴의 «종료» 를 누른다 → 끄기를 붙잡고(before-quit held) · 저장(PUT)이 200(그 사이 메인 창은 닫히지 않음) · 그 뒤 놓아 준다 ·
 // 상한(quit-hold.js GUARD_MS) 안에 꺼진다 → 다시 켜면 서버 캐릭터가 고친 책상 색이다
 'use strict';
 const { run } = require('./_kit.js');
@@ -13,6 +13,7 @@ run('quit-menu', async (t) => {
   let pressed, trail0;
   await t.step('책상 색을 고친 직후(3초 묶음 전) 메뉴 «종료»', async () => {
     await Q.watchQuit(A);
+    await Q.watchClose(A);
     await Q.pendingEdit(t, A, COLOR);
     trail0 = Q.quitTrail(A).length;
     pressed = await Q.menuQuit(A);

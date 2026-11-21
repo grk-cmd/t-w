@@ -1,5 +1,5 @@
 // 🚩 신고하기 — 같은 방에서 상대 이름표 우클릭 › «🚩 신고하기…» › 사유(기타 · 글) › [신고] → 서버 신고 한 줄 · 내 화면에서 그 사람이 숨는다
-// 관리자 목록(GET /v2/admin/reports?minReporters=1)에 그 사람이 오른다 — 관리자 쪽은 seed/admin.sql 로 만든 관리자 c 로 본다
+// 관리자 목록(GET /v2/admin/reports?minReporters=1)에 그 사람이 오른다 — 관리자 쪽은 seed/admin.sql 로 관리자로 만든 b(신고당한 사람)로 본다
 'use strict';
 const { scenario, assert, makeCharacter, createRoom, makeAdmin, remoteSeats, wait } = require('./_kit.js');
 const { enterDesk } = require('./_kit.js');
