@@ -7,14 +7,14 @@ description: 작업 끝내기 — PR 을 올리고 컨펌자(tw-confirmer) · �
 
 머지 담당 세션이 따로 없다. 이 흐름이 그 일을 한다 — 컨펌자 · 검증자 판정을 머리 커밋의 상태값(`tw/confirm` · `tw/verify`)으로 남기고,
 가드(`.claude/hooks/ship-gate.py`)는 그 둘이 success 가 아니면 머지를 막는다.
-**승인**: 승인자 **mihioon** 의 승인은 **가드 자리(가드 · 훅 · 훅 설정 · 지침 · `/ship` 안내서 · 훅이 돌리거나 승인을 다는 스크립트 — 목록의 정본은 `risk.is_guard` · 물을 땐 `risk.py --owner <PR>`)를 바꾸는 PR · 웹 관리자 길(main 으로 가는 `admin/*`)에서 위험도가 높은 PR 만** 머지 전에 받는다(가드가 확인 — 가드는 세션이 스스로 풀지 못하게 · 웹 관리자 길은 «내보내기 전 한 장» 에 안 나와서). 그 밖은 위험도(`python3 .claude/hooks/risk.py <PR>` — 데이터 경로 · 규칙 · 서버 · 빌드 · 새 모듈)가 높아도 컨펌 · 검증 · CI 로 머지하고, 승인자는 내보내기 전 `risk.py --release <판>` 한 장으로 본다.
+**승인**: 승인자 **mihioon** 의 승인은 **가드 자리(가드 · 훅 · 훅 설정 · 지침 · `/ship` 안내서 · 훅이 돌리거나 승인을 다는 스크립트 — 목록의 정본은 `risk.is_guard` · 물을 땐 `risk.py --owner <PR>`)를 바꾸는 PR · 웹 관리자 길(`admin` 으로 가는 PR)에서 위험도가 높은 PR 만** 머지 전에 받는다(가드가 확인 — 가드는 세션이 스스로 풀지 못하게 · 웹 관리자 길은 «내보내기 전 한 장» 에 안 나와서). 그 밖은 위험도(`python3 .claude/hooks/risk.py <PR>` — 데이터 경로 · 규칙 · 서버 · 빌드 · 새 모듈)가 높아도 컨펌 · 검증 · CI 로 머지하고, 승인자는 내보내기 전 `risk.py --release <판>` 한 장으로 본다.
 **사용자가 `/ship` 을 다시 치게 하지 않는다** — 사용자 몫은 승인 명령 한 줄뿐이고, 승인 · CI 는 세션이 뒤에서 기다렸다가(`risk.py --wait`) 머지까지 이어 간다. 승인 · 판정 뒤 판 브랜치를 합치기만 한 머리는 앞 커밋의 승인 · 판정을 이어 받는다(가드가 «PR 자체 변경이 같은가» 를 본다 — 다시 묻지 않는다).
 
 **클라우드 세션에서는 `gh pr …` 이 막혀 있다(GraphQL). 모든 GitHub 일은 `gh api`(REST)로 한다.** 아래 `R=repos/grk-cmd/t-w`.
 서버 저장소(`mihioon/t-w-server`) PR 도 같은 흐름이다 — 두 상태값은 그 저장소의 머리 커밋에 남기고(`gh api repos/mihioon/t-w-server/statuses/<SHA> …`), 머지는 `gh api -X PUT repos/mihioon/t-w-server/pulls/<번호>/merge …` 처럼 **경로에 저장소를 적어** 한다(가드가 그 경로를 보고 그 저장소 상태값을 본다). 판 · 승인 · 위험도 규칙은 앱 저장소 몫이라 건너뛴다. 문서 저장소(`mihioon/tw-docs`) 머지는 가드 밖.
 
 ## 0. 확인
-- 판: 이 작업이 어느 버전에 나가는지 정해져 있어야 한다(브랜치를 딸 때 사용자에게 물었다). base = `release/X.Y.Z`. 모르면 **묻고 멈춘다**. 긴급 수정 `hotfix/*` · 하네스 `harness/*` · 웹 관리자만 바꾸는 `admin/*`(판을 묻지 않음 · main 으로 가는 PR 이 `web-admin/` 밖을 바꾸면 가드가 머지를 막는다) 만 base = `main`.
+- 판: 이 작업이 어느 버전에 나가는지 정해져 있어야 한다(브랜치를 딸 때 사용자에게 물었다). base = `release/X.Y.Z`. 모르면 **묻고 멈춘다**. 긴급 수정 `hotfix/*` · 하네스 `harness/*` 만 base = `main`. 웹 관리자만 바꾸는 작업은 판을 묻지 않고 base = `admin`(`origin/admin` 에서 딴 브랜치 · main 에 없는 것으로 `web-admin/` 밖을 바꾸면 가드가 머지를 막는다 · 웹 관리자 작업을 main 으로 보내면 가드가 막는다).
 - 동작이 바뀌는 작업(화면 · 문구 · 타이밍 · 요청 수)이면 사용자 확인을 받았는가 — 받은 말을 PR 본문 «왜» 에 적는다. 안 받았으면 묻고 멈춘다.
 - 커밋 안 된 변경이 없다. 바뀐 곳의 `sim-*` 를 돌려 통과(전체 `npm run check` 는 CI).
 
@@ -63,9 +63,9 @@ gh api $R/statuses/$SHA -f state=success -f context=tw/verify  -f description='�
 ## 5. CI → 머지
 - CI 확인: `gh api $R/commits/$SHA/check-runs --jq '[.check_runs[] | {name, status, conclusion}]'` — 모두 completed · success(또는 skipped)일 때까지 기다린다(`risk.py --wait <번호>` 를 뒤에서 돌리면 끝날 때 알린다 · 기다리기와 머지를 한 명령으로 잇지 않는다). 빨강이면 3 으로.
 - base 와 충돌(`gh api $R/pulls/<번호> --jq .mergeable` 이 false)이면 base 를 합쳐(`git merge origin/<base>` — rebase · force 금지) 풀고 push → 3 의 «합치기만 한 커밋» 대로(`--same` 이 true 면 다시 묻지 않고 CI 만 기다려 머지).
-- 머지: 작업 → 판 브랜치 · hotfix → main 은 squash.
+- 머지: 작업 → 판 브랜치 · 웹 관리자 작업 → `admin` · hotfix → main 은 squash.
   `gh api -X PUT $R/pulls/<번호>/merge -f merge_method=squash -f sha=$SHA -f commit_title='<PR 제목> (#<번호>)'`
-  단 **앞 판 · main 을 판 브랜치에 합쳐 받는 PR** 은 `merge_method=merge` — squash 면 내력이 끊긴다(정본 `docs/GIT_CONVENTION.md` 2.3).
+  단 **앞 판 · main 을 판 브랜치(또는 `admin`)에 합쳐 받는 PR** 은 `merge_method=merge` — squash 면 내력이 끊긴다(정본 `docs/GIT_CONVENTION.md` 2.3).
   알아보는 법은 머리 커밋 모양이 아니라 **PR 의 목적**이다: 제목 · 본문이 합쳐 받기이고, PR 커밋 가운데 둘째 부모가 base 에 없는 merge commit 이 있다(`git merge-base --is-ancestor <그 커밋>^2 origin/<base>` 가 거짓). 일반 작업 PR 이 충돌을 풀려고 base 를 합쳐 머리가 merge commit 이 된 것은 해당하지 않는다 — squash 그대로.
   확인(먼저 `git fetch origin <base> <머리 브랜치>`): `for c in $(git rev-list --merges origin/<base>..origin/<머리 브랜치>); do git merge-base --is-ancestor "$c^2" origin/<base> || echo "$c 합쳐 받기"; done`. 목적은 합쳐 받기인데 아무것도 안 나오면(앞 판에서 딴 브랜치 · merge 가 하나도 없는 앞 판을 머리로 바로 연 PR 등) squash 하지 말고 멈춰 사용자에게 묻는다 — 2.3 절차(다음 판에서 따서 `git merge --no-ff`)로 다시 만든다.
 - 브랜치 지우기는 클라우드에서 막힐 수 있다 — 막히면 그대로 둔다.
@@ -75,4 +75,4 @@ gh api $R/statuses/$SHA -f state=success -f context=tw/verify  -f description='�
 - 버그 제보 수정이면 `node scripts/todo.js done <id> --release <판>`(관리자 gcloud 로그인이 있을 때만 — 없으면 건너뛰고 알린다).
 - 사용자에게 한 번만 보고: PR 링크 · 컨펌 · 검증 결과 한 줄씩 · 머지한 판 브랜치. 끝난 것을 다시 나열하지 않는다.
 
-하지 않는 것: 판 브랜치 → main 합치기(릴리스 — 사용자가 정할 때만, merge commit), 운영 · 규칙 · 함수 배포, 판정 없이 머지.
+하지 않는 것: 판 브랜치 · `admin` → main 합치기(릴리스 · 웹 관리자 내보낸 뒤 — 사용자가 정할 때만, merge commit), 운영 · 규칙 · 함수 배포, 판정 없이 머지.

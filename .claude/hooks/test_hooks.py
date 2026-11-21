@@ -124,6 +124,8 @@ pg('remote', 'set-url', 'origin', 'https://github.com/grk-cmd/t-w.git')   # orig
 for name, cmd, want in (('main 에 직접 push', 'git push origin main', True),
                         ('HEAD:main push', 'git push -q origin HEAD:main', True),
                         ('판 브랜치 직접 push', 'git push origin release/0.12.0', True),
+                        ('admin(웹 관리자 정본) 직접 push', 'git push origin HEAD:admin', True),
+                        ('admin 아래 이름은 보호 아님', 'git push origin HEAD:refs/heads/admin-x', False),
                         ('작업 브랜치 push', 'git push -u origin fix/a', False),
                         ('현황 파일만 바꾼 main push 도 막음', 'git push', True)):
     p = subprocess.run([sys.executable, '-B', G], input=json.dumps({'tool_input': {'command': cmd}, 'cwd': PUSH_CWD}),
@@ -231,15 +233,25 @@ carry = [
 MOVED = [{'filename': 'app/a.js', 'status': 'modified', 'patch': '@@ -9,3 +9,3 @@ function deleteAll\n ctx2\n-old\n+new'}, files('new')[1]]
 ROWDEL = files('new')[:1] + [{'filename': 'checks/CHECKS.md', 'status': 'modified', 'patch': f'@@ -70 +70 @@\n-{ROW("000000000000")}\n+{ROW("aaaaaaaaaaaa")}\n-| **sim-z.js** | 9 | **abcdefabcdef** |'}]
 A7 = dict(comments=[{'user': U, 'body': '승인 ' + O[:7]}])
+TWO = lambda a, b: {'filename': 'app/a.js', 'status': 'modified', 'patch': f'@@ -{a},3 +{a},3 @@\n ctx\n-old\n+new\n@@ -{b},3 +{b},3 @@\n ctx2\n-old2\n+new2'}
+RULES = lambda n: {'filename': 'firebase-database-rules.json', 'status': 'modified', 'patch': f'@@ -{n},3 +{n},3 @@\n   ".read": "auth != null",\n-  ".write": false\n+  ".write": "auth != null"'}
+HOOK = lambda n: {'filename': '.claude/hooks/ship-gate.py', 'status': 'modified', 'patch': f'@@ -{n},3 +{n},3 @@\n ctx\n-old\n+new'}
 carry += [
     ('같은 줄을 다른 자리(다른 함수)에', dict(A7, cmp={O: files('new'), H: MOVED}), H, False),
-    ('줄 번호가 달라짐(같은 글 · 같은 앞뒤 · 다른 자리 — 판 브랜치가 위를 고쳤어도 다시)', dict(A7, cmp={O: files('new'), H: [dict(files('new')[0], patch=files('new')[0]['patch'].replace('-1,3 +1,3', '-41,3 +41,3')), files('new')[1]]}), H, False),
+    ('코드 파일이 통째로 밀림(판 브랜치가 위를 고침 — 상대 줄 같음)', dict(A7, cmp={O: files('new'), H: [dict(files('new')[0], patch=files('new')[0]['patch'].replace('-1,3 +1,3', '-41,3 +41,3')), files('new')[1]]}), H, True),
+    ('코드 파일 덩어리 사이가 벌어짐(사이에 무언가 낌)', dict(A7, cmp={O: [TWO(1, 20)], H: [TWO(1, 30)]}), H, False),
+    ('코드 파일 덩어리 둘이 같이 밀림', dict(A7, cmp={O: [TWO(1, 20)], H: [TWO(11, 30)]}), H, True),
+    ('규칙 JSON 은 통째로 밀려도 다시(덩어리 하나는 상대 줄로 자리를 못 잡음)', dict(A7, cmp={O: [RULES(5)], H: [RULES(45)]}), H, False),
+    ('CHECKS.md 는 덩어리 사이가 벌어져도 같음(다른 갈래가 표에 줄을 더함)', dict(A7, cmp={O: [files('new')[0], {'filename': 'checks/CHECKS.md', 'status': 'modified', 'patch': f'@@ -70 +70 @@\n-{ROW("000000000000")}\n+{ROW("aaaaaaaaaaaa")}\n@@ -90 +90 @@\n-x\n+y'}],
+                                                                       H: [files('new')[0], {'filename': 'checks/CHECKS.md', 'status': 'modified', 'patch': f'@@ -70 +70 @@\n-{ROW("000000000000")}\n+{ROW("bbbbbbbbbbbb")}\n@@ -95 +95 @@\n-x\n+y'}]}), H, True),
+    ('가드 파일도 줄 번호 그대로', dict(A7, cmp={O: [HOOK(5)], H: [HOOK(45)]}), H, False),
     ('CHECKS.md 의 다른 해시 줄을 지움', dict(A7, cmp={O: files('new'), H: ROWDEL}), H, False),
     ('다른 파일의 해시 줄 모양 줄은 빼지 않음', dict(A7, cmp={O: [{'filename': 'b.md', 'status': 'modified', 'patch': '@@ -1 +1 @@\n+' + ROW('aaaaaaaaaaaa')}], H: [{'filename': 'b.md', 'status': 'modified', 'patch': '@@ -1 +1 @@\n+' + ROW('bbbbbbbbbbbb')}]}), H, False),
     ('두 커밋 다 바꾼 것 없음', dict(A7, cmp={O: [], H: []}), H, False),
     ('patch 없는 파일(머리 판이 같아도 못 봄)', dict(A7, cmp={O: files('new', extra=[{'filename': 'big.js', 'status': 'modified', 'patch': None, 'sha': 'bX'}]),
                                                     H: files('new', extra=[{'filename': 'big.js', 'status': 'modified', 'patch': None, 'sha': 'bX'}])}), H, False),
-    ('앞뒤 글은 같고 @@ 꼬리(함수)만 다름', dict(A7, cmp={O: files('new'), H: [dict(files('new')[0], patch=files('new')[0]['patch'].replace('@@ -1,3 +1,3 @@', '@@ -1,3 +1,3 @@ function deleteAll')), files('new')[1]]}), H, False),
+    ('코드 파일 앞뒤 글은 같고 @@ 꼬리(함수)만 다름', dict(A7, cmp={O: files('new'), H: [dict(files('new')[0], patch=files('new')[0]['patch'].replace('@@ -1,3 +1,3 @@', '@@ -1,3 +1,3 @@ function deleteAll')), files('new')[1]]}), H, True),
+    ('규칙 JSON 은 @@ 꼬리만 달라도 다시', dict(A7, cmp={O: [RULES(5)], H: [dict(RULES(5), patch=RULES(5)['patch'].replace(' @@\n', ' @@ "rooms"\n', 1))]}), H, False),
 ]
 B = 'e5' * 20   # 승인이 두 번 — O 승인 → B 코드 고침 · 승인 → H 는 B 에 합치기만: 가장 최근 승인(B)과 견준다
 carry += [('승인 두 번 · 최근 승인과 견줌', dict(comments=[{'user': U, 'body': '승인 ' + O[:7]}, {'user': U, 'body': '승인 ' + B[:7]}], commits=(O, B, H),
@@ -255,6 +267,44 @@ for name, kw, head, want in carry:
     else:
         bad += 1
         print(f'  ✗ 이어 받기 {name}: {got}(기대 {want})')
+
+# 기준선 json — 합친 뒤 다시 쓴 숫자가 «옛 머리 · 합친 판 브랜치» 어느 쪽보다 느슨하지 않으면 같은 변경
+import base64 as _b64
+MB = 'f6' * 20   # H 가 합친 판 브랜치 커밋
+BL = 'checks/app-size-baseline.json'
+def bl_case(name, old_v, base_v, new_v, want, new_base=MB, missing_new=False):
+    risk._same.clear()
+    blobs = {O: old_v, MB: base_v, H: None if missing_new else new_v}
+    cmp = {O: files('new', extra=[{'filename': BL, 'status': 'modified', 'patch': '@@ -1 +1 @@\n-a\n+b'}]),
+           H: files('new', extra=[{'filename': BL, 'status': 'modified', 'patch': '@@ -1 +1 @@\n-a\n+c'}])}
+    fake(commits=(O, H), cmp=cmp, comments=[{'user': U, 'body': '승인 ' + O[:7]}])
+    inner = risk.get
+    def get(p):
+        if '/compare/' in p:
+            return dict(inner(p), merge_base_commit=({'sha': new_base} if new_base else {}) if p.endswith(H) else {'sha': 'x'})
+        if '/contents/' in p:
+            v = blobs.get(p.rsplit('ref=', 1)[1])
+            if v is None:
+                raise RuntimeError('gh api: Not Found (HTTP 404)')
+            return {'content': _b64.b64encode(json.dumps(v).encode()).decode()}
+        return inner(p)
+    risk.get = get
+    global ok, bad
+    got = risk.owner_approved(395, H)
+    if got == want:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 기준선 이어 받기 {name}: {got}(기대 {want})')
+F = lambda cap, secs=('가',): {'files': {'app.js': {'cap': cap, 'lines': cap - 100, 'sections': list(secs)}}}
+bl_case('둘 다 줄였고 합친 값은 더 작음', F(900), F(950), F(850), True)
+bl_case('합친 값이 판 브랜치 값과 같음', F(900), F(950), F(950), True)
+bl_case('합친 값이 양쪽보다 큼(상한을 올림)', F(900), F(950), F(960), False)
+bl_case('구역 목록이 둘의 합 안', F(900, ('가',)), F(950, ('나',)), F(900, ('가', '나')), True)
+bl_case('구역 목록에 새 이름', F(900), F(950), F(900, ('가', '새 구역')), False)
+bl_case('새 칸이 생김', F(900), F(950), dict(F(900), extra=1), False)
+bl_case('합친 머리에 기준선이 없음', F(900), F(950), None, False, missing_new=True)
+bl_case('합친 판 브랜치 커밋을 모름', F(900), F(950), F(850), False, new_base=None)
 
 # 가드 판정 이어 받기 — 머리에 tw/confirm · tw/verify 가 없어도 앞 커밋에 있고 PR 자체 변경이 같으면 머지 길을 연다
 import importlib.util, io, contextlib
@@ -325,7 +375,7 @@ def gate_case(name, fl, approved_comment, want_deny):
     global ok, bad
     fake(commits=(O, H), files=fl, comments=[{'user': U, 'body': '승인 ' + H[:7]}] if approved_comment else [])
     real_assess = risk.assess
-    risk.assess = lambda pr: {'high': True, 'reasons': ['시험']}
+    risk.assess = lambda pr, files=None: {'high': True, 'reasons': ['시험']}
     gate.gate_ok = lambda pr: (True, '')
     gate.run = lambda *a, **k: H
     buf = io.StringIO()
@@ -344,42 +394,54 @@ def gate_case(name, fl, approved_comment, want_deny):
 gate_case('가드 파일 안 바꿈 · 높음 · 승인 없음 → 통과', [{'filename': 'firebase/firebase-database-rules.json'}], False, False)
 gate_case('가드 파일 바꿈 · 승인 없음 → 막음', GUARD, False, True)
 gate_case('가드 파일 바꿈 · 승인 → 통과', GUARD, True, False)
-# main 으로 가는 웹 관리자 길 — hotfix/ · harness/ · release/ 가 아니면 web-admin/ 안만(브랜치 이름이 아니라 base 로)
+# 웹 관리자 길 — admin 으로 가는 PR · admin → main 합치기는 main 에 없는 것으로 web-admin/ 안만(main...머리 를 견준다 · base 로 본다)
 WA, APP = [{'filename': 'web-admin/src/a.tsx'}], [{'filename': 'web-admin/src/a.tsx'}, {'filename': 'app/parts/app.js'}]
-for name, base, ref, fl, want in (
-        ('admin/* → main · web-admin 만', 'main', 'admin/x', WA + [{'filename': 'web-admin/tests/a.test.ts'}], []),
-        ('admin/* → main · 앱 파일이 섞임', 'main', 'admin/x', APP, ['app/parts/app.js']),
-        ('이름을 바꿔 올림(fix/*) → main · 앱 파일', 'main', 'fix/y', APP, ['app/parts/app.js']),
-        ('밖에서 web-admin 으로 옮김', 'main', 'admin/x', [{'filename': 'web-admin/x.js', 'previous_filename': 'app/x.js'}], ['app/x.js']),
+for name, base, ref, own, want in (
+        ('admin 으로 · web-admin 만', 'admin', 'feat/x', WA + [{'filename': 'web-admin/tests/a.test.ts'}], []),
+        ('admin 으로 · 앱 파일이 섞임', 'admin', 'feat/x', APP, ['app/parts/app.js']),
+        ('admin 으로 · 밖에서 web-admin 으로 옮김', 'admin', 'feat/x', [{'filename': 'web-admin/x.js', 'previous_filename': 'app/x.js'}], ['app/x.js']),
+        ('admin 으로 main 합쳐 받기 · main 에 없는 것은 web-admin 만', 'admin', 'chore/merge-main', WA, []),
+        ('admin → main 합치기 · web-admin 만', 'main', 'admin', WA, []),
+        ('admin → main 합치기 · 앱 파일이 섞임', 'main', 'admin', APP, ['app/parts/app.js']),
         ('hotfix/* → main · 앱 파일', 'main', 'hotfix/x', APP, []),
         ('harness/* → main', 'main', 'harness/x', [{'filename': '.claude/hooks/ship-gate.py'}], []),
         ('판 내기 release/* → main', 'main', 'release/0.12.3', APP, []),
         ('판으로 가는 PR · 앱 파일', 'release/0.12.3', 'fix/x', APP, [])):
-    fake(files=fl, head_ref=ref, base=base)
+    fake(files=APP, head_ref=ref, base=base, cmp={H: own})   # PR 파일(main 을 합쳐 받으면 앱 파일이 실린다)이 아니라 main...머리 로 본다
     got = risk.admin_outside(395)
     if got == want:
         ok += 1
     else:
         bad += 1
-        print(f'  ✗ main 범위 {name}: {got}')
-fake(files=[{'filename': 'web-admin/a.tsx'}], head_ref='admin/x')
-risk.get = lambda p, g=risk.get: dict(g(p), changed_files=3001) if p.endswith('/pulls/395') else g(p)
+        print(f'  ✗ 웹 관리자 범위 {name}: {got}')
+fake(head_ref='feat/x', base='admin', cmp={H: [{'filename': f'web-admin/f{i}'} for i in range(risk.COMPARE_MAX)]})
 if risk.admin_outside(395) == ['(파일 목록을 다 못 봄)']:
     ok += 1
 else:
     bad += 1
-    print('  ✗ main 범위 파일 목록이 잘림(3000개) → 못 봄')
-fake(files=WA, head_ref='admin/x')
+    print('  ✗ 웹 관리자 범위 견줄 파일이 잘림(300개) → 못 봄')
+fake(files=WA, head_ref='feat/x', base='admin')
 risk.get = lambda p: (_ for _ in ()).throw(RuntimeError('gh api 실패(시험)'))
 try:
     risk.admin_outside(395)
     bad += 1
-    print('  ✗ main 범위: PR 을 못 읽었는데 빈 목록(통과)으로 돌려줌 — 던져야 가드가 막는다')
+    print('  ✗ 웹 관리자 범위: PR 을 못 읽었는데 빈 목록(통과)으로 돌려줌 — 던져야 가드가 막는다')
 except RuntimeError:
     ok += 1
-def admin_case(name, ref, fl, want_deny, approved=False, word=''):
+# main 은 낸 것만 — hotfix/ · harness/ · release/ · admin 합치기 말고는 막는다(웹 관리자 작업도 이제 admin 으로)
+for name, base, ref, want in (('웹 관리자 작업 → main', 'main', 'feat/x', True), ('옛 admin/* → main', 'main', 'admin/x', True),
+                              ('admin → main 합치기', 'main', 'admin', False), ('hotfix/*', 'main', 'hotfix/x', False), ('harness/*', 'main', 'harness/x', False),
+                              ('판 내기', 'main', 'release/0.12.3', False), ('admin 으로 가는 작업', 'admin', 'feat/x', False), ('판으로', 'release/0.12.3', 'fix/x', False)):
+    fake(head_ref=ref, base=base)
+    got = risk.main_closed(395)
+    if got == want:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ main 이 받는 PR {name}: {got}')
+def admin_case(name, ref, fl, want_deny, approved=False, word='', base='admin', own=None):
     global ok, bad
-    fake(commits=(O, H), files=fl, head_ref=ref, comments=[{'user': U, 'body': '승인 ' + H[:7]}] if approved else [])
+    fake(commits=(O, H), files=fl, head_ref=ref, base=base, cmp={H: fl if own is None else own}, comments=[{'user': U, 'body': '승인 ' + H[:7]}] if approved else [])
     gate.gate_ok = lambda pr: (True, '')
     gate.run = lambda *a, **k: H
     buf = io.StringIO()
@@ -395,32 +457,59 @@ def admin_case(name, ref, fl, want_deny, approved=False, word=''):
     else:
         bad += 1
         print(f'  ✗ 머지 가드 {name}: {"막음" if denied else "통과"}{" · 문구에 «" + word + "» 없음" if word and word not in out else ""}')
-admin_case('admin/* · web-admin 만 → 통과', 'admin/x', [{'filename': 'web-admin/src/a.tsx'}], False)
-admin_case('admin/* · 앱 파일 섞임 → 막음', 'admin/x', [{'filename': 'web-admin/src/a.tsx'}, {'filename': 'main.js'}], True, word='web-admin/ 밖을 바꾼다')
-admin_case('이름 바꿔 올림 · 앱 파일 → 막음', 'chore/y', [{'filename': 'main.js'}], True)
+admin_case('admin 으로 · web-admin 만 → 통과', 'feat/x', [{'filename': 'web-admin/src/a.tsx'}], False)
+admin_case('admin 으로 · 앱 파일 섞임 → 막음', 'feat/x', [{'filename': 'web-admin/src/a.tsx'}, {'filename': 'main.js'}], True, word='web-admin/ 밖을 바꾼다')
+admin_case('admin 으로 main 합쳐 받기(앱 파일은 main 에 있음) → 통과', 'chore/merge-main', [{'filename': 'web-admin/src/a.tsx'}, {'filename': 'app/parts/app.js'}], False, own=[{'filename': 'web-admin/src/a.tsx'}])
+admin_case('admin → main 합치기 · 높음 · 승인 없음 → 통과(이미 내보냄)', 'admin', [{'filename': 'web-admin/src/shared/api/db.ts', 'status': 'modified'}], False, base='main')
+admin_case('웹 관리자 작업을 main 으로 → 막음', 'feat/x', [{'filename': 'web-admin/src/a.tsx'}], True, word='main 이 받는 PR 이 아니다', base='main')
+admin_case('옛 admin/* 를 main 으로 → 막음', 'admin/x', [{'filename': 'web-admin/src/a.tsx'}], True, word='main 이 받는 PR 이 아니다', base='main')
 # 웹 관리자 길의 위험도 높음(데이터 접근)은 머지 전 승인 — 판을 거치지 않아 «내보내기 전 한 장» 에 안 나온다
 DB = [{'filename': 'web-admin/src/shared/api/db.ts', 'status': 'modified'}]
-admin_case('admin/* · 데이터 접근(높음) · 승인 없음 → 막음', 'admin/x', DB, True, word='웹 관리자 길')
-admin_case('admin/* · 데이터 접근(높음) · 승인 → 통과', 'admin/x', DB, False, approved=True)
-admin_case('admin/* · 화면만(낮음) · 승인 없음 → 통과', 'admin/x', [{'filename': 'web-admin/src/widgets/a/ui/A.tsx', 'status': 'modified'}], False)
-admin_case('하네스 · 가드 파일 · 승인 없음 → 막음(가드 문구)', 'harness/x', GUARD, True, word='가드 자리(')
+admin_case('admin 으로 · 데이터 접근(높음) · 승인 없음 → 막음', 'feat/x', DB, True, word='웹 관리자 길')
+admin_case('admin 으로 · 데이터 접근(높음) · 승인 → 통과', 'feat/x', DB, False, approved=True)
+MAINMIX = [{'filename': 'firebase-database-rules.json', 'status': 'modified', 'patch': '+x'}, {'filename': 'functions/a.js', 'status': 'modified', 'patch': '+x'},
+           {'filename': 'web-admin/src/widgets/a/ui/A.tsx', 'status': 'modified', 'patch': '+x'}]   # main 을 합쳐 받아 PR 파일엔 규칙 · 함수가 실림
+admin_case('main 합쳐 받기 · 자기 변경은 화면만 → 승인 없이 통과', 'chore/merge-main', MAINMIX, False, own=MAINMIX[2:])
+admin_case('main 합쳐 받기 · 자기 변경에 db.ts → 승인 필요', 'chore/merge-main', MAINMIX + DB, True, word='웹 관리자 길', own=MAINMIX[2:] + DB)
+admin_case('admin 에 앞 PR 의 db.ts 가 있음 · 이 PR 은 화면만 → 승인 없이 통과', 'feat/x', MAINMIX[2:], False, own=MAINMIX[2:] + DB)
+admin_case('admin 으로 · 견줄 파일 300개(못 봄) → 막음', 'feat/x', WA, True, own=[{'filename': f'web-admin/f{i}', 'patch': '+x'} for i in range(risk.COMPARE_MAX)])
+admin_case('admin 으로 · 화면만(낮음) · 승인 없음 → 통과', 'feat/x', [{'filename': 'web-admin/src/widgets/a/ui/A.tsx', 'status': 'modified'}], False)
+admin_case('하네스 · 가드 파일 · 승인 없음 → 막음(가드 문구)', 'harness/x', GUARD, True, word='가드 자리(', base='main')
 real_assess3 = risk.assess
-risk.assess = lambda pr: (_ for _ in ()).throw(RuntimeError('assess 실패(시험)'))   # 파일 · PR 은 읽히고 위험도만 못 읽음
-admin_case('admin/* · 위험도를 못 읽음 → 막음', 'admin/x', [{'filename': 'web-admin/src/a.tsx'}], True, word='읽지 못해')
+risk.assess = lambda pr, files=None: (_ for _ in ()).throw(RuntimeError('assess 실패(시험)'))   # 파일 · PR 은 읽히고 위험도만 못 읽음
+admin_case('admin 으로 · 위험도를 못 읽음 → 막음', 'feat/x', [{'filename': 'web-admin/src/a.tsx'}], True, word='읽지 못해')
 risk.assess = real_assess3
-for name, ref, base, fl, want in (('admin/* · 높음', 'admin/x', 'main', DB, True), ('admin/* · 낮음', 'admin/x', 'main', [{'filename': 'web-admin/src/a.tsx'}], False),
+for name, ref, base, fl, want in (('admin 으로 · 높음', 'feat/x', 'admin', DB, True), ('admin 으로 · 낮음', 'feat/x', 'admin', [{'filename': 'web-admin/src/a.tsx'}], False),
+                                  ('admin → main 합치기 · 높음(이미 내보냄)', 'admin', 'main', DB, False),
                                   ('판으로 가는 PR · 높음(내보내기 전 한 장이 본다)', 'fix/x', 'release/0.12.3', DB, False),
                                   ('하네스 · 가드 파일', 'harness/x', 'main', GUARD, True)):
-    fake(files=fl, head_ref=ref, base=base)
+    fake(files=fl, head_ref=ref, base=base, cmp={H: fl})
     got = risk.must_approve(395)
     if got == want:
         ok += 1
     else:
         bad += 1
         print(f'  ✗ 승인 필요 {name}: {got}')
-# 브랜치 따기 — admin/* 는 main 에서 딸 수 있고, 다른 이름은 여전히 판 브랜치에서만
-for name, br, start, want_deny in (('admin/* · main 에서', 'admin/x', 'origin/main', False), ('fix/* · main 에서', 'fix/x', 'origin/main', True),
-                                    ('admin/* · 판에서', 'admin/x', 'origin/release/0.12.3', False)):
+fake(files=WA, head_ref='feat/x', base='admin', cmp={H: [{'filename': f'web-admin/f{i}', 'patch': '+x'} for i in range(risk.COMPARE_MAX)]})
+if risk.must_approve(395):
+    ok += 1
+else:
+    bad += 1
+    print('  ✗ 승인 필요: 자기 변경을 못 다 봤는데(300개) 승인 없이')
+# 직접 push 막기는 risk.ADMIN_BRANCH 를 따른다 — 이름을 바꾸면 새 이름이 막히고 옛 이름은 풀린다
+real_admin = risk.ADMIN_BRANCH
+risk.ADMIN_BRANCH = 'admin2'
+if gate.protected('admin2') and not gate.protected('admin') and gate.protected('main') and gate.protected('release/1.0.0') and not gate.protected('release/'):
+    ok += 1
+else:
+    bad += 1
+    print('  ✗ 보호 브랜치가 risk.ADMIN_BRANCH 를 따르지 않음')
+risk.ADMIN_BRANCH = real_admin
+# 브랜치 따기 — 웹 관리자 작업은 이름과 상관없이 admin 에서 · main 에서는 hotfix/ · harness/ 만 · 다른 이름은 판 브랜치에서
+for name, br, start, want_deny in (('웹 관리자 작업 · admin 에서', 'feat/x', 'origin/admin', False), ('refs 로 admin 에서', 'fix/y', 'refs/remotes/origin/admin', False),
+                                    ('옛 admin/* · main 에서', 'admin/x', 'origin/main', True), ('fix/* · main 에서', 'fix/x', 'origin/main', True),
+                                    ('harness/* · main 에서', 'harness/x', 'origin/main', False), ('admin- 로 시작하는 다른 브랜치에서', 'feat/x', 'origin/admin-old', True),
+                                    ('판에서', 'feat/x', 'origin/release/0.12.3', False)):
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
@@ -494,9 +583,9 @@ waiting('승인이 나중에 달림', 0, '머지할 차례', commits=(O, H), ste
 waiting('승인 없음 — 시간 끝', 1, '끝나지 않음', commits=(O, H))
 waiting('가드 파일을 안 바꾸면 승인 없이 CI 만', 0, '머지할 차례', high=False, commits=(O, H))
 ADB = [{'filename': 'web-admin/src/shared/api/db.ts', 'status': 'modified'}]   # 웹 관리자 길 · 데이터 접근(높음)
-waiting('웹 관리자 길 높음 · 승인 없음 — 시간 끝', 1, '끝나지 않음', high=None, commits=(O, H), files=ADB, head_ref='admin/x')
-waiting('웹 관리자 길 높음 · 승인 → 머지할 차례', 0, '머지할 차례', high=None, commits=(O, H), files=ADB, head_ref='admin/x', comments=APPR)
-waiting('웹 관리자 길 낮음 · 승인 없이 CI 만', 0, '머지할 차례', high=None, commits=(O, H), files=[{'filename': 'web-admin/src/a/ui/A.tsx', 'status': 'modified'}], head_ref='admin/x')
+waiting('웹 관리자 길 높음 · 승인 없음 — 시간 끝', 1, '끝나지 않음', high=None, commits=(O, H), files=ADB, head_ref='feat/x', base='admin', cmp={H: ADB})
+waiting('웹 관리자 길 높음 · 승인 → 머지할 차례', 0, '머지할 차례', high=None, commits=(O, H), files=ADB, head_ref='feat/x', base='admin', comments=APPR, cmp={H: ADB})
+waiting('웹 관리자 길 낮음 · 승인 없이 CI 만', 0, '머지할 차례', high=None, commits=(O, H), files=[{'filename': 'web-admin/src/a/ui/A.tsx', 'status': 'modified'}], head_ref='feat/x', base='admin', cmp={H: [{'filename': 'web-admin/src/a/ui/A.tsx', 'status': 'modified'}]})
 waiting('CI 도는 중 — 끝나면', 0, '머지할 차례', commits=(O, H), comments=APPR, runs=[{'name': 'npm run check', 'status': 'in_progress'}],
         steps=[dict(commits=(O, H), comments=APPR)])
 waiting('CI 빨강', 1, 'CI 빨강: npm run check', commits=(O, H), comments=APPR, runs=[{'name': 'npm run check', 'status': 'completed', 'conclusion': 'failure'}])
@@ -513,7 +602,7 @@ def flaky(name, want_code, want_word, fails):
             raise RuntimeError('gh api 순간 실패(시험)')
         return real_get(p)
     risk.get = get
-    risk.assess = lambda pr: {'high': True, 'reasons': []}
+    risk.assess = lambda pr, files=None: {'high': True, 'reasons': []}
     code, msg = risk.wait(395, limit=60, every=15, sleep=lambda _: None)
     global ok, bad
     if code == want_code and want_word in msg:
@@ -555,7 +644,8 @@ spec.loader.exec_module(rs)
 ROLES = {'_공통': '공통글', '서버담당': '서버글', '질문': '질문글'}
 FACTS = {'notes': [], 'releases': {'0.12.0': {'ahead': 2, 'subjects': ['feat: 가']}, '0.13.0': {'ahead': 1, 'subjects': ['fix: 나']}},
          'prs': [{'number': 7, 'title': '판 PR', 'head': 'fix/a', 'base': 'release/0.12.0', 'draft': True, 'owner': 'grk', 'files': ['app/a.js', 'checks/']},
-                 {'number': 8, 'title': '하네스 PR', 'head': 'harness/b', 'base': 'main', 'draft': False, 'owner': '', 'files': ['checks/sim-x.js']}],
+                 {'number': 8, 'title': '하네스 PR', 'head': 'harness/b', 'base': 'main', 'draft': False, 'owner': '', 'files': ['checks/sim-x.js']},
+                 {'number': 9, 'title': '관리자 PR', 'head': 'feat/c', 'base': 'admin', 'draft': False, 'owner': '', 'files': ['web-admin/src/a.tsx']}],
          'issues': [{'number': 12, 'title': '피부가 투명해짐'}],
          'overlaps': [('0.12.0', '0.13.0', ['app/parts/app.js'])]}
 def boom_gather():
@@ -576,6 +666,7 @@ role_cases = [
     ('판 묻기: 이름 없는 세션도', rs.needs_pick(None, 'main', 'startup'), True),
     ('판 묻기: /clear', rs.needs_pick(None, 'release/0.12.0', 'clear'), True),
     ('판 묻기: 떨어진 HEAD', rs.needs_pick(None, '', 'startup'), True),
+    ('판 묻기: admin(웹 관리자 정본) 위', rs.needs_pick(None, 'admin', 'startup'), True),
     ('판 안 물음: 작업 브랜치 위', rs.needs_pick('서버담당', 'fix/a', 'startup'), False),
     ('판 안 물음: 질문 세션', rs.needs_pick('질문', 'main', 'startup'), False),
     ('판 안 물음: resume', rs.needs_pick('서버담당', 'main', 'resume'), False),
@@ -623,7 +714,8 @@ has('모으기 실패 → 못 불러옴 + 판 질문', t, '서버글', '요약�
 t = rs.render(FACTS)
 has('요약: 판마다 PR · 검토중 이슈 · 겹침', t, '### release/0.12.0', '### release/0.13.0', '열린 PR #7 [초안] 판 PR (fix/a · 담당 grk · 파일 2개)',
     '열린 PR 없음', '### 판 밖', '열린 PR #8 → main 하네스 PR (harness/b · 파일 1개)', '- #12 피부가 투명해짐', '#7 ↔ #8: checks/, checks/sim-x.js',
-    'release/0.12.0 ↔ release/0.13.0: app/parts/app.js', absent=('#8 → main [초안]', '담당  ·'))
+    'release/0.12.0 ↔ release/0.13.0: app/parts/app.js', '### admin — 웹 관리자', '열린 PR #9 관리자 PR (feat/c · 파일 1개)',
+    absent=('#8 → main [초안]', '담당  ·', '#9 → admin'))
 t = rs.render(dict(FACTS, issues=None))
 has('요약: 이슈 못 읽음 ≠ 없음', t, '### 검토중', '- 못 읽음', absent=('#12',))
 t = rs.render(dict(FACTS, issues=[]))
@@ -631,7 +723,7 @@ has('요약: 검토중 이슈 없음', t, '### 검토중', '- 없음')
 t = rs.render(dict(FACTS, prs=None, notes=['열린 PR 을 못 읽음']))
 has('요약: PR 못 읽음 ≠ 열린 PR 없음', t, '⚠️ 열린 PR 을 못 읽음', absent=('열린 PR 없음', '열린 PR #', 'PR 끼리 겹치는'))
 t = rs.render({'notes': [], 'releases': {}, 'prs': [], 'issues': []})
-has('요약: 판 없음', t, '열린 판 브랜치(`release/*`)가 없다', absent=('판끼리',))
+has('요약: 판 없음', t, '열린 판 브랜치(`release/*`)가 없다', '### admin — 웹 관리자', '- 열린 PR 없음', absent=('판끼리',))
 t = rs.render(dict(FACTS, releases={'0.12.0': FACTS['releases']['0.12.0']}, overlaps=[]))
 has('요약: 판 하나면 겹침 칸 없음', t, '### release/0.12.0', absent=('판끼리 겹치는',))
 
