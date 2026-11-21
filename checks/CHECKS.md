@@ -516,7 +516,7 @@
 | **sim-input-diag.js** | 148 | **785498f2219b** |
 | **sim-renderer-gone-reset.js** | 141 | **57af0bb1cb76** |
 | **sim-room-code-len.js** | 173 | **aaa583f3e06e** |
-| **sim-recent-rooms.js** | 215 | **eede6aef51ba** |
+| **sim-recent-rooms.js** | 253 | **d84842bf6841** |
 | **sim-mh-pad-pos.js** | 164 | **38659919b0b2** |
 | **sim-mh-bg-url.js** | 133 | **de01754f7292** |
 | **sim-gift-img-retry.js** | 209 | **3496e4f17f97** |

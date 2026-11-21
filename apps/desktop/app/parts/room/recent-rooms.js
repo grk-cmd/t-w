@@ -3,38 +3,57 @@
    방 코드 모양은 여기서 다시 쓰지 않는다 — room-entry 의 isRoomCode 를 deps 로 받는다(규칙 한 곳).
    ⚠️ 계정마다 따로 저장한다(tw.recentRooms.<내 id>) — 한 PC 를 둘이 쓸 때 앞 사람의 방 코드(시크릿룸 포함)가 보이지 않게.
      내 id 가 없으면(로그인 전) 기록도 목록도 없다.
+   ⚠️ 시크릿룸은 코드를 남기지 않는다 — «SCRT-****» 와 제목 · 시각만 적는다(SECRET_MASK). 한 번 들어가 본 사람이 코드를 모르는 채 최근 방으로 다시 들어가지 못하게
+     (친구 방 놀러가기처럼 코드를 모르고 들어가는 길이 있다). 다시 들어가려면 코드를 입력한다(recent-rooms-ui.js → secretCodeFrom) — 맞는지는 서버가 가른다.
+     옛 판이 남긴 진짜 시크릿룸 코드는 읽을 때 가린 줄로 바꿔 다시 저장한다.
    ⚠️ 서버에 올리지 않는다 — 이 PC 의 편의 기능이다(다른 기기에는 없다).
-   내보냄: window.TwRecentRooms = { MAX, KEY_PREFIX, add, parse, agoText, createRecentRooms }.
+   내보냄: window.TwRecentRooms = { MAX, KEY_PREFIX, SECRET_MASK, add, parse, agoText, secretCodeFrom, createRecentRooms }.
    room-entry.js · recent-rooms-ui.js · app.js 보다 먼저 싣는 classic script. 검사: checks/sim-recent-rooms.js */
 (function(){
 
 const MAX = 3;
 const KEY_PREFIX = 'tw.recentRooms.';
 const TITLE_MAX = 40;
+const SECRET_PREFIX = 'SCRT-';
+const SECRET_MASK = 'SCRT-****';   // 시크릿룸 줄에 적는 코드 — 진짜 코드는 저장하지 않는다
+const isSecret = (code) => typeof code === 'string' && code.startsWith(SECRET_PREFIX);
+/* 같은 줄인가 — 공개 방은 코드로 · 시크릿룸(가린 줄)은 코드가 다 같으니 제목까지 */
+const sameRow = (a, b) => a.code === b.code && (a.code !== SECRET_MASK || a.title === b.title);
 
-/** 저장된 글 → 목록. 모양이 틀린 줄(isCode 가 아니라는 코드 포함)은 버리고, 같은 코드는 앞 것만, 최대 MAX.
+/** 사람이 친 글 → 시크릿룸 코드(SCRT-XXXX) · 모양이 틀리면 null. «AB2C» · «ab2c*» · «SCRT-AB2C» 를 다 받는다(코드 칸과 같은 버릇).
+ *  @param {unknown} typed @param {(code: unknown) => boolean} isCode */
+function secretCodeFrom(typed, isCode){
+  let s = String(typed == null ? '' : typed).trim().toUpperCase().replace(/\*/g, '');
+  if(s.startsWith(SECRET_PREFIX)) s = s.slice(SECRET_PREFIX.length);
+  const code = SECRET_PREFIX + s;
+  return isCode(code) ? code : null;
+}
+
+/** 저장된 글 → 목록. 모양이 틀린 줄(isCode 가 아니라는 코드 포함)은 버리고, 같은 줄은 앞 것만, 최대 MAX. 시크릿룸은 가린 줄로 바꾼다.
  *  @param {string} raw @param {(code: unknown) => boolean} isCode */
 function parse(raw, isCode){
   let arr;
   try{ arr = JSON.parse(raw); }catch(_){ return []; }
   if(!Array.isArray(arr)) return [];
-  const out = [], seen = new Set();
+  const out = [];
   for(const r of arr){
-    if(!r || !isCode(r.code) || seen.has(r.code)) continue;
+    if(!r || !(r.code === SECRET_MASK || isCode(r.code))) continue;
     if(!Number.isFinite(r.at) || r.at <= 0) continue;
-    seen.add(r.code);
-    out.push({ code: r.code, title: (typeof r.title === 'string') ? r.title.slice(0, TITLE_MAX) : '', at: r.at });
+    const row = { code: isSecret(r.code) ? SECRET_MASK : r.code, title: (typeof r.title === 'string') ? r.title.slice(0, TITLE_MAX) : '', at: r.at };
+    if(out.some((x) => sameRow(x, row))) continue;
+    out.push(row);
     if(out.length >= MAX) break;
   }
   return out;
 }
 
-/** 방 하나를 맨 앞에 — 같은 코드가 있으면 그 줄을 빼고 앞으로. 모양이 틀린 코드면 목록 그대로.
+/** 방 하나를 맨 앞에 — 같은 줄이 있으면 그 줄을 빼고 앞으로. 모양이 틀린 코드면 목록 그대로. 시크릿룸은 코드 대신 SECRET_MASK 를 적는다.
  *  @param {(code: unknown) => boolean} isCode */
 function add(list, code, title, at, isCode){
   if(!isCode(code)) return list.slice();
   const t = (typeof title === 'string') ? title.trim().slice(0, TITLE_MAX) : '';
-  return [{ code, title: t, at }].concat(list.filter((r) => r.code !== code)).slice(0, MAX);
+  const row = { code: isSecret(code) ? SECRET_MASK : code, title: t, at };
+  return [row].concat(list.filter((r) => !sameRow(r, row))).slice(0, MAX);
 }
 
 /** 들어간 지 얼마나 됐나 — 방금 · n분 전 · n시간 전 · n일 전. */
@@ -69,7 +88,11 @@ function createRecentRooms(deps){
     if(!k) return [];
     let raw = null;
     try{ raw = storage.getItem(k); }catch(_){ return []; }
-    return raw ? parse(raw, isRoomCode) : [];
+    if(!raw) return [];
+    const rows = parse(raw, isRoomCode);
+    // 옛 판이 남긴 진짜 시크릿룸 코드 — 가린 줄로 바꾼 목록을 바로 다시 적어 이 PC 에서 지운다
+    if(/"SCRT-(?!\*{4}")/.test(raw)){ try{ storage.setItem(k, JSON.stringify(rows)); }catch(_){} }
+    return rows;
   }
 
   /** @param {string} code @param {string} title */
@@ -83,7 +106,7 @@ function createRecentRooms(deps){
   return { list, record };
 }
 
-const api = Object.freeze({ MAX, KEY_PREFIX, add, parse, agoText, createRecentRooms });
+const api = Object.freeze({ MAX, KEY_PREFIX, SECRET_MASK, add, parse, agoText, secretCodeFrom, createRecentRooms });
 if(typeof window !== 'undefined') window.TwRecentRooms = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
