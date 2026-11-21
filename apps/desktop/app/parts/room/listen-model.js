@@ -100,13 +100,23 @@ function parseBeat(s){
   return { pos, dur: isFinite(dur) ? dur : -1, paused: p[2] === '1', ad: p[3] === '1' };
 }
 
-/** 같이 듣기 방인가 — `_meta.music === true` */
-function isMusicRoom(meta){ return !!(meta && meta.music === true); }
+/* 🎧 같이 듣기 스위치 — 지금은 꺼 둔다(고칠 것이 많아 0.13 핫픽스로 걷음). 다시 켜려면 이 한 줄만 true.
+   꺼져 있으면: 같이 듣기 방을 만들 수 없고(방 만들기 창 · 시크릿룸 설정 칸을 숨김) · 로비에 안 보이고 · 들어가지 못한다(옛 판 앱이 만든 방).
+   다른 파일은 이 값을 다시 판단하지 않고 아래 두 함수 · ENABLED 를 받아 쓴다. */
+const ENABLED = false;
+
+/** 같이 듣기 방으로 다룰 것인가 — 스위치가 켜져 있고 `_meta.music === true` */
+function isMusicRoom(meta){ return ENABLED && !!(meta && meta.music === true); }
+
+/** 들어가면 안 되는 방인가 — 스위치가 꺼져 있는데 같이 듣기 방(`music === true`)이다. 로비 한 줄(mu → music)도 같은 모양으로 받는다. */
+function isBlockedRoom(meta){ return !ENABLED && !!(meta && meta.music === true); }
+const BLOCKED_TEXT = '같이 듣기 방은 지금 준비 중이라 들어갈 수 없어요';
 
 /** 보낼 위치(초) — 지금 위치를 0 ~ MUSIC_POS_MAX 로 자른다(아주 오래 켜 둔 곡 · 틀린 at 으로 서버가 쓰기를 통째로 거절하지 않게). */
 function wirePos(m, now){ return Math.min(MUSIC_POS_MAX, posOf(m, now)); }
 
 window.TwListenModel = Object.freeze({ ID_RE, TITLE_MAX, SEQ_MAX, DRIFT_SEC, END_GRACE_SEC, MUSIC_POS_MAX,
-  posOf, wirePos, needSeek, djOf, isEnded, stepIndex, playableFrom, makeMusic, paused, resumed, withDur, parseBeat, isMusicRoom });
+  posOf, wirePos, needSeek, djOf, isEnded, stepIndex, playableFrom, makeMusic, paused, resumed, withDur, parseBeat, isMusicRoom,
+  ENABLED, isBlockedRoom, BLOCKED_TEXT });
 
 })();

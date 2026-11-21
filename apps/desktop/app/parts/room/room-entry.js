@@ -64,6 +64,7 @@ function onRoomJoined(fn){ _roomJoinedFns.push(fn); }
 function _roomJoined(code){ const meta = window._roomMetaCache || null; _roomJoinedFns.forEach(f => f(code, meta)); }
 const mySecretRoom = deps.mySecretRoom;   // 내 시크릿룸 판정(room-lobby-provider.js — 로비와 같은 한 곳)
 const roomSettings = deps.roomSettings;   // 방 설정 규칙(room-settings.js — 최대 인원 · 방장 닉네임)
+const listen = deps.listen;   // 🎧 같이 듣기 스위치 한 벌(listen-model.js — ENABLED · isBlockedRoom · BLOCKED_TEXT). 여기서 다시 판단하지 않는다
 const roomRt = deps.roomRt;   // 🛰 방 포트(room-rt.js TwRoomRt.store) — 입장 · 랜덤 · 들여다보기 · 연결의 나(myCode)
 const seatSyncDiff = TwSeatSyncDiff;   // 🪑 줄 배치를 다시 할지 정하는 규칙(seat-sync-diff.js — 순수 모듈)
 let _lastSyncSnap = null;   // 지난번 맞춘 뒤의 모양 — 줄 배치가 필요 없는 변화(상태 · 경험치 …)는 값만 적고 넘어간다
@@ -502,7 +503,7 @@ const SECRET_MUSIC_KEY = 'tw.secretRoomMusic';
 function _secretMusicOn(){ try{ return roomEntryAccountStore.get(SECRET_MUSIC_KEY) === '1'; }catch(_){ return false; } }
 /* 🎧 시크릿룸을 «연다» — 주인이 들어갈 때 같이 듣기 선택을 늘 싣는다. 비어 있는 방을 여는 때인지는 서버가 가른다(join.create 는 방이 없을 때만 보고,
    시크릿룸 music 은 주인이 연 때만 받는다 — 손님이 먼저 열면 같이 듣기가 아니고, 이미 열린 방의 듣던 곡은 지워지지 않는다). → { music } | undefined */
-function _secretOpenFields(isOwner){ return isOwner ? { music: _secretMusicOn() } : undefined; }
+function _secretOpenFields(isOwner){ return isOwner ? { music: listen.ENABLED && _secretMusicOn() } : undefined; }
 { const c=document.getElementById('fsSecretMusic'); if(c) c.addEventListener('change', ()=>{ try{ roomEntryAccountStore.set(SECRET_MUSIC_KEY, c.checked ? '1' : '0'); }catch(_){} }); }
 function _refreshSecretRoomUI(){
   const w=document.getElementById('fsInviteSecretWrap'); const inp=document.getElementById('fsInviteSecretCode');
@@ -510,7 +511,7 @@ function _refreshSecretRoomUI(){
   Promise.resolve(mySecretRoom()).then(s=>{
     w.style.display = s ? 'flex' : 'none';
     const mr=document.getElementById('fsSecretMusicRow'), mc=document.getElementById('fsSecretMusic');
-    if(mr) mr.style.display = s ? '' : 'none';
+    if(mr) mr.style.display = (s && listen.ENABLED) ? '' : 'none';
     if(mc) mc.checked = _secretMusicOn();
     if(s && inp && !inp.value) inp.value=s.code.replace(/^SCRT-/,'');
   }).catch(e=>{ console.warn('[방] 내 시크릿룸 칸을 그리지 못했어요', e); });
@@ -592,6 +593,14 @@ async function startRoom(code){
     if(why) toast(why); else TwErrorCodes.notify('E-ROOM-08', r && r.code);
     _clearPendingCreate();
     refreshInviteUI();
+    return;
+  }
+  /* 🎧 같이 듣기 스위치가 꺼진 동안의 같이 듣기 방(옛 판 앱이 만든 방) — 들어가기 전에는 알 길이 없어(peek 에 music 이 없다) 들어온 답의 meta 로 보고 바로 나온다 */
+  if(listen.isBlockedRoom(r.meta)){
+    console.warn('[방] 같이 듣기 방이라 들어가지 않습니다 —', code);
+    await doLeaveRoom();   // 채널 · meta 사본까지 방 밖 상태로(나가기와 같은 한 길)
+    toast(listen.BLOCKED_TEXT);
+    _clearPendingCreate();
     return;
   }
   /* 빈 방을 열었는데 접두어가 채널과 다르면 같은 4자리의 맞는 접두어 방으로 옮긴다(PLAY-AB12 빈 방에 미보유자 → WORK-AB12, 반대도 같다).
