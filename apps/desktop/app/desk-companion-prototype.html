@@ -796,6 +796,12 @@
   .chat-tool-btn.on{background:var(--win-face-2);outline:1px solid var(--ink);}
   .chat-input{background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
     padding:6px;font-size:12px;color:#111;font-family:inherit;border-radius:var(--win-radius-el) !important;}
+  .chat-input-line{display:flex;gap:4px;align-items:stretch;}
+  .chat-input-line .chat-input{flex:1;min-width:0;}
+  .chat-send-btn{flex:none;padding:0 10px;font-size:12px;font-weight:bold;font-family:inherit;color:var(--ink);background:var(--win-face);cursor:pointer;
+    border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
+  .chat-send-btn:hover{background:var(--win-face-2);}
+  .chat-send-btn:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
   .chat-profile{width:74px;background:var(--win-face-2);border:2px solid;
     border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
     display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:74px;border-radius:var(--win-radius-el) !important;}
@@ -7859,7 +7865,11 @@
         </div>
         <!-- ⚠️ 채팅이 꺼지면 placeholder 를 갈아 끼운다(입력칸을 잠그지는 않는다 —
              😊 이모티콘이 이 칸에 /명령어를 꽂아 Enter 로 나가는 구조라 잠그면 이모티콘까지 죽는다). -->
-        <input type="text" id="chatInput" class="chat-input" placeholder="메시지 입력 후 Enter" maxlength="500" autocomplete="off">
+        <!-- [보내기] — Enter 와 같은 한 길(chat-window.js). 입력칸과 한 줄 -->
+        <div class="chat-input-line">
+          <input type="text" id="chatInput" class="chat-input" placeholder="메시지 입력 후 Enter" maxlength="500" autocomplete="off">
+          <button type="button" id="chatSendBtn" class="chat-send-btn" title="보내기 (Enter)">보내기</button>
+        </div>
         <!-- 🌊 날리기 — 체크하고 보내면 글자가 화면을 가로질러 흐른다(니코동식).
              ★ 자리: `.chat-input-col` **안**, 입력칸 바로 아래다. 처음엔 `.chat-inputrow` 밖의
                형제로 뒀는데, 프로필 칸(74px)이 입력칸보다 키가 커서 그 아래로 밀려나
