@@ -41,12 +41,33 @@ say('── 2. 같은 이름 두 번');
   chk(parse(T([A, A, A])).dupes.length === 2, '세 번이면 두 번 알림');
 }
 
-say('── 3. run.js 가 겹침을 빨강으로 센다');
+say('── 3. run.js 를 임시 폴더에서 실제로 돌린다(--list · 정본 대조)');
+const os = require('os');
+const crypto = require('crypto');
+const { spawnSync } = require('child_process');
+const RUN_SRC = fs.readFileSync(path.join(__dirname, 'run.js'), 'utf8');
+const SIM_X = "console.log('  ✓ x'); console.log('1 통과 · 0 실패');\n";
+const sha12 = (t) => crypto.createHash('sha256').update(t).digest('hex').slice(0, 12);
+const ROW_X = `| **sim-x.js** | 2 | **${sha12(SIM_X)}** |`;
+const ROW_X_OLD = '| **sim-x.js** | 1 | **000000000000** ';
+function runList(rows, runSrc = RUN_SRC){
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tw-manifest-'));
+  const dir = path.join(root, 'checks');
+  fs.mkdirSync(dir);
+  fs.writeFileSync(path.join(dir, 'run.js'), runSrc);
+  fs.writeFileSync(path.join(dir, 'manifest.js'), ORIG);
+  fs.writeFileSync(path.join(dir, 'sim-x.js'), SIM_X);
+  fs.writeFileSync(path.join(dir, 'CHECKS.md'), T(rows) + '\n');
+  const r = spawnSync(process.execPath, [path.join(dir, 'run.js'), '--list'], { cwd: root, encoding: 'utf8', timeout: 60000 });
+  fs.rmSync(root, { recursive: true, force: true });
+  return { code: r.status, out: (r.stdout || '') + (r.stderr || '') };
+}
 {
-  const run = fs.readFileSync(path.join(__dirname, 'run.js'), 'utf8');
-  chk(/require\('\.\/manifest\.js'\)\.parseManifest/.test(run), 'run.js 가 manifest.js 로 표를 읽는다(읽기 규칙 한 벌)');
-  chk(/for \(const name of read\.dupes\)\{ bad\+\+/.test(run), 'run.js 가 dupes 마다 bad 를 올린다(종료 코드 1)');
-  chk(/NOT_CHECKS = new Set\(\[[^\]]*'manifest\.js'/.test(run), 'manifest.js 는 검사 목록에서 빠진다');
+  const clean = runList([ROW_X]);
+  chk(clean.code === 0, '깨끗한 표 → 종료 코드 0');
+  chk(!/manifest\.js/.test(clean.out.split('정본 대조')[0] || ''), '검사 목록에 manifest.js 가 안 나온다');
+  const dup = runList([ROW_X_OLD, ROW_X]);
+  chk(dup.code === 1 && /sim-x\.js — 표에 두 번 있다/.test(dup.out), '같은 이름 옛 줄(꼬리 | 없음) → «표에 두 번 있다» · 종료 코드 1');
 }
 
 say('── 4. mutation test');
@@ -55,6 +76,9 @@ say('── 4. mutation test');
   chk(noDup !== ORIG && load(noDup)(T([A_OLD, A])).dupes.length === 0, '겹침 알림을 지우면 위 2절이 빨강(옛 줄을 못 잡음)');
   const firstWins = ORIG.replace('map.set(name, hash);', 'if (!map.has(name)) map.set(name, hash);');
   chk(firstWins !== ORIG && load(firstWins)(T([A_OLD, A])).map.get('sim-a.js') === '000000000000', '앞 줄을 남기게 바꾸면 대조 값이 옛 해시가 된다(2절이 잡음)');
+  const RUN_DUP = 'for (const name of read.dupes){ bad++;';
+  const noBad = RUN_SRC.includes(RUN_DUP) ? RUN_SRC.replace(RUN_DUP, 'for (const name of read.dupes){') : null;
+  chk(noBad !== null && runList([ROW_X_OLD, ROW_X], noBad).code === 0, 'run.js 사본에서 겹침의 bad++ 를 지우면 3절 판정(종료 코드 1)이 빨강' + (noBad ? '' : ' — 바꿀 글을 못 찾음'));
 }
 
 say(`\n${pass} 통과 · ${fail} 실패`);
