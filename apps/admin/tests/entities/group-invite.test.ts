@@ -6,7 +6,9 @@ import {
   groupInviteState,
   isGroupMaxUses,
   lastDay,
+  listGroupInviteUses,
   listGroupInvites,
+  toGroupInviteUses,
   toGroupInvites,
   type GroupInvite,
 } from '@/entities/invite';
@@ -145,5 +147,47 @@ describe('여러 명 초대 코드 — 쓰기', () => {
       ['invite.groupResume', '메모 없음', '0/3명'],
     ]);
     expect(writes.every((w) => w[0] === 'commit')).toBe(true);
+  });
+});
+
+describe('여러 명 초대 코드 — 가입한 사람', () => {
+  it('번호 순 · 규칙과 다른 번호 · 모양은 뺀다 · uid 가 없거나 틀리면 null', () => {
+    const uses = toGroupInviteUses({
+      '10': { token: 'tabcdefghijklmnop', at: 30, uid: 'uAbCdEfGh12' },
+      '2': { token: 'tabcdefghijklmnop', at: 20 },
+      '1': { token: 'tabcdefghijklmnop', at: 10, uid: 'Ux1234567' },
+      '0': { at: 1, uid: 'uAbCdEfGh12' },
+      '01': { at: 1 },
+      '10000': { at: 1 },
+      abc: { at: 1 },
+      '3': null,
+      '4': { at: 'x', uid: 'nope' },
+      '5': { at: 50, uid: 'u1234567' },
+    });
+    expect(uses).toEqual([
+      { n: 1, at: 10, uid: 'Ux1234567' },
+      { n: 2, at: 20, uid: null },
+      { n: 4, at: null, uid: null },
+      { n: 5, at: 50, uid: null },
+      { n: 10, at: 30, uid: 'uAbCdEfGh12' },
+    ]);
+  });
+
+  it('빈 값 → 빈 목록', () => {
+    expect(toGroupInviteUses(null)).toEqual([]);
+    expect(toGroupInviteUses({})).toEqual([]);
+  });
+
+  it('그 코드 칸 하나만 읽는다', async () => {
+    const { db } = fakeDb({
+      'groupInviteUses/INVT-AAAA-AAAA': { '1': { token: 'tabcdefghijklmnop', at: 5, uid: 'uAbCdEfGh12' } },
+      'groupInviteUses/INVT-BBBB-BBBB': { '1': { token: 'tabcdefghijklmnop', at: 6 } },
+    });
+    const paths: string[] = [];
+    const get = db.get.bind(db);
+    db.get = ((path: string) => (paths.push(path), get(path))) as typeof db.get;
+    expect(await listGroupInviteUses(db, 'INVT-AAAA-AAAA')).toEqual([{ n: 1, at: 5, uid: 'uAbCdEfGh12' }]);
+    expect(paths).toEqual(['groupInviteUses/INVT-AAAA-AAAA']);
+    expect(await listGroupInviteUses(db, 'INVT-CCCC-CCCC')).toEqual([]);
   });
 });

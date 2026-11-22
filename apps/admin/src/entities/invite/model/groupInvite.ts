@@ -76,3 +76,28 @@ export function toGroupInvites(raw: Record<string, Record<string, unknown> | nul
     }))
     .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
 }
+
+/** groupInviteUses/{code}/{n} 한 줄 — 몇 번째로 들어왔나 · 언제 · 누구(0.12.x 앱이 가입 뒤에 남김, 못 남겼으면 null). */
+export interface GroupInviteUse {
+  n: number;
+  at: number | null;
+  uid: string | null;
+}
+
+// 규칙 groupInviteUses/$code/$n · uid 모양과 같다.
+const USE_N_RE = /^[1-9][0-9]{0,3}$/;
+const USE_UID_RE = /^[uU][0-9a-zA-Z]{8,40}$/;
+
+/** groupInviteUses/{code} → 먼저 들어온 사람부터. 번호 · 모양이 틀린 줄은 뺀다. */
+export function toGroupInviteUses(
+  raw: Record<string, Record<string, unknown> | null> | null,
+): GroupInviteUse[] {
+  return Object.entries(raw ?? {})
+    .filter(([n, v]) => USE_N_RE.test(n) && v && typeof v === 'object')
+    .map(([n, v]) => ({
+      n: Number(n),
+      at: num(v!.at),
+      uid: typeof v!.uid === 'string' && USE_UID_RE.test(v!.uid) ? v!.uid : null,
+    }))
+    .sort((a, b) => a.n - b.n);
+}

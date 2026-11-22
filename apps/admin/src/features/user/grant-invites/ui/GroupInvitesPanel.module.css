@@ -1,4 +1,4 @@
-/* 외부인 초대장 — 입력 세 칸 · 만든 코드 표 */
+/* 외부인 초대장 — 입력 세 칸 · 만든 코드 표 · 펼친 가입자 표 */
 .form {
   display: grid;
   gap: 8px;
@@ -34,4 +34,8 @@
   display: flex;
   justify-content: flex-end;
   margin-top: 4px;
+}
+
+.uses {
+  padding: 8px 12px 12px;
 }

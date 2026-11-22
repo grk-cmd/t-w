@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import {
   endOfDay,
   GROUP_INVITE_MAX_USES,
@@ -6,10 +6,13 @@ import {
   groupInviteState,
   isGroupMaxUses,
   lastDay,
+  useGroupInviteUses,
   useGroupInvites,
   type GroupInvite,
+  type GroupInviteUse,
   type GroupInviteState,
 } from '@/entities/invite';
+import { realName, useUserName } from '@/entities/user';
 import { useEnv, withProdMark } from '@/shared/api';
 import { copyText, errorMessage, formatDate, kstDateKey } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
@@ -122,6 +125,7 @@ export function GroupInvitesPanel() {
                 state={groupInviteState(g, now)}
                 busy={stop.isPending}
                 onCopy={() => copy(g.code)}
+                onCopyUid={copy}
                 onStop={(s) => stop.mutate({ invite: g, stop: s })}
               />
             ))}
@@ -132,39 +136,136 @@ export function GroupInvitesPanel() {
   );
 }
 
+/** 이름을 한 사람씩 읽으니(users/{uid}/profile/name) 한 번에 이만큼만 펼친다. */
+const USES_PAGE = 50;
+const COLS = 6;
+
 function Row({
   invite,
   state,
   busy,
   onCopy,
+  onCopyUid,
   onStop,
 }: {
   invite: GroupInvite;
   state: GroupInviteState;
   busy: boolean;
   onCopy: () => void;
+  onCopyUid: (uid: string) => void;
   onStop: (stop: boolean) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Fragment>
+      <tr>
+        <td>
+          <button type="button" className="btn" title="복사" onClick={onCopy}>
+            <code className="key">{invite.code}</code>
+          </button>
+        </td>
+        <td>{invite.note || <span className="soft">—</span>}</td>
+        <td>
+          {invite.usedCount} / {invite.maxUses}명{' '}
+          <button type="button" className="btn" aria-expanded={open} onClick={() => setOpen(!open)}>
+            {open ? '접기' : '가입한 사람'}
+          </button>
+        </td>
+        <td title={invite.createdAt !== null ? `만든 날 ${formatDate(invite.createdAt)}` : undefined}>
+          {invite.expiresAt !== null ? (
+            `${lastDay(invite.expiresAt)}까지`
+          ) : (
+            <span className="soft">없음</span>
+          )}
+        </td>
+        <td>{STATE_LABEL[state]}</td>
+        <td>
+          <button type="button" className="btn" disabled={busy} onClick={() => onStop(state !== 'stopped')}>
+            {state === 'stopped' ? '다시 열기' : '중지'}
+          </button>
+        </td>
+      </tr>
+      {open && (
+        <tr>
+          <td colSpan={COLS} className={styles.uses}>
+            <Uses code={invite.code} onCopyUid={onCopyUid} />
+          </td>
+        </tr>
+      )}
+    </Fragment>
+  );
+}
+
+// 0.13.0 부터 가입은 서버(POST /v2/users)가 받아 앱이 groupInviteUses 를 쓰지 않는다 — 서버가 남기기 전까지 이 목록엔 0.12.x 앱 가입자만 있다.
+function Uses({ code, onCopyUid }: { code: string; onCopyUid: (uid: string) => void }) {
+  const uses = useGroupInviteUses(code, true);
+  const [shown, setShown] = useState(USES_PAGE);
+  if (uses.isPending) return <p className="soft">불러오는 중…</p>;
+  if (uses.error)
+    return <p className="msg err">{errorMessage(uses.error, '가입한 사람을 불러오지 못했어요')}</p>;
+  const note = (
+    <p className="soft">
+      0.12.x 앱으로 가입한 사람만 보여요. 0.13.0 이상 앱 가입은 서버가 받아 아직 여기에 남지 않아요.
+      유저코드는 가입을 마친 뒤에 남겨서 빠진 줄이 있을 수 있어요.
+    </p>
+  );
+  if (uses.data.length === 0)
+    return (
+      <>
+        <p className="soft">이 코드로 들어온 기록이 없어요</p>
+        {note}
+      </>
+    );
+  return (
+    <>
+      {note}
+      <table className={styles.table} aria-label={`${code} 로 가입한 사람`}>
+        <thead>
+          <tr>
+            <th>번호</th>
+            <th>들어온 시각</th>
+            <th>유저코드</th>
+            <th>이름</th>
+          </tr>
+        </thead>
+        <tbody>
+          {uses.data.slice(0, shown).map((u) => (
+            <UseRow key={u.n} use={u} onCopyUid={onCopyUid} />
+          ))}
+        </tbody>
+      </table>
+      {uses.data.length > shown && (
+        <div className={styles.actions}>
+          <button type="button" className="btn" onClick={() => setShown(shown + USES_PAGE)}>
+            더 보기 ({uses.data.length - shown}명 남음)
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
+function UseRow({ use, onCopyUid }: { use: GroupInviteUse; onCopyUid: (uid: string) => void }) {
+  const name = useUserName(use.uid ?? '', use.uid !== null);
   return (
     <tr>
+      <td>{use.n}</td>
+      <td>{use.at !== null ? formatDate(use.at) : <span className="soft">—</span>}</td>
       <td>
-        <button type="button" className="btn" title="복사" onClick={onCopy}>
-          <code className="key">{invite.code}</code>
-        </button>
+        {use.uid !== null ? (
+          <button type="button" className="btn" title="복사" onClick={() => onCopyUid(use.uid!)}>
+            <code className="key soft">{use.uid}</code>
+          </button>
+        ) : (
+          <span className="soft">유저코드 없음</span>
+        )}
       </td>
-      <td>{invite.note || <span className="soft">—</span>}</td>
-      <td>
-        {invite.usedCount} / {invite.maxUses}명
-      </td>
-      <td title={invite.createdAt !== null ? `만든 날 ${formatDate(invite.createdAt)}` : undefined}>
-        {invite.expiresAt !== null ? `${lastDay(invite.expiresAt)}까지` : <span className="soft">없음</span>}
-      </td>
-      <td>{STATE_LABEL[state]}</td>
-      <td>
-        <button type="button" className="btn" disabled={busy} onClick={() => onStop(state !== 'stopped')}>
-          {state === 'stopped' ? '다시 열기' : '중지'}
-        </button>
-      </td>
+      <td>{use.uid === null ? <span className="soft">—</span> : nameCell(name)}</td>
     </tr>
   );
+}
+
+function nameCell(q: { isPending: boolean; data?: string | null }) {
+  if (q.isPending) return <span className="soft">…</span>;
+  return realName(q.data) ?? <span className="soft">(이름 없음)</span>;
 }

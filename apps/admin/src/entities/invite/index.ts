@@ -30,7 +30,15 @@ export {
   toIssuedInvites,
   type IssuedInvite,
 } from './model/invite';
-export { createGroupInvite, GROUP_INVITES_KEY, listGroupInvites, useGroupInvites } from './api/groupInvite';
+export {
+  createGroupInvite,
+  GROUP_INVITES_KEY,
+  groupInviteUsesKey,
+  listGroupInviteUses,
+  listGroupInvites,
+  useGroupInviteUses,
+  useGroupInvites,
+} from './api/groupInvite';
 export {
   endOfDay,
   GROUP_INVITE_MAX_USES,
@@ -39,7 +47,9 @@ export {
   isGroupMaxUses,
   lastDay,
   toGroupInvites,
+  toGroupInviteUses,
   type GroupInvite,
+  type GroupInviteUse,
   type GroupInviteDraft,
   type GroupInviteRecord,
   type GroupInviteState,

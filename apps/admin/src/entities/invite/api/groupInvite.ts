@@ -5,7 +5,9 @@ import {
   GROUP_INVITE_NOTE_MAX,
   isGroupMaxUses,
   toGroupInvites,
+  toGroupInviteUses,
   type GroupInvite,
+  type GroupInviteUse,
   type GroupInviteDraft,
   type GroupInviteRecord,
 } from '../model/groupInvite';
@@ -52,4 +54,22 @@ export async function listGroupInvites(db: Db): Promise<GroupInvite[]> {
 export function useGroupInvites(enabled: boolean) {
   const db = useDb();
   return useQuery({ queryKey: GROUP_INVITES_KEY, queryFn: () => listGroupInvites(db), enabled });
+}
+
+export const groupInviteUsesKey = (code: string) => ['groupInviteUses', code];
+
+/** 그 코드로 들어온 사람 — 관리자만 읽는다. 펼친 코드 한 개 칸만 받는다(코드 전체를 받지 않는다). */
+export async function listGroupInviteUses(db: Db, code: string): Promise<GroupInviteUse[]> {
+  return toGroupInviteUses(
+    await db.get<Record<string, Record<string, unknown> | null>>(`groupInviteUses/${code}`),
+  );
+}
+
+export function useGroupInviteUses(code: string, enabled: boolean) {
+  const db = useDb();
+  return useQuery({
+    queryKey: groupInviteUsesKey(code),
+    queryFn: () => listGroupInviteUses(db, code),
+    enabled,
+  });
 }
