@@ -15,9 +15,10 @@ export {
 export { serverUserParams } from './api/server';
 export {
   useUserRowsPort,
-  type UserRowsKeysetPort,
   type UserRowsPagedPort,
   type UserRowsPort,
+  type UserRowsServerPort,
+  type UserServerPage,
 } from './api/index';
 export {
   refreshUsers,
@@ -27,7 +28,7 @@ export {
   useSameLicenseUsers,
   useUserByCode,
   useUserPage,
-  useUserPageKeyset,
+  useUserPageServer,
   useUsersByCode,
   useUserStats,
 } from './model/useUserRows';

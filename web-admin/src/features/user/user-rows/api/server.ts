@@ -1,5 +1,5 @@
-// API 판 — `GET /v2/admin/users`(키셋 · 서버가 거르고 찾고 세고 정렬) · `/users/stats`.
-// 웹은 받은 쪽을 거르거나 세지 않는다 — 조건은 모두 쿼리로 보내고 수는 첫 쪽 `total` 을 쓴다.
+// API 판 — `GET /v2/admin/users`(쪽 번호 `page` · 서버가 거르고 찾고 세고 정렬) · `/users/stats`.
+// 웹은 받은 쪽을 거르거나 세지 않는다 — 조건은 모두 쿼리로 보내고 수는 쪽마다 오는 `total` 을 쓴다.
 import {
   toServerUserRow,
   toVersionCounts,
@@ -21,7 +21,7 @@ import {
   type ApiParams,
 } from '@/shared/api';
 import { BULK_SEND_MAX, chunks, KEYSET_PAGE_MAX } from '@/shared/lib';
-import type { UserRowsKeysetPort } from './port';
+import type { UserRowsServerPort, UserServerPage } from './port';
 
 const BASE = adminPath('/users');
 
@@ -59,6 +59,14 @@ function toPage(w: unknown) {
   };
 }
 
+function toNumberedPage(w: unknown): UserServerPage {
+  const page = wireObject(w, '사용자 쪽');
+  return {
+    items: wireArray(page.items, '사용자 쪽의 items').map(toServerUserRow),
+    total: wireNumber(page.total, '사용자 쪽의 total'),
+  };
+}
+
 function toVersions(w: unknown, what: string) {
   return toVersionCounts(
     wireArray(w, what).map((v, i) => {
@@ -71,14 +79,15 @@ function toVersions(w: unknown, what: string) {
   );
 }
 
-function build(api: Api | null): UserRowsKeysetPort {
+function build(api: Api | null): UserRowsServerPort {
   return {
-    kind: 'keyset',
+    kind: 'server',
 
-    page: (query, cursor, limit) =>
+    page: (query, page, size) =>
       portCall(
         api,
-        async (a) => toPage(await a.get<unknown>(BASE, { ...serverUserParams(query), cursor, limit })),
+        async (a) =>
+          toNumberedPage(await a.get<unknown>(BASE, { ...serverUserParams(query), page, limit: size })),
         '사용자 목록을 불러오지 못했어요',
       ),
 

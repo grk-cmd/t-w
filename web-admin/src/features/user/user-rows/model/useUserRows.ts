@@ -1,13 +1,7 @@
-import {
-  keepPreviousData,
-  useInfiniteQuery,
-  useQuery,
-  useQueryClient,
-  type QueryClient,
-} from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { USER_KEYSET_KEY, type UserQuery, type UserRow } from '@/entities/user';
 import { REPLICA_LAG_MS } from '@/shared/api';
-import { KEYSET_PAGE_MAX, resetKeyset } from '@/shared/lib';
+import { resetKeyset } from '@/shared/lib';
 import { useUserRowsPort } from '../api/index';
 import type { UserRowsPort } from '../api/port';
 
@@ -42,22 +36,27 @@ export function useUserPage(query: UserQuery, page: number, size: number, enable
   });
 }
 
-/** 서버 키셋을 쪽으로 받는 판(`keyset` — API). 이어 붙이기 · 쪽 넘기기는 `useKeysetPaging` 이 한다. */
-export function useUserPageKeyset(query: UserQuery) {
+/**
+ * 서버가 고른 쪽 하나를 주는 판(`server` — API). 먼 쪽도 요청 한 번 — 앞 쪽을 이어 받지 않는다.
+ * 캐시 이름표는 쓰기 뒤 첫 쪽부터 다시 읽게 하는 `USER_KEYSET_KEY`(초대 쓰기도 이것으로 되돌린다) 그대로.
+ */
+export function useUserPageServer(query: UserQuery, page: number, size: number) {
   const port = useUserRowsPort();
   const { period } = query;
-  return useInfiniteQuery({
+  return useQuery({
     queryKey: [
       ...USER_KEYSET_KEY,
       ...queryKeyOf(query),
       period ? [period.field, period.from, period.to] : null,
+      page,
+      size,
     ],
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam }) => {
-      if (port.kind !== 'keyset') throw new Error('이 판은 사용자 목록을 쪽 번호로 받아요');
-      return port.page(query, pageParam, KEYSET_PAGE_MAX);
+    queryFn: () => {
+      if (port.kind !== 'server') throw new Error('이 판은 사용자 목록을 화면에서 쪽으로 자른다');
+      return port.page(query, page, size);
     },
-    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    // 쪽 · 조건을 바꾸는 동안 앞 쪽을 두어 화면이 비었다 찼다 하지 않게
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -119,7 +118,7 @@ function readViaApi(client: QueryClient): boolean {
 /**
  * 다시 읽기. RTDB 통째 캐시 · 상세 창 칸은 바로 무효로(원본이라 바로 맞다).
  * 목록은 예전 방식으로 읽고 있었으면 바로, API 로 읽고 있었으면 사본이 따라올 때까지 기다렸다 다시 읽는다.
- * 서버 키셋 목록은 이어 둔 쪽을 버리고 첫 쪽부터 다시 받는다.
+ * 서버 목록(API 판)은 받아 둔 쪽을 버리고 다시 받는다.
  */
 export function refreshUsers(client: QueryClient, lagMs: number = REPLICA_LAG_MS): void {
   // 상세 창만 쓰는 칸(집중 · 시크릿룸 · 신고 수)도 함께 — 열려 있는 창은 바로 다시 읽는다.

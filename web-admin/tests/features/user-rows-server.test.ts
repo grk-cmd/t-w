@@ -20,7 +20,7 @@ describe('사용자 목록 — API 판', () => {
         order: 'asc',
         period: { field: 'seen', from: '2026-11-01', to: '2026-11-03' },
       },
-      'c1',
+      3,
       100,
     );
     expect(s.calls[0].query).toEqual({
@@ -30,7 +30,7 @@ describe('사용자 목록 — API 판', () => {
       sort: 'lastSeen,asc',
       seenFrom: new Date(2026, 10, 1).toISOString(),
       seenTo: new Date(2026, 10, 4).toISOString(),
-      cursor: 'c1',
+      page: 3,
       limit: 100,
     });
   });
@@ -38,27 +38,37 @@ describe('사용자 목록 — API 판', () => {
   it('기본 조건은 쿼리에 싣지 않고, 가입일 기간은 joined* 로 보낸다', async () => {
     const s = fakeApiOf({ 'GET /v2/admin/users': () => ({ items: [], nextCursor: null, total: 0 }) });
     const port = createServerUserRowsPort(s.api);
-    await port.page(ALL, undefined, 100);
-    await port.page({ ...ALL, period: { ...NO_PERIOD, from: '2026-11-01', to: '' } }, undefined, 100);
-    expect(s.calls[0].query).toEqual({ cursor: undefined, limit: 100 });
+    await port.page(ALL, 1, 100);
+    await port.page({ ...ALL, period: { ...NO_PERIOD, from: '2026-11-01', to: '' } }, 1, 100);
+    expect(s.calls[0].query).toEqual({ page: 1, limit: 100 });
     expect(s.calls[1].query).toMatchObject({ joinedFrom: new Date(2026, 10, 1).toISOString() });
     expect(s.calls[1].query).not.toHaveProperty('joinedTo', expect.anything());
   });
 
-  it('쪽을 줄로 바꾸고 첫 쪽의 total · 다음 커서를 그대로 둔다(웹이 세지 않는다)', async () => {
+  it('먼 쪽도 요청 한 번 — 70쪽은 page=70 하나만 묻는다(앞 쪽을 이어 받지 않는다)', async () => {
+    const s = fakeApiOf({
+      'GET /v2/admin/users': () => ({ items: [], nextCursor: null, total: 3480, page: 70 }),
+    });
+    const page = await createServerUserRowsPort(s.api).page(ALL, 70, 50);
+    expect(s.calls).toHaveLength(1);
+    expect(s.calls[0].query).toEqual({ page: 70, limit: 50 });
+    expect(page.total).toBe(3480);
+  });
+
+  it('쪽을 줄로 바꾸고 서버가 센 total 을 그대로 둔다(웹이 세지 않는다)', async () => {
     const s = fakeApiOf({
       'GET /v2/admin/users': () => ({
         items: [
           serverRow('u1'),
           serverRow('u2', { online: null, license: null, appVersion: null, lastSeenAt: null }),
         ],
-        nextCursor: 'next',
+        nextCursor: null,
         total: 1234,
+        page: 1,
       }),
     });
-    const page = await createServerUserRowsPort(s.api).page(ALL, undefined, 100);
+    const page = await createServerUserRowsPort(s.api).page(ALL, 1, 100);
     expect(page.total).toBe(1234);
-    expect(page.nextCursor).toBe('next');
     expect(page.items[1]).toMatchObject({ licenseState: 'none', license: null, ver: null });
     expect(page.items[1].live.presence).toMatchObject({ online: null, lastSeen: null });
   });
@@ -108,7 +118,7 @@ describe('사용자 목록 — API 판', () => {
       }),
     });
     const e = await createServerUserRowsPort(s.api)
-      .page(ALL, undefined, 100)
+      .page(ALL, 1, 100)
       .catch((x: unknown) => x);
     expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
   });

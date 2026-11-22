@@ -20,4 +20,4 @@ export function useUserRowsPort(): UserRowsPort {
   );
 }
 
-export type { UserRowsKeysetPort, UserRowsPagedPort, UserRowsPort } from './port';
+export type { UserRowsPagedPort, UserRowsPort, UserRowsServerPort, UserServerPage } from './port';

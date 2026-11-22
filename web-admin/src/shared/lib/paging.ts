@@ -99,3 +99,31 @@ export function usePaging<T>(items: readonly T[], listKey: string): Paging<T> {
     },
   };
 }
+
+/** 서버가 고른 쪽 하나를 주는 목록의 쪽 상태 — 줄은 서버가 주니 들지 않는다. */
+export type ServerPaging = Omit<Paging<never>, 'items'>;
+
+/**
+ * 서버가 쪽을 골라 주는 목록 — 화면은 전체 수만 들고 고른 쪽을 서버에 묻는다. 개수는 [usePaging] 처럼 listKey 별로 기억.
+ * 요청할 쪽은 [ServerPaging.page] — 전체 수가 줄면 끝 쪽으로 맞춘 값이다([total] 은 마지막으로 받은 수).
+ */
+export function useServerPaging(total: number, listKey: string): ServerPaging {
+  const [want, setWant] = useState(1);
+  const [size, setSizeState] = useState(() => readPageSize(listKey));
+  const pageCount = Math.max(1, Math.ceil(total / size));
+  const page = Math.min(want, pageCount);
+  return {
+    page,
+    pageCount,
+    want,
+    size,
+    total,
+    start: (page - 1) * size,
+    setPage: (next) => setWant(Math.max(1, next)),
+    setSize: (next) => {
+      savePageSize(listKey, next);
+      setWant(pageForSize(page, size, next));
+      setSizeState(next);
+    },
+  };
+}
