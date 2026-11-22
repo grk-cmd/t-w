@@ -129,6 +129,12 @@ describe('코드마다 가입한 사람 — API 판', () => {
     ]);
   });
 
+  it('첫 쪽에 total 이 없으면 약속과 다른 응답', async () => {
+    const s = fakeApiOf({ [PATH]: () => ({ items: [use(1)], nextCursor: null }) });
+    const e = await caught(createServerInvitePort(s.api).uses('INVT-AAAA-BBBB', undefined, 100));
+    expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
+  });
+
   it('칸이 약속과 다르면 던진다(seq 가 글자)', async () => {
     const s = fakeApiOf({ [PATH]: () => ({ items: [use(1, { seq: '1' })], nextCursor: null, total: 1 }) });
     const e = await caught(createServerInvitePort(s.api).uses('INVT-AAAA-BBBB', undefined, 100));

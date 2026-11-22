@@ -1,6 +1,7 @@
 // Firebase 판 — 지금 코드 그대로: 초대권 · 초대 코드를 RTDB 에서 읽고 쓴다(트랜잭션).
 import type { Db } from '@/shared/api';
 import type { KeysetPage } from '@/shared/lib';
+import { getUserName } from '@/entities/user/@x/invite';
 import {
   addInvites,
   genInviteCode,
@@ -123,7 +124,7 @@ export async function listGroupInvites(db: Db): Promise<GroupInvite[]> {
 
 /**
  * 그 코드로 들어온 사람 한 쪽 — 펼친 코드 한 칸(groupInviteUses/{code})만 읽는다. 이름은 이 쪽 사람만 한 칸씩 읽는다.
- * 쪽 표시(cursor)는 몇 번째 줄부터인지 — 쪽마다 그 칸을 다시 받지만 한 줄이 작아 코드 한 개 몫은 작다.
+ * 쪽 표시(cursor)는 몇 번째 줄부터인지 — 쪽마다 그 칸을 다시 받는다(꽉 찬 5000명 코드면 쪽마다 수백 KB · 지금 Hosting 은 API 판이라 이 판은 dev 몫).
  */
 export async function listGroupInviteUses(
   db: Db,
@@ -131,6 +132,8 @@ export async function listGroupInviteUses(
   cursor: string | undefined,
   limit: number,
 ): Promise<KeysetPage<GroupInviteUse>> {
+  // 빈 코드면 groupInviteUses 통째가 된다 — 읽지 않는다.
+  if (!code || limit <= 0) return { items: [], nextCursor: null, total: cursor === undefined ? 0 : null };
   const all = toGroupInviteUses(
     await db.get<Record<string, Record<string, unknown> | null>>(`groupInviteUses/${code}`),
   );
@@ -139,11 +142,7 @@ export async function listGroupInviteUses(
   const items = await Promise.all(
     all
       .slice(from, end)
-      .map(async (u) =>
-        u.userCode === null
-          ? u
-          : { ...u, name: await db.get<string>(`users/${u.userCode}/profile/name`).catch(() => null) },
-      ),
+      .map(async (u) => (u.userCode === null ? u : { ...u, name: await getUserName(db, u.userCode) })),
   );
   return {
     items,

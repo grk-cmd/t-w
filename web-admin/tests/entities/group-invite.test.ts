@@ -210,6 +210,19 @@ describe('여러 명 초대 코드 — 가입한 사람(Firebase 판)', () => {
       nextCursor: null,
       total: null,
     });
+    // 딱 맞는 끝 — 끝 쪽 다음에 빈 쪽 커서를 만들지 않는다.
+    expect((await listGroupInviteUses(db, 'INVT-AAAA-AAAA', undefined, 3)).nextCursor).toBeNull();
+    expect((await listGroupInviteUses(db, 'INVT-AAAA-AAAA', '1', 2)).nextCursor).toBeNull();
+
+    paths.length = 0;
+    expect(await listGroupInviteUses(db, '', undefined, 2)).toEqual({
+      items: [],
+      nextCursor: null,
+      total: 0,
+    });
+    expect(await listGroupInviteUses(db, 'INVT-AAAA-AAAA', undefined, 0)).toMatchObject({ items: [] });
+    expect(paths).toEqual([]);
+
     expect(await listGroupInviteUses(db, 'INVT-CCCC-CCCC', undefined, 2)).toEqual({
       items: [],
       nextCursor: null,

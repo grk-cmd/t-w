@@ -13,15 +13,7 @@ import {
   type GroupInviteState,
 } from '@/entities/invite';
 import { isPortError, useEnv, withProdMark } from '@/shared/api';
-import {
-  copyText,
-  errorMessage,
-  formatDate,
-  keysetView,
-  kstDateKey,
-  realName,
-  useKeysetPaging,
-} from '@/shared/lib';
+import { copyText, errorMessage, formatDate, keysetView, kstDateKey, useKeysetPaging } from '@/shared/lib';
 import { Pager, useToast } from '@/shared/ui';
 import { useCreateGroupInvite, useSetGroupInviteStopped } from '../model/useGrantInvites';
 import styles from './GroupInvitesPanel.module.css';
@@ -206,7 +198,8 @@ function Row({
   );
 }
 
-// 펼쳤을 때만 그 코드 몫을 받는다. 서버가 이 목록 길을 열기 전(API 판)에는 «없음» 으로 와서 실패와 나눠 알린다.
+// 펼쳤을 때만 그 코드 몫을 받는다. 서버가 이 목록 길을 열기 전(API 판)에는 404(«없음»)로 와서 실패와 나눠 알린다 — 없는 코드는 빈 목록으로 오기로 했다.
+// TODO: 서버에 길이 생기면 404 안내를 걷는다.
 function Uses({ code, onCopyUserCode }: { code: string; onCopyUserCode: (userCode: string) => void }) {
   const query = useGroupInviteUses(code, true);
   const paging = useKeysetPaging(query, 'groupInviteUses');
@@ -259,7 +252,7 @@ function UseRow({
           <span className="soft">유저코드 없음</span>
         )}
       </td>
-      <td>{realName(use.name) ?? <span className="soft">—</span>}</td>
+      <td>{use.name ?? <span className="soft">—</span>}</td>
     </tr>
   );
 }
