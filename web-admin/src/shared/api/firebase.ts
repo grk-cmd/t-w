@@ -29,7 +29,7 @@ import {
 } from 'firebase/database';
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions';
 import { connectStorageEmulator, deleteObject, getStorage, ref as storageRef } from 'firebase/storage';
-import { API_MISSING_ROUTE, E2E_HAS_FAKE_API } from '@/shared/config';
+import { E2E_HAS_FAKE_API } from '@/shared/config';
 import { apiBaseUrl, createApi, type Api } from './api';
 import { isPermissionDenied, type Db } from './db';
 import type { Files } from './files';
@@ -180,7 +180,6 @@ export async function connectFirebase(): Promise<Firebase> {
     ? createApi({
         baseUrl,
         token: async () => (await auth.currentUser?.getIdToken()) ?? null,
-        missingRoute: API_MISSING_ROUTE,
       })
     : null;
 

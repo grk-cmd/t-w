@@ -1,5 +1,5 @@
 // API 판 — 여러 명 코드는 `GET /v2/admin/invites?group=true&cursor&limit`(여러 명 코드만 · 최근 만든 것부터 키셋), 한 사람의 남은 초대권은 사용자 상세 `GET /v2/admin/users/{userCode}` 의 `invite.invitesLeft`.
-// 코드마다 가입한 사람은 `GET /v2/admin/invites/{code}/uses?cursor&limit`(먼저 들어온 사람부터 키셋 · 첫 쪽 `total` · 이름 함께) — 서버에 아직 없다(PR «서버 작업 필요»).
+// 코드마다 가입한 사람은 `GET /v2/admin/invites/{code}/uses?cursor&limit`(먼저 들어온 사람부터 키셋 · 첫 쪽 `total` · 이름 함께) — 없는 코드 404 `INVITE_NOT_FOUND` · 모양이 틀린 코드 400 · 안 쓴 코드 200 빈 목록.
 // 화면은 쪽으로 이어 받고(`useKeysetPaging`), 전체 수는 첫 쪽 `total` 을 쓴다.
 import {
   adminPath,

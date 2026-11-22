@@ -198,14 +198,12 @@ function Row({
   );
 }
 
-// 펼쳤을 때만 그 코드 몫을 받는다. 서버가 이 목록 길을 열기 전(API 판)에는 404(«없음»)로 와서 실패와 나눠 알린다 — 없는 코드는 빈 목록으로 오기로 했다.
-// TODO: 서버에 길이 생기면 404 안내를 걷는다.
+// 펼쳤을 때만 그 코드 몫을 받는다. 없는 코드(목록을 받은 뒤 지워짐)는 notFound — 문구는 서버 code 표(API_ERROR_TEXT)에서 온다. 아무도 안 쓴 코드는 빈 목록.
 function Uses({ code, onCopyUserCode }: { code: string; onCopyUserCode: (userCode: string) => void }) {
   const query = useGroupInviteUses(code, true);
   const paging = useKeysetPaging(query, 'groupInviteUses');
   if (query.isPending) return <p className="soft">불러오는 중…</p>;
-  if (isPortError(query.error, 'notFound'))
-    return <p className="soft">서버가 아직 이 코드로 가입한 사람 기록을 주지 않아요</p>;
+  if (isPortError(query.error, 'notFound')) return <p className="soft">{query.error.message}</p>;
   if (query.error)
     return <p className="msg err">{errorMessage(query.error, '가입한 사람을 불러오지 못했어요')}</p>;
   if (paging.items.length === 0) return <p className="soft">이 코드로 들어온 기록이 없어요</p>;

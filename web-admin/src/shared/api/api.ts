@@ -21,18 +21,19 @@ export const catalogAssetUrl = (api: Pick<Api, 'baseUrl'>, hash: string): string
 export const adminPath = (path: string): string => `${ADMIN_API_BASE}${path}`;
 
 /**
- * - `unavailable` — 닿지 못함(네트워크 · CORS · 타임아웃 · 5xx · 봉투가 아닌 응답 · `missingRoute: 'unavailable'` 일 때의 404).
+ * - `unavailable` — 닿지 못함(네트워크 · CORS · 타임아웃 · 5xx · 봉투가 아닌 응답 · 서버가 모르는 주소의 404).
  * - `notReady` — 501. 서버가 아직 관리자 API 를 열지 않았다(점검 전 Firebase 모드).
  * - `auth` — 401 · 403. 그대로 보여 준다.
- * - `notFound` — `missingRoute: 'notFound'` 일 때의 404. 그 자원이 없다(서버 `code` 로 가른다).
+ * - `notFound` — 그 자원이 없다는 404(`INVITE_NOT_FOUND` 같은 서버 `code` 가 실려 온다).
  * - `request` — 그 밖의 4xx(409 포함).
  */
 export type ApiErrorKind = 'unavailable' | 'notReady' | 'auth' | 'notFound' | 'request';
 
 /**
- * 404 를 어떻게 볼까 — Firebase 판은 «서버가 아직 모르는 길»(`unavailable`), API 판은 «그 자원 없음»(`notFound`).
+ * 404 가 «그 주소를 모른다» 인가 — 서버는 처리기가 없는 주소에 일반 코드 `NOT_FOUND` 를 주고(앞단 Caddy 는 봉투 없이 준다),
+ * 없는 자원에는 `INVITE_NOT_FOUND` 처럼 구체 코드를 준다. 주소를 모르는 것은 «없음» 이 아니라 서버 판이 맞지 않는 것.
  */
-export type MissingRoute = 'unavailable' | 'notFound';
+const ROUTE_NOT_FOUND_CODES = new Set(['', 'NOT_FOUND']);
 
 export class ApiError extends Error {
   readonly kind: ApiErrorKind;
@@ -112,8 +113,6 @@ interface Options {
   token: () => Promise<string | null>;
   fetch?: typeof globalThis.fetch;
   timeoutMs?: number;
-  /** 404 를 어떻게 볼까 — 판마다 다르다(`MissingRoute`). */
-  missingRoute: MissingRoute;
 }
 
 const text = (v: unknown) => (typeof v === 'string' ? v : '');
@@ -123,7 +122,6 @@ export function createApi({
   token,
   fetch = globalThis.fetch,
   timeoutMs = API_TIMEOUT_MS,
-  missingRoute,
 }: Options): Api {
   const url = (path: string, params: ApiParams = {}) => {
     const u = new URL(baseUrl + path);
@@ -193,9 +191,13 @@ export function createApi({
     if (res.status === 501) {
       throw new ApiError('notReady', res.status, code, message || '서버가 아직 이 기능을 열지 않았어요');
     }
-    if (res.status === 404 && missingRoute === 'unavailable') {
-      // 서버가 아직 이 길을 모르는 판(배포 전 · 옛 서버)일 때다 — 닿지 못한 것과 같이 본다
-      throw new ApiError('unavailable', res.status, code, message || `API 오류 (${res.status})`);
+    if (res.status === 404 && ROUTE_NOT_FOUND_CODES.has(code)) {
+      throw new ApiError(
+        'unavailable',
+        res.status,
+        code,
+        message || '서버가 이 주소를 몰라요 — 서버 판을 확인해 주세요',
+      );
     }
     if (res.status >= 500) {
       throw new ApiError('unavailable', res.status, code, message || `API 오류 (${res.status})`);

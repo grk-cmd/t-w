@@ -141,13 +141,27 @@ describe('코드마다 가입한 사람 — API 판', () => {
     expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
   });
 
-  it('서버에 길이 아직 없으면(404) «없음» 으로 — 화면이 실패와 나눠 그린다', async () => {
+  it('없는 코드(404 INVITE_NOT_FOUND)는 notFound · 서버 code 와 표 문구를 싣는다', async () => {
     const s = fakeApiOf({
       [PATH]: () => {
-        throw new ApiError('notFound', 404, 'NOT_FOUND', '없는 길');
+        throw new ApiError('notFound', 404, 'INVITE_NOT_FOUND', '없는 초대예요');
       },
     });
     const e = await caught(createServerInvitePort(s.api).uses('INVT-AAAA-BBBB', undefined, 100));
-    expect(isPortError(e, 'notFound')).toBe(true);
+    expect(isPortError(e, 'notFound') && [e.code, e.message]).toEqual([
+      'INVITE_NOT_FOUND',
+      '없는 초대 코드예요 — 목록을 새로고침해 주세요',
+    ]);
+  });
+
+  it('서버가 이 주소를 모르면(404 NOT_FOUND) «없음» 이 아니라 닿지 못함', async () => {
+    const s = fakeApiOf({
+      [PATH]: () => {
+        throw new ApiError('unavailable', 404, 'NOT_FOUND', '요청한 주소가 없습니다.');
+      },
+    });
+    const e = await caught(createServerInvitePort(s.api).uses('INVT-AAAA-BBBB', undefined, 100));
+    expect(isPortError(e, 'unreachable')).toBe(true);
+    expect(isPortError(e, 'notFound')).toBe(false);
   });
 });

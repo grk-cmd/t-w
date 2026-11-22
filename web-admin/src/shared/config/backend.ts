@@ -22,9 +22,6 @@ export const BACKEND_LABEL: string = BACKEND === 'api' ? 'API 판' : 'Firebase �
 export const BUILD_COMMIT: string =
   typeof __ADMIN_BUILD_COMMIT__ === 'string' ? __ADMIN_BUILD_COMMIT__ : 'unknown';
 
-/** `createApi` 의 404 처리 — Firebase 판은 «서버가 아직 모르는 길», API 판은 «그 자원 없음». */
-export const API_MISSING_ROUTE: 'unavailable' | 'notFound' = BACKEND === 'api' ? 'notFound' : 'unavailable';
-
 /** e2e 에서 서버(가짜)가 있나 — API 판만 있다. Firebase 판 e2e 는 에뮬레이터 RTDB 로 읽는다. */
 export const E2E_HAS_FAKE_API: boolean = BACKEND === 'api';
 
