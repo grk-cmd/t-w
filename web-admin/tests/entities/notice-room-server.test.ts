@@ -339,7 +339,7 @@ describe('방 포트 — API 판', () => {
     expect(typeof (await port.serverTimeOffset())).toBe('number');
     // 이 모든 읽기가 목록 요청 한 번이다
     expect(s.calls.filter((c) => c.path === '/v2/admin/rooms')).toHaveLength(1);
-    expect(port.features).toEqual({ ghostCleanup: false, lastSeen: false });
+    expect(port.features).toEqual({ ghostCleanup: false, lastSeen: false, liveLoad: true });
   });
 
   it('닫기: 500개까지 한 번에, 전체는 all: true', async () => {

@@ -14,8 +14,11 @@ export interface CloseResult {
 
 /** 방 쪽 — 원격 설정(전체 방 상한 · 정원 · 대화 보관 일수)과 열린 방 보기 · 닫기. */
 export interface RoomPort {
-  /** 이 판에서 되는 화면 일 — 유령 방 청소(Firebase 판 전용) · 방의 «마지막 신호» 칸(방이 realtime 메모리인 API 판에는 없다). */
-  readonly features: { ghostCleanup: boolean; lastSeen: boolean };
+  /**
+   * 이 판에서 되는 화면 일 — 유령 방 청소(Firebase 판 전용) · 방의 «마지막 신호» 칸(방이 realtime 메모리인 API 판에는 없다)
+   * · 지금 접속 · 방 안 인원(realtime /health — 방이 realtime 에 있는 API 판만).
+   */
+  readonly features: { ghostCleanup: boolean; lastSeen: boolean; liveLoad: boolean };
   /** 한 번에 닫을 수 있는 방 수 — 제한이 없는 판은 null. 화면이 고르는 수를 여기에 맞춘다. */
   readonly closeMax: number | null;
   /** 상한 카드 안내 끝에 붙일 이 판만의 설명(없으면 ''). Firebase 판은 방 서버 장부 등록에 따라 세는 법이 달라 그것을 적는다. */

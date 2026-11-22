@@ -190,7 +190,7 @@ export async function closeAllRooms(db: Db): Promise<string[]> {
 
 export function createFirebaseRoomPort(db: Db, api: Api | null): RoomPort {
   return {
-    features: { ghostCleanup: true, lastSeen: true },
+    features: { ghostCleanup: true, lastSeen: true, liveLoad: false },
     closeMax: null,
     limitsNote:
       '방 서버 장부 등록이 켜져 있으면 Firebase 방 + 방 서버 방 합계로, 꺼져 있으면 Firebase 방만 이 값과 견줌.',
