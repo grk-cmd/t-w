@@ -40,7 +40,7 @@ const key = (method: string, path: string) => `${method.toUpperCase()} ${path}`;
 
 /**
  * 서버를 대신한다 — 로그인은 에뮬레이터가, `/v2/**` 응답은 시험이 준다.
- * 정하지 않은 길은 404 `DATA_ROUTE_NOT_FOUND` — API 판은 그 자원이 «없음» 으로 본다.
+ * 정하지 않은 주소는 진짜 서버처럼 404 `NOT_FOUND` — 웹은 «없음» 이 아니라 «서버가 이 주소를 모름»(unavailable)으로 본다.
  */
 export async function fakeApi(page: Page): Promise<FakeApi> {
   const handlers = new Map<string, ApiHandler>();
@@ -63,7 +63,7 @@ export async function fakeApi(page: Page): Promise<FakeApi> {
     const handler = handlers.get(key(request.method, request.path));
     const reply: ApiReply = handler
       ? await handler(request)
-      : { status: 404, code: 'DATA_ROUTE_NOT_FOUND', message: '없는 길이에요' };
+      : { status: 404, code: 'NOT_FOUND', message: '요청한 주소가 없습니다.' };
     const status = reply.status ?? 200;
     await route.fulfill({
       status,

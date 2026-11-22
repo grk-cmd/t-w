@@ -38,8 +38,10 @@ export const API_ERROR_TEXT: Readonly<Record<string, string>> = {
   LICENSE_ALREADY_HAVE: '이미 유효한 키가 있어요',
   LICENSE_GRANT_DUPLICATE: '같은 사람이 이 발급에 두 번 들어 있어요',
   LICENSE_REQUEST_NOT_FOUND: '이미 처리된 요청이에요',
+  // 서버가 처리기 없는 주소에 주는 일반 코드 — «없음» 이 아니라 서버 판이 맞지 않는 것
+  NOT_FOUND: '서버가 이 주소를 몰라요 — 서버 판을 확인해 주세요',
   // 초대장
-  INVITE_NOT_FOUND: '없는 초대 코드예요',
+  INVITE_NOT_FOUND: '없는 초대 코드예요 — 목록을 새로고침해 주세요',
   INVITE_MAX_BELOW_USED: '이미 쓴 수보다 인원 상한을 낮출 수 없어요',
   // 신고 · 제보
   REPORT_IMAGE_CHANGED: '그 사이 그림이 바뀌었어요',

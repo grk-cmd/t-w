@@ -198,13 +198,12 @@ function Row({
   );
 }
 
-// 펼쳤을 때만 그 코드 몫을 받는다. 없는 코드(목록을 받은 뒤 지워짐)는 서버 코드 INVITE_NOT_FOUND 로 가른다 — 아무도 안 쓴 코드는 빈 목록.
+// 펼쳤을 때만 그 코드 몫을 받는다. 없는 코드(목록을 받은 뒤 지워짐)는 notFound — 문구는 서버 code 표(API_ERROR_TEXT)에서 온다. 아무도 안 쓴 코드는 빈 목록.
 function Uses({ code, onCopyUserCode }: { code: string; onCopyUserCode: (userCode: string) => void }) {
   const query = useGroupInviteUses(code, true);
   const paging = useKeysetPaging(query, 'groupInviteUses');
   if (query.isPending) return <p className="soft">불러오는 중…</p>;
-  if (isPortError(query.error, 'notFound') && query.error.code === 'INVITE_NOT_FOUND')
-    return <p className="soft">없는 코드예요 — 목록을 새로고침해 주세요</p>;
+  if (isPortError(query.error, 'notFound')) return <p className="soft">{query.error.message}</p>;
   if (query.error)
     return <p className="msg err">{errorMessage(query.error, '가입한 사람을 불러오지 못했어요')}</p>;
   if (paging.items.length === 0) return <p className="soft">이 코드로 들어온 기록이 없어요</p>;
