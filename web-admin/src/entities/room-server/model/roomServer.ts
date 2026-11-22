@@ -44,6 +44,8 @@ export const APP_SERVER_URLS = [
   'ws://127.0.0.1:8787',
   'ws://localhost:8787',
 ];
+// 운영 realtime(0.13 서버) — API 판 웹 관리자가 /health 로 지금 접속 · 방 안 인원을 읽는 곳.
+export const PROD_REALTIME_URL = APP_SERVER_URLS[0];
 // 방 서버에 붙을 수 있는 첫 정식 앱 버전(room-server-gate.js 가 들어간 0.11.0 — 0.10.3 이라 부르던 판을 minor 로 냈다).
 // 이보다 낮으면 서버를 지정해도 그 사람 앱은 Firebase 로 연다. 0.11.0-beta.N 도 허용한다(꼬리는 보지 않음).
 // 그 전에 dev 로만 돌린 0.10.3-beta.N 시험판은 여기서 막힌다(정식 사용자 없음).

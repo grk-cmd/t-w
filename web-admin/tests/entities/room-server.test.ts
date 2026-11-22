@@ -196,6 +196,7 @@ describe('방 개수 상한', () => {
           conns: 9,
           secret: 1,
           members: 6,
+          presence: { users: 12, online: 11, watchers: 0 },
           limits: { workingroom: 400, togetherroom: 250 },
           uptimeS: 7980,
           version: 'v0.1.0 (8998273)',
@@ -208,6 +209,7 @@ describe('방 개수 상한', () => {
       conns: 9,
       secret: 1,
       members: 6,
+      online: 11,
       limits: { workingroom: 400, togetherroom: 250 },
       version: 'v0.1.0 (8998273)',
       uptimeS: 7980,
@@ -216,6 +218,7 @@ describe('방 개수 상한', () => {
     expect(await fetchServerHealth('wss://a.b', ok({ rooms: 1 }))).toMatchObject({
       secret: null,
       members: null,
+      online: null,
       limits: null,
       version: null,
       uptimeS: null,

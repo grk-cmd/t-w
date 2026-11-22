@@ -1,0 +1,11 @@
+.nums {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  align-items: baseline;
+  margin: 8px 0 4px;
+}
+
+.big {
+  font-size: 1.4em;
+}
