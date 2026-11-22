@@ -21,7 +21,7 @@ export function useRoomCodes() {
 
 export function useLiveRooms() {
   const port = useRoomPort();
-  // 방 서버가 아직 이 API 를 모르면(배포 전) 404 — 다시 해 봐도 같다.
+  // 서버 판이 맞지 않으면(이 주소를 모름) 다시 해 봐도 같다.
   return useQuery({ queryKey: LIVE_ROOMS_KEY, queryFn: () => port.getLive(), retry: false });
 }
 

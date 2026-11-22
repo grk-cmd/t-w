@@ -11,7 +11,6 @@ import {
   shouldFallback,
   viaApiOr,
   type Api,
-  type MissingRoute,
 } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 
@@ -20,11 +19,7 @@ const BASE = 'https://api.example';
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
-function api(
-  respond: (url: URL, init: RequestInit) => Promise<Response> | Response,
-  token = 'tok',
-  missingRoute: MissingRoute = 'unavailable',
-) {
+function api(respond: (url: URL, init: RequestInit) => Promise<Response> | Response, token = 'tok') {
   const calls: { url: URL; init: RequestInit }[] = [];
   const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input));
@@ -37,7 +32,6 @@ function api(
       token: async () => token || null,
       fetch,
       timeoutMs: 50,
-      missingRoute,
     }),
     calls,
   };
@@ -133,12 +127,16 @@ describe('API 통로', () => {
     expect([e500.status, e500.code]).toEqual([500, 'INTERNAL_ERROR']);
   });
 
-  it('404 — Firebase 판(missingRoute unavailable)은 «서버가 아직 모르는 길» 이라 옛 길로 넘어간다', async () => {
-    const e = await failure(
-      api(() => json(404, { success: false, code: 'BUG_NOT_FOUND', message: '없는 글' })).client.get('/v1/x'),
+  it('404 — 서버가 모르는 주소(일반 코드 NOT_FOUND · 봉투 없음)는 «없음» 이 아니라 닿지 못함 — 옛 길로 넘어간다', async () => {
+    const route = await failure(
+      api(() =>
+        json(404, { success: false, code: 'NOT_FOUND', message: '요청한 주소가 없습니다.' }),
+      ).client.get('/v2/x'),
     );
-    expect([e.kind, e.status, e.code]).toEqual(['unavailable', 404, 'BUG_NOT_FOUND']);
-    expect(shouldFallback(e)).toBe(true);
+    expect([route.kind, route.status, route.code]).toEqual(['unavailable', 404, 'NOT_FOUND']);
+    expect(shouldFallback(route)).toBe(true);
+    const bare = await failure(api(() => new Response('Not Found', { status: 404 })).client.get('/v2/x'));
+    expect([bare.kind, bare.status]).toEqual(['unavailable', 404]);
     expect(
       shouldFallback(
         await failure(
@@ -148,29 +146,24 @@ describe('API 통로', () => {
     ).toBe(false);
   });
 
-  it('404 — API 판(missingRoute notFound)은 그 자원의 «없음» 이다', async () => {
+  it('404 — 구체 코드(BUG_NOT_FOUND 등)가 실린 것만 그 자원의 «없음» — 옛 길로 넘어가지 않는다', async () => {
     const e = await failure(
-      api(
-        () => json(404, { success: false, code: 'BUG_NOT_FOUND', message: '없는 글' }),
-        'tok',
-        'notFound',
-      ).client.get('/v2/admin/x'),
+      api(() => json(404, { success: false, code: 'BUG_NOT_FOUND', message: '없는 글' })).client.get(
+        '/v2/admin/x',
+      ),
     );
     expect([e.kind, e.status, e.code]).toEqual(['notFound', 404, 'BUG_NOT_FOUND']);
     expect(errorMessage(e, '실패')).toBe('지워진 글이에요');
+    expect(shouldFallback(e)).toBe(false);
   });
 
-  it('501 은 «서버가 아직 안 열었어요»(notReady) — 판과 상관없이', async () => {
-    for (const missingRoute of ['unavailable', 'notFound'] as const) {
-      const e = await failure(
-        api(
-          () => json(501, { success: false, code: 'NOT_IMPLEMENTED', message: 'x' }),
-          'tok',
-          missingRoute,
-        ).client.get('/v2/admin/admins/me'),
-      );
-      expect([e.kind, e.status]).toEqual(['notReady', 501]);
-    }
+  it('501 은 «서버가 아직 안 열었어요»(notReady)', async () => {
+    const e = await failure(
+      api(() => json(501, { success: false, code: 'NOT_IMPLEMENTED', message: 'x' })).client.get(
+        '/v2/admin/admins/me',
+      ),
+    );
+    expect([e.kind, e.status]).toEqual(['notReady', 501]);
   });
 
   it('네트워크(CORS 거절 포함) 실패 · 타임아웃도 폴백', async () => {

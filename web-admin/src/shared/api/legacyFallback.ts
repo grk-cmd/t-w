@@ -5,7 +5,7 @@ import { LEGACY_FALLBACK_ALLOWED } from '@/shared/config';
 import { ApiError, type Api } from './api';
 
 /**
- * 예전 방식(RTDB)으로 넘어가도 되는 실패인가 — 닿지 못한 것 · 아직 안 연 서버(501) · 404(Firebase 판은 `missingRoute: 'unavailable'` 라 이것도 `unavailable`).
+ * 예전 방식(RTDB)으로 넘어가도 되는 실패인가 — 닿지 못한 것 · 아직 안 연 서버(501) · 서버가 모르는 주소(코드 없는 404 · `NOT_FOUND`).
  * 권한 · 그 밖의 요청 오류는 그대로 보여 준다.
  */
 export function shouldFallback(error: unknown, allowed: boolean = LEGACY_FALLBACK_ALLOWED): boolean {

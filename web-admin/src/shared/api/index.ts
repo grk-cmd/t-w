@@ -28,7 +28,6 @@ export {
   type ApiSendMethod,
   type ApiGetOptions,
   type ApiSendOptions,
-  type MissingRoute,
 } from './api';
 export { REPLICA_LAG_MS, shouldFallback, viaApiOr, type ApiFallback } from './legacyFallback';
 export {
