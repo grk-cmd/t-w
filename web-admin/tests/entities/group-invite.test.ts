@@ -6,7 +6,9 @@ import {
   groupInviteState,
   isGroupMaxUses,
   lastDay,
+  listGroupInviteUses,
   listGroupInvites,
+  toGroupInviteUses,
   toGroupInvites,
   type GroupInvite,
 } from '@/entities/invite';
@@ -145,5 +147,73 @@ describe('여러 명 초대 코드 — 쓰기', () => {
       ['invite.groupResume', '메모 없음', '0/3명'],
     ]);
     expect(writes.every((w) => w[0] === 'commit')).toBe(true);
+  });
+});
+
+describe('여러 명 초대 코드 — 가입한 사람(Firebase 판)', () => {
+  it('번호 순 · 규칙과 다른 번호 · 모양은 뺀다 · 유저코드가 없거나 틀리면 null', () => {
+    const uses = toGroupInviteUses({
+      '10': { token: 'tabcdefghijklmnop', at: 30, uid: 'uAbCdEfGh12' },
+      '2': { token: 'tabcdefghijklmnop', at: 20 },
+      '1': { token: 'tabcdefghijklmnop', at: 10, uid: 'Ux1234567' },
+      '0': { at: 1, uid: 'uAbCdEfGh12' },
+      '01': { at: 1 },
+      '10000': { at: 1 },
+      abc: { at: 1 },
+      '3': null,
+      '4': { at: 'x', uid: 'nope' },
+      '5': { at: 50, uid: 'u1234567' },
+    });
+    expect(uses).toEqual([
+      { n: 1, joinedAt: 10, userCode: 'Ux1234567', name: null },
+      { n: 2, joinedAt: 20, userCode: null, name: null },
+      { n: 4, joinedAt: null, userCode: null, name: null },
+      { n: 5, joinedAt: 50, userCode: null, name: null },
+      { n: 10, joinedAt: 30, userCode: 'uAbCdEfGh12', name: null },
+    ]);
+    expect(toGroupInviteUses(null)).toEqual([]);
+  });
+
+  it('그 코드 칸 하나와 그 쪽 사람 이름만 읽고 쪽을 나눈다', async () => {
+    const use = (n: number, uid?: string) => [
+      String(n),
+      { token: 'tabcdefghijklmnop', at: n, ...(uid ? { uid } : {}) },
+    ];
+    const { db } = fakeDb({
+      'groupInviteUses/INVT-AAAA-AAAA': Object.fromEntries([
+        use(1, 'uAAAAAAAA1'),
+        use(2),
+        use(3, 'uAAAAAAAA3'),
+      ]),
+      'groupInviteUses/INVT-BBBB-BBBB': Object.fromEntries([use(1, 'uBBBBBBBB1')]),
+      'users/uAAAAAAAA1/profile/name': '하나',
+      'users/uAAAAAAAA3/profile/name': '셋',
+    });
+    const paths: string[] = [];
+    const get = db.get.bind(db);
+    db.get = ((path: string) => (paths.push(path), get(path))) as typeof db.get;
+
+    const first = await listGroupInviteUses(db, 'INVT-AAAA-AAAA', undefined, 2);
+    expect(first).toEqual({
+      items: [
+        { n: 1, joinedAt: 1, userCode: 'uAAAAAAAA1', name: '하나' },
+        { n: 2, joinedAt: 2, userCode: null, name: null },
+      ],
+      nextCursor: '2',
+      total: 3,
+    });
+    expect(paths).toEqual(['groupInviteUses/INVT-AAAA-AAAA', 'users/uAAAAAAAA1/profile/name']);
+
+    const second = await listGroupInviteUses(db, 'INVT-AAAA-AAAA', '2', 2);
+    expect(second).toEqual({
+      items: [{ n: 3, joinedAt: 3, userCode: 'uAAAAAAAA3', name: '셋' }],
+      nextCursor: null,
+      total: null,
+    });
+    expect(await listGroupInviteUses(db, 'INVT-CCCC-CCCC', undefined, 2)).toEqual({
+      items: [],
+      nextCursor: null,
+      total: 0,
+    });
   });
 });

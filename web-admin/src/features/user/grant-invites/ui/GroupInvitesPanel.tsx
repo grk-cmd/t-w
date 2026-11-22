@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import {
   endOfDay,
   GROUP_INVITE_MAX_USES,
@@ -6,12 +6,22 @@ import {
   groupInviteState,
   isGroupMaxUses,
   lastDay,
+  useGroupInviteUses,
   useGroupInvites,
   type GroupInvite,
+  type GroupInviteUse,
   type GroupInviteState,
 } from '@/entities/invite';
-import { useEnv, withProdMark } from '@/shared/api';
-import { copyText, errorMessage, formatDate, keysetView, kstDateKey, useKeysetPaging } from '@/shared/lib';
+import { isPortError, useEnv, withProdMark } from '@/shared/api';
+import {
+  copyText,
+  errorMessage,
+  formatDate,
+  keysetView,
+  kstDateKey,
+  realName,
+  useKeysetPaging,
+} from '@/shared/lib';
 import { Pager, useToast } from '@/shared/ui';
 import { useCreateGroupInvite, useSetGroupInviteStopped } from '../model/useGrantInvites';
 import styles from './GroupInvitesPanel.module.css';
@@ -125,6 +135,7 @@ export function GroupInvitesPanel() {
                   state={groupInviteState(g, now)}
                   busy={stop.isPending}
                   onCopy={() => copy(g.code)}
+                  onCopyUserCode={copy}
                   onStop={(s) => stop.mutate({ invite: g, stop: s })}
                 />
               ))}
@@ -137,39 +148,118 @@ export function GroupInvitesPanel() {
   );
 }
 
+const COLS = 6;
+
 function Row({
   invite,
   state,
   busy,
   onCopy,
+  onCopyUserCode,
   onStop,
 }: {
   invite: GroupInvite;
   state: GroupInviteState;
   busy: boolean;
   onCopy: () => void;
+  onCopyUserCode: (userCode: string) => void;
   onStop: (stop: boolean) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Fragment>
+      <tr>
+        <td>
+          <button type="button" className="btn" title="복사" onClick={onCopy}>
+            <code className="key">{invite.code}</code>
+          </button>
+        </td>
+        <td>{invite.note || <span className="soft">—</span>}</td>
+        <td>
+          {invite.usedCount} / {invite.maxUses}명{' '}
+          <button type="button" className="btn" aria-expanded={open} onClick={() => setOpen(!open)}>
+            {open ? '접기' : '가입한 사람'}
+          </button>
+        </td>
+        <td title={invite.createdAt !== null ? `만든 날 ${formatDate(invite.createdAt)}` : undefined}>
+          {invite.expiresAt !== null ? (
+            `${lastDay(invite.expiresAt)}까지`
+          ) : (
+            <span className="soft">없음</span>
+          )}
+        </td>
+        <td>{STATE_LABEL[state]}</td>
+        <td>
+          <button type="button" className="btn" disabled={busy} onClick={() => onStop(state !== 'stopped')}>
+            {state === 'stopped' ? '다시 열기' : '중지'}
+          </button>
+        </td>
+      </tr>
+      {open && (
+        <tr>
+          <td colSpan={COLS} className={styles.uses}>
+            <Uses code={invite.code} onCopyUserCode={onCopyUserCode} />
+          </td>
+        </tr>
+      )}
+    </Fragment>
+  );
+}
+
+// 펼쳤을 때만 그 코드 몫을 받는다. 서버가 이 목록 길을 열기 전(API 판)에는 «없음» 으로 와서 실패와 나눠 알린다.
+function Uses({ code, onCopyUserCode }: { code: string; onCopyUserCode: (userCode: string) => void }) {
+  const query = useGroupInviteUses(code, true);
+  const paging = useKeysetPaging(query, 'groupInviteUses');
+  if (query.isPending) return <p className="soft">불러오는 중…</p>;
+  if (isPortError(query.error, 'notFound'))
+    return <p className="soft">서버가 아직 이 코드로 가입한 사람 기록을 주지 않아요</p>;
+  if (query.error)
+    return <p className="msg err">{errorMessage(query.error, '가입한 사람을 불러오지 못했어요')}</p>;
+  if (paging.items.length === 0) return <p className="soft">이 코드로 들어온 기록이 없어요</p>;
+  return (
+    <>
+      <table className={styles.table} aria-label={`${code} 로 가입한 사람`}>
+        <thead>
+          <tr>
+            <th>번호</th>
+            <th>들어온 시각</th>
+            <th>유저코드</th>
+            <th>이름</th>
+          </tr>
+        </thead>
+        <tbody>
+          {paging.items.map((u) => (
+            <UseRow key={u.n} use={u} onCopyUserCode={onCopyUserCode} />
+          ))}
+        </tbody>
+      </table>
+      <Pager paging={paging} more={paging.more} />
+    </>
+  );
+}
+
+function UseRow({
+  use,
+  onCopyUserCode,
+}: {
+  use: GroupInviteUse;
+  onCopyUserCode: (userCode: string) => void;
+}) {
+  const { userCode } = use;
   return (
     <tr>
+      <td>{use.n}</td>
+      <td>{use.joinedAt !== null ? formatDate(use.joinedAt) : <span className="soft">—</span>}</td>
       <td>
-        <button type="button" className="btn" title="복사" onClick={onCopy}>
-          <code className="key">{invite.code}</code>
-        </button>
+        {userCode !== null ? (
+          <button type="button" className="btn" title="복사" onClick={() => onCopyUserCode(userCode)}>
+            <code className="key soft">{userCode}</code>
+          </button>
+        ) : (
+          <span className="soft">유저코드 없음</span>
+        )}
       </td>
-      <td>{invite.note || <span className="soft">—</span>}</td>
-      <td>
-        {invite.usedCount} / {invite.maxUses}명
-      </td>
-      <td title={invite.createdAt !== null ? `만든 날 ${formatDate(invite.createdAt)}` : undefined}>
-        {invite.expiresAt !== null ? `${lastDay(invite.expiresAt)}까지` : <span className="soft">없음</span>}
-      </td>
-      <td>{STATE_LABEL[state]}</td>
-      <td>
-        <button type="button" className="btn" disabled={busy} onClick={() => onStop(state !== 'stopped')}>
-          {state === 'stopped' ? '다시 열기' : '중지'}
-        </button>
-      </td>
+      <td>{realName(use.name) ?? <span className="soft">—</span>}</td>
     </tr>
   );
 }
