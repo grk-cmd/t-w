@@ -78,3 +78,31 @@ export function toGroupInvites(raw: Record<string, Record<string, unknown> | nul
     }))
     .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
 }
+
+/** 그 코드로 들어온 사람 한 줄. 0.12.x 앱은 가입을 마친 뒤에 유저코드를 남겨 못 남긴 줄은 userCode · name 이 null. */
+export interface GroupInviteUse {
+  /** 몇 번째로 들어왔나(1부터). */
+  n: number;
+  joinedAt: number | null;
+  userCode: string | null;
+  name: string | null;
+}
+
+// 규칙 groupInviteUses/$code/$n · uid 모양과 같다.
+const USE_N_RE = /^[1-9][0-9]{0,3}$/;
+const USE_UID_RE = /^[uU][0-9a-zA-Z]{8,40}$/;
+
+/** Firebase 판 groupInviteUses/{code} → 먼저 들어온 사람부터(이름은 아직 null). 번호 · 모양이 틀린 줄은 뺀다. */
+export function toGroupInviteUses(
+  raw: Record<string, Record<string, unknown> | null> | null,
+): GroupInviteUse[] {
+  return Object.entries(raw ?? {})
+    .filter(([n, v]) => USE_N_RE.test(n) && v && typeof v === 'object')
+    .map(([n, v]) => ({
+      n: Number(n),
+      joinedAt: num(v!.at),
+      userCode: typeof v!.uid === 'string' && USE_UID_RE.test(v!.uid) ? v!.uid : null,
+      name: null,
+    }))
+    .sort((a, b) => a.n - b.n);
+}

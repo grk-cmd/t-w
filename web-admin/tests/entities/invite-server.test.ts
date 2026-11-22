@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createServerInvitePort } from '@/entities/invite/api/server';
-import { isPortError, WIRE_SHAPE_CODE } from '@/shared/api';
+import { ApiError, isPortError, WIRE_SHAPE_CODE } from '@/shared/api';
 import { fakeApiOf } from '../shared/fakeApi';
 
 const caught = (promise: Promise<unknown>) => promise.catch((e: unknown) => e);
@@ -94,5 +94,60 @@ describe('한 사람의 남은 초대권 — API 판', () => {
     const s = fakeApiOf({ 'GET /v2/admin/users/u1': () => ({ userCode: 'u1' }) });
     const e = await caught(createServerInvitePort(s.api).invitesLeft('u1'));
     expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
+  });
+});
+
+describe('코드마다 가입한 사람 — API 판', () => {
+  const PATH = 'GET /v2/admin/invites/INVT-AAAA-BBBB/uses';
+  const use = (seq: number, over: Record<string, unknown> = {}) => ({
+    seq,
+    joinedAt: '2026-11-03T00:00:00Z',
+    userCode: `u0000000${seq}`,
+    name: `사람${seq}`,
+    ...over,
+  });
+
+  it('쪽으로 받고 첫 쪽 total · 유저코드 · 이름의 null 은 «없음»', async () => {
+    const s = fakeApiOf({
+      [PATH]: (c) =>
+        c.query?.cursor === undefined
+          ? { items: [use(1), use(2, { userCode: null, name: null })], nextCursor: 'c1', total: 3 }
+          : { items: [use(3)], nextCursor: null, total: null },
+    });
+    const port = createServerInvitePort(s.api);
+    const first = await port.uses('INVT-AAAA-BBBB', undefined, 100);
+    const second = await port.uses('INVT-AAAA-BBBB', 'c1', 100);
+    expect(first).toMatchObject({ nextCursor: 'c1', total: 3 });
+    expect([...first.items, ...second.items]).toEqual([
+      { n: 1, joinedAt: Date.parse('2026-11-03T00:00:00Z'), userCode: 'u00000001', name: '사람1' },
+      { n: 2, joinedAt: Date.parse('2026-11-03T00:00:00Z'), userCode: null, name: null },
+      { n: 3, joinedAt: Date.parse('2026-11-03T00:00:00Z'), userCode: 'u00000003', name: '사람3' },
+    ]);
+    expect(s.calls.map((c) => c.query)).toEqual([
+      { cursor: undefined, limit: 100 },
+      { cursor: 'c1', limit: 100 },
+    ]);
+  });
+
+  it('첫 쪽에 total 이 없으면 약속과 다른 응답', async () => {
+    const s = fakeApiOf({ [PATH]: () => ({ items: [use(1)], nextCursor: null }) });
+    const e = await caught(createServerInvitePort(s.api).uses('INVT-AAAA-BBBB', undefined, 100));
+    expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
+  });
+
+  it('칸이 약속과 다르면 던진다(seq 가 글자)', async () => {
+    const s = fakeApiOf({ [PATH]: () => ({ items: [use(1, { seq: '1' })], nextCursor: null, total: 1 }) });
+    const e = await caught(createServerInvitePort(s.api).uses('INVT-AAAA-BBBB', undefined, 100));
+    expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
+  });
+
+  it('서버에 길이 아직 없으면(404) «없음» 으로 — 화면이 실패와 나눠 그린다', async () => {
+    const s = fakeApiOf({
+      [PATH]: () => {
+        throw new ApiError('notFound', 404, 'NOT_FOUND', '없는 길');
+      },
+    });
+    const e = await caught(createServerInvitePort(s.api).uses('INVT-AAAA-BBBB', undefined, 100));
+    expect(isPortError(e, 'notFound')).toBe(true);
   });
 });

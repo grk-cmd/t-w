@@ -4,12 +4,19 @@ export {
   createGroupInvite,
   createInviteCode,
   getInvitesLeft,
+  listGroupInviteUses,
   listGroupInvites,
   type AddInvitesResult,
   type ClearInvitesResult,
 } from './api/firebase';
-export { GROUP_INVITES_KEY } from './api/keys';
-export { useForgetUserInvites, useGroupInvites, useInvitesLeft, useSetInvitesLeftCache } from './api/hooks';
+export { GROUP_INVITES_KEY, groupInviteUsesKey } from './api/keys';
+export {
+  useForgetUserInvites,
+  useGroupInviteUses,
+  useGroupInvites,
+  useInvitesLeft,
+  useSetInvitesLeftCache,
+} from './api/hooks';
 export { useInvitePort, type InvitePort } from './api/index';
 export {
   addInvites,
@@ -34,7 +41,9 @@ export {
   isGroupMaxUses,
   lastDay,
   toGroupInvites,
+  toGroupInviteUses,
   type GroupInvite,
+  type GroupInviteUse,
   type GroupInviteDraft,
   type GroupInviteRecord,
   type GroupInviteState,

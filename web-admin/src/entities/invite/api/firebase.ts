@@ -1,5 +1,7 @@
 // Firebase 판 — 지금 코드 그대로: 초대권 · 초대 코드를 RTDB 에서 읽고 쓴다(트랜잭션).
 import type { Db } from '@/shared/api';
+import type { KeysetPage } from '@/shared/lib';
+import { getUserName } from '@/entities/user/@x/invite';
 import {
   addInvites,
   genInviteCode,
@@ -11,7 +13,9 @@ import {
   GROUP_INVITE_NOTE_MAX,
   isGroupMaxUses,
   toGroupInvites,
+  toGroupInviteUses,
   type GroupInvite,
+  type GroupInviteUse,
   type GroupInviteDraft,
   type GroupInviteRecord,
 } from '../model/groupInvite';
@@ -118,6 +122,35 @@ export async function listGroupInvites(db: Db): Promise<GroupInvite[]> {
   return toGroupInvites(await db.get<Record<string, Record<string, unknown> | null>>('groupInvites'));
 }
 
+/**
+ * 그 코드로 들어온 사람 한 쪽 — 펼친 코드 한 칸(groupInviteUses/{code})만 읽는다. 이름은 이 쪽 사람만 한 칸씩 읽는다.
+ * 쪽 표시(cursor)는 몇 번째 줄부터인지 — 쪽마다 그 칸을 다시 받는다(꽉 찬 5000명 코드면 쪽마다 수백 KB · 지금 Hosting 은 API 판이라 이 판은 dev 몫).
+ */
+export async function listGroupInviteUses(
+  db: Db,
+  code: string,
+  cursor: string | undefined,
+  limit: number,
+): Promise<KeysetPage<GroupInviteUse>> {
+  // 빈 코드면 groupInviteUses 통째가 된다 — 읽지 않는다.
+  if (!code || limit <= 0) return { items: [], nextCursor: null, total: cursor === undefined ? 0 : null };
+  const all = toGroupInviteUses(
+    await db.get<Record<string, Record<string, unknown> | null>>(`groupInviteUses/${code}`),
+  );
+  const from = cursor === undefined ? 0 : Number(cursor);
+  const end = from + limit;
+  const items = await Promise.all(
+    all
+      .slice(from, end)
+      .map(async (u) => (u.userCode === null ? u : { ...u, name: await getUserName(db, u.userCode) })),
+  );
+  return {
+    items,
+    nextCursor: end < all.length ? String(end) : null,
+    total: cursor === undefined ? all.length : null,
+  };
+}
+
 export function createFirebaseInvitePort(db: Db): InvitePort {
   return {
     // 노드를 통째로 받는 판이라 한 쪽에 전부 싣는다(다음 쪽 없음 · 전체 수 = 받은 수).
@@ -125,6 +158,7 @@ export function createFirebaseInvitePort(db: Db): InvitePort {
       const items = await listGroupInvites(db);
       return { items, nextCursor: null, total: items.length };
     },
+    uses: (code, cursor, limit) => listGroupInviteUses(db, code, cursor, limit),
     invitesLeft: (uid) => getInvitesLeft(db, uid),
   };
 }
