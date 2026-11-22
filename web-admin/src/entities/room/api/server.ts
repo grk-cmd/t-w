@@ -61,7 +61,7 @@ export function createServerRoomPort(api: Api | null): RoomPort {
       return { value, version, raw: { effective, defaults } };
     },
     ...board,
-    features: { ghostCleanup: false, lastSeen: false },
+    features: { ghostCleanup: false, lastSeen: false, liveLoad: true },
     closeMax: CLOSE_MAX,
     limitsNote: '',
     async saveChatKeep(from, updates) {

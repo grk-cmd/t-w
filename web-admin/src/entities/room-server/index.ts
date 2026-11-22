@@ -29,6 +29,7 @@ export {
   isRoomLimit,
   parseLimitInput,
   parseRoomServerConfig,
+  PROD_REALTIME_URL,
   ROOM_LIMIT_DEFAULT,
   ROOM_LIMIT_MAX,
   ROOM_LIMIT_MIN,
