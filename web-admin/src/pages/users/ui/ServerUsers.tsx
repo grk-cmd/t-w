@@ -16,10 +16,10 @@ import {
   useRefreshUsers,
   useReloadUsers,
   useUserByCode,
-  useUserPageKeyset,
+  useUserPageServer,
   useUserStats,
 } from '@/features/user/user-rows';
-import { errorMessage, useKeysetPaging, useSelection } from '@/shared/lib';
+import { errorMessage, useSelection, useServerPaging } from '@/shared/lib';
 import { Pager, SelectionBar } from '@/shared/ui';
 import { UserDetail } from '@/widgets/user-detail';
 import { UserTable } from '@/widgets/user-table';
@@ -29,10 +29,10 @@ const LIST_KEY = 'users';
 const SEARCH_HINT_MAX = 100;
 
 /**
- * API 판 — 서버가 거르고 · 찾고 · 정렬하고 · 센다. 화면은 받은 쪽을 이어 붙여 쪽으로 자르기만 한다.
+ * API 판 — 서버가 거르고 · 찾고 · 정렬하고 · 세고 · 고른 쪽 하나를 준다(먼 쪽도 요청 한 번).
  * 기간(가입일 · 마지막 접속)도 서버 쿼리라 «사람마다 읽기» 가 없다. 선택은 지금 보이는 쪽 안에서만.
  */
-export function KeysetUsers() {
+export function ServerUsers() {
   const reload = useReloadUsers();
   const refresh = useRefreshUsers();
   const [filter, setFilter] = useState<UserFilter>('all');
@@ -52,9 +52,14 @@ export function KeysetUsers() {
   );
 
   const stats = useUserStats();
-  const list = useUserPageKeyset(query);
-  const paging = useKeysetPaging(list, LIST_KEY);
-  const items = paging.items;
+  // 쪽 수는 마지막으로 받은 전체 수로 — 받기 전에는 1쪽만 있다고 본다
+  const [knownTotal, setKnownTotal] = useState(0);
+  const paging = useServerPaging(knownTotal, LIST_KEY);
+  const list = useUserPageServer(query, paging.page, paging.size);
+  // 받은 수가 바뀌면 그린 뒤가 아니라 이번 그리기에서 바로 맞춘다(React «바뀐 값에 맞춰 상태 고치기»)
+  const total = list.data?.total;
+  if (total !== undefined && total !== knownTotal) setKnownTotal(total);
+  const items = useMemo(() => list.data?.items ?? [], [list.data]);
   const selection = useSelection(useMemo(() => items.map((r) => r.userCode), [items]));
 
   // 상세 창은 지금 쪽에 없는 사람(초대한 사람을 눌러 건너감)도 연다 — 그때만 그 한 사람을 찾는다.
@@ -138,7 +143,7 @@ export function KeysetUsers() {
           />
         </>
       )}
-      <Pager paging={paging} more={paging.more} />
+      <Pager paging={paging} />
     </section>
   );
 }

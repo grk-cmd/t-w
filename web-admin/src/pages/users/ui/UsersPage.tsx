@@ -1,7 +1,7 @@
 import { useUserRowsPort } from '@/features/user/user-rows';
-import { KeysetUsers } from './KeysetUsers';
+import { ServerUsers } from './ServerUsers';
 import { PagedUsers } from './PagedUsers';
 
 export function UsersPage() {
-  return useUserRowsPort().kind === 'keyset' ? <KeysetUsers /> : <PagedUsers />;
+  return useUserRowsPort().kind === 'server' ? <ServerUsers /> : <PagedUsers />;
 }

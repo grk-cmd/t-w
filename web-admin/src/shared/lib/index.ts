@@ -11,7 +11,9 @@ export {
   readPageSize,
   savePageSize,
   usePaging,
+  useServerPaging,
   type Paging,
+  type ServerPaging,
 } from './paging';
 export {
   pruneSelection,
