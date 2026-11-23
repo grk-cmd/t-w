@@ -4128,6 +4128,7 @@ const catalogApiMod = TwCatalogApi.createCatalogApi({
   rt: TwRtHub.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   fetch: (...a)=>window.fetch(...a),
+  storageBucket: ()=>firebaseAPI.storageBucket(),
 });
 
 /* 본문은 admin/admin-thumbs.js 로 옮겼다(구역 떼기 C · w2). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.

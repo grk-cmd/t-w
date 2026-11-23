@@ -2,7 +2,8 @@
    [왜] #887 이 서버에 없는 GET /v2/catalog/{parts·gachaParts·items·desks}?v= 를 만들었다. 서버 정본은 GET /v2/catalog 한 벌(ETag · no-cache)이다.
      이 검사는 한 벌을 앱의 세 목록(parts · items · desks)으로 펼치는 표 · 받기(로그인 통로 · 서버 locked 그대로) · 알림 · 실패(Firebase 로 안 물러남) · 로그인이 끝나면 비움을 지킨다.
    1. 펼치기 — 서버 한 벌(CatalogResponse)의 칸이 옛 레코드 칸으로(가챠 · 전용 · 위치 · 파일 주소 · 순서 · 깨진 줄 · 모양이 틀린 한 벌)
-   1-B. 파일 주소 — files(해시 → Storage 다운로드 URL)의 맞는 URL 을 쓰고, 없거나 틀린 URL(http · 다른 호스트 · 다른 버킷 · 다른 해시)은 서버 파일 길 · files 가 없으면 옛 모양 그대로
+   1-B. 파일 주소 — files(해시 → Storage 다운로드 URL)의 맞는 URL(이 앱의 버킷 하나)을 쓰고, 없거나 틀린 URL(http · 다른 호스트 · 다른 판의 버킷 · 다른 해시)은 서버 파일 길 ·
+        files 가 없으면 옛 모양 그대로 · 틀린 URL 은 앱 실행마다 한 번 warn(해시만 · URL 은 안 찍음) · 버킷은 firebase-config 의 storageBucket 하나
    2. 받기 — 길은 GET /v2/catalog 하나 · 구독 셋이 요청 하나 · 새 객체 · 같은 값은 다시 안 넘김 · 늦은 구독자
    3. 알림 — realtime catalog 알림이 다시 받기 · 받는 중 알림은 한 번 더 · 연결이 ready 가 되면 실패했을 때만 다시
    4. 실패 — E-CHAR-26 으로 드러냄 · 지난 목록을 비우지 않음 · Firebase 로 안 물러남 · 타이머로 두드리지 않음
@@ -109,14 +110,21 @@ const mkData = () => ({
   }
 
   say('── 1-B. 파일 주소 — files 의 Storage URL');
+  const PROD_B = 'together-working.firebasestorage.app', DEV_B = 'together-working-dev.firebasestorage.app';
   {
-    const SU = (h, ext, bucket) => 'https://firebasestorage.googleapis.com/v0/b/' + (bucket || 'together-working.firebasestorage.app') + '/o/assets%2F' + h + '.' + ext + '?alt=media&token=tok-1';
-    const withFiles = (files) => { const d = mkData(); d.files = files; return M.unfoldCatalog(d, assetUrl); };
-    const u = withFiles({ [H('a')]: SU(H('a'), 'glb'), [H('2')]: SU(H('2'), 'glb', 'together-working-dev.firebasestorage.app'), [H('3')]: SU(H('3'), 'webp') });
-    chk(u.parts.hat1.glbUrl === SU(H('a'), 'glb') && u.items.i1.glbUrl === SU(H('2'), 'glb', 'together-working-dev.firebasestorage.app') && u.items.i1.thumbUrl === SU(H('3'), 'webp'),
-      '★ files 에 우리 버킷(운영 · dev)의 맞는 URL 이 있으면 그 URL 을 그대로 쓴다(썸네일 확장자는 저장된 형식)');
+    const SU = (h, ext, bucket) => 'https://firebasestorage.googleapis.com/v0/b/' + (bucket || PROD_B) + '/o/assets%2F' + h + '.' + ext + '?alt=media&token=tok-1';
+    const withFiles = (files, bucket, onBad) => { const d = mkData(); d.files = files; return M.unfoldCatalog(d, assetUrl, { bucket: bucket === undefined ? PROD_B : bucket, onBad }); };
+    const u = withFiles({ [H('a')]: SU(H('a'), 'glb'), [H('2')]: SU(H('2'), 'glb'), [H('3')]: SU(H('3'), 'webp') });
+    chk(u.parts.hat1.glbUrl === SU(H('a'), 'glb') && u.items.i1.glbUrl === SU(H('2'), 'glb') && u.items.i1.thumbUrl === SU(H('3'), 'webp'),
+      '★ files 에 이 앱 버킷의 맞는 URL 이 있으면 그 URL 을 그대로 쓴다(썸네일 확장자는 저장된 형식)');
     chk(u.parts.hat1.thumbUrl === assetUrl(H('b'), 'png') && u.desks.d1.glbUrl === assetUrl(H('e'), 'glb') && u.parts.hat1.modelHash === H('a'),
       '★ 맵에 없는 해시는 서버 파일 길(GET /v2/catalog/assets/) 그대로 · 관리자 칸(modelHash)은 해시 그대로');
+    const dv = withFiles({ [H('a')]: SU(H('a'), 'glb', DEV_B), [H('2')]: SU(H('2'), 'glb') }, DEV_B);
+    chk(dv.parts.hat1.glbUrl === SU(H('a'), 'glb', DEV_B) && dv.items.i1.glbUrl === assetUrl(H('2'), 'glb')
+      && withFiles({ [H('a')]: SU(H('a'), 'glb', DEV_B) }).parts.hat1.glbUrl === assetUrl(H('a'), 'glb'),
+      '★ 버킷은 이 앱의 것 하나 — dev 앱은 dev 버킷만 · 운영 앱은 운영 버킷만(다른 판의 버킷 URL 은 서버 파일 길)');
+    chk(withFiles({ [H('a')]: SU(H('a'), 'glb') }, '').parts.hat1.glbUrl === assetUrl(H('a'), 'glb') && M.unfoldCatalog(Object.assign(mkData(), { files: { [H('a')]: SU(H('a'), 'glb') } }), assetUrl).parts.hat1.glbUrl === assetUrl(H('a'), 'glb'),
+      '  ↳ 버킷을 모르면(빈 값 · 안 넘김) files 를 쓰지 않는다');
     const BAD = [
       ['http', SU(H('a'), 'glb').replace('https:', 'http:')],
       ['다른 호스트', SU(H('a'), 'glb').replace('firebasestorage.googleapis.com', 'evil.example.com')],
@@ -124,7 +132,8 @@ const mkData = () => ({
       ['googleapis 다른 이름', SU(H('a'), 'glb').replace('firebasestorage.', 'storage.')],
       ['포트', SU(H('a'), 'glb').replace('googleapis.com/', 'googleapis.com:8443/')],
       ['계정 칸', SU(H('a'), 'glb').replace('https://', 'https://u:p@')],
-      ['다른 버킷', SU(H('a'), 'glb', 'other-project.firebasestorage.app')],
+      ['남의 버킷', SU(H('a'), 'glb', 'other-project.firebasestorage.app')],
+      ['다른 판의 버킷', SU(H('a'), 'glb', DEV_B)],
       ['다른 해시의 파일', SU(H('b'), 'glb')],
       ['assets 밖 경로', SU(H('a'), 'glb').replace('assets%2F', 'users%2Fx%2F')],
       ['alt=media 없음', SU(H('a'), 'glb').replace('alt=media&', '')],
@@ -134,14 +143,26 @@ const mkData = () => ({
       ['javascript', 'javascript:alert(1)'],
     ];
     const leaked = BAD.filter(([, v]) => withFiles({ [H('a')]: v }).parts.hat1.glbUrl !== assetUrl(H('a'), 'glb')).map(([n]) => n);
-    chk(!leaked.length, '★ 틀린 URL ' + BAD.length + '가지(http · 다른 호스트 · 다른 버킷 · 다른 해시 · 포트 · 경로 · alt …)는 쓰지 않고 서버 파일 길로' + (leaked.length ? ' — 샌 것: ' + leaked.join(' · ') : ''));
+    chk(!leaked.length, '★ 틀린 URL ' + BAD.length + '가지(http · 다른 호스트 · 남의 · 다른 판의 버킷 · 다른 해시 · 포트 · 경로 · alt …)는 쓰지 않고 서버 파일 길로' + (leaked.length ? ' — 샌 것: ' + leaked.join(' · ') : ''));
+    const bads = []; withFiles({ [H('a')]: 'http://x', [H('2')]: SU(H('2'), 'glb') }, PROD_B, (h) => bads.push(h));
+    chk(bads.join() === H('a'), '  ↳ 맵에 있는데 틀린 URL 만 onBad(해시)로 알린다(맞는 URL · 맵에 없는 해시는 알리지 않는다)');
     const plain = M.unfoldCatalog(mkData(), assetUrl);
     chk(JSON.stringify(withFiles(undefined)) === JSON.stringify(plain) && JSON.stringify(withFiles(null)) === JSON.stringify(plain) && JSON.stringify(withFiles([SU(H('a'), 'glb')])) === JSON.stringify(plain)
       && JSON.stringify(withFiles({})) === JSON.stringify(plain),
       '★ files 가 없거나(옛 서버) · 비었거나 · 맵이 아니면 옛 모양 그대로(모두 서버 파일 길)');
-    chk(M.STORAGE_BUCKETS.join() === 'together-working.firebasestorage.app,together-working-dev.firebasestorage.app'
-      && /storageBucket: "together-working\.firebasestorage\.app"/.test(FC) && /storageBucket: "together-working-dev\.firebasestorage\.app"/.test(FC),
-      '  ↳ 버킷 목록은 운영 · dev 둘 — firebase-config.js 의 storageBucket 과 같다');
+    /* 받기 — 버킷은 deps.storageBucket() · 틀린 URL 경고는 앱 실행마다 한 번 · 해시만 */
+    const warns = []; let d = mkData(); d.files = { [H('a')]: 'http://bad?token=SECRET', [H('2')]: SU(H('2'), 'glb') };
+    const api = { baseUrl: () => BASE, get: async () => JSON.parse(JSON.stringify(d)) };
+    const rt = { on: () => () => {}, onState: () => () => {} };
+    const cat = M.createCatalogApi({ api, rt, notifyError: () => {}, warn: (...a) => warns.push(a.join(' ')), storageBucket: () => PROD_B });
+    const got = []; cat.subscribe('items', (v) => got.push(v)); await flush();
+    d = mkData(); d.files = { [H('a')]: 'http://bad2', [H('b')]: 'http://bad3' }; await cat.load(); await flush();
+    chk(got[0] && got[0].i1.glbUrl === SU(H('2'), 'glb'), '★ 받기는 deps.storageBucket()(app.js — firebaseAPI.storageBucket) 버킷으로 files 를 쓴다');
+    chk(warns.length === 1 && warns[0].includes(H('a')) && !/SECRET|http/.test(warns[0]), '★ 틀린 URL 은 앱 실행마다 warn 한 줄(해시만 · URL · 토큰은 찍지 않는다) · 다시 받아도 또 찍지 않는다 · 오류 번호 없음');
+    chk(/storageBucket\(\)\{ return firebaseConfig\.storageBucket; \}/.test(strip(FI)) && /storageBucket: \(\)=>firebaseAPI\.storageBucket\(\),/.test(strip(APP))
+      && /storageBucket: "together-working\.firebasestorage\.app"/.test(FC) && /storageBucket: "together-working-dev\.firebasestorage\.app"/.test(FC)
+      && !/together-working(?:-dev)?\.firebasestorage\.app/.test(SRC),
+      '  ↳ 버킷 판단은 firebase-config.js 한 곳(firebaseAPI.storageBucket → app.js → deps) · catalog-api.js 에 버킷 이름이 없다');
     const csp = (HTML.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/) || [])[1] || '';
     const dir = (n) => ((csp.match(new RegExp('(?:^|; )' + n + ' ([^;]*)')) || [])[1] || '').split(' ');
     chk(dir('connect-src').includes('https://*.googleapis.com') && dir('img-src').includes('https:'),
@@ -268,8 +289,8 @@ const mkData = () => ({
   {
     const fi = strip(FI), app = strip(APP);
     chk(!/createCatalogApi|subscribeCatalog|fetchCatalogGlb|catalogCurrent|reloadCatalog|_catalogApi|catalog-api/.test(fi), '★ firebase-init.js 에 카탈로그 읽기 · 구독 · GLB 받기가 없다 — Firebase 를 거치지 않는다');
-    chk(/const catalogApiMod = TwCatalogApi\.createCatalogApi\(\{\s*api: TwApi\.authed,\s*rt: TwRtHub\.store,\s*notifyError: \(\.\.\.a\)=>TwErrorCodes\.notify\(\.\.\.a\),\s*fetch: \(\.\.\.a\)=>window\.fetch\(\.\.\.a\),\s*\}\);/.test(app),
-      '  ↳ app.js 가 로그인 통로(TwApi.authed) · realtime 허브 · 오류 번호 · 파일 받기로 만든다');
+    chk(/const catalogApiMod = TwCatalogApi\.createCatalogApi\(\{\s*api: TwApi\.authed,\s*rt: TwRtHub\.store,\s*notifyError: \(\.\.\.a\)=>TwErrorCodes\.notify\(\.\.\.a\),\s*fetch: \(\.\.\.a\)=>window\.fetch\(\.\.\.a\),\s*storageBucket: \(\)=>firebaseAPI\.storageBucket\(\),\s*\}\);/.test(app),
+      '  ↳ app.js 가 로그인 통로(TwApi.authed) · realtime 허브 · 오류 번호 · 파일 받기 · 이 앱의 Storage 버킷으로 만든다');
     chk(/catalog: \(code, me, session\)=>catalogSyncMod\.start\(session\),/.test(app) && /catalog: \{ current: \(\)=>catalogApiMod\.current\(\), load: \(\)=>catalogApiMod\.load\(\) \},/.test(app), '  ↳ 로그인 뒤 app-boot 차례(catalog)가 구독을 세션에 맡긴다 · 관리자 쓰기는 같은 한 벌의 version 을 읽는다');
     const st = (BOOT.match(/const STEPS = \[([\s\S]*?)\];/) || [])[1] || '';
     chk(/'userLocal'[\s\S]*'catalog'/.test(st) && st.indexOf("'catalog'") > st.indexOf("'userLocal'"), '  ↳ 차례 표에서 catalog 는 저장 목록이 읽힌 뒤(userLocal 다음)');
@@ -329,12 +350,12 @@ const mkData = () => ({
     const du = dk.subscribe('parts', () => {}); await flush(); du();
     chk(dropless !== SRC && dk.current() !== null, '  mutation test: 로그인이 끝나도 값을 안 비우면 4-B 의 «비운다» 판정이 빨강');
     /* Storage URL 검사 mutation test — 검사 한 줄을 빼면 1-B 의 틀린 URL 이 새어 나와야 한다 */
-    const SU = (h, host, bucket, proto) => (proto || 'https') + '://' + (host || 'firebasestorage.googleapis.com') + '/v0/b/' + (bucket || 'together-working.firebasestorage.app') + '/o/assets%2F' + h + '.glb?alt=media&token=t';
-    const leaks = (Mod, url) => { const d = mkData(); d.files = { [H('a')]: url }; return Mod.unfoldCatalog(d, assetUrl).parts.hat1.glbUrl === url; };
+    const SU = (h, host, bucket, proto) => (proto || 'https') + '://' + (host || 'firebasestorage.googleapis.com') + '/v0/b/' + (bucket || PROD_B) + '/o/assets%2F' + h + '.glb?alt=media&token=t';
+    const leaks = (Mod, url) => { const d = mkData(); d.files = { [H('a')]: url }; return Mod.unfoldCatalog(d, assetUrl, { bucket: PROD_B }).parts.hat1.glbUrl === url; };
     const URL_BREAKS = [
       ["u.hostname !== STORAGE_HOST || ", "", SU(H('a'), 'evil.example.com'), '호스트를 안 봄'],
       ["u.protocol !== 'https:' || ", "", SU(H('a'), null, null, 'http'), 'https 를 안 봄'],
-      ["!STORAGE_BUCKETS.includes(m[1]) || ", "", SU(H('a'), null, 'other.firebasestorage.app'), '버킷을 안 봄'],
+      ["m[1] !== bucket || ", "", SU(H('a'), null, DEV_B), '버킷을 안 봄(다른 판의 버킷)'],
       [" || m[2] !== hash) return null;", ") return null;", SU(H('b')), '다른 해시의 파일을 받음'],
     ];
     const urlMissed = [];
@@ -344,9 +365,14 @@ const mkData = () => ({
       if(leaks(M, url) || !leaks(Mut, url)) urlMissed.push(what);
     }
     chk(!urlMissed.length, '  mutation test: Storage URL 검사 ' + URL_BREAKS.length + '가지(호스트 · https · 버킷 · 해시)를 빼면 틀린 URL 이 샌다' + (urlMissed.length ? ' — 못 잡음: ' + urlMissed.join(' · ') : ''));
-    const noFiles = load(SRC.replace("storageUrlOf(data.files, hash) || ", ""));
+    const noFiles = load(SRC.replace("return url || assetUrl(hash, ext);", "return assetUrl(hash, ext);"));
     const df = mkData(); df.files = { [H('a')]: SU(H('a')) };
-    chk(noFiles.unfoldCatalog(df, assetUrl).parts.hat1.glbUrl !== SU(H('a')), '  mutation test: files 를 안 읽으면 «맞는 URL 을 쓴다» 판정이 빨강');
+    chk(noFiles.unfoldCatalog(df, assetUrl, { bucket: PROD_B }).parts.hat1.glbUrl !== SU(H('a')), '  mutation test: files 를 안 쓰면 «맞는 URL 을 쓴다» 판정이 빨강');
+    const warnMany = load(SRC.replace("if(badUrlWarned) return; ", ""));
+    const ws = []; let wd = mkData(); wd.files = { [H('a')]: 'http://x' };
+    const wc = warnMany.createCatalogApi({ api: { baseUrl: () => BASE, get: async () => JSON.parse(JSON.stringify(wd)) }, rt: { on: () => () => {}, onState: () => () => {} }, notifyError: () => {}, warn: (...a) => ws.push(a), storageBucket: () => PROD_B });
+    wc.subscribe('parts', () => {}); await flush(); wd = mkData(); wd.files = { [H('a')]: 'http://y' }; await wc.load(); await flush();
+    chk(ws.length === 2, '  mutation test: 경고를 한 번으로 막지 않으면 «앱 실행마다 한 번» 판정이 빨강');
     const own = SRC.replace("locked: d.locked === true,", "locked: licenseOnlyOf(d.listing),");
     chk(own !== SRC && load(own).unfoldCatalog(mkData(), assetUrl).desks.d3.locked === true, '  mutation test: 진열 access 로 locked 를 만들면 «서버 locked 그대로» 판정이 빨강');
   }
