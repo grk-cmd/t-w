@@ -23,9 +23,9 @@ const STATE = Object.freeze({ IN: 'in', SIGNUP: 'signup', LOGIN: 'login', LOCAL:
 const CANCELED_TEXT = '로그인이 취소됐어요';   // 옛 main 은 canceled 표시 없이 이 글만 보낸다 — 그냥 닫음으로 본다
 const RT_READY = 'ready';   // rt-hub.js 상태 이름
 const BYE_LOGOUT = 'logout';   // rt-hub.js BYE_WHY
-const LEAVE_WAIT_MS = 1500;
-const RESTORE_WAIT_MS = 60000;   // 저장된 로그인의 첫 답을 기다리는 상한 — 넘기면 기다리는 화면 + «다시 시도»(로그인 화면으로 가지 않는다)
-const RESTORING_TEXT = '로그인을 확인하는 중이에요';    // 방 나가기 기다림 상한(설계 4-D-3) — 오프라인이면 방 나가기 쓰기가 끝나지 않아 로그아웃이 멈춘다
+const LEAVE_WAIT_MS = 1500;    // 방 나가기 기다림 상한(설계 4-D-3) — 오프라인이면 방 나가기 쓰기가 끝나지 않아 로그아웃이 멈춘다
+const RESTORE_WAIT_MS = 60000;   // 저장된 로그인의 첫 답을 기다리는 상한(8초 대기선이 풀린 뒤부터 잰다 — 켤 때부터 최대 약 68초) — 넘기면 기다리는 화면 + «다시 시도»(로그인 화면으로 가지 않는다)
+const RESTORING_TEXT = '로그인을 확인하는 중이에요';    // local + restoring 의 reason 글 — 저장된 로그인의 첫 답을 기다리는 동안
 
 /* 비밀번호 가입의 요청 번호 열쇠 — 비밀번호를 바꿔 다시 누르면 새 요청(같은 번호면 서버가 처음 비밀번호의 계정을 돌려준다).
    비밀번호 글을 그대로 들고 있지 않게 짧은 지문(FNV-1a)만. */
