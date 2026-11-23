@@ -39,3 +39,14 @@
 .uses {
   padding: 8px 12px 12px;
 }
+
+/* 가입한 사람 이름 — 누르면 회원 정보 */
+.link {
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}

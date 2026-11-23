@@ -14,12 +14,20 @@ import {
 import { useEnv, withProdMark } from '@/shared/api';
 import { copyText, errorMessage, formatDate, keysetView, kstDateKey, useKeysetPaging } from '@/shared/lib';
 import { Pager, useToast } from '@/shared/ui';
+import { type FriendCodesOf } from '../model/usesSheet';
 import { useCreateGroupInvite, useSetGroupInviteStopped } from '../model/useGrantInvites';
-import { InviteUses } from './InviteUses';
+import { InviteUses, type UseActions } from './InviteUses';
 import styles from './GroupInvitesPanel.module.css';
 
 // 관리자 전용 «외부인 초대장» — 코드 하나를 정한 인원까지 쓴다. 일반 사용자는 앱에서 한 명짜리를 한 장씩 만든다(그대로).
-export function GroupInvitesPanel() {
+
+export function GroupInvitesPanel({
+  onOpenUser,
+  friendCodesOf,
+}: {
+  onOpenUser: (userCode: string) => void;
+  friendCodesOf: FriendCodesOf;
+}) {
   const env = useEnv();
   const toast = useToast();
   const list = useGroupInvites(true);
@@ -120,7 +128,7 @@ export function GroupInvitesPanel() {
                   state={groupInviteState(g, now)}
                   busy={stop.isPending}
                   onCopy={() => copy(g.code)}
-                  onCopyUserCode={copy}
+                  actions={{ copy, open: onOpenUser, friendCodes: friendCodesOf }}
                   onStop={(s) => stop.mutate({ invite: g, stop: s })}
                 />
               ))}
@@ -140,14 +148,14 @@ function Row({
   state,
   busy,
   onCopy,
-  onCopyUserCode,
+  actions,
   onStop,
 }: {
   invite: GroupInvite;
   state: GroupInviteState;
   busy: boolean;
   onCopy: () => void;
-  onCopyUserCode: (userCode: string) => void;
+  actions: UseActions;
   onStop: (stop: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -183,7 +191,7 @@ function Row({
       {open && (
         <tr>
           <td colSpan={COLS} className={styles.uses}>
-            <InviteUses code={invite.code} onCopyUserCode={onCopyUserCode} />
+            <InviteUses code={invite.code} actions={actions} />
           </td>
         </tr>
       )}

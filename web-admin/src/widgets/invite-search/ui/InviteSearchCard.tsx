@@ -9,7 +9,7 @@ import {
   type InviteFound,
 } from '@/entities/invite';
 import { ALL_USERS, USER_QUERY_MAX, type LiveUserRow } from '@/entities/user';
-import { InviteUses } from '@/features/user/grant-invites';
+import { InviteUses, type FriendCodesOf } from '@/features/user/grant-invites';
 import { useUserPageServer } from '@/features/user/user-rows';
 import { isPortError } from '@/shared/api';
 import { copyText, errorMessage, formatDate, useHashParam } from '@/shared/lib';
@@ -23,7 +23,14 @@ const NAME_HITS = 20;
  * ✉️ 초대장 검색 — 코드를 넣으면 그 코드 하나(외부인 · 개인 모두)와 가입한 사람, 이름 · 유저코드를 넣으면 맞는 사람마다 가입에 쓴 코드.
  * 검색어는 주소(#/invites?q=…)에 남아 주소를 주고받으면 같은 결과가 열린다. 코드 찾기가 없는 판(Firebase)에서는 숨긴다.
  */
-export function InviteSearchCard() {
+/** 회원 정보 창 · 엑셀 친구코드는 페이지가 맡는다 — 아래 외부인 초대장 목록과 같은 것을 넘겨 받는다. */
+export function InviteSearchCard({
+  onOpenUser,
+  friendCodesOf,
+}: {
+  onOpenUser: (userCode: string) => void;
+  friendCodesOf: FriendCodesOf;
+}) {
   const findable = useInviteFindable();
   const [q, setQ] = useHashParam('q');
   const [draft, setDraft] = useState(q);
@@ -73,7 +80,7 @@ export function InviteSearchCard() {
       </form>
       {term &&
         (INVITE_CODE_RE.test(code) ? (
-          <CodeResult key={code} code={code} />
+          <CodeResult key={code} code={code} onOpenUser={onOpenUser} friendCodesOf={friendCodesOf} />
         ) : (
           <NameResult key={term} term={term} onOpenCode={open} />
         ))}
@@ -81,7 +88,15 @@ export function InviteSearchCard() {
   );
 }
 
-function CodeResult({ code }: { code: string }) {
+function CodeResult({
+  code,
+  onOpenUser,
+  friendCodesOf,
+}: {
+  code: string;
+  onOpenUser: (userCode: string) => void;
+  friendCodesOf: FriendCodesOf;
+}) {
   const toast = useToast();
   const found = useInviteFound(code);
   const copy = async (text: string) => toast((await copyText(text)) ? '복사했어요' : '복사하지 못했어요');
@@ -94,7 +109,10 @@ function CodeResult({ code }: { code: string }) {
   return (
     <>
       <Facts invite={f} now={found.dataUpdatedAt} />
-      <InviteUses code={f.code} onCopyUserCode={(userCode) => void copy(userCode)} />
+      <InviteUses
+        code={f.code}
+        actions={{ copy: (userCode) => void copy(userCode), open: onOpenUser, friendCodes: friendCodesOf }}
+      />
     </>
   );
 }

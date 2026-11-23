@@ -21,6 +21,7 @@ export {
 } from './api/hooks';
 export type { InviteFound } from './model/inviteFound';
 export { useInvitePort, type InvitePort } from './api/index';
+export { listAllGroupInviteUses } from './api/uses';
 export {
   addInvites,
   genInviteCode,

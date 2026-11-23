@@ -4,7 +4,7 @@ import { useEnv, withProdMark } from '@/shared/api';
 import { copyText, errorMessage, shownName, usePaging } from '@/shared/lib';
 import { Pager, useToast } from '@/shared/ui';
 import { useBulkGrantPort } from '../api';
-import { downloadBytes, readSheetFile, writeXlsx, type Grid } from '../lib/sheet';
+import { downloadBytes, readSheetFile, writeXlsx, type Grid } from '@/shared/sheet';
 import {
   isActionable,
   judge,
