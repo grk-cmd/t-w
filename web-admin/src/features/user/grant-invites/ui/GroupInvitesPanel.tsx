@@ -26,7 +26,13 @@ const STATE_LABEL: Record<GroupInviteState, string> = {
 };
 
 // 관리자 전용 «외부인 초대장» — 코드 하나를 정한 인원까지 쓴다. 일반 사용자는 앱에서 한 명짜리를 한 장씩 만든다(그대로).
-export function GroupInvitesPanel() {
+/** 가입한 사람 줄에서 하는 일 — 유저코드 복사 · 회원 정보 열기(창은 페이지가 띄운다). */
+interface UseActions {
+  copy: (userCode: string) => void;
+  open: (userCode: string) => void;
+}
+
+export function GroupInvitesPanel({ onOpenUser }: { onOpenUser: (userCode: string) => void }) {
   const env = useEnv();
   const toast = useToast();
   const list = useGroupInvites(true);
@@ -127,7 +133,7 @@ export function GroupInvitesPanel() {
                   state={groupInviteState(g, now)}
                   busy={stop.isPending}
                   onCopy={() => copy(g.code)}
-                  onCopyUserCode={copy}
+                  actions={{ copy, open: onOpenUser }}
                   onStop={(s) => stop.mutate({ invite: g, stop: s })}
                 />
               ))}
@@ -147,14 +153,14 @@ function Row({
   state,
   busy,
   onCopy,
-  onCopyUserCode,
+  actions,
   onStop,
 }: {
   invite: GroupInvite;
   state: GroupInviteState;
   busy: boolean;
   onCopy: () => void;
-  onCopyUserCode: (userCode: string) => void;
+  actions: UseActions;
   onStop: (stop: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -190,7 +196,7 @@ function Row({
       {open && (
         <tr>
           <td colSpan={COLS} className={styles.uses}>
-            <Uses code={invite.code} onCopyUserCode={onCopyUserCode} />
+            <Uses code={invite.code} actions={actions} />
           </td>
         </tr>
       )}
@@ -199,7 +205,7 @@ function Row({
 }
 
 // 펼쳤을 때만 그 코드 몫을 받는다. 없는 코드(목록을 받은 뒤 지워짐)는 notFound — 문구는 서버 code 표(API_ERROR_TEXT)에서 온다. 아무도 안 쓴 코드는 빈 목록.
-function Uses({ code, onCopyUserCode }: { code: string; onCopyUserCode: (userCode: string) => void }) {
+function Uses({ code, actions }: { code: string; actions: UseActions }) {
   const query = useGroupInviteUses(code, true);
   const paging = useKeysetPaging(query, 'groupInviteUses');
   if (query.isPending) return <p className="soft">불러오는 중…</p>;
@@ -220,7 +226,7 @@ function Uses({ code, onCopyUserCode }: { code: string; onCopyUserCode: (userCod
         </thead>
         <tbody>
           {paging.items.map((u) => (
-            <UseRow key={u.n} use={u} onCopyUserCode={onCopyUserCode} />
+            <UseRow key={u.n} use={u} actions={actions} />
           ))}
         </tbody>
       </table>
@@ -229,13 +235,7 @@ function Uses({ code, onCopyUserCode }: { code: string; onCopyUserCode: (userCod
   );
 }
 
-function UseRow({
-  use,
-  onCopyUserCode,
-}: {
-  use: GroupInviteUse;
-  onCopyUserCode: (userCode: string) => void;
-}) {
+function UseRow({ use, actions }: { use: GroupInviteUse; actions: UseActions }) {
   const { userCode } = use;
   return (
     <tr>
@@ -243,14 +243,22 @@ function UseRow({
       <td>{use.joinedAt !== null ? formatDate(use.joinedAt) : <span className="soft">—</span>}</td>
       <td>
         {userCode !== null ? (
-          <button type="button" className="btn" title="복사" onClick={() => onCopyUserCode(userCode)}>
+          <button type="button" className="btn" title="복사" onClick={() => actions.copy(userCode)}>
             <code className="key soft">{userCode}</code>
           </button>
         ) : (
           <span className="soft">유저코드 없음</span>
         )}
       </td>
-      <td>{use.name ?? <span className="soft">—</span>}</td>
+      <td>
+        {userCode !== null ? (
+          <button type="button" className={styles.link} onClick={() => actions.open(userCode)}>
+            {use.name ?? '정보 보기'}
+          </button>
+        ) : (
+          <span className="soft">—</span>
+        )}
+      </td>
     </tr>
   );
 }
