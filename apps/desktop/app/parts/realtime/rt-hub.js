@@ -11,8 +11,9 @@
      4004 는 닫힘 까닭(reason)으로 둘을 가른다 — 'deviceRemoved'(이 PC 가 등록돼 있지 않음 · 다른 PC 가 지움) · 그 밖('sessionLost' — 이 PC 가 새 세션을 등록함).
      다시 붙는 것은 사고(1006 · 1009 · 4008 · 모르는 1000번대 · 1001 은 첫 시도를 흩고 오래 기다림 · 4005 는 아래 [4005])뿐. 멈추는 번호 뒤엔
      사용자 누름 · 서버 신호(점검 해제)로만 start 를 다시 부른다(자동 재시도 없음). 4001 은 새 토큰으로 한 번 더 — ready 전 error auth 도 같게 센다.
-   [4005] 서버가 API 로 토큰을 확인하지 못함 — 서버 쪽이 느린 때라 1 · 2 · 4초로 다시 붙으면 몰림을 키운다. 첫 시도는 0~60초 흩고,
+   [4005 · 서버 바쁨] 서버가 API 로 토큰을 확인하지 못함(4005) · ready 기다림 시간 초과(번호 없이 앱이 끊음 — 같은 «서버가 느림»)는 1 · 2 · 4초로 다시 붙으면 몰림을 키운다. 첫 시도는 0~60초 흩고,
      그다음은 60 · 120초 기준 [base/2, base](상한 120초). 횟수는 ready 가 UNAVAILABLE_STABLE_MS 넘게 이어진 뒤 끊겼을 때만 놓는다(잠깐 ready 됐다 또 4005 면 계속 늘어난다).
+     이 기다림 동안은 checkAlive(online · 깨어남)도 건너뛰지 않는다 — 네트워크가 돌아온 것이 서버가 한가해진 것은 아니다.
    [작별] bye(why) — 로그아웃 · 탈퇴 · 계정 바꾸기: bye 를 보내고 서버의 닫힘(1000)을 BYE_WAIT_MS 기다린다(못 받으면 앱이 닫음). 방 leave 는 부르는 쪽이 먼저.
      quit() — 앱 끄기(beforeunload): bye{quit} 를 보내고 바로 닫는다. 작별 뒤 서버는 유예 없이 오프라인 · 자리 비움.
    [살아 있음] checkAlive() — 깨어남(main powerMonitor) · 네트워크 돌아옴(online) 때, 그리고 ready 인 채 KEEPALIVE_IDLE_MS 동안 아무 메시지도 못 받았을 때.
@@ -112,7 +113,8 @@ function createRtHub(deps){
   const stateFns = [];
   let link = null;
   let started = false, claimNext = false, authFails = 0, lostAt = null, sawSessionLost = false;
-  let unavailFails = 0, readyAt = null;   // 4005 로 다시 붙은 횟수 · 이 연결이 ready 된 때
+  let unavailFails = 0, readyAt = null;   // 서버 바쁨으로 다시 붙은 횟수 · 이 연결이 ready 된 때
+  let busyUntil = 0;   // 서버 바쁨 기다림이 끝나는 때 — 그 전엔 checkAlive 가 기다림을 건너뛰지 않는다
   let sessionId = null;   // 이 연결의 세션 id — start 가 비어 있을 때 뽑고, 연결을 끝낸 stop · bye · quit 이 비운다(다음 로그인은 새 id)
   let state = STATE.OFF, userCode = null, lastClose = null;
   let clockOff = null;   // 서버 시계 − PC 시계(ms) — ready.now 로 맞춘다(연결이 ready 될 때마다). 아직 못 맞췄으면 null(PC 시계로 대신하지 않는다)
@@ -198,7 +200,9 @@ function createRtHub(deps){
     if(wasReady && readyAt != null && now() - readyAt >= UNAVAILABLE_STABLE_MS) unavailFails = 0;   // 오래 붙어 있던 연결 — 4005 횟수를 놓는다
     readyAt = null;
     if(!started){ finishBye(); setState(STATE.OFF); return; }
-    const act = closeAction(closeCode, closeReason);
+    busyUntil = 0;
+    /* hello 뒤 ready 기다림 시간 초과(link fatal 'readyTimeout' · 번호 없음) — 서버가 느린 것이라 4005 와 같게. 소켓도 못 연 'timeout' 은 그대로 1~15초 */
+    const act = (fatal === 'readyTimeout' && typeof closeCode !== 'number') ? ACTION.UNAVAILABLE : closeAction(closeCode, closeReason);
     if(sawSessionLost){ sawSessionLost = false; stopWith(act === ACTION.DEVICE_REMOVED ? STATE.DEVICE_REMOVED : STATE.SESSION_LOST); return; }
     if(STOP_STATES[act]){ stopWith(STOP_STATES[act]); return; }
     if(act === ACTION.AUTH){
@@ -210,7 +214,11 @@ function createRtHub(deps){
     if(act === ACTION.AUTH || fatal === 'auth') link.markAuthRetry();   // 다음 열기는 새 토큰
     setState(STATE.RETRYING);
     if(act === ACTION.RESTART) link.scheduleReconnect({ delayMs: random() * RESTART_SPREAD_MS, readyWaitMs: RESTART_READY_WAIT_MS });
-    else if(act === ACTION.UNAVAILABLE) link.scheduleReconnect({ delayMs: unavailableDelayMs(unavailFails++, random()) });
+    else if(act === ACTION.UNAVAILABLE){
+      const delayMs = unavailableDelayMs(unavailFails++, random());
+      busyUntil = now() + delayMs;
+      link.scheduleReconnect({ delayMs });
+    }
     else link.scheduleReconnect();
   }
   function makeLink(){
@@ -281,6 +289,7 @@ function createRtHub(deps){
       pongTimer = tSet(() => { pongTimer = null; if(started) link.drop(); }, PONG_WAIT_MS);
       return;
     }
+    if(busyUntil > now()) return;   // 서버 바쁨 기다림은 남은 시간을 지킨다
     link.reconnectNow();
   }
 

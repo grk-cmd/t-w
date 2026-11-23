@@ -437,7 +437,9 @@ async function up(env){
     await d.clock.advance(34000);
     chk(!d.socks[0].closed, '  ↳ readyWaitMs — 그 연결은 ready 를 35초까지 기다린다(기본 5초에 끊지 않음)');
     await d.clock.advance(1001);
-    chk(d.socks[0].closed && d.log.closed.length === 1 && d.log.closed[0][1] === 'timeout', '  ↳ 35초가 지나면 끊는다(timeout)');
+    chk(d.socks[0].closed && d.log.closed.length === 1 && d.log.closed[0][1] === 'readyTimeout', '  ↳ 35초가 지나면 끊는다(hello 뒤 ready 없음 — readyTimeout)');
+    { const t = mk(); t.link.ensureReady(); await t.clock.advance(5001); await tick();
+      chk(t.socks[0].closed && t.log.closed[0][1] === 'timeout', '  ↳ 소켓도 못 열고 시간 초과면 timeout(서버 바쁨과 가른다)'); }
     d.link.scheduleReconnect(); await d.clock.advance(1); await tick();
     const n0 = d.socks.length;
     const rn = d.link.reconnectNow(); await tick();

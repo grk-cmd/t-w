@@ -332,6 +332,23 @@ async function judge(S){
       v.hub.stop(); v.hub.start(); vw = await readyOn(v); vw.kill(4005); await tick();
       const n0 = v.socks.length; await v.clock.advance(29999); const early = v.socks.length === n0; await v.clock.advance(1); await tick();
       chk(early && v.socks.length === n0 + 1, '  ↳ 끄고 다시 켜면(start) 횟수를 놓는다');
+      { /* ready 기다림 시간 초과(번호 없음) — 서버 바쁨으로 */
+        const q = mk(S); q.hub.start(); await tick(); q.last().open(); await tick();
+        await q.clock.advance(q.H.START_WAIT_MS); await tick();
+        const n1 = q.socks.length; await q.clock.advance(29999); const e1 = q.socks.length === n1; await q.clock.advance(1); await tick();
+        chk(q.socks[0].closed && e1 && q.socks.length === n1 + 1, '★ hello 뒤 ready 기다림 시간 초과(번호 없음) — 4005 처럼 0~60초 흩기(30초 · 1초 아님)');
+        q.last().open(); await tick(); await q.clock.advance(5000); await tick();
+        const n2 = q.socks.length; await q.clock.advance(44999); const e2 = q.socks.length === n2; await q.clock.advance(1); await tick();
+        chk(e2 && q.socks.length === n2 + 1, '  ↳ 또 시간 초과 — 횟수가 늘어 45초');
+      }
+      { /* 서버 바쁨 기다림 중 checkAlive(online · 깨어남) — 남은 시간을 지킨다 */
+        const k = mk(S); k.hub.start(); const kw = await readyOn(k);
+        kw.kill(4005); await tick(); await k.clock.advance(1000);
+        const n1 = k.socks.length; k.hub.checkAlive(); await tick();
+        const kept = k.socks.length === n1;
+        await k.clock.advance(29000); await tick();
+        chk(kept && k.socks.length === n1 + 1, '★ 4005 기다림 중 checkAlive — 건너뛰지 않고 남은 시간(30초)을 지킨다');
+      }
       const D = u.H.unavailableDelayMs, mx = [];
       for(let n = 0; n < 8; n++) mx.push([D(n, 0), D(n, 0.999999)]);
       chk(D(0, 0) === 0 && D(0, 0.999999) <= 60000 && D(0, 0.999999) > 59000 && mx.slice(1).every(([a, b]) => a <= 120000 && b >= 30000) && D(1, 0) === 60000 && D(2, 0) === 120000 && D(7, 0) === 120000 && D(7, 1) === 60000,
@@ -664,7 +681,9 @@ const BREAKS = [
   ['HUB', "[CLOSE_CODES.unavailable]: ACTION.UNAVAILABLE,", "[CLOSE_CODES.unavailable]: ACTION.RECONNECT,", '4005 를 1초 백오프로(몰림)'],
   ['HUB', "    if(wasReady && readyAt != null && now() - readyAt >= UNAVAILABLE_STABLE_MS) unavailFails = 0;", "    if(wasReady) unavailFails = 0;", '잠깐 ready 로도 4005 횟수를 놓음(다시 30초로)'],
   ['HUB', "    if(wasReady && readyAt != null && now() - readyAt >= UNAVAILABLE_STABLE_MS) unavailFails = 0;", "", '오래 붙어 있어도 4005 횟수를 안 놓음'],
-  ['HUB', "delayMs: unavailableDelayMs(unavailFails++, random())", "delayMs: unavailableDelayMs(unavailFails, random())", '4005 가 이어져도 기다림이 안 늚'],
+  ['HUB', "const delayMs = unavailableDelayMs(unavailFails++, random());", "const delayMs = unavailableDelayMs(unavailFails, random());", '4005 가 이어져도 기다림이 안 늚'],
+  ['LINK', "fatal = fatal || (helloSent ? 'readyTimeout' : 'timeout');", "fatal = fatal || 'timeout';", 'ready 시간 초과를 «못 엶» 과 안 가름(1초 백오프로 몰림)'],
+  ['LINK', "fatal = fatal || (helloSent ? 'readyTimeout' : 'timeout');", "fatal = fatal || 'readyTimeout';", '소켓도 못 연 것을 서버 바쁨으로(오프라인에 60초)'],
   ['HUB', "const UNAVAILABLE_SPREAD_MS = 60000;", "const UNAVAILABLE_SPREAD_MS = 30000;", '4005 첫 흩기가 60초가 아님'],
   ['HUB', "const UNAVAILABLE_BACKOFF_MS = Object.freeze([60000, 120000]);", "const UNAVAILABLE_BACKOFF_MS = Object.freeze([60000, 120000, 240000]);", '4005 상한이 120초를 넘음'],
   ['HUB', "  if(n <= 0) return Math.round(r * UNAVAILABLE_SPREAD_MS);", "  if(n <= 0) return UNAVAILABLE_SPREAD_MS;", '4005 첫 시도를 안 흩음(모두 60초에 몰림)'],
@@ -693,6 +712,8 @@ const BREAKS = [
   ['HUB', "    checkAlive();\n    armKeep(KEEPALIVE_IDLE_MS);", "    checkAlive();", 'ping 한 번 뒤 조용함 확인이 멈춤'],
   ['HUB', "const KEEPALIVE_IDLE_MS = 15000;", "const KEEPALIVE_IDLE_MS = 30000;", '조용함 기준이 15초가 아님'],
   ['HUB', "    link.reconnectNow();\n  }", "  }", '다시 붙는 중 online 에 기다림 그대로'],
+  ['HUB', "    if(busyUntil > now()) return;   // 서버 바쁨", "    //", '서버 바쁨 기다림을 online · 깨어남이 건너뜀'],
+  ['HUB', "(fatal === 'readyTimeout' && typeof closeCode !== 'number') ? ACTION.UNAVAILABLE : closeAction(closeCode, closeReason)", "closeAction(closeCode, closeReason)", 'ready 시간 초과를 1초 백오프로(몰림)'],
   ['HUB', "  win.addEventListener('beforeunload', () => hub.quit());", "", '앱 끄기에 작별 안 함'],
   ['HUB', "  if(win.companion) win.companion.onWake(() => hub.checkAlive());", "", '깨어남에 확인 안 함'],
   ['LINK', "        closeCode = PRE_READY_ERROR_CLOSE[m.code] || null;", "", 'ready 전 error auth 를 4001 로 안 셈(끝없이 다시)'],

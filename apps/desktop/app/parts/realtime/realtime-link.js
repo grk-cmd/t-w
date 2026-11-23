@@ -11,7 +11,7 @@
  *       helloExtra(hello 선택 칸 객체 — 없으면 안 싣는다) · helloFields(phase: 'open' | 'refresh') → 객체(연결마다 · 갱신마다 달라지는 칸 — 있으면 helloExtra 대신),
  *       requestKinds(rid 로 묻는 요청 t 목록) · answers({ 답 t: 요청 t }),
  *       idleCloseMs(0 이면 쉬어도 안 닫음) · busy() → 쉬면 닫기를 미룰까 · reconnectWanted() → 다시 붙기 타이머가 울렸을 때 붙을까,
- *       hooks: { onReady(readyMsg), onMessage(m), onClosed(wasReady, fatal, closeCode, closeReason) } — closeCode 는 웹소켓 닫힘 번호(4001 · 4004 …) | null · closeReason 은 서버가 실은 까닭(없으면 ''),
+ *       hooks: { onReady(readyMsg), onMessage(m), onClosed(wasReady, fatal, closeCode, closeReason) } — fatal 'readyTimeout' 은 hello 뒤 ready 가 안 옴 · 'timeout' 은 소켓도 못 엶 · closeCode 는 웹소켓 닫힘 번호(4001 · 4004 …) | null · closeReason 은 서버가 실은 까닭(없으면 ''),
  *       now · setTimeout · clearTimeout · random · log 는 검사용(기본 전역).
  * 내보냄: createRealtimeLink(deps) → { enabled, ensureReady(ms, o), request(msg, map), send(o), close(), drop(), scheduleReconnect(o), reconnectNow(),
  *       scheduleIdle(), cancelIdle(), markAuthRetry(), markFailed(), isReady(), state() }
@@ -111,8 +111,10 @@ export function createRealtimeLink(deps){
     let sock;
     try{ curUrl = target(); sock = new deps.WebSocket(curUrl); }catch(_){ fatal = 'connect'; closed(); return; }
     ws = sock;
-    connectTimer = tSet(() => { connectTimer = null; if(my === gen && !ready){ fatal = fatal || 'timeout'; drop(); } }, Math.max(T.CONNECT_TIMEOUT_MS, waitMs || 0));
-    sock.onopen = () => { if(my === gen) sendRaw(sock, hello(tk, 'open')); };
+    let helloSent = false;
+    /* 시간 초과 — 소켓은 열려 hello 를 보냈는데 ready 가 없으면 'readyTimeout'(서버가 느림) · 소켓도 못 열었으면 'timeout' */
+    connectTimer = tSet(() => { connectTimer = null; if(my === gen && !ready){ fatal = fatal || (helloSent ? 'readyTimeout' : 'timeout'); drop(); } }, Math.max(T.CONNECT_TIMEOUT_MS, waitMs || 0));
+    sock.onopen = () => { if(my === gen) helloSent = sendRaw(sock, hello(tk, 'open')); };
     sock.onmessage = (ev) => {
       if(my !== gen) return;
       let m = null;

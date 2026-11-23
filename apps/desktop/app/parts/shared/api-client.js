@@ -22,7 +22,7 @@
    [쉬기] 'unavailable' 이면 BACKOFF_MS 동안 묻지 않고 곧장 'unavailable'(code BACKOFF) — 읽기만. 로그인 통로(authed)는 쉬지 않는다.
    [멈춤 gate] gate:true 인 통로(authed)만 — 서버가 답을 못 하면(5xx · 시간 초과 · 네트워크 · notReady) 다음 요청을 바로 보내지 않고 GATE_MS 만큼 기다렸다 보낸다
      (연달아 실패하면 늘고 · 실제 기다림은 [base/2, base] 로 흩는다 · 성공하면 풀린다). 429 + Retry-After 면 그 요청(method + path)만 그때까지 보내지 않고
-     곧장 429(retryAfterMs = 남은 시간)로 끝낸다 — 서버 요청 제한은 길마다라 다른 길은 막지 않는다. 다시 묻는 쪽(login-flow retryNow 등)이 따로 흩지 않아도 되게 여기 한 곳.
+     곧장 429(retryAfterMs = 남은 시간)로 끝낸다 — 서버 요청 제한은 길마다라 다른 길은 막지 않는다. Retry-After 없는 429 는 위 멈춤. 다시 묻는 쪽(login-flow retryNow 등)이 따로 흩지 않아도 되게 여기 한 곳.
    [주소] 운영 앱 = 운영 API · dev 앱(--tw-firebase=dev) = dev API. dev 앱만 tw.apiBaseUrl 로 다른 주소(CSP 묶음 안)를 쓸 수 있다.
      CSP connect-src https://*.together-working.com 안이어야 한다(desk-companion-prototype.html).
    Electron(file://)의 fetch 는 Origin 헤더 없이 나가고 CORS 를 보지 않는다 — 쿠키는 늘 보내지 않는다.
@@ -227,7 +227,7 @@ function createApiClient(deps){
       limited.set(key, now() + Math.min(e.retryAfterMs, RETRY_AFTER_MAX_MS));
       return;
     }
-    if(!isServerDown(e) || gateUntil > now()) return;
+    if(!(isServerDown(e) || (e instanceof ApiError && e.status === 429)) || gateUntil > now()) return;   // Retry-After 없는 429 도 멈춤
     gateFails++;
     gateUntil = now() + gatePauseMs(gateFails, random());
   }

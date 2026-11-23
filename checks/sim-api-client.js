@@ -86,14 +86,14 @@ async function gateCases(M){
       ['봉투 아님 200', () => res(200, new SyntaxError('html')), true],
       ['400', () => res(400, { success: false, code: 'INVALID_REQUEST' }), false],
       ['401', () => res(401, { success: false, code: 'USER_CODE_NOT_BOUND' }), false],
-      ['429 Retry-After 없음', () => res(429, { success: false, code: 'TOO_MANY_REQUESTS' }), false],
+      ['429 Retry-After 없음', () => res(429, { success: false, code: 'TOO_MANY_REQUESTS' }), true],
     ];
     const bad = [];
     for(const [n, fn, want] of kinds){ const { c } = mkGate(fn); await err(c.get('/v2/me', { auth: true })); if((c.gateLeftMs() > 0) !== want) bad.push(n); }
     const tm = mkGate(() => new Promise(() => {}), { timeoutMs: 20 });
     await err(tm.c.get('/v2/me', { auth: true }));
     if(!(tm.c.gateLeftMs() > 0)) bad.push('시간 초과');
-    ok(!bad.length, '★ 멈춤을 거는 실패 — 네트워크 · 시간 초과 · notReady · 봉투 아님 · 5xx 만(4xx · 401 · Retry-After 없는 429 는 안 검)' + (bad.length ? ' — 틀림: ' + bad.join(' · ') : ''));
+    ok(!bad.length, '★ 멈춤을 거는 실패 — 네트워크 · 시간 초과 · notReady · 봉투 아님 · 5xx · Retry-After 없는 429(4xx · 401 은 안 검)' + (bad.length ? ' — 틀림: ' + bad.join(' · ') : ''));
   }
   {
     const { c, f, clk } = mkGate((url) => (/users$/.test(url) ? res(429, { success: false, code: 'TOO_MANY_REQUESTS' }, { 'Retry-After': '7' }) : res(200, { success: true, data: 2 })));
@@ -555,8 +555,9 @@ async function gateCases(M){
       ["if(method !== 'GET' && !(method === 'DELETE' && o.body === undefined)){", "if(method !== 'GET'){", '본문 없는 DELETE 에 null 본문'],
       ["joined('A ' + a.who + ' ' + path, path,", "joined('A ' + path, path,", '같은 요청 합치기에 누구가 안 들어감'],
       ["      gate: true,   // 대신", "      //", '로그인 통로에 멈춤 gate 없음'],
-      ["    if(!isServerDown(e) || gateUntil > now()) return;", "    if(!isServerDown(e)) return;", '동시 실패를 따로 셈(기다림이 몰아서 늚)'],
-      ["    if(!isServerDown(e) || gateUntil > now()) return;", "    if(gateUntil > now()) return;", '4xx · 401 에도 멈춤'],
+      ["    if(!(isServerDown(e) || (e instanceof ApiError && e.status === 429)) || gateUntil > now()) return;", "    if(!(isServerDown(e) || (e instanceof ApiError && e.status === 429))) return;", '동시 실패를 따로 셈(기다림이 몰아서 늚)'],
+      ["    if(!(isServerDown(e) || (e instanceof ApiError && e.status === 429)) || gateUntil > now()) return;", "    if(gateUntil > now()) return;", '4xx · 401 에도 멈춤'],
+      ["    if(!(isServerDown(e) || (e instanceof ApiError && e.status === 429)) || gateUntil > now()) return;", "    if(!isServerDown(e) || gateUntil > now()) return;", 'Retry-After 없는 429 뒤 바로 다시'],
       ["(e.kind === 'notReady' || (e.kind === 'unavailable' && e.code !== 'NOT_MODIFIED'))", "(e.kind === 'unavailable' && e.code !== 'NOT_MODIFIED')", 'notReady(503 사본 없음) 뒤 바로 다시'],
       ["{ gateUntil = 0; gateFails = 0; return data; }", "{ return data; }", '성공해도 멈춤이 안 풀림'],
       ["{ gateUntil = 0; gateFails = 0; return data; }", "{ gateUntil = 0; return data; }", '성공해도 연속 실패 수가 남음'],
