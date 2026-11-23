@@ -41,6 +41,14 @@ export function isGroupMaxUses(n: number): boolean {
   return Number.isInteger(n) && n >= 1 && n <= GROUP_INVITE_MAX_USES;
 }
 
+/** 상태 라벨 — 외부인 초대장 목록 · 초대 찾기가 같이 쓴다. */
+export const GROUP_INVITE_STATE_LABEL: Record<GroupInviteState, string> = {
+  open: '쓰는 중',
+  full: '다 참',
+  expired: '마감',
+  stopped: '중지',
+};
+
 /** 앱 closedReason 과 같은 순서 — 중지 · 마감 · 인원. */
 export function groupInviteState(g: GroupInvite, now: number): GroupInviteState {
   if (g.stoppedAt !== null) return 'stopped';

@@ -10,9 +10,27 @@ describe('가입 기록', () => {
       'users/u2/invite': { invitesLeft: 0, invitedBy: 'u1', joinedAt: 20 },
       'users/u3/invite': { invitesLeft: 'x' },
     });
-    expect(await getUserInvite(db, 'u1')).toEqual({ joinedAt: 10, invitedBy: null, invitesLeft: 5 });
-    expect(await getUserInvite(db, 'u2')).toEqual({ joinedAt: 20, invitedBy: 'u1', invitesLeft: 0 });
-    expect(await getUserInvite(db, 'u3')).toEqual({ joinedAt: null, invitedBy: null, invitesLeft: null });
+    expect(await getUserInvite(db, 'u1')).toEqual({
+      joinedAt: 10,
+      invitedBy: null,
+      invitesLeft: 5,
+      inviteCode: null,
+      inviteMemo: null,
+    });
+    expect(await getUserInvite(db, 'u2')).toEqual({
+      joinedAt: 20,
+      invitedBy: 'u1',
+      invitesLeft: 0,
+      inviteCode: null,
+      inviteMemo: null,
+    });
+    expect(await getUserInvite(db, 'u3')).toEqual({
+      joinedAt: null,
+      invitedBy: null,
+      invitesLeft: null,
+      inviteCode: null,
+      inviteMemo: null,
+    });
     expect(await getUserInvite(db, 'u4')).toBeNull();
   });
 });

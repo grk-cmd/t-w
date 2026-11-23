@@ -13,4 +13,5 @@ export { GrantInvitesSelectedButton } from './ui/GrantInvitesSelectedButton';
 export { RevokeInvitesAllButton, RevokeInvitesSelectedButton } from './ui/RevokeInvitesButton';
 export { CreateInviteCodesButton } from './ui/CreateInviteCodesButton';
 export { GroupInvitesPanel } from './ui/GroupInvitesPanel';
+export { InviteUses, type UseActions } from './ui/InviteUses';
 export { friendCodesFromRows, type FriendCodesOf } from './model/usesSheet';

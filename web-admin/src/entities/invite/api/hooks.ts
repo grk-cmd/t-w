@@ -1,7 +1,14 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { KEYSET_PAGE_MAX, resetKeyset } from '@/shared/lib';
 import { USER_KEYSET_KEY, type UserInvite } from '@/entities/user/@x/invite';
-import { GROUP_INVITES_KEY, groupInviteUsesKey, invitesLeftKey, USER_INVITE, userInviteKey } from './keys';
+import {
+  GROUP_INVITES_KEY,
+  groupInviteUsesKey,
+  inviteFoundKey,
+  invitesLeftKey,
+  USER_INVITE,
+  userInviteKey,
+} from './keys';
 import { useInvitePort } from './index';
 
 /** 여러 명 코드 — 쪽으로 받는다. 이어 붙이기 · 쪽 넘기기는 `useKeysetPaging` 이 한다. */
@@ -26,6 +33,24 @@ export function useGroupInviteUses(code: string, enabled: boolean) {
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     enabled,
   });
+}
+
+/** 코드 하나 — 검색한 코드만 읽는다. 판이 못 하는 일이면(`features.find` 거짓) 읽지 않는다. */
+export function useInviteFound(code: string | null) {
+  const port = useInvitePort();
+  return useQuery({
+    queryKey: inviteFoundKey(code ?? ''),
+    queryFn: () => port.find(code!),
+    enabled: code !== null && port.features.find,
+    // 찾을 때마다 새로 받는다 — 아래 목록에서 중지 · 가입이 생기면 쓴 수 · 상태가 바뀐다
+    staleTime: 0,
+    retry: false,
+  });
+}
+
+/** 이 판에서 코드 찾기 · 이름 검색을 할 수 있나. */
+export function useInviteFindable() {
+  return useInvitePort().features.find;
 }
 
 /** 한 사람 몫 한 칸 — 지급 창을 열 때만 읽는다. */

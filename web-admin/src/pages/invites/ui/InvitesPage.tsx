@@ -11,6 +11,7 @@ import { useRefreshUsers, useUserByCode, useUserRowsPort } from '@/features/user
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
 import { UserDetail } from '@/widgets/user-detail';
+import { InviteSearchCard } from '@/widgets/invite-search';
 
 // ✉️ 초대장 — 관리자가 초대를 나눠 주는 일을 한곳에. 고른 사람에게 지급 · 회수는 표에서 사람을 골라야 해서 👥 사용자 화면에 둔다.
 export function InvitesPage() {
@@ -46,6 +47,7 @@ export function InvitesPage() {
   };
   return (
     <>
+      <InviteSearchCard onOpenUser={open} friendCodesOf={friendCodesOf} />
       <div className="grid2">
         <section className="card">
           <h2>모든 유저 초대권</h2>

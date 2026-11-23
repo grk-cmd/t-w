@@ -17,6 +17,10 @@ export interface UserInvite {
   /** 초대 코드를 준 사람. null 이면 초대장 제도 전부터 쓰던 기존 사용자(처음 한 번 5장). */
   invitedBy: string | null;
   invitesLeft: number | null;
+  /** 가입에 쓴 초대 코드(API 판만 — Firebase 판 · 코드 없이 들어온 사람은 null). */
+  inviteCode: string | null;
+  /** 그 코드의 관리자 메모(외부인 초대장만 · 없으면 null). */
+  inviteMemo: string | null;
 }
 
 /**

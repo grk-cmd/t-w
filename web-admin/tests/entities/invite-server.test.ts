@@ -165,3 +165,81 @@ describe('코드마다 가입한 사람 — API 판', () => {
     expect(isPortError(e, 'notFound')).toBe(false);
   });
 });
+
+describe('코드 하나 찾기 — API 판', () => {
+  const PATH = 'GET /v2/admin/invites/INVT-AAAA-BBBB';
+  const found = (over: Record<string, unknown> = {}) => ({
+    code: 'INVT-AAAA-BBBB',
+    kind: 'user',
+    issuerUserCode: 'uboss0001',
+    issuerName: '민트',
+    maxUses: 1,
+    usedCount: 1,
+    expiresAt: null,
+    pausedAt: null,
+    memo: null,
+    createdAt: '2026-11-01T00:00:00Z',
+    status: 'FULL',
+    ...over,
+  });
+
+  it('개인 초대는 만든 사람을 · 관리자 코드는 메모 · 마감을 화면 모양으로 바꾼다', async () => {
+    const s = fakeApiOf({
+      [PATH]: () => found(),
+      'GET /v2/admin/invites/INVT-CCCC-DDDD': () =>
+        found({
+          code: 'INVT-CCCC-DDDD',
+          kind: 'admin',
+          issuerUserCode: null,
+          issuerName: null,
+          maxUses: 600,
+          usedCount: 589,
+          expiresAt: '2026-11-01T14:59:59Z',
+          memo: '외부 행사',
+          status: 'EXPIRED',
+        }),
+    });
+    const port = createServerInvitePort(s.api);
+    expect(port.features.find).toBe(true);
+    expect(await port.find('INVT-AAAA-BBBB')).toEqual({
+      code: 'INVT-AAAA-BBBB',
+      kind: 'user',
+      issuerUserCode: 'uboss0001',
+      issuerName: '민트',
+      maxUses: 1,
+      usedCount: 1,
+      expiresAt: null,
+      stoppedAt: null,
+      note: '',
+      createdAt: Date.parse('2026-11-01T00:00:00Z'),
+    });
+    expect(await port.find('INVT-CCCC-DDDD')).toMatchObject({
+      kind: 'admin',
+      issuerUserCode: null,
+      note: '외부 행사',
+      expiresAt: Date.parse('2026-11-01T14:59:59Z'),
+    });
+  });
+
+  it('모르는 kind 는 짐작하지 않고 던진다 · 중지 시각은 stoppedAt 으로', async () => {
+    const paused = fakeApiOf({ [PATH]: () => found({ pausedAt: '2026-11-02T00:00:00Z' }) });
+    expect((await createServerInvitePort(paused.api).find('INVT-AAAA-BBBB')).stoppedAt).toBe(
+      Date.parse('2026-11-02T00:00:00Z'),
+    );
+    for (const over of [{ kind: 'group' }, { kind: null }, { issuerUserCode: undefined }]) {
+      const s = fakeApiOf({ [PATH]: () => found(over) });
+      const e = await caught(createServerInvitePort(s.api).find('INVT-AAAA-BBBB'));
+      expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
+    }
+  });
+
+  it('없는 코드(404 INVITE_NOT_FOUND)는 notFound · 표 문구', async () => {
+    const s = fakeApiOf({
+      [PATH]: () => {
+        throw new ApiError('notFound', 404, 'INVITE_NOT_FOUND', '없는 초대예요');
+      },
+    });
+    const e = await caught(createServerInvitePort(s.api).find('INVT-AAAA-BBBB'));
+    expect(isPortError(e, 'notFound') && e.code).toBe('INVITE_NOT_FOUND');
+  });
+});

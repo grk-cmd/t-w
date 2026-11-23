@@ -1,5 +1,6 @@
 // API 판 — 여러 명 코드는 `GET /v2/admin/invites?group=true&cursor&limit`(여러 명 코드만 · 최근 만든 것부터 키셋), 한 사람의 남은 초대권은 사용자 상세 `GET /v2/admin/users/{userCode}` 의 `invite.invitesLeft`.
 // 코드마다 가입한 사람은 `GET /v2/admin/invites/{code}/uses?cursor&limit`(먼저 들어온 사람부터 키셋 · 첫 쪽 `total` · 이름 함께) — 없는 코드 404 `INVITE_NOT_FOUND` · 모양이 틀린 코드 400 · 안 쓴 코드 200 빈 목록.
+// 코드 하나는 `GET /v2/admin/invites/{code}`(외부인 · 개인 모두 · 개인이면 만든 사람) — 같은 404 · 400.
 // 화면은 쪽으로 이어 받고(`useKeysetPaging`), 전체 수는 첫 쪽 `total` 을 쓴다.
 import {
   adminPath,
@@ -13,10 +14,12 @@ import {
   wireObject,
   wireString,
   wireTime,
+  wireError,
   type Api,
 } from '@/shared/api';
 import type { KeysetPage } from '@/shared/lib';
 import type { GroupInvite, GroupInviteUse } from '../model/groupInvite';
+import type { InviteFound } from '../model/inviteFound';
 import type { InvitePort } from './port';
 
 const BASE = adminPath('/invites');
@@ -51,8 +54,38 @@ export function toGroupInviteUseRow(w: unknown): GroupInviteUse {
   };
 }
 
+/** 코드 하나 — 칸이 약속과 다르면 짐작하지 않고 던진다. 만든 사람 · 마감 · 중지 · 메모의 null 만 «없음». 상태는 화면이 `groupInviteState` 로 정한다(목록과 같이). */
+export function toInviteFound(w: unknown): InviteFound {
+  const o = wireObject(w, '초대 코드');
+  const code = wireString(o.code, '초대 코드의 code');
+  const what = (field: string) => `초대 코드 ${code} 의 ${field}`;
+  const kind = wireString(o.kind, what('kind'));
+  if (kind !== 'admin' && kind !== 'user') throw wireError(what('kind'), 'admin · user');
+  return {
+    code,
+    kind,
+    issuerUserCode: wireNullableString(o.issuerUserCode, what('issuerUserCode')),
+    issuerName: wireNullableString(o.issuerName, what('issuerName')),
+    maxUses: wireNumber(o.maxUses, what('maxUses')),
+    usedCount: wireNumber(o.usedCount, what('usedCount')),
+    expiresAt: wireNullableTime(o.expiresAt, what('expiresAt')),
+    stoppedAt: wireNullableTime(o.pausedAt, what('pausedAt')),
+    note: wireNullableString(o.memo, what('memo')) ?? '',
+    createdAt: wireTime(o.createdAt, what('createdAt')),
+  };
+}
+
 function build(api: Api | null): InvitePort {
   return {
+    features: { find: true },
+
+    find: (code) =>
+      portCall(
+        api,
+        async (a) => toInviteFound(await a.get<unknown>(adminPath(`/invites/${encodeURIComponent(code)}`))),
+        '초대 코드를 찾지 못했어요',
+      ),
+
     groups: (cursor, limit) =>
       portCall(
         api,
