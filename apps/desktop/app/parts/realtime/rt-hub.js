@@ -9,8 +9,11 @@
      deviceId 는 device-id.js(API 머리 X-Device-Id 와 같은 값).
    [닫힘 번호] CLOSE_CODES(서버 통신 규약 7-1 과 같은 이름 · 값) → closeAction 한 곳(설계 04-realtime-disconnect 4-D-2).
      4004 는 닫힘 까닭(reason)으로 둘을 가른다 — 'deviceRemoved'(이 PC 가 등록돼 있지 않음 · 다른 PC 가 지움) · 그 밖('sessionLost' — 이 PC 가 새 세션을 등록함).
-     다시 붙는 것은 사고(1006 · 1009 · 4005 · 4008 · 모르는 1000번대 · 1001 은 첫 시도를 흩고 오래 기다림)뿐. 멈추는 번호 뒤엔
+     다시 붙는 것은 사고(1006 · 1009 · 4008 · 모르는 1000번대 · 1001 은 첫 시도를 흩고 오래 기다림 · 4005 는 아래 [4005])뿐. 멈추는 번호 뒤엔
      사용자 누름 · 서버 신호(점검 해제)로만 start 를 다시 부른다(자동 재시도 없음). 4001 은 새 토큰으로 한 번 더 — ready 전 error auth 도 같게 센다.
+   [4005 · 서버 바쁨] 서버가 API 로 토큰을 확인하지 못함(4005) · ready 기다림 시간 초과(번호 없이 앱이 끊음 — 같은 «서버가 느림»)는 1 · 2 · 4초로 다시 붙으면 몰림을 키운다. 첫 시도는 0~60초 흩고(jitter),
+     그다음은 60 · 120초 기준 [base/2, base](상한 120초). 횟수는 ready 가 UNAVAILABLE_STABLE_MS 넘게 이어진 뒤 끊겼을 때만 놓는다(잠깐 ready 됐다 또 4005 면 계속 늘어난다).
+     이 기다림 동안은 checkAlive(online · 깨어남)도 건너뛰지 않는다 — 네트워크가 돌아온 것이 서버가 한가해진 것은 아니다.
    [작별] bye(why) — 로그아웃 · 탈퇴 · 계정 바꾸기: bye 를 보내고 서버의 닫힘(1000)을 BYE_WAIT_MS 기다린다(못 받으면 앱이 닫음). 방 leave 는 부르는 쪽이 먼저.
      quit() — 앱 끄기(beforeunload): bye{quit} 를 보내고 바로 닫는다. 작별 뒤 서버는 유예 없이 오프라인 · 자리 비움.
    [살아 있음] checkAlive() — 깨어남(main powerMonitor) · 네트워크 돌아옴(online) 때, 그리고 ready 인 채 KEEPALIVE_IDLE_MS 동안 아무 메시지도 못 받았을 때.
@@ -44,12 +47,12 @@ const CLOSE_CODES = Object.freeze({ bye: 1000, restart: 1001, tooLarge: 1009, au
 /* 4004 의 닫힘 까닭 — 이 이름이면 «이 PC 가 등록돼 있지 않음(다른 PC 가 지움)», 아니면 옛 뜻(이 PC 가 새 세션을 등록해 이 연결이 밀림) */
 const CLOSE_REASONS = Object.freeze({ deviceRemoved: 'deviceRemoved' });
 /* 닫힘마다 할 일 — 한 코드 한 처리. 표에 없는 번호는 closeAction 이 가른다(1000번대 · 번호 없음 = 사고 · 4000번대 = 멈춤) */
-const ACTION = Object.freeze({ END: 'end', RECONNECT: 'reconnect', RESTART: 'restart', AUTH: 'auth', UPDATE: 'update',
+const ACTION = Object.freeze({ END: 'end', RECONNECT: 'reconnect', RESTART: 'restart', UNAVAILABLE: 'unavailable', AUTH: 'auth', UPDATE: 'update',
   SESSION_LOST: 'sessionLost', DEVICE_REMOVED: 'deviceRemoved', MAINTENANCE: 'maintenance', ACCOUNT_GONE: 'accountGone', UNKNOWN: 'unknown' });
 const CLOSE_ACTIONS = Object.freeze({
   [CLOSE_CODES.bye]: ACTION.END, [CLOSE_CODES.restart]: ACTION.RESTART, [CLOSE_CODES.tooLarge]: ACTION.RECONNECT,
   [CLOSE_CODES.auth]: ACTION.AUTH, [CLOSE_CODES.protocol]: ACTION.UPDATE, [CLOSE_CODES.sessionLost]: ACTION.SESSION_LOST,
-  [CLOSE_CODES.unavailable]: ACTION.RECONNECT, [CLOSE_CODES.maintenance]: ACTION.MAINTENANCE, [CLOSE_CODES.accountGone]: ACTION.ACCOUNT_GONE,
+  [CLOSE_CODES.unavailable]: ACTION.UNAVAILABLE, [CLOSE_CODES.maintenance]: ACTION.MAINTENANCE, [CLOSE_CODES.accountGone]: ACTION.ACCOUNT_GONE,
   [CLOSE_CODES.helloTimeout]: ACTION.RECONNECT,
 });
 /** 닫힘 번호(+ 까닭) → 할 일. 번호 없음(1006 · 앱이 끊음) · 모르는 1000번대는 사고로 다시 붙고, 모르는 4000번대는 새 서버의 «멈춰야 하는» 번호일 수 있어 멈춘다. */
@@ -70,6 +73,15 @@ const BYE_WHY = Object.freeze({ LOGOUT: 'logout', QUIT: 'quit', WITHDRAW: 'withd
 const START_WAIT_MS = 10000;     // start 가 첫 ready 를 기다리는 시간 — 넘으면 백오프로 계속 붙는다
 const RESTART_SPREAD_MS = 30000;   // 1001(서버 재시작) 뒤 첫 시도를 0~이만큼 흩는다 — 모든 앱이 한꺼번에 몰리지 않게
 const RESTART_READY_WAIT_MS = 35000;   // 그 연결의 ready 기다림 — 서버가 재시작 뒤 ready 를 0~30초 흩어 보낸다(흩기 상한 + 여유)
+const UNAVAILABLE_SPREAD_MS = 60000;   // 4005 뒤 첫 시도를 0~이만큼 흩는다
+const UNAVAILABLE_BACKOFF_MS = Object.freeze([60000, 120000]);   // 그다음 시도의 기준 — 실제는 [base/2, base] · 끝 값에서 멈춤(상한 120초)
+const UNAVAILABLE_STABLE_MS = 60000;   // ready 가 이만큼 이어진 뒤 끊겨야 4005 횟수를 놓는다
+/** 4005 로 n 번째(0부터) 다시 붙기까지의 기다림(ms) · r 은 0~1 난수 */
+function unavailableDelayMs(n, r){
+  if(n <= 0) return Math.round(r * UNAVAILABLE_SPREAD_MS);
+  const base = UNAVAILABLE_BACKOFF_MS[Math.min(n, UNAVAILABLE_BACKOFF_MS.length) - 1];
+  return Math.round(base * (1 - 0.5 * r));
+}
 const BYE_WAIT_MS = 1000;        // bye 뒤 서버의 닫힘(1000)을 기다리는 시간 — 못 받으면 앱이 닫는다
 const PONG_WAIT_MS = 5000;       // checkAlive 가 보낸 ping 의 답 기다림
 const KEEPALIVE_IDLE_MS = 15000;   // ready 인 채 이만큼 아무것도 못 받으면 checkAlive — 서버가 사라진 걸 늦어도 이 값 + PONG_WAIT_MS(약 20초) 안에 안다
@@ -101,6 +113,8 @@ function createRtHub(deps){
   const stateFns = [];
   let link = null;
   let started = false, claimNext = false, authFails = 0, lostAt = null, sawSessionLost = false;
+  let unavailFails = 0, readyAt = null;   // 서버 바쁨으로 다시 붙은 횟수 · 이 연결이 ready 된 때
+  let busyUntil = 0;   // 서버 바쁨 기다림이 끝나는 때 — 그 전엔 checkAlive 가 기다림을 건너뛰지 않는다
   let sessionId = null;   // 이 연결의 세션 id — start 가 비어 있을 때 뽑고, 연결을 끝낸 stop · bye · quit 이 비운다(다음 로그인은 새 id)
   let state = STATE.OFF, userCode = null, lastClose = null;
   let clockOff = null;   // 서버 시계 − PC 시계(ms) — ready.now 로 맞춘다(연결이 ready 될 때마다). 아직 못 맞췄으면 null(PC 시계로 대신하지 않는다)
@@ -154,6 +168,7 @@ function createRtHub(deps){
     const gap = (lostAt == null) ? null : now() - lostAt;
     lostAt = null;
     lastInAt = now();
+    readyAt = now();
     armKeep(KEEPALIVE_IDLE_MS);   // setState 보다 먼저 — 상태 알림을 받은 쪽이 그 자리에서 끄면 setState(OFF) 가 이 타이머를 푼다
     setState(STATE.READY);
     if(gap != null && gap > graceOf(m)) resync();
@@ -182,8 +197,12 @@ function createRtHub(deps){
     clearPong();
     lastClose = (typeof closeCode === 'number') ? closeCode : null;
     if(wasReady && lostAt == null) lostAt = now();
+    if(wasReady && readyAt != null && now() - readyAt >= UNAVAILABLE_STABLE_MS) unavailFails = 0;   // 오래 붙어 있던 연결 — 4005 횟수를 놓는다
+    readyAt = null;
     if(!started){ finishBye(); setState(STATE.OFF); return; }
-    const act = closeAction(closeCode, closeReason);
+    busyUntil = 0;
+    /* hello 뒤 ready 기다림 시간 초과(link fatal 'readyTimeout' · 번호 없음) — 서버가 느린 것이라 4005 와 같게. 소켓도 못 연 'timeout' 은 그대로 1~15초 */
+    const act = (fatal === 'readyTimeout' && typeof closeCode !== 'number') ? ACTION.UNAVAILABLE : closeAction(closeCode, closeReason);
     if(sawSessionLost){ sawSessionLost = false; stopWith(act === ACTION.DEVICE_REMOVED ? STATE.DEVICE_REMOVED : STATE.SESSION_LOST); return; }
     if(STOP_STATES[act]){ stopWith(STOP_STATES[act]); return; }
     if(act === ACTION.AUTH){
@@ -195,6 +214,11 @@ function createRtHub(deps){
     if(act === ACTION.AUTH || fatal === 'auth') link.markAuthRetry();   // 다음 열기는 새 토큰
     setState(STATE.RETRYING);
     if(act === ACTION.RESTART) link.scheduleReconnect({ delayMs: random() * RESTART_SPREAD_MS, readyWaitMs: RESTART_READY_WAIT_MS });
+    else if(act === ACTION.UNAVAILABLE){
+      const delayMs = unavailableDelayMs(unavailFails++, random());
+      busyUntil = now() + delayMs;
+      link.scheduleReconnect({ delayMs });
+    }
     else link.scheduleReconnect();
   }
   function makeLink(){
@@ -224,7 +248,7 @@ function createRtHub(deps){
     if(started) return;
     if(!link) link = makeLink();
     session();   // 끝낸 연결 뒤 첫 start — 새 로그인은 새 세션 id(등록이 먼저 뽑았으면 그 값)
-    started = true; authFails = 0; sawSessionLost = false;
+    started = true; authFails = 0; sawSessionLost = false; unavailFails = 0;
     claimNext = !(o && o.claim === false);
     setState(STATE.CONNECTING);
     link.ensureReady(START_WAIT_MS, { retry: true });
@@ -265,6 +289,7 @@ function createRtHub(deps){
       pongTimer = tSet(() => { pongTimer = null; if(started) link.drop(); }, PONG_WAIT_MS);
       return;
     }
+    if(busyUntil > now()) return;   // 서버 바쁨 기다림은 남은 시간을 지킨다
     link.reconnectNow();
   }
 
@@ -305,7 +330,7 @@ function bindWindowEvents(win, hub){
 }
 
 const api = { PV, KINDS, ROOM_TYPES, MESSAGE_TYPES, REQUEST_KINDS, ANSWERS, CLOSE_CODES, CLOSE_REASONS, ACTION, CLOSE_ACTIONS, closeAction, STATE, isDeviceOff, BYE_WHY,
-  START_WAIT_MS, RESTART_SPREAD_MS, RESTART_READY_WAIT_MS, BYE_WAIT_MS, PONG_WAIT_MS, KEEPALIVE_IDLE_MS,
+  START_WAIT_MS, RESTART_SPREAD_MS, RESTART_READY_WAIT_MS, UNAVAILABLE_SPREAD_MS, UNAVAILABLE_BACKOFF_MS, UNAVAILABLE_STABLE_MS, unavailableDelayMs, BYE_WAIT_MS, PONG_WAIT_MS, KEEPALIVE_IDLE_MS,
   REALTIME_URLS, DEV_URL_KEY, DEV_URL_RE, realtimeUrlFor, sessionIdOf, createRtHub, bindWindowEvents };
 if(typeof window !== 'undefined'){
   /* 앱 한 벌 — 연결 공통부 · 토큰 · 버전은 rt-bind.js 가 bind 로 잇는다(ES 모듈이라 이 파일보다 늦게 돈다). */

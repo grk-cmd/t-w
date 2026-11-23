@@ -20,10 +20,13 @@
    [로그인] 토큰은 deps.getToken(force). 없으면 보내지 않고 'auth'(code NO_TOKEN). 401 AUTH_REQUIRED 면 새 토큰으로 한 번만 다시.
      로그인 요청에는 이 기기 id 머리 X-Device-Id(device-id.js — 프리미엄은 «이 기기» 판정)를 싣는다.
    [쉬기] 'unavailable' 이면 BACKOFF_MS 동안 묻지 않고 곧장 'unavailable'(code BACKOFF) — 읽기만. 로그인 통로(authed)는 쉬지 않는다.
+   [멈춤 gate] gate:true 인 통로(authed)만 — 서버가 답을 못 하면(5xx · 시간 초과 · 네트워크 · notReady) 다음 요청을 바로 보내지 않고 GATE_MS 만큼 기다렸다 보낸다
+     (연달아 실패하면 늘고 · 실제 기다림은 [base/2, base] 로 흩는다(jitter) · 성공하면 풀린다). 429 + Retry-After 면 그 요청(method + path)만 그때까지 보내지 않고
+     곧장 429(retryAfterMs = 남은 시간)로 끝낸다 — 서버 요청 제한은 endpoint(method + path)마다라 다른 endpoint 는 막지 않는다. Retry-After 없는 429 는 위 멈춤. 다시 묻는 쪽(login-flow retryNow 등)이 따로 흩지 않아도 되게 여기 한 곳.
    [주소] 운영 앱 = 운영 API · dev 앱(--tw-firebase=dev) = dev API. dev 앱만 tw.apiBaseUrl 로 다른 주소(CSP 묶음 안)를 쓸 수 있다.
      CSP connect-src https://*.together-working.com 안이어야 한다(desk-companion-prototype.html).
    Electron(file://)의 fetch 는 Origin 헤더 없이 나가고 CORS 를 보지 않는다 — 쿠키는 늘 보내지 않는다.
-   앱 한 벌: TwApi.client(로그인 없는 읽기 · 쉬기 있음) · TwApi.authed(로그인 통로 — 토큰은 firebase-init 이 bindToken 으로 잇는다 · 쉬기 없음).
+   앱 한 벌: TwApi.client(로그인 없는 읽기 · 쉬기 있음) · TwApi.authed(로그인 통로 — 토큰은 firebase-init 이 bindToken 으로 잇는다 · 쉬기 없음 · 멈춤 gate 있음).
    계정을 놓을 때는 authed.forgetSession() — 진행 중인 로그인 읽기 · 계정별 ETag 기억을 뗀다(account/login-flow.js logout).
    classic script — maintenance-gate.js · device-id.js 다음 · remote-config.js · app.js 보다 먼저 싣는다(window.TwApi). Firebase 를 모른다. */
 (function(){
@@ -36,6 +39,10 @@ const API_BASE_RE = /^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.together-w
 const TIMEOUT_MS = 2500;           // 읽기 한 번 — 본문이 큰 읽기는 부르는 쪽이 timeoutMs 를 넘긴다
 const WRITE_TIMEOUT_MS = 10000;    // 쓰기 한 번 — 서버가 트랜잭션 · 그림 사본까지 하고 답한다
 const BACKOFF_MS = 30 * 1000;
+/* 로그인 통로가 서버에 닿지 못한 뒤 다음 요청까지 기다리는 시간 — n 번째 연속 실패는 GATE_MS[n-1](끝 값에서 멈춤) · 실제는 [base/2, base].
+   API 가 느릴 때 앱 2,000 대가 «다시 시도» · realtime ready 마다 곧바로 다시 묻지 않게 */
+const GATE_MS = Object.freeze([1000, 2000, 4000, 8000]);
+const RETRY_AFTER_MAX_MS = 10 * 60 * 1000;   // Retry-After 상한 — 이상한 값 하나로 그 endpoint 가 앱을 끌 때까지 막히지 않게
 const ETAG_MAX = 64;               // ETag 로 기억하는 읽기 수
 const DEVICE_HEADER = 'X-Device-Id';
 /* 서버에 그 길 자체가 없을 때의 404 code — 자원이 없다는 404(USER_NOT_FOUND 등)와 가른다.
@@ -85,9 +92,19 @@ function retryAfterMsOf(v){
 }
 const headerOf = (res, name) => { try{ return res.headers.get(name); }catch(_){ return null; } };   // 머리가 없는 응답(가짜 · 앞단 오류)은 null
 
+/* 연속 실패 n(1부터) → 기다림(ms) · r 은 0~1 난수 */
+function gatePauseMs(n, r){
+  const base = GATE_MS[Math.min(Math.max(n, 1), GATE_MS.length) - 1];
+  return Math.round(base * (1 - 0.5 * r));
+}
+/* 서버가 답을 못 한 실패인가 — 멈춤 gate 를 건다. 304 인데 기억 값이 없는 것(NOT_MODIFIED)은 서버가 답한 것이라 뺀다 */
+const isServerDown = (e) => e instanceof ApiError && (e.kind === 'notReady' || (e.kind === 'unavailable' && e.code !== 'NOT_MODIFIED'));
+
 /** @param {{ baseUrl: string, fetch: Function | null, now?: () => number, timeoutMs?: number, writeTimeoutMs?: number, backoffMs?: number,
- *   getToken?: (force: boolean) => Promise<string | null>, deviceId?: () => string | null, onRequest?: () => void, etagMax?: number }} deps
- *   getToken 은 로그인 통로만 넘긴다(없으면 로그인 요청은 늘 NO_TOKEN) · onRequest 는 실제로 보내기 직전(서버 점검 창 maintenance-gate.js touch) */
+ *   getToken?: (force: boolean) => Promise<string | null>, deviceId?: () => string | null, onRequest?: () => void, etagMax?: number,
+ *   gate?: boolean, random?: () => number, setTimeout?: Function }} deps
+ *   getToken 은 로그인 통로만 넘긴다(없으면 로그인 요청은 늘 NO_TOKEN) · onRequest 는 실제로 보내기 직전(서버 점검 창 maintenance-gate.js touch)
+ *   gate 는 위 [멈춤 gate](로그인 통로만) · random · setTimeout 은 검사용(기본 전역) */
 function createApiClient(deps){
   const d = deps || {};
   const base = String(d.baseUrl || '').replace(/\/+$/, '');
@@ -100,10 +117,15 @@ function createApiClient(deps){
   const deviceId = d.deviceId || (() => null);
   const onRequest = d.onRequest || (() => {});
   const etagMax = d.etagMax || ETAG_MAX;
+  const gate = d.gate === true;
+  const random = d.random || Math.random;
+  const tSet = d.setTimeout || ((f, ms) => setTimeout(f, ms));
   const cache = new Map();      // path → { data, until }
   const inflight = new Map();   // 'A ' + 누구 + ' ' + path | 'P ' + path → Promise
   const etags = new Map();      // 누구 + ' ' + path → { etag, data } (넣은 차례 = 오래된 차례)
   let downUntil = 0;
+  let gateUntil = 0, gateFails = 0;   // 멈춤 gate — 이 때까지 보내지 않고 기다린다 · 연속 실패 수
+  const limited = new Map();          // method + ' ' + path → 429 Retry-After 가 끝나는 때
 
   /* 로그인 요청이면 토큰 · 기기 머리를 붙인다. who 는 ETag 열쇠의 «누구». */
   async function authOf(o, force){
@@ -191,11 +213,35 @@ function createApiClient(deps){
   }
   /* 401 AUTH_REQUIRED(토큰이 막 끝남)면 새 토큰으로 한 번만 다시. 가입 전(USER_CODE_NOT_BOUND)은 다시 해도 같아서 그대로. */
   function send(path, ms, o){
-    return once(path, ms, o).catch((e) => {
+    const p = once(path, ms, o).catch((e) => {
       if(!(o.auth && e instanceof ApiError && e.status === 401 && e.code === 'AUTH_REQUIRED')) throw e;
       onRequest();
       return once(path, ms, Object.assign({}, o, { force: true }));
     });
+    return gate ? p.then((data) => { gateUntil = 0; gateFails = 0; return data; }, (e) => { gateAfter(e, o.method + ' ' + path); throw e; }) : p;
+  }
+
+  /* 멈춤 gate — 실패 하나를 보고 다음 요청을 늦춘다. 같은 멈춤 동안 실패한 다른 요청(동시에 나간 것)은 한 번으로 센다 */
+  function gateAfter(e, key){
+    if(e instanceof ApiError && e.status === 429 && e.retryAfterMs != null){
+      limited.set(key, now() + Math.min(e.retryAfterMs, RETRY_AFTER_MAX_MS));
+      return;
+    }
+    if(!(isServerDown(e) || (e instanceof ApiError && e.status === 429)) || gateUntil > now()) return;   // Retry-After 없는 429 도 멈춤
+    gateFails++;
+    gateUntil = now() + gatePauseMs(gateFails, random());
+  }
+  /* go() 를 멈춤이 끝난 뒤 부른다 — 멈춤이 없으면 그 자리에서. 기다리는 사이 멈춤이 늘었으면 다시 기다린다. 이 endpoint(method + path)가 429 로 막혀 있으면 보내지 않고 429 로 끝낸다 */
+  function gated(key, go){
+    if(!gate) return go();
+    const until = limited.get(key);
+    if(until != null){
+      if(until > now()) return Promise.reject(new ApiError('request', 429, 'TOO_MANY_REQUESTS', '요청이 잦아 잠깐 쉬어요', { retryAfterMs: until - now() }));
+      limited.delete(key);
+    }
+    const ms = gateUntil - now();
+    if(ms <= 0) return go();
+    return new Promise((r) => tSet(r, ms)).then(() => gated(key, go));
   }
 
   /* 로그인 읽기에 쓸 토큰을 한 번 받는다 — 시간 제한과 겨룬다(토큰 갱신이 멈춰도 요청이 끝나지 않는 일이 없게).
@@ -219,14 +265,16 @@ function createApiClient(deps){
     const c = o.auth ? null : cache.get(path);
     if(c && c.until > now()) return Promise.resolve(c.data);
     if(downUntil > now()) return Promise.reject(new ApiError('unavailable', 0, 'BACKOFF', 'API 를 잠깐 쉬는 중'));
-    /* ★ 로그인 읽기는 «누구» 가 열쇠에 든다(ETag 기억 열쇠와 같게) — 계정이 바뀌는 사이 앞 계정의 응답에 합쳐지지 않게 */
-    if(o.auth){
-      return acquire(o.timeoutMs || timeoutMs).then((a) => {
-        const p = joined('A ' + a.who + ' ' + path, path, Object.assign({}, o, { tok: a.tok }));
-        return o.onOwner ? p.then((data) => { o.onOwner(a.who); return data; }) : p;   // onOwner: 이 응답에 쓴 토큰의 주인
-      });
-    }
-    return joined('P ' + path, path, o);
+    return gated('GET ' + path, () => {
+      /* ★ 로그인 읽기는 «누구» 가 열쇠에 든다(ETag 기억 열쇠와 같게) — 계정이 바뀌는 사이 앞 계정의 응답에 합쳐지지 않게 */
+      if(o.auth){
+        return acquire(o.timeoutMs || timeoutMs).then((a) => {
+          const p = joined('A ' + a.who + ' ' + path, path, Object.assign({}, o, { tok: a.tok }));
+          return o.onOwner ? p.then((data) => { o.onOwner(a.who); return data; }) : p;   // onOwner: 이 응답에 쓴 토큰의 주인
+        });
+      }
+      return joined('P ' + path, path, o);
+    });
   }
   function joined(key, path, o){
     if(inflight.has(key)) return inflight.get(key);
@@ -248,8 +296,10 @@ function createApiClient(deps){
     const o = Object.assign({}, opts || {}, { method, body });
     o.auth = o.auth !== false;
     if(!base || !fetchFn) return Promise.reject(new ApiError('unavailable', 0, 'NO_API', 'API 주소 없음'));
-    onRequest();
-    return send(path, o.timeoutMs || writeTimeoutMs, o);
+    return gated(method + ' ' + path, () => {
+      onRequest();
+      return send(path, o.timeoutMs || writeTimeoutMs, o);
+    });
   }
 
   return {
@@ -260,10 +310,16 @@ function createApiClient(deps){
     del: (path, opts) => write('DELETE', path, undefined, opts),
     baseUrl: () => base || null,
     resting: () => downUntil > now(),
+    /* 멈춤 gate 가 남은 시간(ms · 없으면 0) — 화면 · 진단용 */
+    gateLeftMs: () => Math.max(0, gateUntil - now()),
     clearCache: () => { cache.clear(); etags.clear(); },
     /* 계정을 놓을 때(로그아웃 · 탈퇴 · 다른 계정) — 진행 중인 로그인 읽기에 다음 계정이 묻어가지 않게 떼고, 계정별 ETag 기억도 지운다.
        떼인 요청은 그대로 끝나지만(부른 쪽은 앞 계정 답을 받는다) 새 요청은 새로 보낸다. */
-    forgetSession: () => { for(const k of Array.from(inflight.keys())) if(k.indexOf('A ') === 0) inflight.delete(k); etags.clear(); },
+    forgetSession: () => {
+      for(const k of Array.from(inflight.keys())) if(k.indexOf('A ') === 0) inflight.delete(k);
+      etags.clear();
+      gateUntil = 0; gateFails = 0; limited.clear();   // 앞 계정의 멈춤 · 429 막힘(최대 RETRY_AFTER_MAX_MS)이 다음 계정에 남지 않게
+    },
   };
 }
 
@@ -278,6 +334,7 @@ try{
     const touch = () => { window.TwMaintenance.store.touch(); };
     client = createApiClient({ baseUrl, fetch: fetchFn, onRequest: touch });
     authed = createApiClient({ baseUrl, fetch: fetchFn, onRequest: touch, backoffMs: 0,   // 쉬기 끔 — 이 실패가 다시 묻기를 막지 않게
+      gate: true,   // 대신 멈춤 gate — 다시 묻기는 막지 않고 늦춘다
       getToken: (force) => (tokenSource ? tokenSource(force) : Promise.resolve(null)),
       deviceId: () => window.TwDeviceId.store.get() });
   }
@@ -286,8 +343,8 @@ try{
 /* 로그인 토큰 출처를 잇는다 — (force) → Promise<ID 토큰 | null>. 다시 부르면 바꾼다. */
 function bindToken(fn){ tokenSource = fn; }
 
-const api = { API_BASE_PROD, API_BASE_DEV, API_BASE_DEV_KEY, API_BASE_RE, TIMEOUT_MS, WRITE_TIMEOUT_MS, BACKOFF_MS, ETAG_MAX, DEVICE_HEADER, NO_ROUTE_CODES,
-  ApiError, apiBaseFor, envOf, tokenOwner, retryAfterMsOf, createApiClient, bindToken, client, authed };
+const api = { API_BASE_PROD, API_BASE_DEV, API_BASE_DEV_KEY, API_BASE_RE, TIMEOUT_MS, WRITE_TIMEOUT_MS, BACKOFF_MS, GATE_MS, RETRY_AFTER_MAX_MS, ETAG_MAX, DEVICE_HEADER, NO_ROUTE_CODES,
+  ApiError, gatePauseMs, apiBaseFor, envOf, tokenOwner, retryAfterMsOf, createApiClient, bindToken, client, authed };
 if(typeof window !== 'undefined') window.TwApi = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
