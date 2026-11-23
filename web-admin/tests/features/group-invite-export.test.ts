@@ -1,8 +1,13 @@
 // @vitest-environment jsdom
 // 만든 엑셀을 다시 읽어 보는 시험 — xlsx 읽기가 브라우저 DOMParser 를 써서 jsdom 에서 돈다.
 import { describe, expect, it } from 'vitest';
-import { listAllGroupInviteUses, type GroupInviteUse, type InvitePort } from '@/entities/invite';
-import { usesFileName, usesSheet, USES_SHEET_HEAD } from '@/features/user/grant-invites';
+import {
+  GROUP_INVITE_MAX_USES,
+  listAllGroupInviteUses,
+  type GroupInviteUse,
+  type InvitePort,
+} from '@/entities/invite';
+import { usesFileName, usesSheet, USES_SHEET_HEAD } from '@/features/user/grant-invites/model/usesSheet';
 import { formatDate } from '@/shared/lib';
 import { readXlsx, writeXlsx } from '@/shared/sheet';
 
@@ -15,7 +20,7 @@ const use = (n: number, over: Partial<GroupInviteUse> = {}): GroupInviteUse => (
 });
 
 /** 쪽마다 limit 개씩 주는 가짜 포트 — 부른 커서를 남긴다. */
-function pagedPort(total: number, endless = false) {
+function pagedPort(total: number, endless = false, trailingEmpty = false) {
   const cursors: (string | undefined)[] = [];
   const port: Pick<InvitePort, 'uses'> = {
     uses: async (_code, cursor, limit) => {
@@ -27,7 +32,7 @@ function pagedPort(total: number, endless = false) {
       const next = from + limit;
       return {
         items,
-        nextCursor: endless || next < total ? String(next) : null,
+        nextCursor: endless || next < total || (trailingEmpty && from < total) ? String(next) : null,
         total: cursor === undefined ? total : null,
       };
     },
@@ -48,6 +53,20 @@ describe('외부인 초대장 가입한 사람 — 엑셀 내보내기', () => {
 
     const c = pagedPort(0);
     expect(await listAllGroupInviteUses(c.port, 'INVT-AAAA-AAAA', 100)).toEqual([]);
+  });
+
+  it('상한 경계 — 인원 상한을 꽉 채운 코드는 받는다(끝에 빈 쪽이 한 번 더 와도) · 넘치면 던진다 · 쪽 크기를 줄여도 같다', async () => {
+    const full = await listAllGroupInviteUses(
+      pagedPort(GROUP_INVITE_MAX_USES, false, true).port,
+      'INVT-AAAA-AAAA',
+    );
+    expect(full).toHaveLength(GROUP_INVITE_MAX_USES);
+    await expect(
+      listAllGroupInviteUses(pagedPort(GROUP_INVITE_MAX_USES + 200).port, 'INVT-AAAA-AAAA'),
+    ).rejects.toThrow('끝나지 않아요');
+    expect(
+      await listAllGroupInviteUses(pagedPort(GROUP_INVITE_MAX_USES, false, true).port, 'INVT-AAAA-AAAA', 10),
+    ).toHaveLength(GROUP_INVITE_MAX_USES);
   });
 
   it('서버가 커서를 끝내지 않으면 상한에서 멈추고 던진다', async () => {
