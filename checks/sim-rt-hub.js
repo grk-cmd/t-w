@@ -2,7 +2,7 @@
    ・1절: 켜기 — hello { pv:4 · token · ver · deviceId · session · claim } · userId 없음 · ready 의 userCode · 상태
    ・2절: 늘 붙음 — 끊기면 백오프로 다시 · 다시 붙기 hello 에는 claim 없음 · 세션 · 기기는 같음 · stop 하면 안 붙음
    ・3절: 알림 표 — 건 종류만 · 모르는 종류는 버림 · 모르는 이름을 걸면 던짐 · 끊긴 시간이 ready.graceMs 를 넘으면 건 함수마다 한 번 다시 받기(짧으면 없음)
-   ・4절: 닫힘 번호 표 — 서버 표와 같은 이름 · 값 · 코드마다 처리(1000 끝 · 1001 흩어 다시 · 1006 · 1009 · 4005 · 4008 다시 붙기 · 4001 새 토큰으로 한 번 ·
+   ・4절: 닫힘 번호 표 — 서버 표와 같은 이름 · 값 · 코드마다 처리(1000 끝 · 1001 흩어 다시 · 1006 · 1009 · 4008 다시 붙기 · 4005 첫 시도 0~60초 · 그다음 상한 120초 · 잠깐 ready 로는 횟수를 안 놓음 · 4001 새 토큰으로 한 번 ·
           ready 전 error auth 도 4001 로 셈 · 4003 업데이트 · 4004 밀려남 · 4006 점검 · 4007 계정 없음 · 모르는 4000번대 멈춤 · 모르는 1000번대 다시)
    ・4-2절: 작별 · 살아 있음 — bye(leave 는 부르는 쪽) → 서버 닫힘 기다림 1초 · 못 받으면 앱이 닫음 · quit 은 바로 닫음 · ping 5초 · 다시 붙는 중엔 바로 한 번
    ・4-3절: 조용함 확인 — ready 인 채 15초 아무것도 못 받으면 ping · 5초 안에 pong 없으면 끊기 · 받은 메시지가 15초를 다시 셈 · stop · bye · quit · 끊김 뒤 타이머 없음 · 다시 붙어도 하나
@@ -267,8 +267,8 @@ async function judge(S){
       chk(w.all('hello')[0].session === sid, '★ 첫 start 전에 뽑은 session() 을 첫 hello 가 그대로 싣는다(등록이 먼저)'); }
     const d = mk(S);
     d.hub.start(); const dw = await readyOn(d);
-    dw.kill(4005); await tick(); await d.clock.advance(1000);
-    chk(d.hub.state() === 'retrying' && d.socks.length === 2, '4005 — 다시 붙기(점검 · API 못 닿음)');
+    dw.kill(4005); await tick(); await d.clock.advance(30000);
+    chk(d.hub.state() === 'retrying' && d.socks.length === 2, '4005 — 다시 붙기(API 못 닿음 · 흩은 기다림 뒤)');
     const n = mk(S);
     n.hub.start({ claim: false });
     const nw = await readyOn(n);
@@ -279,7 +279,7 @@ async function judge(S){
     const SERVER = { bye: 1000, restart: 1001, tooLarge: 1009, auth: 4001, protocol: 4003, sessionLost: 4004, unavailable: 4005, maintenance: 4006, accountGone: 4007, helloTimeout: 4008 };
     chk(JSON.stringify(H.CLOSE_CODES) === JSON.stringify(SERVER) && !Object.values(H.CLOSE_CODES).includes(4002), '닫힘 번호 표 — 서버 표와 같은 이름 · 값(4002 없음)');
     const want = [[null, 'reconnect'], [1000, 'end'], [1001, 'restart'], [1006, 'reconnect'], [1009, 'reconnect'], [1011, 'reconnect'], [1999, 'reconnect'],
-      [4001, 'auth'], [4002, 'unknown'], [4003, 'update'], [4004, 'sessionLost'], [4004, 'deviceRemoved', 'deviceRemoved'], [4004, 'sessionLost', 'sessionLost'], [4005, 'reconnect'], [4006, 'maintenance'], [4007, 'accountGone'], [4008, 'reconnect'],
+      [4001, 'auth'], [4002, 'unknown'], [4003, 'update'], [4004, 'sessionLost'], [4004, 'deviceRemoved', 'deviceRemoved'], [4004, 'sessionLost', 'sessionLost'], [4005, 'unavailable'], [4006, 'maintenance'], [4007, 'accountGone'], [4008, 'reconnect'],
       [4000, 'unknown'], [4999, 'unknown'], [5000, 'reconnect']];
     const bad = want.filter(([c, act, why]) => H.closeAction(c, why) !== act).map(([c, act, why]) => c + (why ? '/' + why : '') + '→' + H.closeAction(c, why) + '(' + act + ')');
     chk(typeof H.isDeviceOff === 'function' && H.isDeviceOff('sessionLost') && H.isDeviceOff('deviceRemoved') && !['ready', 'off', 'retrying', 'authFailed', 'closed', 'accountGone'].some(H.isDeviceOff),
@@ -301,7 +301,42 @@ async function judge(S){
       const st = x.hub.state(); await x.clock.advance(1000);
       return st === 'retrying' && x.socks.length === 2;
     };
-    chk(await retryOn(1006) && await retryOn(1009) && await retryOn(4005) && await retryOn(4008) && await retryOn(1011), '1006 · 1009 · 4005 · 4008 · 모르는 1000번대 — 백오프 다시 붙기');
+    chk(await retryOn(1006) && await retryOn(1009) && await retryOn(4008) && await retryOn(1011), '1006 · 1009 · 4008 · 모르는 1000번대 — 백오프 다시 붙기(1초 · 그대로)');
+    { /* 4005 — API 로 토큰을 확인 못 함: 첫 시도 0~60초 흩기 · 그다음 [base/2, base] 상한 120초 · 잠깐 ready 로는 횟수를 안 놓음 (random 0.5) */
+      const u = mk(S); u.hub.start(); let w = await readyOn(u);
+      const gapTo = async (ms) => {   // ms-1 에는 안 붙고 ms 에 붙는가
+        const n0 = u.socks.length;
+        await u.clock.advance(ms - 1); const before = u.socks.length === n0;
+        await u.clock.advance(1); await tick();
+        return before && u.socks.length === n0 + 1;
+      };
+      w.kill(4005); await tick();
+      chk(await gapTo(30000), '★ 4005 — 첫 시도는 0~60초 흩기(random 0.5 → 30초) · 1초 백오프 아님');
+      u.last().open(); await tick(); u.last().kill(4005); await tick();
+      chk(await gapTo(45000), '  ↳ ready 전에 또 4005 — 두 번째는 60초 기준 [30, 60]초(45초)');
+      w = await readyOn(u); await u.clock.advance(10000);
+      w.kill(4005); await tick();
+      chk(await gapTo(90000), '  ↳ ★ 잠깐(10초) ready 됐다 또 4005 — 횟수를 놓지 않고 늘린다(120초 기준 90초 · 1초 · 30초 아님)');
+      u.last().open(); await tick(); u.last().kill(4005); await tick();
+      chk(await gapTo(90000), '  ↳ 그다음도 상한 120초 기준(90초) — 더 늘지 않는다');
+      w = await readyOn(u);
+      for(let i = 0; i < 6; i++){ await u.clock.advance(10000); w.msg({ t: 'pong' }); await tick(); }   // 조용함 확인에 안 끊기게 10초마다 받기
+      chk(!w.closed, '  ↳ (60초 ready 유지)');
+      w.kill(4005); await tick();
+      chk(await gapTo(30000), '  ↳ ready 가 60초 이어진 뒤의 4005 는 처음부터(30초)');
+      w = await readyOn(u); await u.clock.advance(5000);
+      w.kill(1006); await tick();
+      chk(await gapTo(1000), '  ↳ 4005 사이에 온 1006 은 그대로 1초 백오프');
+      const v = mk(S); v.hub.start(); let vw = await readyOn(v);
+      vw.kill(4005); await tick(); await v.clock.advance(30000); v.last().open(); await tick(); v.last().kill(4005); await tick();
+      v.hub.stop(); v.hub.start(); vw = await readyOn(v); vw.kill(4005); await tick();
+      const n0 = v.socks.length; await v.clock.advance(29999); const early = v.socks.length === n0; await v.clock.advance(1); await tick();
+      chk(early && v.socks.length === n0 + 1, '  ↳ 끄고 다시 켜면(start) 횟수를 놓는다');
+      const D = u.H.unavailableDelayMs, mx = [];
+      for(let n = 0; n < 8; n++) mx.push([D(n, 0), D(n, 0.999999)]);
+      chk(D(0, 0) === 0 && D(0, 0.999999) <= 60000 && D(0, 0.999999) > 59000 && mx.slice(1).every(([a, b]) => a <= 120000 && b >= 30000) && D(1, 0) === 60000 && D(2, 0) === 120000 && D(7, 0) === 120000 && D(7, 1) === 60000,
+        '  ↳ unavailableDelayMs — 첫 시도 [0, 60초] · 그다음 [30, 60] · [60, 120]초 · 상한 120초 — ' + mx.map((x) => x.join('~')).join(' '));
+    }
     { /* 1001 — 첫 시도를 0~30초 흩고 그 연결은 ready 를 35초 기다린다 */
       const r = mk(S); r.hub.start(); const w = await readyOn(r);
       w.kill(1001); await tick();
@@ -626,6 +661,15 @@ const BREAKS = [
   ['HUB', "[CLOSE_CODES.maintenance]: ACTION.MAINTENANCE,", "  [CLOSE_CODES.maintenance]: ACTION.RECONNECT,", '점검인데 끝없이 다시 붙음'],
   ['HUB', "[CLOSE_CODES.accountGone]: ACTION.ACCOUNT_GONE,", "", '계정 없음(4007)을 모르는 번호로 봄'],
   ['HUB', "[CLOSE_CODES.restart]: ACTION.RESTART,", "  [CLOSE_CODES.restart]: ACTION.RECONNECT,", '재시작(1001)을 흩지 않고 1초 뒤 몰림'],
+  ['HUB', "[CLOSE_CODES.unavailable]: ACTION.UNAVAILABLE,", "[CLOSE_CODES.unavailable]: ACTION.RECONNECT,", '4005 를 1초 백오프로(몰림)'],
+  ['HUB', "    if(wasReady && readyAt != null && now() - readyAt >= UNAVAILABLE_STABLE_MS) unavailFails = 0;", "    if(wasReady) unavailFails = 0;", '잠깐 ready 로도 4005 횟수를 놓음(다시 30초로)'],
+  ['HUB', "    if(wasReady && readyAt != null && now() - readyAt >= UNAVAILABLE_STABLE_MS) unavailFails = 0;", "", '오래 붙어 있어도 4005 횟수를 안 놓음'],
+  ['HUB', "delayMs: unavailableDelayMs(unavailFails++, random())", "delayMs: unavailableDelayMs(unavailFails, random())", '4005 가 이어져도 기다림이 안 늚'],
+  ['HUB', "const UNAVAILABLE_SPREAD_MS = 60000;", "const UNAVAILABLE_SPREAD_MS = 30000;", '4005 첫 흩기가 60초가 아님'],
+  ['HUB', "const UNAVAILABLE_BACKOFF_MS = Object.freeze([60000, 120000]);", "const UNAVAILABLE_BACKOFF_MS = Object.freeze([60000, 120000, 240000]);", '4005 상한이 120초를 넘음'],
+  ['HUB', "  if(n <= 0) return Math.round(r * UNAVAILABLE_SPREAD_MS);", "  if(n <= 0) return UNAVAILABLE_SPREAD_MS;", '4005 첫 시도를 안 흩음(모두 60초에 몰림)'],
+  ['HUB', "  return Math.round(base * (1 - 0.5 * r));", "  return base;", '4005 그다음 시도를 안 흩음'],
+  ['HUB', "    started = true; authFails = 0; sawSessionLost = false; unavailFails = 0;", "    started = true; authFails = 0; sawSessionLost = false;", '다시 켜도 앞 4005 횟수가 남음'],
   ['HUB', "  return (code >= 4000 && code <= 4999) ? ACTION.UNKNOWN : ACTION.RECONNECT;", "  return ACTION.RECONNECT;", '모르는 4000번대에도 계속 붙음'],
   ['HUB', "  return (code >= 4000 && code <= 4999) ? ACTION.UNKNOWN : ACTION.RECONNECT;", "  return ACTION.UNKNOWN;", '모르는 1000번대에 멈춤'],
   ['HUB', "  if(typeof code !== 'number') return ACTION.RECONNECT;", "  if(typeof code !== 'number') return ACTION.END;", '번호 없는 끊김(1006)에 멈춤'],

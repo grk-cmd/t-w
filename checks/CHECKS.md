@@ -310,7 +310,7 @@
 | **sim-focus-log.js** | 333 | **20b5a9e9421e** |
 | **sim-focus-progress.js** | 391 | **4ae3c02059c7** |
 | **sim-chat-window.js** | 571 | **8a2dfb1420a5** |
-| **sim-api-client.js** | 479 | **1bbdd29b8203** |
+| **sim-api-client.js** | 587 | **b0193704dcae** |
 | **sim-api-public-reads.js** | 140 | **c8ccfd0c544a** |
 | **sim-api-routes.js** | 256 | **8457b5a0cb34** |
 | **sim-api-errors.js** | 128 | **70b740dcb69e** |
@@ -522,7 +522,7 @@
 | **sim-gift-img-retry.js** | 209 | **3496e4f17f97** |
 | **sim-device-id.js** | 103 | **02388dab819d** |
 | **sim-account-store.js** | 626 | **ecd896625b4c** |
-| **sim-rt-hub.js** | 677 | **a7500ea7b618** |
+| **sim-rt-hub.js** | 721 | **ecfabd3b330e** |
 | **sim-rt-status-ui.js** | 245 | **60536e178fbf** |
 | **sim-run-verdict.js** | 67 | **76851f0d5f8e** |
 | **sim-user-api.js** | 250 | **54e0c4bca46b** |
