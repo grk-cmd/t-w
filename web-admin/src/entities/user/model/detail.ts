@@ -20,6 +20,8 @@ export interface DetailSecretRoom {
 /** API 판 사용자 상세 — 줄 칸(`row`)에 상세 창 칸을 더한 것. */
 export interface UserDetail {
   row: LiveUserRow;
+  /** 로그인 서버(Firebase Auth)의 UID — Firebase 콘솔에서 이 사람을 찾을 때. */
+  authUid: string;
   /** 접속 중이고 시크릿룸이 아닐 때만 들어간 방 코드. */
   room: string | null;
   hasPasswordLogin: boolean;

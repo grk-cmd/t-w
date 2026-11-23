@@ -118,6 +118,7 @@ export function toServerUserDetail(w: unknown): UserDetail {
   return {
     // 상세만 방 코드를 안다 — 줄의 접속 칸에 합쳐 한 곳에서 읽게 한다.
     row: { ...listed, live: { ...listed.live, presence: { ...listed.live.presence, room } } },
+    authUid: wireString(o.authUid, what('authUid')),
     room,
     hasPasswordLogin: wireBool(o.hasPasswordLogin, what('hasPasswordLogin')),
     awayImage: away
