@@ -3,18 +3,15 @@
 import { strToU8, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import {
-  decodeCsv,
   issuedIndex,
   judge,
   mapRows,
-  parseCsv,
-  readXlsx,
   resultSheet,
   rowNote,
   wasIssued,
-  writeXlsx,
   type PlanRow,
 } from '@/features/license/bulk-grant';
+import { decodeCsv, parseCsv, readXlsx, writeXlsx } from '@/shared/sheet';
 import { grantRow, lookupRows, runBulkGrant } from '@/features/license/bulk-grant/api/firebase';
 import { fakeDb, withoutAudits } from '../shared/fakeDb';
 

@@ -1,5 +1,5 @@
 import { NOTE_MAX } from '@/entities/license';
-import type { Grid } from '../lib/sheet';
+import type { Grid } from '@/shared/sheet';
 
 export const MAX_ROWS = 500; // 한 파일 상한 — 넘으면 앞 500행만(앱과 같다)
 export const CODE_RE = /^(?:(MATE|COZY)-)?([A-Z0-9]{4})$/;

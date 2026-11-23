@@ -18,6 +18,7 @@ export {
   useSetInvitesLeftCache,
 } from './api/hooks';
 export { useInvitePort, type InvitePort } from './api/index';
+export { listAllGroupInviteUses } from './api/uses';
 export {
   addInvites,
   genInviteCode,

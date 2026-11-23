@@ -13,3 +13,4 @@ export { GrantInvitesSelectedButton } from './ui/GrantInvitesSelectedButton';
 export { RevokeInvitesAllButton, RevokeInvitesSelectedButton } from './ui/RevokeInvitesButton';
 export { CreateInviteCodesButton } from './ui/CreateInviteCodesButton';
 export { GroupInvitesPanel } from './ui/GroupInvitesPanel';
+export { usesFileName, usesSheet, USES_SHEET_HEAD } from './model/usesSheet';
