@@ -252,7 +252,12 @@ function UseRow({ use, actions }: { use: GroupInviteUse; actions: UseActions }) 
       </td>
       <td>
         {userCode !== null ? (
-          <button type="button" className={styles.link} onClick={() => actions.open(userCode)}>
+          <button
+            type="button"
+            className={styles.link}
+            title="회원 정보"
+            onClick={() => actions.open(userCode)}
+          >
             {use.name ?? '정보 보기'}
           </button>
         ) : (
