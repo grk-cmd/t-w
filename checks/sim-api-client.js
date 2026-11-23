@@ -4,8 +4,8 @@
    2. 성공 — 봉투 { success, data } 의 data · 토큰 · 쿠키 없이 · 주소 = 기본 + 경로
    3. 실패 한 모양 — 네트워크 · 시간 초과 · 5xx · 봉투 아님 → unavailable · 길 없는 404(NOT_FOUND) → noRoute(앱 버그 · console.error) · *_NOT_READY → notReady · 401/403 → auth · 그 밖 4xx → request · 넘어가기 장치(shouldFallback) 없음
    4. 쉬기 — unavailable 뒤 BACKOFF_MS 동안 묻지 않고 곧장 실패(BACKOFF) · 지나면 다시 · notReady · 길 없는 404 · 성공은 쉬지 않음(그 요청만 실패 — 같은 통로의 /v2/config 는 계속 간다)
-   4-2. 멈춤 gate(로그인 통로) — 503 · 5xx · 시간 초과 · 네트워크 · notReady 뒤 다음 요청은 흩은 기다림 뒤에 · 연달아 실패하면 늘고 8초에서 멈춤 · 동시 실패는 한 번 ·
-        성공하면 풀림 · 429 Retry-After 는 그 길만 그때까지 보내지 않고 429 · gate 없는 통로는 그대로
+   4-2. 멈춤 gate(로그인 통로) — 503 · 5xx · 시간 초과 · 네트워크 · notReady 뒤 다음 요청은 흩은 기다림(jitter) 뒤에 · 연달아 실패하면 늘고 8초에서 멈춤 · 동시 실패는 한 번 ·
+        성공하면 풀림 · 429 Retry-After 는 그 endpoint(method + path)만 그때까지 보내지 않고 429 · 계정을 놓으면(forgetSession) 비움 · gate 없는 통로는 그대로
    5. 캐시 · 같은 요청 하나로(로그인 읽기는 누구별) · 주소 없음
    6. 쓰기 — post · put · patch · del 방법 · 본문 · 로그인 기본 · 쓰기 시간 제한 · 204 · 쉬지 않음
    7. 로그인 — 토큰 · X-Device-Id 머리 · 401 AUTH_REQUIRED 면 새 토큰으로 한 번만 · 가입 전(NOT_BOUND)은 다시 안 함 · 토큰 없음
@@ -100,8 +100,8 @@ async function gateCases(M){
     const e1 = await err(c.post('/v2/users', {}, { auth: false }));
     const e2 = await err(c.post('/v2/users', {}, { auth: false }));
     ok(e1 && e1.retryAfterMs === 7000 && e2 && e2.status === 429 && e2.code === 'TOO_MANY_REQUESTS' && e2.retryAfterMs === 7000 && f.calls.length === 1,
-      '★ 429 Retry-After — 그 길은 Retry-After 가 지날 때까지 보내지 않고 곧장 429(retryAfterMs = 남은 시간)');
-    ok((await c.post('/v2/other', {})) === 2 && f.calls.length === 2 && c.gateLeftMs() === 0, '  ↳ 다른 길은 막지 않는다(서버 요청 제한은 길마다) · 멈춤 gate 도 안 건다');
+      '★ 429 Retry-After — 그 endpoint(method + path)는 Retry-After 가 지날 때까지 보내지 않고 곧장 429(retryAfterMs = 남은 시간)');
+    ok((await c.post('/v2/other', {})) === 2 && f.calls.length === 2 && c.gateLeftMs() === 0, '  ↳ 다른 endpoint 는 막지 않는다(서버 요청 제한은 endpoint 마다) · 멈춤 gate 도 안 건다');
     await clk.run(3000);
     const e3 = await err(c.post('/v2/users', {}, { auth: false }));
     ok(e3 && e3.retryAfterMs === 4000 && f.calls.length === 2, '  ↳ 남은 시간이 줄어든다(3초 뒤 4000ms)');
@@ -111,7 +111,15 @@ async function gateCases(M){
     const big = mkGate(() => res(429, { success: false, code: 'TOO_MANY_REQUESTS' }, { 'Retry-After': '99999' }));
     await err(big.c.post('/v2/y', {}));
     const eb = await err(big.c.post('/v2/y', {}));
-    ok(eb && eb.retryAfterMs === M.RETRY_AFTER_MAX_MS, '  ↳ Retry-After 상한(' + M.RETRY_AFTER_MAX_MS + 'ms) — 이상한 값 하나로 그 길이 끝없이 막히지 않게');
+    ok(eb && eb.retryAfterMs === M.RETRY_AFTER_MAX_MS, '  ↳ Retry-After 상한(' + M.RETRY_AFTER_MAX_MS + 'ms) — 이상한 값 하나로 그 endpoint 가 끝없이 막히지 않게');
+  }
+  {
+    const { c, f } = mkGate((url) => (/users$/.test(url) ? res(429, { success: false, code: 'TOO_MANY_REQUESTS' }, { 'Retry-After': '600' }) : res(503, { success: false })));
+    await err(c.post('/v2/users', {}, { auth: false })); await err(c.post('/v2/me/x', {}));
+    const before = c.gateLeftMs() > 0;
+    c.forgetSession();
+    await err(c.post('/v2/users', {}, { auth: false }));
+    ok(before && c.gateLeftMs() === 0 && f.calls.length === 3, '★ 계정을 놓으면(forgetSession) 멈춤 · 429 막힘을 비운다 — 다음 계정에 앞 계정의 막힘(최대 10분)이 남지 않게');
   }
   {
     const f = mkFetch((url, init, n) => (n === 1 ? res(503, { success: false }) : res(200, { success: true, data: 3 })));
@@ -564,9 +572,11 @@ async function gateCases(M){
       ["    if(ms <= 0) return go();", "    return go();", '멈춤 동안에도 바로 보냄'],
       ["      limited.set(key, now() + Math.min(e.retryAfterMs, RETRY_AFTER_MAX_MS));", "", '429 Retry-After 를 안 지킴'],
       ["      limited.set(key, now() + Math.min(e.retryAfterMs, RETRY_AFTER_MAX_MS));", "      limited.set(key, now() + e.retryAfterMs);", 'Retry-After 상한 없음'],
-      ["    return gated(method + ' ' + path, () => {", "    return gated(method, () => {", '429 가 다른 길까지 막음'],
+      ["    return gated(method + ' ' + path, () => {", "    return gated(method, () => {", '429 가 다른 endpoint 까지 막음'],
       ["  return Math.round(base * (1 - 0.5 * r));\n}\n/* 서버가", "  return base;\n}\n/* 서버가", '멈춤 기다림을 흩지 않음(모든 앱이 같은 때 다시)'],
       ["const GATE_MS = Object.freeze([1000, 2000, 4000, 8000]);", "const GATE_MS = Object.freeze([1000]);", '연달아 실패해도 기다림이 안 늚'],
+      ["      gateUntil = 0; gateFails = 0; limited.clear();   // 앞 계정", "      //", '계정을 놓아도 멈춤 · 429 막힘이 남음'],
+      ["      gateUntil = 0; gateFails = 0; limited.clear();   // 앞 계정", "      gateUntil = 0; gateFails = 0;   // 앞 계정", '계정을 놓아도 429 막힘이 남음'],
       ["    if(o.expectOwner && tokenOwner(tok) !== o.expectOwner) throw", "    if(false) throw", '쓰기 직전 토큰 주인을 안 견줌'],
       ["    if(o.expectOwner && tokenOwner(tok) !== o.expectOwner) throw", "    if(o.expectOwner && tokenOwner(tok) === o.expectOwner) throw", '토큰 주인 견줌이 거꾸로'],
       ["    if(!force && 'tok' in o) tok = o.tok;", "    if(false) tok = o.tok;", '이미 받은 토큰을 또 받음'],

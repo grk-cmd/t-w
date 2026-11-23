@@ -149,7 +149,7 @@ export function createRealtimeLink(deps){
   }
 
   /* o.delayMs: 백오프 대신 이 시간 뒤(서버 재시작 흩기) · o.readyWaitMs: 그 연결이 ready 를 기다릴 시간(기본 CONNECT_TIMEOUT_MS) */
-  let reconnectWait = 0;
+  let reconnectWait = 0, reconnectAt = 0;
   function reconnectFire(){
     reconnectTimer = null;
     const waitMs = reconnectWait; reconnectWait = 0;
@@ -158,15 +158,19 @@ export function createRealtimeLink(deps){
     if(want && !ws) open(waitMs);
   }
   function scheduleReconnect(o){
-    if(reconnectTimer) return;
+    const fixed = !!(o && typeof o.delayMs === 'number');
+    /* 이미 기다리는 중이면 그대로 — 정한 기다림(서버 바쁨 등)이 지금 타이머보다 늦을 때만 다시 건다(일찍 연 시도가 또 4005 로 끝나도 부르는 쪽의 기다림과 맞게) */
+    if(reconnectTimer && !(fixed && now() + Math.max(0, Math.round(o.delayMs)) > reconnectAt)) return;
+    if(reconnectTimer){ tClear(reconnectTimer); reconnectTimer = null; }
     let delay;
-    if(o && typeof o.delayMs === 'number') delay = Math.max(0, Math.round(o.delayMs));
+    if(fixed) delay = Math.max(0, Math.round(o.delayMs));
     else{
       const base = T.BACKOFF_MS[Math.min(attempt, T.BACKOFF_MS.length - 1)];
       delay = Math.round(base * (1 + T.BACKOFF_JITTER * (2 * random() - 1)));
     }
     attempt++;
     reconnectWait = (o && o.readyWaitMs) || 0;
+    reconnectAt = now() + delay;
     reconnectTimer = tSet(reconnectFire, delay);
   }
   /* 다시 붙기를 기다리는 중이면 기다림을 건너뛰고 지금 한 번(네트워크가 돌아옴). 기다리는 중이 아니면 아무 일 없음. */

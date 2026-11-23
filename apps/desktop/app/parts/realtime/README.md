@@ -27,7 +27,7 @@
 - 함정:
   - **답 · 오류는 rid 로만 짝짓는다(추측 없음)** — 서버는 rid 를 실어 보낸 요청의 답 · 모든 오류에 같은 rid 를 돌려준다(PROTOCOL rid · `random` · `peek` · `watch` · `presenceGet` · `photoOpen` · `photoStart` · `roomInvite` · `join` · `meta` · `chatClear`). 짝 없는 rid 의 낡은 답(시간 초과로 지워진 요청의 늦은 답)과, rid 없는 요청 종류(`requestKinds`)의 오류는 `console.warn` 후 버린다 — 같은 종류의 먼저 보낸 요청에 붙이지 않는다. rid 없는 밀어 주는 메시지(presence 변화 등)는 `onMessage` 로. 짝 없는 rid 의 오류는 방 · 대화 포트의 요청일 수 있어 `onMessage` 로 넘기고 그쪽이 rid 로 짝짓는다. **서버 `#245` 가 배포된 dev 에서만 돈다**(rid 를 안 돌려주는 옛 서버에서는 방 입장 · meta · 지우기 답이 버려진다).
   - 요청의 거절 `error` 는 그 요청의 rid 를 달고 와 그 rid 의 요청이 **오류 메시지**를 받는다(`badRequest` · `unavailable` 등). ref 가 요청 종류가 아니면(예: `watch`) `onMessage` 로 넘겨 듣는 쪽이 받는다.
-  - 연결 시간 초과는 둘로 가른다 — hello 를 보냈는데 ready 가 없으면 fatal `readyTimeout`(서버가 느림 · rt-hub 가 4005 처럼 흩어 다시) · 소켓도 못 열었으면 `timeout`(1~15초 백오프).
+  - 연결 시간 초과는 둘로 가른다 — hello 를 보냈는데 ready 가 없으면 fatal `readyTimeout`(서버가 느림 · rt-hub 가 4005 처럼 흩어(jitter) 다시) · 소켓도 못 열었으면 `timeout`(1~15초 백오프).
   - ready 전의 `error` auth · version · protocol 은 서버가 곧 끊는 신호라 바로 닫고 `onClosed(false, fatal, 4001 | 4003 | null)` — auth 를 한 번 더 시도할지는 부르는 쪽(`markAuthRetry`). 토큰을 못 받은 것(이 PC 사정)은 `fatal` auth · 번호 없음.
   - 검사: `checks/sim-realtime-link.js`(공통부) · `checks/sim-rt-hub.js` · `checks/sim-room-rt.js`(연결 하나 · 방 포트가 이 위에서 그대로 도는지).
 

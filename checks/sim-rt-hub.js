@@ -349,6 +349,16 @@ async function judge(S){
         await k.clock.advance(29000); await tick();
         chk(kept && k.socks.length === n1 + 1, '★ 4005 기다림 중 checkAlive — 건너뛰지 않고 남은 시간(30초)을 지킨다');
       }
+      { /* 4005 기다림 중 요청이 일찍 연 연결이 또 4005 — 다음 시도는 늘어난 기다림(45초)대로, 앞 타이머(30초)로 붙지 않는다 */
+        const k = mk(S); k.hub.start(); const kw = await readyOn(k);
+        kw.kill(4005); await tick(); await k.clock.advance(1000);
+        k.hub.request({ t: 'presenceGet' }); await tick();
+        const early = k.last(); early.open(); await tick(); early.kill(4005); await tick();
+        const n1 = k.socks.length;
+        await k.clock.advance(44999); const held = k.socks.length === n1;
+        await k.clock.advance(1); await tick();
+        chk(n1 === 2 && held && k.socks.length === n1 + 1, '  ↳ 일찍 연 시도가 또 4005 면 타이머를 늘어난 기다림(45초)으로 다시 건다(앞 30초 타이머로 안 붙음)');
+      }
       const D = u.H.unavailableDelayMs, mx = [];
       for(let n = 0; n < 8; n++) mx.push([D(n, 0), D(n, 0.999999)]);
       chk(D(0, 0) === 0 && D(0, 0.999999) <= 60000 && D(0, 0.999999) > 59000 && mx.slice(1).every(([a, b]) => a <= 120000 && b >= 30000) && D(1, 0) === 60000 && D(2, 0) === 120000 && D(7, 0) === 120000 && D(7, 1) === 60000,
@@ -718,6 +728,7 @@ const BREAKS = [
   ['HUB', "  if(win.companion) win.companion.onWake(() => hub.checkAlive());", "", '깨어남에 확인 안 함'],
   ['LINK', "        closeCode = PRE_READY_ERROR_CLOSE[m.code] || null;", "", 'ready 전 error auth 를 4001 로 안 셈(끝없이 다시)'],
   ['LINK', "    if(want && !ws) open(waitMs);", "    if(want && !ws) open();", '정한 ready 기다림을 안 씀'],
+  ['LINK', "    if(reconnectTimer && !(fixed && now() + Math.max(0, Math.round(o.delayMs)) > reconnectAt)) return;", "    if(reconnectTimer) return;", '일찍 연 시도가 또 4005 여도 앞 타이머(더 이름)로 붙음'],
   ['HUB', "    if(!kindFns.has(kind)) throw new Error('[realtime] 모르는 알림 종류 — ' + kind);", "    if(!kindFns.has(kind)) kindFns.set(kind, []);", '모르는 이름을 조용히 받음'],
   ['HUB', "    if(link) link.close();\n    setState(STATE.OFF);", "    setState(STATE.OFF);", 'stop 이 연결을 안 닫음'],
   ['LINK', "const base = { t: 'hello', pv: deps.pv, token: tk, ver: helloVer };", "const base = { t: 'hello', pv: deps.pv, token: tk, userId: 'u1', ver: helloVer };", 'pv 2 hello 에 userId(서버가 모르는 칸 — badRequest)'],
