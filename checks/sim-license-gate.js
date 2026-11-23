@@ -115,7 +115,7 @@ async function gateRun(src, o){
     _enterAccount: () => { ev.push('enter'); return o.enter || { ok: true, switched: false }; },
     twNav: { NAV: { ACCOUNT_ENTERED: 'accountEntered' }, go: (name, me) => { ev.push('entered:' + name + ':' + (me && me.userCode)); } },   // 계정에 들어감 알림 — 이후 차례는 app-boot(sim-app-boot.js)
     loginFlowMod: {
-      confirm: async () => ({ state: o.state, me: { userCode: 'u1' } }), identity: () => ({}),
+      confirm: async (co) => { if(o.restoreWait){ co.onRestoreWait(); ev.push('restoreWait:' + title.textContent + ':' + btn.style.display); } return { state: o.state, me: { userCode: 'u1' }, restoring: !!o.restoring }; }, identity: () => ({}),
       release: async (why) => { ev.push('bye:' + why); },   // 계정 바꾸기 — 다시 켜기 전에 realtime 작별
       goOnline: () => { ev.push('goOnline'); },
       waitForServer: (cb) => { ev.push('wait'); waitCb = cb; },
@@ -123,11 +123,12 @@ async function gateRun(src, o){
     },
   });
   const el = () => ({ style: {}, textContent: '', disabled: false });
-  const ov = el(), card = el(), btn = el(), msg = el();
+  const ov = el(), card = el(), btn = el(), msg = el(), title = el(), desc = el();
   const doc = { getElementById: (id) => {
     if(id === 'inviteGateInput') ev.push('gate');   // 초대 게이트 — 마크업이 없는 척 → false 로 끝난다
     if(id === 'inviteGateOverlay') return ov;
     if(id === 'offlineCard') return card; if(id === 'offlineRetry') return btn; if(id === 'offlineMsg') return msg;
+    if(id === 'offlineTitle') return title; if(id === 'offlineDesc') return desc;
     return null;
   } };
   const winT = {};
@@ -139,7 +140,7 @@ async function gateRun(src, o){
   let settled = false, ret;
   const p = mod.checkInviteGate().then((v) => { settled = true; ret = v; });
   await new Promise(r => setTimeout(r, 0));
-  const out = { ev: () => ev.join(','), settled: () => settled, ret: () => ret, msg, card, ov, btn };
+  const out = { ev: () => ev.join(','), settled: () => settled, ret: () => ret, msg, card, ov, btn, title, desc };
   if(o.click){ for(let i = 0; i < o.click; i++){ await btn.onclick(); await new Promise(r => setTimeout(r, 0)); } }
   if(!settled && o.click === undefined && o.state !== 'local') await p;
   return out;
@@ -170,6 +171,20 @@ async function gateRows(src){
   t(x.settled() && has(x, 'relaunch') && !x.ev().includes('entered'), '  ↳ 닿았는데 계정이 바뀌었으면 다시 켜기(들어감 알림 없음)');
   x = await gateRun(src, { state: 'local', uid: 'u1', retry: [{ state: 'signup' }], click: 1 });
   t(x.settled() && x.ev().indexOf('wipe') >= 0 && x.ev().indexOf('wipe') < x.ev().indexOf('gate'), '  ↳ 닿았는데 계정이 없으면(signup) 이 PC 몫을 지우고 초대·로그인 게이트');
+  /* 저장된 로그인의 첫 답이 늦음(restoring) — 같은 카드 · 로그인 화면으로 가지 않는다 */
+  x = await gateRun(src, { state: 'in', uid: 'u1', restoreWait: true });
+  t(x.ev() === 'restoreWait:연결 중:none,enter,entered:accountEntered:u1' && x.card.style.display === 'none' && x.ov.style.display === 'none' && !has(x, 'gate'),
+    '복원 기다림 → «연결 중» 카드(버튼 없음) · 첫 답이 와서 in 이면 카드를 걷고 평소 차례 — ' + x.ev());
+  x = await gateRun(src, { state: 'local', uid: 'u1', restoreWait: true, restoring: true });
+  t(!x.settled() && x.card.style.display === 'block' && x.title.textContent === '연결 중' && /로그인을 확인하는 중/.test(x.desc.textContent) && x.btn.style.display === '' && !has(x, 'gate'),
+    '복원 기다림 상한을 넘김(local · restoring) → 같은 카드 «연결 중 · 로그인을 확인하는 중» + [다시 시도] · 로그인 화면 아님');
+  x = await gateRun(src, { state: 'local', uid: 'u1', restoring: true, retry: [{ state: 'local', restoring: true }], click: 1 });
+  t(!x.settled() && x.ev() === 'wait,retry' && /아직 로그인을 확인하지 못했어요/.test(x.msg.textContent) && x.btn.style.display === '',
+    '  ↳ [다시 시도] 도 답이 없으면 안내 글 · 오류 번호 없음(서버 실패가 아니다) · 버튼 그대로 — ' + x.ev());
+  x = await gateRun(src, { state: 'local', uid: 'u1', restoring: true, retry: [{ state: 'login' }], click: 1 });
+  t(x.settled() && has(x, 'gate') && x.card.style.display === 'none', '  ↳ 다시 기다려 Firebase 가 «사용자 없음» 이면(login) 그때 로그인 게이트');
+  x = await gateRun(src, { state: 'local', uid: 'u1' });
+  t(x.title.textContent === '서버에 연결할 수 없어요' && /인터넷 연결을 확인/.test(x.desc.textContent), '보통의 local 은 «서버에 연결할 수 없어요» 글 그대로');
   x = await gateRun(src, { state: 'signup', uid: 'u1' });
   t(x.ret() === false && x.ev().indexOf('wipe') >= 0 && x.ev().indexOf('wipe') < x.ev().indexOf('gate'), 'signup · 이 PC 에 계정 있음 → 이 PC 계정 몫을 지운 뒤 게이트');
   x = await gateRun(src, { state: 'signup', uid: null });
@@ -320,10 +335,15 @@ for(const [name, fm, fh] of btnBreaks){
 const breaks = [
   ['로그인 화면이 안내 토스트를 안 띄움', m => m.replace("if(_leftNotice){ toast(_leftNotice); _leftNotice = null; }", ''), null, null],
   ['켤 때 안내 표시를 안 읽음', m => m.replace('_leftNotice = takeLeft();', ''), null, null],
-  ['서버에 못 닿아도 로컬 모드처럼 들임', m => m.replace("if(c.state === 'local') return await _showOfflineGate();", "if(c.state === 'local') return true;"), null, null],
+  ['서버에 못 닿아도 로컬 모드처럼 들임', m => m.replace("if(c.state === 'local') return await _showOfflineGate(c);", "if(c.state === 'local') return true;"), null, null],
   ['오프라인 화면이 기다림을 안 검', m => m.replace("loginFlowMod.waitForServer((c)=>{", "(function(c){"), null, null],
   ['다시 시도 실패에 오류 번호 없음', m => m.replace("notifyError('E-ACC-03', r.reason);", ""), null, null],
-  ['닿은 뒤 화면을 안 닫음', m => m.replace("card.style.display = 'none'; ov.style.display = 'none'; if(hCard) hCard.style.display = '';", ""), null, null],
+  ['복원 기다림 카드를 안 띄움', m => m.replace("loginFlowMod.confirm({ onRestoreWait: ()=>_offlineCard(OFFLINE_TEXT.restoreWait) })", "loginFlowMod.confirm({ onRestoreWait: ()=>{} })"), null, null],
+  ['복원 기다림 뒤 카드를 안 걷음', m => m.replace("  if(c.state !== 'local') _hideOfflineCard();", ""), null, null],
+  ['복원 시간 초과를 «서버에 연결할 수 없어요» 로', m => m.replace("(c && c.restoring ? OFFLINE_TEXT.restoreSlow : OFFLINE_TEXT.offline)", "OFFLINE_TEXT.offline"), null, null],
+  ['복원 기다림 재시도에 오류 번호', m => m.replace("if(r.restoring){ say('아직 로그인을 확인하지 못했어요'); return; }", ""), null, null],
+  ['기다리는 동안에도 버튼을 보임', m => m.replace("btn.style.display = t.retry ? '' : 'none';", "btn.style.display = '';"), null, null],
+  ['닿은 뒤 화면을 안 닫음', m => m.replace("      _hideOfflineCard();\n      _afterConfirm(c)", "      _afterConfirm(c)"), null, null],
   ['signup 이어도 이 PC 몫을 안 지움', m => m.replace("if(c.state === 'signup' && getMyUserId()) _wipeAccountLocal();", ''), null, null],
   ['계정이 바뀌었는데 다시 켜지 않음', m => m.replace("if(r.ok && r.switched){ _relaunchSoon('🔑 계정을 맞췄어요 — 앱을 다시 시작하는 중이에요…'); return true; }", ''), null, null],
   ['계정 바꾸기에 realtime 작별 없이 다시 켬', m => m.replace("  Promise.resolve(loginFlowMod.release(BYE_SWITCH)).catch(()=>{}).then(()=>_acctRelaunchAfterDetach(onFallback));", "  _acctRelaunchAfterDetach(onFallback);"), null, null],

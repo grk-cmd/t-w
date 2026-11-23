@@ -2,10 +2,10 @@
    실행:  node checks/run.js login-diag
    ★ 왜 — «다시 켜면 자동 로그인이 풀린다» 를 진단 기록 한 장으로 A(대기선 시간 초과) · B(Firebase 가 지움) · C(저장된 로그인 없음) ·
      D(서버 401) 로 가르려면 줄이 맞는 때 맞는 글로 한 번씩 나와야 하고, 개인 값(uid · 이메일 · 토큰 · 친구코드)이 절대 섞이면 안 된다.
-   ・1절: 순수 함수 — 저장된 로그인(있음 · 글자 수만) · localStorage 크기 · 수단(google · password · anonymous) · 오류 표(401 AUTH_REQUIRED · NO_TOKEN · network)
+   ・1절: 순수 함수 — 저장된 로그인(있음 · 글자 수만 · hasStoredLogin) · 확인 줄의 복원 기다림 · localStorage 크기 · 수단(google · password · anonymous) · 오류 표(401 AUTH_REQUIRED · NO_TOKEN · network)
    ・2절: 흐름 — A · B · C · D 가짜 부팅에서 나오는 줄 · 한 번씩만 · 200자 이하 · 개인 값 없음 · 긴 작업 15초 줄 · 잴 수 없음
    ・3절: login-flow.js 진짜 confirm 이 onConfirmed 에 결과 · 사용자 있음 · 오류를 넘긴다 · 진단이 던져도 결과는 그대로
-   ・4절: 배선 — html 차례(leave-flush 뒤 · firebase-init · app.js 앞) · firebase-init 대기선 세 곳 · app.js deps · smoke PRELOAD
+   ・4절: 배선 — html 차례(leave-flush 뒤 · firebase-init · app.js 앞) · firebase-init 대기선(auth-barrier.js) 배선 · app.js deps · smoke PRELOAD
    ・5절: mutation test — 갈래를 하나씩 바꾼 모듈로 1~2절을 다시 돌려 빨강이 나는지 */
 'use strict';
 const fs = require('fs');
@@ -149,6 +149,13 @@ async function behave(src){
     r.noThrow = ok && rejected === 0;   // 시작 줄은 IndexedDB 답 뒤(비동기)에 적는다 — 거기서 던지면 처리 안 된 거절이 된다
     r.clip = M.confirmLine({ state: 'x'.repeat(400) }, {}, 0, null).length === M.LINE_MAX;
   }
+  /* 복원 기다림(login-flow.js) — 확인 줄에 기다린 시간 · 답 없음(로그인 둠) · 저장된 로그인 판정 */
+  {
+    r.restoreOk = M.confirmLine({ state: 'in' }, { hadUser: true, restore: { ok: true, ms: 21000 } }, 29000, 'timeout') === '[로그인] 확인 → in · 시작 뒤 29000 ms · 대기선 시간 초과 뒤 · 복원 기다림 21000 ms';
+    r.restoreNo = M.confirmLine({ state: 'local' }, { hadUser: false, restore: { ok: false, ms: 60000 } }, 68000, 'timeout') === '[로그인] 확인 → local · 복원 답 없음 — 로그인 둠 · 시작 뒤 68000 ms · 대기선 시간 초과 뒤 · 복원 기다림 60000 ms';
+    r.hasStored = M.hasStoredLogin(mem({ [AUTH_KEY]: 'x' })) === true && M.hasStoredLogin(mem({ 'tw.me': '{}' })) === false
+      && M.hasStoredLogin({ get length(){ throw new Error('blocked'); } }) === false;
+  }
   return r;
 }
 const MSG = {
@@ -165,6 +172,8 @@ const MSG = {
   localTwice: '첫 답이 local 이면 다음 답 하나까지(합 둘) · 그 뒤는 안 적음', startOnce: 'authStart 두 번(감시견) → 시작 줄 하나', localThenIn: 'local 다음 in 이면 in 도 적음',
   noAuth: 'Auth 초기화 실패 → «바로 통과» 줄 · 시작 줄 끝', errFirst: '상태 오류 먼저 → Firebase code', longNone: '긴 작업을 잴 수 없으면 그렇게 적음',
   noThrow: '진단 기록(note)이 던져도 던지지 않고 · 처리 안 된 거절도 없다', clip: '줄은 200자에서 자른다',
+  restoreOk: '복원 기다림 뒤 in → 확인 줄 끝에 «복원 기다림 n ms»', restoreNo: '복원 답 없음 → «복원 답 없음 — 로그인 둠» (Firebase 사용자 없음이라 적지 않음)',
+  hasStored: 'hasStoredLogin — firebase:authUser: 키가 있으면 true · 없거나 못 읽으면 false',
 };
 
 (async () => {
@@ -175,17 +184,17 @@ const MSG = {
   say('── 3절. login-flow.js confirm → onConfirmed');
   {
     const LF = load(SRC.LF), AE = load(SRC.AE);
-    const seen = [];
+    const seen = [], restoreSeen = [];
     let user = null, meAns = null, throwDiag = false;
     const flow = LF.createLoginFlow({
       userApi: { me: async () => { if(meAns instanceof Error) throw meAns; return meAns; } },
       translate: AE.translate, reasonOf: () => '까닭',
-      auth: { ready: async () => {}, user: () => user, signOut: async () => {} },
+      auth: { ready: async () => {}, user: () => user, signOut: async () => {}, restoring: () => false, answered: async () => true },
       storage: mem({}), now: () => 1, rt: { onState: () => () => {} },
-      onConfirmed: (r, info) => { if(throwDiag) throw new Error('diag'); seen.push([r.state, info.hadUser, info.anonymous, info.err && info.err.code]); },
+      onConfirmed: (r, info) => { if(throwDiag) throw new Error('diag'); seen.push([r.state, info.hadUser, info.anonymous, info.err && info.err.code]); restoreSeen.push(info.restore); },
     });
     await flow.confirm();
-    chk(JSON.stringify(seen[0]) === JSON.stringify(['login', false, false, null]), '로그인 없음 → login · hadUser false · err 없음');
+    chk(JSON.stringify(seen[0]) === JSON.stringify(['login', false, false, null]) && restoreSeen[0] === null, '로그인 없음 → login · hadUser false · err 없음 · 복원 기다림 없음(null)');
     user = { uid: 'a', anonymous: true }; await flow.confirm();
     chk(JSON.stringify(seen[1]) === JSON.stringify(['login', true, true, null]), '익명 → login · anonymous true');
     user = { uid: 'a', anonymous: false }; meAns = Object.assign(new Error('x'), { kind: 'auth', status: 401, code: 'AUTH_REQUIRED' }); await flow.confirm();
@@ -211,8 +220,7 @@ const MSG = {
     chk(firstScripts <= 3, 'html — 맨 앞쪽(앞에 스크립트 둘뿐 — 긴 작업을 처음부터 잰다)');
     const F = SRC.FI;
     chk(/const _loginDiag = window\.TwLoginDiag\.store;\s*\n\s*_loginDiag\.authStart\(!!auth\);/.test(F) && F.indexOf('_loginDiag.authStart(') > F.indexOf('auth = getAuth(fbApp)'), 'firebase-init — getAuth 뒤에 authStart');
-    chk(/onAuthStateChanged\(auth, \(u\)=>\{ _loginDiag\.authState\(u\); done\(\); \}, \(e\)=>\{ _loginDiag\.authError\(e\); done\(\); \}\)/.test(F), 'firebase-init — 첫 상태 · 오류를 알리고 그대로 done');
-    chk(/if\(!_authSettled\)\{ console\.warn\([^)]*\); _loginDiag\.barrierTimeout\(\); \} done\(\); \}, AUTH_READY_TIMEOUT_MS\)/.test(F), 'firebase-init — 8초 시간 초과(아직 안 풀렸을 때만)를 알림');
+    chk(/createAuthBarrier\(\{[\s\S]*?diag: _loginDiag,[\s\S]*?\}\);/.test(F) && /storedLogin: window\.TwLoginDiag\.hasStoredLogin\(localStorage\)/.test(F), 'firebase-init — 대기선(auth-barrier.js)에 진단 store · 저장된 로그인 판정(hasStoredLogin)을 넘긴다(첫 상태 · 오류 · 시간 초과 알림은 sim-auth-barrier)');
     chk(/onConfirmed: \(r, info\)=>TwLoginDiag\.store\.confirmed\(r, info\)/.test(SRC.APP), 'app.js — 로그인 흐름 deps onConfirmed');
     chk(/PRELOAD\.push\('login-diag\.js'\)/.test(SRC.SMOKE), 'smoke PRELOAD 에 login-diag.js');
     chk(!/typeof\s+(?!window\b|module\b)[\w.]+\s*[!=]==?\s*'(function|undefined)'/.test(SRC.LD), 'login-diag.js — typeof «있으면 부르기» 가드 없음');
@@ -236,6 +244,9 @@ const MSG = {
     ['note 실패를 삼키지 않음', (s) => s.replace('const note = (line) => { try{ deps.note(line); }catch(_){} };', 'const note = (line) => deps.note(line);'), 'noThrow'],
     ['줄 길이를 안 자름', (s) => s.replace(".slice(0, LINE_MAX);", ';'), 'clip'],
     ['authStart 를 두 번 받음', (s) => s.replace('if(t0 != null) return;', ''), 'startOnce'],
+    ['복원 기다림을 안 적음', (s) => s.replace("const wait = i.restore ? ' · 복원 기다림 ' + ms(i.restore.ms) + ' ms' : '';", "const wait = '';"), 'restoreOk'],
+    ['복원 답 없음을 «사용자 없음» 으로 적음', (s) => s.replace("if(i.restore && !i.restore.ok) why = '복원 답 없음 — 로그인 둠';\n  else ", ''), 'restoreNo'],
+    ['저장된 로그인 판정이 키 머리를 안 봄', (s) => s.replace('function hasStoredLogin(storage){ return storageInfo(storage).has; }', 'function hasStoredLogin(storage){ return storageInfo(storage).keys > 0; }'), 'hasStored'],
   ];
   for(const [name, mut, key] of MUT){
     const m = mut(SRC.LD);

@@ -45,12 +45,15 @@ const BYE_SWITCH = 'switch';                // realtime 작별 까닭(rt-hub.js 
 /* ═══ 🔑 켤 때 — 로그인 · 서버 가입 확인 (0.13 — login-flow.js 판정 · 설계 03-auth 3-3-1) ═══
    in     → 이 PC 를 서버 계정에 맞춘다(_enterAccount). uid 가 바뀌었으면 다시 켠다 · 아니면 «계정에 들어감» 을 알린다 — 옛 값 옮기기 → realtime → 계정 기능 시작 · 0.13 첫 실행은 app-boot.js 차례 표가 한다.
    local  → 서버에 닿지 못함 · 점검 — «서버에 연결할 수 없어요» 화면(로컬 모드 없음 · 서버가 원본). [다시 시도] · realtime ready 가 계정을 다시 묻고, 닿으면 위와 같이.
+            restoring 이면(저장된 로그인의 첫 답이 늦음) 같은 카드에 «연결 중 · 로그인을 확인하는 중» — 기다리는 동안은 버튼 없이, 상한을 넘기면 [다시 시도].
    signup → 로그인은 됐는데 서버에 계정이 없다(가입 전 · 탈퇴 · 관리자가 지움) — 이 PC 계정 몫을 지우고 게이트.
    login  → 게이트(초대 코드 · 구글 · 친구 코드 로그인). 로그인 없이 쓰는 길은 없다(ADR-0006). */
 let _leftNotice = null;   // 이번 켜기에서 읽은 안내 — 로그인 화면이 뜰 때 한 번 보이고 비운다
 async function checkInviteGate(){
   _leftNotice = takeLeft();
-  return await _afterConfirm(await loginFlowMod.confirm());
+  const c = await loginFlowMod.confirm({ onRestoreWait: ()=>_offlineCard(OFFLINE_TEXT.restoreWait) });
+  if(c.state !== 'local') _hideOfflineCard();   // 복원 기다림 카드를 띄웠다면 걷고 평소 차례로
+  return await _afterConfirm(c);
 }
 async function _afterConfirm(c){
   if(c.state === 'in'){
@@ -59,7 +62,7 @@ async function _afterConfirm(c){
     if(r.ok){ _entered(c.me); return true; }
     return await _showInviteGate();
   }
-  if(c.state === 'local') return await _showOfflineGate();   // 서버에 닿지 못하면 로컬 모드 없이 막는다(서버가 원본)
+  if(c.state === 'local') return await _showOfflineGate(c);   // 서버에 닿지 못하면 로컬 모드 없이 막는다(서버가 원본)
   if(c.state === 'signup' && getMyUserId()) _wipeAccountLocal();   // 서버에 이 계정이 없다 — 이 PC 계정 몫을 지운다(로그인은 게이트에서 다시)
   return await _showInviteGate();
 }
@@ -67,29 +70,56 @@ async function _afterConfirm(c){
 function _entered(me){ twNav.go(twNav.NAV.ACCOUNT_ENTERED, me); }
 /* 🔌 서버에 연결할 수 없어요 — 같은 오버레이의 카드. [다시 시도] 를 누르거나 realtime 이 다시 붙으면(ready) 계정을 한 번 다시 묻는다(타이머 없음).
    누른 [다시 시도] 가 또 닿지 못하면 오류 번호 E-ACC-03 한 번 · 화면은 그대로. 닿으면 평소 켜기 차례로 간다. */
-function _showOfflineGate(){
+/* 카드 글 — 서버에 닿지 못함 · 저장된 로그인 확인을 기다리는 중(버튼 없음) · 기다림 상한을 넘김(버튼) */
+const OFFLINE_TEXT = {
+  offline: { title: '서버에 연결할 수 없어요', desc: '인터넷 연결을 확인하고 다시 시도해 주세요', retry: true },
+  restoreWait: { title: '연결 중', desc: '로그인을 확인하는 중이에요 — 잠시만 기다려 주세요', retry: false },
+  restoreSlow: { title: '연결 중', desc: '로그인을 확인하는 중이에요 — 답이 늦어요. 다시 시도를 눌러 주세요', retry: true },
+};
+const _offlineTextOf = (c)=>(c && c.restoring ? OFFLINE_TEXT.restoreSlow : OFFLINE_TEXT.offline);
+/* 같은 오버레이의 카드를 글 t 로 띄운다 → 띄웠으면 true(마크업이 없으면 false) */
+function _offlineCard(t){
+  const $ = (id)=>document.getElementById(id);
+  const ov = $('inviteGateOverlay'), card = $('offlineCard'), btn = $('offlineRetry');
+  if(!ov || !card || !btn) return false;
+  const hCard = $('inviteGateCard'), aCard = $('signupCard'), title = $('offlineTitle'), desc = $('offlineDesc');
+  if(hCard) hCard.style.display = 'none';
+  if(aCard) aCard.style.display = 'none';
+  if(title) title.textContent = t.title;
+  if(desc) desc.textContent = t.desc;
+  btn.style.display = t.retry ? '' : 'none';
+  card.style.display = 'block';
+  ov.style.display = 'flex';
+  return true;
+}
+function _hideOfflineCard(){
+  const card = document.getElementById('offlineCard');
+  if(!card || card.style.display !== 'block') return;
+  const ov = document.getElementById('inviteGateOverlay'), hCard = document.getElementById('inviteGateCard');
+  card.style.display = 'none'; if(ov) ov.style.display = 'none'; if(hCard) hCard.style.display = '';
+}
+function _showOfflineGate(first){
   return new Promise(resolve=>{
-    const ov = document.getElementById('inviteGateOverlay');
-    const card = document.getElementById('offlineCard');
+    if(!_offlineCard(_offlineTextOf(first))){ resolve(false); return; }   // 마크업이 없으면 못 들어간다
     const btn = document.getElementById('offlineRetry');
     const msg = document.getElementById('offlineMsg');
-    const hCard = document.getElementById('inviteGateCard'), aCard = document.getElementById('signupCard');
-    if(!ov || !card || !btn){ resolve(false); return; }   // 마크업이 없으면 못 들어간다
-    if(hCard) hCard.style.display = 'none';
-    if(aCard) aCard.style.display = 'none';
-    card.style.display = 'block';
-    ov.style.display = 'flex';
     const say = (t)=>{ if(!msg) return; msg.textContent = t || ''; msg.style.display = t ? 'block' : 'none'; };
     loginFlowMod.waitForServer((c)=>{
-      card.style.display = 'none'; ov.style.display = 'none'; if(hCard) hCard.style.display = '';
+      _hideOfflineCard();
       _afterConfirm(c).then(resolve, ()=>resolve(false));
     });
+    let last = first;   // 마지막 답 — 복원 기다림이면 누르는 동안 «확인하는 중»(버튼 숨김 · 첫 답을 다시 기다린다)
     btn.onclick = async ()=>{
       btn.disabled = true; say('');
+      if(last && last.restoring) _offlineCard(OFFLINE_TEXT.restoreWait);
       let r = null;
       try{ r = await loginFlowMod.retryNow(); }catch(_){ r = null; }
       btn.disabled = false;
-      if(r && r.state === 'local'){
+      if(!r){ _offlineCard(_offlineTextOf(last)); return; }   // 다른 신호가 이미 묻는 중 — 화면은 마지막 답 그대로
+      if(r.state === 'local'){
+        last = r;
+        _offlineCard(_offlineTextOf(r));
+        if(r.restoring){ say('아직 로그인을 확인하지 못했어요'); return; }   // 서버 요청 실패가 아니다 — 오류 번호 없음 · 로그인은 그대로
         say(r.limited ? '요청이 많아요 — 잠시 뒤 다시 눌러 주세요' : '아직 연결되지 않았어요');
         notifyError('E-ACC-03', r.reason);
       }

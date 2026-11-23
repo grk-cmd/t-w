@@ -1,6 +1,6 @@
 /* ═══ 🩺 login-diag.js — 켤 때 로그인 진단(진단 기록 tw-mouse-diag.log 에 `[로그인]` 줄 몇 개 · 켤 때 한 번) ══════════
    켤 때 로그인이 «없음» 으로 끝나는 까닭을 아래 넷 가운데 하나로 가른다.
-     A — 8초 대기선이 Firebase 복원보다 먼저 풀렸다(렌더러가 바빠서) → 확인이 «로그인 없음» 을 본다
+     A — 8초 대기선이 Firebase 복원보다 먼저 풀렸다(렌더러가 바빠서) → 저장된 로그인이 있으면 확인이 첫 상태를 더 기다린다(확인 줄 «복원 기다림»)
      B — Firebase 가 저장된 로그인을 찾았지만 되읽기(reload) 오류로 지웠다
      C — 켤 때 저장된 로그인이 아예 없었다
      D — 서버 확인(GET /v2/me)이 401(AUTH_REQUIRED · NO_TOKEN)로 답했다
@@ -8,7 +8,8 @@
      ③ 저장된 로그인이 있었는데 첫 상태가 «사용자 없음» ④ 켜고 15초 동안 렌더러를 막은 긴 작업(long task) 합 · 최대 ⑤ 확인(confirm) 결과
    ★ 값은 적지 않는다 — uid · 이메일 · 토큰 · 친구코드 · 유저코드가 들어갈 자리가 없다. 저장된 로그인은 «있음 · 글자 수» 만,
      서버 오류는 HTTP 상태 · 오류 code(대문자 모양만) · Firebase 오류는 code(소문자 모양만)만.
-   ★ 로그인 동작은 바꾸지 않는다 — 부르는 쪽(firebase-init.js 대기선 · login-flow.js confirm)은 알리기만 하고 답을 기다리지 않는다. 이 안의 실패는 삼킨다.
+   ★ 로그인 동작은 바꾸지 않는다 — 부르는 쪽(auth-barrier.js 대기선 · login-flow.js confirm)은 알리기만 하고 답을 기다리지 않는다. 이 안의 실패는 삼킨다.
+     예외 하나: 순수 판정 hasStoredLogin 은 auth-barrier.js 가 «저장된 로그인이 있으면 첫 상태를 더 기다린다» 에 쓴다(키 머리를 아는 곳이 여기 한 곳).
    classic script(window.TwLoginDiag) — 긴 작업을 처음부터 재려고 HTML 맨 앞쪽(leave-flush.js 다음)에 싣는다. 앱 한 벌은 `TwLoginDiag.store`.
    검사 sim-login-diag.js. */
 (function(){
@@ -46,6 +47,8 @@ function storageInfo(storage){
   }catch(_){ r.ok = false; }
   return r;
 }
+/* 켤 때 저장된 로그인이 있나 — 키 머리를 아는 곳은 여기 한 곳(auth-barrier.js 의 «복원 기다림» 이 이 판정을 쓴다). 못 읽으면 없음으로 본다 */
+function hasStoredLogin(storage){ return storageInfo(storage).has; }
 
 /* Firebase 사용자 → 있음 · 익명 · 수단(google · password · other) — uid · 이메일은 읽지 않는다 */
 function userKind(u){
@@ -85,15 +88,18 @@ function longLine(lt){
   if(!lt.supported) return clip(TAG + ' 켜고 15초 긴 작업 잴 수 없음');
   return clip(TAG + ' 켜고 15초 긴 작업 ' + lt.count + '번 · 합 ' + ms(lt.sum) + ' ms · 가장 긴 ' + ms(lt.max) + ' ms');
 }
-/* r: confirm 결과 · info: { hadUser, anonymous, err } · barrier: 'first' · 'error' · 'timeout' · null(아직) */
+/* r: confirm 결과 · info: { hadUser, anonymous, err, restore } · barrier: 'first' · 'error' · 'timeout' · null(아직)
+   restore: { ok, ms } — 저장된 로그인이 있어 첫 상태를 더 기다렸다(login-flow.js) · ok:false 면 답 없이 기다리는 화면(로그인은 둔다) */
 function confirmLine(r, info, t, barrier){
   const i = info || {};
   let why = '';
-  if(i.err) why = errTag(i.err);
+  if(i.restore && !i.restore.ok) why = '복원 답 없음 — 로그인 둠';
+  else if(i.err) why = errTag(i.err);
   else if(!i.hadUser) why = 'Firebase 사용자 없음';
   else if(i.anonymous) why = '익명';
   const bar = barrier === 'timeout' ? '시간 초과 뒤' : (barrier ? '첫 상태 뒤' : '대기선 전');
-  return clip(TAG + ' 확인 → ' + String((r && r.state) || '?') + (why ? ' · ' + why : '') + ' · 시작 뒤 ' + ms(t) + ' ms · 대기선 ' + bar);
+  const wait = i.restore ? ' · 복원 기다림 ' + ms(i.restore.ms) + ' ms' : '';
+  return clip(TAG + ' 확인 → ' + String((r && r.state) || '?') + (why ? ' · ' + why : '') + ' · 시작 뒤 ' + ms(t) + ' ms · 대기선 ' + bar + wait);
 }
 
 /** @param {{
@@ -184,7 +190,7 @@ function realDeps(w){
   };
 }
 
-const api = { TAG, LINE_MAX, AUTH_KEY_PREFIX, IDB_NAME, LONGTASK_WINDOW_MS, storageInfo, userKind, errTag, fbErrTag,
+const api = { TAG, LINE_MAX, AUTH_KEY_PREFIX, IDB_NAME, LONGTASK_WINDOW_MS, storageInfo, hasStoredLogin, userKind, errTag, fbErrTag,
   startLine, firstLine, errorLine, timeoutLine, lateLine, clearedLine, longLine, confirmLine, createLoginDiag, realDeps };
 if(typeof window !== 'undefined'){
   let store = null;

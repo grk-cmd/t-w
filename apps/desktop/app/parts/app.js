@@ -2824,6 +2824,8 @@ const loginFlowMod = TwLoginFlow.createLoginFlow({
   auth: {
     ready: ()=>new Promise((res)=>TwNetReady.whenNetReady(res)).then(()=>firebaseAPI.authReady()),
     user: ()=>(TwNetReady.isNetReady() ? firebaseAPI.authUser() : null),   // 준비 전엔 «로그인 모름» — 사본도 안 읽는다
+    restoring: ()=>firebaseAPI.authRestoring(),
+    answered: (ms)=>firebaseAPI.authAnswered(ms),
     signInGoogle: (tok)=>firebaseAPI.authSignInWithGoogle(tok),
     signInPassword: (code, pw)=>firebaseAPI.authSignInWithFriendCode(code, pw),
     signOut: ()=>firebaseAPI.authSignOut(),
