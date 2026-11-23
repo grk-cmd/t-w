@@ -8,6 +8,7 @@ const caught = (promise: Promise<unknown>) => promise.catch((e: unknown) => e);
 
 const detail = (userCode: string, over: Record<string, unknown> = {}) => ({
   ...serverRow(userCode),
+  authUid: 'Gx7kQ2pLm9VbR4tY1sWz3aHc8dE5',
   room: { code: 'WORK-AAAA' },
   hasPasswordLogin: true,
   awayImage: { url: 'https://x/away.png', size: 12 },
@@ -46,6 +47,7 @@ describe('사용자 한 사람 — API 판', () => {
       inviteMemo: null,
     });
     expect(d).toMatchObject({
+      authUid: 'Gx7kQ2pLm9VbR4tY1sWz3aHc8dE5',
       room: 'WORK-AAAA',
       hasPasswordLogin: true,
       awayImage: { url: 'https://x/away.png', size: 12 },
@@ -138,9 +140,11 @@ describe('사용자 한 사람 — API 판', () => {
     const s = fakeApiOf({
       'GET /v2/admin/users/u1': () => detail('u1', { focusTotalSec: '7200' }),
       'GET /v2/admin/users/u2': () => detail('u2', { online: 'yes' }),
+      'GET /v2/admin/users/u3': () => detail('u3', { authUid: undefined }),
+      'GET /v2/admin/users/u4': () => detail('u4', { authUid: null }),
     });
     const port = createServerUserPort(s.api);
-    for (const uid of ['u1', 'u2']) {
+    for (const uid of ['u1', 'u2', 'u3', 'u4']) {
       const e = await caught(port.detail(uid));
       expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
     }

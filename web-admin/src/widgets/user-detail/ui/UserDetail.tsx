@@ -483,6 +483,8 @@ function ServerBody({ row, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> &
   const live = row.live;
   const who = row.name ?? row.friendCode ?? uid;
   const copy = async () => toast((await copyText(uid)) ? '사용자코드를 복사했어요' : '복사하지 못했어요');
+  const copyAuthUid = async (authUid: string) =>
+    toast((await copyText(authUid)) ? '로그인 UID 를 복사했어요' : '복사하지 못했어요');
 
   return (
     <>
@@ -498,6 +500,18 @@ function ServerBody({ row, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> &
           <button type="button" className={styles.mini} onClick={copy}>
             복사
           </button>
+        </Field>
+        <Field label="로그인 UID">
+          <Loaded q={detail}>
+            {(d) => (
+              <>
+                <code className="key">{d.authUid}</code>
+                <button type="button" className={styles.mini} onClick={() => void copyAuthUid(d.authUid)}>
+                  복사
+                </button>
+              </>
+            )}
+          </Loaded>
         </Field>
       </Section>
 
