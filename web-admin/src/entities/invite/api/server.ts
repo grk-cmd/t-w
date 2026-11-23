@@ -19,7 +19,7 @@ import {
 } from '@/shared/api';
 import type { KeysetPage } from '@/shared/lib';
 import type { GroupInvite, GroupInviteUse } from '../model/groupInvite';
-import { INVITE_FOUND_STATUSES, type InviteFound, type InviteFoundStatus } from '../model/inviteFound';
+import type { InviteFound } from '../model/inviteFound';
 import type { InvitePort } from './port';
 
 const BASE = adminPath('/invites');
@@ -54,16 +54,13 @@ export function toGroupInviteUseRow(w: unknown): GroupInviteUse {
   };
 }
 
-/** 코드 하나 — 칸이 약속과 다르면 짐작하지 않고 던진다. 만든 사람 · 마감 · 중지 · 메모의 null 만 «없음». */
+/** 코드 하나 — 칸이 약속과 다르면 짐작하지 않고 던진다. 만든 사람 · 마감 · 중지 · 메모의 null 만 «없음». 상태는 화면이 `groupInviteState` 로 정한다(목록과 같이). */
 export function toInviteFound(w: unknown): InviteFound {
   const o = wireObject(w, '초대 코드');
   const code = wireString(o.code, '초대 코드의 code');
   const what = (field: string) => `초대 코드 ${code} 의 ${field}`;
   const kind = wireString(o.kind, what('kind'));
   if (kind !== 'admin' && kind !== 'user') throw wireError(what('kind'), 'admin · user');
-  const status = wireString(o.status, what('status'));
-  if (!INVITE_FOUND_STATUSES.includes(status as InviteFoundStatus))
-    throw wireError(what('status'), INVITE_FOUND_STATUSES.join(' · '));
   return {
     code,
     kind,
@@ -75,7 +72,6 @@ export function toInviteFound(w: unknown): InviteFound {
     stoppedAt: wireNullableTime(o.pausedAt, what('pausedAt')),
     note: wireNullableString(o.memo, what('memo')) ?? '',
     createdAt: wireTime(o.createdAt, what('createdAt')),
-    status: status as InviteFoundStatus,
   };
 }
 

@@ -18,7 +18,7 @@
 }
 
 .facts dt {
-  color: var(--soft, inherit);
+  color: var(--soft);
 }
 
 .facts dd {

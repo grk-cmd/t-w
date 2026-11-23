@@ -2,6 +2,7 @@ import { Fragment, useState } from 'react';
 import {
   endOfDay,
   GROUP_INVITE_MAX_USES,
+  GROUP_INVITE_STATE_LABEL,
   GROUP_INVITE_NOTE_MAX,
   groupInviteState,
   isGroupMaxUses,
@@ -16,13 +17,6 @@ import { Pager, useToast } from '@/shared/ui';
 import { useCreateGroupInvite, useSetGroupInviteStopped } from '../model/useGrantInvites';
 import { InviteUses } from './InviteUses';
 import styles from './GroupInvitesPanel.module.css';
-
-const STATE_LABEL: Record<GroupInviteState, string> = {
-  open: '쓰는 중',
-  full: '다 참',
-  expired: '마감',
-  stopped: '중지',
-};
 
 // 관리자 전용 «외부인 초대장» — 코드 하나를 정한 인원까지 쓴다. 일반 사용자는 앱에서 한 명짜리를 한 장씩 만든다(그대로).
 export function GroupInvitesPanel() {
@@ -179,7 +173,7 @@ function Row({
             <span className="soft">없음</span>
           )}
         </td>
-        <td>{STATE_LABEL[state]}</td>
+        <td>{GROUP_INVITE_STATE_LABEL[state]}</td>
         <td>
           <button type="button" className="btn" disabled={busy} onClick={() => onStop(state !== 'stopped')}>
             {state === 'stopped' ? '다시 열기' : '중지'}

@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { resetKeyset } from '@/shared/lib';
 import {
   GROUP_INVITES_KEY,
+  INVITE_FOUND,
   useForgetUserInvites,
   useSetInvitesLeftCache,
   type GroupInvite,
@@ -98,7 +99,12 @@ export function useCreateGroupInvite() {
 export function useSetGroupInviteStopped() {
   const port = useGrantInvitesPort();
   const client = useQueryClient();
-  const reload = () => resetKeyset(client, GROUP_INVITES_KEY);
+  // 위 «초대 찾기» 카드가 같은 코드를 보고 있을 수 있다 — 그 몫도 버린다
+  const reload = () =>
+    Promise.all([
+      resetKeyset(client, GROUP_INVITES_KEY),
+      client.invalidateQueries({ queryKey: [INVITE_FOUND] }),
+    ]);
   return useMutation<void, Error, { invite: GroupInvite; stop: boolean }>({
     mutationFn: ({ invite, stop }) => port.setGroupStopped(invite, stop),
     // 다른 곳이 먼저 고쳤으면(API 판 409) 줄이 옛 번호를 들고 있다 — onSettled 가 한 번 다시 받는다.

@@ -42,6 +42,8 @@ export function useInviteFound(code: string | null) {
     queryKey: inviteFoundKey(code ?? ''),
     queryFn: () => port.find(code!),
     enabled: code !== null && port.features.find,
+    // 찾을 때마다 새로 받는다 — 아래 목록에서 중지 · 가입이 생기면 쓴 수 · 상태가 바뀐다
+    staleTime: 0,
     retry: false,
   });
 }

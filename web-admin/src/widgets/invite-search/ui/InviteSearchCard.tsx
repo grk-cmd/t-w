@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import {
+  GROUP_INVITE_STATE_LABEL,
+  groupInviteState,
   INVITE_CODE_RE,
-  INVITE_FOUND_STATUS_LABEL,
   lastDay,
   useInviteFindable,
   useInviteFound,
@@ -26,6 +27,12 @@ export function InviteSearchCard() {
   const findable = useInviteFindable();
   const [q, setQ] = useHashParam('q');
   const [draft, setDraft] = useState(q);
+  // 주소가 밖에서 바뀌면(주소창 · 링크) 입력칸도 따라간다 — 그리는 중에 지난 값과 견준다
+  const [seenQ, setSeenQ] = useState(q);
+  if (q !== seenQ) {
+    setSeenQ(q);
+    setDraft(q);
+  }
   if (!findable) return null;
 
   const term = q.trim();
@@ -79,18 +86,21 @@ function CodeResult({ code }: { code: string }) {
   const found = useInviteFound(code);
   const copy = async (text: string) => toast((await copyText(text)) ? '복사했어요' : '복사하지 못했어요');
   if (found.isPending) return <p className="soft">찾는 중…</p>;
-  if (isPortError(found.error, 'notFound')) return <p className="soft">{found.error.message}</p>;
+  // 서버 code 표 문구(«목록을 새로고침…»)는 목록용이라 검색에는 따로 쓴다
+  if (isPortError(found.error, 'notFound'))
+    return <p className="soft">없는 초대 코드예요 — 코드를 다시 확인해 주세요</p>;
   if (found.error) return <p className="msg err">{errorMessage(found.error, '초대 코드를 찾지 못했어요')}</p>;
   const f = found.data;
   return (
     <>
-      <Facts invite={f} />
+      <Facts invite={f} now={found.dataUpdatedAt} />
       <InviteUses code={f.code} onCopyUserCode={(userCode) => void copy(userCode)} />
     </>
   );
 }
 
-function Facts({ invite: f }: { invite: InviteFound }) {
+// 상태는 외부인 초대장 목록과 같은 판단(groupInviteState) — 받은 시각 기준.
+function Facts({ invite: f, now }: { invite: InviteFound; now: number }) {
   return (
     <dl className={styles.facts}>
       <dt>코드</dt>
@@ -124,7 +134,7 @@ function Facts({ invite: f }: { invite: InviteFound }) {
       </dd>
       <dt>상태</dt>
       <dd>
-        {INVITE_FOUND_STATUS_LABEL[f.status]}
+        {GROUP_INVITE_STATE_LABEL[groupInviteState(f, now)]}
         {f.expiresAt !== null && <small className="soft"> · {lastDay(f.expiresAt)}까지</small>}
       </dd>
       <dt>만든 날</dt>

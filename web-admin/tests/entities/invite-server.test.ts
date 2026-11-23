@@ -212,19 +212,21 @@ describe('코드 하나 찾기 — API 판', () => {
       stoppedAt: null,
       note: '',
       createdAt: Date.parse('2026-11-01T00:00:00Z'),
-      status: 'FULL',
     });
     expect(await port.find('INVT-CCCC-DDDD')).toMatchObject({
       kind: 'admin',
       issuerUserCode: null,
       note: '외부 행사',
       expiresAt: Date.parse('2026-11-01T14:59:59Z'),
-      status: 'EXPIRED',
     });
   });
 
-  it('모르는 kind · status 는 짐작하지 않고 던진다', async () => {
-    for (const over of [{ kind: 'group' }, { status: 'NOT_FOUND' }]) {
+  it('모르는 kind 는 짐작하지 않고 던진다 · 중지 시각은 stoppedAt 으로', async () => {
+    const paused = fakeApiOf({ [PATH]: () => found({ pausedAt: '2026-11-02T00:00:00Z' }) });
+    expect((await createServerInvitePort(paused.api).find('INVT-AAAA-BBBB')).stoppedAt).toBe(
+      Date.parse('2026-11-02T00:00:00Z'),
+    );
+    for (const over of [{ kind: 'group' }, { kind: null }, { issuerUserCode: undefined }]) {
       const s = fakeApiOf({ [PATH]: () => found(over) });
       const e = await caught(createServerInvitePort(s.api).find('INVT-AAAA-BBBB'));
       expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
