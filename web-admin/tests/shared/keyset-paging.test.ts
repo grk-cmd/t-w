@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
-import { keysetView, needsMore, resetKeyset } from '@/shared/lib';
+import { fetchAllPages, keysetView, needsMore, resetKeyset } from '@/shared/lib';
 
 describe('키셋 쪽 넘기기', () => {
   it('받은 쪽을 이어 붙인다 · nextCursor 가 있으면 more', () => {
@@ -40,5 +40,30 @@ describe('키셋 쪽 넘기기', () => {
     await resetKeyset(client, ['licenses']);
     expect(client.getQueryData(['licenses', 'a'])).toBeUndefined();
     expect(client.getQueryData(['users'])).toBeDefined();
+  });
+});
+
+describe('키셋 목록 끝까지 받기(fetchAllPages)', () => {
+  const pages = (n: number, endless = false) => {
+    const seen: (string | undefined)[] = [];
+    const fetchPage = async (cursor: string | undefined) => {
+      seen.push(cursor);
+      const i = cursor === undefined ? 0 : Number(cursor);
+      return { items: [i], nextCursor: endless || i + 1 < n ? String(i + 1) : null };
+    };
+    return { seen, fetchPage };
+  };
+
+  it('커서가 끝날 때까지 이어 받는다 · 상한을 안 주면 그대로', async () => {
+    const p = pages(3);
+    expect(await fetchAllPages(p.fetchPage)).toEqual([0, 1, 2]);
+    expect(p.seen).toEqual([undefined, '1', '2']);
+  });
+
+  it('상한 — 딱 그만큼이면 통과 · 넘으면 던진다(더 부르지 않는다)', async () => {
+    expect(await fetchAllPages(pages(3).fetchPage, { maxPages: 3 })).toEqual([0, 1, 2]);
+    const e = pages(5, true);
+    await expect(fetchAllPages(e.fetchPage, { maxPages: 4 })).rejects.toThrow('끝나지 않아요');
+    expect(e.seen).toHaveLength(4);
   });
 });

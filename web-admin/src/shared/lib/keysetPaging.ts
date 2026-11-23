@@ -92,14 +92,20 @@ export function resetKeyset(client: QueryClient, queryKey: QueryKey): Promise<vo
 /**
  * 키셋 목록을 끝까지 이어 받아 한 목록으로 — 몇십~몇백 건이라 화면이 통째로 거르고 찾는 목록용.
  * `fetchPage` 는 커서(첫 쪽은 undefined)로 한 쪽을 받아 줄과 다음 커서(없으면 null)를 돌려준다. 못 받으면 던진다.
+ * `maxPages` 를 주면 그만큼 받고도 커서가 끝나지 않을 때 던진다(서버가 커서를 끝내지 않아도 멈춘다).
  */
 export async function fetchAllPages<T>(
   fetchPage: (cursor: string | undefined) => Promise<{ items: T[]; nextCursor: string | null }>,
+  { maxPages }: { maxPages?: number } = {},
 ): Promise<T[]> {
   const rows: T[] = [];
   let cursor: string | undefined;
+  let pages = 0;
   do {
+    if (maxPages !== undefined && pages >= maxPages)
+      throw new Error('목록의 쪽이 끝나지 않아요 — 서버 응답을 확인해 주세요');
     const page = await fetchPage(cursor);
+    pages++;
     rows.push(...page.items);
     cursor = page.nextCursor ?? undefined;
   } while (cursor !== undefined);
