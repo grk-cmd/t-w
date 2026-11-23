@@ -6,7 +6,6 @@ import {
   groupInviteState,
   isGroupMaxUses,
   lastDay,
-  listAllGroupInviteUses,
   useGroupInviteUses,
   useGroupInvites,
   useInvitePort,
@@ -18,7 +17,7 @@ import { isPortError, useEnv, withProdMark } from '@/shared/api';
 import { copyText, errorMessage, formatDate, keysetView, kstDateKey, useKeysetPaging } from '@/shared/lib';
 import { Pager, useToast } from '@/shared/ui';
 import { downloadBytes, writeXlsx } from '@/shared/sheet';
-import { usesFileName, usesSheet } from '../model/usesSheet';
+import { usesExportGrid, usesFileName, type FriendCodesOf } from '../model/usesSheet';
 import { useCreateGroupInvite, useSetGroupInviteStopped } from '../model/useGrantInvites';
 import styles from './GroupInvitesPanel.module.css';
 
@@ -30,9 +29,6 @@ const STATE_LABEL: Record<GroupInviteState, string> = {
 };
 
 // 관리자 전용 «외부인 초대장» — 코드 하나를 정한 인원까지 쓴다. 일반 사용자는 앱에서 한 명짜리를 한 장씩 만든다(그대로).
-/** 유저코드 → 친구코드(못 찾은 사람은 빠진다). 사용자 조회는 다른 기능 몫이라 페이지가 넘겨준다. */
-export type FriendCodesOf = (userCodes: readonly string[]) => Promise<ReadonlyMap<string, string | null>>;
-
 /** 가입한 사람 줄에서 하는 일 — 유저코드 복사 · 회원 정보 열기(창은 페이지가 띄운다) · 엑셀에 넣을 친구코드 찾기. */
 interface UseActions {
   copy: (userCode: string) => void;
@@ -250,7 +246,7 @@ function Uses({ code, actions }: { code: string; actions: UseActions }) {
   );
 }
 
-// 엑셀 — 화면은 쪽으로 받지만 파일에는 전부 넣는다(누를 때만 끝까지 받는다 · 5000명이면 쪽 50번 · 친구코드는 100명씩 사용자 조회 한 번).
+// 엑셀 — 화면은 쪽으로 받지만 파일에는 전부 넣는다(누를 때만 끝까지 받는다 · 5000명이면 쪽 50번 · 친구코드는 100명씩 나눈 사용자 조회를 한꺼번에).
 function ExportUses({ code, friendCodes }: { code: string; friendCodes: FriendCodesOf }) {
   const port = useInvitePort();
   const [busy, setBusy] = useState(false);
@@ -259,13 +255,8 @@ function ExportUses({ code, friendCodes }: { code: string; friendCodes: FriendCo
     setBusy(true);
     setError(null);
     try {
-      const uses = await listAllGroupInviteUses(port, code);
-      const codes = uses.flatMap((u) => (u.userCode !== null ? [u.userCode] : []));
-      const friends = codes.length > 0 ? await friendCodes(codes) : new Map<string, string | null>();
-      downloadBytes(
-        await writeXlsx(usesSheet(uses, friends), code),
-        usesFileName(code, kstDateKey(Date.now())),
-      );
+      const grid = await usesExportGrid(port, code, friendCodes);
+      downloadBytes(await writeXlsx(grid, code), usesFileName(code, kstDateKey(Date.now())));
     } catch (e) {
       setError(e);
     } finally {
