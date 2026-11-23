@@ -12,6 +12,8 @@ export const serverRow = (userCode: string, over: Record<string, unknown> = {}) 
     invitedByAdmin: false,
     invitedBy: 'uboss0001',
     invitesLeft: 2,
+    inviteCode: 'INVT-AB2C-DE3F',
+    inviteMemo: null,
   },
   online: true,
   ...over,

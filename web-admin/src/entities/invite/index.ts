@@ -14,9 +14,12 @@ export {
   useForgetUserInvites,
   useGroupInviteUses,
   useGroupInvites,
+  useInviteFindable,
+  useInviteFound,
   useInvitesLeft,
   useSetInvitesLeftCache,
 } from './api/hooks';
+export { INVITE_FOUND_STATUS_LABEL, type InviteFound, type InviteFoundStatus } from './model/inviteFound';
 export { useInvitePort, type InvitePort } from './api/index';
 export {
   addInvites,

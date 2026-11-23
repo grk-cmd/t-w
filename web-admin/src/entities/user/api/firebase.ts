@@ -134,6 +134,9 @@ export async function getUserInvite(db: Db, uid: string): Promise<UserInvite | n
     joinedAt: typeof v.joinedAt === 'number' ? v.joinedAt : null,
     invitedBy: typeof v.invitedBy === 'string' && v.invitedBy ? v.invitedBy : null,
     invitesLeft: typeof v.invitesLeft === 'number' ? v.invitesLeft : null,
+    // Firebase 판은 가입에 쓴 코드를 남기지 않았다
+    inviteCode: null,
+    inviteMemo: null,
   };
 }
 

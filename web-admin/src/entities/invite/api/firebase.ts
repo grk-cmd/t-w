@@ -160,5 +160,8 @@ export function createFirebaseInvitePort(db: Db): InvitePort {
     },
     uses: (code, cursor, limit) => listGroupInviteUses(db, code, cursor, limit),
     invitesLeft: (uid) => getInvitesLeft(db, uid),
+    // Firebase 판은 코드 찾기를 두지 않는다 — 화면이 features 를 보고 검색 카드를 숨긴다
+    find: () => Promise.reject(new Error('이 판은 초대 코드 찾기가 없어요')),
+    features: { find: false },
   };
 }

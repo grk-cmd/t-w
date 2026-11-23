@@ -47,6 +47,8 @@ function inviteOf(w: unknown, userCode: string): UserInvite {
     // 웹 관리자가 만든 코드로 들어온 사람은 «관리자», 그 밖의 초대는 만든 사람의 사용자코드, 제도 전부터 쓰던 사람은 null.
     invitedBy: invitedByAdmin ? INVITE_ISSUER_ADMIN : invitedBy,
     invitesLeft: wireNullableNumber(o.invitesLeft, what('invitesLeft')),
+    inviteCode: wireNullableString(o.inviteCode, what('inviteCode')),
+    inviteMemo: wireNullableString(o.inviteMemo, what('inviteMemo')),
   };
 }
 

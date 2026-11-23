@@ -42,6 +42,8 @@ describe('사용자 한 사람 — API 판', () => {
       joinedAt: Date.parse('2026-10-01T00:00:00Z'),
       invitedBy: 'uboss0001',
       invitesLeft: 2,
+      inviteCode: 'INVT-AB2C-DE3F',
+      inviteMemo: null,
     });
     expect(d).toMatchObject({
       room: 'WORK-AAAA',
@@ -76,6 +78,8 @@ describe('사용자 한 사람 — API 판', () => {
             invitedByAdmin: true,
             invitedBy: null,
             invitesLeft: 0,
+            inviteCode: 'INVT-FZFJ-6H5J',
+            inviteMemo: '외부 행사',
           },
         }),
       'GET /v2/admin/users/u2': () =>
@@ -86,12 +90,19 @@ describe('사용자 한 사람 — API 판', () => {
             invitedByAdmin: false,
             invitedBy: null,
             invitesLeft: 5,
+            inviteCode: null,
+            inviteMemo: null,
           },
         }),
     });
     const port = createServerUserPort(s.api);
-    expect((await port.detail('u1')).row.live.invite.invitedBy).toBe('admin');
-    expect((await port.detail('u2')).row.live.invite.invitedBy).toBeNull();
+    const u1 = (await port.detail('u1')).row.live.invite;
+    expect(u1.invitedBy).toBe('admin');
+    // 가입에 쓴 코드 · 그 메모가 그대로 온다 — 이름으로 찾은 사람이 어느 초대장으로 들어왔는지 보인다
+    expect(u1).toMatchObject({ inviteCode: 'INVT-FZFJ-6H5J', inviteMemo: '외부 행사' });
+    const u2 = (await port.detail('u2')).row.live.invite;
+    expect(u2.invitedBy).toBeNull();
+    expect(u2.inviteCode).toBeNull();
   });
 
   it('작은 읽기(이름 · 소개 · 집중 · 라이선스)는 모두 상세의 한 칸이고 같은 때의 요청은 한 번만 보낸다', async () => {

@@ -43,16 +43,26 @@ function VerCell({ row }: { row: UserRow }) {
 }
 
 // 가입 — 초대장 제도의 기록. 초대한 사람이 없으면 제도 전부터 쓰던 «기존»(처음 5장), 있으면 «초대»(0장으로 시작).
+// API 판은 가입에 쓴 코드도 싣고 온다 — 이름으로 찾은 사람이 어느 초대장으로 들어왔는지 보인다(메모는 마우스를 올리면).
 function JoinCell({ row }: { row: UserRow }) {
   const inv = useRowInvite(row);
   if (inv.isLoading) return <span className="soft">…</span>;
   if (inv.error) return <span className="soft">읽지 못함</span>;
   if (!inv.data) return <span className="soft">—</span>;
-  const { joinedAt, invitedBy, invitesLeft } = inv.data;
+  const { joinedAt, invitedBy, invitesLeft, inviteCode, inviteMemo } = inv.data;
+  const title = [invitedBy && `초대: ${invitedBy}`, inviteMemo && `메모: ${inviteMemo}`]
+    .filter(Boolean)
+    .join(' · ');
   return (
-    <span title={invitedBy ? `초대: ${invitedBy}` : undefined}>
+    <span title={title || undefined}>
       {joinedAt ? formatDate(joinedAt).slice(0, 10) : '—'}{' '}
       <small className="soft">{invitedBy ? '초대' : '기존'}</small>
+      {inviteCode && (
+        <small>
+          {' '}
+          <code className="key soft">{inviteCode}</code>
+        </small>
+      )}
       {invitesLeft !== null && <small className="soft"> · 초대권 {invitesLeft}장</small>}
     </span>
   );

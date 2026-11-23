@@ -531,6 +531,16 @@ function ServerBody({ row, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> &
             <Field label="경로">
               <ServerJoined invitedBy={live.invite.invitedBy} onOpen={onOpen} />
             </Field>
+            <Field label="들어온 코드">
+              {live.invite.inviteCode ? (
+                <>
+                  <code className="key">{live.invite.inviteCode}</code>
+                  {live.invite.inviteMemo && <small> {live.invite.inviteMemo}</small>}
+                </>
+              ) : (
+                '—'
+              )}
+            </Field>
             <Field label="초대권">
               {live.invite.invitesLeft === null ? '—' : `${live.invite.invitesLeft}장`}
               <GrantInvitesButton uid={uid} who={who} />
