@@ -2,7 +2,7 @@
    [왜] #887 이 서버에 없는 GET /v2/catalog/{parts·gachaParts·items·desks}?v= 를 만들었다. 서버 정본은 GET /v2/catalog 한 벌(ETag · no-cache)이다.
      이 검사는 한 벌을 앱의 세 목록(parts · items · desks)으로 펼치는 표 · 받기(로그인 통로 · 서버 locked 그대로) · 알림 · 실패(Firebase 로 안 물러남) · 로그인이 끝나면 비움을 지킨다.
    1. 펼치기 — 서버 한 벌(CatalogResponse)의 칸이 옛 레코드 칸으로(가챠 · 전용 · 위치 · 파일 주소 · 순서 · 깨진 줄 · 모양이 틀린 한 벌)
-   1-B. 파일 주소 — files(해시 → Storage 다운로드 URL)의 맞는 URL(이 앱의 버킷 하나)을 쓰고, 없거나 틀린 URL(http · 다른 호스트 · 다른 판의 버킷 · 다른 해시)은 서버 파일 길 ·
+   1-B. 파일 주소 — files(해시 → Storage 다운로드 URL)의 맞는 URL(이 앱의 버킷 하나)을 쓰고, 없거나 틀린 URL(http · 다른 호스트 · 다른 판의 버킷 · 다른 해시)은 서버 파일 endpoint ·
         files 가 없으면 옛 모양 그대로 · 틀린 URL 은 앱 실행마다 한 번 warn(해시만 · URL 은 안 찍음) · 버킷은 firebase-config 의 storageBucket 하나
    2. 받기 — 길은 GET /v2/catalog 하나 · 구독 셋이 요청 하나 · 새 객체 · 같은 값은 다시 안 넘김 · 늦은 구독자
    3. 알림 — realtime catalog 알림이 다시 받기 · 받는 중 알림은 한 번 더 · 연결이 ready 가 되면 실패했을 때만 다시
@@ -118,11 +118,11 @@ const mkData = () => ({
     chk(u.parts.hat1.glbUrl === SU(H('a'), 'glb') && u.items.i1.glbUrl === SU(H('2'), 'glb') && u.items.i1.thumbUrl === SU(H('3'), 'webp'),
       '★ files 에 이 앱 버킷의 맞는 URL 이 있으면 그 URL 을 그대로 쓴다(썸네일 확장자는 저장된 형식)');
     chk(u.parts.hat1.thumbUrl === assetUrl(H('b'), 'png') && u.desks.d1.glbUrl === assetUrl(H('e'), 'glb') && u.parts.hat1.modelHash === H('a'),
-      '★ 맵에 없는 해시는 서버 파일 길(GET /v2/catalog/assets/) 그대로 · 관리자 칸(modelHash)은 해시 그대로');
+      '★ 맵에 없는 해시는 서버 파일 endpoint(GET /v2/catalog/assets/) 그대로 · 관리자 field(modelHash)는 해시 그대로');
     const dv = withFiles({ [H('a')]: SU(H('a'), 'glb', DEV_B), [H('2')]: SU(H('2'), 'glb') }, DEV_B);
     chk(dv.parts.hat1.glbUrl === SU(H('a'), 'glb', DEV_B) && dv.items.i1.glbUrl === assetUrl(H('2'), 'glb')
       && withFiles({ [H('a')]: SU(H('a'), 'glb', DEV_B) }).parts.hat1.glbUrl === assetUrl(H('a'), 'glb'),
-      '★ 버킷은 이 앱의 것 하나 — dev 앱은 dev 버킷만 · 운영 앱은 운영 버킷만(다른 판의 버킷 URL 은 서버 파일 길)');
+      '★ 버킷은 이 앱의 것 하나 — dev 앱은 dev 버킷만 · 운영 앱은 운영 버킷만(다른 판의 버킷 URL 은 서버 파일 endpoint)');
     chk(withFiles({ [H('a')]: SU(H('a'), 'glb') }, '').parts.hat1.glbUrl === assetUrl(H('a'), 'glb') && M.unfoldCatalog(Object.assign(mkData(), { files: { [H('a')]: SU(H('a'), 'glb') } }), assetUrl).parts.hat1.glbUrl === assetUrl(H('a'), 'glb'),
       '  ↳ 버킷을 모르면(빈 값 · 안 넘김) files 를 쓰지 않는다');
     const BAD = [
@@ -131,7 +131,7 @@ const mkData = () => ({
       ['비슷한 호스트', SU(H('a'), 'glb').replace('firebasestorage.googleapis.com', 'firebasestorage.googleapis.com.evil.io')],
       ['googleapis 다른 이름', SU(H('a'), 'glb').replace('firebasestorage.', 'storage.')],
       ['포트', SU(H('a'), 'glb').replace('googleapis.com/', 'googleapis.com:8443/')],
-      ['계정 칸', SU(H('a'), 'glb').replace('https://', 'https://u:p@')],
+      ['userinfo', SU(H('a'), 'glb').replace('https://', 'https://u:p@')],
       ['남의 버킷', SU(H('a'), 'glb', 'other-project.firebasestorage.app')],
       ['다른 판의 버킷', SU(H('a'), 'glb', DEV_B)],
       ['다른 해시의 파일', SU(H('b'), 'glb')],
@@ -143,13 +143,13 @@ const mkData = () => ({
       ['javascript', 'javascript:alert(1)'],
     ];
     const leaked = BAD.filter(([, v]) => withFiles({ [H('a')]: v }).parts.hat1.glbUrl !== assetUrl(H('a'), 'glb')).map(([n]) => n);
-    chk(!leaked.length, '★ 틀린 URL ' + BAD.length + '가지(http · 다른 호스트 · 남의 · 다른 판의 버킷 · 다른 해시 · 포트 · 경로 · alt …)는 쓰지 않고 서버 파일 길로' + (leaked.length ? ' — 샌 것: ' + leaked.join(' · ') : ''));
+    chk(!leaked.length, '★ 틀린 URL ' + BAD.length + '가지(http · 다른 호스트 · 남의 · 다른 판의 버킷 · 다른 해시 · 포트 · 경로 · alt …)는 쓰지 않고 서버 파일 endpoint 로' + (leaked.length ? ' — 샌 것: ' + leaked.join(' · ') : ''));
     const bads = []; withFiles({ [H('a')]: 'http://x', [H('2')]: SU(H('2'), 'glb') }, PROD_B, (h) => bads.push(h));
     chk(bads.join() === H('a'), '  ↳ 맵에 있는데 틀린 URL 만 onBad(해시)로 알린다(맞는 URL · 맵에 없는 해시는 알리지 않는다)');
     const plain = M.unfoldCatalog(mkData(), assetUrl);
     chk(JSON.stringify(withFiles(undefined)) === JSON.stringify(plain) && JSON.stringify(withFiles(null)) === JSON.stringify(plain) && JSON.stringify(withFiles([SU(H('a'), 'glb')])) === JSON.stringify(plain)
       && JSON.stringify(withFiles({})) === JSON.stringify(plain),
-      '★ files 가 없거나(옛 서버) · 비었거나 · 맵이 아니면 옛 모양 그대로(모두 서버 파일 길)');
+      '★ files 가 없거나(옛 서버) · 비었거나 · 맵이 아니면 옛 모양 그대로(모두 서버 파일 endpoint)');
     /* 받기 — 버킷은 deps.storageBucket() · 틀린 URL 경고는 앱 실행마다 한 번 · 해시만 */
     const warns = []; let d = mkData(); d.files = { [H('a')]: 'http://bad?token=SECRET', [H('2')]: SU(H('2'), 'glb') };
     const api = { baseUrl: () => BASE, get: async () => JSON.parse(JSON.stringify(d)) };
