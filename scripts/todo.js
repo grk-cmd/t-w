@@ -26,8 +26,10 @@ const TODOS = '/v2/admin/todos';
 const ADMINS = '/v2/admin/admins';
 // Firebase 웹 apiKey 는 앱 설정 한 곳에서 읽는다(공개 식별자 — 사본을 두지 않게).
 const FIREBASE_CONFIG = path.join(__dirname, '..', 'apps', 'desktop', 'app', 'parts', 'firebase-config.js');
-const SIGN_IN_URL = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
-const REFRESH_URL = 'https://securetoken.googleapis.com/v1/token';
+/* 시험용 env(checks/sim-todo-cli.js 가 가짜 서버 · 임시 파일로 바꿔 끼운다 — 평소에는 비워 둔다):
+   TW_TODO_API(API 주소) · TW_TODO_AUTH(로그인 파일) · TW_TODO_FIREBASE_KEY(apiKey) · TW_TODO_SIGN_IN_URL · TW_TODO_REFRESH_URL(Firebase Auth 주소). */
+const SIGN_IN_URL = () => process.env.TW_TODO_SIGN_IN_URL || 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
+const REFRESH_URL = () => process.env.TW_TODO_REFRESH_URL || 'https://securetoken.googleapis.com/v1/token';
 
 // 서버 AdminTodo · AdminTodoContent 와 같다.
 const ID_RE = /^[A-Za-z0-9_-]{1,36}$/;
@@ -37,6 +39,7 @@ const NAME_MAX = 40;
 const REPORT_RE = /^B-[0-9]{4}-[0-9]{1,6}$/;
 const REPORTS_MAX = 30;
 const RELEASE_RE = /^\d+\.\d+\.\d+(-[a-z]+\.\d+)?$/;
+const RELEASE_MAX = 20;
 const PAGE_MAX = 200;
 const STATUS = { todo: '할 일', doing: '진행 중', done: '완료' };
 const TYPES = { feat: '🆕', bug: '🐞' };
@@ -85,6 +88,7 @@ function toPage(w){
   return { items: w.items.map(toTodo), nextCursor: w.nextCursor, counts: w.counts ?? null };
 }
 
+const releaseOk = (v) => v.length <= RELEASE_MAX && RELEASE_RE.test(v);
 const RELEASE_HINT = '릴리스 버전은 0.13.1 · 0.14.0-beta.1 모양으로 적어 주세요';
 
 /** start 의 본문(POST) — 상태 «진행 중» · 작업자는 나. requestId 는 다시 보내도 한 건만 생기게. */
@@ -100,7 +104,7 @@ function startBody(o, me, requestId = crypto.randomUUID()){
   if(bad) throw new TodoError(`제보 번호 모양이 틀려요: ${bad} (B-MMDD-n — 웹 관리자 🐞 제보에 보이는 고정 번호)`);
   if(reports.length > REPORTS_MAX) throw new TodoError(`제보는 ${REPORTS_MAX}개까지예요`);
   const release = String(o.release || '').trim();
-  if(release && !RELEASE_RE.test(release)) throw new TodoError(RELEASE_HINT);
+  if(release && !releaseOk(release)) throw new TodoError(RELEASE_HINT);
   const name = String(me.name || '').trim().slice(0, NAME_MAX);
   return {
     requestId,
@@ -121,7 +125,7 @@ function startBody(o, me, requestId = crypto.randomUUID()){
  */
 function doneBody(t, o){
   const release = String(o.release || '').trim();
-  if(release && !RELEASE_RE.test(release)) throw new TodoError(RELEASE_HINT);
+  if(release && !releaseOk(release)) throw new TodoError(RELEASE_HINT);
   let memo = t.memo;
   const add = String(o.memo || '').trim();
   // 같은 줄이 이미 있으면(같은 명령을 두 번) 다시 붙이지 않는다.
@@ -237,13 +241,21 @@ function unwrap(status, body){
 /* ═══ 밖과 닿는 곳 — 로그인 파일 · Firebase Auth REST · API ═══ */
 
 function authFile(env){
-  if(process.env.TW_TODO_AUTH) return process.env.TW_TODO_AUTH;
+  if(process.env.TW_TODO_AUTH) return process.env.TW_TODO_AUTH;   // 시험용
   const base = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
   return path.join(base, 'tw-todo', `auth-${env}.json`);
 }
 
 function readAuth(env){
-  try { return toAuth(JSON.parse(fs.readFileSync(authFile(env), 'utf8'))); } catch(_){ return null; }
+  const file = authFile(env);
+  let raw;
+  try { raw = fs.readFileSync(file, 'utf8'); } catch(_){ return null; }
+  // 남이 읽을 수 있게 풀려 있으면(복사 · 백업 복원) 600 으로 되돌린다 — refresh token 만 있으면 관리자로 쓸 수 있다.
+  if(process.platform !== 'win32' && (fs.statSync(file).mode & 0o077)){
+    fs.chmodSync(file, 0o600);
+    console.error(`(로그인 파일 권한이 열려 있어 600 으로 고쳤어요: ${file})`);
+  }
+  try { return toAuth(JSON.parse(raw)); } catch(_){ return null; }
 }
 
 /** 600 으로 새 파일에 쓰고 바꿔 끼운다(쓰다 끊겨도 반쪽 파일이 남지 않게 · 처음부터 남이 못 읽게). */
@@ -258,6 +270,7 @@ function writeAuth(env, auth){
 }
 
 function apiKey(env){
+  // TW_TODO_FIREBASE_KEY 는 시험용
   if(process.env.TW_TODO_FIREBASE_KEY) return process.env.TW_TODO_FIREBASE_KEY;
   const src = fs.readFileSync(FIREBASE_CONFIG, 'utf8');
   const m = new RegExp(`const ${ENVS[env].configKey}\\s*=\\s*\\{[^}]*?apiKey:\\s*"([^"]+)"`).exec(src);
@@ -280,7 +293,7 @@ async function postJson(url, body, timeoutMs, form){
 
 /** 친구 코드 + 비밀번호 → 로그인(앱과 같은 이메일 모양 `{코드 소문자}@tw.local`). */
 async function signIn(env, code, password, timeoutMs){
-  const r = await postJson(`${SIGN_IN_URL}?key=${encodeURIComponent(apiKey(env))}`,
+  const r = await postJson(`${SIGN_IN_URL()}?key=${encodeURIComponent(apiKey(env))}`,
     { email: code.toLowerCase() + '@tw.local', password, returnSecureToken: true }, timeoutMs);
   if(r.status !== 200 || !r.body || !r.body.idToken) throw new TodoError('친구 코드나 비밀번호가 맞지 않아요');
   return { uid: r.body.localId, idToken: r.body.idToken, refreshToken: r.body.refreshToken,
@@ -289,7 +302,7 @@ async function signIn(env, code, password, timeoutMs){
 
 /** refresh token → 새 ID 토큰. 끊겼으면(비밀번호 바꿈 · 계정 끊김) setup 을 다시. */
 async function refresh(env, auth, timeoutMs){
-  const r = await postJson(`${REFRESH_URL}?key=${encodeURIComponent(apiKey(env))}`,
+  const r = await postJson(`${REFRESH_URL()}?key=${encodeURIComponent(apiKey(env))}`,
     { grant_type: 'refresh_token', refresh_token: auth.refreshToken }, timeoutMs, true);
   if(r.status !== 200 || !r.body || !r.body.id_token) throw new TodoError('로그인이 풀렸어요 — node scripts/todo.js setup 을 다시 해 주세요');
   if(r.body.user_id !== auth.uid) throw new TodoError('저장된 로그인의 계정이 달라요 — node scripts/todo.js setup 을 다시 해 주세요');
@@ -300,7 +313,7 @@ async function refresh(env, auth, timeoutMs){
 }
 
 function makeApi(env, timeoutMs, token){
-  const base = process.env.TW_TODO_API || ENVS[env].api;
+  const base = process.env.TW_TODO_API || ENVS[env].api;   // TW_TODO_API 는 시험용
   async function call(method, p, { query, body } = {}){
     const qs = query ? '?' + new URLSearchParams(Object.entries(query).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])) : '';
     const headers = { Authorization: 'Bearer ' + await token() };

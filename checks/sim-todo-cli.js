@@ -45,6 +45,8 @@ say('── 1. start 본문');
   chk(throws(() => T.startBody({ title: 'x', type: 'feat', reports: ['abcdefghij0123456789'] }, me), /B-MMDD-n/), '옛 20자 제보 id 는 거절 — 고정 번호 B-MMDD-n');
   chk(throws(() => T.startBody({ title: 'x', type: 'feat', reports: Array.from({ length: 31 }, (_, i) => `B-1122-${i + 1}`) }, me), /30개/), '제보 30개 상한');
   chk(throws(() => T.startBody({ title: 'x', type: 'feat', release: 'v0.13' }, me), /릴리스/), '버전 모양이 틀리면 거절');
+  chk(throws(() => T.startBody({ title: 'x', type: 'feat', release: '0.13.0-beta.123456789' }, me), /릴리스/) &&
+    !throws(() => T.startBody({ title: 'x', type: 'feat', release: '0.13.0-beta.12345678' }, me), /./), '버전 20자 상한(서버와 같음) — 21자는 거절');
 }
 
 say('── 2. done 본문');
@@ -122,12 +124,12 @@ say('── 5. 로그인 파일');
   const prev = process.env.TW_TODO_AUTH;
   process.env.TW_TODO_AUTH = path.join(tmp, 'sub', 'auth.json');
   const file = T.writeAuth('prod', authObj());
-  process.env.TW_TODO_AUTH = prev;
+  if(prev === undefined) delete process.env.TW_TODO_AUTH; else process.env.TW_TODO_AUTH = prev;
   if(process.platform !== 'win32') chk((fs.statSync(file).mode & 0o777) === 0o600, '파일 권한 600(남이 못 읽게)');
   chk(JSON.parse(fs.readFileSync(file, 'utf8')).refreshToken === 'rt' && !fs.readdirSync(path.dirname(file)).some(f => f.endsWith('.tmp')), '바꿔 끼우기 — 임시 파일이 남지 않는다');
   chk(!/password/i.test(fs.readFileSync(file, 'utf8')), '비밀번호 칸은 없다');
   const d = T.authFile('dev');
-  chk(process.env.TW_TODO_AUTH ? true : /tw-todo[\\/]auth-dev\.json$/.test(d) && !d.startsWith(path.resolve('.')), '기본 자리 ~/.config/tw-todo/auth-<env>.json(저장소 밖) · env 마다 따로');
+  chk(/tw-todo[\\/]auth-dev\.json$/.test(d) && !d.startsWith(path.resolve('.')), '기본 자리 ~/.config/tw-todo/auth-<env>.json(저장소 밖) · env 마다 따로');
 }
 
 /** 비동기로 실행 — 가짜 서버가 같은 프로세스에서 응답해야 해서 spawnSync 를 쓰지 않는다. */
@@ -148,7 +150,7 @@ function run(args, env){
     const r = await run(['brief'], { TW_TODO_AUTH: none, TW_TODO_API: 'http://127.0.0.1:1' });
     chk(r.status === 0 && r.out === '' && r.err === '', 'setup 안 함 → 아무것도 안 찍고 0');
     const f = path.join(tmp, 'auth-ok.json');
-    fs.writeFileSync(f, JSON.stringify(authObj()));
+    fs.writeFileSync(f, JSON.stringify(authObj()), { mode: 0o600 });
     const r2 = await run(['brief'], { TW_TODO_AUTH: f, TW_TODO_API: 'http://127.0.0.1:1' });
     chk(r2.status === 0 && r2.out === '' && r2.err === '', 'API 에 못 닿음 → 아무것도 안 찍고 0');
     chk(r.ms + r2.ms < 6000, '둘 다 금방 끝난다(훅 3초 상한 안)');
@@ -164,12 +166,21 @@ function run(args, env){
     ['t2', wire({ todoId: 't2', title: '방 이어 붙기', status: 'todo', assignee: 'U1', assigneeName: '미희', reports: ['B-1122-9'], version: 0 })],
   ]);
   const seen = [];
-  let forbid = false, stale = false;
+  let forbid = false, stale = false, refreshMode = 'ok', refreshCalls = 0;
   const server = http.createServer((req, res) => {
     let raw = '';
     req.on('data', d => raw += d);
     req.on('end', () => {
       const u = new URL(req.url, 'http://x');
+      if(u.pathname === '/token'){
+        // Firebase securetoken 흉내 — grant_type=refresh_token 폼.
+        refreshCalls++;
+        const form = new URLSearchParams(raw);
+        res.writeHead(refreshMode === 'bad' ? 400 : 200, { 'Content-Type': 'application/json' });
+        if(refreshMode === 'bad') return res.end(JSON.stringify({ error: { message: 'INVALID_REFRESH_TOKEN' } }));
+        return res.end(JSON.stringify({ id_token: 'it2', refresh_token: 'rt2', expires_in: '3600',
+          user_id: refreshMode === 'otherUser' ? 'U9' : 'U1', grant: form.get('grant_type'), rt: form.get('refresh_token') }));
+      }
       const body = raw ? JSON.parse(raw) : undefined;
       seen.push({ method: req.method, path: u.pathname, q: Object.fromEntries(u.searchParams), auth: req.headers.authorization, body });
       const send = (status, o) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o)); };
@@ -234,6 +245,32 @@ function run(args, env){
     const cf = await run(['done', 't2', '--release', '0.13.1'], env);
     chk(cf.status === 1 && /다른 사람이 이 할 일을 바꿨어요/.test(cf.err) && todos.get('t2').status === 'todo', 'mutation test — 남이 먼저 고쳤으면(409) 덮지 않고 «다시 실행»');
     stale = false;
+
+    // refresh — 거의 모든 실행이 이 길(ID 토큰은 1시간).
+    const ex = path.join(tmp, 'auth-expired.json');
+    const exEnv = { ...env, TW_TODO_AUTH: ex, TW_TODO_REFRESH_URL: env.TW_TODO_API + '/token', TW_TODO_FIREBASE_KEY: 'k' };
+    const expired = () => fs.writeFileSync(ex, JSON.stringify(authObj({ idToken: 'old', idTokenExp: NOW - 1 })), { mode: 0o600 });
+    expired(); seen.length = 0; refreshCalls = 0; refreshMode = 'ok';
+    const rf = await run(['list'], exEnv);
+    const saved = JSON.parse(fs.readFileSync(ex, 'utf8'));
+    chk(rf.status === 0 && refreshCalls === 1 && seen.length > 1 && seen.every(x => x.auth === 'Bearer it2'), '만료된 토큰 → list 한 번에 교환 1번 · 새 토큰을 Bearer 로(여러 요청이 같이 나가도)');
+    chk(saved.idToken === 'it2' && saved.refreshToken === 'rt2' && saved.idTokenExp > NOW && (process.platform === 'win32' || (fs.statSync(ex).mode & 0o777) === 0o600), '  파일은 새 값 · 0600');
+    expired(); const before = fs.readFileSync(ex, 'utf8'); refreshMode = 'otherUser'; seen.length = 0;
+    const ou = await run(['list'], exEnv);
+    chk(ou.status === 1 && /계정이 달라요/.test(ou.err) && fs.readFileSync(ex, 'utf8') === before && seen.length === 0, '교환 결과의 user_id 가 다르면 «계정이 달라요» 로 1 · 파일 그대로 · API 는 안 부른다');
+    const oub = await run(['brief'], exEnv);
+    chk(oub.status === 0 && oub.out === '' && oub.err === '', '  brief 는 조용히 0');
+    refreshMode = 'bad';
+    const bd = await run(['list'], exEnv);
+    chk(bd.status === 1 && /setup 을 다시/.test(bd.err) && fs.readFileSync(ex, 'utf8') === before, 'refresh token 이 끊겼으면(400) «setup 다시» · 파일 그대로');
+    const bdb = await run(['brief'], exEnv);
+    chk(bdb.status === 0 && bdb.out === '' && bdb.err === '', '  brief 는 조용히 0');
+    refreshMode = 'ok';
+    if(process.platform !== 'win32'){
+      fs.chmodSync(f, 0o644);
+      const pm = await run(['list'], env);
+      chk(pm.status === 0 && (fs.statSync(f).mode & 0o777) === 0o600 && /600 으로 고쳤어요/.test(pm.err), '로그인 파일 권한이 열려 있으면 600 으로 고치고 한 줄 알린다');
+    }
     forbid = true;
     const fb = await run(['list'], env);
     chk(fb.status === 1 && /관리자 계정만/.test(fb.err), '관리자가 아니면(403) «관리자 계정만»');

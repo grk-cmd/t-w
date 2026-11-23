@@ -342,7 +342,7 @@
 | **sim-strip-comments.js** | 82 | **f16dd3986285** |
 | **sim-desk-item-origin.js** | 104 | **c994d7c5152e** |
 | **sim-def-size.js** | 157 | **68d8b678409d** |
-| **sim-todo-cli.js** | 249 | **e5c9e8d6ea8c** |
+| **sim-todo-cli.js** | 286 | **1938bd361cc5** |
 | **sim-folder-free.js** | 190 | **350cfeef7412** |
 | **sim-chat-sfx.js** | 221 | **fcd6f3258d6c** |
 | **sim-mac-update.js** | 269 | **d58adcbefab2** |
