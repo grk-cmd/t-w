@@ -96,29 +96,20 @@
        판에 따라 조용히 세션 저장으로 떨어져, 껐다 켜면 로그아웃돼 보인다. */
     setPersistence(auth, browserLocalPersistence).catch(e => console.warn('[auth] 지속성 설정 실패', e));
   }catch(e){ console.warn('[auth] 초기화 실패 — 로그인 기능만 비활성', e); auth = null; }
+  /* 켤 때 로그인 진단(account/login-diag.js) — 저장된 로그인 · 대기선 결과를 진단 기록에. 알리기만 한다(대기선 동작은 그대로) */
+  const _loginDiag = window.TwLoginDiag.store;
+  _loginDiag.authStart(!!auth);
 
-  /* ═══════════ 🚧 로그인 복원 대기선 (auth barrier) ═══════════
-     [무엇을 막는가] getAuth() 는 즉시 돌아오지만 **저장된 세션을 되읽는 일은 비동기다.**
-       그 사이 auth.currentUser 는 null 이고, 그때 나가는 쓰기에는 토큰이 안 붙는다.
-       규칙이 users/{코드} 의 자기 소유 가지를 잠그기 전에는 이게 아무 문제도 아니었다 —
-       토큰이 없어도 통과했으니까. 규칙을 게시한 순간부터는 **구글에 묶인 계정만**
-       (userAuth/{코드} 가 존재하므로 auth.uid 일치를 요구받아) 부팅 직후 쓰기가 전부 거부된다.
-       거부는 화면에 아무 표시도 남기지 않는다. 그래서 원인이 아니라 증상만 신고된다.
-     ★ 이 약속은 **로그인 여부와 무관하게 반드시 resolve 된다.** 로그인 안 한 기기까지
-       여기서 멈추면 규칙이 열어둔 경로(!userAuth exists)마저 죽는다.
-     ⚠️ 타임아웃이 있어야 한다 — auth 초기화가 실패했거나(위 catch) 네트워크가 없어
-       콜백이 영영 안 오는 판에서 부팅이 통째로 걸리면 안 된다. */
-  const AUTH_READY_TIMEOUT_MS = 8000;
-  let _authSettled = false;
-  const _authReadyPromise = new Promise(resolve => {
-    const done = ()=>{ if(!_authSettled){ _authSettled = true; resolve(); } };
-    if(!auth){ done(); return; }
-    try{ onAuthStateChanged(auth, done, done); }catch(_){ done(); return; }
-    setTimeout(()=>{ if(!_authSettled) console.warn('[auth] 세션 복원이 늦어 대기선을 통과시킴'); done(); }, AUTH_READY_TIMEOUT_MS);
+  /* 🚧 로그인 복원 대기선(account/auth-barrier.js) — 소유권이 걸린 쓰기(users/{코드}/…)는 ready() 를 먼저 지난다(첫 답 또는 8초 — 반드시 풀림).
+     켤 때 «누구인가» 판정(login-flow.js)은 8초로 «로그인 없음» 을 만들지 않고, 저장된 로그인이 있으면 첫 답을 더 기다린다(answered). */
+  const _authBarrier = window.TwAuthBarrier.createAuthBarrier({
+    subscribe: auth ? (onUser, onError)=>onAuthStateChanged(auth, onUser, onError) : null,
+    storedLogin: window.TwLoginDiag.hasStoredLogin(localStorage),
+    later: (fn, ms)=>setTimeout(fn, ms),
+    diag: _loginDiag,
+    warn: (m)=>console.warn(m),
   });
-  /* 소유권이 걸린 쓰기(users/{코드}/…)는 전부 이 줄을 먼저 지나야 한다.
-     이미 통과했으면 await 비용은 0이다(정착된 뒤엔 마이크로태스크 한 번). */
-  const _whenAuthReady = ()=> _authSettled ? Promise.resolve() : _authReadyPromise;
+  const _whenAuthReady = ()=> _authBarrier.ready();
 
   /* 💰 Storage 캐시 정책 — 한 번 받은 파일은 브라우저/앱이 재사용해서 다운로드 대역폭(=서버비)을 아낌. */
   const STORAGE_CACHE = 'public, max-age=31536000';
@@ -250,8 +241,11 @@
        0.13 은 로그인만 앱 ↔ Firebase Auth 가 하고 «이 로그인이 누구인가» 는 서버가 정한다(GET /v2/me — account/login-flow.js).
        여기는 Auth SDK 를 부르는 얇은 자리다 — 유저 코드 묶기 · 가입 · 비밀번호 붙이기 · 바꾸기는 서버(account/user-api.js)가 한다.
        ⚠️ 로그인 창은 여기서 열지 않는다(file:// + frame-src 'none') — main.js 가 연 창에서 받은 ID 토큰만 받는다. */
-    /* 🚧 저장된 로그인 세션이 복원될 때까지 기다린다(최대 8초, 실패해도 반드시 풀린다). */
+    /* 🚧 저장된 로그인 세션이 복원될 때까지 기다린다(최대 8초, 실패해도 반드시 풀린다 — 쓰기용). */
     authReady(){ return _whenAuthReady(); },
+    /* 켤 때 저장된 로그인이 있었고 Firebase 가 아직 첫 답을 안 했다 · 첫 답을 maxMs 까지 기다린다(빼면 상한 없음) → true · false(시간 초과) */
+    authRestoring(){ return _authBarrier.restoring(); },
+    authAnswered(maxMs){ return _authBarrier.answered(maxMs); },
     authCurrentUid(){ return (auth && auth.currentUser) ? auth.currentUser.uid : null; },
     authCurrentEmail(){ return (auth && auth.currentUser) ? (auth.currentUser.email || null) : null; },
     /* 지금 로그인 → { uid, anonymous } | null — login-flow.js 의 판정 재료 */

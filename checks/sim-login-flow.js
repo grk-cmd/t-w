@@ -10,6 +10,8 @@
    ・6절: 내 계정 고치기 — 사본 version · 다른 곳이 먼저 바꿨으면 다시 받아 한 번 더 · 그 밖 실패는 ok:false
    ・7절: 로그아웃 · 프리미엄 유예 — realtime 끔 · API 로그인 읽기 뗌 · 로그인 놓음 · 사본 지움 · 유예 안 · 밖
    ・8절: 배선 — html 차례(user-api · api-errors · rt-hub 다음 · app.js 앞)
+   ・8-2절: 저장된 로그인 복원 기다림 — 첫 답이 8초를 넘겨도 login 이 아님 · 60초 넘기면 local(restoring) · 로그인 둠 ·
+            다시 시도는 다시 기다림 · 늦게 온 첫 답에 혼자 이어 감 · Firebase 가 «사용자 없음» 이면 login · 저장된 로그인 없으면 그대로
    ・9절: mutation test */
 'use strict';
 const fs = require('fs');
@@ -27,7 +29,7 @@ const SRC0 = {
   HTML: pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html']),
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
-const load = (src) => { const m = { exports: {} }; new Function('module', 'window', src)(m, undefined); return m.exports; };
+const load = (src, later) => { const m = { exports: {} }; new Function('module', 'window', 'setTimeout', src)(m, undefined, later || setTimeout); return m.exports; };
 const tick = async () => { for(let i = 0; i < 20; i++) await Promise.resolve(); await new Promise((r) => setImmediate(r)); };
 
 const ME = (v, extra) => Object.assign({ userCode: 'u1234567890', friendCode: 'MATE-AB12', displayName: '나', presencePref: { locked: false, online: true },
@@ -35,10 +37,11 @@ const ME = (v, extra) => Object.assign({ userCode: 'u1234567890', friendCode: 'M
 const apiErr = (kind, code) => Object.assign(new Error(code), { kind, code });
 
 function mkEnv(S, o){
-  const LF = load(S.LF), UA = load(S.UA), AE = load(S.AE), RI = load(S.RI);
+  const clock = { t: 1_800_000_000_000, q: [] };
+  /* 모듈의 setTimeout(방 나가기 기다림 상한)도 가짜 시계로 — 진짜로 기다리면 mutation test 마다 1.5초씩 든다 */
+  const LF = load(S.LF, (fn, ms) => { clock.q.push({ at: clock.t + ms, fn }); return 0; }), UA = load(S.UA), AE = load(S.AE), RI = load(S.RI);
   const opt = o || {};
   const log = [];
-  const clock = { t: 1_800_000_000_000, q: [] };
   const store = new Map();
   const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
   let user = ('user' in opt) ? opt.user : { uid: 'auth1', anonymous: false };
@@ -50,9 +53,18 @@ function mkEnv(S, o){
     updateMe: async (b) => { srv.updates.push(b); return srv.update ? srv.update(b) : ME(b.version + 1, { displayName: b.displayName || '나' }); },
   };
   const authLog = [];
+  /* 복원 대기선 흉내 — opt.restoring 이면 켤 때 저장된 로그인이 있고 첫 답은 answer() 가 온다(시계 clock.q 위의 상한) */
+  const bar = { restoring: !!opt.restoring, onAns: [], answers: 0, waits: [] };
+  const answer = (u) => { if(!bar.restoring) return; user = u; bar.restoring = false; bar.answers++; const l = bar.onAns.splice(0); l.forEach((f) => f()); };
   const auth = {
     ready: async () => {},
     user: () => user,
+    restoring: () => bar.restoring,
+    answered: (ms) => {
+      if(!bar.restoring) return Promise.resolve(true);
+      bar.waits.push(ms == null ? 'inf' : ms);
+      return new Promise((res) => { bar.onAns.push(() => res(true)); if(ms != null) clock.q.push({ at: clock.t + ms, fn: () => res(false) }); });
+    },
     signInGoogle: async (tok) => { authLog.push('g:' + tok); if(opt.gFail) return { ok: false, reason: '구글 실패' }; user = { uid: opt.gUid || 'authG', anonymous: false }; return { ok: true, email: 'a@b.c' }; },
     signInPassword: async (code, pw) => { authLog.push('p:' + code + ':' + pw); if(opt.pFail && opt.pFail()) return { ok: false, reason: '비번 틀림' }; user = { uid: opt.pUid || 'auth1', anonymous: false }; return { ok: true }; },
     signOut: async () => { authLog.push('out'); user = null; },
@@ -64,13 +76,14 @@ function mkEnv(S, o){
   /* 방 나가기 흉내 — leave 를 보내고 left 를 기다렸다 풀린다(방 밖이면 바로) */
   const leaveRoom = opt.leaveHang ? () => { rtLog.push('leave'); return new Promise(() => {}); }   // 오프라인 — 방 나가기 쓰기가 끝나지 않음
     : async () => { rtLog.push('leave'); await tick(); rtLog.push('left'); };
-  let lost = 0; const lostKinds = [];
+  let lost = 0; const lostKinds = []; const confirmed = [];
   const ids = RI.createPending();
   const flow = LF.createLoginFlow({
     userApi, translate: AE.translate, reasonOf: UA.reasonOf, auth,
     googleWindow: async () => (opt.gWin ? opt.gWin() : { ok: true, idToken: 'gtok' }),
     rt, leaveRoom, pending: ids, storage, onSessionLost: (k) => { lost++; lostKinds.push(k); }, forgetSession: () => { rtLog.push('forget'); },
     now: () => clock.t,
+    onConfirmed: (r, info) => { confirmed.push([r.state, info.restore]); },
   });
   const advance = async (ms) => {
     const end = clock.t + ms;
@@ -78,7 +91,7 @@ function mkEnv(S, o){
     clock.t = end; await tick();
   };
   return { LF, flow, srv, store, storage, authLog, rtLog, log, clock, advance, lost: () => lost, lostKinds, fireState: (s) => stateFn && stateFn(s),
-    setUser: (u) => { user = u; } };
+    setUser: (u) => { user = u; }, answer, bar, user: () => user, confirmed };
 }
 
 async function judge(S){
@@ -304,9 +317,65 @@ async function judge(S){
   {
     const e = mkEnv(S, { leaveHang: true });
     e.flow.goOnline(); e.rtLog.length = 0;
-    const done = await Promise.race([e.flow.logout().then(() => true), new Promise((r) => setTimeout(() => r(false), 3000))]);
-    chk(done && e.rtLog.join() === 'leave,bye:logout,closed,forget' && e.authLog.join() === 'out',
+    let done = false; e.flow.logout().then(() => { done = true; });
+    await e.advance(1499);
+    const early = done;
+    await e.advance(1); await tick();
+    chk(!early && done && e.rtLog.join() === 'leave,bye:logout,closed,forget' && e.authLog.join() === 'out',
       '★ 방 나가기가 끝나지 않아도(오프라인) 상한 뒤 작별 · 로그인 놓기까지 간다 — ' + e.rtLog.join());
+  }
+
+  say('── 8-2. 저장된 로그인 복원 기다림');
+  {
+    const U = { uid: 'auth1', anonymous: false };
+    /* 8초 대기선(ready)이 풀린 뒤에도 첫 답이 없다 — user() 는 아직 null */
+    const a = mkEnv(S, { user: null, restoring: true });
+    const waits = [];
+    let pa = a.flow.confirm({ onRestoreWait: () => waits.push(a.clock.t) }), ra = null; pa.then((r) => { ra = r; });
+    await a.advance(20000);
+    chk(ra === null && waits.length === 1 && a.log.length === 0, '★ 저장된 로그인 + 첫 답이 8초를 넘김 → login 으로 끝내지 않고 기다린다(기다림 알림 한 번 · 요청 0)');
+    a.answer(U); await tick();
+    chk(ra && ra.state === 'in' && a.log.length === 1, '  ↳ 20초에 첫 답(사용자 있음) → 서버에 묻고 in');
+    chk(a.confirmed[0] && a.confirmed[0][1] && a.confirmed[0][1].ok === true && a.confirmed[0][1].ms === 20000, '  ↳ 진단에 복원 기다림 { ok, ms } 를 넘긴다');
+    chk(JSON.stringify(a.bar.waits) === JSON.stringify([a.LF.RESTORE_WAIT_MS]) && a.LF.RESTORE_WAIT_MS === 60000, '  ↳ 기다림 상한은 60초');
+
+    const b = mkEnv(S, { user: null, restoring: true });
+    let rb = null; b.flow.confirm().then((r) => { rb = r; });
+    await b.advance(59999);
+    chk(rb === null, '  ↳ 59.999초까지는 답하지 않는다');
+    await b.advance(1);
+    chk(rb && rb.state === 'local' && rb.restoring === true && rb.me === null && b.log.length === 0 && b.authLog.length === 0,
+      '★ 60초 답 없음 → local(restoring) — 로그인 화면이 아니라 기다리는 화면 · 로그인을 놓지 않음(signOut 0) · 요청 0');
+    chk(b.confirmed[0] && b.confirmed[0][1] && b.confirmed[0][1].ok === false, '  ↳ 진단에 «답 없음» 을 넘긴다');
+    const backB = []; b.flow.waitForServer((r) => backB.push(r.state));
+    let rr = null; b.flow.retryNow().then((r) => { rr = r; });
+    await b.advance(30000);
+    chk(rr === null && b.bar.waits.filter((w) => w === 60000).length === 2, '★ [다시 시도] 는 첫 답을 다시 기다린다(상한 60초)');
+    b.answer(U); await tick(); await tick();
+    chk(rr && rr.state === 'in' && backB.join() === 'in' && b.log.length === 1, '  ↳ 기다리던 중 첫 답이 오면 in · 화면에 한 번 알림');
+
+    const c = mkEnv(S, { user: null, restoring: true });
+    let rc = null; c.flow.confirm().then((r) => { rc = r; });
+    await c.advance(60000);
+    const backC = []; c.flow.waitForServer((r) => backC.push(r.state));
+    chk(c.bar.waits.includes('inf'), '★ 시간 초과 뒤 기다리는 화면은 첫 답을 상한 없이 듣는다');
+    c.answer(U); await tick(); await tick(); await tick();
+    chk(rc.state === 'local' && backC.join() === 'in' && c.log.length === 1, '  ↳ 누르지 않아도 늦게 온 첫 답에 한 번 묻고 이어 간다');
+
+    const d = mkEnv(S, { user: null, restoring: true });
+    let rd = null; d.flow.confirm().then((r) => { rd = r; });
+    await d.advance(15000);
+    d.answer(null); await tick();
+    chk(rd && rd.state === 'login' && d.log.length === 0, '★ Firebase 가 «사용자 없음» 으로 답함(저장된 로그인을 지움) → login(진짜 로그아웃)');
+
+    const e = mkEnv(S, { user: null });
+    const we = [];
+    chk((await e.flow.confirm({ onRestoreWait: () => we.push(1) })).state === 'login' && we.length === 0 && e.bar.waits.length === 0,
+      '★ 저장된 로그인이 없으면 그대로 — 바로 login · 기다림 없음');
+    const f = mkEnv(S);
+    f.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
+    f.flow.waitForServer(() => {}); await tick();
+    chk(f.bar.waits.length === 0 && f.log.length === 0, '  ↳ 보통의 «닿지 못함» 화면은 첫 답을 듣지 않는다(요청이 늘지 않음)');
   }
 
   say('── 8. 배선');
@@ -355,7 +424,14 @@ const BREAKS = [
   ['LF', "    await release((o && o.why) || BYE_LOGOUT);", "    await release(BYE_LOGOUT);", '탈퇴도 logout 으로 작별'],
   ['LF', "    await release((o && o.why) || BYE_LOGOUT);", "    release((o && o.why) || BYE_LOGOUT);", '작별을 안 기다리고 로그인을 놓음'],
   ['LF', "    try{ deps.forgetSession(); }catch(_){}", "", '로그아웃에 API 로그인 읽기를 안 뗌'],
-  ['LF', "const api = { ME_CACHE_KEY, STATE, joinKey, createLoginFlow };", "function premiumNow(){ return true; }\nconst api = { ME_CACHE_KEY, STATE, joinKey, premiumNow, createLoginFlow };", 'premiumNow(24시간 유예)를 되살림'],
+  ['LF', "const api = { ME_CACHE_KEY, STATE, RESTORE_WAIT_MS, RESTORING_TEXT, joinKey, createLoginFlow };", "function premiumNow(){ return true; }\nconst api = { ME_CACHE_KEY, STATE, RESTORE_WAIT_MS, RESTORING_TEXT, joinKey, premiumNow, createLoginFlow };", 'premiumNow(24시간 유예)를 되살림'],
+  ['LF', "    if(auth.restoring()){\n", "    if(false){\n", '★ 저장된 로그인이 있어도 8초 뒤 «로그인 없음» 으로 봄(예전)'],
+  ['LF', "      if(!ok) return { state: STATE.LOCAL, me: null, restoring: true, reason: RESTORING_TEXT };", "      if(!ok) return { state: STATE.LOGIN, me: null };", '60초 답 없음을 로그인 화면으로'],
+  ['LF', "      try{ ok = await auth.answered(RESTORE_WAIT_MS); }catch(_){ ok = false; }", "      try{ ok = await auth.answered(); }catch(_){ ok = false; }", '복원 기다림에 상한 없음(영영 멈춤)'],
+  ['LF', "const RESTORE_WAIT_MS = 60000;", "const RESTORE_WAIT_MS = 8000;", '상한을 8초로'],
+  ['LF', "    if(auth.restoring()) auth.answered().then(() => { if(waitBack) retryNow(); }, () => {});", "", '늦게 온 첫 답에 이어 가지 않음'],
+  ['LF', "    if(auth.restoring()) auth.answered().then(", "    auth.answered().then(", '보통의 닿지 못함 화면도 첫 답에 다시 물음(요청 늘어남)'],
+  ['LF', "      if(onRestoreWait){ try{ onRestoreWait(); }catch(_){} }", "", '기다리는 화면을 안 알림'],
   ['LF', "  return 'join:' + String(inviteCode || '') + ':' + h.toString(36);", "  return 'join:' + String(inviteCode || '');", '비밀번호를 바꿔도 같은 요청'],
   ['HTML', '<script src="parts/account/login-flow.js"></script>', '', 'html 에 안 실음'],
 ];

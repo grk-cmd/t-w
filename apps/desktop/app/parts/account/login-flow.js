@@ -7,6 +7,10 @@
      'login'  — 로그인이 없음(익명 세션 포함) · 토큰이 끝남. 로그인 화면.
      'local'  — 서버에 닿지 못함 · 점검(me 는 늘 null — 0.13 은 로컬 모드를 두지 않는다). 부르는 쪽이 «서버에 연결할 수 없어요» 화면을 띄우고 waitForServer 로 기다린다.
                 429 면 limited:true. 다시 묻기는 «다시 시도» 누름(retryNow) · realtime ready 신호 — 타이머로 되풀이하지 않는다.
+                restoring:true — 켤 때 저장된 로그인이 있는데 Firebase 가 RESTORE_WAIT_MS 안에 첫 답을 안 했다. 로그인은 둔다(지우지 않는다) ·
+                같은 기다리는 화면 · «다시 시도» 는 첫 답을 다시 기다린다 · 첫 답이 오면 혼자 이어 간다.
+   [복원 기다림] 8초 대기선(auth.ready — 쓰기용)이 풀린 뒤에도 저장된 로그인의 첫 답이 없으면 «로그인 없음» 으로 보지 않고 더 기다린다 —
+     렌더러가 바쁜 PC 는 복원이 8초를 넘겨 켤 때마다 로그인 화면으로 떨어졌다. Firebase 가 «사용자 없음» 으로 답하면(저장된 로그인을 지움) 그때는 login.
    [가입] 비밀번호: POST /v2/users(토큰 없음) → 받은 친구코드 + 비밀번호로 Auth 로그인 → confirm. 답을 못 받아 다시 누르면 **같은 요청 번호**
      (서버가 처음 계정을 돌려준다 — 두 계정이 생기지 않게). 구글: 구글 로그인 → confirm 이 'signup' 이면 POST /v2/users { inviteCode }.
    [realtime] goOnline() — 서버가 계정을 돌려주고 이 PC 를 등록한 뒤(launcher/app-boot.js) 켠다. 예외: 서버에 닿지 못한 화면 동안은 waitForServer 가 켜 두고 ready 를 다시 묻는 계기로 쓴다(계정이 정해지면 같은 연결을 그대로). 끊기면(4004) onSessionLost(까닭)로 기기 안내 화면을 띄운다.
@@ -20,6 +24,8 @@ const CANCELED_TEXT = '로그인이 취소됐어요';   // 옛 main 은 canceled
 const RT_READY = 'ready';   // rt-hub.js 상태 이름
 const BYE_LOGOUT = 'logout';   // rt-hub.js BYE_WHY
 const LEAVE_WAIT_MS = 1500;    // 방 나가기 기다림 상한(설계 4-D-3) — 오프라인이면 방 나가기 쓰기가 끝나지 않아 로그아웃이 멈춘다
+const RESTORE_WAIT_MS = 60000;   // 저장된 로그인의 첫 답을 기다리는 상한(8초 대기선이 풀린 뒤부터 잰다 — 켤 때부터 최대 약 68초) — 넘기면 기다리는 화면 + «다시 시도»(로그인 화면으로 가지 않는다)
+const RESTORING_TEXT = '로그인을 확인하는 중이에요';    // local + restoring 의 reason 글 — 저장된 로그인의 첫 답을 기다리는 동안
 
 /* 비밀번호 가입의 요청 번호 열쇠 — 비밀번호를 바꿔 다시 누르면 새 요청(같은 번호면 서버가 처음 비밀번호의 계정을 돌려준다).
    비밀번호 글을 그대로 들고 있지 않게 짧은 지문(FNV-1a)만. */
@@ -35,6 +41,8 @@ function joinKey(inviteCode, password){
  *   translate: (err: any) => { action: string, code: string },
  *   reasonOf: (err: any) => string,
  *   auth: { ready: () => Promise<void>, user: () => ({ uid: string, anonymous: boolean } | null),
+ *           restoring: () => boolean,   // 켤 때 저장된 로그인이 있었고 아직 Firebase 첫 답이 없다(auth-barrier.js)
+ *           answered: (maxMs?: number) => Promise<boolean>,   // 첫 답이 오면 true · maxMs 안에 안 오면 false · maxMs 를 빼면 상한 없음
  *           signInGoogle: (idToken: string) => Promise<{ ok: boolean, email?: string, reason?: string }>,
  *           signInPassword: (code: string, pw: string) => Promise<{ ok: boolean, email?: string, reason?: string }>,
  *           signOut: () => Promise<void>, identity: () => ({ email: string | null, uid: string | null }) },
@@ -46,6 +54,7 @@ function joinKey(inviteCode, password){
  *   onSessionLost: (kind: 'sessionLost' | 'deviceRemoved') => void,
  *   forgetSession: () => void,   // 계정을 놓을 때 API 통로의 로그인 읽기 · 기억을 뗀다(TwApi.authed.forgetSession)
  *   now: () => number,
+ *   onConfirmed: (r: { state: string }, info: { hadUser: boolean, anonymous: boolean, err: any, restore: null | { ok: boolean, ms: number } }) => void,   // 확인 결과 진단(TwLoginDiag.store.confirmed) — 결과를 바꾸지 않는다
  * }} deps */
 function createLoginFlow(deps){
   const userApi = deps.userApi;
@@ -75,13 +84,31 @@ function createLoginFlow(deps){
 
   /* 이 로그인은 누구인가 — 위 [판정]. 던지지 않는다.
      확인(GET /v2/me)의 me 는 «들어감» 알림(launcher/app-boot.js)으로 기능 시작에 전해진다 — 따로 또 묻지 않는다. */
-  async function confirm(){
+  /* o.onRestoreWait — 복원 기다림에 들어갈 때 한 번(부르는 쪽이 기다리는 화면을 띄운다). 첫 답이 8초 안에 오면 불리지 않는다 */
+  async function confirm(o){
+    const seen = { u: null, err: null, restore: null };
+    const r = await decide(seen, (o && o.onRestoreWait) || null);
+    try{ deps.onConfirmed(r, { hadUser: !!seen.u, anonymous: !!(seen.u && seen.u.anonymous), err: seen.err, restore: seen.restore }); }catch(_){}   // 진단은 결과를 바꾸지 않는다
+    return r;
+  }
+  /* seen: 진단이 볼 것(이번 확인이 본 로그인 · 서버 오류 · 복원 기다림)을 채운다 */
+  async function decide(seen, onRestoreWait){
     try{ await auth.ready(); }catch(_){}
+    if(auth.restoring()){
+      const t0 = now();
+      if(onRestoreWait){ try{ onRestoreWait(); }catch(_){} }
+      let ok = false;
+      try{ ok = await auth.answered(RESTORE_WAIT_MS); }catch(_){ ok = false; }
+      seen.restore = { ok, ms: now() - t0 };
+      if(!ok) return { state: STATE.LOCAL, me: null, restoring: true, reason: RESTORING_TEXT };
+    }
     const u = auth.user();
+    seen.u = u;
     if(!u || u.anonymous) return { state: STATE.LOGIN, me: null };
     let me = null;
     try{ me = await userApi.me(); }
     catch(e){
+      seen.err = e;
       const t = deps.translate(e);
       if(t.action === 'signup'){ clearCache(); return { state: STATE.SIGNUP, me: null }; }
       if(t.action === 'login') return { state: STATE.LOGIN, me: null, reason: deps.reasonOf(e) };
@@ -119,6 +146,8 @@ function createLoginFlow(deps){
     waitBack = onBack;
     hookState();
     if(!online){ online = true; rtWait = true; deps.rt.start({ claim: true }); }
+    /* 복원 기다림이 시간 초과로 끝난 화면 — 늦게라도 첫 답이 오면 한 번 묻는다(누르지 않아도 이어 가게). 보통의 «닿지 못함» 에는 걸지 않는다(요청이 늘지 않게) */
+    if(auth.restoring()) auth.answered().then(() => { if(waitBack) retryNow(); }, () => {});
   }
   /* 한 번 묻는다 — 겹치면 null(이미 묻는 중). 돌려주는 것: confirm 결과(화면이 «또 못 닿음» 을 알리는 데 쓴다) */
   async function retryNow(){
@@ -238,7 +267,7 @@ function createLoginFlow(deps){
   };
 }
 
-const api = { ME_CACHE_KEY, STATE, joinKey, createLoginFlow };
+const api = { ME_CACHE_KEY, STATE, RESTORE_WAIT_MS, RESTORING_TEXT, joinKey, createLoginFlow };
 if(typeof window !== 'undefined') window.TwLoginFlow = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

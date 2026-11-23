@@ -17,7 +17,7 @@ const FI = (() => { for(const d of DIRS){ const s = read(d + 'firebase-init.js')
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 
 /* 허용 이름 — 로그인(Auth) · 파일(Storage) · 토큰 · 대화 기록 연결(이 PC IndexedDB) */
-const ALLOWED = new Set(['getIdToken', 'chatHistory', 'authReady', 'authCurrentUid', 'authCurrentEmail', 'authUser', 'authSignInWithGoogle',
+const ALLOWED = new Set(['getIdToken', 'chatHistory', 'authReady', 'authRestoring', 'authAnswered', 'authCurrentUid', 'authCurrentEmail', 'authUser', 'authSignInWithGoogle',
   'authSignInWithFriendCode', 'authLinkGoogle', 'authSignOut', 'authProviders', 'authReauthPassword', 'authReauthGoogle',
   'uploadSlotGlb', 'uploadRoomFace', 'uploadUserImage', 'uploadAwayImg', 'deleteStorageUrl', 'uploadEmojiImage', 'pkUploadFrame']);
 

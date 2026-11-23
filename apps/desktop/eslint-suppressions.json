@@ -17,6 +17,11 @@
       "count": 3
     }
   },
+  "app/parts/account/login-diag.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
   "app/parts/account/login-flow.js": {
     "tw/no-timer": {
       "count": 1
