@@ -48,7 +48,6 @@ export {
   serverStatus,
   serverVisibility,
   needsAuthorLookup,
-  parseBugDailyMax,
   BUG_ANS_MAX,
   BUG_BODY_MAX,
   BUG_TITLE_MAX,

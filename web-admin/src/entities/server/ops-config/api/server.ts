@@ -1,5 +1,5 @@
 // API 판 — 설정 키 `api.cacheSec` · `room.frame` · `room.timing` · `log.level` · `api.cors`, 그리고 API 판에만 있는 `app.maintenance`.
-// 값이 여럿인 키는 화면이 읽은 값에 고친 칸만 바꿔 통째로 보낸다(칸을 비우면 그 칸에 기본값). 하루 한도는 키 하나가 값 하나라
+// 값이 여럿인 키는 화면이 읽은 값에 고친 칸만 바꿔 통째로 보낸다(칸을 비우면 그 칸에 기본값). 하루 한도 · 버그 제보 하루 상한은 키 하나가 값 하나라
 // 키마다 따로 저장하고, 비우면 `DELETE …?version=` 으로 값을 비워 기본값을 따르게 한다.
 // 읽은 번호(`version`)는 화면이 들고 있다가 저장에 돌려준다 — 포트는 기억하지 않는다.
 import {
@@ -41,6 +41,19 @@ function dailyLimit(
   return { path: key, fields: [{ key: 'value', label, min, max, def, unit }] };
 }
 
+// 하루 한도 — 서버 설정 키 `user.signupDailyMax` · `guestbook.clapDailyMax` · `gift.dailySendMax`. 키 하나 = 묶음 하나 = 저장 한 번.
+const DAILY_LIMITS: readonly IntGroup[] = [
+  dailyLimit('user.signupDailyMax', '가입 하루 상한', 1, 100_000, 2000, '명'),
+  dailyLimit('guestbook.clapDailyMax', '웹박수 하루 횟수', 1, 100, 5, '번'),
+  dailyLimit('gift.dailySendMax', '선물 하루 보내기', 1, 100, 10, '번'),
+];
+
+// 버그 제보 하루 상한 — 서버 설정 키 `bug.dailyMax`(1~100 · 기본 5 · 관리자 글은 세지 않음). 화면은 버그 제보 상한 카드.
+const BUG_DAILY_MAX = dailyLimit('bug.dailyMax', '버그 제보 하루 상한', 1, 100, 5, '건');
+
+/** 키 하나가 숫자 하나인 묶음 — 칸 이름 `value` 로 읽고, 키마다 한 번씩 저장한다. */
+const SINGLE_VALUE: readonly IntGroup[] = [...DAILY_LIMITS, BUG_DAILY_MAX];
+
 /** 서버 칸 이름이 길 이름이다 — 묶음의 `path` 에 키 이름을 적어 두고 `<키>/<칸>` 으로 쓴다. */
 const SERVER_GROUPS: OpsGroups = {
   apiCache: {
@@ -53,12 +66,8 @@ const SERVER_GROUPS: OpsGroups = {
   },
   roomFrame: { ...ROOM_FRAME, path: 'room.frame' },
   roomTiming: { ...ROOM_TIMING, path: 'room.timing' },
-  // 하루 한도 — 서버 설정 키 `user.signupDailyMax` · `guestbook.clapDailyMax` · `gift.dailySendMax`. 키 하나 = 묶음 하나 = 저장 한 번.
-  dailyLimits: [
-    dailyLimit('user.signupDailyMax', '가입 하루 상한', 1, 100_000, 2000, '명'),
-    dailyLimit('guestbook.clapDailyMax', '웹박수 하루 횟수', 1, 100, 5, '번'),
-    dailyLimit('gift.dailySendMax', '선물 하루 보내기', 1, 100, 10, '번'),
-  ],
+  dailyLimits: DAILY_LIMITS,
+  bugDailyMax: BUG_DAILY_MAX,
 };
 
 type Raw = NonNullable<Versioned<unknown>['raw']>;
@@ -111,8 +120,8 @@ export function createServerOpsConfigPort(api: Api | null): OpsConfigPort {
     groups: SERVER_GROUPS,
     getIntGroup: (group) =>
       read(group.path, (effective) =>
-        // 하루 한도는 키 하나가 숫자 하나 — 칸 이름 `value` 로 담는다.
-        SERVER_GROUPS.dailyLimits?.includes(group)
+        // 하루 한도 · 버그 제보 하루 상한은 키 하나가 숫자 하나 — 칸 이름 `value` 로 담는다.
+        SINGLE_VALUE.includes(group)
           ? { value: wireNumber(effective, group.path) }
           : intsOf(group, effective),
       ),
@@ -124,7 +133,7 @@ export function createServerOpsConfigPort(api: Api | null): OpsConfigPort {
     async saveIntGroup(group, _action, _target, from, updates) {
       const changed = Object.entries(updates);
       if (!changed.length) return;
-      if (SERVER_GROUPS.dailyLimits?.includes(group)) {
+      if (SINGLE_VALUE.includes(group)) {
         // 키 하나 = 저장 한 번 — 여러 키를 이어 보내면 앞 것만 저장되고 뒤 것이 실패하는 일이 생긴다.
         if (changed.length !== 1) throw new PortError('invalid', '하루 한도는 한 번에 한 가지만 저장해요');
         const [[, value]] = changed;

@@ -45,6 +45,7 @@ const DEFAULTS: Record<string, unknown> = {
   'user.signupDailyMax': 2000,
   'guestbook.clapDailyMax': 5,
   'gift.dailySendMax': 10,
+  'bug.dailyMax': 5,
 };
 
 /** 설정 목록 · 한 키 쓰기 · 배너 · 카탈로그를 흉내 내는 가짜 서버. */
@@ -381,6 +382,43 @@ describe('서버 운영 설정', () => {
       .catch((e: unknown) => e);
     expect(isPortError(error, 'conflict')).toBe(true);
     expect(s.rows.get('gift.dailySendMax')!.value).toBe(30);
+  });
+
+  it('버그 제보 하루 상한: 키 bug.dailyMax 하나를 읽고 PUT /v2/admin/config/bug.dailyMax 로 쓴다(RTDB 안 씀)', async () => {
+    const s = fakeServer();
+    const ops = createServerOpsConfigPort(s.api);
+    const group = ops.groups.bugDailyMax!;
+    expect(group.path).toBe('bug.dailyMax');
+    expect(group.fields.map((f) => [f.key, f.min, f.max, f.def])).toEqual([['value', 1, 100, 5]]);
+    const read = await ops.getIntGroup(group);
+    expect(read).toMatchObject({ value: { value: 5 }, version: 0 });
+    await ops.saveIntGroup(group, 'settings.bugDailyMax', '하루 8건', read, { 'bug.dailyMax/value': 8 });
+    expect(lastPut(s)).toMatchObject({
+      method: 'PUT',
+      path: '/v2/admin/config/bug.dailyMax',
+      body: { version: 0, value: 8 },
+    });
+    expect((await ops.getIntGroup(group)).value).toEqual({ value: 8 });
+  });
+
+  it('버그 제보 하루 상한: 옛 번호로 쓰면 409 → conflict · 숫자가 아니면 모양 오류 · 서버가 모르는 키면 notFound', async () => {
+    const s = fakeServer();
+    const ops = createServerOpsConfigPort(s.api);
+    const group = ops.groups.bugDailyMax!;
+    const old = await ops.getIntGroup(group);
+    s.other('bug.dailyMax', 9);
+    const conflict = await ops
+      .saveIntGroup(group, 'settings.bugDailyMax', 't', old, { 'bug.dailyMax/value': 3 })
+      .catch((e: unknown) => e);
+    expect(isPortError(conflict, 'conflict')).toBe(true);
+    expect(s.rows.get('bug.dailyMax')!.value).toBe(9);
+
+    s.breakWire('bug.dailyMax', '7');
+    await expect(ops.getIntGroup(group)).rejects.toThrow(/bug\.dailyMax/);
+
+    s.rows.delete('bug.dailyMax');
+    const missing = await ops.getIntGroup(group).catch((e: unknown) => e);
+    expect(isPortError(missing, 'notFound')).toBe(true);
   });
 
   it('캐시 초 묶음은 서버 키 표를 따른다(랭킹이 있고 방 개수는 없다)', () => {

@@ -10,7 +10,6 @@ import {
   BUG_NO_RE,
   getBugDailyMax,
   isStaffPost,
-  parseBugDailyMax,
   saveBugDailyMax,
   BUG_PRV_NOTICE_BODY,
   checkAnswer,
@@ -51,10 +50,7 @@ const item = (extra: Partial<BugItem> = {}): BugItem => ({
 });
 
 describe('하루 상한 · 운영진 글', () => {
-  it('상한 입력 — 1~100 정수만', () => {
-    expect(parseBugDailyMax(' 7 ')).toBe(7);
-    expect(parseBugDailyMax('100')).toBe(100);
-    for (const bad of ['0', '101', '2.5', '-1', 'x', '']) expect(parseBugDailyMax(bad)).toBeNull();
+  it('상한 기본값 5', () => {
     expect(BUG_DAILY_MAX_DEFAULT).toBe(5);
   });
 
