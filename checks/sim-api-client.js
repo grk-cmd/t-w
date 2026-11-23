@@ -4,6 +4,8 @@
    2. 성공 — 봉투 { success, data } 의 data · 토큰 · 쿠키 없이 · 주소 = 기본 + 경로
    3. 실패 한 모양 — 네트워크 · 시간 초과 · 5xx · 봉투 아님 → unavailable · 길 없는 404(NOT_FOUND) → noRoute(앱 버그 · console.error) · *_NOT_READY → notReady · 401/403 → auth · 그 밖 4xx → request · 넘어가기 장치(shouldFallback) 없음
    4. 쉬기 — unavailable 뒤 BACKOFF_MS 동안 묻지 않고 곧장 실패(BACKOFF) · 지나면 다시 · notReady · 길 없는 404 · 성공은 쉬지 않음(그 요청만 실패 — 같은 통로의 /v2/config 는 계속 간다)
+   4-2. 멈춤 gate(로그인 통로) — 503 · 5xx · 시간 초과 · 네트워크 · notReady 뒤 다음 요청은 흩은 기다림(jitter) 뒤에 · 연달아 실패하면 늘고 8초에서 멈춤 · 동시 실패는 한 번 ·
+        성공하면 풀림 · 429 Retry-After 는 그 endpoint(method + path)만 그때까지 보내지 않고 429 · 계정을 놓으면(forgetSession) 비움 · gate 없는 통로는 그대로
    5. 캐시 · 같은 요청 하나로(로그인 읽기는 누구별) · 주소 없음
    6. 쓰기 — post · put · patch · del 방법 · 본문 · 로그인 기본 · 쓰기 시간 제한 · 204 · 쉬지 않음
    7. 로그인 — 토큰 · X-Device-Id 머리 · 401 AUTH_REQUIRED 면 새 토큰으로 한 번만 · 가입 전(NOT_BOUND)은 다시 안 함 · 토큰 없음
@@ -33,6 +35,103 @@ const res = (status, body, hdr) => ({ ok: status >= 200 && status < 300, status,
 const jwt = (sub) => 'h.' + Buffer.from(JSON.stringify({ sub })).toString('base64').replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_') + '.s';
 const mkFetch = (fn) => { const calls = []; const f = async (url, init) => { calls.push({ url, init }); return fn(url, init, calls.length); }; f.calls = calls; return f; };
 const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
+const settle = async () => { for(let i = 0; i < 30; i++) await Promise.resolve(); await new Promise((r) => setImmediate(r)); };
+
+/* 멈춤 gate 경우들 — 4-2절(chk)과 mutation test(probe)가 같이 쓴다. [ok, 글] 목록을 돌려준다 */
+async function gateCases(M){
+  const out = [];
+  const ok = (c, msg) => out.push([!!c, msg]);
+  const mkGate = (fn, extra) => {
+    const clk = { t: 1000, q: [] };
+    clk.setTimeout = (f, ms) => { clk.q.push({ at: clk.t + ms, f }); };
+    clk.run = async (ms) => { clk.t += ms; const due = clk.q.filter((h) => h.at <= clk.t); clk.q = clk.q.filter((h) => h.at > clk.t); due.forEach((h) => h.f()); await settle(); };
+    const f = mkFetch(fn);
+    const c = M.createApiClient(Object.assign({ baseUrl: PROD, fetch: f, getToken: async () => 't', backoffMs: 0, gate: true, random: () => 0.5, now: () => clk.t, setTimeout: clk.setTimeout }, extra || {}));
+    return { c, f, clk };
+  };
+  {
+    let mode = 503;
+    const { c, f, clk } = mkGate(() => (mode === 503 ? res(503, { success: false, code: 'UNAVAILABLE' }) : res(200, { success: true, data: 1 })));
+    const e1 = await err(c.post('/v2/me/devices', {}));
+    ok(e1 && e1.status === 503 && c.gateLeftMs() === 750, '★ 503 뒤 멈춤 — 흩은 기다림 [0.5s, 1s](random 0.5 → 750ms) · ' + c.gateLeftMs());
+    mode = 200;
+    let got = null; c.get('/v2/me', { auth: true }).then((d) => { got = d; }, () => { got = 'err'; });
+    await settle();
+    ok(f.calls.length === 1 && got === null, '  ↳ 멈춤 동안 다시 묻기(retryNow 등)는 바로 보내지 않는다');
+    await clk.run(749);
+    ok(f.calls.length === 1, '  ↳ 기다림이 끝나기 전엔 보내지 않는다');
+    await clk.run(1);
+    ok(f.calls.length === 2 && got === 1 && c.gateLeftMs() === 0, '  ↳ 기다림 뒤 보내고 · 성공하면 멈춤이 풀린다');
+    mode = 503;
+    await err(c.post('/v2/x', {}));
+    ok(c.gateLeftMs() === 750, '  ↳ 성공이 연속 실패 수도 놓는다(다음 실패는 다시 첫 기다림)');
+  }
+  {
+    const { c, clk } = mkGate(() => res(502, { success: false }), { random: () => 0 });
+    const seen = [];
+    for(let i = 0; i < 6; i++){ await err(c.post('/v2/x', {})); seen.push(c.gateLeftMs()); await clk.run(c.gateLeftMs()); }
+    ok(seen.join() === '1000,2000,4000,8000,8000,8000', '★ 연달아 실패하면 기다림이 늘고 8초에서 멈춘다 — ' + seen.join());
+  }
+  {
+    const rel = [];
+    const { c } = mkGate(() => new Promise((r) => rel.push(() => r(res(503, { success: false })))));
+    const a = err(c.get('/v2/a', { auth: true })), b = err(c.get('/v2/b', { auth: true }));
+    await settle(); rel.forEach((r) => r()); await a; await b;
+    ok(c.gateLeftMs() === 750, '  ↳ 동시에 나간 요청이 같이 실패하면 한 번으로 센다(750 · 1500 아님) — ' + c.gateLeftMs());
+  }
+  {
+    const kinds = [
+      ['네트워크', () => { throw new TypeError('x'); }, true],
+      ['notReady', () => res(503, { success: false, code: 'CONFIG_NOT_READY' }), true],
+      ['봉투 아님 200', () => res(200, new SyntaxError('html')), true],
+      ['400', () => res(400, { success: false, code: 'INVALID_REQUEST' }), false],
+      ['401', () => res(401, { success: false, code: 'USER_CODE_NOT_BOUND' }), false],
+      ['429 Retry-After 없음', () => res(429, { success: false, code: 'TOO_MANY_REQUESTS' }), true],
+    ];
+    const bad = [];
+    for(const [n, fn, want] of kinds){ const { c } = mkGate(fn); await err(c.get('/v2/me', { auth: true })); if((c.gateLeftMs() > 0) !== want) bad.push(n); }
+    const tm = mkGate(() => new Promise(() => {}), { timeoutMs: 20 });
+    await err(tm.c.get('/v2/me', { auth: true }));
+    if(!(tm.c.gateLeftMs() > 0)) bad.push('시간 초과');
+    ok(!bad.length, '★ 멈춤을 거는 실패 — 네트워크 · 시간 초과 · notReady · 봉투 아님 · 5xx · Retry-After 없는 429(4xx · 401 은 안 검)' + (bad.length ? ' — 틀림: ' + bad.join(' · ') : ''));
+  }
+  {
+    const { c, f, clk } = mkGate((url) => (/users$/.test(url) ? res(429, { success: false, code: 'TOO_MANY_REQUESTS' }, { 'Retry-After': '7' }) : res(200, { success: true, data: 2 })));
+    const e1 = await err(c.post('/v2/users', {}, { auth: false }));
+    const e2 = await err(c.post('/v2/users', {}, { auth: false }));
+    ok(e1 && e1.retryAfterMs === 7000 && e2 && e2.status === 429 && e2.code === 'TOO_MANY_REQUESTS' && e2.retryAfterMs === 7000 && f.calls.length === 1,
+      '★ 429 Retry-After — 그 endpoint(method + path)는 Retry-After 가 지날 때까지 보내지 않고 곧장 429(retryAfterMs = 남은 시간)');
+    ok((await c.post('/v2/other', {})) === 2 && f.calls.length === 2 && c.gateLeftMs() === 0, '  ↳ 다른 endpoint 는 막지 않는다(서버 요청 제한은 endpoint 마다) · 멈춤 gate 도 안 건다');
+    await clk.run(3000);
+    const e3 = await err(c.post('/v2/users', {}, { auth: false }));
+    ok(e3 && e3.retryAfterMs === 4000 && f.calls.length === 2, '  ↳ 남은 시간이 줄어든다(3초 뒤 4000ms)');
+    await clk.run(4000);
+    await err(c.post('/v2/users', {}, { auth: false }));
+    ok(f.calls.length === 3, '  ↳ Retry-After 가 지나면 다시 보낸다');
+    const big = mkGate(() => res(429, { success: false, code: 'TOO_MANY_REQUESTS' }, { 'Retry-After': '99999' }));
+    await err(big.c.post('/v2/y', {}));
+    const eb = await err(big.c.post('/v2/y', {}));
+    ok(eb && eb.retryAfterMs === M.RETRY_AFTER_MAX_MS, '  ↳ Retry-After 상한(' + M.RETRY_AFTER_MAX_MS + 'ms) — 이상한 값 하나로 그 endpoint 가 끝없이 막히지 않게');
+  }
+  {
+    const { c, f } = mkGate((url) => (/users$/.test(url) ? res(429, { success: false, code: 'TOO_MANY_REQUESTS' }, { 'Retry-After': '600' }) : res(503, { success: false })));
+    await err(c.post('/v2/users', {}, { auth: false })); await err(c.post('/v2/me/x', {}));
+    const before = c.gateLeftMs() > 0;
+    c.forgetSession();
+    await err(c.post('/v2/users', {}, { auth: false }));
+    ok(before && c.gateLeftMs() === 0 && f.calls.length === 3, '★ 계정을 놓으면(forgetSession) 멈춤 · 429 막힘을 비운다 — 다음 계정에 앞 계정의 막힘(최대 10분)이 남지 않게');
+  }
+  {
+    const f = mkFetch((url, init, n) => (n === 1 ? res(503, { success: false }) : res(200, { success: true, data: 3 })));
+    const c = M.createApiClient({ baseUrl: PROD, fetch: f, getToken: async () => 't', backoffMs: 0 });
+    await err(c.post('/v2/x', {}));
+    const d = await c.post('/v2/x', {});
+    ok(d === 3 && f.calls.length === 2 && c.gateLeftMs() === 0, 'gate 없는 통로(공용 읽기 client)는 그대로 — 기다림 없이 바로 보낸다(가짜 시계 타이머 없이 끝남)');
+  }
+  ok(M.gatePauseMs(1, 0) === 1000 && M.gatePauseMs(1, 1) === 500 && M.gatePauseMs(4, 0) === 8000 && M.gatePauseMs(99, 0) === 8000 && M.gatePauseMs(0, 0) === 1000,
+    'gatePauseMs — [base/2, base] · 상한 8초 · 경계(0 · 99)');
+  return out;
+}
 
 (async () => {
   say('── 1. 주소');
@@ -135,6 +234,9 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
     await err(c0.get('/x'));
     chk(!c0.resting(), '  ↳ 권한 오류도 쉬지 않는다');
   }
+
+  say('── 4-2. 멈춤 gate(로그인 통로)');
+  for(const [ok, msg] of await gateCases(A)) chk(ok, msg);
 
   say('── 5. 캐시 · 같은 요청 · 주소 없음');
   {
@@ -343,6 +445,7 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
       const eA = await err(w.TwApi.authed.get('/v2/me/friends', { auth: true }));
       const eC = await err(w.TwApi.client.get('/v2/config'));
       chk(eA && eA.code === 'NETWORK' && !w.TwApi.authed.resting() && eC && w.TwApi.client.resting(), '  ↳ 로그인 통로는 닿지 못해도 쉬지 않는다(다시 묻기를 막지 않게) · 공용 읽기 통로는 쉰다');
+      chk(w.TwApi.authed.gateLeftMs() > 0 && w.TwApi.client.gateLeftMs() === 0, '  ↳ ★ 대신 로그인 통로만 멈춤 gate(다시 묻기를 늦춘다) · 공용 읽기 통로는 gate 없음');
     }
     const iApi = HTML.indexOf('<script src="parts/shared/api-client.js"></script>'), iRc = HTML.indexOf('<script src="parts/shared/remote-config.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>'),
       iDev = HTML.indexOf('<script src="parts/shared/device-id.js"></script>'), iMt = HTML.indexOf('<script src="parts/shared/maintenance-gate.js"></script>');
@@ -441,7 +544,8 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
         vm.runInNewContext(src, { window: w, console, setTimeout, clearTimeout, AbortController, Promise, Map, Error, String, Date, encodeURIComponent, atob });
         w.TwApi.bindToken(async () => 't');
         await err(w.TwApi.authed.get('/x', { auth: true }));
-        ok(!w.TwApi.authed.resting());
+        ok(!w.TwApi.authed.resting() && w.TwApi.authed.gateLeftMs() > 0);
+        for(const [g] of await gateCases(M)) ok(g);
       }catch(_){ bad++; }
       return bad;
     }
@@ -458,6 +562,21 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
       ["    authed = createApiClient({ baseUrl, fetch: fetchFn, onRequest: touch, backoffMs: 0,", "    authed = createApiClient({ baseUrl, fetch: fetchFn, onRequest: touch,", '로그인 통로가 쉬기를 씀'],
       ["if(method !== 'GET' && !(method === 'DELETE' && o.body === undefined)){", "if(method !== 'GET'){", '본문 없는 DELETE 에 null 본문'],
       ["joined('A ' + a.who + ' ' + path, path,", "joined('A ' + path, path,", '같은 요청 합치기에 누구가 안 들어감'],
+      ["      gate: true,   // 대신", "      //", '로그인 통로에 멈춤 gate 없음'],
+      ["    if(!(isServerDown(e) || (e instanceof ApiError && e.status === 429)) || gateUntil > now()) return;", "    if(!(isServerDown(e) || (e instanceof ApiError && e.status === 429))) return;", '동시 실패를 따로 셈(기다림이 몰아서 늚)'],
+      ["    if(!(isServerDown(e) || (e instanceof ApiError && e.status === 429)) || gateUntil > now()) return;", "    if(gateUntil > now()) return;", '4xx · 401 에도 멈춤'],
+      ["    if(!(isServerDown(e) || (e instanceof ApiError && e.status === 429)) || gateUntil > now()) return;", "    if(!isServerDown(e) || gateUntil > now()) return;", 'Retry-After 없는 429 뒤 바로 다시'],
+      ["(e.kind === 'notReady' || (e.kind === 'unavailable' && e.code !== 'NOT_MODIFIED'))", "(e.kind === 'unavailable' && e.code !== 'NOT_MODIFIED')", 'notReady(503 사본 없음) 뒤 바로 다시'],
+      ["{ gateUntil = 0; gateFails = 0; return data; }", "{ return data; }", '성공해도 멈춤이 안 풀림'],
+      ["{ gateUntil = 0; gateFails = 0; return data; }", "{ gateUntil = 0; return data; }", '성공해도 연속 실패 수가 남음'],
+      ["    if(ms <= 0) return go();", "    return go();", '멈춤 동안에도 바로 보냄'],
+      ["      limited.set(key, now() + Math.min(e.retryAfterMs, RETRY_AFTER_MAX_MS));", "", '429 Retry-After 를 안 지킴'],
+      ["      limited.set(key, now() + Math.min(e.retryAfterMs, RETRY_AFTER_MAX_MS));", "      limited.set(key, now() + e.retryAfterMs);", 'Retry-After 상한 없음'],
+      ["    return gated(method + ' ' + path, () => {", "    return gated(method, () => {", '429 가 다른 endpoint 까지 막음'],
+      ["  return Math.round(base * (1 - 0.5 * r));\n}\n/* 서버가", "  return base;\n}\n/* 서버가", '멈춤 기다림을 흩지 않음(모든 앱이 같은 때 다시)'],
+      ["const GATE_MS = Object.freeze([1000, 2000, 4000, 8000]);", "const GATE_MS = Object.freeze([1000]);", '연달아 실패해도 기다림이 안 늚'],
+      ["      gateUntil = 0; gateFails = 0; limited.clear();   // 앞 계정", "      //", '계정을 놓아도 멈춤 · 429 막힘이 남음'],
+      ["      gateUntil = 0; gateFails = 0; limited.clear();   // 앞 계정", "      gateUntil = 0; gateFails = 0;   // 앞 계정", '계정을 놓아도 429 막힘이 남음'],
       ["    if(o.expectOwner && tokenOwner(tok) !== o.expectOwner) throw", "    if(false) throw", '쓰기 직전 토큰 주인을 안 견줌'],
       ["    if(o.expectOwner && tokenOwner(tok) !== o.expectOwner) throw", "    if(o.expectOwner && tokenOwner(tok) === o.expectOwner) throw", '토큰 주인 견줌이 거꾸로'],
       ["    if(!force && 'tok' in o) tok = o.tok;", "    if(false) tok = o.tok;", '이미 받은 토큰을 또 받음'],

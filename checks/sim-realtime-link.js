@@ -437,12 +437,28 @@ async function up(env){
     await d.clock.advance(34000);
     chk(!d.socks[0].closed, '  ↳ readyWaitMs — 그 연결은 ready 를 35초까지 기다린다(기본 5초에 끊지 않음)');
     await d.clock.advance(1001);
-    chk(d.socks[0].closed && d.log.closed.length === 1 && d.log.closed[0][1] === 'timeout', '  ↳ 35초가 지나면 끊는다(timeout)');
+    chk(d.socks[0].closed && d.log.closed.length === 1 && d.log.closed[0][1] === 'readyTimeout', '  ↳ 35초가 지나면 끊는다(hello 뒤 ready 없음 — readyTimeout)');
+    { const t = mk(); t.link.ensureReady(); await t.clock.advance(5001); await tick();
+      chk(t.socks[0].closed && t.log.closed[0][1] === 'timeout', '  ↳ 소켓도 못 열고 시간 초과면 timeout(서버 바쁨과 가른다)'); }
     d.link.scheduleReconnect(); await d.clock.advance(1); await tick();
     const n0 = d.socks.length;
     const rn = d.link.reconnectNow(); await tick();
     chk(rn === true && d.socks.length === n0 + 1, 'reconnectNow — 다시 붙기를 기다리는 중이면 기다림을 건너뛰고 지금 연다');
     chk(d.link.reconnectNow() === false, '  ↳ 기다리는 중이 아니면 아무 일 없음(false)');
+    { /* 기다리는 중 정한 기다림이 또 오면 — 더 늦을 때만 다시 건다(서버 바쁨 기다림과 실제 타이머가 맞게) */
+      const r = mk();
+      r.link.scheduleReconnect({ delayMs: 30000 }); await r.clock.advance(1000);
+      r.link.scheduleReconnect({ delayMs: 45000 });
+      r.link.scheduleReconnect({ delayMs: 5000 });
+      r.link.scheduleReconnect();
+      await r.clock.advance(44999); const early = r.socks.length === 0;
+      await r.clock.advance(1); await tick();
+      chk(early && r.socks.length === 1, 'scheduleReconnect — 기다리는 중 더 늦은 delayMs 면 그 때로 다시 건다(30초 → 1초 뒤 45초 = 46초) · 더 이른 delayMs · 백오프는 그대로');
+      const q = mk();
+      q.link.scheduleReconnect({ delayMs: 30000 }); q.link.scheduleReconnect({ delayMs: 5000 });
+      await q.clock.advance(29999); const e2 = q.socks.length === 0; await q.clock.advance(1); await tick();
+      chk(e2 && q.socks.length === 1, '  ↳ 더 이른 delayMs 로 당겨지지 않는다');
+    }
     d.socks[d.socks.length - 1].open();
     await d.clock.advance(5001);
     chk(d.socks[d.socks.length - 1].closed, '  ↳ 다음 연결의 ready 기다림은 다시 기본 5초');
