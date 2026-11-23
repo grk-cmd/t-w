@@ -24,12 +24,12 @@
 - 자세한 흐름은 `docs/GIT_CONVENTION.md` 2장.
 
 ## 작업 전 할 일 확인
-여럿이 같이 고치니 같은 일을 겹쳐 하지 않게 **현황(열린 PR · `status:검토중` 이슈)을 맨 먼저** 본다 — 절차는 `docs/WORK_STATUS.md`. 웹 관리자 📋 할 일(`adminTodos`)에는 **버그 제보와 관련된 일만** 적는다 — 기능 · 리팩터 · 릴리스 계획 · 운영 작업은 PR · 이슈로 나눈다(할 일에 쌓지 않는다). 할 일은 `/todo` 스킬.
+여럿이 같이 고치니 같은 일을 겹쳐 하지 않게 **현황(열린 PR · `status:검토중` 이슈)을 맨 먼저** 본다 — 절차는 `docs/WORK_STATUS.md`. 웹 관리자 📋 관리자 할 일(API `/v2/admin/todos`)에는 **버그 제보와 관련된 일만** 적는다 — 기능 · 리팩터 · 릴리스 계획 · 운영 작업은 PR · 이슈로 나눈다(할 일에 쌓지 않는다). 할 일은 `/todo` 스킬.
 1. **맨 먼저 — 지금 누가 하는지 보기**: `python3 .claude/hooks/role-start.py --board`(새 세션은 시작 hook 이 붙여 줌) — 열린 PR(작업중) · `status:검토중` 이슈 · 겹치는 파일. 내가 건드릴 파일이 열린 PR 과 겹치면 **시작하지 말고** 그 담당과 먼저 맞추고, 같은 일이 검토중 이슈면 사용자에게 묻는다. 안 겹치면 **PR 을 먼저 연다**(빈 커밋 · 본문 «담당» · «건드리는 파일») — 그 PR 이 «작업중» 표시다. main 에 현황 커밋을 쌓지 않는다. 머지는 `/ship`. 자세한 절차는 `docs/WORK_STATUS.md`.
 2. **버그 제보를 고칠 때만** — 시작 전에 `node scripts/todo.js find <낱말>` · `brief` 로 같은 제보를 누가 잡았는지 본다. 진행 중이면 멈추고 사용자에게 묻는다.
-3. **등록** — 겹치지 않으면 `node scripts/todo.js start "<제목>" --type bug --report <제보 id>`. 나온 id 를 PR 본문 `할 일:` 줄에. 버그 제보가 아닌 일은 등록하지 않고 `할 일:` 은 «없음».
+3. **등록** — 겹치지 않으면 `node scripts/todo.js start "<제목>" --type bug --report <B-MMDD-n>`. 나온 id 를 PR 본문 `할 일:` 줄에. 버그 제보가 아닌 일은 등록하지 않고 `할 일:` 은 «없음».
 4. **완료** — PR 이 머지되면 `node scripts/todo.js done <id> --release <다음 버전>`.
-- 관리자 Google 계정으로 `gcloud auth login` 한 사람만 쓴다. 처음 한 번 `node scripts/todo.js setup`. 세션 시작 때 진행 중인 할 일이 자동으로 보인다(관리자가 아니면 조용히 안 나온다).
+- 관리자 계정만 쓴다. 처음 한 번 터미널에서 `node scripts/todo.js setup`(친구 코드 + 비밀번호 — 로그인은 `~/.config/tw-todo/` 에 · `/todo` 스킬 «처음 한 번»). 세션 시작 때 진행 중인 할 일이 자동으로 보인다(관리자가 아니면 조용히 안 나온다).
 
 ## 구조
 저장소 맨 위(#431): 앱(Electron)은 `apps/desktop/` · 웹 관리자는 `apps/admin/` · 메인 홈페이지는 `apps/web/`(React + Vite + TS · 언어마다 미리 그린 HTML — 안내 `apps/web/README.md`) · 앱과 웹이 같이 쓰는 라이브러리는 `packages/` · Firebase(규칙 · 함수 · Hosting · `firebase.json`)는 `firebase/` · 검사 `checks/` · 공용 도구 `scripts/` · 문서 `docs/`. 루트 `package.json` 은 npm workspaces(`apps/web` · `packages/*`)와 명령 모음이다 — 앱 · 웹 관리자는 각자 자기 `package.json` · `package-lock.json` 을 쓴다(앱 버전도 `apps/desktop/package.json`).
