@@ -75,28 +75,41 @@ describe('외부인 초대장 가입한 사람 — 엑셀 내보내기', () => {
     expect(e.cursors.length).toBeLessThanOrEqual(52);
   });
 
-  it('시트 — 머리 줄 + 사람마다 한 줄 · 없는 값은 빈 칸 · 옛 «(이름 없음)» 은 빈 칸', () => {
+  it('시트 — 머리 줄 + 사람마다 한 줄 · 친구코드는 유저코드로 찾은 값 · 없는 값 · 못 찾은 사람 · 옛 «(이름 없음)» 은 빈 칸', () => {
     const t = Date.parse('2026-10-27T02:28:00Z');
+    const friends = new Map<string, string | null>([
+      ['umvq000000001', 'MATE-AAAA'],
+      ['umvq000000003', null],
+    ]);
     expect(
-      usesSheet([
-        use(1, { joinedAt: t }),
-        use(2, { joinedAt: null, userCode: null, name: null }),
-        use(3, { name: '(이름 없음)' }),
-      ]),
+      usesSheet(
+        [
+          use(1, { joinedAt: t }),
+          use(2, { joinedAt: null, userCode: null, name: null }),
+          use(3, { name: '(이름 없음)' }),
+          use(4),
+        ],
+        friends,
+      ),
     ).toEqual([
       USES_SHEET_HEAD,
-      ['1', formatDate(t), 'umvq000000001', '사람1'],
-      ['2', '', '', ''],
-      ['3', formatDate(use(3).joinedAt!), 'umvq000000003', ''],
+      ['1', formatDate(t), 'umvq000000001', 'MATE-AAAA', '사람1'],
+      ['2', '', '', '', ''],
+      ['3', formatDate(use(3).joinedAt!), 'umvq000000003', '', ''],
+      ['4', formatDate(use(4).joinedAt!), 'umvq000000004', '', '사람4'],
     ]);
-    expect(usesSheet([])).toEqual([USES_SHEET_HEAD]);
+    expect(USES_SHEET_HEAD).toEqual(['번호', '들어온 시각', '유저코드', '친구코드', '닉네임']);
+    expect(usesSheet([], new Map())).toEqual([USES_SHEET_HEAD]);
     expect(usesFileName('INVT-FZFJ-6H5J', '2026-11-23')).toBe(
       '외부인초대장_INVT-FZFJ-6H5J_가입자_2026-11-23.xlsx',
     );
   });
 
   it('만든 엑셀을 다시 읽으면 같은 칸이 나온다', async () => {
-    const grid = usesSheet([use(1), use(2, { userCode: null, name: null })]);
+    const grid = usesSheet(
+      [use(1), use(2, { userCode: null, name: null })],
+      new Map([['umvq000000001', 'MATE-AAAA']]),
+    );
     const back = await readXlsx((await writeXlsx(grid, 'INVT-FZFJ-6H5J')).slice().buffer);
     expect(back[0]).toEqual(USES_SHEET_HEAD);
     expect(back[1]).toEqual(grid[1]);

@@ -30,13 +30,23 @@ const STATE_LABEL: Record<GroupInviteState, string> = {
 };
 
 // 관리자 전용 «외부인 초대장» — 코드 하나를 정한 인원까지 쓴다. 일반 사용자는 앱에서 한 명짜리를 한 장씩 만든다(그대로).
-/** 가입한 사람 줄에서 하는 일 — 유저코드 복사 · 회원 정보 열기(창은 페이지가 띄운다). */
+/** 유저코드 → 친구코드(못 찾은 사람은 빠진다). 사용자 조회는 다른 기능 몫이라 페이지가 넘겨준다. */
+export type FriendCodesOf = (userCodes: readonly string[]) => Promise<ReadonlyMap<string, string | null>>;
+
+/** 가입한 사람 줄에서 하는 일 — 유저코드 복사 · 회원 정보 열기(창은 페이지가 띄운다) · 엑셀에 넣을 친구코드 찾기. */
 interface UseActions {
   copy: (userCode: string) => void;
   open: (userCode: string) => void;
+  friendCodes: FriendCodesOf;
 }
 
-export function GroupInvitesPanel({ onOpenUser }: { onOpenUser: (userCode: string) => void }) {
+export function GroupInvitesPanel({
+  onOpenUser,
+  friendCodesOf,
+}: {
+  onOpenUser: (userCode: string) => void;
+  friendCodesOf: FriendCodesOf;
+}) {
   const env = useEnv();
   const toast = useToast();
   const list = useGroupInvites(true);
@@ -137,7 +147,7 @@ export function GroupInvitesPanel({ onOpenUser }: { onOpenUser: (userCode: strin
                   state={groupInviteState(g, now)}
                   busy={stop.isPending}
                   onCopy={() => copy(g.code)}
-                  actions={{ copy, open: onOpenUser }}
+                  actions={{ copy, open: onOpenUser, friendCodes: friendCodesOf }}
                   onStop={(s) => stop.mutate({ invite: g, stop: s })}
                 />
               ))}
@@ -219,7 +229,7 @@ function Uses({ code, actions }: { code: string; actions: UseActions }) {
   if (paging.items.length === 0) return <p className="soft">이 코드로 들어온 기록이 없어요</p>;
   return (
     <>
-      <ExportUses code={code} />
+      <ExportUses code={code} friendCodes={actions.friendCodes} />
       <table className={styles.table} aria-label={`${code} 로 가입한 사람`}>
         <thead>
           <tr>
@@ -240,8 +250,8 @@ function Uses({ code, actions }: { code: string; actions: UseActions }) {
   );
 }
 
-// 엑셀 — 화면은 쪽으로 받지만 파일에는 전부 넣는다(누를 때만 끝까지 받는다 · 5000명이면 쪽 50번).
-function ExportUses({ code }: { code: string }) {
+// 엑셀 — 화면은 쪽으로 받지만 파일에는 전부 넣는다(누를 때만 끝까지 받는다 · 5000명이면 쪽 50번 · 친구코드는 100명씩 사용자 조회 한 번).
+function ExportUses({ code, friendCodes }: { code: string; friendCodes: FriendCodesOf }) {
   const port = useInvitePort();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -250,7 +260,12 @@ function ExportUses({ code }: { code: string }) {
     setError(null);
     try {
       const uses = await listAllGroupInviteUses(port, code);
-      downloadBytes(await writeXlsx(usesSheet(uses), code), usesFileName(code, kstDateKey(Date.now())));
+      const codes = uses.flatMap((u) => (u.userCode !== null ? [u.userCode] : []));
+      const friends = codes.length > 0 ? await friendCodes(codes) : new Map<string, string | null>();
+      downloadBytes(
+        await writeXlsx(usesSheet(uses, friends), code),
+        usesFileName(code, kstDateKey(Date.now())),
+      );
     } catch (e) {
       setError(e);
     } finally {

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import {
   CreateInviteCodesButton,
+  type FriendCodesOf,
   GrantInvitesAllButton,
   GroupInvitesPanel,
   RevokeInvitesAllButton,
 } from '@/features/user/grant-invites';
-import { useRefreshUsers, useUserByCode } from '@/features/user/user-rows';
+import { useRefreshUsers, useUserByCode, useUserRowsPort } from '@/features/user/user-rows';
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
 import { UserDetail } from '@/widgets/user-detail';
@@ -34,6 +35,10 @@ export function InvitesPage() {
     else setOpenUid(uid);
   };
   const close = () => setOpenUid(null);
+  // 엑셀의 친구코드 — 👥 사용자 화면과 같은 «유저코드로 여러 명» 조회(API 판은 100명씩 한 번).
+  const rowsPort = useUserRowsPort();
+  const friendCodesOf: FriendCodesOf = async (codes) =>
+    new Map([...(await rowsPort.byCodes(codes))].map(([code, row]) => [code, row.friendCode]));
   // 지운 사람은 사용자 목록 캐시에서도 빠져야 다시 눌렀을 때 창이 뜨지 않는다 — 👥 사용자 화면과 같다.
   const afterDelete = () => {
     close();
@@ -62,7 +67,7 @@ export function InvitesPage() {
           </div>
         </section>
       </div>
-      <GroupInvitesPanel onOpenUser={open} />
+      <GroupInvitesPanel onOpenUser={open} friendCodesOf={friendCodesOf} />
       <UserDetail
         row={missing ? null : (found.data ?? null)}
         onOpen={open}
