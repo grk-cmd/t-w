@@ -147,6 +147,8 @@
 
   window.firebaseAPI = {
     getIdToken(force){ return _getIdToken(force); },
+    // 이 앱(운영 · dev)의 Storage 버킷 — 카탈로그 files 의 다운로드 URL 이 이 버킷일 때만 쓴다(character/catalog-api.js)
+    storageBucket(){ return firebaseConfig.storageBucket; },
     // 서버 방에 들어가고 나갈 때 친구 목록의 «온라인 · 방코드» — Firebase 방은 joinRoom · leaveRoom 이 직접 한다.
     /* ===== 🧬 캐릭터 슬롯 · 보관함은 서버 원본(character/closet-api.js — /v2/me/avatars). 여기는 Storage 올리기만 남았다 =====
        🧍 슬롯에 딸린 GLB(커미션 베이스·커스텀 책상·커스텀 아이템)를 Storage 에.

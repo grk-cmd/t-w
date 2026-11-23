@@ -8,13 +8,16 @@
  * [구조]
  *   api   — TwApi.authed(로그인 읽기). If-None-Match · 304 · 같은 길 합치기는 api-client.js 가 한다(여기서 다시 만들지 않는다).
  *     로그인 뒤에만 받는다 — 서버가 보는 사람마다 «못 고르는 것(locked)» 을 정해 주기 때문이다(판정은 서버 · 앱은 그 값을 그대로 쓴다).
- *   unfoldCatalog(data, assetUrl) — 서버 한 벌 → 앱이 아는 목록({ parts · items · desks } — id → 레코드 맵 · categories · unlocks). **이 모양 바꾸기는 이 모듈 한 곳이다.**
+ *   unfoldCatalog(data, assetUrl, files?) — 서버 한 벌 → 앱이 아는 목록({ parts · items · desks } — id → 레코드 맵 · categories · unlocks). **이 모양 바꾸기는 이 모듈 한 곳이다.**
  *     categories = { customCats: [운영이 더한 카테고리] · catOverrides: { 기본 코드: { label · icon } — 처음 값에서 바뀐 것만 } }(옛 catalog/customCats · catOverrides 와 같은 뜻) ·
  *     unlocks = { 종류: { 열쇠: { level · label } } }(옛 catalog/gameConfig 의 동물 해금 레벨은 ANIMAL_CHARACTER · animal).
  *     레코드마다 version · modelHash · thumbHash · listingAccess 를 싣는다 — 관리자가 고쳐 쓸 때 되돌려 보낸다.
  *     책상 · 소품의 두 칸: locked = 서버가 이 사람에게 정한 «나에게 잠김» 그대로(막을 때 쓴다 — 앱이 다시 판정하지 않는다) · licenseOnly = 진열 access 가 entitlement 인 «라이선스 전용 분류»(어느 탭 · 목록에 그릴지 — 판정이 아니라 칸 채우기).
  *     parts = 옛 catalog/parts + catalog/gachaParts 를 합친 것(가챠는 gacha:true · season) · items = 서버 deskProps · desks = 서버 desks.
- *     파일은 해시만 온다 → glbUrl · thumbUrl 은 GET /v2/catalog/assets/{해시}.{glb|png} 주소로 채운다(이름이 내용 해시라 1년 캐시 · 어느 출처든 읽는다).
+ *     파일은 해시만 온다 → glbUrl · thumbUrl 은 한 벌의 files(해시 → Firebase Storage 다운로드 URL)에 우리 버킷의 맞는 URL 이 있으면 그것을(storageUrlOf),
+ *     없거나 틀리면 GET /v2/catalog/assets/{해시}.{glb|png} 주소로 채운다(이름이 내용 해시라 1년 캐시 · 어느 출처든 읽는다 · files 가 없는 옛 서버도 이 endpoint).
+ *     files 의 URL 은 그대로 믿지 않는다 — https · 호스트 firebasestorage.googleapis.com · 이 앱의 버킷 하나(files.bucket — deps.storageBucket() = firebase-config.js 의 storageBucket ·
+ *     운영 앱은 운영 버킷 · dev 앱은 dev 버킷) · 경로 assets%2F{같은 해시}.{확장자} · alt=media 가 다 맞아야 쓴다. 맵에 있는데 틀린 URL 은 files.onBad(해시)로 알리고(받는 쪽은 앱 실행마다 한 번 warn · URL 은 찍지 않는다) 옛 endpoint 로.
  *   createCatalogApi(deps).subscribe(kind, onData) — kind: parts · items · desks · categories · unlocks. 처음 구독이 받기를 시작하고, 알림(catalog · 내 라이선스가 바뀌면 license) · 연결 복구 때 다시 받는다. 돌려주는 해제 함수로 마지막 구독자가 빠지면 이번 로그인의 값을 모두 비운다(다음 로그인이 앞 사람의 locked 를 받지 않게).
  *     받은 값이 지난번과 같은 종류는 다시 넘기지 않는다. 넘기는 값은 늘 새 객체다(받는 쪽이 glb 를 채워 넣는다).
  *
@@ -28,7 +31,8 @@
  *
  * [GLB 받기] fetchGlb(url) — 카탈로그가 알려 준 파일 주소를 받아 base64 로 돌려준다(웹 캐시를 거치지 않는다 — 깨진 응답이 캐시에 남지 않게 · E-CHAR-14). 받은 것을 남기는 일은 부르는 쪽(catalog-glb.js).
  *
- * deps: api(TwApi.authed — get(path, opts) · baseUrl()) · rt(TwRtHub.store — on(kind, fn) · onState(fn)) · notifyError — 오류 번호로 알리는 함수(TwErrorCodes.notify) · fetch(파일 받기) · warn
+ * deps: api(TwApi.authed — get(path, opts) · baseUrl()) · rt(TwRtHub.store — on(kind, fn) · onState(fn)) · notifyError — 오류 번호로 알리는 함수(TwErrorCodes.notify) · fetch(파일 받기) · warn ·
+ *   storageBucket() — 이 앱의 Storage 버킷(firebaseAPI.storageBucket — firebase-config.js · 빈 값이면 files 를 쓰지 않는다)
  * classic script(window.TwCatalogApi) — app.js 가 만들어 catalog-sync · catalog-glb · 관리자 쓰기에 넘긴다. Firebase 를 거치지 않는다.
  */
 (function(){
@@ -41,10 +45,23 @@ const CATALOG_KINDS = Object.freeze(['parts', 'items', 'desks', 'categories', 'u
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const str = (v) => (typeof v === 'string' ? v : '');
 const HASH_RE = /^[0-9a-f]{64}$/;
+/* files 맵의 Storage 다운로드 URL 이 가리켜도 되는 호스트 — 버킷은 부르는 쪽이 넘긴다(이 앱의 firebase-config.js storageBucket 하나) */
+const STORAGE_HOST = 'firebasestorage.googleapis.com';
+const STORAGE_URL_MAX = 1000;
+const STORAGE_PATH_RE = /^\/v0\/b\/([^/]+)\/o\/assets%2F([0-9a-f]{64})\.[a-z0-9]{2,5}$/;
 
-/* 해시 → 파일 주소. 해시 모양이 아니면 null(없는 파일로 본다 — 틀린 주소를 만들지 않는다) */
-function urlOf(assetUrl, hash, ext){
-  return (typeof hash === 'string' && HASH_RE.test(hash)) ? assetUrl(hash, ext) : null;
+/* files 의 한 값 → 그 해시의 Storage 다운로드 URL. 모양이 하나라도 틀리면 null(→ 서버 파일 endpoint 로 받는다) */
+function storageUrlOf(raw, hash, bucket){
+  if(typeof bucket !== 'string' || !bucket || typeof raw !== 'string' || raw.length > STORAGE_URL_MAX) return null;
+  let u; try{ u = new URL(raw); }catch(_){ return null; }
+  if(u.protocol !== 'https:' || u.hostname !== STORAGE_HOST || u.port || u.username || u.password || u.hash) return null;
+  const m = STORAGE_PATH_RE.exec(u.pathname);
+  if(!m || m[1] !== bucket || m[2] !== hash) return null;   // 다른 버킷(다른 판 포함) · 다른 파일을 가리키면 쓰지 않는다
+  return u.searchParams.get('alt') === 'media' ? u.href : null;
+}
+/* 해시 → 파일 주소(files 의 Storage URL → 없으면 서버 파일 endpoint). 해시 모양이 아니면 null(없는 파일로 본다 — 틀린 주소를 만들지 않는다) */
+function urlOf(fileUrl, hash, ext){
+  return (typeof hash === 'string' && HASH_RE.test(hash)) ? fileUrl(hash, ext) : null;
 }
 /* 진열 분류 — «라이선스 전용» 으로 진열된 물건인가(어느 탭 · 목록에 그릴지 · 관리자 칸). 막을지는 이것이 아니라 서버 locked 가 정한다(propRec 의 locked field) */
 const licenseOnlyOf = (listing) => !!(isObj(listing) && isObj(listing.access) && listing.access.kind === 'entitlement');
@@ -58,7 +75,7 @@ function adminCols(rec, row){
   if(isObj(row.listing) && isObj(row.listing.access)) rec.listingAccess = row.listing.access;
 }
 /* 서버 파츠 한 줄 → 옛 catalog/parts · gachaParts 레코드 */
-function partRec(p, order, assetUrl){
+function partRec(p, order, fileUrl){
   const rec = {
     name: str(p.name), icon: str(p.icon), cat: str(p.category),
     glow: p.glow === true, multi: p.multi === true, standalone: p.standalone === true, stackable: p.stackable === true,
@@ -67,8 +84,8 @@ function partRec(p, order, assetUrl){
     order,
   };
   adminCols(rec, p);
-  put(rec, 'glbUrl', urlOf(assetUrl, p.model, 'glb'));
-  put(rec, 'thumbUrl', urlOf(assetUrl, p.thumb, 'png'));
+  put(rec, 'glbUrl', urlOf(fileUrl, p.model, 'glb'));
+  put(rec, 'thumbUrl', urlOf(fileUrl, p.thumb, 'png'));
   const t = p.defaultTransform;
   if(isObj(t) && typeof t.scale === 'number' && Array.isArray(t.pos) && Array.isArray(t.rot)){
     rec.defaultXf = { scale: t.scale, pos: t.pos.slice(0, 3), rot: t.rot.slice(0, 3), color: {} };
@@ -81,13 +98,13 @@ function partRec(p, order, assetUrl){
   return rec;
 }
 /* 서버 책상 · 소품 한 줄 → 옛 catalog/desks · items 레코드 */
-function propRec(d, order, assetUrl){
+function propRec(d, order, fileUrl){
   const play = isObj(d.play) ? d.play : {};
   const rec = { name: str(d.name), icon: str(d.icon), playMode: str(play.playMode) || 'click', autoPlay: play.autoPlay === true, glow: play.glow === true,
     licenseOnly: licenseOnlyOf(d.listing), locked: d.locked === true, order };
   adminCols(rec, d);
-  put(rec, 'glbUrl', urlOf(assetUrl, d.model, 'glb'));
-  put(rec, 'thumbUrl', urlOf(assetUrl, d.thumb, 'png'));
+  put(rec, 'glbUrl', urlOf(fileUrl, d.model, 'glb'));
+  put(rec, 'thumbUrl', urlOf(fileUrl, d.thumb, 'png'));
   return rec;
 }
 
@@ -114,15 +131,24 @@ function foldUnlocks(list){
   return out;
 }
 
-function unfoldCatalog(data, assetUrl){
+/* files = { bucket: 이 앱의 Storage 버킷, onBad(해시): 맵에 있는데 틀린 URL } — 없으면 늘 서버 파일 endpoint */
+function unfoldCatalog(data, assetUrl, files){
   if(!isObj(data) || !Array.isArray(data.parts) || !Array.isArray(data.desks) || !Array.isArray(data.deskProps)
     || !Array.isArray(data.categories) || !Array.isArray(data.unlocks)){
     throw Object.assign(new Error('카탈로그 모양이 달라요'), { code: 'SHAPE' });
   }
+  const map = isObj(data.files) ? data.files : null;   // 없으면(옛 서버) 늘 서버 파일 endpoint
+  const bucket = files && files.bucket, onBad = (files && files.onBad) || (() => {});
+  const fileUrl = (hash, ext) => {
+    if(!map || !Object.prototype.hasOwnProperty.call(map, hash)) return assetUrl(hash, ext);
+    const url = storageUrlOf(map[hash], hash, bucket);
+    if(!url) onBad(hash);
+    return url || assetUrl(hash, ext);
+  };
   const parts = {}, items = {}, desks = {};
-  data.parts.forEach((p, i) => { if(isObj(p) && str(p.partId)) parts[p.partId] = partRec(p, i, assetUrl); });
-  data.deskProps.forEach((d, i) => { if(isObj(d) && str(d.deskPropId)) items[d.deskPropId] = propRec(d, i, assetUrl); });
-  data.desks.forEach((d, i) => { if(isObj(d) && str(d.deskId)) desks[d.deskId] = propRec(d, i, assetUrl); });
+  data.parts.forEach((p, i) => { if(isObj(p) && str(p.partId)) parts[p.partId] = partRec(p, i, fileUrl); });
+  data.deskProps.forEach((d, i) => { if(isObj(d) && str(d.deskPropId)) items[d.deskPropId] = propRec(d, i, fileUrl); });
+  data.desks.forEach((d, i) => { if(isObj(d) && str(d.deskId)) desks[d.deskId] = propRec(d, i, fileUrl); });
   // 책상 레코드엔 소품 칸(attachTo · defaultSize)이 없고, 소품 레코드엔 둘 다 있다
   data.deskProps.forEach((d) => {
     if(!isObj(d) || !str(d.deskPropId)) return;
@@ -136,6 +162,7 @@ function createCatalogApi(deps){
   const { api, rt, notifyError } = deps;
   const fetchFile = deps.fetch;
   const warn = deps.warn || ((...a) => console.warn(...a));
+  const storageBucket = deps.storageBucket;   // 이 앱의 Storage 버킷(app.js — firebaseAPI.storageBucket)
   const subs = {}, last = {};
   for(const k of CATALOG_KINDS){ subs[k] = new Set(); last[k] = null; }   // 마지막으로 넘긴 종류별 글(JSON) — 같으면 다시 안 넘긴다
   let cur = null;          // 마지막으로 푼 { parts, items, desks }
@@ -147,6 +174,8 @@ function createCatalogApi(deps){
   const offs = [];         // 알림 · 연결 구독 해제(구독자가 있는 동안만 건다)
 
   const assetUrl = (hash, ext) => (api.baseUrl() || '') + CATALOG_ASSET_PATH + hash + '.' + ext;
+  let badUrlWarned = false;   // 틀린 Storage URL 경고는 앱 실행마다 한 번(해시만 · URL 엔 토큰이 있어 찍지 않는다)
+  const onBadUrl = (hash) => { if(badUrlWarned) return; badUrlWarned = true; warn('[catalog] files 의 Storage URL 이 맞지 않아 서버 파일 endpoint(/v2/catalog/assets/{hash}.{ext})로 받는다 — 해시', hash); };
   const clone = (o) => JSON.parse(JSON.stringify(o));
   const count = () => CATALOG_KINDS.reduce((n, k) => n + subs[k].size, 0);
 
@@ -166,7 +195,7 @@ function createCatalogApi(deps){
     const data = await api.get(CATALOG_PATH, { auth: true, timeoutMs: CATALOG_TIMEOUT_MS });   // 304 면 기억한 같은 객체
     if(g !== gen) return;   // 그 사이 로그인이 끝났다
     if(data === raw && cur) return;   // 바뀐 것 없음
-    const next = unfoldCatalog(data, assetUrl);
+    const next = unfoldCatalog(data, assetUrl, { bucket: storageBucket(), onBad: onBadUrl });
     raw = data; cur = next;
     publish();
   }

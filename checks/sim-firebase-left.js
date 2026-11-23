@@ -19,7 +19,8 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^
 /* 허용 이름 — 로그인(Auth) · 파일(Storage) · 토큰 · 대화 기록 연결(이 PC IndexedDB) */
 const ALLOWED = new Set(['getIdToken', 'chatHistory', 'authReady', 'authRestoring', 'authAnswered', 'authCurrentUid', 'authCurrentEmail', 'authUser', 'authSignInWithGoogle',
   'authSignInWithFriendCode', 'authLinkGoogle', 'authSignOut', 'authProviders', 'authReauthPassword', 'authReauthGoogle',
-  'uploadSlotGlb', 'uploadRoomFace', 'uploadUserImage', 'uploadAwayImg', 'deleteStorageUrl', 'uploadEmojiImage', 'pkUploadFrame']);
+  'uploadSlotGlb', 'uploadRoomFace', 'uploadUserImage', 'uploadAwayImg', 'deleteStorageUrl', 'uploadEmojiImage', 'pkUploadFrame',
+  'storageBucket']);   // storageBucket — 이 앱의 Storage 버킷 이름(카탈로그 files URL 검사 · catalog-api.js)
 
 /* 위반 목록 — 비면 통과 */
 function audit(src){

@@ -155,7 +155,7 @@
 | **sim-app-version.js** | 109 | **6dee4558ad2b** |
 | **sim-app-version-sync.js** | 178 | **5acd89fd7806** |
 | **sim-update-flow.js** | 499 | **d037570b3c1e** |
-| **sim-firebase-left.js** | 174 | **ed3d65583947** |
+| **sim-firebase-left.js** | 175 | **12d4d73bb425** |
 | **sim-maintenance-gate.js** | 380 | **d05ea4148930** |
 | **sim-room-invite-wait.js** | 44 | **2327a1043182** |
 | **sim-friend-manage.js** | 251 | **f70011823ef8** |
@@ -166,7 +166,7 @@
 | **sim-click-through-policy.js** | 312 | **b847cbc47c8e** |
 | **sim-heartbeat-policy.js** | 251 | **dc7d20a04de2** |
 | **sim-catalog-cache.js** | 62 | **f312bde90729** |
-| **sim-catalog-api.js** | 296 | **dc3824e14eeb** |
+| **sim-catalog-api.js** | 382 | **da1622950de2** |
 | **sim-friend-code-keep.js** | 131 | **814fd3b9bef1** |
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
 | **sim-key-input.js** | 71 | **3116fd7dd8fb** |
