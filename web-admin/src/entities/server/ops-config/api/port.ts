@@ -8,6 +8,8 @@ export interface OpsGroups {
   roomTiming: IntGroup;
   /** 하루 한도(가입 · 웹박수 · 선물) — API 판에만 있다. 서버 키 하나가 묶음 하나(칸 하나)라 저장도 하나씩. Firebase 판은 null. */
   dailyLimits: readonly IntGroup[] | null;
+  /** 버그 제보 하루 상한(서버 키 `bug.dailyMax` · 칸 하나 `value`) — API 판에만 있다. Firebase 판은 null(카드가 `config/bugDailyMax` 를 그대로 쓴다). */
+  bugDailyMax: IntGroup | null;
 }
 
 /** API 판에만 있는 카드 — Firebase 판은 null(점검은 런북으로 한다). */

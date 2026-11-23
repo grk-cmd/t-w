@@ -76,7 +76,13 @@ export function saveCorsOrigins(db: Db, before: string[], next: string[]): Promi
 
 export function createFirebaseOpsConfigPort(db: Db): OpsConfigPort {
   return {
-    groups: { apiCache: API_CACHE, roomFrame: ROOM_FRAME, roomTiming: ROOM_TIMING, dailyLimits: null },
+    groups: {
+      apiCache: API_CACHE,
+      roomFrame: ROOM_FRAME,
+      roomTiming: ROOM_TIMING,
+      dailyLimits: null,
+      bugDailyMax: null,
+    },
     maintenance: null,
     getIntGroup: async (group) => unversioned(await getIntGroup(db, group)),
     getLogLevels: async () => unversioned(await getLogLevels(db)),

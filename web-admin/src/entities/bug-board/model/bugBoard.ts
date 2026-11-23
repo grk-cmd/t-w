@@ -195,14 +195,6 @@ export const BUG_DAILY_MAX_DEFAULT = 5;
 export const BUG_DAILY_MAX_MIN = 1;
 export const BUG_DAILY_MAX_MAX = 100;
 
-/** 입력 → 상한. 정수가 아니거나 범위를 벗어나면 null. */
-export function parseBugDailyMax(input: string): number | null {
-  const text = input.trim();
-  if (!/^\d+$/.test(text)) return null;
-  const n = Number(text);
-  return n >= BUG_DAILY_MAX_MIN && n <= BUG_DAILY_MAX_MAX ? n : null;
-}
-
 export interface BugCursor {
   value: number;
   key: string;
