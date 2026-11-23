@@ -2,12 +2,13 @@
    [왜] #887 이 서버에 없는 GET /v2/catalog/{parts·gachaParts·items·desks}?v= 를 만들었다. 서버 정본은 GET /v2/catalog 한 벌(ETag · no-cache)이다.
      이 검사는 한 벌을 앱의 세 목록(parts · items · desks)으로 펼치는 표 · 받기(로그인 통로 · 서버 locked 그대로) · 알림 · 실패(Firebase 로 안 물러남) · 로그인이 끝나면 비움을 지킨다.
    1. 펼치기 — 서버 한 벌(CatalogResponse)의 칸이 옛 레코드 칸으로(가챠 · 전용 · 위치 · 파일 주소 · 순서 · 깨진 줄 · 모양이 틀린 한 벌)
+   1-B. 파일 주소 — files(해시 → Storage 다운로드 URL)의 맞는 URL 을 쓰고, 없거나 틀린 URL(http · 다른 호스트 · 다른 버킷 · 다른 해시)은 서버 파일 길 · files 가 없으면 옛 모양 그대로
    2. 받기 — 길은 GET /v2/catalog 하나 · 구독 셋이 요청 하나 · 새 객체 · 같은 값은 다시 안 넘김 · 늦은 구독자
    3. 알림 — realtime catalog 알림이 다시 받기 · 받는 중 알림은 한 번 더 · 연결이 ready 가 되면 실패했을 때만 다시
    4. 실패 — E-CHAR-26 으로 드러냄 · 지난 목록을 비우지 않음 · Firebase 로 안 물러남 · 타이머로 두드리지 않음
    4-B. 로그인이 끝나면 — 마지막 구독자가 빠지면 값 · 알림 구독을 비운다(다음 로그인이 앞 사람의 locked 를 받지 않는다) · 늦게 온 앞 로그인의 답은 버린다
    5. 배선 — app.js(만드는 줄 · 로그인 통로) · app-boot 차례 'catalog' · html · Firebase 에는 카탈로그가 없다 · 옛 endpoint(/v2/catalog/{종류}) · catalogMeta 구독 · catalog-cache.js · catalog-source.js 가 없다
-   6. mutation test
+   6. mutation test(1-B 의 URL 검사 포함)
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
 'use strict';
 const fs = require('fs');
@@ -19,8 +20,8 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const DIRS = ['.', 'parts', 'app', path.join('app', 'parts'), '..', path.join('..', 'app'), path.join('..', 'app', 'parts')];
 const read = (f) => { for(const d of DIRS){ try{ return fs.readFileSync(path.join(d, f), 'utf8'); }catch(_){} } return null; };
 const exists = (f) => DIRS.some((d) => fs.existsSync(path.join(d, f)));
-const SRC = read('catalog-api.js'), FI = read('firebase-init.js'), ERR = read('error-codes.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html'), BOOT = read('app-boot.js');
-for(const [n, v] of [['catalog-api.js', SRC], ['firebase-init.js', FI], ['error-codes.js', ERR], ['app.js', APP], ['html', HTML], ['app-boot.js', BOOT]]){
+const SRC = read('catalog-api.js'), FC = read('firebase-config.js'), FI = read('firebase-init.js'), ERR = read('error-codes.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html'), BOOT = read('app-boot.js');
+for(const [n, v] of [['catalog-api.js', SRC], ['firebase-config.js', FC], ['firebase-init.js', FI], ['error-codes.js', ERR], ['app.js', APP], ['html', HTML], ['app-boot.js', BOOT]]){
   if(!v){ say('  ? 원본 못 찾음 — ' + n); process.exit(2); }
 }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
@@ -107,6 +108,46 @@ const mkData = () => ({
     chk(t && t.code === 'SHAPE' && t2 && t2.code === 'SHAPE', '★ 한 벌의 모양이 틀리면(parts 가 배열 아님 · 빈 값) 던진다 — 빈 목록으로 꾸미지 않는다');
   }
 
+  say('── 1-B. 파일 주소 — files 의 Storage URL');
+  {
+    const SU = (h, ext, bucket) => 'https://firebasestorage.googleapis.com/v0/b/' + (bucket || 'together-working.firebasestorage.app') + '/o/assets%2F' + h + '.' + ext + '?alt=media&token=tok-1';
+    const withFiles = (files) => { const d = mkData(); d.files = files; return M.unfoldCatalog(d, assetUrl); };
+    const u = withFiles({ [H('a')]: SU(H('a'), 'glb'), [H('2')]: SU(H('2'), 'glb', 'together-working-dev.firebasestorage.app'), [H('3')]: SU(H('3'), 'webp') });
+    chk(u.parts.hat1.glbUrl === SU(H('a'), 'glb') && u.items.i1.glbUrl === SU(H('2'), 'glb', 'together-working-dev.firebasestorage.app') && u.items.i1.thumbUrl === SU(H('3'), 'webp'),
+      '★ files 에 우리 버킷(운영 · dev)의 맞는 URL 이 있으면 그 URL 을 그대로 쓴다(썸네일 확장자는 저장된 형식)');
+    chk(u.parts.hat1.thumbUrl === assetUrl(H('b'), 'png') && u.desks.d1.glbUrl === assetUrl(H('e'), 'glb') && u.parts.hat1.modelHash === H('a'),
+      '★ 맵에 없는 해시는 서버 파일 길(GET /v2/catalog/assets/) 그대로 · 관리자 칸(modelHash)은 해시 그대로');
+    const BAD = [
+      ['http', SU(H('a'), 'glb').replace('https:', 'http:')],
+      ['다른 호스트', SU(H('a'), 'glb').replace('firebasestorage.googleapis.com', 'evil.example.com')],
+      ['비슷한 호스트', SU(H('a'), 'glb').replace('firebasestorage.googleapis.com', 'firebasestorage.googleapis.com.evil.io')],
+      ['googleapis 다른 이름', SU(H('a'), 'glb').replace('firebasestorage.', 'storage.')],
+      ['포트', SU(H('a'), 'glb').replace('googleapis.com/', 'googleapis.com:8443/')],
+      ['계정 칸', SU(H('a'), 'glb').replace('https://', 'https://u:p@')],
+      ['다른 버킷', SU(H('a'), 'glb', 'other-project.firebasestorage.app')],
+      ['다른 해시의 파일', SU(H('b'), 'glb')],
+      ['assets 밖 경로', SU(H('a'), 'glb').replace('assets%2F', 'users%2Fx%2F')],
+      ['alt=media 없음', SU(H('a'), 'glb').replace('alt=media&', '')],
+      ['글자 아님', 42],
+      ['너무 김', SU(H('a'), 'glb') + 'x'.repeat(1000)],
+      ['URL 아님', 'not a url'],
+      ['javascript', 'javascript:alert(1)'],
+    ];
+    const leaked = BAD.filter(([, v]) => withFiles({ [H('a')]: v }).parts.hat1.glbUrl !== assetUrl(H('a'), 'glb')).map(([n]) => n);
+    chk(!leaked.length, '★ 틀린 URL ' + BAD.length + '가지(http · 다른 호스트 · 다른 버킷 · 다른 해시 · 포트 · 경로 · alt …)는 쓰지 않고 서버 파일 길로' + (leaked.length ? ' — 샌 것: ' + leaked.join(' · ') : ''));
+    const plain = M.unfoldCatalog(mkData(), assetUrl);
+    chk(JSON.stringify(withFiles(undefined)) === JSON.stringify(plain) && JSON.stringify(withFiles(null)) === JSON.stringify(plain) && JSON.stringify(withFiles([SU(H('a'), 'glb')])) === JSON.stringify(plain)
+      && JSON.stringify(withFiles({})) === JSON.stringify(plain),
+      '★ files 가 없거나(옛 서버) · 비었거나 · 맵이 아니면 옛 모양 그대로(모두 서버 파일 길)');
+    chk(M.STORAGE_BUCKETS.join() === 'together-working.firebasestorage.app,together-working-dev.firebasestorage.app'
+      && /storageBucket: "together-working\.firebasestorage\.app"/.test(FC) && /storageBucket: "together-working-dev\.firebasestorage\.app"/.test(FC),
+      '  ↳ 버킷 목록은 운영 · dev 둘 — firebase-config.js 의 storageBucket 과 같다');
+    const csp = (HTML.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/) || [])[1] || '';
+    const dir = (n) => ((csp.match(new RegExp('(?:^|; )' + n + ' ([^;]*)')) || [])[1] || '').split(' ');
+    chk(dir('connect-src').includes('https://*.googleapis.com') && dir('img-src').includes('https:'),
+      '  ↳ CSP 가 Storage 호스트를 받는다 — GLB fetch(connect-src https://*.googleapis.com) · 썸네일 <img>(img-src https:)');
+  }
+
   /* 가짜 API · 가짜 realtime */
   const mkEnv = (opts) => {
     const o = opts || {};
@@ -178,7 +219,7 @@ const mkData = () => ({
     const bad = mkEnv(); const cb = bad.make(); let n = 0;
     bad.data.parts = 'x'; cb.subscribe('parts', () => { n++; }); await flush();
     chk(n === 0 && bad.notes.length === 1 && bad.notes[0][1].code === 'SHAPE', '  ↳ 모양이 틀린 응답도 실패로 알린다(빈 목록으로 꾸미지 않는다)');
-    const code = strip(SRC);
+    const code = strip(SRC).replace(/'[^'\n]*firebasestorage[^'\n]*'/g, "''");   // Storage 호스트 · 버킷 이름 글자는 Firebase SDK 가 아니다
     chk(!/setTimeout|setInterval/.test(code) && !/firebase|indexedDB|onValue/i.test(code) && !/^\s*import\s/m.test(code), '★ 타이머로 두드리지 않고 · Firebase · IndexedDB 를 모르고 · import 가 없다(통로는 deps)');
     chk(/'E-CHAR-26': \{/.test(ERR), '  ↳ E-CHAR-26 이 error-codes.js 표에 있다');
   }
@@ -287,6 +328,25 @@ const mkData = () => ({
     const de = mkEnv(), dk = load(dropless).createCatalogApi({ api: de.api, rt: de.rt, notifyError: () => {}, warn: () => {} });
     const du = dk.subscribe('parts', () => {}); await flush(); du();
     chk(dropless !== SRC && dk.current() !== null, '  mutation test: 로그인이 끝나도 값을 안 비우면 4-B 의 «비운다» 판정이 빨강');
+    /* Storage URL 검사 mutation test — 검사 한 줄을 빼면 1-B 의 틀린 URL 이 새어 나와야 한다 */
+    const SU = (h, host, bucket, proto) => (proto || 'https') + '://' + (host || 'firebasestorage.googleapis.com') + '/v0/b/' + (bucket || 'together-working.firebasestorage.app') + '/o/assets%2F' + h + '.glb?alt=media&token=t';
+    const leaks = (Mod, url) => { const d = mkData(); d.files = { [H('a')]: url }; return Mod.unfoldCatalog(d, assetUrl).parts.hat1.glbUrl === url; };
+    const URL_BREAKS = [
+      ["u.hostname !== STORAGE_HOST || ", "", SU(H('a'), 'evil.example.com'), '호스트를 안 봄'],
+      ["u.protocol !== 'https:' || ", "", SU(H('a'), null, null, 'http'), 'https 를 안 봄'],
+      ["!STORAGE_BUCKETS.includes(m[1]) || ", "", SU(H('a'), null, 'other.firebasestorage.app'), '버킷을 안 봄'],
+      [" || m[2] !== hash) return null;", ") return null;", SU(H('b')), '다른 해시의 파일을 받음'],
+    ];
+    const urlMissed = [];
+    for(const [from, to, url, what] of URL_BREAKS){
+      if(SRC.indexOf(from) < 0){ urlMissed.push('글 못 찾음: ' + what); continue; }
+      const Mut = load(SRC.split(from).join(to));
+      if(leaks(M, url) || !leaks(Mut, url)) urlMissed.push(what);
+    }
+    chk(!urlMissed.length, '  mutation test: Storage URL 검사 ' + URL_BREAKS.length + '가지(호스트 · https · 버킷 · 해시)를 빼면 틀린 URL 이 샌다' + (urlMissed.length ? ' — 못 잡음: ' + urlMissed.join(' · ') : ''));
+    const noFiles = load(SRC.replace("storageUrlOf(data.files, hash) || ", ""));
+    const df = mkData(); df.files = { [H('a')]: SU(H('a')) };
+    chk(noFiles.unfoldCatalog(df, assetUrl).parts.hat1.glbUrl !== SU(H('a')), '  mutation test: files 를 안 읽으면 «맞는 URL 을 쓴다» 판정이 빨강');
     const own = SRC.replace("locked: d.locked === true,", "locked: licenseOnlyOf(d.listing),");
     chk(own !== SRC && load(own).unfoldCatalog(mkData(), assetUrl).desks.d3.locked === true, '  mutation test: 진열 access 로 locked 를 만들면 «서버 locked 그대로» 판정이 빨강');
   }
