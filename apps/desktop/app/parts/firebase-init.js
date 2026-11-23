@@ -96,6 +96,9 @@
        판에 따라 조용히 세션 저장으로 떨어져, 껐다 켜면 로그아웃돼 보인다. */
     setPersistence(auth, browserLocalPersistence).catch(e => console.warn('[auth] 지속성 설정 실패', e));
   }catch(e){ console.warn('[auth] 초기화 실패 — 로그인 기능만 비활성', e); auth = null; }
+  /* 켤 때 로그인 진단(account/login-diag.js) — 저장된 로그인 · 대기선 결과를 진단 기록에. 알리기만 한다(대기선 동작은 그대로) */
+  const _loginDiag = window.TwLoginDiag.store;
+  _loginDiag.authStart(!!auth);
 
   /* ═══════════ 🚧 로그인 복원 대기선 (auth barrier) ═══════════
      [무엇을 막는가] getAuth() 는 즉시 돌아오지만 **저장된 세션을 되읽는 일은 비동기다.**
@@ -113,8 +116,8 @@
   const _authReadyPromise = new Promise(resolve => {
     const done = ()=>{ if(!_authSettled){ _authSettled = true; resolve(); } };
     if(!auth){ done(); return; }
-    try{ onAuthStateChanged(auth, done, done); }catch(_){ done(); return; }
-    setTimeout(()=>{ if(!_authSettled) console.warn('[auth] 세션 복원이 늦어 대기선을 통과시킴'); done(); }, AUTH_READY_TIMEOUT_MS);
+    try{ onAuthStateChanged(auth, (u)=>{ _loginDiag.authState(u); done(); }, (e)=>{ _loginDiag.authError(e); done(); }); }catch(_){ done(); return; }
+    setTimeout(()=>{ if(!_authSettled){ console.warn('[auth] 세션 복원이 늦어 대기선을 통과시킴'); _loginDiag.barrierTimeout(); } done(); }, AUTH_READY_TIMEOUT_MS);
   });
   /* 소유권이 걸린 쓰기(users/{코드}/…)는 전부 이 줄을 먼저 지나야 한다.
      이미 통과했으면 await 비용은 0이다(정착된 뒤엔 마이크로태스크 한 번). */

@@ -77,7 +77,7 @@
 | **sim-leave-flush.js** | 373 | **f6c906a3785c** |
 | **sim-session.js** | 221 | **2c15ae27f8ba** |
 | **sim-session-baseline.js** | 190 | **74b2c6d83b60** |
-| **smoke.js** | 863 | **222157bb1b26** |
+| **smoke.js** | 864 | **6d302ac33b19** |
 | **sim-account-switch.js** | 291 | **2da40257ef5d** |
 | **sim-admin-rules.js** | 408 | **cae4fc4cb38a** || · 아래 칸 · 쓰기 없음** · **개정 163 1절 관리자 서버 봇(apiBots) — admins · licenses 읽기만 · 봇 명단 잠김** · **개정 129 7절 할 일 공용 메모(adminTodoNote) — 관리자만 · rev + 1 · 0~2000자 · 서버 시각** · **개정 127 7절 할 일 종류(type) feat · bug · 없어도 됨** · **개정 126 1절 config/releaseAnswerTpl 관리자만 · 7절 릴리스 답변 템플릿 1~1000자 글자 · 지우기 관리자만 · 읽기 관리자만** · **개정 123 7절 할 일 릴리스 버전(release) 모양 · 20자 · 없어도 됨** · **개정 118 7절 관리자 할 일(adminTodos) — 관리자만 · rev + 1 만(덮어쓰기 막기) · 작업자는 관리자 uid · 제보 id 모양 · 관리자 이름(adminNames) 본인 칸만** · **개정 99 1절 metrics/improvements 관리자 쓰기 · 모양(버전 · 제목 · 항목 20개 · 적용 일수 0~30)** · **개정 95 1절 config/bugDailyMax 관리자만** · **개정 87 1절 config/minAppVer 관리자만** · **2026-10-08 1절 bugBoard/ans/pub · ans/prv 관리자만 · 2절 버그제보 글쓰기(본인 uid · 본인 코드 · 새 글만) · 👍 본인 표시 하나** · **2026-10-07 3절 metrics(접속 지표) 읽기 관리자만 · 쓰기 규칙 없음** · **2026-10-06 1절 inboxBroadcastMeta 관리자만** · **2026-10-06 1절 catalogMeta/$kind 관리자만** · **2026-10-05 6절 관리자 작업 기록(adminLog) — 규칙식을 굴려 관리자만 · 새로 쓰기만 · by · 서버 시각 · 길이 · 90일 지난 것만 지우기 · invites 목록 관리자 읽기(issuedBy 색인) · 코드 하나는 누구나** · **2026-10-04 licenseRequests 친구코드(선택 · MATE/COZY 형식) · accountSnap 목록 관리자 읽기** · **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
 | **sim-char-core-load.js** | 89 | **d14b110c4f57** |
@@ -527,6 +527,7 @@
 | **sim-run-verdict.js** | 67 | **76851f0d5f8e** |
 | **sim-user-api.js** | 250 | **54e0c4bca46b** |
 | **sim-login-flow.js** | 386 | **61433aa87f38** |
+| **sim-login-diag.js** | 252 | **97bf853ceb51** |
 | **sim-first-run-013.js** | 439 | **89e2c4b9e692** |
 | **sim-lobby-window.js** | 119 | **480602081de5** |
 | **sim-animal-tex.js** | 67 | **8499a0970fb3** |

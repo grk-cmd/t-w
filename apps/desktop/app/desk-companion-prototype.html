@@ -8304,6 +8304,7 @@
 
 <script src="parts/shared/error-report.js"></script>   <!-- 🧯 화면 오류 · console.error / warn 을 오류 기록(tw-error.log)으로 — 맨 먼저(뒤 스크립트가 실리다 난 오류도 잡게) -->
 <script src="parts/shared/leave-flush.js"></script>   <!-- 🚪 떠나기 전 저장 기다리기(window.TwLeaveFlush — 로그아웃 · 앱 끄기 · 8초 상한) — 오류 기록 바로 뒤: 실리면 main(quit-hold.js)의 끄기 물음에 답하기 시작한다(뒤 스크립트가 죽어도 바로 답하게) -->
+<script src="parts/account/login-diag.js"></script>   <!-- 🩺 켤 때 로그인 진단(window.TwLoginDiag — 저장된 로그인 · 대기선 · 긴 작업 · 확인 결과를 진단 기록에) — 긴 작업을 처음부터 재려고 맨 앞쪽 · firebase-init.js · app.js 보다 먼저 -->
 <script src="vendor/three/three.min.js"></script>
 <script src="vendor/three/GLTFLoader.js"></script>
 <script src="vendor/three/DRACOLoader.js"></script>
