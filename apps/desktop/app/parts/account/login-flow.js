@@ -46,6 +46,7 @@ function joinKey(inviteCode, password){
  *   onSessionLost: (kind: 'sessionLost' | 'deviceRemoved') => void,
  *   forgetSession: () => void,   // 계정을 놓을 때 API 통로의 로그인 읽기 · 기억을 뗀다(TwApi.authed.forgetSession)
  *   now: () => number,
+ *   onConfirmed: (r: { state: string }, info: { hadUser: boolean, anonymous: boolean, err: any }) => void,   // 확인 결과 진단(TwLoginDiag.store.confirmed) — 결과를 바꾸지 않는다
  * }} deps */
 function createLoginFlow(deps){
   const userApi = deps.userApi;
@@ -76,12 +77,21 @@ function createLoginFlow(deps){
   /* 이 로그인은 누구인가 — 위 [판정]. 던지지 않는다.
      확인(GET /v2/me)의 me 는 «들어감» 알림(launcher/app-boot.js)으로 기능 시작에 전해진다 — 따로 또 묻지 않는다. */
   async function confirm(){
+    const seen = { u: null, err: null };
+    const r = await decide(seen);
+    try{ deps.onConfirmed(r, { hadUser: !!seen.u, anonymous: !!(seen.u && seen.u.anonymous), err: seen.err }); }catch(_){}   // 진단은 결과를 바꾸지 않는다
+    return r;
+  }
+  /* seen: 진단이 볼 것(이번 확인이 본 로그인 · 서버 오류)을 채운다 */
+  async function decide(seen){
     try{ await auth.ready(); }catch(_){}
     const u = auth.user();
+    seen.u = u;
     if(!u || u.anonymous) return { state: STATE.LOGIN, me: null };
     let me = null;
     try{ me = await userApi.me(); }
     catch(e){
+      seen.err = e;
       const t = deps.translate(e);
       if(t.action === 'signup'){ clearCache(); return { state: STATE.SIGNUP, me: null }; }
       if(t.action === 'login') return { state: STATE.LOGIN, me: null, reason: deps.reasonOf(e) };

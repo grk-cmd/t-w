@@ -2837,6 +2837,7 @@ const loginFlowMod = TwLoginFlow.createLoginFlow({
   onSessionLost: (kind)=>deviceLostMod._onDeviceSessionLost(kind),
   forgetSession: ()=>TwApi.authed.forgetSession(),
   now: ()=>Date.now(),
+  onConfirmed: (r, info)=>TwLoginDiag.store.confirmed(r, info),   // 🩺 켤 때 로그인 진단(account/login-diag.js)
 });
 /* 🚚 0.13 첫 실행(account/first-run-013.js) — 로그인 → 캐릭터 올리기 → 라이선스 키 → 포커스 옛 누적 → 이 PC 키 지우기. 라이선스 단계는 이 PC 의 옛 키를 서버에 등록한다(D8-3). */
 /* 설정 › 라이선스로 가는 [설정 열기] 달린 안내 — 첫 실행 기기 가득 안내 · 자동 등록 기기 가득 안내가 같이 쓴다 */

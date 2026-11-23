@@ -62,7 +62,7 @@
 - 책임: 로그인(Auth) → 서버 가입 확인(`GET /v2/me`) → (이 PC 등록 뒤 app-boot 가 부르는) realtime 켜기(`TwRtHub.store.start({claim:true})`) · 서버에 닿지 못한 화면에서 기다리기(로컬 모드 없음) · 내 계정 사본(`tw.me` — 로그인 계정과 묶음).
   판정 `confirm()` → `in`(계정 있음) · `signup`(로그인은 됐는데 계정 없음 — 가입 전 · 탈퇴) · `login`(로그인 없음 · 익명 · 토큰 끝남) · `local`(닿지 못함 · 점검).
 - deps: `userApi`(user-api.js) · `translate`(api-errors.js) · `reasonOf` · `auth`(Firebase Auth 원시 — ready · user · signInGoogle · signInPassword · signOut) ·
-  `googleWindow`(main 의 구글 창) · `rt`(rt-hub — start · stop · bye · onState) · `leaveRoom`(방 안이면 나가기 — 창 열기 통로 LEAVE_ROOM) · `pending`(request-id createPending) · `storage` · `onSessionLost(kind)`(`sessionLost` · `deviceRemoved`) · `now`.
+  `googleWindow`(main 의 구글 창) · `rt`(rt-hub — start · stop · bye · onState) · `leaveRoom`(방 안이면 나가기 — 창 열기 통로 LEAVE_ROOM) · `pending`(request-id createPending) · `storage` · `onSessionLost(kind)`(`sessionLost` · `deviceRemoved`) · `now` · `onConfirmed(r, info)`(확인 결과 진단 — login-diag.js · 던져도 결과는 그대로).
 - 내놓는 것: `confirm` · `goOnline` · `waitForServer(onBack)` · `retryNow()`(서버에 닿지 못한 화면 — realtime 을 켜 두고 서버 신호(ready · 등록 전이라 4004 로 끊김) 또는 «다시 시도» 가 계정을 한 번 묻는다 · 타이머 없음 · 이 PC 기능만 쓰는 로컬 모드는 없다) · `loginGoogle` · `loginPassword` · `joinPassword` · `joinGoogle` ·
   `patchMe(fields)`(사본 version · 먼저 바뀌었으면 다시 받아 한 번 더) · `logout({ why })`(`logout` · `withdraw`) · `release(why)`(계정 바꾸기 `switch` — 로그인은 둔다) · `meCache` · `mode`.
 - 함정:
@@ -71,6 +71,15 @@
   - 이 PC 계정 몫 지우기 · 다시 켜기는 부르는 쪽(account.js) 몫 — 여기는 화면 · 저장 키 목록을 모른다.
   - 연결을 놓는 차례(설계 04-realtime-disconnect 4-D-3): 방 leave → left 기다림 → realtime `bye{why}` → 서버 닫힘 기다림(1초) → 그 뒤에 로그인을 놓는다. 거꾸로 하면 방 사람들 · 친구는 유예(20초) 뒤에야 나간 것을 본다.
 - 검사: `checks/sim-login-flow.js`.
+
+## login-diag.js — 켤 때 로그인 진단(classic script `window.TwLoginDiag`)
+- 책임: 켤 때 한 번 진단 기록(`tw-mouse-diag.log` · `companion.diagNote`)에 `[로그인]` 줄을 남겨 «다시 켜면 자동 로그인이 풀림» 을 가른다 — 시작(저장된 로그인 키 `firebase:authUser:` 있음 · 글자 수 · IndexedDB 저장소 · localStorage 크기) · 대기선(첫 상태 먼저 · 8초 시간 초과 먼저 · 늦게 도착) · 저장된 로그인이 있었는데 첫 상태가 «사용자 없음»(Firebase 가 지움) · 켜고 15초 긴 작업(long task) 합 · 최대 · 확인(confirm) 결과(state · HTTP 상태 + 오류 code · NO_TOKEN · network).
+- deps: `note` · `now`(performance.now) · `storage` · `idbNames` · `observeLongTasks(cb)`(잴 수 없으면 null) · `later`. 앱 한 벌은 `TwLoginDiag.store`(실리며 만든다 — 긴 작업을 처음부터 재려고 html 맨 앞쪽).
+- 내놓는 것: `store.authStart(hasAuth)` · `authState(user)` · `authError(e)` · `barrierTimeout()`(firebase-init.js 대기선) · `confirmed(r, info)`(login-flow.js deps `onConfirmed`). 순수: `storageInfo` · `userKind` · `errTag` · 줄 만들기.
+- 함정:
+  - 값은 적지 않는다 — 저장된 로그인은 있음 · 글자 수만, 서버 · Firebase 오류는 code 모양이 맞을 때만(서버 message 는 안 적음). uid · 이메일 · 토큰 · 친구코드 · 유저코드가 들어갈 자리를 만들지 않는다.
+  - 알리기만 한다 — 대기선 · 확인 결과를 바꾸지 않고, 안의 실패는 삼킨다. 확인 줄은 첫 답 하나(첫 답이 local 이면 다음 답까지).
+- 검사: `checks/sim-login-diag.js`.
 
 ## device-register.js · device-limit-dialog.js · device-lost.js — 계정마다 PC 는 서버가 정한 상한까지(classic script `window.TwDeviceRegister` · `window.TwDeviceLimitDialog` · `window.TwDeviceLost`)
 - 책임: 한 계정은 PC 를 서버가 정한 상한까지 쓴다(앱은 대수를 모른다 — 글에 숫자를 쓰지 않는다). 자리는 서버가 정한다 — 켤 때 realtime 보다 먼저 이 PC 를 등록(`POST /v2/me/devices { deviceId, session, os }` — `device-register.js ensure()` → `ok` · `canceled` · `failed`).
