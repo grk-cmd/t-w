@@ -32,7 +32,7 @@
  * [GLB 받기] fetchGlb(url) — 카탈로그가 알려 준 파일 주소를 받아 base64 로 돌려준다(웹 캐시를 거치지 않는다 — 깨진 응답이 캐시에 남지 않게 · E-CHAR-14). 받은 것을 남기는 일은 부르는 쪽(catalog-glb.js).
  *
  * deps: api(TwApi.authed — get(path, opts) · baseUrl()) · rt(TwRtHub.store — on(kind, fn) · onState(fn)) · notifyError — 오류 번호로 알리는 함수(TwErrorCodes.notify) · fetch(파일 받기) · warn ·
- *   storageBucket() — 이 앱의 Storage 버킷(firebaseAPI.storageBucket — firebase-config.js · 없으면 files 를 쓰지 않는다)
+ *   storageBucket() — 이 앱의 Storage 버킷(firebaseAPI.storageBucket — firebase-config.js · 빈 값이면 files 를 쓰지 않는다)
  * classic script(window.TwCatalogApi) — app.js 가 만들어 catalog-sync · catalog-glb · 관리자 쓰기에 넘긴다. Firebase 를 거치지 않는다.
  */
 (function(){
@@ -194,7 +194,7 @@ function createCatalogApi(deps){
     const data = await api.get(CATALOG_PATH, { auth: true, timeoutMs: CATALOG_TIMEOUT_MS });   // 304 면 기억한 같은 객체
     if(g !== gen) return;   // 그 사이 로그인이 끝났다
     if(data === raw && cur) return;   // 바뀐 것 없음
-    const next = unfoldCatalog(data, assetUrl, { bucket: deps.storageBucket ? deps.storageBucket() : '', onBad: onBadUrl });
+    const next = unfoldCatalog(data, assetUrl, { bucket: deps.storageBucket(), onBad: onBadUrl });
     raw = data; cur = next;
     publish();
   }

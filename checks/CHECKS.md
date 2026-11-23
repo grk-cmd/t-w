@@ -166,7 +166,7 @@
 | **sim-click-through-policy.js** | 312 | **b847cbc47c8e** |
 | **sim-heartbeat-policy.js** | 251 | **dc7d20a04de2** |
 | **sim-catalog-cache.js** | 62 | **f312bde90729** |
-| **sim-catalog-api.js** | 382 | **56759e9187ab** |
+| **sim-catalog-api.js** | 382 | **f2ed502ba2b5** |
 | **sim-friend-code-keep.js** | 131 | **814fd3b9bef1** |
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
 | **sim-key-input.js** | 71 | **3116fd7dd8fb** |

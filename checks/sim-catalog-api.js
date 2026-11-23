@@ -176,7 +176,7 @@ const mkData = () => ({
     env.api = { baseUrl: () => BASE, get: async (p, op) => { env.calls.push({ p, op }); if(env.fail) throw env.fail; if(env.same && env.last) return env.last; env.last = JSON.parse(JSON.stringify(env.data)); return env.last; } };
     env.h = {}; env.st = []; env.offs = 0;
     env.rt = { on: (k, fn) => { env.h[k] = fn; return () => { env.offs++; delete env.h[k]; }; }, onState: (fn) => { env.st.push(fn); return () => { env.offs++; env.st.length = 0; }; } };
-    env.make = (Mod) => (Mod || M).createCatalogApi({ api: env.api, rt: env.rt, notifyError: (c, e) => env.notes.push([c, e]), warn: (...a) => env.warns.push(a.join(' ')) });
+    env.make = (Mod) => (Mod || M).createCatalogApi({ api: env.api, rt: env.rt, notifyError: (c, e) => env.notes.push([c, e]), warn: (...a) => env.warns.push(a.join(' ')), storageBucket: () => PROD_B });
     return env;
   };
 
@@ -277,10 +277,10 @@ const mkData = () => ({
   {
     const env = mkEnv(); let asked = null;
     const bytes = new Uint8Array([71, 76, 66, 0, 255]);
-    const ok = env.make === undefined ? null : M.createCatalogApi({ api: env.api, rt: env.rt, notifyError: () => {}, fetch: async (u, o) => { asked = [u, o]; return { ok: true, arrayBuffer: async () => bytes.buffer }; } });
+    const ok = env.make === undefined ? null : M.createCatalogApi({ api: env.api, rt: env.rt, notifyError: () => {}, storageBucket: () => PROD_B, fetch: async (u, o) => { asked = [u, o]; return { ok: true, arrayBuffer: async () => bytes.buffer }; } });
     const b64 = await ok.fetchGlb('https://x/a.glb');
     chk(b64 === Buffer.from(bytes).toString('base64') && asked[0] === 'https://x/a.glb' && asked[1].cache === 'no-store', '★ 주소를 웹 캐시 없이 받아 base64 로 돌려준다');
-    const bad = M.createCatalogApi({ api: env.api, rt: env.rt, notifyError: () => {}, fetch: async () => ({ ok: false, status: 404 }) });
+    const bad = M.createCatalogApi({ api: env.api, rt: env.rt, notifyError: () => {}, storageBucket: () => PROD_B, fetch: async () => ({ ok: false, status: 404 }) });
     const e1 = await bad.fetchGlb('u').then(() => null, (e) => e), e2 = await bad.fetchGlb('').then(() => null, (e) => e);
     chk(e1 && /404/.test(e1.message) && e2 && /empty url/.test(e2.message), '  ↳ 못 받으면 · 주소가 비면 던진다(부르는 쪽 catalog-glb 가 실패 이유를 남긴다)');
   }
@@ -346,7 +346,7 @@ const mkData = () => ({
     chk(!missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
     /* 비우기 · locked mutation test — 4-B 와 2 절의 판정이 빨강이 되는지 */
     const dropless = SRC.replace("    cur = null; raw = null; running = null; again = false; failed = false;\n", "");
-    const de = mkEnv(), dk = load(dropless).createCatalogApi({ api: de.api, rt: de.rt, notifyError: () => {}, warn: () => {} });
+    const de = mkEnv(), dk = load(dropless).createCatalogApi({ api: de.api, rt: de.rt, notifyError: () => {}, warn: () => {}, storageBucket: () => PROD_B });
     const du = dk.subscribe('parts', () => {}); await flush(); du();
     chk(dropless !== SRC && dk.current() !== null, '  mutation test: 로그인이 끝나도 값을 안 비우면 4-B 의 «비운다» 판정이 빨강');
     /* Storage URL 검사 mutation test — 검사 한 줄을 빼면 1-B 의 틀린 URL 이 새어 나와야 한다 */
