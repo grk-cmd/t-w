@@ -5,7 +5,7 @@ import {
   GroupInvitesPanel,
   RevokeInvitesAllButton,
 } from '@/features/user/grant-invites';
-import { useUserByCode } from '@/features/user/user-rows';
+import { useRefreshUsers, useUserByCode } from '@/features/user/user-rows';
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
 import { UserDetail } from '@/widgets/user-detail';
@@ -16,14 +16,29 @@ export function InvitesPage() {
   const toast = useToast();
   const [openUid, setOpenUid] = useState<string | null>(null);
   const found = useUserByCode(openUid);
+  const refresh = useRefreshUsers();
   const missing = openUid !== null && (found.error !== null || found.data === null);
+  const missText =
+    openUid === null
+      ? ''
+      : found.error
+        ? errorMessage(found.error, '회원 정보를 불러오지 못했어요')
+        : `${openUid} 사용자를 찾지 못했어요`;
   // 못 찾음 · 못 불러옴은 누른 자리에서 멀리 그리지 않고 알림으로.
   useEffect(() => {
-    if (!openUid) return;
-    if (found.error) toast(errorMessage(found.error, '회원 정보를 불러오지 못했어요'));
-    else if (found.data === null) toast(`${openUid} 사용자를 찾지 못했어요`);
-  }, [openUid, found.error, found.data, toast]);
+    if (missing) toast(missText);
+  }, [missing, missText, toast]);
+  // 못 찾은 사람을 다시 누르면 상태가 그대로라 알림이 안 뜬다 — 그때는 바로 다시 알린다.
+  const open = (uid: string) => {
+    if (uid === openUid && missing) toast(missText);
+    else setOpenUid(uid);
+  };
   const close = () => setOpenUid(null);
+  // 지운 사람은 사용자 목록 캐시에서도 빠져야 다시 눌렀을 때 창이 뜨지 않는다 — 👥 사용자 화면과 같다.
+  const afterDelete = () => {
+    close();
+    refresh();
+  };
   return (
     <>
       <div className="grid2">
@@ -47,12 +62,12 @@ export function InvitesPage() {
           </div>
         </section>
       </div>
-      <GroupInvitesPanel onOpenUser={setOpenUid} />
+      <GroupInvitesPanel onOpenUser={open} />
       <UserDetail
         row={missing ? null : (found.data ?? null)}
-        onOpen={setOpenUid}
+        onOpen={open}
         onClose={close}
-        onDeleted={close}
+        onDeleted={afterDelete}
       />
     </>
   );
