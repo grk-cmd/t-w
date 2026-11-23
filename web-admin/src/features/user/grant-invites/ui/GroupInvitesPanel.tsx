@@ -6,7 +6,9 @@ import {
   groupInviteState,
   isGroupMaxUses,
   lastDay,
+  listAllGroupInviteUses,
   useGroupInviteUses,
+  useInvitePort,
   useGroupInvites,
   type GroupInvite,
   type GroupInviteUse,
@@ -15,6 +17,8 @@ import {
 import { isPortError, useEnv, withProdMark } from '@/shared/api';
 import { copyText, errorMessage, formatDate, keysetView, kstDateKey, useKeysetPaging } from '@/shared/lib';
 import { Pager, useToast } from '@/shared/ui';
+import { downloadBytes, writeXlsx } from '@/shared/sheet';
+import { usesFileName, usesSheet } from '../model/usesSheet';
 import { useCreateGroupInvite, useSetGroupInviteStopped } from '../model/useGrantInvites';
 import styles from './GroupInvitesPanel.module.css';
 
@@ -215,6 +219,7 @@ function Uses({ code, actions }: { code: string; actions: UseActions }) {
   if (paging.items.length === 0) return <p className="soft">이 코드로 들어온 기록이 없어요</p>;
   return (
     <>
+      <ExportUses code={code} />
       <table className={styles.table} aria-label={`${code} 로 가입한 사람`}>
         <thead>
           <tr>
@@ -232,6 +237,33 @@ function Uses({ code, actions }: { code: string; actions: UseActions }) {
       </table>
       <Pager paging={paging} more={paging.more} />
     </>
+  );
+}
+
+// 엑셀 — 화면은 쪽으로 받지만 파일에는 전부 넣는다(누를 때만 끝까지 받는다 · 5000명이면 쪽 50번).
+function ExportUses({ code }: { code: string }) {
+  const port = useInvitePort();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const run = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const uses = await listAllGroupInviteUses(port, code);
+      downloadBytes(await writeXlsx(usesSheet(uses), code), usesFileName(code, kstDateKey(Date.now())));
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className={styles.actions}>
+      {error !== null && <span className="msg err">{errorMessage(error, '엑셀로 내보내지 못했어요')}</span>}
+      <button type="button" className="btn" disabled={busy} onClick={() => void run()}>
+        {busy ? '내보내는 중…' : '엑셀로 내보내기'}
+      </button>
+    </div>
   );
 }
 
