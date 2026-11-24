@@ -2457,7 +2457,8 @@ function createWindow() {
         try{ search = new URL(url).search; }catch(_){}
         if(search === null){ finish({ ok:false, reason:'로그인 응답을 읽지 못했어요' }); return; }
         const r = GoogleOAuth.parseCallback(search, state);
-        if(r.error){ _diagLog('[구글] 로그인 오류 응답: ' + r.error); finish({ ok:false, reason: GoogleOAuth.errorReason(r.error) }); return; }
+        if(r.error){ _diagLog(GoogleOAuth.errorLogText(r)); finish({ ok:false, reason: GoogleOAuth.errorReason(r.error) }); return; }
+        if(r.noCode){ finish({ ok:false, reason: GoogleOAuth.NO_CODE_TEXT }); return; }
         if(!r.ok){ finish({ ok:false, reason:'로그인 응답이 올바르지 않아요' }); return; }
         _googleExchange(r.code, verifier).then(finish);
       };

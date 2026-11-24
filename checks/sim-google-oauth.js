@@ -7,6 +7,7 @@
      ④ 시간이 지나거나 취소하면 결과가 끝난다(버튼이 영영 잠기지 않는다) · 결과는 한 번만
      ⑤ 포트를 못 잡으면 실패를 돌려준다(main 이 앱 안 창으로 대신한다) · 듣기 전에 취소됐으면 열린 채 남지 않는다
      ④-2 끝나면 타이머를 풀고, 받아 둔 빈 연결까지 닫는다
+     ④-3 아주 빨리 여러 번 불려도 앞은 canceled · 마지막만 같은 포트로 받는다(대체 길로 빠지지 않는다)
      ⑦ 기다리는 동안의 안내 창 — [취소] 주소 · 스크립트 없음 · main 이 [취소] · × 를 대기 취소로 잇는다
      ⑥ main.js — 기본 브라우저가 먼저 · 포트를 못 잡을 때만 앱 안 창 · 다시 누르면 앞의 대기를 멈춤 · 설치 파일 목록에 모듈이 있다 */
 'use strict';
@@ -40,7 +41,13 @@ const freePort = () => new Promise((res) => { const s = http.createServer(); s.l
   chk(JSON.stringify(G.parseCallback('?code=C1&state=S', 'S')) === JSON.stringify({ ok: true, code: 'C1' }), 'state 가 맞고 code 가 있으면 성공');
   chk(G.parseCallback('?code=C1&state=X', 'S').bad === true, 'state 가 다르면 올바르지 않음');
   chk(G.parseCallback('?code=C1', 'S').bad === true, 'state 가 없으면 올바르지 않음');
-  chk(G.parseCallback('?state=S', 'S').bad === true, 'code 가 없으면 올바르지 않음');
+  chk(G.parseCallback('?state=S', 'S').bad === true && G.parseCallback('?state=S', 'S').noCode === true, 'code 가 없으면 올바르지 않음 · «코드 없음» 표시');
+  chk(!G.parseCallback('?code=C1&state=X', 'S').noCode && !G.parseCallback('?state=X', 'S').noCode, 'state 가 다르면 «코드 없음» 이 아니다(그냥 올바르지 않음)');
+  {
+    const e = G.parseCallback('?error=access_denied&error_description=blocked+by+admin&state=S', 'S');
+    chk(G.errorLogText(e) === '[구글] 로그인 오류 응답: access_denied — blocked by admin', '오류 기록에 error_description 을 붙인다');
+    chk(G.errorLogText(G.parseCallback('?error=server_error&state=S', 'S')) === '[구글] 로그인 오류 응답: server_error', '설명이 없으면 오류 코드만');
+  }
   chk(G.parseCallback('?code=C1&state=', '').bad === true, '기다리는 state 가 비었으면 성공으로 보지 않는다');
   chk(G.parseCallback('?error=access_denied&state=S', 'S').error === 'access_denied', 'state 가 맞는 구글 오류는 오류로');
   chk(G.parseCallback('?error=access_denied', 'S').bad === true && !G.parseCallback('?error=access_denied&state=X', 'S').error, 'state 가 없거나 다른 «오류» 는 오류로 보지 않는다');
@@ -152,7 +159,7 @@ const freePort = () => new Promise((res) => { const s = http.createServer(); s.l
     const lb = G.createLoopback({ http, port, path: '/tw-oauth', state: 'S', timeoutMs: 5000 });
     lb.cancel('먼저 취소');
     const st = await lb.start();
-    chk(st.ok === false && (await get(port, '/tw-oauth?code=C&state=S')).status === 0, '듣기 전에 취소됐으면 듣기가 열린 채 남지 않는다');
+    chk(st.ok === false && st.reason === 'canceled' && (await get(port, '/tw-oauth?code=C&state=S')).status === 0, '듣기 전에 취소됐으면 canceled · 듣기가 열린 채 남지 않는다');
   }
 
   say('· ⑦ 기다리는 동안의 안내 창');
@@ -234,6 +241,62 @@ const freePort = () => new Promise((res) => { const s = http.createServer(); s.l
     chk(rb.ok === true && rb.idToken === 'ID-CB' && log.waits.length === 2, '④ 새 호출은 같은 포트로 이어서 받는다');
   }
   {
+    /* 아주 빨리 두 번 — 앞이 아직 포트를 잡는 중에 다시 불려도 뒤가 EADDRINUSE 로 앱 안 창 길로 빠지지 않는다 */
+    const port = await freePort();
+    const { flow, log } = mkFlow(port, { browser: (u) => get(port, '/tw-oauth?code=CD&state=' + stateOf(u)) });
+    const a = flow.run({ authUrl: authUrl('SC'), state: 'SC', verifier: 'VC' });
+    const b = flow.run({ authUrl: authUrl('SD'), state: 'SD', verifier: 'VD' });
+    const [ra, rb] = await Promise.all([a, b]);
+    chk(ra.canceled === true && !ra.fallback, '④-3 듣기 전에 다시 불리면 앞 호출은 canceled(대체 길 아님)');
+    chk(rb.ok === true && rb.idToken === 'ID-CD' && !rb.fallback, '④-3 뒤 호출은 같은 포트로 받아 성공');
+    chk(log.opened.length === 1 && stateOf(log.opened[0]) === 'SD', '④-3 브라우저는 뒤 호출 것 한 번만 연다');
+  }
+  {
+    const port = await freePort();
+    const { flow } = mkFlow(port, { browser: (u) => get(port, '/tw-oauth?code=CG&state=' + stateOf(u)) });
+    const rs = await Promise.all(['S7', 'S8', 'S9'].map((st) => flow.run({ authUrl: authUrl(st), state: st, verifier: 'V' })));
+    chk(rs[0].canceled && rs[1].canceled && !rs[0].fallback && !rs[1].fallback && rs[2].ok === true, '④-3 세 번 겹쳐도 앞 둘은 canceled · 마지막만 성공');
+  }
+  {
+    /* 세 번 겹친 뒤 대기 중인 마지막을 네 번째가 멈추고 이어 받는다 — 먼저 끝난 앞 호출이 지금 대기를 지우지 않는다 */
+    const port = await freePort();
+    const { flow } = mkFlow(port);
+    const ps = ['T1', 'T2', 'T3'].map((st) => flow.run({ authUrl: authUrl(st), state: st, verifier: 'V' }));
+    await Promise.all(ps.slice(0, 2));
+    await new Promise((r) => setTimeout(r, 30));
+    const p4 = flow.run({ authUrl: authUrl('T4'), state: 'T4', verifier: 'V4' });
+    const r3 = await ps[2];
+    await new Promise((r) => setTimeout(r, 30));
+    await get(port, '/tw-oauth?code=C4&state=T4');
+    const r4 = await p4;
+    chk(r3.canceled === true && r4.ok === true && r4.idToken === 'ID-C4', '④-3 겹친 뒤 네 번째도 앞 대기를 멈추고 같은 포트로 성공');
+  }
+  {
+    /* 듣는 중에 다시 부르기를 두 번 — 먼저 끝난 앞 호출이 지금 대기(가운데)를 지우면 세 번째가 포트를 못 잡는다 */
+    const port = await freePort();
+    const { flow } = mkFlow(port);
+    const pa = flow.run({ authUrl: authUrl('U1'), state: 'U1', verifier: 'V' });
+    await new Promise((r) => setTimeout(r, 30));
+    const pb = flow.run({ authUrl: authUrl('U2'), state: 'U2', verifier: 'V' });
+    await pa;
+    await new Promise((r) => setTimeout(r, 30));
+    const pc = flow.run({ authUrl: authUrl('U3'), state: 'U3', verifier: 'V3' });
+    const rb = await pb;
+    await new Promise((r) => setTimeout(r, 30));
+    await get(port, '/tw-oauth?code=C3&state=U3');
+    const rc = await pc;
+    chk(rb.canceled === true && rc.ok === true && rc.idToken === 'ID-C3', '④-3 듣는 중 두 번 다시 불러도 마지막이 같은 포트로 성공');
+  }
+  {
+    /* 포트를 다른 프로그램이 잡은 채 빨리 두 번 — 대체 길(앱 안 창)은 마지막 한 번만 */
+    const port = await freePort();
+    const hog = http.createServer(); await new Promise((r) => hog.listen(port, '127.0.0.1', r));
+    const { flow } = mkFlow(port);
+    const [ra, rb] = await Promise.all(['H1', 'H2'].map((st) => flow.run({ authUrl: authUrl(st), state: st, verifier: 'V' })));
+    chk(ra.canceled === true && !ra.fallback && rb.fallback === true, '④-3 포트가 막힌 채 두 번 — 앞은 canceled · 뒤만 대체 길');
+    await new Promise((r2) => hog.close(r2));
+  }
+  {
     const port = await freePort();
     const hog = http.createServer(); await new Promise((r) => hog.listen(port, '127.0.0.1', r));
     const { flow, log } = mkFlow(port);
@@ -258,6 +321,11 @@ const freePort = () => new Promise((res) => { const s = http.createServer(); s.l
     w.close();
     chk(fw.destroyed === true && cancels === 0, '⑦ close() 로 닫으면 취소를 부르지 않는다');
   }
+  for (const dt of [false, true]){
+    const before = FakeWin.all.length;
+    G.openWaitWindow({ BrowserWindow: FakeWin, parent: { id: 'main' }, workArea: { x: 0, y: 0, width: 1920, height: 1040 }, devTools: dt, onCancel: () => {} }).close();
+    chk(FakeWin.all[before].opts.webPreferences.devTools === dt, '⑦ 개발자 도구 허용을 받은 그대로 넘긴다(devTools:' + dt + ')');
+  }
 
   say('· ⑨ main.js 연결');
   const MAIN = MAIN_P ? fs.readFileSync(MAIN_P, 'utf8') : '';
@@ -274,6 +342,8 @@ const freePort = () => new Promise((res) => { const s = http.createServer(); s.l
     const handleBody = body.slice(body.indexOf('const handle = (e, url)=>'), body.indexOf("webContents.on('will-redirect', handle)"));
     chk(/GoogleOAuth\.parseCallback\(/.test(handleBody) && /GoogleOAuth\.errorReason\(/.test(handleBody) && /_googleExchange\(/.test(handleBody)
         && !/oauth2\.googleapis\.com\/token/.test(handleBody) && !/q\.get\('state'\)/.test(handleBody), '앱 안 창 길도 같은 판정 · 오류 문구 · 토큰 교환을 쓴다(두 벌이 아니다)');
+    chk(/_diagLog\(GoogleOAuth\.errorLogText\(r\)\)/.test(handleBody) && /if\(r\.noCode\)\{ finish\(\{ ok:false, reason: GoogleOAuth\.NO_CODE_TEXT \}\)/.test(handleBody)
+        && handleBody.indexOf('r.noCode') < handleBody.indexOf('if(!r.ok)'), '앱 안 창 길 — 오류 기록에 설명까지 · code 가 없으면 «코드가 없어요»');
   }
   if (PKG_P){
     let files = [];
