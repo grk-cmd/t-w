@@ -258,6 +258,45 @@ const freePort = () => new Promise((res) => { const s = http.createServer(); s.l
     chk(rs[0].canceled && rs[1].canceled && !rs[0].fallback && !rs[1].fallback && rs[2].ok === true, '④-3 세 번 겹쳐도 앞 둘은 canceled · 마지막만 성공');
   }
   {
+    /* 세 번 겹친 뒤 대기 중인 마지막을 네 번째가 멈추고 이어 받는다 — 먼저 끝난 앞 호출이 지금 대기를 지우지 않는다 */
+    const port = await freePort();
+    const { flow } = mkFlow(port);
+    const ps = ['T1', 'T2', 'T3'].map((st) => flow.run({ authUrl: authUrl(st), state: st, verifier: 'V' }));
+    await Promise.all(ps.slice(0, 2));
+    await new Promise((r) => setTimeout(r, 30));
+    const p4 = flow.run({ authUrl: authUrl('T4'), state: 'T4', verifier: 'V4' });
+    const r3 = await ps[2];
+    await new Promise((r) => setTimeout(r, 30));
+    await get(port, '/tw-oauth?code=C4&state=T4');
+    const r4 = await p4;
+    chk(r3.canceled === true && r4.ok === true && r4.idToken === 'ID-C4', '④-3 겹친 뒤 네 번째도 앞 대기를 멈추고 같은 포트로 성공');
+  }
+  {
+    /* 듣는 중에 다시 부르기를 두 번 — 먼저 끝난 앞 호출이 지금 대기(가운데)를 지우면 세 번째가 포트를 못 잡는다 */
+    const port = await freePort();
+    const { flow } = mkFlow(port);
+    const pa = flow.run({ authUrl: authUrl('U1'), state: 'U1', verifier: 'V' });
+    await new Promise((r) => setTimeout(r, 30));
+    const pb = flow.run({ authUrl: authUrl('U2'), state: 'U2', verifier: 'V' });
+    await pa;
+    await new Promise((r) => setTimeout(r, 30));
+    const pc = flow.run({ authUrl: authUrl('U3'), state: 'U3', verifier: 'V3' });
+    const rb = await pb;
+    await new Promise((r) => setTimeout(r, 30));
+    await get(port, '/tw-oauth?code=C3&state=U3');
+    const rc = await pc;
+    chk(rb.canceled === true && rc.ok === true && rc.idToken === 'ID-C3', '④-3 듣는 중 두 번 다시 불러도 마지막이 같은 포트로 성공');
+  }
+  {
+    /* 포트를 다른 프로그램이 잡은 채 빨리 두 번 — 대체 길(앱 안 창)은 마지막 한 번만 */
+    const port = await freePort();
+    const hog = http.createServer(); await new Promise((r) => hog.listen(port, '127.0.0.1', r));
+    const { flow } = mkFlow(port);
+    const [ra, rb] = await Promise.all(['H1', 'H2'].map((st) => flow.run({ authUrl: authUrl(st), state: st, verifier: 'V' })));
+    chk(ra.canceled === true && !ra.fallback && rb.fallback === true, '④-3 포트가 막힌 채 두 번 — 앞은 canceled · 뒤만 대체 길');
+    await new Promise((r2) => hog.close(r2));
+  }
+  {
     const port = await freePort();
     const hog = http.createServer(); await new Promise((r) => hog.listen(port, '127.0.0.1', r));
     const { flow, log } = mkFlow(port);

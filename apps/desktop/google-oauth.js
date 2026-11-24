@@ -185,8 +185,9 @@ function createGoogleSignIn(deps){
     current = me;   // 기다리기 전에 걸어 둔다 — 그 사이 또 불리면 이 호출을 멈추게
     const started = await me.started;
     if(!started.ok){
-      if(current === me) current = null;
-      if(started.reason === 'canceled') return { ok: false, reason: CANCELED_TEXT, canceled: true };   // 듣기 전에 다시 불려 멈췄다
+      /* 그 사이 다시 불려 밀려났으면 포트를 못 잡았어도 대체 길로 가지 않는다(앱 안 창이 둘 열리지 않게) */
+      if(started.reason === 'canceled' || current !== me) return { ok: false, reason: CANCELED_TEXT, canceled: true };
+      current = null;
       return { fallback: true, reason: started.reason };
     }
     try{ await deps.openExternal(a.authUrl); }
