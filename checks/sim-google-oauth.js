@@ -5,10 +5,12 @@
      ② 루프백은 실제로 듣고, 정해진 경로 · state 가 맞는 응답 한 번만 받고 닫는다 — 다른 경로 · 다른 방법 · state 다름은 404 로 답하고 계속 기다린다(다른 페이지가 대기를 끊지 못한다)
      ③ 브라우저 탭의 글은 고정 글 — 주소에 실려 온 값을 HTML 에 넣지 않는다
      ④ 시간이 지나거나 취소하면 결과가 끝난다(버튼이 영영 잠기지 않는다) · 결과는 한 번만
-     ⑤ 포트를 못 잡으면 실패를 돌려준다(main 이 앱 안 창으로 대신한다)
+     ⑤ 포트를 못 잡으면 실패를 돌려준다(main 이 앱 안 창으로 대신한다) · 듣기 전에 취소됐으면 열린 채 남지 않는다
+     ④-2 끝나면 타이머를 풀고, 받아 둔 빈 연결까지 닫는다
+     ⑦ 기다리는 동안의 안내 창 — [취소] 주소 · 스크립트 없음 · main 이 [취소] · × 를 대기 취소로 잇는다
      ⑥ main.js — 기본 브라우저가 먼저 · 포트를 못 잡을 때만 앱 안 창 · 다시 누르면 앞의 대기를 멈춤 · 설치 파일 목록에 모듈이 있다 */
 'use strict';
-const fs = require('fs'), http = require('http'), path = require('path');
+const fs = require('fs'), http = require('http'), net = require('net'), path = require('path');
 
 const pick = (...c) => c.find(p => fs.existsSync(p)) || null;
 const MOD = pick('google-oauth.js', '../google-oauth.js', path.join(__dirname, '../apps/desktop/google-oauth.js'));
@@ -111,6 +113,31 @@ const freePort = () => new Promise((res) => { const s = http.createServer(); s.l
     await again.result;
   }
 
+  say('· ④-2 타이머 · 빈 연결');
+  {
+    const cleared = [];
+    const fakeSet = (fn, ms) => ({ fn, ms, id: 'T1' });
+    const port = await freePort();
+    const lb = G.createLoopback({ http, port, path: '/tw-oauth', state: 'S', setTimeout: fakeSet, clearTimeout: (t) => { if (t) cleared.push(t.id); } });
+    await lb.start();
+    lb.cancel();
+    await lb.result;
+    chk(cleared.includes('T1'), '끝나면 시간 제한 타이머를 푼다');
+  }
+  {
+    const port = await freePort();
+    const lb = G.createLoopback({ http, port, path: '/tw-oauth', state: 'S', timeoutMs: 5000 });
+    await lb.start();
+    const sock = net.connect(port, '127.0.0.1');
+    await new Promise((r) => sock.once('connect', r));
+    await new Promise((r) => setTimeout(r, 30));
+    const closed = new Promise((r) => { sock.once('close', () => r(true)); setTimeout(() => r(false), 800); });
+    lb.cancel();
+    await lb.result;
+    chk(await closed, '끝나면 받아 둔 빈 연결도 닫는다(그 연결로 온 응답을 옛 대기가 삼키지 않게)');
+    sock.destroy();
+  }
+
   say('· ⑤ 포트를 못 잡으면');
   {
     const port = await freePort();
@@ -120,6 +147,18 @@ const freePort = () => new Promise((res) => { const s = http.createServer(); s.l
     chk(st.ok === false && /EADDRINUSE/.test(st.reason), '실패를 돌려준다(EADDRINUSE)');
     await new Promise((r) => hog.close(r));
   }
+  {
+    const port = await freePort();
+    const lb = G.createLoopback({ http, port, path: '/tw-oauth', state: 'S', timeoutMs: 5000 });
+    lb.cancel('먼저 취소');
+    const st = await lb.start();
+    chk(st.ok === false && (await get(port, '/tw-oauth?code=C&state=S')).status === 0, '듣기 전에 취소됐으면 듣기가 열린 채 남지 않는다');
+  }
+
+  say('· ⑦ 기다리는 동안의 안내 창');
+  chk(typeof G.WAIT_HTML === 'string' && G.WAIT_HTML.includes('href="' + G.WAIT_CANCEL_URL + '"') && /취소/.test(G.WAIT_HTML) && !/<script/i.test(G.WAIT_HTML),
+    '[취소] 는 정해진 주소로 가는 링크 · 스크립트가 없다');
+  chk(/\.invalid\//.test(G.WAIT_CANCEL_URL), '[취소] 주소는 실제로 닿지 않는 .invalid 주소');
 
   say('· ⑥ main.js 연결');
   const MAIN = MAIN_P ? fs.readFileSync(MAIN_P, 'utf8') : '';
@@ -131,7 +170,13 @@ const freePort = () => new Promise((res) => { const s = http.createServer(); s.l
     chk(/require\('\.\/google-oauth'\)/.test(MAIN), 'main 이 google-oauth.js 를 싣는다');
     chk(iLb > 0 && iWin > iLb, '기본 브라우저 길이 앱 안 창보다 먼저');
     chk(/if\(started\.ok\)\{[\s\S]{0,400}shell\.openExternal\(authUrl\)/.test(body), '포트를 잡았을 때만 기본 브라우저를 연다');
-    chk(/if\(googleLoopback\)\{\s*googleLoopback\.cancel\(/.test(body), '다시 누르면 앞의 대기를 멈춘다');
+    chk(/if\(googleLoopback\)\{\s*googleLoopback\.cancel\(/.test(body), '다시 불리면 앞의 대기를 멈춘다');
+    chk(body.indexOf('googleLoopback = lb;') > 0 && body.indexOf('googleLoopback = lb;') < body.indexOf('await lb.start()'), '대기는 듣기 전에 걸어 둔다(겹쳐 불려도 포트를 두고 다투지 않게)');
+    chk(/_openGoogleWait\(\(\)\s*=>\s*lb\.cancel\(/.test(body), '안내 창의 [취소] 가 대기를 끝낸다');
+    chk(/if\(r\.canceled\)\s*return \{[^}]*canceled:\s*true/.test(body) && body.indexOf('if(r.canceled)') < body.indexOf('mainWindow.focus()'), '취소는 canceled 로 돌려주고(화면이 조용히 끝냄) 앱 창을 당기지 않는다');
+    const w = MAIN.slice(MAIN.indexOf('const _openGoogleWait'), MAIN.indexOf("ipcMain.handle('companion:signInWithGoogle'"));
+    chk(/WAIT_CANCEL_URL/.test(w) && /e\.preventDefault\(\)/.test(w) && /on\('closed',[^\n]*onCancel\(\)/.test(w), '안내 창 — [취소] 이동을 가로채 취소 · × 로 닫아도 취소');
+    chk(!/preload/.test(w.replace(/\/\*[\s\S]*?\*\//g, '')) && /contextIsolation:\s*true/.test(w) && /nodeIntegration:\s*false/.test(w), '안내 창에 preload 를 붙이지 않는다');
     chk(/new URL\(GOOGLE_OAUTH_REDIRECT\)/.test(body) && /port:\s*Number\(_cb\.port\)/.test(body), '리디렉션 주소의 포트 · 경로로 듣는다(구글 콘솔 그대로)');
     const handleBody = body.slice(body.indexOf('const handle = (e, url)=>'), body.indexOf("webContents.on('will-redirect', handle)"));
     chk(/GoogleOAuth\.parseCallback\(/.test(handleBody) && /GoogleOAuth\.errorReason\(/.test(handleBody) && /_googleExchange\(/.test(handleBody)

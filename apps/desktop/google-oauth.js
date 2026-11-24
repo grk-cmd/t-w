@@ -8,6 +8,7 @@
    ★ 응답마다 연결을 닫는다(keep-alive 로 열린 연결이 남으면 듣기를 닫은 뒤에도 요청이 들어온다).
    ★ 브라우저에 보이는 쪽은 고정 글만 — 주소에 실려 온 값(error_description 등)을 HTML 에 넣지 않는다.
    ⚠️ 포트를 못 잡으면(다른 프로그램이 쓰는 중) start 가 실패를 돌려준다 — main.js 가 예전 앱 안 창으로 대신한다.
+   기다리는 동안 앱 쪽에는 작은 안내 창(WAIT_HTML · [취소] = WAIT_CANCEL_URL 로 이동 — main 이 가로챈다)을 띄운다.
    createLoopback({ http, host, port, path, state, timeoutMs, setTimeout, clearTimeout }) →
      { start() → Promise<{ ok:true } | { ok:false, reason }>, result → Promise<결과>, cancel(reason) }
      결과: { ok:true, code } · { ok:false, error }(구글이 오류를 돌려줌) · { ok:false, bad:true }(code 없음 — state 가 다르면 결과로 넘기지 않고 계속 기다린다) ·
@@ -64,6 +65,19 @@ function page(title, body){
 const PAGE_OK  = page('로그인을 마쳤어요', '이 탭을 닫고 투게더워킹으로 돌아가 주세요.');
 const PAGE_ERR = page('로그인하지 못했어요', '이 탭을 닫고 투게더워킹에서 다시 시도해 주세요.');
 
+/* 기다리는 동안 앱 쪽에 띄우는 작은 안내 창 — 브라우저 탭을 닫아 버려도 여기서 끝낼 수 있게.
+   [취소]는 이 주소로 이동하려는 것을 main 이 가로채 알아챈다(창에 preload 를 붙이지 않는다). */
+const WAIT_CANCEL_URL = 'https://tw-google-wait.invalid/cancel';
+const WAIT_HTML = '<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>구글 로그인</title>'
+  + '<style>html,body{margin:0;height:100%;background:#c0c0c0;font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:#111;overflow:hidden}'
+  + '.w{box-sizing:border-box;height:100%;padding:14px 16px;display:flex;flex-direction:column;justify-content:space-between;border:2px solid;border-color:#fff #000 #000 #fff}'
+  + 'b{font-size:14px}p{font-size:12.5px;line-height:1.5;margin:4px 0 0;color:#333}'
+  + 'a{align-self:flex-end;padding:6px 18px;font-size:13px;color:#111;text-decoration:none;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff}'
+  + 'a:active{border-color:#000 #fff #fff #000}</style></head>'
+  + '<body><div class="w"><div><b>브라우저에서 구글 로그인을 마쳐 주세요</b>'
+  + '<p>기본 브라우저에 구글 로그인 화면을 열었어요. 마치면 투게더워킹으로 돌아와요.</p></div>'
+  + '<a href="' + WAIT_CANCEL_URL + '">취소</a></div></body></html>';
+
 function createLoopback(o){
   const http = o.http;
   const host = o.host || '127.0.0.1';
@@ -77,7 +91,8 @@ function createLoopback(o){
 
   function close(){
     clearT(timer); timer = null;
-    if(server){ const s = server; server = null; try{ s.close(); }catch(_){} }
+    /* 받아 둔 빈 연결(브라우저가 미리 연 연결)도 닫는다 — 남으면 그 연결로 온 응답을 옛 대기가 404 로 삼킨다 */
+    if(server){ const s = server; server = null; try{ s.close(); }catch(_){} try{ if(s.closeAllConnections) s.closeAllConnections(); }catch(_){} }
   }
   function finish(r){
     if(done) return;
@@ -109,6 +124,7 @@ function createLoopback(o){
       try{
         s.listen(o.port, host, () => {
           s.removeListener('error', fail);
+          if(done){ try{ s.close(); }catch(_){} res({ ok: false, reason: 'canceled' }); return; }   // 듣기 전에 이미 취소됐다
           s.on('error', () => {});   // 듣는 중의 오류는 결과로 넘기지 않는다(시간이 지나면 멈춘다)
           server = s;
           timer = setT(() => finish({ ok: false, timeout: true }), timeoutMs);
@@ -120,4 +136,4 @@ function createLoopback(o){
   return { start, result, cancel: (reason) => finish({ ok: false, canceled: true, reason: reason || '' }) };
 }
 
-module.exports = { CALLBACK_PATH, WAIT_MS, buildAuthUrl, parseCallback, errorReason, createLoopback, PAGE_OK, PAGE_ERR };
+module.exports = { CALLBACK_PATH, WAIT_MS, WAIT_CANCEL_URL, WAIT_HTML, buildAuthUrl, parseCallback, errorReason, createLoopback, PAGE_OK, PAGE_ERR };

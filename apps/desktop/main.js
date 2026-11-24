@@ -2366,6 +2366,32 @@ function createWindow() {
   const GOOGLE_OAUTH_REDIRECT = 'http://127.0.0.1:52736/tw-oauth';
   let googleAuthWin = null;
   let googleLoopback = null;   // 기본 브라우저 로그인 대기(google-oauth.js) — 다시 누르면 앞의 것을 멈추고 새로 연다
+  /* 기다리는 동안의 작은 안내 창 — [취소] · × 둘 다 onCancel. 창은 늘 위(실행 화면이 늘 위 창이라 그 뒤로 깔리지 않게) · 화면 오른쪽 아래(브라우저를 가리지 않게).
+     preload 를 붙이지 않는다 — [취소]는 정해진 주소로 이동하려는 것을 가로채 안다(google-oauth.js WAIT_CANCEL_URL). → { close() } */
+  const _openGoogleWait = (onCancel) => {
+    let closing = false;
+    const W = 380, H = 132;
+    let x, y;
+    try{
+      const wa = screen.getDisplayMatching((mainWindow && !mainWindow.isDestroyed()) ? mainWindow.getBounds() : screen.getPrimaryDisplay().bounds).workArea;
+      x = wa.x + wa.width - W - 24; y = wa.y + wa.height - H - 24;
+    }catch(_){}
+    const win = new BrowserWindow({
+      width: W, height: H, x, y, resizable: false, minimizable: false, maximizable: false, fullscreenable: false,
+      icon: APP_ICON, title: '구글 로그인', autoHideMenuBar: true, backgroundColor: '#c0c0c0',
+      webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, devTools: devtoolsGate.always },
+    });
+    try{ win.setAlwaysOnTop(true, overlay.TOP_LEVEL); }catch(_){}
+    const onNav = (e, url) => {
+      try{ e.preventDefault(); }catch(_){}
+      if(String(url || '').indexOf(GoogleOAuth.WAIT_CANCEL_URL) === 0) onCancel();
+    };
+    win.webContents.on('will-navigate', onNav);
+    win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    win.on('closed', () => { if(!closing) onCancel(); });
+    win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(GoogleOAuth.WAIT_HTML)).catch(() => {});
+    return { close(){ closing = true; try{ if(!win.isDestroyed()) win.destroy(); }catch(_){} } };
+  };
   /* code → id_token(Node 쪽 fetch — 렌더러 CSP 와 무관). 기본 브라우저 길이 쓴다 */
   const _googleExchange = (code, verifier) => fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -2401,25 +2427,29 @@ function createWindow() {
 
     /* 🌐 기본 브라우저로 먼저 — 앱 안 창은 구글이 «안전하지 않은 브라우저» 로 막거나 맞는 비밀번호도 거절할 때가 있다(google-oauth.js).
        리디렉션 주소는 위와 같아 구글 콘솔은 그대로다. 포트를 못 잡을 때만 아래 앱 안 창으로 대신한다.
-       다시 누르면 앞의 대기를 멈추고(그 invoke 는 취소로 끝남) 새로 연다 — 브라우저 탭은 앱이 앞으로 올릴 수 없어서,
-       «이미 열려 있어요» 로 막으면 탭을 닫아 버린 사람이 5분 동안 못 한다. */
+       기다리는 동안 작은 안내 창의 [취소](또는 ×)로 끝낼 수 있다 — 화면의 구글 버튼은 결과가 올 때까지 잠겨 있어서,
+       브라우저 탭을 닫아 버리면 이 창이 아니면 5분 동안 못 한다. 대기는 start 전에 걸어 둔다(겹쳐 불려도 포트를 두고 다투지 않게). */
     if(googleLoopback){ googleLoopback.cancel('다시 시도'); googleLoopback = null; }
     const _cb = new URL(GOOGLE_OAUTH_REDIRECT);
     const lb = GoogleOAuth.createLoopback({ http: require('http'), host: _cb.hostname, port: Number(_cb.port), path: _cb.pathname, state });
+    googleLoopback = lb;
     const started = await lb.start();
     if(started.ok){
-      googleLoopback = lb;
+      let wait = null;
       try{ await shell.openExternal(authUrl); }
       catch(_){ lb.cancel(); if(googleLoopback === lb) googleLoopback = null; return { ok:false, reason:'브라우저를 열지 못했어요 — 기본 브라우저 설정을 확인해 주세요' }; }
+      wait = _openGoogleWait(() => lb.cancel('취소'));
       const r = await lb.result;
       if(googleLoopback === lb) googleLoopback = null;
-      try{ if(mainWindow && !mainWindow.isDestroyed()) mainWindow.focus(); }catch(_){}   // 브라우저에서 돌아오면 앱을 앞으로
+      try{ if(wait) wait.close(); }catch(_){}
+      if(r.canceled) return { ok:false, reason:'로그인 창을 닫아서 연결을 멈췄어요', canceled:true };
+      try{ if(mainWindow && !mainWindow.isDestroyed()) mainWindow.focus(); }catch(_){}   // 브라우저에서 돌아오면 앱을 앞으로(취소면 건너뜀)
       if(r.ok) return _googleExchange(r.code, verifier);
       if(r.error){ _diagLog('[구글] 로그인 오류 응답: ' + r.error); return { ok:false, reason: GoogleOAuth.errorReason(r.error) }; }
       if(r.timeout) return { ok:false, reason:'브라우저에서 로그인을 마치지 않아 멈췄어요 — 다시 시도해 주세요' };
-      if(r.canceled) return { ok:false, reason:'로그인 창을 닫아서 연결을 멈췄어요', canceled:true };
       return { ok:false, reason:'로그인 응답이 올바르지 않아요' };
     }
+    if(googleLoopback === lb) googleLoopback = null;
     _diagLog('[구글] 기본 브라우저 대기를 열지 못해 앱 안 창으로 — ' + started.reason);
 
     return await new Promise(resolve=>{
