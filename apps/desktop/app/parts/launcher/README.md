@@ -19,16 +19,16 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
   슬롯을 당기는 일이 하나 더 생기면 doDeleteCurSlot · doMoveCurSlotToBox 와 같은 모양(자리 추가 번호 · 현재 칸 정리)을 지킨다.
 - **함정**: 네이티브 확인 대화상자를 쓰지 않는다(Electron 투명 창이 멈춘 것처럼 보인다 · audit 검사 4).
   보관함 이동은 기다린 뒤 번호가 아니라 그 캐릭터로 칸을 다시 찾는다 — 번호로 당기면 연타 · 동기화 때 엉뚱한 칸을 당긴다.
-- **검사**: `checks/sim-launcher-controls.js` — 모듈 모양 · app.js 연결 · 깨 보기 · 버튼 동작(감아 돌기 · 당기기 · 자리 추가 번호 · 보관함 이동 실패 · 연타 막기).
+- **검사**: `checks/sim-launcher-controls.js` — 모듈 모양 · app.js 연결 · mutation test · 버튼 동작(감아 돌기 · 당기기 · 자리 추가 번호 · 보관함 이동 실패 · 연타 막기).
 
 ## launcher-preview.js — 🖼️ 런처 미리보기 · 슬롯 섬네일
 
 - **책임**: 런처 카드의 3D 미리보기 — 렌더러 · 씬 · 카메라(도트 느낌 저해상도), 칸 캐릭터 올리기(몸 기준 프레이밍 · 둥둥 · 깜빡임),
   다 그린 뒤 한 장 찍어 슬롯 섬네일(`def.thumb`) 갈아 끼우기.
 - **만드는 법**: `TwLauncherPreview.createLauncherPreview(deps)` — 만들 때는 아무것도 그리지 않는다(`ensureLauncherPreview` 가 렌더러를 처음 한 번 만든다).
-  - 값: `slots` · `CHAR_Z` · `RIG_TURN` · 조명 상수(`_MAIN_LIGHT_*` · `_KEY_LIGHT_MUL` · `_FILL_LIGHT_MUL`) · `scene` · `commSceneCache` · `FrameBudget`(프레임 상한) · `blinkTiming`(= `TwBlinkTiming`, 좌석과 같은 깜빡임 시간표)
+  - 값: `slots` · `CHAR_Z` · `RIG_TURN` · `scene` · `commSceneCache` · `FrameBudget`(프레임 상한) · `blinkTiming`(= `TwBlinkTiming`, 좌석과 같은 깜빡임 시간표)
   - 읽는 함수: `customItems` · `assetCodeMod` · `slotSaveMod` · `renderQuality`(실행 화면 화질 — 미리보기 상한을 고른다)
-  - 함수: 책상 · 파츠 · 모델 도우미 20개(`buildDesk` · `defToBase` · `applyEquippedPartsToSeat` · `setFaceMap` …)
+  - 함수: 책상 · 파츠 · 모델 도우미 20개(`buildDesk` · `defToBase` · `applyEquippedPartsToSeat` · `setFaceMap` …) · `addRunLights`(실행 화면 조명 — shared/light-tone.js)
 - **내놓는 것**: `ensureLauncherPreview()` · `setLauncherChar(def)`(그 캐릭터로 갈아 올림 · null 이면 비움) · `sizeLauncherPreview()`(창 크기가 바뀌면) ·
   `launcherLoop`(부팅 때 `requestAnimationFrame` 에 한 번) · 읽는 함수 `lRenderer()` · `lHolder()`(책상 아이템 크기 로그가 «런처» 인지 가른다).
   ```js
@@ -40,7 +40,7 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - **함정**: 캔버스에 px 를 박지 않는다(박은 값을 다시 읽어 크기가 굳는다). 섬네일은 render 와 같은 틱에서 복사한다(렌더러에 preserveDrawingBuffer 없음).
   `launcherLoop` 는 화질 줄 `FrameBudget.fpsFor(화질).launcher`(기본 30 · 최저 15)까지만 그린다 — 상한을 빼면 주사율만큼 그려 런처 GPU 부하가 3~4배. 깜빡임 박자를 여기서 따로 세지 않는다(프레임 수로 세면 주사율 따라 달라진다 — `shared/blink-timing.js`).
   프레임 높이는 파츠를 뺀 몸 박스로 잰다 — 파츠까지 넣으면 파츠가 튈 때 캐릭터가 작아진다.
-- **검사**: `checks/sim-launcher-preview.js` — 모듈 모양 · 연결 · 깨 보기 + 4절 런처 부하(120Hz 에서 30번 · 깜빡임 횟수 주사율 무관 · 후원 반짝임 steps).
+- **검사**: `checks/sim-launcher-preview.js` — 모듈 모양 · 연결 · mutation test + 4절 런처 부하(120Hz 에서 30번 · 깜빡임 횟수 주사율 무관 · 후원 반짝임 steps).
 
 ## click-through-policy.js — 🖱 클릭 통과 판단 규칙 한 곳
 
@@ -63,8 +63,59 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
   문턱을 바꾸면 `checks/sim-click-through-policy.js` 1절 상수 표도 같이 고친다(값이 곧 동작이다).
 - **함정**: 같은 조건(`drag() && _ignoreSent` · `offOverlay === true` · `_isConfigMode || _lastIgnoreRequested` · `FWD_*` 상수 등)을 다른 파일에 다시 쓰면 검사 5절이 빨강이다.
   사다리는 펜 앱 · 다른 모니터 · 휠에서 돌지 않는다 — 3단계(받아 보기)가 남의 창 포커스를 뺏는 유일한 자리다. 통과를 임의로 «받기» 로 푸는 규칙은 넣지 않는다(예전 워치독 사고).
-- **검사**: `checks/sim-click-through-policy.js` — 모양 · 상수 값 · 렌더러/main 표(상황 → 결정, 경계값) · 네 길 연결 · 같은 조건 재사용 금지(+깨 보기).
+- **검사**: `checks/sim-click-through-policy.js` — 모양 · 상수 값 · 렌더러/main 표(상황 → 결정, 경계값) · 네 길 연결 · 같은 조건 재사용 금지(+mutation test).
   동작 판정은 원래 검사들(`sim-ghost-cache-sync` · `sim-wheel-kick` · `sim-hover-poke` 등)도 그대로 본다.
+
+## heartbeat-policy.js — 🩺 하트비트에 무거운 칸을 실을지
+
+- **책임**: 렌더러 하트비트(`heartbeat.js` 의 `setInterval` 100ms → `companion.setCharBounds`)가 이번에 무거운 칸(`regions` = 우리 창 사각형 `__uiRegions` · `others` = 남의 좌석 원)을
+  새로 잴지만 정한다. 순수 함수 — 창 보임 신호 · 시각은 부르는 쪽이 넘긴다. 하트비트 자체(생존 신호 · 캐릭터 좌표 · `moveAge` · `charBad`)는 늘 보낸다.
+- **만드는 법**: 만들 것이 없다. html 이 app.js 보다 먼저 싣고 `heartbeat.js` 가 `TwHeartbeatPolicy.fullStep(...)` 을 부른다. 창 보임은 main 이 `companion:winShown`(preload `onWinShown`)으로
+  minimize · restore · hide · show · focus · 불러오기 끝에 바뀔 때만 알린다 — `backgroundThrottling:false` 라 `document.hidden` 은 최소화에도 안 바뀐다.
+- **내놓는 것**: `fullStep({ shown, sinceFull })` → true 면 잰다 · `HIDDEN_FULL_EVERY_MS`(1000 — 숨김 중에도 이 간격마다 한 번은 잰다).
+- **함정**: «모름»(신호 전 · `null`)은 보임으로 친다 — 확인 못 한 채 빼면 클릭 통과 판정 재료가 낡는다. 칸을 빼면 main 은 마지막 값을 그대로 둔다(덮지 않음).
+  런처에서는 `__uiRegions` 가 이미 빈 목록이라 여기서 따로 보지 않는다.
+- **검사**: `checks/sim-heartbeat-policy.js` — 판단 표(경계값) · 하트비트(`heartbeat.js`)를 가짜 타이머로 돌려 «보임 → 숨김 → 복귀» · main 알림을 가짜 창으로 돌려 보기 · mutation test.
+
+## heartbeat.js — 🩺 0.1초 하트비트
+
+- **책임**: 100ms 마다 main 에 `companion.setCharBounds` 를 보낸다 — 캐릭터 원 · `moveAge`(mousemove 가 마지막으로 온 지) · 우리 창 사각형 · 남의 좌석 원 · `charBad`.
+  main 은 이것을 렌더러 생존 신호 · 클릭 통과 회수 · 펜 근접 판정에 쓴다. 창 보임(`companion.onWinShown`)을 구독해 무거운 칸을 뺄지는 `heartbeat-policy.js` 에 묻는다.
+- **만드는 법**: `TwHeartbeat.createHeartbeat(deps)` — app.js 원래 자리(`_twMoveSeenAt` · `runCost` 선언 바로 뒤)에서 만든다. 만들 때 구독 하나 · 타이머 하나를 건다.
+  - 값: `runCost`(app.js 의 `TwRunCostDiag.page` 한 벌 — 프레임 · desktop-run · room-entry 와 같은 것)
+  - 읽는 함수: `_charBoundsLatest` · `_charBadWhy`(status-chip.js 가 쓴다) · `_twMoveSeenAt`(desktop-run.js 가 쓴다)
+  - 함수: `otherSeatCircles`(= `statusChipMod.otherSeatCircles`)
+- **내놓는 것**: 없음.
+- **함정**: `_charBoundsLatest` 객체에 칸을 덧붙이지 않는다 — 다음 주기에도 다시 쓰는 값이라 매번 새 객체로 보낸다. 주기 100ms 는 main 생존 신호의 기준이다.
+- **검사**: `checks/sim-heartbeat.js` — 모듈 모양 · 만들 때 구독 · 타이머 · app.js 연결 · mutation test. 보내는 값은 `sim-heartbeat-policy.js` 2절이 돌려 본다.
+
+## run-diag-minute.js — 🩺 1분 진단 줄
+
+- **책임**: 1분마다 `companion.diagNote` 로 진단 기록(tw-mouse-diag.log)에 두 줄 — `[비용]`(그리기 밖 시간 · 좌석 · 방 종류) · `[프레임]`(그린 장 · 상한 · 배율 · 캔버스 · 화질 + GPU · JS 꼬리).
+  실행 화면(`runmode`)일 때만 적지만, 1분 몫(`takeMinute` · `_gpuTimer.take` · `_frameJsStats.take` · `runCost.take`)은 늘 비운다.
+- **만드는 법**: `TwRunDiagMinute.createRunDiagMinute(deps)` — app.js 원래 자리(프레임 상한 · 포커스 연결 뒤, `function frame` 앞)에서 만든다. 만들 때 60초 타이머 하나를 건다.
+  - 값: `_FB`(FrameBudget) · `_frameBudget`(없으면 null — 그때는 아무것도 안 한다) · `_gpuTimer` · `_frameJsStats` · `runCost` · `hitShadow` · `renderer` · `canvas` · `scene` · `key` · `seats` · `Presence`
+  - 읽는 함수: `_renderQuality` · `_runLowered`(program-settings · 자동 낮춤이 다시 대입한다)
+  - 함수: `_frameCap` · `_bodyHidden`(= `hiddenSeatsMod._bodyHidden`)
+- **내놓는 것**: 없음.
+- **함정**: 줄 모양은 `frame-budget.js`(`diagLine`) · `gpu-timer.js`(`suffix`) · `run-cost-diag.js`(`line`) · `hit-shadow.js`(`lines`)가 정한다 — 여기서 글을 만들지 않는다. `[비용]` 줄은 `[프레임]` 줄 바로 앞에, `[지도]` 줄들은 `[프레임]` 뒤에 적는다.
+- **검사**: `checks/sim-run-diag-minute.js` — 모듈 모양 · 가짜 타이머로 한 번 돌려 보기(실행 화면 아님 · 맞음 · 상한 모듈 없음 · 그림자) · app.js 연결 · mutation test. 줄 내용은 `sim-frame-budget` · `sim-gpu-timer` · `sim-run-cost-diag`.
+
+## hit-map.js — 🗺️ 클릭 통과 히트 맵(순수 계산)
+
+- **책임**: 좌석 조각의 경계 구(월드 가운데 · 반지름)를 화면 사각형(CSS px — 통과 판정이 ndc 를 만드는 캔버스 사각형 기준)으로 투영하고, 그 사각형들로 «이 점을 덮는 조각 · 좌석» 을 답한다. three r128 `Mesh.raycast` 가 첫 거르기로 쓰는 바로 그 구라 «사각형 밖 ⇒ 광선도 못 맞춤» 이 식으로 성립한다. 설계: tw-docs `design/app/hit-map.md`.
+- **모양**: 순수 모듈 `window.TwHitMap` + `module.exports`(main 이 나중에 require — click-through-policy.js 와 같은 모양). THREE · DOM · 좌석을 모른다 — 숫자만 받는다.
+- **내놓는 것**: `sphereRect` · `createMap` · `reset` · `addSphere` · `addFull` · `candidates` · `pointIn` · `fresh` · `skipWhy` · 상수 `HIT_MAP_PAD_PX`(8) · `HIT_MAP_STALE_MS`(250) · `EMPTY` · `RECT` · `FULL`.
+- **함정**: 모르면 «전체»(카메라가 구 안 · 원근이 아닌 투영 · NaN · 캔버스 넓이 0) — «모른다» 를 «멀다» 로 바꾸지 않는다. 카메라 뒤 구만 «없음». 화면 밀기(`setViewOffset`)도 투영 행렬 모양 그대로 받는다.
+- **검사**: `checks/sim-hit-map.js` — 진짜 three 로 구 위의 점 · 사각형 밖 광선 · 경계 · mutation test.
+
+## hit-shadow.js — 🗺️ 히트 맵 그림자 운행의 셈 · 1분 `[지도]` 줄
+
+- **책임**: 0.12.4 는 통과 판정의 답을 옛 판정이 정하고, 새 판정(`room/seat-hit-targets.js` `pick`)을 옆에서 돌려 세기만 한다. 같음 · 지도만통과(옛 맞음 · 새 못 맞음 — 샘) · 지도만받기 · 건너뜀 · 전체(지도를 못 만들어 모든 좌석에 광선) · 오류 · 구간(먼 · 근처 · 위 — 옛 답 기준 횟수 · 옛 판정 시간) · 새 판정 시간(지도 만들기 포함) · 지도 만든 횟수 · 판정당 비율 · 만들기 시간 · 좌석 · 조각 · 삼각형 · 모르는 조각 · 더함 초당.
+- **모양**: `window.TwHitShadow = { createHitShadow({ now }), line, detailLine, lines, … }`. app.js 가 하나 만들어(`hitShadow`) 지도 만들기(`noteBuild`) · desktop-run(`record` · `allow`) · 1분 진단(`take`)에 같은 것을 넘긴다.
+- **함정**: 새 판정은 옛 판정을 한 번 더 도는 셈이라 광선 · 지도 만들기 몫은 1초 창마다 `BUDGET_MS`(10ms)까지만 쓰고 넘으면 건너뛴다(`allow` — 건너뛴 판정은 지도도 다시 안 만든다). 그림자는 받기 · 통과를 main 에 보낸 뒤 `_updateIgnore` 끝에서 돈다(desktop-run `_shadowArm` · `_hitShadowRun`) — 받기가 늦지 않고 `[비용]` 의 통과 시간에 안 든다(옛 판정만의 시간으로 0.12.4-beta.0 과 견준다). 다를 때 줄(`[지도✗]`)은 종류마다 1분에 첫 번째 하나. 줄은 200자 안.
+- **끝내는 조건**: 설계 3-4 — 7일 · PC 10대 넘게 · 지도만통과 0 · 지도만받기 0 · 지도 만들기 평균(좌석 8) 0.2ms 아래. 설계와 다른 점: 지도를 판정이 찾을 때 만들어서 «낡음» 칸이 없고 «만듦 · 판정당 %» 를 적는다. 채우면 둘째 PR 에서 `pick` 이 답을 정한다.
+- **검사**: `checks/sim-hit-shadow.js` — 셈 · 줄 모양 · 예산 · desktop-run 을 가짜 창에서 만들어 mousemove 로 «통과 결과는 옛 판정대로» · app.js 연결 · mutation test.
 
 ## oss-licenses.js — 📄 오픈소스 라이선스 창
 - 책임: «개인정보 처리방침» 옆 링크 둘(⚙️ 설정 › 정보 › 프로그램 정보 `#progOssLink` · 내 정보 맨 아래 `#miOssLink`)을 누르면 고정 크기 창(`OSS_WIN` 440×460 · 화면이 작으면 92vw / 80vh 안으로)에 목록을 보인다. 한 줄 = 이름(누르면 홈페이지) · 판 · 라이선스 칩 · [원문] 펼치기. 목록 · 원문은 창 안에서만 스크롤.
@@ -79,11 +130,166 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - **deps**: 함수 · 값 · 읽는 함수 · 쓰는 함수 — 목록은 `checks/sim-settings-panel.js` 의 `GLUE`. 이번에 더한 것: `isLauncherShown`(읽는 함수).
 - **내놓는 것**: `onTabShown(fn(탭))` — 탭을 보일 때 부를 것을 건다(program-settings.js 가 건다 — 이 모듈은 그쪽을 모른다, 서로 부르면 순환) · `openSettings(탭?)` — 탭 `'display' | 'char' | 'focus' | 'room' | 'info'`, 안 정하면 이번 실행에서 마지막에 본 탭(처음은 디스플레이) · `closeSettings()` · `nameplateClamp` · `nameplatePct`(이름표 크기 규칙 — 10~26px, 기본 15px = 100%) · 자리 추가 · 광고 배너 이름들.
 - **함정**: 다른 곳 버튼(런처 ⚙️ 설정 · 꾸미기 라이선스 안내)이 창을 연 그 클릭이 문서까지 올라와도 닫지 않게 «클릭 전에 열려 있었나» 를 캡처 단계에서 본다. 새 창을 만들었는데 그 창 위 클릭이 설정을 닫으면 안 되면 `FS_KEEP_OPEN_SEL` 에 더한다. 런처에선 끌기를 막는다(옮긴 자리가 실행 화면까지 따라간다).
-- **검사**: `checks/sim-settings-panel.js` — 모듈 모양 · app.js 연결 · 여닫기 · 탭 기억 · ⓘ · 이름표 크기 경계 · 깨 보기.
+- **검사**: `checks/sim-settings-panel.js` — 모듈 모양 · app.js 연결 · 여닫기 · 탭 기억 · ⓘ · 이름표 크기 경계 · mutation test.
 
 ## program-settings.js — ⚙️ 설정 창의 «프로그램» 칸
 - **책임**: 설정 창 안의 테마 · 실행 화면 화질 · 자동 실행 · 회사원 · 피규어 모드 · 영상 겹침 실험 · 라이선스 · 프로그램 정보 칸 동작. 창 · 탭은 settings-panel.js 하나다.
 - **deps**: `openSettings` · `closeSettings` · `onTabShown`(settings-panel.js) 외 목록은 `checks/sim-program-settings.js` 의 `GLUE`.
 - **내놓는 것**: `refreshTab(탭)` — 탭을 보일 때 그 탭의 칸을 다시 그린다(만들 때 `onTabShown` 에 건다) · `openProgramSettings(탭?)` · `closeProgramSettings()` — 옛 탭 이름(`license` → 정보 · `display` · `system` → 디스플레이)도 받는다. twNav `PROGRAM_SETTINGS` · `PROGRAM_SETTINGS_CLOSE` 를 여기서 건다.
 - **함정**: 영상 겹침 실험 칸은 통로가 있는 앱에서만 보인다 — 영상 · 화면공유가 검어지는 사람이 켜야 하는 해결책이라 지우지 않는다(도움말 5-1).
-- **검사**: `checks/sim-program-settings.js` — 모듈 모양 · 옛 탭 이름 · 탭 다시 그리기 · 버전 칸 · 깨 보기.
+- **검사**: `checks/sim-program-settings.js` — 모듈 모양 · 옛 탭 이름 · 탭 다시 그리기 · 버전 칸 · mutation test.
+
+## run-rect.js — 🖥️ 실행 창 자리 · 🧪 아래 띠 시험 스위치
+
+- **책임**: 모니터 작업영역에서 실행 화면 창 사각형을 만든다(순수 함수 · main.js 가 require). 실행 진입 · 모니터 바꾸기 · 표시 설정 바뀜 세 길이 `_runRectOf` 로 같은 사각형을 쓴다.
+- **내보내는 것**: `parseBand(argv)` → 띠 비율(없으면 1) · `runRect(workArea, overlayHeight, band)` → `{ x, y, width, height }` · `BAND_SWITCH`(`tw-run-band`) · `BAND_MIN`(0.25).
+- **🧪 시험 스위치 `--tw-run-band=0.4`**: 실행 창을 아래쪽 40% 높이로만 띄운다. «CPU 가 창 넓이에 따라 주는가» 를 재 보려는 시험이다 — 바로가기 대상 끝에 붙인다. 켰는지는 진단 기록 `[GPU]` 줄 «시험 스위치» 에 남는다.
+- **함정**
+  - 높이는 `overlay.runOverlayHeight`(아래 틈)로 깎은 값을 받는다 — 여기서 다시 깎지 않는다. 띠는 아래 끝을 그대로 두고 위만 내린다.
+  - 스위치가 없으면 옛 식과 한 픽셀도 다르면 안 된다 — 실행 창 크기가 바뀌면 `_winAlreadyIs` 억제가 깨져 창 조작이 다시 쏟아진다.
+  - 띠로 띄우면 날아가기 · 위쪽 말풍선 · 끌기는 띠 밖으로 못 나간다(시험이라 그대로 둔다).
+  - 검사: `checks/sim-run-rect.js` · `sim-overlay-gap.js`(세 자리가 이 함수를 거치는가) · `sim-fix-1008.js`([GPU] 줄).
+
+## reload-reset.js — 🪟 화면을 다시 불러오기 전에 창을 런처로
+
+- **책임**: 메인 창 화면이 다시 불러와질 때(렌더러가 죽어 다시 불러옴 · 화면이 스스로 다시 불러옴 등 어느 길이든) 창을 먼저 런처 크기로 되돌릴지 정한다(순수 판단 · main.js 가 require). 창 맞추기 자체는 main.js `_resetWindowToLauncher`(mac 에서 다시 연 창도 같이 쓴다).
+- **만드는 법**: main.js `_watchRendererHealth` 가 창마다 `ReloadReset.createReloadReset({ reset })` 한 벌.
+- **내놓는 것**: `onFinishLoad()`(did-finish-load) · `onNavigate()`(did-navigate — 메인 프레임이 실제로 다른 문서로 넘어감 · 다시 불러오기 포함) · `beforeReload()`(렌더러 사망 길 — 다시 불러오지 않을 때도 덮인 채 두지 않게).
+- **함정**
+  - `did-start-navigation` 을 쓰지 않는다 — main 이 막는 이동(바깥 링크 · file:// 밖 · blob:)에도 시작은 와서, 화면은 그대로인데 실행 화면이 런처 크기로 끼어 버린다.
+  - 처음 로드 · 해시 이동(did-navigate-in-page)은 되돌리지 않는다.
+  - 한 로드 사이에는 한 번만 되돌린다 — 사망 길이 먼저 되돌리고 이어서 다시 불러와도 두 번 안 한다.
+  - 검사: `checks/sim-renderer-gone-reset.js`(죽음 · 다시 불러오기 · 막힐 이동의 시작 차례를 가짜 창에서 실제로 돌림 · mutation test).
+
+## `notice-api.js` · `notice-feed.js` — 📢 공지 한 판(소식 · 업데이트 공지 · 런처 배너)
+
+**책임** — 공지의 원본은 서버다. `GET /v2/notices`(공개 · ETag — 같으면 304) 한 번에 소식(고정 + 최신 30) · 업데이트 공지 · 런처 배너를 받는다.
+`notice-api.js` 는 서버 모양(대문자 `tag` · `publishedAt` · `imageUrl` · `linkUrl`)을 화면 모양(소문자 tag · `ts` ms · `img` · `link`)으로 맞추는 provider 한 곳이고, 관리자 소식 쓰기(올리기 `POST /v2/admin/notices/broadcasts` · 📌 `PATCH` · 내리기 `DELETE`)도 여기다.
+`notice-feed.js` 는 받아 들고 있는 한 벌 — 받는 중 · 받음 · 못 받음, realtime `notices` 알림이 오면(오래 끊겼다 붙을 때 포함) 다시 받기, 받는 쪽마다 `onChange`.
+옛 장치는 걷었다: 버전 확인 + 이 PC 캐시(`broadcast-cache.js`) · 배너를 `localStorage('tw.adBanner')` 에 옮겨 적기 · 확성기의 `ts + duration` 계산.
+
+**만드는 법** — app.js 의 마이홈 처음 준비 만드는 줄 앞에서:
+
+```js
+const noticeFeed = TwNoticeFeed.createNoticeFeed({
+  api: TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) }),
+  rt: TwRtHub.store, notifyError: (...a)=>TwErrorCodes.notify(...a),
+});
+TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정 확인을 기다리지 않는다(공용 데이터)
+```
+
+**내놓는 것** — `notice-feed`: `start()` · `refresh({ manual }?)`(`manual` = «다시 시도») · `onceReady(fn)`(업데이트 공지를 딱 한 번 — 이미 받았으면 바로) · `status()` · `ready()`(보여 줄 소식이 있나 — 서버에서 받았다) · `confirmed()`(서버에서 받았나) · `broadcasts()` · `hasMore()` · `updateNotice()` · `banner()` · `onChange(fn)` · `sendBroadcast(o)` · `togglePin(id)` · `remove(id)`.
+쓰는 곳: 알림함 «소식» 칸(`myhome-inbox.js` · `myhome-init.js` 가 새 소식 토스트) · 런처 배너(`ad-banner.js` · 설정 패널 배너 `settings-panel.js`) · 업데이트 공지 팝업(app.js — 처음 받았을 때 한 번).
+확성기는 이 한 판에 없다 — realtime `announce` 메시지를 `room/overhead.js` 가 받는다(서버가 60초 안에서 보낸다).
+
+**오류 번호** — `E-MH-09`(받기 실패 · **사용자가 연 · 누른 받기(알림함 열기 · «다시 시도»)에서만** · 이어지는 동안 한 번 — 켤 때 · 알림으로 자동 받다 실패하면 번호 없이 못 받음 상태만) · `E-MH-12`(관리자 올리기 · 고정 · 내리기 — 409 는 다시 받고 알린다).
+못 받아도 **혼자 다시 받지 않는다**(타이머 없음) — 다시 받는 길은 공지 바뀜 알림 · «다시 시도» · 알림함이 나타날 때다. 닫힌 동안 실패한 채 알림함이 나타날 때(탭 누르기 · 알림함 탭이 켜진 채 창 열기) `myhome-inbox.js` 의 `retryIfFailed()` 가 manual 로 한 번 다시 받는다(받는 중이면 `busy()` 로 건너뜀).
+
+**함정**
+- **사본 없음**: 공지는 모두에게 같은 공용 데이터라 계정 확인을 기다리지 않고 켤 때 받는다(로그인 화면 위에도 업데이트 공지 · 런처 배너가 뜬다). 서버가 원본이라 이 PC 에 사본을 남기지 않는다.
+- 소식 읽음은 서버에 없다 — 이 PC(`tw.inboxBcRead`)에 남는다. 계정이 바뀌어도 같은 PC 면 같은 읽음이다(계정별 저장은 A2 몫).
+- 업데이트 공지의 «다시 보지 않기» 는 공지 시각(ms)을 기억한다 — 서버 시각으로 바뀌어 Firebase 시절 기억값과는 달라 한 번 더 뜰 수 있다.
+- 관리자 편집 창(`admin/`)은 아직 Firebase 로 쓴다 — 서버 경로로 옮기기 전에는 거기서 올린 확성기 · 업데이트 공지 · 배너가 앱에 안 보인다(관리자 묶음 몫).
+검사: `checks/sim-notice-api.js` · `checks/sim-notice-feed.js`(입력 → 출력 · 상태 · 409 · mutation test) · `checks/sim-ad-banner.js`(배너 그리기).
+
+## `user-local.js` — 🗂️ 이 계정이 이 PC 에서 고른 것을 확인 뒤에 읽는 한 칸
+
+**책임** — 모듈이 «만들 때» 계정 값을 PC 칸에서 읽으면 로그인 전에 앞 사람 값이 메모리에 올라온다. 그래서 모듈은 처음 값(기본값)으로 만들고, 계정 칸이 열린 뒤 이 칸(`app-boot` STEPS 맨 앞 `userLocal`)이 조각마다 `load` 를 불러 채운다. 세션이 끝나면(`session.onReset`) `reset` 을 거꾸로 불러 처음 값으로 되돌린다.
+**만드는 법** — `TwUserLocal.createUserLocal({ parts: [{ name, load, reset }] })`(app.js 한 곳). 조각이 던져도 다음 조각은 돈다. 조각을 더할 때: 그 모듈이 `loadLocal` · `resetLocal` 을 내놓고 app.js 의 목록에 한 줄 + `MOVED_KEYS` 에 키(옛 PC 값이 들어간 계정 칸으로 옮겨진다). 읽은 값이 화면에 걸려 있으면 `load` 에서 다시 그린다.
+**지금 조각** — `seatEq`(좌석 평준화) · `decoParts`(꾸미기 파츠 보이기) · `curSlot`(지금 고른 캐릭터 칸 — app.js) · `extraSeats`(자리 추가 슬롯 — `settings-panel.js`) · `status`(상태 · 커스텀 상태 · 켤 때 자리비움 복원 — app.js · `room/presence.js` `restoreBootStatus`) · `reportHidden`(신고로 숨긴 사람 — `room/hidden-seats.js`) · `playlistCur`(고른 플레이리스트 번호 — `status/playlist.js`) · `animal`(동물 숨김 해금 기록 — `character/animal.js`) · `emojiReactions`(반응 이모지).
+검사: `checks/sim-user-local.js`.
+
+## `app-boot.js` — 🚀 켜는 순서 한 곳
+
+**책임** — 0.13 의 켜는 순서를 한 줄로 고정한다. ① 계정 없이 돌아도 되는 것(창 · 테마 · 그리기 · 입력 · 원격 설정 · 점검 · 카탈로그 · 백색소음)은 바로 → ② 계정 확인(`license-gate.js checkInviteGate` → `login-flow.js confirm`) → 서버 계정으로 이 PC 맞추기(`account.js _enterAccount`) → ③ 안 바뀐 계정이면 게이트가 `twNav.go(NAV.ACCOUNT_ENTERED, me)` 로 알리고, 이 모듈이 한 번 — **옛 PC 값 옮기기(`migrateLegacy(그 코드)`) → 로그인 세션 만들기 + 계정 칸 열기(`session.openStore()` → `accountStore.open` — 열기 전엔 읽기 null · 쓰기 거절 + 경고) → 이 PC 등록(`registerDevice` — 계정마다 PC 는 서버가 정한 상한까지 · 다 찼으면 확인창 · [취소]면 세션을 끝내고 `toLogin`) → realtime 연결(`goOnline`) → 계정 기능 시작(맨 앞 `userLocal` 이 계정 칸에서 고른 것을 읽어 채운다)**. 로그인 필요 · 가입 필요 · 서버 안 됨이면 ③ 은 안 돈다. 계정이 바뀌었으면(`switched`) 앱을 다시 켜고, 다시 켠 뒤 새로 돈다. 로그아웃 차례(멈추기 → 올리기 → 지우기 → 다시 켜기)는 `account.js` 한 곳에 그대로 있다.
+
+**만드는 법** — app.js 가 계정 기능 모듈을 다 만든 뒤(`roomInviteUi` 다음) `TwAppBoot.createAppBoot({ twNav, migrateLegacy, newSession, registerDevice, toLogin, goOnline, starts })`(`newSession(me)` 는 `TwSession.createSession` — `shared/session.js`). `starts` 는 `STEPS` 의 이름마다 함수 하나(없거나 남으면 만들 때 던진다 — 한 기능을 빼먹을 수 없다). 각 함수는 `(code, me, session)` 을 받는다 — `session` 은 이번 로그인의 세션(**지금은 받아 쓰는 기능이 없다**).
+
+**차례 표(`STEPS`) — 이 순서가 정본이다**
+| # | 이름 | 시작하는 것 |
+|---|---|---|
+| 1 | userLocal | 🗂️ 이 계정이 이 PC 에서 고른 것(현재 슬롯 · 자리 추가 슬롯 · 상태 · 숨긴 사람 · 꾸미기 파츠 보이기 · 좌석 평준화 · 반응 이모지 · 코드로 추가한 책상 · 아이템 · 파츠(`savedDesks` · `savedItems` · `savedParts` — 칸마다 따로 읽는다) …)을 계정 칸에서 읽어 채움(`user-local.js` — 모듈은 처음 값으로 만들고 여기서 `loadLocal` · 세션이 끝나면 `resetLocal`) |
+| 2 | focusTotal | 포커스 누적 읽기(계정 칸) — 오늘치(`startFocusTotal`) |
+| 3 | focusShare | 📊 오늘 기록 전시 첫 보내기 · 15초 확인(`startFocusShare` — 오늘치가 읽힌 뒤) |
+| 4 | focusLevel | 포커스 진척 받기 · 못 올린 집중 시간 올리기(`focusProgress.startFocus`) |
+| 5 | weeklyChal | 👑 달성표 오늘 진행을 계정 칸에서 읽고 이번 주 한 벌을 서버에서 받기(`weeklyChal.startChallenge` → `chal-store.startChal` — 세션을 받아 쓴다) |
+| 6 | pomodoro | 🍅 뽀모도로 설정 · 진행을 계정 칸에서 읽기(`pomodoro.startPomodoro`) |
+| 7 | gacha | 🎰 가챠(`startGacha(session)` — 구독 · 비우기를 세션에) |
+| 8 | closet | 🧬 옷장(슬롯 5칸 · 보관함 · 휴지통) 서버에서 받기(`startCloset(session)` — 구독 · 저장 타이머 · 비우기를 세션에) |
+| 9 | mhInit | 🏠 마이홈 시작(`initMyHome(code, me, session)` — 접속 고정은 me 에서 · 받은 요청 · 우편 구독과 친구 목록 · 접속 표시 비우기는 세션에) |
+| 10 | bugBadge | 🐞 버그제보 탭 «새 답변» 배지 한 번 받기 |
+| 11 | scheduler | 📅 일정 알림 받기(`startSchedule(session)` — 서버 신호 셋 · 자정 타이머 · 비우기를 세션에) |
+| 12 | roomInvite | 🙋 방 초대 받기(`startReceive`) |
+| 13 | desktopBg | 🖥️ 바탕화면 배경 맞추기(`MYHOME_DESKTOP.startBgSync`) |
+| 14 | playlist | 🎵 플레이리스트 받기(`plMod.start(session)` — 받기 다시 시도 · 올리기 모으기 타이머 · 비우기를 세션에) |
+| 15 | licensePremium | 🔑 프리미엄 판정 반영(서버 확인) · 라이선스 알림 받기 |
+| 16 | adminMode | 🔐 세션이 끝나면 관리자 모드를 조용히 끈다(`twNav.go(NAV.ADMIN_EXIT)` → admin-mode 가 끈다 — 요청 0 · 비우기만 세션에) |
+| 17 | firstRun | 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기) |
+| 18 | licenseAutoRegister | 🔑 계정 라이선스에 이 기기 자동 등록 — 첫 실행이 끝나거나 멈춘 뒤 한 번(`licensePremium.autoRegisterAfter(firstRunMod.licenseDone())` — 0.12 키로 첫 실행이 등록을 해 봤으면 건너뜀) |
+
+**내놓는 것** — `begin(me)`(보통은 nav 로 불린다) · `getSession()`(들어가기 전·못 열었으면 null). 두 번 불러도 두 번째는 아무것도 안 하고 `false`(콘솔 경고). 한 칸이 던져도(동기 · 비동기) 다음 칸은 돈다.
+
+**함정**
+- 게이트가 이 모듈을 직접 부르면 순환이다(이 모듈이 모든 계정 기능을 부르는 맨 위층) — 그래서 `nav.js` 로 알린다(`sim-dep-cycles`).
+- 기능 모듈은 `createXxx` 안에서 요청 · 구독 · 타이머 · 계정 칸 읽기를 하지 않는다. 시작은 `startXxx` 로 내놓고 이 표에만 건다. 시작 안의 4~5초 부팅 타이머(`setTimeout`)는 기능끼리 요청을 흩는 간격이라 그대로 있다.
+- 계정 칸은 열기 전까지 닫혀 있고, 계정 칸 주인 모듈(포커스 누적 · 레벨 · 오늘 기록 전시 · 바탕화면)은 시작 전이면 입구에서도 읽기 · 쓰기를 안 한다.
+- 확인을 통과하기 전(보통 1~2초)에는 마이홈 · 일정 · 공지 같은 계정 화면이 비어 있다가 채워진다.
+- 함수 안의 `if(!uid) return` 입구 확인은 다른 길에서 불릴 수 있어 남겨 둔다.
+검사: `checks/sim-app-boot.js`(차례 · 한 번만 · 알림 없으면 0번 · 던져도 계속 · mutation test) · `checks/sim-license-gate.js`(게이트가 확인 뒤에만 알림) · `checks/sim-nav.js`.
+
+## launcher-state.js — 🧭 런처 공용 상태(앱 모드 · 마이홈 열림)
+
+- **책임**: 앱 모드(`run` · `editseat`)와 «마이홈이 런처 위에 열려 있나» 깃발을 드는 한 곳. 처음 값은 `run` · `false`.
+- **왜 여기**: 두 값은 바꾸는 모듈(`app-mode.js` · `window-mode.js`)이 들고 있었다. 달성표(`chal-store.js` · `weekly-challenge.js`) · 마이홈(창 · 페이지 · 구경 · 시작 · 친구 관리)이 그 모듈을 바라보고, 그 모듈도 달성표 · 마이홈을 불러 순환이 됐다(`checks/sim-dep-cycles.js`). 주인을 맨 아래로 내렸다.
+- **만드는 법**: `TwLauncherState.createLauncherState()` — 받는 것 없음. app.js 가 맨 앞(SETUP)에서 `launcherStateMod` 로 만든다(처음 읽는 모듈 — 친구 관리 — 보다 먼저). html · `checks/smoke.js` PRELOAD 에서 읽는 모듈 · app.js 보다 먼저 싣는다.
+- **내보내는 것**: `appMode()` · `setAppMode(v)` · `myHomeOpen()` · `setMyHomeOpen(v)`.
+- **누가 바꾸나**: 앱 모드는 `app-mode.js`(`launchApp` · `backToLauncher`)만. 마이홈 열림은 `app-mode.js`(런처 복귀) · app.js 가 마이홈 창 · 친구 홈 구경에 넘기는 쓰는 함수. 나머지(`window-mode.js` · 달성표 · 마이홈 모듈)는 읽기만 — 읽는 모듈은 app.js 가 `()=>launcherStateMod.이름()` 이나 `launcherStateMod` 값으로 넘긴다.
+- **함정**: 다른 파일에 `let appMode` · `let myHomeOpen` 을 다시 두면 두 벌이 된다. 검사: `checks/sim-launcher-state.js`.
+
+## app-mode.js — 🖥 런처 ↔ 실행 화면 전환
+
+- **책임**: 앱 모드 바꾸기(run · editseat — 값은 `launcher-state.js`) · `applyAppMode`(좌석 슬라이더 · 상태 미리보기 · 제목 · 창 크기 맞춤 부르기) · `launchApp`(내 좌석 다시 만들기 · 방 친구 복원 · 방에 나간 def 와 달라졌을 때만 새 def 를 방에 보냄 · 솔로 자리 추가 복원 · Tab 힌트) · `backToLauncher`(꾸미기 · 마이홈 닫아 저장 · 포커스 · 달성표 · 가챠 서버 맞추기) · «런처로» 버튼.
+- **만드는 법**: `TwAppMode.createAppMode({ … 21개 })` — 읽는 함수 6(`curSlot` · `focusLevelMod` · `gachaMod` · `Presence` · `roomEntryMod` · `weeklyChal`) · 함수 3(`applyDesktopRunClass` · `toast` · `layoutSeats`) · 런처 상태 `launcherState`(앱 모드를 바꾸고 · 런처 복귀 때 마이홈 열림을 끈다) · 값 11. 원래 자리(설정 패널 «캐릭터» 탭 안내 뒤)에서 만든다.
+- **내보내는 것**: `showEl` · `applyAppMode` · `launchApp` · `backToLauncher`.
+- **함정**: `layoutSeats` 는 app.js 에서 이 모듈보다 뒤에 정의되므로 `(...a)=>layoutSeats(...a)` 로 넘긴다(부를 때 찾는다). 검사: `checks/sim-app-mode.js`.
+
+## office-mode.js — 🏢 데스크탑 · 피규어 · 회사원 모드 깃발
+
+- **책임**: `desktopMode` · `figureMode` · `officeMode`(저장 키 `tw.figureMode` · `tw.officeMode`) · `setOfficeHidden`(body.office-hidden · ■ 버튼 표시 · 칩 팝업 닫기) · `refreshOfficeChipUI` · 상태칩 ■ 우클릭 연결 · `window.__officeDiag`(읽기만).
+- **만드는 법**: `TwOfficeMode.createOfficeMode({ chipPopupsMod })` — 값 하나. 원래 자리(데스크탑 모드 구역)에서 만든다.
+- **내보내는 것**: `desktopMode` · `FIGURE_MODE_KEY` · `OFFICE_MODE_KEY` · `refreshOfficeChipUI`(값 · 함수) · `figureMode` · `officeMode` · `_officeHidden`(읽는 함수) · `setFigureMode` · `setOfficeMode`(쓰는 함수).
+- **함정**: 만들 때 깃발을 읽고 `refreshOfficeChipUI()` 를 부른다 — 깃발을 최상위에서 읽는 app.js 줄(`focusGateSleep` 등)은 만드는 줄 아래에 둔다(TDZ — `checks/smoke.js` 가 잡는다). 검사: `checks/sim-office-mode.js`.
+
+## frame-pace.js — 🔋 프레임 상한 · rAF 멈춤 감시
+
+- **책임**: `FrameBudget` 만들기 · «자동» 화질 감시 · `_gpuTimer`(1분 `[프레임]` 줄 꼬리) · `_uiHot`(손댐 상한 해제) · `_fbIsBusy`(입력칸 · 꾸미기 · 춤 · 생성기 — 0.5초에 한 번만 DOM 을 봄) · `_frameCap` · `_frameCapped` · rAF 가 1초 넘게 안 오면 타이머가 `frame()` 을 대신 돌림 · 포커스 · 손댐 듣기.
+- **만드는 법**: `TwFramePace.createFramePace({ … 8개 })` — 읽는 함수 2(`_flyActive` · `creatorOpen`) · 함수 1(`frame`) · 쓰는 함수 1(`setRunLowered`) · 값 4. 원래 자리에서 만든다 — 타이머 · 듣기가 이때 걸린다.
+- **내보내는 것**: `_FB` · `_frameBudget` · `_runSlowWatch` · `_gpuTimer` · `_frameJsStats` · `_lowerRunQuality` · `_uiHot` · `_frameCap` · `_frameCapped` · `_lastRafAt`(읽는 함수) · `setLastRafAt`.
+- **함정**: `mousemove` 는 «손댐» 으로 세지 않는다(클릭 통과 중에도 들어와 30 ↔ 60 이 오르내림). `frame()`(app.js)이 rAF 가 실제로 온 시각을 `setLastRafAt` 으로 알린다. 검사: `checks/sim-frame-pace.js`.
+
+## frame-loop.js — 🎞 프레임 한 장
+
+- **책임**: `frame(now, manual)`(rAF 콜백)과 `prev` — rAF 시각 알림 · 프레임 상한 건너뜀 · dt · 좌석마다(상태 판정 → 자세 → 올라타기 · 벤치 · 자리비움 → 라벨 · 경험치 바 · 이름표 · 말풍선) · 3D 그리기 · 히트 맵 표시 · 상태칩 위치 · 비용 재기.
+- **만드는 법**: `TwFrameLoop.createFrameLoop({ … 53개 })` — 읽는 함수 여덟(`_renderQuality` · `awayPicMod` · `desktopMode` · `expBarMod` · `focusLevelMod` · `focusProgressMod` · `listenUi` · `officeModeMod`) · 함수 `myCode`(방 서버의 내 코드 — 🎧 DJ 딱지) · 나머지는 값. 서버 레벨을 받기 전(`focusProgressMod.isReady()` 거짓)에는 내 레벨 · 바를 그리지 않고 방에도 싣지 않는다. 원래 자리에서 만든다 — 만들기만 하고 부르지 않는다.
+- **내보내는 것**: `frame` — app.js 는 같은 이름 const 로 받는다. 첫 `requestAnimationFrame(frame)` 은 app.js INIT, 타이머 대행은 `frame-pace.js`.
+- **함정**: 좌석 한 명 몫(`seat-frame`)을 따로 떼는 일은 글 그대로 옮기기로는 안 된다(`continue` → `return` 등) — R5 로 남김. 이름표는 경험치 바 뒤 · 말풍선은 이름표 뒤 순서를 바꾸지 말 것. 검사: `checks/sim-frame-loop.js`.
+
+## move-mode.js — ✥ 프로그램 이동 모드 · 🩺 캐릭터 화면 좌표
+
+- **책임**: `moveMode` · `_moveModeJustToggled` · `_suppressNextContextMenu` 깃발 · `bindMoveMode`(mousemove 로 카메라 pan 이동 · pointerdown(capture)으로 확정 · 위치 저장) · `_charBoundsLatest` · `_charBadWhy` · `_charProjSane` · `_twMoveSeenAt`(하트비트로 main 에 보냄).
+- **만드는 법**: `TwMoveMode.createMoveMode({ … 6개 })` — 값 넷 · 함수 둘(`layoutSeats` · `toast`). 원래 자리에서 만든다 — 듣기가 이때 걸린다.
+- **내보내는 것**: `_charProjSane`(함수) · 값 여섯은 읽는 함수 `이름()` + 쓰는 함수 `set이름(v)`.
+- **함정**: 확정 pointerdown 은 capture 로 클릭 통과 로직보다 먼저 잡는다. 검사: `checks/sim-move-mode.js`.
+
+## window-mode.js — 🪟 창 모드 정하기 · 활성 앱 판정
+
+- **책임**: `_applyActiveAppState`(포커싱 어플 폴링 결과로 누적 시간 · 게이트 · 달성표 · 자기 창 · 펜 앱을 갱신) · `applyDesktopRunClass`(화면 · 런처 상태의 앱 모드 · 마이홈 열림을 보고 `runmode` · `config` 클래스 · 바닥 · 그림자를 정하고 main 에 창 모드 creator · myhome · launcher · run 을 보낸다). 집중이 끝나면(쌓던 → 안 쌓음) `focusProgressMod.focusEnded()` 로 못 올린 몫을 올린다 · 로비(`#inviteOverlay`)가 떠 있어도 마이홈 크기로 연다.
+- **만드는 법**: `TwWindowMode.createWindowMode({ … 14개 })` — 읽는 함수 둘(`creatorOpen` · `focusProgressMod`) · 쓰는 함수 하나(`setFocusGateSleep`) · 런처 상태 `launcherState`(읽기만) · 값 열(`focusGate` — «투게더워킹 창이 앞이면 안 잠듦» 규칙, `focus/focus-gate.js` 포함). 원래 자리(데스크탑 실행 화면 구역 머리 앞)에서 만든다.
+- **내보내는 것**: `_applyActiveAppState` · `applyDesktopRunClass`(app.js 가 같은 이름 const 로).
+- **함정**: `applyDesktopRunClass` 는 «누군가 불러줘야» 한다 — 오버레이를 여는 새 길이 생기면 여기도 부를 것. 여는 쪽 플래그가 아니라 화면(오버레이 `.on`)을 본다. 검사: `checks/sim-window-mode.js`.
+
+## run-boot.js — 🚀 켜는 차례 표
+
+- **책임**: app.js INIT 덩이의 차례를 표(`STEPS`) 한 곳으로 모은다 — 좌석 탭 → 앱 모드(+ 로비 창 크기 감시) → 관리자 UI → 라이선스 글 → 기본 몸 불러오기 → 프레임 루프 → 런처 루프 → 얼굴 복구 점검 → 창 크기 맞춤. 앱 FSD 분리 F3 · `app-boot.js` 와 같은 모양(계정 없이 도는 몫만 — 마이홈 시작 · 캐릭터 슬롯 받기 등 계정 기능은 `app-boot.js` 의 차례).
+- **만드는 법**: `TwRunBoot.createRunBoot({ starts, baseBody })` — `starts` 는 표에서 `baseBody` 를 뺀 여덟 이름마다 시작 함수 하나(없거나 남으면 만들 때 던진다), `baseBody` 는 `{ load, loadSkins, renderLauncher, onFailed }`. app.js 가 INIT 자리에서 만들고 `runBoot.begin()` 을 한 번 부른다.
+- **함정**: 만들 때는 일하지 않는다 — `begin` 이 부를 때만 돈다(두 번째 `begin` 은 아무것도 안 하고 false). 한 칸이 던져도 다음 칸은 돈다. 기본 몸을 못 읽으면(`load` 가 false 이거나 던짐) 안내(`E-SYS-08`)를 한 번 띄우고 대신 몸으로 이어 간다 · 어느 단계가 던져도 런처는 그린다. INIT 위치를 옮기지 말 것 — 뒤에서 만드는 모듈(투게더룸 초대 UI · 서버 모듈 감시견)은 INIT 이 안 부른다. 검사: `checks/sim-run-boot.js`.

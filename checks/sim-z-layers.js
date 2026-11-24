@@ -6,7 +6,7 @@
    ・2절: 창마다 — 표의 이름만 쓴다(숫자를 직접 적지 않는다) · 풀어 본 값
    ・3절: 층 차례 — 대화상자는 창 쌓기(83~92) · 꾸미기 위 · 막는 창은 대화상자 위 · 편집 · 종족은 창 쌓기 목록 안
    ・4절: 창 쌓기를 실제로 돌려 본다 — 마이홈을 누른 뒤 편집을 열면 편집이 위 · 그 뒤 마이홈을 누르면 마이홈이 위(B-1016-4)
-   ・5절: 일부러 깨 보기 */
+   ・5절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -28,15 +28,15 @@ const WINDOWS = {
   adBannerOverlay: '--z-dialog-admin', totalStatsOverlay: '--z-dialog-admin', roomInvitePickOverlay: '--z-dialog-admin',
   bellWin: '--z-win-bell', focusLogOverlay: '--z-win-focuslog', myHomeOverlay: '--z-win-myhome', mhGbOverlay: '--z-win-guestbook',
   updateNoticeUserOverlay: '--z-dialog-notice', chatOverlay: '--z-win-chat', pkOverlay: '--z-win-chat', wardrobePanel: '--z-wardrobe', wdPreviewPanel: '--z-wardrobe',
-  charsLinkedOverlay: '--z-gate-device', deviceSessionOverlay: '--z-gate-device', inviteGateOverlay: '--z-gate-invite', mhDesignOverlay: '--z-mh-design',
-  existingSignupOverlay: '--z-gate-signup', needLoginOverlay: '--z-gate-signup', signupDoneOverlay: '--z-gate-done',
+  deviceSessionOverlay: '--z-gate-device', inviteGateOverlay: '--z-gate-invite', mhDesignOverlay: '--z-mh-design',
+  signupDoneOverlay: '--z-gate-done',
 };
 /* 지금 값 — 이 표가 바뀌면 화면 앞뒤가 바뀐다(바꿀 때는 이 표와 관계 판정을 같이) */
 const WANT = { '--z-friend-picker': 46, '--z-launcher': 50, '--z-work': 55, '--z-win-settings': 58, '--z-win-bell': 62, '--z-win-focuslog': 70, '--z-win-myhome': 71,
   '--z-win-guestbook': 74, '--z-win-chat': 82, '--z-wardrobe': 93, '--z-dialog-code': 100, '--z-dialog': 101, '--z-dialog-program': 102, '--z-dialog-admin': 103,
-  '--z-dialog-notice': 104, '--z-gate-device': 110, '--z-gate-invite': 111, '--z-mh-design': 111, '--z-gate-signup': 112, '--z-gate-done': 113 };
+  '--z-dialog-notice': 104, '--z-gate-device': 110, '--z-gate-invite': 111, '--z-mh-design': 111, '--z-gate-done': 113 };
 const DIALOGS = ['--z-dialog-code', '--z-dialog', '--z-dialog-program', '--z-dialog-admin', '--z-dialog-notice'];
-const GATES = ['--z-gate-device', '--z-gate-invite', '--z-gate-signup', '--z-gate-done'];
+const GATES = ['--z-gate-device', '--z-gate-invite', '--z-gate-done'];
 
 function parseTable(html) {
   const m = /:root\{([^}]*--z-[^}]*)\}/.exec(html);
@@ -46,7 +46,7 @@ function parseTable(html) {
 }
 /* 창의 z-index 글 — 인라인 style 이 있으면 그것, 아니면 CSS 규칙(쉼표 묶음 · body.desktop 같은 앞붙이 없는 규칙)에서 */
 function zTextOf(html, id) {
-  const inl = new RegExp('<div id="' + id + '" style="([^"]*)"').exec(html);
+  const inl = new RegExp('<div id="' + id + '"(?:\\s+[\\w-]+(?:="[^"]*")?)*?\\s+style="([^"]*)"').exec(html);
   if (inl) { const z = /z-index:([^;]+);/.exec(inl[1]); if (z) return z[1].trim(); }
   const css = html.split('<style>').slice(1).map((x) => x.split('</style>')[0]).join('\n');
   const re = new RegExp('(?:^|\\n|\\})\\s*((?:#[\\w-]+\\s*,\\s*)*#' + id + '(?:\\s*,\\s*#[\\w-]+)*)\\s*\\{([^}]*)\\}', 'g');
@@ -186,11 +186,11 @@ say('── 1 · 2 · 3. 창 층 표 · 창마다 · 층 차례');
 judge(HTML, WS).forEach(([ok, msg]) => chk(ok, msg));
 say('── 4. 창 쌓기를 돌려 본다');
 judgeStack(WS).forEach(([ok, msg]) => chk(ok, msg));
-say('── 5. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 5. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['마이홈이 숫자를 직접', (h) => h.replace('#myHomeOverlay{display:none;position:fixed;inset:0;z-index:var(--z-win-myhome);', '#myHomeOverlay{display:none;position:fixed;inset:0;z-index:71;')],
   ['편집 창이 대화상자 층', (h) => h.replace('#creatorOverlay{position:fixed;inset:0;z-index:var(--z-work);', '#creatorOverlay{position:fixed;inset:0;z-index:var(--z-dialog);')],
-  ['관리자 창 인라인 숫자', (h) => h.replace(/(<div id="adBannerOverlay" style="[^"]*?)z-index:var\(--z-dialog-admin\);/, '$1z-index:60;')],
+  ['관리자 창 인라인 숫자', (h) => h.replace(/(<div id="adBannerOverlay"(?: data-admin-win)? style="[^"]*?)z-index:var\(--z-dialog-admin\);/, '$1z-index:60;')],
   ['표 값 바뀜', (h) => h.replace('--z-work: 55;', '--z-work: 54;')],
   ['표 이름 빠짐', (h) => h.replace(/\n\s*--z-win-bell: 62;[^\n]*/, '')],
   ['대화상자를 창 쌓기 아래로(옛 57)', (h) => h.replace('--z-dialog: 101;', '--z-dialog: 57;')],

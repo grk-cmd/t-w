@@ -96,7 +96,6 @@ export interface Messages {
   metaDescription: string;
   skipToContent: string;
   navLabel: string;
-  navMaker: string;
   navAbout: string;
   navHelp: string;
   navDownload: string;
@@ -107,7 +106,6 @@ export interface Messages {
   heroLead1: string;
   heroLead2: string;
   heroCtaDownload: string;
-  heroCtaMaker: string;
   heroNote: string;
   landName: string;
   landAria: string;
@@ -116,9 +114,6 @@ export interface Messages {
   landOk: string;
   newsTitle: string;
   newsEmpty: string;
-  makerTitle: string;
-  makerLead: string;
-  makerWinTitle: string;
   creator: CreatorMessages;
   aboutTitle: string;
   aboutLead: string;
@@ -148,7 +143,6 @@ export const ko: Messages = {
     '내가 만든 캐릭터와 함께 작업하는 Windows · macOS 데스크톱 컴패니언. 집중한 시간만큼 레벨이 오르고, 친구와 같은 방에서 일해요.',
   skipToContent: '본문으로 건너뛰기',
   navLabel: '메인 메뉴',
-  navMaker: '캐릭터 만들기',
   navAbout: '소개',
   navHelp: '도움말',
   navDownload: '다운로드',
@@ -159,7 +153,6 @@ export const ko: Messages = {
   heroLead1: '내가 만든 캐릭터와 함께 작업해요.',
   heroLead2: '집중한 시간만큼 레벨이 오르고, 새로운 보상이 열려요.',
   heroCtaDownload: '내려받기',
-  heroCtaMaker: '캐릭터 만들어 보기 →',
   heroNote: '초대 코드가 있어야 가입할 수 있어요',
   landName: '투게더랜드',
   landAria: '투게더랜드 (잠겨 있음)',
@@ -168,10 +161,6 @@ export const ko: Messages = {
   landOk: '확인',
   newsTitle: '📰 소식 · 업데이트',
   newsEmpty: '소식을 준비하고 있어요.',
-  makerTitle: '캐릭터 만들기',
-  makerLead:
-    '얼굴 레이어를 골라 쌓고 옷 색을 고르면 기본 · 감은눈 얼굴이 함께 만들어져요. 로그인 없이 해 볼 수 있어요.',
-  makerWinTitle: '🎨 캐릭터 만들기',
   creator: {
     loading: '캐릭터를 불러오는 중…',
     loadFailed: '캐릭터를 불러오지 못했어요. 잠시 뒤 다시 해 주세요.',
@@ -323,7 +312,6 @@ export const en: Messages = {
     'A desktop companion for Windows and macOS: work alongside a character you made. Level up as you focus, and work in the same room with friends.',
   skipToContent: 'Skip to content',
   navLabel: 'Main menu',
-  navMaker: 'Character Maker',
   navAbout: 'About',
   navHelp: 'Help',
   navDownload: 'Download',
@@ -334,7 +322,6 @@ export const en: Messages = {
   heroLead1: 'Work alongside a character you made yourself.',
   heroLead2: 'Focus longer to level up and unlock new rewards.',
   heroCtaDownload: 'Download',
-  heroCtaMaker: 'Make a character →',
   heroNote: 'An invite code is required to sign up',
   landName: 'Together Land',
   landAria: 'Together Land (locked)',
@@ -343,10 +330,6 @@ export const en: Messages = {
   landOk: 'OK',
   newsTitle: '📰 News · Updates',
   newsEmpty: 'News is on its way.',
-  makerTitle: 'Character Maker',
-  makerLead:
-    'Stack face layers and pick clothing colors — the default and eyes-closed faces are made together. No login needed.',
-  makerWinTitle: '🎨 Character Maker',
   creator: {
     loading: 'Loading the character…',
     loadFailed: "Couldn't load the character. Please try again in a moment.",
@@ -499,7 +482,6 @@ export const ja: Messages = {
     '自分で作ったキャラクターと一緒に作業する Windows・macOS 対応デスクトップコンパニオン。集中した時間だけレベルが上がり、友だちと同じ部屋で作業できます。',
   skipToContent: '本文へスキップ',
   navLabel: 'メインメニュー',
-  navMaker: 'キャラクターメーカー',
   navAbout: '紹介',
   navHelp: 'ヘルプ',
   navDownload: 'ダウンロード',
@@ -510,7 +492,6 @@ export const ja: Messages = {
   heroLead1: '自分で作ったキャラクターと一緒に作業しよう。',
   heroLead2: '集中した時間だけレベルが上がり、新しいごほうびが解放されます。',
   heroCtaDownload: 'ダウンロード',
-  heroCtaMaker: 'キャラを作ってみる →',
   heroNote: '登録には招待コードが必要です',
   landName: 'トゥゲザーランド',
   landAria: 'トゥゲザーランド(ロック中)',
@@ -519,10 +500,6 @@ export const ja: Messages = {
   landOk: 'OK',
   newsTitle: '📰 お知らせ・アップデート',
   newsEmpty: 'お知らせを準備しています。',
-  makerTitle: 'キャラクターメーカー',
-  makerLead:
-    '顔のレイヤーを重ねて服の色を選ぶと、通常と目閉じの顔が一緒に作られます。ログインなしで試せます。',
-  makerWinTitle: '🎨 キャラクターメーカー',
   creator: {
     loading: 'キャラクターを読み込み中…',
     loadFailed: 'キャラクターを読み込めませんでした。少ししてからもう一度お試しください。',

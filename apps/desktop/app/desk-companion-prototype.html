@@ -45,34 +45,23 @@
      · img-src 의 `https: http:` 는 남의 bio·게시글·마이홈 배경(url(...bgImg))의 외부 이미지를
        위해 열어 둔 것이다. 6절 ① 결정과 한 몸이고, 지금은 _MH_IMG_SRC='any' 와 짝을 맞춰 열어 둔다. -->
 
-<!-- 🛰 [실측으로 확정] script-src 에 **RTDB 호스트**가 필요하다 — connect-src 만으로는 부족하다.
-     [무엇이 일어났는가] CSP 적용 뒤 일부 유저만 서버 연결이 끊겼다. 콘솔에는
-       `Refused to load the script 'https://together-working-default-rtdb.asia-southeast1.firebasedatabase.app/…'`
-       (violated: script-src · 출처 WebSocketConnection.ts) 이 14~21건 찍혔다.
-     [왜 script-src 인가] RTDB 는 웹소켓이 안 열리는 회선(사내망·프록시·백신의 SSL 검사 등)에서
-       **롱폴링으로 자동 폴백**하는데, 그 폴백은 `.lp?…` 를 **`<script>` 태그로 불러온다**(JSONP 방식).
-       그래서 웹소켓이 되는 유저는 멀쩡하고, 폴백을 타는 유저만 통째로 죽는다 —
-       "일부 유저"라는 제보 모양이 정확히 이것이다. 개발 PC에서는 웹소켓이 열리니 재현되지 않는다.
-     ⚠️ connect-src 는 이미 같은 호스트를 허용하고 있었다. 웹소켓 경로만 보고 있었던 것이다.
-     ⚠️ **2단계('unsafe-inline' 제거)로 가기 전에 반드시 읽을 것** — 롱폴링은 숨은 iframe 안에
-       인라인 스크립트를 써 넣는다. 'unsafe-inline' 을 빼면 폴백 유저가 다시 죽을 수 있고,
-       그 고장 역시 웹소켓이 되는 환경에서는 재현되지 않는다. 2단계 검증은 반드시
-       "웹소켓이 막힌 회선"(예: 백신 SSL 검사 켜기)에서 한 번 돌려보고 넘어갈 것. -->
-<!-- 🔐 [2026-09-22 · 회원가입 C2] connect-src 에 함수 호스트 `https://asia-southeast1-together-working.cloudfunctions.net` 을 더했다.
-     비밀번호 바꾸기(함수 `changePassword` · 호출형)가 여기로 간다 — 없으면 fetch 가 CSP 에 막혀 «네트워크 오류» 로만 보인다.
-     리전·프로젝트는 parts/firebase-config.js(databaseURL 의 asia-southeast1 · projectId together-working)와 같다.
-     와일드카드(*.cloudfunctions.net)로 넓히지 않았다 — 남의 함수로 나가는 길을 열 이유가 없다.
-     ⚠️ 함수 리전을 바꾸면 이 두 줄과 firebase-init.js FUNCTIONS_REGION 을 같이 바꾼다. -->
-<!-- 🛰 connect-src 의 방 서버 · API — wss · https://*.together-working.com(새 도메인) · wss · https://*.togetherworking.duckdns.org(옛 주소 — 운영 설정 servers 값 · dev 서버)(방 서버 묶음 · 이 접미사만) · ws://127.0.0.1:8787 · localhost:8787(로컬 시험).
+<!-- 🛰 [E-6] script-src 는 `https://www.gstatic.com`(Firebase 앱 · Auth · Storage 모듈)만 연다. 실시간 DB 주소는 뺐다.
+     예전에는 DB SDK 가 웹소켓이 막힌 회선에서 긴 폴링 글(`.lp?…`)을 `<script>` 태그로 받아 script-src 에 DB 호스트가 필요했다.
+     0.13 앱은 DB 를 점검 칸(`config/maintenance`) 한 곳만 읽고(firebase-init.js · 서버에 못 닿을 때만), `forceWebSockets()` 로 웹소켓만 쓴다
+     (SDK 가 웹소켓 실패를 localStorage 에 기억해 다음부터 긴 폴링을 먼저 쓰는 길도 막는다). 읽기에는 시간 제한이 있다(maintenance-gate.js `FLAG_TIMEOUT_MS`).
+     connect-src 에는 `*.firebasedatabase.app` 의 https · wss 두 줄만 남겼다 — 이 점검 칸 읽기 때문이다. 옛 `*.firebaseio.com` · 함수 호스트 ·
+     `*.appspot.com` 은 앱이 부르는 곳이 없어 뺐다(그림 올리기 · 내려받기는 `*.googleapis.com` 의 firebasestorage 호스트).
+     ⚠️ 웹소켓이 막힌 회선은 점검 칸 읽기가 시간 제한 뒤 «못 읽음» 으로 끝난다(서버 읽기가 먼저라 서버에 닿으면 상관없다). -->
+<!-- 🛰 connect-src 의 방 서버 · API — wss · https://*.together-working.com(이 접미사만) · ws://127.0.0.1:8787 · localhost:8787(로컬 시험).
        와일드카드는 관리자가 config/roomServer/servers 에 서버 이름만 더해 늘릴 수 있게다. 다른 도메인은 여전히 막는다.
-       앱이 실제로 붙는 주소는 parts/room-server-gate.js 가 한 번 더 거른다(같은 접미사의 wss/https 만 · 로컬은 dev 앱만).
+       앱이 실제로 붙는 주소는 parts/realtime/rt-hub.js(realtimeUrlFor) · parts/shared/api-client.js(apiBaseFor)가 한 번 더 거른다(같은 접미사의 wss/https 만 · 로컬은 dev 앱만).
        로컬은 포트 하나(8787)만 연다 — 모든 포트(*)를 열면 내 PC 의 다른 웹소켓(브라우저 디버그 포트 등)에도 닿을 수 있다.
-       ⚠️ 서버 주소를 바꾸면 두 줄 모두와 room-server-gate.js ROOM_SERVER_URL_RE · api-client.js API_BASE_RE 를 같이 바꾼다. -->
+       ⚠️ 서버 주소를 바꾸면 두 줄 모두와 rt-hub.js REALTIME_URLS · DEV_URL_RE · api-client.js API_BASE_RE 를 같이 바꾼다. -->
 <!-- ▼▼ 1단계 (지금 활성) — script-src 에 'unsafe-inline' 있음 ▼▼ -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: 'unsafe-inline' https://www.gstatic.com https://*.firebasedatabase.app https://*.firebaseio.com; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https: http:; media-src 'self' file: data: blob:; font-src 'self' file: data:; connect-src 'self' data: blob: https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://asia-southeast1-together-working.cloudfunctions.net https://*.appspot.com https://www.gstatic.com https://www.youtube.com wss://*.together-working.com https://*.together-working.com wss://*.togetherworking.duckdns.org https://*.togetherworking.duckdns.org ws://127.0.0.1:8787 ws://localhost:8787; worker-src 'self' blob:; frame-src https://help.together-working.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: 'unsafe-inline' https://www.gstatic.com; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https: http:; media-src 'self' file: data: blob:; font-src 'self' file: data:; connect-src 'self' data: blob: https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.googleapis.com https://www.gstatic.com https://www.youtube.com wss://*.together-working.com https://*.together-working.com ws://127.0.0.1:8787 ws://localhost:8787; worker-src 'self' blob:; frame-src https://help.together-working.com; object-src 'none'; base-uri 'none'; form-action 'none'">
 
 <!-- ▼▼ 2단계 — 위 줄을 주석 처리하고 이 줄의 주석을 벗기면 'unsafe-inline' 만 빠진다 ▼▼
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: https://www.gstatic.com https://*.firebasedatabase.app https://*.firebaseio.com; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https: http:; media-src 'self' file: data: blob:; font-src 'self' file: data:; connect-src 'self' data: blob: https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://asia-southeast1-together-working.cloudfunctions.net https://*.appspot.com https://www.gstatic.com https://www.youtube.com wss://*.together-working.com https://*.together-working.com wss://*.togetherworking.duckdns.org https://*.togetherworking.duckdns.org ws://127.0.0.1:8787 ws://localhost:8787; worker-src 'self' blob:; frame-src https://help.together-working.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: https://www.gstatic.com; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https: http:; media-src 'self' file: data: blob:; font-src 'self' file: data:; connect-src 'self' data: blob: https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.googleapis.com https://www.gstatic.com https://www.youtube.com wss://*.together-working.com https://*.together-working.com ws://127.0.0.1:8787 ws://localhost:8787; worker-src 'self' blob:; frame-src https://help.together-working.com; object-src 'none'; base-uri 'none'; form-action 'none'">
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Desk Companion — 멀티 좌석 프로토타입</title>
@@ -81,7 +70,7 @@
      ★ 숫자를 창마다 따로 적으면 «이 창은 저 창보다 위» 가 숫자끼리의 우연한 크기로만 정해져, 하나를 바꾸면 엮인 창이 다 흔들린다(B-1016-4).
      ★ 층 차례: 런처 → 작업창 · 창 쌓기 창(열거나 누르면 83~92 안에서 맨 위 — shared/win-stack.js) → 꾸미기(93) → 대화상자(100~) → 막는 창(가입 · 로그인 · 기기 110~).
        대화상자는 어느 창에서 열든 그 창 위에 떠야 해서 창 쌓기 위에 둔다(예전 57 은 편집 · 마이홈을 창 쌓기에 넣는 순간 그 뒤로 숨는다).
-     ⚠️ 이 표 밖(가챠 120 · 마이홈 팝업 9200 · 토스트 9100 · 색 고르기 9999)은 이 표보다 늘 위다. 검사: checks/sim-z-layers.js */
+     ⚠️ 이 표 밖(가챠 120 · 마이홈 팝업 9200 · 토스트 9100 · 색 고르기 9999 · 맥 설명 말풍선 10000)은 이 표보다 늘 위다. 검사: checks/sim-z-layers.js */
   :root{
     --z-friend-picker: 46;   /* 친구 고르기 */
     --z-launcher: 50;        /* 런처 화면 */
@@ -101,7 +90,6 @@
     --z-gate-device: 110;    /* 캐릭터 연결 안내 · 다른 기기 접속 */
     --z-gate-invite: 111;    /* 초대장 게이트 */
     --z-mh-design: 111;      /* 👑 마이홈 디자인 스튜디오(초대 게이트와 같은 자리였다) */
-    --z-gate-signup: 112;    /* 이미 가입 · 로그인 필요 */
     --z-gate-done: 113;      /* 가입 완료 */
     --z-gate-confirm: 114;   /* 처음 보는 구글 계정 · 구글 연결 묻기(게이트 · 가입 완료 위에서도 뜬다) */
   }
@@ -816,6 +804,7 @@
   .chat-messages .cm-unread-sep::before,
   .chat-messages .cm-unread-sep::after{content:"";flex:1;height:0;border-top:1px dashed #e0a0a0;}
   .chat-messages a{color:#0a3;text-decoration:underline;}
+  .chat-messages .ext-link,.chat-messages .ext-link:hover{color:#0a3;}   /* 채팅 주소 칸은 예전 초록 그대로(공용 .ext-link 는 파랑) */
   /* 📋 대화 칸만 글자를 고를 수 있다 — body 의 user-select:none 을 여기서만 푼다.
      이름표·탭·메뉴·툴바는 그대로 못 고른다. 시각·구분선은 위 규칙의 none 이 이긴다(더 구체적). */
   .chat-messages, .chat-messages *{user-select:text;-webkit-user-select:text;}
@@ -867,6 +856,12 @@
   .chat-tool-btn.on{background:var(--win-face-2);outline:1px solid var(--ink);}
   .chat-input{background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
     padding:6px;font-size:12px;color:#111;font-family:inherit;border-radius:var(--win-radius-el) !important;}
+  .chat-input-line{display:flex;gap:4px;align-items:stretch;}
+  .chat-input-line .chat-input{flex:1;min-width:0;}
+  .chat-send-btn{flex:none;padding:0 10px;font-size:12px;font-weight:bold;font-family:inherit;color:var(--ink);background:var(--win-face);cursor:pointer;
+    border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
+  .chat-send-btn:hover{background:var(--win-face-2);}
+  .chat-send-btn:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
   .chat-profile{width:74px;background:var(--win-face-2);border:2px solid;
     border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
     display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:74px;border-radius:var(--win-radius-el) !important;}
@@ -1494,10 +1489,6 @@
   .lc-btn.ghost{background:var(--win-face);color:var(--ink);}
   .lc-btn.ghost:hover:not(:disabled){background:var(--win-face-2);}
   .lc-btn:disabled{opacity:.5;cursor:default;}
-  /* 라이선스 요청 보내기 — 기본은 숨김(접힘), 확인 버튼을 Ctrl 누른 채 3연속 클릭하면 펼쳐짐(비공개 트릭) */
-  .lic-req-section{max-height:0;overflow:hidden;border-top:0 solid transparent;margin-top:0;padding-top:0;
-    transition:max-height .3s ease, margin-top .3s ease, padding-top .3s ease, border-top-width .3s ease;}
-  .lic-req-section.open{max-height:280px;border-top:2px solid var(--win-lo);margin-top:12px;padding-top:10px;}
   .lc-menu{position:absolute;top:60px;right:18px;z-index:4;display:none;flex-direction:column;background:var(--win-face);
     border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 2px 2px 0 rgba(0,0,0,.3);border-radius:var(--win-radius-el) !important;}
@@ -1731,21 +1722,29 @@
   .race-card.disabled .race-preview{filter:grayscale(1) opacity(.65);}
 
   /* 방 목록 로비(room-lobby-ui.js) — 모달을 넓혀 카드 3 × 4. 베젤 없음(audit 검사 12 대상 아님) · 색은 토큰만.
-     두 칸: 왼쪽 방 목록 · 오른쪽 만들기 · 참여. 폭은 마이홈 창(#myHomeWin)과 같다 — 런처에서 열면 창도 마이홈 크기(app.js applyDesktopRunClass). */
-  #inviteModal{width:760px;}
+     두 칸: 왼쪽 방 목록 · 오른쪽 만들기 · 참여. 폭은 마이홈 창(#myHomeWin)과 같다 — 런처에서 열면 창도 마이홈 크기(launcher/window-mode.js applyDesktopRunClass).
+     max-height 는 넘칠 때(줌 · 작은 화면) 위아래가 잘리지 않게 하는 보험 */
+  #inviteModal{width:760px;max-height:calc(100vh - 12px);overflow-y:auto;}
+  /* 방 안에서 열면 로비가 없다 — 버튼 몇 줄뿐이라 로비 폭이면 가로로 길게 늘어진다. 폭을 좁힌다(켜고 끄기는 room-entry.js refreshInviteUI) */
+  #inviteModal.in-room{width:380px;}
+  /* 닫기는 제목줄 ✕(설정 창과 같은 모양) */
+  #inviteModal h2{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  #inviteModal .lb-x{width:16px;height:14px;padding:0;font-family:inherit;font-size:10px;line-height:1;cursor:pointer;color:var(--ink);
+    display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;
+    background:var(--win-face);border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
   /* 런처에서 열면 창이 마이홈 크기라 뒤 런처 카드(680 높이)가 모달 위아래로 비친다 — 카드만 숨긴다.
      ⚠️ 바탕을 칠하지 않는다 — 데스크톱은 창 · 런처 바탕이 투명이라(body.desktop #launcher) 칠하면 바탕화면 위에 색 판이 뜬다.
      숨긴 카드 제목줄의 끌기 칸도 끈다(끌기 칸은 보임과 따로 산다) — 창은 모달 제목으로 끈다(마이홈 #myHomeTitle 과 같다). */
   body.desktop.config:has(#inviteOverlay.on) #launcher .lc-card{visibility:hidden;}
   body.desktop.config:has(#inviteOverlay.on) #launcher .lc-bar{-webkit-app-region:no-drag;}
   body.desktop.config #inviteModal h2{-webkit-app-region:drag;cursor:move;}
+  body.desktop.config #inviteModal h2 .lb-x{-webkit-app-region:no-drag;}
   #lobbyMain{display:flex;gap:12px;align-items:stretch;}
   #lobbyMain[hidden]{display:none;}
   #lobbyMain .lb-main{flex:1;min-width:0;display:flex;flex-direction:column;}
   #lobbyMain .lb-side{flex:none;width:210px;display:flex;flex-direction:column;gap:8px;padding-left:12px;border-left:1px solid var(--win-lo-2);}
   #lobbyMain .lb-side > .lc-btn{margin-top:0;}
-  #lobbyMain #inviteJoinPanel{margin-top:4px;padding-top:10px;border-top:1px solid var(--win-lo-2);}
-  #lobbyMain .lb-donate{margin-top:auto;text-align:center;}
+  #lobbyMain .lb-join{margin-top:4px;padding-top:10px;border-top:1px solid var(--win-lo-2);}
   #lobbyMain .lb-secret{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;padding:7px 10px;border:1px solid var(--win-select);border-radius:var(--win-radius-el);background:var(--win-face-2);font-size:12px;color:var(--ink);}
   #lobbyMain .lb-secret[hidden]{display:none;}
   #lobbyMain .lb-secret-tag{color:var(--win-select);}
@@ -1761,10 +1760,10 @@
   #lobbyMain .lb-seg button.on{background:var(--tw-bg-select);color:var(--tw-ink);font-weight:bold;}
   #lobbyMain .lb-icon{min-width:26px;height:24px;margin-bottom:4px;font-size:13px;color:var(--ink);background:var(--win-face-2);border:1px solid var(--ink-soft);border-radius:var(--win-radius-el);cursor:pointer;}
   #lobbyMain .lb-icon:disabled{opacity:.4;cursor:not-allowed;}
-  #lobbyMain .lb-panel{border:1px solid var(--ink-soft);border-radius:0 var(--win-radius-el) var(--win-radius-el) var(--win-radius-el);background:var(--win-face-2);padding:8px;}
-  #lobbyMain .lb-info{display:flex;gap:8px;font-size:11px;color:var(--ink-soft);margin-bottom:6px;min-height:14px;}
+  #lobbyMain .lb-panel{border:1px solid var(--ink-soft);border-radius:0 var(--win-radius-el) var(--win-radius-el) var(--win-radius-el);background:var(--win-face-2);padding:6px 8px;}
+  #lobbyMain .lb-info{display:flex;gap:8px;font-size:11px;color:var(--ink-soft);margin-bottom:4px;min-height:14px;}
   #lobbyMain .lb-note{color:var(--tw-ink-danger);}
-  #lobbyMain .lb-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:70px;gap:6px;min-height:298px;}
+  #lobbyMain .lb-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:56px;gap:6px;min-height:242px;}
   /* 카드 위 띠 — 입장 가능은 타이틀바 색 · 가득 참은 회색(오류가 아니라 «지금은 못 들어감»). 늘 낱말과 같이(색만으로 가르지 않는다) */
   #lobbyMain .lb-card{display:flex;flex-direction:column;padding:0;overflow:hidden;min-width:0;text-align:left;font-family:var(--tw-font-legacy);color:var(--tw-ink);background:var(--tw-bg-face);border:1px solid var(--tw-accent);border-radius:var(--win-radius-el);cursor:pointer;}
   #lobbyMain .lb-card:hover:not(:disabled){outline:2px solid var(--tw-accent);outline-offset:-1px;}
@@ -1772,19 +1771,19 @@
   #lobbyMain .lb-band{flex:none;display:flex;justify-content:space-between;align-items:center;gap:6px;height:20px;padding:0 6px;background:var(--tw-title-a);}
   #lobbyMain .lb-code{font-family:var(--win-font-num);font-size:11px;font-weight:bold;letter-spacing:1px;color:var(--tw-title-ink);}
   #lobbyMain .lb-card.full .lb-band{background:var(--tw-line);}
-  #lobbyMain .lb-body{flex:1;display:flex;align-items:center;gap:8px;padding:4px 8px;min-width:0;}
+  #lobbyMain .lb-body{flex:1;display:flex;align-items:center;gap:8px;padding:3px 8px;min-width:0;}
   #lobbyMain .lb-card.full .lb-body{opacity:.55;}
-  #lobbyMain .lb-no{flex:none;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;color:var(--tw-ink-accent);background:var(--tw-bg-select);border-radius:var(--win-radius-el);}
-  #lobbyMain .lb-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+  #lobbyMain .lb-no{flex:none;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;color:var(--tw-ink-accent);background:var(--tw-bg-select);border-radius:var(--win-radius-el);}
+  #lobbyMain .lb-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
   #lobbyMain .lb-top{display:flex;align-items:center;gap:4px;min-width:0;}
   #lobbyMain .lb-tag{flex:none;font-size:10px;font-weight:bold;padding:0 5px;border-radius:999px;background:var(--tw-pop);color:var(--tw-on-pop);}
   #lobbyMain .lb-title-box{flex:1;min-width:0;overflow:hidden;}
-  #lobbyMain .lb-title{display:block;font-size:12px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #lobbyMain .lb-title{display:block;font-size:12px;line-height:15px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   #lobbyMain .lb-title.dim{color:var(--ink-soft);font-weight:normal;}
   #lobbyMain .lb-card:hover .lb-title.long,#lobbyMain .lb-card:focus-visible .lb-title.long{overflow:visible;text-overflow:clip;width:max-content;animation:lb-flow 6s ease-in-out .4s infinite;}
   @keyframes lb-flow{0%,15%{transform:translateX(0)}50%,65%{transform:translateX(var(--lb-d))}100%{transform:translateX(0)}}
   @media (prefers-reduced-motion: reduce){#lobbyMain .lb-card:hover .lb-title.long{animation:none;overflow:hidden;text-overflow:ellipsis;width:auto;}}
-  #lobbyMain .lb-host{font-size:11px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #lobbyMain .lb-host{font-size:11px;line-height:14px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   #lobbyMain .lb-count{flex:none;font-size:12px;font-weight:bold;}
   #lobbyMain .lb-card.full .lb-count{color:var(--tw-ink-soft);}
   #lobbyMain .lb-state{font-size:10px;font-weight:bold;line-height:14px;padding:0 7px;border-radius:999px;background:var(--tw-bg-face-2);border:1px solid var(--tw-ink-accent);color:var(--tw-ink-accent);}
@@ -1794,6 +1793,17 @@
   #lobbyMain .lb-err{color:var(--tw-ink-danger);}
   #lobbyMain .lb-foot{display:flex;align-items:center;gap:6px;margin-top:8px;}
   #lobbyMain .lb-grow{flex:1;}
+  #lobbyMain .lb-code-wrap{position:relative;flex:0 0 150px;min-width:0;}
+  #lobbyMain .lb-code-in{margin-bottom:0;}
+  #lobbyMain .lb-recent{position:absolute;left:0;bottom:calc(100% + 4px);width:280px;z-index:2;background:var(--tw-bg-face-2);border:1px solid var(--tw-ink-accent);border-radius:var(--win-radius-el);padding:4px;}
+  #lobbyMain .lb-recent[hidden]{display:none;}
+  #lobbyMain .lb-recent-head{font-size:11px;color:var(--ink-soft);padding:2px 6px 4px;}
+  #lobbyMain .lb-recent-row{display:flex;align-items:center;gap:8px;width:100%;padding:5px 6px;border:none;background:none;text-align:left;cursor:pointer;font-size:12px;color:var(--ink);border-radius:var(--win-radius-el);}
+  #lobbyMain .lb-recent-row:hover{background:var(--tw-bg-face);}
+  #lobbyMain .lb-recent-code{flex:none;font-family:var(--tw-font-legacy);letter-spacing:.5px;}
+  #lobbyMain .lb-recent-title{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #lobbyMain .lb-recent-ago{flex:none;font-size:11px;color:var(--ink-soft);}
+  #lobbyMain .lb-code-in .room-code-in{padding:5px 6px;}
   #lobbyMain .lb-page{min-width:44px;text-align:center;font-size:12px;color:var(--ink);}
   /* 방 만들기 창(room-create-ui.js) · 방 안 [방 설정](room-info-ui.js) 공용 칸(.rc-form) — 입력칸 · 버튼은 .code-pass · .code-btns 를 쓰고, 여기는 배치와 글자만(베젤 없음 · audit 검사 12 대상 아님). */
   .rc-form .rc-row{margin-bottom:10px;}
@@ -1853,6 +1863,14 @@
      ⚠️ 배지 별(.mh-flv .pre)은 **방법이 다르다.** 저쪽은 광택을 안 써서 text-shadow 로 윤곽을
        만든다. 두 자리를 같은 방식으로 통일하려 들지 말 것 — 한쪽이 반드시 깨진다. */
   .seat-nameplate .np-dj{ margin-left:5px; padding:0 4px; font-size:.85em; color:var(--win-title-ink); background:var(--win-title-grad); border-radius:var(--win-radius-el); }   /* 🎧 같이 듣기 DJ 딱지(overhead.js) */
+  /* ⚠️ 반짝임은 다시 칠하기 없이 합성기만 쓴다(transform · opacity) — 실행 화면은 화면 전체를 덮는 창이라
+       칠하는 애니메이션은 주사율마다 그 창을 다시 그리고, 0.1초 위치 재기 · 마우스 판정까지 무거워진다.
+       그래서 별 글자를 겹으로 둔다(겹을 만드는 곳은 lv-tier.js npStarFill 한 곳):
+       · 밑그림 = .np-star 자신 — 그라데이션 · 윤곽 그림자는 멈춘 채(옛 흐름의 첫 장면 그대로)
+       · 번쩍임 = ::before(같은 글자 · 밝게 · 넓은 빛) — opacity 만 오르내린다
+       · 빛 쓸기 = .np-sw(좁은 창 · 오른쪽으로) 안의 ::before(흰 글자 · 반대로) — 둘이 상쇄돼 글자는 제자리, 창만 지나간다
+       · 반짝 별 = ::after — 원래 opacity · transform 뿐
+     ⚠️ 여기 @keyframes 에 background-position · filter · left 같은 칠하는 속성을 넣으면 sim-label-anim-paint 가 빨강. */
   .seat-nameplate .np-star{ display:inline-block; position:relative; text-shadow:none;
     background-image:linear-gradient(115deg,
       color-mix(in srgb, var(--pre-c,#ffd76a) 45%, #000),
@@ -1863,16 +1881,26 @@
     -webkit-background-clip:text; background-clip:text;
     color:transparent; -webkit-text-fill-color:transparent;
     filter:drop-shadow(0 0 1.2px rgba(0,0,0,.95)) drop-shadow(0 0 1.2px rgba(0,0,0,.95))
-           drop-shadow(0 0 5px var(--pre-c,#ffd76a));
-    animation:npSweep 2.6s linear infinite, npGlint 3.6s ease-in-out infinite; }
+           drop-shadow(0 0 5px var(--pre-c,#ffd76a)); }
+  .seat-nameplate .np-star::before{ content:attr(data-s); position:absolute; left:0; top:0; pointer-events:none;
+    background:inherit; -webkit-background-clip:text; background-clip:text;
+    filter:brightness(1.75);   /* ⚠️ 여기에 빛(drop-shadow)을 더하지 말 것 — 바깥 .np-star 의 검은 윤곽이 그 빛에도 걸려 옆 글자 위에 회색 안개가 낀다 */
+    opacity:0; animation:npGlint 3.6s ease-in-out infinite; }
+  .seat-nameplate .np-star .np-sw{ position:absolute; left:0; top:0; bottom:0; width:60%; overflow:hidden; pointer-events:none;
+    -webkit-mask-image:linear-gradient(90deg, transparent, #000 45%, #000 55%, transparent);
+            mask-image:linear-gradient(90deg, transparent, #000 45%, #000 55%, transparent);
+    transform:translateX(-100%); animation:npSweepWin 1.625s linear infinite; }
+  .seat-nameplate .np-star .np-sw::before{ content:attr(data-s); position:absolute; left:0; top:0; width:166.667%;
+    color:rgba(255,255,255,.9); -webkit-text-fill-color:rgba(255,255,255,.9);
+    transform:translateX(60%); animation:npSweepIn 1.625s linear infinite; }
   .seat-nameplate .np-star::after{ content:'\2726'; position:absolute; left:-5px; top:-7px; font-size:9px;
     color:var(--pre-c,#ffd76a); -webkit-text-fill-color:var(--pre-c,#ffd76a);
-    filter:drop-shadow(0 0 3px #fff);
+    filter:drop-shadow(0 0 3px #fff) brightness(1.5);   /* 옛 번쩍임 밝기(.np-star 전체에 걸리던)를 반짝 별에만 멈춘 값으로 */
     animation:npSpark 3.6s ease-in-out infinite; }
-  @keyframes npSweep{ from{background-position:0 0;} to{background-position:260% 0;} }
-  @keyframes npGlint{
-    0%,78%,100%{ filter:drop-shadow(0 0 1.2px rgba(0,0,0,.95)) drop-shadow(0 0 1.2px rgba(0,0,0,.95)) drop-shadow(0 0 5px var(--pre-c,#ffd76a)) brightness(1); }
-    86%        { filter:drop-shadow(0 0 1.2px rgba(0,0,0,.95)) drop-shadow(0 0 1.2px rgba(0,0,0,.95)) drop-shadow(0 0 9px var(--pre-c,#ffd76a)) brightness(1.75); } }
+  @keyframes npGlint{ 0%,78%,100%{ opacity:0; } 86%{ opacity:1; } }
+  /* 창(폭 60%)이 글자 왼쪽 밖 → 오른쪽 밖으로 1초에 지나가고 나머지는 쉰다(옛 흐름의 빛 간격 · 빠르기). 안쪽은 같은 거리만큼 반대로. */
+  @keyframes npSweepWin{ 0%{ transform:translateX(-100%); } 61.5%,100%{ transform:translateX(166.667%); } }
+  @keyframes npSweepIn{ 0%{ transform:translateX(60%); } 61.5%,100%{ transform:translateX(-100%); } }
   @keyframes npSpark{ 0%,72%,100%{ opacity:0; transform:scale(.4) rotate(0deg); }
                       82%        { opacity:1; transform:scale(1) rotate(25deg); }
                       93%        { opacity:0; transform:scale(.5) rotate(45deg); } }
@@ -2084,9 +2112,6 @@
   @keyframes donateShine{from{background-position:0 0;} to{background-position:220% 0;}}
   /* 움직임에 민감한 사용자는 흐르지 않게 — 색은 그대로 남아 링크로 읽힌다 */
   @media (prefers-reduced-motion:reduce){ .donate-shine{animation:none;} }
-  #donateLink{text-decoration:none;cursor:pointer;font:bold 12px var(--tw-font-classic);}
-  #donateLink:hover .donate-shine{filter:brightness(1.12);}
-  #donateLink:hover{text-decoration:underline;}
   #lcDonateBtn:hover:not(:disabled) .donate-shine{filter:brightness(1.12);}
 
   /* ===== 본인 활동 상태 칩 + 🎨 꾸미기 버튼 (자기 캐릭터 발 밑) ===== */
@@ -2269,8 +2294,13 @@
   /* 채움은 티어 토큰만 읽는다. ⚠️ 여기에 색을 직접 적지 말 것(위 토큰 블록이 유일한 출처). */
   .seat-exp .exp-fill{height:100%;width:0;transition:width .35s ease;background:var(--lv-bar);}
   /* 흐름·발광은 표식 클래스로 받는다 — 티어 번호를 나열하지 않기 위해서다(JS 가 함께 붙인다). */
-  .seat-exp.lvx .exp-fill{background-size:300% 100%;
-    animation:mhLvFlow var(--lv-speed,9s) linear infinite;}
+  /* ⚠️ 흐름은 칠하지 않고 옮기기만 — 미리 그린 띠(::before · 채움 폭의 9배 = 무늬 칸 3W 셋)를 채움 안에서 잘라 transform 으로 민다.
+       옛 background-position 0→300%(size 300%)와 같은 그림 · 같은 빠르기다(한 바퀴에 6W). 무늬 칸 크기가 같아 비스듬한 각도도 같다. */
+  .seat-exp.lvx .exp-fill{position:relative;overflow:hidden;background:none;}
+  .seat-exp.lvx .exp-fill::before{content:'';position:absolute;left:0;top:0;height:100%;width:900%;
+    background:var(--lv-bar);background-size:calc(100% / 3) 100%;
+    animation:seatLvFlow var(--lv-speed,9s) linear infinite;}
+  @keyframes seatLvFlow{ from{transform:translateX(0);} to{transform:translateX(calc(-200% / 3));} }
   /* 상위 티어는 홈 바깥으로 살짝 빛이 샌다 — 바 자체에 걸어야 overflow:hidden 에 안 잘린다. */
   .seat-exp.lvglow{box-shadow:var(--lv-glow);}
 
@@ -2410,6 +2440,7 @@
   .gift-cell.out{cursor:pointer;}
   .gift-cell.out img{opacity:.45;}
   .gift-cell.out:hover img{opacity:.8;}
+  .gift-cell.busy{opacity:.5;pointer-events:none;}
   .gift-cell:not(.empty):hover{border-color:var(--win-title-b);}
   /* ⭐ 즐겨찾기 — 「치움」(.out, 그림만 흐림)과 겹쳐도 테두리·배경으로 둘 다 읽힌다. */
   .gift-cell.star{background:var(--win-star-bg);border-color:var(--win-star);box-shadow:inset 0 0 0 1px var(--win-star);}
@@ -2421,7 +2452,7 @@
   /* 서브탭 줄 오른쪽 끝 — 격자 위에 줄을 따로 두면 목록이 한 줄 길어져 스크롤이 생긴다. */
   /* 🎁 선물함 맨 위 «받은 선물 · 보낸 선물» · 보낸 선물 목록 */
   .gift-sub{display:none;gap:3px;margin-left:6px;align-self:center;}
-  #mhFmTabs:has(.mh-ibx-tab.gift.on) .gift-sub{display:flex;}   /* 선물함 탭일 때만 */
+  /* 선물함 탭일 때만 — 보낸 선물 기록이 서버로 옮겨질 때까지(#1103) 서브탭은 안 보인다(.gift-sub{display:none} 그대로) */
   .gift-sub button{font-family:var(--tw-font-legacy);font-size:10px;padding:1px 8px;cursor:pointer;color:var(--ink);background:var(--win-face-2);
     border:1px solid var(--win-lo);border-radius:9px;}
   .gift-sub button.on{background:var(--win-select-bg);border-color:var(--win-select);font-weight:bold;}
@@ -2535,7 +2566,7 @@
     color:var(--ink);font-size:11px;font-weight:bold;cursor:pointer;padding:4px 12px;font-family:inherit;flex:0 0 auto;border-radius:var(--win-radius-el) !important;}
   #gachaInvFoot button:active,#gachaDrawFoot button:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
     box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
-  #gachaInvFoot button:disabled,#gachaDrawFoot button:disabled{opacity:.45;cursor:not-allowed;}
+  #gachaInvFoot button:disabled,#gachaDrawFoot button:disabled,#gachaInvPager button:disabled{opacity:.45;cursor:not-allowed;}
   #gachaDrawStage{min-height:156px;position:relative;overflow:hidden;display:flex;flex-wrap:wrap;
     align-items:center;justify-content:center;gap:7px;padding:10px;}
   /* 🎰 캡슐 크랙 연출 — 도트풍. 곡선을 쓰지 않고, 움직임은 전부 steps()로 끊어 그린다.
@@ -2838,8 +2869,10 @@
   @media (prefers-reduced-motion:reduce){
     .mh-flv.lvx,
     .mh-flv.shine::after,
-    .seat-exp.lvx .exp-fill{ animation:none; }
-    .seat-nameplate .np-star{ animation:none; }
+    .seat-exp.lvx .exp-fill::before{ animation:none; }
+    .seat-nameplate .np-star::before{ animation:none; }
+    .seat-nameplate .np-star .np-sw{ animation:none; display:none; }
+    .seat-nameplate .np-star .np-sw::before{ animation:none; }
     .seat-nameplate .np-star::after{ animation:none; opacity:.9; }
   }
   /* 🏢 회사원 모드 — ▾ 버튼을 우클릭한 '화면 숨김' 상태.
@@ -2919,15 +2952,17 @@
   #focusSettingsPanel{position:fixed;z-index:var(--z-win-settings);transform:translate(-50%,-100%);
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    padding:0;width:312px;box-sizing:border-box;display:none;font-family:var(--tw-font-legacy);border-radius:var(--win-radius-el) !important;}
-  #focusSettingsPanel.on{display:block;}
+    padding:0;width:312px;box-sizing:border-box;display:none;font-family:var(--tw-font-legacy);border-radius:var(--win-radius-el) !important;
+    max-height:calc(100vh - 16px);}   /* 화면보다 길어지지 않게 — 넘치는 내용은 .fs-body 안에서 스크롤(제목줄은 늘 보인다) */
+  #focusSettingsPanel.on{display:flex;flex-direction:column;}
   #focusSettingsPanel .fs-titlebar{font-size:11px;font-weight:bold;color:#fff;padding:5px 8px;margin-bottom:10px;
     background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));
     display:flex;align-items:center;justify-content:space-between;}
   #focusSettingsPanel .fs-titlebar-x{width:16px;height:14px;font-size:10px;line-height:1;cursor:pointer;color:var(--ink);
     display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;
     background:var(--win-face);border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
-  #focusSettingsPanel .fs-body{padding:0 12px 12px;max-height:calc(100vh - 48px);overflow-y:auto;}
+  #focusSettingsPanel .fs-titlebar{flex:none;}
+  #focusSettingsPanel .fs-body{padding:0 12px 12px;flex:1 1 auto;min-height:0;overflow-y:auto;}
   /* 탭이 길어져 화면보다 커지면 몸통만 굴린다. 폭 312 는 6px 스크롤바가 생겨도 캐릭터 칸 4개가 들어가는 값(sim-slot-fit) */
   #focusSettingsPanel .fs-body::-webkit-scrollbar{width:6px;}
   #focusSettingsPanel .fs-body::-webkit-scrollbar-thumb{background:var(--tw-line);border-radius:3px;}
@@ -3121,6 +3156,7 @@
   /* 시계 아이콘은 미니미에선 안 쓴다 — 118px 안에서 시간 숫자가 밀려 잘렸다. */
   #focusLogWin.mini .flt-row .flt-clock{display:none;}
   #focusLogWin.mini #focusLogOk{display:none;}
+  #focusLogWin.mini #focusLogRetryRow{display:none !important;}
   #focusLogWin.mini #focusLogFigureNote{display:none;}
   /* 👑 달성표 버튼·서랍도 미니미(118px)에선 자리가 없다 — 같이 감춘다.
      ⚠️ 서랍이 열린 채로 최소화하면 창이 118px 폭에 세로로 길게 늘어진다. 그래서 display:none 이다.
@@ -3242,6 +3278,7 @@
   body.config #myHomeTitle #mhEditHomeBtn,
   body.config #myHomeTitle #mhPreviewBtn,
   body.config #myHomeTitle #mhPreviewExitBtn,
+  body.config #myHomeTitle #mhMallangHideBtn,
   body.config #myHomeTitle #mhBackHomeBtn{-webkit-app-region:no-drag;}
   /* ★ 마이홈3: -webkit-app-region:drag를 쓰면 Electron이 이 영역 드래그를 OS 창 전체 이동으로 처리해서
      캐릭터/설정창까지 같이 움직임. DOM 기반 드래그(app.js)로 대체하여 마이홈 창만 이동시킴. */
@@ -5811,8 +5848,6 @@
         <button class="fs-toggle-btn" id="fsMobUnlink" type="button" style="display:none;">연결 끊기</button>
       </div>
       <div class="fs-hint" id="fsMobNote" style="display:none;">PC 프로그램을 끄면 폰 연결도 함께 멈춰요</div>
-      <!-- 🔍 진단 줄 — PC 가 받은 신호(mobile-diag.js · 그리는 곳은 _mobRenderPanel) -->
-      <div class="fs-hint fs-mob-diag" id="fsMobDiag" style="display:none;"></div>
     </div>
   </div>
 
@@ -5853,34 +5888,33 @@
   <div class="fs-tabpage" id="fsTabInfo" style="display:none;">
     <div class="fs-label" style="margin-top:0;">라이선스</div>
     <p class="fs-note" style="margin:0 0 10px;">전달받은 라이선스 키를 입력하면 🎨 꾸미기 기능이 열려요.</p>
+    <!-- 🔑 설정 › 라이선스 — 상태별로 보이는 칸은 account/license-ui.js 가 license-screen.js view() 대로 켜고 끈다(불러오는 중 · 못 받음 · 없음 · 등록됨 · 이 기기만 없음 · 회수됨) -->
+    <div id="licenseStatusBox" style="display:none;font-size:11.5px;color:var(--ink-soft);margin-bottom:10px;">
+      <span id="licenseStatusMsg">라이선스 정보를 불러오는 중이에요</span>
+      <button id="licenseRetryBtn" class="lc-btn" style="display:none;margin-top:6px;">다시 시도</button>
+    </div>
+    <div id="licenseAdminNote" style="display:none;margin:0 0 10px;font-size:11px;color:var(--ink-soft);line-height:1.5;">
+      🛡️ 관리자 — 라이선스 없이 모든 기능을 써요
+    </div>
     <div id="licenseActiveBox" style="display:none;background:var(--win-select-bg);
       border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
       padding:8px 10px;margin-bottom:10px;font-size:11.5px;color:var(--ink);">
-      ✅ 라이선스가 등록되어 있어요.
-      <button id="licenseDeactivateBtn" style="display:block;margin-top:6px;background:none;border:none;
+      <div id="licenseActiveTitle"></div>
+      <div id="licenseDeviceHead" style="display:none;margin-top:8px;font-size:11px;color:var(--ink-soft);"></div>
+      <div id="licenseDeviceList"></div>
+      <div id="licenseDeviceNote" style="display:none;margin-top:6px;font-size:11px;color:var(--win-error);"></div>
+      <button id="licenseRegisterThisBtn" class="lc-btn" style="display:none;margin-top:8px;">이 기기 등록</button>
+      <button id="licenseDeactivateBtn" style="display:none;margin-top:8px;background:none;border:none;
         color:var(--win-error);font-size:11px;cursor:pointer;text-decoration:underline;padding:0;">이 기기에서 라이선스 해제</button>
     </div>
-    <input id="licenseKeyInput" type="text" placeholder="XXXX-XXXX-XXXX-XXXX"
-      style="width:100%;padding:7px 8px;box-sizing:border-box;
-      background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-      box-shadow: inset 1px 1px 0 var(--win-lo-2);
-      font-family:'Courier New',monospace;font-size:12px;margin-bottom:10px;">
-    <div id="licenseErrorMsg" style="display:none;color:var(--win-error);font-size:11px;margin:-4px 0 8px;"></div>
-    <button id="licenseSubmitBtn" class="lc-btn" style="margin-top:0;">확인</button>
-    <div id="licenseReqSection" class="lic-req-section">
-      <div id="licenseReqIdle">
-        <p style="margin:0 0 8px;font-size:11px;color:var(--ink-soft);line-height:1.5;">키가 없으신가요? 이름과 함께 요청을 보내면 관리자가 확인 후 발급해줘요.</p>
-        <button id="licenseReqBtn" class="lc-btn" style="margin-top:0;">🙋 라이선스 요청 보내기</button>
-      </div>
-      <div id="licenseReqPending" style="display:none;font-size:11.5px;color:var(--ink-soft);">
-        ⏳ 요청을 보냈어요 (<b id="licenseReqName"></b> 님) — 관리자 승인을 기다리는 중...
-      </div>
-      <div id="licenseReqApproved" style="display:none;background:var(--win-select-bg);
-        border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:8px 10px;font-size:11.5px;">
-        ✅ 발급됐어요! <span id="licenseReqKeyText" style="font-family:'Courier New',monospace;font-weight:bold;"></span>
-        <button id="licenseReqApplyBtn" style="display:block;margin-top:6px;background:none;border:none;
-          color:var(--win-select);font-size:11px;cursor:pointer;text-decoration:underline;padding:0;">바로 적용하기</button>
-      </div>
+    <div id="licenseKeyBox" style="display:none;">
+      <input id="licenseKeyInput" type="text" placeholder="XXXX-XXXX-XXXX-XXXX"
+        style="width:100%;padding:7px 8px;box-sizing:border-box;
+        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+        box-shadow: inset 1px 1px 0 var(--win-lo-2);
+        font-family:'Courier New',monospace;font-size:12px;margin-bottom:10px;">
+      <div id="licenseErrorMsg" style="display:none;color:var(--win-error);font-size:11px;margin:-4px 0 8px;"></div>
+      <button id="licenseSubmitBtn" class="lc-btn" style="margin-top:0;">확인</button>
     </div>
 
     <div class="fs-sep"></div>
@@ -6068,11 +6102,16 @@
         <span class="flt-time" id="focusLogTime">00:00:00</span>
       </div>
       <!-- 누적기록 탭에서만 보이는 둘째 줄 — 오늘(오전 6시~다음날 오전 6시) 기록.
-           ⚠️ 경계는 app.js 의 DAY_START_HOUR 한 곳이 정한다. 여기 문구만 고치면 화면과 계산이 갈린다. -->
+           ⚠️ 경계는 서버가 준 dayEndsAt(한국 06:00 — focus-total.js)이 정한다. 여기 문구만 고치면 화면과 계산이 갈린다. -->
       <div class="flt-row" id="focusLogRow2" style="display:none;" title="오늘 기록은 오전 6시에 새로 시작해요">
         <span class="flt-label" id="focusLogCaption2">오늘 기록</span>
         <span class="flt-clock">🕒</span>
         <span class="flt-time" id="focusLogTime2">00:00:00</span>
+      </div>
+      <!-- 서버 진척을 못 받았을 때만, 누적 탭에서 보인다(focus-log.js refreshTime) — 누르면 다시 받는다 · 미니미에서는 숨김 -->
+      <div class="flt-row" id="focusLogRetryRow" style="display:none;">
+        <span class="flt-label" style="width:auto;">못 불러왔어요</span>
+        <button id="focusLogRetry" class="lc-btn" type="button" style="width:auto;margin:0;padding:2px 8px;font-size:10.5px;">다시 시도</button>
       </div>
       <!-- 피규어 모드가 켜져 있을 때만 보인다(focus-log.js refreshTime) · 미니미에서는 숨김 -->
       <div id="focusLogFigureNote" hidden>피규어 모드에서는 포커스 기록과 달성표 집중 시간이 쌓이지 않아요</div>
@@ -6093,6 +6132,10 @@
          화면 세 개가 한 자리에서 갈아 끼워진다: 종류 고르기 → 설정 → 진행 중.
          ⚠️ 여는 <div> 하나만 빠져도 창 구조가 통째로 풀린다(audit 검사 16). 중첩을 건드릴 땐 audit 먼저. -->
     <div id="chalDrawer">
+
+      <!-- ⓪-b 서버에서 한 벌을 받기 전 · 못 받음 · 프리미엄 잠김일 때만 보인다(weekly-challenge.js _chalRender) -->
+      <div class="chal-hint" id="chalState" style="display:none;"><span id="chalStateMsg">달성표를 불러오는 중이에요…</span>
+        <button class="chal-btn tiny" id="chalRetryBtn" type="button" style="display:none;margin-left:6px;">다시 시도</button></div>
 
       <!-- ⓪ 페이즈 세그먼트 — 주중(월~금) 트랙과 주말(토·일) 트랙을 오간다.
            지금 달리는 트랙은 하나뿐이고, 반대쪽을 누르면 박제된 기록(#chalArc)이 열린다.
@@ -6177,6 +6220,8 @@
         <div class="chal-foot">
           <div class="chal-rw" id="chalReward"></div>
           <div class="chal-acts">
+            <button class="chal-btn tiny" id="chalPostBtn" type="button" style="display:none;">다시 적기</button>
+            <button class="chal-btn tiny" id="chalClaimBtn" type="button" style="display:none;">보상 받기</button>
             <button class="chal-btn tiny" id="chalEditBtn" type="button">수정</button>
             <button class="chal-btn tiny" id="chalGiveupBtn" type="button">포기하기</button>
           </div>
@@ -6190,6 +6235,7 @@
         <div class="chal-head"><span id="chalArcHead"></span><span>지난 기록</span></div>
         <div class="chal-week" id="chalArcWeek"></div>
         <div class="chal-arcsum" id="chalArcSum"></div>
+        <button class="chal-btn tiny" id="chalArcRetryBtn" type="button" style="display:none;margin-top:6px;">다시 시도</button>
         <div class="chal-arcnote" style="margin-top:8px;margin-bottom:0;">지난 기록이라 고칠 수 없어요. 위에서 지금 트랙으로 돌아갈 수 있어요.</div>
       </div>
 
@@ -6441,6 +6487,7 @@
               <label><input id="mhSchedPublic" type="checkbox"> 친구에게 공개</label>
               <button id="mhSchedTagBtn" type="button" class="mh-txtbtn">👥 친구 태그</button>
               <span id="mhSchedTagInfo"></span>
+              <span id="mhSchedPublicHint"></span>
             </div>
           </div>
         </div>
@@ -6506,6 +6553,7 @@
             <button id="mhDdayTagBtn" type="button">👥 친구 태그</button>
             <span id="mhDdayTagInfo"></span>
           </div>
+          <div class="mh-dde-hint" id="mhDdayPublicHint"></div>
           <div id="mhDdayEditMsg"></div>
         </div>
         <div class="mh-dde-foot">
@@ -6539,7 +6587,7 @@
             <button id="mhBugEditBtn" class="bb-btn admin-only" type="button" title="답변의 오픈카톡 버튼에 미리 채워질 주소">🔗 오픈카톡 링크</button>
             <button id="bbWriteBtn" class="bb-btn" type="button">✎ 제보하기</button>
           </div>
-          <!-- 관리자: 오픈카톡 기본 링크(bugReport/current.link) — 예전 공지·링크 편집 폼을 줄인 것 -->
+          <!-- 관리자: 오픈카톡 기본 링크(서버 설정 bug.report.link — bug-board-ui.js bindReportLink) -->
           <div id="mhBugEditForm" style="display:none;">
             <div class="mh-bug-lbl">오픈카톡 기본 링크</div>
             <input id="mhBugLinkInput" type="text" maxlength="300" placeholder="https://open.kakao.com/...">
@@ -6674,11 +6722,6 @@
     <div class="lc-menu" id="lcGearMenu">
       <button id="lcToBox">보관함 이동</button><button id="lcEdit">캐릭터 수정</button><button id="lcExport">복제 코드 만들기</button><hr id="lcGearSep" style="border:0;border-top:1px solid var(--win-lo-2);border-bottom:1px solid var(--win-hi);margin:2px 4px;"><button id="lcDelete">캐릭터 삭제</button>
     </div>
-    <!-- 🛟 [2026-09-20 · 3-7-2 A안] 연동 띠 — 캐릭터가 줄어든 것을 **보는 그 자리**(그림 바로 위).
-         내용·표시는 app.js _slotsRenderBand 가 그린다. 토스트와 달리 안 사라지고, [유지하기]로 닫아도
-         계정 탭 › 기기 연동 구획에 남는다. 세 상태: 줄어든 교체(되돌리기 가능) · 백업 없음 · 되돌린 직후. -->
-    <div id="lcSyncBand" style="display:none;margin:5px 3px 0;padding:7px 8px;border:2px solid;
-      border-color:#B5624A #6d3527 #6d3527 #B5624A;background:#F3D9A4;font-size:11px;line-height:1.45;"></div>
     <div class="lc-stage">
       <button class="lc-arrow" id="lcPrev">&#9664;</button>
       <div class="lc-preview-wrap">
@@ -6718,7 +6761,7 @@
         🎟️ 초대장
       </button>
     </div>
-    <div class="lc-foot"><button id="lcGlbLoad" class="admin-only">암호화 GLB 불러오기</button><span class="admin-only">·</span><button id="lcAssetGen" class="admin-only">📦 책상·아이템 코드 만들기</button><span class="admin-only">·</span><button id="lcCommissionGen" class="admin-only">🎁 커미션 캐릭터 등록</button><span class="admin-only">·</span><button id="lcLicenseGen" class="admin-only">🎟️ 라이선스 키 발급</button><span class="admin-only">·</span><button id="lcAnnounce" class="admin-only">📣 확성기 공지</button><span class="admin-only">·</span><button id="lcUpdateNotice" class="admin-only">📰 업데이트 공지</button><span class="admin-only">·</span><button id="lcCategoryManage" class="admin-only">📁 카테고리 관리</button><span class="admin-only">·</span><button id="lcAdBannerEdit" class="admin-only">📢 광고 배너 편집</button><span class="admin-only">·</span><button id="lcInviteGrant" class="admin-only">🎟️ 유저 초대권 지급</button><span class="admin-only">·</span><button id="lcGameCfg" class="admin-only">⚙️ 게임 설정</button><span class="admin-only">·</span><button id="lcCloseAllRooms" class="admin-only">🛑 전체 방 종료</button><span class="admin-only">·</span><button id="lcCleanGhostRooms" class="admin-only">🧹 유령 방 청소</button><span class="admin-only">·</span><button id="lcReportList" class="admin-only">🚩 신고 목록</button></div>
+    <div class="lc-foot"><button id="lcGlbLoad" class="admin-only">암호화 GLB 불러오기</button><span class="admin-only">·</span><button id="lcAssetGen" class="admin-only">📦 책상·아이템 코드 만들기</button><span class="admin-only">·</span><button id="lcCommissionGen" class="admin-only">🎁 커미션 캐릭터 등록</button><span class="admin-only">·</span><button id="lcLicenseGen" class="admin-only">🎟️ 라이선스 키 발급</button><span class="admin-only">·</span><button id="lcAnnounce" class="admin-only">📣 확성기 공지</button><span class="admin-only">·</span><button id="lcUpdateNotice" class="admin-only">📰 업데이트 공지</button><span class="admin-only">·</span><button id="lcCategoryManage" class="admin-only">📁 카테고리 관리</button><span class="admin-only">·</span><button id="lcAdBannerEdit" class="admin-only">📢 광고 배너 편집</button><span class="admin-only">·</span><button id="lcInviteGrant" class="admin-only">🎟️ 유저 초대권 지급</button><span class="admin-only">·</span><button id="lcGameCfg" class="admin-only">⚙️ 게임 설정</button><span class="admin-only">·</span><button id="lcCloseAllRooms" class="admin-only">🛑 전체 방 종료</button><span class="admin-only">·</span><button id="lcReportList" class="admin-only">🚩 신고 목록</button></div>
 
     <!-- 🪪 [내 정보] — 런처 화면이 바뀐다(CHECKS 개정 48 · 사용자 결정 · 시안 «런처 전환»). ◀ 로 런처로 돌아간다.
          회원가입 설계 §7 B2 · C4 · D · G 를 이 자리로: 작은 머리(사진 · 닉네임 + 레벨 배지 + [수정] · 친구 코드 + [복사]) · 탭 [보관함] [휴지통](숨김 · E) [계정].
@@ -6742,6 +6785,8 @@
             <!-- 🌟 레벨 배지 = «별 색» 구획(#miStar)을 여닫는 버튼 (시안 v2 확정 · 2026-09-23 · CHECKS 개정 69).
                  배지 자체는 친구 목록과 같은 .mh-flv(_plFillLv) 그대로다. 버튼으로 감싸는 것은 **이 자리 하나뿐** —
                  친구 목록·마이홈 배지는 누르는 물건이 아니다. ▾ 는 «눌린다» 는 표시(배지는 원래 누르는 물건이 아니었다). -->
+            <!-- 서버 진척을 못 받았을 때만 보인다(my-info.js _miRenderHead) — 레벨 배지 자리에 «못 불러왔어요 [다시 시도]» -->
+            <span id="miProgFail" style="display:none;font-size:10.5px;color:var(--ink-soft);">못 불러왔어요 <button id="miProgRetry" type="button" style="font-family:inherit;font-size:10.5px;background:none;border:0;padding:0;color:var(--ink-soft);cursor:pointer;text-decoration:underline;">다시 시도</button></span>
             <button id="miLvBtn" class="mi-lv-btn" type="button" aria-expanded="false" aria-controls="miStar" title="별 색"><span id="miLv"></span><span class="mi-lv-car" aria-hidden="true">&#9662;</span></button>
             <button id="miNameEdit" type="button" style="font-family:inherit;font-size:10.5px;background:none;border:0;padding:0;color:var(--ink-soft);cursor:pointer;text-decoration:underline;">수정</button></div>
           <div id="miNameEditRow" style="display:none;align-items:center;gap:4px;">
@@ -6891,18 +6936,6 @@
           </div>
         </div>
         <div id="acctMOff" style="display:none;margin-bottom:9px;font-size:10.5px;color:var(--ink-soft);line-height:1.55;">이 PC의 로그인이 풀려 있어요. 앱을 다시 시작하면 로그인 화면이 나와요.</div>
-        <!-- ☁️ [2026-09-20 · 3-7-2 B안 · 개정 16 에서 [내 정보 › 계정]으로 옮김 · C4 순서로 로그아웃 위] 기기 연동 구획 — 지금까지 «연동이 되고 있는가» 를 볼 자리가 없었다.
-             평소엔 마지막 연동 시각·개수 세 줄. 캐릭터가 줄어든 교체가 있었으면 되돌리기 상자,
-             올리기가 실패했으면 그 사유와 [지금 다시 올리기]. ④ 충돌을 [나중에] 로 미뤘으면 [고르기].
-             전부 app.js _slotsRenderAcctSync 가 채운다. -->
-        <div style="margin:4px 0 12px;">
-          <div class="fs-label" style="margin-bottom:6px;">기기 연동</div>
-          <div id="acctSyncBox" style="background:var(--win-select-bg);border:2px solid;
-            border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:8px 9px;font-size:10.5px;color:var(--ink-soft);line-height:1.5;"></div>
-          <div id="acctSyncFail" style="display:none;margin-top:9px;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-            padding:8px 9px;font-size:10px;color:var(--ink);line-height:1.5;"></div>
-          <p id="acctSyncHint" style="margin:7px 0 0;font-size:10px;color:var(--ink-soft);line-height:1.5;">30분마다 저절로 맞춰져요. 다른 컴퓨터에서 캐릭터를 만들면 여기 개수가 먼저 늘어나요.</p>
-        </div>
         <button id="acctLogoutBtn" class="lc-btn" style="width:100%;margin-top:0;">이 컴퓨터에서 로그아웃</button>
 
         <!-- 로그아웃 확인 — 계정 연동 해제와 같은 3단계(버튼→확인→종료 안내). -->
@@ -7026,7 +7059,7 @@
 </div>
 
 <!-- 🎟️ 관리자: 유저 초대권 지급 — 대상 친추코드 + 지급 장수를 한 창에서 입력 -->
-<div id="inviteGrantOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
+<div id="inviteGrantOverlay" data-admin-win style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -7198,6 +7231,18 @@
       </div>
     </div>
   </div>
+  <!-- 🔌 서버에 연결할 수 없어요 — 켤 때 서버에 닿지 못했을 때(로컬 모드 없음). 같은 오버레이 안 세 번째 카드. [다시 시도] 또는 realtime 이 다시 붙으면 license-gate.js 가 계정을 다시 묻는다. -->
+  <div id="offlineCard" style="display:none;flex:none;margin:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
+    width:340px;max-width:92vw;font-family:var(--tw-font-legacy);">
+    <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
+      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));" id="offlineTitle">서버에 연결할 수 없어요</div>
+    <div style="padding:14px;display:flex;flex-direction:column;gap:9px;">
+      <div id="offlineDesc" style="font-size:10.5px;color:var(--ink-soft);line-height:1.55;">인터넷 연결을 확인하고 다시 시도해 주세요</div>
+      <div id="offlineMsg" style="display:none;font-size:10.5px;line-height:1.5;color:var(--win-error);"></div>
+      <button id="offlineRetry" class="lc-btn" style="margin-top:0;">다시 시도</button>
+    </div>
+  </div>
   <!-- 첫 화면 맨 아래 — 로그인 전에도 버전과 개인정보 처리방침을 볼 수 있게(두 카드 공통이라 카드 밖 · 카드 다음).
        오버레이는 세로 흐름 — 카드는 남는 높이에서 가운데(margin:auto), 창이 낮으면 이 줄이 카드 밑으로 밀리고 오버레이가 스크롤한다(겹치지 않게).
        글자는 흰색 고정 — 바탕(#3a6ea5)이 테마와 상관없이 고정이라 테마 토큰을 쓰면 버블 테마에서 안 읽힌다(카드 제목과 같은 까닭).
@@ -7208,55 +7253,6 @@
     <a id="gatePrivacyLink" href="https://help.together-working.com/privacy"
       title="개인정보 처리방침을 브라우저로 열어요"
       style="display:inline-flex;align-items:center;min-height:24px;color:inherit;text-decoration:underline;cursor:pointer;">개인정보 처리방침</a>
-  </div>
-</div>
-
-<!-- 🪪 I · 친구 코드 가입이 필요해요 — 로그인 안 하고 쓰던 기존 사용자(이 PC 에 uid 있음 · 그 uid 가 아무 계정에도 안 묶임)가 부팅 때 본다.
-     [회원가입 설계 §3 · §7-I · 시안 확정] **닫기 없음** — 가입하거나 구글을 연결해야 앱으로. 오프라인이면 이번엔 안 뜨고 다음 온라인 부팅에 다시.
-     지금 친구 코드가 곧 아이디(고정 표시) · 비밀번호만 정한다. uid 는 그대로라 캐릭터·레벨·친구·마이홈이 바뀌지 않는다.
-     배경은 반투명(뒤의 앱은 그대로 있다 · 시안 rgba(0,0,0,.45)). -->
-<div id="existingSignupOverlay" style="position:fixed;inset:0;z-index:var(--z-gate-signup);display:none;align-items:center;justify-content:center;
-  background:rgba(0,0,0,.45);">
-  <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    width:340px;max-width:92vw;font-family:var(--tw-font-legacy);">
-    <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
-      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">친구 코드 가입이 필요해요</div>
-    <div style="padding:14px;display:flex;flex-direction:column;gap:9px;">
-      <div style="font-size:12px;line-height:1.55;color:var(--ink);">이제 투게더워킹은 계정으로 써요.<br>지금 쓰는 친구 코드가 그대로 <b>아이디</b>가 되고, 비밀번호만 정하면 끝이에요.</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;padding:8px 9px;
-        border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);">
-        <span id="exSignupCode" style="font-family:'Courier New',monospace;font-weight:bold;font-size:15px;color:#000;">MATE-····</span>
-        <span style="font-size:10.5px;color:var(--ink-soft);">내 아이디</span>
-      </div>
-      <label for="exSignupPw" style="font-size:11px;font-weight:bold;color:var(--ink);">비밀번호</label>
-      <input id="exSignupPw" type="password" placeholder="6자 이상" maxlength="40" autocomplete="off"
-        style="width:100%;padding:7px 8px;box-sizing:border-box;
-        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:12px;">
-      <label for="exSignupPw2" style="font-size:11px;font-weight:bold;color:var(--ink);">비밀번호 확인</label>
-      <input id="exSignupPw2" type="password" placeholder="한 번 더" maxlength="40" autocomplete="off"
-        style="width:100%;padding:7px 8px;box-sizing:border-box;
-        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:12px;">
-      <div id="exSignupMsg" style="display:none;font-size:10.5px;line-height:1.5;"></div>
-      <button id="exSignupOk" class="lc-btn" style="margin-top:0;">가입하기</button>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <div style="flex:1;height:1px;background:var(--win-lo);"></div>
-        <span style="font-size:10.5px;color:var(--ink-soft);">또는</span>
-        <div style="flex:1;height:1px;background:var(--win-lo);"></div>
-      </div>
-      <button id="exSignupGoogleBtn" class="lc-btn" style="margin-top:0;">
-        <span style="display:inline-flex;align-items:center;justify-content:center;gap:8px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 12h8M12 8v8"></path></svg>
-          <span>구글 계정으로 연결하기</span>
-        </span>
-      </button>
-      <div style="font-size:10.5px;color:var(--ink-soft);line-height:1.5;background:#DFE8F6;padding:8px 9px;
-        border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);">
-        캐릭터 · 레벨 · 친구 · 마이홈은 <b>하나도 바뀌지 않아요.</b> 가입하면 다른 컴퓨터에서도 같은 계정으로 쓸 수 있어요.
-      </div>
-    </div>
   </div>
 </div>
 
@@ -7312,80 +7308,7 @@
   </div>
 </div>
 
-<!-- 🧬 F · 캐릭터를 계정에 연동했어요 — [회원가입 설계 §7-F · 시안 F-1 · F-2 확정 · CHECKS 개정 57] 묻지 않는 안내(한 번).
-     I 에서 이미 가입된 구글로 갈아탈 때 이 PC 에만 있던 캐릭터를 그 계정 보관함으로 옮긴 뒤, 재시작하고 첫 채택이 끝나면 뜬다(app.js _charsLinkedMaybeShow).
-     섬네일만(이름 없음) · «개» · 20 이상이면 D2 와 같은 문구 + [보관함 열기]가 기본 버튼. 게이트(96~97)보다 아래. -->
-<style>
-  #charsLinkedOverlay .cl-grid{background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:7px;display:grid;grid-template-columns:repeat(5,1fr);gap:5px;}
-  #charsLinkedOverlay .cl-th{aspect-ratio:1;background:#DFE8F6;border:1px solid #9aa9c4;overflow:hidden;display:flex;align-items:center;justify-content:center;}
-  #charsLinkedOverlay .cl-th img{width:100%;height:100%;object-fit:cover;display:block;}
-  #charsLinkedOverlay .cl-cnt{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-soft);background:#DFE8F6;padding:6px 8px;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);}
-  #charsLinkedOverlay .cl-cnt b{color:#000;}
-  #charsLinkedOverlay .cl-cnt.full{color:#7a2f1b;}
-  #charsLinkedOverlay .cl-cnt.full b{color:#B5624A;}
-</style>
-<div id="charsLinkedOverlay" style="position:fixed;inset:0;z-index:var(--z-gate-device);display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);">
-  <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    width:340px;max-width:92vw;font-family:var(--tw-font-legacy);">
-    <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
-      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">캐릭터를 계정에 연동했어요</div>
-    <div style="padding:14px;display:flex;flex-direction:column;gap:9px;">
-      <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;line-height:1.55;color:var(--ink);">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2a7a3f" stroke-width="2.2" aria-hidden="true" style="flex:none;"><path d="M5 12l5 5 9-10"></path></svg>
-        <span>이 컴퓨터에만 있던 캐릭터 <b id="clCount">0개</b>를 <span id="clCodeWrap">계정 <span id="clCode" style="display:inline-block;font-size:11px;padding:0 6px;border:1px solid #808080;background:#fff;color:#000;"></span> 의 </span><b>보관함으로 옮겼어요.</b></span>
-      </div>
-      <div id="clThumbs" class="cl-grid"></div>
-      <div id="clCnt" class="cl-cnt"><span>보관함 <b id="clBox">0 / 20</b></span><span id="clSplit">0 + 0</span></div>
-      <div id="clFull" style="display:none;font-size:11px;line-height:1.5;color:#7a2f1b;background:#FBE9E4;border:1px solid #B5624A;padding:7px 8px;"></div>
-      <div id="clNote" style="font-size:10.5px;line-height:1.5;color:var(--ink-soft);">아무것도 지워지지 않았어요. 책상에 올리려면 보관함에서 캐릭터를 누르세요.</div>
-      <div style="display:flex;gap:6px;">
-        <button id="clOpen" class="lc-btn ghost" style="margin-top:0;flex:1;">보관함 열기</button>
-        <button id="clOk" class="lc-btn" style="margin-top:0;flex:1;">확인</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- 🔐 K · 이 PC는 로그인이 필요해요 — 이 PC 의 uid 가 **이미 계정에 묶였는데** 여기선 그 계정으로 로그인돼 있지 않을 때(부팅 · 게이트 뒤).
-     같은 uid 를 두 PC 에서 쓰던 기존 사용자의 두 번째 PC · 다른 PC 에서 비밀번호를 바꿔 이 PC 로그인이 끊긴 판. [설계 §9-11 · §7-K · 시안 확정 개정 13]
-     **닫기 없음**(로그인 필수) · 오프라인이면 안 뜬다. 아이디는 고정(계정의 친구 코드) → 비밀번호만. -->
-<div id="needLoginOverlay" style="position:fixed;inset:0;z-index:var(--z-gate-signup);display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);">
-  <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    width:340px;max-width:92vw;font-family:var(--tw-font-legacy);">
-    <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
-      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">이 PC는 로그인이 필요해요</div>
-    <div style="padding:14px;display:flex;flex-direction:column;gap:9px;">
-      <div style="font-size:12px;line-height:1.55;color:var(--ink);">이 친구 코드는 이미 계정에 연결돼 있어요. 이 PC에서도 로그인하면 캐릭터와 기록이 그대로 이어져요.</div>
-      <div style="font-size:10.5px;color:var(--ink-soft);line-height:1.55;">다른 PC에서 비밀번호를 바꿨다면 새 비밀번호로 로그인해 주세요.</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;padding:8px 9px;
-        border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);">
-        <span id="nlCode" style="font-family:'Courier New',monospace;font-weight:bold;font-size:15px;color:#000;">MATE-····</span>
-        <span style="font-size:10.5px;color:var(--ink-soft);">내 아이디</span>
-      </div>
-      <button id="nlGoogleBtn" class="lc-btn" style="margin-top:0;">
-        <span style="display:inline-flex;align-items:center;justify-content:center;gap:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 12h8M12 8v8"></path></svg><span>구글로 로그인</span></span>
-      </button>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <div style="flex:1;height:1px;background:var(--win-lo);"></div>
-        <span style="font-size:10.5px;color:var(--ink-soft);">또는 비밀번호로</span>
-        <div style="flex:1;height:1px;background:var(--win-lo);"></div>
-      </div>
-      <label for="nlPw" style="font-size:11px;font-weight:bold;color:var(--ink);">비밀번호</label>
-      <input id="nlPw" type="password" placeholder="비밀번호" maxlength="40" autocomplete="off"
-        style="width:100%;padding:7px 8px;box-sizing:border-box;
-        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:12px;">
-      <div id="nlMsg" style="display:none;font-size:10.5px;line-height:1.5;"></div>
-      <button id="nlFcBtn" class="lc-btn" style="margin-top:0;">친구 코드로 로그인</button>
-      <div style="font-size:10.5px;text-align:right;"><a id="nlForgot" href="#" style="color:var(--win-title-a);">비밀번호를 잊었어요</a></div>
-      <div id="nlForgotBox" style="display:none;font-size:10.5px;color:var(--ink-soft);line-height:1.5;background:#DFE8F6;padding:8px 9px;border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);"><b style="color:#000;">비밀번호를 잊었다면</b> — 로그인돼 있는 다른 PC의 [내 정보 › 계정]에서 새 비밀번호로 바꾼 뒤, 여기서 그 비밀번호로 로그인하세요. 구글이 연결돼 있으면 [구글로 로그인]으로 바로 들어올 수 있어요.</div>
-    </div>
-  </div>
-</div>
-
-<!-- 🖥️ 한 계정 한 기기 — 다른 PC 에서 같은 계정으로 로그인하면 이 PC 가 보는 화면 [2026-09-17 제보 3 · 시안 확정(왼쪽)].
+<!-- 🖥️ 이 PC 의 연결이 서버에서 끊긴 뒤(다른 PC 가 이 기기를 지움 · 이 PC 에서 앱을 새로 엶) 보는 화면 — 글은 device-lost.js 가 채운다.
      초대 게이트와 같은 틀. 뒤를 완전히 가리지는 않는다(캐릭터는 그대로 있고 방 접속만 끊긴 상태) — 배경은 반투명. -->
 <div id="deviceSessionOverlay" style="position:fixed;inset:0;z-index:var(--z-gate-device);display:none;align-items:center;justify-content:center;
   background:rgba(0,0,0,.35);">
@@ -7393,20 +7316,18 @@
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     width:320px;max-width:92vw;font-family:var(--tw-font-legacy);">
     <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
-      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));" id="deviceSessionTitle">🖥️ 다른 기기에서 사용 중이에요</div>
+      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));" id="deviceSessionTitle">다른 PC에서 이 기기를 지웠어요</div>
     <div style="padding:14px;">
-      <div id="deviceSessionMsg" style="font-size:11.5px;color:var(--ink-soft);line-height:1.6;margin-bottom:12px;white-space:pre-line;">이 계정이 방금 다른 PC에서 로그인됐어요. 투게더워킹은 한 번에 한 기기에서만 쓸 수 있어요.
-이 PC의 캐릭터·기록은 그대로 두고, 방 접속만 끊었어요.</div>
+      <div id="deviceSessionMsg" style="font-size:11.5px;color:var(--ink-soft);line-height:1.6;margin-bottom:12px;white-space:pre-line;"></div>
       <div style="display:flex;gap:6px;">
-        <button id="deviceSessionContinue" class="lc-btn" style="margin-top:0;flex:1;white-space:nowrap;">여기서 계속 쓰기</button>
+        <button id="deviceSessionContinue" class="lc-btn" style="margin-top:0;flex:1;white-space:nowrap;">이 PC 다시 등록</button>
         <button id="deviceSessionQuit" class="lc-btn ghost" style="margin-top:0;flex:1;white-space:nowrap;">앱 닫기</button>
       </div>
-      <div style="font-size:10.5px;color:var(--ink-soft);line-height:1.5;margin-top:8px;">«여기서 계속 쓰기»를 누르면 반대로 다른 PC가 이 화면을 보게 돼요.</div>
     </div>
   </div>
 </div>
 
-<div id="adminPassOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
+<div id="adminPassOverlay" data-admin-win style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -7430,7 +7351,7 @@
 </div>
 
 <!-- 라이선스 키 생성 모달 (관리자 전용) -->
-<div id="licenseGenOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
+<div id="licenseGenOverlay" data-admin-win style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   gap:12px;flex-wrap:wrap;background:none;pointer-events:none;">
   <div style="pointer-events:auto;max-height:90vh;overflow-y:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -7466,7 +7387,7 @@
       <button id="licenseGenCopyBtn" style="margin-top:6px;background:none;border:none;color:var(--win-select);font-size:11px;
         cursor:pointer;text-decoration:underline;padding:0;">복사하기</button>
     </div>
-    <!-- 🔒 시크릿룸 발급 — 서버가 발급 열쇠(srKey/v)로 검증한다. 열쇠는 여기 어디에도 저장하지 않는다. -->
+    <!-- 🔒 시크릿룸 발급 — 서버(POST /v2/admin/secret-rooms)가 관리자 로그인으로 확인한다. -->
     <div style="margin-top:14px;border-top:2px solid var(--win-lo);padding-top:10px;">
       <div style="font-size:11px;color:var(--ink-soft);margin-bottom:6px;">🔒 시크릿룸 발급 (방 개수에 안 잡히는 고정 투게더룸)</div>
       <input id="srGrantCode" type="text" placeholder="친구코드(MATE-9K2M) 또는 유저 코드(u… 로 시작)" maxlength="48"
@@ -7483,17 +7404,13 @@
         style="width:100%;padding:7px 8px;box-sizing:border-box;
         background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
         box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:11.5px;margin-bottom:6px;">
-      <input id="srGrantKey" type="password" placeholder="발급 열쇠 (앱에 저장되지 않아요)" maxlength="64"
-        style="width:100%;padding:7px 8px;box-sizing:border-box;
-        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:11.5px;margin-bottom:6px;">
       <button id="srGrantBtn" class="lc-btn" style="margin-top:0;">🔒 시크릿룸 발급</button>
       <div id="srGrantMsg" style="display:none;font-size:10.5px;margin-top:6px;"></div>
     </div>
     <div style="margin-top:14px;border-top:2px solid var(--win-lo);padding-top:10px;">
       <div style="font-size:11px;color:var(--ink-soft);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;">
         <span>🙋 대기 중인 요청</span>
-        <button id="licenseBulkBtn" style="padding:2px 8px;font-size:10.5px;cursor:pointer;display:none;">전체 일괄 발급</button>
+        <span style="display:flex;gap:4px;"><button id="licenseReqRefresh" style="padding:2px 8px;font-size:10.5px;cursor:pointer;">새로 고침</button><button id="licenseBulkBtn" style="padding:2px 8px;font-size:10.5px;cursor:pointer;display:none;">전체 일괄 발급</button></span>
       </div>
       <div id="licenseReqList" style="max-height:120px;overflow-y:auto;font-size:11px;color:var(--ink-soft);margin-bottom:4px;">대기 중인 요청이 없어요</div>
     </div>
@@ -7509,7 +7426,7 @@
   </div>
   <!-- 📄 [2026-10-02] 엑셀로 일괄 발급 — 발급 창 **옆에** 서는 두 번째 창(같은 #licenseGenOverlay 안이라
        클릭 통과 목록·ESC 사다리·창 층을 새로 등록할 필요가 없다). 미리보기 단계에서는 아무것도 쓰지 않는다. -->
-  <div id="licenseXlsxWin" style="display:none;pointer-events:auto;max-height:90vh;overflow-y:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+  <div id="licenseXlsxWin" data-admin-win style="display:none;pointer-events:auto;max-height:90vh;overflow-y:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     width:440px;max-width:90vw;font-family:var(--tw-font-legacy);">
     <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;display:flex;align-items:center;justify-content:space-between;
@@ -7528,8 +7445,7 @@
       <div id="licenseXlsxPreview" style="display:none;max-height:210px;overflow:auto;margin-top:6px;background:#fff;
         border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);"></div>
       <div id="licenseXlsxOpts" style="display:none;margin-top:8px;">
-        <label style="display:flex;gap:6px;align-items:center;cursor:pointer;margin-bottom:4px;"><input type="checkbox" id="licenseXlsxDupFirst" checked> 같은 친구코드가 여러 번 나오면 첫 행만 발급</label>
-        <label style="display:flex;gap:6px;align-items:center;cursor:pointer;"><input type="checkbox" id="licenseXlsxReissue"> 전에 발급한 적 있는 친구코드도 다시 발급 <span style="color:var(--ink-soft);">(기본: 건너뜀)</span></label>
+        <label style="display:flex;gap:6px;align-items:center;cursor:pointer;"><input type="checkbox" id="licenseXlsxReissue"> 이미 유효한 키가 있는 친구코드도 다시 발급 <span style="color:var(--ink-soft);">(기본: 건너뜀)</span></label>
       </div>
       <div id="licenseXlsxActs" style="display:none;gap:6px;margin-top:12px;">
         <button id="licenseXlsxRunBtn" class="lc-btn" style="margin-top:0;flex:1;">🎟️ 발급</button>
@@ -7567,7 +7483,7 @@
 <!-- 📣 확성기 공지 모달 (관리자 전용) — 런처5:
      짧은 공지를 firebase에 발행하면 접속 중인 모든 유저의 캐릭터 위(레벨 닉네임 위)에 1분간 표시.
      200px 폭 마퀴로 왼쪽으로 흘러가고, 다른 유저가 나중에 접속해도 60초 이내면 남은 시간만큼 표시. -->
-<div id="announceOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
+<div id="announceOverlay" data-admin-win style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -7593,7 +7509,7 @@
 </div>
 
 <!-- 업데이트 공지 편집 모달 (관리자) — 팝업으로 제목/본문을 저장, 유저에게 첫 실행 시 한 번 팝업 -->
-<div id="updateNoticeAdminOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
+<div id="updateNoticeAdminOverlay" data-admin-win style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -7647,7 +7563,7 @@
   </div>
 </div>
 <!-- Phase 3: 카테고리 관리 모달 (관리자) -->
-<div id="categoryManageOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
+<div id="categoryManageOverlay" data-admin-win style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;width:460px;max-width:92vw;max-height:88vh;overflow-y:auto;
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -7751,7 +7667,7 @@
     </div>
   </div>
 </div>
-<div id="gameCfgOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
+<div id="gameCfgOverlay" data-admin-win style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;width:300px;max-width:90vw;
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -7770,7 +7686,7 @@
     </div>
   </div>
 </div>
-<div id="adBannerOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
+<div id="adBannerOverlay" data-admin-win style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;width:320px;max-width:90vw;max-height:88vh;overflow-y:auto;
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -8011,7 +7927,7 @@
 </div>
 
 
-<div id="glbEncOverlay">
+<div id="glbEncOverlay" data-admin-win>
   <div id="glbEncModal">
     <h2>GLB 암호화 (판매용)</h2>
     <p>커스텀 캐릭터 GLB를 비밀번호로 암호화해 <b>.dcc</b> 파일로 저장해요. 파일과 비밀번호를 함께 전달하세요.</p>
@@ -8021,7 +7937,7 @@
   </div>
 </div>
 
-<div id="glbLoadOverlay">
+<div id="glbLoadOverlay" data-admin-win>
   <div id="glbLoadModal">
     <h2>암호화 GLB 불러오기</h2>
     <p>전달받은 암호화 파일(<b>.dcc</b>)과 비밀번호로 캐릭터를 불러와요.</p>
@@ -8031,7 +7947,7 @@
   </div>
 </div>
 
-<div id="assetGenOverlay">
+<div id="assetGenOverlay" data-admin-win>
   <div id="assetGenModal">
     <h2>책상·아이템 코드 만들기 (판매용)</h2>
     <p>커스텀 <b>책상</b> 또는 <b>아이템</b> GLB를 비밀번호로 암호화해 <b>코드</b>로 만들어요. 코드와 비밀번호를 함께 전달하세요.</p>
@@ -8071,7 +7987,7 @@
   </div>
 </div>
 
-<div id="commGenOverlay">
+<div id="commGenOverlay" data-admin-win>
   <div id="commGenModal" style="background:#fffdf6;border-radius:18px;padding:22px 24px;max-width:460px;width:90%;max-height:90vh;overflow-y:auto;box-shadow:0 12px 40px rgba(74,63,53,.3);">
     <h2 style="margin:0 0 4px;font-family:'Fredoka',sans-serif;font-size:18px;color:#4a3f35;">🎁 커미션 캐릭터 등록</h2>
     <p style="margin:0 0 14px;font-size:12px;color:#7a6b5d;line-height:1.5;">완성형 캐릭터(GLB + 표정 + 감은눈)를 비밀번호로 암호화해 코드로 만들어요. 고객은 받은 코드로 캐릭터를 바로 등록하고 책상 세팅만 합니다.</p>
@@ -8086,7 +8002,7 @@
   </div>
 </div>
 
-<div id="partRegOverlay">
+<div id="partRegOverlay" data-admin-win>
   <div id="partRegModal" style="background:#fffdf6;border-radius:18px;padding:22px 24px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(74,63,53,.3);">
     <h2 style="margin:0 0 4px;font-family:'Fredoka',sans-serif;font-size:18px;color:#4a3f35;">🎨 <span id="partRegCatLabel">파츠 등록</span><span id="partRegGachaTag" style="display:none;margin-left:6px;font-size:12px;padding:2px 8px;border-radius:9px;background:#6a4a9a;color:#fff;vertical-align:middle;">🎰 가챠 전용 · 꾸미기 창에 안 나옴</span></h2>
     <p style="margin:0 0 14px;font-size:12px;color:#7a6b5d;line-height:1.5;">캐릭터에 부착할 GLB 파츠를 등록해요. 부착 위치에 맞춰 모델링된 GLB를 올려주세요. (1MB 한도)</p>
@@ -8217,7 +8133,7 @@
   </div>
 </div>
 
-<div id="deskRegOverlay">
+<div id="deskRegOverlay" data-admin-win>
   <div id="deskRegModal" style="background:#fffdf6;border-radius:18px;padding:22px 24px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(74,63,53,.3);">
     <h2 id="deskRegTitle" style="margin:0 0 4px;font-family:'Fredoka',sans-serif;font-size:18px;color:#4a3f35;">🪑 책상 등록</h2>
     <p id="deskRegDesc" style="margin:0 0 14px;font-size:12px;color:#7a6b5d;line-height:1.5;">모든 사용자에게 배포되는 책상 GLB예요. 나중에 GLB만 새로 올려서 교체하면, 이미 이 책상을 쓰던 사람들도 자동으로 새 모습으로 바뀌어요.</p>
@@ -8280,7 +8196,7 @@
 </div>
 
 <!-- 📊 관리자 Total 통계 -->
-<div id="totalStatsOverlay" style="display:none;position:fixed;inset:0;z-index:var(--z-dialog-admin);align-items:center;justify-content:center;background:rgba(0,0,0,.35);pointer-events:auto;">
+<div id="totalStatsOverlay" data-admin-win style="display:none;position:fixed;inset:0;z-index:var(--z-dialog-admin);align-items:center;justify-content:center;background:rgba(0,0,0,.35);pointer-events:auto;">
   <div style="width:320px;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 4px 4px 0 rgba(0,0,0,.35);font-family:var(--tw-font-legacy);">
     <div style="background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));color:#fff;padding:5px 8px;font-size:12px;font-weight:bold;display:flex;justify-content:space-between;align-items:center;">
       <span>📊 전체 통계</span>
@@ -8410,7 +8326,11 @@
         </div>
         <!-- ⚠️ 채팅이 꺼지면 placeholder 를 갈아 끼운다(입력칸을 잠그지는 않는다 —
              😊 이모티콘이 이 칸에 /명령어를 꽂아 Enter 로 나가는 구조라 잠그면 이모티콘까지 죽는다). -->
-        <input type="text" id="chatInput" class="chat-input" placeholder="메시지 입력 후 Enter" maxlength="500" autocomplete="off">
+        <!-- [보내기] — Enter 와 같은 한 길(chat-window.js). 입력칸과 한 줄 -->
+        <div class="chat-input-line">
+          <input type="text" id="chatInput" class="chat-input" placeholder="메시지 입력 후 Enter" maxlength="500" autocomplete="off">
+          <button type="button" id="chatSendBtn" class="chat-send-btn" title="보내기 (Enter)">보내기</button>
+        </div>
         <!-- 🌊 날리기 — 체크하고 보내면 글자가 화면을 가로질러 흐른다(니코동식).
              ★ 자리: `.chat-input-col` **안**, 입력칸 바로 아래다. 처음엔 `.chat-inputrow` 밖의
                형제로 뒀는데, 프로필 칸(74px)이 입력칸보다 키가 커서 그 아래로 밀려나
@@ -8639,11 +8559,11 @@
 
 <div id="inviteOverlay">
   <div id="inviteModal">
-    <h2>방 찾기 · 만들기</h2>
+    <h2><span>방 찾기 · 만들기</span><button type="button" class="lb-x" id="inviteClose" aria-label="닫기" title="닫기">✕</button></h2>
     <p>같은 방 코드로 연결하면, 서로의 시메지가 옆자리에 나타나 상태를 실시간으로 공유해요.(최대 <span data-tw-max-people>10</span>명)</p>
     <div id="inviteIdle">
-      <!-- 🗂️ 방 목록 로비(room/room-lobby-ui.js) — 목록은 서버 함수가 1분마다 만드는 사본(roomLobby)을 모달을 열 때 · 새로 고침 · 60초마다 읽는다
-           ⚠️ 코드 칸(#inviteJoinPanel)도 로비 안에 둔다 — [방 만들기] 창(room-create-ui.js)이 둘을 같이 숨긴다. -->
+      <!-- 🗂️ 방 목록 로비(room/room-lobby-ui.js) — 목록은 API(GET /v2/rooms/lobby — realtime 서버가 지금 연 방)를 모달을 열 때 · 새로 고침 · 탭을 바꿀 때 · 방을 나와 로비가 다시 보일 때 읽는다(주기 갱신 없음)
+           ⚠️ 코드 칸(.lb-join)도 로비 안에 둔다 — [방 만들기] 창(room-create-ui.js)이 둘을 같이 숨긴다. -->
       <div id="lobbyMain">
         <div class="lb-main">
           <div class="lb-bar">
@@ -8678,20 +8598,20 @@
           </div>
           <button type="button" class="lc-btn" id="lobbyCreate">＋ 방 만들기</button>
           <button type="button" class="lc-btn lb-quick" id="lobbyQuick">⚡ 빠른시작</button>
-          <!-- 참여 코드 입력 (로비 오른쪽 칸 — 시크릿룸은 «1234*» 로 넣거나 로비 맨 위 «내 시크릿룸» 줄로) -->
-          <div id="inviteJoinPanel">
-            <div style="font-size:11px;color:var(--ink-soft);text-align:center;margin:0 0 8px;">받은 방 코드가 있다면 입력해서 바로 입장하세요.<br>코드를 비워 두고 <b>참여</b>를 누르면 방 목록에 공개된 워킹룸에 들어가요 🎲</div>
+          <!-- 받은 방 코드로 입장 (로비 오른쪽 칸) — 비운 채 누르면 안내만(랜덤 입장은 [빠른시작] 하나) · 시크릿룸은 «1234*» 로 넣거나 맨 위 «내 시크릿룸» 줄로 -->
+          <div class="lb-join">
+            <div style="font-size:11px;color:var(--ink-soft);text-align:center;margin:0 0 8px;">받은 방 코드가 있다면 입력해서 바로 입장하세요.</div>
             <div style="display:flex;gap:8px;align-items:center;">
-              <div class="room-code-group" style="margin-bottom:0;flex:1;">
-                <span class="room-code-prefix">COZY-</span>
-                <input id="inviteCode" class="room-code-in" type="text" placeholder="예: 7Q2K" maxlength="5" autocomplete="off" spellcheck="false">
+              <div class="lb-code-wrap" style="flex:1;min-width:0;">
+                <div class="room-code-group lb-code-in" style="margin-bottom:0;" title="받은 방 코드 4자리 · 시크릿룸은 끝에 *">
+                  <span class="room-code-prefix">COZY-</span>
+                  <input id="inviteCode" class="room-code-in" type="text" placeholder="방 코드" maxlength="5" autocomplete="off" spellcheck="false">
+                </div>
+                <!-- 🕘 칸이 비어 있을 때 누르면 위로 펼쳐지는 최근 방(room/recent-rooms-ui.js) -->
+                <div id="lobbyRecent" class="lb-recent" hidden></div>
               </div>
-              <button class="lc-btn ghost" id="inviteJoin" style="width:auto;padding:10px 14px;">참여</button>
+              <button type="button" class="lc-btn ghost" id="inviteJoin" style="width:auto;padding:10px 14px;">입장</button>
             </div>
-          </div>
-          <!-- 💝 후원 링크 — 투게더룸은 라이선스가 필요해서 로비 곁에 둔다. 시스템 브라우저로 열림(app.js에서 처리). -->
-          <div class="lb-donate">
-            <a id="donateLink" href="https://litt.ly/togetherworking" title="후원 페이지로 이동해요"><span class="donate-shine">후원하러 가기 ››</span></a>
           </div>
         </div>
       </div>
@@ -8757,8 +8677,8 @@
       <!-- 🎲 방 갈아타기 — 지금 방을 나가고 랜덤 참여를 허용한 다른 워킹룸으로 바로 옮긴다.
            워킹룸에서만 보인다(refreshInviteUI가 _activeChannel로 판단). -->
       <button class="lc-btn ghost" id="inviteHopRandom" style="margin-bottom:6px;display:none;">🎲 다른 랜덤룸 참여하기</button>
+      <button class="lc-btn ghost" id="inviteCloseBtn">닫기</button>
     </div>
-    <div class="code-btns"><button id="inviteClose">닫기</button></div>
   </div>
 </div>
 
@@ -8798,37 +8718,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<!-- ⚖️ [2026-09-20 · ④] 슬롯 충돌 대화상자 — 이 기기와 계정이 서로 다르게 바뀌어 어느 쪽도 안 덮고 세워 둔 판.
-     app.js _slotsConflictHandler → _slotsShowConflictDlg 가 채우고 연다. 네이티브 confirm 은 안 쓴다(투명 창에서 안 뜬다). -->
-<div id="slotConflictDlg" style="display:none;position:fixed;inset:0;z-index:99990;background:rgba(0,0,0,.35);align-items:center;justify-content:center;">
-  <div style="width:340px;max-width:calc(100% - 24px);background:var(--win-face,#C0C0C0);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2,#D4D0C8);padding:3px;font-family:var(--tw-font-legacy);">
-    <div style="background:linear-gradient(90deg,#0A246A,#1084D0);padding:3px 4px;font-size:11px;color:#fff;font-weight:bold;">캐릭터가 양쪽에서 바뀌었어요</div>
-    <div style="padding:10px 9px 9px;display:flex;flex-direction:column;gap:9px;">
-      <p style="margin:0;font-size:11px;color:var(--ink);line-height:1.55;">이 컴퓨터와 계정의 캐릭터가 서로 다르게 바뀌어 있어서, 어느 쪽도 덮지 않고 두었어요. 어느 쪽을 쓸지 골라 주세요.</p>
-      <div style="display:flex;gap:6px;">
-        <div style="flex:1 1 0;background:var(--win-select-bg);border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:8px;display:flex;flex-direction:column;gap:4px;">
-          <span style="font-size:10.5px;color:var(--ink-soft);">이 컴퓨터</span>
-          <span id="scdLocalN" style="font-size:16px;color:var(--ink);font-weight:bold;">–</span>
-          <span id="scdLocalAt" style="font-size:10px;color:var(--ink-soft);"></span>
-        </div>
-        <div style="flex:1 1 0;background:var(--win-select-bg);border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:8px;display:flex;flex-direction:column;gap:4px;">
-          <span style="font-size:10.5px;color:var(--ink-soft);">계정 (다른 컴퓨터)</span>
-          <span id="scdServerN" style="font-size:16px;color:var(--ink);font-weight:bold;">–</span>
-          <span id="scdServerAt" style="font-size:10px;color:var(--ink-soft);"></span>
-        </div>
-      </div>
-      <div style="display:flex;gap:6px;">
-        <button id="scdKeepServer" class="lc-btn" style="flex:1;margin-top:0;font-size:12px;">다른 PC로 맞추기</button>
-        <button id="scdKeepMine" class="lc-btn" style="flex:1;margin-top:0;font-size:12px;">현재 PC로 맞추기</button>
-      </div>
-      <p style="margin:0;font-size:10px;color:var(--ink);line-height:1.5;background:rgba(0,0,0,.05);padding:5px 7px;">고르지 않은 쪽은 백업으로 남아요. 계정 탭 › 기기 연동에서 되돌릴 수 있어요.</p>
-      <div id="scdMsg" style="display:none;font-size:10.5px;color:var(--win-error);line-height:1.5;"></div>
-      <button id="scdLater" class="lc-btn" style="width:100%;margin-top:0;font-size:11px;">나중에 결정</button>
-    </div>
-  </div>
-</div>
-
 <div class="panel">
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
     <button class="reset" id="toLauncher" style="flex:0 0 auto;">← 런처</button>
@@ -8882,10 +8771,14 @@
   <div class="hint" id="runHint" style="display:none"><b>짧게 클릭</b>하면 쓰다듬을 수 있어요. 꾸미기·좌석 세팅은 <b>런처의 ⚙</b>에서 캐릭터별로 편집해요.</div>
 </div>
 
+<script src="parts/shared/error-report.js"></script>   <!-- 🧯 화면 오류 · console.error / warn 을 오류 기록(tw-error.log)으로 — 맨 먼저(뒤 스크립트가 실리다 난 오류도 잡게) -->
+<script src="parts/shared/leave-flush.js"></script>   <!-- 🚪 떠나기 전 저장 기다리기(window.TwLeaveFlush — 로그아웃 · 앱 끄기 · 8초 상한) — 오류 기록 바로 뒤: 실리면 main(quit-hold.js)의 끄기 물음에 답하기 시작한다(뒤 스크립트가 죽어도 바로 답하게) -->
+<script src="parts/account/login-diag.js"></script>   <!-- 🩺 켤 때 로그인 진단(window.TwLoginDiag — 저장된 로그인 · 대기선 · 긴 작업 · 확인 결과를 진단 기록에) — 긴 작업을 처음부터 재려고 맨 앞쪽 · firebase-init.js · app.js 보다 먼저 -->
 <script src="vendor/three/three.min.js"></script>
 <script src="vendor/three/GLTFLoader.js"></script>
 <script src="vendor/three/DRACOLoader.js"></script>
 <script src="vendor/three/SkeletonUtils.js"></script>
+<script src="parts/shared/skeleton-share.js"></script>   <!-- 🦴 같은 뼈대는 Skeleton 하나(window.TwSkeletonShare) — app.js · animal.js · purikura-ui.js 보다 먼저 -->
 <script src="vendor/three/TransformControls.js"></script>
 <!-- ★ 위 TransformControls.js는 꾸미기 미리보기 기즈모(이동/회전/크기 핸들)에 필요한 파일 —
      Three.js r128용 non-module 버전을 vendor/three/ 폴더에 추가로 넣어야 함.
@@ -8903,13 +8796,14 @@
 <script src="parts/skin-data.js"></script>
 <!-- 투게더룸(Firebase Realtime Database) — 이 기능은 인터넷 연결이 필요해서 공식 CDN(gstatic) ESM을 사용.
      window.firebaseReady(Promise)로 app.js가 준비 여부를 기다릴 수 있게 함. -->
+<script src="parts/account/auth-barrier.js"></script>   <!-- 🚧 로그인 복원 대기선(window.TwAuthBarrier — 쓰기용 8초 ready · 켤 때 판정용 answered) — login-diag.js 다음 · firebase-init.js 보다 먼저 -->
 <script type="module" src="parts/firebase-init.js"></script>
-<!-- 📷 스티커사진의 «요금을 정하는 계층» — 반드시 parts/app.js **앞**에 둔다(classic script, window.Purikura).
-     ⚠️ THREE 도 DOM 도 firebase SDK 도 안 본다. 실제 통신은 firebaseAPI 의 pk* 어댑터 7개로만 나간다
-       (parts/firebase-init.js 끝부분). 그래서 node 로 따로 검사할 수 있다 — sim-purikura-net.js.
-     ⚠️ firebase-init.js 는 type="module" 이라 이 classic 스크립트들보다 **늦게** 돈다.
-       그래서 app.js 는 firebaseAPI.pkGet 이 아직 없을 수 있다고 보고 쓴다(_purikura() 참고). -->
+<script type="module" src="parts/realtime/rt-bind.js"></script>   <!-- 🛰 realtime 연결 만들기를 rt-hub 에 잇기(ES 모듈 — realtime-link.js · app-version.js 를 불러야 해서 firebase-init.js 다음) -->
+<!-- 📷 스티커사진 순수 계산(window.Purikura — purikura-net.js) — THREE · DOM · 통신 없음(sim-purikura-net.js). 통신은 세션 포트 purikura-rt.js · app.js 보다 먼저. -->
+<script src="parts/shared/mac-tooltip.js"></script>   <!-- 💬 맥 설명 말풍선(window.TwMacTooltip) — 싣기만 하면 맥에서 스스로 건다 · app.js 보다 먼저 -->
 <script src="parts/shared/safe-html.js"></script>   <!-- 🛡️ 남이 쓸 수 있는 값을 화면에 넣는 단 한 곳(window.TwSafeHtml — text · attr · safeUrl · cssUrl · cssColor) — 쓰는 모듈 · app.js 보다 먼저 -->
+<script src="parts/shared/server-features.js"></script>   <!-- 서버가 아직 안 받는 0.14 기능 표(window.TwServerFeatures) — 입구(버튼 · 탭 · 칸)를 닫는다 · 쓰는 모듈 · app.js 보다 먼저 -->
+<script src="parts/shared/person-name.js"></script>   <!-- 🏷️ 사람 이름을 화면 글로(window.TwPersonName — 이름이 없으면 그릴 때만 «이름 없음») — 쓰는 모듈 · app.js 보다 먼저 -->
 <script src="parts/shared/img-retry.js"></script>   <!-- 🖼 남의 그림을 한 번 더 받을 주소(window.TwImgRetry) — room-sync.js · animal.js · myhome-inbox.js · mallang.js 보다 먼저 -->
 <script src="parts/shared/ps1-dither.js"></script>   <!-- 🕹️ PS1 디더 규칙(색 단계 · Bayer 표) — 스티커사진 PS1 필터와 도트 모드가 같이 읽는다 · 둘보다 먼저 -->
 <script src="parts/purikura/purikura-net.js"></script>
@@ -8929,38 +8823,76 @@
 <script src="parts/creator/desk-item-origin.js"></script>   <!-- 🪑 생성기 책상 아이템의 «처음 자리»(⟲ 이동·회전 초기화) — app.js 보다 먼저 -->
 <script src="parts/character/def-size.js"></script>   <!-- 📦 캐릭터 디자인(def) 용량 상한 500KB · 부분별 크기 안내 — app.js 보다 먼저 -->
 <script src="parts/shared/frame-budget.js"></script>   <!-- 🔋 실행 화면 프레임 상한(60 · 손 안 대면 30 · 다른 창 20) · 해상도 배율 — app.js 보다 먼저 -->
+<script src="parts/shared/idle-gate.js"></script>   <!-- 😴 닫힌 창의 반복(rAF · 짧은 타이머) 재우기 · 열리면 다시(window.TwIdleGate) — playlist · wardrobe · launcher-preview 보다 먼저 -->
+<script src="parts/shared/gpu-timer.js"></script>   <!-- 🩺 한 장에 그래픽 칩 · JS 시간(window.TwGpuTimer) — 1분 [프레임] 줄 꼬리 · app.js 보다 먼저 -->
+<script src="parts/shared/run-cost-diag.js"></script>   <!-- 🩺 그리기 밖 시간(window.TwRunCostDiag) — 1분 [비용] 줄 · app.js 보다 먼저(firebase-init.js 는 module 이라 뒤에 돈다) -->
 <script src="parts/shared/blink-timing.js"></script>   <!-- 👁 깜빡임 시간표(좌석 · 런처 미리보기) — app.js 보다 먼저 -->
 <script src="parts/shared/maintenance-gate.js"></script>   <!-- 🛠 서버 점검 창(window.TwMaintenance — config/maintenance · 서버 기능을 누르면 창) — error-codes.js · api-client.js 보다 먼저 -->
 <script src="parts/shared/error-codes.js"></script>   <!-- ⚠️ 에러코드 표 · 실패 토스트에 번호 붙이기(window.TwErrorCodes) — 부르는 모듈 · app.js 보다 먼저 -->
+<script src="parts/shared/gl-context.js"></script>   <!-- 🧯 3D 장치(WebGL 렌더러)를 만드는 단 한 곳 — 미리보기는 못 만들어도 던지지 않고 그 창 안에 안내(window.TwGlContext) -->
+<script src="parts/shared/gl-fail-notice.js"></script>   <!-- 🧯 3D 를 못 쓸 때 «다시 켜기» 안내(window.TwGlFailNotice) — error-codes.js 다음 · app.js 보다 먼저 -->
+<script src="parts/shared/account-store.js"></script>   <!-- 🗂️ 계정별 로컬 칸(window.TwAccountStore — tw.u.<계정코드>.이름) — 포커스 누적 · 마이홈 바탕화면 · app.js 보다 먼저 -->
+<script src="parts/shared/session.js"></script>   <!-- 🔐 로그인 세션 하나(window.TwSession — 타이머 · 구독 · 비우기 훅 · dispose) — launcher/app-boot.js 가 만든다 · app.js 보다 먼저 -->
 <script src="parts/shared/json-store.js"></script>   <!-- 💾 localStorage JSON 칸 읽기 · 쓰기 한 곳(window.TwJsonStore) — 책상 프리셋 저장 · animal.js · app.js 보다 먼저 -->
 <script src="parts/room/seat-pin.js"></script>   <!-- 🪑 방에서 내 자리 «맨 오른쪽 고정»(window.TwSeatPin) — app.js 보다 먼저 -->
 <script src="parts/shared/nav.js"></script>   <!-- 🧭 창 열기 통로(설정 창 · 마이홈 · 방 나가기를 부탁하는 한 곳) — 쓰는 모듈 · app.js 보다 먼저 -->
 <script src="parts/room/invite-notice.js"></script>   <!-- 🙋 마지막으로 받은 방 초대 한 줄(window.TwInviteNotice) — 🔔 일정 알림 줄 · 알림콩 · app.js 보다 먼저 -->
 <script src="parts/room/friend-visit.js"></script>   <!-- 🏠 친구 방에 놀러 가기(window.TwFriendVisit) — app.js 보다 먼저 -->
 <script src="parts/focus/gamepad-activity.js"></script>   <!-- 🎮 게임패드 버튼 · 스틱도 활동으로(window.TwGamepadActivity) — app.js 보다 먼저 -->
+<script src="parts/focus/focus-gate.js"></script>   <!-- 😴 «투게더워킹 창이 앞이면 안 잠듦» 규칙(window.TwFocusGate — 순수 함수) — app.js 보다 먼저 -->
 <script src="parts/creator/animal-edit-route.js"></script>   <!-- 🐾 동물 편집 길잡이(모양 → 책상 → 좌석) — app.js 보다 먼저 -->
-<script src="parts/shared/api-client.js"></script>   <!-- 🌐 앱 공통 API 통로(window.TwApi · t-w-server 읽기 사본) — remote-config.js 보다 먼저 -->
-<script src="parts/shared/remote-config.js"></script>   <!-- ⚙️ 원격 설정(방 상한 · 정원 · 가입 스위치 — window.TwRemoteConfig) — app.js · firebase-init.js 보다 먼저 -->
-<script src="parts/shared/source-switch.js"></script>   <!-- 🎚️ 기능별 받는 곳 고르기(서버 / 파이어베이스 — window.TwSourceSwitch) — remote-config.js 다음 · app.js · firebase-init.js 보다 먼저 -->
-<script src="parts/shared/data-gateway.js"></script>   <!-- 🚪 범용 데이터 통로(window.TwDataGateway — Firebase 기본 동작 앞의 문 · 표에 걸린 경로만 서버로) — source-switch.js 다음 · firebase-init.js 보다 먼저 -->
+<script src="parts/shared/image-bytes.js"></script>   <!-- 🖼 data: 그림 → 올릴 바이트 판정(window.TwImageBytes — 종류 · 빈 그림 · 크기) — 쓰는 provider(schedule-api · gift-api · guestbook-api) · app.js 보다 먼저 -->
+<script src="parts/shared/request-id.js"></script>   <!-- 🔁 요청 번호(window.TwRequestId — 같은 일 다시 보내기는 같은 번호) — 쓰는 모듈 · app.js 보다 먼저 -->
+<script src="parts/shared/device-id.js"></script>   <!-- 🖥️ 이 기기 id(window.TwDeviceId — tw.deviceId · X-Device-Id · realtime hello) — request-id.js 다음 · api-client.js 보다 먼저 -->
+<script src="parts/shared/api-client.js"></script>   <!-- 🌐 앱 공통 API 통로(window.TwApi — client 읽기 · authed 로그인 통로) — remote-config.js 보다 먼저 -->
+<script src="parts/shared/api-errors.js"></script>   <!-- 🧭 서버 오류 봉투 → 할 일 · 오류 번호 번역표(window.TwApiErrors) — error-codes.js · api-client.js 다음 · 쓰는 모듈 · app.js 보다 먼저 -->
+<script src="parts/realtime/rt-hub.js"></script>   <!-- 🛰 realtime 연결 하나(window.TwRtHub — pv 4 · 닫힘 번호 표 · 작별 · 알림 → 다시 받기 표) — request-id.js · device-id.js 다음 · 쓰는 모듈 · app.js 보다 먼저(연결 재료는 rt-bind.js 가 bind) -->
+<script src="parts/realtime/rt-status-ui.js"></script>   <!-- 🛰 realtime 끊김 화면(window.TwRtStatusUi — 다시 연결 중 띠 · 로그인 풀림 · 계정 로그아웃 · 업데이트 강제 · 점검 · 모르는 닫힘) — rt-hub.js 다음 · app.js 보다 먼저 -->
+<script src="parts/shared/remote-config.js"></script>   <!-- ⚙️ 원격 설정(GET /v2/config 하나 — 방 상한 · 정원 · 최소 버전 · 초대 게이트 · 금칙어 · 하루 상한 — window.TwRemoteConfig) — api-client.js · rt-hub.js 다음 · app.js · firebase-init.js 보다 먼저 -->
+<script src="parts/room/room-rt.js"></script>   <!-- 🛰 방 포트(window.TwRoomRt — realtime 연결 하나 위의 방 provider · 탭 s1↔S1 · random · peek) — rt-hub.js · remote-config.js 다음 · app.js 보다 먼저 -->
+<script src="parts/chat/chat-rt.js"></script>   <!-- 💬 대화 포트(window.TwChatRt — chatSay · 지난 기록 GET · 방장 지우기 · 내 이모티콘) — room-rt.js · api-client.js · request-id.js 다음 · app.js 보다 먼저 -->
+<script src="parts/room/room-invite-rt.js"></script>   <!-- 🙋 방 초대 포트(window.TwRoomInviteRt — roomInvite · roomInvited · roomInviteClear) — rt-hub.js 다음 · app.js 보다 먼저 -->
+<script src="parts/shared/update-flow.js"></script>   <!-- 🔄 켤 때 업데이트 흐름(window.TwUpdateFlow — 업데이트 창 → 공지 창 → 로그인 · 강제 / 선택 · 켜 둔 동안 최소 버전이 오르면 강제 창) — remote-config.js 다음 · app.js 보다 먼저 -->
+<script src="parts/purikura/purikura-rt.js"></script>   <!-- 📷 스티커사진 세션 포트(window.TwPurikuraRt — photo* 메시지 · 정원 GET /v1/rooms/photo-quota · 자리 넷 · 방장은 서버가 정한다) — rt-hub.js · purikura-net.js 다음 · app.js 보다 먼저(app.js _purikura() 가 만든다) -->
 <script src="parts/room/room-state.js"></script>   <!-- 🧭 방 공용 상태(지금 채널 · 방 meta 사본) — 읽는 모듈 · app.js 보다 먼저 -->
+<script src="parts/launcher/launcher-state.js"></script>   <!-- 🧭 런처 공용 상태(앱 모드 · 마이홈이 런처 위에 열려 있나) — 읽는 · 바꾸는 모듈 · app.js 보다 먼저 -->
 <script src="parts/chat/demoji-catalog.js"></script>   <!-- 😊 기본 이모티콘 목록 — 채팅 · 말풍선 · 마이홈 바탕화면이 읽는 맨 아래 표 · 읽는 파일 · app.js 보다 먼저 -->
 <script src="parts/myhome/myhome-state.js"></script>   <!-- 🏠 마이홈 공용 상태(데이터 · 관람 중 uid · 미리보기 깃발) — 읽는 모듈 · app.js 보다 먼저 -->
 <script src="parts/myhome/myhome-hooks.js"></script>   <!-- 🪝 마이홈 고리판(저장 · 배경 · 테마 · BGM 을 이름으로 부르는 한 곳) — 거는 · 쓰는 모듈 · app.js 보다 먼저 -->
+<script src="parts/shared/visit-ping.js"></script>   <!-- 📈 방문 기록(window.TwVisitPing — 켤 때 한 번 POST /v2/metrics/visits) — app.js 보다 먼저 -->
+<script src="parts/account/user-api.js"></script>   <!-- 🪪 계정 provider(window.TwUserApi — /v2/me · 가입 · 초대 · 탈퇴 · 방문 기록) — api-client.js · request-id.js 다음 · 쓰는 모듈 · app.js 보다 먼저 -->
+<script src="parts/account/app-version-sync.js"></script>   <!-- 🔄 계정 단위 판 맞추기(window.TwAppVersionSync — 계정에 들어간 뒤 이 앱 판을 POST /v2/me/app-version · 더 새 판을 쓰는 기기가 있으면 업데이트 창) — api-client.js 다음 · app.js 보다 먼저 -->
+<script src="parts/account/license-api.js"></script>   <!-- 🔑 라이선스 provider(window.TwLicenseApi — /v2/me/license* 내 라이선스 · 기기 · 요청) — api-client.js 다음 · license-premium.js · app.js 보다 먼저 -->
+<script src="parts/account/license-premium.js"></script>   <!-- 🔑 프리미엄 판정(window.TwLicensePremium — GET /v2/me 의 premium 반영 · 키 등록 · 이 기기 해제) — license-api.js · user-api.js 다음 · app.js 보다 먼저 -->
+<script src="parts/account/license-screen.js"></script>   <!-- 🔑 설정 › 라이선스 구획의 상태 · 동작(window.TwLicenseScreen — 내 라이선스 · 기기 목록 받기 · 키 등록 · 해제 · 기기 빼기 · 이 기기 등록) — license-premium.js 다음 · app.js 보다 먼저 -->
+<script src="parts/account/login-flow.js"></script>   <!-- 🔑 로그인 흐름(window.TwLoginFlow — 로그인 → /v2/me → realtime 켜기 · 로컬 모드 · 내 계정 사본) — user-api.js · api-errors.js · rt-hub.js 다음 · app.js 보다 먼저 -->
+<script src="parts/account/first-run-013.js"></script>   <!-- 🚚 0.13 첫 실행(window.TwFirstRun013 — 로그인 → 캐릭터 올리기 → 라이선스 키 → 이 PC 키 지우기 차례) — app.js 보다 먼저 -->
 <script src="parts/account/account-state.js"></script>   <!-- 🪪 계정 핵심 상태(라이선스 저장 키 · 초대 통과 · 프리미엄 깃발 · 신원 놓음) — 쓰는 모듈 · app.js 보다 먼저 -->
 <script src="parts/shared/net-ready.js"></script>   <!-- 🛰 «네트워크(provider) 준비됨» 기다리기 한 곳(window.TwNetReady) — 쓰는 모듈(스케줄러 · 방 · 계정 · 카탈로그 · 버그 게시판) · app.js 보다 먼저 -->
 <script src="parts/shared/upload-cache.js"></script>   <!-- 🗂️ 업로드 캐시 상한 규칙 한 곳(window.TwUploadCache) — 방 동기화 · 슬롯 동기화가 deps 로 받음 · app.js 보다 먼저 -->
 <script src="parts/shared/win-stack.js"></script>   <!-- 🪟 창 겹침 · ESC 스택 — 창 자리 되돌리기 목록(__winPosResetters)을 거는 모듈(스케줄러 · 플레이리스트 · 가챠 · 설정)보다 먼저 · app.js 보다 먼저(app.js 가 원래 자리에서 TwWinStack.createWinStack 로 만든다) -->
+<script src="parts/myhome/schedule-api.js"></script>   <!-- 🌐 일정 · 디데이 · 일정 알림 서버 경로 provider — scheduler.js · app.js 보다 먼저(app.js 가 로그인 통로를 넘겨 만든다) -->
+<script src="parts/myhome/myhome-api.js"></script>   <!-- 🏠 마이홈 서버 endpoint(/v2/me/myhome* · /v2/myhomes/{code}* · 그림 올리기) provider — 상태 주인(myhome-store.js)이 부른다 · app.js 보다 먼저 -->
+<script src="parts/myhome/myhome-store.js"></script>   <!-- 🏠 마이홈 상태 주인(내 홈 · 보고 있는 집 — 저장 줄 · 409 · 그림 올리기) — 서버 경로 다음 · app.js 보다 먼저(D2-2) -->
+<script src="parts/myhome/gift-api.js"></script>   <!-- 🧸 말랑이 · 🎁 선물 서버 endpoint(/v2/me/mallangs · /v2/me/gifts · /v2/gifts/{code}) provider — app.js 보다 먼저(app.js 가 로그인 통로를 넘겨 만든다) -->
+<script src="parts/myhome/gift-box.js"></script>   <!-- 🎁 선물 상태 주인(window.TwGiftBox — 내 선물함 · ⭐ · 치움 · 지우기 · 봤음 · 서버 신호) — gift-api.js 뒤 · app.js 보다 먼저(app.js 가 말랑이 화면 · 수령함보다 먼저 만든다) -->
+<script src="parts/myhome/mallang-store.js"></script>   <!-- 🧸 말랑이 칸 상태 주인(window.TwMallangStore — 내 칸 · 보고 있는 집 칸 · 저장) — gift-api.js 뒤 · app.js 보다 먼저(app.js 가 말랑이 화면보다 먼저 만든다) -->
+<script src="parts/myhome/bookshelf-store.js"></script>   <!-- 📚 책장 상태 주인(window.TwBookshelfStore — 내 책장 · 보고 있는 집 공개 책 · 저장) — myhome-api.js 뒤 · app.js 보다 먼저 -->
+<script src="parts/myhome/bookmark.js"></script>   <!-- 📚 마이홈 북마크 서랍(window.TwBookmark) — app.js 가 만든다 · MYHOME_DESKTOP.addFolder 로만 붙는다(바탕화면이 늦게 준비돼도 대기열에 선다) -->
+<script src="parts/myhome/mallang.js"></script>   <!-- 🧸 말랑이 · 🎁 선물 화면(window.TwMallang) — app.js 보다 먼저(app.js 가 마이홈 수령함보다 먼저 createMallang 으로 만든다) · safe-html.js · img-retry.js 뒤 -->
 <script src="parts/myhome/scheduler.js"></script>   <!-- 📅 스케줄러 · 🔔 일정 알림 — app.js 보다 먼저(app.js 가 원래 자리에서 MhScheduler.createScheduler 로 만든다) -->
+<script src="parts/focus/chal-store.js"></script>   <!-- 👑 달성표 상태(서버 한 주 한 벌 · 쓰기 한 줄 · 오늘 판정) — weekly-challenge.js 와 app.js 보다 먼저 -->
 <script src="parts/focus/weekly-challenge.js"></script>   <!-- 👑 달성표 — app.js 보다 먼저(app.js 가 원래 자리에서 TwWeeklyChallenge.createWeeklyChallenge 로 만든다) -->
 <script src="parts/purikura/pk-bgm.js"></script>   <!-- 🎵 스티커사진 창 BGM(재생 · 멈춤 · 끄기 기억) — purikura-ui.js 보다 먼저(만들 때 TwPkBgm 을 부른다) -->
 <script src="parts/purikura/purikura-ui.js"></script>   <!-- 📷 스티커사진 창(화면 쪽) — purikura-net.js 뒤 · app.js 보다 먼저(app.js 가 원래 자리에서 TwPurikuraUi.createPurikuraUi 로 만든다) -->
+<script src="parts/myhome/guestbook-api.js"></script>   <!-- 📖 방명록 · 웹박수 서버 endpoint(/v2/guestbooks · /v2/me/guestbook) provider — guestbook-feed.js · app.js 보다 먼저(app.js 가 로그인 통로를 넘겨 만든다) -->
+<script src="parts/myhome/guestbook-feed.js"></script>   <!-- 📖 방명록 한 벌(새 글 수 · 열어 둔 방명록 · 글 쓰기 · 박수 · 폭죽 · 서버 알림) — guestbook.js · app.js 보다 먼저(app.js 가 guestbook-api 와 realtime 을 넘겨 만든다) -->
 <script src="parts/myhome/guestbook.js"></script>   <!-- 📖 방명록(새 글 배지 · 독립 팝업 창) — app.js 보다 먼저(app.js 가 원래 자리에서 TwGuestbook.createGuestbook 으로 만든다) -->
 <script src="parts/myhome/friend-manage.js"></script>   <!-- 👥 친구 관리(받은 요청 · 보낸 요청 · 선물함 서브탭) · 👋 새 친구 요청 팝업 — app.js 보다 먼저(app.js 가 원래 자리에서 TwFriendManage.createFriendManage 로 만든다) -->
 <script src="parts/focus/pomodoro.js"></script>   <!-- 🍅 뽀모도로(포커스 기록창 안쪽 서랍) — weekly-challenge.js 뒤 · app.js 보다 먼저(app.js 가 원래 자리에서 TwPomodoro.createPomodoro 로 만든다) -->
 <script src="parts/myhome/myhome-sticker-rules.js"></script>   <!-- 🔒 스티커 잠금 · 순서 규칙(window.TwMyHomeStickerRules) — myhome-sticker.js · myhome-edit.js · app.js 보다 먼저 -->
 <script src="parts/myhome/myhome-sticker.js"></script>   <!-- 🎨 마이홈 스티커 관리 창 · 스티커 편집모드 · 드래그 · 회전 · 크기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeSticker.createMyHomeSticker 로 만든다) -->
-<script src="parts/character/gacha-server.js"></script>   <!-- 🎰 가챠 서버 길(window.TwGachaServer) — app.js 가 만들어 gacha.js 에 deps 로 넘긴다 -->
+<script src="parts/character/gacha-api.js"></script>   <!-- 🎰 가챠 서버 경로(window.TwGachaApi) — app.js 가 만들어 gacha.js 에 deps 로 넘긴다 -->
 <script src="parts/character/gacha-album.js"></script>   <!-- 📚 도감 규칙(순수) — gacha.js 보다 먼저(gacha.js 가 TwGachaAlbum 을 읽는다) -->
 <script src="parts/character/gacha.js"></script>   <!-- 🎰 파츠 가챠 코어 · 도감(꾸미기 창 «도감» 탭) · 뽑기 창 — app.js 보다 먼저(app.js 가 원래 자리에서 TwGacha.createGacha 로 만든다) -->
 <script src="parts/myhome/mh-bg-url.js"></script>   <!-- 🖼️ 마이홈 배경 그림 주소 규칙(http → https 로 바꿔 불러 보기 · 못 받으면 주인에게 안내) — myhome-edit.js · myhome-desktop.js · app.js 보다 먼저 -->
@@ -8972,27 +8904,38 @@
 <script src="parts/myhome/inbox-sections.js"></script>   <!-- 📩 우편함 칸 나누기 규칙(우편 · 소식 · 순서 · 안 읽은 수 — 순수 함수) — myhome-inbox.js · app.js 보다 먼저 -->
 <script src="parts/shared/drag-scroll.js"></script>   <!-- 🖱 목록 끌어 움직이기 — myhome-inbox.js 보다 먼저 -->
 <script src="parts/myhome/mallang-sent.js"></script>   <!-- 🎁 보낸 말랑이 기록 규칙(순수) — mallang.js · myhome-inbox.js 보다 먼저 -->
+<script src="parts/myhome/gift-save.js"></script>   <!-- 💾 받은 말랑이 선물 그림 저장(window.TwGiftSave) — myhome-inbox.js · app.js 보다 먼저 -->
 <script src="parts/myhome/myhome-inbox.js"></script>   <!-- 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(Ctrl+F 검색) — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeInbox.createMyHomeInbox 로 만든다) -->
-<script src="parts/status/playlist-sync.js"></script>   <!-- ☁️ 플레이리스트 기기 간 맞추기 규칙(순수) — app.js 보다 먼저(app.js 가 deps 로 playlist.js 에 넘긴다) -->
+<script src="parts/myhome/inbox-api.js"></script>   <!-- 📩 우편 서버 endpoint(/v2/me/notifications — 읽기 · 읽음 · 지우기) provider — mail-feed.js · app.js 보다 먼저(app.js 가 로그인 통로를 넘겨 만든다) -->
+<script src="parts/myhome/mail-feed.js"></script>   <!-- 📩 내 우편 한 벌(받는 중 · 못 받음 · 새 우편 알림 · 읽음 · 지우기) — app.js 보다 먼저(app.js 가 inbox-api 와 realtime 알림을 넘겨 만든다) -->
+<script src="parts/launcher/notice-api.js"></script>   <!-- 📢 공지 서버 endpoint(/v2/notices — 소식 · 업데이트 공지 · 런처 배너 · 관리자 소식 쓰기) provider — notice-feed.js · app.js 보다 먼저 -->
+<script src="parts/launcher/notice-feed.js"></script>   <!-- 📢 공지 한 판(소식 · 업데이트 공지 · 배너를 받아 들고 알림에 다시 받기) — app.js 보다 먼저 -->
+<script src="parts/status/playlist-api.js"></script>   <!-- 🌐 플레이리스트 서버 경로(내 목록 · 파도타기) provider — playlist.js · app.js 보다 먼저(app.js 가 로그인 통로를 넘겨 만든다) -->
 <script src="parts/status/bgm-diag.js"></script>   <!-- 🔍 플레이리스트 소리 진단 줄 — app.js 보다 먼저(app.js 가 TwBgmDiag.createBgmDiag 로 만든다) -->
 <script src="parts/status/playlist-like.js"></script>   <!-- 👍 플레이리스트 반응 규칙 · 서버 읽기 쓰기(window.TwPlaylistLike) — app.js · firebase-init.js 보다 먼저 -->
 <script src="parts/status/playlist-like-ui.js"></script>   <!-- 👍 반응 서랍 · 👍 수(window.TwPlaylistLikeUi) — app.js 가 플레이리스트보다 먼저 만든다 -->
 <script src="parts/status/playlist.js"></script>   <!-- 🎵 상태칩 플레이리스트(프리셋 · 화면 · 고르기 · 파도타기 · 재생 감시견 · 재생 제어) — app.js 보다 먼저(app.js 가 원래 자리에서 TwPlaylist.createPlaylist 로 만든다) -->
+<script src="parts/admin/admin-api.js"></script>   <!-- 🛠️ 관리자: 앱 관리자 창의 서버 endpoint(/v2/admin — 관리자 확인 · 확성기 · 업데이트 공지 · 런처 배너 · 방 종료) provider — app.js 보다 먼저(app.js 가 TwAdminApi.createAdminApi) -->
+<script src="parts/admin/catalog-admin-api.js"></script>   <!-- 🛠️ 관리자: 카탈로그 쓰기(파츠 · 책상 · 소품 · 순서 · 카테고리 · 게임 설정) 서버 경로 provider — admin-api.js 다음 · app.js 보다 먼저 -->
 <script src="parts/admin/admin-license-bulk.js"></script>   <!-- 🛠️ 관리자: 📄 엑셀 라이선스 일괄 발급 · 🔒 시크릿룸 발급 — 관리자 코드는 parts/admin/ 에 모은다 · app.js 보다 먼저(app.js 가 원래 자리에서 TwAdminLicenseBulk.createAdminLicenseBulk 로 만든다) -->
-<script src="parts/admin/admin-console.js"></script>   <!-- 🛠️ 관리자: 🧹 F12 콘솔 도구 일곱(카탈로그 정리 · 진단 · 유령 방 · 초대권 회수 · 이관) — app.js 보다 먼저(app.js 가 원래 자리에서 TwAdminConsole.createAdminConsole 로 만든다) -->
 <script src="parts/admin/admin-license.js"></script>   <!-- 🛠️ 관리자: 🎟️ 라이선스 키 발급 · 목록 · 대기 요청 · 친구코드로 발급 — app.js 보다 먼저(app.js 가 원래 자리에서 TwAdminLicense.createAdminLicense 로 만든다) -->
 <script src="parts/admin/admin-notice.js"></script>   <!-- 🛠️ 관리자: 📣 확성기 공지 · 📰 업데이트 공지 편집 — app.js 보다 먼저(TwAdminNotice.createAdminNotice) -->
 <script src="parts/admin/admin-category.js"></script>   <!-- 🛠️ 관리자: 📁 꾸미기 카테고리 관리 — app.js 보다 먼저(TwAdminCategory.createAdminCategory) -->
 <script src="parts/admin/admin-part-register.js"></script>   <!-- 🛠️ 관리자: 파츠 · 책상 · 아이템 등록 창 · 파츠 삭제 — app.js 보다 먼저(app.js 가 원래 자리에서 TwAdminPartRegister.createAdminPartRegister 로 만든다) -->
 <script src="parts/admin/admin-users.js"></script>   <!-- 🛠️ 관리자: 📊 전체 통계 · 🎟️ 초대권 지급 — app.js 보다 먼저(app.js 의 초대 창 안에서 TwAdminUsers.createAdminUsers) -->
-<script src="parts/admin/admin-launcher.js"></script>   <!-- 🛠️ 관리자: 🛑 전체 방 종료 · 🧹 유령 방 청소 · ⚙️ 게임 설정 · 📢 광고 배너 편집 — app.js 보다 먼저(TwAdminLauncher.createAdminLauncher) -->
+<script src="parts/admin/admin-launcher.js"></script>   <!-- 🛠️ 관리자: 🛑 전체 방 종료 · ⚙️ 게임 설정 · 📢 광고 배너 편집 — app.js 보다 먼저(TwAdminLauncher.createAdminLauncher) -->
 <script src="parts/admin/admin-asset.js"></script>   <!-- 🛠️ 관리자: 📦 책상·아이템 코드 · 🎁 커미션 캐릭터 · 🔐 암호화 GLB 불러오기 — app.js 보다 먼저(TwAdminAsset.createAdminAsset) -->
 <script src="parts/admin/admin-mode.js"></script>   <!-- 🛠️ 관리자: 🔐 관리자 모드 진입 · 비밀번호 창 · Ctrl+E · 관리자 버튼 보이기 — key-input.js 뒤 · app.js 보다 먼저(TwAdminMode.createAdminMode) -->
+<script src="parts/support/report-api.js"></script>   <!-- 🚩 신고 provider(window.TwReportApi — POST /v2/reports) — api-client.js 다음 · report.js · app.js 보다 먼저 -->
 <script src="parts/support/report.js"></script>   <!-- 🚩 신고하기(신고 창 · 공용 도우미 · 팝업 칸) — app.js 보다 먼저(app.js 가 원래 자리에서 TwReport.createReport 로 만든다) -->
 <script src="parts/admin/admin-report.js"></script>   <!-- 🛠️ 관리자: 🚩 신고 목록 — report.js 뒤 · app.js 보다 먼저(TwAdminReport.createAdminReport) -->
+<script src="parts/support/bug-board.js"></script>   <!-- 🐞 버그제보 규칙 · 상수 · 문구(window.TwBugBoard) — bug-api.js · bug-board-ui.js · app.js 보다 먼저 -->
+<script src="parts/support/bug-api.js"></script>   <!-- 🐞 버그제보 provider(window.TwBugApi — /v2/bugs* · 배지 수) — api-client.js · request-id.js 다음 · app.js 보다 먼저 -->
+<script src="parts/support/bug-board-ui.js"></script>   <!-- 🐞 버그제보 게시판 화면(window.TwBugBoardUi — app.js 가 만든다) · 버그 제보 탭(오픈카톡 기본 링크) — net-ready.js 뒤 · app.js 보다 먼저 -->
 <script src="parts/account/my-info.js"></script>   <!-- 🪪 [내 정보] 화면 — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyInfo.createMyInfo 로 만든다) -->
-<script src="parts/character/chars.js"></script>   <!-- 🧬 캐릭터 보관함(chars) — 병합 · 이관 · 조율 — app.js 보다 먼저(app.js 가 원래 자리에서 TwChars.createChars 로 만든다) -->
-<script src="parts/character/slot-sync.js"></script>   <!-- ☁️ 슬롯 기기 간 동기화 · 연동 UI — app.js 보다 먼저(app.js 가 원래 자리에서 TwSlotSync.createSlotSync 로 만든다) -->
+<script src="parts/character/slot-codec.js"></script>   <!-- 🧬 캐릭터 한 칸 ↔ 서버 def 바꾸기(window.TwSlotCodec) — app.js 가 만든다 -->
+<script src="parts/character/closet-api.js"></script>   <!-- 🧬 옷장 서버 경로(window.TwClosetApi) — app.js 가 로그인 통로로 만든다 -->
+<script src="parts/character/closet.js"></script>   <!-- 🧬 옷장(슬롯 · 보관함 · 휴지통) 서버 원본(window.TwCloset) — app.js 가 원래 자리에서 TwCloset.createCloset 로 만든다 -->
 <script src="parts/room/away-pic.js"></script>   <!-- 🫧 자리비움 그림 — app.js 보다 먼저(app.js 가 원래 자리에서 TwAwayPic.createAwayPic 로 만든다) -->
 <script src="parts/shared/help-site.js"></script>   <!-- 📘 도움말 주소 · 알림 읽기 규칙(순수 — main.js 와 같이 씀) — help-tab.js 보다 먼저 -->
 <script src="parts/myhome/help-tab.js"></script>   <!-- 📘 도움말 탭(목차 · 틀 · 못 불러옴) — app.js 보다 먼저(app.js 가 TwHelpTab.createHelpTab 으로 만든다) -->
@@ -9001,7 +8944,8 @@
 <script src="parts/room/ride-chain.js"></script>   <!-- 🗼 탑 바닥 찾기(순수) — app.js 보다 먼저(app.js 가 올라타기 구역에서 TwRideChain.createRideChain 로 만든다) -->
 <script src="parts/room/ride-bench.js"></script>   <!-- 🗼 올라타기 · 🪑 멀티좌석 책상 — app.js 보다 먼저(app.js 가 원래 자리에서 TwRideBench.createRideBench 로 만든다) -->
 <script src="parts/character/part-paint.js"></script>   <!-- 🖍️ 파츠에 직접 그리기 · 그림칸 — app.js 보다 먼저(app.js 가 원래 자리에서 TwPartPaint.createPartPaint 로 만든다) -->
-<script src="parts/focus/mobile-diag.js"></script>   <!-- 📱 진단 줄 규칙 — focus-level.js 보다 먼저(app.js 가 deps 로 넘긴다) -->
+<script src="parts/focus/focus-api.js"></script>   <!-- ⏱ 포커스 · 👑 달성표 · 📱 폰 연결 서버 endpoint(/v2/me/focus*) provider — 포커스 모듈 · app.js 보다 먼저(app.js 가 로그인 통로를 넘겨 만든다) -->
+<script src="parts/focus/focus-progress.js"></script>   <!-- ⏱ 포커스 진척(서버 값 · 못 올린 초) — app.js 보다 먼저(app.js 가 TwFocusProgress.createFocusProgress 로 만든다) -->
 <script src="parts/focus/focus-level.js"></script>   <!-- ⭐ 포커스 레벨 · 공유 · 태블릿 — app.js 보다 먼저(app.js 가 원래 자리에서 TwFocusLevel.createFocusLevel 로 만든다) -->
 <script src="parts/chat/chat-notice-net.js"></script>   <!-- 📢 시크릿룸 공지 서버 읽기 · 쓰기(window.TwChatNoticeNet) — firebase-init.js(type=module · 늦게 돈다)가 연결한다 -->
 <script src="parts/chat/chat-notice.js"></script>   <!-- 📢 시크릿룸 공지(window.TwChatNotice — #공지 탭 · 고정 줄) — chat-ui.js · app.js 보다 먼저(app.js 가 채팅 모듈보다 먼저 만든다) -->
@@ -9015,19 +8959,29 @@
 <script src="parts/account/account.js"></script>   <!-- 🔑 계정 — app.js 보다 먼저(app.js 가 원래 자리에서 TwAccount.createAccount 로 만든다) -->
 <script src="parts/character/wardrobe-place.js"></script>   <!-- 📐 꾸미기 · 미리보기 창 자리 규칙(순수) — wardrobe.js 보다 먼저(wardrobe.js 가 TwWardrobePlace 를 읽는다) -->
 <script src="parts/character/wardrobe.js"></script>   <!-- 🎨 꾸미기 창 — app.js 보다 먼저(app.js 가 원래 자리에서 TwWardrobe.createWardrobe 로 만든다) -->
+<script src="parts/shared/panel-fit.js"></script>   <!-- 📐 아래 기준 창을 화면 안으로 — settings-panel.js · status-chip.js 보다 먼저 -->
 <script src="parts/launcher/settings-panel.js"></script>   <!-- ⚙ 설정 패널 — app.js 보다 먼저(app.js 가 원래 자리에서 TwSettingsPanel.createSettingsPanel 로 만든다) -->
 <script src="parts/launcher/click-through-policy.js"></script>   <!-- 🖱 클릭 통과 판단 규칙(순수 함수 · main.js 도 require) — desktop-run.js 보다 먼저 -->
+<script src="parts/launcher/heartbeat-policy.js"></script>   <!-- 🩺 하트비트에 무거운 칸을 실을지(순수 함수) — app.js 보다 먼저 -->
+<script src="parts/launcher/heartbeat.js"></script>   <!-- 🩺 0.1초 하트비트 — app.js 보다 먼저(app.js 가 원래 자리에서 TwHeartbeat.createHeartbeat 로 만든다) -->
+<script src="parts/launcher/hit-map.js"></script>   <!-- 🗺️ 클릭 통과 히트 맵(순수 계산 · window.TwHitMap) — app.js 보다 먼저 -->
+<script src="parts/launcher/hit-shadow.js"></script>   <!-- 🗺️ 히트 맵 그림자 운행의 셈 · 1분 [지도] 줄(window.TwHitShadow) — run-diag-minute.js · app.js 보다 먼저 -->
+<script src="parts/room/seat-hit-targets.js"></script>   <!-- 🎯 좌석의 누를 수 있는 조각 · 히트 맵 만들기(window.TwSeatHitTargets) — app.js 보다 먼저 -->
+<script src="parts/launcher/run-diag-minute.js"></script>   <!-- 🩺 1분 진단 줄 — app.js 보다 먼저(app.js 가 원래 자리에서 TwRunDiagMinute.createRunDiagMinute 로 만든다) -->
 <script src="parts/launcher/desktop-run.js"></script>   <!-- 🖥️ 데스크탑 실행 화면 — app.js 보다 먼저(app.js 가 원래 자리에서 TwDesktopRun.createDesktopRun 로 만든다) -->
-<script src="parts/shared/banned-words.js"></script>   <!-- 🏷️ 방 제목 금칙어 판정(window.TwBannedWords) — 서버 함수 firebase/functions/banned-words.js 와 글자까지 같다 -->
+<script src="parts/shared/banned-words.js"></script>   <!-- 🏷️ 방 제목 금칙어 판정(window.TwBannedWords) — realtime 서버의 판정과 같은 규칙 -->
 <script src="parts/room/room-settings.js"></script>   <!-- 🏷️ 방 설정 규칙(제목 · 최대 인원 · 방장 닉네임 — window.TwRoomSettings) — app.js · firebase-init.js 보다 먼저 -->
 <script src="parts/room/room-create-ui.js"></script>   <!-- 🏷️ 방 만들기 창(window.TwRoomCreateUi) — app.js 가 방 입장 모듈 뒤에서 만든다 -->
 <script src="parts/room/listen-model.js"></script>   <!-- 🎧 같이 듣기 규칙(window.TwListenModel — 위치 · DJ · 곡 끝 · 다음 곡) -->
-<script src="parts/room/listen-provider.js"></script>   <!-- 🎧 같이 듣기 곡 칸 읽기 · 쓰기 · 서버 시각(window.TwListenProvider — 지금은 Firebase 옛 길) -->
+<script src="parts/room/listen-provider.js"></script>   <!-- 🎧 같이 듣기 곡 칸 읽기 · 쓰기 · 서버 시각(window.TwListenProvider — 방 포트 위) -->
 <script src="parts/room/listen-ui.js"></script>   <!-- 🎧 같이 듣기 창(window.TwListenUi) — app.js 가 방 입장 모듈보다 먼저 만든다 -->
 <script src="parts/room/room-info-ui.js"></script>   <!-- 🏷️ 방 안 제목 줄 · [방 설정](window.TwRoomInfoUi) — app.js 가 방 입장 모듈보다 먼저 만든다 -->
 <script src="parts/room/room-lobby-model.js"></script>   <!-- 🗂️ 방 목록 로비 규칙(window.TwRoomLobbyModel — 카드 · 정렬 · 쪽 · 빠른시작) -->
-<script src="parts/room/room-lobby-provider.js"></script>   <!-- 🗂️ 로비가 읽는 것(window.TwRoomLobbyProvider — 지금은 Firebase 옛 길) -->
+<script src="parts/room/room-lobby-provider.js"></script>   <!-- 🗂️ 로비가 읽는 것(window.TwRoomLobbyProvider — 서버 API 위) -->
 <script src="parts/room/room-lobby-ui.js"></script>   <!-- 🗂️ 방 목록 로비 화면(window.TwRoomLobbyUi) — app.js 가 방 만들기 창 뒤에서 만든다 -->
+<script src="parts/room/recent-rooms.js"></script>   <!-- 🕘 최근 들어간 방 규칙 · 이 PC 저장(window.TwRecentRooms) — app.js 보다 먼저 -->
+<script src="parts/room/recent-rooms-ui.js"></script>   <!-- 🕘 로비 코드 칸의 최근 방 목록(window.TwRecentRoomsUi) — app.js 가 방 입장 모듈 뒤에서 만든다 -->
+<script src="parts/room/seat-sync-diff.js"></script>   <!-- 🪑 친구 좌석 맞추기의 «줄 배치를 다시 할지» 규칙(window.TwSeatSyncDiff) — room-entry.js 보다 먼저 -->
 <script src="parts/room/room-entry.js"></script>   <!-- 🛰 방 서버 · 입장 · 방 개수 — app.js 보다 먼저(app.js 가 원래 자리에서 TwRoomEntry.createRoomEntry 로 만든다) -->
 <script src="parts/room/seat-label-drag.js"></script>   <!-- 🏷️ 이름표 · 경험치 바 끌어 자리 바꾸기(window.TwSeatLabelDrag) — app.js 보다 먼저 -->
 <script src="parts/room/label-measure.js"></script>   <!-- 📐 라벨 잰 값 기억 — overhead.js 보다 먼저(만들 때 TwLabelMeasure 를 부른다) -->
@@ -9041,13 +8995,15 @@
 <script src="parts/launcher/program-settings.js"></script>   <!-- ⚙️ 프로그램 설정 창 — app.js 보다 먼저(app.js 가 원래 자리에서 TwProgramSettings.createProgramSettings 로 만든다) -->
 <script src="parts/launcher/oss-licenses.js"></script>   <!-- 📄 오픈소스 라이선스 창 — app.js 보다 먼저(app.js 가 프로그램 설정 바로 뒤에서 TwOssLicenses.createOssLicenses 로 만든다) -->
 <script src="parts/chat/chat-prefs.js"></script>   <!-- 💬 채팅 투명도 · 알림음 · 기록 삭제 — app.js 보다 먼저(app.js 가 원래 자리에서 TwChatPrefs.createChatPrefs 로 만든다) -->
+<script src="vendor/dompurify/purify.min.js"></script>   <!-- 🛡️ DOMPurify 3.4.17 — rich-text.js 가 씻기에 쓴다 · 그보다 먼저 -->
 <script src="parts/shared/rich-text.js"></script>   <!-- 🛡️ 리치 텍스트 sanitize — app.js 보다 먼저(app.js 가 원래 자리에서 TwRichText.createRichText 로 만든다) -->
 <script src="parts/shared/sfx.js"></script>   <!-- 🔊 효과음 공장 — app.js 보다 먼저(app.js 가 원래 자리에서 TwSfx.createSfx 로 만든다) -->
 <script src="parts/character/face-heal.js"></script>   <!-- 얼굴 자동 복구 — app.js 보다 먼저(app.js 가 원래 자리에서 TwFaceHeal.createFaceHeal 로 만든다) -->
 <script src="parts/character/slot-save.js"></script>   <!-- 슬롯 저장 — app.js 보다 먼저(app.js 가 원래 자리에서 TwSlotSave.createSlotSave 로 만든다) -->
 <script src="parts/room/interaction-desk.js"></script>   <!-- 상호작용 책상 카탈로그 — app.js 보다 먼저(app.js 가 원래 자리에서 TwInteractionDesk.createInteractionDesk 로 만든다) -->
 <script src="parts/launcher/ad-banner.js"></script>   <!-- 광고 배너 · 게임 설정 — app.js 보다 먼저(app.js 가 원래 자리에서 TwAdBanner.createAdBanner 로 만든다) -->
-<script src="parts/account/license-request.js"></script>   <!-- 라이선스 요청 — app.js 보다 먼저(app.js 가 원래 자리에서 TwLicenseRequest.createLicenseRequest 로 만든다) -->
+<script src="parts/launcher/app-boot.js"></script>   <!-- 🚀 켜는 순서 한 곳 — app.js 보다 먼저(app.js 가 INIT 에서 TwAppBoot.createAppBoot 로 만든다) -->
+<script src="parts/launcher/user-local.js"></script>   <!-- 🗂️ 이 계정이 이 PC 에서 고른 것을 계정 칸에서 읽어 채우는 한 칸(window.TwUserLocal) — app.js 보다 먼저(app.js 가 만들어 app-boot 의 userLocal 칸에 건다) -->
 <script src="parts/launcher/fn-keys.js"></script>   <!-- 함수키 단축키 — app.js 보다 먼저(app.js 가 원래 자리에서 TwFnKeys.createFnKeys 로 만든다) -->
 <script src="parts/room/hidden-seats.js"></script>   <!-- 워킹룸 숨기기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwHiddenSeats.createHiddenSeats 로 만든다) -->
 <script src="parts/shared/font-choice.js"></script>   <!-- 🔤 창 글꼴 규칙(순수) — font-ui 보다 먼저 -->
@@ -9066,7 +9022,9 @@
 <script src="parts/room/floaters.js"></script>   <!-- 이모지 떠오르기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwFloaters.createFloaters 로 만든다) -->
 <script src="parts/room/roulette.js"></script>   <!-- 러시안룰렛 — app.js 보다 먼저(app.js 가 원래 자리에서 TwRoulette.createRoulette 로 만든다) -->
 <script src="parts/chat/chat-lock.js"></script>   <!-- 시크릿룸 채팅 잠금 — app.js 보다 먼저(app.js 가 원래 자리에서 TwChatLock.createChatLock 로 만든다) -->
-<script src="parts/account/device-lost.js"></script>   <!-- 밀려난 기기 처리 — app.js 보다 먼저(app.js 가 원래 자리에서 TwDeviceLost.createDeviceLost 로 만든다) -->
+<script src="parts/account/device-register.js"></script>   <!-- 🖥️ 이 PC 등록(window.TwDeviceRegister — 계정마다 PC 는 서버가 정한 상한까지 · 다 찼으면 묻기) — app.js 보다 먼저 -->
+<script src="parts/account/device-limit-dialog.js"></script>   <!-- 🖥️ «등록할 수 있는 PC를 다 썼어요» 확인창(window.TwDeviceLimitDialog) — app.js 보다 먼저 -->
+<script src="parts/account/device-lost.js"></script>   <!-- 이 PC 연결이 끊긴 뒤 안내 · 다시 등록 — app.js 보다 먼저(app.js 가 원래 자리에서 TwDeviceLost.createDeviceLost 로 만든다) -->
 <script src="parts/chat/demoji-palette.js"></script>   <!-- 기본 이모티콘 팔레트 — app.js 보다 먼저(app.js 가 원래 자리에서 TwDemojiPalette.createDemojiPalette 로 만든다) -->
 <script src="parts/shared/outside-close.js"></script>   <!-- 팝업 바깥 클릭으로 닫기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwOutsideClose.createOutsideClose 로 만든다) -->
 <script src="parts/launcher/launcher-chrome.js"></script>   <!-- 런처 타이틀바 · 팝업 흐림 — app.js 보다 먼저(app.js 가 원래 자리에서 TwLauncherChrome.createLauncherChrome 로 만든다) -->
@@ -9080,8 +9038,13 @@
 <script src="parts/creator/race-picker.js"></script>   <!-- 종족 선택창 — app.js 보다 먼저(app.js 가 원래 자리에서 TwRacePicker.createRacePicker 로 만든다) -->
 <script src="parts/character/wardrobe-panel.js"></script>   <!-- 꾸미기 사이드 패널 — app.js 보다 먼저(app.js 가 원래 자리에서 TwWardrobePanel.createWardrobePanel 로 만든다) -->
 <script src="parts/focus/lv-tier.js"></script>   <!-- 레벨 티어 — app.js 보다 먼저(app.js 가 원래 자리에서 TwLvTier.createLvTier 로 만든다) -->
-<script src="parts/friends/friends-firebase.js"></script>   <!-- 친구 데이터 옛 길 provider(Firebase) — app.js 보다 먼저(app.js 가 TwFriendsFirebase.createFriendsFirebase 로 만든다) -->
-<script src="parts/friends/friends-api.js"></script>   <!-- 친구 데이터 api provider(GET /v1/me/friends · 다시 묻기 규칙) — app.js 보다 먼저(app.js 가 TwFriendsApi.createFriendsApi 로 만든다) -->
+<script src="parts/friends/friends-api.js"></script>   <!-- 친구 데이터 api provider(GET /v2/me/friends · 다시 묻기 규칙) — app.js 보다 먼저(app.js 가 TwFriendsApi.createFriendsApi 로 만든다) -->
+<script src="parts/friends/social-api.js"></script>   <!-- 👥 친구 · 친구 요청 · 명함 서버 endpoint(/v2/me/friends · /v2/me/friend-requests · /v2/myhomes/cards) provider — api-client.js 다음 · app.js 보다 먼저 -->
+<script src="parts/shared/api-public-reads.js"></script>   <!-- 🌐 플레이리스트 명함 읽기(window.TwApiPublicReads — social-api.js 의 명함 묶음 위 · 같은 틱은 요청 하나) — social-api.js 다음 · app.js 보다 먼저 -->
+<script src="parts/friends/friend-requests-api.js"></script>   <!-- 👋 친구 요청 서버 provider(social-api.js 위) — app.js 보다 먼저 -->
+<script src="parts/friends/friend-requests-port.js"></script>   <!-- 👋 친구 요청 포트 — app.js 보다 먼저 -->
+<script src="parts/friends/friends-presence-rt.js"></script>   <!-- 친구 접속 상태 realtime provider(presenceGet · watch) — rt-hub.js 다음 · friends-port.js 보다 먼저(app.js 가 TwFriendsPresenceRt.createFriendsPresenceRt 로 만든다) -->
+<script src="parts/friends/presence-self.js"></script>   <!-- 내 접속 표시를 realtime 에 알림(status) — app.js 보다 먼저(app.js 가 TwPresenceSelf.createPresenceSelf 로 만든다) -->
 <script src="parts/friends/friends-port.js"></script>   <!-- 친구 데이터 포트 — app.js 보다 먼저(app.js 가 TwFriendsPort.createFriendsPort 로 만든다) -->
 <script src="parts/myhome/friends-sub.js"></script>   <!-- 친구 목록 구독 한 벌(상태 · 자동 다시 걸기) — app.js 보다 먼저(app.js 가 TwFriendsSub.createFriendsSub 로 만든다) -->
 <script src="parts/myhome/presence-lock.js"></script>   <!-- 🔒 친구 탭 온라인 고정 — app.js 보다 먼저(app.js 가 TwPresenceLock.createPresenceLock 로 만든다) -->
@@ -9102,7 +9065,7 @@
 <script src="parts/xmas/xmas-song.js"></script>   <!-- 🎄 편지 추천곡 뮤직바(window.TwXmasSong) — xmas-window 가 만든다 -->
 <script src="parts/xmas/xmas-letter.js"></script>   <!-- 🎄 마니또 편지 창(window.TwXmasLetter) — xmas-window 가 만든다 -->
 <script src="parts/xmas/xmas-window.js"></script>   <!-- 🎄 크리스마스 창 · 런처 버튼(window.TwXmasWindow) — app.js 가 만든다 -->
-<script src="parts/character/catalog-source.js"></script>   <!-- 🔌 카탈로그 데이터 provider(지금은 Firebase 판) — app.js 보다 먼저(app.js 가 TwCatalogSource.createCatalogSource 로 고른다) -->
+<script src="parts/character/catalog-api.js"></script>   <!-- 🧩 카탈로그 서버 한 벌 받기(window.TwCatalogApi — GET /v2/catalog · 로그인 뒤 · GLB 받기) — api-client.js · rt-hub.js 다음 · app.js 가 만든다 -->
 <script src="parts/shared/glb-idb-cache.js"></script>   <!-- 💾 GLB 영구 캐시(IndexedDB) — app.js 보다 먼저(app.js 가 원래 자리에서 TwGlbIdbCache.createGlbIdbCache 로 만든다) -->
 <script src="parts/character/catalog-glb.js"></script>   <!-- 🔗 카탈로그 GLB 해결(glbUrl → rec.glb) — app.js 보다 먼저(app.js 가 원래 자리에서 TwCatalogGlb.createCatalogGlb 로 만든다) -->
 <script src="parts/character/catalog-sync.js"></script>   <!-- 🔄 카탈로그 실시간 동기화 — app.js 보다 먼저(app.js 가 원래 자리에서 TwCatalogSync.createCatalogSync 로 만든다) -->
@@ -9111,6 +9074,39 @@
 <script src="parts/character/desk-items.js"></script>   <!-- 🧸 책상 위 아이템 등록부 — app.js 보다 먼저(app.js 가 원래 자리에서 TwDeskItems.createDeskItems 로 만든다) -->
 <script src="parts/character/body-measure.js"></script>   <!-- 📏 캐릭터 몸 박스 재기 한 규칙(파츠 · 숨은 것 빼기) — app.js 보다 먼저(app.js 가 맨 앞에서 TwBodyMeasure.createBodyMeasure 로 만든다) -->
 <script src="parts/shared/light-tone.js"></script>   <!-- 💡 재질 톤(조명 예산 · 파츠 · 아이템 · 책상 emissive) — app.js 보다 먼저(app.js 가 원래 자리에서 TwLightTone.createLightTone 로 만든다) -->
+<script src="parts/shared/stage.js"></script>   <!-- 🎬 3D 무대 한 벌(렌더러 · 씬 · 카메라 · 바닥 · GLTF 로더) — app.js 보다 먼저(app.js 가 맨 앞에서 TwStage.createStage 로 만든다) -->
+<script src="parts/character/glow.js"></script>   <!-- ✨ 빛나는 스프라이트 · 재질 발광 — app.js 보다 먼저(app.js 가 TwGlow.createGlow 로 만든다) -->
+<script src="parts/character/human-ear-attach.js"></script>   <!-- 🐾 사람 귀 붙이기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwHumanEarAttach.createHumanEarAttach 로 만든다) -->
+<script src="parts/room/desk-build.js"></script>   <!-- 🪑 기본 책상 · 소품 · 대신 몸 만들기와 재질 — app.js 보다 먼저(app.js 가 SETUP 에서 TwDeskBuild.createDeskBuild 로 만든다) -->
+<script src="parts/character/part-anim.js"></script>   <!-- ▶ 파츠 · 아이템 애니메이션 재생 — app.js 보다 먼저(app.js 가 원래 자리에서 TwPartAnim.createPartAnim 로 만든다) -->
+<script src="parts/character/desk-item-equip.js"></script>   <!-- 🪑 책상 아이템 장착 — app.js 보다 먼저(app.js 가 원래 자리에서 TwDeskItemEquip.createDeskItemEquip 로 만든다) -->
+<script src="parts/room/seats.js"></script>   <!-- 🪑 좌석 목록 · 만들기 · 지우기 · 고른 좌석 · 간격 — app.js 보다 먼저(app.js 가 원래 자리에서 TwSeats.createSeats 로 만든다) -->
+<script src="parts/room/char-place.js"></script>   <!-- 🧍 캐릭터 높이 · 깊이 · 자리 · 크기 저장 · 끌기 한계 · 책상 반폭 — app.js 보다 먼저(app.js 가 SETUP 에서 TwCharPlace.createCharPlace 로 만든다) -->
+<script src="parts/character/fit-model.js"></script>   <!-- 📐 몸 · 책상 맞춤 — app.js 보다 먼저(app.js 가 원래 자리에서 TwFitModel.createFitModel 로 만든다) -->
+<script src="parts/character/char-apply.js"></script>   <!-- 🧬 캐릭터 def 를 좌석에 입히기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwCharApply.createCharApply 로 만든다) -->
+<script src="parts/launcher/app-mode.js"></script>   <!-- 🖥 런처 ↔ 실행 화면 전환(앱 모드) — app.js 보다 먼저(app.js 가 원래 자리에서 TwAppMode.createAppMode 로 만든다) -->
+<script src="parts/launcher/office-mode.js"></script>   <!-- 🏢 데스크탑 · 피규어 · 회사원 모드 깃발 — app.js 보다 먼저(app.js 가 원래 자리에서 TwOfficeMode.createOfficeMode 로 만든다) -->
+<script src="parts/shared/ls-set.js"></script>   <!-- 💾 작은 설정 저장 — 남았는지 왕복 확인 — app.js 보다 먼저(app.js 가 원래 자리에서 TwLsSet.createLsSet 로 만든다) -->
+<script src="parts/character/rig-anim.js"></script>   <!-- 🕺 몸짓 — 자세 목표 · 뼈 움직이기 · 클립 — app.js 보다 먼저(app.js 가 원래 자리에서 TwRigAnim.createRigAnim 로 만든다) -->
+<script src="parts/launcher/frame-pace.js"></script>   <!-- 🔋 프레임 상한 · rAF 멈춤 감시 — app.js 보다 먼저(app.js 가 원래 자리에서 TwFramePace.createFramePace 로 만든다) -->
+<script src="parts/launcher/window-mode.js"></script>   <!-- 🪟 창 모드 정하기 · 활성 앱 판정 — app.js 보다 먼저(app.js 가 원래 자리에서 TwWindowMode.createWindowMode 로 만든다) -->
+<script src="parts/creator/creator-open.js"></script>   <!-- 🧍 생성기 여는 입구 · 런처 다시 그리기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwCreatorOpen.createCreatorOpen 로 만든다) -->
+<script src="parts/creator/creator-canvas.js"></script>   <!-- 🎨 생성기 그림판 — app.js 보다 먼저(app.js 가 원래 자리에서 TwCreatorCanvas.createCreatorCanvas 로 만든다) -->
+<script src="parts/creator/creator-face.js"></script>   <!-- 🙂 생성기 얼굴 · 피부 캔버스 · 몸 만들기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwCreatorFace.createCreatorFace 로 만든다) -->
+<script src="parts/launcher/frame-loop.js"></script>   <!-- 🎞 프레임 한 장(frame) — app.js 보다 먼저(app.js 가 원래 자리에서 TwFrameLoop.createFrameLoop 로 만든다) -->
+<script src="parts/room/flying-chair.js"></script>   <!-- 🪑 플라잉체어 — canFly · startFlight — app.js 보다 먼저(app.js 가 원래 자리에서 TwFlyingChair.createFlyingChair 로 만든다) -->
+<script src="parts/myhome/myhome-sticker-render.js"></script>   <!-- 🎨 마이홈 스티커 그리기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeStickerRender.createMyHomeStickerRender 로 만든다) -->
+<script src="parts/launcher/move-mode.js"></script>   <!-- ✥ 프로그램 이동 모드 · 캐릭터 화면 좌표 — app.js 보다 먼저(app.js 가 원래 자리에서 TwMoveMode.createMoveMode 로 만든다) -->
+<script src="parts/status/user-status.js"></script>   <!-- 🫧 활동 상태 저장 · 칩 · 메뉴 + 좌석 xf 저장 — app.js 보다 먼저(app.js 가 원래 자리에서 TwUserStatus.createUserStatus 로 만든다) -->
+<script src="parts/room/seat-pointer.js"></script>   <!-- 🖱 캔버스 누르기 · 끌기 · 흔들기 · 쓰다듬기 · 우클릭 — app.js 보다 먼저(app.js 가 원래 자리에서 TwSeatPointer.createSeatPointer 로 만든다) -->
+<script src="parts/room/seat-opacity.js"></script>   <!-- 👻 캐릭터 투명도(자리비움 영혼 효과) — app.js 보다 먼저(app.js 가 원래 자리에서 TwSeatOpacity.createSeatOpacity 로 만든다) -->
+<script src="parts/status/seat-state.js"></script>   <!-- 🫧 좌석 활동 판정 · 활동 시각 · 쓰다듬기 시작 — app.js 보다 먼저(app.js 가 원래 자리에서 TwSeatState.createSeatState 로 만든다) -->
+<script src="parts/character/cloth-visibility.js"></script>   <!-- 👕 옷 겹침 · 기본 메시 보이기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwClothVisibility.createClothVisibility 로 만든다) -->
+<script src="parts/shared/hue-tint.js"></script>   <!-- 🎨 색조 셰이더 이름 잇기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwHueTint.createHueTint 로 만든다) -->
+<script src="parts/character/base-body.js"></script>   <!-- 🧍 기본 몸 모델 공급 · 복제 · 크기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwBaseBody.createBaseBody 로 만든다) -->
+<script src="parts/character/part-xf.js"></script>   <!-- 🎀 파츠 저작 오프셋 · xf 적용 — app.js 보다 먼저(app.js 가 원래 자리에서 TwPartXf.createPartXf 로 만든다) -->
+<script src="parts/character/part-equip.js"></script>   <!-- 🎀 파츠 붙이기 · 떼기 · def 대조 — app.js 보다 먼저(app.js 가 원래 자리에서 TwPartEquip.createPartEquip 로 만든다) -->
+<script src="parts/launcher/run-boot.js"></script>   <!-- 🚀 켜는 차례 표 — app.js 보다 먼저(app.js 가 원래 자리에서 TwRunBoot.createRunBoot 로 만든다) -->
 <script src="parts/creator/creator-preview.js"></script>   <!-- 🧍 생성기 미리보기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwCreatorPreview.createCreatorPreview 로 만든다) -->
 <script src="parts/creator/creator-flow.js"></script>   <!-- 🧍 생성기 흐름 — app.js 보다 먼저(app.js 가 원래 자리에서 TwCreatorFlow.createCreatorFlow 로 만든다) -->
 <script src="parts/creator/creator-save.js"></script>   <!-- 🧍 생성기 완료 — app.js 보다 먼저(app.js 가 원래 자리에서 TwCreatorSave.createCreatorSave 로 만든다) -->
@@ -9124,6 +9120,8 @@
 <script src="parts/shared/toast.js"></script>   <!-- 🍞 토스트 · 저장 실패 문구 — app.js 보다 먼저(app.js 가 원래 자리에서 TwToast.createToast 로 만든다) -->
 <script src="parts/room/ride-tuning.js"></script>   <!-- 🎛️ 올라타기 · 묘기 튜닝 값 — app.js 보다 먼저(app.js 가 원래 자리에서 TwRideTuning.createRideTuning 로 만든다) -->
 <script src="parts/character/char-measure.js"></script>   <!-- 📐 캐릭터 실측 — app.js 보다 먼저(app.js 가 원래 자리에서 TwCharMeasure.createCharMeasure 로 만든다) -->
+<script src="parts/character/rest-pose.js"></script>   <!-- 🧍 기본 자세로 잠깐 되돌려 재기 — app.js 보다 먼저(fitModel 이 TwRestPose 를 쓴다) -->
+<script src="parts/character/fit-watch.js"></script>   <!-- 🩺 다시 맞춘 높이 경고 — app.js 보다 먼저(fitModel 이 TwFitWatch 를 쓴다) -->
 <script src="parts/character/floor-snap-diag.js"></script>   <!-- 🩺 바닥 맞춤 진단 — app.js 보다 먼저(app.js 가 원래 자리에서 TwFloorSnapDiag.createFloorSnapDiag 로 만든다) -->
 <script src="parts/character/seat-model-load.js"></script>   <!-- 📦 좌석 모델 싣기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwSeatModelLoad.createSeatModelLoad 로 만든다) -->
 <script src="parts/character/seat-panel.js"></script>   <!-- 🎚️ 좌석 패널 — app.js 보다 먼저(app.js 가 원래 자리에서 TwSeatPanel.createSeatPanel 로 만든다) -->
@@ -9140,18 +9138,15 @@
 <script src="parts/room/seat-menu.js"></script>   <!-- 🖱 좌석 우클릭 메뉴 — app.js 보다 먼저(app.js 가 원래 자리에서 TwSeatMenu.createSeatMenu 로 만든다) -->
 <script src="parts/character/seat-eq-clamp.js"></script>   <!-- 🪑 평준화 가두기(책상 위 파츠를 자기 자리 안으로) — app.js 보다 먼저(app.js 가 원래 자리에서 TwSeatEqClamp.createSeatEqClamp 로 만든다) -->
 <script src="parts/character/desk-place.js"></script>   <!-- 📐 책상 자리 · 크기(크기 · 위치 · z 보정 · 파츠 핀) — app.js 보다 먼저(app.js 가 원래 자리에서 TwDeskPlace.createDeskPlace 로 만든다) -->
-<script src="parts/app.js"></script>
-<script src="parts/myhome/folder-free.js"></script>   <!-- 📂 마이홈 바탕화면 «폴더 자유배치» — myhome-desktop.js 보다 먼저 -->
-<script src="parts/myhome/myhome-desktop.js"></script>
-<script src="parts/myhome/mallang.js"></script>
-<!-- 📚 마이홈 북마크 책장 — MYHOME_DESKTOP.addFolder 로만 붙는다(myhome-desktop.js 는 host:'side' 한 항목만 늘었다). -->
-<script src="parts/myhome/bookmark.js"></script>
-<script src="parts/support/bug-board-ui.js"></script>   <!-- 🐞 버그제보 게시판 화면 · 버그 제보 탭(오픈카톡 기본 링크) — app.js 뒤(isAdmin · toast · escHtml · _saveFailMsg) · firebase-init.js(module)보다 앞 -->
-<!-- 🌙 백색소음 — 소리 자료(base64 · 약 620KB)를 먼저, 재생기를 뒤에. 둘 다 app.js 뒤여야 한다(seats · seatState · Presence 를 읽는다). -->
+<!-- 🌙 백색소음 — 소리 자료(base64 · 약 620KB)를 먼저, 재생기를 뒤에. 둘 다 app.js 보다 먼저(app.js 가 INIT 뒤에서 TwNoise.createNoise 로 만든다). -->
 <script src="parts/status/noise-sounds.js"></script>
 <script src="parts/status/noise.js"></script>
 <script src="parts/animal-glb.js"></script>
 <script src="parts/ears-glb.js"></script>
-<script src="parts/character/animal.js"></script>
+<script src="parts/character/animal.js"></script>   <!-- 🐾 동물 생성기 · 카드 — app.js 보다 먼저(app.js 가 INIT 뒤에서 TwAnimal.createAnimal 로 만든다) -->
+<script src="parts/app.js"></script>
+<script src="parts/myhome/folder-free.js"></script>   <!-- 📂 마이홈 바탕화면 «폴더 자유배치» — myhome-desktop.js 보다 먼저 -->
+<script src="parts/myhome/myhome-desktop.js"></script>
+<script src="parts/myhome/myhome-desktop-boot.js"></script>   <!-- 🖥️ 바탕화면을 만드는 줄(계정 칸을 deps 로) — myhome-desktop.js 바로 다음 -->
 </body>
 </html>

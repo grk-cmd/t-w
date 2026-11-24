@@ -3,7 +3,7 @@
    ★ assetCodeMod · customItems · slotSaveMod 는 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 20개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: ensureLauncherPreview · lHolder · lRenderer · launcherLoop · setLauncherChar · sizeLauncherPreview — app.js 는 launcherPrevMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: ensureLauncherPreview · lHolder · lRenderer · launcherLoop · setLauncherChar · sizeLauncherPreview · startLauncherLoop — app.js 는 launcherPrevMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwLauncherPreview — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-launcher-preview.js */
@@ -15,11 +15,7 @@ const FrameBudget = deps.FrameBudget;
 const renderQuality = deps.renderQuality;   // 읽는 함수 — 실행 화면 화질(«최저» 면 미리보기도 덜 그린다)
 const blinkTiming = deps.blinkTiming;
 const RIG_TURN = deps.RIG_TURN;
-const _FILL_LIGHT_MUL = deps._FILL_LIGHT_MUL;
-const _KEY_LIGHT_MUL = deps._KEY_LIGHT_MUL;
-const _MAIN_LIGHT_COL = deps._MAIN_LIGHT_COL;
-const _MAIN_LIGHT_INT = deps._MAIN_LIGHT_INT;
-const _mkFrontFill = deps._mkFrontFill;
+const addRunLights = deps.addRunLights;
 const _quickHash = deps._quickHash;
 const _setDeskMatColor = deps._setDeskMatColor;
 const allDeskItems = deps.allDeskItems;
@@ -40,6 +36,7 @@ const extractBonesInto = deps.extractBonesInto;
 const getCommissionScene = deps.getCommissionScene;
 const measureBodyBox = deps.measureBodyBox;
 const registerCustomItem = deps.registerCustomItem;
+const renderLauncher = deps.renderLauncher;   // 함수
 const scene = deps.scene;
 const setDeskPos = deps.setDeskPos;
 const setDeskScale = deps.setDeskScale;
@@ -56,12 +53,14 @@ const PS1_PIXEL_SCALE = 0.55;   // 런처 미리보기 도트 느낌 배율 — 
 function ensureLauncherPreview(){
   if(lRenderer)return;
   // PS1/도트 느낌: antialias 끄고, 낮은 내부 해상도로 렌더한 뒤 CSS(image-rendering:pixelated)로 확대.
-  lRenderer=new THREE.WebGLRenderer({canvas:document.getElementById('lcPreview'),antialias:false,alpha:true});
+  const lcCv=document.getElementById('lcPreview');
+  const r=TwGlContext.make(lcCv,{canvas:lcCv,antialias:false,alpha:true},'preview',{ label:'런처', retry:()=>{ renderLauncher(); } });
+  if(!r)return;
+  lRenderer=r;
   lRenderer.setPixelRatio(1);lRenderer.outputEncoding=THREE.sRGBEncoding;
   document.getElementById('lcPreview').style.imageRendering='pixelated';
-  lScene=new THREE.Scene();lScene.add(new THREE.AmbientLight(_MAIN_LIGHT_COL, 0.95 * _MAIN_LIGHT_INT));
-  const k=new THREE.DirectionalLight(_MAIN_LIGHT_COL, 1.0 * _MAIN_LIGHT_INT * _KEY_LIGHT_MUL);k.position.set(0,4,0);lScene.add(k);
-  lScene.add(_mkFrontFill(_MAIN_LIGHT_INT * _FILL_LIGHT_MUL));   // ★ 실행 화면과 같은 정면 필
+  lScene=new THREE.Scene();
+  addRunLights(lScene, { keyPos: [0, 4, 0] });   // ★ 실행 화면과 같은 조명(shared/light-tone.js)
   lCam=new THREE.PerspectiveCamera(32,1,0.1,100);
   const desk=buildDesk(true);lScene.add(desk);
   desk.visible=false;   // 런처 슬롯 미리보기: 책상(+책상 위 아이템) 숨김 — 캐릭터만 둥둥 뜨게. lHolder 로직은 그대로 유지
@@ -80,7 +79,7 @@ function _lcBodyBox(group){
 /* 🖼️ 크기의 기준은 캔버스 자신이 아니라 감싼 .lc-preview-wrap 이다.
    ⚠️ 캔버스에 px 를 다시 박지 말 것 — 박은 값을 clientWidth 가 다시 돌려줘 크기가 굳는다(잘리거나 한쪽에 쏠린다).
      크기는 CSS(width/height:100%)가 정하고, 내부 렌더 해상도만 setSize(...,false) 로 따로 잡는다(도트 느낌). */
-function sizeLauncherPreview(){const c=document.getElementById('lcPreview');
+function sizeLauncherPreview(){if(!lRenderer)return;const c=document.getElementById('lcPreview');
   const wrap=c.parentElement;   // .lc-preview-wrap — 실제 표시 칸. 테두리를 뺀 안쪽 크기를 쓴다.
   const w=(wrap&&wrap.clientWidth)||c.clientWidth||260, h=(wrap&&wrap.clientHeight)||c.clientHeight||228;
   const d=Math.max(1,lScaleHint||1);
@@ -148,7 +147,7 @@ function _lcThumbTake(){
   }catch(e){ try{ console.warn('[런처] 섬네일 찍기 실패', e); }catch(_){} }
   finally{ try{ lChar.group.position.y = y; }catch(_){} }
 }
-function setLauncherChar(def){_lcThumbJob=null;if(lChar){lScene.remove(lChar.group);lChar=null;}
+function setLauncherChar(def){_lcThumbJob=null;if(!lRenderer)return;if(lChar){lScene.remove(lChar.group);lChar=null;}
   if(lHolder){ allDeskItems().forEach(d=>{ if(lHolder.deskItems[d.id]) equipDeskItem(lHolder,d,false); });
     swapDeskVisual(lHolder.desk,null); }
   if(!def)return;
@@ -225,10 +224,9 @@ const _lBudget = FrameBudget.createFrameBudget({ now: ()=>performance.now() });
 /* 깜빡임은 실행 화면 좌석과 같은 시간표(blink-timing.js — 실제 시각으로 센다). 런처가 숨어 있는 동안은 비워 두어,
    다시 열었을 때 밀린 예약이 바로 터지지 않고 처음 깜빡임(0.8~3초)부터 다시 시작한다. */
 let lBlink=null;
+/* 한 장 그리기 — 런처가 열려 있을 때만 불린다(열림 판정 · 숨길 때 시간표 비우기는 아래 startLauncherLoop). */
 function launcherLoop(now){
-  const vis=document.getElementById('launcher').classList.contains('on');
-  if(!vis) lBlink=null;
-  if(vis&&lRenderer&&_lBudget.admit(now, FrameBudget.fpsFor(renderQuality()).launcher)){
+  if(lRenderer&&_lBudget.admit(now, FrameBudget.fpsFor(renderQuality()).launcher)){
     if(lChar){if(!lBlink) lBlink=blinkTiming.createBlink(now);
       blinkTiming.scheduleBlinks(lBlink, now);
       const shut=blinkTiming.eyeClose(lBlink, now) > blinkTiming.SHUT_AT;
@@ -238,16 +236,31 @@ function launcherLoop(now){
       const dY=Math.max(0.2, lScaleHint||1);
       lChar.group.position.y=lCharBaseY+Math.sin(performance.now()*0.0016)*0.015*dY;}
     lRenderer.render(lScene,lCam);
-    if(_lcThumbJob && lChar && !lBlinkOn && performance.now() >= _lcThumbJob.readyAt) _lcThumbTake();}   // 🖼️ 같은 틱에서
-  requestAnimationFrame(launcherLoop);}
+    if(_lcThumbJob && lChar && !lBlinkOn && performance.now() >= _lcThumbJob.readyAt) _lcThumbTake();}}   // 🖼️ 같은 틱에서
+/* 런처가 닫혀 있는 동안은 rAF 를 걸지 않는다(예전엔 주사율마다 깨어나 클래스만 봤다) — 다시 열리면 #launcher 의 class 변화로
+   다음 rAF 에 다시 건다. 여는 길(런처 복귀 · 생성기 닫기 · 동물 생성기 닫기 …)이 여럿이라 여는 함수가 아니라 class 를 본다. */
+let _lLoop=null;
+function startLauncherLoop(){
+  if(_lLoop) return;
+  const el=document.getElementById('launcher');
+  _lLoop=TwIdleGate.rafWhile({
+    isOn: ()=>el.classList.contains('on'),
+    frame: launcherLoop,
+    sleep: ()=>{ lBlink=null; },
+    raf: (f)=>requestAnimationFrame(f),
+  });
+  TwIdleGate.onClassChange(el, ()=>_lLoop.wake());
+  _lLoop.wake();
+}
 
 return {
   ensureLauncherPreview,
   lHolder: ()=>lHolder,   // 읽는 함수
   lRenderer: ()=>lRenderer,   // 읽는 함수
-  launcherLoop,
+  launcherLoop,   // 한 장 그리기(검사가 가짜 시계로 부른다) — 반복은 startLauncherLoop
   setLauncherChar,
   sizeLauncherPreview,
+  startLauncherLoop,
 };
 }
 

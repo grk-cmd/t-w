@@ -5,7 +5,7 @@
    ・2절: 렌더러 표 — 상황 → 결정(경계값 포함)
    ・3절: main 표 — 상황 → 결정(경계값 · 회수 이유 글)
    ・4절: 연결 — desktop-run.js · app.js · html · smoke · main.js 가 이 모듈을 부른다
-   ・5절: 같은 조건을 다른 파일에 다시 쓰면 빨강(+ 일부러 깨 보기)
+   ・5절: 같은 조건을 다른 파일에 다시 쓰면 빨강(+ mutation test)
    [실행] 스테이징(node checks/run.js) 또는 저장소 루트에서. */
 'use strict';
 const fs = require('fs');
@@ -221,9 +221,9 @@ chk(!miss.length, '① mousemove · ② 재판정 · ③ 사다리 · pointerdow
   { const r = chipRun(SC, { v: false });
     chk(chipOk(SC), '  상태칩(실제로 불러 봄) — 숨김이면 칩(▾ 숨김 풀기 입구)은 그대로 · main 에 보내는 캐릭터 영역만 null · 풀면 바로 영역이 돌아온다' + (r.err ? ' — ' + r.err : '')); }
   chk(!chipOk(SC.replace("  if(!me || launcherVisible || creatorVisible || moveMode()){", "  if(!me || launcherVisible || creatorVisible || moveMode() || !clickPolicy.charHittable({ officeHidden: _officeHidden() })){")),
-    '  깨 보기: 숨김이면 칩까지 숨김(▾ 버튼이 사라져 되돌릴 길이 없음) → 빨강');
+    '  mutation test: 숨김이면 칩까지 숨김(▾ 버튼이 사라져 되돌릴 길이 없음) → 빨강');
   chk(!chipOk(SC.replace("  if(!clickPolicy.charHittable({ officeHidden: _officeHidden() })){", "  if(false){")),
-    '  깨 보기: 숨김인데 캐릭터 영역을 그대로 보냄 → 빨강');
+    '  mutation test: 숨김인데 캐릭터 영역을 그대로 보냄 → 빨강');
 }
 chk(/  clickPolicy: TwClickThroughPolicy,\n/.test(APP), 'app.js — 만드는 줄이 clickPolicy: TwClickThroughPolicy 를 넘긴다');
 const iP = HTML.indexOf('<script src="parts/launcher/click-through-policy.js"></script>'), iR = HTML.indexOf('<script src="parts/launcher/desktop-run.js"></script>');
@@ -295,7 +295,7 @@ function kickIfs(runSrc){
 { const r = kickIfs(RUN);
   chk(r.found && !r.bad.length, '★ 사다리 몸통에 정책 밖 판단이 없다(if 는 k.act · 기록 간격 · 3단계 타이머만)' + (r.bad.length ? ' — ' + r.bad.join(' / ') : ''));
   const r2 = kickIfs(RUN.replace("      if(k.act === 'none') return;", "      if(k.act === 'none') return;\n      if(offOverlay === 'x' || now < 0) return;"));
-  chk(r2.bad.length > 0, '  깨 보기: 사다리에 목록에 없는 새 조건을 씀 → 빨강'); }
+  chk(r2.bad.length > 0, '  mutation test: 사다리에 목록에 없는 새 조건을 씀 → 빨강'); }
 const broke = [
   ['desktop-run.js 에 끌기 조건을 다시 씀', 'desktop-run.js', (s) => s.replace('function _updateIgnore(cx, cy){', 'function _x(){ return drag() && _ignoreSent === false; }\n    function _updateIgnore(cx, cy){')],
   ['desktop-run.js 에 휠 조건을 다시 씀', 'desktop-run.js', (s) => s.replace('clickPolicy.clickMayKick(state)', '!(state && state.wheel === true)')],
@@ -305,7 +305,7 @@ const broke = [
 for(const [label, file, mut] of broke){
   const list = files.map(([f, s]) => [f, path.basename(f) === file ? mut(s) : s]);
   const changed = list.some(([f, s], i) => s !== files[i][1]);
-  chk(changed && scan(list).length > 0, '  깨 보기: ' + label + ' → 빨강' + (changed ? '' : ' (바꿀 글을 못 찾음)'));
+  chk(changed && scan(list).length > 0, '  mutation test: ' + label + ' → 빨강' + (changed ? '' : ' (바꿀 글을 못 찾음)'));
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

@@ -29,9 +29,6 @@ export function Hero() {
               <DownloadIcon />
               {m.heroCtaDownload}
             </a>
-            <a className="btn big" href="#maker">
-              {m.heroCtaMaker}
-            </a>
           </div>
           <p className="ver">{m.heroNote}</p>
         </div>

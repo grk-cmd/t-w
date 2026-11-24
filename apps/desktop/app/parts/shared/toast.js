@@ -1,7 +1,7 @@
 /* toast.js — 🍞 토스트 · 저장 실패 문구 — 화면 아래 한 줄 알림과 «권한 거부 vs 인터넷» 문구 가르기
    책임: #toast 한 줄 알림을 띄우고 시간이 되면 끈다(toast) · 누르면 그 글을 클립보드로 복사하고 글 끝에 «복사했어요»(onToastClick) · 저장 실패 오류가 규칙 거부(PERMISSION_DENIED)인지 가려 문구를 고른다(_saveFailMsg). 도메인을 모른다.
    받는 deps: 없음(document · navigator.clipboard · 타이머 전역).
-   내보내는 것: toast(msg, iconSrc?, ms?) · _saveFailMsg(e, fallback?).
+   내보내는 것: toast(msg, iconSrc?, ms?, action?) · _saveFailMsg(e, fallback?).
    app.js «🍞 토스트(toast) · 저장 실패 문구» 구역을 그대로 옮겼다(구역 떼기 C · w2). 동작은 옮기기 전과 같다.
    ⚠️ 두 이름은 app.js 150여 곳 · 다른 파일(전역 · window.toast)이 그대로 부른다 — app.js 에 같은 이름의 이음 함수(«옛 전역 이름»)를 두고 부르는 줄은 안 바꿨다.
    ★ 아래 코드는 app.js 에 있던 글 그대로 옮긴 뒤, 눌러 복사(onToastClick · TOAST_COPY_* 상수)만 더했다(사용자 승인 · feat/toast-click-copy).
@@ -49,11 +49,18 @@ function onToastClick(){
   try{ navigator.clipboard.writeText(text).then(()=>mark(TOAST_COPIED_MARK), ()=>mark(TOAST_COPY_FAIL_MARK)); }
   catch(_){ mark(TOAST_COPY_FAIL_MARK); }   // 클립보드가 없거나 바로 던지면
 }
-function toast(msg, iconSrc, ms){const t=document.getElementById('toast');t.textContent=msg;
+/* 🍞 네 번째 인자(action)는 글 끝에 붙일 단추 { label, onClick } — 안내에서 바로 갈 곳이 있을 때(예: 첫 실행 «기기를 모두 썼어요» → 설정 열기). 단추를 누르면 복사하지 않고 onClick 만 부른다. */
+function toast(msg, iconSrc, ms, action){const t=document.getElementById('toast');t.textContent=msg;
   if(!toastBound){ toastBound=true; t.addEventListener('click', onToastClick); }
   toastMsg=String(msg==null?'':msg); toastSeq++; toastMarked=false;
   if(iconSrc){ const im=document.createElement('img'); im.src=iconSrc;
     im.style.cssText='width:16px;height:16px;vertical-align:-3px;margin-right:5px;'; t.prepend(im); }
+  if(action && action.label && action.onClick){
+    const b=document.createElement('button'); b.type='button'; b.textContent='['+action.label+']';
+    b.style.cssText='margin-left:8px;background:none;border:none;color:inherit;font:inherit;text-decoration:underline;cursor:pointer;padding:0;';
+    b.addEventListener('click', (ev)=>{ ev.stopPropagation(); t.classList.remove('on'); try{ action.onClick(); }catch(e){ console.warn('[토스트] 단추 동작 실패', e); } });
+    t.appendChild(b);
+  }
   t.classList.add('on');
   const dur=(typeof ms==='number'&&ms>0)?ms:TOAST_DEFAULT_MS; toastEnd=Date.now()+dur;
   clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),dur);}

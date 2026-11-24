@@ -3,7 +3,7 @@
    ・2절: help-tab — 가짜 화면에서 돌린다: 처음 열기 · 알림이 오면 목차(묶음 접고 펴기) · 목차 아래 ❓ 자주 묻는 질문 · 편 누르기 · 남의 틀 알림 무시 ·
           시간 안에 알림이 없으면 «못 불러옴» + 다시 시도 · 목차가 어긋나면 «목차를 불러오지 못했어요» · 테마가 바뀌면 다시 연다 · 목차 글은 textContent
    ・3절: 배선 — main.js 틀 이동 허락 · CSP frame-src · html 탭 · 싣는 순서 · 알림함에 도움말 칸 없음 · embed.js 가 보내는 모양을 그대로 읽는다
-   ・4절: 깨 보기 */
+   ・4절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -194,8 +194,8 @@ new Function('window', 'document', 'location', 'fetch', EMBED)(ewin, { documentE
   const got = sent[0] && SITE.readMessage(ORIGIN, sent[0]);
   chk(!!got && got.page === '4-1' && JSON.stringify(got.toc) === JSON.stringify(TOC), 'hosting/help/embed.js 가 보내는 알림 · toc.json 을 help-site 가 그대로 읽는다');
 
-  /* ── 4. 깨 보기 ── */
-  say('── 4. 깨 보기 — 하나라도 못 잡으면 빨강');
+  /* ── 4. mutation test ── */
+  say('── 4. mutation test — 하나라도 못 잡으면 빨강');
   const SS = SRC['app/parts/shared/help-site.js'];
   const brk = (name, ok) => chk(ok, name);
   brk('help-site 가 출처를 안 보면', !siteChecks(loadSite(SS.replace("if(origin !== HELP_ORIGIN) return null;", ''))).drop);

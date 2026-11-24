@@ -11,17 +11,22 @@
     "start": "npm --prefix apps/desktop start",
     "start:dev": "npm --prefix apps/desktop run start:dev",
     "check": "node checks/run.js",
+    "lint": "cd apps/desktop && eslint .",
+    "lint:prune": "cd apps/desktop && eslint . --prune-suppressions",
+    "lint:baseline": "cd apps/desktop && eslint . --suppress-all",
     "admin:dev": "npm --prefix apps/admin run dev",
     "admin:test": "npm --prefix apps/admin test",
     "admin:build": "npm --prefix apps/admin run build",
     "web:build": "npm -w @tw/web run build",
     "design:build": "node scripts/build-design-tokens.js",
+    "help:build": "node scripts/build-help-search.js",
     "version:bump": "node scripts/bump-version.js",
     "pack": "npm --prefix apps/desktop run pack",
-    "dist": "npm --prefix apps/desktop run dist",
-    "help:build": "node scripts/build-help-search.js"
+    "dist": "npm --prefix apps/desktop run dist"
   },
   "devDependencies": {
+    "eslint": "9.39.5",
+    "jsdom": "30.1.2",
     "typescript": "5.9.3"
   },
   "license": "UNLICENSED"

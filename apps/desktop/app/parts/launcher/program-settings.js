@@ -27,7 +27,7 @@ const figureMode = deps.figureMode;   // 읽는 함수
 const focusGateSleep = deps.focusGateSleep;   // 읽는 함수
 const officeMode = deps.officeMode;   // 읽는 함수
 const purikuraUi = deps.purikuraUi;
-const refreshLicenseUI = deps.refreshLicenseUI;
+const openLicenseUI = deps.openLicenseUI;   // 🔑 라이선스 구획 열기 = 내 라이선스 받기 + 그리기(license-ui.js)
 const refreshOfficeChipUI = deps.refreshOfficeChipUI;
 const refreshThemeUI = deps.refreshThemeUI;
 const toast = deps.toast;
@@ -252,7 +252,7 @@ function refreshAppVersionUI(){
 function refreshTab(key){
   if(key==='display'){ refreshThemeUI(); refreshRenderQualityUI(); refreshAutoLaunchUI(); refreshOfficeModeUI(); refreshLabVideoUI(); }   // 🎬 실제 적용 상태(적용 안 됨)까지 보인다
   if(key==='char') refreshFigureModeUI();
-  if(key==='info'){ refreshLicenseUI(); refreshAppVersionUI(); }
+  if(key==='info'){ openLicenseUI({ ifNeeded: true }); refreshAppVersionUI(); }   // 탭을 보일 때 = 내 라이선스 받기(이미 받았으면 건너뜀) + 그리기
 }
 /* 옛 «프로그램 설정» 창의 탭 이름 → 지금 탭. 꾸미기 프리미엄 게이트는 'license' 로 연다 */
 const OLD_TAB = { license:'info', display:'display', system:'display' };
@@ -261,8 +261,7 @@ function closeProgramSettings(){ closeSettings(); }
 document.getElementById('lcProgSettingsBtn').onclick=()=>openProgramSettings();
 onTabShown(refreshTab);
 
-twNav.on(twNav.NAV.PROGRAM_SETTINGS, openProgramSettings);   // 🧭 꾸미기 · 라이선스 요청이 이 통로로 연다 · 닫는다
-twNav.on(twNav.NAV.PROGRAM_SETTINGS_CLOSE, closeProgramSettings);
+twNav.on(twNav.NAV.PROGRAM_SETTINGS, openProgramSettings);   // 🧭 꾸미기가 이 통로로 연다
 refreshAppVersionUI();
 return {
   closeProgramSettings,

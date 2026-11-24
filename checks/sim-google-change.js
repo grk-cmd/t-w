@@ -3,8 +3,8 @@
    ・2절: 지금 구글 확인 — 다른 구글을 고르면 끊지 않고 «지금 연결된 구글로»
    ・3절: 바꾸기 — 확인 → 끊기 → 새로 붙이기 · 새 주소를 돌려준다
    ・4절: 새 구글을 못 붙이면 — 지금 구글을 다시 붙여 되돌린다(이미 남의 계정 · 그 밖) · 되돌리기도 실패하면 비밀번호 안내
-   ・5절: 연결 — firebase-init 이 불러와 authChangeGoogle 로 내놓는다 · unlink 를 들여온다
-   ・6절: 일부러 깨 보기
+   ・5절: 연결 — 0.13 은 서버가 받을 때까지 firebase-init 에 잇지 않고 [바꾸기] 를 숨긴다(shared/server-features.js)
+   ・6절: mutation test
    [실행] node checks/run.js sim-google-change */
 'use strict';
 const fs = require('fs');
@@ -15,7 +15,8 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 const anyOf = (...fs_) => fs_.map(read).find(s => s != null);
 const MOD = anyOf('google-change-net.js', 'parts/account/google-change-net.js', 'app/parts/account/google-change-net.js');
 const FI = anyOf('firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js');
-if(!MOD || !FI){ say('  ? 원본 못 찾음 — google-change-net.js · firebase-init.js'); process.exit(2); }
+const ACC = anyOf('account.js', 'parts/account/account.js', 'app/parts/account/account.js');
+if(!MOD || !FI || !ACC){ say('  ? 원본 못 찾음 — google-change-net.js · firebase-init.js · account.js'); process.exit(2); }
 
 const load = (src) => new Function(src.replace(/^export (function|const) /mg, '$1 ') + '\nreturn { createGoogleChange };')();
 /* 가짜 Auth — 붙은 제공자 목록을 들고, 부른 차례를 적는다 */
@@ -85,11 +86,11 @@ async function judgeAll(src){
   (await judgeAll(MOD)).forEach(([ok, m]) => chk(ok, m));
 
   say('── 5. 연결');
-  chk(/import \{ createGoogleChange \} from "\.\/account\/google-change-net\.js";/.test(FI), 'firebase-init 이 google-change-net.js 를 불러온다');
-  chk(/getAdditionalUserInfo, deleteUser, unlink\n/.test(FI), '  Firebase Auth 의 unlink 를 들여온다');
-  chk(/authChangeGoogle: createGoogleChange\(\{ currentUser: \(\) => auth && auth\.currentUser, credential: t => GoogleAuthProvider\.credential\(t\), reauth: reauthenticateWithCredential, unlink, link: linkWithCredential \}\)\.change,/.test(FI), '  firebaseAPI.authChangeGoogle 로 내놓는다(진짜 reauth · unlink · link)');
+  /* 0.13 은 구글 연결을 서버(계정)가 같이 들고 있다 — Firebase Auth 만 바꾸면 어긋나서, 서버가 받을 때까지 firebase-init 에 잇지 않고 [바꾸기] 를 숨긴다(shared/server-features.js) */
+  chk(!/createGoogleChange|authChangeGoogle/.test(FI), 'firebase-init 에 구글 바꾸기 통로가 없다(0.13 · 서버 이관 대기)');
+  chk(/const gcOn = TwServerFeatures\.on\('googleChange'\);\n  show\('acctMGoogleChange', gcOn, 'inline-block'\);/.test(ACC), '  내 정보 › 계정 [바꾸기] 는 서버 기능 표가 켜졌을 때만 보인다');
 
-  say('── 6. 일부러 깨 보기');
+  say('── 6. mutation test');
   for(const [name, a, b] of [
     ['비밀번호 없어도 바꿈', "    if(!pd.some(p => p && p.providerId === 'password')) return { ok:false, needPassword:true, reason:'구글을 바꾸려면 먼저 비밀번호를 만들어 주세요' };\n", ''],
     ['본인 확인 없이 끊음', '    try{ await reauth(cu, oldCred); }\n', '    try{ }\n'],
@@ -99,7 +100,7 @@ async function judgeAll(src){
   ]){
     const m2 = MOD.replace(a, b);
     let rows; try{ rows = await judgeAll(m2); }catch(_){ rows = [[false, '던짐']]; }
-    chk(m2 !== MOD && rows.some(([ok]) => !ok), '깨 보기 — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+    chk(m2 !== MOD && rows.some(([ok]) => !ok), 'mutation test — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
   }
   say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
   process.exit(fail ? 1 : 0);

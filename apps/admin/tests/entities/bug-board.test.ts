@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  bugAuthorName,
+  needsAuthorLookup,
   answerNoticeBody,
   answerWrite,
   bugNo,
@@ -324,5 +326,23 @@ describe('글쓴이 답글 · 해결 안 됨', () => {
     quiet.get = (p) => (read.push(p), get(p));
     await getBugPost(quiet, 'p1');
     expect(read.some((p) => p.startsWith('bugBoard/rep/'))).toBe(false);
+  });
+});
+
+describe('관리자 화면 글쓴이 이름 — 비공개 글은 «익명 (닉네임)»', () => {
+  it('비공개 + 닉네임이면 함께, 공개 글은 목록 칸 이름 그대로', () => {
+    expect(bugAuthorName({ vis: 'prv', name: '익명' }, '고로케')).toBe('익명 (고로케)');
+    expect(bugAuthorName({ vis: 'pub', name: '고로케' }, '다른이름')).toBe('고로케');
+  });
+  it('경계 — 닉네임을 아직 못 읽음 · 없음 · 빈칸이면 그대로, 목록 칸 이름이 없으면 «이름 없음»', () => {
+    expect(bugAuthorName({ vis: 'prv', name: '익명' }, undefined)).toBe('익명');
+    expect(bugAuthorName({ vis: 'prv', name: '익명' }, null)).toBe('익명');
+    expect(bugAuthorName({ vis: 'prv', name: '익명' }, '   ')).toBe('익명');
+    expect(bugAuthorName({ vis: 'prv', name: '' }, '고로케')).toBe('이름 없음 (고로케)');
+  });
+  it('닉네임을 읽는 건 비공개 글이고 글쓴이 코드가 있을 때만(공개 글은 읽지 않는다)', () => {
+    expect(needsAuthorLookup({ vis: 'prv', code: 'MATE-AB12' })).toBe(true);
+    expect(needsAuthorLookup({ vis: 'pub', code: 'MATE-AB12' })).toBe(false);
+    expect(needsAuthorLookup({ vis: 'prv', code: '' })).toBe(false);
   });
 });

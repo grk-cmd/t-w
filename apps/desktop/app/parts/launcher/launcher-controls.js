@@ -1,8 +1,8 @@
 /* launcher-controls.js — 🎛️ 런처 컨트롤 — 슬롯 넘기기 · 톱니 메뉴 · 삭제 · 보관함 이동
    app.js «🎛️ 런처 컨트롤» 구역 본문을 그대로 옮긴 모듈이다(C 구역 떼기 · w3).
-   동작은 옮기기 전과 같다.
+   보관함 이동 · 삭제(휴지통 이동)는 서버 원본 옷장(closet.js)에 요청하고 된 뒤에만 칸을 당긴다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 21줄 —
-     charsMod · curSlot · racePickerMod · slotSaveMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setCurSlot(…).
+     curSlot · racePickerMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setCurSlot(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 5개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: closeGearMenu — app.js 는 launcherCtlMod.이름 으로 부른다.
@@ -13,7 +13,7 @@
 
 function createLauncherControls(deps){
 const CHAR_SLOT_MAX = deps.CHAR_SLOT_MAX;
-const charsMod = deps.charsMod;   // 읽는 함수
+const closetMod = deps.closetMod;   // 읽는 함수 — 서버 원본 옷장(character/closet.js)
 const curSlot = deps.curSlot;   // 읽는 함수
 const launchApp = deps.launchApp;
 const openCreator = deps.openCreator;
@@ -21,7 +21,6 @@ const racePickerMod = deps.racePickerMod;   // 읽는 함수
 const renderLauncher = deps.renderLauncher;
 const saveCurSlot = deps.saveCurSlot;
 const settingsMod = deps.settingsMod;
-const slotSaveMod = deps.slotSaveMod;   // 읽는 함수
 const slots = deps.slots;
 const toast = deps.toast;
 const setCurSlot = deps.setCurSlot;   // 쓰는 함수
@@ -49,8 +48,7 @@ function lcDeleteAskStart(){
     ask.appendChild(yes); ask.appendChild(no);
     gearMenu.appendChild(ask);
   }
-  /* 🧬 문구는 스위치(와 채택)에 묶는다 — 휴지통이 없는 동안 «휴지통» 이라고 적으면 되살릴 수 있다고 믿고 영구 삭제한다(설계 개정 5). */
-  try{ const t=document.getElementById('lcDelAskText'); if(t) t.textContent=charsMod()._charsDeleteWords().ask; }catch(_){}
+  try{ const t=document.getElementById('lcDelAskText'); if(t) t.textContent=closetMod().deleteWords().ask; }catch(_){}
   ['lcToBox','lcEdit','lcExport','lcGearSep','lcDelete'].forEach(id=>{ const b=document.getElementById(id); if(b) b.style.display='none'; });
   ask.style.display='flex';
 }
@@ -59,8 +57,8 @@ document.getElementById('lcNext').onclick=()=>{setCurSlot((curSlot()+1)%CHAR_SLO
 // ★ 빈 슬롯의 [＋] — "지금 보고 있는 이 칸"을 저장 대상으로 확정해 넘긴다(저장 때 칸을 추측하면 다른 칸을 덮어쓴다).
 document.getElementById('lcEmpty').onclick=()=>{
   if(slots[curSlot()]) return;                       // 캐릭터가 있는 칸이면 [＋]가 아니므로 무시
+  if(!closetMod().requireReady()) return;            // 옷장을 받기 전 · 못 받은 채로는 만들지 않는다(저장 자리를 모른다)
   if(slots.every(s=>s)){toast('캐릭터가 모두 찼습니다');return;}
-  if(charsMod()._charsBoxFull()) return;   // 🧬 보관함 20 문턱(켜져 있을 때만)
   racePickerMod().openRacePicker(curSlot());
 };
 const previewWrap=document.querySelector('.lc-preview-wrap');
@@ -68,64 +66,61 @@ previewWrap.addEventListener('mouseenter',()=>{if(slots[curSlot()])previewWrap.c
 previewWrap.addEventListener('mouseleave',()=>previewWrap.classList.remove('show-go'));
 document.getElementById('lcPreview').addEventListener('click',()=>{if(slots[curSlot()])launchApp({mode:'run'});});
 document.getElementById('lcGear').onclick=e=>{e.stopPropagation();
-  try{ const w=charsMod()._charsDeleteWords(); const d=document.getElementById('lcDelete'); if(d) d.textContent=w.btn; e.currentTarget.title=w.gear; }catch(_){}
+  try{ const w=closetMod().deleteWords(); const d=document.getElementById('lcDelete'); if(d) d.textContent=w.btn; e.currentTarget.title=w.gear; }catch(_){}
   gearMenu.classList.toggle('on');};
 document.addEventListener('click',()=>closeGearMenu());
 gearMenu.addEventListener('click',e=>e.stopPropagation());
-document.getElementById('lcEdit').onclick=()=>{closeGearMenu();if(slots[curSlot()])openCreator({kind:'slot',edit:true,slot:curSlot()});};
+document.getElementById('lcEdit').onclick=()=>{closeGearMenu();if(slots[curSlot()] && closetMod().requireReady())openCreator({kind:'slot',edit:true,slot:curSlot()});};
 document.getElementById('lcDelete').onclick=()=>{ lcDeleteAskStart(); };   // 🗑️ 바로 지우지 않고 되묻는다
 /* 🧰 [보관함 이동] — 되묻지 않는다. 지우는 게 아니라 슬롯에서 내려 보관함에 둔다. */
 document.getElementById('lcToBox').onclick=()=>{ closeGearMenu(); doMoveCurSlotToBox(); };
-/* 실제 삭제 — [네]를 눌렀을 때만 불린다. */
-function doDeleteCurSlot(){
-  if(!slots[curSlot()]) return;   // 되묻는 사이 비었으면(다른 경로로 삭제 등) 아무 것도 안 한다
-  /* 🧬 보관함 스위치가 켜져 있으면 휴지통 이동(아래 당기기와 같이 당긴다) · 꺼져 있으면 false */
-  let _toTrash = false; try{ _toTrash = charsMod()._charsTrashMove(curSlot()); }catch(_){}
-  // 삭제 후 뒤 슬롯들을 앞으로 당겨옴(선입선출) — 예: 1번 삭제하면 2번→1번, 3번→2번
-  for(let i=curSlot();i<slots.length-1;i++){ slots[i]=slots[i+1]; }
-  slots[slots.length-1]=null;
-  // ★ "자리 추가"(extraSeatSlots)는 슬롯 '번호'만 저장한다 — 같이 당기지 않으면 옆자리 캐릭터가 조용히 바뀐다.
+/* 칸 i 가 서버에서 빠진 뒤 화면 정리 — "자리 추가"(extraSeatSlots)는 슬롯 '번호'만 저장한다. 같이 당기지 않으면 옆자리 캐릭터가 조용히 바뀐다. */
+function afterSlotRemoved(at){
   if(Array.isArray(settingsMod.extraSeatSlots())){
-    settingsMod.setExtraSeatSlots(settingsMod.extraSeatSlots().filter(n=>n!==curSlot()).map(n=>n>curSlot()?n-1:n));
+    settingsMod.setExtraSeatSlots(settingsMod.extraSeatSlots().filter(n=>n!==at).map(n=>n>at?n-1:n));
     settingsMod._saveExtraSeatSlots();
   }
   // ★ 당긴 뒤 curSlot 이 빈 칸을 가리키면 이후 저장이 엉뚱한 자리를 고른다 — 여기서 정리한다.
   if(!slots[curSlot()]){ let last=-1; slots.forEach((x,i)=>{ if(x) last=i; }); setCurSlot(last>=0 ? last : 0); }
-  slotSaveMod().saveSlots(); saveCurSlot();
-  renderLauncher();toast(_toTrash ? '휴지통으로 옮겼어요' : '삭제했어요');
+  saveCurSlot();
+  renderLauncher();
 }
-/* 🧰 [보관함 이동] — 보관함 쪽 기록(_charsDeskToBox)이 끝난 뒤에만 칸을 당긴다(당기기는 doDeleteCurSlot 과 같은 모양).
-   ★ 진행 중이면 다시 안 들어가고, 기다린 뒤에는 번호가 아니라 그 캐릭터(slotObj)로 칸을 다시 찾는다 — 연타 때 겹친 호출이 엉뚱한 칸을 당겼다. */
-let _moveToBoxBusy = false;
+/* 실제 삭제(휴지통 이동) — [네]를 눌렀을 때만 불린다. 서버에 옮기고 된 뒤에만 칸을 당긴다(서버가 같은 규칙으로 뒤 칸을 당긴다 — 예: 1번 삭제하면 2번→1번). 못 하면 칸은 그대로. */
+async function doDeleteCurSlot(){
+  if(!slots[curSlot()]) return;   // 되묻는 사이 비었으면(다른 경로로 삭제 등) 아무 것도 안 한다
+  let r;
+  try{ r = await closetMod().trashSlot(curSlot()); }catch(e){ r = { ok: false, why: 'err' }; }   // 겹친 누름은 옷장이 busy 로 막는다
+  if(!r.ok){ closetMod().reportFail(r); return; }
+  afterSlotRemoved(r.slot);
+  toast(closetMod().deleteWords().done);
+}
+/* 🧰 [보관함 이동] — 되묻지 않는다. 지우는 게 아니라 슬롯에서 내려 보관함에 둔다. 서버에 옮기고 된 뒤에만 칸을 당긴다.
+   ★ 진행 중이면 다시 안 들어간다(연타 때 겹친 호출이 엉뚱한 칸을 당겼다). */
 async function doMoveCurSlotToBox(){
-  if(_moveToBoxBusy){ toast('보관함으로 옮기는 중이에요 — 잠시만요'); return; }
   const i = curSlot();
-  const slotObj = slots[i];
-  if(!slotObj) return;
-  _moveToBoxBusy = true;
-  let r = { ok: false, why: 'off' };
-  try{
-    try{ r = await charsMod()._charsDeskToBox(i); }catch(e){ r = { ok: false, why: 'err', err: String(e && e.message || e) }; }
-  }finally{ _moveToBoxBusy = false; }
-  if(!r.ok){ charsMod()._charsMoveFailLog(r, i); toast(charsMod()._charsMoveMsg(r)); return; }
-  /* 기다리는 사이 칸이 바뀌었을 수 있다(동기화 · 다른 창). 슬롯 표(desk)를 당긴 그 번호(r.slot)로 슬롯도 당긴다 — 둘이 늘 같은 칸을 가리킨다.
-     ⚠️ 객체(slotObj)로 다시 찾으면 안 된다: 동기화가 칸을 바꿔 앉히면(loadSlots) 슬롯 객체가 새로 만들어져 못 찾고,
-       «이미 빠져 있다» 로 보고 슬롯을 그대로 둔 채 desk 만 당겨져 — 보관함에도 있고 슬롯에도 남는 복제가 됐다. */
-  const at = (typeof r.slot === 'number' && r.slot >= 0 && r.slot < slots.length) ? r.slot : slots.indexOf(slotObj);
-  if(at < 0){ renderLauncher(); toast('보관함으로 옮겼어요'); return; }   // 옛 판(번호를 안 돌려줌)에서 이미 칸에서 빠져 있다 — 당길 것이 없다
-  for(let k = at; k < slots.length - 1; k++){ slots[k] = slots[k + 1]; }
-  slots[slots.length - 1] = null;
-  if(Array.isArray(settingsMod.extraSeatSlots())){
-    settingsMod.setExtraSeatSlots(settingsMod.extraSeatSlots().filter(n => n !== at).map(n => n > at ? n - 1 : n));
-    settingsMod._saveExtraSeatSlots();
-  }
-  if(!slots[curSlot()]){ let last = -1; slots.forEach((x, k) => { if(x) last = k; }); setCurSlot(last >= 0 ? last : 0); }
-  slotSaveMod().saveSlots(); saveCurSlot();
-  renderLauncher(); toast('보관함으로 옮겼어요');
+  if(!slots[i]) return;
+  let r;
+  try{ r = await closetMod().moveToBox(i); }catch(e){ r = { ok: false, why: 'err' }; }
+  if(!r.ok){ closetMod().reportFail(r); return; }
+  afterSlotRemoved(r.slot);
+  toast('보관함으로 옮겼어요');
+}
+
+/* 빈 칸 표시 — 옷장을 받기 전엔 «불러오는 중», 못 받았으면 «못 불러왔어요 · 다시 시도» (진짜 빈 슬롯 «캐릭터 만들기» 와 가른다). 받은 뒤엔 원래 문구로 되돌린다. */
+let _emptyOrig = null;
+function renderEmptyState(){
+  const em = document.getElementById('lcEmpty'); if(!em) return;
+  const st = closetMod().state();
+  if(_emptyOrig === null) _emptyOrig = Array.from(em.childNodes, n => n.cloneNode(true));   // 원래 마크업을 노드로 들고 있다가 그대로 되돌린다
+  if(st === 'ready'){ if(em.dataset.closet){ em.replaceChildren(..._emptyOrig.map(n => n.cloneNode(true))); em.dataset.closet = ''; em.title = '이 칸에 캐릭터 만들기'; } return; }
+  em.dataset.closet = st;
+  em.textContent = st === 'failed' ? '못 불러왔어요 — 눌러서 다시 시도' : '캐릭터를 불러오는 중…';
+  em.title = em.textContent;
 }
 
 return {
   closeGearMenu,
+  renderEmptyState,
 };
 }
 

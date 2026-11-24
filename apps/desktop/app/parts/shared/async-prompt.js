@@ -15,7 +15,8 @@ function createAsyncPrompt(deps){
 
 // ✏️ 인앱 프롬프트 — Electron은 window.prompt()가 비활성화(no-op)라서 native prompt를 못 씀.
 //   이 함수를 native prompt 대용으로 사용. 취소/× 는 null 반환(prompt와 동일 계약).
-function asyncPrompt({title, message, defaultValue, placeholder, maxLength}={}){
+// 옵션 secret: 입력을 가린다(비밀번호). validate(값) → 문자열이면 창을 닫지 않고 그 글을 창 안에 보이고 다시 입력받는다 · null 이면 통과(닫힘). 자동 재시도 없음.
+function asyncPrompt({title, message, defaultValue, placeholder, maxLength, secret, validate}={}){
   return new Promise(resolve=>{
     const ov=document.getElementById('mhPromptOverlay'); if(!ov){ resolve(null); return; }
     // ★ 방어: 이전 호출의 finish가 안 끝난 상태에서 다시 열리면 listener가 겹쳐 클릭이 씹힘.
@@ -30,6 +31,8 @@ function asyncPrompt({title, message, defaultValue, placeholder, maxLength}={}){
     inp.value = defaultValue==null ? '' : String(defaultValue);
     inp.placeholder = placeholder || '';
     inp.maxLength = maxLength || 500;
+    inp.type = secret ? 'password' : 'text';
+    msg.style.color = '';
     ov.classList.add('on');
     // ★ 프롬프트가 열려있는 동안엔 overlay 자체도 pointer 이벤트를 받아 다른 outside-click 핸들러가 뒤에 가려진
     //   요소로 클릭을 흘려보내지 않게(스티커/컬러 팝업의 outside closer가 프롬프트를 통과시켜 뒤 요소를 클릭하고 그 부작용으로 프롬프트 상태가 꼬이던 경우 방지).
@@ -45,10 +48,20 @@ function asyncPrompt({title, message, defaultValue, placeholder, maxLength}={}){
       x.removeEventListener('click', onCancel);
       inp.removeEventListener('keydown', onKey);
       ov._cleanup = null;
+      inp.type = 'text'; msg.style.color = '';
       resolve(val);
     };
     ov._cleanup = ()=>finish(null);
-    const onOk=()=>finish(inp.value);
+    let checking=false;
+    const onOk=async ()=>{
+      if(!validate) return finish(inp.value);
+      if(checking) return; checking=true; ok.disabled=true;
+      let bad=null; try{ bad=await validate(inp.value); }catch(_){ bad='확인하지 못했어요'; }
+      checking=false; ok.disabled=false;
+      if(done) return;
+      if(bad){ msg.textContent=String(bad); msg.style.color='var(--win-error)'; inp.value=''; inp.focus(); return; }
+      finish(inp.value);
+    };
     const onCancel=()=>finish(null);
     const onKey=(e)=>{
       if(e.key==='Enter'){ e.stopPropagation(); onOk(); }

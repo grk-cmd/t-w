@@ -1,0 +1,77 @@
+{
+ "note": "sim-session-baseline.js 기준선 — 계정 기능 모듈별 «세션을 안 거친 창 타이머 수(timers)» · «해제 함수를 버린 구독 수(dropped)». 줄기만 한다: 세션으로 옮겼으면 같은 PR 에서 --write-baseline 으로 내리고, 새로 걸지 말 것. S-4d 에서 계정 몫은 0.",
+ "counts": {
+  "focus/focus-total.js": {
+   "timers": 0,
+   "dropped": 0
+  },
+  "focus/focus-share.js": {
+   "timers": 1,
+   "dropped": 0
+  },
+  "focus/focus-level.js": {
+   "timers": 1,
+   "dropped": 0
+  },
+  "focus/focus-progress.js": {
+   "timers": 0,
+   "dropped": 0
+  },
+  "focus/chal-store.js": {
+   "timers": 0,
+   "dropped": 0
+  },
+  "focus/pomodoro.js": {
+   "timers": 1,
+   "dropped": 0
+  },
+  "character/gacha.js": {
+   "timers": 3,
+   "dropped": 0
+  },
+  "character/closet.js": {
+   "timers": 0,
+   "dropped": 0
+  },
+  "myhome/myhome-init.js": {
+   "timers": 0,
+   "dropped": 0
+  },
+  "myhome/gift-box.js": {
+   "timers": 0,
+   "dropped": 0
+  },
+  "myhome/mallang-store.js": {
+   "timers": 0,
+   "dropped": 0
+  },
+  "myhome/scheduler.js": {
+   "timers": 2,
+   "dropped": 0
+  },
+  "myhome/mail-feed.js": {
+   "timers": 0,
+   "dropped": 0
+  },
+  "myhome/friends-sub.js": {
+   "timers": 1,
+   "dropped": 0
+  },
+  "friends/presence-self.js": {
+   "timers": 0,
+   "dropped": 0
+  },
+  "room/room-invite-ui.js": {
+   "timers": 1,
+   "dropped": 0
+  },
+  "account/license-premium.js": {
+   "timers": 0,
+   "dropped": 0
+  },
+  "status/playlist.js": {
+   "timers": 4,
+   "dropped": 0
+  }
+ }
+}

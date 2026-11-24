@@ -4,7 +4,7 @@
    ・2절 나중에 튼 쪽이 이긴다 — 마이홈 · 플레이리스트 · 같이 듣기가 창을 가져가거나 창이 닫히면 모든 바가 ▶ 로 · 편지 창을 닫으면(stop) 내 곡만 닫는다
    ・3절 ((o — 링크 → 영상 id · 제목(40자) · 비우면 빼기 · 못 알아보는 링크 · 듣던 곡을 바꾸면 멈춤 · 앱 밖(companion 없음) 안내
    ・4절 main.js · preload.js — 'xmas' 는 패널 뒤에 숨는 주인 · 신호 없음(마이홈처럼 되풀이) · 한 곡 반복 안 걸림 · IPC 한 줄
-   ・5절 제목은 textContent 로만 · 깨 보기 */
+   ・5절 제목은 textContent 로만 · mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -125,14 +125,14 @@ function cutFn(src, name){
   chk(/if\(!bgmUrlAllowed\(url\)\)/.test((/function bgmOpen\(url, title, mode\)\{[\s\S]{0,400}/.exec(MAIN) || [''])[0]), '  ↳ bgmOpen 은 유튜브가 아닌 주소를 열지 않는다(받은 편지의 곡 id 는 남이 쓴 값)');
 }
 
-say('── 5절 제목 · 깨 보기');
+say('── 5절 제목 · mutation test');
 {
   const w = world(); const b = el(); w.api.bar(b, {}).set({ id: 'eeeeeeeeeee', title: '<img src=x onerror=alert(1)>' });
   chk(parts(b).lab.textContent === '<img src=x onerror=alert(1)>', '남이 쓴 곡 제목은 글자 그대로(textContent)');
   chk(!/innerHTML/.test(SRC.replace(/\/\*[\s\S]*?\*\//g, '')), '뮤직바 모듈에 innerHTML 없음');
   const brokeMain = MAIN.replace("function bgmPanelMode(m){ return m === 'playlist' || m === 'listen' || m === 'xmas'; }", "function bgmPanelMode(m){ return m === 'playlist' || m === 'listen'; }");
   const bp = cutFn(brokeMain, 'bgmPanelMode');
-  chk(brokeMain !== MAIN && bp && !bp('xmas'), "깨 보기 — 'xmas' 를 패널 주인에서 빼면 4절이 빨강(마이홈 좌표를 따라가 마이홈 뒤에 숨는다)");
+  chk(brokeMain !== MAIN && bp && !bp('xmas'), "mutation test — 'xmas' 를 패널 주인에서 빼면 4절이 빨강(마이홈 좌표를 따라가 마이홈 뒤에 숨는다)");
 }
 
 say(`\n${fail ? '✗' : '✓'} ${pass} 통과 · ${fail} 실패`);

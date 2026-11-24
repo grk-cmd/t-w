@@ -1,5 +1,5 @@
 /* ═══ 👑 sim-theme-custom.js — 테마 «내 색»(프리미엄 · 계정 저장) ═══════════════════════════════
-   ・1절: 규칙(theme-custom.js) — 색 씻기 · 저장 모양 씻기 · 어떤 색을 골라도 제목줄 글자가 읽히는가(기본 = 흰 글자라 어둡게 · 버블 = 어두운 글자라 밝게) · 깨 보기
+   ・1절: 규칙(theme-custom.js) — 색 씻기 · 저장 모양 씻기 · 어떤 색을 골라도 제목줄 글자가 읽히는가(기본 = 흰 글자라 어둡게 · 버블 = 어두운 글자라 밝게) · mutation test
    ・2절: 걸기(theme.js) — 'cx' 는 프리미엄 + 그 테마의 내 색이 있을 때만 · --acc-* 를 <html> 인라인으로 · 다른 칸이면 인라인을 걷는다
    ・3절: 설정 칸 · 만들기(theme-ui.js) — 여섯째 칸 · 이름 자리 «👑» · 프리미엄 아니면 잠금 안내 · 저장 → 이 PC + 서버 · 서버 실패면 E-SYS-02
    ・4절: 계정 사본 — 로그인 뒤 서버 것을 받는다 · 서버가 비었으면 이 PC 것을 올린다 · 못 읽으면 아무것도 안 한다
@@ -48,10 +48,10 @@ chk(v['--acc-d'] === '#1E7A5A' && TC.VAR_NAMES.length === 9 && TC.VAR_NAMES.ever
   '이미 어두운 색은 그대로 · 변수 아홉(--acc-*) · 제목줄 그라데이션은 기본 규칙(acc-d → acc-m)');
 chk(TC.chipCss('bubble', '#1E7A5A', '#7AD1B0') === 'linear-gradient(90deg,' + TC.derive('bubble', '#1E7A5A', '#7AD1B0')['--acc-l'] + ',' + TC.derive('bubble', '#1E7A5A', '#7AD1B0')['--acc-m'] + ')',
   '설정 칸 색은 그 테마에서 실제로 보일 제목줄 색');
-{ /* 깨 보기 — 어둡게 맞추는 줄을 빼면 흰 색이 그대로 나가 위 ★ 가 빨강 */
+{ /* mutation test — 어둡게 맞추는 줄을 빼면 흰 색이 그대로 나가 위 ★ 가 빨강 */
   const broke = TC_SRC.replace('const d = _toward(a, K, c => lum(c) <= DEFAULT_MAX_LUM);', 'const d = a;');
   const m = { exports: {} }; new Function('module', 'window', broke)(m, undefined);
-  chk(broke !== TC_SRC && m.exports.lum(m.exports.derive('default', '#FFFFFF', '#000000')['--acc-d']) > TC.DEFAULT_MAX_LUM, '  깨 보기 — 어둡게 맞추지 않으면 흰 제목줄에 흰 글자');
+  chk(broke !== TC_SRC && m.exports.lum(m.exports.derive('default', '#FFFFFF', '#000000')['--acc-d']) > TC.DEFAULT_MAX_LUM, '  mutation test — 어둡게 맞추지 않으면 흰 제목줄에 흰 글자');
 }
 
 /* ── 가짜 DOM ── */
@@ -86,6 +86,7 @@ function mkEnv(opt){
     applyTheme: th.applyTheme, getAccent: th.getAccent, getTheme: th.getTheme, onApplied: th.onApplied,
     CUSTOM_ID: th.CUSTOM_ID, getCustom: th.getCustom, customUsable: th.customUsable, setCustom: th.setCustom, _premiumOn: () => env.premium,
     getMyUserId: () => opt.uid === undefined ? 'uA' : opt.uid,
+    serverOn: () => opt.serverOn !== false,
     loadCustom: async () => env.srv, saveCustom: async (uid, o) => { saved.push([uid, JSON.parse(JSON.stringify(o))]); return opt.saveOk !== false; },
   });
   env.th = th; env.ui = ui;
@@ -133,6 +134,11 @@ say('── 3. 설정 칸 · 만들기(theme-ui.js)');
   e = mkEnv({ premium: true, saveOk: false });
   e.ui.bindThemeUI(); e.els.themeColorRow.children[5].onclick(); e.els.themeCxSave.fire('click'); await flush();
   chk(e.notes.join() === 'E-SYS-02' && e.store['tw.accent'] === 'cx', '서버 쓰기 실패 → E-SYS-02(이 PC 에는 저장)');
+  /* 서버 길이 아직 없다(0.13 · shared/server-features.js themeCustomSave 꺼짐) — 이 PC 에만 두고 서버를 부르지도 · 실패를 알리지도 않는다 */
+  e = mkEnv({ premium: true, serverOn: false, saveOk: false });
+  e.ui.bindThemeUI(); e.els.themeColorRow.children[5].onclick(); e.els.themeCxSave.fire('click'); await flush();
+  { const local = e.store['tw.accent'] === 'cx' && !!e.store['tw.accentCustom']; await e.ui.pullCustom();
+    chk(local && e.saved.length === 0 && e.notes.length === 0 && !('tw.accentCustomDirty' in e.store), '★ 서버 길이 없으면 이 PC 에만 — 저장 · 받기 모두 서버를 안 부르고 E-SYS-02 도 안 뜬다'); }
   e = mkEnv({ premium: true, ls: { 'tw.accentCustom': mine } });
   e.ui.bindThemeUI(); e.els.themeColorRow.children[5].onclick();
   chk(e.store['tw.accent'] === 'cx' && e.els.themeCxBox.style.display !== 'block', '만들어 둔 색이 있으면 첫 누름은 그 색으로 바꾸기만');
@@ -178,7 +184,7 @@ say('── 5. 배선');
   chk(order[0] === 'theme-custom' && order.length === 3, 'html — theme-custom.js 를 theme-ui · theme 보다 먼저 싣는다');
   chk(/try\{ refreshTheme\(\); \}catch\(_\)\{\}/.test(SRC.gate) && /refreshTheme: \(\.\.\.a\)=>themeUiMod\.refreshCustom\(\.\.\.a\)/.test(SRC.app),
     '프리미엄이 바뀌면 다시 걸기 — 초대 게이트의 한 곳(_refreshPremiumGatedUI)');
-  chk(/whenNetReady\(\(\)=>\{ themeUiMod\.pullCustom\(\); \}, 'loadThemeCustom'\)/.test(SRC.app), '로그인 뒤 한 번 계정 사본 받기');
+  chk(/whenNetReady\(\(\)=>\{ themeUiMod\.pullCustom\(\); \}\);/.test(SRC.app) && /serverOn: \(\)=>TwServerFeatures\.on\('themeCustomSave'\),/.test(SRC.app), '로그인 뒤 한 번 계정 사본 받기 · 서버 길은 서버 기능 표(themeCustomSave)로 연다');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

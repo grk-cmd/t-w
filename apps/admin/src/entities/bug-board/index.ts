@@ -42,6 +42,8 @@ export {
   BUG_DAILY_MAX_PATH,
   deleteWrite,
   isStaffPost,
+  bugAuthorName,
+  needsAuthorLookup,
   parseBugDailyMax,
   BUG_ANS_MAX,
   BUG_BODY_MAX,

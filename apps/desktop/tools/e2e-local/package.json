@@ -1,0 +1,10 @@
+{
+  "name": "tw-e2e-local",
+  "version": "1.0.0",
+  "private": true,
+  "description": "로컬 서버 · Firebase 에뮬레이터에 붙여 dev 앱을 끝까지 몰아 보는 도구 — 앱 설치본에 안 들어간다",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "playwright-core": "1.49.1"
+  }
+}

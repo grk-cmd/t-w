@@ -5,7 +5,7 @@
      DESK_SCALE_DEFAULT · DESK_SCALE_MAX · DESK_SCALE_MIN · Presence · cBase · isAdmin · isPremium · savedDesks · savedItems · slots 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 16개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: DESK_LICENSE_HOLD · ITEM_LICENSE_HOLD · MAX_GACHA_PARTS_PER_CAT · MAX_PARTS_PER_CAT · PART_CATS · PART_GROUPS · WD_DESK_TAB · _licenseLockedDeskId · _normPartRec · _wdLicenseDesks · addEntryToCat · addPartEntryInstance · catEquippedIds · customPartCats · defaultPartXf · entriesForCat · findEntryById · firstEntryForCat · getRecHides · groupOfCat · isDeskPartCat · isGachaPart · loadSavedParts · partAttachTarget · partCatInfo · partCatLimit · partCatOverrides · partEntryId · partEntryInstanceCount · partEntryInstances · partEntryXf · partsInCat · partsInCatFor · partsInGroup · persistSavedParts · pruneUnownedLicenseAssets · rebuildPartCats · removeEntryFromCat · removePartEntryInstance · reorderSavedPart · restoreLicenseHeldAssets · savedParts · setPartEntryInstanceXf · toHidesForSave — app.js 는 premiumMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: loadLocal · resetLocal · DESK_LICENSE_HOLD · ITEM_LICENSE_HOLD · MAX_GACHA_PARTS_PER_CAT · MAX_PARTS_PER_CAT · PART_CATS · PART_GROUPS · WD_DESK_TAB · _licenseLockedDeskId · _normPartRec · _wdLicenseDesks · addEntryToCat · addPartEntryInstance · catEquippedIds · customPartCats · defaultPartXf · entriesForCat · findEntryById · firstEntryForCat · getRecHides · groupOfCat · isDeskPartCat · isGachaPart · loadSavedParts · partAttachTarget · partCatInfo · partCatLimit · partCatOverrides · partEntryId · partEntryInstanceCount · partEntryInstances · partEntryXf · partsInCat · partsInCatFor · partsInGroup · persistSavedParts · pruneUnownedLicenseAssets · rebuildPartCats · removeEntryFromCat · removePartEntryInstance · reorderSavedPart · restoreLicenseHeldAssets · savedParts · setPartEntryInstanceXf · toHidesForSave — app.js 는 premiumMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwPremiumAssets — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-premium-assets.js */
@@ -14,6 +14,7 @@
 function createPremiumAssets(deps){
 const DEFAULT_DESK_OVERRIDE_ID = deps.DEFAULT_DESK_OVERRIDE_ID;
 const Presence = deps.Presence;   // 읽는 함수
+const accountStore = deps.accountStore;   // 🗂️ 계정별 칸(shared/account-store.js) — 코드로 추가한 파츠는 이 계정 몫
 const applyDeskCatalogRefToSeat = deps.applyDeskCatalogRefToSeat;
 const cBase = deps.cBase;   // 읽는 함수
 const deskItemDef = deps.deskItemDef;
@@ -22,12 +23,14 @@ const equipDeskItem = deps.equipDeskItem;
 const findMySeat = deps.findMySeat;
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const isPremium = deps.isPremium;   // 읽는 함수
-const saveSlots = deps.saveSlots;
+const licenseAssetBlocked = deps.licenseAssetBlocked;   // 전용 자산을 지금 막아야 하나(account-state.js — 판단 한 곳)
 const savedDesks = deps.savedDesks;   // 읽는 함수
 const savedItems = deps.savedItems;   // 읽는 함수
 const seats = deps.seats;
 const slots = deps.slots;   // 읽는 함수
 const toast = deps.toast;
+const notifyError = deps.notifyError;
+const catalogAdmin = deps.catalogAdmin;   // 카탈로그 쓰기 서버 경로(admin/catalog-admin-api.js) — 진열 순서
 const WD_DESK_TAB = '__desk_model__';
 function _wdLicenseDesks(){
   let list = null; try{ list = savedDesks(); }catch(_){ return []; }
@@ -44,21 +47,21 @@ function _licenseLockedDeskId(id){
   let list = null; try{ list = savedDesks(); }catch(_){ return false; }
   if(!list || !list.length) return false;
   const rec = list.find(d => d.id === id);
-  return !!(rec && rec.licenseOnly);
+  return !!(rec && rec.locked === true);
 }
 function _licenseLockedItemId(id){
   if(!id) return false;
   let list = null; try{ list = savedItems(); }catch(_){ return false; }
   if(!list || !list.length) return false;
   const rec = list.find(s => s.id === id);
-  return !!(rec && rec.licenseOnly);
+  return !!(rec && rec.locked === true);
 }
 function pruneUnownedLicenseAssets(){
   /* ★ 전제 검사는 **호출부가 아니라 여기** 있어야 한다 — pruneUnownedGachaParts 와 같은 이유다.
      호출 지점이 여럿이고(라이선스 변경 · 카탈로그 도착 · 코드 불러오기 · 슬롯 복원 · 프리셋),
-     그때마다 같은 조건을 복사하면 언젠가 하나를 빠뜨린다. */
-  if(typeof isPremium() !== 'undefined' && isPremium()) return 0;
-  if(typeof isAdmin() !== 'undefined' && isAdmin()) return 0;
+     그때마다 같은 조건을 복사하면 언젠가 하나를 빠뜨린다.
+     ★ «막아야 하나» 는 레코드의 서버 locked(licenseAssetBlocked 와 같은 값) — 레코드가 아직 없으면(받기 전 · 받기 실패) 접을 것도 없다.
+       서버가 확인해 주기 전에 접으면 프리미엄 사용자의 책상이 켤 때마다 잠깐 기본으로 떨어지므로, 접기는 카탈로그가 locked 와 함께 온 뒤에 돈다. */
   let _desks = null; try{ _desks = savedDesks(); }catch(_){ return 0; }
   let _items = null; try{ _items = savedItems(); }catch(_){ return 0; }
   if(!(_desks && _desks.length) && !(_items && _items.length)) return 0;   // 카탈로그 미도착 = 판정 불가
@@ -110,7 +113,8 @@ function pruneUnownedLicenseAssets(){
   // 3) 생성기가 열려 있으면 그 초안도 — 안 그러면 완료를 누를 때 crDone 이 되살린다
   try{ if(typeof cBase() !== 'undefined' && cBase() && cBase().charDef){ const h = _holdDef(cBase().charDef); n += (h.desk?1:0) + h.items.length; } }catch(_){}
   if(!n) return 0;
-  try{ saveSlots(); }catch(_){}
+  /* 저장하지 않는다 — 접기는 이 PC 의 화면 · 방 전송만이다. 계정의 캐릭터는 여러 PC 가 같이 쓰므로, 접은 모양을 저장하면
+     라이선스 없는 PC 가 공용 캐릭터에서 책상을 지우고 라이선스 있는 PC 가 되돌리기를 되풀이한다. 저장 모양은 withHeldAssets 가 되돌려 만든다. */
   // 방에 있으면 즉시 다시 내보낸다 — 이 한 줄이 친구 화면에서 사라지게 하는 자리다
   try{
     const me = findMySeat();
@@ -119,18 +123,20 @@ function pruneUnownedLicenseAssets(){
   console.warn('[라이선스] 전용 자산 ' + n + '개를 접어 뒀습니다 — 라이선스를 등록하면 그대로 돌아옵니다');
   return n;
 }
-/* 접어 뒀던 것을 되돌린다 — 라이선스가 켜지는 모든 통로가 _setPremium 하나를 지나므로 여기 한 곳이면 된다. */
+/* 접어 뒀던 것을 되돌린다 — 레코드의 서버 locked 가 풀린 것만(라이선스가 바뀌면 서버가 locked 를 바꿔 주고 카탈로그를 다시 받은 뒤 catalog-sync 가 부른다). 아직 잠긴 것은 접힌 채 둔다. */
 function restoreLicenseHeldAssets(){
-  const _ok = (typeof isPremium() !== 'undefined' && isPremium()) || (typeof isAdmin() !== 'undefined' && isAdmin());
-  if(!_ok) return 0;
   const _restoreDef = def => {
     let k = 0;
     if(!def) return 0;
-    if(def[DESK_LICENSE_HOLD]){ def.deskCatalogId = def[DESK_LICENSE_HOLD]; delete def[DESK_LICENSE_HOLD]; k++; }
+    if(def[DESK_LICENSE_HOLD] && !_licenseLockedDeskId(def[DESK_LICENSE_HOLD])){ def.deskCatalogId = def[DESK_LICENSE_HOLD]; delete def[DESK_LICENSE_HOLD]; k++; }
     if(def[ITEM_LICENSE_HOLD]){
-      if(!def.deskItems) def.deskItems = {};
-      Object.keys(def[ITEM_LICENSE_HOLD]).forEach(id => { def.deskItems[id] = def[ITEM_LICENSE_HOLD][id]; k++; });
-      delete def[ITEM_LICENSE_HOLD];
+      const held = def[ITEM_LICENSE_HOLD];
+      Object.keys(held).forEach(id => {
+        if(_licenseLockedItemId(id)) return;
+        if(!def.deskItems) def.deskItems = {};
+        def.deskItems[id] = held[id]; delete held[id]; k++;
+      });
+      if(!Object.keys(held).length) delete def[ITEM_LICENSE_HOLD];
     }
     return k;
   };
@@ -138,10 +144,21 @@ function restoreLicenseHeldAssets(){
   try{ seats.forEach(s => { if(s && !s.remote && s.charDef) n += _restoreDef(s.charDef); }); }catch(_){}
   try{ slots().forEach(d => { n += _restoreDef(d); }); }catch(_){}
   try{ if(typeof cBase() !== 'undefined' && cBase() && cBase().charDef) n += _restoreDef(cBase().charDef); }catch(_){}
-  if(!n) return 0;
-  try{ saveSlots(); }catch(_){}
+  if(!n) return 0;   // 저장하지 않는다 — 저장 모양은 접기 전과 같다(withHeldAssets)
   console.warn('[라이선스] 접어 뒀던 전용 자산 ' + n + '개를 되돌렸습니다');
   return n;
+}
+
+/* 저장 모양(slotToObj 결과 o)에 접어 둔 것을 되돌려 싣는다 — 접기는 화면에만, 서버 캐릭터에는 늘 사람이 고른 그대로.
+   책상은 그사이 다른 책상을 골랐으면(deskCatalogId 가 있음) 고른 것이 이긴다. 아이템은 접어 둔 것을 지금 것 위에 합친다. */
+function withHeldAssets(o, def){
+  if(!o || !def) return o;
+  const heldDesk = def[DESK_LICENSE_HOLD], heldItems = def[ITEM_LICENSE_HOLD];
+  if(!heldDesk && !(heldItems && Object.keys(heldItems).length)) return o;
+  const out = Object.assign({}, o);
+  if(heldDesk && !out.deskCatalogId) out.deskCatalogId = heldDesk;
+  if(heldItems && Object.keys(heldItems).length) out.deskItems = Object.assign({}, heldItems, out.deskItems || {});
+  return out;
 }
 
 const SAVED_PARTS_KEY='tw.savedParts';
@@ -149,7 +166,7 @@ const SAVED_PARTS_KEY='tw.savedParts';
    칸이 넘치면 스크롤된다. 즉 이 숫자는 레이아웃 제약이 아니라 순수한 정책값이라 자유롭게 올린다.
    ⚠️ 다만 "+ 코드로 추가"(커미션 파츠)는 GLB를 **localStorage에 base64로 통째로** 넣는다(파츠당 최대 1.3MB).
      관리자 등록분은 Storage에 올라가고 로컬엔 URL만 남아 무해하지만, 코드로 받은 파츠를 이 상한까지
-     꽉 채우면 localStorage(약 10MB)가 먼저 터진다 — persistSavedParts의 '저장 공간이 부족해요'가 그 신호다. */
+     꽉 채우면 localStorage(약 10MB)가 먼저 터진다 — persistSavedParts 가 쓰기를 못 하면 E-CHAR-24 로 알린다 — 그 신호다. */
 const MAX_PARTS_PER_CAT=30;
 /* 🎰 가챠 파츠는 꾸미기 창의 진열 칸을 안 쓴다(보관함 스크롤 목록에만 뜬다) — 그래서 상한이 따로다.
    시즌이 4개라 시즌당 10개꼴. ⚠️ 뽑기 풀이 커지면 특정 파츠가 나올 확률이 그만큼 낮아진다 —
@@ -192,9 +209,9 @@ const BUILTIN_PART_CATS = [
 ];
 // 그룹별 부착 본 매핑 — 커스텀 카테고리 추가 시 group만 선택해도 bone이 자동 결정됨
 const GROUP_TO_BONE = { head:'head', cloth:'spine', deco:'spine', hand:'head', desk:'desk' };   // hand의 경우 UI에서 handL/handR 중 선택
-// 커스텀 카테고리 (Firebase catalog/customCats에서 subscribe 후 여기 채워짐)
+// 커스텀 카테고리 (서버 카탈로그의 categories 에서 받아 여기 채워짐 — catalog-sync.js)
 let customPartCats = [];   // [{cat, label, icon, group, bone}]
-// 기본(내장) 카테고리 이름/아이콘 덮어쓰기 — catalog/catOverrides에서 구독. { cat: {label, icon} }
+// 기본(내장) 카테고리 이름/아이콘 덮어쓰기 — 서버 카탈로그의 categories 에서 받는다. { cat: {label, icon} }
 //   예: 관리자가 '망토'를 '겉옷'으로 바꾸면 모든 사용자에게 그 이름으로 보임. cat 식별자와 동작은 그대로.
 let partCatOverrides = {};
 // 실제 사용될 통합 목록 — BUILTIN + custom 병합.
@@ -421,10 +438,15 @@ function removePartEntryInstance(e, idx){
   if(ins && idx-1 < ins.length){ ins.splice(idx-1, 1); }
 }
 let savedParts=[];   // [{id, cat, name, icon, glb(base64)}]
-function loadSavedParts(){
-  try{ savedParts=JSON.parse(localStorage.getItem(SAVED_PARTS_KEY)||'[]'); }catch(_){ savedParts=[]; }
-  if(Array.isArray(savedParts)) savedParts.forEach(_normPartRec); else savedParts=[];
+/* 🗂️ 카탈로그 몫(fromCatalog · 서버가 원본 · 카탈로그 동기화가 채운다)과 이 계정 몫(코드로 추가한 파츠 — 계정 칸)을 가른다(commission.js 와 같은 규칙).
+   ★ 로그인 때 읽은 값으로 카탈로그 몫을 덮지 않는다 — 카탈로그에 같은 id 가 없는 계정 몫만 더한다. */
+function loadLocal(){
+  const raw = accountStore.get(SAVED_PARTS_KEY);   // 비어 있으면 null(저장한 적 없음). 깨진 값이면 JSON.parse 가 던진다 — 숨기지 않는다(user-local 이 경고)
+  const a = raw === null ? [] : JSON.parse(raw).filter(p=>!p.fromCatalog);   // 옛 PC 칸에 섞여 있던 카탈로그 사본은 읽지 않는다
+  const have = new Set(savedParts.map(p=>p.id));
+  savedParts = savedParts.concat(a.filter(p=>!have.has(p.id)).map(_normPartRec));
 }
+function resetLocal(){ savedParts = savedParts.filter(p=>p.fromCatalog); }
 /* 🎰 가챠 파츠는 **항상** 겹쳐 입는다(stackable) — 들어오는 입구 두 곳(로컬 캐시 · 카탈로그)에서 못박는다.
    [제보 2026-09-23] "보관함 모자를 끼웠다 뺐더니 원래 쓰던 기본 모자까지 같이 빠졌다."
    [원인] 등록(신규·수정)은 가챠면 stackable 을 강제한다(파츠 등록 핸들러 주석). 그런데 **그 규칙이 생기기
@@ -432,18 +454,12 @@ function loadSavedParts(){
      그러면 toggleEquip 이 그 파츠를 «일반 파츠»로 보고 **같은 칸의 기존 일반 모자를 def 에서 빼고 갈아 끼운다.**
      가챠 모자가 기본 모자를 덮고 있어서 끼울 때는 티가 안 나고, 뺄 때 둘 다 없어진 것으로 보인다.
    ★ 읽는 자리(rec.stackable 을 보는 곳이 열 군데가 넘는다)를 고치지 않고 들어오는 입구에서 값을 맞춘다 —
-     등록이 이미 지키는 약속과 같은 값이므로 새 규칙이 아니다. 부팅 때 좌석을 세우기 **전에** 돈다(loadSavedParts).
-   ⚠️ 관리자가 그 파츠를 한 번 다시 저장하면 카탈로그 값도 true 로 고쳐진다(buildPartPublishData). */
+     등록이 이미 지키는 약속과 같은 값이므로 새 규칙이 아니다. 확인 뒤 userLocal 칸(savedParts)이 좌석을 세우기 **전에** 부른다(loadLocal).
+   ⚠️ 관리자가 그 파츠를 한 번 다시 저장하면 카탈로그 값도 true 로 고쳐진다(catalog-admin-api.js partBody). */
 function _normPartRec(p){ if(p && p.gacha && !p.stackable) p.stackable = true; return p; }
 function persistSavedParts(){
-  // ★ Storage 이관 후속: base64 glb는 로컬 저장 대상에서 제외 — 용량 폭탄(1MB×N개면 localStorage 5MB 한도 초과) 방지.
-  //   glbUrl만 저장하고 실제 GLB는 필요 시점(파츠 렌더/편집)에 Storage에서 fetch. 로컬-전용(fromCatalog=false)은
-  //   Storage에 없으므로 base64 그대로 저장(사용자가 직접 추가한 파츠).
-  const stripped = savedParts.map(p=>{
-    if(p.fromCatalog && p.glbUrl){ const clone={...p}; delete clone.glb; return clone; }
-    return p;
-  });
-  try{ localStorage.setItem(SAVED_PARTS_KEY,JSON.stringify(stripped)); }catch(_){ toast('저장 공간이 부족해요'); }
+  // 이 계정 몫(fromCatalog 아닌 것 — base64 glb 포함)만 계정 칸에 쓴다. 카탈로그 몫은 서버가 원본이고 catalog-api.js 가 서버 한 벌로 채운다.
+  if(!accountStore.set(SAVED_PARTS_KEY, JSON.stringify(savedParts.filter(p=>!p.fromCatalog)))){ console.warn('[파츠] 계정 칸에 쓰지 못했어요'); notifyError('E-CHAR-24'); }
 }
 function partsInCat(cat){ return savedParts.filter(p=>p.cat===cat); }
 /* 🎰 카테고리 상한은 "꾸미기 창에 진열되는 파츠"의 상한이다.
@@ -461,31 +477,29 @@ function partsInCat(cat){ return savedParts.filter(p=>p.cat===cat); }
 function isGachaPart(rec){ return !!(rec && rec.gacha); }   // 가챠 파츠인가 — 카탈로그 항목의 깃발(가챠 · 꾸미기가 같이 읽는다)
 function partsInCatFor(cat, gacha){ return partsInCat(cat).filter(p=>!!isGachaPart(p) === !!gacha); }
 function partCatLimit(gacha){ return gacha ? MAX_GACHA_PARTS_PER_CAT : MAX_PARTS_PER_CAT; }
-/* 관리자 — 같은 카테고리 안에서 드래그로 파츠 진열 순서 변경 (로컬 화면 전용) */
-function reorderSavedPart(draggedId, targetId, cat){
+/* 관리자 — 같은 카테고리 안에서 드래그로 파츠 진열 순서 변경(화면은 바로 · 서버 진열대에도 쓴다) */
+async function reorderSavedPart(draggedId, targetId, cat){
   const catItems = savedParts.filter(p=>p.cat===cat);
-  const others = savedParts.filter(p=>p.cat!==cat);
   const draggedIdx = catItems.findIndex(p=>p.id===draggedId);
   const targetIdx = catItems.findIndex(p=>p.id===targetId);
-  if(draggedIdx<0 || targetIdx<0) return;
+  if(draggedIdx<0 || targetIdx<0) return false;
   const [item] = catItems.splice(draggedIdx,1);
   catItems.splice(targetIdx,0,item);
-  savedParts = [...others, ...catItems];
+  /* 서버 진열대(CATEGORY:{코드})에 순서 전체를 먼저 보낸다 — 서버 카탈로그에 있는 파츠만(로컬 전용은 서버가 모르는 물건이다).
+     서버가 받은 뒤에야 이 PC 순서를 바꾼다 — 못 쓰면 번호로 알리고(catalogAdmin) 화면 순서는 그대로 둔다. */
+  const ids = catItems.filter(p=>p.fromCatalog).map(p=>p.id);
+  if(ids.length && !(await catalogAdmin.saveShelfOrReport('CATEGORY:'+cat, ids))) return false;
+  // 기다리는 사이 목록이 바뀌었을 수 있어 다시 읽고 같은 자리에 끼운다
+  const fresh = savedParts.filter(p=>p.cat===cat);
+  const others = savedParts.filter(p=>p.cat!==cat);
+  const dI = fresh.findIndex(p=>p.id===draggedId), tI = fresh.findIndex(p=>p.id===targetId);
+  if(dI<0 || tI<0) return false;
+  const [it2] = fresh.splice(dI,1);
+  fresh.splice(tI,0,it2);
+  savedParts = [...others, ...fresh];
   // 새 순서를 각 항목의 order 필드로 기록(로컬)
-  catItems.forEach((p,i)=>{ p.order=i; });
+  fresh.forEach((p,i)=>{ p.order=i; });
   persistSavedParts();
-  // ★ 카탈로그(Firebase)에 등록된 적 있는 파츠만 순서를 같이 올림 — 순수 로컬 전용 파츠는 카탈로그에
-  //   없는 경로라 순서만 써버리면 cat/name/glb 없는 빈 항목이 생겨서 검증에 걸림(의도적으로 제외).
-  //   GLB는 다시 안 올리고 order 숫자만 가볍게 업데이트되므로 데이터 사용량 걱정 없음.
-  if(window.firebaseAPI && window.firebaseAPI.updatePartsOrder){
-    /* 🎰 가챠 파츠는 catalog/gachaParts 에 살므로 순서도 그 경로로 — 한 맵에 섞으면
-       catalog/parts/{가챠id}/order 가 .validate 에 걸려 update 전체가 거부된다. */
-    const orderMap={}, gachaOrderMap={};
-    catItems.forEach((p,i)=>{ if(p.fromCatalog){ (isGachaPart(p)?gachaOrderMap:orderMap)[p.id]=i; } });
-    if(Object.keys(orderMap).length || Object.keys(gachaOrderMap).length){
-      window.firebaseAPI.updatePartsOrder(orderMap, gachaOrderMap).catch(()=>{ toast('⚠ 순서가 온라인에는 반영 안 됐어요(인터넷 연결 확인) — 이 화면에서만 바뀐 상태예요'); });
-    }
-  }
   return true;   // 바꿨다 — 꾸미기 창은 부르는 쪽(wardrobe.js)이 다시 그린다
 }
 
@@ -513,7 +527,8 @@ return {
   groupOfCat,
   isDeskPartCat,
   isGachaPart,
-  loadSavedParts,
+  loadLocal,    // 🗂️ 확인 뒤 계정 칸에서 읽는다(launcher/user-local.js)
+  resetLocal,   // 세션이 끝날 때 이 계정 몫을 비운다
   partAttachTarget,
   partCatInfo,
   partCatLimit,
@@ -536,6 +551,7 @@ return {
   savedParts: ()=>savedParts,   // 읽는 함수
   setSavedParts: (v)=>{ savedParts = v; },   // 쓰는 함수 — app.js 가 비운다
   setPartEntryInstanceXf,
+  withHeldAssets,
   toHidesForSave,
 };
 }

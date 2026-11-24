@@ -1,6 +1,6 @@
 /* sim-invite-notice.js — 🙋 마지막으로 받은 방 초대 한 줄(parts/room/invite-notice.js)
    ・1절: 저장본 규칙 — 계정마다 · 모양 거르기(방 코드 · 이름 길이 · 받은 시각) · 같은 초대 · 알림콩(창 연 시각 뒤)
-   ・2절: note — 한 줄만(덮어씀) · 같은 초대는 그대로(받은 시각 안 바뀜 · onChange 안 부름) · 보낸 쪽 시계가 틀려도 새 초대로 바뀜 · 다른 계정 · 저장 실패 · clear · 깨 보기
+   ・2절: note — 한 줄만(덮어씀) · 같은 초대는 그대로(받은 시각 안 바뀜 · onChange 안 부름) · 보낸 쪽 시계가 틀려도 새 초대로 바뀜 · 다른 계정 · 저장 실패 · clear · mutation test
    ・3절: 배선 — html 이 app.js 보다 먼저 싣는다 · app.js 가 스케줄러보다 먼저 만든다 · 계정 전환 지움 목록 · smoke PRELOAD
    [실행] node checks/run.js invite-notice */
 'use strict';
@@ -69,9 +69,9 @@ chk(R.other && R.noUid, '  다른 계정에는 안 보이고 · 계정 모르면
 chk(R.clear, '  clear 로 지운다');
 { const S = mk(MOD, { failSet: true }); chk(S.n.note('f1', { roomCode: 'PLAY-AB12', ts: 1 }) === false && S.changes === 0, '  저장이 실패하면 false · onChange 안 부름(던지지 않음)'); }
 const B1 = run(MOD.replace("    if(same(get(), fromId, inv)) return false;\n", ''));
-chk(!B1.same, '깨 보기 — 같은 초대 거르기를 빼면 받은 시각이 바뀌어 빨강');
+chk(!B1.same, 'mutation test — 같은 초대 거르기를 빼면 받은 시각이 바뀌어 빨강');
 const B2 = run(MOD.replace('if(!v || typeof v !== \'object\' || v.owner !== owner) return null;', 'if(!v || typeof v !== \'object\') return null;'));
-chk(!B2.other, '깨 보기 — 주인 코드를 안 보면 다른 계정에 보여 빨강');
+chk(!B2.other, 'mutation test — 주인 코드를 안 보면 다른 계정에 보여 빨강');
 
 say('── 3. 배선');
 const order = [...HTML.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<script\b[^>]*\bsrc="parts\/([^"]+\.js)"/g)].map(m => m[1]);

@@ -4,7 +4,7 @@
    ・2절: 동작 — 처음 깜빡임 0.8~3초 · 한 번씩 2~3번 뒤 세 번 연달아(0 · 280 · 560ms) · 감은 정도 곡선 · 끝난 깜빡임 지우기
    ・3절: 주사율과 무관 — 30 · 60 · 120 · 144Hz 에서 눈 감기 시작 시각이 한 장 간격 안에서 같다
    ・4절: 연결 — app.js 에 옛 선언이 없고 TwBlinkTiming 을 부른다 · html 이 app.js 앞에 싣는다
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] blink-timing.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
 const fs = require('fs');
@@ -14,7 +14,7 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const pick = (names) => names.map(read).find(Boolean);
 const MOD = pick(['blink-timing.js', 'parts/shared/blink-timing.js', 'app/parts/shared/blink-timing.js']);
-const APP = pick(['app.js', 'parts/app.js', 'app/parts/app.js']);
+const APP = pick(['app.js', 'parts/app.js', 'app/parts/app.js']) + '\n' + pick(['seats.js', 'parts/room/seats.js', 'app/parts/room/seats.js']) + '\n' + pick(['frame-loop.js', 'parts/launcher/frame-loop.js', 'app/parts/launcher/frame-loop.js']);   // 프레임 반복은 frame-loop.js(M17)   // 좌석 만들기(createBlink)는 seats.js — 프레임 반복(scheduleBlinks)은 app.js
 const HTML = pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html']);
 if(!MOD || !APP || !HTML){ say('  ? 원본 못 찾음 — blink-timing.js · app.js · desk-companion-prototype.html'); process.exit(2); }
 
@@ -30,7 +30,7 @@ function eyeClose(bl,now){let c=0;for(let i=bl.pulses.length-1;i>=0;i--){const p
 return { createBlink: oldCreate, scheduleBlinks, eyeClose };`;
 const O = new Function(OLD)();
 
-/* 같은 씨앗이면 같은 수열 */
+/* 같은 seed 면 같은 수열 */
 function seeded(seed){ let x = seed >>> 0 || 1; return () => { x ^= x << 13; x >>>= 0; x ^= x >>> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; }; }
 function load(src){ const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwBlinkTiming; }
 /* hz 로 ms 동안 돌려 [감기 시작 시각들, 매 장 감은 정도] */
@@ -56,7 +56,7 @@ function judge(mod, app, html){
     const a = run(B, 60, 120000, seed), b = run(O, 60, 120000, seed);
     if(a.cs.length !== b.cs.length || a.cs.some((c, i) => c !== b.cs[i]) || JSON.stringify(a.bl) !== JSON.stringify(b.bl)) same = false;
   }
-  t(same, '1. 옮기기 전 글과 같은 결과 — 씨앗 4개 × 2분(60Hz) 감은 정도 · 남은 예약이 한 칸도 안 다르다');
+  t(same, '1. 옮기기 전 글과 같은 결과 — seed 4개 × 2분(60Hz) 감은 정도 · 남은 예약이 한 칸도 안 다르다');
   const r1 = seeded(3), r2 = seeded(3);
   t(JSON.stringify(B.createBlink(1000, r1)) === JSON.stringify(O.createBlink(1000, r2)), '1. 처음 값(createBlink)도 옛 좌석 blink 초기값과 같다');
   /* 2. 동작 */
@@ -92,7 +92,7 @@ function judge(mod, app, html){
 
 const rows = judge(MOD, APP, HTML);
 rows.forEach(([ok, msg]) => chk(ok, msg));
-say('── 5. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 5. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['한 번 깜빡임 길이가 바뀜', m => m.replace('const SINGLE_DUR_MS = 170;', 'const SINGLE_DUR_MS = 160;'), null, null],
   ['난수 부르는 차례가 바뀜', m => m.replace("return { pulses: [], nextAt: now + FIRST_MIN_MS + r() * FIRST_SPAN_MS, singles: SINGLES_MIN + Math.floor(r() * SINGLES_SPAN), closed: false };", "const sg = SINGLES_MIN + Math.floor(r() * SINGLES_SPAN); return { pulses: [], nextAt: now + FIRST_MIN_MS + r() * FIRST_SPAN_MS, singles: sg, closed: false };"), null, null],

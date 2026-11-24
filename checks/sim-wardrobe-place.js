@@ -1,7 +1,7 @@
 /* 📐 sim-wardrobe-place.js — 꾸미기 창 · 미리보기 창 자리(wardrobe-place.js) — node checks/run.js wardrobe-place
    ・1절: 기억 없음 → 두 창을 묶어 가운데 · 미리보기는 꾸미기 창 왼쪽에 붙음 · 같은 높이
    ・2절: 기억한 자리 · 화면 밖이면 안으로 · 좁은 화면 · 이상한 저장값
-   ・3절: 깨 보기 — 가운데 계산 · 붙이기 · 화면 안 당기기를 하나씩 깨면 빨강 */
+   ・3절: mutation test — 가운데 계산 · 붙이기 · 화면 안 당기기를 하나씩 깨면 빨강 */
 
 const fs = require('fs');
 const path = require('path');
@@ -17,7 +17,7 @@ const load = (src) => { const m = { exports: {} }; new Function('module', 'windo
 const P = { w: 360, h: 520 }, V = { w: 320, h: 420 };
 const base = () => ({ vw: 1920, vh: 1080, panel: P, preview: V, saved: null });
 
-/* 경우마다 [이름, 입력, 판정] — 깨 보기에서 같은 표를 다시 돈다 */
+/* 경우마다 [이름, 입력, 판정] — mutation test에서 같은 표를 다시 돈다 */
 const CASES = [
   ['기억 없음 → 묶음 가운데(왼쪽 여백 = 오른쪽 여백)', base(), (r) => { const L = r.preview.x, R = 1920 - (r.panel.x + P.w); return Math.abs(L - R) <= 1; }],
   ['  세로도 가운데(큰 창 기준)', base(), (r) => r.panel.y === Math.round((1080 - 520) / 2)],
@@ -37,7 +37,7 @@ const api = load(SRC);
 runAll(api).forEach(([name, ok, r]) => chk(ok, name + (ok ? '' : ' (받은 값: ' + JSON.stringify(r) + ')')));
 chk(api.isPos({ x: 1, y: 2 }) && !api.isPos(null) && !api.isPos({ x: 1 }) && !api.isPos({ x: Infinity, y: 0 }), 'isPos — 유한한 x · y 둘 다 있을 때만');
 
-console.log('\n=== 3. 깨 보기 ===');
+console.log('\n=== 3. mutation test ===');
 const BREAKS = [
   ['가운데 계산을 왼쪽 끝으로', 'else { x = (o.vw - total) / 2 + vw + GAP;', 'else { x = 0;'],
   ['미리보기를 안 붙이고 0 에', 'const px = Math.max(MARGIN, x - GAP - vw);', 'const px = 0;'],

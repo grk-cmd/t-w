@@ -1,9 +1,9 @@
 /* sim-chat-focus.js — 📊 시크릿룸 #집중 탭(방 전체 집중 기록 · 오늘 / 이번 주 · 사람별 순위)
    ・1절: 순수 규칙 — 주 시작(월요일) · 통계(오늘 · 이번 주 · 누적 · 합친 초 · 틀린 칸 버림) · 순위(기준 · 동점) · 12주 합치기 계획 · 시간 글자
    ・2절: 화면 조각 — 남이 쓴 이름은 escape · 불러오는 중 / 실패 / 없음 · 내 줄 · 막대 · 지우기 확인
-   ・3절: 컨트롤러(가짜 DOM · 가짜 provider) — 열 때만 구독 · 올리기 켜기 · 순위 기준 · 내 기록 지우기(실패는 E-CHAT-02) · 12주 합치기 한 번 · 쓸 곳 없음 · 방이 바뀜 · 시크릿룸이 아니면 없음
+   ・3절: 컨트롤러(가짜 DOM · 가짜 provider) — 열 때만 구독 · 올리기 켜기 · 순위 기준 · 내 기록 지우기(실패는 E-CHAT-07) · 12주 합치기 한 번 · 쓸 곳 없음 · 방이 바뀜 · 시크릿룸이 아니면 없음
    ・4절: 연결 — 채팅 모듈 · html · 에러 번호 · 모듈이 채팅 / 서버를 직접 안 부름
-   ・5절: 깨 보기
+   ・5절: mutation test
    [실행] node checks/run.js sim-chat-focus */
 'use strict';
 const fs = require('fs');
@@ -52,7 +52,7 @@ function mkCtl(src, o){
   };
   const sync = { isOn: (r) => cur.on, setOn: (r, v) => { calls.push(['setOn', r, v]); cur.on = v; }, forgetName: (r) => { calls.push(['forget', r]); } };
   const M = loadWin(src, { TwRoomFocusDays: DAYS }).TwChatFocus;
-  const c = M.createChatFocus({ document: doc, escHtml: SH.text, toast: (m) => toasts.push(m), getMyUserId: () => cur.me, roomCode: () => cur.room, roomState: RS, provider, sync, todayKey: () => o.today || TODAY, notifyError: (code) => errors.push(code) });
+  const c = M.createChatFocus({ document: doc, escHtml: SH.text, toast: (m) => toasts.push(m), getMyUserId: () => cur.me, roomCode: () => cur.room, roomState: RS, provider, sync, todayKey: () => o.today || TODAY, notifyError: (code) => errors.push(code), enabled: () => true });
   let changes = 0; c.onChange(() => { changes++; });
   return { c, M, doc, calls, toasts, errors, cur, push: (raw) => cb(raw), counts: () => ({ subs, unsubs }), changes: () => changes };
 }
@@ -129,7 +129,7 @@ async function judge(S){
       t(k.calls.some((c) => c[0] === 'wipe' && c[1] === 'SCRT-AB12' && c[2] === 'MATE-1') && k.toasts.some((m) => /지웠/.test(m)) && k.errors.length === 0, '  확인하면 내 칸(내 id)만 지운다');
       t(k.calls.some((c) => c[0] === 'forget' && c[1] === 'SCRT-AB12'), '  지운 뒤 올리기 모듈에 «이름 다시 쓰기» 를 알린다'); }
     { const k = mkCtl(S.mod, { failWipe: true }); k.c.open(); k.push(RAW); k.c.act('wipe'); k.c.act('wipeok'); await tick(); await tick();
-      t(k.errors.join() === 'E-CHAT-02' && k.calls.every((c) => c[0] !== 'forget'), '  지우기가 서버에서 실패하면 E-CHAT-02(이름은 그대로 — 지워지지 않았으니)'); }
+      t(k.errors.join() === 'E-CHAT-07' && k.calls.every((c) => c[0] !== 'forget'), '  지우기가 서버에서 실패하면 E-CHAT-07(이름은 그대로 — 지워지지 않았으니)'); }
     { const old = { 'MATE-1': { n: '꿀곰', d: { '20260101': 100, '20261113': 5 }, o: 50 }, 'MATE-2': { d: { '20260101': 999 } } };
       const k = mkCtl(S.mod); k.c.open(); k.push(old); await tick(); k.push(old); await tick();
       const cc = k.calls.filter((c) => c[0] === 'compact');
@@ -146,7 +146,7 @@ async function judge(S){
     const H = S.html;
     t(/id="chatFocus"/.test(H) && H.indexOf('id="chatNotices"') < H.indexOf('id="chatFocus"') && /#chatWindow\.focus-mode \.chat-msgbox,[\s\S]*?\.chat-memberbar,[\s\S]*?\.chat-toolbar,[\s\S]*?\.chat-flyrow,[\s\S]*?\.chat-pin\{display:none !important;\}/.test(H) && /#chatWindow\.focus-mode \.chat-focus\{display:block;\}/.test(H) && /#chatWindow\.min \.chat-focus,/.test(H), 'html — #집중 본문 자리 · 보는 동안 대화 칸 숨김 · 접으면 숨김');
     t(!/#[0-9a-fA-F]{3,8}\b/.test(H.slice(H.indexOf('.chat-focus{display:none'), H.indexOf('.chat-focus .cf-del button')).replace(/background:#fff;/, '')), '  #집중 스타일은 토큰만(색 코드 직접 쓰기 없음 — 흰 칸 #fff 한 곳은 대화 칸과 같다)');
-    t(/'E-CHAT-02': \{ msg: '[^']+', where: 'chat\/chat-focus\.js/.test(S.codes), '에러 번호 E-CHAT-02 이 표에 있다');
+    t(/'E-CHAT-07': \{ msg: '[^']+', where: 'chat\/chat-focus\.js/.test(S.codes), '에러 번호 E-CHAT-07 이 표에 있다');
     t(!/chat-ui|chat-lock|Presence|firebaseAPI|window\.firebase/.test(S.mod.replace(/\/\*[\s\S]*?\*\//g, '')), '집중 탭 모듈은 채팅 · 잠금 모듈 · Presence · firebaseAPI 를 직접 부르지 않는다(provider · deps 로만)');
   } catch (err) {
     t(false, '돌리다 오류 — ' + (err && err.stack ? err.stack.split('\n').slice(0, 3).join(' | ') : err));
@@ -157,7 +157,7 @@ async function judge(S){
 (async () => {
   say('── 1 ~ 4. 규칙 · 화면 · 컨트롤러 · 연결 (진짜 모듈을 돌린다)');
   (await judge(SRC)).forEach(([ok, msg]) => chk(ok, msg));
-  say('── 5. 일부러 깨 보기 — 빨강이 나야 한다');
+  say('── 5. mutation test — 빨강이 나야 한다');
   const BREAKS = [
     ['mod', "if(k >= wk && k <= todayKey) week += d[k];", "if(k >= wk) week += d[k];", '이번 주에 앞날(미래)까지 셈'],
     ['mod', "if(k >= wk && k <= todayKey) week += d[k];", "if(k <= todayKey) week += d[k];", '이번 주가 지난주까지 셈'],
@@ -173,7 +173,7 @@ async function judge(S){
     ['mod', "(ui.on ? '<br>올리기가 켜져 있어서", "(false ? '<br>올리기가 켜져 있어서", '켜 둔 채 지울 때 다시 쌓인다는 안내가 없음'],
     ['mod', "else if(name === 'wipe'){ delAsk = true; paint(); }", "else if(name === 'wipe') wipe();", '묻지 않고 바로 지움'],
     ['mod', "provider.removeMine(room, me)", "provider.removeMine(room, '*')", '내 칸이 아닌 곳을 지움'],
-    ['mod', "if(!(r && r.ok)) notifyError('E-CHAT-02');", "", '지우기 실패를 알리지 않음'],
+    ['mod', "if(!(r && r.ok)) notifyError('E-CHAT-07');", "", '지우기 실패를 알리지 않음'],
     ['mod', "sync.forgetName(room); ", "", '지운 뒤 올리기에 이름 다시 쓰기를 알리지 않음'],
     ['mod', "if(sig === compactedFor) return;", "", '같은 합치기를 구독마다 다시 보냄'],
     ['mod', "const me = getMyUserId(); if(!me || !raw || !raw[me]) return;", "const me = Object.keys(raw)[0]; if(!me || !raw || !raw[me]) return;", '남의 칸을 합침'],

@@ -3,10 +3,10 @@
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(_checkCircusBalance · _remeasureRideArm · _remeasureRideHeadTop · _resetIdeskRestore · _rideBottom · _rideDepth · _rideIsAbove · _rideLeaveTower · _rideRiders · _updateRideChains · attachBenchToSeat · findBenchSlot · mountBench · mountRide · restoreInteractionDesk · toggleIdeskInventory · unmountBench · unmountRide)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 69줄 그대로(진단 기록 diagNote · 몸 재기 measureBodyBox · isPartByRigOrName 더함) · 부르는 곳은 rideBenchMod.이름 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
-   ・4절: 올라탄 높이 다시 재기 — 실패하면 옛 높이 그대로 · 진단 기록 한 줄 / 성공하면 탄 좌석 모두 새 값 · 다음 프레임 검증 줄(작은 가짜 THREE · 깨 보기)
-   ・6절: 탑 맨 아래 사람이 나가면 위층도 바닥으로 — 높이 0 · 묘기 자세 풀림 · 내 좌석이면 «내렸다» 방송(깨 보기)
-   ・7절: 날기 · 맞기 · 흔들기 · 어지러움 · 춤(끝난 뒤 몸이 젖혀진 채 돌아오는 동안도) · 쓰다듬기 중에는 재지 않고 «다시 재야 함» — 둘 다 가만해진 첫 프레임에 한 번 다시 잰다(깨 보기)
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・4절: 올라탄 높이 다시 재기 — 실패하면 옛 높이 그대로 · 진단 기록 한 줄 / 성공하면 탄 좌석 모두 새 값 · 다음 프레임 검증 줄(작은 가짜 THREE · mutation test)
+   ・6절: 탑 맨 아래 사람이 나가면 위층도 바닥으로 — 높이 0 · 묘기 자세 풀림 · 내 좌석이면 «내렸다» 방송(mutation test)
+   ・7절: 날기 · 맞기 · 흔들기 · 어지러움 · 춤(끝난 뒤 몸이 젖혀진 채 돌아오는 동안도) · 쓰다듬기 중에는 재지 않고 «다시 재야 함» — 둘 다 가만해진 첫 프레임에 한 번 다시 잰다(mutation test)
    [실행] app.js · desk-companion-prototype.html · ride-bench.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -20,13 +20,13 @@ const MOD = ["ride-bench.js","parts/room/ride-bench.js","app/parts/room/ride-ben
 if(!MOD){ say('  ? 원본 못 찾음 — ride-bench.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_collapseRideTower","_deskDefById","_measureAnimalArmH","_measureCircusFootOff","_rideBottom","_rideHostSpinY","broadcastRide","charLiftWorld","diagNote","getActiveInteractionDeskId","isDeskUnlocked","isPartByRigOrName","layoutSeats","measureBodyBox","measureHeadBoxNoParts","seatScale","seatState","setActiveInteractionDeskId","toast"];
+const FN_DEPS = ["_collapseRideTower","_deskDefById","_measureAnimalArmH","_measureCircusFootOff","_rideBottom","_rideHostSpinY","broadcastRide","charLiftWorld","diagNote","getActiveInteractionDeskId","isDeskUnlocked","levelText","lockedToast","isPartByRigOrName","layoutSeats","measureBodyBox","measureHeadBoxNoParts","seatScale","seatState","setActiveInteractionDeskId","toast"];
 const VAL_DEPS = ["ANIMAL_RUN_SCALE","CIRCUS_FOOT_CENTER","CIRCUS_FOOT_SINK","CIRCUS_FOOT_Z","CIRCUS_FOOT_Z_FROM_TOP","CIRCUS_MIN_DEPTH","CIRCUS_PANIC_MS","CIRCUS_PANIC_SLEEPERS","CIRCUS_SWAY_CALM","CIRCUS_SWAY_PANIC","CIRCUS_SWAY_SPEED","CIRCUS_TOP_SLAB","CIRCUS_TREMOR_AMP","CIRCUS_TREMOR_AT","CIRCUS_TREMOR_CALMDOWN","CIRCUS_TREMOR_SPD","CIRCUS_YAW_MAX","CIRCUS_YAW_MIN","CIRCUS_YAW_RANDOM","CIRCUS_Z_DEPTH_K_ON_ANIMAL","RIDE_ARM_SINK","RIDE_ARM_SINK_ON_ANIMAL","RIDE_ARM_SIZE_FOLLOW","RIDE_FOLLOW_HEAD_TILT","RIDE_HEAD_OFFSET_Y","RIDE_HEAD_OFFSET_Z","RIDE_HEAD_OFFSET_Z_ON_ANIMAL","RIDE_MAX_STACK","RIDE_PART_CENTER_MARGIN","RIDE_Z_DEPTH_K_ON_ANIMAL","_rideAwayP","_rideAwayS","_rideAxisY","_rideFootOff","_rideOff","_rideQC","_rideQD","_rideQP","_rideQR","_rideQSpin","_rideQY","_rideTmp","_rideWP","matWood","matWoodD","seats"];
 const GET_DEPS = ["IDESK_ENABLED","INTERACTION_DESKS","Presence","savedParts"];
 const SET_DEPS = [];
-const EXPORTS = ["_checkCircusBalance","_remeasureRideArm","_remeasureRideHeadTop","_resetIdeskRestore","_rideBottom","_rideDepth","_rideIsAbove","_rideLeaveTower","_rideRiders","_updateRideChains","attachBenchToSeat","findBenchSlot","mountBench","mountRide","restoreInteractionDesk","toggleIdeskInventory","unmountBench","unmountRide"];
+const EXPORTS = ["_checkCircusBalance","_remeasureRideArm","_remeasureRideHeadTop","_resetIdeskRestore","_rideBottom","_rideDepth","_rideIsAbove","_rideLeaveTower","_rideRiders","_updateRideChains","attachBenchToSeat","findBenchSlot","mountBench","mountRide","restoreInteractionDesk","toggleIdeskInventory","closeIdeskInventory","isIdeskOpen","unmountBench","unmountRide"];
 const MOVED = ["_checkCircusBalance","_updateRideChains","_benchWP","_benchQ","_benchGP","_positionBenchSeat","_positionRideSeat","_rideDepth","_rideIsAbove","_rideRiders","_rideBottom","_partAllowsRideTop","_measureRideablePartTop","_measureHostHeadTop","_remeasureRideArm","_remeasureRideHeadTop","mountRide","_rideQuietToast","_rideLeaveTower","unmountRide","BENCH_SNAP_DIST","buildPrimitiveBench","_readBenchSlots","attachBenchToSeat","equipInteractionDesk","unequipInteractionDesk","findBenchSlot","mountBench","unmountBench","removeMyBench","_ideskRestored","restoreInteractionDesk","_resetIdeskRestore","_ideskInRoom","renderIdeskInventory","openIdeskInventory","closeIdeskInventory","_ideskOpen","toggleIdeskInventory","IDESK_POS_KEY","_saveIdeskPos","_restoreIdeskPos"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,","  CIRCUS_FOOT_CENTER: CIRCUS_FOOT_CENTER,","  CIRCUS_FOOT_SINK: CIRCUS_FOOT_SINK,","  CIRCUS_FOOT_Z: CIRCUS_FOOT_Z,","  CIRCUS_FOOT_Z_FROM_TOP: CIRCUS_FOOT_Z_FROM_TOP,","  CIRCUS_MIN_DEPTH: CIRCUS_MIN_DEPTH,","  CIRCUS_PANIC_MS: CIRCUS_PANIC_MS,","  CIRCUS_PANIC_SLEEPERS: CIRCUS_PANIC_SLEEPERS,","  CIRCUS_SWAY_CALM: CIRCUS_SWAY_CALM,","  CIRCUS_SWAY_PANIC: CIRCUS_SWAY_PANIC,","  CIRCUS_SWAY_SPEED: CIRCUS_SWAY_SPEED,","  CIRCUS_TOP_SLAB: CIRCUS_TOP_SLAB,","  CIRCUS_TREMOR_AMP: CIRCUS_TREMOR_AMP,","  CIRCUS_TREMOR_AT: CIRCUS_TREMOR_AT,","  CIRCUS_TREMOR_CALMDOWN: CIRCUS_TREMOR_CALMDOWN,","  CIRCUS_TREMOR_SPD: CIRCUS_TREMOR_SPD,","  CIRCUS_YAW_MAX: CIRCUS_YAW_MAX,","  CIRCUS_YAW_MIN: CIRCUS_YAW_MIN,","  CIRCUS_YAW_RANDOM: CIRCUS_YAW_RANDOM,","  CIRCUS_Z_DEPTH_K_ON_ANIMAL: CIRCUS_Z_DEPTH_K_ON_ANIMAL,","  IDESK_ENABLED: ()=>IDESK_ENABLED,","  INTERACTION_DESKS: ()=>INTERACTION_DESKS,","  Presence: ()=>Presence,","  RIDE_ARM_SINK: RIDE_ARM_SINK,","  RIDE_ARM_SINK_ON_ANIMAL: RIDE_ARM_SINK_ON_ANIMAL,","  RIDE_ARM_SIZE_FOLLOW: RIDE_ARM_SIZE_FOLLOW,","  RIDE_FOLLOW_HEAD_TILT: RIDE_FOLLOW_HEAD_TILT,","  RIDE_HEAD_OFFSET_Y: RIDE_HEAD_OFFSET_Y,","  RIDE_HEAD_OFFSET_Z: RIDE_HEAD_OFFSET_Z,","  RIDE_HEAD_OFFSET_Z_ON_ANIMAL: RIDE_HEAD_OFFSET_Z_ON_ANIMAL,","  RIDE_MAX_STACK: RIDE_MAX_STACK,","  RIDE_PART_CENTER_MARGIN: RIDE_PART_CENTER_MARGIN,","  RIDE_Z_DEPTH_K_ON_ANIMAL: RIDE_Z_DEPTH_K_ON_ANIMAL,","  _collapseRideTower: (...a)=>_collapseRideTower(...a),","  _deskDefById: (...a)=>_deskDefById(...a),","  _measureAnimalArmH: (...a)=>_measureAnimalArmH(...a),","  _measureCircusFootOff: (...a)=>_measureCircusFootOff(...a),","  _rideAwayP: _rideAwayP,","  _rideAwayS: _rideAwayS,","  _rideAxisY: _rideAxisY,","  _rideBottom: (...a)=>_rideBottom(...a),","  _rideFootOff: _rideFootOff,","  _rideHostSpinY: (...a)=>_rideHostSpinY(...a),","  _rideOff: _rideOff,","  _rideQC: _rideQC,","  _rideQD: _rideQD,","  _rideQP: _rideQP,","  _rideQR: _rideQR,","  _rideQSpin: _rideQSpin,","  _rideQY: _rideQY,","  _rideTmp: _rideTmp,","  _rideWP: _rideWP,","  broadcastRide: (...a)=>broadcastRide(...a),","  charLiftWorld: (...a)=>charLiftWorld(...a),","  diagNote: (...a)=>diagNote(...a),","  getActiveInteractionDeskId: (...a)=>getActiveInteractionDeskId(...a),","  isDeskUnlocked: (...a)=>isDeskUnlocked(...a),","  isPartByRigOrName: (...a)=>bodyMeasureMod.isPartByRigOrName(...a),","  layoutSeats: (...a)=>layoutSeats(...a),","  matWood: matWood,","  matWoodD: matWoodD,","  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),","  measureHeadBoxNoParts: (...a)=>measureHeadBoxNoParts(...a),","  savedParts: ()=>savedParts,","  seatScale: (...a)=>seatScale(...a),","  seatState: (...a)=>seatState(...a),","  seats: seats,","  setActiveInteractionDeskId: (...a)=>setActiveInteractionDeskId(...a),","  toast: (...a)=>toast(...a),"];
+const GLUE = ["  ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,","  CIRCUS_FOOT_CENTER: CIRCUS_FOOT_CENTER,","  CIRCUS_FOOT_SINK: CIRCUS_FOOT_SINK,","  CIRCUS_FOOT_Z: CIRCUS_FOOT_Z,","  CIRCUS_FOOT_Z_FROM_TOP: CIRCUS_FOOT_Z_FROM_TOP,","  CIRCUS_MIN_DEPTH: CIRCUS_MIN_DEPTH,","  CIRCUS_PANIC_MS: CIRCUS_PANIC_MS,","  CIRCUS_PANIC_SLEEPERS: CIRCUS_PANIC_SLEEPERS,","  CIRCUS_SWAY_CALM: CIRCUS_SWAY_CALM,","  CIRCUS_SWAY_PANIC: CIRCUS_SWAY_PANIC,","  CIRCUS_SWAY_SPEED: CIRCUS_SWAY_SPEED,","  CIRCUS_TOP_SLAB: CIRCUS_TOP_SLAB,","  CIRCUS_TREMOR_AMP: CIRCUS_TREMOR_AMP,","  CIRCUS_TREMOR_AT: CIRCUS_TREMOR_AT,","  CIRCUS_TREMOR_CALMDOWN: CIRCUS_TREMOR_CALMDOWN,","  CIRCUS_TREMOR_SPD: CIRCUS_TREMOR_SPD,","  CIRCUS_YAW_MAX: CIRCUS_YAW_MAX,","  CIRCUS_YAW_MIN: CIRCUS_YAW_MIN,","  CIRCUS_YAW_RANDOM: CIRCUS_YAW_RANDOM,","  CIRCUS_Z_DEPTH_K_ON_ANIMAL: CIRCUS_Z_DEPTH_K_ON_ANIMAL,","  IDESK_ENABLED: ()=>IDESK_ENABLED,","  INTERACTION_DESKS: ()=>INTERACTION_DESKS,","  Presence: ()=>Presence,","  RIDE_ARM_SINK: RIDE_ARM_SINK,","  RIDE_ARM_SINK_ON_ANIMAL: RIDE_ARM_SINK_ON_ANIMAL,","  RIDE_ARM_SIZE_FOLLOW: RIDE_ARM_SIZE_FOLLOW,","  RIDE_FOLLOW_HEAD_TILT: RIDE_FOLLOW_HEAD_TILT,","  RIDE_HEAD_OFFSET_Y: RIDE_HEAD_OFFSET_Y,","  RIDE_HEAD_OFFSET_Z: RIDE_HEAD_OFFSET_Z,","  RIDE_HEAD_OFFSET_Z_ON_ANIMAL: RIDE_HEAD_OFFSET_Z_ON_ANIMAL,","  RIDE_MAX_STACK: RIDE_MAX_STACK,","  RIDE_PART_CENTER_MARGIN: RIDE_PART_CENTER_MARGIN,","  RIDE_Z_DEPTH_K_ON_ANIMAL: RIDE_Z_DEPTH_K_ON_ANIMAL,","  _collapseRideTower: (...a)=>_collapseRideTower(...a),","  _deskDefById: (...a)=>_deskDefById(...a),","  _measureAnimalArmH: (...a)=>_measureAnimalArmH(...a),","  _measureCircusFootOff: (...a)=>_measureCircusFootOff(...a),","  _rideAwayP: _rideAwayP,","  _rideAwayS: _rideAwayS,","  _rideAxisY: _rideAxisY,","  _rideBottom: (...a)=>_rideBottom(...a),","  _rideFootOff: _rideFootOff,","  _rideHostSpinY: (...a)=>_rideHostSpinY(...a),","  _rideOff: _rideOff,","  _rideQC: _rideQC,","  _rideQD: _rideQD,","  _rideQP: _rideQP,","  _rideQR: _rideQR,","  _rideQSpin: _rideQSpin,","  _rideQY: _rideQY,","  _rideTmp: _rideTmp,","  _rideWP: _rideWP,","  broadcastRide: (...a)=>broadcastRide(...a),","  charLiftWorld: (...a)=>charLiftWorld(...a),","  diagNote: (...a)=>diagNote(...a),","  getActiveInteractionDeskId: (...a)=>getActiveInteractionDeskId(...a),","  isDeskUnlocked: (...a)=>isDeskUnlocked(...a),","  levelText: (...a)=>levelText(...a),","  lockedToast: (...a)=>lockedToast(...a),","  isPartByRigOrName: (...a)=>bodyMeasureMod.isPartByRigOrName(...a),","  layoutSeats: (...a)=>layoutSeats(...a),","  matWood: matWood,","  matWoodD: matWoodD,","  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),","  measureHeadBoxNoParts: (...a)=>measureHeadBoxNoParts(...a),","  savedParts: ()=>savedParts,","  seatScale: (...a)=>seatScale(...a),","  seatState: (...a)=>seatState(...a),","  seats: seats,","  setActiveInteractionDeskId: (...a)=>setActiveInteractionDeskId(...a),","  toast: (...a)=>toast(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -76,7 +76,7 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/room/ride-bench.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
@@ -85,7 +85,7 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* app.js 에 남은 부르는 자리 하나를 옛 이름으로 되돌린다 — 첫 이름을 부르던 곳이 다른 모듈로 옮겨 갔을 수 있어 남은 이름 중에서 고른다 */
   ['부르는 곳이 옛 이름', null, a => { const n = EXPORTS.find(x => a.includes('rideBenchMod.' + x)); return n ? a.replace('rideBenchMod.' + n, n) : a; }, null],
-  ['만들 때 던짐', m => m.replace('function createRideBench(deps){', 'function createRideBench(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createRideBench(deps){', 'function createRideBench(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
@@ -129,7 +129,7 @@ judgeRemeasure(MOD).forEach(([ok, msg]) => chk(ok, msg));
 {
   const m2 = MOD.replace(/if\(v == null\)\{ diagNote\([^)]*\); return; \}/, 'if(v == null) return;');
   let rows2; try{ rows2 = judgeRemeasure(m2); }catch(_){ rows2 = [[false, '던짐']]; }
-  chk(m2 !== MOD && rows2.some(([ok]) => !ok), '깨 보기 — 실패 기록 줄을 빼면 빨강' + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+  chk(m2 !== MOD && rows2.some(([ok]) => !ok), 'mutation test — 실패 기록 줄을 빼면 빨강' + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
 }
 say('── 4-2. 다시 재기에서 파츠 꼭대기를 못 잡아도 같은 «얹을 수 있음» 파츠가 그대로면 옛 높이를 둔다(모자 위 동물이 파묻히던 것)');
 /* 대상 머리 박스 y 1.0~1.4 · 머리 본 y 1.0. 모자 wrapper 하나(id hat · 얹을 수 있음) — 박스가 머리 중심을 덮으면 꼭대기 1.6(→ 0.6), 옆으로 비켜 있으면 못 잡음 */
@@ -200,7 +200,7 @@ for(const [name, a, b] of [
 ]){
   const m2 = MOD.replace(a, b);
   let rows2; try{ rows2 = judgeKeep(m2); }catch(_){ rows2 = [[false, '던짐']]; }
-  chk(m2 !== MOD && rows2.some(([ok]) => !ok), '깨 보기 — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+  chk(m2 !== MOD && rows2.some(([ok]) => !ok), 'mutation test — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
 }
 say('── 5. 탄 동물이 다시 맞춰지면 팔 높이도 다시 잰다(파츠 붙음 · 뗌 · 동물 바꿈 — mountRide 의 1회 실측은 파츠 전 값일 수 있다)');
 function judgeArm(src){
@@ -228,12 +228,12 @@ for(const [name, a, b] of [
 ]){
   const m2 = MOD.replace(a, b);
   let rows2; try{ rows2 = judgeArm(m2); }catch(_){ rows2 = [[false, '던짐']]; }
-  chk(m2 !== MOD && rows2.some(([ok]) => !ok), '깨 보기 — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+  chk(m2 !== MOD && rows2.some(([ok]) => !ok), 'mutation test — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
 }
 {
   const m3 = MOD.replace(' r._rideDbgOnce = true;', '');
   let rows3; try{ rows3 = judgeRemeasure(m3); }catch(_){ rows3 = [[false, '던짐']]; }
-  chk(m3 !== MOD && rows3.some(([ok]) => !ok), '깨 보기 — 다시 잰 뒤 검증 줄을 안 켜면 빨강' + (m3 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+  chk(m3 !== MOD && rows3.some(([ok]) => !ok), 'mutation test — 다시 잰 뒤 검증 줄을 안 켜면 빨강' + (m3 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
 }
 say('── 6. 탑 맨 아래 사람이 나가면 위층도 바닥으로(내려앉힐 곳이 없을 때의 하차)');
 /* 나 → X → B 에서 B 가 방을 나가면 프레임 루프가 unmountRide(X) 를 부른다(app.js «태운 대상이 방을 나감»).
@@ -274,7 +274,7 @@ judgeTowerDrop(MOD).forEach(([ok, msg]) => chk(ok, msg));
 {
   const m2 = MOD.replace('      up.ridingOn = animalSeat;\n      unmountRide(up);', '      up.ridingOn = null;\n      unmountRide(up);');
   let rows2; try{ rows2 = judgeTowerDrop(m2); }catch(_){ rows2 = [[false, '던짐']]; }
-  chk(m2 !== MOD && rows2.some(([ok]) => !ok), '깨 보기 — 탄 대상을 비운 채 하차를 부르면(옛 모양) 빨강' + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+  chk(m2 !== MOD && rows2.some(([ok]) => !ok), 'mutation test — 탄 대상을 비운 채 하차를 부르면(옛 모양) 빨강' + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
 }
 say('── 7. 날기 · 맞기 · 흔들기 · 어지러움 · 춤 중에는 재지 않고 «다시 재야 함» — 둘 다 가만해진 첫 프레임에 다시 잰다(머리 위 동물이 파묻힌 채 남던 것)');
 function judgeSettle(src){
@@ -352,7 +352,7 @@ for(const [name, a, b] of [
 ]){
   const m2 = MOD.replace(a, b);
   let rows2; try{ rows2 = judgeSettle(m2); }catch(_){ rows2 = [[false, '던짐']]; }
-  chk(m2 !== MOD && rows2.some(([ok]) => !ok), '깨 보기 — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+  chk(m2 !== MOD && rows2.some(([ok]) => !ok), 'mutation test — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

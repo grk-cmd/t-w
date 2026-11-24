@@ -5,7 +5,7 @@
    ・1절: 고리판 — 걸고 부르면 그 함수 · 인자 · 돌려준 값 그대로 · 안 걸린 이름은 던진다(예전 window.이름() 과 같다) · has · null 로 내리기
    ・2절: 이름마다 거는 곳이 정해진 한 파일 · 부르는 곳이 있다 · 아는 이름만 · 글자 이름으로 부르지 않음 · 받는 줄 모양 · 표
    ・3절: HTML 순서(쓰는 모듈 · app.js 보다 먼저) · smoke.js 가 진짜로 싣는다
-   ・4절: 일부러 깨 보기 */
+   ・4절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -19,7 +19,7 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/
 const SELF = 'myhome/myhome-hooks.js';
 /* 이름 → 거는 파일(myhome-hooks.js 주석과 같다) */
 const E = 'myhome/myhome-edit.js';
-const OWNER = { COMMIT: E, APPLY_BG: E, APPLY_THEME: E, BGM_REFRESH: E, BGM_PLAYING: E, BGM_SET_PLAYING: E, BGM_DESTROY: E, DS_CLOSE: E, CANCEL_NAME_EDIT: E,
+const OWNER = { COMMIT: E, APPLY_BG: E, APPLY_THEME: E, BGM_REFRESH: E, BGM_PLAYING: E, BGM_SET_PLAYING: E, BGM_DESTROY: E, DS_CLOSE: E, CANCEL_NAME_EDIT: E, FINISH_ARRANGE: 'myhome/myhome-desktop.js',
   SYNC_BGM_BOUNDS: 'myhome/myhome-ui.js', LEAVE_GUARD: 'support/bug-board-ui.js' };
 
 function load(mod) { const win = {}; new Function('window', 'module', mod)(win, undefined); return win.TwMyHomeHooks; }
@@ -65,7 +65,7 @@ const FILES = ORDER.map(f => [f, read(f)]).filter(([, t]) => t);
 const R = judge(MOD, HTML, FILES);
 
 say('── 1. 고리판');
-chk(!R.err && R.names, '이름 ' + Object.keys(OWNER).length + '개(저장 · 배경 · 테마 · BGM 넷 · BGM 창 · 스튜디오 · 닉네임 취소 · BGM 창 자리 · 버그제보 떠나기) · 바꿀 수 없는 표' + (R.err ? ' — ' + R.err : ''));
+chk(!R.err && R.names, '이름 ' + Object.keys(OWNER).length + '개(저장 · 배경 · 테마 · BGM 넷 · BGM 창 · 스튜디오 · 닉네임 취소 · 폴더 배치 끝내기 · BGM 창 자리 · 버그제보 떠나기) · 바꿀 수 없는 표' + (R.err ? ' — ' + R.err : ''));
 chk(R.call, '건 함수를 그 인자로 부르고 돌려준 값을 그대로 돌려준다 · has 가 참');
 chk(R.unset, '안 걸린 이름을 부르면 던진다(TypeError — 예전 window.이름() 과 같다 · 부르는 자리의 try 가 받는다)');
 chk(R.clear, 'null 로 걸면 내려간다(닉네임 입력칸이 닫힐 때)');
@@ -78,10 +78,10 @@ chk(!R.alias.length, '쓰는 파일은 «const mhHooks = TwMyHomeHooks;» 한 �
 for (const n of Object.keys(R.table)) say('     ' + n + ' — 거는 곳 ' + R.table[n].on.join(' · ') + ' / 부르는 곳 ' + (R.table[n].call.join(' · ') || '(없음)'));
 
 say('── 3. 싣는 순서');
-chk(R.users >= 9 && !R.late.length, '쓰는 파일 ' + R.users + '개 · app.js 보다 myhome-hooks.js 를 먼저 싣는다' + (R.late.length ? ' — 먼저 실리는 것: ' + R.late.join(' · ') : ''));
+chk(R.users >= 8 && !R.late.length, '쓰는 파일 ' + R.users + '개 · app.js 보다 myhome-hooks.js 를 먼저 싣는다' + (R.late.length ? ' — 먼저 실리는 것: ' + R.late.join(' · ') : ''));
 chk(/PRELOAD\.push\('myhome-hooks\.js'\)/.test(SMOKE), 'smoke.js 가 진짜로 싣는다(빈 이름이면 거는 줄에서 선다)');
 
-say('── 4. 일부러 깨 보기');
+say('── 4. mutation test');
 const twice = FILES.map(([f, t]) => [f, f === 'myhome/myhome-page.js' ? t + '\nmhHooks.on(mhHooks.HOOK.APPLY_BG, ()=>{});\n' : t]);
 chk(judge(MOD, HTML, twice).badOwner.includes('APPLY_BG'), '다른 파일이 같은 이름을 또 걸면 빨강');
 const unk = FILES.map(([f, t]) => [f, f === 'myhome/myhome-page.js' ? t + '\nmhHooks.call(mhHooks.HOOK.APPLY_BGG);\n' : t]);

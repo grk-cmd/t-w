@@ -1,19 +1,19 @@
 /*
- * realtime-link.js — realtime 서버(웹소켓) 연결 공통부. 방 연결(room/room-server-net.js)과 친구 접속 상태 연결(friends/presence-ws.js)이 같이 쓴다.
+ * realtime-link.js — realtime 서버(웹소켓) 연결 공통부. 늘 붙는 연결 하나(realtime/rt-hub.js · pv 4)가 쓴다(방 · 대화 · 사진은 그 위의 포트).
  * 책임: 열기 · hello(인증) · ready 기다리기 · 토큰 갱신 · 다시 붙기 백오프 · rid 요청과 답 짝짓기 · 쉬면 닫기 · 못 붙은 주소 잠깐 쉬기.
  *   방 · 친구처럼 «무엇을 주고받는지» 는 모른다 — 연결 위의 메시지는 hooks.onMessage 로 넘기고, 끊기면 hooks.onClosed 로 알린다.
  *   다시 붙을지 · 언제 포기할지도 부르는 쪽이 정한다(scheduleReconnect 를 부르면 그때 백오프로 붙는다).
- * Firebase 를 직접 부르지 않는다 — 토큰 · 버전 · userId 는 deps 로 받는다. 아무것도 import 하지 않는다.
+ * Firebase 를 직접 부르지 않는다 — 토큰 · 버전은 deps 로 받는다. 아무것도 import 하지 않는다.
  *
  * deps: WebSocket, enabled() → bool, target() → 붙을 주소 | null, switchOk() → 주소가 바뀌었을 때 지금 연결을 닫아도 되나,
- *       getToken(force) → Promise<문자열 | null>, getUserId() → 문자열 | null, getVersion() → 문자열 | Promise,
- *       pv(통신 규약 판) · helloExtra({ scope } 같은 hello 선택 칸 — 없으면 안 싣는다),
- *       requestKinds(rid 로 묻는 요청 t 목록) · answers({ 답 t: 요청 t }) · reflessKind(ref 없는 badRequest 를 받을 요청 t | null) ·
- *       ridless(rid 없는 답을 같은 종류의 가장 먼저 보낸 요청에 줄까 — 옛 서버용),
+ *       getToken(force) → Promise<문자열 | null>, getVersion() → 문자열 | Promise,
+ *       pv(통신 규약 판 — hello 에 userId 를 싣지 않는다 · 신원은 토큰뿐) ·
+ *       helloExtra(hello 선택 칸 객체 — 없으면 안 싣는다) · helloFields(phase: 'open' | 'refresh') → 객체(연결마다 · 갱신마다 달라지는 칸 — 있으면 helloExtra 대신),
+ *       requestKinds(rid 로 묻는 요청 t 목록) · answers({ 답 t: 요청 t }),
  *       idleCloseMs(0 이면 쉬어도 안 닫음) · busy() → 쉬면 닫기를 미룰까 · reconnectWanted() → 다시 붙기 타이머가 울렸을 때 붙을까,
- *       hooks: { onReady(), onMessage(m), onClosed(wasReady, fatal) },
+ *       hooks: { onReady(readyMsg), onMessage(m), onClosed(wasReady, fatal, closeCode, closeReason) } — fatal 'readyTimeout' 은 hello 뒤 ready 가 안 옴 · 'timeout' 은 소켓도 못 엶 · closeCode 는 웹소켓 닫힘 번호(4001 · 4004 …) | null · closeReason 은 서버가 실은 까닭(없으면 ''),
  *       now · setTimeout · clearTimeout · random · log 는 검사용(기본 전역).
- * 내보냄: createRealtimeLink(deps) → { enabled, ensureReady(ms, o), request(msg, map), send(o), close(), drop(), scheduleReconnect(),
+ * 내보냄: createRealtimeLink(deps) → { enabled, ensureReady(ms, o), request(msg, map), send(o), close(), drop(), scheduleReconnect(o), reconnectNow(),
  *       scheduleIdle(), cancelIdle(), markAuthRetry(), markFailed(), isReady(), state() }
  *   순수: jwtExpMs(token) · LINK_TIMING
  */
@@ -28,6 +28,8 @@ export const LINK_TIMING = Object.freeze({
   TOKEN_MIN_MS: 60 * 1000,
   FAIL_COOLDOWN_MS: 60 * 1000,
 });
+/* ready 전 error 뒤 서버가 닫을 번호(서버 PROTOCOL 7-1 «error 를 먼저 보내는 닫힘») — 앱이 먼저 끊어도 부르는 쪽이 같은 번호로 판단하게 */
+const PRE_READY_ERROR_CLOSE = Object.freeze({ auth: 4001, protocol: 4003 });
 
 // Firebase ID 토큰의 만료 시각(ms). 못 읽으면 null.
 export function jwtExpMs(token){
@@ -50,12 +52,10 @@ export function createRealtimeLink(deps){
   const hooks = deps.hooks || {};
   const requestKinds = deps.requestKinds || [];
   const answers = deps.answers || {};
-  const reflessKind = deps.reflessKind || null;
-  const ridless = deps.ridless !== false;
   const idleCloseMs = deps.idleCloseMs || 0;
 
-  let ws = null, gen = 0, opening = false, ready = false, fatal = null;
-  let token = null, helloUid = null, helloVer = null, forceToken = false, authRetried = false;
+  let ws = null, gen = 0, opening = false, ready = false, fatal = null, closeCode = null, closeReason = '';
+  let token = null, helloVer = null, forceToken = false, authRetried = false;
   let tokenTimer = null, idleTimer = null, reconnectTimer = null, connectTimer = null, attempt = 0;
   let readyWaiters = [];
   let failAt = -Infinity, failCode = null, failUrl = null, curUrl = null;
@@ -68,8 +68,10 @@ export function createRealtimeLink(deps){
   function enabled(){
     try{ return !!(deps.WebSocket && deps.enabled && deps.enabled() && target()); }catch(_){ return false; }
   }
-  function hello(tk){
-    return Object.assign({ t: 'hello', pv: deps.pv, token: tk, userId: helloUid, ver: helloVer }, deps.helloExtra || {});
+  function hello(tk, phase){
+    const extra = deps.helloFields ? deps.helloFields(phase) : deps.helloExtra;
+    const base = { t: 'hello', pv: deps.pv, token: tk, ver: helloVer };
+    return Object.assign(base, extra || {});
   }
 
   function sendRaw(sock, o){
@@ -90,29 +92,36 @@ export function createRealtimeLink(deps){
     if(opening || ws) return;
     opening = true;
     const my = ++gen;
-    fatal = null;
+    fatal = null; closeCode = null; closeReason = '';
     const force = forceToken; forceToken = false;
-    let tk = null, ver = null, uid = null;
+    let tk = null, ver = null;
     try{ tk = await deps.getToken(force); }catch(_){ tk = null; }
-    try{ ver = await deps.getVersion(); }catch(_){ ver = null; }
-    try{ uid = deps.getUserId(); }catch(_){ uid = null; }
+    let verErr = null;
+    try{ ver = await deps.getVersion(); }catch(e){ ver = null; verErr = e; }
     opening = false;
     if(my !== gen) return;
-    // 로그인 토큰이나 userId 가 없으면 서버가 받아 주지 않는다(서버는 userAuth 로 묶인 계정만 받는다).
-    if(!tk || !uid){ fatal = 'auth'; closed(); return; }
-    token = tk; helloUid = uid; helloVer = (typeof ver === 'string' && ver) ? ver : '0.0.0';
+    // 로그인 토큰이 없으면 서버가 받아 주지 않는다.
+    if(!tk){ fatal = 'auth'; closed(); return; }
+    /* 앱 버전을 못 읽으면 hello 를 만들 수 없다 — 가짜 버전('0.0.0')을 보내지 않는다. 이번 시도를 실패로 끝내고(번호 없는 닫힘 = 백오프로 다시 시도) 까닭을 남긴다. */
+    if(typeof ver !== 'string' || !ver){
+      try{ (deps.log || console).warn('[realtime] 앱 버전을 읽지 못해 연결하지 않습니다 — 가짜 버전을 보내지 않음', verErr || ver); }catch(_){}
+      fatal = 'appVersion'; closed(); return;   // 서버가 «앱이 낡았다» 고 거절한 'version' 과 다른 이름 — 로컬에서 버전을 못 읽은 것
+    }
+    token = tk; helloVer = ver;
     let sock;
     try{ curUrl = target(); sock = new deps.WebSocket(curUrl); }catch(_){ fatal = 'connect'; closed(); return; }
     ws = sock;
-    connectTimer = tSet(() => { connectTimer = null; if(my === gen && !ready){ fatal = fatal || 'timeout'; drop(); } }, Math.max(T.CONNECT_TIMEOUT_MS, waitMs || 0));
-    sock.onopen = () => { if(my === gen) sendRaw(sock, hello(tk)); };
+    let helloSent = false;
+    /* 시간 초과 — 소켓은 열려 hello 를 보냈는데 ready 가 없으면 'readyTimeout'(서버가 느림) · 소켓도 못 열었으면 'timeout' */
+    connectTimer = tSet(() => { connectTimer = null; if(my === gen && !ready){ fatal = fatal || (helloSent ? 'readyTimeout' : 'timeout'); drop(); } }, Math.max(T.CONNECT_TIMEOUT_MS, waitMs || 0));
+    sock.onopen = () => { if(my === gen) helloSent = sendRaw(sock, hello(tk, 'open')); };
     sock.onmessage = (ev) => {
       if(my !== gen) return;
       let m = null;
       try{ m = JSON.parse(typeof ev.data === 'string' ? ev.data : String(ev.data)); }catch(_){ return; }
       if(m && typeof m.t === 'string') onMsg(m);
     };
-    sock.onclose = () => { if(my === gen) closed(); };
+    sock.onclose = (ev) => { if(my === gen){ closeCode = (ev && typeof ev.code === 'number') ? ev.code : null; closeReason = (ev && typeof ev.reason === 'string') ? ev.reason : ''; closed(); } };
     sock.onerror = () => {};
   }
 
@@ -136,20 +145,40 @@ export function createRealtimeLink(deps){
     const pending = [...reqWaiters.values()]; reqWaiters.clear();
     for(const w of pending) w.done(null);
     if(wasReady) attempt = 0;
-    try{ if(hooks.onClosed) hooks.onClosed(wasReady, fatal); }catch(e){ try{ (deps.log || console).warn('[realtime] 끊김 처리 실패', e); }catch(_){} }
+    try{ if(hooks.onClosed) hooks.onClosed(wasReady, fatal, closeCode, closeReason); }catch(e){ try{ (deps.log || console).warn('[realtime] 끊김 처리 실패', e); }catch(_){} }
   }
 
-  function scheduleReconnect(){
-    if(reconnectTimer) return;
-    const base = T.BACKOFF_MS[Math.min(attempt, T.BACKOFF_MS.length - 1)];
-    const delay = Math.round(base * (1 + T.BACKOFF_JITTER * (2 * random() - 1)));
+  /* o.delayMs: 백오프 대신 이 시간 뒤(서버 재시작 흩기) · o.readyWaitMs: 그 연결이 ready 를 기다릴 시간(기본 CONNECT_TIMEOUT_MS) */
+  let reconnectWait = 0, reconnectAt = 0;
+  function reconnectFire(){
+    reconnectTimer = null;
+    const waitMs = reconnectWait; reconnectWait = 0;
+    let want = false;
+    try{ want = !!deps.reconnectWanted(); }catch(_){ want = false; }
+    if(want && !ws) open(waitMs);
+  }
+  function scheduleReconnect(o){
+    const fixed = !!(o && typeof o.delayMs === 'number');
+    /* 이미 기다리는 중이면 그대로 — 정한 기다림(서버 바쁨 등)이 지금 타이머보다 늦을 때만 다시 건다(일찍 연 시도가 또 4005 로 끝나도 부르는 쪽의 기다림과 맞게) */
+    if(reconnectTimer && !(fixed && now() + Math.max(0, Math.round(o.delayMs)) > reconnectAt)) return;
+    if(reconnectTimer){ tClear(reconnectTimer); reconnectTimer = null; }
+    let delay;
+    if(fixed) delay = Math.max(0, Math.round(o.delayMs));
+    else{
+      const base = T.BACKOFF_MS[Math.min(attempt, T.BACKOFF_MS.length - 1)];
+      delay = Math.round(base * (1 + T.BACKOFF_JITTER * (2 * random() - 1)));
+    }
     attempt++;
-    reconnectTimer = tSet(() => {
-      reconnectTimer = null;
-      let want = false;
-      try{ want = !!deps.reconnectWanted(); }catch(_){ want = false; }
-      if(want && !ws) open();
-    }, delay);
+    reconnectWait = (o && o.readyWaitMs) || 0;
+    reconnectAt = now() + delay;
+    reconnectTimer = tSet(reconnectFire, delay);
+  }
+  /* 다시 붙기를 기다리는 중이면 기다림을 건너뛰고 지금 한 번(네트워크가 돌아옴). 기다리는 중이 아니면 아무 일 없음. */
+  function reconnectNow(){
+    if(!reconnectTimer) return false;
+    tClear(reconnectTimer);
+    reconnectFire();
+    return true;
   }
 
   function scheduleToken(){
@@ -162,7 +191,7 @@ export function createRealtimeLink(deps){
       try{ tk = await deps.getToken(true); }catch(_){ tk = null; }
       if(!ready || !tk){ if(ready) scheduleToken(); return; }
       token = tk;
-      send(hello(tk));
+      send(hello(tk, 'refresh'));
       scheduleToken();
     }, delay);
   }
@@ -227,12 +256,9 @@ export function createRealtimeLink(deps){
       });
     });
   }
-  // 답 하나 → 기다리던 요청. rid 가 없는 답(rid 를 모르는 옛 서버)만 같은 종류 중 가장 먼저 보낸 것에 준다(ridless 일 때).
-  function takeWaiter(kind, rid){
-    if(typeof rid === 'string') return reqWaiters.get(rid) || null;
-    if(!ridless) return null;
-    for(const w of reqWaiters.values()){ if(w.kind === kind) return w; }
-    return null;
+  // 답 하나 → 기다리던 요청. rid 가 없는 답은 밀어 주는 메시지라 요청이 가져가지 않는다.
+  function takeWaiter(rid){
+    return typeof rid === 'string' ? (reqWaiters.get(rid) || null) : null;
   }
 
   // ── 받은 메시지 ─────────────────────────────────────────────────────
@@ -245,7 +271,7 @@ export function createRealtimeLink(deps){
         ready = true; attempt = 0; authRetried = false; failAt = -Infinity;
         if(connectTimer){ tClear(connectTimer); connectTimer = null; }
         scheduleToken();
-        try{ if(hooks.onReady) hooks.onReady(); }catch(_){}
+        try{ if(hooks.onReady) hooks.onReady(m); }catch(_){}
         settleReady({ ok: true });
         scheduleIdle();
       }else{
@@ -255,32 +281,40 @@ export function createRealtimeLink(deps){
     }
     if(m.t === 'error'){
       if(!ready && (m.code === 'auth' || m.code === 'version' || m.code === 'protocol')){
-        fatal = m.code;     // 서버가 곧 끊는다(4001 · 4002 · 4003). 기다리는 쪽은 closed() 에서 이 코드를 받는다.
+        fatal = m.code;     // 서버가 곧 끊는다 — 기다리지 않고 먼저 끊되 닫힘 번호는 서버가 실을 번호로(version 은 옛 방 서버 pv 1 몫 · 번호 없음)
+        closeCode = PRE_READY_ERROR_CLOSE[m.code] || null;
         drop();
         return;
       }
       if(m.code === 'auth' && m.ref === 'hello') return;   // 갱신 실패 — 만료 뒤 서버가 끊으면 재연결이 새 토큰을 받는다
-      /* 묻기 요청이 거절됐다 — 오류에는 rid 가 없어서 그 종류 중 가장 먼저 보낸 것을 실패로 끝낸다.
-         새 요청을 모르는 옛 서버는 ref 없이 badRequest 를 준다(모르는 t) — 그건 reflessKind 의 것으로 본다. */
-      if(m.code === 'badRequest' && (requestKinds.indexOf(m.ref) >= 0 || !m.ref)){
-        const kind = m.ref || reflessKind;
-        let w = null;
-        if(kind){ for(const x of reqWaiters.values()){ if(x.kind === kind){ w = x; break; } } }
-        if(w){ w.done(null); return; }
+      /* rid 를 실어 보낸 요청의 오류 — 그 rid 의 요청이 오류 메시지(t:'error' · code)를 받는다. 짝이 없는 rid 는 다른 모듈(방 · 대화)의 요청일 수 있어 훅으로 넘긴다.
+         ★ 짝을 «추측» 하지 않는다(같은 종류의 먼저 보낸 요청에 붙이기 없음) — 서버가 모든 오류에 rid 를 돌려준다(PROTOCOL rid). */
+      if(typeof m.rid === 'string'){
+        const w = reqWaiters.get(m.rid);
+        if(w){ w.done(m); return; }
+        toHook(m); return;
+      }
+      if(requestKinds.indexOf(m.ref) >= 0){   // rid 요청 종류의 오류인데 rid 가 없다 — 옛 서버 · 낡은 답. 짝을 추측하지 않고 버린다
+        try{ (deps.log || console).warn('[realtime] rid 없는 오류를 버립니다(짝을 추측하지 않음) —', m.code, m.ref); }catch(_){}
+        return;
       }
       toHook(m);
       return;
     }
     const kind = answers[m.t];
     if(kind){
-      const w = takeWaiter(kind, m.rid);
+      const w = takeWaiter(m.rid);
       if(w && w.kind === kind){ w.done(m); return; }
+      if(typeof m.rid === 'string'){   // 짝 없는 rid(시간 초과로 지워진 요청의 늦은 답) — 낡은 답이라 버린다. 다른 요청에 붙이지도, 밀어 주는 메시지로 넘기지도 않는다
+        try{ (deps.log || console).warn('[realtime] 짝 없는 rid 의 낡은 답을 버립니다 —', m.t, m.rid); }catch(_){}
+        return;
+      }
     }
     toHook(m);
   }
 
   return {
-    enabled, ensureReady, request, send, close, drop, scheduleReconnect, scheduleIdle, cancelIdle,
+    enabled, ensureReady, request, send, close, drop, scheduleReconnect, reconnectNow, scheduleIdle, cancelIdle,
     // auth 로 끊긴 뒤 한 번만 새 토큰으로 다시 — 다음 open 이 getToken(true)
     markAuthRetry(){ authRetried = true; forceToken = true; },
     // 이 주소를 «방금 못 붙음» 으로 — FAIL_COOLDOWN_MS 동안 ensureReady 가 바로 실패

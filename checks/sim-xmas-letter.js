@@ -7,7 +7,7 @@
    ・5절 열람 — 봉투 · 열기(글은 textContent) · 추천곡 바 · 읽음(이 PC) · 빨간 점 · ← 다른 편지 · 신고(g-) · 받은 편지 없음
    ・6절 받은 편지 확인(빨간 점) — 25일 전엔 안 읽음 · 아직 없으면 5분 간격 · 한 시간 뒤엔 멈춤 · 찾으면 더 안 읽음 · 실패는 다시 ·
      앱을 켠 직후(로그인 복원 전 auth)는 세지 않고 다음 1분에 · 계정이 바뀌면 앞 계정 점을 지우고 처음부터
-   ・7절 닫기 · Esc · 저장소가 던져도 · 깨 보기 */
+   ・7절 닫기 · Esc · 저장소가 던져도 · mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -57,8 +57,8 @@ function world(opts){
   };
   const bars = [];
   const song = { stops: 0, bar: (box, op) => { const b = { box, op, sets: [], set: (s) => b.sets.push(s), get: () => b.sets[b.sets.length - 1] || null }; bars.push(b); return b; }, stop(){ this.stops++; } };
-  const storage = o.badStore ? () => ({ getItem(){ throw new Error('x'); }, setItem(){ throw new Error('x'); } })
-    : () => ({ getItem: (k) => (k in S.store ? S.store[k] : null), setItem: (k, v) => { S.store[k] = String(v); } });
+  const storage = o.badStore ? { getItem(){ throw new Error('x'); }, setItem(){ throw new Error('x'); } }
+    : { getItem: (k) => (k in S.store ? S.store[k] : null), setItem: (k, v) => { S.store[k] = String(v); } };   // 값으로 넘긴다(app.js 가 localStorage 를 그대로)
   const api = L.createXmasLetter({ doc, rules: R, net: () => net, song, serverNow: () => S.now, toast: (m) => S.toasts.push(m), notifyError: (c) => S.errs.push(c),
     escRegisterWindow: (x) => S.escs.push(x), storage, onDot: (on) => S.dots.push(on) });
   return { api, els, S, D, N, song, bars };
@@ -228,10 +228,10 @@ say('── 7절 닫기 · Esc · 저장소');
   let threw = false; try { L.createXmasLetter({ doc: { getElementById: () => null } }); } catch (e) { threw = /xmasLetter/.test(e.message); }
   chk(threw, '마크업이 없으면 이름을 대고 던진다');
   chk(!/innerHTML/.test(SRC.replace(/\/\*[\s\S]*?\*\//g, '')), '편지 모듈에 innerHTML 없음');
-  // 깨 보기 — 반송을 다시 쓸 때 «반송 칸 번호» 에 그대로 쓰면, 그새 그 칸에 새 편지를 맡겼을 때 덮어쓴다
+  // mutation test — 반송을 다시 쓸 때 «반송 칸 번호» 에 그대로 쓰면, 그새 그 칸에 새 편지를 맡겼을 때 덮어쓴다
   const wk = world({ letters: { l1: { text: '새로 맡긴 편지' } }, returned: { l1: { reason: 'spam', text: '옛 글' } } });
   wk.api.open(); await settle(); btn(rows(wk.els.xmasLwRet)[0], '다시 쓰기').onclick(); wk.els.xmasLwText.ls.input(); await wk.els.xmasLwKeep.onclick(); await settle();
-  chk(wk.N.calls.includes('save:l2') && !wk.N.calls.includes('save:l1'), '깨 보기 — 반송 칸(l1)에 새 편지가 있으면 빈 칸(l2)에 맡긴다(덮어쓰지 않음)');
+  chk(wk.N.calls.includes('save:l2') && !wk.N.calls.includes('save:l1'), 'mutation test — 반송 칸(l1)에 새 편지가 있으면 빈 칸(l2)에 맡긴다(덮어쓰지 않음)');
 }
 
 say(`\n${fail ? '✗' : '✓'} ${pass} 통과 · ${fail} 실패`);

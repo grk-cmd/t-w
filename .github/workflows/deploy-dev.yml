@@ -1,17 +1,16 @@
-# ═══ 🧪 deploy-dev — 판 브랜치에 규칙이 바뀌어 올라오면 dev 프로젝트에 자동 반영 ═══════════════
+# ═══ 🧪 deploy-dev — 규칙을 dev 프로젝트에 올린다(0.12 판은 push 때 자동 · 0.13 판은 손으로 workflow_dispatch) ═══
 # [2026-10-03] dev 와 운영 배포를 나눈다.
-#   dev  : 판 브랜치(release/*) push (규칙 파일이 바뀐 커밋만) → together-working-dev  — 승인 없음
-#          판 브랜치가 둘 열려 있으면 마지막에 push 된 쪽 규칙이 dev 에 남는다(10-19 판 브랜치로 바꿈)
-#   운영 : 버전 태그(v*) push → release.yml 의 «규칙(운영)» 잡           — production 환경 승인 필요
+#   dev  : 0.12 판 브랜치는 자기 판의 이 파일대로 push 때 큰 규칙을 dev 에 올린다.
+#          0.13 판은 push 로 올리지 않는다 — 기본 설정(firebase.json)이 컷오버 규칙이라 올리면 dev RTDB 쓰기가 잠겨
+#          컷오버 전 dev 를 쓰는 일(웹 관리자 dev · todo --dev · 0.12.x start:dev 시험)이 깨진다.
+#          dev 에 컷오버 규칙을 올리는 것은 리허설 1 T-0 단계에서 손으로(workflow_dispatch) 한다.
+#   운영 : 워크플로가 하지 않는다 — 0.13 은 컷오버 날 T+2 에 사람이 한 번 올린다(release.yml 머리 주석 ①)
 # 🔐 인증은 Workload Identity Federation(키 파일 없음). GCP 쪽 조건이 «이 저장소 + dev/production 환경» 일 때만
 #   토큰을 준다. vars.GCP_WIF_PROVIDER / vars.GCP_SA_EMAIL 이 비어 있으면(설정 전) 이 잡은 건너뛴다.
 
 name: deploy-dev
 
 on:
-  push:
-    branches: ['release/**']
-    paths: ['firebase/firebase-database-rules.json']
   workflow_dispatch:
 
 permissions:
@@ -40,8 +39,8 @@ jobs:
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_SA_EMAIL }}
-      - name: 규칙 문법 확인
-        run: node -e "JSON.parse(require('fs').readFileSync('firebase/firebase-database-rules.json','utf8'))"
+      - name: 규칙 문법 확인(기본 설정이 가리키는 파일)
+        run: node -e "const fs=require('fs');const r=JSON.parse(fs.readFileSync('firebase/firebase.json','utf8')).database.rules;JSON.parse(fs.readFileSync('firebase/'+r,'utf8'))"
       - name: firebase deploy --only database (dev)
         working-directory: firebase   # firebase.json · 규칙이 있는 폴더(#431)
         run: npx --yes firebase-tools@15.32.1 deploy --only database --project together-working-dev --non-interactive

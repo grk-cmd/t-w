@@ -34,8 +34,6 @@ firebase/web-dist/
 hosting/admin/
 # Claude Code 워크트리(작업 폴더 사본) — .claude/settings.json · hooks 는 저장소에 둔다(main)
 .claude/worktrees/
-# 할 일 도구(scripts/todo.js)가 기억하는 «내 관리자 uid · 이름» — 사람마다 다르다
-.claude/todo-me.json
 
 # 하네스 훅이 import 할 때 생기는 파이썬 캐시
 __pycache__/

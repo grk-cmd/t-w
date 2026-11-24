@@ -1,7 +1,7 @@
 /* seat-friend-req.js — 🙋 좌석 우클릭 친구 신청: 친구가 아닌 상대를 두 번 우클릭하면 친구 요청을 보낸다
    app.js «👻 … · DRAG / PET» 안의 친구 신청 조각을 그대로 옮긴 모듈이다(C 구역 떼기 w4). 동작은 옮기기 전과 같다.
    ・책임: 첫 번째 우클릭은 안내만(5초 안에 한 번 더 누르면 보냄) · 두 번째에 앞단 검사(준비 · 나 · 이미 친구 · 정원) 뒤 friendNet().sendFriendRequest.
-   ・받는 deps 6 — 함수 3(getDisplayName · getMyUserId · toast) · 값 FRIEND_MAX · 읽는 함수 2: _myHomeFriends(친구 구독이 다시 대입) ·
+   ・받는 deps 5 — 함수 2(getMyUserId · toast) · 값 FRIEND_MAX · 읽는 함수 2: _myHomeFriends(친구 구독이 다시 대입) ·
      friendNet(데이터 provider — 지금은 app.js 가 window.firebaseAPI 를 넘긴다. 서버 이관 때 app.js 의 그 한 줄만 갈아 끼운다).
    ・내놓는 것: _friendReqAsk(uid, seat) — 좌석 우클릭 메뉴(room/seat-menu.js)가 app.js 를 거쳐 부른다 ·
      sendFriendReq(uid, name, msg) — 보내기 한 벌(앞단 검사 포함 · 결과만 돌려준다) · resultView(res, name) — 결과 → 안내 문구 한 벌.
@@ -14,7 +14,6 @@ function createSeatFriendReq(deps){
 const FRIEND_MAX = deps.FRIEND_MAX;
 const _myHomeFriends = deps._myHomeFriends;   // 읽는 함수
 const friendNet = deps.friendNet;   // 읽는 함수 — 데이터 provider(sendFriendRequest), 준비 전이면 없음
-const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
 const toast = deps.toast;
 /* 🙋 친구가 아닌 상대 우클릭 → 친구 신청 — 확인창 대신 **2단계 확인**(5초 안에 메뉴에서 한 번 더 고르면 보낸다).
@@ -23,7 +22,7 @@ const toast = deps.toast;
 let _friendReqArmed = null, _friendReqTimer = null;
 const FRIEND_REQ_ARM_MS = 5000;   // 이 시간 안에 메뉴에서 한 번 더 고르면 전송
 function _friendReqAsk(uid, seat){
-  const name = (seat && seat.friendName) || '이 사람';
+  const name = seat ? TwPersonName.shown(seat.friendName) : '이 사람';
   if(_friendReqArmed !== uid){
     _friendReqArmed = uid;
     clearTimeout(_friendReqTimer);
@@ -43,8 +42,9 @@ async function sendFriendReq(uid, name, msg){
   if(_myHomeFriends() && _myHomeFriends()[uid]) return { ok:false, reason:'already' };
   if(_myHomeFriends() && Object.keys(_myHomeFriends()).length >= FRIEND_MAX) return { ok:false, reason:'full' };
   try{
-    // 📤 상대 이름을 아는 입구라 이름을 이름표로 넘긴다
-    const res = await net.sendFriendRequest(getMyUserId(), uid, getDisplayName(), name, null, msg || '');
+    // 이름 · 코드는 서버가 채운다
+    // TODO: 0.14 «신청 사유»(msg — 마이홈 [친구 신청] 창, #824)는 서버 send 가 아직 받지 않아 싣지 않는다(서버 포트 필요)
+    const res = await net.sendFriendRequest(getMyUserId(), uid);
     return (res && res.ok) ? { ok:true } : { ok:false, reason: (res && res.reason) || 'save_failed' };
   }catch(e){ return { ok:false, reason:'error', err:e }; }
 }

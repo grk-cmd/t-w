@@ -304,8 +304,15 @@ function _logDisplayLayout(){
 /* ═══ 밖으로 내보내는 것 ══════════════════════════════════════════════════════
    ⚠️ overlay-mac.js 는 **이 목록과 똑같은 이름**을 내보내야 한다. 하나라도 빠지면
      main.js 가 darwin 에서 undefined 를 부른다. (handoff-platform-split.md §1-④) */
+/* 실행 화면 · 따라 올리는 자식 창의 «항상 위» 단계. 윈도우는 시작 메뉴 같은 시스템 메뉴가 따로 위에 떠서
+   가장 높은 단계를 써도 가리지 않는다 — 다른 «항상 위» 프로그램에 캐릭터가 가려지지 않게 맨 위로. */
+const TOP_LEVEL = 'screen-saver';
+
 module.exports = {
   init,
+
+  /* ── 항상 위 단계 ── */
+  TOP_LEVEL,
 
   /* ── 갭 ── */
   GAP_DEFAULT: OVERLAY_GAP_DEFAULT,

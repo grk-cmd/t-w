@@ -3,7 +3,7 @@
    ・createLagWatch(deps) — main: 메인 스레드 멈춤 · 활성 창 조회 시간을 모아 REPORT_MS 마다 한 줄(느린 것이 있을 때만).
    [왜] 개발 PC 에서는 씹힘이 재현되지 않았고, «조합 중 포커스를 잃으면 글자가 깨진다» 만 재현됐다. 맥 전역 키 훅은
      키마다 main 스레드에 묻고 기다리므로, main 이 멈춰도 키가 밀린다. 제보자 PC 에서 둘 중 무엇이 나는지 이 줄로 가른다.
-   ⚠️ 줄 수 상한(MAX_LINES) — 이 진단이 클릭고착 · 포커스 기록을 밀어내지 않게(파일은 256KB 에서 회전).
+   ⚠️ 줄 수 상한(MAX_LINES) — 이 진단이 클릭고착 · 포커스 기록을 밀어내지 않게(파일은 main.js DIAG_MAX_BYTES 에서 회전).
    ⚠️ 사람이 누르기 · Tab · Enter · Esc 로 칸을 옮겨 조합이 끝나는 것은 평소 입력이라 남기지 않는다(맥은 끝 글자가 늘 조합 중이다).
    ⚠️ 못 보는 것: 조합 중 칸을 display:none 으로 숨기면 크로미움이 focusout · compositionend 를 둘 다 안 보낸다.
    검사: checks/sim-input-diag.js */

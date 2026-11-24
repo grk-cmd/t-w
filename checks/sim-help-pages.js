@@ -4,7 +4,7 @@
    ・2절: 바깥 것 — 나눔고딕(fonts/)을 싣고 글꼴 파일이 다 있다 · 스크립트는 /theme.js · /embed.js · /search.js 세 줄 · 시안용 글(원본 그림 · 점선 · data: 그림)이 안 남았다 · 그림은 모두 사이트 안(/img/) · GIF 없이(움직이는 그림은 mp4) · 하나 2MB 까지
    ・3절: theme.js — 앱 테마(default · bubble)를 토큰 테마(classic · light)로 바꿔 걸고, 모르는 값 · 없음은 앱 기본(classic) ·
           ?embed=1 이면 우편함 칸 모양 · 편을 옮겨도 둘이 이어진다(자리 #… 가 든 링크는 # 앞에)
-   ・4절: 깨 보기
+   ・4절: mutation test
    ・5절: embed.js — 칸 안에서만 지금 편 · 목차(toc.json)를 앱에 알린다 · toc.json 은 목차 페이지와 같다(1절)
    ・1절 끝: 옛 편 주소 넘기기(firebase.json help 칸 redirects) — 넘겨 갈 편이 있다 · 지금 있는 편을 가리지 않는다 · 사라진 옛 편(OLD_SLUGS)은 빠짐없이 넘긴다 */
 'use strict';
@@ -49,7 +49,7 @@ function judge({ pages, files, sizes, fontCss, toc, redirects }){
   for (const [f, s] of Object.entries(pages)){
     for (const m of s.matchAll(/href="\/([^"#?]*)"/g)){
       const t = m[1].replace(/\.html$/, '');
-      if (t === '' ? !pages['index.html'] : !pages[t + '.html'] && !files.has(t)) errs.push(f + ' → /' + m[1] + ' 가 없다');
+      if (t === '' ? !pages['index.html'] : !pages[t + '.html'] && !files.has(t) && !files.has(t + '.html')) errs.push(f + ' → /' + m[1] + ' 가 없다');
     }
     for (const m of s.matchAll(/src="\/([^"]+)"/g)) if (!files.has(m[1])) errs.push(f + ' 그림 · 파일 /' + m[1] + ' 가 없다');
     const scripts = [...s.matchAll(/<script\b([^>]*)>/g)].map(m => m[1]);
@@ -115,12 +115,13 @@ chk(theme(THEME, '?theme=dark') === 'classic' && theme(THEME, '?theme=constructo
 const emb = run(THEME, '?theme=bubble&embed=1');
 chk(emb.embed && !run(THEME, '?theme=bubble').embed && !run(THEME, '?embed=yes').embed, '?embed=1 일 때만 우편함 칸 모양(data-embed)');
 chk(emb.links.join() === '/3?theme=bubble&embed=1,/?theme=bubble&embed=1', '  편을 옮겨도 테마 · 칸 모양이 이어진다(/ 링크에 붙임)');
+chk(run(THEME, '?theme=bubble', ['/1#s9']).links.join() === '/1?theme=bubble#s9', '  소제목 자리(#sN) 링크는 # 앞에 붙인다(FAQ 페이지의 «🔗» 링크)');
 chk(run(THEME, '').links.join() === '/3,/' && run(THEME, '?theme=evil').links.join() === '/3,/', '  웹에서 그냥 열면 링크를 건드리지 않는다(모르는 테마도 안 실어 나름)');
 chk(run(THEME, '?theme=bubble&embed=1', ['/5-2#figure-mode']).links.join() === '/5-2?theme=bubble&embed=1#figure-mode', '  자리(#…)가 든 링크는 # 앞에 붙인다(3-4 의 «피규어 모드» 링크)');
 const HCSS = fs.readFileSync(path.join(DIR, 'help.css'), 'utf8');
 chk(/\[data-embed\] body\{background:transparent/.test(HCSS), '  우편함 칸 안에서는 바탕을 비운다(우편함 · 디자인 스튜디오 바탕이 비침)');
 
-say('── 4. 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 4. mutation test — 하나라도 못 잡으면 빨강');
 const clone = () => ({ pages: Object.assign({}, real.pages), files: new Set(real.files), sizes: Object.assign({}, real.sizes), fontCss: real.fontCss, toc: JSON.parse(JSON.stringify(real.toc)), redirects: real.redirects.map(r => Object.assign({}, r)) });
 const breaks = [
   ['그림 파일 하나가 빠짐', (w) => { const f = [...w.files].find(x => x.startsWith('img/')); w.files.delete(f); }],
@@ -174,7 +175,7 @@ const embedRun = async (src, { pathname = '/3', embedded = true, inFrame = true,
   chk(nt.length === 1 && nt[0].msg.toc === null && nt[0].msg.page === '3', '  목차를 못 받아도 지금 편은 알린다(목차는 null — 앱이 «못 불러옴» 을 그린다)');
   chk((await embedRun(EMBED, { pathname: '/other/3' })).length === 0, '  / 밖 주소면 보내지 않는다');
   const E2 = EMBED.replace("if(!document.documentElement.hasAttribute('data-embed') || window.parent === window) return;", '');
-  chk((await embedRun(E2, { embedded: false })).length > 0, '  깨 보기 — 칸 밖에서도 보내면 위 검사가 잡는다');
+  chk((await embedRun(E2, { embedded: false })).length > 0, '  mutation test — 칸 밖에서도 보내면 위 검사가 잡는다');
   finish();
 })();
 function finish(){

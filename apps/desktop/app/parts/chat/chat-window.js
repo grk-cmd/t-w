@@ -272,15 +272,19 @@ const purikuraUi = deps.purikuraUi;                    // 📷 창 모듈(만드
       else if(e.key==='Escape'){ closeChatWindow(); }
     });
   }
+  /* [보내기] — Enter 와 같은 한 길(_sendChatWindowMsg). 누른 뒤 입력칸으로 포커스를 돌려 이어서 칠 수 있게.
+     ⚠️ mousedown 을 막지 않는다 — 버튼을 누르며 입력칸이 포커스를 잃어야 한글 조합이 먼저 확정된다(막으면 mac 에서 끝 글자가 한 번 더 간다 — 위 Enter 주석과 같은 까닭). */
+  const sendBtn=document.getElementById('chatSendBtn');
+  if(sendBtn) sendBtn.addEventListener('click', e=>{ e.stopPropagation(); _sendChatWindowMsg(); if(inp) inp.focus(); });
   try{ _bindChatCopy(); }catch(_){}   // 📋 드래그 · 복사 · 우클릭 메뉴
   try{ _bindChatTabs(); }catch(_){}   // 💬 채팅 탭 줄
   // 링크 클릭 → 외부 열기(Electron: shell.openExternal, 웹: 새 탭)
   const msgs=document.getElementById('chatMessages');
   if(msgs){
     msgs.addEventListener('click', e=>{
-      const a=e.target.closest('.cm-link'); if(!a) return;
+      const a=e.target.closest('.ext-link'); if(!a) return;
       e.preventDefault();
-      const url=a.getAttribute('data-url'); if(!url) return;
+      const url=TwSafeHtml.safeUrl(a.getAttribute('data-url'), 'link'); if(!url) return;   // 화면에 그린 값 — 열기 전에 한 번 더
       try{
         if(window.companion && window.companion.openBrowser) window.companion.openBrowser(url);   // Electron: 외부 브라우저
         else window.open(url, '_blank', 'noopener');                                              // 웹 폴백
@@ -366,7 +370,7 @@ const purikuraUi = deps.purikuraUi;                    // 📷 창 모듈(만드
   /* 📷 스티커사진 — 지금은 **문 앞까지만** 붙어 있다(핸드오프 6절 3번).
      누르면 하루 정원을 한 번 읽어서 남은 횟수나 닫힘 안내를 띄운다. 촬영 창은 다음 세션이다.
      ★ 채널 게이트는 💣 와 같은 한 줄이다 — 버튼은 HTML 에 상시 있으므로 창이 다른 경로로 떠도 새지 않게.
-     ★ 정원은 **읽기만** 한다. 차감(takeQuota)은 「촬영 시작」 순간이다 —
+     ★ 정원은 **읽기만** 한다. 차감은 서버가 「촬영 시작」(photoStart) 순간에 한다 —
        누를 때 깎으면 로비에서 구경만 하다 닫는 사람이 하루치를 갉아먹는다.
      ⚠️ 상시 구독(watchQuota)을 여기에 걸지 말 것. 아무도 안 보는 화면을 위해 하루 400번의
        갱신을 접속자 전원에게 뿌리는 구조가 된다. 구독은 촬영 창이 열려 있는 동안만이다. */
@@ -379,7 +383,7 @@ const purikuraUi = deps.purikuraUi;                    // 📷 창 모듈(만드
        생기는 것도 «고장»으로 읽힌다. 여기는 내가 방금 누른 버튼이라 토스트가 맞다. */
     if(officeMode()){ toast('🏢 회사원 모드에서는 쓸 수 없어요'); return; }
     const pk=_purikura();
-    /* 아직 안 붙었거나(구버전 HTML) firebase 가 늦게 뜬 경우 — 눌러도 반응 없는 버튼으로 두지 않는다 */
+    /* 세션 입구를 못 받으면 — 눌러도 반응 없는 버튼으로 두지 않는다 */
     if(!pk){ toast('📷 스티커사진은 아직 준비 중이에요'); return; }
     if(cam.dataset.busy === '1') return;              // 연타로 자리 잡기가 겹치는 것만 막는다
     cam.dataset.busy = '1';

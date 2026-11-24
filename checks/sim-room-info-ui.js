@@ -1,7 +1,7 @@
 /*
  * 방 안 정보 칸 — 제목 줄 · [방 설정](방장만 · 제목 · 공개 바꾸기) 검사 — 모듈을 그대로 불러 돌린다(가짜 DOM).
  * 1. room-settings.js 의 보일 제목(displayTitle) · 공개 안내  2. room-info-ui.js 그리기(방 밖 · 방 서버 · 방장 / 손님 · 금칙어 · 글로만)
- * 3. 바꾸기(열기 · 저장 · 금칙어 · 길이 · 시크릿룸 · 실패 · 연타 · 그새 방장이 바뀜)  4. 배선(html · app.js · room-entry · firebase-init · 로비 카드)  5. 깨 보기
+ * 3. 바꾸기(열기 · 저장 · 금칙어 · 길이 · 시크릿룸 · 실패 · 연타 · 그새 방장이 바뀜)  4. 배선(html · app.js · room-entry · firebase-init · 로비 카드)  5. mutation test
  * 설계: docs/ROOM_LOBBY.md 5.1 · 5.2
  */
 'use strict';
@@ -62,7 +62,7 @@ function mkUi(o, src){
     chk(d('', '도토리').text === '도토리 님의 방' && d('', '도토리').isDefault && d('  ', ' 도토리 ').text === '도토리 님의 방', '  빈 제목(공백만 포함) → «닉네임 님의 방»');
     chk(d(undefined, '').text === '이름 없는 방' && d(null, null).isDefault, '  닉네임도 없으면 «이름 없는 방»');
     chk(d('바보방', '도토리', ['바보']).text === '도토리 님의 방' && d('바보방', '도토리', ['바보']).isDefault, '★ 금칙어에 걸린 제목은 기본값으로(방 안은 _meta 를 그대로 받으니 여기서 거른다)');
-    chk(d('바보방', '도토리').text === '바보방', '  목록을 안 주면 거르지 않는다(로비 사본은 서버 함수가 이미 거름)');
+    chk(d('바보방', '도토리').text === '바보방', '  목록을 안 주면 거르지 않는다(로비 목록은 realtime 서버가 이미 거름)');
     chk(typeof RS.OPEN_HINT.on === 'string' && typeof RS.OPEN_HINT.off === 'string' && Object.isFrozen(RS.OPEN_HINT), '«방 목록에 공개» 안내 한 벌');
   }
 
@@ -151,34 +151,21 @@ function mkUi(o, src){
       'room-state.js 방장 판정 — 내 코드를 모르거나 meta 가 없으면 아니다');
     chk(RSt.isSecretCode('SCRT-AB12') && !RSt.isSecretCode('COZY-AB12') && !RSt.isSecretCode(null) && !RSt.isSecretCode('xSCRT-1'), '  시크릿룸 코드 판정');
     const CL = need('chat-lock.js');
-    chk(/isHost: \(\)=>TwRoomState\.isHost\(window\._roomMetaCache, getMyUserId\(\)\)/.test(APP) && /isSecretRoom: \(\)=>TwRoomState\.isSecretCode\(/.test(APP)
-      && /roomState\.isHost\(window\._roomMetaCache, getMyUserId\(\)\)/.test(CL) && /roomState\.isSecretCode\(_chatRoomCode\(\)\)/.test(CL) && /roomState: TwRoomState,/.test(APP) && !/isSecretCode/.test(RS_SRC),
+    chk(/isHost: \(\)=>TwRoomState\.isHost\(window\._roomMetaCache, TwRoomRt\.store\.myCode\(\)\)/.test(APP) && /isSecretRoom: \(\)=>TwRoomState\.isSecretCode\(/.test(APP)
+      && /roomState\.isHost\(window\._roomMetaCache, myCode\(\)\)/.test(CL) && /roomState\.isSecretCode\(_chatRoomCode\(\)\)/.test(CL) && /roomState: TwRoomState,/.test(APP) && !/isSecretCode/.test(RS_SRC),
       '★ 방장 · 시크릿룸 판정은 채팅 잠금과 같은 한 곳(room-state.js)을 부른다 — 다시 쓰지 않음 · 서로 부르지 않아 순환 없음');
   }
-  chk(iUi > 0 && iRe > iUi && /paintRoomInfo: \(\)=>roomInfoUi\.paint\(\),/.test(APP) && /saveInfo: \(room, info\)=>\(Presence\.serverProvider\(\) \? Presence\.serverProvider\(\)\.setMeta\(info\) : window\.firebaseAPI\.setRoomInfo\(room, info\)\),/.test(APP), 'app.js: 방 입장 모듈보다 먼저 만들고 paint 를 넘긴다 · 저장은 방 서버 방이면 서버 meta · 아니면 firebaseAPI.setRoomInfo');
+  chk(iUi > 0 && iRe > iUi && /paintRoomInfo: \(\)=>roomInfoUi\.paint\(\),/.test(APP) && /saveInfo: \(room, info\)=>\(Presence\.serverProvider\(\) \? Presence\.serverProvider\(\)\.setMeta\(info\) : Promise\.resolve\(\{ ok:false, code:'notInRoom' \}\)\),/.test(APP), 'app.js: 방 입장 모듈보다 먼저 만들고 paint 를 넘긴다 · 저장은 방 포트 meta 하나(방 밖이면 { ok:false })');
   const paintCalls = (RE.match(/\b_roomChanged\(\);/g) || []).length;   // «방이 바뀜» 알림이 paintRoomInfo 를 부른다(같이 듣기도 같은 알림)
-  chk(paintCalls === 3 && /function _roomChanged\(\)\{ paintRoomInfo\(\);/.test(RE) && /function refreshInviteUI\(\)\{[\s\S]*?_roomChanged\(\);[\s\S]*?\n\}/.test(RE), 'room-entry: 들어감 · 나감(refreshInviteUI) · Firebase meta · 방 서버 meta 세 곳에서 다시 그린다 (' + paintCalls + ')');
-  {
-    const fn = takeFn(FI, 'async setRoomInfo(room, info){');
-    const writes = [], touched = [];
-    const set = fn && new Function('update', 'ref', 'db', '_touchRoomIndex', 'return { ' + fn + ' };')((r, v) => { writes.push([r, v]); return Promise.resolve(); }, (d, p) => p, null, (r) => touched.push(r));
-    const a = set && await set.setRoomInfo('COZY-AB12', { title: '새 제목', open: false });
-    const b = set && await set.setRoomInfo('COZY-AB12', { title: '' });
-    const c = set && await set.setRoomInfo('', { title: 'x' });
-    chk(a && a.ok && writes[0][0] === 'rooms/COZY-AB12/_meta' && JSON.stringify(writes[0][1]) === '{"title":"새 제목","open":false}', '★ firebase-init setRoomInfo — _meta 에 update · 제목 · 공개 두 칸만');
-    chk(b && b.ok && JSON.stringify(writes[1][1]) === '{"title":null}' && c && !c.ok && writes.length === 2, '  빈 제목은 칸 지움(null) · open 이 없으면 안 씀 · 방 코드가 없으면 안 씀');
-    chk(touched.join() === 'COZY-AB12,COZY-AB12', '★ 저장하면 방 요약(roomIndex)을 바로 갱신 — 공개를 켜면 로비 · 랜덤 참여가 다음 하트비트를 안 기다린다');
-    const ft = [];
-    const failing = fn && new Function('update', 'ref', 'db', '_touchRoomIndex', 'return { ' + fn + ' };')(() => Promise.reject(new Error('denied')), (d, p) => p, null, (r) => ft.push(r));
-    chk(failing && !(await failing.setRoomInfo('COZY-AB12', { title: 'x' })).ok && ft.length === 0, '  쓰기가 거부되면 { ok:false } · 요약도 안 건드림');
-  }
+  chk(paintCalls === 2 && /function _roomChanged\(\)\{ paintRoomInfo\(\);/.test(RE) && /function refreshInviteUI\(\)\{[\s\S]*?_roomChanged\(\);[\s\S]*?\n\}/.test(RE), 'room-entry: 들어감 · 나감(refreshInviteUI) · 서버 meta 두 곳에서 다시 그린다 (' + paintCalls + ')');
+  chk(!/setRoomInfo/.test(FI), 'firebase-init 에 방 정보(_meta) 쓰기가 없다 — 제목 · 공개는 방 포트 meta(방장만 · 서버가 판정)');
   {
     const M = classic(M_SRC, 'TwRoomLobbyModel', { TwRoomSettings: RS });
     const c = M.cardOf('WORK-AA11', { t: '', n: 1, hn: '도토리' }, 10);
     chk(c.title === RS.displayTitle('', '도토리').text && c.titleIsDefault && /displayTitle\(r\.t, hn\)/.test(M_SRC), '로비 카드 제목도 같은 규칙(room-settings displayTitle)');
   }
 
-  say('── 5. 깨 보기');
+  say('── 5. mutation test');
   {
     const noHost = UI_SRC.replace('$(\'riEdit\').hidden = !host;', '$(\'riEdit\').hidden = false;');
     const b1 = mkUi({ me: 'u2' }, noHost); b1.ui.paint();

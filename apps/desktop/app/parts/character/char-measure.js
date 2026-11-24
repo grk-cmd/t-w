@@ -38,6 +38,12 @@ function measureHeadBoxNoParts(root, outBoxes, meshHost){
 function measureCharBox(root){
   return measureBodyBox(root, { excludeParts: true });
 }
+/* 👀 꾸미기 미리보기 카메라 구도 — 보이는 몸 · 보이는 일반 파츠는 세고, 리깅 파츠(스키닝 전 원본 박스가 몇 배씩 크다) · 숨은 메시는 뺀다.
+   통째로 재면(setFromObject) 리깅 파츠 하나에 카메라가 멀리 물러나 캐릭터가 점처럼 보인다. 아무것도 안 잡히면 통째로. */
+function measurePreviewBox(root){
+  const b = measureBodyBox(root, { excludeParts: 'rigged', visibleOnly: true });
+  return b.isEmpty() ? new THREE.Box3().setFromObject(root) : b;
+}
 /* 🦶 발밑보다 아래로 내려간 깊이 — 욕조 · 방석처럼 발 아래 두는 파츠 때문에 바닥선이 제각각이 되는 것을 막는다(이만큼 들어 올린다).
    ★ 피봇이 발바닥이라는 전제 — 발 아래 아무것도 없으면 0 이라 기존 캐릭터는 안 움직인다(min.y 로 다시 잡지 않는다).
    ⚠️ 숨은 메쉬(옷 입으면 숨는 몸 · 자리비움 페이드) · 리깅 파츠(스키닝 전 박스)는 안 센다. 책상 파츠는 gltfRoot 밖이라 안 잡힌다. */
@@ -126,6 +132,7 @@ return {
   floorClampWrapper,
   headDecorMeshSet,
   measureCharBox,
+  measurePreviewBox,
   measureHeadBoxNoParts,
   measureUnderfootDepth,
 };

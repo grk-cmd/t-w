@@ -266,28 +266,7 @@ function run(mainSrc, appSrc){
   };
   const wM = writesKeys(mainCode), wA = writesKeys(appCode);
   chk(wM.length === 0, '★ main.js 가 keys 배열을 저장하지 않는다' + (wM.length ? ' — ' + wM[0].trim() : ''));
-  chk(wA.length === 0, '★ app.js 가 keys: [ … ] 모양으로 keys 를 저장하지 않는다' + (wA.length ? ' — ' + wA[0].trim() : ''));
-  /* 👑 달성표 여러 앱(B-1026-4) — 한 조건이 «여러 앱» 을 고르면 keys 를 쓴다(§4-b 의 «한 앱 · 여러 플랫폼 키» 와 다른 뜻).
-     둘을 같이 쓰는 대신 지킬 것: ① 쓰는 곳은 _chalSetPicked 한 곳 ② 그때 key 는 늘 keys[0] ③ 하나만 고르면 keys 를 지운다
-     ④ 어긋나면(옛 판본 [수정] — key 만 바뀜) key 가 이긴다(_chalStale). 실제로 돌려서 본다. */
-  const keysAssign = appCode.split('\n').filter(l => /\.keys\s*=(?!=)/.test(l));
-  const setPicked = extractFn(appSrc, ['_chalSetPicked']), stale = extractFn(appSrc, ['_chalStale']);
-  chk(keysAssign.length === 1 && !!setPicked && setPicked.text.includes(keysAssign[0].trim()),
-    '★ app.js 가 keys 를 쓰는 곳은 _chalSetPicked 한 곳' + (keysAssign.length === 1 ? '' : ' (' + keysAssign.length + '곳: ' + keysAssign.map(l => l.trim().slice(0, 50)).join(' | ') + ')'));
-  let fSet = null, fStale = null;
-  try{ fSet = setPicked && new Function(setPicked.text + '\nreturn _chalSetPicked;')(); fStale = stale && new Function(stale.text + '\nreturn _chalStale;')(); }catch(_){}
-  if(fSet && fStale){
-    const many = { keys: ['old'] }; fSet(many, [{ key: 'win:a.exe', label: 'a', exe: 'a.exe' }, { key: 'win:b.exe', label: 'b' }]);
-    const one = { keys: ['win:x.exe', 'win:y.exe'], labels: ['x', 'y'] }; fSet(one, [{ key: 'win:a.exe', label: 'a', exe: 'a.exe' }]);
-    chk(many.key === many.keys[0] && many.keys.length === 2 && !('keys' in one) && !('labels' in one) && one.key === 'win:a.exe',
-      '★ 여럿이면 key = keys[0] · 하나면 keys 를 지운다(예전 모양)');
-    chk(fStale({ keys: ['win:a.exe', 'win:b.exe'], key: 'win:c.exe' }) === true && fStale({ keys: ['win:a.exe', 'win:b.exe'], key: 'win:a.exe' }) === false && fStale({ key: 'win:a.exe' }) === false,
-      '★ 어긋남(keys[0] ≠ key)을 알아본다 — 그때는 key 가 이긴다');
-    /* 깨 보기 — 하나만 골라도 keys 를 남기는 판이면 위 ★ 가 빨강이어야 한다 */
-    let fBad = null; try{ fBad = new Function(setPicked.text.replace('else { delete c.keys; delete c.labels; }', '') + '\nreturn _chalSetPicked;')(); }catch(_){}
-    const bad = { keys: ['win:x.exe', 'win:y.exe'] }; if(fBad) fBad(bad, [{ key: 'win:a.exe', label: 'a' }]);
-    chk(!!fBad && 'keys' in bad, '  깨 보기 — keys 를 안 지우는 판은 잡힌다');
-  }else chk(false, '★ _chalSetPicked · _chalStale 을 못 찾음 — 달성표 여러 앱 저장 규칙을 볼 수 없다');
+  chk(wA.length === 0, '★ app.js 가 keys 배열을 저장하지 않는다' + (wA.length ? ' — ' + wA[0].trim() : ''));
   chk(/a\.key\s*=\s*'win:'|\.key\s*=\s*'win:'/.test(mainCode),
     '  focus-apps 로더 승격이 살아 있다 — 여기서 안 채우면 등록해 둔 사람 전원이 재등록 전까지 새 축을 못 받는다(§0-①과 같은 사고)');
 
@@ -309,8 +288,8 @@ function run(mainSrc, appSrc){
     'main.js 에 \'win:\' 고정의 근거가 남아 있다');
   chk(/'win:'\s*(고정|리터럴)|승격이 'win:'/.test(appSrc),
     '★ app.js 에도 같은 근거가 남아 있다 — 두 벌이라는 사실을 여기서 처음 보는 사람이 있다');
-  chk(/cfg\.exe/.test(appSrc) && /판정에 안 쓴다|파생|옛 판본/.test(appSrc),
-    '★ cfg.exe 를 왜 남겼는지가 app.js 에 적혀 있다 — 없으면 "저장은 하나" 원칙 위반으로 보고 지운다');
+  /* 0.13 달성표는 판정 키(서버 goal.app) 하나만 쓴다 — 옛 cfg.exe 를 새로 쓰지 않는다. 키 없이 실행파일 이름만 남은 옛 서버 기록은 _chalKeysOf 의 exe 갈래가 승격한다 */
+  chk(!/cfg\.exe\s*=/.test(appSrc), '달성표 설정에 cfg.exe 를 새로 쓰지 않는다(판정 키 하나)');
 
   return { pass, fail, unknown };
 }

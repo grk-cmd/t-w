@@ -3,7 +3,7 @@
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(DANCE_MOVES · IDESK_ENABLED · INTERACTION_DESKS · TRICK_IN_S · TRICK_SPIN_S · TRICK_TURBO_STYLE · _danceCmdCooldownAt · setDanceCmdCooldownAt · _deskDefById · _lowestDanceReq · _parseDanceCmdChain · _pickUnlockedDance · _rideDenyToastAt · setRideDenyToastAt · _trickArmBase · _trickArmSpread · _trickEaseIn · _trickLegPose · _trickTurns · findRideTarget · getActiveInteractionDeskId · isDanceUnlocked · isDeskUnlocked · setActiveInteractionDeskId · startMyDance)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 14줄 그대로 · 부르는 곳은 iDeskMod.이름 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · interaction-desk.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -18,12 +18,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — interaction-desk.js'); process.exit(2);
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["toast"];
-const VAL_DEPS = ["CIRCUS_ARM_DROP","CIRCUS_LEG_LIFT","CIRCUS_LEG_STAND","RIDE_MAX_STACK","RIDE_SNAP_DIST","_rideTmp","_rideWP","rideBenchMod","seats","tricksMod"];
+const VAL_DEPS = ["accountStore","CIRCUS_ARM_DROP","CIRCUS_LEG_LIFT","CIRCUS_LEG_STAND","RIDE_MAX_STACK","RIDE_SNAP_DIST","_rideTmp","_rideWP","rideBenchMod","seats","tricksMod"];
 const GET_DEPS = ["Presence","focusLevelMod","isAdmin"];
 const SET_DEPS = [];
-const EXPORTS = ["DANCE_MOVES","IDESK_ENABLED","INTERACTION_DESKS","TRICK_IN_S","TRICK_SPIN_S","TRICK_TURBO_STYLE","_danceCmdCooldownAt","setDanceCmdCooldownAt","_deskDefById","_lowestDanceReq","_parseDanceCmdChain","_pickUnlockedDance","_rideDenyToastAt","setRideDenyToastAt","_trickArmBase","_trickArmSpread","_trickEaseIn","_trickLegPose","_trickTurns","findRideTarget","getActiveInteractionDeskId","isDanceUnlocked","isDeskUnlocked","setActiveInteractionDeskId","startMyDance"];
+const EXPORTS = ["DANCE_MOVES","IDESK_ENABLED","INTERACTION_DESKS","TRICK_IN_S","TRICK_SPIN_S","TRICK_TURBO_STYLE","_danceCmdCooldownAt","setDanceCmdCooldownAt","_deskDefById","_lowestDanceReq","_parseDanceCmdChain","_pickUnlockedDance","_rideDenyToastAt","setRideDenyToastAt","_trickArmBase","_trickArmSpread","_trickEaseIn","_trickLegPose","_trickTurns","findRideTarget","getActiveInteractionDeskId","isDanceUnlocked","isDeskUnlocked","applyUnlocks","levelText","lockedToast","setActiveInteractionDeskId","startMyDance"];
 const MOVED = ["INTERACTION_DESKS","IDESK_ENABLED","DANCE_MOVES","TRICK_IN_S","TRICK_SPIN_S","TRICK_OUT_S","TRICK_TURNS","TRICK_TURBO_STYLE","TRICK_TURBO_MULT","_trickTurns","TRICK_LEG_SIDE","TRICK_ARM_LIFT","TRICK_ARM_SPREAD","_trickArmBase","_trickArmSpread","_trickEaseIn","_trickLegPose","_danceByCmd","_parseDanceCmdChain","_danceCmdCooldownAt","isDanceUnlocked","_pickUnlockedDance","_lowestDanceReq","startMyDance","_deskDefById","isDeskUnlocked","ACTIVE_IDESK_KEY","getActiveInteractionDeskId","setActiveInteractionDeskId","_rideDenyToastAt","findRideTarget"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  CIRCUS_ARM_DROP: CIRCUS_ARM_DROP,","  CIRCUS_LEG_LIFT: CIRCUS_LEG_LIFT,","  CIRCUS_LEG_STAND: CIRCUS_LEG_STAND,","  Presence: ()=>Presence,","  RIDE_MAX_STACK: RIDE_MAX_STACK,","  RIDE_SNAP_DIST: RIDE_SNAP_DIST,","  _rideTmp: _rideTmp,","  _rideWP: _rideWP,","  focusLevelMod: ()=>focusLevelMod,","  isAdmin: ()=>isAdmin,","  rideBenchMod: rideBenchMod,","  seats: seats,","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,"];
+const GLUE = ["  accountStore: accountStoreMod,","  CIRCUS_ARM_DROP: CIRCUS_ARM_DROP,","  CIRCUS_LEG_LIFT: CIRCUS_LEG_LIFT,","  CIRCUS_LEG_STAND: CIRCUS_LEG_STAND,","  Presence: ()=>Presence,","  RIDE_MAX_STACK: RIDE_MAX_STACK,","  RIDE_SNAP_DIST: RIDE_SNAP_DIST,","  _rideTmp: _rideTmp,","  _rideWP: _rideWP,","  focusLevelMod: ()=>focusLevelMod,","  isAdmin: ()=>isAdmin,","  rideBenchMod: rideBenchMod,","  seats: seats,","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -32,7 +32,7 @@ function anything(){
   const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? (() => P) : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true });
   return P;
 }
-function build(src){
+function build(src, over){
   const any = anything();
   const deps = {};
   FN_DEPS.forEach(n => { deps[n] = () => any; });
@@ -44,7 +44,7 @@ function build(src){
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
     src + '\nreturn window.TwInteractionDesk;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
-  return api.createInteractionDesk(deps);
+  return api.createInteractionDesk(Object.assign(deps, over || {}));
 }
 
 function judgeAll(mod, app, html){
@@ -74,7 +74,7 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/room/interaction-desk.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
@@ -84,13 +84,40 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const iDeskMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('iDeskMod.' + x)); if(n){ ls[i] = ls[i].replace('iDeskMod.' + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 던짐', m => m.replace('function createInteractionDesk(deps){', 'function createInteractionDesk(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createInteractionDesk(deps){', 'function createInteractionDesk(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
   const changed = m2 !== MOD || a2 !== SRC || h2 !== HTML;
   let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
+}
+say('── 4. 해금 레벨 — 서버 해금 표(applyUnlocks)가 원본');
+function unlockBehave(mod){
+  const st = { lv: 100, admin: false };
+  const d = build(mod, { isAdmin: () => st.admin, focusLevelMod: () => ({ getFocusLevel: () => st.lv }) });
+  const dance = (cmd) => d.DANCE_MOVES.find((m) => m.cmd === cmd), desk = d.INTERACTION_DESKS[0];
+  const txt = (v) => [d.lockedToast(v, '달성 시 사용할 수 있어요'), d.levelText(v)].join('|');
+  const unknown = txt(null) === '🔒 해금 정보를 받는 중이에요 — 잠시 뒤 다시 해 주세요|Lv.?' && d._lowestDanceReq() === null && !/Infinity|null|undefined|NaN/.test(txt(d._lowestDanceReq()) + txt(desk.reqLevel));
+  const before = unknown && d.isDanceUnlocked(dance('80')) === false && d.isDeskUnlocked(desk) === false && d._pickUnlockedDance(() => 0) === null;
+  st.admin = true; const adm = d.isDanceUnlocked(dance('80')) === true; st.admin = false;
+  d.applyUnlocks({ DANCE: { '80': { level: 90 }, '150': { level: 200 } }, INTERACTION_DESK: { bench2: { level: 60 } } });
+  const after = dance('80').reqLevel === 90 && dance('150').reqLevel === 200 && desk.reqLevel === 60 && d.isDanceUnlocked(dance('80')) === true && d.isDanceUnlocked(dance('150')) === false && d.isDeskUnlocked(desk) === true && d._lowestDanceReq() === 90 && d.lockedToast(90, '달성 시 해금돼요') === '🔒 Lv.90 달성 시 해금돼요' && d.levelText(60) === 'Lv.60';
+  d.applyUnlocks({ DANCE: { '80': { level: 120 } }, INTERACTION_DESK: {} });
+  const again = dance('80').reqLevel === 120 && d.isDanceUnlocked(dance('80')) === false && dance('150').reqLevel === 200 && desk.reqLevel === 60;
+  return { before, adm, after, again };
+}
+{
+  const R = unlockBehave(MOD);
+  chk(R.before && R.adm, '★ 서버 해금 표를 받기 전에는 춤 · 책상이 잠기고(관리자는 늘 열림) 안내 글에 Infinity · null 이 없다(«해금 정보를 받는 중») — 코드에 박힌 레벨이 없다');
+  chk(R.after && R.again, '★ 서버 표의 레벨이 그대로 앉는다(웹 관리자가 고친 값) · 다시 받으면 다시 앉는다 · 표에 없는 줄은 앉히지 않는다');
+  chk(!/reqLevel:\s*\d/.test(strip(MOD)), '  코드에 박힌 숫자 reqLevel 이 없다');
+  const bad = unlockBehave(MOD.replace("if(def.reqLevel == null) return false;   // 서버 해금 표를 아직 못 받았다 — 잠가 둔다\n  const lv=(", "const lv=(").replace('return lv >= def.reqLevel;\n}\n/* 서버', 'return lv >= (def.reqLevel||1);\n}\n/* 서버'));
+  chk(!bad.before, 'mutation test — 받기 전에 열려 있으면 빨강');
+  const bad2 = unlockBehave(MOD.replace("return (level == null) ? '🔒 해금 정보를 받는 중이에요 — 잠시 뒤 다시 해 주세요' : '🔒 Lv.' + level + ' ' + tail;", "return '🔒 Lv.' + level + ' ' + tail;"));
+  chk(!bad2.before, 'mutation test — 모를 때 레벨 글자를 지어내면(Lv.null) 빨강');
+  const bad3 = unlockBehave(MOD.replace("d.reqLevel == null ? m : (m == null ? d.reqLevel : Math.min(m, d.reqLevel)), null);", "d.reqLevel == null ? m : Math.min(m, d.reqLevel), Infinity);"));
+  chk(!bad3.before, 'mutation test — 못 받았을 때 Infinity 를 돌려주면 빨강');
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

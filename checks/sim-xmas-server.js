@@ -6,7 +6,7 @@
    ・4절 관리자 지우기 — 관리자만 · 장식(주인 · 내 자리까지) · 받은 편지
    ・4-2절 관리자 편지 반송 — 관리자만 · 마감 1분 전까지 · 짝 짓기 전 · 사유 넷 · 관리자가 본 편지만(ts) · 동시에 한 번 · 원래 글 남김 · 알림함 · 짝 짓기 제외
    ・5절 규칙식 — 편지 본인 · 마감 · 5칸 · 모양 / 신고 본인 · 한 번 · 받은 사람만 / 트리 읽기 내 트리 · 지금 트리만 / 함수만 쓰는 칸
-   ・6절 index.js 연결 · 일부러 깨 보기
+   ・6절 index.js 연결 · mutation test
    실제 서버 판정은 에뮬레이터(firebase/scripts/rules-emu-check.js)에서 본다. */
 'use strict';
 const fs = require('fs');
@@ -218,9 +218,9 @@ say('── 4-2절 관리자 편지 반송');
   const dbD = mk();
   const both = await Promise.allSettled([X.handleAdminReturn(dbD, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'abuse', ts: 1 }), T0), X.handleAdminReturn(dbD, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'spam', ts: 1 }), T0 + 1)]);
   chk(both.filter(r => r.status === 'fulfilled').length === 1 && Object.keys(dbD.data.inbox.ucodewri001).length === 1, '두 관리자가 동시에 반송해도 한 번만 · 알림 한 통');
-  // 깨 보기 — 첫 호출(null)에서 그만두는 트랜잭션은 늘 «없는 편지» 가 된다(위 반송 검사들이 잡는 모양)
+  // mutation test — 첫 호출(null)에서 그만두는 트랜잭션은 늘 «없는 편지» 가 된다(위 반송 검사들이 잡는 모양)
   { const dbB = mk(); const t = await dbB.ref('xmasLetters/uWri000001/l2').transaction((c) => (c ? null : undefined));
-    chk(!t.committed && !!dbB.get('xmasLetters/uWri000001/l2'), '깨 보기 — null 에서 그만두는 트랜잭션은 서버 값을 못 본다(가짜 DB 가 진짜처럼 null 부터 부른다)'); }
+    chk(!t.committed && !!dbB.get('xmasLetters/uWri000001/l2'), 'mutation test — null 에서 그만두는 트랜잭션은 서버 값을 못 본다(가짜 DB 가 진짜처럼 null 부터 부른다)'); }
   // 반송된 편지는 짝 짓기에 안 들어간다
   const db8 = mk(); await X.handleAdminReturn(db8, req('adm1', { uid: 'uWri000001', lid: 'l2', reason: 'abuse', ts: 1 }), T0);
   chk(X.lettersOf(db8.get('xmasLetters')).every(l => l.text !== '나쁜 말'), '반송된 편지는 짝 짓기 대상에서 빠진다');
@@ -309,22 +309,22 @@ say('── 5절 규칙식');
   chk(/\|xmas\)/.test(inboxTag), '알림함에 xmas 꼬리표 — 앱이 읽음 표시를 쓸 수 있게');
   chk(String(L['.write']).includes(String(X.LETTER_DEADLINE_MS)) && String(R['.write']).includes(String(X.EVENT_END_MS)), '규칙의 마감 · 끝 시각이 함수와 같은 숫자');
 
-  say('── 6절 index.js 연결 · 깨 보기');
+  say('── 6절 index.js 연결 · mutation test');
   chk(/exports\.xmasHang = onCall\(/.test(FX) && /require\('\.\/xmas'\)\.handleHang\(/.test(FX), 'xmasHang 연결');
   chk(/exports\.xmasMatch = onSchedule\(\{ schedule: '0 0 25 12 \*', timeZone: 'Asia\/Seoul'/.test(FX) && /runMatch\(/.test(FX), 'xmasMatch — 12/25 0시 서울');
   chk(/exports\.xmasAdminRemove = onCall\(/.test(FX) && /handleAdminRemove\(/.test(FX), 'xmasAdminRemove 연결');
   chk(/exports\.xmasAdminReturn = onCall\(/.test(FX) && /handleAdminReturn\(/.test(FX), 'xmasAdminReturn 연결');
   chk(!/^const .*require\('firebase-admin\/database'\)/m.test(FX), 'firebase-admin/database 를 맨 위에서 읽지 않는다');
-  // 깨 보기 — 짝 짓기를 «밀지 않게» 바꾸면 자기 편지를 받는다
+  // mutation test — 짝 짓기를 «밀지 않게» 바꾸면 자기 편지를 받는다
   const broken = (authors) => authors.slice();
-  chk(broken(['a', 'b']).some((r, i) => r === ['a', 'b'][i]), '깨 보기 — 밀지 않으면 자기 편지를 받는다(위 검사가 잡는 모양)');
-  // 깨 보기 — «거는 중» 을 시각 없이 보면(옛 모양) 오래된 표시가 영영 막는다
+  chk(broken(['a', 'b']).some((r, i) => r === ['a', 'b'][i]), 'mutation test — 밀지 않으면 자기 편지를 받는다(위 검사가 잡는 모양)');
+  // mutation test — «거는 중» 을 시각 없이 보면(옛 모양) 오래된 표시가 영영 막는다
   const brokenLive = (m) => !!(m && m.busy);
-  chk(brokenLive({ busy: NOW - X.BUSY_STALE_MS * 100 }) && !X.liveBusy({ busy: NOW - X.BUSY_STALE_MS * 100 }, NOW), '깨 보기 — 시각을 안 보면 오래된 «거는 중» 이 영영 막는다(위 검사가 잡는 모양)');
-  // 깨 보기 — 규칙 마감을 지우면 마감 뒤 쓰기가 통과한다
+  chk(brokenLive({ busy: NOW - X.BUSY_STALE_MS * 100 }) && !X.liveBusy({ busy: NOW - X.BUSY_STALE_MS * 100 }, NOW), 'mutation test — 시각을 안 보면 오래된 «거는 중» 이 영영 막는다(위 검사가 잡는 모양)');
+  // mutation test — 규칙 마감을 지우면 마감 뒤 쓰기가 통과한다
   const L2 = Object.assign({}, L, { '.write': String(L['.write']).replace(/ && now < \d+/, '') });
   const env = { root: {}, after: { xmasLetters: { uMe0000001: { l1: good } } }, path: 'xmasLetters/uMe0000001/l1', auth: au('uMe0000001'), now: X.LETTER_DEADLINE_MS + 1, vars: { $authUid: 'uMe0000001', $lid: 'l1' } };
-  chk(run(L2['.write'], env) && !run(L['.write'], env), '깨 보기 — 규칙에서 마감을 빼면 마감 뒤 쓰기가 통과한다');
+  chk(run(L2['.write'], env) && !run(L['.write'], env), 'mutation test — 규칙에서 마감을 빼면 마감 뒤 쓰기가 통과한다');
 }
 
 say(`\n${fail ? '✗' : '✓'} ${pass} 통과 · ${fail} 실패`);

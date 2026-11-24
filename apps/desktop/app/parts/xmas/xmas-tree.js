@@ -76,7 +76,8 @@ function createXmasTree(deps){
   }
 
   function build(canvas){
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+    const renderer = TwGlContext.make(canvas, { canvas, antialias: false }, 'preview', { label: '크리스마스 트리' });   // 3D 를 못 만들면 그 자리에 안내(E-SYS-06) · null
+    if (!renderer) return null;
     renderer.setPixelRatio(1);
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#0d1424');
@@ -245,6 +246,7 @@ function createXmasTree(deps){
   function open(canvas){
     if (S) return;
     S = build(canvas);
+    if (!S) return;   // 3D 를 못 만듦 — 안내는 gl-context 가 캔버스 자리에 띄웠다
     bindInput();
     S.ro = new win.ResizeObserver(size); S.ro.observe(canvas);
     size(); applyCam();

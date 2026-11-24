@@ -1,7 +1,7 @@
 /* seat-equalize.js — 🪑 좌석 크기 평준화 — 내 화면에서만 남의 좌석을 내 캐릭터 크기에 맞추는 배율(k) · 실효 크기
    책임: 좌석 하나의 «실효 크기» 를 정하는 곳 하나 — 배율 k(내 크기 ÷ 그 좌석 크기) · seatScale · 월드 높이 들림(charLiftWorld) ·
-     배율이 바뀐 좌석에만 책상 · 캐릭터를 다시 거는 syncSeatEqualize. 켜고 끄는 깃발(seatEqualizeOn · tw.seatEq)도 이 모듈이 든다.
-   받는 deps: seats · ANIMAL_RUN_SCALE(값) · findMySeat · clampCharY · fitModel · setDeskScale · setDeskPos · syncSeatDeskZ(함수).
+     배율이 바뀐 좌석에만 책상 · 캐릭터를 다시 거는 syncSeatEqualize. 켜고 끄는 깃발(seatEqualizeOn · tw.seatEq — 계정 칸)도 이 모듈이 든다.
+   받는 deps: seats · seatEqAccountStore(계정 칸) · ANIMAL_RUN_SCALE(값) · findMySeat · clampCharY · fitModel · setDeskScale · setDeskPos · syncSeatDeskZ(함수).
    내보내는 것: seatEqK · seatScale · charLiftWorld · syncSeatEqualize · seatEqualizeOn()/setSeatEqualizeOn(v)(읽는 · 쓰는 함수 — 설정 창이 바꾼다).
    ⚠️ seat.userScale(저장값)은 절대 덮어쓰지 않는다 — 읽는 쪽이 seatScale() 을 지난다. 생성기 UI · saveSeatXf · def 로드는 반대로 raw userScale.
    ★ 방식 C — 좌석 전체(캐릭터 · 책상 · 라벨 높이)에 배율 하나. 캐릭터↔책상 비율은 각자 맞춘 그대로 남는다(B안 «책상 줄까지» 로 바꾸려면 seatEqK 하나만).
@@ -18,6 +18,7 @@
 
 function createSeatEqualize(deps){
 const ANIMAL_RUN_SCALE = deps.ANIMAL_RUN_SCALE;
+const seatEqAccountStore = deps.seatEqAccountStore;   // 🗂️ 계정별 칸(shared/account-store.js) — 켜고 끄는 깃발은 이 계정이 이 PC 에서 고른 것
 const clampCharY = deps.clampCharY;
 const findMySeat = deps.findMySeat;
 const fitModel = deps.fitModel;
@@ -25,8 +26,9 @@ const seats = deps.seats;
 const setDeskPos = deps.setDeskPos;
 const setDeskScale = deps.setDeskScale;
 const syncSeatDeskZ = deps.syncSeatDeskZ;
-let seatEqualizeOn = false;
-try{ seatEqualizeOn = (localStorage.getItem('tw.seatEq') === '1'); }catch(_){}   // 기본 끄기(들쑥날쑥한 것도 재미)
+let seatEqualizeOn = false;   // 기본 끄기(들쑥날쑥한 것도 재미) — 만들 때는 읽지 않는다(계정 칸은 확인 전엔 닫혀 있다). 확인 뒤 loadLocal 이 읽는다
+const SEAT_EQ_KEY = 'tw.seatEq';
+function loadLocal(){ try{ seatEqualizeOn = (seatEqAccountStore.get(SEAT_EQ_KEY) === '1'); }catch(_){ seatEqualizeOn = false; } }
 
 function seatEqK(seat){
   if(!seatEqualizeOn || !seat || seat.isMe) return 1;
@@ -105,6 +107,8 @@ return {
   seatEqK,
   seatEqualizeOn: ()=>seatEqualizeOn,   // 읽는 함수
   setSeatEqualizeOn: (v)=>{ seatEqualizeOn = v; },   // 쓰는 함수 — 설정 창이 켜고 끈다
+  loadLocal,   // 확인 뒤 계정 칸에서 읽는다(launcher/user-local.js)
+  resetLocal: ()=>{ seatEqualizeOn = false; },   // 세션이 끝나면 처음 값으로
   seatScale,
   syncSeatEqualize,
 };

@@ -2,12 +2,12 @@
    실행:  node sim-chat-tabs.js   (chat-tabs.js · app.js · firebase-init.js · desk-companion-prototype.html · firebase-database-rules.json 과 같은 폴더에서)
 
    ★ 왜 이 검사가 있는가 — 탭은 구버전과 같은 방을 쓴다. 조용히 새는 자리가 둘이다.
-     ① 영화 탭의 말풍선 · 날리기를 예전 `chat` 칸으로 보내면 **구버전은 탭을 모르니 방 전원에게 띄운다.**
+     ① 영화 탭의 말풍선 · 날리기를 예전 `chat` field 로 보내면 **구버전은 탭을 모르니 방 전원에게 띄운다.**
      ② 탭 기록 노드 이름이 `_` 로 시작하지 않으면 구버전 · 정리 코드가 그 키를 **사람으로 세서** 방이 안 사라진다.
 
    ★ 무엇을 보는가 (핸드오프 ④ 확인 ①~⑤ + 순수 함수)
      §1 chat-tabs.js 실행 — 목록 · [+] 조건(방장 · 3개) · 이름 · 지워진 탭 → #일반 · 탭별 인원 · 경로
-     §2 송수신 — ① 일반 외 탭은 chat 칸을 안 쓴다(실행) ② 수신부가 chatTab.tab 을 내 탭과 비교
+     §2 송수신 — ① 일반 외 탭은 chat field 를 안 쓴다(실행) ② 수신부가 chatTab.tab 을 내 탭과 비교
      §3 화면 — ③ [+] 표시가 canAdd(방장 · 상한) ⑤ 탭 줄에 가로 스크롤 없음 · 줄임표 · #chatWindow 안 확인창
      §4 규칙 · 정리 — ④ tabs 개수 상한 · _chatTab 검증이 chatLog 와 같은 식 · presence tab/chatTab · 빈 방 정리 */
 'use strict';
@@ -53,9 +53,9 @@ chk(!!sendChatSrc, 'Presence.sendChat(…, tab) 을 찾았다');
   run('같이 봐요', true, '#fff', 'm', 's2');
   run('일반이에요', false, '', '', 'general');
   run('옛 호출');
-  chk(!('chat' in sent[0]) && sent[0].chatTab && sent[0].chatTab.tab === 's2' && sent[0].chatTab.text === '안녕', '① 영화 탭 말풍선은 chat 이 아니라 chatTab 칸으로 (구버전은 안 띄운다)');
-  chk(!('chat' in sent[1]) && sent[1].chatTab.fly === true && sent[1].chatTab.flySize === 'm', '① 영화 탭 날리기도 chatTab 칸으로');
-  chk(sent[2].chat && !('chatTab' in sent[2]) && !('tab' in sent[2].chat), '#일반은 예전 chat 칸 그대로');
+  chk(!('chat' in sent[0]) && sent[0].chatTab && sent[0].chatTab.tab === 's2' && sent[0].chatTab.text === '안녕', '① 영화 탭 말풍선은 chat 이 아니라 chatTab field 로 (구버전은 안 띄운다)');
+  chk(!('chat' in sent[1]) && sent[1].chatTab.fly === true && sent[1].chatTab.flySize === 'm', '① 영화 탭 날리기도 chatTab field 로');
+  chk(sent[2].chat && !('chatTab' in sent[2]) && !('tab' in sent[2].chat), '#일반은 예전 chat field 그대로');
   chk(sent[3].chat && !('chatTab' in sent[3]), '탭을 안 넘기는 옛 호출(상태칩 이모티콘 등)도 #일반');
 }
 const recv = (APP.match(/const ctab = friends\[id\]\.chatTab;[\s\S]*?\n    \}/) || [''])[0];
@@ -65,7 +65,7 @@ chk(/const _onGeneral = _chatMyTabId\(\) === 'general';\s*if\(!_onGeneral && !_d
 chk(/danceStyle:_myDanceStyle\(\), tab:_chatTabOut\(\), flyCool:/.test(APP) && /function _chatTabOut\(\)\{ const t = _chatMyTabId\(\); return t === 'general' \? null : t; \}/.test(APP), '내 탭을 presence 에 싣는다 (#일반이면 칸을 지움)');
 chk(/sendMyChat\(bubbleText, _fly, _fly \? _chatFlyColor : '', _chatFlySize, _chatMyTabId\(\)\)/.test(APP), '대화창에서 친 글은 지금 탭으로');
 // 보낸 탭을 한 번 잡아 기록 · 읽음(_chatMarkSentRead)이 같이 쓴다 — 실제로 돌려 보는 판정은 sim-chat-read-on-send.js 3절
-chk(/const sendTab = _chatMyTabId\(\);[\s\S]{0,200}sendChatLog\(room, \{ uid:getMyUserId\(\), name:getDisplayName\(\), text:outText \}, sendTab, /.test(APP), '  기록도 지금 탭으로');
+chk(/const sendTab = _chatMyTabId\(\);[\s\S]{0,200}chatNet\.sendText\(room, outText, sendTab\)/.test(APP), '  기록도 지금 탭으로');
 chk(/function _chatMyTabId\(\)\{\s*if\(window\._activeChannel !== 2\) return 'general';/.test(APP), '워킹룸에는 탭이 없다 (언제나 #일반)');
 
 say('§3 화면');
@@ -83,7 +83,7 @@ chk(/title="#' \+ escHtml\(t\.name\) \+ '"/.test(render), '  title 에 전체 �
 chk(/id="chatTabs"/.test(HTML.slice(HTML.indexOf('<div id="chatWindow">'), HTML.indexOf('<div class="chat-memberbar">'))), '탭 줄은 메뉴바와 멤버 줄 사이');
 chk(/#chatWindow\.min \.chat-tabs/.test(HTML), '접으면 탭 줄도 숨는다');
 chk(/'#' \+ _chatTabName\(_chatMyTabId\(\)\) \+ '에 메시지 입력 후 Enter'/.test(APP), '입력칸 안내 「#이름에 메시지 입력 후 Enter」');
-chk(/clearChatLog\(room, _chatMyTabId\(\)\)/.test(APP), '🗑 기록 삭제는 지금 보는 탭만');
+chk(/chatHistory\.clear\(room, (?:chatUiMod\(\)\.)?_chatMyTabId\(\)\)/.test(APP), '🗑 기록 삭제는 지금 보는 탭만');
 /* 방에 들어오면(재부팅 포함) 그 방에서 마지막에 보던 탭 — 제보: 재부팅하면 #일반으로 돌아갔다. 함수를 떼어 실제로 돌린다. */
 {
   const grab = (n) => { const i = APP.indexOf('function ' + n + '('); if(i < 0) return ''; const j = APP.indexOf('\n}', i); const line = APP.indexOf('\n', i); return (APP.slice(i, line).trim().endsWith('}') ? APP.slice(i, line) : APP.slice(i, j + 2)); };
@@ -92,15 +92,16 @@ chk(/clearChatLog\(room, _chatMyTabId\(\)\)/.test(APP), '🗑 기록 삭제는 �
   chk(pre === 'tw.chatTab.' && src.every(Boolean), '기억 키는 tw. 접두사(tw.chatTab.<방>) · 읽기 · 쓰기 · 방 맞추기 셋');
   const store = {};
   const LS = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
-  const T = new Function('localStorage', 'let _chatMyTab = "general", _chatTabRoom = null; const CHAT_TAB_LS_PREFIX = ' + JSON.stringify(pre) + ';\n' + src.join('\n')
-    + '\nreturn { sync: _chatTabSyncRoom, save: _chatTabSave, cur: () => _chatMyTab, set: v => { _chatMyTab = v; } };')(LS);
+  const chatAccountStore = { get: k => LS.getItem(k), set: (k, v) => { LS.setItem(k, v); return true; }, remove: k => { LS.removeItem(k); return true; } };   // 계정 칸(S-3d)
+  const T = new Function('chatAccountStore', 'let _chatMyTab = "general", _chatTabRoom = null; const CHAT_TAB_LS_PREFIX = ' + JSON.stringify(pre) + ';\n' + src.join('\n')
+    + '\nreturn { sync: _chatTabSyncRoom, save: _chatTabSave, cur: () => _chatMyTab, set: v => { _chatMyTab = v; } };')(chatAccountStore);
   T.sync('ROOM-A'); const t0 = T.cur();
   T.save('ROOM-A', 's1'); T.set('s1');
   T.sync('ROOM-A'); const t1 = T.cur();
   T.sync('ROOM-B'); const t2 = T.cur();
   // 재부팅 — 메모리는 비고 localStorage 만 남는다
-  const T2 = new Function('localStorage', 'let _chatMyTab = "general", _chatTabRoom = null; const CHAT_TAB_LS_PREFIX = ' + JSON.stringify(pre) + ';\n' + src.join('\n')
-    + '\nreturn { sync: _chatTabSyncRoom, cur: () => _chatMyTab };')(LS);
+  const T2 = new Function('chatAccountStore', 'let _chatMyTab = "general", _chatTabRoom = null; const CHAT_TAB_LS_PREFIX = ' + JSON.stringify(pre) + ';\n' + src.join('\n')
+    + '\nreturn { sync: _chatTabSyncRoom, cur: () => _chatMyTab };')(chatAccountStore);
   T2.sync('ROOM-A'); const t3 = T2.cur();
   T.save('ROOM-A', 'general');
   chk(t0 === 'general' && t1 === 's1' && t2 === 'general' && t3 === 's1', '★ 처음은 #일반 · 같은 방이면 그대로 · 다른 방은 그 방 기억(#일반) · 재부팅해도 마지막 탭(s1)');
@@ -125,14 +126,12 @@ chk(!rules.chatTab, '  규칙에 `chatTab`(밑줄 없는) 자리는 없다');
 const mv = rules.$memberId['.validate'];
 chk(/newData\.child\('tab'\)\.val\(\)\.length <= 16/.test(mv) && /newData\.child\('chatTab'\)\.child\('text'\)\.val\(\)\.length <= 140/.test(mv), 'presence tab · chatTab 검증 (text ≤ 140)');
 {
-  const fc = (FB.match(/const _finalCleanup = async \(keys\)=>\{[\s\S]*?\n {10}\};/) || [''])[0];
   const FN = read('functions/room-stats.js') || '';
-  chk(fc.length > 0 && !/\/_chatTab`/.test(fc) && /if \(keys && keys\._chatTab\) await db\.ref\('rooms\/' \+ code \+ '\/_chatTab'\)\.remove\(\);/.test(FN),
+  chk(!/_finalCleanup/.test(FB) && /if \(keys && keys\._chatTab\) await db\.ref\('rooms\/' \+ code \+ '\/_chatTab'\)\.remove\(\);/.test(FN),
       '빈 방 정리 — 탭 기록은 서버 함수가 _meta 와 함께 걷는다(앱 퇴장은 안 지운다 · sim-room-meta-cleanup.js)');
 }
-chk(/async deleteChatTab\(room, tabId\)\{[\s\S]{0,300}_meta\/tabs\/\$\{tabId\}`\] = null;[\s\S]{0,80}_chatTab\/\$\{tabId\}`\] = null;/.test(FB), '탭 삭제는 정의 · 기록을 한 묶음으로');
-chk(/runTransaction\(ref\(db, `rooms\/\$\{room\}\/_meta\/tabs`\)/.test(FB), '탭 추가는 트랜잭션 — 동시에 눌러도 셋째가 안 생긴다');
-chk(/방장 제한은 \*\*화면 수준\*\*/.test(FB) && /방장 제한은 \*\*화면 수준\*\*/.test(APP), '방장 제한이 화면 수준이라는 한계를 주석으로 남겼다');
+chk(!/addChatTab|deleteChatTab|renameChatTab/.test(FB) && /sp\.setMeta\(\{ tabs: \{ \[id\]: null \} \}\)/.test(APP) && /ChatTabs\.freeSlot\(_chatTabMeta\(\)\)/.test(APP),
+  '탭 만들기 · 이름 · 지우기는 방 포트 meta 하나(방장만 · 서버가 판정 · 만들거나 지우면 서버가 그 탭 기록을 비운다)');
 
 say('');
 say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅ — 탭 말풍선은 같은 탭에만, 구버전은 #일반만 본다');

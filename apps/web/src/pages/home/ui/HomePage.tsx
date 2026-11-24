@@ -4,7 +4,6 @@ import { SiteHeader } from './SiteHeader';
 import { DownloadPanel } from './DownloadPanel';
 import { FeatureTour } from './FeatureTour';
 import { Hero } from './Hero';
-import { MakerIntro } from './MakerIntro';
 
 export function HomePage() {
   const { m } = useI18n();
@@ -16,7 +15,6 @@ export function HomePage() {
       <SiteHeader />
       <main id="top">
         <Hero />
-        <MakerIntro />
         <FeatureTour />
         <DownloadPanel />
       </main>

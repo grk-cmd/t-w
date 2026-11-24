@@ -19,7 +19,7 @@ const grabFn = (name) => { const i = SRC.indexOf('function ' + name + '('); if(i
 
 say('── 1. 상태 · 판정 함수');
 {
-  chk(/let decoPartsVisible = true;/.test(SRC) && /localStorage\.getItem\('tw\.decoParts'\) !== '0'/.test(SRC), '기본 켜짐 · tw.decoParts 로 저장(내 화면 전용)');
+  chk(/let decoPartsVisible = true;/.test(SRC) && /decoAccountStore\.get\(DECO_PARTS_KEY\) !== '0'/.test(SRC) && /const DECO_PARTS_KEY = 'tw\.decoParts';/.test(SRC), '기본 켜짐 · tw.decoParts 로 저장(내 화면 전용 · 계정 칸 — 확인 뒤 loadLocal 이 읽는다)');
   const show = grabFn('_decoWrapperShow'), apply = grabFn('applyDecoPartsVisibility');
   chk(!!show && !!apply, '_decoWrapperShow · applyDecoPartsVisibility 가 있다');
   const env = { vis: null };
@@ -53,7 +53,7 @@ say('── 3. 토글 · 버튼 · HTML');
   const code = strip(SRC);
   const i = code.indexOf("document.getElementById('fsDecoPartsToggle');\n  if(dpBtn) dpBtn.onclick");
   const t = code.slice(i, i + 500);
-  chk(i >= 0 && /decoPartsVisible = !decoPartsVisible;/.test(t) && /localStorage\.setItem\('tw\.decoParts'/.test(t), '토글: 뒤집고 저장');
+  chk(i >= 0 && /decoPartsVisible = !decoPartsVisible;/.test(t) && /settingsAccountStore\.set\('tw\.decoParts'/.test(t), '토글: 뒤집고 저장(계정 칸)');
   chk(/seats\.forEach\(s => applyClothVisibility\(s\)\)/.test(t), '★ 전 좌석(나·친구·추가 좌석)에 바로 적용');
   chk(!/firebaseAPI|Presence\./.test(t), '  서버 쓰기 없음(내 화면 전용)');
   chk(/fsDecoPartsToggle'\);\s*if\(dpBtn\)\{ dpBtn\.textContent = decoPartsVisible\?'켜짐':'꺼짐'/.test(code), '  refreshToggleBtns 가 켜짐/꺼짐을 그린다');

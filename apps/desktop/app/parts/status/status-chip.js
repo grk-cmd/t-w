@@ -6,7 +6,7 @@
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 11개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다). 마이홈 시작(initMyHome)은 여기서 안 부른다 — app.js INIT 에서 한 번.
      저장된 상태 불러오기 · 칩 첫 그리기 · 캐릭터 크기 복원도 여기서 안 부른다 — app.js 의 만드는 줄 바로 뒤에서(만드는 도중엔 statusChipMod 가 아직 없어 refreshMyStatusUI 가 던진다).
-   ★ 밖에서 부르는 이름: _positionCascade · _positionInputBelowChar · _repositionOpenChipPopups · _tabHintTimer · _wpTmp3 · hexToRgba · otherSeatRegions · setSeatDeskEmoji · uiIconEl · updateMyStatusChipPosition — app.js 는 statusChipMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: _positionCascade · _positionInputBelowChar · _repositionOpenChipPopups · _tabHintTimer · _wpTmp3 · hexToRgba · otherSeatRegions · otherSeatCircles · setSeatDeskEmoji · uiIconEl · updateMyStatusChipPosition — app.js 는 statusChipMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwStatusChip — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-status-chip.js */
@@ -22,6 +22,7 @@ const _charProjSane = deps._charProjSane;
 const _closeChipPopups = deps._closeChipPopups;
 const _danceCmdCooldownAt = deps._danceCmdCooldownAt;   // 읽는 함수
 const _lowestDanceReq = deps._lowestDanceReq;
+const lockedToast = deps.lockedToast;   // 잠긴 안내 글(room/interaction-desk.js)
 const _moveModeJustToggled = deps._moveModeJustToggled;   // 읽는 함수
 const _officeHidden = deps._officeHidden;   // 읽는 함수
 const _seatHidden = deps._seatHidden;   // 🙈 숨긴 좌석(hidden-seats.js)
@@ -314,6 +315,31 @@ const _wpTmp3=new THREE.Vector3();
 /* main 에 보내는 캐릭터 클릭 원의 중심 높이 — 머리 끝에서 키의 몇 % 내려온 곳.
    ★ 비율이라 커미션·동물·파츠로 덩치가 달라져도 같은 자리다(px 상수로 바꾸면 캐릭터 크기마다 어긋난다). */
 const CHAR_HIT_Y_RATIO = 0.25;
+/* 🖊️ 남의 좌석 자리(화면 원) — main 이 펜 앱이 앞일 때 «우리 창 근처» 를 판단하는 재료(_checkCursorNearChar).
+   펜 앱에서는 forward 를 꺼서 렌더러가 mousemove 를 못 받으므로, 이 원이 없으면 남의 캐릭터 · 책상을 펜으로 눌러도 클릭이 펜 앱으로 샌다.
+   내 캐릭터 원과 같은 방식(발밑 · 머리 끝 투영 · 실측 키 캐시)이고 책상까지 덮게 반경은 키의 1.2배. 투영이 터진 좌석은 뺀다. */
+const OTHER_SEAT_MAX = 24;   // 하트비트(10Hz)에 싣는 수 상한
+const _osTmp = new THREE.Vector3(), _osTmp2 = new THREE.Vector3();
+function otherSeatCircles(){
+  if(!clickPolicy.charHittable({ officeHidden: _officeHidden() })) return [];
+  const rect = renderer.domElement.getBoundingClientRect();
+  const out = [];
+  for(let i = 0; i < seats.length && out.length < OTHER_SEAT_MAX; i++){
+    const s = seats[i];
+    if(s.isMe || !s.group || s.group.visible === false) continue;
+    _uiAnchorWorld(s, _osTmp);
+    const m = _chipCharMetrics(_uiAnchorSeat(s) || s);
+    _osTmp2.copy(_osTmp); _osTmp2.y += m.topY;
+    _osTmp.project(camera); _osTmp2.project(camera);
+    const x = rect.left + (_osTmp.x * 0.5 + 0.5) * rect.width;
+    const yFeet = rect.top + (-_osTmp.y * 0.5 + 0.5) * rect.height;
+    const yTop = rect.top + (-_osTmp2.y * 0.5 + 0.5) * rect.height;
+    const h = Math.abs(yFeet - yTop), y = (yFeet + yTop) / 2;
+    if(!_charProjSane(x, y, h)) continue;
+    out.push({ x: Math.round(x), y: Math.round(y), r: Math.round(Math.max(110, h * 1.2)) });
+  }
+  return out;
+}
 function updateMyStatusChipPosition(){
   const chip=document.getElementById('myStatusChip'); if(!chip)return;
   const me=seats.find(s=>s.isMe);
@@ -369,9 +395,8 @@ function updateMyStatusChipPosition(){
   const GAP = 6;
   const px0 = cx - chipW0/2;          // 캐릭터 가운데
   const py0 = labelBottom + GAP;      // 바 아래가 아니라 '이름표 아래'
-  // 화면 밖으로 나가지 않게 clamp — 실제 렌더된 크기를 재서 여유를 둠
-  const chipRect = chip.getBoundingClientRect();
-  const chipW = chipRect.width || chipW0, chipH = chipRect.height || chipH0;
+  // 화면 밖으로 나가지 않게 clamp — 위에서 잰 크기(chipRect0)를 쓴다. 그 뒤로 쓰기가 없어 다시 재도 같은 값이다.
+  const chipW = chipW0, chipH = chipH0;
   const px=Math.max(8, Math.min(innerWidth-chipW-8, px0));
   const py=Math.max(8, Math.min(innerHeight-chipH-8, py0));
   // 캐릭터 위치(투영결과+오프셋)를 따라감 — "프로그램 이동"으로 캐릭터를 옮겨도 정확히 따라옴
@@ -451,15 +476,10 @@ function updateMyStatusChipPosition(){
     _uiAnchorWorld(me, _wpTmp2); _wpTmp2.y = 1.55; _wpTmp2.project(camera);   // 올라탄 동안엔 제자리 기준
     let cx=rect.left+(_wpTmp2.x*0.5+0.5)*rect.width;
     let cy=rect.top +(-_wpTmp2.y*0.5+0.5)*rect.height;
-    // ★ 화면 밖으로 잘리지 않게 clamp — transform:translate(-50%,-100%)이므로 실제 좌상단은 (cx-panelW/2, cy-panelH).
-    //   패널 크기를 실측해서 화면 안에 완전히 들어오도록 보정.
-    const panelW = panel.offsetWidth || 240;
-    const panelH = panel.offsetHeight || 260;
-    const EDGE = 8;   // 화면 가장자리 여유
-    cx = Math.max(panelW/2 + EDGE, Math.min(innerWidth - panelW/2 - EDGE, cx));
-    cy = Math.max(panelH + EDGE, Math.min(innerHeight - EDGE, cy));
-    panel.style.left=cx+'px';
-    panel.style.top =cy+'px';
+    // 화면 밖으로 잘리지 않게 — 끌어 옮길 때 · 크기가 바뀔 때와 같은 규칙(shared/panel-fit.js)
+    const fit = TwPanelFit.fitBottomCenter(cx, cy, panel.offsetWidth || 240, panel.offsetHeight || 260, innerWidth, innerHeight, 8);
+    panel.style.left=fit.x+'px';
+    panel.style.top =fit.y+'px';
   }
 }
 /* 칩 이벤트 바인딩 — 클릭하면 상태 메뉴 토글 (드래그 이동 기능은 설정 패널의 "프로그램 이동"으로 이전됨) */
@@ -546,7 +566,7 @@ function updateMyStatusChipPosition(){
     myDanceBtn.addEventListener('click', e=>{
       e.stopPropagation();
       const def = _pickUnlockedDance();
-      if(!def){ toast('🔒 Lv.'+_lowestDanceReq()+' 달성 시 사용할 수 있어요'); return; }
+      if(!def){ toast(lockedToast(_lowestDanceReq(), '달성 시 사용할 수 있어요')); return; }
       // 개인 쿨다운 5초 (채팅 명령과 공유)
       const nowMs = Date.now();
       if(nowMs - _danceCmdCooldownAt() < 5000){ toast('⏳ 춤은 5초에 한 번!'); return; }
@@ -878,6 +898,7 @@ return {
   _wpTmp3,
   hexToRgba,
   otherSeatRegions,   // 🖱️ main 에 보내는 regions 에 더한다(desktop-run.js _uiRegions)
+  otherSeatCircles,   // 🖊️ 하트비트(app.js)가 main 에 싣는다
   setSeatDeskEmoji,
   uiIconEl,
   updateMyStatusChipPosition,

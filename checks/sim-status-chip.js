@@ -1,11 +1,12 @@
 /* ═══ 📍 sim-status-chip.js — 📍 상태칩 자리 · 칩 클릭 · Tab 접기 · 📐 상태칩 팝업 · 입력창 자리 계산 · 🫧 상태 이모지 그림 · UI 아이콘 모듈 구조 (2026-10-14 신설 · 앱 FSD 36번) ═══════════════
    app.js 의 상태칩 자리 · 팝업 · 상태 이모지 세 구역 본문 을 parts/status/status-chip.js 로 옮겼다(글자 그대로 · 바뀐 줄 33 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(상태칩 검사들).
    여기서는 모듈 모양 · app.js 연결을 본다.
-   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(_positionCascade · _positionInputBelowChar · _repositionOpenChipPopups · _tabHintTimer · setTabHintTimer · _wpTmp3 · hexToRgba · otherSeatRegions · setSeatDeskEmoji · uiIconEl · updateMyStatusChipPosition)
+   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(_positionCascade · _positionInputBelowChar · _repositionOpenChipPopups · _tabHintTimer · setTabHintTimer · _wpTmp3 · hexToRgba · otherSeatRegions · otherSeatCircles · setSeatDeskEmoji · uiIconEl · updateMyStatusChipPosition)
      만들 때 deps 함수를 되부르지 않는다 — 만드는 도중엔 app.js 의 statusChipMod 가 아직 없어(TDZ) 되부른 refreshMyStatusUI 가 던졌다(상태를 저장해 둔 사람은 app.js 가 통째로 멈춘 사고)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 33줄 그대로 · 부르는 곳은 statusChipMod.이름 · html(app.js 앞)
    ・2-2절: ▾ 두 칸 메뉴 — 작은 가짜 DOM 위에서 ▾ 를 눌러 열고 닫기 · 투게더룸이면 춤 · 룰렛 숨김 · 상태 고르면 닫힘 · 커스텀 줄은 상태 안 바꿈
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・4절: 칩 자리 한 번에 칩 크기는 한 번만 잰다(그 사이 쓰기가 없어 두 번째 재기는 같은 값) · mutation test
    [실행] app.js · desk-companion-prototype.html · status-chip.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -19,13 +20,13 @@ const MOD = ["status-chip.js","parts/status/status-chip.js","app/parts/status/st
 if(!MOD){ say('  ? 원본 못 찾음 — status-chip.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_charProjSane","_closeChipPopups","_lowestDanceReq","_seatHidden","_pickUnlockedDance","_premiumOn","_rollRoulette","backToLauncher","measureBodyBox","saveCustomStatusConf","setUserStatus","startMyDance","toast"];
+const FN_DEPS = ["_charProjSane","_closeChipPopups","_lowestDanceReq","lockedToast","_seatHidden","_pickUnlockedDance","_premiumOn","_rollRoulette","backToLauncher","measureBodyBox","saveCustomStatusConf","setUserStatus","startMyDance","toast"];
 const VAL_DEPS = ["CUSTOM_STATUS_MAXLEN","_CHIP_POPUPS","camera","clickPolicy","renderer","rideBenchMod","seats"];
 const GET_DEPS = ["Presence","_charBadWhy","_charBoundsLatest","_danceCmdCooldownAt","_moveModeJustToggled","_officeHidden","chatUiMod","customStatusConf","moveMode","userStatus"];
 const SET_DEPS = ["_charBadWhy","_charBoundsLatest","_danceCmdCooldownAt","_moveModeJustToggled","moveMode"];
-const EXPORTS = ["_positionCascade","_positionInputBelowChar","_repositionOpenChipPopups","_tabHintTimer","setTabHintTimer","_wpTmp3","hexToRgba","otherSeatRegions","setSeatDeskEmoji","uiIconEl","updateMyStatusChipPosition"];
+const EXPORTS = ["_positionCascade","_positionInputBelowChar","_repositionOpenChipPopups","_tabHintTimer","setTabHintTimer","_wpTmp3","hexToRgba","otherSeatRegions","otherSeatCircles","setSeatDeskEmoji","uiIconEl","updateMyStatusChipPosition"];   // otherSeatCircles — 🖊️ 남의 좌석 원(동작은 sim-pen-forward.js)
 const MOVED = ["hexToRgba","_positionCascade","UI_FOLLOW_WHILE_RIDING","_CHIP_METRIC_MS","CHIP_METRIC_HOLD_MS","_chipOriginTmp","_chipBoxTmp","_chipMeshBoxTmp","_isPartSubtree","_expandVisibleBox","_chipCharMetrics","_uiAnchorSeat","_uiAnchorWorld","_positionInputBelowChar","_repositionOpenChipPopups","_repositionOpenChipInputs","_lastChipPlaceRight","_wpTmp","_wpTmp2","_wpTmp3","CHIP_VERT_TOP_RATIO","CHIP_GAP_CHAR_RATIO","updateMyStatusChipPosition","_tabHintTimer","_emojiTexCache","EMOJI_TEX_IMG","UI_ICON","UI_ICON_ALT","uiIconEl","_applyUiIcons","makeEmojiTexture","DESK_EMOJI_Y_OFFSET","DESK_EMOJI_Z_OFFSET","DESK_EMOJI_SIZE","ensureSeatDeskEmoji","setSeatDeskEmoji"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  CUSTOM_STATUS_MAXLEN: CUSTOM_STATUS_MAXLEN,","  Presence: ()=>Presence,","  _CHIP_POPUPS: _CHIP_POPUPS,","  _charBadWhy: ()=>_charBadWhy,","  _charBoundsLatest: ()=>_charBoundsLatest,","  _charProjSane: (...a)=>_charProjSane(...a),","  _closeChipPopups: (...a)=>_closeChipPopups(...a),","  _danceCmdCooldownAt: ()=>_danceCmdCooldownAt,","  _lowestDanceReq: (...a)=>_lowestDanceReq(...a),","  _moveModeJustToggled: ()=>_moveModeJustToggled,","  _officeHidden: ()=>_officeHidden,","  _seatHidden: (...a)=>_seatHidden(...a),","  _pickUnlockedDance: (...a)=>_pickUnlockedDance(...a),","  _premiumOn: (...a)=>_premiumOn(...a),","  _rollRoulette: (...a)=>_rollRoulette(...a),","  backToLauncher: (...a)=>backToLauncher(...a),","  camera: camera,","  chatUiMod: ()=>chatUiMod,","  clickPolicy: TwClickThroughPolicy,","  customStatusConf: ()=>customStatusConf,","  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),","  moveMode: ()=>moveMode,","  renderer: renderer,","  rideBenchMod: rideBenchMod,","  saveCustomStatusConf: (...a)=>saveCustomStatusConf(...a),","  seats: seats,","  setUserStatus: (...a)=>setUserStatus(...a),","  startMyDance: (...a)=>startMyDance(...a),","  toast: (...a)=>toast(...a),","  userStatus: ()=>userStatus,","  setCharBadWhy: (v)=>{ _charBadWhy = v; },","  setCharBoundsLatest: (v)=>{ _charBoundsLatest = v; },","  setDanceCmdCooldownAt: (v)=>{ _danceCmdCooldownAt = v; },","  setMoveModeJustToggled: (v)=>{ _moveModeJustToggled = v; },","  setMoveMode: (v)=>{ moveMode = v; },"];
+const GLUE = ["  CUSTOM_STATUS_MAXLEN: CUSTOM_STATUS_MAXLEN,","  Presence: ()=>Presence,","  _CHIP_POPUPS: _CHIP_POPUPS,","  _charBadWhy: ()=>_charBadWhy,","  _charBoundsLatest: ()=>_charBoundsLatest,","  _charProjSane: (...a)=>_charProjSane(...a),","  _closeChipPopups: (...a)=>_closeChipPopups(...a),","  _danceCmdCooldownAt: ()=>_danceCmdCooldownAt,","  _lowestDanceReq: (...a)=>_lowestDanceReq(...a),","  lockedToast: (...a)=>lockedToast(...a),","  _moveModeJustToggled: ()=>_moveModeJustToggled,","  _officeHidden: ()=>_officeHidden,","  _seatHidden: (...a)=>_seatHidden(...a),","  _pickUnlockedDance: (...a)=>_pickUnlockedDance(...a),","  _premiumOn: (...a)=>_premiumOn(...a),","  _rollRoulette: (...a)=>_rollRoulette(...a),","  backToLauncher: (...a)=>backToLauncher(...a),","  camera: camera,","  chatUiMod: ()=>chatUiMod,","  clickPolicy: TwClickThroughPolicy,","  customStatusConf: ()=>customStatusConf,","  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),","  moveMode: ()=>moveMode,","  renderer: renderer,","  rideBenchMod: rideBenchMod,","  saveCustomStatusConf: (...a)=>saveCustomStatusConf(...a),","  seats: seats,","  setUserStatus: (...a)=>setUserStatus(...a),","  startMyDance: (...a)=>startMyDance(...a),","  toast: (...a)=>toast(...a),","  userStatus: ()=>userStatus,","  setCharBadWhy: (v)=>{ _charBadWhy = v; },","  setCharBoundsLatest: (v)=>{ _charBoundsLatest = v; },","  setDanceCmdCooldownAt: (v)=>{ _danceCmdCooldownAt = v; },","  setMoveModeJustToggled: (v)=>{ _moveModeJustToggled = v; },","  setMoveMode: (v)=>{ moveMode = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -34,7 +35,7 @@ function anything(){
   const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? (() => P) : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true });
   return P;
 }
-function build(src){
+function build(src, doc, over){
   build.called = [];
   const any = anything();
   const deps = {};
@@ -42,11 +43,12 @@ function build(src){
   VAL_DEPS.forEach(n => { deps[n] = any; });
   GET_DEPS.forEach(n => { deps[n] = () => any; });
   SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
+  Object.assign(deps, over || {});
   const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
-  const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
-    src + '\nreturn window.TwStatusChip;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
+  const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module', 'innerWidth', 'innerHeight',
+    src + '\nreturn window.TwStatusChip;')(win, doc || any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined, 1000, 800);
   return api.createStatusChip(deps);
 }
 
@@ -119,7 +121,7 @@ function judgeAll(mod, app, html){
   t(!err && out && typeof out === 'object', '만들 때 던지지 않는다' + (err ? ' — ' + String(err.message || err).slice(0, 80) : ''));
   const reentry = build.called.slice();
   t(!err && !reentry.length, '만들 때 deps 함수를 되부르지 않는다(만드는 도중엔 statusChipMod 가 아직 없다)' + (reentry.length ? ' — ' + reentry.join(' · ') : ''));
-  t(/^\}\);\n(?:\/\*[\s\S]*?\*\/\n)?if\(document\.getElementById\('myStatusChipBtn'\) && document\.getElementById\('myStatusMenu'\)\)\{\n  (?:userStatusTableMod\.)?loadCustomStatusFromStorage\(\); loadUserStatusFromStorage\(\); refreshMyStatusUI\(\);\n  refreshCharScaleForCurrentDisplay\(\);\n  refreshCustomStatusMenuItem\(\);\n\}$/m.test(app.slice(app.indexOf('const statusChipMod = '))), 'app.js — 저장된 상태 불러오기 · 칩 첫 그리기는 만드는 줄 바로 뒤에서 부른다');
+  t(/^\}\);\n(?:\/\*[\s\S]*?\*\/\n)?if\(document\.getElementById\('myStatusChipBtn'\) && document\.getElementById\('myStatusMenu'\)\)\{\n  refreshMyStatusUI\(\);\n  refreshCharScaleForCurrentDisplay\(\);\n  refreshCustomStatusMenuItem\(\);\n\}$/m.test(app.slice(app.indexOf('const statusChipMod = '))), 'app.js — 칩 첫 그리기는 만드는 줄 바로 뒤에서 부른다(저장된 상태 · 커스텀 상태는 확인 뒤 userLocal 의 status 조각이 읽는다)');
   t(out && EXPORTS.every(n => n in out) && Object.keys(out).length === EXPORTS.length, '내놓는 이름 ' + EXPORTS.length + '개' + (EXPORTS.length ? ' — ' + EXPORTS.join(' · ') : ''));
   t(/window\.TwStatusChip = api;/.test(mod) && /module\.exports = api;/.test(mod), '전역 이름 TwStatusChip(Tw 접두사)');
   const A = strip(app.split('\n').filter(l => !l.includes('// 옛 전역 이름')).join('\n'));   // 옛 전역 이름 잇기 줄은 «남은 선언 · 옛 이름 부름» 이 아니다
@@ -143,7 +145,7 @@ function judgeAll(mod, app, html){
 const rows = judgeAll(MOD, SRC, HTML);
 const NB = behave(MOD).length;
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 5) say('── 2. app.js 연결'); if(i === rows.length - NB) say('── 2-2. ▾ 두 칸 메뉴'); chk(ok, msg); });
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['상태 고르고 메뉴 안 닫음', m => m.replace('      setUserStatus(b.dataset.st || null);\n      closeMore();', '      setUserStatus(b.dataset.st || null);'), null, null],
   ['투게더룸에서 춤 안 숨김', m => m.replace("const playHidden = (window._activeChannel === 2);", 'const playHidden = false;'), null, null],
@@ -154,15 +156,34 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const statusChipMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('statusChipMod.' + x)); if(n){ ls[i] = ls[i].replace('statusChipMod.' + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 deps 를 되부름', m => m.replace('function createStatusChip(deps){', 'function createStatusChip(deps){ setTimeout(()=>0); deps.toast("깨 봄");'), null, null],
+  ['만들 때 deps 를 되부름', m => m.replace('function createStatusChip(deps){', 'function createStatusChip(deps){ setTimeout(()=>0); deps.toast("mutation");'), null, null],
   ['부팅 줄 빠짐', null, a => a.replace('  refreshCharScaleForCurrentDisplay();\n  refreshCustomStatusMenuItem();\n}\n', '}\n'), null],
-  ['만들 때 던짐', m => m.replace('function createStatusChip(deps){', 'function createStatusChip(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createStatusChip(deps){', 'function createStatusChip(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
   const changed = m2 !== MOD || a2 !== SRC || h2 !== HTML;
   let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
+}
+say('── 4. 칩 크기는 한 번만 잰다');
+/* 칩 getBoundingClientRect 를 센다 — 나머지는 아무거나 받아 주는 가짜. 크기 읽기는 라벨을 적은 뒤라 첫 읽기가 강제 레이아웃이고,
+   그 뒤로 쓰기가 없으니 두 번째 읽기는 같은 값을 다시 가져올 뿐이다 */
+function chipRectReads(src){
+  const any = anything();
+  let n = 0;
+  const chip = { style: {}, classList: { contains: () => false, toggle: () => {} }, getBoundingClientRect(){ n++; return { left: 0, top: 0, right: 28, bottom: 98, width: 28, height: 98 }; } };
+  const doc = new Proxy({}, { get: (t, k) => k === 'getElementById' ? (id => id === 'myStatusChip' ? chip : null) : any });
+  const mod = build(src, doc, { moveMode: () => false, _officeHidden: () => false, _charBadWhy: () => null });
+  mod.updateMyStatusChipPosition();
+  return { n, left: chip.style.left, top: chip.style.top };
+}
+{
+  const r = chipRectReads(MOD);
+  chk(r.n === 1 && r.left !== undefined, '★ 칩 자리 한 번에 칩 크기 읽기 ' + r.n + '번 · 자리는 적었다(left ' + r.left + ')');
+  const broken = MOD.replace('const chipW = chipW0, chipH = chipH0;', 'const chipRect = chip.getBoundingClientRect();\n  const chipW = chipRect.width || chipW0, chipH = chipRect.height || chipH0;');
+  const r2 = broken !== MOD ? chipRectReads(broken) : { n: 0 };
+  chk(broken !== MOD && r2.n === 2, 'mutation test — 두 번 재던 옛 길이면 ' + r2.n + '번');
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

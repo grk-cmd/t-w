@@ -4,7 +4,7 @@ import { MIN_VERSIONS, type MinVersionKind } from '../model/minVersion';
 
 const queryKey = (kind: MinVersionKind) => ['minVersion', kind];
 
-/** 없으면 null(= 제한 없음). 앱 getMinRoomVer · app-version-gate.js 와 같게 문자열로 맞춘다. */
+/** 없으면 null(= 제한 없음). 앱 getMinRoomVer · update-flow.js 와 같게 문자열로 맞춘다. */
 export async function getMinVersion(db: Db, kind: MinVersionKind): Promise<string | null> {
   const v = await db.get<unknown>(MIN_VERSIONS[kind].path);
   return v == null ? null : String(v);

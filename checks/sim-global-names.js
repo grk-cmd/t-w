@@ -10,7 +10,7 @@
    ・1절: 파일을 다 읽었다 · 2절: 없는 이름 0 (원래부터 없던 것은 KNOWN 에 이유와 함께)
    ・2-2절: 옮기며 «읽는 함수»(name: ()=>name)로 바뀐 이름을 아직 값처럼 `typeof 이름 === 'number'` 로 보는 곳 0
      (늘 'function' 이라 늘 거짓 — 10-15: 커미션 코드 [＋] 칸 무시 · 날기 쿨다운이 방에 안 감)
-   ・3절: 일부러 깨 보기 */
+   ・3절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -219,9 +219,9 @@ function readerMisuse(srcs) {
 const RM = readerMisuse(SOURCES);
 chk(RM.length === 0, '읽는 함수로 바뀐 이름을 값처럼 typeof 로 보는 곳 0' + (RM.length ? ' — ' + RM.join(' · ') : ''));
 
-say('── 3. 일부러 깨 보기 — 없는 이름을 넣으면 잡는다');
+say('── 3. mutation test — 없는 이름을 넣으면 잡는다');
 {
-  const add = (code) => SOURCES.concat([['(깨 봄).js', code]]);
+  const add = (code) => SOURCES.concat([['(mutation).js', code]]);
   chk(judge(add('function f(){ if(typeof 없는전역이름X === "function") 없는전역이름X(); }')).missing.length === 2, 'typeof 가드 + 부름 — 둘 다 잡는다');
   chk(judge(add('function f(){ return window.없는전역이름Y && window.없는전역이름Y(); }')).missing.length === 2, 'window.이름 읽기를 잡는다');
   chk(judge(add('function f(a){ const b = 1; let { c } = a; try{}catch(e){ e; } return a + b + c; }')).missing.length === 0, '매개변수 · 지역 · 구조 분해 · catch 는 세지 않는다');

@@ -1,6 +1,6 @@
 /* seat-eq-clamp.js — 🪑 평준화 가두기 — 좌석 크기 평준화 중 «책상 위» 파츠를 자기 자리 안으로
    책임: 평준화가 켜졌을 때 좌석마다 «책상 위» 파츠 핀의 파츠를 옆 좌석으로 넘어가지 않게 자기 자리 반폭 안으로 미는 주기 작업 하나(_clampSeatDeskParts) — 500ms 마다 · 꺼지면 되돌림. 계산은 seat-slot.js(seatSlot.clampParts).
-   받는 deps: seats · 좌석 간격(SPACING · MULTIPLAYER_SPACING, 읽는 함수) · seatEqMod(평준화 깃발) · seatDeskHalfWidth · seatSlot(가두기 계산 — app.js 가 만든다, 읽는 함수) · DESK_PART_ANCHOR_NAME(파츠 핀 이름).
+   받는 deps: seats · 좌석 간격(SPACING · MULTIPLAYER_SPACING, 읽는 함수) · seatEqMod(평준화 깃발) · seatHalfWidth(좌석 반폭 — seat-layout.js) · seatSlot(가두기 계산 — app.js 가 만든다, 읽는 함수) · DESK_PART_ANCHOR_NAME(파츠 핀 이름).
    내보내는 것: _clampSeatDeskParts(now).
    app.js «📌 책상 위 파츠 앵커 · 책상 위치 · 배율» 구역 안의 평준화 가두기 몫을 그대로 옮겼다(desk-place 가 seat-equalize 를 모르게 — 순환 끊기 · wAC). 동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 3줄 —
@@ -17,12 +17,12 @@ function createSeatEqClamp(deps){
 const DESK_PART_ANCHOR_NAME = deps.DESK_PART_ANCHOR_NAME;
 const MULTIPLAYER_SPACING = deps.MULTIPLAYER_SPACING;   // 읽는 함수
 const SPACING = deps.SPACING;   // 읽는 함수
-const seatDeskHalfWidth = deps.seatDeskHalfWidth;
+const seatHalfWidth = deps.seatHalfWidth;   // 좌석 반폭 — 줄 배치(room/seat-layout.js)와 같은 규칙(책상 없음 · 몸 폭)
 const seatEqMod = deps.seatEqMod;
 const seatSlot = deps.seatSlot;   // 읽는 함수
 const seats = deps.seats;
 /* 🪑 좌석 크기 평준화를 켜면 «책상 위» 파츠가 옆 좌석으로 넘어가지 않게 자기 자리 안으로 민다(seat-slot.js 머리말).
-   자리 = 책상이 뻗은 거리(seatDeskHalfWidth) + 좌석 사이 여백(layoutSeats 와 같은 값)의 절반.
+   자리 = 좌석 반폭(seatHalfWidth — 줄 배치와 같은 값) + 좌석 사이 여백(layoutSeats 와 같은 값)의 절반.
    책상 · 파츠 박스를 재야 해서 매 프레임이 아니라 SEAT_SLOT_EVERY_MS 마다 — 평준화를 끄면 다음 차례에 되돌아간다. */
 const SEAT_SLOT_EVERY_MS = 500;
 let _seatSlotNext = 0;
@@ -40,7 +40,7 @@ function _clampSeatDeskParts(now){
       if(!parts.length) return;
       // 올라탄 좌석은 책상이 숨고 자리도 안 차지한다(layoutSeats) — 가두지 않는다
       const on = !!(seatEqMod.seatEqualizeOn() && !s.ridingOn && s.desk && s.desk.visible !== false);
-      const half = on ? seatDeskHalfWidth(s) + gap / 2 : 0;
+      const half = on ? seatHalfWidth(s) + gap / 2 : 0;
       seatSlot().clampParts(parts, s.group ? s.group.position.x : 0, half, on);
     }catch(e){ console.warn('[좌석 자리] 파츠 가두기 실패', e); }
   });

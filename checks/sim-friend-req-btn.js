@@ -6,7 +6,7 @@
    ・2절: refresh — 내 홈 · 미리보기 · 친구 · 보낸 요청 있음은 숨김 · 없음은 보임 · 확인 못 하면 숨김 · 늦은 답은 버림
    ・3절: 사유 창 — 이름은 글자로 · 100자 · [신청하기] 가 다듬은 사유로 보냄 · 성공이면 닫고 단추 숨김 · 실패는 E-FR-06 · Esc · [취소]
    ・4절: 연결 — html 단추 · 싣는 순서 · app.js 가 친구 홈 구경보다 먼저 만듦 · 관람 화면이 refresh 를 부름 · 받는 쪽 사유(textContent · escHtml) · 보내기에 msg · 규칙 msg ≤100
-   ・5절: 깨 보기 */
+   ・5절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -71,6 +71,7 @@ function load(src, o = {}){
     resultView: seatResultView(o.seat || SEAT),
     friendNet: () => o.noNet ? null : { isFriendRequestAlive: (to, me) => { log.alive.push([to, me]); if (o.aliveThrows) return Promise.reject(new Error('x')); return o.alivePromise || Promise.resolve(!!o.alive); } },
     friends: () => o.friends || {}, getMyUserId: () => 'me', toast: (m) => log.toasts.push(m),
+    reasonOn: () => !o.noReason,
   });
   return { T, mod, D, log };
 }
@@ -151,10 +152,15 @@ async function behave(src, seat){
     const newOne = !!ov3 && find(ov3, 'friend-req-ask-lead').children[0].textContent === '지수';
     await find(ov3, 'friend-req-ask-btns').children[0].onclick(); await flush();
     r.switchClose = goneOwn && goneOther && newOne && w.log.sends.length === 1 && w.log.sends[0][0] === 'u3';
+    /* 서버가 사유를 받기 전(reasonOn 꺼짐) — 사유 칸 없이 묻고 빈 사유로 보낸다 */
+    w = load(src, { alive: false, noReason: true }); await w.mod.refresh('u2', '민지'); w.D.btn.onclick();
+    { const o4 = find(w.D.win, 'friend-req-ask-ov'); const noTa = !!o4 && !find(o4, 'friend-req-ask-msg');
+      await find(o4, 'friend-req-ask-btns').children[0].onclick(); await flush();
+      r.noReason = noTa && w.log.sends.length === 1 && w.log.sends[0][2] === ''; }
   } catch (e) { r.err = e && e.message; }
   return r;
 }
-const KEYS = ['view', 'info', 'clean', 'show', 'hideOwn', 'hideSelf', 'hideFriend', 'hidePending', 'hideUnknown', 'dedupe', 'rename', 'becameFriend', 'stale', 'dialog', 'send', 'fail', 'errRes', 'throwFail', 'close', 'escCapture', 'switchClose'];
+const KEYS = ['view', 'info', 'clean', 'show', 'hideOwn', 'hideSelf', 'hideFriend', 'hidePending', 'hideUnknown', 'dedupe', 'rename', 'becameFriend', 'stale', 'dialog', 'send', 'fail', 'errRes', 'throwFail', 'close', 'escCapture', 'switchClose', 'noReason'];
 const allOk = (r) => !r.err && KEYS.every(k => r[k]);
 
 function wire(app, html, visit, fm, fbi, rules){
@@ -164,10 +170,10 @@ function wire(app, html, visit, fm, fbi, rules){
   const iS = H.indexOf('<script src="parts/myhome/seat-friend-req.js"></script>'), iB = H.indexOf('<script src="parts/myhome/friend-req-btn.js"></script>'), iA = H.indexOf('<script src="parts/app.js"></script>');
   o.order = iB > 0 && iA > iB && iS > 0;
   const iMk = A.indexOf('const friendReqBtnMod = TwFriendReqBtn.createFriendReqBtn({'), iV = A.indexOf('const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({');
-  o.make = iMk > 0 && iV > iMk && /sendFriendReq: \(\.\.\.a\)=>seatFriendReqMod\.sendFriendReq\(\.\.\.a\),/.test(A) && /resultView: \(\.\.\.a\)=>seatFriendReqMod\.resultView\(\.\.\.a\),/.test(A) && /friendNet: \(\)=>window\.firebaseAPI,/.test(A.slice(iMk, iV)) && /friendReqBtn: friendReqBtnMod,/.test(A.slice(iV));
+  o.make = iMk > 0 && iV > iMk && /sendFriendReq: \(\.\.\.a\)=>seatFriendReqMod\.sendFriendReq\(\.\.\.a\),/.test(A) && /resultView: \(\.\.\.a\)=>seatFriendReqMod\.resultView\(\.\.\.a\),/.test(A) && /friendNet: \(\)=>\(\{ isFriendRequestAlive: async \(toId, me\)=>\{ const s = await friendRequestsPortMod\.listSent\(me\); return !!\(s && s\[toId\]\); \} \}\),/.test(A.slice(iMk, iV)) && /friendReqBtn: friendReqBtnMod,/.test(A.slice(iV));
   o.visit = /friendReqBtn\.refresh\(realVisit \? _mhViewingUserId\(\) : null, realVisit \? _mhViewingDisplayName\(\) : null\);/.test(strip(visit));
   o.recv = /msg\.textContent = String\(req\.msg\);/.test(fm) && /escHtml\(String\(req\.msg\)\)/.test(fm);
-  o.send = /async sendFriendRequest\(fromId, toId, fromName, toName, toCode, msg\)\{/.test(fbi) && /msg \? \{ msg: String\(msg\)\.slice\(0,100\) \} : \{\}/.test(fbi);
+  o.send = /reasonOn: \(\)=>TwServerFeatures\.on\('friendReqMsg'\),/.test(A.slice(iMk, iV));   // 서버가 사유를 받을 때까지 사유 칸을 닫는다(shared/server-features.js)
   o.yield = escYieldList().includes('#myHomeOverlay.on .friend-req-ask-ov') && /ov\.className = 'friend-req-ask-ov app-popup-ov';/.test(MOD) && /document\.getElementById\('myHomeWin'\)/.test(MOD);
   let rmsg = null; try { rmsg = JSON.parse(rules).rules.friendRequests.$toId.$fromId.msg; } catch (_) {}
   o.rule = !!rmsg && rmsg['.validate'] === 'newData.isString() && newData.val().length <= 100';
@@ -194,6 +200,7 @@ function wire(app, html, visit, fm, fbi, rules){
   chk(R.fail && R.errRes && R.throwFail, '  실패(저장 실패 · 보내기 쪽 오류 · 던짐)는 E-FR-06(실제 오류를 넘김) · 창은 남고 단추를 다시 누를 수 있다');
   chk(R.close, '  Esc(마이홈까지 안 닫히게 멈춤 · 처리기도 뗌) · [취소]는 안 보내고 닫는다 · 두 번 눌러도 창 하나');
   chk(R.escCapture, '  Esc 는 document 캡처 하나로 받는다(창 안 버블로 받으면 win-stack 캡처가 먼저 마이홈을 닫는다)');
+  chk(R.noReason, '서버가 사유를 받기 전(reasonOn 꺼짐) — 사유 칸 없이 묻고 빈 사유로 보낸다');
   chk(R.switchClose, '  창을 연 채 내 홈 · 다른 사람으로 넘어가면 창이 닫히고, 새 사람 창이 그 사람 이름으로 열려 그 사람에게 보낸다');
 
   say('── 4. 연결');
@@ -203,11 +210,11 @@ function wire(app, html, visit, fm, fbi, rules){
   chk(W.make, 'app.js — 친구 홈 구경보다 먼저 만들고, 보내기 · 결과 문구는 seatFriendReqMod 의 한 벌 · 친구 홈 구경에 넘긴다');
   chk(W.visit, 'myhome-visit.js — 관람 화면을 칠할 때 refresh(관람 uid · 이름), 내 홈이면 null');
   chk(W.recv, 'friend-manage.js — 받은 요청 목록은 textContent · 👋 팝업은 escHtml 로 사유를 보인다');
-  chk(W.send, 'firebase-init.js — sendFriendRequest 여섯째 인자 msg 를 있을 때만 100자로 싣는다');
+  chk(W.send, 'app.js — 사유 칸은 서버 기능 표(friendReqMsg)로 연다 · 살아 있는 요청은 서버 보낸 요청 목록(listSent)으로 본다');
   chk(W.yield, 'win-stack — 사유 창(#myHomeOverlay.on .friend-req-ask-ov)이 열려 있으면 Esc 를 양보한다(마이홈을 먼저 닫지 않게)');
   chk(W.rule, '규칙 — friendRequests/$toId/$fromId/msg 는 문자열 · 100자 이하(없어도 됨)');
 
-  say('── 5. 깨 보기');
+  say('── 5. mutation test');
   const brk = async (from, to) => { const m = MOD.replace(from, to); return m === MOD ? null : await behave(m); };
   const b1 = await brk(' || (friends() || {})[viewUid]){', '){');
   chk(b1 && !allOk(b1), '친구여도 단추를 보이면 빨강');
@@ -215,8 +222,10 @@ function wire(app, html, visit, fm, fbi, rules){
   chk(b2 && !allOk(b2), '늦은 답을 안 버리면 빨강');
   const b3 = await brk("nm.textContent = name;", "nm.innerHTML = name;");
   chk(b3 && !allOk(b3), '이름을 innerHTML 로 넣으면 빨강');
-  const b4 = await brk("res = await sendFriendReq(uid, name, cleanReason(ta.value));", "res = await sendFriendReq(uid, name, ta.value);");
+  const b4 = await brk("res = await sendFriendReq(uid, name, withReason ? cleanReason(ta.value) : '');", "res = await sendFriendReq(uid, name, withReason ? ta.value : '');");
   chk(b4 && !allOk(b4), '사유를 다듬지 않고 보내면 빨강');
+  const b10 = await brk("  if(withReason) body.append(lead, ta, cnt); else body.append(lead);", "  body.append(lead, ta, cnt);");
+  chk(b10 && !allOk(b10), '서버가 사유를 받기 전에도 사유 칸을 보이면 빨강');
   const b8 = await brk("b.onclick = () => openDialog(viewUid, _name || '이 사람');", "b.onclick = () => openDialog(viewUid, name || '이 사람');");
   chk(b8 && !allOk(b8), '누를 때 처음 받은 이름을 쓰면(친구 님) 빨강');
   const b9 = await (async () => { const m = MOD.replace("if(!viewUid || !me || viewUid === me || (friends() || {})[viewUid]){", "if(!viewUid || !me || viewUid === me){")

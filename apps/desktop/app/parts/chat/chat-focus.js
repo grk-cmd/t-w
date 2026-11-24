@@ -123,6 +123,7 @@ function createChatFocus(deps){
   const sync = deps.sync;
   const todayKey = deps.todayKey;
   const notifyError = deps.notifyError;
+  const enabled = deps.enabled;   // 읽는 함수 — 서버가 방 집중 기록을 받는가(shared/server-features.js) · 아니면 탭 · 구독 모두 없다
   const changeFns = [];
   const onChange = (fn) => { changeFns.push(fn); };
   const changed = () => changeFns.forEach(f => f());
@@ -137,7 +138,7 @@ function createChatFocus(deps){
   let compactedFor = '';   // 같은 합치기를 두 번 보내지 않게(구독이 여러 번 와도)
 
   const $ = (id) => doc.getElementById(id);
-  const available = () => !!(roomState.isSecretCode(roomCode()) && roomCode());
+  const available = () => !!(enabled() && roomState.isSecretCode(roomCode()) && roomCode());
 
   function paint(){
     const win = $('chatWindow');
@@ -213,7 +214,7 @@ function createChatFocus(deps){
     const room = roomCode(), me = getMyUserId(); if(!room || !me) return;
     delAsk = false;
     const r = await provider.removeMine(room, me).catch(() => null);
-    if(!(r && r.ok)) notifyError('E-CHAT-02');
+    if(!(r && r.ok)) notifyError('E-CHAT-07');
     else{ sync.forgetName(room); toast('내 집중 기록을 지웠어요'); }
     paint();
   }

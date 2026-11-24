@@ -6,7 +6,7 @@
    ・2절: 서버 모듈 + 규칙 — 누르기 · 두 번째는 막힘 · 내 것 · 동시에 누름 다시 하기 · 남이 count 만 올리기 · 남의 이름으로 누르기 · 지우기 · 읽기 권한
    ・3절: 서랍 화면 — 수만 · 열고 닫기(Esc · 바깥) · 보냈어요로 잠김 · 같은 프리셋은 다시 안 읽음 · 닫힌 창은 안 읽음 · 실패 안내
    ・4절: 연결 — html 순서 · app.js · firebase-init.js · 에러 번호
-   ・5절: 일부러 깨 보기 */
+   ・5절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -173,7 +173,7 @@ async function judge(src){
     const sdk = sdkFor(S3, 'authA'); const g0 = sdk.get; sdk.get = async (x) => { reads++; return g0(x); };
     const net3 = L.createPlaylistLikeNet(sdk);
     S3.apply({ 'playlistLikes/uOOOOOOOO0/1/count': 1, 'playlistLikes/uOOOOOOOO0/1/last': 'authB', 'playlistLikes/uOOOOOOOO0/1/by/authB': true }, 'authB');
-    const ui = U.createPlaylistLikeUi({ likeRules: L, net: () => net3, getMyUserId: () => 'uAAAAAAAA1', notifyError: (c, e) => errs.push(c) });
+    const ui = U.createPlaylistLikeUi({ likeRules: L, net: () => net3, getMyUserId: () => 'uAAAAAAAA1', notifyError: (c, e) => errs.push(c), enabled: () => true });
     const $ = D.byId;
     ui.render(null);
     r.closedNoRead = reads === 0 && $.myPlLikeRow.style.display === 'none';
@@ -199,11 +199,11 @@ async function judge(src){
     D.doc.fire('keydown', { key: 'Escape', target: {} });
     r.escYield = r.escYield && winClosed === 1;   // 서랍이 닫혀 있으면 Esc 는 예전처럼 창을 닫는다
     await flush(); await flush();
-    const bad = U.createPlaylistLikeUi({ likeRules: L, net: () => ({ read: async () => ({ count: 0, mine: false }), like: async () => ({ ok: false, reason: 'fail' }) }), getMyUserId: () => 'uAAAAAAAA1', notifyError: (c) => errs.push(c) });
+    const bad = U.createPlaylistLikeUi({ likeRules: L, net: () => ({ read: async () => ({ count: 0, mine: false }), like: async () => ({ ok: false, reason: 'fail' }) }), getMyUserId: () => 'uAAAAAAAA1', notifyError: (c) => errs.push(c), enabled: () => true });
     bad.render({ ro: true, ownerId: 'uOOOOOOOO0', setIdx: 0 }); await flush(); await flush();
     D.click('myPlLikeBtn'); await flush(); await flush();
     r.err = errs.join() === 'E-SYS-04';
-    const gone = U.createPlaylistLikeUi({ likeRules: L, net: () => ({ read: async () => null, like: async () => ({ ok: true }) }), getMyUserId: () => 'uAAAAAAAA1', notifyError: () => {} });
+    const gone = U.createPlaylistLikeUi({ likeRules: L, net: () => ({ read: async () => null, like: async () => ({ ok: true }) }), getMyUserId: () => 'uAAAAAAAA1', notifyError: () => {}, enabled: () => true });
     gone.render({ ro: false, ownerId: 'uAAAAAAAA1', setIdx: 0 }); await flush(); await flush();
     r.failRow = $.myPlLikeRow.style.display === 'none';   // 내 수를 못 읽으면 줄을 숨긴다(0 으로 그리지 않는다)
   } catch (e) { r.err0 = e && (e.stack || e.message); }
@@ -220,9 +220,10 @@ function wire(S){
     && H.indexOf('id="myPlLikeDrawer"') > H.indexOf('<div id="myPlaylistBox"') && H.indexOf('id="myPlLikeDrawer"') < H.indexOf('id="myPlSetBar"') && !/익명/.test(H.slice(H.indexOf('id="myPlLikeDrawer"'), H.indexOf('id="myPlSetBar"'))),
     '  반응 줄은 소개칸 안 · 서랍은 플레이리스트 창의 자식(끌면 따라온다) · 익명 체크 없음');
   w(/#myPlaylistBox\.mini #myPlLikeRow,#myPlaylistBox\.mini #myPlLikeDrawer\{display:none !important;\}/.test(S.html) && /\.plLikeDrawer\.left\{left:auto;right:calc\(100% \+ 4px\);\}/.test(S.html), '  접으면 숨김 · 자리가 없으면 왼쪽');
-  w(/const plLikeUi = TwPlaylistLikeUi\.createPlaylistLikeUi\(\{ likeRules: TwPlaylistLike, net: \(\)=>firebaseAPI\.playlistLike,/.test(S.app) && S.app.indexOf('const plLikeUi = ') < S.app.indexOf('const plMod = TwPlaylist.createPlaylist(') && /\n  playlistLikeUi: plLikeUi,\n\}\);/.test(S.app),
-    'app.js — 반응 칸을 플레이리스트보다 먼저 만들어 넘긴다 · 서버는 firebaseAPI.playlistLike(부를 때 찾는다)');
-  w(/playlistLike: window\.TwPlaylistLike\.createPlaylistLikeNet\(\{ db, ref, get, update, authUid: \(\) => \(auth && auth\.currentUser\) \? auth\.currentUser\.uid : null \}\)/.test(S.fi), 'firebase-init.js — 연결 한 줄(로그인 uid 를 넘긴다 · 버그 게시판과 같은 길)');
+  w(/const plLikeUi = TwPlaylistLikeUi\.createPlaylistLikeUi\(\{ likeRules: TwPlaylistLike, net: \(\)=>TwServerFeatures\.noServer\('playlistLike'\),/.test(S.app) && S.app.indexOf('const plLikeUi = ') < S.app.indexOf('const plMod = TwPlaylist.createPlaylist(') && /\n  playlistLikeUi: plLikeUi,\n\}\);/.test(S.app),
+    'app.js — 반응 칸을 플레이리스트보다 먼저 만들어 넘긴다 · 서버 경로가 생길 때까지 net 은 TwServerFeatures.noServer(#1100)');
+  /* 0.13 은 Firebase DB 쓰기를 잠갔다 — 서버 길이 생길 때까지 firebase-init 에 반응 통로를 잇지 않고 서버 기능 표로 입구를 닫는다(shared/server-features.js) */
+  w(!/createPlaylistLikeNet/.test(S.fi) && /enabled: \(\)=>TwServerFeatures\.on\('playlistLike'\)/.test(S.app), 'firebase-init.js 에 반응 통로가 없고(0.13) · app.js 가 서버 기능 표로 입구를 닫는다');
   w(/'E-SYS-04': \{ msg: '[^']+', where: 'status\/playlist-like-ui\.js/.test(S.codes), '에러 번호 E-SYS-04 가 표에 있다');
   w(!/firebaseAPI|document\.|window\.(?!TwPlaylistLike)/.test(S.mod.replace(/\/\*[\s\S]*?\*\//g, '').replace(/if\(typeof window[^\n]*\n/, '')), 'playlist-like.js 는 DOM · firebaseAPI 를 모른다(규칙 · provider 만)');
   return out;
@@ -259,7 +260,7 @@ function wire(S){
   say('── 4. 연결');
   wire(SRC).forEach(([ok, m]) => chk(ok, m));
 
-  say('── 5. 일부러 깨 보기');
+  say('── 5. mutation test');
   const R0 = JSON.parse(SRC.rules);
   const brk = async (label, patch, pick) => {
     const s = Object.assign({}, SRC, patch);

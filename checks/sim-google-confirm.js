@@ -4,7 +4,7 @@
    ・3절: ask — 가린 주소 · 친구 코드(넘긴 것 > 이 PC 것 > —) · 세 버튼 · ESC · 기본 포커스 [다른 계정으로 로그인] · 겹쳐 열면 앞의 것은 취소 · 창이 없으면 취소
    ・4절: pickForLink — [다른 구글 고르기]면 구글 창을 다시 연다 · 닫으면 취소 · 창이 실패하면 그 이유
    ・5절: 연결 — html(창 · z 층 · 스크립트 차례) · smoke PRELOAD · app.js 가 만들어 초대 게이트 · 계정에 넘긴다 · 묻는 세 길(로그인 · 구글 가입 · 연결하기 둘)
-   ・6절: 일부러 깨 보기
+   ・6절: mutation test
    (로그인 · 가입이 «묻고 · 아니면 묶지 않는» 것은 sim-google-login §3-3 이 돌려 본다)
    [실행] node checks/run.js sim-google-confirm */
 'use strict';
@@ -36,7 +36,7 @@ function fakeDom(withOverlay){
   return { els, doc, keys, press: (key) => keys.slice().forEach(f => f({ key, stopPropagation(){} })) };
 }
 const tick = () => new Promise(r => setImmediate(r));
-/* 끝나지 않는 약속(깨 보기에서 ESC 를 안 들으면 등)은 '시간초과' 로 — 안 그러면 할 일이 없어진 node 가 조용히 0 으로 끝난다 */
+/* 끝나지 않는 약속(mutation test에서 ESC 를 안 들으면 등)은 '시간초과' 로 — 안 그러면 할 일이 없어진 node 가 조용히 0 으로 끝난다 */
 const within = (p) => Promise.race([p, new Promise(r => setTimeout(() => r('시간초과'), 300))]);
 const jwt = (o) => 'h.' + Buffer.from(JSON.stringify(o), 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') + '.s';
 
@@ -57,7 +57,7 @@ async function judgeAll(src){
   const D = fakeDom();
   globalThis.document = D.doc;
   let pc = 'MATE-JNY9';
-  const mod = G.createGoogleConfirm({ friendCode: () => pc, signInWithGoogle: async () => ({ ok: false }) });
+  const mod = G.createGoogleConfirm({ storage: { getItem: (k) => (k === 'tw.myFriendCode' ? pc : null) }, friendCodeKey: 'tw.myFriendCode', signInWithGoogle: async () => ({ ok: false }) });
   let p = mod.ask('minty.work@gmail.com', 'bind');
   await new Promise(r => setTimeout(r, 5));   // 포커스는 setTimeout 0 뒤에 간다
   const e = D.els;
@@ -86,12 +86,12 @@ async function judgeAll(src){
   t(e.gcCode.textContent === '—' && e.gcMail.textContent === '(주소 모름)', '3   코드 · 주소가 없으면 — · (주소 모름)');
   e.gcClose.onclick(); await within(p);
   const D0 = fakeDom(false); globalThis.document = D0.doc;
-  t(await within(G.createGoogleConfirm({ friendCode: () => null, signInWithGoogle: async () => ({}) }).ask('a@b.c', 'bind')) === 'cancel', '3   창이 없으면 cancel(묶지 않는다)');
+  t(await within(G.createGoogleConfirm({ storage: { getItem: (k) => (k === 'tw.myFriendCode' ? null : null) }, friendCodeKey: 'tw.myFriendCode', signInWithGoogle: async () => ({}) }).ask('a@b.c', 'bind')) === 'cancel', '3   창이 없으면 cancel(묶지 않는다)');
   /* 4 */
   globalThis.document = D.doc;
   const runPick = async (results, answers) => {
     let opened = 0;
-    const m = G.createGoogleConfirm({ friendCode: () => 'MATE-N2PV', signInWithGoogle: async () => { const g = results[Math.min(opened, results.length - 1)]; opened++; return g; } });
+    const m = G.createGoogleConfirm({ storage: { getItem: (k) => (k === 'tw.myFriendCode' ? 'MATE-N2PV' : null) }, friendCodeKey: 'tw.myFriendCode', signInWithGoogle: async () => { const g = results[Math.min(opened, results.length - 1)]; opened++; return g; } });
     const pr = m.pickForLink();
     for(const a of answers){ await tick(); if(a === 'yes') e.gcYes.onclick(); else if(a === 'other') e.gcOther.onclick(); else e.gcClose.onclick(); }
     const res = await within(pr);
@@ -106,7 +106,7 @@ async function judgeAll(src){
   x = await runPick([{ ok: false }], []);
   t(!x.res.ok && x.res.canceled, '4   구글 창을 그냥 닫으면 취소');
   /* 5 🔁 구글 바꾸기 — 지금 구글 확인 · 새 구글 고르기 */
-  const mkPick = (results) => { let n = 0; return { n: () => n, m: G.createGoogleConfirm({ friendCode: () => 'MATE-N2PV', signInWithGoogle: async () => { const g = results[Math.min(n, results.length - 1)]; n++; return g; } }) }; };
+  const mkPick = (results) => { let n = 0; return { n: () => n, m: G.createGoogleConfirm({ storage: { getItem: (k) => (k === 'tw.myFriendCode' ? 'MATE-N2PV' : null) }, friendCodeKey: 'tw.myFriendCode', signInWithGoogle: async () => { const g = results[Math.min(n, results.length - 1)]; n++; return g; } }) }; };
   let P = mkPick([{ ok: true, idToken: jwt({ email: 'Minty@Gmail.com' }) }]);
   let q = await within(P.m.pickCurrent('minty@gmail.com'));
   t(q.ok && q.idToken && P.n() === 1, '5 ★ 지금 구글 확인 — 같은 주소(대소문자 무시)면 통과');
@@ -154,7 +154,7 @@ process.on('exit', () => { if(!finished){ console.log('  ✗ 끝까지 못 돌�
   chk(['gcTitle', 'gcMail', 'gcLead', 'gcCode', 'gcCard', 'gcWarn', 'gcFresh', 'gcOther', 'gcYes', 'gcClose'].every(i => ov.includes('id="' + i + '"')), 'html — 창 #gConfirmOverlay 와 칸 열');
   try{
     const Z = require('./sim-z-layers.js'), T = Z.parseTable(HTML), m = /z-index:([^;]+);/.exec(ov), v = Z.resolveZ(HTML, m && m[1]);
-    chk(v != null && v > T['--z-gate-done'] && v > T['--z-gate-signup'] && v > T['--z-gate-invite'], 'html — 게이트 · 가입 완료보다 위(그 위에서 뜬다)');
+    chk(v != null && v > T['--z-gate-done'] && (T['--z-gate-signup'] == null || v > T['--z-gate-signup']) && v > T['--z-gate-invite'], 'html — 게이트 · 가입 완료보다 위(그 위에서 뜬다 · 0.13 은 가입 게이트가 없다)');
   }catch(e){ chk(false, 'z 층 표를 못 읽음 — ' + String(e.message || e).slice(0, 60)); }
   const iG = HTML.indexOf('<script src="parts/account/google-confirm.js">'), iL = HTML.indexOf('<script src="parts/account/license-gate.js">'), iA = HTML.indexOf('<script src="parts/app.js">');
   chk(iG > 0 && iG < iL && iG < iA, 'html — 초대 게이트 · app.js 보다 먼저 싣는다');
@@ -166,16 +166,17 @@ process.on('exit', () => { if(!finished){ console.log('  ✗ 끝까지 못 돌�
   const iMk = A.indexOf('const googleConfirmMod = TwGoogleConfirm.createGoogleConfirm(');
   chk(iMk > 0 && iMk < A.indexOf('const licenseGateMod = TwLicenseGate.createLicenseGate(') && iMk < A.indexOf('const accountMod = TwAccount.createAccount('), 'app.js — 초대 게이트 · 계정보다 먼저 만든다');
   chk(/const licenseGateMod = TwLicenseGate\.createLicenseGate\(\{\n  googleConfirmMod: googleConfirmMod,/.test(SRC) && /const accountMod = TwAccount\.createAccount\(\{\n  googleConfirmMod: googleConfirmMod,/.test(SRC), 'app.js — 초대 게이트 · 계정에 deps 로 넘긴다');
-  chk(/authSignInWithGoogle\(g\.idToken, offer, \(email\)=>googleConfirmMod\.ask\(email, 'bind'\)\)/.test(MOD_ACC) && /r\.declined === 'other'\) return _loginDoGoogle\(\)/.test(MOD_ACC), '★ 로그인(내 정보 · 게이트 H · K) — 묻는 함수를 넘기고 [다른 계정]이면 다시');
-  chk(/authSignInWithGoogle\(g\.idToken, p\.uid, \(email\)=>googleConfirmMod\.ask\(email, 'signup', p\.code\)\)/.test(MOD_LG) && /r\.declined === 'other'\) return _signupDoGoogle\(\)/.test(MOD_LG), '★ 구글로 가입 — 새 아이디를 보이고 묻는다');
+  /* 0.13 은 로그인 · 가입이 서버 흐름(account/login-flow.js — GET /v2/me)이라 «처음 보는 구글 묻기» 는 합치며 빠졌다 — 서버가 받을 때 배선부터 다시 건다(#1101).
+     연결하기(pickForLink)는 Firebase Auth link 를 그대로 써서 지금도 묻는다(아래 줄). */
+  chk(!/googleConfirmMod\.ask\(/.test(strip(MOD_ACC) + strip(MOD_LG)), '★ 로그인 · 가입 때 묻기는 아직 걸지 않는다(합치며 빠짐 — 서버가 받을 때 다시 건다 · #1101)');
   const linkSites = (MOD_ACC.match(/googleConfirmMod\.pickForLink\(\)/g) || []).length + (MOD_LG.match(/googleConfirmMod\.pickForLink\(\)/g) || []).length;
   const rawSites = (strip(MOD_ACC).match(/companion\.signInWithGoogle\(\)/g) || []).length + (strip(MOD_LG).match(/companion\.signInWithGoogle\(\)/g) || []).length;
   chk(linkSites === 2, '★ 구글 [연결하기](내 정보) · [구글도 연결하기](가입 완료) 둘 다 묻는 창을 거친다');
-  chk(rawSites === 3, '  구글 창을 직접 여는 곳은 로그인 · 가입 · 비밀번호 만들기 재확인 셋뿐(연결하기는 pickForLink 안에서) — 지금 ' + rawSites);
+  chk(rawSites === 1, '  계정 · 게이트가 구글 창을 직접 여는 곳은 비밀번호 만들기 재확인 하나뿐(로그인 · 가입은 login-flow.js · 연결하기는 pickForLink 안에서) — 지금 ' + rawSites);
 
   const ACC = strip(MOD_ACC);
   const fl = (ACC.match(/async function _acctChangeGoogle\([\s\S]*?\n\}/) || [''])[0];
-  const iC = fl.indexOf('googleConfirmMod.pickCurrent(from)'), iN = fl.indexOf('googleConfirmMod.pickForChange(from)'), iX = fl.indexOf('firebaseAPI.authChangeGoogle(cur.idToken, nw.idToken)');
+  const iC = fl.indexOf('googleConfirmMod.pickCurrent(from)'), iN = fl.indexOf('googleConfirmMod.pickForChange(from)'), iX = fl.indexOf("TwServerFeatures.noServer('googleChange').change(cur.idToken, nw.idToken)");
   chk(iC > 0 && iC < iN && iN < iX, '★ 🔁 구글 바꾸기 — 지금 구글 확인 → 새 구글 고르기 · 묻기 → 바꾸기 차례(account.js _acctChangeGoogle)');
   chk(/if\(m\.mode !== 'c2'\)\{ sayG\('구글을 바꾸려면 먼저 비밀번호를 만들어 주세요'/.test(ACC), '  비밀번호가 없는 계정(C3)은 [바꾸기]에서 막는다(서버 모듈도 한 번 더 막는다 — sim-google-change)');
   say('── 5-2. 🔁 구글 바꾸기 흐름(account.js _acctChangeGoogle)을 떼어 돌린다');
@@ -192,7 +193,9 @@ process.on('exit', () => { if(!finished){ console.log('  ✗ 끝까지 못 돌�
       const gcm = { maskEmail: G0.maskEmail, sameEmail: (a, b) => !!a && !!b && String(a).trim().toLowerCase() === String(b).trim().toLowerCase(),
         pickCurrent: async () => (o.cur || { ok:true, idToken:'OLD' }), pickForChange: async () => (o.nw || { ok:true, idToken:'NEW', email:'new@x.com' }) };
       const fapi = { authChangeGoogle: async (a, b) => { calls.push(a + '>' + b); if(o.throws) throw new Error('x'); return o.res || { ok:true, email:'new@x.com' }; } };
-      const f = new Function('window', 'firebaseAPI', 'localStorage', 'googleConfirmMod', 'LOGIN_EMAIL_KEY', fsrc + '\nreturn _acctChangeGoogle;')({ firebaseAPI: fapi }, fapi, ls, gcm, 'tw.loginEmail');
+      /* 서버 경로가 생긴 뒤(#1101)를 흉내 — 표를 켜고 provider 자리에 가짜 바꾸기를 둔다 */
+      const sf = { on: (n) => n === 'googleChange', noServer: () => ({ change: fapi.authChangeGoogle }) };
+      const f = new Function('window', 'TwServerFeatures', 'localStorage', 'googleConfirmMod', 'LOGIN_EMAIL_KEY', fsrc + '\nreturn _acctChangeGoogle;')({ TwServerFeatures: sf }, sf, ls, gcm, 'tw.loginEmail');
       const res = await f('old@x.com', () => {});
       return { res, calls, login: st['tw.loginEmail'] };
     };
@@ -218,10 +221,10 @@ process.on('exit', () => { if(!finished){ console.log('  ✗ 끝까지 못 돌�
   ]){
     const a2 = MOD_ACC.replace(a, b);
     let rows; try{ rows = await judgeFlow(a2); }catch(_){ rows = [[false, '던짐']]; }
-    chk(a2 !== MOD_ACC && rows.some(([ok]) => !ok), '깨 보기 — ' + name + (a2 !== MOD_ACC ? '' : ' — 바꿀 글을 못 찾음'));
+    chk(a2 !== MOD_ACC && rows.some(([ok]) => !ok), 'mutation test — ' + name + (a2 !== MOD_ACC ? '' : ' — 바꿀 글을 못 찾음'));
   }
 
-  say('── 6. 일부러 깨 보기');
+  say('── 6. mutation test');
   for(const [name, a, b] of [
     ['주소를 안 가림', "  return local.slice(0, keep) + '***@' + domain;", "  return s;"],
     ['기본 포커스가 [연결]', "setTimeout(()=>{ if(other) other.focus(); }, 0);", "setTimeout(()=>{ if(yes) yes.focus(); }, 0);"],
@@ -236,7 +239,7 @@ process.on('exit', () => { if(!finished){ console.log('  ✗ 끝까지 못 돌�
   ]){
     const m2 = MOD.replace(a, b);
     let rows; try{ rows = await judgeAll(m2); }catch(_){ rows = [[false, '던짐']]; }
-    chk(m2 !== MOD && rows.some(([ok]) => !ok), '깨 보기 — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+    chk(m2 !== MOD && rows.some(([ok]) => !ok), 'mutation test — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
   }
 
   finished = true;

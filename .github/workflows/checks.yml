@@ -53,8 +53,8 @@ jobs:
           grep -qE '^\.github/' <<< "$files" && all '.github 바뀜'
           # 웹 관리자 — 자기 폴더 · 규칙 파일(테스트가 읽는다)
           if grep -qE '^(apps/admin/|firebase/firebase-database-rules\.json$)' <<< "$files"; then echo admin=true >> "$GITHUB_OUTPUT"; else echo admin=false >> "$GITHUB_OUTPUT"; fi
-          # 캐릭터 코어 — 자기 폴더 · 앱에 둔 빌드 사본 · 루트 의존성(lock)
-          if grep -qE '^(packages/char-core/|apps/desktop/app/vendor/char-core/|package(-lock)?\.json$)' <<< "$files"; then echo core=true >> "$GITHUB_OUTPUT"; else echo core=false >> "$GITHUB_OUTPUT"; fi
+          # 캐릭터 코어 — 자기 폴더 · 앱에 둔 빌드 사본 · 시험이 읽는 기본 몸 GLB · 루트 의존성(lock)
+          if grep -qE '^(packages/char-core/|apps/desktop/app/vendor/char-core/|apps/desktop/app/parts/base-glb\.js$|package(-lock)?\.json$)' <<< "$files"; then echo core=true >> "$GITHUB_OUTPUT"; else echo core=false >> "$GITHUB_OUTPUT"; fi
           # 메인 홈페이지 — 자기 폴더 · 쓰는 캐릭터 코어 · 빌드 때 꺼내 쓰는 앱 몸 · 피부 원본 · Hosting 설정(시험이 읽는다) · 루트 의존성(lock) · 디자인 토큰 원본 · 변환기
           if grep -qE '^(apps/web/|packages/char-core/|apps/desktop/app/parts/(base-glb|skin-data)\.js$|firebase/(firebase\.json|\.firebaserc)$|package(-lock)?\.json$|docs/design-system/project/tokens\.json$|scripts/build-design-tokens\.js$)' <<< "$files"; then echo web=true >> "$GITHUB_OUTPUT"; else echo web=false >> "$GITHUB_OUTPUT"; fi
           # 앱 검사 — 아래 «건너뛰어도 되는 파일» 만 바뀌었으면 false.
@@ -90,8 +90,31 @@ jobs:
         with:
           python-version: '3.12'
 
-      # sim-global-names.js 의 파서 — package-lock 과 같은 판 · 네이티브 없음 · 저장 안 함
+      # sim-global-names.js 의 파서(typescript) · sim-lint.js 의 ESLint — package-lock 과 같은 판 · 네이티브 없음 · 저장 안 함
       # 내려받다 네트워크가 한 번 끊겨도(ECONNRESET) 검사 전체가 빨강이 되지 않게 세 번까지 다시 해 본다
+      - run: |
+          for i in 1 2 3; do
+            npm install --no-save --ignore-scripts --no-package-lock --fetch-retries=5 typescript@5.9.3 eslint@9.39.5 && exit 0
+            echo "typescript · eslint 설치 실패 — ${i}번째, 10초 뒤 다시"; sleep 10
+          done
+          exit 1
+
+      - name: 검사 실행
+        run: node checks/run.js
+
+  text:
+    # 저장소 전체 글 검사 — 문서만 바뀐 PR 에도 돈다(«바뀐 폴더» 가 앱 검사를 건너뛰어도 비밀값 · 용어는 봐야 한다).
+    name: 글 검사(비밀값 · 용어 · 바깥 주소)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          check-latest: true
+
       - run: |
           for i in 1 2 3; do
             npm install --no-save --ignore-scripts --no-package-lock --fetch-retries=5 typescript@5.9.3 && exit 0
@@ -100,7 +123,12 @@ jobs:
           exit 1
 
       - name: 검사 실행
-        run: node checks/run.js
+        run: |
+          rc=0
+          for s in sim-public-secrets sim-coined-terms sim-app-hosts; do
+            echo "── $s"; node "checks/$s.js" || rc=1
+          done
+          exit $rc
 
   web-admin:
     name: 웹 관리자 테스트 · 빌드

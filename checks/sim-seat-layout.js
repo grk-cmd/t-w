@@ -4,7 +4,7 @@
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(layoutSeatRow)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 16줄 그대로 · 부르는 곳은 seatLayoutMod.이름 · html(app.js 앞)
    ・4절: 동작 — 순수 판정 · 가짜 객체로 입력 → 출력 · 경계값(옮기기 전 app.js 글로도 같은 판정이 돈다)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · seat-layout.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -14,15 +14,16 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const SRC = read('app.js'), HTML = read('desk-companion-prototype.html');
 if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
+const SEATS = ["seats.js","parts/room/seats.js","app/parts/room/seats.js"].map(read).find(Boolean);
 const MOD = ["seat-layout.js","parts/room/seat-layout.js","app/parts/room/seat-layout.js"].map(read).find(Boolean);
-if(!MOD){ say('  ? 원본 못 찾음 — seat-layout.js'); process.exit(2); }
+if(!MOD || !SEATS){ say('  ? 원본 못 찾음 — seat-layout.js · seats.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["_rideBottom","clampDeskPan","renderSeatTabs","seatDeskHalfWidth","measureCharBox","syncSeatEqualize"];
 const VAL_DEPS = ["seats"];
 const GET_DEPS = ["MULTIPLAYER_SPACING","SPACING","deskPanX","deskPanY","roomSeatMode","seatCameraMod"];
 const SET_DEPS = ["deskPanX","deskPanY"];
-const EXPORTS = ["layoutSeatRow"];
+const EXPORTS = ["layoutSeatRow","layoutAndNotify","onLaidOut","seatHalfWidth","slotIndexAt"];
 const MOVED = ["layoutSeatRow"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,","  SPACING: ()=>SPACING,","  _rideBottom: (...a)=>_rideBottom(...a),","  clampDeskPan: (...a)=>clampDeskPan(...a),","  deskPanX: ()=>deskPanX,","  deskPanY: ()=>deskPanY,","  renderSeatTabs: (...a)=>renderSeatTabs(...a),","  roomSeatMode: ()=>roomSeatMode,","  seatCameraMod: ()=>seatCameraMod,","  seatDeskHalfWidth: (...a)=>seatDeskHalfWidth(...a),","  measureCharBox: (...a)=>measureCharBox(...a),","  seats: seats,","  syncSeatEqualize: (...a)=>syncSeatEqualize(...a),","  setCachedRowCenter: (v)=>{ _cachedRowCenter = v; },","  setCachedRowSpan: (v)=>{ _cachedRowSpan = v; },","  setDeskPanX: (v)=>{ deskPanX = v; },","  setDeskPanY: (v)=>{ deskPanY = v; },"];
 
@@ -66,7 +67,8 @@ function judgeAll(mod, app, html){
   const want = GLUE.map(kindOf), got = (mk ? mk.split('\n') : []).map(kindOf);   // deps 가 하나도 없으면 «({\n});»
   t(got.length === want.length && want.every((k, i) => got[i] === k), 'deps ' + GLUE.length + '개 — 키 · 넘기는 방식 그대로(함수 ' + FN_DEPS.length + ' · 값 ' + VAL_DEPS.length + ' · 읽는 함수 ' + GET_DEPS.length + ' · 쓰는 함수 ' + SET_DEPS.length + ')');
   /* 같은 이름의 딴 지역 변수가 app.js 에 따로 있는 이름(예: 함수 안 let)은 이 판정에서 뺀다 — 설정 localSame */
-  const bare = EXPORTS.filter(n => ![].includes(n)).filter(n => new RegExp('(^|[^.\\w$])' + n.replace(/\$/g, '\\$') + '\\b(?!\\s*:[^:]|\\(\\)\\{\\})').test(A.replace(/const seatLayoutMod = [\s\S]*?\n\}\);/, '').replace(/'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"/g, "''")));   // 따옴표 글자 안의 이름(안내 문구)은 부르는 곳이 아니다
+  const bare = EXPORTS
+  .filter(n => new RegExp('(^|[^.\\w$])' + n.replace(/\$/g, '\\$') + '\\b(?!\\s*:[^:]|\\(\\)\\{\\})').test(A.replace(/const seatLayoutMod = [\s\S]*?\n\}\);/, '').replace(/'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"/g, "''")));   // 따옴표 글자 안의 이름(안내 문구)은 부르는 곳이 아니다
   t(!bare.length, '부르는 곳은 seatLayoutMod.이름 — 옛 이름 그대로 부르는 자리 없음' + (bare.length ? ' — ' + bare.join(' · ') : ''));
   const iM = html.indexOf('<script src="parts/room/seat-layout.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iM > 0 && iA > iM, 'html — parts/room/seat-layout.js 를 app.js 보다 먼저 싣는다');
@@ -75,7 +77,7 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/room/seat-layout.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
@@ -85,7 +87,7 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const seatLayoutMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('seatLayoutMod.' + x)); if(n){ ls[i] = ls[i].replace('seatLayoutMod.' + n, n); return ls.join('\n'); } } return a + '\n' + EXPORTS[0] + '(true);'; }, null],   // app.js 에 부르는 자리가 없으면(다른 모듈만 부른다) 옛 이름 부름을 끼워 본다
-  ['만들 때 던짐', m => m.replace('function createSeatLayout(deps){', 'function createSeatLayout(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createSeatLayout(deps){', 'function createSeatLayout(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
@@ -100,29 +102,33 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
   function runLayout(seats, o){
     const log = [];
     const V = {
-      seats, roomSeatMode: o.mode || 'row', deskPanX: o.panX || 0, deskPanY: o.panY || 0, MULTIPLAYER_SPACING: 0.15, SPACING: 0.4,
+      seats, roomSeatMode: o.mode || 'row', deskPanX: o.panX || 0, deskPanY: o.panY || 0, MULTIPLAYER_SPACING: 0.15, SPACING: o.spacing !== undefined ? o.spacing : 0.4,
       _cachedRowCenter: 0, _cachedRowSpan: 1.2,
       syncSeatEqualize: () => log.push('sync'),
       renderSeatTabs: () => log.push('tabs'),
       clampDeskPan: (x, y) => { log.push('clamp'); return { x: Math.max(-0.2, Math.min(0.2, x)), y: Math.max(-0.1, Math.min(0.1, y)) }; },
-      seatDeskHalfWidth: (s, forZoom) => forZoom ? Math.min(s.hw, CAP) : s.hw,
+      seatDeskHalfWidth: (s, forZoom) => { V._dc = (V._dc || 0) + 1; return forZoom ? Math.min(s.hw, CAP) : s.hw; },
       rideBenchMod: { _rideBottom: (s) => { let b = s; while(b.ridingOn) b = b.ridingOn; return b; } },
       seatCameraMod: { applyCameraAndCanvas: (c, w) => log.push(['cam', +c.toFixed(6), +w.toFixed(6)]) },
     };
     const W = { TwSeatPin: { pinFirst: (ss, mode) => { log.push('pin:' + mode); if(mode !== 'right') return false; const i = ss.findIndex(s => s.isMe); if(i <= 0) return false; const [m] = ss.splice(i, 1); ss.unshift(m); return true; } } };
     const st = {};
+    let modApi = null;
     if(typeof MOD === 'string' && MOD){
       const deps = {};
       deps.seats = V.seats; deps._rideBottom = V.rideBenchMod._rideBottom;
       for(const k of ['syncSeatEqualize', 'renderSeatTabs', 'clampDeskPan', 'seatDeskHalfWidth']) deps[k] = V[k];
       /* 몸 박스 — 좌석의 gltfRoot.bw(몸 반폭)로 만든 가짜. gltfRoot 없는 좌석은 0(지금까지의 판정이 그대로 돈다) */
-      deps.measureCharBox = (root) => ({ isEmpty: () => !(root && root.bw > 0), min: { x: -(root.bw || 0) }, max: { x: (root.bw || 0) } });
+      /* rig 가 옮겨져(날아가기 · 끌기) 있으면 박스도 그만큼 옮겨지고, 기울어 있으면 그만큼 넓어진다 — 재는 순간의 자세를 읽는다 */
+      deps.measureCharBox = (root) => { const rg = root && root.rig, off = rg ? rg.position.x : 0, ex = rg ? Math.abs(rg.rotation.z) : 0;
+        return { isEmpty: () => !(root && root.bw > 0), min: { x: off - (root.bw || 0) - ex }, max: { x: off + (root.bw || 0) + ex } }; };
       for(const k of ['roomSeatMode', 'deskPanX', 'deskPanY', 'MULTIPLAYER_SPACING', 'SPACING', 'seatCameraMod']) deps[k] = () => V[k];
       deps.setDeskPanX = (v) => { V.deskPanX = v; }; deps.setDeskPanY = (v) => { V.deskPanY = v; };
       deps.setCachedRowCenter = (v) => { V._cachedRowCenter = v; }; deps.setCachedRowSpan = (v) => { V._cachedRowSpan = v; };
       const win = Object.assign({}, W);
       new Function('window', 'module', 'TwSeatPin', o.src || MOD)(win, undefined, W.TwSeatPin);
       const api = win.TwSeatLayout.createSeatLayout(deps);
+      modApi = api;
       api[Object.keys(api).find(k => /^layoutSeat/.test(k))]();
     } else {
       const a = SRC.indexOf('function layoutSeats(){'), b = SRC.indexOf('\n}\n', a) + 3;
@@ -130,7 +136,7 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
       const f = new Function(...names, 'window', 'TwSeatPin', '__V', SRC.slice(a, b) + '\nlayoutSeats(); __V.deskPanX = deskPanX; __V.deskPanY = deskPanY; __V._cachedRowCenter = _cachedRowCenter; __V._cachedRowSpan = _cachedRowSpan;');
       f(...names.map(n => V[n]), W, W.TwSeatPin, V);
     }
-    return { log, xs: seats.map(s => +(s.targetX || 0).toFixed(6)), pan: [V.deskPanX, V.deskPanY], cache: [+V._cachedRowCenter.toFixed(6), +V._cachedRowSpan.toFixed(6)] };
+    return { api: modApi, deskCalls: () => V._dc || 0, log, xs: seats.map(s => +(s.targetX || 0).toFixed(6)), pan: [V.deskPanX, V.deskPanY], cache: [+V._cachedRowCenter.toFixed(6), +V._cachedRowSpan.toFixed(6)] };
   }
   const J = (x) => JSON.stringify(x);
   /* 혼자 — 0번은 맨 오른쪽(0) · 폭은 하한 1.2 */
@@ -166,6 +172,100 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
   /* 경계 — 책상 폭 0 · 빈 좌석 목록 */
   r = runLayout([{ isMe: true, hw: 0 }, { hw: 0 }], {});
   chk(J(r.xs) === J([0, -0.4]) && J(r.log[r.log.length - 1]) === J(['cam', -0.2, 1.2]), '경계 — 책상 폭 0 이면 여백만큼 · 폭 하한 1.2');
+  /* 좌석 간격 최소값(seats.js GAP_MIN)은 음수 — 맨 왼쪽 칸에선 책상끼리 조금 겹치게 붙는다. 앱이 쓰는 값으로 그대로 돌린다 */
+  {
+    const m = /const GAP_MIN = (-?[\d.]+), GAP_MAX = ([\d.]+), GAP_STEPS = (\d+);/.exec(SEATS);
+    const gmin = m ? +m[1] : NaN;
+    chk(m && gmin < 0 && gmin > -0.85 && +m[2] > 0, '좌석 간격 최소값 — 음수(겹쳐 붙기)이되 기본 책상 반폭(0.85)보다 덜 겹친다 · 최대는 양수' + (m ? ' (' + m[1] + ' ~ ' + m[2] + ')' : ' — 못 찾음'));
+    if(m){
+      r = runLayout([{ isMe: true, hw: 0.85 }, { hw: 0.85 }, { hw: 0.85 }], { spacing: gmin });
+      const step = 1.7 + gmin;
+      chk(J(r.xs) === J([0, -step, -2 * step].map(v => +v.toFixed(6))) && step > 0, '  최소값으로 — 기본 책상 셋이 (1.7 + 최소값)씩 당겨져 붙는다 · 순서는 그대로');
+      const body = (bw) => ({ bw });
+      r = runLayout([{ isMe: true, hw: 0.85, desk: { userData: { noDesk: true } }, gltfRoot: body(0.25) }, { hw: 0.85, desk: { userData: { noDesk: true } }, gltfRoot: body(0.25) }], { spacing: gmin });
+      chk(-r.xs[1] >= 0.5 - 1e-9, '  책상 없는 좌석끼리는 최소값에서도 몸(0.25 + 0.25)이 겹치지 않는다');
+    }
+  }
+  /* 책상 끌기(slotIndexAt) — app.js 처럼 «번호 고르기 → splice → 줄 다시 잡기» 를 x 마다 세 번 돈다.
+     (a) 같은 x 에서 다시 불러도 번호가 그대로(떨림 없음) (b) 왼쪽으로 갈수록 번호가 줄지 않음 (c) 끝까지 끌면 맨 끝 · 맨 오른쪽 */
+  if(!process.env.TW_PREMOVE){
+    const dragRun = (src, hws, dragAt, spacing) => {
+      const ss = hws.map((hw, i) => Object.assign({ hw }, i === 0 ? { isMe: true } : {}));
+      const drag = ss[dragAt];
+      const rr = runLayout(ss, { spacing, src });
+      const first = ss.filter(x => !x.ridingOn).reduce((m, x) => Math.min(m, x.targetX), 0);
+      let shaky = 0, back = 0, prev = -1, end = -1, start = -1;
+      for(let x = 0.5; x >= first - 3; x -= 0.05){
+        const got = [];
+        for(let t = 0; t < 3; t++){
+          const idx = rr.api.slotIndexAt(x, drag), cur = ss.indexOf(drag);
+          if(idx !== cur){ ss.splice(cur, 1); ss.splice(idx, 0, drag); rr.api.layoutSeatRow(); }
+          got.push(ss.indexOf(drag));
+        }
+        if(got[1] !== got[2]) shaky++;
+        if(got[2] < prev) back++;
+        if(start < 0) start = got[2];
+        prev = end = got[2];
+      }
+      return { shaky, back, start, end, n: ss.length };
+    };
+    const cases = [[[0.85, 0.4, 2], 1], [[0.85, 0.5, 1.2, 0.85], 1], [[0.85, 0.85, 1.5], 1], [[0.85, 0.4, 1.7], 2], [[0.85, 0.85, 0.85], 2]];
+    let bad = [];
+    for(const sp of [-0.3, 0.021, 0.3, 1.2]) for(const [hws, at] of cases){
+      const o = dragRun(undefined, hws, at, sp);
+      if(o.shaky || o.back || o.start !== 0 || o.end !== o.n - 1) bad.push(sp + ' ' + J(hws) + ' ' + J(o));
+    }
+    chk(!bad.length, '책상 끌기 — 폭이 섞인 줄 · 간격 -0.3 · 0.021 · 0.3 · 1.2: 같은 자리에서 다시 불러도 그대로 · 왼쪽으로 갈수록 뒤 칸 · 오른쪽 끝 0번 · 왼쪽 끝 마지막' + (bad.length ? ' — ' + bad.slice(0, 2).join(' | ') : ''));
+    /* 끄는 동안(pointermove 마다)은 책상을 다시 재지 않는다 — 줄 배치가 잰 반폭을 다시 쓴다 */
+    {
+      const ss = [{ isMe: true, hw: 0.85 }, { hw: 0.4 }, { hw: 2 }, { hw: 1.2 }];
+      const rr = runLayout(ss, { spacing: 0.3 });
+      const before = rr.deskCalls();
+      for(let x = 0; x > -8; x -= 0.5) rr.api.slotIndexAt(x, ss[1]);
+      chk(rr.deskCalls() === before, '  끄는 동안 책상 폭을 다시 재지 않는다(줄 배치가 잰 반폭을 다시 씀)');
+      const fresh = { hw: 0.85 }; ss.push(fresh);
+      rr.api.slotIndexAt(-1, fresh);
+      chk(rr.deskCalls() > before, '  아직 줄 배치에 없던 좌석은 그때 잰다');
+    }
+    /* 줄 배치는 할 때마다 반폭을 새로 잰다(기억은 끌기 · 가두기용) — 책상을 바꾸거나 평준화로 크기가 바뀐 뒤 옛 폭으로 자리를 잡지 않게 */
+    const remeasure = (src) => {
+      const ss = [{ isMe: true, hw: 0.85 }, { hw: 0.85 }, { hw: 0.85 }];
+      const rr = runLayout(ss, { spacing: 0.3, src });
+      ss[1].hw = 1.05; rr.api.layoutSeatRow();
+      const xs = ss.map(x => +x.targetX.toFixed(6));
+      return { xs, slot: rr.api.slotIndexAt(-4.6, ss[2]) };
+    };
+    {
+      const o = remeasure();
+      chk(J(o.xs) === J([0, -2.2, -4.4]) && o.slot === 2, '  책상 폭이 바뀐 뒤 줄 배치는 새 폭으로(0 · -2.2 · -4.4) · 끌기도 새 폭 기준 칸');
+      const once = MOD.replace('_bodyHalfMemo.set(s, body); _halfMemo.set(s, measureRowHalf(s, body));', '_bodyHalfMemo.set(s, body); if(!_halfMemo.has(s)) _halfMemo.set(s, measureRowHalf(s, body));');
+      const b = once !== MOD ? remeasure(once) : null;
+      chk(!!b && J(b.xs) !== J(o.xs), '  mutation test — 한 번 잰 반폭을 다시 쓰면(새로 안 잼) 위 판정이 빨강');
+    }
+    /* 0번(맨 오른쪽) 좌석은 줌 상한 없이 실제 반폭 · 1번부터 상한 1.1(옛 map 그대로) */
+    {
+      const ss = [{ isMe: true, hw: 1.5 }, { hw: 1.5 }];
+      const rr = runLayout(ss, { spacing: 0.3 });
+      chk(J(rr.xs) === J([0, -2.9]), '  0번 큰 책상은 실제 반폭(1.5) · 1번은 상한(1.1) — 1.5 + 0.3 + 1.1');
+      const cap0 = MOD.replace('  return v[i ? 1 : 0];', '  return v[1];');
+      const rb = cap0 !== MOD ? runLayout([{ isMe: true, hw: 1.5 }, { hw: 1.5 }], { spacing: 0.3, src: cap0 }) : null;
+      chk(!!rb && J(rb.xs) !== J([0, -2.9]), '  mutation test — 0번에도 상한을 걸면 빨강');
+    }
+    const ride = [{ isMe: true, hw: 0.85 }, { hw: 0.85 }, { hw: 0.85 }, { hw: 0.85 }];
+    ride[2].ridingOn = ride[1];
+    const rr = runLayout(ride, {});
+    chk(rr.api.slotIndexAt(-100, ride[3]) === 2 && rr.api.slotIndexAt(0.2, ride[3]) === 0, '  올라탄 좌석은 자리가 없어 건너뛴다(왼쪽 끝 = 남은 줄의 마지막)');
+    const re = runLayout([{ isMe: true, hw: 0.85 }], {});
+    chk(re.api.slotIndexAt(-3, null) === 0 && re.api.slotIndexAt(-3, { hw: 1 }) === 0, '  경계 — 끄는 좌석이 없거나 줄에 없으면 0');
+    /* mutation test — 옛 셈 둘: 지금 자리(targetX) 중 가장 가까운 것(폭이 섞이면 떨림) · 끈 거리 ÷ 간격(음수 간격에서 뒤집힘) */
+    const nearest = MOD.replace(/function slotIndexAt\(x, dragSeat\)\{[\s\S]*?\n\}\n/, 'function slotIndexAt(x){ let b = 0, bd = Infinity; seats.forEach((s, i)=>{ if(s.ridingOn) return; const d = Math.abs((s.targetX || 0) - x); if(d < bd){ bd = d; b = i; } }); return b; }\n');
+    let caught = nearest !== MOD && dragRun(nearest, [0.85, 0.4, 2], 1, 0.3).shaky > 0;
+    chk(caught, '  mutation test — 지금 자리 중 가장 가까운 것으로 고르면 폭이 섞인 줄에서 떨린다');
+    const divide = MOD.replace(/function slotIndexAt\(x, dragSeat\)\{[\s\S]*?\n\}\n/, 'function slotIndexAt(x){ return Math.max(0, Math.min(seats.length - 1, Math.round(-x / SPACING()))); }\n');
+    caught = false;
+    if(divide !== MOD){ const o = dragRun(divide, [0.85, 0.85, 0.85], 2, -0.3); caught = o.end !== o.n - 1 || o.back > 0; }
+    chk(caught, '  mutation test — 끈 거리 ÷ 간격으로 되돌리면 음수 간격에서 빨강');
+  }
   /* 🧍 책상이 없거나 작은 좌석 — 몸 반폭 + 여유(0.15)만큼 자리를 잡아 옆 책상과 안 겹친다(건의). 책상 있는 좌석끼리는 그대로 */
   {
     const body = (bw) => ({ bw });
@@ -179,12 +279,66 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
     chk(J(r.log[r.log.length - 1]) === J(['cam', 0, 1.5]), '  카메라 폭에도 몸 자리가 든다(0.75 × 2)');
     r = runLayout([{ isMe: true, hw: 0.85 }, { hw: 0.15, gltfRoot: body(0) }], {});
     chk(J(r.xs) === J([0, -1.4]), '  경계 — 몸을 못 재면(빈 박스) 책상 폭만(예전 그대로)');
+    /* 🚀 날아가는 · 끌리는 좌석(B-1104-9) — rig 가 옮겨지고 돌아 있어도 앉은 자세 폭으로 잰다 · 잰 뒤 자세는 그대로 */
+    const flying = () => { const rg = { position: { x: 6, y: 2 }, rotation: { z: 2.5 }, n: 0, updateMatrixWorld(){ this.n++; } }; const g = body(0.3); g.rig = rg; return { hw: 0.15, gltfRoot: g, rig: rg }; };
+    const fs1 = flying();
+    const rest = runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, { hw: 0.15, gltfRoot: body(0.3) }], {});
+    r = runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, fs1], {});
+    chk(J(r.xs) === J([0, -1.7]) && J(r.cache) === J(rest.cache) && J(rest.cache) === J([-0.85, 3]), '★ 날아가는 좌석도 앉은 자세 폭(0.45)으로 자리 · 카메라 폭 3 — 앉아 있을 때와 같다(예전엔 몸 폭이 날아간 거리만큼 커져 모두 작아졌다)');
+    chk(fs1.rig.position.x === 6 && fs1.rig.rotation.z === 2.5 && fs1.rig.n === 2, '  잰 뒤 날아가는 자세는 그대로 되돌린다(행렬도 다시 맞춤)');
+    const noRest = MOD.replace('const b = measureAtRest(s);', 'const b = measureCharBox(s.gltfRoot);');
+    const rn = noRest !== MOD ? runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, flying()], { src: noRest }) : null;
+    chk(!!rn && J(rn.cache) !== J(rest.cache), '  mutation test — 날아가는 자세 그대로 재면 위 판정이 빨강');
     const broken = MOD.replace('function seatRoomHalf(deskHalf, bodyHalf){ return Math.max(deskHalf, bodyHalf > 0 ? bodyHalf + BODY_ROOM : 0); }', 'function seatRoomHalf(deskHalf){ return deskHalf; }');
     const rb = broken !== MOD ? runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, { hw: 0.15, gltfRoot: body(0.3) }], { src: broken }) : null;
-    chk(!!rb && J(rb.xs) !== J([0, -1.7]), '  깨 보기 — 몸 폭을 안 보면(책상 폭만) 위 판정이 빨강');
+    chk(!!rb && J(rb.xs) !== J([0, -1.7]), '  mutation test — 몸 폭을 안 보면(책상 폭만) 위 판정이 빨강');
+    /* 🚫 «책상 없음»(desk.userData.noDesk) — 잴 책상이 없어 seatDeskHalfWidth 가 기본 폭 0.85 를 내도 몸 자리만 쓴다 */
+    const nd = (bw) => ({ hw: 0.85, gltfRoot: body(bw), desk: { userData: { noDesk: true } } });
+    r = runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, nd(0.25), nd(0.25)], {});
+    chk(J(r.xs) === J([0, -1.65, -2.85]), '★ 책상 없음 — 몸 0.25 + 여유 0.15 = 0.4 만큼(0 · -1.65 · -2.85 — 예전엔 기본 책상 폭 0.85 로 0 · -2.1 · -4.2)');
+    chk(J(r.cache) === J([-1.425, 4.1]), '  카메라 폭도 몸 자리(0.85 + 2.85 + 0.4)');
+    r = runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, nd(0)], {});
+    chk(J(r.xs) === J([0, -2.1]), '  경계 — 몸을 아직 못 쟀으면 예전처럼 기본 폭(0.85)');
+    r = runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, { hw: 0.85, gltfRoot: body(0.25), desk: { userData: {} } }], {});
+    chk(J(r.xs) === J([0, -2.1]), '  표시가 없는 좌석(책상 있음)은 그대로');
+    const brokenNd = MOD.replace('if(bodyHalf > 0 && s && s.desk && s.desk.userData && s.desk.userData.noDesk) return 0;', '');
+    const rnd = brokenNd !== MOD ? runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, nd(0.25), nd(0.25)], { src: brokenNd }) : null;
+    chk(!!rnd && J(rnd.xs) !== J([0, -1.65, -2.85]), '  mutation test — 책상 없음 표시를 안 보면 위 판정이 빨강');
+    /* 좌석 반폭(seatHalfWidth) — 평준화 가두기가 받는 값. 줄 배치와 같은 규칙 · 마지막 배치에서 잰 몸 폭을 다시 쓴다 */
+    if(!process.env.TW_PREMOVE){
+      const seatsH = [{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, nd(0.25), { hw: 1.4, gltfRoot: body(0.3) }, { hw: 0.15, gltfRoot: body(0.5) }];
+      r = runLayout(seatsH, {});
+      const hs = seatsH.map(x => +r.api.seatHalfWidth(x).toFixed(6));
+      chk(J(hs) === J([0.85, 0.4, 1.4, 0.65]), '좌석 반폭 — 책상 0.85 · 책상 없음 몸 0.25+0.15 · 큰 책상 1.4(줌 상한 안 걺) · 작은 책상 몸 0.5+0.15');
+      seatsH[1].gltfRoot.bw = 0.9;
+      chk(+r.api.seatHalfWidth(seatsH[1]).toFixed(6) === 0.4, '  마지막 줄 배치에서 잰 몸 폭을 쓴다(가두기마다 다시 재지 않는다)');
+      const fresh = nd(0.2);
+      chk(+r.api.seatHalfWidth(fresh).toFixed(6) === 0.35, '  아직 줄 배치에 없던 좌석은 지금 잰다');
+      const bh = MOD.replace('  return seatRoomHalf(seatDeskHalf(s, false, body), body);', '  return seatDeskHalfWidth(s, false);');
+      const rh = bh !== MOD ? runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, nd(0.25)], { src: bh }) : null;
+      chk(!!rh && +rh.api.seatHalfWidth(nd(0.25)).toFixed(6) !== 0.4, '  mutation test — 책상 폭만 보면(옛 가두기) 위 판정이 빨강');
+    }
   }
   let threw = null; try{ r = runLayout([], {}); }catch(e){ threw = e; }
   chk(!threw && J(r.log[r.log.length - 1]) === J(['cam', null, null]) || (!threw && r.log.some(l => l[0] === 'cam')), '경계 — 좌석이 없어도 던지지 않는다(옮기기 전과 같은 값을 카메라에 넘긴다)');
+}
+
+
+say('── 6. 배치한 뒤 알림(F4 — layoutSeats 감싸 다시 대입을 갚음)');
+{
+  const MODX = MOD.replace('function layoutSeatRow(){', 'function layoutSeatRow(){ return;');   // 배치 계산은 따로 시험한다 — 여기선 알림만
+  const m = build(MODX);
+  const order = []; m.onLaidOut(() => order.push('a')); m.onLaidOut(() => order.push('b'));
+  m.layoutAndNotify(); m.layoutAndNotify();
+  chk(order.join() === 'a,b,a,b', 'layoutAndNotify 를 부를 때마다 거는 차례대로 알림을 부른다');
+  chk(build(MODX).layoutAndNotify() === undefined, '알림이 없어도 던지지 않는다');
+  const m2 = build(MODX); let k = 0; m2.onLaidOut(() => k++); m2.layoutSeatRow();
+  chk(k === 0, 'layoutSeatRow 만 부르면(끌기 계산 등) 알림은 안 간다 — 알림은 layoutAndNotify 를 거칠 때만');
+  const code = SRC.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  chk(/function layoutSeats\(\)\{ seatLayoutMod\.layoutAndNotify\(\); \}/.test(code) && /seatLayoutMod\.onLaidOut\(\(\)=>\{[\s\S]*?applyDesktopRunClass\(\); \}\);/.test(code) && !/layoutSeats\s*=\s*function|const _layoutSeats/.test(code), 'app.js — layoutSeats 는 한 번만 정의하고 창 크기 맞춤은 알림에 건다(감싸 다시 대입 없음)');
+  const brk = MODX.replace('function layoutAndNotify(){ layoutSeatRow(); laidOutFns.forEach(fn=>fn()); }', 'function layoutAndNotify(){ layoutSeatRow(); }');
+  const m3 = build(brk); let k3 = 0; m3.onLaidOut(() => k3++); m3.layoutAndNotify();
+  chk(brk !== MODX && k3 === 0, 'mutation test: 알림을 안 부르면 빨강');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

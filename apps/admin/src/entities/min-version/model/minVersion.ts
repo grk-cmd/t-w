@@ -1,8 +1,8 @@
-// 앱 _verLt · app-version-gate.js isBelow 와 같은 비교 — 세 자리 숫자, 꼬리(-beta 등)는 보지 않는다.
+// 앱 _verLt · update-flow.js isBelow 와 같은 비교 — 세 자리 숫자, 꼬리(-beta 등)는 보지 않는다.
 export const VERSION_RE = /^\d{1,4}\.\d{1,4}\.\d{1,4}$/;
 export const MIN_VERSION_MAX = 20; // 규칙 config/minRoomVer · config/minAppVer
 
-/** room: 방 입장만 막는다(앱 _ensureRoomVersionOk). app: 앱 전체를 «업데이트해 주세요» 로 막는다(app-version-gate.js). */
+/** room: 방 입장만 막는다(앱 _ensureRoomVersionOk). app: 앱 전체를 «업데이트해 주세요» 로 막는다(update-flow.js). */
 export type MinVersionKind = 'room' | 'app';
 
 export const MIN_VERSIONS = {

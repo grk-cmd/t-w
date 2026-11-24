@@ -16,7 +16,7 @@ const Presence = deps.Presence;   // 읽는 함수
 const canFly = deps.canFly;
 const diceMod = deps.diceMod;
 const findMySeat = deps.findMySeat;
-const getDisplayName = deps.getDisplayName;
+const getUserName = deps.getUserName;   // 내 이름 사본 — 이름이 없으면 '' (서버 대화 기록에 «이름 없음» 을 싣지 않는다)
 const officeMode = deps.officeMode;   // 읽는 함수
 const showChatBubble = deps.showChatBubble;
 const toast = deps.toast;
@@ -52,9 +52,9 @@ function _rollRoulette(){
   const inRoom = (typeof Presence()!=='undefined' && Presence().active());
   showChatBubble(mySeat, dice2);
   if(inRoom && Presence().sendChat) Presence().sendChat(dice2);
-  const name = getDisplayName();
+  const name = getUserName();
   if(window._activeChannel === 2){
-    tricksMod._flyChatLog(name + '님이 룰렛을 돌려 ' + dice2 + ' 가 나왔습니다.');   // 결과 꼬리 없음(🎲 와 같은 문장 모양 · 2026-09-23 요청)
+    tricksMod._flyChatLog((name ? name + '님이 ' : '') + '룰렛을 돌려 ' + dice2 + ' 가 나왔습니다.');   // 이름이 없으면 주어 없이 — 줄의 글쓴이 칸은 서버가 채운다   // 결과 꼬리 없음(🎲 와 같은 문장 모양 · 2026-09-23 요청)
   }
   if(!hit) return;
   diceMod._selfFlyAfterDice();

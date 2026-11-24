@@ -5,7 +5,7 @@
    ・3절 장식 자리 — 300칸 · 같은 n 이면 늘 같은 자리 · 트리 층 안
    ・4절 다시 받을 그림 — 판이 «다른» 자리만(작아져도) · 기본 장식은 안 받음
    ・5절 바꾸기 간격 · 반짝임 10번 뒤 멈춤 · 10번 누르기 · 흔들기(빠른 왕복만 · 계속 흔들면 더 많이 · 멈추면 처음으로)
-   ・6절 일부러 깨 보기
+   ・6절 mutation test
    ・7절 편지 — 반송 사유 · 상한이 서버와 같다 · 내 편지함 · 반송 · 받은 편지 다듬기(모양이 틀린 칸은 뺀다) · 빈 칸 · 마감 D-day(한국 날짜) · 읽음 표시 */
 'use strict';
 const fs = require('fs');
@@ -67,9 +67,9 @@ chk(dips === R.BLINK_COUNT, `반짝임 — 정확히 ${R.BLINK_COUNT}번 어두�
   chk(S3.level() === 0, '잠깐 멈추면 세기가 처음으로');
   const S4 = R.createShake(); t = 0; S4.feed(40, t); chk(S4.feed(-40, t += R.SHAKE_GAP_MS) === 0, '뒤집기가 0.35초를 넘으면 왕복이 아니다'); }
 
-say('── 6절 깨 보기');
+say('── 6절 mutation test');
 const broken = Object.assign({}, R, { changedImgSlots: (oo, have) => Object.keys(oo).filter(s => oo[s].k === 'img' && !(have && have[s] >= oo[s].v)) });
-chk(broken.changedImgSlots(o, { 1: 6 }).indexOf('1') < 0 && need.indexOf('1') >= 0, '깨 보기 — «판이 클 때만» 받으면 작아진 판(동시 바꾸기)을 놓친다 — 위 4절이 잡는 모양');
+chk(broken.changedImgSlots(o, { 1: 6 }).indexOf('1') < 0 && need.indexOf('1') >= 0, 'mutation test — «판이 클 때만» 받으면 작아진 판(동시 바꾸기)을 놓친다 — 위 4절이 잡는 모양');
 
 say('── 7절 편지');
 chk(JSON.stringify(R.RETURN_REASONS) === JSON.stringify(SV.RETURN_REASONS), '반송 사유 표가 서버와 같다 — ' + Object.values(R.RETURN_REASONS).join(' · '));
@@ -98,9 +98,9 @@ const RS = R.readSetOf('3,1,x,,0,1');
 chk([...RS].sort().join() === '1,3' && R.readSetStr(RS) === '1,3' && R.readSetOf(null).size === 0, '읽음 표시 — 번호만 · 겹침 없이');
 chk(R.hasUnread(G, new Set([1])) && !R.hasUnread(G, new Set([1, 2])) && !R.hasUnread([], new Set()), '안 읽은 편지가 있을 때만 빨간 점');
 chk(R.cleanLetter('  안녕\r\n잘 지내요  ') === '안녕\n잘 지내요' && R.cleanLetter('가'.repeat(600)).length === 500 && R.cleanLetter('   ') === '', '편지 다듬기 — 앞뒤 공백 · 줄바꿈 하나로 · 500자');
-{ // 깨 보기 — ddayLeft 를 «남은 ms 를 하루로 올림» 으로 쓰면 12/15 낮에 D-10 이 된다(시안 · 한국 날짜와 다름)
+{ // mutation test — ddayLeft 를 «남은 ms 를 하루로 올림» 으로 쓰면 12/15 낮에 D-10 이 된다(시안 · 한국 날짜와 다름)
   const bad = (now) => Math.ceil((R.LETTER_DEADLINE_MS - now) / 86400000);
-  chk(bad(kst('2026-12-15T10:00:00')) !== R.ddayLeft(kst('2026-12-15T10:00:00')), '깨 보기 — ms 를 올림하면 날짜 경계가 어긋난다(위 검사가 잡는 모양)');
+  chk(bad(kst('2026-12-15T10:00:00')) !== R.ddayLeft(kst('2026-12-15T10:00:00')), 'mutation test — ms 를 올림하면 날짜 경계가 어긋난다(위 검사가 잡는 모양)');
 }
 
 say(`\n${fail ? '✗' : '✓'} ${pass} 통과 · ${fail} 실패`);

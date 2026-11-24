@@ -21,7 +21,7 @@ const count = (re) => (MAIN.match(re) || []).length;
 say('── 1. 자리');
 chk(/const \{ app, BrowserWindow, BrowserView, Menu, /.test(MAIN), 'electron 에서 Menu 를 받는다');
 chk(count(/Menu\.setApplicationMenu\(/g) === 1, 'Menu.setApplicationMenu 는 한 곳(지금 ' + count(/Menu\.setApplicationMenu\(/g) + ')');
-const ready = (MAIN.match(/app\.whenReady\(\)\.then\(\(\) => \{[\s\S]*?\n  \}\);/) || [''])[0];
+const ready = (MAIN.match(/app\.whenReady\(\)\.then\((?:async )?\(\) => \{[\s\S]*?\n  \}\);/) || [''])[0];   // async — 창 전에 웹 캐시 비우기를 기다린다(http-cache-reset.js)
 const iMenu = ready.indexOf('_applyAppMenu();'), iWin = ready.indexOf('createWindow();');
 chk(iMenu > 0 && iWin > iMenu, 'whenReady 안에서 createWindow 보다 먼저 _applyAppMenu()');
 chk(count(/_applyAppMenu\(\)/g) === 2, '  _applyAppMenu 는 정의 + 부름 한 번(지금 ' + count(/_applyAppMenu\(\)/g) + ')');

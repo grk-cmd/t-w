@@ -11,12 +11,13 @@
    ・7절: 🔇 잠금 · 🗑 기록 삭제 · 😊 이모티콘(그리드 · ＋ · 기본 · 내 것 · 파일) · 🎲 주사위
    ・8절: 💣 플라잉체어 조준 · 📷 스티커사진 — 채널 · 회사원 모드 · 레벨 · 혼자 · 준비 중 · 연타
    ・9절: app.js 배선 — 정의는 모듈에만 · 만드는 곳 한 곳 · 원래 자리 · deps 모양(함수는 화살표 · let 은 읽는/쓰는 함수 · 값) · 빈 껍데기 · html 순서 · 전역 이름
-   ・10절: 일부러 깨 보기 — 모듈 글을 조금씩 망가뜨려 2~8절이 잡아내는지(이 검사가 헛돌지 않는지) 스스로 확인
+   ・10절: mutation test — 모듈 글을 조금씩 망가뜨려 2~8절이 잡아내는지(이 검사가 헛돌지 않는지) 스스로 확인
    [실행] chat-window.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const vm = require('vm');
+const SAFE = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => fs.existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
 let pass = 0, fail = 0, done = false, quiet = false, qfail = 0;
 const say = (s) => { if(!quiet) console.log(s); };
 const chk = (ok, msg) => { if(quiet){ if(!ok) qfail++; return; } ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
@@ -30,7 +31,7 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/
 const IDS = ['chatWindow', 'chatCloseBtn', 'chatMinBtn', 'chatFileMenu', 'chatViewMenu', 'chatFsMenu', 'chatFsSub', 'chatSfxToggle',
   'chatClearMenu', 'chatClearNow', 'chatClearUndo', 'chatOpacity', 'chatEmojiWin', 'chatSaveLog', 'chatInput', 'chatMessages',
   'chatFlyChk', 'chatFlySizes', 'chatFlySwatches', 'chatOffToggle', 'chatDelLog', 'chatDelOv', 'chatDelWin', 'chatDelX', 'chatDelCancel', 'chatDelOk',
-  'chatEmojiBtn', 'chatEmojiWinClose', 'chatDiceBtn', 'chatBombBtn', 'chatPhotoBtn', 'emojiGrid', 'emojiFileInput'];
+  'chatSendBtn', 'chatEmojiBtn', 'chatEmojiWinClose', 'chatDiceBtn', 'chatBombBtn', 'chatPhotoBtn', 'emojiGrid', 'emojiFileInput'];
 const RZ = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
 
 function mkEl(id, env, extra){
@@ -95,6 +96,7 @@ function mkEnv(opt){
       addEventListener: (t, fn) => { (env.docL[t] = env.docL[t] || []).push(fn); },
     },
     open: (u, w, f) => { env.opened.push(['window.open', u, w, f]); },
+    TwSafeHtml: SAFE,
   };
   ctx.window = ctx;
   if(!opt.noCompanion) ctx.companion = { openBrowser: (u) => env.opened.push(['openBrowser', u]) };
@@ -163,7 +165,7 @@ function mkEnv(opt){
   return env;
 }
 
-/* 2~8절 — 10절(일부러 깨 보기)이 망가뜨린 글로 다시 굴린다 */
+/* 2~8절 — 10절(mutation test)이 망가뜨린 글로 다시 굴린다 */
 async function behave(src){
   const E = (o) => mkEnv(Object.assign({ src }, o || {}));
 
@@ -200,14 +202,20 @@ async function behave(src){
     chk(JSON.stringify(e.names()) === '["closeChatWindow"]', '  입력칸 ESC — 대화창을 닫는다');
     e.clear(); ev = inp.fire('keydown', { key: 'x', keyCode: 88 });
     chk(!e.log.length && ev._sp === 1, '  다른 키는 창 단축키로 새지 않게 막기만');
+    e.clear(); e.focused = null; ev = e.els.chatSendBtn.fire('click');
+    chk(JSON.stringify(e.names()) === '["sendChatWindowMsg"]' && ev._sp === 1 && e.focused === 'chatInput', '★ [보내기] 버튼 — Enter 와 같은 길로 보내고 입력칸으로 포커스를 돌린다(창 밖 누름으로 새지 않게 막음)');
+    chk(!(e.els.chatSendBtn._L.mousedown || []).length, '  [보내기] 는 mousedown 을 막지 않는다(누르며 입력칸이 포커스를 잃어야 한글 조합이 먼저 확정된다)');
     const a = { getAttribute: (k) => (k === 'data-url' ? 'https://example.com/x' : null) };
-    ev = e.els.chatMessages.fire('click', { target: tgt({ '.cm-link': a }) });
+    ev = e.els.chatMessages.fire('click', { target: tgt({ '.ext-link': a }) });
     chk(JSON.stringify(e.opened) === '[["openBrowser","https://example.com/x"]]' && ev._pd === true, '링크 — Electron 이면 외부 브라우저로(companion.openBrowser)');
     e.els.chatMessages.fire('click', { target: tgt({}) });
     chk(e.opened.length === 1, '  링크가 아닌 곳 누름은 아무것도 안 한다');
     const w = E({ noCompanion: true }); w.mk();
-    w.els.chatMessages.fire('click', { target: tgt({ '.cm-link': a }) });
+    w.els.chatMessages.fire('click', { target: tgt({ '.ext-link': a }) });
     chk(JSON.stringify(w.opened) === '[["window.open","https://example.com/x","_blank","noopener"]]', '  웹이면 새 탭(noopener)');
+    const bad = { getAttribute: (k) => (k === 'data-url' ? 'javascript:alert(1)' : null) };
+    e.els.chatMessages.fire('click', { target: tgt({ '.ext-link': bad }) });
+    chk(e.opened.length === 1, '  화면에 그린 주소도 열기 전에 다시 거른다(http(s) 만)');
   }
 
   say('── 3. 끌기 · 크기');
@@ -458,9 +466,9 @@ await sec('── 9. app.js 배선', () => {
   const defs = /function _wireChatWindow\(|function _bindChatDrag\(|function _bindChatResize\(|function _chatCloseMenus\(/;
   chk(!defs.test(code) && /function _wireChatWindow\(/.test(MOD) && /function _chatCloseMenus\(/.test(MOD), '대화창 배선 정의는 모듈에만');
   chk(/window\.TwChatWindow = api/.test(MOD) && (code.match(/TwChatWindow\.createChatWindow\(/g) || []).length === 1, '모듈은 window.TwChatWindow · 만드는 곳은 한 곳');
-  const iHead = APP.indexOf('/* ═══ 💬 대화창 배선 — 닫기 · 최소화 · 끌기 · 메뉴 · 버튼 ═══ */'), iMk = APP.indexOf('TwChatWindow.createChatWindow('), iNext = APP.indexOf('/* ═══ 🎛️ 꾸미기 상세조정 패널 · 색 고르기 ═══ */');
+  const iHead = APP.indexOf('/* ═══ 💬 대화창 배선 — 닫기 · 최소화 · 끌기 · 메뉴 · 버튼 ═══ */'), iMk = APP.indexOf('TwChatWindow.createChatWindow('), iNext = APP.indexOf('/* ═══ 🎨 텍스처 파츠 색조 셰이더 ═══ */');
   chk(iHead > 0 && iMk > iHead && iNext > iMk && /_selfFlyAfterDice\(\);\s*\n\}\s*\n\s*$/.test(APP.slice(iHead - 200, iHead)),
-    '원래 자리 — 🎡 룰렛 뒤 · 구역 머리 아래 · 🎛️ 꾸미기 상세조정 앞');
+    '원래 자리 — 🎡 룰렛 뒤 · 구역 머리 아래 · 🎨 텍스처 파츠 색조 셰이더 앞');
   const call = (APP.match(/TwChatWindow\.createChatWindow\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(s => s && !s.startsWith('//'));
   const FN = [['closeChatWindow', 'closeChatWindow'], ['chatWindowIsOpen', '_chatWindowIsOpen'], ['chatIsMinimized', '_chatIsMinimized'], ['setChatMinimized', '_setChatMinimized'],
@@ -496,13 +504,14 @@ await sec('── 9. app.js 배선', () => {
   chk(!/\bCHAT_WINDOW_OFF\b/.test(APP), '빈 껍데기 CHAT_WINDOW_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const iF = HTML.indexOf('<script src="parts/focus/focus-log.js"></script>'), iC = HTML.indexOf('<script src="parts/chat/chat-window.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iF > 0 && iC > iF && iA > iC, 'html — chat-window.js 를 app.js 앞에 싣는다');
+  chk(/<div class="chat-input-line">\s*<input type="text" id="chatInput"[^>]*>\s*<button type="button" id="chatSendBtn" class="chat-send-btn"[^>]*>보내기<\/button>/.test(HTML), 'html — 입력칸과 [보내기] 가 한 줄(.chat-input-line)');
   chk(/^Tw[A-Z]/.test('TwChatWindow') && !/window\.ChatWindow\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
   const wire = (APP.match(/const CHAT_WINDOW_OFF = [\s\S]*?\n\}\);/) || [''])[0];
   let r = null; try{ r = vm.runInNewContext(wire + '\nchatWindowMod;', {}); }catch(_){}
   chk(/^const chatWindowMod = TwChatWindow\.createChatWindow\(\{/m.test(APP), '만드는 줄에 «없으면 빈 껍데기» 가드가 없다 — 모듈이 안 실리면 그 줄에서 멈춘다(가드 걷기 3차)');
 });
 
-await sec('── 10. 일부러 깨 보기 — 이 검사가 헛돌지 않는가', async () => {
+await sec('── 10. mutation test — 이 검사가 헛돌지 않는가', async () => {
   const CASES = [
     ['✕ 연결 빠짐', s => s.replace('if(close) close.onclick=closeChatWindow;', '')],
     ['▁ 뒤집기 안 함', s => s.replace('_setChatMinimized(!_chatIsMinimized());', '_setChatMinimized(true);')],
@@ -532,7 +541,10 @@ await sec('── 10. 일부러 깨 보기 — 이 검사가 헛돌지 않는가
     ['이모티콘 캐시를 값으로', s => s.replace('if(!(_emojiCache()[i]&&_emojiCache()[i].url))', 'if(!(_emojiCache[i]&&_emojiCache[i].url))')],
     ['기본 이모티콘 바로 보냄', s => s.replace("inp.value=(inp.value||'')+'/'+dc.getAttribute('data-cmd')+' '; inp.focus();", "inp.value='/'+dc.getAttribute('data-cmd'); inp.focus();")],
     ['저장값 반영 순서 바뀜', s => s.replace('_applyChatFontSize();   // 저장된 값 반영 + ✓ 표시\n  _applyChatSfxUI();', '_applyChatSfxUI();\n  _applyChatFontSize();')],
+    ['[보내기] 버튼 연결 빠짐', s => s.replace("if(sendBtn) sendBtn.addEventListener('click', e=>{ e.stopPropagation(); _sendChatWindowMsg(); if(inp) inp.focus(); });", '')],
+    ['[보내기] 뒤 포커스를 안 돌림', s => s.replace('_sendChatWindowMsg(); if(inp) inp.focus(); });', '_sendChatWindowMsg(); });')],
     ['링크 웹 폴백 noopener 빠짐', s => s.replace("else window.open(url, '_blank', 'noopener');", "else window.open(url, '_blank');")],
+    ['열기 전에 주소를 다시 안 거름', s => s.replace("const url=TwSafeHtml.safeUrl(a.getAttribute('data-url'), 'link');", "const url=a.getAttribute('data-url');")],
   ];
   for(const [name, mut] of CASES){
     const bent = mut(MOD);
