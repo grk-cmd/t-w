@@ -3,7 +3,7 @@
      `_` 로 시작해 방 인원으로 안 센다 · 대화 3일 보관(chat-expire.js)이 건드리지 않는다.
    ★ 쓰는 길은 «내 칸» 뿐이다 — 하루 합은 트랜잭션으로 늘리기만 하고(깎지 않는다), 합치기는 날 칸 지우기 + o 올리기 한 묶음, 내 기록 지우기는 내 칸 통째.
    ⚠️ 규칙은 모양 · 범위 · 시크릿룸 코드만 지킨다(Firebase 방은 쓰기가 열려 있다 — 남의 칸 쓰기는 앱이 막는다).
-   ⚠️ 실패는 던지지 않고 { ok:false } 로 돌려준다(기술 문구는 싣지 않는다 — 화면이 E-CHAT-02 로 안내).
+   ⚠️ 실패는 던지지 않고 { ok:false } 로 돌려준다(기술 문구는 싣지 않는다 — 화면이 E-CHAT-07 로 안내).
    classic script(window.TwRoomFocusNet) — firebase-init.js 의 firebaseAPI.roomFocus 가 이것을 만든다(데이터 통로의 함수를 그대로 넘김).
    검사: checks/sim-room-focus.js */
 (function(){

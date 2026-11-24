@@ -3874,7 +3874,7 @@ const licenseScreenMod = TwLicenseScreen.createLicenseScreen({
   licensePremium: licensePremiumMod,
   deviceId: ()=>TwDeviceId.store.get(),
   isAdmin: ()=>isAdmin,
-  isShown: ()=>{ const o=document.getElementById('programSettingsOverlay'), p=document.getElementById('progTabLicense'); return !!(o && o.classList.contains('on') && p && p.style.display !== 'none'); },
+  isShown: ()=>{ const o=document.getElementById('focusSettingsPanel'), p=document.getElementById('fsTabInfo'); return !!(o && o.classList.contains('on') && p && p.style.display !== 'none'); },   // 0.14 — 라이선스 칸은 설정 창 하나의 «정보» 탭
   rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   toast: (...a)=>toast(...a),
