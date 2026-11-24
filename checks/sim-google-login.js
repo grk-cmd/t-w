@@ -201,8 +201,8 @@ else {
         '암묵적 흐름이 아니라 인가 코드 흐름을 쓴다');
     chk(/prompt=select_account/.test(url),
         '계정 선택 화면을 강제한다 (한 컴퓨터를 나눠 쓸 때 계정 전환이 된다)');
-    chk(/state/.test(body) && /q\.get\('state'\)\s*!==\s*state/.test(body),
-        'state 를 대조한다 (응답 바꿔치기 방지)');
+    chk(/GoogleOAuth\.parseCallback\([^)]*state\)/.test(body),
+        'state 를 대조한다 (응답 바꿔치기 방지 — 판정은 google-oauth.js 한 곳 · 실제 대조는 sim-google-oauth ①)');
     chk(/e\.preventDefault\(\)/.test(body),
         '리디렉션을 이동 전에 가로챈다 (127.0.0.1 오류 페이지가 안 뜬다)');
     chk(/setAlwaysOnTop\(true, 'screen-saver'\)/.test(body),

@@ -4,13 +4,13 @@
      127.0.0.1 로 돌아오게 하는 것이다 — 리디렉션 주소(GOOGLE_OAUTH_REDIRECT)는 예전 그대로라 구글 콘솔은 바꾸지 않는다.
    흐름: 127.0.0.1:{port} 에 듣기 → 기본 브라우저로 동의 화면 → 구글이 /tw-oauth?code&state 로 돌려보냄 →
      state 가 맞으면 code 를 돌려주고 듣기를 닫는다. 브라우저 탭에는 «앱으로 돌아가세요» 한 장만 보인다.
-   ★ 듣는 곳은 127.0.0.1 하나 · 경로 하나 · 한 번만. 다른 경로는 404 로 답하고 계속 기다린다(브라우저의 favicon 요청 등).
+   ★ 듣는 곳은 127.0.0.1 하나 · 경로 하나 · state 가 맞는 응답 한 번만. 그 밖(다른 경로 · favicon · state 다름)은 404 로 답하고 계속 기다린다.
    ★ 응답마다 연결을 닫는다(keep-alive 로 열린 연결이 남으면 듣기를 닫은 뒤에도 요청이 들어온다).
    ★ 브라우저에 보이는 쪽은 고정 글만 — 주소에 실려 온 값(error_description 등)을 HTML 에 넣지 않는다.
    ⚠️ 포트를 못 잡으면(다른 프로그램이 쓰는 중) start 가 실패를 돌려준다 — main.js 가 예전 앱 안 창으로 대신한다.
    createLoopback({ http, host, port, path, state, timeoutMs, setTimeout, clearTimeout }) →
      { start() → Promise<{ ok:true } | { ok:false, reason }>, result → Promise<결과>, cancel(reason) }
-     결과: { ok:true, code } · { ok:false, error }(구글이 오류를 돌려줌) · { ok:false, bad:true }(state 다름 · code 없음) ·
+     결과: { ok:true, code } · { ok:false, error }(구글이 오류를 돌려줌) · { ok:false, bad:true }(code 없음 — state 가 다르면 결과로 넘기지 않고 계속 기다린다) ·
        { ok:false, timeout:true } · { ok:false, canceled:true, reason } */
 'use strict';
 
@@ -30,14 +30,16 @@ function buildAuthUrl(o){
     + '&prompt=select_account';
 }
 
-/** 돌아온 주소의 물음표 뒤 → 결과. 리디렉션을 가로채는 앱 안 창(main.js)도 같은 판정을 쓴다. */
+/** 돌아온 주소의 물음표 뒤 → 결과. 리디렉션을 가로채는 앱 안 창(main.js)도 같은 판정을 쓴다.
+    state 를 맨 먼저 본다 — 구글은 오류 응답에도 state 를 싣는다. state 가 다른 «오류» 를 받으면 아무 웹 페이지가
+    127.0.0.1 로 요청 한 번만 보내도 로그인 대기를 끊을 수 있다. */
 function parseCallback(search, state){
   let q = null;
   try{ q = new URLSearchParams(String(search || '').replace(/^\?/, '')); }catch(_){ q = null; }
   if(!q) return { ok: false, bad: true };
+  if(!state || q.get('state') !== state) return { ok: false, bad: true };
   const err = q.get('error');
   if(err) return { ok: false, error: String(err), description: String(q.get('error_description') || '') };
-  if(!state || q.get('state') !== state) return { ok: false, bad: true };
   const code = q.get('code');
   if(!code) return { ok: false, bad: true };
   return { ok: true, code };
@@ -86,12 +88,13 @@ function createLoopback(o){
   function onRequest(req, res){
     let url = null;
     try{ url = new URL(req.url || '/', 'http://' + host); }catch(_){ url = null; }
-    if(done || req.method !== 'GET' || !url || url.pathname !== cbPath){
+    const r = (url && url.pathname === cbPath) ? parseCallback(url.search, o.state) : null;
+    /* state 가 다른 요청은 우리 로그인의 답이 아니다 — 404 로 답하고 계속 기다린다(다른 페이지가 대기를 끊지 못하게) */
+    if(done || req.method !== 'GET' || !r || r.bad){
       res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Connection': 'close' });
       res.end('not found');
       return;
     }
-    const r = parseCallback(url.search, o.state);
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Connection': 'close' });
     res.end(r.ok ? PAGE_OK : PAGE_ERR);
     finish(r);
