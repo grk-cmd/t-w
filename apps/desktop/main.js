@@ -2365,34 +2365,7 @@ function createWindow() {
      ⚠️ 구글 콘솔의 '승인된 리디렉션 URI' 와 같아야 한다. */
   const GOOGLE_OAUTH_REDIRECT = 'http://127.0.0.1:52736/tw-oauth';
   let googleAuthWin = null;
-  let googleLoopback = null;   // 기본 브라우저 로그인 대기(google-oauth.js) — 다시 누르면 앞의 것을 멈추고 새로 연다
-  /* 기다리는 동안의 작은 안내 창 — [취소] · × 둘 다 onCancel. 창은 늘 위(실행 화면이 늘 위 창이라 그 뒤로 깔리지 않게) · 화면 오른쪽 아래(브라우저를 가리지 않게).
-     preload 를 붙이지 않는다 — [취소]는 정해진 주소로 이동하려는 것을 가로채 안다(google-oauth.js WAIT_CANCEL_URL). → { close() } */
-  const _openGoogleWait = (onCancel) => {
-    let closing = false;
-    const W = 380, H = 132;
-    let x, y;
-    try{
-      const wa = screen.getDisplayMatching((mainWindow && !mainWindow.isDestroyed()) ? mainWindow.getBounds() : screen.getPrimaryDisplay().bounds).workArea;
-      x = wa.x + wa.width - W - 24; y = wa.y + wa.height - H - 24;
-    }catch(_){}
-    const win = new BrowserWindow({
-      width: W, height: H, x, y, resizable: false, minimizable: false, maximizable: false, fullscreenable: false,
-      icon: APP_ICON, title: '구글 로그인', autoHideMenuBar: true, backgroundColor: '#c0c0c0',
-      webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, devTools: devtoolsGate.always },
-    });
-    try{ win.setAlwaysOnTop(true, overlay.TOP_LEVEL); }catch(_){}
-    const onNav = (e, url) => {
-      try{ e.preventDefault(); }catch(_){}
-      if(String(url || '').indexOf(GoogleOAuth.WAIT_CANCEL_URL) === 0) onCancel();
-    };
-    win.webContents.on('will-navigate', onNav);
-    win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-    win.on('closed', () => { if(!closing) onCancel(); });
-    win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(GoogleOAuth.WAIT_HTML)).catch(() => {});
-    return { close(){ closing = true; try{ if(!win.isDestroyed()) win.destroy(); }catch(_){} } };
-  };
-  /* code → id_token(Node 쪽 fetch — 렌더러 CSP 와 무관). 기본 브라우저 길이 쓴다 */
+  /* code → id_token(Node 쪽 fetch — 렌더러 CSP 와 무관). 기본 브라우저 길 · 앱 안 창 길이 같이 쓴다 */
   const _googleExchange = (code, verifier) => fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -2404,6 +2377,19 @@ function createWindow() {
     .then(res => res.json())
     .then(j => (j && j.id_token) ? { ok:true, idToken: j.id_token } : { ok:false, reason:'구글 토큰을 받지 못했어요' + (j && j.error ? (' (' + j.error + ')') : '') })
     .catch(() => ({ ok:false, reason:'네트워크 오류 — 연결을 확인해 주세요' }));
+  /* 기본 브라우저 로그인 흐름(google-oauth.js createGoogleSignIn) — 안내 창 · 브라우저 · 앱 창 당기기만 여기서 잇는다 */
+  const googleSignIn = GoogleOAuth.createGoogleSignIn({
+    http: require('http'), redirect: GOOGLE_OAUTH_REDIRECT, log: _diagLog,
+    openExternal: (u) => shell.openExternal(u),
+    openWait: (onCancel) => {
+      const parent = (mainWindow && !mainWindow.isDestroyed()) ? mainWindow : null;
+      let workArea = null;
+      try{ workArea = screen.getDisplayMatching(parent ? parent.getBounds() : screen.getPrimaryDisplay().bounds).workArea; }catch(_){}
+      return GoogleOAuth.openWaitWindow({ BrowserWindow, parent, workArea, icon: APP_ICON, devTools: devtoolsGate.always, onCancel });
+    },
+    focusMain: () => { if(mainWindow && !mainWindow.isDestroyed()) mainWindow.focus(); },
+    exchange: (code, verifier) => _googleExchange(code, verifier),
+  });
 
   ipcMain.handle('companion:signInWithGoogle', async ()=>{
     if(!GOOGLE_OAUTH_CLIENT_ID || !GOOGLE_OAUTH_CLIENT_SECRET){
@@ -2426,31 +2412,11 @@ function createWindow() {
     const authUrl = GoogleOAuth.buildAuthUrl({ clientId: GOOGLE_OAUTH_CLIENT_ID, redirect: GOOGLE_OAUTH_REDIRECT, challenge, state });
 
     /* 🌐 기본 브라우저로 먼저 — 앱 안 창은 구글이 «안전하지 않은 브라우저» 로 막거나 맞는 비밀번호도 거절할 때가 있다(google-oauth.js).
-       리디렉션 주소는 위와 같아 구글 콘솔은 그대로다. 포트를 못 잡을 때만 아래 앱 안 창으로 대신한다.
-       기다리는 동안 작은 안내 창의 [취소](또는 ×)로 끝낼 수 있다 — 화면의 구글 버튼은 결과가 올 때까지 잠겨 있어서,
-       브라우저 탭을 닫아 버리면 이 창이 아니면 5분 동안 못 한다. 대기는 start 전에 걸어 둔다(겹쳐 불려도 포트를 두고 다투지 않게). */
-    if(googleLoopback){ googleLoopback.cancel('다시 시도'); googleLoopback = null; }
-    const _cb = new URL(GOOGLE_OAUTH_REDIRECT);
-    const lb = GoogleOAuth.createLoopback({ http: require('http'), host: _cb.hostname, port: Number(_cb.port), path: _cb.pathname, state });
-    googleLoopback = lb;
-    const started = await lb.start();
-    if(started.ok){
-      let wait = null;
-      try{ await shell.openExternal(authUrl); }
-      catch(_){ lb.cancel(); if(googleLoopback === lb) googleLoopback = null; return { ok:false, reason:'브라우저를 열지 못했어요 — 기본 브라우저 설정을 확인해 주세요' }; }
-      wait = _openGoogleWait(() => lb.cancel('취소'));
-      const r = await lb.result;
-      if(googleLoopback === lb) googleLoopback = null;
-      try{ if(wait) wait.close(); }catch(_){}
-      if(r.canceled) return { ok:false, reason:'로그인 창을 닫아서 연결을 멈췄어요', canceled:true };
-      try{ if(mainWindow && !mainWindow.isDestroyed()) mainWindow.focus(); }catch(_){}   // 브라우저에서 돌아오면 앱을 앞으로(취소면 건너뜀)
-      if(r.ok) return _googleExchange(r.code, verifier);
-      if(r.error){ _diagLog('[구글] 로그인 오류 응답: ' + r.error); return { ok:false, reason: GoogleOAuth.errorReason(r.error) }; }
-      if(r.timeout) return { ok:false, reason:'브라우저에서 로그인을 마치지 않아 멈췄어요 — 다시 시도해 주세요' };
-      return { ok:false, reason:'로그인 응답이 올바르지 않아요' };
-    }
-    if(googleLoopback === lb) googleLoopback = null;
-    _diagLog('[구글] 기본 브라우저 대기를 열지 못해 앱 안 창으로 — ' + started.reason);
+       리디렉션 주소는 위와 같아 구글 콘솔은 그대로다. 기다리는 동안 작은 안내 창의 [취소] · × 로 끝낼 수 있다
+       (화면의 구글 버튼은 결과가 올 때까지 잠겨 있어서). 포트를 못 잡을 때만 아래 앱 안 창으로 대신한다. */
+    const viaBrowser = await googleSignIn.run({ authUrl, state, verifier });
+    if(!viaBrowser.fallback) return viaBrowser;
+    _diagLog('[구글] 기본 브라우저 대기를 열지 못해 앱 안 창으로 — ' + viaBrowser.reason);
 
     return await new Promise(resolve=>{
       let settled = false;

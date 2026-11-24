@@ -136,4 +136,67 @@ function createLoopback(o){
   return { start, result, cancel: (reason) => finish({ ok: false, canceled: true, reason: reason || '' }) };
 }
 
-module.exports = { CALLBACK_PATH, WAIT_MS, WAIT_CANCEL_URL, WAIT_HTML, buildAuthUrl, parseCallback, errorReason, createLoopback, PAGE_OK, PAGE_ERR };
+/* 기다리는 동안의 작은 안내 창 — Electron 의 BrowserWindow 를 받아 만든다(검사가 가짜 창으로 부른다).
+   늘 위는 실행 모드 메인과 같은 'screen-saver' 단계 · 메인을 부모로(owned window — 메인이 다시 올라와도 같이 따라 올라온다).
+   [취소](WAIT_CANCEL_URL 로 이동)와 × 둘 다 onCancel. close() 로 닫을 땐 onCancel 을 부르지 않는다. preload 를 붙이지 않는다. → { close() } */
+function openWaitWindow(o){
+  let closing = false;
+  const W = 380, H = 132;
+  const wa = o.workArea || null;
+  const win = new o.BrowserWindow({
+    width: W, height: H,
+    x: wa ? wa.x + wa.width - W - 24 : undefined, y: wa ? wa.y + wa.height - H - 24 : undefined,   // 오른쪽 아래 — 브라우저를 가리지 않게
+    resizable: false, minimizable: false, maximizable: false, fullscreenable: false,
+    icon: o.icon, title: '구글 로그인', autoHideMenuBar: true, backgroundColor: '#c0c0c0',
+    parent: o.parent || undefined,
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, devTools: o.devTools },
+  });
+  try{ win.setAlwaysOnTop(true, 'screen-saver'); }catch(_){}
+  win.webContents.on('will-navigate', (e, url) => {
+    try{ e.preventDefault(); }catch(_){}
+    if(String(url || '').indexOf(WAIT_CANCEL_URL) === 0) o.onCancel();
+  });
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.on('closed', () => { if(!closing) o.onCancel(); });
+  Promise.resolve(win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(WAIT_HTML))).catch(() => {});
+  return { close(){ closing = true; try{ if(!win.isDestroyed()) win.destroy(); }catch(_){} } };
+}
+
+/* 기본 브라우저 로그인 한 번의 흐름 — 듣기 → 브라우저 열기 → 안내 창 → 결과 → 안내 창 닫기 → 결과 모양.
+   다시 불리면 앞의 대기를 멈춘다(앞 호출은 canceled). 대기는 듣기 전에 걸어 둔다(겹쳐 불려도 포트를 두고 다투지 않게).
+   포트를 못 잡으면 { fallback:true } — main 이 앱 안 창으로 대신한다.
+   deps: http · redirect · openExternal(url) · openWait(onCancel) → { close } · focusMain() · exchange(code, verifier) · log(msg) · timeoutMs?
+   run({ authUrl, state, verifier }) → { ok:true, idToken } | { ok:false, reason, canceled? } | { fallback:true, reason } */
+function createGoogleSignIn(deps){
+  let current = null;
+  const log = deps.log || (() => {});
+  async function run(a){
+    if(current){ current.cancel('다시 시도'); current = null; }
+    const cb = new URL(deps.redirect);
+    const lb = createLoopback({ http: deps.http, host: cb.hostname, port: Number(cb.port), path: cb.pathname, state: a.state, timeoutMs: deps.timeoutMs });
+    current = lb;
+    const started = await lb.start();
+    if(!started.ok){
+      if(current === lb) current = null;
+      if(started.reason === 'canceled') return { ok: false, reason: CANCELED_TEXT, canceled: true };   // 듣기 전에 다시 불려 멈췄다
+      return { fallback: true, reason: started.reason };
+    }
+    try{ await deps.openExternal(a.authUrl); }
+    catch(_){ lb.cancel(); if(current === lb) current = null; return { ok: false, reason: '브라우저를 열지 못했어요 — 기본 브라우저 설정을 확인해 주세요' }; }
+    let wait = null;
+    try{ wait = deps.openWait(() => lb.cancel('취소')); }catch(_){ wait = null; }
+    const r = await lb.result;
+    if(current === lb) current = null;
+    try{ if(wait) wait.close(); }catch(_){}
+    if(r.canceled) return { ok: false, reason: CANCELED_TEXT, canceled: true };   // 화면은 조용히 끝낸다 · 앱 창을 당기지 않는다
+    try{ deps.focusMain(); }catch(_){}
+    if(r.ok) return deps.exchange(r.code, a.verifier);
+    if(r.error){ log('[구글] 로그인 오류 응답: ' + r.error); return { ok: false, reason: errorReason(r.error) }; }
+    if(r.timeout) return { ok: false, reason: '브라우저에서 로그인을 마치지 않아 멈췄어요 — 다시 시도해 주세요' };
+    return { ok: false, reason: '로그인 응답이 올바르지 않아요' };
+  }
+  return { run };
+}
+const CANCELED_TEXT = '로그인 창을 닫아서 연결을 멈췄어요';
+
+module.exports = { CALLBACK_PATH, WAIT_MS, WAIT_CANCEL_URL, WAIT_HTML, CANCELED_TEXT, buildAuthUrl, parseCallback, errorReason, createLoopback, openWaitWindow, createGoogleSignIn, PAGE_OK, PAGE_ERR };

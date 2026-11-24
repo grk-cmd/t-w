@@ -160,24 +160,117 @@ const freePort = () => new Promise((res) => { const s = http.createServer(); s.l
     '[취소] 는 정해진 주소로 가는 링크 · 스크립트가 없다');
   chk(/\.invalid\//.test(G.WAIT_CANCEL_URL), '[취소] 주소는 실제로 닿지 않는 .invalid 주소');
 
-  say('· ⑥ main.js 연결');
+  say('· ⑧ 흐름(createGoogleSignIn) — 가짜 창 · 가짜 브라우저로 실제로 돌린다');
+  /* 가짜 BrowserWindow — 만든 옵션 · 늘 위 단계 · 이동 · 닫힘을 기록한다 */
+  class FakeWin {
+    constructor(opts){ this.opts = opts; this.level = null; this.destroyed = false; this.h = {}; this.wc = {};
+      this.webContents = { on: (ev, fn) => { this.wc[ev] = fn; }, setWindowOpenHandler: () => {} }; FakeWin.all.push(this); }
+    setAlwaysOnTop(on, level){ this.level = level; }
+    on(ev, fn){ this.h[ev] = fn; }
+    loadURL(){ return Promise.resolve(); }
+    isDestroyed(){ return this.destroyed; }
+    destroy(){ if (this.destroyed) return; this.destroyed = true; if (this.h.closed) this.h.closed(); }
+    userClose(){ this.destroy(); }   // × — 사람이 닫음(close() 를 거치지 않음)
+    navigate(url){ let prevented = false; this.wc['will-navigate']({ preventDefault: () => { prevented = true; } }, url); return prevented; }
+  }
+  FakeWin.all = [];
+  /* 흐름 하나 — browser(url, state) 가 브라우저 몫을 한다(없으면 아무것도 안 함) */
+  const mkFlow = (port, o = {}) => {
+    const log = { opened: [], waits: [], focus: 0, exchanged: [] };
+    const flow = G.createGoogleSignIn({
+      http, redirect: 'http://127.0.0.1:' + port + '/tw-oauth', timeoutMs: o.timeoutMs || 5000,
+      openExternal: async (u) => { log.opened.push(u); if (o.browser) setTimeout(() => o.browser(u), 10); },
+      openWait: (onCancel) => { const w = G.openWaitWindow({ BrowserWindow: FakeWin, parent: { id: 'main' }, workArea: { x: 0, y: 0, width: 1920, height: 1040 }, onCancel }); log.waits.push(FakeWin.all[FakeWin.all.length - 1]); return w; },
+      focusMain: () => { log.focus++; },
+      exchange: async (code, verifier) => { log.exchanged.push([code, verifier]); return { ok: true, idToken: 'ID-' + code }; },
+    });
+    return { flow, log };
+  };
+  const stateOf = (u) => new URL(u).searchParams.get('state');
+  const authUrl = (state) => G.buildAuthUrl({ clientId: 'CID', redirect: 'http://127.0.0.1/x', challenge: 'CH', state });
+  {
+    const port = await freePort();
+    const { flow, log } = mkFlow(port, { browser: (u) => get(port, '/tw-oauth?code=C7&state=' + stateOf(u)) });
+    const r = await flow.run({ authUrl: authUrl('S1'), state: 'S1', verifier: 'V1' });
+    const w = log.waits[0];
+    chk(r.ok === true && r.idToken === 'ID-C7' && JSON.stringify(log.exchanged) === JSON.stringify([['C7', 'V1']]), '① 성공 — code 를 이번 verifier 로 바꿔 돌려준다');
+    chk(log.waits.length === 1 && w.destroyed === true, '① 결과가 오면 안내 창을 닫는다');
+    chk(log.focus === 1, '① 성공이면 앱 창을 앞으로');
+  }
+  {
+    const port = await freePort();
+    const { flow, log } = mkFlow(port);
+    let cancels = 0;
+    const p = flow.run({ authUrl: authUrl('S2'), state: 'S2', verifier: 'V2' });
+    await new Promise((r) => setTimeout(r, 30));
+    log.waits[0].userClose();
+    const r = await p;
+    chk(r.ok === false && r.canceled === true && log.focus === 0 && log.exchanged.length === 0, '② × 로 닫으면 canceled · 앱 창을 당기지 않는다');
+    chk((await get(port, '/tw-oauth?code=C&state=S2')).status === 0, '② 취소 뒤 듣기가 닫혀 있다');
+  }
+  {
+    const port = await freePort();
+    const { flow, log } = mkFlow(port);
+    const p = flow.run({ authUrl: authUrl('S3'), state: 'S3', verifier: 'V3' });
+    await new Promise((r) => setTimeout(r, 30));
+    const prevented = log.waits[0].navigate(G.WAIT_CANCEL_URL);
+    const r = await p;
+    chk(prevented && r.canceled === true && log.waits[0].destroyed, '③ [취소] — 이동을 막고 canceled · 안내 창을 닫는다');
+    const other = log.waits[0].navigate('https://example.com/');
+    chk(other === true, '③ 다른 주소로의 이동도 막는다(안내 창은 아무 데도 가지 않는다)');
+  }
+  {
+    const port = await freePort();
+    let st = null;
+    const { flow, log } = mkFlow(port, { browser: (u) => { st = stateOf(u); } });
+    const a = flow.run({ authUrl: authUrl('SA'), state: 'SA', verifier: 'VA' });
+    await new Promise((r) => setTimeout(r, 30));
+    const b = flow.run({ authUrl: authUrl('SB'), state: 'SB', verifier: 'VB' });
+    const ra = await a;
+    chk(ra.canceled === true && log.waits[0].destroyed === true, '④ 대기 중 다시 부르면 앞 호출은 canceled · 앞 안내 창이 닫힌다');
+    await new Promise((r) => setTimeout(r, 30));
+    await get(port, '/tw-oauth?code=CB&state=SB');
+    const rb = await b;
+    chk(rb.ok === true && rb.idToken === 'ID-CB' && log.waits.length === 2, '④ 새 호출은 같은 포트로 이어서 받는다');
+  }
+  {
+    const port = await freePort();
+    const hog = http.createServer(); await new Promise((r) => hog.listen(port, '127.0.0.1', r));
+    const { flow, log } = mkFlow(port);
+    const r = await flow.run({ authUrl: authUrl('S5'), state: 'S5', verifier: 'V5' });
+    chk(r.fallback === true && log.opened.length === 0 && log.waits.length === 0, '⑤ 포트를 못 잡으면 대체 길 — 브라우저 · 안내 창을 열지 않는다');
+    await new Promise((r2) => hog.close(r2));
+  }
+  {
+    const port = await freePort();
+    const { flow, log } = mkFlow(port, { timeoutMs: 80 });
+    const r = await flow.run({ authUrl: authUrl('S6'), state: 'S6', verifier: 'V6' });
+    chk(r.ok === false && !r.canceled && /마치지 않아/.test(r.reason) && log.waits[0].destroyed, '⑥ 시간이 지나면 멈춤 문구 · 안내 창을 닫는다');
+  }
+  {
+    let cancels = 0;
+    const before = FakeWin.all.length;
+    const w = G.openWaitWindow({ BrowserWindow: FakeWin, parent: { id: 'main' }, workArea: { x: 0, y: 0, width: 1920, height: 1040 }, onCancel: () => { cancels++; } });
+    const fw = FakeWin.all[before];
+    chk(fw.level === 'screen-saver' && fw.opts.parent && fw.opts.parent.id === 'main', '⑦ 안내 창 — 실행 모드 메인과 같은 단계(screen-saver) · 메인을 부모로');
+    chk(!('preload' in fw.opts.webPreferences) && fw.opts.webPreferences.contextIsolation === true && fw.opts.webPreferences.nodeIntegration === false, '⑦ 안내 창에 preload 를 붙이지 않는다');
+    chk(fw.opts.x === 1920 - 380 - 24 && fw.opts.y === 1040 - 132 - 24, '⑦ 화면 오른쪽 아래(브라우저를 가리지 않게)');
+    w.close();
+    chk(fw.destroyed === true && cancels === 0, '⑦ close() 로 닫으면 취소를 부르지 않는다');
+  }
+
+  say('· ⑨ main.js 연결');
   const MAIN = MAIN_P ? fs.readFileSync(MAIN_P, 'utf8') : '';
   if (!MAIN){ chk(false, 'main.js 를 찾는다'); }
   else {
     const i = MAIN.indexOf("ipcMain.handle('companion:signInWithGoogle'");
     const body = i < 0 ? '' : MAIN.slice(i, i + 12000);
-    const iLb = body.indexOf('GoogleOAuth.createLoopback('), iWin = body.indexOf('new BrowserWindow(');
+    const pre = MAIN.slice(MAIN.indexOf('const googleSignIn = GoogleOAuth.createGoogleSignIn('), i);
     chk(/require\('\.\/google-oauth'\)/.test(MAIN), 'main 이 google-oauth.js 를 싣는다');
-    chk(iLb > 0 && iWin > iLb, '기본 브라우저 길이 앱 안 창보다 먼저');
-    chk(/if\(started\.ok\)\{[\s\S]{0,400}shell\.openExternal\(authUrl\)/.test(body), '포트를 잡았을 때만 기본 브라우저를 연다');
-    chk(/if\(googleLoopback\)\{\s*googleLoopback\.cancel\(/.test(body), '다시 불리면 앞의 대기를 멈춘다');
-    chk(body.indexOf('googleLoopback = lb;') > 0 && body.indexOf('googleLoopback = lb;') < body.indexOf('await lb.start()'), '대기는 듣기 전에 걸어 둔다(겹쳐 불려도 포트를 두고 다투지 않게)');
-    chk(/_openGoogleWait\(\(\)\s*=>\s*lb\.cancel\(/.test(body), '안내 창의 [취소] 가 대기를 끝낸다');
-    chk(/if\(r\.canceled\)\s*return \{[^}]*canceled:\s*true/.test(body) && body.indexOf('if(r.canceled)') < body.indexOf('mainWindow.focus()'), '취소는 canceled 로 돌려주고(화면이 조용히 끝냄) 앱 창을 당기지 않는다');
-    const w = MAIN.slice(MAIN.indexOf('const _openGoogleWait'), MAIN.indexOf("ipcMain.handle('companion:signInWithGoogle'"));
-    chk(/WAIT_CANCEL_URL/.test(w) && /e\.preventDefault\(\)/.test(w) && /on\('closed',[^\n]*onCancel\(\)/.test(w), '안내 창 — [취소] 이동을 가로채 취소 · × 로 닫아도 취소');
-    chk(!/preload/.test(w.replace(/\/\*[\s\S]*?\*\//g, '')) && /contextIsolation:\s*true/.test(w) && /nodeIntegration:\s*false/.test(w), '안내 창에 preload 를 붙이지 않는다');
-    chk(/new URL\(GOOGLE_OAUTH_REDIRECT\)/.test(body) && /port:\s*Number\(_cb\.port\)/.test(body), '리디렉션 주소의 포트 · 경로로 듣는다(구글 콘솔 그대로)');
+    const iRun = body.indexOf('googleSignIn.run('), iWin = body.indexOf('new BrowserWindow(');
+    chk(iRun > 0 && iWin > iRun && /if\(!viaBrowser\.fallback\) return viaBrowser;/.test(body), '기본 브라우저 길이 먼저 · 대체 길(포트 실패)일 때만 앱 안 창');
+    chk(/redirect:\s*GOOGLE_OAUTH_REDIRECT/.test(pre) && /GoogleOAuth\.openWaitWindow\(\{\s*BrowserWindow/.test(pre) && /shell\.openExternal\(u\)/.test(pre) && /_googleExchange\(code, verifier\)/.test(pre),
+      '흐름에 리디렉션 주소(구글 콘솔 그대로) · 안내 창 · 기본 브라우저 · 토큰 교환을 잇는다');
     const handleBody = body.slice(body.indexOf('const handle = (e, url)=>'), body.indexOf("webContents.on('will-redirect', handle)"));
     chk(/GoogleOAuth\.parseCallback\(/.test(handleBody) && /GoogleOAuth\.errorReason\(/.test(handleBody) && /_googleExchange\(/.test(handleBody)
         && !/oauth2\.googleapis\.com\/token/.test(handleBody) && !/q\.get\('state'\)/.test(handleBody), '앱 안 창 길도 같은 판정 · 오류 문구 · 토큰 교환을 쓴다(두 벌이 아니다)');
