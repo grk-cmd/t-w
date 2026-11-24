@@ -87,6 +87,7 @@ sysinput.init({
 });
 /* 🖱 호버 찌르기 판단(제보 #5) — 판단만 떼어 낸 모듈이다. 타이머 · IPC 는 아래 _syncHoverWatcher. */
 const HoverPoke = require('./hover-poke');
+const GoogleOAuth = require('./google-oauth');   // 🔑 구글 로그인 — 기본 브라우저로 받기(루프백)
 /* 🖱 클릭 통과 판단 규칙 — 렌더러(desktop-run.js)와 **같은 파일**을 쓴다. 안전장치 ⓔ·ⓕ·ⓖ 의 문턱 · 조건은 거기에만 있다.
    ⚠️ 여기에 같은 조건을 다시 쓰지 않는다(checks/sim-click-through-policy.js). 설치본에도 app/** 로 들어간다. */
 const ClickPolicy = require('./app/parts/launcher/click-through-policy');
@@ -2364,6 +2365,19 @@ function createWindow() {
      ⚠️ 구글 콘솔의 '승인된 리디렉션 URI' 에 이 주소를 그대로 넣어야 한다. */
   const GOOGLE_OAUTH_REDIRECT = 'http://127.0.0.1:52736/tw-oauth';
   let googleAuthWin = null;
+  let googleLoopback = null;   // 기본 브라우저 로그인 대기(google-oauth.js) — 다시 누르면 앞의 것을 멈추고 새로 연다
+  /* code → id_token(Node 쪽 fetch — 렌더러 CSP 와 무관). 기본 브라우저 길이 쓴다 */
+  const _googleExchange = (code, verifier) => fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: GOOGLE_OAUTH_CLIENT_ID, client_secret: GOOGLE_OAUTH_CLIENT_SECRET,
+      code, code_verifier: verifier, grant_type: 'authorization_code', redirect_uri: GOOGLE_OAUTH_REDIRECT,
+    }),
+  })
+    .then(res => res.json())
+    .then(j => (j && j.id_token) ? { ok:true, idToken: j.id_token } : { ok:false, reason:'구글 토큰을 받지 못했어요' + (j && j.error ? (' (' + j.error + ')') : '') })
+    .catch(() => ({ ok:false, reason:'네트워크 오류 — 연결을 확인해 주세요' }));
 
   ipcMain.handle('companion:signInWithGoogle', async ()=>{
     if(!GOOGLE_OAUTH_CLIENT_ID || !GOOGLE_OAUTH_CLIENT_SECRET){
@@ -2382,17 +2396,31 @@ function createWindow() {
     const challenge = b64url(crypto.createHash('sha256').update(verifier).digest());
     const state     = b64url(crypto.randomBytes(16));
 
-    const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth'
-      + '?client_id='     + encodeURIComponent(GOOGLE_OAUTH_CLIENT_ID)
-      + '&redirect_uri='  + encodeURIComponent(GOOGLE_OAUTH_REDIRECT)
-      + '&response_type=code'
-      + '&scope='         + encodeURIComponent('openid email profile')
-      + '&code_challenge=' + challenge
-      + '&code_challenge_method=S256'
-      + '&state='         + state
-      /* select_account — 안 넣으면 이미 브라우저에 로그인된 계정으로 조용히 통과해서,
-         '다른 계정으로 로그인'이 불가능해진다. 한 컴퓨터를 나눠 쓸 때 이게 필요하다. */
-      + '&prompt=select_account';
+    /* 동의 화면 주소(PKCE S256 · code 흐름 · select_account) — 만드는 곳은 google-oauth.js 한 곳 */
+    const authUrl = GoogleOAuth.buildAuthUrl({ clientId: GOOGLE_OAUTH_CLIENT_ID, redirect: GOOGLE_OAUTH_REDIRECT, challenge, state });
+
+    /* 🌐 기본 브라우저로 먼저 — 앱 안 창은 구글이 «안전하지 않은 브라우저» 로 막거나 맞는 비밀번호도 거절할 때가 있다(google-oauth.js).
+       리디렉션 주소는 위와 같아 구글 콘솔은 그대로다. 포트를 못 잡을 때만 아래 앱 안 창으로 대신한다.
+       다시 누르면 앞의 대기를 멈추고(그 invoke 는 취소로 끝남) 새로 연다 — 브라우저 탭은 앱이 앞으로 올릴 수 없어서,
+       «이미 열려 있어요» 로 막으면 탭을 닫아 버린 사람이 5분 동안 못 한다. */
+    if(googleLoopback){ googleLoopback.cancel('다시 시도'); googleLoopback = null; }
+    const _cb = new URL(GOOGLE_OAUTH_REDIRECT);
+    const lb = GoogleOAuth.createLoopback({ http: require('http'), host: _cb.hostname, port: Number(_cb.port), path: _cb.pathname, state });
+    const started = await lb.start();
+    if(started.ok){
+      googleLoopback = lb;
+      try{ await shell.openExternal(authUrl); }
+      catch(_){ lb.cancel(); if(googleLoopback === lb) googleLoopback = null; return { ok:false, reason:'브라우저를 열지 못했어요 — 기본 브라우저 설정을 확인해 주세요' }; }
+      const r = await lb.result;
+      if(googleLoopback === lb) googleLoopback = null;
+      try{ if(mainWindow && !mainWindow.isDestroyed()) mainWindow.focus(); }catch(_){}   // 브라우저에서 돌아오면 앱을 앞으로
+      if(r.ok) return _googleExchange(r.code, verifier);
+      if(r.error){ _diagLog('[구글] 로그인 오류 응답: ' + r.error); return { ok:false, reason: GoogleOAuth.errorReason(r.error) }; }
+      if(r.timeout) return { ok:false, reason:'브라우저에서 로그인을 마치지 않아 멈췄어요 — 다시 시도해 주세요' };
+      if(r.canceled) return { ok:false, reason:'로그인 창을 닫아서 연결을 멈췄어요', canceled:true };
+      return { ok:false, reason:'로그인 응답이 올바르지 않아요' };
+    }
+    _diagLog('[구글] 기본 브라우저 대기를 열지 못해 앱 안 창으로 — ' + started.reason);
 
     return await new Promise(resolve=>{
       let settled = false;

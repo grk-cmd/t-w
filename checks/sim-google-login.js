@@ -47,6 +47,7 @@ const pick = (...c) => { for (const p of c) if (fs.existsSync(p)) return fs.read
 const FB   = pick('firebase-init.js', 'parts/firebase-init.js');
 const MAIN = pick('main.js', '../main.js');
 const PRE  = pick('preload.js', '../preload.js');
+const OAUTH_PATH = ['google-oauth.js', '../google-oauth.js'].find(p => fs.existsSync(p));   // 동의 화면 주소 · 루프백 대기(main 쪽 모듈)
 
 const say = console.log;
 let fail = 0;
@@ -174,7 +175,7 @@ else {
   chk(/signInWithGoogle\(\)\s*\{[\s\S]{0,160}invoke\('companion:signInWithGoogle'\)/.test(PRE),
       'preload 가 invoke 로 결과를 돌려준다 (send 가 아니다)');
   const i = MAIN.indexOf("ipcMain.handle('companion:signInWithGoogle'");
-  const body = i < 0 ? '' : MAIN.slice(i, i + 7000);
+  const body = i < 0 ? '' : MAIN.slice(i, i + 12000);   // 기본 브라우저 길이 앞에 들어와 앱 안 창 코드가 뒤로 밀렸다
   chk(!!body, 'main 에 signInWithGoogle 핸들러가 있다');
   if (body){
     const winOpts = body.slice(body.indexOf('new BrowserWindow('), body.indexOf('setAlwaysOnTop'));
@@ -191,10 +192,14 @@ else {
         '⑦ 유저가 창을 닫아도 invoke 가 끝난다 (버튼이 죽지 않는다)');
     chk(/let settled = false|settled\s*=\s*true/.test(body),
         '⑦ 결과가 두 번 돌아가지 않는다 (한 번만 resolve)');
-    chk(/code_challenge_method=S256/.test(body), 'PKCE(S256)를 쓴다');
-    chk(/response_type=code/.test(body) && !/response_type=id_token/.test(body),
+    /* 동의 화면 주소는 google-oauth.js 한 곳에서 만든다 — 그 함수를 불러 실제 주소를 본다 */
+    const G = OAUTH_PATH ? require(require('path').resolve(OAUTH_PATH)) : null;
+    const url = G ? G.buildAuthUrl({ clientId: 'CID', redirect: 'http://127.0.0.1:52736/tw-oauth', challenge: 'CH', state: 'ST' }) : '';
+    chk(!!G && /GoogleOAuth\.buildAuthUrl\(/.test(body), 'main 이 동의 화면 주소를 google-oauth.js 에서 받는다');
+    chk(/code_challenge_method=S256/.test(url) && /code_challenge=CH/.test(url), 'PKCE(S256)를 쓴다');
+    chk(/response_type=code/.test(url) && !/response_type=id_token/.test(url),
         '암묵적 흐름이 아니라 인가 코드 흐름을 쓴다');
-    chk(/prompt=select_account/.test(body),
+    chk(/prompt=select_account/.test(url),
         '계정 선택 화면을 강제한다 (한 컴퓨터를 나눠 쓸 때 계정 전환이 된다)');
     chk(/state/.test(body) && /q\.get\('state'\)\s*!==\s*state/.test(body),
         'state 를 대조한다 (응답 바꿔치기 방지)');
