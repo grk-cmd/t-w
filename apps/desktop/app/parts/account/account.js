@@ -416,8 +416,11 @@ async function _acctMethodsRender(keepMsg){
   /* 🔁 지금 구글(가린 주소) · [바꾸기] — 비밀번호가 있어야 바꾼다(google-change-net.js) */
   show('acctMGoogleRow2', m.google, 'flex');
   text('acctMGoogleMail', m.google ? '↳ ' + (googleConfirmMod.maskEmail(m.googleEmail) || '(주소 모름)') : '');
-  const gc = $e('acctMGoogleChange'); if(gc) gc.disabled = !(m.google && !c3);
-  show('acctMGoogleChangeNote', m.google && c3);
+  /* 🚧 [바꾸기]는 서버가 구글 연결 바꾸기를 받을 때까지 숨긴다(shared/server-features.js — Firebase Auth 만 바꾸면 서버의 구글 연결 기록과 어긋난다) */
+  const gcOn = TwServerFeatures.on('googleChange');
+  show('acctMGoogleChange', gcOn, 'inline-block');
+  const gc = $e('acctMGoogleChange'); if(gc) gc.disabled = !(gcOn && m.google && !c3);
+  show('acctMGoogleChangeNote', gcOn && m.google && c3);
   const gl = $e('acctMGoogleLink'); if(gl) gl.disabled = false;
   let code = m.code;
   if(!code){ try{ code = localStorage.getItem(MY_FRIEND_CODE_KEY); }catch(_){} }
@@ -539,7 +542,7 @@ function refreshAccountTab(){
 /* 🔁 구글 계정 바꾸기 — 같은 계정(유저 코드 그대로)의 구글 연결만 새 구글로. 순서 · 되돌리기는 google-change-net.js.
    from = 지금 연결된 구글 주소 · step(글) = 단계 안내. 돌려주는 것: { ok, email } | { ok:false, canceled? , reason, restored? } */
 async function _acctChangeGoogle(from, step){
-  if(!(window.firebaseAPI && firebaseAPI.authChangeGoogle)) return { ok:false, reason:'이 버전에서는 구글을 바꿀 수 없어요' };
+  if(!TwServerFeatures.on('googleChange')) return { ok:false, reason:'이 버전에서는 구글을 바꿀 수 없어요' };
   step('지금 연결된 구글(' + googleConfirmMod.maskEmail(from) + ')을 한 번 골라 확인해 주세요…');
   const cur = await googleConfirmMod.pickCurrent(from);
   if(!cur.ok) return cur;
@@ -547,7 +550,7 @@ async function _acctChangeGoogle(from, step){
   const nw = await googleConfirmMod.pickForChange(from);
   if(!nw.ok) return nw;
   step('구글 계정을 바꾸는 중…');
-  let r = null; try{ r = await firebaseAPI.authChangeGoogle(cur.idToken, nw.idToken); }catch(_){ r = null; }
+  let r = null; try{ r = await TwServerFeatures.noServer('googleChange').change(cur.idToken, nw.idToken); }catch(_){ r = null; }   // 서버 경로가 생기면 그 provider 로(#1101)
   if(!r) return { ok:false, err:true, reason:'네트워크 오류 — 인터넷 연결을 확인해 주세요' };
   if(r.ok){
     /* 이 PC 를 구글로 로그인했다면 표시 이메일도 새 구글로 — 친구 코드로 로그인했으면({코드}@tw.local) 그대로 */

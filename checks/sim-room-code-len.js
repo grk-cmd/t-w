@@ -136,13 +136,13 @@ async function judge(src){
   say('── 1-2. 로비 모달 칸 연결');
   const H = (() => { const h = findUp('desk-companion-prototype.html'); return h ? fs.readFileSync(h, 'utf8') : ''; })();
   const wire = (src, html) => {
-    const foot = (html.match(/<div class="lb-foot">([\s\S]*?)\n        <\/div>/) || [])[1] || '';
+    const side = (html.match(/<div class="lb-side">([\s\S]*?)\n        <\/div>/) || [])[1] || '';   // 0.14 두 칸 로비 — 오른쪽 칸(만들기 · 빠른시작 · 코드 칸)
     return [
       [/const INVITE_JOIN_OPTS = \{ randomOnEmpty: false \};/.test(src), 'room-entry — 로비 모달 칸 설정이 한 곳(randomOnEmpty: false)'],
       [/getElementById\('inviteJoin'\)\.onclick=\(\)=>doJoinRoom\(document\.getElementById\('inviteCode'\), INVITE_JOIN_OPTS\)/.test(src), '  [입장] 단추가 그 설정으로'],
       [/_setupRoomCodeInput\(document\.getElementById\('inviteCode'\), INVITE_JOIN_OPTS\)/.test(src) && /doJoinRoom\(inputEl, joinOpts\)/.test(src), '  Enter 도 같은 설정으로'],
       [/_setupRoomCodeInput\(document\.getElementById\('fsInviteCode'\)\);/.test(src), '  F1 멀티모드 탭 칸은 그대로(빈 칸 = 랜덤)'],
-      [/id="inviteCode"/.test(foot) && /id="inviteJoin"/.test(foot) && (html.match(/id="inviteCode"/g) || []).length === 1, 'html — 코드 칸 · [입장] 은 로비 아래 줄(.lb-foot) 안에 한 벌'],
+      [/id="inviteCode"/.test(side) && /id="inviteJoin"/.test(side) && (html.match(/id="inviteCode"/g) || []).length === 1, 'html — 코드 칸 · [입장] 은 로비 오른쪽 칸(.lb-side) 안에 한 벌'],
       [!/id="donateLink"/.test(html) && !/id="inviteJoinPanel"/.test(html) && !/donateLink/.test(src), '  후원 링크 · 옛 코드 칸 묶음(inviteJoinPanel)은 없다'],
     ];
   };

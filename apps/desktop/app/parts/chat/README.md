@@ -14,6 +14,7 @@
 - 지난 기록은 deps `chatHistory`(읽는 함수 — `chat-history.js` 의 `open` · `syncTabs`) 한 길로 받는다. 기록 모듈이 없거나 열다 던지거나 서버에서 못 받으면 같은 «지난 대화를 불러오지 못했어요 + [다시 시도]» 줄 + `E-CHAT-02` + `console.warn` — 다른 길(최근 줄 구독 `subscribeLog`)로 돌리지 않는다. `subscribeLog` 는 안 읽은 수 세기(뱃지 · 탭 숫자)에만 쓴다 — 그쪽 실패는 `subscribeLog(…, onFail)` 로 알려 와 뱃지 · 탭 숫자를 «?»(모름 — 0 이 아니다)로 보이고 `console.warn` 을 남기며 `E-CHAT-02` 를 방마다 한 번 알린다. 다시 받으면 숫자로 돌아온다.
 
 ## `chat-notice.js` · `chat-notice-net.js` — 📢 시크릿룸 공지(#공지 탭 · 고정 한 줄)
+- 🚧 0.13 위(0.14.0): deps `enabled` — `TwServerFeatures.on('chatNotice')` 가 꺼지면 `available()` false(탭 · 구독 없음). provider 는 서버 경로가 생길 때까지 `TwServerFeatures.noServer('chatNotice')`(#1098).
 
 **책임** — 시크릿룸 방장이 채팅창의 «#공지» 탭에서 공지를 쓰고 · 고치고 · 지우고 · 📌 하나를 고정한다. 고정한 공지는 모든 채팅 탭 위에 한 줄로 뜨고(길면 마우스를 올려 흘려 읽는다) 누르면 숨고(다른 공지를 고정하거나 고치면 · 채팅창을 다시 열면 다시 뜬다) 다시 보려면 #공지 탭. 공지는 채팅 말풍선 · 기록으로 나가지 않고, 시크릿룸이 아닌 방에는 탭도 줄도 없다. 참여자는 읽기만.
 
@@ -36,6 +37,7 @@ const chatUiMod = TwChatUi.createChatUi({ …, chatNotice: chatNoticeMod, … })
 검사: `checks/sim-chat-notice.js`.
 
 ## `chat-focus.js` — 📊 시크릿룸 #집중 탭(방 전체 집중 기록)
+- 🚧 0.13 위(0.14.0): deps `enabled` — `TwServerFeatures.on('chatFocus')` 가 꺼지면 탭 · 구독 없음. 올리기(room-focus-sync) · 탭의 provider 는 `TwServerFeatures.noServer('chatFocus')`(#1099).
 
 **책임** — 채팅창의 «#집중» 탭(#공지 다음 · 시크릿룸에서만)을 열면 방 사람들이 «이 방 기록에 올리기» 를 켜고 쌓은 집중 시간이 보인다 — 방 전체 누적(큰 글씨) · 오늘 / 이번 주 · 사람별 순위(오늘 · 이번 주 · 누적 단추). 내 올리기 켜기 · 끄기 · «내 기록 지우기» 도 여기. 채팅 탭이 아니라 «보기 상태» — 저장 · 방송 · 안 읽음이 없다.
 

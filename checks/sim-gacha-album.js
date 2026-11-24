@@ -5,7 +5,7 @@
    ★ 사용자 결정: 도감 = «⭐ 상시» + 시즌(봄 · 여름 · 가을 · 겨울 — 파츠가 있는 것만) · 줄 그림은 뽑은 파츠에서만.
    ・1절: 순수 함수 입력 → 출력 · 경계값(빈 값 · null · 모르는 시즌 · 0개 · 다 모음 · 쪽 끝) · 받은 값을 고치지 않는다
    ・2절: 연결 — html 이 gacha.js · app.js 보다 먼저 싣는다 · smoke 가 싣는다 · gacha.js 가 받아 부른다
-   ・3절: 일부러 깨 보기 */
+   ・3절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -90,7 +90,7 @@ chk(W.smoke, 'smoke 가 gacha.js 보다 먼저 싣는다');
 chk(W.takes && !W.calls.length, 'gacha.js 가 받아 부른다' + (W.calls.length ? ' — 안 부름: ' + W.calls.join(' · ') : ''));
 chk(!W.dup.length, '같은 판단을 gacha.js 에 다시 쓰지 않는다(시즌 표 포함)' + (W.dup.length ? ' — ' + W.dup.join(' · ') : ''));
 
-say('── 3. 일부러 깨 보기');
+say('── 3. mutation test');
 const BREAKS = [
   ['MOD', '    if(!list.length) return;\n', '', '파츠 없는 도감도 줄로', 'keys'],
   ['MOD', 'thumbs: owned.slice(0, ALBUM_THUMBS)', 'thumbs: list.slice(0, ALBUM_THUMBS)', '안 뽑은 파츠 그림이 줄에', 'thumbs'],
@@ -107,14 +107,14 @@ const BREAKS = [
 const missed = [];
 for (const [where, from, to, what, key] of BREAKS) {
   const src = { MOD, GACHA, HTML }[where];
-  if (src.indexOf(from) < 0) { chk(false, '깨 볼 글을 못 찾음 — ' + what); continue; }
+  if (src.indexOf(from) < 0) { chk(false, 'mutation test 원문을 못 찾음 — ' + what); continue; }
   const bad = src.split(from).join(to);
   let caught;
   if (where === 'MOD') { const r = judge(bad); caught = !!r.err || r[key] === false; }
   else { const w = where === 'GACHA' ? wiring(bad, HTML, SMOKE) : wiring(GACHA, bad, SMOKE); caught = !w.order || !w.takes || w.calls.length > 0 || w.dup.length > 0; }
   if (!caught) missed.push(what);
 }
-chk(!missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+chk(!missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
 say('\n통과 ' + pass + ' · 실패 ' + fail);
 process.exit(fail ? 1 : 0);

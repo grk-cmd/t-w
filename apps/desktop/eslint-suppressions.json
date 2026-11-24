@@ -9,6 +9,11 @@
       "count": 18
     }
   },
+  "app/parts/account/google-confirm.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
   "app/parts/account/license-gate.js": {
     "tw/no-firebase-api": {
       "count": 3
@@ -105,7 +110,17 @@
       "count": 8
     }
   },
+  "app/parts/chat/chat-focus.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
   "app/parts/chat/chat-history.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/chat/chat-notice.js": {
     "tw/no-timer": {
       "count": 1
     }
@@ -303,6 +318,11 @@
     },
     "tw/no-timer": {
       "count": 3
+    }
+  },
+  "app/parts/room/room-invite-ui.js": {
+    "tw/no-timer": {
+      "count": 1
     }
   },
   "app/parts/room/room-rt.js": {

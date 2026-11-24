@@ -504,11 +504,11 @@ const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판 — 마이홈을 �
     };
     const bad = lib.checkPost(p); if(bad){ err.textContent = bad; return; }
     if(!notice && !skipSimilar){
-      btn.disabled = true; err.textContent = '';
+      busy = true; btn.disabled = true; err.textContent = '';   // 찾는 동안도 busy — 연타가 두 번 올리지 않게
       const seq = writeSeq;
       let sim = [];
       try{ sim = await similarTo(p.title); }catch(e){ console.warn('[버그제보] 비슷한 제보 받기 실패', e); sim = []; }   // 못 받으면 창 없이 올린다 — 비교는 안내라 올리기를 막지 않는다
-      btn.disabled = false;
+      busy = false; btn.disabled = false;
       if(!writing() || seq !== writeSeq) return;   // 찾는 동안 떠났거나 글쓰기를 새로 열었으면 올리지도 띄우지도 않는다
       if(sim.length){ showSimilar(p.title.trim(), sim); return; }
     }

@@ -117,9 +117,9 @@ say('§4 칩 · 메뉴');
   let b = build(SRC, { noChip: true }); let th = false; try{ b.mod.refreshMyStatusUI(); }catch(_){ th = true; }
   chk(!th, '칩 버튼이 없으면(아직 안 그려짐) 조용히 지나간다');
   b = build(SRC); b.mod.refreshMyStatusUI();
-  chk(b.els.myStatusChipBtn.title === '상태' && b.els.myStatusDot.style.background === '#9dba8a', '상태가 없으면 title «상태» · 기본 초록 점');
+  chk(b.els.myStatusChipBtn.title === '메뉴' && b.els.myStatusDot.style.background === '#9dba8a', '상태가 없으면 title «메뉴»(▾ 미니 메뉴 버튼) · 기본 초록 점');
   b.mod.setUserStatus('meal');
-  chk(b.els.myStatusDot.style.background === 'css:#e0a050' && b.els.myStatusDot.style.boxShadow.includes('rgba(#e0a050,0.18)') && b.els.myStatusChipBtn.title === '🍚 밥', '상태가 있으면 이모지 + 이름 title · 점 색(cssColor 거침) · 번짐');
+  chk(b.els.myStatusDot.style.background === 'css:#e0a050' && b.els.myStatusDot.style.boxShadow.includes('rgba(#e0a050,0.18)') && b.els.myStatusChipBtn.title === '메뉴 — 지금 상태: 🍚 밥', '상태가 있으면 «메뉴 — 지금 상태: 이모지 + 이름» title · 점 색(cssColor 거침) · 번짐');
   b = build(SRC, { premium: true, conf: { emo: '', text: '' } }); b.mod.refreshCustomStatusMenuItem();
   const cb = b.els.myCustomStatusBtn;
   chk(cb.style.display === '' && cb.children['.csEmo'].textContent === '✨' && cb.children['.csLabel'].textContent === '커스텀 상태' && cb.title === '커스텀 상태 문구 등록', '프리미엄 — 항목을 보이고 등록 전 문구(✨ 커스텀 상태)');

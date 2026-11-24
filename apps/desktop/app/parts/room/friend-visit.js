@@ -47,7 +47,7 @@ function createFriendVisit(deps){
   /** @param {string} fid  @param {{ code: string, name: string }=} invite 🔔 받은 초대 줄에서 열 때만 */
   function ask(fid, invite){
     const f = deps.getFriend(fid);
-    if(!f && invite){ toast((invite.name || '친구') + ' 님은 친구 목록에 없어요'); return; }
+    if(!f && invite){ toast(TwPersonName.shown(invite.name) + ' 님은 친구 목록에 없어요'); return; }
     const name = f ? TwPersonName.shown(f.name) : '친구';   // 친구 칸이 없으면(그 사이 끊김) «친구»
     const code = _codeOf(f, invite);
     const my = deps.myRoom();

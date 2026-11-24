@@ -6,7 +6,7 @@
    ・3절: 컨트롤러(진짜 모듈 · 가짜 DOM · 진짜 room-state) — 시크릿룸 아니면 없음 · 구독 · 열기 · 쓰기(채팅으로 안 나감) · 참여자는 못 씀 · 고치기 · 지우기 · 고정 · 고정 줄
    ・4절: 서버 읽기 · 쓰기(진짜 모듈 · 가짜 db) — 빈 자리 · 꽉 참 · 고정 묶음 · 해제
    ・5절: 연결 — 규칙(_notice · 시크릿룸만 · n1~n20 · 300자) · html · app.js · 채팅 모듈 · 에러 번호
-   ・6절: 일부러 깨 보기
+   ・6절: mutation test
    [실행] node checks/run.js sim-chat-notice */
 'use strict';
 const fs = require('fs');
@@ -52,7 +52,7 @@ function mkCtl(src, o){
   };
   const M = loadWin(src, win).TwChatNotice;
   const cur = { room: o.room === undefined ? 'SCRT-AB12' : o.room };
-  const c = M.createChatNotice({ document: doc, escHtml: SH.text, toast: (m) => toasts.push(m), getMyUserId: () => 'ME', roomCode: () => cur.room, roomState: RS, provider, notifyError: (code) => errors.push(code) });
+  const c = M.createChatNotice({ document: doc, escHtml: SH.text, toast: (m) => toasts.push(m), getMyUserId: () => 'ME', roomCode: () => cur.room, roomState: RS, provider, notifyError: (code) => errors.push(code), enabled: () => true });
   c.onChange(() => { changes.n++; });
   return { c, M, doc, calls, toasts, errors, changes, push: (raw) => cb(raw), setRoom: (r) => { cur.room = r; }, calls2: calls, counts: () => ({ subs, unsubs }), win };
 }
@@ -262,7 +262,8 @@ function wire(S){
   w(!ok1(SR, 'n1', { text: long(301), ts: T }) && !ok1(SR, 'n1', { text: '', ts: T }) && !ok1(SR, 'n1', { text: 5, ts: T }) && !ok1(SR, 'n1', { ts: T }) && !ok1(SR, 'n1', { text: '공지' }) && !ok1(SR, 'n1', { text: '공지', ts: '1' }), '  거절: 301자 · 빈 글 · 글자 아님 · text 없음 · ts 없음 · ts 숫자 아님');
   w(!ok1(SR, 'n1', { text: '공지', ts: 'x' }) && ok1(SR, 'n1', { text: '공지', ts: 0 }), '  ts 는 숫자여야 한다');
   w(!ok1(SR, 'n1', { text: '공지', ts: T, pin: false }) && !ok1(SR, 'n1', { text: '공지', ts: T, pin: 1 }), '  거절: pin 이 true 가 아닌 값(풀 때는 칸을 지운다)');
-  w(!/import[^\n]*chat-notice-net/.test(S.fi) && /window\.TwChatNoticeNet\.createChatNoticeNet\(\{ db, ref, update, remove, set, onValue, off, runTransaction \}\)/.test(S.fi), 'firebase-init.js — 연결 한 줄만(전역 TwChatNoticeNet · 데이터 통로의 set · remove · onValue 를 그대로 넘김)');
+  /* 🚧 0.13 은 Firebase DB 쓰기를 잠갔다 — 서버 길이 생길 때까지 firebase-init 에 공지 통로를 잇지 않고, app.js 가 서버 기능 표로 입구를 닫는다(shared/server-features.js) */
+  w(!/TwChatNoticeNet/.test(S.fi) && /enabled: \(\)=>TwServerFeatures\.on\('chatNotice'\)/.test(S.app || ''), 'firebase-init.js 에 공지 통로가 없고(0.13) · app.js 가 서버 기능 표로 입구를 닫는다');
   const H = S.html;
   const iNet = H.indexOf('<script src="parts/chat/chat-notice-net.js"'), iMod = H.indexOf('<script src="parts/chat/chat-notice.js"'), iUi = H.indexOf('<script src="parts/chat/chat-ui.js"'), iApp = H.indexOf('<script src="parts/app.js"'), iFi = H.indexOf('<script type="module" src="parts/firebase-init.js"');
   w(iNet > 0 && iMod > 0 && iMod < iUi && iUi < iApp && iFi > 0, 'html — 공지 모듈이 chat-ui · app.js 보다 먼저 실린다(서버 연결은 type=module 이라 늦게 돈다)');
@@ -270,7 +271,7 @@ function wire(S){
   w(/\.chat-pin\{display:none;position:absolute;top:\d+px;left:\d+px;right:\d+px;/.test(H) && /\.chat-msgbox:has\(\.chat-pin\.on\) \.chat-messages\{padding-top:\d+px;\}/.test(H), '  고정 줄은 흰 칸 맨 위에 떠 있고(글이 스크롤돼도 그 자리) 켜지면 대화 칸이 그만큼 내려선다');
   w(/#chatWindow\.notice-mode \.chat-msgbox,[\s\S]*?\.chat-memberbar,[\s\S]*?\.chat-toolbar,[\s\S]*?\.chat-flyrow,[\s\S]*?\.chat-pin\{display:none !important;\}/.test(H) && /\.chat-pin:hover \.cp-text\.long\{[^}]*animation:cp-flow/.test(H), '  #공지 탭에서는 대화 · 인원 줄 · 도구 줄을 숨긴다 · 긴 고정 글은 올리면 흐른다');
   const A = S.app;
-  w(/const chatNoticeMod = TwChatNotice\.createChatNotice\(\{[\s\S]*?roomState: TwRoomState[\s\S]*?firebaseAPI\.chatNotice\.pin\(\.\.\.a\)[^\n]*\n\}\);[\s\S]*?const chatUiMod = TwChatUi\.createChatUi\(\{\n  demojiCatalog: demojiCatalog,\n  chatNotice: chatNoticeMod,/.test(A), 'app.js — 공지 모듈을 채팅 모듈보다 먼저 만들어 값으로 넘긴다(데이터는 firebaseAPI.chatNotice 한 곳)');
+  w(/const chatNoticeMod = TwChatNotice\.createChatNotice\(\{[\s\S]*?roomState: TwRoomState[\s\S]*?provider: TwServerFeatures\.noServer\('chatNotice'\)[^\n]*\n\}\);[\s\S]*?const chatUiMod = TwChatUi\.createChatUi\(\{\n  chatNotice: chatNoticeMod,/.test(A), 'app.js — 공지 모듈을 채팅 모듈보다 먼저 만들어 값으로 넘긴다(서버 경로가 생길 때까지 provider 는 TwServerFeatures.noServer — #1098)');
   const C = S.chatui;
   w(/chatNotice\.onChange\(\(\) => \{ _chatTabsRender\(\); _chatOffRefreshUI\(\); \}\)/.test(C) && /if\(chatNotice\.submit\(inp\)\) return;/.test(C) && /chatNotice\.start\(\);/.test(C) && /chatNotice\.stop\(\);/.test(C) && /if\(t\.dataset\.tab === 'notice'\)\{ if\(chatFocus\.isActive\(\)\) chatFocus\.close\(\); chatNotice\.open\(\); return; \}/.test(C), '채팅 모듈 — 알림 걸기 · Enter 가 공지면 채팅 전송 건너뜀 · 창 열 때 구독 · 닫을 때 해제 · 탭 누르기');
   w(/if\(chatNotice\.isActive\(\)\) chatNotice\.close\(\);\s*\/\/ 다른 탭을 누르면 공지 · 집중 보기에서 나온다/.test(C) && /_chatTabMenu\(id\)\{[\s\S]*?if\(id === 'notice' \|\| id === 'focus'\) return;/.test(C), '  다른 탭을 누르면 공지 보기에서 나온다 · #공지 는 우클릭 메뉴가 없다');
@@ -288,7 +289,7 @@ function wire(S){
   say('── 5. 연결');
   wire(SRC).forEach(([ok, m]) => chk(ok, m));
 
-  say('── 6. 일부러 깨 보기');
+  say('── 6. mutation test');
   const BREAKS = [
     ['mod', "let p = (available() && !active) ? pinnedOf(items) : null;", "let p = pinnedOf(items);", '#공지 탭에서도 고정 줄이 겹쳐 보임'],
     ['mod', "if(!isHost()){ toast('방장만 공지를 쓸 수 있어요'); return true; }", '', '참여자도 공지를 쓸 수 있음'],

@@ -3,7 +3,7 @@
    ・2절: room-focus-sync.js 를 진짜로 돌린다 — 꺼져 있으면 안 올림 · 시크릿룸만 · 1분 모아 정수 초 · 방 / 날이 바뀌면 앞 몫은 그 방 그 날에 · 실패 되돌림 · 끄면 버림 · 이름은 바뀔 때만
    ・3절: 규칙 — `_focus/$uid` 식을 실제로 굴린다(앱이 보내는 모양 · 거절 모양) · 칸 모양 · `_focus` 통째 쓰기는 안 열려 있다
    ・4절: 연결 — firebase-init · html 싣는 순서 · app.js 연결 · 포커스 모듈의 알림 · 모듈이 firebaseAPI 를 직접 부르지 않는다
-   ・5절: 깨 보기 — 모듈 · 규칙 · 연결을 일부러 고쳐 보고 빨강이 나는지
+   ・5절: mutation test — 모듈 · 규칙 · 연결을 일부러 고쳐 보고 빨강이 나는지
    [실행] node checks/run.js sim-room-focus */
 'use strict';
 const fs = require('fs');
@@ -162,14 +162,15 @@ async function judge(S){
     t(((U.d || {})['.validate'] || '').indexOf('hasChildren') > 0, '  d 자체는 칸을 가진 객체(숫자 하나를 넣는 길을 닫는다)');
 
     /* ── 4절 연결 ── */
-    t(!/import[^\n]*room-focus-net/.test(S.fi) && /roomFocus: window\.TwRoomFocusNet\.createRoomFocusNet\(\{ db, ref, update, remove, set, onValue, off, runTransaction \}\)/.test(S.fi), 'firebase-init.js — 연결 한 줄만(전역 TwRoomFocusNet)');
+    /* 🚧 0.13 은 Firebase DB 쓰기를 잠갔다 — 서버 길이 생길 때까지 firebase-init 에 집중 통로를 잇지 않고, 올리기 · 탭 둘 다 서버 기능 표로 입구를 닫는다(shared/server-features.js) */
+    t(!/TwRoomFocusNet/.test(S.fi) && /isSecretRoom: \(\)=>TwServerFeatures\.on\('chatFocus'\) && /.test(S.app) && /enabled: \(\)=>TwServerFeatures\.on\('chatFocus'\)/.test(S.app), 'firebase-init.js 에 집중 통로가 없고(0.13) · 올리기 · 집중 탭 입구를 서버 기능 표로 닫는다');
     const H = S.html;
     const iDays = H.indexOf('<script src="parts/shared/room-focus-days.js"'), iNet = H.indexOf('<script src="parts/focus/room-focus-net.js"'), iSync = H.indexOf('<script src="parts/focus/room-focus-sync.js"'), iFocus = H.indexOf('<script src="parts/chat/chat-focus.js"'), iUi = H.indexOf('<script src="parts/chat/chat-ui.js"'), iApp = H.indexOf('<script src="parts/app.js"');
     t(iDays > 0 && iDays < iSync && iDays < iFocus && iNet > 0 && iSync > 0 && iFocus > 0 && iSync < iApp && iFocus < iUi && iUi < iApp, 'html — 날 키 규칙이 올리기 · 집중 탭보다 먼저, 둘 다 chat-ui · app.js 보다 먼저 실린다');
     const A = S.app;
-    t(/const roomFocusSync = TwRoomFocusSync\.createRoomFocusSync\(\{[\s\S]*?firebaseAPI\.roomFocus\.add\(\.\.\.a\)[\s\S]*?storage: localStorage,\n\}\);\nconst chatFocusMod = TwChatFocus\.createChatFocus\(\{[\s\S]*?sync: roomFocusSync[\s\S]*?firebaseAPI\.roomFocus\.removeMine\(\.\.\.a\)[\s\S]*?\n\}\);\nconst chatUiMod/.test(A), 'app.js — 올리기와 집중 탭을 채팅 모듈보다 먼저 만든다(서버는 firebaseAPI.roomFocus 한 곳)');
+    t(/const roomFocusSync = TwRoomFocusSync\.createRoomFocusSync\(\{[\s\S]*?provider: TwServerFeatures\.noServer\('chatFocus'\)[\s\S]*?storage: localStorage,\n\}\);\nconst chatFocusMod = TwChatFocus\.createChatFocus\(\{[\s\S]*?sync: roomFocusSync[\s\S]*?provider: TwServerFeatures\.noServer\('chatFocus'\)[\s\S]*?\n\}\);\nconst chatUiMod/.test(A), 'app.js — 올리기와 집중 탭을 채팅 모듈보다 먼저 만든다(서버 경로가 생길 때까지 provider 는 TwServerFeatures.noServer — #1099)');
     t(/dayKey: \(\)=>TwRoomFocusDays\.dayKeyOf\(focusTotalMod\._focusDayStr\(\)\)/.test(A) && /todayKey: \(\)=>TwRoomFocusDays\.dayKeyOf\(focusTotalMod\._focusDayStr\(\)\)/.test(A) && !/dayKeyOf|function keyOfDate|dateOfKey/.test(S.sync.replace(/\/\*[\s\S]*?\*\//g, '')), '날 키는 한 곳(TwRoomFocusDays) — 올리기 · 집중 탭이 같은 함수를 쓰고 올리기 모듈에 따로 없다');
-    t(/const focusLevelMod = TwFocusLevel\.createFocusLevel\(\{\n  onFocusAdded: \(sec\)=>roomFocusSync\.add\(sec\),/.test(A) && /\}catch\(e\)\{\}\n  onFocusAdded\(sec\);   \/\/ 저장이 끝난 뒤에 알린다/.test(S.level), '포커스 누적이 쌓일 때마다 올리기에 알린다(addFocusSeconds → onFocusAdded → roomFocusSync.add)');
+    t(/const focusLevelMod = TwFocusLevel\.createFocusLevel\(\{\n  onFocusAdded: \(sec\)=>roomFocusSync\.add\(sec\),/.test(A) && /progress\.addSeconds\(sec\);[^\n]*\n  onFocusAdded\(sec\);   \/\/ 📊 시크릿룸 집중 기록/.test(S.level), '포커스 누적이 쌓일 때마다 올리기에 알린다(addFocusSeconds → onFocusAdded → roomFocusSync.add)');
     t(!/firebaseAPI|window\.firebase/.test(S.sync.replace(/\/\*[\s\S]*?\*\//g, '')) && !/chat-focus|chat-ui|Presence/.test(S.sync.replace(/\/\*[\s\S]*?\*\//g, '')), '올리기 모듈은 firebaseAPI · 채팅 모듈을 직접 부르지 않는다(provider · deps 로만)');
   } catch (err) {
     t(false, '돌리다 오류 — ' + (err && err.stack ? err.stack.split('\n').slice(0, 3).join(' | ') : err));
@@ -181,7 +182,7 @@ async function judge(S){
   say('── 1 ~ 4. 서버 연결 · 올리기 · 규칙 · 연결 (진짜 모듈을 돌린다)');
   const base = await judge(SRC);
   base.forEach(([ok, msg]) => chk(ok, msg));
-  say('── 5. 일부러 깨 보기 — 빨강이 나야 한다');
+  say('── 5. mutation test — 빨강이 나야 한다');
   const BREAKS = [
     ['net', 'return Math.min(MAX_DAY_SEC, base + Math.floor(sec));', 'return base + Math.floor(sec);', '하루 상한 86400 이 없어짐'],
     ['net', 'return Math.min(MAX_DAY_SEC, base + Math.floor(sec));', 'return Math.min(MAX_DAY_SEC, Math.floor(sec));', '더하지 않고 덮어씀'],
@@ -205,9 +206,9 @@ async function judge(S){
     ['rules', '$room.matches(/^SCRT-/) && $uid', '$uid', '시크릿룸이 아닌 방에도 열림'],
     ['rules', 'newData.val() <= 86400 && (!data.exists() || newData.val() >= data.val())', 'newData.val() <= 864000', '하루 합 상한 · 줄어듦 막기가 풀림'],
     ['rules', '"$uid": {\n            ".write": true,', '".write": true,\n          "$uid": {\n            ".write": true,', '_focus 통째 쓰기(방 전체 지우기)가 열림'],
-    ['fi', 'roomFocus: window.TwRoomFocusNet.createRoomFocusNet({ db, ref, update, remove, set, onValue, off, runTransaction }),', '', '서버 연결 줄이 없음'],
-    ['level', '  onFocusAdded(sec);   // 저장이 끝난 뒤에 알린다(알림이 던져도 누적 저장은 이미 끝났다)\n', '', '포커스 누적이 올리기에 알리지 않음'],
-    ['level', '  }catch(e){}\n  onFocusAdded(sec);', '  onFocusAdded(sec);\n  }catch(e){}\n', '알림이 저장보다 먼저 가서 던지면 저장이 건너뛰어짐'],
+    ['app', "isSecretRoom: ()=>TwServerFeatures.on('chatFocus') && ", 'isSecretRoom: ()=>', '서버 길이 없는데 올리기 입구가 열림'],
+    ['level', '  onFocusAdded(sec);   // 📊 시크릿룸 집중 기록(room-focus-sync.js) — 진척에 넣은 뒤에 알린다\n', '', '포커스 누적이 올리기에 알리지 않음'],
+    ['level', '  progress.addSeconds(sec);   // 서버에 올릴 몫(미전송분)으로 — 레벨 · 별은 서버가 준 값이다\n  onFocusAdded(sec);', '  onFocusAdded(sec);\n  progress.addSeconds(sec);', '알림이 진척에 넣기보다 먼저 감'],
     ['app', '  onFocusAdded: (sec)=>roomFocusSync.add(sec),\n', '', 'app.js 가 알림을 걸지 않음'],
     ['html', '<script src="parts/focus/room-focus-sync.js"></script>', '', '올리기 모듈을 html 이 안 실음'],
   ];

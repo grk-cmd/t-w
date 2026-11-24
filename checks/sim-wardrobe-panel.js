@@ -120,7 +120,7 @@ const breaks = [
 
   ['만들 때 던짐', m => m.replace('function createWardrobePanel(deps){', 'function createWardrobePanel(deps){ throw new Error("mutation");'), null, null],
 ];
-/* 동작을 일부러 깨 본다 — 2-2절이 빨갛게 되어야 한다 */
+/* mutation test — 동작을 일부러 바꾸면 2-2절이 빨갛게 되어야 한다 */
 const behaveBreaks = [
   ['[도감으로] 가 opts 를 버림', m => m.replace('open(wardrobeMod().ALBUM_TAB, opts); });', 'open(wardrobeMod().ALBUM_TAB); });')],
   ['[도감으로] 통로를 안 걺', m => m.replace("twNav.on(twNav.NAV.WARDROBE_ALBUM,", "(()=>0)(twNav.NAV.WARDROBE_ALBUM,")],

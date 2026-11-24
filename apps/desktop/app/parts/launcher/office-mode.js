@@ -1,7 +1,7 @@
 /* office-mode.js — 🏢 데스크탑 · 피규어 · 회사원 모드 깃발(앱 FSD · app.js 분리 M14)
-   app.js 의 «데스크탑(Electron) 모드» 구역(desktopMode · 피규어 모드 · 회사원 모드 · 화면 숨김 · 상태칩 ■ 우클릭 · __officeDiag)을 글 그대로 옮긴 모듈이다.
+   app.js 의 «데스크탑(Electron) 모드» 구역(desktopMode · 피규어 모드 · 회사원 모드 · 화면 숨김 · 미니 메뉴 ▾ 우클릭 · __officeDiag)을 글 그대로 옮긴 모듈이다.
    동작은 옛 자리와 같다(다시 대입되는 값을 읽는 함수 · 쓰는 함수로 받는 줄만 달라진다).
-   ・책임: desktopMode(Electron 안인가) · figureMode · officeMode(저장 키 tw.figureMode · tw.officeMode 에서 읽은 깃발) · setOfficeHidden(화면 숨김 — body.office-hidden · ■ 버튼 표시 · 칩 팝업 닫기) · refreshOfficeChipUI · 상태칩 ■ 버튼 우클릭 연결 · window.__officeDiag(진단 — 상태를 고치지 않는다).
+   ・책임: desktopMode(Electron 안인가) · figureMode · officeMode(저장 키 tw.figureMode · tw.officeMode 에서 읽은 깃발) · setOfficeHidden(화면 숨김 — body.office-hidden · ▾ 버튼 표시 · 칩 팝업 닫기) · refreshOfficeChipUI · ▾ 버튼 우클릭 연결 · window.__officeDiag(진단 — 상태를 고치지 않는다).
    ・내놓는 것: desktopMode · FIGURE_MODE_KEY · OFFICE_MODE_KEY · setOfficeHidden · refreshOfficeChipUI(값 · 함수) · figureMode · officeMode(읽는 함수) · setFigureMode · setOfficeMode(쓰는 함수) — app.js 는 값 · 함수를 같은 이름 const 로 받는다.
    ⚠️ 모듈을 만들 때(app.js 옛 자리) 깃발을 localStorage 에서 읽고 refreshOfficeChipUI() 를 한 번 부른다. 이 깃발을 최상위에서 읽는 app.js 코드(focusGateSleep 등)는 만드는 줄 아래에 있어야 한다 — 위에 두면 TDZ 로 앱이 죽는다(node checks/smoke.js 가 잡는다).
    검사: checks/sim-office-mode.js */

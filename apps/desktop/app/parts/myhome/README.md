@@ -298,7 +298,7 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 
 **함정** — Windows 는 `setBounds` 뒤 `'moved'` 가 안 온다. 창 좌상단(여백 포함)을 기억하면 같은 여백으로 다시 불릴 때(메뉴 누름) 옛 자리로 돌아간다 — 여백 없는 자리로 기억해야 `'moved'` 가 오든 안 오든 같다.
 
-검사: `checks/sim-mh-pad-pos.js` (함수 · 놓는 흐름 — `'moved'` 오는 OS · 안 오는 OS · 깨 보기).
+검사: `checks/sim-mh-pad-pos.js` (함수 · 놓는 흐름 — `'moved'` 오는 OS · 안 오는 OS · mutation test).
 
 ## `mallang-sent.js` — 🎁 보낸 말랑이 기록 규칙
 

@@ -50,9 +50,11 @@ TEXT.change = { title: '구글 계정을 바꿀까요?', lead: ' — 새로 연�
   fresh: '', other: '취소', yes: '바꾸기' };   // 시안대로 [취소] · [바꾸기] — [취소]도 기본 포커스(잘못 바꾸지 않게)
 const sameEmail = (a, b) => !!a && !!b && String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
 
-/** @param {{ friendCode: () => (string|null), signInWithGoogle: () => Promise<any> }} deps */
+/** @param {{ storage: { getItem: (k: string) => (string|null) }, friendCodeKey: string, signInWithGoogle: () => Promise<any> }} deps */
 function createGoogleConfirm(deps){
-  const friendCode = deps.friendCode;
+  const storage = deps.storage;               // 이 PC 저장소(localStorage) — 이 PC 계정의 친구 코드를 읽는다
+  const friendCodeKey = deps.friendCodeKey;   // 친구 코드 저장 키(app.js MY_FRIEND_CODE_KEY)
+  const friendCode = () => { try{ return storage.getItem(friendCodeKey); }catch(_){ return null; } };
   const signInWithGoogle = deps.signInWithGoogle;
   let open = null;   // 열린 창의 닫기(겹쳐 부르면 앞의 것을 취소로 닫는다)
 

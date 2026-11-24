@@ -15,6 +15,7 @@ function createPlaylistLikeUi(deps){
   const net = deps.net;
   const getMyUserId = deps.getMyUserId;
   const notifyError = deps.notifyError;
+  const enabled = deps.enabled;   // 읽는 함수 — 서버가 반응을 받는가(shared/server-features.js) · 아니면 줄을 그리지 않고 읽지도 않는다
   const $ = (id) => document.getElementById(id);
 
   let ctx = null;            // 마지막으로 그린 { ro, ownerId, myId, setIdx }
@@ -106,6 +107,7 @@ function createPlaylistLikeUi(deps){
 
   /* playlist.js 가 소개칸을 그릴 때마다 부른다 — c = { ro, ownerId, setIdx } (myId 는 여기서 채운다) */
   function render(c){
+    if(!enabled()) c = null;   // 🚧 서버 길이 없으면 «안 보임» 과 같다
     const next = Object.assign({}, c || {}, { myId: getMyUserId() });
     const k = keyOf(next);
     ctx = next;

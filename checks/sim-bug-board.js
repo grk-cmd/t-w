@@ -187,7 +187,12 @@ function boot(src) {
     setTimeout: () => { env.timers++; return 0; }, setInterval: () => { env.timers++; return 0; },
     Math, JSON, String, Number, Array, Object, Promise, Map, Set, Date, Boolean, Error, RegExp };
   ctx.window = ctx;
-  ctx.TwPersonName = globalThis.TwPersonName; vm.createContext(ctx);
+  ctx.TwPersonName = globalThis.TwPersonName;
+  /* 마이홈 고리판(myhome-hooks.js 와 같은 모양) — 📝 임시저장이 LEAVE_GUARD 를 건다 */
+  const hooks = { HOOK: { LEAVE_GUARD: 'leaveGuard' }, _h: {}, on(n, f) { this._h[n] = f; }, has(n) { return !!this._h[n]; }, call(n, ...a) { return this._h[n](...a); } };
+  ctx.TwMyHomeHooks = hooks; env.hooks = hooks;
+  const ls = {}; ctx.localStorage = { getItem: (k) => (k in ls ? ls[k] : null), setItem: (k, v) => { ls[k] = String(v); }, removeItem: (k) => { delete ls[k]; } };
+  vm.createContext(ctx);
   vm.runInContext(src, ctx, { filename: 'bug-board-ui.js' });
   const calls = [], impl = {};
   const n = (k) => calls.filter(c => c[0] === k).length;
@@ -197,7 +202,7 @@ function boot(src) {
   const DEF = { list: { items: [], next: null }, notices: [], detail: post('B-1'), write: { number: 'B-9' }, reply: undefined, answer: undefined, reportConfig: { version: 3, notice: '안내', link: 'https://open.kakao.com/o/a' }, saveReportLink: { version: 4, notice: '안내', link: 'https://open.kakao.com/o/new' }, setVis: { vis: 'prv', version: 2 }, like: { likeN: 9, liked: true }, seen: undefined, quota: { dailyMax: 5, usedToday: 0 } };
   for (const k of Object.keys(DEF)) api[k] = (...a) => { calls.push([k, ...a]); return Promise.resolve().then(() => impl[k] ? impl[k](...a) : DEF[k]); };
   const ui = ctx.TwBugBoardUi.createBugBoardUi({ bugApi: api, lib: M, apiErrors: { notify: (e) => env.common.push(e.code) }, notifyError: (c) => { env.codes.push(c); return true; },
-    toast: (m) => env.toasts.push(m), escHtml: (s) => SH.text(s), safeHtml: SH, isAdmin: () => env.admin, bugReportLink: () => env.link || '', rtOn: (k, fn) => { env.rt.push([k, fn]); return () => {}; } });
+    toast: (m) => env.toasts.push(m), escHtml: (s) => SH.text(s), safeHtml: SH, isAdmin: () => env.admin, bugReportLink: () => env.link || '', rtOn: (k, fn) => { env.rt.push([k, fn]); return () => {}; }, getMyUserId: () => env.me === undefined ? 'uA' : env.me });
   const clickAct = (act, ds) => { const b = mkEl('btn'); b.dataset = Object.assign({ act }, ds || {}); els.bbDetailView._L.click[0]({ target: { closest: (s) => s === '[data-act]' ? b : null } }); return b; };
   const clickRow = (id) => els.bbRows._L.click[0]({ target: { closest: (s) => s === '.bb-row[data-id]' ? { dataset: { id } } : null } });
   return { env, el, ui, api, impl, calls, n, ctx, flts, tab, clickAct, clickRow };
@@ -313,11 +318,14 @@ async function judgeUi(src) {
     chk(b.n('write') === 1 && b.calls.find(c => c[0] === 'write')[1].cat === 'bug', '[등록] 연타 — 보내는 동안 한 번만');
     slow.res({ number: 'B-1113-1' }); await flush();
     chk(b.env.toasts.includes('🐞 제보를 등록했어요') && b.calls.filter(c => c[0] === 'detail').pop()[1] === 'B-1113-1', '  성공 — 토스트 · 그 글을 연다');
+    /* 성공하면 글을 연다(글쓰기 칸이 닫힘) — 다시 글쓰기를 열어 같은 글로 보낸다. 🔎 비슷한 제보 찾기는 글쓰기 칸이 떠 있을 때만 이어 간다 */
+    delete b.impl.quota; b.el('bbWriteBtn')._L.click[0](); await flush(); b.env.codes.length = 0;   // 위에서 남은 수를 못 받게 한 것은 되돌린다
+    b.el('bbWriteView').style.display = ''; b.el('bbWTitle').value = 't'; b.el('bbWBody').value = 'b'; b.el('bbWCat').value = 'bug'; b.el('bbWEnv').checked = false;
     b.impl.write = () => { throw apiErr(429, 'BUG_DAILY_LIMIT'); };
-    await submit(); await flush();
+    await submit(); await flush(20);   // 🔎 비슷한 제보 찾기(목록 두 쪽)를 거쳐 보낸다 — 기다림이 몇 번 더 있다
     chk(b.el('bbWErr').textContent === M.GUIDE_TEXT.BUG_DAILY_LIMIT && b.env.codes.length === 0 && b.el('bbWTitle').value === 't', '  429 하루 상한 — 안내 문구(번호 없음) · 입력 그대로');
     b.impl.write = () => { throw apiErr(400, 'BUG_INVALID'); };
-    await submit(); await flush();
+    await submit(); await flush(20);
     chk(b.env.codes.join() === 'E-BUG-03' && b.el('bbWSubmit').disabled === false, '  그 밖 — E-BUG-03 한 번 · [등록] 다시 켬');
   }
   {

@@ -5,7 +5,7 @@
    ・3절 장식 달기 — 고른 장식 · 한마디 다듬기 · 보던 트리 번호 · 다 찼으면 «다른 트리로 이동» · 5초 간격 · 실패 갈래
    ・4절 신고 — 확인창 · 내 트리 · 자리 · 이미 신고 · 실패 코드
    ・5절 실패 · 닫기 — 못 불러옴(E-XMAS-01) · 닫은 뒤 늦게 온 답은 버림 · 끝난 뒤 열기 막기
-   ・6절 한마디 라벨은 textContent 로만 · 깨 보기
+   ・6절 한마디 라벨은 textContent 로만 · mutation test
    ・7절 편지 창 잇기(편지 · 뮤직바는 가짜 — 그 모듈은 sim-xmas-letter · sim-xmas-song) — 창 열면 맡긴 수 · 1분마다 받은 편지 확인 · 닫으면 편지 창도 ·
      📩 알림함이 NAV.XMAS 로 연다('letter' 면 편지 창까지) · 빨간 점 · 로그인 안 됨 안내(오류 코드 아님) */
 'use strict';
@@ -69,7 +69,7 @@ function world(opts){
   const api = W.createXmasWindow({ doc, win, THREE: {}, ps1Dither: {}, rules: R, treeMod, net: () => net, serverNow: () => S.now, idbGet, idbPut,
     notifyError: (c) => S.errs.push(c), toast: (m) => S.toasts.push(m), escRegisterWindow: (x) => S.escs.push(x),
     onSizeChange: () => { S.size++; }, onReady: (fn) => { S.ready = fn; },
-    songMod, letterMod, companion: () => null, ytVideoId: () => null, asyncPrompt: async () => null, storage: () => null, twNav: nav });
+    songMod, letterMod, companion: () => null, ytVideoId: () => null, asyncPrompt: async () => null, storage: null, twNav: nav });
   return { api, els, T, S, N, store, timers, Lt, nav };
 }
 const tick = () => new Promise(r => setTimeout(r, 0));
@@ -175,7 +175,7 @@ say('── 5-2절 창 마크업이 없으면 던진다(조용히 넘어가지 �
   chk(threw, '#xmasOverlay · #lcXmas 가 없으면 이름을 대고 던진다');
 }
 
-say('── 6절 한마디 라벨 · 깨 보기');
+say('── 6절 한마디 라벨 · mutation test');
 {
   const w = world(); w.S.ready(); w.api.open(); await settle();
   w.T.onSay({ word: '<img src=x onerror=alert(1)>', x: 10, y: 20 });
@@ -183,11 +183,11 @@ say('── 6절 한마디 라벨 · 깨 보기');
   w.T.onSay(null); chk(w.els.xmasSay.hidden, '닫으면 숨김');
   chk(!/innerHTML/.test(SRC.replace(/\/\*[\s\S]*?\*\//g, '')), '창 모듈에 innerHTML 없음');
   chk(/TwSafeHtml\.safeUrl\(d, 'image'\)/.test(SRC), '받은 그림 주소는 safeUrl(image) 로 거른다');
-  // 깨 보기 — 2절 «판이 바뀐 자리만» 이 사본을 안 보면 잡히는지
+  // mutation test — 2절 «판이 바뀐 자리만» 이 사본을 안 보면 잡히는지
   const wb = world({ data: { cur: 1, mine: null, trees: { 1: { 3: { k: 'img', v: 1 } } }, imgs: { 1: { 3: { v: 1, d: PNG('Z') } } } } }); wb.S.ready();
   wb.api.open(); await settle(); wb.api.close(); wb.N.calls.length = 0; delete wb.store['xmasimg:1/3@1'];
   wb.api.open(); await settle();
-  chk(wb.N.calls.includes('img:1/3'), '깨 보기 — 사본이 없으면 다시 받는다(사본을 안 보면 2절이 빨강)');
+  chk(wb.N.calls.includes('img:1/3'), 'mutation test — 사본이 없으면 다시 받는다(사본을 안 보면 2절이 빨강)');
 }
 
 say('── 7절 편지 창 잇기');

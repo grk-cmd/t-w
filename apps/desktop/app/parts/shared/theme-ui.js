@@ -27,6 +27,7 @@ const setCustom = deps.setCustom;   // (obj) => 씻은 obj — 이 PC 사본에 
 const _premiumOn = deps._premiumOn;   // () => bool — 이름은 app.js 와 같게(검사가 옮기기 전 글로 합친다)
 const customUsable = deps.customUsable;   // (theme) => bool — 내 색을 쓸 수 있나(theme.js 한 곳)
 const getMyUserId = deps.getMyUserId;
+const serverOn = deps.serverOn;   // 읽는 함수 — 서버가 «내 색» 을 받는가(shared/server-features.js) · 아니면 이 PC 에만 둔다(읽기 · 쓰기 · 실패 알림 없음)
 const loadCustom = deps.loadCustom; // (uid) => obj | {}(없음) | null(못 읽음) — 서버 users/$uid/themeCustom
 const saveCustom = deps.saveCustom; // (uid, obj) => bool
 const TC = TwThemeCustom;
@@ -163,7 +164,7 @@ async function _cxSave(){
   _cxClose();
   setAccent(CUSTOM_ID);
   const uid = getMyUserId();
-  if(!uid) return;   // 로그인 전 — 이 PC 에만. 로그인 뒤 pullCustom 이 서버가 비었으면 올린다
+  if(!uid || !serverOn()) return;   // 로그인 전 · 서버 길 없음 — 이 PC 에만. 로그인 뒤 pullCustom 이 서버가 비었으면 올린다
   const ok = await saveCustom(uid, saved);
   _cxDirty(!ok);
   if(!ok) TwErrorCodes.notify('E-SYS-02', new Error('saveThemeCustom'));
@@ -176,7 +177,7 @@ function _cxIsDirty(){ try{ return localStorage.getItem(CX_DIRTY_KEY) === '1'; }
    지난번 저장을 서버에 못 올렸으면(dirty) 서버 것 대신 이 PC 것을 올린다 */
 async function pullCustom(){
   const uid = getMyUserId();
-  if(!uid) return;
+  if(!uid || !serverOn()) return;
   const srv = await loadCustom(uid);
   if(srv === null) return;
   const s = TC.normCustom(srv), local = getCustom();

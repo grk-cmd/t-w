@@ -207,7 +207,7 @@ say('── 5. 배선');
   chk(!/antialias:\s*!?\s*[^,]*dot/i.test(raw), '  antialias 를 도트 렌더 값으로 정하지 않는다(옛 «안 보이는 끔» 버그)');
   chk(/const _renderShadows = FrameBudget\.shadowsFor\(_renderQuality\);/.test(raw) && /renderer\.shadowMap\.enabled=_renderShadows;/.test(raw) && !/renderer\.shadowMap\.enabled\s*=\s*true/.test(raw), '★ 실행 화면 그림자는 저장된 화질에서(«최저» 면 끔)');
   const cap = (raw.match(/function _frameCap\(now\)\{[\s\S]*?\n\}/) || [''])[0];
-  chk(/quality: renderQuality\(\),/.test(cap) && /renderQuality: \(\)=>_renderQuality,/.test(rawApp), '★ 상한 판정에 화질을 넘긴다(«최저» 줄 — frame-pace.js 가 app.js 의 _renderQuality 를 읽는 함수로 받는다)');
+  chk(/quality: _renderQuality,/.test(cap), '★ 상한 판정에 화질을 넘긴다(«최저» 줄)');
   chk(/if\(_renderQuality === FrameBudget\.QUALITY\.AUTO && document\.body\.classList\.contains\('runmode'\) && _runSlowWatch\.note\(now, _frameCap\(now\)\)\) _lowerRunQuality\(\);/.test(raw), '★ 자동일 때 · 실행 화면에서만 그린 장마다 감시');
   const lower = (SRC['frame-pace.js'].match(/function _lowerRunQuality\(\)\{[\s\S]*?\n\}/) || [''])[0];   // 프레임 상한 모듈(frame-pace.js)로 옮겼다 — 쓰는 함수로 알린다
   chk(/setRunLowered\(true\);/.test(lower) && /seatCameraMod\.updateCameraOnly\(\);/.test(lower) && /diagNote/.test(lower), '  낮추면 배율을 바로 다시 맞추고 진단 로그에 한 줄');

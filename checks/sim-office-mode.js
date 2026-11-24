@@ -46,17 +46,17 @@ say('§2 화면 숨김');
   let b = build(SRC, {});
   chk(rc(b) === 1 && !b.body.classList.contains('office-hidden'), '회사원 모드가 꺼져 있으면 우클릭은 기본 메뉴만 막고 아무 일도 없다');
   b = build(SRC, { store: { 'tw.officeMode': '1' } });
-  chk(b.els.myStatusChipBtn.title === '상태 (우클릭: 화면 숨기기)', '켜진 채 시작하면 툴팁이 «화면 숨기기» (만들 때 refresh 를 한 번 부른다)');
+  chk(b.els.myStatusChipBtn.title === '메뉴 (우클릭: 화면 숨기기)', '켜진 채 시작하면 툴팁이 «화면 숨기기» (만들 때 refresh 를 한 번 부른다)');
   rc(b);
   chk(b.body.classList.contains('office-hidden') && b.els.myStatusChipBtn.classList.contains('office-hiding') && b.els.myStatusChipBtn.title === '우클릭: 화면 다시 보이기', '우클릭 → 숨김 · 버튼 전용 클래스 · 툴팁');
-  chk(b.closed.length === 1 && b.closed[0][0] === null && b.closed[0][1] === true && b.els.myStatusMenu.classList.contains('hidden'), '숨길 때 칩 팝업(플레이리스트 포함 force)과 상태 메뉴를 닫는다');
+  chk(b.closed.length === 1 && b.closed[0][0] === null && b.closed[0][1] === true && !b.els.myStatusMenu.classList.contains('hidden'), '숨길 때 칩 팝업(플레이리스트 포함 force)을 닫는다 — 상태 목록은 ▾ 메뉴 안이라 그 목록에 같이 닫힌다(따로 숨기면 다음에 열 때 목록만 빈다)');
   chk(b.mod._officeHidden() === true, '_officeHidden 읽는 함수');
   rc(b);
   chk(!b.body.classList.contains('office-hidden') && b.mod._officeHidden() === false && b.closed.length === 1, '다시 우클릭 → 숨김 풀림(팝업은 또 닫지 않음)');
   rc(b); b.mod.setOfficeMode(false); b.mod.refreshOfficeChipUI();
-  chk(b.mod._officeHidden() === false && !b.body.classList.contains('office-hidden') && b.els.myStatusChipBtn.title === '상태', '★ 모드를 끄고 refresh → 숨김도 반드시 풀린다');
+  chk(b.mod._officeHidden() === false && !b.body.classList.contains('office-hidden') && b.els.myStatusChipBtn.title === '메뉴', '★ 모드를 끄고 refresh → 숨김도 반드시 풀린다');
   const b2 = build(SRC, { store: { 'tw.officeMode': '1' }, missing: ['myStatusChipBtn'] });
-  chk(b2.mod.officeMode() === true, '■ 버튼이 없어도 만들 때 던지지 않는다');
+  chk(b2.mod.officeMode() === true, '▾ 버튼이 없어도 만들 때 던지지 않는다');
 }
 say('§3 __officeDiag');
 {

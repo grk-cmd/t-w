@@ -875,15 +875,18 @@ const demojiPalMod = TwDemojiPalette.createDemojiPalette({
    함수 deps 는 화살표로 감싼다(부를 때 찾게). _myHomeLoaded · _myHomeData · _myHomeFriends 는 이 줄보다 뒤에 선언되고 다시 대입되는 let 이라 읽는 함수로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const playlistApiMod = TwPlaylistApi.createPlaylistApi({ authed: TwApi.authed, random: ()=>Math.random(), warn: (...a)=>console.warn(...a) });   // 🌐 플레이리스트 서버 endpoint(/v2/me/playlist · /v2/playlists/…)
-/* 👍 플레이리스트 반응 — 플레이리스트보다 먼저 만든다(만들 때 소개칸을 그리며 부른다). 서버는 firebaseAPI.playlistLike(늦게 붙어서 부를 때 찾는다) */
-const plLikeUi = TwPlaylistLikeUi.createPlaylistLikeUi({ likeRules: TwPlaylistLike, net: ()=>firebaseAPI.playlistLike,
-  getMyUserId: (...a)=>getMyUserId(...a), notifyError: (...a)=>TwErrorCodes.notify(...a) });
-/* 🎄 크리스마스 창(일회성 · 다음 업데이트에서 걷는다) — 서버는 firebaseAPI.xmas(늦게 붙음) · 런처 [🎄 크리스마스] · 📩 편지 알림(NAV.XMAS)이 연다 · 창 크기는 applyDesktopRunClass · 그림 사본은 GLB 영구 캐시(IndexedDB · 45일)에 · 추천곡은 공용 배경음악 창(주인 'xmas') */
-TwXmasWindow.createXmasWindow({ THREE, ps1Dither: TwPs1Dither, rules: TwXmasRules, treeMod: TwXmasTree, net: ()=>firebaseAPI.xmas, serverNow: ()=>firebaseAPI.serverNow(),
-  onReady: (fn)=>TwNetReady.whenNetReady(fn, 'serverNow'), notifyError: (...a)=>TwErrorCodes.notify(...a), toast: (...a)=>toast(...a),
+/* 👍 플레이리스트 반응 — 플레이리스트보다 먼저 만든다(만들 때 소개칸을 그리며 부른다) */
+const plLikeUi = TwPlaylistLikeUi.createPlaylistLikeUi({ likeRules: TwPlaylistLike, net: ()=>TwServerFeatures.noServer('playlistLike'),
+  getMyUserId: (...a)=>getMyUserId(...a), notifyError: (...a)=>TwErrorCodes.notify(...a),
+  enabled: ()=>TwServerFeatures.on('playlistLike') });   // 🚧 서버 길이 생길 때까지 꺼짐(TODO: net 을 서버 provider 로)
+/* 🎄 크리스마스 창(일회성 · 다음 업데이트에서 걷는다) — 런처 [🎄 크리스마스] · 📩 편지 알림(NAV.XMAS)이 연다 · 창 크기는 applyDesktopRunClass · 그림 사본은 GLB 영구 캐시(IndexedDB · 45일)에 · 추천곡은 공용 배경음악 창(주인 'xmas')
+   🚧 서버 길이 아직 없다(0.13 은 Firebase DB 쓰기를 잠갔다) — 서버 기능 표(shared/server-features.js)가 켜질 때까지 만들지 않는다(런처 버튼은 html 에서 hidden 으로 시작해 그대로 숨는다 · NAV.XMAS 는 걸리지 않아 아무 일도 안 한다).
+   TODO: 서버가 받으면 net 을 서버 provider 로 바꾼다. */
+if(TwServerFeatures.on('xmas')) TwXmasWindow.createXmasWindow({ THREE, ps1Dither: TwPs1Dither, rules: TwXmasRules, treeMod: TwXmasTree, net: ()=>TwServerFeatures.noServer('xmas'), serverNow: ()=>TwRtHub.store.serverNow(),
+  onReady: (fn)=>TwNetReady.whenNetReady(fn), notifyError: (...a)=>TwErrorCodes.notify(...a), toast: (...a)=>toast(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a), onSizeChange: ()=>applyDesktopRunClass(),
   idbGet: (k)=>glbIdbMod._glbIdbGet(k), idbPut: (k, v)=>glbIdbMod._glbIdbPut(k, v), songMod: TwXmasSong, letterMod: TwXmasLetter, companion: ()=>window.companion,
-  ytVideoId: (u)=>plMod.ytVideoId(u), asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a), storage: ()=>window.localStorage,
+  ytVideoId: (u)=>plMod.ytVideoId(u), asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a), storage: localStorage,
   twNav: twNav,
 });
 const plMod = TwPlaylist.createPlaylist({
@@ -1605,10 +1608,12 @@ const mhStateMod = TwMyHomeState.createMyHomeState({
 const friendReqBtnMod = TwFriendReqBtn.createFriendReqBtn({
   sendFriendReq: (...a)=>seatFriendReqMod.sendFriendReq(...a),
   resultView: (...a)=>seatFriendReqMod.resultView(...a),
-  friendNet: ()=>window.firebaseAPI,   // 데이터 provider(좌석 친구 신청과 같은 한 줄 — 서버 이관 때 갈아 끼운다)
+  /* 내가 보낸 요청이 살아 있나 — 서버 보낸 요청 목록(friend-requests-port.js listSent)에서 본다 */
+  friendNet: ()=>({ isFriendRequestAlive: async (toId, me)=>{ const s = await friendRequestsPortMod.listSent(me); return !!(s && s[toId]); } }),
   friends: ()=>_myHomeFriends,
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
+  reasonOn: ()=>TwServerFeatures.on('friendReqMsg'),   // 🚧 서버가 신청 사유를 받을 때까지 사유 칸을 숨긴다
 });
 const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({
   _myHomeFriends: ()=>_myHomeFriends,
@@ -1825,13 +1830,13 @@ function showChatBubble(seat, text){
 const chatNoticeMod = TwChatNotice.createChatNotice({
   document, escHtml: (...a)=>escHtml(...a), toast: (...a)=>toast(...a), getMyUserId: (...a)=>getMyUserId(...a), roomState: TwRoomState,
   roomCode: ()=>Presence.roomCode(), notifyError: (...a)=>TwErrorCodes.notify(...a),
-  provider: { subscribe: (...a)=>firebaseAPI.chatNotice.subscribe(...a), add: (...a)=>firebaseAPI.chatNotice.add(...a), edit: (...a)=>firebaseAPI.chatNotice.edit(...a),
-    remove: (...a)=>firebaseAPI.chatNotice.remove(...a), pin: (...a)=>firebaseAPI.chatNotice.pin(...a) },
+  enabled: ()=>TwServerFeatures.on('chatNotice'),   // 🚧 서버 길이 생길 때까지 꺼짐(TODO: provider 를 서버로)
+  provider: TwServerFeatures.noServer('chatNotice'),   // 서버 경로가 생기면 그 provider 로(#1098)
 });
 /* 📊 시크릿룸 #집중 탭 · 내 집중 시간 올리기 — parts/chat/chat-focus.js · parts/focus/room-focus-sync.js. 올리기는 포커스 누적(focusLevelMod)의 알림에 건다. */
 const roomFocusSync = TwRoomFocusSync.createRoomFocusSync({
-  provider: { add: (...a)=>firebaseAPI.roomFocus.add(...a), setName: (...a)=>firebaseAPI.roomFocus.setName(...a) },
-  roomCode: ()=>Presence.roomCode(), isSecretRoom: ()=>TwRoomState.isSecretCode(Presence.roomCode()),
+  provider: TwServerFeatures.noServer('chatFocus'),   // 서버 경로가 생기면 그 provider 로(#1099)
+  roomCode: ()=>Presence.roomCode(), isSecretRoom: ()=>TwServerFeatures.on('chatFocus') && TwRoomState.isSecretCode(Presence.roomCode()),   // 🚧 서버 길이 생길 때까지 올리지 않는다
   getMyUserId: (...a)=>getMyUserId(...a), getMyName: ()=>getDisplayName(),
   dayKey: ()=>TwRoomFocusDays.dayKeyOf(focusTotalMod._focusDayStr()), now: ()=>Date.now(), storage: localStorage,
 });
@@ -1839,7 +1844,8 @@ const chatFocusMod = TwChatFocus.createChatFocus({
   document, escHtml: (...a)=>escHtml(...a), toast: (...a)=>toast(...a), getMyUserId: (...a)=>getMyUserId(...a), roomState: TwRoomState,
   roomCode: ()=>Presence.roomCode(), notifyError: (...a)=>TwErrorCodes.notify(...a), sync: roomFocusSync,
   todayKey: ()=>TwRoomFocusDays.dayKeyOf(focusTotalMod._focusDayStr()),
-  provider: { subscribe: (...a)=>firebaseAPI.roomFocus.subscribe(...a), compact: (...a)=>firebaseAPI.roomFocus.compact(...a), removeMine: (...a)=>firebaseAPI.roomFocus.removeMine(...a) },
+  enabled: ()=>TwServerFeatures.on('chatFocus'),   // 🚧 서버 길이 생길 때까지 꺼짐(TODO: provider 를 서버로)
+  provider: TwServerFeatures.noServer('chatFocus'),   // 서버 경로가 생기면 그 provider 로(#1099)
 });
 const chatUiMod = TwChatUi.createChatUi({
   chatNotice: chatNoticeMod,
@@ -2926,7 +2932,8 @@ const firstRunMod = TwFirstRun013.createFirstRun({
 });
 /* 🔑 구글을 계정에 처음 붙이기 전에 묻는 창(google-confirm.js) — 초대 게이트 · 계정 · 구글 연결하기가 같이 쓴다 */
 const googleConfirmMod = TwGoogleConfirm.createGoogleConfirm({
-  friendCode: ()=>{ try{ return localStorage.getItem(MY_FRIEND_CODE_KEY); }catch(_){ return null; } },
+  storage: localStorage,
+  friendCodeKey: MY_FRIEND_CODE_KEY,
   signInWithGoogle: ()=>companion.signInWithGoogle(),
 });
 /* 본문은 license-gate.js 로 옮겼다(앱 FSD 31번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
@@ -3513,7 +3520,7 @@ const showEl = appModeMod.showEl;   // 옛 전역 이름
 const applyAppMode = appModeMod.applyAppMode;   // 옛 전역 이름
 const launchApp = appModeMod.launchApp;   // 옛 전역 이름
 const backToLauncher = appModeMod.backToLauncher;   // 옛 전역 이름
-function isLauncherShown(){ return document.getElementById('launcher').classList.contains('on'); }   // ⚙️ 설정 창이 런처에서 열렸나(가운데에 띄운다)
+const isLauncherShown = ()=>document.getElementById('launcher').classList.contains('on');   // ⚙️ 설정 창이 런처에서 열렸나(가운데에 띄운다)
 
 /* ===================== 친구 초대 · 상태 공유 (Presence) =====================
    provider 인터페이스: join(room, me, onFriends) / update(state) / leave()
@@ -4400,7 +4407,7 @@ const setClip = rigAnimMod.setClip;   // 옛 전역 이름
    다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다. */
 const framePaceMod = TwFramePace.createFramePace({
   _flyActive: ()=>flyChairMod._flyActive(),
-  renderQuality: ()=>_renderQuality,
+  _renderQuality: ()=>_renderQuality,
   setRunLowered: (v)=>{ _runLowered = v; },
   creatorOpen: ()=>creatorOpen,
   frame: (...a)=>frame(...a),
@@ -4774,8 +4781,9 @@ const themeUiMod = TwThemeUi.createThemeUi({
   setCustom: (...a)=>themeMod.setCustom(...a),
   _premiumOn: (...a)=>_premiumOn(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
-  loadCustom: (...a)=>firebaseAPI.loadThemeCustom(...a),
-  saveCustom: (...a)=>firebaseAPI.saveThemeCustom(...a),
+  serverOn: ()=>TwServerFeatures.on('themeCustomSave'),   // 🚧 서버 길이 생길 때까지 이 PC 에만(TODO: load · save 를 서버 provider 로)
+  loadCustom: (...a)=>TwServerFeatures.noServer('themeCustomSave').load(...a),   // 서버 경로가 생기면(#1105)
+  saveCustom: (...a)=>TwServerFeatures.noServer('themeCustomSave').save(...a),
 });
 /* ★ 최상위 호출은 반드시 위 const 선언들 '뒤'에 둔다.
    앞에서 부르면 THEME_COLORS가 아직 TDZ라 ReferenceError가 나고, 최상위에서 터지므로
@@ -4786,7 +4794,7 @@ themeUiMod.bindThemeUI();     // 설정창 테마·색상 칩 바인딩 (요소�
 /* 🔤 창 글꼴 — 테마처럼 파싱 즉시 건다(늦으면 기본 글꼴이 번쩍인다) */
 const fontUiMod = TwFontUi.createFontUi({ _premiumOn: (...a)=>_premiumOn(...a), refreshChildren: (...a)=>themeMod.applyTheme(...a) });
 fontUiMod.apply(); fontUiMod.bind();
-TwNetReady.whenNetReady(()=>{ themeUiMod.pullCustom(); }, 'loadThemeCustom');   // 👑 내 색 — 계정 사본 받기
+TwNetReady.whenNetReady(()=>{ themeUiMod.pullCustom(); });   // 👑 내 색 — 계정 사본 받기(서버 길이 없으면 pullCustom 이 바로 돌아간다)
 
 /* ═══ ⭐ 경험치 바 ═══════════════════════════════════════════════════════════
    캐릭터 발밑에 1px 외곽선 통짜 게이지로 레벨 진행도를 보여준다. 내 좌석·상대 좌석 공용.

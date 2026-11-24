@@ -98,7 +98,7 @@ say('── 1. 들어감 · 나감');
   /* 🎧 스위치 끔(지금 — 원본 규칙) — 같이 듣기 방의 meta 가 와도 창이 켜지지 않는다 */
   const off = mk({ model: MODEL_OFF, meta: { host: 'dj', music: true } });
   off.ui.sync();
-  chk(MODEL_OFF.ENABLED === false && off.prov.subs.length === 0 && off.el('myPlBtn').textContent === '🎵' && off.ui.djId() === null,
+  chk(MODEL_OFF.ENABLED === false && off.prov.subs.length === 0 && off.el('myPlBtn').querySelector('.ic').textContent === '🎵' && off.ui.djId() === null,
     '★ 스위치 끔 — 같이 듣기 방이어도 구독하지 않고 🎵 그대로 · DJ 딱지 없음');
 }
 {

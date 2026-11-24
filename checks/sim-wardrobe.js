@@ -166,7 +166,7 @@ const breaks = [
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const wardrobeMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('wardrobeMod.' + x)); if(n){ ls[i] = ls[i].replace('wardrobeMod.' + n, n); return ls.join('\n'); } } return a; }, null],
   ['만들 때 던짐', m => m.replace('function createWardrobe(deps){', 'function createWardrobe(deps){ throw new Error("mutation");'), null, null],
 ];
-/* 동작을 일부러 깨 본다 — 2-2절이 빨갛게 되어야 한다 */
+/* mutation test — 동작을 일부러 바꾸면 2-2절이 빨갛게 되어야 한다 */
 const behaveBreaks = [
   ['라이선스 없어도 처음 탭이 모자', m => m.replace("else if(!tab && !_wdOpened && !wdLicensed()) currentWdTab = WD_ALBUM_TAB;", '')],
   ['«처음» 을 빈 탭으로 판정(부팅 때 닫힌 채 그린 모자에 막힘)', m => m.replace("else if(!tab && !_wdOpened && !wdLicensed())", "else if(!currentWdTab && !wdLicensed())")],

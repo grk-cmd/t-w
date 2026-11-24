@@ -3,7 +3,7 @@
    ・2절: 화면 조각 — 남이 쓴 이름은 escape · 불러오는 중 / 실패 / 없음 · 내 줄 · 막대 · 지우기 확인
    ・3절: 컨트롤러(가짜 DOM · 가짜 provider) — 열 때만 구독 · 올리기 켜기 · 순위 기준 · 내 기록 지우기(실패는 E-CHAT-07) · 12주 합치기 한 번 · 쓸 곳 없음 · 방이 바뀜 · 시크릿룸이 아니면 없음
    ・4절: 연결 — 채팅 모듈 · html · 에러 번호 · 모듈이 채팅 / 서버를 직접 안 부름
-   ・5절: 깨 보기
+   ・5절: mutation test
    [실행] node checks/run.js sim-chat-focus */
 'use strict';
 const fs = require('fs');
@@ -52,7 +52,7 @@ function mkCtl(src, o){
   };
   const sync = { isOn: (r) => cur.on, setOn: (r, v) => { calls.push(['setOn', r, v]); cur.on = v; }, forgetName: (r) => { calls.push(['forget', r]); } };
   const M = loadWin(src, { TwRoomFocusDays: DAYS }).TwChatFocus;
-  const c = M.createChatFocus({ document: doc, escHtml: SH.text, toast: (m) => toasts.push(m), getMyUserId: () => cur.me, roomCode: () => cur.room, roomState: RS, provider, sync, todayKey: () => o.today || TODAY, notifyError: (code) => errors.push(code) });
+  const c = M.createChatFocus({ document: doc, escHtml: SH.text, toast: (m) => toasts.push(m), getMyUserId: () => cur.me, roomCode: () => cur.room, roomState: RS, provider, sync, todayKey: () => o.today || TODAY, notifyError: (code) => errors.push(code), enabled: () => true });
   let changes = 0; c.onChange(() => { changes++; });
   return { c, M, doc, calls, toasts, errors, cur, push: (raw) => cb(raw), counts: () => ({ subs, unsubs }), changes: () => changes };
 }
@@ -157,7 +157,7 @@ async function judge(S){
 (async () => {
   say('── 1 ~ 4. 규칙 · 화면 · 컨트롤러 · 연결 (진짜 모듈을 돌린다)');
   (await judge(SRC)).forEach(([ok, msg]) => chk(ok, msg));
-  say('── 5. 일부러 깨 보기 — 빨강이 나야 한다');
+  say('── 5. mutation test — 빨강이 나야 한다');
   const BREAKS = [
     ['mod', "if(k >= wk && k <= todayKey) week += d[k];", "if(k >= wk) week += d[k];", '이번 주에 앞날(미래)까지 셈'],
     ['mod', "if(k >= wk && k <= todayKey) week += d[k];", "if(k <= todayKey) week += d[k];", '이번 주가 지난주까지 셈'],

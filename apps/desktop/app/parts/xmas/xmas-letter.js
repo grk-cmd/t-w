@@ -18,7 +18,7 @@ const GOT_RETRY_UNTIL_MS = 3600000; // 마감 뒤 이 시간까지만 다시 본
 /**
  * @param {{ doc?:Document, win?:Window, rules:any, net:()=>any, song:any, serverNow:()=>number,
  *           toast:(msg:string)=>void, notifyError:(code:string, err?:any)=>void, escRegisterWindow:Function,
- *           storage:()=>Storage|null, onDot:(on:boolean)=>void }} deps
+ *           storage:Storage|null, onDot:(on:boolean)=>void }} deps
  */
 function createXmasLetter(deps){
   const doc = deps.doc || document;
@@ -38,11 +38,11 @@ function createXmasLetter(deps){
   /* ── 읽음 표시(이 PC) ── */
   const readKey = () => READ_KEY + (net().me() || '');
   function readSet(){
-    try { const st = deps.storage(); return rules.readSetOf(st ? st.getItem(readKey()) : ''); } catch (_) { return new Set(); }
+    try { const st = deps.storage; return rules.readSetOf(st ? st.getItem(readKey()) : ''); } catch (_) { return new Set(); }
   }
   function markRead(n){
     const set = readSet(); set.add(n);
-    try { const st = deps.storage(); if (st) st.setItem(readKey(), rules.readSetStr(set)); } catch (_) {}
+    try { const st = deps.storage; if (st) st.setItem(readKey(), rules.readSetStr(set)); } catch (_) {}
     deps.onDot(rules.hasUnread(got, set));
   }
 

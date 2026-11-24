@@ -107,6 +107,7 @@ function createChatNotice(deps){
   const roomState = deps.roomState;
   const provider = deps.provider;
   const notifyError = deps.notifyError;
+  const enabled = deps.enabled;   // 읽는 함수 — 서버가 방 공지를 받는가(shared/server-features.js) · 아니면 탭 · 고정 줄 · 구독 모두 없다
   /* 방장 · 시크릿룸 판정은 방 안 [방 설정] · 채팅 잠금과 같은 한 곳(room-state.js) — 채팅 모듈을 거치지 않는다(순환 방지) */
   const isSecretRoom = () => roomState.isSecretCode(roomCode());
   const isHost = () => { try{ return roomState.isHost(window._roomMetaCache, getMyUserId()); }catch(_){ return false; } };
@@ -127,7 +128,7 @@ function createChatNotice(deps){
   let delId = null;       // 지울지 묻는 중인 공지(그 칸 안에서 «정말?» — 따로 창을 띄우지 않는다)
 
   const $ = (id) => doc.getElementById(id);
-  const available = () => !!(isSecretRoom() && roomCode());
+  const available = () => !!(enabled() && isSecretRoom() && roomCode());
 
   function failed(r){
     if(r && r.reason) toast(r.reason);

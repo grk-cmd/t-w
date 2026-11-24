@@ -7,8 +7,8 @@
    ・1절: 코드(주석 제외)에서 Tahoma 가 들어간 font-family / font 선언은 전부 한글 폰트를 함께 적는다.
           예외는 이모지 전용 목록(Segoe UI Emoji 로 시작) 하나뿐.
    ・2절: 기본 테마 --win-font 와 머리 위 말풍선·이름표에 맑은 고딕 · 버블 테마는 여전히 돋움이 먼저.
-   ・3절: 🍎 맥 — 맑은 고딕 · 돋움(맥에 없음)을 적은 목록에는 맥 기본 한글 글꼴 'Apple SD Gothic Neo' 를 늘 같이 · 깨 보기 (B-1028-5)
-   ・4절: 🎵 BGM 창 제목줄(main.js bgmChromeHtml)을 실제로 만들어 글꼴을 본다 — 한글 · 맥 글꼴 · 깨 보기
+   ・3절: 🍎 맥 — 맑은 고딕 · 돋움(맥에 없음)을 적은 목록에는 맥 기본 한글 글꼴 'Apple SD Gothic Neo' 를 늘 같이 · mutation test (B-1028-5)
+   ・4절: 🎵 BGM 창 제목줄(main.js bgmChromeHtml)을 실제로 만들어 글꼴을 본다 — 한글 · 맥 글꼴 · mutation test
    ・글꼴 토큰 var(--tw-font-…)(디자인 시스템 1단계)은 html 의 정의로 펼친 뒤 1 · 2절을 본다.
    [실행] desk-companion-prototype.html · app.js 가 있는 폴더에서(mallang.js · myhome-desktop.js 는 있으면 본다). */
 'use strict';
@@ -71,10 +71,10 @@ say('── 3. 🍎 맥 — 한글 목록마다 Apple SD Gothic Neo');
     '★ 기본 테마 · 대부분 칸이 쓰는 토큰 — 맑은 고딕 바로 뒤 Apple SD Gothic Neo(영문은 그대로 Tahoma)');
   chk(/--win-font\s*:\s*'Dotum','돋움','Gulim','굴림',Tahoma,'Apple SD Gothic Neo'/.test(css), '  버블 테마 — 돋움이 먼저 · Tahoma 뒤 Apple SD Gothic Neo');
   const broke = stripCss(HTML.replace("--tw-font-legacy:Tahoma,'Malgun Gothic','Apple SD Gothic Neo',sans-serif;", "--tw-font-legacy:Tahoma,'Malgun Gothic',sans-serif;"));
-  chk(broke !== stripCss(HTML) && macBad(broke).length > 0, '  깨 보기 — 토큰에서 맥 글꼴을 빼면 빨강');
+  chk(broke !== stripCss(HTML) && macBad(broke).length > 0, '  mutation test — 토큰에서 맥 글꼴을 빼면 빨강');
   const fm = all.find(([f]) => f === 'friend-manage.js');
   const fmBroke = fm ? fm[1].replace('font-family:var(--tw-font-legacy);', "font-family:Tahoma,'Malgun Gothic',sans-serif;") : '';
-  chk(!!fm && fmBroke !== fm[1] && macBad(fmBroke).length > 0, '  깨 보기 — 모듈에 맥 글꼴 없는 목록을 직접 적으면 빨강');
+  chk(!!fm && fmBroke !== fm[1] && macBad(fmBroke).length > 0, '  mutation test — 모듈에 맥 글꼴 없는 목록을 직접 적으면 빨강');
   /* 점검 창은 자식 창(방명록 · 디자인 스튜디오)에도 그려진다 — 거기엔 --tw-font-legacy 가 없어 대비 목록이 있어야 버블 테마에서 돋움으로 안 바뀐다 */
   const mg = all.find(([f]) => f === 'maintenance-gate.js');
   chk(!!mg && /var\(--tw-font-legacy,Tahoma,'Malgun Gothic','Apple SD Gothic Neo',sans-serif\)/.test(mg[1]), '★ 점검 창 — 토큰에 대비 목록(자식 창에서도 Tahoma)');
@@ -91,7 +91,7 @@ say('── 4. 🎵 BGM 창 제목줄(main.js — 유튜브 제목이 한글일 
     const ff = fontOf(MAIN);
     chk(/Malgun Gothic/.test(ff) && /Apple SD Gothic Neo/.test(ff) && /^Tahoma,/.test(ff), '★ BGM 창 제목줄 — Tahoma 다음 맑은 고딕 · 맥 글꼴 (' + ff + ')');
     const broke = MAIN.replace("font-family:Tahoma,\\'Malgun Gothic\\',\\'Apple SD Gothic Neo\\',sans-serif;height:100vh;", 'font-family:Tahoma,sans-serif;height:100vh;');
-    chk(broke !== MAIN && !/Malgun Gothic/.test(fontOf(broke)), '  깨 보기 — 예전 목록(Tahoma,sans-serif)이면 빨강');
+    chk(broke !== MAIN && !/Malgun Gothic/.test(fontOf(broke)), '  mutation test — 예전 목록(Tahoma,sans-serif)이면 빨강');
   }
 }
 

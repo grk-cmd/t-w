@@ -4,7 +4,7 @@
    ・2절 내 자리 · 지금 트리 — 로그인 없음 · 아직 아무도 안 걸었으면 트리 1 · 실패는 { ok:false }
    ・3절 장식 걸기 — 함수 xmasHang 이름 · 받은 값 · 실패 code(functions/ 접두사 걷기)
    ・4절 신고 — 내 이름 칸 · 서버 시각 · 메모 40자 · 두 번째(권한 거절)는 dup
-   ・5절 firebase-init 연결 · 깨 보기
+   ・5절 firebase-init 연결 · mutation test
    ・6절 편지 — 내 칸만(xmasLetters · xmasReturned · xmasGot/{내 uid}) · 맡기기 모양(서버 시각 · 추천곡) · 거두기 · 반송 표시 치우기 ·
      마감 뒤(권한 거절)는 closed · 가입 전(익명)은 묻지 않고 auth · 받은 편지 신고 키 g-{내 uid}-{n} */
 'use strict';
@@ -16,9 +16,11 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const find = (c) => c.find(p => fs.existsSync(p));
 const NP = find(['xmas-net.js', 'parts/xmas/xmas-net.js', 'app/parts/xmas/xmas-net.js', 'apps/desktop/app/parts/xmas/xmas-net.js']);
 const FP = find(['firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js', 'apps/desktop/app/parts/firebase-init.js']);
-if (!NP || !FP) { say('  ? 원본 못 찾음 — xmas-net.js · firebase-init.js'); process.exit(2); }
+const AP = find(['app.js', 'parts/app.js', 'app/parts/app.js', 'apps/desktop/app/parts/app.js']);
+if (!NP || !FP || !AP) { say('  ? 원본 못 찾음 — xmas-net.js · firebase-init.js · app.js'); process.exit(2); }
 const N = require(path.resolve(NP));
 const FBI = fs.readFileSync(FP, 'utf8');
+const APP = fs.readFileSync(AP, 'utf8');
 
 const SV_TS = { '.sv': 'timestamp' };
 function mk(data, opts){
@@ -87,14 +89,15 @@ say('── 4절 신고');
   chk(!ar.ok && ar.code === 'auth' && !an.writes.length, '가입 전(익명) — 규칙이 막으니 쓰지 않고 auth(«이미 신고» 로 잘못 안내하지 않게)');
 }
 
-say('── 5절 연결 · 깨 보기');
-chk(/anonymous: \(\) => !!\(auth && auth\.currentUser && auth\.currentUser\.isAnonymous\)/.test(FBI) && /xmas: window\.TwXmasNet\.createXmasNet\(\{ db, ref, get, set, serverTimestamp, authUid: /.test(FBI) && /callFn: async \(name, data\) => \{ const mod = await import\(FUNCTIONS_SDK_URL\); return mod\.httpsCallable\(mod\.getFunctions\(fbApp, FUNCTIONS_REGION\), name\)\(data\); \}/.test(FBI), 'firebase-init — firebaseAPI.xmas 로 만든다(함수 리전 · SDK 같은 길)');
+say('── 5절 연결 · mutation test');
+/* 🚧 0.13 은 Firebase DB 쓰기를 잠갔고 Functions 도 내린다 — 서버 길이 생길 때까지 firebase-init 에 크리스마스 통로를 잇지 않고, app.js 는 서버 기능 표가 켜졌을 때만 창을 만든다(shared/server-features.js) */
+chk(!/TwXmasNet/.test(FBI) && /if\(TwServerFeatures\.on\('xmas'\)\) TwXmasWindow\.createXmasWindow\(/.test(APP), 'firebase-init 에 크리스마스 통로가 없고(0.13) · 창은 서버 기능 표가 켜졌을 때만 만든다');
 {
-  // 깨 보기 — 트리를 통째로 읽으면 1절이 잡는다
+  // mutation test — 트리를 통째로 읽으면 1절이 잡는다
   const reads = []; const get = async (r) => { reads.push(r.path); return { val: () => null }; };
   const bad = { tree: async (t) => get({ path: 'xmasTrees/' + t }) };
   await bad.tree(2);
-  chk(/^xmasTrees\/\d+$/.test(reads[0]), '깨 보기 — 트리 통째 읽기(xmasTrees/2)는 위 검사의 «통째로 읽지 않는다» 모양에 걸린다');
+  chk(/^xmasTrees\/\d+$/.test(reads[0]), 'mutation test — 트리 통째 읽기(xmasTrees/2)는 위 검사의 «통째로 읽지 않는다» 모양에 걸린다');
 }
 
 say('── 6절 편지');

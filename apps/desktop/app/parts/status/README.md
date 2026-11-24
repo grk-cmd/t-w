@@ -37,7 +37,7 @@
   - `#myStatusChipBtn` 은 회사원 모드로 숨겨도 남는 유일한 버튼이고 **우클릭**이 숨김 · 되돌리기다(app.js `bindOfficeHideGesture`). `#myStatusChip` 밖으로 옮기면 클릭 통과 화이트리스트에서 빠져 되돌릴 길이 없다.
   - 메뉴 안 🎵 · 🎧 줄이 연 창은 그 줄이 아니라 ▾ 옆에 놓는다(🔔 일정 창은 예전처럼 발 밑 · 기억한 자리) — 메뉴가 닫히면 줄 자리가 의미가 없다(listen-ui.js 도 같은 기준).
   - F키는 메뉴 안 버튼 id(`myFocusGearBtn` · `myWardrobeBtn` · `myMoveBtn` · `myHomeMenuBtn`)를 클릭한다 — id 를 바꾸지 않는다.
-- **검사**: `checks/sim-status-chip.js`(2-2절 — ▾ 열고 닫기 · 투게더룸이면 춤 · 룰렛 숨김 · 상태 고르면 닫힘 · 깨 보기).
+- **검사**: `checks/sim-status-chip.js`(2-2절 — ▾ 열고 닫기 · 투게더룸이면 춤 · 룰렛 숨김 · 상태 고르면 닫힘 · mutation test).
 
 ## bgm-diag.js — 🔍 플레이리스트 소리 진단 줄
 
@@ -100,6 +100,7 @@
 - **받는 deps**: 값 `officeModeMod` · `seats` · `hiddenSeatsMod` · `Presence` · 함수 둘(`findMySeat` · `seatState`).
 - **함정**: 소리 자료(`noise-sounds.js`)를 이 모듈보다 먼저 싣는다. 검사: `checks/sim-global-deps.js`.
 ## playlist-like.js · playlist-like-ui.js — 👍 플레이리스트 «노래가 좋아요»
+- 🚧 0.13 위(0.14.0): deps `enabled` — `TwServerFeatures.on('playlistLike')` 가 꺼지면 줄을 숨기고 읽지 않는다. net 은 `TwServerFeatures.noServer('playlistLike')`(#1100).
 
 - **책임**: 남의 플레이리스트(프리셋 하나)에 «노래가 좋아요 👍» 를 한 번 남긴다. 받는 사람(주인)만 그 프리셋의 👍 수를 본다 — 누가 눌렀는지는 안 보이고, 누르는 사람에게는 수가 안 보인다(사용자 결정).
   - `playlist-like.js`(순수 · DOM 없음): `presetKey` · `view`(무엇을 보일지) · `createPlaylistLikeNet({ db, ref, get, update })` → `{ read, like }`. firebase-init.js 가 `firebaseAPI.playlistLike` 로 잇는다.

@@ -24,6 +24,7 @@ const friendNet = deps.friendNet;   // 읽는 함수 — 데이터 provider, 준
 const friends = deps.friends;   // 읽는 함수
 const getMyUserId = deps.getMyUserId;
 const toast = deps.toast;
+const reasonOn = deps.reasonOn;   // 읽는 함수 — 서버가 신청 사유를 받는가(shared/server-features.js) · 아니면 사유 칸 없이 묻기만
 
 let _shownFor = null;   // 지금 단추가 가리키는 uid
 let _seq = 0;           // 늦게 온 «살아 있나» 답 버리기
@@ -72,12 +73,13 @@ function openDialog(uid, name){
   const body = document.createElement('div'); body.className = 'friend-req-ask-bd';
   const lead = document.createElement('div'); lead.className = 'friend-req-ask-lead';
   const nm = document.createElement('b'); nm.textContent = name;
-  lead.append(nm, document.createTextNode(' 님에게 친구 신청을 보내요. 신청 사유를 적어 주세요(없어도 돼요).'));
+  const withReason = reasonOn();
+  lead.append(nm, document.createTextNode(withReason ? ' 님에게 친구 신청을 보내요. 신청 사유를 적어 주세요(없어도 돼요).' : ' 님에게 친구 신청을 보낼까요?'));
   const ta = document.createElement('textarea');
   ta.className = 'friend-req-ask-msg'; ta.maxLength = REASON_MAX; ta.rows = 3; ta.placeholder = '예) 같은 방에서 자주 뵈어서 친구 하고 싶어요';
   const cnt = document.createElement('div'); cnt.className = 'friend-req-ask-cnt'; cnt.textContent = '0 / ' + REASON_MAX;
   ta.oninput = () => { cnt.textContent = ta.value.length + ' / ' + REASON_MAX; };
-  body.append(lead, ta, cnt);
+  if(withReason) body.append(lead, ta, cnt); else body.append(lead);
   const btns = document.createElement('div'); btns.className = 'friend-req-ask-btns';
   const ok = document.createElement('button'); ok.className = 'lc-btn'; ok.type = 'button'; ok.textContent = '신청하기';
   const no = document.createElement('button'); no.className = 'lc-btn ghost'; no.type = 'button'; no.textContent = '취소';
@@ -95,14 +97,14 @@ function openDialog(uid, name){
   ok.onclick = async () => {
     ok.disabled = true; no.disabled = true;
     let res = null, err = null;
-    try{ res = await sendFriendReq(uid, name, cleanReason(ta.value)); }catch(e){ err = e; }
+    try{ res = await sendFriendReq(uid, name, withReason ? cleanReason(ta.value) : ''); }catch(e){ err = e; }
     const v = resultView(res, name);   // fail 이면 문구 대신 E-FR-06
     if(v.kind === 'fail'){ TwErrorCodes.notify('E-FR-06', err || (res && (res.err || res.reason))); ok.disabled = false; no.disabled = false; return; }
     toast(v.text);
     close();
     if(_shownFor === uid) _hide();
   };
-  ta.focus();
+  if(withReason) ta.focus(); else ok.focus();
 }
 
 return { refresh, openDialog };

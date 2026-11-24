@@ -97,7 +97,7 @@ chk(/getClientRects\(\)\.length\) return false/.test(APP), '창이 숨어 있으
   };
   chk(src.length > 0 && run(src) === '91px', '★ 새 메시지 칩은 대화 칸(상자 안) 아래에 붙는다 — 창 420 · 칸 아래 337 → bottom 91px (지금: ' + (src ? run(src) : '함수 없음') + ')');
   const bad = src.replace('holder.offsetTop + holder.offsetHeight', 'box.offsetTop + box.offsetHeight');
-  chk(bad !== src && run(bad) !== '91px', '  깨 보기 — 상자를 안 거치고 칸의 offsetTop 만 쓰면 빨강(칩이 위로 뜬다)');
+  chk(bad !== src && run(bad) !== '91px', '  mutation test — 상자를 안 거치고 칸의 offsetTop 만 쓰면 빨강(칩이 위로 뜬다)');
 }
 
 say('');

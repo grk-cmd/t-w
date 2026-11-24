@@ -24,8 +24,8 @@ function build(src, o){
   const bodyCl = new Set(o.body || ['runmode']);
   const document = { hasFocus: () => o.focused !== false, activeElement: o.active || null, body: { classList: { contains: (c) => bodyCl.has(c) } }, querySelector: () => (o.panel ? {} : null) };
   const win = { addEventListener: (ev, fn) => { (listeners[ev] = listeners[ev] || []).push(fn); }, companion: o.companion };
-  const st = { fly: 0, drag: null, creator: false, lastRaf: 0 };
-  const deps = { _flyActive: () => st.fly, setRunLowered: (v) => calls.push('lowered:' + v), creatorOpen: () => st.creator, frame: (n, m) => calls.push('frame:' + m), renderer: { getContext: () => null, capabilities: { isWebGL2: false } }, seatCameraMod: { updateCameraOnly: () => calls.push('cam') }, seatPointerMod: { drag: () => st.drag }, seats: o.seats || [] };
+  const st = { fly: 0, drag: null, creator: false, lastRaf: 0, q: 'auto' };
+  const deps = { _flyActive: () => st.fly, _renderQuality: () => st.q, setRunLowered: (v) => calls.push('lowered:' + v), creatorOpen: () => st.creator, frame: (n, m) => calls.push('frame:' + m), renderer: { getContext: () => null, capabilities: { isWebGL2: false } }, seatCameraMod: { updateCameraOnly: () => calls.push('cam') }, seatPointerMod: { drag: () => st.drag }, seats: o.seats || [] };
   const performance = { now: () => t.now };
   new Function('window', 'document', 'performance', 'FrameBudget', 'TwGpuTimer', 'setInterval', 'module', src)(win, document, performance, FB, GT, (fn, ms) => intervals.push({ fn, ms }), undefined);
   const mod = win.TwFramePace.createFramePace(deps);
@@ -56,6 +56,11 @@ say('§1 상한 fps');
   chk(FB.pickFps({ hot: false, focused: true, runMode: true, busy: false, idleMs: b8.mod._frameBudget.idleMs(30200) }) === stale, '  0.5초 안에는 낡은 판정 그대로(DOM 을 안 본다)');
   const cap = b.mod._frameCapped(7000);
   chk(typeof cap === 'boolean', '_frameCapped 는 건너뜀 여부(true/false)를 돌려준다');
+  { const bq = build(SRC, { seats: [] });
+    const capQ = (q) => { bq.st.q = q; return bq.mod._frameCap(30000); };
+    const wantQ = (q) => FB.pickFps({ hot: false, focused: true, runMode: true, busy: false, idleMs: bq.mod._frameBudget.idleMs(30000), quality: q });
+    chk(capQ('lowest') === wantQ('lowest') && capQ('auto') === wantQ('auto') && FB.fpsFor('lowest').active < FB.fpsFor('auto').active,
+      '★ 저장된 화질(«최저»)을 부를 때마다 읽어 상한에 넘긴다 — 최저는 상한이 더 낮다'); }
 }
 function performance_now(b){ return b.t.now; }
 say('§2 rAF 멈춤 감시 · 듣기');
@@ -88,9 +93,9 @@ say('§4 연결');
   chk(iM > 0 && iA > iM, 'html — frame-pace.js 를 app.js 보다 먼저 싣는다');
   const code = stripC(APP);
   const pairs = depPairs(APP, 'framePaceMod', 'TwFramePace', 'createFramePace');
-  const READ = ['_flyActive', 'creatorOpen'], FN = ['frame'];
+  const READ = ['_flyActive', '_renderQuality', 'creatorOpen'], FN = ['frame'];
   const shape = (n, v) => n === 'setRunLowered' ? v === '(v)=>{ _runLowered = v; }' : n === '_flyActive' ? v === '()=>flyChairMod._flyActive()' : READ.includes(n) ? v === '()=>' + n : FN.includes(n) ? v === '(...a)=>' + n + '(...a)' : v === n;
-  chk(!!pairs && pairs.length === 8 && pairs.every(([n, v]) => shape(n, v)), '★ deps 8개 모양 — 읽는 함수 둘 · 함수 하나(frame) · 쓰는 함수 하나 · 값 넷');
+  chk(!!pairs && pairs.length === 9 && pairs.every(([n, v]) => shape(n, v)), '★ deps 9개 모양 — 읽는 함수 셋(_flyActive · _renderQuality · creatorOpen) · 함수 하나(frame) · 쓰는 함수 하나 · 값 넷');
   const bad = pairs ? pairs.map(([n, v]) => n === 'creatorOpen' ? [n, 'creatorOpen'] : [n, v]) : [];
   chk(!bad.every(([n, v]) => shape(n, v)), '  mutation test: 읽는 함수를 값으로 넘기면 빨강');
   chk(['_FB', '_frameBudget', '_runSlowWatch', '_gpuTimer', '_frameJsStats', '_lowerRunQuality', '_uiHot', '_frameCap', '_frameCapped'].every(n => new RegExp('^const ' + n + ' = framePaceMod\\.' + n + ';', 'm').test(code)), '  옛 이름 아홉을 const 로 받는다');
@@ -106,5 +111,7 @@ say('§5 mutation test');
   chk(!!m2 && (() => { const b = build(m2, { seats: [] }); b.st.fly = 1; return b.mod._frameCap(30000) !== FB.pickFps({ hot: true, focused: true, runMode: true, busy: false, idleMs: b.mod._frameBudget.idleMs(30000) }); })(), '비행 중 상한 해제를 빼면 빨강');
   const m3 = brk("if(now - _fbBusyAt < 500) return _fbBusy;", "");
   chk(!!m3 && (() => { const b = build(m3, { seats: [] }); b.mod._frameCap(30000); b.st.creator = true; b.mod._frameCap(30100); return FB.pickFps({ hot: false, focused: true, runMode: true, busy: true, idleMs: b.mod._frameBudget.idleMs(30100) }) === b.mod._frameCap(30100); })(), '0.5초 캐시를 빼면 빨강');
+  const m4 = brk("    quality: _renderQuality(),", "");
+  chk(!!m4 && (() => { const b = build(m4, { seats: [] }); b.st.q = 'lowest'; return b.mod._frameCap(30000) !== FB.pickFps({ hot: false, focused: true, runMode: true, busy: false, idleMs: b.mod._frameBudget.idleMs(30000), quality: 'lowest' }); })(), '화질을 상한에 안 넘기면 빨강');
 }
 say(''); say((fail ? '✗' : '✓') + ' 통과 ' + pass + ' · 실패 ' + fail); process.exit(fail ? 1 : 0);

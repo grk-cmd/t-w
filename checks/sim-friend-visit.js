@@ -122,13 +122,13 @@ const tick = () => new Promise(r => setTimeout(r, 0));
   await NAVF.friendVisit('f7', { code:'PLAY-OLD9', name:'통로' }); box = lastBox();
   chk(typeof NAVF.friendVisit === 'function' && env.refreshed.join() === 'f7' && /PLAY-NAV1/.test(box.innerHTML), '★ 🔔 초대 줄(창 열기 통로 FRIEND_VISIT) — 접속 상태를 먼저 한 번 읽고 지금 방으로 묻는다');
   box._btn.no.onclick(); env.onRefresh = null;
-  { /* 깨 보기 — 시크릿룸 초대 코드를 안 쓰면 «방을 나갔어요» */
+  { /* mutation test — 시크릿룸 초대 코드를 안 쓰면 «방을 나갔어요» */
     const w2 = {}; new Function('window', 'module', MOD.replace(/    return \(deps\.isSecretCode\(ic\)[^\n]*\n/, "    return '';\n"))(w2, undefined);
     const env2 = { toasts: [] };
     const F2 = w2.TwFriendVisit.createFriendVisit({ document, escHtml: esc, toast: (m) => env2.toasts.push(m), twNav: { NAV: {}, on(){} }, getFriend: () => ({ name:'비밀', room:null, inRoom:true }),
       refreshFriend: async () => {}, roomTagOf: tag, friendInRoom: (f) => !!(f && f.inRoom), isSecretCode: (c) => !!c && String(c).indexOf('SCRT-') === 0, myRoom: () => null, inRoom: () => false, leaveRoom: async () => {}, startRoom: () => {}, channelName: () => '' });
     F2.ask('f1', { code:'SCRT-ABCD', name:'비밀' });
-    chk(/방을 나갔어요/.test(env2.toasts[0] || ''), '  깨 보기 — 시크릿룸 초대 코드를 안 쓰면 «방을 나갔어요» 로 빨강');
+    chk(/방을 나갔어요/.test(env2.toasts[0] || ''), '  mutation test — 시크릿룸 초대 코드를 안 쓰면 «방을 나갔어요» 로 빨강');
   }
   chk(!/SCRT-/.test(MOD.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')) && /isSecretCode: c => TwRoomState\.isSecretCode\(c\)/.test(APP0) && /friendInRoom: \(\.\.\.a\)=>inboxMod\.friendInRoom\(\.\.\.a\)/.test(APP0.slice(APP0.indexOf('createFriendVisit('))),
     '  시크릿룸 · 방에 있음 판정은 deps 로(room-state.js isSecretCode · myhome-inbox.js friendInRoom) — 이 파일에 SCRT- 를 쓰지 않는다');
