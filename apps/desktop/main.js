@@ -87,6 +87,7 @@ sysinput.init({
 });
 /* 🖱 호버 찌르기 판단(제보 #5) — 판단만 떼어 낸 모듈이다. 타이머 · IPC 는 아래 _syncHoverWatcher. */
 const HoverPoke = require('./hover-poke');
+const GoogleOAuth = require('./google-oauth');   // 🔑 구글 로그인 — 기본 브라우저로 받기(루프백)
 /* 🖱 클릭 통과 판단 규칙 — 렌더러(desktop-run.js)와 **같은 파일**을 쓴다. 안전장치 ⓔ·ⓕ·ⓖ 의 문턱 · 조건은 거기에만 있다.
    ⚠️ 여기에 같은 조건을 다시 쓰지 않는다(checks/sim-click-through-policy.js). 설치본에도 app/** 로 들어간다. */
 const ClickPolicy = require('./app/parts/launcher/click-through-policy');
@@ -2360,10 +2361,35 @@ function createWindow() {
   try{ _oauthCfg = require('./oauth-config'); }catch(_){}
   const GOOGLE_OAUTH_CLIENT_ID     = _oauthCfg.clientId     || '';
   const GOOGLE_OAUTH_CLIENT_SECRET = _oauthCfg.clientSecret || '';
-  /* 가로채기용 주소. 실제로 여기 듣는 서버는 없다 — 이동 직전에 가로채기 때문이다.
-     ⚠️ 구글 콘솔의 '승인된 리디렉션 URI' 에 이 주소를 그대로 넣어야 한다. */
+  /* 돌아오는 주소 — 기본 브라우저 길은 여기서 실제로 듣고(google-oauth.js), 앱 안 창 길은 이동 직전에 가로챈다.
+     ⚠️ 구글 콘솔의 '승인된 리디렉션 URI' 와 같아야 한다. */
   const GOOGLE_OAUTH_REDIRECT = 'http://127.0.0.1:52736/tw-oauth';
   let googleAuthWin = null;
+  /* code → id_token(Node 쪽 fetch — 렌더러 CSP 와 무관). 기본 브라우저 길 · 앱 안 창 길이 같이 쓴다 */
+  const _googleExchange = (code, verifier) => fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: GOOGLE_OAUTH_CLIENT_ID, client_secret: GOOGLE_OAUTH_CLIENT_SECRET,
+      code, code_verifier: verifier, grant_type: 'authorization_code', redirect_uri: GOOGLE_OAUTH_REDIRECT,
+    }),
+  })
+    .then(res => res.json())
+    .then(j => (j && j.id_token) ? { ok:true, idToken: j.id_token } : { ok:false, reason:'구글 토큰을 받지 못했어요' + (j && j.error ? (' (' + j.error + ')') : '') })
+    .catch(() => ({ ok:false, reason:'네트워크 오류 — 연결을 확인해 주세요' }));
+  /* 기본 브라우저 로그인 흐름(google-oauth.js createGoogleSignIn) — 안내 창 · 브라우저 · 앱 창 당기기만 여기서 잇는다 */
+  const googleSignIn = GoogleOAuth.createGoogleSignIn({
+    http: require('http'), redirect: GOOGLE_OAUTH_REDIRECT, log: _diagLog,
+    openExternal: (u) => shell.openExternal(u),
+    openWait: (onCancel) => {
+      const parent = (mainWindow && !mainWindow.isDestroyed()) ? mainWindow : null;
+      let workArea = null;
+      try{ workArea = screen.getDisplayMatching(parent ? parent.getBounds() : screen.getPrimaryDisplay().bounds).workArea; }catch(_){}
+      return GoogleOAuth.openWaitWindow({ BrowserWindow, parent, workArea, icon: APP_ICON, devTools: devtoolsGate.always, onCancel });
+    },
+    focusMain: () => { if(mainWindow && !mainWindow.isDestroyed()) mainWindow.focus(); },
+    exchange: (code, verifier) => _googleExchange(code, verifier),
+  });
 
   ipcMain.handle('companion:signInWithGoogle', async ()=>{
     if(!GOOGLE_OAUTH_CLIENT_ID || !GOOGLE_OAUTH_CLIENT_SECRET){
@@ -2382,17 +2408,15 @@ function createWindow() {
     const challenge = b64url(crypto.createHash('sha256').update(verifier).digest());
     const state     = b64url(crypto.randomBytes(16));
 
-    const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth'
-      + '?client_id='     + encodeURIComponent(GOOGLE_OAUTH_CLIENT_ID)
-      + '&redirect_uri='  + encodeURIComponent(GOOGLE_OAUTH_REDIRECT)
-      + '&response_type=code'
-      + '&scope='         + encodeURIComponent('openid email profile')
-      + '&code_challenge=' + challenge
-      + '&code_challenge_method=S256'
-      + '&state='         + state
-      /* select_account — 안 넣으면 이미 브라우저에 로그인된 계정으로 조용히 통과해서,
-         '다른 계정으로 로그인'이 불가능해진다. 한 컴퓨터를 나눠 쓸 때 이게 필요하다. */
-      + '&prompt=select_account';
+    /* 동의 화면 주소(PKCE S256 · code 흐름 · select_account) — 만드는 곳은 google-oauth.js 한 곳 */
+    const authUrl = GoogleOAuth.buildAuthUrl({ clientId: GOOGLE_OAUTH_CLIENT_ID, redirect: GOOGLE_OAUTH_REDIRECT, challenge, state });
+
+    /* 🌐 기본 브라우저로 먼저 — 앱 안 창은 구글이 «안전하지 않은 브라우저» 로 막거나 맞는 비밀번호도 거절할 때가 있다(google-oauth.js).
+       리디렉션 주소는 위와 같아 구글 콘솔은 그대로다. 기다리는 동안 작은 안내 창의 [취소] · × 로 끝낼 수 있다
+       (화면의 구글 버튼은 결과가 올 때까지 잠겨 있어서). 포트를 못 잡을 때만 아래 앱 안 창으로 대신한다. */
+    const viaBrowser = await googleSignIn.run({ authUrl, state, verifier });
+    if(!viaBrowser.fallback) return viaBrowser;
+    _diagLog('[구글] 기본 브라우저 대기를 열지 못해 앱 안 창으로 — ' + viaBrowser.reason);
 
     return await new Promise(resolve=>{
       let settled = false;
@@ -2428,41 +2452,14 @@ function createWindow() {
         /* 여기서 막지 않으면 창이 127.0.0.1 로 이동해 '연결할 수 없음' 오류 페이지를 띄운다.
            유저에게는 로그인이 실패한 것처럼 보인다. */
         try{ e.preventDefault(); }catch(_){}
-        let q = null;
-        try{ q = new URL(url).searchParams; }catch(_){}
-        if(!q){ finish({ ok:false, reason:'로그인 응답을 읽지 못했어요' }); return; }
-        /* 🩹 [2026-10-02 제보 #5] 오류 코드를 버리지 않는다 — 예전엔 무엇이든 «로그인이 취소됐어요» 였다.
-           access_denied 는 사람이 [취소]를 누른 경우와 **구글이 막은 경우**(동의 화면 테스트 모드의 미등록 계정,
-           회사·학교 계정 정책)가 같은 코드로 온다. 그래서 둘 다 말해 준다. */
-        if(q.get('error')){
-          const _ge = String(q.get('error') || '');
-          _diagLog('[구글] 로그인 오류 응답: ' + _ge + (q.get('error_description') ? (' — ' + q.get('error_description')) : ''));
-          finish({ ok:false, reason: _ge === 'access_denied'
-            ? '구글이 로그인을 허용하지 않았어요 — 직접 취소했거나, 이 구글 계정(회사·학교 계정 등)이 막혀 있어요'
-            : ('구글 로그인 오류 (' + _ge + ')') });
-          return;
-        }
-        if(q.get('state') !== state){ finish({ ok:false, reason:'로그인 응답이 올바르지 않아요' }); return; }
-        const code = q.get('code');
-        if(!code){ finish({ ok:false, reason:'로그인 응답에 코드가 없어요' }); return; }
-
-        fetch('https://oauth2.googleapis.com/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            client_id: GOOGLE_OAUTH_CLIENT_ID,
-            client_secret: GOOGLE_OAUTH_CLIENT_SECRET,
-            code, code_verifier: verifier,
-            grant_type: 'authorization_code',
-            redirect_uri: GOOGLE_OAUTH_REDIRECT,
-          }),
-        })
-        .then(res => res.json())
-        .then(j => {
-          if(j && j.id_token) finish({ ok:true, idToken: j.id_token });
-          else finish({ ok:false, reason:'구글 토큰을 받지 못했어요' + (j && j.error ? (' (' + j.error + ')') : '') });
-        })
-        .catch(()=> finish({ ok:false, reason:'네트워크 오류 — 연결을 확인해 주세요' }));
+        /* 판정 · 오류 문구 · 토큰 교환은 기본 브라우저 길과 한 벌(google-oauth.js · _googleExchange) */
+        let search = null;
+        try{ search = new URL(url).search; }catch(_){}
+        if(search === null){ finish({ ok:false, reason:'로그인 응답을 읽지 못했어요' }); return; }
+        const r = GoogleOAuth.parseCallback(search, state);
+        if(r.error){ _diagLog('[구글] 로그인 오류 응답: ' + r.error); finish({ ok:false, reason: GoogleOAuth.errorReason(r.error) }); return; }
+        if(!r.ok){ finish({ ok:false, reason:'로그인 응답이 올바르지 않아요' }); return; }
+        _googleExchange(r.code, verifier).then(finish);
       };
       googleAuthWin.webContents.on('will-redirect', handle);
       googleAuthWin.webContents.on('will-navigate', handle);

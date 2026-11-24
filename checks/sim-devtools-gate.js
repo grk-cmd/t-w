@@ -2,7 +2,7 @@
    [왜] 열려 있으면 누구나 콘솔 한 줄(isPremium = true 등)로 앱 안 판정을 바꾼다. 설치본에서는 닫고 관리자 모드 창에서만 연다.
    ・1절: 여는 조건 — 개발 실행 · dev 빌드는 늘 · 설치본 운영은 관리자 모드일 때만 · 끄면 다시 막힘
    ・2절: 가짜 창 위에서 — F12 토글은 허용일 때만 · 다른 키는 무시 · 다른 길로 열리면 바로 닫음 · 관리자 끄면 열린 것 닫음 · 닫힌 창은 잊음
-   ・3절: 배선 — main.js(게이트 · 관리자 모드 IPC 는 메인 창이 보낸 것만 · 메인 창 · 팝업 · 보조 창 둘) · preload(setAdminMode) · admin-mode.js(켜고 끌 때 알림) · 설치 목록
+   ・3절: 배선 — main.js(게이트 · 관리자 모드 IPC 는 메인 창이 보낸 것만 · 메인 창 · 팝업 · 보조 창 셋) · preload(setAdminMode) · admin-mode.js(켜고 끌 때 알림) · 설치 목록
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
 'use strict';
 const fs = require('fs');
@@ -75,7 +75,7 @@ say('── 3. 배선');
   chk(/const devtoolsGate = createDevtoolsGate\(\{ packaged: app\.isPackaged, env: FIREBASE_ENV \}\);/.test(m), 'main.js — 설치본 여부 · 빌드 환경으로 게이트를 만든다');
   chk(/ipcMain\.on\('companion:setAdminMode', \(e, on\) => \{\s*if\(mainWindow && !mainWindow\.isDestroyed\(\) && e\.sender === mainWindow\.webContents\) devtoolsGate\.setAdmin\(!!on\);/.test(m), '  ↳ 관리자 모드 알림은 메인 창이 보낸 것만 받는다(팝업 · 다른 페이지가 켜지 못하게)');
   chk(/devtoolsGate\.attach\(mainWindow\.webContents\);/.test(m) && /'did-create-window', \(child\) => \{ devtoolsGate\.attach\(child\.webContents\); \}/.test(m), '  ↳ 메인 창 · 팝업(window.open) 창에 건다');
-  chk((m.match(/devTools: devtoolsGate\.always,/g) || []).length === 2, '  ↳ 보조 창 둘(구글 로그인 · 음악)은 webPreferences.devTools = always(관리자 예외 없음)');
+  chk((m.match(/devTools: devtoolsGate\.always,/g) || []).length === 3, '  ↳ 보조 창 셋(구글 로그인 · 음악 · 구글 로그인 안내 창)은 webPreferences.devTools = always(관리자 예외 없음)');
   chk(!/toggleDevTools\(\)/.test(m) && !/\.openDevTools\(/.test(m), '  ↳ main.js 가 게이트를 거치지 않고 개발자 도구를 여는 곳이 없다');
   chk(/setAdminMode\(on\) \{\s*ipcRenderer\.send\('companion:setAdminMode', !!on\);/.test(PRE), 'preload — companion.setAdminMode');
   chk((ADM.match(/companion\.setAdminMode\((true|false)\)/g) || []).length >= 2, 'admin-mode.js — 관리자 모드 켤 때 · 끌 때 알린다');
