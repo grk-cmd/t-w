@@ -42,7 +42,7 @@ function parseCallback(search, state){
   const err = q.get('error');
   if(err) return { ok: false, error: String(err), description: String(q.get('error_description') || '') };
   const code = q.get('code');
-  if(!code) return { ok: false, bad: true };
+  if(!code) return { ok: false, bad: true, noCode: true };
   return { ok: true, code };
 }
 
@@ -163,40 +163,54 @@ function openWaitWindow(o){
 }
 
 /* 기본 브라우저 로그인 한 번의 흐름 — 듣기 → 브라우저 열기 → 안내 창 → 결과 → 안내 창 닫기 → 결과 모양.
-   다시 불리면 앞의 대기를 멈춘다(앞 호출은 canceled). 대기는 듣기 전에 걸어 둔다(겹쳐 불려도 포트를 두고 다투지 않게).
+   다시 불리면 앞의 대기를 멈추고(앞 호출은 canceled), 앞의 듣기 시작이 끝나 포트를 놓은 뒤에 듣는다
+   (앞이 아직 포트를 잡는 중일 때 바로 들으면 EADDRINUSE 로 앱 안 창 길로 빠진다).
    포트를 못 잡으면 { fallback:true } — main 이 앱 안 창으로 대신한다.
    deps: http · redirect · openExternal(url) · openWait(onCancel) → { close } · focusMain() · exchange(code, verifier) · log(msg) · timeoutMs?
    run({ authUrl, state, verifier }) → { ok:true, idToken } | { ok:false, reason, canceled? } | { fallback:true, reason } */
 function createGoogleSignIn(deps){
-  let current = null;
+  let current = null;   // { lb, started } — 지금 대기 한 벌
   const log = deps.log || (() => {});
   async function run(a){
-    if(current){ current.cancel('다시 시도'); current = null; }
+    const prev = current;
     const cb = new URL(deps.redirect);
     const lb = createLoopback({ http: deps.http, host: cb.hostname, port: Number(cb.port), path: cb.pathname, state: a.state, timeoutMs: deps.timeoutMs });
-    current = lb;
-    const started = await lb.start();
+    const me = {
+      lb,
+      started: (async () => {
+        if(prev){ prev.lb.cancel('다시 시도'); await prev.started; }
+        return lb.start();
+      })(),
+    };
+    current = me;   // 기다리기 전에 걸어 둔다 — 그 사이 또 불리면 이 호출을 멈추게
+    const started = await me.started;
     if(!started.ok){
-      if(current === lb) current = null;
+      if(current === me) current = null;
       if(started.reason === 'canceled') return { ok: false, reason: CANCELED_TEXT, canceled: true };   // 듣기 전에 다시 불려 멈췄다
       return { fallback: true, reason: started.reason };
     }
     try{ await deps.openExternal(a.authUrl); }
-    catch(_){ lb.cancel(); if(current === lb) current = null; return { ok: false, reason: '브라우저를 열지 못했어요 — 기본 브라우저 설정을 확인해 주세요' }; }
+    catch(_){ lb.cancel(); if(current === me) current = null; return { ok: false, reason: '브라우저를 열지 못했어요 — 기본 브라우저 설정을 확인해 주세요' }; }
     let wait = null;
     try{ wait = deps.openWait(() => lb.cancel('취소')); }catch(_){ wait = null; }
     const r = await lb.result;
-    if(current === lb) current = null;
+    if(current === me) current = null;
     try{ if(wait) wait.close(); }catch(_){}
     if(r.canceled) return { ok: false, reason: CANCELED_TEXT, canceled: true };   // 화면은 조용히 끝낸다 · 앱 창을 당기지 않는다
     try{ deps.focusMain(); }catch(_){}
     if(r.ok) return deps.exchange(r.code, a.verifier);
-    if(r.error){ log('[구글] 로그인 오류 응답: ' + r.error); return { ok: false, reason: errorReason(r.error) }; }
+    if(r.error){ log(errorLogText(r)); return { ok: false, reason: errorReason(r.error) }; }
     if(r.timeout) return { ok: false, reason: '브라우저에서 로그인을 마치지 않아 멈췄어요 — 다시 시도해 주세요' };
     return { ok: false, reason: '로그인 응답이 올바르지 않아요' };
   }
   return { run };
 }
 const CANCELED_TEXT = '로그인 창을 닫아서 연결을 멈췄어요';
+const NO_CODE_TEXT = '로그인 응답에 코드가 없어요';
 
-module.exports = { CALLBACK_PATH, WAIT_MS, WAIT_CANCEL_URL, WAIT_HTML, CANCELED_TEXT, buildAuthUrl, parseCallback, errorReason, createLoopback, openWaitWindow, createGoogleSignIn, PAGE_OK, PAGE_ERR };
+/* 구글이 준 오류 응답의 진단 기록 한 줄 — 두 길(브라우저 · 앱 안 창)이 같이 쓴다 */
+function errorLogText(r){
+  return '[구글] 로그인 오류 응답: ' + r.error + (r.description ? ' — ' + r.description : '');
+}
+
+module.exports = { CALLBACK_PATH, WAIT_MS, WAIT_CANCEL_URL, WAIT_HTML, CANCELED_TEXT, NO_CODE_TEXT, buildAuthUrl, parseCallback, errorReason, errorLogText, createLoopback, openWaitWindow, createGoogleSignIn, PAGE_OK, PAGE_ERR };
