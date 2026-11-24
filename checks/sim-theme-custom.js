@@ -134,7 +134,7 @@ say('── 3. 설정 칸 · 만들기(theme-ui.js)');
   e = mkEnv({ premium: true, saveOk: false });
   e.ui.bindThemeUI(); e.els.themeColorRow.children[5].onclick(); e.els.themeCxSave.fire('click'); await flush();
   chk(e.notes.join() === 'E-SYS-02' && e.store['tw.accent'] === 'cx', '서버 쓰기 실패 → E-SYS-02(이 PC 에는 저장)');
-  /* 🚧 서버 길이 아직 없다(0.13 · shared/server-features.js themeCustomSave 꺼짐) — 이 PC 에만 두고 서버를 부르지도 · 실패를 알리지도 않는다 */
+  /* 서버 길이 아직 없다(0.13 · shared/server-features.js themeCustomSave 꺼짐) — 이 PC 에만 두고 서버를 부르지도 · 실패를 알리지도 않는다 */
   e = mkEnv({ premium: true, serverOn: false, saveOk: false });
   e.ui.bindThemeUI(); e.els.themeColorRow.children[5].onclick(); e.els.themeCxSave.fire('click'); await flush();
   { const local = e.store['tw.accent'] === 'cx' && !!e.store['tw.accentCustom']; await e.ui.pullCustom();

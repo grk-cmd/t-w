@@ -1,4 +1,4 @@
-/* sim-server-features.js — 🚧 서버가 아직 안 받는 0.14 기능 표(shared/server-features.js)와 입구 닫기
+/* sim-server-features.js — 서버가 아직 안 받는 0.14 기능 표(shared/server-features.js)와 입구 닫기
    실행:  node checks/run.js sim-server-features
    ★ 왜 이 검사가 있는가 — 0.14 의 몇 기능은 Firebase DB · Functions 에 직접 읽고 쓰게 만들어졌고, 0.13 은 Firebase DB 쓰기를 잠갔다.
      서버가 받을 때까지 입구만 닫아 두는데, 입구가 하나라도 열려 있으면 버튼을 눌렀을 때 조용히 실패하거나 오류 번호가 뜬다.
@@ -18,7 +18,7 @@ for (const f of ['shared/server-features.js', 'app.js', 'desk-companion-prototyp
   SRC[f] = read(f);
   if (SRC[f] == null) { say('  ? 원본 못 찾음 — ' + f); process.exit(2); }
 }
-const NAMES = ['xmas', 'chatNotice', 'chatFocus', 'playlistLike', 'googleChange', 'googleConfirmLoginSignup', 'friendReqMsg', 'themeCustomSave'];
+const NAMES = ['xmas', 'chatNotice', 'chatFocus', 'playlistLike', 'googleChange', 'friendReqMsg', 'themeCustomSave'];
 const loadSF = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwServerFeatures; };
 
 function judgeTable(src) {
@@ -36,7 +36,7 @@ function judgeTable(src) {
 
 say('── 1. 표');
 const T = judgeTable(SRC['shared/server-features.js']);
-chk(T.names, '이름 여덟(xmas · chatNotice · chatFocus · playlistLike · googleChange · googleConfirmLoginSignup · friendReqMsg · themeCustomSave)');
+chk(T.names, '이름 일곱(xmas · chatNotice · chatFocus · playlistLike · googleChange · friendReqMsg · themeCustomSave)');
 chk(T.allOff, '모두 꺼짐 — 서버가 받기 전');
 chk(T.throws, '모르는 이름은 던진다(글자를 잘못 쓰면 조용히 꺼진 채 남지 않게)');
 chk(T.frozen, '표와 모듈은 바꿀 수 없다');

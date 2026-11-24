@@ -100,7 +100,7 @@
 - **받는 deps**: 값 `officeModeMod` · `seats` · `hiddenSeatsMod` · `Presence` · 함수 둘(`findMySeat` · `seatState`).
 - **함정**: 소리 자료(`noise-sounds.js`)를 이 모듈보다 먼저 싣는다. 검사: `checks/sim-global-deps.js`.
 ## playlist-like.js · playlist-like-ui.js — 👍 플레이리스트 «노래가 좋아요»
-- 🚧 0.13 위(0.14.0): deps `enabled` — `TwServerFeatures.on('playlistLike')` 가 꺼지면 줄을 숨기고 읽지 않는다. net 은 `TwServerFeatures.noServer('playlistLike')`(#1100).
+- 0.13 위(0.14.0): deps `enabled` — `TwServerFeatures.on('playlistLike')` 가 꺼지면 줄을 숨기고 읽지 않는다. net 은 `TwServerFeatures.noServer('playlistLike')`(#1100).
 
 - **책임**: 남의 플레이리스트(프리셋 하나)에 «노래가 좋아요 👍» 를 한 번 남긴다. 받는 사람(주인)만 그 프리셋의 👍 수를 본다 — 누가 눌렀는지는 안 보이고, 누르는 사람에게는 수가 안 보인다(사용자 결정).
   - `playlist-like.js`(순수 · DOM 없음): `presetKey` · `view`(무엇을 보일지) · `createPlaylistLikeNet({ db, ref, get, update })` → `{ read, like }`. firebase-init.js 가 `firebaseAPI.playlistLike` 로 잇는다.

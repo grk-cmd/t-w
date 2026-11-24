@@ -262,7 +262,7 @@ function wire(S){
   w(!ok1(SR, 'n1', { text: long(301), ts: T }) && !ok1(SR, 'n1', { text: '', ts: T }) && !ok1(SR, 'n1', { text: 5, ts: T }) && !ok1(SR, 'n1', { ts: T }) && !ok1(SR, 'n1', { text: '공지' }) && !ok1(SR, 'n1', { text: '공지', ts: '1' }), '  거절: 301자 · 빈 글 · 글자 아님 · text 없음 · ts 없음 · ts 숫자 아님');
   w(!ok1(SR, 'n1', { text: '공지', ts: 'x' }) && ok1(SR, 'n1', { text: '공지', ts: 0 }), '  ts 는 숫자여야 한다');
   w(!ok1(SR, 'n1', { text: '공지', ts: T, pin: false }) && !ok1(SR, 'n1', { text: '공지', ts: T, pin: 1 }), '  거절: pin 이 true 가 아닌 값(풀 때는 칸을 지운다)');
-  /* 🚧 0.13 은 Firebase DB 쓰기를 잠갔다 — 서버 길이 생길 때까지 firebase-init 에 공지 통로를 잇지 않고, app.js 가 서버 기능 표로 입구를 닫는다(shared/server-features.js) */
+  /* 0.13 은 Firebase DB 쓰기를 잠갔다 — 서버 길이 생길 때까지 firebase-init 에 공지 통로를 잇지 않고, app.js 가 서버 기능 표로 입구를 닫는다(shared/server-features.js) */
   w(!/TwChatNoticeNet/.test(S.fi) && /enabled: \(\)=>TwServerFeatures\.on\('chatNotice'\)/.test(S.app || ''), 'firebase-init.js 에 공지 통로가 없고(0.13) · app.js 가 서버 기능 표로 입구를 닫는다');
   const H = S.html;
   const iNet = H.indexOf('<script src="parts/chat/chat-notice-net.js"'), iMod = H.indexOf('<script src="parts/chat/chat-notice.js"'), iUi = H.indexOf('<script src="parts/chat/chat-ui.js"'), iApp = H.indexOf('<script src="parts/app.js"'), iFi = H.indexOf('<script type="module" src="parts/firebase-init.js"');

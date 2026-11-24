@@ -162,7 +162,7 @@ async function judge(S){
     t(((U.d || {})['.validate'] || '').indexOf('hasChildren') > 0, '  d 자체는 칸을 가진 객체(숫자 하나를 넣는 길을 닫는다)');
 
     /* ── 4절 연결 ── */
-    /* 🚧 0.13 은 Firebase DB 쓰기를 잠갔다 — 서버 길이 생길 때까지 firebase-init 에 집중 통로를 잇지 않고, 올리기 · 탭 둘 다 서버 기능 표로 입구를 닫는다(shared/server-features.js) */
+    /* 0.13 은 Firebase DB 쓰기를 잠갔다 — 서버 길이 생길 때까지 firebase-init 에 집중 통로를 잇지 않고, 올리기 · 탭 둘 다 서버 기능 표로 입구를 닫는다(shared/server-features.js) */
     t(!/TwRoomFocusNet/.test(S.fi) && /isSecretRoom: \(\)=>TwServerFeatures\.on\('chatFocus'\) && /.test(S.app) && /enabled: \(\)=>TwServerFeatures\.on\('chatFocus'\)/.test(S.app), 'firebase-init.js 에 집중 통로가 없고(0.13) · 올리기 · 집중 탭 입구를 서버 기능 표로 닫는다');
     const H = S.html;
     const iDays = H.indexOf('<script src="parts/shared/room-focus-days.js"'), iNet = H.indexOf('<script src="parts/focus/room-focus-net.js"'), iSync = H.indexOf('<script src="parts/focus/room-focus-sync.js"'), iFocus = H.indexOf('<script src="parts/chat/chat-focus.js"'), iUi = H.indexOf('<script src="parts/chat/chat-ui.js"'), iApp = H.indexOf('<script src="parts/app.js"');

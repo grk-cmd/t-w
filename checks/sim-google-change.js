@@ -86,7 +86,7 @@ async function judgeAll(src){
   (await judgeAll(MOD)).forEach(([ok, m]) => chk(ok, m));
 
   say('── 5. 연결');
-  /* 🚧 0.13 은 구글 연결을 서버(계정)가 같이 들고 있다 — Firebase Auth 만 바꾸면 어긋나서, 서버가 받을 때까지 firebase-init 에 잇지 않고 [바꾸기] 를 숨긴다(shared/server-features.js) */
+  /* 0.13 은 구글 연결을 서버(계정)가 같이 들고 있다 — Firebase Auth 만 바꾸면 어긋나서, 서버가 받을 때까지 firebase-init 에 잇지 않고 [바꾸기] 를 숨긴다(shared/server-features.js) */
   chk(!/createGoogleChange|authChangeGoogle/.test(FI), 'firebase-init 에 구글 바꾸기 통로가 없다(0.13 · 서버 이관 대기)');
   chk(/const gcOn = TwServerFeatures\.on\('googleChange'\);\n  show\('acctMGoogleChange', gcOn, 'inline-block'\);/.test(ACC), '  내 정보 › 계정 [바꾸기] 는 서버 기능 표가 켜졌을 때만 보인다');
 

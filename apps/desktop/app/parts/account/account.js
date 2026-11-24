@@ -416,7 +416,7 @@ async function _acctMethodsRender(keepMsg){
   /* 🔁 지금 구글(가린 주소) · [바꾸기] — 비밀번호가 있어야 바꾼다(google-change-net.js) */
   show('acctMGoogleRow2', m.google, 'flex');
   text('acctMGoogleMail', m.google ? '↳ ' + (googleConfirmMod.maskEmail(m.googleEmail) || '(주소 모름)') : '');
-  /* 🚧 [바꾸기]는 서버가 구글 연결 바꾸기를 받을 때까지 숨긴다(shared/server-features.js — Firebase Auth 만 바꾸면 서버의 구글 연결 기록과 어긋난다) */
+  /* [바꾸기]는 서버가 구글 연결 바꾸기를 받을 때까지 숨긴다(shared/server-features.js — Firebase Auth 만 바꾸면 서버의 구글 연결 기록과 어긋난다) */
   const gcOn = TwServerFeatures.on('googleChange');
   show('acctMGoogleChange', gcOn, 'inline-block');
   const gc = $e('acctMGoogleChange'); if(gc) gc.disabled = !(gcOn && m.google && !c3);

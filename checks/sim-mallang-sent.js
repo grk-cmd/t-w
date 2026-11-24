@@ -68,7 +68,7 @@ say('── 2. 서버 규칙');
   chk(!leaked.length && !rulePass(R, 'null', bare) && !rulePass(R, ' x', bare), '거절 — 코드 모양 · Storage 밖 · 모르는 칸 · 시각 0 · src 없음 · 길이 초과 · 사고 키' + (leaked.length ? ' — 통과해 버림: ' + leaked.join(', ') : ''));
   { const R2 = JSON.parse(JSON.stringify(R)); delete R2.$giftId.$other;
     chk(rulePass(R2, '-Nabc_4', { to: U, src: ST + 'a', ts: 1, x: 1 }), '  mutation test — 규칙에서 «다른 칸 거절» 을 빼면 모르는 칸이 통과한다(위 거절 줄이 빨강)'); }
-  /* 🚧 0.13 은 Firebase DB 쓰기를 잠갔다 — 보낸 말랑이 기록은 서버 길이 생길 때까지 잇지 않는다(서버 작업 요청 이슈). 규칙 · 기록 모양(위)은 서버 이관의 기준으로 남긴다 */
+  /* 0.13 은 Firebase DB 쓰기를 잠갔다 — 보낸 말랑이 기록은 서버 길이 생길 때까지 잇지 않는다(서버 작업 요청 이슈). 규칙 · 기록 모양(위)은 서버 이관의 기준으로 남긴다 */
   chk(!/MallangSent/.test(SRC.fb) && !/firebaseAPI\.(get|add)MallangSent/.test(SRC.mallang + SRC.inbox), 'firebase-init.js 에 보낸 말랑이 통로가 없고(0.13) · 말랑이 · 수령함이 그 통로를 부르지 않는다(서버 이관 대기)');
 }
 

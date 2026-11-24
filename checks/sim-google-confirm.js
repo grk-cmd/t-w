@@ -166,9 +166,9 @@ process.on('exit', () => { if(!finished){ console.log('  ✗ 끝까지 못 돌�
   const iMk = A.indexOf('const googleConfirmMod = TwGoogleConfirm.createGoogleConfirm(');
   chk(iMk > 0 && iMk < A.indexOf('const licenseGateMod = TwLicenseGate.createLicenseGate(') && iMk < A.indexOf('const accountMod = TwAccount.createAccount('), 'app.js — 초대 게이트 · 계정보다 먼저 만든다');
   chk(/const licenseGateMod = TwLicenseGate\.createLicenseGate\(\{\n  googleConfirmMod: googleConfirmMod,/.test(SRC) && /const accountMod = TwAccount\.createAccount\(\{\n  googleConfirmMod: googleConfirmMod,/.test(SRC), 'app.js — 초대 게이트 · 계정에 deps 로 넘긴다');
-  /* 🚧 0.13 은 로그인 · 가입이 서버 흐름(account/login-flow.js — GET /v2/me)이라 «처음 보는 구글 묻기» 를 거기에 다시 걸어야 한다 — 서버가 받을 때까지 꺼 둔다(shared/server-features.js googleConfirmLoginSignup).
+  /* 0.13 은 로그인 · 가입이 서버 흐름(account/login-flow.js — GET /v2/me)이라 «처음 보는 구글 묻기» 는 합치며 빠졌다 — 서버가 받을 때 배선부터 다시 건다(#1101).
      연결하기(pickForLink)는 Firebase Auth link 를 그대로 써서 지금도 묻는다(아래 줄). */
-  chk(!/googleConfirmMod\.ask\(/.test(strip(MOD_ACC) + strip(MOD_LG)), '★ 로그인 · 가입 때 묻기는 아직 걸지 않는다(서버 이관 대기 — 서버 기능 표 googleConfirmLoginSignup 꺼짐)');
+  chk(!/googleConfirmMod\.ask\(/.test(strip(MOD_ACC) + strip(MOD_LG)), '★ 로그인 · 가입 때 묻기는 아직 걸지 않는다(합치며 빠짐 — 서버가 받을 때 다시 건다 · #1101)');
   const linkSites = (MOD_ACC.match(/googleConfirmMod\.pickForLink\(\)/g) || []).length + (MOD_LG.match(/googleConfirmMod\.pickForLink\(\)/g) || []).length;
   const rawSites = (strip(MOD_ACC).match(/companion\.signInWithGoogle\(\)/g) || []).length + (strip(MOD_LG).match(/companion\.signInWithGoogle\(\)/g) || []).length;
   chk(linkSites === 2, '★ 구글 [연결하기](내 정보) · [구글도 연결하기](가입 완료) 둘 다 묻는 창을 거친다');

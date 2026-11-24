@@ -77,7 +77,7 @@
 | **sim-leave-flush.js** | 373 | **f6c906a3785c** |
 | **sim-session.js** | 221 | **2c15ae27f8ba** |
 | **sim-session-baseline.js** | 190 | **74b2c6d83b60** |
-| **smoke.js** | 889 | **6064aca43cda** |
+| **smoke.js** | 889 | **fbd8f2a526c6** |
 | **sim-account-switch.js** | 291 | **2da40257ef5d** |
 | **sim-admin-rules.js** | 408 | **cae4fc4cb38a** || · 아래 칸 · 쓰기 없음** · **개정 163 1절 관리자 서버 봇(apiBots) — admins · licenses 읽기만 · 봇 명단 잠김** · **개정 129 7절 할 일 공용 메모(adminTodoNote) — 관리자만 · rev + 1 · 0~2000자 · 서버 시각** · **개정 127 7절 할 일 종류(type) feat · bug · 없어도 됨** · **개정 126 1절 config/releaseAnswerTpl 관리자만 · 7절 릴리스 답변 템플릿 1~1000자 글자 · 지우기 관리자만 · 읽기 관리자만** · **개정 123 7절 할 일 릴리스 버전(release) 모양 · 20자 · 없어도 됨** · **개정 118 7절 관리자 할 일(adminTodos) — 관리자만 · rev + 1 만(덮어쓰기 막기) · 작업자는 관리자 uid · 제보 id 모양 · 관리자 이름(adminNames) 본인 칸만** · **개정 99 1절 metrics/improvements 관리자 쓰기 · 모양(버전 · 제목 · 항목 20개 · 적용 일수 0~30)** · **개정 95 1절 config/bugDailyMax 관리자만** · **개정 87 1절 config/minAppVer 관리자만** · **2026-10-08 1절 bugBoard/ans/pub · ans/prv 관리자만 · 2절 버그제보 글쓰기(본인 uid · 본인 코드 · 새 글만) · 👍 본인 표시 하나** · **2026-10-07 3절 metrics(접속 지표) 읽기 관리자만 · 쓰기 규칙 없음** · **2026-10-06 1절 inboxBroadcastMeta 관리자만** · **2026-10-06 1절 catalogMeta/$kind 관리자만** · **2026-10-05 6절 관리자 작업 기록(adminLog) — 규칙식을 굴려 관리자만 · 새로 쓰기만 · by · 서버 시각 · 길이 · 90일 지난 것만 지우기 · invites 목록 관리자 읽기(issuedBy 색인) · 코드 하나는 누구나** · **2026-10-04 licenseRequests 친구코드(선택 · MATE/COZY 형식) · accountSnap 목록 관리자 읽기** · **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
 | **sim-char-core-load.js** | 89 | **d14b110c4f57** |
@@ -172,8 +172,8 @@
 | **sim-friend-code-keep.js** | 131 | **814fd3b9bef1** |
 | **sim-gacha-album.js** | 120 | **9b23b01a1f62** |
 | **sim-google-oauth.js** | 357 | **103900b0353b** |
-| **sim-google-confirm.js** | 248 | **bcf9279f25c8** |
-| **sim-google-change.js** | 107 | **1e3e28706796** |
+| **sim-google-confirm.js** | 248 | **66c919571c52** |
+| **sim-google-change.js** | 107 | **97ad8f6d3b36** |
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
 | **sim-key-input.js** | 71 | **d96a4cd791fc** |
 | **sim-keysof-twin.js** | 369 | **54f473215813** |
@@ -213,7 +213,7 @@
 | **sim-purikura-rules.js** | 241 | **38c6e66b3a3d** |
 | **sim-purikura-stage.js** | 270 | **6c68a3c0510f** |
 | **sim-report-away.js** | 111 | **2dc87b971e20** |
-| **sim-friend-req-btn.js** | 252 | **fa0c23536312** |
+| **sim-friend-req-btn.js** | 252 | **1a36137d7777** |
 | **sim-ride-height.js** | 115 | **870e0eb2c0e7** |
 | **sim-ride-part-top.js** | 101 | **0b4bf839278c** |
 | **sim-seat-eq.js** | 101 | **bf7a074be4bb** |
@@ -347,7 +347,7 @@
 | **sim-mac-tooltip.js** | 140 | **d16b995f53a5** |
 | **sim-panel-fit.js** | 106 | **fbc8ba66b8b2** |
 | **sim-strip-comments.js** | 82 | **f16dd3986285** |
-| **sim-playlist-like.js** | 291 | **dc87e0f56af8** |
+| **sim-playlist-like.js** | 291 | **a375666c4310** |
 | **sim-desk-item-origin.js** | 104 | **c994d7c5152e** |
 | **sim-def-size.js** | 157 | **68d8b678409d** |
 | **sim-todo-cli.js** | 286 | **1938bd361cc5** |
@@ -459,7 +459,7 @@
 | **sim-launcher-state.js** | 91 | **26912637390e** |
 | **sim-account-state.js** | 108 | **413b232af0e3** |
 | **sim-nav.js** | 91 | **27ffd1e7cdaa** |
-| **sim-server-features.js** | 165 | **1731a539fb25** |
+| **sim-server-features.js** | 165 | **47d7921ce9c2** |
 | **sim-app-boot.js** | 185 | **8ff3e45193d1** |
 | **sim-away-start.js** | 120 | **b9010d0eee8e** |
 | **sim-user-local.js** | 207 | **b34ec3227153** |
@@ -579,14 +579,14 @@
 
 예전엔 판이 여럿(49·1 · 58·1 · 60·0 · 말뿐인 65·0)이었다. 지금 정본은 **위 표의 해시 한 줄**뿐이다 —
 초록 · 빨강 개수는 여기 적지 않는다(검사가 늘면 어긋난다). 계보는 `git log -- checks/sim-sysinput.js`.
-| **sim-chat-notice.js** | 349 | **0d9adc3b6ff8** |
-| **sim-room-focus.js** | 225 | **51cfaf134d2b** |
+| **sim-chat-notice.js** | 349 | **a3e55a7ec8c1** |
+| **sim-room-focus.js** | 225 | **5aae10ce337f** |
 | **sim-chat-focus.js** | 198 | **15f464551678** |
-| **sim-theme-custom.js** | 192 | **8b7a494d8227** |
+| **sim-theme-custom.js** | 192 | **308c1748ae85** |
 | **sim-font-choice.js** | 127 | **4587e729e2e7** |
-| **sim-mallang-sent.js** | 76 | **7330578e1772** |
+| **sim-mallang-sent.js** | 76 | **47c8eaaf32fa** |
 | **sim-xmas-server.js** | 332 | **1a7bb7d5b608** |
-| **sim-xmas-net.js** | 131 | **3445c9edbb80** |
+| **sim-xmas-net.js** | 131 | **76df2f9acef3** |
 | **sim-xmas-rules.js** | 107 | **7a2d63776ce1** |
 | **sim-xmas-tree.js** | 51 | **0d4a04e1115d** |
 | **sim-xmas-window.js** | 216 | **19e6f3c8f360** |

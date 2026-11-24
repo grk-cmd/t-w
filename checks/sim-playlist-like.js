@@ -222,7 +222,7 @@ function wire(S){
   w(/#myPlaylistBox\.mini #myPlLikeRow,#myPlaylistBox\.mini #myPlLikeDrawer\{display:none !important;\}/.test(S.html) && /\.plLikeDrawer\.left\{left:auto;right:calc\(100% \+ 4px\);\}/.test(S.html), '  접으면 숨김 · 자리가 없으면 왼쪽');
   w(/const plLikeUi = TwPlaylistLikeUi\.createPlaylistLikeUi\(\{ likeRules: TwPlaylistLike, net: \(\)=>TwServerFeatures\.noServer\('playlistLike'\),/.test(S.app) && S.app.indexOf('const plLikeUi = ') < S.app.indexOf('const plMod = TwPlaylist.createPlaylist(') && /\n  playlistLikeUi: plLikeUi,\n\}\);/.test(S.app),
     'app.js — 반응 칸을 플레이리스트보다 먼저 만들어 넘긴다 · 서버 경로가 생길 때까지 net 은 TwServerFeatures.noServer(#1100)');
-  /* 🚧 0.13 은 Firebase DB 쓰기를 잠갔다 — 서버 길이 생길 때까지 firebase-init 에 반응 통로를 잇지 않고 서버 기능 표로 입구를 닫는다(shared/server-features.js) */
+  /* 0.13 은 Firebase DB 쓰기를 잠갔다 — 서버 길이 생길 때까지 firebase-init 에 반응 통로를 잇지 않고 서버 기능 표로 입구를 닫는다(shared/server-features.js) */
   w(!/createPlaylistLikeNet/.test(S.fi) && /enabled: \(\)=>TwServerFeatures\.on\('playlistLike'\)/.test(S.app), 'firebase-init.js 에 반응 통로가 없고(0.13) · app.js 가 서버 기능 표로 입구를 닫는다');
   w(/'E-SYS-04': \{ msg: '[^']+', where: 'status\/playlist-like-ui\.js/.test(S.codes), '에러 번호 E-SYS-04 가 표에 있다');
   w(!/firebaseAPI|document\.|window\.(?!TwPlaylistLike)/.test(S.mod.replace(/\/\*[\s\S]*?\*\//g, '').replace(/if\(typeof window[^\n]*\n/, '')), 'playlist-like.js 는 DOM · firebaseAPI 를 모른다(규칙 · provider 만)');

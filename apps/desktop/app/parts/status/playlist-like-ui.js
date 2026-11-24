@@ -107,7 +107,7 @@ function createPlaylistLikeUi(deps){
 
   /* playlist.js 가 소개칸을 그릴 때마다 부른다 — c = { ro, ownerId, setIdx } (myId 는 여기서 채운다) */
   function render(c){
-    if(!enabled()) c = null;   // 🚧 서버 길이 없으면 «안 보임» 과 같다
+    if(!enabled()) c = null;   // 서버 길이 없으면 «안 보임» 과 같다
     const next = Object.assign({}, c || {}, { myId: getMyUserId() });
     const k = keyOf(next);
     ctx = next;

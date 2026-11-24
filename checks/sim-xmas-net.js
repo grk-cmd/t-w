@@ -90,7 +90,7 @@ say('── 4절 신고');
 }
 
 say('── 5절 연결 · mutation test');
-/* 🚧 0.13 은 Firebase DB 쓰기를 잠갔고 Functions 도 내린다 — 서버 길이 생길 때까지 firebase-init 에 크리스마스 통로를 잇지 않고, app.js 는 서버 기능 표가 켜졌을 때만 창을 만든다(shared/server-features.js) */
+/* 0.13 은 Firebase DB 쓰기를 잠갔고 Functions 도 내린다 — 서버 길이 생길 때까지 firebase-init 에 크리스마스 통로를 잇지 않고, app.js 는 서버 기능 표가 켜졌을 때만 창을 만든다(shared/server-features.js) */
 chk(!/TwXmasNet/.test(FBI) && /if\(TwServerFeatures\.on\('xmas'\)\) TwXmasWindow\.createXmasWindow\(/.test(APP), 'firebase-init 에 크리스마스 통로가 없고(0.13) · 창은 서버 기능 표가 켜졌을 때만 만든다');
 {
   // mutation test — 트리를 통째로 읽으면 1절이 잡는다

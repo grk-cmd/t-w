@@ -152,7 +152,7 @@ async function behave(src, seat){
     const newOne = !!ov3 && find(ov3, 'friend-req-ask-lead').children[0].textContent === '지수';
     await find(ov3, 'friend-req-ask-btns').children[0].onclick(); await flush();
     r.switchClose = goneOwn && goneOther && newOne && w.log.sends.length === 1 && w.log.sends[0][0] === 'u3';
-    /* 🚧 서버가 사유를 받기 전(reasonOn 꺼짐) — 사유 칸 없이 묻고 빈 사유로 보낸다 */
+    /* 서버가 사유를 받기 전(reasonOn 꺼짐) — 사유 칸 없이 묻고 빈 사유로 보낸다 */
     w = load(src, { alive: false, noReason: true }); await w.mod.refresh('u2', '민지'); w.D.btn.onclick();
     { const o4 = find(w.D.win, 'friend-req-ask-ov'); const noTa = !!o4 && !find(o4, 'friend-req-ask-msg');
       await find(o4, 'friend-req-ask-btns').children[0].onclick(); await flush();
@@ -173,7 +173,7 @@ function wire(app, html, visit, fm, fbi, rules){
   o.make = iMk > 0 && iV > iMk && /sendFriendReq: \(\.\.\.a\)=>seatFriendReqMod\.sendFriendReq\(\.\.\.a\),/.test(A) && /resultView: \(\.\.\.a\)=>seatFriendReqMod\.resultView\(\.\.\.a\),/.test(A) && /friendNet: \(\)=>\(\{ isFriendRequestAlive: async \(toId, me\)=>\{ const s = await friendRequestsPortMod\.listSent\(me\); return !!\(s && s\[toId\]\); \} \}\),/.test(A.slice(iMk, iV)) && /friendReqBtn: friendReqBtnMod,/.test(A.slice(iV));
   o.visit = /friendReqBtn\.refresh\(realVisit \? _mhViewingUserId\(\) : null, realVisit \? _mhViewingDisplayName\(\) : null\);/.test(strip(visit));
   o.recv = /msg\.textContent = String\(req\.msg\);/.test(fm) && /escHtml\(String\(req\.msg\)\)/.test(fm);
-  o.send = /reasonOn: \(\)=>TwServerFeatures\.on\('friendReqMsg'\),/.test(A.slice(iMk, iV));   // 🚧 서버가 사유를 받을 때까지 사유 칸을 닫는다(shared/server-features.js)
+  o.send = /reasonOn: \(\)=>TwServerFeatures\.on\('friendReqMsg'\),/.test(A.slice(iMk, iV));   // 서버가 사유를 받을 때까지 사유 칸을 닫는다(shared/server-features.js)
   o.yield = escYieldList().includes('#myHomeOverlay.on .friend-req-ask-ov') && /ov\.className = 'friend-req-ask-ov app-popup-ov';/.test(MOD) && /document\.getElementById\('myHomeWin'\)/.test(MOD);
   let rmsg = null; try { rmsg = JSON.parse(rules).rules.friendRequests.$toId.$fromId.msg; } catch (_) {}
   o.rule = !!rmsg && rmsg['.validate'] === 'newData.isString() && newData.val().length <= 100';
@@ -200,7 +200,7 @@ function wire(app, html, visit, fm, fbi, rules){
   chk(R.fail && R.errRes && R.throwFail, '  실패(저장 실패 · 보내기 쪽 오류 · 던짐)는 E-FR-06(실제 오류를 넘김) · 창은 남고 단추를 다시 누를 수 있다');
   chk(R.close, '  Esc(마이홈까지 안 닫히게 멈춤 · 처리기도 뗌) · [취소]는 안 보내고 닫는다 · 두 번 눌러도 창 하나');
   chk(R.escCapture, '  Esc 는 document 캡처 하나로 받는다(창 안 버블로 받으면 win-stack 캡처가 먼저 마이홈을 닫는다)');
-  chk(R.noReason, '🚧 서버가 사유를 받기 전(reasonOn 꺼짐) — 사유 칸 없이 묻고 빈 사유로 보낸다');
+  chk(R.noReason, '서버가 사유를 받기 전(reasonOn 꺼짐) — 사유 칸 없이 묻고 빈 사유로 보낸다');
   chk(R.switchClose, '  창을 연 채 내 홈 · 다른 사람으로 넘어가면 창이 닫히고, 새 사람 창이 그 사람 이름으로 열려 그 사람에게 보낸다');
 
   say('── 4. 연결');

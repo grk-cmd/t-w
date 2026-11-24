@@ -9,7 +9,7 @@ main.js 배경음악 창의 주인 `'xmas'`(`bgmPanelMode` · `companion:openXma
 (`NAV.MY_HOME_CLOSE` 는 크리스마스 전용이 아니다 — 부르는 곳이 없어지면 sim-nav 가 알려 준다.)
 버튼은 1월 1일 0시(서버 시각)부터 저절로 숨는다.
 
-> 🚧 0.13 위(0.14.0): 크리스마스는 서버 경로가 생길 때까지 꺼져 있다 — app.js 가 `TwServerFeatures.on('xmas')` 일 때만 창을 만들고, net 은 `TwServerFeatures.noServer('xmas')`(#1097). 저장소(storage)는 값으로 받는다.
+> 0.13 위(0.14.0): 크리스마스는 서버 경로가 생길 때까지 꺼져 있다 — app.js 가 `TwServerFeatures.on('xmas')` 일 때만 창을 만들고, net 은 `TwServerFeatures.noServer('xmas')`(#1097). 저장소(storage)는 값으로 받는다.
 
 ## xmas-rules.js — 순수 규칙
 - **책임**: 편지 칸 · 반송 사유(서버 `RETURN_REASONS` 와 같음) · 받은 편지 다듬기 · 마감 D-day(한국 날짜) · 읽음 표시 · 날짜 판정(`eventOn` · `letterOpen` · `lettersArrived`) · 한마디 다듬기(`cleanWord` — 서버와 같음) · 장식 자리(`slotPositions` — 같은 n 이면 늘 같은 자리) · 다시 받을 그림(`changedImgSlots` — 판이 **다른** 자리) · 바꾸기 간격(`cooldownLeft` 5초) · 반짝임 10번(`blinkOpacity`) · 10번 누르기(`createTaps`) · 흔들기(`createShake`).
