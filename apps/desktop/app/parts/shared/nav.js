@@ -1,29 +1,40 @@
 /* nav.js — 🧭 창 열기 통로: 다른 기능이 «이 창을 열어 줘 · 방에서 나가 줘» 를 부탁하는 한 곳 (검사 sim-nav.js)
-   [왜] 일정 알림 · 채팅 · 꾸미기 · 라이선스 요청 · 자리비움 퇴장처럼 아래 기능이 위층 창(⚙️ 프로그램 설정 · 🏠 마이홈)이나
+   [왜] 일정 알림 · 채팅 · 꾸미기 · 자리비움 퇴장처럼 아래 기능이 위층 창(⚙️ 프로그램 설정 · 🏠 마이홈)이나
      방 입장 모듈을 직접 부르면, 그 창 모듈도 아래 기능을 쓰므로 서로를 부르는 순환이 된다(checks/sim-dep-cycles.js).
      창 모듈은 자기를 만들 때 여는 함수를 여기에 걸고(on), 부르는 쪽은 이름으로 부탁만 한다(go) — 부르는 쪽은 창 모듈을 모른다.
    ★ 이름은 아래 NAV 에만 둔다(글자로 쓰지 않는다). 이름마다 거는 곳은 정확히 한 곳 — sim-nav.js 가 센다.
-   ★ 아직 안 걸린 이름을 부르면 아무 일도 안 한다(undefined) — 예전 부르는 자리들이 «typeof 함수면 부른다» 로 건너뛰던 것과 같다.
+   ★ 아직 안 걸린 이름을 부르면 아무 일도 안 한다(undefined) — 예전 부르는 자리들이 «typeof 함수면 부른다» 로 건너뛰던 것과 같다. 다만 이름마다 한 번 콘솔에 경고를 남긴다(걸린 곳이 없는 줄 알 수 있게).
    app.js · 쓰는 모듈보다 먼저 싣는 classic script(window.TwNav). app.js 는 `twNav` 로 받아 모듈에 deps 로 넘긴다. */
 (function(){
 
 const NAV = Object.freeze({
   PROGRAM_SETTINGS: 'programSettings',              // ⚙️ 프로그램 설정 창 열기 — (탭) · 거는 곳 program-settings.js
-  PROGRAM_SETTINGS_CLOSE: 'programSettingsClose',   // ⚙️ 프로그램 설정 창 닫기 · 거는 곳 program-settings.js
   MY_HOME: 'myHome',                                // 🏠 마이홈 창 열기 · 거는 곳 myhome-ui.js
   LEAVE_ROOM: 'leaveRoom',                          // 🚪 방 나가기 — (opts) · 거는 곳 room-entry.js
   ASSET_IMPORT: 'assetImport',                      // ➕ 코드로 추가하기 창 열기 — (kind, cat) · 거는 곳 creator/asset-import.js
+  ACCOUNT_ENTERED: 'accountEntered',                // 🚀 계정 확인을 통과해 이 PC 를 서버 계정에 맞췄다(바뀐 계정 아님) — (me) · 거는 곳 launcher/app-boot.js
+  ADMIN_EXIT: 'adminExit',                   // 🔐 관리자 모드 끄기 — 세션이 끝났을 때(조용히 · 토스트 없음) · 거는 곳 admin/admin-mode.js
   ROOM_LOBBY: 'roomLobby',                          // 🗂️ 방 목록 로비 다시 읽기 — 모달이 열린 채 방을 나와 로비가 다시 보일 때 · 거는 곳 room/room-lobby-ui.js
   WARDROBE_ALBUM: 'wardrobeAlbum',                  // 📚 꾸미기 창을 «도감» 탭으로 열기 — 뽑기 창 [도감으로] · 거는 곳 character/wardrobe-panel.js
   FRIEND_VISIT: 'friendVisit',                      // 🏠 «○○ 님이 있는 룸에 놀러 갈까요?» — (fid, invite) · 🔔 받은 초대 줄 · 거는 곳 room/friend-visit.js
   MY_HOME_CLOSE: 'myHomeClose',                     // 🏠 마이홈 창 닫기 — (then) 쓰던 글 묻기를 거쳐 닫은 뒤 then() · 거는 곳 myhome-ui.js
   XMAS: 'xmas',                                     // 🎄 크리스마스 창 열기(일회성) — ('letter' 면 편지 창까지) · 📩 편지 알림 · 거는 곳 xmas/xmas-window.js
 });
+/* 문서 이벤트 이름 한 곳 — 세션이 끝나 관리자 모드를 끌 때 admin-mode 가 보내고, 관리자 창을 여는 모듈이 듣고 자기 닫기로 닫는다.
+   NAV 이름(on · go)과 달리 document 이벤트다. admin-mode 가 아닌 이 파일에 두는 까닭: 관리자 모듈이 admin-mode 를 읽으면 admin-mode ↔ app-boot ↔ catalog-sync 순환이 생긴다(sim-dep-cycles). */
+const ADMIN_EXIT_EVENT = 'tw-admin-exit';
 const _fns = {};
 function on(name, fn){ _fns[name] = fn; }
-function go(name, ...a){ const fn = _fns[name]; return fn ? fn(...a) : undefined; }
+const _warned = new Set();
+/* 안 걸린 이름을 부르면 아무 일도 안 하되 콘솔에 한 줄 남긴다(조용히 사라져 «왜 안 열리지» 가 되지 않게 — 이름마다 한 번). 던지지는 않는다. */
+function go(name, ...a){
+  const fn = _fns[name];
+  if(fn) return fn(...a);
+  if(!_warned.has(name)){ _warned.add(name); console.warn('[nav] 걸린 곳이 없는 이름 — ' + name); }
+  return undefined;
+}
 
-const api = { NAV, on, go };
+const api = { NAV, on, go, ADMIN_EXIT_EVENT };
 if(typeof window !== 'undefined') window.TwNav = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

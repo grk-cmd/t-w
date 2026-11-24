@@ -5,6 +5,7 @@
    ・1절: :root 에 --tw-* 토큰 블록이 있고, 쓰는 곳(var(--tw-…))이 모두 정의된 이름이다(오타 = 무효값 = 화면 깨짐).
    ・2절: 글꼴 토큰마다 한글 폰트가 있다(sim-font-hangul 과 같은 이유 — Tahoma 에는 한글이 없다).
    ・3절: 파일마다 «직접 적은 font-family / font 목록» 수가 기준선 이하.
+   ・1절 끝: parts/ 아래 도메인 폴더(myhome/ · room/ …)까지 센다 — 맨 위만 보면 옮긴 모듈이 시야에서 빠진다.
    ・4절: 파일마다 «손 회색»(#999 · #888 · #ccc 처럼 세 칸이 같은 hex · 흰 #fff 와 검정 #000 은 뺀다) 수가 기준선 이하.
      토큰 정의(--이름:값)와 주석은 세지 않는다. var(--x, #999) 의 폴백은 센다(값이 박혀 있는 것은 같다).
    [기준선 다시 쓰기] 저장소 루트에서 `node checks/sim-ui-tokens.js --write-baseline` — 줄었을 때만 쓴다.
@@ -25,19 +26,23 @@ const partsDir = ['parts', path.join('app', 'parts'), path.join('apps', 'desktop
 if(!htmlPath || !partsDir){ say('  ? 원본 없음 — ' + (!htmlPath ? 'desk-companion-prototype.html ' : '') + (!partsDir ? 'parts/app.js' : '')); process.exit(2); }
 const BASE_FILE = path.join(__dirname, 'ui-tokens-baseline.json');
 
-/* 주석을 같은 길이의 공백으로 — 줄 번호를 지키려고 */
-const blank = (m) => m.replace(/[^\n]/g, ' ');
-const stripCss = (s) => s.replace(/<!--[\s\S]*?-->/g, blank).replace(/\/\*[\s\S]*?\*\//g, blank);
-const stripJs = (s) => stripCss(s).replace(/(^|[^:\\'"])(\/\/[^\n]*)/g, (m, a, b) => a + blank(b));
+/* 주석 지우기(따옴표 안 건너뜀 · 줄 번호 그대로)는 검사끼리 한 벌 — sim-strip-comments.js */
+const { stripCss, stripJs } = require('./sim-strip-comments.js');
 
 const files = [['desk-companion-prototype.html', stripCss(fs.readFileSync(htmlPath, 'utf8'))]];
-for(const f of fs.readdirSync(partsDir).filter(f => f.endsWith('.js')).sort())
-  files.push([f, stripJs(fs.readFileSync(path.join(partsDir, f), 'utf8'))]);
-/* 관리자 코드는 parts/admin/ 에 모은다 — 한 층 아래도 본다(이름은 'admin/파일'). 빼면 app.js 에서 옮긴 관리자 창의 손 색이 시야에서 사라진다. */
-const adminDir = path.join(partsDir, 'admin');
-if(fs.existsSync(adminDir))
-  for(const f of fs.readdirSync(adminDir).filter(f => f.endsWith('.js')).sort())
-    files.push(['admin/' + f, stripJs(fs.readFileSync(path.join(adminDir, f), 'utf8'))]);
+/* parts/ 아래 도메인 폴더(myhome/ · room/ · admin/ …)까지 모두 본다 — 이름은 parts 기준 상대 경로('myhome/파일').
+   ⚠️ 맨 위 · admin/ 만 보면 app.js 에서 도메인 폴더로 옮긴 모듈의 손 색이 시야에서 사라진다(옮길 때마다 기준선이 «줄었다» 로 보였다). */
+function walkJs(dir, rel){
+  const out = [];
+  for(const e of fs.readdirSync(dir, { withFileTypes: true }).sort((x, y) => (x.name < y.name ? -1 : x.name > y.name ? 1 : 0))){
+    const r = rel ? rel + '/' + e.name : e.name;
+    if(e.isDirectory()) out.push(...walkJs(path.join(dir, e.name), r));
+    else if(e.name.endsWith('.js')) out.push(r);
+  }
+  return out;
+}
+const partFiles = walkJs(partsDir, '');
+for(const r of partFiles) files.push([r, stripJs(fs.readFileSync(path.join(partsDir, ...r.split('/')), 'utf8'))]);
 const HTML = files[0][1];
 const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 
@@ -97,6 +102,8 @@ for(const t of ['--tw-ink', '--tw-ink-soft', '--tw-bg-face', '--tw-line', '--tw-
 const undef = [];
 for(const [name, code] of files) for(const m of code.matchAll(/var\(\s*(--tw-[\w-]+)/g)) if(!defs.has(m[1])) undef.push(name + ':' + lineOf(code, m.index) + ' ' + m[1]);
 chk(undef.length === 0, '쓰는 --tw-* 가 모두 정의된 이름' + (undef.length ? ' — ' + undef.slice(0, 5).join(' · ') : ''));
+
+chk(partFiles.some((r) => r.indexOf('/') > 0 && !r.startsWith('admin/')) && partFiles.includes('app.js'), 'parts/ 의 도메인 폴더까지 센다(' + partFiles.length + '개 파일 · 하위 폴더 ' + new Set(partFiles.filter((r) => r.includes('/')).map((r) => r.split('/')[0])).size + '곳)');
 
 say('── 2. 글꼴 토큰의 한글');
 const KOR = /Malgun Gothic|맑은 고딕|Dotum|돋움/;

@@ -2,18 +2,18 @@
    app.js «🛰 방 접속 상태(Presence)» 구역 본문을 그대로 옮긴 모듈이다(C 구역 떼기 w4). 동작은 옮기기 전과 같다.
    ・책임: 지금 방(provider · room · friends)과 내가 방에 보내는 값(상태 · 레벨 · 자리비움 그림 · 소음 · 채팅 …)을 한 곳에서 들고 보낸다.
      20분 무반응 자동 자리비움 · 6시간 자동 퇴장 시계도 내 상태(myUserStatus)를 같이 써서 이 안에 있다.
-   ・받는 deps 20 — 함수 3(getMyUserId · toast · triggerPet)은 화살표, 다시 대입되거나 뒤에서 선언되는 9개
-     (awayPicMod · customStatusConf · expBarMod · focusLevelMod · focusShareMod · isAdmin · isPremium · lastAnyInput · roomEntryMod)는 읽는 함수 — 이름() 으로 읽는다.
-     roomNet 도 읽는 함수 — 데이터 provider(지금은 app.js 가 window.firebaseAPI 를 넘긴다). 준비 확인 · Firebase 방 provider 고르기에만 쓴다.
+   ・받는 deps 16 — 함수 2(toast · triggerPet)는 화살표, 다시 대입되거나 뒤에서 선언되는 7개
+     (awayPicMod · customStatusConf · expBarMod · focusLevelMod · focusShareMod · lastAnyInput · roomEntryMod)는 읽는 함수 — 이름() 으로 읽는다.
+   ・방 통신은 start 가 받는 provider(room-rt.js 방 포트) 하나 — 신원(userId) · 프리미엄(lic)은 싣지 않는다(서버가 토큰 · 라이선스로 안다).
    ・내놓는 것: { Presence } — app.js 가 «const Presence = presenceMod.Presence;» 한 줄로 옛 전역 이름을 잇는다(app.js 의 54곳 · animal.js · noise.js 가 Presence.이름 으로 부른다).
-   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 읽는 함수 자리와 roomNet 줄 · 파일 위 상수 · 옛 이야기형 주석 줄이기뿐.
-   ⚠️ firebaseAPI 는 직접 보지 않는다(roomNet 으로만). document · window · localStorage · companion 은 예전처럼 전역 이름으로 쓴다. 전역 setUserStatus 는 꼭 window. 으로(안쪽 같은 이름이 가린다).
+   ⚠️ firebaseAPI 는 보지 않는다. document · window · localStorage · companion 은 예전처럼 전역 이름으로 쓴다. 전역 setUserStatus 는 꼭 window. 으로(안쪽 같은 이름이 가린다).
    ⚠️ 전역 이름은 TwPresence — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-presence.js */
 (function(){
 
 function createPresence(deps){
 const USER_STATUSES = deps.USER_STATUSES;
+const presenceAccountStore = deps.presenceAccountStore;   // 🗂️ 계정별 칸(shared/account-store.js) — 켤 때 상태 복원 · 자리비움 종류는 이 계정이 이 PC 에서 남긴 것
 const awayPicMod = deps.awayPicMod;   // 읽는 함수
 const chatUiMod = deps.chatUiMod;
 const customStatusConf = deps.customStatusConf;   // 읽는 함수
@@ -21,13 +21,9 @@ const expBarMod = deps.expBarMod;   // 읽는 함수
 const floatersMod = deps.floatersMod;
 const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const focusShareMod = deps.focusShareMod;   // 읽는 함수
-const getMyUserId = deps.getMyUserId;
 const iDeskMod = deps.iDeskMod;
-const isAdmin = deps.isAdmin;   // 읽는 함수
-const isPremium = deps.isPremium;   // 읽는 함수
 const lastAnyInput = deps.lastAnyInput;   // 읽는 함수
 const roomEntryMod = deps.roomEntryMod;   // 읽는 함수
-const roomNet = deps.roomNet;   // 읽는 함수 — 데이터 provider, 준비 전이면 없음
 const roomSyncMod = deps.roomSyncMod;
 const seats = deps.seats;
 const toast = deps.toast;
@@ -40,7 +36,7 @@ const FLY_COLOR_MAX = 16;    // 날리기 색 글
 const FLY_SIZE_MAX = 2;      // 날리기 크기 글('m' · 's')
 const AWAY_SZ_DEFAULT = 80;  // 자리비움 그림 화면 크기 처음 값(awayPicMod 의 기본과 같은 값)
 const Presence=(()=>{
-  let provider=null, room=null, friends={}, myDef=null, myName='나', myState='idle', myUserStatus=null, myLevel=1, onChange=null;
+  let provider=null, room=null, friends={}, myDef=null, myState='idle', myUserStatus=null, onChange=null;
   /* 🛰 내 노드 poke 의 중복·유통기한 판정용. friends 쪽 `_lastPokeTs` 와 같은 역할이다.
      _joinedAt 은 '이 방에 들어온 시각' — 들어오기 전에 찍힌 알림(내가 없던 사이의 마지막 값)을 거른다. */
   let _myPokeSeenTs = 0, _joinedAt = 0;
@@ -50,7 +46,7 @@ const Presence=(()=>{
      ⚠️ 초기값을 AWAY_PIC_SCREEN_PX 로 쓰지 말 것 — 그 var 는 파일 아래쪽이라 이 IIFE 가 도는 순간엔 undefined 이고,
        Firebase 는 undefined 가 든 payload 를 통째로 거절한다(방 입장이 깨진다). 이 파일 위 숫자 상수로 둔다. */
   let myAwaySz=AWAY_SZ_DEFAULT;
-  let myFocusShow=null;   // 📊 오늘 기록 전시 {emo,text} — 상태가 없을 때만 custom 칸으로 실어 보낸다(_statusOut)
+  let myFocusShow=null;   // 📊 오늘 기록 전시 {emo,text} — 상태가 없을 때만 custom field 로 실어 보낸다(_statusOut)
   let myCustomStatus=null;   // ✨ 커스텀 상태(프리미엄) {emo,text} — userStatus==='custom'일 때 친구에게 보여줄 문구
 
   // ────────────────────────────────────────────────────────────────────
@@ -87,23 +83,27 @@ const Presence=(()=>{
   const AWAY_KIND_KEY = 'tw.awayKind';
   function _saveAwayKind(kind, pre){
     try{
-      if(kind) localStorage.setItem(AWAY_KIND_KEY, JSON.stringify({ k: kind, pre: pre || null }));
-      else localStorage.removeItem(AWAY_KIND_KEY);
+      if(kind) presenceAccountStore.set(AWAY_KIND_KEY, JSON.stringify({ k: kind, pre: pre || null }));
+      else presenceAccountStore.remove(AWAY_KIND_KEY);
     }catch(_){}
   }
-  (function _restoreBootStatus(){
+  /* 켤 때 상태 복원 — 만들 때가 아니라 확인 뒤(launcher/user-local.js 의 status 조각)에 계정 칸에서 읽는다. 세션이 끝나면 resetBootStatus 로 비운다. */
+  function restoreBootStatus(){
+    resetBootStatus();
     let v = null;
-    try{ v = localStorage.getItem('tw.userStatus') || null; }catch(_){}
+    try{ v = presenceAccountStore.get('tw.userStatus') || null; }catch(_){}
     if(!v || !USER_STATUSES[v]) return;
     myUserStatus = v;
     if(v !== 'away') return;
     let rec = null;
-    try{ rec = JSON.parse(localStorage.getItem(AWAY_KIND_KEY) || 'null'); }catch(_){}
+    try{ rec = JSON.parse(presenceAccountStore.get(AWAY_KIND_KEY) || 'null'); }catch(_){}
     if(rec && rec.k === 'manual') return;   // 손으로 고른 자리비움 — 그대로 둔다
     _autoAwayApplied = true;
     _preAutoAwayStatus = (rec && rec.pre && USER_STATUSES[rec.pre] && rec.pre !== 'away') ? rec.pre : null;
     _autoAwayAt = Date.now();
-  })();
+    _scheduleAutoAwayTick();   // 자동 자리비움이면 복귀 감시를 촘촘히(5초) — 만들 때 예약한 첫 틱(60초)을 갈아 끼운다
+  }
+  function resetBootStatus(){ myUserStatus = null; _autoAwayApplied = false; _preAutoAwayStatus = null; _autoAwayAt = 0; }
   // 유휴 시간(ms) — OS의 powerMonitor 값이 있으면 그걸 우선 사용(마우스 "이동"까지 포함되어 가장 정확).
   //   IPC가 없거나 실패하면 렌더러가 직접 기록한 lastAnyInput(클릭·키 입력)으로 폴백.
   async function _idleMs(){
@@ -172,20 +172,12 @@ const Presence=(()=>{
   }
   _scheduleAutoAwayTick();   // 첫 틱 예약 (이후 틱마다 현재 상태에 맞는 주기로 스스로 재예약)
 
-  /* ★ 방장 승계용 — 내가 프리미엄 방을 만들/이어받을 자격이 있는지(self-report).
-     승계는 '채팅 켜짐' 정도의 권한이라 위조 위험이 낮아 클라이언트 보고로 충분(위험도 낮은 선택).
-     라이선스(isPremium) 또는 관리자면 true. */
-  function _myLicenseFlag(){
-    try{ return !!(typeof isPremium()!=='undefined' && isPremium()) || !!(typeof isAdmin()!=='undefined' && isAdmin()); }
-    catch(_){ return false; }
-  }
-  /* opts.provider — 방 서버 provider(makeServerProvider). 주면 입장 결과를 기다려 { ok, code, others, meta } 를 돌려준다.
-     opts.hooks — Firebase 방이 알릴 곳(room-entry _firebaseRoomHooks) — makeFirebaseProvider 로 넘긴다.
-     안 주면 예전 그대로(Firebase · 가짜 방) — 돌려주는 값도 예전처럼 방 코드다. */
-  async function start(roomCode, def, name, changeCb, opts){
+  /* opts.provider — 방 포트 provider(room-entry makeRoomProvider · room-rt.js). 입장 결과를 기다려 { ok, code, others, meta } 를 돌려준다.
+     없으면 가짜 방(개발 표식 tw.mockRoom=1)일 때만 — 가짜 캐릭터가 실제 방으로 새지 않게. 그 밖은 { ok:false, code:'noProvider' }. */
+  async function start(roomCode, def, changeCb, opts){
     if(provider) await stop();   // 이미 연결돼있는데 다시 시작하면(연결끊기 없이 재접속 등) 이전 접속 삭제가 끝난 뒤에 새로 join — 안 그러면 옛 항목이 아직 안 지워진 채로 남아 자기 자신이 중복으로 보일 수 있음
-    room=roomCode; myDef=def; myName=name||'나'; myLevel=focusLevelMod().getFocusLevel(); _lvKey=''; onChange=changeCb||onChange; friends={};
-    _myPokeSeenTs = 0; _joinedAt = roomSyncMod._srvNow();   // 🛰 새 방 = 새 우편함. 들어오기 전 알림은 안 읽는다
+    room=roomCode; myDef=def; _lvKey=''; onChange=changeCb||onChange; friends={};
+    _myPokeSeenTs = 0; _joinedAt = 0;   // 🛰 새 방 = 새 우편함. 들어온 서버 시각은 welcome 이 알려 준다(아래 join 결과 serverNow) — 그 전 알림은 안 읽는다
     // ✨ 앱 재시작 후 첫 접속 — localStorage에서 복원된 커스텀 상태 문구를 join 페이로드에 실어보냄
     //   (setCustomStatus를 거치지 않고 바로 join하는 경로라 여기서 한 번 동기화해줘야 친구 화면에 문구가 보임)
     if(typeof customStatusConf()!=='undefined' && customStatusConf() && customStatusConf().text){
@@ -193,24 +185,19 @@ const Presence=(()=>{
     }
     // 🏊 얼굴 PNG를 Storage에 올려 URL 준비 — 실패해도 dataURL 병행 전송이라 입장엔 지장 없음
     try{ await roomSyncMod.ensureRoomFaceUrls(myDef); }catch(_){}
-    /* firebaseAPI(모듈 스크립트) 준비를 기다린다(최대 NET_READY_WAIT_MS). 그래도 없으면 들어가지 않고 알린다.
-       ⚠️ 가짜 방(makeMockProvider)으로 떨어지면 남의 가짜 캐릭터가 뜬다 — 가짜 방은 개발 표식(tw.mockRoom=1)일 때만. */
-    if(!roomNet()) await roomEntryMod()._waitFirebaseApi(roomEntryMod().NET_READY_WAIT_MS);
-    if(!roomNet() && !roomEntryMod()._mockRoomAllowed()){
+    const _srv = (opts && opts.provider) || null;
+    if(!_srv && !roomEntryMod()._mockRoomAllowed()){
       room = null; provider = null; friends = {}; if(onChange) onChange({});
-      try{ toast('서버 연결이 아직 준비되지 않았어요 — 잠시 뒤 다시 들어가 주세요'); }catch(_){}
-      console.warn('[방] firebaseAPI 가 준비되지 않아 입장을 멈췄다(가짜 방으로 떨어지지 않음)');
-      return;
+      console.warn('[방] provider 없이 입장을 불렀다 — 멈춤(가짜 방으로 떨어지지 않음)');
+      return { ok:false, code:'noProvider' };
     }
-    const _srv = (opts && opts.provider) || null;   // 🛰 방 서버 provider(_startRoomOnServer) — 없으면 아래 줄 그대로
-    if(_srv) provider = _srv;
-    else provider = roomNet() ? roomSyncMod.makeFirebaseProvider(opts && opts.hooks) : roomEntryMod().makeMockProvider();
+    provider = _srv || roomEntryMod().makeMockProvider();
     try{ myAwayImg = awayPicMod()._awayUrlOk(awayPicMod().awayImgUrl()) ? awayPicMod().awayImgUrl() : ''; }catch(_){ myAwayImg = ''; }   // 🫧 입장 때 한 번
     try{ myAwaySz = awayPicMod()._awaySzOk(awayPicMod().awayImgSz()) ? awayPicMod().awayImgSz() : awayPicMod().AWAY_PIC_SCREEN_PX(); }catch(_){ myAwaySz = awayPicMod().AWAY_PIC_SCREEN_PX(); }
     try{ myFocusShow = focusShareMod()._focusShowConf(); focusShareMod()._focusShowMarkSent(myFocusShow); }catch(_){ myFocusShow = null; }   // 📊 입장 때 한 번 — 입장 페이로드에 싣고 5분 시계를 여기서 시작
     try{ myNoise = (window.TW_NOISE && TW_NOISE.kind) ? TW_NOISE.kind() : ''; }catch(_){ myNoise = ''; }   // 🌙 입장 때 한 번
     const _st0 = _statusOut();
-    const _joinRes = provider.join(room, {def:myDef,name:myName,awaySz:myAwaySz,state:myState,userStatus:_st0.userStatus,customStatus:_st0.customStatus,level:myLevel, ...focusLevelMod().myStarOut(),mobile:focusLevelMod()._mobileRoomLabel(),userId:getMyUserId(), noise:myNoise, lic:_myLicenseFlag(), awayImg:myAwayImg}, fr=>{ friends=fr; if(onChange)onChange(friends); },
+    const _joinRes = provider.join(room, {def:myDef,awaySz:myAwaySz,state:myState,userStatus:_st0.userStatus,customStatus:_st0.customStatus, ...focusLevelMod().myStarOut(),mobile:focusLevelMod()._mobileRoomLabel(), noise:myNoise, awayImg:myAwayImg}, fr=>{ friends=fr; if(onChange)onChange(friends); },
       // 다른 사람이 내 캐릭터를 쓰다듬거나 흔들었을 때 — 내 화면의 'me' 좌석에 그 반응을 그대로 재생
       p=>{ const me=seats.find(s=>s.isMe); if(!me||!p) return;
         /* 🛰 같은 알림을 두 번 재생하지 않고, 지나간 알림은 아예 보지 않는다 — poke 자리는 마지막 값을 들고 있어
@@ -220,7 +207,8 @@ const Presence=(()=>{
         if(_pts){
           if(_pts <= _myPokeSeenTs) return;                          // 같거나 뒤로 가는 값은 안 본다
           _myPokeSeenTs = _pts;
-          if(_joinedAt && _pts < _joinedAt - roomSyncMod.POKE_SKEW_MS) return;   // 내가 들어오기 전에 찍힌 값
+          if(!_joinedAt){ console.warn('[방] 들어온 서버 시각을 몰라 알림을 버립니다'); return; }   // welcome 의 now 가 없었다 — PC 시계로 대신하지 않는다
+          if(_pts < _joinedAt - roomSyncMod.POKE_SKEW_MS) return;   // 내가 들어오기 전에 찍힌 값
           if(!roomSyncMod._pokeFresh(_pts)) return;                              // 유통기한 지난 값
         }
         if(p.type==='pet'){
@@ -243,15 +231,15 @@ const Presence=(()=>{
           }
         }
       });
-    if(_srv){
-      const r = await _joinRes;
-      if(!(r && r.ok)){
-        if(provider === _srv){ provider = null; room = null; friends = {}; if(onChange) onChange({}); }
-        return { ok:false, code:(r && r.code) || 'fail' };
-      }
-      return r;
+    if(!_srv) return { ok:true, others:Object.keys(friends).length, meta:null };   // 가짜 방
+    const r = await _joinRes;
+    if(!(r && r.ok)){
+      if(provider === _srv){ provider = null; room = null; friends = {}; if(onChange) onChange({}); }
+      return { ok:false, code:(r && r.code) || 'fail' };
     }
-    return room;
+    if(typeof r.serverNow === 'number') _joinedAt = r.serverNow;   // 🛰 들어온 순간의 서버 시각 — 알림 ts(서버가 찍음)와 같은 시계
+    else console.warn('[방] 입장 결과에 서버 시각이 없어요 — 알림 ts 를 견줄 수 없습니다');
+    return r;
   }
   // 매 update마다 함께 보내는 공통 페이로드 (✨ customStatus 포함 — 친구 화면에서 커스텀 문구를 보여주기 위함)
   /* 🐾 올라타기·탑쌓기 공유 — '내가 바로 아래 누구 위에 타고 있는가' 하나만 보낸다.
@@ -307,7 +295,7 @@ const Presence=(()=>{
      ★ 상태(밥·자리비움·커스텀 …)가 있으면 그것이 그대로 나간다 = 상태 메시지 우선 · 남의 설정을 덮지 않는다.
      ⚠️ 규칙: customStatus.text ≤ 12 · emo ≤ 4 — «오늘 99:59» 10자 · 🕒 2 로 안에 든다(규칙 변경 없음). */
   function _statusOut(){
-    /* 📱 폰 켜짐이면 🕒 오늘 기록보다 «📱 앱» 이 먼저다(사용자가 고른 상태는 그대로 이긴다) — 받는 쪽이 mobile 칸을 띄운다. */
+    /* 📱 폰 켜짐이면 🕒 오늘 기록보다 «📱 앱» 이 먼저다(사용자가 고른 상태는 그대로 이긴다) — 받는 쪽이 mobile field 를 띄운다. */
     if(!myUserStatus && focusLevelMod()._mobileOn()) return { userStatus:myUserStatus, customStatus:myCustomStatus };
     if(!myUserStatus && myFocusShow) return { userStatus:'custom', customStatus:myFocusShow };
     return { userStatus:myUserStatus, customStatus:myCustomStatus };
@@ -339,7 +327,7 @@ const Presence=(()=>{
     myFocusShow = v;
     if(provider && provider.update) provider.update(_basePayload());
   }
-  function _basePayload(){ const _st=_statusOut(); return {state:myState, userStatus:_st.userStatus, customStatus:_st.customStatus, level:myLevel, exp:_myExpCells(), ...focusLevelMod().myStarOut(), awaySz:myAwaySz, lic:_myLicenseFlag(), awayImg:myAwayImg, ridingOn:_myRidingOn(), seatedOn:_mySeatedOn(), bench:_myBench(), mobile:focusLevelMod()._mobileRoomLabel(), danceStyle:_myDanceStyle(), tab:chatUiMod._chatTabOut(), flyCool:_myFlyCool(), noise:myNoise}; }
+  function _basePayload(){ const _st=_statusOut(); return {state:myState, userStatus:_st.userStatus, customStatus:_st.customStatus, exp:_myExpCells(), ...focusLevelMod().myStarOut(), awaySz:myAwaySz, awayImg:myAwayImg, ridingOn:_myRidingOn(), seatedOn:_mySeatedOn(), bench:_myBench(), mobile:focusLevelMod()._mobileRoomLabel(), danceStyle:_myDanceStyle(), tab:chatUiMod._chatTabOut(), flyCool:_myFlyCool(), noise:myNoise}; }
   /* 올라타기/하차 직후 즉시 반영 — 상태 틱을 기다리면 상대 화면에 몇 초 늦게 나타난다. */
   function broadcastRide(){ try{ if(provider && provider.update) provider.update(_basePayload()); }catch(_){} }
   function setState(s){ if(s===myState)return; myState=s; if(provider&&provider.update)provider.update(_basePayload()); }
@@ -355,20 +343,10 @@ const Presence=(()=>{
     _saveAwayKind(s === 'away' ? 'manual' : null);
     if(provider&&provider.update)provider.update(_basePayload());
   }
-  /* 🌟 회차에서는 해금 레벨(n)이 999 에 머문다 — 이번 바퀴 레벨·회차·색도 같이 보고 바뀌었을 때만 보낸다.
-     ★ 매 프레임 불린다(좌석 루프) — 값 비교만 하고 쓰기는 바뀔 때 한 번. */
+  /* 🌟 회차 칸(cyc · clv · starC)이 바뀌었을 때만 보낸다 — 레벨 · 이름은 서버가 계정에서 채워 방에 알린다(pv 4 — 싣지 않는다).
+     ★ 매 프레임 불린다(좌석 루프) — 값 비교만 하고 쓰기는 바뀔 때 한 번. 해금 레벨(n)도 키에 넣어 레벨 경계에서 회차 칸을 다시 본다. */
   let _lvKey = '';
-  function setLevel(n){ const so=focusLevelMod().myStarOut(), k=n+'|'+so.cyc+'|'+so.clv+'|'+so.starC; if(k===_lvKey)return; _lvKey=k; myLevel=n; if(provider&&provider.update)provider.update(_basePayload()); }
-  /* 🏷️ 닉네임 변경을 방에 즉시 반영 — myName 은 start() 에서 한 번만 잡히므로 '남에게 보이는 내 이름' 은 여기서 보낸다.
-     (내 화면의 내 이름표는 매 프레임 getDisplayName() 을 직접 읽는다.) */
-  function setName(n){
-    const v = n || '나';
-    if(v === myName) return;
-    myName = v;
-    // ⚠️ _basePayload 에는 name 이 없다(입장 뒤로는 안 바뀌는 값이라 매 틱 실어보내지 않는다).
-    //   여기서만 얹어 보낸다 — provider.update 는 델타 병합이라 이 한 항목만 나간다.
-    if(provider && provider.update) provider.update(Object.assign(_basePayload(), { name: myName }));
-  }
+  function setLevel(n){ const so=focusLevelMod().myStarOut(), k=n+'|'+so.cyc+'|'+so.clv+'|'+so.starC; if(k===_lvKey)return; _lvKey=k; if(provider&&provider.update)provider.update(_basePayload()); }
   // ✨ 커스텀 상태 문구 등록/변경 — 지금 custom 상태를 쓰고 있으면 친구 화면도 즉시 갱신됨
   function setCustomStatus(conf){
     myCustomStatus = (conf && conf.text) ? {emo: conf.emo||'', text: conf.text} : null;
@@ -393,7 +371,7 @@ const Presence=(()=>{
          friends[id].level 로 다시 한다 — 여기서만 막으면 값을 조작해 색을 쓸 수 있다. */
   /* 💬 tab — 채팅 탭. #일반이 아니면 `chat` 이 아니라 새 칸 `chatTab` 으로 보낸다.
      ★ 구버전은 chatTab 을 몰라 아예 안 띄운다 — 영화 탭의 말풍선 · 날리기가 #일반 사람 · 구버전에게 새지 않는 이유가 이것이다.
-       `chat` 칸으로 보내면 구버전이 탭을 모른 채 방 전원에게 띄운다(sim-chat-tabs ①). */
+       `chat` field 로 보내면 구버전이 탭을 모른 채 방 전원에게 띄운다(sim-chat-tabs ①). */
   function sendChat(text, fly, flyColor, flySize, tab){
     if(!(provider && provider.update)) return;
     const chat = { text:String(text).slice(0,CHAT_TEXT_MAX), ts:Date.now() };
@@ -412,7 +390,7 @@ const Presence=(()=>{
     provider=null; room=null; friends={}; if(onChange)onChange({});
     return p;   // 호출부에서 await하면 서버에 삭제가 반영된 뒤에 재접속하도록 할 수 있음
   }
-  return { start, setState, setUserStatus, setCustomStatus, setFocusShow, setAwayImg, setAwaySz, setNoise, setLevel, setName, poke, pokeSelf, updateDef, sendChat, stop, broadcastRide,
+  return { start, restoreBootStatus, resetBootStatus, setState, setUserStatus, setCustomStatus, setFocusShow, setAwayImg, setAwaySz, setNoise, setLevel, poke, pokeSelf, updateDef, sendChat, stop, broadcastRide,
            /* 🪑 상태 변화를 지금 당장 방에 실어 보낸다(같은 _basePayload). 쉬는 시간처럼
               "다음 상태 틱까지 기다리면 늦는" 값이 생겼을 때 부른다. */
            broadcastNow: broadcastRide,

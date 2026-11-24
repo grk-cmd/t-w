@@ -1,6 +1,6 @@
 {
   "name": "together-working",
-  "version": "0.12.1",
+  "version": "0.13.1",
   "description": "책상 위에 사는 데스크톱 컴패니언",
   "main": "main.js",
   "scripts": {
@@ -40,6 +40,11 @@
       "hover-poke.js",
       "devtools-gate.js",
       "google-oauth.js",
+      "http-cache-reset.js",
+      "quit-hold.js",
+      "update-diag.js",
+      "error-log.js",
+      "home-mask.js",
       "oauth-config.js",
       "app/**/*"
     ],

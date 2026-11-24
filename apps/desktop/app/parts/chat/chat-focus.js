@@ -213,7 +213,7 @@ function createChatFocus(deps){
     const room = roomCode(), me = getMyUserId(); if(!room || !me) return;
     delAsk = false;
     const r = await provider.removeMine(room, me).catch(() => null);
-    if(!(r && r.ok)) notifyError('E-CHAT-02');
+    if(!(r && r.ok)) notifyError('E-CHAT-07');
     else{ sync.forgetName(room); toast('내 집중 기록을 지웠어요'); }
     paint();
   }

@@ -147,8 +147,8 @@ say('── 5. main.js 배선 · 보호 장치 그대로');
 {
   chk(/const HoverPoke = require\('\.\/hover-poke'\);/.test(MAIN), 'hover-poke 모듈을 부른다');
   const fwd = fnBody('_forwardFor');
-  chk(fwd === "function _forwardFor(){\n  if(_lastIgnoreRequested) return true;              // 통과 중 → 무조건 forward 유지(복구 통로 확보)\n  return !_penAppActive || _penMouseNearChar;        // 클릭 받는 중 → 기존 로직 그대로\n}",
-    '★ _forwardFor(클립 스튜디오 보호) 글자 하나 안 바뀜');
+  chk(fwd === "function _forwardFor(){\n  if(!_penAppActive || _penMouseNearChar) return true;\n  return !_penWakeReady();\n}",
+    '★ _forwardFor(클립 스튜디오 보호 · 깨울 길 없으면 켬) 글자 그대로 — 동작은 sim-pen-forward.js 가 실제로 돌린다');
   chk(/const shouldWatch = _penAppActive && mainWindow && !mainWindow\.isDestroyed\(\);/.test(MAIN) && /setInterval\(_checkCursorNearChar, 50\)/.test(MAIN), '  50ms 펜 감시는 펜 앱 전용 그대로');
   chk(/const GHOST_MS = 2000;/.test(MAIN) && /const GHOST_MS_PLAIN = 400;/.test(MAIN) && /const GHOST_REPOKE_MS = 3000;/.test(MAIN) && /const GHOST_MAX_POKES = 3;/.test(MAIN),
     '  유령 감시 상수 그대로(GHOST_REPOKE_MS ↔ 사다리 3초 결합 유지)');
@@ -158,7 +158,8 @@ say('── 5. main.js 배선 · 보호 장치 그대로');
   chk(!/setIgnoreMouseEvents|_reapplyIgnoreMouse|_applyForwardOnly|_forwardFor|_lastIgnoreRequested\s*=[^=]/.test(all), '★ 호버 감시는 찌르기만 — setIgnoreMouseEvents · forward · 통과 값을 건드리지 않는다');
   chk(/process\.platform !== 'win32'/.test(sync) && /win32: process\.platform === 'win32'/.test(st), '  Windows 만 켠다');
   chk(/penApp: !!_penAppActive/.test(st) && /ignoring: !!_lastIgnoreRequested/.test(st) && /run: !_isConfigMode/.test(st), '  판단 재료: 펜 앱 · 통과 · 실행 화면');
-  chk(/isVisible\(\) && !mainWindow\.isMinimized\(\)/.test(st) && /_ptOnOverlayWindow\(pt\)/.test(st), '  보임 · 오버레이 위');
+  const shownFn = fnBody('_mainWinShown');
+  chk(/const visible = _mainWinShown\(\);/.test(st) && !!shownFn && /isVisible\(\) && !mainWindow\.isMinimized\(\)/.test(shownFn) && /_ptOnOverlayWindow\(pt\)/.test(st), '  보임(main 의 창 보임 판단 한 벌 _mainWinShown) · 오버레이 위');
   chk(/if\(!HoverPoke\.shouldPoll\(_hoverState\(pt\)\)\)\{ _stopHoverWatcher\(\); return; \}/.test(tick), '★ 틱마다 다시 보고 아니면 스스로 멈춘다(클릭받기 · 다른 모니터 · 숨김)');
   chk(/_hoverPoke\.step\(\{ onUI: _ptOnOurUI\(cx, cy\)/.test(tick) && /_sendHitTest\(\{ x: cx, y: cy \}\)/.test(tick), '  우리 UI 판정(_ptOnOurUI) 으로 들어옴을 보고 기존 _sendHitTest 로 찌른다(새 IPC 없음)');
   chk(/setInterval\(_hoverTick, HoverPoke\.HOVER_POLL_MS\)/.test(sync), '  간격은 모듈 상수');

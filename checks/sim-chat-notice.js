@@ -117,7 +117,7 @@ async function judge(src, extra){
     const kn = mkCtl(src, { addRes: { ok: false } });
     kn.c.start(); kn.c.open();
     const inp4 = mkEl(); inp4.value = '실패'; kn.c.submit(inp4); await tick(); await tick();
-    t(inp4.value === '실패' && kn.errors.join() === 'E-CHAT-01', '  못 올리면 친 글을 돌려주고 E-CHAT-01');
+    t(inp4.value === '실패' && kn.errors.join() === 'E-CHAT-06', '  못 올리면 친 글을 돌려주고 E-CHAT-06');
     /* 고치기 · 지우기 · 고정 */
     k.calls.length = 0;
     k.c.act('pin', 'n1'); await tick();
@@ -178,11 +178,11 @@ async function judge(src, extra){
     { const kf = mkCtl(src, { fail: true }); kf.c.start(); kf.push(RAW); kf.c.open(); kf.c.act('edit', 'n1');
       const ie = mkEl(); ie.value = '고침'; kf.doc.els.chatNotices.querySelector = () => ie;
       kf.c.act('save', 'n1'); await tick(); await tick();
-      t(kf.errors.join() === 'E-CHAT-01', '고치기가 서버에서 실패하면 E-CHAT-01 을 띄운다');
+      t(kf.errors.join() === 'E-CHAT-06', '고치기가 서버에서 실패하면 E-CHAT-06 을 띄운다');
       kf.c.act('pin', 'n1'); await tick(); await tick();
-      t(kf.errors.length === 2, '  고정이 실패해도 E-CHAT-01');
+      t(kf.errors.length === 2, '  고정이 실패해도 E-CHAT-06');
       kf.c.act('del', 'n1'); kf.c.act('delok', 'n1'); await tick(); await tick();
-      t(kf.errors.length === 3, '  지우기가 실패해도 E-CHAT-01'); }
+      t(kf.errors.length === 3, '  지우기가 실패해도 E-CHAT-06'); }
     { const kd = mkCtl(src); const box = kd.doc.els.chatNotices; let cur = null;
       Object.defineProperty(box, 'innerHTML', { set(v){ cur = mkEl(); cur.value = '서버 글'; }, get(){ return ''; } });
       box.querySelector = () => cur;
@@ -276,7 +276,7 @@ function wire(S){
   w(/if\(chatNotice\.isActive\(\)\) chatNotice\.close\(\);\s*\/\/ 다른 탭을 누르면 공지 · 집중 보기에서 나온다/.test(C) && /_chatTabMenu\(id\)\{[\s\S]*?if\(id === 'notice' \|\| id === 'focus'\) return;/.test(C), '  다른 탭을 누르면 공지 보기에서 나온다 · #공지 는 우클릭 메뉴가 없다');
   w(/chatUiMod\._chatViewHint\(\) \|\| \(off \?/.test(S.lock), '채팅 잠금 — #공지 탭이면 입력칸 안내문을 공지 쓰기로');
   w(!/chat-ui|chat-lock|Presence|firebaseAPI/.test(S.mod.replace(/\/\*[\s\S]*?\*\//g, '')), '공지 모듈은 채팅 · 잠금 모듈 · Presence · firebaseAPI 를 직접 부르지 않는다(한쪽으로만 — 순환 방지 · provider 로만)');
-  w(/'E-CHAT-01': \{ msg: '[^']+', where: 'chat\/chat-notice\.js/.test(S.codes), '에러 번호 E-CHAT-01 이 표에 있다');
+  w(/'E-CHAT-06': \{ msg: '[^']+', where: 'chat\/chat-notice\.js/.test(S.codes), '에러 번호 E-CHAT-06 이 표에 있다');
 
   return out;
 }

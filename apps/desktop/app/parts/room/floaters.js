@@ -14,6 +14,7 @@
 function createFloaters(deps){
 const ANIMAL_RUN_SCALE = deps.ANIMAL_RUN_SCALE;
 const focusCharScale = deps.focusCharScale;   // 읽는 함수
+const floatersAccountStore = deps.floatersAccountStore;   // 🗂️ 계정별 칸(shared/account-store.js) — 반응 이모지 켜기는 이 계정이 이 PC 에서 고른 것
 const scene = deps.scene;
 const floaters=[];
 function spriteChar(ch,color){const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');
@@ -22,7 +23,9 @@ function spriteChar(ch,color){const c=document.createElement('canvas');c.width=c
   // 더하기 블렌딩은 배경이 뭐든 항상 밝게/뽀샤시하게 겹쳐져서 탁해지지 않고 파스텔톤으로 보임.
   return new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false}));}
 const _floaterWP=new THREE.Vector3();
-let emojiReactionsEnabled = (localStorage.getItem('tw.emojiReactions') !== '0');   // 기본 켜짐
+let emojiReactionsEnabled = true;   // 기본 켜짐 — 만들 때는 읽지 않는다(계정 칸은 확인 전엔 닫혀 있다). 확인 뒤 loadLocal 이 읽는다
+const EMOJI_REACTIONS_KEY = 'tw.emojiReactions';
+function loadLocal(){ try{ emojiReactionsEnabled = (floatersAccountStore.get(EMOJI_REACTIONS_KEY) !== '0'); }catch(_){ emojiReactionsEnabled = true; } }
 /* 이모지 반응(zzz·♥·💫) 기본 크기(월드 단위).
    ★ 캐릭터 크기 슬라이더(focusCharScale)를 키우면 카메라가 그만큼 가까워지므로(applyCameraAndCanvas의
      dist 계산: / focusCharScale), 월드 크기가 고정이면 화면에서는 이모지도 같이 커진다.
@@ -69,6 +72,8 @@ return {
   setMyPetSentAt: (v)=>{ _myPetSentAt = v; },   // 쓰는 함수 — app.js 가 비운다
   emojiReactionsEnabled: ()=>emojiReactionsEnabled,   // 읽는 함수
   setEmojiReactionsEnabled: (v)=>{ emojiReactionsEnabled = v; },   // 쓰는 함수 — app.js 가 비운다
+  loadLocal,   // 확인 뒤 계정 칸에서 읽는다(launcher/user-local.js)
+  resetLocal: ()=>{ emojiReactionsEnabled = true; },   // 세션이 끝나면 처음 값으로
   floaters,
   spawnFloater,
 };

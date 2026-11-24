@@ -1,6 +1,6 @@
 /* admin-thumbs.js — 🖼️ 관리자 콘솔 — 파츠 썸네일 한꺼번에 다시 굽기(generateAllPartThumbnails)
-   책임: F12 콘솔 함수 window.generateAllPartThumbnails(force) 하나 — 카탈로그 파츠 썸네일을 굽고(partSceneMod) 카탈로그에 올린다(관리자만).
-   받는 deps: partSceneMod(굽기) · adminPartReg(올릴 데이터) · catalogSourceMod(올리기 — character/catalog-source.js) · premiumMod · wardrobeMod · gachaMod · isAdmin · toast.
+   책임: F12 콘솔 함수 window.generateAllPartThumbnails(force) 하나 — 카탈로그 파츠 썸네일을 굽고(partSceneMod) 서버 카탈로그에 올린다(관리자만).
+   받는 deps: partSceneMod(굽기) · catalogAdmin(올리기 — admin/catalog-admin-api.js) · premiumMod · wardrobeMod · gachaMod · isAdmin · toast.
    내보내는 것: 없음 — 만들 때 window 에 건다.
    app.js «🧊 파츠 GLB 파싱 캐시 · 썸네일» 구역 끝의 관리자 콘솔 함수를 그대로 옮겼다(구역 떼기 C · w2). 관리자 코드는 app/parts/admin/ 에 모은다 — 굽기 모듈(part-scene.js)이 관리자 등록 모듈을 부르면 서로 부르는 순환이 생긴다.
    ★ 아래 코드는 app.js 에 있던 글 그대로다(들여쓰기도 · 옛 이야기형 주석만 «왜 · 함정» 으로 줄였다). 바뀐 코드 줄은 2줄 —
@@ -14,8 +14,7 @@
 (function(){
 
 function createAdminThumbs(deps){
-const adminPartReg = deps.adminPartReg;
-const catalogSourceMod = deps.catalogSourceMod;
+const catalogAdmin = deps.catalogAdmin;   // 카탈로그 쓰기 서버 경로(admin/catalog-admin-api.js)
 const gachaMod = deps.gachaMod;   // 읽는 함수
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const partSceneMod = deps.partSceneMod;
@@ -32,19 +31,14 @@ window.generateAllPartThumbnails = async function(force){
     try{
       const thumb = await partSceneMod.generatePartThumbnail(rec);
       if(thumb){
-        rec.thumbnail = thumb;
-        /* ⚠️ 카드는 thumbUrl 을 thumbnail 보다 먼저 읽는다 — 낡은 URL 을 지워야 새로 구운 것이 보인다(새 URL 은 다음 동기화에서 채워진다). */
-        if(force) delete rec.thumbUrl;
-        if(catalogSourceMod.catalogSrcCan('publishPart')){
-          /* 🔴 set() = 노드 전체 교체 — 필드를 손으로 나열하지 말고 buildPartPublishData 로만 만든다(빠진 gacha 로 뽑기 파츠가 꾸미기 창에 뜬 적 있다). */
-          await catalogSourceMod.catalogSrcPublishPart(rec.id, adminPartReg.buildPartPublishData(rec, { thumbnail: thumb }));
-        }
+        /* 구운 그림만 바꾸고 나머지 칸은 서버에서 받은 그대로 되돌려 쓴다(PUT 은 물건 전체 교체). 끝에서 한 번만 다시 받는다 */
+        await catalogAdmin.savePart(rec.id, catalogAdmin.partFieldsOf(rec, { thumbDataUrl: thumb }), { quiet: true });
         ok++;
         console.log('✓', rec.name, '('+(ok+fail)+'/'+targets.length+')');
       } else { fail++; }
     }catch(e){ fail++; console.warn('실패:', rec.name, e); }
   }
-  premiumMod.persistSavedParts();
+  await catalogAdmin.reload();   // 새 썸네일 주소가 든 서버 한 벌 — 목록 · 꾸미기 창이 이어서 다시 그려진다
   wardrobeMod.renderWardrobe();
   gachaMod().renderGachaInv();   // 🎰 보관함이 열려 있으면 카드도 같이 갱신
   console.log('완료: 성공', ok, '/ 실패', fail);

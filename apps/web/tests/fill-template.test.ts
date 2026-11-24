@@ -16,7 +16,7 @@ describe('fillTemplate', () => {
     expect(out).toContain('<p>$& $1 $$</p>');
   });
 
-  it('자리표가 빠지거나 두 번이면 던진다(깨 보기)', () => {
+  it('자리표가 빠지거나 두 번이면 던진다(mutation test)', () => {
     const page = { lang: 'ko', head: '', body: '' };
     for (const slot of Object.values(SLOTS)) {
       expect(() => fillTemplate(T.replace(slot, ''), page)).toThrow(/자리표/);

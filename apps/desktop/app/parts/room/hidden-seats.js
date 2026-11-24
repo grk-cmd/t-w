@@ -5,7 +5,7 @@
      _flyActive 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 1개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: _clearHiddenSeats · _hiddenSeatIds · _hitsSkipHidden · _preferVisibleHit · _reportHiddenSave · _reportHiddenUids · _seatHidden · _skipFlyingRigs · _skipHiddenDesk — app.js 는 hiddenSeatsMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: _clearHiddenSeats · _hiddenSeatIds · _hitsSkipHidden · _partSkipped · _preferVisibleHit · _reportHiddenSave · loadReportHidden · _reportHiddenUids · _seatHidden · _skipFlyingRigs · _skipHiddenDesk · _skipUnhittable — app.js 는 hiddenSeatsMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwHiddenSeats — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-hidden-seats.js */
@@ -13,6 +13,7 @@
 
 function createHiddenSeats(deps){
 const _flyActive = deps._flyActive;   // 읽는 함수
+const hiddenAccountStore = deps.hiddenAccountStore;   // 🗂️ 계정별 칸(shared/account-store.js) — 신고로 숨긴 사람은 이 계정이 이 PC 에서 정한 것
 const seatFromObject = deps.seatFromObject;
 const seats = deps.seats;
 const _hiddenSeatIds = new Set();
@@ -23,14 +24,26 @@ const _hiddenSeatIds = new Set();
 const REPORT_HIDDEN_KEY = 'tw.reportHidden';
 const REPORT_HIDDEN_MAX = 200;
 const _reportHiddenUids = new Set();
-try{ const _rh = JSON.parse(localStorage.getItem(REPORT_HIDDEN_KEY) || '[]'); if(Array.isArray(_rh)) _rh.slice(-REPORT_HIDDEN_MAX).forEach(u=>{ if(typeof u === 'string' && u) _reportHiddenUids.add(u); }); }catch(_){}
+/* 만들 때는 비어 있다 — 계정 칸은 확인 전엔 닫혀 있다. 확인 뒤 loadReportHidden 이 읽는다(launcher/user-local.js). 다시 읽으면 앞에 있던 것은 비운다 */
+function loadReportHidden(){
+  _reportHiddenUids.clear();
+  try{ const _rh = JSON.parse(hiddenAccountStore.get(REPORT_HIDDEN_KEY) || '[]'); if(Array.isArray(_rh)) _rh.slice(-REPORT_HIDDEN_MAX).forEach(u=>{ if(typeof u === 'string' && u) _reportHiddenUids.add(u); }); }catch(_){}
+}
 function _reportHiddenSave(){
-  try{ localStorage.setItem(REPORT_HIDDEN_KEY, JSON.stringify(Array.from(_reportHiddenUids).slice(-REPORT_HIDDEN_MAX))); }catch(_){}
+  try{ hiddenAccountStore.set(REPORT_HIDDEN_KEY, JSON.stringify(Array.from(_reportHiddenUids).slice(-REPORT_HIDDEN_MAX))); }catch(_){}
 }
 function _seatHidden(seat){
   if(!(seat && seat.remote)) return false;
   if(seat.friendUserId && _reportHiddenUids.has(seat.friendUserId)) return true;   // 🚩 모든 채널
   return !!(seat.friendId && window._activeChannel === 1 && _hiddenSeatIds.has(seat.friendId));
+}
+/* 몸이 화면에 안 보이는 좌석 — 숨긴 좌석(rig 꺼짐) · 자리비움(app.js setSeatOpacity 가 몸 메쉬를 끄며 seat._bodyOff 를 세움 — 투명도 기준은 거기 한 곳).
+   이런 좌석은 매 장 동작(뼈대) 계산을 건너뛴다 — 안 보이는 몸을 움직여 봐야 화면은 같다.
+   ⚠️ 위치(group · rig)는 계속 맞춘다 — 책상은 보이고 올라탄 캐릭터 · 벤치가 그 자리를 읽는다. */
+function _bodyHidden(seat){
+  if(!seat) return false;
+  if(seat.rig && seat.rig.visible === false) return true;
+  return seat._bodyOff === true;
 }
 /* 🩹 [2026-10-02 제보 #7] «머리 잡고 끌면 옆으로 빠지고 올라타기가 안 됨 · 캐릭터 위쪽 다른 앱 클릭을 앱이 가로챔»
    [원인] 동물이 머리 위에 올라타면 그 좌석의 **책상은 desk.visible=false 로 숨기기만** 한다(mountRide).
@@ -79,6 +92,11 @@ function _skipFlyingRigs(hits){
   if(!_flyActive() || !hits || !hits.length) return hits;   // startFlight 가 바로 올리고, 매 프레임 다시 센다
   return hits.filter(h=>!_hitInFlyingRig(h.object));
 }
+/* 통과 판정이 빼는 조각 한 벌 — 히트 목록(_skipUnhittable)과 조각 하나(_partSkipped · room/seat-hit-targets.js 의 히트 맵)가 같은 규칙을 쓴다 */
+function _partSkipped(obj){
+  return (!!_flyActive() && _hitInFlyingRig(obj)) || _hitInHiddenDesk(obj);
+}
+function _skipUnhittable(hits){ return _skipHiddenDesk(_skipFlyingRigs(hits)); }
 /* 🩹 [2026-10-08 제보 #7] 잡기 — **보이는 것에 맞은 히트를 먼저.** 없으면 예전처럼 첫 히트.
    [증상] 자리비움 이미지를 건 사람 머리 위의 동물을 눌러도 안 내려오고, 그 사람(이미지째)이 흔들린다.
    [원인] 자리비움이면 몸 메시를 visible=false 로 숨기는데(setSeatOpacity) three r128 레이캐스트는 visible 을 안 본다.
@@ -105,15 +123,19 @@ function _clearHiddenSeats(){ _hiddenSeatIds.clear(); }
 
 
 return {
+  _bodyHidden,
   _clearHiddenSeats,
   _hiddenSeatIds,
   _hitsSkipHidden,
+  _partSkipped,
   _preferVisibleHit,
   _reportHiddenSave,
+  loadReportHidden,   // 확인 뒤 계정 칸에서 읽는다 — 비우기는 _reportHiddenUids.clear()
   _reportHiddenUids,
   _seatHidden,
   _skipFlyingRigs,
   _skipHiddenDesk,
+  _skipUnhittable,
 };
 }
 

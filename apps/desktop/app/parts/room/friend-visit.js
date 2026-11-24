@@ -37,7 +37,7 @@ function createFriendVisit(deps){
   async function _go(fid, code, invite){
     try{ await deps.refreshFriend(fid); }catch(_){}   // 못 읽으면 지난 값으로 본다
     const f = deps.getFriend(fid);
-    const name = (f && f.name) || '친구';
+    const name = f ? TwPersonName.shown(f.name) : '친구';   // 친구 칸이 없으면(그 사이 끊김) «친구»
     if(_codeOf(f, invite) !== code){ toast(name + ' 님이 방을 나갔어요'); return; }
     if(decide(code, deps.myRoom()) === 'same'){ toast('이미 ' + name + ' 님과 같은 방에 있어요'); return; }
     try{ if(deps.inRoom()) await deps.leaveRoom(); }catch(_){}
@@ -48,7 +48,7 @@ function createFriendVisit(deps){
   function ask(fid, invite){
     const f = deps.getFriend(fid);
     if(!f && invite){ toast((invite.name || '친구') + ' 님은 친구 목록에 없어요'); return; }
-    const name = (f && f.name) || '친구';
+    const name = f ? TwPersonName.shown(f.name) : '친구';   // 친구 칸이 없으면(그 사이 끊김) «친구»
     const code = _codeOf(f, invite);
     const my = deps.myRoom();
     const d = decide(code, my);

@@ -1,13 +1,15 @@
 # 릴리스 방법: 버전 올리기부터 배포까지
 
 > 릴리스 순서는 **① 규칙 → ② 최신화 → ③ 빌드**입니다. 이 문서는 ②와 ③을 다룹니다.
-> ①(Firebase 규칙)은 dev 만 자동입니다. 규칙 파일을 바꿔 `main`에 push하면 **dev에 자동 반영**되고(`deploy-dev.yml`), **운영은 태그 전에 사람이 직접** `firebase deploy --only database --project together-working` 합니다. `release.yml` 은 규칙을 확인하거나 배포하지 않습니다.
+> ①(Firebase 규칙)은 0.12 판까지 dev 만 자동입니다. 규칙 파일을 바꿔 push하면 **dev에 자동 반영**되고(`deploy-dev.yml` — 0.13 판은 push 로 올리지 않음), **운영은 태그 전에 사람이 직접** `firebase deploy --only database --project together-working` 합니다. `release.yml` 은 규칙을 확인하거나 배포하지 않습니다.
+>
+> **0.13 부터는 다릅니다.** 기본 설정(`firebase/firebase.json`)은 컷오버 규칙(`firebase/firebase-database-rules-cutover.json` — `config/maintenance` · `minAppVer` · `minRoomVer` 읽기와 점검 칸 관리자 쓰기만)을 올리고 `functions` 칸이 없습니다. 운영 규칙은 **컷오버 날 T+2 에 한 번** 올리고(tw-docs `docs/design/06-cutover.md` 8장 ②), Functions 는 T+8 에 지운 뒤 다시 올리지 않습니다. 컷오버 **전**에 «태그 전 규칙 배포» 로 `firebase deploy --only database` 를 치면 운영 RTDB 쓰기가 바로 잠기니 치지 않습니다. 컷오버 뒤 RTDB 에는 점검 · 최소 버전 · `admins` 만 남고, 큰 규칙(`firebase-database-rules.json`)은 0.12 호환 검사 · 판끼리 견주기가 읽는 파일로만 남습니다(배포하지 않음).
 
 ---
 
 ## 한눈에 보기
 
-**0. 내보내기 전 한 장 보기**: `python3 .claude/hooks/risk.py --release release/X.Y.Z` — 그 판에 머지된 PR 중 위험도 높았던 것(규칙 · 데이터 경로 · 서버 · 빌드 · apps/desktop/main.js · 새 모듈 …)과 이유. PR 은 머지 때 승인을 받지 않으니(가드 자리를 바꾸는 하네스 PR 만 받는다), 승인자가 여기서 한 번 보고 내보낸다(이상하면 그 PR 을 열어 보고 고친 뒤에).
+**0. 내보내기 전 한 장 보기**: `python3 .claude/hooks/risk.py --release release/X.Y.Z` — 그 판에 머지된 PR 중 위험도 높았던 것(규칙 · 데이터 경로 · 서버 · 빌드 · apps/desktop/main.js · 새 모듈 …)과 이유. PR 은 머지 때 승인을 받지 않으니(가드 자리를 바꾸는 하네스 PR 만 받는다), 승인자가 여기서 한 번 보고 내보낸다(이상하면 그 PR 을 열어 보고 고친 뒤에). 웹 관리자 길(`admin` 으로 가는 PR)은 판을 거치지 않아 이 한 장에 안 나온다 — 그 길의 위험도 높은 PR 은 머지 전에 승인을 받는다.
 
 **0-1. 공지 글 쓰기(정식만)**: 판 브랜치에 `docs/release-notes/X.Y.Z.md` 를 넣는다 — 사용자가 읽는 말로 몇 줄(무엇이 생겼고 · 나아졌고 · 고쳐졌나). 이 글이 Releases 본문이 되고, PR 목록은 그 아래 «자세한 변경» 접기 안에 자동으로 붙는다. **없으면 정식 릴리스는 태그 전에 멈춘다**(release-start · release.yml 둘 다 `scripts/release-notes.js check`). 베타는 보지 않는다.
 
@@ -144,7 +146,7 @@ git push --follow-tags
 | | 테스트 빌드 (`v0.10.2-beta.0`) | 정식 빌드 (`v0.10.2`) |
 |---|---|---|
 | 앱이 접속하는 Firebase | 운영 (`together-working`) — **실제 데이터** | 운영 (`together-working`) |
-| 운영 규칙 배포 | 하지 않음 | 하지 않음(태그 전에 사람이 직접) |
+| 운영 규칙 배포 | 하지 않음 | 하지 않음(0.12 까지는 태그 전에 사람이 직접 · 0.13 부터는 컷오버 날 T+2 에 한 번) |
 | Releases 표시 | **Pre-release** | Latest |
 | 일반 사용자 자동 업데이트 | **받지 않음** | 받음 |
 | 설치 | 내부 사람이 Releases 페이지에서 직접 받음 | 자동 |

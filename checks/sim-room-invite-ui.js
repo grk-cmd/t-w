@@ -2,17 +2,18 @@
    app.js 의 «🙋 투게더룸 친구 초대» 구역(친구 고르기 창 · 초대 보내기 · 방 초대 받기 팝업)을 parts/room/room-invite-ui.js 로 옮겼다.
    동작은 그대로여야 한다 — 여기서는 «옮긴 것» 을 가짜 DOM 위에서 통째로 굴린다.
    ・1절: 만들 때 — 싣기만 하면 window.TwRoomInviteUi 뿐 · 만들면 버튼 둘 · ✕ · 바깥 누름 · 끌기 · resize 연결 · 초대 수신 구독 ·
-           firebaseAPI 가 없으면 firebase-ready 를 한 번 기다림 · 창 DOM 이 없어도 수신은 건다
+           방 초대 포트(room-invite-rt.js)를 바로 듣는다 · 창 DOM 이 없어도 수신은 건다
    ・2절: 친구 고르기 창 — 방 없으면 안 열림(안내) · 친구 없음 안내 · 온라인 먼저 이름순 · 사진(data:image · http 만) · 🏠 · 10줄 넘으면 스크롤 · 닫기
    ・3절: 초대 보내기 — 보낸 값 · 완료 · 실패 · 연결 없음 · 🏠 다른 방 친구는 첫 클릭은 알리기만
    ・4절: 창 끌기 — 손떨림(3px 미만)은 무시 · 화면 안으로 가둠 · ✕ 위는 끌기 아님 · 더블클릭 가운데로 · 다시 열면 가둠
-   ・5절: 받기 — 오래된 초대(10분)는 지움 · 가장 최근 하나 · 수락이면 나간 뒤 그 방으로 · 거절 · 자동 거절 없음(10분 뒤 창만 닫힘 — 초대 지움 · 이동 안 함) · 떠 있는 동안 새 초대 안 띄움 ·
-           가장 최근 초대를 🔔 일정 알림 줄로(오래된 것 · 팝업이 떠 있을 때도) ·
+   ・5절: 받기 — 오래됨은 앱이 PC 시계로 가르지 않음(서버가 10분 보관) · 가장 최근 하나 · 수락이면 나간 뒤 그 방으로 · 거절 · 자동 거절 없음(10분 뒤 창만 닫힘 — 초대 지움 · 이동 안 함) · 떠 있는 동안 새 초대 안 띄움 ·
+           가장 최근 초대를 🔔 일정 알림 줄로(팝업이 떠 있을 때도) ·
            작업표시줄 깜빡임은 팝업과 수명을 같이 · done 은 한 번만
    ・6절: app.js 배선 — 정의는 모듈에만 · 만드는 곳 한 곳 · 원래 자리(INIT 뒤 · 🛰 감시견 앞) · deps 모양(함수는 화살표 · let 은 읽는 함수 · const 는 값) ·
            빈 껍데기 · html 순서 · 전역 이름
    [실행] room-invite-ui.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기(이름 없음 → «이름 없음») — 진짜 파일
 globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
@@ -53,7 +54,7 @@ function mkEl(tag, id, env){
 function mkEnv(opt, mod){
   opt = opt || {};
   const env = {
-    toasts: [], sent: [], cleared: [], left: [], started: [], flashes: [], subs: [], now: 1e12, timers: [], docL: {}, winL: {}, notes: [], outs: [],
+    errs: [], resets: 0, toasts: [], sent: [], cleared: [], left: [], started: [], flashes: [], subs: [], now: 1e12, timers: [], docL: {}, winL: {}, notes: [], outs: [],
     friends: opt.friends === undefined ? {} : opt.friends, notice: opt.notice === undefined ? null : opt.notice, room: opt.room === undefined ? 'ROOM1' : opt.room, active: opt.active !== false,
     sendFail: false, sendHold: false, release: null, opens: [], closes: [], onUpdate: null, winW: 320, winH: 200, winX: 100, winY: 100,
   };
@@ -62,10 +63,12 @@ function mkEnv(opt, mod){
   if(!opt.noDom) ids.forEach(id => { els[id] = mkEl('div', id, env); });
   if(els.roomInvitePickClose) els.roomInvitePickClose.className = 'mh-x';
   const body = mkEl('body', 'body', env);
-  const fb = {
-    sendRoomInvite: async (...a) => { if(env.sendFail) throw new Error('x'); if(env.sendHold) await new Promise(r => { env.release = r; }); env.sent.push(a); },
-    subscribeRoomInvites: (id, cb) => { env.subs.push({ id, cb }); },
-    clearRoomInvite: async (me, from) => { env.cleared.push([me, from]); },
+  /* 가짜 방 초대 포트(room-invite-rt.js 모양 — send · onInvites · clear) */
+  const port = {
+    send: async (to) => { if(env.sendFail) return { ok: false, code: 'x' }; if(env.sendHold) await new Promise(r => { env.release = r; }); env.sent.push([to]); return { ok: true }; },
+    onInvites: (cb) => { const sub = { id: 'ME', cb, off: false }; env.subs.push(sub); return () => { sub.off = true; }; },
+    reset: () => { env.resets++; },
+    clear: (from) => { env.cleared.push(['ME', from]); },
   };
   const ctx = {
     Math, JSON, String, Number, Array, Object, Boolean, parseInt, Error, Promise,
@@ -85,18 +88,17 @@ function mkEnv(opt, mod){
     clearTimeout: (h) => { if(env.outs[h - 1]) env.outs[h - 1] = null; },
     addEventListener: (t, fn, o) => { (env.winL[t] = env.winL[t] || []).push({ fn, once: !!(o && o.once) }); },
     companion: { flashFrame: (on) => env.flashes.push(on) },
+    TwErrorCodes: { notify: (c, e) => env.errs.push(c) },
   };
-  if(!opt.noFb) ctx.firebaseAPI = fb;
   ctx.window = ctx;
-  ctx.TwSafeHtml = globalThis.TwSafeHtml; vm.createContext(ctx);
+  ctx.TwSafeHtml = globalThis.TwSafeHtml; ctx.TwPersonName = globalThis.TwPersonName; vm.createContext(ctx);
   vm.runInContext(SRC['net-ready.js'], ctx, { filename: 'net-ready.js' });
   vm.runInContext(mod || MOD, ctx, { filename: 'room-invite-ui.js' });
-  env.ctx = ctx; env.els = els; env.fb = fb;
-  env.mk = () => (env.api = ctx.TwRoomInviteUi.createRoomInviteUi({
+  env.ctx = ctx; env.els = els;
+  env.mk = () => { env.api = ctx.TwRoomInviteUi.createRoomInviteUi({
     toast: (m) => env.toasts.push(m),
     escHtml: (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
-    getMyUserId: () => ('uid' in opt ? opt.uid : 'ME'),
-    getDisplayName: () => '나나',
+    invites: port,
     startRoom: async (c) => { env.started.push(c); },
     doLeaveRoom: async (o) => { env.left.push(o); env.active = false; },
     friendInRoom: (f) => !!f.room,
@@ -107,7 +109,12 @@ function mkEnv(opt, mod){
     friendsClose: (key) => { env.closes.push(key); env.onUpdate = null; },
     presence: { active: () => env.active, roomCode: () => env.room },
     inviteNotice: { note: (id, inv) => { env.notes.push(id + ':' + (inv && inv.roomCode)); return true; } },
-  }));
+  });
+    if(!opt.noStart) env.api.startReceive(env.sess());   // 계정 확인 뒤 app-boot 가 한 번 부르는 시작(만들 때는 구독이 없다)
+    return env.api; };
+  /* 가짜 세션(shared/session.js 모양) — on(해제 함수) · onReset(훅) · dispose(해제 → 훅, 나중 것부터) */
+  env.sess = () => { const unsubs = [], resets = []; return { unsubs, resets, on: (u) => { unsubs.push(u); return u; }, onReset: (fn) => { resets.push(fn); },
+    dispose(){ unsubs.slice().reverse().forEach(u => u()); resets.slice().reverse().forEach(f => f()); } }; };
   env.fireWin = (t) => { (env.winL[t] || []).slice().forEach(h => { if(h.once) env.winL[t] = env.winL[t].filter(x => x !== h); h.fn({}); }); };
   env.fireDoc = (t, ev) => { (env.docL[t] || []).slice().forEach(fn => fn(ev)); };
   env.open = () => els.inviteFriendBtn.fire('click');
@@ -128,23 +135,38 @@ await sec('── 1. 만들 때', () => {
   const e = mkEnv();
   chk(Object.keys(e.ctx.TwRoomInviteUi).join() === 'createRoomInviteUi' && typeof e.ctx.TwRoomInviteUi.createRoomInviteUi === 'function', '싣기만 하면 window.TwRoomInviteUi(createRoomInviteUi) 하나뿐');
   chk(!e.subs.length && !e.els.inviteFriendBtn._L.click, '  싣기만 해서는 구독도 버튼 연결도 안 한다');
+  const q = mkEnv({ noStart: true }); q.mk();
+  chk(!q.subs.length && !(q.winL['firebase-ready'] || []).length && q.els.inviteFriendBtn._L.click.length === 1, '만들기만 하면 구독 0 · firebase-ready 기다림 0 · 버튼 연결은 있다');
+  let threwNoSess = false; try{ q.api.startReceive(); }catch(_){ threwNoSess = true; }
+  chk(threwNoSess && q.subs.length === 0, '★ 세션 없이 startReceive 를 부르면 던진다 — 세션은 선택이 아니다(구독도 안 건다)');
+  const s1 = q.sess(); q.api.startReceive(s1);
+  chk(q.subs.length === 1 && q.subs[0].id === 'ME' && s1.unsubs.length === 1 && s1.resets.length === 1, '  startReceive — 내 초대함 구독 · 끊기는 session.on · 비우기는 session.onReset 에 맡긴다');
+  {
+    /* 계정이 바뀌어 다시 로그인해도 받기가 겹쳐 걸리지 않는다(D4) — 앞 세션이 dispose 되며 앞 듣기를 끊고 새 세션이 새로 건다 */
+    s1.dispose();
+    chk(q.subs[0].off === true && q.resets === 1, '★ session.dispose → 듣기 끊기(session.on) · 받은 초대 비우기(invites.reset)');
+    const s2 = q.sess(); q.api.startReceive(s2);
+    chk(q.subs.length === 2 && q.subs[1].off === false && q.subs.filter(x => !x.off).length === 1, '★ 다시 로그인하면 새 세션이 새로 건다 — 살아 있는 듣기는 늘 하나(스스로 앞 것을 끊지 않는다)');
+    s2.dispose();
+    const s3 = q.sess(); q.api.startReceive(s3);
+    s3.dispose();
+    /* mutation test — 구독을 세션에 맡기지 않으면(session.on 을 빼면) dispose 뒤에도 듣기가 남아 빨강 · 세션 없음을 조용히 넘기면 빨강 */
+    const bad1 = mkEnv({ noStart: true }, MOD.replace('session.on(invites.onInvites(', '(invites.onInvites(')); bad1.mk();
+    const sb = bad1.sess(); bad1.api.startReceive(sb); sb.dispose();
+    chk(MOD.includes('session.on(invites.onInvites(') && bad1.subs[0].off !== true, '  mutation test: session.on 을 빼면 «dispose → 듣기 끊김» 이 빨강');
+    const bad2 = mkEnv({ noStart: true }, MOD.replace("if(!session) throw new Error('[room-invite] startReceive 에 세션이 없어요');", 'if(!session) return;')); bad2.mk();
+    let t2 = false; try{ bad2.api.startReceive(); }catch(_){ t2 = true; }
+    chk(!t2, '  mutation test: 세션 없이도 조용히 넘기게 하면 «세션 없으면 던진다» 가 빨강');
+  }
   const api = e.mk();
-  chk(Object.keys(api).join() === 'showPopup,busy' && api.busy() === false, '반환값은 검사용 둘(showPopup · busy)');
+  chk(Object.keys(api).join() === 'startReceive,stopReceive,showPopup,busy' && api.busy() === false, '반환값은 시작 · 놓기 둘과 검사용 둘(startReceive · stopReceive · showPopup · busy)');
   chk(e.els.inviteFriendBtn._L.click.length === 1 && e.els.fsInviteFriendBtn._L.click.length === 1, '[🙋 친구 초대하기] 버튼 둘(런처 · 실행 화면)을 건다');
   chk(e.els.roomInvitePickClose._L.click.length === 1 && e.els.roomInvitePickOverlay._L.mousedown.length === 1, '  ✕ · 바깥 누름(닫기)');
   chk(e.els.roomInvitePickHead._L.pointerdown.length === 1 && e.els.roomInvitePickHead._L.dblclick.length === 1 && (e.winL.resize || []).length === 1, '  타이틀바 끌기 · 더블클릭 · 창 크기 바뀜');
-  chk(e.subs.length === 1 && e.subs[0].id === 'ME' && !e.winL['firebase-ready'], 'firebaseAPI 가 있으면 바로 내 초대함을 구독한다');
-  const n = mkEnv({ noFb: true }); n.mk();
-  chk(!n.subs.length && (n.winL['firebase-ready'] || []).length === 1 && n.winL['firebase-ready'][0].once, 'firebaseAPI 가 없으면 firebase-ready 를 한 번(once) 기다린다');
-  n.ctx.firebaseAPI = n.fb; n.fireWin('firebase-ready'); n.fireWin('firebase-ready');
-  chk(n.subs.length === 1 && n.subs[0].id === 'ME', '  준비되면 그때 구독한다(한 번만)');
+  chk(e.subs.length === 1, '만들 때 방 초대 포트를 듣는다(받은 초대는 realtime 연결 하나로 온다)');
   const d = mkEnv({ noDom: true });
   let ok = true; try{ d.mk(); }catch(_){ ok = false; }
   chk(ok && d.subs.length === 1 && !(d.winL.resize || []).length, '고르기 창 DOM 이 없으면 창 연결은 건너뛰고 초대 받기는 건다');
-  const noUid = (mod) => { const u = mkEnv({ uid: null }, mod); u.mk(); return u.subs.length === 0 && u.els.inviteFriendBtn._L.click.length === 1; };
-  chk(noUid(), '내 코드 없음 — 초대함 구독 요청 0(roomInvites/null) · 버튼 연결은 그대로');
-  const m2 = MOD.replace(/\n *if\(!myId\) return;[^\n]*\n *firebaseAPI\.subscribeRoomInvites/, '\n  firebaseAPI.subscribeRoomInvites');
-  chk(m2 !== MOD && !noUid(m2), '  깨 보기 — 내 코드 확인을 빼면 빨강');
 });
 
 await sec('── 2. 친구 고르기 창', () => {
@@ -196,27 +218,24 @@ await sec('── 2. 친구 고르기 창', () => {
 
 await sec('── 3. 초대 보내기', async () => {
   const e = mkEnv({ friends: { a: { name: '가나', online: true }, b: { name: '나비', online: true, room: 'R2' }, c: { online: true } } }); e.mk(); e.open();
-  chk([0, 1, 2].map(e.nameOf).join() === '(이름 없음),가나,나비', '이름 없는 친구는 «(이름 없음)» · 이름순 맨 앞');
+  chk([0, 1, 2].map(e.nameOf).join() === '이름 없음,가나,나비', '★ 이름 없는 친구는 그릴 때 «이름 없음» · 이름순 맨 앞(빈 이름으로 정렬)');
   const b0 = e.btnBy('가나');
   chk(b0.textContent === '초대' && b0.className === 'lc-btn', '줄마다 [초대] 버튼');
   b0.onclick();
   chk(b0.disabled === true && b0.textContent === '...', '  누르면 잠그고 ...');
   await flush();
-  chk(JSON.stringify(e.sent[0]) === JSON.stringify(['a', 'ME', 'ROOM1', '나나']) && e.toasts.pop() === '가나 님에게 초대를 보냈어요' && b0.textContent === '완료', '보낸 값(받는 사람 · 나 · 방 코드 · 내 이름) · 안내 · 완료');
+  chk(JSON.stringify(e.sent[0]) === JSON.stringify(['a']) && e.toasts.pop() === '가나 님에게 초대를 보냈어요' && b0.textContent === '완료', '보낸 값(받는 사람만 — 방 코드 · 이름은 서버가 채운다) · 안내 · 완료');
   const b1 = e.btnBy('나비');
   b1.onclick();
   chk(e.sent.length === 1 && b1.textContent === '그래도' && e.toasts.pop() === '나비 님은 현재 다른 방에 입장 중입니다' && b1.title === '한 번 더 누르면 초대를 보냅니다', '🏠 다른 방 친구 — 첫 클릭은 보내지 않고 알리기만');
   b1.onclick(); await flush();
   chk(e.sent.length === 2 && e.sent[1][0] === 'b' && b1.textContent === '완료', '  한 번 더 누르면 보낸다');
   e.sendFail = true;
-  const b2 = e.btnBy('(이름 없음)'); b2.onclick(); await flush();
-  chk(e.toasts.pop() === '초대에 실패했어요' && b2.disabled === false && b2.textContent === '초대', '실패하면 안내 · 버튼을 되살린다');
-  delete e.ctx.firebaseAPI;
+  const b2 = e.btnBy('이름 없음'); b2.onclick(); await flush();
+  chk(e.errs.pop() === 'E-ROOM-09' && b2.disabled === false && b2.textContent === '초대', '실패하면 오류 번호(E-ROOM-09) · 버튼을 되살린다');
+  e.sendFail = false;
   b2.onclick(); await flush();
-  chk(e.toasts.pop() === '네트워크 연결이 필요해요' && b2.disabled === false && b2.textContent === '초대', 'firebaseAPI 가 없으면 연결 안내');
-  e.ctx.firebaseAPI = e.fb; e.sendFail = false;
-  b2.onclick(); await flush();
-  chk(e.toasts.pop() === '친구 님에게 초대를 보냈어요', '  이름 없는 친구는 «친구»');
+  chk(e.toasts.pop() === '이름 없음 님에게 초대를 보냈어요', '  ★ 이름 없는 친구는 그릴 때 «이름 없음»(«친구» placeholder 없음)');
 });
 
 await sec('── 3-2. 열려 있는 동안 목록이 바뀌면 다시 그린다(이름 · 사진 도착) · 닫으면 그만', async () => {
@@ -280,17 +299,25 @@ await sec('── 5. 방 초대 받기', async () => {
   const cb = e.subs[0].cb;
   cb(null); cb({});
   chk(e.ctx.document.body.children.length === 0 && !e.api.busy(), '빈 초대함이면 아무것도 안 뜬다');
-  cb({ old: { ts: e.now - 11 * 60 * 1000, fromName: '옛', roomCode: 'OLD' } });
-  await flush();
-  chk(e.ctx.document.body.children.length === 0 && JSON.stringify(e.cleared) === JSON.stringify([['ME', 'old']]), '10분 지난 초대는 띄우지 않고 지운다');
-  chk(e.notes.join() === 'old:OLD', '  ★ 그 초대는 🔔 일정 알림 줄로 남긴다(팝업 없이 — 줄에서 다시 연다)');
-  e.notes = [];
-  e.cleared = [];
+  {
+    /* R5 — 앱은 PC 시계로 «오래된 초대» 를 가르지 않는다(보낸 쪽 시계가 어긋나면 방금 온 초대를 버린다). 오래된 것은 서버가 10분 보관 뒤 안 보낸다. */
+    const o = mkEnv({ active: true }); o.mk();
+    o.subs[0].cb({ old: { ts: o.now - 11 * 60 * 1000, fromName: '옛', roomCode: 'OLD' } });
+    await flush();
+    chk(o.ctx.document.body.children.length === 1 && o.api.busy() && o.cleared.length === 0, '★ ts 가 11분 전이어도 앱은 버리지 않는다(서버가 10분 보관 · PC 시계로 가르지 않는다)');
+  }
+  {
+    /* 이름 없는 보낸 사람 — 서버가 fromName 을 빈 글로 준다 · 그릴 때 «이름 없음» */
+    const o = mkEnv({ active: true }); o.mk();
+    o.subs[0].cb({ n: { ts: o.now, fromName: '', roomCode: 'RN' } });
+    await flush();
+    chk(/<b>이름 없음<\/b> 님이 함께하자고/.test(o.popup().children[0].innerHTML), '★ 이름 없는 사람의 초대 — 그릴 때 «이름 없음»(«친구» placeholder 없음)');
+  }
   cb({ x: { ts: e.now - 9 * 60 * 1000, fromName: '<b>가</b>', roomCode: 'RX' }, y: { ts: e.now - 1000, fromName: '나비', roomCode: 'RY' } });
   const ov = e.popup();
   chk(e.ctx.document.body.children.length === 1 && ov.className === 'app-popup-ov' && e.api.busy(), '팝업 하나 · app-popup-ov · busy');
   const box = ov.children[0];
-  chk(/<b>나비<\/b> 님이 함께하자고/.test(box.innerHTML), '가장 최근 초대(나비)를 띄운다 · 9분 된 것은 아직 안 버린다');
+  chk(/<b>나비<\/b> 님이 함께하자고/.test(box.innerHTML), '가장 최근 초대(나비)를 띄운다');
   chk(e.notes.join() === 'y:RY', '  ★ 가장 최근 초대만 일정 알림 줄로(쌓지 않는다)');
   chk(/pointer-events:none/.test(ov.style.cssText) && /^pointer-events:auto;/.test(box.style.cssText), '  껍데기는 클릭 통과 · 상자만 받는다');
   chk(JSON.stringify(e.flashes) === '[true]', '  작업표시줄 깜빡임 켬');
@@ -345,7 +372,7 @@ await sec('── 5. 방 초대 받기', async () => {
     qbc({ a: { ts: qb.now, fromName: '가', roomCode: 'RA' }, b: { ts: qb.now - 5000, fromName: '나', roomCode: 'RB' } });
     qb.popup().children[0].querySelector('[data-a="no"]').onclick(); await flush(); await flush();
     qbc({ b: { ts: qb.now - 5000, fromName: '나', roomCode: 'RB' } });
-    chk(qb.notes.join() === 'a:RA,b:RB', '  깨 보기 — 본 초대를 안 거르면 남은 옛 초대로 줄이 되돌아가 빨강');
+    chk(qb.notes.join() === 'a:RA,b:RB', '  mutation test — 본 초대를 안 거르면 남은 옛 초대로 줄이 되돌아가 빨강');
   }
   const r = mkEnv(); r.mk();
   let shown = null; r.api.showPopup('<i>', 'RC', v => { shown = v; });
@@ -366,20 +393,22 @@ await sec('── 6. app.js 배선', () => {
   const call = (APP.match(/TwRoomInviteUi\.createRoomInviteUi\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
   const want = [
-    /^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),$/, /^escHtml: \(\.\.\.a\)=>escHtml\(\.\.\.a\),$/, /^getMyUserId: \(\.\.\.a\)=>getMyUserId\(\.\.\.a\),$/,
-    /^getDisplayName: \(\.\.\.a\)=>getDisplayName\(\.\.\.a\),$/, /^startRoom: \(\.\.\.a\)=>startRoom\(\.\.\.a\),$/, /^doLeaveRoom: \(\.\.\.a\)=>doLeaveRoom\(\.\.\.a\),$/,
+    /^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),$/, /^escHtml: \(\.\.\.a\)=>escHtml\(\.\.\.a\),$/, /^invites: TwRoomInviteRt\.store,$/,
+    /^startRoom: \(\.\.\.a\)=>startRoom\(\.\.\.a\),$/, /^doLeaveRoom: \(\.\.\.a\)=>doLeaveRoom\(\.\.\.a\),$/,
     /^friendInRoom: \(\.\.\.a\)=>inboxMod\.friendInRoom\(\.\.\.a\),$/, /^myHomeFriends: \(\)=>_myHomeFriends,$/, /^friendsNotice: \(\.\.\.a\)=>friendsSubMod\.notice\(\.\.\.a\),$/, /^friendsRetry: \(\.\.\.a\)=>friendsSubMod\.retryIfFailed\(\.\.\.a\),$/,
     /^friendsOpen: \(\.\.\.a\)=>friendsSubMod\.open\(\.\.\.a\),$/, /^friendsClose: \(\.\.\.a\)=>friendsSubMod\.close\(\.\.\.a\),$/, /^presence: Presence,$/,
     /^inviteNotice: inviteNotice,$/,
   ];
   const bad = want.map((re, i) => re.test(deps[i] || '') ? null : (i + ':' + (deps[i] || '없음'))).filter(Boolean);
-  chk(deps.length === want.length && !bad.length, 'deps 14개 — 함수는 화살표 · let 은 읽는 함수 · const 는 값 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
+  chk(deps.length === want.length && !bad.length, 'deps 13개 — 함수는 화살표 · let 은 읽는 함수 · const 는 값 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
   chk(/^let _myHomeFriends = \{\};/m.test(APP) && /[^.\w]_myHomeFriends = [^=]/.test(code.replace(/let _myHomeFriends = \{\};/, '')), '  _myHomeFriends 는 다시 대입되는 let — 그래서 읽는 함수');
   const iP = APP.indexOf('const Presence=(()=>{');
   chk(iP > 0 && iP < iMk && !/[^.\w]Presence\s*=[^=>]/.test(code.replace('const Presence=(', '')), '  Presence 는 만드는 줄보다 앞의 const · 다시 대입 안 됨 — 그래서 값');
   const m = strip(MOD);
   chk(/const friends = _myHomeFriends\(\) \|\| \{\};/.test(m) && !/[^.\w]_myHomeFriends\s*=[^=]/.test(m.replace('const _myHomeFriends = deps.myHomeFriends;', '')), '모듈은 친구 목록을 부를 때마다 읽는다 · 직접 쓰지 않는다');
-  chk(/^TwNetReady\.whenNetReady\(\(\)=>_bindRoomInviteReceiver\(\)\);$/m.test(MOD), '만들 때 수신 구독(또는 firebase-ready) — 네트워크 준비 기다리기 한 곳(net-ready.js)으로');
+  chk(/function startReceive\(session\)\{\s*if\(!session\) throw[^\n]*\n\s*_bindRoomInviteReceiver\(session\);/.test(MOD) && /session\.onReset\(stopReceive\)/.test(MOD) && /session\.on\(invites\.onInvites\(/.test(MOD) && !/_unsubInvites|if\(session\)/.test(MOD), 'startReceive 는 세션을 꼭 받아 초대 받기를 걸고(session.on) 계정이 바뀌면 놓는다(session.onReset) — 스스로 앞 구독을 끊거나 세션을 선택으로 두지 않는다');
+  chk(/roomInvite: \(code, me, session\)=>\{\s*roomInviteUi\.startReceive\(session\);/.test(APP) && /session\.onReset\(\(\)=>\{ TwChatRt\.store\.reset\(\); roomLobbyProvider\.reset\(\); if\(_pkSession\) _pkSession\.reset\(\); \}\)/.test(APP) && /session\.on\(TwRtHub\.store\.on\('license', \(\)=>roomLobbyProvider\.reset\(\)\)\)/.test(APP),
+    '★ app.js 시작 — 로그인 세션을 받아 받기를 걸고, 계정이 바뀌면 대화 · 방 목록 · 사진 세션을 비운다 · license 알림이면 내 시크릿룸을 다시 읽게 한다');
   const off = (APP.match(/const ROOM_INVITE_UI_OFF = \{([^\n]*?)\};/) || [])[1] || '';
   chk(!/\bROOM_INVITE_UI_OFF\b/.test(APP), '빈 껍데기 ROOM_INVITE_UI_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const iE = HTML.indexOf('<script src="parts/myhome/myhome-edit.js"></script>'), iS = HTML.indexOf('<script src="parts/room/room-invite-ui.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');

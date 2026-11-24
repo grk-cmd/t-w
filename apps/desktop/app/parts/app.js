@@ -1,97 +1,37 @@
 /* ============================================================ SETUP */
-const canvas=document.getElementById('scene');
 /* 🎚️ 실행 화면 화질(설정 › 디스플레이 — FrameBudget.QUALITY). antialias 는 WebGL 을 만들 때만 정해져서 «가볍게» 는 다시 켜야 적용된다.
    ⚠️ 도트 렌더 저장값으로 antialias 를 정하지 말 것 — 개발 실행 · 설치본이 저장소를 같이 써서 안 보이게 꺼진 채 굳었다(도트 느낌은 DOT_RENDER_SCALE 로 충분). */
 let _renderQuality = FrameBudget.qualityFrom(localStorage.getItem(FrameBudget.QUALITY_KEY));
 let _runLowered = false;   // «자동» 이 이번 실행에서 배율을 낮췄는가
 const _renderAA = FrameBudget.antialiasFor(_renderQuality);
+/* 🧭 런처 공용 상태(launcher/launcher-state.js) — 앱 모드 · 마이홈이 런처 위에 열려 있나. 읽는 모듈(친구 관리 · 마이홈 · 달성표 · 창 모드)을 만드는 줄보다 먼저 있게 맨 앞에서 만든다. */
+const launcherStateMod = TwLauncherState.createLauncherState();
+/* 🎬 3D 무대 한 벌(shared/stage.js) — 렌더러(못 만들면 안내) · 연결 끊김 감시 · 씬 · 카메라 · 바닥 · GLTF 로더. 아래 const 는 옛 전역 이름이다. */
 const _renderShadows = FrameBudget.shadowsFor(_renderQuality);   // «최저» 면 그림자 끔 — 켜고 끄면 재질을 다시 만들어야 해서 antialias 처럼 다시 켜야 적용
-const renderer=new THREE.WebGLRenderer({canvas,antialias:_renderAA,alpha:true,premultipliedAlpha:false,logarithmicDepthBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-renderer.setClearColor(0x000000, 0);   // 항상 투명 배경으로 클리어 (Electron 투명창 흰 화면 예방)
-/* 🧯 메인 캔버스 WebGL 연결 끊김 — 기록하고, 6초 안에 안 돌아오면 화면을 한 번 다시 불러온다(parts/gl-recover.js · 제보 #11).
-   three.js 자기 리스너가 먼저 붙어 preventDefault 를 하므로 여기는 기록 · 시간 재기만 한다. */
-try{
-  if(typeof GlRecover !== 'undefined'){
-    GlRecover.createGlRecover({
-      log: (m) => { console.warn('[WebGL]', m); try{ if(window.companion && companion.diagNote) companion.diagNote('[WebGL] ' + m); }catch(_){} },
-      reload: () => location.reload(),
-      setTimer: (fn, ms) => setTimeout(fn, ms), clearTimer: (id) => clearTimeout(id), now: () => Date.now(),
-      store: { get: (k) => sessionStorage.getItem(k), set: (k, v) => sessionStorage.setItem(k, v) },
-      afterRestore: () => faceHealMod.reportGlReset(),   // 좌석 그림 점검 — faceHealMod 는 첫 프레임 전에 아래에서 만들어진다
-    }).attach(canvas);
-  }
-}catch(e){ console.warn('[WebGL] 복구 감시를 못 붙였다', e); }
+const stageMod = TwStage.createStage({
+  _renderAA: _renderAA,
+  _renderShadows: _renderShadows,
+  afterRestore: () => faceHealMod.reportGlReset(),   // 좌석 그림 점검 — faceHealMod 는 첫 프레임 전에 아래에서 만들어진다
+});
+const canvas = stageMod.canvas;   // 옛 전역 이름 — 다른 모듈 · 이 파일 곳곳이 아직 전역으로 읽는다(도메인 단계에서 deps 로 바꾸고 걷는다)
+const renderer = stageMod.renderer;   // 옛 전역 이름
+const scene = stageMod.scene;   // 옛 전역 이름
+const camera = stageMod.camera;   // 옛 전역 이름
+const floor = stageMod.floor;   // 옛 전역 이름
+const sizeFloorTo = stageMod.sizeFloorTo;   // 옛 전역 이름
+const loader = stageMod.loader;   // 옛 전역 이름
 /* 🩺 한글 조합 중 입력칸이 포커스를 잃으면 진단 기록에 한 줄(shared/input-diag.js) — 맥 한글 씹힘 제보를 제보자 PC 기록으로 가른다 */
 TwInputDiag.createImeWatch({
   note: (m) => { if(window.companion && companion.diagNote) companion.diagNote(m); },   // 브라우저 미리보기 · 검사엔 companion 이 없다
   now: () => Date.now(),
   defer: (fn) => setTimeout(fn, 0),
 }).attach(document, window);
-renderer.shadowMap.enabled=_renderShadows; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-renderer.outputEncoding=THREE.sRGBEncoding;
-const scene=new THREE.Scene();
-const camera=new THREE.PerspectiveCamera(34,1,0.1,100);   // 생성기와 동일한 원근 렌즈 (WYSIWYG)
 /* 캐릭터 몸 박스 재기 — 규칙은 character/body-measure.js 한 곳. 키 정규화 · 올라타기 · 바닥 맞춤 · 날기 벽이 부팅 중에도 부를 수 있어 맨 앞에서 만든다. */
 const bodyMeasureMod = TwBodyMeasure.createBodyMeasure({
 });
-
-// ★ Bloom 후처리(UnrealBloomPass)는 시도해봤지만 이 앱(바탕화면이 비치는 투명 배경 오버레이)과 근본적으로
-//   안 맞아서 제거함 — 화면 전체를 대상으로 하는 후처리라 (1)배경 투명도가 깨져서 까맣게 나오고,
-//   (2)발광 설정한 파츠/아이템뿐 아니라 화면에서 밝은 픽셀(얼굴 등)까지 같이 번져버림.
-//   대신 발광 대상 오브젝트 옆에 반투명 원형 스프라이트를 하나 더 깔아두는 방식으로 대체 —
-//   화면 전체에 영향 없이 그 물체 주변에만 은은한 빛이 도는 것처럼 보임.
-let _glowSpriteTex = null;
-function getGlowSpriteTexture(){
-  if(_glowSpriteTex) return _glowSpriteTex;
-  const cv=document.createElement('canvas'); cv.width=cv.height=128;
-  const ctx=cv.getContext('2d');
-  const g=ctx.createRadialGradient(64,64,0,64,64,64);
-  g.addColorStop(0,'rgba(255,255,255,0.85)');
-  g.addColorStop(0.45,'rgba(255,255,255,0.30)');
-  g.addColorStop(1,'rgba(255,255,255,0)');
-  ctx.fillStyle=g; ctx.fillRect(0,0,128,128);
-  _glowSpriteTex=new THREE.CanvasTexture(cv);
-  return _glowSpriteTex;
-}
-// obj: 발광시킬 오브젝트(파츠/아이템의 최상위 그룹), parent: 스프라이트를 붙일 부모(보통 obj 자신)
-// GLOW_SIZE_MUL/GLOW_COLOR: 필요하면 이 두 상수만 조절
-const GLOW_SIZE_MUL = 1.4;      // 오브젝트 크기 대비 빛 스프라이트 배율 — 키우면 더 넓게 번짐
-const GLOW_COLOR = 0xfff3c4;    // 빛 색상 — 따뜻한 노란빛. 흰빛을 원하면 0xffffff로
-function addGlowSprite(obj){
-  try{
-    obj.updateMatrixWorld(true);
-    const box=new THREE.Box3().setFromObject(obj);
-    const size=box.getSize(new THREE.Vector3());
-    const maxDim=Math.max(size.x,size.y,size.z,0.05);
-    const mat=new THREE.SpriteMaterial({ map:getGlowSpriteTexture(), color:GLOW_COLOR, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending });
-    const sp=new THREE.Sprite(mat);
-    sp.scale.setScalar(maxDim*GLOW_SIZE_MUL);
-    sp.renderOrder=900;
-    const center=box.getCenter(new THREE.Vector3());
-    obj.worldToLocal(center);
-    sp.position.copy(center);
-    obj.add(sp);
-    return sp;
-  }catch(e){ return null; }
-}
-// ★ "파츠/아이템 자체가 통으로 은은하게 빛났으면 좋겠다"는 요청에 따라, 원형 스프라이트뿐 아니라
-//   오브젝트 자신의 재질도 모양 그대로 살짝 밝게(emissive) 만들어서 겹쳐 씀 — 원형 스프라이트는 주변에
-//   은은하게 도는 분위기용, emissive는 그 물체 자체의 표면이 실제로 빛나 보이게 하는 용도.
-//   GLOW_EMISSIVE_BOOST를 키우면 물체 자체가 더 밝게, 줄이면 더 은은하게.
-const GLOW_EMISSIVE_BOOST = 1.5;
-function applyGlowToMesh(o){
-  if(!o.isMesh || !o.material) return;
-  const m=o.material;
-  if(!m.emissive || m.emissive.getHex()===0) m.emissive=(m.color||new THREE.Color(0xffffff)).clone();
-  if(m.map && !m.emissiveMap) m.emissiveMap=m.map;
-  if('emissiveIntensity' in m) m.emissiveIntensity = GLOW_EMISSIVE_BOOST; else m.emissive.multiplyScalar(GLOW_EMISSIVE_BOOST);
-  m.needsUpdate=true;
-}
-// obj 전체(자기 자신 포함)를 순회하며 은은하게 발광시키고, 추가로 원형 빛 스프라이트도 얹음.
-function applyGlowEffect(obj){
-  obj.traverse(o=>applyGlowToMesh(o));
-  return addGlowSprite(obj);
-}
+/* ✨ 빛나는 스프라이트 · 재질 발광(character/glow.js) — 지금 부르는 곳은 없다(아이템 발광 호출은 주석 처리됨) */
+const glowMod = TwGlow.createGlow({
+});
 
 /* 💡 조명 — 밝기 예산 숫자 · 재질 고치기는 캐릭터 코어 한 벌(packages/char-core/src/lighting.ts · 웹 생성기와 같이 쓴다).
    화면을 더 밝게 · 어둡게 하려면 코어 TONE_FRONT_TOTAL 하나만 옮긴다. */
@@ -100,732 +40,171 @@ const _MAIN_LIGHT_COL = new THREE.Color().setHSL(0.09, 0.06, 0.88);
 const _MAIN_LIGHT_INT = TwCharCore.MAIN_LIGHT_INT;
 const _KEY_LIGHT_MUL = TwCharCore.KEY_LIGHT_MUL;     // 위를 보는 면만(거품 · 머리띠 위 · 책상 윗면)
 const _FILL_LIGHT_MUL = TwCharCore.FILL_LIGHT_MUL;   // 카메라를 보는 면(옷 앞면 · 얼굴)
-/* 정면 필 조명 하나를 만든다 — 씬마다 따로 적으면 한 곳이 빠져 그 화면만 톤이 달라진다(생성기 · 런처 · 꾸미기 · 썸네일 전부 여기). */
-function _mkFrontFill(intensity){
-  const l = new THREE.DirectionalLight(_MAIN_LIGHT_COL, intensity);
-  l.position.set(0.5, 1.0, 3);
-  return l;
-}
 /* GLB 재질을 이 장면의 플랫 조명 규약에 맞게 눕힌다(캐릭터 · 파츠 · 아이템 · 책상 모두) — 규칙은 코어.
    고친 것이 있으면 콘솔에 한 줄 — «이 파츠만 어둡다» 가 오면 어느 칸이었는지 바로 보인다. */
 function _fixGlbMatLighting(m){
   TwCharCore.fixMatLighting(m, (msg)=>{ try{ console.log(msg); }catch(_){} });
 }
-scene.add(new THREE.AmbientLight(_MAIN_LIGHT_COL, 0.95 * _MAIN_LIGHT_INT));
-const key=new THREE.DirectionalLight(_MAIN_LIGHT_COL, 1.0 * _MAIN_LIGHT_INT * _KEY_LIGHT_MUL);
-key.position.set(0,5,0); key.castShadow=true; key.shadow.mapSize.set(2048,2048);
+/* 재질 톤 · 실행 화면 조명 한 벌 — 메인 씬 조명이 바로 아래에서 쓰므로 조명 상수 바로 뒤에서 만든다(shared/light-tone.js).
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const lightToneMod = TwLightTone.createLightTone({
+  _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
+  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,
+  _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,
+  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,
+  _fixGlbMatLighting: (...a)=>_fixGlbMatLighting(...a),
+  charCore: TwCharCore,
+});
+/* 메인 씬 — 앰비언트 · 키(정수리 위 · 그림자) · 뒤쪽 냉색 바운스 · 정면 필(옷 앞면 · 얼굴 · 욕조 앞면) */
+const key = lightToneMod.addRunLights(scene, { keyPos: [0, 5, 0], backBounce: true }).key;
+key.castShadow=true; key.shadow.mapSize.set(2048,2048);
 key.shadow.camera.near=1; key.shadow.camera.far=30;
 key.shadow.camera.left=-22; key.shadow.camera.right=22; key.shadow.camera.top=8; key.shadow.camera.bottom=-8;
-key.shadow.bias=-0.0003; key.shadow.normalBias=0.03; scene.add(key);
-const fill=new THREE.DirectionalLight(0xbcd0ff,0.12); fill.position.set(-3,2,-1); scene.add(fill);   // 뒤쪽 냉색 바운스(그대로 유지)
-scene.add(_mkFrontFill(_MAIN_LIGHT_INT * _FILL_LIGHT_MUL));   // ★ 정면 필 — 카메라를 보는 면(옷 앞면·얼굴·욕조 앞면)
+key.shadow.bias=-0.0003; key.shadow.normalBias=0.03;
 
-const M=(c,r=0.85,m=0)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
-const matSage=M(0x9dba8a,0.8),matSageD=M(0x84a172,0.8),matInk=M(0x4a3f35,0.6),matWhite=M(0xfdfaf2,0.7),
-      matWood=M(0xc9a57b,0.85),matWoodD=M(0xb08a5e,0.85),matPot=M(0xd98e73,0.8),matLeaf=M(0x88b06f,0.7),matBlush=M(0xe89b9b,0.6);
+/* 🪑 기본 책상 · 소품 · 대신 몸 만들기와 재질(room/desk-build.js) — 아래 const 는 옛 전역 이름이다. */
+const deskBuildMod = TwDeskBuild.createDeskBuild({
+});
+const M = deskBuildMod.M;   // 옛 전역 이름
+const matWood = deskBuildMod.matWood;   // 옛 전역 이름
+const matWoodD = deskBuildMod.matWoodD;   // 옛 전역 이름
+const DESK_ITEMS = deskBuildMod.DESK_ITEMS;   // 옛 전역 이름
+const DEFAULT_DESK_OVERRIDE_ID = deskBuildMod.DEFAULT_DESK_OVERRIDE_ID;   // 옛 전역 이름
+const NO_DESK_ID = deskBuildMod.NO_DESK_ID;   // 옛 전역 이름
+const buildDesk = deskBuildMod.buildDesk;   // 옛 전역 이름
+const buildPlaceholder = deskBuildMod.buildPlaceholder;   // 옛 전역 이름
 
-const CHAR_Z=-0.47;                 // 캐릭터 기본 앞뒤 위치 (책상과의 간격을 살짝 좁힘)
-/* 🧍 캐릭터 높이(y) — 생성기 '좌석 세팅' 의 **앞뒤 슬라이더를 대체한** 값. def.xf.y 로 저장된다.
-   [경위] 앞뒤(z)는 사용자가 조정할 이유가 사실상 없었다. CHAR_Z 가 책상과의 간격을 이미 정하고,
-     조정값이 붙으면 미리보기·생성기·실행 세 화면이 각자 다른 식으로 그것을 보상해야 해서
-     (fitModel 의 userZ, _wdDeskGrp 의 -xf.z, fitCreator 의 CHAR_Z+cXform.z) 어긋남의 온상이었다.
-     대신 예전에 "바닥 파묻힘 방지" 를 이유로 아예 없애 두었던 높이 슬라이더를 되살린다 —
-     그때 문제였던 '바닥 아래' 는 이제 하한 0 으로 원천 차단한다.
-   ★ 0 = 발바닥이 월드 y=0(바닥). 음수는 없다. 상한은 CHAR_Y_MAX.
-   ★ 저장된 옛 xf.z 는 읽는 자리마다 0 으로 죽인다(별도 이관 패스 없이 다음 저장 때 0 이 굳는다).
-     읽는 자리: applyCharToSeat · fitCreator · 런처 미리보기 · 꾸미기 미리보기 · 프리셋 로드. */
-const CHAR_Y_MAX = 0.6;             // 캐릭터 키가 1.45 이므로 약 40% — 이 이상은 '떠 있는' 게 된다
-function clampCharY(v){ const n = +v; return (isFinite(n) && n > 0) ? Math.min(n, CHAR_Y_MAX) : 0; }
-/* 🐾 실행 화면에서 캐릭터가 책상 앞으로 나와 있는 '기본 거리'. CHAR_Z는 절대값이라, 책상만 40%로
-   줄어든 동물은 이 거리가 상대적으로 2.5배가 되어 책상에서 너무 멀리 떨어져 보였다(생성기는 책상이
-   100%라 CHAR_Z가 그대로 맞음). 책상과 같은 비율로 줄여서 생성기에서 본 간격이 그대로 재현되게 한다.
-   ★ 실행 화면 전용 — fitCreator(생성기)와 런처 미리보기의 CHAR_Z는 손대지 않는다. */
-/* 🪑🐾 캐릭터의 앞뒤 자리 — **좌석마다 예외 없이 CHAR_Z 하나다.**
-
-   [경위 — 두 번의 뒤집기]
-     ① 예전엔 여기에 동물 배율(0.4)과 평준화 배율(k)을 곱했다. 이유는 "책상이 그 배율로
-        줄어 원점 쪽으로 오는데 캐릭터만 −0.47 에 남으면 간격이 어긋난다" 였고, 간격 자체는
-        그 말이 맞았다.
-     ② 그런데 그 방식은 **좌석마다 서 있는 깊이(z)를 다르게** 만든다. 카메라가 +z 에서
-        pitch 0.09(약 5.2°)로 내려다보므로, 바닥(y=0) 위의 같은 점이라도 카메라에서 멀수록
-        화면에서는 위로 잡힌다 → **발선이 좌석마다 다른 줄에 그려진다.**
-        실측: 사람 z=-0.47 · 동물 z=-0.188 → 차이 0.282 × sin(0.09) ≒ 0.025
-        = 캐릭터 키(0.48~0.61)의 4~5%. 제보의 "동물만 조금 높게 떠 보인다"가 정확히 이 값이다.
-        발 박스는 사람·동물 둘 다 정확히 y=0 이었다 — **y 문제가 아니라 z 문제였다.**
-   ★ 그래서 배율 둘을 **책상 쪽으로 옮겼다**(syncSeatDeskZ). 간격은 그대로 보존되고,
-     모든 좌석이 같은 깊이에 서므로 발선이 한 줄로 겹친다.
-   ★ 평준화도 같은 병을 앓고 있었다 — k 는 좌석마다 다르므로 사람끼리도 발선이 갈렸다.
-     이 변경이 그쪽까지 함께 고친다.
-
-   ⚠️ 여기 하나만 고치면 된다 — 즉시 적용(applyCharToSeat) · 비행(_updateFlyingSeats·endFlight) ·
-     프레임 루프의 복귀 lerp 가 전부 이 함수를 부른다.
-   ⚠️ 인자 seat 는 이제 안 쓰지만 **남겨 둔다** — 호출부가 다섯 곳이고, 나중에 좌석별로
-     달라질 일이 생기면 여기 한 곳만 보면 되게 하기 위해서다.
-   ⚠️ 꾸미기 미리보기(refreshWdPreviewChar)는 이 함수를 안 쓰고 CHAR_Z 를 직접 곱하는데,
-     그쪽은 캐릭터를 z=0 에 두고 **간격만** 인코딩하는 다른 규약이다. 계산해 보면 이 변경 뒤에도
-     두 식이 그대로 일치한다(sim-char-z.js §3 이 그 일치를 지킨다) — 건드리지 말 것. */
-function seatCharZ(seat){
-  return CHAR_Z;
-}
+/* 🧍 캐릭터 높이 · 깊이 · 자리 · 크기 저장 · 끌기 한계 · 책상 반폭(room/char-place.js) — 아래 const 는 옛 전역 이름이다. */
+const charPlaceMod = TwCharPlace.createCharPlace({
+  bodyMeasureMod: bodyMeasureMod,
+  camera: camera,
+  seats: ()=>seats,
+});
+charPlaceMod.attachLayout({
+  layoutSeats: ()=>layoutSeats(),
+});
+const CHAR_Z = charPlaceMod.CHAR_Z;   // 옛 전역 이름
+const CHAR_Y_MAX = charPlaceMod.CHAR_Y_MAX;   // 옛 전역 이름
+const clampCharY = charPlaceMod.clampCharY;   // 옛 전역 이름
+const seatCharZ = charPlaceMod.seatCharZ;   // 옛 전역 이름
+const BASE_PXW = charPlaceMod.BASE_PXW;   // 옛 전역 이름
+const ANIMAL_RUN_SCALE = charPlaceMod.ANIMAL_RUN_SCALE;   // 옛 전역 이름
+const saveCharPos = charPlaceMod.saveCharPos;   // 옛 전역 이름
+const saveCharScale = charPlaceMod.saveCharScale;   // 옛 전역 이름
+const refreshCharScaleForCurrentDisplay = charPlaceMod.refreshCharScaleForCurrentDisplay;   // 옛 전역 이름
+const clampDeskPan = charPlaceMod.clampDeskPan;   // 옛 전역 이름
+const seatDeskHalfWidth = charPlaceMod.seatDeskHalfWidth;   // 옛 전역 이름
+// ★ animal.js도 이 값을 써야 함(정규화 높이) — 예전엔 animal.js가 자체 기본값 0.6을 들고 있어서 값이 두 곳에
+//   갈라져 있었음. 여기서 window로 노출해 "한 곳에서만 관리"되게 한다. (app.js가 animal.js보다 먼저 로드됨)
+try{ window.ANIMAL_RUN_SCALE = ANIMAL_RUN_SCALE; }catch(_){}
 const FLOOR_DEFAULT='#cdb88f';
 const floorMat=M(0xcdb88f,0.95);
 // 바닥은 밝은 조명에서 흰색으로 날아가기 쉬워서, 알베도를 낮춰 "고른 색이 그대로 보이게" 함(클리핑 방지)
 // (사용자가 바닥색 기능을 제거함 — 함수는 더 이상 사용 안 됨)
-// 받침대(바닥)를 콘텐츠 크기에 맞춰 작게 — 네 모서리가 보이도록
-function sizeFloorTo(mesh,cx,cz,sx,sz){ if(!mesh)return; const w=Math.max(sx+0.6, 1.0), d=Math.max(sz+0.5,1.5); mesh.scale.set(w,0.125,d); mesh.position.set(cx,0,cz); }
-const floorGeo = new THREE.BoxGeometry(1, 1, 1);
-floorGeo.translate(0, -0.5, 0); // 윗면 중앙을 피벗으로 설정
-// 바닥의 색상(floorMat)을 지우고, 그림자만 남기는 ShadowMaterial을 사용합니다.
-const shadowMat = new THREE.ShadowMaterial();
-shadowMat.opacity = 0.3; // 여기서 0.3 숫자를 조절해서 그림자 진하기를 바꾸세요.
-const floor = new THREE.Mesh(floorGeo, shadowMat);
-floor.scale.set(2.4, 0.125, 2.2);
-floor.position.set(0, 0, 0.0);
-floor.receiveShadow = true;
-floor.castShadow = false;
-scene.add(floor);
 
-/* ============================================================ DRACO */
-const loader=new THREE.GLTFLoader();
-try{const draco=new THREE.DRACOLoader();draco.setDecoderPath('vendor/draco/');loader.setDRACOLoader(draco);}catch(e){console.warn('DRACO init',e);}
-/* 🧍 사람 몸(기본 몸 모델 · 복제 · 크기 · 조립)은 캐릭터 코어(packages/char-core/src/body.ts · #434).
-   몸 모델 바이트(window.BASE_GLB_B64) · 재질 톤 · 귀는 앱이 넘긴다. */
-const bodyCore = TwCharCore.createBody({
-  THREE,
-  gltf: loader,
-  fixMatLighting: (m)=>_fixGlbMatLighting(m),
-  setFaceMap: (...a)=>matToneMod.setFaceMap(...a),
-  applyLightPreset: (...a)=>matToneMod.applyLightPresetToInstance(...a),
-});
 
-/* ===== 🐾 사람 귀 (꾸미기 › 머리 › 귀) — human-ear.js. 귀 GLB 파싱은 animal.js 캐시를 같이 쓴다.
-   animal.js 는 이 파일보다 늦게 로드되므로 파서는 부를 때 찾는다. */
-/* ⚠️ 모듈이 없어도(로드 실패 · app.js 만 평가하는 검사) 앱은 켜져야 한다 — 그때는 귀만 꺼진다. */
-const humanEar = (typeof HumanEar === 'undefined') ? null : HumanEar.createHumanEar({
-  THREE,
-  parseEar:(key, cb)=>{
-    const f = window.parseAnimalEar;
-    if(f){ f(key, cb); return; }
-    setTimeout(()=>{ const g = window.parseAnimalEar; if(g) g(key, cb); else cb(null); }, 500);
-  },
-  earTypes:()=>window.ANIMAL_EAR_TYPES || [],
+/* 🐾 사람 귀 붙이기(character/human-ear-attach.js) — 아래 const 는 옛 전역 이름이다(꾸미기 · 파츠 그림 모듈이 deps 로 받는다). */
+const humanEarAttachMod = TwHumanEarAttach.createHumanEarAttach({
+  _registerAnimalEarOn: (...a)=>_registerAnimalEarOn(...a),
+  lightToneMod: lightToneMod,
+  partPaintMod: ()=>partPaintMod,
+  rideBenchMod: ()=>rideBenchMod,
+  seats: ()=>seats,
+  wardrobeMod: ()=>wardrobeMod,
 });
-/* 귀는 흰색으로 시작한다(색은 그리기로만) — 다른 몸 재질과 같은 플랫 조명(applyLightPresetToInstance). */
-function _humanEarMat(){
-  const m = new THREE.MeshStandardMaterial({ color:'#ffffff', metalness:0, roughness:0.9, side:THREE.DoubleSide });
-  m.emissive.setScalar(lightToneMod.FLAT_EMISSIVE);
-  return m;
-}
-/* ⚠️ 바인드 자세일 때(조립 직후 · 애니메이션 전) 불러야 한다 — holder 와 옮길 양을 이때 잰다.
-   귀가 없어도 holder 는 만들어 둔다: 나중에 꾸미기에서 귀를 고를 때는 이미 움직이는 좌석이다. */
-/* 🖍️ 귀 그림(def.earPicL·R)을 붙은 귀에 입힌다 — 파츠 그림과 같은 배관(applyPartPic · 같은 업로드 캐시) */
-function _humanEarPic(wrap, def){
-  try{ partPaintMod.applyPartPic(wrap, (def && def['earPic' + wrap.userData.humanEar]) || null); }catch(e){ console.warn('[사람 귀] 그림', e); }
-}
-/* 귀 까닥임 — 붙어 있는 사람 귀를 좌석의 귀 목록(seat.bones.ear)에 올리고, 떨어진 옛 귀는 걷는다.
-   동물 귀와 같은 등록(_registerAnimalEarOn)을 쓴다 — 사람 기본 모델의 ear 본도 웨이트가 없어서
-   본만 돌리면 아무것도 안 움직인다(부착물 자체를 돌려야 한다). */
-function _syncHumanEarRig(seat){
-  if(!seat || !seat.bones || !seat.bones.ear || !seat.modelRoot) return;
-  if(!seat.boneRest) seat.boneRest = {};
-  if(!seat.boneRest.ear) seat.boneRest.ear = [];
-  const live = [];
-  try{ seat.modelRoot.traverse(o=>{ if(o.userData && o.userData.humanEar) live.push(o); }); }catch(_){}
-  for(let i = seat.bones.ear.length - 1; i >= 0; i--){
-    const o = seat.bones.ear[i];
-    if(o && o.userData && o.userData.humanEar && live.indexOf(o) < 0){
-      seat.bones.ear.splice(i, 1); seat.boneRest.ear.splice(i, 1); seat.earTimers = null;
-    }
-  }
-  live.forEach(w=>_registerAnimalEarOn(seat, w));
-}
-function _attachHumanEars(root, def){
-  if(!humanEar || !root || (def && def.animal)) return;
-  try{
-    humanEar.ensureHolder(root);
-    humanEar.attachFromDef(root, def, { material:_humanEarMat,
-      onAttach:(w)=>{
-        _humanEarPic(w, def);
-        try{ wardrobeMod.wdEar.onEarAttached(root); }catch(_){}
-        /* 귀는 늦게 붙는다 — 이 좌석 머리 위에 이미 누가 타 있으면 그 '머리 꼭대기' 는 귀 없던 값이다 */
-        try{ const _s = seats.find(x=>x.modelRoot === root); if(_s){ _syncHumanEarRig(_s); rideBenchMod._remeasureRideHeadTop(_s); } }catch(_){}
-      } });
-    /* 귀를 뺐거나 파싱 캐시로 바로 붙은 경우 — 콜백만으로는 옛 귀가 목록에 남는다 */
-    try{ const _s = seats.find(x=>x.modelRoot === root); if(_s) _syncHumanEarRig(_s); }catch(_){}
-  }catch(e){ console.warn('[사람 귀] 붙이기 실패', e); }
-}
+const humanEar = humanEarAttachMod.humanEar;   // 옛 전역 이름
+const _humanEarMat = humanEarAttachMod._humanEarMat;   // 옛 전역 이름
+const _humanEarPic = humanEarAttachMod._humanEarPic;   // 옛 전역 이름
+const _syncHumanEarRig = humanEarAttachMod._syncHumanEarRig;   // 옛 전역 이름
+const _attachHumanEars = humanEarAttachMod._attachHumanEars;   // 옛 전역 이름
 
 /* ===== 기본 캐릭터 GLB (임베드) — face/cloth_upper/cloth_lower + 리깅 ===== */
-/* 읽기 · 복제는 bodyCore(캐릭터 코어) — 여기는 몸 모델 자산 공급과 옛 이름 잇기 */
-function b64ToBuf(b64){const bin=atob(b64);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;}
-/* 몸 모델 자산 공급 — 빌드에 base-glb.js 가 없으면(@@ 자리표) 대신 몸. base64 가 깨졌으면 예전처럼 거절된 약속으로. */
-function loadBaseGLB(){return new Promise(res=>{
-  if(!window.BASE_GLB_B64||window.BASE_GLB_B64.indexOf('@@')===0){res(false);return;}
-  res(bodyCore.loadBase(b64ToBuf(window.BASE_GLB_B64)));
-});}
-function instantiateBase(customScene){ return bodyCore.instantiateBase(customScene); }
-/* 커미션 GLB 파싱 캐시: base64 → THREE.Scene */
-const commSceneCache = new Map();
-async function getCommissionScene(glbB64){
-  if(commSceneCache.has(glbB64)) return commSceneCache.get(glbB64);
-  const buf = b64ToBuf(glbB64);
-  const scene = await assetCodeMod.parseGlbBytes(buf);
-  commSceneCache.set(glbB64, scene);
-  return scene;
-}
-function mkFaceTex(canvas){const t=new THREE.CanvasTexture(canvas);t.flipY=false;t.encoding=THREE.sRGBEncoding;t.needsUpdate=true;return t;}
-// 커미션(유료 제작) 캐릭터 크기 보정 배율 — 블렌더에서 맞춰 내보내도 작게 들어오는 경우가 있어 둔 자리. 지금은 보정 없음(1 · 옛 값 1.15).
-const COMMISSION_SCALE_CORRECTION = 1;
-function normalizeModel(group,targetH,isComm){ return bodyCore.normalizeModel(group, targetH, isComm ? COMMISSION_SCALE_CORRECTION : 1); }
+/* 몸 모델 공급 · 복제 · 크기는 character/base-body.js(코어 몸 포함) — 아래 const 는 옛 이름이다. */
+const skelShare = TwSkeletonShare;
+const baseBodyMod = TwBaseBody.createBaseBody({
+  loader: loader,
+  skelShare: skelShare,
+  _fixGlbMatLighting: (...a)=>_fixGlbMatLighting(...a),
+  setFaceMap: (...a)=>matToneMod.setFaceMap(...a),
+  applyLightPreset: (...a)=>matToneMod.applyLightPresetToInstance(...a),
+  assetCodeMod: ()=>assetCodeMod,
+});
+const bodyCore = baseBodyMod.bodyCore;   // 옛 전역 이름
+const b64ToBuf = baseBodyMod.b64ToBuf;   // 옛 전역 이름
+const loadBaseGLB = baseBodyMod.loadBaseGLB;   // 옛 전역 이름
+const instantiateBase = baseBodyMod.instantiateBase;   // 옛 전역 이름
+const commSceneCache = baseBodyMod.commSceneCache;   // 옛 전역 이름
+const getCommissionScene = baseBodyMod.getCommissionScene;   // 옛 전역 이름
+const mkFaceTex = baseBodyMod.mkFaceTex;   // 옛 전역 이름
+const COMMISSION_SCALE_CORRECTION = baseBodyMod.COMMISSION_SCALE_CORRECTION;   // 옛 전역 이름
+const normalizeModel = baseBodyMod.normalizeModel;   // 옛 전역 이름
 /* ============================================================ BUILDERS */
-const TORSO_Y=0.46;
-function buildDeskPlant(){ const g=new THREE.Group();
-  const pot=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.075,0.13,16),matPot); pot.position.y=0.065; pot.castShadow=true; g.add(pot);
-  for(let i=0;i<3;i++){const lf=new THREE.Mesh(new THREE.SphereGeometry(0.07,12,12),matLeaf);
-    lf.scale.set(0.7,1.4,0.7); lf.position.set(Math.cos(i/3*6.28)*0.04,0.18,Math.sin(i/3*6.28)*0.04);
-    lf.rotation.z=(i-1)*0.3; lf.castShadow=true; g.add(lf);} return g; }
-function buildCup(){ const g=new THREE.Group();
-  const cup=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.05,0.11,18),matPot); cup.position.y=0.055; cup.castShadow=true; g.add(cup);
-  const h=new THREE.Mesh(new THREE.TorusGeometry(0.035,0.013,8,16),matPot); h.position.set(0.07,0.06,0); h.rotation.y=Math.PI/2; g.add(h); return g; }
-function buildBooks(){ const g=new THREE.Group(); const cols=[matSage,matBlush,matWoodD];
-  for(let i=0;i<3;i++){ const b=new THREE.Mesh(new THREE.BoxGeometry(0.22-i*0.02,0.04,0.16),cols[i%cols.length]);
-    b.position.set(0,0.02+i*0.045,0); b.rotation.y=(i-1)*0.12; b.castShadow=true; g.add(b);} return g; }
-const DESK_ITEMS=[{id:'plant',name:'화분',build:buildDeskPlant},{id:'cup',name:'머그컵',build:buildCup},{id:'books',name:'책',build:buildBooks}];
-const DEFAULT_DESK_OVERRIDE_ID='__default_desk__';   // 관리자가 "기본 책상"을 우클릭해서 등록하면 이 예약 ID로 저장됨
-function buildDesk(plain){
-  const desk=new THREE.Group(); const deskTopY=0.46,deskZ=0.50;
-  const topM=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.08,0.6),matWood);
-  topM.position.set(0,deskTopY-0.04,deskZ); topM.castShadow=topM.receiveShadow=true; topM.name='deskTop'; desk.add(topM);
-  [[-0.72,0.32],[0.72,0.32],[-0.72,0.88],[0.72,0.88]].forEach(([x,z])=>{
-    const leg=new THREE.Mesh(new THREE.BoxGeometry(0.09,deskTopY-0.04,0.09),matWoodD);
-    leg.position.set(x,(deskTopY-0.04)/2,z); leg.castShadow=true; desk.add(leg);});
-  if(!plain){ const prop=buildDeskPlant(); prop.position.set(0.5,deskTopY,deskZ-0.06); desk.add(prop); }
-  const anchor=new THREE.Group(); anchor.position.set(0,deskTopY,deskZ); anchor.name='deskAnchor'; desk.add(anchor);
-  desk.userData.deskAnchor=anchor; return desk;
-}
-/* 책상 위 소품(아이템) 시스템 — holder = 좌석 또는 생성기 미리보기 */
-function applyDeskAdj(p){ const a=p.userData.adj; p.position.set(a.x||0,a.y||0,a.z||0); p.rotation.set(0,a.rot||0,0); p.scale.setScalar(a.scale||1); }
-/* 🪑 생성기 아이템마다 «이번 편집에서 처음 나타난 자리» — ⟲ 이동·회전 초기화가 돌아갈 곳(desk-item-origin.js) */
-const deskItemOrigin = (typeof DeskItemOrigin === 'undefined') ? null : DeskItemOrigin.createDeskItemOrigin();
-function _rememberCrItemOrigin(holder, p){
-  if(!deskItemOrigin || !p || typeof crState.cBase==='undefined' || holder!==crState.cBase) return;
-  deskItemOrigin.remember(p, p.userData.adj);
-}
-const activeItemMixers = new Set();   // 매 프레임 업데이트해야 할 아이템 애니메이션 믹서들
-// ★ 어플 8: playMode='idle'로 등록된 아이템 pivot들 — 매 프레임 소유 좌석 상태에 따라 재생/정지 전환.
-//   ★ 이름이 헷갈리지만 요청 동작은 이거예요:
-//     유저가 활동 중(마우스/타이핑) = 캐릭터 seatState()가 'focus' → 아이템 애니메이션 재생.
-//     가만히 있음(idle) / 자리비움(sleep) / 어지러움(dizzy) / 기타 → 정지.
-//   (관리자 UI에서 부르는 "idle 애니메이션"은 아이템 자체의 대기·존재감 연출 애니메이션이라는 뜻이고,
-//    이건 유저가 화면을 볼 만한 시점에만 돌아가면 됨.)
-const _idleItemPivots = new Set();
-
-/* ▶ 꾸미기 파츠 애니메이션 ─────────────────────────────────────────────────
-   책상 위 아이템의 playMode='idle'과 같은 동작을 파츠에도 제공한다.
-   animMode==='active'인 파츠는 아래 Set에 등록되고, updateActivePartPlayback()이 매 프레임
-   소유 좌석 상태를 보고 재생/일시정지를 전환한다.
-     재생  : seatState==='focus' (마우스·타이핑이 감지되는 활동 중)
-     일시정지: 그 외 전부 — 자리비움(sleep) · 어지러움(dizzy) · 가만히 있음(idle) 등
-   ★ stop()이 아니라 paused=true를 쓰는 이유: stop은 0프레임으로 되감아 파츠가 툭 튀는데,
-     일시정지는 그 자리에 멈춰 있다가 활동을 재개하면 이어서 움직인다. */
-const _activePartWraps = new Set();
-/* 🎬 파츠 애니메이션 진단을 **화면에도** 띄운다.
-   [경위] 진단은 원래 console.log 뿐이었는데, "안 움직인다"를 보고할 때 F12 를 열어 보는 사람이
-     없다시피 했다. 그래서 같은 내용을 토스트로도 한 번 낸다 — 원인 셋이 화면에서 전부 똑같이
-     '안 움직임'으로 보이는 것이 이 문제의 본질이라, 구분해 주는 것 자체가 답이다.
-   ⚠️ 관리자에게만 낸다. 일반 유저는 남의 파츠를 장착할 때마다 이 안내를 받을 이유가 없다.
-   ⚠️ 같은 파츠에 대해 한 번만 낸다 — 장착·재조립이 반복될 때마다 뜨면 토스트가 화면을 덮는다. */
-/* 🎬 이 클립이 **실제로 움직이는가** — 키프레임 값이 첫 프레임과 전부 같으면 '정지 포즈'다.
-   [경위] 클립이 여러 개 든 GLB 에서, 이름은 idle 인데 값이 전부 같은(포즈만 든) 클립이 실제로 있었다.
-     그러면 앱은 정상적으로 재생하는데 화면은 안 움직여서, '클립이 0개'인 경우와 구분이 안 된다.
-   ⚠️ 첫 프레임과의 차이만 본다 — 아주 느린 클립도 어딘가 한 프레임은 달라지므로 충분하다. */
-function _clipHasMotion(clip){
-  try{
-    if(!clip || !clip.tracks || !clip.tracks.length) return false;
-    for(const t of clip.tracks){
-      const v = t.values; if(!v || v.length < 2) continue;
-      const n = (typeof t.getValueSize === 'function') ? t.getValueSize() : 1;
-      if(!n) continue;
-      for(let i = n; i < v.length; i++){
-        if(Math.abs(v[i] - v[i % n]) > 1e-4) return true;
-      }
-    }
-    return false;
-  }catch(_){ return true; }   // 못 판단하면 '움직인다'로 둔다 — 멀쩡한 클립을 건너뛰는 쪽이 더 나쁘다
-}
-/* 🎬 어떤 클립을 틀지 고른다.
-   ★ 우선순위에 '실제로 움직이는가'가 이름보다 앞선다. 이름이 idle 인 정지 포즈를 골라 두면
-     그 GLB 는 영영 안 움직이는데, 정작 움직이는 클립이 같은 파일 안에 들어 있다.
-   ⚠️ 이름 매칭은 정확히 'idle' 인 것을 먼저 본다. 예전엔 /idle/ 포함으로만 찾아서
-     'dou_idle' 같은 이름이 배열에서 앞에 있으면 정작 'idle' 을 제치고 뽑혔다(실제 사례). */
-function _pickPartClip(animations){
-  if(!animations || !animations.length) return null;
-  const exact   = c => /^idle$/i.test(c.name || '');
-  const partial = c => /idle/i.test(c.name || '');
-  const moving  = animations.filter(_clipHasMotion);
-  return moving.find(exact) || moving.find(partial) || moving[0]
-      || animations.find(exact) || animations.find(partial) || animations[0];
-}
-const _partAnimNoticed = new Set();
-/* 🔇 토스트 알림은 끈다(요청사항).
-   [경위] 관리자 화면에서 파츠를 장착할 때마다 "클립이 0개예요" 같은 안내가 토스트로 떴다.
-     진단으로는 유용했지만, 애니메이션이 없는 파츠가 정상인 경우가 훨씬 많아서 실제로는
-     장착할 때마다 화면을 덮는 잡음이 됐다.
-   ★ console.log 진단은 그대로 남는다 — 호출부에서 이 함수와 짝으로 항상 찍고 있으므로,
-     "이 파츠가 왜 안 움직이지"를 볼 때는 개발자 콘솔에서 [파츠 애니] 로 검색하면 된다.
-   되살리려면 아래 return 한 줄만 지우면 된다. */
-function _partAnimNotice(rec, msg){
-  return;
-  /* eslint-disable no-unreachable */
-  try{
-    if(typeof isAdmin === 'undefined' || !isAdmin) return;
-    const key = (rec && rec.id) || '';
-    if(_partAnimNoticed.has(key)) return;
-    _partAnimNoticed.add(key);
-    toast('[' + ((rec && rec.name) || '파츠') + '] ' + msg);
-  }catch(_){}
-}
-
-/* 🐰 파츠 자체 클립에서 '남이 맡은 본' 트랙을 걷어낸다 ────────────────────────
-   [증상] 귀 파츠 하나가 까닥임과 별개로 혼자 뒤로 갔다 앞으로 오며 회전한다(rabbit 제보).
-   [원인] 그 GLB 는 원본 캐릭터의 아마추어를 통째로 안고 나왔다(spine·head·hand_L/R·leg_L/R·ear_L/R).
-     안에 든 클립 넷 중 셋(dou_idle·flower_idle·flowerAction)이 **키가 2개뿐인 정지 포즈**라,
-     _pickPartClip 이 '실제로 움직이는' 유일한 클립인 ArmatureAction — 원본 캐릭터의 몸통 동작
-     (head 회전 0.23rad + 손 흔들기) — 을 골랐다. 귀 밑동 웨이트가 head 에 39% 걸려 있어서
-     그 head 회전이 귀 전체를 앞뒤로 흔들었다. 이름 판정과는 무관한 별개 원인이다.
-   [원칙] 리지드 파츠에서 **까닥임이 맡은 귀 본과 그 조상**은 파츠 클립의 소관이 아니다.
-     조상(head·spine)이 하는 일은 이미 캐릭터의 진짜 본이 하고 있고(파츠는 거기 매달려 있다),
-     귀 본은 까닥임이 쓴다. 클립이 같은 본을 겹쳐 쓰면 파츠가 캐릭터와 따로 논다.
-   ★ 나머지 트랙은 그대로 둔다 — 클립을 통째로 끄면 진짜 애니메이션 귀 파츠까지 같이 죽는다.
-   ⚠️ GLTFLoader 는 트랙 이름에 노드 이름을 **정제해서** 넣는다('ear.L' → 'earL').
-     그래서 원본 이름과 정제 이름을 둘 다 넣고 비교한다. */
-function _sanitizeNodeName(s){
-  try{ if(THREE.PropertyBinding && THREE.PropertyBinding.sanitizeNodeName)
-         return THREE.PropertyBinding.sanitizeNodeName(String(s)); }catch(_){}
-  return String(s).replace(/\s/g,'_').replace(/[\[\]\.:\/]/g,'');
-}
-function _stripPartClipOwnedTracks(clip, obj, earObjs){
-  if(!clip || !clip.tracks || !earObjs || !earObjs.length) return clip;
-  const owned = new Set();
-  earObjs.forEach(e=>{
-    for(let n=e; n; n=n.parent){
-      if(n.name){ owned.add(n.name); owned.add(_sanitizeNodeName(n.name)); }
-      if(n===obj) break;
-    }
-  });
-  const keep = clip.tracks.filter(t=>{
-    let nm = '';
-    try{ nm = (THREE.PropertyBinding.parseTrackName(t.name)||{}).nodeName || ''; }
-    catch(_){ nm = String(t.name||'').split('.')[0]; }
-    return !owned.has(nm);
-  });
-  const cut = clip.tracks.length - keep.length;
-  if(!cut) return clip;
-  const out = clip.clone(); out.tracks = keep; out._twStrippedTracks = cut;
-  console.log('[파츠 애니] 클립 "'+clip.name+'" — 까닥임·부착이 맡은 본의 트랙 '+cut+'개 제외'
-    + ' (제외 대상: '+Array.from(owned).join(', ')+'). 이 본들은 캐릭터와 귀 까닥임이 담당합니다.');
-  return out;
-}
-function _setupPartIdleAnim(wrapper, obj, idleClip, rec, holder){
-  const mixer = new THREE.AnimationMixer(obj);
-  const action = mixer.clipAction(idleClip);
-  action.setLoop(THREE.LoopRepeat, Infinity);
-  wrapper.userData.itemMixer = mixer;
-  wrapper.userData.idleAction = action;
-  if(rec && rec.animMode === 'active'){
-    wrapper.userData.animHolder = holder;
-    action.play(); action.paused = true;      // 판정은 updateActivePartPlayback이 매 프레임 담당
-    _activePartWraps.add(wrapper);
-  } else {
-    action.play();
-    activeItemMixers.add(mixer);              // 기존 동작 — 계속 반복재생
-  }
-}
-function _teardownPartIdleAnim(wrapper){
-  if(!wrapper || !wrapper.userData) return;
-  if(wrapper.userData.itemMixer) activeItemMixers.delete(wrapper.userData.itemMixer);
-  _activePartWraps.delete(wrapper);
-}
-function updateActivePartPlayback(){
-  if(!_activePartWraps.size) return;
-  const now = performance.now();
-  _activePartWraps.forEach(wrp=>{
-    const ud = wrp.userData || {};
-    const a = ud.idleAction, m = ud.itemMixer, holder = ud.animHolder;
-    if(!a || !m || !holder){ _activePartWraps.delete(wrp); return; }
-    // 꾸미기 미리보기 캐릭터는 좌석이 아니라 상태 개념이 없다 — 확인용으로 계속 재생.
-    const isPreview = (typeof seats === 'undefined') || !seats.includes(holder);
-    const shouldPlay = isPreview || (seatState(holder, now) === 'focus');
-    if(shouldPlay){
-      if(a.paused) a.paused = false;
-      if(!a.isRunning()) a.play();
-      activeItemMixers.add(m);
-    } else if(!a.paused){
-      a.paused = true;                 // 그 자리에 정지 — 되감지 않음
-      activeItemMixers.delete(m);
-    }
-  });
-}
-function updateIdleItemPlayback(){
-  if(!_idleItemPivots.size) return;
-  const now = performance.now();
-  _idleItemPivots.forEach(pivot=>{
-    const a = pivot.userData && pivot.userData.idleAction;
-    const m = pivot.userData && pivot.userData.itemMixer;
-    const holder = pivot.userData && pivot.userData.holder;
-    if(!a || !m || !holder) return;
-    const state = seatState(holder, now);
-    const shouldPlay = (state === 'focus');
-    const isPlaying = a.isRunning();
-    if(shouldPlay && !isPlaying){
-      a.reset(); a.play();
-      activeItemMixers.add(m);
-    } else if(!shouldPlay && isPlaying){
-      a.stop();
-      activeItemMixers.delete(m);
-    }
-    // 🔥 빡일중(grind) 상태일 땐 이 아이템의 재생 속도를 2배로 (요청사항 — 유저가 몰입 중일 때 아이템도 활발히)
-    //   본인 좌석은 userStatus, 친구 좌석은 remoteUserStatus를 참조 (seatState와 동일 규칙)
-    if(shouldPlay){
-      const us = holder.isMe ? userStatus : (holder.remote ? holder.remoteUserStatus : null);
-      a.timeScale = (us === 'grind') ? 2.0 : 1.0;
-    }
-  });
-}
-// ★ 좌석의 활성 책상 아이템 중 handTrackers(hand_L/hand_R 마커)가 있는 것들을, 그 좌석 캐릭터의
-//   실제 손 본 위치에 맞춰 매 프레임 갱신 — frame() 루프에서 좌석별 포즈 갱신 뒤에 호출됨.
-const _handWorldTmp = new THREE.Vector3();
-function updateItemHandTrackers(seat){
-  if(!seat.deskItems) return;
-  for(const id in seat.deskItems){
-    const pivot=seat.deskItems[id]; if(!pivot || !pivot.userData.handTrackers) continue;
-    const tr=pivot.userData.handTrackers;
-    ['L','R'].forEach(side=>{
-      const node=tr[side]; const bone=seat.bones && seat.bones['hand'+side];
-      if(!node || !bone) return;
-      bone.updateWorldMatrix(true,false);   // 이번 프레임 포즈(타이핑 등)가 반영된 최신 위치를 확실히 가져오기 위함
-      bone.getWorldPosition(_handWorldTmp);
-      if(node.parent) node.parent.worldToLocal(_handWorldTmp);
-      node.position.copy(_handWorldTmp);
-    });
-  }
-}
-function equipDeskItem(holder,def,on){
-  // ★ 라이선스 보유자 전용으로 등록된 아이템은 라이선스(isPremium) 또는 관리자가 아니면 장착 자체를 막음.
-  //   ⚠️ 단 **친구 좌석(holder.remote)에는 걸지 않는다.** applyDeskItemsTo가 친구 좌석을 그릴 때도
-  //     이 함수를 타는데, 여기서 '보는 사람'의 라이선스를 보면 라이선스 있는 친구가 올려둔 아이템이
-  //     라이선스 없는 내 화면에서만 사라진다(applyDeskCatalogRefToSeat와 같은 함정).
-  /* ⚠️ def.licenseOnly 만 보면 새는 자리가 있다 — 캐릭터에 딸려온 customItems 는 registerCustomItem 을
-     licenseOnly 인자 없이 부르는 세 곳(슬롯 적용·좌석 적용·프리셋)에서 **licenseOnly:false 로 등록**된다.
-     카탈로그가 먼저 도착했으면 `if(!customItems[id])` 가드에 걸려 무사하지만, 캐릭터가 먼저 닿으면
-     그 세션 내내 전용 아이템이 게이트를 통째로 안 탄다. 원본은 카탈로그 레코드(savedItems)이므로
-     그쪽도 함께 본다 — 카탈로그가 늦게 와도 그때부터는 맞는 답이 된다.
-     savedItems 는 아래에서 let 으로 선언되므로 typeof 가 아니라 try 로 감싼다(TDZ). */
-  let _siCat = null; try{ _siCat = commissionMod.savedItems(); }catch(_){}
-  const _siRec = (_siCat && _siCat.find && def && def.id) ? _siCat.find(s=>s.id===def.id) : null;
-  const _itemLicenseOnly = !!(def && def.licenseOnly) || !!(_siRec && _siRec.licenseOnly);
-  if(on && _itemLicenseOnly && !isPremium && !isAdmin && !(holder && holder.remote)){
-    toast('🔒 "'+(def.name||'이 아이템')+'"은(는) 라이선스 보유자만 사용할 수 있어요');
-    return;
-  }
-  if(!holder.deskItems)holder.deskItems={};
-  if(!holder._itemAdjMemory)holder._itemAdjMemory={};   // 해제했다가 다시 장착할 때 이전 위치/크기 조정값을 기억해뒀다가 복원하기 위함
-  const cur=holder.deskItems[def.id];
-  if(cur){
-    holder._itemAdjMemory[def.id]=Object.assign({},cur.userData.adj);   // 해제 직전 값을 기억
-    if(cur.userData.colors) holder._itemAdjMemory[def.id]._colors = Object.assign({}, cur.userData.colors);   // 런처3-1: 색상도 함께 기억
-    if(cur.userData.itemMixer) activeItemMixers.delete(cur.userData.itemMixer);   // 해제 시 믹서 업데이트 목록에서도 제거
-    _idleItemPivots.delete(cur);   // 어플 8: 자리비움 재생 대상에서도 제거
-    if(cur.parent)cur.parent.remove(cur); holder.deskItems[def.id]=null;
-    if(holder.activeDeskItem===cur){
-      holder.activeDeskItem=null;
-      // 런처4-2: 활성 아이템이 방금 해제됐으니 기즈모도 즉시 숨김
-      if(holder===crState.cBase) crXformMod.attachItemGizmoToActive();
-    }
-  }
-  // ★ 아이템의 attachTo가 'handL'/'handR'이고 캐릭터 본이 있으면 책상 앵커 대신 손 본에 부착 —
-  //   기존 꾸미기 파츠(handL/handR 카테고리)와 동일한 seat.bones 조회 방식을 그대로 재사용.
-  const wantBone = (def.attachTo && def.attachTo!=='desk') ? def.attachTo : null;
-  const boneParent = wantBone && holder.bones && holder.bones[wantBone];
-  const attachParent = boneParent || holder.deskAnchor;
-  if(on && attachParent){ const obj=def.build(); const pivot=new THREE.Group(); attachParent.add(pivot); pivot.add(obj);
-    pivot.userData.isDeskItemPivot=true;   // classifyHit에서 "아이템 클릭"으로 구분하는 마커
-    // ★ 런처3-1: 아이템 GLB에도 파츠와 동일한 _col 네이밍(_col, _col1, _col2, ...)이 있으면 색상 그룹으로 인식.
-    //   해당 메쉬들을 pivot.userData.colorGroups에 담아두고, 나중에 상세조정 UI에서 색을 바꿀 수 있게 함.
-    //   저장·복원은 def.itemColors(=holder에 저장, id별) 형태로 하고, 실제 material.color/emissive를 갱신.
-    const itemColorGroups = {};
-    obj.traverse(o=>{
-      if(!o.isMesh) return;
-      const mats = Array.isArray(o.material) ? o.material : [o.material];
-      const m = mats[0];
-      const colMatch = (o.name && o.name.match(/_col(\d*)/i)) || (m && m.name && m.name.match(/_col(\d*)/i));
-      if(colMatch){
-        const key = 'col'+(colMatch[1]||'1');
-        if(m && m.color) o.userData.origColor = m.color.getHexString();
-        (itemColorGroups[key] = itemColorGroups[key]||[]).push(o);
-      }
-    });
-    if(Object.keys(itemColorGroups).length) pivot.userData.colorGroups = itemColorGroups;
-    // ★ 아이템 GLB 안에 이름이 "hand_L"/"handL"/"hand_R"/"handR"인 자식 오브젝트가 있으면, 그 지점만
-    //   캐릭터의 실제 손 본 위치를 매 프레임 따라가도록 등록(예: 반죽 양 끝을 손이 잡고 늘이는 연출).
-    //   아이템 자체는 책상/부착 위치에 그대로 있고, 이 특정 지점들만 손을 따라감(frame()의 updateItemHandTrackers 참고).
-    const handTrackers={};
-    obj.traverse(o=>{
-      if(/^hand[_-]?l$/i.test(o.name)) handTrackers.L=o;
-      else if(/^hand[_-]?r$/i.test(o.name)) handTrackers.R=o;
-    });
-    if(handTrackers.L || handTrackers.R) pivot.userData.handTrackers = handTrackers;
-    // ★ 관리자가 등록 시 "발광 효과"를 켜뒀으면(def.glow) 아이템 옆에 은은한 원형 빛 스프라이트를 추가함.
-    // ★ 발광 효과 비활성화(요청사항: 발광 없는 게 나음) — 기존에 glow로 등록된 아이템도 더 이상 빛나지 않음.
-    // if(def.glow) pivot.userData.glowSprite = applyGlowEffect(obj);
-    // 클립 이름에 "idle"이 포함된 게 있으면 그걸, 없으면 첫 번째 클립을 클릭 시 재생용 idle 애니메이션으로 지정
-    if(def.animations && def.animations.length){
-      const mixer=new THREE.AnimationMixer(obj);
-      const idleClip = def.animations.find(c=>/idle/i.test(c.name)) || def.animations[0];
-      pivot.userData.itemMixer=mixer;
-      pivot.userData.idleAction=mixer.clipAction(idleClip);
-      // ★ 재생 방식: 'click'(기본, 클릭 시 1회), 'auto'(항상 반복재생), 'idle'(유저가 자리 비웠을 때만 반복재생).
-      //   하위호환: 예전 아이템에 def.playMode가 없고 def.autoPlay:true면 'auto'로, 아니면 'click'으로 취급.
-      const playMode = def.playMode || (def.autoPlay ? 'auto' : 'click');
-      pivot.userData.playMode = playMode;
-      if(playMode==='auto'){
-        // ★ 관리자가 "자동 재생"으로 등록한 아이템 — 클릭 없이 바로, 계속 반복 재생됨(팬 돌아가기, 촛불 흔들리기 등 배경 연출용)
-        pivot.userData.idleAction.setLoop(THREE.LoopRepeat, Infinity);
-        pivot.userData.idleAction.play();
-        activeItemMixers.add(mixer);
-      } else if(playMode==='idle'){
-        // ★ 자리비움(idle) 감지 시에만 반복재생 — 매 프레임 체크(updateIdleItemPlayback)에서 켜고 끔.
-        //   장착 시점엔 유저가 활동 중이라고 보고 정지 상태로 시작.
-        pivot.userData.idleAction.setLoop(THREE.LoopRepeat, Infinity);
-        // 자동 등록: 매 프레임 체크에서 이 pivot을 볼 수 있게 컬렉션에 등록
-        _idleItemPivots.add(pivot);
-      } else {
-        pivot.userData.idleAction.setLoop(THREE.LoopOnce,1);
-        pivot.userData.idleAction.clampWhenFinished=true;
-      }
-    }
-    if(def.custom){
-      // 업로드된 커스텀 아이템: 책상처럼(normalizeDeskObj) 원본 GLB의 실제 크기(바운딩박스)를 재서
-      //   목표 크기(가로/세로/높이 중 제일 큰 값 기준)에 자동으로 맞춤 — 원본을 얼마나 크게/작게 export했든
-      //   항상 일정한 크기로 나옴(고정 배율 방식보다 훨씬 안정적).
-      // ITEM_TARGET_SIZE: 관리자가 등록 시 개별 설정 안 했으면 쓰는 기본값(하위호환용). 개별 설정은 def.defaultSize 우선.
-      const ITEM_TARGET_SIZE = (def.defaultSize!=null) ? def.defaultSize : 0.8;
-      // ★ 본(스켈레톤)이 있는 모델은 바운딩박스가 실제 자세보다 낮게 잡히는 경우가 있어서(THREE.js가 rest pose
-      //   기준으로 계산함) 기본 보정값을 둠. 아래 두 숫자만 조절하면 모든 커스텀 아이템의 시작 위치가 한번에 맞춰짐.
-      const ITEM_Y_START_OFFSET = 1.1;   // 높이 보정 — 양수=더 위로, 음수=더 아래로 (고정값)
-      const ITEM_Z_START_OFFSET = 0;      // 앞뒤 보정 — 양수=더 앞으로(카메라 쪽), 음수=더 뒤로
-      obj.updateMatrixWorld(true);
-      const box=new THREE.Box3().setFromObject(obj);
-      const center=box.getCenter(new THREE.Vector3());
-      // ★ 핵심: obj를 피봇 안에서 다시 배치 — 제작자가 원본 GLB에 잡아둔 원점이 어디든 상관없이,
-      //   "메쉬 바닥 중앙"이 피봇의 원점(0,0,0)에 오도록 옮김. 이후 +/-(크기)나 회전은 항상 이 바닥중앙 기준으로
-      //   자연스럽게 동작함(원래는 원본 원점 기준이라 크기 조절할 때마다 위치가 이상하게 튀었음).
-      obj.position.x -= center.x;
-      obj.position.z -= center.z;
-      obj.position.y -= box.min.y;
-      const sz=box.getSize(new THREE.Vector3());
-      const maxDim=Math.max(sz.x,sz.y,sz.z,0.001);
-      const itemScale = isFinite(maxDim) ? ITEM_TARGET_SIZE/maxDim : 1;
-      // 🔎 진단 로그(아이템 크기 컨텍스트 차이) — 문제 원인 파악 후 이 두 줄만 지우면 됨.
-      const _parentSc = (holder && holder.desk) ? holder.desk.scale.x : (holder && holder.deskAnchor ? holder.deskAnchor.getWorldScale(new THREE.Vector3()).x : '?');
-      console.log('[아이템크기]', def.id, '| holder=', holder===crState.cBase?'생성기':(holder===launcherPrevMod.lHolder()?'런처':'실행'), '| desk.scale=', _parentSc, '| maxDim=', maxDim.toFixed(3), '| itemScale=', itemScale.toFixed(3));
-      pivot.userData.autoScale = itemScale;   // ★ "지금 이 컨텍스트에서" 계산된 순수 자동 크기값 — 저장/복원 시 사용자 조정 비율을 재적용하기 위해 별도 보관
-      pivot.userData.adj={x:0,y:ITEM_Y_START_OFFSET,z:ITEM_Z_START_OFFSET,scale:itemScale,rot:0};
-    } else {
-      pivot.userData.adj={x:0,z:0,scale:1,rot:0};   // 기본 내장 아이템(화분/머그컵/책)은 이미 정확히 맞춰져 있어서 그대로
-    }
-    if(holder._itemAdjMemory[def.id]){
-      // ★ y도 유지 — 유저가 기즈모로 조절한 아이템 높이가 다음 로드 시에도 반영되도록.
-      const mem=Object.assign({}, holder._itemAdjMemory[def.id]);
-      // 런처3-1: 색상은 별도로 pivot.userData.colors에 복원 (adj와 분리)
-      if(mem._colors){ pivot.userData.colors = Object.assign({}, mem._colors); delete mem._colors; }
-      Object.assign(pivot.userData.adj, mem);
-    }
-    holder.deskItems[def.id]=pivot; holder.activeDeskItem=pivot; applyDeskAdj(pivot);
-    _rememberCrItemOrigin(holder, pivot);   // 새로 놓인 아이템의 처음 자리(불러온 저장값은 applyDeskItemsTo 가 다시 적는다)
-    if(pivot.userData.colors) _applyItemColor(pivot);
-    pivot.userData.holder = holder;   // 어플 8: idle 재생 판정에 필요 — 소유 좌석 상태를 알아야 함
-    if(typeof crState.cBase!=='undefined' && holder===crState.cBase) deskSetupMod.selectDeskItemForAdjust(pivot);   // 생성기 안에서는 방금 장착한 아이템도 선택 표시
-  }
-}
-// 아이템 pivot을 클릭했을 때 idle 애니메이션을 한 번 재생 (끝나면 마지막 프레임에서 정지)
-function playItemIdle(pivot){
-  const a=pivot && pivot.userData && pivot.userData.idleAction; if(!a) return false;
-  a.reset(); a.play();
-  activeItemMixers.add(pivot.userData.itemMixer);
-  return true;
-}
-function collectDeskItems(holder){ const d={}; let any=false; deskItemsMod.allDeskItems().forEach(def=>{ const p=holder.deskItems&&holder.deskItems[def.id]; if(p){ d[def.id]={adj:Object.assign({},p.userData.adj)}; if(p.userData.autoScale!=null) d[def.id].autoScale=p.userData.autoScale;
-  // ★ 색상은 비어있어도 항상 저장 — "초기화(원본으로 복원)한 상태"를 명시적으로 기록해서
-  //   실행 화면 로드 시 이전에 저장돼 있던 색이 남지 않게 함. 예전엔 빈 객체면 필드가 빠져서 초기화가 안 반영됐음.
-  if(p.userData.colorGroups) d[def.id].colors=Object.assign({},p.userData.colors||{});
-  any=true;} }); return any?d:null; }
-/* ★ 생성기에서 책상 아이템을 켜고 끌 때 "완성 → 저장"을 눌러야만 반영되던 게 혼란을 줬음(꾸미기 파츠는
-   토글 즉시 저장되는 것과 비대칭) — 아이템 켜고/끄는 즉시 여기서 바로 def에 반영 + 저장까지 함.
-   단, 새 캐릭터(아직 한 번도 저장 안 한)일 땐 cBase.charDef가 없어서 조용히 건너뜀(완성 시 정상 저장됨). */
-function autoSaveDeskItemsNow(){
-  if(!crState.cBase || !crState.cBase.charDef) return;
-  const def = crState.cBase.charDef;
-  const di = collectDeskItems(crState.cBase);
-  def.deskItems = di;
-  if(di){
-    const ci={}; Object.keys(di).forEach(id=>{ const c=customItems[id]; const rec=commissionMod.savedItems().find(s=>s.id===id);
-      if(c && !(rec&&rec.fromCatalog)) ci[id]={name:c.name,glb:c.glb}; });
-    if(Object.keys(ci).length) def.customItems=ci;
-  }
-  slotSaveMod.saveSlots();
-}
-function applyDeskItemsTo(holder,data){ if(!data||!holder.deskAnchor)return; Object.keys(data).forEach(id=>{ const def=deskItemsMod.deskItemDef(id); if(!def)return; const e=data[id]; equipDeskItem(holder,def,true); const p=holder.deskItems[id]; if(p&&e.adj){
-    const savedAdj=Object.assign({},e.adj);
-    // ★ 예전엔 y를 자동 계산값(ITEM_Y_START_OFFSET)으로 강제 복원해서 저장값을 무시했음 — 유저가 기즈모로
-    //   조절할 수 있는 UI가 없다고 가정한 옛 로직. 지금은 기즈모로 자유롭게 y 조작 가능하므로 저장값 그대로 씀.
-    //   (y가 저장 안 된 옛 데이터는 그대로 undefined → applyDeskAdj에서 a.y||0으로 처리)
-    // ★ 커스텀 아이템(자동 정규화 대상)이고 저장 당시의 autoScale 정보가 있으면 — "그때 화면에서 사용자가
-    //   자동 크기 대비 얼마나 키우거나 줄였는지" 비율을 구해서, 지금 이 화면(생성기/런처/실행)에서 방금
-    //   새로 계산된 autoScale에 그 비율을 곱해 절대 크기를 다시 환산함. 책상/좌석 스케일이 화면마다 다른
-    //   시점에 적용돼도 아이템 크기가 항상 똑같이(ITEM_TARGET_SIZE 기준으로) 재현됨.
-    //   (autoScale 정보가 없는 예전 저장 캐릭터는 예전처럼 절대값 그대로 사용 — 기존 모습 그대로 유지)
-    if(e.autoScale && p.userData.autoScale){
-      const userMul = (e.adj.scale!=null ? e.adj.scale : e.autoScale) / e.autoScale;
-      savedAdj.scale = p.userData.autoScale * userMul;
-    }
-    // 🔎 진단 로그 2 — 최종 복원 단계. e.autoScale(저장된 자동값), e.adj.scale(저장된 최종값),
-    //   p.userData.autoScale(지금 막 새로 계산된 값), savedAdj.scale(이번에 실제로 적용될 최종값)을 비교.
-    console.log('[아이템크기-복원]', id, '| holder=', holder===crState.cBase?'생성기':(holder===launcherPrevMod.lHolder()?'런처':'실행'),
-      '| 저장된 autoScale=', e.autoScale, '| 저장된 adj.scale=', e.adj.scale,
-      '| 지금 계산된 autoScale=', p.userData.autoScale, '| 최종 적용 scale=', savedAdj.scale,
-      '| rot=', savedAdj.rot);   // 🔄 [제보 4] 회전이 저장까지 왔는지 한눈에
-    Object.assign(p.userData.adj,savedAdj);applyDeskAdj(p);
-    _rememberCrItemOrigin(holder, p);   // 불러온 자리가 이 아이템의 처음 자리
-    // ★ 런처3-1: 저장된 아이템 색상(colors) 복원 — 그룹별로 material.color/emissive를 갱신.
-    //   저장된 colors에 없는 그룹은 원본색(origColor)으로 강제 복원 — 예전에 저장된 색이 남지 않게.
-    if(p.userData.colorGroups){
-      p.userData.colors = Object.assign({}, e.colors||{});
-      Object.keys(p.userData.colorGroups).forEach(key=>{
-        if(p.userData.colors[key]!=null) return;   // 저장된 색은 아래 _applyItemColor가 처리
-        // 원본 색으로 복원
-        (p.userData.colorGroups[key]||[]).forEach(m=>{
-          if(!m.material || !m.userData.origColor) return;
-          const hex='#'+m.userData.origColor;
-          if(m.material.color) m.material.color.set(hex);
-          if(m.material.emissive){
-            const flat=lightToneMod.baseFlatOf(m.material);
-            m.material.emissive.copy(m.material.color).multiplyScalar(flat);
-            m.material.needsUpdate=true;
-          }
-        });
-      });
-      _applyItemColor(p);
-    }
-  } }); }
-// 색상 그룹의 실제 material에 저장된 색을 반영 (파츠의 applyColor와 같은 로직)
-function _applyItemColor(pivot){
-  if(!pivot || !pivot.userData || !pivot.userData.colorGroups || !pivot.userData.colors) return;
-  Object.keys(pivot.userData.colors).forEach(key=>{
-    const val = pivot.userData.colors[key];
-    const meshes = pivot.userData.colorGroups[key] || [];
-    meshes.forEach(o=>{
-      if(!o.material) return;
-      if(o.material.color) o.material.color.set(val);
-      if(o.material.emissive){
-        const flat = lightToneMod.baseFlatOf(o.material);
-        o.material.emissive.copy(o.material.color).multiplyScalar(flat);
-        o.material.needsUpdate = true;
-      }
-    });
-  });
-}
-function buildPlaceholder(){
-  const root=new THREE.Group();
-  const torso=new THREE.Group(); torso.position.y=TORSO_Y; root.add(torso);
-  const body=new THREE.Mesh(new THREE.SphereGeometry(0.42,32,32),matSage); body.scale.set(1,1.1,0.9); body.castShadow=true; torso.add(body);
-  const head=new THREE.Group(); head.position.set(0,0.62,0); torso.add(head);
-  const hm=new THREE.Mesh(new THREE.SphereGeometry(0.4,32,32),matSage); hm.castShadow=true; head.add(hm);
-  function eye(x){const g=new THREE.Group();
-    const w=new THREE.Mesh(new THREE.SphereGeometry(0.085,16,16),matWhite); w.scale.set(1,1.15,0.6);
-    const p=new THREE.Mesh(new THREE.SphereGeometry(0.05,16,16),matInk); p.position.z=0.05; p.scale.set(1,1.1,0.6);
-    g.add(w);g.add(p); g.position.set(x,0.05,0.34); return g;}
-  const eyeL=eye(-0.15),eyeR=eye(0.15); head.add(eyeL);head.add(eyeR);
-  function cheek(x){const c=new THREE.Mesh(new THREE.SphereGeometry(0.055,16,16),matBlush); c.scale.set(1.3,0.8,0.4); c.position.set(x,-0.08,0.33); return c;}
-  head.add(cheek(-0.22));head.add(cheek(0.22));
-  const mouth=new THREE.Mesh(new THREE.SphereGeometry(0.03,12,12),matInk); mouth.scale.set(1.6,0.7,0.5); mouth.position.set(0,-0.12,0.37); head.add(mouth);
-  [[-0.16,-0.4],[0.16,0.4]].forEach(([x,rot])=>{const l=new THREE.Mesh(new THREE.SphereGeometry(0.09,16,16),matSageD);
-    l.scale.set(0.6,1.3,0.5); l.position.set(x,0.4,0); l.rotation.z=rot; l.castShadow=true; head.add(l);});
-  function arm(x){const a=new THREE.Mesh(new THREE.SphereGeometry(0.13,16,16),matSage); a.scale.set(0.7,0.7,1.1); a.position.set(x,0.10,0.22); a.castShadow=true; return a;}
-  const armL=arm(-0.38),armR=arm(0.38); torso.add(armL);torso.add(armR);
-  return {root,torso,head,eyeL,eyeR,armL,armR};
-}
+/* ▶ 파츠 · 아이템 애니메이션 재생(character/part-anim.js) — 아래 const 는 옛 전역 이름이다. */
+const partAnimMod = TwPartAnim.createPartAnim({
+  isAdmin: ()=>isAdmin,
+  seatState: (...a)=>seatState(...a),
+  seats: ()=>seats,
+  toast: (...a)=>toast(...a),
+  userStatus: ()=>userStatusMod.userStatus(),
+});
+const activeItemMixers = partAnimMod.activeItemMixers;   // 옛 전역 이름
+const _idleItemPivots = partAnimMod._idleItemPivots;   // 옛 전역 이름
+const _clipHasMotion = partAnimMod._clipHasMotion;   // 옛 전역 이름
+const _pickPartClip = partAnimMod._pickPartClip;   // 옛 전역 이름
+const _partAnimNotice = partAnimMod._partAnimNotice;   // 옛 전역 이름
+const _stripPartClipOwnedTracks = partAnimMod._stripPartClipOwnedTracks;   // 옛 전역 이름
+const _setupPartIdleAnim = partAnimMod._setupPartIdleAnim;   // 옛 전역 이름
+const _teardownPartIdleAnim = partAnimMod._teardownPartIdleAnim;   // 옛 전역 이름
+const updateActivePartPlayback = partAnimMod.updateActivePartPlayback;   // 옛 전역 이름
+const updateIdleItemPlayback = partAnimMod.updateIdleItemPlayback;   // 옛 전역 이름
+const updateItemHandTrackers = partAnimMod.updateItemHandTrackers;   // 옛 전역 이름
+const playItemIdle = partAnimMod.playItemIdle;   // 옛 전역 이름
+/* 🪑 책상 아이템 장착(character/desk-item-equip.js) — 아래 const 는 옛 전역 이름이다. */
+const deskItemEquipMod = TwDeskItemEquip.createDeskItemEquip({
+  _idleItemPivots: _idleItemPivots,
+  activeItemMixers: activeItemMixers,
+  commissionMod: ()=>commissionMod,
+  crState: ()=>crState,
+  crXformMod: ()=>crXformMod,
+  customItems: ()=>customItems,
+  deskItemsMod: ()=>deskItemsMod,
+  deskSetupMod: ()=>deskSetupMod,
+  launcherPrevMod: ()=>launcherPrevMod,
+  licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),
+  catalogReceived: ()=>!!catalogApiMod.current(),
+  slotSaveMod: ()=>slotSaveMod,
+  lightToneMod: lightToneMod,
+  toast: (...a)=>toast(...a),
+});
+const applyDeskAdj = deskItemEquipMod.applyDeskAdj;   // 옛 전역 이름
+const deskItemOrigin = deskItemEquipMod.deskItemOrigin;   // 옛 전역 이름
+const equipDeskItem = deskItemEquipMod.equipDeskItem;   // 옛 전역 이름
+const collectDeskItems = deskItemEquipMod.collectDeskItems;   // 옛 전역 이름
+const autoSaveDeskItemsNow = deskItemEquipMod.autoSaveDeskItemsNow;   // 옛 전역 이름
+const applyDeskItemsTo = deskItemEquipMod.applyDeskItemsTo;   // 옛 전역 이름
+const _applyItemColor = deskItemEquipMod._applyItemColor;   // 옛 전역 이름
 
 /* ============================================================ SEATS */
-const seats=[]; let selected=null;
-// ★ 좌석 간 간격 — 책상 폭(1.7)보다 좁게 잡아서 책상끼리 "한뼘 정도"만 떨어지게 함.
-//   자리 추가(솔로)/멀티플레이어 친구 좌석 모두 이 값 하나로 공통 적용됨(layoutSeats에서 재사용).
-//   더 좁히고 싶으면 값을 줄이고(단, 너무 작으면 책상끼리 겹쳐 보일 수 있음), 넓히고 싶으면 늘리세요.
-// ★ 좌석(책상) 간 여백 — 예전엔 고정 상수였는데, 사용자가 설정 패널에서 직접 조절할 수 있게 변경.
-//   솔로/멀티 각각 따로 저장되고(모드 전환해도 서로 기억), 최소값(GAP_MIN)은 책상끼리 겹치지 않을
-//   정도로 낮게 잡아둬서 아무리 좁혀도 실제로 겹쳐지진 않음.
-const GAP_MIN = 0.02, GAP_MAX = 1.2, GAP_STEPS = 15;
-const GAP_KEY_SOLO='tw.gapSolo', GAP_KEY_MULTI='tw.gapMulti';
-function _loadGap(key, def){ try{ const v=parseFloat(localStorage.getItem(key)); if(!isNaN(v)) return Math.max(GAP_MIN,Math.min(GAP_MAX,v)); }catch(e){} return def; }
-let SPACING = _loadGap(GAP_KEY_SOLO, 0.3);
-let MULTIPLAYER_SPACING = _loadGap(GAP_KEY_MULTI, 0.45);
-function saveGap(){ try{ localStorage.setItem(GAP_KEY_SOLO, String(SPACING)); localStorage.setItem(GAP_KEY_MULTI, String(MULTIPLAYER_SPACING)); }catch(e){} }
-function createSeat(){
-  const group=new THREE.Group();
-  const desk=buildDesk(true); group.add(desk);
-  const _dt=desk.getObjectByName('deskTop'); let deskMat=null; if(_dt){ _dt.material=_dt.material.clone(); deskMat=_dt.material; }
-  const rig=new THREE.Group(); rig.position.set(0,0,CHAR_Z);
-  const bodyWrap=new THREE.Group(); rig.add(bodyWrap); group.add(rig);
-  const ph=buildPlaceholder(); bodyWrap.add(ph.root);
-  const seat={
-    group,desk,deskMat,deskGltf:null,rig,bodyWrap,placeholder:ph,contactShadow:null,
-    isPlaceholder:true,gltfRoot:null,mixer:null,actions:{},current:null,
-    faceMat:null,faceMapOrig:null,blinkTex:null,
-    userScale:1,userY:0,userZ:0,userRot:Math.PI,userX:0,
-    petStart:-1e9,targetX:0,
-    pose:{leanX:0,turnY:0,slumpY:0,breSpd:2,breAmp:0.025,eyeOpen:1,arm:0},
-    breathePhase:Math.random()*6.28, swayPhase:Math.random()*6.28, headPhase:Math.random()*6.28,
-    smooth:0.0016+Math.random()*0.0012,
-    bones:{spine:null,head:null,handL:null,handR:null,legL:null,legR:null,ear:[]}, boneRest:{}, hasRig:false,
-    blink:TwBlinkTiming.createBlink(performance.now()),
-    // 귀 까닥임(랜덤, 가끔) — ear 본이 있는 캐릭터에서만 동작. 상태(idle/focus 등)와 무관하게 독립적으로 작동.
-    earNextAt: performance.now()+3000+Math.random()*5000, earFlickStart:null,
-    // 머리 위 레벨/이름 이름표 — group에 직접 붙여서(rig 아님) 드래그/흔들기 중에도 책상처럼 제자리에 고정.
-    // 머리 위 이름표/말풍선은 DOM 요소로 지연 생성됨(seat.namePlateEl / seat.bubbleEl) — 여기서 미리 선언 불필요.
-  };
-  group.userData.seat=seat;
-  seat.deskAnchor=desk.userData.deskAnchor; seat.deskItems={}; seat.activeDeskItem=null;
-  seat.headAnchor=new THREE.Group(); seat.bodyAnchor=new THREE.Group();
-  bodyWrap.add(seat.headAnchor); bodyWrap.add(seat.bodyAnchor);
-  seat.headAnchor.position.set(0,1.08,0); seat.bodyAnchor.position.set(0,0.46,0);
-  seat.equipped={hair:null,accessory:null,clothes:null}; seat.equippedId={hair:null,accessory:null,clothes:null};
-  scene.add(group); seats.push(seat); layoutSeats(); return seat;
-}
-function removeSeat(seat){
-  const i=seats.indexOf(seat); if(i<0||seats.length<=1) return;
-  scene.remove(seat.group); seats.splice(i,1);
-  if(selected===seat) seatPanelMod.selectSeat(seats[Math.max(0,i-1)]);
-  layoutSeats(); seatPanelMod.renderSeatTabs();
-}
-let sizeFactor=1;
-const BASE_PXW=190;          // 월드 1단위당 픽셀(캐릭터 크기 기준)
-/* ── 캐릭터 위치·크기 영속화 ──
-   deskPanX/Y ("프로그램 이동"으로 옮긴 위치), focusCharScale (설정 패널의 캐릭터 크기 슬라이더)를 localStorage에 저장.
-   프로그램을 껐다 켜도 마지막으로 맞춰둔 위치/크기가 그대로 복원됨. */
-const CHAR_POS_KEY = 'tw.deskPan';        // {x, y}
+/* 🪑 좌석 목록 · 만들기 · 지우기 · 고른 좌석 · 간격(room/seats.js) — 아래 const 는 옛 전역 이름이다. */
+const seatsMod = TwSeats.createSeats({
+  CHAR_Z: CHAR_Z,
+  buildDesk: buildDesk,
+  buildPlaceholder: buildPlaceholder,
+  scene: scene,
+});
+const seats = seatsMod.seats;   // 옛 전역 이름
+const GAP_MIN = seatsMod.GAP_MIN;   // 옛 전역 이름
+const GAP_MAX = seatsMod.GAP_MAX;   // 옛 전역 이름
+const GAP_STEPS = seatsMod.GAP_STEPS;   // 옛 전역 이름
+const saveGap = seatsMod.saveGap;   // 옛 전역 이름
+const createSeat = seatsMod.createSeat;   // 옛 전역 이름
 // ★ 마이홈/친구 시스템용 "영구" 사용자 ID — 방 접속용 memberId(매번 새로 생김)와 다르게, 이 값은
 //   한 번 만들어지면 이 기기에서 계속 유지됨. 친구 목록이 이 ID를 기준으로 저장되기 때문에 꼭 필요.
 const MY_USER_ID_KEY = 'tw.myUserId';
-/* 🎟️ 부팅 시점에 이 기기에 userId가 이미 있었는지 — 초대장 게이트의 신규/기존 판정 기준.
-   ★ users/{uid} DB 존재로 판정하면 안 됨: 신규 유저도 첫 실행 때 presence·프로필 등
-     초기화 코드가 게이트와 병렬로 users/{uid}를 만들어 버려서, 재시작하면
-     "기존 유저"로 오인 → 코드 없이 통과 + 초대권 5장 지급되는 구멍이 생김.
-   localStorage는 이 파일 최상단(어떤 쓰기보다 먼저)에서 캡처하므로 레이스가 없음. */
-const HAD_USER_ID_AT_BOOT = (()=>{ try{ return !!localStorage.getItem(MY_USER_ID_KEY); }catch(e){ return false; } })();
 const MY_FRIEND_CODE_KEY = 'tw.myFriendCode';
 /* 🔗 이 기기가 **버린** 친추 코드들 (최신 먼저, 최대 5개).
-   [왜 필요한가] 되찾기가 코드 입력을 요구했는데, 정작 코드를 잃는 순간은 자기 치유
-   (_healFriendCodeOwner)나 계정 연동이 **자동으로** 갈아끼울 때다. 그 순간 화면에는
+   [왜 필요한가] 되찾기가 코드 입력을 요구했는데, 정작 코드를 잃는 순간은 자동 치유나
+   계정 연동이 **자동으로** 갈아끼울 때다. 그 순간 화면에는
    새 코드만 남고 옛 코드는 어디에도 안 적힌다 — 외워두지 않았으면 되찾을 방법이 없었다.
    그런데 갈아끼우는 그 코드에서 **우리는 옛 코드를 손에 쥐고 있었다.** 버리기 전에 적어둔다.
    ⚠️ 로컬 기록이라 이 기기에서 잃은 코드만 안다. 새 PC에서 처음 연동하며 잃은 코드는
@@ -834,7 +213,7 @@ const MY_FRIEND_CODE_KEY = 'tw.myFriendCode';
 /* ⚠️ 되찾기 UI 가 사라진 뒤로 이 기록을 **읽는 화면은 없다.** 지우지 않고 남겨둔 이유는
    하나뿐이다 — 코드가 바뀌었다는 제보가 오면 F12 콘솔에서 getOldFriendCodes() 로
    "이 기기가 무슨 코드를 언제 버렸는지"를 물어볼 수 있다. 그게 유일한 용도다.
-   새 기능을 여기에 얹지 말 것. 코드 유지는 _healFriendCodeOwner 가 책임진다. */
+   새 기능을 여기에 얹지 말 것. 코드는 서버가 정한다(로그인 때 _enterAccount 가 적는다). */
 const MY_FRIEND_CODE_PREV_KEY = 'tw.myFriendCodePrev';
 /* 🪪 (걷음 · 회원가입 설계 §6-② · CHECKS 개정 56) «이 기기가 버린 내 uid» 목록 `tw.myPrevUserIds` · `_rememberPrevUserId` ·
    `_isMyPrevUserId`. 계정이 없던 시절(한 사람 = 기기마다 다른 uid)의 장치였다 — 그 uid 를 가리키는 친구 코드·친구 요청을
@@ -861,360 +240,43 @@ function getOldFriendCodes(){
   if(!Array.isArray(list)) list = [];
   return list.filter(c => typeof c === 'string' && c && c !== cur);
 }
-/* 🪪 [회원가입 설계 §6-① · 개정 8] **읽기만 한다 — 없으면 null.**
-   예전엔 «없으면 만든다» 였다. 그래서 처음 쓰는 PC 는 부팅하자마자(마이홈·동기화 타이머가 부르는 순간)
-   uid 를 얻었고, 초대 게이트·구글 로그인이 «이 기기엔 아직 아무도 없다» 를 알 길이 없었다(§3).
-   이제 uid 는 게이트가 정한다: 새 사람은 `_inventMyUserId`(한 곳) → `_setMyUserId`(한 곳) → 재시작.
-   ★ 기존 사용자는 부팅 때부터 키가 있으니 달라지는 것이 없다.
+/* 🪪 **읽기만 한다 — 없으면 null.** 0.13 — uid(userCode)는 서버가 가입 때 만들고, 로그인 뒤 서버가 돌려준 값을
+   `_setMyUserId` 한 곳으로 적는다(account.js _enterAccount). 앱은 uid 를 만들지 않는다.
    ★ uid 가 없는 동안 나가는 서버 요청은 firebase-init 의 빈 uid 안전망(`_noUidPath`)이 막는다. */
 function getMyUserId(){
   try{ return localStorage.getItem(MY_USER_ID_KEY) || null; }catch(e){ return null; }
 }
-/* 🪪 uid 를 **만드는** 곳은 여기 하나다(설계 §3 ②). 부르는 곳도 게이트의 «새 사람» 갈래 하나. */
-function _inventMyUserId(){
-  return 'u'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
-}
-/* 🪪 uid 를 **기록하는** 새 입구(설계 §6-⑦). 옛 입구 넷(계정 이전·구글 갈아타기·되찾기·연동 화면)은
-   그 기계들을 걷어 낼 때 이리로 모이거나 함께 사라진다. 성공하면 true. */
+/* 🗂️ 계정별 로컬 칸 한 벌 — 계정 코드는 부를 때마다 getMyUserId 로 읽는다(shared/account-store.js). 쓰는 모듈에는 deps 로, 마이홈 바탕화면(myhome-desktop.js)은 이 전역 이름으로 받는다. */
+const accountStoreMod = TwAccountStore.createAccountStore({ storage: localStorage, getAccountCode: getMyUserId, isWriteLocked: ()=>acctStateMod._acctDetached() });
+/* 🗂️ JSON 칸 읽기 · 쓰기(shared/json-store.js)를 계정 칸 위에 얹은 한 벌 — 책상 · 동물 프리셋이 쓴다(닫혀 있으면 읽기 null · 쓰기는 «저장 못 함» 결과). animal.js 는 이 전역 이름으로 받는다. */
+const accountJsonStoreMod = TwJsonStore.createJsonStore({ storage: ()=>accountStoreMod.asStorage() });
+/* 🪪 uid 를 **기록하는** 한 입구 — 서버가 돌려준 계정 코드만 적는다(account.js _enterAccount). 성공하면 true. */
 function _setMyUserId(uid){
   if(typeof uid !== 'string' || !/^u[0-9a-z]{8,40}$/i.test(uid)) return false;
   try{ localStorage.setItem(MY_USER_ID_KEY, uid); return localStorage.getItem(MY_USER_ID_KEY) === uid; }catch(e){ return false; }
 }
-function genFriendCodeCandidate(){
-  // ★ 친구코드는 MATE- 접두어 — 방코드(COZY-)와 형식이 같아 유저가 헷갈리던 문제 해결.
-  //   (이미 발급된 COZY- 친구코드도 friendCodes 노드에 그대로 있어 조회는 계속 됨 → 하위호환)
-  const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s='MATE-'; for(let i=0;i<4;i++)s+=a[Math.floor(Math.random()*a.length)]; return s;
-}
-/* 🔗 친추코드 소유권 검증 플래그 — 세션당 1회(읽기 1회)만 확인한다.
-   ⚠️ 이 값을 true로 만드는 것은 "확인을 마쳤다"는 뜻이다. 조회 자체가 실패했을 때는
-      반드시 false로 되돌려야 한다 — 안 그러면 오프라인 실행 한 번으로 검증이 영구히 건너뛰어진다. */
-let _fcOwnerChecked = false;
-/* (걷음 · 개정 56) FC_STALE_DAYS — 친추코드 «7일 조용하면 되찾기» 갈래와 함께. 시크릿룸 발급 게이트는 제 상수(SR_STALE_DAYS)를 쓴다. */
-// 내 친추코드 확보 — 로컬에 이미 있으면 그대로 쓰고, 없으면 새로 만들어서 Firebase에 등록(충돌 시 재시도).
-/* 🪞 [회원가입 설계 §3 ⑥ · 개정 12] 친구 코드 거울 정정 — 계정 거울(users/{uid}/friendCode)이 이 기기 코드와 다르면 **로컬만** 고친다.
-   [왜] 코드 = 로그인 아이디다. 코드가 틀리게 보이는 PC 는 로그인 아이디를 틀리게 보여 주는 PC 다.
-     개정 27 이후 _healFriendCodeOwner 는 옛 uid 를 가리키는 코드를 그대로 두므로(핑퐁 방지) 그것만으로는 이 표시가 안 고쳐진다.
-   ★ friendCodes 에 **쓰지 않는다** — 소유권은 안 건드린다(개정 27 «활동 중인 소유자 것은 빼앗지 않는다» 그대로).
-   ★ 거울이 비었거나 못 읽으면 아무것도 안 한다 — 발급은 ensureMyFriendCode 몫.
-   ★ 거울 코드가 **지금도 내 것일 때만** 따른다(읽기 한 번) — 거울이 낡아 남의 코드를 가리키면 남의 아이디를 보여 주게 된다.
-   ★ 부르는 곳은 ensureMyFriendCode 첫머리 하나(세션당 한 번) — 발급보다 **먼저** 봐야, 로컬 코드가 없는 PC 가
-     새 코드를 뽑아 계정의 진짜 코드를 버리는 일이 없다. 돌려주는 것: 'fixed' · 'adopted'(로컬이 비어 있었다) · 그 밖의 사유 문자열. */
-let _fcMirrorChecked = false;
-async function _friendCodeMirrorFix(){
-  const uid = getMyUserId();
-  if(!uid) return 'no-uid';
-  if(!(window.firebaseAPI && firebaseAPI.getUserFriendCode && firebaseAPI.lookupFriendCode)) return 'no-api';
-  let mirror = null;
-  try{ mirror = await firebaseAPI.getUserFriendCode(uid); }catch(_){ return 'unread'; }
-  if(!mirror) return 'empty';
-  let local = null; try{ local = localStorage.getItem(MY_FRIEND_CODE_KEY); }catch(_){}
-  if(local === mirror) return 'same';
-  let owner;
-  try{ owner = await firebaseAPI.lookupFriendCode(mirror); }catch(_){ return 'unread'; }
-  if(owner !== uid) return 'not-mine';
-  try{ localStorage.setItem(MY_FRIEND_CODE_KEY, mirror); }catch(_){ return 'unsaved'; }
-  _fcOwnerChecked = true;   // 방금 확인했다 — 거울 코드의 주인은 나
-  console.info('[친추코드] 계정 거울을 따라 이 기기 표시를 고쳤어요:', (local || '(없음)') + ' → ' + mirror);
-  return local ? 'fixed' : 'adopted';
-}
-async function ensureMyFriendCode(){
-  if(!_fcMirrorChecked && getMyUserId()){
-    _fcMirrorChecked = true;
-    try{ await _friendCodeMirrorFix(); }catch(_){}
-  }
-  let code = localStorage.getItem(MY_FRIEND_CODE_KEY);
-  if(code){
-    // 🔗 계정 연동 뒤 이 코드가 남의(=버린) uid를 가리키고 있을 수 있다 → 아래에서 정정한다.
-    if(!_fcOwnerChecked) await _healFriendCodeOwner(code);
-    return localStorage.getItem(MY_FRIEND_CODE_KEY) || code;
-  }
-  if(!window.firebaseAPI || !firebaseAPI.registerFriendCode) return null;
-  const myId = getMyUserId();
-  if(!myId) return null;     // 🪪 uid 가 정해지기 전(처음 쓰는 PC · 게이트 앞)에는 코드를 뽑지 않는다
-  _fcOwnerChecked = true;   // 지금 새로 발급하므로 소유자는 나 자신 — 검증 불필요
-  for(let i=0;i<8;i++){
-    const cand = genFriendCodeCandidate();
-    try{
-      const ok = await firebaseAPI.registerFriendCode(cand, myId);
-      if(ok){
-        try{ localStorage.setItem(MY_FRIEND_CODE_KEY, cand); }catch(e){}
-        // 🔗 계정에도 거울을 남긴다 — 새 PC에서 옛 코드를 알 수 있는 유일한 통로다.
-        try{ if(firebaseAPI.setUserFriendCode) await firebaseAPI.setUserFriendCode(myId, cand); }catch(_){}
-        return cand;
-      }
-    }catch(e){}
-  }
-  return null;
-}
-/* 🔗 친추코드가 내 uid를 가리키지 않을 때 (읽기 1회, 세션당 1회)
-   [개정 56 · 회원가입 설계 §6-③] 되찾기 갈래 둘을 걷었다 — «내가 버린 uid» 면 조건 없이 · «주인이 7일 조용» 이면 가져오던 것.
-     둘 다 계정이 없던 시절(한 사람 = 기기마다 uid)의 장치였다. 지금 이 기기 코드의 주인이 내가 아니면 그 주인은
-     **다른 계정**이다 — 가져가면 남의 아이디(코드 = 로그인 아이디)와 그 앞으로 온 친구 요청을 빼앗는다.
-   남은 것: 내 것이면 끝 · 주인이 없으면(등록이 실패한 채 로컬에만 남은 코드) 선점 · 그 밖은 **그대로 두고 경고만**.
-   ★ 로그인해 계정을 바꿀 때 코드는 _applyTransferSnapshot 이 계정 것으로 맞추고(스냅샷 · 거울 · 입력한 코드),
-     부팅의 _friendCodeMirrorFix 가 한 번 더 맞춘다. 여기까지 떨어지는 것은 계정 이전 시절의 잔재뿐이다.
-   친구 목록은 코드가 아니라 uid로 저장되므로, 코드 표시가 어긋나도 기존 친구관계는 끊기지 않는다. */
-async function _healFriendCodeOwner(code){
-  if(!(window.firebaseAPI && firebaseAPI.lookupFriendCode && firebaseAPI.registerFriendCode)) return;
-  const myId = getMyUserId();
-  let owner;
-  try{ owner = await firebaseAPI.lookupFriendCode(code); }
-  catch(e){ console.warn('[친추코드] 소유자 조회 실패 — 판단 보류', e); return; }   // 플래그 그대로(다음 기회에 재시도)
-  _fcOwnerChecked = true;
-  if(owner === myId) return;                    // 정상
-  if(owner === null){
-    // DB에 없는 코드(등록이 실패한 채 로컬에만 남은 경우) — 그대로 내 것으로 선점하면 된다
-    try{ if(await firebaseAPI.registerFriendCode(code, myId)) return; }catch(_){}
-  }
-  /* 🔒 [2026-09-20 결정] **여기서 새 코드를 발급하지 않는다** — 처음 발급된 코드를 유지한다(제보 3-2 · 친구들이 적어 둔
-     코드가 매번 죽는 쪽이 훨씬 큰 불편이다). 소유권도 손대지 않는다(개정 56 — 남의 계정 것이다). */
-  _rememberOldFriendCode(code);   // 기록만 — F12 getOldFriendCodes() 진단용
-  console.warn('[친추코드] ' + code + ' 의 소유자는 ' + owner + ' 이고 내 uid 는 ' + myId + ' — 코드는 그대로 둔다(재발급 안 함)');
-}
+/* 🔗 친구 코드는 서버가 가입 때 정하고, 로그인 때 이 PC 에 적는다(account.js _enterAccount — GET /v2/me 의 friendCode 가 원본).
+   앱은 코드를 뽑지 · 등록하지 · Firebase 의 코드 노드와 맞춰 보지 않는다. */
 /* 🔒 친추코드 재발급 금지의 근거를 검사가 잡을 수 있게 이름 붙인 결정. 되살리려면 이 상수만 볼 것이 아니라
    위 갈래 전체를 되살려야 한다 — 이 상수는 문서이지 스위치가 아니다. */
 const FC_NEVER_REISSUE = true;
 /* 🔗 [제거됨] 예전 친추 코드 되찾기 (reclaimMyFriendCode + 설정 UI)
    코드가 바뀌는 경로 자체를 없앴기 때문에 수동 되찾기가 할 일이 남지 않았다.
-     · 로그인    → _applyTransferSnapshot 이 계정의 코드로 맞춘다(스냅샷 · 거울 · 입력한 코드 · 없으면 지우고 첫 발급 — 개정 56)
-     · 주인 없음 → 그 자리에서 선점
+     · 로그인    → 서버 계정의 코드로 맞춘다(account.js _enterAccount · 0.13)
      (개정 56: «버린 uid» 되찾기 · 7일 되찾기 · 로그인 직후 소유자 강제 정정은 걷었다 — 전부 남의 계정 것을 가져오는 길이다)
    ⚠️ 되살릴 일이 생기면 lastSeen 판정을 반드시 함께 되살릴 것. 그 판정 없이 코드 문자열만으로
      소유권을 넘기면 4자리를 찍어서 남의 코드와 친구 요청을 가져갈 수 있다.
-   🔒 [2026-09-20] 그 마지막 경우에도 이제 **자동 재발급을 하지 않는다**(_healFriendCodeOwner 끝 주석).
+   🔒 [2026-09-20] 그 마지막 경우에도 이제 **자동 재발급을 하지 않는다**(0.13 — 코드는 서버가 정한다).
      사용자가 직접 코드를 바꾸는 UI 는 이미 없고, 자동으로 바뀌는 길도 이것으로 사라졌다 —
      **로컬 코드를 지우는 자리는 로그아웃(ACCOUNT_LOCAL_KEYS)뿐**이다. */
-const CHAR_SCALE_KEY = 'tw.focusCharScale';   // ★ 모니터별로 저장: {"<디스플레이id>": 배율, "sig:<가로>x<세로>": 배율, "default": 배율}
-let _currentDisplayIdForScale = null;   // companion.getDisplays()로 비동기로 알아낸 뒤 채워짐
-/* 🖥️ 해상도 지문 — 디스플레이 id의 대역이다.
-   ⚠️ Electron의 display.id 는 재부팅·그래픽 드라이버 갱신·모니터 재연결로 **바뀐다.**
-     그래서 id 하나만 열쇠로 쓰면, 저장은 됐는데 다음 부팅에 그 열쇠가 사라져 기본값으로 돌아간다
-     ("최소로 줄여놨는데 매번 다시 커진다" 제보가 정확히 이것). 같은 자리에 같은 모니터가 있으면
-     해상도는 그대로이므로, id가 어긋났을 때 이 지문으로 한 번 더 찾아본다.
-   ★ 해상도가 같은 모니터가 둘이면 지문이 겹치지만, 그건 "다른 모니터의 크기를 물려받는" 정도의
-     어긋남이다 — 매번 기본값으로 초기화되는 것보다 낫다. id가 맞으면 언제나 id가 이긴다. */
-let _currentDisplaySigForScale = null;
-function _scaleSigOf(display){
-  const b = display && display.bounds;
-  if(!b || !isFinite(b.width) || !isFinite(b.height)) return null;
-  return 'sig:' + Math.round(b.width) + 'x' + Math.round(b.height);
-}
-function _loadCharScaleMap(){
-  try{
-    const raw = localStorage.getItem(CHAR_SCALE_KEY);
-    if(!raw) return {};
-    const parsed = JSON.parse(raw);
-    if(parsed && typeof parsed==='object' && !Array.isArray(parsed)) return parsed;
-  }catch(e){}
-  // 예전 버전엔 숫자 하나만 그대로 저장했었음(JSON.parse가 실패하거나 객체가 아니면 이 경로) — "default"로 이전
-  try{
-    const v = parseFloat(localStorage.getItem(CHAR_SCALE_KEY));
-    if(isFinite(v) && v>0) return { default: v };
-  }catch(e){}
-  return {};
-}
-let _charScaleMap = _loadCharScaleMap();
-function _loadCharPos(){
-  try{
-    const raw = localStorage.getItem(CHAR_POS_KEY);
-    if(raw){ const d=JSON.parse(raw); if(typeof d.x==='number' && typeof d.y==='number') return d; }
-  }catch(e){}
-  return {x:0, y:0};
-}
-function _loadCharScale(){
-  const ok = v => (typeof v==='number' && isFinite(v) && v>0) ? v : null;
-  // id → 해상도 지문 → default. 부팅 직후엔 앞의 둘이 아직 null이라 default가 쓰인다.
-  const byId  = (_currentDisplayIdForScale!=null) ? ok(_charScaleMap[String(_currentDisplayIdForScale)]) : null;
-  if(byId!=null) return byId;
-  const bySig = (_currentDisplaySigForScale!=null) ? ok(_charScaleMap[_currentDisplaySigForScale]) : null;
-  if(bySig!=null) return bySig;
-  return ok(_charScaleMap.default) != null ? _charScaleMap.default : 1;
-}
-function saveCharPos(){ try{ localStorage.setItem(CHAR_POS_KEY, JSON.stringify({x:deskPanX,y:deskPanY})); }catch(e){} }
-function saveCharScale(){
-  // ★ 모니터를 바꿀 때마다 다시 조정해야 하던 문제 — 현재 모니터 id로 따로 저장해서 그 모니터로
-  //   돌아오면 그때 맞춰둔 크기가 복원된다.
-  /* ★ 세 곳에 같이 쓴다. id 하나만 쓰면 그 id가 바뀌는 순간(재부팅 등) 저장값이 통째로 미아가 된다.
-       · <id>   — 이 모니터. 가장 정확하다
-       · sig:WxH — id가 어긋났을 때의 대역
-       · default — 위 둘이 다 빗나갔을 때. 부팅 직후 id를 알기 전에도 이 값이 먼저 적용된다
-     default 는 "마지막으로 맞춰둔 크기"라, 최악의 경우에도 기본값 1이 아니라 그 값으로 떨어진다. */
-  const val = focusCharScale;
-  if(_currentDisplayIdForScale!=null) _charScaleMap[String(_currentDisplayIdForScale)] = val;
-  if(_currentDisplaySigForScale!=null) _charScaleMap[_currentDisplaySigForScale] = val;
-  _charScaleMap.default = val;
-  try{ localStorage.setItem(CHAR_SCALE_KEY, JSON.stringify(_charScaleMap)); }catch(e){}
-}
-// 현재 어느 모니터에 떠 있는지 비동기로 확인해서, 그 모니터 전용 저장값이 있으면 focusCharScale에 반영.
-// main.js 쪽에서 이미 모니터 이동/복원을 처리하고 나면 호출하면 됨 — 여러 번 호출해도 안전(멱등).
-async function refreshCharScaleForCurrentDisplay(){
-  if(!window.companion || !companion.getDisplays) return;
-  try{
-    const displays = await companion.getDisplays();
-    const cur = displays.find(d=>d.isCurrent);
-    if(!cur) return;
-    _currentDisplayIdForScale = cur.id;
-    _currentDisplaySigForScale = _scaleSigOf(cur);
-    const restored = _loadCharScale();
-    /* 지금 값이 어느 열쇠에도 안 적혀 있으면(옛 저장이 id 하나만 갖고 있던 경우) 지금 값으로 채워 둔다.
-       이렇게 해야 다음 부팅에 id가 또 바뀌어도 지문·default 로 이어받는다. */
-    if(restored !== focusCharScale){
-      focusCharScale = restored;
-      layoutSeats();   // 즉시 화면에 반영
-      // ⚠️ 예전엔 존재하지 않는 'sizeSlider'를 찾고 있었다(HTML에는 fsSizeSlider뿐) — 조용히 아무 일도 안 했다.
-      const _slider=document.getElementById('fsSizeSlider'); if(_slider) _slider.value=String(focusCharScale);
-      if(typeof renderSizeBar==='function') renderSizeBar();
-    }
-    saveCharScale();   // 열쇠 세 개(id·지문·default)를 지금 값으로 맞춰 둔다
-  }catch(e){}
-}
-/* 데스크톱 run 모드에서 사용자가 상태칩을 끌어 옮긴 만큼의 캐릭터 위치 오프셋 (뷰 비율 단위, 0~1 근사) */
-const _savedPos = _loadCharPos();
-let deskPanX=_savedPos.x, deskPanY=_savedPos.y;   // "프로그램 이동"으로 사용자가 옮긴 위치 — 뷰 비율(fraction) 기준, 크기 변경에도 안 틀어짐 (localStorage에서 복원)
-// ★ "프로그램 이동" 안전 범위 계산 — 기본 오프셋(-0.34, 0.28) 기준. 멀티모드에서 인원이 늘어날수록
-//   책상 줄이 화면에서 차지하는 비중이 커져서, 같은 팬 값이라도 화면 밖으로 밀려나기 쉬워짐.
-//   그래서 좌석 수(n)에 비례해서 안전 여백(PAN_MARGIN)을 더 크게(=팬 가능 범위를 더 좁게) 잡음.
-//   layoutSeats()에서 매번 재검증하므로, 친구가 들어와서 인원이 늘어나는 순간에도 자동으로 안전 범위 안으로 당겨짐.
-/* 🐾 동물 캐릭터일 때 프로그램 이동 범위에 더해주는 여유(뷰 비율).
-   아래 clampDeskPan의 -0.34(좌우)/0.28(위아래)는 '인간 크기 기준 여백'이라 40%인 동물에겐 과하다.
-   풀어줘야 할 양 = 원래 여백 × (1 − ANIMAL_RUN_SCALE) — 임의 상수가 아니라 여기서 유도한 값이라
-   화면 가장자리(천장·작업표시줄)에 딱 맞아떨어진다.
-   ★ K는 미세조정용: 1.0=이론값, 키우면 더 나가고 줄이면 덜 나간다. 0이면 인간과 동일. */
-/* ── 프로그램 이동 한계 조절값 ────────────────────────────────────────────
-   아래 clampDeskPan의 기본식은 위/아래를 같은 상수(0.28)로 함께 움직여서, 한쪽을 맞추면 반대쪽이
-   어긋난다. 방향별로 분리해 각각 조절할 수 있게 뺐다. 숫자를 키우면 그 방향으로 '더 멀리' 간다.
-   ★ PAN_DOWN_TRIM 은 인간에게도 적용 — 아래로 갈 때 머리까지 가려진 뒤에야 멈추는 문제 보정.
-     0이면 예전 그대로, 키울수록 더 일찍(위에서) 멈춘다. */
-const PAN_DOWN_TRIM      = 0.05;  // ★ 아래쪽 한계를 위로 당기는 양(인간·동물 공통). 키우면 덜 내려간다.
-const PAN_UP_EXTRA       = 0.05;  // ★ 위쪽 한계를 더 올려주는 양(인간·동물 공통). 키우면 더 올라간다.
-/* ↑ 두 값은 '실측 여백(_myPanHalfFrac) 위에 얹는 취향 조정'이다.
-   예전엔 여백이 고정 상수라 화면·캐릭터 크기가 바뀌면 어긋났고, 그 오차를 이런 값들로 덧대다 보니
-   한 해상도에 맞추면 다른 해상도에서 다시 틀어졌다. 지금은 여백이 자동으로 맞으므로
-   이 값들은 순수하게 '얼마나 여유를 둘지'만 정한다(비율이라 해상도가 바뀌어도 유지됨). */
-const ANIMAL_PAN_UP_K    = 0;      // ★ 동물이 위로 더 갈 수 있는 여유 배수 (0이면 인간과 동일)
-                                   //   ★ 여백 실측(_myPanHalfFrac) 도입으로 0으로 정리 — 동물이 작다는 사실이
-                                   //     이미 실측 여백에 반영되므로, 여기서 또 넓히면 천장 밖으로 나간다.
-const ANIMAL_PAN_DOWN_K  = 0;     // ★ 동물이 아래로 더 갈 수 있는 여유 배수 (기본 0 — 아래는 안 넓힘)
-const ANIMAL_PAN_SIDE_K  = 0.0;   // ★ 동물 좌우 여유 배수
-const ANIMAL_PAN_EXTRA_K = 1.0;   // (구) 전체 배수 — 위 세 개에 함께 곱해짐
-/* ★ ANIMAL_RUN_SCALE은 이 지점보다 아래(740행대)에서 const로 선언된다.
-   여기서 top-level로 계산하면 TDZ ReferenceError가 나면서 app.js 전체가 죽는다(실제로 그렇게 터졌음).
-   그래서 값을 미리 굳히지 않고, 실행 시점에 계산하는 함수로 둔다. */
-function _animalPanExtra(){
-  const r = (typeof ANIMAL_RUN_SCALE === 'number') ? ANIMAL_RUN_SCALE : 0.4;
-  const k = ANIMAL_PAN_EXTRA_K;
-  return { x:  0.34 * (1 - r) * k * ANIMAL_PAN_SIDE_K,
-           up: 0.28 * (1 - r) * k * ANIMAL_PAN_UP_K,
-           dn: 0.28 * (1 - r) * k * ANIMAL_PAN_DOWN_K };
-}
-/* 내 캐릭터(+책상)가 화면에서 차지하는 '절반 크기'를 뷰 비율(0~0.5)로 실측한다.
-   ★ 이동 한계의 여백은 원래 이 값이어야 한다. 예전엔 0.02 같은 고정 상수라서
-     화면 해상도·캐릭터 크기가 바뀌면 실제 절반 크기와 어긋나 화면 밖으로 삐져나갔다
-     (한 해상도에 맞춰 상수를 고쳐도 다른 크기에서 다시 틀어지던 원인).
-     실측하면 어떤 화면·어떤 크기·인간이든 동물이든 자동으로 맞는다. */
-function _myPanHalfFrac(){
-  try{
-    const me = (typeof seats!=='undefined') && seats.find(s=>s.isMe);
-    if(!me || !me.group || !_cvEl) return null;
-    const cr = _cvEl.getBoundingClientRect();
-    if(!cr.width || !cr.height) return null;
-    // ★ 숨은 메시는 뺀다 — 동물 좌석의 숨은 인간 크기 placeholder 가 박스를 키운다(r128 setFromObject 는 숨은 것도 센다).
-    const box = bodyMeasureMod.measureBodyBox(me.group, { visibleOnly: true, updateWorld: false });
-    if(box.isEmpty()) return null;
-    let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9; const v=new THREE.Vector3();
-    for(let i=0;i<8;i++){
-      v.set((i&1)?box.max.x:box.min.x,(i&2)?box.max.y:box.min.y,(i&4)?box.max.z:box.min.z).project(camera);
-      const px=(v.x*0.5+0.5)*cr.width, py=(-v.y*0.5+0.5)*cr.height;
-      if(px<x0)x0=px; if(px>x1)x1=px; if(py<y0)y0=py; if(py>y1)y1=py;
-    }
-    const hx = ((x1-x0)/2)/cr.width, hy = ((y1-y0)/2)/cr.height;
-    if(!isFinite(hx)||!isFinite(hy)||hx<=0||hy<=0||hx>0.5||hy>0.5) return null;
-    return { x:hx, y:hy };
-  }catch(_){ return null; }
-}
-function clampDeskPan(px, py){
-  const _hf = _myPanHalfFrac();
-  // ★ 버그 수정("여럿일 때 바닥 위에서 일찍 막힘"): 실측 여백(_myPanHalfFrac)은 _cvEl 스코프 문제로
-  //   항상 null이라 실제로는 늘 이 폴백이 쓰인다. 예전 폴백은 0.02+0.02*(n-1)로 좌석 수에 비례해
-  //   커져서, 친구가 들어올수록 이동 여백이 넓어져(=이동 가능 범위가 좁아져) 바닥·천장·옆에서 일찍
-  //   막혔다(혼자면 n=1이라 0.02로 정상). 인원수 가산을 제거해 여럿일 때도 혼자와 동일한 여백을 쓴다.
-  //   (각 좌석 간격/카메라 줌아웃은 layoutSeats가 이미 처리하므로 여기서 n을 또 반영할 필요가 없다.)
-  const PAN_MARGIN_FALLBACK = 0.02;
-  const PAN_MARGIN   = _hf ? _hf.x : PAN_MARGIN_FALLBACK;   // 좌우 여백 = 실제 반폭
-  const PAN_MARGIN_Y = _hf ? _hf.y : PAN_MARGIN_FALLBACK;   // 위아래 여백 = 실제 반높이
-  // ★ 세로 모니터(높이가 폭보다 큰 경우)는 화면에서 위아래로 이동할 수 있는 실제 여유 공간이 훨씬 많은데도
-  //   가로 모니터와 똑같은 비율 범위를 쓰고 있어서 위아래 이동이 부자연스럽게 일찍 막히는 문제가 있었음 —
-  //   세로 화면일 때는 위아래 범위를 더 넉넉하게 넓힘(가로 이동 범위는 그대로).
-  const isPortrait = innerHeight > innerWidth;
-  const yExtra = isPortrait ? 0.25 : 0;
-  // 🐾 동물은 40% 크기라 화면에서 차지하는 영역이 훨씬 작은데, 아래 -0.34 / 0.28은 인간 크기를 가정한
-  //   뷰 비율 상수여서 실제보다 큰 영역으로 계산돼 이동이 일찍 막힌다.
-  //   ★ 상수 자체를 줄이면 범위의 위·아래가 함께 이동해서 한쪽이 오히려 좁아진다(실제로 그렇게 실패함).
-  //     그래서 세로 모니터용 yExtra와 똑같이 '범위를 양쪽으로 넓히는' 방식을 쓴다 — 부호와 무관하게 확실하고,
-  //     이미 검증된 선례라 안전하다. 가로 이동도 같은 이유로 넓힌다.
-  let _panEX = 0, _panEUp = 0, _panEDn = 0;
-  try{ const _me = seats.find(s=>s.isMe);
-       if(_me && _me.charDef && _me.charDef.animal){ const _e=_animalPanExtra(); _panEX=_e.x; _panEUp=_e.up; _panEDn=_e.dn; } }catch(_){}
-  //   ★ 실측 결과 nyMax 쪽이 '아래' 방향이었다 — 양쪽을 함께 넓혔더니 아래로만 자유로워져서
-  //     작업표시줄 밑으로 빠져나갔다. 그래서 아래(nyMax)는 원래대로 두고 위(nyMin)만 넓힌다.
-  const nxMin = -0.5 + PAN_MARGIN - (-0.34) - _panEX;
-  const nxMax =  0.5 - PAN_MARGIN - (-0.34) + _panEX;
-  const nyMin = -0.5 + PAN_MARGIN_Y - 0.28 - yExtra - _panEUp - PAN_UP_EXTRA;     // 위쪽 한계
-  const nyMax =  0.5 - PAN_MARGIN_Y - 0.28 + yExtra + _panEDn - PAN_DOWN_TRIM;    // 아래쪽 한계
-  return { x: Math.max(nxMin, Math.min(nxMax, px)), y: Math.max(nyMin, Math.min(nyMax, py)) };
-}
-/* 설정 패널의 "캐릭터 크기" 슬라이더 값 — 데스크톱 run 모드 전용 배율 (localStorage에서 복원) */
-let focusCharScale=_loadCharScale();
 let dotRenderEnabled = (localStorage.getItem('tw.dotRender')==='1');   // 기본 꺼짐
 const DOT_RENDER_SCALE = 0.45;   // 저해상도(도트) 렌더 배율 — 작을수록 거친 도트. 0.45=PS1급 도트감. 0.55=은은, 0.35=더 거침.
-// ★ 좌석 i의 책상 "반쪽 폭"을 실측(월드 기준, deskScale 등 모든 스케일 반영) — 상대방이 책상 크기를
-//   키우거나 줄여도 여기서 정확히 잡아내서, layoutSeats가 항상 일정한 여백을 유지할 수 있게 함.
-//   ★ deskAnchor(꾸며놓은 책상 아이템들이 붙는 자리)는 반드시 제외 — 안 그러면 아이템 크기(ITEM_TARGET_SIZE)를
-//   키웠을 때 "책상 폭"이 실제보다 훨씬 크게 측정돼서 카메라가 필요 이상으로 멀리 물러나 보이는 문제가 있었음.
-const DESK_HALFWIDTH_CAP_FOR_ZOOM = 1.1;   // 카메라 줌 계산에만 적용되는 상한선 — 유난히 큰 책상 하나 때문에
-                                            // 전체 화면이 과하게 줌아웃되는 것 방지(좌석 간 여백 자체는 이 상한 영향 안 받음)
-function seatDeskHalfWidth(seat, forZoom){
-  if(!seat || !seat.desk) return 0.85;   // 책상이 아직 없으면(초기화 중 등) 기본 책상 폭(1.7)의 절반으로 대체
-  /* ⚠️ updateMatrixWorld(true) 가 아니라 **updateWorldMatrix(true, true)** 여야 한다.
-       앞엣것은 조상(seat.group)의 matrixWorld 를 '캐시된 그대로' 곱해 쓴다. 그런데 fitModel 은
-       측정을 위해 group.position 을 0 으로 옮겼다가 값만 되돌리고 matrixWorld 는 그대로 두므로,
-       fitModel 직후에는 그 캐시가 **x=0 시절의 행렬**이다. 그 상태로 재면 박스는 원점 근처(±0.85)에
-       잡히는데 아래 cx 는 진짜 좌표(예 -3.5)라, reach 가 4.35 로 부풀어 좌석 간격이 통째로 벌어진다.
-       (평준화를 켜면 syncSeatEqualize 가 좌석마다 fitModel 을 부르고 그 자리에서 여기로 오므로
-        전 좌석이 한꺼번에 이 값을 낸다 — "켜면 간격이 굉장히 넓어졌다가 나중에 원래대로 돌아온다"의
-        정체다. 돌아오는 이유는 그 사이 렌더 프레임이 matrixWorld 를 바로잡기 때문이다.)
-     ★ 측정 함수는 남이 남긴 상태에 기대지 않는다 — 조상부터 자손까지 여기서 직접 세운다. */
-  seat.desk.updateWorldMatrix(true, true);
-  const box = new THREE.Box3(); let any=false;
-  seat.desk.children.forEach(ch=>{
-    if(ch.name==='deskAnchor' || ch.visible===false) return;   // 책상 위 아이템은 폭 계산에서 제외 — 책상 자체만 봄
-    const b=new THREE.Box3().setFromObject(ch);
-    if(!b.isEmpty()){ box.union(b); any=true; }
-  });
-  if(!any) return 0.85;
-  const size = box.getSize(new THREE.Vector3());
-  /* ★ '폭의 절반'이 아니라 '좌석 중심에서 가장 멀리 뻗은 쪽까지'를 쓴다.
-     [경위] 책상 위치(deskPos)를 옮길 수 있게 되면서 책상이 좌석 중심에서 좌우로 치우칠 수 있다.
-       size.x/2 는 치우쳐도 값이 그대로라(박스가 통째로 옮겨질 뿐) 옆 좌석과 겹쳐도 layoutSeats 가
-       모르는 채 지나간다. 중심에서의 거리로 재면 치우친 만큼 간격이 자동으로 벌어진다.
-     ★ 안 옮긴 책상(대칭)에서는 두 값이 같다 = 기존 사용자에겐 회귀가 없다. */
-  const cx = (seat.group ? seat.group.position.x : 0);
-  const reach = Math.max(Math.abs(box.max.x - cx), Math.abs(box.min.x - cx), size.x / 2);
-  const half = Math.max(reach, 0.15);   // 너무 작은 값으로 다닥다닥 붙는 것 방지
-  return forZoom ? Math.min(half, DESK_HALFWIDTH_CAP_FOR_ZOOM) : half;
-}
-// 마지막으로 계산된 좌석 배치 결과 캐시 — 좌석 수/책상 크기가 안 바뀌었으면(예: 캐릭터 크기 슬라이더만
-//움직일 때) 이 값을 재사용해서 무거운 책상 실측(Box3)을 매번 다시 안 해도 되게 함.
-let _cachedRowCenter = 0, _cachedRowSpan = 1.2;
-const ANIMAL_RUN_SCALE = 0.4;      // 🐾 동물 실행화면 크기 = 인간의 40%. 캐릭터(fitModel)와 책상(setDeskScale의 animCorr)에 함께 적용됨.
-// ★ animal.js도 이 값을 써야 함(정규화 높이) — 예전엔 animal.js가 자체 기본값 0.6을 들고 있어서 값이 두 곳에
-//   갈라져 있었음. 여기서 window로 노출해 "한 곳에서만 관리"되게 한다. (app.js가 animal.js보다 먼저 로드됨)
-try{ window.ANIMAL_RUN_SCALE = ANIMAL_RUN_SCALE; }catch(_){}
 /* ═══ 🪑 좌석 크기 평준화 — 배율(k)을 정하는 곳은 여기 하나다 ═══════════════════
    내 화면에서만 남의 좌석을 내 캐릭터 크기에 맞춘다(서버에 안 쓴다). 방식 · 함정은 character/seat-equalize.js 머리에. */
 /* 본문은 character/seat-equalize.js 로 옮겼다(구역 떼기 C · w1).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const seatEqMod = TwSeatEqualize.createSeatEqualize({
+  seatEqAccountStore: accountStoreMod,
   ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
   clampCharY: (...a)=>clampCharY(...a),
   findMySeat: (...a)=>findMySeat(...a),
@@ -1228,6 +290,7 @@ let roomSeatMode = window.TwSeatPin ? TwSeatPin.loadMode(localStorage) : 'row'; 
 /* 본문은 character/deco-parts-visibility.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const decoPartsMod = TwDecoPartsVisibility.createDecoPartsVisibility({
+  decoAccountStore: accountStoreMod,
   premiumMod: ()=>premiumMod,
 });
 /* (구역 떼기 C · w1) 이 자리의 본문도 character/seat-equalize.js 로 옮겼다 — 만드는 줄은 첫 자리. */
@@ -1290,64 +353,24 @@ function _collapseRideTower(bottomSeat, now){
   }catch(e){ console.warn('[묘기] 와해 처리 실패', e); }
 }
 /* 🎪 탑마다 sleep 인원을 세어 흔들림/와해를 판정한다. */
-/* ═══════════════════════════ 🪑 플라잉체어 ═══════════════════════════
-   💣 를 누르면 캐릭터가 자리에서 튀어나가 화면 가장자리에 튕기다 돌아온다.
-
-   ★ 의자·책상은 자리에 남고 **캐릭터(rig)만** 날아간다.
-     seat.group 에는 책상(desk)과 캐릭터(rig)가 함께 들어 있다. group 을 옮기면 책상까지
-     따라가고, layoutSeats 가 잡아 둔 자리(targetX)와도 싸우게 된다. 그래서 rig 만 건드린다.
-     — 흔들기(beingShaken)가 이미 같은 방식이다.
-
-   ★ 벽 판정은 **화면 좌표(NDC)** 로 한다. 월드 좌표로 경계를 잡으면 카메라 줌이 인원수마다
-     달라지므로(applyCameraAndCanvas) 2명일 때와 8명일 때 튕기는 자리가 달라진다.
-     매 프레임 캐릭터를 카메라에 투영해서 화면 밖으로 나가려 할 때만 속도를 뒤집는다.
-
-   ★ 아래 경계(yLo)만 시작 위치 기준으로 잡는다. 위·좌·우는 화면 끝이지만 아래로는 책상 줄이
-     있어서, 화면 끝까지 내려가면 남의 책상을 뚫고 지나간다.
-
-   ★ 궤적은 **시드 하나로 정해진다.** 지금은 내 화면에서만 도는 로컬 기능이지만, 남에게
-     전파할 때 {from,to,seed} 만 실어 보내면 모든 화면이 같은 궤적을 그린다.
-     ⚠️ 그래서 이 안에서 Math.random() 을 부르면 안 된다 — 반드시 _flyRng(seed) 를 쓸 것.
-
-   ⚠️ 이름표·경험치 바는 seat.group 기준으로 찍히므로 **책상 자리에 그대로 남는다.**
-     흔들기도 같은 동작이라 일부러 맞춰 뒀다. 캐릭터를 따라가게 하려면 setSeatNamePlate 의
-     기준을 group → rig 로 바꿔야 하는데, 그건 흔들기·올라타기 표시까지 같이 바뀌는 변경이다. */
-const FLY_MS        = 10000;   // 비행 시간(ms)
-const FLY_SPEED     = 9.5;     // 기준 속도(월드 단위/초). 좌석 하나가 대략 1.7 단위다
-const FLY_SPEED_VAR = 0.2;     // 개체차 ±20% — 시드에서 뽑는다(Math.random 아님)
-/* 발사 각도(수평에서 잰 도) — **사선 대역만** 쓴다.
-   위쪽 반원 전체에서 뽑으면 90°에 가까운 각이 섞여 "위로 솟았다 그대로 내려오는" 판이 나오고,
-   0°에 가까운 각은 옆으로만 미끄러진다. 둘 다 튕기는 맛이 없어서 가운데 대역만 남겼다. */
-const FLY_ANG_MIN   = 32;
-const FLY_ANG_MAX   = 58;
-const FLY_SPIN      = 3.2;     // 회전 속도(라디안/초)
-const FLY_EDGE_X    = 0.90;    // 좌우 벽(NDC)
-const FLY_EDGE_TOP  = 0.90;    // 위 벽(NDC)
-const FLY_DROP      = 0.18;    // 아래 벽 = 시작 지점보다 이만큼만 아래(NDC). 책상 줄을 안 뚫게
-const FLY_RETURN_MS = 450;     // 자리로 돌아오는 시간
-const FLY_DIZZY_MS  = 2500;    // 착지 후 어지러움 — 흔들기 dizzy 와 같은 값
-/* 🎯 남을 날리기 — 해금·연속·쉬는 시간
-   ★ 연속 횟수를 세는 것은 **맞는 쪽**이다. 던지는 쪽에서 세면 B·C·D 가 각각 따로 세어
-     "방 인원이 A 를 연속 3번" 이라는 규칙 자체가 성립하지 않는다.
-   ⚠️ FLY_STREAK_MS('연속'이 무엇으로 끊기는가)는 **아직 확정된 규칙이 아니다.** 지금은
-     시간으로만 끊는다. "다른 사람이 맞으면 초기화" 안은 넣지 않았다 — 그러려면 방 전원의
-     피격을 각자가 알아야 해서 전파가 한 겹 더 늘어난다. 30초를 써 보고 정할 것. */
-const FLY_MIN_LEVEL = 100;     // 💣 해금 레벨 (포커싱 어플로 쌓은 레벨)
-const FLY_STREAK    = 3;       // 이만큼 연속으로 맞으면 쉬어간다
-const FLY_STREAK_MS = 30000;   // 마지막 피격 후 이 시간이 지나면 연속이 끊긴다
-const FLY_COOL_MS   = 60000;   // 쉬는 시간 — 이 동안은 표적이 되지 않는다
-
-/* 시드 난수(mulberry32) — 같은 시드면 언제 어디서 돌려도 같은 수열 */
-function _flyRng(seed){
-  let a = seed >>> 0;
-  return function(){
-    a |= 0; a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-function flySeed(){ return (Math.random() * 0xFFFFFFFF) >>> 0; }
+/* 본문은 room/flying-chair.js 로 옮겼다(앱 FSD · app.js 분리 M18). 비행 상수 · canFly · startFlight · _flyActive 의 주인이다. 뒤에서 선언되는 값은 함수로 넘긴다. */
+const flyChairMod = TwFlyingChair.createFlyingChair({
+  seats: seats,
+  toast: (...a)=>toast(...a),
+});
+const FLY_MS = flyChairMod.FLY_MS;   // 옛 전역 이름
+const FLY_EDGE_X = flyChairMod.FLY_EDGE_X;   // 옛 전역 이름
+const FLY_EDGE_TOP = flyChairMod.FLY_EDGE_TOP;   // 옛 전역 이름
+const FLY_DROP = flyChairMod.FLY_DROP;   // 옛 전역 이름
+const FLY_RETURN_MS = flyChairMod.FLY_RETURN_MS;   // 옛 전역 이름
+const FLY_DIZZY_MS = flyChairMod.FLY_DIZZY_MS;   // 옛 전역 이름
+const FLY_MIN_LEVEL = flyChairMod.FLY_MIN_LEVEL;   // 옛 전역 이름
+const FLY_STREAK = flyChairMod.FLY_STREAK;   // 옛 전역 이름
+const FLY_STREAK_MS = flyChairMod.FLY_STREAK_MS;   // 옛 전역 이름
+const FLY_COOL_MS = flyChairMod.FLY_COOL_MS;   // 옛 전역 이름
+const flySeed = flyChairMod.flySeed;   // 옛 전역 이름
+const canFly = flyChairMod.canFly;   // 옛 전역 이름
+const startFlight = flyChairMod.startFlight;   // 옛 전역 이름
 
 /* ═══ 🙈 워킹룸 캐릭터 숨기기 (2026-09-23 · handoff-2026-09-21-features §5) ═══════════════════
    상대 캐릭터 우클릭 → «🙈 숨기기». **내 화면에서만 · 그 방에 있는 동안만 · 워킹룸(채널 1)에서만.**
@@ -1362,16 +385,11 @@ function flySeed(){ return (Math.random() * 0xFFFFFFFF) >>> 0; }
 /* 본문은 hidden-seats.js 로 옮겼다(앱 FSD 43번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const hiddenSeatsMod = TwHiddenSeats.createHiddenSeats({
-  _flyActive: ()=>_flyActive,
+  hiddenAccountStore: accountStoreMod,
+  _flyActive: ()=>flyChairMod._flyActive(),
   seatFromObject: (...a)=>seatFromObject(...a),
   seats: seats,
 });
-/* 지금 날고 있는 좌석 수. frame() 의 비포커스 프레임 상한(FrameBudget.FPS_UNFOCUSED)을 비행 동안만
-   비켜 가는 데 쓴다 — 20fps 로는 빠르게 튕기는 움직임이 뚝뚝 끊겨 보인다.
-   ★ seats 를 매 프레임 훑지 않고 세어 두는 이유: 이 값은 상한 검사보다 **먼저** 읽히고,
-     그 검사는 rAF 가 올 때마다(초 60회) 돈다. */
-let _flyActive = 0;
-
 
 /* ═══ 🛰 poke 신선도 ═══════════════════════════════════════════════════
    방 노드의 `poke` 는 **한 칸짜리 우편함**이다(rooms/$room/$memberId/poke). 새 알림이 오면
@@ -1391,7 +409,7 @@ let _flyActive = 0;
    창 모듈이 만들 때 여는 함수를 걸고, 부르는 모듈은 이름으로 부탁만 한다 */
 const twNav = TwNav;
 const demojiCatalog = TwDemojiCatalog;   // 😊 기본 이모티콘 목록(demoji-catalog.js — 채팅 · 마이홈 바탕화면이 같이 읽는 맨 아래 표)
-const uploadCacheMod = TwUploadCache.createUploadCache();   // 🗂️ 업로드 캐시 상한 규칙 — 얼굴(room-sync) · 슬롯 GLB(slot-sync)가 같이 쓴다
+const uploadCacheMod = TwUploadCache.createUploadCache();   // 🗂️ 업로드 캐시 상한 규칙 — 얼굴(room-sync) · 슬롯 GLB(slot-codec)가 같이 쓴다
 const roomSyncMod = TwRoomSync.createRoomSync({
   DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,
   ITEM_LICENSE_HOLD: ()=>premiumMod.ITEM_LICENSE_HOLD,
@@ -1408,54 +426,6 @@ const roomSyncMod = TwRoomSync.createRoomSync({
   toast: (...a)=>toast(...a),
   diagNote: (...a)=>{ if(window.companion && companion.diagNote) companion.diagNote(...a); },   // 브라우저 미리보기 · 검사엔 companion 이 없다
 });
-/* 지금 이 좌석을 날릴 수 있는가. 여기서 걸러지는 것이 곧 규칙이다.
-   ★ 막는 이유가 전부 "그 좌석의 위치를 이미 다른 코드가 매 프레임 정하고 있다"는 것이다.
-     올라타기(_updateRideChains)·벤치·흔들기가 그렇다. 둘이 같이 돌면 캐릭터가 두 좌표
-     사이에서 떨린다. */
-/* 🗼 allowTower — [2026-09-23 요청 · A안] 룰렛·🎲 로 **나를** 날릴 때는 탑 안에 있어도 된다.
-   날리기 **직전에** 탑에서 뺀다(_rideLeaveTower · applyRemoteFly). 탑 계산과 비행이 같이 도는 일은 여전히 없다.
-   ★ 💣(남을 겨눔)은 지금처럼 막는다 — 표적 판정(_flyTargetCheck)은 이 인자를 안 넘긴다. */
-function canFly(seat, allowTower){
-  if(!seat)                                    return {ok:false, why:'좌석이 없어요'};
-  if(seat.fly)                                 return {ok:false, why:'이미 날아가는 중이에요'};
-  if(seat.isPlaceholder)                       return {ok:false, why:'아직 캐릭터가 없어요'};
-  if(seat.inPreview)                           return {ok:false, why:'미리보기 중에는 안 돼요'};
-  if(seat.beingShaken || seat.pinned)          return {ok:false, why:'지금은 날릴 수 없어요'};
-  if(!allowTower && (seat.ridingOn || seats.some(s=>s.ridingOn===seat)))
-                                               return {ok:false, why:'올라타 있는 동안에는 못 날아가요'};
-  if(seat.seatedOn || seat._benchOwnerSit)     return {ok:false, why:'벤치에 앉아 있을 땐 못 날아가요'};
-  return {ok:true};
-}
-
-/* 날리기 시작. seed 를 안 주면 새로 뽑는다(전파할 때는 뽑은 값을 같이 실어 보낼 것).
-   quiet=true 면 실패해도 토스트를 안 띄운다 — 남의 화면에서 재생하는 경로에서 쓴다.
-   (던진 사람의 화면에도 같은 방송이 돌아오는데, 거기서 "이미 날아가는 중" 토스트가 뜨면 곤란하다) */
-function startFlight(seat, seed, quiet){
-  const c = canFly(seat);
-  if(!c.ok){ if(!quiet) toast(c.why); return false; }
-  seed = (seed == null) ? flySeed() : (seed >>> 0);
-  const r = _flyRng(seed);
-  /* 방향만 무작위이고 **속력은 항상 spd** 다.
-     예전엔 전방위에서 각도를 뽑고 위로 뜨는 힘을 따로 더했는데, 아래로 뽑힌 각도에서 두 항이
-     서로 상쇄돼 실제 속력이 절반 이하로 떨어졌다 — 어떤 판은 휙 날고 어떤 판은 굼떴다. */
-  const side = (r() < 0.5) ? -1 : 1;                                     // 왼쪽/오른쪽
-  const deg  = FLY_ANG_MIN + r() * (FLY_ANG_MAX - FLY_ANG_MIN);          // 수평에서 잰 올라가는 각
-  const ang  = deg * Math.PI / 180;
-  const spd  = FLY_SPEED * (1 - FLY_SPEED_VAR + r() * FLY_SPEED_VAR * 2);
-  seat.fly = {
-    seed, t0: performance.now(), dur: FLY_MS, phase: 'air',
-    x: 0, y: 0,
-    vx: side * Math.cos(ang) * spd,
-    vy: Math.sin(ang) * spd,                     // 대역이 위쪽이라 언제나 양수
-    spin: (r() < 0.5 ? -1 : 1) * FLY_SPIN * (0.7 + r() * 0.6),
-    yLo: null,                                   // 아래 경계 — 첫 프레임에 시작 위치를 재서 정한다
-    probeY: null,                                // 몸통 중심 높이 — 첫 프레임에 실측
-    fromX: 0, fromY: 0, backAt: 0
-  };
-  _flyActive++;
-  return true;
-}
-
 
 /* ═══ 💃💥 깜짝쇼 ═══════════════════════════════════════════════════
    **같은 춤 명령을 세 번** 쓰면 명령마다 다른 일이 일어난다:
@@ -1494,7 +464,7 @@ const tricksMod = TwTricks.createTricks({
   FLY_STREAK_MS: FLY_STREAK_MS,
   Presence: ()=>Presence,
   _bonkSnd: ()=>sfxMod._bonkSnd,
-  _flyActive: ()=>_flyActive,
+  _flyActive: ()=>flyChairMod._flyActive(),
   _hitsSkipHidden: (...a)=>hiddenSeatsMod._hitsSkipHidden(...a),
   _premiumOn: (...a)=>_premiumOn(...a),
   _rideIsAbove: (...a)=>rideBenchMod._rideIsAbove(...a),
@@ -1507,11 +477,12 @@ const tricksMod = TwTricks.createTricks({
   canvas: canvas,
   creatorOpen: ()=>creatorOpen,
   flySeed: (...a)=>flySeed(...a),
-  getDisplayName: (...a)=>getDisplayName(...a),
-  getMyUserId: (...a)=>getMyUserId(...a),
+  getUserName: (...a)=>getUserName(...a),
+  myCode: ()=>TwRoomRt.store.myCode(),
+  chatNet: TwChatRt.store,
   measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
   ndc: ()=>ndc,
-  officeMode: ()=>officeMode,
+  officeMode: ()=>officeModeMod.officeMode(),
   purikuraUi: ()=>purikuraUi,
   ray: ()=>ray,
   seatCharZ: (...a)=>seatCharZ(...a),
@@ -1523,37 +494,15 @@ const tricksMod = TwTricks.createTricks({
   spawnFloater: (...a)=>floatersMod.spawnFloater(...a),
   startFlight: (...a)=>startFlight(...a),
   toast: (...a)=>toast(...a),
-  setFlyActive: (v)=>{ _flyActive = v; },
+  setFlyActive: (v)=>{ flyChairMod.setFlyActive(v); },
 });
-
-/* ═══════════════════════════ 🪄 때리기(bonk) ═══════════════════════════
-   프리미엄 전용. 하루 10회(전체). 납작 → 보잉 → 원래대로 → dizzy.
-
-   ★ 왜 플라잉체어(💣) 바로 아래에 있는가 — 조준 모드·전파·dizzy 후속을 전부 그쪽에서
-     베꼈다. 한쪽을 고칠 때 다른 쪽도 같이 보이는 자리에 둔다.
-     ⚠️ 이 순서에도 뜻이 있다: setBonkAiming 이 _flyAiming 을, setFlyAiming 이 _bonkAiming 을
-       서로 읽는다. 두 블록이 붙어 있으면 그 사이에 아무 코드도 못 들어와서 TDZ 창이 없다.
-       한쪽을 파일 다른 데로 옮기지 말 것.
-
-   ★ 스쿼시는 **상태가 아니라 스케일 오버레이 하나**다. seatState 에 'bonk' 를 넣지 않는다 —
-     포즈 표·클립 키워드 맵·눈 감기 판정까지 번지고, dizzy 후속도 상태 우선순위와 싸운다.
-
-   🛑 전파는 `fly:` 규약을 **의도적으로 안 따른다.** fly 는 던진 사람도 방송이 돌아올 때까지
-     기다려 방 전체가 같은 궤적을 보지만, 때리기는 첫 프레임이 전부라 왕복(수백 ms)을 기다리면
-     클릭과 타격이 어긋나 타격감이 죽는다. 그래서 **때린 사람은 즉시 로컬 재생**하고,
-     돌아온 방송은 페이로드의 때린사람 id 로 걸러 건너뛴다.
-     화면 간 타이밍이 몇백 ms 어긋나지만 시각 효과라 문제 없다 — 즉시성을 택한 대가다. */
-/* (앱 FSD 25번) 이 자리의 본문도 tricks.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
 /* ═══ 🔊 효과음 공장(_mkSndPool) — 때리기 · 클릭음 · 채팅 · 뽀모도로 알림음 풀 ═══ */
 /* 본문은 sfx.js 로 옮겼다(앱 FSD 42번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const sfxMod = TwSfx.createSfx({
-  officeMode: ()=>officeMode,
+  officeMode: ()=>officeModeMod.officeMode(),
 });
-/* ═══ 🪄 때리기 — 말풍선 · 재생 · 전파 · 조준 모드 ═══ */
-/* (앱 FSD 25번) 이 자리의 본문도 tricks.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-
 /* ═══ 🗼 올라타기(탑) · 벤치 좌석 자리 잡기 ═══ */
 /* 탑 바닥 찾기는 room/ride-chain.js(순수) — 올라타기 · 좌석 줄 배치가 서로를 부르지 않고 같이 쓴다. */
 const rideChainMod = TwRideChain.createRideChain({
@@ -1618,6 +567,8 @@ const rideBenchMod = TwRideBench.createRideBench({
   diagNote: (...a)=>{ if(window.companion && companion.diagNote) companion.diagNote(...a); },   // 브라우저 미리보기 · 검사엔 companion 이 없다
   getActiveInteractionDeskId: (...a)=>iDeskMod.getActiveInteractionDeskId(...a),
   isDeskUnlocked: (...a)=>iDeskMod.isDeskUnlocked(...a),
+  levelText: (...a)=>iDeskMod.levelText(...a),
+  lockedToast: (...a)=>iDeskMod.lockedToast(...a),
   isPartByRigOrName: (...a)=>bodyMeasureMod.isPartByRigOrName(...a),
   layoutSeats: (...a)=>layoutSeats(...a),
   matWood: matWood,
@@ -1640,6 +591,7 @@ const rideBenchMod = TwRideBench.createRideBench({
 /* 본문은 interaction-desk.js 로 옮겼다(앱 FSD 43번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const iDeskMod = TwInteractionDesk.createInteractionDesk({
+  accountStore: accountStoreMod,
   CIRCUS_ARM_DROP: rideTuneMod.CIRCUS_ARM_DROP,
   CIRCUS_LEG_LIFT: rideTuneMod.CIRCUS_LEG_LIFT,
   CIRCUS_LEG_STAND: rideTuneMod.CIRCUS_LEG_STAND,
@@ -1656,23 +608,16 @@ const iDeskMod = TwInteractionDesk.createInteractionDesk({
   tricksMod: tricksMod,
 });
 
-/* ═══════════════════════════════════════════════════════════════════
-   🪑 멀티좌석 책상(2·3인승 벤치) — 캐릭터를 드래그해 슬롯에 앉힌다.
-   올라타기(ride)와 같은 조작·전송 구조를 재사용하되, 대상이 '캐릭터'가 아니라
-   '벤치의 좌석 슬롯'이라는 점만 다르다. 소유 개념 없음(레벨 보상자가 벤치를 쓰고,
-   상호작용하려는 사람이 자기 캐릭터를 드래그해 얹음).
-   ═══════════════════════════════════════════════════════════════════ */
-/* (앱 FSD 30번) 이 자리의 본문도 ride-bench.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* ═══ 🪑 좌석 배치(layoutSeats) · 카메라 · 도트 텍스처 필터 ═══ */
 /* 본문은 room/seat-layout.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const seatLayoutMod = TwSeatLayout.createSeatLayout({
-  MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,
-  SPACING: ()=>SPACING,
+  MULTIPLAYER_SPACING: ()=>seatsMod.MULTIPLAYER_SPACING(),
+  SPACING: ()=>seatsMod.SPACING(),
   _rideBottom: (...a)=>rideChainMod._rideBottom(...a),
   clampDeskPan: (...a)=>clampDeskPan(...a),
-  deskPanX: ()=>deskPanX,
-  deskPanY: ()=>deskPanY,
+  deskPanX: ()=>charPlaceMod.deskPanX(),
+  deskPanY: ()=>charPlaceMod.deskPanY(),
   renderSeatTabs: (...a)=>seatPanelMod.renderSeatTabs(...a),
   roomSeatMode: ()=>roomSeatMode,
   seatCameraMod: ()=>seatCameraMod,
@@ -1680,14 +625,13 @@ const seatLayoutMod = TwSeatLayout.createSeatLayout({
   measureCharBox: (...a)=>charMeasureMod.measureCharBox(...a),
   seats: seats,
   syncSeatEqualize: (...a)=>seatEqMod.syncSeatEqualize(...a),
-  setCachedRowCenter: (v)=>{ _cachedRowCenter = v; },
-  setCachedRowSpan: (v)=>{ _cachedRowSpan = v; },
-  setDeskPanX: (v)=>{ deskPanX = v; },
-  setDeskPanY: (v)=>{ deskPanY = v; },
+  setCachedRowCenter: (v)=>{ charPlaceMod.setCachedRowCenter(v); },
+  setCachedRowSpan: (v)=>{ charPlaceMod.setCachedRowSpan(v); },
+  setDeskPanX: (v)=>{ charPlaceMod.setDeskPanX(v); },
+  setDeskPanY: (v)=>{ charPlaceMod.setDeskPanY(v); },
 });
-/* layoutSeats 는 이 이름 그대로 app.js 에 둔다 — 맨 아래 «데스크탑 창 크기» 가 감싸 다시 대입하고(앱 FSD 32번),
-   부르는 곳 · 다른 모듈 deps 는 이 이름을 본다(감싼 판이 불린다). */
-function layoutSeats(){ seatLayoutMod.layoutSeatRow(); }
+/* layoutSeats 는 이 이름 그대로 app.js 에 둔다 — 부르는 곳 · 다른 모듈 deps 가 이 이름을 본다. 배치한 뒤 할 일(데스크탑 창 크기 맞춤)은 아래에서 알림(onLaidOut)에 건다. */
+function layoutSeats(){ seatLayoutMod.layoutAndNotify(); }
 /* 파츠 구성이 바뀐 뒤 좌석 다시 맞추기 한 벌(room/seat-refit.js) — 꾸미기 저장 · 친구 파츠 변경 · 좌석 다시 짓기 · 카탈로그 · 관리자 등록이 같이 부른다. */
 const seatRefitMod = TwSeatRefit.createSeatRefit({
   fitModel: (...a)=>fitModel(...a),
@@ -1701,17 +645,17 @@ seatRefitMod.onRefitted((s)=>{ rideBenchMod._remeasureRideArm(s); rideBenchMod._
 const seatCameraMod = TwSeatCamera.createSeatCamera({
   BASE_PXW: BASE_PXW,
   DOT_RENDER_SCALE: DOT_RENDER_SCALE,
-  _cachedRowCenter: ()=>_cachedRowCenter,
-  _cachedRowSpan: ()=>_cachedRowSpan,
+  _cachedRowCenter: ()=>charPlaceMod._cachedRowCenter(),
+  _cachedRowSpan: ()=>charPlaceMod._cachedRowSpan(),
   camera: camera,
   canvas: canvas,
-  deskPanX: ()=>deskPanX,
-  deskPanY: ()=>deskPanY,
+  deskPanX: ()=>charPlaceMod.deskPanX(),
+  deskPanY: ()=>charPlaceMod.deskPanY(),
   dotRenderEnabled: ()=>dotRenderEnabled,
   dotRenderMod: ()=>dotRenderMod,
-  focusCharScale: ()=>focusCharScale,
+  focusCharScale: ()=>charPlaceMod.focusCharScale(),
   renderer: renderer,
-  sizeFactor: ()=>sizeFactor,
+  sizeFactor: ()=>charPlaceMod.sizeFactor(),
   renderQuality: ()=>_renderQuality,
   runLowered: ()=>_runLowered,
 });
@@ -1727,6 +671,8 @@ const dotRenderMod = TwDotRender.createDotRender({
 const charMeasureMod = TwCharMeasure.createCharMeasure({
   measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
 });
+const restPoseMod = TwRestPose.createRestPose();   // 🧍 fitModel 은 기본 자세로 잰다(character/rest-pose.js)
+const fitWatchMod = TwFitWatch.createFitWatch({ warn: (m)=>console.warn(m) });   // 🩺 다시 맞춘 높이가 설명 안 되면 경고 → tw-error.log
 /* 본문은 character/floor-snap-diag.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const floorSnapDiagMod = TwFloorSnapDiag.createFloorSnapDiag({
@@ -1734,154 +680,20 @@ const floorSnapDiagMod = TwFloorSnapDiag.createFloorSnapDiag({
   findMySeat: (...a)=>findMySeat(...a),
   wardrobeMod: ()=>wardrobeMod,
 });
-function fitModel(seat){
-  const m=seat.gltfRoot; if(!m) return;
-  m.scale.set(1,1,1); m.position.set(0,0,0); m.rotation.set(0,seat.userRot+creatorPrevMod.RIG_TURN,0);
-  const sR=seat.rig.position.clone(),sRr=seat.rig.rotation.clone(),sWp=seat.bodyWrap.position.clone(),sG=seat.group.position.clone();
-  seat.rig.position.set(0,0,0);seat.rig.rotation.set(0,0,0);seat.bodyWrap.scale.set(1,1,1);seat.bodyWrap.position.set(0,0,0);seat.group.position.set(0,0,0);
-  seat.group.updateWorldMatrix(true,true);
-  
-  const box=charMeasureMod.measureCharBox(m);   // 표준 리그 통합: base·커미션 동일 경로 (리깅 파츠 제외 측정)
-  if(!box.isEmpty()){
-    const size=new THREE.Vector3(); box.getSize(size);
-    // ★ 커미션 캐릭터 크기 보정 — 블렌더에서 기본 캐릭터와 비슷하게 맞춰 내보내도 실제 화면에선
-    //   작게 나오는 경우가 있어서(GLB 안의 안 보이는 여분 메쉬/본으로 바운딩박스가 커지는 등 원인 추정)
-    //   COMMISSION_SCALE_CORRECTION만큼 추가로 키움. 이 함수가 실제 실행 화면 크기를 결정함.
-    const commCorr = (seat.charDef && seat.charDef.isCommission) ? COMMISSION_SCALE_CORRECTION : 1;
-    // 🐾 동물은 인간의 60% 크기로 (확정 스펙). 실행 화면 크기는 이 함수가 최종 결정하므로 여기서 보정.
-    const animCorr = (seat.charDef && seat.charDef.animal) ? ANIMAL_RUN_SCALE : 1;
-    // 🐾 동물은 '측정'이 아니라 '확정값'으로 정규화한다.
-    //   buildAnimalBase가 normalizeModel(root, 1.4*ANIMAL_RUN_SCALE)로 몸 높이를 이미 고정해두므로
-    //   여기서 다시 잴 필요가 없다. 그런데 실측 로그상 재조립 때마다 이 측정값이 0.56 → 0.6975 → 0.649로
-    //   흔들렸고(원인 미상), 1.45/측정값 공식이라 그대로 캐릭터 크기 변동으로 이어졌다
-    //   (우클릭 편집을 들어갔다 나올 때마다 크기·위치가 바뀌던 실제 원인).
-    //   최초 빌드가 내던 이상적인 값 1.45/1.4 = 1.0357을 항상 재현하도록 상수로 고정한다.
-    //   ★ 인간·커미션은 기존 측정 경로 그대로 — 이 분기는 동물만 탄다.
-    const ANIM_NORM_H = 1.4 * ANIMAL_RUN_SCALE;   // buildAnimalBase가 맞춰놓는 몸 높이(= 0.56)
-    const isAnim = !!(seat.charDef && seat.charDef.animal);
-    const baseScale = isAnim
-      ? (1.45 / ANIM_NORM_H) * animCorr
-      : (size.y>1e-4?1.45/size.y:1)*commCorr*animCorr;
-    m.scale.setScalar(baseScale);   // 생성기 미리보기와 동일한 정규화 키
-    seat.group.updateWorldMatrix(true,true);
-    
-    // 표준 리그 통합: 모델 자기 박스로 센터링 (BASE_SCENE 보정·진단로그·z-fix 제거)
-    const b2=charMeasureMod.measureCharBox(m); const c=new THREE.Vector3(); b2.getCenter(c);
-    // 🐾 동물은 이 재센터링을 건너뛴다.
-    //   buildAnimalBase의 normalizeModel이 귀가 붙기 전에 x/z 중앙정렬을 이미 끝내놓기 때문에
-    //   결정적(deterministic)이다. 반면 여기서 쓰는 measureCharBox는 재조립마다 결과가 흔들리는데
-    //   (실측: 높이 0.56 → 0.7031 → 0.6524), 중심점 c.z도 같이 흔들려서 우클릭 편집을 들어갔다 나올 때마다
-    //   캐릭터가 조금씩 '뒤로' 밀려나던 원인이었다. 크기는 확정값으로 막았지만 위치는 여기에 물려 있었음.
-    //   ★ 인간·커미션은 기존 동작 그대로 — 아래 분기는 동물만 탄다.
-    if(!isAnim){
-      m.position.x-=c.x;
-      /* 🪑 앞뒤(z) 재센터링은 하지 않는다 — **미리보기가 정답 기준**이기 때문이다.
-         [경위] 꾸미기/보관함 미리보기는 캐릭터를 늘 z=0 에 세우고 책상 쪽을 반대로 밀어 간격을 맞춘다
-           (_wdDeskGrp.position.z = -CHAR_Z*anim - xf.z). 즉 미리보기에는 이 재센터링 항이 없다.
-           그래서 실행 화면에서만 캐릭터가 c.z x bodyWrap.scale 만큼 더 뒤에 서고, 책상 앵커에 매달린
-           "책상 위" 파츠가 그만큼 앞에 있는 것처럼 보였다.
-         [실측] userZ 0.27 / userScale 0.63 인 캐릭터에서 m.position.z=0.1714 였고
-           그 중 userZ/userScale=0.4286, 나머지 -c.z=-0.2572 -> 월드 환산 -0.162.
-           제보된 "실행이 더 앞" 의 양이 정확히 이 값이었다.
-         ⚠️ 이 값은 **상수가 아니다.** 그래서 눈으로 맞춘 상수로는 때울 수 없고, 항을 없애는 것이
-           파츠와 무관해지는 유일한 방법이다.
-         ※ 예전 주석: "measureCharBox 는 리깅 파츠만 빼고 재므로 모자/탈 같은 파츠를 달고 뺄 때마다
-           c.z 가 달라진다" — 이제 measureCharBox 가 파츠 wrapper 하위를 통째로 빼므로 c.z 자체는
-           파츠와 무관하다. 항을 없앤 결정은 그대로 둔다(미리보기가 정답 기준이라는 이유는 유효하다).
-         ★ 동물은 원래부터 이 분기를 건너뛰었다(normalizeModel 이 x/z 중앙정렬을 이미 끝내므로).
-           즉 동물은 이 변경 전에도 미리보기와 같은 규약이었고, 이제 인간/커미션이 그쪽에 맞춰진 것이다.
-         ⚠️ x 도 같은 어긋남을 갖고 있다(미리보기는 -xf.x 만 보상한다). 다만 제보된 증상이 앞뒤라
-           z 만 맞춘다. 좌우가 어긋난다는 제보가 오면 같은 이유로 x 도 빼면 되는데, 그때는 캐릭터가
-           좌석 슬롯 안에서 좌우로 움직이므로 layoutSeats 와 같이 봐야 한다.
-         ⚠️ 되돌리려면 이 줄을 살리면 된다: m.position.z-=c.z; */
-    }
-    /* 🦶 피봇 보정 — 예전엔 `m.position.y = 0`(피봇=발바닥 전제)이었다. 사람 GLB 는 그 전제가
-       깨져 있어 늘 0.048(로컬)만큼 떠 있었다. charFootFix 의 ⚠️ 넷 중 하나 — 나머지 셋은
-       fitCreator('edit') · fitCreator('app') · refreshWdPreviewChar. 함께 고칠 것. */
-    m.position.y = charMeasureMod.charFootFix(b2);
-    
-    // ★ 이 아래에서 seat.bodyWrap.scale이 userScale로 곱해지는데(코드 더 아래 참고), m은 bodyWrap의
-    //   자식이라 m.position도 그때 같이 곱해져 버림 — 그래서 캐릭터 크기(userScale)를 1이 아니게 설정한
-    //   경우 "앞뒤/좌우" 이동값이 실제로는 userScale배만큼 더 크게 적용되던 버그였음(생성기 미리보기는
-    //   이 곱셈이 없어서 그만큼 어긋나 보임). 미리 userScale로 나눠서 그 곱셈을 상쇄시킴.
-    /* ⚠️ 여기는 **raw seat.userScale** 이다. seatScale(실효값)로 바꾸지 말 것.
-       bodyWrap.scale 이 userScale×k 이므로, raw 로 나눠야 이동량의 월드 값이 userX×k 가 되어
-       **책상과 같은 배율로** 함께 줄고 커진다. 실효값으로 나누면 k 가 상쇄되어 캐릭터만 커지고
-       앞뒤 위치는 제자리에 남아, 평준화한 좌석에서 캐릭터가 책상을 파고든다. */
-    const _uz=(seat.userScale&&isFinite(seat.userScale)&&seat.userScale>0)?seat.userScale:1;
-    // 🐾 동물은 캐릭터도 책상도 40%인데 이동량(userX/userZ)만 절대값이라, 40% 책상 기준으로는 2.5배
-    //   크게 움직여서 "생성기에서 맞춘 앞뒤 위치"와 실행 화면이 어긋났다(생성기는 동물·책상 모두 100%).
-    //   책상과 같은 비율로 줄여서 생성기에서 본 그대로가 되게 함. 인간은 곱셈이 1이라 무변화.
-    const _animPos = (seat.charDef && seat.charDef.animal) ? ANIMAL_RUN_SCALE : 1;
-    m.position.x+=((seat.userX||0)*_animPos)/_uz;
-  m.position.z+=((seat.userZ||0)*_animPos)/_uz;   // 🚫 userZ 는 폐기돼 항상 0 — 항만 남겨 둔다(되살릴 때 여기 하나)
-  // ★ 미세 보정 — 위 나눗셈 수정 후 책상에 살짝 파고드는 느낌이 있다는 피드백에 따라 살짝 뒤로 밀어줌.
-  //   숫자를 더 뒤로 보내려면(desk에서 더 멀어지게) 더 음수로, 덜 보내려면 0에 가깝게 조절.
-  // ★ 확인 완료된 값 — 캐릭터/책상 거리 보정. 이 숫자는 실측으로 맞춘 값이라 다른 이유 없이 건드리지 말 것.
-  //   ★ 커미션 거리 어긋남 수정: 이 nudge도 m.position이라서 아래 bodyWrap.scale(userScale) 곱셈에 같이
-  //     스케일되고 있었음 — 캐릭터 크기(xf.s)가 1이 아니면(커미션은 대개 0.7 등) 실효 nudge가 달라져서
-  //     미리보기와 책상-캐릭터 거리가 어긋나던 원인. userScale로 미리 나눠 스케일 불변으로 만듦.
-  // ★ 예전엔 -0.25 nudge를 뒤로 밀었는데(카메라 앵글 보정용) 미리보기가 정답 기준으로 확정된
-  //   지금은 이게 오히려 실행 화면 캐릭터를 미리보기보다 0.25 뒤로 밀어냄(거리 진단 로그로 확인).
-  //   미리보기와 완전히 동일한 좌표계로 두기 위해 nudge를 0으로 무효화.
-  const FIT_MODEL_Z_NUDGE = 0;
-  m.position.z += FIT_MODEL_Z_NUDGE/_uz;
-  // ★ 예전의 y 미세보정(-0.05)은 bodyWrap.scale에 곱해져 미리보기보다 캐릭터가 0.03쯤 가라앉게
-  //   만들던 원인([배치진단]으로 확인) — 미리보기가 정답 기준이므로 제거(0).
-  m.position.y+=0;
-  /* 🧍 캐릭터 높이 — 생성기의 높이 슬라이더(cXform.y → def.xf.y → seat.userY).
-     ⚠️ x/z 와 **같은 이유로** _uz 로 미리 나눈다. 아래에서 bodyWrap.scale 이 곱해지므로,
-       안 나누면 캐릭터 크기를 1 이 아니게 둔 사람만 높이가 userScale 배로 들려 미리보기와 어긋난다.
-       (fitCreator·꾸미기 미리보기는 둘 다 g.position.y 에 절대값을 그대로 넣는다 — 거기에 맞춘다.)
-     🐾 **_animPos 를 곱한다.** 예전 주석은 "fitCreator 도 동물에 배율을 안 거니까 여기서도 안 건다"
-       였는데, 그게 정확히 제보 2의 원인이었다. 생성기는 동물을 **100% 크기**로 보여주고 실행 화면은
-       **40%(ANIMAL_RUN_SCALE)** 로 그린다. 그런데 높이만 두 화면 다 절대값이라, 몸이 2.5배 작은
-       실행 화면에서 같은 0.27 이 2.5배 크게 들려 보였다.
-       [실측] xf.y=0.27 / xf.s=0.94 인 동물에서 — 생성기 몸높이 1.363 · 들림 0.27 (비율 0.1981),
-              실행 몸높이 0.5452 · 들림 0.27 (비율 0.4954). 배율은 정확히 1/0.4 = 2.5 였다.
-              _animPos 를 곱하면 실행 들림이 0.108 → 비율 0.1981 로 생성기와 **정확히** 같아진다.
-       ⚠️ x/z 는 이미 _animPos 를 곱하고 있었다(바로 위 두 줄). y 만 빠져 있었던 것이다.
-       ⚠️ 인간·커미션은 _animPos 가 1 이라 **아무 변화 없다.**
-       ⚠️ charLiftWorld 도 **같이** 바꿔야 한다 — 올라타기가 그 값으로 이 들림을 상쇄한다.
-         한쪽만 고치면 동물 머리 위에 올라탄 캐릭터가 그 차이만큼 뜬다. */
-  m.position.y += clampCharY(seat.userY) * _animPos / _uz;
-  /* 🦶 바닥 맞춤 — 발밑에 둔 파츠(욕조·방석 등)가 있으면 그 깊이만큼 들어 올려서
-     '가장 아래에 있는 것'이 바닥에 닿게 한다. 발 아래에 아무것도 없으면 0이라 무동작이다.
-     ⚠️ 반드시 여기, 크기(scale)와 x/z 가 다 정해진 **뒤**여야 한다. 스케일 전에 재면 깊이가
-       정규화 배율만큼 어긋나서 그만큼 바닥을 파고들거나 뜬다. */
-  m.position.y += charMeasureMod.measureUnderfootDepth(m);
-}
-  seat.rig.position.copy(sR);seat.rig.rotation.copy(sRr);
-  /* 🪑 평준화 배율은 여기(몸 스케일) 하나로 들어간다 — headAnchor·bodyAnchor 는 bodyWrap 의
-     자식이라 저절로 같이 커진다. ⚠️ 위 _uz 는 raw userScale 그대로여야 한다(그 주석 참고). */
-  seat.bodyWrap.scale.setScalar(seatEqMod.seatScale(seat));
-  seat.bodyWrap.position.copy(sWp);seat.group.position.copy(sG);
-  /* ⚠️ 값만 되돌리면 matrixWorld 는 위에서 0 으로 옮겨 잰 그대로 남는다 — 다음 렌더 프레임이
-     오기 전까지 이 좌석의 월드 행렬은 **거짓말**이고, 그 사이에 월드 좌표를 재는 코드
-     (seatDeskHalfWidth → layoutSeats)가 원점 근처에 있는 것처럼 읽는다.
-     fitModel 바로 뒤에 layoutSeats 를 부르는 자리가 여럿이므로(크기 슬라이더·리빌드·평준화)
-     여기서 한 번 세워 두고 나간다. 이 함수는 이미 위에서 두 번 부르는 호출이라 비용도 그만큼이다. */
-  seat.group.updateWorldMatrix(true,true);
-  // ★ 리깅 파츠(귀 등)는 위치를 bindMatrix에 "구워서" 고정하므로, 여기서 모델 스케일(m.scale)이
-  //   다시 계산되면 옛 스케일 기준 위치에 남아 머리 위로 붕 뜬다.
-  //   fitModel을 부르는 모든 경로(크기 슬라이더·리빌드·파츠 부착 후 재계산 등)에서 반드시 다시 구워야 함.
-  //   ※ 화면마다 갱신 경로가 달라서 "내 화면만 어긋나 보이는" 현상의 원인이기도 함.
-  refreshRiggedPartsXf(seat);
-}
-function fitDesk(seat){
-  const d=seat.deskGltf; if(!d) return;
-  d.scale.set(1,1,1); d.position.set(0,0,0);
-  const sG=seat.group.position.clone(); seat.group.position.set(0,0,0); seat.group.updateWorldMatrix(true,true);
-  const box=new THREE.Box3().setFromObject(d);
-  if(!box.isEmpty()){
-    const size=new THREE.Vector3(); box.getSize(size);
-    const s=size.y>1e-4?0.6/size.y:1; d.scale.set(s,s,s);
-    seat.group.updateWorldMatrix(true,true);
-    const b2=new THREE.Box3().setFromObject(d); const c=new THREE.Vector3(); b2.getCenter(c);
-    d.position.x-=c.x; d.position.z-=c.z; d.position.y-=b2.min.y; d.position.z+=0.45;
-  }
-  seat.group.position.copy(sG); seat.group.updateWorldMatrix(true,true);   // ⚠️ fitModel 끝의 그 이유와 같다
-}
+/* 📐 몸 · 책상 맞춤(character/fit-model.js) — 아래 const 는 옛 전역 이름이다. */
+const fitModelMod = TwFitModel.createFitModel({
+  ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
+  COMMISSION_SCALE_CORRECTION: COMMISSION_SCALE_CORRECTION,
+  charMeasureMod: charMeasureMod,
+  clampCharY: clampCharY,
+  creatorPrevMod: ()=>creatorPrevMod,
+  refreshRiggedPartsXf: (...a)=>refreshRiggedPartsXf(...a),
+  seatEqMod: seatEqMod,
+  restPoseMod: restPoseMod,
+  fitWatchMod: fitWatchMod,
+});
+const fitModel = fitModelMod.fitModel;   // 옛 전역 이름
+const fitDesk = fitModelMod.fitDesk;   // 옛 전역 이름
 
 /* ============================================================ FILE LOADING */
 /* 본문은 character/seat-model-load.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
@@ -1894,7 +706,7 @@ const seatModelLoadMod = TwSeatModelLoad.createSeatModelLoad({
   fitModel: (...a)=>fitModel(...a),
   layoutSeats: (...a)=>layoutSeats(...a),
   loader: loader,
-  selected: ()=>selected,
+  selected: ()=>seatsMod.selected(),
   setInfo: (...a)=>seatPanelMod.setInfo(...a),
   sliders: ()=>seatPanelMod.sliders,
   toast: (...a)=>toast(...a),
@@ -1905,30 +717,32 @@ const seatModelLoadMod = TwSeatModelLoad.createSeatModelLoad({
 const seatPanelMod = TwSeatPanel.createSeatPanel({
   activity: (...a)=>activity(...a),
   seats: seats,
-  selected: ()=>selected,
+  selected: ()=>seatsMod.selected(),
   triggerPet: (...a)=>triggerPet(...a),
-  setSelected: (v)=>{ selected = v; },
+  setSelected: (v)=>{ seatsMod.setSelected(v); },
+});
+/* 🪑 좌석 목록이 위층(줄 배치 · 좌석 탭 · 좌석 고르기)을 부르지 않게 알림을 건다 — layoutSeats 는 아래에서 정의되므로 부를 때 찾는다. createSeat · removeSeat 보다 먼저. */
+seatsMod.attach({
+  layoutSeats: ()=>layoutSeats(),
+  renderSeatTabs: ()=>seatPanelMod.renderSeatTabs(),
+  selectSeat: (seat)=>seatPanelMod.selectSeat(seat),
 });
 
-document.getElementById('glbInput').addEventListener('change',e=>seatModelLoadMod.handleFiles(e.target.files,selected));
-document.getElementById('deskInput').addEventListener('change',e=>seatModelLoadMod.handleFiles(e.target.files,selected));
-document.getElementById('texInput').addEventListener('change',e=>seatModelLoadMod.handleFiles(e.target.files,selected));
-document.getElementById('resetBtn').addEventListener('click',()=>seatModelLoadMod.resetSeat(selected));
-document.getElementById('sZoom').addEventListener('input',e=>{sizeFactor=+e.target.value;layoutSeats();});
-function saveSeatXf(seat){ if(!seat||!seat.charDef)return;
-  seat.charDef.xf={s:seat.userScale,y:clampCharY(seat.userY),z:0,rot:seat.userRot,x:seat.userX||0};   // 🧍 y=높이 · 🚫 z 폐기
-  if(seat.slot!=null) slots[seat.slot]=seat.charDef;
-  slotSaveMod.saveSlots(); }
-document.getElementById('sScale').addEventListener('input',e=>{selected.userScale=+e.target.value;fitModel(selected);saveSeatXf(selected);layoutSeats();});
+document.getElementById('glbInput').addEventListener('change',e=>seatModelLoadMod.handleFiles(e.target.files,seatsMod.selected()));
+document.getElementById('deskInput').addEventListener('change',e=>seatModelLoadMod.handleFiles(e.target.files,seatsMod.selected()));
+document.getElementById('texInput').addEventListener('change',e=>seatModelLoadMod.handleFiles(e.target.files,seatsMod.selected()));
+document.getElementById('resetBtn').addEventListener('click',()=>seatModelLoadMod.resetSeat(seatsMod.selected()));
+document.getElementById('sZoom').addEventListener('input',e=>{charPlaceMod.setSizeFactor(+e.target.value);layoutSeats();});
+document.getElementById('sScale').addEventListener('input',e=>{seatsMod.selected().userScale=+e.target.value;fitModel(seatsMod.selected());saveSeatXf(seatsMod.selected());layoutSeats();});
 /* 🧍 높이 — 0 하한·CHAR_Y_MAX 상한. 슬라이더 범위도 여기서 심는다(HTML 의 min 이 음수면 죽은 구간이 된다). */
 (function _sYSliderRange(){ const el=document.getElementById('sY'); if(!el) return;
   el.min=0; el.max=CHAR_Y_MAX; el.step=0.01; el.title='캐릭터 높이'; })();
-document.getElementById('sY').addEventListener('input',e=>{selected.userY=clampCharY(e.target.value);fitModel(selected);saveSeatXf(selected);layoutSeats();});
+document.getElementById('sY').addEventListener('input',e=>{seatsMod.selected().userY=clampCharY(e.target.value);fitModel(seatsMod.selected());saveSeatXf(seatsMod.selected());layoutSeats();});
 /* 🚫 앞뒤(userZ)는 폐기 — 이 슬라이더를 움직여도 0 을 유지한다. 값을 되살리면 생성기·미리보기에는
    대응하는 조정 수단이 없어서 그 화면들과만 어긋난다(그게 폐기한 이유다). HTML 에서 이 슬라이더를
    지우는 편이 낫지만, 남아 있어도 사고가 나지 않게 여기서 막는다. */
-document.getElementById('sZ').addEventListener('input',e=>{selected.userZ=0;e.target.value=0;fitModel(selected);saveSeatXf(selected);layoutSeats();});
-document.getElementById('sRot').addEventListener('input',e=>{selected.userRot=+e.target.value;fitModel(selected);saveSeatXf(selected);});
+document.getElementById('sZ').addEventListener('input',e=>{seatsMod.selected().userZ=0;e.target.value=0;fitModel(seatsMod.selected());saveSeatXf(seatsMod.selected());layoutSeats();});
+document.getElementById('sRot').addEventListener('input',e=>{seatsMod.selected().userRot=+e.target.value;fitModel(seatsMod.selected());saveSeatXf(seatsMod.selected());});
 
 /* ============================================================ USER STATUS (활동 상태)
    A안 — 자동감지(focus/idle/sleep/pet)는 그대로 유지하고, 이 상태는 별도 축으로 동작:
@@ -1940,105 +754,47 @@ document.getElementById('sRot').addEventListener('input',e=>{selected.userRot=+e
 /* 본문은 status/user-status-table.js 로 옮겼다(구역 떼기 C · w1).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const userStatusTableMod = TwUserStatusTable.createUserStatusTable({
+  statusAccountStore: accountStoreMod,
 });
 
-/* isPremium은 파일 뒷부분에서 let으로 선언됨 — 초기화 시점(이 위치)에서 참조하면 TDZ ReferenceError가 남.
-   typeof 가드도 let TDZ에는 통하지 않으므로 try/catch로 안전하게 읽는 접근자를 씀.
-   (라이선스가 확정되면 _refreshPremiumGatedUI가 다시 호출되어 UI가 갱신됨) */
-function _premiumOn(){ try{ return !!isPremium; }catch(_){ return false; } }
-try{ window._premiumOn = _premiumOn; }catch(_){}
-
-/* (구역 떼기 C · w1) 이 자리의 본문도 status/user-status-table.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-function saveCustomStatusConf(emo, text){
-  userStatusTableMod.setCustomStatusConf({
-    emo: (emo || '').slice(0,2),            // 비워두면 이모지 없이 문구만 표시
-    text: (text || '').slice(0, userStatusTableMod.CUSTOM_STATUS_MAXLEN),
-  });
-  try{ localStorage.setItem(userStatusTableMod.CUSTOM_STATUS_KEY, JSON.stringify(userStatusTableMod.customStatusConf())); }catch(e){}
-  // 지금 커스텀 상태를 쓰고 있다면 즉시 반영(말풍선/이모지 갱신) + 친구에게도 전파
-  if(typeof Presence!=='undefined' && Presence.setCustomStatus) Presence.setCustomStatus(userStatusTableMod.customStatusConf());
-  refreshCustomStatusMenuItem();
-}
-/* 좌석 + 상태키 → 실제로 화면에 쓸 상태 설정({emo,label,...}) 해석.
-   custom은 본인이면 내 등록값, 친구면 그 친구가 보낸 값(remoteCustomStatus)을 씀.
-   문구가 비어 있으면(등록 안 함) null 반환 → 상태 없음(온라인)과 동일하게 처리됨. */
-function statusConfFor(seat, us){
-  /* 📊 오늘 기록 전시 — **상태가 없을 때만** 내 머리 위에 방에 보낸 값과 같은 것을 띄운다(내 화면 거울).
-     상태(커스텀 포함)가 하나라도 있으면 그것이 이긴다 — 남의 화면에서도 같은 순서다(Presence._statusOut). */
-  if(!us){
-    /* ⚠️ isMe 만 보면 «자리추가»로 주 캐릭터가 바뀐 판에서 내 좌석이 빠진다 — findMySeat 과 같은 기준으로 본다. */
-    const _mine = findMySeat();
-    if(seat && !seat.remote && (seat.isMe || seat === _mine)){ const f = focusShareMod._focusShowMine(); if(f) return Object.assign({}, userStatusTableMod.USER_STATUSES.custom, { emo: f.emo, label: f.text }); }
-    return null;
-  }
-  const base = userStatusTableMod.USER_STATUSES[us];
-  if(!base) return null;
-  if(us !== 'custom') return base;
-  const cs = (seat && seat.remote) ? seat.remoteCustomStatus : userStatusTableMod.customStatusConf();
-  if(!cs || !cs.text) return null;
-  // 이모지를 비워두면 책상 위 이모지는 안 띄우고 문구만 표시 (emo:'' → setSeatDeskEmoji가 빈 값으로 처리)
-  return Object.assign({}, base, { emo: cs.emo || '', label: cs.text });
-}
-let userStatus=null;
-function setUserStatus(v){
-  if(!v || !userStatusTableMod.USER_STATUSES[v]) v=null;
-  userStatus=v;
-  try{ localStorage.setItem('tw.userStatus', v||''); }catch(e){}
-  refreshMyStatusUI();
-  if(typeof Presence!=='undefined' && Presence.setUserStatus) Presence.setUserStatus(v);
-}
-function loadUserStatusFromStorage(){
-  try{ const v=localStorage.getItem('tw.userStatus'); if(v && userStatusTableMod.USER_STATUSES[v]) userStatus=v; }catch(e){}
-}
-function refreshMyStatusUI(){
-  const btn=document.getElementById('myStatusChipBtn'); if(!btn)return;
-  const dot=document.getElementById('myStatusDot');
-  // ✨ 커스텀 상태는 등록한 문구/이모지로 해석해야 하므로 statusConfFor를 통해 얻음(내 좌석 기준).
-  const c = userStatus ? statusConfFor(null, userStatus) : null;
-  if(c){
-    // ▾ 버튼 앞 점 색 = 지금 상태 · 이름은 툴팁으로
-    btn.title = '메뉴 — 지금 상태: ' + (c.emo ? c.emo+' ' : '') + c.label;
-    if(dot){ dot.style.background = TwSafeHtml.cssColor(c.dot||'#9dba8a'); dot.style.boxShadow='0 0 0 2px '+statusChipMod.hexToRgba(c.dot||'#9dba8a',.18); }
-  } else {
-    btn.title = '메뉴';
-    if(dot){ dot.style.background = '#9dba8a'; dot.style.boxShadow='0 0 0 2px rgba(157,186,138,.18)'; }
-  }
-  /* ⚠️ data-st 가 있는 항목만 본다. ✨ 커스텀 상태 항목은 data-st 가 없어서 ''===''(온라인)로
-     읽혀 ● 표식이 두 줄에 붙는다 — 그 항목의 표식은 refreshCustomStatusMenuItem 이 따로 단다. */
-  document.querySelectorAll('#myStatusMenu .stItem[data-st]').forEach(b=>{
-    b.classList.toggle('active', (b.dataset.st||'')===(userStatus||''));
-  });
-  refreshCustomStatusMenuItem();
-}
-
-/* ✨ 커스텀 상태 항목(프리미엄 전용) 갱신 — 라이선스가 없으면 항목 자체를 숨김.
-   등록값·프리미엄 여부·현재 상태가 바뀔 때마다 호출.
-   ⚠️ 이 항목은 칩 버튼이 아니라 **상태 드롭다운 안의 stItem** 이다(칩 줄을 줄이려고 옮겼다).
-     그래서 textContent 를 통째로 갈아치우면 안 된다 — 안에 이모지(.csEmo)와 글자(.csLabel)가 따로 있다. */
-function refreshCustomStatusMenuItem(){
-  const btn = document.getElementById('myCustomStatusBtn');
-  if(!btn) return;
-  if(!_premiumOn()){ btn.style.display = 'none'; return; }   // 라이선스 없으면 아예 안 보임
-  btn.style.display = '';
-  const emoEl = btn.querySelector('.csEmo'), lblEl = btn.querySelector('.csLabel');
-  // 등록된 이모지가 있으면 그걸 띄워서 "지금 뭘로 등록해뒀는지" 바로 보이게
-  if(emoEl) emoEl.textContent = userStatusTableMod.customStatusConf().emo || '✨';
-  if(lblEl) lblEl.textContent = userStatusTableMod.customStatusConf().text || '커스텀 상태';
-  btn.title = userStatusTableMod.customStatusConf().text
-    ? `커스텀 상태: ${userStatusTableMod.customStatusConf().text} (클릭해서 수정)`
-    : '커스텀 상태 문구 등록';
-  btn.classList.toggle('on', userStatus === 'custom');   // 지금 이 상태를 쓰는 중이면 ● 표식
-}
+/* 🫧 활동 상태(밥 · 게임 · 자리비움 · 빡일 · 커스텀) 저장 · 칩 · 메뉴 + 좌석 xf 저장(status/user-status.js) — 아래 const 는 옛 전역 이름이다. */
+const userStatusMod = TwUserStatus.createUserStatus({
+  accountStoreMod: accountStoreMod,
+  clampCharY: clampCharY,
+  findMySeat: (...a)=>findMySeat(...a),
+  isPremium: ()=>isPremium,
+  slots: ()=>slots,
+  userStatusTableMod: userStatusTableMod,
+});
+/* 다른 도메인(방 알림 · 오늘 기록 전시 · 슬롯 저장 · 칩 색 변환)은 모듈이 부르지 않고 알림으로 건다 — 상태를 바꾸기 전에. */
+userStatusMod.attachStatusHooks({
+  focusShowMine: ()=>focusShareMod._focusShowMine(),
+  hexToRgba: (...a)=>statusChipMod.hexToRgba(...a),
+  saveSlots: ()=>slotSaveMod.saveSlots(),
+  setCustomStatus: (c)=>Presence.setCustomStatus(c),
+  setUserStatus: (v)=>Presence.setUserStatus(v),
+});
+const _premiumOn = userStatusMod._premiumOn;   // 옛 전역 이름
+const saveCustomStatusConf = userStatusMod.saveCustomStatusConf;   // 옛 전역 이름
+const statusConfFor = userStatusMod.statusConfFor;   // 옛 전역 이름
+const setUserStatus = userStatusMod.setUserStatus;   // 옛 전역 이름
+const loadUserStatusFromStorage = userStatusMod.loadUserStatusFromStorage;   // 옛 전역 이름
+const refreshMyStatusUI = userStatusMod.refreshMyStatusUI;   // 옛 전역 이름
+const refreshCustomStatusMenuItem = userStatusMod.refreshCustomStatusMenuItem;   // 옛 전역 이름
+const saveSeatXf = userStatusMod.saveSeatXf;   // 옛 전역 이름
+window.setUserStatus = setUserStatus;   // presence.js · room-sync.js 가 window. 로 부른다(옛 함수 선언이 걸어 주던 전역 — 안쪽 같은 이름이 가려서 꼭 window. 로)
 /* 본문은 status/chip-popups.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const chipPopupsMod = TwChipPopups.createChipPopups({
-  userStatus: ()=>userStatus,
+  userStatus: ()=>userStatusMod.userStatus(),
 });
 
 /* ═══ 🪟 창 겹침 — 누른 창 맨 앞(bringWinToFront) · ESC 스택(escRegisterWindow) ═══ */
 /* 본문은 win-stack.js 로 옮겼다(앱 FSD 42번). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const winStackMod = TwWinStack.createWinStack({
+  closers: ()=>windowClosers,
+  backToLauncher: (...a)=>backToLauncher(...a),
 });
 
 /* ═══ 📐 상태칩 팝업 · 입력창 자리 계산 · 캐릭터 실측 ═══ */
@@ -2048,14 +804,15 @@ const statusChipMod = TwStatusChip.createStatusChip({
   CUSTOM_STATUS_MAXLEN: userStatusTableMod.CUSTOM_STATUS_MAXLEN,
   Presence: ()=>Presence,
   _CHIP_POPUPS: chipPopupsMod._CHIP_POPUPS,
-  _charBadWhy: ()=>_charBadWhy,
-  _charBoundsLatest: ()=>_charBoundsLatest,
+  _charBadWhy: ()=>moveModeMod._charBadWhy(),
+  _charBoundsLatest: ()=>moveModeMod._charBoundsLatest(),
   _charProjSane: (...a)=>_charProjSane(...a),
   _closeChipPopups: (...a)=>chipPopupsMod._closeChipPopups(...a),
   _danceCmdCooldownAt: ()=>iDeskMod._danceCmdCooldownAt(),
   _lowestDanceReq: (...a)=>iDeskMod._lowestDanceReq(...a),
-  _moveModeJustToggled: ()=>_moveModeJustToggled,
-  _officeHidden: ()=>_officeHidden,
+  lockedToast: (...a)=>iDeskMod.lockedToast(...a),
+  _moveModeJustToggled: ()=>moveModeMod._moveModeJustToggled(),
+  _officeHidden: ()=>officeModeMod._officeHidden(),
   _seatHidden: (...a)=>hiddenSeatsMod._seatHidden(...a),
   _pickUnlockedDance: (...a)=>iDeskMod._pickUnlockedDance(...a),
   _premiumOn: (...a)=>_premiumOn(...a),
@@ -2066,7 +823,7 @@ const statusChipMod = TwStatusChip.createStatusChip({
   clickPolicy: TwClickThroughPolicy,
   customStatusConf: ()=>userStatusTableMod.customStatusConf(),
   measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
-  moveMode: ()=>moveMode,
+  moveMode: ()=>moveModeMod.moveMode(),
   renderer: renderer,
   rideBenchMod: rideBenchMod,
   saveCustomStatusConf: (...a)=>saveCustomStatusConf(...a),
@@ -2074,18 +831,18 @@ const statusChipMod = TwStatusChip.createStatusChip({
   setUserStatus: (...a)=>setUserStatus(...a),
   startMyDance: (...a)=>iDeskMod.startMyDance(...a),
   toast: (...a)=>toast(...a),
-  userStatus: ()=>userStatus,
-  setCharBadWhy: (v)=>{ _charBadWhy = v; },
-  setCharBoundsLatest: (v)=>{ _charBoundsLatest = v; },
+  userStatus: ()=>userStatusMod.userStatus(),
+  setCharBadWhy: (v)=>{ moveModeMod.setCharBadWhy(v); },
+  setCharBoundsLatest: (v)=>{ moveModeMod.setCharBoundsLatest(v); },
   setDanceCmdCooldownAt: (v)=>{ iDeskMod.setDanceCmdCooldownAt(v); },
-  setMoveModeJustToggled: (v)=>{ _moveModeJustToggled = v; },
-  setMoveMode: (v)=>{ moveMode = v; },
+  setMoveModeJustToggled: (v)=>{ moveModeMod.setMoveModeJustToggled(v); },
+  setMoveMode: (v)=>{ moveModeMod.setMoveMode(v); },
 });
-/* 저장된 상태 · 커스텀 상태 불러오기 → 칩 첫 그리기 → 이 모니터 캐릭터 크기 복원.
+/* 칩 첫 그리기 → 이 모니터 캐릭터 크기 복원. 저장된 상태 · 커스텀 상태는 만들 때가 아니라 확인 뒤에 읽는다(userLocal 의 status 조각 — 계정 칸).
    ⚠️ statusChipMod 를 만든 **뒤**에 부른다 — 모듈 안에서 부르면 refreshMyStatusUI 가 아직 없는 statusChipMod 를 읽어
    던지고(상태를 저장해 둔 사람만), 그 뒤 app.js 가 통째로 멈춘다. 칩 버튼 · 메뉴가 없는 화면은 예전처럼 건너뛴다. */
 if(document.getElementById('myStatusChipBtn') && document.getElementById('myStatusMenu')){
-  userStatusTableMod.loadCustomStatusFromStorage(); loadUserStatusFromStorage(); refreshMyStatusUI();
+  refreshMyStatusUI();
   refreshCharScaleForCurrentDisplay();
   refreshCustomStatusMenuItem();
 }
@@ -2117,6 +874,7 @@ const demojiPalMod = TwDemojiPalette.createDemojiPalette({
      _plHasSavedPos · _plApplyPos · _plSyncBgmBounds 는 모듈이 window 고리로도 건다.
    함수 deps 는 화살표로 감싼다(부를 때 찾게). _myHomeLoaded · _myHomeData · _myHomeFriends 는 이 줄보다 뒤에 선언되고 다시 대입되는 let 이라 읽는 함수로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const playlistApiMod = TwPlaylistApi.createPlaylistApi({ authed: TwApi.authed, random: ()=>Math.random(), warn: (...a)=>console.warn(...a) });   // 🌐 플레이리스트 서버 endpoint(/v2/me/playlist · /v2/playlists/…)
 /* 👍 플레이리스트 반응 — 플레이리스트보다 먼저 만든다(만들 때 소개칸을 그리며 부른다). 서버는 firebaseAPI.playlistLike(늦게 붙어서 부를 때 찾는다) */
 const plLikeUi = TwPlaylistLikeUi.createPlaylistLikeUi({ likeRules: TwPlaylistLike, net: ()=>firebaseAPI.playlistLike,
   getMyUserId: (...a)=>getMyUserId(...a), notifyError: (...a)=>TwErrorCodes.notify(...a) });
@@ -2129,6 +887,10 @@ TwXmasWindow.createXmasWindow({ THREE, ps1Dither: TwPs1Dither, rules: TwXmasRule
   twNav: twNav,
 });
 const plMod = TwPlaylist.createPlaylist({
+  playlistAccountStore: accountStoreMod,
+  playlistApi: playlistApiMod,
+  fetchPlaylistCard: (...a)=>apiPublicReadsMod.fetchPlaylistCard(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
@@ -2142,8 +904,7 @@ const plMod = TwPlaylist.createPlaylist({
   lvStarStr: (...a)=>focusLevelMod.lvStarStr(...a),
   starPaint: (...a)=>lvTierMod._starPaint(...a),
   // 🏠 마이홈
-  myHomeLoaded: ()=>mhStateMod._myHomeLoaded(),
-  myHomeData: ()=>mhStateMod._myHomeData(),
+  myhomeAvatar: ()=>myhomeStoreMod.avatar(),
   myHomeFriends: ()=>_myHomeFriends,
   friendsRefreshPresence: (...a)=>friendsSubMod.refreshPresence(...a),
   openFriendHomeView: (...a)=>mhVisitMod.openFriendHomeView(...a),
@@ -2153,19 +914,9 @@ const plMod = TwPlaylist.createPlaylist({
   bringWinToFront: (...a)=>winStackMod.bringWinToFront(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   escEditable: (...a)=>winStackMod._escEditable(...a),
-  playlistSync: TwPlaylistSync,
   playlistLikeUi: plLikeUi,
 });
 TwBgmDiag.createBgmDiag({ companion: window.companion });   // 🔍 플레이리스트 소리 진단 줄
-/* ═══ 🎵 프리셋 세 벌 ═══ */
-/* 🎵 프리셋 세 벌(_plSets · _plCur · _plNowSet …) · 저장 · 서버 사본은 parts/playlist.js 로 옮겼다(앱 FSD 16번) — 연결은 바로 위 «🎵 상태칩 플레이리스트» 머리 아래(plMod). */
-/* ═══ 👤 프로필 소개칸 ═══════════════════════════════════════════════════
-   목록 주인의 사진·닉네임·레벨 배지와 bio 한마디를 그린다.
-   ★ 내 목록과 남의 목록이 같은 자리를 쓰되, 갈리는 것은 **입력칸의 유무** 하나다:
-       내 목록  — 흰 칸(눌러서 고침) + [마이홈 공개] 체크박스
-       남의 목록 — 테두리 없는 글자(읽기 전용) + 공개면 사진에 🏠
-     이 앱에서 흰 바탕이 곧 "내가 쓰는 곳"이라, 별도 안내 문구 없이도 상태가 읽힌다. */
-
 /* ═══ 🏅 레벨 티어 — 경계값이 사는 **유일한 곳** ═══════════════════════════════
    예전엔 같은 삼항 사슬(n<=20?'t1':…)이 세 군데(프로필 목록·친구창 배지·경험치 바)에 각각
    복사돼 있었고, 주석에 "고칠 일이 생기면 둘 다 고칠 것"이라고 적어 두는 것이 방어의 전부였다.
@@ -2185,95 +936,40 @@ TwBgmDiag.createBgmDiag({ companion: window.companion });   // 🔍 플레이리
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const lvTierMod = TwLvTier.createLvTier({
 });
-/* ═══ 🎵 플레이리스트 화면 — 명함 · 목록 · 흐르는 제목 · 미니미 · 파도타기 ═══ */
-/* 🎵 플레이리스트 화면은 parts/playlist.js 로 옮겼다(앱 FSD 16번) — 연결은 «🎵 상태칩 플레이리스트» 머리 아래(plMod). 레벨 배지는 plMod.fillLv. */
-/* ═══ 🎵 프리셋 고르기 ═══ */
-/* 🎵 프리셋 고르기 · 📥 담을 프리셋 고르기는 parts/playlist.js 로 옮겼다(앱 FSD 16번) — 연결은 «🎵 상태칩 플레이리스트» 머리 아래(plMod). */
-/* ═══ 🐕 재생 감시견 ═══ */
-/* 🐕 재생 감시견 · 재생 제어(곡 열기 · 다음 곡 · 셔플 · 음량) · 내 플레이리스트 버튼 연결(bindMyPlaylist)은 parts/playlist.js 로 옮겼다(앱 FSD 16번)
-   — 연결은 «🎵 상태칩 플레이리스트» 머리 아래(plMod). 버튼 연결은 만들 때 돈다. */
-
-/* ═══ 🩺 렌더러 생존 신호 · 캐릭터 화면 좌표 ═══ */
-// ── 스마트 감지용 throttle timestamp (companion.setCharBounds 호출 제한) ──
-//   초당 60번 IPC보다 100ms 간격이 훨씬 가볍고, 판정 정확도는 그대로 유지됨(사람 마우스 이동 속도 대비 충분).
-/* ── 🩺 렌더러 생존 신호 (main.js '클릭 고착 안전장치'가 이걸 본다) ─────────────────
-   main은 companion.setCharBounds 가 4초 끊기면 "렌더러가 멈췄다"고 판단해 클릭을 통과로
-   **강제 전환**한다(main.js _guardStuckClickCapture).
-
-   [문제] 그 신호를 updateMyStatusChipPosition 안에서 보내고 있었는데, 그 함수는
-     ・내 좌석이 아직 없거나(!me — 방 입장/좌석 재구성 순간)
-     ・런처/생성기/프로그램 이동 중
-   이면 맨 위에서 return 한다. 그래서 **렌더러가 멀쩡히 살아 있는데도** 신호가 끊기고,
-   4초 뒤 통과로 전환된다. 커서를 캐릭터에 올려 겨우 되돌려도 또 4초 뒤에 같은 일이 반복된다
-   — 제보된 "조금 조작하고 나면 금방 다시 클릭이 뒤로 뚫린다"의 형태가 정확히 이것이다.
-   (창은 포커스를 못 얻으므로 focus 이벤트 복구 통로도 안 열린다)
-
-   [대응] 신호를 rAF 루프에서 떼어내 타이머로 옮긴다. 이제 이 신호의 의미는
-   "캐릭터가 그려지고 있는가"가 아니라 "렌더러의 이벤트 루프가 살아 있는가"이며,
-   그게 원래 안전장치가 알고 싶어 하던 것이다.
-   ⚠️ 좌표는 마지막으로 계산된 값을 그대로 재사용한다(펜 근접 판정 정확도는 그대로).
-     캐릭터가 없으면 화면 밖 좌표 + 반경 0 으로 보내 근접 판정에는 절대 안 걸리게 한다. */
-let _charBoundsLatest = null;
-/* 🧭 [2026-09-01] 위 값이 못 믿을 상태일 때의 이유 한 줄 (하트비트에 얹어 main 진단 기록으로 보낸다).
-   null 이면 정상. 문자열은 구간이 시작될 때 한 번만 만든다 — 만드는 자리는 updateMyStatusChipPosition. */
-let _charBadWhy = null;
-/* 투영 결과가 쓸 만한가. run 오버레이는 화면을 통째로 덮으므로, 내 캐릭터가 화면 한 장 밖으로
-   나가 있다는 값은 클릭 통과 판정에 쓸 수 없는 값이다(그 자리에 클릭할 방법이 없다).
-   ⚠️ 여기서 걸러진 값은 '보류'가 되지 그 자체로 고쳐지지는 않는다. 화면 안이면서 틀린 값은
-     이 문지기를 그냥 통과한다 — 문지기는 폭주만 막는다. */
-function _charProjSane(x, y, h){
-  if(!isFinite(x) || !isFinite(y) || !isFinite(h)) return false;
-  const mw = Math.max(1, innerWidth), mh = Math.max(1, innerHeight);
-  if(h > mh * 2) return false;                     // 화면 두 장보다 큰 캐릭터는 없다
-  return x > -mw && x < mw * 2 && y > -mh && y < mh * 2;
-}
-/* 🩺 mousemove 도착 시각(벽시계). 아래 하트비트에 실어 main 으로 보낸다.
-   [왜 필요한가] main 의 기존 생존 신호(_lastCharBoundsAt)는 **이벤트 루프가 살아 있는가**만 말해준다.
-     그런데 실제 사고는 "렌더러는 멀쩡한데 mousemove 만 안 오는" 형태로 난다 —
-     Electron 의 forward 전달이 Windows 에서 끊기는 확인된 상류 버그가 있다
-     (electron#30808 · #33281). 그러면 마지막 판정값이 그대로 굳는데, 그 값이 하필
-     '클릭 받는 중'이면 전체화면 투명 오버레이가 계속 클릭을 가로챈다.
-   ⚠️ 아래 _noteChannelAlive() 가 이 값을 갱신한다. 그쪽을 지우면 이 신호도 같이 죽는다. */
-let _twMoveSeenAt = 0;
-try{
-  setInterval(()=>{
-    try{
-      if(!(window.companion && companion.setCharBounds)) return;
-      /* ★ _charBoundsLatest 를 직접 건드리지 않고 매번 새 객체로 보낸다 — 그 값은 다음 주기에도
-         재사용되므로 필드를 덧붙이면 안 된다. moveAge 는 "mousemove 가 마지막으로 온 지 몇 ms 됐나",
-         한 번도 온 적 없으면 -1(=판단 불가, main 은 이때 아무것도 하지 않는다). */
-      const _b = _charBoundsLatest || { x:-99999, y:-99999, r:0 };
-      /* 📐 우리 창들의 사각형도 같이 보낸다 — main 의 회수 판정이 캐릭터 하나만 알아서
-         대화창 위에서 렌더러와 싸우던 문제(핸드오프5 §1-4). __uiRegions 는 클릭통과 블록이
-         정의하는데, 그 블록은 companion 이 없으면 아예 안 돈다 — 그래서 존재 확인이 필요하다. */
-      companion.setCharBounds({ x:_b.x, y:_b.y, r:_b.r,
-        moveAge: _twMoveSeenAt ? (Date.now() - _twMoveSeenAt) : -1,
-        regions: window.__uiRegions ? window.__uiRegions() : undefined,
-        /* 🧭 좌표를 못 믿는 구간이면 그 이유를 실어 보낸다 — main 이 구간 시작·끝만 기록한다.
-           구버전 main 은 이 필드를 그냥 무시한다(동작 변화 없음). */
-        charBad: _charBadWhy || undefined });
-    }catch(_){}
-  }, 100);
-}catch(_){}
-/* ═══ 📍 상태칩 자리 · 칩 클릭 · Tab 접기 ═══ */
-/* (앱 FSD 36번) 이 자리의 본문도 status-chip.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-
+/* 본문은 launcher/move-mode.js 로 옮겼다(앱 FSD · app.js 분리 M19). 이동 모드 깃발 · 캐릭터 화면 좌표 값의 주인이다 — 듣기가 예전과 같은 때 걸린다. 다시 대입되는 값은 읽는 · 쓰는 함수로 다룬다. */
+const moveModeMod = TwMoveMode.createMoveMode({
+  charPlaceMod: charPlaceMod,
+  clampDeskPan: clampDeskPan,
+  layoutSeats: (...a)=>layoutSeats(...a),
+  saveCharPos: saveCharPos,
+  statusChipMod: statusChipMod,
+  toast: (...a)=>toast(...a),
+});
+const _charProjSane = moveModeMod._charProjSane;   // 옛 전역 이름
+const runCost = TwRunCostDiag.page;   // 🩺 1분 [비용] 줄 — 그리기 밖 시간(shared/run-cost-diag.js)
+/* 본문(창 보임 구독 · 100ms 타이머)은 launcher/heartbeat.js 로 옮겼다 — 만들 때 한 번 돈다. */
+const heartbeatMod = TwHeartbeat.createHeartbeat({
+  _charBadWhy: ()=>moveModeMod._charBadWhy(),
+  _charBoundsLatest: ()=>moveModeMod._charBoundsLatest(),
+  _twMoveSeenAt: ()=>moveModeMod._twMoveSeenAt(),
+  otherSeatCircles: (...a)=>statusChipMod.otherSeatCircles(...a),
+  runCost: runCost,
+});
 /* ═══ ⚙ 설정 패널 — 포커싱 어플 · 화면 표시 · 캐릭터 크기 · 탭 · 광고 배너 ═══ */
 /* ⚙ 설정 패널 — 포커싱 어플 슬롯 / 캐릭터 크기 / 프로그램 이동 */
-let moveMode=false;   // "프로그램 이동" 진행 중 여부 (true면 캐릭터가 마우스를 따라다니다 클릭으로 확정)
-let _suppressNextContextMenu=false;   // 이동 모드를 우클릭으로 확정한 직후, 뒤이어 뜨는 contextmenu 1회를 무시하기 위한 플래그
-let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMode가 시작점을 새로 잡게 함
 /* 본문은 settings-panel.js 로 옮겼다(앱 FSD 27번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const settingsMod = TwSettingsPanel.createSettingsPanel({
+  settingsAccountStore: accountStoreMod,
   GAP_MAX: GAP_MAX,
   GAP_MIN: GAP_MIN,
   GAP_STEPS: GAP_STEPS,
-  MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,
+  MULTIPLAYER_SPACING: ()=>seatsMod.MULTIPLAYER_SPACING(),
   Presence: ()=>Presence,
-  SPACING: ()=>SPACING,
+  SPACING: ()=>seatsMod.SPACING(),
   _chatEsc: (...a)=>_chatEsc(...a),
-  _moveModeJustToggled: ()=>_moveModeJustToggled,
+  _moveModeJustToggled: ()=>moveModeMod._moveModeJustToggled(),
+  adBannerSlides: ()=>noticeFeed.banner(),
   allDeskItems: (...a)=>deskItemsMod.allDeskItems(...a),
   applyCharToSeat: (...a)=>applyCharToSeat(...a),
   applyClothVisibility: (...a)=>applyClothVisibility(...a),
@@ -2288,13 +984,11 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   equipDeskItem: (...a)=>equipDeskItem(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   findMySeat: (...a)=>findMySeat(...a),
-  focusCharScale: ()=>focusCharScale,
+  focusCharScale: ()=>charPlaceMod.focusCharScale(),
   isPremium: ()=>isPremium,
-  isLauncherShown: (...a)=>isLauncherShown(...a),
   layoutSeats: (...a)=>layoutSeats(...a),
-  moveMode: ()=>moveMode,
+  moveMode: ()=>moveModeMod.moveMode(),
   nameplateEnabled: ()=>overheadMod.nameplateEnabled(),
-  statusBubbleEnabled: ()=>overheadMod.statusBubbleEnabled(),
   plMod: plMod,
   refreshCharScaleForCurrentDisplay: (...a)=>refreshCharScaleForCurrentDisplay(...a),
   refreshInviteUI: (...a)=>roomEntryMod.refreshInviteUI(...a),
@@ -2311,78 +1005,41 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   toast: (...a)=>toast(...a),
   updateCameraOnly: (...a)=>seatCameraMod.updateCameraOnly(...a),
   wardrobeMod: ()=>wardrobeMod,
-  setMULTIPLAYER_SPACING: (v)=>{ MULTIPLAYER_SPACING = v; },
-  setSPACING: (v)=>{ SPACING = v; },
-  setMoveModeJustToggled: (v)=>{ _moveModeJustToggled = v; },
+  setMULTIPLAYER_SPACING: (v)=>{ seatsMod.setMULTIPLAYER_SPACING(v); },
+  setSPACING: (v)=>{ seatsMod.setSPACING(v); },
+  setMoveModeJustToggled: (v)=>{ moveModeMod.setMoveModeJustToggled(v); },
   setCurSlot: (v)=>{ curSlot = v; },
   setDecoPartsVisible: (v)=>{ decoPartsMod.setDecoPartsVisible(v); },
   setDotRenderEnabled: (v)=>{ dotRenderEnabled = v; },
   setEmojiReactionsEnabled: (v)=>{ floatersMod.setEmojiReactionsEnabled(v); },
-  setFocusCharScale: (v)=>{ focusCharScale = v; },
-  setMoveMode: (v)=>{ moveMode = v; },
+  setFocusCharScale: (v)=>{ charPlaceMod.setFocusCharScale(v); },
+  setMoveMode: (v)=>{ moveModeMod.setMoveMode(v); },
   setNameplateEnabled: (v)=>{ overheadMod.setNameplateEnabled(v); },
-  setStatusBubbleEnabled: (v)=>{ overheadMod.setStatusBubbleEnabled(v); },
   setRoomSeatMode: (v)=>{ roomSeatMode = v; },
   setSeatEqualizeOn: (v)=>{ seatEqMod.setSeatEqualizeOn(v); },
+  isLauncherShown: (...a)=>isLauncherShown(...a),
+  statusBubbleEnabled: ()=>overheadMod.statusBubbleEnabled(),
+  setStatusBubbleEnabled: (v)=>{ overheadMod.setStatusBubbleEnabled(v); },
 });
 
 /* ═══ 🕒 포커스 기록 팝업 ═══ */
 /* 🕒 포커스 기록 팝업(현재 / 누적 · 오늘 기록 · 미니미 · 타이틀바 끌기 · ⎋ 닫기)은 parts/focus-log.js 로 옮겼다(앱 FSD 13번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(버튼 · ESC 등록 · window._focusLogClamp · 매초 갱신 · 타이틀바 끌기)이
      예전과 같은 때 돈다. 밖에서 부르는 이름은 없다.
-   함수 deps 는 화살표로 감싼다(부를 때 찾게). _focusTotalSec · _focusSessionSec 는 다시 대입되고 이 줄보다 한참 뒤(포커스 시간 누적 구역)에
-   선언되는 let 이라 읽는 함수로 넘긴다(값으로 넘기면 TDZ).
+   함수 deps 는 화살표로 감싼다(부를 때 찾게). _focusSessionSec 는 다시 대입되고 이 줄보다 한참 뒤(포커스 시간 누적 구역)에
+   선언되는 let 이라 읽는 함수로 넘긴다(값으로 넘기면 TDZ). 누적(focusProgressMod)도 더 뒤에 만들어져 같은 까닭으로 읽는 함수.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const focusLog = TwFocusLog.createFocusLog({
   formatHMS: (...a)=>focusLevelMod.formatHMS(...a),
   rolloverFocusToday: (...a)=>focusTotalMod._rolloverFocusToday(...a),
   bringWinToFront: (...a)=>winStackMod.bringWinToFront(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
-  focusTotalSec: ()=>_focusTotalSec,
+  focusTotalSec: ()=>focusProgressMod.shownTotalSec(),   // 서버 누적 + 못 올린 몫(받기 전 null)
+  retryProgress: (...a)=>focusProgressMod.reload(true),   // 못 받았으면 열 때 다시 받는다(번호 알림 E-FOCUS-01)
+  progressLoad: ()=>focusProgressMod.progress().load,
   focusSessionSec: ()=>focusTotalMod._focusSessionSec(),
-  figureMode: ()=>figureMode,
+  figureMode: ()=>officeModeMod.figureMode(),
 });
-/* ═══ ✥ 프로그램 이동 모드 ═══ */
-/* 프로그램 이동 모드 — 마우스를 따라 화면 전체(카메라 pan)가 이동, 클릭하면 확정.
-   카메라 각도는 고정한 채 평행이동만 하므로 앵글이 안 흔들리고, 상태칩도 camera 기준 재계산이라 정확히 따라옴.
-   deskPanX/Y는 화면 비율(단위 없음) — 마우스 이동 픽셀 ÷ 창 크기. 실행 화면 캔버스 = 창 크기라 월드 환산 없이 1:1 로 따라온다. */
-(function bindMoveMode(){
-  let startClientX=0, startClientY=0, startPanX=0, startPanY=0;
-  let _moveStarted=false;
-  window.addEventListener('mousemove', e=>{
-    if(!moveMode) return;
-    if(!_moveStarted || _moveModeJustToggled){
-      _moveStarted=true; _moveModeJustToggled=false;
-      startClientX=e.clientX; startClientY=e.clientY; startPanX=deskPanX; startPanY=deskPanY;
-      return;
-    }
-    const dxPix = e.clientX - startClientX, dyPix = e.clientY - startClientY;
-    // 픽셀 이동량을 캔버스 크기 대비 "비율"로 변환 — 캐릭터 크기(focusCharScale)가 바뀌어도 위치 비율이 안 틀어짐.
-    // run 모드는 canvasW===innerWidth, canvasH===innerHeight. 마우스 오른쪽/아래 → 캐릭터도 화면상 오른쪽/아래로 보이게 부호 반전.
-    let nx = startPanX - dxPix/Math.max(1, innerWidth);
-    let ny = startPanY + dyPix/Math.max(1, innerHeight);
-    const _clamped = clampDeskPan(nx, ny);
-    deskPanX = _clamped.x;
-    deskPanY = _clamped.y;
-    layoutSeats();
-    statusChipMod.updateMyStatusChipPosition();   // 렌더 루프(frame) 대기 없이 즉시 갱신 — 도트렌더 등으로 프레임이 느려져도 상태칩은 안 밀리게
-  });
-  window.addEventListener('pointerdown', e=>{
-    if(!moveMode) return;
-    moveMode=false; _moveStarted=false;
-    const moveBtn=document.getElementById('fsMoveBtn'); const moveHint=document.getElementById('fsMoveHint');
-    if(moveBtn){ moveBtn.classList.remove('active'); moveBtn.textContent='프로그램 이동'; }
-    if(moveHint) moveHint.style.display='none';
-    const myMove=document.getElementById('myMoveBtn'); if(myMove) myMove.classList.remove('on');   // 상태칩의 이동 버튼 시각적 활성 해제
-    // 우클릭으로 확정한 경우, 바로 뒤이어 뜨는 contextmenu 이벤트가 캐릭터 우클릭 동작(런처 이동 등)으로
-    // 이어지지 않게 한 번 억제 — 안 그러면 확정 클릭이 그 자리의 캐릭터를 우클릭한 걸로도 처리돼버림.
-    if(e.button===2) _suppressNextContextMenu = true;
-    saveCharPos();   // ★ 껐다 켜도 유지되게 위치 확정 시 저장
-    statusChipMod.updateMyStatusChipPosition();   // 상태칩 즉시 재표시
-    toast('위치가 확정됐어요');
-  }, true);   // capture: 클릭통과 로직보다 먼저 잡아서 이동 확정
-  // 이동 시작 트리거는 moveBtn 클릭 시점(bindFocusSettings)에서 moveMode=true로 바뀌자마자 다음 mousemove에서 자동 시작됨
-})();
 
 /* ═══ ⌨️ 함수키 단축키(F1 ~ F4) ═══ */
 /* 본문은 fn-keys.js 로 옮겼다(앱 FSD 43번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
@@ -2405,6 +1062,9 @@ const wdPanelMod = TwWardrobePanel.createWardrobePanel({
 /* 본문은 wardrobe.js 로 옮겼다(앱 FSD 29번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const wardrobeMod = TwWardrobe.createWardrobe({
+  accountStore: accountStoreMod,
+  NO_DESK_ID: NO_DESK_ID,
+  layoutSeats: (...a)=>layoutSeats(...a),
   ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
   CHAR_Z: CHAR_Z,
   PART_CATS: ()=>premiumMod.PART_CATS(),
@@ -2412,18 +1072,14 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   PART_GROUPS: ()=>premiumMod.PART_GROUPS,
   Presence: ()=>Presence,
   WD_DESK_TAB: ()=>premiumMod.WD_DESK_TAB,
-  _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
-  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,
-  _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,
-  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,
   _attachHumanEars: (...a)=>_attachHumanEars(...a),
   _disposeWrapperFromSeat: (...a)=>_disposeWrapperFromSeat(...a),
   _hsvToHex: (...a)=>_hsvToHex(...a),
   _invalidatePendingEquip: (...a)=>_invalidatePendingEquip(...a),
-  _mkFrontFill: (...a)=>_mkFrontFill(...a),
   _rgbHexToHsv: (...a)=>_rgbHexToHsv(...a),
   _sweepOrphanPartWrappers: (...a)=>_sweepOrphanPartWrappers(...a),
   _wdLicenseDesks: (...a)=>premiumMod._wdLicenseDesks(...a),
+  addRunLights: (...a)=>lightToneMod.addRunLights(...a),
   addEntryToCat: (...a)=>premiumMod.addEntryToCat(...a),
   addPartEntryInstance: (...a)=>premiumMod.addPartEntryInstance(...a),
   applyClothVisibility: (...a)=>applyClothVisibility(...a),
@@ -2454,6 +1110,7 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   isDeskPartCat: (...a)=>premiumMod.isDeskPartCat(...a),
   isHueTintMesh: (...a)=>isHueTintMesh(...a),
   measureCharBox: (...a)=>charMeasureMod.measureCharBox(...a),
+  measurePreviewBox: (...a)=>charMeasureMod.measurePreviewBox(...a),
   openAssetImport: (...a)=>twNav.go(twNav.NAV.ASSET_IMPORT, ...a),
   partCatInfo: (...a)=>premiumMod.partCatInfo(...a),
   partEntryId: (...a)=>premiumMod.partEntryId(...a),
@@ -2490,12 +1147,10 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   clampDeskScale: (...a)=>clampDeskScale(...a),
   humanEar: humanEar,
   resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),
+  glbFailWhy: (...a)=>catalogGlbMod.glbFailWhy(...a),
   setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),
   swThumb: (...a)=>assetCardsMod.swThumb(...a),
 });
-/* ═══ 📝 꾸미기 초안(draft) — 미리보기 캐릭터 · 저장(commitWdDraft) · 색 영역 ═══ */
-/* (앱 FSD 29번) 이 자리의 본문도 wardrobe.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-
 /* ══ 🖍️ 파츠에 직접 그리기 ══════════════════════════════════════════════════
    꾸미기창 안에서만 끝난다 — 별도 창도, 별도 단계도 없다. 미리보기가 그대로 그림판이 된다.
 
@@ -2551,7 +1206,6 @@ const partPaintMod = TwPartPaint.createPartPaint({
 //   따로 미러링"하는 절차 자체가 필요 없어짐.
 function findMySeat(){ return seats.find(s=>s.isMe) || seats.find(s=>!s.remote) || null; }
 
-
 /* ============================================================ 🏠 마이홈 (1단계: 친구 탭) */
 /* 👥 친구 상한. **다섯 곳이 전부 이 값 하나를 본다** — 추가·수락(둘)·코드추가·우클릭추가 +
    마이홈 친구창 헤더의 (n/상한) 표기. 한 곳만 빠뜨리면 "추가는 되는데 요청 수락은 막힌다" 가 된다.
@@ -2574,19 +1228,27 @@ const DS_IMG_MAX_BG_H  = 660;    // 배경 세로 상한 (440px 표시 영역 ×
 const DS_IMG_MAX_PANEL = 525;    // 패널류 긴 변 상한 (350px × 1.5)
 const DS_IMG_QUALITY   = 0.82;   // JPEG 품질 — 이 정도면 눈에 띄는 열화 없이 용량이 크게 줄어듦
 
-
 /* 📅 스케줄러(일정 · D-day 달력) · 🔔 일정 알림 — parts/scheduler.js 로 옮겼다(앱 FSD 1번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(버튼 연결 · 🔔 알림 구독 · 자정 넘김 타이머)이 예전과 같은 때 돈다.
    ⚠️ _mhViewingUserId 는 이 줄보다 뒤(마이홈 방문)에 let 으로 선언된다 — 값이 아니라 읽는 함수로 넘긴다.
    함수 deps 도 화살표로 감싼다(부를 때 찾게). ⚠️ 이름을 Scheduler · scheduler 로 짓지 말 것 — 크로미움(Electron) 내장 전역(작업 예약 API)과
      겹쳐 typeof 가드가 늘 통과하고, 모듈이 안 실렸을 때 내장 생성자에 createScheduler 를 부르다 app.js 가 선다. */
 const BELL_SEEN_KEY = 'tw.bellSeenTs';   // 🔔 마지막으로 알림창을 연 시각 — 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)도 쓴다
-let _schedDdaysVisitUnsub = null;        // 👀 관람 중 친구 D-day 구독 끊기 — openFriendHomeView · closeFriendHomeView
+const scheduleApiMod = TwScheduleApi.createScheduleApi({   // 🌐 일정 · 디데이 · 일정 알림 서버 endpoint(/v2/me/schedules · /v2/me/ddays · /v2/me/notifications) — 원본은 서버
+  authed: TwApi.authed,
+  newId: ()=>TwRequestId.newId(),
+  imageBytes: TwImageBytes,
+  warn: (...a)=>console.warn(...a),
+});
 /* 🙋 마지막으로 받은 방 초대 한 줄(room/invite-notice.js) — 받기는 room-invite-ui.js · 보이기는 🔔 일정 알림(scheduler.js) */
 const inviteNotice = TwInviteNotice.createInviteNotice({ storage: localStorage, getMyUserId: ()=>getMyUserId(), now: ()=>Date.now() });
 const mhScheduler = MhScheduler.createScheduler({
+  scheduleAccountStore: accountStoreMod,
+  scheduleApi: scheduleApiMod,
+  apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
   getMyUserId: ()=>getMyUserId(),
-  getDisplayName: ()=>getDisplayName(),
   viewingUserId: ()=>mhStateMod._mhViewingUserId(),
   myHomeFriends: ()=>_myHomeFriends,
   toast: (...a)=>toast(...a),
@@ -2601,12 +1263,11 @@ const mhScheduler = MhScheduler.createScheduler({
   roomInvite: inviteNotice,
 });
 
-/* 🐞 버그 제보 탭(오픈카톡 기본 링크 — bugReport/current · window._bugReportLink)은 parts/bug-board-ui.js 끝으로 옮겼다(앱 FSD 5번).
-     게시판 화면과 한 파일이다. 그 파일은 app.js 뒤에 싣지만 firebase-init.js(type="module")보다는 앞이라 구독 시작 때는 같다.
+/* 🐞 버그 제보 탭(오픈카톡 기본 링크 폼 포함)은 parts/support/bug-board-ui.js 다 — 게시판은 🚩 신고 다음에서 만든다.
    👥 친구 관리(받은 요청 · 📤 보낸 요청 · 선물함 서브탭) · 👋 새 친구 요청 팝업 · 친구 탭 배지는 parts/friend-manage.js 로 옮겼다
      (앱 FSD 5번 · docs/APP_FSD_MAP.md). ★ 원래 자리인 여기서 만든다(만들 때 바로 도는 일은 없다 — 상태 초기값뿐).
-   함수 deps 는 화살표로 감싼다(부를 때 찾게). _myFriendRequests · _myHomeFriends · myHomeOpen 은 다시 대입되는 let 이라
-     읽는 함수로 넘긴다(myHomeOpen 은 이 줄보다 한참 뒤에 선언된다). 부르는 곳은 friendManage.이름.
+   함수 deps 는 화살표로 감싼다(부를 때 찾게). _myFriendRequests · _myHomeFriends · myHomeOpen 은 다시 대입되는 값이라
+     읽는 함수로 넘긴다(myHomeOpen 의 주인은 launcher-state.js). 부르는 곳은 friendManage.이름.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const friendManage = TwFriendManage.createFriendManage({
   getMyUserId: ()=>getMyUserId(),
@@ -2615,16 +1276,17 @@ const friendManage = TwFriendManage.createFriendManage({
   giftStat: (...a)=>inboxMod.giftStat(...a),
   renderGiftBox: (...a)=>inboxMod.renderGiftBox(...a),
   inboxTimeStr: (...a)=>inboxMod.inboxTimeStr(...a),
-  myHomeOpen: ()=>myHomeOpen,
+  myHomeOpen: ()=>launcherStateMod.myHomeOpen(),
   myHomeFriends: ()=>_myHomeFriends,
   myFriendRequests: ()=>_myFriendRequests,
   friendMax: FRIEND_MAX,
   friendsForCheck: (...a)=>friendsSubMod.friendsForCheck(...a),
+  requests: ()=>friendRequestsPortMod,
 });
 let _myHomeReady = false;
 /* 포기하지 않는다 — SDK 를 실행 때 gstatic 에서 받아 느린 망이면 20초를 넘긴다(예전 20초 포기 → 친구 · 우편 구독이 영영 안 걸렸다). */
 function _waitForFirebaseAPI(cb){
-  TwNetReady.whenNetReady(()=>cb(), 'watchMyFriendList');
+  TwNetReady.whenNetReady(()=>cb());   // 준비 키(need)를 주지 않는다 — 키 이름을 걷은 메서드로 두면 «준비됨» 이 영영 안 온다
 }
 /* 🔇 소유권이 걸린 쓰기가 거부됐을 때 침묵을 깬다.
    [경위] 규칙을 게시한 뒤 users/{코드} 의 자기 소유 가지는 "주인이 없거나 나일 때"만 쓸 수 있다.
@@ -2632,47 +1294,44 @@ function _waitForFirebaseAPI(cb){
      permission_denied 로 떨어진다. 거부는 화면에 아무 표시도 안 남긴다 — 유저에게는
      "이름이 안 바뀐다 / 친구가 사라졌다"로만 보인다.
    ⚠️ 막지 않는다. 알려주기만 한다 — 고치는 방법은 재시작 한 번이다(부팅 게이트 K 가 로그인을 받는다 · 개정 16: 설정 › 계정 로그인은 걷었다). */
-/* ═══ 🖥️ 한 계정 한 기기 — 밀려난 기기의 처리 [2026-09-17 제보 3 · 시안 확정(왼쪽)] ═══════════════
-   firebase-init.js claimDeviceSession 주석이 구조다. 여기는 «밀려난 뒤 이 기기가 하는 일» 뿐이다:
-     방에서 나온다(doLeaveRoom) · 방 입장을 막는다(startRoom 첫 줄) · 차단 화면을 띄운다.
-   ★ 로그아웃하지 않는다 — 캐릭터·기록·신원 그대로. 로그아웃은 사람이 눌러야 도는 길이다(_loginDoLogout).
-   «여기서 계속 쓰기» = 다시 claim → 반대쪽이 이 화면을 본다. «앱 닫기» = quitApp. */
-/* 본문은 device-lost.js 로 옮겼다(앱 FSD 46번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+/* ═══ 🖥️ 계정마다 PC 는 서버가 정한 상한까지 — 이 PC 등록 · 연결이 끊긴 PC 의 처리 ═══════════════
+   자리(기기 등록)는 서버 API 가 정한다 — 켤 때 realtime 보다 먼저 등록(device-register.js · 상한이 다 찼으면 확인창 device-limit-dialog.js) · 끊기면 안내(device-lost.js).
+   ★ 로그아웃하지 않는다 — 캐릭터·기록·신원 그대로. «다시 등록 · 여기서 계속» = 등록 → 같은 realtime 연결로 다시 붙기. «앱 닫기» = quitApp. */
+const deviceLimitDialog = TwDeviceLimitDialog.createDeviceLimitDialog({ document: document });
+const deviceRegisterMod = TwDeviceRegister.createDeviceRegister({
+  registerDevice: (o)=>TwUserApi.store.registerDevice(o),
+  limitOldestOf: (e)=>TwUserApi.limitOldestOf(e),
+  deviceId: ()=>TwDeviceId.store.get(),   // API 머리 X-Device-Id · hello.deviceId 와 같은 값
+  session: ()=>TwRtHub.store.session(),   // hello.session 과 같은 값 — 등록이 연결보다 먼저 뽑는다
+  os: ()=>TwDeviceRegister.osOf(navigator),
+  ask: (question)=>deviceLimitDialog.ask(question),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+});
+/* 본문은 device-lost.js 로 옮겼다(앱 FSD 46번).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const deviceLostMod = TwDeviceLost.createDeviceLost({
-  getMyUserId: (...a)=>getMyUserId(...a),
   twNav: twNav,
-  _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),
+  continueHere: ()=>deviceRegisterMod.ensure().then((r)=>{ if(r !== 'ok') return false; TwRtHub.store.start({ claim: true }); return true; }),   // 등록 → realtime 연결 하나로 다시(login-flow 를 부르지 않는다 — 그쪽이 이 화면을 부른다)
 });
 
 /* ═══ 🏠 마이홈 열기(initMyHome) · 소유자 쓰기 거부 안내 ═══ */
 /* 본문은 myhome-init.js 로 옮겼다(앱 FSD 44번 남은 몫). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
-/* 👥 친구 데이터는 포트(friends/friends-port.js) 하나로 — 그 뒤 provider 가 Firebase(옛 길)를 안다. friends-sub · 화면은 Firebase 를 모른다. */
-const friendsFirebaseMod = TwFriendsFirebase.createFriendsFirebase({
-  getList: (...a)=>firebaseAPI.getMyFriendList(...a),
-  watchList: (...a)=>firebaseAPI.watchMyFriendList(...a),
-  getCard: (...a)=>firebaseAPI.getFriendCard(...a),
-  watchPresence: (...a)=>firebaseAPI.watchFriendPresence(...a),
-  getPresence: (...a)=>firebaseAPI.getFriendPresence(...a),
-  watchProfile: (...a)=>firebaseAPI.watchFriendProfile(...a),   // 친구 한 명 프로필 구독 — 목록이 열려 있는 동안만
-  getProfile: (...a)=>firebaseAPI.getFriendProfile(...a),       // 같은 칸 한 번 — 마이홈 구경
-  setTimer: (fn, ms)=>setTimeout(fn, ms),
-  clearTimer: (id)=>clearTimeout(id),
-  now: ()=>Date.now(),
-});
+/* 👥 친구 데이터는 포트(friends/friends-port.js) 하나로 — 그 뒤 서버 provider(friends-api.js)가 있다. friends-sub · 화면은 서버 경로를 모른다. */
+const socialApiMod = TwSocialApi.createSocialApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) });   // 🌐 친구 · 친구 요청 · 명함 서버 경로(social-api.js)
+const apiPublicReadsMod = TwApiPublicReads.createApiPublicReads({ fetchCards: (codes)=>socialApiMod.fetchCards(codes) });   // 🌐 플레이리스트 명함 읽기(api-public-reads.js — 같은 틱에 모인 코드는 요청 하나)
 const friendsApiMod = TwFriendsApi.createFriendsApi({
-  get: (...a)=>firebaseAPI.apiGetAuthed(...a),   // 로그인 API 통로(firebase-init.js — 토큰은 거기서 붙인다)
-  getCard: (...a)=>firebaseAPI.fetchUserCardApi(...a),   // 친구 한 명 명함 — 공개 읽기 통로(api-public-reads.js)
-  wait: (ms)=>new Promise(r=>setTimeout(r, ms)),
+  social: socialApiMod,
+  rt: TwRtHub.store,   // 알림 friends · card 를 받으면 다시 받는다
   warn: (...a)=>console.warn(...a),
 });
+/* 👋 친구 요청 — 포트 하나(friends/friend-requests-port.js) 뒤에 서버 provider */
+const friendRequestsApiMod = TwFriendRequestsApi.createFriendRequestsApi({ social: socialApiMod, rt: TwRtHub.store, warn: (...a)=>console.warn(...a) });
+const friendRequestsPortMod = TwFriendRequestsPort.createFriendRequestsPort({ api: friendRequestsApiMod });
+const friendsPresenceRtMod = TwFriendsPresenceRt.createFriendsPresenceRt({ rt: TwRtHub.store });   // 친구 접속 상태 — realtime 연결 하나(presenceGet · watch)
 const friendsPortMod = TwFriendsPort.createFriendsPort({
-  firebase: friendsFirebaseMod,
+  presence: friendsPresenceRtMod,
   api: friendsApiMod,
-  source: ()=>TwSourceSwitch.store.pick('friends'),   // 받는 곳 — 원격 설정 sources.friends(없으면 옛 flags.friendsApi) · 고르기는 shared/source-switch.js
-  serverFirst: TwSourceSwitch.serverFirst,
-  warn: (...a)=>console.warn(...a),
 });
 const friendsSubMod = TwFriendsSub.createFriendsSub({
   subscribe: (...a)=>friendsPortMod.watchList(...a),
@@ -2681,62 +1340,79 @@ const friendsSubMod = TwFriendsSub.createFriendsSub({
   readFriend: (...a)=>friendsPortMod.readFriend(...a),
   watchPresence: (...a)=>friendsPortMod.watchPresence(...a),
   readPresence: (...a)=>friendsPortMod.readPresence(...a),
+  retryPresence: ()=>friendsPortMod.retryPresence(),
   watchProfile: (...a)=>friendsPortMod.watchProfile(...a),
   readProfile: (...a)=>friendsPortMod.readProfile(...a),
   current: ()=>_myHomeFriends,
   setFriends: (v)=>{ _myHomeFriends = v; },
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
   setTimer: (fn, ms)=>setTimeout(fn, ms),
   clearTimer: (id)=>clearTimeout(id),
   onUnload: (fn)=>window.addEventListener('beforeunload', fn),
 });
-/* 🔒 친구 탭 온라인 토글 · 고정 — 처음 접속 표시는 마이홈 처음 준비가 start 로 부른다 */
+const presenceSelfMod = TwPresenceSelf.createPresenceSelf({   // 내 접속 표시를 realtime 에 알림(status)
+  rt: TwRtHub.store,
+  onUnload: (fn)=>window.addEventListener('beforeunload', fn),   // friends-sub stop 과 같은 자리 — 계정을 놓으면 보이기 값을 비운다
+});
+/* 🔒 친구 탭 온라인 토글 · 고정 — 처음 접속 표시는 마이홈 처음 준비가 계정 확인의 me 로 부른다 */
 const presenceLockMod = TwPresenceLock.createPresenceLock({
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
-  loadPref: (...a)=>firebaseAPI.loadPresencePref(...a),
-  savePref: (...a)=>firebaseAPI.savePresencePref(...a),
-  setPresence: (...a)=>firebaseAPI.setMyPresenceState(...a),
-  storage: localStorage,
-  setTimer: (fn, ms)=>setTimeout(fn, ms),
-  deviceSessionLost: ()=>firebaseAPI.deviceSessionLost(),
+  savePref: (uid, p)=>loginFlowMod.patchMe({ presencePref: { locked: p.lock, online: p.online } }).then((r)=>{ if(!r.ok) throw r.err; }),
+  setVisible: (v)=>presenceSelfMod.setVisible(v),
+  startVisible: (v)=>presenceSelfMod.start(v),
 });
+/* 📩 우편 · 📢 공지 — 원본은 서버. 서버 경로(inbox-api.js · notice-api.js)와 받아 들고 있는 한 벌(mail-feed.js · notice-feed.js).
+   받은 뒤 화면 · 토스트는 마이홈 처음 준비 모듈(onMailChanged · onNewsChanged)이 맡는다 — 만드는 줄보다 뒤에 도는 arrow 라 TDZ 없음. */
+const mailFeed = TwMailFeed.createMailFeed({
+  api: TwInboxApi.createInboxApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),   // 🌐 /v2/me/notifications
+  rt: TwRtHub.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+});
+mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));
+const noticeApi = TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) });   // 🌐 /v2/notices
+/* 🛠️ 앱 관리자 창의 서버 endpoint(/v2/admin/...) — 관리자 모드 · 확성기 · 업데이트 공지 · 배너 · 방 종료가 쓴다. 지금 업데이트 공지의 id 는 공지 한 판에서 받는다 */
+const adminApi = TwAdminApi.createAdminApi({ authed: TwApi.authed, pending: TwRequestId.createPending(), fetchBoard: ()=>noticeApi.fetchBoard(), errs: TwApiErrors });
+/* 🛠️ 카탈로그 관리자 쓰기(파츠 · 책상 · 소품 · 진열 순서 · 카테고리 · 게임 설정) — 고칠 판(version)은 마지막으로 받은 서버 한 벌에서 읽고, 쓴 뒤 한 번 다시 받는다 */
+const catalogAdmin = TwCatalogAdminApi.createCatalogAdminApi({
+  authed: TwApi.authed, imageBytes: TwImageBytes,
+  catalog: { current: ()=>catalogApiMod.current(), load: ()=>catalogApiMod.load() },
+  adminApi: adminApi, apiErrors: TwApiErrors.store, notifyError: (...a)=>TwErrorCodes.notify(...a), toast: (...a)=>toast(...a),
+});
+const noticeFeed = TwNoticeFeed.createNoticeFeed({
+  api: noticeApi,
+  rt: TwRtHub.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+});
+noticeFeed.onChange((e)=>mhInitMod.onNewsChanged(e));
 const mhInitMod = TwMyHomeInit.createMyHomeInit({
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
-  _inboxBroadcast: ()=>_inboxBroadcast,
   _myFriendRequests: ()=>_myFriendRequests,
   _myHomeFriends: ()=>_myHomeFriends,
   _myHomeReady: ()=>_myHomeReady,
-  _myInbox: ()=>_myInbox,
-  _myInboxReady: ()=>_myInboxReady,
   _waitForFirebaseAPI: (...a)=>_waitForFirebaseAPI(...a),
-  deviceLostMod: deviceLostMod,
-  ensureMyFriendCode: (...a)=>ensureMyFriendCode(...a),
   focusLevelMod: ()=>focusLevelMod,
   friendManage: friendManage,
+  friendRequests: ()=>friendRequestsPortMod,
   friendsSub: friendsSubMod,
-  getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   inboxMod: ()=>inboxMod,
+  mailFeed: mailFeed,
   mhScheduler: mhScheduler,
-  myHomeOpen: ()=>myHomeOpen,
+  myHomeOpen: ()=>launcherStateMod.myHomeOpen(),
+  noticeFeed: noticeFeed,
   presenceLock: presenceLockMod,
   toast: (...a)=>toast(...a),
-  setInboxBroadcast: (v)=>{ _inboxBroadcast = v; },
   setMyFriendRequests: (v)=>{ _myFriendRequests = v; },
   setMyHomeFriends: (v)=>{ _myHomeFriends = v; },
   setMyHomeReady: (v)=>{ _myHomeReady = v; },
-  setMyInbox: (v)=>{ _myInbox = v; },
-  setMyInboxReady: (v)=>{ _myInboxReady = v; },
 });
 /* ═══ 📩 수령함 상태 · 안 읽은 수 · 친구 탭 배지 ═══ */
-let _myInbox = {};              // 📩 개인 수령함(보상 등) { id: {tag, title, body, ts, read} }
-/* 수령함이 서버에서 **한 번이라도 도착했는가.** 빈 객체는 '비었다'와 '아직 안 왔다'를 구분하지
-   못하므로, 수령함을 근거로 판단하는 곳(_danceUnlockPending 의 구제 분기)은 이 값을 먼저 본다. */
-let _myInboxReady = false;
-let _inboxBroadcast = {};       // 📢 공용 공지(전체 대상) { id: {tag, title, body, ts} } — 읽음은 로컬
+/* 개인 우편 · 공용 소식은 서버가 원본이다 — 받아 들고 있는 곳은 mailFeed · noticeFeed(위, 마이홈 처음 준비 만드는 줄 앞).
+   수령함이 서버에서 **한 번이라도 도착했는가**(mailFeed.ready())는 «비었다» 와 «아직 안 왔다» 를 가른다 — 수령함을 근거로 판단하는 곳(_danceUnlockPending 의 구제 분기)이 먼저 본다. */
 const INBOX_BC_READ_KEY = 'tw.inboxBcRead';   // 공용 공지 읽음 id 집합(로컬)
 /* ═══ 🛡️ 공용 HTML 이스케이프(escHtml) ═══ */
 /* 🛡️ 공용 HTML 이스케이프 — 본문은 `shared/safe-html.js` 의 `TwSafeHtml.text`(다섯 글자 전부). 이 이름은 옛 호출부가 쓰는 별칭.
@@ -2765,27 +1441,76 @@ const chatPrefsMod = TwChatPrefs.createChatPrefs({
   _chatSfxPools: sfxMod._chatSfxPools,
   chatUiMod: ()=>chatUiMod,
   getDisplayName: (...a)=>getDisplayName(...a),
-  getMyUserId: (...a)=>getMyUserId(...a),
-  officeMode: ()=>officeMode,
+  myCode: ()=>TwRoomRt.store.myCode(),
+  officeMode: ()=>officeModeMod.officeMode(),
   seats: seats,
   toast: (...a)=>toast(...a),
 });
-
-/* ═══ 🔔 채팅 알림음 — 상태 · 저장 · 메뉴 ═══ */
-/* (앱 FSD 41번) 이 자리의 본문도 chat-prefs.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
 /* ═══ 🛡️ 리치 텍스트 sanitize · 저장 · 글자 수 ═══ */
 /* 본문은 rich-text.js 로 옮겼다(앱 FSD 42번). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const richTextMod = TwRichText.createRichText({
   escHtml: (...a)=>escHtml(...a),
+  DOMPurify: () => window.DOMPurify,
+});
+
+/* 🧸 말랑이 칸 상태 주인(myhome/mallang-store.js) — 원본은 서버(/v2/me/mallangs · /v2/mallangs/{code}). 말랑이 화면 · 로그아웃 올리기가 받는다. */
+const giftApiMod = TwGiftApi.createGiftApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) });   // 🌐 말랑이 · 선물 서버 경로
+const mallangStoreMod = TwMallangStore.createMallangStore({
+  api: giftApiMod, giftLib: TwGiftApi, errs: TwApiErrors, apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  toast: (...a)=>toast(...a),
+});
+window.addEventListener('beforeunload', ()=>{ mallangStoreMod.flush(); });   // 앱을 끌 때 못 올린 칸 고침 한 번(결과를 기다리지 않음)
+/* 🎁 선물 상태 주인(myhome/gift-box.js) — 원본은 서버(/v2/me/gifts). 말랑이 화면 · 수령함(선물함 격자) · 마이홈 창이 받는다. 만들 때 도는 일 없음(받기는 마이홈을 열 때 · 서브탭 · 서버 신호는 app-boot gift). */
+const giftBoxMod = TwGiftBox.createGiftBox({
+  api: giftApiMod, giftLib: TwGiftApi, errs: TwApiErrors, apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  toast: (...a)=>toast(...a),
+  rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
+  requestIds: TwRequestId.createPending(),   // 보내기 요청 번호 — 받는 사람마다 하나(닿지 못했으면 같은 번호)
+});
+/* 📚 책장 상태 주인(myhome/bookshelf-store.js) — 원본은 서버(/v2/me/myhome/bookshelf · /v2/myhomes/{code}/bookshelf). 북마크 서랍 · 로그아웃 올리기가 받는다. 만들 때 도는 일 없음. */
+const bookshelfApiMod = TwMyHomeApi.createMyHomeApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) });   // 🌐 마이홈 서버 경로(책장 몫)
+const bookshelfStoreMod = TwBookshelfStore.createBookshelfStore({
+  api: bookshelfApiMod, lib: TwMyHomeApi, errs: TwApiErrors, apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  toast: (...a)=>toast(...a),
+});
+window.addEventListener('beforeunload', ()=>{ bookshelfStoreMod.flush(); });   // 앱을 끌 때 못 올린 책장 고침 한 번(결과를 기다리지 않음)
+/* 🏠 마이홈 상태 주인(myhome/myhome-store.js) — 원본은 서버(/v2/me/myhome · /v2/myhomes/{code}). 마이홈 화면 · 채팅 · 내 정보 · 플레이리스트가 내 사진 · 페이지를 여기서 읽고, 로그아웃 올리기 · 앱 끄기가 flush 한다. 만들 때 도는 일 없음(받기는 마이홈을 열 때). */
+const myhomeApiMod = TwMyHomeApi.createMyHomeApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) });   // 🌐 마이홈 서버 경로(페이지 · 디자인 몫)
+const myhomeStoreMod = TwMyHomeStore.createMyHomeStore({
+  api: myhomeApiMod, lib: TwMyHomeApi, errs: TwApiErrors, apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  toast: (...a)=>toast(...a),
+  previewOn: ()=>!!window._mhPreviewMode,   // 👁 방문자 시점 미리보기 중엔 고치지 않는다
+  rules: TwMyHomeStickerRules,
+});
+window.addEventListener('beforeunload', ()=>{ myhomeStoreMod.flush(); });   // 앱을 끌 때 못 올린 고침 한 번(결과를 기다리지 않음)
+const socialNamesApi = TwSocialApi.createSocialApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) });   // 🌐 친구 홈 구경 때 이름을 모르는 사람의 이름 한 줄(명함) — 읽기만
+/* 📚 마이홈 북마크 서랍(myhome/bookmark.js) — 바탕화면이 준비되면(MYHOME_DESKTOP.onReady) 폴더로 붙는다. */
+TwBookmark.createBookmark({
+  bookshelfStore: bookshelfStoreMod,
+  toast: (...a)=>toast(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  buildFreeColorPicker: (...a)=>wardrobeMod.buildFreeColorPicker(...a),
+});
+/* 🧸 말랑이 · 🎁 선물(myhome/mallang.js) — 마이홈 수령함 · 창 · 친구 홈 구경이 deps 로 받아서 그보다 먼저 만든다(만들 때 도는 일 없음). */
+const mallangMod = TwMallang.createMallang({
+  toast: (...a)=>toast(...a),
+  getMyUserId: (...a)=>getMyUserId(...a),
+  premiumOn: (...a)=>_premiumOn(...a),
+  mallangStore: mallangStoreMod,
+  giftBox: giftBoxMod,
 });
 
 /* ═══ 👥 마이홈 친구 목록 · Ctrl+F 검색 ═══ */
 /* 👥 마이홈 친구 목록(Ctrl+F 검색) · 📩 수령함 · 💝 선물함 그리기 · 수령함 함수(안 읽은 수 · 배지 · 공지 읽음) · 친구 방 표시 둘은
      parts/myhome-inbox.js 로 옮겼다(앱 FSD 15번 · docs/APP_FSD_MAP.md). ★ 원래 자리인 여기서 만든다 — 만들 때 바로 도는 일은 없다(상태 초기값뿐).
-   부르는 곳은 inboxMod.이름(전부 이 줄보다 늦게 돈다). 📩 수령함 상태 머리 아래 _myInbox · _myInboxReady · _inboxBroadcast 는 마이홈 열기의
-     구독이 다시 대입해서 app.js 에 두고 읽는 함수로 넘긴다(_myHomeFriends 와 같은 방식). INBOX_BC_READ_KEY 는 로그아웃 지움 목록이 같이 써서
+   부르는 곳은 inboxMod.이름(전부 이 줄보다 늦게 돈다). 개인 우편 · 공용 소식은 mailFeed · noticeFeed(서버 원본)가 들고 있어
+     읽는 함수 대신 그 한 벌을 넘긴다. INBOX_BC_READ_KEY 는 로그아웃 지움 목록이 같이 써서
      app.js 에 두고 값으로. isAdmin 은 이 줄보다 뒤에 선언되는 let 이라 읽는 함수로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 /* 🏠 친구 방에 놀러 가기 — 방 코드 누르기 · 묻는 창 · 이동은 friend-visit.js. 여기는 연결만. */
@@ -2799,9 +1524,10 @@ const inboxMod = TwMyHomeInbox.createMyHomeInbox({
   escHtml: (...a)=>escHtml(...a),
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
+  giftSave: TwGiftSave.createGiftSave({ fetch: (...a)=>fetch(...a), document, URL, setTimeout: (...a)=>setTimeout(...a), safeUrl: TwSafeHtml.safeUrl, now: ()=>new Date(), notifyFail: e=>TwErrorCodes.notify('E-MH-03', e) }),
   // 📩 수령함
-  myInbox: ()=>_myInbox,
-  inboxBroadcast: ()=>_inboxBroadcast,
+  mailFeed: mailFeed,
+  noticeFeed: noticeFeed,
   INBOX_BC_READ_KEY: INBOX_BC_READ_KEY,
   isAdmin: ()=>isAdmin,
   mhScheduler: mhScheduler,
@@ -2818,9 +1544,11 @@ const inboxMod = TwMyHomeInbox.createMyHomeInbox({
   openFriendHomeView: (...a)=>mhVisitMod.openFriendHomeView(...a),
   renderMhProfileRail: (...a)=>myHomeUiMod.renderMhProfileRail(...a),
   twNav: twNav,
+  mallangMod: mallangMod,
+  giftBox: giftBoxMod,
+  // 👥 친구 끊기 — 포트가 서버 · 옛 경로를 고른다
+  removeFriend: (...a)=>friendsPortMod.removeFriend(...a),
 });
-/* ═══ 📩 수령함 · 💝 선물함 그리기 ═══ */
-/* 📩 수령함 · 💝 선물함 그리기는 parts/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 연결은 바로 위 «👥 마이홈 친구 목록» 머리 아래(inboxMod). */
 /* ═══ 🏠 마이홈 창 버튼 연결(bindMyHomeUI) ═══ */
 /* 본문은 myhome-ui.js 로 옮겼다(앱 FSD 22번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
@@ -2834,28 +1562,29 @@ const myHomeUiMod = TwMyHomeUi.createMyHomeUi({
   _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
   _myFriendRequests: ()=>_myFriendRequests,
   _myHomeFriends: ()=>_myHomeFriends,
-  _saveFailMsg: (...a)=>_saveFailMsg(...a),
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
   closeFriendHomeView: (...a)=>mhVisitMod.closeFriendHomeView(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   friendManage: friendManage,
+  friendRequests: ()=>friendRequestsPortMod,
   friendsForCheck: (...a)=>friendsSubMod.friendsForCheck(...a),
   friendsRetry: (...a)=>friendsSubMod.retryIfFailed(...a),
   friendsOpen: (...a)=>friendsSubMod.open(...a),
   friendsClose: (...a)=>friendsSubMod.close(...a),
-  getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   helpTab: helpTabMod,
   inboxMod: inboxMod,
   isAdmin: ()=>isAdmin,
   loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),
+  mallangMod: mallangMod,
+  giftBox: giftBoxMod,
   mhScheduler: mhScheduler,
-  myHomeOpen: ()=>myHomeOpen,
+  myHomeOpen: ()=>launcherStateMod.myHomeOpen(),
   myHomeSticker: ()=>myHomeSticker,
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
-  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
+  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers(...a),
   toast: (...a)=>toast(...a),
-  setMyHomeOpen: (v)=>{ myHomeOpen = v; },
+  setMyHomeOpen: (v)=>{ launcherStateMod.setMyHomeOpen(v); },
   twNav: twNav,
 });
 /* 👥 친구 목록이 보이는 동안만 friends-sub 에 «열림» — 마이홈을 여닫는 길이 여럿이라(열기 · 친구 홈 구경 · 런처 복귀 · 단축키) 두 칸의 class 를 지켜본다. */
@@ -2870,6 +1599,7 @@ for(const id of ['myHomeOverlay', 'mhPageFriend']){
 /* 🏠 마이홈 공용 상태(데이터 · 불러옴 · 계정 · 관람 중 uid · 이름)는 myhome-state.js 에 — 읽는 모듈이 친구 홈 구경을 바라보지 않게(모듈 순환 끊기 4) */
 const mhStateMod = TwMyHomeState.createMyHomeState({
   _myHomeFriends: ()=>_myHomeFriends,
+  myhomeStore: myhomeStoreMod,
 });
 /* 🙋 남의 마이홈 [친구 신청] · 사유 창 — 보내기는 좌석 친구 신청과 같은 한 벌(seat-friend-req.js · 뒤에서 만든다 — 누를 때 찾는다) */
 const friendReqBtnMod = TwFriendReqBtn.createFriendReqBtn({
@@ -2882,25 +1612,20 @@ const friendReqBtnMod = TwFriendReqBtn.createFriendReqBtn({
 });
 const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({
   _myHomeFriends: ()=>_myHomeFriends,
-  _schedDdaysVisitUnsub: ()=>_schedDdaysVisitUnsub,
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),
+  mallangMod: mallangMod,
   mhScheduler: mhScheduler,
-  myHomeOpen: ()=>myHomeOpen,
+  myHomeOpen: ()=>launcherStateMod.myHomeOpen(),
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
   toast: (...a)=>toast(...a),
-  setSchedDdaysVisitUnsub: (v)=>{ _schedDdaysVisitUnsub = v; },
-  setMyHomeOpen: (v)=>{ myHomeOpen = v; },
-  _myHomeData: ()=>mhStateMod._myHomeData(),
-  _myHomeLoaded: ()=>mhStateMod._myHomeLoaded(),
+  setMyHomeOpen: (v)=>{ launcherStateMod.setMyHomeOpen(v); },
   _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
   _mhViewingName: ()=>mhStateMod._mhViewingName(),
-  _mhHomeFromServer: (...a)=>mhStateMod._mhHomeFromServer(...a),
   _mhViewingDisplayName: (...a)=>mhStateMod._mhViewingDisplayName(...a),
-  setMyHomeData: (v)=>{ mhStateMod.setMyHomeData(v); },
-  setMhViewingUserId: (v)=>{ mhStateMod.setMhViewingUserId(v); },
-  setMhViewingName: (v)=>{ mhStateMod.setMhViewingName(v); },
+  myhomeStore: myhomeStoreMod,
+  fetchCards: (...a)=>socialNamesApi.fetchCards(...a),
   refreshFriendProfile: (...a)=>friendsSubMod.refreshProfile(...a),   // 👥 친구면 이름 · 레벨을 새로(목록이 닫혀 있어도)
   friendReqBtn: friendReqBtnMod,   // 🙋 이름 옆 [친구 신청] — 관람 화면을 칠할 때 다시 본다
 });
@@ -2929,12 +1654,14 @@ const mhDiagMod = TwMyHomeDiag.createMyHomeDiag({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const mhPageMod = TwMyHomePage.createMyHomePage({
   getDisplayName: (...a)=>getDisplayName(...a),
-  getMyUserId: (...a)=>getMyUserId(...a),
   mhStateMod: mhStateMod,
   myHomeUiMod: myHomeUiMod,
-  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
+  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers(...a),
   richTextMod: richTextMod,
+  myhomeStore: myhomeStoreMod,
+  myHomeOpen: ()=>launcherStateMod.myHomeOpen(),
 });
+myhomeStoreMod.onChange(()=>mhPageMod.onStoreChange());   // 상태 주인의 값이 바뀌면 열린 마이홈을 다시 그린다(판단은 myhome-page.js)
 /* ═══ ✏️ 인앱 프롬프트(asyncPrompt) ═══ */
 /* 본문은 async-prompt.js 로 옮겼다(앱 FSD 47번). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
@@ -2947,112 +1674,20 @@ const mhStLayoutMod = TwMyHomeStickerLayout.createMyHomeStickerLayout({
   _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
   _myHomeData: ()=>mhStateMod._myHomeData(),
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
-  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
+  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers(...a),
+  myhomeStore: myhomeStoreMod,
 });
-function renderMyHomeStickers(){
-  const zone=document.getElementById('mhStickerZone'); if(!zone) return;
-  // 스티커는 '마이홈' 탭에서만 표시 — 친구/스케줄러/버그제보 탭에서는 감춤
-  //   (예전엔 친구 탭만 숨겼는데, 스케줄러 탭에도 스티커가 따라오던 문제 수정)
-  const activeTab = document.querySelector('#myHomeTabs .mh-tab.on');
-  const onHomeTab = activeTab && activeTab.dataset.tab === 'home';
-  zone.classList.toggle('hidden', !onHomeTab);
-  if(!onHomeTab){ mhStLayoutMod._mhFitWindowSafe(); myHomeSticker.editEnd(); return; }
-
-  const data = mhStLayoutMod._mhStickersData();
-  const canEdit = mhStLayoutMod._mhCanEditStickers();
-  zone.innerHTML='';
-  TwMyHomeStickerRules.orderedIds(data).forEach(sid=>{   // 🎨 z 순서대로(뒤 → 앞) — 관리 창 ▲▼
-    const s=data[sid];
-    const el=document.createElement('div'); el.className='mh-sticker';
-    if(canEdit && TwMyHomeStickerRules.isLocked(s)) el.classList.add('locked');   // 🔒 끌리지 않음 표시
-    const stSrc = s.img && TwSafeHtml.safeUrl(s.img, 'image');   // 친구 홈 구경에서는 남의 스티커 — 허용된 그림 주소만
-    if(s.img){ const im=document.createElement('img'); if(stSrc) im.src=stSrc; im.draggable=false; el.appendChild(im); }
-    else {
-      // ✨ 이모지도 애니메이션을 걸려면 안쪽 요소가 필요하다(바깥 div는 크기·회전이 이미 쓰고 있음).
-      const sp=document.createElement('span'); sp.className='st-emoji'; sp.textContent=s.emoji||'⭐';
-      el.appendChild(sp); el.classList.add('emoji');
-    }
-    if(s.anim) el.classList.add('a-'+s.anim);
-    if(s.animSpd) el.classList.add('spd-'+s.animSpd);
-    el.style.left=(s.x||0)+'px'; el.style.top=(s.y||0)+'px'; el.dataset.sid=sid;
-    // 새 스티커는 원본 비율(w/h)을 가짐. 옛 스티커는 w/h가 없으므로 CSS 기본(40×40 정사각) 유지.
-    if(s.w && s.h){
-      const baseW = Math.min(s.w, mhStLayoutMod.STICKER_BASE * 2.2);   // 화면상 기본 표시 폭(size=1일 때)
-      el.style.width  = baseW + 'px';
-      el.style.height = Math.round(baseW * (s.h / s.w)) + 'px';
-    }
-    const alpha = (typeof s.alpha==='number') ? Math.max(0, Math.min(1, s.alpha)) : 1;
-    const tf = mhStLayoutMod._mhStickerTransform(s);
-    if(tf) el.style.transform = tf;
-    if(alpha !== 1) el.style.opacity = String(alpha);
-
-    if(sid === mhStLayoutMod._mhStickerEditSid() && canEdit) el.classList.add('editing');
-
-    if(s.link){
-      el.classList.add('linked'); el.title = canEdit ? (s.link + '  (우클릭: 편집)') : s.link;
-      el.addEventListener('click', e=>{
-        if(e.target.classList.contains('mh-sticker-del')) return;
-        if(e.target.classList.contains('mh-sticker-anim')) return;
-        if(el.classList.contains('editing')) return;      // 편집 중엔 링크 안 엶
-        if(mhPageMod._mhStickerDragDist()>5) return;                  // 방금 드래그했으면 링크 안 엶
-        if(window.companion && companion.openBrowser) companion.openBrowser(s.link);
-        else window.open(s.link, '_blank');
-      });
-    } else if(canEdit){
-      el.title = '우클릭: 편집';
-    }
-
-    // 우클릭 → 편집모드 진입 (본인만)
-    el.addEventListener('contextmenu', e=>{
-      e.preventDefault(); e.stopPropagation();
-      if(!canEdit) return;
-      myHomeSticker.editStart(sid);
-    });
-
-    if(canEdit){
-      // 삭제 버튼 (편집모드에서만 보임)
-      const del=document.createElement('div'); del.className='mh-sticker-del'; del.textContent='×';
-      del.onclick=e=>{
-        e.stopPropagation();
-        delete mhStateMod._myHomeData().stickers[sid];
-        myHomeSticker.editEnd();
-        renderMyHomeStickers(); commitMyHomePage(true);
-      };
-      el.appendChild(del);
-
-      // ✨ 움직임 버튼 — 삭제(×) 옆. 더블클릭은 드래그 처리와 겹쳐 안 잡혀서 버튼 방식으로.
-      const anim=document.createElement('div'); anim.className='mh-sticker-anim'; anim.textContent='✨';
-      anim.title='움직임 고르기';
-      anim.onclick=e=>{ e.stopPropagation(); mhStLayoutMod._mhOpenStickerAnim(sid); };
-      el.appendChild(anim);
-
-      // 크기 조절 핸들 (편집모드에서만 보임)
-      const handle=document.createElement('div'); handle.className='mh-sticker-handle';
-      myHomeSticker.bindResize(handle, sid);
-      el.appendChild(handle);
-
-      // 회전 핸들 + 각도 라벨 + 회전 초기화 버튼
-      const rotLbl=document.createElement('div'); rotLbl.className='mh-sticker-rotlbl';
-      rotLbl.textContent = Math.round(s.rot||0) + '°';
-      el.appendChild(rotLbl);
-
-      const rot=document.createElement('div'); rot.className='mh-sticker-rot';
-      rot.title='드래그해서 회전 (3° 단위)';
-      myHomeSticker.bindRotate(rot, sid, rotLbl);
-      el.appendChild(rot);
-
-
-      // 드래그로 이동 (편집모드에서만)
-      myHomeSticker.bindDrag(el, sid);
-    }
-    zone.appendChild(el);
-  });
-  mhStLayoutMod._mhFitWindowSafe();   // 🎨 런처 마이홈이면 창 밖으로 나간 스티커만큼 창을 넓힌다
-}
+/* 본문은 myhome/myhome-sticker-render.js 로 옮겼다(앱 FSD · app.js 분리 M19). × 로 지우기 · 저장은 상태 주인(myhomeStore.removeSticker)이 한다. */
+const stickerRenderMod = TwMyHomeStickerRender.createMyHomeStickerRender({
+  mhPageMod: mhPageMod,
+  mhStLayoutMod: mhStLayoutMod,
+  myHomeSticker: ()=>myHomeSticker,
+  myhomeStore: myhomeStoreMod,
+});
 
 /* 🎨 스티커 관리 창 · 스티커 편집모드 · 드래그 · 회전 · 크기는 parts/myhome-sticker.js 로 옮겼다(앱 FSD 7번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(#stMgrClose · #stMgrBringAll 버튼 연결)이 예전과 같은 때 돈다.
-   함수 deps 는 화살표로 감싼다(부를 때 찾게) — renderMyHomeStickers 는 아래 마이홈 페이지 편집 묶음(myhome-edit.js)이 감싸 다시 대입하고,
+   함수 deps 는 화살표로 감싼다(부를 때 찾게) — renderMyHomeStickers 는 다시 대입되지 않고(지우기 저장은 상태 주인),
    commitMyHomePage 는 그 묶음이 window 에 거는 이름이다. _myHomeData · _mhViewingUserId · _mhStickerEditSid 는 다시 대입되는 let 이라
    읽는 함수로, _mhStickerEditSid · _mhStickerDragDist 를 바꾸는 것은 쓰는 함수로 넘긴다(둘 다 renderMyHomeStickers 가 읽는다 — _mhStickerEditSid 는 myhome-sticker-layout.js 에, _mhStickerDragDist 는 app.js 에).
    STICKER_* 는 이 줄보다 앞에 선언되고 다시 대입되지 않는 const 라 값으로. 부르는 곳은 myHomeSticker.이름(전부 마이홈을 연 뒤에 돈다).
@@ -3061,8 +1696,8 @@ function renderMyHomeStickers(){
 const myHomeSticker = TwMyHomeSticker.createMyHomeSticker({
   toast: (...a)=>toast(...a),
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
-  commitMyHomePage: (...a)=>commitMyHomePage(...a),
-  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
+  myhomeStore: myhomeStoreMod,
+  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers(...a),
   mhStickerOutOfView: (...a)=>mhStLayoutMod._mhStickerOutOfView(...a),
   mhClampStickerPos: (...a)=>mhStLayoutMod._mhClampStickerPos(...a),
   mhStickerDispSize: (...a)=>mhStLayoutMod._mhStickerDispSize(...a),
@@ -3090,20 +1725,18 @@ const mhLinksMod = TwMyHomeLinks.createMyHomeLinks({
    바깥 배경 · 테마 · 👑 디자인 스튜디오 · 프리셋 — 옛 bindMyHomePage)은 parts/myhome-edit.js 로 옮겼다(앱 FSD 7-2 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 만들 때 바로 도는 일(버튼 · 입력칸 연결 · window 고리 · companion.onBgmClosed · onBgmMode 구독)이
      예전과 같은 때 돈다. 바깥에서 부르는 이름은 예전처럼 window 에 걸린다(commitMyHomePage · _mhApplyBg · _mhApplyTheme · _bgmDestroy 등).
-   함수 deps 는 화살표로 감싼다(부를 때 찾게). _myHomeData · _mhViewingUserId · _myHomeLoaded · _myHomeUid · _mhStickerDragDist ·
-   isPremium · isAdmin 은 다시 대입되는 let 이라 읽는 함수로, _myHomeLoaded · _mhStickerDragDist 를 바꾸는 것은 쓰는 함수로 넘긴다.
-   USER_NAME_MAX 는 이 줄보다 뒤에 선언되는 const 라(TDZ) 읽는 함수로. renderMyHomeStickers 는 모듈이 감싸 다시 대입한다 —
-   감싸기 전 함수는 getRenderMyHomeStickers 로 주고, 감싼 함수는 setRenderMyHomeStickers 로 받는다.
+   함수 deps 는 화살표로 감싼다(부를 때 찾게). _myHomeData · _mhViewingUserId · _mhStickerDragDist · isPremium · isAdmin 은
+   다시 대입되거나 마이홈 상태 주인이 들고 있는 값이라 읽는 함수로, _mhStickerDragDist 를 바꾸는 것은 쓰는 함수로 넘긴다.
+   USER_NAME_MAX 는 이 줄보다 뒤에 선언되는 const 라(TDZ) 읽는 함수로. 마이홈 페이지 값은 myhomeStore(상태 주인)의 동작 함수로만 고친다 —
+   스티커 삭제 저장도 그쪽(removeSticker)이 하므로 renderMyHomeStickers 를 감싸 다시 대입하지 않는다.
    myHomeSticker · STICKER_* · DS_IMG_* 는 이 줄보다 앞에 선언되고 다시 대입되지 않는 const 라 값으로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
+  myhomeEditAccountStore: accountStoreMod,
   toast: (...a)=>toast(...a),
-  homeUploadCache: uploadCacheMod,
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
-  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
-  getRenderMyHomeStickers: ()=>renderMyHomeStickers,
-  setRenderMyHomeStickers: (f)=>{ renderMyHomeStickers = f; },
+  renderMyHomeStickers: (...a)=>stickerRenderMod.renderMyHomeStickers(...a),
   mhSaveRT: (...a)=>richTextMod._mhSaveRT(...a),
   mhUpdateRTCount: (...a)=>richTextMod._mhUpdateRTCount(...a),
   mhClampStickerPos: (...a)=>mhStLayoutMod._mhClampStickerPos(...a),
@@ -3112,15 +1745,14 @@ const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
   ytVideoId: (...a)=>plMod.ytVideoId(...a),
   applyThemeToChildDoc: (...a)=>themeUiMod.applyThemeToChildDoc(...a),
   watchMaintenanceInput: (...a)=>TwMaintenance.store.watchInput(...a),
+  installMacTip: (...a)=>TwMacTooltip.installChild(...a),
   commitUserName: (...a)=>userNameMod.commitUserName(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getUserName: (...a)=>getUserName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   myHomeData: ()=>mhStateMod._myHomeData(),
   mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
-  myHomeLoaded: ()=>mhStateMod._myHomeLoaded(),
-  setMyHomeLoaded: (v)=>{ mhStateMod.setMyHomeLoaded(v); },
-  myHomeUid: ()=>mhStateMod._myHomeUid(),
+  myhomeStore: myhomeStoreMod,
   mhStickerDragDist: ()=>mhPageMod._mhStickerDragDist(),
   setMhStickerDragDist: (v)=>{ mhPageMod.setMhStickerDragDist(v); },
   isPremium: ()=>isPremium,
@@ -3137,21 +1769,34 @@ const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
 
 /* 📖 방명록(새 글 배지 · 독립 팝업 창 — 웹박수 · 폭죽 · 글 목록 · 쓰기)은 parts/guestbook.js 로 옮겼다(앱 FSD 4번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(#mhGuestbookBtn 클릭 연결 · window 고리 등록)이 예전과 같은 때 돈다.
-   함수 deps 는 화살표로 감싼다(부를 때 찾게). _mhViewingUserId · _myHomeFriends 는 다시 대입되는 let 이라 읽는 함수로 넘긴다.
-   부르는 곳은 예전처럼 window 고리(_mhGbStartWatch · _mhGbStopWatch · _mhGbRefreshBadge · _mhReSubscribeGuestbook · _mhGbRefreshWriteUI ·
-   openMyGuestbook)를 typeof 로 보고 부른다 — 모듈이 없으면 고리가 없어 조용히 넘어간다.
+   함수 deps 는 화살표로 감싼다(부를 때 찾게). _mhViewingUserId 는 다시 대입되는 let 이라 읽는 함수로 넘긴다.
+   부르는 곳은 예전처럼 window 고리(_mhGbStartWatch · _mhGbStopWatch · _mhGbRefreshBadge · _mhReSubscribeGuestbook · openMyGuestbook)를 typeof 로 보고 부른다 — 모듈이 없으면 고리가 없어 조용히 넘어간다.
    💬 showChatBubble(머리 위 말풍선)은 방명록이 아니라 바로 아래에 남겼다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const guestbookFeed = TwGuestbookFeed.createGuestbookFeed({   // 🌐 방명록 · 웹박수 서버 endpoint(/v2/guestbooks · /v2/me/guestbook) — 원본은 서버. 받기 · 쓰기 · 알림은 feed 가 한다
+  api: TwGuestbookApi.createGuestbookApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) }),
+  rt: TwRtHub.store,
+  rtState: TwRtHub.STATE,
+  rtDeviceOff: (s)=>TwRtHub.isDeviceOff(s),   // 서버가 이 PC 연결을 끝냄(rt-hub 한 곳)
+  pending: TwRequestId.createPending(),
+  lastRead: TwGuestbookFeed.createLastReadStore(accountStoreMod.asStorage()),   // 🗂️ 읽음 시각은 이 계정 칸(닫혀 있으면 읽기 0 · 쓰기 안 됨)
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  translate: (e, table)=>TwApiErrors.translate(e, table),
+  ACTION: TwApiErrors.ACTION,
+  now: ()=>Date.now(),
+});
 const guestbook = TwGuestbook.createGuestbook({
+  feed: guestbookFeed,
+  errorText: (code)=>TwErrorCodes.toastText(code),
   getMyUserId: ()=>getMyUserId(),
   getDisplayName: ()=>getDisplayName(),
   toast: (...a)=>toast(...a),
   escHtml: (...a)=>escHtml(...a),
   applyThemeToChildDoc: (...a)=>themeUiMod.applyThemeToChildDoc(...a),
   watchMaintenanceInput: (...a)=>TwMaintenance.store.watchInput(...a),
+  installMacTip: (...a)=>TwMacTooltip.installChild(...a),
   mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
   mhViewingDisplayName: ()=>mhStateMod._mhViewingDisplayName(),
-  myHomeFriends: ()=>_myHomeFriends,
 });
 
 /* ═══ 💬 머리 위 채팅 말풍선(showChatBubble) ═══ */
@@ -3197,15 +1842,15 @@ const chatFocusMod = TwChatFocus.createChatFocus({
   provider: { subscribe: (...a)=>firebaseAPI.roomFocus.subscribe(...a), compact: (...a)=>firebaseAPI.roomFocus.compact(...a), removeMine: (...a)=>firebaseAPI.roomFocus.removeMine(...a) },
 });
 const chatUiMod = TwChatUi.createChatUi({
-  demojiCatalog: demojiCatalog,
   chatNotice: chatNoticeMod,
   chatFocus: chatFocusMod,
+  chatAccountStore: accountStoreMod,
+  demojiCatalog: demojiCatalog,
   CHAT_WIN_POS_KEY: ()=>CHAT_WIN_POS_KEY,
   Presence: ()=>Presence,
   _chatDelClose: (...a)=>chatPrefsMod._chatDelClose(...a),
   _chatEsc: (...a)=>_chatEsc(...a),
   _chatIsHost: (...a)=>chatLockMod._chatIsHost(...a),
-  _chatLinkify: (...a)=>_chatLinkify(...a),
   _chatLogCache: ()=>_chatLogCache,
   _chatLogUnsub: ()=>_chatLogUnsub,
   _chatOffOn: (...a)=>chatLockMod._chatOffOn(...a),
@@ -3213,7 +1858,8 @@ const chatUiMod = TwChatUi.createChatUi({
   _chatRoomCode: (...a)=>chatLockMod._chatRoomCode(...a),
   _danceCmdCooldownAt: ()=>iDeskMod._danceCmdCooldownAt(),
   _diceSvg: (...a)=>diceMod._diceSvg(...a),
-  _myHomeData: ()=>mhStateMod._myHomeData(),
+  myhomeAvatar: ()=>myhomeStoreMod.avatar(),
+  ensureMyHome: (...a)=>myhomeStoreMod.ensureMine(...a),
   _officeDemojiHtml: (...a)=>overheadMod._officeDemojiHtml(...a),
   _parseDanceCmdChain: (...a)=>iDeskMod._parseDanceCmdChain(...a),
   _refreshChatMembers: (...a)=>chatPrefsMod._refreshChatMembers(...a),
@@ -3225,9 +1871,13 @@ const chatUiMod = TwChatUi.createChatUi({
   focusLevelMod: ()=>focusLevelMod,
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
+  chatNet: TwChatRt.store,
+  chatHistory: ()=>firebaseAPI.chatHistory,   // 💬 대화 기록(chat-history.js) — firebase-init 이 만든 것
+  myCode: ()=>TwRoomRt.store.myCode(),
   isAdmin: ()=>isAdmin,
   isDanceUnlocked: (...a)=>iDeskMod.isDanceUnlocked(...a),
-  officeMode: ()=>officeMode,
+  lockedToast: (...a)=>iDeskMod.lockedToast(...a),
+  officeMode: ()=>officeModeMod.officeMode(),
   seats: seats,
   showChatBubble: (...a)=>showChatBubble(...a),
   startMyDance: (...a)=>iDeskMod.startMyDance(...a),
@@ -3249,25 +1899,9 @@ let _chatLogCache = [];        // 화면에 그린 마지막 메시지 목록(�
    ⚠️ `const` 가 아니라 **함수 선언**이다. 여기보다 앞줄에서 부르는 자리가 있어서
      호이스팅이 필요하다(const 로 바꾸면 TDZ 로 조용히 죽는다). */
 function _chatEsc(str){ return escHtml(str); }
-// 링크 감지 → 클릭 시 외부 열기. 이스케이프된 텍스트에서 http(s) URL만 <a>로 변환.
-function _chatLinkify(escapedText){
-  return escapedText.replace(/(https?:\/\/[^\s<]+)/g, (m)=>{
-    const safe = m.replace(/"/g,'&quot;');
-    return `<a href="#" data-url="${safe}" class="cm-link">${m}</a>`;
-  });
-}
 
 const CHAT_WIN_POS_KEY = 'tw_chat_win_pos';
 
-/* ═══ 🔖 "여기까지 읽었습니다" 구분선 (개인 로컬 전용) ═══════════════════════
-   방마다 "마지막으로 읽은 메시지 키"를 localStorage에만 저장한다 — 서버에도 안 올라가고
-   다른 참가자에게도 안 보이는, 순수 내 화면 표시용.
-   · 대화창을 열 때  : 저장된 키를 이번 세션의 구분선 위치로 '고정'한다.
-                       → 창을 닫아둔 동안 쌓인 메시지가 구분선 아래로 표시됨.
-   · 대화창을 닫을 때: 그 시점의 마지막 메시지를 읽음으로 기록한다.
-   메시지 키는 Firebase push key(subscribeChatLog가 m.id로 넘겨줌 — 시간순 정렬 보장).
-   구버전 HTML(id 없음) 대비로 ts 폴백을 둔다. */
-/* (앱 FSD 24번) 이 자리의 본문도 chat-ui.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* ═══ 🔇 시크릿룸 채팅 잠금 ════════════════════════════════════════════════
    방장이 방 전체의 채팅을 잠근다. 잠겨도 **😊 이모티콘 · 🎲 주사위 · 💣 폭탄 · /80 · /150** 은 된다.
    ─────────────────────────────────────────────────────────────────────────
@@ -3283,40 +1917,9 @@ const chatLockMod = TwChatLock.createChatLock({
   Presence: ()=>Presence,
   chatPrefsMod: chatPrefsMod,
   chatUiMod: chatUiMod,
-  getMyUserId: (...a)=>getMyUserId(...a),
+  myCode: ()=>TwRoomRt.store.myCode(),
   roomState: TwRoomState,
 });
-/* ═══ 🗑 대화 기록 삭제 (방장) ══════════════════════════════════════════════
-   `rooms/{코드}/chatLog` 를 통째로 지운다. 방 전원이 같은 노드를 구독하므로 **모두의 화면이
-   같이 빈다** — 따로 알림을 보내지 않는다.
-   ─────────────────────────────────────────────────────────────────────────
-   ⚠️ 왼쪽 메뉴의 [지우기](_chatClearNow)와 혼동하지 말 것. 그건 내 화면만 접고 되돌릴 수 있다.
-     이건 서버에서 지우는 것이고 **되돌릴 수 없다.** 이름·색·확인창이 전부 그 차이를 위해 있다.
-   ★ 지운 뒤 안내줄을 남기지 않는다(요청) — 깨끗하게 빈다.
-     그래서 `_chatClearedTo`·입장 컷을 건드릴 필요도 없다: 그 둘은 메시지 키보다 뒤만 그리는
-     방식이라, 목록이 비면 자연히 아무것도 안 걸리고 새 메시지는 키가 더 커서 그대로 보인다.
-   ★ 표시 조건은 '방장 + 채팅창이 열리는 방'이다. 시크릿룸은 항상 투게더룸으로 열리고
-     (_enterRoom 의 _isSecret 분기), 채팅창 자체가 채널2에서만 열리므로 `_activeChannel===2`
-     한 줄이 곧 "시크릿룸 + 투게더룸"이다. 조건을 늘리지 말 것 — 늘리면 서로 어긋난다. */
-/* (앱 FSD 41번) 이 자리의 본문도 chat-prefs.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-/* ═══ 💬 채팅 탭(채널) — 투게더룸 · 시크릿룸 대화창 ═══
-   규칙(이름 · 상한 · 인원 · 경로)은 chat-tabs.js. 여기는 화면 · 구독 · 전환.
-   ★ 내가 있는 탭 = 마지막으로 누른 탭. 창을 닫거나 접어도 유지, 그 탭이 지워지면 #일반.
-     방에 들어오면(재부팅 포함) 그 방에서 마지막에 보던 탭 — 방마다 localStorage(CHAT_TAB_LS_PREFIX + 방 코드)에 기억한다(제보:
-     재부팅하면 #일반으로 돌아갔다). 방 메타(탭 목록)가 아직 안 왔을 때는 «지워졌다» 로 보지 않고 기다린다.
-   ★ 읽음 구분선 · 입장 컷 · [지우기] 는 ChatTabs.markKey(방, 탭) 를 방 코드 자리에 써서 탭마다 따로 간다
-     (#일반은 예전 방 코드 그대로라 기존 표식이 그대로 이어진다).
-   ⚠️ 방장 제한은 **화면 수준**이다(Firebase 방) — `_meta.host` 는 문자열일 뿐이라 서버가 방장을 검증하지 못한다
-     (채팅 켜짐/꺼짐과 같은 수준). 규칙은 탭 개수(≤ 2)와 이름 길이만 막는다. 🛰 서버 방은 방 서버가 방장만 받는다. */
-/* (앱 FSD 24번) 이 자리의 본문도 chat-ui.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-/* ═══ 📋 대화 드래그 · 복사 ═══
-   ★ 형식은 chat-copy.js(원문 기준). 여기는 선택 → 원문 찾기 · 클립보드 · 우클릭 메뉴 · 다시 그리기 보류.
-   ★ mac 은 창이 frame:false 라 기본 편집 메뉴가 없어 Cmd+C 가 안 먹을 수 있다 — 키를 직접 받는다(두 OS 같게). */
-/* (앱 FSD 24번) 이 자리의 본문도 chat-ui.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-
-/* ═══════════════ 😊 커스텀 이모티콘 (2차) ═══════════════ */
-/* (앱 FSD 24번) 이 자리의 본문도 chat-ui.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-
 /* ═══════════════ 🎲 주사위 ═══════════════ */
 /* 본문은 dice-games.js 로 옮겼다(앱 FSD 39번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
@@ -3329,33 +1932,29 @@ const diceMod = TwDiceGames.createDiceGames({
   flySeed: (...a)=>flySeed(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
-  officeMode: ()=>officeMode,
+  chatNet: TwChatRt.store,
+  officeMode: ()=>officeModeMod.officeMode(),
   showChatBubble: (...a)=>showChatBubble(...a),
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
 });
-/* 📷 스티커사진 계층(parts/purikura/purikura-net.js)으로 가는 유일한 입구.
-   ★ 왜 한 곳으로 모으나 — 이 계층은 THREE 도 DOM 도 안 보는 «요금을 정하는 층»이라
-     app.js 여기저기서 직접 makeSession 을 부르기 시작하면 세션이 여러 개가 되고,
-     구독도 정원 읽기도 사람 수만큼 늘어난다. 입구가 하나면 그 일이 구조적으로 안 생긴다.
-   ⚠️ firebase-init.js 는 type="module" 이라 이 파일보다 **늦게** 돈다 —
-     부팅 직후에는 firebaseAPI.pkGet 이 아직 없을 수 있다. 그래서 «부를 때마다» 확인하고,
-     성공한 뒤에만 기억한다(못 만든 것을 기억해 두면 영영 안 붙는다).
-   ⚠️ 구버전 HTML 에는 parts/purikura/purikura-net.js 가 없다 — 그때는 null 이고 부르는 쪽이 안내한다. */
+/* 📷 스티커사진 세션 포트(parts/purikura/purikura-rt.js)로 가는 유일한 입구 — 세션은 하나(콜백도 한 벌).
+   ⚠️ 창이 닫혀 있는 동안에도 콜백은 살아 있다 — 각 핸들러가 PK.open · PK.listening 을 먼저 본다. */
 let _pkSession = null;
 function _purikura(){
   if(_pkSession) return _pkSession;
-  if(typeof Purikura === 'undefined' || !Purikura || !Purikura.makeSession) return null;
-  if(typeof firebaseAPI === 'undefined' || !firebaseAPI || !firebaseAPI.pkGet) return null;
-  /* 콜백은 여기서 한 번만 물린다 — 세션이 하나뿐이므로 구독도 하나뿐이다.
-     ⚠️ 창이 닫혀 있는 동안에도 콜백은 살아 있다. 그래서 각 핸들러가 PK.open 을 먼저 본다. */
-  try{ _pkSession = Purikura.makeSession(firebaseAPI, {
-        onPeers: p => { purikuraUi.onPeers(p); },          // 화면 쪽은 parts/purikura/purikura-ui.js
-        onMeta : m => { purikuraUi.onMeta(m); },
-        onEvent: (slot, ev) => { purikuraUi.onPeerEvent(slot, ev); },
-        onShot : s => { purikuraUi.onShot(s); }
-      }); }
-  catch(e){ console.warn('[스티커사진] 세션 생성 실패', e); return null; }
+  _pkSession = TwPurikuraRt.createPhotoSession({
+    hub: TwRtHub.store, api: TwApi.authed, P: Purikura,
+    serverNow: ()=>{ const p = Presence.serverProvider(); return p ? p.serverNow() : null; },   // 방 밖 · 시계를 못 맞춤 = null(PC 시계로 대신하지 않는다)
+    onPeers: p => { purikuraUi.onPeers(p); },          // 화면 쪽은 parts/purikura/purikura-ui.js
+    onMeta : m => { purikuraUi.onMeta(m); },
+    onEvent: (slot, ev) => { purikuraUi.onPeerEvent(slot, ev); },
+    onShot : s => { purikuraUi.onShot(s); },
+    onSlots: o => { purikuraUi.onSlots(o); },
+    onFrames: o => { purikuraUi.onFrames(o); },
+    onRefused: o => { purikuraUi.onRefused(o); },
+    onLateStart: () => { purikuraUi.onLateStart(); },
+  });
   return _pkSession;
 }
 
@@ -3363,22 +1962,21 @@ function _purikura(){
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(_pkWire: 버튼 · 창 끌기 · ⎋ 사다리 등록)이 예전과 같은 때 돈다.
    함수 deps 는 화살표로 감싼다(부를 때 찾게). officeMode · _plPlaying(playlist.js 상태 — plMod.st.playing) 은 다시 대입되는 let 이고, Presence · SPINE_AXIS · HEAD_AXIS ·
    HAND_REST · SHAKE_ARM_DROOP 은 이 줄보다 뒤에 선언되는 const 라(지금 읽으면 TDZ) 읽는 함수로 넘긴다.
-   세션 입구 _purikura() 는 위에 그대로 — 콜백은 purikuraUi.onPeers · onMeta · onPeerEvent · onShot 으로 들어간다.
+   세션 입구 _purikura() 는 위에 그대로 — 콜백은 purikuraUi.onPeers · onMeta · onPeerEvent · onShot · onSlots · onFrames · onRefused · onLateStart 로 들어간다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const purikuraUi = TwPurikuraUi.createPurikuraUi({
   purikura: ()=>_purikura(),
   toast: (...a)=>toast(...a),
-  getMyUserId: ()=>getMyUserId(),
-  getDisplayName: ()=>getDisplayName(),
+  myCode: ()=>TwRoomRt.store.myCode(),
   bringWinToFront: (...a)=>winStackMod.bringWinToFront(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   plRender: (...a)=>plMod.render(...a),
   plPlaying: ()=>plMod.st.playing,
   setPlPlaying: v=>{ plMod.st.playing = v; },
-  officeMode: ()=>officeMode,
+  officeMode: ()=>officeModeMod.officeMode(),
   lsSet: (...a)=>_lsSet(...a),
   presence: ()=>Presence,
-  mkFrontFill: (...a)=>_mkFrontFill(...a),
+  addRunLights: (...a)=>lightToneMod.addRunLights(...a),
   findMySeat: (...a)=>findMySeat(...a),
   setFaceMap: (...a)=>matToneMod.setFaceMap(...a),
   animateRig: (...a)=>animateRig(...a),
@@ -3389,24 +1987,12 @@ const purikuraUi = TwPurikuraUi.createPurikuraUi({
   trickArmSpread: (...a)=>iDeskMod._trickArmSpread(...a),
   trickLegPose: (...a)=>iDeskMod._trickLegPose(...a),
   seats,
-  mainLightCol: _MAIN_LIGHT_COL,
-  mainLightInt: _MAIN_LIGHT_INT,
-  keyLightMul: _KEY_LIGHT_MUL,
-  fillLightMul: _FILL_LIGHT_MUL,
   animalHandRest: ANIMAL_HAND_REST,
   spineAxis: ()=>SPINE_AXIS,
   headAxis: ()=>HEAD_AXIS,
   handRest: ()=>HAND_REST,
   shakeArmDroop: ()=>SHAKE_ARM_DROOP,
 });
-
-/* ═══ 🎟️ [2026-10-02 요청] 하루 횟수 제한 — 🔫 러시안룰렛(워킹룸·혼자) · 🎲 투게더룸 주사위, **각각 하루 6번** ═══
-   ★ 둘은 따로 센다(룰렛 6 + 주사위 6). 날짜는 이 PC 의 자정(로컬 날짜)에 넘어간다.
-   ★ 세는 시점은 **실제로 굴릴 때**다 — 회사원 모드·쉬는 시간·3초 연타·canFly 불가로 막힌 누름은 안 깎는다.
-   ⚠️ 이 기기 localStorage 에만 센다 — 기기마다 따로이고, 콘솔로 지우면 풀린다(난수 자체가 클라이언트라
-     🎲 와 같은 수준 — ROULETTE 주석의 ⚠️ 그대로). 서버로 막아야 하면 규칙·서버 기록이 따로 필요하다.
-   ⚠️ 저장이 안 되는 환경이면 **막지 않는다**(못 세는 것을 «다 썼다» 로 읽으면 놀이가 영영 잠긴다). */
-/* (앱 FSD 39번) 이 자리의 본문도 dice-games.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
 /* ═══ 🔫 러시안룰렛 ═══════════════════════════════════════════════════
    [2026-09-23 · handoff-2026-09-21-features §1] 상태칩 ▼ 메뉴 💃 춤추기 아래 버튼.
@@ -3431,8 +2017,8 @@ const rouletteMod = TwRoulette.createRoulette({
   canFly: (...a)=>canFly(...a),
   diceMod: diceMod,
   findMySeat: (...a)=>findMySeat(...a),
-  getDisplayName: (...a)=>getDisplayName(...a),
-  officeMode: ()=>officeMode,
+  getUserName: (...a)=>getUserName(...a),
+  officeMode: ()=>officeModeMod.officeMode(),
   showChatBubble: (...a)=>showChatBubble(...a),
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
@@ -3495,37 +2081,23 @@ const chatWindowMod = TwChatWindow.createChatWindow({
   seats: seats,
   setFlyAiming: (...a)=>tricksMod.setFlyAiming(...a),
   flyAiming: ()=>tricksMod._flyAiming(),
-  officeMode: ()=>officeMode,
+  officeMode: ()=>officeModeMod.officeMode(),
   // 📷 스티커사진
   purikura: (...a)=>_purikura(...a),
   purikuraUi: purikuraUi,
 });
 
-/* ═══ 🎛️ 꾸미기 상세조정 패널 · 색 고르기 ═══ */
-/* (앱 FSD 29번) 이 자리의 본문도 wardrobe.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* ═══ 🎨 텍스처 파츠 색조 셰이더 ═══ */
-/* 🎨 텍스처 파츠 색조 변경 ─────────────────────────────────────────────────
-   _col 메쉬 중 텍스처(map)가 있는 것은 material.color를 갈아끼우면 "텍스처 × 색" 곱셈이 되어
-   무늬가 어두워지고 탁해진다. 그래서 텍스처가 있으면 색을 덮어쓰는 대신 셰이더에서 '색조(Hue)만'
-   회전시킨다 — 명암·무늬·질감(밝기 V)은 원본 그대로 두고 색상만 바뀐다.
-     ・채도(S)는 중립(0)을 가운데 두고 양쪽으로 간다 — 오른쪽은 원본과 고른 값 중 진한 쪽을
-       따라가고(흑백 텍스처에도 색이 입혀진다), 왼쪽은 원본 채도를 곱해서 낮춘다(끝 = 회색).
-     ・emissiveMap이 map과 같은 텍스처를 쓰므로 emissive 쪽에도 같은 변환을 넣어야 색이 어긋나지 않는다.
-   ※ 셰이더 주입이라 렌더 결과는 실제 실행에서 눈으로 확인 필요. */
-/* 본문(셰이더 · HSV 환산 · 색조 걸기)은 캐릭터 코어(src/tone.ts · #437) — 옛 이름은 그대로 둔다(꾸미기 · 도트 · 스티커사진이 부른다).
-   ⚠️ r128 Material.copy 는 onBeforeCompile 을 복사하지 않는다 — 재질을 복제한 쪽은 _hueOBC 로 다시 건다. */
-function _rgbHexToHsv(hex){ return lightToneMod.toneCore.rgbHexToHsv(hex); }
-function isHueTintMesh(mesh){ return lightToneMod.toneCore.isHueTintMesh(mesh); }
-function _ensureHueUniforms(mat){ return lightToneMod.toneCore.ensureHueUniforms(mat); }
-function _hueOBC(u){ return lightToneMod.toneCore.hueOBC(u); }
-function applyHueTint(mesh, hex, hsvOpt){ return lightToneMod.toneCore.applyHueTint(mesh, hex, hsvOpt); }
-function _hsvToHex(h, sv, v){ return lightToneMod.toneCore.hsvToHex(h, sv, v); }
-
-/* ═══ 🖍️ 파츠 그림칸(_pic) · UV 구제 · 그림 올리기 ═══ */
-/* (앱 FSD 21번) 이 자리의 본문도 part-paint.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-
-/* ═══ 🎨 꾸미기 색 줄(buildColorRows) · 탭 상태 ═══ */
-/* (앱 FSD 29번) 이 자리의 본문도 wardrobe.js 로 옮겼다 — 만드는 줄은 첫 자리. */
+/* 🎨 색조 셰이더 이름 잇기(shared/hue-tint.js) — 본문은 캐릭터 코어. 아래 const 는 옛 이름이다. */
+const hueTintMod = TwHueTint.createHueTint({
+  lightToneMod: lightToneMod,
+});
+const _rgbHexToHsv = hueTintMod._rgbHexToHsv;   // 옛 전역 이름
+const isHueTintMesh = hueTintMod.isHueTintMesh;   // 옛 전역 이름
+const _ensureHueUniforms = hueTintMod._ensureHueUniforms;   // 옛 전역 이름
+const _hueOBC = hueTintMod._hueOBC;   // 옛 전역 이름
+const applyHueTint = hueTintMod.applyHueTint;   // 옛 전역 이름
+const _hsvToHex = hueTintMod._hsvToHex;   // 옛 전역 이름
 
 /* ═══ 🪑 [2026-09-18] 라이선스 전용 책상을 꾸미기창 «책상» 탭으로 옮긴다 ════════════════════
    [왜 옮기나] 전용 책상은 생성기 5단계에서 미보유자에게도 목록에 계속 보였고, 눌러도 토스트만
@@ -3548,7 +2120,10 @@ function _hsvToHex(h, sv, v){ return lightToneMod.toneCore.hsvToHex(h, sv, v); }
 /* 본문은 premium-assets.js 로 옮겼다(앱 FSD 37번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const premiumMod = TwPremiumAssets.createPremiumAssets({
+  catalogAdmin: catalogAdmin,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
+  accountStore: accountStoreMod,
   Presence: ()=>Presence,
   applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),
   cBase: ()=>crState.cBase,
@@ -3558,22 +2133,19 @@ const premiumMod = TwPremiumAssets.createPremiumAssets({
   findMySeat: (...a)=>findMySeat(...a),
   isAdmin: ()=>isAdmin,
   isPremium: ()=>isPremium,
-  saveSlots: (...a)=>slotSaveMod.saveSlots(...a),
+  licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),
   savedDesks: ()=>commissionMod.savedDesks(),
   savedItems: ()=>commissionMod.savedItems(),
   seats: seats,
   slots: ()=>slots,
   toast: (...a)=>toast(...a),
 });
-/* ═══ 🎨 꾸미기 창 그리기(renderWardrobe) · 파츠 착용(toggleEquip) ═══ */
-/* (앱 FSD 29번) 이 자리의 본문도 wardrobe.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-
-/* ═══ 🗂️ 카탈로그 파츠 페이로드 · 파츠 삭제(관리자) ═══ */
 /* ═══ 🛠️ 파츠 · 책상 · 아이템 등록 모달(관리자) ═══ */
-/* 위 두 구역(🗂️ 파츠 페이로드 · 삭제 · 🛠️ 등록 창)의 본문은 admin/admin-part-register.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에 모은다.
+/* 🗂️ 파츠 페이로드 · 삭제 · 🛠️ 등록 창 본문은 admin/admin-part-register.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에 모은다.
    값 열세 개는 이 줄보다 뒤에 선언되거나 다시 대입되므로 읽는 함수로 넘긴다. 밖에서는 adminPartReg.이름 으로 부른다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const adminPartReg = TwAdminPartRegister.createAdminPartRegister({
+  catalogAdmin: catalogAdmin,
   _b64: (...a)=>codeCryptoMod._b64(...a),
   applyClothVisibility: (...a)=>applyClothVisibility(...a),
   catEquippedIds: (...a)=>premiumMod.catEquippedIds(...a),
@@ -3584,10 +2156,7 @@ const adminPartReg = TwAdminPartRegister.createAdminPartRegister({
   getRecHides: (...a)=>premiumMod.getRecHides(...a),
   parseGlbBytes: (...a)=>assetCodeMod.parseGlbBytes(...a),
   partCatInfo: (...a)=>premiumMod.partCatInfo(...a),
-  partCatLimit: (...a)=>premiumMod.partCatLimit(...a),
   partEntryXf: (...a)=>premiumMod.partEntryXf(...a),
-  partsInCat: (...a)=>premiumMod.partsInCat(...a),
-  partsInCatFor: (...a)=>premiumMod.partsInCatFor(...a),
   persistSavedParts: (...a)=>premiumMod.persistSavedParts(...a),
   refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),
   removeEntryFromCat: (...a)=>premiumMod.removeEntryFromCat(...a),
@@ -3596,16 +2165,10 @@ const adminPartReg = TwAdminPartRegister.createAdminPartRegister({
   resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),
   saveSlots: (...a)=>slotSaveMod.saveSlots(...a),
   syncWdGizmoToXf: (...a)=>wardrobeMod.syncWdGizmoToXf(...a),
-  toHidesForSave: (...a)=>premiumMod.toHidesForSave(...a),
   toast: (...a)=>toast(...a),
   unequipPartFromSeat: (...a)=>unequipPartFromSeat(...a),
   unequipStackablePart: (...a)=>unequipStackablePart(...a),
   seats,
-  MAX_CUSTOM_ASSETS: ()=>commissionMod.MAX_CUSTOM_ASSETS,
-  MAX_CUSTOM_ITEMS: ()=>commissionMod.MAX_CUSTOM_ITEMS,
-  MAX_GACHA_PARTS_PER_CAT: ()=>premiumMod.MAX_GACHA_PARTS_PER_CAT,
-  MAX_GLB_BYTES: ()=>commissionMod.MAX_GLB_BYTES,
-  MAX_PARTS_PER_CAT: ()=>premiumMod.MAX_PARTS_PER_CAT,
   PART_CATS: ()=>premiumMod.PART_CATS(),
   gachaMod: ()=>gachaMod,
   partSceneCache: ()=>partSceneMod.partSceneCache,
@@ -3617,9 +2180,6 @@ const adminPartReg = TwAdminPartRegister.createAdminPartRegister({
   setSavedParts: (v)=>{ premiumMod.setSavedParts(v); },
   setAdminPartActions: wardrobeMod.setAdminPartActions,
 });
-
-/* ═══ 🫧 상태 이모지 그림 · UI 아이콘 · 책상 위 이모지 ═══ */
-/* (앱 FSD 36번) 이 자리의 본문도 status-chip.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
 /* ═══ 🏷️ 머리 위 이름표 · 상태칩 방향 · 공지 배너 ═══ */
 /* 본문은 overhead.js 로 옮겼다(앱 FSD 34번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
@@ -3634,199 +2194,76 @@ const overheadMod = TwOverhead.createOverhead({
   chatUiMod: chatUiMod,
   focusLevelMod: ()=>focusLevelMod,
   getDisplayName: (...a)=>getDisplayName(...a),
-  officeMode: ()=>officeMode,
+  npStarFill: (...a)=>lvTierMod.npStarFill(...a),
+  officeMode: ()=>officeModeMod.officeMode(),
   renderer: renderer,
+  rtHub: TwRtHub,
   seatScale: (...a)=>seatEqMod.seatScale(...a),
   seats: seats,
   tricksMod: tricksMod,
 });
-/* ═══ 💬 머리 위 말풍선 · 회사원 모드 라벨 ═══ */
-/* (앱 FSD 34번) 이 자리의 본문도 overhead.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-
 /* ═══ 👻 캐릭터 투명도 · 활동 판정(seatState) · 쓰다듬기 ═══ */
-/* 캐릭터 opacity (자리비움 영혼 효과) — bodyWrap 하위 모든 mesh의 material에 적용 */
-function setSeatOpacity(seat, op){
-  if(seat._lastOp===op) return;
-  seat._lastOp=op;
-  // 자리비움(op≈0)에선 material.opacity만 낮춰선 완전히 사라지지 않으므로 mesh.visible 자체를 함께 토글한다.
-  // ★ 단, applyClothVisibility가 관리하는 mesh.visible(파츠 hides에 의한 숨김)을 덮어쓰지 않도록:
-  //   자리비움 진입 시 원래 visible 값을 userData._prevVisible에 기억해두고,
-  //   자리비움 해제 시 그 값으로 복원. 정상 상태(op≥0.001)에선 visible을 건드리지 않음.
-  const hide = op < 0.001;
-  seat.bodyWrap.traverse(o=>{
-    if(o.isMesh && o.material){
-      if(hide){
-        // 자리비움 진입 — 원래 visible 상태 저장 후 숨김
-        if(o.userData._prevVisible === undefined) o.userData._prevVisible = o.visible;
-        o.visible = false;
-      } else if(o.userData._prevVisible !== undefined){
-        // 자리비움 해제 — 저장된 원래 visible 복원 (hides로 숨긴 상태였다면 그대로 숨김 유지)
-        o.visible = o.userData._prevVisible;
-        delete o.userData._prevVisible;
-      }
-      // 정상 상태에선 mesh.visible 안 건드림 → applyClothVisibility의 세팅 유지
-      const mats=Array.isArray(o.material)?o.material:[o.material];
-      mats.forEach(m=>{
-        if(!m) return;
-        // ★ 파츠가 블렌더에서 설정해온 원본 투명도(transparent/opacity)를 최초 1회 기억해둔다.
-        //   예전엔 여기서 무조건 transparent=false, opacity=1로 덮어써서 반투명 파츠가 실행화면에서만
-        //   불투명하게 보였음(꾸미기 미리보기는 이 함수를 안 거쳐서 정상이었던 원인).
-        /* ★★ 그 기억은 **불투명할 때만**(op≥0.999) 잰다.
-           [증상] 작업하다 어느 순간 머리(얼굴 메시)가 통째로 안 보이고, 앱을 껐다 켜야 돌아온다.
-           [원인] 예전엔 "처음 보는 머티리얼이면 무조건" 그 자리의 opacity를 원본으로 적었다.
-             자리비움은 opacity 0.0 이므로(STATUS 표의 away), 숨어 있는 동안 그 좌석이 다시 빌드되거나
-             파츠가 새로 붙어서 그 머티리얼이 이 함수를 **처음** 통과하면, 이미 0이 된 값을 원본으로
-             기억한다. 그때부터 baseOp=0 이라 자리비움이 풀려 op=1 이 와도 0 × 1 = 0 — 영영 안 보인다.
-             (자동 자리비움은 20분 무반응이면 스스로 걸린다 → "자리를 비웠다 돌아오니 머리만 없다".)
-           [왜 껐다 켜면 돌아오나] 이 기억은 머티리얼 메모리(userData)에만 있고 저장되지 않는다.
-             즉 저장 데이터는 멀쩡하다 — 표정 텍스처가 지워진 게 아니다.
-           ⚠️ _baseTransparent 를 **반드시 같은 조건에 묶어 둘 것.** 따로 재면 투명도만 돌아오고
-             transparent 플래그가 켜진 채 남아 depthWrite/정렬이 어긋난다. */
-        /* ⚠️ _opTouched 가 왜 필요한가 — op≥0.999 조건만 걸면 구멍이 그대로 남는다.
-             숨은 동안 처음 만난 머티리얼은 여기서 못 재고 아래에서 opacity=0 이 **찍힌다.**
-             그 뒤 자리비움이 풀려 op=1 로 이 함수가 다시 오면, 조건이 통과되면서
-             **우리가 방금 쓴 0** 을 원본이라고 기억한다 — 고치기 전과 똑같이 굳는다.
-             그래서 "이 함수가 한 번이라도 쓴 머티리얼"에는 표식을 남기고, 표식이 있으면
-             다시는 재지 않는다. 원본을 잴 수 있는 시점은 **건드리기 전, 불투명할 때** 뿐이다. */
-        if(m.userData._baseOpacity === undefined && !m.userData._opTouched && op >= 0.999){
-          m.userData._baseOpacity     = (typeof m.opacity==='number') ? m.opacity : 1;
-          m.userData._baseTransparent = !!m.transparent;
-        }
-        m.userData._opTouched = true;   // 아래에서 opacity/transparent 를 쓴다 — 이후 이 값은 원본이 아니다
-        // 끝내 못 잰 머티리얼(숨은 동안 처음 붙은 파츠 등)은 1/불투명으로 본다.
-        //   블렌더에서 반투명으로 만든 파츠라면 그 반투명이 한 번 무시되지만, 0 으로 굳어
-        //   영영 안 보이는 쪽보다 이 방향이 훨씬 안전하다.
-        const baseOp = (typeof m.userData._baseOpacity === 'number') ? m.userData._baseOpacity : 1;
-        const baseTr = (m.userData._baseTransparent !== undefined) ? !!m.userData._baseTransparent : false;
-        const eff    = baseOp * op;              // 자리비움 등 상태 투명도 × 파츠 원본 투명도
-        m.transparent = baseTr || (op < 0.999);
-        m.opacity     = eff;
-        m.depthWrite  = (eff > 0.95);   // 반투명 시 z-fighting 줄이기
-        m.needsUpdate = true;
-      });
-    }
-  });
-}
-
-
-const FOCUS_MS=1500,SLEEP_MS=8000,PET_MS=2200;
-/* 🖊️ 펜 앱(클립스튜디오·포토샵 등)이 활성일 때만 쓰는 넓은 기록 창.
-   그림은 한 획이 몇 초씩 이어져서 그 사이 클릭·키 입력이 하나도 없다. 1.5초 기준으로는
-   선 하나 긋는 동안 캐릭터가 idle로 빠지고 기록도 뚝뚝 끊긴다. 펜 앱일 때만 4초로 넓힌다.
-   (main.js가 activeAppState.isPenApp으로 알려줌 — 목록은 main.js의 PEN_APPS 한 곳에만 둔다) */
-const PEN_FOCUS_MS=4000;
-let _penAppFocused=false;
-function focusWindowMs(){ return _penAppFocused ? PEN_FOCUS_MS : FOCUS_MS; }
-let lastActivity=performance.now(),windowFocused=!document.hidden,lastZ=0;
-function activity(){lastActivity=performance.now();}
-
-/* ★ 자동 자리비움 전용 "실제 입력" 타임스탬프.
-   lastActivity는 focusGateSleep(등록한 포커싱 어플을 쓰는 중인가)에 걸려서, 포커싱 어플을 아예 등록하지
-   않았거나 다른 앱을 쓰는 중이면 갱신되지 않음 — 그건 "타이핑 모션" 판정용이라 그게 맞음.
-   하지만 자동 자리비움은 어떤 앱을 쓰든 "사람이 컴퓨터를 만지고 있는가"만 보면 되므로 별도로 기록함. */
-let lastAnyInput = performance.now();
-function anyInput(){ lastAnyInput = performance.now(); }
-window.addEventListener('mousemove',activity);window.addEventListener('keydown',activity);window.addEventListener('wheel',activity);
-document.addEventListener('visibilitychange',()=>windowFocused=!document.hidden);
-window.addEventListener('blur',()=>windowFocused=false); window.addEventListener('focus',()=>{windowFocused=true;activity();anyInput();});
-function seatState(seat,now){
-  if(seat.pinned) return 'shaking';   // 액자 고정: 드래그된 자세(팔 처짐) + 호흡·blink 유지
-  // 사용자 인터랙션 — 흔들기/회복(dizzy)/쓰다듬기(pet)가 모든 자동·수동·remote보다 우선
-  if(seat.beingShaken) return 'shaking';
-  if(seat.dizzyUntil && now < seat.dizzyUntil) return 'dizzy';
-  if(now-seat.petStart<PET_MS) return 'pet';   // remote(친구) 좌석도 쓰다듬으면 반응 보이게(원래 remote 분기보다 아래에 있어서 무시되던 버그)
-  // 💃 춤 — 자리비움/자동 상태보다 우선(단, 흔들기·dizzy·pet보다는 아래). 내 좌석은 danceUntil, 친구 좌석은 remoteState로 전달됨.
-  if(seat.danceUntil && now < seat.danceUntil && !seat.remote) return 'dance';
-  // 자리비움(본인/친구) → 자동·수동과 무관하게 sleep 모션 강제 (영혼 컨셉)
-  const us = seat.remote ? seat.remoteUserStatus : (seat.isMe ? userStatus : null);
-  if(us==='away') return 'sleep';
-  if(seat.remote) return seat.remoteState||'idle';   // 친구 좌석: 공유받은 상태 사용
-  if(seatPanelMod.manual())return seatPanelMod.manual();
-  if(!desktopMode && !windowFocused)return 'sleep';   // 데스크톱 모드에선 다른 프로그램 쓰는 게 정상이라 이 체크 제외(포커싱 게이트가 대신함)
-  // 포커싱 어플 게이트: 데스크톱 모드에서, 등록된 앱이 없거나 등록된 앱을 안 쓰는 중이면
-  // (직접 쓰다듬기·흔들기 등은 위에서 이미 처리됐으므로) 자동 idle/focus 판정은 sleep으로 대체.
-  if(desktopMode && focusGateSleep) return 'sleep';
-  if(seat.isMe && focusLevelMod._mobileOn()) return 'focus';   // 📱 폰에서 그리는 중 — 집중 포즈
-  const idle=now-lastActivity;
-  if(idle<focusWindowMs())return 'focus';
-  /* 🧸 피규어 모드는 «항상 깨어 있음» 이다 — 입력이 끊겨도(생각하는 동안 · 키 훅이 막힌 앱) 잠들지 않고 쉬는 자세. 자리비움은 위에서 잔다. */
-  if(idle>SLEEP_MS && !(desktopMode && figureMode))return 'sleep';
-  return 'idle'; }
-function triggerPet(seat){ const now=performance.now(); seat.petStart=now; if(seat.blink) seat.blink.pulses.push({start:now,dur:240}); }
+/* 본문은 room/seat-opacity.js · status/seat-state.js 로 옮겼다(앱 FSD · app.js 분리 M10). 원래 자리인 여기서 만든다 — 활동 시각 듣기(mousemove · keydown · wheel · blur · focus)가 예전과 같은 때 걸린다.
+   다시 대입되던 활동 시각 · 펜 앱 · 창 자신 깃발은 모듈 안에 있고 `seatStateMod.이름()` 으로 읽는다. */
+const seatOpacityMod = TwSeatOpacity.createSeatOpacity({
+});
+const setSeatOpacity = seatOpacityMod.setSeatOpacity;   // 옛 전역 이름
+const seatStateMod = TwSeatState.createSeatState({
+  desktopMode: ()=>desktopMode,
+  figureMode: ()=>officeModeMod.figureMode(),
+  focusGate: TwFocusGate,
+  focusGateSleep: ()=>focusGateSleep,
+  focusLevelMod: ()=>focusLevelMod,
+  seatPanelMod: seatPanelMod,
+  userStatusMod: userStatusMod,
+});
+const focusWindowMs = seatStateMod.focusWindowMs;   // 옛 전역 이름
+const activity = seatStateMod.activity;   // 옛 전역 이름
+const anyInput = seatStateMod.anyInput;   // 옛 전역 이름
+const seatState = seatStateMod.seatState;   // 옛 전역 이름
+const triggerPet = seatStateMod.triggerPet;   // 옛 전역 이름
 
 /* ============================================================ DRAG / PET */
-const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),dragPlane=new THREE.Plane(new THREE.Vector3(0,1,0),-0.4);
-let drag=null; // {seat, startX/Y, moved, mode:'slot'|'shake', targetType, grabX(slot), grabPlane/grabOffset(shake), lastX/Y/T, velX/Y, dizzy}
-function seatFromObject(o){let p=o;while(p){if(p.userData&&p.userData.seat)return p.userData.seat;p=p.parent;}return null;}
-function worldX(e){const r=canvas.getBoundingClientRect();ndc.x=((e.clientX-r.left)/r.width)*2-1;ndc.y=-((e.clientY-r.top)/r.height)*2+1;
-  ray.setFromCamera(ndc,camera);const pt=new THREE.Vector3();ray.ray.intersectPlane(dragPlane,pt);return pt?pt.x:0;}
-
-/* ─── 캐릭터 흔들기 — 시메지 컨셉
-   · 캐릭터(rig 안의 mesh) 드래그 → 흔들기, 책상(desk/그림자/슬래브) 드래그 → 슬롯 이동
-   · 클릭만 하고 6px 미만이면 → 쓰다듬(pet) 유지 */
-const SHAKE_DIZZY_TRIGGER = 60;
-// "빠른 흔들기"로 인정하는 최소 속도(px/ms). 이 이상으로 움직여야 dizzy 누적 + blink.
-// 느린 좌우 드래그는 이 값보다 느려서 blink/dizzy가 안 생김. 더 둔감하게 하려면 키우세요.
-const SHAKE_FAST_SPEED = 1.0;
-const _ndV3 = new THREE.Vector3();
-/* hit한 객체가 캐릭터 영역(rig 하위)이면 'char', 그 외(책상/그림자/슬래브)면 'desk' */
-function classifyHit(seat, obj){
-  let p = obj;
-  while(p && p !== seat.group){
-    if(p === seat.rig) return 'char';
-    if(p.userData && p.userData.isDeskItemPivot) return {type:'item', pivot:p};
-    p = p.parent;
-  }
-  return 'desk';
-}
+/* 본문은 room/seat-pointer.js 로 옮겼다(앱 FSD · app.js 분리 M11). 원래 자리인 여기서 만든다 — 캔버스 듣기(contextmenu · pointerdown · pointermove · pointerup · pointercancel · blur · mousemove)가 예전과 같은 때 걸린다.
+   끄는 중 상태 drag 는 모듈 안에 있고 `seatPointerMod.drag()` 로 읽는다. */
+const seatPointerMod = TwSeatPointer.createSeatPointer({
+  Presence: ()=>Presence,
+  _uiHot: (...a)=>_uiHot(...a),
+  activeItemMixers: activeItemMixers,
+  camera: camera,
+  canvas: canvas,
+  floatersMod: ()=>floatersMod,
+  hiddenSeatsMod: hiddenSeatsMod,
+  iDeskMod: iDeskMod,
+  layoutSeats: (...a)=>layoutSeats(...a),
+  officeMode: ()=>officeModeMod.officeMode(),
+  overheadMod: overheadMod,
+  playItemIdle: (...a)=>playItemIdle(...a),
+  rideBenchMod: rideBenchMod,
+  roomSeatMode: ()=>roomSeatMode,
+  seatLayoutMod: seatLayoutMod,
+  seatMenuMod: ()=>seatMenuMod,
+  seatPanelMod: seatPanelMod,
+  seats: seats,
+  setSuppressNextContextMenu: (v)=>{ moveModeMod.setSuppressNextContextMenu(v); },
+  sfxMod: sfxMod,
+  suppressNextContextMenu: ()=>moveModeMod._suppressNextContextMenu(),
+  toast: (...a)=>toast(...a),
+  tricksMod: tricksMod,
+  triggerPet: triggerPet,
+});
+const ray = seatPointerMod.ray;   // 옛 전역 이름
+const ndc = seatPointerMod.ndc;   // 옛 전역 이름
+const seatFromObject = seatPointerMod.seatFromObject;   // 옛 전역 이름
 /* 본문은 myhome/seat-friend-req.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const seatFriendReqMod = TwSeatFriendReq.createSeatFriendReq({
   FRIEND_MAX: FRIEND_MAX,
   _myHomeFriends: ()=>_myHomeFriends,
-  friendNet: ()=>window.firebaseAPI,
-  getDisplayName: (...a)=>getDisplayName(...a),
+  friendNet: ()=>({ sendFriendRequest: (...a)=>friendRequestsPortMod.send(...a) }),
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
 });
-// 우클릭 → 내 캐릭터 수정(생성기 열기). 친구(remote) 좌석은 남의 캐릭터라 수정 못 하게 막음.
-canvas.addEventListener('contextmenu', e=>{
-  e.preventDefault();
-  if(_suppressNextContextMenu){ _suppressNextContextMenu=false; return; }   // 이동 모드를 우클릭으로 막 확정한 경우 — 이어서 캐릭터 우클릭 동작으로 안 이어지게
-  if(drag){
-    // 드래그(흔들기/이동) 중에 우클릭 = 그 자리에 고정(핀) — 편집창은 안 뜸
-    if(drag.mode==='shake'){
-      const seat=drag.seat;
-      seat.beingShaken=false;
-      seat.pinned=true;          // seatState가 항상 'idle' 반환 → 호흡·blink만, 상태 변경/pet 무시
-      seat._pinPosY=seat.rig.position.y;   // 떨림 방지용 기준 y
-    }
-    drag=null;
-    return;
-  }
-  /* 🎯 조준 중 우클릭 = 취소. **메뉴를 열지 않는다** — 취소와 메뉴가 같은 클릭에 겹치면
-     "취소했어요" 토스트 뒤로 메뉴가 남는다.
-     ⚠️ _flyAiming 쪽 취소는 자기 window 리스너가 이미 하므로 여기서는 열지 않기만 한다(2중 취소 방지). */
-  if(tricksMod._bonkAiming()){ tricksMod.setBonkAiming(false); return; }
-  if(tricksMod._flyAiming()) return;
-  const r=canvas.getBoundingClientRect();ndc.x=((e.clientX-r.left)/r.width)*2-1;ndc.y=-((e.clientY-r.top)/r.height)*2+1;
-  ray.setFromCamera(ndc,camera);
-  const hit=ray.intersectObjects(seats.map(s=>s.group),true);
-  if(!hit.length) return;
-  const seat=seatFromObject(hit[0].object); if(!seat) return;
-  /* 🏢 회사원 모드 — 상대 캐릭터 우클릭으로 마이홈이 열리지 않는다.
-     ⚠️ 토스트도 띄우지 않는다. 요청이 "잠겨서 반응이 없도록" 이라, 회사에서 화면에 글자가
-        튀어나오면 모드의 목적 자체가 깨진다.
-     ★ 내 캐릭터 우클릭(아래 openCreator = 편집창)은 막지 않는다 — 요청 문구가 "상대 캐릭터"다.
-        내 편집창까지 막을지는 별도 판단이 필요하다. */
-  if(officeMode && seat.remote) return;
-  /* 🪄 여기서 메뉴를 띄운다 — 예전에는 이 자리에서 **즉시** 마이홈/편집창이 열렸다.
-     ★ 동작 변경이다: 상대 캐릭터도 내 캐릭터도 클릭이 한 번 늘어난다. 릴리스 노트에 적을 것.
-     ⚠️ 위의 1~5(preventDefault · _suppressNextContextMenu · drag · 레이캐스트 · 회사원 모드)보다
-       **뒤**에 있어야 한다. 메뉴를 앞에 붙이면 드래그 중 고정과 이동 확정이 깨진다. */
-  seatMenuMod._seatCtxMenu(e, seat);
-});
-
 /* 본문은 room/seat-menu.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const seatMenuMod = TwSeatMenu.createSeatMenu({
@@ -3840,782 +2277,40 @@ const seatMenuMod = TwSeatMenu.createSeatMenu({
   setUserStatus: (...a)=>setUserStatus(...a),
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
-  userStatus: ()=>userStatus,
+  userStatus: ()=>userStatusMod.userStatus(),
 });
 overheadMod.setSeatMenu((...a)=>seatMenuMod._seatCtxMenu(...a));   // 이름표 우클릭 → 좌석 메뉴(메뉴가 신고 · 마이홈 · 놀이를 거쳐 이름표로 돌아와 deps 대신 여기서 잇는다)
-canvas.addEventListener('pointerdown',e=>{
-  if(e.button!==0) return;
-  _uiHot(3000);   // 🔥 누르는 동안엔 비포커스 상한을 푼다(반응이 한 박자 늦게 그려지지 않게)
-  if(tricksMod._flyAiming()){ tricksMod._flyAimClick(e); return; }   // 🎯 조준 중에는 드래그·쓰다듬 대신 표적 선택
-  /* 🪄 때리기 조준도 같은 자리에서 가로챈다 — 여기보다 뒤에 두면 드래그(흔들기)가 먼저 잡고,
-     때린 캐릭터가 마우스에 끌려간다. 말풍선 숨김(dismissSeatHeadBubble)도 pointerup 쪽이라 비켜 간다. */
-  if(tricksMod._bonkAiming()){ tricksMod._bonkAimClick(e); return; }
-  const r=canvas.getBoundingClientRect();ndc.x=((e.clientX-r.left)/r.width)*2-1;ndc.y=-((e.clientY-r.top)/r.height)*2+1;
-  ray.setFromCamera(ndc,camera);
-  const hit=hiddenSeatsMod._preferVisibleHit(hiddenSeatsMod._skipHiddenDesk(hiddenSeatsMod._hitsSkipHidden(ray.intersectObjects(seats.map(s=>s.group),true))));   // 🙈 숨긴 캐릭터는 잡히지 않는다(흔들기·쓰다듬기) · 보이는 것 먼저(#7)
-  if(!hit.length) return;
-  const seat=seatFromObject(hit[0].object); if(!seat) return;
-  if(!TwSeatLabelDrag.canGrabSeat(seat)) return;   // 이름표 끌기와 같은 판단 한 줄(room/seat-label-drag.js)
-  const targetType = classifyHit(seat, hit[0].object);
-  // shake용 평면 — 캐릭터(rig)의 world position 기준 (책상 고정, 캐릭터만 움직임)
-  const camDir = camera.getWorldDirection(new THREE.Vector3()).negate();
-  const rigWP = new THREE.Vector3(); seat.rig.getWorldPosition(rigWP);
-  const grabPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(camDir, rigWP);
-  const grabPt = new THREE.Vector3(); ray.ray.intersectPlane(grabPlane, grabPt);
-  const grabOffset = grabPt.clone().sub(rigWP);
-  /* 🐾 타고 있던 동물을 다시 드래그하면 내려옴(스펙) — 단 **내 캐릭터만**.
-     남이 내 머리에 얹어둔 동물은 그 사람 것이라 내가 내릴 수 없다(요청 사양).
-     내려도 그 사람이 방송하는 상태 때문에 다음 sync에 곧바로 다시 올라와 깜빡이기만 했다. */
-  if(seat.ridingOn && !seat.remote) rideBenchMod.unmountRide(seat);
-  /* 🩹 [2026-10-02 제보 #7] groupWP 는 **내린 뒤에** 잰다.
-     [원인] 예전엔 내리기 전에 쟀다. unmountRide 가 group 을 제자리(머리 위 → 자기 자리)로 되돌리는데
-       흔들기 계산(rig = 커서 − grabOffset − groupWP)은 옛 groupWP 를 계속 써서, 그 차이만큼 캐릭터가
-       커서에서 옆으로 빠져 따라왔다. 그러면 놓는 자리 판정(findRideTarget)도 엉뚱한 곳을 본다.
-     ★ grabPlane·grabOffset 은 내리기 **전** 값을 그대로 쓴다 — 잡은 지점(머리 위 그 자리)과 손잡이 위치가
-       유지되어, 내린 캐릭터가 커서 바로 아래로 따라온다. */
-  seat.group.updateMatrixWorld(true);
-  const groupWP = new THREE.Vector3(); seat.group.getWorldPosition(groupWP);
-  drag={
-    seat, startX:e.clientX, startY:e.clientY, moved:false, mode:null, targetType,
-    grabX: worldX(e) - seat.group.position.x,
-    grabPlane, grabOffset, groupWP,
-    lastX:e.clientX, lastY:e.clientY, lastT:performance.now(),
-    velX:0, velY:0, dizzy:0
-  };
-  seatPanelMod.selectSeat(seat); canvas.setPointerCapture(e.pointerId);
-});
-canvas.addEventListener('pointermove',e=>{
-  if(!drag)return;
-  const now=performance.now();
-  const dx=e.clientX-drag.startX, dy=e.clientY-drag.startY;
-  if(!drag.moved){
-    if(Math.hypot(dx,dy) > 6){
-      drag.moved = true;
-      if(drag.seat.pinned) drag.seat.pinned = false;   // 드래그 시작 → 액자 고정 해제
-      // 새 규칙: 캐릭터 클릭→흔들기, 책상 클릭→슬롯 이동
-      drag.mode = (drag.targetType === 'char') ? 'shake' : 'slot';
-      if(drag.mode==='shake'){ drag.seat.beingShaken = true; drag.seat._wasShaken = true; }
-    } else return;
-  }
-  const dt = Math.max(1, now - drag.lastT);
-  drag.velX = (e.clientX - drag.lastX) / dt;
-  drag.velY = (e.clientY - drag.lastY) / dt;
-  drag.lastX = e.clientX; drag.lastY = e.clientY; drag.lastT = now;
-
-  if(drag.mode==='slot'){
-    const wx=worldX(e)-drag.grabX; drag.seat.group.position.x=wx;
-    const n=seats.length; const _spacing = seats.some(s=>s.remote) ? MULTIPLAYER_SPACING : SPACING; let idx=Math.round(-wx/_spacing); idx=Math.max(0,Math.min(n-1,idx));
-    if(window.TwSeatPin) idx = TwSeatPin.dragIndex(idx, drag.seat, seats, roomSeatMode);   // 🪑 맨 오른쪽 고정이면 내 자리는 그대로
-    const cur=seats.indexOf(drag.seat);
-    if(idx!==cur){seats.splice(cur,1);seats.splice(idx,0,drag.seat);layoutSeats();seatPanelMod.renderSeatTabs();}
-  } else if(drag.mode==='shake'){
-    const r2=canvas.getBoundingClientRect();ndc.x=((e.clientX-r2.left)/r2.width)*2-1;ndc.y=-((e.clientY-r2.top)/r2.height)*2+1;
-    ray.setFromCamera(ndc,camera);
-    if(ray.ray.intersectPlane(drag.grabPlane, _ndV3)){
-      // 마우스 광선이 가리키는 rig의 새 world 좌표 = 교차점 - 잡은 offset
-      // rig의 local position = (world target) - (group의 world position)
-      drag.seat.rig.position.x = _ndV3.x - drag.grabOffset.x - drag.groupWP.x;
-      drag.seat.rig.position.y = _ndV3.y - drag.grabOffset.y - drag.groupWP.y;
-      drag.seat.rig.position.z = _ndV3.z - drag.grabOffset.z - drag.groupWP.z;
-    }
-    const speed = Math.abs(drag.velX) + Math.abs(drag.velY);
-    const fast = speed > SHAKE_FAST_SPEED;                  // 지금 "빠르게" 흔드는 중인가
-    if(speed > 0.2) drag.lastMoveT = performance.now();     // 움직임 시각 (정신차리기 판정용)
-    if(fast)        drag.lastFastT = performance.now();     // 마지막으로 빠르게 흔든 시각 (blink용)
-    // dizzy: 빠른 흔들기일 때만 누적, 그 외(느린 드래그/정지)엔 감소 → 천천히 끌어선 안 쌓임
-    drag.dizzy = Math.max(0, Math.min(120, drag.dizzy + (fast ? (speed - SHAKE_FAST_SPEED)*4 : 0) - dt*0.06));
-    if(drag.dizzy > 30 && Math.random() < 0.08) floatersMod.spawnFloater('💫','#f5a94f', drag.seat);
-  }
-});
-canvas.addEventListener('pointerup',e=>{
- /* 🚑 [고침] 이 본문 전체를 try/finally 로 감싼다 — **drag=null 이 무슨 일이 있어도 실행되게.**
-    [무엇이 문제였나] `drag=null` 이 본문 **맨 끝**에 있는데, 그 앞에서 던질 수 있는 호출이 여럿이다
-      (Presence.poke · triggerPet · findBenchSlot · mountBench · 애니메이션 재생).
-      특히 `Presence.poke` 는 서버가 끊긴 동안 던진다 — CSP 사고 때가 정확히 그 상태였다.
-    [무슨 일이 벌어지나] 한 번 던지면 `drag` 가 영원히 남고, 클릭 통과 판정 루프의
-      `if(drag) return;` 이 **모든 mousemove 를 삼킨다.** 그 뒤로는 커서를 캐릭터·상태칩·채팅창
-      어디에 올려도 판정이 안 돌아, 앱이 통째로 '유령'이 된다 — 껐다 켜기 전엔 안 돌아온다.
-      창이 클릭을 못 받으니 포커스도 못 얻어 blur 안전망(clearDragStuck)까지 같이 막힌다.
-    ⚠️ 중간의 조기 return 들도 finally 를 지나므로 그대로 동작한다(이미 drag=null 을 하고 있어 무해). */
- try{
-  if(!drag)return;
-  const seat = drag.seat;
-  if(!drag.moved){
-    if(drag.targetType==='label'){
-      // 🏷️ 이름표 · 경험치 바를 누르기만 했다 — 쓰다듬지 않는다(끌어야 자리 바꾸기)
-    } else if(drag.targetType && typeof drag.targetType==='object' && drag.targetType.type==='item'){
-      playItemIdle(drag.targetType.pivot);   // 아이템 클릭 — idle 애니메이션 한 번 재생
-    } else if(drag.targetType==='desk' && seat.desk && seat.desk.userData.deskIdleAction && seat.desk.userData.deskPlayMode==='click'){
-      // 책상 클릭 — 클릭 재생 모드 책상은 여기서 한 번 재생
-      const a = seat.desk.userData.deskIdleAction;
-      const m = seat.desk.userData.deskMixer;
-      a.reset(); a.play(); if(m) activeItemMixers.add(m);
-    } else if(!seat.pinned){   // 액자 고정 캐릭터는 pet도 무시
-      /* 🖱 클릭음 — **반응이 있는 클릭에만** 난다(액자 고정은 위 조건에서 이미 빠졌다).
-         소리만 나고 캐릭터는 가만히 있으면 "눌렸는데 왜 반응이 없지"가 된다.
-         ★ 여기는 '끌지 않고 눌렀다 뗀' 자리다(drag.moved 가 false). 흔들거나 옮기는 동안에는
-           안 울린다 — 드래그마다 소리가 나면 시끄럽다.
-         ★ 막지 않는다(쓰로틀 없음) — 연타하면 연타한 만큼 들리는 것이 요청이다. 풀이 5벌이라
-           앞 소리를 끊지 않고 겹친다. */
-      if(!window.__noClickSnd) sfxMod._clickSnd.play();   // 📏 A/B 확인용 — 콘솔에서 __noClickSnd=true 로 잠시 끈다
-      triggerPet(seat); for(let i=0;i<floatersMod.FLOATER_BURST;i++) setTimeout(()=>floatersMod.spawnFloater('♥','#f2607d',seat),i*320);
-      overheadMod.dismissSeatHeadBubble(seat);   // 말풍선 떠 있으면 클릭으로 숨김
-      if(seat.remote && seat.friendId && Presence.active()) Presence.poke(seat.friendId, 'pet');   // 남의 캐릭터 쓰다듬으면 그 사람에게 알림
-      /* 💗 [2026-10-08 제보 #12] **내 캐릭터**를 쓰다듬은 것도 방에 알린다 — 예전엔 남의 캐릭터만 알려서
-         내가 내 캐릭터(동물 포함)를 눌러도 상대 화면에는 하트가 안 떴다.
-         ★ 0.5초 쓰로틀 — 연타하면 쓰기가 그만큼 늘어난다. 로컬 하트는 위에서 매번 그대로 뜬다.
-         ★ 자리추가 좌석(isExtra)은 내 화면에만 있는 것이라 알리지 않는다.
-         ★ 내 노드로 돌아오는 에코는 수신부(_myPetLocalAt)에서 건너뛴다 — 안 그러면 내 화면 하트가 두 번이다. */
-      else if(seat.isMe && !seat.isExtra && Presence.active() && Presence.pokeSelf){
-        const _t = performance.now();
-        floatersMod.setMyPetLocalAt(_t);
-        if(_t - floatersMod._myPetSentAt() >= floatersMod.MY_PET_SEND_GAP_MS){ floatersMod.setMyPetSentAt(_t); Presence.pokeSelf('pet'); }
-      }
-    }
-  } else if(drag.mode==='shake'){
-    seat.beingShaken = false;
-    // 🪑 벤치 슬롯 근처에서 놓으면 앉기 — 캐릭터 종류(동물/사람) 무관.
-    //   이미 앉아 있던 캐릭터를 다시 드래그해서 놓으면, 벤치 밖이면 일어나고 다른 슬롯이면 옮겨 앉음.
-    {
-      const bs = rideBenchMod.findBenchSlot(seat);
-      if(bs){
-        if(rideBenchMod.mountBench(seat, bs.host, bs.slot)){
-          drag=null; canvas.releasePointerCapture&&canvas.releasePointerCapture(e.pointerId);
-          return;
-        }
-      } else if(seat.seatedOn){
-        rideBenchMod.unmountBench(seat);   // 벤치에서 멀리 떨어뜨려 놓음 → 일어남
-      }
-    }
-    // 🐾 동물을 머리 근처에서 놓으면 흡착 — 이후 머리 본을 따라다님
-    /* ★ 내 캐릭터만 얹을 수 있다(요청 사양) — seat.remote면 남의 캐릭터다.
-       기능 제한이기도 하지만 애초에 동작하지도 않았다: 올라탄 상태는 `_myRidingOn()`으로
-       **자기 좌석만** 방송하므로, 남의 동물을 내 화면에서 얹어도 그 사람 화면엔 안 보이고
-       다음 sync에서 `_applyRemoteRides`가 want=null로 보고 곧바로 내려버린다(내 화면에서만 깜빡).
-       ⚠️ 반대 방향(내 동물을 남의 머리에 얹기)은 그대로 둔다 — 움직이는 건 내 캐릭터이고,
-          그건 `_myRidingOn`이 정상적으로 방송하는 기존 기능이다. */
-    if(seat.charDef && seat.charDef.animal && !seat.remote){
-      const host=iDeskMod.findRideTarget(seat);
-      if(host && rideBenchMod.mountRide(seat, host)){
-        drag=null; canvas.releasePointerCapture&&canvas.releasePointerCapture(e.pointerId);
-        return;
-      }
-    }else if(seat.remote && seat.charDef && seat.charDef.animal && iDeskMod.findRideTarget(seat)){
-      // 왜 안 되는지 알려준다 — 아무 반응 없이 제자리로 돌아가면 버그로 보인다. 연타 시 토스트가 쌓이지 않게 스로틀.
-      const _now = performance.now();
-      if(!iDeskMod._rideDenyToastAt() || _now - iDeskMod._rideDenyToastAt() > 1500){
-        iDeskMod.setRideDenyToastAt(_now);
-        toast('🐾 남의 캐릭터는 그 사람만 올릴 수 있어요');
-      }
-    }
-    // 정신차리기 도리도리는 멈춘 뒤 300ms부터 시작 — 그 시점 이후에 손을 놓으면
-    // "이미 정신차림"으로 보고 dizzy 좌석 모션을 건너뜀.
-    // (참고: "고정"은 이제 드래그 중 우클릭으로 처리됨 — contextmenu 핸들러 참고)
-    const stillMs = drag.lastMoveT ? (performance.now() - drag.lastMoveT) : 0;
-    if(drag.dizzy >= SHAKE_DIZZY_TRIGGER && stillMs < 300){
-      seat.dizzyUntil = performance.now() + 2500;
-      for(let i=0;i<floatersMod.FLOATER_BURST;i++) setTimeout(()=>floatersMod.spawnFloater('💫','#f5a94f',seat),i*300);
-      if(seat.remote && seat.friendId && Presence.active()) Presence.poke(seat.friendId, 'dizzy');   // 남의 캐릭터 흔들어 dizzy 만들면 그 사람에게 알림
-    }
-  }
-  drag=null;
- }finally{
-  /* ★ 위에서 무엇이 던지든 여기는 반드시 지난다. drag 가 남으면 앱이 유령이 된다(위 주석). */
-  drag=null;
- }
-});
-/* 안전망 — pointerup 누락 시 stuck 회복 (캡처 해제/포커스 잃음 등) */
-function clearDragStuck(){
-  if(drag){
-    if(drag.seat){ drag.seat.beingShaken=false; }
-    drag=null;
-  }
-  // 혹시 잔존한 beingShaken 보정
-  if(typeof seats!=='undefined') seats.forEach(s=>{ if(s.beingShaken) s.beingShaken=false; });
-}
-canvas.addEventListener('pointercancel', clearDragStuck);
-window.addEventListener('blur', clearDragStuck);
-/* 🏷️ 이름표 · 경험치 바를 눌러 끌면 책상 끌기와 같은 자리 바꾸기 — 시작 판단은 room/seat-label-drag.js.
-   ★ 같은 drag 상태를 쓰고 캔버스가 포인터를 잡는다 — 위 pointermove · pointerup 이 책상 끌기(slot)로 그대로 처리한다. */
-function _beginLabelSlotDrag(e, seat){
-  if(drag) return false;
-  _uiHot(3000);
-  drag={ seat, startX:e.clientX, startY:e.clientY, moved:false, mode:null, targetType:'label',
-    grabX: worldX(e) - seat.group.position.x,
-    lastX:e.clientX, lastY:e.clientY, lastT:performance.now(), velX:0, velY:0, dizzy:0 };
-  seatPanelMod.selectSeat(seat);
-  try{ canvas.setPointerCapture(e.pointerId); }catch(_){}
-  return true;
-}
 const seatLabelDragMod = TwSeatLabelDrag.createSeatLabelDrag({
-  beginDrag: _beginLabelSlotDrag,
+  beginDrag: seatPointerMod._beginLabelSlotDrag,
   flyAiming: ()=>tricksMod._flyAiming(),
   bonkAiming: ()=>tricksMod._bonkAiming(),
 });
 overheadMod.setLabelDrag((e, seat)=>seatLabelDragMod.onLabelPointerDown(e, seat));
 
 
-/* 전역 마우스 NDC — 액자 고정 캐릭터의 머리가 마우스 따라가도록 */
-let mouseNdcX = 0, mouseNdcY = 0;
-window.addEventListener('mousemove', e=>{
-  const r = canvas.getBoundingClientRect();
-  mouseNdcX = ((e.clientX-r.left)/r.width)*2-1;
-  mouseNdcY = -((e.clientY-r.top)/r.height)*2+1;
-});
 
 /* ============================================================ FLOATERS */
 /* 본문은 floaters.js 로 옮겼다(앱 FSD 46번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const floatersMod = TwFloaters.createFloaters({
+  floatersAccountStore: accountStoreMod,
   ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
-  focusCharScale: ()=>focusCharScale,
+  focusCharScale: ()=>charPlaceMod.focusCharScale(),
   scene: scene,
 });
 
 /* ============================================================ WARDROBE PARTS (꾸미기 파츠 부착)
    캐릭터 본(head/spine/handL/handR)에 GLB 파츠를 부착. 동시 1개/카테고리(양손 각각).
    파츠 GLB는 부착 위치에 맞춰 모델링된 전제(코드는 본에 그대로 add). */
-// 루트에서 본(스켈레톤)을 찾아 seat류 객체(.bones)에 채워넣는 공용 헬퍼 — 꾸미기 파츠를 붙일 부착점을 찾는 데 필요함.
-// setupSeatModel(런타임 좌석)뿐 아니라 런처/생성기 미리보기처럼 가벼운 컨텍스트에서도 재사용.
-function extractBonesInto(target, root){
-  target.bones={spine:null,head:null,handL:null,handR:null,legL:null,legR:null,ear:[]};
-  root.traverse(o=>{ if(o.isBone){ const n=o.name.toLowerCase();
-    if(!target.bones.spine&&(n.includes('spine')||n.includes('chest')||n.includes('torso')))target.bones.spine=o;
-    if(!target.bones.head&&n.includes('head'))target.bones.head=o;
-    if(n.includes('hand')||n.includes('arm')){const s=boneSide(n);
-      if(s==='l'&&!target.bones.handL)target.bones.handL=o; if(s==='r'&&!target.bones.handR)target.bones.handR=o;}
-    if(n.includes('leg')||n.includes('thigh')){const s=boneSide(n);
-      if(s==='l'&&!target.bones.legL)target.bones.legL=o; if(s==='r'&&!target.bones.legR)target.bones.legR=o;}
-    if(n.includes('ear'))target.bones.ear.push(o);
-  }});
-  target.equippedPartObjs = target.equippedPartObjs || {};
-}
-/* 🐰 귀 파츠에서 '까닥일 대상'을 찾는다 ───────────────────────────────────────
-   [증상] 귀 본이 들어 있는 귀 파츠 일부가 까닥이지 않고, 대신 파츠가 통째로 앞뒤로 크게 움직인다.
-   [원인 1 — 이름 판정] 예전 판정은 `^ear[_-]?[lr]$` 라서 구분자를 '_'·'-' 만 받았다.
-     블렌더의 좌우 대칭 접미사는 **'.L/.R' 이 표준**이라 `ear.L`·`Ear.R` 로 저작된 파츠는
-     통째로 안 걸렸다. 안 걸리면 그 파츠는 부착 본(head)만 따라가므로, 화면에서는
-     '까닥임 없이 머리 끄덕임을 따라 앞뒤로 움직이는' 것으로 보인다.
-   [원인 2 — 같은 이름이 둘] 블렌더에서 오브젝트 이름까지 'ear_L' 이면 GLB 안에 같은 이름의
-     **노드(메쉬/빈 오브젝트)와 본**이 같이 들어온다. 노드 쪽이 잡히면 회전 피봇이 파츠 원점이라
-     귀가 제자리에서 까닥이는 대신 큰 호를 그리며 앞뒤로 흔들린다 — 제보의 그 증상이다.
-   [대책] 구분자를 넓히고, 본이 하나라도 잡히면 **본만** 쓴다. 이미 잡힌 것의 자손도 뺀다
-     (부모와 자식을 같이 돌리면 각도가 두 배로 먹는다).
-   ⚠️ 'earring'(귀걸이) 처럼 ear 로 시작만 하는 이름은 잡으면 안 된다. 'ear' 뒤에 남는 것이
-     좌우 표시와 번호뿐일 때만 참으로 본다. 'DEF-ear.L' 처럼 앞에 접두어가 붙는 리그도 있어서
-     구분자로 끝나는 접두어 하나까지는 허용한다('spear' 는 구분자가 없으므로 안 걸린다). */
-function _isEarObjName(n){
-  return /^(?:[a-z0-9]+[._\- ])?ear(?:[._\- ]?(?:l|r|left|right))?(?:[._\- ]?\d+)*$/i
-    .test(String(n||'').trim());
-}
-function _collectPartEarObjs(obj, cat){
-  const hit = [];
-  obj.traverse(o=>{ if(_isEarObjName(o.name)) hit.push(o); });
-  const bones = hit.filter(o=>o.isBone);
-  const pool  = bones.length ? bones : hit;   // 본이 아예 없는 리지드 귀 파츠는 노드라도 쓴다
-  const out = pool.filter(o=>{
-    for(let p=o.parent; p; p=p.parent) if(pool.indexOf(p)>=0) return false;
-    return true;
-  });
-  /* 🩺 진단 — 이 판정은 실패해도 아무 에러가 안 난다(그냥 안 까닥일 뿐이라 원인을 못 찾는다).
-     그래서 잡힌 것과 못 잡은 이유를 반드시 남긴다. */
-  try{
-    if(out.length){
-      console.log('[파츠 귀] '+cat+' — 까닥일 대상 '+out.length+'개: '+out.map(o=>o.name).join(', ')
-        + (hit.length !== out.length
-            ? ' (같은 이름으로 '+hit.length+'개가 잡혀 '+(bones.length?'본':'최상위')+'만 씀)' : ''));
-    }else{
-      const all = []; obj.traverse(o=>{ if(o.isBone) all.push(o.name); });
-      if(all.length) console.log('[파츠 귀] '+cat+' — 귀로 볼 이름의 본이 없음. 파츠 본: '+all.join(', ')
-        + ' → ear_L / ear.R / Ear.L 처럼 지으면 까닥임에 등록됩니다.');
-    }
-  }catch(_){}
-  return out;
-}
-async function equipPartOnSeat(seat, cat, rec, opts){
-  if(!seat) return;
-  seat.equippedPartObjs = seat.equippedPartObjs || {};
-  // 🔗 stackable 모드: rec.stackable=true인 파츠는 seat.stackedPartObjs[cat][id]에 저장.
-  //   기존 파츠(같은 카테고리의 다른 파츠들)를 지우지 않고 함께 유지.
-  const stackable = !!(rec && rec.stackable);
-  if(stackable){
-    seat.stackedPartObjs = seat.stackedPartObjs || {};
-    seat.stackedPartObjs[cat] = seat.stackedPartObjs[cat] || {};
-  }
-  /* ⚠️ 여기가 **조용한 실패 지점**이었다. 카테고리가 PART_CATS 에 없으면 아무 흔적도 없이
-     돌아간다 — 화면에는 "파츠를 눌렀는데 아무 일도 안 일어난다"로만 보인다.
-     PART_CATS = BUILTIN + customPartCats(Firebase 구독)라, 커스텀 카테고리는 구독이 아직
-     안 왔거나 실패하면 여기서 걸린다. 아래 '부착할 자리 없음' 경고와 같은 급의 사건이므로
-     같이 남긴다(세션당 카테고리별 1회 — 매 프레임 도배되지 않게). */
-  const info = premiumMod.partCatInfo(cat);
-  if(!info){
-    _equipWarnOnce('cat:'+cat, '[파츠] 카테고리 정보를 못 찾아 장착을 건너뜁니다: '+cat
-      + ' — PART_CATS 에 없습니다(커스텀 카테고리 구독 미도착/실패일 수 있음). 파츠 id: '+(rec&&rec.id));
-    return;
-  }
-  // ★ Phase 5: 옷 카테고리 충돌 정리 — 새로 착용할 파츠의 rec.hides와 겹치는 부위를 요구하는 기존 파츠는 해제.
-  //   예) 원피스(hides:['top','bottom']) 착용 → 티셔츠(hides:['top'])는 상의 겹침 → 티셔츠 해제.
-  //   예) 겉옷(hides:[]) 착용 → 아무것도 안 겹치므로 상의 유지.
-  //   ★ getRecHides로 sentinel/Firebase 객체 정규화 (null 반환 시엔 옛 파츠 → 관례 fallback)
-  if(rec && info.group==='cloth'){
-    const explicit = premiumMod.getRecHides(rec);
-    const newHides = (explicit !== null) ? explicit
-      : (cat==='onepiece' ? ['top','bottom','onepiece']
-        : cat==='cape' ? []
-        : [cat]);   // 하위호환
-    ['top','bottom','onepiece','cape'].forEach(other=>{
-      if(other===cat) return;
-      const entry = premiumMod.firstEntryForCat(seat.charDef, other);
-      if(!entry) return;
-      const otherId = premiumMod.partEntryId(entry);
-      const otherRec = premiumMod.savedParts().find(p=>p.id===otherId);
-      const otherExplicit = premiumMod.getRecHides(otherRec);
-      const otherHides = (otherExplicit !== null) ? otherExplicit
-        : (other==='onepiece' ? ['top','bottom','onepiece']
-          : other==='cape' ? []
-          : [other]);
-      // 두 파츠가 hide하는 부위 중 겹치는 게 하나라도 있으면 충돌 → 기존 파츠 해제
-      const overlap = newHides.some(h=>otherHides.includes(h));
-      if(overlap) _unequipClothCat(seat, other);
-    });
-  }
-  // 기존 같은 카테고리 파츠 제거 — stackable 모드에서는 이 파츠 id만 해제.
-  //   non-stackable 모드에서는 기존 non-stackable만 교체하고, stackable 파츠들(공존 중)은 유지.
-  if(stackable){
-    unequipStackablePart(seat, cat, rec.id);
-    // ★ 같은 파츠가 예전에 non-stackable로 붙어 있었으면 함께 제거 —
-    //   rec.stackable이 카탈로그 동기화로 뒤바뀌면 두 경로에 동시에 존재하게 되고, 그게 유령의 원인.
-    const _prevMain = seat.equippedPartObjs && seat.equippedPartObjs[cat];
-    if(_prevMain && _prevMain.userData && _prevMain.userData.partId === rec.id){
-      _disposeWrapperFromSeat(seat, _prevMain);
-      delete seat.equippedPartObjs[cat];
-    }
-  } else {
-    unequipPartFromSeat(seat, cat, false);   // false = stackable 파츠들 유지
-    // ★ 반대 경우 — 같은 파츠가 stackable로 붙어 있었으면 제거
-    if(rec && seat.stackedPartObjs && seat.stackedPartObjs[cat] && seat.stackedPartObjs[cat][rec.id]){
-      unequipStackablePart(seat, cat, rec.id);
-    }
-  }
-  if(!rec){ applyClothVisibility(seat); return; }   // rec 없으면 해제만 + 기본 메시 가시성 갱신
-  const bone = premiumMod.partAttachTarget(seat, info);
-  if(!bone){ console.warn('부착할 자리 없음:', info.bone,
-    premiumMod.isDeskPartCat(info) ? '(책상 카테고리인데 이 좌석에 deskAnchor 가 없음)' : ''); return; }
-  // ★ 이중 장착 레이스 가드 — 캐릭터 로드 시 applyEquippedPartsToSeat가 두 경로(초기 로드 + 카탈로그
-  //   구독 재시도)에서 거의 동시에 호출될 수 있음. GLB 파싱이 비동기라 늦게 끝난 쪽이 equippedPartObjs를
-  //   덮어쓰고 먼저 끝난 쪽 wrapper는 씬에 유령으로 남는 문제(같은 파츠 두 개 + 해제해도 하나 남음).
-  //   시퀀스 토큰으로 "이 카테고리(+stackable이면 id)에 대해 가장 마지막에 시작된 장착"만 부착 완료하게 함.
-  seat._equipSeq = seat._equipSeq || {};
-  const seqKey = stackable ? (cat + ':' + rec.id) : cat;
-  const mySeq = (seat._equipSeq[seqKey] = (seat._equipSeq[seqKey] || 0) + 1);
-  try{
-    const {scene, animations} = await partSceneMod.getPartScene(rec);
-    // ★ 파싱 대기 중에 같은 카테고리에 새 장착이 시작됐다면 이건 낡은 호출 — 부착하지 않고 중단.
-    if(seat._equipSeq[seqKey] !== mySeq) return;
-    /* 복제 · 재질 톤 · _col 색 묶음 · _pic 그림칸(UV 구제) · 이 파츠 본에 _partAdopted 표식 — 코어.
-       ⚠️ 표식은 뒤에 붙는 파츠가 이 본을 캐릭터 본으로 오인해 리바인드하지 않게 하는 것(비리깅 파츠의 ear 본 등). */
-    const { obj, colorGroups, picMeshes } = partsCore.prepareScene(scene, cat, {
-      onPicUvRepaired: (o)=>_equipWarnOnce('uv2:'+cat+':'+(rec&&rec.id),
-        '[파츠] UV 가 두 번째 칸에 있어 첫 칸으로 옮겼습니다 — cat=' + cat + ' mesh=' + (o.name||'이름없음')
-        + ' / 블렌더에서 비어 있는 첫 UV 맵을 지우고 다시 내보내는 것이 정식 수정입니다.'),
-      onUvBroken: (o)=>_equipWarnOnce('uv2warn:'+cat+':'+(rec&&rec.id),
-        '[파츠] 텍스처가 있는데 첫 UV 칸이 비었습니다 — cat=' + cat + ' mesh=' + (o.name||'이름없음')
-        + ' / 파츠가 단색으로 보인다면 이게 원인입니다(블렌더 UV 맵 순서).'),
-    });
-    /* ★ 여기서 모으는 것은 **이 파츠 자신의** 귀 본이다(캐릭터 본이 아니다).
-       ⚠️ 예전에는 standalone(🧷 단독 부착) 파츠를 통째로 건너뛰었는데, 그건 과잉 방어였다.
-         🧷 의 약속은 "캐릭터의 같은 이름 본에 **자동 연결**하지 않는다"이고, 그 약속을 지키는 것은
-         아래 리깅 판정(standalone → isRigged 강제 false)과 _partAdopted 표식이다.
-         파츠 자신의 본을 까닥임 목록에 넣는 것은 캐릭터 본과 아무 상관이 없는데도 같이 막혀 있어서,
-         귀 파츠에 🧷 를 켜면(=커미션 캐릭터의 귀에 딸려가지 말라고 켜는 바로 그 경우) 귀가
-         영영 안 까닥이는 상태가 됐다. 그래서 standalone 여부와 무관하게 모은다. */
-    const partEarObjs = _collectPartEarObjs(obj, cat);
-    // ★ seat.boneRest.ear가 아직 없는(캐릭터 로딩 초기 등) 시점에 파츠가 먼저 부착되면 여기서 에러가
-    //   나서 이 파츠뿐 아니라 이후 파츠 부착 전체가 조용히 실패하던 심각한 버그가 있었음 — 방어 추가.
-    if(!seat.boneRest) seat.boneRest={};
-    if(!seat.boneRest.ear) seat.boneRest.ear=[];
-    // ※ 실제 ear 등록은 아래 "리깅 판정" 이후에 함 — 리깅(옷) 파츠는 캐릭터 스켈레톤이 움직임을
-    //   담당하므로 귀 까닥임 시스템에 등록하면 안 되기 때문(옷 파츠 ≠ 귀 파츠, 기능 분리).
-    // ★ 어플 6: 리깅(스키닝) 파츠 감지 — 파츠 GLB가 캐릭터와 같은 본 이름으로 스키닝돼 있으면
-    //   (예: 기본 캐릭터 아마추어로 제작한 망토/옷) 리지드 부착 대신 캐릭터의 실제 본에 리바인드해서
-    //   캐릭터 애니메이션(타이핑/절차 모션)을 그대로 따라 움직이게 함.
-    const charBones = {};   // 캐릭터 본 이름 → Bone (파츠 추가 전에 수집해야 파츠 자신의 본과 안 섞임)
-    // ★ 캐릭터 모델 루트는 컨텍스트마다 이름이 다름 — 실행 좌석(gltfRoot), 런처/생성기/꾸미기 미리보기(root),
-    //   그 외(bodyWrap/group). 순서대로 찾아서 어느 화면에서든 본 수집이 되게 함(런처 미리보기 리깅 누락 버그 수정).
-    const charRoot = seat.gltfRoot || seat.root || seat.bodyWrap || seat.group || null;
-    /* 🎩 저작 오프셋 계산 전용 기준 노드 — charRoot와 구분해야 한다.
-       ・charRoot : wrapper를 실제로 매다는 부모(리깅 파츠)·본 수집 범위. 실행 좌석에선 fitModel이
-                    scale을 얹는 보호 wrap.
-       ・modelRoot: 본과 메쉬가 들어 있는 노드. 그 로컬 단위가 파츠 GLB가 저작된 '리그 원본 단위'다.
-       인간·커미션은 wrap 안의 root가 scale 1이라 두 노드의 로컬 좌표계가 같아서 결과가 동일하다.
-       동물만 다르다 — buildAnimalBase가 root에 normalizeModel(배율 0.1765)을 걸어두기 때문에,
-       charRoot로 재면 본 위치가 5.7배 작게 나와 판정과 환산이 통째로 어긋난다. */
-    const modelRoot = seat.modelRoot || seat.root || charRoot;
-    // ★ 다른 파츠가 입양시킨 본(_partAdopted)은 캐릭터 고유 본이 아니므로 제외 — 안 그러면 나중에 장착한
-    //   파츠(예: 동물귀)가 먼저 장착된 옷(cape)의 ear 본에 리바인드돼서 옷의 본을 따라가는 버그가 생김.
-    const _collectCharBones = ()=>partsCore.collectCharBones(charRoot, charBones);
-    _collectCharBones();
-    // ★ 원격 좌석 초기화 레이스 방어 —
-    //   상대 화면은 "캐릭터 GLB 로드 → 파츠 장착"이 연달아 일어나서, 스켈레톤이 완성되기 전에
-    //   리깅 파츠가 먼저 도착하면 charBones가 비어 리깅 판정이 실패 → 비리깅 경로로 부착돼
-    //   좌표 체계가 달라짐(= 상대 화면에서만 귀 파츠가 어긋나는 증상).
-    //   캐릭터가 스킨드 메시를 쓰는데(=본이 있어야 정상) 본이 아직 안 보이면 잠시 기다렸다 재수집.
-    {
-      const _hasSkinnedChar = partsCore.hasSkinnedChar(charRoot);
-      let _waited = 0;
-      while(_hasSkinnedChar && Object.keys(charBones).length < 2 && _waited < 3000){
-        await new Promise(r=>setTimeout(r, 150)); _waited += 150;
-        if(seat._equipSeq[seqKey] !== mySeq) return;   // 그 사이 새 장착이 시작됐으면 중단
-        _collectCharBones();
-      }
-    }
-    const skinnedMeshes = partsCore.skinnedMeshesOf(obj);
-    // "리깅 파츠" 판정: SkinnedMesh가 있고 조인트의 **과반수 이상**이 캐릭터 본과 이름 일치.
-    //  → 실수로 armature와 함께 export된 리지드 파츠(1~2개만 우연히 이름 겹치는 경우)를 리깅으로
-    //    오탐지해서 기즈모가 사라지는 버그를 방지(요청사항 B).
-    // ★ standalone 파츠는 리깅 판정 강제 false — 파츠 본이 캐릭터 본에 매핑되지 않도록 해서
-    //   비리깅 방식(info.bone에 wrapper 단위로 부착)으로 처리됨(버그2). 커미션 캐릭터의 기존 ear 등에
-    //   파츠가 딸려가지 않고, 관리자가 지정한 카테고리 본(head 등) 기준으로 자유롭게 위치 조정 가능.
-    // ★ 이름이 같아도 리그가 같다는 보장은 없다. 특히 동물 캐릭터는 사람과 rest pose·비율이 전혀 달라서,
-    //   'head' 하나가 우연히 일치한 사람용 모자를 리바인드하면 파츠의 boneInverses와 동물 본의 월드 행렬이
-    //   맞지 않아 메쉬가 길게 늘어난다(→ 그 늘어난 박스를 실측하는 상태칩까지 위로 날아감).
-    //   본이 1~2개뿐인 파츠를 리깅으로 인정하는 완화 규칙은 같은 리그 계열(비동물)에만 적용한다.
-    const _rigFamilyMatches = !(seat.charDef && seat.charDef.animal);
-    /* 🪑 책상 파츠는 리깅 판정을 아예 안 탄다. 리깅으로 잡히면 캐릭터 스켈레톤에 리바인드되어
-       charRoot 에 붙는데, 그러면 '캐릭터를 안 따라온다'는 이 카테고리의 존재 이유가 사라진다.
-       (등록창의 🧷 단독 부착을 강제로 켠 것과 같은 상태다) */
-    const _deskPart = premiumMod.isDeskPartCat(info);
-    // 본이 전부 일치하면 개수와 무관하게 리깅(head 하나짜리 모자) — 같은 리그 계열일 때만(코어 isRiggedPart)
-    const isRigged = partsCore.isRiggedPart(skinnedMeshes, charBones, { standalone:_deskPart || !!rec.standalone, rigFamilyMatches:_rigFamilyMatches });   // 책상 파츠는 캐릭터를 따라오면 안 되므로 단독 부착처럼
-    let adoptedBones = [];   // 캐릭터에 없어서 캐릭터 본 밑으로 입양시킨 파츠 본들(해제 시 제거용)
-    // ── 🐰 귀 파츠 기능과 분리 ──
-    //   리깅(옷) 파츠: 캐릭터 스켈레톤에 리바인드되므로 캐릭터의 진짜 귀 본이 움직임을 담당한다.
-    //     파츠 안의 ear_L/ear_R 본을 귀 까닥임 목록에 넣으면 안 됨(리바인드 후 쓰이지도 않는 본이라
-    //     목록만 오염되고, 옷 파츠가 귀 파츠 동작에 얽히게 됨).
-    //   비리깅(귀 등 부착형) 파츠: 기존대로 ear_L/ear_R를 귀 애니메이션 시스템에 등록해 같이 까닥임.
-    if(isRigged || _deskPart){
-      // 리깅 파츠는 캐릭터 본이 움직임을 담당하고, 책상 파츠는 애초에 캐릭터와 무관하다 —
-      // 둘 다 귀 까닥임 목록에 넣으면 안 된다(책상 위 물건이 귀처럼 까닥인다).
-      partEarObjs.length = 0;
-    }else if(partEarObjs.length && seat.bones && seat.bones.ear){
-      partEarObjs.forEach(o=>{ seat.bones.ear.push(o); seat.boneRest.ear.push(o.quaternion.clone()); });
-      /* 타이머는 개수로만 재생성 여부를 판단한다(animateRig). 귀 2개짜리 파츠를 다른 귀 2개짜리로
-         갈아끼우면 개수가 그대로라 옛 타이머가 남고, 새 파츠가 남의 까닥임 도중 자세로 시작한다.
-         등록이 바뀌었으면 그냥 새로 만들게 한다(_registerAnimalEarOn 과 같은 처리). */
-      seat.earTimers = null;
-    }
-    // 🩺 리깅 판정 진단 — 본이 들어있는데 리깅으로 인식되지 않으면 이유를 남김(스키닝 누락/이름 불일치 구분용)
-    if(!isRigged && !rec.standalone && !_deskPart){
-      let _boneCount = 0; obj.traverse(o=>{ if(o.isBone) _boneCount++; });
-      if(_boneCount > 0){
-        const _detail = skinnedMeshes.map(sm=>{
-          const t = sm.skeleton ? sm.skeleton.bones.length : 0;
-          const m = sm.skeleton ? sm.skeleton.bones.filter(b=>!!charBones[b.name]).length : 0;
-          return sm.name+'('+m+'/'+t+' 일치)';
-        }).join(', ');
-        console.log('[파츠 리깅] '+cat+' — 본 '+_boneCount+'개가 있지만 리깅 파츠로 인식되지 않음. '
-          +'스킨드메시 '+skinnedMeshes.length+'개'+(_detail?(' ['+_detail+']'):'')
-          +' / 캐릭터 본 '+Object.keys(charBones).length+'개.'
-          +(skinnedMeshes.length===0 ? ' → 메쉬에 아마추어 스키닝(Armature Deform)이 안 걸려 있을 가능성이 큽니다.' : ' → 본 이름이 캐릭터와 달라 과반수 일치에 실패했을 가능성이 큽니다.'));
-      }
-    }
-    if(isRigged){
-      // 캐릭터 본으로 다시 묶고(없는 본은 조상 본 밑으로 입양) 바인드 공간 스킨 중심(xf 피봇)을 잰다 — 코어
-      const _rb = partsCore.rebindRigged(skinnedMeshes, charBones);
-      const bindCenter = _rb.bindCenter;
-      adoptedBones = _rb.adoptedBones;
-      // wrapper에 기록 — applyPartXf가 이 피봇 기준으로 bindMatrix 오프셋을 합성
-      // (wrapper.userData는 아래 wrapper 생성 후 세팅되므로 임시 보관)
-      obj.userData._rigBindCenter = bindCenter;
-      obj.userData._rigSkinnedMeshes = skinnedMeshes;
-      console.log('[파츠 리깅] '+cat+' — 스킨드메시 '+skinnedMeshes.length+'개를 캐릭터 본에 리바인드'+(adoptedBones.length?(', 입양 본 '+adoptedBones.map(b=>b.name).join('/')):''));
-      // 🩺 리깅으로 붙었는데도 파츠가 뜨는 경우의 원인 확정용 — 아래 함수 주석 참고.
-      _diagRiggedPartAlignment(cat, skinnedMeshes, charRoot);
-    }
-    // 메시 중심을 피봇으로 만들기 위해 wrapper 그룹에 감싸기 (회전·스케일이 중심 기준)
-    //  — 리깅 파츠는 본이 위치를 결정하므로 재중심화하지 않고 원본 좌표 그대로 둠
-    const { wrapper, bb, center } = partsCore.wrapPart(obj, cat, isRigged);   // baseCenter 는 applyPartXf 가 쓴다
-    /* 🎩 저작 오프셋 — "캐릭터에 씌운 채 저작된 파츠"가 머리 위로 공중부양하던 문제(핸드오프 3장 0번)
-       보정량. 원점 기준 저작 파츠·리깅 파츠는 null 이라 기존 동작 그대로다.
-       판정 근거는 콘솔 [파츠 저작오프셋] 참고. **캐릭터 본에 붙는 파츠 전용**이다.
-       🪑 책상 카테고리(bone:'desk')는 제외한다.
-       [경위] 이 보정은 부착 대상이 '캐릭터 리그 안의 본'이고 파츠 중심과 본이 같은 리그 단위라는 것을
-         전제로 계산한다. 그런데 책상 파츠의 부착 대상은 seat.deskAnchor 로, 책상 그룹 아래에 있어
-         월드 배율이 0.175(동물은 ×0.4 로 0.07)다. 그 상태로 아래 폴백 경로를 타면
-             want = modelRoot.localToWorld(center); bone.worldToLocal(want);
-         에서 deskAnchor 의 작은 배율로 나누느라 want 가 5.7~14배로 튀고, off = center - want 가
-         엉뚱하게 커진다. 그 값을 wrapper.position 에서 빼기 때문에 파츠가 책상을 떠나
-         캐릭터 얼굴 높이 같은 곳에 나타난다(제보: 보관함에서 위치를 잡아도 꾸미기 미리보기에서 얼굴 가운데).
-       ★ 책상 파츠는 애초에 '캐릭터에 씌운 채 저작' 이라는 사고가 성립하지 않는다 —
-         평평한 앵커 위에 놓는 것이라 상쇄할 것이 없다. 판정을 시도하지 말고 통째로 건너뛴다.
-       ⚠️ 이 수정 전에 책상 파츠 위치를 기즈모로 맞춰뒀다면, 그 xf.pos 는 엉뚱한 보정을 되밀던
-         값이라 한 번 다시 잡아줘야 한다(_isLegacyAuthorCompensation 은 본 파츠 기준이라 여기선 안 돈다). */
-    wrapper.userData.authorOff = (isRigged || premiumMod.isDeskPartCat(info)) ? null
-      : _computePartAuthorOffset(bb, center, bone, modelRoot, cat, charBones);
-    // 🐾 동물 머리 파츠 세로 보정 — 사람 리그 기준으로 앉은 파츠를 이 캐릭터의 머리 꼭대기에 맞춘다.
-    wrapper.userData.animalHeadDy = _computeAnimalHeadDy(seat, info, cat, bone, modelRoot, isRigged, wrapper.userData.authorOff);
-    // 🩺 머리 계열 파츠는 캐릭터별 머리 크기·높이가 제각각이라 여기서 실측을 남긴다.
-    if(info.group === 'head') _diagPartHeadSpace(cat, modelRoot, bone, bb, center, seat, isRigged);
-    wrapper.userData.cat = cat;
-    wrapper.userData.partId = rec.id;   // ★ applyPartXf가 카테고리가 아니라 '이 파츠'의 entry를 되찾기 위한 표식
-    wrapper.userData.__twPartWrap = true;   // ★ 유령 청소 대상 표식 — 이름만 보고 지우면 동물 귀 등 다른 부속까지 지울 위험
-    wrapper.userData.rigged = isRigged;             // ★ 리깅 파츠 표시 — xf는 bindMatrix로 적용됨
-    if(isRigged){
-      wrapper.userData.rigBindCenter = obj.userData._rigBindCenter || new THREE.Vector3();
-      wrapper.userData.rigSkinnedMeshes = obj.userData._rigSkinnedMeshes || [];
-    }
-    wrapper.userData.adoptedBones = adoptedBones;   // 해제 시 캐릭터 본에서 다시 떼어내기 위해 기억
-    wrapper.userData.colorGroups = colorGroups;   // 색상 변경 대상 그룹 { col1:[mesh,...], col2:[...] }
-    wrapper.userData.picMeshes  = picMeshes;      // 🖍️ 그릴 수 있는 면(비어 있으면 연필 버튼이 안 뜬다)
-    // 🎨 진단 로그 — "색상/색조 행이 안 보인다"를 자가 진단할 수 있게, 감지된 _col 그룹과 모드를 남긴다.
-    //   그룹이 0개면 메쉬·머터리얼 이름에 _col이 없다는 뜻(대소문자 무관, _col2 같은 번호도 가능).
-    try{
-      const _gk = Object.keys(colorGroups);
-      if(!_gk.length){
-        const _names = [];
-        obj.traverse(o=>{ if(o.isMesh) _names.push(o.name + (o.material&&o.material.name ? ('/'+o.material.name) : '') + (o.material&&o.material.map?' [텍스처]':'')); });
-        console.log('[파츠 색상] '+cat+' — _col 그룹 없음. 메쉬/머터리얼 이름:', _names.join(', ') || '(메쉬 없음)');
-      } else {
-        console.log('[파츠 색상] '+cat+' — 감지된 그룹: ' + _gk.map(k=>{
-          const hue = colorGroups[k].some(m=>m.material && m.material.map);
-          return k+'('+(hue?'색조·텍스처 있음':'색상·단색')+', 메쉬 '+colorGroups[k].length+'개)';
-        }).join(', '));
-      }
-    }catch(_){}
-    wrapper.userData.partEarObjs = partEarObjs;   // 해제 시 seat.bones.ear에서 제거하기 위해 기억
-    // ★ 관리자가 등록 시 "발광 효과"를 켜뒀으면(rec.glow) 파츠 옆에 은은한 원형 빛 스프라이트를 추가함.
-    // ★ 발광 효과 비활성화(요청사항) — 파츠도 동일하게 발광 적용 안 함.
-    // if(rec.glow) wrapper.userData.glowSprite = applyGlowEffect(obj);
-    // 클립 이름에 "idle"이 포함된 게 있으면 반복 재생
-    //  — 단, 리깅 파츠는 캐릭터 본이 움직임을 담당하므로 파츠 자체 애니메이션은 재생하지 않음(리그 충돌 방지)
-    //  ▶ rec.animMode:
-    //     ''(기본)   = 장착하자마자 계속 반복재생 (기존 동작 그대로)
-    //     'active'   = 마우스·타이핑이 감지될 때(seatState==='focus')만 재생, 자리비움·어지러움 등에선 일시정지.
-    //                  책상 위 아이템의 playMode='idle'과 같은 동작이며, updateActivePartPlayback()이 매 프레임 전환한다.
-    /* 🎬 [진단] "애니메이션 파츠를 만들었는데 안 움직인다"를 스스로 확인할 수 있게 로그를 남긴다.
-       조용히 안 되는 경우가 셋이라 눈으로는 구분이 안 됐다:
-         ① GLB 안에 클립이 0개 (블렌더에서 액션을 NLA로 밀거나 Fake User 를 안 걸면 export 에서 빠진다)
-         ② 리깅 파츠 — 캐릭터 본이 움직임을 담당하므로 파츠 자체 애니메이션은 **일부러** 안 튼다(리그 충돌 방지)
-         ③ 클립 이름에 'idle' 이 없음
-       ③ 은 이제 첫 클립으로 넘어가게 고쳤다(아래) — 아이템·책상 GLB 는 원래 그렇게 동작했는데
-          파츠만 fallback 이 없어서, 같은 GLB 를 아이템으로 넣으면 움직이고 파츠로 넣으면 안 움직였다. */
-    if(!isRigged && animations && animations.length){
-      const idleClip = _stripPartClipOwnedTracks(_pickPartClip(animations), obj, partEarObjs);
-      if(idleClip && idleClip.tracks && idleClip.tracks.length){
-        /* 🎬 고른 클립이 정지 포즈면 화면은 '안 움직임'이 된다 — 클립 0개와 증상이 똑같아서
-           반드시 구분해 줘야 한다(안 그러면 블렌더 export 옵션만 계속 뒤지게 된다).
-           ⚠️ 위에서 트랙을 걷어내서 안 움직이게 된 경우는 여기 해당 없음 — 그건 의도한 결과라
-             바로 앞줄에 이유가 이미 찍혔다. 여기서 또 경고하면 원인을 엉뚱한 데서 찾게 된다. */
-        if(!_clipHasMotion(idleClip) && !idleClip._twStrippedTracks){
-          console.log('[파츠 애니] '+(rec.name||rec.id)+' — 클립은 있는데 값이 전부 같습니다(정지 포즈).'
-            + ' 고른 클립: "' + idleClip.name + '" / 전체: ' + animations.map(c=>c.name).join(', '));
-          _partAnimNotice(rec, '⚠️ 클립은 ' + animations.length + '개 있는데 전부 정지 포즈예요 —'
-            + ' 블렌더에서 그 액션에 실제 키프레임이 들어갔는지 확인해 주세요');
-        }
-        if(!/idle/i.test(idleClip.name)){
-          console.log('[파츠 애니] '+(rec.name||rec.id)+' — 이름에 "idle"이 든 클립이 없어 첫 클립 "'
-            + idleClip.name + '"을 재생합니다. 클립: ' + animations.map(c=>c.name).join(', '));
-        }
-        _partAnimNotice(rec, '▶ 애니메이션 재생 — 클립 "' + idleClip.name + '"'
-          + (rec.animMode==='active' ? ' (활동 중에만)' : ''));
-        _setupPartIdleAnim(wrapper, obj, idleClip, rec, seat);
-        // 다중 파츠 extras도 각자 독립 믹서를 갖도록 재료를 남겨둠
-        wrapper.userData._idleClip = idleClip;
-      }
-    }else if(!isRigged){
-      console.log('[파츠 애니] '+(rec.name||rec.id)+' — GLB 안에 애니메이션 클립이 0개입니다.'
-        + ' (블렌더라면 export 옵션의 Animation 체크와, 액션에 Fake User(방패 아이콘) 또는 NLA 스택 등록을 확인)');
-      _partAnimNotice(rec, '⚠️ GLB 안에 애니메이션 클립이 0개예요 — 블렌더 export 의 Animation 체크와 액션 Fake User 를 확인해 주세요');
-    }else if(animations && animations.length){
-      console.log('[파츠 애니] '+(rec.name||rec.id)+' — 리깅(스키닝) 파츠라 파츠 자체 애니메이션은 재생하지 않습니다.'
-        + ' 움직임은 캐릭터 본이 담당합니다. 클립: ' + animations.map(c=>c.name).join(', '));
-      _partAnimNotice(rec, '⚠️ 리깅 파츠로 잡혀서 자체 애니메이션을 끕니다 — 등록창의 🧷 단독 부착을 켜 보세요');
-    }
-    // ★ 레이스 가드 2차 체크 — 위 파싱 이후에도 색상/애니메이션 준비 등 처리가 있어서
-    //   그 사이 새 장착이 시작됐으면 여기서도 중단 (유령 wrapper 방지).
-    if(seat._equipSeq[seqKey] !== mySeq) return;
-    if(isRigged){
-      // 리깅 파츠는 특정 본이 아니라 캐릭터 모델 루트에 원좌표 그대로 부착 — 실제 위치는 스켈레톤이 결정
-      charRoot.add(wrapper);
-      // ★ 리깅 파츠의 기즈모/미세조정 지원 —
-      //   TransformControls는 attach 대상 오브젝트의 로컬 원점을 기즈모 위치로 사용하는데, 리깅 파츠의
-      //   wrapper는 원좌표(0,0,0)에 놓여있고 실제 스킨 메시는 스켈레톤이 어딘가로 옮겨놓은 상태라
-      //   기즈모가 mesh와 동떨어진 위치에 붙어 보임. 그래서 부착 후 스킨 메시의 월드 중심을 재보정
-      //   해서 wrapper를 그 위치로 옮김 — 그러면 기즈모가 정확히 옷 위에 붙고, 이후 유저의 드래그
-      //   오프셋도 그 자리에서부터 계산됨.
-      // (스킨드메시의 월드 바운딩박스 = 스켈레톤 자세를 반영한 실제 화면상 크기/위치)
-      const _rc = partsCore.riggedBaseCenter(wrapper, skinnedMeshes, charRoot);
-      if(_rc) wrapper.userData.baseCenter = _rc;   // applyPartXf가 이 위에 xf를 얹음
-    } else {
-      bone.add(wrapper);
-    }
-    // 🔗 stackable: seat.stackedPartObjs[cat][id]에 저장 (같은 카테고리 다른 파츠와 공존).
-    //   xf 적용은 applyPartXf가 def.equippedParts를 참조하는데 stackable은 배열이라 별도 처리.
-    if(stackable){
-      /* ★ 맵을 다시 보장한다 — 도입부에서 만들어도, 바로 아래 unequipStackablePart(같은 id 재장착
-         정리)가 "그 카테고리의 마지막 파츠"를 지우면서 맵째 delete 한다. 그 상태로 여기 대입하면
-         TypeError → 바깥 try/catch가 삼켜서 "재장착이 조용히 실패"가 된다.
-         [증상] 카테고리에 혼자 있는 🔗 파츠(가챠는 전부 이 경우)가 커밋(창 닫기)마다
-                붙었다 → 사라졌다를 번갈았다: 홀수 번째 커밋은 붙고 짝수 번째는 이 크래시.
-                (sim-gacha-race.js 로 재현·수정 확인) */
-      seat.stackedPartObjs = seat.stackedPartObjs || {};
-      seat.stackedPartObjs[cat] = seat.stackedPartObjs[cat] || {};
-      seat.stackedPartObjs[cat][rec.id] = wrapper;
-      // ★ 버그 수정(파츠 위치 초기화): 예전엔 opts.stackableXf가 없으면 무조건 defaultPartXf()(원점)를
-      //   적용했다 — 카탈로그 동기화(mergeCatalogIntoSavedParts)처럼 옵션 없이 부르는 호출자가 있으면
-      //   유저가 맞춰둔 위치가 리셋됐음(등록 직후 "잠시 뒤" 원위치 증상의 원인).
-      //   non-stackable이 applyPartXf로 charDef entry를 읽는 것과 동일하게, entry.xf를 진실의 원천으로 사용.
-      let xf = (opts && opts.stackableXf) || null;
-      if(!xf){ try{ const e = premiumMod.findEntryById(seat.charDef, cat, rec.id); if(e) xf = premiumMod.partEntryXf(e); }catch(_){} }
-      _applyXfToWrapper(wrapper, xf || premiumMod.defaultPartXf(), cat);
-    } else {
-      seat.equippedPartObjs[cat] = wrapper;
-      applyPartXf(seat, cat);   // 카테고리 기본 오프셋 + 캐릭터별 xf 적용 (리깅 파츠는 내부에서 건너뜀)
-    }
-    // ★ 런처9 — 다중 파츠: rec.multi가 true이고 entry.instances에 추가 인스턴스가 있으면 각각 wrapper를 clone해서 부착
-    if(rec.multi === true && !isRigged){
-      const def = seat.charDef;
-      // ★ 버그 수정: def.equippedParts[cat]을 통째로 집으면 배열/Firebase 숫자키 맵일 때 entry가 아니고,
-      //   instances도 숫자키 객체면 Array.isArray가 false라 extraCount가 0이 돼 extra wrapper가
-      //   아예 생성되지 않았다(= 개수를 늘려도 기즈모가 붙을 대상이 없음).
-      // ★ 반드시 '이 파츠'의 entry여야 한다. 못 찾으면 다른 파츠의 인스턴스 수를 따라가 복제본이 생기므로
-      //   폴백(firstEntryForCat)을 쓰지 않고 추가 생성을 포기한다.
-      const entry = premiumMod.findEntryById(def, cat, rec.id);
-      const insArr = premiumMod.partEntryInstances(entry);   // 정규화 포함, [xf0, xf1, ...]
-      const extraCount = Math.max(0, insArr.length - 1);
-      // 🔍 진단 — "파츠 하나 꼈는데 여러 개로 보인다"의 원인을 바로 알 수 있게.
-      //   entryId가 rec.id와 다르면 엉뚱한 파츠의 인스턴스 수를 따라간 것이고,
-      //   같은데 extraCount>0이면 그 파츠에 다중 파츠 인스턴스가 실제로 저장돼 있는 것.
-      if(extraCount > 0){
-        console.log('[다중 파츠] '+cat+' — rec.id='+rec.id+' / entryId='+premiumMod.partEntryId(entry)
-          + ' / 추가 '+extraCount+'개 생성'+(premiumMod.partEntryId(entry)!==rec.id ? '  ⚠️ id 불일치!' : ''));
-      }
-      if(extraCount > 0){
-        wrapper.userData.multiExtras = [];   // 추가 wrapper들만 여기에 (main은 seat.equippedPartObjs[cat])
-        for(let i=1; i<=extraCount; i++){
-          // 같은 GLB 복제 · 재질 · 이 인스턴스만의 _col 묶음 · 가운데 맞춘 wrapper — 코어
-          const { wrapper:extraWrap, obj:extraObj, colorGroups:extraColorGroups } = partsCore.prepareExtra(scene, cat, i);
-          // 🎩 같은 GLB의 clone이라 extraCenter === center. 메인 wrapper가 계산해둔 상쇄량을 그대로 쓴다
-          //    (다시 계산하면 본 자세가 그새 바뀌어 인스턴스끼리 미세하게 어긋날 수 있다).
-          extraWrap.userData.authorOff = wrapper.userData.authorOff ? wrapper.userData.authorOff.clone() : null;
-          extraWrap.userData.animalHeadDy = wrapper.userData.animalHeadDy || 0;   // 🐾 같은 머리 보정을 인스턴스에도
-          extraWrap.userData.cat = cat;
-          extraWrap.userData.partId = rec.id;
-          extraWrap.userData.__twPartWrap = true;
-          extraWrap.userData.instanceIdx = i;
-          extraWrap.userData.rigged = false;
-          extraWrap.userData.colorGroups = extraColorGroups;   // 색상 팝업이 이 그룹을 대상으로 편집
-          // ▶ 원본과 같은 애니메이션을 이 인스턴스에도 (믹서는 인스턴스마다 독립)
-          if(wrapper.userData._idleClip){
-            _setupPartIdleAnim(extraWrap, extraObj, wrapper.userData._idleClip, rec, seat);
-          }
-          bone.add(extraWrap);
-          wrapper.userData.multiExtras.push(extraWrap);
-        }
-        // 메인 wrapper에도 인덱스 표식 (클릭으로 활성화 시 사용)
-        wrapper.userData.instanceIdx = 0;
-        applyPartXf(seat, cat);   // instances 반영해 다시 적용
-      }
-    }
-  }catch(e){ console.warn('파츠 부착 실패', e); }
-  _sweepOrphanPartWrappers(seat);   // 🧹 이번 장착으로 밀려난 유령 wrapper가 있으면 여기서 제거
-  applyClothVisibility(seat);   // 옷 착용 상태에 따라 기본 상/하의 메시 숨김 갱신
-  // ★ 자리비움 등으로 캐릭터가 숨겨져 있을 때 새 파츠가 나타나는 문제 대응 —
-  //   _lastOp 초기화해서 다음 프레임에 setSeatOpacity가 새 mesh들에도 visible을 적용하게 함.
-  seat._lastOp = null;
-  /* 🎩 이 좌석 머리 위에 이미 누가 올라타 있다면, 그 좌석이 캐시한 '머리 꼭대기'는 **이 파츠가
-     붙기 전의 값**이다. 여기서 한 번 다시 잰다 — 동물 귀(_registerAnimalEarOn)와 같은 처리다.
-     [경위] 파츠 GLB 는 비동기로 붙는데 _measureHostHeadTop 은 mountRide 에서 **1회**만 돈다.
-       손으로 얹을 때는 파츠가 이미 붙어 있어서 문제가 없었다. 그런데 런처에서 실행 화면으로
-       돌아오면 좌석이 재조립되면서 파츠 로딩과 다시 얹기가 동시에 일어난다. 얹기가 먼저 끝나면
-       '파츠 없음(null)' 이 캐시로 굳고, _applyRemoteRides 는 같은 상태면 재실측을 건너뛰므로
-       그 세션 내내 파츠 위에 안 얹힌다. [증상] "잘 되다가 런처 갔다 오면 안 먹힌다."
-     ⚠️ 매 프레임 재는 방식으로 바꾸지 말 것 — 이름표·말풍선이 이 높이를 보고 자리를 잡는다.
-       부착이 끝난 이 지점에서의 1회여야 한다.
-     ★ 파츠 종류를 가리지 않고 부른다. 머리 파츠가 아니면 측정값이 그대로일 뿐이고,
-       올라탄 좌석이 없으면 _remeasureRideHeadTop 이 즉시 빠져나온다(비용이 없다). */
-  try{ rideBenchMod._remeasureRideHeadTop(seat); }catch(_){}
-}
-/* 옷 카테고리만 해제 (def는 안 건드림 — 충돌 정리 내부용) */
-function _unequipClothCat(seat, cat){
-  unequipPartFromSeat(seat, cat);
-  if(seat.charDef && seat.charDef.equippedParts) delete seat.charDef.equippedParts[cat];
-}
-/* 착용된 파츠에 따라 캐릭터 원본 메시들의 visible 토글.
-   ★ 모든 파츠의 rec.hides 배열을 참조 (getRecHides로 sentinel/Firebase 객체 정규화).
-     hides가 명시적이면(빈 배열 포함) 그대로 사용, 옛 파츠(hides 자체 없음)만 관례 기본값 fallback. */
-function applyClothVisibility(seat){
-  if(!seat) return;
-  decoPartsMod.applyDecoPartsVisibility(seat);   // 🎁 꾸미기 파츠 표시 설정 — 부착·해제·좌석 재조립 뒤 늘 이 함수를 지나므로 여기서 같이 맞춘다
-  /* 🎁 꺼짐이면 «파츠 없음» 으로 센다 — 파츠가 숨기던 기본 메시(머리카락·기본 상의)를 되돌리기 위해서다.
-     ⚠️ 책상 위 파츠는 hides 를 안 가지므로 여기서 빼도 달라지는 게 없다. */
-  const eq = (decoPartsMod.decoPartsVisible() ? (seat.charDef && seat.charDef.equippedParts) : null) || {};
-  const hidden = { top:false, bottom:false, onepiece:false, cape:false,
-                   glasses:false, hat:false, mask:false, wing:false, handL:false, handR:false };
-  // eq에 있는 모든 카테고리의 모든 파츠(stackable 배열 포함) 순회
-  for(const cat in eq){
-    const entries = premiumMod.entriesForCat(seat.charDef, cat);
-    entries.forEach(entry=>{
-      const id = premiumMod.partEntryId(entry);
-      const rec = premiumMod.savedParts().find(p=>p.id===id);
-      if(!rec) return;
-      const explicitHides = premiumMod.getRecHides(rec);   // null = 옛 파츠, [] 이상 = 관리자 명시
-      let hides;
-      if(explicitHides !== null){
-        hides = explicitHides;   // 관리자가 명시 → 그대로 (빈 배열이면 아무것도 안 숨김)
-      } else {
-        // 하위호환: hides 필드가 아예 없는 옛 파츠는 카테고리별 관례 기본값
-        if(cat==='onepiece') hides = ['top','bottom','onepiece'];
-        else if(cat==='cape') hides = [];   // 망토는 원래 겉옷처럼 덮어씀
-        else if(cat in hidden) hides = [cat];   // 기본: 자기 부위만 숨김
-        else hides = [];
-      }
-      hides.forEach(h=>{ if(h in hidden) hidden[h] = true; });
-    });
-  }
-  /* ★ 자리비움 등으로 지금 숨겨져 있는 동안에는 visible 을 **직접 쓰면 안 된다.**
-       그 상태에서 setSeatOpacity 는 원래 값을 mesh.userData._prevVisible 에 맡겨 두고
-       visible 을 false 로 눌러 둔 것이다. 여기서 visible 을 바꿔 봐야
-         ① 다음 프레임에 다시 false 로 덮이고
-         ② 깨어날 때는 _prevVisible(=옷을 바꾸기 **전** 값)으로 복원된다.
-       그래서 "자리비움 중에 상의를 벗었는데, 돌아오니 기본 상의가 그대로 숨어 있다" 같은
-       어긋남이 남는다. 숨은 동안에는 '깨어나면 이래야 한다'를 _prevVisible 쪽에 적는다.
-     ⚠️ _prevVisible 이 undefined = 지금 안 숨겨져 있다는 뜻이다(setSeatOpacity 가 복원하면서 지운다).
-        그 판정을 여기서 다시 만들지 말 것 — 두 함수가 같은 한 표식을 봐야 갈라지지 않는다. */
-  const _setVis = (mesh, v)=>{
-    if(!mesh) return;
-    if(mesh.userData._prevVisible !== undefined) mesh.userData._prevVisible = v;   // 숨은 중 — 복원값을 갱신
-    else mesh.visible = v;
-  };
-  _setVis(seat.upMesh,       !hidden.top);
-  _setVis(seat.loMesh,       !hidden.bottom);
-  _setVis(seat.onepieceMesh, !hidden.onepiece);
-  _setVis(seat.capeMesh,     !hidden.cape);
-  _setVis(seat.glassesMesh,  !hidden.glasses);
-  _setVis(seat.hatMesh,      !hidden.hat);
-  _setVis(seat.maskMesh,     !hidden.mask);
-  _setVis(seat.wingMesh,     !hidden.wing);
-  _setVis(seat.handLMesh,    !hidden.handL);
-  _setVis(seat.handRMesh,    !hidden.handR);
-  /* 🎩 [제보] 모자 쓴 캐릭터 머리에 동물을 얹어 둔 뒤 **모자를 벗으면 동물이 파묻힌다** —
-       맨머리로 얹었을 때보다도 더 낮게 들어간다.
-     [기전] measureHeadBoxNoParts 는 **숨은 메쉬를 제외한다**(`p.visible === false` → skip).
-       모자의 rec.hides 가 머리카락 같은 기본 메쉬를 숨기므로, 모자를 쓴 채 잰 머리 꼭대기는
-       실제 실루엣보다 낮다 — **맨머리보다도 낮다.** 그 값이 캐시로 굳은 뒤 모자를 벗으면
-       머리카락이 다시 보이는데 아무도 다시 재지 않아, 동물이 그 머리카락 속에 잠긴다.
-     [왜 여기인가] 재측정을 부르는 자리가 셋 있었는데(equipPartOnSeat · 귀 부착 · 파츠 메타 지연)
-       **전부 «붙는» 쪽이다. 빼는 쪽에는 없었다.**
-       그렇다고 unequipPartFromSeat 에 넣으면 안 된다 — 그 함수가 끝난 **뒤에** 이 함수가
-       가시성을 되돌리므로, 거기서 재면 여전히 숨은 상태로 재게 된다(고치려는 그 버그 그대로다).
-       이 함수의 끝이 곧 «기본 메쉬 가시성이 확정된 순간»이고, 붙이든 빼든 모든 경로가 여기를 지난다.
-     ★ 올라탄 좌석이 없으면 _remeasureRideHeadTop 이 riders.length 검사에서 즉시 빠져나온다 —
-       미리보기 좌석(wdPreviewBase 등)까지 이 함수를 부르지만 비용이 없다.
-     ⚠️ equipPartOnSeat 경로에서는 이 훅과 22243 의 훅이 둘 다 돈다. 그쪽은 **부착이 끝난 뒤**라야
-       rideTop 파츠의 꼭대기(_headTopPart)를 제대로 잡으므로 지우면 안 된다. 여기 것은 그보다
-       이른 시점이라 파츠 값이 아직 null 일 수 있고, 뒤이어 22243 이 덮는다. 순서가 그렇게 맞다.
-     ⚠️ 매 프레임 재는 방식으로 바꾸지 말 것 — 이름표·말풍선이 이 높이를 보고 자리를 잡는다. */
-  try{ rideBenchMod._remeasureRideHeadTop(seat); }catch(_){}
-}
+/* 👕 옷 겹침(character/cloth-visibility.js) — 아래 const 는 옛 전역 이름이다. */
+const clothVisMod = TwClothVisibility.createClothVisibility({
+  decoPartsMod: decoPartsMod,
+  premiumMod: premiumMod,
+  rideBenchMod: rideBenchMod,
+  unequipPartFromSeat: (...a)=>unequipPartFromSeat(...a),
+});
+const _unequipClothCat = clothVisMod._unequipClothCat;   // 옛 전역 이름
+const applyClothVisibility = clothVisMod.applyClothVisibility;   // 옛 전역 이름
 /* ★ 파츠 카테고리별 "기본 부착 위치" 미세조정 표 — 여기 숫자만 조절하면 해당 카테고리 파츠가
    장착됐을 때 시작 위치가 전부 한 번에 맞춰짐(사용자가 우클릭해서 개별 조정한 값은 이 위에 별도로
    더해지므로 서로 영향 안 줌). x=좌우, y=위아래, z=앞뒤(양수=카메라 쪽/앞, 음수=뒤).
@@ -4721,459 +2416,89 @@ function _diagRiggedPartAlignment(cat, skinnedMeshes, charRoot){
      SkinnedMesh는 바인드 포즈). 보정 후 피봇과 실제 위치가 어긋나지 않으려면 반드시 같은 값이어야 하므로
      의도적으로 공유한다. bb 측정 방식을 고칠 땐 equipPartOnSeat와 여기를 함께 고칠 것.
    ※ 본의 '현재 자세'로 환산한다. 부착 시점 자세가 오프셋에 굳지만, 머리 본은 idle에서 rest에 가깝다. */
-/* 캐릭터 본의 '바인드 자세' 역행렬(boneInverse) 모음 — 파츠 저작 오프셋은 반드시 이걸로 계산한다.
-
-   [왜] bone.getWorldPosition() / bone.worldToLocal()은 **지금 자세**를 쓴다. 그런데
-        ・꾸미기 미리보기: 애니메이션이 없어 항상 rest 포즈
-        ・실행 화면: 숨쉬기·고개짓·타이핑 클립이 돌아 spine/head가 기울어져 있다
-        오프셋(≈본에서 머리끝까지, 크기 2 수준)을 기울어진 프레임에서 환산해 굳혀버리면
-        기울기만큼 그대로 밀린다. 30°만 기울어도 1.0 가까이 어긋나서 모자가 얼굴 밑으로 내려간다.
-        → "미리보기는 정상인데 실행 화면에서만 어긋난다"의 정체.
-   [해결] boneInverse는 GLB에 굳어 있는 바인드 자세 값이라 애니메이션과 무관하다.
-        모델 좌표의 점에 곱하면 곧바로 그 본의 바인드 로컬 좌표가 된다.
-        wrapper는 본의 자식이므로, 바인드 기준으로 앉혀두면 이후 본이 어떻게 움직여도 함께 따라간다.
-   ※ 파츠 자신의 스킨드메시는 제외한다 — 그건 캐릭터 리그가 아니라 파츠 리그다. */
-function _charBoneBindInverses(modelRoot){ return partsCore.charBoneBindInverses(modelRoot); }
-function _computePartAuthorOffset(bb, center, bone, modelRoot, cat, charBones){
-  return partsCore.computeAuthorOffset(bb, center, bone, modelRoot, cat, charBones, PART_DEFAULT_OFFSET);
-}
-/* 🩺 머리 계열 파츠 실측 — "동물에 모자를 씌우면 자리가 틀리다"의 원인을 숫자로 확정하기 위한 진단.
-
-   머리 파츠는 부착 본(head) 로컬 좌표에 놓이는데, 그 단위는 **리그 원본 단위**다. 그래서 파츠가
-   제자리를 찾으려면 '저작 당시의 캐릭터'와 '지금 입는 캐릭터'가 같은 리그 비율이어야 한다.
-   동물은 그 전제가 깨져 있다 — 실측(animal-glb.js, base2.glb):
-       head 본 y = 1.469 / 보이는 머리 꼭대기 y = 2.33~3.31(선택한 얼굴에 따라 다름)
-       → 머리가 본보다 0.86~1.84 위까지 뻗는다. 사람 리그는 이 여유가 훨씬 작다.
-   그래서 사람 기준으로 저작된 모자는 동물의 큰 머리 '안쪽'에 박힌다.
-
-   보정 계수를 눈으로 맞추지 않기 위해(1-3) 두 캐릭터의 실측값을 같은 형식으로 남긴다.
-   인간·동물 각각 한 번씩 로그를 받아 두 박스의 비율로 보정을 유도하는 것이 다음 단계다. */
-function _measureBodyBoxInLocal(modelRoot, refNode){
-  // refNode 로컬 좌표계에서 캐릭터 '본체' 박스 — 꾸미기 파츠·리깅 파츠(동물 귀 포함)·숨은 메쉬 제외.
-  // 파츠 판정은 옛 규칙(리깅 · 이름 — isPartByRigOrName). 월드가 아니라 지정한 노드 기준으로 잰다(frame).
-  return bodyMeasureMod.measureBodyBox(modelRoot, { excludeParts: true, partTest: bodyMeasureMod.isPartByRigOrName, visibleOnly: true, frame: refNode });
-}
-function _diagPartHeadSpace(cat, modelRoot, bone, bb, center, seat, isRigged){
-  try{
-    if(!modelRoot || !bone || !bb || bb.isEmpty()) return;
-    const f = v => (v>=0?' ':'') + v.toFixed(3);
-    const kind = (seat && seat.charDef && seat.charDef.animal) ? '동물'
-               : (seat && seat.charDef && seat.charDef.isCommission) ? '커미션' : '인간';
-    const ctx = (seat && seat.modelRoot) ? '실행좌석' : (seat && seat.root) ? '미리보기' : '기타';
-    // 부착 본 위치 (리그 원본 단위)
-    const bp = bone.getWorldPosition(new THREE.Vector3()); modelRoot.worldToLocal(bp);
-    // 캐릭터 본체 박스 (같은 단위) — 머리 꼭대기까지의 여유가 핵심 숫자
-    const body = _measureBodyBoxInLocal(modelRoot, modelRoot);
-    const size = bb.getSize(new THREE.Vector3());
-    const bs = new THREE.Vector3(); modelRoot.getWorldScale(bs);
-    let msg = '[파츠 머리공간] ' + cat + ' — ' + kind + '/' + ctx + (isRigged ? '/리깅' : '/비리깅')
-      + '\n    부착본 ' + (bone.name||'?') + ' (' + f(bp.x) + ',' + f(bp.y) + ',' + f(bp.z) + ')'
-      + '  본 자체 scale (' + f(bone.scale.x) + ',' + f(bone.scale.y) + ',' + f(bone.scale.z) + ')'
-      + '\n    파츠 박스 크기 (' + f(size.x) + ',' + f(size.y) + ',' + f(size.z) + ')'
-      + '  중심 (' + f(center.x) + ',' + f(center.y) + ',' + f(center.z) + ')';
-    if(!body.isEmpty()){
-      msg += '\n    캐릭터 본체 y ' + f(body.min.y) + ' ~ ' + f(body.max.y)
-        + ' / x ±' + f(Math.max(Math.abs(body.min.x), Math.abs(body.max.x)))
-        + '  → 머리 꼭대기가 부착본보다 ' + f(body.max.y - bp.y) + ' 위';
-    }
-    msg += '\n    정규화 배율 ' + f(bs.x) + ' (이 값이 화면 크기를 결정 — 파츠 좌표는 이 배율 이전 단위)';
-    console.log(msg);
-  }catch(e){ console.warn('[파츠 머리공간] 진단 실패', e); }
-}
-/* 🎩 부착본 위로 머리가 얼마나 뻗는지(리그 원본 단위) — 동물 머리 파츠 보정의 유일한 입력값.
-   기본 모자·탈·안경 메쉬는 제외한다. 그건 머리가 아니라 '머리에 얹힌 것'이고, 파츠를 끼면
-   applyClothVisibility가 어차피 숨기므로 포함하면 측정이 착용 순서에 따라 흔들린다.
-   (실측: 인간 base GLB의 기본 모자를 포함하면 머리 꼭대기가 3.994 → 4.099로 부풀려진다)
-   ★ 제외 목록은 HEAD_DECOR_MESH_KEYS 하나뿐이다 — 올라타기 측정(measureHeadBoxNoParts)이
-     같은 목록을 쓴다. 여기에 항목을 따로 더하지 말 것. */
-function _headTopAboveBone(modelRoot, bone, meshHost){
-  if(!modelRoot || !bone) return 0;
-  const skip = charMeasureMod.headDecorMeshSet(meshHost);
-  modelRoot.updateWorldMatrix(true, true);
-  const inv = new THREE.Matrix4().copy(modelRoot.matrixWorld).invert();
-  const bp = bone.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv);
-  // 숨은 메쉬(얼굴 변형 미선택 등) · 리깅 부착물(동물 귀 등) · 이름 파츠 · 장식 메쉬 제외 — 모델 좌표계(frame)로 메쉬마다 잰다
-  const boxes = [];
-  bodyMeasureMod.measureBodyBox(modelRoot, { excludeParts: true, partTest: bodyMeasureMod.isPartByRigOrName, visibleOnly: true, skipMeshes: skip, frame: modelRoot, updateWorld: false, outBoxes: boxes });
-  let top = -Infinity;
-  boxes.forEach(b=>{ if(b.max.y > top) top = b.max.y; });
-  return (top > -Infinity) ? (top - bp.y) : 0;
-}
-/* 사람(기본 GLB) 기준 머리 여유 — 파츠가 저작된 리그의 값. 1회 측정 후 캐시.
-   ★ 상수로 박지 않는다. base GLB를 손보면 이 값도 같이 따라가야 하고, 숫자를 박아두면 조용히 어긋난다.
-   ★ 실패했을 땐 캐시하지 않는다 — BASE_SCENE 파싱 전에 한 번 불리면 0이 영구히 굳어 보정이 죽는다. */
-let _BASE_HEAD_TOP = null;
-function _baseHeadTopAboveBone(){
-  if(_BASE_HEAD_TOP != null) return _BASE_HEAD_TOP;
-  try{
-    const inst = instantiateBase();
-    if(!inst || !inst.root) return 0;   // BASE_SCENE 아직 없음 — 캐시하지 않고 다음 기회에 다시 잰다
-    let hb = null;
-    inst.root.traverse(o=>{ if(!hb && o.isBone && String(o.name||'').toLowerCase().indexOf('head') >= 0) hb = o; });
-    if(!hb) return 0;
-    const v = _headTopAboveBone(inst.root, hb, inst);
-    if(!(v > 0)) return 0;
-    _BASE_HEAD_TOP = v;
-    console.log('[파츠 머리보정] 사람 기준 머리 여유 ' + v.toFixed(3) + ' (리그 원본 단위 · 기본 모자 제외)');
-  }catch(e){ console.warn('[파츠 머리보정] 사람 기준 측정 실패', e); }
-  return _BASE_HEAD_TOP || 0;
-}
-/* 🐾 동물 머리 파츠 세로 보정량 — 파츠는 사람 리그에 씌운 채 저작되는데, 동물 리그는 머리가 더 낮다.
-
-   실측(base-glb.js / animal-glb.js 디코드):
-     ・두 리그는 x·z가 완전히 동일하다(ear_L x = 0.787 양쪽 같음) = 같은 아마추어를 세로로만 옮긴 것
-     ・head 본:  사람 y 1.987  vs  동물 y 1.469
-     ・머리 꼭대기(본 위): 사람 2.007  vs  동물 1.846/1.304/1.411/0.857 (face1~4, 선택한 얼굴마다 다름)
-     ⇒ 파츠가 사람 머리 꼭대기 기준으로 앉으므로, 동물에선 그 차이만큼 머리 위로 떠 있다.
-       face2/3/4는 몸 높이의 19~36%나 되는 양이라 눈에 그대로 보인다.
-
-   ★ 크기는 건드리지 않는다. 정규화 배율이 사람 0.3528 / 동물 0.1765(비율 0.500)이고,
-     동물 머리 폭이 사람보다 조금 넓어서(±1.151 vs ±1.098) 화면상 파츠/머리 비율이 이미 96% 맞는다.
-     세로 위치만 틀렸다 — 여기서 스케일까지 손대면 맞는 것을 망친다.
-
-   적용 조건 (하나라도 어긋나면 0 = 기존 동작 그대로)
-     1) 동물 캐릭터만. 사람·커미션은 기준 리그 본인이라 손댈 이유가 없다.
-     2) 머리 그룹(group==='head')만.
-     3) PART_DEFAULT_OFFSET에 y가 이미 박힌 카테고리(탈·안경 y:-1.95)는 제외 — 눈으로 눌러 맞춰둔
-        값과 겹쳐 이중 보정이 된다(_computePartAuthorOffset의 같은 판단과 한 쌍).
-     4) 비리깅이면 authorOff가 있는 파츠만. authorOff가 null인 파츠는 원점 저작 = 본에 붙는 게 정상이라
-        내리면 오히려 머리 밑으로 꺼진다. (리깅 파츠는 boneInverse가 곧 '사람에 씌운 채 저작'이라 항상 적용) */
-function _computeAnimalHeadDy(seat, info, cat, bone, modelRoot, isRigged, authorOff){
-  try{
-    if(!(seat && seat.charDef && seat.charDef.animal)) return 0;
-    if(!info || info.group !== 'head') return 0;
-    const dOff = PART_DEFAULT_OFFSET[cat];
-    if(dOff && Math.abs(dOff.y || 0) > 1e-6) return 0;
-    if(!isRigged && !authorOff) return 0;
-    const Ha = _headTopAboveBone(modelRoot, bone, seat);
-    const Hh = _baseHeadTopAboveBone();
-    if(!(Ha > 0) || !(Hh > 0)) return 0;
-    const dy = Ha - Hh;
-    if(!isFinite(dy) || Math.abs(dy) < 1e-3) return 0;
-    console.log('[파츠 머리보정] ' + cat + ' — 동물 머리 여유 ' + Ha.toFixed(3)
-      + ' vs 사람 ' + Hh.toFixed(3) + ' → 세로 ' + dy.toFixed(3) + ' 보정'
-      + (isRigged ? ' (리깅: bindMatrix에 굽기)' : ' (비리깅)'));
-    return dy;
-  }catch(e){ console.warn('[파츠 머리보정] 계산 실패', e); return 0; }
-}
-/* 어떤 위치값(pos)이 "떠 있던 파츠를 반대로 눌러 맞춰둔 보정값"인지 판정.
-   ao(이번에 새로 상쇄하는 양)의 정확히 반대 방향으로 ao 크기의 절반 이상 밀려 있으면 그렇게 본다.
-   두 곳에서 쓴다 — (a) 유저가 기즈모로 눌러둔 xf.pos, (b) 카테고리 상수 PART_DEFAULT_OFFSET.
-
-   ★ 저장된 xf.pos를 일괄 변환하지 않는다(핸드오프 3장 0번 ⚠️: 유저 데이터 형태가 균일하지 않다).
-     적용 시점에만 판단하므로 형태가 제각각이어도 안전하고, 결과가 멱등이다.
-       - 눌러둔 유저: 보던 위치 그대로 유지 → 기즈모를 한 번 만지면 깨끗한 값(≈0)으로 자연 이관
-       - 안 눌러둔 유저: 그대로 제자리로 내려옴
-   ★ 임계 0.5는 "정상적인 미세조정"과 구분하기 위한 값. 저작 오프셋은 보통 캐릭터 키 수준(≈1.4)이라
-     그 0.5배(≈0.7)를 반대 방향으로 미는 조정은 손보정 말고는 나오기 어렵다. */
-function _isLegacyAuthorCompensation(pos, ao){ return partsCore.isLegacyAuthorCompensation(pos, ao); }
-/* wrapper에 카테고리 기본 오프셋 + 캐릭터별 xf 적용 (부착 시·슬라이더 변경 시 호출) */
-// wrapper 하나에 xf(위치/회전/스케일/색상)를 적용하는 공통 로직.
-//   기존 applyPartXf(카테고리 단위)와 stackable 파츠 개별 wrapper 양쪽에서 재사용.
-function _applyXfToWrapper(wrp, xf, cat){
-  partsCore.applyXfToWrapper(wrp, xf, cat, { defaultXf:()=>premiumMod.defaultPartXf(), defaultOffsets:PART_DEFAULT_OFFSET,
-    /* 🖍️ 그림칸 — 저장된 그림(URL)을 얹는다. 색과 같은 자리의 인스턴스 값이라 내 파츠든 친구 파츠든 같은 길로 들어온다. */
-    applyPic:(w, pic)=>{ if(partPaintMod.wrapperHasPic(w)) partPaintMod.applyPartPic(w, pic); } });
-}
-
-/* 파츠 wrapper들에 저장된 xf를 반영.
-   ★ 예전엔 seat.charDef.equippedParts[cat]을 통째로 entry로 썼는데, 🔗 stackable로 여러 개를 착용하면
-     그 값은 배열(또는 Firebase 숫자키 맵)이라 진짜 entry가 아니다. 게다가 stackable 분기는
-     multiExtras를 아예 건드리지 않아서 "다중 파츠를 늘려도 추가된 파츠가 움직이지 않는" 원인이 됐다.
-     이제 wrapper.userData.partId로 각자의 entry를 정확히 짚고, 두 분기 모두 인스턴스를 extras까지 적용한다. */
-function applyPartXf(seat, cat){
-  if(!seat || !seat.charDef) return;
-  const def = seat.charDef;
-  // wrapper 하나 + 그 다중 파츠 extras에 entry의 인스턴스 xf를 순서대로 적용
-  const applyEntryTo = (wrp, entry)=>{
-    if(!wrp || !wrp.userData || !wrp.userData.baseCenter) return;
-    const instances = premiumMod.partEntryInstances(entry);
-    _applyXfToWrapper(wrp, instances[0], cat);
-    const extras = wrp.userData.multiExtras || [];
-    extras.forEach((ex, i)=> _applyXfToWrapper(ex, instances[i+1] || premiumMod.defaultPartXf(), cat));
-  };
-  const mainWrp = seat.equippedPartObjs && seat.equippedPartObjs[cat];
-  if(mainWrp && mainWrp.userData && mainWrp.userData.baseCenter){
-    const mainEntry = premiumMod.findEntryById(def, cat, mainWrp.userData.partId) || premiumMod.firstEntryForCat(def, cat);
-    if(mainEntry) applyEntryTo(mainWrp, mainEntry);
-  }
-  // 🔗 stackable 파츠 — id별 entry를 찾아 각각 적용(다중 파츠 extras 포함)
-  if(seat.stackedPartObjs && seat.stackedPartObjs[cat]){
-    premiumMod.entriesForCat(def, cat).forEach(entry=>{
-      const wrp = seat.stackedPartObjs[cat][premiumMod.partEntryId(entry)];
-      if(wrp) applyEntryTo(wrp, entry);
-    });
-  }
-  /* 🪑🦶 "책상 위" 파츠의 바닥 맞춤 — 파츠 **자신**을 들어 올린다.
-     [왜 따로 있는가] 이 카테고리는 seat.deskAnchor 에 붙어 gltfRoot **밖**이다(일부러 그렇게 만들었다 —
-       캐릭터를 안 따라오는 것이 이 카테고리의 존재 이유다). 그래서 캐릭터를 들어 올리는 쪽의
-       바닥 맞춤(measureUnderfootDepth → fitModel)은 이 파츠를 애초에 세지 않고, 센다 해도
-       캐릭터만 올라가고 파츠는 제자리에 남아 아무것도 해결되지 않는다.
-     ⚠️ 미리보기와 실행 **양쪽이 이 함수를 거친다.** 그래서 한 곳만 고쳐도 둘이 같이 맞는다 —
-       한쪽에만 넣으면 미리보기와 실행이 그만큼 어긋난다(이 건의 원래 증상이 그것이었다).
-     ★ 실제 계산은 floorClampWrapper 하나로 모아 뒀다(그 주석에 기준·환산 이유가 있다).
-       기즈모 드래그(syncWdGizmoToXf)도 같은 함수를 쓴다 — 두 곳이 갈라지면 보이는 자리와
-       저장되는 값이 어긋난다. */
-  try{
-    const _info = premiumMod.partCatInfo(cat);
-    if(_info && premiumMod.isDeskPartCat(_info)){
-      const _lift = w=>{ if(w) charMeasureMod.floorClampWrapper(w, cat); };
-      const _main = seat.equippedPartObjs && seat.equippedPartObjs[cat];
-      if(_main){ _lift(_main); (_main.userData.multiExtras || []).forEach(_lift); }
-      if(seat.stackedPartObjs && seat.stackedPartObjs[cat]){
-        const m = seat.stackedPartObjs[cat];
-        Object.keys(m).forEach(id=>{ const w = m[id]; if(w){ _lift(w); (w.userData.multiExtras || []).forEach(_lift); } });
-      }
-    }
-  }catch(_){}
-}
+/* 🎀 파츠를 캐릭터에 붙일 한 벌로 만들기(복제 · 재질 · _col · _pic · 리깅 판정 · 다시 묶기 · wrapper · 저작 오프셋)는 캐릭터 코어(src/parts.ts · #436).
+   좌석 몫(장착 차례 · 옷 겹침 · 귀 까닥임 · 애니메이션 · 진단)은 equipPartOnSeat 에 남는다. */
+const partsCore = TwCharCore.createParts({
+  THREE,
+  tone: lightToneMod.toneCore,
+  applyPartMatTone: (m)=>lightToneMod._applyPartMatTone(m),
+  forceOpaqueAlphaOutput: (m)=>partSceneMod._forceOpaqueAlphaOutput(m),
+  meshIsPic: (o)=>partPaintMod.meshIsPic(o),
+  picRepairUV: (o)=>partPaintMod._picRepairUV(o),
+  uvLooksBroken: (o)=>partPaintMod.g_uvLooksBroken(o),
+});
+/* 🎀 파츠 저작 오프셋 · xf 적용(character/part-xf.js) — 아래 const 는 옛 전역 이름이다. */
+const partXfMod = TwPartXf.createPartXf({
+  partsCore: partsCore,
+  PART_DEFAULT_OFFSET: PART_DEFAULT_OFFSET,
+  premiumMod: premiumMod,
+  partPaintMod: partPaintMod,
+  lightToneMod: lightToneMod,
+  bodyMeasureMod: bodyMeasureMod,
+  charMeasureMod: charMeasureMod,
+  instantiateBase: (...a)=>instantiateBase(...a),
+});
+const _computePartAuthorOffset = partXfMod._computePartAuthorOffset;   // 옛 전역 이름
+const _diagPartHeadSpace = partXfMod._diagPartHeadSpace;   // 옛 전역 이름
+const _computeAnimalHeadDy = partXfMod._computeAnimalHeadDy;   // 옛 전역 이름
+const _isLegacyAuthorCompensation = partXfMod._isLegacyAuthorCompensation;   // 옛 전역 이름
+const _applyXfToWrapper = partXfMod._applyXfToWrapper;   // 옛 전역 이름
+const applyPartXf = partXfMod.applyPartXf;   // 옛 전역 이름
 // wrapper 하나를 씬에서 정리하는 공통 로직 — 파츠 제거 시 공통 처리.
 //   unequipPartFromSeat (단일 파츠 카테고리 초기화)와 unequipStackablePart (특정 id만) 양쪽에서 사용.
-/* ★ 진행 중이던 비동기 장착을 무효화한다.
-   [증상] 꾸미기 창에서 파츠를 넣었다 바로 빼면, 뺀 파츠가 엉뚱한 위치에 유령으로 남는다.
-          (나갔다 다시 들어오면 _purgeSeatParts + 재빌드로 정상 복구)
-   [원인] equipPartOnSeat은 GLB 파싱(8216)과 본 대기 루프(8286, 최대 3초) 때문에 비동기다.
-          그 사이 해제가 일어나도 wrapper가 아직 없어서 지울 게 없고, _equipSeq도 그대로라
-          대기가 끝난 낡은 장착이 검사(8218·8288·8398)를 통과해 그대로 부착돼 버린다.
-          동물은 스켈레톤 수집이 늦어 대기 루프가 실제로 돌기 때문에 창이 훨씬 넓다.
-   [대응] 해제할 때 그 키의 시퀀스를 올려서, 늦게 도착한 장착이 스스로 중단하게 한다.
-          _purgeSeatParts(전 키 +1)와 같은 패턴을 좁은 범위에 적용한 것.
-   ※ equipPartOnSeat 내부의 해제 호출(8201·8203)은 mySeq 발급(8214)보다 '먼저' 실행되므로
-     여기서 올린 값 위에 새 번호가 얹힌다 — 자기 자신을 무효화하지 않는다. */
-function _invalidatePendingEquip(seat, cat, id, includeStackable){
-  if(!seat || !seat._equipSeq || !cat) return;
-  if(id){ const k=cat+':'+id; seat._equipSeq[k]=(seat._equipSeq[k]||0)+1; return; }
-  seat._equipSeq[cat]=(seat._equipSeq[cat]||0)+1;                 // non-stackable 키
-  if(includeStackable === false) return;                          // stackable은 유지해야 하는 호출
-  const pre = cat + ':';
-  for(const k in seat._equipSeq){ if(k.indexOf(pre)===0) seat._equipSeq[k]++; }
-}
-function _disposeWrapperFromSeat(seat, obj){
-  if(!obj) return;
-  // 런처9 다중 파츠(같은 파츠 여러 개): 추가 인스턴스 wrapper들도 함께 제거
-  if(obj.userData && Array.isArray(obj.userData.multiExtras)){
-    obj.userData._multiExtrasWas = obj.userData.multiExtras.slice();   // 믹서 정리용으로 잠시 보관
-    obj.userData.multiExtras.forEach(ex=>{ try{ if(ex.parent) ex.parent.remove(ex); }catch(_){} });
-    obj.userData.multiExtras = [];
-  }
-  // 반복재생 중이던 믹서 정리 — 다중 파츠 extras의 믹서도 함께(안 그러면 떼어낸 뒤에도 매 프레임 갱신됨)
-  _teardownPartIdleAnim(obj);
-  if(obj.userData && Array.isArray(obj.userData._multiExtrasWas)) obj.userData._multiExtrasWas.forEach(_teardownPartIdleAnim);
-  // 리깅 파츠 해제: 캐릭터 본에 입양시켰던 파츠 본들을 다시 떼어냄
-  if(obj.userData && obj.userData.adoptedBones && obj.userData.adoptedBones.length){
-    obj.userData.adoptedBones.forEach(b=>{ try{ if(b.parent) b.parent.remove(b); }catch(_){} });
-  }
-  // 파츠의 ear_L/ear_R가 캐릭터 귀 애니메이션 시스템에 등록돼 있었으면 제거
-  if(obj.userData && obj.userData.partEarObjs && obj.userData.partEarObjs.length && seat.bones && seat.bones.ear){
-    obj.userData.partEarObjs.forEach(o=>{
-      const idx = seat.bones.ear.indexOf(o);
-      if(idx>=0){ seat.bones.ear.splice(idx,1); seat.boneRest.ear.splice(idx,1); seat.earTimers = null; }
-    });
-  }
-  if(obj.parent) obj.parent.remove(obj);
-}
-
-/* 🧹 유령 파츠 wrapper 청소 — equippedPartObjs / stackedPartObjs 어디에도 등록돼 있지 않은
-   '__partWrap_' 노드를 씬에서 제거한다.
-   ★ 같은 파츠가 stackable 경로와 non-stackable 경로로 각각 붙으면(카탈로그 동기화로 rec.stackable이
-     바뀌는 순간 등) 레이스 가드의 시퀀스 키가 'cat:id' vs 'cat'으로 갈려 둘 다 통과한다.
-     해제는 한쪽 경로만 지우므로 나머지가 공중에 남는다("하나 꼈는데 둘, 빼도 하나 남음").
-     원인이 무엇이든 등록부를 진실의 원천으로 삼아 쓸어내면 유령이 남지 않는다. */
-function _sweepOrphanPartWrappers(seat){
-  if(!seat || !seat.group) return;
-  const live = new Set();
-  const addLive = w=>{
-    if(!w) return;
-    live.add(w);
-    const ex = w.userData && w.userData.multiExtras;
-    if(Array.isArray(ex)) ex.forEach(e=>{ if(e) live.add(e); });
-  };
-  if(seat.equippedPartObjs) for(const c in seat.equippedPartObjs) addLive(seat.equippedPartObjs[c]);
-  if(seat.stackedPartObjs) for(const c in seat.stackedPartObjs){
-    const m = seat.stackedPartObjs[c]; if(!m) continue;
-    for(const id in m) addLive(m[id]);
-  }
-  const orphans = [];
-  const walk = node=>{
-    if(!node) return;
-    if(node.userData && node.userData.__twPartWrap){
-      // ★ equipPartOnSeat가 만든 wrapper만 대상. 이름(__partWrap_)만으로 판단하면
-      //   같은 규칙을 쓰는 다른 부속(동물 귀 등)까지 지워 머리 높이 측정이 어긋날 수 있다.
-      if(!live.has(node)) orphans.push(node);
-      return;   // 파츠 내부로는 더 들어가지 않음
-    }
-    const kids = node.children; if(!kids) return;
-    for(let i=0;i<kids.length;i++) walk(kids[i]);
-  };
-  walk(seat.group);
-  /* 🪑 '책상 위'(bone:'desk') 파츠는 seat.group 이 아니라 seat.deskAnchor 에 붙는다.
-     실행 좌석은 책상이 group 안에 있어서 위 순회에 같이 걸리지만, **생성기 미리보기는 책상(cDesk)이
-     cBase.group 밖(cScene 직속)에 있어서 통째로 빠졌다** — 그래서 미리보기에서만 책상 위 파츠가
-     유령으로 남았다. group 밖에 있을 때만 따로 훑는다(안에 있으면 중복 순회가 된다). */
-  if(seat.deskAnchor){
-    let under = false;
-    for(let p=seat.deskAnchor; p; p=p.parent){ if(p===seat.group){ under = true; break; } }
-    if(!under) walk(seat.deskAnchor);
-  }
-  if(!orphans.length) return;
-  orphans.forEach(w=>{ try{ _disposeWrapperFromSeat(seat, w); }catch(_){} });
-  console.log('[파츠 정리] 등록되지 않은 유령 wrapper '+orphans.length+'개 제거: '+orphans.map(o=>o.name).join(', '));
-}
-
-/* 🦶 파츠를 뗀 좌석은 다음 프레임에 발밑 · 올라탄 사람 높이를 다시 맞춘다(seat-refit.js requestRefit — 같은 프레임 여러 번이면 한 번).
-   [왜] 떼는 길(가챠 회수 · 카탈로그 삭제 · 관리자 삭제 · 친구 화면의 파츠 빼기)마다 다시 맞추기가 있거나 없어서, 칠판(rideTop)을 빼도
-     남의 화면에서는 위에 탄 동물이 재실행 전까지 떠 있었다. 바로 재지 않고 다음 프레임인 까닭: 뗀 뒤 applyClothVisibility 가 기본 메쉬를
-     되돌려야 맞는 높이가 나온다(applyClothVisibility 끝 주석).
-   ⚠️ seatRefitMod 는 좌석 배치 자리에서 만든다 — 그보다 먼저 떼는 일이 생겨도 떼기 자체는 끝나야 해서 try 로 감싼다. */
-function _refitAfterUnequip(seat){
-  try{ seatRefitMod.requestRefit(seat); }catch(_){}
-}
-function unequipPartFromSeat(seat, cat, includeStackable){
-  if(!seat) return;
-  if(includeStackable === undefined) includeStackable = true;
-  // ★ wrapper가 아직 없어도(로딩 중이어도) 반드시 먼저 무효화 — 이게 유령 파츠의 핵심 방어다.
-  _invalidatePendingEquip(seat, cat, null, includeStackable);
-  // 기존 단일(non-stackable) 카테고리 파츠 제거
-  let removed = false;
-  if(seat.equippedPartObjs && seat.equippedPartObjs[cat]){
-    _disposeWrapperFromSeat(seat, seat.equippedPartObjs[cat]);
-    delete seat.equippedPartObjs[cat];
-    removed = true;
-  }
-  // 🔗 stackable로 붙어있던 파츠들도 정리 (기본 true; non-stackable 파츠 교체 시엔 false로 유지)
-  if(includeStackable && seat.stackedPartObjs && seat.stackedPartObjs[cat]){
-    for(const id in seat.stackedPartObjs[cat]){
-      _disposeWrapperFromSeat(seat, seat.stackedPartObjs[cat][id]);
-      removed = true;
-    }
-    delete seat.stackedPartObjs[cat];
-  }
-  _sweepOrphanPartWrappers(seat);   // 등록되지 않은 채 씬에 남은 wrapper까지 확실히 제거
-  if(removed) _refitAfterUnequip(seat);
-}
-
-// 🔗 stackable 파츠 중 특정 id만 해제 (같은 카테고리의 다른 파츠들은 유지)
-function unequipStackablePart(seat, cat, id){
-  if(!seat) return;
-  _invalidatePendingEquip(seat, cat, id);   // ★ wrapper가 없어도(로딩 중) 무효화가 먼저다
-  if(!seat.stackedPartObjs || !seat.stackedPartObjs[cat]) return;
-  const wrapper = seat.stackedPartObjs[cat][id];
-  if(!wrapper) return;
-  _disposeWrapperFromSeat(seat, wrapper);
-  delete seat.stackedPartObjs[cat][id];
-  if(Object.keys(seat.stackedPartObjs[cat]).length === 0) delete seat.stackedPartObjs[cat];
-  _sweepOrphanPartWrappers(seat);
-  _refitAfterUnequip(seat);
-}
-
-/* def.equippedParts({cat:{id,xf}} 또는 {cat:[{id,xf},...]})를 좌석에 모두 반영 */
-/* def(장착 목록)에 더 이상 없는 파츠를 좌석에서 걷어내는 공용 정리.
-   ★ 카테고리 단위(equippedPartObjs)만 보면 안 됨:
-   · 🔗 stackable 파츠는 stackedPartObjs[cat][id]에 개별 저장 → id 단위로 대조해야 "뺀 파츠"가 지워짐
-   · 한 카테고리에 stackable만 남고 일반 파츠를 뺀 경우엔 카테고리는 살아있어서 일반 wrapper가 유령으로 남음
-   내 캐릭터(commitWdDraft)와 원격 캐릭터(def 수신) 양쪽에서 같이 씀. */
-function pruneSeatPartsAgainstDef(seat, def){
-  if(!seat) return;
-  const eq = (def && def.equippedParts) || {};
-  // 1) 일반 파츠: def의 그 카테고리에 "일반(non-stackable) entry"가 하나도 없으면 wrapper 해제
-  if(seat.equippedPartObjs){
-    Object.keys(seat.equippedPartObjs).forEach(cat=>{
-      const hasNormal = premiumMod.entriesForCat(def, cat).some(e=>{
-        const id = premiumMod.partEntryId(e);
-        // ★ 버그 수정(착용 파츠 증발): 카탈로그 동기화로 savedParts가 막 교체된 직후나 스키마 차이로
-        //   rec 조회가 실패할 수 있는데, 예전엔 그걸 "일반 파츠 없음"으로 취급해 wrapper를 지웠다 —
-        //   착용 중이던 모자 등이 사라지던 경로. def에 entry가 "있는" 파츠는 정보를 못 찾았다고
-        //   지우면 안 됨(prune의 목적은 def에서 "빠진" 파츠 제거) — 조회 실패 시 보수적으로 유지.
-        const rec = premiumMod.savedParts().find(p=>p.id===id && p.cat===cat) || premiumMod.savedParts().find(p=>p.id===id);
-        if(!rec) return true;   // 조회 실패 = 장착 유지
-        return !rec.stackable;
-      });
-      // ★ includeStackable=false 필수 — 기본값(true)이면 같은 카테고리에 살아있어야 할
-      //   🔗 stackable 파츠까지 함께 지워버림. stackable 정리는 아래 2)가 id 단위로 담당.
-      if(!hasNormal) unequipPartFromSeat(seat, cat, false);
-    });
-  }
-  // 2) stackable 파츠: def entry 목록에 없는 id는 개별 해제
-  if(seat.stackedPartObjs){
-    Object.keys(seat.stackedPartObjs).forEach(cat=>{
-      const liveIds = premiumMod.entriesForCat(def, cat).map(premiumMod.partEntryId);
-      Object.keys(seat.stackedPartObjs[cat]).forEach(id=>{
-        if(!liveIds.includes(id)) unequipStackablePart(seat, cat, id);
-      });
-    });
-  }
-}
-
-/* 🔎 파츠 장착 진단 경고 — 같은 원인으로 도배되지 않게 세션당 키별 1회만 남긴다.
-   [왜 필요한가] 파츠가 안 붙는 경로 둘(카테고리 정보 없음 · 파츠 정보 조회 실패)이 지금까지
-   **아무 흔적도 없이** return 했다. 제보는 "눌렀는데 아무 일도 안 일어난다"로만 들어오고,
-   콘솔에도 남는 게 없어서 어느 쪽인지 가릴 수가 없었다. 동작은 바꾸지 않는다 — 이름만 붙인다. */
-const _equipWarnSeen = new Set();
-function _equipWarnOnce(key, msg){
-  if(_equipWarnSeen.has(key)) return;
-  _equipWarnSeen.add(key);
-  try{ console.warn(msg); }catch(_){}
-}
-
-async function applyEquippedPartsToSeat(seat, def){
-  /* ⚠️ 예전엔 `if(!seat || !def || !def.equippedParts) return;` 한 줄이었다.
-       그러면 **꾸미기 파츠가 하나도 없는 캐릭터**는 아래 두 줄(가시성 최종 갱신 + _lastOp 재무장)을
-       통째로 건너뛴다. 그 두 줄은 파츠와 무관한 뒷정리인데 파츠 유무에 얹혀 있었다.
-     [무엇이 깨지나] 자리비움(opacity 0)으로 숨어 있는 동안 그 좌석이 다시 빌드되면
-       (캐릭터 교체·방 def 갱신 등) 새로 만들어진 메시들은 visible=true 인 채로 들어온다.
-       그런데 seat._lastOp 가 여전히 0 이라 다음 프레임의 setSeatOpacity(seat, 0) 은
-       맨 첫 줄 `if(seat._lastOp===op) return;` 에서 그대로 나가버린다 —
-       즉 새 메시에는 숨김도, _prevVisible 기록도 걸리지 않는다.
-       파츠가 있는 캐릭터는 아래 `seat._lastOp = null` 덕에 우연히 구제되고 있었을 뿐이다.
-     ★ 파츠 순회만 조건부로 두고, 뒷정리 두 줄은 항상 지나가게 한다. */
-  if(!seat) return;
-  if(def && def.equippedParts) for(const cat in def.equippedParts){
-    // 🔗 stackable 지원: entriesForCat로 배열/단일 모두 순회
-    const entries = premiumMod.entriesForCat(def, cat);
-    for(const entry of entries){
-      const id = premiumMod.partEntryId(entry);
-      const rec = premiumMod.savedParts().find(p=>p.id===id && p.cat===cat);
-      if(rec) await equipPartOnSeat(seat, cat, rec, { stackableXf: rec.stackable ? premiumMod.partEntryXf(entry) : null });
-      /* ⚠️ 조회 실패 = 조용한 누락. def 에는 있는데 화면에는 안 붙고, 흔적도 안 남는다.
-         ★ 여기 조회는 **(id, cat) 둘 다 일치**를 요구하는데, pruneSeatPartsAgainstDef 의 같은
-           조회는 `|| savedParts.find(p=>p.id===id)` 로 id 만으로도 한 번 더 찾는다(그쪽 주석 참고).
-           즉 **두 함수가 같은 파츠를 다르게 판정할 수 있다** — prune 은 "있다"고 보고 유지하는데
-           여기서는 "없다"고 보고 안 붙이면, 그 파츠는 def 에 남은 채 영영 화면에 안 나온다.
-           그게 지금 제보(적용 안 됨)의 모양과 정확히 같다.
-         🔴 폴백을 여기에도 넣는 것이 후보 수정이지만, 실제로 cat 불일치가 나는지 확인되기 전에는
-           넣지 않는다. 아래 경고가 한 번이라도 뜨면 그때 넣는다 — 그 판단 근거가 이 줄이다. */
-      else _equipWarnOnce('rec:'+cat+':'+id,
-        '[파츠] 파츠 정보를 못 찾아 장착을 건너뜁니다 — cat=' + cat + ' id=' + id
-        + ' / id 만으로 찾으면: ' + (premiumMod.savedParts().find(p=>p.id===id) ? ('있음(cat=' + premiumMod.savedParts().find(p=>p.id===id).cat + ')') : '없음'));
-    }
-  }
-  applyClothVisibility(seat);   // 모두 반영 후 가시성 최종 갱신
-  seat._lastOp = null;
-}
-
+/* 🎀 파츠 붙이기 · 떼기 · def 대조(character/part-equip.js) — 아래 const 는 옛 전역 이름이다. */
+const partEquipMod = TwPartEquip.createPartEquip({
+  premiumMod: premiumMod,
+  rideBenchMod: rideBenchMod,
+  seatRefitMod: seatRefitMod,
+  skelShare: skelShare,
+  partsCore: partsCore,
+  partSceneMod: ()=>partSceneMod,
+  boneSide: (...a)=>boneSide(...a),
+  _diagRiggedPartAlignment: (...a)=>_diagRiggedPartAlignment(...a),
+  _applyXfToWrapper: _applyXfToWrapper,
+  _computeAnimalHeadDy: _computeAnimalHeadDy,
+  _computePartAuthorOffset: _computePartAuthorOffset,
+  _diagPartHeadSpace: _diagPartHeadSpace,
+  applyPartXf: applyPartXf,
+  _unequipClothCat: _unequipClothCat,
+  applyClothVisibility: applyClothVisibility,
+  _clipHasMotion: _clipHasMotion,
+  _partAnimNotice: _partAnimNotice,
+  _pickPartClip: _pickPartClip,
+  _setupPartIdleAnim: _setupPartIdleAnim,
+  _stripPartClipOwnedTracks: _stripPartClipOwnedTracks,
+  _teardownPartIdleAnim: _teardownPartIdleAnim,
+});
+const extractBonesInto = partEquipMod.extractBonesInto;   // 옛 전역 이름
+const equipPartOnSeat = partEquipMod.equipPartOnSeat;   // 옛 전역 이름
+const unequipPartFromSeat = partEquipMod.unequipPartFromSeat;   // 옛 전역 이름
+const unequipStackablePart = partEquipMod.unequipStackablePart;   // 옛 전역 이름
+const pruneSeatPartsAgainstDef = partEquipMod.pruneSeatPartsAgainstDef;   // 옛 전역 이름
+const applyEquippedPartsToSeat = partEquipMod.applyEquippedPartsToSeat;   // 옛 전역 이름
+const _invalidatePendingEquip = partEquipMod._invalidatePendingEquip;   // 옛 전역 이름
+const _disposeWrapperFromSeat = partEquipMod._disposeWrapperFromSeat;   // 옛 전역 이름
+const _sweepOrphanPartWrappers = partEquipMod._sweepOrphanPartWrappers;   // 옛 전역 이름
 
 /* ============================================================ CREATOR + LAUNCHER */
 /* 🧍 캐릭터 저장 슬롯 개수. 3 → 5 (요청).
-   ★ 여기 하나만 고치면 되도록 아래 네 곳(loadSlots 순회 · 런처 (n/N) 라벨 · ◀▶ 순환)이
+   ★ 여기 하나만 고치면 되도록 서버에서 받아 앉히는 순회(applySlotObjs) · 런처 (n/N) 라벨 · ◀▶ 순환이
      전부 이 상수를 본다. 숫자를 다시 흩뿌리지 말 것 — 한 곳만 빠뜨리면 "칸은 보이는데
-     저장이 안 되는" 종류의 사고가 난다.
-   ⚠️ 옛 저장값(3칸)과의 호환: loadSlots 는 `arr[i]` 가 없으면 그 칸을 건너뛰므로 4·5번 칸이
-     null 로 남는다(패딩됨). 반대로 5칸으로 저장된 값을 옛 판본이 읽어도 앞 3칸만 읽고 지나간다.
-     즉 양방향 모두 안전하다.
+     저장이 안 되는" 종류의 사고가 난다(서버 슬롯 칸 수도 5 — 바꾸려면 서버 규격과 같이).
    ⚠️ extraSeatSlots(솔로모드 자리추가)는 슬롯 번호 목록이라 자동으로 최대 4석까지 늘어난다.
      layoutSeats 는 인원 수 상한이 없고(방은 이미 10명) 간격·줌을 실측으로 잡으므로 그대로 돈다. */
 const CHAR_SLOT_MAX=5;
 const slots=new Array(CHAR_SLOT_MAX).fill(null);
 /* 🛡️ [얼굴 영구 소실 방어 · 기억] 칸마다 «이 캐릭터는 그림을 가진 적이 있다».
-   켜지는 곳은 둘뿐이다 — loadSlots(부팅에 그림이 있었다) · saveSlots(멀쥰한 그림을 저장했다).
+   켜지는 곳은 둘뿐이다 — applySlotObjs(서버에서 받을 때 그림이 있었다) · saveSlots(멀쥰한 그림을 저장했다).
    꺼지는 곳은 하나뿐이다 — 생성기에서 사용자가 «비운 채 저장»을 직접 확인했을 때.
    이 값이 true 인 칸에 빈 그림이 저장되려 하면 그건 사용자의 뜻이 아니라 사고다. */
 const _faceEverDrawn  = new Array(CHAR_SLOT_MAX).fill(false);
 const _blinkEverDrawn = new Array(CHAR_SLOT_MAX).fill(false);
 let _blankFaceConfirmed = false;   // 생성기에서 «비운 채 저장»을 확인한 직후, 바로 뒤 saveSlots 1회만 소비
 const CUR_SLOT_KEY='tw.curSlot';
-function _loadCurSlot(){ try{ const v=parseInt(localStorage.getItem(CUR_SLOT_KEY),10); if(v>=0&&v<CHAR_SLOT_MAX) return v; }catch(e){} return 0; }
-function saveCurSlot(){ try{ localStorage.setItem(CUR_SLOT_KEY, String(curSlot)); }catch(e){} }
+function _loadCurSlot(){ try{ const v=parseInt(accountStoreMod.get(CUR_SLOT_KEY),10); if(v>=0&&v<CHAR_SLOT_MAX) return v; }catch(e){} return 0; }   // 계정 칸 — 확인 뒤(userLocal 조각 curSlot)에만 부른다
+function saveCurSlot(){ try{ accountStoreMod.set(CUR_SLOT_KEY, String(curSlot)); }catch(e){} }
 /* 🪑 책상 크기 슬라이더의 **기본값** — 흩어져 있던 0.175 리터럴의 단 하나의 출처.
    [왜 상수가 필요해졌나] '책상 위' 파츠가 이 슬라이더를 따라 커지고 작아지는 것을 끊으면서
      "무엇을 기준으로 안 따라가는가"를 정해야 했다. 답이 이 값이다 — 슬라이더가 기본값일 때가
@@ -5188,42 +2513,30 @@ const DESK_SCALE_DEFAULT = 0.175;
 const crState = TwCreatorState.createCreatorState({
   DESK_SCALE_DEFAULT: DESK_SCALE_DEFAULT,
 });
-let curSlot=_loadCurSlot();
-/* 🙂 얼굴 · 피부 그림판(512 캔버스 · 대칭축 · 피부 5종 · 피부 위에 그림 얹기 · «완전히 비었나» 판정)은 캐릭터 코어(packages/char-core/src/face.ts · #434).
-   ⚠️ «비었나» 의 true 에는 저장을 막는 힘이 있다 — 판정할 수 없으면 false(코어 주석 · sim-face-loss). 피부 그림 불러오기(loadSkins)는 앱 몫 —
-   불러온 그림은 skinCanvases 같은 칸에 넣는다(얼굴 자동 복구도 같은 배열). */
-const faceCore = TwCharCore.createFace({
-  makeCanvas: ()=>document.createElement('canvas'),
-  isDrawable: (v)=>v instanceof HTMLCanvasElement || v instanceof HTMLImageElement,
+let curSlot=0;   // 만들 때는 읽지 않는다(계정 칸은 확인 전엔 닫혀 있다) — 확인 뒤 userLocal 의 curSlot 조각이 _loadCurSlot 로 채운다
+/* 본문은 creator/creator-face.js 로 옮겼다(앱 FSD · app.js 분리 T7) — 얼굴 · 피부 캔버스 · 몸 만들기. 코어를 부르는 얇은 이름이다. */
+const creatorFaceMod = TwCreatorFace.createCreatorFace({
+  bodyCore: bodyCore,
+  mkFaceTex: mkFaceTex,
+  skelShare: skelShare,
+  COMMISSION_SCALE_CORRECTION: COMMISSION_SCALE_CORRECTION,
+  _attachHumanEars: (...a)=>_attachHumanEars(...a),
+  animalBuilder: ()=>window.buildAnimalBase,
 });
-const CANVAS_SZ=faceCore.CANVAS_SZ;
-const FACE_SYM_SUM=faceCore.FACE_SYM_SUM;
-const SYM_PX=FACE_SYM_SUM*CANVAS_SZ;     // 픽셀 기준 미러 합
-function newCanvas(){ return faceCore.newCanvas(); }
-function _isBlankDraw(cv){ return faceCore.isBlankDraw(cv); }
-function snapCanvas(src){ return faceCore.snapCanvas(src); }
-const SKIN_COLORS=faceCore.SKIN_COLORS;
-const skinCanvases=faceCore.skinCanvases;
-function skinCanvasFor(i){ return faceCore.skinCanvasFor(i); }
-function skinColorFor(i){ return faceCore.skinColorFor(i); }
-function compositeFace(skinIdx,drawCv){ return faceCore.compositeFace(skinIdx,drawCv); }
-function charDef(skin,face,blink,top,bot){return {type:'creator',skin,face,blink,top,bot};}
-
-/* --- base body builder (내장 스탠드인. 실제 제품에선 리깅된 베이스 GLB로 교체) --- */
-function buildCreatorBase(...a){ return bodyCore.buildCreatorBase(...a); }
-
-function defToBase(def, customScene){
-  // 🐾 동물 캐릭터 — animal.js가 전담 조립(전신 페인트 텍스처·귀 포함). 실패(모듈 미로드 등) 시 인간 폴백.
-  if(def && def.animal && typeof window.buildAnimalBase==='function'){
-    const ab=window.buildAnimalBase(def);
-    if(ab) return ab;
-  }
-  const fT=mkFaceTex(compositeFace(def.skin,def.face)), bT=mkFaceTex(compositeFace(def.skin,def.blink));
-  return bodyCore.assemble({ customScene, faceTex:fT, blinkTex:bT, top:def.top, bot:def.bot,
-    recolor:!def.isCommission, scaleMul:def.isCommission ? COMMISSION_SCALE_CORRECTION : 1,
-    skinColor:skinColorFor(def.skin), onRoot:(root)=>_attachHumanEars(root, def) });
-}
-
+const CANVAS_SZ = creatorFaceMod.CANVAS_SZ;   // 옛 전역 이름
+const FACE_SYM_SUM = creatorFaceMod.FACE_SYM_SUM;   // 옛 전역 이름
+const SYM_PX = creatorFaceMod.SYM_PX;   // 옛 전역 이름
+const newCanvas = creatorFaceMod.newCanvas;   // 옛 전역 이름
+const _isBlankDraw = creatorFaceMod._isBlankDraw;   // 옛 전역 이름
+const snapCanvas = creatorFaceMod.snapCanvas;   // 옛 전역 이름
+const SKIN_COLORS = creatorFaceMod.SKIN_COLORS;   // 옛 전역 이름
+const skinCanvases = creatorFaceMod.skinCanvases;   // 옛 전역 이름
+const skinCanvasFor = creatorFaceMod.skinCanvasFor;   // 옛 전역 이름
+const skinColorFor = creatorFaceMod.skinColorFor;   // 옛 전역 이름
+const compositeFace = creatorFaceMod.compositeFace;   // 옛 전역 이름
+const charDef = creatorFaceMod.charDef;   // 옛 전역 이름
+const buildCreatorBase = creatorFaceMod.buildCreatorBase;   // 옛 전역 이름
+const defToBase = creatorFaceMod.defToBase;   // 옛 전역 이름
 /* --- 캐릭터에 직접 페인팅 (3D) + 단계형 + 양파껍질 + 되돌리기 --- */
 const faceC=newCanvas(), blinkC=newCanvas();      // 저장 레이어(깨끗한 원본)
 const dispC=newCanvas();                          // 모델에 보이는 합성 텍스처(양파껍질 포함)
@@ -5247,14 +2560,17 @@ function reopenAnimalFromCreator(tab){
 /* 🗂 책상 · 좌석 세팅 프리셋(5칸 · 모든 캐릭터 칸 공용) — 저장은 creator/desk-preset-store.js, 담기 · 적용 · 칸 화면은 creator/desk-preset.js(C 구역 떼기 w4).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const deskPresetStoreMod = TwDeskPresetStore.createDeskPresetStore({
-  jsonStore: TwJsonStore,
+  jsonStore: accountJsonStoreMod,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   isCatalogDesk: (id)=>commissionMod.catalogBacked(commissionMod.savedDesks().find(d=>d.id===id)),
 });
 /* 본문은 creator/desk-preset.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const deskPresetMod = TwDeskPreset.createDeskPreset({
+  licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
+  NO_DESK_ID: NO_DESK_ID,
+  hideDeskBody: (...a)=>deskVisualMod.hideDeskBody(...a),
   applyCreatorXform: (...a)=>creatorPrevMod.applyCreatorXform(...a),
   applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),
   applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),
@@ -5274,8 +2590,6 @@ const deskPresetMod = TwDeskPreset.createDeskPreset({
   equipDeskItem: (...a)=>equipDeskItem(...a),
   fitCreator: (...a)=>creatorPrevMod.fitCreator(...a),
   frameDeskCam: (...a)=>creatorPrevMod.frameDeskCam(...a),
-  isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
   premiumMod: premiumMod,
   setCreatorDeskScale: (...a)=>deskPlaceMod.setCreatorDeskScale(...a),
   setDeskPos: (...a)=>deskPlaceMod.setDeskPos(...a),
@@ -5290,27 +2604,6 @@ const deskPresetMod = TwDeskPreset.createDeskPreset({
 //   그래서 불러올 때마다 이 범위로 확실히 clamp함.
 const DESK_SCALE_MIN = 0.05, DESK_SCALE_MAX = 0.3;
 function clampDeskScale(v){ return Math.max(DESK_SCALE_MIN, Math.min(DESK_SCALE_MAX, v)); }
-function _crDropEraser(){ if(crState.crPaintTool) crState.crPaintTool.dropEraser(); else crState.eraser=false; }
-const histF=[], histB=[];
-const redoF=[], redoB=[];
-function isDrawStep(){return crState.crStep===2||crState.crStep===3;}
-function activeFace(){return crState.crStep===3?'blink':'face';}
-function actC(){return activeFace()==='blink'?blinkC:faceC;}
-function curHist(){return activeFace()==='blink'?histB:histF;}
-function curRedo(){return activeFace()==='blink'?redoB:redoF;}
-function blit(){const x=dispC.getContext('2d');x.clearRect(0,0,CANVAS_SZ,CANVAS_SZ);
-  x.drawImage(skinCanvasFor(crState.skinIndex),0,0);          // 베이스 피부(지워지지 않는 원본)
-  x.drawImage(crState.crStep===3?blinkC:faceC,0,0);           // 그림 레이어
-  dispTex.needsUpdate=true;}
-function pushHistory(){const h=curHist();try{h.push(actC().getContext('2d').getImageData(0,0,CANVAS_SZ,CANVAS_SZ));}catch(e){}if(h.length>30)h.shift();
-  curRedo().length=0;   // 새 액션 → redo 스택 폐기 (표준 동작)
-}
-function undo(){const h=curHist();if(!h.length)return;
-  try{const cur=actC().getContext('2d').getImageData(0,0,CANVAS_SZ,CANVAS_SZ); const rs=curRedo(); rs.push(cur); if(rs.length>30)rs.shift();}catch(e){}
-  actC().getContext('2d').putImageData(h.pop(),0,0);blit();}
-function redo(){const rs=curRedo();if(!rs.length)return;
-  try{const cur=actC().getContext('2d').getImageData(0,0,CANVAS_SZ,CANVAS_SZ); curHist().push(cur); if(curHist().length>30)curHist().shift();}catch(e){}
-  actC().getContext('2d').putImageData(rs.pop(),0,0);blit();}
 /* 본문은 shared/paint-geom.js 로 옮겼다(C 구역 떼기 w4). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const paintGeomMod = TwPaintGeom.createPaintGeom({
@@ -5344,299 +2637,43 @@ const crStampMod = TwCrStamp.createCrStamp({
   pushHistory: (...a)=>pushHistory(...a),
   toast: (...a)=>toast(...a),
 });
-function bindPaint(){const cv=document.getElementById('creatorPreview');
-  cv.addEventListener('contextmenu',e=>e.preventDefault());
-  cv.addEventListener('pointerdown',e=>{
-    // 🖱️ 우클릭: 드래그하면 카메라 회전, 움직임 없이 떼면 기존처럼 스포이드(그리기 단계에서만).
-    //   어느 단계에서든 우클릭 드래그로 캐릭터를 돌려볼 수 있음 — 동물 생성기와 통일된 조작.
-    if(e.button===2){ crState._rcOrbit={x:e.clientX,y:e.clientY,moved:false}; cv.setPointerCapture(e.pointerId); return; }
-    if(!isDrawStep())return;
-    // 도장 편집 중에는 캔버스 클릭으로 그리지 않음(오버레이 조작 우선)
-    if(crState.stampMode) return;
-    if(e.button!==0)return;
-    const act=crState.crPaintTool?crState.crPaintTool.pointerAction(e):'stroke';
-    if(act!=='stroke'){ paintStrokeMod.bucketFromEvent(e, act==='fillErase'); return; }   // 🪣 한 번 누르면 끝 — 끌기 획이 아니다
-    if(crState.crStep===3)crState.blinkEdited=true;pushHistory();crState.painting=true;paintStrokeMod._paintBreak();crState._pLastScr=null;paintStrokeMod.paintFromEvent(e);cv.setPointerCapture(e.pointerId);   // 🩹 #12 — 새 획: 솔기·쪼개기 기억도 비운다
-  });
-  cv.addEventListener('pointermove',e=>{
-    if(crState._rcOrbit){
-      const dx=e.clientX-crState._rcOrbit.x, dy=e.clientY-crState._rcOrbit.y;
-      if(crState._rcOrbit.moved || Math.abs(dx)+Math.abs(dy)>4){
-        crState._rcOrbit.moved=true;
-        crState.camYaw += wardrobeMod.ORBIT_DRAG_DIR * dx*0.012;   // 오른쪽 드래그 = 앵글도 오른쪽으로 (부호는 ORBIT_DRAG_DIR 한 곳에서 관리 — 꾸미기 미리보기와 동일)
-        crState.camPitch = Math.max(-0.6, Math.min(1.0, crState.camPitch + dy*0.008));
-        creatorPrevMod.updateCreatorCam();
-        crState._rcOrbit.x=e.clientX; crState._rcOrbit.y=e.clientY;
-      }
-      return;
-    }
-    /* 🖌 커서 = 지금 도구(붓 + · 페인트통 · 지우개). 단계 이동(gotoStep)이 crosshair 로 되돌려도 움직이면 다시 맞는다. */
-    if(crState.crPaintTool && isDrawStep() && !crState.stampMode){ const cu=crState.crPaintTool.cursor(); if(cv.style.cursor!==cu) cv.style.cursor=cu; }
-    if(!crState.painting)return;
-    const evs=(typeof e.getCoalescedEvents==='function')?e.getCoalescedEvents():null;
-    /* 🖊️ [Mac 제보 2026-09-23] "표정을 그리면 선이 위아래로 튄다."
-       getCoalescedEvents 의 점들은 **마지막 것이 이 이벤트 자신**이어야 한다(규격). 그런데 환경에 따라
-       (mac · 확대/축소 · 투명 창) 묶인 점이 다른 좌표계로 오면, 진짜 점과 어긋난 점이 번갈아 찍혀 선이 지그재그로 튄다.
-       ★ 마지막 묶인 점이 이 이벤트와 2px 안일 때만 믿는다. 아니면 이 이벤트 하나만 쓴다(조금 덜 매끄럽지만 튀지 않는다). */
-    const _cLast = (evs && evs.length) ? evs[evs.length-1] : null;
-    const _cOk = !!(_cLast && Math.abs(_cLast.clientX - e.clientX) <= 2 && Math.abs(_cLast.clientY - e.clientY) <= 2);
-    if(_cOk){ for(const ce of evs) paintStrokeMod.paintFromEvent(ce); }
-    else paintStrokeMod.paintFromEvent(e);
-  });
-  cv.addEventListener('pointerup',(e)=>{
-    if(crState._rcOrbit){
-      const was=crState._rcOrbit; crState._rcOrbit=null;
-      // 움직이지 않고 뗀 우클릭 = 기존 스포이드 동작 그대로
-      if(!was.moved && isDrawStep() && !crState.stampMode){ if(crState.crStep===3)crState.blinkEdited=true; paintStrokeMod.eyedropFromEvent(e); }
-      return;
-    }
-    crState.painting=false;crState.lastPX=crState.lastPY=null;crState.lastSX=crState.lastSY=null;
-  });
-  cv.addEventListener('wheel',e=>{e.preventDefault();crState.camDist=Math.max(0.4,Math.min(7,crState.camDist*(e.deltaY>0?1.12:0.89)));creatorPrevMod.updateCreatorCam();},{passive:false});
-  // 드래그앤드롭: 이미지 파일을 캔버스에 떨어뜨리면 도장으로 불러옴
-  cv.addEventListener('dragover',e=>{e.preventDefault();});
-  cv.addEventListener('drop',e=>{e.preventDefault(); if(!isDrawStep())return;
-    const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) crStampMod.loadStampFromFile(f);
-  });
-  crStampMod.bindStampOverlay();
-}
-addEventListener('keydown',e=>{
-  if(!creatorOpen)return;
-  // Ctrl+Shift+Z = redo (Ctrl+Z보다 먼저 체크 — shift 조합이 더 구체적)
-  if((e.ctrlKey||e.metaKey)&&e.shiftKey&&hotkeyLetter(e)==='z'){e.preventDefault();redo();return;}
-  if((e.ctrlKey||e.metaKey)&&hotkeyLetter(e)==='z'){e.preventDefault();undo();return;}
-  // Delete: 표정 그리기 단계에서 전체 지우기 (clearBtn과 동일 동작). input/textarea에 포커스면 무시.
-  if(e.key==='Delete' && isDrawStep()){
-    const tag=(e.target&&e.target.tagName||'').toLowerCase();
-    if(tag==='input'||tag==='textarea')return;
-    e.preventDefault();
-    pushHistory();
-    actC().getContext('2d').clearRect(0,0,CANVAS_SZ,CANVAS_SZ);
-    blit();
-  }
-  // C: 지우개 ON/OFF 토글 (포토샵식). modifier가 있으면 무시 (Ctrl+C 복사 등과 충돌 회피)
-  if(hotkeyLetter(e)==='c' && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
-    const tag=(e.target&&e.target.tagName||'').toLowerCase();
-    if(tag==='input'||tag==='textarea')return;
-    e.preventDefault();
-    if(crState.crPaintTool) crState.crPaintTool.toggleEraser();   // 지우개 ↔ 붓 — eraser 변수와 버튼 표시는 도구 줄(onChange)이 맞춘다
-  }
-  // B 붓 · G 페인트통 · E 지우개 (paint-tools.js — 한글 상태 맥도 hotkeyLetter 로 같은 키)
-  if(crState.crPaintTool && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
-    const tag=(e.target&&e.target.tagName||'').toLowerCase();
-    if(tag!=='input' && tag!=='textarea' && crState.crPaintTool.handleKey(e)) e.preventDefault();
-  }
-  // X: 좌우 대칭 ON/OFF 토글
-  if(hotkeyLetter(e)==='x' && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
-    const tag=(e.target&&e.target.tagName||'').toLowerCase();
-    if(tag==='input'||tag==='textarea')return;
-    e.preventDefault();
-    const sb=document.getElementById('symBtn');
-    if(sb) sb.click();
-  }
-  // L: 원색 보기(조명 끄고 칠한 색 그대로) 켬/끔
-  if(hotkeyLetter(e)==='l' && isDrawStep() && creatorPrevMod.crFlatView && !e.ctrlKey && !e.metaKey && !e.altKey){
-    const tag=(e.target&&e.target.tagName||'').toLowerCase();
-    if(tag==='input'||tag==='textarea')return;
-    e.preventDefault();
-    creatorPrevMod.crFlatView.toggle();
-  }
-  // Z: 도장 모드 ON/OFF 토글 (찍기는 Enter 또는 ✓ 버튼)
-  if(hotkeyLetter(e)==='z' && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
-    const tag=(e.target&&e.target.tagName||'').toLowerCase();
-    if(tag==='input'||tag==='textarea')return;
-    e.preventDefault();
-    crStampMod.setStampMode(!crState.stampMode);
-  }
-  // Enter: 도장 편집 중이면 찍기 (✓ 버튼과 동일)
-  if(e.key==='Enter' && crState.stampMode && crState.stampImg){
-    const tag=(e.target&&e.target.tagName||'').toLowerCase();
-    if(tag==='input'||tag==='textarea'||tag==='button')return;   // 버튼 포커스 중엔 무시(스페이스/엔터로 버튼 활성화)
-    e.preventDefault();
-    crStampMod.commitStamp();
-  }
-  // ESC: 도장 편집 중이면 취소(박지 않고 빠져나옴)
-  if(e.key==='Escape' && crState.stampMode){
-    e.preventDefault();
-    crStampMod.cancelStamp();
-  }
+/* 본문은 creator/creator-canvas.js 로 옮겼다(앱 FSD · app.js 분리 M20). 생성기 그림판(되돌리기 · 그리기 · 붓 · 카메라 키 · 색 · 피부)의 주인이다 — 듣기가 예전과 같은 때 걸린다. 뒤에서 선언되는 값은 읽는 함수로 다룬다. */
+const creatorCanvasMod = TwCreatorCanvas.createCreatorCanvas({
+  openCharColorPicker: (...a)=>window.openCharColorPicker(...a),
+  bindHold: (...a)=>bindHold(...a),
+  blinkC: blinkC,
+  camTarget: ()=>camTarget,
+  CANVAS_SZ: CANVAS_SZ,
+  cBodyCenter: ()=>cBodyCenter,
+  cFaceCenter: ()=>cFaceCenter,
+  creatorOpen: ()=>creatorOpen,
+  creatorPrevMod: ()=>creatorPrevMod,
+  crStampMod: crStampMod,
+  crState: crState,
+  dispC: dispC,
+  dispTex: dispTex,
+  faceC: faceC,
+  newCanvas: newCanvas,
+  paintStrokeMod: paintStrokeMod,
+  SKIN_COLORS: SKIN_COLORS,
+  skinCanvases: skinCanvases,
+  skinCanvasFor: skinCanvasFor,
+  toast: (...a)=>toast(...a),
+  wardrobeMod: wardrobeMod,
 });
-const swEl=document.getElementById('brushColors');
-['#333333','#ffffff','#e0607a','#5a8fd8','#e0a050'].forEach((c,i)=>{const s=document.createElement('span');
-  s.className='sw'+(i===0?' on':'');s.style.background=c;
-  s.onclick=()=>{crState.brushColor=c;_crDropEraser();[...swEl.children].forEach(x=>x.classList.toggle('on',x===s));};
-  swEl.appendChild(s);});
-document.getElementById('brushCustom').addEventListener('input',e=>{crState.brushColor=e.target.value;_crDropEraser();
-  [...swEl.children].forEach(x=>x.classList.remove('on'));});
-/* 🎨 [2026-10-02 제보] "자유 색으로 칠하다 기본 칩을 눌렀다가, 아까 그 자유 색으로 돌아가려고 칸을 다시
-   눌러도 그 색이 안 잡힌다." — <input type="color"> 는 **값이 바뀔 때만** input/change 를 보낸다.
-   같은 색 그대로 창을 닫으면 이벤트가 없어서 브러시가 기본 칩 색에 머물렀다.
-   ⇒ 칸을 누르는 순간 지금 들어 있는 색(=마지막 자유 색·스포이드 색)을 바로 브러시로 잡는다.
-     창은 평소처럼 열리고, 거기서 색을 바꾸면 위 input 이 그대로 이어받는다. */
-document.getElementById('brushCustom').addEventListener('click',e=>{crState.brushColor=e.target.value;_crDropEraser();
-  [...swEl.children].forEach(x=>x.classList.remove('on'));});
-document.getElementById('brushSize').addEventListener('input',e=>crState.brushSize=+e.target.value);
-/* 🖌 도구 줄 — 붓 · 페인트통 · 지우개. eraser 변수(paintAt 이 본다)는 여기서만 맞춘다.
-   붓이 아닌 도구를 고르면 도장 모드를 닫는다(예전 «지우개와 도장은 동시 사용 X» 와 같은 이유 — 도장 중엔 캔버스 클릭이 안 칠한다). */
-if(typeof PaintTools!=='undefined'){
-  crState.crPaintTool=PaintTools.createPaintTools({ doc:document, uvFill:UvFill,
-    hotkeyLetter:hotkeyLetter,
-    onChange:(t)=>{ crState.eraser=(t==='eraser'); if(t!=='brush' && crState.stampMode) crStampMod.setStampMode(false);
-      const cv=document.getElementById('creatorPreview'); if(cv && isDrawStep() && !crState.stampMode) cv.style.cursor=crState.crPaintTool.cursor(); } });
-  crState.crPaintTool.mount(document.getElementById('crToolSeg'));
-}
-document.getElementById('symBtn').addEventListener('click',e=>{crState.symmetry=!crState.symmetry;e.target.classList.toggle('on',crState.symmetry);});
-document.getElementById('clearBtn').addEventListener('click',()=>{pushHistory();actC().getContext('2d').clearRect(0,0,CANVAS_SZ,CANVAS_SZ);blit();});
-/* 도장 모드 + 파일 입력 + 슬라이더 */
-document.getElementById('stampBtn').addEventListener('click',()=>crStampMod.setStampMode(!crState.stampMode));
-document.getElementById('stampLoad').addEventListener('click',()=>document.getElementById('stampFile').click());
-document.getElementById('stampFile').addEventListener('change',e=>{
-  const f=e.target.files&&e.target.files[0]; if(f) crStampMod.loadStampFromFile(f);
-  e.target.value='';
-});
-document.getElementById('stampApply').addEventListener('click',()=>crStampMod.commitStamp());
-document.getElementById('stampCancel').addEventListener('click',()=>crStampMod.cancelStamp());
-/* ↺ 초기화 — 크기·회전·위치를 처음 불러온 상태로. 도장이 미리보기 밖으로 나가 손잡이를 못 잡게 됐을 때의
-   유일한 복구 통로라, 오버레이가 아니라 **항상 제자리에 있는 패널**에 둔다. */
-{ const sr=document.getElementById('stampReset');
-  if(sr) sr.addEventListener('click', ()=>{ crStampMod.resetStampPlacement(true); }); }
-document.getElementById('blinkResetBtn').addEventListener('click',()=>{ if(crState.crStep!==3)return;
-  pushHistory();   // 되돌리기 가능하게
-  const bx=blinkC.getContext('2d'); bx.clearRect(0,0,CANVAS_SZ,CANVAS_SZ); bx.drawImage(faceC,0,0); crState.blinkEdited=false; blit(); });
-/* 🙂 감은눈 → 표정 (2단계). 위 ⟳ 표정 복사의 **반대 방향**이다.
-   ⚠️ 두 버튼은 대칭이 아니다 — 그 차이가 아래 두 줄의 이유다.
-     · 감은눈은 표정에서 **파생된다**(gotoStep 의 `n===3 && !blinkEdited` 자동 복사). 그래서
-       ⟳ 표정 복사는 "파생 상태로 되돌리기"이고 blinkEdited=false 로 되돌린다.
-     · 표정은 원본이다. 여기서 blinkEdited 를 건드리면 3단계에 들어가는 순간 감은눈이 표정으로
-       다시 덮여서, 방금 가져온 그림이 사라진다. **손대지 않는다.**
-   ⚠️ 감은눈을 한 번도 안 고쳤으면 그 캔버스는 비어 있다(신규 캐릭터는 3단계에 들어가야 채워진다).
-     그대로 복사하면 표정이 통째로 지워지므로 막는다. 버튼도 gotoStep 에서 같이 잠근다.
-   ★ 확인을 묻지 않는다 — pushHistory 를 먼저 하므로 [↶ 되돌리기]와 Ctrl+Z 로 되돌아온다.
-     그게 이 창의 관례고, 팝업을 하나 더 띄우는 것보다 손이 덜 간다. */
-document.getElementById('faceCopyBlinkBtn').addEventListener('click',()=>{ if(crState.crStep!==2)return;
-  if(!crState.blinkEdited){ toast('아직 감은눈을 그린 적이 없어요 — 3단계에서 먼저 그려주세요'); return; }
-  pushHistory();   // 표정은 원본이라 덮어쓰기 전에 반드시 되돌릴 자리를 남긴다
-  const fx=faceC.getContext('2d'); fx.clearRect(0,0,CANVAS_SZ,CANVAS_SZ); fx.drawImage(blinkC,0,0); blit(); });
-document.getElementById('undoBtn').addEventListener('click',undo);
-const ROT_STEP=Math.PI/12;   // 15°
-// ★ 버튼을 꾹 누르면 연속으로 이동하도록(bindHold, 기존 아이템 위치조작 버튼과 동일한 방식) 변경.
-// ◀▶ 버튼·←→ 키도 우클릭 드래그와 같은 부호를 써야 한다 — 안 그러면 같은 창에서 조작끼리 반대로 돈다.
-bindHold(document.getElementById('cpLeft'), ()=>{crState.camYaw-=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;creatorPrevMod.updateCreatorCam();});
-bindHold(document.getElementById('cpRight'), ()=>{crState.camYaw+=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;creatorPrevMod.updateCreatorCam();});
-bindHold(document.getElementById('cpUp'), ()=>{camTarget.y+=0.12;creatorPrevMod.updateCreatorCam();});
-bindHold(document.getElementById('cpDown'), ()=>{camTarget.y-=0.12;creatorPrevMod.updateCreatorCam();});
-// ★ 키보드 방향키로도 동일하게 조작 — 생성기가 열려있을 때만 동작, 꾹 누르면 버튼처럼 연속 이동.
-//   입력창(텍스트 필드 등)에 포커스 중이면 방향키 원래 용도(커서 이동)를 방해하지 않도록 건너뜀.
-function bindCamKey(key, fn){
-  let iv=null, delayTimer=null;
-  const stop=()=>{ if(iv){clearInterval(iv);iv=null;} if(delayTimer){clearTimeout(delayTimer);delayTimer=null;} };
-  document.addEventListener('keydown', e=>{
-    if(!creatorOpen || e.key!==key) return;
-    const tag=(e.target&&e.target.tagName||'').toLowerCase();
-    if(tag==='input'||tag==='textarea') return;
-    e.preventDefault();
-    if(e.repeat) return;   // OS 자체 반복은 무시 — 버튼과 똑같은 리듬(350ms 뒤 60ms 간격)으로만 반복
-    fn();
-    delayTimer=setTimeout(()=>{ iv=setInterval(fn,60); },350);
-  });
-  document.addEventListener('keyup', e=>{ if(e.key===key) stop(); });
-}
-bindCamKey('ArrowLeft',  ()=>{crState.camYaw-=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;creatorPrevMod.updateCreatorCam();});
-bindCamKey('ArrowRight', ()=>{crState.camYaw+=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;creatorPrevMod.updateCreatorCam();});
-bindCamKey('ArrowUp',    ()=>{camTarget.y+=0.12;creatorPrevMod.updateCreatorCam();});
-bindCamKey('ArrowDown',  ()=>{camTarget.y-=0.12;creatorPrevMod.updateCreatorCam();});
-document.getElementById('cpReset').addEventListener('click',()=>{
-  // 현재 단계 그룹의 저장된 카메라를 비우고 그 그룹의 기본 카메라로 되돌림
-  if(crState.crStep<=3){          // 표정·감은눈 그룹
-    crState.faceCamSaved=null;
-    if(cFaceCenter){ camTarget.copy(cFaceCenter); crState.camDist=crState.cFaceDist; crState.camYaw=0; crState.camPitch=0.0; }
-  } else if(crState.crStep>=5){   // 책상·좌석 그룹
-    crState.deskCamSaved=null;
-    creatorPrevMod.frameDeskCam(false);
-  } else {                // 4단계(전신 색상) — 단독
-    camTarget.copy(cBodyCenter); crState.camDist=crState.cBodyDist; crState.camYaw=0; crState.camPitch=0.04;
-  }
-  creatorPrevMod.updateCreatorCam();
-});
-document.getElementById('topColor').addEventListener('input',e=>{crState.cTopColor=e.target.value;if(crState.cBase&&crState.cBase.upMat)crState.cBase.upMat.color.set(crState.cTopColor);if(crState.cBase&&crState.cBase.hatMat)crState.cBase.hatMat.color.set(crState.cTopColor);creatorPrevMod.updateCreatorLights();});
-document.getElementById('botColor').addEventListener('input',e=>{crState.cBotColor=e.target.value;if(crState.cBase&&crState.cBase.loMat)crState.cBase.loMat.color.set(crState.cBotColor);creatorPrevMod.updateCreatorLights();});
-// ★ 런처8: 생성기의 세 컬러픽커에 꾸미기와 동일한 커스텀 팝업을 얹음 — 최근 5색 공유(localStorage 'tw.charColorHistory').
-//   네이티브 <input type="color">는 상태 저장 그릇으로만 남기고 클릭 시 우리 팝업을 대신 띄움.
-const _crColorSw = [];   // 색 입력칸 ↔ 보이는 스와치 짝 (아래 _syncCrColorSwatches 가 쓴다)
-(function bindCreatorCustomColorPickers(){
-  // ★ 런처8: 네이티브 <input type="color">를 숨기고, 그 앞에 눈에 보이는 스와치 버튼을 만들어
-  //   커스텀 팝업만 뜨게 함. (mousedown/click preventDefault로도 못 막는 환경 대비 — 아예 클릭이
-  //   input에 닿지 않게 하는 것이 가장 확실)
-  const bind = (id)=>{
-    const inp=document.getElementById(id); if(!inp) return;
-    if(inp.dataset.customBound) return;   // 이미 붙었다 — 스와치를 두 개 만들지 않는다
-    inp.dataset.customBound = '1';
-    inp.style.display='none';
-    const btn=document.createElement('button'); btn.type='button';
-    btn.className='cr-color-sw';
-    btn.style.cssText='width:46px;height:26px;border-radius:13px;border:1px solid rgba(0,0,0,.12);'
-      +'cursor:pointer;padding:0;vertical-align:middle;';
-    btn.style.background = TwSafeHtml.cssColor(inp.value || '#888888');
-    inp.parentNode.insertBefore(btn, inp);
-    btn.addEventListener('click', e=>{
-      e.preventDefault(); e.stopPropagation();
-      if(typeof window.openCharColorPicker !== 'function') return;
-      window.openCharColorPicker(btn, inp.value, (c)=>{
-        inp.value = c; btn.style.background = TwSafeHtml.cssColor(c);
-        inp.dispatchEvent(new Event('input', {bubbles:true}));
-      });
-    });
-    /* ⚠️ [제보] "옷 색을 바꾸고 수정하러 들어가면 팔레트만 기본색으로 돌아간다."
-       원래 의도는 아래 한 줄이었다 — "외부에서 inp.value 가 갱신되면 스와치도 따라온다".
-       그런데 **`inp.value = …` 는 input 이벤트를 발생시키지 않는다.** 프로그램이 값을 넣는 경우
-       (생성기 재진입 등)에는 이 줄이 한 번도 안 돌고, 스와치는 bind 시점의 HTML 기본값
-       (#9dba8a·#d98e73)에 그대로 멈춰 있다. 진짜 input 요소는 display:none 이라 보이지도 않는다.
-       ★ cTopColor·3D 미리보기·저장은 전부 정상이었다 — 어긋난 것은 스와치 «표시»뿐이라
-         "미리보기는 맞는데 팔레트만 기본색"이라는 제보 문구가 정확히 그 모양이다.
-       ★ 그래서 이벤트에 기대지 않고 **직접 맞추는 창구**(_syncCrColorSwatches)를 둔다.
-         change 도 함께 듣는다 — 브라우저 기본 색상 선택기는 input 없이 change 만 주는 경우가 있다. */
-    inp.addEventListener('input',  ()=>{ btn.style.background = TwSafeHtml.cssColor(inp.value); });
-    inp.addEventListener('change', ()=>{ btn.style.background = TwSafeHtml.cssColor(inp.value); });
-    _crColorSw.push({ inp, btn });
-  };
-  bind('topColor');
-  bind('botColor');
-  bind('deskColor');
-})();
-/* 색 스와치를 지금 값으로 다시 칠한다. 값을 프로그램이 넣은 뒤에는 반드시 이걸 부른다.
-   ★ 요소가 셋뿐이라 비용이 없다 — 잊어버리기 쉬운 자리(단계 이동)에서도 그냥 한 번 더 부른다.
-     "부르는 것을 잊어서 또 어긋나는" 쪽이 실제로 일어난 사고라, 싸게 여러 번 부르는 편을 택했다. */
-function _syncCrColorSwatches(){
-  try{ _crColorSw.forEach(o=>{ if(o.inp && o.btn) o.btn.style.background = TwSafeHtml.cssColor(o.inp.value); }); }catch(_){}
-}
-const skinRow=document.getElementById('skinRow');
-const skinSwatchEls=[];
-SKIN_COLORS.forEach((c,i)=>{const s=document.createElement('button');s.className='skin-sw'+(i===0?' on':'');s.style.background=c;
-  s.onclick=()=>{crState.skinIndex=i;[...skinRow.children].forEach((x,j)=>x.classList.toggle('on',j===i));blit();};   // 스킨은 face 텍스처 베이스로 합성됨
-  skinRow.appendChild(s);skinSwatchEls.push(s);});
-/* 스와치 대표색을 캔버스에서 추출 (평평한 피부 영역 샘플) */
-function swatchColorFromCanvas(cv){try{const p=cv.getContext('2d').getImageData(Math.floor(CANVAS_SZ*0.8),Math.floor(CANVAS_SZ*0.8),1,1).data;return 'rgb('+p[0]+','+p[1]+','+p[2]+')';}catch(e){return null;}}
-function refreshSkinSwatch(i){const col=swatchColorFromCanvas(skinCanvasFor(i));if(col&&skinSwatchEls[i])skinSwatchEls[i].style.background=col;}
-/* 내장된 피부 PNG를 skin[0..4]에 로드 (skin-data.js의 window.SKIN_PNGS) */
-function loadSkins(){const pngs=window.SKIN_PNGS||{};
-  /* ★ 예전엔 실패를 통째로 삼켰다(onerror에서 그냥 resolve). skin-data.js가 로드되지 않았거나 이미지가
-       깨져도 아무 표시 없이 넘어가고, 피부는 초기 단색 채움 상태로 남는다 — 화면상 '피부 텍스처가 없는'
-       상태가 되는데 원인을 알 방법이 없었다(특정 유저만 겪는 제보를 진단하기 어려웠던 이유).
-       실패를 콘솔에 남기고, 전부 실패하면 사용자에게도 알린다. */
-  if(!window.SKIN_PNGS || !Object.keys(pngs).length){
-    console.warn('[피부] skin-data.js의 SKIN_PNGS를 찾지 못했습니다 — 피부 텍스처 없이 단색으로 표시됩니다. 빌드에 skin-data.js가 포함됐는지 확인하세요.');
-    try{ toast('피부 텍스처를 불러오지 못했어요 — 프로그램을 다시 설치해 주세요'); }catch(_){}
-    return Promise.resolve();
-  }
-  let failed=0, total=Object.keys(pngs).length;
-  return Promise.all(Object.keys(pngs).map(k=>new Promise(res=>{const idx=+k;const img=new Image();
-    img.onload=()=>{try{const cv=newCanvas();cv.getContext('2d').drawImage(img,0,0,CANVAS_SZ,CANVAS_SZ);skinCanvases[idx]=cv;refreshSkinSwatch(idx);
-    }catch(e){ failed++; console.warn('[피부] skin['+idx+'] 처리 실패', e); }res();};
-    img.onerror=()=>{ failed++; console.warn('[피부] skin['+idx+'] 이미지 로드 실패'); res(); };
-    img.src=pngs[k];}))).then(()=>{
-      if(failed) console.warn('[피부] '+failed+'/'+total+'개 실패 — 해당 피부는 단색으로 표시됩니다.');
-      if(failed >= total){ try{ toast('피부 텍스처를 불러오지 못했어요 — 프로그램을 다시 설치해 주세요'); }catch(_){} }
-    });}
+const _crDropEraser = creatorCanvasMod._crDropEraser;   // 옛 전역 이름
+const histF = creatorCanvasMod.histF;   // 옛 전역 이름
+const histB = creatorCanvasMod.histB;   // 옛 전역 이름
+const redoF = creatorCanvasMod.redoF;   // 옛 전역 이름
+const redoB = creatorCanvasMod.redoB;   // 옛 전역 이름
+const isDrawStep = creatorCanvasMod.isDrawStep;   // 옛 전역 이름
+const actC = creatorCanvasMod.actC;   // 옛 전역 이름
+const blit = creatorCanvasMod.blit;   // 옛 전역 이름
+const pushHistory = creatorCanvasMod.pushHistory;   // 옛 전역 이름
+const bindPaint = creatorCanvasMod.bindPaint;   // 옛 전역 이름
+const swEl = creatorCanvasMod.swEl;   // 옛 전역 이름
+const _syncCrColorSwatches = creatorCanvasMod._syncCrColorSwatches;   // 옛 전역 이름
+const loadSkins = creatorCanvasMod.loadSkins;   // 옛 전역 이름
 document.getElementById('crNext').addEventListener('click',()=>creatorFlowMod.gotoStep(Math.min(6,crState.crStep+1)));
 // 🐾 동물이 책상(5)에서 [이전] 을 누르면 gotoStep 이 동물 생성기로 돌려보낸다(1~4는 사람용 단계).
 document.getElementById('crPrev').addEventListener('click',()=>creatorFlowMod.gotoStep(Math.max(1,crState.crStep-1)));
@@ -5654,6 +2691,8 @@ const assetCardsMod = TwAssetCards.createAssetCards({
 /* 본문은 creator/desk-setup.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const deskSetupMod = TwDeskSetup.createDeskSetup({
+  NO_DESK_ID: NO_DESK_ID,
+  hideDeskBody: (...a)=>deskVisualMod.hideDeskBody(...a),
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
   DEF_SIZE_TOAST_MS: ()=>creatorSaveMod.DEF_SIZE_TOAST_MS,
   DESK_ITEMS: DESK_ITEMS,
@@ -5666,7 +2705,7 @@ const deskSetupMod = TwDeskSetup.createDeskSetup({
   autoSaveDeskItemsNow: (...a)=>autoSaveDeskItemsNow(...a),
   b64ToBuf: (...a)=>b64ToBuf(...a),
   catalogGlbMod: ()=>catalogGlbMod,
-  catalogNet: ()=>window.firebaseAPI,
+  catalogAdmin: catalogAdmin,
   clampDeskScale: (...a)=>clampDeskScale(...a),
   commissionMod: ()=>commissionMod,
   crState: crState,
@@ -5675,7 +2714,7 @@ const deskSetupMod = TwDeskSetup.createDeskSetup({
   deskItemsMod: ()=>deskItemsMod,
   equipDeskItem: (...a)=>equipDeskItem(...a),
   isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
+  licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),
   lightToneMod: ()=>lightToneMod,
   ndc: ndc,
   premiumMod: premiumMod,
@@ -5799,26 +2838,8 @@ const assetImportMod = TwAssetImport.createAssetImport({
   toast: (...a)=>toast(...a),
 });
 assetImportMod.onPartAdded(()=>wardrobeMod.renderWardrobe());   // 파츠를 넣으면 꾸미기 창을 다시 그린다(꾸미기가 이 창을 열기도 해서 deps 대신 구독)
-/* 본문은 shared/light-tone.js 로 옮겼다(C 구역 떼기 w4). 
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
-const lightToneMod = TwLightTone.createLightTone({
-  _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
-  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,
-  _fixGlbMatLighting: (...a)=>_fixGlbMatLighting(...a),
-  charCore: TwCharCore,
-});
-const LIGHT_PRESET = lightToneMod.LIGHT_PRESET;   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 읽는다(도메인 단계에서 걷는다)
-/* 🎀 파츠를 캐릭터에 붙일 한 벌로 만들기(복제 · 재질 · _col · _pic · 리깅 판정 · 다시 묶기 · wrapper · 저작 오프셋)는 캐릭터 코어(src/parts.ts · #436).
-   좌석 몫(장착 차례 · 옷 겹침 · 귀 까닥임 · 애니메이션 · 진단)은 equipPartOnSeat 에 남는다. */
-const partsCore = TwCharCore.createParts({
-  THREE,
-  tone: lightToneMod.toneCore,
-  applyPartMatTone: (m)=>lightToneMod._applyPartMatTone(m),
-  forceOpaqueAlphaOutput: (m)=>partSceneMod._forceOpaqueAlphaOutput(m),
-  meshIsPic: (o)=>partPaintMod.meshIsPic(o),
-  picRepairUV: (o)=>partPaintMod._picRepairUV(o),
-  uvLooksBroken: (o)=>partPaintMod.g_uvLooksBroken(o),
-});
+/* 본문은 shared/light-tone.js 로 옮겼다(C 구역 떼기 w4) — 만드는 줄은 💡 조명 상수 바로 뒤(메인 씬 조명이 쓴다). */
+const LIGHT_PRESET = lightToneMod.LIGHT_PRESET;   // 옛 전역 이름 — app.js 안에서 쓴다(animal.js 는 deps 로 받는다)
 
 /* ===== 관리자 모드 =====
    진입: Ctrl(Mac 은 ⌘) 누른 채로 후원 · 캐릭터 생성 · 꾸미기 · 광고배너 중 하나를 한 번 클릭 → 비밀번호 창(bindAdminTrigger)
@@ -5830,23 +2851,78 @@ const partsCore = TwCharCore.createParts({
 const ADMIN_PASS_HASH = 'e33bd90cf3f9275efe7f408f8a435bbeadc9d22e42601d37b68dfba281661a35';
 let isAdmin = false;
 
-/* ============================================================ 라이선스 (직접 발급) — 프리미엄(꾸미기) 잠금 해제
-   관리자가 관리자 모드에서 키를 직접 발급 → 구매자에게 전달(직거래) → 구매자가 앱에 입력하면
-   Firebase(licenses/{key})에서 유효성 확인 → 통과 시 로컬(localStorage)에 저장. */
-/* ═══════════════════════ 🎟️ 초대장 (앱 접근 제한) ═══════════════════════
-   정책:
-     · 기존 유저(users/{uid}가 이미 있음) → 무조건 통과 + 초대권 5장 부여(최초 1회, grandfather)
-     · 초대 코드로 들어온 신규 유저 → 초대권 0장 → 확산이 1세대에서 멈춤
-     · 관리자 → 무제한 발급 + 유저에게 초대권 추가 지급 가능
-   ⚠️ 스위치는 원격 설정 flags.inviteGate(remote-config.js · API · 없으면 true). false면 게이트가 아예 안 뜬다.
-      부팅 때 한 번 정한다 — initInviteGate 가 첫 답을 잠깐 기다린 뒤 checkInviteGate 를 부른다(못 읽으면 true).
+/* ═══════════════════════ 🎟️ 게이트 — 로그인 · 가입 (앱 접근 제한) ═══════════════════════
+   0.13 — 로그인 없이 쓰는 길은 없다(ADR-0006). 가입 · 초대 코드 판정 · 초대권은 서버가 한다(초대 게이트 스위치는 서버 user.inviteGate —
+   꺼져 있으면 초대 코드 없이 가입). 켤 때 판정 순서는 license-gate.js checkInviteGate 머리말.
 ──────────────────────────────────────────────────────────────────── */
-let isPremium = false;   // 프리미엄 여부 — 여러 모듈이 읽어 app.js 에 둔다. 바꾸는 곳은 license-gate.js 의 _setPremium 하나
-/* 🪪 계정 핵심 상태(라이선스 저장 키 · 초대 통과 · 프리미엄 깃발 바꾸기 · 신원 놓음 · 다시 켜기)는 account-state.js 에 —
+let isPremium = false;   // 프리미엄 여부 — 여러 모듈이 읽어 app.js 에 둔다. 바꾸는 곳은 account-state.js 의 _setPremium 하나
+/* 🪪 계정 핵심 상태(라이선스 저장 키 · 프리미엄 깃발 바꾸기 · 신원 놓음 · 다시 켜기)는 account-state.js 에 —
    계정 · 초대 게이트 · 내 정보 · 포커스 레벨이 서로를 바라보지 않게(모듈 순환 끊기 5). isPremium 은 여기(app.js) 그대로, 바꾸는 곳은 _setPremium 하나 */
 const acctStateMod = TwAccountState.createAccountState({
   isPremium: ()=>isPremium,
+  isAdmin: ()=>isAdmin,
   setIsPremium: (v)=>{ isPremium = v; },
+});
+/* 🔑 로그인 흐름(account/login-flow.js) — 로그인 → 서버 가입 확인(GET /v2/me) → realtime 켜기 · 서버에 닿지 못했을 때 기다리기. Auth 원시 · 서버 통로 · realtime 은 부를 때 찾는다. */
+const userApiMod = TwUserApi.store;   // 🪪 계정 provider(account/user-api.js) — 서버 user · invite 길 · 화면 문구
+TwVisitPing.createVisitPing({ callPing: ()=>userApiMod.visit(), win: window }).start();   // 📈 방문 기록 — 켤 때 한 번(로그인과 상관없이 · 실패는 삼킴)
+const loginFlowMod = TwLoginFlow.createLoginFlow({
+  userApi: userApiMod,
+  translate: (e)=>TwApiErrors.translate(e),
+  reasonOf: (e)=>TwUserApi.reasonOf(e),
+  auth: {
+    ready: ()=>new Promise((res)=>TwNetReady.whenNetReady(res)).then(()=>firebaseAPI.authReady()),
+    user: ()=>(TwNetReady.isNetReady() ? firebaseAPI.authUser() : null),   // 준비 전엔 «로그인 모름» — 사본도 안 읽는다
+    restoring: ()=>firebaseAPI.authRestoring(),
+    answered: (ms)=>firebaseAPI.authAnswered(ms),
+    signInGoogle: (tok)=>firebaseAPI.authSignInWithGoogle(tok),
+    signInPassword: (code, pw)=>firebaseAPI.authSignInWithFriendCode(code, pw),
+    signOut: ()=>firebaseAPI.authSignOut(),
+    identity: ()=>({ email: firebaseAPI.authCurrentEmail(), uid: firebaseAPI.authCurrentUid() }),
+  },
+  googleWindow: ()=>companion.signInWithGoogle(),
+  rt: { start: (o)=>TwRtHub.store.start(o), stop: ()=>TwRtHub.store.stop(), bye: (why)=>TwRtHub.store.bye(why), onState: (fn)=>TwRtHub.store.onState(fn), isDeviceOff: (s)=>TwRtHub.isDeviceOff(s) },
+  leaveRoom: ()=>Promise.resolve(Presence.active() ? twNav.go(twNav.NAV.LEAVE_ROOM) : null),   // 로그아웃 차례 — 방 leave 가 realtime 작별보다 먼저(방 모듈은 창 열기 통로로 — 순환 없이)
+  pending: TwRequestId.createPending(),
+  storage: localStorage,
+  onSessionLost: (kind)=>deviceLostMod._onDeviceSessionLost(kind),
+  forgetSession: ()=>TwApi.authed.forgetSession(),
+  now: ()=>Date.now(),
+  onConfirmed: (r, info)=>TwLoginDiag.store.confirmed(r, info),   // 🩺 켤 때 로그인 진단(account/login-diag.js)
+});
+/* 🚚 0.13 첫 실행(account/first-run-013.js) — 로그인 → 캐릭터 올리기 → 라이선스 키 → 포커스 옛 누적 → 이 PC 키 지우기. 라이선스 단계는 이 PC 의 옛 키를 서버에 등록한다(D8-3). */
+/* 설정 › 라이선스로 가는 [설정 열기] 달린 안내 — 첫 실행 기기 가득 안내 · 자동 등록 기기 가득 안내가 같이 쓴다 */
+const licenseSettingsToast = (msg)=>toast(msg, undefined, 7000, { label: '설정 열기', onClick: ()=>twNav.go(twNav.NAV.PROGRAM_SETTINGS, 'license') });
+const firstRunMod = TwFirstRun013.createFirstRun({
+  steps: {
+    login: TwFirstRun013.loginStep(()=>loginFlowMod.mode() === 'in'),
+    gacha: TwFirstRun013.gachaStep(),
+    mallang: TwFirstRun013.mallangStep(localStorage),
+    myhome: TwFirstRun013.myhomeStep(localStorage),
+    legacySync: ()=>closetMod.legacyStep(),
+    licenseKey: TwFirstRun013.licenseKeyStep({
+      storage: localStorage,
+      activate: (key)=>licensePremiumMod.activate(key),
+      optOut: ()=>licensePremiumMod.optOutAtStart(),
+      optOutKey: TwLicensePremium.OPT_OUT_KEY,
+      fullNotice: TwLicensePremium.FULL_NOTICE,
+    }),
+    focus: TwFirstRun013.focusStep({
+      storage: localStorage,
+      userCode: ()=>getMyUserId(),
+      cellName: (code, key)=>TwAccountStore.cellName(code, key),
+      accrue: (sec)=>focusProgressMod.legacyAccrue(sec),
+    }),
+    chal: TwFirstRun013.chalStep({
+      storage: localStorage,
+      userCode: ()=>getMyUserId(),
+      cellName: (code, key)=>TwAccountStore.cellName(code, key),
+      adoptToday: (today)=>chalStoreMod.adoptLegacyToday(today),
+    }),
+  },
+  storage: localStorage,
+  userCode: ()=>getMyUserId(),
+  notify: (msg, action)=>{ if(action === 'openSettings') licenseSettingsToast(msg); else toast(msg); },
 });
 /* 🔑 구글을 계정에 처음 붙이기 전에 묻는 창(google-confirm.js) — 초대 게이트 · 계정 · 구글 연결하기가 같이 쓴다 */
 const googleConfirmMod = TwGoogleConfirm.createGoogleConfirm({
@@ -5857,107 +2933,111 @@ const googleConfirmMod = TwGoogleConfirm.createGoogleConfirm({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const licenseGateMod = TwLicenseGate.createLicenseGate({
   googleConfirmMod: googleConfirmMod,
+  refreshTheme: (...a)=>themeUiMod.refreshCustom(...a),
+  refreshFont: (...a)=>fontUiMod.premiumChanged(...a),
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
   FRIEND_CODE_LOGIN_RE: ()=>acctStateMod.FRIEND_CODE_LOGIN_RE,
-  HAD_USER_ID_AT_BOOT: HAD_USER_ID_AT_BOOT,
-  LOGIN_EMAIL_KEY: ()=>acctStateMod.LOGIN_EMAIL_KEY,
-  LOGIN_UID_KEY: ()=>acctStateMod.LOGIN_UID_KEY,
-  MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
-  _applyTransferSnapshot: (...a)=>accountMod._applyTransferSnapshot(...a),
-  _inventMyUserId: (...a)=>_inventMyUserId(...a),
   _loginDoFriendCode: (...a)=>accountMod._loginDoFriendCode(...a),
   _loginDoGoogle: (...a)=>accountMod._loginDoGoogle(...a),
-  _loginLocalSnapshot: (...a)=>accountMod._loginLocalSnapshot(...a),
-  _setMyUserId: (...a)=>_setMyUserId(...a),
+  _enterAccount: (...a)=>accountMod._enterAccount(...a),
+  twNav: twNav,
+  _wipeAccountLocal: (...a)=>accountMod._wipeAccountLocal(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  loginFlowMod: loginFlowMod,
+  userApiMod: userApiMod,
+  inviteIds: TwRequestId.createPending(),
   applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),
   applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),
   awayPicMod: ()=>awayPicMod,
   creatorOpen: ()=>creatorOpen,
-  genFriendCodeCandidate: (...a)=>genFriendCodeCandidate(...a),
-  getMyLoginEmail: (...a)=>acctStateMod.getMyLoginEmail(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
-  isAdmin: ()=>isAdmin,
-  pruneUnownedLicenseAssets: (...a)=>premiumMod.pruneUnownedLicenseAssets(...a),
   refreshAccountTab: (...a)=>accountMod.refreshAccountTab(...a),
   refreshCustomStatusMenuItem: (...a)=>refreshCustomStatusMenuItem(...a),
-  refreshTheme: (...a)=>themeUiMod.refreshCustom(...a),
-  refreshFont: (...a)=>fontUiMod.premiumChanged(...a),
+  refreshLauncherPreview: ()=>{ const lc=document.getElementById('launcher'); if(lc && lc.classList.contains('on') && slots[curSlot]) renderLauncher(); },
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   renderCrItems: (...a)=>deskSetupMod.renderCrItems(...a),
-  restoreLicenseHeldAssets: (...a)=>premiumMod.restoreLicenseHeldAssets(...a),
   seats: seats,
-  setUserStatus: (...a)=>setUserStatus(...a),
   toast: (...a)=>toast(...a),
-  userStatus: ()=>userStatus,
-  INVITE_PASS_KEY: acctStateMod.INVITE_PASS_KEY,
-  LICENSE_KEY_STORAGE: acctStateMod.LICENSE_KEY_STORAGE,
-  LICENSE_OPTOUT_KEY: acctStateMod.LICENSE_OPTOUT_KEY,
-  _markInvitePassed: (...a)=>acctStateMod._markInvitePassed(...a),
-  _setPremium: (...a)=>acctStateMod._setPremium(...a),
   onPremiumChanged: acctStateMod.onPremiumChanged,
   _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),
+  takeLeft: ()=>acctStateMod.takeLeft(),
   _rcStore: (...a)=>acctStateMod._rcStore(...a),
 });
-
 
 /* 📊 전체 통계 · 🎟️ 초대권 지급(관리자) — admin/admin-users.js. 초대장 구역 모듈(license-gate.js) 밖, 여기서 만든다(모듈 연결은 app.js). */
 const adminUsers = TwAdminUsers.createAdminUsers({
   toast: (...a)=>toast(...a),
   inviteGrantMax: licenseGateMod.INVITE_GRANT_MAX,
+  adminApi: adminApi,
+  apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+});
+/* 🔑 프리미엄 판정(account/license-premium.js) — 서버 확인(GET /v2/me 의 premium)만 isPremium 에 반영한다. 시작은 켜는 차례(app-boot 의 licensePremium) 한 곳 —
+   아니면 계정의 라이선스에 이 기기를 자동 등록해 본다(해제 표시 tw.licenseOptOut 이 있으면 안 한다).
+   키 등록 · 이 기기 해제 버튼(license-key.js)도 여기를 부른다. */
+const licensePremiumMod = TwLicensePremium.createLicensePremium({
+  userApi: userApiMod,
+  licenseApi: TwLicenseApi.store,
+  deviceId: ()=>TwDeviceId.store.get(),
+  deviceName: ()=>TwLicenseApi.deviceNameOf(navigator.userAgent),
+  setPremium: (v)=>acctStateMod._setPremium(v),
+  isPremium: ()=>isPremium,
+  rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
+  resetKnown: ()=>acctStateMod.resetPremium(),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  reasonOf: (e)=>TwUserApi.reasonOf(e),
+  resetCustomStatus: ()=>{ if(userStatusMod.userStatus()==='custom') setUserStatus(null); },   // 프리미엄을 놓으면 커스텀 상태는 기본으로
+  storage: localStorage,
+  toast: (...a)=>toast(...a),
+  toastFull: (msg)=>licenseSettingsToast(msg),
 });
 
-/* ═══ 🪑 [2026-09-18 제보 2] 라이선스 없는 기기에 남은 전용 자산을 **접어 둔다** ═══════════
-   [증상] 제보자(보유자) 화면에서 친구(미보유)가 가판대 책상을 착용한 것으로 보인다. 친구 화면에는
-     안 보이고, 방을 나갔다 들어오거나 런처를 껐다 켜도 유지된다.
-   [원인] 게이트가 **그리기만 막고 저장·전파는 안 막는다.**
-     · applyDeskCatalogRefToSeat 의 게이트는 `!seat.remote` 라 내 좌석에만 걸린다(그것은 의도이고 옳다 —
-       빼면 보유자 친구의 책상이 미보유자 화면에서만 기본 책상으로 보인다. 옛 제보다).
-     · 그런데 게이트에 걸린 쪽은 charDef.deskCatalogId 를 **그대로 들고 있고**, 그 값이
-       serializeDefForNetwork(Object.assign 통째 복사)를 타고 방으로 나간다. 받는 쪽은 remote 라
-       게이트 없이 그린다. 저장값이라 재입장·재시작에도 남는다.
-   [왜 지우지 않고 접어 두는가] 라이선스는 키 한 줄이면 다시 켜진다(activateLicense ·
-     _applyTransferSnapshot 의 r.license). 지워 버리면 재등록해도 책상이 안 돌아온다 — 그것이
-     예전에 「charDef 는 손대지 않는다」로 결정한 이유였다. 그래서 값을 **옮겨 적는다**:
-       deskCatalogId → deskLicenseHold · deskItems[id] → deskItemsLicenseHold[id]
-       · 좌석은 기본 책상으로 떨어진다(내 화면에서 해제된다)
-       · serializeDefForNetwork 가 이 두 필드를 빼므로 **친구 화면에서도 사라진다**
-       · 라이선스가 켜지면 restoreLicenseHeldAssets 가 그대로 되돌린다
-   ⚠️ **카탈로그가 도착하기 전에는 아무것도 안 한다.** licenseOnly 는 savedDesks/savedItems 의
-     레코드에만 있다. 조회 실패를 「전용 아님」으로도 「전용」으로도 단정하지 않는다 —
-     pruneUnownedGachaParts 가 savedParts 조회 실패를 다루는 관례와 같다.
-   ⚠️ **위조 방어가 아니다.** 라이선스는 localStorage 에 있고 계정에 안 묶인다(_setPremium 위 주석).
-     이것은 «남은 저장값 청소» 이고, 서버 규칙으로 막는 일과 섞지 말 것.
-   ★ 조용히 돈다 — 토스트가 없다. 못 쓰는 것을 원래대로 되돌리는 일이라 사용자에게 알릴 사건이
-     아니라는 결정(2026-09-18). 콘솔에는 남겨서 다음 제보 때 읽을 수 있게 한다.
-   ★ 이 둘은 **한 쌍**이다. 접기만 두고 되돌리기를 빠뜨리면 라이선스를 등록해도 책상이 안 돌아온다
-     — sim-license-leak.js 가 그 짝을 본다. */
-/* (앱 FSD 37번) 이 자리의 본문도 premium-assets.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* ═══ 🔐 라이선스 · 초대 게이트 시작 · 관리자 모드 진입 ═══ */
-// 앱 시작 시: 로컬에 저장된 키가 있으면 일단 프리미엄으로 간주(오프라인에서도 꾸미기 사용 가능하게),
-// 동시에 백그라운드로 재검증해서 (관리자가 비활성화한 경우 등) 무효화됐으면 조용히 잠금.
-(function initLicense(){
-  const key = licenseGateMod.loadLicenseFromStorage();
-  if(key){
-    // firebaseAPI가 module script 로드 지연으로 아직 없을 수 있으니 준비될 때까지 기다렸다 재검증
-    const doVerify = () => licenseGateMod.verifyLicense(key).then(r=>{
-      if(!r.ok && !r.offline){ try{localStorage.removeItem(acctStateMod.LICENSE_KEY_STORAGE);}catch(e){} acctStateMod._setPremium(false); }   // 회수된 키 — 내 책상도 같이 기본으로 돌아간다
-    });
-    TwNetReady.whenNetReady(doVerify);
-  }
-})();
-
 // 🎟️ 앱 시작 시 초대장 게이트 — firebaseAPI가 준비된 뒤에 확인.
 //   원격 설정 inviteGate 가 false면 checkInviteGate가 즉시 통과시키므로 아무 일도 안 일어남.
 //   ★ 이 PC 저장값이 있으면 기다리지 않는다 — 저장값으로 바로 판단하고, 새 값은 뒤에서 받아 다음 부팅부터.
 //     저장값이 없을 때(처음 켠 PC)만 두 스위치의 첫 답을 최대 3초 기다린다 — 못 받으면 기본값(true · 예전 동작).
 const REMOTE_FLAGS_WAIT_MS = 3000;
+const MIN_APP_VER_WAIT_MS = 7000;   // 최소 버전 첫 답을 이만큼만 기다린다(update-flow.js 읽기 상한 8초보다 짧게) — 넘으면 막지 않는다
+/* 🔄 켤 때 업데이트 흐름(update-flow.js) — 업데이트 창 → 공지 창 → 로그인. 강제 창이 뜨면 로그인으로 넘어가지 않는다. */
+const _updRc = acctStateMod._rcStore();
+const updateFlowMod = TwUpdateFlow.createUpdateFlow({
+  readMin: ()=> _updRc ? _updRc.ready(null, MIN_APP_VER_WAIT_MS).then(()=>_updRc.minAppVer()) : null,
+  getMin: ()=> _updRc ? _updRc.minAppVer() : null,
+  onMinChange: (fn)=> _updRc ? _updRc.onChange((cur, key)=>{ if(key === 'minVersion') fn(); }) : ()=>{},
+  getVersion: ()=>window.companion ? window.companion.getAppVersion() : null,
+  companion: window.companion || null,
+  ui: TwUpdateFlow.createUpdateDom(document),
+  noticeOnce: (fn)=>noticeFeed.onceReady(fn),
+  showNotice: (n, done)=>_showUpdateNoticeOnce(n, done),
+});
+/* 🔄 계정 판 맞추기(account/app-version-sync.js) — 시작은 계정 확인 뒤 app-boot 의 appVersion 차례. 더 새 판을 쓰는 기기가 있으면 업데이트 강제 창(문구만 다르다). */
+const appVersionSyncMod = TwAppVersionSync.createAppVersionSync({
+  authed: TwApi.authed,
+  getVersion: ()=>window.TwAppVersion.ready,
+  block: (my, highest)=>updateFlowMod.forceAccount(highest),
+  warn: (...a)=>console.warn(...a),
+});
+/* 🛰 realtime 끊김 화면(realtime/rt-status-ui.js) — 다시 연결 중 띠 · 로그인 풀림 · 계정 로그아웃 · 업데이트 강제 · 점검 · 모르는 닫힘 */
+TwRtStatusUi.createRtStatusUi({
+  rt: TwRtHub.store, inRoom: ()=>Presence.active(), band: TwRtStatusUi.createRtBandDom(document),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  toLogin: ()=>accountMod._loginDoLogout({ force:true }).then(()=>acctStateMod._acctRelaunchAfterDetach(null)),   // 다시 켜면 게이트가 로그인 화면
+  withdrawing: ()=>accountMod.withdrawing(),
+  forceUpdate: ()=>updateFlowMod.forceProtocol(),
+  maintenance: (retry, onDismiss)=>TwMaintenance.store.serverClosed(retry, onDismiss),
+  setTimeout: (f, ms)=>setTimeout(f, ms), clearTimeout: (h)=>clearTimeout(h),
+});
 (function initInviteGate(){
+  // 업데이트 흐름은 Firebase 준비를 기다리지 않고 바로 시작한다 — firebase-init 이 깨진 판도 새 판 확인 · 받기로 고칠 수 있게. 로그인만 둘 다 기다린다.
+  const flowP = updateFlowMod.runBeforeLogin();
   const run = async ()=>{
     const _s = acctStateMod._rcStore();
-    if(_s && _s.source() === 'default'){ try{ await _s.ready(['inviteGate','existingSignup'], REMOTE_FLAGS_WAIT_MS); }catch(_){} }
-    licenseGateMod.checkInviteGate()
-      .then(()=>{ licenseGateMod.refreshInviteBtn(); return licenseGateMod._existingSignupCheck(); })   // 🪪 I — 초대 게이트를 지난 뒤 한 번(설계 §3)
-      .then(shownI => (shownI ? true : licenseGateMod._needLoginCheck()))                 // 🔐 K — I 가 아니면(이미 묶인 uid) 로그인이 맞는지(§9-11)
+    if(_s && _s.source() === 'default'){ try{ await _s.ready(['inviteGate'], REMOTE_FLAGS_WAIT_MS); }catch(_){} }
+    const flow = await flowP;
+    if(!flow.proceed) return;   // 강제 업데이트 — 창이 앱을 막고 있다
+    licenseGateMod.checkInviteGate()   // 🔑 로그인 · 서버 가입 확인 → 게이트(필요하면) · realtime · 0.13 첫 실행
+      .then(()=>{ licenseGateMod.refreshInviteBtn(); })
       .catch(err=>{ console.warn('[invite] 게이트 확인 실패', err); });
   };
   TwNetReady.whenNetReady(run);
@@ -5971,7 +3051,11 @@ const adminMode = TwAdminMode.createAdminMode({
   adminPassHash: ADMIN_PASS_HASH,
   isAdmin: ()=>isAdmin,
   setIsAdmin: (v)=>{ isAdmin = v; },
-  savedParts: ()=>premiumMod.savedParts(),
+  twNav: twNav,
+  session: ()=>appBoot.getSession(),
+  identity: ()=>loginFlowMod.identity(),
+  adminApi: adminApi,
+  apiErrors: TwApiErrors.store,
 });
 /* ═══ 💡 얼굴 텍스처 갈아끼우기 · 생성기 조명 ═══ */
 /* 본문(setFaceMap · applyLightPresetToInstance)은 character/mat-tone.js 로 옮겼다(C 구역 떼기 · w3).
@@ -5996,10 +3080,9 @@ const creatorPrevMod = TwCreatorPreview.createCreatorPreview({
   HAND_REST: ()=>HAND_REST,
   LIGHT_PRESET: lightToneMod.LIGHT_PRESET,
   M: M,
-  _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
-  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,
   _setDeskMatColor: (...a)=>lightToneMod._setDeskMatColor(...a),
   _sweepOrphanPartWrappers: (...a)=>_sweepOrphanPartWrappers(...a),
+  addRunLights: (...a)=>lightToneMod.addRunLights(...a),
   allDeskItems: (...a)=>deskItemsMod.allDeskItems(...a),
   bindPaint: (...a)=>bindPaint(...a),
   boneSide: (...a)=>boneSide(...a),
@@ -6047,6 +3130,7 @@ const creatorPrevMod = TwCreatorPreview.createCreatorPreview({
   measureUnderfootDepth: (...a)=>charMeasureMod.measureUnderfootDepth(...a),
   mkFaceTex: (...a)=>mkFaceTex(...a),
   normalizeModel: (...a)=>normalizeModel(...a),
+  runLightInts: (...a)=>lightToneMod.runLightInts(...a),
   sizeFloorTo: (...a)=>sizeFloorTo(...a),
   skinColorFor: (...a)=>skinColorFor(...a),
   skinIndex: ()=>crState.skinIndex,
@@ -6123,153 +3207,62 @@ const creatorFlowMod = TwCreatorFlow.createCreatorFlow({
   setCreatorOpen: (v)=>{ creatorOpen = v; },
 });
 creatorFlowMod.onItemsStep(()=>deskSetupMod.renderCrItems());   // 5단계 아이템 목록 — 구독으로 잇는다(creator-flow ↔ desk-setup 순환 없게)
-/* 생성기 여는 입구 — 동물 생성기 · 종족 선택창 · 친구 추가 · 런처가 부르고, 동물이면 동물 생성기로 되돌리는 연결 자리라 app.js 에 둔다
-   (creator-flow.js 로 옮기면 animal.js ↔ 생성기 모듈 순환이 생긴다). 3D 는 creatorPrevMod · 단계는 creatorFlowMod. */
-function openCreator(mode){
-  creatorPrevMod.ensureCreatorPreview();
-  // ★ 꾸미기 창이 켜진 채로 생성기를 열면 같은 종류의 "떠 있는 채 안 닫힘" 문제가 생길 수 있어 미리 닫음(저장하며 — backToLauncher 와 같다).
-  const wp=document.getElementById('wardrobePanel');
-  if(wp && wp.classList.contains('on') && typeof window.closeWardrobe==='function'){ try{ window.closeWardrobe(); }catch(_){} }
-  if(wp) wp.classList.remove('on');
-  const wdp=document.getElementById('wdPreviewPanel'); if(wdp) wdp.classList.remove('on');
-  creatorMode=mode||{kind:'slot',edit:false};
-  // ★ 진입 시점에 런처 화면이 보이고 있었는지 기록 — 아래에서 launcher의 'on'을 강제로 뺄 것이므로,
-  //   완료/닫기 시 이 값을 보고 되돌려야 함(안 그러면 런처에서 우클릭 수정 후 완료 눌렀을 때 화면이 통째로 사라짐).
-  creatorMode.cameFromLauncher = document.getElementById('launcher').classList.contains('on');
-  let src=null;
-  if(creatorMode.kind==='slot'&&creatorMode.edit) src=slots[creatorMode.slot];
-  if(creatorMode.kind==='seat') src=creatorMode.seat.charDef;
-  crState.currentCreatorDef = src;   // 커미션 여부 등 판정용 (gotoStep·잠금에서 사용)
-  // 🐾 동물 편집은 모양(동물 생성기)부터 — 거기서 [다음 → 책상·좌석] 이 fromAnimal 을 달고 다시 이리로 온다
-  if(_editRoute && _editRoute.entryRoute(src, creatorMode)==='animal' && reopenAnimalFromCreator('face')) return;
-  faceC.getContext('2d').clearRect(0,0,CANVAS_SZ,CANVAS_SZ);blinkC.getContext('2d').clearRect(0,0,CANVAS_SZ,CANVAS_SZ);
-  histF.length=0;histB.length=0;redoF.length=0;redoB.length=0;
-  if(src){faceC.getContext('2d').drawImage(src.face,0,0);blinkC.getContext('2d').drawImage(src.blink,0,0);crState.cTopColor=src.top;crState.cBotColor=src.bot;crState.skinIndex=src.skin||0;}
-  else{crState.cTopColor='#9dba8a';crState.cBotColor='#d98e73';crState.skinIndex=0;}
-  if(crState.cBase) crState.cBase.charDef = src;   // applyPartXf가 파츠별 위치/크기(xf)를 찾을 때 필요 — 실제 파츠 부착은 베이스 재구성 이후(swapCreatorBaseTo* 다음)에 함
-  crState.blinkEdited=!!src;   // 편집이면 기존 감은눈 유지, 신규면 3단계에서 표정을 복사해 시작
-  document.getElementById('topColor').value=crState.cTopColor;document.getElementById('botColor').value=crState.cBotColor;
-  _syncCrColorSwatches();   // ★ value 대입은 input 이벤트를 안 낸다 — 스와치는 여기서 직접 맞춘다
-  [...document.getElementById('skinRow').children].forEach((x,j)=>x.classList.toggle('on',j===crState.skinIndex));
-  if(crState.cBase){ if(crState.cBase.upMat)crState.cBase.upMat.color.set(crState.cTopColor); if(crState.cBase.loMat)crState.cBase.loMat.color.set(crState.cBotColor); if(crState.cBase.hatMat)crState.cBase.hatMat.color.set(crState.cTopColor); }
-  creatorPrevMod.updateCreatorLights();   // 수정 진입 시에도 emissive 톤 갱신
-  /* 🧍 높이는 살리고 앞뒤는 죽인다 — z 는 폐기된 값이라 옛 저장본이 무엇을 갖고 있든 0 으로 읽는다.
-     ★ 이 함수 말고도 읽는 자리가 넷 더 있다(applyCharToSeat · 런처 미리보기 · 꾸미기 미리보기 ·
-       프리셋 로드). 전부 0 으로 죽여야 "어느 화면에서만 옛 앞뒤가 살아 있는" 상태가 안 생긴다. */
-  crState.cXform = (src&&src.xf) ? {s:src.xf.s, y:clampCharY(src.xf.y), z:0, rot:src.xf.rot} : {s:0.7,y:0,z:0,rot:0};
-  // ★ 방어: 예전 저장 데이터에 xf.s가 없거나 0이면 cXform.s가 0이 되어 fitCreator에서 캐릭터 크기가
-  //   0으로 계산되던 버그(첫 진입 시 캐릭터 축소 원인). 유효한 값(>0)이 아니면 기본 슬라이더 중간값으로.
-  if(!(typeof crState.cXform.s==='number' && isFinite(crState.cXform.s) && crState.cXform.s>0)) crState.cXform.s = 0.7;
-  crState.cXform.y = clampCharY(crState.cXform.y);   // 🧍 NaN·음수·상한 초과를 한 곳에서 정리
-  crState.cXform.z = 0;                      // 🚫 폐기
-  if(typeof crState.cXform.rot!=='number' || !isFinite(crState.cXform.rot)) crState.cXform.rot = 0;
-  crState.faceCamSaved=null; crState.deskCamSaved=null;
-  crState.cDeskColor = (src&&src.deskColor) || '#c9a36a';
-  if(crState.cDeskMat) crState.cDeskMat.color.set(crState.cDeskColor);
-  customItems={}; crState.cDeskTemplate=null; crState.cDeskGlbB64=null; crState.cDeskScale=clampDeskScale((src&&src.deskScale)||DESK_SCALE_DEFAULT);
-  crState.cDeskPos = (src && src.deskPos) ? {x:+src.deskPos.x||0, y:+src.deskPos.y||0, z:+src.deskPos.z||0} : {x:0,y:0,z:0};   // 세션 커스텀 에셋 초기화(기본은 슬라이더 중간값, 범위 벗어난 옛날 값은 clamp)
-  crState.cDeskLenX = (src&&src.deskLenX) || 1;
-  const lenEl=document.getElementById('deskLenX'); if(lenEl) lenEl.value=crState.cDeskLenX;
-  crState.activeCustomDeskId=null;
-  if(crState.cDesk){ deskPlaceMod.setCreatorDeskScale(crState.cDeskScale); deskPlaceMod.setDeskPos(crState.cDesk, crState.cDeskPos); crXformMod.updateDeskPosNum(); }
-  if(crState.cBase){ creatorPrevMod.applyCreatorXform(); creatorPrevMod.clearCreatorItems(); creatorPrevMod.clearCreatorParts();   /* 🪑 이전 세션의 '책상 위' 파츠까지 걷어낸다(아래 applyEquippedPartsToSeat 가 다시 붙인다) */
-    if(crState.cDesk)crState.cDesk.userData.deskScale=crState.cDeskScale; deskVisualMod.swapDeskVisual(crState.cDesk,null);
-    (async()=>{
-      if(src&&src.deskCatalogId){
-        const m=commissionMod.savedDesks().find(d=>d.id===src.deskCatalogId);
-        /* 🔒 [2026-09-15] 라이선스가 빠진 뒤 남은 전용 책상 참조는 생성기에 싣지 않는다 — 실으면 저장 때
-           deskCatalogId 가 다시 굳어 실행 화면에서 매번 기본 책상으로 떨어지는 상태가 이어진다. 기본 책상으로 열린다. */
-        if(m && m.licenseOnly && !isPremium && !isAdmin){ toast('🔒 "'+(m.name||'이 책상')+'"은(는) 라이선스 보유자만 사용할 수 있어요 — 기본 책상으로 열어요'); }
-        else if(m){
-          if(!m.glb && m.glbUrl){
-            try{ await catalogGlbMod.resolveCatalogGlb(m); }catch(_){}
-          }
-          try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(m.glb)); crState.cDeskGlbB64=m.glb; crState.cDeskTemplate=sc; crState.activeCustomDeskId=m.id;
-            deskVisualMod.swapDeskVisual(crState.cDesk,sc); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); }catch(e){}
-        }
-      } else if(src&&src.deskGlb){ crState.cDeskGlbB64=src.deskGlb; try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(src.deskGlb)); crState.cDeskTemplate=sc; deskVisualMod.swapDeskVisual(crState.cDesk,sc); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor);
-        const m=commissionMod.savedDesks().find(d=>d.glb===src.deskGlb); if(m) crState.activeCustomDeskId=m.id;
-      }catch(e){} } else {
-        const ov=commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);
-        if(ov){
-          if(!ov.glb && ov.glbUrl){
-            try{ await catalogGlbMod.resolveCatalogGlb(ov); }catch(_){}
-          }
-          try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)); deskVisualMod.swapDeskVisual(crState.cDesk,sc,true); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor);
-            // ★ 코드베이스의 다른 swapDeskVisual 호출부(8381·8399·8407·9241·13717·13720·13721)는 전부
-            //   직후에 setCreatorDeskScale로 크기를 다시 먹인다. 이 '기본 책상 override' 분기만 빠져 있어서
-            //   교체 전 스케일 상태에 의존하고 있었다 — 실행 경로(applyDeskCatalogRefToSeat)와 동일하게 맞춤.
-            deskPlaceMod.setCreatorDeskScale(crState.cDeskScale);
-          }catch(e){ console.warn('[생성기] 기본 책상 GLB 파싱 실패', e); }
-        }
-      }
-      if(src&&src.customItems){ for(const id in src.customItems){ const c=src.customItems[id]; try{ const {scene:sc,animations}=await assetCodeMod.parseGlbFull(b64ToBuf(c.glb)); deskItemsMod.registerCustomItem(id,c.name,c.glb,sc,c.icon||'',animations);}catch(e){} } }
-      await loadSavedItemsIntoSession();   // localStorage에 저장된 아이템 모두 customItems에 등록
-      if(src&&src.deskItems) applyDeskItemsTo(crState.cBase, src.deskItems);
-      if(crState.crStep===5) deskSetupMod.renderCrItems();
-      // 런처4-2: 페이지 전환 시 활성 아이템 없으면 기즈모 숨김 (등록/삭제/재렌더 후 잔상 방지)
-      if(crState.crStep===5) crXformMod.attachItemGizmoToActive();
-      // ★ 커스텀 책상 GLB가 이 시점에야 로드 완료됨(비동기) — 그 전에 이미 한 번 계산된 카메라 프레이밍은
-      //   기본 책상 크기 기준이라, 실제 책상 크기(스케일 값 자체는 정상)와 화면에 보이는 줌이 어긋나 보이던
-      //   원인. 로드가 다 끝난 지금 시점에 책상/좌석 화면이면 카메라를 다시 계산해서 맞춤.
-      if(crState.crStep===5||crState.crStep===6){ creatorPrevMod.fitCreator('app'); creatorPrevMod.frameDeskCam(false); }   // 아이템도 비동기로 늦게 붙을 수 있어 크기·카메라 둘 다 다시 계산
-    })();
-  }
-  document.getElementById('creatorOverlay').classList.add('on');document.getElementById('launcher').classList.remove('on');
-  creatorOpen=true;
-  if(creatorPrevMod.crFlatView) creatorPrevMod.crFlatView.set(false);   // 지난번에 켜 둔 원색 보기를 다음 열기로 끌고 오지 않는다
-  // 커미션 캐릭터면 책상 세팅(5단계)부터 진입 + cBase의 베이스 GLB를 커미션 GLB로 교체
-      if(src && src.animal){
-        creatorFlowMod.gotoStep(_editRoute ? _editRoute.deskStep(creatorMode) : 5);   // 🐾 동물 생성기 «좌석 세팅» 으로 왔으면 6
-        creatorPrevMod.swapCreatorBaseToAnimal(src).then(()=>{
-          if(crState.cBase) creatorPrevMod.fitCreator('app');
-          // 진단(임시) — 실행 쪽과 같은 조건(책상 GLB 비동기 로드 완료 후)에서 재야 비교가 성립한다.
-          /* 🐾 착용 파츠 부착 — 이 한 줄이 **이 가지에만 빠져 있었다.**
-             커미션(아래)·기본(그 아래) 두 가지는 베이스 교체 직후 applyEquippedPartsToSeat 을 부르는데
-             동물만 안 불러서, 생성기 미리보기에 동물 몸만 서고 모자·안경·책상 위 파츠가 전부 안 보였다
-             (제보: "동물 캐릭터 수정하면 적용한 파츠가 안 나온다"). 실행 화면(applyCharToSeat)과
-             꾸미기 미리보기(refreshWdPreviewChar)는 각자 부르고 있어서 생성기에서만 나던 증상이다.
-             ★ 순서가 중요하다 — swapCreatorBaseToAnimal 이 extractBonesInto 로 부착점을 다시 뽑은
-               **뒤**여야 한다. 그 전에 부르면 옛 인간 본에 붙었다가 베이스와 함께 사라진다.
-             ★ 부착이 끝난 뒤 fitCreator 를 한 번 더 — 파츠가 바운딩박스를 늘리므로(커미션 가지와 같은 이유). */
-          if(crState.cBase && src.equippedParts){
-            applyEquippedPartsToSeat(crState.cBase, src).then(()=>{
-              if(crState.cBase) creatorPrevMod.fitCreator(crState.crStep<=4 ? 'edit' : 'app');
-            });
-          }
-        });
-      } else if(src && src.isCommission){
-        creatorFlowMod.gotoStep(5);
-        creatorPrevMod.swapCreatorBaseToCommission(src).then(()=>{
-          if(crState.cBase && src.equippedParts){
-            applyEquippedPartsToSeat(crState.cBase, src).then(()=>{
-              // ★ 파츠가 비동기로 늦게 붙는데, 그 전에 이미 계산돼서 굳어버린 크기(fitCreator)가 그대로
-              //   남아있던 문제 — 부착이 끝난 시점에 지금 스텝에 맞는 모드로 다시 계산해서 맞춤.
-              if(crState.cBase) creatorPrevMod.fitCreator(crState.crStep<=4 ? 'edit' : 'app');
-            });
-          }
-        });
-      } else {
-        // 💡 기다릴 필요 없이 즉시 뼈대 복구 후 1단계로 진입합니다.
-        creatorPrevMod.swapCreatorBaseToDefault(); 
-        if(crState.cBase && src && src.equippedParts){
-          applyEquippedPartsToSeat(crState.cBase, src).then(()=>{
-            // ★ 파츠가 붙은 뒤 다시 계산 — 파츠(망토·귀 등)가 캐릭터 바운딩박스를 늘려서 refSize.y가
-            //   달라짐. 첫 진입 때 파츠가 아직 안 붙은 상태로 계산된 크기가 작게 나오던 원인.
-            if(crState.cBase) creatorPrevMod.fitCreator(crState.crStep<=4 ? 'edit' : 'app');
-          });
-        }
-        creatorFlowMod.gotoStep(1);
-      }
-      requestAnimationFrame(creatorPrevMod.creatorLoop);
-      applyDesktopRunClass();
-}
+/* 본문은 creator/creator-open.js 로 옮겼다(앱 FSD · app.js 분리 M21). 생성기 여는 입구 · 런처 다시 그리기의 주인이다. 뒤에서 선언되는 값은 읽는 · 쓰는 함수로 다룬다. */
+const creatorOpenMod = TwCreatorOpen.createCreatorOpen({
+  acctStateMod: acctStateMod,
+  closeWardrobe: (...a)=>window.closeWardrobe(...a),
+  _editRoute: _editRoute,
+  _syncCrColorSwatches: _syncCrColorSwatches,
+  applyDeskItemsTo: applyDeskItemsTo,
+  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
+  applyEquippedPartsToSeat: applyEquippedPartsToSeat,
+  assetCodeMod: ()=>assetCodeMod,
+  b64ToBuf: b64ToBuf,
+  blinkC: blinkC,
+  CANVAS_SZ: CANVAS_SZ,
+  catalogGlbMod: ()=>catalogGlbMod,
+  CHAR_SLOT_MAX: CHAR_SLOT_MAX,
+  clampCharY: clampCharY,
+  clampDeskScale: clampDeskScale,
+  commissionMod: ()=>commissionMod,
+  creatorFlowMod: creatorFlowMod,
+  creatorMode: ()=>creatorMode,
+  setCreatorMode: (v)=>{ creatorMode = v; },
+  setCreatorOpen: (v)=>{ creatorOpen = v; },
+  creatorPrevMod: creatorPrevMod,
+  crState: crState,
+  crXformMod: crXformMod,
+  curSlot: ()=>curSlot,
+  setCustomItems: (v)=>{ customItems = v; },
+  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
+  DESK_SCALE_DEFAULT: DESK_SCALE_DEFAULT,
+  deskItemsMod: ()=>deskItemsMod,
+  deskPlaceMod: ()=>deskPlaceMod,
+  deskSetupMod: deskSetupMod,
+  deskVisualMod: ()=>deskVisualMod,
+  faceC: faceC,
+  histB: histB,
+  histF: histF,
+  launcherCtlMod: ()=>launcherCtlMod,
+  launcherPrevMod: ()=>launcherPrevMod,
+  licenseGateMod: licenseGateMod,
+  loadSavedItemsIntoSession: (...a)=>loadSavedItemsIntoSession(...a),
+  NO_DESK_ID: NO_DESK_ID,
+  redoB: redoB,
+  redoF: redoF,
+  reopenAnimalFromCreator: reopenAnimalFromCreator,
+  slots: slots,
+  toast: (...a)=>toast(...a),
+});
+const openCreator = creatorOpenMod.openCreator;   // 옛 전역 이름
+const renderLauncher = creatorOpenMod.renderLauncher;   // 옛 전역 이름
 
 /* (C 구역 떼기 · w3) 이 자리의 본문도 creator/creator-preview.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* (C 구역 떼기 · w3) 이 자리의 본문도 creator/creator-flow.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* 본문은 creator/creator-save.js 로 옮겼다(C 구역 떼기 · w3). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const creatorSaveMod = TwCreatorSave.createCreatorSave({
+  NO_DESK_ID: NO_DESK_ID,
   CHAR_SLOT_MAX: CHAR_SLOT_MAX,
   Presence: ()=>Presence,
   _blankFaceConfirmed: ()=>_blankFaceConfirmed,
@@ -6291,7 +3284,6 @@ const creatorSaveMod = TwCreatorSave.createCreatorSave({
   cTopColor: ()=>crState.cTopColor,
   cXform: ()=>crState.cXform,
   charDef: (...a)=>charDef(...a),
-  charsMod: ()=>charsMod,
   clampCharY: (...a)=>clampCharY(...a),
   clearStampState: (...a)=>crStampMod.clearStampState(...a),
   collectDeskItems: (...a)=>collectDeskItems(...a),
@@ -6329,13 +3321,9 @@ const launcherPrevMod = TwLauncherPreview.createLauncherPreview({
   renderQuality: ()=>_renderQuality,
   blinkTiming: TwBlinkTiming,
   RIG_TURN: creatorPrevMod.RIG_TURN,
-  _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
-  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,
-  _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,
-  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,
   _quickHash: (...a)=>roomSyncMod._quickHash(...a),
-  _mkFrontFill: (...a)=>_mkFrontFill(...a),
   _setDeskMatColor: (...a)=>lightToneMod._setDeskMatColor(...a),
+  addRunLights: (...a)=>lightToneMod.addRunLights(...a),
   allDeskItems: (...a)=>deskItemsMod.allDeskItems(...a),
   applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),
   applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),
@@ -6354,6 +3342,7 @@ const launcherPrevMod = TwLauncherPreview.createLauncherPreview({
   getCommissionScene: (...a)=>getCommissionScene(...a),
   measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
   registerCustomItem: (...a)=>deskItemsMod.registerCustomItem(...a),
+  renderLauncher: (...a)=>renderLauncher(...a),
   scene: scene,
   setDeskPos: (...a)=>deskPlaceMod.setDeskPos(...a),
   setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),
@@ -6362,26 +3351,13 @@ const launcherPrevMod = TwLauncherPreview.createLauncherPreview({
   slots: slots,
   swapDeskVisual: (...a)=>deskVisualMod.swapDeskVisual(...a),
 });
-/* 런처 다시 그리기 — 여러 모듈이 부르는 연결 자리라 app.js 에 둔다(launcher-preview.js 로 옮기면 슬롯 · 라이선스 모듈과 순환이 생긴다). */
-function renderLauncher(){
-  launcherPrevMod.ensureLauncherPreview();
-  // 🎟️ 런처를 열 때마다 초대장 버튼 상태 갱신 (invite 노드 삭제/지급 등 외부 변화 반영)
-  licenseGateMod.refreshInviteBtn();
-  const def=slots[curSlot];
-  document.getElementById('lcCount').textContent='('+(curSlot+1)+'/'+CHAR_SLOT_MAX+')';
-  document.getElementById('lcEmpty').style.display=def?'none':'flex';
-  document.getElementById('lcGear').style.display=def?'block':'none';
-  document.getElementById('lcPreview').style.display=def?'block':'none';
-  /* #lcLoad([내 정보]) · lcCreate(HTML 에서 늘 disabled)는 여기서 토글하지 않는다. */
-  launcherPrevMod.sizeLauncherPreview();launcherPrevMod.setLauncherChar(def);launcherCtlMod.closeGearMenu();
-  try{ slotSyncMod._slotsRenderBand(); }catch(_){}}   // 🛟 연동 띠(3-7-2 A안)
 
 /* ═══ 🎛️ 런처 컨트롤 — 슬롯 넘기기 · 톱니 메뉴 · 삭제 · 보관함 이동 ═══ */
 /* 본문은 launcher/launcher-controls.js 로 옮겼다(C 구역 떼기 · w3). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const launcherCtlMod = TwLauncherControls.createLauncherControls({
   CHAR_SLOT_MAX: CHAR_SLOT_MAX,
-  charsMod: ()=>charsMod,
+  closetMod: ()=>closetMod,
   curSlot: ()=>curSlot,
   launchApp: (...a)=>launchApp(...a),
   openCreator: (...a)=>openCreator(...a),
@@ -6389,7 +3365,6 @@ const launcherCtlMod = TwLauncherControls.createLauncherControls({
   renderLauncher: (...a)=>renderLauncher(...a),
   saveCurSlot: (...a)=>saveCurSlot(...a),
   settingsMod: settingsMod,
-  slotSaveMod: ()=>slotSaveMod,
   slots: slots,
   toast: (...a)=>toast(...a),
   setCurSlot: (v)=>{ curSlot = v; },
@@ -6400,11 +3375,7 @@ const launcherCtlMod = TwLauncherControls.createLauncherControls({
 const racePickerMod = TwRacePicker.createRacePicker({
   BASE_SCENE: ()=>bodyCore.baseScene(),
   CHAR_SLOT_MAX: CHAR_SLOT_MAX,
-  _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
-  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,
-  _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,
-  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,
-  _mkFrontFill: (...a)=>_mkFrontFill(...a),
+  addRunLights: (...a)=>lightToneMod.addRunLights(...a),
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
   applyLightPresetToInstance: (...a)=>matToneMod.applyLightPresetToInstance(...a),
   instantiateBase: (...a)=>instantiateBase(...a),
@@ -6419,7 +3390,6 @@ const commImpMod = TwCommissionImport.createCommissionImport({
   CANVAS_SZ: CANVAS_SZ,
   charCodeMod: ()=>charCodeMod,
   charDef: (...a)=>charDef(...a),
-  charsMod: ()=>charsMod,
   commissionMod: ()=>commissionMod,
   creatorSaveMod: creatorSaveMod,
   curSlot: ()=>curSlot,
@@ -6449,300 +3419,51 @@ const COMMISSION_Z_OFFSET = 0;   // 커미션 전용 오프셋 — 미리보기�
 // ★ [배치진단] 결과 실행 캐릭터가 미리보기보다 정확히 이 값만큼 책상 쪽으로 파고들던 원인으로 확인 —
 //   FIT_MODEL_Z_NUDGE가 0이 된 지금은 이 보정도 불필요해져서 0으로. (다시 띄우고 싶으면 값 조절)
 const DEFAULT_CHAR_Z_EXTRA_OFFSET = 0;
-/* full rebuild 전 파츠 전면 정리 —
-   ★ 리빌드가 몸(gltfRoot)만 갈아끼우면: headAnchor 등 좌석 영구 노드에 붙은 옛 파츠 wrapper가 살아남고,
-     리빌드 "이전"에 시작돼 아직 GLB 로딩 중이던 장착이 뒤늦게 완료되며 새 몸에 낡은 파츠를 붙임 →
-     상대 캐릭터에 파츠가 엉뚱한 위치로 이식된 채 안 돌아오는 유령 증상.
-   그래서 (1) 기존 wrapper 전부 해제, (2) _equipSeq 전 키 +1로 진행 중이던 낡은 장착을 전부 무효화. */
-function _purgeSeatParts(seat){
-  try{
-    if(seat.stackedPartObjs){
-      for(const c in seat.stackedPartObjs){
-        Object.keys(seat.stackedPartObjs[c]).forEach(id=>{ try{ unequipStackablePart(seat, c, id); }catch(_){} });
-      }
-    }
-    if(seat.equippedPartObjs){
-      Object.keys(seat.equippedPartObjs).forEach(c=>{ try{ unequipPartFromSeat(seat, c, false); }catch(_){} });
-    }
-  }catch(_){}
-  seat.equippedPartObjs = {};
-  seat.stackedPartObjs = {};
-  if(seat._equipSeq) for(const k in seat._equipSeq) seat._equipSeq[k]++;
-}
-/* 리깅 파츠의 xf(bindMatrix)를 현재 모델 스케일 기준으로 다시 굽는다.
-   캐릭터 크기(userScale)나 fitModel 재계산이 일어난 뒤 호출해야 파츠가 몸을 따라감. */
-function refreshRiggedPartsXf(seat){
-  if(!seat) return;
-  try{
-    if(seat.equippedPartObjs){
-      Object.keys(seat.equippedPartObjs).forEach(cat=>{
-        const w = seat.equippedPartObjs[cat];
-        if(w && w.userData && w.userData.rigged) applyPartXf(seat, cat);
-      });
-    }
-    if(seat.stackedPartObjs){
-      Object.keys(seat.stackedPartObjs).forEach(cat=>{
-        const map = seat.stackedPartObjs[cat] || {};
-        const anyRigged = Object.keys(map).some(id=> map[id] && map[id].userData && map[id].userData.rigged);
-        if(anyRigged) applyPartXf(seat, cat);   // applyPartXf가 stackable도 id별로 재적용함
-      });
-    }
-  }catch(_){}
-}
-/* 🐾 동물 GLB 파싱이 늦게 끝나 인간으로 폴백된 좌석을 다시 동물로 재빌드 (animal.js가 호출) */
-window.rebuildAnimalSeats=function(){
-  try{
-    if(typeof seats==='undefined') return;
-    seats.forEach(st=>{
-      if(st && st.charDef && st.charDef.animal){
-        applyCharToSeat(st, st.charDef);
-      }
-    });
-    // ★ 런처 미리보기(setLauncherChar→defToBase)도 같은 이유로 파싱 전엔 인간으로 폴백된 채 남아 있음.
-    //   좌석만 고치면 "껐다 켜면 런처 슬롯이 기본 캐릭터"가 그대로임 — 동물 슬롯이면 여기서 다시 그린다.
-    try{
-      const _lc=document.getElementById('launcher');
-      if(_lc && _lc.classList.contains('on') && slots[curSlot] && slots[curSlot].animal) renderLauncher();
-    }catch(_){}
-    console.log('[동물] 좌석 재빌드 완료');
-  }catch(e){ console.warn('[동물] 좌석 재빌드 실패', e); }
-};
-/* 🐾 안 보이는 placeholder(내장 스탠드인)를 레이캐스트 대상에서 빼거나 되돌린다.
-   Three.js r128의 Raycaster는 visible 플래그를 보지 않아서, 숨겨둔 placeholder(몸통 반지름 0.42 · 머리 0.4의
-   '인간 크기' 구체)가 계속 클릭 판정에 잡힌다. 인간은 실제 모델과 크기가 비슷해 티가 안 났지만, 40%인 동물은
-   자기 몸보다 훨씬 큰 인간 크기 영역이 잡혀서 쓰다듬기/드래그 인식이 어긋났다.
-   ★ 안전장치: 원래 raycast 함수를 userData에 보관했다가 그대로 복원한다(인간으로 교체돼도 원상복구).
-     mesh를 지우거나 visible을 건드리지 않으므로 렌더·폴백 로직에는 전혀 영향이 없다.
-   ★ 적용 조건: 동물이면서 placeholder가 이미 숨겨진(=실제 모델이 올라온) 경우에만 끈다.
-     모델 로드 실패로 placeholder가 보이는 상태면 그대로 클릭 가능해야 하므로 건드리지 않는다. */
-function _setPlaceholderPickable(seat, on){
-  try{
-    const root = seat && seat.placeholder && seat.placeholder.root; if(!root) return;
-    root.traverse(o=>{
-      if(!o.isMesh) return;
-      if(on){
-        if(o.userData.__origRaycast){ o.raycast = o.userData.__origRaycast; delete o.userData.__origRaycast; }
-      }else{
-        if(!o.userData.__origRaycast){ o.userData.__origRaycast = o.raycast; o.raycast = function(){}; }
-      }
-    });
-  }catch(_){}
-}
-/* 🐾 동물 귀 등록 — 동물 GLB의 ear_L/ear_R 본은 스킨 웨이트가 0%라(실측) 본을 돌려도 아무것도 안 움직인다.
-   실제 귀는 별도 GLB를 부착한 물체이므로, 인간의 귀 꾸미기 파츠와 똑같이 '부착물 자체'를 seat.bones.ear에
-   넣어야 animateRig의 귀 까닥임이 동작한다(app.js의 partEarObjs 처리와 동일한 패턴).
-   귀는 비동기로 늦게 붙기 때문에 두 경로로 등록한다: 즉시 스윕(_sweepAnimalEars) + animal.js 콜백(registerAnimalEar). */
-function _registerAnimalEarOn(seat, wrap){
-  if(!seat || !wrap || !seat.bones) return;
-  if(!seat.bones.ear) seat.bones.ear=[];
-  if(!seat.boneRest) seat.boneRest={};
-  if(!seat.boneRest.ear) seat.boneRest.ear=[];
-  if(seat.bones.ear.indexOf(wrap)>=0) return;   // 중복 등록 방지(재빌드·스윕 중복 대비)
-  seat.bones.ear.push(wrap);
-  seat.boneRest.ear.push(wrap.quaternion.clone());   // ★ head 본에 attach된 '뒤'의 자세가 기준이어야 함
-  seat.earTimers=null;   // 개수가 바뀌었으니 타이머 재생성(animateRig가 알아서 다시 만듦)
-  /* 🐰 이 좌석 머리 위에 이미 누가 올라타 있다면, 그 좌석이 캐시한 '머리 꼭대기'는 **귀가 없던
-     시절의 값**이다. 귀가 방금 붙었으니 여기서 한 번 다시 잰다(_remeasureRideHeadTop 주석 참고).
-     ⚠️ 이 함수는 귀 하나마다 불린다(좌·우) — 재측정도 그만큼 돌지만 몇 번뿐이라 부담이 없고,
-       한쪽 귀만 붙은 중간 상태에서 잰 값도 다음 귀가 붙을 때 곧바로 덮인다. */
-  rideBenchMod._remeasureRideHeadTop(seat);
-}
-function _sweepAnimalEars(seat, root){
-  if(!seat || !root) return;
-  try{ root.traverse(o=>{ if(o.userData && o.userData.animalEar) _registerAnimalEarOn(seat, o); }); }catch(_){}
-}
-window.registerAnimalEar=function(root, wrap){
-  try{ const seat = root && root.userData && root.userData.__animalSeat;
-       if(seat) _registerAnimalEarOn(seat, wrap); }catch(_){}
-};
-function applyCharToSeat(seat,def){
-  // ★ 라이드 상태 정리 — 이게 없으면 자리 겹침이 난다.
-  //   [증상] 동물이 인간 머리 위에 올라탄 상태에서 그 좌석을 인간으로 교체하면, 교체된 캐릭터가
-  //          원래 대상과 같은 자리에 겹쳐 보인다.
-  //   [원인] 교체는 charDef·모델·책상만 바꾸고 seat.ridingOn을 그대로 둔다. 그러면 매 프레임
-  //          _positionRideSeat가 이 좌석을 대상 머리 위로 계속 끌어올려, layoutSeats가 정해준
-  //          바닥 자리(targetX)를 덮어써 버린다. (내 위에 누가 타고 있던 경우도 같이 정리해야 한다.)
-  //   [대응] unmountRide가 '위에 탄 좌석 재배치 + group.position/회전 원복'을 모두 해주므로 그대로 쓴다.
-  try{
-    if(seat.ridingOn) rideBenchMod.unmountRide(seat);                 // 내가 남의 머리에 타고 있던 경우
-    if(rideBenchMod._rideRiders(seat).length){                        // 내 머리에 누가 타고 있던 경우
-      rideBenchMod._rideRiders(seat).slice().forEach(up=>{ try{ rideBenchMod.unmountRide(up); }catch(_){} });
-    }
-  }catch(_){}
-  seat.charDef=def;
-  _purgeSeatParts(seat);   // ★ 리빌드 전 옛 파츠·진행 중 장착 정리 (유령 파츠 방지)
-  // 🐾 동물이면 책상도 60%. 캐릭터 교체(인간↔동물)에 대비해 항상 명시적으로 갱신한다.
-  //   실제 곱셈은 setDeskScale이 하므로 아래 모든 책상 적용 경로(비동기 포함)에 자동 반영됨.
-  //   좌석 간격·카메라 줌은 layoutSeats가 책상 폭을 실측(seatDeskHalfWidth)하므로 따로 손댈 필요 없음.
-  if(seat.desk) seat.desk.userData.animCorr = def.animal ? ANIMAL_RUN_SCALE : 1;
-  /* 🪑 평준화 배율도 같은 자리에서 갱신한다 — def 가 바뀌면 그 좌석의 캐릭터 크기(xf.s)가 바뀌고,
-     내 좌석이 바뀐 경우엔 **다른 모든 좌석의** k 까지 달라진다. seat._eqK 를 지워 다음
-     syncSeatEqualize(layoutSeats 도입부)가 전 좌석을 다시 계산하게 둔다. */
-  if(seat.desk) seat.desk.userData.eqK = seatEqMod.seatEqK(seat);
-  try{ seats.forEach(s2=>{ s2._eqK = undefined; }); }catch(_){}
-  // 🐾 책상과의 기본 거리도 같은 비율로 — 프레임 루프가 lerp로 수렴시키지만, 교체 직후 한 프레임
-  //   튀어 보이지 않게 여기서 바로 맞춰둔다(fitModel이 rig.position을 저장·복원하므로 값은 유지됨).
-  try{ if(seat.rig) seat.rig.position.z = seatCharZ(seat); }catch(_){}
-  /* 🐾 캐릭터가 CHAR_Z 로 고정된 만큼 **책상이 그 몫을 진다** — 바로 위 두 줄에서 방금
-     animCorr·eqK 를 갈아끼웠으니 여기서 즉시 반영한다.
-     ⚠️ 아래쪽 setDeskPos(def.deskPos) 가 어차피 같은 일을 하지만, 그 줄에 도달하기 전에
-       **되돌아 나가는 갈래**가 있다(커미션 GLB 가 캐시에 없으면 파싱을 걸고 return —
-       그 사이 한 화면은 옛 z 로 그려진다). 그래서 여기서 한 번 더 맞춘다. */
-  try{ if(seat.desk) deskPlaceMod.syncSeatDeskZ(seat.desk); }catch(_){}
-  // 커미션 캐릭터: 커스텀 베이스 GLB로 인스턴스 생성. 캐시 없으면 비동기 파싱 후 재호출
-  let customScene = null;
-  if(def.commGlb){
-    customScene = commSceneCache.get(def.commGlb);
-    if(!customScene){
-      getCommissionScene(def.commGlb).then(()=>applyCharToSeat(seat,def)).catch(e=>console.warn('comm GLB 파싱 실패', e));
-      return;
-    }
-  }
-  // 🐾 동물 캐릭터 — 좌석 생성 경로는 defToBase를 타지 않으므로 여기에도 같은 분기가 필요함.
-  //   animal.js(buildAnimalBase)가 전신 페인트·귀까지 전담 조립. GLB 파싱 전이면 null을 돌려주므로
-  //   그때는 아래 인간 경로로 폴백하고, 파싱 완료 시 animal.js가 rebuildAnimalSeats로 이 함수를
-  //   다시 불러 동물로 재빌드함. 반환 형태가 instantiateBase와 같아서 아래 블록을 그대로 재사용.
-  let inst=null, animBase=null;
-  if(def.animal && typeof window.buildAnimalBase==='function'){
-    animBase=window.buildAnimalBase(def);
-    if(animBase){ inst=animBase; inst._animal=true; }
-  }
-  if(!inst) inst=instantiateBase(customScene);
-  if(inst){
-    /* 🐾 **이 좌석이 실제로 동물로 조립됐는가.** charDef.animal 은 저장값이라
-       "동물 캐릭터인데 GLB 파싱 전이라 인간으로 폴백된" 상태와 구별하지 못한다(바로 위 분기).
-       올라타기 판정(mountRide)이 이 값을 본다 — 자세한 경위는 그쪽 주석에 있다.
-       ⚠️ 조건 밖에 두면 안 된다. 아래 `if(inst._animal)` 안에 넣으면 폴백일 때 값이
-         갱신되지 않아 **직전 캐릭터의 판정이 그대로 남는다.** */
-    seat._animalBuilt = !!inst._animal;
-    // 동물은 animal.js가 만든 텍스처(몸 무늬+표정 / 감은눈)를 그대로 사용 — 인간용 얼굴 합성 경로를 타지 않음
-    const fT=inst._animal ? animBase.fT : mkFaceTex(compositeFace(def.skin,def.face));
-    const bT=inst._animal ? animBase.bT : mkFaceTex(compositeFace(def.skin,def.blink));
-    matToneMod.setFaceMap(inst.faceMat, fT);
-    // 커미션이 아닐 때만 옷색 적용 (커미션은 텍스처 기반이라 머티리얼 색=흰색 유지)
-    if(!def.isCommission){
-      if(inst.upMat)inst.upMat.color.set(def.top); if(inst.loMat)inst.loMat.color.set(def.bot);
-      if(inst.hatMat&&inst.hatMat.color)inst.hatMat.color.set(def.top);   // 🎩 기본 모자는 상의색을 따라감
-    }
-    matToneMod.applyLightPresetToInstance(inst);   // 생성기와 같은 톤(텍스처 색을 emissive로 평탄화)
-    seat.faceMat=inst.faceMat; seat.faceMapOrig=fT; seat.blinkTex=bT;
-    /* 👁 새 모델은 뜬 눈 텍스처로 시작한다 — 감김 표시도 같이 «뜸» 으로 되돌려 둔다.
-       프레임 루프는 표시가 **바뀔 때만** 텍스처를 바꾸므로, 졸던 중(closed=true)에 모델이 바뀌면
-       표시는 감김인데 그림은 뜬 눈으로 남는다(제보 #6 — 편집 → 완성 후 조는데 눈 뜸). 다음 프레임이 다시 감긴다. */
-    if(seat.blink) seat.blink.closed = false;
-    seat.upMesh=inst.upMesh||null; seat.loMesh=inst.loMesh||null;   // 옷 교체 시 기본 메시 숨김용
-    seat.glassesMesh=inst.glassesMesh||null;   // 안경 파츠 장착 시 기본(베이크된) 안경 숨김용
-    seat.hatMesh=inst.hatMesh||null; seat.hatMat=inst.hatMat||null; seat.maskMesh=inst.maskMesh||null; seat.onepieceMesh=inst.onepieceMesh||null;
-    seat.wingMesh=inst.wingMesh||null; seat.handLMesh=inst.handLMesh||null; seat.handRMesh=inst.handRMesh||null; seat.capeMesh=inst.capeMesh||null;
-    if(!inst._animal) _attachHumanEars(inst.root, def);   // setupSeatModel 이 애니메이션을 걸기 전(바인드 자세)
-    seatModelLoadMod.setupSeatModel(seat, inst.root, bodyCore.baseAnims(), '커스텀 캐릭터');
-    // 🐾 동물 귀 등록 — setupSeatModel이 seat.bones를 새로 만들기 때문에 반드시 그 '뒤'에 해야 한다.
-    //   __animalSeat: 아직 파싱 중인 귀가 나중에 붙을 때 animal.js가 이 좌석을 찾아오기 위한 역참조.
-    if(inst._animal){ inst.root.userData.__animalSeat = seat; _sweepAnimalEars(seat, inst.root); }
-    else _syncHumanEarRig(seat);   // 🐾 사람 귀 — setupSeatModel 이 seat.bones 를 새로 만든 뒤에 올린다(동물과 같은 이유)
-    
-    // [수정] 생성기에서 설정한 캐릭터 크기와 위치 데이터를 메인 화면에 확실하게 주입합니다.
-    const xf=def.xf;
-    if(xf){ 
-      seat.userScale=(xf.s!=null && isFinite(xf.s) && xf.s>0) ? xf.s : 1;   // ★ 0.1.0 등 예전 버전 저장 데이터엔 s(크기) 필드가 없을 수 있어서 방어
-      /* 🧍 캐릭터 높이 — 생성기 높이 슬라이더 값(xf.y). fitModel 이 _uz 로 나눠 적용한다.
-         🚫 앞뒤(xf.z)는 폐기 — 옛 저장본이 무엇을 갖고 있어도 0 으로 읽는다. CHAR_Z(seat.rig.position.z)가
-            책상과의 간격을 정하므로 사용자 조정 항은 필요 없다. 다음 저장 때 xf.z 자체가 0 으로 굳는다.
-            ⚠️ COMMISSION_Z_OFFSET·DEFAULT_CHAR_Z_EXTRA_OFFSET 은 둘 다 0 이라 함께 사라진다. */
-      seat.userY=clampCharY(xf.y);
-      seat.userZ=0;
-      seat.userRot=xf.rot; 
-      seat.userX=(xf.x!=null?xf.x:0.1); 
-    } else { 
-      seat.userScale=1;
-      seat.userRot=0; 
-      seat.userX=0.1; 
-    }
-    fitModel(seat);
-    /* ★ 파츠 부착이 끝난 뒤 fitModel을 한 번 더 돌린다.
-       ⛔ 폐기된 이유 — 예전 주석: "파츠가 붙으면 바운딩박스 높이가 달라져서 미리보기와 크기가
-          어긋나던 원인 → 미리보기와 같은 조건(파츠 포함 박스)으로 재계산." 그 '파츠 포함' 이
-          바로 캐릭터가 파츠 크기에 따라 줄어드는 원인이었다(measureCharBox 주석 참고).
-          이제 양쪽 다 맨 몸으로 재므로 크기는 이 재호출과 무관하게 항상 같다.
-       ★ 그래도 이 재호출은 남긴다 — 발밑 파츠 바닥 맞춤(measureUnderfootDepth)과 리깅 파츠
-          bindMatrix 재굽기(refreshRiggedPartsXf)가 파츠가 붙은 뒤에 한 번은 돌아야 한다. */
-    //   ★ 레이스 가드: 투게더룸에서 사람이 나가거나 캐릭터가 교체되면 이 비동기 .then이 "낡은 좌석"에
-    //     뒤늦게 발사되어 크기가 튀는 문제(원격 캐릭터가 갑자기 커지는 증상)가 있어서, 좌석이 여전히
-    //     같은 charDef를 들고 있고 모델도 살아있을 때만 재계산.
-    seatRefitMod.refitSeatAfterParts(seat, { wait: applyEquippedPartsToSeat(seat, def), layout: true, isCurrent: ()=>seat.charDef===def });   // fitModel 내부에서 리깅 파츠 xf도 다시 구움
-    
-    if(selected===seat){ 
-      document.getElementById('sScale').value=seat.userScale; 
-      document.getElementById('sY').value=seat.userY;
-      document.getElementById('sZ').value=seat.userZ; 
-      document.getElementById('sRot').value=seat.userRot; 
-    }
-  } else {
-    // 폴백: 내장 스탠드인 (기본 캐릭터)
-    const base=defToBase(def);
-    if(seat.gltfRoot)seat.bodyWrap.remove(seat.gltfRoot);
-    seat.placeholder.root.visible=false;
-    
-    seat.bodyWrap.add(base.group);seat.gltfRoot=base.group;
-    seat.modelRoot=base.root;   // 🎩 파츠 좌표계 기준 — base.group은 wrap, 본은 base.root 안에 있다(위 setupSeatModel 주석 참고)
-    seat.isPlaceholder=false;seat.mixer=null;seat.hasRig=false;
-    seat.faceMat=base.faceMat;seat.faceMapOrig=base.fT;seat.blinkTex=base.bT;
-    /* 👁 새 모델은 뜬 눈 텍스처로 시작한다 — 감김 표시도 같이 «뜸» 으로 되돌려 둔다.
-       프레임 루프는 표시가 **바뀔 때만** 텍스처를 바꾸므로, 졸던 중(closed=true)에 모델이 바뀌면
-       표시는 감김인데 그림은 뜬 눈으로 남는다(제보 #6 — 편집 → 완성 후 조는데 눈 뜸). 다음 프레임이 다시 감긴다. */
-    if(seat.blink) seat.blink.closed = false;
-    seat.headAnchor.position.set(0,1.2,0);seat.bodyAnchor.position.set(0,0.7,0);
-    
-    // [수정] 폴백 캐릭터일 때도 생성기에서 설정한 크기를 똑같이 주입합니다.
-    const xf=def.xf;
-    if(xf){ 
-      seat.userScale=(xf.s!=null && isFinite(xf.s) && xf.s>0) ? xf.s : 1;   // ★ 0.1.0 등 예전 버전 저장 데이터엔 s(크기) 필드가 없을 수 있어서 방어
-      /* 🧍 캐릭터 높이 — 생성기 높이 슬라이더 값(xf.y). fitModel 이 _uz 로 나눠 적용한다.
-         🚫 앞뒤(xf.z)는 폐기 — 옛 저장본이 무엇을 갖고 있어도 0 으로 읽는다. CHAR_Z(seat.rig.position.z)가
-            책상과의 간격을 정하므로 사용자 조정 항은 필요 없다. 다음 저장 때 xf.z 자체가 0 으로 굳는다.
-            ⚠️ COMMISSION_Z_OFFSET·DEFAULT_CHAR_Z_EXTRA_OFFSET 은 둘 다 0 이라 함께 사라진다. */
-      seat.userY=clampCharY(xf.y);
-      seat.userZ=0;
-      seat.userRot=xf.rot; 
-      seat.userX=(xf.x!=null?xf.x:0.1); 
-    } else { 
-      seat.userScale=1;
-      seat.userRot=0; 
-      seat.userX=0.1; 
-    }
-    fitModel(seat);
-  }
-
-  // 🐾 진단(임시) — 실행 화면 실측. 비동기(책상 GLB) 적용이 끝난 뒤 재야 정확하다.
-
-  // 🐾 클릭/드래그 히트 영역 — 동물일 때만 숨겨진 placeholder를 레이캐스트에서 제외(인간은 원래대로 복원).
-  //   placeholder.root.visible이 확정된 이 시점(모델 조립 이후)에 판정해야 정확하다.
-  {
-    const _phHidden = !!(seat.placeholder && seat.placeholder.root && seat.placeholder.root.visible === false);
-    _setPlaceholderPickable(seat, !(def.animal && _phHidden));
-  }
-
-  // [수정] 공통 꾸미기 및 책상 크기/색상 적용 파트
-  /* 색을 안 고른 옛 저장도 이 함수를 지나야 한다 — 색은 그대로 두고 조명 예산만 맞춘다. */
-  if(seat.deskMat) lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   
-  
-  // [수정] 생성기에서 조절한 책상 크기(def.deskScale)를 메인 화면의 책상(seat.desk)에 강제로 반영합니다!
-  deskPlaceMod.setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1);
-  deskPlaceMod.setDeskPos(seat.desk, def.deskPos);   // 🪑 책상 위치 오프셋 — 없으면 0,0,0 = 예전과 동일
-  
-  
-  (async()=>{  
-    if(def.customItems){ for(const id in def.customItems){ if(!customItems[id]){ const c=def.customItems[id]; try{ const {scene:sc,animations}=await assetCodeMod.parseGlbFull(b64ToBuf(c.glb)); deskItemsMod.registerCustomItem(id,c.name,c.glb,sc,'',animations);}catch(e){} } } }
-    if(def.deskCatalogId){ deskVisualMod.applyDeskCatalogRefToSeat(seat, def); }
-    else if(def.deskGlb){ try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(def.deskGlb)); seat.desk.userData.deskScale=def.deskScale||1; deskVisualMod.swapDeskVisual(seat.desk,sc); deskPlaceMod.setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1); if(def.deskColor)deskVisualMod.applyDeskColorToCustom(seat.desk,def.deskColor);}catch(e){} }
-    else { deskVisualMod.applyDeskCatalogRefToSeat(seat, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:def.deskScale, deskLenX:def.deskLenX, deskColor:def.deskColor}); }   // 관리자가 기본 책상을 교체해뒀으면 그걸로, 없으면 원래 하드코딩된 기본 책상 그대로
-    // ★ 새 아이템 목록을 적용하기 전에 기존에 붙어있던 아이템을 먼저 확실히 뗌 — 이 단계가 없어서
-    //   실행 중인 캐릭터를 우클릭으로 수정할 때(특히 아이템을 끄거나 다른 걸로 바꿀 때) 예전 아이템이
-    //   계속 남아있던 버그의 원인이었음(생성기 미리보기는 clearCreatorItems가 매번 먼저 비워서 문제 없었음).
-    creatorPrevMod.clearHolderDeskItems(seat);
-    if(def.deskItems) applyDeskItemsTo(seat, def.deskItems);
-  })();
-}
+/* 본문은 character/char-apply.js 로 옮겼다(앱 FSD · app.js 분리 M12). 원래 자리인 여기서 만든다 — window.rebuildAnimalSeats · window.registerAnimalEar 가 예전과 같은 때 걸린다.
+   다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다. */
+const charApplyMod = TwCharApply.createCharApply({
+  _attachHumanEars: _attachHumanEars,
+  _syncHumanEarRig: _syncHumanEarRig,
+  ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
+  applyDeskItemsTo: applyDeskItemsTo,
+  applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),
+  applyPartXf: (...a)=>applyPartXf(...a),
+  assetCodeMod: ()=>assetCodeMod,
+  b64ToBuf: (...a)=>b64ToBuf(...a),
+  BASE_ANIMS: ()=>bodyCore.baseAnims(),
+  clampCharY: clampCharY,
+  commSceneCache: commSceneCache,
+  compositeFace: (...a)=>compositeFace(...a),
+  creatorPrevMod: creatorPrevMod,
+  curSlot: ()=>curSlot,
+  customItems: ()=>customItems,
+  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
+  defToBase: (...a)=>defToBase(...a),
+  deskItemsMod: ()=>deskItemsMod,
+  deskPlaceMod: ()=>deskPlaceMod,
+  deskVisualMod: ()=>deskVisualMod,
+  fitModel: fitModel,
+  getCommissionScene: (...a)=>getCommissionScene(...a),
+  instantiateBase: (...a)=>instantiateBase(...a),
+  lightToneMod: lightToneMod,
+  matToneMod: matToneMod,
+  mkFaceTex: (...a)=>mkFaceTex(...a),
+  renderLauncher: (...a)=>renderLauncher(...a),
+  rideBenchMod: rideBenchMod,
+  seatCharZ: seatCharZ,
+  seatEqMod: seatEqMod,
+  seatModelLoadMod: seatModelLoadMod,
+  seatRefitMod: seatRefitMod,
+  seats: seats,
+  seatsMod: seatsMod,
+  slots: slots,
+  unequipPartFromSeat: (...a)=>unequipPartFromSeat(...a),
+  unequipStackablePart: (...a)=>unequipStackablePart(...a),
+});
+const _purgeSeatParts = charApplyMod._purgeSeatParts;   // 옛 전역 이름
+const refreshRiggedPartsXf = charApplyMod.refreshRiggedPartsXf;   // 옛 전역 이름
+const _registerAnimalEarOn = charApplyMod._registerAnimalEarOn;   // 옛 전역 이름
+const applyCharToSeat = charApplyMod.applyCharToSeat;   // 옛 전역 이름
 
 /* ===================== 설정 패널 "캐릭터" 탭 — 캐릭터 교체 / 자리 추가(솔로 전용) =====================
    - 캐릭터 교체: 내 좌석(findMySeat)의 모습을 저장된 다른 슬롯으로 즉시 교체. 멀티모드에서도 가능하며
@@ -6752,93 +3473,47 @@ function applyCharToSeat(seat,def){
      들어가는 순간 전부 자동으로 빠지고 방 나오면 다시 복원됨(실제 친구 좌석과 혼동 방지). */
 /* (앱 FSD 27번) 이 자리의 본문도 settings-panel.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
-let appMode='run';
-function showEl(id,on){const el=document.getElementById(id); if(el)el.style.display=on?'':'none';}
-function applyAppMode(){
-  const run=(appMode==='run');
-  showEl('seatEditor', appMode==='editseat');   // 좌석 슬라이더는 좌석 세팅 모드에서만
-  showEl('devFiles', false);                    // GLB 교체 등 dev 도구는 고객 화면에서 숨김
-  showEl('statePrev', !run);                    // 상태 미리보기는 편집 모드에서만
-  showEl('devHint', !run); showEl('runHint', run);
-  const t=document.getElementById('appTitle'), s=document.getElementById('appSub');
-  if(appMode==='editseat'){ t.textContent='🪑 좌석 세팅'; s.textContent='크기·높이·앞뒤·회전을 맞추세요 · 자동 저장'; }
-  else { t.textContent='🪴 책상 친구들'; s.textContent='짧게 클릭하면 쓰다듬 · 편집은 런처 ⚙'; }
-  applyDesktopRunClass();
-}
-function launchApp(opts){ opts=opts||{};
-  const myDef = slots[curSlot] || slots.find(Boolean);
-  if(!myDef){toast('먼저 캐릭터를 만들어 주세요');return;}
-  [...seats].forEach(s=>{scene.remove(s.group);overheadMod.removeSeatLabels(s);});seats.length=0;
-  const me=createSeat(); applyCharToSeat(me,myDef); me.slot=curSlot; me.isMe=true;
-  seatPanelMod.selectSeat(me);seatPanelMod.renderSeatTabs();seatPanelMod.setManual(null);
-  appMode = (opts.mode==='edit') ? 'editseat' : 'run';
-  applyAppMode();
-  settingsMod.closeSettings();   // ⚙️ 런처에서 연 설정 창(가운데)이 실행 화면에 남지 않게
-  document.getElementById('launcher').classList.remove('on');
-  if(Presence.active()){
-    roomEntryMod.syncFriendSeats(Presence.friendsObj());   // 초대된 친구 복원
-    /* 방에 있는 채로 런처에서 캐릭터를 고쳤거나(⚙ 캐릭터 수정 · 생성기 kind:'slot') 다른 칸을 골라 돌아왔으면
-       방에 나간 def 와 지금 def 가 다르다 — 생성기 kind:'slot' 저장은 슬롯에만 쓰고 방으로는 안 보낸다.
-       그대로 두면 내 화면만 바뀌고 남의 화면은 옛 모습이다. 캐릭터 교체(switchMainCharacter)와 같은 길로 보낸다.
-       슬롯 저장은 새 def 객체를 만들므로 같은 객체면 바뀐 것이 없다 — 런처만 다녀온 왕복은 아무것도 안 보낸다. */
-    if(Presence.myDef() !== myDef) Presence.updateDef(myDef);
-  }
-  else settingsMod.extraSeatSlots().forEach(i=>{ if(i!==curSlot && slots[i]) settingsMod.addExtraSeat(i); });   // 솔로모드 — 저장해둔 자리추가 좌석들 복원(주캐릭터 슬롯과 겹치면 제외 — 자기 복제 방지)
-  layoutSeats();
-  // 💡 상태칩 Tab 힌트 — run 모드로 들어올 때마다(런처 나갔다 다시 들어와도) 한 번만 안내.
-  //    칩이 지금 접혀(숨겨져) 있을 때만 의미 있으므로 그 경우에만 보여줌. Tab을 먼저 눌러 스스로 찾으면
-  //    위 keydown 핸들러가 이 타이머를 취소해서 뒤늦게 뜨지 않음.
-  if(statusChipMod._tabHintTimer()){ clearTimeout(statusChipMod._tabHintTimer()); statusChipMod.setTabHintTimer(null); }
-  if(appMode==='run'){
-    statusChipMod.setTabHintTimer(setTimeout(()=>{
-      statusChipMod.setTabHintTimer(null);
-      const chip=document.getElementById('myStatusChip');
-      if(document.body.classList.contains('runmode') && chip && chip.classList.contains('collapsed')) toast('상태칩이 안 보이면 Tab 키를 눌러보세요');
-    }, 1200));
-  }
-}
-function isLauncherShown(){ return document.getElementById('launcher').classList.contains('on'); }
-function backToLauncher(){
-  if(statusChipMod._tabHintTimer()){ clearTimeout(statusChipMod._tabHintTimer()); statusChipMod.setTabHintTimer(null); }
-  // 🪑 방을 나가면 상호작용 책상 복원 플래그 리셋(다음 입장 때 저장값으로 다시 복원) +
-  //   내 좌석에 붙은 벤치 시각물 제거(장착 '저장'은 유지 — 재입장 시 복원됨).
-  rideBenchMod._resetIdeskRestore();
-  try{ const _me = seats.find(s=>s.isMe);
-    if(_me && _me.bench){ seats.filter(o=>o.seatedOn===_me).forEach(o=>{ try{ rideBenchMod.unmountBench(o); }catch(_){} });
-      _me.group.remove(_me.bench); _me.bench=null; _me.benchSlots=null; _me.benchDeskId=null; _me.benchOccupants={};
-      _me._benchOwnerSit=false; _me._benchSit=false; if(_me.desk) _me.desk.visible=true; }
-  }catch(_){}
-  appMode='run';
-  settingsMod.closeSettings();   // ⚙️ 실행 화면에서 연 설정 창(머리 위)이 런처 위에 남지 않게
-  document.getElementById('launcher').classList.add('on');
-  // ★ 꾸미기 창이 켜진 채로 런처에 돌아가면 그대로 떠 있던 채 따라오던 문제 — 런처로 돌아갈 땐 항상 닫음.
-  //   (이 상태가 이어져서 이후 관리자 모드에서 꾸미기 아이콘이 안 먹히는 것처럼 보이던 문제도 같이 방지됨)
-  //   💾 닫는 것이 곧 저장이라 closeWardrobe 로 닫는다 — 창만 숨기면 꾸민 것이 저장되지 않았다(설정 패널 «런처로» 버튼 길)
-  const wp=document.getElementById('wardrobePanel');
-  if(wp && wp.classList.contains('on') && typeof window.closeWardrobe==='function'){ try{ window.closeWardrobe(); }catch(_){} }
-  if(wp) wp.classList.remove('on');
-  const wdp=document.getElementById('wdPreviewPanel'); if(wdp) wdp.classList.remove('on');
-  // ★ 마이홈도 동일한 이유로 닫음 — 켜진 채로 런처에 오면 그대로 남아 실행 화면 위에 겹쳐 보임.
-  //   commitMyHomePage(true)로 저장까지 처리한 뒤 닫기.
-  const mhOv=document.getElementById('myHomeOverlay');
-  if(mhOv && mhOv.classList.contains('on')){
-    try{ window.commitMyHomePage(true); }catch(_){}
-    mhOv.classList.remove('on'); myHomeOpen = false;
-    _mhGbStopWatch();
-    window._bgmDestroy();
-    window._mhDsClose();
-  }
-  renderLauncher();
-  // 🕒 런처로 돌아오는 시점 = 이번 세션의 포커스 기록을 확정하기 좋은 경계.
-  //   여기서만 서버와 맞추므로 쓰기 횟수가 적고(세션당 몇 번), 다른 기기의 기록도 이때 받아온다.
-  focusLevelMod.syncFocusTotalToServer('launcher');
-  // 👑 달성표도 같은 경계에서 맞춘다 — 다른 기기에서 체크한 오늘 항목이 여기서 따라온다.
-  weeklyChal.syncChalToServer('launcher');
-  // 🎰 가챠도 같은 경계에서. 셋 다 '다른 기기에서 쌓인 것을 받아오는' 같은 성격이라 한자리에 둔다.
-  gachaMod.syncGachaToServer('launcher');
-  applyDesktopRunClass();
-}
-document.getElementById('toLauncher').onclick=backToLauncher;
+/* 🪟 «모두 닫기»(winStackMod.closeAll)가 닫는, ESC 스택에 안 태운 창 — 창마다 여닫는 길이 달라 한 줄씩. 새 창을 만들면 여기에 줄을 더한다(안 더하면 로그아웃 뒤 로그인 화면 위에 남는다).
+   마이홈 · 꾸미기 창 · 런처 화면은 backToLauncher 가 닫는다(winStackMod.closeAll 이 맨 끝에 부른다). ESC 스택에 태운 창(설정 · 알림 · 플레이리스트 · 포커스기록 · 마이홈 …)은 표에 넣지 않는다. */
+const windowClosers = [
+  { key:'chat', isOpen: ()=>{ const o = document.getElementById('chatOverlay'); return !!o && o.style.display === 'block'; }, close: ()=>chatUiMod.closeChatWindow() },
+  { key:'gacha', isOpen: ()=>gachaMod.isInvOpen() || gachaMod.isDrawOpen(), close: ()=>gachaMod.closeGachaDraw() },
+  { key:'creator', isOpen: ()=>creatorOpen, close: ()=>creatorFlowMod.closeCreator() },
+  { key:'myInfo', isOpen: ()=>myInfoMod._miIsOpen(), close: ()=>myInfoMod.closeMyInfo() },
+  { key:'idesk', isOpen: ()=>rideBenchMod.isIdeskOpen(), close: ()=>rideBenchMod.closeIdeskInventory() },
+];
+/* 본문은 launcher/app-mode.js 로 옮겼다(앱 FSD · app.js 분리 M13). 원래 자리인 여기서 만든다 — «런처로» 버튼이 예전과 같은 때 걸린다.
+   다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다. */
+const appModeMod = TwAppMode.createAppMode({
+  _bgmDestroy: (...a)=>window._bgmDestroy(...a),
+  _mhDsClose: (...a)=>window._mhDsClose(...a),
+  applyCharToSeat: applyCharToSeat,
+  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
+  closeWardrobe: (...a)=>window.closeWardrobe(...a),
+  commitMyHomePage: (...a)=>window.commitMyHomePage(...a),
+  createSeat: createSeat,
+  curSlot: ()=>curSlot,
+  layoutSeats: (...a)=>layoutSeats(...a),
+  myhomeStore: myhomeStoreMod,
+  launcherState: launcherStateMod,
+  overheadMod: overheadMod,
+  Presence: ()=>Presence,
+  renderLauncher: renderLauncher,
+  rideBenchMod: rideBenchMod,
+  roomEntryMod: ()=>roomEntryMod,
+  scene: scene,
+  seatPanelMod: seatPanelMod,
+  seats: seats,
+  settingsMod: settingsMod,
+  slots: slots,
+  statusChipMod: statusChipMod,
+  toast: (...a)=>toast(...a),
+});
+const showEl = appModeMod.showEl;   // 옛 전역 이름
+const applyAppMode = appModeMod.applyAppMode;   // 옛 전역 이름
+const launchApp = appModeMod.launchApp;   // 옛 전역 이름
+const backToLauncher = appModeMod.backToLauncher;   // 옛 전역 이름
+function isLauncherShown(){ return document.getElementById('launcher').classList.contains('on'); }   // ⚙️ 설정 창이 런처에서 열렸나(가운데에 띄운다)
 
 /* ===================== 친구 초대 · 상태 공유 (Presence) =====================
    provider 인터페이스: join(room, me, onFriends) / update(state) / leave()
@@ -6856,43 +3531,11 @@ document.getElementById('toLauncher').onclick=backToLauncher;
 /* ★ 정원은 원격 설정 roomMaxPeople(remote-config.js · API · 2~50 · 없으면 10) — 바뀌면 다음 판정부터 바로 따른다.
    firebase-init.js(joinRoom 리스너)의 정원 초과 자기 퇴장도 같은 store 를 읽는다 — 숫자를 두 곳에 적지 않는다. */
 function maxPeople(){ const s = acctStateMod._rcStore(); return s ? s.maxPeople() : 10; }
-/* ═══ 🚪 자리비움 자동 퇴장 [건의 2026-09-12] ═════════════════════════════════
-   [건의] "투게더룸·워킹룸에 6시간 넘게 자리비움이면 자동으로 방에서 퇴장되는 기능이 없을까요?"
-
-   [시계의 시작점] **자동 자리비움에 들어간 시각**부터 6시간이다(요청). 마지막 입력 시각이 아니다.
-     자동 자리비움 자체가 20분 무반응으로 걸리므로 실질적으로 '마지막 입력 + 20분 + 6시간' 이다.
-     ⚠️ 손으로 고른 🫧자리비움에는 걸리지 않는다 — 그건 «내가 이 상태를 골랐다»는 뜻이고,
-       자동 전환 표식(_autoAwayApplied)이 서지 않으므로 아래 판정에도 안 들어온다.
-
-   [흐름]
-     ① 자동 자리비움 진입           → _autoAwayAt 에 시각을 적는다
-     ② 6시간에서 1분 남으면 팝업     → «mm분 ss초 후에 자동 퇴장됩니다» + [취소] 하나
-     ③ [취소]                      → 창이 닫히고 상태가 **온라인**으로 돌아간다.
-                                     버튼을 눌렀다 = 사람이 돌아왔다는 뜻이라서다(요청).
-                                     시계도 처음부터 다시 — 또 자리를 비우면 6시간 뒤 다시 뜬다.
-     ④ 1분 안에 안 누르면            → **방만** 나간다(앱은 그대로). 같은 창의 문구가
-                                     «자리비움이 길어 방에서 나왔어요»로, 버튼이 [확인]으로 바뀐다.
-       ★ 새 창을 띄우지 않는 이유 — 자리에 없는 사람의 화면에 창이 둘로 늘어나면, 돌아왔을 때
-         무엇을 눌러야 하는지가 흐려진다. 같은 창이 결과를 말하는 편이 읽기 쉽다.
-
-   [예외] **시크릿룸의 방장만** 제외한다. 방장이 빠지면 남은 사람들의 방이 통째로 흔들린다 —
-     승계·채팅 잠금(_chatOffOn)·스티커사진 진행이 전부 방장에 매여 있고, 특히 촬영 카운트다운은
-     방장이 나가면 영영 안 끝난다(_pk 주석). 그 외에는 채널을 가리지 않는다(워킹룸·투게더룸 동일).
-
-   ⚠️ 팝업에 `app-popup-ov` 클래스가 **반드시** 있어야 한다. 실행 화면은 화면 전체를 덮는 투명
-     오버레이라, 이 클래스가 없으면 클릭 판정 화이트리스트(UI_HIT_SEL)에 안 걸려서 [취소] 를
-     눌러도 클릭이 뒤 프로그램으로 샌다(_chalPopup 주석과 같은 근거).
-   ⚠️ 1분은 **팝업이 뜬 순간부터** 잰다. 자동 자리비움 틱이 5초 간격이라 6시간 경계에 정확히
-     맞춰 뜨지 않는데, 남은 시각을 그대로 쓰면 사람마다 «55초 남음»으로 떠서 안내한 1분을
-     지키지 못한다. 여기서는 «1분을 준다»가 약속이다.
-   ✅ 방 나가기는 doLeaveRoom() 하나로 통일한다 — 정원 초과 자동 퇴장(_onRoomOverCapacity)과
-     같은 문이다. 여기서 Presence.stop() 을 직접 부르면 채널 원복·대화창 닫기가 빠진다. */
-/* (앱 FSD 35번) 이 자리의 본문도 room-sync.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-
 /* ═══ 🛰 방 접속 상태(Presence) ═══ */
 /* 본문은 room/presence.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const presenceMod = TwPresence.createPresence({
+  presenceAccountStore: accountStoreMod,
   USER_STATUSES: userStatusTableMod.USER_STATUSES,
   awayPicMod: ()=>awayPicMod,
   chatUiMod: chatUiMod,
@@ -6901,46 +3544,38 @@ const presenceMod = TwPresence.createPresence({
   floatersMod: floatersMod,
   focusLevelMod: ()=>focusLevelMod,
   focusShareMod: ()=>focusShareMod,
-  getMyUserId: (...a)=>getMyUserId(...a),
   iDeskMod: iDeskMod,
-  isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
-  lastAnyInput: ()=>lastAnyInput,
+  lastAnyInput: ()=>seatStateMod.lastAnyInput(),
   roomEntryMod: ()=>roomEntryMod,
-  roomNet: ()=>window.firebaseAPI,
   roomSyncMod: roomSyncMod,
   seats: seats,
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
   triggerPet: (...a)=>triggerPet(...a),
 });
-const Presence = presenceMod.Presence;   // 옛 전역 이름 — app.js · 다른 모듈(animal.js · noise.js)이 Presence.이름 으로 부른다(도메인 단계에서 deps 로 바꾸고 걷는다)
+const Presence = presenceMod.Presence;   // 옛 전역 이름 — app.js 와 아직 전역으로 읽는 모듈이 Presence.이름 으로 부른다(animal.js · noise.js 는 deps 로 받는다)
 
 /* ═══ 📦 방으로 보내는 def — 직렬화 · 얼굴 URL · 델타 전송 · Firebase provider ═══ */
 /* (앱 FSD 35번) 이 자리의 본문도 room-sync.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
 /* ═══ 🛰 방 서버 provider (관리자 스위치 · 기본 꺼짐) ═══════════════════════════════
-   방 통신을 Firebase 대신 웹소켓 방 서버로. 실제 구현은 parts/room-server-net.js 이고 여기는 화면 쪽 연결만 한다.
-   누가 · 어느 서버로 가는지는 parts/room-server-gate.js(원격 설정 roomServer · roomDir). 꺼져 있으면(기본) 전원 Firebase.
-   ★ 서버 방에서는 정원 · 같은 계정 중복 · 호스트 승계 · 해산 · 120초 생존 판정을 서버가 한다.
-     그래서 firebase-init joinRoom 의 그 판정들(자기 퇴장 · _maybeSucceedHost · 💓 roomAlive 하트비트)은 이 길에서 아예 돌지 않는다.
-   ★ 채팅 기록(chatLog) · 스티커사진(_photo) · 친구 목록의 접속 정보는 1단계에서는 Firebase 그대로다. */
+   방 통신은 parts/room/room-rt.js 방 포트 하나(realtime 연결 위 · TwRoomRt.store). 정원 · 중복 접속 · 승계 · 해산 · 채널 · 시크릿룸 입장은 서버가 판정한다. */
 /* 본문은 room-entry.js 로 옮겼다(앱 FSD 33번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 // 🎧 같이 듣기 — 방 입장 모듈의 «방이 바뀜»(들어감 · 나감 · meta) 알림에 sync 를 건다(room/listen-ui.js · 설계 docs/LISTEN_TOGETHER.md)
 const listenUi = TwListenUi.createListenUi({
   model: TwListenModel,
-  provider: TwListenProvider.createListenProvider({ api: ()=>window.firebaseAPI, server: ()=>Presence.serverProvider(), model: TwListenModel }),
+  provider: TwListenProvider.createListenProvider({ server: ()=>Presence.serverProvider(), model: TwListenModel }),
   companion: ()=>window.companion,
   roomCode: ()=>(Presence.active() ? Presence.roomCode() : null),
   meta: ()=>window._roomMetaCache,
   isSecretRoom: ()=>TwRoomState.isSecretCode(Presence.active() ? Presence.roomCode() : null),
-  myId: ()=>getMyUserId(),
-  memberIds: ()=>Object.values(Presence.friendsObj() || {}).map(f=>f && f.userId).filter(u=>u && u !== getMyUserId()),
+  myId: ()=>TwRoomRt.store.myCode(),
+  memberIds: ()=>Object.values(Presence.friendsObj() || {}).map(f=>f && f.userId).filter(u=>u && u !== TwRoomRt.store.myCode()),
   nameOf: (uid)=>{
-    if(uid === getMyUserId()) return getDisplayName();
+    if(uid === TwRoomRt.store.myCode()) return getDisplayName();
     const f = Object.values(Presence.friendsObj() || {}).find(x=>x && x.userId === uid);
-    return (f && f.name) || '(이름 없음)';
+    return TwPersonName.shown(f && f.name);
   },
   djItems: ()=>plMod.mine().slice(),
   stopPersonal: ()=>plMod.stopIfPlaying(),
@@ -6954,23 +3589,25 @@ const roomInfoUi = TwRoomInfoUi.createRoomInfoUi({
   roomSettings: TwRoomSettings,
   bannedWords: TwBannedWords,
   rcStore: ()=>acctStateMod._rcStore(),
-  isHost: ()=>TwRoomState.isHost(window._roomMetaCache, getMyUserId()),   // 판정은 채팅 잠금과 같은 한 곳(room-state.js)
+  isHost: ()=>TwRoomState.isHost(window._roomMetaCache, TwRoomRt.store.myCode()),   // 판정은 채팅 잠금과 같은 한 곳(room-state.js)
   isSecretRoom: ()=>TwRoomState.isSecretCode(Presence.active() ? Presence.roomCode() : null),
   roomCode: ()=>(Presence.active() ? Presence.roomCode() : null),
   meta: ()=>window._roomMetaCache,
-  saveInfo: (room, info)=>(Presence.serverProvider() ? Presence.serverProvider().setMeta(info) : window.firebaseAPI.setRoomInfo(room, info)),   // 방 서버 방은 서버 meta
+  saveInfo: (room, info)=>(Presence.serverProvider() ? Presence.serverProvider().setMeta(info) : Promise.resolve({ ok:false, code:'notInRoom' })),   // 방 포트 meta(방장만 · 서버가 판정)
   notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 // 🗂️ 방 목록 로비 · F1 시크릿룸 칸이 같이 읽는 provider — 방 입장 모듈보다 먼저(room/room-lobby-provider.js)
-const roomLobbyProvider = TwRoomLobbyProvider.createRoomLobbyProvider({ api: ()=>window.firebaseAPI, apiGet: (p, o)=>window.firebaseAPI.apiGetAuthed(p, o), myUserId: ()=>getMyUserId(), now: ()=>Date.now() });
+const roomLobbyProvider = TwRoomLobbyProvider.createRoomLobbyProvider({ apiGet: (p, o)=>TwApi.authed.get(p, o), peek: (code)=>TwRoomRt.store.peek(code),
+  roomCode: ()=>(Presence.active() ? Presence.roomCode() : null), myUserId: ()=>getMyUserId(), now: ()=>Date.now() });
 const roomEntryMod = TwRoomEntry.createRoomEntry({
+  listen: TwListenModel,
+  roomEntryAccountStore: accountStoreMod,
   EXP_CELLS: ()=>expBarMod.EXP_CELLS,
   FLOATER_BURST: floatersMod.FLOATER_BURST,
   Presence: Presence,
   _chatNotifyIncoming: (...a)=>chatPrefsMod._chatNotifyIncoming(...a),
   _clearHiddenSeats: (...a)=>hiddenSeatsMod._clearHiddenSeats(...a),
   _demojiNotifyIncoming: (...a)=>chatPrefsMod._demojiNotifyIncoming(...a),
-  _onDeviceSessionLost: (...a)=>deviceLostMod._onDeviceSessionLost(...a),
   _pokeFresh: (...a)=>roomSyncMod._pokeFresh(...a),
   _refreshChatMembers: (...a)=>chatPrefsMod._refreshChatMembers(...a),
   applyCharToSeat: (...a)=>applyCharToSeat(...a),
@@ -6981,14 +3618,13 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   curSlot: ()=>curSlot,
   deserializeDefFromNetwork: (...a)=>roomSyncMod.deserializeDefFromNetwork(...a),
   focusLevelMod: ()=>focusLevelMod,
-  getDisplayName: (...a)=>getDisplayName(...a),
-  getMyUserId: (...a)=>getMyUserId(...a),
+  myCode: ()=>TwRoomRt.store.myCode(),
   isAdmin: ()=>isAdmin,
   isPremium: ()=>isPremium,
   layoutSeats: (...a)=>layoutSeats(...a),
   maxPeople: (...a)=>maxPeople(...a),
   myExpCells: (...a)=>expBarMod.myExpCells(...a),
-  officeMode: ()=>officeMode,
+  officeMode: ()=>officeModeMod.officeMode(),
   pruneSeatPartsAgainstDef: (...a)=>pruneSeatPartsAgainstDef(...a),
   refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),
   removeSeatLabels: (...a)=>overheadMod.removeSeatLabels(...a),
@@ -7011,8 +3647,15 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   mySecretRoom: ()=>roomLobbyProvider.mySecretRoom(),
   paintRoomInfo: ()=>roomInfoUi.paint(),
   roomSettings: TwRoomSettings,
+  roomRt: TwRoomRt.store,
+  runCost: runCost,   // 🩺 좌석 맞춤 시간(1분 [비용] 줄)
 });
 roomEntryMod.onRoomChanged(()=>listenUi.sync());   // 🎧 같이 듣기가 방 입장 모듈을 몰라도 되게(위층이 건다)
+// 🕘 최근 들어간 방 — 연결되면 기록하고, 로비 코드 칸을 누르면 펼친다(room/recent-rooms*.js)
+const recentRooms = TwRecentRooms.createRecentRooms({ storage: localStorage, getMyUserId: (...a)=>getMyUserId(...a), now: ()=>Date.now(), isRoomCode: roomEntryMod.isRoomCode, isSecretCode: TwRoomState.isSecretCode });
+roomEntryMod.onRoomJoined((code, meta)=>recentRooms.record(code, TwRoomSettings.displayTitle(meta && meta.title, meta && meta.hostName,
+  TwBannedWords.cleanBannedList(acctStateMod._rcStore().bannedWords()), TwBannedWords).text));   // 제목은 방 안 제목 칸과 같은 판단(금칙어면 «○○ 님의 방»)
+TwRecentRoomsUi.createRecentRoomsUi({ document, recent: recentRooms, agoText: TwRecentRooms.agoText, now: ()=>Date.now(), joinRoom: (code)=>roomEntryMod.joinRoom(code), secretMask: TwRecentRooms.SECRET_MASK, secretCodeFrom: (v)=>roomEntryMod.secretCodeFrom(v), askCode: (o)=>asyncPromptMod.asyncPrompt(o) });
 // 🏷️ 방 만들기 창 — 로비의 [방 만들기] 가 열고, 창의 [방 만들기] 가 방 입장 모듈의 만들기로 넘긴다(room/room-create-ui.js)
 const roomCreateUi = TwRoomCreateUi.createRoomCreateUi({
   roomSettings: TwRoomSettings,
@@ -7020,10 +3663,10 @@ const roomCreateUi = TwRoomCreateUi.createRoomCreateUi({
   rcStore: ()=>acctStateMod._rcStore(),
   maxPeople: ()=>maxPeople(),
   isLicensed: ()=>roomEntryMod._myRoomLicensed(),
+  listenEnabled: TwListenModel.ENABLED,
   onCreate: (ch, settings)=>roomEntryMod.doCreateRoomInChannel(ch, settings),
-  serverRoomLikely: ()=>roomEntryMod.roomServerCheck(),
 });
-// 🗂️ 방 목록 로비 — 목록 사본 · 내 시크릿룸은 provider 로만 읽는다(room/room-lobby-*.js)
+// 🗂️ 방 목록 로비 — 목록 · 내 시크릿룸은 provider 로만 읽는다(room/room-lobby-*.js)
 TwRoomLobbyUi.createRoomLobbyUi({
   model: TwRoomLobbyModel,
   provider: roomLobbyProvider,
@@ -7031,7 +3674,8 @@ TwRoomLobbyUi.createRoomLobbyUi({
   twNav: twNav,
   maxPeople: ()=>maxPeople(),
   isLicensed: ()=>roomEntryMod._myRoomLicensed(),
-  joinRoom: (code)=>roomEntryMod.startRoom(code),
+  isBlocked: (card)=>TwListenModel.isBlockedRoom(card),
+  joinRoom: (code)=>roomEntryMod.joinRoom(code),   // 입장 중 막기는 room-entry 한 깃발(코드 칸 · 최근 방과 같이)
   openCreate: (ch)=>roomCreateUi.open(ch),
   toast: (...a)=>toast(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
@@ -7040,16 +3684,17 @@ TwRoomLobbyUi.createRoomLobbyUi({
 });
 const USER_NAME_KEY = 'tw.userName';
 
+// 내 이름 — 서버 계정 이름의 이 PC 사본. 이름이 없으면 '' (localStorage 키를 지운다 — «이름 없음» 을 적지 않는다)
 function getUserName(){
-  try{ return localStorage.getItem(USER_NAME_KEY) || '나'; }catch(e){ return '나'; }
+  try{ return localStorage.getItem(USER_NAME_KEY) || ''; }catch(e){ return ''; }
 }
 
 function setUserName(name){
-  try{ localStorage.setItem(USER_NAME_KEY, name || '나'); }catch(e){}
+  try{ localStorage[name ? 'setItem' : 'removeItem'](USER_NAME_KEY, name); }catch(e){}   // 이름이 없으면 칸을 지운다
 }
 
-// 머리 위 이름표 등 "다른 사람에게 보이는" 표시용 — 이름을 저장한 적 없으면 (이름 없음)으로 표시
-function getDisplayName(){ const n=getUserName(); return (n==='나' || !n.trim()) ? '(이름 없음)' : n; }
+// 화면에 그릴 내 이름 — 이름이 없으면 그릴 때만 «이름 없음»(shared/person-name.js)
+function getDisplayName(){ return TwPersonName.shown(getUserName()); }
 
 /* ═══ 🏷️ 닉네임 저장 — **모달이 아니라 제자리 편집**이 부르는 한 벌 ══════════
    [경위] 예전엔 #userNameOverlay 모달이 이 일을 했다. 그 모달은 런처 시절 창이라(z-index:80)
@@ -7065,14 +3710,14 @@ function getDisplayName(){ const n=getUserName(); return (n==='나' || !n.trim()
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 /* 🏷️ 닉네임 저장 — 본문은 account/user-name.js(모듈 순환 끊기 7 — 설정 창과 떼어 마이홈 편집 · 내 정보가 설정 창을 바라보지 않게). 원래 자리라 여기서 만든다 */
 const userNameMod = TwUserName.createUserName({
-  Presence: Presence,
-  focusLevelMod: ()=>focusLevelMod,
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   getUserName: (...a)=>getUserName(...a),
   isAdmin: ()=>isAdmin,
   setUserName: (...a)=>setUserName(...a),
   toast: (...a)=>toast(...a),
+  saveNameOnServer: (name)=>loginFlowMod.patchMe({ displayName: name }),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 const progSettingsMod = TwProgramSettings.createProgramSettings({
   FIGURE_MODE_KEY: ()=>FIGURE_MODE_KEY,
@@ -7081,18 +3726,18 @@ const progSettingsMod = TwProgramSettings.createProgramSettings({
   _focusShowPush: (...a)=>focusShareMod._focusShowPush(...a),
   _lsSet: (...a)=>_lsSet(...a),
   chatUiMod: chatUiMod,
-  figureMode: ()=>figureMode,
+  figureMode: ()=>officeModeMod.figureMode(),
   focusGateSleep: ()=>focusGateSleep,
-  officeMode: ()=>officeMode,
+  officeMode: ()=>officeModeMod.officeMode(),
   purikuraUi: purikuraUi,
-  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
+  openLicenseUI: (...a)=>licenseUiMod.openLicenseUI(...a),
   refreshOfficeChipUI: (...a)=>refreshOfficeChipUI(...a),
   refreshThemeUI: (...a)=>themeUiMod.refreshThemeUI(...a),
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
-  setFigureMode: (v)=>{ figureMode = v; },
+  setFigureMode: (v)=>{ officeModeMod.setFigureMode(v); },
   setFocusGateSleep: (v)=>{ focusGateSleep = v; },
-  setOfficeMode: (v)=>{ officeMode = v; },
+  setOfficeMode: (v)=>{ officeModeMod.setOfficeMode(v); },
   twNav: twNav,
   renderQuality: ()=>_renderQuality,
   setRenderQuality: (v)=>{ _renderQuality = v; },
@@ -7105,104 +3750,56 @@ const progSettingsMod = TwProgramSettings.createProgramSettings({
 });
 TwOssLicenses.createOssLicenses({ document, window, links: [document.getElementById('progOssLink'), document.getElementById('miOssLink')], openUrl: (u)=>companion.openBrowser(u), escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a) });
 
-/* ═══════════════════ 🔑 구글 로그인 (계정) ═══════════════════
-   [무엇을 만든 것인가] "다른 컴퓨터에서 구글로 로그인하면 내 계정 그대로" 한 줄.
-     지금까지 그 일은 [계정 이전]→유저 코드 22자리 받아적기→[계정 연동] 세 단계였고,
-     비밀번호를 잊으면 복구할 방법이 없었다. 구글 로그인에는 **비밀번호가 아예 없다.**
-
-   [기존 것을 지우지 않은 이유] 계정 이전/연동은 그대로 둔다.
-     · 이미 그 방식으로 쓰는 사람이 있고, 구글 계정이 없는 기기의 이사 수단이다.
-     · 복원 로직은 아래에서 보듯 **같은 함수**를 쓴다(_applyTransferSnapshot).
-       복원 규칙이 두 벌이 되면 한쪽만 고쳐지는 사고가 난다.
-     ⚠️ 다만 `users/{uid}/transferHash` 가 지금 **누구나 읽을 수 있다.** 소금도 반복도 없는
-       단일 SHA-256 이라 짧은 비밀번호는 그 해시만으로 풀린다. 이건 로그인과 별개로
-       규칙을 잠글 때 반드시 함께 손봐야 하는 자리다.
-
-   [무엇이 옮겨오는가 — '전부'의 실제 내용]
-     로그인은 localStorage 의 유저 코드를 그 계정 것으로 갈아끼운다. 그 한 번으로
-       · 마이홈·친구·인박스·방명록 → users/{uid} 아래라 자동으로 따라옴
-       · 집중 누적초(레벨)        → syncFocusTotalToServer 가 max 로 맞춤
-       · 플레이리스트·가챠 보유분 → _restoreOwnedDataAfterTransfer 가 서버 사본에서 당겨옴
-       · 라이선스·이름·친추코드   → 계정 스냅샷(accountSnap — 개정 55)에서 복원
-     ⚠️ **만든 캐릭터는 안 따라온다.** 캐릭터는 로컬 파일이고 복제 코드가 따로 있다.
-       로그인했는데 캐릭터가 없다는 제보가 오면 여기다.
-
-   [창은 여기서 열지 않는다] file:// + `frame-src 'none'` 이라 팝업·리다이렉트가 둘 다 막힌다.
-     창은 main.js 가 열고(companion.signInWithGoogle), 여기는 ID 토큰만 받아 넘긴다.
-
-   [지금 이것은 자물쇠가 아니다] DB 규칙에 아직 `auth` 조건이 없다(규칙 파일이 이 폴더에 없어
-     건드리지 못했다). 규칙에 `root.child('userAuth/'+$uid).val() === auth.uid` 를 넣는 순간부터
-     자물쇠가 된다. 그 전까지 "로그인했으니 안전하다"고 말하면 안 된다.
+/* ═══════════════════ 🔑 계정 — 로그인 · 로그아웃 · 이 PC 맞추기 ═══════════════════
+   0.13 — 로그인(토큰 받기)만 Firebase Auth, «이 로그인이 누구인가» 는 서버(GET /v2/me)가 정한다(login-flow.js).
+   다른 PC 이어받기는 같은 계정 로그인으로 끝난다 — 서버가 원본이라 옮길 사본이 없다(계정 이전 · accountSnap 은 걷었다).
+   창은 main.js 가 연다(companion.signInWithGoogle — file:// 이라 팝업이 막힌다).
 ──────────────────────────────────────────────────────────────────── */
 /* 본문은 account.js 로 옮겼다(앱 FSD 23번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const accountMod = TwAccount.createAccount({
   googleConfirmMod: googleConfirmMod,
   BELL_SEEN_KEY: BELL_SEEN_KEY,
-  CHAL_KEY: ()=>CHAL_KEY,
-  CUR_SLOT_KEY: CUR_SLOT_KEY,
-  CUSTOM_STATUS_KEY: userStatusTableMod.CUSTOM_STATUS_KEY,
-  EXTRA_SEAT_KEY: settingsMod.EXTRA_SEAT_KEY,
-  FOCUS_TODAY_DATE_KEY: ()=>focusTotalMod.FOCUS_TODAY_DATE_KEY,
-  FOCUS_TODAY_SEC_KEY: ()=>focusTotalMod.FOCUS_TODAY_SEC_KEY,
-  FOCUS_TOTAL_KEY: ()=>focusTotalMod.FOCUS_TOTAL_KEY,
-  GACHA_BONUS_KEY: ()=>GACHA_BONUS_KEY,
-  GACHA_OWNED_KEY: ()=>GACHA_OWNED_KEY,
-  GACHA_TS_KEY: ()=>GACHA_TS_KEY,
-  HAD_USER_ID_AT_BOOT: HAD_USER_ID_AT_BOOT,
+  accountLegacyStore: accountStoreMod,
+  asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
   INBOX_BC_READ_KEY: INBOX_BC_READ_KEY,
-  LICENSE_REQ_ID_KEY: ()=>licReqMod.LICENSE_REQ_ID_KEY,
-  LS_KEY: ()=>slotSaveMod.LS_KEY,
-  MY_AD_BANNER_KEY: settingsMod.MY_AD_BANNER_KEY,
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
   MY_FRIEND_CODE_PREV_KEY: MY_FRIEND_CODE_PREV_KEY,
   MY_USER_ID_KEY: MY_USER_ID_KEY,
   USER_NAME_KEY: USER_NAME_KEY,
   _focusTodaySec: ()=>focusTotalMod._focusTodaySec(),
-  _focusTotalSec: ()=>_focusTotalSec,
+  unsentSec: (...a)=>focusProgressMod.unsentSec(...a),   // 🕒 로그아웃 검문이 보는 «못 올린 집중 시간»
+  leaveFlush: TwLeaveFlush,
+  flushFocus: (...a)=>focusProgressMod.flushPending(...a),   // 📤 로그아웃 올리기
   _rememberOldFriendCode: (...a)=>_rememberOldFriendCode(...a),
   _setMyUserId: (...a)=>_setMyUserId(...a),
-  charsMod: ()=>charsMod,
   extraSeatSlots: ()=>settingsMod.extraSeatSlots(),
-  focusLevelMod: ()=>focusLevelMod,
   gachaMod: ()=>gachaMod,
   getMyUserId: (...a)=>getMyUserId(...a),
   acctStateMod: acctStateMod,
   plMod: plMod,
-  slotSyncMod: ()=>slotSyncMod,
+  mhScheduler: mhScheduler,
+  mallangStore: mallangStoreMod,
+  giftBox: giftBoxMod,
+  myhomeStore: myhomeStoreMod,
+  bookshelfStore: bookshelfStoreMod,
+  bugBoardReset: (...a)=>bugBoardUi.reset(...a),
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
   weeklyChal: ()=>weeklyChal,
   setFocusTodaySec: (v)=>{ focusTotalMod.setFocusTodaySec(v); },
-  setFocusTotalSec: (v)=>{ _focusTotalSec = v; },
   setExtraSeatSlots: (v)=>{ settingsMod.setExtraSeatSlots(v); },
   setAcctDetached: (v)=>{ acctStateMod.setAcctDetached(v); },
   LOGIN_EMAIL_KEY: acctStateMod.LOGIN_EMAIL_KEY,
   LOGIN_UID_KEY: acctStateMod.LOGIN_UID_KEY,
   getMyLoginEmail: (...a)=>acctStateMod.getMyLoginEmail(...a),
   FRIEND_CODE_LOGIN_RE: acctStateMod.FRIEND_CODE_LOGIN_RE,
+  loginFlowMod: loginFlowMod,
+  ME_CACHE_KEY: TwLoginFlow.ME_CACHE_KEY,
+  userApiMod: userApiMod,
+  sessionLost: ()=>TwRtHub.isDeviceOff(TwRtHub.store.state()),
 });
-/* ═══ 🧹 [2026-09-16 제보 4] 신원을 놓을 때 이 기기에서 지우는 것 — **한 벌뿐이다** ═══════
-   [경위] 로그아웃이 지우던 것은 신원 6개뿐이었다(유저 코드·도장·친추코드·이메일·uid + 마크 정렬).
-     **소지품은 전부 남았다.** 같은 노트북에서 A 가 로그아웃하고 B 가 로그인하자
-       ① A 의 라이선스 키(tw.licenseKey)가 남아 B 에게 프리미엄 창이 떴고
-       ③ A 의 누적 시간이 남아 B 의 스냅샷과 max 로 합쳐져 서버 B 레벨이 1 → 51 로 뛰었고
-       ④ A 가 뽑은 가챠가 B 계정 서버로 올라갔고(연동 pull 이 «저쪽이 비면 로컬을 올린다»)
-       ② A 의 캐릭터(슬롯)가 B 의 프로필 얼굴로 올라갔다.
-     그리고 이번 커밋의 슬롯 동기화가 «로컬이 최신이면 push» 라 슬롯까지 같은 길로 샌다.
-   [원칙] **신원을 놓는 순간 이 기기는 빈 기기가 된다.** 계정에 딸린 것은 전부 지우고, 다시
-     로그인하면 서버에서 받아온다. 로컬에만 있고 서버에 없는 것은 없어야 한다 — 그래서
-     지우기 **전에** 올리고(_acctFlushToServer), 올라갔는지 **확인한 뒤**(_acctPreflight) 지운다.
-   [무엇을 남기나] 기기 설정(테마·창 위치·볼륨·반복·폰트·투명도)과 카탈로그(savedParts·savedDesks)
-     — 계정이 아니라 **이 컴퓨터**의 것이다. 프리셋 캐릭터 만들기 데이터(tw.deskPresets)도 남긴다.
-   ⚠️ 목록을 늘리거나 줄일 때는 «다시 로그인하면 돌아오는가» 를 항목마다 확인할 것.
-     돌아오는 길이 없는 항목을 여기 넣으면 로그아웃이 곧 삭제가 된다. 각 줄 오른쪽에 그 길을 적어 둔다.
-   ★ 로그아웃(_loginDoLogout)과 연동 해제(acctUnlinkYes)가 **둘 다 이 함수 하나**를 부른다.
-     (개정 16: 연동 해제는 걷었다 — 이제 부르는 곳은 로그아웃 하나다. sim-account-switch 1절이 센다.)
-     예전에는 «같은 목록» 이라는 주석으로만 묶여 있었고, 그래서 누락이 두 곳에서 똑같이 났다.
-   ★ sim-account-switch.js 가 이 목록을 읽어 «로그아웃 뒤 남은 키» 를 잰다. */
-/* (앱 FSD 23번) 이 자리의 본문도 account.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-
 /* ═══ 🪪 [내 정보] — 런처 화면 전환 (CHECKS 개정 48 · 사용자 결정 · 회원가입 설계 §7 B2 · C4 · D · G) ═══════════════
    런처 [내 정보](#lcLoad)를 누르면 **런처 카드 안의 페이지(#lcMyInfo)가 제목줄 아래를 덮는다** — 따로 창도 겹창도 아니다. ◀ 로 돌아간다.
      · 작은 머리 — 마이홈 프로필 사진(44px) · 닉네임 + 레벨 배지(친구 목록과 같은 _plFillLv) + [수정](commitUserName 하나) · 친구 코드 + [복사].
@@ -7219,51 +3816,35 @@ const accountMod = TwAccount.createAccount({
 /* 본문은 my-info.js 로 옮겼다(앱 FSD 17번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const myInfoMod = TwMyInfo.createMyInfo({
-  CHARS_BOX_MAX: ()=>charsMod.CHARS_BOX_MAX,
   EXP_CELLS: ()=>expBarMod.EXP_CELLS,
   EXP_SEC_PER_CELL: ()=>expBarMod.EXP_SEC_PER_CELL,
   EXP_SEC_PER_LEVEL: ()=>expBarMod.EXP_SEC_PER_LEVEL,
   FOCUS_CYCLE_SEC: ()=>focusTotalMod.FOCUS_CYCLE_SEC,
   FOCUS_LEVEL_CAP_HOURS: ()=>focusTotalMod.FOCUS_LEVEL_CAP_HOURS,
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
-  MY_USER_ID_KEY: MY_USER_ID_KEY,
   STAR_PALETTE: ()=>focusLevelMod.STAR_PALETTE,
   USER_NAME_MAX: userNameMod.USER_NAME_MAX,
   _acctDetached: ()=>acctStateMod._acctDetached(),
-  _charsActive: (...a)=>charsMod._charsActive(...a),
-  _charsBoxGet: (...a)=>charsMod._charsBoxGet(...a),
-  _charsBoxOnlyCount: (...a)=>charsMod._charsBoxOnlyCount(...a),
-  _charsBoxToDesk: (...a)=>charsMod._charsBoxToDesk(...a),
-  _charsBoxTrash: (...a)=>charsMod._charsBoxTrash(...a),
-  _charsBoxTrashMany: (...a)=>charsMod._charsBoxTrashMany(...a),
-  _charsCachedUid: (...a)=>charsMod._charsCachedUid(...a),
-  _charsDeleteWords: (...a)=>charsMod._charsDeleteWords(...a),
-  _charsDeskGet: (...a)=>charsMod._charsDeskGet(...a),
-  _charsIsTomb: (...a)=>charsMod._charsIsTomb(...a),
-  _charsMoveMsg: (...a)=>charsMod._charsMoveMsg(...a),
-  _charsRestore: (...a)=>charsMod._charsRestore(...a),
-  _charsSync: (...a)=>charsMod._charsSync(...a),
-  _charsTrashView: (...a)=>charsMod._charsTrashView(...a),
-  _focusTotalSec: ()=>_focusTotalSec,
-  _licenseSnapForPush: (...a)=>licenseGateMod._licenseSnapForPush(...a),
-  _loginDoGoogle: (...a)=>accountMod._loginDoGoogle(...a),
+  _focusTotalSec: ()=>focusProgressMod.shownTotalSec(),   // 레벨 막대용 — 받기 전 null
+  progress: ()=>focusProgressMod.progress(),
+  retryProgress: (...a)=>focusProgressMod.reload(true),   // 못 받았으면 열 때 다시 받는다(번호 알림 E-FOCUS-01)
   _loginDoLogout: (...a)=>accountMod._loginDoLogout(...a),
   _loginDoDeleteAccount: (...a)=>accountMod._loginDoDeleteAccount(...a),
-  _myHomeData: ()=>mhStateMod._myHomeData(),
-  _pushLevelIfChanged: (...a)=>focusLevelMod._pushLevelIfChanged(...a),
-  _slotsNow: (...a)=>slotSyncMod._slotsNow(...a),
+  _withdrawPreview: (...a)=>accountMod._withdrawPreview(...a),
+  myhomeAvatar: ()=>myhomeStoreMod.avatar(),
+  ensureMyHome: (...a)=>myhomeStoreMod.ensureMine(...a),
   closeGearMenu: (...a)=>launcherCtlMod.closeGearMenu(...a),
   commitUserName: (...a)=>userNameMod.commitUserName(...a),
   curSlot: ()=>curSlot,
   focusCycleOf: (...a)=>focusLevelMod.focusCycleOf(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getFocusLevel: (...a)=>focusLevelMod.getFocusLevel(...a),
-  getMyLoginEmail: (...a)=>acctStateMod.getMyLoginEmail(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   getStarColor: (...a)=>focusLevelMod.getStarColor(...a),
   getUserName: (...a)=>getUserName(...a),
   lvStarStr: (...a)=>focusLevelMod.lvStarStr(...a),
   myFocusShow: (...a)=>focusLevelMod.myFocusShow(...a),
+  npStarFill: (...a)=>lvTierMod.npStarFill(...a),
   openCodeModal: (...a)=>charCodeMod.openCodeModal(...a),
   plMod: plMod,
   refreshAccountTab: (...a)=>accountMod.refreshAccountTab(...a),
@@ -7273,33 +3854,29 @@ const myInfoMod = TwMyInfo.createMyInfo({
   slots: slots,
   toast: (...a)=>toast(...a),
   setCurSlot: (v)=>{ curSlot = v; },
-  CHARS_LINKED_KEY: accountMod.CHARS_LINKED_KEY,
-  charsMod: ()=>charsMod,
+  closetMod: ()=>closetMod,
   _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),
+  markLeft: (...a)=>acctStateMod.markLeft(...a),
 });
 /* (앱 FSD 17번) 이 자리의 본문도 my-info.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
-/* ═══ 📤 계정 이전 / 연동 / 연동 해제 — [회원가입 설계 개정 15 · 16] 걷었다 ═══════════════════
-   비밀번호 로그인(H · K)이 기기 이동을 대신하고, 로그인 안 한 사람은 I 에서 반드시 가입한다.
-   ★ 옛 이전 비밀번호(users/{uid}/transferHash — 공개 읽기 · 소금 없는 SHA-256 · 4자)는 로그인 비밀번호로 옮기지 않는다.
-     규칙이 이제 지우기만 받고, 남은 값은 콘솔 일괄 삭제로 정리한다(핸드오프 09-22b).
-   ⚠️ 계정 스냅샷은 accountSnap/{uid}(주인만 · CHECKS 개정 55)로 옮겼다 — 옛 users/{uid}/transferData 는 규칙이 «지우기만» 받고
-     setAccountSnapshot · fetchAccountSnapshot 이 옮기며 지운다. 로그인 복원(_applyTransferSnapshot)은 그 두 통로로만 받는다.
-   ★ _sha256Hex 는 관리자 암호 쪽 한 벌만 남았다(같은 이름이 두 벌이던 것 — 뒤의 것이 이기고 있었다). */
-
-/* (앱 FSD 23번) 이 자리의 본문도 account.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-
-/* ═══ 🔢 방 개수 · 방 만들기 · 랜덤 참여 · 갈아타기 ═══ */
-/* (앱 FSD 33번) 이 자리의 본문도 room-entry.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-/* ═══ 🚪 방 입장 · 나가기 · 승계 · 해산 · 코드 입력칸 ═══ */
-/* (앱 FSD 33번) 이 자리의 본문도 room-entry.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-
 /* ═══ 🔑 라이선스 등록 UI ═══ */
+/* 🔑 설정 › 라이선스 구획의 상태 · 동작(account/license-screen.js) — 창을 열면 내 라이선스(기기 목록)를 받고, 키 등록 · 기기 해제 · 빼기 · 이 기기 등록은 여기서 한다. */
+const licenseScreenMod = TwLicenseScreen.createLicenseScreen({
+  licenseApi: TwLicenseApi.store,
+  licensePremium: licensePremiumMod,
+  deviceId: ()=>TwDeviceId.store.get(),
+  isAdmin: ()=>isAdmin,
+  isShown: ()=>{ const o=document.getElementById('programSettingsOverlay'), p=document.getElementById('progTabLicense'); return !!(o && o.classList.contains('on') && p && p.style.display !== 'none'); },
+  rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  toast: (...a)=>toast(...a),
+});
 /* 본문은 license-ui.js 로 옮겼다(앱 FSD 48번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const licenseUiMod = TwLicenseUi.createLicenseUi({
   isPremium: ()=>isPremium,
-  licReqMod: ()=>licReqMod,
+  licenseScreenMod: licenseScreenMod,
 });
 /* ═══ 🪟 런처 타이틀바 · 팝업 흐림 ═══ */
 /* 본문은 launcher-chrome.js 로 옮겼다(앱 FSD 47번). 
@@ -7312,18 +3889,20 @@ const launcherChromeMod = TwLauncherChrome.createLauncherChrome({
 /* 본문은 ad-banner.js 로 옮겼다(앱 FSD 43번). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const adBannerMod = TwAdBanner.createAdBanner({
+  noticeFeed: noticeFeed,
   settingsMod: settingsMod,
 });
-/* 관리자 쪽(🛑 전체 방 종료 · 🧹 유령 방 청소 · ⚙️ 게임 설정 편집 · 📢 광고 배너 편집)은 admin/admin-launcher.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에.
-   isAdmin · _gameCfg 는 다시 대입되는 let 이라 읽는 함수로 넘긴다. 사용자 쪽(배너 그리기 · 구독)은 바로 위 ad-banner.js(앱 FSD 43번).
+/* 관리자 쪽(🛑 전체 방 종료 · ⚙️ 게임 설정 · 📢 광고 배너 편집)은 admin/admin-launcher.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에.
+   isAdmin 은 다시 대입되는 let 이라 읽는 함수로 넘긴다. 사용자 쪽(배너 그리기 · 구독)은 바로 위 ad-banner.js(앱 FSD 43번).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const adminLauncher = TwAdminLauncher.createAdminLauncher({
+  catalogAdmin: catalogAdmin,
   toast: (...a)=>toast(...a),
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
-  refreshAdBanner: (...a)=>adBannerMod.refreshAdBanner(...a),
-  adBannerKey: adBannerMod.AD_BANNER_KEY,
   isAdmin: ()=>isAdmin,
-  gameCfg: ()=>adBannerMod._gameCfg(),
+  adminApi: adminApi,
+  apiErrors: TwApiErrors.store,
+  refreshBanner: ()=>noticeFeed.refresh(),
 });
 /* (앱 FSD 43번) 이 자리의 본문도 ad-banner.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
@@ -7331,28 +3910,13 @@ const adminLauncher = TwAdminLauncher.createAdminLauncher({
 /* 본문은 license-key.js 로 옮겼다(앱 FSD 48번). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const licenseKeyMod = TwLicenseKey.createLicenseKey({
-  licenseGateMod: licenseGateMod,
-  twNav: twNav,
-  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
-  toast: (...a)=>toast(...a),
+  licenseScreenMod: licenseScreenMod,
 });
 
 /* ═══ 🪟 팝업 바깥 클릭으로 닫기 ═══ */
 /* 본문은 outside-close.js 로 옮겼다(앱 FSD 47번). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const outsideCloseMod = TwOutsideClose.createOutsideClose({
-});
-
-/* ═══ 📨 라이선스 요청 · 관리자 비밀번호 모달 ═══ */
-/* 본문은 license-request.js 로 옮겼다(앱 FSD 43번). 
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
-const licReqMod = TwLicenseRequest.createLicenseRequest({
-  _saveFailMsg: (...a)=>_saveFailMsg(...a),
-  getDisplayName: (...a)=>getDisplayName(...a),
-  licenseGateMod: licenseGateMod,
-  twNav: twNav,
-  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
-  toast: (...a)=>toast(...a),
 });
 
 /* ═══ 🛠️ 라이선스 발급 · 공지 · 업데이트 안내(관리자) ═══ */
@@ -7362,52 +3926,54 @@ const licReqMod = TwLicenseRequest.createLicenseRequest({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const adminLicense = TwAdminLicense.createAdminLicense({
   toast: (...a)=>toast(...a),
-  chatEsc: (...a)=>_chatEsc(...a),
-  genLicenseKey: (...a)=>licenseGateMod._genLicenseKey(...a),
-  saveFailMsg: (...a)=>_saveFailMsg(...a),
+  adminApi: adminApi,
+  apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 const adminNotice = TwAdminNotice.createAdminNotice({
   toast: (...a)=>toast(...a),
+  adminApi: adminApi,
+  apiErrors: TwApiErrors.store,
 });
 
-
-// 유저: 앱 시작 시 공지 확인 → 미표시 조건 아니면 팝업
-async function _checkUpdateNoticeOnStartup(){
-  if(!(window.firebaseAPI && firebaseAPI.getUpdateNotice)) return;
-  try{
-    const notice = await firebaseAPI.getUpdateNotice();
-    if(!notice || !notice.ts) return;
-    // "다시 보지 않기" 체크한 ts와 같으면 스킵
-    const dismissedTs = parseInt(localStorage.getItem('tw.updateNoticeDismissedTs')||'0', 10);
-    if(dismissedTs === notice.ts) return;
-    // 팝업 표시
-    const ov=document.getElementById('updateNoticeUserOverlay'); if(!ov) return;
-    document.getElementById('updateNoticeViewTitle').textContent = notice.title || '업데이트 안내';
-    { const _nb = document.getElementById('updateNoticeViewBody');
-      _nb.innerHTML = inboxMod.linkifyText(notice.body || '');   // 본문 속 주소를 클릭 가능하게
-      inboxMod.bindExtLinks(_nb); }
-    document.getElementById('updateNoticeDontShow').checked = false;
-    ov.style.display = 'flex';
-    // 닫기 로직
-    const close = ()=>{
-      const dontShow = document.getElementById('updateNoticeDontShow').checked;
-      if(dontShow){
-        try{ localStorage.setItem('tw.updateNoticeDismissedTs', String(notice.ts)); }catch(_){}
-      }
-      ov.style.display = 'none';
-    };
-    document.getElementById('updateNoticeOkBtn').onclick = close;
-    document.getElementById('updateNoticeCloseX').onclick = close;
-  }catch(_){}
+// 유저: 앱 시작 시 공지 확인 → 미표시 조건 아니면 팝업. 공지 한 판(noticeFeed)을 처음 받았을 때 한 번만 본다.
+function _showUpdateNoticeOnce(notice, done){   // done — 창이 닫히거나 보일 게 없을 때 한 번(켜는 흐름이 다음 단계로)
+  if(!notice || !notice.ts){ done(); return; }
+  // "다시 보지 않기" 체크한 ts와 같으면 스킵
+  const dismissedTs = parseInt(localStorage.getItem('tw.updateNoticeDismissedTs')||'0', 10);
+  if(dismissedTs === notice.ts){ done(); return; }
+  // 팝업 표시
+  const ov=document.getElementById('updateNoticeUserOverlay'); if(!ov){ done(); return; }
+  document.getElementById('updateNoticeViewTitle').textContent = notice.title || '업데이트 안내';
+  { const _nb = document.getElementById('updateNoticeViewBody');
+    _nb.innerHTML = inboxMod.linkifyText(notice.body || '');   // 본문 속 주소를 클릭 가능하게
+    inboxMod.bindExtLinks(_nb); }
+  document.getElementById('updateNoticeDontShow').checked = false;
+  ov.style.display = 'flex';
+  // 닫기 로직
+  const close = ()=>{
+    const dontShow = document.getElementById('updateNoticeDontShow').checked;
+    if(dontShow){
+      try{ localStorage.setItem('tw.updateNoticeDismissedTs', String(notice.ts)); }catch(_){}
+    }
+    ov.style.display = 'none';
+    done();
+  };
+  document.getElementById('updateNoticeOkBtn').onclick = close;
+  document.getElementById('updateNoticeCloseX').onclick = close;
 }
-// firebase 준비되면 한 번 실행
-TwNetReady.whenNetReady(()=>_checkUpdateNoticeOnStartup());
+// 공지 창은 켜는 흐름(updateFlowMod — 업데이트 창 다음)이 처음 받았을 때 한 번 띄운다
+// 켤 때 공지를 받는다 — 공지는 모두에게 같은 공용 데이터라 계정 확인을 기다리지 않는다(로그인 화면 위에도 업데이트 공지가 뜬다). 이후엔 서버가 «공지가 바뀌었다» 하면 다시 받는다 — notice-feed.js
+TwNetReady.whenNetReady(()=>noticeFeed.start());
+/* ⚙️ 원격 설정 시작 — 읽는 차례 · 주기는 remote-config.js 머리. API 통로 · 이 PC 저장 · realtime 알림만 잇는다. */
+TwNetReady.whenNetReady(()=>TwRemoteConfig.store.start({ api: TwApi.client, win: window, rt: TwRtHub.store }));
 
 // ===== Phase 3: 관리자 카테고리 관리 =====
 /* 카테고리 관리 본문은 admin/admin-category.js, 뒤쪽의 라이선스 요청 · 발급 버튼 · 친구코드로 발급은 admin/admin-license.js 로 옮겼다.
    PART_GROUPS(뒤에서 선언하는 const) · PART_CATS · partCatOverrides(다시 대입되는 let)는 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const adminCategory = TwAdminCategory.createAdminCategory({
+  catalogAdmin: catalogAdmin,
   toast: (...a)=>toast(...a),
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   partGroups: ()=>premiumMod.PART_GROUPS,
@@ -7415,17 +3981,16 @@ const adminCategory = TwAdminCategory.createAdminCategory({
   partCatOverrides: ()=>premiumMod.partCatOverrides(),
 });
 
-
-/* ═══ 📄 [2026-10-02] 엑셀(xlsx·csv)로 라이선스 일괄 발급 — 시안 확정(입구 = 친구코드 발급 아래 · 빈 코드 = 키만 · 전에 발급한 코드 = 건너뜀) ═══ */
 /* ═══ 🔒 시크릿룸 발급(관리자) ═══ */
-/* 위 두 구역(📄 엑셀 일괄 발급 · 🔒 시크릿룸 발급)의 본문은 admin/admin-license-bulk.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에 모은다.
+/* 📄 엑셀 일괄 발급 · 🔒 시크릿룸 발급 본문은 admin/admin-license-bulk.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에 모은다.
    만드는 줄을 여기(원래 자리)에 둬서 버튼을 거는 때가 예전과 같다. 밖에서 부르는 이름은 없다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const adminLicenseBulk = TwAdminLicenseBulk.createAdminLicenseBulk({
   escHtml: (...a)=>escHtml(...a),
   toast: (...a)=>toast(...a),
-  genLicenseKey: (...a)=>licenseGateMod._genLicenseKey(...a),
-  saveFailMsg: (...a)=>_saveFailMsg(...a),
+  adminApi: adminApi,
+  apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
   renderLicenseGenList: (...a)=>adminLicense.renderLicenseGenList(...a),
   downloadBlob: (...a)=>charCodeMod.downloadBlob(...a),
   srFmtDate: (...a)=>roomEntryMod._srFmtDate(...a),
@@ -7447,7 +4012,7 @@ const addFriendMod = TwAddFriend.createAddFriend({
   toast: (...a)=>toast(...a),
 });
 
-/* ═══ 💾 슬롯 저장 · 복원(saveSlots · loadSlots) ═══ */
+/* ═══ 💾 슬롯 저장 · 받아 앉히기(saveSlots · applySlotObjs) ═══ */
 /* 본문은 slot-save.js 로 옮겼다(앱 FSD 43번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const slotSaveMod = TwSlotSave.createSlotSave({
@@ -7463,161 +4028,60 @@ const slotSaveMod = TwSlotSave.createSlotSave({
   slots: slots,
   toast: (...a)=>toast(...a),
   setBlankFaceConfirmed: (v)=>{ _blankFaceConfirmed = v; },
+  withHeldAssets: (o, d)=>premiumMod.withHeldAssets(o, d),   // 접기는 화면에만 — 저장 모양은 사람이 고른 그대로
 });
 /* 슬롯 저장 · 복원 뒤 할 일 — 이 모듈보다 먼저 만들어지는 위층(프리미엄 · 꾸미기 · 설정 화면)은 여기서 건다.
-   동기화 · 보관함은 자기를 만들 때 스스로 건다(slot-sync.js · chars.js). */
+   서버 원본 옷장(closet.js)은 자기를 만들 때 스스로 건다(onSaved). */
 slotSaveMod.onLoaded(()=>premiumMod.pruneUnownedLicenseAssets());
+// 옷장은 보통 가챠보다 늦게 받아진다 — 가챠가 끝날 때의 회수는 빈 슬롯을 보고 지나가므로 받아 앉힌 뒤 한 번 더(보유분을 모르면 회수 쪽이 물러난다)
+slotSaveMod.onLoaded(()=>gachaMod.pruneUnownedGachaParts());
 slotSaveMod.onSeatRelinked((old, cur)=>wardrobeMod.relinkDraftSrc(old, cur));
 slotSaveMod.onSlotsReplaced(()=>settingsMod.renderCharSlots());
 
-/* ═══ ☁️ 슬롯(캐릭터) 기기 간 동기화 — 2026-09-16 제보 6-b «캐릭터가 집 PC 에 없음» ═══════════
-   [무엇이 없었나] 서버 users/{uid} 에는 gacha(보유 파츠)·playlist·profile·home… 만 있고 **슬롯
-     노드가 없었다.** 슬롯은 localStorage 에만 살아서, 회사에서 뽑은 파츠는 집에 있어도 그걸로
-     만든 캐릭터는 없었다. 고장이 아니라 기능 부재.
-   [모양] users/{uid}/slots = { ts, v:1, s:{ "0":json, … } } — 칸마다 JSON 문자열(firebase-init 주석).
-     ★ 그림·GLB 는 **한 바이트도 RTDB 에 안 실린다.** 얼굴·감은눈·동물 페인트는 방 입장과 같은
-       Storage 파일(roomface_{key}_{hash}.png)의 URL 로, 커미션·커스텀 책상·커스텀 아이템 GLB 는
-       slotglb_{key}.glb 의 URL 로 바꿔 실린다. 같은 그림은 같은 파일이라 재업로드가 없고, 방에
-       한 번이라도 들어간 캐릭터는 얼굴이 이미 올라가 있어 **추가 업로드 0**.
-     ★ thumb(런처 아이콘 3D 스냅샷)은 안 올린다. 받은 기기는 2D 합성 아이콘(makeCharThumbEl 의
-       폴백)으로 보이고, 그 기기에서 한 번 저장하면 다시 찍힌다.
-   [병합 — 결정됨 · 2026-09-16] 가챠와 같은 자리 나누기.
-     · 평소: ts 최신 승 **통째 덮어쓰기**. 슬롯은 순서 있는 편집물이라 칸 단위 max 가 없다.
-     · 연동(계정 이전·구글 로그인 — 둘 다 _restoreOwnedDataAfterTransfer 한 통로): 저쪽 계정 것을
-       ts 안 보고 pull. 저쪽이 비어 있으면 내 것을 push(로컬에만 캐릭터가 있던 사람의 첫 업로드).
-     · (A) 부팅: 서버가 비었고 로컬에 있으면 자동으로 한 번 올린다 — 기존 사용자가 아무것도 안
-       해도 집 PC 가 받게. 서버가 비었을 때만이라 계정당 사실상 한 번이다.
-   [비용]
-     · 읽기: 부팅 1회 + 30분마다 1회, 그것도 **ts 한 값만**(loadSlotsTs). 본문은 ts 가 다를 때만.
-     · 쓰기: 저장본이 실제로 바뀐 saveSlots 뒤 3초 묶음 1회(_slotsSchedulePush). 얼굴 업로드는
-       내용 해시 캐시(tw.roomFaceUrls)를 지나 바뀐 그림만.
-   [_imgBroken] push 는 **메모리 slots 가 아니라 localStorage 원본**을 읽는다. 부팅 때 이미지 복원에
-     실패한 칸은 메모리에 빈 캔버스가 있고 saveSlots 도 그 칸을 건너뛰어 원본을 지키는데, 메모리를
-     올리면 그 빈 캔버스가 서버에 굳는다(핸드오프 §5 주의). 원본을 읽으면 이 예외가 저절로 지켜진다.
-   [시각] 가챠와 같이 서버 시계(_srvNow). **ms ts 에 |0 금지** — 32비트로 잘려 음수가 된다.
-   [적용] 서버 것을 받아 적을 때(_slotsAdoptFromServer) 메모리 slots 도 같이 갈아 끼운다.
-     localStorage 만 바꾸고 메모리를 두면 다음 saveSlots 가 옛 메모리로 원본을 덮고 그걸 더 새
-     ts 로 올려 **다른 기기 편집을 지운다.** 책상 위 좌석은 옛 def 객체를 그대로 붙들고 있으므로
-     재실행하면 바뀐다고 안내한다. 생성기가 열려 있으면 이번 판은 건너뛴다(편집 중인 칸을 뺏지 않는다). */
-/* 본문은 slot-sync.js 로 옮겼다(앱 FSD 19번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+/* ═══ 🧬 옷장 — 슬롯 5칸 · 보관함 · 휴지통 (서버 원본) ═══════════════════════════════════════
+   캐릭터는 서버가 원본이다(0.13). 시작할 때 서버 옷장을 받아 slots[] 에 앉히고(closet.js startCloset — 계정 확인 뒤 app-boot),
+   고치면 3초 묶음으로 서버에 쓰고, 슬롯 ↔ 보관함 · 휴지통 · 되살리기는 동작 하나에 요청 하나로 한다. 이 PC 에 캐릭터 저장본 · 보관함 사본 ·
+   고친 시각 · 백업 · 충돌 판정은 없다(0.12 의 slot-sync.js · chars.js 맞추기 장치는 걷었다).
+   · slot-codec.js — 화면의 캐릭터 한 칸(그림은 dataURL) ↔ 서버 def(그림은 Storage 주소) 바꾸기 + 올리기 캐시
+   · closet-api.js — /v2/me/avatars… 서버 경로(provider) · closet.js — 받기 · 쓰기 · 동작 · 0.13 첫 실행 올리기(legacy-sync)
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
-const slotSyncMod = TwSlotSync.createSlotSync({
-  CHAR_SLOT_MAX: CHAR_SLOT_MAX,
-  LS_KEY: slotSaveMod.LS_KEY,
-  _blinkEverDrawn: _blinkEverDrawn,
-  _faceEverDrawn: _faceEverDrawn,
-  _quickHash: (...a)=>roomSyncMod._quickHash(...a),
-  _roomFaceCacheLoad: (...a)=>roomSyncMod._roomFaceCacheLoad(...a),
-  _roomFaceCacheSave: (...a)=>roomSyncMod._roomFaceCacheSave(...a),
-  _srvNow: (...a)=>roomSyncMod._srvNow(...a),
-  _storageFaceUrlOne: (...a)=>roomSyncMod._storageFaceUrlOne(...a),
-  _warnServerWriteDenied: (...a)=>_warnServerWriteDenied(...a),
-  creatorOpen: ()=>creatorOpen,
-  getMyUserId: (...a)=>getMyUserId(...a),
+const slotCodecMod = TwSlotCodec.createSlotCodec({
   glbUploadCache: uploadCacheMod,
-  loadSlots: (...a)=>slotSaveMod.loadSlots(...a),
-  renderLauncher: (...a)=>renderLauncher(...a),
-  slotToObj: (...a)=>slotSaveMod.slotToObj(...a),
-  slots: slots,
-  toast: (...a)=>toast(...a),
-  onSaved: slotSaveMod.onSaved,
-  slotsReplaced: slotSaveMod.slotsReplaced,
-});
-
-/* ═══ ☁️ [2026-09-20 · 3-7-2 시안 확정] 연동 UI — 띠(런처) · 기기 연동 구획(계정 탭) · ④ 충돌 대화상자 ═══
-   [자리] A안 띠 = 캐릭터가 줄어든 것을 **보는 그 자리**(그림 위). B안 구획 = 띠를 놓쳐도 나중에 찾아갈 자리.
-     둘 다 같은 기록(SLOTS_LOSS_KEY)을 읽는다. 대화상자 = ④ 가 세운 판을 사람이 고르는 자리.
-   [기록] 셋 다 로컬 전용·다시 만들 수 있는 값이라 ACCOUNT_LOCAL_KEYS 에 넣었다(로그아웃 = 정리).
-     · SLOTS_LOSS_KEY     { kind:'loss', from, to, at, bak } | { kind:'restored', to, at } | + dismissed:true
-     · SLOTS_LASTSYNC_KEY { at, ok, why?, localCount, serverCount? }  — serverCount 는 알게 된 값을 이어 쓴다
-     · SLOTS_PUSHFAIL_KEY { why, at }  — 올리기 성공에 지운다
-   [문구] 시안(캔버스 «3-7-2 시안») 그대로. «되돌릴 수 있는 기한» 줄은 뺐다 — 백업은 연동으로 사라지지 않고
-     되돌리기가 곧 맞바꾸기라 기한이 없다(restoreSlotsBackup 주석). */
-/* (앱 FSD 19번) 이 자리의 본문도 slot-sync.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-
-/* ═══════════ 🧬 캐릭터 단위 병합 — 순수 함수 (회원가입 설계 §2-4 · 2026-09-20 · 아직 아무도 안 부른다) ═══════════
-   [무엇인가] users/{uid}/chars/{cid} 한 마리씩의 로컬 사본과 서버 사본을 **합집합**으로 맞춘다. 5칸 통째 교체(3-7)를 대신할 규칙.
-     entry = { def, mtime }(산 마리) | { del: mtime }(묘비). 값을 지우는 일은 없다 — 지우면 다른 기기가 «없네» 하고 되살린다.
-   [규칙 — 설계 §2-4 표 그대로]
-     · 한쪽에만 있음            → 있는 쪽 (묘비도 그대로 건너간다)
-     · 둘 다 · mtime 같음       → 할 일 없음
-     · 둘 다 · 다름             → mtime 큰 쪽. 진 쪽에 def 가 있으면 trash 에 남긴다(이긴 쪽이 묘비면 'deleted' · 산 마리면 'overwritten')
-     · 서버 mtime 이 미래(now + skewTol 밖) → 지금 시각으로 찍어서 **올린다**(33307 의 규칙을 마리 단위로 — 시계 틀어진 기기가 영영 이기지 않게)
-   [왜 순수 함수인가] 검사(sim-chars-merge.js)가 스텁 없이 이 본문을 그대로 돌린다. localStorage·firebase 를 만지는 일은 부르는 쪽 몫.
-   [돌려주는 것] { merged, push, pull, trash, fixed }
-     merged: 맞춘 뒤의 전체(cid → entry) · push: 서버에 써야 할 것 · pull: 로컬에 써야 할 것
-     trash: [{ cid, def, mtime, why }] — 진 쪽 산 마리 · fixed: 미래 mtime 을 정정한 cid 목록
-   ⚠️ cid 는 불변이고 내용 해시가 아니다(설계 §1-3). 같은 마리인가는 cid 로만 가른다. */
-/* 본문은 chars.js 로 옮겼다(앱 FSD 18번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
-const charsMod = TwChars.createChars({
-  CHAR_SLOT_MAX: CHAR_SLOT_MAX,
-  LS_KEY: slotSaveMod.LS_KEY,
-  MY_USER_ID_KEY: MY_USER_ID_KEY,
-  SLOTS_SYNC_INTERVAL_MS: slotSyncMod.SLOTS_SYNC_INTERVAL_MS,
-  SLOTS_TS_SKEW_TOL_MS: slotSyncMod.SLOTS_TS_SKEW_TOL_MS,
-  SLOT_IMG_FIELDS: slotSyncMod.SLOT_IMG_FIELDS,
-  SLOT_JSON_MAX: slotSyncMod.SLOT_JSON_MAX,
-  _blinkEverDrawn: _blinkEverDrawn,
-  _faceEverDrawn: _faceEverDrawn,
   _quickHash: (...a)=>roomSyncMod._quickHash(...a),
-  _relinkSeatsToSlots: (...a)=>slotSaveMod._relinkSeatsToSlots(...a),
-  _roomFaceCacheLoad: (...a)=>roomSyncMod._roomFaceCacheLoad(...a),
-  _roomFaceCacheSave: (...a)=>roomSyncMod._roomFaceCacheSave(...a),
-  _slotFromServerObj: (...a)=>slotSyncMod._slotFromServerObj(...a),
-  _slotGlbCacheLoad: (...a)=>slotSyncMod._slotGlbCacheLoad(...a),
-  _slotGlbCacheSave: (...a)=>slotSyncMod._slotGlbCacheSave(...a),
-  _slotToServerObj: (...a)=>slotSyncMod._slotToServerObj(...a),
-  _slotsBackupSave: (...a)=>slotSyncMod._slotsBackupSave(...a),
-  _slotsFilledCount: (...a)=>slotSyncMod._slotsFilledCount(...a),
-  _slotsNow: (...a)=>slotSyncMod._slotsNow(...a),
-  _slotsTs: ()=>slotSyncMod._slotsTs(),
-  creatorOpen: ()=>creatorOpen,
-  loadSlots: (...a)=>slotSaveMod.loadSlots(...a),
-  renderLauncher: (...a)=>renderLauncher(...a),
-  saveSlots: (...a)=>slotSaveMod.saveSlots(...a),
-  slots: slots,
-  toast: (...a)=>toast(...a),
-  onSaved: slotSaveMod.onSaved,
-  onBackupRestored: slotSyncMod.onBackupRestored,
-  setCharsActiveCheck: slotSyncMod.setCharsActiveCheck,
-  slotsReplaced: slotSaveMod.slotsReplaced,
+  _storageFaceUrlOne: (...a)=>roomSyncMod._storageFaceUrlOne(...a),
+  slotToObj: (...a)=>slotSaveMod.slotToObj(...a),
+  uploadGlb: (...a)=>firebaseAPI.uploadSlotGlb(...a),   // 개인 GLB 는 아직 Storage 직접 올리기 — 주소만 서버 def 에 실린다
 });
-charsMod.onBootLinked(()=>myInfoMod._charsLinkedMaybeShow());   // 부팅 채택 뒤 «연동됨» 안내 — 내 정보가 보관함보다 먼저 만들어져 여기서 건다
-
-/* ═══════════ 🧬 이관 — slots → chars (회원가입 설계 §5-N-2 · 2026-09-21 · 개정 33 · 아직 아무도 안 부른다) ═══════════
-   [무엇인가] 5칸 저장본(서버 slots · slotsPrev · 이 기기 LS_KEY)에 있는 마리들에게 cid 를 붙여 chars 모양으로 옮긴다.
-     순수 함수 둘 + 열쇠 하나. localStorage·firebase 를 만지는 일은 부르는 쪽 몫(병합 함수와 같은 규칙).
-   [왜 _charIdentityFingerprint 가 아닌가] 그 지문은 **같은 표현**끼리 비교하려고 만든 것이다(친구 좌석 재빌드용).
-     이 기기 저장본은 얼굴을 dataURL 로, 서버 저장본은 Storage URL 로 들고 있어서 같은 마리도 지문이 다르다 —
-     그대로 쓰면 이관 첫 부팅에 모든 기기가 모든 마리를 «새 마리» 로 올린다(5마리 → 10마리).
-     ⇒ 그림은 **내용 해시**로 본다. 로컬은 `_quickHash(dataURL)`, 서버는 URL 이름 속 해시 — 올릴 때
-       `_storageFaceUrlOne`·`_storageGlbUrlOne` 이 `종류_해시` 로 이름을 지으므로 같은 그림이면 같은 값이 나온다.
-   [열쇠 두 벌 — 같은 마리인가]
-     K1 = 정체성: 피부·옷 색·동물 여부·동물 얼굴·커미션 여부 + 그림 여덟 + 커미션 GLB 의 내용 해시.
-          치장(파츠·xf·꾸미기)·책상은 안 본다 — 그걸 바꾼 것은 «같은 마리를 고친 것» 이라 같은 cid 에 mtime 으로 이긴다.
-     K2 = 그림을 뺀 나머지 전부(키 정렬 JSON). 해시를 URL 에서 못 꺼내는 옛 이름(개정 25 전) 대비 — 그림 말고는 한 글자도
-          안 다를 때만 맞는다. K1 이 맞으면 K2 는 안 본다.
-     둘 다 안 맞으면 **새 cid** — 잃지 않는 쪽으로 틀린다(최악이 «같은 마리가 둘» 이고, 보관함에서 보인다).
-   [짝짓기는 1:1] 한 cid 에 두 칸이 붙지 않는다(같은 캐릭터를 두 칸에 둔 사람). 열쇠가 같은 후보가 여럿이면 같은 칸 번호를 먼저.
-   ⚠️ 로컬 def 는 **LS_KEY 원본**(문자열 그림)을 넣을 것. 메모리 `slots` 는 얼굴이 캔버스라 해시가 안 나온다
-     (`_slotsPushToServer` 가 메모리를 안 보는 것과 같은 이유 — `_imgBroken` 주석).
-   ⚠️ 서버 이관(`_charsFromServerSlots`)은 **서버에서 한 번만** — 두 기기가 동시에 하면 같은 마리가 cid 둘을 받는다.
-     부르는 쪽은 `charsMeta` 를 트랜잭션으로 먼저 잡은 기기만 쓰게 할 것(firebase-init 쪽 일 · 아직 없음). */
-/* (앱 FSD 18번) 이 자리의 본문도 chars.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-
-/* ═══════════ 🧬 이관 조율 — 서버 쓰기 + 미리보기 (설계 §5-N-2 · 2026-09-21 · CHECKS 개정 34) ═══════════
-   [무엇인가] 위 순수 함수들을 firebase-init 의 chars 통로(loadCharsRemote · claimCharsMigration · saveCharsEntries ·
-     finishCharsMigration)에 잇는 자리. **부팅에서 부르지 않는다.**
-   · `_charsServerMigrate` — 서버 slots(+slotsPrev) → chars. 첫 이관은 charsMeta 트랜잭션을 잡은 기기만 한다.
-     이관 창 되돌이(옛 클라이언트가 slots 를 바꿈)는 같은 함수가 한다 — 짝짓기가 def 문자열 같음을 먼저 보므로 몇 번 돌아도 같다.
-     **CHARS_SYNC_ENABLED 가 꺼져 있으면 아무것도 안 쓴다.** 규칙(chars·trash·charsMeta)이 게시되기 전에 켜면 쓰기가 전부 거부된다.
-   · `charsMigrateDryRun` — 콘솔 전용 · **읽기만**. 이 계정의 실제 데이터로 짝짓기·병합을 돌려 보고 표로 찍는다.
-     열쇠(K1 = 그림 내용 해시)가 실제 Storage URL 에서 나오는지를 실기기에서 보는 유일한 자리다 — `sim-chars-migrate.js` 는 URL 모양을
-     가정했다. «그림 URL 중 해시를 꺼낸 것» 이 전부가 아니면 K2 가 받고 있다는 뜻이다(분실은 아니고 중복 위험).
-   · 이 기기 쪽 첫 채택(`_charsLocalAdopt` · 개정 35)은 아래 — 평상시 동기화(칸 고침·이동·삭제 · 주기적 받기)는 **아직 없다**.
-   ⚠️ uid 는 `getMyUserId()` 로 얻지 않는다 — 그 함수는 아직 «없으면 만든다»(설계 §6-①). 캐시만 읽는다. */
-/* (앱 FSD 18번) 이 자리의 본문도 chars.js 로 옮겼다 — 만드는 줄은 첫 자리. */
+const closetApiMod = TwClosetApi.createClosetApi({
+  authed: TwApi.authed,
+  newRequestId: ()=>TwRequestId.newId(),
+});
+const closetMod = TwCloset.createCloset({
+  CHAR_SLOT_MAX: CHAR_SLOT_MAX,
+  closetApi: closetApiMod,
+  codec: slotCodecMod,
+  roomFaceCache: { load: (...a)=>roomSyncMod._roomFaceCacheLoad(...a), save: (...a)=>roomSyncMod._roomFaceCacheSave(...a) },
+  slots: slots,
+  slotSave: {   // 슬롯 저장 모듈이 내놓는 것 중 옷장이 쓰는 여섯
+    applySlotObjs: (...a)=>slotSaveMod.applySlotObjs(...a),
+    lastOut: (...a)=>slotSaveMod.lastOut(...a),
+    onSaved: slotSaveMod.onSaved,
+    pullForward: (...a)=>slotSaveMod.pullForward(...a),
+    _relinkSeatsToSlots: (...a)=>slotSaveMod._relinkSeatsToSlots(...a),
+    slotsReplaced: (...a)=>slotSaveMod.slotsReplaced(...a),
+  },
+  getMyUserId: (...a)=>getMyUserId(...a),
+  rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
+  toast: (...a)=>toast(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  renderLauncher: (...a)=>renderLauncher(...a),
+  creatorOpen: ()=>creatorOpen,
+  storage: localStorage,
+});
+closetMod.onChange(()=>{ myInfoMod._miBoxChanged(); launcherCtlMod.renderEmptyState(); });   // 옷장이 바뀌면 [내 정보] 보관함 줄을 다시 그린다 — 내 정보가 옷장보다 먼저 만들어져 여기서 건다
+/* 앱을 끄기 전 — main 이 끄기를 붙잡고 물으면 못 올린 캐릭터 고침을 올리고 기다린 뒤 답한다(상한 8초 · 없으면 바로 · shared/leave-flush.js) */
+TwLeaveFlush.addQuitJob(closetMod.flushUnsaved);
+window.addEventListener('beforeunload', ()=>{ closetMod.flushSlots(); });   // 다시 읽기(새로 고침)처럼 끄기를 거치지 않는 내림 — 결과를 기다리지 않는다
 
 /* --- 복제 코드 (현재 base64. 다음 단계에서 AES 암호화로 교체) --- */
 /* ★ onload 가 떴다고 그림이 있는 것은 아니다 — 잘린 dataURL, 0바이트 PNG 는 브라우저에 따라
@@ -7639,7 +4103,7 @@ function loadImg(src){return new Promise((res,rej)=>{
      JS 는 def.face 에 손댄 적이 없다(대입하는 곳은 친구 전용 네트워크 경로 두 줄뿐이다).
    [saveSlots 의 공백 방어와 무엇이 다른가]
      · saveSlots 쪽은 **저장을 막는다** — 원본이 빈 그림으로 덮이지 않게 한다(영구 소실 차단).
-     · 여기는 **화면을 되돌린다** — 비어 버린 캔버스에 localStorage 원본을 다시 그려 넣는다.
+     · 여기는 **화면을 되돌린다** — 비어 버린 캔버스에 직전 저장 모양(서버에 올린 원본)을 다시 그려 넣는다.
      저장이 한 번도 안 도는 동안에는 saveSlots 쪽이 아예 실행되지 않으므로, 화면 복구는
      별도의 주기 점검이어야 한다. 그래서 둘 다 필요하다.
    [무엇을 안 건드리나]
@@ -7656,7 +4120,7 @@ function loadImg(src){return new Promise((res,rej)=>{
 const faceHealMod = TwFaceHeal.createFaceHeal({
   CANVAS_SZ: CANVAS_SZ,
   CHAR_SLOT_MAX: CHAR_SLOT_MAX,
-  LS_KEY: slotSaveMod.LS_KEY,
+  lastOut: (...a)=>slotSaveMod.lastOut(...a),
   Presence: Presence,
   SKIN_COLORS: SKIN_COLORS,
   _blinkEverDrawn: _blinkEverDrawn,
@@ -7691,9 +4155,6 @@ const assetCodeMod = TwAssetCode.createAssetCode({
   codeCryptoMod: codeCryptoMod,
   loader: loader,
 });
-/* ===== 책상·아이템 GLB 코드 (DCK1) — 캐릭터처럼 복제 코드로 판매/추가 ===== */
-/* (앱 FSD 48번) 이 자리의 본문도 asset-code.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-
 /* ===== 커미션 캐릭터 zip 코드 시스템 =====
    관리자가 zip(character.glb + face.png + blink.png)을 코드로 만들어 고객에게 전달.
    고객이 캐릭터 생성창의 [+ 코드 입력하기]로 받아서 책상 세팅 단계부터 진입.
@@ -7707,45 +4168,39 @@ const commissionMod = TwCommission.createCommission({
   _b64: (...a)=>codeCryptoMod._b64(...a),
   _deriveKey: (...a)=>codeCryptoMod._deriveKey(...a),
   _unb64: (...a)=>codeCryptoMod._unb64(...a),
-  toast: (...a)=>toast(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  accountStore: accountStoreMod,
 });
-/* ★ 앱을 켜자마자 최대한 일찍 저장된 아이템들의 GLB 파싱을 시작해둠(비동기) — 이게 늦게 끝나면, 그 사이에
-     캐릭터가 먼저 실행되면서 아직 customItems에 등록 안 된 아이템은 조용히 빠지는(=책상 위에서 사라지는)
-     타이밍 경쟁이 있었음("가끔 아이템이 사라지는" 원인). 최대한 앞당겨서 그 경쟁 창을 최소화함.
-   ⚠️ commissionMod 를 만든 **뒤**에 부른다 — 모듈 안에서 부르면 commissionMod 가 아직 없어 던진다. */
-loadSavedItemsIntoSession();
+/* 저장된 아이템(이 계정이 코드로 추가한 것)은 확인 뒤 계정 칸에서 읽는다(userLocal 칸 savedItems) — 만들 때는 비어 있다. 카탈로그 아이템은 카탈로그 동기화가 등록한다. */
 /* 커스텀 아이템 레지스트리 (생성기 세션) */
 let customItems={};
 
-
-/* ===== 캐릭터 꾸미기 파츠 (프리미엄) =====
-   모든 캐릭터 공통으로 등록(관리자), 착용은 캐릭터별(def.equippedParts).
-   이번 단계: 단순 부착 파츠(모자/안경/날개/왼손/오른손). 옷·헤어는 다음 단계.
-*/
-/* (앱 FSD 37번) 이 자리의 본문도 premium-assets.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* ═══ 🧊 파츠 GLB 파싱 캐시 · 썸네일 ═══ */
 /* 본문은 character/part-scene.js 로 옮겼다(구역 떼기 C · w2).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const partSceneMod = TwPartScene.createPartScene({
   FLAT_EMISSIVE: lightToneMod.FLAT_EMISSIVE,
   TONE_FRONT_TOTAL: lightToneMod.TONE_FRONT_TOTAL,
-  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,
-  _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,
-  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,
   _applyPartMatTone: (...a)=>lightToneMod._applyPartMatTone(...a),
+  addRunLights: (...a)=>lightToneMod.addRunLights(...a),
   assetCodeMod: assetCodeMod,
   b64ToBuf: (...a)=>b64ToBuf(...a),
   resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),
+  runLightAt1: (...a)=>lightToneMod.runLightAt1(...a),
 });
-/* 카탈로그 서버 호출은 provider 하나로 — 서버 API 판이 생기면 이 줄만 바꾼다(지금은 Firebase 판 = 옛 길). */
-const catalogSourceMod = TwCatalogSource.createCatalogSource({
+/* 카탈로그 서버 한 벌(GET /v2/catalog — 로그인 뒤 · 서버가 정한 locked 를 그대로 · 못 받으면 E-CHAR-26) — catalog-sync · catalog-glb · 관리자 쓰기가 같이 쓴다 */
+const catalogApiMod = TwCatalogApi.createCatalogApi({
+  api: TwApi.authed,
+  rt: TwRtHub.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  fetch: (...a)=>window.fetch(...a),
+  storageBucket: ()=>firebaseAPI.storageBucket(),
 });
 
 /* 본문은 admin/admin-thumbs.js 로 옮겼다(구역 떼기 C · w2). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const adminThumbs = TwAdminThumbs.createAdminThumbs({
-  adminPartReg: adminPartReg,
-  catalogSourceMod: catalogSourceMod,
+  catalogAdmin: catalogAdmin,
   gachaMod: ()=>gachaMod,
   isAdmin: ()=>isAdmin,
   partSceneMod: partSceneMod,
@@ -7753,7 +4208,6 @@ const adminThumbs = TwAdminThumbs.createAdminThumbs({
   toast: (...a)=>toast(...a),
   wardrobeMod: wardrobeMod,
 });
-premiumMod.loadSavedParts();
 
 /* ═══ 💾 카탈로그 GLB 영구 캐시(IndexedDB) · URL 해결 ═══ */
 /* 본문은 shared/glb-idb-cache.js 로 옮겼다(구역 떼기 C · w2).
@@ -7764,23 +4218,16 @@ const glbIdbMod = TwGlbIdbCache.createGlbIdbCache({
 /* 본문은 character/catalog-glb.js 로 옮겼다(구역 떼기 C · w2).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const catalogGlbMod = TwCatalogGlb.createCatalogGlb({
-  catalogSourceMod: catalogSourceMod,
+  catalogApiMod: catalogApiMod,
   glbIdbMod: glbIdbMod,
-});
-
-/* ═══ 🧹 관리자 콘솔 도구 — 카탈로그 정리 · 진단 · 유령 방 · 초대권 회수 ═══ */
-/* 본문(F12 콘솔 함수 일곱)은 admin/admin-console.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에 모은다. 이름은 예전처럼 window 에 걸린다.
-   카탈로그 목록 셋은 다시 대입되는 let 이라 읽는 함수로 넘긴다. */
-const adminConsole = TwAdminConsole.createAdminConsole({
-  savedParts: ()=>premiumMod.savedParts(),
-  savedDesks: ()=>commissionMod.savedDesks(),
-  savedItems: ()=>commissionMod.savedItems(),
 });
 
 /* ═══ 🔄 카탈로그 실시간 동기화 — 아이템 · 책상 · 파츠 · 카테고리 ═══ */
 /* 본문은 character/catalog-sync.js 로 옮겼다(구역 떼기 C · w2). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const catalogSyncMod = TwCatalogSync.createCatalogSync({
+  applyInteractionUnlocks: (...a)=>iDeskMod.applyUnlocks(...a),
+  setAnimalUnlockLevel: (...a)=>window._setAnimalUnlockLevel(...a),
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
   activeCustomDeskId: ()=>crState.activeCustomDeskId,
   adminCategory: adminCategory,
@@ -7796,8 +4243,8 @@ const catalogSyncMod = TwCatalogSync.createCatalogSync({
   cDeskGlbB64: ()=>crState.cDeskGlbB64,
   cDeskScale: ()=>crState.cDeskScale,
   cDeskTemplate: ()=>crState.cDeskTemplate,
+  catalogApiMod: catalogApiMod,
   catalogGlbMod: catalogGlbMod,
-  catalogSourceMod: catalogSourceMod,
   clearHolderDeskItems: (...a)=>creatorPrevMod.clearHolderDeskItems(...a),
   commissionMod: commissionMod,
   creatorOpen: ()=>creatorOpen,
@@ -7805,7 +4252,6 @@ const catalogSyncMod = TwCatalogSync.createCatalogSync({
   equipDeskItem: (...a)=>equipDeskItem(...a),
   equipPartOnSeat: (...a)=>equipPartOnSeat(...a),
   gachaMod: ()=>gachaMod,
-  isAdmin: ()=>isAdmin,
   loadSavedItemsIntoSession: (...a)=>loadSavedItemsIntoSession(...a),
   premiumMod: premiumMod,
   refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),
@@ -7825,6 +4271,7 @@ const catalogSyncMod = TwCatalogSync.createCatalogSync({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const deskVisualMod = TwDeskVisual.createDeskVisual({
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
+  NO_DESK_ID: NO_DESK_ID,
   _applyItemMatTone: (...a)=>lightToneMod._applyItemMatTone(...a),
   _idleItemPivots: _idleItemPivots,
   _setDeskMatColor: (...a)=>lightToneMod._setDeskMatColor(...a),
@@ -7832,8 +4279,7 @@ const deskVisualMod = TwDeskVisual.createDeskVisual({
   assetCodeMod: assetCodeMod,
   b64ToBuf: (...a)=>b64ToBuf(...a),
   commissionMod: commissionMod,
-  isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
+  licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),
   setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),
   toast: (...a)=>toast(...a),
 });
@@ -7850,13 +4296,15 @@ const deskItemsMod = TwDeskItems.createDeskItems({
 
 /* 저장된 모든 아이템 코드를 customItems에 등록 (생성기 진입 시 호출) */
 async function loadSavedItemsIntoSession(){
+  const failed=[];
   for(const rec of commissionMod.savedItems()){
     // ★ 이미 등록돼 있어도 건너뛰지 않고 항상 다시 불러옴 — 카탈로그에서 GLB가 교체됐을 때
     //   (관리자가 우클릭 수정 등) customItems가 옛날 것으로 캐시된 채 남아있으면 실시간 반영이 안 됨.
     try{ const buf=b64ToBuf(rec.glb); const {scene,animations}=await assetCodeMod.parseGlbFull(buf);
       deskItemsMod.registerCustomItem(rec.id, rec.name, rec.glb, scene, rec.icon||'', animations, rec.attachTo, rec.autoPlay, rec.defaultSize, rec.glow, rec.licenseOnly, rec.playMode);
-    }catch(_){}
+    }catch(e){ console.warn('[저장 아이템] 등록하지 못했어요 — ' + rec.id, e); failed.push(rec.id); }   // 한 개가 깨져도 나머지는 등록한다
   }
+  if(failed.length) TwErrorCodes.notify('E-CHAR-25', failed.join());   // 깨진 것은 사용자에게도 한 번 알린다
 }
 
 /* (구역 떼기 C · w2) 이 자리의 본문도 character/desk-visual.js 로 옮겼다 — 만드는 줄은 첫 자리. */
@@ -7875,9 +4323,9 @@ const deskPlaceMod = TwDeskPlace.createDeskPlace({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const seatEqClampMod = TwSeatEqClamp.createSeatEqClamp({
   DESK_PART_ANCHOR_NAME: deskPlaceMod.DESK_PART_ANCHOR_NAME,
-  MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,
-  SPACING: ()=>SPACING,
-  seatDeskHalfWidth: (...a)=>seatDeskHalfWidth(...a),
+  MULTIPLAYER_SPACING: ()=>seatsMod.MULTIPLAYER_SPACING(),
+  SPACING: ()=>seatsMod.SPACING(),
+  seatHalfWidth: (...a)=>seatLayoutMod.seatHalfWidth(...a),
   seatEqMod: seatEqMod,
   seatSlot: ()=>seatSlot,
   seats: seats,
@@ -7890,7 +4338,6 @@ const seatSlot = (typeof SeatSlot === 'undefined') ? null : SeatSlot.createSeatS
 const charCodeMod = TwCharCode.createCharCode({
   CHAR_SLOT_MAX: CHAR_SLOT_MAX,
   applyCharToSeat: (...a)=>applyCharToSeat(...a),
-  charsMod: charsMod,
   closeGearMenu: (...a)=>launcherCtlMod.closeGearMenu(...a),
   createSeat: (...a)=>createSeat(...a),
   curSlot: ()=>curSlot,
@@ -7900,6 +4347,7 @@ const charCodeMod = TwCharCode.createCharCode({
   gachaMod: ()=>gachaMod,
   isAdmin: ()=>isAdmin,
   isPremium: ()=>isPremium,
+  premiumKnown: ()=>acctStateMod.premiumKnown(),
   layoutSeats: (...a)=>layoutSeats(...a),
   loadCharGLB: (...a)=>seatModelLoadMod.loadCharGLB(...a),
   overheadMod: overheadMod,
@@ -7916,7 +4364,6 @@ const charCodeMod = TwCharCode.createCharCode({
   setCurSlot: (v)=>{ curSlot = v; },
 });
 
-
 /* ═══ 🍞 토스트(toast) · 저장 실패 문구 ═══ */
 /* 본문은 shared/toast.js 로 옮겼다(구역 떼기 C · w2). toast · _saveFailMsg 는 app.js 곳곳 · 다른 파일(전역 · window.toast)이 그대로 부르므로 같은 이름의 이음 함수를 둔다 — 부르는 줄은 안 바꿨다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
@@ -7926,800 +4373,177 @@ function _saveFailMsg(...a){ return toastMod._saveFailMsg(...a); }   // 옛 전�
 function toast(...a){ return toastMod.toast(...a); }   // 옛 전역 이름 — 다른 모듈 · window.toast 가 아직 전역으로 부른다(도메인 단계에서 deps 로 바꾸고 걷는다)
 
 /* ============================================================ ANIM */
-const STATES={idle:{label:'평소',color:'#9dba8a'},focus:{label:'활동중',color:'#e0a050'},pet:{label:'쓰다듬',color:'#e89b9b'},sleep:{label:'잠듦',color:'#7fa0c4'},shaking:{label:'흔들림',color:'#d98e73'},dizzy:{label:'어지러움',color:'#c9a560'}};
-function targetFor(s){switch(s){
-  case 'focus':return{leanX:0.08,turnY:0,slumpY:0,breSpd:2.6,breAmp:0.018,eyeOpen:1,arm:1}; // 활동중 숙임도 0.12 -> 0.08로 줄임, 타이핑 사이클 살짝 느리게 (3.2→2.6)
-  case 'pet':return{leanX:-0.03,turnY:0,slumpY:-0.03,breSpd:2.6,breAmp:0.025,eyeOpen:0.2,arm:0};
-  case 'shaking':return{leanX:0,turnY:0,slumpY:0.02,breSpd:5,breAmp:0.04,eyeOpen:0.5,arm:0};   // 들려서 흔들리는 중 (rotation.z는 frame에서 velocity 기반)
-  case 'dizzy':  return{leanX:0.35,turnY:0,slumpY:-0.30,breSpd:1.2,breAmp:0.025,eyeOpen:0.10,arm:0}; // 허리 살짝 세움, 머리는 DIZZY_HEAD_DROOP로 별도 숙임
-// breAmp(호흡 진폭)를 0.045에서 0.015로 대폭 줄여서 얌전하게 숨 쉬도록 변경
-case 'sleep':return{leanX:0.1,turnY:0.04,slumpY:-0.03,breSpd:0.9,breAmp:0.015,eyeOpen:0,arm:0};  default:return{leanX:0,turnY:0,slumpY:0,breSpd:2,breAmp:0.025,eyeOpen:1,arm:0};}}
-const lerp=(a,b,t)=>a+(b-a)*t;
-const SPINE_AXIS=1, HEAD_AXIS=1, HAND_AXIS=1;   // 움직임 반대면 부호 뒤집기
-// ★ 상체를 덜 숙이게 하는 보정값(라디안). 인간·동물 공통으로 적용된다.
-//   양수일수록 덜 숙임(허리를 폄), 0이면 예전 그대로, 음수면 더 숙임.
-//   숨쉬기(breath)에는 영향을 주지 않고 기울임(leanX)만 완화하므로 호흡 애니메이션은 그대로 살아있다.
-const SPINE_LEAN_RELIEF = 0.03;
-// ★ 이 숫자가 0.0이면 팔이 안 올라가요! 0.4 나 -0.4 등으로 바꿔주셔야 적용됩니다.
-const HAND_REST   = -1.0;         // 평소 손 기본각(아주 조금 올림). 더 올리려면 0쪽(예 -0.7), 내리려면 −쪽(예 -1.0)
-// 🐾 동물 전용 팔 기본각(ANIMAL_HAND_REST)은 파일 앞쪽 '동물 상수 모음'으로 옮겼음 —
-//   applyStaticHandRest(런처 미리보기)가 훨씬 위에서 이 값을 쓰기 때문(TDZ 회피).
-const FOCUS_ARM_LIFT = -0.1;      // ★ 타이핑할 때 책상 위로 팔을 들어 올리는 각도 
-                                  // (만약 팔이 척추 쪽으로 더 말려 들어간다면 +0.8 처럼 부호를 반대로 바꿔보세요!)
-const HAND_TAP_AMP = 0.18;        // 타이핑(p.arm) 시 손 까딱 폭
-const CLICK_TAP_DUR = 260;        // 마우스 클릭 반응 지속시간(ms) — 오른손 까딱 한 번의 길이
-const CLICK_TAP_AMP = 0.35;       // 마우스 클릭 반응 오른손 까딱 폭(라디안)
-const CLICK_LIFT_AMP = -0.15;     // 마우스 클릭 반응 시 오른손을 살짝 들어올리는 오프셋(책상에 안 박히게). 음수=위로
-const LEG_SWING    = 0.06;        // 다리 idle 스윙 폭(라디안). 0이면 정지
-// 귀 까닥임(랜덤, 가끔) — ear 본이 있는 캐릭터에서만 동작. 상태(idle/focus 등)와 무관하게 항상 독립적으로 발동.
-const EAR_FLICK_AXIS = 1;         // 움직임 방향이 반대면 -1로 뒤집기
-const EAR_FLICK_AMP  = 0.5;       // 까닥임 폭(라디안) — 크게 확 움직이는 느낌
-const EAR_FLICK_DUR  = 220;       // 한 번 까닥이는 데 걸리는 시간(ms) — 짧고 빠르게
-const EAR_FLICK_GAP_MIN = 4000, EAR_FLICK_GAP_MAX = 11000;   // 다음 까닥임까지 대기시간 범위(ms) — 랜덤, 자주는 안 움직임
-const DIZZY_ARM_SPREAD = -0.5;  // 어지러움(엎드림) 때 팔을 양옆으로 벌리는 각도(Z축). 부호로 방향
-const DIZZY_ARM_FORWARD = -0.1; // 어지러움 때 팔을 앞으로 뻗어 책상 위에 얹는 각도(X축). 음수=책상 위로 올라옴
-const DIZZY_HEAD_DROOP = 0.3;   // 어지러움 때 머리를 앞으로 숙이는 각도(X축). spine leanX와 합산됨
-const SHAKE_ARM_DROOP = 0.6;    // 흔들기 중 팔이 축 처져 내려오는 각도(X축)
-function boneSide(n){
-  if(/(^|[_.\s-])l$|left|handl$|arml$/.test(n))return 'l';     // Hand_L, Hand.L, HandL, ...Left
-  if(/(^|[_.\s-])r$|right|handr$|armr$/.test(n))return 'r';     // Hand_R, Hand.R, HandR, ...Right
-  return null; }
-const _be=new THREE.Euler(), _bq=new THREE.Quaternion();
-const _hp=new THREE.Vector3(), _hq=new THREE.Quaternion(), _hpq=new THREE.Quaternion();
-function setBone(bone,rest,x,y,z){ if(!bone||!rest)return; _be.set(x,y,z,'XYZ'); _bq.setFromEuler(_be); bone.quaternion.copy(rest).multiply(_bq); }
-function animateRig(seat,now,state){
-  const b=seat.bones, r=seat.boneRest, p=seat.pose, t=now/1000;
-  const us = seat.remote ? seat.remoteUserStatus : (seat.isMe ? userStatus : null);   // 활동 상태(밥먹는중 등) — head bob과 타이핑 속도 계산 둘 다에서 씀
-  // dizzy 진입 시 1회: head 본의 현재 월드 높이를 읽어 얼굴이 책상에 닿도록 slumpY 보정값 계산
-  // (커미션마다 spine/head 본 위치가 달라 고정 slumpY로는 얼굴 도달 위치가 제각각이라 자동 보정)
-  // dizzy(어지러움): 추가 슬럼프로 얼굴이 책상에 더 가까이 박히도록 (측정 불안정으로 자동 보정 폐기, 고정값 사용)
-  // 값이 더 음수일수록 더 깊이 박힘. 시각상 부족/과하면 이 상수만 조정.
-  const DIZZY_EXTRA_SLUMP = 0;       // dizzy 시 상체 추가 슬럼프. 0이면 자세 그대로(가라앉지 않음). 더 박히려면 -0.1 등
-  const _dizzyTarget = (state==='dizzy') ? DIZZY_EXTRA_SLUMP : 0;
-  const _focusLock = (state==='focus');   // 빡일 중(집중): spine·head를 둥실거리지 않게 딱 고정
-  // 정신차리기: 드래그 중 흔들다 멈춘 뒤 300~1300ms 동안(≈1초) 고개 좌우 흔들흔들 + blink
-  const _stillMs = (drag && drag.seat===seat && drag.lastMoveT) ? (now - drag.lastMoveT) : -1;
-  const isRecovering = (state==='shaking') && drag && drag.seat===seat
-    && drag.dizzy > 30 && _stillMs > 300 && _stillMs < 1300;
-  if(b.spine){ const breath = _focusLock ? 0 : Math.sin(seat.breathePhase)*(p.breAmp*1.6);
-    setBone(b.spine, r.spine, SPINE_AXIS*(breath + p.leanX*0.8 - SPINE_LEAN_RELIEF), 0, 0); }
-  if(b.head){
-    let bob, look, droop, roll;
-    if(seat.pinned){
-      // 액자 고정: 머리가 마우스 포인터 따라감
-      _hp.setFromMatrixPosition(seat.bodyWrap.matrixWorld);
-      _hp.project(camera);   // 캐릭터 화면 NDC
-      const dx = mouseNdcX - _hp.x, dy = mouseNdcY - _hp.y;
-      look  = Math.max(-0.5, Math.min(0.5, dx * 1.0));    // 좌우(yaw)
-      droop = Math.max(-0.25, Math.min(0.3, -dy * 0.6));  // 위아래(pitch, HEAD_AXIS와 결합)
-      bob = 0; roll = 0;
-    } else {
-      // 🍚 밥 먹는 중: spine은 건드리지 않고 head 본만 빠르게 위아래로 까딱여서 씹는(먹는) 느낌을 냄.
-      //   일반 bob(숨쉬기에 얹히는 잔잔한 흔들림)보다 훨씬 빠르고 뚜렷하게.
-      const isMeal = (us==='meal' && state!=='shaking' && state!=='pet');
-      bob  = isMeal ? Math.sin(t*9)*0.05
-           : (_focusLock||state==='dizzy') ? 0 : Math.sin(t*1.3+seat.headPhase)*0.05;
-      look = isRecovering ? Math.sin(t*24)*0.45
-           // 어지러움: 서로 다른 속도를 섞어 불규칙하고 무겁게 비틀거리는 좌우 움직임
-           : (state==='dizzy') ? Math.sin(t*2.0)*0.3 + Math.sin(t*5.3)*0.1 
-           : _focusLock ? 0
-           : isMeal ? 0
-           : Math.sin(t*0.3+seat.headPhase)*0.10;
-      droop= isMeal ? 0.10
-           : isRecovering ? 0.40
-           // 어지러움: 기본으로 푹 숙인 상태에서, 불규칙하게 고개가 앞으로 더 꺾이는 움직임
-           : (state==='dizzy') ? DIZZY_HEAD_DROOP + Math.sin(t*1.7)*0.2 + Math.cos(t*4.1)*0.15 
-           : (state==='sleep')?0.35:(state==='focus'?0.12:0);
-      // 어지러움: 좌우/상하 움직임과 타이밍이 어긋나는 갸우뚱(Z축)을 추가해 균형을 잃은 느낌 강조
-      roll = (!isMeal && state==='dizzy') ? Math.sin(t*2.2)*0.25 : 0;
-    }
-    setBone(b.head, r.head, HEAD_AXIS*(bob+droop), look, roll);
-  }
+/* 본문은 character/rig-anim.js 로 옮겼다(앱 FSD · app.js 분리 M15). 원래 자리인 여기서 만든다.
+   다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다. */
+const rigAnimMod = TwRigAnim.createRigAnim({
+  ANIMAL_HAND_REST: ANIMAL_HAND_REST,
+  camera: camera,
+  iDeskMod: iDeskMod,
+  rideTuneMod: rideTuneMod,
+  seatPointerMod: seatPointerMod,
+  userStatusMod: userStatusMod,
+});
+const STATES = rigAnimMod.STATES;   // 옛 전역 이름
+const targetFor = rigAnimMod.targetFor;   // 옛 전역 이름
+const lerp = rigAnimMod.lerp;   // 옛 전역 이름
+const SPINE_AXIS = rigAnimMod.SPINE_AXIS;   // 옛 전역 이름
+const HEAD_AXIS = rigAnimMod.HEAD_AXIS;   // 옛 전역 이름
+const HAND_REST = rigAnimMod.HAND_REST;   // 옛 전역 이름
+const FOCUS_ARM_LIFT = rigAnimMod.FOCUS_ARM_LIFT;   // 옛 전역 이름
+const SHAKE_ARM_DROOP = rigAnimMod.SHAKE_ARM_DROOP;   // 옛 전역 이름
+const boneSide = rigAnimMod.boneSide;   // 옛 전역 이름
+const setBone = rigAnimMod.setBone;   // 옛 전역 이름
+const animateRig = rigAnimMod.animateRig;   // 옛 전역 이름
+const setClip = rigAnimMod.setClip;   // 옛 전역 이름
 
-  
-  if(b.head && seat.headAnchor && seat.equipped && (seat.equipped.hair||seat.equipped.accessory)){
-    b.head.updateWorldMatrix(true,false); seat.bodyWrap.updateWorldMatrix(true,false);
-    _hp.setFromMatrixPosition(b.head.matrixWorld); seat.headAnchor.position.copy(seat.bodyWrap.worldToLocal(_hp));
-    _hq.setFromRotationMatrix(b.head.matrixWorld); seat.bodyWrap.getWorldQuaternion(_hpq);
-    seat.headAnchor.quaternion.copy(_hpq.invert().multiply(_hq));
-  }
-  
-  const tap=p.arm;
-
-  // 표준 리그 통합: 커미션 자동보정(armRestRot) 제거 — 손은 bind 자세 기준
-  let baseArmRot = (seat.charDef && seat.charDef.animal) ? ANIMAL_HAND_REST : HAND_REST;   // 🐾 동물만 별도 기본각(인간 값은 그대로) — 묘기 자세에서 아래에 더해지므로 let
-  let armSpread  = (state==='dizzy') ? DIZZY_ARM_SPREAD : 0;    // dizzy: 팔 양옆 펼침(Y축) — 묘기 자세에서 아래에 더해지므로 let
-  // 팔 X축 추가 회전: dizzy면 책상 위로, shaking이면 축 처짐
-  const armForward = (state==='dizzy')   ? DIZZY_ARM_FORWARD
-                   : (state==='shaking') ? SHAKE_ARM_DROOP
-                   : 0;
-
-  // 빡일중(grind)일 때는 타이핑 속도를 2배(20)로, 평소엔 기본 속도(10)로 설정합니다.
-  const tapSpeed = (us === 'grind') ? 20 : 10;
-  
-  // ★ 추가: 빡일중일 때는 허리를 숙인 만큼 팔을 위로 더 들어 올립니다.
-  const extraLift = (us === 'grind') ? -0.2 : 0; 
-
-  // 손: 평소 기본각 + 타이핑 시 들어 올리는 각도(FOCUS_ARM_LIFT) + 까딱거리는 타이핑 모션을 결합합니다.
-  // X축=앞뒤 굽힘, Y축=비틀기(시각 변화 거의 없음), Z축=양옆 벌림 — armSpread는 Z로
-  const liftAngle = (FOCUS_ARM_LIFT + extraLift) * tap;
-  // 마우스 클릭 반응: 오른손만 짧게 까딱(타이핑 여부와 무관하게 독립적으로 더해짐), 왼손은 그동안 정지, 살짝 들어올려 책상에 안 박히게.
-  // seat.clickTapAt(performance.now() 기준시각)으로부터 CLICK_TAP_DUR(ms) 동안 0→1→0 사인 펄스 한 번.
-  let clickTapVal = 0;
-  const _elapsed = seat.clickTapAt ? (performance.now() - seat.clickTapAt) : Infinity;
-  if(_elapsed < CLICK_TAP_DUR){
-    clickTapVal = Math.sin((_elapsed/CLICK_TAP_DUR) * Math.PI);   // 0→1→0 부드러운 펄스
-  }
-  const clicking = clickTapVal > 0.001;
-  // 🎪 묘기 중이면 균형 잡듯 양팔을 옆으로 쫙 벌린다(_positionRideSeat가 seat._circusOn을 세움).
-  if(seat._circusOn){
-    armSpread -= rideTuneMod.CIRCUS_ARM_SPREAD;      // ★ 부호 — 반대로 꺾이면 +로 바꾸면 됨
-    baseArmRot += rideTuneMod.CIRCUS_ARM_DROP;       // 벌린 상태에서 높이만 내림(양수 = 내려감)
-  }
-  const leftTapAmp = clicking ? 0 : HAND_TAP_AMP*tap;   // 클릭 반응 중엔 왼손 까딱 정지
-  if(b.handL) setBone(b.handL, r.handL, baseArmRot + armForward + liftAngle + HAND_AXIS*Math.abs(Math.sin(t*tapSpeed))*leftTapAmp,    0,  armSpread);
-  if(b.handR) setBone(b.handR, r.handR, baseArmRot + armForward + liftAngle + HAND_AXIS*Math.abs(Math.sin(t*tapSpeed+1.6))*HAND_TAP_AMP*tap + HAND_AXIS*CLICK_TAP_AMP*clickTapVal + HAND_AXIS*CLICK_LIFT_AMP*clickTapVal, 0, -armSpread);
-
-
-  // 다리: spine 직속으로 매달려 좌우 교대 미세 스윙(로컬 X)
-  if(seat._benchSit && !seat.beingShaken && !seat.pinned){
-    // 🪑 벤치 앉기 — 허벅지를 앞으로 접어(무릎이 앞으로) 앉은 자세. 좌우로 아주 미세하게만 흔들어 자연스럽게.
-    //   ★ 드래그(흔들기)/고정 중에는 앉기 포즈를 풀어 서 있는 다리로 — 들어올릴 때 다리가 접힌 채면 어색함.
-    const SIT_THIGH = -1.35;  // 허벅지 굽힘(라디안). 음수=앞으로 접힘. |값| 키우면 더 깊이 앉음
-    const wob = Math.sin(t*1.0 + seat.swayPhase)*0.03;   // 살짝살짝
-    if(b.legL) setBone(b.legL, r.legL, SIT_THIGH+wob, 0, 0.05);
-    if(b.legR) setBone(b.legR, r.legR, SIT_THIGH-wob, 0, -0.05);
-  } else if(seat._circusOn){
-    // ★ 딛는 발은 '좌석에 한 번 정해 저장'한다. 예전엔 swayPhase로 매번 계산했는데,
-    //   그 값이 좌석 재조립 등으로 바뀌면 딛는 발도 같이 바뀌어 왼발↔오른발이 오갔다.
-    if(seat._circusStandLeft === undefined) seat._circusStandLeft = (Math.random() < 0.5);
-    const standLeft = seat._circusStandLeft;
-    // 🎪 든 발 까딱임 — 정의가 빠져 있어 묘기 자세(3층+)에서 매 프레임 ReferenceError로 렉이 났음. 복원.
-    const wag = Math.sin(t*rideTuneMod.CIRCUS_LEG_WAG_SPD + (seat.swayPhase||0)) * rideTuneMod.CIRCUS_LEG_WAG;
-    const stand = rideTuneMod.CIRCUS_LEG_STAND, lift = rideTuneMod.CIRCUS_LEG_LIFT + wag;
-    if(b.legL) setBone(b.legL, r.legL, standLeft ? stand : lift, 0, 0);
-    if(b.legR) setBone(b.legR, r.legR, standLeft ? lift : stand, 0, 0);
-  }else{
-    const ls = Math.sin(t*1.1 + seat.swayPhase)*LEG_SWING;
-    if(b.legL) setBone(b.legL, r.legL,  ls, 0, 0);
-    if(b.legR) setBone(b.legR, r.legR, -ls, 0, 0);
-  }
-
-  // 💃 춤 — 위에서 설정한 spine/팔/다리를 덮어써서 스타일별 이모트 재생. 절차적이라 전 캐릭터 공통.
-  //   스타일 전달: 내 좌석은 danceStyle, 친구 좌석은 remoteDanceStyle(페이로드로 수신).
-  if(state==='dance'){
-    const dstyle = seat.remote ? (seat.remoteDanceStyle||'sway') : (seat.danceStyle||'sway');
-    /* ⏱ 이 춤이 언제 시작됐나 — **친구 화면에서도** 재야 하는 값이다.
-       [왜 danceUntil 로 역산하지 않나] 그 값은 내 좌석에만 있다. 친구에게는 상태('dance')와
-         스타일만 전달되므로, 남의 화면에서는 남은 시간을 알 방법이 없다. 회전 횟수를 세는 춤은
-         시작점이 없으면 남의 화면에서만 바퀴 수가 어긋난다.
-       ★ 스타일이 바뀌어도 다시 찍는다(댄스배틀로 춤이 교체되는 경우). */
-    if(seat._danceAtStyle !== dstyle || !seat._danceStartAt){
-      seat._danceStartAt = performance.now();
-      seat._danceAtStyle = dstyle;
-    }
-    const dt = (performance.now() - seat._danceStartAt) / 1000;   // 이 춤이 시작된 뒤 흐른 초
-    if(dstyle==='trick' || dstyle===iDeskMod.TRICK_TURBO_STYLE){
-      /* 🤸 묘기 회전 — ①자세 잡기 ②제자리 5회전 ③처음 방향으로 복귀.
-         🌀 터보(`/150`×3)면 같은 시간에 10바퀴 — 구간 시간은 그대로, 바퀴 수만 곱한다.
-         ★ 회전각을 `t`(전역 시각)가 아니라 **진행률 × 바퀴 수**로 만든다. 그래서 프레임이 끊기거나
-           춤을 늦게 본 사람의 화면에서도 정확히 그 바퀴만큼 돌고 원래 방향으로 선다
-           (기존 spin 은 t 에 비례해 계속 도는 방식이라 끝나는 방향이 매번 달랐다).
-         ★ 한 발 서기 자세는 탑쌓기(서커스)에서 왔지만 **든 발의 축만 다르다** — 탑쌓기는 남의 머리
-           위라 뒤로 들고(X축), 이쪽은 정면에서 보이는 자세라 옆으로 뻗는다(Z축, TRICK_LEG_SIDE).
-           각도 크기와 딛는 발은 CIRCUS_LEG_* 를 그대로 쓰므로 그쪽을 조정하면 여기도 따라온다. */
-      seat._danceSpin = true;                                    // 끝난 뒤 잔여 회전 복원은 기존 경로가 맡는다
-      const turns = iDeskMod._trickTurns(dstyle);
-      const inE   = iDeskMod._trickEaseIn(dt);                                      // 0→1 자세 잡는 중(앞쪽에 몰아친다)
-      const spinP = Math.min(1, Math.max(0, (dt - iDeskMod.TRICK_IN_S) / iDeskMod.TRICK_SPIN_S));  // 0→1 회전 진행률
-      const ease  = spinP < 0.5 ? 2*spinP*spinP : 1 - Math.pow(-2*spinP + 2, 2)/2;  // 부드럽게 붙었다 떨어지게
-      seat.rig.rotation.y = ease * Math.PI * 2 * turns;          // ★ 정확히 turns 바퀴 — 끝나면 2π 배수라 제자리
-      // 회전이 붙을수록 살짝 몸을 세우고 발끝으로 서는 느낌
-      const lift = inE * (0.6 + 0.4*Math.sin(Math.min(1, spinP*3)*Math.PI/2));
-      if(seat.bodyWrap) seat.bodyWrap.position.y = 0.05 * lift;
-      if(b.spine) setBone(b.spine, r.spine, SPINE_AXIS*0.02, 0, 0);
-      if(b.head)  setBone(b.head,  r.head,  -0.08*inE, 0, 0);              // 시선 살짝 위로
-      /* 양팔을 **좌우로 곧게** 뻗어 균형 — 위로 들어올리지 않는다.
-         ★ 예전에는 X축(앞뒤 굽힘)에 -1.55 를 줘서 팔이 위를 향한 채 길게 뻗었다. 그러면 회전
-           들어가기 전에 만세 자세가 한 박자 보여서 "묘기 자세"로 안 읽혔다.
-         ★ 벌림 폭은 TRICK_ARM_SPREAD 하나가 정한다(탑쌓기와 분리) — 이쪽은 정면에서 도는
-           자세라 같은 폭이면 좁아 보인다.
-         ★ 높이는 TRICK_ARM_LIFT 하나로 조정한다 — 올리고 내릴 때 여기 말고 그 상수를 볼 것. */
-      const armBase   = iDeskMod._trickArmBase(baseArmRot, seat._circusOn, inE);
-      const armSpreadT = iDeskMod._trickArmSpread(inE);                   // 폭은 TRICK_ARM_SPREAD 로 조정한다
-      if(b.handR) setBone(b.handR, r.handR, armBase, 0,  armSpreadT);
-      if(b.handL) setBone(b.handL, r.handL, armBase, 0, -armSpreadT);
-      // 한 발 서기 — 딛는 발은 좌석에 한 번 정해 저장한다(탑쌓기와 같은 규칙: 매번 계산하면 발이 오간다)
-      if(seat._trickStandLeft === undefined) seat._trickStandLeft = (Math.random() < 0.5);
-      const lp = iDeskMod._trickLegPose(seat._trickStandLeft, inE);       // 든 발은 옆으로(Z), 딛는 발만 X
-      if(b.legL) setBone(b.legL, r.legL, lp.legL.x, 0, lp.legL.z);
-      if(b.legR) setBone(b.legR, r.legR, lp.legR.x, 0, lp.legR.z);
-    } else if(dstyle==='spin'){
-      // 🎠 오르골 — 제자리에서 아주 천천히 도는 인형. 발은 거의 중앙에 모으고, 오른팔 만세·왼팔 살짝 벌림.
-      seat._danceSpin = true;
-      seat.rig.rotation.y = t*1.3 + (seat.swayPhase||0);        // 오르골처럼 느린 회전 (3.0 → 1.3)
-      const bob = Math.sin(t*2.4)*0.02;                          // 아주 미세한 상하(오르골 느낌)
-      if(seat.bodyWrap) seat.bodyWrap.position.y = Math.abs(bob);
-      if(b.spine) setBone(b.spine, r.spine, SPINE_AXIS*0.03, 0, 0);          // 곧게 선 자세
-      if(b.head)  setBone(b.head,  r.head,  0, Math.sin(t*1.3)*0.1, 0);
-      const wing = Math.sin(t*2.4)*0.06;
-      if(b.handR) setBone(b.handR, r.handR, baseArmRot - 1.9,  0,  0.3 + wing);   // 🙌 오른팔 만세
-      if(b.handL) setBone(b.handL, r.handL, baseArmRot - 0.55, 0, -(0.7 + wing)); // 왼팔 살짝만 벌림(덜 내림)
-      // 발 거의 중앙으로 모음 — 잔발 없이 가지런히
-      if(b.legL) setBone(b.legL, r.legL, 0, 0, -0.015);
-      if(b.legR) setBone(b.legR, r.legR, 0, 0,  0.015);
-    } else if(dstyle==='tantrum'){
-      // 😭 누워서 떼쓰기 — 등을 대고 누워(뒤로 젖힘) 팔다리를 파닥파닥. 아이가 바닥에서 떼쓰는 모션.
-      const f = t*11;                                            // 파닥임 속도(빠르게)
-      if(seat.bodyWrap) seat.bodyWrap.rotation.x = -1.5;         // 등 대고 누움(≈ -86°)
-      seat._danceFlipActive = true;                             // 눕힘 적용 중(복원 로직 참고)
-      if(b.spine) setBone(b.spine, r.spine, SPINE_AXIS*0.05, Math.sin(f*0.5)*0.12, 0);  // 몸통 살짝 뒤척
-      if(b.head)  setBone(b.head,  r.head,  0.2, Math.sin(f*0.7)*0.25, 0);              // 머리 도리도리(칭얼)
-      // 팔 파닥파닥 — 좌우 엇갈려 위아래로 마구
-      if(b.handL) setBone(b.handL, r.handL, baseArmRot + Math.sin(f)*0.7,        0, -0.5 + Math.sin(f)*0.3);
-      if(b.handR) setBone(b.handR, r.handR, baseArmRot + Math.sin(f+2.1)*0.7,    0,  0.5 - Math.sin(f+2.1)*0.3);
-      // 다리 파닥파닥 — 팔과 엇박으로 버둥거림
-      if(b.legL) setBone(b.legL, r.legL, -0.4 + Math.sin(f+1.0)*0.5, 0, -0.1);
-      if(b.legR) setBone(b.legR, r.legR, -0.4 + Math.sin(f+3.2)*0.5, 0,  0.1);
-    } else {
-      // 🐱 happy cat — 팔을 위아래로 빠르게 파닥파닥. 좌우 아주 살짝 몸 흔들.
-      const BPS = 2.4;                                   // 파닥임 속도(초당 박자)
-      const beat = t*BPS + (seat.swayPhase||0)*0.3;
-      const flap = Math.sin(beat*Math.PI*2);             // -1~1 위아래 파닥
-      // 팔을 옆으로 어느 정도 벌린 상태(SPREAD)에서, 위아래(X축 baseArmRot)로 파닥파닥.
-      const SPREAD = 0.7;                                 // 팔 벌림(고정) — 너무 좁지도 넓지도 않게
-      const FLAP_AMP = 0.9;                               // 위아래 파닥 크기(클수록 크게 펄럭)
-      if(b.handL) setBone(b.handL, r.handL, baseArmRot - 0.1 + flap*FLAP_AMP, 0, -SPREAD);
-      if(b.handR) setBone(b.handR, r.handR, baseArmRot - 0.1 - flap*FLAP_AMP, 0,  SPREAD);  // 반대 위상 = 양팔 엇갈려 파닥(더 밈 같음)
-      const sway = Math.sin(beat*Math.PI*0.5);           // 몸 좌우 아주 살짝
-      if(b.spine) setBone(b.spine, r.spine, SPINE_AXIS*(Math.sin(seat.breathePhase)*0.02), sway*0.08, sway*0.1);
-      const step = sway*0.12;
-      if(b.legL) setBone(b.legL, r.legL,  step, 0, 0);
-      if(b.legR) setBone(b.legR, r.legR, -step, 0, 0);
-      if(b.head) setBone(b.head, r.head, Math.abs(flap)*0.05, sway*0.1, sway*0.08);   // 파닥에 맞춰 고개 까딱
-    }
-  }
-  /* ⏱ 춤이 끝나면 시작 시각을 지운다 — 다음 춤이 처음부터 세도록.
-     안 지우면 같은 스타일을 다시 췄을 때 이전 진행률을 이어받아, 자세를 잡기도 전에 회전이
-     끝나 있거나 아예 안 도는 것처럼 보인다. */
-  if(state!=='dance' && seat._danceStartAt){ seat._danceStartAt = 0; seat._danceAtStyle = null; }
-  // 🌀 헤드스핀 잔여 회전 복원 — 춤이 끝나거나 다른 상태로 바뀌면 몸 Y 회전을 부드럽게 0으로.
-  if(seat._danceSpin && state!=='dance'){
-    let ry = seat.rig.rotation.y % (Math.PI*2);
-    if(ry >  Math.PI) ry -= Math.PI*2;
-    if(ry < -Math.PI) ry += Math.PI*2;
-    ry *= 0.82;
-    if(Math.abs(ry) < 0.03){ seat.rig.rotation.y = 0; seat._danceSpin = false; }
-    else seat.rig.rotation.y = ry;
-  }
-  // 🤸 뒤집힌 몸(headspin) 복원 — 이번 프레임에 뒤집기를 적용 안 했으면 bodyWrap X회전을 0으로 수렴.
-  //   (animateRig엔 dt가 없어 프레임당 고정 비율 감쇠 사용 — 약 0.75배씩)
-  if(seat.bodyWrap && !seat._danceFlipActive && Math.abs(seat.bodyWrap.rotation.x) > 0.001){
-    seat.bodyWrap.rotation.x *= 0.75;
-    if(Math.abs(seat.bodyWrap.rotation.x) < 0.02) seat.bodyWrap.rotation.x = 0;
-  }
-  seat._danceFlipActive = false;   // 다음 프레임을 위해 리셋(헤드스핀 중이면 위에서 다시 true)
-
-  // 귀 까닥임 — ear 본이 하나 이상 있을 때만
-  // 완전히 무관하게 독립적으로 랜덤 발동. 다른 애니메이션이 건드리는 뼈와 안 겹쳐서 서로 절대 간섭 안 함.
-  if(b.ear && b.ear.length){
-    // ★ 예전엔 좌석 전체가 타이머 하나(seat.earFlickStart/earNextAt)를 공유해서, 귀 파츠가 여러 개면
-    //   전부 똑같은 타이밍에 까닥여서 부자연스러웠음 — 귀 본(bone)마다 독립된 타이머를 갖도록 변경.
-    //   배열 크기가 바뀌면(파츠 장착/해제) 새로 초기화하되, 처음부터 서로 다른 랜덤 대기시간을 줘서
-    //   시작부터 타이밍이 어긋나게 함.
-    if(!seat.earTimers || seat.earTimers.length !== b.ear.length){
-      seat.earTimers = b.ear.map(()=>({ flickStart:null, nextAt: now + Math.random()*EAR_FLICK_GAP_MAX }));
-    }
-    b.ear.forEach((bone,i)=>{
-      const timer = seat.earTimers[i];
-      if(timer.flickStart==null && now >= timer.nextAt){ timer.flickStart = now; }
-      if(timer.flickStart!=null){
-        const el = now - timer.flickStart;
-        if(el >= EAR_FLICK_DUR){
-          // 까닥임 종료 — 다음 까닥임까지 랜덤 대기(이 본만)
-          timer.flickStart = null;
-          timer.nextAt = now + EAR_FLICK_GAP_MIN + Math.random()*(EAR_FLICK_GAP_MAX-EAR_FLICK_GAP_MIN);
-          setBone(bone, r.ear[i], 0, 0, 0);   // 정지 상태로 복귀
-        } else {
-          const prog = el/EAR_FLICK_DUR;
-          const amt = Math.sin(prog*Math.PI) * EAR_FLICK_AMP;   // 0→최대→0, 빠르고 확 움직이는 느낌
-          setBone(bone, r.ear[i], EAR_FLICK_AXIS*amt, 0, 0);
-        }
-      }
-    });
-  }
-}
-
-function setClip(seat,state){ if(!seat.mixer)return; const a=seat.actions[state]||seat.actions.idle; if(!a||a===seat.current)return;
-  if(seat.current)seat.current.fadeOut(0.3); a.reset().fadeIn(0.3).play(); seat.current=a;}
-
-let prev=performance.now();
-/* 🔋 절전 — 프레임 상한은 frame-budget.js(FrameBudget)가 정한다. 요약: 최대 60 · 포커스 있어도 손 안 대면 30 ·
-   다른 창을 보는 중이면 20. 이 창은 화면 전체를 덮는 투명 WebGL 오버레이라, 많이 그릴수록 크롬 스크롤 · 영상처럼
-   GPU 합성을 쓰는 작업과 경합한다(제보: RTX 3060 Ti · 고주사율 모니터에서 크롬이 버벅임).
-   캐릭터는 계속 움직여야 하므로 멈추지는 않고 상한만 둔다(dt는 그만큼 커져 속도는 그대로 유지).
-   ※ 브라우저 스크롤 '멈춤'(GPU 합성 표면 점유)은 프레임 수와 무관함이 실험으로 확인됨(2026-07-25) —
-     그건 오버레이가 표면을 잡는다는 사실 자체가 원인이다. 상한은 '버벅임'(GPU 부하) 쪽을 줄인다.
-   ★ frame-budget.js 는 HTML 이 app.js 보다 먼저 싣는다 — 가드 없이 바로 쓴다. */
-const _FB = FrameBudget;
-const _frameBudget = _FB ? _FB.createFrameBudget({ now: ()=>performance.now() }) : null;
-/* 🐢 «자동» 화질 — 그린 장 수가 상한에 한참 못 미치는 게 이어지면 배율을 1 로(이번 실행만 · 진단 로그에 한 줄) */
-const _runSlowWatch = FrameBudget.createSlowWatch();
-function _lowerRunQuality(){
-  _runLowered = true;
-  seatCameraMod.updateCameraOnly();
-  if(window.companion && companion.diagNote) companion.diagNote('[화질] 자동 — 그린 장 수가 상한에 못 미쳐 배율 1 로 낮춤');
-}
-let _appFocused = true;
-/* 🔥 상한 임시 해제 — **만지는 동안에는 비포커스여도 60fps(FrameBudget.FPS_ACTIVE)로 돌린다.**
-   [제보] "다른 브라우저를 띄워 둔 채 캐릭터를 클릭하면 앱이 무겁고 버벅인다. 앱을 활성화하면 멀쩡하다."
-   [원인] 위 상한이 20fps 다. 다른 창을 보고 있으면 프레임 간격이 50ms 라, 그 상태에서 캐릭터를
-     누르거나 끌면 반응이 한 박자씩 늦게 그려진다 — 앱이 느려진 것처럼 읽힌다. 절전은 **유휴일 때**
-     하자는 장치인데, 만지는 순간까지 절전이 걸려 있던 것이 문제다.
-   ★ 이미 같은 예외가 하나 있다(_flyActive) — 20fps 에서 나는 캐릭터가 순간이동하듯 끊겨서 뚫어 둔
-     구멍이다. 클릭·드래그도 정확히 같은 이유이므로 그 선례를 그대로 따른다.
-   ★ 마지막으로 만진 뒤 UI_HOT_MS 동안만 열어 둔다. 손을 떼면 다시 20fps 로 내려가 절전이 살아난다.
-   ⚠️ 켜는 자리는 **판정이 '이 점은 앱 것'이라고 답한 순간**(커서가 캐릭터·UI 위)과 캐릭터를 누른
-     순간이다. mousemove 마다 무조건 켜면 화면 아무 데나 스쳐도 상한이 풀려 절전이 사실상 사라진다. */
-const UI_HOT_MS = 1500;
-let _uiHotUntil = 0;
-function _uiHot(ms){ const t = performance.now() + (ms || UI_HOT_MS); if(t > _uiHotUntil) _uiHotUntil = t; }
-/* 포커스가 있을 때 30 으로 내려가지 않게 막는 «하는 중» — 춤 · 입력칸 · 꾸미기/생성기.
-   DOM 을 보므로 0.5초에 한 번만 다시 잰다(매 프레임 querySelector 를 안 부르게). */
-let _fbBusyAt = -1e9, _fbBusy = false;
-function _fbIsBusy(now){
-  if(now - _fbBusyAt < 500) return _fbBusy;
-  _fbBusyAt = now;
-  let b = false;
-  try{
-    if(creatorOpen) b = true;
-    else if(seats.some(s=>s._danceStartAt)) b = true;
-    else {
-      const a = document.activeElement;
-      if(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable)) b = true;
-      else if(document.querySelector('#wardrobePanel.on, #wdPreviewPanel.on')) b = true;
-    }
-  }catch(_){}
-  return (_fbBusy = b);
-}
-/* 지금 상한 fps — 상한 판정을 한 곳에 모은다(검증기도 여기를 본다). 0 = 상한 없음 */
-function _frameCap(now){
-  if(!_frameBudget) return 0;
-  return _FB.pickFps({
-    hot: !!_flyActive || (typeof drag !== 'undefined' && !!drag) || now < _uiHotUntil,   // 🪑 비행 · 끄는 중 · 방금 누름
-    focused: _appFocused,
-    runMode: document.body.classList.contains('runmode'),
-    busy: _appFocused && _fbIsBusy(now),
-    idleMs: _frameBudget.idleMs(now),
-    quality: _renderQuality,
-  });
-}
-/* 이번 프레임을 건너뛸 것인가. 그린다고 답하면 다음 예정 시각이 잡힌다(admit). */
-function _frameCapped(now){
-  if(!_frameBudget) return false;
-  return !_frameBudget.admit(now, _frameCap(now));
-}
-/* 🩺 화면 멈춤 감시 — 창이 가려지거나 오래 방치되면 브라우저가 requestAnimationFrame 호출을
-   아예 멈추는 경우가 있다(클릭하면 다시 움직이던 그 현상). main.js 쪽 절전 해제 스위치로도
-   전부 막지 못했다. setTimeout 계열 타이머는 그때도 계속 도니, rAF가 한동안 안 오면
-   타이머가 대신 한 프레임을 진행시켜 화면이 멈춘 것처럼 보이지 않게 한다.
-   ★ 수동 진행일 땐 새 rAF를 걸지 않는다 — 원래 걸어둔 콜백이 아직 대기 중이라, 그것까지
-     쌓이면 나중에 한꺼번에 터진다. 브라우저가 정상으로 돌아오면 그 콜백이 살아나 이어진다. */
-let _lastRafAt = 0;
-const RAF_STALL_MS = 1000;   // ★ 이 시간 이상 rAF가 안 오면 멈춘 것으로 본다
-try{
-  setInterval(()=>{
-    const t = performance.now();
-    if(!_lastRafAt){ _lastRafAt = t; return; }
-    if(t - _lastRafAt < RAF_STALL_MS) return;
-    try{ frame(t, true); }catch(_){}
-  }, 400);
-}catch(_){}
-try{
-  _appFocused = document.hasFocus();
-  if(_frameBudget) _frameBudget.noteFocus(_appFocused, performance.now());
-  window.addEventListener('focus', ()=>{ _appFocused = true;  if(_frameBudget){ const t = performance.now(); _frameBudget.noteFocus(true, t); _frameBudget.poke(t); } });
-  window.addEventListener('blur',  ()=>{ _appFocused = false; if(_frameBudget) _frameBudget.noteFocus(false, performance.now()); });
-  /* «손댐» = 내 창에 온 누르기 · 키 · 휠. ⚠️ mousemove 는 세지 않는다 — 클릭 통과 중에도 들어와서
-     크롬 위로 커서만 지나가도 30 ↔ 60 이 오르내린다(영상 깜빡임 — _updateIgnore 🚫 주석). */
-  if(_frameBudget){
-    const _fbPoke = ()=>_frameBudget.poke(performance.now());
-    for(const ev of ['pointerdown', 'keydown', 'wheel']) window.addEventListener(ev, _fbPoke, { capture: true, passive: true });
-  }
-}catch(_){}
-/* 🩺 1분마다 진단 한 줄(tw-mouse-diag.log) — 실제로 그린 장 수 · 포커스 비율 · 상한 · 배율 · 캔버스 크기.
-   «앱 켜면 다른 프로그램이 버벅인다» 제보 때 로그만 받아서 우리 몫이 얼마인지 본다. 실행 화면에서만 적는다. */
-try{
-  setInterval(()=>{
-    if(!_frameBudget) return;
-    const t = performance.now();
-    const m = _frameBudget.takeMinute(t);
-    if(!document.body.classList.contains('runmode')) return;
-    if(!(window.companion && companion.diagNote)) return;
-    m.cap = _frameCap(t); m.pr = renderer.getPixelRatio(); m.w = canvas.width; m.h = canvas.height; m.q = _renderQuality; m.lowered = _runLowered;
-    companion.diagNote(_FB.diagLine(m));
-  }, 60000);
-}catch(_){}
-function frame(now, manual){
-  if(!manual) _lastRafAt = now;   // 브라우저가 실제로 rAF를 불러준 시각(아래 감시 장치가 씀)
-  /* 상한(_frameCapped → FrameBudget) — 최대 60 · 포커스 있어도 손 안 대면 30 · 다른 창을 보는 중이면 20
-     ★ 🪑 플라잉체어가 도는 동안은 60 으로 올린다. 20fps 에서는 dt 가 프레임당 0.05초로
-       고정돼 빠르게 튕기는 캐릭터가 한 칸씩 순간이동하듯 끊겨 보인다(평소 앉아 있는 모션은
-       느려서 20fps 로도 티가 안 났다). 최대 10초짜리 한시적 예외다. */
-  if(_frameCapped(now)){
-    if(!manual) requestAnimationFrame(frame);
-    return;
-  }
-  const dt=Math.min((now-prev)/1000,0.05);prev=now;
-  overheadMod.beginLabelFrame();   // 라벨이 쓰는 캔버스 사각형을 이번 프레임에 한 번만 잰다(room/label-measure.js)
-  updateIdleItemPlayback();   // 어플 8: 자리비움 감지로 아이템 재생/정지 자동 전환
-  updateActivePartPlayback();   // ▶ 파츠: animMode='active'인 것만 활동 중 재생/일시정지
-  if(activeItemMixers.size) activeItemMixers.forEach(m=>m.update(dt));   // 클릭으로 재생 중인 아이템 idle 애니메이션 업데이트
-  seatEqClampMod._clampSeatDeskParts(now);   // 🪑 평준화 중 «책상 위» 파츠를 자기 자리 안으로(띄엄띄엄 — seat-slot.js)
-  const _djNow = listenUi.djId();   // 🎧 이름표 «DJ» 딱지 — 프레임에 한 번(좌석마다 방 사람 목록을 다시 만들지 않게)
-  seats.forEach(seat=>{
-    const state=seatState(seat,now);
-    if(seat.isMe && Presence.active()){ Presence.setState(seat.pinned ? 'idle' : state); Presence.setLevel(focusLevelMod.getFocusLevel()); }   // 액자 고정은 상대에겐 평상시로
-    if(seat.remote && seat._lastTab!==seat.remoteState){ seat._lastTab=seat.remoteState; seatPanelMod.renderSeatTabs(); }  // 탭 상태 이모지 갱신
-    const tg=targetFor(state),k=1-Math.pow(seat.smooth,dt);
-    /* 활동 상태(userStatus): 본인=userStatus, 친구=remoteUserStatus */
-    const us = seat.remote ? seat.remoteUserStatus : (seat.isMe ? userStatus : null);
-    /* 🔥 빡일중: idle뿐 아니라 focus(타이핑) 상태도 더 격렬하게.
-       idle은 spine 숙임 유지 + 호흡 진폭 거의 0 (안 흔들림). focus는 타이핑 빠르게. */
-    if(us==='grind'){
-      if(state==='idle'){
-        tg.slumpY=-0.10; tg.breSpd=2.0; tg.breAmp=0.004; tg.leanX=0.09;
-        // tg.arm = 1; 을 지워서 평소(idle)에는 가만히 모니터를 응시하도록 되돌립니다.
-      } else if(state==='focus'){
-        tg.slumpY=-0.10; tg.breSpd=7.0; 
-        tg.leanX=0.25;   // ★ 타이핑(focus)을 할 때 허리(spine)를 앞으로 푹 숙이게 만듭니다. (더 깊이 숙이려면 0.35 등으로 올려보세요!)
-      }
-    } else if(us==='meal' && state!=='shaking' && state!=='pet'){
-      // 🍚 밥 먹는 중: 마우스/타이핑 등 활동 감지와 무관하게(직접 쓰다듬거나 흔드는 중이 아니면 항상)
-      //   먹는 모션만 보이게 함(요청사항) — 상체(spine)는 가만히 두고, 머리만 빠르게 까딱이는 건
-      //   animateRig()의 head 본 처리에서 별도로 담당(아래 us==='meal' 분기 참고).
-      tg.slumpY=-0.05;   // 고개 숙임 정도 — 더 숙이려면 음수로 더 크게(예: -0.08)
-      tg.leanX=0;        // ★ 상체(spine)는 움직이지 않게 — 머리만 까딱이길 원하셔서 몸 기울임은 뺌
-      tg.breSpd=2.0;
-      tg.breAmp=0.004;   // ★ 숨쉬기로 인한 상체 흔들림도 최소화(거의 정지) — grind의 idle과 동일 수준
-    }
-    for(const kk in seat.pose) seat.pose[kk]=lerp(seat.pose[kk],tg[kk],k);
-    /* slide to slot — group은 슬롯 위치만, rig는 흔들기 중이 아니면 항상 원점으로 복귀 */
-    if(seat.inPreview){ seat.group.position.set(0,0,0); seat.rig.position.set(0,0,0); }
-    else if(seat._benchOwnerSit && seat.bench && seat.benchSlots && seat.benchSlots[0]){
-      // 🪑 벤치 주인 owner-sit — 자기 벤치(자기 group의 자식)의 slot_0 로컬 위치로 rig를 보낸다.
-      //   group을 옮기면 슬롯도 같이 움직여 순환하므로, group은 원래 자리(targetX) 유지 + rig만 슬롯으로.
-      //   ★ 단, 흔들기/고정 중에는 rig 강제를 멈춰서 흔들기가 먹히게 함(놓으면 다시 슬롯으로 수렴).
-      const kSlide = Math.min(1, dt * 15);
-      seat.group.position.x = lerp(seat.group.position.x, seat.targetX, kSlide);
-      if(!seat.beingShaken && !seat.pinned){
-        const s0 = seat.benchSlots[0];   // 벤치가 group 원점에 있으므로 s0.position이 곧 group 기준 로컬 오프셋
-        const SIT_DROP = 0.28;
-        seat.rig.position.x = lerp(seat.rig.position.x, s0.position.x, kSlide);
-        seat.rig.position.y = lerp(seat.rig.position.y, s0.position.y - SIT_DROP, kSlide);
-        seat.rig.position.z = lerp(seat.rig.position.z, s0.position.z, kSlide);
-      }
-    }
-    else if(seat.seatedOn && !seats.includes(seat.seatedOn)){ rideBenchMod.unmountBench(seat); }   // 🪑 벤치 주인이 방을 나감 → 자동 하차
-    else if(seat.seatedOn){ /* 위치는 _updateRideChains의 벤치 처리에서 슬롯 기준으로 배치 */ }
-    else if(seat.ridingOn && !seats.includes(seat.ridingOn)){ rideBenchMod.unmountRide(seat); }   // 태운 대상이 방을 나감 → 자동 하차
-    /* 🐾 **이미 잘못 얹혀 있는 좌석을 내린다.** mountRide 의 새 검사는 '앞으로 얹히는 것'만 막는다 —
-       그 검사가 없던 때 얹혀서 지금 화면에 남아 있는 것(제보 사진)은 스스로 안 내려온다.
-       ★ 동물 GLB 가 뒤늦게 파싱되면 rebuildAnimalSeats → applyCharToSeat 가 정리해 주지만,
-         파싱이 끝내 실패하면 그 경로가 영영 안 온다. 그 경우를 여기서 받는다.
-       ⚠️ _animalBuilt 는 조립 결과라 undefined(모델 없음)일 수 있다 — false 일 때만 내린다.
-         mountRide 와 같은 기준이어야 내렸다 얹혔다 하는 깜빡임이 안 생긴다. */
-    else if(seat.ridingOn && (!(seat.charDef && seat.charDef.animal) || seat._animalBuilt === false)){
-      rideBenchMod.unmountRide(seat);
-    }
-    else if(seat.ridingOn){ /* 위치는 아래 _updateRideChains에서 체인 순서대로 일괄 처리 */ }
-    else {
-      const kSlide = Math.min(1, dt * 15);   // 슬롯/좌석 복귀 속도. 프레임당 비율(~24%@60fps). 약 0.4초 수렴
-      // group.x는 슬롯 이동 중이 아닐 때만 lerp
-      if(!(drag&&drag.seat===seat&&drag.moved&&drag.mode==='slot')){
-        seat.group.position.x = lerp(seat.group.position.x, seat.targetX, kSlide);
-      }
-      // rig.x/z는 shake 중이 아니면 항상 정상 위치로 lerp (rig 기본은 x=0, z=CHAR_Z)
-      // 정상 상태에선 lerp(현재, 정상, k)가 현재≈정상이라 사실상 비용 없음
-      if(!seat.beingShaken && !seat.pinned){
-        seat.rig.position.x = lerp(seat.rig.position.x, 0, kSlide);
-        seat.rig.position.z = lerp(seat.rig.position.z, seatCharZ(seat), kSlide);
-      }
-    }
-    /* rig transforms */
-    seat.swayPhase+=dt*0.8;
-    /* idle 좌우 미세 sway — 빡일중일 땐 진폭을 0.02→0.005로 거의 제거 (집중 자세 고정 느낌) */
-    const _swayAmp = (us==='grind' || us==='meal') ? 0.005 : 0.02;
-    if(state==='shaking' && drag && drag.seat===seat){
-      // 흔들기 중: 마우스 가로 속도에 따라 캐릭터를 좌우로 기울임 (±0.55rad 한도)
-      const tilt = Math.max(-0.55, Math.min(0.55, -drag.velX * 0.06));
-      seat.rig.rotation.z = lerp(seat.rig.rotation.z, tilt, 0.35);
-    } else if(state==='idle'){
-      seat.rig.rotation.z = Math.sin(seat.swayPhase)*_swayAmp;
-    } else {
-      seat.rig.rotation.z = lerp(seat.rig.rotation.z, 0, k);
-    }
-    seat.rig.rotation.y=seat.pose.turnY;   // 기본 -0.28은 모델에 들어가 있음(센터링 정확)
-    const lift=(drag&&drag.seat===seat&&drag.moved&&drag.mode==='slot')?0.12:0;
-    if(seat.beingShaken){
-      /* shake 중 — pointermove가 rig.position을 직접 제어, 덮어쓰지 않음 */
-    } else if(seat.pinned){
-      /* 액자 고정 — 그 자리 그대로, 위치 lerp 안 함 */
-    } else if(now-seat.petStart<PET_MS){const e=now-seat.petStart;seat.rig.position.y=Math.sin(e*0.016)*0.07*Math.exp(-e*0.0026)+lift;}
-    else seat.rig.position.y=lerp(seat.rig.position.y,lift,k);
-    seat.breathePhase+=dt*seat.pose.breSpd;
-
-const clipped=!seat.isPlaceholder&&seat.mixer;
-    const rigged=!seat.isPlaceholder&&!seat.mixer&&seat.hasRig;
-    if(clipped){
-      seat.rig.rotation.x=lerp(seat.rig.rotation.x,0,k); 
-      { const _bs=seatEqMod.seatScale(seat); seat.bodyWrap.scale.set(_bs,_bs,_bs); }   // [수정] 강제 1,1,1 초기화 방지 (🪑 평준화 배율 포함)
-      seat.bodyWrap.position.y=0;
-      setClip(seat,state); seat.mixer.update(dt);
-    } else if(rigged){
-      seat.rig.rotation.x=lerp(seat.rig.rotation.x,0,k); 
-      { const _bs=seatEqMod.seatScale(seat); seat.bodyWrap.scale.set(_bs,_bs,_bs); }   // [수정] 강제 1,1,1 초기화 방지 (🪑 평준화 배율 포함)
-      seat.bodyWrap.position.y=0;
-      animateRig(seat,now,state);
-    } else {
-      seat.rig.rotation.x=seat.pose.leanX;
-      const breathe=1+Math.sin(seat.breathePhase)*seat.pose.breAmp;
-      // [수정] 기본 숨쉬기 애니메이션에 userScale을 곱해서 크기 유지
-      /* ⚠️ 여기는 **매 프레임** bodyWrap.scale 을 다시 쓴다. raw userScale 로 두면 fitModel 이 얹은
-         평준화 배율이 다음 프레임에 곧바로 지워진다 — 좌석 크기를 읽는 자리는 예외 없이 seatScale(). */
-      const _bs = seatEqMod.seatScale(seat);
-      seat.bodyWrap.scale.set(
-        (1/Math.sqrt(breathe)) * _bs, 
-        breathe * _bs, 
-        (1/Math.sqrt(breathe)) * _bs
-      );
-      // dizzy면 추가 슬럼프(고정값)로 얼굴을 더 내림. 부드럽게 수렴.
-      // ★ _dizzyTarget은 animateRig() 안에서만 선언된 지역변수라 여기(rig 없는 폴백 캐릭터 분기)에서
-      //   그대로 쓰면 ReferenceError. 같은 계산식을 이 분기 안에서 직접 계산해야 함.
-      const _dizzyTargetHere = (state==='dizzy') ? 0 : 0;   // DIZZY_EXTRA_SLUMP와 동일(현재 0) — animateRig와 값 일치시킴
-      seat._dizzyAdjCur = (seat._dizzyAdjCur==null) ? _dizzyTargetHere : lerp(seat._dizzyAdjCur, _dizzyTargetHere, k);
-      seat.bodyWrap.position.y=seat.pose.slumpY + seat._dizzyAdjCur;
-    }
-    /* 🪄 때리기 스쿼시 — 위 **세 분기(clipped·rigged·폴백)가 각자 써 놓은 scale 에 곱한다.**
-       ⚠️ 분기 안이 아니라 분기 밖에서 한 번 부르는 것이 요점이다. 분기마다 복사하면 한 곳을
-         빠뜨려 "어떤 캐릭터는 납작해지고 어떤 건 안 되는" 증상이 나고, 증상만 보면 원인을 못 찾는다.
-       ⚠️ 여기보다 아래에서 bodyWrap.scale 을 다시 쓰는 코드가 생기면 이 곱셈이 지워진다. */
-    tricksMod._bonkFrame(seat, now);
-    /* blink */
-    TwBlinkTiming.scheduleBlinks(seat.blink,now); const ca=TwBlinkTiming.eyeClose(seat.blink,now);   // 깜빡임 시간표는 blink-timing.js
-    if(seat.isPlaceholder){
-      const ey=Math.max(0.06,seat.pose.eyeOpen*(1-ca*0.95));
-      seat.placeholder.eyeL.scale.y=ey; seat.placeholder.eyeR.scale.y=ey;
-      if(seat.pose.arm>0.02){seat.placeholder.armL.position.y=0.10+Math.abs(Math.sin(seat.breathePhase*4.5))*0.05*seat.pose.arm;
-        seat.placeholder.armR.position.y=0.10+Math.abs(Math.sin(seat.breathePhase*4.5+1.6))*0.05*seat.pose.arm;}
-      else{seat.placeholder.armL.position.y=lerp(seat.placeholder.armL.position.y,0.10,k);seat.placeholder.armR.position.y=lerp(seat.placeholder.armR.position.y,0.10,k);}
-    } else if(seat.faceMat&&seat.blinkTex){
-      // blink는 "지금 빠르게 흔드는 중"일 때만 — lastFastT 기준 (느린 드래그는 lastFastT가 안 찍힘)
-      // 정신차리기: 빠르게 흔든 뒤(dizzy>30) 멈춘 지 300~1300ms — 고개 좌우 흔들며 다시 눈 감음
-      // ⚠ now는 rAF 타임스탬프, lastFastT/lastMoveT는 performance.now() — 시계 캡처 시점이 달라
-      //    합쳐진 pointermove가 rAF 직전에 찍히면 (now - lastFastT)가 잠깐 음수가 됨 → 0으로 클램프
-      const _moveAgo = drag && drag.seat===seat && drag.lastMoveT ? Math.max(0, now - drag.lastMoveT) : -1;
-      const _fastAgo = drag && drag.seat===seat && drag.lastFastT ? Math.max(0, now - drag.lastFastT) : -1;
-      const recentlyFast = _fastAgo >= 0 && _fastAgo < 220;   // 220ms 안에 빠른 흔들기가 있었으면 (반전 구간 흔들림 보정)
-      const isRecovering = (state==='shaking') && drag && drag.seat===seat
-        && drag.dizzy > 30 && _moveAgo > 300 && _moveAgo < 1300;
-      const shakingHard = (state==='shaking') && recentlyFast && drag && drag.seat===seat;
-      const wantClosed=(state==='sleep')||(state==='pet')||(state==='dizzy')||shakingHard||isRecovering||(ca>TwBlinkTiming.SHUT_AT);
-      if(wantClosed!==seat.blink.closed){seat.blink.closed=wantClosed;matToneMod.setFaceMap(seat.faceMat, wantClosed?seat.blinkTex:seat.faceMapOrig);}
-    }
-    if(state==='sleep' && us!=='away' && us!=='meal' && now-(seat._lastZ||0)>900){seat._lastZ=now;floatersMod.spawnFloater('Z','#7fa8e0',seat);}
-    if(state==='dizzy' && now-(seat._lastDizzy||0)>520){seat._lastDizzy=now;floatersMod.spawnFloater('💫','#f5a94f',seat);}
-
-    /* 활동 상태 시각화 — 책상 위 이모지(모두), 머리 위 텍스트 말풍선(모두), 영혼 투명도(자리비움) */
-    //   ✨ statusConfFor: 커스텀 상태(프리미엄)는 등록한 이모지/문구로 해석됨 (본인=내 등록값, 친구=전파받은 값).
-    /* 📱 머리 위 «📱 앱» — 사용자가 고른 상태가 있으면 그게 먼저 · 없으면 🕒 오늘 기록보다 먼저(보내는 쪽 _statusOut 과 같은 순서). */
-    const _mobApp = focusLevelMod._seatMobileApp(seat);
-    const _conf = (_mobApp && !us) ? null : statusConfFor(seat, us);
-    /* 🙈 숨긴 좌석 — 캐릭터 · 머리 위 말풍선 · 책상 위 상태 이모지. 매 프레임 판정(_hiddenSeatIds 주석). */
-    const _hidden = hiddenSeatsMod._seatHidden(seat);
-    if(seat.rig && seat.rig.visible === _hidden) seat.rig.visible = !_hidden;
-    /* 🫧 자리비움 그림 — 자리비움 · 안 숨김 · 회사원 모드 아님 · 그림이 실제로 올라왔을 때만 캐릭터 자리에 선다.
-       그땐 책상 위 🫧 를 안 띄운다(그림이 곧 자리비움 표시). 못 불러오면 예전 모양(🫧) 그대로. */
-    const _awayPic = awayPicMod._awayPicFor(seat, us, _hidden);
-    awayPicMod._awayImgFrame(seat, _awayPic, now);
-    statusChipMod.setSeatDeskEmoji(seat,  (_conf && us!=='grind' && !_hidden && !_awayPic) ? _conf.emo : null);   // 빡일중은 책상에 🔥 안 뜨게(다른 상태는 그대로)
-    // 💬 채팅 말풍선 — 보낸 지 CHAT_BUBBLE_MS 안이면 상태 말풍선 대신 채팅 내용을 잠깐 띄움(그 뒤엔 자동으로 상태 말풍선으로 복귀).
-    //   (📢 확성기는 제거됨 → 커스텀 상태로 대체. 상태 말풍선이 곧 "지금 뭐 하는지"를 보여줌.)
-    setSeatOpacity(seat, (_conf && _conf.opacity!=null) ? _conf.opacity : 1);
-    // 머리 위 레벨/이름 이름표 — 나 자신과 친구(멀티모드) 둘 다. 설정에서 끄면 setSeatNamePlate 내부에서 안 보이게 처리.
-    // ⭐ 발밑 경험치 바도 같은 자리에서 갱신한다. 이름표를 끄면 바도 같이 숨는다(updateSeatExpBar 내부 처리).
-    //    상대 좌석의 진행도(seat.friendExp)는 프리즌스 하트비트로 들어온다. 구버전 상대는 undefined라
-    //    null을 넘겨 바를 안 그린다 — 0%로 그리면 "레벨업 직후"로 오해된다.
-    /* ⚠️ 순서 주의 — 경험치 바가 **먼저**, 이름표가 나중이다(NAMEPLATE_BELOW_EXPBAR 주석 참고).
-       이름표가 바 아래로 비키려면 바의 '이번 프레임' 위치를 알아야 한다. 예전 순서(이름표 → 바)
-       그대로 두면 한 프레임 전 값을 보게 되어, 캐릭터가 움직일 때 이름표가 바를 파고든다. */
-    /* 🌟 회차면 표시 레벨은 **이번 바퀴** 레벨이고 별이 붙는다. 해금 레벨(getFocusLevel · friendLevel)은 표시에만 안 쓴다 (개정 70). */
-    if(seat.remote){
-      const st = seat.friendStar || null, lv = st ? st.lv : (seat.friendLevel||1);
-      expBarMod.updateSeatExpBar(seat, lv, (seat.friendExp==null ? null : seat.friendExp), st);
-      overheadMod.setSeatNamePlate(seat, lv, seat.friendName||'(이름 없음)', st, !!seat.friendUserId && _djNow === seat.friendUserId);
-    }
-    else if(seat.isMe){
-      const st = focusLevelMod.myFocusShow(), lv = st ? st.lv : focusLevelMod.getFocusLevel();
-      expBarMod.updateSeatExpBar(seat, lv, expBarMod.myExpCells(), st);
-      overheadMod.setSeatNamePlate(seat, lv, getDisplayName(), st, !!getMyUserId() && _djNow === getMyUserId());
-    }
-    else if(seat.namePlateEl){ seat.namePlateEl.style.display='none'; if(seat.expBarEl) seat.expBarEl.style.display='none'; }   // 주캐릭터였다가 자리추가로 바뀐 좌석 — 이전 이름표가 남아있지 않게 숨김
-    /* 💬 말풍선 — ★ 반드시 이름표·경험치 바 **뒤에** 갱신한다.
-       반전 배치(캐릭터가 화면 위)에서는 이름표·바·말풍선이 전부 발밑 한 자리에 쌓이는데,
-       비켜주는 쪽은 말풍선 하나다(서로 비키면 매 프레임 서로를 밀어내며 흘러내린다).
-       비키려면 위 두 요소의 **이번 프레임 위치**를 알아야 하는데, 예전엔 말풍선이 먼저 돌아서
-       한 프레임 전 값을 봤다 — 바가 그 사이에 움직이면 그대로 겹친 채로 남았다.
-       ⚠️ 이 세 줄의 순서를 바꾸지 말 것. 순서가 곧 배치 규칙이다.
-       (📢 확성기는 제거됨 → 커스텀 상태로 대체. 상태 말풍선이 곧 "지금 뭐 하는지"를 보여줌.) */
-    /* 🏢 회사원 모드 — 상태 말풍선은 아예 안 뜬다(요청: 말풍선이 잠긴다).
-       채팅만 머리 위 한 줄 라벨로 작게 남는다 — 모양 전환은 setSeatHeadBubble 이 담당한다.
-       ⚠️ 이 세 갈래를 호출부에서 정하는 이유: '무엇을 보여줄지'는 여기가, '어떻게 보여줄지'는
-          setSeatHeadBubble 이 정한다. 안쪽에서 상태/채팅을 다시 구분하려 들면 판정이 두 곳으로 갈린다. */
-    const _chatting = !!(seat.chatBubbleUntil && now < seat.chatBubbleUntil);
-    if(_hidden){ overheadMod.setSeatHeadBubble(seat, null); }   // 🙈 캐릭터 없이 말풍선만 뜨지 않게
-    else if(officeMode){ overheadMod.setSeatHeadBubble(seat, _chatting ? seat.chatBubbleText : null); }
-    else if(_chatting){ overheadMod.setSeatHeadBubble(seat, seat.chatBubbleText); }
-    else if(!overheadMod.statusBubbleEnabled()){ overheadMod.setSeatHeadBubble(seat, null); }   // 설정 › 디스플레이 «머리 위 상태 말풍선» 끔 — 채팅은 위 갈래로 그대로
-    // 💭 상태 갈래만 '생각 말풍선'(동그라미 꼬리). 채팅은 뾰족 꼬리 그대로다.
-    else{ overheadMod.setSeatHeadBubble(seat, _conf ? _conf.label : focusLevelMod._mobileBubbleText(_mobApp), true); }
-    updateItemHandTrackers(seat);   // 책상 아이템 안의 hand_L/hand_R 지점을 이번 프레임 손 위치로 갱신
-  });
-
-  /* selected ring follows selected seat */
-// if(selected){selRing.position.x=lerp(selRing.position.x,selected.group.position.x,1-Math.pow(0.001,dt));selRing.visible=true;}
-  /* state bar shows selected seat */
-  if(selected){const st=seatState(selected,now);const sc=STATES[st]||STATES.idle;seatPanelMod.dot.style.background=sc.color;seatPanelMod.stateLabel.textContent=sc.label;}
-
-  for(let i=floatersMod.floaters.length-1;i>=0;i--){const f=floatersMod.floaters[i];f.userData.life+=dt;const p=f.userData.life/f.userData.dur;
-    f.position.y+=dt*(f.userData.rise!=null?f.userData.rise:floatersMod.FLOATER_RISE);f.position.x+=f.userData.vx*dt;
-    // 생애 60%까진 진하게 유지하다 마지막 40%에서만 빠르게 사라지게 — 오래 반투명 상태로 떠있으면서 탁해 보이는 구간을 최소화
-    f.material.opacity=Math.max(0, p<0.6 ? 0.95 : 0.95*(1-(p-0.6)/0.4));
-    f.scale.setScalar((f.userData.base!=null?f.userData.base:floatersMod.FLOATER_BASE_SCALE)*(1+p*0.4));
-    if(p>=1){scene.remove(f);floatersMod.floaters.splice(i,1);}}
-
-  rideBenchMod._checkCircusBalance(now);   // 🎪 묘기 균형 판정(흔들림 → 와해)
-  rideBenchMod._updateRideChains(now);   // 🐾 올라탄(탑쌓기 포함) 좌석 위치를 아래층→위층 순으로 확정
-  tricksMod._updateFlyingSeats(now, dt);   // 🪑 플라잉체어 — 날고 있는 캐릭터의 rig 좌표를 마지막에 덮어쓴다
-  try{ awayPicMod._awayImgFollow(); }catch(_){}   // 🩹 자리비움 그림이 rig 를 매 프레임 따라간다(비행 버벅임) — _awayImgFollow 주석
-  dotRenderMod.sweepIfOn(now);   // 🕹️ 도트 켬 동안 켠 뒤 들어온 메쉬 · 텍스처에도 도트를 건다(0.5초에 한 번)
-  if(desktopMode){ renderer.clear(); }   // 투명 클리어 강제 — 프레임 사이 흰 잔상 방지
-  /* 🍎 설정(런처) 화면에서는 #scene 이 display:none 이다(body.desktop.config) — 안 보이는 화면을 그리지 않는다.
-     상태 계산은 위에서 그대로 돈다(돌아왔을 때 튀지 않게). 런처는 자기 루프(launcherLoop)가 따로 그린다. */
-  /* 회사원 모드로 화면을 숨긴 동안도 그리지 않는다 — 안 보이는 3D 가 포토샵 등과 그래픽 카드를 나눠 쓰지 않게 */
-  if(!_officeHidden && !(document.body.classList.contains('desktop') && document.body.classList.contains('config'))) renderer.render(scene,camera);
-  statusChipMod.updateMyStatusChipPosition();   // 본인 상태 칩 위치를 자기 좌석 발 밑에 맞춤
-  if(_renderQuality === FrameBudget.QUALITY.AUTO && document.body.classList.contains('runmode') && _runSlowWatch.note(now, _frameCap(now))) _lowerRunQuality();
-  if(!manual) requestAnimationFrame(frame);
-}
+/* 본문은 launcher/frame-pace.js 로 옮겼다(앱 FSD · app.js 분리 M16). 원래 자리인 여기서 만든다 — 타이머 · 포커스 듣기가 예전과 같은 때 걸린다.
+   다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다. */
+const framePaceMod = TwFramePace.createFramePace({
+  _flyActive: ()=>flyChairMod._flyActive(),
+  renderQuality: ()=>_renderQuality,
+  setRunLowered: (v)=>{ _runLowered = v; },
+  creatorOpen: ()=>creatorOpen,
+  frame: (...a)=>frame(...a),
+  renderer: renderer,
+  seatCameraMod: seatCameraMod,
+  seatPointerMod: seatPointerMod,
+  seats: seats,
+});
+const _FB = framePaceMod._FB;   // 옛 전역 이름
+const _frameBudget = framePaceMod._frameBudget;   // 옛 전역 이름
+const _runSlowWatch = framePaceMod._runSlowWatch;   // 옛 전역 이름
+const _gpuTimer = framePaceMod._gpuTimer;   // 옛 전역 이름
+const _frameJsStats = framePaceMod._frameJsStats;   // 옛 전역 이름
+const _lowerRunQuality = framePaceMod._lowerRunQuality;   // 옛 전역 이름
+const _uiHot = framePaceMod._uiHot;   // 옛 전역 이름
+const _frameCap = framePaceMod._frameCap;   // 옛 전역 이름
+const _frameCapped = framePaceMod._frameCapped;   // 옛 전역 이름
+/* 🗺️ 클릭 통과 히트 맵 — 좌석 조각의 경계 구를 화면 사각형으로(room/seat-hit-targets.js · launcher/hit-map.js). 판정이 찾을 때 마지막으로 그린 장의 행렬로 만든다.
+   0.12.4 는 그림자 운행: 통과 판정의 답은 옛 판정 그대로, desktop-run 이 새 판정을 옆에서 돌려 hitShadow 에 센다(1분 [지도] 줄). */
+const hitShadow = TwHitShadow.createHitShadow();
+/* 설정(런처) 화면이 #scene 을 가리는가 — frame() 이 그리기를 건너뛰는 조건 · 히트 맵이 빈 지도를 만드는 조건 한 곳 */
+function _configHidesScene(){ return document.body.classList.contains('desktop') && document.body.classList.contains('config'); }
+const seatHitMod = TwSeatHitTargets.createSeatHitTargets({
+  THREE: THREE,
+  hitMap: TwHitMap,
+  seats: seats,
+  camera: camera,
+  ray: ray,
+  canvasRect: (...a)=>overheadMod.canvasRect(...a),
+  officeHidden: ()=>officeModeMod._officeHidden(),
+  configHidden: ()=>_configHidesScene(),
+  isRunmode: ()=>document.body.classList.contains('runmode'),
+  partSkipped: (...a)=>hiddenSeatsMod._partSkipped(...a),
+  skipHits: (...a)=>hiddenSeatsMod._skipUnhittable(...a),
+  now: ()=>performance.now(),
+  noteBuild: (...a)=>hitShadow.build(...a),
+});
+/* 🩺 1분 진단 줄([비용] · [프레임])은 launcher/run-diag-minute.js 로 옮겼다 — 만들 때 한 번 돈다. */
+const runDiagMinuteMod = TwRunDiagMinute.createRunDiagMinute({
+  Presence: Presence,
+  _FB: _FB,
+  _bodyHidden: (...a)=>hiddenSeatsMod._bodyHidden(...a),
+  _frameBudget: _frameBudget,
+  _frameCap: (...a)=>_frameCap(...a),
+  _frameJsStats: _frameJsStats,
+  _gpuTimer: _gpuTimer,
+  _renderQuality: ()=>_renderQuality,
+  _runLowered: ()=>_runLowered,
+  canvas: canvas,
+  hitShadow: hitShadow,
+  key: key,
+  renderer: renderer,
+  runCost: runCost,
+  scene: scene,
+  seats: seats,
+});
+/* 본문은 launcher/frame-loop.js 로 옮겼다(앱 FSD · app.js 분리 M17). 원래 자리인 여기서 만든다 — 만들기만 하고 부르지 않는다(첫 부름은 INIT 의 requestAnimationFrame(frame)).
+   뒤에서 선언되거나 다시 대입되는 값은 읽는 함수로 넘긴다. */
+const frameLoopMod = TwFrameLoop.createFrameLoop({
+  _configHidesScene: _configHidesScene,
+  _frameCap: _frameCap,
+  _frameCapped: _frameCapped,
+  _frameJsStats: _frameJsStats,
+  _gpuTimer: _gpuTimer,
+  _lowerRunQuality: _lowerRunQuality,
+  _renderQuality: ()=>_renderQuality,
+  _runSlowWatch: _runSlowWatch,
+  activeItemMixers: activeItemMixers,
+  animateRig: animateRig,
+  awayPicMod: ()=>awayPicMod,
+  camera: camera,
+  desktopMode: ()=>desktopMode,
+  dotRenderMod: dotRenderMod,
+  expBarMod: ()=>expBarMod,
+  floatersMod: floatersMod,
+  focusLevelMod: ()=>focusLevelMod,
+  focusProgressMod: ()=>focusProgressMod,
+  framePaceMod: framePaceMod,
+  getDisplayName: getDisplayName,
+  listenUi: ()=>listenUi,
+  myCode: ()=>TwRoomRt.store.myCode(),
+  hiddenSeatsMod: hiddenSeatsMod,
+  lerp: lerp,
+  matToneMod: matToneMod,
+  officeModeMod: ()=>officeModeMod,
+  overheadMod: overheadMod,
+  Presence: Presence,
+  renderer: renderer,
+  rideBenchMod: rideBenchMod,
+  runCost: runCost,
+  scene: scene,
+  seatCharZ: seatCharZ,
+  seatEqClampMod: seatEqClampMod,
+  seatEqMod: seatEqMod,
+  seatHitMod: seatHitMod,
+  seatPanelMod: seatPanelMod,
+  seatPointerMod: seatPointerMod,
+  seats: seats,
+  seatsMod: seatsMod,
+  seatState: seatState,
+  seatStateMod: seatStateMod,
+  setClip: setClip,
+  setSeatOpacity: setSeatOpacity,
+  STATES: STATES,
+  statusChipMod: statusChipMod,
+  statusConfFor: statusConfFor,
+  targetFor: targetFor,
+  tricksMod: tricksMod,
+  updateActivePartPlayback: updateActivePartPlayback,
+  updateIdleItemPlayback: updateIdleItemPlayback,
+  updateItemHandTrackers: updateItemHandTrackers,
+  userStatusMod: userStatusMod,
+});
+const frame = frameLoopMod.frame;   // 옛 전역 이름
 
 /* ============================================================ 데스크탑(Electron) 모드 */
-const desktopMode = !!window.companion || /[?&]desktop=1/.test(location.search);
-/* ★ 피규어 모드 — 켜져 있으면 포커싱 어플 등록 여부 · 입력 유무와 무관하게 항상 깨어 있다(seatState).
-   대신 포커스 시간(레벨) · 👑 달성표 🎯집중은 쌓지 않는다(_applyActiveAppState) — 설정 화면 · 도움말이 그렇게 약속한다. */
-/* 💾 설정을 저장하고 **실제로 남았는지 확인한다** — 조용한 실패를 없애기 위한 것이다.
+/* 본문은 launcher/office-mode.js 로 옮겼다(앱 FSD · app.js 분리 M14). 원래 자리인 여기서 만든다 — 깃발을 읽고 상태칩 우클릭을 거는 때가 예전과 같다.
+   뒤에서 선언되는 값은 읽는 함수로 넘긴다. 깃발을 최상위에서 읽는 코드는 이 줄 아래에 둔다(TDZ). */
+const officeModeMod = TwOfficeMode.createOfficeMode({
+  chipPopupsMod: chipPopupsMod,
+});
+const desktopMode = officeModeMod.desktopMode;   // 옛 전역 이름
+const FIGURE_MODE_KEY = officeModeMod.FIGURE_MODE_KEY;   // 옛 전역 이름
+const OFFICE_MODE_KEY = officeModeMod.OFFICE_MODE_KEY;   // 옛 전역 이름
+const refreshOfficeChipUI = officeModeMod.refreshOfficeChipUI;   // 옛 전역 이름
+/* 본문은 shared/ls-set.js 로 옮겼다(앱 FSD · app.js 분리 M14). 설정 저장 헬퍼 — 쓰는 곳은 deps 로 `_lsSet` 을 받는다. */
+const lsSetMod = TwLsSet.createLsSet({
+  toast: toast,
+});
+const _lsSet = lsSetMod._lsSet;   // 옛 전역 이름
 
-   [왜 필요한가] localStorage 쓰기는 이 파일에서 99곳이고 그중 58곳이 `catch(e){}` 로 비어 있다.
-     이 앱은 얼굴 PNG·커미션 GLB 까지 로컬에 넣으므로 저장 공간이 실제로 찬다
-     (persistSavedParts·persistSavedDesks 의 '저장 공간이 부족해요' 가 그 신호다).
-     꽉 차면 **새 키는 만들어지지 않는데 화면에는 아무 표시도 안 난다** — 그러면
-     "설정을 켜도 다시 켜면 꺼져 있다"가 되고, 제보에는 원인이 하나도 안 실린다.
-     같은 증상이 일부 사용자에게서만 나는 것도 이 성질과 맞는다(그 기기만 저장이 꽉 찼다).
-   ★ 왕복 확인까지 한다 — setItem 이 던지지 않고도 값이 안 남는 환경이 있다.
-   ⚠️ 안내는 **세션당 한 번**이다. 토글을 누를 때마다 뜨면 그것대로 못 쓴다.
-   ⚠️ 이 헬퍼는 '설정' 같은 작은 값 전용이다. 슬롯·파츠·책상처럼 큰 값은 실패했을 때
-     할 일이 다르므로(직전 저장값 보존 등) 각자의 처리를 그대로 둔다. */
-let _lsWarned = false;
-function _lsSet(key, val){
-  const s = String(val);
-  try{
-    localStorage.setItem(key, s);
-    if(localStorage.getItem(key) !== s) throw new Error('값이 남지 않음');
-    return true;
-  }catch(e){
-    console.warn('[저장] ' + key + ' 저장 실패 — 이 설정은 앱을 껐다 켜면 사라집니다', e);
-    if(!_lsWarned){
-      _lsWarned = true;
-      try{ toast('⚠ 설정을 저장하지 못했어요 — 저장 공간이 가득 찼을 수 있어요'); }catch(_){}
-    }
-    return false;
-  }
-}
-
-const FIGURE_MODE_KEY = 'tw.figureMode';
-let figureMode = (localStorage.getItem(FIGURE_MODE_KEY)==='1');
 /* 포커싱 어플 게이트 — true면 자동 idle/focus 판정을 sleep으로 강제(=잠듦).
    등록된 앱이 하나도 없으면 항상 true, 등록된 앱이 있으면 "그 앱이 지금 활성 상태"일 때만 false.
    (피규어 모드면 초기값부터 false로 시작 — 첫 폴링 전까지 잠깐 잠든 것처럼 보이는 지연 방지) */
-let focusGateSleep = !figureMode;
-/* 🏢 회사원 모드 — 켜면 남의 마이홈이 안 열리고 말풍선이 잠기며, 미니 메뉴 ▾ 버튼 우클릭으로
-   화면을 즉시 숨길 수 있다.
-   ⚠️ 선언 자리를 figureMode 옆으로 잡은 이유 — app.js 는 최상위에서 값을 읽는 코드가 많아
-     선언 순서(TDZ)가 실제로 앱을 죽인 적이 있다. 이 값을 읽는 최상위 코드는 반드시
-     **이 줄 아래**에 있어야 한다(refreshOfficeModeUI 처럼 나중에 불리는 함수 안은 상관없다).
-     `node smoke.js` 가 그걸 잡는다. */
-const OFFICE_MODE_KEY = 'tw.officeMode';
-let officeMode = (localStorage.getItem(OFFICE_MODE_KEY)==='1');
-/* 화면 숨김 — **세션 한정이라 저장하지 않는다.**
-   숨긴 채로 앱이 꺼졌다 켜지면 아무것도 없는 화면이 뜨는데, 그건 기능이 아니라 고장으로 읽힌다. */
-let _officeHidden = false;
-/* 숨길 대상을 JS 로 하나씩 지우지 않고 body 클래스 하나로 CSS 에 넘긴다 —
-   이 코드베이스에서 "선택자를 하나씩 나열하다 빠뜨림"은 반복된 실패 양상이고
-   (audit 검사 12·14·15 가 전부 그래서 생겼다), 새 요소가 생길 때마다 또 빠뜨린다. */
-function setOfficeHidden(on){
-  _officeHidden = !!on && officeMode;   // 회사원 모드가 꺼져 있으면 숨김 상태 자체가 성립 안 함
-  document.body.classList.toggle('office-hidden', _officeHidden);
-  const btn=document.getElementById('myStatusChipBtn');
-  if(btn){
-    /* ⚠️ .on 은 상태 메뉴가 열렸을 때 쓰는 눌린 표시다. 여기서 같이 쓰면 두 상태가 섞여
-       메뉴를 닫는 순간 숨김 표시까지 지워진다 — 전용 클래스를 쓴다. */
-    btn.classList.toggle('office-hiding', _officeHidden);
-    btn.title = _officeHidden ? '우클릭: 화면 다시 보이기'
-              : (officeMode ? '메뉴 (우클릭: 화면 숨기기)' : '메뉴');
-  }
-  /* 숨길 때 열려 있던 **칩 팝업**(상태·더보기·알림 등)은 닫는다 — 지나가는 것들이라 숨김을
-     푼 뒤에도 떠 있으면 오히려 거슬린다.
-     ⚠️ 창(설정·포커스 기록·마이홈 …)은 여기서 닫지 않는다. 그쪽은 CSS 의 body.office-hidden 이
-       display 만 끄므로 상태를 쥔 채 사라졌다가 그대로 돌아온다 — 하던 일이 날아가면 안 된다.
-       숨김 대상을 JS 로 나열하지 않는 이유는 CSS 쪽 주석 참고. */
-  if(_officeHidden){
-    /* force=true — 🎵 플레이리스트까지 닫는다. 이 창만은 예외로 남기면 안 된다:
-       재생 중이면 _plSyncBgmBounds 가 패널 자리를 main 에 계속 알려서, 화면을 숨겨도
-       유튜브 자식창이 그 자리에 그대로 떠 있게 된다(숨김이 안 된 것처럼 보인다). */
-    try{ chipPopupsMod._closeChipPopups(null, true); }catch(_){}   // ▾ 메뉴(상태 목록 포함)도 이 목록에 있다
-  }
-}
-function refreshOfficeChipUI(){
-  if(!officeMode && _officeHidden) setOfficeHidden(false);   // 모드를 끄면 숨김도 반드시 풀린다
-  else setOfficeHidden(_officeHidden);                       // 툴팁 문구를 모드에 맞춰 다시 씀
-}
-/* 숨기기 진입점 = **미니 메뉴 ▾ 버튼(#myStatusChipBtn) 우클릭** 하나다.
-   ★ 숨기기 전용 버튼을 따로 두지 않는다 — 숨겼을 때 남는 것이 이 버튼이라 되돌리는 손짓도 같은 자리에 둔다.
-   ⚠️ 이 버튼은 #myStatusChip 안에 있어 클릭 통과 화이트리스트에 자동 포함된다 —
-     밖으로 옮기면 숨긴 순간 되돌릴 길이 사라진다(그때는 앱 재시작밖에 없다).
-   ⚠️ preventDefault 를 빼면 Electron 에서 기본 컨텍스트 메뉴가 같이 뜬다. */
-(function bindOfficeHideGesture(){
-  const btn=document.getElementById('myStatusChipBtn'); if(!btn) return;
-  btn.addEventListener('contextmenu', e=>{
-    e.preventDefault(); e.stopPropagation();
-    if(!officeMode) return;   // 회사원 모드가 꺼져 있으면 아무 일도 없다(토스트도 안 띄운다)
-    setOfficeHidden(!_officeHidden);
-  });
-})();
-refreshOfficeChipUI();   // ★ officeMode 선언 뒤에서만 부를 것 (위 TDZ 주석 참고)
-/* 🔎 회사원 모드 진단 — **일부 사용자에게서만** "켜도 안 켜진다"는 제보가 있고, 코드만 봐서는
-     어느 단계가 끊기는지 가릴 수가 없다(저장이 안 남는 것인지, 버튼이 안 붙은 것인지,
-     켜지긴 하는데 눈에 보이는 변화가 없는 것인지). 세 가지를 한 번에 찍는다.
-   ★ 런처/생성기 화면에서 F12 → `__officeDiag()`. 실행 화면은 창이 투명해 콘솔을 열기 어렵다
-     (__mouseDiag 를 같은 이유로 같은 방식으로 두었다 — 그쪽 주석 참고).
-   ⚠️ 진단만 한다. 여기서 상태를 고치지 말 것 — 고치면 그 다음 제보에서 원인이 또 지워진다. */
-window.__officeDiag = function(){
-  let 새키쓰기 = null;
-  try{
-    localStorage.setItem('tw.__probe', '1');
-    새키쓰기 = (localStorage.getItem('tw.__probe') === '1');
-    localStorage.removeItem('tw.__probe');
-  }catch(e){ 새키쓰기 = '실패: ' + ((e && e.name) || e); }
-  let used = 0;
-  try{ for(const k in localStorage){ const v = localStorage.getItem(k); if(v != null) used += (k.length + v.length) * 2; } }catch(_){}
-  return {
-    저장값       : (()=>{ try{ return localStorage.getItem(OFFICE_MODE_KEY); }catch(e){ return '읽기실패'; } })(),
-    메모리값     : officeMode,
-    새키쓰기     : 새키쓰기,          // false 또는 '실패:…' 면 저장 공간이 원인이다
-    저장사용량MB : (used / 1048576).toFixed(2),
-    토글버튼     : !!document.getElementById('progOfficeModeToggle'),
-    화면숨김중   : _officeHidden,
-    숨김클래스   : document.body.classList.contains('office-hidden'),
-  };
-};
+let focusGateSleep = !officeModeMod.figureMode();
 /* ===== 포커스 시간 누적 + 레벨 시스템 =====
    평생 누적 포커스 시간 1시간당 레벨 1 상승, 최대 999레벨(999시간 달성 시 더 안 늘어남).
    오늘 하루 누적은 [기록 열기] 팝업에 hh:mm:ss로 표시(자정 지나면 0으로 리셋, 레벨엔 영향 없음 — 평생 누적 별도). */
 /* 본문은 focus-total.js 로 옮겼다(앱 FSD 45번). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const focusTotalMod = TwFocusTotal.createFocusTotal({
+  focusTotalStore: accountStoreMod,
 });
-let _focusTotalSec=focusTotalMod._loadFocusTotalSec();
 
 /* ═══ 📊 오늘 기록 전시 (2026-09-23 · handoff-2026-09-21-features §3 · 사용자 확정: 🕒 를 눌러 켜고 끈다) ═══
    포커스 기록창 첫 줄(현재/누적 기록) 옆 🕒(#focusLogShowClock)를 누르면 켜짐/꺼짐.
@@ -8736,9 +4560,9 @@ const focusShareMod = TwFocusShare.createFocusShare({
   Presence: Presence,
   _lsSet: (...a)=>_lsSet(...a),
   _rolloverFocusToday: (...a)=>focusTotalMod._rolloverFocusToday(...a),
-  officeMode: ()=>officeMode,
+  officeMode: ()=>officeModeMod.officeMode(),
   toast: (...a)=>toast(...a),
-  userStatus: ()=>userStatus,
+  userStatus: ()=>userStatusMod.userStatus(),
 });
 
 /* ═══ 🫧 자리비움 그림 (2026-09-23 · handoff-2026-09-21-features §2 · 시안 A 확정 · 500×500 · 캐릭터 자리) ═══════════
@@ -8763,31 +4587,29 @@ const awayPicMod = TwAwayPic.createAwayPic({
   getMyUserId: (...a)=>getMyUserId(...a),
   measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
   measureHeadBoxNoParts: (...a)=>charMeasureMod.measureHeadBoxNoParts(...a),
-  officeMode: ()=>officeMode,
+  officeMode: ()=>officeModeMod.officeMode(),
   renderer: renderer,
   seats: seats,
   toast: (...a)=>toast(...a),
+  userApi: ()=>userApiMod,
 });
 
-/* ═══ 🚩 신고하기 (2026-09-23 · 시안 확정) ═══════════════════════════════════════════════════════════
+/* ═══ 🚩 신고하기 ═══════════════════════════════════════════════════════════
    좌석 · 책상 · 이름표 우클릭 «🚩 신고하기…» → 사유 라디오(캐릭터 · 자리비움 그림 · 닉네임 · 기타 40자) → [신고].
-   ★ 서버: reports/{신고당한 uid}/{내 uid} = { kind, note?, nick, code4, ts } — 규칙이 «로그인한 본인 칸만» 쓰게 한다.
-     같은 사람을 또 신고하면 같은 칸을 덮는다 = 칸 수가 곧 «서로 다른 신고자 수».
-   ★ 신고자에 대해 남기는 것은 **닉네임 + 친구 코드 뒷자리 4자리 + 사유**뿐(요청).
+   ★ 신고는 서버 경로(support/report-api.js — POST /v2/reports) — 신고한 사람은 서버가 토큰에서 정한다.
    ★ 신고하면 내 화면에서 그 사람을 숨긴다(_reportHiddenUids · 계정 기준 · 모든 방).
-   ★ 관리자 목록(_openReportAdmin)에는 서로 다른 REPORT_ADMIN_MIN 명 이상에게 신고된 사람만 뜬다. */
-/* 본문은 둘로 나눠 옮겼다 — 신고 창 · 공용 도우미는 report.js(앱 FSD 11번), 관리자 신고 목록은 admin/admin-report.js.
-   팝업 칸(한 번에 하나만 열리는 자리)은 report.js 가 가지고, 관리자 목록은 읽는 · 쓰는 함수로만 만진다.
+   신고 창 · 공용 도우미는 report.js, 관리자 신고 목록은 admin/admin-report.js. 팝업 칸은 report.js 가 가진다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const reportMod = TwReport.createReport({
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   seatLabelName: (...a)=>overheadMod._seatLabelName(...a),
   awayUrlOk: (...a)=>awayPicMod._awayUrlOk(...a),
-  getDisplayName: (...a)=>getDisplayName(...a),
   reportHiddenSave: (...a)=>hiddenSeatsMod._reportHiddenSave(...a),
   reportHiddenUids: hiddenSeatsMod._reportHiddenUids,
-  myFriendCodeKey: MY_FRIEND_CODE_KEY,
+  reportApi: TwReportApi.createReportApi({ authed: TwApi.authed, errs: TwApiErrors }),   // 🌐 POST /v2/reports — 원본은 서버
+  apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 const adminReport = TwAdminReport.createAdminReport({
   toast: (...a)=>toast(...a),
@@ -8801,71 +4623,80 @@ const adminReport = TwAdminReport.createAdminReport({
   setReportOv: (...a)=>reportMod.setOv(...a),
   reportEsc: (...a)=>reportMod.esc(...a),
   setReportEsc: (...a)=>reportMod.setEsc(...a),
+  adminApi: TwReportApi.createAdminReportApi({ authed: TwApi.authed, errs: TwApiErrors }),   // 🌐 /v2/admin/reports* — 원본은 서버
+  apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+});
+/* 🐞 버그제보 게시판 — 원본은 서버(support/bug-api.js — /v2/bugs*). 만들 때는 버튼만 잇고, 배지 받기는 app-boot STEPS 의 bugBadge(start) · 계정을 놓을 때 reset. */
+const bugBoardUi = TwBugBoardUi.createBugBoardUi({
+  bugApi: TwBugApi.createBugApi({ authed: TwApi.authed, errs: TwApiErrors, pending: ()=>TwRequestId.createPending() }),
+  lib: TwBugBoard,
+  apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  toast: (...a)=>toast(...a),
+  escHtml: (...a)=>escHtml(...a),
+  safeHtml: TwSafeHtml,
+  isAdmin: ()=>isAdmin,
+  bugReportLink: ()=>{ const s = acctStateMod._rcStore(); return s ? s.bugReportLink() : ''; },   // 답변 칸 [💬 오픈카톡] 기본 주소
+  rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
 });
 
 /* ═══ ⭐ 포커스 레벨 · 해금 안내 · 회차 별 색 ═══ */
 /* 본문은 focus-level.js 로 옮겼다(앱 FSD 26번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+/* ⏱ 포커스 진척 — 레벨 · 회차 · 별 색은 서버 값, 이 PC 는 못 올린 초만(focus/focus-progress.js). 시작은 계정 확인 뒤 app-boot 의 focusLevel 차례 */
+const focusApiMod = TwFocusApi.createFocusApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) });   // 진척 · 폰 키가 같은 하나 — 읽은 토큰 주인을 같이 쓴다
+const focusProgressMod = TwFocusProgress.createFocusProgress({
+  focusApi: focusApiMod,
+  focusStore: accountStoreMod,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  setServerDay: (t)=>focusTotalMod.setServerDay(t),
+  addQuitListener: (fn)=>window.addEventListener('beforeunload', fn),
+});
 const focusLevelMod = TwFocusLevel.createFocusLevel({
   onFocusAdded: (sec)=>roomFocusSync.add(sec),
-  DANCE_MOVES: iDeskMod.DANCE_MOVES,
+  progress: focusProgressMod,
+  _focusTotalStarted: ()=>focusTotalMod._focusTotalStarted(),
   FOCUS_CYCLE_CAP: focusTotalMod.FOCUS_CYCLE_CAP,
   FOCUS_CYCLE_SEC: focusTotalMod.FOCUS_CYCLE_SEC,
   FOCUS_LEVEL_CAP_HOURS: focusTotalMod.FOCUS_LEVEL_CAP_HOURS,
-  FOCUS_TODAY_DATE_KEY: focusTotalMod.FOCUS_TODAY_DATE_KEY,
-  FOCUS_TODAY_SEC_KEY: focusTotalMod.FOCUS_TODAY_SEC_KEY,
-  FOCUS_TOTAL_CAP_SEC: focusTotalMod.FOCUS_TOTAL_CAP_SEC,
-  FOCUS_TOTAL_KEY: focusTotalMod.FOCUS_TOTAL_KEY,
-  IDESK_ENABLED: iDeskMod.IDESK_ENABLED,
-  INTERACTION_DESKS: iDeskMod.INTERACTION_DESKS,
   Presence: Presence,
   _acctDetached: ()=>acctStateMod._acctDetached(),
-  _focusDayStr: (...a)=>focusTotalMod._focusDayStr(...a),
   _focusSessionSec: ()=>focusTotalMod._focusSessionSec(),
-  _focusTodaySec: ()=>focusTotalMod._focusTodaySec(),
-  _focusTotalSec: ()=>_focusTotalSec,
-  _myInbox: ()=>_myInbox,
-  _myInboxReady: ()=>_myInboxReady,
-  appMode: ()=>appMode,
+  addFocusToday: (...a)=>focusTotalMod.addFocusToday(...a),
   findMySeat: (...a)=>findMySeat(...a),
-  getDisplayName: (...a)=>getDisplayName(...a),
-  getMyLoginEmail: (...a)=>acctStateMod.getMyLoginEmail(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
-  mobileDiag: TwMobileDiag,
-  renderLauncher: (...a)=>renderLauncher(...a),
+  focusApi: focusApiMod,
+  focusStore: accountStoreMod,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  rtOnMessage: (...a)=>TwRtHub.store.onMessage(...a),
+  serverNow: ()=>TwRtHub.store.serverNow(),   // 방 밖 서버 시계(ready.now) — 모르면 null
   toast: (...a)=>toast(...a),
   wdDraftDef: ()=>wardrobeMod.wdDraftDef(),
   setFocusSessionSec: (v)=>{ focusTotalMod.setFocusSessionSec(v); },
-  setFocusTodaySec: (v)=>{ focusTotalMod.setFocusTodaySec(v); },
-  setFocusTotalSec: (v)=>{ _focusTotalSec = v; },
 });
 
-/* ═══ 🎰 가챠 모듈 연결 · 🔑 쓰기 거부 안내 ═══ */
-/* 🎰 파츠 가챠 — 코어(보유분 · 확률 · 뽑기 · 서버 동기화 · 미보유 파츠 회수)와 도감(꾸미기 창 «도감» 탭 · T) · 뽑기 창은 parts/gacha.js 로 옮겼다
-   (앱 FSD 8번 · docs/APP_FSD_MAP.md).
-   ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(localStorage 읽기 · 시각 부트스트랩 · 부팅 동기화 4.2초 타이머 · 10분 tick ·
-     창 버튼 · 끌기 · ESC · 바깥 클릭 · blur 연결)이 예전과 같은 때 돈다.
-   저장 키 세 줄은 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)이 같이 써서 여기 두고 값으로 넘긴다(달성표 CHAL_KEY 와 같은 방식).
+focusTotalMod.onDayEnd(()=>{ focusProgressMod.refreshDay(); });   // 하루가 바뀐 때 서버에 새 날을 한 번 묻는다
+focusProgressMod.onChange(()=>{ myInfoMod.onProgressChanged(); });   // 진척이 바뀌면 내 정보 머리 · 별 색 구획을 다시 그린다
+
+/* ═══ 🎰 가챠 모듈 연결 ═══ */
+/* 🎰 파츠 가챠 — 코어(서버 보유분 · 뽑기 · 미보유 파츠 회수)와 도감(꾸미기 창 «도감» 탭 · T) · 뽑기 창은 character/gacha.js 로 옮겼다.
+   ★ 원래 자리인 여기서 만든다 — 만들 때는 창 버튼 · 끌기 · ESC · 바깥 클릭 · blur 연결만 한다. 서버에서 받기는 계정 확인 뒤 startGacha()(app-boot).
    함수 deps 는 화살표로 감싼다(부를 때 찾게). isAdmin · savedParts · PART_CATS · wdDraftDef · activeWdAdj 는 다시 대입되는 let 이라 읽는 함수로,
    activeWdAdj 를 바꾸는 것은 쓰는 함수로 넘긴다. seats · slots · Presence 는 이 줄보다 앞에 선언되고 다시 대입되지 않는 const 라 값으로.
    부르는 곳은 gachaMod.이름(전부 이 줄보다 늦게 돈다). 바로 아래 🔑 «서버가 조용히 거부하는 기기» 안내는 캐릭터 슬롯도 써서 여기 남겼다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다.
    ⚠️ 이름을 gacha 로 짓지 않은 까닭 — partsInCatFor(cat, gacha) · 파츠 등록의 const gacha 가 가린다. */
-const GACHA_OWNED_KEY = 'tw.gachaOwned';
-const GACHA_TS_KEY    = 'tw.gachaOwnedTs';   // 이 기기가 마지막으로 gachaOwned 를 '바꾼' 시각(ms)
-const GACHA_BONUS_KEY = 'tw.gachaBonus';     // 👑달성표 주간 보상으로 얹힌 추가 뽑기 횟수
-/* 🎰 가챠 서버 길 — 서버가 뽑고 저장한다(character/gacha-server.js) · 로그인 API 통로는 firebase-init.js */
-const gachaServerMod = TwGachaServer.createGachaServer({
-  get: (p, o)=>firebaseAPI.apiGetAuthed(p, o),
-  post: (p, b, o)=>firebaseAPI.apiPostAuthed(p, b, o),
-  newRequestId: ()=>crypto.randomUUID(),
+/* 🎰 가챠 서버 경로 — 서버가 뽑고 저장한다(character/gacha-api.js) · 로그인 통로는 TwApi.authed */
+const gachaApiMod = TwGachaApi.createGachaApi({
+  authed: TwApi.authed,
+  newRequestId: ()=>TwRequestId.newId(),
 });
 const gachaMod = TwGacha.createGacha({
   toast: (...a)=>toast(...a),
-  srvNow: (...a)=>roomSyncMod._srvNow(...a),
-  warnServerWriteDenied: (...a)=>_warnServerWriteDenied(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   getFocusLevel: (...a)=>focusLevelMod.getFocusLevel(...a),
+  levelCap: focusTotalMod.FOCUS_LEVEL_CAP_HOURS,
   catEquippedIds: (...a)=>premiumMod.catEquippedIds(...a),
   removeEntryFromCat: (...a)=>premiumMod.removeEntryFromCat(...a),
   unequipStackablePart: (...a)=>unequipStackablePart(...a),
@@ -8889,13 +4720,10 @@ const gachaMod = TwGacha.createGacha({
   seats: seats,
   slots: slots,
   presence: Presence,
-  ownedKey: GACHA_OWNED_KEY,
-  tsKey: GACHA_TS_KEY,
-  bonusKey: GACHA_BONUS_KEY,
   isGachaPart: (...a)=>premiumMod.isGachaPart(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
-  gachaSource: ()=>TwSourceSwitch.store.pick('gacha'),   // 받는 곳 — 원격 설정 sources.gacha(없으면 옛 길) · 고르기는 shared/source-switch.js
-  gachaServer: gachaServerMod,
+  gachaApi: gachaApiMod,
+  rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
 });
 /* 🛠 가챠 보관함의 관리자 등록 · 삭제 — 관리자 모듈이 가챠보다 먼저 만들어져 여기서 건다(가챠는 관리자 모듈을 부르지 않는다) */
 gachaMod.setPartEditor({
@@ -8903,42 +4731,6 @@ gachaMod.setPartEditor({
   syncPartRegGachaLock: (...a)=>adminPartReg.syncPartRegGachaLock(...a),
   deletePart: (...a)=>adminPartReg.deletePart(...a),
 });
-
-/* 🔑 [2026-09-12 제보] «서버가 조용히 거부하는 기기» ══════════════════════════════
-   [제보] "2번 PC 에서 뽑은 가챠가 1번 PC 에서 안 보인다. 2번에서도 같은 구글 계정으로 연동하니 해결됐다."
-   [무슨 일인가] 유저 코드가 구글 계정에 묶이면(userAuth/{코드}) 규칙이 users/{코드} 의 자기 소유
-     가지를 «주인이 없거나 나일 때»로 잠근다. 그런데 **비밀번호 계정 이전은 인증을 만들지 않는다** —
-     코드만 갈아탈 뿐이다. 그래서 제보자의 순서대로
-       ① PC2 가 비밀번호로 코드 A 를 받고 → ② PC1 이 코드 A 에 구글 연동을 하면
-     그 순간부터 PC2 의 users/A 쓰기가 전부 거부된다.
-   [왜 가장 늦게 신고되는 종류인가] 거부는 예외를 던지지 않는다. 로컬 값은 그대로 남아 화면에는
-     멀쩡히 보이고, 서버에만 안 올라간다 — «내 PC 에선 있는데 다른 PC 엔 없다» 로만 드러난다.
-     게다가 이 앱의 동기화는 ts 최신 승 **통째 덮어쓰기**라, 거부당하는 기기는 자기 것도 못 올리고
-     남의 것도 못 지우므로 그냥 영원히 갈라진 채로 남는다.
-   [고치는 길은 이미 있다] 그 기기에서 같은 구글 계정으로 로그인하면 주인이 되어 쓰기가 통과한다.
-     제보자가 스스로 찾아낸 그 길이 정답이다 — 그러니 여기서 할 일은 **그 길을 알려주는 것**이다.
-   ★ 막지 않는다. 쓰기 시도는 그대로 두고(로그인하는 순간 다음 동기화가 그대로 올린다) 안내만 한다.
-   ⚠️ 세션당 한 번만. 가챠·집중·마이홈이 각자 실패할 때마다 띄우면 토스트가 도배된다.
-   ⚠️ «주인이 없다/조회 실패»면 아무 말도 하지 않고 표식도 도로 푼다 — 네트워크가 끊긴 부팅에서
-     있지도 않은 계정 경고를 띄우면 안 되고, 진짜로 묶여 있을 때 그 한 번을 써버려도 안 된다.
-   ⚠️ 로그인돼 있는데 실패했다면 그건 다른 원인이다(규칙 배포 누락 등). 그때는 조용히 물러난다 —
-     틀린 안내는 안 하느니만 못하다. 콘솔에는 남으므로 추적은 가능하다. */
-let _srvDeniedWarned = false;
-async function _warnServerWriteDenied(what){
-  if(_srvDeniedWarned) return;
-  _srvDeniedWarned = true;                    // 판정하는 동안 또 불려도 두 번 뜨지 않게 먼저 세운다
-  const code = getMyUserId();
-  let owner;
-  try{
-    owner = (window.firebaseAPI && firebaseAPI.authOwnerOf) ? await firebaseAPI.authOwnerOf(code) : undefined;
-  }catch(_){ owner = undefined; }
-  if(owner === undefined || owner === null){ _srvDeniedWarned = false; return; }   // 조회 실패·주인 없음
-  let mine = null;
-  try{ mine = (window.firebaseAPI && firebaseAPI.authCurrentUid) ? firebaseAPI.authCurrentUid() : null; }catch(_){}
-  if(mine && mine === owner){ _srvDeniedWarned = false; return; }                  // 주인이 맞다 = 다른 원인
-  try{ console.warn('[계정] ' + what + ' 서버 반영 거부 — 이 기기는 코드 ' + code + ' 의 주인이 아니다(주인 uid=' + owner + ')'); }catch(_){}
-  try{ toast('🔑 ' + what + ' 기록이 서버에 저장되지 않았어요 — 이 PC의 로그인이 풀려 있어요. 앱을 다시 시작하면 로그인 화면이 나와요'); }catch(_){}
-}
 
 /* ═══ 🎨 디자인 테마 ═══════════════════════════════════════════════════════
    축이 두 개다 — '모양'(테마)과 '색'(액센트). 두 축은 독립이라 2×5=10가지가 나온다.
@@ -9012,7 +4804,7 @@ TwNetReady.whenNetReady(()=>{ themeUiMod.pullCustom(); }, 'loadThemeCustom');   
 /* 본문은 exp-bar.js 로 옮겼다(앱 FSD 45번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const expBarMod = TwExpBar.createExpBar({
-  _focusTotalSec: ()=>_focusTotalSec,
+  _focusTotalSec: ()=>focusProgressMod.shownTotalSec(),   // 레벨 막대용 — 받기 전 null(막대를 그리지 않는다)
   _starPaint: (...a)=>lvTierMod._starPaint(...a),
   lvBarClass: (...a)=>lvTierMod.lvBarClass(...a),
   lvStarBarClass: (...a)=>lvTierMod.lvStarBarClass(...a),
@@ -9020,104 +4812,37 @@ const expBarMod = TwExpBar.createExpBar({
   bindLabelDrag: (...a)=>overheadMod.bindLabelDrag(...a),   // 이름표 끌기 — 경험치 바(포커스)는 방 모듈을 직접 부르지 않는다
 });
 
-/* ═══ 🕒 포커스 누적 기기 간 공유 ═══════════════════════════════════════════
-   예전엔 tw.focusTotalSec이 순수 로컬이라, 계정을 연동해도 A컴퓨터의 3시간이 B컴퓨터에
-   반영되지 않았다(계정 이전 스냅샷으로 '연동 그 순간' 값만 1회 복사, 그것도 덮어쓰기).
-   이제 서버(users/{uid}/focus/totalSec)를 원본으로 두고 양방향으로 맞춘다.
-
-   ★★ 병합 규칙은 **증분 + max 바닥** 이다. 서버는 이 한 줄로 요약된다:
-         새 서버값 = max(서버값 + 이 기기의 증분, 이 기기의 로컬 누적치)
-     두 항이 각각 다른 사고를 막는다.
-       · 증분(서버값 + delta) — "이 기기에서 **새로 일한 만큼**"을 반드시 얹는다.
-         이게 없으면 뒤처진 기기에서 한 작업이 통째로 증발한다. 실제 사례:
-           a=8h, b=2h 인 상태에서 연동이 안 따라와 b 로 4시간을 일해 b=6h 가 됐다.
-           max 만 쓰면 a 로 돌아갔을 때 8h 가 이겨서 그 4시간이 사라진다. 증분이면 8+4=12h.
-       · max 바닥(로컬 누적치) — 마크가 어긋나 증분이 0으로 잡히는 상황(연동/해제 직후,
-         구버전에서 올라온 기기, 동기화가 오래 끊겼던 기기)에서도 **최소한 큰 쪽은 따라간다**.
-         레벨이 눈에 띄게 깎이는 사고는 이 항이 막는다.
-     두 항 모두 서버 트랜잭션 안에서 계산되므로 값은 절대 줄어들지 않는다(단조 증가).
-
-   ★ 증분의 근거는 마크(FOCUS_SYNCED_KEY) = "이 기기가 마지막으로 서버에 반영한 로컬 누적치".
-       delta = 로컬 − 마크. 마크가 **아예 없으면**(이 기기가 서버와 한 번도 안 맞춰봄)
-       delta 를 0 으로 두고 max 바닥만 태운다 — 로컬 값이 서버에 얼마나 반영돼 있는지 알 수
-       없는 상태라, 통째로 증분으로 올리면 공유 이력이 두 번 세어져 누적이 거의 두 배가 된다.
-
-   ⚠️ 증분은 멱등이 아니다. 서버 쓰기는 성공했는데 응답을 못 받으면(끊김) 같은 증분이 다음에
-     한 번 더 올라간다. 그래서 마크는 **응답이 ok 일 때만** 옮긴다. 그래도 완전히 막을 수는
-     없는 성질이라, 이 부작용이 감당 안 되면 delta 를 0 으로 고정해 max 전용으로 바꾸면 된다
-     (서버 쪽은 그대로 두어도 동작한다). */
-/* (앱 FSD 26번) 이 자리의 본문도 focus-level.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-
-/* ═══════════════════════════════════════════════════════════════════════════════
-   📱 태블릿·폰 포커싱 연결 (개정 74 · handoff-2026-09-18 §4-③)
-   ───────────────────────────────────────────────────────────────────────────────
-   폰·태블릿은 «지금 켜진 앱» 을 알려 주지 않는다 → 기기 자동화(iOS 단축어 · MacroDroid)가
-   앱 열림/닫힘 때 mobileLink/{uid}/state 에 { on, app } 을 쓰고, **PC 가 여기서 판정한다.**
-   ★ 판정은 이 파일 한 곳(_applyActiveAppState)에서 합친다. main.js · preload 는 안 건드린다.
-   ★ lastActivity 를 인위로 갱신하지 않는다 — 펜 앱 판정·입력 진단(main.js)과 섞인다. 전용 플래그로 가른다.
-   ⚠️ 안전 상한 MOBILE_MAX_ON_MS — 새 «열림» 없이 이보다 오래 켜져 있으면 꺼짐으로 본다
-      (배터리 방전·강제 종료로 «닫힘» 이 안 온 경우). 4시간 넘게 연속으로 그리면 앱을 한 번 다시 열면 된다.
-   ═══════════════════════════════════════════════════════════════════════════ */
-/* (앱 FSD 26번) 이 자리의 본문도 focus-level.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-
 /* ═══ 🖥️ 활성 앱 판정(_applyActiveAppState) ═══ */
-let _focusLastTick=performance.now(), _focusWasActive=false;
-function _applyActiveAppState(state){
-  if(!state) return;
-  const now=performance.now(), dt=(now-_focusLastTick)/1000; _focusLastTick=now;
-  // 직전 폴링 시점에 "등록된 포커스 앱을 실제로 쓰고 있었다"면 그 사이 흐른 시간만큼 누적.
-  // dt가 비정상적으로 크면(창 최소화·컴퓨터 절전 등으로 폴링이 끊겼던 경우) 오차 누적 방지로 건너뜀.
-  // ★ 기록 정지 기준 = 캐릭터가 idle로 바뀌는 순간(FOCUS_MS). 예전엔 sleep(SLEEP_MS=8초) 기준이라
-  //   손을 뗀 뒤 캐릭터가 이미 idle인데도 8초까진 기록이 계속 쌓였다. 이제 마지막 입력 후 FOCUS_MS가
-  //   지나 캐릭터가 '집중(focus) 포즈'를 벗어나면(=idle 진입) 즉시 누적을 멈춘다.
-  //   → "실제로 입력하며 집중하는 동안"만 시간이 쌓임. 입력이 재개되면 다음 폴링부터 다시 누적.
-  /* 📱 폰 켜짐이면 PC 입력 조건을 건너뛴다 — PC 입력이 없는 게 정상이라 그대로 두면 한 초도 안 쌓인다(요구: PC 와 똑같이). */
-  const mobOn = focusLevelMod._mobileOn();
-  const pcNotFocusing = (now - lastActivity) > focusWindowMs();
-  const notFocusingNow = mobOn ? false : pcNotFocusing;
-  /* 🧸 피규어 모드면 쌓지 않는다 — 직전 폴링 값(_focusWasActive)이 아니라 지금 값을 봐서, 켠 순간부터 멈춘다. */
-  if(!figureMode && _focusWasActive && !notFocusingNow && dt>0 && dt<30) focusLevelMod.addFocusSeconds(dt);
-  /* 👑 달성표 🎯집중 — "오늘 그 앱을 몇 초 썼나"를 같은 dt 로 여기서 센다.
-     ★ 새 타이머를 만들지 않는 이유: dt 는 _focusLastTick 을 소비해서 나온다. 밖에서 따로 재면
-       같은 구간을 두 번 세거나 서로 _focusLastTick 을 리셋해서 둘 다 틀린다.
-     ★ _focusWasActive(=등록된 포커스 앱이 활성)를 조건에 안 거는 이유: 그건 평생 누적치용 게이트다.
-       달성표는 사용자가 고른 exe 하나만 보므로, 그 앱이 포커싱 어플 슬롯에서 빠져도 계속 세야 한다. */
-  if(!figureMode && dt>0 && dt<30 && !pcNotFocusing) weeklyChal.focusTick(state, dt);   // 📱 폰 시간은 안 넣는다(exe 기준 · 이번 범위 밖)
-  /* 이 기기의 플랫폼 접두사를 main 이 보낸 키에서 배운다 — 렌더러가 스스로 판단하지 않는다.
-     구버전 main 은 key 를 안 보내므로 null 로 남고, 그때는 플랫폼 판정을 아예 안 한다. */
-  if(state.key) weeklyChal.setKeyPlatform(String(state.key).split(':')[0] || null);
-  _penAppFocused = !!state.isPenApp;   // 🖊️ 펜 앱이면 기록 창을 4초로 넓힘(focusWindowMs)
-  /* 투게더워킹 창이 앞이면(isSelf) 직전 상태를 둔다 — 포커싱 어플 목록에 없어 «등록 안 된 앱» 으로 보면 앱을 만지는 동안 잠든다 */
-  const keepGate = state.isSelf === true && !state.isFocusedAppRegistered && !figureMode && !mobOn;   // 자기를 포커싱 어플로 등록했으면 예전대로
-  if(!keepGate) focusGateSleep = figureMode ? false : (mobOn ? false : (state.hasAnyRegistered ? !state.isFocusedAppRegistered : true));
-  _focusWasActive = !!(state.hasAnyRegistered && state.isFocusedAppRegistered) || mobOn;
-}
 
 /* ═══ 👑 달성표 · 🍅 뽀모도로 모듈 연결 ═══ */
 /* 👑 달성표(주간 규칙 · 기록 · 화면) — parts/weekly-challenge.js 로 옮겼다(앱 FSD 2번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(localStorage 읽기 · 부팅 동기화 타이머 · 20초 tick · 버튼 연결)이
      예전과 같은 때 돈다. 함수 deps 는 화살표로 감싼다(부를 때 찾게). appMode · _gachaBonus 는 다시 대입되는 let 이라 읽는 함수로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const CHAL_KEY = 'tw.chal';   // 👑 달성표 로컬 기록 — 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)도 쓴다
+const chalStoreMod = TwChalStore.createChalStore({
+  chalApi: TwFocusApi.createFocusApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),
+  focusPure: TwFocusApi,
+  chalCell: accountStoreMod,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  premiumOn: ()=>_premiumOn(),
+  serverDay: ()=>focusTotalMod.serverDay(),
+  rolloverToday: ()=>focusTotalMod._rolloverFocusToday(),
+  appMode: ()=>launcherStateMod.appMode(),
+  addQuitListener: (fn)=>window.addEventListener('beforeunload', fn),
+});
 const weeklyChal = TwWeeklyChallenge.createWeeklyChallenge({
-  getMyUserId: ()=>getMyUserId(),
+  chalStore: chalStoreMod,
   toast: (...a)=>toast(...a),
   escHtml: (...a)=>escHtml(...a),
   formatHMS: (...a)=>focusLevelMod.formatHMS(...a),
   premiumOn: ()=>_premiumOn(),
-  dayShifted: (...a)=>focusTotalMod._dayShifted(...a),
-  focusDayStr: (...a)=>focusTotalMod._focusDayStr(...a),
-  dayStartHour: focusTotalMod.DAY_START_HOUR,
-  setGachaBonusLocal: (...a)=>gachaMod.setBonusLocal(...a),
-  renderGachaInv: ()=>gachaMod.renderGachaInv(),
-  gachaBonus: ()=>gachaMod.bonus(),
-  appMode: ()=>appMode,
-  storageKey: CHAL_KEY,
+  appMode: ()=>launcherStateMod.appMode(),
 });
+focusTotalMod.onDayEnd(()=>{ weeklyChal.dayEnded(); });   // 하루가 바뀐 때 달성표도 이번 주를 다시 받는다
 
 /* 🍅 뽀모도로(포커스 기록창 안쪽 서랍 · 집중 / 휴식 타이머)는 parts/pomodoro.js 로 옮겼다(앱 FSD 6번 · docs/APP_FSD_MAP.md).
-   ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(tw.pomo · tw.pomoRun 읽기 · 버튼 연결 · 첫 그리기 · 1초 tick)이
-     예전과 같은 때 돈다. toast · _focusShowPush 는 화살표로 감싼다(부를 때 찾게). weeklyChal(바로 위) · _pomoSnd(효과음 공장)는
+   ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(버튼 연결 · 첫 그리기 · 1초 tick)이 예전과 같은 때 돈다.
+     설정 · 진행 읽기(tw.pomo · tw.pomoRun)는 계정 확인 뒤 startPomodoro(app-boot 의 pomodoro 차례). toast · _focusShowPush 는 화살표로 감싼다(부를 때 찾게). weeklyChal(바로 위) · _pomoSnd(효과음 공장)는
      이 줄보다 앞에 선언되고 다시 대입되지 않는 const 라 값으로.
    ★ 머리 위 문구는 예전처럼 _focusShowConf 가 typeof _pomoShowText 로 본다 — 그 함수는 이 줄보다 먼저(bindFocusShow) 불려서
      반환값을 볼 수 없으므로 모듈이 window._pomoShowText 고리를 건다(만들기 전에는 '' — 예전과 같다).
@@ -9127,96 +4852,100 @@ const pomodoro = TwPomodoro.createPomodoro({
   focusShowPush: (...a)=>focusShareMod._focusShowPush(...a),
   weeklyChal: weeklyChal,
   pomoSnd: sfxMod._pomoSnd,
+  pomoStore: accountStoreMod,
 });
 
 /* ═══ 🖥️ 데스크탑 실행 화면 — 창 크기 · 업데이트 배너 · 전역 입력 · 클릭 통과 · 하트비트 ═══ */
-let myHomeOpen = false;   // ★ 마이홈 팝업이 "런처에서" 열려있는지 — 이때만 창 크기를 생성기처럼 키움
-                          //   (실행 화면은 이미 전체화면이라 그 안에서 여는 건 그대로 둬도 잘 맞음)
-function applyDesktopRunClass(){ if(!desktopMode) return;
-  const launcherOn = document.getElementById('launcher').classList.contains('on');
-  /* 🪟 **여는 쪽 플래그가 아니라 화면을 본다.** 예전엔 myHomeOpen 만 봤는데, 그 플래그를 세우는
-     자리가 셋(open · openFriendHomeView · 런처 복귀)이라 한 곳만 어긋나도 창 크기가 갈렸다.
-     실제로 openFriendHomeView 가 이 함수를 안 불러서 마이홈이 380px 창 밖으로 나갔다(제보).
-     오버레이의 .on 이 곧 "지금 마이홈이 떠 있다"이므로 그걸 직접 본다 — 새 진입 경로가 생겨도
-     플래그를 세우는 것을 잊었다는 이유로 창 크기가 틀리는 일이 없어진다.
-     ⚠️ 그래도 이 함수는 **누군가 불러줘야** 한다. 오버레이를 여는 새 경로를 만들면 여기도 부를 것(방 찾기 창은 아래 클래스 감시가 부른다). */
-  const mhOv = document.getElementById('myHomeOverlay');
-  const mhOn = !!(mhOv && mhOv.classList.contains('on')) || myHomeOpen;
-  /* 🚪 방 찾기 · 만들기 창도 마이홈 창 크기를 같이 쓴다(두 칸 배치 · 창 자리 기억도 같이) — 스티커 여백은 마이홈만 */
-  const inviteOv = document.getElementById('inviteOverlay');
-  const inviteOn = !!(inviteOv && inviteOv.classList.contains('on'));
-  const showMyHomeSized = (mhOn || inviteOn) && launcherOn;
-  const xmasOv = document.getElementById('xmasOverlay');   // 🎄 크리스마스 창도 런처에서 열리면 마이홈 크기(스티커 여백 없이)
-  const xmasSized = !!(xmasOv && xmasOv.classList.contains('on')) && launcherOn;
-  const config = launcherOn || creatorOpen;
-  const runOverlay = appMode==='run' && !config;
-  document.body.classList.toggle('runmode', runOverlay);
-  document.body.classList.toggle('config', config);   // 런처/생성기 열림 여부 — CSS에서 #scene 숨김에 사용
-  if(typeof floor!=='undefined') floor.visible = !runOverlay;        // 투명 오버레이일 땐 바닥 숨김(데스크톱 비침)
-  // 화면 종류에 따라 창 크기가 달라야 함: 생성기는 넓게, 마이홈(런처에서 열렸을 때)도 넓게, 런처는 카드 크기, 실행은 전체화면
-  const mode = creatorOpen ? 'creator' : ((showMyHomeSized || xmasSized) ? 'myhome' : (launcherOn ? 'launcher' : 'run'));
-  // 🎨 런처 마이홈 — 창 밖으로 나간 스티커만큼 창을 넓혀 달라고 같이 보낸다(_mhStickerOverhang)
-  const extra = (mode === 'myhome' && mhOn) ? mhStLayoutMod._mhStickerOverhang() : null;
-  if(window.companion&&companion.setConfigMode) companion.setConfigMode(config, mode, extra);
-}
-/* 방 찾기 창은 여는 · 닫는 길이 여럿(런처 버튼 · 창 열기 통로 · 방 나가기 · 설정 패널)이라 클래스 변화를 한 곳에서 본다 */
-new MutationObserver(applyDesktopRunClass).observe(document.getElementById('inviteOverlay'), { attributes:true, attributeFilter:['class'] });
+/* 본문은 launcher/window-mode.js 로 옮겼다(앱 FSD · app.js 분리 M22). 활성 앱 판정 · 창 모드(applyDesktopRunClass)의 주인이다 — 마이홈 열림 · 앱 모드는 launcherStateMod 에서 읽기만 — 판단은 옛 그대로. 다시 대입되거나 뒤에서 선언되는 값은 읽는 · 쓰는 함수로 다룬다. */
+const windowModeMod = TwWindowMode.createWindowMode({
+  creatorOpen: ()=>creatorOpen,
+  desktopMode: desktopMode,
+  floor: floor,
+  focusGate: TwFocusGate,
+  focusProgressMod: ()=>focusProgressMod,
+  setFocusGateSleep: (v)=>{ focusGateSleep = v; },
+  focusLevelMod: focusLevelMod,
+  focusWindowMs: focusWindowMs,
+  key: key,
+  launcherState: launcherStateMod,
+  mhStLayoutMod: mhStLayoutMod,
+  officeModeMod: officeModeMod,
+  seatStateMod: seatStateMod,
+  weeklyChal: weeklyChal,
+});
+const _applyActiveAppState = windowModeMod._applyActiveAppState;   // 옛 전역 이름
+const applyDesktopRunClass = windowModeMod.applyDesktopRunClass;   // 옛 전역 이름
 /* 본문은 desktop-run.js 로 옮겼다(앱 FSD 32번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const desktopRunMod = TwDesktopRun.createDesktopRun({
+  whenUpdateStageDone: (...a)=>updateFlowMod.whenStageDone(...a),
   _applyActiveAppState: (...a)=>_applyActiveAppState(...a),
-  _charBoundsLatest: ()=>_charBoundsLatest,
-  _officeHidden: ()=>_officeHidden,
-  _penAppFocused: ()=>_penAppFocused,
+  _charBoundsLatest: ()=>moveModeMod._charBoundsLatest(),
+  _officeHidden: ()=>officeModeMod._officeHidden(),
+  _penAppFocused: ()=>seatStateMod.penAppFocused(),
   _skipFlyingRigs: (...a)=>hiddenSeatsMod._skipFlyingRigs(...a),
   _skipHiddenDesk: (...a)=>hiddenSeatsMod._skipHiddenDesk(...a),
-  _twMoveSeenAt: ()=>_twMoveSeenAt,
+  _twMoveSeenAt: ()=>moveModeMod._twMoveSeenAt(),
   activity: (...a)=>activity(...a),
   anyInput: (...a)=>anyInput(...a),
   backToLauncher: (...a)=>backToLauncher(...a),
   camera: camera,
   clickPolicy: TwClickThroughPolicy,
   desktopMode: desktopMode,
-  drag: ()=>drag,
+  drag: ()=>seatPointerMod.drag(),
   focusGateSleep: ()=>focusGateSleep,
-  lastActivity: ()=>lastActivity,
-  lastAnyInput: ()=>lastAnyInput,
-  moveMode: ()=>moveMode,
+  hitShadow: hitShadow,
+  lastActivity: ()=>seatStateMod.lastActivity(),
+  lastAnyInput: ()=>seatStateMod.lastAnyInput(),
+  moveMode: ()=>moveModeMod.moveMode(),
   otherSeatRegions: (...a)=>statusChipMod.otherSeatRegions(...a),
   ray: ray,
   renderer: renderer,
   seats: seats,
-  setTwMoveSeenAt: (v)=>{ _twMoveSeenAt = v; },
-  setLastActivity: (v)=>{ lastActivity = v; },
-  setLastAnyInput: (v)=>{ lastAnyInput = v; },
+  setTwMoveSeenAt: (v)=>{ moveModeMod.setTwMoveSeenAt(v); },
+  setLastActivity: (v)=>{ seatStateMod.setLastActivity(v); },
+  setLastAnyInput: (v)=>{ seatStateMod.setLastAnyInput(v); },
+  runCost: runCost,   // 🩺 통과 판정 시간(1분 [비용] 줄)
+  seatHit: seatHitMod,   // 🗺️ 히트 맵 새 판정 — 그림자 운행
 });
-/* 좌석 배치 후 데스크탑 창 크기를 펫에 맞춤 */
-const _layoutSeats=layoutSeats;
-layoutSeats=function(){ _layoutSeats();
+/* 좌석 배치 후 데스크탑 창 크기를 펫에 맞춤 — 배치 알림에 건다(옛: layoutSeats 를 감싸 다시 대입) */
+seatLayoutMod.onLaidOut(()=>{
   if(desktopMode&&window.companion&&companion.resizeWidget){
     const config=document.getElementById('launcher').classList.contains('on')||creatorOpen;
     if(!config){ const c=document.getElementById('scene'); companion.resizeWidget(parseInt(c.style.width)||320, (parseInt(c.style.height)||240)+28); }
   }
-  applyDesktopRunClass(); };
+  applyDesktopRunClass(); });
 
 /* ============================================================ INIT */
-seatPanelMod.renderSeatTabs(); seatPanelMod.setManual(null); applyAppMode(); applyDesktopRunClass();
-if(typeof adminMode.refreshAdminVisibility==='function') adminMode.refreshAdminVisibility();   // 관리자 전용 UI는 기본 숨김 (관리자 모드 진입 시 노출)
-{ const lbl=document.getElementById('lcLicenseLbl'); if(lbl) lbl.textContent = isPremium ? '🔓 라이선스 등록됨' : '🔑 라이선스 등록'; }
-/* 🏠 마이홈 시작(내 접속 표시 · 프로필 · 친구 · 요청 · 우편 구독) — 모듈을 다 만든 뒤 여기서 한 번.
-   첫 일이 «Firebase 붙을 때까지 기다리기» 라, 부팅 중 어디서 불러도 실제 시작은 firebaseAPI 가 생긴 뒤다. */
-mhInitMod.initMyHome();
-loadBaseGLB().then(ok=>{ if(!ok) console.warn('기본 GLB 로드 실패 — 스탠드인 사용');
-  return Promise.all([loadSkins(), slotSaveMod.loadSlots()]); }).then(()=>{ renderLauncher(); }).catch(()=>renderLauncher());
-requestAnimationFrame(frame);
-requestAnimationFrame(launcherPrevMod.launcherLoop);
-/* 🛡️ 얼굴 자동 복구 주기 점검 — 위 repairBlankFaces 주석 참고.
-   ★ 렌더 루프(frame)에 넣지 않는다. 얼굴이 비는 상황은 대개 무거운 프로그램과 같이 돌 때라,
-     그때 프레임마다 도는 점검을 얹는 것은 방향이 반대다. 4초 간격이면 사용자가 «사라졌다»고
-     느끼기 전에 대개 돌아온다. */
-setInterval(()=>{ try{ faceHealMod.repairBlankFaces(); faceHealMod.repairSeatTextures(); }catch(_){} }, faceHealMod.FACE_WATCH_MS);
+/* 🚀 켜는 차례는 launcher/run-boot.js 의 표 한 곳(F3) — 여기는 각 칸의 시작 함수를 이어 주고 begin 을 한 번 부른다.
+   ★ 모듈을 다 만든 뒤 여기서 한 번이어야 한다(만드는 줄이 INIT 앞에 있고, 뒤에서 만드는 모듈은 INIT 이 안 부른다). */
 function resize(){ layoutSeats(); if(launcherPrevMod.lRenderer()&&document.getElementById('launcher').classList.contains('on')) launcherPrevMod.sizeLauncherPreview(); }
-addEventListener('resize',resize); resize();
+const runBoot = TwRunBoot.createRunBoot({
+  starts: {
+    seatTabs: ()=>{ seatPanelMod.renderSeatTabs(); seatPanelMod.setManual(null); },
+    appMode: ()=>{ applyAppMode(); applyDesktopRunClass();
+      /* 🗂️ 로비는 여닫는 길이 여럿(런처 · F1 · ✕ · 방 나간 뒤 다시 열기)이라 길마다 부르지 않고 .on 이 바뀔 때 창 크기를 다시 맞춘다 */
+      const ov=document.getElementById('inviteOverlay'); if(ov) new MutationObserver(()=>applyDesktopRunClass()).observe(ov, { attributes:true, attributeFilter:['class'] }); },
+    adminUi: ()=>{ if(typeof adminMode.refreshAdminVisibility==='function') adminMode.refreshAdminVisibility(); },   // 관리자 전용 UI는 기본 숨김 (관리자 모드 진입 시 노출)
+    licenseLabel: ()=>{ const lbl=document.getElementById('lcLicenseLbl'); if(lbl) lbl.textContent = isPremium ? '🔓 라이선스 등록됨' : '🔑 라이선스 등록'; },
+    /* 🏠 마이홈 시작(내 접속 표시 · 프로필 · 친구 · 요청 · 우편 구독)은 계정 확인 뒤 app-boot 의 mhInit 차례다. */
+    frameLoop: ()=>{ requestAnimationFrame(frame); },
+    launcherLoop: ()=>launcherPrevMod.startLauncherLoop(),
+    /* 🛡️ 얼굴 자동 복구 주기 점검 — 위 repairBlankFaces 주석 참고.
+       ★ 렌더 루프(frame)에 넣지 않는다. 얼굴이 비는 상황은 대개 무거운 프로그램과 같이 돌 때라,
+         그때 프레임마다 도는 점검을 얹는 것은 방향이 반대다. 4초 간격이면 사용자가 «사라졌다»고
+         느끼기 전에 대개 돌아온다. */
+    faceHeal: ()=>{ setInterval(()=>{ try{ faceHealMod.repairBlankFaces(); faceHealMod.repairSeatTextures(); }catch(_){} }, faceHealMod.FACE_WATCH_MS); },
+    resize: ()=>{ addEventListener('resize',resize); resize(); },
+  },
+  baseBody: {
+    load: ()=>loadBaseGLB(),
+    loadSkins: ()=>loadSkins(),   // 캐릭터 슬롯은 계정 확인 뒤 서버에서 받는다(startCloset)
+    renderLauncher: ()=>renderLauncher(),
+    onFailed: ()=>TwErrorCodes.notify('E-SYS-08'),   // 기본 몸을 못 불러옴 — 안내 한 번 · 대신 몸으로 계속
+  },
+});
+runBoot.begin();
 /* ═══════════════ 🙋 투게더룸 친구 초대 ═══════════════ */
 /* 🙋 친구 고르기 창 · 초대 보내기 · 🚪 방 초대 받기(수락 / 거절 팝업 · 3분 자동 거절 · 작업표시줄 깜빡임)는
    parts/room-invite-ui.js 로 옮겼다(앱 FSD 10번 · docs/APP_FSD_MAP.md).
@@ -9228,8 +4957,7 @@ addEventListener('resize',resize); resize();
 const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
   toast: (...a)=>toast(...a),
   escHtml: (...a)=>escHtml(...a),
-  getMyUserId: (...a)=>getMyUserId(...a),
-  getDisplayName: (...a)=>getDisplayName(...a),
+  invites: TwRoomInviteRt.store,
   startRoom: (...a)=>roomEntryMod.startRoom(...a),
   doLeaveRoom: (...a)=>roomEntryMod.doLeaveRoom(...a),
   friendInRoom: (...a)=>inboxMod.friendInRoom(...a),
@@ -9240,6 +4968,74 @@ const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
   friendsClose: (...a)=>friendsSubMod.close(...a),
   presence: Presence,
   inviteNotice: inviteNotice,
+});
+
+/* 🗂️ 이 계정이 이 PC 에서 고른 것 — 모듈은 처음 값으로 만들고, 계정 칸이 열린 뒤(app-boot 의 userLocal 칸) 여기서 읽어 채운다. 세션이 끝나면 처음 값으로 되돌린다(launcher/user-local.js).
+   조각을 더할 때: 그 모듈이 loadLocal · resetLocal 을 내놓고 여기 한 줄. 읽은 값이 화면에 걸려 있으면 load 에서 다시 그린다. */
+const userLocalMod = TwUserLocal.createUserLocal({ parts: [
+  { name: 'seatEq', load: ()=>{ seatEqMod.loadLocal(); if(seatEqMod.seatEqualizeOn()) layoutSeats(); }, reset: ()=>{ const was = seatEqMod.seatEqualizeOn(); seatEqMod.resetLocal(); if(was) layoutSeats(); } },
+  { name: 'decoParts', load: ()=>{ decoPartsMod.loadLocal(); if(!decoPartsMod.decoPartsVisible()) seats.forEach(s=>applyClothVisibility(s)); }, reset: ()=>{ const was = decoPartsMod.decoPartsVisible(); decoPartsMod.resetLocal(); if(!was) seats.forEach(s=>applyClothVisibility(s)); } },
+  { name: 'status', load: ()=>{ userStatusTableMod.loadCustomStatusFromStorage(); loadUserStatusFromStorage(); Presence.restoreBootStatus(); refreshMyStatusUI(); refreshCustomStatusMenuItem(); },
+    reset: ()=>{ userStatusTableMod.setCustomStatusConf({ emo:'', text:'' }); userStatusMod.resetLocal(); Presence.resetBootStatus(); refreshMyStatusUI(); refreshCustomStatusMenuItem(); } },
+  { name: 'reportHidden', load: ()=>hiddenSeatsMod.loadReportHidden(), reset: ()=>hiddenSeatsMod._reportHiddenUids.clear() },
+  { name: 'curSlot', load: ()=>{ curSlot = _loadCurSlot(); }, reset: ()=>{ curSlot = 0; } },   // 런처는 이어서 받는 옷장(closet 칸)이 다 받은 뒤 그린다
+  { name: 'extraSeats', load: ()=>settingsMod.loadExtraSeatSlots(), reset: ()=>settingsMod.setExtraSeatSlots([]) },
+  { name: 'playlistCur', load: ()=>plMod.loadLocal(), reset: ()=>{ plMod.st.cur = 0; } },
+  { name: 'animal', load: ()=>window._animalLoadLocal(), reset: ()=>window._animalResetLocal() },
+  { name: 'emojiReactions', load: ()=>floatersMod.loadLocal(), reset: ()=>floatersMod.resetLocal() },
+  /* 코드로 추가한 책상 · 아이템 · 파츠는 이 계정 몫 — 카탈로그 몫(서버가 원본)은 건드리지 않고 이 계정 몫만 더한다(commission.js loadLocalDesks · loadLocalItems · premium-assets.js loadLocal — 칸마다 따로). 아이템은 세션에 등록(GLB 파싱)까지 */
+  { name: 'savedDesks', load: ()=>commissionMod.loadLocalDesks(), reset: ()=>{ commissionMod.resetLocalDesks(); } },
+  { name: 'savedItems',   // 아이템은 세션에 등록(GLB 파싱)까지 — 비동기 실패는 user-local 이 경고한다
+    load: ()=>{ commissionMod.loadLocalItems(); return loadSavedItemsIntoSession(); },
+    reset: ()=>{ commissionMod.savedItems().filter(p=>!p.fromCatalog).forEach(p=>{ delete customItems[p.id]; }); commissionMod.resetLocalItems(); } },
+  { name: 'savedParts', load: ()=>premiumMod.loadLocal(), reset: ()=>premiumMod.resetLocal() },
+] });
+
+/* 🚀 켜는 순서 한 곳(launcher/app-boot.js) — 계정 확인(license-gate.js)이 nav 로 «계정에 들어감» 을 알리면 옛 PC 값 옮기기 → realtime → 아래 차례대로 계정 기능을 시작한다.
+   ⚠️ 차례 표는 app-boot.js STEPS — 여기 starts 는 그 이름마다 하나씩(빠지거나 남으면 만들 때 던진다). 계정 기능을 새로 만들면 만들 때 일하지 말고 여기에 건다. */
+const appBoot = TwAppBoot.createAppBoot({
+  twNav: twNav,
+  migrateLegacy: (code)=>accountStoreMod.migrateLegacy(code),
+  newSession: (me)=>TwSession.createSession({
+    me: me,
+    openAccountStore: (code)=>accountStoreMod.open(code),
+    closeAccountStore: ()=>accountStoreMod.close(),
+    timers: { setInterval: (f, ms)=>setInterval(f, ms), clearInterval: (h)=>clearInterval(h), setTimeout: (f, ms)=>setTimeout(f, ms), clearTimeout: (h)=>clearTimeout(h) },
+  }),
+  registerDevice: ()=>deviceRegisterMod.ensure(),   // 🖥️ realtime 보다 먼저 이 PC 등록(상한이 다 찼으면 확인창)
+  toLogin: ()=>accountMod._loginDoLogout({ force:true }).then(()=>acctStateMod._acctRelaunchAfterDetach(null)),   // [취소] — 등록하지 않고 로그인 화면(다시 켜면 게이트가 로그인 화면)
+  goOnline: ()=>loginFlowMod.goOnline(),
+  starts: {
+    userLocal: (code, me, session)=>userLocalMod.start(session),
+    catalog: (code, me, session)=>catalogSyncMod.start(session),   // 🧩 카탈로그 서버 한 벌 받기 — 로그인 뒤(서버가 이 사람의 locked 를 정한다) · 세션이 끝나면 풀고 비운다
+    focusTotal: (code, me, session)=>{ session.onReset(()=>focusTotalMod.setFocusTodaySec(0)); focusTotalMod.startFocusTotal(); },   // 오늘치 메모리는 세션이 끝나면 0 으로
+    focusShare: ()=>focusShareMod.startFocusShare(),
+    focusLevel: (code, me, session)=>{ focusProgressMod.startFocus(code, me, session); focusLevelMod.startMobile(code, me, session); },
+    weeklyChal: (code, me, session)=>weeklyChal.startChallenge(code, me, session),
+    pomodoro: (code, me, session)=>pomodoro.startPomodoro(code, me, session),
+    gacha: (code, me, session)=>gachaMod.startGacha(session),
+    closet: (code, me, session)=>closetMod.startCloset(session),
+    /* 🏠 마이홈 시작 — 받은 친구 요청 구독 · 우편 구독은 initMyHome 이 세션에 건다. 친구 목록 구독(friendsSub) · 내 접속 표시 구독(presenceSelf)은 시작이 다른 곳(마이홈 · 접속 고정)이라 비우기만 여기서 건다 */
+    mhInit: (code, me, session)=>{ session.onReset(()=>{ friendsSubMod.stop(); presenceSelfMod.reset(); myhomeStoreMod.reset(); bookshelfStoreMod.reset(); }); return mhInitMod.initMyHome(code, me, session); },   // 내 홈 · 책장 메모리도 세션이 끝나면 비운다(늦게 온 답은 gen 으로 버린다)
+    gift: (code, me, session)=>{ session.on(giftBoxMod.listen()); session.onReset(()=>{ giftBoxMod.reset(); mallangStoreMod.reset(); mallangMod.reset(); }); },   // 🎁 서버 신호 `gifts` 만 건다(요청 0 — 받기는 마이홈을 열 때)
+    bugBadge: (code, me, session)=>{ session.onReset(()=>bugBoardUi.reset()); return bugBoardUi.start(); },   // 배지 · 목록 · 쓰던 글은 세션이 끝나면 비운다
+    scheduler: (code, me, session)=>mhScheduler.startSchedule(session),
+    /* 🙋 방 초대 받기 — 방 쪽 포트(대화 · 방 목록 · 스티커사진)는 사용자가 들어갈 때 시작해 STEPS 칸이 없다. 대신 계정이 바뀔 때 비우는 일(session.onReset)을 여기서 한 곳에 모은다.
+       license 알림(발급 · 연장 · 코드 바꿈 · 끝남) → 읽어 둔 내 시크릿룸을 버려 다음에 다시 읽는다(관리자가 발급한 방이 다시 실행 없이 보이게). */
+    roomInvite: (code, me, session)=>{
+      roomInviteUi.startReceive(session);
+      session.on(TwRtHub.store.on('license', ()=>roomLobbyProvider.reset()));
+      session.onReset(()=>{ TwChatRt.store.reset(); roomLobbyProvider.reset(); if(_pkSession) _pkSession.reset(); });
+    },
+    awayPic: (code, me)=>awayPicMod.startAwayPic(me),   // 🫧 자리비움 그림 · 크기 — 서버(me.awayImage)가 기준
+    desktopBg: (code)=>window.MYHOME_DESKTOP.startBgSync(code),
+    playlist: (code, me, session)=>plMod.start(session),
+    licensePremium: (code, me, session)=>{ session.onReset(()=>licensePremiumMod.reset()); return licensePremiumMod.start(me); },   // 알림 구독 해제 함수는 모듈이 쥐고 reset 이 푼다 — 세션이 끝나면 reset 을 부른다
+    appVersion: (code, me, session)=>appVersionSyncMod.start(session),   // 🔄 이 PC 앱 판을 서버에 알림 — 더 새 판을 쓰는 기기가 있으면 업데이트 창
+    adminMode: (code, me, session)=>{ session.onReset(()=>twNav.go(twNav.NAV.ADMIN_EXIT)); },   // 🔐 세션이 끝나면 관리자 모드를 조용히 끈다(요청 0 · 창 열기 통로로 — 모듈끼리 순환 없이)
+    firstRun: ()=>firstRunMod.run().catch((e)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', e)),
+    licenseAutoRegister: ()=>licensePremiumMod.autoRegisterAfter(firstRunMod.licenseDone()),   // 첫 실행 뒤 — 0.12 키로 첫 실행이 등록했으면 건너뜀
+  },
 });
 
 /* ═══════════ 🛰 서버 모듈 감시견 — 안 붙으면 다시 붙이고, 그래도 안 되면 말해준다 ═══════════
@@ -9263,3 +5059,42 @@ const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
 
    🔵 되돌리려면 이 블록만 지우면 된다. 바깥에 남기는 것은 없다. */
 /* (앱 FSD 35번) 이 자리의 본문도 room-sync.js 로 옮겼다 — 만드는 줄은 첫 자리. */
+/* 🧩 app.js 를 마친 뒤 만드는 화면 모듈 둘(앱 FSD · M23 — 동물 · 소음. 마이홈 바탕화면은 myhome-desktop-boot.js, 버그 제보 게시판은 🚩 신고 다음에서 만든다)
+   예전엔 app.js 다음 <script> 로 실려 app.js 의 전역 이름을 그냥 불렀다. 지금은 app.js 보다 먼저 싣고(html) 여기서 deps 로 이어 준다 —
+   옛 «app.js 다음 script» 와 같은 때(INIT 이 끝난 바로 뒤)에 같은 차례로 돈다. 다시 대입되는 let 은 읽는 · 쓰는 함수로 넘긴다. */
+TwNoise.createNoise({
+  officeModeMod: officeModeMod,
+  seats: seats,
+  findMySeat: (...a)=>findMySeat(...a),
+  seatState: (...a)=>seatState(...a),
+  hiddenSeatsMod: hiddenSeatsMod,
+  Presence: Presence,
+});
+TwAnimal.createAnimal({
+  isAdmin: ()=>isAdmin,
+  curSlot: ()=>curSlot,
+  creatorMode: ()=>creatorMode,
+  creatorOpen: ()=>creatorOpen,
+  setCurSlot: (v)=>{ curSlot = v; },
+  setCreatorOpen: (v)=>{ creatorOpen = v; },
+  lightToneMod: lightToneMod,
+  loader: loader,
+  focusLevelMod: focusLevelMod,
+  normalizeModel: (...a)=>normalizeModel(...a),
+  toast: (...a)=>toast(...a),
+  bindHold: (...a)=>bindHold(...a),
+  ANIMAL_HAND_REST: ANIMAL_HAND_REST,
+  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
+  renderLauncher: (...a)=>renderLauncher(...a),
+  partPaintMod: partPaintMod,
+  slots: slots,
+  applyCharToSeat: (...a)=>applyCharToSeat(...a),
+  slotSaveMod: slotSaveMod,
+  Presence: Presence,
+  layoutSeats: (...a)=>layoutSeats(...a),
+  openCreator: (...a)=>openCreator(...a),
+  saveCurSlot: (...a)=>saveCurSlot(...a),
+  LIGHT_PRESET: LIGHT_PRESET,
+  accountStoreMod: accountStoreMod,
+  accountJsonStoreMod: accountJsonStoreMod,
+});

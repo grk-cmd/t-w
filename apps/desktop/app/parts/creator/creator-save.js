@@ -2,7 +2,7 @@
    app.js «🧍 생성기 미리보기» 구역의 완료 쪽(_creatorBuildDef · 용량 재기 · [완료] 버튼)을 그대로 옮긴 모듈이다(C 구역 떼기 · w3).
    생성기 상태는 app.js 에 남아 읽는 · 쓰는 함수로 받는다. 동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 45줄 —
-     Presence · _blankFaceConfirmed · activeCustomDeskId · cBase · cBotColor · cCam · cDeskColor · cDeskGlbB64 · cDeskLenX · cDeskPos · cDeskScale · cRenderer · cScene · cTopColor · cXform · charsMod · commissionMod · creatorMode · creatorOpen · curSlot · currentCreatorDef · customItems · skinIndex · slotSaveMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setBlankFaceConfirmed · setCreatorOpen · setCurSlot(…).
+     Presence · _blankFaceConfirmed · activeCustomDeskId · cBase · cBotColor · cCam · cDeskColor · cDeskGlbB64 · cDeskLenX · cDeskPos · cDeskScale · cRenderer · cScene · cTopColor · cXform · commissionMod · creatorMode · creatorOpen · curSlot · currentCreatorDef · customItems · skinIndex · slotSaveMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setBlankFaceConfirmed · setCreatorOpen · setCurSlot(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 15개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: DEF_SIZE_TOAST_MS · _creatorBuildDef · _creatorSizeGrow · _defSizeFile — app.js 는 creatorSaveMod.이름 으로 부른다.
@@ -13,6 +13,7 @@
 
 function createCreatorSave(deps){
 const CHAR_SLOT_MAX = deps.CHAR_SLOT_MAX;
+const NO_DESK_ID = deps.NO_DESK_ID;   // 🚫 «책상 없음» 예약 id(desk-visual.js 가 그린다)
 const Presence = deps.Presence;   // 읽는 함수
 const _blankFaceConfirmed = deps._blankFaceConfirmed;   // 읽는 함수
 const _isBlankDraw = deps._isBlankDraw;
@@ -33,7 +34,6 @@ const cScene = deps.cScene;   // 읽는 함수
 const cTopColor = deps.cTopColor;   // 읽는 함수
 const cXform = deps.cXform;   // 읽는 함수
 const charDef = deps.charDef;
-const charsMod = deps.charsMod;   // 읽는 함수
 const clampCharY = deps.clampCharY;
 const clearStampState = deps.clearStampState;
 const collectDeskItems = deps.collectDeskItems;
@@ -97,7 +97,8 @@ function _creatorBuildDef(forSize){
       // 카탈로그 아이템이면 GLB를 캐릭터에 박아넣지 않음 — 불러올 때 카탈로그 동기화(loadSavedItemsIntoSession)로 자동 채워짐(실시간 교체 반영을 위함)
       if(c && !(rec&&rec.fromCatalog)) ci[id]={name:c.name,glb:c.glb}; });
     if(Object.keys(ci).length) def.customItems=ci; } }
-  if(cDeskGlbB64()){
+  if(activeCustomDeskId()===NO_DESK_ID){ def.deskCatalogId = NO_DESK_ID; }
+  else if(cDeskGlbB64()){
     // 카탈로그(관리자 배포) 책상이면 GLB를 통째로 박아넣는 대신 참조 ID만 저장 — 나중에 관리자가 GLB를 교체해도
     // 이 캐릭터를 불러올 때마다 최신 GLB를 다시 찾아오게 됨(applyDeskCatalogRefToSeat). 로컬 전용(코드로 추가) 책상은 예전처럼 그대로 저장.
     const activeRec = activeCustomDeskId() ? commissionMod().savedDesks().find(d=>d.id===activeCustomDeskId()) : null;
@@ -165,10 +166,7 @@ document.getElementById('crDone').addEventListener('click',()=>{
     console.warn('[슬롯] 신규 생성 저장 중단 — 대상 칸에 이미 캐릭터가 있음', {target:target, creatorMode:creatorMode()});
     toast('그 칸에 이미 캐릭터가 있어요 — 런처에서 빈 칸을 골라 다시 시도해 주세요'); return;
   }
-  /* 🧬 새 캐릭터면 보관함 문턱을 보고 cid 를 준다(켜져 있을 때만 · 수정은 saveSlots 훅이 잡는다). */
-  if(!creatorMode().edit && charsMod()._charsBoxFull()) return;
-  slots[target]=def;
-  if(!creatorMode().edit){ try{ charsMod()._charsOnNew(target); }catch(_){} }
+  slots[target]=def;   // 서버에 올리는 것은 saveSlots 뒤 closet.js 가 한다(새 칸은 만들기 · 있는 칸은 고치기)
   setCurSlot(target);slotSaveMod().saveSlots();saveCurSlot();
   if(creatorMode().afterApp){const seat=createSeat();applyCharToSeat(seat,def);seat.slot=target;selectSeat(seat);renderSeatTabs();layoutSeats();
     setCreatorOpen(false);document.getElementById('creatorOverlay').classList.remove('on');clearStampState();toast('책상에 추가했어요');}

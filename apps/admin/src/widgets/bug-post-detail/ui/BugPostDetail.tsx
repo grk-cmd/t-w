@@ -2,14 +2,17 @@ import { useState } from 'react';
 import {
   BUG_CATS,
   BUG_STATUS,
+  bugAuthorName,
   bugNoLabel,
   BugNoText,
   isStaffPost,
+  needsAuthorLookup,
   StatusChip,
   useBugNo,
   useBugPost,
   type BugPost,
 } from '@/entities/bug-board';
+import { useUserName } from '@/entities/user';
 import { ReportTodoButton, ReportTodos } from '@/features/admin-todo/edit-todo';
 import { AnswerForm } from '@/features/bug-board/answer-post';
 import { StatusButtons } from '@/features/bug-board/change-status';
@@ -24,6 +27,8 @@ import styles from './BugPostDetail.module.css';
 function Body({ post, onClose }: { post: BugPost; onClose: () => void }) {
   const { item, content, answers } = post;
   const bugNo = useBugNo(item);
+  // 비공개 글은 목록 칸 이름이 «익명» 이라 글쓴이 코드로 닉네임 한 칸만 읽는다
+  const nick = useUserName(item.code, needsAuthorLookup(item));
   // 작업 기록 · 확인 문구용 — 임시 번호면 «(임시)» 까지.
   const no = bugNoLabel(bugNo);
   const [editing, setEditing] = useState(false);
@@ -36,7 +41,7 @@ function Body({ post, onClose }: { post: BugPost; onClose: () => void }) {
         <div className={styles.headText}>
           <h2>{content?.title || '(제목 없음)'}</h2>
           <p className="soft">
-            <BugNoText value={bugNo} /> · {item.name || '이름 없음'}
+            <BugNoText value={bugNo} /> · {bugAuthorName(item, nick.data)}
             {isStaffPost(item) && <span title="운영진 글"> 🛡</span>} <span className="key">{item.code}</span>{' '}
             · {formatDate(item.ts)}
           </p>

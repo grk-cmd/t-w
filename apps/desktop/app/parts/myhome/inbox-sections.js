@@ -44,21 +44,25 @@ function newsIds(merged, cat){
     .filter(id => sectionOf(m[id]) === 'news' && (m[id].pinned || c === 'all' || tagOf(m[id]) === c))
     .sort(byPinThenNew(m));
 }
-/* 안 읽은 수 — 칸마다 · 소식은 종류마다 · 합계(🔔 벨 · 우편함 탭 배지) */
-function unread(merged){
+/* 안 읽은 수 — 칸마다 · 소식은 종류마다 · 합계(🔔 벨 · 우편함 탭 배지).
+   personalUnread: 개인 우편의 안 읽은 수를 서버가 센 값으로 쓴다(받아 둔 쪽지 수와 다를 수 있다 — 오래된 우편은 안 받았다). 숫자가 아니면 받은 것을 센다. */
+function unread(merged, personalUnread){
   const m = merged || {};
   const out = { mail: 0, news: 0, notice: 0, update: 0, total: 0 };
+  const server = (typeof personalUnread === 'number' && personalUnread >= 0) ? personalUnread : null;
   Object.keys(m).forEach(id=>{
     if(m[id].read) return;
+    if(server !== null && m[id]._src === 'personal') return;
     out.total++;
     if(sectionOf(m[id]) === 'mail'){ out.mail++; return; }
     out.news++;
     out[tagOf(m[id])]++;
   });
+  if(server !== null){ out.mail += server; out.total += server; }
   return out;
 }
 /* 우편함 탭을 열 때 처음 보일 칸 — 안 읽은 우편이 있으면 우편, 없으면 소식(사용자 결정) */
-function firstSec(merged){ return unread(merged).mail > 0 ? 'mail' : 'news'; }
+function firstSec(merged, personalUnread){ return unread(merged, personalUnread).mail > 0 ? 'mail' : 'news'; }
 
 const api = { SECS, CATS, tagOf, sectionOf, normSec, normCat, mailIds, newsIds, unread, firstSec };
 if(typeof window !== 'undefined') window.TwInboxSections = api;

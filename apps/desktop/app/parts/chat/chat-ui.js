@@ -2,7 +2,7 @@
    app.js 의 채팅 다섯 구역(🌊 날리기 · 🔖 여기까지 읽음 구분선 · 💬 채팅 탭 · 📋 드래그 복사 · 😊 커스텀 이모티콘) 본문을 그대로 옮긴 모듈이다(앱 FSD 24번 — docs/APP_FSD_MAP.md).
    대화창 배선은 chat-window.js. 동작은 옮기기 전과 같다. 기본 이모티콘 목록은 demoji-catalog.js.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 5개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 37줄 —
-     CHAT_WIN_POS_KEY · Presence · _chatLogCache · _chatLogUnsub · _danceCmdCooldownAt · _myHomeData · focusLevelMod · isAdmin · officeMode 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setChatLogCache · setChatLogUnsub · setDanceCmdCooldownAt(…).
+     CHAT_WIN_POS_KEY · Presence · _chatLogCache · _chatLogUnsub · _danceCmdCooldownAt · myhomeAvatar · ensureMyHome · focusLevelMod · isAdmin · officeMode 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setChatLogCache · setChatLogUnsub · setDanceCmdCooldownAt(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 22개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: DEMOJI_BY_CMD · DEMOJI_BY_ID · DEMOJI_DIR · DEMOJI_LIST · EMOJI_SLOTS · FLY_COLOR_LEVEL · _bindChatCopy · _bindChatTabs · _chatClearNow · _chatClearUndo · _chatFlyColor · _chatFlyOn · _chatFlyRefreshUI · _chatFlySize · _chatIsMinimized · _chatMyTabId · _chatTabName · _chatTabOut · _chatTabResolve · _chatTabsOnMeta · _chatTabsRender · _chatWindowIsOpen · _deleteEmoji · _emojiCache · _flyLaneFreeAt · _flySizeOk · _onEmojiFilePicked · _onEmojiSlotClick · _renderChatLog · _saveChatLog · _saveChatWinPos · _sendChatWindowMsg · _setChatMinimized · _syncChatBadgeSub · _toggleEmojiPanel · closeChatWindow · openChatWindow · sendMyChat · showFlyText — app.js 는 chatUiMod.이름 으로 부른다.
@@ -13,6 +13,7 @@
 
 function createChatUi(deps){
 const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js)
+const chatAccountStore = deps.chatAccountStore;   // 🗂️ 계정별 칸(shared/account-store.js) — 읽음 표시 · 입장 표시 · 마지막 탭은 이 계정이 이 PC 에서 본 것이라 계정 칸에 둔다(닫혀 있으면 읽기 null · 쓰기 거절)
 const demojiCatalog = deps.demojiCatalog;   // 😊 기본 이모티콘 목록(demoji-catalog.js)
 const chatFocus = deps.chatFocus;   // 📊 시크릿룸 #집중 탭(chat-focus.js — 방 전체 집중 기록 보기)
 const chatNotice = deps.chatNotice;   // 📢 시크릿룸 공지(chat-notice.js — #공지 탭 · 고정 줄 · 공지 쓰기)
@@ -21,7 +22,6 @@ const Presence = deps.Presence;   // 읽는 함수
 const _chatDelClose = deps._chatDelClose;
 const _chatEsc = deps._chatEsc;
 const _chatIsHost = deps._chatIsHost;
-const _chatLinkify = deps._chatLinkify;
 const _chatLogCache = deps._chatLogCache;   // 읽는 함수
 const _chatLogUnsub = deps._chatLogUnsub;   // 읽는 함수
 const _chatOffOn = deps._chatOffOn;
@@ -29,7 +29,8 @@ const _chatOffRefreshUI = deps._chatOffRefreshUI;
 const _chatRoomCode = deps._chatRoomCode;
 const _danceCmdCooldownAt = deps._danceCmdCooldownAt;   // 읽는 함수
 const _diceSvg = deps._diceSvg;
-const _myHomeData = deps._myHomeData;   // 읽는 함수
+const myhomeAvatar = deps.myhomeAvatar;   // 읽는 함수 — 내 사진(상태 주인 myhome-store.js · 받기 전엔 null)
+const ensureMyHome = deps.ensureMyHome;   // ({ site:'quiet' }) → Promise — 내 홈을 아직 안 받았으면 한 번 받는다(번호 없음)
 const _officeDemojiHtml = deps._officeDemojiHtml;
 const _parseDanceCmdChain = deps._parseDanceCmdChain;
 const _refreshChatMembers = deps._refreshChatMembers;
@@ -41,8 +42,12 @@ const findMySeat = deps.findMySeat;
 const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
+const chatNet = deps.chatNet;   // 💬 대화 포트(chat-rt.js — 보내기 · 지난 기록 · 이모티콘)
+const chatHistory = deps.chatHistory;   // 읽는 함수 — 💬 대화 기록(chat-history.js · 이 PC 화면 캐시 + 서버 지난 기록). 늘 있다 — 없으면 던져 «못 불러왔어요» 로 알린다
+const myCode = deps.myCode;   // 연결의 나(room-rt.js myCode) — 줄의 글쓴이(userCode)와 견준다
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const isDanceUnlocked = deps.isDanceUnlocked;
+const lockedToast = deps.lockedToast;   // 잠긴 안내 글(room/interaction-desk.js — 레벨을 모르면 «해금 정보를 받는 중»)
 const officeMode = deps.officeMode;   // 읽는 함수
 const seats = deps.seats;
 const showChatBubble = deps.showChatBubble;
@@ -250,7 +255,9 @@ function sendMyChat(text, fly, flyColor, flySize, tab){
   if(typeof Presence()!=='undefined' && Presence().active() && Presence().sendChat) Presence().sendChat(text, false, '', '', tab);
 }
 
-const CHAT_READ_KEY_PREFIX = 'tw_chat_read:';
+/* 🔖 «여기까지 읽음» 구분선 — 이 PC localStorage 에만 둔다(서버 · 남에게 안 보임).
+   창을 열 때 저장된 키로 구분선을 고정하고, 닫을 때 마지막 메시지를 읽음으로 적는다. */
+const CHAT_READ_KEY_PREFIX = 'tw_chat_read:';   // 계정 칸 키(접두)
 let _chatReadMarker  = null;    // 이번 세션의 구분선 기준 키 (창을 여는 순간 고정)
 let _chatReadRoom    = null;    // 마커를 저장할 방 코드 (방을 옮겨도 안전하게 열 때 캡처)
 let _chatJumpToUnread = false;  // 연 직후 첫 렌더에서 맨 아래가 아니라 구분선으로 스크롤
@@ -282,7 +289,7 @@ const CHAT_JOIN_KEY_PREFIX = 'tw_chat_join:';
 function _chatJoinKeyOf(room){ return CHAT_JOIN_KEY_PREFIX + (room || '_'); }
 function _chatJoinCut(room){
   if(!room) return null;
-  try{ return localStorage.getItem(_chatJoinKeyOf(room)); }catch(_){ return null; }
+  try{ return chatAccountStore.get(_chatJoinKeyOf(room)); }catch(_){ return null; }
 }
 /* 그 방 목록을 처음 받은 순간 1회 — 이미 표식이 있으면 아무것도 안 한다.
    ⚠️ 부르는 자리는 **대화 목록이 실제로 도착하는 곳**이어야 한다(방에 들어간 순간이 아니라).
@@ -301,11 +308,11 @@ function _noteChatJoin(room, list){
      ★ 새로 설치한 사람에게는 읽음 마커도 없으므로 아무 영향이 없다.
      ⚠️ ''(빈 방·옛 이용자)와 null(아직 안 들어와 봄)의 구분은 그대로 지킨다. */
   if(_loadChatReadMarker(room)){
-    try{ localStorage.setItem(_chatJoinKeyOf(room), ''); }catch(_){}
+    try{ chatAccountStore.set(_chatJoinKeyOf(room), ''); }catch(_){}
     return;
   }
   const last = (list||[])[(list||[]).length-1];
-  try{ localStorage.setItem(_chatJoinKeyOf(room), _chatMsgKey(last) || ''); }catch(_){}
+  try{ chatAccountStore.set(_chatJoinKeyOf(room), _chatMsgKey(last) || ''); }catch(_){}
 }
 /* 입장 이후만 남긴다 — 화면과 기록 저장이 **같은 목록**을 보게 하는 것이 목적이다.
    (아래 _chatVisibleRows 의 '지우기'와 달리, 이건 파일로 저장해도 안 딸려 나가야 한다) */
@@ -340,11 +347,11 @@ function _chatClearUndo(){
 }
 function _chatReadKeyOf(room){ return CHAT_READ_KEY_PREFIX + (room || '_'); }
 function _loadChatReadMarker(room){
-  try{ return localStorage.getItem(_chatReadKeyOf(room)) || null; }catch(_){ return null; }
+  try{ return chatAccountStore.get(_chatReadKeyOf(room)) || null; }catch(_){ return null; }
 }
 function _saveChatReadMarker(room, key){
   if(!room || !key) return;
-  try{ localStorage.setItem(_chatReadKeyOf(room), key); }catch(_){}
+  try{ chatAccountStore.set(_chatReadKeyOf(room), key); }catch(_){}
 }
 /* 🔖 읽음 표시 — «T<서버 시각>:<id>». 순서를 대화 기록과 같은 기준(ts → id, chat-history.js chatOrder)으로 잰다.
    예전엔 «마지막 메시지 id» 를 저장하고 «id > 표시» 로 셌다. 목록은 ts 순인데 push id 는 보낸 사람 PC 시계로 만들어져
@@ -446,6 +453,8 @@ function _syncChatMinBadge(){
 }
 function _setChatBadge(n){
   const el=document.getElementById('myChatBadge'); if(!el) return;
+  if(n === null){ el.textContent='?'; el.title='안 읽은 대화 수를 못 불러왔어요'; el.classList.add('on'); return; }   // 모름 — 0(다 읽음)과 다르게 보인다
+  el.title='';
   if(!n || n<=0){ el.classList.remove('on'); el.textContent=''; return; }
   el.textContent = (n >= CHAT_BADGE_LIMIT) ? (CHAT_BADGE_LIMIT+'+') : String(n);
   el.classList.add('on');
@@ -454,11 +463,19 @@ function _stopChatBadgeSub(){
   if(_chatBadgeUnsub){ try{ _chatBadgeUnsub(); }catch(_){} _chatBadgeUnsub=null; }
   _chatBadgeRoom = null;
 }
+/* 안 읽은 수를 못 불러옴 — 숫자 자리는 «?» 로 두고(0 아님) E-CHAT-02 는 방마다 한 번만 알린다(뱃지 · 탭 구독이 한꺼번에 실패해도 여러 번 안 띄운다) */
+let _chatUnreadNotifiedRoom = null;
+function _chatUnreadFailed(room, what, e){
+  console.warn('[대화] ' + what + ' 안 읽은 수를 못 불러와 «?» 로 보여요', e);
+  if(_chatUnreadNotifiedRoom === room) return;
+  _chatUnreadNotifiedRoom = room;
+  TwErrorCodes.notify('E-CHAT-02', e);
+}
 function _startChatBadgeSub(room){
-  if(!room || !window.firebaseAPI || !firebaseAPI.subscribeChatLog) return;
+  if(!room) return;
   _stopChatBadgeSub();
   _chatBadgeRoom = room;
-  _chatBadgeUnsub = firebaseAPI.subscribeChatLog(room, list => {
+  _chatBadgeUnsub = chatNet.subscribeLog(room, list => {
     /* 🚪 대화창을 안 열어도 방에 들어와 있으면 이 구독이 먼저 도착한다 — 입장 시점은 여기가 더 정확하다.
        ⚠️ 이 구독은 최근 CHAT_BADGE_LIMIT 건만 받는다. 그래도 **마지막 키**는 전체 목록의 마지막과
          같으므로 컷 위치는 정확하다(앞이 잘려도 마지막은 마지막이다). */
@@ -472,7 +489,7 @@ function _startChatBadgeSub(room){
     let n=0;
     (list||[]).forEach(m => { if(_chatIsAfter(m, marker)) n++; });
     _setChatBadge(n);
-  }, CHAT_BADGE_LIMIT);
+  }, CHAT_BADGE_LIMIT, undefined, e => { _chatUnreadFailed(room, '', e); _setChatBadge(null); });
 }
 /* 매 프레임 호출되는 칩 갱신에서 불림 — 방/창 상태가 바뀔 때만 실제로 구독을 갈아끼운다. */
 function _syncChatBadgeSub(enabled){
@@ -565,16 +582,10 @@ function _saveChatWinPos(){
 async function _refreshChatProfile(){
   const img=document.getElementById('chatProfileImg');
   const ph=document.getElementById('chatProfilePlaceholder');
-  let av = (typeof _myHomeData()!=='undefined' && _myHomeData() && _myHomeData().avatar) ? _myHomeData().avatar : null;
-  // ★ 마이홈(F4)을 한 번도 안 열었으면 _myHomeData가 아직 비어 있음 — 프로필 사진만 직접 가져온다.
-  if(!av && window.firebaseAPI && firebaseAPI.getMyHome){
-    try{
-      const data = (firebaseAPI.fetchAvatar ? { avatar: await firebaseAPI.fetchAvatar(getMyUserId()) } : await firebaseAPI.getMyHome(getMyUserId())) || {};   // 사진 한 칸만(home 통째 아님)
-      if(data.avatar){
-        av = data.avatar;
-        if(typeof _myHomeData()!=='undefined' && _myHomeData()) _myHomeData().avatar = data.avatar;   // 캐시
-      }
-    }catch(_){}
+  let av = myhomeAvatar() || null;
+  // ★ 마이홈(F4)을 한 번도 안 열었으면 내 홈이 아직 비어 있음 — 상태 주인이 한 번 받아 온다(받은 값은 마이홈이 같이 쓴다).
+  if(!av){
+    try{ await ensureMyHome({ site: 'quiet' }); av = myhomeAvatar() || null; }catch(_){}
   }
   const avSrc = TwSafeHtml.safeUrl(av, 'image');   // 서버에서 온 프로필 사진 주소 — 허용된 그림 주소만
   if(avSrc){ if(img){ img.src=avSrc; img.style.display='block'; } if(ph) ph.style.display='none'; }
@@ -597,10 +608,10 @@ chatNotice.onChange(() => { _chatTabsRender(); _chatOffRefreshUI(); });   // �
 let _chatMyTab = 'general';
 let _chatTabRoom = null;          // _chatMyTab 이 어느 방 것인가 — 방이 바뀌면 그 방의 기억한 탭으로
 const CHAT_TAB_LS_PREFIX = 'tw.chatTab.';   // + 방 코드 → 마지막에 보던 탭 id (#일반이면 지운다)
-function _chatTabLoad(room){ try{ return (room && localStorage.getItem(CHAT_TAB_LS_PREFIX + room)) || 'general'; }catch(_){ return 'general'; } }
+function _chatTabLoad(room){ try{ return (room && chatAccountStore.get(CHAT_TAB_LS_PREFIX + room)) || 'general'; }catch(_){ return 'general'; } }
 function _chatTabSave(room, id){
   if(!room) return;
-  try{ if(id && id !== 'general') localStorage.setItem(CHAT_TAB_LS_PREFIX + room, id); else localStorage.removeItem(CHAT_TAB_LS_PREFIX + room); }catch(_){}
+  try{ if(id && id !== 'general') chatAccountStore.set(CHAT_TAB_LS_PREFIX + room, id); else chatAccountStore.remove(CHAT_TAB_LS_PREFIX + room); }catch(_){}
 }
 /* 방이 바뀌었으면 그 방에서 기억한 탭으로 — 창을 열 때 · 탭 id 를 물을 때(창을 열기 전 말풍선 · presence 도 같은 탭을 보게) */
 function _chatTabSyncRoom(room){
@@ -610,13 +621,11 @@ function _chatTabSyncRoom(room){
 const _chatTabUnread = {};        // tabId → 안 읽은 수 (창이 열려 있는 동안, 보고 있지 않은 탭만)
 let _chatTabUnreadUnsubs = [];
 const CHAT_TAB_UNREAD_LIMIT = 30;
-/* 🛰 탭 정의 바꾸기 — 서버 방이면 방 서버 meta(방장만 · 서버가 검사), 아니면 Firebase _meta/tabs.
-   서버 방에서 Firebase 에 쓰면 rooms/{방}/_meta/tabs 만 생겨(유령 방 노드) 방장 혼자만 탭을 본다.
-   탭별 대화 기록(_chatTab)은 어느 방이든 Firebase 다(#일반 chatLog 와 같다). 반환은 firebaseAPI 쪽과 같은 { ok, id?, reason? }. */
+/* 🛰 탭 정의 바꾸기 — 방 포트 meta(방장만 · 서버가 검사). 탭을 만들거나 지우면 서버가 그 탭 기록을 먼저 비운다. 반환 { ok, id?, reason? }. */
 function _chatTabServer(){ try{ return (typeof Presence() !== 'undefined' && Presence().serverProvider && Presence().serverProvider()) || null; }catch(_){ return null; } }
 async function _chatTabAdd(room, name){
   const sp = _chatTabServer();
-  if(!sp) return firebaseAPI.addChatTab(room, name);
+  if(!sp) return { ok:false, reason:'' };
   const id = ChatTabs.freeSlot(_chatTabMeta());
   if(!id) return { ok:false, reason:'채널은 3개까지예요' };
   const r = await sp.setMeta({ tabs: { [id]: { name } } });
@@ -624,18 +633,15 @@ async function _chatTabAdd(room, name){
 }
 async function _chatTabRename(room, id, name){
   const sp = _chatTabServer();
-  if(!sp) return firebaseAPI.renameChatTab(room, id, name);
+  if(!sp) return { ok:false };
   const r = await sp.setMeta({ tabs: { [id]: { name } } });
   return { ok: !!(r && r.ok) };
 }
 async function _chatTabDelete(room, id){
   const sp = _chatTabServer();
-  if(!sp) return firebaseAPI.deleteChatTab(room, id);
+  if(!sp) return { ok:false };
   const r = await sp.setMeta({ tabs: { [id]: null } });
-  if(!(r && r.ok)) return { ok:false };
-  // 정의는 서버에서 지워졌다 — 기록은 Firebase 에 있으니 따로 지운다(실패해도 탭은 이미 없다 · 같은 자리를 다시 쓰기 전에 정리)
-  try{ if(firebaseAPI.clearChatLog) await firebaseAPI.clearChatLog(room, id); }catch(_){}
-  return { ok:true };
+  return { ok: !!(r && r.ok) };
 }
 function _chatTabMeta(){ try{ return (window._roomMetaCache && window._roomMetaCache.tabs) || null; }catch(_){ return null; } }
 function _chatTabResolve(id){ return window.ChatTabs ? ChatTabs.resolve(id, _chatTabMeta()) : 'general'; }
@@ -651,10 +657,14 @@ function _chatTabName(id){
   return t ? t.name : '일반';
 }
 function _chatMarkKey(room, tab){ return window.ChatTabs ? ChatTabs.markKey(room, tab) : room; }
-/* 지금 탭의 기록을 구독한다 — 창을 열 때 · 탭을 바꿀 때 */
+let _chatHistFail = false, _chatHistRoom = null;   // 서버 지난 기록을 못 받음 — 대화 맨 위에 «못 불러왔어요 + [다시 시도]» 한 줄(빈 대화로 그리지 않는다)
+/* [다시 시도] — 지금 방 · 탭의 기록을 처음부터 다시 받는다(실패하면 E-CHAT-02 를 다시 알린다 — 사람이 누른 때만) */
+function _chatRetryHistory(){ if(_chatHistRoom) _chatSubscribeTab(_chatHistRoom); }
+/* 지금 탭의 기록을 구독한다 — 창을 열 때 · 탭을 바꿀 때 · 다시 시도 */
 function _chatSubscribeTab(room){
   const tab = _chatMyTabId();
   const key = _chatMarkKey(room, tab);
+  _chatHistFail = false; _chatHistRoom = room;
   // 🔖 이번 세션의 구분선 위치를 여기서 '고정' — 이후 창이 열려 있는 동안 새 메시지가 와도 선은 움직이지 않는다.
   _chatReadRoom = key;
   _chatReadMarker = _loadChatReadMarker(key);
@@ -664,9 +674,18 @@ function _chatSubscribeTab(room){
   try{ _renderChatLog([]); }catch(_){}
   // 🚪 목록이 도착한 그 순간이 '입장'이다 — 처음이면 여기서 표식을 찍는다(_noteChatJoin 주석 참고).
   const _onList = list => { _noteChatJoin(key, list); _renderChatLog(list); };
-  // 💬 이 PC 저장 + 그 뒤만 이어 받기(chat-history.js) — 옛 firebase-init 이면 예전 통째 구독
-  if(room && window.firebaseAPI && firebaseAPI.chatHistory) setChatLogUnsub(firebaseAPI.chatHistory.open(room, tab, _onList));
-  else if(room && window.firebaseAPI && firebaseAPI.subscribeChatLog) setChatLogUnsub(firebaseAPI.subscribeChatLog(room, _onList, undefined, tab));
+  // 💬 이 PC 화면 캐시 + 그 뒤만 이어 받기(chat-history.js · 길은 chat-rt.js) — 못 받으면 «못 불러왔어요 + [다시 시도]» (아래 histFail)
+  const histFail = (e)=>{
+    if(_chatReadRoom !== key) return;   // 그 사이 탭 · 방을 옮겼다
+    _chatHistFail = true;
+    console.warn('[대화] 지난 기록을 못 불러왔어요', e);
+    TwErrorCodes.notify('E-CHAT-02', e);
+    try{ _renderChatLog(_chatLogCache()); }catch(err){ console.warn('[대화] 안내 줄을 그리지 못했어요', err); }   // 안내 줄을 그린다
+  };
+  if(room){
+    try{ setChatLogUnsub(chatHistory().open(room, tab, _onList, histFail)); }
+    catch(e){ histFail(e); }   // 기록 모듈이 없거나 열다 던짐 — 다른 길로 돌리지 않고 같은 «못 불러옴» 으로
+  }
   _chatTabUnreadStart(room);
   _chatTabsRender();
 }
@@ -678,19 +697,19 @@ function _chatTabUnreadStop(){
 }
 function _chatTabUnreadStart(room){
   _chatTabUnreadStop();
-  if(!room || window._activeChannel !== 2 || !window.ChatTabs || !(window.firebaseAPI && firebaseAPI.subscribeChatLog)) return;
+  if(!room || window._activeChannel !== 2 || !window.ChatTabs) return;
   const cur = _chatMyTabId();
   ChatTabs.list(_chatTabMeta()).forEach(t => {
     if(t.id === cur) return;
     const key = _chatMarkKey(room, t.id);
-    _chatTabUnreadUnsubs.push(firebaseAPI.subscribeChatLog(room, list => {
+    _chatTabUnreadUnsubs.push(chatNet.subscribeLog(room, list => {
       let mark = _loadChatReadMarker(key);
       const last = _chatLastOf(list);
       // 처음 보는 탭이면 '지금까지는 읽은 것' — 뱃지 구독과 같은 규칙
       if(!mark && last){ mark = _chatMarkOf(last); _saveChatReadMarker(key, mark); }
       _chatTabUnread[t.id] = mark ? list.filter(m => _chatIsAfter(m, mark)).length : 0;
       _chatTabsRender();
-    }, CHAT_TAB_UNREAD_LIMIT, t.id));
+    }, CHAT_TAB_UNREAD_LIMIT, t.id, e => { _chatUnreadFailed(room, '#' + t.id, e); _chatTabUnread[t.id] = null; _chatTabsRender(); }));
   });
 }
 function _chatSwitchTab(id){
@@ -713,7 +732,7 @@ function _chatTabsOnMeta(){
   const sig = ChatTabs.list(_chatTabMeta()).map(t => t.id + ':' + t.name).join('|');
   _chatTabSyncRoom(room);
   /* 방 메타가 아직 안 왔으면(재부팅 직후) 탭 목록이 비어 보일 뿐이다 — 기억한 탭을 «지워졌다» 로 보지 않는다. */
-  if(window._roomMetaCache && room && window.firebaseAPI && firebaseAPI.chatHistory) firebaseAPI.chatHistory.syncTabs(room, _chatTabMeta()).catch(()=>{});   // 지운 채널의 PC 저장
+  if(window._roomMetaCache && room) chatHistory().syncTabs(room, _chatTabMeta()).catch(e=>{ console.warn('[대화] 지운 채널의 PC 저장을 정리하지 못했어요', e); });   // 지운 채널의 PC 저장
   const metaReady = !!window._roomMetaCache;
   if(metaReady && _chatMyTab !== 'general' && _chatTabResolve(_chatMyTab) === 'general'){
     _chatMyTab = 'general'; _chatTabSave(room, 'general');
@@ -740,7 +759,7 @@ function _chatTabsRender(){
   // 입력 중이면 다시 그리지 않는다 — 치던 글자가 날아간다
   if(_chatTabEdit && bar.querySelector('.ct-edit input') === document.activeElement) return;
   const tabs = ChatTabs.list(_chatTabMeta()), cur = _chatMyTabId();
-  const people = seats.filter(st => st && (st.isMe || st.friendName)).map(st => ({ tab: st.isMe ? cur : (st.chatTabId || 'general') }));
+  const people = seats.filter(st => st && (st.isMe || st.remote)).map(st => ({ tab: st.isMe ? cur : (st.chatTabId || 'general') }));
   const cnt = ChatTabs.counts(people, _chatTabMeta());
   const host = _chatIsHost();
   /* 📢 #공지 — 시크릿룸에서만 맨 앞. 채팅 탭이 아니라 «보기 상태»라 저장 · 방송 · 안 읽음이 없다(숫자는 공지 개수). */
@@ -757,10 +776,11 @@ function _chatTabsRender(){
   }
   tabs.forEach(t => {
     if(_chatTabEdit && _chatTabEdit.mode === 'rename' && _chatTabEdit.id === t.id){ h.push(_chatTabEditHtml(t.name)); return; }
+    const unk = t.id !== cur && _chatTabUnread[t.id] === null;   // 못 불러옴 — «?» (0 이 아니다)
     const un = t.id === cur ? 0 : (_chatTabUnread[t.id] || 0);
     h.push('<span class="ct-tab' + ((t.id === cur && !noticeOn && !focusOn) ? ' on' : '') + '" data-tab="' + escHtml(t.id) + '" title="#' + escHtml(t.name) + '">' +
       '<span class="ct-name">#' + escHtml(t.name) + '</span><span class="ct-n">' + Number(cnt[t.id] || 0) + '</span>' +
-      (un ? '<span class="ct-unread">' + (un >= CHAT_TAB_UNREAD_LIMIT ? CHAT_TAB_UNREAD_LIMIT + '+' : Number(un)) + '</span>' : '') + '</span>');
+      (unk ? '<span class="ct-unread" title="안 읽은 수를 못 불러왔어요">?</span>' : un ? '<span class="ct-unread">' + (un >= CHAT_TAB_UNREAD_LIMIT ? CHAT_TAB_UNREAD_LIMIT + '+' : Number(un)) + '</span>' : '') + '</span>');
   });
   if(_chatTabEdit && _chatTabEdit.mode === 'add') h.push(_chatTabEditHtml(''));
   else if(ChatTabs.canAdd(host, _chatTabMeta())) h.push('<span class="ct-add" title="채널 추가 (방장)">+</span>');
@@ -827,9 +847,11 @@ function _chatTabMenu(id){
     { label:'취소' },
   ]);
 }
-/* 📢 #공지 탭이면 입력칸 안내문 — 아니면 ''(채팅 잠금 모듈이 자기 안내문을 쓴다) */
 /* #공지 · #집중 보기 상태일 때 입력칸 안내문(둘 다 아니면 빈 글 — 원래 안내문을 쓴다) */
 function _chatViewHint(){ return chatNotice.isActive() ? chatNotice.hint() : (chatFocus.isActive() ? chatFocus.hint() : ''); }
+/* 💬 채팅 탭 — 내가 있는 탭은 마지막으로 누른 탭(방마다 localStorage 에 기억).
+   방 메타(탭 목록)가 아직 안 왔으면 «지워졌다» 로 보지 않고 기다린다.
+   ⚠️ 방장 제한은 **화면 수준**이다(Firebase 방 — `_meta.host` 는 문자열이라 서버가 방장을 검증하지 못한다). 🛰 서버 방은 서버가 방장만 받는다. */
 function _bindChatTabs(){
   const bar = document.getElementById('chatTabs'); if(!bar) return;
   bar.addEventListener('mousedown', e => e.stopPropagation());
@@ -893,10 +915,11 @@ function _renderChatLog(list){
     if(isNaN(d.getTime())) return '';
     return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
   };
-  let _myUid = null; try{ _myUid = getMyUserId(); }catch(_){}
+  let _myUid = null; try{ _myUid = myCode(); }catch(_){}
+  if(_chatHistFail) html.push('<div class="cm-row cm-hist-fail" style="text-align:center;color:#7a2718;">지난 대화를 불러오지 못했어요 <button type="button" class="lc-btn" data-hist-retry="1" style="margin-left:6px;padding:2px 8px;">다시 시도</button></div>');
   rows.forEach((m, i)=>{
     if(i===dividerAt) html.push('<div class="cm-unread-sep" id="cmUnreadSep"><span>여기까지 읽었습니다</span></div>');
-    const nm=_chatEsc(m.name||'?');
+    const nm=_chatEsc(TwPersonName.shown(m.name));
     let tx=_renderChatText(m.text||'');
     // 내 발화는 이름을 테마 강조색으로 — 긴 대화에서 내 줄을 눈으로 찾기 위함(uid 기준이라 동명이인 안전).
     const mine = !!(_myUid && m.uid && m.uid === _myUid);
@@ -910,6 +933,7 @@ function _renderChatLog(list){
      이미 지난 안내가 대화처럼 보인다. 지금 상태는 토글 글자와 입력칸 안내가 이미 말한다. */
   if(_chatOffOn()) html.push('<div class="cm-row" style="text-align:center;color:#7a2718;">— 방장이 채팅을 껐어요 —</div>');
   box.innerHTML = html.join('');
+  if(_chatHistFail){ const rb = box.querySelector('[data-hist-retry]'); if(rb) rb.onclick = _chatRetryHistory; }
   // 연 직후 첫 렌더에서는 맨 아래가 아니라 구분선이 화면 위쪽에 오도록 맞춘다(안 읽은 것부터 읽게).
   const jump = _chatJumpToUnread && rows.length;
   if(jump) _chatJumpToUnread = false;
@@ -1010,6 +1034,7 @@ function _chatCtxRun(act){
     rg.selectNodeContents(box); sel.removeAllRanges(); sel.addRange(rg);
   }
 }
+/* 📋 mac 은 창이 frame:false 라 기본 편집 메뉴가 없어 Cmd+C 가 안 먹을 수 있다 — 키를 직접 받는다(두 OS 같게). */
 function _bindChatCopy(){
   const box = document.getElementById('chatMessages'), win = document.getElementById('chatWindow');
   if(!box || !win) return;
@@ -1054,34 +1079,24 @@ function _bindChatCopy(){
   }
 }
 
-// 이스케이프된 텍스트 안의 이모티콘 마커를 <img>로. 마커는 [emoji:URL] 형태(URL은 이스케이프되어 &amp; 등 포함 가능).
-// (구) 이모티콘 마커 렌더 — 지금은 _renderChatText 파이프라인이 대체(URL 링크화 충돌 방지). 참고용 보존.
-function _renderEmojiMarkers(escapedText){
-  return escapedText.replace(/\[emoji:(https?:[^\]]+)\]/g, (m, url)=>{
-    return `<img class="cm-emoji" src="${url}" alt="이모티콘">`;
-  });
-}
-// [dice:N] → SVG 점주사위 (1~6만 허용)
-function _renderDiceMarkers(escapedText){
-  return escapedText.replace(/\[dice:([1-6])\]/g, (m, n)=> _diceSvg(parseInt(n,10), 26));
-}
 // 메시지 텍스트 렌더 파이프라인 — 이모티콘/주사위 마커의 URL이 링크화에 먹히지 않도록
-// 마커를 토큰(\u0000i\u0000)으로 먼저 대피시키고, 남은 텍스트만 링크화한 뒤 토큰을 최종 HTML로 복원한다.
+// 마커를 토큰(\u0000i\u0000)으로 먼저 대피시키고, 남은 글을 공용 linkify(씻기 + 주소 칸)에 넘긴 뒤 토큰을 최종 HTML로 복원한다.
+// ⚠️ 받은 글의 \u0000 은 먼저 지운다 — 남겨 두면 보낸 사람이 토큰을 흉내 내 다른 마커 HTML 을 끼울 수 있다.
 function _renderChatText(rawText){
-  let t=_chatEsc(rawText);
+  let t=String(rawText == null ? '' : rawText).replace(/\u0000/g, '');
   const tokens=[];
-  t=t.replace(/\[emoji:(https?:[^\]]+)\]/g, (m,u)=>{ tokens.push(`<img class="cm-emoji" src="${TwSafeHtml.safeUrl(u, 'image')}" alt="이모티콘">`); return `\u0000${tokens.length-1}\u0000`; });
+  t=t.replace(/\[emoji:(https?:[^\]]+)\]/g, (m,u)=>{ tokens.push(`<img class="cm-emoji" src="${TwSafeHtml.attr(TwSafeHtml.safeUrl(u, 'image'))}" alt="이모티콘">`); return `\u0000${tokens.length-1}\u0000`; });
   t=t.replace(/\[demoji:(d\d{2})\]/g, (m,id)=>{ const d=DEMOJI_BY_ID[id]; if(!d) return m;
     tokens.push(`<img class="cm-emoji" style="width:${d.w}px;height:${d.h}px" src="${DEMOJI_DIR}${d.file}" alt="${_chatEsc(d.cmd)}">`); return `\u0000${tokens.length-1}\u0000`; });
   t=t.replace(/\[dice:([1-6])\]/g, (m,n)=>{ tokens.push(_diceSvg(parseInt(n,10),26)); return `\u0000${tokens.length-1}\u0000`; });
-  t=_chatLinkify(t);   // 남은 http URL만 링크로
+  t=TwSafeHtml.linkify(t);   // 남은 글 — 씻고 주소만 누를 칸으로(알림함 · 버그 제보와 한 벌)
   t=t.replace(/\u0000(\d+)\u0000/g, (m,i)=> tokens[+i] || '');   // 토큰 복원
   return t;
 }
 /* 🚫 채팅 제한 — 이모티콘 연타 · 도배 · 길이. 값은 **여기 한 곳에만** 둔다.
    ★ 판정은 마커로 펼친 뒤(outText)에 한다. 원문(`/ㅋㅋ`)으로 세면 내 이모티콘과 기본 이모티콘의
      명령어가 같을 때(내 것 우선 규칙) 다른 그림인데 같은 것으로 세거나 그 반대가 된다.
-   ⚠️ CHAT_OUT_MAX 는 **서버 저장 상한과 짝이다**(firebaseAPI.sendChatLog 의 slice).
+   ⚠️ CHAT_OUT_MAX 는 **서버 저장 상한과 짝이다**(서버 chatSay 실제 상한 1200 — 마커를 펼친 뒤).
      한쪽만 올리면 그 차이만큼이 서버에서 잘려 나가는데, 하필 마커 한가운데가 잘리면
      `[emoji:https://…` 가 닫히지 않은 채로 남아 그 줄이 통째로 깨진다 —
      **커스텀 이모티콘을 연속 세 번 쓰면 깨지던 것의 정체가 이것이었다**(마커 하나가 URL 때문에
@@ -1089,9 +1104,14 @@ function _renderChatText(rawText){
 const CHAT_EMOJI_RUN_MAX = 3;       // 같은 이모티콘을 연달아 붙여 쓸 수 있는 최대 개수
 const CHAT_SAME_RUN_MAX  = 3;       // 같은 내용을 연달아 보낼 수 있는 최대 횟수
 const CHAT_SAME_COOL_MS  = 10000;   // 그 뒤 같은 내용을 다시 보낼 수 있을 때까지
-const CHAT_BURST_N = 8, CHAT_BURST_MS = 5000;   // 5초에 8줄까지
 const CHAT_OUT_MAX = 1200;
-let _chatSameText='', _chatSameCount=0, _chatSameAt=0, _chatSendTimes=[];
+/* 서버가 줄을 거절한 까닭(chatSay error code) → 안내. 그 밖은 «전송에 실패했어요» */
+const CHAT_SAY_REFUSED = Object.freeze({
+  CHAT_TOO_FAST: '⏳ 조금 천천히 보내주세요',
+  CHAT_OFF: '🔇 방장이 채팅을 껐어요 — 😊 🎲 💣 와 /80 · /150 은 쓸 수 있어요',
+  CHAT_TEXT_INVALID: '보낼 수 없는 글이에요 — 너무 길거나 비어 있어요',
+});
+let _chatSameText='', _chatSameCount=0, _chatSameAt=0;
 /* 같은 이모티콘이 연달아 몇 개 붙었는가 — 사이에 글자가 하나라도 있으면 연속이 끊긴다.
    (공백만 있는 것은 붙여 쓴 것으로 본다. `/ㅋㅋ /ㅋㅋ /ㅋㅋ /ㅋㅋ` 로 우회되면 규칙이 없는 것과 같다.) */
 function _emojiRunTooLong(outText){
@@ -1111,8 +1131,7 @@ function _chatBlockReason(text, outText){
   if(_emojiRunTooLong(outText)) return '😊 같은 이모티콘은 '+CHAT_EMOJI_RUN_MAX+'개까지만!';
   if(outText.length > CHAT_OUT_MAX) return '😊 이모티콘이 너무 많아요';
   const now = Date.now();
-  _chatSendTimes = _chatSendTimes.filter(t => now - t < CHAT_BURST_MS);
-  if(_chatSendTimes.length >= CHAT_BURST_N) return '⏳ 조금 천천히 보내주세요';
+  /* 5초 8줄 막기는 서버가 한다(CHAT_TOO_FAST — 거절되면 CHAT_SAY_REFUSED 가 «조금 천천히» 를 안내한다) — 앱이 따로 세지 않는다 */
   if(text === _chatSameText){
     if(_chatSameCount >= CHAT_SAME_RUN_MAX && now - _chatSameAt < CHAT_SAME_COOL_MS)
       return '⏳ 같은 내용은 '+CHAT_SAME_RUN_MAX+'번까지만!';
@@ -1124,7 +1143,6 @@ function _chatNoteSent(text){
   if(text === _chatSameText && now - _chatSameAt < CHAT_SAME_COOL_MS) _chatSameCount++;
   else { _chatSameText = text; _chatSameCount = 1; }
   _chatSameAt = now;
-  _chatSendTimes.push(now);
 }
 // 대화창에서 메시지 전송 (Enter)
 function _sendChatWindowMsg(){
@@ -1151,7 +1169,7 @@ function _sendChatWindowMsg(){
         setDanceCmdCooldownAt(nowMs);
         startMyDance(def, { cmd: hit.cmd, repeat: hit.repeat });
       }
-      else toast('🔒 Lv.'+def.reqLevel+' 달성 시 사용할 수 있어요');
+      else toast(lockedToast(def.reqLevel, '달성 시 사용할 수 있어요'));
       return;   // 명령은 대화 기록/전송에 싣지 않음
     }
   }
@@ -1187,18 +1205,16 @@ function _sendChatWindowMsg(){
   sendMyChat(bubbleText, _fly, _fly ? _chatFlyColor : '', _chatFlySize, _chatMyTabId());
   // 2) 대화 기록 저장 — 마커가 든 outText 저장(다른 사람도 이모티콘을 URL로 렌더)
   const room=(typeof Presence()!=='undefined' && Presence().roomCode)?Presence().roomCode():null;
-  if(room && window.firebaseAPI && firebaseAPI.sendChatLog){
-    /* ⚠️ 서버가 거부한 줄은 **내 화면에 한 번 떴다가 사라진다** — RTDB 가 낙관적으로 먼저
-       반영하고 거부가 돌아오면 되돌리기 때문이다. 예전엔 그 실패가 어디에도 안 남아서,
-       보내는 사람에게는 «쳤는데 없어지거나 순서가 뒤엉킨» 것으로만 보였다.
-       ★ 친 글은 입력칸에 돌려준다 — 잠금·도배 제한과 같은 관례다(길게 쓴 줄을 날리지 않는다). */
+  if(room){
+    /* 줄은 서버가 저장하고(chatSaid) 방 전원에게 보낸다(chatLine). 거절되면 까닭을 말하고 친 글은 입력칸에 돌려준다
+       — 잠금 · 도배 제한과 같은 관례다(길게 쓴 줄을 날리지 않는다). */
     const sendTab = _chatMyTabId();
     const sendKey = _chatMarkKey(room, sendTab);   // 읽음은 보낸 채널에만 — 그 사이 탭 · 방을 옮겨도
-    Promise.resolve(firebaseAPI.sendChatLog(room, { uid:getMyUserId(), name:getDisplayName(), text:outText }, sendTab, { wantTs:true }))
+    Promise.resolve(chatNet.sendText(room, outText, sendTab))
       .then(r=>{
         if(r && r.ok) _chatMarkSentRead(sendKey, r);
         if(r && r.ok === false){
-          toast('전송에 실패했어요 — 잠시 뒤 다시 보내주세요');
+          if(CHAT_SAY_REFUSED[r.code]) toast(CHAT_SAY_REFUSED[r.code]); else { try{ TwErrorCodes.notify('E-CHAT-01', r.code); }catch(_){} }
           const el=document.getElementById('chatInput');
           if(el && !el.value) el.value = text;   // 그 사이에 새로 친 글이 있으면 덮지 않는다
         }
@@ -1211,7 +1227,7 @@ function _saveChatLog(){
   const room=(typeof Presence()!=='undefined' && Presence().roomCode)?Presence().roomCode():'room';
   // 🚪 입장 이전 대화는 파일로도 안 나간다 — 화면에서 가려놓고 저장 버튼 한 번으로 다 보이면 의미가 없다.
   //    ⚠️ [지우기]로 접은 것은 그대로 저장된다(예전 동작 유지 — 그건 내가 잠시 접어둔 것뿐이다).
-  const lines=_chatSinceJoin(_chatLogCache()).map(m => `${m.name||'?'} : ${m.text||''}`);
+  const lines=_chatSinceJoin(_chatLogCache()).map(m => `${TwPersonName.shown(m.name)} : ${m.text||''}`);
   const header=`대화 기록 — ${room}\n저장 시각: ${new Date().toLocaleString()}\n${'='.repeat(30)}\n`;
   const blob=new Blob([header+lines.join('\n')], {type:'text/plain;charset=utf-8'});
   const url=URL.createObjectURL(blob);
@@ -1223,6 +1239,7 @@ function _saveChatLog(){
 
 let _emojiCache = {};          // { slot: {cmd, url, gif} }  — 내 이모티콘 (다른 방 가도 유지)
 let _emojiPendingSlot = null;  // 파일 선택 중인 슬롯
+let _emojiLoadFailed = false;  // 내 이모티콘을 못 받음 — 빈 칸으로 그리지 않고 고치기를 잠근다(빈 칸 위에 저장하면 서버 칸을 덮을 수 있다)
 const EMOJI_SLOTS = 8;
 
 // ★ 기본 이모티콘 목록은 demoji-catalog.js(마이홈 바탕화면 · 말풍선도 같이 읽는 맨 아래 표).
@@ -1233,11 +1250,8 @@ const DEMOJI_BY_ID = demojiCatalog.BY_ID, DEMOJI_BY_CMD = demojiCatalog.BY_CMD;
 
 // 내 이모티콘 로드 (대화창 열 때 1회)
 async function _loadMyEmojis(){
-  try{
-    if(window.firebaseAPI && firebaseAPI.getEmojis){
-      _emojiCache = await firebaseAPI.getEmojis(getMyUserId()) || {};
-    }
-  }catch(_){ _emojiCache = {}; }
+  try{ _emojiCache = await chatNet.getEmojis() || {}; _emojiLoadFailed = false; }
+  catch(e){ _emojiLoadFailed = true; try{ TwErrorCodes.notify('E-CHAT-04', e); }catch(_){} }   // _emojiCache 는 그대로(앞서 받은 것이 있으면 둔다)
   _renderEmojiPanel();
 }
 // 이모티콘 창 렌더 — [기본 32개] → [내 이모티콘(× 삭제)] → [＋ 등록] 인라인 나열
@@ -1261,7 +1275,9 @@ function _renderEmojiPanel(){
     }
   }
   // ＋ 새 이모티콘 등록 — 기존 등록 흐름(빈 슬롯 → 파일 → 명령어 → 저장) 그대로 재사용
-  html += `<button class="emoji-add-btn" data-add="1" title="내 이모티콘 등록 (최대 ${EMOJI_SLOTS}개)">＋</button>`;
+  html += _emojiLoadFailed
+    ? `<button class="emoji-add-btn" data-add="1" title="내 이모티콘을 못 불러왔어요 — 눌러서 다시 시도">↻</button>`
+    : `<button class="emoji-add-btn" data-add="1" title="내 이모티콘 등록 (최대 ${EMOJI_SLOTS}개)">＋</button>`;
   grid.innerHTML=html;
 }
 // 이모티콘 창 토글 — 채팅창 오른쪽에 배치(공간 없으면 왼쪽, 화면 안으로 클램프)
@@ -1283,6 +1299,7 @@ function _toggleEmojiPanel(){
 }
 // 슬롯 클릭 — 등록된 건 명령어 삽입, 빈 칸은 파일 선택
 function _onEmojiSlotClick(slot){
+  if(_emojiLoadFailed){ _loadMyEmojis(); return; }   // 못 받은 채로는 등록하지 않는다 — 다시 받기
   const e=_emojiCache[slot];
   if(e && e.cmd){
     // 입력창에 /명령어 삽입 (바로 전송 안 함)
@@ -1327,18 +1344,22 @@ async function _onEmojiFilePicked(file){
       });
     }
   }catch(_){ toast('이미지를 읽지 못했어요'); return; }
-  // 저장
-  if(!(window.firebaseAPI && firebaseAPI.saveEmoji)){ toast('앱을 재시작한 후 사용할 수 있어요'); return; }
+  // 저장 — 그림은 Storage(users/{내 코드}/emojis/{칸}) · 칸은 API(PUT /v2/me/emojis/{칸})
+  const me = myCode();
+  if(!(me && window.firebaseAPI && firebaseAPI.uploadEmojiImage)){ toast('서버에 연결된 뒤 등록할 수 있어요'); return; }
   toast('이모티콘 등록 중…');
-  const r = await firebaseAPI.saveEmoji(getMyUserId(), slot, cmd, dataUrl, isGif);
-  if(r && r.ok){ _emojiCache[slot]={cmd,url:r.url,gif:isGif}; _renderEmojiPanel(); toast('이모티콘을 등록했어요'); }
-  else toast('등록에 실패했어요');
+  let url = null;
+  try{ url = await firebaseAPI.uploadEmojiImage(me, slot, dataUrl, isGif); }catch(_){ url = null; }
+  const r = url ? await chatNet.putEmoji(slot, cmd, url) : { ok:false };
+  if(r && r.ok){ _emojiCache[slot]={cmd,url,gif:isGif}; _renderEmojiPanel(); toast('이모티콘을 등록했어요'); }
+  else { try{ TwErrorCodes.notify('E-CHAT-05', r && r.code); }catch(_){} }
 }
 // 이모티콘 삭제
 async function _deleteEmoji(slot){
-  if(!(window.firebaseAPI && firebaseAPI.deleteEmoji)) return;
-  const r = await firebaseAPI.deleteEmoji(getMyUserId(), slot);
+  if(_emojiLoadFailed){ _loadMyEmojis(); return; }
+  const r = await chatNet.deleteEmoji(slot);   // Storage 파일은 서버가 지운다
   if(r && r.ok){ delete _emojiCache[slot]; _renderEmojiPanel(); }
+  else { try{ TwErrorCodes.notify('E-CHAT-05', r && r.code); }catch(_){} }
 }
 // 슬래시 명령을 이모티콘 마커로 치환 — 전송 직전 호출. "/ㅋㅋ" → "[emoji:URL]"
 function _applyEmojiCommands(text){

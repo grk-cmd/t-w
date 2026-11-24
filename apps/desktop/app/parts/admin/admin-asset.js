@@ -112,6 +112,9 @@ document.getElementById('glbLoadGo').onclick=async()=>{const fi=document.getElem
     loadEncryptedGlbAsSeat(glbBuf,fi.name.replace(/\.dcc$/i,'')+'.glb');toast('불러왔어요');}
   catch(e){toast('비밀번호가 틀렸거나 파일이 손상됐어요');}};
 
+/* 세션이 끝나면 이 파일이 여는 창을 자기 닫기(취소 단추와 같은 동작)로 닫는다 */
+document.addEventListener(TwNav.ADMIN_EXIT_EVENT, ()=>{ ['assetGenOverlay','commGenOverlay','glbEncOverlay','glbLoadOverlay'].forEach(id=>{ const o=document.getElementById(id); if(o) o.classList.remove('on'); }); });
+
 return {};   // 밖에서 부르는 이름 없음 — 전부 만들 때 건다
 }
 

@@ -1,12 +1,11 @@
 /* room-lobby-ui.js — 🗂️ 방 목록 로비(방 만들기 / 참여하기 모달 안 #lobbyMain).
    워킹룸 · 투게더룸 탭 · 전체 / 빈자리 있는 방 · 카드 12장(3 × 4) · 쪽 넘기기 · [방 만들기] · [빠른시작] · 맨 위 «내 시크릿룸» 줄.
-   목록은 모달이 열릴 때 · [새로 고침] · 열려 있는 동안 60초마다만 읽는다(구독 없음 — 사본은 서버 함수가 1분마다 만든다).
+   목록은 모달이 열릴 때 · [새로 고침] · 탭을 바꿀 때만 읽는다(구독 없음 · 주기 갱신 없음 — 로비는 서버가 신호를 주지 않는다).
    카드는 글(textContent)로만 그린다 — 남이 쓴 제목 · 닉네임이 HTML 로 읽히지 않게. 긴 제목은 카드에 마우스를 올리면 흐른다(CSS).
    classic script(window.TwRoomLobbyUi) — app.js 가 방 만들기 창 뒤에서 createRoomLobbyUi(deps) · 밖에서 부르는 이름 없음.
    검사: checks/sim-room-lobby-ui.js */
 (function(){
 
-const REFRESH_MS = 60 * 1000;
 const CHANNEL_LABEL = Object.freeze({ workingroom: '워킹룸', togetherroom: '투게더룸' });
 const TEXT = Object.freeze({
   empty: '지금 공개된 방이 없어요 — 처음으로 방을 열어 보세요',
@@ -26,6 +25,7 @@ const TEXT = Object.freeze({
  *   twNav: typeof window.TwNav,
  *   maxPeople: () => number,
  *   isLicensed: () => boolean,
+ *   isBlocked: (card: { music: boolean }) => boolean,
  *   joinRoom: (code: string) => Promise<void>,
  *   openCreate: (channel: string) => void,
  *   toast: (msg: string) => void,
@@ -42,6 +42,7 @@ const twNav = deps.twNav;     // 방을 나와 로비가 다시 보이면 room-e
 const maxPeople = deps.maxPeople;
 const isLicensed = deps.isLicensed;
 const joinRoom = deps.joinRoom;
+const isBlocked = deps.isBlocked;   // 🎧 들어가지 못하는 방인가(listen-model.js isBlockedRoom) — 목록에서 뺀다
 const openCreate = deps.openCreate;
 const toast = deps.toast;
 const notifyError = deps.notifyError;
@@ -49,7 +50,7 @@ const now = deps.now;
 const random = deps.random;
 
 const $ = (id) => document.getElementById(id);
-const st = { channel: 'workingroom', onlyOpen: false, page: 0, node: undefined, state: null, loading: false, joining: false, timer: null, seq: 0, secretSeq: 0 };
+const st = { channel: 'workingroom', onlyOpen: false, page: 0, node: undefined, state: null, loading: false, seq: 0, secretSeq: 0 };
 
 function el(tag, cls, text){
   const e = document.createElement(tag);
@@ -99,7 +100,7 @@ function measureTitles(){
 
 function paint(){
   const cap = maxPeople();
-  const r = model.cardsFrom(st.node === undefined ? { at: now(), rooms: {} } : st.node, { now: now(), cap, onlyOpen: st.onlyOpen });
+  const r = model.cardsFrom(st.node === undefined ? { at: now(), rooms: {} } : st.node, { now: now(), cap, onlyOpen: st.onlyOpen, isBlocked });
   $('lobbyTabWorking').classList.toggle('on', st.channel === 'workingroom');
   $('lobbyTabTogether').classList.toggle('on', st.channel === 'togetherroom');
   $('lobbyAll').classList.toggle('on', !st.onlyOpen);
@@ -135,8 +136,8 @@ function paint(){
   measureTitles();
 }
 
-// quiet — 60초 갱신은 실패해도 알리지 않는다(사람이 누른 불러오기만 알린다 · 화면에는 늘 «못 불러왔어요»)
-async function refresh(quiet){
+// 못 읽으면 화면에 «못 불러왔어요» + 오류 번호(모달 열기 · [새로 고침] · 탭 바꾸기 — 모두 사람이 한 일)
+async function refresh(){
   const my = ++st.seq;
   st.loading = true;
   paint();
@@ -145,7 +146,7 @@ async function refresh(quiet){
   if(my !== st.seq) return;   // 그새 탭을 바꿨으면 늦게 온 답은 버린다
   st.loading = false;
   st.node = node;
-  if(node === null && !quiet) notifyError('E-ROOM-03');
+  if(node === null) notifyError('E-ROOM-03');
   paint();
 }
 
@@ -165,29 +166,15 @@ async function paintSecret(){
   if(my === st.secretSeq && g != null) $('lobbySecretCount').textContent = '손님 ' + g + '/' + Math.max(0, maxPeople() - 1);
 }
 
-async function join(code){
-  if(st.joining) return;
-  st.joining = true;
-  try{ await joinRoom(code); }finally{ st.joining = false; }
-}
+// 연달아 눌러도 한 번 — 막기는 room-entry joinRoom 한 곳(코드 칸 · 최근 방과 같은 깃발)
+function join(code){ return joinRoom(code); }
 
-// 모달이 닫혔으면(닫기 · 바깥 클릭 · ESC · 입장) 스스로 멈춘다 · 만들기 창이 덮었거나 방 안이면 이번 차례만 건너뛴다
-function startTimer(){
-  stopTimer();
-  st.timer = setInterval(() => {
-    if(!$('inviteOverlay').classList.contains('on')){ stopTimer(); return; }
-    if(!$('lobbyMain').hidden && !inRoom()) refresh(true);
-  }, REFRESH_MS);
-}
-function stopTimer(){ if(st.timer){ clearInterval(st.timer); st.timer = null; } }
-
-/** 모달이 열릴 때 — 목록 · 내 시크릿룸을 읽고 60초 갱신을 건다. */
+/** 모달이 열릴 때 — 목록 · 내 시크릿룸을 읽는다. 로비는 신호가 없고 주기 갱신도 없다(열 때 · [새로 고침] · 탭을 바꿀 때만 읽는다). */
 function onOpen(){
-  if(inRoom()){ stopTimer(); return; }
+  if(inRoom()) return;
   st.page = 0;
   refresh();
   paintSecret();
-  startTimer();
 }
 
 function setChannel(ch){
@@ -217,11 +204,10 @@ $('lobbyQuick').onclick = () => {
   join(code);
 };
 for(const id of ['lcInvite', 'fsInviteCreate']) $(id).addEventListener('click', onOpen);
-$('inviteClose').addEventListener('click', stopTimer);
 twNav.on(twNav.NAV.ROOM_LOBBY, onOpen);
 
 }
 
-window.TwRoomLobbyUi = { createRoomLobbyUi, REFRESH_MS, TEXT };
+window.TwRoomLobbyUi = { createRoomLobbyUi, TEXT };
 
 })();

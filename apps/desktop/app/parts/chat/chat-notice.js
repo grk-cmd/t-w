@@ -131,7 +131,7 @@ function createChatNotice(deps){
 
   function failed(r){
     if(r && r.reason) toast(r.reason);
-    else notifyError('E-CHAT-01');
+    else notifyError('E-CHAT-06');
   }
 
   /* 고정 줄 — 시크릿룸 · 고정한 공지가 있고 · #공지 탭이 아닐 때만. 길면 마우스를 올려 흘려 읽는다(CSS 가 .long 에서 움직임). */

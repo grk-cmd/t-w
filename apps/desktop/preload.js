@@ -38,6 +38,16 @@ contextBridge.exposeInMainWorld('companion', {
     ipcRenderer.send('companion:quitApp');
   },
 
+  // 🚪 앱을 끄기 전 — main 이 끄기를 붙잡고 묻는다 · 렌더러는 못 올린 저장을 끝내고 답한다(채널 이름은 apps/desktop/quit-hold.js CH 와 같아야 한다)
+  //   듣기를 걸면 main 에 «답할 수 있다» 를 알린다 — 그 전(불러오는 중 · 화면이 죽음)에는 main 이 붙잡지 않는다
+  onQuitFlush(callback) {
+    ipcRenderer.on('companion:quitFlush', () => callback());
+    ipcRenderer.send('companion:quitFlushReady');
+  },
+  quitFlushDone() {
+    ipcRenderer.send('companion:quitFlushDone');
+  },
+
   // 🔁 앱 재시작 — 계정 연동 해제 / 구글 로그아웃이 부른다. 껐다 켜야 초대 게이트가 다시 돈다
   //   (게이트는 부팅 때 한 번만 도는 검사라, 세션 도중에 신원을 놓아도 화면은 그대로 남는다).
   // ⚠️ 구버전 앱에는 이 채널이 없다 — 부르는 쪽은 반드시 존재 여부를 확인하고,
@@ -102,7 +112,7 @@ contextBridge.exposeInMainWorld('companion', {
   // 📋 지금 떠 있는 창 목록 조회: Promise<{ok:true, list:[{name,path,title}]} | {ok:false, reason}>
   //   자동 등록(registerFocusApp)이 '방금 전 활성 창'을 집는 것과 달리, 이건 지금 열려 있는 창을
   //   전부 돌려준다. 게임처럼 등록 직전에 다른 창이 한 번 끼어드는 경우에 사람이 직접 고르라고 쓴다.
-  //   ⚠️ 관리자 권한으로 뜬 창은 목록에도 안 나온다(Windows UIPI) — 그건 OS 경계다.
+  //   경로를 못 읽는 창(관리자 권한 · 안티치트)도 tasklist 가 이름을 주면 목록에 든다.
   listWindows() {
     return ipcRenderer.invoke('companion:listWindows');
   },
@@ -145,6 +155,11 @@ contextBridge.exposeInMainWorld('companion', {
 
   // 업데이트 상태 변화 구독 — callback({status, version?, percent?, message?})
   // status: 'checking' | 'available' | 'none' | 'downloading' | 'downloaded' | 'error'
+  // 절전 · 잠금에서 돌아옴(main powerMonitor resume · unlock-screen) — realtime 연결 확인용(rt-hub.js)
+  onWake(callback) {
+    ipcRenderer.on('companion:wake', (e, why) => callback(why));
+  },
+
   onUpdateStatus(callback) {
     ipcRenderer.on('companion:updateStatus', (e, data) => callback(data));
   },
@@ -274,6 +289,11 @@ contextBridge.exposeInMainWorld('companion', {
   setCharBounds(bounds) {
     ipcRenderer.send('companion:setCharBounds', bounds);
   },
+  // 🪟 메인 창이 보이는가(최소화 · 숨김이면 false) — 바뀔 때 main 이 알린다. 하트비트가 안 보일 때 무거운 칸을 뺀다.
+  //   backgroundThrottling:false 라 document.hidden 은 최소화에도 안 바뀌어 이 신호로 받는다.
+  onWinShown(callback) {
+    ipcRenderer.on('companion:winShown', (e, shown) => callback(shown));
+  },
 
   /* ❌ [폐기 2026-08-26] getNoActivate / setNoActivate / setTextInput 은 걷어냈다.
      '활성화되지 않는 창'(WS_EX_NOACTIVATE) 실험의 통로였는데, 그 창에서는 한/영 전환이
@@ -307,6 +327,12 @@ contextBridge.exposeInMainWorld('companion', {
   // 🩺 렌더러 쪽 사건 한 줄을 진단 기록에 남긴다(WebGL 연결 끊김 등). 길이는 main 이 자른다.
   diagNote(msg) {
     ipcRenderer.send('companion:diagNote', String(msg == null ? '' : msg).slice(0, 200));
+  },
+
+  // 🧯 렌더러 오류 한 줄을 오류 기록(tw-error.log)에 — { kind: 'ERROR'|'WARN'|'CODE', src, msg } · 모양 · 길이는 main 이 다시 거른다
+  errorLog(p) {
+    if(!p || typeof p !== 'object') return;
+    ipcRenderer.send('companion:errorLog', { kind: String(p.kind || ''), src: String(p.src == null ? '' : p.src).slice(0, 80), msg: String(p.msg == null ? '' : p.msg).slice(0, 4000) });
   },
 
   // ---- 버전 게이트 ----

@@ -3,12 +3,12 @@
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(FACE_WATCH_MS · repairBlankFaces)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 18줄 그대로 · 부르는 곳은 faceHealMod.이름 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    ・4절: 남의 좌석 · 동물 좌석 그림 복구(repairSeatTextures · reportGlReset)를 가짜 캔버스 위에서 실제로 돌린다 —
           남의 빈 얼굴 → 받아 둔 주소로 다시 그림 · 동물 빈 그림 → 기억한 원본으로 · 원본 없음 → 바탕만 · 받기 실패 → 기록 ·
           얼굴을 안 그린 친구(합성본 멀쩡)는 안 건드림 · 피부가 비면 다음 차례 · 내 칸 복구가 피부 PNG 를 기다리는 동안 건너뜀 ·
           받는 사이에 피부가 비면 합성을 다음 차례로 · 허용 안 되는 주소는 안 그림 · 리셋 진단 한 줄 ·
-          원래 주소가 실패로 캐시된 PC — 표식 주소로 한 번 더 받아 그림(진짜 img-retry.js) · 깨 보기
+          원래 주소가 실패로 캐시된 PC — 표식 주소로 한 번 더 받아 그림(진짜 img-retry.js) · mutation test
    [실행] app.js · desk-companion-prototype.html · face-heal.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -25,13 +25,13 @@ if(!RETRY_SRC){ say('  ? 원본 못 찾음 — img-retry.js'); process.exit(2); 
 const IMG_RETRY = (() => { const m = { exports: {} }; new Function('window', 'module', RETRY_SRC)(undefined, m); return m.exports; })();
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_isBlankDraw","loadImg","loadSkins","skinCanvasFor","toast","diagNote","loadImgCors"];
-const VAL_DEPS = ["CANVAS_SZ","CHAR_SLOT_MAX","LS_KEY","Presence","SKIN_COLORS","_blinkEverDrawn","_faceEverDrawn","seats","skinCanvases","slots"];
+const FN_DEPS = ["_isBlankDraw","loadImg","loadSkins","skinCanvasFor","toast","diagNote","loadImgCors","lastOut"];
+const VAL_DEPS = ["CANVAS_SZ","CHAR_SLOT_MAX","Presence","SKIN_COLORS","_blinkEverDrawn","_faceEverDrawn","seats","skinCanvases","slots"];
 const GET_DEPS = ["creatorOpen"];
 const SET_DEPS = [];
 const EXPORTS = ["FACE_WATCH_MS","repairBlankFaces","repairSeatTextures","reportGlReset"];
 const MOVED = ["FACE_WATCH_MS","FACE_TOAST_GAP_MS","_faceRepairBusy","_faceRepairToldAt","_repairSkinCanvases","_redrawInto","_refreshSeatFaceTex","_seatCompositeBlank","repairBlankFaces"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  CANVAS_SZ: CANVAS_SZ,","  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  LS_KEY: LS_KEY,","  Presence: Presence,","  SKIN_COLORS: SKIN_COLORS,","  _blinkEverDrawn: _blinkEverDrawn,","  _faceEverDrawn: _faceEverDrawn,","  _isBlankDraw: (...a)=>_isBlankDraw(...a),","  creatorOpen: ()=>creatorOpen,","  loadImg: (...a)=>loadImg(...a),","  loadSkins: (...a)=>loadSkins(...a),","  seats: seats,","  skinCanvasFor: (...a)=>skinCanvasFor(...a),","  skinCanvases: skinCanvases,","  slots: slots,","  toast: (...a)=>toast(...a),","  diagNote: (...a)=>{ if(window.companion && companion.diagNote) companion.diagNote(...a); },","  loadImgCors: (...a)=>roomSyncMod._loadImgCors(...a),"];
+const GLUE = ["  CANVAS_SZ: CANVAS_SZ,","  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  lastOut: (...a)=>slotSaveMod.lastOut(...a),","  Presence: Presence,","  SKIN_COLORS: SKIN_COLORS,","  _blinkEverDrawn: _blinkEverDrawn,","  _faceEverDrawn: _faceEverDrawn,","  _isBlankDraw: (...a)=>_isBlankDraw(...a),","  creatorOpen: ()=>creatorOpen,","  loadImg: (...a)=>loadImg(...a),","  loadSkins: (...a)=>loadSkins(...a),","  seats: seats,","  skinCanvasFor: (...a)=>skinCanvasFor(...a),","  skinCanvases: skinCanvases,","  slots: slots,","  toast: (...a)=>toast(...a),","  diagNote: (...a)=>{ if(window.companion && companion.diagNote) companion.diagNote(...a); },","  loadImgCors: (...a)=>roomSyncMod._loadImgCors(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -82,7 +82,7 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/character/face-heal.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
@@ -92,7 +92,7 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const faceHealMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('faceHealMod.' + x)); if(n){ ls[i] = ls[i].replace('faceHealMod.' + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 던짐', m => m.replace('function createFaceHeal(deps){', 'function createFaceHeal(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createFaceHeal(deps){', 'function createFaceHeal(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
@@ -110,10 +110,10 @@ function seatEnv(src, o){
   const notes = [];
   const skins = o.skins || [mkCv(false)];
   const deps = {
-    CANVAS_SZ: 512, CHAR_SLOT_MAX: 3, LS_KEY: 'k', Presence: { active: () => true }, SKIN_COLORS: ['#fff'],
-    _blinkEverDrawn: [], _faceEverDrawn: [], _isBlankDraw: (cv) => !cv || !!cv.blank, creatorOpen: () => false,
+    CANVAS_SZ: 512, CHAR_SLOT_MAX: 3, lastOut: o.lastOut || (() => []), Presence: { active: () => true }, SKIN_COLORS: ['#fff'],
+    _blinkEverDrawn: o.blinkEver || [], _faceEverDrawn: o.faceEver || [], _isBlankDraw: (cv) => !cv || !!cv.blank, creatorOpen: () => false,
     loadImg: async (u) => ({ src: u }), loadSkins: o.loadSkins || (async () => {}), seats: o.seats, skinCanvasFor: () => skins[0],
-    skinCanvases: skins, slots: [], toast: () => {}, diagNote: (m) => notes.push(m),
+    skinCanvases: skins, slots: o.slots || [], toast: () => {}, diagNote: (m) => notes.push(m),
     loadImgCors: o.loadImgCors || (async (u) => {
       if(u.startsWith('https://bad.test/')) throw new Error('net');                       // 표식 주소로도 못 받음
       if(u.startsWith('https://stale.test/') && !/twr=1/.test(u)) throw new Error('cors'); // 원래 주소만 실패로 캐시된 PC
@@ -194,6 +194,17 @@ async function judgeSeats(src){
     t(!aT.image.blank && aT.image.drawn.includes('https://stale.test/a.png?twr=1') && aT.needsUpdate, '★ 동물 그림 — 같은 규칙으로 표식 주소(?twr=1)에서 다시 그림');
     t(got.length === 2 && got.every(u => /twr=1/.test(u)), '  받은 요청은 표식 주소 두 번뿐(원래 주소는 실패 · 그 뒤로 더 받지 않음)');
   }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 100)); }
+  /* 내 칸 — 비어 버린 얼굴을 «직전 저장 모양(lastOut)» 으로 다시 그린다(이 PC 에 저장본이 없다 — 서버에서 받아 앉힌 모습 · 마지막 저장이 원본) */
+  try{
+    const dA = { skin: 0, face: mkCv(true), blink: mkCv(false) };
+    const EA = seatEnv(src, { seats: [], slots: [dA], faceEver: [true], blinkEver: [false], lastOut: () => [{ face: 'data:image/png;base64,AAAA' }] });
+    await EA.M.repairBlankFaces();
+    t(!dA.face.blank && dA.face.drawn.includes('data:image/png;base64,AAAA'), '★ 내 칸 — 얼굴이 비면 직전 저장 모양(lastOut)의 그림으로 다시 그린다');
+    const dB = { skin: 0, face: mkCv(true), blink: mkCv(false) };
+    const EB = seatEnv(src, { seats: [], slots: [dB], faceEver: [true], blinkEver: [false], lastOut: () => [null] });
+    await EB.M.repairBlankFaces();
+    t(dB.face.blank && !dB.face.drawn.length, '  원본이 없으면 그리지 못한다(없는 그림을 지어내지 않는다 — 빈 칸 그대로)');
+  }catch(e){ t(false, '내 칸 복구를 돌려 보다 던짐 — ' + String(e.message || e).slice(0, 100)); }
   return r;
 }
 (async () => {
@@ -207,12 +218,13 @@ async function judgeSeats(src){
     ['받은 뒤 피부를 다시 안 봄', "        if(_faceRepairBusy || _blankSkinIdx().size){ what.push('합성 다음 차례');", "        if(false){ what.push('합성 다음 차례');"],
     ['남의 주소를 안 거름', "const fu = TwSafeHtml.safeUrl(d.faceUrl,'image'), bu = TwSafeHtml.safeUrl(d.blinkUrl,'image');", "const fu = d.faceUrl, bu = d.blinkUrl;"],
     ['다시 받을 때 표식 주소를 안 씀', "const _loadRemote = (u)=> TwImgRetry.loadWithRetry(loadImgCors, u);", "const _loadRemote = loadImgCors;"],
+    ['내 칸 복구가 직전 저장 모양을 안 봄', "    const prev = lastOut();", "    const prev = null;"],
     ['리셋 진단을 안 남김', "  try{ diagNote(line); }catch(_){}\n  if(blank.length)", "  if(blank.length)"],
   ];
   for(const [name, a, b] of sb){
     const m2 = MOD.replace(a, b);
     const rows2 = m2 !== MOD ? await judgeSeats(m2) : [];
-    chk(m2 !== MOD && rows2.some(([ok]) => !ok), '깨 보기 — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+    chk(m2 !== MOD && rows2.some(([ok]) => !ok), 'mutation test — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
   }
   say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
   process.exit(fail ? 1 : 0);

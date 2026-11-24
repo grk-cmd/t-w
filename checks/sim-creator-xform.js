@@ -6,7 +6,7 @@
    ・2절: 캐릭터 슬라이더 · 되돌리기 — 크기 · 높이(clampCharY) · 방향 · data-rs z → 높이
    ・3절: 아이템 — 크기 ＋/－(0.05 칸 · 2.5 상한 · 0.05 하한 · 바닥 클램프) · 크기 초기화 · 이동 · 회전 초기화 · 고른 아이템 없음 · 코드로 추가 버튼
    ・4절: 기즈모 — 아이템에 붙이기 · 책상 위치 모드(켜기 · 꺼짐 · 초기화 · 숫자 글) · 드래그 끝 저장(아이템 adj · yaw / 책상 cDeskPos) · 회전 모드 Y 고리만 · 바닥 클램프가 파츠 핀을 뺀다
-   ・5절: 책상 길이 · 배율 버튼 · 6절: app.js 연결 · 7절: 일부러 깨 보기 */
+   ・5절: 책상 길이 · 배율 버튼 · 6절: app.js 연결 · 7절: mutation test */
 'use strict';
 globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
 const fs = require('fs');
@@ -14,7 +14,7 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f, f.split('/').pop()]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const MOD = read('creator/creator-xform.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html');
+const MOD = read('creator/creator-xform.js'), APP = read('app.js') + '\n' + (['creator/creator-canvas.js','creator/creator-open.js','launcher/window-mode.js'].map(f => read(f) || read(f.split('/').pop()) || '').join('\n')), HTML = read('desk-companion-prototype.html');
 if (!MOD || !APP || !HTML) { say('  ? 원본 못 찾음 — creator-xform.js · app.js · desk-companion-prototype.html'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
@@ -184,7 +184,7 @@ const B = behave(MOD);
 B.forEach(([ok, msg], i) => { const s = { 0: '── 1. 만들 때', 2: '── 2. 캐릭터 슬라이더 · 되돌리기', 4: '── 3. 아이템', 15: '── 4. 기즈모', 30: '── 5. 책상 길이 · 배율' }; if (s[i]) say(s[i]); chk(ok, msg); });
 say('── 6. app.js 연결');
 wire(APP, HTML).forEach(([ok, msg]) => chk(ok, msg));
-say('── 7. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 7. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['yaw 를 rotation.y 로', (m) => m.replace('p.userData.adj.rot = _itemYaw(p);', 'p.userData.adj.rot = p.rotation.y;'), null, null],
   ['회전에서도 X 고리', (m) => m.replace('g.showX = !rot;', 'g.showX = true;'), null, null],
@@ -192,7 +192,7 @@ const breaks = [
   ['한 칸 0.05 → 0.1', (m) => m.replace('const ITEM_SCALE_STEP = 0.05;', 'const ITEM_SCALE_STEP = 0.1;'), null, null],
   ['파츠 핀을 같이 잰다', (m) => m.replace("floorClampWrapper(cDesk(), '책상', true, o => o.name === DESK_PART_ANCHOR_NAME());", "floorClampWrapper(cDesk(), '책상', true);"), null, null],
   ['책상 드래그도 아이템 저장', (m) => m.replace('        layoutSeats();   // 좌우로 밀었으면 좌석 간격을 다시 잡는다\n        return;', '        layoutSeats();'), null, null],
-  ['만들 때 던짐', (m) => m.replace('function createCreatorXform(deps){', 'function createCreatorXform(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', (m) => m.replace('function createCreatorXform(deps){', 'function createCreatorXform(deps){ throw new Error("mutation");'), null, null],
   ['app.js 에 본문이 남음', null, (a) => a + '\nfunction ensureItemGizmo(){}', null],
   ['deps 하나 빠짐', null, (a) => a.replace('  deskItemOrigin: deskItemOrigin,\n', ''), null],
   ['html 줄 빠짐', null, null, (h) => h.replace('<script src="parts/creator/creator-xform.js"></script>', '')],

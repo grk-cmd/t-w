@@ -31,38 +31,72 @@ function grabFn(name){
 }
 const lineOf = (i) => SRC.slice(0, i).split('\n').length;
 
-/* ── 1. 그리기 게이트 진리표 ── */
-say('── 1. 그리기 게이트 — 내 좌석만 막고, 남의 좌석은 라이선스와 무관하게 보인다');
-const gateM = /if\((rec\.licenseOnly[^)]*)\)\{\s*\n\s*swapDeskVisual\(seat\.desk,null\)/.exec(SRC);
-if(!gateM){ huh('applyDeskCatalogRefToSeat 의 게이트 조건을 못 찾음'); }
+/* ── 1. 전용 자산 막기 판단 — 한 함수(account-state.js licenseAssetBlocked)를 진짜로 불러 진리표로 본다 ── */
+const PASRC = ['account-state.js', 'parts/account/account-state.js', 'app/parts/account/account-state.js'].map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean);
+function buildPA(src, st){
+  const mod = new Function('window', 'companion', 'localStorage', 'setTimeout', 'module', src + '\nreturn window.TwAccountState;')({}, {}, { getItem: () => null, setItem(){}, removeItem(){} }, (f) => f(), undefined);
+  return mod.createAccountState({ isPremium: () => st.premium, isAdmin: () => st.admin, setIsPremium: (v) => { st.premium = v; } });
+}
+say('── 1. 전용 자산을 지금 막아야 하나 — 판단 함수 한 벌(서버 locked 하나만 본다)');
+if(!PASRC){ huh('account-state.js 를 못 읽음'); }
 else{
-  const cond = new Function('rec', 'seat', 'isPremium', 'isAdmin', 'return !!(' + gateM[1] + ');');
-  const blocked = (lic, remote, prem, admin) => cond({ licenseOnly: lic }, { remote, isMe: !remote }, prem, admin);
-  chk(blocked(true,  false, false, false) === true,  '전용 책상 · 내 좌석 · 라이선스 없음 → 기본 책상');
-  chk(blocked(true,  true,  false, false) === false, '★ 전용 책상 · 남의 좌석 · 내 라이선스 없음 → 그대로 보인다 (예전 제보)');
-  chk(blocked(true,  false, true,  false) === false, '전용 책상 · 내 좌석 · 라이선스 있음 → 보인다');
-  chk(blocked(true,  false, false, true)  === false, '관리자는 라이선스 없이도 보인다');
-  chk(blocked(false, false, false, false) === false, '일반 책상은 게이트를 안 탄다');
-  const gateBody = SRC.slice(gateM.index, SRC.indexOf('return;', gateM.index));
-  chk(!/deskCatalogId\s*=\s*null/.test(gateBody), '★ 게이트가 charDef.deskCatalogId 를 지우지 않는다 — 나중에 라이선스가 오면 같은 참조로 돌아와야 한다');
+  /* 프리미엄 · 관리자 · «확인됨» 이 어떻든 답은 레코드의 서버 locked 하나다 — 앱이 다시 가리지 않는다 */
+  const blocked = (item, prem, admin, known) => {
+    const st = { premium: !!prem, admin: !!admin };
+    const pa = buildPA(PASRC, st);
+    if(known !== false) pa._setPremium(!!prem);
+    return pa.licenseAssetBlocked(item);
+  };
+  chk(blocked({ locked: true }, false, false) === true, '서버 locked:true → 막는다');
+  chk(blocked({ locked: true }, true, false) === true && blocked({ locked: true }, false, true) === true && blocked({ locked: true }, false, false, false) === true,
+    '★ 프리미엄 · 관리자 · 확인 전(모름)이어도 앱이 다시 가리지 않는다 — 서버가 locked 를 참으로 줬으면 막는다(서버가 사람마다 정해 준 값이라 관리자 · 보유자에게는 애초에 거짓으로 온다)');
+  chk(blocked({ locked: false, licenseOnly: true }, false, false) === false, '★ locked:false 면 전용 분류(licenseOnly)여도 막지 않는다 — 분류는 막기 판정이 아니다');
+  chk(blocked({ licenseOnly: true }, false, false) === false && blocked({}, false, false) === false, '일반 자산 · locked field 가 없는 레코드(받기 전)는 막지 않는다');
+  chk(blocked(null, false, false) === false && blocked(undefined, false, false) === false, '경계: 레코드가 없으면(null · undefined) 막지 않는다');
+  chk(blocked({ locked: 1 }, false, false) === false && blocked({ locked: 'true' }, false, false) === false, '경계: locked 는 참(true)일 때만 막는다');
+  chk(typeof blocked({ locked: true }, false, false) === 'boolean' && typeof blocked({}, false, false) === 'boolean', '돌려주는 값은 true · false');
+  /* mutation test — 앱이 다시 가리게 되돌리면 진리표가 달라져야 한다 */
+  const table = (src) => { const out = []; for(const it of [{ locked: true }, { locked: false, licenseOnly: true }, { licenseOnly: true }, null]) for(const pr of [false, true]) for(const ad of [false, true]) for(const kn of [true, false]){
+    try{ const st = { premium: pr, admin: ad }; const pa = buildPA(src, st); if(kn) pa._setPremium(pr); out.push(pa.licenseAssetBlocked(it)); }catch(_){ out.push('x'); } } return out.join(); };
+  const base = table(PASRC);
+  const brk = (a, b) => PASRC.includes(a) && table(PASRC.replace(a, b)) !== base;
+  chk(brk('return !!(item && item.locked === true);', 'return !!(item && item.locked === true) && !isPremium();'), '  ↳ mutation test: 프리미엄을 다시 가리면 빨강');
+  chk(brk('return !!(item && item.locked === true);', 'return !!(item && item.locked === true) && !isAdmin();'), '  ↳ mutation test: 관리자를 다시 가리면 빨강');
+  chk(brk('return !!(item && item.locked === true);', 'return !!(item && item.locked === true) && _premiumKnown;'), '  ↳ mutation test: «모름» 을 다시 가리면 빨강');
+  chk(brk('return !!(item && item.locked === true);', 'return !!(item && item.licenseOnly);'), '  ↳ mutation test: 분류(licenseOnly)로 막으면 빨강');
+}
+say('── 1-2. 부르는 곳 — 복사된 조건이 없고 모두 그 함수를 부른다');
+{
+  const strip2 = (t) => t.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
+  const FILES = [['character/desk-visual.js', 'desk-visual.js'], ['creator/desk-setup.js', 'desk-setup.js'], ['creator/desk-preset.js', 'desk-preset.js'], ['character/premium-assets.js', 'premium-assets.js']].map(([f, g]) => [f, ['parts/' + f, 'app/parts/' + f, g].map(x => { try{ return fs.readFileSync(x, 'utf8'); }catch(_){ return null; } }).find(Boolean)]);
+  const copies = [];
+  for(const [f, t] of FILES.concat([['app.js', fs.readFileSync('app.js', 'utf8')]])){ if(!t) { huh(f + ' 를 못 읽음'); continue; } if(/licenseOnly[^\n]{0,80}!\s*isPremium|!\s*isPremium\(?\)?\s*&&\s*!\s*isAdmin/.test(strip2(t))) copies.push(f); }
+  chk(!copies.length, '★ 「전용 && !isPremium && !isAdmin」 복사본이 없다' + (copies.length ? ' — ' + copies.join(' · ') : ''));
+  const COPY_RE = /licenseOnly[^\n]{0,80}!\s*isPremium|!\s*isPremium\(?\)?\s*&&\s*!\s*isAdmin/;
+  chk(COPY_RE.test('if(rec.licenseOnly && !isPremium() && !isAdmin()){') && COPY_RE.test('if(on && x && !isPremium && !isAdmin){') && !COPY_RE.test('if(licenseAssetBlocked(rec)){'), '  ↳ mutation test: 옛 조건을 다시 쓰면 위 검사가 빨강이 된다');
+  const T = Object.fromEntries(FILES);
+  chk(/!seat\.remote && licenseAssetBlocked\(rec\)/.test(strip2(T['character/desk-visual.js'] || '')), '책상 그리기 — 내 좌석(!remote)만 · 판단 함수');
+  chk(/licenseAssetBlocked\(rec\)/.test(strip2(T['creator/desk-setup.js'] || '')) && /if\(licenseAssetBlocked\(rec\)\)\{/.test(strip2(T['creator/desk-setup.js'] || '')), '생성기 — 책상 카드 · 아이템 카드');
+  chk(/licenseAssetBlocked\(\{ locked: premiumMod\._licenseLockedDeskId/.test(strip2(T['creator/desk-preset.js'] || '')), '프리셋 — 전용 책상');
+  chk(/function _licenseLockedDeskId\(id\)\{[\s\S]*?return !!\(rec && rec\.locked === true\);/.test(strip2(T['character/premium-assets.js'] || '')) && !/function pruneUnownedLicenseAssets\(\)\{[\s\S]{0,60}licenseAssetBlocked\(\{ licenseOnly/.test(strip2(T['character/premium-assets.js'] || '')), '전용 자산 접기 — 레코드의 서버 locked 만 본다(입구에 «전용이면» 가드가 없다)');
+  chk(/(?:premiumMod\.)?licenseAssetBlocked\(m\)/.test(SRC) && /!\(holder && holder\.remote\)\)\{[\s\S]*?licenseAssetBlocked\(_siRec\)/.test(strip2(fs.readFileSync(['parts/character/desk-item-equip.js', 'app/parts/character/desk-item-equip.js', 'character/desk-item-equip.js', 'desk-item-equip.js'].find(x => fs.existsSync(x)), 'utf8')) + SRC), '슬롯 불러오기 · 아이템 장착(친구 좌석은 안 막음 · 카탈로그 레코드의 locked)');
 }
 
 /* ── 2. 대입 한 통로 ── */
 say('── 2. isPremium 은 _setPremium 으로만 바뀐다');
 const direct = [...SRC.matchAll(/\bisPremium\s*=\s*(true|false)\b/g)]
   .map(m => ({ i: m.index, decl: /(let|var|const)\s+$/.test(SRC.slice(Math.max(0, m.index - 6), m.index)) }))
-  .filter(m => !m.decl);
+  .filter(m => !m.decl)
+  .filter(m => !/function resetPremium\(\)\{[^}]*$/.test(SRC.slice(Math.max(0, m.i - 200), m.i)));   // 계정을 놓을 때 «모름» 으로 되돌리는 resetPremium 만 예외(알림 없이 false)
 chk(direct.length === 0, '★ 직접 대입 ' + direct.length + '곳 (선언 제외 · 기준 0)' + (direct.length ? ' — 줄 ' + direct.map(m => lineOf(m.i)).join(',') : ''));
 const setCalls = (SRC.match(/_setPremium\(/g) || []).length - 1;
-chk(setCalls >= 5, '_setPremium 호출 ' + setCalls + '곳 (로컬 키 · 활성화 · 해제 · 재검증 실패 · 계정 이전 복원 = 5)');
+chk(setCalls === 1, '_setPremium 을 부르는 곳은 app.js 에서 서버 확인을 반영하는 모듈에 잇는 줄 하나뿐 (' + setCalls + '곳 — 로컬 키로 미리 켜기 · 활성화 · 해제가 직접 부르던 길은 0.13 에서 걷음)');
 const setSrc = grabFn('_setPremium') || '';
-chk(/if\(isPremium === v\) return;/.test(setSrc), '같은 값이면 다시 그리지 않는다');
+chk(/if\(isPremium\(\) === v\) return;/.test(PASRC || ''), '같은 값이면 다시 그리지 않는다(첫 확인도 마찬가지 — 접기는 카탈로그 locked 가 정한다)');
 chk(/_premiumChanged\(\)/.test(setSrc) && /^onPremiumChanged\(_refreshPremiumGatedUI\);/m.test(SRC), '바뀌면 _refreshPremiumGatedUI 가 돈다(계정 핵심 상태의 «프리미엄이 바뀌었다» 알림에 초대 게이트가 건다 — 모듈 순환 끊기 5)');
-const xfer = grabFn('_applyTransferSnapshot') || '';
-chk(/r\.license[\s\S]{0,120}_setPremium\(true\)/.test(xfer), '★ 계정 이전 복원이 키 저장과 함께 isPremium 을 올린다 (예전엔 키만 저장 — 재시작 전까지 기본 책상)');
-const verifyFail = /if\(!r\.ok && !r\.offline\)\{.{0,200}/.exec(SRC);   // 한 줄 — 안에 catch(e){} 가 있어 [^}] 로는 못 잡는다
-chk(!!verifyFail && /_setPremium\(false\)/.test(verifyFail[0]), '온라인 재검증 실패도 같은 통로 (회수된 키 → 내 책상도 기본으로)');
-chk(!!verifyFail && /r\.offline/.test(verifyFail[0]), '오프라인은 회수로 치지 않는다 (기존 조건 유지)');
+chk(!grabFn('_applyTransferSnapshot'), '계정 이전 복원(키만 저장하던 통로)은 0.13 에서 걷었다 — isPremium 을 바꾸는 통로는 서버 확인 하나');
+const LP = ['license-premium.js', 'parts/account/license-premium.js', 'app/parts/account/license-premium.js'].map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean) || '';
+chk(!!LP && /setPremium\(me\.premium === true\)/.test(LP), '서버가 «아님» 이라고 해도(회수된 키 → 내 책상도 기본으로) 같은 통로로 알린다 — 판정은 sim-license-premium 이 돌려 본다');
 
 /* ── 3. 다시 그리기 ── */
 say('── 3. 바뀌면 내 좌석을 다시 그린다');
@@ -74,21 +108,22 @@ chk(/DEFAULT_DESK_OVERRIDE_ID/.test(refresh), '기본 책상 오버라이드도 
 chk(/applyDeskItemsTo\(s, s\.charDef\.deskItems\)/.test(refresh), '전용 아이템도 다시 장착한다 (equipDeskItem 게이트가 같은 isPremium 을 본다)');
 chk(/creatorOpen[\s\S]{0,60}renderCrItems\(\)/.test(refresh), '생성기가 열려 있으면 🔒 카드도 다시 그린다');
 chk(/refreshCustomStatusMenuItem/.test(refresh), '원래 하던 일(커스텀 상태 메뉴)은 그대로다');
+chk(/refreshLauncherPreview\(\)/.test(refresh), '★ 런처 미리보기도 다시 그린다 — 서버 확인 전에 그려진 전용 책상 · 아이템을 지금 값으로');
 
 /* ── 4. 고르지 못한다 ── */
 say('── 4. 생성기에서 라이선스 없이는 전용 책상을 고르지 못한다');
 const rc = grabFn('renderCrItems') || '';
 const deskPart = rc.slice(0, rc.indexOf("document.getElementById('deskColor').value"));   // 책상 카드 부분 = 색 칸에 값 넣는 줄 앞까지(머리의 입구 가드에도 deskColor 가 있다)
-chk(/const deskLocked = !!\(rec\.licenseOnly && !isPremium && !isAdmin\)/.test(deskPart), '★ 책상 카드에 잠금 조건이 있다 (아이템 카드와 같은 조건)');
+chk(/const deskLocked = (?:premiumMod\.)?licenseAssetBlocked\(rec\)/.test(deskPart), '★ 책상 카드에 잠금 조건이 있다 (아이템 카드와 같은 조건)');
 chk(/if\(deskLocked\)\{[\s\S]*?textContent='🔒'/.test(deskPart), '잠긴 책상에 🔒 표시');
 chk(/card\.onclick=async\(\)=>\{[\s\S]*?if\(deskLocked\)\{[^}]*return; \}/.test(deskPart), '★ 잠긴 책상은 클릭해도 활성 책상이 안 된다 (toast 후 return)');
 const clickIdx = deskPart.indexOf('card.onclick=');
 const lockIdx  = deskPart.indexOf('if(deskLocked){ toast');
 const fetchIdx = deskPart.indexOf('resolveCatalogGlb(rec)');
 chk(clickIdx > 0 && lockIdx > clickIdx && lockIdx < fetchIdx, '  차단이 GLB fetch **앞**이다 (막을 책상을 내려받지 않는다)');
-const loadGate = /m && m\.licenseOnly && !isPremium && !isAdmin[\s\S]{0,200}else if\(m\)\{/.exec(SRC);
+const loadGate = /m && (?:premiumMod\.)?licenseAssetBlocked\(m\)[\s\S]{0,200}else if\(m\)\{/.exec(SRC);
 chk(!!loadGate, '★ 슬롯을 생성기로 불러올 때 라이선스 없는 전용 책상 참조는 안 싣는다 (저장 때 참조가 다시 굳는 것을 막는다)');
-const itemGate = /if\(def\.licenseOnly && !isPremium && !isAdmin\)\{\s*\n\s*const lock=/.test(rc);
+const itemGate = /if\((?:premiumMod\.)?licenseAssetBlocked\((?:def|rec)\)\)\{\s*\n\s*const lock=/.test(rc);
 chk(itemGate, '아이템 카드의 기존 🔒 는 그대로다');
 
 say('');

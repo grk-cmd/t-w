@@ -274,7 +274,9 @@ async function getActiveWindow(){
     const p = w.path || '';
     if(!p) return null;
     const title = _titleOf(p);   // 🛡️ w.getTitle() 금지 — 위 _titleOf 주석(크래시)
-    return { owner: { path: p, name: path.basename(p) }, title };
+    /* bounds 는 늘 null(win 판과 모양만 같게) — 맥 getBounds 는 창 목록을 통째로 다시 받고 사전 하나를 놓아주지 않아(macos.mm getWindowBounds)
+       0.5초 폴링에 부르면 메인 스레드 부담 · 누수가 쌓인다. 앞 창 진단은 «전체화면 모름» 으로 적힌다 */
+    return { owner: { path: p, name: path.basename(p) }, title, bounds: null };
   }catch(_){ return null; }
 }
 

@@ -2,13 +2,14 @@
    app.js 의 두 구역(«📄 엑셀로 라이선스 일괄 발급» · «🔒 시크릿룸 발급(관리자)»)을 그대로 옮긴 관리자 모듈이다
    (관리자 코드 admin 폴더 1번 · 앱 FSD 순서표 9번 — docs/APP_FSD_MAP.md). 동작은 옮기기 전과 같다.
 
-   ★ 아래 본문은 app.js 에 있던 글 그대로다 — 구역 머리 주석 · 들여쓰기도 바꾸지 않았다(옮기기 전 줄과 견주어 볼 수 있게).
-   ★ app.js 함수 일곱(escHtml · toast · _genLicenseKey · _saveFailMsg · renderLicenseGenList · downloadBlob · _srFmtDate)은
-     app.js 가 화살표로 넘긴다. 본문의 typeof 가드(typeof escHtml · typeof _saveFailMsg)는 예전처럼 늘 통과한다.
+   ★ D8-5: «🔒 시크릿룸 발급» 절은 서버 endpoint(POST /v2/admin/secret-rooms)로 다시 썼다. D11-3: «📄 엑셀 일괄 발급» 절도 서버 경로로 — 미리보기는
+     POST /v2/admin/licenses/preview(있는 사람 · 이름 · 이미 유효한 키), 발급은 POST /v2/admin/licenses 한 번(줄마다 결과). 키 만들기 · 우편 · 사람 찾기는 서버가 한다.
+   ★ 파일 읽기 · 쓰기(xlsx · csv) 순수 함수는 옮긴 그대로다.
+   ★ app.js 함수 넷(escHtml · toast · renderLicenseGenList · downloadBlob · _srFmtDate)과 서버 경로(adminApi · apiErrors · notifyError)는 app.js 가 넘긴다.
    ★ 밖에서 부르는 이름은 없다 — 두 즉시 실행 함수(bindLicenseXlsxBulk · bindSecretRoomGrant)가 버튼을 만들 때 건다.
      발급 창을 다시 열 때 부르는 window._lxHideWin 도 예전처럼 만들 때 건다.
    ★ createAdminLicenseBulk 는 app.js 의 원래 자리(두 구역 머리 아래)에서 부른다 — 예전과 같은 때에 돈다.
-   ⚠️ document · window · firebaseAPI · JSZip · DOMParser · confirm 은 예전처럼 전역 이름으로 쓴다
+   ⚠️ document · window · JSZip · DOMParser · confirm 은 예전처럼 전역 이름으로 쓴다
      (이 파일은 app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwAdminLicenseBulk — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-license-xlsx.js — 배선 · 순수 함수 실행 · 발급 순서 · app.js 연결 · html 순서. */
@@ -17,23 +18,24 @@
 function createAdminLicenseBulk(deps){
 const escHtml = deps.escHtml;
 const toast = deps.toast;
-const _genLicenseKey = deps.genLicenseKey;             // 키 만들기 — 단건 발급과 같은 모양
-const _saveFailMsg = deps.saveFailMsg;                 // 서버 거부 / 인터넷 끊김 문구 가르기
-const renderLicenseGenList = deps.renderLicenseGenList; // 발급 창의 키 목록 다시 그리기
+const adminApi = deps.adminApi;                        // 서버 경로(admin-api.js)
+const apiErrors = deps.apiErrors;                      // 서버 오류 → 오류 번호(TwApiErrors.store)
+const notifyError = deps.notifyError;                  // 번호 알림(TwErrorCodes.notify)
+const renderLicenseGenList = deps.renderLicenseGenList; // 발급 창의 키 목록 다시 받기
 const downloadBlob = deps.downloadBlob;
 const _srFmtDate = deps.srFmtDate;                     // 시크릿룸 만료일 글자(YYYY.MM.DD)
-/* ═══ 📄 [2026-10-02] 엑셀(xlsx·csv)로 라이선스 일괄 발급 — 시안 확정(입구 = 친구코드 발급 아래 · 빈 코드 = 키만 · 전에 발급한 코드 = 건너뜀) ═══
+/* ═══ 📄 [2026-10-02] 엑셀(xlsx·csv)로 라이선스 일괄 발급 — 시안 확정(입구 = 친구코드 발급 아래 · 빈 코드 = 키만 · 이미 유효한 키가 있는 사람 = 건너뜀) ═══
    흐름: ① 파일 고르기 → ② 미리보기(친구코드 **조회만** — 키 생성·수령함 발송 없음) → ③ [N건 발급] → ④ 결과 엑셀 저장.
    ★ 외부 라이브러리를 새로 넣지 않는다. xlsx 는 «XML 몇 장을 담은 zip» 이라, 이미 실려 있는 JSZip(vendor/jszip.min.js)과
      브라우저 DOMParser 로 첫 시트의 글자만 읽고, 결과 파일도 같은 방식으로 쓴다. (SheetJS npm 판은 알려진 취약점이 있고
      최신판은 npm 밖에서만 받을 수 있어 일부러 피했다.) 옛 .xls(이진 형식)는 못 읽는다 — 안내 문구로 막는다.
-   ★ 발급 한 건 = 단건 「친구코드로 발급」(bindLicenseGrantByCode)과 **같은 순서·같은 문구**다: createLicense → sendInboxMessage(reward).
-     note 는 규칙 상한(licenses/$key/note ≤ 100자)에 맞춰 자른다.
-   ★ «전에 발급한 적 있음» 은 발급된 키 목록(listLicenses)의 메모에서 친구코드를 찾아 판정한다. 관리자 화면에서는 그 사람이
-     **지금 프리미엄인지는 알 수 없다**(accountSnap 은 본인만 읽음) — 그래서 이 기준을 쓴다.
-   ⚠️ 한 명씩 순서대로 보낸다(동시에 쏘지 않는다). 중간에 끊겨도 결과 표에 어디까지 됐는지 남는다. */
+   ★ 발급은 서버에 한 번 보낸다(줄마다 키 한 장 · 친구코드가 있으면 그 사람 우편도 서버가 보낸다 · 줄마다 ok · 까닭). note 는 서버 상한(100자)에 맞춰 자른다.
+   ★ «이미 유효한 키가 있음» 은 서버가 미리보기에서 알려 준다(hasValidLicense) — 앱이 메모를 뒤져 짐작하지 않는다. 같은 사람이 목록에 두 번 나오면 서버가 뒤 줄을 건너뛴다.
+   ⚠️ 못 받으면(미리보기 실패) 그 줄은 «조회 실패» 로 두고 발급하지 않는다. 발급 요청이 서버에 닿지 못하면 결과 표에 «실패» 로 남고 같은 파일로 다시 누르면 같은 요청 번호로 나간다. */
 const LX_MAX_ROWS = 500;          // 한 파일 상한 — 넘으면 앞 500행만(안내)
-const LX_NOTE_MAX = 100;          // 규칙 licenses/$key/note 상한
+const LX_NOTE_MAX = 100;          // 서버 메모 상한
+/* 서버가 줄마다 주는 «안 된 까닭» code → 결과 표의 사유 */
+const LX_WHY = { USER_NOT_FOUND: '친구코드를 가진 유저가 없음', LICENSE_ALREADY_HAVE: '이미 유효한 키가 있음', LICENSE_GRANT_DUPLICATE: '같은 사람이 목록에 두 번 있음' };
 const LX_CODE_RE = /^(?:(MATE|COZY)-)?([A-Z0-9]{4})$/;
 
 /* xml 문서에서 이름(네임스페이스 무시)으로 자식 찾기 */
@@ -160,22 +162,6 @@ function _lxCandidates(raw){
   if(/^[A-Z0-9]{4}$/.test(c)) return ['MATE-' + c, 'COZY-' + c];
   return [c];
 }
-/* 발급된 키 목록 → 이미 받은 친구코드 표. 단건 발급 메모 모양 둘(«닉 · 친구코드 MATE-XXXX» · «친구코드 발급: XXXX»)을 다 읽는다.
-   full: 'MATE-9K2M' 꼴 · tail: 접두어 없이 적힌 4자리(옛 단건 발급이 입력 그대로 남긴 것). */
-function _lxIssuedIndex(all){
-  const full = new Set(), tail = new Set();
-  Object.keys(all || {}).forEach(k=>{
-    const note = String((all[k] || {}).note || '').toUpperCase();
-    (note.match(/\b(?:MATE|COZY)-[A-Z0-9]{4}\b/g) || []).forEach(x => full.add(x));
-    const m = /친구코드(?: 발급:)? ([A-Z0-9]{4})(?![A-Z0-9-])/.exec(note);
-    if(m) tail.add(m[1]);
-  });
-  return { full, tail };
-}
-function _lxWasIssued(idx, code){
-  if(!idx || !code) return false;
-  return idx.full.has(code) || idx.tail.has(code.replace(/^(MATE|COZY)-/, ''));
-}
 /* 2차원 글자 배열 → xlsx(Uint8Array). 모든 칸은 inlineStr(숫자도 글자로 — 키·코드가 숫자로 바뀌지 않게). */
 async function _lxWriteXlsx(rows, sheetName){
   if(typeof JSZip === 'undefined') throw new Error('JSZip 라이브러리가 로드되지 않았어요');
@@ -229,7 +215,7 @@ async function _lxWriteXlsx(rows, sheetName){
   const opts = $('licenseXlsxOpts'), acts = $('licenseXlsxActs'), runBtn = $('licenseXlsxRunBtn');
   const prog = $('licenseXlsxProg'), progText = $('licenseXlsxProgText'), progBar = $('licenseXlsxProgBar');
   const done = $('licenseXlsxDone'), doneSum = $('licenseXlsxDoneSum'), keyOnly = $('licenseXlsxKeyOnly');
-  const dupFirst = $('licenseXlsxDupFirst'), reissue = $('licenseXlsxReissue');
+  const reissue = $('licenseXlsxReissue');
   const esc = escHtml;
   /* 상태: rows(판정된 행) · map(파일 열 정보) · fileName · running · finished */
   let S = { rows: [], map: null, fileName: '', running: false, finished: false };
@@ -238,13 +224,12 @@ async function _lxWriteXlsx(rows, sheetName){
     key:    ['🔑 키만', 'var(--win-accent)'],
     nouser: ['✗ 유저 없음', 'var(--win-error)'],
     dup:    ['✗ 중복', 'var(--win-error)'],
-    issued: ['⚠ 발급한 적 있음', '#9A6B00'],
+    issued: ['⚠ 이미 유효한 키가 있음', '#9A6B00'],
     badcode:['✗ 코드 형식', 'var(--win-error)'],
     neterr: ['✗ 조회 실패', 'var(--win-error)'],
     haskey: ['⚠ 이미 키 있음', '#9A6B00'],
     ok:     ['✓ 보냄', '#2E7D4F'],
     okkey:  ['🔑 키 생성', '#2E7D4F'],
-    sendfail:['⚠ 수령함 실패', '#9A6B00'],
     fail:   ['✗ 발급 실패', 'var(--win-error)'],
   };
   const chip = (st, extra) => { const c = CHIP[st] || [st, 'var(--ink-soft)'];
@@ -286,9 +271,9 @@ async function _lxWriteXlsx(rows, sheetName){
       r.st = r.base;
       if(r.base === 'haskey' && r.code && !seen.has(r.code)) seen.set(r.code, r.line);
       if(r.base !== 'send') return;
-      if(dupFirst.checked && seen.has(r.code)){ r.st = 'dup'; r.dupOf = seen.get(r.code); return; }
+      if(seen.has(r.code)){ r.st = 'dup'; r.dupOf = seen.get(r.code); return; }
       if(!seen.has(r.code)) seen.set(r.code, r.line);
-      if(!reissue.checked && _lxWasIssued(S.issued, r.code)) r.st = 'issued';
+      if(!reissue.checked && r.hasValid) r.st = 'issued';
     });
   }
   async function loadFile(f){
@@ -310,30 +295,27 @@ async function _lxWriteXlsx(rows, sheetName){
     if(!data.length){ info.textContent = '⚠ ' + f.name + ' — 발급할 줄이 없어요(첫 줄은 제목으로 봐요)'; return; }
     S.map = map; S.grid = grid;
     info.textContent = '📎 ' + f.name + ' · ' + data.length + '행 · 확인 중…' + (cut ? ' (앞 ' + LX_MAX_ROWS + '행만)' : '');
-    /* 전에 발급한 코드 표 — 실패해도 미리보기는 계속(그때는 이 판정만 빠진다) */
-    try{ S.issued = _lxIssuedIndex(await firebaseAPI.listLicenses()); }catch(_){ S.issued = null; }
-    /* 조회 — 같은 코드는 한 번만, 다섯 개씩 나란히 */
+    /* 조회 — 같은 코드는 한 번만. 뒷 4자리만 적은 줄은 MATE- · COZY- 두 후보를 같이 묻는다(서버가 «있는 사람 · 이름 · 이미 유효한 키» 를 준다) */
     const look = new Map();
     const uniq = [...new Set(data.map(d => d.code.toUpperCase().replace(/\s+/g, '')).filter(Boolean))];
-    let doneN = 0;
-    const one = async raw => {
-      const cands = _lxCandidates(raw);
-      let hit = null, err = false;
-      for(const c of cands){
-        try{ const u = await firebaseAPI.lookupFriendCode(c); if(u){ hit = { uid: u, code: c }; break; } }catch(_){ err = true; }
-      }
-      if(hit){ try{ if(firebaseAPI.getUserNameById) hit.name = await firebaseAPI.getUserNameById(hit.uid); }catch(_){} }
-      look.set(raw, hit || (err ? 'err' : null));
-      doneN++; info.textContent = '📎 ' + f.name + ' · ' + data.length + '행 · 확인 중… ' + doneN + '/' + uniq.length;
-    };
-    for(let i = 0; i < uniq.length; i += 5) await Promise.all(uniq.slice(i, i + 5).map(one));
+    const asked = [...new Set(uniq.flatMap(_lxCandidates))];
+    let prev = null, prevErr = null;
+    try{ prev = await adminApi.previewLicenses(asked); }catch(e){ prevErr = e; }
+    if(prevErr) adminApi.notifyFail(prevErr, apiErrors, () => notifyError('E-ADM-28', prevErr));
+    const byCode = new Map((prev || []).map(x => [x.friendCode, x]));
+    uniq.forEach(raw => {
+      if(prevErr){ look.set(raw, 'err'); return; }
+      let hit = null;
+      for(const c of _lxCandidates(raw)){ const x = byCode.get(c); if(x && x.found){ hit = { code: c, name: x.name || '', hasValid: x.hasValid }; break; } }
+      look.set(raw, hit);
+    });
     S.rows = data.map(d => {
       const raw = d.code, k = raw.toUpperCase().replace(/\s+/g, '');
-      const r = { line: d.line, cells: d.cells, raw, memo: d.memo, code: '', uid: null, name: '', base: 'key' };
+      const r = { line: d.line, cells: d.cells, raw, memo: d.memo, code: '', name: '', hasValid: false, base: 'key' };
       if(k){
         const h = look.get(k);
         if(h === 'err') r.base = 'neterr';
-        else if(h){ r.base = 'send'; r.uid = h.uid; r.code = h.code; r.name = h.name || ''; }
+        else if(h){ r.base = 'send'; r.code = h.code; r.name = h.name || ''; r.hasValid = !!h.hasValid; }
         else r.base = LX_CODE_RE.test(k) ? 'nouser' : 'badcode';
       }
       /* 결과 파일을 다시 올렸을 때 — 키가 이미 나간 행은 또 만들지 않는다. 코드는 위에서 풀어 두었으니
@@ -342,49 +324,45 @@ async function _lxWriteXlsx(rows, sheetName){
       return r;
     });
     judge();
-    info.textContent = '📎 ' + f.name + ' · ' + S.rows.length + '행' + (cut ? ' (앞 ' + LX_MAX_ROWS + '행만)' : '') + (S.issued ? '' : ' · ⚠ 발급 목록을 못 읽어 «발급한 적 있음» 판정 없음');
+    info.textContent = '📎 ' + f.name + ' · ' + S.rows.length + '행' + (cut ? ' (앞 ' + LX_MAX_ROWS + '행만)' : '') + (prevErr ? ' · ⚠ 친구코드 확인에 실패해 그 줄은 건너뛰어요' : '');
     renderPreview();
   }
   async function run(){
     const todo = S.rows.filter(actionable);
     if(!todo.length || S.running) return;
-    if(!(window.firebaseAPI && firebaseAPI.createLicense && firebaseAPI.sendInboxMessage)){ toast('네트워크 연결이 필요해요'); return; }
     const nSend = todo.filter(r => r.st === 'send').length;
     if(!confirm(todo.length + '건을 발급할까요?\n· 수령함으로 보냄 ' + nSend + '건\n· 키만 만듦 ' + (todo.length - nSend) + '건')){ window.focus(); return; }
     window.focus();
     S.running = true;
     show(opts, false); show(acts, false); show(prog, true);
-    let i = 0;
-    for(const r of todo){
-      i++;
-      progText.innerHTML = '발급 중… <b>' + i + ' / ' + todo.length + '</b>';
-      progBar.style.width = Math.round((i - 1) / todo.length * 100) + '%';
-      const key = _genLicenseKey();
+    progText.innerHTML = '발급 중… <b>' + todo.length + '건</b>';
+    progBar.style.width = '50%';
+    /* 서버에 한 번 — 줄마다 키 한 장 · 친구코드 줄은 그 사람 우편도 서버가 보낸다. 줄마다 결과(ok · 까닭)가 같은 차례로 온다 */
+    const grants = todo.map(r => {
       const tail = r.memo ? ' · ' + r.memo : '';
-      const note = (r.st === 'send'
-        ? (r.name ? r.name + ' · ' : '') + '친구코드 ' + r.code + tail
-        : '엑셀 일괄' + tail).slice(0, LX_NOTE_MAX);
-      try{
-        await firebaseAPI.createLicense(key, note);
-        r.key = key;
-      }catch(e){ r.res = 'fail'; r.why = _saveFailMsg(e, '키 생성 실패'); continue; }
-      if(r.st !== 'send'){ r.res = 'okkey'; continue; }
-      try{
-        const title = '🎫 라이선스가 도착했어요';
-        const body = '아래 키를 [라이선스 등록] 창에 입력하면 프리미엄 기능을 쓸 수 있어요.\n\n' + key + '\n\n(설정 → 라이선스 등록)';
-        const res = await firebaseAPI.sendInboxMessage(r.uid, 'reward', title, body);
-        if(res && res.ok === false){ r.res = 'sendfail'; r.why = '키는 만들어짐 — 직접 전달해 주세요'; }
-        else r.res = 'ok';
-      }catch(_){ r.res = 'sendfail'; r.why = '키는 만들어짐 — 직접 전달해 주세요'; }
+      return r.st === 'send' ? { friendCode: r.code, note: r.memo ? r.memo.slice(0, LX_NOTE_MAX) : '' } : { note: ('엑셀 일괄' + tail).slice(0, LX_NOTE_MAX) };
+    });
+    let res;
+    try{ res = await adminApi.issueLicenses(grants, !!reissue.checked); }
+    catch(e){
+      /* 서버에 닿지 못했거나 거절됐다 — 아무것도 발급됐다고 보지 않는다. 미리보기 그대로 두어 같은 단추를 다시 누르면 같은 요청 번호로 나간다(서버가 한 번만) */
+      adminApi.notifyFail(e, apiErrors, () => notifyError('E-ADM-21', e));
+      S.running = false; show(prog, false); renderPreview();
+      return;
     }
+    res.forEach((it, i) => {
+      const r = todo[i];
+      if(it.ok && it.key){ r.key = it.key; r.res = r.st === 'send' ? 'ok' : 'okkey'; }
+      else{ r.res = 'fail'; r.why = LX_WHY[it.code] || ('발급하지 못했어요' + (it.code ? ' (' + it.code + ')' : '')); }
+    });
     progBar.style.width = '100%';
     S.running = false; S.finished = true;
     show(prog, false);
     const c = k => S.rows.filter(r => r.res === k).length;
     const skip = S.rows.filter(r => !actionable(r)).length;
     doneSum.innerHTML = chip('ok', ' ' + c('ok')).replace('✓ 보냄', '수령함 발송') + chip('okkey', ' ' + c('okkey')).replace('🔑 키 생성', '키만 발급')
-      + (c('sendfail') ? chip('sendfail', ' ' + c('sendfail')) : '') + chip('fail', ' ' + c('fail')).replace('✗ 발급 실패', '실패')
-      + (skip ? chip('issued', ' ' + skip).replace('⚠ 발급한 적 있음', '건너뜀') : '');
+      + chip('fail', ' ' + c('fail')).replace('✗ 발급 실패', '실패')
+      + (skip ? chip('issued', ' ' + skip).replace('⚠ 이미 유효한 키가 있음', '건너뜀') : '');
     const hand = S.rows.filter(r => r.key && r.res !== 'ok');
     keyOnly.innerHTML = hand.map(r => '<div>' + Number(r.line) + '행 · ' + esc(r.memo || r.raw || '—') + ' · <span style="font-family:\'Courier New\',monospace;font-weight:bold;user-select:all;">' + esc(r.key) + '</span></div>').join('')
       + (hand.length ? '<div style="color:var(--ink-soft);">↑ 이 키들은 직접 전달해야 해요 (결과 엑셀에도 들어 있어요)</div>' : '');
@@ -393,7 +371,7 @@ async function _lxWriteXlsx(rows, sheetName){
     renderPreview();
     show(acts, false); show(opts, false); show(sumEl, false);   // 위 요약은 «발급 전» 숫자라 끝나면 내린다(아래 완료 요약이 대신한다)
     try{ renderLicenseGenList(); }catch(_){}
-    toast('일괄 발급 완료 — 수령함 ' + c('ok') + ' · 키만 ' + c('okkey') + (c('fail') + c('sendfail') ? ' · 확인 필요 ' + (c('fail') + c('sendfail')) : ''));
+    toast('일괄 발급 완료 — 수령함 ' + c('ok') + ' · 키만 ' + c('okkey') + (c('fail') ? ' · 확인 필요 ' + c('fail') : ''));
   }
   async function saveResult(){
     if(!S.rows.length) return;
@@ -401,8 +379,8 @@ async function _lxWriteXlsx(rows, sheetName){
     const head = (S.map.header ? S.map.header.slice() : Array.from({ length: width }, (_, i) => i === S.map.codeCol ? '친구코드' : (i === S.map.memoCol ? '메모' : '')));
     while(head.length < width) head.push('');
     const LABEL = { send:'발급 안 함', key:'발급 안 함', haskey:'건너뜀', nouser:'건너뜀', dup:'건너뜀', issued:'건너뜀', badcode:'건너뜀', neterr:'건너뜀',
-                    ok:'수령함 발송', okkey:'키만 발급', sendfail:'수령함 실패', fail:'실패' };
-    const WHY = { haskey:'이미 발급 키가 있는 행', nouser:'친구코드를 가진 유저가 없음', badcode:'친구코드 형식이 아님', neterr:'조회 실패(네트워크)', issued:'전에 발급한 적 있음' };
+                    ok:'수령함 발송', okkey:'키만 발급', fail:'실패' };
+    const WHY = { haskey:'이미 발급 키가 있는 행', nouser:'친구코드를 가진 유저가 없음', badcode:'친구코드 형식이 아님', neterr:'조회 실패(네트워크)', issued:'이미 유효한 키가 있음' };
     /* 결과 파일을 다시 올린 것이면 그 세 열을 **채운다**(덧붙이면 열이 두 벌이 된다). 그 행의 옛 키는 지우지 않는다. */
     const hn = head.map(x => String(x || '').replace(/\s+/g, ''));
     let ki = hn.indexOf('발급키'), ri = hn.indexOf('결과'), wi = hn.indexOf('사유');
@@ -437,7 +415,6 @@ async function _lxWriteXlsx(rows, sheetName){
     hideWin();
   }
   openBtn.addEventListener('click', ()=>{
-    if(!(window.firebaseAPI && firebaseAPI.lookupFriendCode && firebaseAPI.listLicenses)){ toast('네트워크 연결이 필요해요'); return; }
     const ov = win.parentElement, GAP = 12, WIN_W = 440;
     const fits = !ov || !mainBox || ov.clientWidth >= mainBox.offsetWidth + GAP + WIN_W + 16;
     setSolo(!fits);
@@ -447,7 +424,6 @@ async function _lxWriteXlsx(rows, sheetName){
   $('licenseXlsxCancelBtn').addEventListener('click', ()=>{ if(S.running) return; S = { rows: [], map: null, fileName: '', running: false, finished: false }; resetView(); info.textContent = '📎 .xlsx 또는 .csv 파일을 골라 주세요'; });
   $('licenseXlsxFileBtn').addEventListener('click', ()=>{ if(S.running) return; fileInp.value = ''; fileInp.click(); });
   fileInp.addEventListener('change', ()=>{ const f = fileInp.files && fileInp.files[0]; if(f) loadFile(f); });
-  dupFirst.addEventListener('change', ()=>{ if(S.rows.length && !S.finished){ judge(); renderPreview(); } });
   reissue.addEventListener('change', ()=>{ if(S.rows.length && !S.finished){ judge(); renderPreview(); } });
   runBtn.addEventListener('click', run);
   $('licenseXlsxSaveBtn').addEventListener('click', saveResult);
@@ -456,65 +432,52 @@ async function _lxWriteXlsx(rows, sheetName){
   const gc = $('licenseGenClose');
   if(gc) gc.addEventListener('click', hideWin);
   window._lxHideWin = hideWin;
+  document.addEventListener(TwNav.ADMIN_EXIT_EVENT, hideWin);   // 세션이 끝나면 자기 닫기로
 })();
 
 /* ═══ 🔒 시크릿룸 발급(관리자) ═══ */
-/* 🔒 시크릿룸 발급 (관리자) — 후원자 친구코드 + 발급 열쇠.
-   열쇠는 DB의 srKey/v 와 서버에서 대조된다. 그 노드에는 .read 가 없어 앱이 읽을 수 없으므로,
-   관리자 화면이 열려 있어도 열쇠를 모르면 발급이 거부된다.
-   (ADMIN_PASS_HASH가 배포본에 그대로 들어 있어 관리자 모드는 보안 경계가 아니다 — 그래서 필요한 장치다.)
-   ⚠️ 열쇠는 localStorage에도, 변수에도 남기지 않는다. 저장하는 순간 배포본에서 그대로 읽힌다. */
+/* 🔒 시크릿룸 발급 (관리자) — 후원자 친구코드(또는 유저 코드) · 원하는 코드 · 기간.
+   서버가 한다(POST /v2/admin/secret-rooms 한 번): 친구코드 → 사람 찾기 · 코드 뽑기 · 한 사람 한 방 · 같은 코드는 남은 기간에 이어 붙이기 ·
+   끝나는 날 셈 · 옛 코드 끝내기 · 우편(SECRET_ROOM_ISSUED) · 관리자 확인(로그인 토큰). 옛 «발급 열쇠» 칸과 앱의 날짜 셈은 없다.
+   앱은 «남이 가진 코드» 일 때 한 번 경고하고 같은 단추를 다시 누르면 confirmTakeover:true 로 다시 보낸다.
+   같은 단추를 답 못 받고 다시 누르면 같은 requestId(TwRequestId) — 서버가 한 번만 처리한다. */
 (function bindSecretRoomGrant(){
   const btn = document.getElementById('srGrantBtn');
   const codeInp = document.getElementById('srGrantCode');
-  const keyInp = document.getElementById('srGrantKey');
-  const wantInp = document.getElementById('srGrantWant');   // 원하는 코드(선택) — 비우면 자동 생성
+  const wantInp = document.getElementById('srGrantWant');   // 원하는 코드(선택) — 비우면 서버가 뽑는다
   const monInp = document.getElementById('srGrantMonths'); // 이용 기간(개월, 선택) — 비우면 영구
   const msgEl = document.getElementById('srGrantMsg');
-  if(!btn || !codeInp || !keyInp) return;
-  /* 📅 개월 더하기 — 30일 곱셈으로 하면 달마다 어긋난다(1/31 + 1개월이 3/2가 되는 식).
-     달을 먼저 올린 뒤, 그 달에 없는 날짜면 말일로 당긴다(1/31 +1개월 = 2/28).
-     끝나는 날은 그 날 23:59:59까지 — "1개월"을 샀으면 만료일 당일은 쓸 수 있어야 한다. */
-  const _srAddMonths = (fromMs, months)=>{
-    const d = new Date(fromMs);
-    const day = d.getDate();
-    d.setDate(1);                                    // 말일에서 setMonth 하면 다음 달로 넘치므로 1일로 내려놓고 올린다
-    d.setMonth(d.getMonth() + months);
-    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-    d.setDate(Math.min(day, last));
-    d.setHours(23, 59, 59, 999);
-    return d.getTime();
-  };
+  if(!btn || !codeInp) return;
+  const SR_PATH = '/v2/admin/secret-rooms';
+  const SR_TAKEN = 'LICENSE_SECRET_ROOM_CODE_TAKEN';
   const showMsg=(text,isErr)=>{
     if(!msgEl) return;
     msgEl.textContent=text;
     msgEl.style.color = isErr ? 'var(--win-error)' : 'var(--ink-soft)';
     msgEl.style.display = text ? 'block' : 'none';
   };
-  // genRoomCode와 같은 알파벳(혼동 글자 제외 32자) — 4자리 ≈ 105만 조합
-  const genSecretCode = ()=>{ const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s='SCRT-'; for(let i=0;i<4;i++) s+=a[Math.floor(Math.random()*a.length)]; return s; };
-  /* 이미 쓰이는 코드에 다시 발급할 때, 한 번 경고하고 두 번째 누르면 덮어쓴다.
-     계정 이전으로 friendCodes가 옛 uid를 가리키면 엉뚱한 사람에게 발급되는데, 그때
-     같은 코드로 정정 발급할 길이 필요하다(코드를 이미 후원자에게 알려준 상태일 수 있다). */
-  let _srOverwriteArmed = '';
-  /* 🔴 친구코드 → uid 해석이 죽은 계정을 가리킬 때의 확인 게이트.
-     계정 이전 스냅샷에 friendCode가 없던 등록분은 friendCodes/{코드}가 '그 기기가 버린 uid'를
-     계속 가리킨다(3장 13번). 그 uid로 발급하면 쓰기는 전부 성공해서 "보냈어요"가 뜨는데
-     후원자 수령함에는 영원히 안 온다 — 이번에 실제로 그렇게 나갔다.
-     그래서 마지막 접속이 오래된 계정이면 한 번 막고 uid 직접 입력을 권한다. */
-  let _srStaleArmed = '';
-  const SR_STALE_DAYS = 7;   // 이 이상 접속 기록이 없으면 '버려진 계정' 의심
+  let _ids = null;   // 같은 일 다시 보내기는 같은 번호(request-id.js createPending)
+  const idPool = ()=> _ids || (_ids = window.TwRequestId.createPending());
+  /* 한 번 경고한 조건 — 같은 조건(사람 · 코드 · 개월)으로 다시 누르면 넘긴다. 조건을 고치면 표식이 달라져 다시 경고한다. */
+  let _armed = '';
+  let busy = false;
+  const dayOf = (iso)=>{ const ms = Date.parse(iso || ''); return isFinite(ms) ? _srFmtDate(ms) : ''; };
+  /* 남이 가진 코드 경고 — 서버가 실은 지금 주인 · 끝나는 날(items[0])을 그대로 보인다 */
+  const takenText = (code, h)=>{
+    const who = (h && h.ownerUserCode) ? h.ownerUserCode : '다른 사람';
+    const ended = h && h.endedAt ? dayOf(h.endedAt) : '';
+    const exp = h && h.expiresAt ? dayOf(h.expiresAt) : '';
+    const term = ended ? ('이미 끝난 방 · ' + ended + ' 에 끝남') : (exp ? ('현재 기간 ' + exp + ' 까지') : '현재 영구');
+    return code + ' 는 이미 ' + who + ' 가 쓰는 코드예요 (' + term + '). 같은 버튼을 다시 누르면 '
+      + (ended ? '그 코드를 가져옵니다.' : '그 사람의 방은 끝나고 이 코드가 넘어옵니다.');
+  };
   const submit = async ()=>{
-    if(!window.firebaseAPI || !firebaseAPI.lookupFriendCode || !firebaseAPI.issueSecretRoom){
-      showMsg('네트워크 연결이 필요해요', true); return;
-    }
+    if(busy) return;
+    if(!window.TwApi || !window.TwApi.authed || !window.TwRequestId){ showMsg('네트워크 연결이 필요해요', true); return; }
     const raw=(codeInp.value||'').trim();
-    const key=(keyInp.value||'').trim();
     if(!raw){ showMsg('친구코드 또는 유저 코드를 입력해 주세요', true); return; }
-    if(!key){ showMsg('발급 열쇠를 입력해 주세요', true); return; }
-    /* 📅 이용 기간 — 빈칸이면 영구(months=0). 숫자면 1~120개월.
-       공백만 있는 경우도 빈칸으로 본다. 숫자가 아니면 조용히 영구로 삼지 않고 막는다 —
-       "3개월"이라고 적었는데 영구로 나가버리면 되돌릴 수는 있어도 이미 코드를 알려준 뒤다. */
+    /* 📅 이용 기간 — 빈칸이면 영구. 숫자면 1~120개월. 숫자가 아니면 조용히 영구로 삼지 않고 막는다 —
+       "3개월"이라고 적었는데 영구로 나가버리면 이미 코드를 알려준 뒤다. */
     const monRaw = ((monInp && monInp.value) || '').trim();
     let months = 0;
     if(monRaw){
@@ -522,183 +485,60 @@ async function _lxWriteXlsx(rows, sheetName){
       months = parseInt(monRaw, 10);
       if(months < 1 || months > 120){ showMsg('이용 기간은 1~120개월 사이로 넣어 주세요', true); return; }
     }
-    /* 🆔 유저 코드(uid) 직접 입력 지원 —
-       계정 이전 스냅샷에 friendCode가 없던 계정은 friendCodes/{코드}가 옛 uid를 계속 가리킨다
-       (app.js의 _applyTransferSnapshot 참고). 그 상태에서 친구코드로 발급하면 엉뚱한 계정으로 간다.
-       uid를 직접 받으면 그 경로를 우회할 수 있다. 형식은 계정 이전과 같은 판정('u'+base36, 13자 이상). */
+    const want = ((wantInp && wantInp.value) || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if(want && want.length !== 4){ showMsg('원하는 코드는 영문·숫자 4자리여야 해요', true); return; }
+    /* 사람 가리키기 — 유저 코드(u…)면 그대로 · 친구코드면 서버가 찾는다(뒷 4자리만 넣으면 MATE · COZY 순으로 물어본다) */
     const isUid = /^u[0-9a-z]{12,}$/.test(raw);
-    const code = isUid ? raw : raw.toUpperCase();
-    // 뒷 4자리만 입력해도 되게 접두어 보완 — 라이선스 발급과 동일 규칙
-    const candidates = /^[A-Z0-9]{4}$/.test(code) ? ['MATE-'+code, 'COZY-'+code] : [code];
-    btn.disabled=true; showMsg('확인 중…', false);
+    const target = isUid ? raw : raw.toUpperCase();
+    const owners = isUid ? [{ ownerUserCode: target }]
+      : (/^[A-Z0-9]{4}$/.test(target) ? [{ friendCode: 'MATE-' + target }, { friendCode: 'COZY-' + target }] : [{ friendCode: target }]);
+    const armKey = target + '|' + want + '|' + months;
+    const confirm = _armed === armKey;
+    busy = true; btn.disabled = true; showMsg('발급 중…', false);
     try{
-      let uid=null;
-      if(isUid) uid = code;
-      else for(const c of candidates){ try{ const u=await firebaseAPI.lookupFriendCode(c); if(u){ uid=u; break; } }catch(_){} }
-      if(!uid){ showMsg('해당 친구코드를 가진 유저를 찾을 수 없어요', true); btn.disabled=false; return; }
-      let uname=null;
-      try{ if(firebaseAPI.getUserNameById) uname = await firebaseAPI.getUserNameById(uid); }catch(_){}
-      /* 🔴 수신 계정이 살아 있는지 확인 — 친구코드로 해석한 경우에만.
-         (uid를 직접 받은 경우는 관리자가 후원자에게 확인한 값이므로 게이트를 걸지 않는다) */
-      if(!isUid && firebaseAPI.getUserLastSeen){
-        let seen = null;
-        try{ seen = await firebaseAPI.getUserLastSeen(uid); }catch(_){}
-        // 조회 실패(null)와 '기록 없음'을 구분하지 않는다 — 둘 다 확인이 필요한 상태다
-        const days = (typeof seen === 'number' && seen > 0) ? Math.floor((Date.now() - seen) / 86400000) : null;
-        /* 🪞 [2026-09-17 제보 4] **거울 대조** — users/{uid}/friendCode 가 이 코드와 다르면 의심한다.
-             [왜 lastSeen 만으로 부족한가] 계정 이전 뒤 friendCodes/{코드} 는 옛 uid 를 가리키고, 옛 uid 의
-               lastSeen 은 이전 직전 값으로 남는다. 위 7일 게이트는 그 7일 동안 조용하다 — 그 사이 친구코드로
-               발급하면 pub.owner 가 옛 uid 가 되어 «방장 부여가 안 되는» 제보 그대로다. (예전엔 친추코드
-               되찾기도 같은 7일을 기다렸다 — 개정 56 에서 걷었다.)
-             거울은 코드를 발급·되찾을 때마다 계정에 적히므로(setUserFriendCode), 살아 있는 계정이라면 입력
-               코드와 같다. 다르거나 없으면 «이 코드의 주인이 다른 uid 로 갔거나 아주 옛 계정» 이다.
-             ⚠️ 거울이 생기기 전의 옛 계정도 여기 걸린다 — 그래서 막지 않고 한 번 더 누르게만 한다. */
-        let mirror = undefined;   // undefined = 조회 못 함(경고 안 함) · null = 없음 · 문자열 = 값
-        try{ if(firebaseAPI.getUserFriendCode) mirror = await firebaseAPI.getUserFriendCode(uid); }catch(_){}
-        const mirrorOff = (mirror !== undefined) && (String(mirror || '').toUpperCase() !== code);
-        if(days === null || days >= SR_STALE_DAYS || mirrorOff){
-          if(_srStaleArmed !== uid){
-            _srStaleArmed = uid;
-            const why = (days === null || days >= SR_STALE_DAYS)
-              ? (days === null ? '접속 기록이 없어요' : days + '일째 접속이 없어요')
-              : ('이 계정에 적힌 친추코드는 ' + (mirror ? mirror : '(없음)') + ' 이에요');
-            showMsg('⚠️ 이 친구코드는 ' + uid + (uname ? ' ('+uname+')' : '')
-              + ' 를 가리키는데, ' + why
-              + '. 계정 이전으로 코드가 어긋난 계정일 수 있어요 — 후원자에게 유저 코드(u…)를 받아 넣는 편이 안전해요.'
-              + ' 그대로 보내려면 같은 버튼을 다시 누르세요.', true);
-            btn.disabled=false; return;
+      for(let i = 0; i < owners.length; i++){
+        const body = Object.assign({ name: '', months: months || null, confirmTakeover: confirm }, owners[i]);
+        if(want) body.code = 'SCRT-' + want;
+        const key = 'sr:' + armKey + '|' + (owners[i].ownerUserCode || owners[i].friendCode) + '|' + confirm;
+        body.requestId = idPool().idFor(key);
+        let r;
+        try{
+          r = await window.TwApi.authed.post(SR_PATH, body);
+        }catch(e){
+          const answered = !!e && e.kind === 'request';   // 서버가 답했다(거절) — 못 닿은 것이 아니다. 못 닿았으면 번호를 두고 다시 누르면 같은 번호
+          if(answered) idPool().settle(key);
+          const c = e && e.code;
+          if(c === 'USER_NOT_FOUND'){
+            if(i < owners.length - 1) continue;
+            showMsg(isUid ? '해당 유저 코드를 가진 유저를 찾을 수 없어요' : '해당 친구코드를 가진 유저를 찾을 수 없어요', true); return;
           }
-        }
-        _srStaleArmed = '';
-      }
-      /* 코드 결정 — 원하는 코드를 적었으면 그걸 쓰고, 비었으면 자동 생성.
-         지정 코드는 join 입력칸이 받아주는 범위(A-Z0-9 4자)와 같아야 한다 — 자동 생성은
-         혼동 글자(0·O·1·I)를 뺀 32자만 쓰지만, 지정은 관리자가 의도한 단어일 수 있어 전부 허용한다.
-         대신 혼동 글자가 들어가면 안내만 띄운다(후원자가 코드를 불러줄 때 헷갈리는 자리). */
-      const want = ((wantInp && wantInp.value) || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-      let sr=null, confusing=false;
-      let _prevPub = null;   // ⏳ 같은 코드로 다시 발급하는 경우의 기존 발급 정보(연장 계산에 쓴다)
-      if(want){
-        if(want.length !== 4){ showMsg('원하는 코드는 영문·숫자 4자리여야 해요', true); btn.disabled=false; return; }
-        let taken=null;
-        try{ taken = await firebaseAPI.getSecretRoomPub('SCRT-'+want); }catch(_){}
-        _prevPub = taken;
-        /* 확인 게이트의 표식에 **개월수까지** 넣는다. 코드만 표식으로 삼으면, 경고를 띄운 뒤
-           개월수 칸을 고치고 다시 눌렀을 때 경고에 적힌 것과 다른 기간이 그대로 나간다. */
-        const _armKey = want + '|' + months;
-        if(taken && taken.owner && _srOverwriteArmed !== _armKey){
-          _srOverwriteArmed = _armKey;   // 한 번 경고 → 같은 조건으로 다시 누르면 덮어쓴다
-          // 기존 기간도 같이 보여준다 — 연장하려고 같은 코드를 다시 넣는 경우가 많아, 지금 며칠 남았는지가 판단 근거다
-          const _oldExp = (typeof taken.exp === 'number' && taken.exp > 0) ? taken.exp : 0;
-          const _same = (taken.owner === uid);
-          showMsg('SCRT-'+want+' 는 이미 '+taken.owner+' 에게 발급돼 있어요'
-            + (_oldExp ? ' (현재 기간 ' + _srFmtDate(_oldExp) + ' 까지'
-                          + (Date.now() > _oldExp ? ', 이미 만료' : '') + ')' : ' (현재 영구)')
-            + '. 같은 버튼을 다시 누르면 '
-            + (_same ? (_oldExp ? (Date.now() > _oldExp ? '지금부터 다시 시작합니다.' : '남은 기간에 이어붙입니다.')
-                                : (months ? '⚠️ 영구가 풀리고 지금부터 ' + months + '개월 기간제로 바뀝니다.'
-                                          : '영구를 그대로 둡니다.'))
-                     : '다른 사람에게 덮어씁니다(기존 기간은 사라집니다).') , true);
-          btn.disabled=false; return;
-        }
-        _srOverwriteArmed = '';
-        sr = 'SCRT-'+want;
-        confusing = /[0O1I]/.test(want);
-      }else{
-        // 자동 생성 — 이미 쓰이는 코드면 다시 뽑는다
-        for(let i=0;i<5;i++){
-          const cand=genSecretCode();
-          let taken=null;
-          try{ taken = await firebaseAPI.getSecretRoomPub(cand); }catch(_){}
-          if(!(taken && taken.owner)){ sr=cand; break; }
-        }
-      }
-      if(!sr){ showMsg('코드 생성에 실패했어요 — 다시 시도해 주세요', true); btn.disabled=false; return; }
-      /* ⏳ 만료 시각 — 같은 사람에게 같은 코드로 다시 발급하는 것은 '연장'이다.
-         ★ 남은 기간에 이어붙인다. 지금부터 다시 N개월로 잡으면 만료 전에 후원한 사람이 손해를 본다
-           (6개월권을 2개월 쓴 사람이 3개월을 더 후원했는데 오히려 1개월이 줄어든다).
-         · 기존이 영구인데 개월수를 넣으면 **영구가 풀리고 지금부터 기간제로 바뀐다**(요청사항).
-           영구에는 이어붙일 남은 기간이 없으므로 기준은 언제나 '지금'이다.
-           ⚠️ 되돌리기 어려운 방향이라 위 확인 게이트가 반드시 한 번 막는다 — 경고 문구에
-             '영구가 풀린다'를 명시하고, 개월수를 고치면 표식이 달라져 다시 경고한다.
-             기간제로 바꿀 생각이 없으면 개월수 칸을 비우면 된다(그때는 영구 그대로다).
-         · 이미 만료됐거나 주인이 다른 사람이면 이어붙이지 않고 지금부터 새로 센다.
-         · 빈칸(months=0)으로 다시 발급하면 영구가 된다(issueSecretRoom이 set으로 통째 교체). */
-      const _prevMine = !!(_prevPub && _prevPub.owner && _prevPub.owner === uid);
-      const _prevExp = (_prevPub && typeof _prevPub.exp === 'number' && _prevPub.exp > 0) ? _prevPub.exp : 0;
-      const _prevPerm = _prevMine && !_prevExp;               // 기존이 영구
-      let _base = Date.now(), _kept = '';
-      if(_prevMine && _prevExp > _base){ _base = _prevExp; _kept = ' · 남은 기간에 이어붙임'; }
-      let expMs = months ? _srAddMonths(_base, months) : 0;
-      if(_prevPerm && months) _kept = ' · 기존 영구 해제 → 기간제';
-      const periodTxt = expMs ? (months + '개월 · ' + _srFmtDate(expMs) + ' 까지' + _kept) : ('영구' + _kept);
-      const r = await firebaseAPI.issueSecretRoom(sr, uid, uname||'', key, expMs);
-      if(!r || !r.ok){
-        showMsg(r && r.denied ? '발급 열쇠가 맞지 않아요 — 서버가 거부했어요'
-                              : ('발급에 실패했어요' + ((r&&r.reason) ? (' — '+r.reason) : '')), true);
-        btn.disabled=false; return;
-      }
-      /* 📅 옛 코드 만료 — 코드를 '교체'하면 옛 코드가 그대로 살아남아 시크릿룸이 두 개가 된다.
-         발급이 하는 쓰기는 secretRooms/{새코드} 생성 + users/{uid}/secretRoom 덮어쓰기뿐이라
-         옛 노드는 아무도 안 건드리고, owner 가 살아 있으니 그 유저도 코드를 아는 친구들도 계속 들어간다.
-         회수(owner 비우기)가 아니라 exp 를 지금으로 내린다 — 기간 만료와 똑같이 막히고,
-         나중에 같은 코드로 재발급하면 연장 경로 그대로 되살릴 수 있다.
-         ⚠️ setMySecretRoom 보다 먼저 읽어야 한다 — 그게 옛 코드를 덮어쓴다.
-         ⚠️ 실패해도 되돌리지 않는다 — 새 코드 발급은 이미 성공했다. 알리고 넘어간다. */
-      let _expiredOld = '', _expireWarn = '';
-      try{
-        const _oldCode = firebaseAPI.getMySecretRoom ? await firebaseAPI.getMySecretRoom(uid) : null;
-        // 같은 코드로 다시 발급한 것은 '연장'이다 — 방금 쓴 새 코드를 만료시키면 안 된다.
-        if(_oldCode && _oldCode !== sr && firebaseAPI.expireSecretRoom){
-          /* ⚠️ 그새 이 코드가 다른 사람에게 재발급됐으면 절대 손대지 않는다 — 남의 방을 만료시키게 된다.
-             users/{uid}/secretRoom 은 '이 유저에게 마지막으로 준 코드'일 뿐, 소유의 증거가 아니다. */
-          const _oldPub = await firebaseAPI.getSecretRoomPub(_oldCode);
-          if(_oldPub && _oldPub.owner === uid){
-            const _er = await firebaseAPI.expireSecretRoom(_oldCode, key);
-            if(_er && _er.ok) _expiredOld = _oldCode; else _expireWarn = _oldCode;
+          if(c === SR_TAKEN){
+            _armed = armKey;
+            const h = e.items && e.items[0];
+            showMsg('⚠️ ' + takenText(body.code || '그', h), true); return;
           }
+          if(e && e.kind === 'auth'){ showMsg('관리자 로그인이 필요해요 — 로그인을 확인해 주세요', true); return; }
+          if(c === 'INVALID_REQUEST'){ showMsg('입력을 확인해 주세요' + (e.message ? ' — ' + e.message : ''), true); return; }
+          if(window.TwErrorCodes) window.TwErrorCodes.notify('E-LIC-07', e);
+          showMsg('발급하지 못했어요 — 잠시 뒤 같은 버튼을 다시 눌러 주세요', true); return;
         }
-      }catch(_){ _expireWarn = _expireWarn || '?'; }
-      try{ if(firebaseAPI.setMySecretRoom) await firebaseAPI.setMySecretRoom(uid, sr); }catch(_){}
-      let sent=false;
-      try{
-        if(firebaseAPI.sendInboxMessage){
-          const body='후원 감사합니다! 아래 코드로 ' + (expMs ? _srFmtDate(expMs) + ' 까지' : '언제든')
-            + ' 내 전용 투게더룸에 들어갈 수 있어요.\n\n'
-            + sr + '\n\n[방 만들기 / 참여] 창의 SCRT- 칸에 뒤 4자리를 넣으면 입장돼요.\n'
-            + '친구에게 코드를 알려주면 같이 쓸 수 있고, 내가 나가도 방은 그대로 유지돼요.'
-            + (expMs ? '\n\n이용 기간은 ' + _srFmtDate(expMs)
-                        + ' 까지예요. 그 뒤로는 이 코드로 입장할 수 없어요. 만료 7일 전부터는 입장할 때 안내가 떠요.' : '')
-            /* 받는 앱은 내 시크릿룸을 세션당 1회만 조회해 캐시한다(room-lobby-provider.js mySecretRoom) —
-               앱을 다시 켜야 참여 화면 자동 채움이 새 코드로 바뀐다. 무효화할 경로가 없어 문구로 안내한다. */
-            + (_expiredOld ? '\n\n예전 코드 ' + _expiredOld + ' 로는 이제 입장할 수 없어요.'
-                             + ' 앱을 다시 켜면 참여 화면에 새 코드가 자동으로 떠요.' : '');
-          const ir = await firebaseAPI.sendInboxMessage(uid, 'reward', '🔒 시크릿룸이 열렸어요', body);
-          sent = !!(ir && ir.ok!==false);
-        }
-      }catch(_){}
-      // 수신 uid를 항상 함께 남긴다 — 잘못 간 뒤에 어디로 갔는지 되짚을 수 있어야 한다
-      showMsg('발급 완료: ' + sr + ' [' + periodTxt + ']'
-        + (sent ? ' — 수령함으로 보냈어요' : ' (수령함 전송 실패 — 코드를 직접 전달해 주세요)')
-        + '  받는 계정 ' + uid + (uname ? ' ('+uname+')' : '')
-        + (confusing ? '  ⚠️ 0·O·1·I 가 섞여 있어 불러줄 때 헷갈릴 수 있어요' : '')
-        + (_expiredOld ? '  · 옛 코드 ' + _expiredOld + ' 를 만료 처리했어요' : '')
-        + (_expireWarn ? '  ⚠️ 옛 코드 ' + _expireWarn + ' 만료 처리에 실패했어요 — 그 코드로도 계속 입장됩니다'
-                         + ' (열쇠가 맞는지 확인하고 다시 발급해 보세요)' : ''),
-        (!sent || !!_expireWarn));
-      codeInp.value='';
-      if(wantInp) wantInp.value='';
-      // 개월수 칸은 일부러 비우지 않는다 — 같은 기간으로 여러 명에게 연달아 발급하는 경우가 대부분이다.
-      // 대신 위 메시지와 아래 토스트에 항상 기간을 박아, 남아 있는 값이 조용히 따라가지 않게 한다.
-      toast('🔒 시크릿룸 ' + sr + ' 발급 (' + periodTxt + ')');
-    }catch(e){
-      console.warn('[시크릿룸] 발급 중 오류', e);
-      showMsg(_saveFailMsg(e, '오류가 났어요 — 인터넷 연결을 확인해 주세요'), true);
+        idPool().settle(key);
+        _armed = '';
+        const sr = (r && r.code) || body.code || '';
+        const exp = r && r.expiresAt ? dayOf(r.expiresAt) : '';
+        const periodTxt = exp ? ((months ? months + '개월 · ' : '') + exp + ' 까지') : '영구';
+        showMsg('발급했어요 — ' + sr + ' · ' + periodTxt + ' (수령함으로 보냈어요)  받는 계정 ' + ((r && r.ownerUserCode) || ''), false);
+        codeInp.value=''; if(wantInp) wantInp.value='';
+        // 개월수 칸은 일부러 비우지 않는다 — 같은 기간으로 여러 명에게 연달아 발급하는 경우가 대부분이다. 메시지와 토스트에 항상 기간을 박는다.
+        toast('🔒 시크릿룸 ' + sr + ' 발급 (' + periodTxt + ')');
+        return;
+      }
+    }finally{
+      busy = false; btn.disabled = false;
     }
-    btn.disabled=false;
   };
   btn.addEventListener('click', submit);
-  keyInp.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+  codeInp.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
 })();
 
 return {};   // 밖에서 부르는 이름 없음 — 전부 만들 때 건다

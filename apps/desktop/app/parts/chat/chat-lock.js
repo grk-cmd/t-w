@@ -15,14 +15,14 @@ function createChatLock(deps){
 const Presence = deps.Presence;   // 읽는 함수
 const chatPrefsMod = deps.chatPrefsMod;
 const chatUiMod = deps.chatUiMod;
-const getMyUserId = deps.getMyUserId;
+const myCode = deps.myCode;   // 방 서버의 내 코드 — 방장 · 내 좌석 · 내가 때린 것 판정은 이 값(TwRoomRt.store.myCode)
 const roomState = deps.roomState;   // 방장 · 시크릿룸 판정(room/room-state.js — 방 안 [방 설정] 과 같은 한 곳)
 function _chatRoomCode(){
   try{ return (typeof Presence()!=='undefined' && Presence().roomCode) ? Presence().roomCode() : null; }catch(_){ return null; }
 }
 function _chatIsSecretRoom(){ return roomState.isSecretCode(_chatRoomCode()); }
 function _chatIsHost(){
-  try{ return roomState.isHost(window._roomMetaCache, getMyUserId()); }catch(_){ return false; }
+  try{ return roomState.isHost(window._roomMetaCache, myCode()); }catch(_){ return false; }
 }
 function _chatOffOn(){
   try{ return _chatIsSecretRoom() && !!(window._roomMetaCache && window._roomMetaCache.chatOff); }catch(_){ return false; }

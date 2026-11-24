@@ -69,6 +69,8 @@ const charLiftWorld = deps.charLiftWorld;
 const diagNote = deps.diagNote;   // 진단 기록(tw-mouse-diag.log) 한 줄 — 설치본은 콘솔을 못 보니 제보 때 이 파일로 높이 값을 본다
 const getActiveInteractionDeskId = deps.getActiveInteractionDeskId;
 const isDeskUnlocked = deps.isDeskUnlocked;
+const levelText = deps.levelText;   // 카드 레벨 글자(room/interaction-desk.js)
+const lockedToast = deps.lockedToast;   // 잠긴 안내 글
 const isPartByRigOrName = deps.isPartByRigOrName;
 const layoutSeats = deps.layoutSeats;
 const matWood = deps.matWood;
@@ -1024,7 +1026,7 @@ function equipInteractionDesk(deskId){
   const def = _deskDefById(deskId);
   const me = seats.find(s=>s.isMe);
   if(!def || !me) return false;
-  if(!isDeskUnlocked(def)){ toast('🔒 Lv.'+def.reqLevel+' 달성 시 해금돼요'); return false; }
+  if(!isDeskUnlocked(def)){ toast(lockedToast(def.reqLevel, '달성 시 해금돼요')); return false; }
   attachBenchToSeat(me, def.seats, def.id);
   setActiveInteractionDeskId(def.id);
   try{ broadcastRide(); }catch(_){}
@@ -1134,10 +1136,10 @@ function renderIdeskInventory(){
     const nm=document.createElement('div'); nm.className='idesk-name'; nm.textContent=def.name; cell.appendChild(nm);
     if(!unlocked){
       const lock=document.createElement('div'); lock.className='idesk-lock'; lock.textContent='🔒'; cell.appendChild(lock);
-      const req=document.createElement('div'); req.className='idesk-req'; req.textContent='Lv.'+def.reqLevel; cell.appendChild(req);
+      const req=document.createElement('div'); req.className='idesk-req'; req.textContent=levelText(def.reqLevel); cell.appendChild(req);
     }
     cell.onclick = ()=>{
-      if(!unlocked){ toast('🔒 Lv.'+def.reqLevel+' 달성 시 해금돼요'); return; }
+      if(!unlocked){ toast(lockedToast(def.reqLevel, '달성 시 해금돼요')); return; }
       if(activeId===def.id){ unequipInteractionDesk(); }   // 이미 쓰는 걸 다시 누르면 기본으로
       else equipInteractionDesk(def.id);
       renderIdeskInventory();
@@ -1231,6 +1233,8 @@ return {
   mountRide,
   restoreInteractionDesk,
   toggleIdeskInventory,
+  closeIdeskInventory,                   // 🪟 모두 닫기(win-stack closeAll — app.js 창 표)
+  isIdeskOpen: _ideskOpen,
   unmountBench,
   unmountRide,
 };

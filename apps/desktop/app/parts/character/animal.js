@@ -9,8 +9,35 @@
        안 먹고, 본을 키워야 실제 게임 화면과 같은 결과가 나옴.
    · 다음 단계에서 이 창을 없애고 기존 생성기 탭(1 얼굴·2 귀·3 표정·4 감은눈)에
      통합 예정 — 승인된 UI 스펙 그대로.
-   · app.js는 손대지 않음 — 카드 바인딩·창 생성 모두 이 파일이 처리.
+   · 카드 바인딩·창 생성 모두 이 파일이 처리한다. app.js 가 createAnimal(deps) 로 INIT 뒤에 만든다(앱 FSD · M23 — app.js 보다 먼저 싣는다).
    ════════════════════════════════════════════════════════════════ */
+function createAnimal(deps){
+const isAdmin = deps.isAdmin;   // 읽는 함수
+const curSlot = deps.curSlot;   // 읽는 함수
+const creatorMode = deps.creatorMode;   // 읽는 함수
+const creatorOpen = deps.creatorOpen;   // 읽는 함수
+const lightToneMod = deps.lightToneMod;
+const loader = deps.loader;
+const focusLevelMod = deps.focusLevelMod;
+const normalizeModel = deps.normalizeModel;
+const toast = deps.toast;
+const bindHold = deps.bindHold;
+const ANIMAL_HAND_REST = deps.ANIMAL_HAND_REST;
+const applyDesktopRunClass = deps.applyDesktopRunClass;
+const renderLauncher = deps.renderLauncher;
+const partPaintMod = deps.partPaintMod;
+const slots = deps.slots;
+const applyCharToSeat = deps.applyCharToSeat;
+const slotSaveMod = deps.slotSaveMod;
+const Presence = deps.Presence;
+const layoutSeats = deps.layoutSeats;
+const openCreator = deps.openCreator;
+const saveCurSlot = deps.saveCurSlot;
+const LIGHT_PRESET = deps.LIGHT_PRESET;
+const setCurSlot = deps.setCurSlot;   // 쓰는 함수
+const setCreatorOpen = deps.setCreatorOpen;   // 쓰는 함수
+const accountStoreMod = deps.accountStoreMod;   // 🗂️ 계정 칸(해금 기록 CHEAT_KEY · EVER_KEY)
+const accountJsonStoreMod = deps.accountJsonStoreMod;   // 🗂️ 계정 칸 위 JSON 칸(동물 프리셋)
 (function(){
 'use strict';
 const ANIMAL_VER='v0.4.0-p6 (860x440 / preview 360)';
@@ -22,17 +49,20 @@ let UNLOCK_LEVEL = 50;   // ★ 기본값. 관리자가 서버(catalog/gameConfi
 const CHEAT_KEY = 'tw.animalCheatUnlock';
 const CHEAT_CLICKS = 10;
 let _lKeyDown=false, _cheatCount=0, _cheatLastAt=0;
-function _cheatUnlocked(){ try{ return localStorage.getItem(CHEAT_KEY)==='1'; }catch(_){ return false; } }
+/* 🗂️ 해금 기록 둘(CHEAT_KEY · EVER_KEY)은 이 계정이 얻은 것이라 계정 칸에 둔다(accountStoreMod — app.js). 계정 칸은 확인 전엔 닫혀 있어 처음 그릴 때(init)는 읽지 않고,
+   확인 뒤 launcher/user-local.js 의 조각이 window._animalLoadLocal 로 읽어 앉히고 카드 잠금 띠를 다시 그린다. 세션이 끝나면 window._animalResetLocal 이 비운다. */
+let _cheatOn=false, _everOn=false, _localLoaded=false;
+function _cheatUnlocked(){ return _cheatOn; }
 /* 🔓 한 번이라도 해금 조건을 만족했으면 그 뒤로는 계속 열려 있다.
    관리자가 이벤트로 해금 레벨을 낮췄다가 되돌려도, 그동안 조건을 만족했던 사람은 잠기지 않는다.
    ★ 표시를 남기는 건 '레벨을 실제로 달성한 경우'뿐이다. 관리자 권한은 원래 항상 열려 있으니
      굳이 영구 표시를 남기지 않는다(권한이 사라지면 원래 상태로 돌아가는 게 맞다).
    ※ 레벨 자체가 기기별로 저장되는 값이라, 이 표시도 같은 기준(기기별)으로 남는다. */
 const EVER_KEY = 'tw.animalEverUnlocked';
-function _everUnlocked(){ try{ return localStorage.getItem(EVER_KEY)==='1'; }catch(_){ return false; } }
+function _everUnlocked(){ return _everOn; }
 function _unlockOk(){
   if(myLevel() >= UNLOCK_LEVEL){
-    try{ localStorage.setItem(EVER_KEY,'1'); }catch(_){}   // 조건 만족 시점에 표시를 남김
+    if(!_everOn){ _everOn=true; if(_localLoaded){ try{ accountStoreMod.set(EVER_KEY,'1'); }catch(_){} } }   // 조건 만족 시점에 표시를 남김(계정 칸이 열린 뒤에만 적는다)
     return true;
   }
   return admin() || _cheatUnlocked() || _everUnlocked();
@@ -47,7 +77,11 @@ let overlay=null, renderer=null, scene=null, cam=null, model=null;
 /* 💡 원색 보기(creator-flat-view.js — 사람 생성기와 같은 모듈의 두 번째 인스턴스).
    미리보기 재질은 emissive 를 0 으로 둔다(ensurePaintTex · _ensureEarTex) — 그래서 흰빛 앰비언트가
    flatAmbient(0) = 1 이면 칠한 텍스처 값이 화면에 그대로 나온다. 실행 화면(_animLit)은 따로라 건드리지 않는다. */
-const AN_AMB_COLOR=0xfdfbf7, AN_AMB_INT=0.95, AN_KEY_COLOR=0xfdfaf5, AN_KEY_INT=1.0;
+const AN_AMB_COLOR=0xfdfbf7, AN_KEY_COLOR=0xfdfaf5;
+/* 동물 생성기 빛 세기 — 예산 1 · 키 배율 없음 · 정면 필 없음(사람 생성기와 다른 옛 값을 화면 그대로 지킨다). 몫은 shared/light-tone.js */
+const AN_LIGHT_OPT={ keyPos:[0,4,0], int:1, keyMul:1, frontFill:false };
+/* 공용 조명(shared/light-tone.js)은 app.js 의 lightToneMod 를 deps 로 받는다 */
+const addRunLights=lightToneMod.addRunLights, runLightInts=lightToneMod.runLightInts;
 const AN_PREVIEW_EMISSIVE=0;
 let aAmb=null, aKey=null, aFlat=null;
 let headBone=null, faceNodes=[], curFace=0, raf=0;
@@ -97,19 +131,20 @@ let panX=0, panY=0; // 방향키 카메라 평행이동
 let scl={x:1, y:1, all:1};
 
 function myLevel(){ try{ return focusLevelMod.getFocusLevel(); }catch(_){ return 1; } }
-function admin(){ try{ return (typeof isAdmin!=='undefined') && !!isAdmin; }catch(_){ return false; } }
+function admin(){ try{ return !!isAdmin(); }catch(_){ return false; } }
 
 /* ── 카드 활성화: "공사중" → Lv.100 잠금 카드 ── */
 let _rcR=null,_rcS=null,_rcC=null,_rcChar=null;
 function renderAnimalCardThumb(){
   const cv=document.getElementById('raceAnimalCv'); if(!cv||typeof THREE==='undefined'||!window.ANIMAL_GLB_B64) return;
   if(!_rcR){
-    _rcR=new THREE.WebGLRenderer({canvas:cv,antialias:false,alpha:true});   // 인간 카드와 동일 — 도트 느낌
+    const r=TwGlContext.make(cv,{canvas:cv,antialias:false,alpha:true},'preview',{ label:'동물 카드', retry:()=>{ renderAnimalCardThumb(); } });   // 인간 카드와 동일 — 도트 느낌
+    if(!r) return;
+    _rcR=r;
     _rcR.setPixelRatio(1); _rcR.outputEncoding=THREE.sRGBEncoding;
     cv.style.imageRendering='pixelated';
     _rcS=new THREE.Scene();
-    _rcS.add(new THREE.AmbientLight(0xfdfbf7,0.95));
-    const k=new THREE.DirectionalLight(0xfdfaf5,1.0); k.position.set(0,4,0); _rcS.add(k);
+    addRunLights(_rcS, { keyPos: [0, 4, 0] });   // 사람 카드(race-picker.js)와 같은 빛 — 실행 화면 조명(shared/light-tone.js)
     _rcC=new THREE.PerspectiveCamera(32,1,0.1,100); _rcC.position.set(0,0.9,3.5); _rcC.lookAt(0,0.7,0);   // 더 멀리·아래를 봐서 몸 전체가 프레임에
   }
   const SCALE=0.4, rw=Math.max(2,Math.round(160*SCALE));   // 인간 카드와 같은 도트 배율
@@ -157,7 +192,7 @@ function initCard(){
         _cheatLastAt=now; _cheatCount++;
         if(_cheatCount >= CHEAT_CLICKS){
           _cheatCount=0;
-          try{ localStorage.setItem(CHEAT_KEY,'1'); }catch(_){}
+          _cheatOn=true; try{ accountStoreMod.set(CHEAT_KEY,'1'); }catch(_){}
           initCard();   // 잠금 안내 문구 갱신
           toast('🔓 동물 캐릭터가 해금됐어요!');
           startNewAnimal();   // 이 경로도 '신규 생성' — 아래 정상 경로와 같은 한 벌
@@ -721,11 +756,11 @@ function _applyEarAdj(side){
 function applyEars(){ _attachEar('L'); _attachEar('R'); }
 const ANP_PRESET_KEY='tw.animalPresets';
 function _loadPresets(){
-  const r = TwJsonStore.load(ANP_PRESET_KEY, {});
+  const r = accountJsonStoreMod.load(ANP_PRESET_KEY, {});   // 🗂️ 계정 칸 위의 JSON 칸(app.js)
   if(!r.ok){ console.warn(TwJsonStore.diagLine('load', ANP_PRESET_KEY, r)); TwErrorCodes.notify('E-CHAR-05', r.err); }
   return r.list;
 }
-function _savePresets(o){ return TwJsonStore.save(ANP_PRESET_KEY, o); }   // 읽기 · 쓰기는 shared/json-store.js 한 곳
+function _savePresets(o){ return accountJsonStoreMod.save(ANP_PRESET_KEY, o); }   // 읽기 · 쓰기는 shared/json-store.js 한 곳(계정 칸 위)
 /* 저장 성공 안내는 실제로 써진 뒤에만 — 실패면 이유 · 번호를 띄운다(사람 책상 프리셋과 같은 모양). */
 function _presetSaveNotice(res, slot, okMsg){
   if(res.ok){ toast(okMsg); return; }
@@ -850,13 +885,20 @@ function loadModel(){
 
 function openPreview(){
   buildOverlay();
+  /* 3D 장치를 먼저 만든다 — 못 만들면 창 · 런처 · 창 크기를 하나도 안 바꾸고 돌아간다(사람 생성기와 같은 모양) */
+  if(!renderer){
+    const cv=overlay.querySelector('#anpCv');
+    const r=TwGlContext.make(cv,{canvas:cv,antialias:true,alpha:true},'preview',{ label:'동물 생성기' });
+    if(!r) return false;
+    renderer=r;
+  }
   _syncAnimalStages();   // 위 «책상 세팅» · «좌석 세팅» — 편집 컨텍스트(_editSrcDef · _editSeat · _targetSlot)를 정한 뒤 불린다
   // ★ 창 크기 모드 전환 — 데스크탑 창은 creatorOpen 여부로 크기가 결정됨(런처 380×680 / 생성기 740×620).
   //   이걸 안 켜면 런처 크기(380px)에 갇혀 오른쪽 패널이 세로로 짓눌림.
   try{
     _prevLauncherOn = document.getElementById('launcher').classList.contains('on');
     if(_prevLauncherOn) document.getElementById('launcher').classList.remove('on');
-    creatorOpen = true;
+    setCreatorOpen(true);
     applyDesktopRunClass();
   }catch(e){ console.warn('[동물] 창 모드 전환 중 오류:', e); }
   // ★ 이중 안전 — 위 경유(applyDesktopRunClass)가 환경에 따라 안 먹는 경우가 보고돼,
@@ -870,17 +912,14 @@ function openPreview(){
   window.addEventListener('keydown', onPanKey);
   overlay.style.display='flex';
   console.log('[동물] 창 크기 확인 — innerWidth:', innerWidth, 'innerHeight:', innerHeight, '(기대: 860×440)');
-  if(!renderer){
-    const cv=overlay.querySelector('#anpCv');
-    renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true});
+  if(!scene){
     // 인간 생성기(ensureCreatorPreview)와 동일한 설정 — 해상도·색감이 똑같이 보이게
     renderer.setPixelRatio(Math.min(devicePixelRatio,2));
     renderer.outputEncoding=THREE.sRGBEncoding;
     renderer.toneMapping=THREE.NoToneMapping;
     renderer.setSize(360,398,false);
     scene=new THREE.Scene();
-    aAmb=new THREE.AmbientLight(AN_AMB_COLOR,AN_AMB_INT); scene.add(aAmb);   // 인간 생성기와 동일 광원
-    aKey=new THREE.DirectionalLight(AN_KEY_COLOR,AN_KEY_INT); aKey.position.set(0,4,0); scene.add(aKey);
+    { const lt=addRunLights(scene, AN_LIGHT_OPT); aAmb=lt.amb; aKey=lt.key; }   // 세기 · 색은 applyPreviewLights 가 바로 정한다
     applyPreviewLights();
     // 원근 없음(직교) — 비율 왜곡 없이 편집. 휠 줌은 cam.zoom으로.
     { const a=360/398, vh=3.3, vw=vh*a;
@@ -919,6 +958,7 @@ function openPreview(){
     renderer.render(scene,cam);
   };
   cancelAnimationFrame(raf); tick();
+  return true;
 }
 /* 미리보기 조명 — 원색 보기면 방향광을 끄고 앰비언트를 흰빛으로(emissive 와 합이 1). */
 function applyPreviewLights(){
@@ -927,8 +967,9 @@ function applyPreviewLights(){
     aAmb.color.setRGB(1,1,1); aAmb.intensity=CreatorFlatView.flatAmbient(AN_PREVIEW_EMISSIVE);
     aKey.intensity=0;
   } else {
-    aAmb.color.setHex(AN_AMB_COLOR); aAmb.intensity=AN_AMB_INT;
-    aKey.intensity=AN_KEY_INT;
+    const li=runLightInts(AN_LIGHT_OPT);
+    aAmb.color.setHex(AN_AMB_COLOR); aAmb.intensity=li.amb;
+    aKey.color.setHex(AN_KEY_COLOR); aKey.intensity=li.key;
   }
 }
 function onPanKey(e){
@@ -973,7 +1014,7 @@ function closePreview(){
   if(overlay) overlay.style.display='none';
   cancelAnimationFrame(raf); raf=0;
   try{
-    creatorOpen = false;
+    setCreatorOpen(false);
     if(_prevLauncherOn){ document.getElementById('launcher').classList.add('on'); renderLauncher(); }
     applyDesktopRunClass();   // 폴백 — 런처 크기 복귀
   }catch(e){ console.warn('[동물] 창 모드 복귀 중 오류:', e); }
@@ -1750,7 +1791,7 @@ function saveAnimalSlot(opts){
     try{
       applyCharToSeat(seatRef, def);
       // 슬롯 저장은 crDone의 seat 분기와 같은 규칙 — 좌석에 slot이 없으면 내 좌석일 때만 curSlot으로 폴백
-      const idx = (seatRef.slot!=null) ? seatRef.slot : (seatRef.isMe ? curSlot : null);
+      const idx = (seatRef.slot!=null) ? seatRef.slot : (seatRef.isMe ? curSlot() : null);
       if(idx!=null){ slots[idx]=def; if(seatRef.slot==null) seatRef.slot=idx; }
       slotSaveMod.saveSlots();
       if(seatRef.isMe && Presence.active && Presence.active() && Presence.updateDef) Presence.updateDef(def);
@@ -1767,7 +1808,7 @@ function saveAnimalSlot(opts){
   try{
     // ★ 런처 [＋]로 확정된 칸이 최우선 — 아래 추론들은 그 정보가 없을 때만 쓴다.
     if(_targetSlot!=null && !_editSrcDef) target=_targetSlot;
-    else if(typeof creatorMode!=='undefined' && creatorMode && creatorMode.edit && creatorMode.slot!=null) target=creatorMode.slot;
+    else if(creatorMode() && creatorMode().edit && creatorMode().slot!=null) target=creatorMode().slot;
     // ★ 재편집인데 creatorMode가 슬롯 번호를 안 들고 있는 경우 — 원본 def가 꽂혀 있는 슬롯을 직접 찾는다.
     //   빈 슬롯을 찾아 저장하면 같은 캐릭터가 하나 더 생기는 '슬롯 증식'이 됨.
     else if(_editSrcDef){ const _i=slots.indexOf(_editSrcDef); if(_i>=0) target=_i; }
@@ -1775,11 +1816,11 @@ function saveAnimalSlot(opts){
     //   슬롯 삭제는 뒤 칸을 앞으로 당기는 방식이라 삭제 직후 curSlot이 '다른 캐릭터'를 가리킨다.
     //   그 상태로 저장하면 아무 안내 없이 남의 캐릭터가 사라진다(실제 제보된 사고).
     //   → 빈 칸을 우선 쓰고, 확실하지 않으면 덮어쓰지 말고 거부한다.
-    if(target==null && _editSrcDef && slots[curSlot]===_editSrcDef) target=curSlot;   // 지금 보고 있는 그 캐릭터를 수정 중
+    if(target==null && _editSrcDef && slots[curSlot()]===_editSrcDef) target=curSlot();   // 지금 보고 있는 그 캐릭터를 수정 중
     if(target==null || target<0){
       const _empty = slots.findIndex(x=>!x);
       if(_empty>=0) target=_empty;                 // 빈 칸이 있으면 거기에
-      else if(!slots[curSlot]) target=curSlot;     // 현재 칸이 비어 있으면 거기에
+      else if(!slots[curSlot()]) target=curSlot();     // 현재 칸이 비어 있으면 거기에
       else{
         // 덮어쓸 뻔한 상황 — 저장하지 않고 알린다.
         console.warn('[동물] 저장 위치를 정할 수 없어 중단했습니다 (빈 슬롯 없음, 원본 위치 불명)');
@@ -1796,7 +1837,7 @@ function saveAnimalSlot(opts){
       }
       try{ if(typeof window!=='undefined' && window.focus) window.focus(); }catch(_){}
     }
-    slots[target]=def; curSlot=target;
+    slots[target]=def; setCurSlot(target);
     slotSaveMod.saveSlots();
     saveCurSlot();
     renderLauncher();
@@ -1834,7 +1875,7 @@ function _resetAnimalState(){
     if(model){ try{ applyFace(); applyScale(); applyEars(); ensurePaintTex(); }catch(_){} }
     if(overlay) markFaceBtns();   // 처음 열 때는 창이 아직 없다 — 여기서 던지면 아래 «고치던 칸» 표시가 안 지워져 새 동물이 그 칸을 덮어쓴다
     // ★ 새로 만드는 것이므로 '빈 슬롯에 저장' 흐름이 되도록 편집 표식을 지운다.
-    if(typeof creatorMode!=='undefined' && creatorMode){ creatorMode.edit=false; creatorMode.slot=null; }
+    if(creatorMode()){ creatorMode().edit=false; creatorMode().slot=null; }
   }catch(e){ console.warn('[동물] 신규 상태 초기화 실패', e); }
 }
 /* ★ 해금 여부를 밖(app.js)에서도 물어볼 수 있게 노출한다.
@@ -1855,13 +1896,22 @@ window._setAnimalUnlockLevel = function(lv){
 window._animalUnlocked = function(){
   try{ return _unlockOk(); }catch(_){ return false; }
 };
+/* 🗂️ 확인 뒤 계정 칸에서 해금 기록을 읽어 앉히고 카드를 다시 그린다 · 세션이 끝나면 비운다(launcher/user-local.js 의 animal 조각) */
+window._animalLoadLocal = function(){
+  _cheatOn = (accountStoreMod.get(CHEAT_KEY)==='1'); _everOn = (accountStoreMod.get(EVER_KEY)==='1'); _localLoaded = true;
+  initCard();   // 잠금 띠 · 안내 문구를 지금 값으로
+};
+window._animalResetLocal = function(){
+  _cheatOn = false; _everOn = false; _localLoaded = false;
+  initCard();
+};
 window.reopenAnimalCreator=function(def, opts){
   // 어디서 돌아왔는지 기억 — 저장 시 원본 def에 병합하고, 좌석 편집이면 그 좌석에 직접 반영한다.
   _editSrcDef = def || null;
   _targetSlot = null;   // ★ 재편집은 원본이 꽂힌 칸을 따라가야 하므로 [＋] 타깃을 비운다
-  _editSeat = (typeof creatorMode!=='undefined' && creatorMode && creatorMode.kind==='seat') ? creatorMode.seat : null;
-  const _fromLauncher = !!(typeof creatorMode!=='undefined' && creatorMode && creatorMode.cameFromLauncher);
-  openPreview();   // 창 열기(모델 로드 등)
+  _editSeat = (creatorMode() && creatorMode().kind==='seat') ? creatorMode().seat : null;
+  const _fromLauncher = !!(creatorMode() && creatorMode().cameFromLauncher);
+  if(!openPreview()) return;   // 창 열기(모델 로드 등) — 3D 를 못 만들면 아무것도 안 바꾸고 돌아간다
   // ★ openPreview는 '지금 런처가 켜져 있나'로 _prevLauncherOn을 정하는데, 이 경로는 인간 생성기가 이미 런처를
   //   꺼둔 상태라 항상 false가 된다. 그러면 closePreview가 런처를 복원하지 않고 → 뒤이은 openCreator의
   //   cameFromLauncher도 false → [완료] 후 closeCreator가 renderLauncher()를 안 불러서 런처가 옛 모습 그대로 남았음.
@@ -1940,7 +1990,9 @@ function _texFromDataURL(url, fallbackFill){
   const x=c.getContext('2d'); x.fillStyle=fallbackFill||'#ffffff'; x.fillRect(0,0,P_SZ,P_SZ);
   const t=new THREE.CanvasTexture(c); t.flipY=false; t.encoding=THREE.sRGBEncoding;
   const src=TwSafeHtml.safeUrl(url,'image');   // 남의 캐릭터 def 일 수 있다 — 허용된 그림 주소만
-  t.userData.twSrc=src||null; t.userData.twFill=fallbackFill||'#ffffff';   // 그래픽 리셋으로 캔버스가 비면 face-heal.js 가 이것으로 다시 그린다
+  /* 그래픽 리셋으로 캔버스가 비면 face-heal.js 가 이것으로 다시 그린다.
+     ⚠️ three r128 의 Texture 에는 userData 가 없다 — 있는 칸에 쓰듯 쓰면 던져서 동물 조립이 멈추고 사람 모델로 대신 그려진다 */
+  t.userData=Object.assign(t.userData||{}, { twSrc: src||null, twFill: fallbackFill||'#ffffff' });
   if(src){
     let late=0;
     const load=(u)=>{ const im=new Image(); im.crossOrigin='anonymous';   // Storage URL 텍스처용 CORS (dataURL엔 영향 없음)
@@ -1980,6 +2032,7 @@ window.buildAnimalBase=function(def){
     return null;   // 파싱 전이면 인간 폴백 → 파싱 완료 후 rebuildAnimalSeats가 다시 세움
   }
   const root=THREE.SkeletonUtils.clone(_ANIMAL_SCENE);
+  TwSkeletonShare.shareSkeletons(TwSkeletonShare.skinnedMeshesOf(root));   // 몸 · 얼굴 넷이 같은 뼈대 — Skeleton 하나로
   // 텍스처 — 몸/표정(fT)·감은눈(bT). 감은눈엔 몸 무늬가 자동복사돼 있어 통짜 스왑으로 깜빡임 성립.
   // 로컬 슬롯은 dataURL(animalBody), 방에서 온 def는 Storage URL(animalBodyUrl) — 둘 다 지원
   const srcBody  = def.animalBody  || def.animalBodyUrl  || null;
@@ -2083,3 +2136,6 @@ function init(){
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init);
 else init();
 })();
+}
+
+window.TwAnimal = { createAnimal };

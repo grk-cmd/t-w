@@ -4,7 +4,7 @@
    ★ 아래 본문은 app.js 에 있던 글 그대로다 — 들여쓰기도 바꾸지 않았다(옮기기 전 줄과 견주어 볼 수 있게).
      바뀐 것은 한 줄뿐이다 — _myHomeFriends → _myHomeFriends().
      app.js 가 친구 목록 구독마다 다시 대입하는 let 이라 값이 아니라 읽는 함수로 받는다.
-   ★ 함수(toast · escHtml · getMyUserId · getDisplayName · startRoom · doLeaveRoom · _friendInRoom)는 app.js 가 화살표로 넘긴다.
+   ★ 함수(toast · escHtml · startRoom · doLeaveRoom · _friendInRoom)는 app.js 가 화살표로 넘긴다 · 초대 통신은 deps invites(room-invite-rt.js).
      본문의 typeof 가드(typeof startRoom · typeof _friendInRoom · typeof toast)는 예전처럼 늘 통과한다.
      Presence 는 app.js 에서 이 모듈을 만드는 줄보다 앞에 선언되고 다시 대입되지 않는 const 라 값으로 받는다.
    ★ 밖에서 부르는 이름은 없다 — 버튼(#inviteFriendBtn · #fsInviteFriendBtn) 연결과 초대 수신 구독을 전부 만들 때 건다.
@@ -22,8 +22,7 @@
 function createRoomInviteUi(deps){
 const toast = deps.toast;
 const escHtml = deps.escHtml;                  // 팝업의 보낸 사람 이름
-const getMyUserId = deps.getMyUserId;
-const getDisplayName = deps.getDisplayName;    // 초대에 실어 보내는 내 이름
+const invites = deps.invites;                  // 🙋 방 초대 포트(room-invite-rt.js — 보내기 · 받기 · 지우기 · 방 코드 · 이름은 서버가 채운다)
 const startRoom = deps.startRoom;              // 수락 — 그 방으로
 const doLeaveRoom = deps.doLeaveRoom;          // 수락 — 이미 방에 있으면 먼저 나간다
 const _friendInRoom = deps.friendInRoom;       // 🏠 다른 방에 있는 친구 판정 — app.js(마이홈 친구 목록)
@@ -113,7 +112,7 @@ const _friendsClose = deps.friendsClose;       // (key) — 목록을 닫았다
         const inRoom = _friendInRoom(f);
         const nm = document.createElement('span');
         nm.style.cssText = 'color:var(--ink);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-        nm.textContent = f.name || '(이름 없음)';
+        nm.textContent = TwPersonName.shown(f.name);
         const meta = document.createElement('span');
         meta.style.cssText = 'font-size:10px;color:var(--ink-soft);margin-left:4px;';
         meta.textContent = 'Lv.' + (f.level || 1) + (inRoom ? ' 🏠' : '');
@@ -128,14 +127,15 @@ const _friendsClose = deps.friendsClose;       // (key) — 목록을 닫았다
         const send = async ()=>{
           btn.disabled = true; btn.textContent='...';
           st.sending.add(fid);
-          try{
-            if(window.firebaseAPI && firebaseAPI.sendRoomInvite){
-              await firebaseAPI.sendRoomInvite(fid, getMyUserId(), code, getDisplayName());
-              toast((f.name||'친구') + ' 님에게 초대를 보냈어요');
-              btn.textContent='완료';
-              st.sent.add(fid);
-            } else { toast('네트워크 연결이 필요해요'); btn.disabled=false; btn.textContent='초대'; }
-          }catch(e){ toast('초대에 실패했어요'); btn.disabled=false; btn.textContent='초대'; }
+          const r = await invites.send(fid);
+          if(r && r.ok){
+            toast(TwPersonName.shown(f.name) + ' 님에게 초대를 보냈어요');
+            btn.textContent='완료';
+            st.sent.add(fid);
+          }else{
+            if(INVITE_REFUSED[r && r.code]) toast(INVITE_REFUSED[r.code]); else TwErrorCodes.notify('E-ROOM-09', r && r.code);
+            btn.disabled=false; btn.textContent='초대';
+          }
           st.sending.delete(fid);
           if(_pick === st && st.gen !== gen && pickOv.style.display !== 'none') _renderPick();
         };
@@ -146,7 +146,7 @@ const _friendsClose = deps.friendsClose;       // (key) — 목록을 닫았다
                우리 방으로 부르는 정상적인 경우까지 못 하게 된다 — 그건 과하다. */
           if(inRoom && !warned){
             warned = true; st.warned.add(fid);
-            toast((f.name||'친구') + ' 님은 현재 다른 방에 입장 중입니다');
+            toast(TwPersonName.shown(f.name) + ' 님은 현재 다른 방에 입장 중입니다');
             btn.textContent = '그래도';
             btn.title = '한 번 더 누르면 초대를 보냅니다';
             return;
@@ -236,52 +236,46 @@ const _friendsClose = deps.friendsClose;       // (key) — 목록을 닫았다
 /* 🚪 방 초대 수신 — 어디에 있든 팝업으로 수락/거절. 수락하면 그 방으로 이동. */
 let _roomInviteBusy = false;
 const _inviteSeen = new Set();   // 이번 실행에서 본 초대(보낸 사람:보낸 시각) — 남은 옛 초대로 🔔 줄을 되돌리지 않게
-/* ⏳ 초대는 거절로 끝내지 않는다 — 팝업은 10분이 지나면 **창만 닫고**(거절 아님), 초대는 🔔 일정 알림 창의 줄에서 다시 연다.
-   ★ 오래된 초대(앱을 꺼 둔 사이에 온 것 등)는 팝업 없이 그 줄로만 알린다 — 몇 시간 전 초대에 바로 수락하면
-     이미 비어 있거나 다른 방이 된 방으로 끌려간다(줄을 누르면 친구가 지금 있는 방으로 묻는다 — friend-visit.js).
-   ⚠️ «오래됨» 문턱 10분은 보낸 쪽 PC 시계(ts)로 잰다 — 시계가 몇 분 어긋나도 방금 온 초대를 버리지 않게 넉넉히.
-     팝업이 떠 있는 10분은 팝업이 뜬 순간부터 잰다(아래). */
+/* ⏳ 초대는 거절로 끝내지 않는다 — 팝업은 10분이 지나면 **창만 닫고**(거절 아님), 초대는 🔔 일정 알림 창의 줄에서 다시 연다
+   (줄을 누르면 친구가 지금 있는 방으로 묻는다 — friend-visit.js).
+   ★ 오래된 초대는 서버가 걸러 준다 — 초대는 서버가 10분만 보관하고 남은 것만 다시 보낸다(앱이 PC 시계로 «오래됨» 을 가르지 않는다 —
+     시계가 어긋나면 방금 온 초대를 버린다). 팝업이 떠 있는 10분은 팝업이 뜬 순간부터 잰다(아래). */
 const ROOM_INVITE_POPUP_MS = 10 * 60 * 1000;
-const ROOM_INVITE_STALE_MS = 10 * 60 * 1000;
-function _bindRoomInviteReceiver(){
-  if(!(window.firebaseAPI && firebaseAPI.subscribeRoomInvites)) return;
-  const myId = getMyUserId();
-  if(!myId) return;   // 내 코드가 없으면 구독하지 않는다(roomInvites/null)
-  firebaseAPI.subscribeRoomInvites(myId, invites=>{
-    let ids = Object.keys(invites || {}).filter(id => invites[id] && typeof invites[id] === 'object');
+/* 보내기 거절 까닭(서버 code) → 안내 문구. 그 밖의 실패는 E-ROOM-09 */
+const INVITE_REFUSED = Object.freeze({
+  ROOM_INVITE_NOT_FRIEND: '친구에게만 초대를 보낼 수 있어요',
+  notReady: '서버에 연결된 뒤 보낼 수 있어요',
+});
+let _popupKill = null;      // 떠 있는 초대 팝업을 콜백 없이 치우는 함수
+/* 받은 초대 듣기 — 끊는 일은 세션이 맡는다(session.on · 로그인마다 새 세션이라 겹쳐 걸리지 않는다) */
+function _bindRoomInviteReceiver(session){
+  session.on(invites.onInvites(got=>{
+    let ids = Object.keys(got || {}).filter(id => got[id] && typeof got[id] === 'object');
     if(!ids.length) return;
-    /* 🔔 이번에 새로 온 초대 중 가장 최근 것을 일정 알림 줄로 — 팝업이 떠 있어도 · 오래된 것이어도.
+    /* 🔔 이번에 새로 온 초대 중 가장 최근 것을 일정 알림 줄로 — 팝업이 떠 있어도.
        이미 본 초대(처리하고 지운 뒤 남은 옛것)는 다시 올리지 않는다 · 보낸 쪽 시계끼리는 새로 온 것 안에서만 견준다 */
-    const fresh = ids.filter(id => !_inviteSeen.has(id + ':' + (invites[id].ts || 0)));
-    fresh.forEach(id => _inviteSeen.add(id + ':' + (invites[id].ts || 0)));
+    const fresh = ids.filter(id => !_inviteSeen.has(id + ':' + (got[id].ts || 0)));
+    fresh.forEach(id => _inviteSeen.add(id + ':' + (got[id].ts || 0)));
     if(fresh.length){
-      const latest = fresh.sort((a,b)=> (invites[b].ts||0) - (invites[a].ts||0))[0];
-      inviteNotice.note(latest, invites[latest]);
+      const latest = fresh.sort((a,b)=> (got[b].ts||0) - (got[a].ts||0))[0];
+      inviteNotice.note(latest, got[latest]);
     }
     if(_roomInviteBusy) return;
-    /* 오래된 초대는 팝업 없이 지운다(줄은 위에서 남겼다). 지우면 구독이 다시 불려 남은 것으로 이어진다. */
-    const _now = Date.now();
-    const _stale = ids.filter(id => (invites[id] && invites[id].ts > 0) && (_now - invites[id].ts > ROOM_INVITE_STALE_MS));
-    if(_stale.length){
-      _stale.forEach(id => { try{ Promise.resolve(firebaseAPI.clearRoomInvite(myId, id)).catch(()=>{}); }catch(_){} });
-      ids = ids.filter(id => _stale.indexOf(id) < 0);
-      if(!ids.length) return;
-    }
     _roomInviteBusy = true;
     // 가장 최근 초대 하나만 처리 (여러 개면 순차)
-    ids.sort((a,b)=> (invites[b].ts||0) - (invites[a].ts||0));
+    ids.sort((a,b)=> (got[b].ts||0) - (got[a].ts||0));
     const fromId = ids[0];
-    const inv = invites[fromId];
-    showRoomInvitePopup(inv.fromName || '친구', inv.roomCode, async (accepted)=>{
-      try{ await firebaseAPI.clearRoomInvite(myId, fromId); }catch(_){}   // 수락 · 거절 · 10분 닫힘 모두 — 다시 띄우지 않는다(줄은 남는다)
+    const inv = got[fromId];
+    showRoomInvitePopup(TwPersonName.shown(inv.fromName), inv.roomCode, async (accepted)=>{
       if(accepted === true && inv.roomCode){
         // 이미 다른 방이면 나간 뒤 이동
         try{ if(typeof Presence!=='undefined' && Presence.active()) await doLeaveRoom({ wipeChat: true }); }catch(_){}
         startRoom(inv.roomCode);
       }
       _roomInviteBusy = false;
+      invites.clear(fromId);   // 지우면 남은 초대로 다시 불린다(다음 것을 띄운다)
     });
-  });
+  }));
 }
 /* 🔔 작업표시줄 깜빡임 — 초대 팝업과 **수명을 정확히 같이 한다.**
    ⚠️ 켜는 곳과 끄는 곳이 갈라지면 안 된다. 그래서 팝업을 만드는 함수 안에서 켜고,
@@ -315,6 +309,7 @@ function showRoomInvitePopup(fromName, roomCode, cb){
   /* ⏳ 10분 — 팝업이 뜬 순간부터 잰다. 지나면 거절하지 않고 창만 닫는다(done('later')) — 🔔 일정 알림 줄에서 다시 연다.
      ★ done 은 한 번만 — 시간과 버튼이 같은 순간에 겹쳐도 cb 가 두 번 불리지 않게. */
   let finished = false, timer = null;
+  _popupKill = ()=>{ if(finished) return; finished = true; if(timer){ clearTimeout(timer); timer = null; } _flashTaskbar(false); try{ ov.remove(); }catch(_){} };
   const done = (val)=>{
     if(finished) return; finished = true;
     if(timer){ clearTimeout(timer); timer = null; }
@@ -324,10 +319,22 @@ function showRoomInvitePopup(fromName, roomCode, cb){
   box.querySelector('[data-a="ok"]').onclick = ()=>done(true);
   box.querySelector('[data-a="no"]').onclick = ()=>done(false);
 }
-// Firebase 준비되면 수신 구독 시작
-TwNetReady.whenNetReady(()=>_bindRoomInviteReceiver());
+/* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js STEPS.roomInvite) — 받은 초대는 realtime 연결 하나로 온다(로그인 뒤 붙으면 남은 초대를 서버가 다시 보낸다) */
+function startReceive(session){
+  if(!session) throw new Error('[room-invite] startReceive 에 세션이 없어요');
+  _bindRoomInviteReceiver(session);
+  /* 계정이 바뀌면(session.onReset) 앞 계정의 초대를 놓는다 — 받은 초대 비우기 · 떠 있는 팝업 치우기(다음 계정에 앞 계정 초대가 남지 않게). 듣기 끊기는 session.on 이 한다 */
+  session.onReset(stopReceive);
+}
+function stopReceive(){
+  if(_popupKill){ try{ _popupKill(); }catch(_){} _popupKill = null; }
+  _roomInviteBusy = false;
+  _inviteSeen.clear();
+  try{ invites.reset(); }catch(_){}
+}
 
 return {
+  startReceive, stopReceive,
   showPopup: showRoomInvitePopup,     // 받은 초대 팝업(검사용)
   busy: ()=>_roomInviteBusy,          // 팝업이 떠 있는 동안 true(검사용)
 };

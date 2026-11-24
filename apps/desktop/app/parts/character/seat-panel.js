@@ -27,7 +27,7 @@ function renderSeatTabs(){
   seatsEl.innerHTML='';
   const emo={focus:'⌨️',idle:'🙂',sleep:'💤',pet:'😊'};
   seats.forEach((s,i)=>{const b=document.createElement('button');b.className='seat'+(s===selected()?' sel':'')+(s.remote?' friend':'');
-    const nm=s.isMe?'나':(s.friendName||('친구'+i)); const st=s.remote?(' '+(emo[s.remoteState]||'')):'';
+    const nm=s.isMe?'나':(s.remote?TwPersonName.shown(s.friendName):('친구'+i)); const st=s.remote?(' '+(emo[s.remoteState]||'')):'';
     b.textContent=nm+st; b.onclick=()=>selectSeat(s); seatsEl.appendChild(b);});
 }
 function selectSeat(s){ setSelected(s); renderSeatTabs();

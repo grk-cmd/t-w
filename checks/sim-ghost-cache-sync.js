@@ -94,7 +94,7 @@ say('── 1. 재판정 신호는 한 함수로만 나간다');
 say('\n── 2. main 이 혼자 통과로 되돌리면 반드시 렌더러에 알린다');
 {
   /* ⓔ 렌더러 무응답 · ⓕ 굳은 클릭받기 · ⓖ 다른 앱 입력 — 셋 다 렌더러에게 묻지 않고 뒤집는다.
-     뒤집기만 하고 안 알리면 그 순간부터 렌더러 캐시가 틀어지고, 그게 이번 제보의 씨앗이다. */
+     뒤집기만 하고 안 알리면 그 순간부터 렌더러 캐시가 틀어지고, 그게 이번 제보의 원인이다. */
   const sites = [];
   const re = /_lastIgnoreRequested\s*=\s*true\s*;/g;
   let m;
@@ -302,6 +302,7 @@ say('\n── 9. 끄는 동안 penHitTest 가 와도 끌기가 안 끊긴다 (�
       _charBoundsLatest: () => null, _twMoveSeenAt: () => 0, clickPolicy: POL,
       setTwMoveSeenAt(){}, setLastActivity(){}, setLastAnyInput(){},
       _skipFlyingRigs: (a) => a, _skipHiddenDesk: (a) => a,
+      runCost: { add(){}, count(){} },   // 1분 [비용] 진단(shared/run-cost-diag.js) — 판정에는 안 닿는다
     }, { get: (t, k) => k in t ? t[k] : (() => any) });
     const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval',
       'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module', 'console',
@@ -345,13 +346,13 @@ say('\n── 9. 끄는 동안 penHitTest 가 와도 끌기가 안 끊긴다 (�
     S3.pen({ left: true, pen: true, ig: true }); S3.flush();
     chk(S3.last() === true, '★ 끄는 중이지만 main 이 이미 통과 → 캐시 버리고 따라간다(통과)');
 
-    /* 일부러 깨 보기 — 보호 줄을 빼면 끄는 중 left 가 통과로 바뀌어야 한다 */
+    /* mutation test — 보호 줄을 빼면 끄는 중 left 가 통과로 바뀌어야 한다 */
     const broken = MOD.replace(/\n\s*if\(p\.act === 'keep'\) return;\n/, '\n');
-    if(broken === MOD) huh('깨 보기용 보호 줄을 못 찾음');
+    if(broken === MOD) huh('mutation test 용 보호 줄을 못 찾음');
     else {
       const B = start(broken);
       B.pen({ left: true, pen: true, ig: false }); B.flush();
-      chk(B.last() === true, '  깨 보기: penHitTest 보호를 빼면 끄는 중에도 통과로 바뀐다(옛 동작 재현)');
+      chk(B.last() === true, '  mutation test: penHitTest 보호를 빼면 끄는 중에도 통과로 바뀐다(옛 동작 재현)');
     }
   }
 }

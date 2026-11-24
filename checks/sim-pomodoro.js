@@ -80,7 +80,8 @@ say('── 3. 동작');
   const fns = ['_pomoClampMin','_pomoSaveCfg','_pomoSaveRun','_pomoPhaseMs','_pomoLeftMs','_pomoFmt','_pomoShowText','_pomoStartPhase','_pomoChime','_pomoAdvance','_pomoTick'].map(n => grabFn(n, PM)).join('\n');
   const T = new Function('env', `
     const Date = { now: () => env.now };
-    const localStorage = { setItem:(k,v)=>{ env.ls[k]=String(v); }, getItem:(k)=>env.ls[k] ?? null, removeItem:(k)=>{ delete env.ls[k]; } };
+    const pomoStore = { set:(k,v)=>{ env.ls[k]=String(v); return true; }, get:(k)=>env.ls[k] ?? null, remove:(k)=>{ delete env.ls[k]; return true; } };
+    var _pomoStarted = true;
     const toast = (m) => env.toasts.push(m);
     const _focusShowPush = () => { env.pushes++; };
     const _pomoRender = () => {};

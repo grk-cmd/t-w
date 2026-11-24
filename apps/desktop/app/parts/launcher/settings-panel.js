@@ -6,13 +6,14 @@
      MULTIPLAYER_SPACING · Presence · SPACING · _moveModeJustToggled · curSlot · decoPartsVisible · dotRenderEnabled · emojiReactionsEnabled · focusCharScale · isPremium · moveMode · nameplateEnabled · roomSeatMode · seatEqualizeOn · slots · wardrobeMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setMULTIPLAYER_SPACING · setSPACING · setMoveModeJustToggled · setCurSlot · setDecoPartsVisible · setDotRenderEnabled · setEmojiReactionsEnabled · setFocusCharScale · setMoveMode · setNameplateEnabled · setRoomSeatMode · setSeatEqualizeOn(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 24개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: openSettings · closeSettings · onTabShown · nameplateClamp · nameplatePct · EXTRA_SEAT_KEY · MY_AD_BANNER_KEY · _saveExtraSeatSlots · addExtraSeat · applyExtraSeatForMode · extraSeatSlots · loadAdBannerSlides · refreshFsAdBanner · renderCharSlots — app.js 는 settingsMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: openSettings · closeSettings · onTabShown · nameplateClamp · nameplatePct · EXTRA_SEAT_KEY · MY_AD_BANNER_KEY · _saveExtraSeatSlots · loadExtraSeatSlots · addExtraSeat · applyExtraSeatForMode · extraSeatSlots · loadAdBannerSlides · refreshFsAdBanner · renderCharSlots — app.js 는 settingsMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwSettingsPanel — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-settings-panel.js */
 (function(){
 
 function createSettingsPanel(deps){
+const settingsAccountStore = deps.settingsAccountStore;   // 🗂️ 계정별 칸(shared/account-store.js) — 내 배너 그림은 이 계정이 이 PC 에서 고른 것
 const GAP_MAX = deps.GAP_MAX;
 const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판(myhome-hooks.js) — 줌이 바뀌면 마이홈 BGM 창 자리도 다시 보낸다
 const GAP_MIN = deps.GAP_MIN;
@@ -21,6 +22,7 @@ const MULTIPLAYER_SPACING = deps.MULTIPLAYER_SPACING;   // 읽는 함수
 const Presence = deps.Presence;   // 읽는 함수
 const SPACING = deps.SPACING;   // 읽는 함수
 const _chatEsc = deps._chatEsc;
+const adBannerSlides = deps.adBannerSlides;   // 서버가 준 배너 슬라이드(공지 한 판 — notice-feed.js)
 const _moveModeJustToggled = deps._moveModeJustToggled;   // 읽는 함수
 const allDeskItems = deps.allDeskItems;
 const applyCharToSeat = deps.applyCharToSeat;
@@ -94,6 +96,12 @@ const fsWin = (function bindFocusSettings(){
     if(!bar) return;
     bar.style.cursor='move';
     let dragging=false, offX=0, offY=0;
+    /* 화면 안으로 — 머리 위 자동 배치(status-chip.js)와 같은 규칙. 끈 자리에 그대로 두면 긴 탭에서 제목줄이 화면 위로 나간다 */
+    const fitTo = (x, y)=>{
+      const f = TwPanelFit.fitBottomCenter(x, y, panel.offsetWidth, panel.offsetHeight, innerWidth, innerHeight, 8);
+      panel.style.left=f.x+'px';
+      panel.style.top =f.y+'px';
+    };
     bar.addEventListener('pointerdown', e=>{
       if(e.target.closest && e.target.closest('#fsPanelClose')) return;   // ✕ 버튼은 그대로 닫기
       if(panel.classList.contains('fs-in-launcher')) return;   // 런처에선 가운데 고정 — 옮긴 자리가 실행 화면까지 따라가지 않게
@@ -104,11 +112,16 @@ const fsWin = (function bindFocusSettings(){
     });
     document.addEventListener('pointermove', e=>{
       if(!dragging) return;
-      // transform:translate(-50%,-100%) 기준 좌표계를 그대로 쓰므로 left/top만 갱신하면 됨
-      panel.style.left=(e.clientX-offX)+'px';
-      panel.style.top =(e.clientY-offY)+'px';
+      fitTo(e.clientX-offX, e.clientY-offY);   // left/top 은 창의 아래 가운데(transform:translate(-50%,-100%))
     });
     document.addEventListener('pointerup', ()=>{ dragging=false; });
+    /* 탭을 바꾸거나 화면 크기가 바뀌면 창이 위로 자란다 — 끌어 옮긴 뒤에는 자동 배치가 쉬므로 여기서 다시 맞춘다 */
+    const refit = ()=>{
+      if(!window._fsPanelDragged || !panel.classList.contains('on')) return;
+      fitTo(parseFloat(panel.style.left)||0, parseFloat(panel.style.top)||0);
+    };
+    new ResizeObserver(refit).observe(panel);
+    window.addEventListener('resize', refit);
   })();
 
   const FOCUS_APP_SLOTS = 8;   // ★ 4 → 8칸으로 확장. .fs-slots가 flex-wrap이라 2줄로 자동 배치됨.
@@ -172,7 +185,7 @@ const fsWin = (function bindFocusSettings(){
     else if(!res || !res.ok || !res.list || !res.list.length){
       box.innerHTML=head+'<div style="font-size:10px;color:var(--ink-soft);padding:6px;line-height:1.5;">'
         +'열려 있는 창을 찾지 못했어요.<br>등록할 프로그램을 <b>창 모드</b>로 띄운 뒤 다시 열어 주세요.<br>'
-        +'관리자 권한으로 실행 중인 프로그램은 목록에 나오지 않아요.</div>';
+        +'안티치트가 붙은 게임은 «(제목 없는 창)» 이나 실행 파일 이름으로 보일 수 있어요.</div>';
     }else{
       box.innerHTML=head+res.list.map((w,i)=>
         '<div class="fs-win-item" data-i="'+i+'" style="padding:4px 6px;font-size:11px;color:var(--ink);cursor:pointer;line-height:1.3;border-radius:3px;">'
@@ -233,14 +246,13 @@ const fsWin = (function bindFocusSettings(){
                그래서 "등록이 안 된다"는 제보가 와도 어느 경우인지 구분이 안 됐다. 경우가 다르면
                사용자가 할 일도 다르므로 나눠서 안내한다.
                ・self-active     — 우리 창이 활성이라 '직전에 쓰던 프로그램'을 못 집었다
-               ・activeWin-*     — Windows 가 그 창 정보를 안 준다. **관리자 권한으로 뜬 창**이
-                 대표적이다(권한이 낮은 프로세스는 높은 프로세스의 창을 조회할 수 없다 — UIPI).
-                 이 경우 투게더워킹도 같은 관리자 권한으로 실행해야 보인다.
+               ・activeWin-*     — Windows 가 그 창 정보를 안 준다(안티치트 게임 등). 창 목록은
+                 tasklist 가 이름을 주면 그 창도 보여 주므로 우클릭 목록으로 보낸다.
                ・no-owner        — 전체화면 독점 모드 게임 등, 창 소유 프로세스를 못 읽는 경우 */
             const d = String((res && res.diag) || '');
             let msg;
             if(d.indexOf('self-active') === 0)          msg = '등록할 프로그램을 한 번 클릭해 쓰신 뒤에 눌러 주세요';
-            else if(d.indexOf('activeWin') === 0)       msg = '그 창의 정보를 읽을 수 없어요 — 관리자 권한으로 실행 중인 프로그램이면 투게더워킹도 관리자 권한으로 실행해 주세요';
+            else if(d.indexOf('activeWin') === 0)       msg = '그 창의 정보를 읽을 수 없어요 — 슬롯을 우클릭해 창 목록에서 직접 골라 주세요';
             else if(d.indexOf('no-owner') === 0)        msg = '전체화면 게임은 창(테두리 없는 창) 모드로 바꾼 뒤 등록해 주세요';
             else                                       msg = '먼저 등록할 프로그램을 켜서 사용해 주세요';
             toast(msg);
@@ -478,7 +490,7 @@ const fsWin = (function bindFocusSettings(){
   const eqBtn=document.getElementById('fsSeatEqToggle');
   if(eqBtn) eqBtn.onclick=()=>{
     setSeatEqualizeOn(!seatEqualizeOn());
-    try{ localStorage.setItem('tw.seatEq', seatEqualizeOn()?'1':'0'); }catch(_){}
+    try{ settingsAccountStore.set('tw.seatEq', seatEqualizeOn()?'1':'0'); }catch(_){}
     refreshToggleBtns();
     /* ⚠️ syncSeatEqualize 를 직접 부르지 않고 layoutSeats 를 부른다 — 그 안에서 동기화가 먼저 돌고,
        이어서 바뀐 책상 폭으로 좌석 간격·카메라 줌까지 다시 잡힌다. 여기서 동기화만 하면
@@ -497,14 +509,14 @@ const fsWin = (function bindFocusSettings(){
   const dpBtn=document.getElementById('fsDecoPartsToggle');
   if(dpBtn) dpBtn.onclick=()=>{
     setDecoPartsVisible(!decoPartsVisible());
-    try{ localStorage.setItem('tw.decoParts', decoPartsVisible()?'1':'0'); }catch(_){}
+    try{ settingsAccountStore.set('tw.decoParts', decoPartsVisible()?'1':'0'); }catch(_){}
     refreshToggleBtns();
     try{ seats.forEach(s => applyClothVisibility(s)); }catch(_){}
   };
   const emojiBtn=document.getElementById('fsEmojiToggle');
   if(emojiBtn) emojiBtn.onclick=()=>{
     setEmojiReactionsEnabled(!emojiReactionsEnabled());
-    localStorage.setItem('tw.emojiReactions', emojiReactionsEnabled()?'1':'0');
+    try{ settingsAccountStore.set('tw.emojiReactions', emojiReactionsEnabled()?'1':'0'); }catch(_){}
     refreshToggleBtns();
   };
   const dotBtn=document.getElementById('fsDotToggle');
@@ -620,23 +632,16 @@ const onTabShown = fsWin.onTabShown;   // (fn(탭)) — 탭을 보일 때마다 
    라이선스 보유자(isPremium)는 배너 우클릭 시 파일 선택창이 떠서 자기 이미지(로컬 저장, 이 기기 한정)로 바꿀 수 있음.
    라이선스 없으면 우클릭해도 아무 반응 없음. */
 const MY_AD_BANNER_KEY = 'tw.myAdBannerImg';
-// 공용: 저장된 배너 슬라이드 배열 읽기(빈 슬롯/이미지 없는 항목 제외). 예전 단일 객체 저장 방식과도 호환.
+// 공용: 서버가 준 배너 슬라이드(런처 배너와 같은 한 벌 — ad-banner.js 가 공지 한 판에서 읽는다). 아직 못 받았으면 빈 배열.
 function loadAdBannerSlides(){
-  // ★ AD_BANNER_KEY는 파일 뒷부분(11346줄)에 선언된 전역 const — 이 함수가 그보다 먼저 호출되면
-  //   TDZ(Temporal Dead Zone) ReferenceError로 죽어 배너가 안 보이는 유저가 생김.
-  //   문자열 리터럴을 직접 써서 TDZ를 우회. (뒤의 상수 값과 정확히 일치해야 함)
-  try{
-    const raw = JSON.parse(localStorage.getItem('tw.adBanner')||'null');
-    const arr = Array.isArray(raw) ? raw : (raw && raw.img ? [raw] : []);
-    return arr.filter(s=>s && s.img);
-  }catch(e){ return []; }
+  return adBannerSlides();
 }
 let _fsAdSlides=[], _fsAdIdx=0, _fsAdTimer=null;
 function refreshFsAdBanner(){
   const img=document.getElementById('fsAdBannerImg'); if(!img) return;
   if(_fsAdTimer){ clearInterval(_fsAdTimer); _fsAdTimer=null; }
   try{
-    const mine = localStorage.getItem(MY_AD_BANNER_KEY);
+    const mine = settingsAccountStore.get(MY_AD_BANNER_KEY);
     const mineSrc = TwSafeHtml.safeUrl(mine, 'image');
     if(mineSrc){ img.src=mineSrc; img.style.display='block'; return; }   // 개인 이미지는 고정 하나(슬라이드 아님)
   }catch(e){}
@@ -668,7 +673,7 @@ function refreshFsAdBanner(){
     const f=e.target.files[0]; if(!f) return;
     const reader=new FileReader();
     reader.onload=()=>{
-      try{ localStorage.setItem(MY_AD_BANNER_KEY, reader.result); refreshFsAdBanner(); toast('배너 이미지를 등록했어요'); }
+      try{ if(!settingsAccountStore.set(MY_AD_BANNER_KEY, reader.result)) throw new Error('not saved'); refreshFsAdBanner(); toast('배너 이미지를 등록했어요'); }
       catch(err){ toast('저장 공간이 부족해요'); }
     };
     reader.readAsDataURL(f);
@@ -680,14 +685,15 @@ function refreshFsAdBanner(){
 })();
 
 const EXTRA_SEAT_KEY = 'tw.extraSeatSlots';   // 저장 형식: JSON 배열, 예 [1,2]
-let extraSeatSlots = [];
-(function _loadExtraSeatSlots(){
+let extraSeatSlots = [];   // 만들 때는 비어 있다 — 계정 칸은 확인 전엔 닫혀 있다. 확인 뒤 loadExtraSeatSlots 가 읽는다(launcher/user-local.js)
+function loadExtraSeatSlots(){
+  extraSeatSlots = [];
   try{
-    const raw = localStorage.getItem(EXTRA_SEAT_KEY);
+    const raw = settingsAccountStore.get(EXTRA_SEAT_KEY);
     if(raw){ const arr=JSON.parse(raw); if(Array.isArray(arr)) extraSeatSlots = arr.filter(n=>Number.isInteger(n)); }
   }catch(e){}
-})();
-function _saveExtraSeatSlots(){ try{ localStorage.setItem(EXTRA_SEAT_KEY, JSON.stringify(extraSeatSlots)); }catch(e){} }
+}
+function _saveExtraSeatSlots(){ try{ settingsAccountStore.set(EXTRA_SEAT_KEY, JSON.stringify(extraSeatSlots)); }catch(e){} }
 
 // 저장된 def를 가진 아이템의 desk item(화분/머그컵/책 등)을 전부 제거 — 캐릭터 교체 시 이전 캐릭터의
 // 책상 아이템이 새 캐릭터에 그대로 남아있는 걸 방지(applyDeskItemsTo는 "새 def에 있는 것만" 추가할 뿐
@@ -932,6 +938,7 @@ return {
   EXTRA_SEAT_KEY,
   MY_AD_BANNER_KEY,
   _saveExtraSeatSlots,
+  loadExtraSeatSlots,   // 확인 뒤 계정 칸에서 읽는다(launcher/user-local.js) — 비우기는 setExtraSeatSlots([])
   addExtraSeat,
   applyExtraSeatForMode,
   extraSeatSlots: ()=>extraSeatSlots,   // 읽는 함수

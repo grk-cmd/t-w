@@ -12,14 +12,13 @@ const VOL_KEY = 'tw.listenVol';     // 기기 설정 — 플레이리스트 음�
 const MUTE_KEY = 'tw.listenMute';
 const TICK_MS = 1000;
 const SEEK_GAP_MS = 8000;            // 위치 옮기기 사이 최소 간격 — 옮긴 직후 하트비트가 옛 위치를 한 번 더 말해도 또 옮기지 않게
-const RETRY_MS = 5000;               // 쓰기가 막힌 뒤 저절로 다시 쓰기까지 — 1초 tick 마다 거부당하지 않게(버튼은 기다리지 않는다)
 const VOL_RESEND_MS = [120, 300, 600, 1000, 1600, 2400];   // 새 페이지의 <video> 가 생길 때까지 음량을 다시 보낸다(playlist.js _plApplyVolSoon 과 같은 까닭)
 
 /**
  * @param {{
  *   model: typeof window.TwListenModel,
- *   provider: { subscribe(room: string, cb: (m: object|null|undefined) => void, onErr: (e: unknown) => void): () => void,
- *               write(room: string, m: object|null): Promise<{ ok: boolean, err?: unknown }>, now(): number, lastSeq(): number },
+ *   provider: { subscribe(room: string, cb: (m: object|null|undefined) => void): () => void,
+ *               write(room: string, m: object|null): Promise<{ ok: boolean, err?: unknown }>, now(): number|null, lastSeq(): number },
  *   companion: () => any,
  *   roomCode: () => string|null,
  *   meta: () => object|null,
@@ -57,14 +56,13 @@ const $ = (id) => document.getElementById(id);
 let room = null;          // 구독 중인 방 코드
 let unsub = null;
 let music;                // undefined 불러오는 중 · null 틀 곡 없음 · 곡
-let loadFailed = false;
 let owner = null;         // 재생 창 주인 — 'listen' 이면 내가 연 곡이 나고 있다
 let openedKey = null;     // 내가 연 곡(id|at) — 같은 곡을 다시 열지 않게 · 멈춤을 걸 곡인지 본다
 let playerPaused = false;
 let lost = false;         // 다른 음악이 이김 — [다시 듣기] 전까지 재생 창을 안 건드린다
 let selfCloses = 0;       // 내가 닫은 재생 창의 «닫힘» 알림 수 — 그건 «다른 음악이 이김» 이 아니다(알림이 곡을 연 뒤에 올 수 있다)
 let writing = false;
-let retryAt = 0;          // 쓰기가 막힌 뒤 저절로 다시 쓰는 때(1초 tick 마다 거부당하지 않게) — 버튼은 기다리지 않는다
+let writeFailed = false;   // 쓰기가 막혔다 — 저절로 다시 쓰지 않는다(사람이 누른 버튼 · 서버가 보낸 새 곡 신호 · 방을 옮김이 풀어 준다)
 let advancedSeq = -1;     // 이 차례 번호에서 이미 다음 곡을 썼다(곡 끝 신호 · 예비 판정 · 버튼이 겹쳐도 한 번)
 let errNotified = null;   // 못 트는 곡 알림은 곡마다 한 번
 let lastSeekAt = 0;
@@ -75,7 +73,14 @@ function readNum(key, dflt){ try{ const v = parseInt(localStorage.getItem(key), 
 let vol = Math.max(0, Math.min(100, readNum(VOL_KEY, 80)));
 let muted = readNum(MUTE_KEY, 0) === 1;
 
-function now(){ return provider.now(); }
+let clockWarned = false;
+/* 서버 시각(ms) — 모르면 null(기기 시계로 대신하지 않는다). 부르는 곳은 null 이면 그 일을 건너뛴다 · 경고는 모르는 동안 한 번 */
+function now(){
+  const t = provider.now();
+  if(t === null){ if(!clockWarned){ clockWarned = true; console.warn('[같이 듣기] 서버 시각을 아직 몰라요'); } }
+  else clockWarned = false;
+  return t;
+}
 function djId(){ return room ? model.djOf(meta(), [myId()].concat(memberIds())) : null; }
 function amDj(){ const me = myId(); return !!me && djId() === me; }
 
@@ -96,8 +101,9 @@ function closePlayer(){
 function quietPersonal(){ if(stopPersonal()) selfCloses++; }
 function openPlayer(m){
   const c = companion();
+  const t = now(); if(t === null) return;
   c.setBgmLoop(false);   // 개인 «한 곡 반복» 이 남아 있으면 곡 끝 신호가 안 온다
-  c.openListenTrack('https://www.youtube.com/watch?v=' + m.id, m.title, Math.floor(model.posOf(m, now())));
+  c.openListenTrack('https://www.youtube.com/watch?v=' + m.id, m.title, Math.floor(model.posOf(m, t)));
   owner = 'listen'; openedKey = keyOf(m); playerPaused = false; lastSeekAt = Date.now();
   applyVolSoon();
 }
@@ -124,36 +130,40 @@ async function write(m){
   try{ r = await provider.write(r0, m); }catch(e){ r = { ok: false, err: e }; }
   writing = false;
   const ok = !!(r && r.ok);
-  if(room === r0 && !ok){ retryAt = Date.now() + RETRY_MS; notifyError('E-ROOM-05', r && r.err); }
+  if(room === r0 && !ok){ writeFailed = true; notifyError('E-ROOM-05', r && r.err); }
+  if(ok) writeFailed = false;
   return ok;
 }
 /** 다음(1) · 이전(-1) 곡 — 지금 곡이 옛 DJ 것이면 내 목록 첫 곡부터 · 내 목록이 비면 칸을 지운다(«틀 곡 없음») */
 async function advance(dir){
   if(!amDj() || !music || advancedSeq === music.seq) return;
+  const t = now(); if(t === null) return;
   const seq = music.seq;
   advancedSeq = seq;
   const items = djItems(), me = myId();
   const i = (music.by !== me) ? model.playableFrom(items, 0, 1)
           : model.playableFrom(items, model.stepIndex(items, music.id, dir), dir);
-  const ok = await write(i >= 0 ? model.makeMusic(items[i], me, now(), seq) : null);
+  const ok = await write(i >= 0 ? model.makeMusic(items[i], me, t, seq) : null);
   if(!ok && advancedSeq === seq) advancedSeq = -1;   // 못 썼으면 이 차례에서 다시 넘길 수 있게
 }
 /* 내가 DJ 일 때 해야 할 일 — 칸이 비었으면 첫 곡 · 옛 DJ 가 멈춘 채 나갔으면 다시 · 곡이 끝났는데 신호를 못 받았으면 다음 */
 function reconcileDj(){
-  if(!room || music === undefined || loadFailed || writing || Date.now() < retryAt || !amDj()) return;
+  if(!room || music === undefined || writing || writeFailed || !amDj()) return;
+  const t = now(); if(t === null) return;
   const me = myId();
   if(music === null){
     const items = djItems(), i = model.playableFrom(items, 0, 1);
-    if(i >= 0) write(model.makeMusic(items[i], me, now(), provider.lastSeq()));   // 방 서버는 지운 뒤에도 차례를 기억한다
+    if(i >= 0) write(model.makeMusic(items[i], me, t, provider.lastSeq()));   // 방 서버는 지운 뒤에도 차례를 기억한다
     return;
   }
   // 옛 DJ 가 멈춘 채 나감 — 다시 틀며 쓴 사람을 나로 바꾼다(내가 다시 멈춘 곡을 또 풀지 않게)
-  if(music.paused && music.by !== me){ const m = model.resumed(music, now(), me); if(m) write(m); return; }
-  if(model.isEnded(music, now())) advance(1);
+  if(music.paused && music.by !== me){ const m = model.resumed(music, t, me); if(m) write(m); return; }
+  if(model.isEnded(music, t)) advance(1);
 }
 function togglePause(){
   if(!amDj() || !music) return;
-  const m = music.paused ? model.resumed(music, now(), myId()) : model.paused(music, now(), myId());
+  const t = now(); if(t === null) return;
+  const m = music.paused ? model.resumed(music, t, myId()) : model.paused(music, t, myId());
   if(m) write(m);
 }
 
@@ -168,9 +178,10 @@ function onSignal(kind){
   }
   const beat = model.parseBeat(kind);
   if(!beat) return;
-  if(model.needSeek(music, now(), beat) && Date.now() - lastSeekAt >= SEEK_GAP_MS){
+  const t = now();
+  if(t !== null && model.needSeek(music, t, beat) && Date.now() - lastSeekAt >= SEEK_GAP_MS){
     lastSeekAt = Date.now();
-    companion().bgmSeek(Math.floor(model.posOf(music, now())));
+    companion().bgmSeek(Math.floor(model.posOf(music, t)));
   }
   if(!beat.ad && amDj() && music.by === myId()){ const m = model.withDur(music, beat.dur); if(m) write(m); }
 }
@@ -197,12 +208,11 @@ function relisten(){
 /* ── 구독 ── */
 function onMusic(v){
   music = v;
-  if(v !== undefined) loadFailed = false;
+  writeFailed = false;   // 서버가 새 곡 신호를 보냈다 — 그 위에서 다시 판단한다
   applyPlayer();
   reconcileDj();
   paint();
 }
-function onLoadErr(e){ loadFailed = true; notifyError('E-ROOM-07', e); paint(); }
 /* 재생 창 알림은 처음 방에 들어갈 때 건다 — 앱이 아닌 곳(웹 미리보기 · smoke)엔 companion 이 없고, 같이 듣기 방은 앱에서만 들어간다 */
 let bound = false;
 function bindPlayer(){
@@ -215,9 +225,9 @@ function bindPlayer(){
 }
 function start(code){
   bindPlayer();
-  room = code; music = undefined; loadFailed = false; lost = false; advancedSeq = -1; errNotified = null; retryAt = 0;
+  room = code; music = undefined; lost = false; advancedSeq = -1; errNotified = null; writeFailed = false;
   // 내 플레이리스트는 곡이 오면 재생 창을 넘겨주며 지고, 틀 곡이 없거나 멈춤이면 applyPlayer 가 멈춘다
-  unsub = provider.subscribe(code, onMusic, onLoadErr);
+  unsub = provider.subscribe(code, onMusic);
   tickT = setInterval(() => { reconcileDj(); paint(); }, TICK_MS);   // DJ · 사람 수가 meta 없이 바뀌어도 창 글이 따라가게
 }
 function stop(){
@@ -254,17 +264,18 @@ function paintButton(){
 function fmt(sec){ const s = Math.max(0, Math.floor(sec)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 function paintTime(){
   if(!isOpen() || !music) return;
-  const p = model.posOf(music, now()), d = Number(music.dur) || 0;
+  const t = now(); if(t === null) return;
+  const p = model.posOf(music, t), d = Number(music.dur) || 0;
   $('lsNow').textContent = fmt(d > 0 ? Math.min(p, d) : p);
   $('lsLen').textContent = d > 0 ? fmt(d) : '';
   $('lsBar').style.width = (d > 0 ? Math.min(100, p / d * 100) : 0) + '%';
 }
 /** 지금 무엇을 보여 줄지(글) — 순서가 곧 우선순위 */
 function stateText(dj, me){
-  if(loadFailed) return '같이 듣기를 불러오지 못했어요';
   if(music === undefined) return '불러오는 중…';
   if(lost) return '다른 음악을 틀고 있어 같이 듣기가 멈췄어요';
-  const ended = !!music && model.isEnded(music, now());
+  const t = now();
+  const ended = !!music && t !== null && model.isEnded(music, t);
   if(!dj && (!music || ended)) return isSecretRoom() ? 'DJ(방 주인)가 없어서 쉬는 중이에요' : 'DJ 가 없어서 쉬는 중이에요';
   if(!music) return dj === me ? '내 플레이리스트가 비어 있어요 — 곡을 담으면 바로 틀어요' : 'DJ 가 아직 곡을 고르지 않았어요';
   if(music.paused) return '⏸ DJ 가 잠시 멈췄어요';

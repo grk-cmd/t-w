@@ -3,7 +3,7 @@
    ・1절 종족 선택 창을 닫고 연다 — 인간 카드처럼. 남겨 두면 창 쌓기가 올린 선택 창(83~)이 동물 만들기 창(56)을 덮는다(B-1119-5)
    ・2절 신규 컨텍스트 — 편집 대상(_editSrcDef · _editSeat)을 비우고 [＋]가 정한 칸을 받는다 · 칸이 숫자가 아니면 null
    ・3절 카드의 두 길(정상 · 숨김 해금)이 모두 이 한 벌을 부른다 — 카드 안에서 따로 openPreview 를 부르지 않는다
-   ・4절 깨 보기
+   ・4절 mutation test
    ・5절 신규 상태 초기화(_resetAnimalState) — 앱을 켜고 처음 열 때(창이 아직 없음)도 끝까지 돌아 «고치던 칸» 표시(creatorMode)를 지운다 */
 'use strict';
 const fs = require('fs');
@@ -66,10 +66,10 @@ const calls = (CARD.match(/\bstartNewAnimal\(\)/g) || []).length;
 chk(calls === 2, '정상 · 숨김 해금 두 길이 모두 startNewAnimal() 을 부른다 (' + calls + ')');
 chk(!/\bopenPreview\(\)/.test(CARD) && !/_resetAnimalState\(\)/.test(CARD), '카드 안에서 따로 열거나 초기화하지 않는다(한 벌만)');
 
-say('── 4절 깨 보기');
+say('── 4절 mutation test');
 if (FN){
   const broken = FN.replace(/\n[^\n]*raceOverlay[^\n]*/, '');
-  chk(broken !== FN && world(broken, { slot: 1 }).raceOn(), '깨 보기 — 선택 창 닫는 줄을 빼면 창이 남는다(1절이 잡는 모양)');
+  chk(broken !== FN && world(broken, { slot: 1 }).raceOn(), 'mutation test — 선택 창 닫는 줄을 빼면 창이 남는다(1절이 잡는 모양)');
 }
 
 say('── 5절 신규 상태 초기화');
@@ -97,7 +97,7 @@ else {
   chk(again.mode.edit === false && btns[0].on === true && btns[1].on === false, '다시 열기(창 있음) — 얼굴 단추 표시까지');
   const broken = RESET.replace('if(overlay) markFaceBtns();', 'markFaceBtns();');
   const b = reset(broken, null);
-  chk(broken !== RESET && b.mode.edit === true && b.warns.length === 1, '깨 보기 — 창이 없을 때도 단추를 고치면 던져서 표시가 남는다(위가 잡는 모양)');
+  chk(broken !== RESET && b.mode.edit === true && b.warns.length === 1, 'mutation test — 창이 없을 때도 단추를 고치면 던져서 표시가 남는다(위가 잡는 모양)');
 }
 
 say(`\n${fail ? '✗' : '✓'} ${pass} 통과 · ${fail} 실패`);

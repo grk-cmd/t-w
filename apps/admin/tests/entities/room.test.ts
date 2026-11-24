@@ -456,7 +456,7 @@ describe('상태 칸 — 사람이 있는 고아만 «목록에 없음»', () =>
       secretServer: 1,
       secret: 1,
     });
-    // 깨 보기: 개수를 다 더하면 줄 수 — 한 줄도 빠지거나 두 번 세지 않는다
+    // 확인: 개수를 다 더하면 줄 수 — 한 줄도 빠지거나 두 번 세지 않는다
     expect(ROOM_STATES.reduce((n, s) => n + counts[s], 0)).toBe(rows.length);
     for (const r of rows) expect(ROOM_STATES).toContain(roomStateOf(r));
   });

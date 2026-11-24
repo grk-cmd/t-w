@@ -1,10 +1,10 @@
 /* ═══ 🖼️ sim-admin-thumbs.js — 🖼️ 관리자 콘솔 모듈 구조 (2026-10-16 신설 · 구역 떼기 C · w2) ═══════════════
-   app.js 의 관리자 콘솔 썸네일 다시 굽기 본문 을 parts/admin/admin-thumbs.js 로 옮겼다(글자 그대로 · 바뀐 줄 2 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(4절 — 관리자 아님 · 없는 것만 · force · 올리기 · 끝난 뒤 다시 그리기).
+   app.js 의 관리자 콘솔 썸네일 다시 굽기 본문 을 parts/admin/admin-thumbs.js 로 옮겼다(D11-4 — 올리기는 서버 카탈로그 쓰기 catalogAdmin). 4절이 동작을 본다(관리자 아님 · 없는 것만 · force · 서버에 쓰기 · 끝난 뒤 한 번 다시 받기 · 다시 그리기).
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(없음)
-   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 8줄 그대로 · 부르는 곳은 adminThumbs.이름 · html(app.js 앞)
+   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 7줄 그대로 · 부르는 곳은 adminThumbs.이름 · html(app.js 앞)
    ・4절: 동작 — 순수 판정 · 가짜 객체로 입력 → 출력 · 경계값(옮기기 전 app.js 글로도 같은 판정이 돈다)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · admin-thumbs.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -18,15 +18,15 @@ const MOD = ["admin-thumbs.js","parts/admin/admin-thumbs.js","app/parts/admin/ad
 if(!MOD){ say('  ? 원본 못 찾음 — admin-thumbs.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const CSRC = ["catalog-source.js","parts/character/catalog-source.js","app/parts/character/catalog-source.js"].map(read).find(Boolean);   // 서버 provider — 4절은 진짜 Firebase 판을 가짜 window 위에 만든다
-const mkSource = (win) => { new Function('window', 'module', CSRC)(win, undefined); return win.TwCatalogSource.createCatalogSource({}); };
+const CAA = ["catalog-admin-api.js","parts/admin/catalog-admin-api.js","app/parts/admin/catalog-admin-api.js"].map(read).find(Boolean);   // 서버 쓰기 길 — 올리는 본문 모양은 실제 모듈로 본다
+if(!CAA){ say('  ? 원본 못 찾음 — catalog-admin-api.js'); process.exit(2); }
 const FN_DEPS = ["toast"];
-const VAL_DEPS = ["adminPartReg","catalogSourceMod","partSceneMod","premiumMod","wardrobeMod"];
+const VAL_DEPS = ["catalogAdmin","partSceneMod","premiumMod","wardrobeMod"];
 const GET_DEPS = ["gachaMod","isAdmin"];
 const SET_DEPS = [];
 const EXPORTS = [];
 const MOVED = [];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  adminPartReg: adminPartReg,","  catalogSourceMod: catalogSourceMod,","  gachaMod: ()=>gachaMod,","  isAdmin: ()=>isAdmin,","  partSceneMod: partSceneMod,","  premiumMod: premiumMod,","  toast: (...a)=>toast(...a),","  wardrobeMod: wardrobeMod,"];
+const GLUE = ["  catalogAdmin: catalogAdmin,","  gachaMod: ()=>gachaMod,","  isAdmin: ()=>isAdmin,","  partSceneMod: partSceneMod,","  premiumMod: premiumMod,","  toast: (...a)=>toast(...a),","  wardrobeMod: wardrobeMod,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -77,7 +77,7 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/admin/admin-thumbs.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
@@ -86,7 +86,7 @@ const breaks = [
   ['전역 이름 안 걺', m => m.replace('window.TwAdminThumbs = api;', ''), null, null],
 
 
-  ['만들 때 던짐', m => m.replace('function createAdminThumbs(deps){', 'function createAdminThumbs(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createAdminThumbs(deps){', 'function createAdminThumbs(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
@@ -98,28 +98,22 @@ for(const [name, fm, fa, fh] of breaks){
 /* ── 4. 동작 — 가짜 굽기 · 올리기 위에서 콘솔 다시 굽기(옮기기 전 app.js 글로도 같은 판정이 돈다) */
 say('── 4. 동작 — generateAllPartThumbnails');
 {
-  const PREMOVE = !!process.env.TW_PREMOVE;
   const load = (admin, parts, failIds) => {
-    const log = { published: [], calls: [], toasts: [], baked: [], parts };
-    const gen = async (rec) => { log.baked.push(rec.id); if((failIds || []).includes(rec.id)) return null; if(rec.id === 'boom') throw new Error('x'); return 'data:image/png;' + rec.id; };
+    const log = { saved: [], calls: [], toasts: [], baked: [], parts };
+    const gen = async (rec) => { log.baked.push(rec.id); if((failIds || []).includes(rec.id)) return null; if(rec.id === 'boom') throw new Error('x'); return 'data:image/png;base64,QUJD'; };
     const raw = {
-      premiumMod: { savedParts: () => log.parts, persistSavedParts: () => log.calls.push('persist') },
-      adminPartReg: { buildPartPublishData: (rec, ex) => ({ id: rec.id, gacha: rec.gacha, ...ex }) },
+      premiumMod: { savedParts: () => log.parts },
       wardrobeMod: { renderWardrobe: () => log.calls.push('wardrobe') },
       toast: (m) => log.toasts.push(m),
       isAdmin: admin,
       gachaMod: { renderGachaInv: () => log.calls.push('gacha') },
     };
-    const win = { firebaseAPI: { publishPart: async (id, d) => { log.published.push([id, d]); } } };
+    const win = {};
     const cons = { warn: () => {}, log: () => {} };
-    if(!PREMOVE){
-      new Function('window', 'module', 'console', MOD)(win, undefined, cons);
-      win.TwAdminThumbs.createAdminThumbs(Object.assign({}, raw, { isAdmin: () => admin, gachaMod: () => raw.gachaMod, partSceneMod: { generatePartThumbnail: gen }, catalogSourceMod: mkSource(win) }));
-    } else {
-      const a = SRC.indexOf('// ★ 관리자 콘솔용: 기존에 등록된 파츠'), b = SRC.indexOf('premiumMod.loadSavedParts();', a);
-      const names = Object.keys(raw);
-      new Function(...names, 'generatePartThumbnail', 'window', 'console', SRC.slice(a, b))(...names.map(n => raw[n]), gen, win, cons);
-    }
+    const caa = (() => { const m = { exports: {} }; new Function('window', 'module', CAA)({}, m); return m.exports; })();
+    log.catalogAdmin = { partFieldsOf: caa.partFieldsOf, savePart: async (id, f, opt) => { log.saved.push([id, f, opt]); }, reload: async () => { log.calls.push('reload'); } };
+    new Function('window', 'module', 'console', MOD)(win, undefined, cons);
+    win.TwAdminThumbs.createAdminThumbs(Object.assign({}, raw, { catalogAdmin: log.catalogAdmin, isAdmin: () => admin, gachaMod: () => raw.gachaMod, partSceneMod: { generatePartThumbnail: gen } }));
     log.run = (f) => win.generateAllPartThumbnails(f);
     log.win = win;
     return log;
@@ -129,19 +123,18 @@ say('── 4. 동작 — generateAllPartThumbnails');
     let L = load(false, P());
     chk(typeof L.win.generateAllPartThumbnails === 'function', 'window.generateAllPartThumbnails 를 건다(F12 콘솔용)');
     await L.run();
-    chk(!L.baked.length && !L.published.length && !L.calls.length && !L.toasts.length, '관리자가 아니면 아무것도 안 한다');
+    chk(!L.baked.length && !L.saved.length && !L.calls.length && !L.toasts.length, '관리자가 아니면 아무것도 안 한다');
     L = load(true, P()); await L.run();
-    chk(L.baked.join() === 'a' && L.published.length === 1 && L.published[0][0] === 'a' && L.published[0][1].thumbnail === 'data:image/png;a' && L.published[0][1].gacha === true, '관리자 — 썸네일 · thumbUrl 둘 다 없는 카탈로그 파츠만 굽고 buildPartPublishData 로 올린다(gacha 칸 유지)');
-    chk(L.parts[0].thumbnail === 'data:image/png;a' && L.parts[2].thumbUrl === 'http://x', '  구운 것은 rec.thumbnail 에 · 다른 것은 그대로');
-    chk(L.calls.join() === 'persist,wardrobe,gacha' && L.toasts.join() === '썸네일 생성 완료: 1개', '  끝나면 저장 · 꾸미기 창 · 보관함 다시 그리기 · «썸네일 생성 완료: N개»');
+    chk(L.baked.join() === 'a' && L.saved.length === 1 && L.saved[0][0] === 'a' && L.saved[0][1].gacha === true && L.saved[0][2].quiet === true && L.saved[0][1].thumbDataUrl === 'data:image/png;base64,QUJD',
+      '관리자 — 썸네일 · thumbUrl 둘 다 없는 카탈로그 파츠만 굽고 서버 카탈로그에 쓴다(구운 그림 data:image/png 글 · 나머지 칸은 서버 줄 그대로 — gacha 유지)');
+    chk(L.calls.join() === 'reload,wardrobe,gacha' && L.toasts.join() === '썸네일 생성 완료: 1개', '  끝나면 서버 한 벌을 한 번 다시 받고 · 꾸미기 창 · 보관함 다시 그리기 · «썸네일 생성 완료: N개»');
     L = load(true, P()); await L.run(true);
-    chk(L.baked.join() === 'a,b,c' && !('thumbUrl' in L.parts[2]) && L.parts[1].thumbnail === 'data:image/png;b', 'force — 있는 것도 다시 굽고 낡은 thumbUrl 을 지운다(로컬 전용 파츠 d 는 제외)');
+    chk(L.baked.join() === 'a,b,c' && L.saved.length === 3 && L.calls.filter(x => x === 'reload').length === 1, 'force — 있는 것도 다시 굽고 쓴다(로컬 전용 파츠 d 는 제외) · 여럿을 써도 다시 받기는 한 번');
     L = load(true, [{ id: 'a', fromCatalog: true }, { id: 'boom', fromCatalog: true }, { id: 'n', fromCatalog: true }], ['n']); await L.run();
-    chk(L.published.map(p => p[0]).join() === 'a' && L.toasts.join() === '썸네일 생성 완료: 1개' && L.calls.length === 3, '굽기 실패(null) · 던짐은 건너뛰고 끝까지 간다(성공 수만 알린다)');
+    chk(L.saved.map(p => p[0]).join() === 'a' && L.toasts.join() === '썸네일 생성 완료: 1개' && L.calls.length === 3, '굽기 실패(null) · 던짐은 건너뛰고 끝까지 간다(성공 수만 알린다)');
     L = load(true, []); await L.run();
     chk(L.toasts.join() === '썸네일 생성 완료: 0개' && L.calls.length === 3, '경계 — 대상 0개여도 다시 그리고 «0개»');
-    L = load(true, P()); L.win.firebaseAPI = null; await L.run();
-    chk(L.parts[0].thumbnail && !L.published.length, '서버 연결(firebaseAPI)이 없으면 굽기만 하고 올리지 않는다');
+    chk(!/firebaseAPI/.test(strip(MOD)), '서버 쓰기는 catalogAdmin 으로만 — firebaseAPI 를 직접 부르지 않는다');
     say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
     process.exit(fail ? 1 : 0);
   })().catch(e => { chk(false, '4절 던짐 — ' + (e && e.stack || e)); say(`\n✗ 통과 ${pass} · 실패 ${fail}`); process.exit(1); });

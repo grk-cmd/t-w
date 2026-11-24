@@ -4,8 +4,9 @@
      좌석마다 몇 번씩 · 초당 최대 60번이라 사람이 많은 방에서 버벅임이 된다. 누가 «바로 재기» 를 다시 넣으면 여기서 빨강.
    ・1절: 기억 모듈(label-measure.js) — 캔버스는 프레임에 한 번 · 크기는 열쇠 · 시간 · 숨김 · 0 경계
    ・2절: 실제 overhead.js · exp-bar.js 를 가짜 DOM 에서 돌린다 — «쓰기 뒤 읽기»(강제 레이아웃)를 세고, 남긴 아래변이 화면 사각형과 같은지
-   ・3절: 깨 보기 — 옛 «바로 재기» 로 되돌리면 강제 레이아웃 수가 늘어 빨강
-   ・4절: 배선 — frame() 이 상한 검사 뒤 맨 앞에서 beginLabelFrame · html · smoke 순서 */
+   ・3절: mutation test — 옛 «바로 재기» 로 되돌리면 강제 레이아웃 수가 늘어 빨강
+   ・4절: 배선 — frame() 이 상한 검사 뒤 맨 앞에서 beginLabelFrame · html · smoke 순서
+   ・5절: 숨은 말풍선(상태 없는 좌석)은 매 프레임 폭을 재지 않는다 — 움직이는 프레임마다 강제 레이아웃 하나였다 · mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -79,8 +80,10 @@ function makeEnv(){
       querySelector(sel){ const cls = sel.replace(/^\./, ''); const f = (n) => { for (const c of n.children) { if (c.classList.contains(cls)) return c; const r = f(c); if (r) return r; } return null; }; return f(e); },
       querySelectorAll(){ return []; },
       _size(){ for (const c of classes) if (SIZE[c]) return SIZE[c]; return [0, 0]; },
-      get offsetWidth(){ read(); return st.display === 'none' ? 0 : e._size()[0]; },
-      get offsetHeight(){ read(); return st.display === 'none' ? 0 : e._size()[1]; },
+      /* 좌석 라벨은 CSS 가 display:none — 인라인 display 를 적기 전엔 숨어 있어 폭이 0 이다 */
+      _hidden(){ return st.display === 'none' || (!st.display && ['seat-nameplate', 'seat-exp', 'seat-bubble-dom', 'seat-announce'].some(c => classes.has(c))); },
+      get offsetWidth(){ read(); e._w = (e._w || 0) + 1; return e._hidden() ? 0 : e._size()[0]; },
+      get offsetHeight(){ read(); return e._hidden() ? 0 : e._size()[1]; },
       get scrollWidth(){ read(); return e._size()[0]; },
       get clientWidth(){ read(); return st.display === 'none' ? 0 : e._size()[0]; },
       /* CSS 그대로 — 이름표 · 공지는 .inverted 면 translate(-50%,0) 아니면 (-50%,-100%) · 경험치 바는 (-50%,0) */
@@ -119,16 +122,15 @@ function build(ovSrc, expSrc, lmSrc){
   const fbRef = {}; win.firebaseAPI = fbRef;
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
-  const fb = Object.assign(fbRef, { subscribeAnnounce: (cb) => { env.ann = cb; } });
   const perf = { now: () => env.t };
   const raf = (f) => { env.raf.push(f); return env.raf.length; };
   const G = ['window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'performance', 'requestAnimationFrame', 'setTimeout', 'clearTimeout', 'innerHeight', 'innerWidth', 'THREE', 'module'];
-  const vals = [win, env.doc, ls, {}, fb, perf, raf, () => 0, () => {}, 800, 1000, { Vector3: V3 }, undefined];
+  const vals = [win, env.doc, ls, {}, fbRef, perf, raf, () => 0, () => {}, 800, 1000, { Vector3: V3 }, undefined];
   new Function(...G, NET + '\n' + lmSrc + '\nvar TwNetReady = window.TwNetReady, TwLabelMeasure = window.TwLabelMeasure;\n' + ovSrc + '\n' + expSrc)(...vals);
   const wp = new V3();
   const ov = win.TwOverhead.createOverhead({
     ANIMAL_RUN_SCALE: 0.4, _chatEsc: (s) => s, _diceSvg: () => '', _starPaint: () => {}, _wpTmp3: wp,
-    camera: {}, chatUiMod: {}, focusLevelMod: () => ({ lvStarStr: () => '' }), getDisplayName: () => '나',
+    camera: {}, chatUiMod: {}, rtHub: { store: { onMessage: (t, fn) => { if(t === 'announce') env.ann = fn; } } }, focusLevelMod: () => ({ lvStarStr: () => '' }), getDisplayName: () => '나',
     officeMode: () => () => false, renderer: { domElement: env.canvas }, seatScale: () => 1, seats: [], tricksMod: { BONK_BUBBLE_MARK: '[bonk]' },
   });
   const exp = win.TwExpBar.createExpBar({ _focusTotalSec: () => 1234, _starPaint: () => {}, lvBarClass: () => 'lv1', lvStarBarClass: () => 'lvs', overheadMod: ov, bindLabelDrag: () => {} });
@@ -136,7 +138,7 @@ function build(ovSrc, expSrc, lmSrc){
 }
 
 /* 프레임 루프 순서 그대로 — beginLabelFrame → 좌석마다 바 → 이름표(+공지) → 말풍선 */
-function runFrames(b, seats, n, invertY){
+function runFrames(b, seats, n, invertY, text){
   const { env, ov, exp } = b;
   const per = [];
   for (let f = 0; f < n; f++) {
@@ -146,7 +148,7 @@ function runFrames(b, seats, n, invertY){
     seats.forEach((s, i) => {
       exp.updateSeatExpBar(s, 3, 5, null);
       ov.setSeatNamePlate(s, 3, '사람' + i, null);
-      ov.setSeatHeadBubble(s, '안녕', false);
+      ov.setSeatHeadBubble(s, text === undefined ? '안녕' : text, false);
     });
     env.dirty = false;   // 그리기 · 다음 프레임 사이에 브라우저가 배치를 끝낸 셈 — 다음 프레임 첫 읽기는 강제가 아니다
     const rafs = env.raf.splice(0); rafs.forEach(fn => fn());
@@ -154,7 +156,7 @@ function runFrames(b, seats, n, invertY){
   }
   return per;
 }
-/* 좌석은 프레임마다 조금씩 움직인다(자리 미끄러짐 · 끌기 · 카메라) — 제자리면 같은 값 쓰기라 «더러움» 이 안 생겨 옛 길도 0 으로 보인다 */
+/* 좌석은 프레임마다 조금씩 움직인다(자리 미끄러짐 · 끌기 · 카메라) — 제자리면 같은 값 쓰기라 «더러움» 이 안 생겨 옛 경로도 0 으로 보인다 */
 let _tick = 0;
 const mkSeats = (k, y) => Array.from({ length: k }, (_, i) => ({ isMe: i === 0, group: { getWorldPosition: (v) => { v.x = -8 + i * 3 + (_tick % 7) * 0.013; v.y = y; v.z = 0; return v; } } }));
 
@@ -168,7 +170,7 @@ let base = null;
   const seats = mkSeats(6, -2);
   const per = runFrames(b, seats, 40);
   const st = steady(per), total = st.reduce((a, c) => a + c, 0);
-  chk(total <= 12, '★ 6좌석 · 35프레임에 강제 레이아웃 ' + total + '번(옛 길은 좌석 × 프레임마다 여러 번 · 500ms 마다 다시 재는 몫만 남는다)');
+  chk(total <= 12, '★ 6좌석 · 35프레임에 강제 레이아웃 ' + total + '번(옛 경로는 좌석 × 프레임마다 여러 번 · 500ms 마다 다시 재는 몫만 남는다)');
   chk(st.filter(x => x > 0).length <= 6, '  강제 레이아웃이 난 프레임 ' + st.filter(x => x > 0).length + '개 — 대부분의 프레임은 0');
   /* 남긴 아래변이 실제 화면 사각형과 같은가 — 사각형 대신 읽어도 자리가 안 바뀐다 */
   const same = seats.every(s => ['expBarEl', 'namePlateEl'].every(k => { const e = s[k]; const r = e.getBoundingClientRect(); return Math.abs(r.bottom - e._bottom) < 1e-9; }));
@@ -184,19 +186,19 @@ let base = null;
   chk(below, '  반전 말풍선은 실제 라벨 사각형보다 아래에 있다');
   /* 공지 — 내 좌석에만 · 마퀴 재기는 글이 바뀔 때만 */
   const b3 = build(OV, EXP, LM);
-  chk(typeof b3.env.ann === 'function', '  공지 구독이 걸렸다(가짜 firebaseAPI)');
-  b3.env.ann({ text: '점검 안내', ts: Date.now(), duration: 600000 });
+  chk(typeof b3.env.ann === 'function', '  확성기 announce 메시지를 받도록 걸렸다(가짜 realtime)');
+  b3.env.ann({ text: '점검 안내', until: Date.now() + 50000 });
   const s3 = mkSeats(2, -2);
   let rafCount = 0; const origPush = b3.env.raf.push.bind(b3.env.raf); b3.env.raf.push = (f) => { rafCount++; return origPush(f); };
   runFrames(b3, s3, 30);
   chk(!!s3[0].announceEl && s3[0].announceEl.style.display === 'block' && !s3[1].announceEl, '  공지 배너는 내 좌석에만 뜬다');
   chk(rafCount === 1, '★ 공지 마퀴 재기는 한 번만(예전엔 매 프레임 requestAnimationFrame) — ' + rafCount + '번');
-  b3.env.ann({ text: '두 번째 공지', ts: Date.now(), duration: 600000 });
+  b3.env.ann({ text: '두 번째 공지', until: Date.now() + 50000 });
   runFrames(b3, s3, 5);
   chk(rafCount === 2, '  글이 바뀌면 다시 잰다');
 }
 
-say('── 3. 깨 보기 — 옛 «바로 재기» 로 되돌리면 빨강');
+say('── 3. mutation test — 옛 «바로 재기» 로 되돌리면 빨강');
 {
   const count = (ov, ex, lm) => { const b = build(ov, ex, lm); return steady(runFrames(b, mkSeats(6, -2), 40)).reduce((a, c) => a + c, 0); };
   const breaks = [
@@ -220,13 +222,38 @@ say('── 3. 깨 보기 — 옛 «바로 재기» 로 되돌리면 빨강');
 
 say('── 4. 배선');
 {
-  const fr = APP.slice(APP.indexOf('function frame(now, manual){'));
+  const FLM = ['frame-loop.js', 'parts/launcher/frame-loop.js', 'app/parts/launcher/frame-loop.js'].map(read).find(Boolean) || '';   // frame() 은 launcher/frame-loop.js(M17)
+  const fr = FLM.slice(FLM.indexOf('function frame(now, manual){'));
   const iCap = fr.indexOf('if(_frameCapped(now)){'), iBeg = fr.indexOf('overheadMod.beginLabelFrame();'), iSeats = fr.indexOf('seats.forEach(seat=>{');
   chk(iCap > 0 && iBeg > iCap && iBeg < iSeats, '★ frame() — 상한 검사 뒤 · 좌석 라벨보다 먼저 beginLabelFrame(빠지면 캔버스 사각형이 영영 안 바뀐다)');
   const hL = HTML.indexOf('<script src="parts/room/label-measure.js">'), hO = HTML.indexOf('<script src="parts/room/overhead.js">');
   chk(hL > 0 && hL < hO, 'html — label-measure.js 를 overhead.js 보다 먼저');
   const sL = SMOKE.indexOf("PRELOAD.push('label-measure.js');"), sO = SMOKE.indexOf("PRELOAD.push('overhead.js');");
   chk(sL > 0 && sL < sO, 'smoke PRELOAD — label-measure.js 를 overhead.js 보다 먼저');
+}
+
+say('── 5. 숨은 말풍선 — 상태 없는 좌석은 폭을 재지 않는다');
+{
+  /* 상태 · 채팅이 없는 좌석은 말풍선이 숨은 채로 매 프레임 setSeatHeadBubble 를 지난다. 숨은 요소의 폭은 0 이라 잴 것이 없는데
+     예전엔 매번 offsetWidth 를 읽어, 좌석이 움직이는 프레임마다(라벨 자리를 적은 뒤라) 강제 레이아웃이 하나씩 났다. */
+  const bubbleReads = (ov) => { const b = build(ov, EXP, LM); const seats = mkSeats(4, -2);
+    runFrames(b, seats, 2, undefined, null);
+    const before = seats.reduce((a, s) => a + (s.bubbleEl._w || 0), 0);
+    const f0 = b.env.forced; runFrames(b, seats, 30, undefined, null);
+    return { reads: seats.reduce((a, s) => a + (s.bubbleEl._w || 0), 0) - before, forced: b.env.forced - f0, hidden: seats.every(s => s.bubbleEl.style.display === 'none') }; };
+  const now = bubbleReads(OV);
+  chk(now.hidden, '  글이 없으면 말풍선은 숨는다(display:none)');
+  chk(now.reads === 0, '★ 숨은 말풍선 4개 · 30프레임 — 폭 읽기 ' + now.reads + '번');
+  /* 다시 보이면 그 자리에서 잰다 — 숨김 동안 안 잰 탓에 자리가 0 폭으로 굳으면 안 된다 */
+  const b2 = build(OV, EXP, LM); const s2 = mkSeats(1, -2);
+  runFrames(b2, s2, 3, undefined, null);
+  runFrames(b2, s2, 1, undefined, '다시 보임');
+  chk(s2[0].bubbleEl.style.display === 'block' && s2[0].bubbleEl._bxfHalfW === 50 && /translate\(-50px, -30px\)/.test(s2[0].bubbleEl.style.transform),
+    '  다시 보이는 프레임에 폭을 재 가운데 맞춤(translate(-50px, -30px)) — ' + s2[0].bubbleEl.style.transform);
+  const broken = OV.replace("if(el.style.display !== 'none' && (el._bxfHalfW == null || el._bxfDirty || el._bxfCls !== el.className || el._bxfDpr !== dpr)){",
+    'if(el._bxfHalfW == null || el._bxfDirty || el._bxfCls !== el.className || el._bxfDpr !== dpr){');
+  const old = bubbleReads(broken);
+  chk(broken !== OV && old.reads >= 30 * 4 && old.forced > now.forced, 'mutation test — 숨은 말풍선도 재던 옛 길이면 폭 읽기 ' + old.reads + '번 · 강제 레이아웃 ' + now.forced + ' → ' + old.forced);
 }
 
 say('');

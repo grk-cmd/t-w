@@ -77,7 +77,7 @@ sec('── 3. app.js 배선', () => {
   chk(/const crFlatView = \(typeof CreatorFlatView === 'undefined'\) \? null : CreatorFlatView\.createCreatorFlatView\(/.test(A), '모듈이 없어도 생성기는 켜진다');
   chk(/onChange: \(\)=>updateCreatorLights\(\)/.test(A) && /getElementById\('cpFlat'\)\.addEventListener\('click', \(\)=>crFlatView\.toggle\(\)\)/.test(A), '버튼을 누르면 켬/끔 → 조명을 다시 맞춘다');
   chk(/if\(crFlatView\) crFlatView\.show\(draw\);/.test(grab('gotoStep')), '단계가 바뀌면 그리기 단계(2 · 3)에서만 보인다');
-  chk(/creatorOpen=true;\s*if\(crFlatView\) crFlatView\.set\(false\);/.test(A), '생성기를 열 때마다 꺼진 채로 시작');
+  chk(/creatorOpen\s*=\s*true;\s*if\(crFlatView\) crFlatView\.set\(false\);/.test(A), '생성기를 열 때마다 꺼진 채로 시작');
   chk(/hotkeyLetter\(e\)==='l' && isDrawStep\(\) && crFlatView && !e\.ctrlKey && !e\.metaKey && !e\.altKey/.test(A) && /crFlatView\.toggle\(\);/.test(A), 'L 키 — 그리기 단계에서만 · 조합키 · 글 입력 중엔 무시');
   chk(!/LIGHT_PRESET\.\w+\s*=|TONE_FRONT_TOTAL\s*=[^=]*crFlat/.test(A), '실행 화면 조명 상수는 건드리지 않는다');
 });
@@ -113,13 +113,13 @@ sec('── 5. animal.js 배선(동물 생성기)', () => {
   chk(iTyping > 0 && iTyping < iPaint && iPaint < iL, '…그리기 탭에서만 · 글 입력 중엔 무시');
   const ul = grabIn(N, 'applyPreviewLights');
   chk(/if\(aFlat && aFlat\.isOn\(\)\)\{\s*aAmb\.color\.setRGB\(1,1,1\); aAmb\.intensity=CreatorFlatView\.flatAmbient\(AN_PREVIEW_EMISSIVE\);\s*aKey\.intensity=0;/.test(ul), '원색 보기면 방향광 0 · 앰비언트는 흰빛으로 남는 몫만');
-  chk(/aAmb\.color\.setHex\(AN_AMB_COLOR\); aAmb\.intensity=AN_AMB_INT;\s*aKey\.intensity=AN_KEY_INT;/.test(ul), '끄면 원래 조명(상수 그대로)으로');
+  chk(/const li=runLightInts\(AN_LIGHT_OPT\);\s*aAmb\.color\.setHex\(AN_AMB_COLOR\); aAmb\.intensity=li\.amb;\s*aKey\.color\.setHex\(AN_KEY_COLOR\); aKey\.intensity=li\.key;/.test(ul), '끄면 원래 조명(공용 세기 runLightInts(AN_LIGHT_OPT) · 상수 색)으로');
   // 미리보기 재질 emissive 가 정말 0 인지 — 합이 1 이 되려면 AN_PREVIEW_EMISSIVE 와 같아야 한다
   const fe = +((N.match(/const AN_PREVIEW_EMISSIVE=([0-9.]+);/) || [])[1]);
   const setMats = [grabIn(N, 'ensurePaintTex'), grabIn(N, '_ensureEarTex')];
   chk(fe === 0 && setMats.every(b => /o\.material\.emissive\.set\('#000000'\)/.test(b)), '미리보기 재질(몸 · 귀) emissive 0 = AN_PREVIEW_EMISSIVE');
   chk(Math.abs(M.flatAmbient(fe) + fe - 1) < 1e-9, '앰비언트 + emissive = 1 — 칠한 텍스처 값이 그대로 나온다');
-  chk(/aAmb=new THREE\.AmbientLight\(AN_AMB_COLOR,AN_AMB_INT\)/.test(N) && /aKey=new THREE\.DirectionalLight\(AN_KEY_COLOR,AN_KEY_INT\)/.test(N), '미리보기 조명이 상수와 같은 값으로 만들어진다');
+  chk(/\{ const lt=addRunLights\(scene, AN_LIGHT_OPT\); aAmb=lt\.amb; aKey=lt\.key; \}\s*applyPreviewLights\(\);/.test(N), '미리보기 조명은 공용 addRunLights(AN_LIGHT_OPT) 로 만들고 바로 applyPreviewLights 로 맞춘다(세기 대조는 sim-light-tone)');
   chk(!/aFlat|flatAmbient/.test(grabIn(N, '_animLit')), '실행 화면(_animLit) 조명은 건드리지 않는다');
   chk(/<b>L<\/b> 원색 보기/.test(ANI), '단축키 안내 줄에 L');
 });

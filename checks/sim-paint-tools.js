@@ -269,7 +269,7 @@ chk(/Shift\+G<\/b> 전체 채우기/.test(SRC['animal.js']) && /<b>G<\/b> 페인
 /* html */
 const sU = HTML.indexOf('<script src="parts/creator/uv-fill.js">'), sP = HTML.indexOf('<script src="parts/creator/paint-tools.js">'),
       sA = HTML.indexOf('<script src="parts/app.js">'), sN = HTML.indexOf('<script src="parts/character/animal.js">');
-chk(sU > 0 && sU < sP && sP < sA && sA < sN, 'html — uv-fill.js → paint-tools.js → app.js → animal.js');
+chk(sU > 0 && sU < sP && sP < sN && sN < sA, 'html — uv-fill.js → paint-tools.js → animal.js → app.js(M23 — app.js 가 끝에서 createAnimal 로 만든다)');
 chk(/<span id="crToolSeg"><\/span>/.test(HTML) && /<b>G<\/b> 페인트통/.test(HTML), 'html — 사람 도구 줄 자리 · 안내 줄');
 chk(/\.pt-seg\{display:inline-flex;/.test(HTML) && /\.cr-tools \.pt-seg button\{/.test(HTML), 'html — 도구 줄 스타일(.cr-tools 버튼 모양 · 눌림 .on 을 그대로)');
 

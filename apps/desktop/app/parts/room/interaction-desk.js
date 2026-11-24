@@ -13,6 +13,7 @@
 (function(){
 
 function createInteractionDesk(deps){
+const accountStore = deps.accountStore;   // 🗂️ 계정별 칸(shared/account-store.js) — 지금 쓰는 상호작용 책상은 이 계정이 이 PC 에서 고른 것
 const CIRCUS_ARM_DROP = deps.CIRCUS_ARM_DROP;
 const CIRCUS_LEG_LIFT = deps.CIRCUS_LEG_LIFT;
 const CIRCUS_LEG_STAND = deps.CIRCUS_LEG_STAND;
@@ -28,8 +29,8 @@ const seats = deps.seats;
 const toast = deps.toast;
 const tricksMod = deps.tricksMod;
 const INTERACTION_DESKS = [
-  // seats: 좌석 수, reqLevel: 해금 레벨, glb/thumb: 번들 경로(준비되면 채움)
-  { id:'bench2', name:'2인 벤치', seats:2, reqLevel:80, glb:null, thumb:null },
+  // seats: 좌석 수, reqLevel: 해금 레벨(서버 해금 표에서 받는다 — applyUnlocks · 받기 전엔 null = 잠김), glb/thumb: 번들 경로(준비되면 채움)
+  { id:'bench2', name:'2인 벤치', seats:2, reqLevel:null, glb:null, thumb:null },
   // 예: { id:'table3', name:'3인 테이블', seats:3, reqLevel:90, glb:'assets/desks/table3.glb', thumb:'assets/desks/table3.png' },
 ];
 // ⏸️ 상호작용 책상(I키 인벤토리) 기능 플래그 — 이번 릴리스 비활성화, 다음 업데이트에 true로.
@@ -38,16 +39,16 @@ const IDESK_ENABLED = false;
 /* 💃 춤(이모트) 명령 — 투게더룸 채팅에서 해금 레벨을 명령어로 입력(/60 /80 /100).
    절차적 애니메이션(GLB 클립 불필요, 서버 비용 0). seatState가 'dance'를 반환하는 동안 재생되고,
    내 상태 전파(setState)를 그대로 타서 친구 화면의 내 캐릭터도 함께 춤춘다.
-   해금: 내 레벨 ≥ reqLevel(관리자는 전부). style은 애니메이션 변형 여지용(지금은 sway 하나). */
+   해금: 내 레벨 ≥ reqLevel(관리자는 전부 · reqLevel 은 서버 해금 표 DANCE · 열쇠 = cmd — 웹 관리자가 고친 값이 그대로 온다). style은 애니메이션 변형 여지용(지금은 sway 하나). */
 const DANCE_MOVES = [
   /* egg — 같은 명령을 세 번 쓸 때 일어나는 일(💃💥 깜짝쇼). 'fly'=전원 폭발, 'turbo'=회전 두 배.
      빼면 그 명령은 세 번 써도 평범한 춤이다. 한 명령에 두 종류를 겹칠 수 없다. */
-  { cmd:'80', reqLevel:80, name:'살랑살랑', dur:6000, style:'sway', egg:'fly' },
+  { cmd:'80', reqLevel:null, name:'살랑살랑', dur:6000, style:'sway', egg:'fly' },
   /* 🤸 묘기 회전 — 한 발 서기 자세를 잡고 그 자리에서 **정확히 5바퀴** 돈 뒤 처음 방향으로 돌아온다.
      ★ dur 은 아래 TRICK_* 세 구간의 합이다(0.2 + 5.1 + 0.7 = 6.0초). 한쪽만 고치면 회전이 덜
        끝난 채 춤이 끝나거나, 다 돌고 나서 멀뚱히 서 있는 시간이 생긴다.
      ★ `/150` 을 세 번 쓰면 같은 6초 안에 **10바퀴**를 돈다(터보) — 시간이 아니라 바퀴 수가 두 배다. */
-  { cmd:'150', reqLevel:150, name:'묘기 회전', dur:6000, style:'trick', egg:'turbo' },
+  { cmd:'150', reqLevel:null, name:'묘기 회전', dur:6000, style:'trick', egg:'turbo' },
   // ⏸️ 잠금(다음 업데이트에 공개) — 되살리려면 주석 해제. 애니메이션(spin/tantrum)은 코드에 그대로 있음.
   // { cmd:'80', reqLevel:80, name:'발레턴', dur:6000, style:'spin' },
   // { cmd:'100',reqLevel:100,name:'떼쓰기', dur:7000, style:'tantrum' },
@@ -135,8 +136,16 @@ let _danceCmdCooldownAt = 0;   // ⏳ 춤 명령 개인 쿨다운(10초) 타임�
 function isDanceUnlocked(def){
   if(!def) return false;
   if(typeof isAdmin()!=='undefined' && isAdmin()) return true;
+  if(def.reqLevel == null) return false;   // 서버 해금 표를 아직 못 받았다 — 잠가 둔다
   const lv=(typeof focusLevelMod().getFocusLevel==='function')?focusLevelMod().getFocusLevel():1;
-  return lv >= (def.reqLevel||1);
+  return lv >= def.reqLevel;
+}
+/* 서버 해금 표({ 종류: { 열쇠: { level } } })를 춤 · 상호작용 책상의 reqLevel 에 앉힌다 — 코드에 박힌 레벨은 없다(원본은 서버 한 곳).
+   표에 없는 줄은 앉히지 않고 알린다(그 항목은 잠긴 채다). 한 벌이 바뀔 때마다 다시 앉는다. */
+function applyUnlocks(unlocks){
+  const rows = (kind, key) => (unlocks && unlocks[kind] && unlocks[kind][key]) || null;
+  DANCE_MOVES.forEach(d=>{ const r = rows('DANCE', d.cmd); if(r) d.reqLevel = r.level; else console.warn('[unlock] 서버 해금 표에 춤 줄이 없다', d.cmd); });
+  INTERACTION_DESKS.forEach(d=>{ const r = rows('INTERACTION_DESK', d.id); if(r) d.reqLevel = r.level; else console.warn('[unlock] 서버 해금 표에 상호작용 책상 줄이 없다', d.id); });
 }
 /* 🎲 춤추기 버튼용 — **해금된 춤 중 하나를 무작위로** 고른다. 하나도 없으면 null.
    ★ 레벨이 오를수록 나올 수 있는 춤이 저절로 늘어난다. DANCE_MOVES 에 항목을 더하면
@@ -152,7 +161,15 @@ function _pickUnlockedDance(rnd){
 }
 /* 아직 아무것도 못 여는 사람에게 보여줄 '가장 가까운 해금 레벨'. 안내 문구가 실제 표와 어긋나지 않게 표에서 뽑는다. */
 function _lowestDanceReq(){
-  return DANCE_MOVES.reduce((m, d)=>Math.min(m, d.reqLevel||1), Infinity) || 80;
+  return DANCE_MOVES.reduce((m, d)=>d.reqLevel == null ? m : (m == null ? d.reqLevel : Math.min(m, d.reqLevel)), null);   // 하나도 못 받았으면 null(= 모름 — 안내 글은 lockedToast)
+}
+/* 잠긴 안내 글 한 곳 — 레벨을 알면 «Lv.N …», 서버 표를 아직 못 받아 모르면 «해금 정보를 받는 중» 으로 드러낸다(레벨 글자를 지어내지 않는다). tail = 뒤에 붙는 말 */
+function lockedToast(level, tail){
+  return (level == null) ? '🔒 해금 정보를 받는 중이에요 — 잠시 뒤 다시 해 주세요' : '🔒 Lv.' + level + ' ' + tail;
+}
+/* 카드에 붙이는 레벨 글자 — 모르면 «?» */
+function levelText(level){
+  return (level == null) ? 'Lv.?' : 'Lv.' + level;
 }
 /* 💃 내 춤 시작 — 내 좌석에 danceUntil을 세우고 상태 전파를 즉시 밀어 친구 화면에도 반영.
    재입력하면 시간 갱신(계속 추기). 이동/흔들기 중엔 seatState가 다른 상태를 우선하므로 자연히 중단됨. */
@@ -200,13 +217,14 @@ function _deskDefById(id){ return INTERACTION_DESKS.find(d=>d.id===id) || null; 
 function isDeskUnlocked(def){
   if(!def) return false;
   if(typeof isAdmin()!=='undefined' && isAdmin()) return true;
+  if(def.reqLevel == null) return false;   // 서버 해금 표를 아직 못 받았다 — 잠가 둔다
   const lv = (typeof focusLevelMod().getFocusLevel==='function') ? focusLevelMod().getFocusLevel() : 1;
-  return lv >= (def.reqLevel||1);
+  return lv >= def.reqLevel;
 }
-// 현재 내가 쓰는 상호작용 책상 id(교체 방식) — localStorage 보관.
+// 현재 내가 쓰는 상호작용 책상 id(교체 방식) — 계정 칸 보관.
 const ACTIVE_IDESK_KEY = 'tw.activeInteractionDesk';
-function getActiveInteractionDeskId(){ try{ return localStorage.getItem(ACTIVE_IDESK_KEY) || null; }catch(_){ return null; } }
-function setActiveInteractionDeskId(id){ try{ if(id) localStorage.setItem(ACTIVE_IDESK_KEY, id); else localStorage.removeItem(ACTIVE_IDESK_KEY); }catch(_){} }
+function getActiveInteractionDeskId(){ try{ return accountStore.get(ACTIVE_IDESK_KEY) || null; }catch(_){ return null; } }
+function setActiveInteractionDeskId(id){ try{ if(id) accountStore.set(ACTIVE_IDESK_KEY, id); else accountStore.remove(ACTIVE_IDESK_KEY); }catch(_){} }
 
 /* 🐾 "남의 캐릭터는 못 올려요" 토스트 스로틀 — 드래그를 연달아 시도해도 토스트가 쌓이지 않게. */
 let _rideDenyToastAt = 0;
@@ -252,6 +270,9 @@ return {
   getActiveInteractionDeskId,
   isDanceUnlocked,
   isDeskUnlocked,
+  applyUnlocks,
+  levelText,
+  lockedToast,
   setActiveInteractionDeskId,
   startMyDance,
 };
