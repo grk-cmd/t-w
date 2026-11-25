@@ -4,6 +4,7 @@
      서버 모양(스티커 목록 · image · 프리셋 withImage · 책 width/titleColor/public/image/addedAt ISO)을 화면 모양(스티커 {sid:…} · img · img:true · w/tcolor/pub/img/at ms)으로 맞추는 곳은 여기뿐이다.
    신원: 늘 토큰의 «나» — 본문에 내 코드 · 이름 · 시각을 싣지 않는다. 경로의 코드는 구경하는 집(데이터 주소)일 뿐.
    deps: authed — 로그인 API 통로(TwApi.authed — get(path, { auth, onOwner }) · post · put · patch(…, { expectOwner, rawType }) → Promise<data>)
+         ownImage — TwOwnImage(shared/own-image.js — upload(kind, img, { expectOwner }) → 다운로드 주소 · 그림을 Storage 내 폴더에 바로)
          imageBytes — TwImageBytes(shared/image-bytes.js)
          warn(...a)(진단 로그)
    내보냄: createMyHomeApi(deps) → {

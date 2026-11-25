@@ -4,6 +4,7 @@
      서버 모양(visibility · countFromOne · bgImage · cards / banners 두 목록)을 화면이 쓰던 모양(public · base1 · bgImg · kind · order)으로 맞추는 곳은 여기뿐이다.
    신원: 내 것은 토큰(/v2/me/…) · 남의 것은 사용자 코드(경로의 코드는 데이터 주소일 뿐). 내 코드(uid)는 «읽은 판 · 토큰 주인 기억 열쇠» 로만 받는다.
    deps: authed — 로그인 API 통로(TwApi.authed — get(path, { auth, onOwner }) · post · put · del(path, …, { expectOwner }) → Promise<data>)
+         ownImage — TwOwnImage(shared/own-image.js — upload(kind, img, { expectOwner }) → 다운로드 주소 · 그림을 Storage 내 폴더에 바로)
          imageBytes — TwImageBytes(shared/image-bytes.js — inspect(dataUrl, { types, maxBytes }) → 올릴 바이트 판정)
          newId() → 요청 번호(TwRequestId.newId) · warn(...a)
    내보냄: createScheduleApi(deps) → {

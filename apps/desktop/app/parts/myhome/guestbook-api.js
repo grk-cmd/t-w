@@ -4,6 +4,7 @@
    신원: 늘 토큰의 «나» — 글쓴이 · 박수 누른 사람은 본문에 싣지 않는다. 경로의 코드는 «어느 방명록인가» 하는 데이터 주소일 뿐이다.
      내 코드(uid)는 «읽은 토큰의 주인 기억 열쇠» 로만 받는다.
    deps: authed — 로그인 API 통로(TwApi.authed — get(path, { auth, onOwner }) · post · patch · del(…, { expectOwner }) → Promise<data>)
+         ownImage — TwOwnImage(shared/own-image.js — upload(kind, img, { expectOwner }) → 다운로드 주소 · 그림을 Storage 내 폴더에 바로)
          imageBytes — TwImageBytes(shared/image-bytes.js — inspect(dataUrl, { types, maxBytes }) → 올릴 바이트 판정)
          warn(...a)(진단 로그)
    내보냄: createGuestbookApi(deps) → {
