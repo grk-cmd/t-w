@@ -48,8 +48,8 @@ async function behave(src) {
   w.out._friendReqAsk('u2', seat); await flush();
   t(w.log.sends.length === 0 && /^민지님은 아직 친구가 아니에요 — 5초 안에 우클릭 › «👤 친구 신청»을 한 번 더 누르면 보내요$/.test(lastT(w)) && w.timers[0] && w.timers[0].ms === 5000, '첫 번째 — 안내만 · 5초 시계');
   w.out._friendReqAsk('u2', seat); await flush();
-  t(w.log.sends.length === 1 && JSON.stringify(w.log.sends[0]) === JSON.stringify(['me', 'u2']) && lastT(w) === '민지님에게 친구 요청을 보냈어요 — 상대가 수락하면 친구가 돼요',
-    '같은 사람 두 번째 — (나, 상대) 로 보내고 알린다(이름은 싣지 않는다)');
+  t(w.log.sends.length === 1 && JSON.stringify(w.log.sends[0]) === JSON.stringify(['me', 'u2', '']) && lastT(w) === '민지님에게 친구 요청을 보냈어요 — 상대가 수락하면 친구가 돼요',
+    '같은 사람 두 번째 — (나, 상대, 빈 사유) 로 보내고 알린다(이름은 싣지 않는다 · 좌석은 사유 칸이 없다)');
   w.out._friendReqAsk('u2', seat); await flush();
   t(w.log.sends.length === 1, '보낸 뒤엔 다시 처음부터(세 번째는 안내만)');
   w = world(src);
@@ -81,9 +81,9 @@ async function behave(src) {
   t(lastT(x) === '요청에 실패했어요', '그 밖 → «요청에 실패했어요»');
   x = await twice({ throws: true });
   t(lastT(x) === '요청 중 오류가 발생했어요', '던지면 «요청 중 오류가 발생했어요»');
-  /* sendFriendReq — 마이홈 [친구 신청] 이 부르는 한 벌: 토스트 없이 결과만(사유는 서버 send 가 받기 전까지 싣지 않는다) */
+  /* sendFriendReq — 마이홈 [친구 신청] 이 부르는 한 벌: 토스트 없이 결과만 · 신청 사유를 provider 에 넘긴다 */
   { const y = world(src); const res = await y.out.sendFriendReq('u2', '민지', '같이 공부해요');
-    t(res.ok === true && JSON.stringify(y.log.sends[0]) === JSON.stringify(['me', 'u2']) && y.log.toasts.length === 0, 'sendFriendReq — (나, 상대) 로 보내고 토스트는 안 띄운다'); }
+    t(res.ok === true && JSON.stringify(y.log.sends[0]) === JSON.stringify(['me', 'u2', '같이 공부해요']) && y.log.toasts.length === 0, 'sendFriendReq — (나, 상대, 사유) 로 보내고 토스트는 안 띄운다'); }
   { const y = world(src, { friends: { u2: {} } }); const res = await y.out.sendFriendReq('u2', '민지', 'x');
     t(res.ok === false && res.reason === 'already' && y.log.sends.length === 0, '  같은 앞단 검사 — 이미 친구면 already · 안 보냄'); }
   { const y = world(src, { friends: { a: 1, b: 1, c: 1 } }); const res = await y.out.sendFriendReq('u2', '민지', 'x');
@@ -123,6 +123,7 @@ function wire(app, html) {
     ['정원 검사 >= 를 > 로', (m) => m.replace('.length >= FRIEND_MAX', '.length > FRIEND_MAX'), null, null],
     ['이미 친구 검사 없앰', (m) => m.replace("if(_myHomeFriends() && _myHomeFriends()[uid]) return { ok:false, reason:'already' };", ''), null, null],
     ['정원 문구를 안내 아닌 실패로', (m) => m.replace("if(r === 'full') return { kind:'info',", "if(r === 'full') return { kind:'fail',"), null, null],
+    ['사유를 버림', (m) => m.replace('await net.sendFriendRequest(getMyUserId(), uid, msg);', 'await net.sendFriendRequest(getMyUserId(), uid);'), null, null],
     ['provider 대신 전역 firebaseAPI 를 부름', (m) => m.replace('await net.sendFriendRequest(', 'await firebaseAPI.sendFriendRequest('), null, null],
     ['만들 때 던짐', (m) => m.replace('function createSeatFriendReq(deps){', 'function createSeatFriendReq(deps){ throw new Error("mutation");'), null, null],
     ['app.js 에 본문이 남음', null, (a) => a + '\nfunction _friendReqSend(){}', null],

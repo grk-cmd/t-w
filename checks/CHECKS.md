@@ -97,12 +97,12 @@
 | **sim-mallang-hide.js** | 147 | **edeb8021999a** |
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
 | **sim-seat-label-drag.js** | 91 | **39cae4f0d68e** |
-| **sim-friend-requests.js** | 170 | **162b210c76c9** |
+| **sim-friend-requests.js** | 177 | **10b938f897b7** |
 | **sim-friend-visit.js** | 150 | **195ac520aa83** |
 | **sim-friends-sub.js** | 642 | **e905054c399d** |
 | **sim-friends-port.js** | 325 | **4db751309aee** |
 | **sim-friends-presence-rt.js** | 361 | **d49cb7f8b0eb** |
-| **sim-social-api.js** | 275 | **40c328753362** |
+| **sim-social-api.js** | 290 | **e3f48223d980** |
 | **sim-friend-profile-live.js** | 218 | **d78ba96ecf5b** |
 | **sim-second-instance.js** | 226 | **b537904a2e57** |
 | **sim-wd-parts-persist.js** | 91 | **80047cfd2375** 
@@ -206,7 +206,7 @@
 | **sim-presence.js** | 264 | **bdc6c8978cf6** |
 | **sim-light-tone.js** | 281 | **a0ce1466453e** |
 | **sim-paint-geom.js** | 107 | **3ec63690087d** |
-| **sim-seat-friend-req.js** | 140 | **43fba33c04f7** |
+| **sim-seat-friend-req.js** | 141 | **1968341b3f7a** |
 | **sim-seat-menu.js** | 167 | **d530397a99e8** |
 | **sim-publish-fields.js** | 91 | **20498c9b954b** |
 | **sim-purikura-deco.js** | 953 | **c78874eefb61** |
@@ -463,7 +463,7 @@
 | **sim-launcher-state.js** | 91 | **26912637390e** |
 | **sim-account-state.js** | 108 | **413b232af0e3** |
 | **sim-nav.js** | 91 | **27ffd1e7cdaa** |
-| **sim-server-features.js** | 165 | **47d7921ce9c2** |
+| **sim-server-features.js** | 167 | **09be4d691b33** |
 | **sim-app-boot.js** | 185 | **8ff3e45193d1** |
 | **sim-away-start.js** | 120 | **b9010d0eee8e** |
 | **sim-user-local.js** | 207 | **b34ec3227153** |

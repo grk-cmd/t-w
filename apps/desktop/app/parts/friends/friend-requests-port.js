@@ -3,10 +3,10 @@
      서버 provider(friend-requests-api.js) 한 길뿐이다 — 못 하면 던진다(옛 Firebase 경로로 물러나지 않는다).
    deps: api — 서버 provider(friend-requests-api.js)
    내보냄: createFriendRequestsPort(deps) → {
-     watchReceived(myId, onChange, onError) → 해제 함수   onChange({ 보낸이id: { name, ts } })
+     watchReceived(myId, onChange, onError) → 해제 함수   onChange({ 보낸이id: { name, ts, msg? } })
      listSent(myId) → Promise<{ 받는이id: { ts, toName?, toCode? } }>
      accept(myId, fromId) · reject(myId, fromId) → Promise<void>(못 하면 던진다)
-     cancel(myId, toId) · send(myId, toId) → Promise<{ ok, reason? }>
+     cancel(myId, toId) · send(myId, toId, msg?) → Promise<{ ok, reason? }>
      lookupName(uid) → Promise<string | null> · lookupFriendCode(code) → Promise<상대 id | null>
    }
    검사: checks/sim-friend-requests.js */

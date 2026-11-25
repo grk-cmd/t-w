@@ -316,7 +316,7 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
   - «살아 있나» 를 묻는 동안 다른 홈으로 넘어가면 늦은 답을 버린다 — 안 버리면 다음 화면에 단추가 켜진다. 확인을 못 하면 숨긴다(이미 보낸 요청을 또 보내지 않게).
   - 관람 화면 하나를 여는 동안 `_mhApplyVisitUI` 가 여러 번 불린다 — 같은 uid 면 다시 묻지 않는다. 내 홈으로 오면(`refresh(null)`) 기억을 비운다.
   - 사유 · 이름은 `textContent` 로만 넣는다. 받는 쪽(`friend-manage.js`)도 목록은 `textContent`, 👋 팝업은 `escHtml` 이다.
-  - 사유 길이 100자는 규칙 `friendRequests/$toId/$fromId/msg` 와 같다 — 한쪽만 바꾸지 말 것.
+  - 사유 길이 100자는 서버(`POST /v2/me/friend-requests` 의 `message` · UTF-16 100자)와 규칙 `friendRequests/$toId/$fromId/msg` 와 같다 — 한쪽만 바꾸지 말 것. 사유 칸은 `TwServerFeatures.on('friendReqMsg')` 가 켠다.
   - 실패(저장 실패 · 던짐)는 `E-FR-06`, 이미 친구 · 정원 · 나 · 준비 안 됨은 안내 토스트(좌석 친구 신청과 같은 문구).
   - 검사: `checks/sim-friend-req-btn.js` · `sim-seat-friend-req.js`(보내기 한 벌).
 검사: `checks/sim-mh-pad-pos.js` (함수 · 놓는 흐름 — `'moved'` 오는 OS · 안 오는 OS · mutation test).

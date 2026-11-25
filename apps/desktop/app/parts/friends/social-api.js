@@ -12,8 +12,10 @@
      fetchFriends() → Promise<[{ userCode, addedAt, lastSeenAt }]>   오래 사귄 순 · addedAt ms · lastSeenAt ms | null(기록 없음). 못 읽으면 던진다
      fetchFriend(userCode) → Promise<{ userCode, addedAt, lastSeenAt } | null>   null = 친구가 아님(요청 중 · 나 · 없는 사람)
      removeFriend(userCode) → Promise<void>
-     fetchRequests() → Promise<{ received:[{ userCode, requestedAt }], sent:[{ userCode, requestedAt }] }>   요청이 먼저 생긴 순 · requestedAt ms
-     sendRequest(to) · acceptRequest(from) · rejectRequest(from) · cancelRequest(to) → Promise<void>
+     fetchRequests() → Promise<{ received:[{ userCode, requestedAt, message? }], sent:[{ userCode, requestedAt }] }>   요청이 먼저 생긴 순 · requestedAt ms ·
+       message = 받은 요청의 신청 사유(서버가 received 에만 싣는다 · 없거나 빈 글이면 필드 없음)
+     sendRequest(to, message?) — 본문 { to, message } · message 는 앞뒤 공백을 떼고, 비면 필드째 뺀다(0.13 서버 모양 { to } 그대로)
+     acceptRequest(from) · rejectRequest(from) · cancelRequest(to) → Promise<void>
      findByFriendCode(friendCode) → Promise<userCode | null>   친구코드로 찾기(GET /v2/users?friendCode=) · 없으면 null
      fetchCards(codes) → Promise<{ userCode: 명함 }>   명함 = { name, avatar, bio, level, cyc, clv, starC } · 없는 코드는 빠진다 · 100개씩 나눠 묻는다 · 한 조각이라도 못 받으면 던진다
      reset() — 읽은 토큰 주인 기억을 비운다(계정을 놓을 때)
@@ -99,11 +101,19 @@ function codesOf(list){
   for(const c of list) if(nonEmpty(c) && !seen.has(c)){ seen.add(c); out.push(c); }
   return out;
 }
-/* 요청 한 줄 { userCode, requestedAt } → { userCode, requestedAt(ms) }. 코드 · 시각이 없으면 undefined */
+/* 요청 한 줄 { userCode, requestedAt, message? } → { userCode, requestedAt(ms), message? }. 코드 · 시각이 없으면 undefined · 사유는 빈 글이 아닌 문자열만 */
 function requestOf(raw){
   if(!isObj(raw) || !nonEmpty(raw.userCode)) return undefined;
   const requestedAt = msOrNull(raw.requestedAt);
-  return requestedAt === null ? undefined : { userCode: raw.userCode, requestedAt };
+  if(requestedAt === null) return undefined;
+  const r = { userCode: raw.userCode, requestedAt };
+  if(nonEmpty(raw.message)) r.message = raw.message;
+  return r;
+}
+/* POST /v2/me/friend-requests 본문 — 사유는 앞뒤 공백을 떼고, 비면 필드째 뺀다 */
+function requestBodyOf(to, message){
+  const m = str(message).trim();
+  return m ? { to, message: m } : { to };
 }
 function requestListOf(list){
   const out = [], seen = new Set();
@@ -199,7 +209,7 @@ function createSocialApi(deps){
     fetchFriend,
     removeFriend: async (userCode) => { const c = needCode(userCode); await write('끊기', (o) => authed.del(PATHS.friend(c), o)); },
     fetchRequests: async () => need(requestsOf(await readMine(PATHS.requests))),
-    sendRequest: async (to) => { const c = needCode(to); await write('요청 보내기', (o) => authed.post(PATHS.requests, { to: c }, o)); },
+    sendRequest: async (to, message) => { const c = needCode(to); await write('요청 보내기', (o) => authed.post(PATHS.requests, requestBodyOf(c, message), o)); },
     acceptRequest: async (from) => { const c = needCode(from); await write('수락', (o) => authed.post(PATHS.accept(c), {}, o)); },
     rejectRequest: async (from) => { const c = needCode(from); await write('거절', (o) => authed.post(PATHS.reject(c), {}, o)); },
     cancelRequest: async (to) => { const c = needCode(to); await write('요청 취소', (o) => authed.del(PATHS.request(c), o)); },
@@ -208,7 +218,7 @@ function createSocialApi(deps){
   };
 }
 
-const api = { createSocialApi, friendOf, friendsOf, requestsOf, cardOf, cardsOf, chunk, failOf, ERRORS, KIND, PATHS, LIMITS };
+const api = { createSocialApi, friendOf, friendsOf, requestsOf, requestBodyOf, cardOf, cardsOf, chunk, failOf, ERRORS, KIND, PATHS, LIMITS };
 if(typeof window !== 'undefined') window.TwSocialApi = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
