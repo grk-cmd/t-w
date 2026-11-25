@@ -880,9 +880,10 @@ const plLikeUi = TwPlaylistLikeUi.createPlaylistLikeUi({ likeRules: TwPlaylistLi
   getMyUserId: (...a)=>getMyUserId(...a), notifyError: (...a)=>TwErrorCodes.notify(...a),
   enabled: ()=>TwServerFeatures.on('playlistLike') });   // 서버 길이 생길 때까지 꺼짐(TODO: net 을 서버 provider 로)
 /* 🎄 크리스마스 창(일회성 · 다음 업데이트에서 걷는다) — 런처 [🎄 크리스마스] · 📩 편지 알림(NAV.XMAS)이 연다 · 창 크기는 applyDesktopRunClass · 그림 사본은 GLB 영구 캐시(IndexedDB · 45일)에 · 추천곡은 공용 배경음악 창(주인 'xmas')
-   서버 길이 아직 없다(0.13 은 Firebase DB 쓰기를 잠갔다) — 서버 기능 표(shared/server-features.js)가 켜질 때까지 만들지 않는다(런처 버튼은 html 에서 hidden 으로 시작해 그대로 숨는다 · NAV.XMAS 는 걸리지 않아 아무 일도 안 한다).
-   TODO: 서버가 받으면 net 을 서버 provider 로 바꾼다. */
-if(TwServerFeatures.on('xmas')) TwXmasWindow.createXmasWindow({ THREE, ps1Dither: TwPs1Dither, rules: TwXmasRules, treeMod: TwXmasTree, net: ()=>TwServerFeatures.noServer('xmas'), serverNow: ()=>TwRtHub.store.serverNow(),
+   서버는 xmas-api.js(/v2/xmas · /v2/me/xmas · 그림은 Storage). 서버 기능 표(shared/server-features.js)가 꺼져 있으면 만들지 않는다(런처 버튼은 html 에서 hidden 으로 시작해 그대로 숨는다 · NAV.XMAS 는 걸리지 않아 아무 일도 안 한다). */
+const xmasApiMod = TwXmasApi.createXmasApi({ authed: TwApi.authed, rules: TwXmasRules, myCode: ()=>getMyUserId(), storageBucket: ()=>firebaseAPI.storageBucket(),
+  fetch: (...a)=>window.fetch(...a), warn: (...a)=>console.warn(...a) });   // 🌐 크리스마스 서버 endpoint
+if(TwServerFeatures.on('xmas')) TwXmasWindow.createXmasWindow({ THREE, ps1Dither: TwPs1Dither, rules: TwXmasRules, treeMod: TwXmasTree, net: ()=>xmasApiMod, serverNow: ()=>TwRtHub.store.serverNow(),
   onReady: (fn)=>TwNetReady.whenNetReady(fn), notifyError: (...a)=>TwErrorCodes.notify(...a), toast: (...a)=>toast(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a), onSizeChange: ()=>applyDesktopRunClass(),
   idbGet: (k)=>glbIdbMod._glbIdbGet(k), idbPut: (k, v)=>glbIdbMod._glbIdbPut(k, v), songMod: TwXmasSong, letterMod: TwXmasLetter, companion: ()=>window.companion,

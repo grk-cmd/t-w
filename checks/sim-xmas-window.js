@@ -2,7 +2,8 @@
    실행: node checks/run.js sim-xmas-window
    ・1절 런처 버튼 — 서버 시각 전엔 숨김 · 이벤트 중 · 이벤트 끝 뒤(받은 편지 1/5 까지)에도 보임 · 열람 끝부터 숨고 열린 창도 닫힘
    ・2절 열기 · 불러오기 — 내 트리(없으면 지금 트리) · 그림은 판이 다른 자리만 받고 IndexedDB 에 «트리/자리@판» 사본(localStorage 는 쓰면 던진다) · 다시 열면 안 받음 · 내 장식 표시 · 걸린 수
-   ・3절 장식 달기 — 고른 장식 · 한마디 다듬기 · 보던 트리 번호 · 다 찼으면 «다른 트리로 이동» · 5초 간격 · 실패 갈래
+   ・3절 장식 달기 — 고른 장식 · 한마디 다듬기 · 보던 트리 번호 · 다 찼으면 «다른 트리로 이동» · 5초 간격 · 실패 갈래(conflict 는 다시 읽기)
+   ・3-2절 내 장식 덮어 그리기 — 목록(서버 캐시)이 내가 건 판보다 늦으면 걸기 응답으로 · 목록이 같거나 새 판이면 목록대로
    ・4절 신고 — 확인창 · 내 트리 · 자리 · 이미 신고 · 실패 코드
    ・5절 실패 · 닫기 — 못 불러옴(E-XMAS-01) · 닫은 뒤 늦게 온 답은 버림 · 끝난 뒤 열기 막기
    ・6절 한마디 라벨은 textContent 로만 · mutation test
@@ -57,8 +58,9 @@ function world(opts){
   const net = {
     where: async () => { N.calls.push('where'); return N.fail.where ? { ok: false, code: N.fail.where === 'auth' ? 'auth' : 'read' } : { ok: true, cur: N.data.cur, mine: N.data.mine }; },
     tree: async (t) => { N.calls.push('tree:' + t); if (N.hangGate) await N.hangGate; return N.fail.tree ? { ok: false, code: 'read' } : { ok: true, o: N.data.trees[t] || {} }; },
-    img: async (t, s) => { N.calls.push('img:' + t + '/' + s); const v = (N.data.imgs[t] || {})[s]; return { ok: true, v: v ? v.v : null, d: v ? v.d : null }; },
-    hang: async (d) => { N.calls.push('hang'); N.lastHang = d; return N.hangRet || { ok: true, tree: N.data.cur, slot: 0, moved: false, changed: false }; },
+    img: async (id) => { N.calls.push('img:' + id); const d = N.data.imgs[id]; return d ? { ok: true, d } : { ok: false, code: 'read' }; },
+    hang: async (d) => { N.calls.push('hang'); N.lastHang = d; return N.hangRet || { ok: true, tree: N.data.cur, slot: 0, version: 1, moved: false, changed: false, imageId: null }; },
+    schedule: () => N.sched || null,
     reportOrnament: async (t, s) => { N.calls.push('report:' + t + '/' + s); return o.repRet || { ok: true }; },
   };
   const Lt = { calls: [], deps: null };
@@ -93,21 +95,21 @@ say('── 1절 런처 버튼');
 
 say('── 2절 열기 · 불러오기');
 {
-  const data = { cur: 3, mine: { t: 2, s: 4 }, trees: { 2: { 0: { k: 'star', v: 1, w: '메리' }, 4: { k: 'img', v: 2 }, 7: { k: 'img', v: 5 } } },
-    imgs: { 2: { 4: { v: 2, d: PNG('A') }, 7: { v: 5, d: PNG('B') } } } };
+  const data = { cur: 3, mine: { t: 2, s: 4, v: 2 }, trees: { 2: { 0: { k: 'star', v: 1, w: '메리' }, 4: { k: 'img', v: 2, id: 'id4' }, 7: { k: 'img', v: 5, id: 'id7' } } },
+    imgs: { id4: PNG('A'), id7: PNG('B') } };
   const w = world({ data }); w.S.ready();
   w.api.open(); await settle();
   chk(w.els.xmasOverlay.classList.contains('on') && w.T.opened === 1 && w.S.size === 1, '열면 창 · 트리 · 창 크기');
-  chk(w.N.calls.join() === 'where,tree:2,img:2/4,img:2/7', '내 트리(2)를 읽고 그림 자리만 하나씩 — ' + w.N.calls.join(' · '));
+  chk(w.N.calls.join() === 'where,tree:2,img:id4,img:id7', '내 트리(2)를 읽고 그림 자리만 그림 id 로 하나씩(Storage) — ' + w.N.calls.join(' · '));
   const L = w.T.lists[w.T.lists.length - 1];
   chk(L.length === 3 && L.find(x => x.slot === 4).mine === true && L.filter(x => x.mine).length === 1, '내 장식 하나만 mine');
   chk(L.find(x => x.slot === 0).word === '메리' && L.find(x => x.slot === 0).img === null && L.find(x => x.slot === 7).img, '한마디 · 기본 장식은 그림 없음 · 내 그림은 Image');
   chk(w.els.xmasCount.textContent === '트리 #2 · 3/300' && w.els.xmasHang.textContent === '내 장식 바꾸기', '걸린 수 · 단추 «내 장식 바꾸기»');
   chk(w.store['xmasimg:2/7@5'] === PNG('B') && w.store['xmasimg:2/4@2'] === PNG('A'), '그림 사본을 IndexedDB 에 «트리/자리@판» 키로(localStorage 는 안 씀)');
   w.api.close(); w.N.calls.length = 0;
-  data.trees[2][7].v = 6; data.imgs[2][7] = { v: 6, d: PNG('C') }; data.trees[2][4] = { k: 'gift', v: 3 };
+  data.trees[2][7] = { k: 'img', v: 6, id: 'id7b' }; data.imgs.id7b = PNG('C'); data.trees[2][4] = { k: 'gift', v: 3 };
   w.api.open(); await settle();
-  chk(w.N.calls.join() === 'where,tree:2,img:2/7', '다시 열면 판이 바뀐 자리만 받는다 — ' + w.N.calls.join(' · '));
+  chk(w.N.calls.join() === 'where,tree:2,img:id7b', '다시 열면 판이 바뀐 자리만 받는다 — ' + w.N.calls.join(' · '));
   chk(w.store['xmasimg:2/7@6'] === PNG('C') && w.store['xmasimg:2/7@5'] === PNG('B'), '새 판은 새 키로 — 옛 판 키는 쓰이지 않고 캐시가 45일 뒤 치운다');
   const L2 = w.T.lists[w.T.lists.length - 1];
   chk(L2.find(x => x.slot === 4).img === null, '기본 장식으로 바뀐 자리는 그림 없이(사본을 안 쓴다)');
@@ -127,13 +129,31 @@ say('── 3절 장식 달기');
   const n = w.N.calls.filter(c => c === 'hang').length;
   await w.els.xmasHang.onclick();
   chk(w.N.calls.filter(c => c === 'hang').length === n && /초 뒤에 다시/.test(w.S.toasts.pop()), '5초 안에 또 누르면 보내지 않고 안내');
-  for (const [code, want] of [['aborted', /거는 중/], ['failed-precondition', /끝났어요/], ['invalid-argument', /쓸 수 없는 말|걸 수 없어요/], ['unauthenticated', /로그인한 뒤/], ['permission-denied', /로그인한 뒤/]]) {
+  for (const [code, want] of [['aborted', /잠시 뒤 다시/], ['failed-precondition', /끝났어요/], ['invalid-argument', /쓸 수 없는 말|걸 수 없어요/], ['auth', /로그인한 뒤/]]) {
     const w2 = world({ hangRet: { ok: false, code, msg: code === 'invalid-argument' ? '쓸 수 없는 말이 들어 있어요' : '' } }); w2.S.ready(); w2.api.open(); await settle();
     await w2.els.xmasHang.onclick();
     chk(want.test(w2.S.toasts.pop() || '') && !w2.S.errs.length, '실패 ' + code + ' — 안내 문구(오류 코드 아님)');
   }
   const w3 = world({ hangRet: { ok: false, code: 'internal' } }); w3.S.ready(); w3.api.open(); await settle(); await w3.els.xmasHang.onclick();
   chk(w3.S.errs.join() === 'E-XMAS-02', '그 밖 실패는 E-XMAS-02');
+  const wc = world({ hangRet: { ok: false, code: 'conflict' } }); wc.S.ready(); wc.api.open(); await settle(); wc.N.calls.length = 0; await wc.els.xmasHang.onclick(); await settle();
+  chk(/다른 PC 에서 먼저/.test(wc.S.toasts.join()) && !wc.S.errs.length && wc.N.calls.join() === 'hang,where,tree:1', '실패 conflict(다른 PC 가 먼저 바꿈) — 안내 · 트리 · 내 자리를 다시 읽는다(다시 보내지 않음)');
+}
+
+say('── 3-2절 내 장식 덮어 그리기(목록은 서버 캐시라 몇 초 늦을 수 있다)');
+{
+  const data = { cur: 2, mine: null, trees: { 2: { 0: { k: 'star', v: 1 } } }, imgs: {} };
+  const w = world({ data, hangRet: { ok: true, tree: 2, slot: 5, version: 1, moved: false, changed: false, imageId: 'idmine' } });
+  w.S.ready(); w.api.open(); await settle();
+  w.els.xmasWord.value = '안녕';
+  await w.els.xmasHang.onclick(); await settle();
+  const L = w.T.lists[w.T.lists.length - 1];
+  chk(L.length === 2 && L.find(x => x.slot === 5) && L.find(x => x.slot === 5).k === 'star' && L.find(x => x.slot === 5).word === '안녕', '늦은 목록(내 장식 없음) 위에 걸기 응답으로 내 장식을 그린다 — 자리 · 종류 · 한마디');
+  data.trees[2][5] = { k: 'bulb', v: 2 }; w.api.close(); w.api.open(); await settle();
+  chk(w.T.lists[w.T.lists.length - 1].find(x => x.slot === 5).k === 'bulb', '  ↳ 목록이 그 판 이상이면 목록을 그대로 쓴다(다른 PC 에서 또 바꾼 것)');
+  data.trees[2][5] = { k: 'gift', v: 0 }; w.api.close(); w.api.open(); await settle();
+  chk(w.T.lists[w.T.lists.length - 1].find(x => x.slot === 5).k === 'star', '  ↳ 목록이 옛 판이면 내가 건 판으로 덮는다');
+  chk(/idbPut\(imgKey\(r\.tree, r\.slot, r\.version\), data\.img\)/.test(SRC), '  ↳ 내 그림은 걸기 응답의 «트리/자리@판» 사본으로 넣는다(그림 올리기는 FileReader · canvas 라 실제 앱에서 본다)');
 }
 
 say('── 4절 신고');
@@ -186,10 +206,10 @@ say('── 6절 한마디 라벨 · mutation test');
   chk(!/innerHTML/.test(SRC.replace(/\/\*[\s\S]*?\*\//g, '')), '창 모듈에 innerHTML 없음');
   chk(/TwSafeHtml\.safeUrl\(d, 'image'\)/.test(SRC), '받은 그림 주소는 safeUrl(image) 로 거른다');
   // mutation test — 2절 «판이 바뀐 자리만» 이 사본을 안 보면 잡히는지
-  const wb = world({ data: { cur: 1, mine: null, trees: { 1: { 3: { k: 'img', v: 1 } } }, imgs: { 1: { 3: { v: 1, d: PNG('Z') } } } } }); wb.S.ready();
+  const wb = world({ data: { cur: 1, mine: null, trees: { 1: { 3: { k: 'img', v: 1, id: 'idz' } } }, imgs: { idz: PNG('Z') } } }); wb.S.ready();
   wb.api.open(); await settle(); wb.api.close(); wb.N.calls.length = 0; delete wb.store['xmasimg:1/3@1'];
   wb.api.open(); await settle();
-  chk(wb.N.calls.includes('img:1/3'), 'mutation test — 사본이 없으면 다시 받는다(사본을 안 보면 2절이 빨강)');
+  chk(wb.N.calls.includes('img:idz'), 'mutation test — 사본이 없으면 다시 받는다(사본을 안 보면 2절이 빨강)');
 }
 
 say('── 7절 편지 창 잇기');
