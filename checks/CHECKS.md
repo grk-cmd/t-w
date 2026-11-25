@@ -463,7 +463,7 @@
 | **sim-account-state.js** | 108 | **413b232af0e3** |
 | **sim-nav.js** | 91 | **27ffd1e7cdaa** |
 | **sim-server-features.js** | 165 | **47d7921ce9c2** |
-| **sim-app-boot.js** | 256 | **94dce659ab72** |
+| **sim-app-boot.js** | 261 | **48d4634af6ab** |
 | **sim-away-start.js** | 120 | **b9010d0eee8e** |
 | **sim-user-local.js** | 207 | **b34ec3227153** |
 | **sim-saved-lists-wiring.js** | 91 | **81a39e87449d** |

@@ -215,7 +215,7 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 | LATER — 첫 화면 뒤 하나씩 | focusLevel · weeklyChal · mhInit · bugBadge · scheduler · ddays(🔔 배지가 센다) · gacha(못 가진 가챠 파츠 벗기기) · invites · appVersion · firstRun · licenseAutoRegister |
 | OPEN — 그 창을 처음 열 때 | playlist(플레이리스트 창) |
 
-**내놓는 것** — `begin(me)`(보통은 nav 로 불린다) · `open(name)`(OPEN 칸만 — 아니면 던진다 · 두 번째부터 무시 · 업데이트 확인 전이면 통과한 뒤 시작) · `getSession()`.
+**내놓는 것** — `begin(me)`(보통은 nav 로 불린다) · `open(name)`(OPEN 칸만 — 아니면 던진다 · 두 번째부터 무시 · 들어가기 전 · 업데이트 확인 전이면 통과한 뒤 시작) · `getSession()`.
 
 **함정**
 - 게이트가 이 모듈을 직접 부르면 순환이다 — 그래서 `nav.js` 로 알린다(`sim-dep-cycles`).
