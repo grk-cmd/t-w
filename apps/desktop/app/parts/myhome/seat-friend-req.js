@@ -42,9 +42,8 @@ async function sendFriendReq(uid, name, msg){
   if(_myHomeFriends() && _myHomeFriends()[uid]) return { ok:false, reason:'already' };
   if(_myHomeFriends() && Object.keys(_myHomeFriends()).length >= FRIEND_MAX) return { ok:false, reason:'full' };
   try{
-    // 이름 · 코드는 서버가 채운다
-    // TODO: 0.14 «신청 사유»(msg — 마이홈 [친구 신청] 창, #824)는 서버 send 가 아직 받지 않아 싣지 않는다(서버 포트 필요)
-    const res = await net.sendFriendRequest(getMyUserId(), uid);
+    // 이름 · 코드는 서버가 채운다 · 빈 사유는 provider 가 본문에서 뺀다
+    const res = await net.sendFriendRequest(getMyUserId(), uid, msg);
     return (res && res.ok) ? { ok:true } : { ok:false, reason: (res && res.reason) || 'save_failed' };
   }catch(e){ return { ok:false, reason:'error', err:e }; }
 }
