@@ -136,6 +136,10 @@ async function judge(S){
     const bad = mk(LIB, { OWN: Object.assign(new Error('거절'), { code: 'IMAGE_UPLOAD' }) });
     await bad.m.fetchMine();
     chk((await throws(() => bad.m.uploadImage(png(4)))).code === 'IMAGE_UPLOAD', '  Storage 가 거절하면 IMAGE_UPLOAD 그대로 던진다');
+    const oc = mk(LIB, { OWN: Object.assign(new Error('o'), { code: 'OWNER_CHANGED' }) });
+    await oc.m.fetchMine();
+    chk((await throws(() => oc.m.uploadImage(png(4)))).code === 'OWNER_CHANGED' && (await throws(() => oc.m.uploadImage(png(4)))).code === 'NOT_RECEIVED' && oc.ownImage.ups.length === 1,
+      '  계정이 바뀌어 OWNER_CHANGED 면 다시 읽기 전까지 올리지 않는다');
   }
 
   say('── 2. 선물함');
