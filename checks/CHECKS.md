@@ -156,6 +156,7 @@
 | **sim-app-version.js** | 109 | **6dee4558ad2b** |
 | **sim-app-version-sync.js** | 178 | **5acd89fd7806** |
 | **sim-update-flow.js** | 499 | **d037570b3c1e** |
+| **sim-update-recheck.js** | 250 | **9734962c73b5** |
 | **sim-firebase-left.js** | 175 | **12d4d73bb425** |
 | **sim-maintenance-gate.js** | 380 | **d05ea4148930** |
 | **sim-room-invite-wait.js** | 45 | **76bc51548bda** |

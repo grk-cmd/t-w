@@ -51,7 +51,7 @@ if(desktopMode){
   // 활성 프로세스 상태 실시간 구독 (500ms 폴링 기반) — 포커싱 어플 게이트 갱신
   if(window.companion&&companion.onActiveAppState){ companion.onActiveAppState(_applyActiveAppState); }
   // ---- 자동 업데이트 상태 알림 ----
-  // 다운로드 완료('downloaded')되면 재시작 버튼이 달린 알림을 계속 띄워둠(사용자가 직접 확인하고 눌러야 설치됨).
+  // 다운로드 완료('downloaded')되면 재시작 버튼이 달린 알림을 계속 띄워둠 — [지금 재시작] 을 누르거나, 윈도우는 앱을 끌 때 조용히 설치된다(main.js).
   // 그 외 상태(checking/available/downloading/none)는 조용히 무시 — 매번 토스트 띄우면 방해될 수 있어서
   // "설치 준비 완료"만 눈에 띄게 알림.
   if(window.companion&&companion.onUpdateStatus){
