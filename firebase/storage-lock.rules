@@ -67,5 +67,13 @@ service firebase.storage {
                                 || (request.resource.contentType == 'model/gltf-binary'
                                     && request.resource.size <= 1024 * 1024));
     }
+
+    match /xmas/{file} {
+      allow get: if true;
+      allow list: if isBot();
+      allow write: if isBot()
+                   && (request.resource == null
+                       || (request.resource.size <= 16 * 1024 && request.resource.contentType == 'image/png'));
+    }
   }
 }

@@ -6,6 +6,7 @@
    [무엇을 본다] 1절: 설정 — firebase.json 은 storage.rules · 컷오버 RTDB 규칙 그대로 · 잠금 설정은 storage 항목 하나(일부러 깬 설정이 빨강인지도).
      2절: 두 파일의 경로 · 봇 uid 가 같다.
      3절: 실제 판정 — Storage 에뮬레이터(firebase CLI + Java)가 있으면 두 규칙을 올려 REST 로 하나씩 보낸다. 봇 상한(마이홈 8MB · assets PNG · WebP 512KB · GLB 1MB)은 0.13 서버와 같다.
+     xmas/ 는 누구나 한 객체씩 받고(get) · 목록 · 쓰기 · 지우기는 봇만 · PNG 16KB 까지(0.14 서버 xmas — tw-docs 11-xmas.md 11장).
      mutation test: 지우기 항을 뺀 규칙 · 봇 검사를 뺀 규칙 · 봇 마이홈 상한을 뺀 규칙이 각각 다르게 판정되는지 본다.
      없으면 건너뛴다(CI 에는 없다 — 규칙을 바꾼 PR 은 손으로 돌려 본문에 붙인다). */
 'use strict';
@@ -74,7 +75,7 @@ const zeroTwelve = [   // 0.12 앱이 올리는 자리
 ];
 function mainCases() {
   return [
-    ...['users/u1/del.png', 'users/u1/giftimg/del.png', 'catalog/del.glb', 'away/u1/del.webp', 'bookmarks/u1/del.webp', 'purikura/R/u1/del.webp', 'assets/del.png', 'assets/read.png'].map(seed),
+    ...['users/u1/del.png', 'users/u1/giftimg/del.png', 'catalog/del.glb', 'away/u1/del.webp', 'bookmarks/u1/del.webp', 'purikura/R/u1/del.webp', 'assets/del.png', 'assets/read.png', 'xmas/del.png', 'xmas/read.png'].map(seed),
     ['users — 로그인 없이 2MB 아래 올리기', 'up', 'users/u1/a.png', 2 * MB - 1, 'image/png', true, ANON],
     ['users — 2MB 는 거절', 'up', 'users/u1/b.png', 2 * MB, 'image/png', false, ANON],
     ['users — 로그인한 사용자도 2MB 는 거절', 'up', 'users/u1/b.png', 2 * MB, 'image/png', false, USER],
@@ -120,6 +121,18 @@ function mainCases() {
     ['assets — 서버 봇도 받는 형식(PNG · WebP · GLB)이 아니면 거절', 'up', 'assets/h.jpg', 10, 'image/jpeg', false, BOT],
     ['assets — 사용자 지우기 거절', 'del', 'assets/del.png', 0, '', false, USER],
     ['assets — 서버 봇 지우기', 'del', 'assets/del.png', 0, '', true, BOT],
+    ['xmas — 로그인 없이 한 객체 받기(get)', 'get', 'xmas/read.png', 0, '', true, ANON],
+    ['xmas — 로그인 없이 목록 거절', 'list', 'xmas/', 0, '', false, ANON],
+    ['xmas — 사용자 목록 거절', 'list', 'xmas/', 0, '', false, USER],
+    ['xmas — 서버 봇 목록(1/31 지우기)', 'list', 'xmas/', 0, '', true, BOT],
+    ['xmas — 로그인 없이 올리기 거절', 'up', 'xmas/u.png', 10, 'image/png', false, ANON],
+    ['xmas — 사용자 올리기 거절', 'up', 'xmas/u.png', 10, 'image/png', false, USER],
+    ['xmas — 서버 봇 PNG 16KB', 'up', 'xmas/a.png', 16 * KB, 'image/png', true, BOT],
+    ['xmas — 서버 봇 덮어쓰기', 'up', 'xmas/a.png', 10, 'image/png', true, BOT],
+    ['xmas — 서버 봇도 16KB 넘으면 거절', 'up', 'xmas/b.png', 16 * KB + 1, 'image/png', false, BOT],
+    ['xmas — 서버 봇도 PNG 아니면 거절', 'up', 'xmas/c.webp', 10, 'image/webp', false, BOT],
+    ['xmas — 사용자 지우기 거절', 'del', 'xmas/del.png', 0, '', false, USER],
+    ['xmas — 서버 봇 지우기', 'del', 'xmas/del.png', 0, '', true, BOT],
     ['규칙 없는 경로 — 올리기 거절', 'up', 'other/a.png', 10, 'image/png', false, USER],
     ['규칙 없는 경로 — 읽기 거절', 'list', 'other/', 0, '', false, USER],
   ];
@@ -127,7 +140,7 @@ function mainCases() {
 function lockCases() {
   return [
     ...zeroTwelve.map(([p]) => seed(p.replace(/(\.\w+)$/, '_old$1'))),
-    seed('assets/read.png'),
+    seed('assets/read.png'), seed('xmas/read.png'), seed('xmas/del.png'),
     ...zeroTwelve.flatMap(([p, size, ct]) => [
       [`${p} — 로그인 없이 올리기 거절`, 'up', p, size, ct, false, ANON],
       [`${p} — 로그인한 사용자 올리기 거절`, 'up', p, size, ct, false, USER],
@@ -148,6 +161,13 @@ function lockCases() {
     ['assets — 서버 봇 GLB 1MB', 'up', 'assets/c.glb', MB, 'model/gltf-binary', true, BOT],
     ['assets — 서버 봇도 GLB 1MB 넘으면 거절', 'up', 'assets/d.glb', MB + 1, 'model/gltf-binary', false, BOT],
     ['assets — 서버 봇 읽기', 'get', 'assets/read.png', 0, '', true, BOT],
+    ['xmas — 로그인 없이 한 객체 받기(get)', 'get', 'xmas/read.png', 0, '', true, ANON],
+    ['xmas — 로그인 없이 목록 거절', 'list', 'xmas/', 0, '', false, ANON],
+    ['xmas — 사용자 올리기 거절', 'up', 'xmas/u.png', 10, 'image/png', false, USER],
+    ['xmas — 서버 봇 PNG 16KB', 'up', 'xmas/a.png', 16 * KB, 'image/png', true, BOT],
+    ['xmas — 서버 봇도 16KB 넘으면 거절', 'up', 'xmas/b.png', 16 * KB + 1, 'image/png', false, BOT],
+    ['xmas — 사용자 지우기 거절', 'del', 'xmas/del.png', 0, '', false, USER],
+    ['xmas — 서버 봇 지우기', 'del', 'xmas/del.png', 0, '', true, BOT],
   ];
 }
 /* 지우기 항을 뺀 규칙 — 지우기가 거절돼야 한다(콘솔 규칙에서 실제로 났던 함정) */
@@ -159,7 +179,9 @@ function noDeleteCases() {
 /* 봇 상한을 사람에게도 연 규칙(isBot 을 뺌) — 앱이 2MB 이상 · assets 를 올리면 거절돼야 하므로 빨강이 나야 한다 */
 function openBotCases() {
   return [['봇 검사 없음 — 사용자가 users 에 3MB 를 올리면 통과해 버린다', 'up', 'users/u1/x.png', 3 * MB, 'image/png', true, USER],
-    ['봇 검사 없음 — 사용자가 assets 에 GLB 를 올리면 통과해 버린다', 'up', 'assets/x.glb', MB, 'model/gltf-binary', true, USER]];
+    ['봇 검사 없음 — 사용자가 assets 에 GLB 를 올리면 통과해 버린다', 'up', 'assets/x.glb', MB, 'model/gltf-binary', true, USER],
+    ['봇 검사 없음 — 사용자가 xmas 목록을 읽으면 통과해 버린다', 'list', 'xmas/', 0, '', true, USER],
+    ['봇 검사 없음 — 사용자가 xmas 에 PNG 를 올리면 통과해 버린다', 'up', 'xmas/x.png', 10, 'image/png', true, USER]];
 }
 /* 봇 마이홈 상한을 뺀 규칙 — 봇의 8MB 가 거절돼야 한다 */
 function noBotCapCases() {

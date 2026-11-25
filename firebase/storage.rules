@@ -75,5 +75,16 @@ service firebase.storage {
                                 || (request.resource.contentType == 'model/gltf-binary'
                                     && request.resource.size <= 1024 * 1024));
     }
+
+    // 크리스마스 그림(일회성 · 0.14 서버 xmas) — api 봇만 쓴다. 읽기는 한 객체씩만(get) — 누구나 list 를 열면 폴더 목록으로 그림 수 · 올린 차례가 보인다.
+    // get 이 열려 있어 토큰 없는 ?alt=media 주소로 받는다(서버는 32자 id 만 내준다). 메타데이터에 사람을 가리키는 값은 넣지 않는다.
+    // list 는 봇만 — 2027-01-31 XmasPurgeJob 의 deleteAll("xmas/") 이 폴더 목록을 읽어야 지운다(tw-docs docs/design/11-xmas.md 11장).
+    match /xmas/{file} {
+      allow get: if true;
+      allow list: if isBot();
+      allow write: if isBot()
+                   && (request.resource == null
+                       || (request.resource.size <= 16 * 1024 && request.resource.contentType == 'image/png'));
+    }
   }
 }
