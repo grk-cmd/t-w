@@ -244,6 +244,19 @@ async function judge(S){
     const f6 = mkEnv(S, { user: null, gFresh: true, me: NB }); f6.srv.joinGAns = () => { throw Object.assign(new Error('x'), { kind: 'request', code: 'INVITE_INVALID' }); };
     await f6.flow.joinGoogle({ inviteCode: 'BAD' });
     chk(f6.authLog.join() === 'g:gtok,del:authG', '  ↳ 구글 가입이 거절되면 방금 생긴 로그인을 지운다');
+    /* 서버가 가입을 받았을 수 있는 갈래 — 지우면 그 uid 의 서버 계정에 다시 못 들어간다. 로그아웃만(다시 누르면 같은 uid → USER_ALREADY_JOINED) */
+    const f7 = mkEnv(S, { user: null, gFresh: true, me: NB }); f7.srv.joinGAns = () => { throw apiErr('unavailable', 'NETWORK'); };
+    await f7.flow.joinGoogle({ inviteCode: 'ABC' });
+    chk(f7.authLog.join() === 'g:gtok,out', '★ 구글 가입 답을 못 받음(unavailable) → 지우지 않고 로그아웃만');
+    const f8 = mkEnv(S, { user: null, gFresh: true, me: NB }); f8.srv.joinGAns = () => { throw apiErr('request', 'USER_ALREADY_JOINED'); };
+    await f8.flow.joinGoogle({ inviteCode: 'ABC' });
+    chk(f8.authLog.join() === 'g:gtok,out', '  ↳ 이미 가입(USER_ALREADY_JOINED)인데 확인이 안 됨 → 지우지 않음');
+    const f9 = mkEnv(S, { user: null, gFresh: true, me: NB }); f9.srv.joinGAns = () => null;
+    await f9.flow.joinGoogle({ inviteCode: 'ABC' });
+    chk(f9.authLog.join() === 'g:gtok,out', '  ↳ 답 모양이 다름 → 지우지 않음');
+    const f10 = mkEnv(S, { user: null, gFresh: true, me: NB }); f10.srv.joinGAns = () => { throw new Error('모르는 오류'); };
+    await f10.flow.joinGoogle({ inviteCode: 'ABC' });
+    chk(f10.authLog.join() === 'g:gtok,out', '  ↳ 서버가 거절했는지 모르는 오류(kind 없음) → 지우지 않음');
     const e5 = mkEnv(S, { user: null });
     const r5 = await e5.flow.loginPassword('MATE-AB12', 'pw1234');
     chk(r5.ok && e5.authLog[0] === 'p:MATE-AB12:pw1234', '친구코드 로그인 → in');
@@ -431,13 +444,18 @@ const BREAKS = [
   ['LF', "    if(!online){ online = true; rtWait = true; deps.rt.start({ claim: true }); }", "", '기다리는 동안 realtime 을 안 켬(신호가 안 옴)'],
   ['LF', "    else if(rtWait){ rtWait = false; online = false; try{ deps.rt.stop(); }catch(_){} }", "", '계정이 없는데 켜 둔 연결을 안 끔'],
   ['LF', "limited: !!(e && e.status === 429)", "limited: false", '429 를 못 알림'],
-  ['LF', "    if(c.state === STATE.SIGNUP && !keepOnSignup) await dropGoogleLogin(a);", "", '가입 전 구글 로그인을 남김'],
-  ['LF', "      await dropLogin();\n      return { ok: false, reason: deps.reasonOf(e)", "      return { ok: false, reason: deps.reasonOf(e)", '거절된 구글 가입의 로그인을 남김'],
-  ['LF', "    if(a && a.fresh && a.uid){", "    if(false){", '방금 생긴 구글 로그인을 안 지움(그 구글을 다시 연결 못 함)'],
-  ['LF', "    if(a && a.fresh && a.uid){", "    if(a && a.uid){", '원래 있던 Auth 사용자까지 지움'],
+  ['LF', "    if(c.state === STATE.SIGNUP && !keepOnSignup) await dropGoogleLogin(a, true);", "", '가입 전 구글 로그인을 남김'],
+  ['LF', "      await dropLogin(!!e && e.kind === 'request' && e.code !== 'USER_ALREADY_JOINED');   // 서버가 확실히 거절했을 때만 지운다 — 구글 가입은 요청 번호가 없어 시간 초과여도 계정이 생겼을 수 있다\n", "", '거절된 구글 가입의 로그인을 남김'],
+  ['LF', "    if(canDelete && a && a.fresh && a.uid){", "    if(false){", '방금 생긴 구글 로그인을 안 지움(그 구글을 다시 연결 못 함)'],
+  ['LF', "    if(canDelete && a && a.fresh && a.uid){", "    if(canDelete && a && a.uid){", '원래 있던 Auth 사용자까지 지움'],
+  ['LF', "    if(canDelete && a && a.fresh && a.uid){", "    if(a && a.fresh && a.uid){", '서버가 가입을 받았을 수 있어도 지움'],
+  ['LF', "e.kind === 'request' && e.code !== 'USER_ALREADY_JOINED'", "e.code !== 'USER_ALREADY_JOINED'", '답을 못 받은 구글 가입의 로그인을 지움'],
+  ['LF', "e.kind === 'request' && e.code !== 'USER_ALREADY_JOINED'", "e.kind === 'request'", '이미 가입된 uid 의 로그인을 지움'],
+  ['LF', "e.kind === 'request' && e.code !== 'USER_ALREADY_JOINED'", "e.kind !== 'unavailable' && e.code !== 'USER_ALREADY_JOINED'", '모르는 오류(kind 없음)에도 지움'],
+  ['LF', "    if(!me){ await dropLogin(false); return", "    if(!me){ await dropLogin(true); return", '답 모양이 다른 가입의 로그인을 지움'],
   ['LF', "      if(r && r.ok) return;\n", "      return;\n", '지우기가 실패해도 로그아웃 안 함'],
-  ['LF', "    if(c.state === STATE.SIGNUP && !keepOnSignup) await dropGoogleLogin(a);", "    if(c.state !== STATE.IN && !keepOnSignup) await dropGoogleLogin(a);\n    else if(c.state === STATE.IN) await dropGoogleLogin(a);", '계정이 있어도 지움'],
-  ['LF', "    const dropLogin = () => dropGoogleLogin(l.login);", "    const dropLogin = async () => { try{ await auth.signOut(); }catch(_){} };", '거절된 구글 가입의 새 로그인을 안 지움'],
+  ['LF', "    if(c.state === STATE.SIGNUP && !keepOnSignup) await dropGoogleLogin(a, true);", "    if(c.state !== STATE.IN && !keepOnSignup) await dropGoogleLogin(a, true);\n    else if(c.state === STATE.IN) await dropGoogleLogin(a, true);", '계정이 있어도 지움'],
+  ['LF', "    const dropLogin = (canDelete) => dropGoogleLogin(l.login, canDelete);", "    const dropLogin = async () => { try{ await auth.signOut(); }catch(_){} };", '거절된 구글 가입의 새 로그인을 안 지움'],
   ['LF', "      if(e && e.kind !== 'unavailable') deps.pending.settle(key);", "      deps.pending.settle(key);", '닿지 못한 가입을 새 요청으로(두 계정)'],
   ['LF', "      if(e && e.kind !== 'unavailable') deps.pending.settle(key);", "", '거절된 가입을 같은 요청으로'],
   ['LF', "    const a = await auth.signInPassword(me.friendCode, o.password);", "    const a = await auth.signInPassword('MATE-0000', o.password);", '받은 친구코드로 로그인 안 함'],
