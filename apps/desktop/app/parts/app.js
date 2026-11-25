@@ -5051,7 +5051,8 @@ const appBoot = TwAppBoot.createAppBoot({
     licenseAutoRegister: ()=>licensePremiumMod.autoRegisterAfter(firstRunMod.licenseDone()),   // 첫 실행 뒤 — 0.12 키로 첫 실행이 등록했으면 건너뜀
     playlist: (code, me, session)=>plMod.start(session),
   },
-});/* 그 창을 처음 열 때 받는 기능(app-boot OPEN) — 플레이리스트 창 → 플레이리스트 */
+});
+/* 그 창을 처음 열 때 받는 기능(app-boot OPEN) — 플레이리스트 창 → 플레이리스트 */
 TwOpenOnShow.createOpenOnShow({
   open: (name)=>appBoot.open(name),
   targets: [
