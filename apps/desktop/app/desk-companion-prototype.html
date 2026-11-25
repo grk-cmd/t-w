@@ -2452,7 +2452,7 @@
   /* 서브탭 줄 오른쪽 끝 — 격자 위에 줄을 따로 두면 목록이 한 줄 길어져 스크롤이 생긴다. */
   /* 🎁 선물함 맨 위 «받은 선물 · 보낸 선물» · 보낸 선물 목록 */
   .gift-sub{display:none;gap:3px;margin-left:6px;align-self:center;}
-  /* 선물함 탭일 때만 — 보낸 선물 기록이 서버로 옮겨질 때까지(#1103) 서브탭은 안 보인다(.gift-sub{display:none} 그대로) */
+  #mhFmTabs:has(.mh-ibx-tab.gift.on) .gift-sub{display:flex;}   /* 선물함 탭일 때만 */
   .gift-sub button{font-family:var(--tw-font-legacy);font-size:10px;padding:1px 8px;cursor:pointer;color:var(--ink);background:var(--win-face-2);
     border:1px solid var(--win-lo);border-radius:9px;}
   .gift-sub button.on{background:var(--win-select-bg);border-color:var(--win-select);font-weight:bold;}
