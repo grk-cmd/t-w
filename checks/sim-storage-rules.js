@@ -307,7 +307,7 @@ async function emulate(set, rulesSrc) {
   fs.writeFileSync(path.join(dir, FS_FILE), FS_SRC);
   // Storage 규칙의 firestore.get 은 같이 뜬 Firestore 에뮬레이터를 읽는다
   fs.writeFileSync(path.join(dir, 'firebase.json'), JSON.stringify({ storage: { rules: 'storage.rules' }, firestore: { rules: FS_FILE },
-    emulators: { storage: { port }, firestore: { port: fsPort }, ui: { enabled: false }, singleProjectMode: true } }));
+    emulators: { storage: { host: '127.0.0.1', port }, firestore: { host: '127.0.0.1', port: fsPort }, ui: { enabled: false }, singleProjectMode: true } }));
   const r = spawnSync('firebase', ['emulators:exec', '--only', 'storage,firestore', '--project', PROJECT, `node "${__filename}" --inner`],
     { cwd: dir, env: { ...process.env, TW_EMU_PORT: String(port), TW_FS_PORT: String(fsPort), TW_SET: set }, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' });
   fs.rmSync(dir, { recursive: true, force: true });
