@@ -436,8 +436,8 @@ function wiring(S, loud){
   const sent = inb.slice(inb.indexOf('async function _sentPaint'), inb.indexOf('function _giftStat'));
   t(/giftBox\.fetchSent\(\)/.test(sent) && /TwSafeHtml\.safeUrl\(s\.imageUrl, 'image'\)/.test(sent) && /escHtml\(TwPersonName\.shown\(s\.recipientName\)\)/.test(sent) && /escHtml\(s\.message\)/.test(sent),
     '보낸 선물 — 원본은 서버(giftBox.fetchSent) · 받은 이름 · 메시지 · 그림 주소는 escHtml · safeUrl');
-  t(/my !== _sentGen\) return;/.test(sent) && /retryOnError\(im, \(\)=>\{[\s\S]*?gs-noimg/.test(sent), '  늦은 답은 버린다 · 원본 그림이 지워졌으면 빈 그림');
-  t(/_giftSub !== 'got'\) return;/.test(inb), '  받은 선물이 바뀌어도 «보낸 선물» 을 보는 중이면 다시 그리지 않는다');
+  t(/my !== _sentGen \|\| !_giftShowing\('sent'\)\) return;/.test(sent) && /retryOnError\(im, \(\)=>\{[\s\S]*?gs-noimg/.test(sent), '  늦은 답은 버린다 · 원본 그림이 지워졌으면 빈 그림');
+  t(/if\(!_giftShowing\('got'\)\) return;/.test(inb) && /tab\.dataset\.tab === 'friend' && !!fm && fm\.dataset\.fm === 'gift' && _giftSub === sub/.test(inb), '  받은 선물 · 늦은 답은 친구 탭 · 선물함 서브탭 · 고른 쪽이 눈앞일 때만 그린다(_giftShowing 하나)');
   t(/#mhFmTabs:has\(\.mh-ibx-tab\.gift\.on\) \.gift-sub\{display:flex;\}/.test(S.HTML) && /id="mhGiftSub"/.test(S.HTML), '  «받은 선물 · 보낸 선물» 단추는 선물함 탭일 때만 보인다');
   const HTML0 = S.HTML;
   t(/id="mhGiftStat"/.test((HTML0.match(/<div id="mhFmTabs">[\s\S]*?<\/div>/) || [''])[0]), '  표시 칸(#mhGiftStat)은 서브탭 줄 안');

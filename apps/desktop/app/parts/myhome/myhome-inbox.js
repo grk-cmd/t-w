@@ -383,9 +383,15 @@ function _bindExtLinks(root){
 /* 💝 선물함 — 받은 말랑이 선물 목록. 원본은 서버(gift-box.js) — 여기는 그 값을 그리고 누름을 동작 함수(star · hide · remove)로 넘긴다.
    ⚠️ 배지 확인 처리(giftBox.openTab 의 봤음)는 **선물함 서브탭을 눌렀을 때**만 — 탭을 스치기만 해도 선물을 본 것으로 처리되면 안 되기 때문이다(myhome-ui.js).
    값이 바뀌면(받기 · 신호 · ⭐ · 지우기) giftBox.onChange 가 다시 그린다 — 선물함 서브탭이 눈앞일 때만. */
-/* 🎁 선물함 탭 줄의 «받은 선물 · 보낸 선물»(#mhGiftSub — 선물함 탭일 때만 CSS 가 보인다). 고른 쪽은 창이 열려 있는 동안 기억한다 */
+/* 🎁 선물함 탭 줄의 «받은 선물 · 보낸 선물»(#mhGiftSub — 선물함 탭일 때만 CSS 가 보인다). 고른 쪽은 마이홈 창을 닫아도 남는다(다음에 열면 그 쪽) */
 let _giftSub = 'got';
-let _sentGen = 0;   // «보낸 선물» 을 열 때마다 오른다 — 늦게 온 답이 다른 서브탭 · 다음 열기를 덮지 않게
+let _sentGen = 0;   // «보낸 선물» 을 열 때마다 오른다 — 늦게 온 답이 다음 열기를 덮지 않게
+/* 선물함의 그 쪽(got · sent)이 지금 눈앞인가 — 마이홈 친구 탭 · 선물함 서브탭 · 고른 쪽이 다 맞아야 한다.
+   늦게 온 답 · 받은 선물 바뀜이 다른 서브탭(받은 요청 · 보낸 요청)이 쓰는 같은 칸(#mhFmList)을 덮지 않게 이것 하나로 본다 */
+function _giftShowing(sub){
+  const tab = document.querySelector('.mh-tab.on'), fm = document.querySelector('#mhFmTabs .mh-ibx-tab.on');
+  return !!tab && tab.dataset.tab === 'friend' && !!fm && fm.dataset.fm === 'gift' && _giftSub === sub;
+}
 function _giftSubBar(listEl){
   document.querySelectorAll('#mhGiftSub [data-gs]').forEach(b=>{
     b.classList.toggle('on', b.dataset.gs === _giftSub);
@@ -396,7 +402,7 @@ function renderGiftBox(listEl){
   if(!listEl) return;
   _giftSubBar(listEl);
   _sentGen++;
-  if(_giftSub === 'sent'){ _sentPaint(listEl); return; }
+  if(_giftSub === 'sent'){ if(_giftShowing('sent')) _sentPaint(listEl); return; }   // 친구 탭이 안 보이면(다른 탭으로 마이홈을 열 때) 받지 않는다 — 친구 탭에 들어오면 다시 그린다
   const b = giftBox.box();
   if(b.load === giftBox.LOAD.IDLE) giftBox.pull(false);   // 아직 한 번도 못 받았다 — 받는 중으로 바뀌며 다시 그린다(번호 없음)
   _giftBoxPaint(listEl, b);
@@ -489,7 +495,7 @@ async function _sentPaint(listEl){
   _giftStat('');
   listEl.innerHTML = '<div class="mh-ibx-empty">불러오는 중…</div>';
   const r = await giftBox.fetchSent();
-  if(my !== _sentGen) return;
+  if(my !== _sentGen || !_giftShowing('sent')) return;   // 그사이 다른 서브탭 · 탭으로 갔다 — 같은 칸을 덮지 않는다
   if(!r.ok){
     listEl.innerHTML = '<div class="mh-ibx-empty">못 불러왔어요 <button type="button" class="gift-retry">다시 시도</button></div>';
     listEl.onclick = (ev)=>{ if(ev.target && ev.target.closest && ev.target.closest('.gift-retry')) renderGiftBox(listEl); };
@@ -513,8 +519,7 @@ function _giftStat(text){
   if(el) el.textContent = text;
 }
 giftBox.onChange(()=>{   // 선물함 서브탭이 눈앞일 때만 다시 그린다(같은 칸 #mhFmList 를 다른 서브탭도 쓴다)
-  const on = document.querySelector('#mhFmTabs .mh-ibx-tab.on');
-  if(!on || on.dataset.fm !== 'gift' || _giftSub !== 'got') return;
+  if(!_giftShowing('got')) return;
   const el = document.getElementById('mhFmList');
   if(el) _giftBoxPaint(el, giftBox.box());
 });
