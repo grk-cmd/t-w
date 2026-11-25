@@ -3040,7 +3040,7 @@ TwRtStatusUi.createRtStatusUi({
   setTimeout: (f, ms)=>setTimeout(f, ms), clearTimeout: (h)=>clearTimeout(h),
 });
 /* 켤 때 업데이트 · 공지 확인 — Firebase 준비를 기다리지 않고 바로, 로그인과 같이 돈다(firebase-init 이 깨진 판도 새 판 확인 · 받기로 고칠 수 있게).
-   계정 기능은 app-boot 가 이 결과(proceed)를 기다린다 — 강제 업데이트면 첫 화면 읽기 뒤 아무것도 시작하지 않는다 */
+   계정 기능은 app-boot 가 이 결과(proceed)를 기다린다 — 강제 업데이트면 이 PC 등록 · 읽기 · realtime 이 모두 0 */
 const updateFlowP = updateFlowMod.runBeforeLogin();
 (function initInviteGate(){
   const run = async ()=>{
@@ -5064,7 +5064,6 @@ TwOpenOnShow.createOpenOnShow({
     { name: 'playlist', el: document.getElementById('myPlaylistBox'), shown: (el)=>!el.classList.contains('hidden') },
   ],
 }).start();
-
 
 /* ═══════════ 🛰 서버 모듈 감시견 — 안 붙으면 다시 붙이고, 그래도 안 되면 말해준다 ═══════════
    [무엇을 고치는가] `parts/firebase-init.js` 는 Firebase SDK 를 gstatic 에서 **실행 시점에**
