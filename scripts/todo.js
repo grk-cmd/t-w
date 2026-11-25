@@ -489,5 +489,5 @@ if(require.main === module) main(process.argv.slice(2));
 module.exports = {
   ENVS, TITLE_MAX, MEMO_MAX, RELEASE_RE, REPORT_RE, TYPES, STATUS, TodoError,
   toTodo, toPage, startBody, doneBody, doneIsNoop, listQuery, words, findTodos, briefText, line, parseArgs,
-  tokenFresh, toAuth, unwrap, authFile, writeAuth, apiKey, main,
+  tokenFresh, toAuth, unwrap, authFile, writeAuth, apiKey, session, main,
 };
