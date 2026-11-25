@@ -1,6 +1,6 @@
 rules_version = '2';
 // Storage 쓰기 잠금 — 컷오버 점검 동안(T+2 ~ storage.rules 를 올릴 때까지)만 올린다: firebase deploy --only storage --config firebase.storage-lock.json
-// 옮기는 동안 0.12 앱이 올린 파일은 옮긴 데이터 어디에도 이어지지 않아 남기만 하므로 앱의 쓰기 · 지우기를 막는다. 읽기는 storage.rules 와 같다.
+// 옮기는 동안 0.12 앱이 올린 파일은 옮긴 데이터 어디에도 이어지지 않아 남기만 하므로 앱의 쓰기 · 지우기를 막는다. 읽기(누구나 get · 목록은 봇만)는 storage.rules 와 같다.
 // API 서버의 Storage 봇은 storage.rules 와 같은 상한으로 그대로 쓴다. 옮기기 도구(migrate upload)는 서비스 계정으로 GCS API 를 불러 규칙을 거치지 않는다.
 // 경로 · 상한은 storage.rules 와 같이 고친다(sim-storage-rules.js). 지우기 항(request.resource == null)을 먼저 적는 까닭도 거기 머리에.
 service firebase.storage {
@@ -16,19 +16,25 @@ service firebase.storage {
     }
 
     match /catalog/{allPaths=**} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if isBot();
       allow write: if isBot()
                    && (request.resource == null
                        || request.resource.size < 5 * 1024 * 1024);
     }
 
     match /users/{userId}/{allPaths=**} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if isBot();
       allow write: if isBot()
                    && allPaths[0] != 'giftimg'
                    && (request.resource == null
                        || request.resource.size < 2 * 1024 * 1024
                        || isBotMyHomeImage());
+    }
+    // 앱이 바로 올리는 그림 넷 자리(storage.rules 와 같은 경로 · mh · dday · clap · mallang) — 잠금 동안은 앱이 못 쓴다. 봇은 위 블록으로 쓴다(상한 그대로).
+    match /users/{userId}/{file} {
+      allow write: if false;
     }
     match /users/{userId}/giftimg/{file} {
       allow write: if isBot()
@@ -37,7 +43,8 @@ service firebase.storage {
     }
 
     match /away/{userId}/{allPaths=**} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if isBot();
       allow write: if isBot()
                    && (request.resource == null
                        || (request.resource.size < 300 * 1024
@@ -45,7 +52,8 @@ service firebase.storage {
     }
 
     match /bookmarks/{userId}/{allPaths=**} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if isBot();
       allow write: if isBot()
                    && (request.resource == null
                        || (request.resource.size < 200 * 1024
@@ -53,7 +61,8 @@ service firebase.storage {
     }
 
     match /purikura/{room}/{userId}/{allPaths=**} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if isBot();
       allow write: if isBot()
                    && (request.resource == null
                        || request.resource.size < 2 * 1024 * 1024);
@@ -66,6 +75,14 @@ service firebase.storage {
                                  && request.resource.size <= 512 * 1024)
                                 || (request.resource.contentType == 'model/gltf-binary'
                                     && request.resource.size <= 1024 * 1024));
+    }
+
+    match /xmas/{file} {
+      allow get: if true;
+      allow list: if isBot();
+      allow write: if isBot()
+                   && (request.resource == null
+                       || (request.resource.size <= 16 * 1024 && request.resource.contentType == 'image/png'));
     }
   }
 }
