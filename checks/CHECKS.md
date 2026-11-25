@@ -158,7 +158,7 @@
 | **sim-update-flow.js** | 499 | **d037570b3c1e** |
 | **sim-update-recheck.js** | 330 | **2783aaa8f44c** |
 | **sim-firebase-left.js** | 176 | **92a4cc4ab41c** |
-| **sim-maintenance-gate.js** | 380 | **d05ea4148930** |
+| **sim-maintenance-gate.js** | 380 | **251dd4e44400** |
 | **sim-room-invite-wait.js** | 45 | **76bc51548bda** |
 | **sim-friend-manage.js** | 252 | **afd2163ad386** |
 | **sim-gacha-prune.js** | 176 | **308fdbcafd56** |
@@ -319,7 +319,7 @@
 | **sim-focus-log.js** | 333 | **20b5a9e9421e** |
 | **sim-focus-progress.js** | 391 | **4ae3c02059c7** |
 | **sim-chat-window.js** | 571 | **8a2dfb1420a5** |
-| **sim-api-client.js** | 598 | **abe3477235b7** |
+| **sim-api-client.js** | 636 | **e0bf52cf17a5** |
 | **sim-api-public-reads.js** | 140 | **c8ccfd0c544a** |
 | **sim-api-routes.js** | 256 | **8457b5a0cb34** |
 | **sim-api-errors.js** | 128 | **70b740dcb69e** |
@@ -596,6 +596,7 @@
 | **sim-xmas-song.js** | 140 | **8f1589bf966d** |
 | **sim-xmas-letter.js** | 239 | **0a2c1d9297c9** |
 | **sim-wardrobe-place.js** | 54 | **8c81ab2ff24e** |
+| **sim-etag-store.js** | 67 | **9d7ac97b2a11** |
 
 ---
 

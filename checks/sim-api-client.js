@@ -420,7 +420,7 @@ async function gateCases(M){
     const code = strip(SRC);
     chk(!/^\s*import\s/m.test(SRC) && !/firebase\/|firebase-|gstatic|getDatabase|require\(/.test(code), 'api-client.js 는 아무것도 import 하지 않는다(Firebase 모름)');
     const mkWin = (env, ls) => {
-      const w = { fetch: () => {}, localStorage: memStore(ls || {}), companion: env ? { firebaseEnv: env } : undefined };
+      const w = { fetch: () => {}, localStorage: memStore(ls || {}), companion: env ? { firebaseEnv: env } : undefined, TwEtagStore: { createEtagStore: () => ({ load: async () => null, save(){}, clear(){} }) } };
       w.window = w;
       vm.runInNewContext(SRC, { window: w, console, setTimeout, clearTimeout, AbortController, Promise, Map, Error, String, Date, encodeURIComponent });
       return w;
@@ -431,7 +431,7 @@ async function gateCases(M){
     {
       const calls = [];
       let down = false;
-      const w = { localStorage: memStore({}), TwMaintenance: { store: { touch(){ calls.push('touch'); } } }, TwDeviceId: { store: { get: () => 'dev-abc123' } },
+      const w = { localStorage: memStore({}), TwMaintenance: { store: { touch(){ calls.push('touch'); } } }, TwDeviceId: { store: { get: () => 'dev-abc123' } }, TwEtagStore: { createEtagStore: () => ({ load: async () => null, save(){}, clear(){} }) },
         fetch: async (url, init) => { if(down) throw new TypeError('x'); calls.push(init.headers); return res(200, { success: true, data: 1 }); } };
       w.window = w;
       vm.runInNewContext(SRC, { window: w, console, setTimeout, clearTimeout, AbortController, Promise, Map, Error, String, Date, encodeURIComponent, atob });
@@ -539,7 +539,7 @@ async function gateCases(M){
         ok(ew && ew.code === 'OWNER_CHANGED' && wf.calls.length === 0);
         ok((await cw.put('/m', {}, { expectOwner: 'B' })) === 7 && (await cw.put('/m', {})) === 7 && wf.calls.length === 2);
         const ow = []; await cw.get('/m', { auth: true, onOwner: (x) => ow.push(x) }); ok(ow.join() === 'B');
-        const w = { localStorage: memStore({}), TwMaintenance: { store: { touch(){} } }, TwDeviceId: { store: { get: () => 'dev-0001' } }, fetch: async () => { throw new TypeError('x'); } };
+        const w = { localStorage: memStore({}), TwMaintenance: { store: { touch(){} } }, TwDeviceId: { store: { get: () => 'dev-0001' } }, TwEtagStore: { createEtagStore: () => ({ load: async () => null, save(){}, clear(){} }) }, fetch: async () => { throw new TypeError('x'); } };
         w.window = w;
         vm.runInNewContext(src, { window: w, console, setTimeout, clearTimeout, AbortController, Promise, Map, Error, String, Date, encodeURIComponent, atob });
         w.TwApi.bindToken(async () => 't');
@@ -591,6 +591,44 @@ async function gateCases(M){
       if(bad === 0) missed.push(what);
     }
     chk(!missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+  }
+
+  say('── persist — ETag 기억을 껐다 켜도 남긴다(etag-store.js) · 값은 304 일 때만');
+  {
+    const persistCase = async (src) => {
+      const mod = { exports: {} }; vm.runInNewContext(src, { module: mod, setTimeout, clearTimeout, AbortController, console, atob: (x) => Buffer.from(x, 'base64').toString('binary') });
+      const M = mod.exports;
+      const disk = new Map(), log = [];
+      const store = { load: async (k) => { log.push('load:' + k); return disk.get(k) || null; }, save: (k, etag, data) => { log.push('save:' + k); disk.set(k, { etag, data }); }, clear: () => { log.push('clear'); disk.clear(); } };
+      const mk = (fetch) => M.createApiClient({ baseUrl: PROD, fetch, getToken: async () => jwt('u1'), backoffMs: 0, persist: { store, paths: ['/v2/me/avatars'] } });
+      /* 1번째 실행 — 200 + ETag → 남긴다 */
+      const f1 = mkFetch(() => res(200, { success: true, data: { v: 1 } }, { ETag: '"e1"' }));
+      const a1 = await mk(f1).get('/v2/me/avatars', { auth: true });
+      /* 2번째 실행(새 통로 = 메모리 빔) — 남긴 ETag 를 싣고 304 면 남긴 값 */
+      const f2 = mkFetch(() => res(304, null));
+      const c2 = mk(f2);
+      const a2 = await c2.get('/v2/me/avatars', { auth: true }).catch(() => null);
+      const sentInm = f2.calls[0] && f2.calls[0].init.headers['If-None-Match'];
+      /* 남기지 않는 길 · 다른 계정 */
+      const f3 = mkFetch(() => res(200, { success: true, data: 1 }, { ETag: '"x"' }));
+      await mk(f3).get('/v2/me/other', { auth: true });
+      const savedOther = log.some((l) => l.endsWith('/v2/me/other'));
+      c2.forgetSession();
+      return { a1, a2, sentInm, savedOther, log, disk };
+    };
+    const r = await persistCase(SRC);
+    chk(r.a1.v === 1 && r.log.includes('save:u1 /v2/me/avatars'), '200 + ETag 를 받으면 «누구 + 경로» 열쇠로 남긴다');
+    chk(r.sentInm === '"e1"' && r.a2 && r.a2.v === 1, '★ 다시 켠 뒤 첫 읽기에 남긴 ETag 를 싣고(If-None-Match) 304 면 남긴 값을 돌려준다');
+    chk(!r.savedOther, '  persist 경로가 아닌 길은 남기지 않는다');
+    chk(r.log[r.log.length - 1] === 'clear' && r.disk.size === 0, '  계정을 놓으면(forgetSession) 남긴 기억을 지운다');
+    const noLoad = SRC.replace('        if(!memo && persistable(path)){', '        if(false){');
+    const rb = await persistCase(noLoad);
+    chk(noLoad !== SRC && !rb.sentInm, '  mutation test — 남긴 기억을 안 읽으면 켤 때 If-None-Match 가 없다(빨강)');
+    const noClear = SRC.replace("      if(persist){ try{ persist.store.clear(); }catch(_){} }   // 남긴 기억도", "      //");
+    const rc = await persistCase(noClear);
+    chk(noClear !== SRC && rc.disk.size > 0, '  mutation test — 계정을 놓아도 안 지우면 빨강');
+    chk(JSON.stringify(A.PERSIST_PUBLIC) === JSON.stringify(['/v2/config', '/v2/notices']) && JSON.stringify(A.PERSIST_AUTHED) === JSON.stringify(['/v2/catalog', '/v2/me/avatars', '/v2/me/collection', '/v2/me/focus', '/v2/me/friends', '/v2/me/playlist']),
+      '남기는 길 여덟 — 설정 · 공지(로그인 없음) · 카탈로그 · 옷장 · 보유분 · 포커스 · 친구 · 플레이리스트');
   }
 
   say('\n' + pass + ' · ' + fail);
