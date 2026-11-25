@@ -193,11 +193,11 @@ async function judge(MAIN){
   chk(Object.keys(S.ipcHandlers).length === nHandle, '  ipcMain.handle 수 그대로(' + nHandle + ')');
   chk(JSON.stringify(Object.keys(S.ipcOn.L).map(k => [k, S.ipcOn.count(k)])) === ipcCounts, '  ipcMain.on 채널마다 듣기 수 그대로');
   chk(Object.keys(S.ipcOn.L).filter(k => k.startsWith('companion:')).every(k => S.ipcOn.count(k) === 1), '  ipcMain.on 채널마다 하나');
-  chk(S.appEm.count('before-quit') === 1 && S.appEm.count('session-end') === 1, '  app before-quit · session-end 듣기 하나씩');
+  chk(S.appEm.count('before-quit') === 1 && S.appEm.count('session-end') === 0, '  app before-quit 듣기 하나 · app 에는 session-end 가 없다(창 이벤트 — 창마다 하나)');
   chk(['display-metrics-changed', 'display-added', 'display-removed'].every(ev => S.scrEm.count(ev) === 1), '  screen 듣기 하나씩');
   chk(S.calls.filter(c => c === 'hooks').length === 1, '  전역 훅은 한 번만 건다');
   chk(win1.count('close') === win1Close, '  옛 창에 듣기가 더 붙지 않았다');
-  chk(win2.count('close') === 1 && win2.count('closed') >= 1 && win2.count('focus') >= 1 && win2.count('minimize') >= 2, '  새 창에 창 듣기(close · closed · focus · minimize)가 붙었다');
+  chk(win2.count('close') === 1 && win2.count('closed') >= 1 && win2.count('focus') >= 1 && win2.count('minimize') >= 2 && win2.count('session-end') === 1 && win2.count('query-session-end') === 1, '  새 창에 창 듣기(close · closed · focus · minimize · 윈도우 세션 종료 둘)가 붙었다');
   chk(typeof win2.openHandler === 'function', '  새 창에 window.open 처리기');
   const win2Per = perWin(win2);
   chk(win2Per === win1Per, '★ 다시 연 창에 붙은 것(창 · webContents 이벤트별 듣기 수 · 창을 받아 부른 함수)이 첫 창과 같다' + (win2Per === win1Per ? '' : ' — 첫 ' + win1Per + ' / 다시 ' + win2Per));

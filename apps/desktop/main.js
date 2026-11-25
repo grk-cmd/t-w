@@ -28,7 +28,7 @@ if(FIREBASE_ENV === 'dev') console.log('[firebase-env] dev Firebase(together-wor
 const { createDevtoolsGate } = require('./devtools-gate');
 const { createHttpCacheReset } = require('./http-cache-reset');   // 🧹 버전이 바뀐 뒤 첫 실행에 웹 캐시 한 번 비우기
 const { createUpdateDiag } = require('./update-diag');   // 🩺 업데이트 진행 · 실패를 진단 기록에
-const { createUpdateRecheck } = require('./update-recheck');   // 🔄 켜 둔 동안 새 판 다시 확인(윈도우)
+const { createUpdateRecheck, installDirWritable } = require('./update-recheck');   // 켜 둔 동안 새 판 다시 확인 · 끌 때 설치를 켜도 되나(윈도우)
 const { createErrorLog } = require('./error-log');   // 🧯 오류만 모으는 파일(tw-error.log)
 const { createQuitHold } = require('./quit-hold');   // 🚪 끄기 전 렌더러의 못 올린 저장을 기다린다(상한 있음)
 /* 오류 기록 — 경로는 적을 때 찾는다(ready 전에도 userData 는 읽힌다 · 실패는 error-log 가 삼킨다) */
@@ -199,15 +199,17 @@ let mainWindow = null;
 // ---- 자동 업데이트 (electron-updater + GitHub Releases · package.json build.publish) ----
 /* 새 판은 백그라운드로 받는다(autoDownload). 설치는 두 때뿐이다 — 쓰는 도중에는 절대 하지 않는다:
    ① 사용자가 띠 · 업데이트 창의 [재시작] 을 누를 때(companion:installUpdate → quitAndInstall)
-   ② 윈도우에서 사용자가 앱을 끌 때 — 받아 둔 판을 조용히 설치한다(autoInstallOnAppQuit · 11-25 «자동업데이트는 ㅇㅇ 반영»).
+   ② 윈도우에서 사용자가 앱을 끌 때 — 받아 둔 판을 조용히 설치한다(autoInstallOnAppQuit).
       설치는 electron-updater 가 app 'quit' 에서 건다 — before-quit 를 _quitHold 가 붙잡아 렌더러 저장을 끝낸 뒤에야 'quit' 이 오므로
       못 올린 저장이 먼저 끝난다. 끄는 것은 사용자가 고른 일이라 «예상치 못한 종료» 가 아니고, 다시 켜지 않는다(조용한 설치 · 묻지 않음).
    ⚠️ 끄기가 사용자 뜻이 아닌 길(OS 세션 종료 · 중복 실행 정리 _exitNow · 재시작 relaunchApp)은 설치를 끈다(_skipInstallOnQuit) —
       OS 가 끄는 중에 설치 파일을 띄우거나, 다시 켜는 앱과 설치가 부딪히지 않게. 받은 판은 남아 다음에 끌 때 설치된다.
-   🍎 맥은 autoUpdater 를 안 탄다(아래 주석) — 설치 · 다시 확인 둘 다 윈도우만. */
+   ⚠️ 모든 사용자(Program Files)로 설치한 PC 는 끌 때 설치를 켜지 않는다 — 설치 폴더에 쓸 수 없어 UAC 창이 뜬다(새 물음을 만들지 않게).
+      그 PC 는 예전처럼 띠의 [재시작] 으로만 설치한다. 판단은 installDirWritable(실제로 파일을 만들어 본다) 한 곳.
+   맥은 autoUpdater 를 안 탄다(아래 주석) — 설치 · 다시 확인 둘 다 윈도우만. */
 const UPDATE_IN_BACKGROUND = process.platform === 'win32';
 autoUpdater.autoDownload = true;
-autoUpdater.autoInstallOnAppQuit = UPDATE_IN_BACKGROUND;
+autoUpdater.autoInstallOnAppQuit = UPDATE_IN_BACKGROUND && installDirWritable({ fs, path, dir: path.dirname(process.execPath), pid: process.pid });
 function _skipInstallOnQuit(){ autoUpdater.autoInstallOnAppQuit = false; }   // 'quit' 때 다시 읽는다(electron-updater BaseUpdater.addQuitHandler)
 const _updateDiag = createUpdateDiag({ log: (m) => _diagLog(m), home: require('os').homedir() });
 autoUpdater.logger = _updateDiag.logger;   // 조각만 받기 · 통째로 받기 · 오류를 electron-updater 가 스스로 적는다
@@ -223,7 +225,8 @@ autoUpdater.on('update-available', (info) => { _updateDiag.reset(); sendUpdateSt
 autoUpdater.on('update-not-available', () => sendUpdateStatus('none'));
 autoUpdater.on('download-progress', (p) => { _updateDiag.progress(p); sendUpdateStatus('downloading', { percent: Math.round(p.percent) }); });
 autoUpdater.on('update-downloaded', (info) => sendUpdateStatus('downloaded', { version: info.version }));
-autoUpdater.on('error', (e) => { _errorLog.write('ERROR', '업데이트', e); sendUpdateStatus('error', { message: String(e && e.message || e) }); });
+let _bgUpdateErrLogged = false;   // 켜 둔 동안 다시 확인의 실패(오프라인 등)는 오류 파일에 한 번만 — 진단 기록에는 updateDiag 가 매번 남긴다
+autoUpdater.on('error', (e) => { const bg = _updateRecheck.fromTick(); if(!bg || !_bgUpdateErrLogged) _errorLog.write('ERROR', '업데이트', e); if(bg) _bgUpdateErrLogged = true; sendUpdateStatus('error', { message: String(e && e.message || e) }); });
 
 /* ── 🍎 맥은 자동 업데이트를 안 한다 (0.9.7~) ───────────────────────────────
    맥판은 **애플 서명·공증이 없다.** electron-updater 의 맥 갈래는 서명된 zip + `latest-mac.yml`
@@ -637,7 +640,9 @@ function _lockChildZoom(win){
   wc.on('zoom-changed', (event) => { event.preventDefault(); try{ wc.setZoomFactor(1); }catch(_){} });
   wc.on('before-input-event', (event, input) => { if(_zoomKeyOp(input)) event.preventDefault(); });
 }
-/* 바로 끝내기 — 네이티브 훅 · 타이머를 먼저 내리고 → 창 destroy → app.exit(0). 끝내는 길은 이 함수 하나로 모은다(순서를 한 곳에서).
+/* 윈도우 세션 종료 · 중복 실행 정리가 부른다(세션 종료는 메인 창 'session-end' — createWindow).
+   OS 종료 때 정리 도중 끊기면 0x80000003(STATUS_BREAKPOINT) 오류창과 «이 앱 때문에 종료할 수 없습니다» 가 떴다 — 훅이 살아 있는 채 뜯기고 창이 제때 안 닫혀서.
+   그래서 기다리지 않고 바로 끝낸다 — 네이티브 훅 · 타이머를 먼저 내리고 → 창 destroy → app.exit(0). 끝내는 길은 이 함수 하나로 모은다(순서를 한 곳에서).
    ⚠️ 저장하지 않는다(설정은 바뀔 때마다 이미 쓴다 · 쓰기를 넣으면 느려져 종료를 막는다) — 예외 하나: 몰아 두던 런처 자리(옮기고 400ms 안에 껐을 때만 ·
      작은 파일 한 번). 훅 · 타이머를 내린 뒤에 쓴다. quit() 이 아니라 exit(0) — 창을 하나씩 닫는 시간이 곧 «종료를 막는 앱»이다. */
 function _exitNow(){
@@ -652,7 +657,7 @@ function _exitNow(){
   try{ app.exit(0); }catch(_){}
 }
 /* 🚪 app.quit() 으로 끄는 길(제목줄 × · 내 정보 · 다른 기기 안내 · Cmd+Q · 재시작) · 메인 창 닫기 · 업데이트 설치를 한 곳에서 붙잡아
-   렌더러가 못 올린 캐릭터 고침을 끝내기를 기다린다(없으면 바로 · 상한 있음). _exitNow · session-end 는 거치지 않는다 — OS 종료를 막지 않게. */
+   렌더러가 못 올린 캐릭터 고침을 끝내기를 기다린다(없으면 바로 · 상한 있음). _exitNow(OS 세션 종료 · 중복 실행 정리)는 거치지 않는다 — OS 종료를 막지 않게. */
 const _quitHold = createQuitHold({ getWindow: () => mainWindow, ipcMain, quit: () => app.quit(), platform: process.platform, setTimeout, clearTimeout });
 let _saveFailLogged = false;
 function saveSettings(){
@@ -2545,6 +2550,10 @@ function createWindow() {
   mainWindow.webContents.on('did-finish-load', () => { try{ applyUiZoom(uiZoom, 'boot'); }catch(_){} });
 
   mainWindow.on('close', (e) => { _quitHold.windowClose(e); });   // 저장을 기다린 뒤 — 윈도우 · 리눅스(Alt+F4 · 작업표시줄)는 끄기, 맥은 창만 닫는다(Dock 에 남음)
+  /* 윈도우 세션 종료(로그오프 · 재시작 · 끄기) — Electron 은 이 신호를 창 이벤트로만 준다(app 에는 'session-end' 가 없다).
+     묻는 단계에서 끌 때 설치부터 끄고(OS 가 끄는 중에 설치 파일을 띄우지 않게 · 끄기를 취소하면 이번 실행만 설치 없음), 끝낼 때 기다리지 않고 바로 끝낸다(아래 _exitNow 주석). */
+  mainWindow.on('query-session-end', () => { _skipInstallOnQuit(); });
+  mainWindow.on('session-end', () => { _exitNow(); });
   mainWindow.on('closed', () => {
     // BGM 자식창을 수동으로 정리 (parent를 안 쓰기 때문에 자동 소멸이 없음)
     if(bgmWin && !bgmWin.isDestroyed()){ try{ bgmWin.destroy(); }catch(e){} }
@@ -4161,24 +4170,6 @@ function _setupMainOnce() {
   });
   if(sysinput.nativeLoadFailed().length) _nativeShowGuide();   // 로드 실패 기록은 바로 위 startGlobalHooks 가 흘렸다
   app.on('before-quit', (e) => { if(_quitHold.beforeQuit(e)) return; try { sysinput.stopGlobalHooks(); } catch (_) {} if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } if(_resTimer){ clearInterval(_resTimer); _resTimer = null; } try { _updateRecheck.stop(); } catch (_) {} try { _flushLauncherPos(); } catch (_) {} });   // 끄는 순서는 _exitNow 와 같다 — 훅 · 타이머 먼저
-  /* ═══ 🖥️ 윈도우 세션 종료(로그오프·재시작·종료) ══════════════════════════
-     [제보] 컴퓨터를 끄려 하면 "이 앱 때문에 종료할 수 없습니다"가 뜨고, [확인]을 눌러야
-       종료된다. 그때 'unknown software exception (0x80000003)' 오류창이 같이 뜬다.
-     [원인] 0x80000003 은 STATUS_BREAKPOINT — 정상 종료 코드가 아니라 '정리 도중에 끊겼다'는 뜻이다.
-       Windows는 WM_QUERYENDSESSION 을 보내고 짧은 시간 안에 창이 사라지길 기다리는데,
-       이 앱은 그 경로에 아무 처리가 없어서
-         ・전체화면 always-on-top 오버레이 + BGM 자식창이 제 시간에 안 닫히고 → '종료를 막는 앱'
-         ・그 상태로 OS가 프로세스를 끊는 순간 저수준 전역 훅(uIOhook)·창 관리 네이티브 모듈이
-           스레드가 살아 있는 채로 뜯겨 나가며 브레이크포인트 예외
-       가 된다. 종료 순간에만 나므로 평소 사용에는 흔적이 안 남는다.
-     [대응] 세션 종료 신호를 받으면 **기다릴 것 없이 즉시** 끝낸다.
-       ・네이티브 훅과 타이머를 먼저 정리 — 뜯기기 전에 우리가 먼저 내려놓는다
-       ・모든 창을 destroy — close 이벤트/blur 자동닫힘 등 비동기 경로를 타지 않는다
-       ・app.exit(0) — before-quit/will-quit 을 건너뛰고 그 자리에서 종료 코드 0으로 끝낸다
-         (app.quit()은 창을 하나씩 닫으며 이벤트를 도는데, 그 시간이 곧 '종료를 막는 앱'이 된다)
-     ⚠️ 이 경로에서는 저장을 하지 않는다. 설정은 바뀔 때마다 이미 파일에 쓰고 있으므로
-       여기서 추가로 쓸 것이 없고, 쓰기를 넣으면 다시 같은 문제(느려서 종료를 막음)가 된다. */
-  app.on('session-end', () => { _exitNow(); });
 }
 
 /* 🔁 두 번째 실행 때 옛 인스턴스를 어떻게 할지 — 순수 판정(검사 sim-second-instance).
