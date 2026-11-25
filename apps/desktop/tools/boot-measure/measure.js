@@ -12,11 +12,16 @@ const SETTLE_MS = Number(process.env.SETTLE_MS || 15000);
   const t0 = Date.now();
   let res = null;
   try{
-    // 파츠까지 다 붙거나(60초) 끝날 때까지
+    // 파츠까지 다 붙거나(60초) 끝날 때까지 · SHOT_AT_MS 를 주면 begin 뒤 그 ms 에 화면을 한 장(«접속 중…» 토스트 확인)
+    const shotAt = Number(process.env.SHOT_AT_MS || 0); let shotDone = !shotAt;
     for(;;){
+      if(!shotDone){
+        const b = await w.evaluate(() => { const m = (window.__twMarks || []).find((x) => x[0] === 'begin'); return m ? performance.now() - m[1] : -1; }).catch(() => -1);
+        if(b >= shotAt){ shotDone = true; await w.screenshot({ path: OUT + '/shot-at-' + shotAt + '.png' }); fs.writeFileSync(OUT + '/shot-at-' + shotAt + '.txt', await w.evaluate(() => { const t = document.getElementById('toast'); return (t && t.classList.contains('on') ? 'on ' : 'off ') + (t ? t.textContent : ''); })); }
+      }
       const m = await w.evaluate(() => window.__twMarks || []).catch(() => []);
       const done = m.some(x => /^parts:(\d+)\/\1$/.test(x[0]) && !/^parts:0\//.test(x[0]));
-      if(done || Date.now() - t0 > 60000) break;
+      if((done && shotDone) || Date.now() - t0 > 60000) break;
       await lib.wait(200);
     }
     if(process.env.SHOT) await w.screenshot({ path: OUT + '/shot-' + process.env.SHOT + '.png' });

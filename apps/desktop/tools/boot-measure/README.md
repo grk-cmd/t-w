@@ -34,7 +34,7 @@ dev 앱을 e2e-local 로 켜서 «계정 확인 → 런처에 캐릭터가 뜸 �
    python3 $K/summ.py <이름>
    ```
 
-환경 값: `TW_BOOTM_OUT`(결과 뿌리 · 기본 `/tmp/tw-bootm-e2e`) · `TW_BOOTM_RTT`(왕복 ms · 기본 40) · `TW_BOOTM_BW`(바이트/ms · 기본 2500 = 2.5MB/s) · `TW_E2E_PG`(DB 컨테이너) · `SETTLE_MS`(파츠가 붙은 뒤 더 기다릴 ms · 기본 15000).
+환경 값: `TW_BOOTM_OUT`(결과 뿌리 · 기본 `/tmp/tw-bootm-e2e`) · `TW_BOOTM_RTT`(왕복 ms · 기본 40) · `TW_BOOTM_BW`(바이트/ms · 기본 2500 = 2.5MB/s) · `TW_E2E_PG`(DB 컨테이너) · `SETTLE_MS`(파츠가 붙은 뒤 더 기다릴 ms · 기본 15000) · `SHOT`(cold 화면) · `SHOT_AT_MS`(begin 뒤 그 ms 에 화면 한 장과 토스트 글 — «접속 중…» 확인).
 
 ## 함정
 
