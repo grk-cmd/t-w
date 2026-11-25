@@ -18,6 +18,7 @@ for (const f of ['shared/server-features.js', 'app.js', 'desk-companion-prototyp
   SRC[f] = read(f);
   if (SRC[f] == null) { say('  ? 원본 못 찾음 — ' + f); process.exit(2); }
 }
+const ON = new Set(['xmas']);   // 서버가 받은 기능 — 🎄 크리스마스(api xmas 컨텍스트 · xmas-api.js)
 const NAMES = ['xmas', 'chatNotice', 'chatFocus', 'playlistLike', 'googleChange', 'friendReqMsg', 'themeCustomSave'];
 const loadSF = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwServerFeatures; };
 
@@ -26,7 +27,7 @@ function judgeTable(src) {
   try {
     const S = loadSF(src);
     r.names = Object.keys(S.FEATURES).sort().join() === NAMES.slice().sort().join();
-    r.allOff = NAMES.every(n => S.on(n) === false);
+    r.allOff = NAMES.every(n => S.on(n) === ON.has(n));   // 서버가 받은 것(ON)만 켜짐
     let threw = false; try { S.on('없는이름'); } catch (_) { threw = true; }
     r.throws = threw;
     r.frozen = Object.isFrozen(S.FEATURES) && Object.isFrozen(S);
@@ -37,7 +38,7 @@ function judgeTable(src) {
 say('── 1. 표');
 const T = judgeTable(SRC['shared/server-features.js']);
 chk(T.names, '이름 일곱(xmas · chatNotice · chatFocus · playlistLike · googleChange · friendReqMsg · themeCustomSave)');
-chk(T.allOff, '모두 꺼짐 — 서버가 받기 전');
+chk(T.allOff, '서버가 받은 것만 켜짐 — ' + [...ON].join(' · ') + ' · 나머지는 꺼짐');
 chk(T.throws, '모르는 이름은 던진다(글자를 잘못 쓰면 조용히 꺼진 채 남지 않게)');
 chk(T.frozen, '표와 모듈은 바꿀 수 없다');
 
@@ -100,7 +101,7 @@ chk(/const gcOn = TwServerFeatures\.on\('googleChange'\);\n  show\('acctMGoogleC
 say('── 3. 배선');
 {
   const A = SRC['app.js'];
-  chk(/if\(TwServerFeatures\.on\('xmas'\)\) TwXmasWindow\.createXmasWindow\(/.test(A), '🎄 크리스마스 창은 표가 켜졌을 때만 만든다(런처 버튼은 html 에서 hidden 으로 시작)');
+  chk(/const xmasWinMod = !TwServerFeatures\.on\('xmas'\) \? null : TwXmasWindow\.createXmasWindow\(/.test(A), '🎄 크리스마스 창은 표가 켜졌을 때만 만든다(런처 버튼은 html 에서 hidden 으로 시작)');
   const H = SRC['desk-companion-prototype.html'];
   chk(/<button[^>]*id="lcXmas" hidden>/.test(H), '  런처 [🎄 크리스마스] 버튼은 hidden 으로 시작');
   for (const n of ['chatNotice', 'chatFocus', 'playlistLike', 'friendReqMsg', 'themeCustomSave'])
@@ -116,7 +117,8 @@ say('── 4. mutation test');
 {
   const src = SRC['shared/server-features.js'];
   const muts = [
-    ['하나를 켬', src.replace('xmas: false,', 'xmas: true,'), (r) => !r.allOff],
+    ['하나를 켬', src.replace('chatNotice: false,', 'chatNotice: true,'), (r) => !r.allOff],
+    ['받은 것을 끔', src.replace('xmas: true,', 'xmas: false,'), (r) => !r.allOff],
     ['모르는 이름을 던지지 않음', src.replace("throw new Error('[server-features] 모르는 기능 이름 — ' + name);", 'return false;'), (r) => !r.throws],
     ['표를 얼리지 않음', src.replace('const FEATURES = Object.freeze({', 'const FEATURES = ({'), (r) => !r.frozen],
     ['이름 하나 뺌', src.replace(/  themeCustomSave: false,[^\n]*\n/, ''), (r) => !r.names],

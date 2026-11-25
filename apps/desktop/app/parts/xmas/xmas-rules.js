@@ -15,6 +15,7 @@ const LETTER_DEADLINE_MS = 1798124400000;   // 2026-12-25T00:00:00+09:00 — 편
 const EVENT_END_MS = 1798729200000;          // 2027-01-01T00:00:00+09:00 — 장식 · 신고 막음
 const LETTERS_VIEW_UNTIL_MS = 1799161200000; // 2027-01-06T00:00:00+09:00 — 받은 편지 열람 · 런처 버튼 끝(1/5 하루 끝까지)
 const DELIVERY_WINDOW_MS = 10 * 60000;       // 마감부터 이만큼 — 짝 짓기 알림이 몰리는 때(알림함 다시 읽기를 흩는다)
+const READ_JITTER_MS = 30000;                // 알림을 받은 앱 수천 대가 한꺼번에 읽지 않게 0 ~ 이만큼 무작위로 기다린다(설계 5-3)
 const HANG_COOLDOWN_MS = 5000;               // 장식 바꾸기 간격 — 바꿀 때마다 남의 앱이 그림을 다시 받는다
 const BLINK_COUNT = 10;
 const BLINK_HALF_MS = Math.PI / 0.004;       // |cos(t·0.004)| 한 번 ≈ 0.79초
@@ -42,6 +43,12 @@ const lettersArrived = (now, s = SCHEDULE) => Number.isFinite(now) && now >= s.l
 const buttonOn = (now, s = SCHEDULE) => Number.isFinite(now) && now < s.lettersViewUntil;
 /** 짝 짓기 알림이 몰리는 때인가(마감부터 10분) */
 const inDeliveryWindow = (now, s = SCHEDULE) => Number.isFinite(now) && now >= s.letterDeadline && now < s.letterDeadline + DELIVERY_WINDOW_MS;
+/** 무작위 기다림 — r 은 0 이상 1 미만 수 */
+const jitterMs = (r) => Math.floor(Math.min(Math.max(Number(r) || 0, 0), 0.999999) * READ_JITTER_MS);
+/** 새 알림을 받고 알림함을 다시 읽기 전에 기다릴 ms — 짝 짓기 10분 안이면 무작위 · 그 밖은 0(곧바로) */
+const mailDelayMs = (now, s, r) => (inDeliveryWindow(now, s) ? jitterMs(r) : 0);
+/** 받은 편지 알림(XMAS_LETTER) 중 안 읽었고 아직 안 본 것의 id — 우편 { id: { kind, read } } · seen 은 이미 본 id Set */
+const newLetterMailIds = (items, seen) => Object.keys(items || {}).filter(id => items[id] && items[id].kind === 'XMAS_LETTER' && !items[id].read && !(seen && seen.has(id)));
 
 /** 한마디 다듬기 — 서버 cleanWord 와 같은 규칙(제어 문자 · 줄바꿈 → 공백 · 공백 묶기 · 앞뒤 걷기) */
 function cleanWord(w){
@@ -181,9 +188,9 @@ const readSetStr = (set) => [...set].sort((a, b) => a - b).join(',');
 const hasUnread = (got, set) => (got || []).some(g => !set.has(g.n));
 
 const api = Object.freeze({
-  TREE_MAX, KINDS, WORD_MAX, IMG_PX, LETTER_DEADLINE_MS, EVENT_END_MS, LETTERS_VIEW_UNTIL_MS, DELIVERY_WINDOW_MS, SCHEDULE, HANG_COOLDOWN_MS, BLINK_COUNT, BLINK_HALF_MS,
+  TREE_MAX, KINDS, WORD_MAX, IMG_PX, LETTER_DEADLINE_MS, EVENT_END_MS, LETTERS_VIEW_UNTIL_MS, DELIVERY_WINDOW_MS, READ_JITTER_MS, SCHEDULE, HANG_COOLDOWN_MS, BLINK_COUNT, BLINK_HALF_MS,
   TAPS_TO_DROP, TAP_GAP_MS, SHAKE_PX, SHAKE_GAP_MS, SHAKE_RESET_MS, TIERS,
-  scheduleOf, eventOn, letterOpen, lettersArrived, buttonOn, inDeliveryWindow, cleanWord, slotPositions, countOf, changedImgSlots, cooldownLeft, blinkOpacity, createTaps, createShake,
+  scheduleOf, eventOn, letterOpen, lettersArrived, buttonOn, inDeliveryWindow, jitterMs, mailDelayMs, newLetterMailIds, cleanWord, slotPositions, countOf, changedImgSlots, cooldownLeft, blinkOpacity, createTaps, createShake,
   LETTER_MAX, LETTER_TEXT_MAX, SONG_TITLE_MAX, LETTER_IDS, RETURN_REASONS,
   songOf, cleanLetter, myLettersOf, returnedOf, freeLetterId, gotOf, ddayLeft, readSetOf, readSetStr, hasUnread,
 });

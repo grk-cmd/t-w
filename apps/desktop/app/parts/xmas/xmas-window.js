@@ -6,7 +6,7 @@
    ★ 트리 목록은 서버가 몇 초 캐시한다 — 내 장식은 걸기 응답(자리 · 판 · 그림 id)을 목록 위에 덮어 그린다(목록이 늦어도 내 장식은 바로 보이게).
      ⚠️ localStorage 에 두지 말 것 — 트리 하나가 수 MB 라 앱 전체가 같이 쓰는 한도를 먹어 캐릭터 저장 등이 실패한다.
    ★ 남이 쓴 한마디는 textContent 로만 넣는다.
-   classic script(window.TwXmasWindow) — app.js 보다 먼저 싣는다. app.js 가 `createXmasWindow(deps)` 한 번 — 밖에서 부르는 이름 없음
+   classic script(window.TwXmasWindow) — app.js 보다 먼저 싣는다. app.js 가 `createXmasWindow(deps)` 한 번 — 밖에서 부르는 이름은 onMail(우편이 바뀌면 app.js 가 우편 목록을 넘긴다)
    (런처 버튼 · 알림함 «익명의 편지가 왔어요» 가 창 열기 통로 NAV.XMAS 로 연다). */
 (function(){
 'use strict';
@@ -20,7 +20,7 @@ const FETCH_PAR = 6;
  *           notifyError:(code:string, err?:any)=>void, toast:(msg:string)=>void, escRegisterWindow:Function,
  *           onSizeChange:()=>void, onReady:(fn:()=>void)=>void, idbGet:(k:string)=>Promise<string|null>, idbPut:(k:string, v:string)=>any,
  *           songMod:any, letterMod:any, companion:()=>any, ytVideoId:(url:string)=>string|null, asyncPrompt:Function,
- *           storage:()=>Storage|null, twNav:{ NAV:any, on:Function } }} deps
+ *           storage:()=>Storage|null, twNav:{ NAV:any, on:Function }, random:()=>number }} deps
  */
 function createXmasWindow(deps){
   const doc = deps.doc || document;
@@ -54,7 +54,6 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
   function refreshButton(){
     btn.hidden = !rules.buttonOn(serverNow(), sch());
     if (btn.hidden){ if (ov.classList.contains('on')) close(); return; }
-    letter.checkGot();   // 25일 0시가 지나면 받은 편지 → 빨간 점
     letter.paintBtn();   // 날짜가 넘어가면 [편지 쓰기] → [편지 열람]
   }
 
@@ -276,11 +275,23 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     bar.addEventListener('pointerup', up); bar.addEventListener('pointercancel', up);
   })();
 
+  /* ── 📩 받은 편지 알림 — 알림함에 안 읽은 XMAS_LETTER 가 새로 보이면 0~30초 무작위로 기다렸다 받은 편지를 한 번 읽는다(폴링 없음).
+     0시에 앱 수천 대가 같은 순간 읽지 않게 흩는다(설계 5-3). 기다리는 동안 또 보이면 그 한 번으로 묶는다 ── */
+  const seenMail = new Set();
+  let gotTimer = null;
+  function onMail(items){
+    const ids = rules.newLetterMailIds(items, seenMail);
+    if (!ids.length) return;
+    ids.forEach(id => seenMail.add(id));
+    if (gotTimer) return;
+    gotTimer = win.setTimeout(() => { gotTimer = null; letter.checkGot(); }, rules.jitterMs(deps.random()));
+  }
+
   /* 서버 시각은 붙은 뒤에 — 그 전엔 버튼을 숨겨 둔다(열람 끝이 지났는지 모르므로) */
   btn.hidden = true;
   deps.onReady(() => { refreshButton(); win.setInterval(refreshButton, 60000); });   // 열람 끝을 지나면 켜 둔 채로도 숨는다
 
-  return { open, close, refreshButton, letter };
+  return { open, close, refreshButton, onMail, letter };
 }
 
 const api = Object.freeze({ createXmasWindow });
