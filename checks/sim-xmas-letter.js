@@ -1,6 +1,6 @@
 /* sim-xmas-letter.js — 🎄 마니또 편지 창(parts/xmas/xmas-letter.js · 일회성)을 가짜 화면 · 가짜 서버로 돌려 본다
    실행: node checks/run.js sim-xmas-letter
-   ・1절 단추 — 쓰는 기간 [편지 쓰기 (n/5)] · 25일 0시부터 [편지 열람] · 1월 1일엔 숨김 · 창은 날짜로 쓰기 / 열람을 고른다
+   ・1절 단추 — 쓰는 기간 [편지 쓰기 (n/5)] · 25일 0시부터 [편지 열람] · 1/6 0시(열람 끝)부터 숨김 · 창은 날짜로 쓰기 / 열람을 고른다
    ・2절 쓰기 — 맡긴 목록 · 마감 D-day · 운영자 확인 안내(html) · 처음이면 바로 편지지 · 새 편지(빈 칸) · 고치기(같은 칸) · 거두기 · 5통이면 더 못 씀
    ・3절 반송 — 사유 표시 · [다시 쓰기] 는 그 글로 편지지를 펴고 맡기면 반송 표시를 치운다 · [지우기]
    ・4절 쓰기 실패 — 마감(closed) · 로그인(auth) 은 안내 · 그 밖은 E-XMAS-05 · 불러오기 실패 E-XMAS-04 · 로그인 안 됨은 안내(오류 코드 없음)
@@ -77,7 +77,9 @@ say('── 1절 단추 · 날짜');
   w.S.now = R.LETTER_DEADLINE_MS; w.N.calls.length = 0; await w.api.refresh();
   chk(w.els.xmasLetterBtn.textContent === '편지 열람' && !w.N.calls.length, '25일 0시부터 [편지 열람] — 편지함은 안 읽는다');
   w.S.now = R.EVENT_END_MS; w.api.paintBtn();
-  chk(w.els.xmasLetterBtn.hidden, '1월 1일 0시부터 숨김');
+  chk(!w.els.xmasLetterBtn.hidden && w.els.xmasLetterBtn.textContent === '편지 열람', '1월 1일 0시(이벤트 끝)에도 [편지 열람] — 1/5 까지');
+  w.S.now = R.LETTERS_VIEW_UNTIL_MS; w.api.paintBtn();
+  chk(w.els.xmasLetterBtn.hidden, '열람 끝(1/6 0시)부터 숨김');
   chk(/부적절한 내용이 없는지 운영자가 확인해요\. 받는 사람에게는 끝까지 익명이에요\./.test(HTML) && /From\. 익명의 산타/.test(HTML) && /To\. 누군가에게/.test(HTML), 'html — 운영자 확인 한 줄 안내 · 편지지 «To. 누군가에게 / From. 익명의 산타»');
 }
 
@@ -223,8 +225,8 @@ say('── 7절 닫기 · Esc · 저장소');
   const wb = world({ now: R.LETTER_DEADLINE_MS + 1000, got: { 1: { text: 'x' } }, badStore: true }); wb.api.open(); await settle();
   rows(wb.els.xmasLwEnvs)[0].onclick();
   chk(wb.els.xmasLwGotText.textContent === 'x', '저장소가 던져도 열람은 된다(읽음 표시만 못 남김)');
-  const wt = world({ now: R.EVENT_END_MS }); wt.api.open(); await settle();
-  chk(!wt.els.xmasLetter.classList.contains('on'), '1월 1일 뒤엔 열자마자 닫힌다');
+  const wt = world({ now: R.LETTERS_VIEW_UNTIL_MS }); wt.api.open(); await settle();
+  chk(!wt.els.xmasLetter.classList.contains('on'), '열람 끝 뒤엔 열자마자 닫힌다');
   let threw = false; try { L.createXmasLetter({ doc: { getElementById: () => null } }); } catch (e) { threw = /xmasLetter/.test(e.message); }
   chk(threw, '마크업이 없으면 이름을 대고 던진다');
   chk(!/innerHTML/.test(SRC.replace(/\/\*[\s\S]*?\*\//g, '')), '편지 모듈에 innerHTML 없음');

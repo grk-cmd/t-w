@@ -592,11 +592,11 @@
 | **sim-mallang-sent.js** | 76 | **47c8eaaf32fa** |
 | **sim-xmas-server.js** | 332 | **1a7bb7d5b608** |
 | **sim-xmas-net.js** | 131 | **76df2f9acef3** |
-| **sim-xmas-rules.js** | 107 | **7a2d63776ce1** |
+| **sim-xmas-rules.js** | 133 | **31593c2a1867** |
 | **sim-xmas-tree.js** | 51 | **0d4a04e1115d** |
-| **sim-xmas-window.js** | 216 | **19e6f3c8f360** |
+| **sim-xmas-window.js** | 218 | **b4555bc0e0d4** |
 | **sim-xmas-song.js** | 140 | **8f1589bf966d** |
-| **sim-xmas-letter.js** | 239 | **0a2c1d9297c9** |
+| **sim-xmas-letter.js** | 241 | **5c6a2ca2525d** |
 | **sim-wardrobe-place.js** | 54 | **8c81ab2ff24e** |
 
 ---
