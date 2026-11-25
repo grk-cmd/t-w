@@ -4,4 +4,5 @@
 set -e
 K=$(cd "$(dirname "$0")" && pwd)
 W=$1
+case "$(basename "$W")" in *measure*) ;; *) echo "측정 worktree 이름에 measure 가 있어야 한다(작업 worktree 를 덮지 않게): $W"; exit 2;; esac
 cd "$W" && git checkout -q -f --detach "$2" && python3 "$K/instrument.py" "$W" && python3 "$K/shape.py" "$W" && git log --oneline -1

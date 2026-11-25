@@ -1,5 +1,5 @@
 #!/bin/bash
-# run.sh <측정 worktree> <이름> [횟수] — cold · warm · update 를 n 번 재서 <결과 뿌리>/<이름>/out.txt 에 한 줄씩
+# run.sh <측정 worktree> <이름> [횟수] — cold · warm · update 를 n 번 재서 <결과 폴더>/<이름>/out.txt 에 한 줄씩
 # 결과 뿌리: TW_BOOTM_OUT(기본 /tmp/tw-bootm-e2e) · 그 아래 seed/appdata 가 있어야 한다(seed.js · measure.js prep-cold — README)
 set -e
 K=$(cd "$(dirname "$0")" && pwd)

@@ -1,8 +1,7 @@
-// create.js <e2e-local 폴더> <결과 뿌리>/seed — seed.js 로 로그인해 둔 appdata 에 캐릭터 3칸을 만들고 칸마다 카탈로그 파츠 셋을 입힌다
+// create.js <e2e-local 폴더> <결과 폴더>/seed — seed.js 로 로그인해 둔 appdata 에 캐릭터 3칸을 만들고 칸마다 카탈로그 파츠 셋을 입힌다
 'use strict';
 const path = require('path'), fs = require('fs');
 const E = path.resolve(process.argv[2]), OUT = path.resolve(process.argv[3]);
-process.env.TW_E2E_PG = process.env.TW_E2E_PG || 'tw-bootm-postgres-1';
 process.env.TW_E2E_OUT = path.dirname(OUT);
 const lib = require(E + '/lib.js');
 const S = require(E + '/scenarios/_shared.js');

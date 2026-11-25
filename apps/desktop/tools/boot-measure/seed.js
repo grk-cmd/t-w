@@ -1,8 +1,7 @@
-// seed.js <e2e-local 폴더> <결과 뿌리>/seed — 측정용 시드: 카탈로그 파츠 100개(약 8MB) · 파츠를 입은 캐릭터 3칸인 계정 하나를 로컬 묶음에 만든다
+// seed.js <e2e-local 폴더> <결과 폴더>/seed — 측정용 시드: 카탈로그 파츠 100개(약 8MB)를 관리자 계정으로 올리고, 앱으로 가입한 계정 하나의 로그인을 그 폴더 appdata 에 남긴다(캐릭터 · 파츠는 create.js)
 'use strict';
 const path = require('path'), fs = require('fs'), crypto = require('crypto');
 const E = path.resolve(process.argv[2]), OUT = path.resolve(process.argv[3]);
-process.env.TW_E2E_PG = process.env.TW_E2E_PG || 'tw-bootm-postgres-1';
 process.env.TW_E2E_OUT = path.dirname(OUT);
 const lib = require(E + '/lib.js');
 const S = require(E + '/scenarios/_shared.js');

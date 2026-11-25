@@ -3,7 +3,6 @@
 'use strict';
 const path = require('path'), fs = require('fs');
 const E = path.resolve(process.argv[2]), OUT = path.resolve(process.argv[3]), PREP = process.argv[4] || '';
-process.env.TW_E2E_PG = process.env.TW_E2E_PG || 'tw-bootm-postgres-1';
 const lib = require(E + '/lib.js');
 const SETTLE_MS = Number(process.env.SETTLE_MS || 15000);
 (async () => {
