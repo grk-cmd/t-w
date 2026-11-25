@@ -330,7 +330,7 @@
 | **sim-myhome-inbox.js** | 770 | **f06793daee46** |
 | **sim-playlist.js** | 1146 | **5300cc8c46cd** |
 | **sim-playlist-api.js** | 308 | **d9560b3a4f8d** |
-| **sim-inbox-api.js** | 203 | **18e49c183f14** |
+| **sim-inbox-api.js** | 208 | **f21732780751** |
 | **sim-gift-api.js** | 336 | **8a3586c69535** |
 | **sim-gift-box.js** | 562 | **843f26df0cf4** |
 | **sim-mallang-module.js** | 355 | **a8f4170b8591** |

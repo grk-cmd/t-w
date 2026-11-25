@@ -1,7 +1,7 @@
 /* ═══ 📩 sim-inbox-api.js — 우편 api provider (0.13 앱 묶음 D4) ═══
    [왜] 알림함 «우편» 이 Firebase(inbox/{코드}) 대신 우리 서버 공개 API(/v2/me/notifications)를 쓴다. 서버 모양(kind · readAt · createdAt · payload ·
      쪽 · 서버가 센 안 읽은 수)을 화면 모양({tag, title, body, ts, read, bugId})으로 맞추는 곳이 provider 하나라 그 맞춤을 실제로 불러서 판정한다.
-   ・1절: 읽기 — 경로 · 질의(section=MAIL · limit) · 모양 맞춤(종류 → 태그 · 시각 · 읽음 · 버그 글 번호) · 빈 우편(객체)과 못 읽음(던짐)을 가름 · 모양 틀림은 던짐
+   ・1절: 읽기 — 경로 · 질의(section=MAIL · limit) · 모양 맞춤(종류 → 태그 · 🎄 크리스마스 두 종류 · 종류 이름 그대로 · 시각 · 읽음 · 버그 글 번호) · 빈 우편(객체)과 못 읽음(던짐)을 가름 · 모양 틀림은 던짐
    ・2절: 쪽 — nextCursor 를 따라 이어 받음 · 쪽 상한(오래된 것은 안 받고 complete:false) · 서버가 센 안 읽은 수를 쓴다(받은 쪽지 수와 달라도)
    ・3절: 쓰기 — 읽음 · 모두 읽음 · 지우기 · 읽은 우편 한꺼번에(POST delete-read · 지운 수)의 경로 · 본문 · 읽은 토큰의 주인과 묶음(진짜 api-client 로: 주인이 바뀌면 요청 0 · 'stale') · 읽은 적 없으면 안 보냄 · 실패는 'failed'
    ・4절: 배선 — firebase-init 에 옛 수령함 읽기 · 쓰기가 없음 · 부르는 곳이 firebaseAPI 로 우편을 안 부름 · html · smoke 순서
@@ -61,12 +61,15 @@ async function judge(S){
     const { m, authed } = mk(LIB, { 'GET /v2/me/notifications': page([
       item('a', 'LICENSE_ISSUED'), item('b', 'BUG_ANSWERED', { payload: { number: '1031-2' }, readAt: '2026-10-30T02:00:00Z' }),
       item('c', 'LEVEL_UNLOCK'), item('d', 'SECRET_ROOM_ISSUED'), item('e', 'LEGACY'), item('f', 'NEW_KIND_FROM_FUTURE'),
+      item('x1', 'XMAS_LETTER', { payload: { tag: 'xmas' } }), item('x2', 'XMAS_RETURNED'),
     ], null, 4) });
     const r = await m.fetchMail('ME01');
     const g = authed.log[0];
     chk(g.path.startsWith('/v2/me/notifications?section=MAIL') && /limit=50/.test(g.path) && g.opts.auth === true && !/ME01/.test(g.path), '경로 — 내 알림 · section=MAIL · limit=50 · 로그인 통로로(내 코드는 경로에 안 실린다)');
-    chk(Object.keys(r.items).length === 6 && r.items.a.tag === 'reward' && r.items.b.tag === 'bug' && r.items.c.tag === 'reward' && r.items.d.tag === 'reward' && r.items.e.tag === 'reward', '종류 → 태그 — 라이선스 · 해금 · 시크릿룸 · 옛 글은 reward · 답변은 bug');
+    chk(Object.keys(r.items).length === 8 && r.items.a.tag === 'reward' && r.items.b.tag === 'bug' && r.items.c.tag === 'reward' && r.items.d.tag === 'reward' && r.items.e.tag === 'reward', '종류 → 태그 — 라이선스 · 해금 · 시크릿룸 · 옛 글은 reward · 답변은 bug');
     chk(r.items.f.tag === 'reward', '  모르는 종류도 «우편» 으로 보인다(버리지 않는다)');
+    chk(r.items.x1.tag === 'xmas' && r.items.x2.tag === 'xmas', '🎄 받은 편지(XMAS_LETTER) · 반송(XMAS_RETURNED) 은 xmas — 누르면 크리스마스 편지 창');
+    chk(r.items.x1.kind === 'XMAS_LETTER' && r.items.x2.kind === 'XMAS_RETURNED' && r.items.f.kind === 'NEW_KIND_FROM_FUTURE', '  종류 이름을 그대로 싣는다(같은 태그 안에서 받은 편지 알림만 고르는 쪽이 읽는다)');
     chk(r.items.a.title === 'ta' && r.items.a.body === 'ba' && r.items.a.ts === Date.parse('2026-10-30T01:02:03Z') && r.items.a.read === false && r.items.b.read === true, '제목 · 본문 · 시각(ms) · 읽음(readAt 이 있으면 읽음)');
     chk(r.items.b.bugId === '1031-2' && r.items.a.bugId === undefined, '버그 답변은 payload.number 를 bugId 로(누르면 그 글로 간다) · 다른 종류엔 없다');
     chk(r.unread === 4 && r.complete === true, '안 읽은 수는 서버가 센 값 · 다음 쪽이 없으면 complete');
@@ -189,6 +192,8 @@ async function runAll(){
     ['지운 수를 안 읽음', S.API.replace("Math.floor(d.deleted) : 0;", "0 : 0;"), '지운 수'],
     ['읽음 본문 틀림', S.API.replace("{ read: true }", "{ read: false }"), 'PATCH'],
     ['버그 번호 누락', S.API.replace("out.bugId = no;", ""), 'bugId'],
+    ['크리스마스 종류를 뺌', S.API.replace("XMAS_LETTER: 'xmas', XMAS_RETURNED: 'xmas',", ""), 'xmas 태그'],
+    ['종류 이름을 안 실음', S.API.replace("kind: str(it.kind), ", ""), '종류 이름 그대로'],
   ];
   for(const [name, src, what] of breaks){
     if(src === S.API){ chk(false, name + ' — 바꿀 글을 못 찾음'); continue; }
