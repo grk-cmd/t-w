@@ -222,8 +222,8 @@
 | **sim-seat-opacity.js** | 248 | **69cff8aa188b** |
 | **sim-slot-fit.js** | 246 | **d28aa326a223** |
 | **sim-closet-api.js** | 171 | **41bff8ef604e** |
-| **sim-closet.js** | 706 | **57cd1c4b4cc8** |
-| **sim-slot-codec.js** | 146 | **43e8021db20a** |
+| **sim-closet.js** | 709 | **5759bec5dea8** |
+| **sim-slot-codec.js** | 169 | **713f5378a765** |
 | **sim-signup.js** | 308 | **0a689e6e9d03** |
 | **sim-sysinput.js** | 397 | **c331382ae2fd** |
 | sim-town-32.js | 87 | ff7b7c796278 |

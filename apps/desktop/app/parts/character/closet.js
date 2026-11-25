@@ -78,7 +78,7 @@ function boxFull(){
 async function objOf(def){ return codec._slotFromServerObj(def); }
 
 /* 받은 옷장을 화면 slots[] 에 앉힌다. 같은 캐릭터 · 같은 판이면 그대로 두고, 내가 못 올린 고침이 있는 칸은 덮지 않는다.
-   받을 칸의 그림은 한꺼번에 받기 시작하고, 지금 보는 칸(curSlot)을 먼저 앉혀 런처에 그린 뒤 나머지를 앉힌다.
+   받을 칸의 그림을 지금 보는 칸(curSlot)부터 부르고(받기는 slot-codec 의 받기 줄이 몇 개씩), 그 칸을 먼저 앉혀 런처에 그린 뒤 나머지를 앉힌다.
    칸마다 전부 아니면 없음 — 그림 하나라도 못 받은 칸은 앉히지 않고 판(known)도 그대로 둔다(다시 받기가 그 칸을 다시 받는다 · 옛 모습을 새 판으로 올리지 않는다).
    @return { did: 화면이 바뀌었나, err: 못 받은 칸이 있으면 첫 오류 } */
 async function applyCloset(c, g){
@@ -95,10 +95,15 @@ async function applyCloset(c, g){
     if(k && k.avatarId === id && k.version >= head.version) continue;                // 같은 판 · 늦게 온 낮은 판(방금 올린 고침보다 옛것) — 할 일 없음
     if(k && k.avatarId === id && isDirty(i)) continue;                               // 내 고침이 아직 안 올라갔다 — 덮지 않는다(올릴 때 서버가 앞 모습을 남긴다)
     if(!k && here && !taken.has(i)) continue;                                        // 이 칸에 아직 못 올린 새 캐릭터가 있다 — 올릴 때 칸이 차 있으면 서버가 거절한다(그때는 taken — 서버 것으로 앉힌다)
-    plan.push({ i, id, version: head.version, same: !!(k && k.avatarId === id), got: objOf(c.defs[id]) });
+    plan.push({ i, id, version: head.version, same: !!(k && k.avatarId === id), def: c.defs[id] });
   }
-  plan.forEach(p => { if(p.got) p.got.catch(() => {}); });   // 기다리기 전에 실패한 칸이 «잡히지 않은 오류» 로 남지 않게
   const cur = curSlot();
+  /* 지금 보는 칸을 먼저 부른다 — 받기 줄(slot-codec FETCH_POOL)이 부른 차례대로 받으니 그 칸 그림이 먼저 온다 */
+  for(const p of [...plan.filter(q => q.i === cur), ...plan.filter(q => q.i !== cur)]){
+    if(!p.id) continue;
+    p.got = objOf(p.def);
+    p.got.catch(() => {});   // 기다리기 전에 실패한 칸이 «잡히지 않은 오류» 로 남지 않게
+  }
   let did = false, err = null;
   /* 칸 묶음 하나를 받은 그림으로 앉힌다 — 못 받은 칸은 빼고 첫 오류만 남긴다 */
   async function seat(list){

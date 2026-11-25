@@ -113,7 +113,7 @@ function mkEnv(opt){
     SLOT_JSON_MAX: 150000,
     _slotGlbCacheLoad: () => ({}), _slotGlbCacheSave: () => { env.caches++; },
     _slotToServerObj: async (uid, o2) => { env.uploads.push(uid); env.toEntered = true; if(env.toHold) await env.toHold; if(env.imgFail) return null; return Object.assign({}, o2, { via: 'srv' }, env.big ? { pad: 'x'.repeat(160000) } : {}); },
-    _slotFromServerObj: async (def) => { env.fromEntered = true; env.fromCalls = (env.fromCalls || 0) + 1; if(env.fromHold) await env.fromHold; if(env.fromFail || (env.failSkin && def.skin === env.failSkin)) throw new Error('그림 받기 실패'); return Object.assign({}, def); },
+    _slotFromServerObj: async (def) => { env.fromEntered = true; env.fromCalls = (env.fromCalls || 0) + 1; (env.fromOrder = env.fromOrder || []).push(def.skin); if(env.fromHold) await env.fromHold; if(env.fromFail || (env.failSkin && def.skin === env.failSkin)) throw new Error('그림 받기 실패'); return Object.assign({}, def); },
   };
   const Mod = loadMod(SRC, env);
   env.mk = () => withSession(env, Mod.createCloset({
@@ -230,6 +230,7 @@ await sec('── 2-4. 한꺼번에 받기 · 지금 보는 칸 먼저', async (
   let rl; e.fromHold = new Promise(r => { rl = r; });
   const p = C.pullCloset(false); for(let n = 0; n < 20 && (e.fromCalls || 0) < 3; n++) await flush();
   chk(e.fromCalls === 3, '★ 받을 칸 셋의 그림을 한꺼번에 받기 시작한다(앞 칸을 기다리지 않는다) — ' + e.fromCalls + '/3');
+  chk(e.fromOrder.join() === 'c,a,b', '★ 지금 보는 칸(2)의 그림을 먼저 부른다 — 받기 줄이 부른 차례대로 받는다(' + e.fromOrder.join() + ')');
   e.fromHold = null; rl(); await p;
   chk(e.applied && e.applied[0].join() === '2' && e.applied[1].join() === '0,1', '★ 지금 보는 칸(2)을 먼저 앉히고 나머지를 앉힌다');
   chk(e.renders >= 2 && C.state() === 'ready', '  먼저 앉힌 칸은 바로 런처에 그린다(나머지를 기다리지 않는다)');
@@ -661,9 +662,11 @@ await sec('── 7. mutation test', async () => {
   chk(S && await stripRun(S), '첫 받기 뒤 저장 예약을 빼면 3-2절이 빨강이 된다');
   S = broke("    plan.push({ i, id, version: head.version,", "    known[i] = { avatarId: id, version: head.version, sig: null };\n    plan.push({ i, id, version: head.version,");
   chk(S && await run(S, async (e) => { const C = e.mk(); await C.pullCloset(false); ['a', 'b'].forEach(id => { e.srv.avatars.find(x => x.avatarId === id).version = 2; e.srv.defs[id] = { skin: id + '2' }; }); e.failSkin = 'b2'; await C.pullCloset(false); e.failSkin = null; await C.pullCloset(false); return e.slots[1].skin !== 'b2'; }), '받는 도중에 판을 적으면 못 받은 뒤 그 칸을 영영 건너뛴다 — 2-2절이 빨강이 된다');
+  S = broke("for(const p of [...plan.filter(q => q.i === cur), ...plan.filter(q => q.i !== cur)]){", "for(const p of plan){");
+  chk(S && await run(S, async (e) => { e.cur = 1; const C = e.mk(); await C.pullCloset(false); return e.fromOrder[0] !== 'b'; }), '지금 보는 칸을 먼저 부르지 않으면 2-4절이 빨강이 된다');
   S = broke("  const first = plan.filter(p => p.i === cur);", "  const first = [];");
   chk(S && await run(S, async (e) => { e.cur = 1; const C = e.mk(); await C.pullCloset(false); return !(e.applied && e.applied[0].join() === '1'); }), '지금 보는 칸 먼저를 빼면 2-4절이 빨강이 된다');
-  S = SRC.replace("got: objOf(c.defs[id]) });", "def: c.defs[id] });").replace("try{ p.obj = await p.got; ok.push(p); }", "try{ p.obj = await objOf(p.def); ok.push(p); }").replace("if(!p.got){ ok.push(p); continue; }", "if(!p.id){ ok.push(p); continue; }"); if(S === SRC) S = null;
+  S = SRC.replace("    p.got = objOf(p.def);\n    p.got.catch(() => {});", "").replace("try{ p.obj = await p.got; ok.push(p); }", "try{ p.obj = await objOf(p.def); ok.push(p); }").replace("if(!p.got){ ok.push(p); continue; }", "if(!p.id){ ok.push(p); continue; }"); if(S === SRC) S = null;
   chk(S && await run(S, async (e) => { const C = e.mk(); let rl; e.fromHold = new Promise(r => { rl = r; }); const p = C.pullCloset(false); for(let n = 0; n < 20; n++) await flush(); const n0 = e.fromCalls; e.fromHold = null; rl(); await p; return n0 < 2; }), '칸을 하나씩 받으면 2-4절이 빨강이 된다');
   S = broke("    if(g !== gen || !ok.length) return false;                        // 그림을 받는 사이 계정을 놓았다", "    if(!ok.length) return false; //");
   chk(S && await (async () => { const e = mkEnv({ slots: ['a'] }); const M = loadMod(S, e);

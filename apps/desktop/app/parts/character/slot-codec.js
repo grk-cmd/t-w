@@ -17,7 +17,20 @@ const slotToObj = deps.slotToObj;
 const uploadGlb = deps.uploadGlb;
 const SLOT_GLB_CACHE_KEY = 'tw.slotGlbUrls';
 const SLOT_JSON_MAX = 150000;                // 서버 def 상한(글자 수) — 서버 규격과 같은 값
-const FETCH_TIMEOUT_MS = 20000;              // 그림 · GLB 내려받기 상한 — 옷장 서버 일은 한 줄이라 끝나지 않는 내려받기가 쓰기 · 옮기기를 묶지 않게
+const FETCH_TIMEOUT_MS = 20000;              // 그림 · GLB 내려받기 — 이만큼 한 바이트도 안 오면 끊는다(옷장 서버 일은 한 줄이라 멈춘 받기가 쓰기 · 옮기기를 묶지 않게 · 느리게라도 오는 큰 GLB 는 끊지 않는다)
+const FETCH_POOL = 4;                        // 한꺼번에 받는 수 — 다 같이 받으면 느린 망에서 모두가 같이 시간 상한에 걸려 어느 칸도 못 받는다
+/* 받기 줄 — FETCH_POOL 개까지만 동시에, 나머지는 부른 차례대로 기다린다(먼저 부른 칸이 먼저). 시간 상한은 차례가 와서 받기 시작할 때부터 잰다 */
+let poolActive = 0;
+const poolWait = [];
+function pooled(job){
+  return new Promise((resolve, reject) => {
+    const go = () => {
+      poolActive++;
+      Promise.resolve().then(job).then(resolve, reject).finally(() => { poolActive--; const next = poolWait.shift(); if(next) next(); });
+    };
+    if(poolActive < FETCH_POOL) go(); else poolWait.push(go);
+  });
+}
 /* ── GLB 한 덩이 → Storage URL. 얼굴과 같은 «종류_내용해시» 이름 + localStorage 캐시. ── */
 function _slotGlbCacheLoad(){
   let st = {}; try{ st = JSON.parse(localStorage.getItem(SLOT_GLB_CACHE_KEY) || '{}'); }catch(_){}
@@ -41,11 +54,33 @@ async function _storageGlbUrlOne(uid, st, key, b64){
   if(r && r.ok){ st[ck] = r.url; return r.url; }
   return null;
 }
+/* 받기 줄에서 한 파일 — 바이트가 FETCH_TIMEOUT_MS 동안 하나도 안 오면 끊는다(전체 시간이 아니라 멈춤을 잰다). @return { buf, type } */
+function _fetchBytes(url){
+  return pooled(async () => {
+    const ctl = new AbortController();
+    /* 다음 바이트를 FETCH_TIMEOUT_MS 기다리는 약속 — 그동안 안 오면 끊는다(받기마다 새로 건다) */
+    const stall = () => { const sg = AbortSignal.timeout(FETCH_TIMEOUT_MS); const p = new Promise((_, rej) => sg.addEventListener('abort', () => rej(new Error('받기가 멈춤')), { once: true })); p.catch(() => {}); return p; };
+    const step = (p) => Promise.race([p, stall()]).catch((e) => { ctl.abort(); throw e; });
+    const res = await step(fetch(url, { signal: ctl.signal }));
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    let type = '';
+    try{ type = (res.headers && res.headers.get && res.headers.get('content-type')) || ''; }catch(_){}
+    if(!res.body || typeof res.body.getReader !== 'function') return { buf: new Uint8Array(await step(res.arrayBuffer())), type };
+    const rd = res.body.getReader(), parts = [];
+    let n = 0;
+    for(;;){
+      const { done, value } = await step(rd.read());
+      if(done) break;
+      parts.push(value); n += value.length;
+    }
+    const buf = new Uint8Array(n);
+    let o = 0; for(const p of parts){ buf.set(p, o); o += p.length; }
+    return { buf, type };
+  });
+}
 /* URL → base64 (GLB 되받기). Storage 는 CORS 허용이라 fetch 가 통한다(말랑이 선물이 같은 길). */
 async function _fetchB64(url){
-  const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-  if(!res.ok) throw new Error('HTTP ' + res.status);
-  const buf = new Uint8Array(await res.arrayBuffer());
+  const { buf } = await _fetchBytes(url);
   let s = '';
   for(let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
   return btoa(s);
@@ -58,12 +93,8 @@ async function _fetchB64(url){
    ★ 다시 인코딩하지 않으니 화질이 안 깎이고 더 빠르다(GLB 를 가져오는 `_fetchB64` 와 같은 방식).
    ⚠️ 실패는 예전처럼 **던진다** — `_slotFromServerObj` 가 그걸 보고 이번 채택을 접는다. */
 async function _fetchImgDataUrl(url){
-  const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-  if(!res.ok) throw new Error('HTTP ' + res.status);
-  let type = '';
-  try{ type = (res.headers && res.headers.get && res.headers.get('content-type')) || ''; }catch(_){}
+  let { buf, type } = await _fetchBytes(url);
   type = /^image\//.test(type) ? type.split(';')[0].trim() : 'image/png';
-  const buf = new Uint8Array(await res.arrayBuffer());
   let s = '';
   for(let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
   return 'data:' + type + ';base64,' + btoa(s);
@@ -144,7 +175,7 @@ async function _slotToServerObj(uid, o, faceSt, glbSt){
 }
 /* 서버용 한 칸 → 로컬 저장본(dataURL·base64). loadSlots 가 읽는 모양 그대로 — 그래서 loadSlots 는
    서버 형식을 몰라도 된다. 얼굴·감은눈은 필수라 못 받으면 던진다(호출부가 이번 적용을 접는다).
-   그림 · GLB 는 한꺼번에 받는다(Promise.all) — 하나라도 못 받으면 이 칸 전체가 던진다(반쯤 받은 칸을 앉히지 않는다). */
+   그림 · GLB 는 한꺼번에 부른다(Promise.all · 실제 받기는 받기 줄 FETCH_POOL 개씩) — 하나라도 못 받으면 이 칸 전체가 던진다(반쯤 받은 칸을 앉히지 않는다). */
 async function _slotFromServerObj(so){
   if(!so) return null;
   const out = Object.assign({}, so);
@@ -176,6 +207,7 @@ async function _slotFromServerObj(so){
 }
 
 return {
+  FETCH_POOL,
   SLOT_GLB_CACHE_KEY,
   SLOT_IMG_FIELDS,
   SLOT_JSON_MAX,

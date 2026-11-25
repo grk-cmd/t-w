@@ -3,7 +3,7 @@
    ・1절: 서버로 — 얼굴 · 감은눈 · 동물 그림 여섯이 주소로 · 섬네일(올려도 못 올려도 push 를 접지 않음) · 커미션 / 책상 / 아이템 GLB 가 주소로 ·
           파츠 그림 · 귀 그림의 dataURL 은 뺌 · 하나라도 못 올리면 null(칸을 얼굴 없이 올리지 않는다) · 이미 주소인 값은 그대로 · 원본 객체를 안 바꿈
    ・2절: 올리기 이름 — 내용 해시(다른 그림은 다른 이름 · 같은 그림은 한 번만 올림) · 캐시 합치기 · 상한
-   ・3절: 서버에서 — 주소 → dataURL · 얼굴 / 감은눈 없으면 던짐 · GLB 되받기 · 섬네일 비움 · 그림 · GLB 를 한꺼번에 받고 하나라도 못 받으면 던짐 · 올리고 되받은 값이 원래 저장 모양과 같다(되받아 저장해도 안 올라가는 핑퐁 없음)
+   ・3절: 서버에서 — 주소 → dataURL · 얼굴 / 감은눈 없으면 던짐 · GLB 되받기 · 섬네일 비움 · 받기 줄(동시에 4개 · 먼저 부른 칸 먼저) · 멈춤만 끊는 시간 상한 · 하나라도 못 받으면 던짐 · 올리고 되받은 값이 원래 저장 모양과 같다(되받아 저장해도 안 올라가는 핑퐁 없음)
    ・4절: mutation test
    [실행] 저장소 루트에서 node checks/run.js sim-slot-codec */
 'use strict';
@@ -23,11 +23,19 @@ function mkWorld(src, opt){
   const o = opt || {};
   const w = { ls: new Map(), uploads: [], faceUp: [], fetched: [], fetchOpts: [], failKey: o.failKey || null, inflight: 0, maxIn: 0 };
   const store = new Map();
-  const ctx = { window: {}, AbortSignal, console: { warn(){}, log(){} }, JSON, Object, Array, Promise, Error, Number, String, Math, Date, Uint8Array, atob: (s) => Buffer.from(s, 'base64').toString('binary'), btoa: (s) => Buffer.from(s, 'binary').toString('base64'),
+  const ctx = { window: {}, AbortSignal, AbortController, setTimeout, clearTimeout, console: { warn(){}, log(){} }, JSON, Object, Array, Promise, Error, Number, String, Math, Date, Uint8Array, atob: (s) => Buffer.from(s, 'base64').toString('binary'), btoa: (s) => Buffer.from(s, 'binary').toString('base64'),
     localStorage: { getItem: (k) => w.ls.has(k) ? w.ls.get(k) : null, setItem: (k, v) => w.ls.set(k, String(v)), removeItem: (k) => w.ls.delete(k) },
     fetch: async (u, fo) => { w.fetched.push(u); w.fetchOpts.push(fo);
       if(o.delay){ w.inflight++; w.maxIn = Math.max(w.maxIn, w.inflight); await new Promise(r => setTimeout(r, o.delay)); w.inflight--; }
       if(String(u).includes('BAD')) return { ok: false, status: 404 };
+      if(o.stream){   /* 느린 망 흉내 — 조각 o.stream.n 개를 o.stream.ms 마다 하나씩(signal 이 끊으면 던진다) */
+        let k = 0; const sig = fo && fo.signal;
+        return { ok: true, headers: { get: () => 'image/png' }, body: { getReader: () => ({ read: () => new Promise((res, rej) => {
+          if(sig && sig.aborted) return rej(new Error('aborted'));
+          const tm = setTimeout(() => { if(sig && sig.aborted) return rej(new Error('aborted')); k++; res(k > o.stream.n ? { done: true } : { done: false, value: new Uint8Array([65 + k]) }); }, o.stream.ms);
+          if(sig) sig.addEventListener('abort', () => { clearTimeout(tm); rej(new Error('aborted')); });
+        }) }) } };
+      }
       const bytes = Buffer.from('payload:' + u); return { ok: true, headers: { get: () => (/\.glb/.test(u) ? 'model/gltf-binary' : 'image/webp') }, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) }; } };
   vm.createContext(ctx);
   vm.runInContext(CACHE, ctx);
@@ -112,10 +120,23 @@ async function behave(src){
   w = mkWorld(src, { delay: 5 });
   const server2 = await mkWorld(src).codec._slotToServerObj('uA', OBJ(), {}, {});
   await w.codec._slotFromServerObj(server2);
-  t(w.fetched.length >= 8 && w.maxIn === w.fetched.length, '★ 한 칸의 그림 · GLB 를 한꺼번에 받는다(동시에 ' + w.maxIn + ' / ' + w.fetched.length + ')');
+  t(w.fetched.length >= 8 && w.maxIn === 4, '★ 한 칸의 그림 · GLB 를 하나씩 기다리지 않는다 — 받기 줄 4개가 꽉 차게(동시에 ' + w.maxIn + ' / ' + w.fetched.length + ')');
+  /* 여러 칸을 같이 불러도 동시에 4개까지 · 먼저 부른 칸의 받기가 먼저 시작한다(느린 망에서 모두가 같이 시간 상한에 걸리지 않게) */
+  w = mkWorld(src, { delay: 5 });
+  const sA = await mkWorld(src).codec._slotToServerObj('uA', OBJ(), {}, {});
+  const sB = await mkWorld(src).codec._slotToServerObj('uB', OBJ(), {}, {});
+  await Promise.all([w.codec._slotFromServerObj(sA), w.codec._slotFromServerObj(sB)]);
+  const firstB = w.fetched.findIndex((u) => u.includes('/uB/')), lastA = w.fetched.map((u) => u.includes('/uA/')).lastIndexOf(true);
+  t(w.fetched.length >= 16 && w.maxIn <= 4 && firstB > lastA, '★ 두 칸을 같이 불러도 동시에 4개 이하(' + w.maxIn + ') · 먼저 부른 칸(uA)의 받기가 다 시작된 뒤에 다음 칸(uB)');
   w = mkWorld(src, { delay: 5 });
   threw = null; try{ await w.codec._slotFromServerObj(Object.assign({}, server2, { deskGlbUrl: 'https://BAD/d.glb' })); }catch(e){ threw = e; }
   t(threw, '  한꺼번에 받아도 하나라도 못 받으면 그 칸 전체가 던진다(반쯤 받은 칸을 앉히지 않는다)');
+  /* 느리게라도 바이트가 오면 끊지 않는다 — 시간 상한은 «멈춤» 을 잰다(전체 시간이 상한보다 길어도 받는다). 상한을 60ms 로 줄여 돌린다 */
+  { const fast = src.replace('const FETCH_TIMEOUT_MS = 20000;', 'const FETCH_TIMEOUT_MS = 60;');
+    let ok1 = null; try{ ok1 = await mkWorld(fast, { stream: { n: 6, ms: 30 } }).codec._slotFromServerObj({ faceUrl: 'https://st/f.png', blinkUrl: 'https://st/b.png' }); }catch(_){ ok1 = null; }
+    t(fast !== src && ok1 && /^data:image\/png;base64,/.test(ok1.face), '★ 조각이 상한(60ms)보다 짧은 사이로 오면 다 받는 데 180ms 가 걸려도 끊지 않는다');
+    let threw2 = null; try{ await mkWorld(fast, { stream: { n: 3, ms: 120 } }).codec._slotFromServerObj({ faceUrl: 'https://st/f.png', blinkUrl: 'https://st/b.png' }); }catch(e){ threw2 = e; }
+    t(threw2, '  조각 사이가 상한보다 길면(멈춤) 끊고 그 칸은 던진다'); }
   t(w.codec.SLOT_JSON_MAX === 150000 && w.codec.SLOT_IMG_FIELDS.length === 8, '상한(150000자) · 그림 칸 여덟');
   return r;
 }
@@ -129,6 +150,8 @@ async function behave(src){
     ['GLB 원문을 안 뺌', "delete out.commGlb;\n    const url", "const url"],
     ['얼굴 없어도 통과', "if(typeof out.face !== 'string' || typeof out.blink !== 'string') throw new Error('얼굴·감은눈 URL 이 없음');", ''],
     ['그림을 하나씩 기다림', "jobs.push(_fetchImgDataUrl(u).then(v => { out[field] = v; }));", "out[field] = await _fetchImgDataUrl(u);"],
+    ['시간 상한을 받기 전체에 한 번만 검', "      const { done, value } = await step(rd.read());", "      const { done, value } = await rd.read();\n      if(Date.now() - (this.t0 = this.t0 || Date.now()) > FETCH_TIMEOUT_MS){ ctl.abort(); throw new Error('전체 시간 넘김'); }"],
+    ['받기 줄 상한이 없음', "const FETCH_POOL = 4;", "const FETCH_POOL = 999;"],
     ['GLB 하나 실패를 삼킴', "await Promise.all(jobs);", "await Promise.allSettled(jobs);"],
     ['섬네일 원문을 안 뺌', "delete out.thumb; delete out._imgBroken; delete out.thumbUrl;", "delete out._imgBroken;"],
   ];
