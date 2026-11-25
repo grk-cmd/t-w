@@ -9,7 +9,8 @@
      xmas/ 는 누구나 한 객체씩 받고(get) · 목록 · 쓰기 · 지우기는 봇만 · PNG 16KB 까지(0.14 서버 xmas — tw-docs 11-xmas.md 11장).
      사람 폴더(users · away · bookmarks · purikura)는 주인만 쓴다 — Firestore 에뮬레이터에 storageOwners/{코드} = { uid } 를 깔고
      storage 규칙의 firestore.get 이 실제로 풀리는지(주인 통과 · 남 · 로그인 없음 · 문서 없는 코드 거절)를 본다(tw-docs 12-storage-owner.md 4장 표).
-     mutation test: 지우기 항을 뺀 규칙 · 봇 검사를 뺀 규칙 · 봇 마이홈 상한을 뺀 규칙 · 주인 검사를 «로그인만» 으로 바꾼 규칙이 각각 다르게 판정되는지 본다.
+     바로 올리는 그림 이름(mh · dday · clap · mallang)은 이름마다 형식 · 상한(서버 판정과 같다)만 — 넓은 블록의 «2MB 미만 아무 형식» 으로는 주인이 못 쓴다.
+     mutation test: 지우기 항을 뺀 규칙 · 봇 검사를 뺀 규칙 · 봇 마이홈 상한을 뺀 규칙 · 주인 검사를 «로그인만» 으로 바꾼 규칙 · 그림 이름 제외를 뺀 규칙이 각각 다르게 판정되는지 본다.
      없으면 건너뛴다(CI 에는 없다 — 규칙을 바꾼 PR 은 손으로 돌려 본문에 붙인다). */
 'use strict';
 const fs = require('fs');
@@ -84,7 +85,7 @@ const zeroTwelve = [   // 0.12 앱이 올리는 자리
 function mainCases() {
   const own = (p, size, ct) => [`주인 — ${p}`, 'up', p, size, ct, true, USER];
   return [
-    ...['users/u1/del.png', 'users/u1/del2.png', 'users/u1/del3.png', 'users/u1/giftimg/del.png', 'catalog/del.glb', 'catalog/read.glb', 'away/u1/del.webp', 'away/u1/del2.webp', 'bookmarks/u1/del.webp', 'bookmarks/u1/del2.webp',
+    ...['users/u1/dday_del.png', 'users/u1/del.png', 'users/u1/del2.png', 'users/u1/del3.png', 'users/u1/giftimg/del.png', 'catalog/del.glb', 'catalog/read.glb', 'away/u1/del.webp', 'away/u1/del2.webp', 'bookmarks/u1/del.webp', 'bookmarks/u1/del2.webp',
       'purikura/R/u1/del.webp', 'purikura/R/u1/del2.webp', 'assets/del.png', 'assets/read.png', 'xmas/del.png', 'xmas/read.png', 'users/u1/read.png'].map(seed),
     // 옛 앱(0.13.x)이 쓰는 자리 — 경로 · 이름 · 형식 그대로(firebase-init.js)
     own('users/u1/slotglb_desk_h2abc.glb', MB, 'model/gltf-binary'),
@@ -103,6 +104,22 @@ function mainCases() {
     own('users/u1/clap_0193a.webp', 512 * KB, 'image/webp'),
     own('users/u1/mallang_0193a.png', MB, 'image/png'),
     ['users — 주인도 마이홈 그림 8MB 넘으면 거절', 'up', 'users/u1/mh_big.png', 8 * MB + 1, 'image/png', false, USER],
+    // 바로 올리는 그림 넷은 이름마다 서버 판정과 같은 형식 · 상한만 — 넓은 블록의 «2MB 미만 아무 형식» 으로는 못 쓴다(서버가 이 주소를 남에게도 보여 준다)
+    ['users — 주인 mh_ 작은 HTML 도 거절', 'up', 'users/u1/mh_s.png', 10, 'text/html', false, USER],
+    ['users — 주인 dday_ 1MB 넘으면 거절', 'up', 'users/u1/dday_big.png', MB + 1, 'image/png', false, USER],
+    ['users — 주인 dday_ HTML 거절', 'up', 'users/u1/dday_x.png', 10, 'text/html', false, USER],
+    ['users — 주인 dday_ SVG 거절', 'up', 'users/u1/dday_x.svg', 10, 'image/svg+xml', false, USER],
+    ['users — 주인 dday_ 이름과 형식이 달라도(png 이름에 SVG) 거절', 'up', 'users/u1/dday_y.png', 10, 'image/svg+xml', false, USER],
+    ['users — 주인 clap_ 512KB 넘으면 거절', 'up', 'users/u1/clap_big.png', 512 * KB + 1, 'image/png', false, USER],
+    ['users — 주인 clap_ JPEG 512KB 는 통과', 'up', 'users/u1/clap_j.jpg', 512 * KB, 'image/jpeg', true, USER],
+    ['users — 주인 clap_ GIF 거절', 'up', 'users/u1/clap_g.gif', 10, 'image/gif', false, USER],
+    ['users — 주인 mallang_ JPEG 거절(투명 배경 — PNG · WebP 만)', 'up', 'users/u1/mallang_j.jpg', 10, 'image/jpeg', false, USER],
+    ['users — 주인 mallang_ WebP 1MB 통과', 'up', 'users/u1/mallang_w.webp', MB, 'image/webp', true, USER],
+    ['users — 주인 mallang_ 1MB 넘으면 거절', 'up', 'users/u1/mallang_big.png', MB + 1, 'image/png', false, USER],
+    ['users — 주인 mallang_ HTML 거절', 'up', 'users/u1/mallang_h.png', 10, 'text/html', false, USER],
+    ['users — 주인도 그 이름은 폴더 아래로 숨기지 못함(dday_x/…)', 'up', 'users/u1/dday_x/a.png', 10, 'text/html', false, USER],
+    ['users — 서버 봇은 0.13 앱 몫 그대로(dday_ 2MB 미만)', 'up', 'users/u1/dday_bot2.png', MB + 10, 'image/png', true, BOT],
+    ['users — 주인이 dday_ 지우기', 'del', 'users/u1/dday_del.png', 0, '', true, USER],
     ['users — 주인도 2MB 이상은 mh_ 이름만', 'up', 'users/u1/design_big.jpg', 2 * MB, 'image/jpeg', false, USER],
     ['users — 주인도 2MB 이상 mh_ 는 그림 형식만(HTML 거절)', 'up', 'users/u1/mh_x.png', 3 * MB, 'text/html', false, USER],
     ['users — 주인도 2MB 이상 mh_ 는 PNG · WebP · JPEG 만(GIF 거절)', 'up', 'users/u1/mh_x.gif', 3 * MB, 'image/gif', false, USER],
@@ -230,8 +247,8 @@ function lockCases() {
 }
 /* 지우기 항을 뺀 규칙 — 지우기가 거절돼야 한다(콘솔 규칙에서 실제로 났던 함정) */
 function noDeleteCases() {
-  return [seed('users/u1/del.png'), seed('catalog/del.glb'),
-    ['지우기 항 없음 — 주인의 users 지우기가 거절된다', 'del', 'users/u1/del.png', 0, '', false, USER],
+  return [seed('away/u1/del.webp'), seed('catalog/del.glb'),
+    ['지우기 항 없음 — 주인의 away 지우기가 거절된다', 'del', 'away/u1/del.webp', 0, '', false, USER],
     ['지우기 항 없음 — 봇의 catalog 지우기가 거절된다', 'del', 'catalog/del.glb', 0, '', false, BOT]];
 }
 /* 봇 상한을 사람에게도 연 규칙(isBot 을 뺌) — 앱이 2MB 이상 · assets 를 올리면 거절돼야 하므로 빨강이 나야 한다 */
@@ -251,7 +268,12 @@ function noOwnerCases() {
     ['주인 검사 없음 — 남이 u1 자리비움에 올리면 통과해 버린다', 'up', 'away/u1/x.webp', 10, 'image/webp', true, OTHER],
     ['주인 검사 없음 — 남이 u1 마이홈 그림 8MB 를 올리면 통과해 버린다', 'up', 'users/u1/mh_x.png', 3 * MB, 'image/png', true, OTHER]];
 }
-const SETS = { main: mainCases, lock: lockCases, nodelete: noDeleteCases, openbot: openBotCases, nobotcap: noBotCapCases, noowner: noOwnerCases };
+/* 이름 제외를 뺀 규칙 — 주인이 dday_ 에 HTML 을 올리면 넓은 블록으로 통과해 버려야 한다 */
+function noNameCases() {
+  return [['이름 제외 없음 — 주인이 dday_ 에 HTML 을 올리면 통과해 버린다', 'up', 'users/u1/dday_x.png', 10, 'text/html', true, USER],
+    ['이름 제외 없음 — 주인이 mallang_ 에 SVG 를 올리면 통과해 버린다', 'up', 'users/u1/mallang_x.png', 10, 'image/svg+xml', true, USER]];
+}
+const SETS = { main: mainCases, lock: lockCases, nodelete: noDeleteCases, openbot: openBotCases, nobotcap: noBotCapCases, noowner: noOwnerCases, noname: noNameCases };
 
 async function inner() {
   const H = `http://127.0.0.1:${Number(process.env.TW_EMU_PORT)}`;
@@ -324,10 +346,11 @@ async function main() {
   const openBot = MAIN_SRC.replace(/return request\.auth != null && request\.auth\.uid == '[^']+';/, 'return true;');
   const noBotCap = MAIN_SRC.replace(/\s*\|\|\s*\(request\.resource != null && isBotMyHomeImage\(\)\)/, '');
   const noOwner = MAIN_SRC.replace(/(function isOwner\(code\) \{\s*return )[^;]+;/, '$1request.auth != null;');
-  chk(noDelete !== MAIN_SRC && openBot !== MAIN_SRC && noBotCap !== MAIN_SRC && noOwner !== MAIN_SRC, 'mutation test 용 규칙 넷(지우기 항 · 봇 검사 · 봇 마이홈 상한 · 주인 검사를 뺌)을 만들었다');
+  const noName = MAIN_SRC.replace("(isOwner(userId) && !isOwnImageName(allPaths[0]))", 'isOwner(userId)');
+  chk(noDelete !== MAIN_SRC && openBot !== MAIN_SRC && noBotCap !== MAIN_SRC && noOwner !== MAIN_SRC && noName !== MAIN_SRC, 'mutation test 용 규칙 다섯(지우기 항 · 봇 검사 · 봇 마이홈 상한 · 주인 검사 · 그림 이름 제외를 뺌)을 만들었다');
   for (const [set, src, title] of [['main', MAIN_SRC, MAIN_FILE], ['lock', LOCK_SRC, LOCK_FILE], ['nodelete', noDelete, 'mutation test — 지우기 항 없는 ' + MAIN_FILE],
     ['openbot', openBot, 'mutation test — 봇 검사 없는 ' + MAIN_FILE], ['nobotcap', noBotCap, 'mutation test — 봇 마이홈 상한 없는 ' + MAIN_FILE],
-    ['noowner', noOwner, 'mutation test — 주인 검사가 «로그인만» 인 ' + MAIN_FILE]]) {
+    ['noowner', noOwner, 'mutation test — 주인 검사가 «로그인만» 인 ' + MAIN_FILE], ['noname', noName, 'mutation test — 그림 이름 제외가 없는 ' + MAIN_FILE]]) {
     console.log('  [' + title + ']');
     const r = await emulate(set, src);
     if (!r.lines.length) { chk(false, '에뮬레이터 출력을 못 읽음: ' + r.out.slice(-300)); continue; }

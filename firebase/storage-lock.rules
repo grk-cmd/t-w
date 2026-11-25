@@ -32,7 +32,7 @@ service firebase.storage {
                        || request.resource.size < 2 * 1024 * 1024
                        || isBotMyHomeImage());
     }
-    // 앱이 바로 올리는 마이홈 그림 자리(storage.rules 와 같은 경로) — 잠금 동안은 앱이 못 쓴다. 봇은 위 블록으로 쓴다.
+    // 앱이 바로 올리는 그림 넷 자리(storage.rules 와 같은 경로 · mh · dday · clap · mallang) — 잠금 동안은 앱이 못 쓴다. 봇은 위 블록으로 쓴다(상한 그대로).
     match /users/{userId}/{file} {
       allow write: if false;
     }

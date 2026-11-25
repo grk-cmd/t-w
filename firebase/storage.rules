@@ -18,6 +18,16 @@ service firebase.storage {
       return request.auth != null
           && firestore.get(/databases/(default)/documents/storageOwners/$(code)).data.uid == request.auth.uid;
     }
+    // 앱이 바로 올리는 그림 이름(0.14 — shared/own-image.js). 서버는 이 이름의 주소를 내 그림으로 받아 남에게도 보여 주므로(박수 · 말랑이 선물)
+    // 아래 {file} 블록의 형식 · 상한만 통과한다 — 넓은 블록의 «2MB 미만 아무 형식» 으로는 주인이 이 이름을 못 쓴다. 0.13 앱은 이 이름을 직접 쓰지 않는다(봇이 쓴다).
+    function isOwnImageName(name) {
+      return name.matches('(mh|dday|clap|mallang)_.*');
+    }
+    function ownImageOk(file, head, exts, types, maxBytes) {
+      return file.matches(head + '_[A-Za-z0-9_-]+[.](' + exts + ')')
+          && request.resource.size <= maxBytes
+          && request.resource.contentType in types;
+    }
     // 봇이 올리는 마이홈 그림 — 서버(MyHomeImage)가 형식 · 크기를 먼저 보고 올린다(0.13 앱의 POST /v2/me/images).
     function isBotMyHomeImage() {
       return isBot()
@@ -41,16 +51,19 @@ service firebase.storage {
       allow get: if true;
       allow list: if isBot();
       allow write: if allPaths[0] != 'giftimg'
-                   && (((request.resource == null || request.resource.size < 2 * 1024 * 1024) && (isBot() || isOwner(userId)))
+                   && ((request.resource == null && (isBot() || isOwner(userId)))
+                       || (request.resource != null && request.resource.size < 2 * 1024 * 1024
+                           && (isBot() || (isOwner(userId) && !isOwnImageName(allPaths[0]))))
                        || (request.resource != null && isBotMyHomeImage()));
     }
-    // 앱이 바로 올리는 마이홈 그림(0.14 — 서버 MyHomeImage 와 같은 형식 · 상한). 2MB 이상은 이 이름 · 형식만.
+    // 앱이 바로 올리는 그림 넷(0.14) — 서버 판정(MyHomeImage · DdayImage · ClapImageFile · MallangImage)과 같은 형식 · 상한. 폴더 바로 아래 · 주인만.
     match /users/{userId}/{file} {
       allow write: if request.resource != null
-                   && file.matches('mh_[A-Za-z0-9_-]+[.](png|webp|jpg)')
-                   && request.resource.size <= 8 * 1024 * 1024
-                   && request.resource.contentType in ['image/png', 'image/webp', 'image/jpeg']
-                   && isOwner(userId);
+                   && isOwner(userId)
+                   && (ownImageOk(file, 'mh', 'png|webp|jpg', ['image/png', 'image/webp', 'image/jpeg'], 8 * 1024 * 1024)
+                       || ownImageOk(file, 'dday', 'png|webp|jpg', ['image/png', 'image/webp', 'image/jpeg'], 1024 * 1024)
+                       || ownImageOk(file, 'clap', 'png|webp|jpg', ['image/png', 'image/webp', 'image/jpeg'], 512 * 1024)
+                       || ownImageOk(file, 'mallang', 'png|webp', ['image/png', 'image/webp'], 1024 * 1024));
     }
     match /users/{userId}/giftimg/{file} {
       allow write: if isBot()
