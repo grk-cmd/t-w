@@ -5056,7 +5056,8 @@ const appBoot = TwAppBoot.createAppBoot({
     catalogGlb: ()=>closetSettled().then(()=>catalogSyncMod.fillGlb()),   // 🧩 카탈로그 GLB 를 다 받아 두기 — 첫 화면 뒤 맨 끝 · 캐릭터가 3초 넘게 안 그려져도 그려질 때까지 기다린다(약 8MB 가 캐릭터 그림과 다투지 않게)
     playlist: (code, me, session)=>plMod.start(session),
   },
-});/* 그 창을 처음 열 때 받는 기능(app-boot OPEN) — 플레이리스트 창 → 플레이리스트 */
+});
+/* 그 창을 처음 열 때 받는 기능(app-boot OPEN) — 플레이리스트 창 → 플레이리스트 */
 TwOpenOnShow.createOpenOnShow({
   open: (name)=>appBoot.open(name),
   targets: [
