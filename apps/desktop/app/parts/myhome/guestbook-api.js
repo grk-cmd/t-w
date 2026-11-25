@@ -8,7 +8,7 @@
          imageBytes — TwImageBytes(shared/image-bytes.js — inspect(dataUrl, { types, maxBytes }) → 올릴 바이트 판정)
          warn(...a)(진단 로그)
    내보냄: createGuestbookApi(deps) → {
-     fetchView(uid, owner) → Promise<{ entries:[{ id, name, text, ts, mine }](최신이 위), clap:{ count, img, emoji, todayLeft, dailyMax }, canWrite, version }>
+     fetchView(uid, owner) → Promise<{ entries:[{ id, name, text, ts, mine, canDelete }](최신이 위), clap:{ count, img, emoji, todayLeft, dailyMax }, canWrite, version }>
        — 글이 없어도 entries:[](빈 방명록 ≠ 못 읽음). 못 읽으면 던진다. 같은 판이면 api-client 가 ETag(304)로 기억한 값을 돌려준다.
      fetchNewCount(uid, since) → Promise<number> — 내 방명록에서 since(ms) 뒤에 쓴 글 수. 못 읽으면 던진다.
      write(uid, owner, text, requestId) → Promise<{ status, entry?, err? }>
@@ -48,11 +48,13 @@ const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const count = (v) => (typeof v === 'number' && isFinite(v) && v >= 0) ? Math.floor(v) : undefined;
 const shapeError = () => Object.assign(new Error('응답 모양이 달라요'), { code: 'SHAPE' });
 
-/* 서버 글 한 줄 → 화면 글. 모양이 틀리면(id · 글 없음) undefined */
+/* 서버 글 한 줄 → 화면 글. 모양이 틀리면(id · 글 없음) undefined.
+   canDelete(주인 · 글쓴이 — 서버가 정함)가 없는 옛 서버면 mine 으로 — 옛 서버는 글쓴이만 지웠다 */
 function entryOf(it){
   if(!isObj(it) || typeof it.id !== 'string' || !it.id || typeof it.text !== 'string') return undefined;
   const ts = Date.parse(it.createdAt);
-  return { id: it.id, name: typeof it.authorName === 'string' ? it.authorName : '', text: it.text, ts: isFinite(ts) ? ts : 0, mine: it.mine === true };
+  return { id: it.id, name: typeof it.authorName === 'string' ? it.authorName : '', text: it.text, ts: isFinite(ts) ? ts : 0, mine: it.mine === true,
+    canDelete: typeof it.canDelete === 'boolean' ? it.canDelete : it.mine === true };
 }
 
 /* 서버 방명록 → 화면 방명록. 모양이 틀리면 undefined */

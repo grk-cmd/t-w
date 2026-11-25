@@ -310,7 +310,7 @@
 | **sim-own-image.js** | 140 | **b9e27eebfcc3** |
 | **sim-request-id.js** | 94 | **dc515c933667** |
 | **sim-pk-bgm.js** | 103 | **3a6f07ec7cb7** |
-| **sim-guestbook.js** | 482 | **e0bafe53f31d** |
+| **sim-guestbook.js** | 500 | **d21b1923b853** |
 | **sim-friend-manage-module.js** | 274 | **ef635b529a03** |
 | **sim-pomodoro-module.js** | 251 | **c0cf84fa986c** |
 | **sim-myhome-sticker.js** | 434 | **77cd81d3622e** |
@@ -450,7 +450,7 @@
 | **sim-presence-lock.js** | 207 | **f3f7dd6e21f8** |
 | **sim-parts-paths.js** | 85 | **06ecfd398730** |
 | **sim-global-names.js** | 237 | **fa80a2b971d3** |
-| **sim-guestbook-api.js** | 248 | **e0b2a32160ec** |
+| **sim-guestbook-api.js** | 254 | **46d4d8032f1f** |
 | **sim-guestbook-feed.js** | 403 | **7aeba02ba9a6** |
 | **sim-focus-api.js** | 192 | **4400d38d16d1** |
 | **sim-guestbook-wiring.js** | 298 | **8b8991d46863** |

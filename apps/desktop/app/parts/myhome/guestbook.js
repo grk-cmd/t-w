@@ -313,11 +313,14 @@ const errorText = deps.errorText;                         // 오류 번호 → �
       const row=d.createElement('div'); row.className='gb-row';
       row.innerHTML='<div class="gb-head"><b>'+escHtml(TwPersonName.shown(en.name))+'</b><span class="gb-meta"><span>'+relTime(en.ts)+'</span></span></div>'
         +'<div class="gb-text">'+escHtml(en.text||'')+'</div>';
-      // ★ 내가 쓴 글(서버가 준 mine)만 삭제 링크 표시 — 글쓴이를 모르는 옛 글은 아무도 못 지운다
-      // TODO: 0.14 «내 방명록이면 남이 쓴 글도 지우기(정말 삭제? 한 번 더)»(B-1103-6) — 서버 DELETE 가 주인 지우기를 받는지 확인한 뒤 옮긴다(서버 포트 필요)
-      if(en.mine){
+      /* 🗑 삭제 링크 — 서버가 지울 수 있다고 한 글(canDelete — 내 글 · 내 방명록의 모든 글)에만. 판정은 서버가 한다.
+         남이 쓴 글은 첫 클릭에 «정말 삭제?» · 두 번째에 지운다(잘못 눌러 지우지 않게) */
+      if(en.canDelete){
         const del=d.createElement('span'); del.className='gb-del'; del.textContent='삭제';
+        if(!en.mine) del.title='내 방명록이라 남이 쓴 글도 지울 수 있어요';
+        let armed=en.mine;
         del.onclick=async ()=>{
+          if(!armed){ armed=true; del.textContent='정말 삭제?'; return; }
           const r=await feed.remove(en.id);
           if(!r.ok && r.reason==='failed') gbShow(failText(r));   // 오류 번호 알림은 feed 가 이미 띄웠다
         };
