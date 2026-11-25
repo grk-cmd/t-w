@@ -4785,9 +4785,9 @@ const themeUiMod = TwThemeUi.createThemeUi({
   setCustom: (...a)=>themeMod.setCustom(...a),
   _premiumOn: (...a)=>_premiumOn(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
-  serverOn: ()=>TwServerFeatures.on('themeCustomSave'),   // 서버 길이 생길 때까지 이 PC 에만(TODO: load · save 를 서버 provider 로)
-  loadCustom: (...a)=>TwServerFeatures.noServer('themeCustomSave').load(...a),   // 서버 경로가 생기면(#1105)
-  saveCustom: (...a)=>TwServerFeatures.noServer('themeCustomSave').save(...a),
+  serverOn: ()=>TwServerFeatures.on('themeCustomSave'),   // 계정 저장을 끄면 이 PC 에만
+  loadCustom: (...a)=>TwUserApi.themeCustom.load(...a),   // 👑 GET · PUT /v2/me/theme-custom(account/user-api.js — 판은 provider 가 든다)
+  saveCustom: (...a)=>TwUserApi.themeCustom.save(...a),
 });
 /* ★ 최상위 호출은 반드시 위 const 선언들 '뒤'에 둔다.
    앞에서 부르면 THEME_COLORS가 아직 TDZ라 ReferenceError가 나고, 최상위에서 터지므로
