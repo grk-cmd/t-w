@@ -32,7 +32,7 @@ const LOCK_CFG_SRC = read(LOCK_CFG);
 const FS_SRC = read(FS_FILE);
 if (!MAIN_SRC || !LOCK_SRC || !CFG_SRC || !LOCK_CFG_SRC || !FS_SRC) { console.log('  ? 원본 못 찾음 — ' + [MAIN_FILE, LOCK_FILE, 'firebase.json', LOCK_CFG, FS_FILE].join(' · ')); process.exit(2); }
 
-const PROJECT = 'demo-tw-storage-rules';
+const PROJECT = process.env.TW_PROJECT || 'demo-tw-storage-rules-' + process.pid;   // 판마다 다른 프로젝트 — 같이 도는 다른 판의 에뮬레이터 데이터와 섞이지 않게
 const BUCKET = PROJECT + '.appspot.com';
 const OWNER = '!owner';          // 규칙을 건너뛰는 준비용(에뮬레이터 관리자)
 const USER = 'userA';            // u1 의 주인(storageOwners/u1.uid)
@@ -310,16 +310,17 @@ async function inner() {
 function freePort() { return new Promise((ok, no) => { const s = net.createServer(); s.on('error', no); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => ok(p)); }); }); }
 
 async function emulate(set, rulesSrc) {
-  const port = await freePort();
-  const fsPort = await freePort();
+  // 이 맥에서 여러 판이 같이 돌아도 부딪히지 않게 — 에뮬레이터가 여는 자리(허브 · 로그 · Firestore 웹소켓 포함)를 전부 빈 포트로
+  const [port, fsPort, hubPort, logPort, wsPort] = [await freePort(), await freePort(), await freePort(), await freePort(), await freePort()];
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tw-storage-rules-'));
   fs.writeFileSync(path.join(dir, 'storage.rules'), rulesSrc);
   fs.writeFileSync(path.join(dir, FS_FILE), FS_SRC);
   // Storage 규칙의 firestore.get 은 같이 뜬 Firestore 에뮬레이터를 읽는다
   fs.writeFileSync(path.join(dir, 'firebase.json'), JSON.stringify({ storage: { rules: 'storage.rules' }, firestore: { rules: FS_FILE },
-    emulators: { storage: { host: '127.0.0.1', port }, firestore: { host: '127.0.0.1', port: fsPort }, ui: { enabled: false }, singleProjectMode: true } }));
+    emulators: { storage: { host: '127.0.0.1', port }, firestore: { host: '127.0.0.1', port: fsPort, websocketPort: wsPort },
+      hub: { host: '127.0.0.1', port: hubPort }, logging: { host: '127.0.0.1', port: logPort }, ui: { enabled: false }, singleProjectMode: true } }));
   const r = spawnSync('firebase', ['emulators:exec', '--only', 'storage,firestore', '--project', PROJECT, `node "${__filename}" --inner`],
-    { cwd: dir, env: { ...process.env, TW_EMU_PORT: String(port), TW_FS_PORT: String(fsPort), TW_SET: set }, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' });
+    { cwd: dir, env: { ...process.env, TW_EMU_PORT: String(port), TW_FS_PORT: String(fsPort), TW_SET: set, TW_PROJECT: PROJECT }, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' });
   fs.rmSync(dir, { recursive: true, force: true });
   const out = (r.stdout || '') + (r.stderr || '');
   return { lines: out.split('\n').filter((l) => /^\s+[✓✗] /.test(l)), status: r.status, out };
