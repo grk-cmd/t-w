@@ -196,6 +196,9 @@ async function judge(src) {
     chk(order.indexOf('launcher/app-boot.js') > 0 && order.indexOf('launcher/app-boot.js') < order.indexOf('app.js'), 'html — app-boot.js 를 app.js 보다 먼저 싣는다');
     chk(!SMOKE || /PRELOAD\.push\('app-boot\.js'\)/.test(SMOKE), 'smoke PRELOAD 에 app-boot.js');
     chk(order.indexOf('launcher/user-local.js') > 0 && order.indexOf('launcher/user-local.js') < order.indexOf('app.js') && (!SMOKE || /PRELOAD\.push\('user-local\.js'\)/.test(SMOKE)), 'html — user-local.js(맨 앞 userLocal 칸이 부르는 조각 목록)를 app.js 보다 먼저 싣는다 · smoke PRELOAD 에도');
+    const cg = (ap) => /^ {4}catalogGlb: \(\)=>closetSettled\(\)\.then\(\(\)=>catalogSyncMod\.fillGlb\(\)\),/m.test(ap) && /^const closetSettled = \(\)=>new Promise/m.test(ap) && /^ {2}whenPainted: \(\)=>closetSettled\(\),$/m.test(ap);
+    chk(cg(APP) && !cg(APP.replace('catalogGlb: ()=>closetSettled().then(()=>catalogSyncMod.fillGlb()),', 'catalogGlb: ()=>catalogSyncMod.fillGlb(),')),
+      '  카탈로그 GLB 전체 받기(catalogGlb)는 3초 상한과 상관없이 캐릭터를 그린 뒤에(closetSettled) — 느린 망에서 8MB 가 캐릭터 그림과 다투지 않게 · mutation test');
     const oos = read('launcher/open-on-show.js');
     chk(!!oos && order.indexOf('launcher/open-on-show.js') > 0 && order.indexOf('launcher/open-on-show.js') < order.indexOf('app.js') && (!SMOKE || /PRELOAD\.push\('open-on-show\.js'\)/.test(SMOKE)), 'html — open-on-show.js 를 app.js 보다 먼저 · smoke PRELOAD 에도');
     const oc = (APP.match(/TwOpenOnShow\.createOpenOnShow\(\{[\s\S]*?\n\}\)\.start\(\);/) || [''])[0];

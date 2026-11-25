@@ -5004,6 +5004,8 @@ const userLocalMod = TwUserLocal.createUserLocal({ parts: [
 
 /* 🚀 켜는 순서 한 곳(launcher/app-boot.js) — 계정 확인(license-gate.js)이 nav 로 «계정에 들어감» 을 알리면 옛 PC 값 옮기기 → realtime → 아래 차례대로 계정 기능을 시작한다.
    ⚠️ 차례 표는 app-boot.js STEPS — 여기 starts 는 그 이름마다 하나씩(빠지거나 남으면 만들 때 던진다). 계정 기능을 새로 만들면 만들 때 일하지 말고 여기에 건다. */
+/* 첫 화면 = 옷장 첫 받기가 끝남(캐릭터가 그려졌거나 못 받음) — app-boot LATER 의 시작 · 카탈로그 GLB 전체 받기가 기다린다 */
+const closetSettled = ()=>new Promise((r)=>{ const done = ()=>['ready', 'failed'].includes(closetMod.state()); if(done()) r(); else closetMod.onChange(()=>{ if(done()) r(); }); });
 const appBoot = TwAppBoot.createAppBoot({
   twNav: twNav,
   migrateLegacy: (code)=>accountStoreMod.migrateLegacy(code),
@@ -5017,7 +5019,7 @@ const appBoot = TwAppBoot.createAppBoot({
   toLogin: ()=>accountMod._loginDoLogout({ force:true }).then(()=>acctStateMod._acctRelaunchAfterDetach(null)),   // [취소] — 등록하지 않고 로그인 화면(다시 켜면 게이트가 로그인 화면)
   goOnline: ()=>loginFlowMod.goOnline(),
   updateGate: ()=>updateFlowP.then((f)=>f.proceed === true),
-  whenPainted: ()=>new Promise((r)=>{ const done = ()=>['ready', 'failed'].includes(closetMod.state()); if(done()) r(); else closetMod.onChange(()=>{ if(done()) r(); }); }),   // 첫 화면 = 옷장 첫 받기가 끝남(캐릭터가 그려졌거나 못 받음)
+  whenPainted: ()=>closetSettled(),
   idle: ()=>TwApi.authed.whenIdle(),
   holdToast: (msg)=>toastMod.hold(msg),
   starts: {
@@ -5048,8 +5050,8 @@ const appBoot = TwAppBoot.createAppBoot({
     invites: ()=>licenseGateMod.refreshInviteBtn(),   // 🎟️ 런처 초대장 버튼 — 켤 때 한 번(런처를 다시 그릴 때마다 묻지 않는다) · 발급 · 관리자 모드 뒤에는 그 자리에서
     appVersion: (code, me, session)=>appVersionSyncMod.start(session),   // 🔄 이 PC 앱 판을 서버에 알림 — 더 새 판을 쓰는 기기가 있으면 업데이트 창
     firstRun: ()=>firstRunMod.run().catch((e)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', e)),
-    licenseAutoRegister: ()=>licensePremiumMod.autoRegisterAfter(firstRunMod.licenseDone()),
-    catalogGlb: ()=>catalogSyncMod.fillGlb(),   // 🧩 카탈로그 GLB 를 다 받아 두기 — 첫 화면 뒤 맨 끝(입은 파츠 · 책상은 그릴 때 먼저 받는다)   // 첫 실행 뒤 — 0.12 키로 첫 실행이 등록했으면 건너뜀
+    licenseAutoRegister: ()=>licensePremiumMod.autoRegisterAfter(firstRunMod.licenseDone()),   // 첫 실행 뒤 — 0.12 키로 첫 실행이 등록했으면 건너뜀
+    catalogGlb: ()=>closetSettled().then(()=>catalogSyncMod.fillGlb()),   // 🧩 카탈로그 GLB 를 다 받아 두기 — 첫 화면 뒤 맨 끝 · 캐릭터가 3초 넘게 안 그려져도 그려질 때까지 기다린다(약 8MB 가 캐릭터 그림과 다투지 않게)
     gacha: (code, me, session)=>gachaMod.startGacha(session),
     playlist: (code, me, session)=>plMod.start(session),
     ddays: ()=>mhScheduler.loadBoard(),   // 📌 디데이 보드 — 마이홈을 처음 열 때(app-boot OPEN)
