@@ -27,6 +27,7 @@
     "appId": "com.togetherworking.app",
     "productName": "Together Working",
     "asar": true,
+    "afterPack": "scripts/mac-adhoc-sign.js",
     "files": [
       "main.js",
       "preload.js",
