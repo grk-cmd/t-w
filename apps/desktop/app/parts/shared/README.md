@@ -374,10 +374,12 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - 검사: `checks/sim-image-bytes.js`.
 
 ## `own-image.js` — 🖼 내 그림을 Storage 내 폴더에 바로 올리기
-- 책임: 마이홈(책장 책등 포함) · 디데이 카드 · 박수 · 말랑이 그림의 경로 이름(`users/{내 코드}/{mh|dday|clap|mallang}_{무작위 id}.{png|webp|jpg}`)과 올리기 한 번. 이름 머리는 서버 URL 검사 · Storage 규칙(주인의 `mh_` 8MB)과 같다.
-- deps: `myCode()`(서버가 준 내 코드) · `newId()` · `put(path, bytes, contentType)`(firebase-init `putOwnFile`).
-- 내놓는 것: `window.TwOwnImage` — `KINDS` · `pathOf` · `createOwnImage(deps).upload(kind, img)`. 형식 · 크기 판정은 부르는 provider 가 `image-bytes.js` 로 먼저 한다.
-- 함정: 읽은 토큰 주인(`expectOwner`)이 지금 로그인과 다르면 요청 없이 `OWNER_CHANGED`(경로의 코드가 지금 계정 것이라 규칙은 계정 바뀜을 못 막는다). 코드가 없으면 `NO_USER`, Storage 거절(주인 아님 · 상한) · 닿지 못함 · 10초 넘음(`cancel()`) · 빈 주소는 `IMAGE_UPLOAD` 로 던진다(원인은 `cause`). 0.13 앱이 쓰는 서버 endpoint(`POST /v2/me/images`)는 서버에 남아 있다.
+
+- **책임**: 마이홈(책장 책등 포함) · 디데이 카드 · 박수 · 말랑이 그림의 경로 이름(`users/{내 코드}/{mh|dday|clap|mallang}_{무작위 id}.{png|webp|jpg}`)과 올리기 한 번. 이름 머리 · 형식 · 상한은 서버 URL 검사 · Storage 규칙(이름마다 형식 · 상한)과 같다.
+- **deps**: `myCode()`(서버가 준 내 코드) · `newId()` · `put(path, bytes, contentType)` → `{ done: Promise<주소>, cancel() }`(firebase-init `putOwnFile`) · `later(fn, ms)` → 해제 함수 · `owner()` → 지금 로그인 uid(`firebaseAPI.authCurrentUid`).
+- **내놓는 것**: `window.TwOwnImage` — `KINDS` · `TIMEOUT_MS` · `pathOf` · `createOwnImage(deps).upload(kind, img, { expectOwner })`. 형식 · 크기 판정은 부르는 provider 가 `image-bytes.js` 로 먼저 한다.
+- **함정**: 읽은 토큰 주인(`expectOwner`)이 지금 로그인과 다르면 요청 없이 `OWNER_CHANGED`(경로의 코드가 지금 계정 것이라 규칙은 계정 바뀜을 못 막는다). 코드가 없으면 `NO_USER`, Storage 거절(주인 아님 · 상한) · 닿지 못함 · 10초 넘음(`cancel()`) · 빈 주소는 `IMAGE_UPLOAD` 로 던진다(원인은 `cause`). 0.13 앱이 쓰는 서버 endpoint(`POST /v2/me/images`)는 서버에 남아 있다.
+- **함정**: 주소 받기(`getDownloadURL`) 도중 10초를 넘기면 파일은 이미 올라가 Storage 에 남는다(아무 칸도 가리키지 않음) — 탈퇴 때 서버가 폴더째 지운다.
 - 검사: `checks/sim-own-image.js`.
 
 ## `request-id.js` — 🔁 요청 번호(requestId)
