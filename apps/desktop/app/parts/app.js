@@ -1617,7 +1617,7 @@ const friendReqBtnMod = TwFriendReqBtn.createFriendReqBtn({
   friends: ()=>_myHomeFriends,
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
-  reasonOn: ()=>TwServerFeatures.on('friendReqMsg'),   // 서버가 신청 사유를 받을 때까지 사유 칸을 숨긴다
+  reasonOn: ()=>TwServerFeatures.on('friendReqMsg'),   // 사유 칸 — 서버 POST /v2/me/friend-requests 의 message(UTF-16 100자)
 });
 const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({
   _myHomeFriends: ()=>_myHomeFriends,
@@ -2270,7 +2270,7 @@ const seatFromObject = seatPointerMod.seatFromObject;   // 옛 전역 이름
 const seatFriendReqMod = TwSeatFriendReq.createSeatFriendReq({
   FRIEND_MAX: FRIEND_MAX,
   _myHomeFriends: ()=>_myHomeFriends,
-  friendNet: ()=>({ sendFriendRequest: (...a)=>friendRequestsPortMod.send(...a) }),
+  friendNet: ()=>({ sendFriendRequest: (...a)=>friendRequestsPortMod.send(...a), isFriendRequestAlive: async (toId, me)=>{ const s = await friendRequestsPortMod.listSent(me); return !!(s && s[toId]); } }),
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
 });
