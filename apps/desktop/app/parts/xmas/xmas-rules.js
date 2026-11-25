@@ -71,7 +71,7 @@ function slotPositions(n){
   return out;
 }
 
-/** 장식 목록(xmasTrees/{t}/o) → 걸린 수 */
+/** 장식 목록(xmas-api 의 tree(t).o) → 걸린 수 */
 const countOf = (o) => (o && typeof o === 'object') ? Object.keys(o).filter(s => o[s]).length : 0;
 
 /**
@@ -140,13 +140,13 @@ function songOf(v){
 /** 편지 한 통 다듬기 — 앞뒤 공백 · 500자. 빈 글이면 '' */
 const cleanLetter = (t) => String(t == null ? '' : t).replace(/\r\n?/g, '\n').trim().slice(0, LETTER_TEXT_MAX);
 
-/** 내 편지함(xmasLetters/{uid}) → 칸 번호 순 [{ lid, text, ts, song }] — 모양이 틀린 칸은 뺀다 */
+/** 내 편지함(GET /v2/me/xmas 의 letters) → 칸 번호 순 [{ lid, text, version, song }] — 모양이 틀린 칸은 뺀다 */
 function myLettersOf(v){
   const box = (v && typeof v === 'object') ? v : {};
   return LETTER_IDS.filter(id => box[id] && typeof box[id].text === 'string' && box[id].text)
-    .map(id => ({ lid: id, text: box[id].text.slice(0, LETTER_TEXT_MAX), ts: Number.isFinite(box[id].ts) ? box[id].ts : 0, song: songOf(box[id].song) }));
+    .map(id => ({ lid: id, text: box[id].text.slice(0, LETTER_TEXT_MAX), version: Number.isInteger(box[id].version) ? box[id].version : 0, song: songOf(box[id].song) }));
 }
-/** 반송된 편지(xmasReturned/{uid}) → [{ lid, reason, why, text, song, ts }] — why = 보여 줄 사유(«기타 — 적은 말») */
+/** 반송된 편지(GET /v2/me/xmas 의 returned) → [{ lid, reason, why, text, song }] — why = 보여 줄 사유(«기타 — 적은 말») */
 function returnedOf(v){
   const box = (v && typeof v === 'object') ? v : {};
   return LETTER_IDS.filter(id => box[id] && typeof box[id].text === 'string')
@@ -154,7 +154,7 @@ function returnedOf(v){
       const r = box[id];
       const reason = Object.prototype.hasOwnProperty.call(RETURN_REASONS, r.reason) ? r.reason : 'etc';
       const note = typeof r.note === 'string' ? r.note : '';
-      return { lid: id, reason, why: RETURN_REASONS[reason] + (note ? ' — ' + note : ''), text: r.text.slice(0, LETTER_TEXT_MAX), song: songOf(r.song), ts: Number.isFinite(r.ts) ? r.ts : 0 };
+      return { lid: id, reason, why: RETURN_REASONS[reason] + (note ? ' — ' + note : ''), text: r.text.slice(0, LETTER_TEXT_MAX), song: songOf(r.song) };
     });
 }
 /** 새 편지를 넣을 빈 칸 — 없으면 null(5통 다 맡김) */
@@ -162,7 +162,7 @@ function freeLetterId(letters){
   const used = new Set((letters || []).map(l => l.lid));
   return LETTER_IDS.find(id => !used.has(id)) || null;
 }
-/** 받은 편지(xmasGot/{uid}) → 번호 순 [{ n, text, song }] */
+/** 받은 편지(GET /v2/me/xmas 의 received) → 번호 순 [{ n, text, song }] */
 function gotOf(v){
   const box = (v && typeof v === 'object') ? v : {};
   return Object.keys(box).filter(k => /^[1-9][0-9]?$/.test(k) && box[k] && typeof box[k].text === 'string')

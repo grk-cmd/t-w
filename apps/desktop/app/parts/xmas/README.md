@@ -1,7 +1,7 @@
 # xmas — 🎄 크리스마스 이벤트(2026 · 일회성)
 
 런처 [🎄 크리스마스] → 크리스마스 창. 함께 꾸미는 3D 트리(장식 1개 · 한마디 · 300개씩 채널) · 마니또 편지(5통 · 25일에 쓴 사람끼리 · 추천곡).
-기획 정본은 이슈 #963, 서버는 `firebase/functions/xmas.js` · 규칙 `xmas*`(#964 · #966).
+기획 정본은 이슈 #963, 서버는 api `xmas` 컨텍스트(#1097 · 설계 tw-docs `docs/design/11-xmas.md`) — 옛 `firebase/functions/xmas.js` · 규칙 `xmas*`(#964 · #966)는 이벤트 뒤 걷는다.
 
 **걷기**: 이벤트가 끝나면 다음 업데이트에서 이 폴더 · html 의 `#xmasOverlay` · `#lcXmas` · CSS `#xmas*` · `.xm-*` · 스크립트 줄 여섯 · app.js 의 `TwXmasWindow.createXmasWindow` 줄 ·
 firebase-init 의 `xmas:` · `applyDesktopRunClass` 의 `xmasOv` 줄 · `UI_HIT_SEL` · `OPEN_MODAL_SEL` 의 `#xmasOverlay` · 오류 코드 `E-XMAS-*`(→ `RETIRED`) · 검사 `sim-xmas-*` ·
@@ -9,7 +9,7 @@ main.js 배경음악 창의 주인 `'xmas'`(`bgmPanelMode` · `companion:openXma
 (`NAV.MY_HOME_CLOSE` 는 크리스마스 전용이 아니다 — 부르는 곳이 없어지면 sim-nav 가 알려 준다.)
 버튼은 받은 편지 열람 끝(2027-01-06 0시 · 서버 시각)부터 저절로 숨는다. 장식 · 신고는 이벤트 끝(1월 1일 0시)에 막힌다.
 
-> 0.13 위(0.14.0): 크리스마스는 서버 경로가 생길 때까지 꺼져 있다 — app.js 가 `TwServerFeatures.on('xmas')` 일 때만 창을 만들고, net 은 `TwServerFeatures.noServer('xmas')`(#1097). 저장소(storage)는 값으로 받는다.
+> 0.14.0: 서버는 api 의 `xmas` 컨텍스트(#1097 · tw-docs `docs/design/11-xmas.md`). app.js 가 `TwServerFeatures.on('xmas')` 일 때만 창을 만들고, net 은 `xmas-api.js`. 저장소(storage)는 값으로 받는다.
 
 ## xmas-rules.js — 순수 규칙
 - **책임**: 편지 칸 · 반송 사유(서버 `RETURN_REASONS` 와 같음) · 받은 편지 다듬기 · 마감 D-day(한국 날짜) · 읽음 표시 · 날짜 판정(`eventOn` · `letterOpen` · `lettersArrived` · `buttonOn` · `inDeliveryWindow` — 날짜 한 벌 `s` 를 받고, 안 주면 처음 값 `SCHEDULE` · 서버 값은 `scheduleOf`) · 한마디 다듬기(`cleanWord` — 서버와 같음) · 장식 자리(`slotPositions` — 같은 n 이면 늘 같은 자리) · 다시 받을 그림(`changedImgSlots` — 판이 **다른** 자리) · 바꾸기 간격(`cooldownLeft` 5초) · 반짝임 10번(`blinkOpacity`) · 10번 누르기(`createTaps`) · 흔들기(`createShake`).
@@ -27,11 +27,12 @@ main.js 배경음악 창의 주인 `'xmas'`(`bgmPanelMode` · `companion:openXma
   | `IMG_PX` | 64 | 그림 가로 · 세로 |
 - 검사: `sim-xmas-rules.js`
 
-## xmas-net.js — 서버 읽기 · 쓰기(provider)
-- **만드는 법**: firebase-init 이 `firebaseAPI.xmas = TwXmasNet.createXmasNet({ db, ref, get, set, serverTimestamp, authUid, callFn })`.
-- **내놓는 것**: `me()` · `where()`(지금 트리 · 내 자리) · `tree(t)`(장식 목록) · `img(t, s)`(그림 한 자리) · `hang(data)`(함수 `xmasHang`) · `reportOrnament(t, s, note)` · 편지 `myLetters()` · `saveLetter(lid, text, song)` · `removeLetter(lid)` · `clearReturned(lid)` · `got()` · `reportLetter(n, note)`.
-- **함정**: 읽기는 하위 경로만 — 트리 통째(`xmasTrees/{t}`) · 그림 통째(`xmasImg/{t}`) 읽기 금지. 편지는 내 칸(`xmasLetters` · `xmasReturned` · `xmasGot/{내 uid}`)만. 상시 구독 없음. 던지지 않고 `{ ok:false, code }` — 쓰기 권한 거절은 편지면 `closed`(마감 뒤) · 신고면 `dup`, 가입 전(익명)은 쓰지 않고 `auth`.
-- 검사: `sim-xmas-net.js`
+## xmas-api.js — 서버 endpoint provider
+- **책임**: 트리(`GET /v2/xmas/trees/current` · `/{t}/ornaments` — 모두에게 같은 응답 · 서버가 몇 초 캐시) · 내 몫(`GET /v2/me/xmas`) · 장식(`PUT /v2/me/xmas/ornament`) · 편지(`PUT` · `DELETE /v2/me/xmas/letters/{lid}` · `DELETE /v2/me/xmas/returned/{lid}`) · 신고(`POST /v2/xmas/reports`) · 그림 바이트(Storage `xmas/{imageId}.png?alt=media` — api 를 거치지 않는다). 서버 모양 → 화면 모양(장식 `{ k, v, w, id }`) · 서버 오류 이름 → 옛 code(`ERROR_CODES` — 설계 6-4)는 여기 한 곳.
+- **만드는 법**: app.js 가 `TwXmasApi.createXmasApi({ authed: TwApi.authed, rules: TwXmasRules, myCode, storageBucket, fetch, warn })` 한 번 → 크리스마스 창의 `net`.
+- **내놓는 것(13)**: `me()`(읽음 표시 열쇠 — 내 사람 코드) · `where()` · `tree(t)` · `img(imageId)`(PNG data URL) · `hang(data)` · `reportOrnament(t, s, note)` · `reportLetter(n, note)` · `myLetters()` · `saveLetter(lid, text, song, fromReturned)` · `removeLetter(lid)` · `clearReturned(lid)` · `got()`(받은 편지 + `matched`) · `schedule()`(마지막으로 읽은 날짜 한 벌 · 못 읽었으면 null).
+- **함정**: 판(`version`)은 여기서 기억한다 — 쓰기는 마지막으로 읽은(쓴) 판을 싣고 읽은 토큰의 주인과 묶는다(`expectOwner`). 409 `CONCURRENT_UPDATE` 는 다시 보내지 않고 `conflict` — 화면이 다시 읽는다. 가입 전(`USER_CODE_NOT_BOUND`)은 트리를 그리고 내 장식 없음. 그림 id 는 `^[0-9a-f]{32}$` 만 · 16KB 넘는 바이트는 버린다. 던지지 않고 `{ ok:false, code }`.
+- 검사: `sim-xmas-api.js`
 
 ## xmas-tree.js — 3D 트리
 - **책임**: 트리 · 장식 그리기(세로 300 도트 · 색 31단계 · 디더 절반) · 끌어 돌리기 · 휠 확대(1~3배 · 마우스 자리 중심 · 처음보다 작게는 안 됨) · 한마디 라벨 자리(왼클릭만) · 이스터에그(10번 누르기 · 흔들기 — 이 화면에서만 · 저장 안 함) · 내 장식 반짝임 10번 · 우클릭 신고(남의 장식만 — 내 장식이 겹쳐도 뒤의 것).
@@ -48,7 +49,7 @@ main.js 배경음악 창의 주인 `'xmas'`(`bgmPanelMode` · `companion:openXma
 ## xmas-letter.js — 마니또 편지 창
 - **책임**: 트리 창 아래 [편지 쓰기 (n/5)] · [편지 열람] · 그 위에 겹쳐 뜨는 편지 창(✕ · Esc). ✍️ 쓰기(12/24 23:59 까지 — 맡긴 목록 · 고치기 · 거두기 · 새 편지 · 반송된 편지의 사유 · 다시 쓰기 · 지우기 · 운영자 확인 안내 한 줄) · 📬 열람(12/25 부터 — 봉투 · 열기 · 추천곡 · 신고 · 읽음) · 빨간 점(런처 [크리스마스] · [편지 열람]).
 - **만드는 법**: xmas-window 가 `TwXmasLetter.createXmasLetter({ doc, rules, net, song, serverNow, toast, notifyError, escRegisterWindow, storage, onDot })` → `{ open, close, isOpen, refresh, checkGot, paintBtn }`.
-- **함정**: 반송을 다시 쓰면 **빈 칸**에 맡긴 뒤 반송 표시를 치운다(반송 칸에 새 편지가 있을 수 있다 · 맡기기가 실패하면 표시를 남긴다). 받은 편지 확인은 25일 0시 뒤 — 짝 짓기가 늦을 수 있어 한 시간만 5분 간격으로 다시 보고 그 뒤엔 앱을 켤 때 한 번(편지를 안 쓴 사람이 계속 읽지 않게). 실패는 세지 않는다 — 앱을 켠 직후엔 로그인 복원 전이라 `auth` 로 오므로 다음 1분에 다시(그 밖 실패는 5분 뒤) · 계정이 바뀌면 앞 계정의 점을 지우고 처음부터. 읽음 표시는 이 PC `tw.xmasGotRead.{uid}`(번호 몇 개). 받은 글 · 곡 제목은 `textContent` 로만.
+- **함정**: 반송을 다시 쓰면 **빈 칸**에 맡기며 `fromReturned`(반송 칸)를 실어 보낸다 — 서버가 같은 트랜잭션에서 반송 기록을 지운다(반송 칸에 새 편지가 있을 수 있다 · 맡기기가 실패하면 표시가 남는다). 다른 PC 가 먼저 고쳤으면(`conflict`) 편지함을 다시 읽는다. 받은 편지 확인은 25일 0시 뒤 — 짝 짓기가 늦을 수 있어 한 시간만 5분 간격으로 다시 보고 그 뒤엔 앱을 켤 때 한 번(편지를 안 쓴 사람이 계속 읽지 않게). 실패는 세지 않는다 — 앱을 켠 직후엔 로그인 복원 전이라 `auth` 로 오므로 다음 1분에 다시(그 밖 실패는 5분 뒤) · 계정이 바뀌면 앞 계정의 점을 지우고 처음부터. 읽음 표시는 이 PC `tw.xmasGotRead.{uid}`(번호 몇 개). 받은 글 · 곡 제목은 `textContent` 로만.
 - 오류 코드: `E-XMAS-04`(편지 못 불러옴) · `E-XMAS-05`(맡기기 · 고치기 · 거두기 · 반송 표시 치우기 실패) · `E-XMAS-06`(편지 신고 못 보냄)
 - 검사: `sim-xmas-letter.js`
 
