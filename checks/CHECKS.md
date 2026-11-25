@@ -536,7 +536,7 @@
 | **sim-rt-hub.js** | 753 | **d2c57ea4e8ae** |
 | **sim-rt-status-ui.js** | 245 | **60536e178fbf** |
 | **sim-run-verdict.js** | 67 | **76851f0d5f8e** |
-| **sim-user-api.js** | 250 | **54e0c4bca46b** |
+| **sim-user-api.js** | 251 | **81a044a96bd1** |
 | **sim-login-flow.js** | 462 | **b46f855bf950** |
 | **sim-login-diag.js** | 263 | **e416a45edc5f** |
 | **sim-auth-barrier.js** | 165 | **1b341df947b0** |

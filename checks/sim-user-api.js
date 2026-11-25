@@ -198,6 +198,7 @@ async function judge(S){
   {
     const U = load(S.UA);
     chk(U.reasonOf({ kind: 'request', code: 'USER_WEAK_PASSWORD' }).indexOf('6자') >= 0, '아는 code — 표의 문구');
+    chk(/가입을 마치지 못했어요/.test(U.reasonOf({ kind: 'request', status: 503, code: 'USER_STORAGE_OWNER_UNAVAILABLE' })), '  가입 때 Storage 주인 문서를 못 씀(503 USER_STORAGE_OWNER_UNAVAILABLE) — 가입이 안 됐다고 · 다시 해 보라고');
     chk(U.reasonOf({ kind: 'unavailable', code: 'NETWORK' }) === U.OFFLINE_REASON && U.reasonOf(null) === U.OFFLINE_REASON, '닿지 못함 · 오류 없음 — 연결 확인 문구');
     chk(U.reasonOf({ kind: 'request', code: 'SOMETHING_NEW' }) === U.UNKNOWN_REASON, '모르는 code — 처리 못 함 문구(서버 message 를 그대로 쓰지 않음)');
     chk(U.inviteReasonOf('EXPIRED').indexOf('기한') >= 0 && U.inviteReasonOf('???') !== '', '초대 까닭 — 기한 · 모르는 까닭도 한 줄');
