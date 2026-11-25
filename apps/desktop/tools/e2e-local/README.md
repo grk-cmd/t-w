@@ -87,6 +87,19 @@ node repl.js /tmp/tw-e2e/a
 
 명령마다 `console.txt` · `requests.txt` 를 다시 쓴다. 창을 바꿔 끼워야 하면 `c.w = …` 로 넣는다. 두 사람(친구 · 같은 방)을 보려면 결과 폴더를 둘 쓴다(`/tmp/tw-e2e/a` · `/tmp/tw-e2e/b`) — 앱 두 벌이 따로 돈다.
 
+### staging(출시 전 시험 서버)에 붙이기
+
+서버 저장소(비공개)의 `deploy/split/rehearsal` 이 이 맥에 운영과 같은 두 대 모양의 staging 을 띄운다(`./run.sh staging up` · 그 README «staging»).
+staging 은 이 도구가 돌리는 네 포트(`127.0.0.1:8080` API · `8787` realtime · `9099` · `9199` 에뮬레이터)를 프록시로 받으므로 **앱 · 이 도구는 고치지 않는다** — `deploy/dev-local` 그룹 대신 staging 이 답할 뿐이다(둘을 같이 띄우지 않는다).
+창을 보이게 켜서 손으로 써 본다:
+
+```bash
+TW_E2E_QUIET=0 node repl.js /tmp/tw-e2e/staging-app
+```
+
+서버 저장소에서는 같은 일을 `./run.sh staging app` 한 줄로 한다(처음이면 `npm install` 까지). 로그인 계정은 `./run.sh staging accounts`.
+시나리오(`run-all.js`)는 `TW_E2E_PG`(로컬 DB 컨테이너)로 시드를 넣는 것이 있어 staging 에서는 돌리지 않는다 — staging 은 손으로 쓰기 · 서버 쪽 `./run.sh staging compat` 용이다.
+
 ### run-all.js — 시나리오
 
 ```bash
