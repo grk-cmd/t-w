@@ -2888,6 +2888,7 @@ const loginFlowMod = TwLoginFlow.createLoginFlow({
     signInGoogle: (tok)=>firebaseAPI.authSignInWithGoogle(tok),
     signInPassword: (code, pw)=>firebaseAPI.authSignInWithFriendCode(code, pw),
     signOut: ()=>firebaseAPI.authSignOut(),
+    deleteNewLogin: (uid)=>firebaseAPI.authDeleteNewLogin(uid),
     identity: ()=>({ email: firebaseAPI.authCurrentEmail(), uid: firebaseAPI.authCurrentUid() }),
   },
   googleWindow: ()=>companion.signInWithGoogle(),

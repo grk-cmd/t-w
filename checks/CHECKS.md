@@ -157,7 +157,7 @@
 | **sim-app-version-sync.js** | 178 | **5acd89fd7806** |
 | **sim-update-flow.js** | 499 | **d037570b3c1e** |
 | **sim-update-recheck.js** | 330 | **2783aaa8f44c** |
-| **sim-firebase-left.js** | 176 | **92a4cc4ab41c** |
+| **sim-firebase-left.js** | 176 | **29eee00cbbec** |
 | **sim-maintenance-gate.js** | 380 | **d05ea4148930** |
 | **sim-room-invite-wait.js** | 45 | **76bc51548bda** |
 | **sim-friend-manage.js** | 252 | **afd2163ad386** |
@@ -538,7 +538,7 @@
 | **sim-rt-status-ui.js** | 245 | **60536e178fbf** |
 | **sim-run-verdict.js** | 67 | **76851f0d5f8e** |
 | **sim-user-api.js** | 251 | **81a044a96bd1** |
-| **sim-login-flow.js** | 462 | **b46f855bf950** |
+| **sim-login-flow.js** | 488 | **2aa16d3b96be** |
 | **sim-login-diag.js** | 263 | **e416a45edc5f** |
 | **sim-auth-barrier.js** | 165 | **1b341df947b0** |
 | **sim-first-run-013.js** | 439 | **89e2c4b9e692** |
