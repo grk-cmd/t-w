@@ -7,13 +7,24 @@
 firebase-init 의 `xmas:` · `applyDesktopRunClass` 의 `xmasOv` 줄 · `UI_HIT_SEL` · `OPEN_MODAL_SEL` 의 `#xmasOverlay` · 오류 코드 `E-XMAS-*`(→ `RETIRED`) · 검사 `sim-xmas-*` ·
 main.js 배경음악 창의 주인 `'xmas'`(`bgmPanelMode` · `companion:openXmasSong`) · preload `openXmasSong` · nav.js `XMAS`(sim-nav OWNER) · 알림함 태그 `xmas`(inbox-sections `tagOf` · myhome-inbox 아이콘 · 이름 · 누르기) 를 걷는다.
 (`NAV.MY_HOME_CLOSE` 는 크리스마스 전용이 아니다 — 부르는 곳이 없어지면 sim-nav 가 알려 준다.)
-버튼은 1월 1일 0시(서버 시각)부터 저절로 숨는다.
+버튼은 받은 편지 열람 끝(2027-01-06 0시 · 서버 시각)부터 저절로 숨는다. 장식 · 신고는 이벤트 끝(1월 1일 0시)에 막힌다.
 
 > 0.13 위(0.14.0): 크리스마스는 서버 경로가 생길 때까지 꺼져 있다 — app.js 가 `TwServerFeatures.on('xmas')` 일 때만 창을 만들고, net 은 `TwServerFeatures.noServer('xmas')`(#1097). 저장소(storage)는 값으로 받는다.
 
 ## xmas-rules.js — 순수 규칙
-- **책임**: 편지 칸 · 반송 사유(서버 `RETURN_REASONS` 와 같음) · 받은 편지 다듬기 · 마감 D-day(한국 날짜) · 읽음 표시 · 날짜 판정(`eventOn` · `letterOpen` · `lettersArrived`) · 한마디 다듬기(`cleanWord` — 서버와 같음) · 장식 자리(`slotPositions` — 같은 n 이면 늘 같은 자리) · 다시 받을 그림(`changedImgSlots` — 판이 **다른** 자리) · 바꾸기 간격(`cooldownLeft` 5초) · 반짝임 10번(`blinkOpacity`) · 10번 누르기(`createTaps`) · 흔들기(`createShake`).
-- **함정**: 마감 · 끝 시각 · 300 · 30자 · 64px 는 서버(`functions/xmas.js`)와 같아야 한다 — `sim-xmas-rules` 가 서버 모듈을 불러 견준다.
+- **책임**: 편지 칸 · 반송 사유(서버 `RETURN_REASONS` 와 같음) · 받은 편지 다듬기 · 마감 D-day(한국 날짜) · 읽음 표시 · 날짜 판정(`eventOn` · `letterOpen` · `lettersArrived` · `buttonOn` · `inDeliveryWindow` — 날짜 한 벌 `s` 를 받고, 안 주면 처음 값 `SCHEDULE` · 서버 값은 `scheduleOf`) · 한마디 다듬기(`cleanWord` — 서버와 같음) · 장식 자리(`slotPositions` — 같은 n 이면 늘 같은 자리) · 다시 받을 그림(`changedImgSlots` — 판이 **다른** 자리) · 바꾸기 간격(`cooldownLeft` 5초) · 반짝임 10번(`blinkOpacity`) · 10번 누르기(`createTaps`) · 흔들기(`createShake`).
+- **함정**: 날짜의 정본은 서버 `GET /v2/xmas/trees/current`(`letterDeadline` · `eventEnd` · `lettersViewUntil`)다. 처음 값과 상한은 아래 표와 같아야 한다 — 서버 저장소가 비공개라 표를 여기 옮겨 적고 `sim-xmas-rules` 가 이 표를 읽어 견준다(한마디 다듬기 · 사유 표는 아직 `functions/xmas.js` 와 견준다).
+
+  서버와 같은 숫자(tw-docs `docs/design/11-xmas.md` 1-1 · 1-2):
+
+  | 이름 | 값 | 뜻 |
+  |---|---|---|
+  | `LETTER_DEADLINE_MS` | 1798124400000 | 2026-12-25 00:00 KST — 편지 마감 · 짝 짓기 |
+  | `EVENT_END_MS` | 1798729200000 | 2027-01-01 00:00 KST — 장식 · 신고 막힘 |
+  | `LETTERS_VIEW_UNTIL_MS` | 1799161200000 | 2027-01-06 00:00 KST — 받은 편지 열람 · 런처 버튼 끝 |
+  | `TREE_MAX` | 300 | 트리 하나의 자리 |
+  | `WORD_MAX` | 30 | 한마디 |
+  | `IMG_PX` | 64 | 그림 가로 · 세로 |
 - 검사: `sim-xmas-rules.js`
 
 ## xmas-net.js — 서버 읽기 · 쓰기(provider)
@@ -42,7 +53,7 @@ main.js 배경음악 창의 주인 `'xmas'`(`bgmPanelMode` · `companion:openXma
 - 검사: `sim-xmas-letter.js`
 
 ## xmas-window.js — 크리스마스 창
-- **책임**: 런처 버튼(서버 시각 1월 1일 0시부터 숨김 · 1분마다 다시 봄) · 창 열고 닫기 · 내 트리(없으면 지금 트리 미리 보기) 불러오기 · 그림 사본(GLB 영구 캐시 IndexedDB · 키 `xmasimg:{트리}/{자리}@{판}` — 판이 같으면 안 받음 · 45일 뒤 저절로 치움 · ⚠️ localStorage 금지 — 트리 하나가 수 MB) · 장식 고르기 · 내 그림 올리기(64px · 넘치면 48 · 32 PNG) · 한마디 · 달기 / 바꾸기(5초 간격) · «트리가 이미 다 차버렸어요» · 장식 신고 확인창.
+- **책임**: 런처 버튼(서버 시각 열람 끝부터 숨김 · 1분마다 다시 봄) · 창 열고 닫기 · 내 트리(없으면 지금 트리 미리 보기) 불러오기 · 그림 사본(GLB 영구 캐시 IndexedDB · 키 `xmasimg:{트리}/{자리}@{판}` — 판이 같으면 안 받음 · 45일 뒤 저절로 치움 · ⚠️ localStorage 금지 — 트리 하나가 수 MB) · 장식 고르기 · 내 그림 올리기(64px · 넘치면 48 · 32 PNG) · 한마디 · 달기 / 바꾸기(5초 간격) · «트리가 이미 다 차버렸어요» · 장식 신고 확인창.
 - **만드는 법**: app.js `TwXmasWindow.createXmasWindow({ THREE, ps1Dither, rules, treeMod, net: ()=>firebaseAPI.xmas, serverNow, onReady, notifyError, toast, escRegisterWindow, onSizeChange: ()=>applyDesktopRunClass(), idbGet, idbPut, songMod, letterMod, companion, ytVideoId, asyncPrompt, storage, twNav })` — 편지 창 · 뮤직바를 여기서 만든다. 밖에서 부르는 이름 없음 — 📩 알림함은 창 열기 통로 `NAV.XMAS`(`'letter'` 면 편지 창까지)로 연다(마이홈과 같은 층이라 `NAV.MY_HOME_CLOSE` 로 마이홈을 먼저 닫는다).
 - **함정**: Esc 는 트리 창을 편지 창보다 **먼저** 등록한다 — 알림함 길은 두 창을 같은 틱에 열어 창 쌓기가 등록 순서로 쌓는다(거꾸로면 Esc 에 트리 창이 통째로 닫힌다). 남이 쓴 한마디는 `textContent` 로만, 받은 그림 주소는 `TwSafeHtml.safeUrl(d, 'image')` 로 거른다. 닫은 뒤 늦게 온 답은 버린다(`seq`). 런처에서 열면 창 크기를 마이홈 크기로(`applyDesktopRunClass` 가 `#xmasOverlay.on` 을 본다).
 - 로그인 안 됨: 트리는 «로그인한 뒤 트리를 볼 수 있어요»(오류 코드 아님) · 신고는 «로그인한 뒤 신고할 수 있어요»(가입 전 익명은 net 이 쓰기 전에 auth 로).
