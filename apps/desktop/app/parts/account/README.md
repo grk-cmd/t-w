@@ -121,15 +121,14 @@
   - 기본 포커스는 [다른 계정으로 로그인] — 잘못 묶은 쪽이 되돌리기 어렵다.
   - 창(`#gConfirmOverlay`)은 게이트 · 가입 완료 위(`--z-gate-confirm`) · 바탕화면 실행 화면 클릭 통과 목록(`UI_HIT_SEL`)에 있어야 눌린다.
   - `tokenEmail` 은 보여 주기만 한다 — 신원은 서버(Firebase Auth)가 정한다.
-- TODO: 0.13 합친 뒤 — 로그인 · 구글 가입은 login-flow.js(서버 `GET /v2/me`)로 바뀌어 `ask(…, 'bind' | 'signup')` 를 부르는 곳이 없다. 지금은 `pickForLink`(구글 붙이기) · `pickCurrent` · `pickForChange`(구글 바꾸기)만 쓴다 — 로그인 · 가입 때 묻기는 서버 흐름 위로 다시 걸어야 한다.
+- 구글 가입(login-flow.js `joinGoogle` — 서버가 «계정 없음» 이라 답한 뒤)은 `deps.askGoogle` 로 `ask(email, 'signup')` 를 부른다. [이 계정에 연결]이 아니면 가입하지 않고 로그인을 놓는다.
 - **검사**: `sim-google-confirm.js`(창 · 순수 함수 · 연결)
 
-## google-change-net.js — 🔁 구글 계정 바꾸기(서버 쪽 순서)
+## 🔁 구글 계정 바꾸기 · 🔗 연결하기 — 서버 `/v2/me/google`
 
-- **책임**: 로그인된 계정(같은 Auth uid · 유저 코드)의 **구글 연결만** 새 구글로 갈아 끼운다 — 친구 · 마이홈 · 라이선스 · 서버 데이터 · 규칙은 그대로. 순서: 지금 구글로 본인 확인(reauth) → 지금 구글 끊기(unlink) → 새 구글 붙이기(link). 새 구글을 못 붙이면 지금 구글을 다시 붙여 되돌린다.
-- **만드는 법**: ES 모듈. firebase-init.js 가 `authChangeGoogle: createGoogleChange({ currentUser, credential, reauth, unlink, link }).change` 로 잇는다.
-- **화면**: 내 정보 › 계정 › 로그인 수단의 구글 줄 — 지금 구글(가린 주소) · [바꾸기]. 흐름은 account.js `_acctChangeGoogle`(google-confirm.js `pickCurrent` → `pickForChange` → 이 모듈).
+- **책임**: 로그인된 계정(같은 Auth uid · 유저 코드)에 구글을 붙이거나 구글 연결만 새 구글로 갈아 끼운다 — 서버가 Identity Toolkit 으로 한다(앱은 Firebase 에 직접 붙이지 않는다 — 서버가 «남의 계정 구글» 을 가른다). 바꾸기는 떼고 붙이기가 서버 한 요청이라 되돌리기가 없다.
+- **흐름**: [연결하기] `pickForLink` → `userApi.linkGoogle`(`USER_REAUTH_REQUIRED` 면 `_withRecentLogin` 이 비밀번호로 다시 확인하고 한 번 더) · [바꾸기] `_acctChangeGoogle` — `pickCurrent` → `pickForChange` → `userApi.changeGoogle`. 성공 뒤 `firebaseAPI.authReload()` 로 providerData 를 새로 받는다.
 - **함정**
-  - 비밀번호(친구 코드 + 비밀번호)가 있는 계정만 — Firebase 는 한 계정에 구글을 하나만 붙여서 새 구글이 남의 것인지는 끊은 뒤에야 안다. 되돌리기까지 실패해도 로그인할 길이 남아야 한다.
+  - [바꾸기]는 비밀번호(친구 코드 + 비밀번호)가 있는 계정만 — 서버도 `USER_NO_PASSWORD_LOGIN` 으로 막는다.
   - 이 PC 를 구글로 로그인했다면 표시 이메일(`tw.loginEmail`)도 새 구글로 — 친구 코드로 로그인했으면 그대로.
-- **검사**: `sim-google-change.js`(막기 · 확인 · 바꾸기 · 되돌리기) · `sim-google-confirm.js` 5절(고르기 · 묻는 창) · `sim-signup.js` 10절(구글 줄 그리기)
+- **검사**: `sim-google-confirm.js` 5절(고르기 · 묻는 창 · 바꾸기 흐름) · `sim-user-api.js`(경로 · 문구) · `sim-signup.js` 10절(구글 줄 그리기)

@@ -125,6 +125,18 @@ async function judge(S){
     chk(x && x.code === 'USER_REAUTH_REQUIRED', '  ↳ 오래된 로그인은 던진다(부르는 쪽이 다시 확인 뒤 한 번 더)');
   }
 
+  say('── 3-2. 구글 붙이기 · 바꾸기 — POST · PUT /v2/me/google');
+  {
+    const e = mkEnv(S, (r) => (r.path === '/v2/me/google') ? ok(ME) : null);
+    const a = await e.ua.linkGoogle('g-new');
+    chk(e.sent[0].method === 'POST' && JSON.stringify(e.sent[0].body) === '{"googleIdToken":"g-new"}' && e.sent[0].auth && a && a.userCode === ME.userCode, '붙이기 POST { googleIdToken } → 바뀐 Me');
+    const b = await e.ua.changeGoogle('g-old', 'g-new');
+    chk(e.sent[1].method === 'PUT' && e.sent[1].body.currentGoogleIdToken === 'g-old' && e.sent[1].body.newGoogleIdToken === 'g-new' && b && b.version === ME.version, '바꾸기 PUT { currentGoogleIdToken, newGoogleIdToken } → 바뀐 Me');
+    const e2 = mkEnv(S, () => err(409, 'USER_GOOGLE_IN_USE'));
+    const x = await threw(e2.ua.linkGoogle('g'));
+    chk(x && x.code === 'USER_GOOGLE_IN_USE' && /다른 계정/.test(e2.UA.reasonOf(x)), '  ↳ 이미 다른 계정의 구글 — 던지고 문구 한 줄');
+  }
+
   say('── 4. 초대 · 찾기');
   {
     const e = mkEnv(S, (r) => {
@@ -200,6 +212,8 @@ async function judge(S){
     chk(U.reasonOf({ kind: 'request', code: 'USER_WEAK_PASSWORD' }).indexOf('6자') >= 0, '아는 code — 표의 문구');
     chk(/가입을 마치지 못했어요/.test(U.reasonOf({ kind: 'request', status: 503, code: 'USER_STORAGE_OWNER_UNAVAILABLE' })), '  가입 때 Storage 주인 문서를 못 씀(503 USER_STORAGE_OWNER_UNAVAILABLE) — 가입이 안 됐다고 · 다시 해 보라고');
     chk(U.reasonOf({ kind: 'unavailable', code: 'NETWORK' }) === U.OFFLINE_REASON && U.reasonOf(null) === U.OFFLINE_REASON, '닿지 못함 · 오류 없음 — 연결 확인 문구');
+    chk(['USER_GOOGLE_IN_USE', 'USER_GOOGLE_TOKEN_INVALID', 'USER_LOGIN_DELETED', 'USER_GOOGLE_MISMATCH', 'USER_GOOGLE_SAME', 'USER_GOOGLE_NONE', 'USER_GOOGLE_ALREADY_LINKED']
+      .every(c => U.reasonOf({ kind: 'request', code: c }) !== U.UNKNOWN_REASON), '구글 연결 · 바꾸기 · 지운 로그인 code 마다 문구가 있다(#1101)');
     chk(U.reasonOf({ kind: 'request', code: 'SOMETHING_NEW' }) === U.UNKNOWN_REASON, '모르는 code — 처리 못 함 문구(서버 message 를 그대로 쓰지 않음)');
     chk(U.inviteReasonOf('EXPIRED').indexOf('기한') >= 0 && U.inviteReasonOf('???') !== '', '초대 까닭 — 기한 · 모르는 까닭도 한 줄');
   }

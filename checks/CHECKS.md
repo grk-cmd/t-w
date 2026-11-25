@@ -157,7 +157,7 @@
 | **sim-app-version-sync.js** | 178 | **5acd89fd7806** |
 | **sim-update-flow.js** | 499 | **d037570b3c1e** |
 | **sim-update-recheck.js** | 330 | **2783aaa8f44c** |
-| **sim-firebase-left.js** | 176 | **92a4cc4ab41c** |
+| **sim-firebase-left.js** | 176 | **1779bf735b28** |
 | **sim-maintenance-gate.js** | 380 | **d05ea4148930** |
 | **sim-room-invite-wait.js** | 45 | **76bc51548bda** |
 | **sim-friend-manage.js** | 252 | **afd2163ad386** |
@@ -173,8 +173,7 @@
 | **sim-friend-code-keep.js** | 131 | **814fd3b9bef1** |
 | **sim-gacha-album.js** | 120 | **9b23b01a1f62** |
 | **sim-google-oauth.js** | 357 | **103900b0353b** |
-| **sim-google-confirm.js** | 248 | **66c919571c52** |
-| **sim-google-change.js** | 107 | **97ad8f6d3b36** |
+| **sim-google-confirm.js** | 255 | **cf39509e17a5** |
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
 | **sim-key-input.js** | 71 | **d96a4cd791fc** |
 | **sim-keysof-twin.js** | 369 | **54f473215813** |
@@ -463,7 +462,7 @@
 | **sim-launcher-state.js** | 91 | **26912637390e** |
 | **sim-account-state.js** | 108 | **413b232af0e3** |
 | **sim-nav.js** | 91 | **27ffd1e7cdaa** |
-| **sim-server-features.js** | 165 | **47d7921ce9c2** |
+| **sim-server-features.js** | 168 | **5b484e3d4f0f** |
 | **sim-app-boot.js** | 185 | **8ff3e45193d1** |
 | **sim-away-start.js** | 120 | **b9010d0eee8e** |
 | **sim-user-local.js** | 207 | **b34ec3227153** |
@@ -539,8 +538,8 @@
 | **sim-rt-hub.js** | 753 | **d2c57ea4e8ae** |
 | **sim-rt-status-ui.js** | 245 | **60536e178fbf** |
 | **sim-run-verdict.js** | 67 | **76851f0d5f8e** |
-| **sim-user-api.js** | 251 | **81a044a96bd1** |
-| **sim-login-flow.js** | 462 | **b46f855bf950** |
+| **sim-user-api.js** | 265 | **2292ccfd5a09** |
+| **sim-login-flow.js** | 475 | **8186455d317e** |
 | **sim-login-diag.js** | 263 | **e416a45edc5f** |
 | **sim-auth-barrier.js** | 165 | **1b341df947b0** |
 | **sim-first-run-013.js** | 439 | **89e2c4b9e692** |

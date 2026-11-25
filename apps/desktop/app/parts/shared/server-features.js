@@ -11,8 +11,7 @@ const FEATURES = Object.freeze({
   chatNotice: false,                // 시크릿룸 #공지 탭(chat/chat-notice.js)
   chatFocus: false,                 // 시크릿룸 #집중 탭(chat/chat-focus.js · focus/room-focus-sync.js)
   playlistLike: false,              // 플레이리스트 «노래가 좋아요👍»(status/playlist-like-ui.js)
-  googleChange: false,              // 내 정보 › 구글 계정 [바꾸기](account/account.js _acctChangeGoogle)
-                                    //   «로그인 · 가입 때 처음 보는 구글 묻기» 는 0.13 로그인 흐름(login-flow.js)으로 합치며 빠졌다 — 서버가 받으면 배선부터 다시(#1101)
+  googleChange: true,               // 내 정보 › 구글 계정 [바꾸기](account/account.js _acctChangeGoogle — 서버 PUT /v2/me/google · #1101)
   friendReqMsg: false,              // 남의 마이홈 [친구 신청] 사유 칸(myhome/friend-req-btn.js)
   themeCustomSave: false,           // 👑 테마 «내 색» 계정 저장(이 PC 저장은 늘 한다 — shared/theme-ui.js)
 });
