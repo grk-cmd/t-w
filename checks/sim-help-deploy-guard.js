@@ -30,6 +30,8 @@ const judgeAll = (J) => [
   J(Object.assign({}, OK, { dirty: ' M firebase/hosting/help/link.html' })).ok === false,
   J(Object.assign({}, OK, { dirty: '  \n' })).ok === true,
   J(null).ok === false,
+  J(Object.assign({}, OK, { noGit: true })).ok === false && /git 을 찾지 못했어요/.test(J({ noGit: true }).why),
+  J(Object.assign({}, OK, { notRepo: true })).ok === false && /저장소가 아니에요/.test(J({ notRepo: true }).why),
 ];
 const R = judgeAll(G.judge);
 chk(R[0], 'main · GitHub 과 같은 커밋 · 폴더 깨끗 → 통과');
@@ -37,6 +39,7 @@ chk(R[1], '다른 브랜치(release/0.14.0) → 멈춤');
 chk(R[2] && R[3] && R[4], 'GitHub main 과 다름 · GitHub main 을 못 읽음 · 지금 커밋을 못 읽음 → 멈춤');
 chk(R[5] && R[6], '도움말 폴더에 고침이 있으면 멈춤(빈 줄 · 공백만은 고침이 아님)');
 chk(R[7], '상태가 없으면 멈춤');
+chk(R[8] && R[9], 'git 이 없거나 저장소가 아니면 멈추고, 그 까닭을 따로 말한다(«브랜치» 이야기로 헷갈리지 않게)');
 chk(/git checkout main/.test(G.judge(Object.assign({}, OK, { branch: 'x' })).why) && /git pull/.test(G.judge(Object.assign({}, OK, { originHead: 'b' })).why), '  멈출 때 할 일을 한국어로 알려 준다');
 for (const [label, from, to] of [
   ['브랜치 확인을 빼면', "if(!s || s.branch !== BRANCH) return", 'if(!s) return'],
@@ -85,6 +88,21 @@ else {
   fs.writeFileSync(path.join(work, 'firebase', 'hosting', 'help', 'link.html'), 'v3\n');
   sh(['add', '-A'], work); sh([...id, 'commit', '-q', '-m', 'v3'], work);
   chk(run(work).status === 1, '올리지 않은 커밋이 있음(앞섬) → 1');
+  /* 한 브랜치만 받은 복제본 — remote.origin.fetch 가 main 을 덮지 않는다. «fetch origin main» 만 부르면 origin/main 이 옛 값으로 남아 통과해 버린다 */
+  const mkNarrow = (name, src) => {
+    const d = path.join(tmp, name);
+    sh(['clone', '-q', '--single-branch', '-b', 'main', origin, d], tmp);
+    sh(['config', 'remote.origin.fetch', '+refs/heads/release:refs/remotes/origin/release'], d);
+    if (src) fs.writeFileSync(path.join(d, 'firebase', 'scripts', 'help-deploy-guard.js'), src);
+    return d;
+  };
+  const bkNarrow = SRC.replace("['fetch', '-q', 'origin', '+refs/heads/' + BRANCH + ':refs/remotes/origin/' + BRANCH]", "['fetch', '-q', 'origin', BRANCH]");
+  const narrow = mkNarrow('narrow'), narrowBk = bkNarrow !== SRC ? mkNarrow('narrow-bk', bkNarrow) : null;
+  chk(run(narrow).status === 0, '한 브랜치만 받은 복제본도 GitHub 과 같으면 → 0');
+  sh(['push', '-q', 'origin', 'main'], work);   // GitHub main 이 두 복제본보다 앞선다
+  const r2 = run(narrow);
+  chk(r2.status === 1 && /git pull/.test(r2.stderr), '★ 한 브랜치만 받은 복제본에서 GitHub main 이 앞서 있어도 → 1(refspec 을 적어 받는다)');
+  chk(!!narrowBk && run(narrowBk).status === 0, '  mutation test: refspec 없이 «fetch origin main» 으로 되돌리면 위 판정이 빨강(옛 origin/main 과 견줘 통과해 버림)');
 }
 try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (_) {}
 
