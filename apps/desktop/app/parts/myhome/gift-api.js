@@ -17,8 +17,8 @@
      fetchBox() → Promise<{ items:[{ id, senderName, imageUrl, message, starred, hidden, sentAt }], unseenCount, starCount, boxKeep, starMax }>
      markSeen() · star(id, on) · hide(id, on) · remove(id) → Promise<void>
      fetchSentToday() → Promise<{ count, dailyMax }>
-     fetchSent(limit?) → Promise<{ items:[{ id, recipientName, imageUrl, message, sentAt }] }> — 내가 보낸 말랑이 최근 limit(1~30 · 기본 30)개 · 최신이 앞.
-       imageUrl 은 보낸 때 내 칸의 원본 그림(지워졌을 수 있다 — 화면이 빈 그림으로) · recipientName 은 받은 사람의 지금 이름(서버가 붙인다 · null 이면 '')
+     fetchSent(limit?) → Promise<{ items:[{ id, recipientName, recipientCode, imageUrl, message, sentAt }] }> — 내가 보낸 말랑이 최근 limit(1~30 · 기본 30)개 · 최신이 앞.
+       imageUrl 은 보낸 때 내 칸의 원본 그림(지워졌을 수 있다 — 화면이 빈 그림으로) · recipientName 은 받은 사람의 지금 이름(서버가 붙인다 · null 이면 '') · recipientCode 는 받은 사람 코드(탈퇴 · 옛 서버면 null)
      fetchVisible(userCode) → Promise<{ items:[{ id, imageUrl, message }], visibleCount, recipientCap }>
      send(userCode, { requestId, mallang, message }) → Promise<{ giftId, sentToday, dailyMax }> — mallang 은 누른 칸({ imageUrl })(본문 imageUrl = 그 그림 주소 · 칸 번호는 보내지 않는다).
        requestId 는 부르는 쪽(TwRequestId pending)이 정한다. 메시지는 UTF-16 50자까지(이모지 짝을 깨지 않게 자른다).
@@ -136,7 +136,7 @@ function sentListOf(d){
   const items = [];
   for(const raw of d.items){
     if(!isObj(raw) || !nonEmpty(raw.giftId) || !nonEmpty(raw.imageUrl)) continue;
-    items.push({ id: raw.giftId, recipientName: str(raw.recipientName), imageUrl: raw.imageUrl, message: str(raw.message), sentAt: msOf(raw.sentAt) });
+    items.push({ id: raw.giftId, recipientName: str(raw.recipientName), recipientCode: nonEmpty(raw.recipientCode) ? raw.recipientCode : null, imageUrl: raw.imageUrl, message: str(raw.message), sentAt: msOf(raw.sentAt) });
   }
   return { items };
 }

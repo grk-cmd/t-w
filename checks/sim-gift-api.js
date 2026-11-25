@@ -240,14 +240,15 @@ async function judge(S){
 
   say('── 3-1. 보낸 말랑이');
   {
-    const sentRow = (id, o) => Object.assign({ giftId: id, recipientName: '받은이' + id, imageUrl: 'https://img/src' + id + '.png', message: 'm' + id, sentAt: '2026-11-10T01:02:03Z' }, o || {});
-    const { m, authed } = mk(LIB, { 'GET /v2/me/gifts/sent': { items: [sentRow('S2'), sentRow('S1', { recipientName: null, message: null }), { giftId: 'S0' }, sentRow('', {})] } });
+    const sentRow = (id, o) => Object.assign({ giftId: id, recipientName: '받은이' + id, recipientCode: 'u' + id + '0000001', imageUrl: 'https://img/src' + id + '.png', message: 'm' + id, sentAt: '2026-11-10T01:02:03Z' }, o || {});
+    const { m, authed } = mk(LIB, { 'GET /v2/me/gifts/sent': { items: [sentRow('S2'), sentRow('S1', { recipientName: null, recipientCode: null, message: null }), { giftId: 'S0' }, sentRow('', {})] } });
     const r = await m.fetchSent();
     chk(authed.log[0].path === '/v2/me/gifts/sent?limit=30' && authed.log[0].opts.auth === true, '경로 — GET /v2/me/gifts/sent?limit=30(기본 30) · 로그인 통로');
     chk(r.items.length === 2 && r.items[0].id === 'S2' && r.items[0].recipientName === '받은이S2' && r.items[0].imageUrl === 'https://img/srcS2.png' && r.items[0].message === 'mS2',
       '한 줄 — id(giftId) · 받은 사람 지금 이름 · 원본 그림 · 메시지 · 서버 순서(최신이 앞) 그대로');
     chk(r.items[0].sentAt === Date.parse('2026-11-10T01:02:03Z'), '  sentAt 을 ms 로');
     chk(r.items[1].recipientName === '' && r.items[1].message === '', '  이름 · 메시지가 null 이면 빈 글(그릴 때 «이름 없음»)');
+    chk(r.items[0].recipientCode === 'uS20000001' && r.items[1].recipientCode === null, '  받은 사람 코드(recipientCode) — 탈퇴 · 옛 서버면 null(«보냄» 을 가를 수 없다)');
     chk(r.items.every(s => s.id && s.imageUrl), '  id · 그림이 없는 줄은 뺀다');
     await m.fetchSent(5); await m.fetchSent(0); await m.fetchSent(31);
     chk(authed.log[1].path === '/v2/me/gifts/sent?limit=5' && authed.log[2].path === '/v2/me/gifts/sent?limit=30' && authed.log[3].path === '/v2/me/gifts/sent?limit=30', '  limit 은 1~30 만 싣고 밖이면 30');
@@ -340,6 +341,7 @@ async function runAll(){
     ['겹친 칸 번호를 받음', S.API.replace(" || seen.has(s.slot)", ""), '겹침'],
     ['칸을 slot 차례로 안 줄 세움', S.API.replace("list.sort((a, b) => a.slot - b.slot);", ""), 'slot 차례'],
     ['이름 없는 선물을 버림', S.API.replace("(raw.senderName !== null && typeof raw.senderName !== 'string')", "typeof raw.senderName !== 'string'"), 'null 이름'],
+    ['보낸 말랑이 받은 사람 코드를 안 읽음', S.API.replace("recipientCode: nonEmpty(raw.recipientCode) ? raw.recipientCode : null,", "recipientCode: null,"), 'recipientCode'],
     ['보낸 말랑이 limit 을 안 지킴', S.API.replace("cnt(limit) && limit >= 1 && limit <= LIMITS.SENT ? limit : LIMITS.SENT", "limit || LIMITS.SENT"), '1~30'],
     ['보낸 말랑이 깨진 줄을 그대로', S.API.replace("if(!isObj(raw) || !nonEmpty(raw.giftId) || !nonEmpty(raw.imageUrl)) continue;", "if(!isObj(raw)) continue;"), '뺀다'],
     ['보낸 말랑이 sentAt 을 ms 로 안 바꿈', S.API.replace("sentAt: msOf(raw.sentAt) });\n  }\n  return { items };", "sentAt: raw.sentAt });\n  }\n  return { items };"), 'ms'],
