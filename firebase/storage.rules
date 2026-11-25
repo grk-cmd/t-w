@@ -23,10 +23,18 @@ service firebase.storage {
     function isOwnImageName(name) {
       return name.matches('(mh|dday|clap|mallang)_.*');
     }
-    function ownImageOk(file, head, exts, types, maxBytes) {
+    // 확장자와 형식은 짝으로만 — 따로 보면 png 이름에 jpeg · jpg 이름에 webp 가 통과한다
+    function extMatchesType(file) {
+      return (file.matches('.*[.]png') && request.resource.contentType == 'image/png')
+          || (file.matches('.*[.]webp') && request.resource.contentType == 'image/webp')
+          || (file.matches('.*[.]jpg') && request.resource.contentType == 'image/jpeg');
+    }
+    // 빈 파일은 서버 판정(BadSize)처럼 받지 않는다
+    function ownImageOk(file, head, exts, maxBytes) {
       return file.matches(head + '_[A-Za-z0-9_-]+[.](' + exts + ')')
+          && request.resource.size > 0
           && request.resource.size <= maxBytes
-          && request.resource.contentType in types;
+          && extMatchesType(file);
     }
     // 봇이 올리는 마이홈 그림 — 서버(MyHomeImage)가 형식 · 크기를 먼저 보고 올린다(0.13 앱의 POST /v2/me/images).
     function isBotMyHomeImage() {
@@ -60,10 +68,10 @@ service firebase.storage {
     match /users/{userId}/{file} {
       allow write: if request.resource != null
                    && isOwner(userId)
-                   && (ownImageOk(file, 'mh', 'png|webp|jpg', ['image/png', 'image/webp', 'image/jpeg'], 8 * 1024 * 1024)
-                       || ownImageOk(file, 'dday', 'png|webp|jpg', ['image/png', 'image/webp', 'image/jpeg'], 1024 * 1024)
-                       || ownImageOk(file, 'clap', 'png|webp|jpg', ['image/png', 'image/webp', 'image/jpeg'], 512 * 1024)
-                       || ownImageOk(file, 'mallang', 'png|webp', ['image/png', 'image/webp'], 1024 * 1024));
+                   && (ownImageOk(file, 'mh', 'png|webp|jpg', 8 * 1024 * 1024)
+                       || ownImageOk(file, 'dday', 'png|webp|jpg', 1024 * 1024)
+                       || ownImageOk(file, 'clap', 'png|webp|jpg', 512 * 1024)
+                       || ownImageOk(file, 'mallang', 'png|webp', 1024 * 1024));
     }
     match /users/{userId}/giftimg/{file} {
       allow write: if isBot()

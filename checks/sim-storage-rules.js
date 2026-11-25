@@ -120,6 +120,11 @@ function mainCases() {
     ['users — 주인도 그 이름은 폴더 아래로 숨기지 못함(dday_x/…)', 'up', 'users/u1/dday_x/a.png', 10, 'text/html', false, USER],
     ['users — 서버 봇은 0.13 앱 몫 그대로(dday_ 2MB 미만)', 'up', 'users/u1/dday_bot2.png', MB + 10, 'image/png', true, BOT],
     ['users — 주인이 dday_ 지우기', 'del', 'users/u1/dday_del.png', 0, '', true, USER],
+    ['users — 주인 mh_ png 이름에 JPEG 거절(확장자 ↔ 형식 짝)', 'up', 'users/u1/mh_c.png', 10, 'image/jpeg', false, USER],
+    ['users — 주인 dday_ jpg 이름에 WebP 거절', 'up', 'users/u1/dday_c.jpg', 10, 'image/webp', false, USER],
+    ['users — 주인 mallang_ webp 이름에 PNG 거절', 'up', 'users/u1/mallang_c.webp', 10, 'image/png', false, USER],
+    ['users — 주인 clap_ 0바이트 거절(서버 BadSize 와 같다)', 'up', 'users/u1/clap_z.png', 0, 'image/png', false, USER],
+    ['users — 주인 mh_ 0바이트 거절', 'up', 'users/u1/mh_z.png', 0, 'image/png', false, USER],
     ['users — 주인도 2MB 이상은 mh_ 이름만', 'up', 'users/u1/design_big.jpg', 2 * MB, 'image/jpeg', false, USER],
     ['users — 주인도 2MB 이상 mh_ 는 그림 형식만(HTML 거절)', 'up', 'users/u1/mh_x.png', 3 * MB, 'text/html', false, USER],
     ['users — 주인도 2MB 이상 mh_ 는 PNG · WebP · JPEG 만(GIF 거절)', 'up', 'users/u1/mh_x.gif', 3 * MB, 'image/gif', false, USER],
@@ -268,12 +273,17 @@ function noOwnerCases() {
     ['주인 검사 없음 — 남이 u1 자리비움에 올리면 통과해 버린다', 'up', 'away/u1/x.webp', 10, 'image/webp', true, OTHER],
     ['주인 검사 없음 — 남이 u1 마이홈 그림 8MB 를 올리면 통과해 버린다', 'up', 'users/u1/mh_x.png', 3 * MB, 'image/png', true, OTHER]];
 }
+/* 확장자 ↔ 형식 짝을 뺀 규칙(형식 셋 중 하나면 통과) — png 이름에 JPEG 가 통과해 버려야 한다 */
+function noPairCases() {
+  return [['짝 없음 — 주인 mh_ png 이름에 JPEG 가 통과해 버린다', 'up', 'users/u1/mh_c.png', 10, 'image/jpeg', true, USER],
+    ['짝 없음 — 주인 mallang_ webp 이름에 PNG 가 통과해 버린다', 'up', 'users/u1/mallang_c.webp', 10, 'image/png', true, USER]];
+}
 /* 이름 제외를 뺀 규칙 — 주인이 dday_ 에 HTML 을 올리면 넓은 블록으로 통과해 버려야 한다 */
 function noNameCases() {
   return [['이름 제외 없음 — 주인이 dday_ 에 HTML 을 올리면 통과해 버린다', 'up', 'users/u1/dday_x.png', 10, 'text/html', true, USER],
     ['이름 제외 없음 — 주인이 mallang_ 에 SVG 를 올리면 통과해 버린다', 'up', 'users/u1/mallang_x.png', 10, 'image/svg+xml', true, USER]];
 }
-const SETS = { main: mainCases, lock: lockCases, nodelete: noDeleteCases, openbot: openBotCases, nobotcap: noBotCapCases, noowner: noOwnerCases, noname: noNameCases };
+const SETS = { main: mainCases, lock: lockCases, nodelete: noDeleteCases, openbot: openBotCases, nobotcap: noBotCapCases, noowner: noOwnerCases, noname: noNameCases, nopair: noPairCases };
 
 async function inner() {
   const H = `http://127.0.0.1:${Number(process.env.TW_EMU_PORT)}`;
@@ -347,10 +357,12 @@ async function main() {
   const noBotCap = MAIN_SRC.replace(/\s*\|\|\s*\(request\.resource != null && isBotMyHomeImage\(\)\)/, '');
   const noOwner = MAIN_SRC.replace(/(function isOwner\(code\) \{\s*return )[^;]+;/, '$1request.auth != null;');
   const noName = MAIN_SRC.replace("(isOwner(userId) && !isOwnImageName(allPaths[0]))", 'isOwner(userId)');
-  chk(noDelete !== MAIN_SRC && openBot !== MAIN_SRC && noBotCap !== MAIN_SRC && noOwner !== MAIN_SRC && noName !== MAIN_SRC, 'mutation test 용 규칙 다섯(지우기 항 · 봇 검사 · 봇 마이홈 상한 · 주인 검사 · 그림 이름 제외를 뺌)을 만들었다');
+  const noPair = MAIN_SRC.replace(/(function extMatchesType\(file\) \{\s*return )[\s\S]*?;\n/, "$1request.resource.contentType in ['image/png', 'image/webp', 'image/jpeg'];\n");
+  chk(noDelete !== MAIN_SRC && openBot !== MAIN_SRC && noBotCap !== MAIN_SRC && noOwner !== MAIN_SRC && noName !== MAIN_SRC && noPair !== MAIN_SRC, 'mutation test 용 규칙 여섯(지우기 항 · 봇 검사 · 봇 마이홈 상한 · 주인 검사 · 그림 이름 제외 · 확장자 ↔ 형식 짝을 뺌)을 만들었다');
   for (const [set, src, title] of [['main', MAIN_SRC, MAIN_FILE], ['lock', LOCK_SRC, LOCK_FILE], ['nodelete', noDelete, 'mutation test — 지우기 항 없는 ' + MAIN_FILE],
     ['openbot', openBot, 'mutation test — 봇 검사 없는 ' + MAIN_FILE], ['nobotcap', noBotCap, 'mutation test — 봇 마이홈 상한 없는 ' + MAIN_FILE],
-    ['noowner', noOwner, 'mutation test — 주인 검사가 «로그인만» 인 ' + MAIN_FILE], ['noname', noName, 'mutation test — 그림 이름 제외가 없는 ' + MAIN_FILE]]) {
+    ['noowner', noOwner, 'mutation test — 주인 검사가 «로그인만» 인 ' + MAIN_FILE], ['noname', noName, 'mutation test — 그림 이름 제외가 없는 ' + MAIN_FILE],
+    ['nopair', noPair, 'mutation test — 확장자 ↔ 형식 짝이 없는 ' + MAIN_FILE]]) {
     console.log('  [' + title + ']');
     const r = await emulate(set, src);
     if (!r.lines.length) { chk(false, '에뮬레이터 출력을 못 읽음: ' + r.out.slice(-300)); continue; }
