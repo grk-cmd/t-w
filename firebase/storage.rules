@@ -59,19 +59,22 @@ service firebase.storage {
       allow get: if true;
       allow list: if isBot();
       allow write: if allPaths[0] != 'giftimg'
-                   && ((request.resource == null && (isBot() || isOwner(userId)))
+                   && ((request.resource == null && (isBot() || (isOwner(userId) && !isOwnImageName(allPaths[0]))))
                        || (request.resource != null && request.resource.size < 2 * 1024 * 1024
                            && (isBot() || (isOwner(userId) && !isOwnImageName(allPaths[0]))))
                        || (request.resource != null && isBotMyHomeImage()));
     }
     // 앱이 바로 올리는 그림 넷(0.14) — 서버 판정(MyHomeImage · DdayImage · ClapImageFile · MallangImage)과 같은 형식 · 상한. 폴더 바로 아래 · 주인만.
+    // 주인은 새로 만들기(create)만 — 서버는 주소를 저장할 때 한 번 바이트를 본다(t-w-server #358). 덮어쓰기 · 지우고 같은 이름으로 다시 만들기를 막아
+    // 본 뒤에 내용이 바뀌지 않게 한다(resource == null — 이미 있는 이름이면 거절). 앱은 늘 새 이름으로 올리고, 지우기 · 봇 몫(0.13 앱의 서버 올리기)은 위 넓은 블록의 봇 항이 맡는다.
     match /users/{userId}/{file} {
-      allow write: if request.resource != null
-                   && isOwner(userId)
-                   && (ownImageOk(file, 'mh', 'png|webp|jpg', 8 * 1024 * 1024)
-                       || ownImageOk(file, 'dday', 'png|webp|jpg', 1024 * 1024)
-                       || ownImageOk(file, 'clap', 'png|webp|jpg', 512 * 1024)
-                       || ownImageOk(file, 'mallang', 'png|webp', 1024 * 1024));
+      allow create: if resource == null
+                    && request.resource != null
+                    && isOwner(userId)
+                    && (ownImageOk(file, 'mh', 'png|webp|jpg', 8 * 1024 * 1024)
+                        || ownImageOk(file, 'dday', 'png|webp|jpg', 1024 * 1024)
+                        || ownImageOk(file, 'clap', 'png|webp|jpg', 512 * 1024)
+                        || ownImageOk(file, 'mallang', 'png|webp', 1024 * 1024));
     }
     match /users/{userId}/giftimg/{file} {
       allow write: if isBot()
