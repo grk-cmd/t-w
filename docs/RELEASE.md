@@ -103,7 +103,7 @@ GitHub → **Actions** → **release**에서 진행 상황을 볼 수 있습니�
 | Windows 빌드 | exe, `.blockmap`, `latest.yml` | |
 | Mac 빌드 | dmg × 2 (arm64, x64) | |
 | Windows 검사 | `latest.yml` 버전 · sha512 가 exe 와 맞는가 · 앱이 켜져 20초 살아 있는가 | 자동 업데이트가 깨질 파일 · 켜자마자 꺼지는 앱 |
-| Mac 검사 | dmg 가 열리는가(`hdiutil verify`) · 안의 앱 버전 · arch · 켜져 20초 살아 있는가 | 손상된 dmg(0.10.2 때) · 버전이 섞인 dmg |
+| Mac 검사 | dmg 가 열리는가(`hdiutil verify`) · 안의 앱 서명(`codesign --verify --deep --strict`) · 버전 · arch · 켜져 20초 살아 있는가 | 손상된 dmg(0.10.2 때) · 서명이 어긋난 앱(애플 실리콘 «손상됨» — 0.13.1 때) · 버전이 섞인 dmg |
 | Releases 초안 | 파일이 정확히 5개인가 · 모든 파일을 **한 초안**에 업로드 · 올라간 파일 sha256 = 원본 | 이름 겹침 · 업로드 중 손상. 이미 **공개된** 릴리스는 덮어쓰지 않음 |
 | 공개 | 위가 전부 통과하면 Publish. 정식은 «Latest», 베타는 Pre-release. `초안으로 대기` 면 이 단계만 건너뛰고 요약에 초안 주소를 남김 | |
 
