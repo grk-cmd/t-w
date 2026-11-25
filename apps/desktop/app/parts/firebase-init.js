@@ -10,7 +10,7 @@
   import { getDatabase, ref as _dbRef, get as _sdkGet, forceWebSockets } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";   // 남은 DB 읽기는 점검 칸(config/maintenance) 하나
   // Storage: 큰 base64 데이터(GLB 등)를 Realtime Database에서 빼내 스토리지에 두고 URL만 저장 (Firebase 사용량 절감)
   import {
-    getStorage, ref as _stRef, uploadString, getDownloadURL, deleteObject
+    getStorage, ref as _stRef, uploadString, uploadBytesResumable, getDownloadURL, deleteObject
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
   /* 🔑 Auth — 구글 계정으로 신원을 서버가 보증하게 만든다.
      ★ 왜 필요한가 — 이 앱의 신원은 지금까지 localStorage 의 `tw.myUserId` 한 줄뿐이었다.
@@ -233,6 +233,13 @@
       store: createIdbChatStore(typeof indexedDB !== 'undefined' ? indexedDB : null, (firebaseConfig && firebaseConfig.databaseURL) || ''),
       subscribeSince: (room, tab, since, onMsg, onReady, onFail) => window.TwChatRt.store.subscribeSince(room, tab, since, onMsg, onReady, onFail),
       clearLog: (room, tab) => window.TwChatRt.store.clear(room, tab) }),
+    /* 🖼 내 그림 바이트를 그 경로에 올리고 다운로드 주소 — 경로 · 이름 · 시간 상한은 shared/own-image.js 가 정한다(users/{내 코드}/…).
+       → { done: Promise<주소>, cancel() }. 끊을 수 있게 resumable 로 올린다 — 공용 maxUploadRetryTime 은 방 얼굴 · GLB 도 쓰므로 바꾸지 않는다 */
+    putOwnFile(path, bytes, contentType){
+      const r = sref(storage, path);
+      const task = uploadBytesResumable(r, bytes, { cacheControl: STORAGE_CACHE, contentType });
+      return { done: task.then(() => getDownloadURL(r)), cancel: () => task.cancel() };
+    },
     /* 😊 내 이모티콘 그림 올리기 — 서버가 받는 자리 users/{내 코드}/emojis/{칸}.png|gif 에만. 칸 저장 · 지우기는 API(chat-rt.js). 반환: 내려받기 주소 */
     async uploadEmojiImage(userCode, slot, dataUrl, isGif){
       const storageRef = sref(storage, `users/${userCode}/emojis/${slot | 0}.${isGif ? 'gif' : 'png'}`);

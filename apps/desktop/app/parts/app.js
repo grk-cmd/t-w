@@ -1237,10 +1237,14 @@ const DS_IMG_QUALITY   = 0.82;   // JPEG 품질 — 이 정도면 눈에 띄는 
    함수 deps 도 화살표로 감싼다(부를 때 찾게). ⚠️ 이름을 Scheduler · scheduler 로 짓지 말 것 — 크로미움(Electron) 내장 전역(작업 예약 API)과
      겹쳐 typeof 가드가 늘 통과하고, 모듈이 안 실렸을 때 내장 생성자에 createScheduler 를 부르다 app.js 가 선다. */
 const BELL_SEEN_KEY = 'tw.bellSeenTs';   // 🔔 마지막으로 알림창을 연 시각 — 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)도 쓴다
+/* 🖼 내 그림(마이홈 · 디데이 · 박수 · 말랑이)을 Storage 내 폴더에 바로 올리기(shared/own-image.js) — 경로의 코드는 로그인 뒤 서버가 준 내 코드 */
+const ownImageMod = TwOwnImage.createOwnImage({ myCode: ()=>getMyUserId(), newId: ()=>crypto.randomUUID(), put: (...a)=>firebaseAPI.putOwnFile(...a),
+  later: TwOwnImage.later, owner: ()=>firebaseAPI.authCurrentUid() });
 const scheduleApiMod = TwScheduleApi.createScheduleApi({   // 🌐 일정 · 디데이 · 일정 알림 서버 endpoint(/v2/me/schedules · /v2/me/ddays · /v2/me/notifications) — 원본은 서버
   authed: TwApi.authed,
   newId: ()=>TwRequestId.newId(),
   imageBytes: TwImageBytes,
+  ownImage: ownImageMod,
   warn: (...a)=>console.warn(...a),
 });
 /* 🙋 마지막으로 받은 방 초대 한 줄(room/invite-notice.js) — 받기는 room-invite-ui.js · 보이기는 🔔 일정 알림(scheduler.js) */
@@ -1459,7 +1463,7 @@ const richTextMod = TwRichText.createRichText({
 });
 
 /* 🧸 말랑이 칸 상태 주인(myhome/mallang-store.js) — 원본은 서버(/v2/me/mallangs · /v2/mallangs/{code}). 말랑이 화면 · 로그아웃 올리기가 받는다. */
-const giftApiMod = TwGiftApi.createGiftApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) });   // 🌐 말랑이 · 선물 서버 경로
+const giftApiMod = TwGiftApi.createGiftApi({ authed: TwApi.authed, imageBytes: TwImageBytes, ownImage: ownImageMod, warn: (...a)=>console.warn(...a) });   // 🌐 말랑이 · 선물 서버 경로
 const mallangStoreMod = TwMallangStore.createMallangStore({
   api: giftApiMod, giftLib: TwGiftApi, errs: TwApiErrors, apiErrors: TwApiErrors.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
@@ -1475,7 +1479,7 @@ const giftBoxMod = TwGiftBox.createGiftBox({
   requestIds: TwRequestId.createPending(),   // 보내기 요청 번호 — 받는 사람마다 하나(닿지 못했으면 같은 번호)
 });
 /* 📚 책장 상태 주인(myhome/bookshelf-store.js) — 원본은 서버(/v2/me/myhome/bookshelf · /v2/myhomes/{code}/bookshelf). 북마크 서랍 · 로그아웃 올리기가 받는다. 만들 때 도는 일 없음. */
-const bookshelfApiMod = TwMyHomeApi.createMyHomeApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) });   // 🌐 마이홈 서버 경로(책장 몫)
+const bookshelfApiMod = TwMyHomeApi.createMyHomeApi({ authed: TwApi.authed, imageBytes: TwImageBytes, ownImage: ownImageMod, warn: (...a)=>console.warn(...a) });   // 🌐 마이홈 서버 경로(책장 몫)
 const bookshelfStoreMod = TwBookshelfStore.createBookshelfStore({
   api: bookshelfApiMod, lib: TwMyHomeApi, errs: TwApiErrors, apiErrors: TwApiErrors.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
@@ -1483,7 +1487,7 @@ const bookshelfStoreMod = TwBookshelfStore.createBookshelfStore({
 });
 window.addEventListener('beforeunload', ()=>{ bookshelfStoreMod.flush(); });   // 앱을 끌 때 못 올린 책장 고침 한 번(결과를 기다리지 않음)
 /* 🏠 마이홈 상태 주인(myhome/myhome-store.js) — 원본은 서버(/v2/me/myhome · /v2/myhomes/{code}). 마이홈 화면 · 채팅 · 내 정보 · 플레이리스트가 내 사진 · 페이지를 여기서 읽고, 로그아웃 올리기 · 앱 끄기가 flush 한다. 만들 때 도는 일 없음(받기는 마이홈을 열 때). */
-const myhomeApiMod = TwMyHomeApi.createMyHomeApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) });   // 🌐 마이홈 서버 경로(페이지 · 디자인 몫)
+const myhomeApiMod = TwMyHomeApi.createMyHomeApi({ authed: TwApi.authed, imageBytes: TwImageBytes, ownImage: ownImageMod, warn: (...a)=>console.warn(...a) });   // 🌐 마이홈 서버 경로(페이지 · 디자인 몫)
 const myhomeStoreMod = TwMyHomeStore.createMyHomeStore({
   api: myhomeApiMod, lib: TwMyHomeApi, errs: TwApiErrors, apiErrors: TwApiErrors.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
@@ -1779,7 +1783,7 @@ const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
    💬 showChatBubble(머리 위 말풍선)은 방명록이 아니라 바로 아래에 남겼다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const guestbookFeed = TwGuestbookFeed.createGuestbookFeed({   // 🌐 방명록 · 웹박수 서버 endpoint(/v2/guestbooks · /v2/me/guestbook) — 원본은 서버. 받기 · 쓰기 · 알림은 feed 가 한다
-  api: TwGuestbookApi.createGuestbookApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) }),
+  api: TwGuestbookApi.createGuestbookApi({ authed: TwApi.authed, imageBytes: TwImageBytes, ownImage: ownImageMod, warn: (...a)=>console.warn(...a) }),
   rt: TwRtHub.store,
   rtState: TwRtHub.STATE,
   rtDeviceOff: (s)=>TwRtHub.isDeviceOff(s),   // 서버가 이 PC 연결을 끝냄(rt-hub 한 곳)

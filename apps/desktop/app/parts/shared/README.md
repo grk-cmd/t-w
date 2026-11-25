@@ -367,11 +367,20 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 ## `image-bytes.js` — 🖼 data: 그림 → 올릴 바이트
 
-- **책임**: 화면이 줄여 만든 `data:image/…;base64,…` 그림을 서버 올리기(`POST /v2/me/images?purpose=…`)가 받는 바이트로 푼다. 풀기 · 종류 · 빈 그림 · 크기 판정이 말랑이 · 일정 카드 · 박수 그림 provider 에 세 벌 있던 것을 한 곳으로 모았다.
+- **책임**: 화면이 줄여 만든 `data:image/…;base64,…` 그림을 Storage 바로 올리기(`own-image.js`)가 올리는 바이트로 푼다. 풀기 · 종류 · 빈 그림 · 크기 판정이 말랑이 · 일정 카드 · 박수 그림 provider 에 세 벌 있던 것을 한 곳으로 모았다.
 - **쓰는 법**: provider 가 `deps.imageBytes`(app.js 가 `TwImageBytes` 를 넘김)로 받아 `inspect(dataUrl, { types, maxBytes })` → `{ ok: true, type, bytes }` 또는 `{ ok: false, why: 'format' | 'empty' | 'large' }`. 종류 · 상한 값은 부르는 쪽(provider `LIMITS` · `IMAGE_TYPES`)이 정한다 — 여기엔 숫자를 두지 않는다.
 - **내놓는 것**: `parseDataUrl` · `inspect`. 순수 — 아무것도 부르지 않는다.
 - **함정**: 상한과 같은 크기는 통과(초과만 `large`). 서버 상한이 바뀌면 값은 각 provider `LIMITS` 한 곳씩.
 - 검사: `checks/sim-image-bytes.js`.
+
+## `own-image.js` — 🖼 내 그림을 Storage 내 폴더에 바로 올리기
+
+- **책임**: 마이홈(책장 책등 포함) · 디데이 카드 · 박수 · 말랑이 그림의 경로 이름(`users/{내 코드}/{mh|dday|clap|mallang}_{무작위 id}.{png|webp|jpg}`)과 올리기 한 번. 이름 머리 · 형식 · 상한은 서버 URL 검사 · Storage 규칙(이름마다 형식 · 상한)과 같다.
+- **deps**: `myCode()`(서버가 준 내 코드) · `newId()` · `put(path, bytes, contentType)` → `{ done: Promise<주소>, cancel() }`(firebase-init `putOwnFile`) · `later(fn, ms)` → 해제 함수 · `owner()` → 지금 로그인 uid(`firebaseAPI.authCurrentUid`).
+- **내놓는 것**: `window.TwOwnImage` — `KINDS` · `TIMEOUT_MS` · `pathOf` · `createOwnImage(deps).upload(kind, img, { expectOwner })`. 형식 · 크기 판정은 부르는 provider 가 `image-bytes.js` 로 먼저 한다.
+- **함정**: 읽은 토큰 주인(`expectOwner`)이 지금 로그인과 다르면 요청 없이 `OWNER_CHANGED`(경로의 코드가 지금 계정 것이라 규칙은 계정 바뀜을 못 막는다). 코드가 없으면 `NO_USER`, Storage 거절(주인 아님 · 상한) · 닿지 못함 · 10초 넘음(`cancel()`) · 빈 주소는 `IMAGE_UPLOAD` 로 던진다(원인은 `cause`). 0.13 앱이 쓰는 서버 endpoint(`POST /v2/me/images`)는 서버에 남아 있다.
+- **함정**: 주소 받기(`getDownloadURL`) 도중 10초를 넘기면 파일은 이미 올라가 Storage 에 남는다(아무 칸도 가리키지 않음) — 탈퇴 때 서버가 폴더째 지운다.
+- 검사: `checks/sim-own-image.js`.
 
 ## `request-id.js` — 🔁 요청 번호(requestId)
 

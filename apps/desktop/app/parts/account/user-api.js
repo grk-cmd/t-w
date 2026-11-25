@@ -28,6 +28,7 @@ const REASONS = Object.freeze({
   USER_CONFIRM_MISMATCH: '확인 글자 «' + WITHDRAW_CONFIRM + '» 를 그대로 입력해 주세요',
   USER_ADMIN_CANNOT_WITHDRAW: '관리자 계정은 탈퇴할 수 없어요',
   USER_AUTH_UNAVAILABLE: '로그인 서버에 지금 닿지 못했어요 — 잠시 뒤 다시 해 주세요',
+  USER_STORAGE_OWNER_UNAVAILABLE: '가입을 마치지 못했어요 — 잠시 뒤 다시 해 주세요',
   INVITE_NOT_FOUND: '없는 초대 코드예요',
   INVITE_NOT_USABLE: '쓸 수 없는 초대 코드예요',
   INVITE_NO_QUOTA: '남은 초대장이 없어요',

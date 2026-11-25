@@ -55,10 +55,15 @@ function fake(routes){
   return { log, get: (p, o) => run('GET', p, undefined, o), post: (p, b, o) => run('POST', p, b, o), put: (p, b, o) => run('PUT', p, b, o),
     patch: (p, b, o) => run('PATCH', p, b, o), del: (p, o) => run('DELETE', p, undefined, o) };
 }
+/* 가짜 Storage 바로 올리기(shared/own-image.js 모양) — routes.OWN 이 답(Error 면 던진다) */
+const fakeOwn = (routes) => {
+  const ups = [];
+  return { ups, upload: async (kind, img, opts) => { ups.push({ kind, img, opts }); const v = routes.OWN; if(v instanceof Error) throw v; return v; } };
+};
 const mk = (src, routes) => {
-  const authed = fake(Object.assign(ME_ROUTES(), routes || {})), warns = [];
-  const m = load(src).createGiftApi({ authed, imageBytes: imgMod(), warn: (...a) => warns.push(a.join(' ')) });
-  return { m, authed, warns };
+  const authed = fake(Object.assign(ME_ROUTES(), routes || {})), warns = [], ownImage = fakeOwn(routes || {});
+  const m = load(src).createGiftApi({ authed, imageBytes: imgMod(), ownImage, warn: (...a) => warns.push(a.join(' ')) });
+  return { m, authed, warns, ownImage };
 };
 const throws = async (fn) => { try{ await fn(); return null; }catch(e){ return e || {}; } };
 const png = (n) => 'data:image/png;base64,' + Buffer.alloc(n, 7).toString('base64');
@@ -114,23 +119,27 @@ async function judge(S){
     chk(ce && ce.code === 'CONCURRENT_UPDATE' && cf.authed.log.filter((x) => x.method === 'PUT').length === 1 && cf.authed.log.filter((x) => x.path === '/v2/me/mallangs' && x.method === 'GET').length === 1,
       '  409 는 던지고 끝 — 여기서 다시 받아 한 번 더 보내지 않는다');
 
-    const up = mk(LIB, { 'POST /v2/me/images': { url: 'https://s/mallang_1.png' } });
-    chk((await throws(() => up.m.uploadImage(png(10)))).code === 'NOT_RECEIVED' && up.authed.log.length === 0, '그림 올리기 — 받기 전엔 요청 0');
+    const up = mk(LIB, { OWN: 'https://s/mallang_1.png' });
+    chk((await throws(() => up.m.uploadImage(png(10)))).code === 'NOT_RECEIVED' && up.ownImage.ups.length === 0, '그림 올리기 — 받기 전엔 올리지 않는다');
     await up.m.fetchMine();
     const url = await up.m.uploadImage(png(10));
-    const p = up.authed.log.find((x) => x.method === 'POST');
-    chk(url === 'https://s/mallang_1.png' && p.path === '/v2/me/images?purpose=mallang' && p.opts.rawType === 'image/png' && p.body instanceof Uint8Array && p.body.length === 10 && 'expectOwner' in p.opts,
-      '  POST /v2/me/images?purpose=mallang · 바이트 그대로 · Content-Type png · 주인과 묶음 → { url }');
-    const before = up.authed.log.length;
+    const p = up.ownImage.ups[0];
+    chk(url === 'https://s/mallang_1.png' && p.kind === 'mallang' && p.img.type === 'image/png' && p.img.bytes instanceof Uint8Array && p.img.bytes.length === 10 && p.opts && p.opts.expectOwner === 'ME' && !up.authed.log.some((x) => x.method === 'POST'),
+      '  Storage 내 폴더에 바로(own-image mallang) · 바이트 그대로 · png · 읽은 토큰 주인(expectOwner) → 주소 · 서버 POST 0');
+    const before = up.ownImage.ups.length;
     for(const [what, u] of [['jpeg', 'data:image/jpeg;base64,AAAA'], ['1MB 초과', png(1024 * 1024 + 1)], ['빈 그림', 'data:image/png;base64,'], ['data: 아님', 'https://x/y.png']]){
       const e = await throws(() => up.m.uploadImage(u));
       chk(e && e.code === 'IMAGE_UPLOAD', '  ' + what + ' → 요청 없이 IMAGE_UPLOAD');
     }
-    chk(up.authed.log.length === before, '  거른 그림은 요청 0');
+    chk(up.ownImage.ups.length === before, '  거른 그림은 올리지 않는다');
     chk(!!(await up.m.uploadImage(png(1024 * 1024))), '  딱 1MB 는 올린다(경계)');
-    const bad = mk(LIB, { 'POST /v2/me/images': {} });
+    const bad = mk(LIB, { OWN: Object.assign(new Error('거절'), { code: 'IMAGE_UPLOAD' }) });
     await bad.m.fetchMine();
-    chk((await throws(() => bad.m.uploadImage(png(4)))).code === 'SHAPE', '  url 없는 응답은 던진다');
+    chk((await throws(() => bad.m.uploadImage(png(4)))).code === 'IMAGE_UPLOAD', '  Storage 가 거절하면 IMAGE_UPLOAD 그대로 던진다');
+    const oc = mk(LIB, { OWN: Object.assign(new Error('o'), { code: 'OWNER_CHANGED' }) });
+    await oc.m.fetchMine();
+    chk((await throws(() => oc.m.uploadImage(png(4)))).code === 'OWNER_CHANGED' && (await throws(() => oc.m.uploadImage(png(4)))).code === 'NOT_RECEIVED' && oc.ownImage.ups.length === 1,
+      '  계정이 바뀌어 OWNER_CHANGED 면 다시 읽기 전까지 올리지 않는다');
   }
 
   say('── 2. 선물함');
@@ -237,7 +246,7 @@ async function judge(S){
     const calls = [], tk = { v: jwt('A') };
     const client = AC.createApiClient({ baseUrl: 'https://api.test', getToken: async () => tk.v,
       fetch: async (url, init) => { calls.push(init.method + ' ' + url); return reply(200, url.endsWith('/v2/me/gifts') ? boxRes([]) : url.indexOf('/v2/mallangs/') >= 0 ? slotsRes([]) : null); } });
-    const m = load(S.API).createGiftApi({ authed: client, imageBytes: imgMod(), warn: () => {} });
+    const m = load(S.API).createGiftApi({ authed: client, imageBytes: imgMod(), ownImage: fakeOwn({}), warn: () => {} });
     await m.fetchOf('F1');
     chk((await throws(() => m.star('a', true))).code === 'NOT_RECEIVED' && calls.length === 1, '남의 집 읽기는 주인을 남기지 않는다 — 내 것을 받기 전 쓰기는 요청 0');
     await m.fetchBox();
@@ -255,7 +264,7 @@ async function judge(S){
     /* reset 전에 떠난 읽기가 늦게 와도 주인 기억을 되살리지 않는다 */
     let release;
     const slow = fake(Object.assign(ME_ROUTES(), { 'GET /v2/me/gifts': (b, p, o) => new Promise((res) => { release = () => { o.onOwner('A'); res(boxRes([])); }; }), 'POST /v2/me/gifts/seen': null }));
-    const sm = load(S.API).createGiftApi({ authed: slow, imageBytes: imgMod(), warn: () => {} });
+    const sm = load(S.API).createGiftApi({ authed: slow, imageBytes: imgMod(), ownImage: fakeOwn({}), warn: () => {} });
     const pending = sm.fetchBox();
     sm.reset();
     release(); await pending;
@@ -312,7 +321,7 @@ async function runAll(){
     ['닿지 못함을 공통 번호로', S.API.replace("else kind = KIND.SITE;", "else kind = KIND.COMMON;"), 'site'],
     ['그림 크기를 안 거름', S.IMG.replace("img.bytes.length > o.maxBytes", "false"), '1MB', 'IMG'],
     ['jpeg 도 받음', S.API.replace("const IMAGE_TYPES = Object.freeze(['image/png', 'image/webp']);", "const IMAGE_TYPES = Object.freeze(['image/png', 'image/webp', 'image/jpeg']);"), 'jpeg'],
-    ['올리기 경로 purpose 틀림', S.API.replace("image: '/v2/me/images?purpose=mallang',", "image: '/v2/me/images?purpose=dday',"), 'purpose'],
+    ['올리기 쓰임 틀림', S.API.replace("ownImage.upload('mallang', img, o)", "ownImage.upload('dday', img, o)"), 'mallang'],
   ];
   for(const [name, src, what, key = 'API'] of breaks){
     if(src === S[key]){ chk(false, name + ' — 바꿀 글을 못 찾음'); continue; }

@@ -140,7 +140,7 @@ const CODES = {
   'E-LIC-06': { msg: '라이선스를 등록하지 못했어요 — 잠시 뒤 다시 해 주세요', where: 'account/license-screen.js — 키 [확인](POST /v2/me/license)의 사용자가 고칠 수 없는 실패(네트워크 · 서버 오류 · 응답 모양). 없는 키 · 남의 키 · 회수된 키 · 이미 라이선스 있음 · 기기 가득은 번호 없이 입력칸 아래 문구' },
   'E-LIC-07': { msg: '시크릿룸을 발급하지 못했어요 — 잠시 뒤 다시 해 주세요', where: 'admin/admin-license-bulk.js — 관리자 시크릿룸 [발급](POST /v2/admin/secret-rooms)의 사용자가 고칠 수 없는 실패(네트워크 · 서버 오류). 없는 친구코드 · 남이 가진 코드(경고) · 입력 오류 · 로그인 필요는 번호 없이 발급 칸 아래 문구' },
   'E-GIFT-01': { msg: '말랑이를 불러오지 못했어요', where: 'myhome/mallang-store.js — 내 칸(GET /v2/me/mallangs — 마이홈 열기 · 등록 창 [다시 시도] · 못 받은 폴더 누름) · 보는 집 칸(GET /v2/mallangs/{code} — 친구 홈 구경 · 내 집으로) 받기 실패(그 사람이 없음은 번호 없이 «말랑이 없음» · 혼자 다시 받지 않음)' },
-  'E-GIFT-02': { msg: '말랑이 그림을 올리지 못했어요', where: 'myhome/mallang-store.js — 등록 ① 그림 올리기(POST /v2/me/images?purpose=mallang) 실패 · 형식 · 크기 거절(IMAGE_UPLOAD) — 칸은 그대로' },
+  'E-GIFT-02': { msg: '말랑이 그림을 올리지 못했어요', where: 'myhome/mallang-store.js — 등록 ① 그림 올리기(Storage 내 폴더 — shared/own-image.js mallang) 실패 · 10초 넘음 · 형식 · 크기 거절(IMAGE_UPLOAD) — 칸은 그대로' },
   'E-GIFT-03': { msg: '말랑이를 저장하지 못했어요', where: 'myhome/mallang-store.js — 등록 ② · 켜고 끄기 · 지우기의 칸 저장(PUT /v2/me/mallangs — GIFT_MALLANG_INVALID 포함 · 409 는 번호 없이 다시 받기) 실패(이어지는 동안 한 번만 · 고친 화면은 그대로 · 혼자 다시 보내지 않음 — 다음 고침 · 로그아웃 · 앱 끄기 때 한 번)' },
   'E-GIFT-04': { msg: '선물함을 불러오지 못했어요', where: 'myhome/gift-box.js — 선물함 받기(GET /v2/me/gifts — 마이홈 열기 · 💝 선물함 서브탭 · [다시 시도]) 실패(서버 신호로 받는 것은 번호 없이 조용히 · 혼자 다시 받지 않음 · 봤음 실패는 번호 없이 배지가 남음)' },
   'E-GIFT-05': { msg: '선물을 바꾸지 못했어요', where: 'myhome/gift-box.js — 선물 ⭐ · 선물함으로 치움 · 다시 부르기(PATCH /v2/me/gifts/{id}) 실패(⭐ 20개 초과 · 이미 없는 선물은 번호 없이 안내)' },
