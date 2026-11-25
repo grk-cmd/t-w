@@ -165,7 +165,7 @@ git push --follow-tags
 |---|---|
 | `npm run version:bump`이 `Git working directory not clean`으로 거부 | `git status`로 확인 → 커밋하거나 정리한 뒤 다시 실행 |
 | push가 `rejected` | 원격에 새 커밋이 있음 → `git pull --rebase` → `git push --follow-tags` |
-| 빌드가 중간에 실패 | 원인을 고친 뒤 Actions → release → **Run workflow** → 태그(예: `v0.10.2`) 입력해서 다시 빌드 |
+| 빌드가 중간에 실패 | 원인을 고친 뒤 Actions → release → **Run workflow** → 태그(예: `v0.10.2`) 입력해서 다시 빌드. «Use workflow from» 은 **`main`** 그대로 — 맥 서명 · 공증 값(환경 `release`)은 태그 `v*` · 브랜치 `main` 에서만 열린다 |
 | 태그를 잘못 만들었다 (push 전) | `git tag -d v0.10.2` 후 `git reset --hard HEAD~1`로 버전 커밋 취소 |
 | 태그를 잘못 만들었다 (push 후, 공개 전) | Actions 실행 취소 → `git push origin :refs/tags/v0.10.2` → Releases 초안 삭제 → 버전 커밋은 되돌리는 커밋으로 정리 |
 | 이미 공개한 버전에 문제가 있다 | **같은 번호를 다시 쓰지 않습니다.** 고친 뒤 다음 번호(`patch`)로 새로 릴리스 |

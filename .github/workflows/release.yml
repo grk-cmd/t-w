@@ -232,10 +232,10 @@ jobs:
           done
           # electron-builder 는 공증 키를 «파일 경로» 로 받는다.
           export APPLE_API_KEY="$RUNNER_TEMP/AuthKey.p8"
+          trap 'rm -f "$APPLE_API_KEY"' EXIT
           ( umask 077; printf '%s\n' "$APPLE_API_KEY_P8" > "$APPLE_API_KEY" )
           unset APPLE_API_KEY_P8
           npx electron-builder --mac --${{ matrix.arch }} --publish never
-          rm -f "$APPLE_API_KEY"
       - name: 서명 주인 · 공증이 붙었는가
         env:
           TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
