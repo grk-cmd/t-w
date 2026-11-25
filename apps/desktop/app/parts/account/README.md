@@ -61,7 +61,7 @@
 ## login-flow.js — 로그인 흐름(classic script `window.TwLoginFlow`)
 - 책임: 로그인(Auth) → 서버 가입 확인(`GET /v2/me`) → (이 PC 등록 뒤 app-boot 가 부르는) realtime 켜기(`TwRtHub.store.start({claim:true})`) · 서버에 닿지 못한 화면에서 기다리기(로컬 모드 없음) · 내 계정 사본(`tw.me` — 로그인 계정과 묶음).
   판정 `confirm({ onRestoreWait })` → `in`(계정 있음) · `signup`(로그인은 됐는데 계정 없음 — 가입 전 · 탈퇴) · `login`(로그인 없음 · 익명 · 토큰 끝남) · `local`(닿지 못함 · 점검 · `restoring:true` 면 저장된 로그인의 첫 답이 60초 안에 안 옴 — 로그인은 둔다).
-- deps: `userApi`(user-api.js) · `translate`(api-errors.js) · `reasonOf` · `auth`(Firebase Auth 원시 — ready · user · restoring · answered · signInGoogle · signInPassword · signOut) ·
+- deps: `userApi`(user-api.js) · `translate`(api-errors.js) · `reasonOf` · `auth`(Firebase Auth 원시 — ready · user · restoring · answered · signInGoogle(`fresh` 를 돌려줌) · signInPassword · signOut · deleteNewLogin) ·
   `googleWindow`(main 의 구글 창) · `rt`(rt-hub — start · stop · bye · onState) · `leaveRoom`(방 안이면 나가기 — 창 열기 통로 LEAVE_ROOM) · `pending`(request-id createPending) · `storage` · `onSessionLost(kind)`(`sessionLost` · `deviceRemoved`) · `now` · `onConfirmed(r, info)`(확인 결과 진단 — login-diag.js · 던져도 결과는 그대로).
 - 내놓는 것: `confirm` · `goOnline` · `waitForServer(onBack)` · `retryNow()`(서버에 닿지 못한 화면 — realtime 을 켜 두고 서버 신호(ready · 등록 전이라 4004 로 끊김) 또는 «다시 시도» 가 계정을 한 번 묻는다 · 타이머 없음 · 이 PC 기능만 쓰는 로컬 모드는 없다) · `loginGoogle` · `loginPassword` · `joinPassword` · `joinGoogle` ·
   `patchMe(fields)`(사본 version · 먼저 바뀌었으면 다시 받아 한 번 더) · `logout({ why })`(`logout` · `withdraw`) · `release(why)`(계정 바꾸기 `switch` — 로그인은 둔다) · `meCache` · `mode`.
@@ -115,7 +115,7 @@
 - **책임**: 처음 보는 구글 계정이 이 PC 의 계정(친구 코드)에 묶이기 전에, 가린 주소(`mi***@gmail.com`)와 친구 코드를 보이고 묻는다. 구글을 여러 개 쓰는 사람이 다른 구글을 골라 빈 계정에 묶이는 실수(«데이터가 사라졌다»)를 막는다.
 - **만드는 법**: app.js 가 초대 게이트 · 계정보다 먼저 `const googleConfirmMod = TwGoogleConfirm.createGoogleConfirm({ friendCode, signInWithGoogle })` · 두 모듈에 deps `googleConfirmMod` 로 넘긴다.
 - **내놓는 것**
-  - `ask(email, mode, code?)` → `'yes' | 'other' | 'cancel'` — `bind`(로그인) · `signup`(구글로 가입 — 제목만 «이 구글 계정으로 가입할까요?» · 새 아이디를 넘긴다) · `link`(로그인된 계정에 구글 붙이기). 로그인 · 가입은 `firebaseAPI.authSignInWithGoogle(idToken, userCode, ask)` 의 세 번째 인자로 넘겨, **처음 보는 구글을 묶기 직전에만** 불린다(이미 연결된 구글 · 묶을 코드가 없을 때는 안 묻는다). 아니면 `{ declined }` — 막 생긴 구글 로그인 계정은 지운다.
+  - `ask(email, mode, code?)` → `'yes' | 'other' | 'cancel'` — `bind`(로그인) · `signup`(구글로 가입 — 제목만 «이 구글 계정으로 가입할까요?» · 새 아이디를 넘긴다) · `link`(로그인된 계정에 구글 붙이기). 옛 0.14 판은 로그인 · 가입 때 `authSignInWithGoogle` 의 셋째 인자로 넘겨 처음 보는 구글을 묶기 직전에 불렀다 — 지금은 부르는 곳이 없다(아래 TODO). 계정 없이 끝난 구글 로그인의 새 Auth 사용자를 지우는 일은 login-flow.js `dropGoogleLogin`.
   - `pickForLink()` — 구글 창 → 묻기 → [다른 구글 고르기]면 다시 → `{ ok, idToken }`. 내 정보 [연결하기] · 가입 완료 [구글도 연결하기].
   - `maskEmail` · `tokenEmail` — 순수 함수.
 - **함정**
