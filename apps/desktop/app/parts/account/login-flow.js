@@ -226,7 +226,7 @@ function createLoginFlow(deps){
     try{ me = await userApi.joinWithGoogle({ inviteCode: (o && o.inviteCode) || null }); }
     catch(e){
       if(e && e.code === 'USER_ALREADY_JOINED'){ const c = await confirm(); if(c.state === STATE.IN) return { ok: true, existing: true, me: c.me }; }
-      await dropLogin(!!e && e.kind === 'request' && e.code !== 'USER_ALREADY_JOINED');   // 서버가 확실히 거절했을 때만 지운다 — 구글 가입은 요청 번호가 없어 시간 초과여도 계정이 생겼을 수 있다
+      await dropLogin(!!e && e.kind === 'request' && e.status !== 408 && e.code !== 'USER_ALREADY_JOINED');   // 서버가 확실히 거절했을 때만 지운다 — 구글 가입은 요청 번호가 없어 시간 초과(408 포함)여도 계정이 생겼을 수 있다
       return { ok: false, reason: deps.reasonOf(e), code: (e && e.code) || '' };
     }
     if(!me){ await dropLogin(false); return { ok: false, reason: '서버 답의 모양이 달라요' }; }
