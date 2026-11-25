@@ -1,6 +1,6 @@
 /* ═══ 🧍 sim-creator-open.js — 생성기 여는 입구 · 런처 다시 그리기(creator/creator-open.js · app.js 분리 M21) ═══════════════
    ・1절: openCreator — 3D 를 못 만들면(ensureCreatorPreview false) 아무것도 안 바꿈 · 꾸미기 창을 닫아 저장 · 모드 기억 · 런처에서 왔는지 기억 · 동물 편집은 동물 생성기로 돌려보냄 · 새로 열기 값 · 열림 표시
-   ・2절: renderLauncher — 런처 미리보기 · 초대 버튼 · 칸 번호 · 빈 칸 · 톱니 · 미리보기 표시 · 연동 띠가 던져도 이어 감
+   ・2절: renderLauncher — 런처 미리보기(초대장 수는 묻지 않음) · 칸 번호 · 빈 칸 · 톱니 · 미리보기 표시 · 연동 띠가 던져도 이어 감
    ・3절: 연결 — deps 모양 · 옛 이름 · 만드는 줄
    ・4절: mutation test */
 'use strict';
@@ -65,7 +65,7 @@ say('§1 openCreator');
 say('§2 renderLauncher');
 {
   let b = build(SRC, { slots: [null, null], curSlot: 1 }); b.mod.renderLauncher();
-  chk(b.log.slice(0, 2).join() === 'ensureLauncher,invite' && b.els.lcCount.textContent === '(2/5)' && b.els.lcEmpty.style.display === 'flex' && b.els.lcGear.style.display === 'none' && b.els.lcPreview.style.display === 'none', '미리보기 → 초대 버튼 · 칸 번호 (2/5) · 빈 칸이면 «만들기» 보이고 톱니 · 미리보기 숨김');
+  chk(b.log[0] === 'ensureLauncher' && !b.log.includes('invite') && b.els.lcCount.textContent === '(2/5)' && b.els.lcEmpty.style.display === 'flex' && b.els.lcGear.style.display === 'none' && b.els.lcPreview.style.display === 'none', '미리보기 → 칸 번호 (2/5) · 초대장 버튼은 묻지 않음(켤 때 한 번 — app-boot invites) · 빈 칸이면 «만들기» 보이고 톱니 · 미리보기 숨김');
   chk(b.log.includes('sizeLauncher') && b.log.includes('char:none') && b.log.includes('empty') && b.log.indexOf('empty') < b.log.indexOf('sizeLauncher'), '빈 칸 안내를 다시 그리고(launcher-ctl renderEmptyState) 크기를 맞추고 빈 캐릭터를 올린다');
   const def = { face: {} };
   b = build(SRC, { slots: [def], curSlot: 0 }); b.mod.renderLauncher();

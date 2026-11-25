@@ -22,7 +22,8 @@ const FN_DEPS = [];
 const VAL_DEPS = [];
 const GET_DEPS = [];
 const SET_DEPS = [];
-const EXPORTS = ["_saveFailMsg","toast"];
+const EXPORTS = ["_saveFailMsg","hold","toast"];
+const SHIMS = ["_saveFailMsg","toast"];   // 옛 전역 이름 이음 함수 — hold 는 app-boot 연결 한 곳(holdToast)만 부른다
 const MOVED = ["_saveFailMsg","toastT","toast"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = [];
 
@@ -68,8 +69,9 @@ function judgeAll(mod, app, html){
   /* 같은 이름의 딴 지역 변수가 app.js 에 따로 있는 이름(예: 함수 안 let)은 이 판정에서 뺀다 — 설정 localSame */
   /* 부르는 줄은 옛 이름 그대로 둔다(app.js 150여 곳 · 다른 파일 · window.toast) — 대신 같은 이름의 이음 함수 둘이 모듈로 넘기는지 본다 */
   const shim = (n) => new RegExp('^function ' + n + '\\(\\.\\.\\.a\\)\\{ return toastMod\\.' + n + '\\(\\.\\.\\.a\\); \\}   // 옛 전역 이름', 'm').test(app);
-  const stray = app.split('\n').filter(l => l.includes('toastMod.') && !l.includes('// 옛 전역 이름')).length;
-  t(EXPORTS.every(shim) && !stray, '부르는 곳은 옛 이름 그대로 — 이음 함수 둘(toast · _saveFailMsg)만 toastMod.이름 으로 넘긴다' + (stray ? ' — 이음 함수 밖 toastMod. ' + stray + '곳' : ''));
+  const holdLine = (l) => /^  holdToast: \(msg\)=>toastMod\.hold\(msg\),$/.test(l);
+  const stray = app.split('\n').filter(l => l.includes('toastMod.') && !l.includes('// 옛 전역 이름') && !holdLine(l)).length;
+  t(SHIMS.every(shim) && !stray && app.split('\n').filter(holdLine).length === 1, '부르는 곳은 옛 이름 그대로 — 이음 함수 둘(toast · _saveFailMsg)만 toastMod.이름 으로 넘긴다' + (stray ? ' — 이음 함수 밖 toastMod. ' + stray + '곳' : ''));
   const iM = html.indexOf('<script src="parts/shared/toast.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iM > 0 && iA > iM, 'html — parts/shared/toast.js 를 app.js 보다 먼저 싣는다');
   return r;
@@ -174,6 +176,18 @@ say('── 4. 동작 — 토스트 · 저장 실패 문구');
     chk(went === 1 && stopped === 1 && !el.cls.has('on') && clip.calls.length === nClip, '  단추를 누르면 onClick 한 번 · 눌림이 토스트로 번지지 않음(복사 안 함) · 토스트를 닫는다');
     api.toast('단추 없는 글'); api.toast('반쪽 action', undefined, 0, { label: '라벨만' });
     chk(!el.tail.length, '  action 이 없거나 onClick 이 없으면 단추를 안 만든다(다음 토스트에 단추가 남지도 않음)');
+    /* ⏳ hold — 내릴 때까지 떠 있는 한 줄(«접속 중…»). 내리면 끄고, 그 사이 다른 토스트가 떴으면 그 토스트는 건드리지 않는다 */
+    const release = api.hold('접속 중…');
+    chk(el.textContent === '접속 중…' && el.cls.has('on') && log.timers[log.timers.length - 1].ms === 60000, '  hold — 글을 넣고 켠다 · 내리기를 잊어도 60초 뒤에는 꺼진다');
+    release();
+    chk(!el.cls.has('on'), '  hold — 돌려준 함수로 내린다');
+    const release2 = api.hold('접속 중…'); api.toast('저장했어요'); release2();
+    chk(el.cls.has('on') && el.textContent === '저장했어요', '  hold — 그 사이 다른 토스트가 떴으면 내리기는 그 토스트를 건드리지 않는다');
+    const holdBroke = MOD.replace('    if(seq !== toastSeq) return;\n', '');
+    { const w = {}; const el2 = { cls: new Set(), classList: null, addEventListener(){}, prepend(){}, appendChild(){} }; el2.classList = { add: (c) => el2.cls.add(c), remove: (c) => el2.cls.delete(c), contains: (c) => el2.cls.has(c) };
+      new Function('window', 'module', 'document', 'setTimeout', 'clearTimeout', 'navigator', holdBroke)(w, undefined, { getElementById: () => el2 }, () => 1, () => {}, {});
+      const a2 = w.TwToast.createToast({}); const r2 = a2.hold('x'); a2.toast('y'); r2();
+      chk(holdBroke !== MOD && !el2.cls.has('on'), '  mutation test — 내리기가 남의 토스트까지 끄면 빨강'); }
     const onRule = (h) => /\.toast\.on\{[^}]*pointer-events:auto;[^}]*cursor:pointer;/.test(h) && /\.toast\{[^}]*pointer-events:none;/.test(h);
     chk(onRule(HTML) && !onRule(HTML.replace(/(\.toast\.on\{[^}]*)pointer-events:auto;/, '$1')), '  html — 켜진 토스트(.toast.on)만 클릭 받기 · 손 모양(꺼진 토스트는 통과)');
   }

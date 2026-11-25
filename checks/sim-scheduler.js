@@ -807,7 +807,7 @@ await sec('── 8. app.js 배선 · html', async () => {
   const bare = APP.split('\n').filter(l => /(^|[^.\w])(refreshBellBadge|renderBellList|renderDdays|renderSchedCalendar|loadMonth|_bellWinOpen)\((?!\)\{\})/.test(l));
   chk(bare.length === 0, '부르는 곳은 전부 mhScheduler.이름 — 옛 전역 이름 호출이 안 남았다' + (bare.length ? ' (' + bare[0].trim().slice(0, 80) + ')' : ''));
   const INIT = strip(SRC['myhome-init.js']), VISIT = strip(SRC['myhome-visit.js']), ACC = strip(SRC['account.js']);
-  chk(/mhScheduler\.loadBoard\(\)/.test(INIT) && !/subscribeDdays/.test(INIT), '로그인 뒤 — 내 보드 받기(loadBoard)');
+  chk(!/mhScheduler\.loadBoard\(\)/.test(INIT) && !/subscribeDdays/.test(INIT) && /^ {4}ddays: \(\)=>mhScheduler\.loadBoard\(\),/m.test(APP), '내 보드 받기(loadBoard)는 마이홈을 처음 열 때(app-boot OPEN ddays) — 마이홈 시작에서는 받지 않는다');
   chk((VISIT.match(/mhScheduler\.startVisit\(friendId\)/g) || []).length === 1 && (VISIT.match(/mhScheduler\.endVisit\(\)/g) || []).length === 1 && !/subscribeDdays|_schedDdaysVisitUnsub|setDdaysVisit/.test(VISIT), '관람 시작 · 끝 → startVisit · endVisit (구독 끊기 장치 없음)');
   chk((ACC.match(/mhScheduler\.reset\(\)/g) || []).length === 1 && !/mhScheduler\.loadMine\(\)/.test(ACC), '계정 — 놓을 때 reset(이어받기 loadMine 은 걷음 — 다시 켠 부팅이 받는다)');
   chk(/if\(tab\.dataset\.tab==='scheduler'\)\{\s*mhScheduler\.renderSchedCalendar\(\); mhScheduler\.renderDdays\(\);/.test(APP), '[스케줄러] 탭 → 달력 · D-day 그리기');

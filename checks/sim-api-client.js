@@ -593,6 +593,30 @@ async function gateCases(M){
     chk(!missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
   }
 
+  say('── whenIdle — 나가 있는 요청이 다 끝나면 풀린다(켤 때 «접속 중…» 을 내릴 때)');
+  {
+    const idleCase = async (src) => {
+      const mod = { exports: {} }; vm.runInNewContext(src, { module: mod, setTimeout, clearTimeout, AbortController, console, atob: (x) => Buffer.from(x, 'base64').toString('binary') });
+      const M = mod.exports; const holds = [];
+      const f = mkFetch((url) => new Promise((r) => holds.push({ url, r })));
+      const done = (part, v) => { const i = holds.findIndex((h) => h.url.endsWith(part)); holds.splice(i, 1)[0].r(v); };
+      const c = M.createApiClient({ baseUrl: PROD, fetch: f, getToken: async () => 't', backoffMs: 0, timeoutMs: 60000, writeTimeoutMs: 60000 });
+      let idle0 = false; await c.whenIdle().then(() => { idle0 = true; });
+      const g = c.get('/v2/a', { auth: true }).catch(() => {}), w = c.post('/v2/b', {}).catch(() => {});
+      await settle();
+      let idle = false; c.whenIdle().then(() => { idle = true; });
+      done('/v2/a', res(200, { success: true, data: 1 })); await settle();
+      const mid = idle;
+      done('/v2/b', res(500, { success: false })); await g; await w; await settle();
+      return { idle0, mid, idle, n: f.calls.length };
+    };
+    const r = await idleCase(SRC);
+    chk(r.idle0 && r.n === 2 && !r.mid && r.idle, '나간 요청이 없으면 바로 · 읽기 · 쓰기 둘 다 끝나야(실패도 끝) 풀린다');
+    const bad = SRC.replace('const p = counted(send(path, o.timeoutMs || writeTimeoutMs, o));', 'const p = send(path, o.timeoutMs || writeTimeoutMs, o);').replace('return counted(send(path, o.timeoutMs || writeTimeoutMs, o));', 'return send(path, o.timeoutMs || writeTimeoutMs, o);');
+    const rb = await idleCase(bad);
+    chk(bad !== SRC && rb.mid, '  mutation test — 쓰기를 안 세면 쓰기가 남았는데 풀려 빨강');
+  }
+
   say('\n' + pass + ' · ' + fail);
   process.exit(fail ? 1 : 0);
 })().catch((e) => { fail++; say('  ✗ 예외: ' + (e && e.stack || e)); say('\n' + pass + ' · ' + fail); process.exit(1); });
