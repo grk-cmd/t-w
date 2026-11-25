@@ -1,6 +1,6 @@
 rules_version = '2';
-// Storage 보안 규칙(0.13). 기본 설정(firebase.json)의 storage 항목(키)이 이 파일을 가리킨다 — 컷오버 날 점검 끝 무렵에 올린다(tw-docs docs/design/06-cutover.md 8장 ⑧).
-// 점검 동안(T+2 부터)은 storage-lock.rules 가 올라가 있다. 두 파일의 경로 · 크기 상한은 같이 고친다(sim-storage-rules.js).
+// Storage 보안 규칙. 기본 설정(firebase.json)의 storage 항목(키)이 이 파일을 가리킨다. 올릴 때는 firestore 규칙과 함께: firebase deploy --only firestore:rules,storage
+// 점검 동안은 storage-lock.rules 가 올라간다. 두 파일의 경로 · 크기 상한은 같이 고친다(sim-storage-rules.js).
 //
 // 함정 셋 — 새 match 블록을 만들 때 먼저 읽을 것
 // - 쓰기 조건은 `request.resource == null`(지우기)을 맨 앞에 둔다. 지우기 요청엔 request.resource 가 없어서, 이 항이 없으면 null.size 를 읽다 평가가 깨져 지우기가 전부 거부된다.
@@ -12,30 +12,69 @@ service firebase.storage {
     function isBot() {
       return request.auth != null && request.auth.uid == '8K1ebHP37EQ2hbKpdgV3TVK6mDq2';
     }
-    // 봇이 올리는 마이홈 그림 — 0.13 서버(MyHomeImage)가 형식 · 크기를 먼저 보고 올린다. 앱은 2MB 미만 그대로.
+    // 경로의 사람 코드가 이 로그인의 것인가 — 원본은 서버 DB(app_user.auth_uid), 규칙이 읽는 사본은 Firestore storageOwners/{코드}(서버만 쓴다).
+    // 문서가 없으면(가입 전 · 탈퇴 · 지어낸 코드) get 이 null 이라 평가가 깨져 거부된다. 익명 로그인도 문서가 없어 거부.
+    function isOwner(code) {
+      return request.auth != null
+          && firestore.get(/databases/(default)/documents/storageOwners/$(code)).data.uid == request.auth.uid;
+    }
+    // 앱이 바로 올리는 그림 이름(0.14 — shared/own-image.js). 서버는 이 이름의 주소를 내 그림으로 받아 남에게도 보여 주므로(박수 · 말랑이 선물)
+    // 아래 {file} 블록의 형식 · 상한만 통과한다 — 넓은 블록의 «2MB 미만 아무 형식» 으로는 주인이 이 이름을 못 쓴다. 0.13 앱은 이 이름을 직접 쓰지 않는다(봇이 쓴다).
+    function isOwnImageName(name) {
+      return name.matches('(mh|dday|clap|mallang)_.*');
+    }
+    // 확장자와 형식은 짝으로만 — 따로 보면 png 이름에 jpeg · jpg 이름에 webp 가 통과한다
+    function extMatchesType(file) {
+      return (file.matches('.*[.]png') && request.resource.contentType == 'image/png')
+          || (file.matches('.*[.]webp') && request.resource.contentType == 'image/webp')
+          || (file.matches('.*[.]jpg') && request.resource.contentType == 'image/jpeg');
+    }
+    // 빈 파일은 서버 판정(BadSize)처럼 받지 않는다
+    function ownImageOk(file, head, exts, maxBytes) {
+      return file.matches(head + '_[A-Za-z0-9_-]+[.](' + exts + ')')
+          && request.resource.size > 0
+          && request.resource.size <= maxBytes
+          && extMatchesType(file);
+    }
+    // 봇이 올리는 마이홈 그림 — 서버(MyHomeImage)가 형식 · 크기를 먼저 보고 올린다(0.13 앱의 POST /v2/me/images).
     function isBotMyHomeImage() {
       return isBot()
           && request.resource.size <= 8 * 1024 * 1024
           && request.resource.contentType in ['image/png', 'image/webp', 'image/jpeg'];
     }
 
-    // 카탈로그 파일(파츠 · 책상 · 아이템 GLB · 썸네일). 카탈로그 GLB 는 커야 1.5MB 안팎이라 5MB 면 넉넉하다.
+    // 옛 카탈로그 파일 — 0.13 부터 쓰는 곳이 없다(카탈로그 파일은 assets/). 남은 파일의 주소가 있어 읽기는 둔다.
     match /catalog/{allPaths=**} {
-      allow read: if true;
-      allow write: if request.resource == null
-                   || request.resource.size < 5 * 1024 * 1024;
+      allow get: if true;
+      allow list: if isBot();
+      allow write: if isBot()
+                   && (request.resource == null
+                       || request.resource.size < 5 * 1024 * 1024);
     }
 
-    // 사람 파일(마이홈 그림 · 스탠딩 · 말랑이 · 이모티콘 · 디데이 · 슬롯 GLB 등).
-    // 경로가 uid 가 아니라 사람 코드라 주인 검사를 할 수 없어 크기 상한이 유일한 방어선이다 — 무제한으로 열지 않는다.
-    // 2MB 를 내리면 앱이 큰 그림을 dataURL 로 RTDB 에 넣던 방식이 되살아난다(마이홈 스티커가 300~500KB PNG).
+    // 사람 파일(슬롯 GLB · 방 얼굴 · 디자인 그림 · 이모티콘 · 마이홈 · 디데이 · 박수 · 말랑이 그림). 주인과 서버 봇만 쓴다.
+    // 목록(list)은 봇만 — 누구나 열면 남의 폴더 파일 이름이 다 보인다. 탈퇴 정리는 봇 목록으로 지운다.
     // 선물 사본(giftimg/)은 API 서버만 만든다 — 아래 블록. OR 규칙이라 여기서 빼 줘야 닫힌다.
     match /users/{userId}/{allPaths=**} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if isBot();
       allow write: if allPaths[0] != 'giftimg'
-                   && (request.resource == null
-                       || request.resource.size < 2 * 1024 * 1024
-                       || isBotMyHomeImage());
+                   && ((request.resource == null && (isBot() || (isOwner(userId) && !isOwnImageName(allPaths[0]))))
+                       || (request.resource != null && request.resource.size < 2 * 1024 * 1024
+                           && (isBot() || (isOwner(userId) && !isOwnImageName(allPaths[0]))))
+                       || (request.resource != null && isBotMyHomeImage()));
+    }
+    // 앱이 바로 올리는 그림 넷(0.14) — 서버 판정(MyHomeImage · DdayImage · ClapImageFile · MallangImage)과 같은 형식 · 상한. 폴더 바로 아래 · 주인만.
+    // 주인은 새로 만들기(create)만 — 서버는 주소를 저장할 때 한 번 바이트를 본다(t-w-server #358). 덮어쓰기 · 지우고 같은 이름으로 다시 만들기를 막아
+    // 본 뒤에 내용이 바뀌지 않게 한다(resource == null — 이미 있는 이름이면 거절). 앱은 늘 새 이름으로 올리고, 지우기 · 봇 몫(0.13 앱의 서버 올리기)은 위 넓은 블록의 봇 항이 맡는다.
+    match /users/{userId}/{file} {
+      allow create: if resource == null
+                    && request.resource != null
+                    && isOwner(userId)
+                    && (ownImageOk(file, 'mh', 'png|webp|jpg', 8 * 1024 * 1024)
+                        || ownImageOk(file, 'dday', 'png|webp|jpg', 1024 * 1024)
+                        || ownImageOk(file, 'clap', 'png|webp|jpg', 512 * 1024)
+                        || ownImageOk(file, 'mallang', 'png|webp', 1024 * 1024));
     }
     match /users/{userId}/giftimg/{file} {
       allow write: if isBot()
@@ -44,29 +83,36 @@ service firebase.storage {
     }
 
     // 자리비움 그림 — 방 사람 전원의 화면에 그려져서 이미지로 묶는다. users/ 아래면 2MB 블록이 300KB 를 덮어서 따로 둔다.
+    // 봇도 지운다 — 서버가 바뀐 옛 그림 · 탈퇴한 사람 폴더를 정리한다.
     match /away/{userId}/{allPaths=**} {
-      allow read: if true;
-      allow write: if request.resource == null
-                   || (request.resource.size < 300 * 1024
-                       && request.resource.contentType.matches('image/.*'));
+      allow get: if true;
+      allow list: if isBot();
+      allow write: if (request.resource == null
+                       || (request.resource.size < 300 * 1024
+                           && request.resource.contentType.matches('image/.*')))
+                   && (isBot() || isOwner(userId));
     }
 
-    // 북마크 책등 그림 — 주인만 보지만 다운로드 URL 이 곧 읽기 통로라 읽기를 연다. users/ 와 따로 두는 까닭은 away/ 와 같다.
+    // 북마크 책등 그림 — 0.13 부터 앱이 쓰지 않는다(옮긴 파일만 남음). 다운로드 URL 이 곧 읽기 통로라 읽기를 연다.
     match /bookmarks/{userId}/{allPaths=**} {
-      allow read: if true;
-      allow write: if request.resource == null
-                   || (request.resource.size < 200 * 1024
-                       && request.resource.contentType.matches('image/.*'));
+      allow get: if true;
+      allow list: if isBot();
+      allow write: if (request.resource == null
+                       || (request.resource.size < 200 * 1024
+                           && request.resource.contentType.matches('image/.*')))
+                   && (isBot() || isOwner(userId));
     }
 
     // 스티커사진 프레임 — 방 단위로 지울 수 있게 users/ 밖에 둔다. 남이 URL 로 받아 그리는 것이 기능의 요점이라 읽기를 연다.
     match /purikura/{room}/{userId}/{allPaths=**} {
-      allow read: if true;
-      allow write: if request.resource == null
-                   || request.resource.size < 2 * 1024 * 1024;
+      allow get: if true;
+      allow list: if isBot();
+      allow write: if (request.resource == null
+                       || request.resource.size < 2 * 1024 * 1024)
+                   && (isBot() || isOwner(userId));
     }
 
-    // 상품 파일(assets/{해시}.{확장자}) — 서버 봇만 올리고 · 받고 · 지운다. 앱은 API 로만 받는다. 형식 · 상한은 0.13 서버 AssetKind 와 같다.
+    // 상품 파일(assets/{해시}.{확장자}) — 서버 봇만 올리고 · 받고 · 지운다. 앱은 API 로만 받는다. 형식 · 상한은 서버 AssetKind 와 같다.
     match /assets/{file} {
       allow read, delete: if isBot();
       allow create, update: if isBot()
@@ -74,6 +120,17 @@ service firebase.storage {
                                  && request.resource.size <= 512 * 1024)
                                 || (request.resource.contentType == 'model/gltf-binary'
                                     && request.resource.size <= 1024 * 1024));
+    }
+
+    // 크리스마스 그림(일회성 · 0.14 서버 xmas) — api 봇만 쓴다. 읽기는 한 객체씩만(get) — 누구나 list 를 열면 폴더 목록으로 그림 수 · 올린 차례가 보인다.
+    // get 이 열려 있어 토큰 없는 ?alt=media 주소로 받는다(서버는 32자 id 만 내준다). 메타데이터에 사람을 가리키는 값은 넣지 않는다.
+    // list 는 봇만 — 2027-01-31 XmasPurgeJob 의 deleteAll("xmas/") 이 폴더 목록을 읽어야 지운다(tw-docs docs/design/11-xmas.md 11장).
+    match /xmas/{file} {
+      allow get: if true;
+      allow list: if isBot();
+      allow write: if isBot()
+                   && (request.resource == null
+                       || (request.resource.size <= 16 * 1024 && request.resource.contentType == 'image/png'));
     }
   }
 }

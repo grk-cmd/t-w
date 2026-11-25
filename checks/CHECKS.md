@@ -276,6 +276,7 @@
 | **sim-frame-budget.js** | 242 | **177259a0664e** |
 | **sim-design-tokens.js** | 39 | **f9371a6fe998** |
 | **sim-help-pages.js** | 185 | **9c8d5a8a59ee** |
+| **sim-help-deploy-guard.js** | 119 | **db7ad2627cbf** |
 | **sim-help-search.js** | 198 | **779351c04dcd** |
 | **sim-help-tab.js** | 215 | **776d0178e83c** |
 | **sim-unfocused-fps.js** | 177 | **8a40c76659ec** |
@@ -510,7 +511,8 @@
 | **sim-rules-src.js** | 78 | **c4cf88d760fe** |
 | **sim-rules-drift.js** | 175 | **690f0896cb12** |
 | **sim-rules-cutover.js** | 157 | **88aff836d62f** |
-| **sim-storage-rules.js** | 242 | **42f1c9060342** |
+| **sim-storage-rules.js** | 397 | **d525e2638cea** |
+| **sim-storage-owners-cli.js** | 99 | **b19facded712** |
 | **sim-cutover-logout.js** | 262 | **7ff949879bb5** |
 | **sim-e2e-cutover-guard.js** | 151 | **fbe748d17b73** |
 | **sim-mobile-link-trim.js** | 133 | **ac4e21e917c7** |
