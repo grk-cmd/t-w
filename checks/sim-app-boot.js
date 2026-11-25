@@ -3,10 +3,10 @@
    ★ 왜 이 검사가 있는가 — 기능마다 «계정 확인 전 · 실패 · 나중에 확인» 을 버티는 장치가 서른 개 생겼고, 검토 때마다 다른 갈래로 같은 구멍이 나왔다.
      시작을 «들어간 뒤» 한 곳으로 모았으니 그 한 곳을 실제로 돌려 본다(가짜 세션 시계 위에서).
    ・1절: 만들기만 하면 아무것도 안 부른다 · 차례 표(이름 · 때) 그대로 · 내놓는 것 begin · open · getSession
-   ・2절: 들어감 — 옮기기 → 계정 칸 → 등록 → FIRST(첫 화면 읽기) → 업데이트 확인 통과 → realtime → READY → 첫 화면 뒤 LATER(사이를 두고) · OPEN 은 열 때만
-   ・3절: 업데이트 확인을 통과 못 하면(강제) FIRST 뒤 아무것도 · 등록 [취소] · 계정 칸 못 엶 · 빈 me
+   ・2절: 들어감 — 옮기기 → 계정 칸 → 업데이트 확인 통과 → 등록 → FIRST(첫 화면 읽기) → realtime → READY → 첫 화면 뒤 LATER(사이를 두고) · OPEN 은 열 때만
+   ・3절: 업데이트 확인을 통과 못 하면(강제) 등록 · 읽기 · realtime · 기능 0 · 등록 [취소] · 계정 칸 못 엶 · 빈 me
    ・4절: 두 번 부르면 무시 · 한 칸이 던져도 다음 칸 · 표와 starts 가 어긋나면 던짐
-   ・5절: «접속 중…» — LATER 읽기가 2초 안에 안 끝나면 띄우고 끝나면 내림 · 빨리 끝나면 안 띄움 · 첫 화면이 3초 넘게 안 그려져도 LATER 는 시작
+   ・5절: «접속 중…» — 첫 화면 뒤 LATER 읽기가 2초 안에 안 끝나면 띄우고 끝나면 내림 · 빨리 끝나면 안 띄움 · 첫 화면이 3초 넘게 안 그려져도 LATER 는 시작
    ・6절: 연결 — app.js 의 starts 가 표와 같은 이름 · 각 시작은 app.js 에서 한 번만 · html 순서 · smoke PRELOAD
    ・7절: mutation test */
 'use strict';
@@ -112,6 +112,10 @@ async function judge(src) {
   b = build(src, { gateHold: true });
   await quiet(async () => { const p = b.notify(ME); await flushAll(); b.boot.open('playlist'); await flushAll(); const before = startsOf(b.ev).includes('playlist'); b.gate(true); await p; await flushAll(); b.ev.push('before:' + before); });
   t(b.ev.includes('before:false') && startsOf(b.ev).includes('playlist'), '  업데이트 확인 전에 연 창(OPEN)은 통과한 뒤 시작한다');
+  b = build(src);
+  b.boot.open('playlist');
+  await quiet(async () => { await b.notify(ME); await flushAll(); });
+  t(startsOf(b.ev).filter((n) => n === 'playlist').length === 1, '  들어가기 전에 연 창도 버리지 않고 통과한 뒤 시작한다');
   /* 3 */
   b = build(src, { gate: false });
   const rg = await quiet(async () => b.notify(ME));
@@ -222,6 +226,7 @@ async function judge(src) {
     ['토스트를 바로 띄움', (m) => m.replace("}, CONNECTING_TOAST_MS);", "}, 0);")],
     ['토스트를 안 내림', (m) => m.replace("    }finally{ end(); }", "    }finally{ }")],
     ['열기를 두 번 시작', (m) => m.replace("    if(ran.has(name)) return Promise.resolve();\n", "")],
+    ['들어가기 전 연 창을 버림', (m) => m.replace("    if(!began){ asked.add(name); return; }", "    if(!began) return;")],
     ['확인 전 연 창을 잊음', (m) => m.replace("    for(const name of asked) run(name);\n", "")],
     ['옛 값 옮기기를 빼먹음', (m) => m.replace("    guard('옛 값 옮기기', () => migrateLegacy(code));\n", '')],
     ['못 열어도 기능을 시작', (m) => m.replace("      return false;\n    }\n    const s = session;", "    }\n    const s = session;")],

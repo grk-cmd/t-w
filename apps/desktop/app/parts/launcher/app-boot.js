@@ -125,7 +125,7 @@ const of = (phase) => STEPS.filter((s) => s[1] === phase).map((s) => s[0]);
     }finally{ end(); }
   }
 
-  /* 서버가 계정을 돌려주고 이 PC 를 맞춘 뒤(_enterAccount ok · switched 아님) 게이트가 알리면 한 번 — 옛 값 옮기기 → 등록 → 첫 화면 읽기 → (업데이트 확인 통과) → realtime → 나머지.
+  /* 서버가 계정을 돌려주고 이 PC 를 맞춘 뒤(_enterAccount ok · switched 아님) 게이트가 알리면 한 번 — 옛 값 옮기기 → 계정 칸 → 업데이트 확인 통과 → 등록 → 첫 화면 읽기(FIRST) → realtime → 나머지.
      @return Promise — 돌렸으면 true · 계정 없음(me 비었음) · 이미 돌았음 · 등록 취소 · 강제 업데이트면 false */
   async function begin(me){
     if(!me || !me.userCode) return false;
@@ -160,9 +160,10 @@ const of = (phase) => STEPS.filter((s) => s[1] === phase).map((s) => s[0]);
     later(s);
     return true;
   }
-  /* OPEN 칸 — 그 창을 처음 열 때 부른다(두 번째부터 · 다른 칸 이름은 무시). 업데이트 확인 전이면 통과한 뒤 시작한다 */
+  /* OPEN 칸 — 그 창을 처음 열 때 부른다(두 번째부터는 무시 · OPEN 이 아닌 이름은 던진다). 들어가기 전 · 업데이트 확인 전이면 통과한 뒤 시작한다 */
   function open(name){
     if(!of(PHASE.OPEN).includes(name)) throw new Error('[app-boot] 열 때 시작하는 칸이 아니에요: ' + name);
+    if(!began){ asked.add(name); return; }   // 들어가기 전에 연 창 — 업데이트 확인을 통과한 뒤 시작한다
     if(!session || !session.alive()) return;
     if(!ready){ asked.add(name); return; }
     run(name);
