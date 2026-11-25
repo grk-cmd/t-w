@@ -24,6 +24,7 @@ firebase deploy --only hosting:help --project together-working     # 도움말 �
 firebase deploy --only hosting:main --project together-working     # 관리자 사이트만
 firebase deploy --only hosting:home --project together-working     # 메인 홈페이지만(루트 npm ci --ignore-scripts → 웹 빌드 → web-dist 로 옮긴 뒤 올림)
 ```
+- `hosting:help` 는 올리기 직전에 `firebase/scripts/help-deploy-guard.js`(predeploy)가 «지금 main · GitHub main 과 같은 커밋 · 도움말 폴더 깨끗» 을 본다 — 하나라도 아니면 멈춘다(main 이 아닌 폴더에서 옛 안내가 나가지 않게). 사이트 전부(`--only hosting`)도 같이 멈추니, `admin` 에서 관리자 사이트를 올릴 때는 `--only hosting:main` 으로.
 배포는 그 사이트 **폴더 전체**를 올린다 — 올리는 폴더의 다른 파일도 그 판으로 바뀐다. 운영 배포는 사람이 직접 한다.
 웹 관리자(`/admin/`)는 `admin` 브랜치에서 올린다 — 올리기 전에 `admin` 에 main 을 합쳐 받는다(`main` 사이트 폴더의 다른 파일이 뒤로 돌아가지 않게 · `docs/GIT_CONVENTION.md` 2.1).
 

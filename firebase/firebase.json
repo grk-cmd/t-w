@@ -39,6 +39,7 @@
   }, {
     "target": "help",
     "public": "hosting/help",
+    "predeploy": ["node scripts/help-deploy-guard.js"],
     "ignore": ["**/.*", "**/node_modules/**"],
     "cleanUrls": true,
     "headers": [
