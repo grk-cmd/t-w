@@ -4,11 +4,22 @@
    레벨 · 회차를 앱이 누적에서 세지 않는다 · 해금 안내 우편은 서버 알림이 한다 · 프로필(Firebase)에 레벨 · 별을 쓰지 않는다.
    ★ 📱 폰 연결은 서버 경로다 — 폰 상태는 realtime `mobileFocus`(on · app · at) 그대로, 키 만들기 · 끊기는 focus-api.js(POST · DELETE /v2/me/focus/mobile-link).
      키 원문은 만들 때 한 번만 오므로 계정 칸 tw.mobileKey 에 둔다(QR 다시 보기). 키 만들기 · 끊기는 «읽은 진척의 주인» 과 묶이므로(expectOwner) 먼저 진척을 받은 뒤에 부른다.
-   ★ 밖에서 부르는 이름: STAR_PALETTE · _mobileBubbleText · _mobileCleanApp · _mobileCountsHere · _mobileOn · _mobileRoomLabel · startMobile · _seatMobileApp · addFocusSeconds · focusCycleOf · formatHMS · getFocusLevel · getStarColor · lvStarStr · myFocusShow · myStarOut · setStarColor · starFromRemote — app.js 는 focusLevelMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: (모듈 위) lastSignalText(«마지막 신호» 한 줄 — 순수) · STAR_PALETTE · _mobileBubbleText · _mobileCleanApp · _mobileCountsHere · _mobileOn · _mobileRoomLabel · startMobile · _seatMobileApp · addFocusSeconds · focusCycleOf · formatHMS · getFocusLevel · getStarColor · lvStarStr · myFocusShow · myStarOut · setStarColor · starFromRemote — app.js 는 focusLevelMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwFocusLevel — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-focus-level.js · sim-focus-progress.js · sim-mobile-focus.js */
 (function(){
+
+/* 📱 «마지막 신호» 한 줄 — 순수 함수(검사 sim-mobile-focus). last = { on, app, at }(at = 서버 시각 ms) · now = 서버 시각(모르면 null).
+   «[신호 보내 보기] 는 초록인데 앱을 열면 쉬는 중» 일 때 사용자가 폰 자동화가 신호를 보냈는지 가를 수 있게 한다. 시각을 모르면 시간 말은 뺀다. */
+function lastSignalText(last, now){
+  if(!last || !(Number(last.at) > 0)) return '';
+  const what = (last.app ? last.app + ' ' : '') + (last.on ? '열림' : '닫힘');
+  if(typeof now !== 'number' || !isFinite(now)) return '마지막 신호 · ' + what;
+  const min = Math.max(0, Math.floor((now - last.at) / 60000));
+  const ago = min < 1 ? '방금' : (min < 60 ? min + '분 전' : Math.floor(min / 60) + '시간 전');
+  return '마지막 신호 ' + ago + ' · ' + what;
+}
 
 function createFocusLevel(deps){
 const FOCUS_CYCLE_CAP = deps.FOCUS_CYCLE_CAP;
@@ -95,7 +106,7 @@ const MOBILE_KEY_CELL = 'tw.mobileKey';   // 계정 칸 — 이 PC 가 만든 �
 const MOBILE_KEY_RE = /^[A-Z2-9]{24}$/;
 const MOBILE_APP_MAX = 40;
 const MOBILE_TICK_MS = 60*1000;
-const MOBILE_EMPTY = Object.freeze({ on:false, app:'', since:0, seen:false });
+const MOBILE_EMPTY = Object.freeze({ on:false, app:'', since:0, at:0, seen:false });   // at = 마지막 신호의 서버 시각(설정 칸 «마지막 신호» 줄)
 let _mobileFocus = MOBILE_EMPTY;   // seen = 이번 실행에 폰 신호를 한 번이라도 받았다
 let _mobileKey = null;             // startMobile 이 계정 칸에서 읽는다(만들 때는 계정 칸을 읽지 않는다)
 let mobCode = null, mobGen = 0, mobBusy = false;   // 로그인한 계정 · 계정 바뀜 순번(늦은 답 버림) · 키 만들기 · 끊기 중
@@ -149,7 +160,7 @@ function _mobileApplyState(v){
     _mobileFocus = MOBILE_EMPTY;
   } else {
     const on = v.on === true, at = Number(v.at) || 0;
-    _mobileFocus = { on, app:_mobileCleanApp(v.app), since: on ? at : 0, seen:true };   // at = 서버 시각(서버가 늘 싣는다) — 없으면 시작 시각을 모르는 것이라 켜지 않는다
+    _mobileFocus = { on, app:_mobileCleanApp(v.app), since: on ? at : 0, at, seen:true };   // at = 서버 시각(서버가 늘 싣는다) — 없으면 시작 시각을 모르는 것이라 켜지 않는다
   }
   if(wasOn !== _mobileOn() || wasLabel !== _mobileRoomLabel()) _mobileChanged();
   try{ _mobRenderPanel(); }catch(_){}
@@ -197,6 +208,7 @@ function _mobRenderPanel(){
     sb = (min < 1 ? '방금 시작' : (min + '분째')) + (paired ? ' · 포커스 시간이 쌓이고 있어요' : ' · 시간은 폰을 연결한 PC에서 쌓여요');
   } else if(paired && _mobileFocus.seen){
     cls = 'rest'; m = '연결됨 · 폰에서 쉬는 중';
+    sb = lastSignalText(_mobileFocus, _mobileNow());   // 자동화가 신호를 안 보냈는지 사용자가 볼 수 있게(그림 앱을 열었는데 이 줄이 안 바뀌면 폰 쪽 설정)
   } else if(paired){
     sb = '폰에서 [신호 보내 보기]를 눌러 보세요';
   }
@@ -322,7 +334,7 @@ return {
 };
 }
 
-const api = { createFocusLevel };
+const api = { createFocusLevel, lastSignalText };
 if(typeof window !== 'undefined') window.TwFocusLevel = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
