@@ -45,7 +45,7 @@ async function judge(S){
 
   say('── 2. 올리기');
   const puts = [];
-  const realLater = (fn, ms) => { const h = setTimeout(fn, ms); return () => clearTimeout(h); };
+  const realLater = M.later;   // 모듈이 내놓는 진짜 시계
   const okPut = (p, b, t) => { puts.push({ p, b, t }); return { done: Promise.resolve('https://firebasestorage.googleapis.com/v0/b/x/o/' + encodeURIComponent(p) + '?alt=media&token=t'), cancel: () => {} }; };
   const failPut = (e) => () => ({ done: Promise.reject(e), cancel: () => {} });
   let curOwner = 'UID-A';
@@ -91,7 +91,7 @@ async function judge(S){
     await quick.upload('myhome', { type: 'image/png', bytes });
     chk(stopped === 1, '  끝나면 시계를 푼다');
     const t0 = Date.now();
-    const real = await within(rej(M.createOwnImage({ myCode: () => 'u1abc', newId: () => 'n', put: () => ({ done: new Promise(() => {}), cancel: () => {} }), later: (fn) => realLater(fn, 50) }).upload('dday', { type: 'image/png', bytes })), 2000);
+    const real = await within(rej(M.createOwnImage({ myCode: () => 'u1abc', newId: () => 'n', put: () => ({ done: new Promise(() => {}), cancel: () => {} }), later: (fn) => M.later(fn, 50) }).upload('dday', { type: 'image/png', bytes })), 2000);
     chk(real && real.code === 'IMAGE_UPLOAD' && Date.now() - t0 < 2000, '  진짜 타이머로도 상한에서 끝난다(50ms 로 줄여 봄)');
   }
 
@@ -106,7 +106,7 @@ async function judge(S){
     chk(!/\/v2\/me\/images/.test(src) && call.test(src), k + ' — 서버 그림 endpoint 를 안 부르고 own-image 의 ' + kind + ' 로 · 읽은 토큰 주인을 실어 올린다');
   }
   const app = strip(S.APP);
-  chk(/const ownImageMod = TwOwnImage\.createOwnImage\(\{ myCode: \(\)=>getMyUserId\(\)/.test(app) && /owner: \(\)=>firebaseAPI\.authCurrentUid\(\) \}\);/.test(app) && /later: \(fn, ms\)=>\{ const t = setTimeout\(fn, ms\); return \(\)=>clearTimeout\(t\); \}/.test(app) && (app.match(/ownImage: ownImageMod/g) || []).length === 5, 'app.js 가 내 코드 · 시계로 만들어 다섯 provider 에 넘긴다');
+  chk(/const ownImageMod = TwOwnImage\.createOwnImage\(\{ myCode: \(\)=>getMyUserId\(\)/.test(app) && /owner: \(\)=>firebaseAPI\.authCurrentUid\(\) \}\);/.test(app) && /later: TwOwnImage\.later, owner:/.test(app) && (app.match(/ownImage: ownImageMod/g) || []).length === 5, 'app.js 가 내 코드 · 시계로 만들어 다섯 provider 에 넘긴다');
   chk(/putOwnFile\(path, bytes, contentType\)\{\s*const r = sref\(storage, path\);\s*const task = uploadBytesResumable\(r, bytes, \{ cacheControl: STORAGE_CACHE, contentType \}\);\s*return \{ done: task\.then\(\(\) => getDownloadURL\(r\)\), cancel: \(\) => task\.cancel\(\) \};/.test(S.FI),
     'firebase-init putOwnFile — 그 경로(빈 uid 안전망 sref)에 resumable 로 올리고 { done(주소까지), cancel } 을 돌려준다');
   chk(!/maxUploadRetryTime|maxOperationRetryTime/.test(strip(S.FI)), '  공용 Storage 다시 하기 시간은 안 바꾼다(방 얼굴 · GLB 도 쓴다)');

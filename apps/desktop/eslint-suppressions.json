@@ -175,7 +175,7 @@
   },
   "app/parts/firebase-init.js": {
     "tw/no-firebase-data": {
-      "count": 29
+      "count": 32
     },
     "tw/no-timer": {
       "count": 1
@@ -369,6 +369,11 @@
     }
   },
   "app/parts/shared/net-ready.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/shared/own-image.js": {
     "tw/no-timer": {
       "count": 1
     }

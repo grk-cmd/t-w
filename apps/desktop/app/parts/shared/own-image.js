@@ -9,7 +9,7 @@
      createOwnImage({ myCode, newId, put, later, owner }) → { upload(kind, img, { expectOwner }) → Promise<다운로드 URL> }
        owner() — 지금 로그인 uid(토큰 sub 와 같은 값). expectOwner 가 있고 다르면 요청 없이 OWNER_CHANGED(api-client 의 expectOwner 와 같은 뜻).
        put(path, bytes, type) → { done: Promise<다운로드 URL>, cancel() } — 올리기 · 주소 받기를 TIMEOUT_MS 안에 끝내지 못하면 cancel() 하고 IMAGE_UPLOAD(cause.code TIMEOUT).
-       later(fn, ms) → 해제 함수 — 시간 재기(검사가 바꿔 끼운다).
+       later(fn, ms) → 해제 함수 — 시간 재기(진짜는 TwOwnImage.later · 검사가 바꿔 끼운다).
        img 는 TwImageBytes.inspect 가 통과시킨 { type, bytes } — 형식 · 크기 판정은 부르는 provider 가 먼저 한다.
        코드가 없으면 NO_USER, Storage 가 거절하거나 닿지 못하면 IMAGE_UPLOAD 로 던진다(부르는 provider 의 «그림을 못 올림» 과 같은 번호).
    classic script — 쓰는 provider · app.js 보다 먼저 싣는다. 아무것도 부르지 않는다(Storage 는 put 으로 받는다). */
@@ -64,7 +64,10 @@ function createOwnImage(deps){
   };
 }
 
-const api = { KINDS, TIMEOUT_MS, pathOf, createOwnImage };
+/* 진짜 시계 — app.js 가 deps.later 로 넘긴다(검사는 바꿔 끼운다). 10초 상한(TIMEOUT_MS) 자체가 규칙이라 타이머를 쓴다 */
+function later(fn, ms){ const t = setTimeout(fn, ms); return () => clearTimeout(t); }
+
+const api = { KINDS, TIMEOUT_MS, pathOf, createOwnImage, later };
 if(typeof window !== 'undefined') window.TwOwnImage = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
