@@ -62,14 +62,10 @@ if(desktopMode){
       try{ console.log('[업데이트]', status, JSON.stringify(info||{})); }catch(_){ console.log('[업데이트]', status); }
       if(status==='error') console.warn('[업데이트] 실패:', (info&&info.message)||'(메시지 없음)');
       if(status==='downloaded') whenUpdateStageDone(()=>showUpdateReadyBanner(version));   // 업데이트 창이 떠 있는 동안은 띠를 미룬다
-      // 🍎 맥은 서명이 없어 자동 설치가 안 된다(main.js 의 맥 갈래 주석). 내려받기만 사람이 한다 —
-      //   같은 배너에 «받으러 가기» 만 달아서 릴리즈 페이지를 시스템 브라우저로 연다.
-      if(status==='mac-available') whenUpdateStageDone(()=>showUpdateReadyBanner(version, info&&info.url));
     });
   }
-  /* downloadUrl 이 있으면 «받으러 가기»(맥 — 브라우저로 릴리즈 페이지), 없으면 «지금 재시작»(윈도우 — 자동 설치).
-     ★ 배너를 새로 만들지 않고 이 한 칸을 같이 쓴다 — 자리·테마·중복 방지가 이미 여기에 있다. */
-  function showUpdateReadyBanner(version, downloadUrl){
+  /* 받아 둔 새 판 — «지금 재시작» 을 누르면 설치하고 다시 켠다(윈도우 · 맥 같음). */
+  function showUpdateReadyBanner(version){
     if(document.getElementById('updateReadyBanner')) return;   // 중복 방지
     const b=document.createElement('div');
     b.id='updateReadyBanner';
@@ -78,18 +74,11 @@ if(desktopMode){
       +'box-shadow:2px 2px 0 rgba(0,0,0,.3);padding:8px 10px;display:flex;align-items:center;gap:8px;'
       +'font-size:12px;color:#222;-webkit-app-region:no-drag;';
     const ver=version?(' v'+TwSafeHtml.text(version)):'';
-    b.innerHTML='<span>'+(downloadUrl?('🍎 새 버전'+ver+'이 나왔어요'):('🔄 새 버전'+ver+'이 준비됐어요'))+'</span>'
-      +'<button id="updateReadyBtn" style="padding:4px 8px;font-weight:bold;cursor:pointer;">'
-      +(downloadUrl?'받으러 가기':'지금 재시작')+'</button>'
+    b.innerHTML='<span>🔄 새 버전'+ver+'이 준비됐어요</span>'
+      +'<button id="updateReadyBtn" style="padding:4px 8px;font-weight:bold;cursor:pointer;">지금 재시작</button>'
       +'<button id="updateLaterBtn" style="padding:4px 8px;cursor:pointer;">나중에</button>';
     document.body.appendChild(b);
     document.getElementById('updateReadyBtn').onclick=()=>{
-      if(downloadUrl){
-        // 앱 안에서 열면 안 된다 — 로그인·다운로드가 file:// 창에서 막힌다. 시스템 기본 브라우저로.
-        if(window.companion&&companion.openBrowser) companion.openBrowser(downloadUrl);
-        b.remove();
-        return;
-      }
       if(window.companion&&companion.installUpdate) companion.installUpdate();
     };
     document.getElementById('updateLaterBtn').onclick=()=>{ b.remove(); };

@@ -4,11 +4,10 @@
      · 선택(새 판 있음): «새 버전이 나왔어요» — [업데이트] [나중에]. 버전만 보이고 공지 본문은 넣지 않는다(공지는 앱 버전과 묶이지 않는다).
      · 그 뒤 안 본 «업데이트 안내» 공지 창(deps.noticeOnce · showNotice) → 로그인(runBeforeLogin 이 풀린다). 한 번에 하나, 아무것도 없으면 바로 로그인.
    [켜 둔 동안] 새 판을 다 받으면 런처 작은 띠(desktop-run.js updateReadyBanner)가 그대로 — 이 모듈은 «나중에» 를 누른 사람에게도 띠가 보이도록 단계가 끝난 뒤(whenStageDone)에 건다.
-     윈도우는 main 이 4~5시간마다 조용히 다시 확인하고(update-recheck.js — 창 없음), 받아 둔 판은 앱을 끌 때 설치한다(main.js autoInstallOnAppQuit).
+     main 이 4~5시간마다 조용히 다시 확인하고(update-recheck.js — 창 없음), 받아 둔 판은 앱을 끌 때 설치한다(main.js autoInstallOnAppQuit · 윈도우 · 맥 같음).
      관리자가 최소 버전을 올리면 원격 설정 바뀜 알림(deps.onMinChange)에서 바로 강제 창 — 새 주기 요청 없음.
    [못 받으면] 최소 버전을 못 읽거나(오프라인 · 시간 초과) 버전을 모르면(웹 · 검사) 막지 않는다 — 잘못 막는 쪽이 못 막는 쪽보다 크다.
      새 판 확인은 버전 · 최소 버전을 읽는 일과 따로, 켤 때 한 번은 늘 묻는다. 답이 시간 안에 안 오면 «없음» 으로 보고 넘어간다. 실패 뒤 혼자 다시 묻지 않는다 — 강제 창의 [다시 시도] 를 누를 때만 다시 확인한다.
-   [맥] 자동 설치가 없다 — 주 단추는 [다운로드 페이지 열기](main 이 알려 준 릴리스 주소를 시스템 브라우저로 · 강제는 창 유지 · 선택은 열고 다음 단계로), 선택 창 본문은 «받아 설치해 주세요».
    deps: readMin() 최소 버전 문자열(또는 그 Promise) · 없으면 null / getMin() 지금 값(동기) / onMinChange(fn) → 해제 함수 / getVersion() 이 앱 버전(Promise 가능) /
      companion preload 의 window.companion(onUpdateStatus · installUpdate · checkUpdate · openBrowser) · 없으면 null / ui { show(view, press), update(view), hide() } (createUpdateDom) /
      noticeOnce(fn) 공지를 처음 받았을 때 fn(공지) 한 번 · showNotice(공지, done) 보여 주고 닫히면 done() — 보일 게 없어도 done() /
@@ -26,9 +25,9 @@ const RELEASES_URL = 'https://github.com/grk-cmd/t-w/releases/latest';
 const OVERLAY_ID = 'appVerGateOverlay';             // app.js UI_HIT_SEL 에도 있어야 클릭을 받는다
 const STAGE = Object.freeze({ NONE: 'none', OPTIONAL: 'optional', FORCE: 'force' });
 // 이미 받는 중이거나 받았거나 새 판을 알고 있는 상태 — 강제로 바뀌어도 다시 묻지 않는다
-const BUSY_OR_READY = Object.freeze(['checking', 'available', 'downloading', 'downloaded', 'mac-available']);
+const BUSY_OR_READY = Object.freeze(['checking', 'available', 'downloading', 'downloaded']);
 // 새 판 확인의 «답» 이 된 상태 — 이게 오면 켤 때 기다림이 끝난다(checking 은 답이 아니다)
-const ANSWERED = Object.freeze(['available', 'downloading', 'downloaded', 'mac-available', 'none', 'error']);
+const ANSWERED = Object.freeze(['available', 'downloading', 'downloaded', 'none', 'error']);
 const FAIL_NOTE = '업데이트를 받지 못하면 아래 링크에서 직접 받아 설치해 주세요.';   // 강제 · 선택 창 공통 — 링크는 RELEASES_URL
 const ACT = Object.freeze({ INSTALL: 'install', OPEN: 'open', RETRY: 'retry', WAIT: 'wait', UPDATE: 'update', LATER: 'later' });
 
@@ -59,7 +58,6 @@ function stageOf(my, min, latest){
 function mainButton(up, wantUpdate){
   const u = up || {};
   if(u.status === 'downloaded') return { label: '지금 재시작해서 업데이트', action: ACT.INSTALL };
-  if(u.status === 'mac-available' && u.url) return { label: '다운로드 페이지 열기', action: ACT.OPEN, url: u.url };
   if(u.status === 'downloading') return { label: '새 버전 받는 중… ' + (Number(u.percent) || 0) + '%', action: ACT.WAIT };
   if(u.status === 'checking' || u.status === 'available') return wantUpdate ? { label: '새 버전 받는 중…', action: ACT.WAIT } : { label: '업데이트', action: ACT.UPDATE };
   if(u.status === 'error') return { label: '다시 시도', action: ACT.RETRY };
@@ -85,12 +83,10 @@ function viewOf(kind, my, min, latest, up, wantUpdate, account){
     };
   }
   const main = mainButton(u, wantUpdate);
-  // 맥은 앱이 설치해 주지 않는다 — «업데이트할까요?» 대신 직접 받아 설치하라고 쓴다
-  const ask = u.status === 'mac-available' ? '다운로드 페이지에서 받아 설치해 주세요.' : '지금 업데이트할까요?';
   return {
     kind,
     title: '새 버전 ' + latest,
-    body: '새 버전 ' + latest + '이 나왔어요. ' + ask + ' (지금 버전 ' + my + ')',
+    body: '새 버전 ' + latest + '이 나왔어요. 지금 업데이트할까요? (지금 버전 ' + my + ')',
     buttons: [main, { label: '나중에', action: ACT.LATER }],
     note: u.status === 'error' ? FAIL_NOTE : '',
     linkUrl: u.status === 'error' ? RELEASES_URL : null,   // 안내가 가리키는 링크를 같이 보인다
@@ -114,7 +110,7 @@ function createUpdateFlow(deps){
 
   let my = null;            // 이 앱 버전 — 읽은 뒤에만
   let up = null;            // 마지막 업데이트 상태
-  let latest = null;        // 알려진 새 판(main 의 available · downloaded · mac-available 에서)
+  let latest = null;        // 알려진 새 판(main 의 available · downloaded 에서)
   let shown = null;         // 지금 떠 있는 창 { kind, min, account } — account = 계정 판 맞추기로 뜬 강제 창(min 은 그 계정이 쓴 가장 높은 판)
   let wantUpdate = false;   // 선택 창에서 [업데이트] 를 눌렀다 — 받기가 끝나면 바로 설치
   let laterResolve = null;  // 선택 창이 닫히길 기다리는 쪽
@@ -134,7 +130,7 @@ function createUpdateFlow(deps){
   if(companion){
     companion.onUpdateStatus((info) => {
       up = info || null;
-      if(up && up.version && (up.status === 'available' || up.status === 'downloaded' || up.status === 'mac-available')) latest = up.version;
+      if(up && up.version && (up.status === 'available' || up.status === 'downloaded')) latest = up.version;
       if(up && up.status === 'downloaded' && wantUpdate && shown && !forced) companion.installUpdate();
       redraw();
       if(updateAnswer && up && ANSWERED.includes(up.status)){ const f = updateAnswer; updateAnswer = null; f(); }
