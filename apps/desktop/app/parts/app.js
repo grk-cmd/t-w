@@ -4288,6 +4288,7 @@ const deskVisualMod = TwDeskVisual.createDeskVisual({
   b64ToBuf: (...a)=>b64ToBuf(...a),
   commissionMod: commissionMod,
   licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),
+  resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),
   setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),
   toast: (...a)=>toast(...a),
 });
@@ -4306,6 +4307,7 @@ const deskItemsMod = TwDeskItems.createDeskItems({
 async function loadSavedItemsIntoSession(){
   const failed=[];
   for(const rec of commissionMod.savedItems()){
+    if(!rec.glb && rec.glbUrl) continue;   // 카탈로그 GLB 를 아직 안 받았다 — 첫 화면 뒤 catalogSyncMod.fillGlb 가 받고 다시 합친다(실패가 아니다)
     // ★ 이미 등록돼 있어도 건너뛰지 않고 항상 다시 불러옴 — 카탈로그에서 GLB가 교체됐을 때
     //   (관리자가 우클릭 수정 등) customItems가 옛날 것으로 캐시된 채 남아있으면 실시간 반영이 안 됨.
     try{ const buf=b64ToBuf(rec.glb); const {scene,animations}=await assetCodeMod.parseGlbFull(buf);
@@ -5046,7 +5048,8 @@ const appBoot = TwAppBoot.createAppBoot({
     invites: ()=>licenseGateMod.refreshInviteBtn(),   // 🎟️ 런처 초대장 버튼 — 켤 때 한 번(런처를 다시 그릴 때마다 묻지 않는다) · 발급 · 관리자 모드 뒤에는 그 자리에서
     appVersion: (code, me, session)=>appVersionSyncMod.start(session),   // 🔄 이 PC 앱 판을 서버에 알림 — 더 새 판을 쓰는 기기가 있으면 업데이트 창
     firstRun: ()=>firstRunMod.run().catch((e)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', e)),
-    licenseAutoRegister: ()=>licensePremiumMod.autoRegisterAfter(firstRunMod.licenseDone()),   // 첫 실행 뒤 — 0.12 키로 첫 실행이 등록했으면 건너뜀
+    licenseAutoRegister: ()=>licensePremiumMod.autoRegisterAfter(firstRunMod.licenseDone()),
+    catalogGlb: ()=>catalogSyncMod.fillGlb(),   // 🧩 카탈로그 GLB 를 다 받아 두기 — 첫 화면 뒤 맨 끝(입은 파츠 · 책상은 그릴 때 먼저 받는다)   // 첫 실행 뒤 — 0.12 키로 첫 실행이 등록했으면 건너뜀
     gacha: (code, me, session)=>gachaMod.startGacha(session),
     playlist: (code, me, session)=>plMod.start(session),
     ddays: ()=>mhScheduler.loadBoard(),   // 📌 디데이 보드 — 마이홈을 처음 열 때(app-boot OPEN)

@@ -169,7 +169,7 @@
 | **sim-click-through-policy.js** | 312 | **4a4308beb99c** |
 | **sim-heartbeat-policy.js** | 251 | **dc7d20a04de2** |
 | **sim-catalog-cache.js** | 62 | **f312bde90729** |
-| **sim-catalog-api.js** | 382 | **da1622950de2** |
+| **sim-catalog-api.js** | 382 | **c42948817cc5** |
 | **sim-friend-code-keep.js** | 131 | **814fd3b9bef1** |
 | **sim-gacha-album.js** | 120 | **9b23b01a1f62** |
 | **sim-google-oauth.js** | 357 | **103900b0353b** |
@@ -463,7 +463,7 @@
 | **sim-account-state.js** | 108 | **413b232af0e3** |
 | **sim-nav.js** | 91 | **27ffd1e7cdaa** |
 | **sim-server-features.js** | 165 | **47d7921ce9c2** |
-| **sim-app-boot.js** | 246 | **5600418e3f28** |
+| **sim-app-boot.js** | 246 | **00b7787d11be** |
 | **sim-away-start.js** | 120 | **b9010d0eee8e** |
 | **sim-user-local.js** | 207 | **b34ec3227153** |
 | **sim-saved-lists-wiring.js** | 91 | **81a39e87449d** |
@@ -475,13 +475,13 @@
 | **sim-user-name.js** | 132 | **bb89ed9b9ecd** |
 | **sim-part-scene.js** | 215 | **ed4080b6d819** |
 | **sim-admin-thumbs.js** | 145 | **ce8e334924db** |
-| **sim-glb-idb-cache.js** | 172 | **8e310f55fe6e** |
-| **sim-catalog-glb.js** | 195 | **eeeba5ec559a** |
-| **sim-catalog-sync.js** | 313 | **aa6dc3aa58e9** |
+| **sim-glb-idb-cache.js** | 189 | **fa3299778830** |
+| **sim-catalog-glb.js** | 226 | **81f273555f0b** |
+| **sim-catalog-sync.js** | 335 | **cd34ab8df136** |
 | **sim-desk-items.js** | 166 | **84aeeb87dc04** |
 | **sim-bgm-diag.js** | 300 | **825e0d2cb561** |
 | **sim-blink-timing.js** | 112 | **f6dba2d5b8f2** |
-| **sim-desk-visual.js** | 248 | **dabd4a5d6ce7** |
+| **sim-desk-visual.js** | 248 | **a766b28ecaa0** |
 | **sim-desk-place.js** | 187 | **c9043f4d7b0d** |
 | **sim-toast.js** | 197 | **75e6ff6d2029** |
 | **sim-dot-render.js** | 235 | **4723acae1837** |

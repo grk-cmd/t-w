@@ -59,19 +59,21 @@
 ## catalog-glb.js — 🔗 카탈로그 GLB 해결(glbUrl → rec.glb)
 
 - **책임**: 카탈로그 인덱스엔 `glbUrl` 만 오는데 앱 곳곳은 `rec.glb`(base64)를 본다 — 쓰는 때에 채운다. 차례: 세션 메모리 → 영구 캐시(`shared/glb-idb-cache.js`) → 서버(`catalogApiMod.fetchGlb`).
+  영구 캐시 열쇠는 내용 해시(`sha256:` + `rec.modelHash`) — 주소가 바뀌어도 같은 파일은 다시 받지 않는다. 찾을 때 옛 판의 주소 열쇠(지금 `glbUrl` · 0.13 서버 endpoint `catalogApiMod.legacyGlbUrl(해시)`)도 보고, 찾으면 해시 열쇠로 옮겨 적는다.
 - **만드는 법**: `const catalogGlbMod = TwCatalogGlb.createCatalogGlb({ catalogApiMod, glbIdbMod });`
 - **내보내는 것**
   - `resolveCatalogGlb(rec)` → `Promise<b64 | null>` — 성공하면 `rec.glb` 도 채운다. `rec.glb` 가 이미 있으면 그것.
-  - `resolveCatalogGlbAll(catalogObj)` → 같은 객체 — 스냅샷 전부를 나란히 채우고 영구 캐시 치우기를 부른다.
+  - `resolveCatalogGlbCached(rec)` → 메모리 · 영구 캐시에서만(네트워크 없음).
+  - `resolveCatalogGlbAll(recs, cachedOnly)` → 새로 채운 수 — 스냅샷(객체 · 배열) 전부를 나란히 채우고 영구 캐시 치우기를 부른다. `cachedOnly` 면 서버로 안 나간다.
   - `glbFailWhy(url)` → 글 — 그 주소의 마지막 받기 실패 이유(`net-fail … Nms`(연결이 안 되거나 받는 도중 끊김 — 차단 · DNS · 연결) · `fail … 403 Nms`(응답 번호) · 실패한 적 없으면 빈 글). 책상 카드(만들기 E-CHAR-14 · 꾸미기 책상 탭 E-CHAR-13)가 진단 기록에 싣는다 — 주소 · 토큰은 담지 않는다.
   ```js
-  catalogApiMod.subscribe('parts', async obj => { await catalogGlbMod.resolveCatalogGlbAll(obj); merge(obj); });
+  catalogApiMod.subscribe('items', async obj => { await catalogGlbMod.resolveCatalogGlbAll(obj, true); merge(obj); });   // 첫 화면 전 — 캐시만
   ```
 - **확장할 때 고칠 자리**: 받는 길이 바뀌면 `catalog-api.js` 의 `fetchGlb` 쪽 — 이 모듈은 그대로.
 - **함정**
   - 메모리 · 영구 캐시에서 꺼낼 때도 `rec.glb` 를 채워야 한다 — 빠뜨리면 `rec.glb` 를 보는 곳이 «GLB를 불러올 수 없어요» 로 오탐한다.
   - 실패는 기억하지 않는다(다음에 다시 받는다 — `glbFailWhy` 는 이유만 적어 둘 뿐 막지 않고, 받으면 지운다) · 영구 캐시 넣기는 기다리지 않는다.
-  - 검사: `checks/sim-catalog-glb.js`(4절 — 차례 · 실패 · 다른 rec 채우기 · 스냅샷 전부).
+  - 검사: `checks/sim-catalog-glb.js`(4절 — 차례 · 실패 · 다른 rec 채우기 · 스냅샷 전부 · 캐시만 · 해시 열쇠 · 옛 주소 열쇠 옮기기).
 
 ## catalog-sync.js — 🔄 카탈로그 실시간 동기화
 

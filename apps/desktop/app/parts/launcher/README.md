@@ -212,7 +212,7 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 |---|---|
 | FIRST — 등록 뒤 곧바로(업데이트 확인을 기다리지 않는 읽기) | userLocal · catalog · closet |
 | READY — 업데이트 확인을 통과한 뒤 바로(요청 없음 · 구독만) | focusTotal · focusShare · pomodoro · gift · roomInvite · awayPic · desktopBg · licensePremium · adminMode |
-| LATER — 첫 화면 뒤 하나씩 | focusLevel · weeklyChal · mhInit · bugBadge · scheduler · invites · appVersion · firstRun · licenseAutoRegister |
+| LATER — 첫 화면 뒤 하나씩 | focusLevel · weeklyChal · mhInit · bugBadge · scheduler · invites · appVersion · firstRun · licenseAutoRegister · catalogGlb(카탈로그 GLB 다 받아 두기 · 맨 끝) |
 | OPEN — 그 창을 처음 열 때 | gacha(꾸미기 · 뽑기 창) · playlist(플레이리스트 창) · ddays(마이홈) |
 
 **내놓는 것** — `begin(me)`(보통은 nav 로 불린다) · `open(name)`(OPEN 칸만 — 아니면 던진다 · 두 번째부터 무시 · 업데이트 확인 전이면 통과한 뒤 시작) · `getSession()`.

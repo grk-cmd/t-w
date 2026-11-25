@@ -22,7 +22,7 @@ if (!MOD || !HTML || !APP) { say('  ? 원본 못 찾음 — app-boot.js · desk-
 /* 정본 차례 · 때 — app-boot.js STEPS 와 같아야 한다(바꾸려면 여기와 app-boot.js · app.js starts 를 같이) */
 const FIRST = ['userLocal', 'catalog', 'closet'];
 const READY = ['focusTotal', 'focusShare', 'pomodoro', 'gift', 'roomInvite', 'awayPic', 'desktopBg', 'licensePremium', 'adminMode'];
-const LATER = ['focusLevel', 'weeklyChal', 'mhInit', 'bugBadge', 'scheduler', 'invites', 'appVersion', 'firstRun', 'licenseAutoRegister'];
+const LATER = ['focusLevel', 'weeklyChal', 'mhInit', 'bugBadge', 'scheduler', 'invites', 'appVersion', 'firstRun', 'licenseAutoRegister', 'catalogGlb'];
 const OPEN = ['gacha', 'playlist', 'ddays'];
 const ORDER = [...FIRST, ...READY, ...LATER, ...OPEN];
 const TABLE = [...FIRST.map((n) => [n, 'first']), ...READY.map((n) => [n, 'ready']), ...LATER.map((n) => [n, 'later']), ...OPEN.map((n) => [n, 'open'])];

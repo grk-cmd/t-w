@@ -44,11 +44,12 @@ const STEPS = Object.freeze([
   ['appVersion', PHASE.LATER],       // 🔄 이 PC 앱 판을 서버에 알리기 — 더 새 판을 쓰는 기기가 있으면 업데이트 창(account/app-version-sync.js)
   ['firstRun', PHASE.LATER],         // 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기)
   ['licenseAutoRegister', PHASE.LATER],   // 🔑 계정 라이선스에 이 기기 자동 등록 — 첫 실행 뒤(0.12 키로 첫 실행이 등록했으면 건너뜀 · license-premium.js autoRegisterAfter)
+  ['catalogGlb', PHASE.LATER],       // 🧩 카탈로그 GLB 를 다 받아 두기(catalog-sync.js fillGlb) — 맨 끝(약 8MB · 입은 파츠 · 책상은 그릴 때 먼저 받는다)
   ['gacha', PHASE.OPEN],             // 🎰 가챠 보유분 서버 맞추기 — 꾸미기 · 뽑기 창을 처음 열 때
   ['playlist', PHASE.OPEN],          // 🎵 플레이리스트 받기 — 플레이리스트 창을 처음 열 때
   ['ddays', PHASE.OPEN],             // 📌 디데이 보드 받기 — 마이홈을 처음 열 때
 ]);
-const LATER_GAP_MS = 120;            // LATER 칸 사이 — 9칸이 약 1초에 걸쳐 나간다
+const LATER_GAP_MS = 120;            // LATER 칸 사이 — 10칸이 약 1초에 걸쳐 나간다
 const PAINT_WAIT_MAX_MS = 3000;      // 첫 화면을 이보다 오래 못 그리면(캐릭터 그림이 느림) LATER 를 그냥 시작한다
 const CONNECTING_TOAST_MS = 2000;    // LATER 읽기가 이때까지 안 끝나면 «접속 중…» 을 띄운다(끝나면 내린다)
 const CONNECTING_TEXT = '접속 중…';
