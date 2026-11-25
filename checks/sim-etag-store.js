@@ -46,6 +46,14 @@ async function judge(src){
   const K = mkIDB({ blocked: true }); const KB = load(src, { indexedDB: K.idb });
   const k1 = await KB.load('a'); await KB.save('a', '"e"', 1); await flush(); const k2 = await KB.load('a');
   t(k1 === null && K.st.opens === 2 && k2 && k2.etag === '"e"', '열기가 막히면(onblocked) 이번엔 null · 다음 부름에 다시 연다');
+  const H = mkIDB({ hang: true }); const HS = load(src, { indexedDB: H.idb, openMs: 40 });
+  const keep = setTimeout(() => {}, 2000);   // AbortSignal.timeout 타이머는 Node 에서 프로세스를 붙잡지 않는다 — 기다리는 동안 붙잡아 둔다
+  const t0 = Date.now(); const h1 = await HS.load('a'); const hms = Date.now() - t0; await HS.load('a');
+  clearTimeout(keep);
+  t(h1 === null && hms >= 30 && hms < 500 && H.st.opens === 2, '열기가 끝나지 않으면 상한(openMs)쯤 null · 다음 부름에 다시 연다 (' + hms + 'ms · 열기 ' + H.st.opens + '번)');
+  const FL = mkIDB({ fail: true }); const FS = load(src, { indexedDB: FL.idb });
+  await FS.load('a'); await FS.load('a');
+  t(FL.st.opens === 2, '  열기가 실패해도 다음 부름에 다시 연다');
   const B = mkIDB(); const E = load(src, { indexedDB: B.idb });
   await E.save('a', '', 1); await flush();
   t(await E.load('a') === null, '빈 ETag 로 남은 줄은 없는 것으로 본다');
@@ -60,11 +68,13 @@ async function judge(src){
   for(const [name, from, to] of [
     ['상한을 안 지킴', 'for(let i = 0; i < rows.length - MAX; i++)', 'for(let i = 0; i < 0; i++)'],
     ['지우기가 안 지움', 'const rq = st.clear();', 'const rq = st.getAll();'],
+    ['열기 상한이 없음', "        try{ AbortSignal.timeout(openMs).addEventListener('abort', fail, { once: true }); }catch(_){}", ""],
+    ['실패해도 다시 안 엶', "        rq.onerror = fail;", "        rq.onerror = () => res(null);"],
     ['막혀도 다시 안 엶', "        rq.onblocked = fail;", "        rq.onblocked = () => res(null);"],
     ['빈 ETag 도 돌려줌', "v && typeof v.etag === 'string' && v.etag ?", 'v ?'],
   ]){
     const m2 = SRC.replace(from, to);
-    let red = false; if(m2 !== SRC){ try{ red = (await judge(m2)).some(([ok]) => !ok); }catch(_){ red = true; } }
+    let red = false; if(m2 !== SRC){ try{ red = await Promise.race([judge(m2).then((rows) => rows.some(([ok]) => !ok)), new Promise((r) => setTimeout(() => r(true), 3000))]); }catch(_){ red = true; } }   // 멈추면(열기 상한 없음) 빨강
     chk(m2 !== SRC && red, name);
   }
   say('\n' + pass + ' · ' + fail);

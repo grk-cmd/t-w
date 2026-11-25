@@ -656,15 +656,36 @@ async function gateCases(M){
     const race = async (src) => {
       const d2 = new Map(); const st = { load: async () => null, save: (k, e, v) => d2.set(k, v), clear: () => d2.clear() };
       let release; const M = mkM(src);
-      const f = mkFetch(() => new Promise((r) => { release = () => r(res(200, { success: true, data: { who: 'u1' } }, { ETag: '"late"' })); }));
+      let n = 0;
+      const f = mkFetch(() => (++n === 1 ? new Promise((r) => { release = () => r(res(200, { success: true, data: { who: 'u1' } }, { ETag: '"late"' })); }) : res(200, { success: true, data: 2 })));
       const c = M.createApiClient({ baseUrl: PROD, fetch: f, getToken: async () => jwt('u1'), backoffMs: 0, timeoutMs: 3000, persist: { store: st, paths: ['/v2/me/avatars'] } });
       const p = c.get('/v2/me/avatars', { auth: true });
       for(let i = 0; i < 50 && !release; i++) await new Promise((r) => setTimeout(r, 10));
       c.forgetSession(); release(); await p;
-      return { disk: d2.size };
+      await c.get('/v2/me/avatars', { auth: true }).catch(() => null);
+      const inm2 = f.calls[1] && f.calls[1].init.headers['If-None-Match'];
+      return { disk: d2.size, inm2 };
     };
     const rr = await race(SRC);
-    chk(rr.disk === 0, '★ 계정을 놓은 뒤 늦게 온 앞 계정의 200 + ETag 는 디스크에 다시 적지 않는다');
+    chk(rr.disk === 0 && rr.inm2 !== '"late"', '★ 계정을 놓은 뒤 늦게 온 앞 계정의 200 + ETag 는 디스크에도 메모리에도 안 적는다 — 다음 읽기에 If-None-Match "late" 없음');
+    const memOnly = SRC.replace("    if(memoKey && typeof etag === 'string' && etag && gen0 === sessionGen) remember(memoKey, etag, data, path);", "    if(memoKey && typeof etag === 'string' && etag){ if(gen0 === sessionGen) remember(memoKey, etag, data, path); else etags.set(memoKey, { etag, data }); }");
+    const rm = await race(memOnly);
+    chk(memOnly !== SRC && rm.inm2 === '"late"', '  mutation test — 메모리 쓰기만 세대를 안 보면 다음 읽기에 "late" 가 실린다(빨강)');
+    /* 읽는 쪽 — 기억 읽기를 기다리는 사이 계정을 놓으면 읽어 온 ETag 를 쓰지 않는다 */
+    const readRace = async (src) => {
+      let rel; const st = { load: () => new Promise((r) => { rel = () => r({ etag: '"old"', data: { who: 'u1' } }); }), save(){}, clear(){} };
+      const M = mkM(src); const f = mkFetch(() => res(200, { success: true, data: 1 }));
+      const c = M.createApiClient({ baseUrl: PROD, fetch: f, getToken: async () => jwt('u1'), backoffMs: 0, timeoutMs: 3000, persist: { store: st, paths: ['/v2/me/avatars'] } });
+      const p = c.get('/v2/me/avatars', { auth: true });
+      for(let i = 0; i < 50 && !rel; i++) await new Promise((r) => setTimeout(r, 5));
+      c.forgetSession(); rel(); await p.catch(() => null);
+      await c.get('/v2/me/avatars', { auth: true }).catch(() => null);
+      return f.calls.map((x) => x.init.headers['If-None-Match'] || '');
+    };
+    const rd = await readRace(SRC);
+    chk(rd.length === 2 && rd.every((x) => x !== '"old"'), '★ 기억 읽기를 기다리는 사이 계정을 놓으면 읽어 온 ETag 를 싣지도 기억하지도 않는다');
+    const rdm = await readRace(SRC.replace("if(m && typeof m.etag === 'string' && m.etag && gen0 === sessionGen){", "if(m && typeof m.etag === 'string' && m.etag){"));
+    chk(rdm.includes('"old"'), '  mutation test — 읽는 쪽 세대 확인을 빼면 "old" 가 실린다(빨강)');
     const rb2 = await race(SRC.replace("    if(memoKey && typeof etag === 'string' && etag && gen0 === sessionGen) remember", "    if(memoKey && typeof etag === 'string' && etag) remember"));
     chk(rb2.disk === 1, '  mutation test — 세대를 안 보면 앞 계정 줄이 디스크에 되살아난다(빨강)');
     chk(JSON.stringify(A.PERSIST_PUBLIC) === JSON.stringify(['/v2/config', '/v2/notices']) && JSON.stringify(A.PERSIST_AUTHED) === JSON.stringify(['/v2/catalog', '/v2/me/avatars', '/v2/me/collection', '/v2/me/focus', '/v2/me/friends', '/v2/me/playlist']),

@@ -4,7 +4,7 @@
    [무엇을] 서버가 «안 바뀜(304)» 이라고 답할 때만 이 값을 쓴다 — 서버에 묻기 전에 이 값으로 화면을 그리지 않는다(값의 주인은 서버).
      열쇠는 api-client 의 ETag 열쇠 그대로(«누구(토큰 sub) + 경로») — 다른 계정의 값을 돌려주지 않는다. 계정을 놓으면 통째로 지운다(clear).
    [못 쓰면] IndexedDB 가 없거나 막히면(열기 실패 · onblocked · OPEN_MS 넘김) load 는 null · save · clear 는 조용히 — 그때는 예전처럼 메모리 기억만. 못 연 뒤에는 다음 부름에 다시 연다.
-   deps: indexedDB(없으면 window 것) · now()(검사용)
+   deps: indexedDB(없으면 window 것) · now() · openMs(검사용)
    내놓는 것: load(key) → Promise<{ etag, data } | null> · save(key, etag, data) · clear() · MAX(줄 수 상한 — 넘으면 오래된 것부터 지운다)
    classic script(window.TwEtagStore) — api-client.js 보다 먼저 싣는다. 도메인을 모른다. */
 (function(){
@@ -14,11 +14,12 @@ const DB_NAME = 'tw-etag-cache', STORE = 'etag';
 const MAX = 64;   // api-client ETAG_MAX 와 같은 크기 — 켤 때 읽는 길은 열 개 남짓
 const OPEN_MS = 1000;   // DB 열기 상한 — 넘거나 막히면(onblocked) 이번엔 없는 것으로 보고 다음 부름에 다시 연다
 
-/** @param {{ indexedDB?: IDBFactory, now?: () => number }} [deps] */
+/** @param {{ indexedDB?: IDBFactory, now?: () => number, openMs?: number }} [deps] */
 function createEtagStore(deps){
   const d = deps || {};
   const idb = d.indexedDB || (typeof window !== 'undefined' ? window.indexedDB : null);
   const now = d.now || (() => Date.now());
+  const openMs = d.openMs || OPEN_MS;   // 검사가 줄여 쓴다
   let dbP = null;
   function db(){
     if(dbP) return dbP;
@@ -30,10 +31,10 @@ function createEtagStore(deps){
         if(!idb) return ok(null);
         const rq = idb.open(DB_NAME, 1);
         rq.onupgradeneeded = () => { try{ rq.result.createObjectStore(STORE, { keyPath: 'k' }); }catch(_){} };
-        rq.onsuccess = () => ok(rq.result);
+        rq.onsuccess = () => { if(done){ try{ rq.result.close(); }catch(_){} return; } ok(rq.result); };   // 상한 뒤 늦게 열린 연결은 닫는다(다음 부름이 새로 연다)
         rq.onerror = fail;
         rq.onblocked = fail;
-        try{ AbortSignal.timeout(OPEN_MS).addEventListener('abort', fail, { once: true }); }catch(_){}
+        try{ AbortSignal.timeout(openMs).addEventListener('abort', fail, { once: true }); }catch(_){}
       }catch(_){ fail(); }
     });
     return dbP;
