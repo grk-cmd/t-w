@@ -59,8 +59,11 @@ function fake(routes, who){
 function mk(src, routes, extra){
   const ups = [];   // Storage 바로 올리기로 나간 그림({ kind, img }) — shared/own-image.js 모양의 가짜. routes.OWN 이 Error 면 던진다
   const own = (routes || {}).OWN;
-  const ownImage = { upload: async (kind, img) => { ups.push({ kind, img }); if(own instanceof Error) throw own; return own === undefined ? 'https://storage.example/users/me/dday_x.jpg' : own; } };
   const authed = fake(Object.assign({}, routes), extra && extra.who), warns = [];
+  // 진짜 own-image 처럼 읽은 토큰 주인(expectOwner)이 지금 로그인과 다르면 올리지 않고 OWNER_CHANGED
+  const ownImage = { upload: async (kind, img, opts) => {
+    if(opts && opts.expectOwner && opts.expectOwner !== authed.state.who) throw Object.assign(new Error('owner'), { code: 'OWNER_CHANGED' });
+    ups.push({ kind, img, opts }); if(own instanceof Error) throw own; return own === undefined ? 'https://storage.example/users/me/dday_x.jpg' : own; } };
   let n = 0;
   const m = load(src).createScheduleApi({
     authed, newId: () => 'req-' + (++n) + '-abcdefgh', imageBytes: imgMod(), ownImage,
@@ -245,8 +248,8 @@ say('── 5. 카드 그림');
   board[U3].bgImg = 'data:image/jpeg;base64,BBBB';   // 배너에는 그림이 없다 — 올리지도 보내지도 않는다
   await m.saveBoard('me1', board, null);
   const put = authed.log.find((x) => x.method === 'PUT');
-  chk(ups.length === 1 && ups[0].kind === 'dday' && ups[0].img.bytes instanceof Uint8Array && ups[0].img.bytes.length === 3 && ups[0].img.type === 'image/jpeg' && !authed.log.some((x) => x.method === 'POST'),
-    '새로 고른 그림(data:)만 올린다 — Storage 내 폴더(own-image dday) · 바이트 그대로 · 형식 그대로 · 서버 POST 0 · 이미 주소인 것 · 배너 것은 올리지 않는다');
+  chk(ups.length === 1 && ups[0].kind === 'dday' && ups[0].img.bytes instanceof Uint8Array && ups[0].img.bytes.length === 3 && ups[0].img.type === 'image/jpeg' && ups[0].opts.expectOwner === 'tokenA' && !authed.log.some((x) => x.method === 'POST'),
+    '새로 고른 그림(data:)만 올린다 — Storage 내 폴더(own-image dday) · 바이트 그대로 · 형식 그대로 · 읽은 토큰 주인(expectOwner) · 서버 POST 0 · 이미 주소인 것 · 배너 것은 올리지 않는다');
   chk(put.body.cards[0].bgImage === 'https://storage.example/users/me/dday_x.jpg' && put.body.cards[1].bgImage === 'https://storage.example/old.jpg' && !('bgImage' in put.body.banners[0]), '  저장 본문엔 data: 대신 올린 주소 · 있던 주소는 그대로');
   chk(board[U1].bgImg.startsWith('data:'), '  부른 쪽 값은 건드리지 않는다');
   chk(authed.log.every((x) => x.path.startsWith('/v2/')), '  서버 요청은 모두 /v2 — 그림은 own-image 로만');
@@ -269,7 +272,7 @@ say('── 5. 카드 그림');
     const b3 = await f.m.fetchBoard('me1'); b3[U1].bgImg = 'data:image/jpeg;base64,AAAA';
     f.authed.state.who = 'tokenB';
     const e = await rej(f.m.saveBoard('me1', b3, null));
-    chk(e && e.code === 'OWNER_CHANGED' && noPut(f), '계정이 바뀌면 OWNER_CHANGED(조용히 버릴 신호) · 보드는 요청 0(그림은 Storage 규칙이 경로의 코드로 막는다)');
+    chk(e && e.code === 'OWNER_CHANGED' && f.ups.length === 0 && noPut(f), '계정이 바뀌면 OWNER_CHANGED(조용히 버릴 신호) · 그림도 보드도 요청 0');
   }
 }
 
@@ -381,7 +384,13 @@ say('── 8. mutation test (빨강이 나야 한다)');
     const { f } = await upOne(src, bigUrl);
     chk(f.ups.length === 0, 'x');
   });
-  await broken('카드 그림을 다른 쓰임으로 올린다', (x) => x.replace("ownImage.upload('dday', img)", "ownImage.upload('myhome', img)"), async (src) => {
+  await broken('그림 올릴 때 토큰 주인을 묶지 않는다', (x) => x.replace("ownImage.upload('dday', img, { expectOwner: owner })", "ownImage.upload('dday', img)"), async (src) => {
+    const f = mk(src, { 'GET /v2/me/ddays': BOARD(), 'PUT /v2/me/ddays': BOARD() });
+    const b = await f.m.fetchBoard('me1'); b[U1].bgImg = 'data:image/jpeg;base64,AAAA'; f.authed.state.who = 'tokenB';
+    await rej(f.m.saveBoard('me1', b, null));
+    chk(f.ups.length === 0, 'x');
+  });
+  await broken('카드 그림을 다른 쓰임으로 올린다', (x) => x.replace("ownImage.upload('dday', img, ", "ownImage.upload('myhome', img, "), async (src) => {
     const { f } = await upOne(src, 'data:image/jpeg;base64,AAAA');
     chk(f.ups.length === 1 && f.ups[0].kind === 'dday', 'x');
   });

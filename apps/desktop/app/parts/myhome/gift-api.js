@@ -180,7 +180,7 @@ function createGiftApi(deps){
   async function uploadImage(dataUrl){
     const img = imageBytes.inspect(dataUrl, { types: IMAGE_TYPES, maxBytes: LIMITS.IMAGE_BYTES });
     if(!img.ok) throw codeError(IMAGE_UPLOAD_CODE, '말랑이 그림을 올리지 못했어요');
-    return write('그림 올리기', () => ownImage.upload('mallang', img));
+    return write('그림 올리기', (o) => ownImage.upload('mallang', img, o));
   }
 
   return {

@@ -52,7 +52,7 @@ function fake(routes, who){
 /* 가짜 Storage 바로 올리기(shared/own-image.js 모양) — routes.OWN 이 답(Error 면 던진다) */
 const fakeOwn = (routes) => {
   const ups = [];
-  return { ups, upload: async (kind, img) => { ups.push({ kind, img }); const v = routes.OWN; if(v instanceof Error) throw v; return v; } };
+  return { ups, upload: async (kind, img, opts) => { ups.push({ kind, img, opts }); const v = routes.OWN; if(v instanceof Error) throw v; return v; } };
 };
 const mk = (src, routes, who) => {
   const authed = fake(routes, who), warns = [], ownImage = fakeOwn(routes || {});
@@ -154,7 +154,10 @@ async function judge(S){
     chk((await im.m.uploadImage('ME01', PNG)).status === 'stale' && im.ownImage.ups.length === 0, '박수 그림 — 읽은 적 없는 계정은 올리지 않는다');
     await im.m.fetchView('ME01', 'uOWN00001'); im.authed.log.length = 0;
     const up = await im.m.uploadImage('ME01', PNG); const ur = im.ownImage.ups[0];
-    chk(up.status === 'ok' && /^https:\/\/firebasestorage/.test(up.url) && ur.kind === 'clap' && ur.img.type === 'image/png' && im.authed.log.length === 0, '  Storage 내 폴더에 바로(own-image clap) · 형식 그대로 → url · 서버 요청 0');
+    chk(up.status === 'ok' && /^https:\/\/firebasestorage/.test(up.url) && ur.kind === 'clap' && ur.img.type === 'image/png' && ur.opts && ur.opts.expectOwner === 'ME01' && im.authed.log.length === 0, '  Storage 내 폴더에 바로(own-image clap) · 형식 그대로 · 읽은 토큰 주인(expectOwner) → url · 서버 요청 0');
+    const oc = mk(LIB, { 'GET /v2/guestbooks/uOWN00001': bookOf(), OWN: Object.assign(new Error('o'), { code: 'OWNER_CHANGED' }) });
+    await oc.m.fetchView('ME01', 'uOWN00001');
+    chk((await oc.m.uploadImage('ME01', PNG)).status === 'stale', '  계정이 바뀌어 OWNER_CHANGED 면 stale(조용히 버림)');
     chk(ur.img.bytes instanceof Uint8Array && ur.img.bytes.length === 7 && ur.img.bytes[0] === 137, '  올리는 것은 파일 바이트 그대로(base64 아님)');
     im.ownImage.ups.length = 0;
     const big = 'data:image/png;base64,' + Buffer.alloc(512 * 1024 + 1).toString('base64');
@@ -229,7 +232,7 @@ async function runAll(){
     ['지움(null)을 칸 없음으로', S.API.replace("body.clapEmoji = patch.clapEmoji;", "if(patch.clapEmoji != null) body.clapEmoji = patch.clapEmoji;"), '«지움»'],
     ['박수 경로 틀림', S.API.replace("'/claps'", "'/clap'"), '박수'],
     ['그림 용량 상한을 안 봄', S.IMG.replace('img.bytes.length > o.maxBytes', 'false'), '512KB', 'IMG'],
-    ['그림 쓰임이 틀림', S.API.replace("ownImage.upload('clap', img)", "ownImage.upload('dday', img)"), 'clap'],
+    ['그림 쓰임이 틀림', S.API.replace("ownImage.upload('clap', img, o)", "ownImage.upload('dday', img, o)"), 'clap'],
     ['새 글 수 since 를 안 보냄', S.API.replace("'/v2/me/guestbook/summary?since=' + enc(String(since))", "'/v2/me/guestbook/summary'"), 'since'],
   ];
   for(const [name, src, what, key = 'API'] of breaks){

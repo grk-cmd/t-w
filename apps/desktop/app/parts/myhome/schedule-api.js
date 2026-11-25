@@ -218,20 +218,20 @@ function createScheduleApi(deps){
   }
 
   /* 그림 한 장 올리기 → 주소. 형식 · 1MB 를 넘으면 요청 없이 IMAGE_UPLOAD. Storage 가 거절하거나 닿지 못해도 IMAGE_UPLOAD(own-image.js).
-     계정이 바뀌었으면 Storage 규칙이 거절한다(경로의 코드 ≠ 이 로그인) — 보드는 그 뒤 PUT 의 expectOwner 가 막는다 */
-  async function uploadImage(dataUrl){
+     계정이 바뀐 것(OWNER_CHANGED — 읽은 토큰 주인과 지금 로그인이 다름 · 요청 0)은 그대로 던진다 */
+  async function uploadImage(dataUrl, owner){
     const img = imageBytes.inspect(dataUrl, { types: IMAGE_TYPES, maxBytes: LIMITS.IMAGE_BYTES });
     if(!img.ok) throw codeError(IMAGE_UPLOAD_CODE, '카드 그림을 올리지 못했어요');
-    return ownImage.upload('dday', img);
+    return ownImage.upload('dday', img, { expectOwner: owner });
   }
 
   /* 새로 고른 그림(data:)만 올려 주소로 바꾼 사본 — 하나라도 못 올리면 던진다(보드를 보내지 않는다) */
-  async function withUploadedImages(ddays){
+  async function withUploadedImages(ddays, owner){
     const out = {};
     for(const id of Object.keys(ddays)){
       const d = Object.assign({}, ddays[id]);
       if(d.kind !== KIND.BANNER && typeof d.bgImg === 'string' && d.bgImg.startsWith('data:')){
-        try{ d.bgImg = await uploadImage(d.bgImg); }
+        try{ d.bgImg = await uploadImage(d.bgImg, owner); }
         catch(e){ warn('[일정] 카드 그림 올리기 실패', (e && (e.code || e.message)) || e); throw e; }
       }
       out[id] = d;
@@ -245,7 +245,7 @@ function createScheduleApi(deps){
     const read = readOf(uid);
     if(read.v === undefined) throw codeError(NOT_RECEIVED_CODE, '받기 전에는 쓰지 않아요');
     try{
-      const ready = await withUploadedImages(ddays);
+      const ready = await withUploadedImages(ddays, read.owner);
       const out = boardOf(await authed.put(PATHS.board, boardBody(read.v, ready, tag), { expectOwner: read.owner }));
       if(!out) throw shapeError();
       reads.set(uid, { owner: read.owner, v: out.version });

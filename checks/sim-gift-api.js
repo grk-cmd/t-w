@@ -58,7 +58,7 @@ function fake(routes){
 /* 가짜 Storage 바로 올리기(shared/own-image.js 모양) — routes.OWN 이 답(Error 면 던진다) */
 const fakeOwn = (routes) => {
   const ups = [];
-  return { ups, upload: async (kind, img) => { ups.push({ kind, img }); const v = routes.OWN; if(v instanceof Error) throw v; return v; } };
+  return { ups, upload: async (kind, img, opts) => { ups.push({ kind, img, opts }); const v = routes.OWN; if(v instanceof Error) throw v; return v; } };
 };
 const mk = (src, routes) => {
   const authed = fake(Object.assign(ME_ROUTES(), routes || {})), warns = [], ownImage = fakeOwn(routes || {});
@@ -124,8 +124,8 @@ async function judge(S){
     await up.m.fetchMine();
     const url = await up.m.uploadImage(png(10));
     const p = up.ownImage.ups[0];
-    chk(url === 'https://s/mallang_1.png' && p.kind === 'mallang' && p.img.type === 'image/png' && p.img.bytes instanceof Uint8Array && p.img.bytes.length === 10 && !up.authed.log.some((x) => x.method === 'POST'),
-      '  Storage 내 폴더에 바로(own-image mallang) · 바이트 그대로 · png → 주소 · 서버 POST 0');
+    chk(url === 'https://s/mallang_1.png' && p.kind === 'mallang' && p.img.type === 'image/png' && p.img.bytes instanceof Uint8Array && p.img.bytes.length === 10 && p.opts && p.opts.expectOwner === 'ME' && !up.authed.log.some((x) => x.method === 'POST'),
+      '  Storage 내 폴더에 바로(own-image mallang) · 바이트 그대로 · png · 읽은 토큰 주인(expectOwner) → 주소 · 서버 POST 0');
     const before = up.ownImage.ups.length;
     for(const [what, u] of [['jpeg', 'data:image/jpeg;base64,AAAA'], ['1MB 초과', png(1024 * 1024 + 1)], ['빈 그림', 'data:image/png;base64,'], ['data: 아님', 'https://x/y.png']]){
       const e = await throws(() => up.m.uploadImage(u));
@@ -317,7 +317,7 @@ async function runAll(){
     ['닿지 못함을 공통 번호로', S.API.replace("else kind = KIND.SITE;", "else kind = KIND.COMMON;"), 'site'],
     ['그림 크기를 안 거름', S.IMG.replace("img.bytes.length > o.maxBytes", "false"), '1MB', 'IMG'],
     ['jpeg 도 받음', S.API.replace("const IMAGE_TYPES = Object.freeze(['image/png', 'image/webp']);", "const IMAGE_TYPES = Object.freeze(['image/png', 'image/webp', 'image/jpeg']);"), 'jpeg'],
-    ['올리기 쓰임 틀림', S.API.replace("ownImage.upload('mallang', img)", "ownImage.upload('dday', img)"), 'mallang'],
+    ['올리기 쓰임 틀림', S.API.replace("ownImage.upload('mallang', img, o)", "ownImage.upload('dday', img, o)"), 'mallang'],
   ];
   for(const [name, src, what, key = 'API'] of breaks){
     if(src === S[key]){ chk(false, name + ' — 바꿀 글을 못 찾음'); continue; }

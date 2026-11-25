@@ -48,7 +48,8 @@ async function judge(S){
   const realLater = (fn, ms) => { const h = setTimeout(fn, ms); return () => clearTimeout(h); };
   const okPut = (p, b, t) => { puts.push({ p, b, t }); return { done: Promise.resolve('https://firebasestorage.googleapis.com/v0/b/x/o/' + encodeURIComponent(p) + '?alt=media&token=t'), cancel: () => {} }; };
   const failPut = (e) => () => ({ done: Promise.reject(e), cancel: () => {} });
-  const mk = (o) => M.createOwnImage(Object.assign({ myCode: () => 'uabc12345', newId: () => 'n-1', put: okPut, later: realLater }, o || {}));
+  let curOwner = 'UID-A';
+  const mk = (o) => M.createOwnImage(Object.assign({ myCode: () => 'uabc12345', newId: () => 'n-1', put: okPut, later: realLater, owner: () => curOwner }, o || {}));
   const bytes = new Uint8Array([137, 80, 78, 71]);
   const url = await mk().upload('mallang', { type: 'image/png', bytes });
   chk(puts.length === 1 && puts[0].p === 'users/uabc12345/mallang_n-1.png' && puts[0].b === bytes && puts[0].t === 'image/png' && /mallang_n-1\.png/.test(url), '내 코드 · 새 id · 바이트 그대로 · 형식 그대로 put → 다운로드 주소');
@@ -63,6 +64,17 @@ async function judge(S){
   chk(badKind && badKind.code === 'IMAGE_UPLOAD' && puts.length === 0, '모르는 쓰임 · 형식은 IMAGE_UPLOAD · put 0');
   const denied = await rej(mk({ put: failPut(Object.assign(new Error('403'), { code: 'storage/unauthorized' })) }).upload('clap', { type: 'image/png', bytes }));
   chk(denied && denied.code === 'IMAGE_UPLOAD' && denied.cause && denied.cause.code === 'storage/unauthorized', 'Storage 거절은 IMAGE_UPLOAD(원인은 cause 에)');
+  {   // 앞 계정 화면에서 고른 그림 — 경로의 코드는 지금 계정 것이라 규칙이 못 막는다. 읽은 토큰 주인과 견준다
+    const n0 = puts.length;
+    chk(!!(await mk().upload('myhome', { type: 'image/png', bytes }, { expectOwner: 'UID-A' })) && puts.length === n0 + 1, '읽은 토큰 주인 = 지금 로그인 → 올린다');
+    curOwner = 'UID-B';
+    const oc = await rej(mk().upload('myhome', { type: 'image/png', bytes }, { expectOwner: 'UID-A' }));
+    chk(oc && oc.code === 'OWNER_CHANGED' && puts.length === n0 + 1, '계정이 바뀌었으면 OWNER_CHANGED · put 0(새 계정 폴더로 가지 않는다)');
+    curOwner = null;
+    const out = await rej(mk().upload('myhome', { type: 'image/png', bytes }, { expectOwner: 'UID-A' }));
+    chk(out && out.code === 'OWNER_CHANGED' && puts.length === n0 + 1, '  로그아웃(지금 로그인 없음)도 OWNER_CHANGED · put 0');
+    curOwner = 'UID-A';
+  }
   const empty = await rej(mk({ put: () => ({ done: Promise.resolve(''), cancel: () => {} }) }).upload('dday', { type: 'image/png', bytes }));
   chk(empty && empty.code === 'IMAGE_UPLOAD', '빈 주소도 IMAGE_UPLOAD');
   {   // 망이 끊겨 put 이 끝나지 않는다 — 시계를 바꿔 끼워 상한에서 끊기는지 본다
@@ -90,10 +102,11 @@ async function judge(S){
   chk(/PRELOAD\.push\([^)]*'own-image\.js'/.test(S.SMOKE), 'smoke PRELOAD 에 있다');
   for(const [k, kind] of [['MH', 'myhome'], ['GIFT', 'mallang'], ['SCH', 'dday'], ['GB', 'clap']]){
     const src = strip(S[k]);
-    chk(!/\/v2\/me\/images/.test(src) && src.indexOf("ownImage.upload('" + kind + "', img)") >= 0, k + ' — 서버 그림 endpoint 를 안 부르고 own-image 의 ' + kind + ' 로 올린다');
+    const call = new RegExp("ownImage\\.upload\\('" + kind + "', img, (o|\\{ expectOwner: owner \\})\\)");
+    chk(!/\/v2\/me\/images/.test(src) && call.test(src), k + ' — 서버 그림 endpoint 를 안 부르고 own-image 의 ' + kind + ' 로 · 읽은 토큰 주인을 실어 올린다');
   }
   const app = strip(S.APP);
-  chk(/const ownImageMod = TwOwnImage\.createOwnImage\(\{ myCode: \(\)=>getMyUserId\(\)/.test(app) && /later: \(fn, ms\)=>\{ const t = setTimeout\(fn, ms\); return \(\)=>clearTimeout\(t\); \}/.test(app) && (app.match(/ownImage: ownImageMod/g) || []).length === 5, 'app.js 가 내 코드 · 시계로 만들어 다섯 provider 에 넘긴다');
+  chk(/const ownImageMod = TwOwnImage\.createOwnImage\(\{ myCode: \(\)=>getMyUserId\(\)/.test(app) && /owner: \(\)=>firebaseAPI\.authCurrentUid\(\) \}\);/.test(app) && /later: \(fn, ms\)=>\{ const t = setTimeout\(fn, ms\); return \(\)=>clearTimeout\(t\); \}/.test(app) && (app.match(/ownImage: ownImageMod/g) || []).length === 5, 'app.js 가 내 코드 · 시계로 만들어 다섯 provider 에 넘긴다');
   chk(/putOwnFile\(path, bytes, contentType\)\{\s*const r = sref\(storage, path\);\s*const task = uploadBytesResumable\(r, bytes, \{ cacheControl: STORAGE_CACHE, contentType \}\);\s*return \{ done: task\.then\(\(\) => getDownloadURL\(r\)\), cancel: \(\) => task\.cancel\(\) \};/.test(S.FI),
     'firebase-init putOwnFile — 그 경로(빈 uid 안전망 sref)에 resumable 로 올리고 { done(주소까지), cancel } 을 돌려준다');
   chk(!/maxUploadRetryTime|maxOperationRetryTime/.test(strip(S.FI)), '  공용 Storage 다시 하기 시간은 안 바꾼다(방 얼굴 · GLB 도 쓴다)');
@@ -111,6 +124,7 @@ async function runAll(){
     ['시간 상한을 안 검', SRC0.OWN.replace("const job = put(path, bytes, type);", "const job = put(path, bytes, type); return job.done;"), '10초'],
     ['끊을 때 cancel 을 안 부름', SRC0.OWN.replace("try{ job.cancel(); }catch(_){}", ''), 'cancel'],
     ['상한을 늘림', SRC0.OWN.replace('const TIMEOUT_MS = 10000;', 'const TIMEOUT_MS = 600000;'), '10초'],
+    ['계정이 바뀌어도 올림', SRC0.OWN.replace("if(expectOwner && owner() !== expectOwner) throw codeError('OWNER_CHANGED', '로그인한 사람이 바뀌어 올리지 않았어요');", ''), 'OWNER_CHANGED'],
     ['코드 없을 때도 올림', SRC0.OWN.replace("if(!code) throw codeError('NO_USER', '내 코드가 없어 그림을 올릴 수 없어요');", ''), 'NO_USER'],
   ];
   for(const [name, src, what] of breaks){

@@ -133,7 +133,7 @@ function createGuestbookApi(deps){
     async uploadImage(uid, dataUrl){
       const img = imageBytes.inspect(dataUrl, { types: IMAGE_TYPES, maxBytes: LIMITS.IMAGE_BYTES });
       if(!img.ok) return { status: 'failed', err: localError(img.why === 'large' ? TOO_LARGE_CODE : IMAGE_INVALID_CODE) };
-      const r = await write(uid, '박수 그림 올리기', () => ownImage.upload('clap', img));
+      const r = await write(uid, '박수 그림 올리기', (o) => ownImage.upload('clap', img, o));
       return r.status === 'ok' ? { status: 'ok', url: r.data } : r;
     },
     async changeLook(uid, version, patch){

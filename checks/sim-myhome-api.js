@@ -41,7 +41,7 @@ function fake(routes){
 /* 가짜 Storage 바로 올리기(shared/own-image.js 모양) — routes.OWN 이 답(함수면 불러서 · Error 면 던진다) */
 const fakeOwn = (routes) => {
   const ups = [];
-  return { ups, upload: async (kind, img) => { ups.push({ kind, img }); const r = routes.OWN; const v = typeof r === 'function' ? r(kind, img) : r; if(v instanceof Error) throw v; return v; } };
+  return { ups, upload: async (kind, img, opts) => { ups.push({ kind, img, opts }); const r = routes.OWN; const v = typeof r === 'function' ? r(kind, img) : r; if(v instanceof Error) throw v; return v; } };
 };
 const mk = (S, routes) => {
   const authed = fake(routes || {}), warns = [], ownImage = fakeOwn(routes || {});
@@ -153,8 +153,10 @@ async function judge(S){
     await up.m.fetchMine(); up.authed.log.length = 0;
     const url = await up.m.uploadImage(png(10));
     const p = up.ownImage.ups[0];
-    chk(url === 'https://s/mh_1.png' && p.kind === 'myhome' && p.img.type === 'image/png' && p.img.bytes instanceof Uint8Array && p.img.bytes.length === 10 && up.authed.log.length === 0,
-      'Storage 내 폴더에 바로(own-image myhome) · 바이트 그대로 · png → 주소 · 서버 요청 0(POST /v2/me/images 안 씀)');
+    chk(url === 'https://s/mh_1.png' && p.kind === 'myhome' && p.img.type === 'image/png' && p.img.bytes instanceof Uint8Array && p.img.bytes.length === 10 && p.opts && p.opts.expectOwner === 'ME' && up.authed.log.length === 0,
+      'Storage 내 폴더에 바로(own-image myhome) · 바이트 그대로 · png · 읽은 토큰 주인(expectOwner) → 주소 · 서버 요청 0(POST /v2/me/images 안 씀)');
+    const oc = mk(S, Object.assign({ OWN: Object.assign(new Error('o'), { code: 'OWNER_CHANGED' }) }, ME)); await oc.m.fetchMine();
+    chk((await throws(() => oc.m.uploadImage(png(3)))).code === 'OWNER_CHANGED' && (await throws(() => oc.m.uploadImage(png(3)))).code === 'NOT_RECEIVED', '  계정이 바뀌어 OWNER_CHANGED 면 다시 읽기 전까지 올리지 않는다');
     chk(!!(await up.m.uploadImage('data:image/jpeg;base64,AAAA')) && !!(await up.m.uploadImage(png(8 * 1024 * 1024))), 'jpeg 도 올린다 · 딱 8MB 는 올린다(경계)');
     const before = up.ownImage.ups.length;
     for(const [what, u] of [['8MB 초과', png(8 * 1024 * 1024 + 1)], ['빈 그림', 'data:image/png;base64,'], ['data: 아님', 'https://x/y.png'], ['gif', 'data:image/gif;base64,AAAA']]) chk((await throws(() => up.m.uploadImage(u))).code === 'IMAGE_UPLOAD', what + ' → 올리지 않고 IMAGE_UPLOAD');

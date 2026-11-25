@@ -1239,7 +1239,7 @@ const DS_IMG_QUALITY   = 0.82;   // JPEG 품질 — 이 정도면 눈에 띄는 
 const BELL_SEEN_KEY = 'tw.bellSeenTs';   // 🔔 마지막으로 알림창을 연 시각 — 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)도 쓴다
 /* 🖼 내 그림(마이홈 · 디데이 · 박수 · 말랑이)을 Storage 내 폴더에 바로 올리기(shared/own-image.js) — 경로의 코드는 로그인 뒤 서버가 준 내 코드 */
 const ownImageMod = TwOwnImage.createOwnImage({ myCode: ()=>getMyUserId(), newId: ()=>crypto.randomUUID(), put: (...a)=>firebaseAPI.putOwnFile(...a),
-  later: (fn, ms)=>{ const t = setTimeout(fn, ms); return ()=>clearTimeout(t); } });
+  later: (fn, ms)=>{ const t = setTimeout(fn, ms); return ()=>clearTimeout(t); }, owner: ()=>firebaseAPI.authCurrentUid() });
 const scheduleApiMod = TwScheduleApi.createScheduleApi({   // 🌐 일정 · 디데이 · 일정 알림 서버 endpoint(/v2/me/schedules · /v2/me/ddays · /v2/me/notifications) — 원본은 서버
   authed: TwApi.authed,
   newId: ()=>TwRequestId.newId(),
