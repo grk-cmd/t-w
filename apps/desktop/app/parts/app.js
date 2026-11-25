@@ -4087,6 +4087,7 @@ const closetMod = TwCloset.createCloset({
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   renderLauncher: (...a)=>renderLauncher(...a),
   creatorOpen: ()=>creatorOpen,
+  curSlot: ()=>curSlot,
   storage: localStorage,
 });
 closetMod.onChange(()=>{ myInfoMod._miBoxChanged(); launcherCtlMod.renderEmptyState(); });   // 옷장이 바뀌면 [내 정보] 보관함 줄을 다시 그린다 — 내 정보가 옷장보다 먼저 만들어져 여기서 건다

@@ -143,29 +143,32 @@ async function _slotToServerObj(uid, o, faceSt, glbSt){
   return out;
 }
 /* 서버용 한 칸 → 로컬 저장본(dataURL·base64). loadSlots 가 읽는 모양 그대로 — 그래서 loadSlots 는
-   서버 형식을 몰라도 된다. 얼굴·감은눈은 필수라 못 받으면 던진다(호출부가 이번 적용을 접는다). */
+   서버 형식을 몰라도 된다. 얼굴·감은눈은 필수라 못 받으면 던진다(호출부가 이번 적용을 접는다).
+   그림 · GLB 는 한꺼번에 받는다(Promise.all) — 하나라도 못 받으면 이 칸 전체가 던진다(반쯤 받은 칸을 앉히지 않는다). */
 async function _slotFromServerObj(so){
   if(!so) return null;
   const out = Object.assign({}, so);
+  const jobs = [];
   for(const [field] of SLOT_IMG_FIELDS){
     const u = so[field + 'Url'];
     delete out[field + 'Url'];
     if(typeof u !== 'string' || !u) continue;
-    out[field] = await _fetchImgDataUrl(u);
+    jobs.push(_fetchImgDataUrl(u).then(v => { out[field] = v; }));
   }
-  if(typeof out.face !== 'string' || typeof out.blink !== 'string') throw new Error('얼굴·감은눈 URL 이 없음');
-  if(typeof so.commGlbUrl === 'string'){ delete out.commGlbUrl; out.commGlb = await _fetchB64(so.commGlbUrl); }
-  if(typeof so.deskGlbUrl === 'string'){ delete out.deskGlbUrl; out.deskGlb = await _fetchB64(so.deskGlbUrl); }
+  if(typeof so.commGlbUrl === 'string'){ delete out.commGlbUrl; jobs.push(_fetchB64(so.commGlbUrl).then(v => { out.commGlb = v; })); }
+  if(typeof so.deskGlbUrl === 'string'){ delete out.deskGlbUrl; jobs.push(_fetchB64(so.deskGlbUrl).then(v => { out.deskGlb = v; })); }
   if(so.customItems && typeof so.customItems === 'object'){
     const ci = {};
     for(const id in so.customItems){
       const it = so.customItems[id]; if(!it) continue;
       const rec = Object.assign({}, it);
-      if(typeof it.glbUrl === 'string'){ delete rec.glbUrl; rec.glb = await _fetchB64(it.glbUrl); }
+      if(typeof it.glbUrl === 'string'){ delete rec.glbUrl; jobs.push(_fetchB64(it.glbUrl).then(v => { rec.glb = v; })); }
       ci[id] = rec;
     }
     out.customItems = ci;
   }
+  await Promise.all(jobs);
+  if(typeof out.face !== 'string' || typeof out.blink !== 'string') throw new Error('얼굴·감은눈 URL 이 없음');
   out.thumb = null;
   /* slotToObj 를 한 번 지나 **saveSlots 와 같은 키 순서**로 만든다 — 다음 saveSlots 의 문자열 비교가
      «안 바뀜»으로 떨어져야 받은 것을 도로 올리지 않는다. */
