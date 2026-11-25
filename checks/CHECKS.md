@@ -357,6 +357,7 @@
 | **sim-chat-sfx.js** | 221 | **fcd6f3258d6c** |
 | **sim-mac-update.js** | 269 | **d58adcbefab2** |
 | **sim-mac-adhoc-sign.js** | 100 | **a0f1b33b5a0a** |
+| **sim-mac-update-yml.js** | 130 | **2ff151fe3e56** |
 | **sim-focus-show.js** | 86 | **40b316640169** |
 | **sim-win-front.js** | 113 | **c8fd12a3c2c5** |
 | **sim-win-layers.js** | 203 | **25e9c9dff07b** |

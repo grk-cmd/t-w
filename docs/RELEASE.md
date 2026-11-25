@@ -101,10 +101,10 @@ GitHub → **Actions** → **release**에서 진행 상황을 볼 수 있습니�
 | 버전 확인 | 태그와 `apps/desktop/package.json` 버전이 같은가 | `npm run version:bump`을 안 쓰고 태그만 달았을 때 |
 | | 마지막 공개 릴리스보다 **높은가** (같아도 막음) | 이미 나간 번호를 또 쓰려 할 때 |
 | Windows 빌드 | exe, `.blockmap`, `latest.yml` | |
-| Mac 빌드 | dmg × 2 (arm64, x64) | |
+| Mac 빌드 | dmg · zip · zip `.blockmap` × 2 (arm64, x64) · `latest-mac.yml`(두 arch 를 합친 한 파일) — Developer ID 서명 · 애플 공증(환경 `release` 의 secret) | |
 | Windows 검사 | `latest.yml` 버전 · sha512 가 exe 와 맞는가 · 앱이 켜져 20초 살아 있는가 | 자동 업데이트가 깨질 파일 · 켜자마자 꺼지는 앱 |
-| Mac 검사 | dmg 가 열리는가(`hdiutil verify`) · 안의 앱 서명(`codesign --verify --deep --strict`) · 버전 · arch · 켜져 20초 살아 있는가 | 손상된 dmg(0.10.2 때) · 서명이 어긋난 앱(애플 실리콘 «손상됨» — 0.13.1 때) · 버전이 섞인 dmg |
-| Releases 초안 | 파일이 정확히 5개인가 · 모든 파일을 **한 초안**에 업로드 · 올라간 파일 sha256 = 원본 | 이름 겹침 · 업로드 중 손상. 이미 **공개된** 릴리스는 덮어쓰지 않음 |
+| Mac 검사 | 빌드한 앱 · dmg 안 앱 · zip 안 앱이 우리 팀 Developer ID 로 서명되고 공증 티켓이 붙었는가(`scripts/mac-verify-signed.sh` — `codesign` · `stapler validate`) · dmg 가 열리는가(`hdiutil verify`) · 버전 · arch · 켜져 20초 살아 있는가 · `latest-mac.yml` 버전 · arch · sha512 가 zip 과 맞는가 | 공증 값이 비어 공증을 건너뛴 빌드(electron-builder 는 말없이 넘어간다) · 손상된 dmg(0.10.2 때) · 서명이 어긋난 앱(애플 실리콘 «손상됨» — 0.13.1 때) · 버전이 섞인 dmg |
+| Releases 초안 | arm64 · x64 의 맥 yml 을 하나로 합치기 · 파일이 정확히 10개인가 · 모든 파일을 **한 초안**에 업로드 · 올라간 파일 sha256 = 원본 | 한쪽 arch 가 빠진 맥 업데이트 정보 · 이름 겹침 · 업로드 중 손상. 이미 **공개된** 릴리스는 덮어쓰지 않음 |
 | 공개 | 위가 전부 통과하면 Publish. 정식은 «Latest», 베타는 Pre-release. `초안으로 대기` 면 이 단계만 건너뛰고 요약에 초안 주소를 남김 | |
 
 ---
@@ -120,7 +120,7 @@ GitHub → **Actions** → **release**에서 진행 상황을 볼 수 있습니�
 
 **초안으로 남는 경우**
 - 검사가 빨강: Actions › release 에서 원인을 보고 고친 뒤 새 버전으로 다시 냅니다. 초안은 지웁니다.
-- **`초안으로 대기` 를 골랐을 때**: 검사는 모두 통과했고 파일(`latest.yml` 포함 5개)도 다 올라가 있습니다. Actions › release 실행 요약에 «초안 대기 — GitHub Releases 에서 Publish 를 누르면 공개» 와 초안 주소가 나옵니다. 그 초안의 ✏️(Edit) → 맨 아래 **Publish release** 를 누르면 공개됩니다.
+- **`초안으로 대기` 를 골랐을 때**: 검사는 모두 통과했고 파일(`latest.yml` · `latest-mac.yml` 포함 10개)도 다 올라가 있습니다. Actions › release 실행 요약에 «초안 대기 — GitHub Releases 에서 Publish 를 누르면 공개» 와 초안 주소가 나옵니다. 그 초안의 ✏️(Edit) → 맨 아래 **Publish release** 를 누르면 공개됩니다.
   - 정식 버전은 누르기 전에 **«Set as the latest release»** 가 체크돼 있는지 봅니다(보통 기본으로 체크돼 있음). Latest 가 아니면 Windows 앱이 업데이트를 받지 않습니다.
   - 베타 초안은 이미 Pre-release 로 표시돼 있어 그대로 누르면 됩니다.
   - 공개를 접으려면 초안을 지우고, 필요하면 태그도 지웁니다(6번 표).
