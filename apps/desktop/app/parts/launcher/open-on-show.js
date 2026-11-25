@@ -1,5 +1,5 @@
 /* open-on-show.js — 🪟 창이 보이면 그 창의 기능을 시작해 달라고 부탁한다 (검사 sim-open-on-show.js)
-   [왜] 가챠 · 플레이리스트 · 디데이 보드는 켤 때 받지 않고 그 창을 처음 열 때 받는다(app-boot OPEN 칸). 여는 길이 여럿이라(버튼 · 단축키 · 다른 창에서 넘어옴)
+   [왜] 플레이리스트는 켤 때 받지 않고 그 창을 처음 열 때 받는다(app-boot OPEN 칸). 여는 길이 여럿이라(버튼 · 단축키 · 다른 창에서 넘어옴)
      부르는 자리를 늘리지 않고, 창의 class · style 이 바뀔 때 «보이나» 를 보고 open(이름) 을 부른다. 두 번째부터는 app-boot 가 무시한다.
    deps: open(name) — app-boot open · MutationObserver(없으면 window 것) · targets [{ name, el, shown(el) }]
    내놓는 것: start() — 지켜보기를 건다(이미 보이면 바로 부른다). 만들 때는 아무것도 하지 않는다.

@@ -22,8 +22,8 @@ if (!MOD || !HTML || !APP) { say('  ? 원본 못 찾음 — app-boot.js · desk-
 /* 정본 차례 · 때 — app-boot.js STEPS 와 같아야 한다(바꾸려면 여기와 app-boot.js · app.js starts 를 같이) */
 const FIRST = ['userLocal', 'catalog', 'closet'];
 const READY = ['focusTotal', 'focusShare', 'pomodoro', 'gift', 'roomInvite', 'awayPic', 'desktopBg', 'licensePremium', 'adminMode'];
-const LATER = ['focusLevel', 'weeklyChal', 'mhInit', 'bugBadge', 'scheduler', 'invites', 'appVersion', 'firstRun', 'licenseAutoRegister', 'catalogGlb'];
-const OPEN = ['gacha', 'playlist', 'ddays'];
+const LATER = ['focusLevel', 'weeklyChal', 'mhInit', 'bugBadge', 'scheduler', 'ddays', 'gacha', 'invites', 'appVersion', 'firstRun', 'licenseAutoRegister', 'catalogGlb'];
+const OPEN = ['playlist'];   // 디데이(🔔 배지가 센다) · 가챠(못 가진 가챠 파츠 벗기기)는 창을 열 때로 미루면 화면 · 동작이 바뀌어 LATER
 const ORDER = [...FIRST, ...READY, ...LATER, ...OPEN];
 const TABLE = [...FIRST.map((n) => [n, 'first']), ...READY.map((n) => [n, 'ready']), ...LATER.map((n) => [n, 'later']), ...OPEN.map((n) => [n, 'open'])];
 
@@ -93,8 +93,8 @@ async function judge(src) {
   /* 2 */
   b = build(src);
   const r1 = await quiet(async () => b.notify(ME));
-  const pre = ['migrate:u1', 'open:u1', 'register', ...FIRST.map((n) => 'start:' + n + ':u1:u1'), 'gate', 'online', ...READY.map((n) => 'start:' + n + ':u1:u1')];
-  t(r1[0] === true && b.ev.join() === pre.join(), '들어감 — 옮기기 → 계정 칸 → 등록 → 첫 화면 읽기(FIRST) → 업데이트 확인 → realtime → 바로(READY) · 첫 화면 전엔 LATER 0');
+  const pre = ['migrate:u1', 'open:u1', 'gate', 'register', ...FIRST.map((n) => 'start:' + n + ':u1:u1'), 'online', ...READY.map((n) => 'start:' + n + ':u1:u1')];
+  t(r1[0] === true && b.ev.join() === pre.join(), '들어감 — 옮기기 → 계정 칸 → 업데이트 확인 → 등록 → 첫 화면 읽기(FIRST) → realtime → 바로(READY) · 첫 화면 전엔 LATER 0');
   await b.clock.run(100);
   t(!startsOf(b.ev).some((n) => LATER.includes(n)), '  첫 화면을 그리기 전(0.1초)에는 안 보이는 읽기(LATER)를 시작하지 않는다');
   b.paint(); await b.clock.run(1);
@@ -103,25 +103,25 @@ async function judge(src) {
   t(startsOf(b.ev).filter((n) => LATER.includes(n)).length === 1, '  다음 칸은 사이(' + b.win.TwAppBoot.LATER_GAP_MS + 'ms)를 둔다 — 한꺼번에 몰리지 않게');
   await b.clock.run(b.win.TwAppBoot.LATER_GAP_MS * LATER.length);
   t(startsOf(b.ev).filter((n) => LATER.includes(n)).join() === LATER.join(), '  LATER 를 표 순서대로 다 시작한다');
-  t(!startsOf(b.ev).some((n) => OPEN.includes(n)), '  창을 열기 전에는 OPEN 칸(가챠 · 플레이리스트 · 디데이)을 시작하지 않는다');
+  t(!startsOf(b.ev).some((n) => OPEN.includes(n)), '  창을 열기 전에는 OPEN 칸(플레이리스트)을 시작하지 않는다');
   b.boot.open('playlist'); b.boot.open('playlist'); await flushAll();
-  t(startsOf(b.ev).filter((n) => n === 'playlist').length === 1 && !startsOf(b.ev).includes('gacha'), '  open(이름) — 그 칸만 한 번(두 번째는 무시)');
+  t(startsOf(b.ev).filter((n) => n === 'playlist').length === 1, '  open(이름) — 그 칸만 한 번(두 번째는 무시)');
   let threw = null; try { b.boot.open('mhInit'); } catch (e) { threw = e; }
   t(threw && /열 때 시작하는 칸이 아니에요/.test(threw.message), '  OPEN 칸이 아닌 이름은 던진다(오타 · 엉뚱한 칸을 두 번 시작하지 않게)');
-  t(ORDER.filter((n) => n !== 'gacha' && n !== 'ddays').every((n) => startsOf(b.ev).filter((x) => x === n).length === 1) && b.given.every((g) => g === b.made[0]), '  각 기능은 정확히 한 번 · 모두 같은 세션을 받는다');
+  t(ORDER.every((n) => startsOf(b.ev).filter((x) => x === n).length === 1) && b.given.every((g) => g === b.made[0]), '  각 기능은 정확히 한 번 · 모두 같은 세션을 받는다');
   b = build(src, { gateHold: true });
-  await quiet(async () => { const p = b.notify(ME); await flushAll(); b.boot.open('gacha'); await flushAll(); const before = startsOf(b.ev).includes('gacha'); b.gate(true); await p; await flushAll(); b.ev.push('before:' + before); });
-  t(b.ev.includes('before:false') && startsOf(b.ev).includes('gacha'), '  업데이트 확인 전에 연 창(OPEN)은 통과한 뒤 시작한다');
+  await quiet(async () => { const p = b.notify(ME); await flushAll(); b.boot.open('playlist'); await flushAll(); const before = startsOf(b.ev).includes('playlist'); b.gate(true); await p; await flushAll(); b.ev.push('before:' + before); });
+  t(b.ev.includes('before:false') && startsOf(b.ev).includes('playlist'), '  업데이트 확인 전에 연 창(OPEN)은 통과한 뒤 시작한다');
   /* 3 */
   b = build(src, { gate: false });
   const rg = await quiet(async () => b.notify(ME));
   await b.clock.run(5000); b.paint(); await b.clock.run(5000);
-  t(rg[0] === false && startsOf(b.ev).join() === FIRST.join() && !b.ev.includes('online') && rg[1].some((w) => /업데이트 확인을 통과하지 못해/.test(w)), '★ 업데이트 확인을 통과 못 하면(강제) 첫 화면 읽기 뒤 realtime · 기능 0');
+  t(rg[0] === false && startsOf(b.ev).length === 0 && !b.ev.includes('register') && !b.ev.includes('online') && rg[1].some((w) => /업데이트 확인을 통과하지 못해/.test(w)), '★ 업데이트 확인을 통과 못 하면(강제) 이 PC 등록(서버 쓰기) · 읽기 · realtime · 기능 0');
   b.boot.open('playlist'); await flushAll();
   t(!startsOf(b.ev).includes('playlist'), '  그때 창을 열어도 시작하지 않는다');
   b = build(src, { reg: 'canceled' });
   const rc = await quiet(async () => b.notify(ME));
-  t(rc[0] === false && b.ev.join() === 'migrate:u1,open:u1,register,dispose,toLogin' && b.boot.getSession() === null, '★ 등록 [취소] — 세션을 끝내고 로그인 화면 · 첫 화면 읽기도 0');
+  t(rc[0] === false && b.ev.join() === 'migrate:u1,open:u1,gate,register,dispose,toLogin' && b.boot.getSession() === null, '★ 등록 [취소] — 세션을 끝내고 로그인 화면 · 첫 화면 읽기도 0');
   for (const [lab, opt] of [['실패', { reg: 'failed' }], ['던짐', { regThrow: true }]]) {
     b = build(src, opt);
     const rf = await quiet(async () => b.notify(ME));
@@ -146,9 +146,10 @@ async function judge(src) {
   t(extra.err && /없는기능/.test(extra.err.message), '표에 없는 시작이 남으면 만들 때 던진다');
   /* 5 */
   b = build(src);
-  await quiet(async () => b.notify(ME)); b.paint();
-  await b.clock.run(1999);
-  t(!b.ev.some((e) => e.startsWith('toast:')), '«접속 중…» — 2초 전에는 안 띄운다');
+  await quiet(async () => b.notify(ME)); await b.clock.run(2500);
+  const noPre = !b.ev.some((e) => e.startsWith('toast:'));
+  b.paint(); await b.clock.run(1999);
+  t(noPre && !b.ev.some((e) => e.startsWith('toast:')), '«접속 중…» — 첫 화면 전(캐릭터 그림을 기다리는 동안)과 첫 화면 뒤 2초 전에는 안 띄운다(첫 화면 뒤 읽기만 잰다)');
   await b.clock.run(b.win.TwAppBoot.LATER_GAP_MS * LATER.length);
   t(b.ev.includes('toast:접속 중…'), '  LATER 읽기가 2초 안에 안 끝나면 띄운다');
   b.idle(); await flushAll();
@@ -211,6 +212,10 @@ async function judge(src) {
     ['차례를 바꿈(catalog ↔ closet)', (m) => m.replace("  ['catalog', PHASE.FIRST],", "  ['TMP', PHASE.FIRST],").replace("  ['closet', PHASE.FIRST],", "  ['catalog', PHASE.FIRST],").replace("  ['TMP', PHASE.FIRST],", "  ['closet', PHASE.FIRST],")],
     ['친구(mhInit)를 첫 화면 전에', (m) => m.replace("  ['mhInit', PHASE.LATER],", "  ['mhInit', PHASE.READY],")],
     ['플레이리스트를 켤 때 받음', (m) => m.replace("  ['playlist', PHASE.OPEN],", "  ['playlist', PHASE.LATER],")],
+    ['디데이를 창 열 때로', (m) => m.replace("  ['ddays', PHASE.LATER],", "  ['ddays', PHASE.OPEN],")],
+    ['가챠를 창 열 때로', (m) => m.replace("  ['gacha', PHASE.LATER],", "  ['gacha', PHASE.OPEN],")],
+    ['등록을 업데이트 확인 전에', (m) => m.replace("    let reg = 'failed';\n    try{ reg = await registerDevice(); }", "    let reg = 'failed';").replace("    const s = session;\n    let go = false;", "    const s = session;\n    let reg = 'failed';\n    try{ reg = await registerDevice(); }catch(_){}\n    let go = false;")],
+    ['토스트를 첫 화면 전부터 잼', (m) => m.replace("    await Promise.race([Promise.resolve(whenPainted()).catch(() => {}), nap(s, PAINT_WAIT_MAX_MS)]);\n    if(!s.alive()) return;\n    let release", "    let release").replace("    try{\n      for(const name of of(PHASE.LATER)){", "    await Promise.race([Promise.resolve(whenPainted()).catch(() => {}), nap(s, PAINT_WAIT_MAX_MS)]);\n    try{\n      for(const name of of(PHASE.LATER)){")],
     ['업데이트 확인을 안 기다림', (m) => m.replace("    try{ go = (await updateGate()) === true; }", "    try{ go = true; updateGate(); }")],
     ['업데이트 확인 전에 realtime', (m) => m.replace("    const s = session;\n", "    const s = session;\n    guard('realtime 연결', () => goOnline());\n")],
     ['첫 화면을 안 기다림', (m) => m.replace("    await Promise.race([Promise.resolve(whenPainted()).catch(() => {}), nap(s, PAINT_WAIT_MAX_MS)]);", "")],
@@ -218,11 +223,11 @@ async function judge(src) {
     ['LATER 를 한꺼번에', (m) => m.replace("      await nap(s, LATER_GAP_MS);\n", "")],
     ['세션이 끝나도 LATER 계속', (m) => m.replace("      if(!s.alive()) return;\n", "")],
     ['토스트를 바로 띄움', (m) => m.replace("}, CONNECTING_TOAST_MS);", "}, 0);")],
-    ['토스트를 안 내림', (m) => m.replace("    done.then(end, end);", "")],
+    ['토스트를 안 내림', (m) => m.replace("    }finally{ end(); }", "    }finally{ }")],
     ['열기를 두 번 시작', (m) => m.replace("    if(ran.has(name)) return Promise.resolve();\n", "")],
     ['확인 전 연 창을 잊음', (m) => m.replace("    for(const name of asked) run(name);\n", "")],
     ['옛 값 옮기기를 빼먹음', (m) => m.replace("    guard('옛 값 옮기기', () => migrateLegacy(code));\n", '')],
-    ['못 열어도 기능을 시작', (m) => m.replace("      return false;\n    }\n    let reg", "    }\n    let reg")],
+    ['못 열어도 기능을 시작', (m) => m.replace("      return false;\n    }\n    const s = session;", "    }\n    const s = session;")],
     ['시작에 세션을 안 넘김', (m) => m.replace('starts[name](code, myMe, session)', 'starts[name](code, myMe)')],
     ['알림에 begin 을 안 검', (m) => m.replace('twNav.on(twNav.NAV.ACCOUNT_ENTERED, begin);', '')],
     ['두 번 불러도 또 시작', (m) => m.replace("if(began){ console.warn('[app-boot] 이미 시작했어요 — 두 번째 시작은 무시해요'); return false; }", '')],

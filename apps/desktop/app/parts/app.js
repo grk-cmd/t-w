@@ -5047,23 +5047,20 @@ const appBoot = TwAppBoot.createAppBoot({
     scheduler: (code, me, session)=>mhScheduler.startSchedule(session),
     /* 🙋 방 초대 받기 — 방 쪽 포트(대화 · 방 목록 · 스티커사진)는 사용자가 들어갈 때 시작해 STEPS 칸이 없다. 대신 계정이 바뀔 때 비우는 일(session.onReset)을 여기서 한 곳에 모은다.
        license 알림(발급 · 연장 · 코드 바꿈 · 끝남) → 읽어 둔 내 시크릿룸을 버려 다음에 다시 읽는다(관리자가 발급한 방이 다시 실행 없이 보이게). */
+    ddays: ()=>mhScheduler.loadBoard(),   // 📌 디데이 보드 — 첫 화면 뒤(app-boot LATER · 🔔 알림 배지도 센다)
+    gacha: (code, me, session)=>gachaMod.startGacha(session),
     invites: ()=>licenseGateMod.refreshInviteBtn(),   // 🎟️ 런처 초대장 버튼 — 켤 때 한 번(런처를 다시 그릴 때마다 묻지 않는다) · 발급 · 관리자 모드 뒤에는 그 자리에서
     appVersion: (code, me, session)=>appVersionSyncMod.start(session),   // 🔄 이 PC 앱 판을 서버에 알림 — 더 새 판을 쓰는 기기가 있으면 업데이트 창
     firstRun: ()=>firstRunMod.run().catch((e)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', e)),
     licenseAutoRegister: ()=>licensePremiumMod.autoRegisterAfter(firstRunMod.licenseDone()),   // 첫 실행 뒤 — 0.12 키로 첫 실행이 등록했으면 건너뜀
     catalogGlb: ()=>closetSettled().then(()=>catalogSyncMod.fillGlb()),   // 🧩 카탈로그 GLB 를 다 받아 두기 — 첫 화면 뒤 맨 끝 · 캐릭터가 3초 넘게 안 그려져도 그려질 때까지 기다린다(약 8MB 가 캐릭터 그림과 다투지 않게)
-    gacha: (code, me, session)=>gachaMod.startGacha(session),
     playlist: (code, me, session)=>plMod.start(session),
-    ddays: ()=>mhScheduler.loadBoard(),   // 📌 디데이 보드 — 마이홈을 처음 열 때(app-boot OPEN)
   },
-});/* 그 창을 처음 열 때 받는 기능(app-boot OPEN) — 꾸미기 · 뽑기 창 → 가챠 · 플레이리스트 창 → 플레이리스트 · 마이홈 → 디데이 보드 */
+});/* 그 창을 처음 열 때 받는 기능(app-boot OPEN) — 플레이리스트 창 → 플레이리스트 */
 TwOpenOnShow.createOpenOnShow({
   open: (name)=>appBoot.open(name),
   targets: [
-    { name: 'gacha', el: document.getElementById('wardrobePanel'), shown: (el)=>el.classList.contains('on') },
-    { name: 'gacha', el: document.getElementById('gachaDrawOverlay'), shown: (el)=>el.style.display !== 'none' && el.style.display !== '' },
     { name: 'playlist', el: document.getElementById('myPlaylistBox'), shown: (el)=>!el.classList.contains('hidden') },
-    { name: 'ddays', el: document.getElementById('myHomeOverlay'), shown: (el)=>el.classList.contains('on') },
   ],
 }).start();
 
