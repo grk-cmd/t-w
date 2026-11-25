@@ -373,6 +373,13 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **함정**: 상한과 같은 크기는 통과(초과만 `large`). 서버 상한이 바뀌면 값은 각 provider `LIMITS` 한 곳씩.
 - 검사: `checks/sim-image-bytes.js`.
 
+## `own-image.js` — 🖼 내 그림을 Storage 내 폴더에 바로 올리기
+- 책임: 마이홈(책장 책등 포함) · 디데이 카드 · 박수 · 말랑이 그림의 경로 이름(`users/{내 코드}/{mh|dday|clap|mallang}_{무작위 id}.{png|webp|jpg}`)과 올리기 한 번. 이름 머리는 서버 URL 검사 · Storage 규칙(주인의 `mh_` 8MB)과 같다.
+- deps: `myCode()`(서버가 준 내 코드) · `newId()` · `put(path, bytes, contentType)`(firebase-init `putOwnFile`).
+- 내놓는 것: `window.TwOwnImage` — `KINDS` · `pathOf` · `createOwnImage(deps).upload(kind, img)`. 형식 · 크기 판정은 부르는 provider 가 `image-bytes.js` 로 먼저 한다.
+- 함정: 코드가 없으면 `NO_USER`, Storage 거절(주인 아님 · 상한) · 닿지 못함 · 빈 주소는 `IMAGE_UPLOAD` 로 던진다(원인은 `cause`). 0.13 앱이 쓰는 서버 endpoint(`POST /v2/me/images`)는 서버에 남아 있다.
+- 검사: `checks/sim-own-image.js`.
+
 ## `request-id.js` — 🔁 요청 번호(requestId)
 
 - **책임**: 새것을 만들거나 쌓는 쓰기(뽑기 · 선물 · 지급 · 초대 · 글 쓰기 · 대화 보내기)에 싣는 `requestId` 를 만든다 — 서버 규칙 `^[A-Za-z0-9_-]{8,64}$`(uuid). 서버는 같은 사람 · 같은 번호를 «처음 결과를 다시 돌려주기» 로 받는다(10분).

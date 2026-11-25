@@ -1,0 +1,99 @@
+/* ═══ 🖼 sim-own-image.js — 내 그림을 Storage 내 폴더에 바로 올리기 (0.14 · tw-docs design/12-storage-owner.md) ═══
+   [왜] 마이홈 · 디데이 카드 · 박수 · 말랑이 그림은 0.14 부터 서버(POST /v2/me/images)를 거치지 않고 앱이 Storage 에 올린다.
+     Storage 규칙은 «경로의 코드 = 이 로그인의 코드» 일 때만 받고, 서버는 받은 주소의 폴더 · 이름 머리(mh · dday · clap · mallang)를 본다.
+     이름이 어긋나면 규칙이나 서버가 거절해 그림이 안 올라가므로 실제로 불러서 경로 · 실패를 본다.
+   ・1절: pathOf — 쓰임마다 이름 머리 · 형식마다 확장자 · 모르는 쓰임 · 형식 · 코드 · id 는 null
+   ・2절: upload — 내 코드 · 새 id · 바이트 그대로 put · 주소를 돌려줌 · 코드 없음 NO_USER · put 실패 · 빈 주소 IMAGE_UPLOAD
+   ・3절: 배선 — html 에서 provider · app.js 보다 먼저 · smoke PRELOAD · 네 provider 가 서버 그림 endpoint 를 안 부른다 · app.js 가 넘긴다 · firebase-init putOwnFile
+   ・4절: mutation test
+   [실행] 러너 스테이징(평면)에서. */
+'use strict';
+const fs = require('fs');
+let pass = 0, fail = 0, quiet = false, qfail = 0;
+const say = (s) => { if(!quiet) console.log(s); };
+const chk = (ok, msg) => { if(quiet){ if(!ok) qfail++; return; } ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
+const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
+const pick = (names) => names.map(read).find(Boolean);
+const at = (f, dir) => [f, 'parts/' + dir + '/' + f, 'app/parts/' + dir + '/' + f];
+const SRC0 = {
+  OWN: pick(at('own-image.js', 'shared')),
+  MH: pick(at('myhome-api.js', 'myhome')),
+  GIFT: pick(at('gift-api.js', 'myhome')),
+  SCH: pick(at('schedule-api.js', 'myhome')),
+  GB: pick(at('guestbook-api.js', 'myhome')),
+  FI: pick(['firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js']),
+  APP: pick(['app.js', 'parts/app.js', 'app/parts/app.js']),
+  HTML: pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html']),
+  SMOKE: pick(['smoke.js']),
+};
+for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
+const load = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwOwnImage; };
+const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
+const rej = async (p) => { try{ await p; return null; }catch(e){ return e || {}; } };
+
+async function judge(S){
+  const M = load(S.OWN);
+  say('── 1. 경로');
+  chk(M.pathOf('myhome', 'uabc12345', 'id-1', 'image/png') === 'users/uabc12345/mh_id-1.png', 'myhome → users/{코드}/mh_{id}.png(서버 MyHomeImage · 규칙 mh_ 8MB 와 같은 이름)');
+  chk(M.pathOf('dday', 'uabc12345', 'id-1', 'image/jpeg') === 'users/uabc12345/dday_id-1.jpg', 'dday → dday_{id}.jpg(jpeg 는 jpg)');
+  chk(M.pathOf('clap', 'uabc12345', 'id-1', 'image/webp') === 'users/uabc12345/clap_id-1.webp', 'clap → clap_{id}.webp');
+  chk(M.pathOf('mallang', 'uabc12345', 'id-1', 'image/png') === 'users/uabc12345/mallang_id-1.png', 'mallang → mallang_{id}.png');
+  for(const [what, args] of [['모르는 쓰임', ['away', 'u1', 'i', 'image/png']], ['gif', ['myhome', 'u1', 'i', 'image/gif']], ['빈 코드', ['myhome', '', 'i', 'image/png']],
+    ['코드에 / ', ['myhome', 'u1/../u2', 'i', 'image/png']], ['id 에 /', ['myhome', 'u1', 'a/b', 'image/png']], ['프로토타입 이름', ['toString', 'u1', 'i', 'image/png']]]) chk(M.pathOf(...args) === null, '  ' + what + ' → null');
+
+  say('── 2. 올리기');
+  const puts = [];
+  const mk = (o) => M.createOwnImage(Object.assign({ myCode: () => 'uabc12345', newId: () => 'n-1', put: async (p, b, t) => { puts.push({ p, b, t }); return 'https://firebasestorage.googleapis.com/v0/b/x/o/' + encodeURIComponent(p) + '?alt=media&token=t'; } }, o || {}));
+  const bytes = new Uint8Array([137, 80, 78, 71]);
+  const url = await mk().upload('mallang', { type: 'image/png', bytes });
+  chk(puts.length === 1 && puts[0].p === 'users/uabc12345/mallang_n-1.png' && puts[0].b === bytes && puts[0].t === 'image/png' && /mallang_n-1\.png/.test(url), '내 코드 · 새 id · 바이트 그대로 · 형식 그대로 put → 다운로드 주소');
+  let n = 0;
+  const two = mk({ newId: () => 'n' + (++n) });
+  await two.upload('myhome', { type: 'image/png', bytes }); await two.upload('myhome', { type: 'image/png', bytes });
+  chk(puts[1].p !== puts[2].p, '  올릴 때마다 새 이름(1년 캐시 — 덮으면 옛 그림이 보인다)');
+  puts.length = 0;
+  const noCode = await rej(mk({ myCode: () => null }).upload('myhome', { type: 'image/png', bytes }));
+  chk(noCode && noCode.code === 'NO_USER' && puts.length === 0, '코드가 없으면 NO_USER · put 0');
+  const badKind = await rej(mk().upload('away', { type: 'image/png', bytes }));
+  chk(badKind && badKind.code === 'IMAGE_UPLOAD' && puts.length === 0, '모르는 쓰임 · 형식은 IMAGE_UPLOAD · put 0');
+  const denied = await rej(mk({ put: async () => { throw Object.assign(new Error('403'), { code: 'storage/unauthorized' }); } }).upload('clap', { type: 'image/png', bytes }));
+  chk(denied && denied.code === 'IMAGE_UPLOAD' && denied.cause && denied.cause.code === 'storage/unauthorized', 'Storage 거절은 IMAGE_UPLOAD(원인은 cause 에)');
+  const empty = await rej(mk({ put: async () => '' }).upload('dday', { type: 'image/png', bytes }));
+  chk(empty && empty.code === 'IMAGE_UPLOAD', '빈 주소도 IMAGE_UPLOAD');
+
+  say('── 3. 배선');
+  const tag = (f) => S.HTML.indexOf('<script src="parts/' + f + '"></script>');
+  const iOwn = tag('shared/own-image.js');
+  chk(iOwn > 0 && ['myhome/myhome-api.js', 'myhome/gift-api.js', 'myhome/schedule-api.js', 'myhome/guestbook-api.js', 'app.js'].every((f) => tag(f) < 0 || iOwn < tag(f)), 'html — own-image.js 가 네 provider · app.js 보다 먼저');
+  chk(/PRELOAD\.push\([^)]*'own-image\.js'/.test(S.SMOKE), 'smoke PRELOAD 에 있다');
+  for(const [k, kind] of [['MH', 'myhome'], ['GIFT', 'mallang'], ['SCH', 'dday'], ['GB', 'clap']]){
+    const src = strip(S[k]);
+    chk(!/\/v2\/me\/images/.test(src) && src.indexOf("ownImage.upload('" + kind + "', img)") >= 0, k + ' — 서버 그림 endpoint 를 안 부르고 own-image 의 ' + kind + ' 로 올린다');
+  }
+  const app = strip(S.APP);
+  chk(/const ownImageMod = TwOwnImage\.createOwnImage\(\{ myCode: \(\)=>getMyUserId\(\)/.test(app) && (app.match(/ownImage: ownImageMod/g) || []).length === 5, 'app.js 가 내 코드로 만들어 다섯 provider 에 넘긴다');
+  chk(/async putOwnFile\(path, bytes, contentType\)\{\s*const r = sref\(storage, path\);\s*await uploadBytes\(r, bytes, \{ cacheControl: STORAGE_CACHE, contentType \}\);/.test(S.FI), 'firebase-init putOwnFile — 그 경로(빈 uid 안전망 sref)에 바이트 · 형식 · 1년 캐시로 올린다');
+}
+
+async function runAll(){
+  await judge(SRC0);
+  say('── 4. mutation test');
+  const breaks = [
+    ['myhome 머리를 틀림', SRC0.OWN.replace("myhome: 'mh'", "myhome: 'myhome'"), 'mh_'],
+    ['jpeg 확장자를 jpeg 로', SRC0.OWN.replace("'image/jpeg': 'jpg'", "'image/jpeg': 'jpeg'"), 'jpg'],
+    ['코드 검사를 뺌', SRC0.OWN.replace("!SAFE.test(String(userCode || ''))", 'false'), '코드'],
+    ['id 를 늘 같게', SRC0.OWN.replace('pathOf(kind, code, newId(), img.type)', "pathOf(kind, code, 'same', img.type)"), '새 이름'],
+    ['put 실패를 삼킴', SRC0.OWN.replace("catch(e){ const err = codeError('IMAGE_UPLOAD', '그림을 올리지 못했어요'); err.cause = e; throw err; }", "catch(e){ url = 'https://x'; }"), 'Storage 거절'],
+    ['코드 없을 때도 올림', SRC0.OWN.replace("if(!code) throw codeError('NO_USER', '내 코드가 없어 그림을 올릴 수 없어요');", ''), 'NO_USER'],
+  ];
+  for(const [name, src, what] of breaks){
+    if(src === SRC0.OWN){ chk(false, name + ' — 바꿀 글을 못 찾음'); continue; }
+    quiet = true; qfail = 0;
+    try{ await judge(Object.assign({}, SRC0, { OWN: src })); }catch(_){ qfail++; }
+    quiet = false;
+    chk(qfail > 0, 'mutation test — ' + name + ' → 빨강(' + what + ')');
+  }
+  console.log(`\n${fail ? '✗' : '✓'} ${pass} 통과 · ${fail} 실패`);
+  process.exit(fail ? 1 : 0);
+}
+runAll();

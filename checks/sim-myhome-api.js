@@ -38,11 +38,16 @@ function fake(routes){
   };
   return { log, get: (p, o) => run('GET', p, undefined, o), post: (p, b, o) => run('POST', p, b, o), put: (p, b, o) => run('PUT', p, b, o), patch: (p, b, o) => run('PATCH', p, b, o) };
 }
+/* 가짜 Storage 바로 올리기(shared/own-image.js 모양) — routes.OWN 이 답(함수면 불러서 · Error 면 던진다) */
+const fakeOwn = (routes) => {
+  const ups = [];
+  return { ups, upload: async (kind, img) => { ups.push({ kind, img }); const r = routes.OWN; const v = typeof r === 'function' ? r(kind, img) : r; if(v instanceof Error) throw v; return v; } };
+};
 const mk = (S, routes) => {
-  const authed = fake(routes || {}), warns = [];
+  const authed = fake(routes || {}), warns = [], ownImage = fakeOwn(routes || {});
   const M = loadW(S.API, 'TwMyHomeApi');
   const imageBytes = loadW(IMGSRC, 'TwImageBytes');
-  return { m: M.createMyHomeApi({ authed, imageBytes, warn: (...a) => warns.push(a.join(' ')) }), authed, warns, M };
+  return { m: M.createMyHomeApi({ authed, imageBytes, ownImage, warn: (...a) => warns.push(a.join(' ')) }), authed, warns, M, ownImage };
 };
 
 const SV_STICKER = (id, o) => Object.assign({ id, image: 'https://s/' + id + '.png', link: null, x: 10, y: 20, w: 100, h: 80, size: 1.5, rot: 0, z: 2, locked: false, anim: null, animSpeed: null }, o || {});
@@ -143,18 +148,19 @@ async function judge(S){
 
   say('── 3. 그림 · 주인 · 오류');
   {
-    const up = mk(S, Object.assign({ 'POST /v2/me/images': { url: 'https://s/mh_1.png' } }, ME));
-    chk((await throws(() => up.m.uploadImage(png(10)))).code === 'NOT_RECEIVED' && up.authed.log.length === 0, '그림 올리기 — 받기 전엔 요청 0');
+    const up = mk(S, Object.assign({ OWN: 'https://s/mh_1.png' }, ME));
+    chk((await throws(() => up.m.uploadImage(png(10)))).code === 'NOT_RECEIVED' && up.ownImage.ups.length === 0, '그림 올리기 — 받기 전엔 올리지 않는다');
     await up.m.fetchMine(); up.authed.log.length = 0;
     const url = await up.m.uploadImage(png(10));
-    const p = up.authed.log[0];
-    chk(url === 'https://s/mh_1.png' && p.path === '/v2/me/images?purpose=myhome' && p.opts.rawType === 'image/png' && p.body instanceof Uint8Array && p.body.length === 10 && 'expectOwner' in p.opts, 'POST /v2/me/images?purpose=myhome · 바이트 그대로 · png → { url }');
+    const p = up.ownImage.ups[0];
+    chk(url === 'https://s/mh_1.png' && p.kind === 'myhome' && p.img.type === 'image/png' && p.img.bytes instanceof Uint8Array && p.img.bytes.length === 10 && up.authed.log.length === 0,
+      'Storage 내 폴더에 바로(own-image myhome) · 바이트 그대로 · png → 주소 · 서버 요청 0(POST /v2/me/images 안 씀)');
     chk(!!(await up.m.uploadImage('data:image/jpeg;base64,AAAA')) && !!(await up.m.uploadImage(png(8 * 1024 * 1024))), 'jpeg 도 올린다 · 딱 8MB 는 올린다(경계)');
-    const before = up.authed.log.length;
-    for(const [what, u] of [['8MB 초과', png(8 * 1024 * 1024 + 1)], ['빈 그림', 'data:image/png;base64,'], ['data: 아님', 'https://x/y.png'], ['gif', 'data:image/gif;base64,AAAA']]) chk((await throws(() => up.m.uploadImage(u))).code === 'IMAGE_UPLOAD', what + ' → 요청 없이 IMAGE_UPLOAD');
-    chk(up.authed.log.length === before, '  거른 그림은 요청 0');
-    const nu = mk(S, Object.assign({ 'POST /v2/me/images': {} }, ME)); await nu.m.fetchMine();
-    chk((await throws(() => nu.m.uploadImage(png(3)))).code === 'SHAPE', '  답에 url 이 없으면 SHAPE');
+    const before = up.ownImage.ups.length;
+    for(const [what, u] of [['8MB 초과', png(8 * 1024 * 1024 + 1)], ['빈 그림', 'data:image/png;base64,'], ['data: 아님', 'https://x/y.png'], ['gif', 'data:image/gif;base64,AAAA']]) chk((await throws(() => up.m.uploadImage(u))).code === 'IMAGE_UPLOAD', what + ' → 올리지 않고 IMAGE_UPLOAD');
+    chk(up.ownImage.ups.length === before, '  거른 그림은 올리지 않는다');
+    const nu = mk(S, Object.assign({ OWN: Object.assign(new Error('거절'), { code: 'IMAGE_UPLOAD' }) }, ME)); await nu.m.fetchMine();
+    chk((await throws(() => nu.m.uploadImage(png(3)))).code === 'IMAGE_UPLOAD' && nu.warns.some((w) => /그림 올리기 실패/.test(w)), '  Storage 가 거절하면 IMAGE_UPLOAD 를 그대로 · 경고 한 줄');
     const o = mk(S, Object.assign({ 'PATCH /v2/me/myhome': () => { throw Object.assign(new Error('o'), { code: 'OWNER_CHANGED' }); } }, ME)); await o.m.fetchMine();
     chk((await throws(() => o.m.patchPage(1, { bio: 'x' }))).code === 'OWNER_CHANGED' && (await throws(() => o.m.patchPage(1, { bio: 'x' }))).code === 'NOT_RECEIVED' && o.authed.log.filter((x) => x.method === 'PATCH').length === 1, '계정이 바뀌면 OWNER_CHANGED 뒤 다시 읽기 전까지 요청 0');
     const r = mk(S, Object.assign({ 'PATCH /v2/me/myhome': { version: 1 } }, ME)); await r.m.fetchMine(); r.m.reset();

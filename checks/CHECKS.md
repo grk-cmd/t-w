@@ -77,7 +77,7 @@
 | **sim-leave-flush.js** | 373 | **155f7397fffa** |
 | **sim-session.js** | 221 | **2c15ae27f8ba** |
 | **sim-session-baseline.js** | 190 | **74b2c6d83b60** |
-| **smoke.js** | 889 | **fbd8f2a526c6** |
+| **smoke.js** | 889 | **98c0abd09fef** |
 | **sim-account-switch.js** | 291 | **2da40257ef5d** |
 | **sim-admin-rules.js** | 408 | **cae4fc4cb38a** || · 아래 칸 · 쓰기 없음** · **개정 163 1절 관리자 서버 봇(apiBots) — admins · licenses 읽기만 · 봇 명단 잠김** · **개정 129 7절 할 일 공용 메모(adminTodoNote) — 관리자만 · rev + 1 · 0~2000자 · 서버 시각** · **개정 127 7절 할 일 종류(type) feat · bug · 없어도 됨** · **개정 126 1절 config/releaseAnswerTpl 관리자만 · 7절 릴리스 답변 템플릿 1~1000자 글자 · 지우기 관리자만 · 읽기 관리자만** · **개정 123 7절 할 일 릴리스 버전(release) 모양 · 20자 · 없어도 됨** · **개정 118 7절 관리자 할 일(adminTodos) — 관리자만 · rev + 1 만(덮어쓰기 막기) · 작업자는 관리자 uid · 제보 id 모양 · 관리자 이름(adminNames) 본인 칸만** · **개정 99 1절 metrics/improvements 관리자 쓰기 · 모양(버전 · 제목 · 항목 20개 · 적용 일수 0~30)** · **개정 95 1절 config/bugDailyMax 관리자만** · **개정 87 1절 config/minAppVer 관리자만** · **2026-10-08 1절 bugBoard/ans/pub · ans/prv 관리자만 · 2절 버그제보 글쓰기(본인 uid · 본인 코드 · 새 글만) · 👍 본인 표시 하나** · **2026-10-07 3절 metrics(접속 지표) 읽기 관리자만 · 쓰기 규칙 없음** · **2026-10-06 1절 inboxBroadcastMeta 관리자만** · **2026-10-06 1절 catalogMeta/$kind 관리자만** · **2026-10-05 6절 관리자 작업 기록(adminLog) — 규칙식을 굴려 관리자만 · 새로 쓰기만 · by · 서버 시각 · 길이 · 90일 지난 것만 지우기 · invites 목록 관리자 읽기(issuedBy 색인) · 코드 하나는 누구나** · **2026-10-04 licenseRequests 친구코드(선택 · MATE/COZY 형식) · accountSnap 목록 관리자 읽기** · **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
 | **sim-char-core-load.js** | 89 | **d14b110c4f57** |
@@ -302,10 +302,11 @@
 | **sim-asset-import.js** | 174 | **e0913aadb82f** |
 | **sim-asset-cards.js** | 151 | **d45ebe4fc7ac** |
 | **sim-scheduler.js** | 1030 | **43a9cf683d97** |
-| **sim-schedule-api.js** | 443 | **0e649f7226ab** |
+| **sim-schedule-api.js** | 426 | **837b5fbf900e** |
 | **sim-weekly-challenge.js** | 295 | **bfdb5116f8c6** |
 | **sim-purikura-ui.js** | 339 | **6e7d7efb9424** |
 | **sim-image-bytes.js** | 113 | **bc4d5d43843a** |
+| **sim-own-image.js** | 99 | **cff0af59d522** |
 | **sim-request-id.js** | 94 | **dc515c933667** |
 | **sim-pk-bgm.js** | 103 | **3a6f07ec7cb7** |
 | **sim-guestbook.js** | 482 | **e0bafe53f31d** |
@@ -329,7 +330,7 @@
 | **sim-playlist.js** | 1146 | **5300cc8c46cd** |
 | **sim-playlist-api.js** | 308 | **d9560b3a4f8d** |
 | **sim-inbox-api.js** | 203 | **18e49c183f14** |
-| **sim-gift-api.js** | 327 | **f0f0c45f45bc** |
+| **sim-gift-api.js** | 332 | **d45e71f44695** |
 | **sim-gift-box.js** | 562 | **843f26df0cf4** |
 | **sim-mallang-module.js** | 355 | **a8f4170b8591** |
 | **sim-mallang-store.js** | 251 | **bf162923be73** |
@@ -447,7 +448,7 @@
 | **sim-presence-lock.js** | 207 | **f3f7dd6e21f8** |
 | **sim-parts-paths.js** | 85 | **06ecfd398730** |
 | **sim-global-names.js** | 237 | **fa80a2b971d3** |
-| **sim-guestbook-api.js** | 246 | **3e699013c788** |
+| **sim-guestbook-api.js** | 245 | **b65833d1fd16** |
 | **sim-guestbook-feed.js** | 403 | **7aeba02ba9a6** |
 | **sim-focus-api.js** | 192 | **4400d38d16d1** |
 | **sim-guestbook-wiring.js** | 298 | **8b8991d46863** |
@@ -547,7 +548,7 @@
 | **sim-front-diag.js** | 115 | **34f10a79310c** |
 | **sim-system-prompt.js** | 100 | **60538a674e3e** |
 | **sim-mh-title-nodrag.js** | 56 | **589effb2d498** |
-| **sim-myhome-api.js** | 215 | **987545399ef4** |
+| **sim-myhome-api.js** | 221 | **ccf238a81c70** |
 | **sim-bookshelf-store.js** | 258 | **331a40dfd17c** |
 | **sim-myhome-store.js** | 629 | **185aa7bcdc73** |
 | **sim-myhome-wire.js** | 122 | **4f8c855c6477** |

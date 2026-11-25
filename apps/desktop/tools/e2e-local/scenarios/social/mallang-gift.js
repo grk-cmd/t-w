@@ -1,5 +1,5 @@
 // 🧸 말랑이 등록(라이선스) · 폴더 누르면 소환 · 친구에게 선물(친구 줄 우클릭) · 받은 쪽 선물함
-// 서버가 그림을 올리고(POST /v2/me/images) 선물 사본을 만드는 길은 Storage 에뮬레이터에 붙은 로컬 서버로 끝까지 간다 — 503 이면 실패다
+// 앱이 그림을 Storage 내 폴더(users/{코드}/mallang_…)에 바로 올리고 서버가 선물 사본을 만드는 길은 Storage 에뮬레이터에 붙은 로컬 서버로 끝까지 간다 — 503 이면 실패다
 'use strict';
 const { scenario, assert, befriend, openMyHome, makeAdmin, pngFile, stubFileDialog } = require('./_kit.js');
 
@@ -25,9 +25,9 @@ scenario('mallang-gift', async (t) => {
     await a.w.locator('#mlManage .ml-slot').first().click();
     const tt = await a.until(() => /말랑이가 등록됐어요|오류 E-GIFT-0/.test(document.getElementById('toast').textContent) && document.getElementById('toast').textContent, null, { what: '등록 결과 토스트' });
     assert(/말랑이가 등록됐어요/.test(tt), '등록 실패 ' + tt + ' · ' + a.A.reqs.filter((l) => /images|mallangs/.test(l)).join(','));
-    assert(a.sawReq(/^POST \/v2\/me\/images 200$/), '그림 올리기 API');
+    assert(!a.sawReq(/\/v2\/me\/images/), '서버 그림 endpoint 를 불렀다(0.14 는 Storage 내 폴더에 바로)');
     const slots = (await a.api('GET', '/v2/me/mallangs')).json.data.slots;
-    assert(slots.length === 1 && slots[0].imageUrl, '서버 칸 ' + JSON.stringify(slots));
+    assert(slots.length === 1 && new RegExp('users%2F' + a.me.userCode + '%2Fmallang_').test(slots[0].imageUrl), '서버 칸 ' + JSON.stringify(slots));
     await a.w.click('#mlManageClose');
   });
 

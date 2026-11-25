@@ -22,7 +22,7 @@
      순수: itemOf · monthOf · ddayOf · boardOf · bellOf · boardBody · orderedIds · PATHS · LIMITS (TwScheduleApi 위)
    ⚠️ 보드는 판(version)으로 겹친 고침을 가른다 — 저장은 «마지막으로 읽은 판» 을 실어 보내고, 다른 기기가 먼저 저장했으면(409 CONCURRENT_UPDATE) 판을 버려 다시 받기 전엔 쓰지 못하게 한다. 409 에 판을 다시 읽어 한 번 더 보내지 않는다.
    ⚠️ 쓰기는 읽은 토큰의 주인과 묶는다(expectOwner) — 계정이 바뀌는 틈에 앞 계정의 값이 새 계정 토큰으로 나가지 않게. 읽은 적 없으면(받기 전) 쓰지 않는다.
-   ⚠️ 카드 그림은 data: 로 들고 있다가 저장할 때만 올린다(POST /v2/me/images?purpose=dday — 바이트 그대로 · 1MB 이하 png / webp / jpeg, 응답 { url }). 올리기를 못 하면 보드를 보내지 않는다(그림이 빠진 채 저장되지 않게).
+   ⚠️ 카드 그림은 data: 로 들고 있다가 저장할 때만 올린다(Storage 내 폴더에 바로 — shared/own-image.js `dday` · 1MB 이하 png / webp / jpeg). 올리기를 못 하면 보드를 보내지 않는다(그림이 빠진 채 저장되지 않게).
    검사: checks/sim-schedule-api.js */
 (function(){
 'use strict';
@@ -35,13 +35,11 @@ const PATHS = Object.freeze({
   board: '/v2/me/ddays',
   boardOf: (userCode) => '/v2/ddays/' + encodeURIComponent(userCode),
   bell: '/v2/me/notifications?section=BELL&limit=50',
-  image: '/v2/me/images?purpose=dday',
   bellOne: (id) => '/v2/me/notifications/' + encodeURIComponent(id),
 });
 /* 서버 상한과 같은 값 — 넘기면 서버가 거절한다 */
 const LIMITS = Object.freeze({ TEXT: 40, DDAY_TEXT: 20, DDAY_PER_KIND: 10, TAGS: 100, IMAGE_BYTES: 1024 * 1024 });
 const IMAGE_TYPES = Object.freeze(['image/png', 'image/webp', 'image/jpeg']);
-const IMAGE_REJECT_STATUS = Object.freeze([400, 413, 415]);   // 서버가 이 그림을 안 받는다(형식 · 크기 · 모양) — 같은 오류 번호로
 const KIND = Object.freeze({ CARD: 'anniv', BANNER: 'dday' });   // 화면이 쓰는 종류 이름 — 기념일 카드 · 디데이 배너
 const BELL_KIND = 'SCHEDULE_TAG';
 const OWNER_CHANGED_CODE = 'OWNER_CHANGED';   // api-client.js — 쓰기 직전 토큰 주인이 읽을 때와 달라졌다
@@ -153,6 +151,7 @@ function createScheduleApi(deps){
   const newId = deps.newId;
   const warn = deps.warn;
   const imageBytes = deps.imageBytes;   // TwImageBytes — data: 그림 → 바이트 판정(shared/image-bytes.js)
+  const ownImage = deps.ownImage;       // TwOwnImage — Storage 내 폴더에 바로 올리기(shared/own-image.js)
   const reads = new Map();   // uid → { owner: 마지막으로 읽을 때 쓴 토큰의 주인, v: 보드 판(없으면 undefined) }
   let epoch = 0;             // reset 마다 오른다 — reset 전에 시작한 읽기가 늦게 끝나도 기억을 되살리지 않게
 
@@ -218,28 +217,21 @@ function createScheduleApi(deps){
     return out;
   }
 
-  /* 그림 한 장 올리기 → 주소. 형식 · 1MB 를 넘으면 요청 없이 IMAGE_UPLOAD. 서버가 안 받으면(400 · 413 · 415) IMAGE_UPLOAD,
-     계정이 바뀐 것(OWNER_CHANGED) · 닿지 못함 등은 그대로 던진다 */
-  async function uploadImage(dataUrl, owner){
+  /* 그림 한 장 올리기 → 주소. 형식 · 1MB 를 넘으면 요청 없이 IMAGE_UPLOAD. Storage 가 거절하거나 닿지 못해도 IMAGE_UPLOAD(own-image.js).
+     계정이 바뀌었으면 Storage 규칙이 거절한다(경로의 코드 ≠ 이 로그인) — 보드는 그 뒤 PUT 의 expectOwner 가 막는다 */
+  async function uploadImage(dataUrl){
     const img = imageBytes.inspect(dataUrl, { types: IMAGE_TYPES, maxBytes: LIMITS.IMAGE_BYTES });
     if(!img.ok) throw codeError(IMAGE_UPLOAD_CODE, '카드 그림을 올리지 못했어요');
-    let d;
-    try{ d = await authed.post(PATHS.image, img.bytes, { expectOwner: owner, rawType: img.type }); }
-    catch(e){
-      if(e && e.kind === 'request' && IMAGE_REJECT_STATUS.indexOf(e.status) >= 0) throw codeError(IMAGE_UPLOAD_CODE, '카드 그림을 올리지 못했어요');
-      throw e;
-    }
-    if(!isObj(d) || typeof d.url !== 'string' || !d.url) throw shapeError();
-    return d.url;
+    return ownImage.upload('dday', img);
   }
 
   /* 새로 고른 그림(data:)만 올려 주소로 바꾼 사본 — 하나라도 못 올리면 던진다(보드를 보내지 않는다) */
-  async function withUploadedImages(ddays, owner){
+  async function withUploadedImages(ddays){
     const out = {};
     for(const id of Object.keys(ddays)){
       const d = Object.assign({}, ddays[id]);
       if(d.kind !== KIND.BANNER && typeof d.bgImg === 'string' && d.bgImg.startsWith('data:')){
-        try{ d.bgImg = await uploadImage(d.bgImg, owner); }
+        try{ d.bgImg = await uploadImage(d.bgImg); }
         catch(e){ warn('[일정] 카드 그림 올리기 실패', (e && (e.code || e.message)) || e); throw e; }
       }
       out[id] = d;
@@ -253,7 +245,7 @@ function createScheduleApi(deps){
     const read = readOf(uid);
     if(read.v === undefined) throw codeError(NOT_RECEIVED_CODE, '받기 전에는 쓰지 않아요');
     try{
-      const ready = await withUploadedImages(ddays, read.owner);
+      const ready = await withUploadedImages(ddays);
       const out = boardOf(await authed.put(PATHS.board, boardBody(read.v, ready, tag), { expectOwner: read.owner }));
       if(!out) throw shapeError();
       reads.set(uid, { owner: read.owner, v: out.version });

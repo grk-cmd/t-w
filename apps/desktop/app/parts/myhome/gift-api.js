@@ -1,5 +1,5 @@
 /* gift-api.js — 🧸 말랑이 · 🎁 선물 api provider (검사 sim-gift-api.js)
-   책임: 내 말랑이 칸 읽기 · 통째 저장(GET · PUT /v2/me/mallangs) · 그림 올리기(POST /v2/me/images?purpose=mallang) · 남의 집 칸(GET /v2/mallangs/{userCode}) ·
+   책임: 내 말랑이 칸 읽기 · 통째 저장(GET · PUT /v2/me/mallangs) · 그림 올리기(Storage 내 폴더에 바로 — shared/own-image.js `mallang`) · 남의 집 칸(GET /v2/mallangs/{userCode}) ·
      내 선물함(GET /v2/me/gifts) · 봤음(POST …/seen) · ⭐ · 치움(PATCH …/{id}) · 지우기(DELETE …/{id}) · 오늘 보낸 수(GET …/sent-today) ·
      그 집에 나온 선물(GET /v2/gifts/{userCode}) · 보내기(POST /v2/gifts/{userCode}).
      서버 모양(sentAt ISO)을 화면 모양(sentAt ms)으로 맞추는 곳은 여기뿐이다.
@@ -32,7 +32,6 @@
 const PATHS = Object.freeze({
   mine: '/v2/me/mallangs',
   of: (userCode) => '/v2/mallangs/' + encodeURIComponent(userCode),
-  image: '/v2/me/images?purpose=mallang',
   box: '/v2/me/gifts',
   seen: '/v2/me/gifts/seen',
   one: (id) => '/v2/me/gifts/' + encodeURIComponent(id),
@@ -153,6 +152,7 @@ function createGiftApi(deps){
   const authed = deps.authed;
   const warn = deps.warn;
   const imageBytes = deps.imageBytes;   // TwImageBytes — data: 그림 → 바이트 판정(shared/image-bytes.js)
+  const ownImage = deps.ownImage;       // TwOwnImage — Storage 내 폴더에 바로 올리기(shared/own-image.js)
   let owner;          // 마지막으로 내 것을 읽을 때 쓴 토큰의 주인(undefined = 읽은 적 없음)
   let epoch = 0;      // reset 마다 오른다 — reset 전에 시작한 읽기가 늦게 끝나도 주인 기억을 되살리지 않게
 
@@ -180,9 +180,7 @@ function createGiftApi(deps){
   async function uploadImage(dataUrl){
     const img = imageBytes.inspect(dataUrl, { types: IMAGE_TYPES, maxBytes: LIMITS.IMAGE_BYTES });
     if(!img.ok) throw codeError(IMAGE_UPLOAD_CODE, '말랑이 그림을 올리지 못했어요');
-    const d = await write('그림 올리기', (o) => authed.post(PATHS.image, img.bytes, Object.assign({ rawType: img.type }, o)));
-    if(!isObj(d) || !nonEmpty(d.url)) throw shapeError();
-    return d.url;
+    return write('그림 올리기', () => ownImage.upload('mallang', img));
   }
 
   return {
