@@ -21,7 +21,8 @@ function mkIDB(o){
   const db = { createObjectStore(){}, transaction(){ return { objectStore: () => ({
     get: (k) => req(() => rows.get(k)), put: (v) => { rows.set(v.k, v); return {}; }, getAll: () => req(() => [...rows.values()]),
     delete: (k) => { rows.delete(k); return {}; }, clear: () => req(() => { rows.clear(); }) }) }; } };
-  return { rows, idb: { open(){ const r = {}; later(() => { if(o.fail){ r.onerror && r.onerror(); return; } r.result = db; r.onupgradeneeded && r.onupgradeneeded(); r.onsuccess && r.onsuccess(); }); return r; } } };
+  const st = { opens: 0 };
+  return { rows, st, idb: { open(){ st.opens++; const r = {}; later(() => { if(o.hang) return; if(o.blocked && st.opens === 1){ r.onblocked && r.onblocked(); return; } if(o.fail){ r.onerror && r.onerror(); return; } r.result = db; r.onupgradeneeded && r.onupgradeneeded(); r.onsuccess && r.onsuccess(); }); return r; } } };
 }
 const load = (src, deps) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwEtagStore.createEtagStore(deps); };
 const flush = () => new Promise((r) => setTimeout(r, 5));
@@ -42,6 +43,9 @@ async function judge(src){
   t(await N.load('a') === null && (await N.save('a', 'e', 1)) === null && (await N.clear()) === null, 'IndexedDB 가 없으면 꺼내기 null · 넣기 · 지우기는 조용히');
   const X = load(src, { indexedDB: mkIDB({ fail: true }).idb });
   t(await X.load('a') === null, '  열기가 실패해도 null');
+  const K = mkIDB({ blocked: true }); const KB = load(src, { indexedDB: K.idb });
+  const k1 = await KB.load('a'); await KB.save('a', '"e"', 1); await flush(); const k2 = await KB.load('a');
+  t(k1 === null && K.st.opens === 2 && k2 && k2.etag === '"e"', '열기가 막히면(onblocked) 이번엔 null · 다음 부름에 다시 연다');
   const B = mkIDB(); const E = load(src, { indexedDB: B.idb });
   await E.save('a', '', 1); await flush();
   t(await E.load('a') === null, '빈 ETag 로 남은 줄은 없는 것으로 본다');
@@ -56,6 +60,7 @@ async function judge(src){
   for(const [name, from, to] of [
     ['상한을 안 지킴', 'for(let i = 0; i < rows.length - MAX; i++)', 'for(let i = 0; i < 0; i++)'],
     ['지우기가 안 지움', 'const rq = st.clear();', 'const rq = st.getAll();'],
+    ['막혀도 다시 안 엶', "        rq.onblocked = fail;", "        rq.onblocked = () => res(null);"],
     ['빈 ETag 도 돌려줌', "v && typeof v.etag === 'string' && v.etag ?", 'v ?'],
   ]){
     const m2 = SRC.replace(from, to);

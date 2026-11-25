@@ -627,6 +627,46 @@ async function gateCases(M){
     const noClear = SRC.replace("      if(persist){ try{ persist.store.clear(); }catch(_){} }   // 남긴 기억도", "      //");
     const rc = await persistCase(noClear);
     chk(noClear !== SRC && rc.disk.size > 0, '  mutation test — 계정을 놓아도 안 지우면 빨강');
+    /* 리뷰 지적 — 기억 읽기가 멈춤 · 실패해도 200 · 계정 섞임 · 놓은 뒤 늦게 온 답 */
+    const mkM = (src) => { const mod = { exports: {} }; vm.runInNewContext(src, { module: mod, setTimeout, clearTimeout, AbortController, console, atob: (x) => Buffer.from(x, 'base64').toString('binary') }); return mod.exports; };
+    const edge = async (src, store, opts) => {
+      const M = mkM(src); let tok = (opts && opts.tok) || jwt('u1');
+      const f = mkFetch((url, init) => (opts && opts.hold) ? opts.hold(url, init) : res(200, { success: true, data: { who: tok } }, { ETag: '"e2"' }));
+      const c = M.createApiClient({ baseUrl: PROD, fetch: f, getToken: async () => tok, backoffMs: 0, timeoutMs: 1500, persist: { store, paths: ['/v2/me/avatars'] } });
+      const t0 = Date.now(); let r = null, err = null;
+      try{ r = await Promise.race([c.get('/v2/me/avatars', { auth: true }), new Promise((_, j) => setTimeout(() => j(new Error('멈춤')), 2500))]); }catch(e){ err = e; }
+      return { r, err, ms: Date.now() - t0, f, c, setTok: (v) => { tok = v; } };
+    };
+    const hang = { load: () => new Promise(() => {}), save(){}, clear(){} };
+    const h = await edge(SRC, hang);
+    chk(h.r && h.r.who && h.f.calls.length === 1 && !h.f.calls[0].init.headers['If-None-Match'] && h.ms < 1000, '★ 기억 읽기가 끝나지 않아도(IndexedDB 멈춤) ' + A.PERSIST_LOAD_MS + 'ms 뒤 If-None-Match 없이 보내 200 (' + h.ms + 'ms)');
+    const hb = await edge(SRC.replace("    return Promise.race([p, new Promise((r) => tSet(() => r(null), PERSIST_LOAD_MS))]);", "    return p;"), hang);
+    chk(!(hb.r && hb.f.calls.length === 1), '  mutation test — 읽기 상한을 빼면 요청이 시간 초과로 0번 나간다(빨강)');
+    const rej = await edge(SRC, { load: () => Promise.reject(new Error('idb')), save(){ throw new Error('s'); }, clear(){ throw new Error('c'); } });
+    rej.c.forgetSession();
+    chk(rej.r && rej.r.who && rej.f.calls.length === 1, '  기억 읽기가 거절되고 넣기 · 지우기가 던져도 200 · 계정 놓기도 던지지 않는다');
+    const disk = new Map([['u1 /v2/me/avatars', { etag: '"e1"', data: { who: 'u1-old' } }]]);
+    const kv = { load: async (k) => disk.get(k) || null, save: (k, e, d) => disk.set(k, { etag: e, data: d }), clear: () => disk.clear() };
+    const u2 = await edge(SRC, kv, { tok: jwt('u2') });
+    chk(u2.r && u2.r.who === jwt('u2') && !u2.f.calls[0].init.headers['If-None-Match'], '★ u1 이 남긴 기억은 u2 의 읽기에 안 실린다 — If-None-Match 없음 · u2 의 값');
+    const noWho = SRC.replace("        memoKey = a.who + ' ' + path;", "        memoKey = 'u1 ' + path;");
+    const u2b = await edge(noWho, kv, { tok: jwt('u2') });
+    chk(noWho !== SRC && u2b.f.calls[0].init.headers['If-None-Match'], '  mutation test — 열쇠에서 «누구» 를 빼면 u1 의 ETag 가 u2 에 실린다(빨강)');
+    /* 놓기 전에 나간 요청이 놓은 뒤 200 + ETag 로 끝나도 디스크 · 메모리에 적지 않는다 */
+    const race = async (src) => {
+      const d2 = new Map(); const st = { load: async () => null, save: (k, e, v) => d2.set(k, v), clear: () => d2.clear() };
+      let release; const M = mkM(src);
+      const f = mkFetch(() => new Promise((r) => { release = () => r(res(200, { success: true, data: { who: 'u1' } }, { ETag: '"late"' })); }));
+      const c = M.createApiClient({ baseUrl: PROD, fetch: f, getToken: async () => jwt('u1'), backoffMs: 0, timeoutMs: 3000, persist: { store: st, paths: ['/v2/me/avatars'] } });
+      const p = c.get('/v2/me/avatars', { auth: true });
+      for(let i = 0; i < 50 && !release; i++) await new Promise((r) => setTimeout(r, 10));
+      c.forgetSession(); release(); await p;
+      return { disk: d2.size };
+    };
+    const rr = await race(SRC);
+    chk(rr.disk === 0, '★ 계정을 놓은 뒤 늦게 온 앞 계정의 200 + ETag 는 디스크에 다시 적지 않는다');
+    const rb2 = await race(SRC.replace("    if(memoKey && typeof etag === 'string' && etag && gen0 === sessionGen) remember", "    if(memoKey && typeof etag === 'string' && etag) remember"));
+    chk(rb2.disk === 1, '  mutation test — 세대를 안 보면 앞 계정 줄이 디스크에 되살아난다(빨강)');
     chk(JSON.stringify(A.PERSIST_PUBLIC) === JSON.stringify(['/v2/config', '/v2/notices']) && JSON.stringify(A.PERSIST_AUTHED) === JSON.stringify(['/v2/catalog', '/v2/me/avatars', '/v2/me/collection', '/v2/me/focus', '/v2/me/friends', '/v2/me/playlist']),
       '남기는 길 여덟 — 설정 · 공지(로그인 없음) · 카탈로그 · 옷장 · 보유분 · 포커스 · 친구 · 플레이리스트');
   }
