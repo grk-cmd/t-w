@@ -101,7 +101,7 @@ GitHub → **Actions** → **release**에서 진행 상황을 볼 수 있습니�
 | 버전 확인 | 태그와 `apps/desktop/package.json` 버전이 같은가 | `npm run version:bump`을 안 쓰고 태그만 달았을 때 |
 | | 마지막 공개 릴리스보다 **높은가** (같아도 막음) | 이미 나간 번호를 또 쓰려 할 때 |
 | Windows 빌드 | exe, `.blockmap`, `latest.yml` | |
-| Mac 빌드 | dmg · zip · zip `.blockmap` × 2 (arm64, x64) · `latest-mac.yml`(두 arch 를 합친 한 파일) — Developer ID 서명 · 애플 공증(환경 `release` 의 secret) | |
+| Mac 빌드 | dmg · zip · zip `.blockmap` × 2 (arm64, x64) · `latest-mac.yml`(두 arch 를 합친 한 파일) — Developer ID 서명 · 애플 공증(환경 `release` 의 secret) | 잡마다 자기 arch 만 빌드한다(`mac.target` 에 arch 를 박지 않음) — 내 맥에서 `npm run dist` 는 그 맥의 arch 하나만, 둘 다는 `--mac --arm64 --x64` |
 | Windows 검사 | `latest.yml` 버전 · sha512 가 exe 와 맞는가 · 앱이 켜져 20초 살아 있는가 | 자동 업데이트가 깨질 파일 · 켜자마자 꺼지는 앱 |
 | Mac 검사 | 빌드한 앱 · dmg 안 앱 · zip 안 앱이 우리 팀 Developer ID 로 서명되고 공증 티켓이 붙었는가(`scripts/mac-verify-signed.sh` — `codesign` · `stapler validate`) · dmg 가 열리는가(`hdiutil verify`) · 버전 · arch · 켜져 20초 살아 있는가 · `latest-mac.yml` 버전 · arch · sha512 가 zip 과 맞는가 | 공증 값이 비어 공증을 건너뛴 빌드(electron-builder 는 말없이 넘어간다) · 손상된 dmg(0.10.2 때) · 서명이 어긋난 앱(애플 실리콘 «손상됨» — 0.13.1 때) · 버전이 섞인 dmg |
 | Releases 초안 | arm64 · x64 의 맥 yml 을 하나로 합치기 · 파일이 정확히 10개인가 · 모든 파일을 **한 초안**에 업로드 · 올라간 파일 sha256 = 원본 | 한쪽 arch 가 빠진 맥 업데이트 정보 · 이름 겹침 · 업로드 중 손상. 이미 **공개된** 릴리스는 덮어쓰지 않음 |

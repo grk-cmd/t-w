@@ -1,7 +1,7 @@
 # ═══ 🚀 release — 버전 태그(v*) push 로 Windows · Mac 빌드 → GitHub Releases 초안 ═══════════
 # [2026-10-03] 릴리스 순서 «① 규칙 → ② 최신화 → ③ 빌드» 중 ③ 을 자동화한다.
 #   ② 최신화(사람):  npm run version:bump -- patch  →  git push --follow-tags
-#   ③ 빌드(여기):    태그 push 가 트리거 → exe · dmg ×2 · latest.yml 을 **한 초안**에 올린다
+#   ③ 빌드(여기):    태그 push 가 트리거 → exe · latest.yml · 맥 dmg · zip ×2 · latest-mac.yml 등 10개를 **한 초안**에 올린다
 #   ④ 검사 → 공개:   빌드마다 «열리는가 · 버전 · arch · 켜지는가», 초안은 «올라간 파일 = 원본» 을 본다.
 #                    전부 통과해야 공개(Publish)한다. 하나라도 빨강이면 초안으로 남고 사용자에게 가지 않는다.
 #                    publish=draft(release-start «초안으로 대기») 면 검사까지 똑같이 하고 공개만 사람이 Releases 에서 누른다.
@@ -21,7 +21,8 @@
 #   · 운영 규칙 배포는 하지 않는다 · Releases 에 Pre-release 로 올린다(사용자 앱은 자동 업데이트로 받지 않는다)
 # 🍎 Mac 은 Developer ID 로 서명하고 애플 공증을 받는다 — 인증서 · 공증 키는 환경 `release` 의 secret 여섯
 #   (MAC_CSC_LINK · MAC_CSC_KEY_PASSWORD · APPLE_API_KEY_P8 · APPLE_API_KEY_ID · APPLE_API_ISSUER · APPLE_TEAM_ID).
-#   환경은 태그 v* 와 브랜치 main(release-start 가 --ref main 으로 부른다)에서만 열린다. 값은 electron-builder 단계에만 넘긴다.
+#   환경은 태그 v* 와 브랜치 main(release-start 가 --ref main 으로 부른다)에서만 열린다. 인증서 · 공증 키는 electron-builder 단계에만,
+#   팀 ID(비밀 아님)는 서명 확인 단계에도 넘긴다.
 #   electron-builder 는 공증 값이 없으면 말없이 건너뛰므로, 빌드 뒤 «공증이 붙었는가» 를 따로 본다.
 #   zip + latest-mac.yml 은 맥 자동 업데이트(electron-updater)가 읽는다. Windows 는 인증서가 없다(서명하지 않는다).
 
