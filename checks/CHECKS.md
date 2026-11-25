@@ -301,7 +301,7 @@
 | **sim-app-size.js** | 127 | **f4d91c399857** |
 | **sim-asset-import.js** | 174 | **e0913aadb82f** |
 | **sim-asset-cards.js** | 151 | **d45ebe4fc7ac** |
-| **sim-scheduler.js** | 1030 | **08e01f5930e1** |
+| **sim-scheduler.js** | 1030 | **c09f8d9b3f91** |
 | **sim-schedule-api.js** | 435 | **c3fd907a4236** |
 | **sim-weekly-challenge.js** | 295 | **bfdb5116f8c6** |
 | **sim-purikura-ui.js** | 339 | **6e7d7efb9424** |
@@ -463,7 +463,7 @@
 | **sim-account-state.js** | 108 | **413b232af0e3** |
 | **sim-nav.js** | 91 | **27ffd1e7cdaa** |
 | **sim-server-features.js** | 165 | **47d7921ce9c2** |
-| **sim-app-boot.js** | 246 | **5600418e3f28** |
+| **sim-app-boot.js** | 251 | **bd472adc2a79** |
 | **sim-away-start.js** | 120 | **b9010d0eee8e** |
 | **sim-user-local.js** | 207 | **b34ec3227153** |
 | **sim-saved-lists-wiring.js** | 91 | **81a39e87449d** |

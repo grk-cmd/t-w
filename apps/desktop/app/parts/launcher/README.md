@@ -201,19 +201,19 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 
 ## `app-boot.js` — 🚀 켜는 순서 한 곳
 
-**책임** — 0.13 의 켜는 순서를 한 줄로 고정한다. ① 계정 없이 돌아도 되는 것(창 · 테마 · 그리기 · 입력 · 원격 설정 · 점검 · 백색소음)은 바로 · 업데이트 · 공지 확인(`update-flow.js runBeforeLogin`)도 바로 시작하고 로그인과 같이 돈다 → ② 계정 확인(`license-gate.js checkInviteGate` → `login-flow.js confirm`) → 서버 계정으로 이 PC 맞추기(`account.js _enterAccount`) → ③ 안 바뀐 계정이면 게이트가 `twNav.go(NAV.ACCOUNT_ENTERED, me)` 로 알리고, 이 모듈이 한 번 — **옛 PC 값 옮기기 → 세션 + 계정 칸 열기 → 이 PC 등록(`registerDevice` — [취소]면 세션을 끝내고 `toLogin`) → 첫 화면 읽기(FIRST) → 업데이트 확인 통과(`updateGate` — 강제 업데이트면 여기서 멈춘다) → realtime(`goOnline`) → 요청 없는 기능(READY) → 첫 화면을 그린 뒤 안 보이는 읽기(LATER · 칸 사이 `LATER_GAP_MS`) · 그 창을 열 때(OPEN · `open(name)`)**. 로그인 필요 · 가입 필요 · 서버 안 됨이면 ③ 은 안 돈다. 로그아웃 차례는 `account.js` 한 곳.
+**책임** — 0.13 의 켜는 순서를 한 줄로 고정한다. ① 계정 없이 돌아도 되는 것(창 · 테마 · 그리기 · 입력 · 원격 설정 · 점검 · 백색소음)은 바로 · 업데이트 · 공지 확인(`update-flow.js runBeforeLogin`)도 바로 시작하고 로그인과 같이 돈다 → ② 계정 확인(`license-gate.js checkInviteGate` → `login-flow.js confirm`) → 서버 계정으로 이 PC 맞추기(`account.js _enterAccount`) → ③ 안 바뀐 계정이면 게이트가 `twNav.go(NAV.ACCOUNT_ENTERED, me)` 로 알리고, 이 모듈이 한 번 — **옛 PC 값 옮기기 → 세션 + 계정 칸 열기 → 업데이트 확인 통과(`updateGate` — 강제 업데이트면 여기서 멈춘다 · 서버 쓰기 0) → 이 PC 등록(`registerDevice` — [취소]면 세션을 끝내고 `toLogin`) → 첫 화면 읽기(FIRST) → realtime(`goOnline`) → 요청 없는 기능(READY) → 첫 화면을 그린 뒤 안 보이는 읽기(LATER · 칸 사이 `LATER_GAP_MS`) · 그 창을 열 때(OPEN · `open(name)`)**. 로그인 필요 · 가입 필요 · 서버 안 됨이면 ③ 은 안 돈다. 로그아웃 차례는 `account.js` 한 곳.
 
-**«접속 중…»** — LATER 읽기(다 시작하고 나간 API 요청이 끝날 때까지 — `api-client.js whenIdle`)가 `CONNECTING_TOAST_MS`(2초) 안에 안 끝나면 `toast.js hold` 로 아래 토스트를 띄우고, 끝나면 내린다. 실패는 각 기능의 오류 번호 길 그대로.
+**«접속 중…»** — 첫 화면 뒤 LATER 읽기(다 시작하고 나간 API 요청이 끝날 때까지 — `api-client.js whenIdle`)가 `CONNECTING_TOAST_MS`(2초) 안에 안 끝나면 `toast.js hold` 로 아래 토스트를 띄우고, 끝나면 내린다. 실패는 각 기능의 오류 번호 길 그대로.
 
 **만드는 법** — app.js 가 계정 기능 모듈을 다 만든 뒤 `TwAppBoot.createAppBoot({ twNav, migrateLegacy, newSession, registerDevice, toLogin, goOnline, updateGate, whenPainted, idle, holdToast, starts })`. `whenPainted` 는 옷장 첫 받기가 끝남(ready · failed) — 늦어도 `PAINT_WAIT_MAX_MS`(3초) 뒤에 LATER 를 시작한다. `starts` 는 `STEPS` 의 이름마다 함수 하나(없거나 남으면 만들 때 던진다). 각 함수는 `(code, me, session)` 을 받는다. OPEN 칸은 `open-on-show.js` 가 창이 보일 때 `appBoot.open(name)` 으로 부탁한다.
 
 **차례 표(`STEPS`) — 이름 · 때(PHASE)가 정본이다**
 | 때 | 이름 |
 |---|---|
-| FIRST — 등록 뒤 곧바로(업데이트 확인을 기다리지 않는 읽기) | userLocal · catalog · closet |
-| READY — 업데이트 확인을 통과한 뒤 바로(요청 없음 · 구독만) | focusTotal · focusShare · pomodoro · gift · roomInvite · awayPic · desktopBg · licensePremium · adminMode |
-| LATER — 첫 화면 뒤 하나씩 | focusLevel · weeklyChal · mhInit · bugBadge · scheduler · invites · appVersion · firstRun · licenseAutoRegister |
-| OPEN — 그 창을 처음 열 때 | gacha(꾸미기 · 뽑기 창) · playlist(플레이리스트 창) · ddays(마이홈) |
+| FIRST — 등록 뒤 곧바로(카탈로그 locked · 옷장 프리미엄 판정이 등록된 기기를 본다) | userLocal · catalog · closet |
+| READY — 그 뒤 바로(요청 없음 · 구독만) | focusTotal · focusShare · pomodoro · gift · roomInvite · awayPic · desktopBg · licensePremium · adminMode |
+| LATER — 첫 화면 뒤 하나씩 | focusLevel · weeklyChal · mhInit · bugBadge · scheduler · ddays(🔔 배지가 센다) · gacha(못 가진 가챠 파츠 벗기기) · invites · appVersion · firstRun · licenseAutoRegister |
+| OPEN — 그 창을 처음 열 때 | playlist(플레이리스트 창) |
 
 **내놓는 것** — `begin(me)`(보통은 nav 로 불린다) · `open(name)`(OPEN 칸만 — 아니면 던진다 · 두 번째부터 무시 · 업데이트 확인 전이면 통과한 뒤 시작) · `getSession()`.
 
@@ -226,7 +226,7 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 
 ## `open-on-show.js` — 🪟 창이 보이면 그 창의 기능 시작 부탁
 
-**책임** — 가챠 · 플레이리스트 · 디데이 보드는 켤 때 받지 않고 그 창을 처음 열 때 받는다(app-boot OPEN). 여는 길이 여럿이라 부르는 자리를 늘리지 않고, 창의 class · style 이 바뀔 때 «보이나» 를 보고 `open(name)` 을 부른다.
+**책임** — 플레이리스트는 켤 때 받지 않고 그 창을 처음 열 때 받는다(app-boot OPEN). 여는 길이 여럿이라 부르는 자리를 늘리지 않고, 창의 class · style 이 바뀔 때 «보이나» 를 보고 `open(name)` 을 부른다.
 **deps** — `open(name)` · `targets [{ name, el, shown(el) }]` · `MutationObserver`(검사용). **내놓는 것** — `start()`. 창이 없으면 만들 때 던진다.
 **함정** — 두 번째부터는 app-boot 가 무시하니 여기서는 몇 번 불러도 된다. 검사 `checks/sim-open-on-show.js`.
 

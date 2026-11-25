@@ -2,9 +2,9 @@
    0.13 의 켜는 순서는 한 줄이다: ① 계정 없이 돌아도 되는 것(창 · 테마 · 그리기 · 입력 · 원격 설정 · 점검 · 카탈로그)은 바로 →
    ② 계정 확인(license-gate.js checkInviteGate → login-flow.js confirm) → 서버 계정으로 이 PC 맞추기(account.js _enterAccount — 계정 코드 확정) →
    ③ 안 바뀐 계정이면 게이트가 nav 로 «계정에 들어감»(NAV.ACCOUNT_ENTERED)을 알리고, 이 모듈이 한 번 —
-   옛 PC 값 옮기기(migrateLegacy) → 계정 칸 열기 → 이 PC 등록(registerDevice — 계정마다 PC 는 서버가 정한 상한까지) → 첫 화면 읽기(FIRST) →
-   업데이트 확인 통과(updateGate — 확인은 로그인과 같이 돈다) → realtime 연결 → 요청 없는 기능(READY) → 첫 화면을 그린 뒤 안 보이는 읽기(LATER · 사이를 두고) · 창을 열 때(OPEN) — 아래 STEPS 표.
-   LATER 읽기가 2초 안에 안 끝나면 «접속 중…» 토스트를 띄우고 끝나면 내린다.
+   옛 PC 값 옮기기(migrateLegacy) → 계정 칸 열기 → 업데이트 확인 통과(updateGate — 확인은 로그인과 같이 돈다 · 강제면 여기서 멈춤) →
+   이 PC 등록(registerDevice — 계정마다 PC 는 서버가 정한 상한까지) → 첫 화면 읽기(FIRST) → realtime 연결 → 요청 없는 기능(READY) →
+   첫 화면을 그린 뒤 안 보이는 읽기(LATER · 사이를 두고) · 창을 열 때(OPEN) — 아래 STEPS 표. 첫 화면 뒤 읽기가 2초 안에 안 끝나면 «접속 중…» 토스트를 띄우고 끝나면 내린다.
    등록을 [취소]하면(상한이 다 찬 계정에서 가장 오래된 기기를 지우지 않음) 등록하지 않고 로그인 화면으로(toLogin) — realtime · 기능을 시작하지 않는다.
    등록이 실패하면(서버에 못 닿음 — 번호는 등록 쪽이 알림) 그대로 이어 간다 — realtime 이 이 PC 를 들이지 않으면 기기 안내 화면이 [다시 등록]을 준다.
    로그인 필요 · 가입 필요 · 서버 안 됨이면 ③은 돌지 않는다. 계정이 바뀌었으면(switched) 앱을 다시 켜므로 그때도 돌지 않는다 — 다시 켠 뒤 새로 돈다.
@@ -18,9 +18,10 @@
 'use strict';
 
 /* 들어간 뒤 계정 기능을 시작하는 차례 — 이 표의 순서 · 때가 정본이다(deps.starts 의 이름과 어긋나면 만들 때 던진다).
-   때(PHASE): FIRST = 이 PC 등록 뒤 곧바로(첫 화면에 보이는 것 — 캐릭터 · 카탈로그) · READY = 업데이트 확인을 통과한 뒤 바로(요청 없는 것 · 구독만 거는 것) ·
+   때(PHASE): FIRST = 이 PC 등록 뒤 곧바로(첫 화면에 보이는 것 — 캐릭터 · 카탈로그) · READY = 그 뒤 바로(요청 없는 것 · 구독만 거는 것) ·
      LATER = 첫 화면을 그린 뒤 하나씩 사이를 두고(안 보이는 읽기 — 한꺼번에 몰려 첫 화면 요청과 다투지 않게) · OPEN = 그 창을 처음 열 때(open(name)).
-   ★ FIRST 는 업데이트 확인을 기다리지 않는다(읽기뿐) — 나머지는 업데이트 확인이 «로그인으로 넘어가도 됨» 일 때만 시작한다(강제 업데이트면 계정 기능 0). */
+   ★ 업데이트 확인(로그인과 같이 돈다)이 «로그인으로 넘어가도 됨» 이어야 이 PC 등록(서버 쓰기)부터 시작한다 — 강제 업데이트면 서버 쓰기 · 계정 기능 0.
+     FIRST 읽기는 등록 뒤다 — 카탈로그 locked · 옷장 답의 프리미엄 판정이 «등록된 이 기기» 를 본다. */
 const PHASE = Object.freeze({ FIRST: 'first', READY: 'ready', LATER: 'later', OPEN: 'open' });
 const STEPS = Object.freeze([
   ['userLocal', PHASE.FIRST],        // 🗂️ 이 계정이 이 PC 에서 고른 것(현재 슬롯 · 꾸미기 보기 설정 …)을 계정 칸에서 읽어 채움 — 만들 때 읽던 값이라 맨 먼저(user-local.js)
@@ -40,17 +41,17 @@ const STEPS = Object.freeze([
   ['mhInit', PHASE.LATER],           // 🏠 마이홈 시작(접속 표시 · 친구 · 요청 · 우편)
   ['bugBadge', PHASE.LATER],         // 🐞 버그제보 탭 «새 답변» 배지 한 번 받기
   ['scheduler', PHASE.LATER],        // 📅 일정 알림 받기
+  ['ddays', PHASE.LATER],            // 📌 디데이 보드 받기 — 🔔 알림 배지 · 알림 창이 마이홈 밖에서도 디데이를 센다
+  ['gacha', PHASE.LATER],            // 🎰 가챠 보유분 서버 맞추기(못 가진 가챠 파츠 벗기기 pruneUnownedGachaParts 가 이 답을 쓴다)
   ['invites', PHASE.LATER],          // 🎟️ 런처 초대장 버튼의 남은 수 한 번 받기
   ['appVersion', PHASE.LATER],       // 🔄 이 PC 앱 판을 서버에 알리기 — 더 새 판을 쓰는 기기가 있으면 업데이트 창(account/app-version-sync.js)
   ['firstRun', PHASE.LATER],         // 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기)
   ['licenseAutoRegister', PHASE.LATER],   // 🔑 계정 라이선스에 이 기기 자동 등록 — 첫 실행 뒤(0.12 키로 첫 실행이 등록했으면 건너뜀 · license-premium.js autoRegisterAfter)
-  ['gacha', PHASE.OPEN],             // 🎰 가챠 보유분 서버 맞추기 — 꾸미기 · 뽑기 창을 처음 열 때
   ['playlist', PHASE.OPEN],          // 🎵 플레이리스트 받기 — 플레이리스트 창을 처음 열 때
-  ['ddays', PHASE.OPEN],             // 📌 디데이 보드 받기 — 마이홈을 처음 열 때
 ]);
-const LATER_GAP_MS = 120;            // LATER 칸 사이 — 9칸이 약 1초에 걸쳐 나간다
+const LATER_GAP_MS = 120;            // LATER 칸 사이 — 11칸이 약 1.3초에 걸쳐 나간다
 const PAINT_WAIT_MAX_MS = 3000;      // 첫 화면을 이보다 오래 못 그리면(캐릭터 그림이 느림) LATER 를 그냥 시작한다
-const CONNECTING_TOAST_MS = 2000;    // LATER 읽기가 이때까지 안 끝나면 «접속 중…» 을 띄운다(끝나면 내린다)
+const CONNECTING_TOAST_MS = 2000;    // 첫 화면 뒤 LATER 읽기가 이때까지 안 끝나면 «접속 중…» 을 띄운다(끝나면 내린다)
 const CONNECTING_TEXT = '접속 중…';
 
 /** @param {{
@@ -59,7 +60,7 @@ const CONNECTING_TEXT = '접속 중…';
  *   newSession: (me: object) => { openStore: () => boolean, dispose: () => boolean, alive: () => boolean, setTimeout: Function },   // 로그인 세션 만들기(shared/session.js) — 계정 칸 열기는 세션이 한다(옮기기 직후 — 열기 전엔 읽기 null · 쓰기 거절). 못 열면 기능을 시작하지 않는다
  *   registerDevice: () => Promise<'ok' | 'canceled' | 'failed'>,   // 이 PC 등록(account/device-register.js ensure) — realtime 보다 먼저
  *   toLogin: () => unknown,                                    // 등록을 취소했을 때 — 로그인 화면으로(로그아웃 · 다시 켜기)
- *   updateGate: () => Promise<boolean>,                        // 켤 때 업데이트 · 공지 확인(update-flow.js runBeforeLogin)이 «로그인으로 넘어가도 됨» 인가 — 거짓이면(강제 업데이트) FIRST 뒤 아무것도 시작하지 않는다
+ *   updateGate: () => Promise<boolean>,                        // 켤 때 업데이트 · 공지 확인(update-flow.js runBeforeLogin)이 «로그인으로 넘어가도 됨» 인가 — 거짓이면(강제 업데이트) 등록 · 읽기 · 기능을 하나도 시작하지 않는다
  *   goOnline: () => void,                                      // realtime 연결(login-flow.js goOnline)
  *   whenPainted: () => Promise<unknown>,                       // 첫 화면(런처 캐릭터)을 그렸다 — 옷장 첫 받기가 끝남(closet.js)
  *   idle: () => Promise<unknown>,                              // 지금 나간 API 요청이 다 끝났다(api-client.js whenIdle)
@@ -105,23 +106,23 @@ const of = (phase) => STEPS.filter((s) => s[1] === phase).map((s) => s[0]);
     return guard(name, () => starts[name](code, myMe, session));
   }
   const nap = (s, ms) => new Promise((r) => { if(!s.setTimeout(r, ms)) r(); });   // 세션이 끝나면(타이머를 안 받음) 바로 풀려 다음 줄에서 멈춘다
-  /* 첫 화면을 그린 뒤(늦어도 PAINT_WAIT_MAX_MS) LATER 칸을 사이를 두고 하나씩 — 다 시작하고 나간 요청이 끝나면 풀린다 */
+  /* 첫 화면을 그린 뒤(늦어도 PAINT_WAIT_MAX_MS) LATER 칸을 사이를 두고 하나씩 — 다 시작하고 나간 요청이 끝나면 풀린다.
+     «접속 중…» 은 이 읽기만 잰다 — 첫 화면 뒤 CONNECTING_TOAST_MS 안에 안 끝나면 띄우고 끝나면(또는 세션이 끝나면) 내린다. 실패는 각 기능의 오류 번호 길 그대로 */
   async function later(s){
     await Promise.race([Promise.resolve(whenPainted()).catch(() => {}), nap(s, PAINT_WAIT_MAX_MS)]);
-    for(const name of of(PHASE.LATER)){
-      if(!s.alive()) return;
-      run(name);
-      await nap(s, LATER_GAP_MS);
-    }
-    if(s.alive()) await Promise.resolve(idle()).catch(() => {});
-  }
-  /* LATER 읽기가 CONNECTING_TOAST_MS 안에 안 끝나면 «접속 중…» — 끝나거나 세션이 끝나면 내린다. 실패는 각 기능의 오류 번호 길 그대로 */
-  function connectingToast(s, done){
+    if(!s.alive()) return;
     let release = null, over = false;
-    s.setTimeout(() => { if(!over && s.alive()) release = holdToast(CONNECTING_TEXT); }, CONNECTING_TOAST_MS);
     const end = () => { over = true; if(release){ release(); release = null; } };
+    s.setTimeout(() => { if(!over && s.alive()) release = holdToast(CONNECTING_TEXT); }, CONNECTING_TOAST_MS);
     s.onReset(end);
-    done.then(end, end);
+    try{
+      for(const name of of(PHASE.LATER)){
+        if(!s.alive()) return;
+        run(name);
+        await nap(s, LATER_GAP_MS);
+      }
+      if(s.alive()) await Promise.resolve(idle()).catch(() => {});
+    }finally{ end(); }
   }
 
   /* 서버가 계정을 돌려주고 이 PC 를 맞춘 뒤(_enterAccount ok · switched 아님) 게이트가 알리면 한 번 — 옛 값 옮기기 → 등록 → 첫 화면 읽기 → (업데이트 확인 통과) → realtime → 나머지.
@@ -139,6 +140,10 @@ const of = (phase) => STEPS.filter((s) => s[1] === phase).map((s) => s[0]);
       if(session){ session.dispose(); session = null; }
       return false;
     }
+    const s = session;
+    let go = false;
+    try{ go = (await updateGate()) === true; }catch(e){ console.warn('[app-boot] 업데이트 확인 실패', e); }
+    if(!go || !s.alive()){ console.warn('[app-boot] 업데이트 확인을 통과하지 못해 계정 기능을 시작하지 않아요'); return false; }   // 강제 업데이트 — 등록(서버 쓰기)도 하지 않는다
     let reg = 'failed';
     try{ reg = await registerDevice(); }catch(e){ console.warn('[app-boot] 이 PC 등록 실패', e); }
     if(reg === 'canceled'){
@@ -146,17 +151,13 @@ const of = (phase) => STEPS.filter((s) => s[1] === phase).map((s) => s[0]);
       guard('로그인 화면', () => toLogin());
       return false;
     }
-    const s = session;
-    for(const name of of(PHASE.FIRST)) run(name);
-    let go = false;
-    try{ go = (await updateGate()) === true; }catch(e){ console.warn('[app-boot] 업데이트 확인 실패', e); }
-    if(!go || !s.alive()){ console.warn('[app-boot] 업데이트 확인을 통과하지 못해 계정 기능을 시작하지 않아요'); return false; }
     ready = true;
+    for(const name of of(PHASE.FIRST)) run(name);
     guard('realtime 연결', () => goOnline());
     for(const name of of(PHASE.READY)) run(name);
     for(const name of asked) run(name);
     asked.clear();
-    connectingToast(s, later(s));
+    later(s);
     return true;
   }
   /* OPEN 칸 — 그 창을 처음 열 때 부른다(두 번째부터 · 다른 칸 이름은 무시). 업데이트 확인 전이면 통과한 뒤 시작한다 */
