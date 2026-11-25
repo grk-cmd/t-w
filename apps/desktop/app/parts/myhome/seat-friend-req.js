@@ -37,11 +37,19 @@ function _friendReqAsk(uid, seat){
 /* 보내기 한 벌 — 좌석 두 번 우클릭과 남의 마이홈 [친구 신청](friend-req-btn.js)이 같이 부른다. 앞단 검사 순서 · 판단은 여기 하나.
    msg = 신청 사유(없으면 빈 칸). → { ok } | { ok:false, reason: not_ready · self · already · full · save_failed · error }(좌석 길만 pending — 보낸 요청이 열려 있음) */
 async function sendFriendReq(uid, name, msg){
+  return _blocked(uid) || _send(uid, msg);
+}
+/* 앞단 검사 — 요청 없이 판단한다. 막히면 { ok:false, reason } · 아니면 null */
+function _blocked(uid){
   const net = friendNet();
   if(!net || !net.sendFriendRequest) return { ok:false, reason:'not_ready' };
   if(uid === getMyUserId()) return { ok:false, reason:'self' };
   if(_myHomeFriends() && _myHomeFriends()[uid]) return { ok:false, reason:'already' };
   if(_myHomeFriends() && Object.keys(_myHomeFriends()).length >= FRIEND_MAX) return { ok:false, reason:'full' };
+  return null;
+}
+async function _send(uid, msg){
+  const net = friendNet();
   try{
     // 이름 · 코드는 서버가 채운다 · 빈 사유는 provider 가 본문에서 뺀다
     const res = await net.sendFriendRequest(getMyUserId(), uid, msg);
@@ -62,14 +70,14 @@ function resultView(res, name){
   return { kind:'fail', text:'요청에 실패했어요' };
 }
 /* 좌석 길 — 사유 칸이 없어 빈 사유로 보낸다. 열린 요청에 다시 보내면 서버가 마이홈에서 적은 사유를 지우므로, 보낸 요청이 살아 있으면 보내지 않는다.
-   살아 있나를 못 읽으면 그대로 보낸다. */
+   살아 있나는 앞단 검사를 지난 뒤에만 묻는다(막힐 일이면 요청 0) · 못 읽으면 그대로 보낸다. */
 async function _sentPending(uid){
   const net = friendNet();
   if(!net || !net.isFriendRequestAlive) return false;
   try{ return !!(await net.isFriendRequestAlive(uid, getMyUserId())); }catch(_){ return false; }
 }
 async function _friendReqSend(uid, name){
-  const res = (await _sentPending(uid)) ? { ok:false, reason:'pending' } : await sendFriendReq(uid, name, '');
+  const res = _blocked(uid) || ((await _sentPending(uid)) ? { ok:false, reason:'pending' } : await _send(uid, ''));
   toast(resultView(res, name).text);
 }
 

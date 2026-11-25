@@ -97,7 +97,7 @@
 | **sim-mallang-hide.js** | 147 | **edeb8021999a** |
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
 | **sim-seat-label-drag.js** | 91 | **39cae4f0d68e** |
-| **sim-friend-requests.js** | 177 | **10b938f897b7** |
+| **sim-friend-requests.js** | 187 | **e69c7fc3f0df** |
 | **sim-friend-visit.js** | 150 | **195ac520aa83** |
 | **sim-friends-sub.js** | 642 | **e905054c399d** |
 | **sim-friends-port.js** | 325 | **4db751309aee** |
@@ -206,7 +206,7 @@
 | **sim-presence.js** | 264 | **bdc6c8978cf6** |
 | **sim-light-tone.js** | 281 | **a0ce1466453e** |
 | **sim-paint-geom.js** | 107 | **3ec63690087d** |
-| **sim-seat-friend-req.js** | 156 | **bb24d1488207** |
+| **sim-seat-friend-req.js** | 164 | **c536e038f4d4** |
 | **sim-seat-menu.js** | 167 | **d530397a99e8** |
 | **sim-publish-fields.js** | 91 | **20498c9b954b** |
 | **sim-purikura-deco.js** | 953 | **c78874eefb61** |
@@ -214,7 +214,7 @@
 | **sim-purikura-rules.js** | 241 | **38c6e66b3a3d** |
 | **sim-purikura-stage.js** | 270 | **6c68a3c0510f** |
 | **sim-report-away.js** | 111 | **2dc87b971e20** |
-| **sim-friend-req-btn.js** | 252 | **1a36137d7777** |
+| **sim-friend-req-btn.js** | 252 | **9ac7b212f17b** |
 | **sim-ride-height.js** | 115 | **870e0eb2c0e7** |
 | **sim-ride-part-top.js** | 101 | **0b4bf839278c** |
 | **sim-seat-eq.js** | 101 | **bf7a074be4bb** |

@@ -7,7 +7,7 @@
 
 **책임** — 방에서 친구가 아닌 상대 좌석을 우클릭 → «👤 친구 신청» 을 누르면, 첫 번째는 안내만 하고 5초 안에 같은 사람을 한 번 더 누르면 친구 요청을 보낸다.
 보내기 전 앞단 검사(데이터 provider 준비 · 나 자신 · 이미 친구 · 친구 정원)는 마이홈 [친구 추가] 와 같은 순서 · 같은 문구다.
-좌석 길은 그 앞에 «보낸 요청이 열려 있나» 를 보고, 열려 있으면 보내지 않고 «이미 ○○님에게 친구 요청을 보냈어요» 만 알린다 — 좌석은 사유 칸이 없어서, 다시 보내면 서버가 마이홈 [친구 신청] 에서 적은 사유를 지운다.
+좌석 길은 앞단 검사를 지난 뒤 «보낸 요청이 열려 있나» 를 보고(앞단에서 막히면 요청 0), 열려 있으면 보내지 않고 «이미 ○○님에게 친구 요청을 보냈어요» 만 알린다 — 좌석은 사유 칸이 없어서, 다시 보내면 서버가 마이홈 [친구 신청] 에서 적은 사유를 지운다.
 
 **만드는 법** — app.js «DRAG / PET» 안, 좌석 contextmenu 리스너 바로 앞:
 
@@ -15,7 +15,7 @@
 const seatFriendReqMod = TwSeatFriendReq.createSeatFriendReq({
   FRIEND_MAX: FRIEND_MAX,                 // 값 — 친구 정원
   _myHomeFriends: ()=>_myHomeFriends,     // 읽는 함수 — 친구 구독이 다시 대입한다
-  friendNet: ()=>({ sendFriendRequest: …, isFriendRequestAlive: … }),   // 읽는 함수 — 친구 요청 포트(send · listSent)로 잇는 데이터 provider 한 줄
+  friendNet: ()=>({ sendFriendRequest: …, isFriendRequestAlive }),   // 읽는 함수 — 친구 요청 포트(send) · 마이홈 단추와 같이 쓰는 isFriendRequestAlive(포트 sentIds — GET 한 번)
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
 });
