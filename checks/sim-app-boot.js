@@ -115,7 +115,7 @@ async function judge(src) {
   b = build(src);
   b.boot.open('playlist');
   await quiet(async () => { await b.notify(ME); await flushAll(); });
-  t(startsOf(b.ev).filter((n) => n === 'playlist').length === 1, '  들어가기 전에 연 창도 버리지 않고 통과한 뒤 시작한다');
+  t(startsOf(b.ev).filter((n) => n === 'playlist').length === 1 && b.ev.indexOf('start:playlist:u1:u1') > b.ev.indexOf('register') && b.ev.indexOf('register') > 0, '  들어가기 전에 연 창도 버리지 않고 통과한 뒤(등록 뒤) 시작한다');
   /* 3 */
   b = build(src, { gate: false });
   const rg = await quiet(async () => b.notify(ME));
@@ -123,6 +123,10 @@ async function judge(src) {
   t(rg[0] === false && startsOf(b.ev).length === 0 && !b.ev.includes('register') && !b.ev.includes('online') && rg[1].some((w) => /업데이트 확인을 통과하지 못해/.test(w)), '★ 업데이트 확인을 통과 못 하면(강제) 이 PC 등록(서버 쓰기) · 읽기 · realtime · 기능 0');
   b.boot.open('playlist'); await flushAll();
   t(!startsOf(b.ev).includes('playlist'), '  그때 창을 열어도 시작하지 않는다');
+  b = build(src, { gate: false });
+  b.boot.open('playlist');
+  await quiet(async () => { await b.notify(ME); await flushAll(); });
+  t(!startsOf(b.ev).includes('playlist'), '  들어가기 전에 연 창도 강제 업데이트면 시작하지 않는다');
   b = build(src, { reg: 'canceled' });
   const rc = await quiet(async () => b.notify(ME));
   t(rc[0] === false && b.ev.join() === 'migrate:u1,open:u1,gate,register,dispose,toLogin' && b.boot.getSession() === null, '★ 등록 [취소] — 세션을 끝내고 로그인 화면 · 첫 화면 읽기도 0');
@@ -229,6 +233,7 @@ async function judge(src) {
     ['토스트를 바로 띄움', (m) => m.replace("}, CONNECTING_TOAST_MS);", "}, 0);")],
     ['토스트를 안 내림', (m) => m.replace("    }finally{ end(); }", "    }finally{ }")],
     ['열기를 두 번 시작', (m) => m.replace("    if(ran.has(name)) return Promise.resolve();\n", "")],
+    ['들어가기 전 연 창을 바로 시작', (m) => m.replace("    if(!began){ asked.add(name); return; }", "    if(!began){ run(name); return; }")],
     ['들어가기 전 연 창을 버림', (m) => m.replace("    if(!began){ asked.add(name); return; }", "    if(!began) return;")],
     ['확인 전 연 창을 잊음', (m) => m.replace("    for(const name of asked) run(name);\n", "")],
     ['옛 값 옮기기를 빼먹음', (m) => m.replace("    guard('옛 값 옮기기', () => migrateLegacy(code));\n", '')],
