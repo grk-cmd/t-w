@@ -74,7 +74,7 @@
 | 파일 | 줄 | sha256[:12] |
 |---|---|---|
 | **audit.py** | 934 | **fb61b898266a** |
-| **sim-leave-flush.js** | 373 | **f6c906a3785c** |
+| **sim-leave-flush.js** | 373 | **155f7397fffa** |
 | **sim-session.js** | 221 | **2c15ae27f8ba** |
 | **sim-session-baseline.js** | 190 | **74b2c6d83b60** |
 | **smoke.js** | 889 | **fbd8f2a526c6** |
@@ -156,6 +156,7 @@
 | **sim-app-version.js** | 109 | **6dee4558ad2b** |
 | **sim-app-version-sync.js** | 178 | **5acd89fd7806** |
 | **sim-update-flow.js** | 499 | **d037570b3c1e** |
+| **sim-update-recheck.js** | 330 | **2783aaa8f44c** |
 | **sim-firebase-left.js** | 175 | **12d4d73bb425** |
 | **sim-maintenance-gate.js** | 380 | **d05ea4148930** |
 | **sim-room-invite-wait.js** | 45 | **76bc51548bda** |
@@ -190,7 +191,7 @@
 | **sim-focus-gate-self.js** | 124 | **a2a911cd0174** |
 | **sim-focus-gate.js** | 105 | **b4abe4937ae9** |
 | **sim-mac-0923.js** | 79 | **100384477c5b** |
-| **sim-mac-reopen.js** | 298 | **41a4618c2d97** |
+| **sim-mac-reopen.js** | 298 | **b40af0f1d3c5** |
 | **sim-bookmark.js** | 236 | **fbd1a1cead1a** |
 | **sim-overlay-gap.js** | 345 | **eeee70a317a5** |
 | **sim-overlay-layered.js** | 364 | **727c39586ae7** |

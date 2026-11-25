@@ -43,6 +43,7 @@
       "http-cache-reset.js",
       "quit-hold.js",
       "update-diag.js",
+      "update-recheck.js",
       "error-log.js",
       "home-mask.js",
       "oauth-config.js",
