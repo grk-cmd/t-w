@@ -1,4 +1,4 @@
-/* sim-storage-rules.js — Storage 규칙 두 벌: 0.13 규칙(storage.rules)과 점검 동안의 쓰기 잠금(storage-lock.rules)
+/* sim-storage-rules.js — Storage 규칙 두 벌: 평소 규칙(storage.rules)과 점검 동안의 쓰기 잠금(storage-lock.rules) · Firestore 규칙(firestore.rules — 전부 거부)
    실행: node checks/run.js storage-rules
    [왜] 컷오버 T+2 에 잠금을, 점검 끝 무렵에 0.13 규칙을 올린다(tw-docs 06-cutover.md 8장 ② · ⑧).
      기본 설정(firebase.json)의 storage 항목(키)이 잠금이나 다른 파일을 가리키면 평소 배포가 잠금을 풀거나 걸고, 잠금 설정에 database · hosting 항목이 끼면
@@ -7,7 +7,9 @@
      2절: 두 파일의 경로 · 봇 uid 가 같다.
      3절: 실제 판정 — Storage 에뮬레이터(firebase CLI + Java)가 있으면 두 규칙을 올려 REST 로 하나씩 보낸다. 봇 상한(마이홈 8MB · assets PNG · WebP 512KB · GLB 1MB)은 0.13 서버와 같다.
      xmas/ 는 누구나 한 객체씩 받고(get) · 목록 · 쓰기 · 지우기는 봇만 · PNG 16KB 까지(0.14 서버 xmas — tw-docs 11-xmas.md 11장).
-     mutation test: 지우기 항을 뺀 규칙 · 봇 검사를 뺀 규칙 · 봇 마이홈 상한을 뺀 규칙이 각각 다르게 판정되는지 본다.
+     사람 폴더(users · away · bookmarks · purikura)는 주인만 쓴다 — Firestore 에뮬레이터에 storageOwners/{코드} = { uid } 를 깔고
+     storage 규칙의 firestore.get 이 실제로 풀리는지(주인 통과 · 남 · 로그인 없음 · 문서 없는 코드 거절)를 본다(tw-docs 12-storage-owner.md 4장 표).
+     mutation test: 지우기 항을 뺀 규칙 · 봇 검사를 뺀 규칙 · 봇 마이홈 상한을 뺀 규칙 · 주인 검사를 «로그인만» 으로 바꾼 규칙이 각각 다르게 판정되는지 본다.
      없으면 건너뛴다(CI 에는 없다 — 규칙을 바꾼 PR 은 손으로 돌려 본문에 붙인다). */
 'use strict';
 const fs = require('fs');
@@ -21,17 +23,22 @@ const MAIN_FILE = 'storage.rules';
 const LOCK_FILE = 'storage-lock.rules';
 const LOCK_CFG = 'firebase.storage-lock.json';
 const CUTOVER_DB = 'firebase-database-rules-cutover.json';
+const FS_FILE = 'firestore.rules';
 const MAIN_SRC = read(MAIN_FILE);
 const LOCK_SRC = read(LOCK_FILE);
 const CFG_SRC = read('firebase.json');
 const LOCK_CFG_SRC = read(LOCK_CFG);
-if (!MAIN_SRC || !LOCK_SRC || !CFG_SRC || !LOCK_CFG_SRC) { console.log('  ? 원본 못 찾음 — ' + [MAIN_FILE, LOCK_FILE, 'firebase.json', LOCK_CFG].join(' · ')); process.exit(2); }
+const FS_SRC = read(FS_FILE);
+if (!MAIN_SRC || !LOCK_SRC || !CFG_SRC || !LOCK_CFG_SRC || !FS_SRC) { console.log('  ? 원본 못 찾음 — ' + [MAIN_FILE, LOCK_FILE, 'firebase.json', LOCK_CFG, FS_FILE].join(' · ')); process.exit(2); }
 
 const PROJECT = 'demo-tw-storage-rules';
 const BUCKET = PROJECT + '.appspot.com';
 const OWNER = '!owner';          // 규칙을 건너뛰는 준비용(에뮬레이터 관리자)
-const USER = 'userA';            // 0.12 · 0.13 앱 사용자(로그인함)
-const ANON = null;               // 로그인 없음(0.12 마이홈은 Firebase Auth 를 안 쓴다)
+const USER = 'userA';            // u1 의 주인(storageOwners/u1.uid)
+const OTHER = 'userB';           // u2 의 주인 — u1 폴더에는 남
+const NOBODY = 'userZ';          // 로그인은 했지만 묶인 코드가 없음(가입 전 · 익명 · 탈퇴)
+const ANON = null;               // 로그인 없음
+const OWNERS = { u1: USER, u2: OTHER };   // Firestore 에뮬레이터에 깔 storageOwners 문서
 const KB = 1024, MB = 1024 * 1024;
 
 const botUid = (src) => { const m = src.match(/function isBot\(\)\s*\{\s*return request\.auth != null && request\.auth\.uid == '([^']+)';/); return m && m[1]; };
@@ -45,6 +52,7 @@ function mainCfgProblems(cfg) {
   if (!st || Array.isArray(st) || typeof st !== 'object') out.push('storage 가 규칙 한 벌을 가리키는 항목이 아니다');
   else if (st.rules !== MAIN_FILE) out.push('storage.rules 가 ' + MAIN_FILE + ' 이 아니다: ' + st.rules);
   if (!cfg || !cfg.database || cfg.database.rules !== CUTOVER_DB) out.push('database.rules 가 ' + CUTOVER_DB + ' 이 아니다');
+  if (!cfg || !cfg.firestore || cfg.firestore.rules !== FS_FILE) out.push('firestore.rules 가 ' + FS_FILE + ' 이 아니다(Storage 규칙이 읽는 주인 문서 — 함께 올린다)');
   return out;
 }
 /* 잠금 설정의 잘못 목록 — storage 말고 다른 항목이 있으면 --config 로 올릴 때 그것까지 바뀐다 */
@@ -74,39 +82,88 @@ const zeroTwelve = [   // 0.12 앱이 올리는 자리
   ['purikura/ROOM/u1/1.webp', 100 * KB, 'image/webp'],
 ];
 function mainCases() {
+  const own = (p, size, ct) => [`주인 — ${p}`, 'up', p, size, ct, true, USER];
   return [
-    ...['users/u1/del.png', 'users/u1/giftimg/del.png', 'catalog/del.glb', 'away/u1/del.webp', 'bookmarks/u1/del.webp', 'purikura/R/u1/del.webp', 'assets/del.png', 'assets/read.png', 'xmas/del.png', 'xmas/read.png'].map(seed),
-    ['users — 로그인 없이 2MB 아래 올리기', 'up', 'users/u1/a.png', 2 * MB - 1, 'image/png', true, ANON],
-    ['users — 2MB 는 거절', 'up', 'users/u1/b.png', 2 * MB, 'image/png', false, ANON],
-    ['users — 로그인한 사용자도 2MB 는 거절', 'up', 'users/u1/b.png', 2 * MB, 'image/png', false, USER],
-    ['users — 서버 봇은 마이홈 그림 8MB(PNG)', 'up', 'users/u1/mh_a.png', 8 * MB, 'image/png', true, BOT],
+    ...['users/u1/del.png', 'users/u1/del2.png', 'users/u1/del3.png', 'users/u1/giftimg/del.png', 'catalog/del.glb', 'catalog/read.glb', 'away/u1/del.webp', 'away/u1/del2.webp', 'bookmarks/u1/del.webp', 'bookmarks/u1/del2.webp',
+      'purikura/R/u1/del.webp', 'purikura/R/u1/del2.webp', 'assets/del.png', 'assets/read.png', 'xmas/del.png', 'xmas/read.png', 'users/u1/read.png'].map(seed),
+    // 옛 앱(0.13.x)이 쓰는 자리 — 경로 · 이름 · 형식 그대로(firebase-init.js)
+    own('users/u1/slotglb_desk_h2abc.glb', MB, 'model/gltf-binary'),
+    own('users/u1/roomface_face_h2abc.png', 512 * KB, 'image/png'),
+    own('users/u1/design_bg.jpg', 2 * MB - 1, 'image/jpeg'),
+    own('users/u1/emojis/0.png', 100 * KB, 'image/png'),
+    own('users/u1/emojis/7.gif', MB, 'image/gif'),
+    own('away/u1/away_1.webp', 300 * KB - 1, 'image/webp'),
+    own('purikura/R/u1/0.webp', 2 * MB - 1, 'image/webp'),
+    own('bookmarks/u1/b_1.webp', 200 * KB - 1, 'image/webp'),
+    // 0.14 앱이 바로 올리는 그림 넷(서버 /v2/me/images 와 같은 이름 · 상한)
+    own('users/u1/mh_0193a.png', 8 * MB, 'image/png'),
+    own('users/u1/mh_0193b.webp', 3 * MB, 'image/webp'),
+    own('users/u1/mh_0193c.jpg', 3 * MB, 'image/jpeg'),
+    own('users/u1/dday_0193a.png', MB, 'image/png'),
+    own('users/u1/clap_0193a.webp', 512 * KB, 'image/webp'),
+    own('users/u1/mallang_0193a.png', MB, 'image/png'),
+    ['users — 주인도 마이홈 그림 8MB 넘으면 거절', 'up', 'users/u1/mh_big.png', 8 * MB + 1, 'image/png', false, USER],
+    ['users — 주인도 2MB 이상은 mh_ 이름만', 'up', 'users/u1/design_big.jpg', 2 * MB, 'image/jpeg', false, USER],
+    ['users — 주인도 2MB 이상 mh_ 는 그림 형식만(HTML 거절)', 'up', 'users/u1/mh_x.png', 3 * MB, 'text/html', false, USER],
+    ['users — 주인도 2MB 이상 mh_ 는 PNG · WebP · JPEG 만(GIF 거절)', 'up', 'users/u1/mh_x.gif', 3 * MB, 'image/gif', false, USER],
+    ['users — 주인도 mh_ 8MB 는 폴더 바로 아래만', 'up', 'users/u1/sub/mh_x.png', 3 * MB, 'image/png', false, USER],
+    ['users — 남(u2 의 주인)이 u1 에 올리기 거절', 'up', 'users/u1/x.png', 10, 'image/png', false, OTHER],
+    ['users — 남이 u1 에 마이홈 그림 8MB 거절', 'up', 'users/u1/mh_y.png', 3 * MB, 'image/png', false, OTHER],
+    ['users — 남이 u1 이모티콘 덮어쓰기 거절', 'up', 'users/u1/emojis/0.png', 10, 'image/png', false, OTHER],
+    ['users — 로그인 없이 올리기 거절', 'up', 'users/u1/a.png', 10, 'image/png', false, ANON],
+    ['users — 묶인 코드가 없는 로그인(문서 없음) 거절', 'up', 'users/u1/a.png', 10, 'image/png', false, NOBODY],
+    ['users — 문서가 없는 코드 폴더는 누구도(로그인한 사용자) 못 씀', 'up', 'users/u9/a.png', 10, 'image/png', false, USER],
+    ['users — 남은 자기 폴더(u2)에 올리기', 'up', 'users/u2/a.png', 10, 'image/png', true, OTHER],
+    ['users — 주인 지우기', 'del', 'users/u1/del.png', 0, '', true, USER],
+    ['users — 남이 지우기 거절', 'del', 'users/u1/del2.png', 0, '', false, OTHER],
+    ['users — 로그인 없이 지우기 거절', 'del', 'users/u1/del2.png', 0, '', false, ANON],
+    ['users — 서버 봇 지우기(탈퇴 정리 · 이모티콘 · 디데이)', 'del', 'users/u1/del3.png', 0, '', true, BOT],
+    ['users — 서버 봇 2MB 미만(0.13 앱의 디데이 · 박수 · 말랑이)', 'up', 'users/u1/dday_bot.png', 2 * MB - 1, 'image/png', true, BOT],
+    ['users — 서버 봇은 마이홈 그림 8MB(PNG · 0.13 앱의 /v2/me/images)', 'up', 'users/u1/mh_a.png', 8 * MB, 'image/png', true, BOT],
     ['users — 서버 봇 WebP 3MB', 'up', 'users/u1/mh_b.webp', 3 * MB, 'image/webp', true, BOT],
     ['users — 서버 봇 JPEG 3MB', 'up', 'users/u1/mh_c.jpg', 3 * MB, 'image/jpeg', true, BOT],
     ['users — 서버 봇도 8MB 넘으면 거절', 'up', 'users/u1/mh_d.png', 8 * MB + 1, 'image/png', false, BOT],
     ['users — 서버 봇도 2MB 이상은 마이홈 그림 형식만(GIF 거절)', 'up', 'users/u1/mh_e.gif', 3 * MB, 'image/gif', false, BOT],
-    ['users — 지우기', 'del', 'users/u1/del.png', 0, '', true, ANON],
-    ['users — 읽기 · 목록은 로그인 없이', 'list', 'users/u1/', 0, '', true, ANON],
+    ['users — 한 객체 받기(get)는 로그인 없이', 'get', 'users/u1/read.png', 0, '', true, ANON],
+    ['users — 목록은 로그인 없이 거절', 'list', 'users/u1/', 0, '', false, ANON],
+    ['users — 목록은 주인도 거절', 'list', 'users/u1/', 0, '', false, USER],
+    ['users — 서버 봇 목록(탈퇴 정리)', 'list', 'users/u1/', 0, '', true, BOT],
     ['giftimg — 로그인 없이 올리기 거절', 'up', 'users/u1/giftimg/x.png', 10, 'image/png', false, ANON],
-    ['giftimg — 남(로그인한 사용자)이 올리기 거절', 'up', 'users/u1/giftimg/x.png', 10, 'image/png', false, USER],
+    ['giftimg — 주인도 올리기 거절(서버만 만든다)', 'up', 'users/u1/giftimg/x.png', 10, 'image/png', false, USER],
     ['giftimg — 앱이 지우기 거절', 'del', 'users/u1/giftimg/del.png', 0, '', false, USER],
     ['giftimg — 서버 봇이 사본 만들기', 'up', 'users/u1/giftimg/y.png', 100 * KB, 'image/png', true, BOT],
     ['giftimg — 서버 봇도 2MB 는 거절', 'up', 'users/u1/giftimg/z.png', 2 * MB, 'image/png', false, BOT],
     ['giftimg — 읽기는 로그인 없이', 'get', 'users/u1/giftimg/y.png', 0, '', true, ANON],
     ['giftimg — 서버 봇이 지우기', 'del', 'users/u1/giftimg/del.png', 0, '', true, BOT],
-    ['catalog — 5MB 아래 올리기', 'up', 'catalog/a.glb', 5 * MB - 1, 'model/gltf-binary', true, ANON],
-    ['catalog — 5MB 는 거절', 'up', 'catalog/b.glb', 5 * MB, 'model/gltf-binary', false, ANON],
-    ['catalog — 지우기', 'del', 'catalog/del.glb', 0, '', true, ANON],
-    ['away — 300KB 아래 그림', 'up', 'away/u1/a.webp', 300 * KB - 1, 'image/webp', true, ANON],
-    ['away — 300KB 는 거절', 'up', 'away/u1/b.webp', 300 * KB, 'image/webp', false, ANON],
-    ['away — 그림 아닌 파일 거절', 'up', 'away/u1/c.txt', 10, 'text/plain', false, ANON],
-    ['away — 지우기', 'del', 'away/u1/del.webp', 0, '', true, ANON],
-    ['bookmarks — 200KB 아래 그림', 'up', 'bookmarks/u1/a.webp', 200 * KB - 1, 'image/webp', true, ANON],
-    ['bookmarks — 200KB 는 거절', 'up', 'bookmarks/u1/b.webp', 200 * KB, 'image/webp', false, ANON],
-    ['bookmarks — 그림 아닌 파일 거절', 'up', 'bookmarks/u1/c.txt', 10, 'text/plain', false, ANON],
-    ['bookmarks — 지우기', 'del', 'bookmarks/u1/del.webp', 0, '', true, ANON],
-    ['purikura — 2MB 아래', 'up', 'purikura/R/u1/a.webp', 2 * MB - 1, 'image/webp', true, ANON],
-    ['purikura — 2MB 는 거절', 'up', 'purikura/R/u1/b.webp', 2 * MB, 'image/webp', false, ANON],
-    ['purikura — 지우기', 'del', 'purikura/R/u1/del.webp', 0, '', true, ANON],
+    ['catalog — 로그인 없이 올리기 거절', 'up', 'catalog/a.glb', 10, 'model/gltf-binary', false, ANON],
+    ['catalog — 사용자 올리기 거절', 'up', 'catalog/a.glb', 10, 'model/gltf-binary', false, USER],
+    ['catalog — 서버 봇 5MB 아래', 'up', 'catalog/b.glb', 5 * MB - 1, 'model/gltf-binary', true, BOT],
+    ['catalog — 서버 봇도 5MB 는 거절', 'up', 'catalog/c.glb', 5 * MB, 'model/gltf-binary', false, BOT],
+    ['catalog — 사용자 지우기 거절', 'del', 'catalog/del.glb', 0, '', false, USER],
+    ['catalog — 서버 봇 지우기', 'del', 'catalog/del.glb', 0, '', true, BOT],
+    ['catalog — 받기는 로그인 없이', 'get', 'catalog/read.glb', 0, '', true, ANON],
+    ['catalog — 목록은 로그인 없이 거절', 'list', 'catalog/', 0, '', false, ANON],
+    ['away — 주인도 300KB 는 거절', 'up', 'away/u1/b.webp', 300 * KB, 'image/webp', false, USER],
+    ['away — 주인도 그림 아닌 파일 거절', 'up', 'away/u1/c.txt', 10, 'text/plain', false, USER],
+    ['away — 남이 올리기 거절', 'up', 'away/u1/x.webp', 10, 'image/webp', false, OTHER],
+    ['away — 로그인 없이 올리기 거절', 'up', 'away/u1/x.webp', 10, 'image/webp', false, ANON],
+    ['away — 주인 지우기(옛 그림)', 'del', 'away/u1/del.webp', 0, '', true, USER],
+    ['away — 남이 지우기 거절', 'del', 'away/u1/del2.webp', 0, '', false, OTHER],
+    ['away — 서버 봇 지우기(바뀐 옛 그림 · 탈퇴)', 'del', 'away/u1/del2.webp', 0, '', true, BOT],
+    ['away — 목록은 로그인 없이 거절', 'list', 'away/u1/', 0, '', false, ANON],
+    ['bookmarks — 주인도 200KB 는 거절', 'up', 'bookmarks/u1/b.webp', 200 * KB, 'image/webp', false, USER],
+    ['bookmarks — 주인도 그림 아닌 파일 거절', 'up', 'bookmarks/u1/c.txt', 10, 'text/plain', false, USER],
+    ['bookmarks — 남이 올리기 거절', 'up', 'bookmarks/u1/x.webp', 10, 'image/webp', false, OTHER],
+    ['bookmarks — 로그인 없이 올리기 거절', 'up', 'bookmarks/u1/x.webp', 10, 'image/webp', false, ANON],
+    ['bookmarks — 주인 지우기', 'del', 'bookmarks/u1/del.webp', 0, '', true, USER],
+    ['bookmarks — 서버 봇 지우기(탈퇴)', 'del', 'bookmarks/u1/del2.webp', 0, '', true, BOT],
+    ['purikura — 주인도 2MB 는 거절', 'up', 'purikura/R/u1/b.webp', 2 * MB, 'image/webp', false, USER],
+    ['purikura — 남이 u1 자리에 올리기 거절', 'up', 'purikura/R/u1/x.webp', 10, 'image/webp', false, OTHER],
+    ['purikura — 로그인 없이 올리기 거절', 'up', 'purikura/R/u1/x.webp', 10, 'image/webp', false, ANON],
+    ['purikura — 남은 자기 자리(u2)에 올리기', 'up', 'purikura/R/u2/0.webp', 10, 'image/webp', true, OTHER],
+    ['purikura — 주인 지우기', 'del', 'purikura/R/u1/del.webp', 0, '', true, USER],
+    ['purikura — 남이 지우기 거절', 'del', 'purikura/R/u1/del2.webp', 0, '', false, OTHER],
+    ['purikura — 서버 봇 지우기', 'del', 'purikura/R/u1/del2.webp', 0, '', true, BOT],
     ['assets — 로그인 없이 읽기 거절', 'get', 'assets/read.png', 0, '', false, ANON],
     ['assets — 사용자 읽기 거절', 'get', 'assets/read.png', 0, '', false, USER],
     ['assets — 서버 봇 읽기', 'get', 'assets/read.png', 0, '', true, BOT],
@@ -146,6 +203,7 @@ function lockCases() {
       [`${p} — 로그인한 사용자 올리기 거절`, 'up', p, size, ct, false, USER],
       [`${p} — 앱이 지우기 거절`, 'del', p.replace(/(\.\w+)$/, '_old$1'), 0, '', false, USER],
       [`${p} — 읽기는 그대로`, 'get', p.replace(/(\.\w+)$/, '_old$1'), 0, '', true, ANON],
+      [`${p} — 목록은 로그인 없이 거절`, 'list', p.replace(/[^/]+$/, ''), 0, '', false, ANON],
       [`${p} — 서버 봇은 올리기`, 'up', p, size, ct, true, BOT],
       [`${p} — 서버 봇은 지우기`, 'del', p, 0, '', true, BOT],
     ]),
@@ -173,8 +231,8 @@ function lockCases() {
 /* 지우기 항을 뺀 규칙 — 지우기가 거절돼야 한다(콘솔 규칙에서 실제로 났던 함정) */
 function noDeleteCases() {
   return [seed('users/u1/del.png'), seed('catalog/del.glb'),
-    ['지우기 항 없음 — users 지우기가 거절된다', 'del', 'users/u1/del.png', 0, '', false, ANON],
-    ['지우기 항 없음 — catalog 지우기가 거절된다', 'del', 'catalog/del.glb', 0, '', false, ANON]];
+    ['지우기 항 없음 — 주인의 users 지우기가 거절된다', 'del', 'users/u1/del.png', 0, '', false, USER],
+    ['지우기 항 없음 — 봇의 catalog 지우기가 거절된다', 'del', 'catalog/del.glb', 0, '', false, BOT]];
 }
 /* 봇 상한을 사람에게도 연 규칙(isBot 을 뺌) — 앱이 2MB 이상 · assets 를 올리면 거절돼야 하므로 빨강이 나야 한다 */
 function openBotCases() {
@@ -187,11 +245,22 @@ function openBotCases() {
 function noBotCapCases() {
   return [['봇 마이홈 상한 없음 — 봇 3MB 가 거절된다', 'up', 'users/u1/x.png', 3 * MB, 'image/png', false, BOT]];
 }
-const SETS = { main: mainCases, lock: lockCases, nodelete: noDeleteCases, openbot: openBotCases, nobotcap: noBotCapCases };
+/* 주인 검사를 «로그인만» 으로 바꾼 규칙 — 남이 남의 폴더에 쓰면 통과해 버려야 한다(빨강이 나야 이 검사가 주인 검사를 지킨다) */
+function noOwnerCases() {
+  return [['주인 검사 없음 — 남이 u1 에 올리면 통과해 버린다', 'up', 'users/u1/x.png', 10, 'image/png', true, OTHER],
+    ['주인 검사 없음 — 남이 u1 자리비움에 올리면 통과해 버린다', 'up', 'away/u1/x.webp', 10, 'image/webp', true, OTHER],
+    ['주인 검사 없음 — 남이 u1 마이홈 그림 8MB 를 올리면 통과해 버린다', 'up', 'users/u1/mh_x.png', 3 * MB, 'image/png', true, OTHER]];
+}
+const SETS = { main: mainCases, lock: lockCases, nodelete: noDeleteCases, openbot: openBotCases, nobotcap: noBotCapCases, noowner: noOwnerCases };
 
 async function inner() {
   const H = `http://127.0.0.1:${Number(process.env.TW_EMU_PORT)}`;
+  const F = `http://127.0.0.1:${Number(process.env.TW_FS_PORT)}/v1/projects/${PROJECT}/databases/(default)/documents/storageOwners`;
   let fail = 0;
+  for (const [code, uid] of Object.entries(OWNERS)) {
+    const r = await fetch(`${F}/${code}`, { method: 'PATCH', headers: { Authorization: 'Bearer owner', 'Content-Type': 'application/json' }, body: JSON.stringify({ fields: { uid: { stringValue: uid } } }) });
+    if (!r.ok) { fail++; console.log(`  ✗ 준비: Firestore storageOwners/${code} 쓰기 실패 ${r.status}`); }
+  }
   for (const [name, op, p, size, ct, want, uid] of SETS[process.env.TW_SET]()) {
     const auth = uid === OWNER ? { Authorization: 'Bearer owner' } : uid ? { Authorization: 'Firebase ' + token(uid) } : {};
     const obj = `${H}/v0/b/${BUCKET}/o/${encodeURIComponent(p)}`;
@@ -210,11 +279,15 @@ function freePort() { return new Promise((ok, no) => { const s = net.createServe
 
 async function emulate(set, rulesSrc) {
   const port = await freePort();
+  const fsPort = await freePort();
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tw-storage-rules-'));
   fs.writeFileSync(path.join(dir, 'storage.rules'), rulesSrc);
-  fs.writeFileSync(path.join(dir, 'firebase.json'), JSON.stringify({ storage: { rules: 'storage.rules' }, emulators: { storage: { port }, ui: { enabled: false }, singleProjectMode: true } }));
-  const r = spawnSync('firebase', ['emulators:exec', '--only', 'storage', '--project', PROJECT, `node "${__filename}" --inner`],
-    { cwd: dir, env: { ...process.env, TW_EMU_PORT: String(port), TW_SET: set }, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' });
+  fs.writeFileSync(path.join(dir, FS_FILE), FS_SRC);
+  // Storage 규칙의 firestore.get 은 같이 뜬 Firestore 에뮬레이터를 읽는다
+  fs.writeFileSync(path.join(dir, 'firebase.json'), JSON.stringify({ storage: { rules: 'storage.rules' }, firestore: { rules: FS_FILE },
+    emulators: { storage: { port }, firestore: { port: fsPort }, ui: { enabled: false }, singleProjectMode: true } }));
+  const r = spawnSync('firebase', ['emulators:exec', '--only', 'storage,firestore', '--project', PROJECT, `node "${__filename}" --inner`],
+    { cwd: dir, env: { ...process.env, TW_EMU_PORT: String(port), TW_FS_PORT: String(fsPort), TW_SET: set }, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' });
   fs.rmSync(dir, { recursive: true, force: true });
   const out = (r.stdout || '') + (r.stderr || '');
   return { lines: out.split('\n').filter((l) => /^\s+[✓✗] /.test(l)), status: r.status, out };
@@ -231,7 +304,8 @@ async function main() {
   chk(mp.length === 0, 'firebase.json 의 storage 는 ' + MAIN_FILE + ' · database 는 컷오버 규칙 그대로' + (mp.length ? ': ' + mp.join(' · ') : ''));
   chk(!('functions' in cfg) && Array.isArray(cfg.hosting) && cfg.hosting.length === 3, 'functions 항목 없음 · Hosting 세 사이트 그대로');
   chk(lp.length === 0, LOCK_CFG + ' 는 storage 항목 하나 · ' + LOCK_FILE + (lp.length ? ': ' + lp.join(' · ') : ''));
-  for (const [name, c] of [['storage 가 잠금 규칙', { ...cfg, storage: { rules: LOCK_FILE } }], ['storage 항목 없음', { database: cfg.database, hosting: cfg.hosting }], ['storage 를 대상 여럿(배열)으로', { ...cfg, storage: [{ bucket: 'a', rules: MAIN_FILE }] }]])
+  chk(/match \/\{document=\*\*\} \{\s*allow read, write: if false;\s*\}/.test(FS_SRC) && !/allow [^;]*if (?!false)/.test(FS_SRC), FS_FILE + ' 는 전부 거부(앱 · 웹은 Firestore 를 쓰지 않는다)');
+  for (const [name, c] of [['storage 가 잠금 규칙', { ...cfg, storage: { rules: LOCK_FILE } }], ['storage 항목 없음', { database: cfg.database, hosting: cfg.hosting }], ['storage 를 대상 여럿(배열)으로', { ...cfg, storage: [{ bucket: 'a', rules: MAIN_FILE }] }], ['firestore 항목 없음', { database: cfg.database, storage: cfg.storage, hosting: cfg.hosting }]])
     chk(mainCfgProblems(c).length > 0, '일부러 깸(firebase.json) «' + name + '» → 빨강');
   for (const [name, c] of [['database 항목이 낌', { ...lockCfg, database: { rules: CUTOVER_DB } }], ['hosting 항목이 낌', { ...lockCfg, hosting: [] }], ['0.13 규칙을 가리킴', { storage: { rules: MAIN_FILE } }]])
     chk(lockCfgProblems(c).length > 0, '일부러 깸(잠금 설정) «' + name + '» → 빨강');
@@ -248,10 +322,12 @@ async function main() {
   if (!have) { console.log('  - firebase CLI 또는 Java 가 없어 건너뜀(CI · 규칙을 바꾼 PR 은 손으로 돌려 결과를 본문에 붙인다)'); return finish(); }
   const noDelete = MAIN_SRC.replace(/request\.resource == null\s*\|\|\s*/g, '');
   const openBot = MAIN_SRC.replace(/return request\.auth != null && request\.auth\.uid == '[^']+';/, 'return true;');
-  const noBotCap = MAIN_SRC.replace(/\s*\|\|\s*isBotMyHomeImage\(\)/, '');
-  chk(noDelete !== MAIN_SRC && openBot !== MAIN_SRC && noBotCap !== MAIN_SRC, 'mutation test 용 규칙 셋(지우기 항 · 봇 검사 · 봇 마이홈 상한을 뺌)을 만들었다');
+  const noBotCap = MAIN_SRC.replace(/\s*\|\|\s*\(request\.resource != null && isBotMyHomeImage\(\)\)/, '');
+  const noOwner = MAIN_SRC.replace(/(function isOwner\(code\) \{\s*return )[^;]+;/, '$1request.auth != null;');
+  chk(noDelete !== MAIN_SRC && openBot !== MAIN_SRC && noBotCap !== MAIN_SRC && noOwner !== MAIN_SRC, 'mutation test 용 규칙 넷(지우기 항 · 봇 검사 · 봇 마이홈 상한 · 주인 검사를 뺌)을 만들었다');
   for (const [set, src, title] of [['main', MAIN_SRC, MAIN_FILE], ['lock', LOCK_SRC, LOCK_FILE], ['nodelete', noDelete, 'mutation test — 지우기 항 없는 ' + MAIN_FILE],
-    ['openbot', openBot, 'mutation test — 봇 검사 없는 ' + MAIN_FILE], ['nobotcap', noBotCap, 'mutation test — 봇 마이홈 상한 없는 ' + MAIN_FILE]]) {
+    ['openbot', openBot, 'mutation test — 봇 검사 없는 ' + MAIN_FILE], ['nobotcap', noBotCap, 'mutation test — 봇 마이홈 상한 없는 ' + MAIN_FILE],
+    ['noowner', noOwner, 'mutation test — 주인 검사가 «로그인만» 인 ' + MAIN_FILE]]) {
     console.log('  [' + title + ']');
     const r = await emulate(set, src);
     if (!r.lines.length) { chk(false, '에뮬레이터 출력을 못 읽음: ' + r.out.slice(-300)); continue; }
