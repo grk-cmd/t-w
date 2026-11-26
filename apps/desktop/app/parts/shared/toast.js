@@ -1,7 +1,7 @@
 /* toast.js — 🍞 토스트 · 저장 실패 문구 — 화면 아래 한 줄 알림과 «권한 거부 vs 인터넷» 문구 가르기
    책임: #toast 한 줄 알림을 띄우고 시간이 되면 끈다(toast) · 누르면 그 글을 클립보드로 복사하고 글 끝에 «복사했어요»(onToastClick) · 저장 실패 오류가 규칙 거부(PERMISSION_DENIED)인지 가려 문구를 고른다(_saveFailMsg). 도메인을 모른다.
    받는 deps: 없음(document · navigator.clipboard · 타이머 전역).
-   내보내는 것: toast(msg, iconSrc?, ms?, action?) · _saveFailMsg(e, fallback?).
+   내보내는 것: toast(msg, iconSrc?, ms?, action?) · hold(msg) → 내리는 함수 · _saveFailMsg(e, fallback?).
    app.js «🍞 토스트(toast) · 저장 실패 문구» 구역을 그대로 옮겼다(구역 떼기 C · w2). 동작은 옮기기 전과 같다.
    ⚠️ 두 이름은 app.js 150여 곳 · 다른 파일(전역 · window.toast)이 그대로 부른다 — app.js 에 같은 이름의 이음 함수(«옛 전역 이름»)를 두고 부르는 줄은 안 바꿨다.
    ★ 아래 코드는 app.js 에 있던 글 그대로 옮긴 뒤, 눌러 복사(onToastClick · TOAST_COPY_* 상수)만 더했다(사용자 승인 · feat/toast-click-copy).
@@ -65,8 +65,22 @@ function toast(msg, iconSrc, ms, action){const t=document.getElementById('toast'
   const dur=(typeof ms==='number'&&ms>0)?ms:TOAST_DEFAULT_MS; toastEnd=Date.now()+dur;
   clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),dur);}
 
+/* 내릴 때까지 떠 있는 한 줄(«접속 중…» — app-boot) — 돌려준 함수로 내린다. 그 사이 다른 토스트가 뜨면 그쪽이 이기고, 내릴 때 남의 토스트는 건드리지 않는다.
+   내리기를 잊어도 HOLD_MAX_MS 뒤에는 꺼진다 */
+const HOLD_MAX_MS = 60000;
+function hold(msg){
+  toast(msg, null, HOLD_MAX_MS);
+  const seq = toastSeq;
+  return ()=>{
+    if(seq !== toastSeq) return;
+    clearTimeout(toastT);
+    document.getElementById('toast').classList.remove('on');
+  };
+}
+
 return {
   _saveFailMsg,
+  hold,
   toast,
 };
 }

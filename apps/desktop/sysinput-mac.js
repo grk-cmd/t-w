@@ -258,6 +258,8 @@ const WINLIST_SKIP = new Set([
   'com.apple.coreservices.uiagent',   // 시스템 경고 대화상자
   'com.apple.systempreferences',      // 시스템 설정 (Ventura+ 도 번들 id 는 이 이름 그대로다)
 ]);
+/* 셸 창인가 — 창 목록과 자동 등록(main.js _noteForeignWindow)이 같이 묻는 한 곳(win 판과 같은 이름 — mac 은 갈래가 없다) */
+function isShellWindow(name){ return WINLIST_SKIP.has(name); }
 
 /* ── 활성 창 ───────────────────────────────────────────────────────────────
    win 판과 **같은 모양**({ owner:{path,name}, title })을 돌려준다. 호출부는 이 모양을 안다.
@@ -303,7 +305,7 @@ async function listWindows(){
       try{ bounds = (typeof w.getBounds === 'function') ? w.getBounds() : null; }catch(_){}
       if(!p || !vis || !title) continue;
       const name = procNameOf(p);
-      if(name === SELF || WINLIST_SKIP.has(name)) continue;
+      if(name === SELF || isShellWindow(name)) continue;
       // 크기가 0에 가까운 창은 실제 화면에 없는 보조 창(상태 항목·메시지 전용)이다.
       if(bounds && ((bounds.width|0) < 80 || (bounds.height|0) < 60)) continue;
       /* ⚠️ 중복 판정 키가 win 과 다르다. win 은 exe 경로로 묶었지만 mac 은 **번들 id** 로 묶는다.
@@ -392,6 +394,6 @@ module.exports = {
   getActiveWindow, listWindows,
   selfProcName, procNameOf, displayNameOf, legacyProcNameOf,
   readPads,
-  WINLIST_SKIP,
+  WINLIST_SKIP, isShellWindow,
   nativeLoadFailed: () => _nativeFailed.slice(),
 };

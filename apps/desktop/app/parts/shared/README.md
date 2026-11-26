@@ -44,6 +44,16 @@
   - `purikura-net.js` 는 `TwPs1Dither` 를 **부를 때** 읽는다 — 그 파일만 node 로 싣는 검사가 많아서, 실을 때 읽으면 그 검사들이 죽는다.
   - 검사: `checks/sim-ps1-dither.js`(값 · 경계값 · 도트 셰이더 글 · 스티커사진 필터 결과가 묶기 전과 픽셀까지 같음 · mutation test).
 
+## etag-store.js — 🏷️ ETag 기억을 껐다 켜도 남게
+
+- **책임**: api-client 의 ETag 기억({ etag, data })을 IndexedDB `tw-etag-cache`(저장소 `etag`, keyPath `k`)에 남겨, 켤 때 첫 읽기에도 If-None-Match 를 싣는다. 값은 서버가 304 로 답할 때만 쓴다 — 서버에 묻기 전에 이 값으로 화면을 그리지 않는다.
+- **만드는 법**: api-client.js 가 앱 한 벌을 만들 때 `TwEtagStore.createEtagStore()` 한 벌을 두 통로에 `persist: { store, paths }` 로 넘긴다. 남기는 길은 api-client.js `PERSIST_PUBLIC`(설정 · 공지) · `PERSIST_AUTHED`(카탈로그 · 옷장 · 보유분 · 포커스 · 친구 · 플레이리스트).
+- **내보내는 것**: `load(key)` → `Promise<{ etag, data } | null>` · `save(key, etag, data)` · `clear()` · 상한 `MAX`(64 — 넘으면 오래된 것부터).
+- **함정**
+  - 열쇠는 api-client 의 «누구(토큰 sub) + 경로» — 다른 계정 값을 돌려주지 않는다. 계정을 놓으면(`forgetSession`) 통째로 지운다.
+  - 길을 더할 땐 서버가 그 길에 ETag 를 주는지 먼저 본다(안 주면 남길 것이 없다).
+  - 검사: `checks/sim-etag-store.js` · `checks/sim-api-client.js`(persist 절).
+
 ## glb-idb-cache.js — 💾 GLB 영구 캐시(IndexedDB)
 
 - **책임**: 받은 GLB(base64)를 url 을 키로 IndexedDB `tw-glb-cache`(저장소 `glb`, keyPath `url`)에 넣고 꺼낸다. 45일 넘게 안 쓴 것은 실행마다 한 번 치운다. 무슨 GLB 인지는 모른다.
@@ -203,6 +213,13 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **확장**: 새 업로드 캐시가 생기면 상한 상수를 여기에 더하고 같은 함수를 부른다 — 쓰는 모듈에 «넘치면 비우기» · «동시 업로드 막기» 를 다시 쓰지 않는다.
 - **함정**: 키 순서가 «오래 안 쓴 순» 이다 — 조회해서 쓰면 `touch`, 저장은 `merge` 뒤에. 옛 해시(`h2` 로 시작하지 않는) 항목은 조회에 쓰지 않는다(같은 해시가 같은 그림이라는 보장이 없다).
 - **검사**: `checks/sim-upload-cache.js`.
+## `device-toggle.js` — 이 PC 의 켜고 끄는 화면 설정 하나
+- **책임**: 설정 › 디스플레이의 켜짐 · 꺼짐 한 칸을 들고 저장한다(기본 켜짐 · `'0'` 이면 꺼짐). 지금 쓰는 곳: «남의 자리비움 그림»(`tw.awayPicOthers`).
+- **만드는 법**: app.js 가 설정 창보다 먼저 `TwDeviceToggle.createDeviceToggle({ storage: localStorage, key: 'tw.…' })` → 설정 창과 그 설정을 읽는 기능 모듈에 값으로 넘긴다.
+- **내놓는 것**: `on()` · `set(v)`(저장 + 알림) · `onChange(fn)`(바뀔 때만 · 돌려주는 함수로 뗀다).
+- **함정**: 설정 창이 기능 모듈의 값을 읽게 하면 «설정 창 → 기능 모듈» 순환이 된다(`sim-dep-cycles`) — 그래서 값은 여기 두고 둘 다 이것을 읽는다. 키는 `tw.` 로 시작해야 하고(아니면 만들 때 던진다) 기기 칸 목록(`account-store.js`)에도 넣는다.
+- 검사: `sim-device-toggle.js`
+
 ## json-store.js — 💾 localStorage JSON 칸 읽기 · 쓰기 한 곳
 
 - **책임**: 한 키의 JSON 을 읽고(해석) 쓴다. 실패를 삼키지 않고 결과 `{ ok, err, bytes }` 로 돌려준다 — 부르는 쪽이 알릴 수 있게.
@@ -432,8 +449,8 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **만드는 법**: `TwUpdateFlow.createUpdateFlow({ readMin, getMin, onMinChange, getVersion, companion, ui: TwUpdateFlow.createUpdateDom(document), noticeOnce, showNotice })` — app.js 가 초대 게이트(`initInviteGate`) 앞에서 만든다. 오류 번호 없음(못 읽으면 막지 않고 넘어간다).
 - **내놓는 것**: `runBeforeLogin()`(→ `{ proceed, stage }` — 강제면 `proceed:false`) · `press(action)` · `whenStageDone(fn)`(런처 «재시작하면 업데이트» 띠를 단계가 끝난 뒤에 걸기) · `isForced()` · `current()` / 순수 함수 `parseVer` · `isBelow` · `stageOf(my, min, latest)` · `viewOf`.
 - **켜 둔 동안**: 원격 설정이 `minVersion` 이 바뀌었다고 알리면(`onMinChange` — 서버 신호) 바로 강제 창. 새 주기 요청은 없다. realtime 서버가 통신 판이 다르다고 닫으면(4003) `forceProtocol()` — 최소 버전 없이 «서버와 맞지 않아» 강제 창(`realtime/rt-status-ui.js` 가 부름). 계정이 더 새 판을 쓰는 기기가 있다고 서버가 답하면(`account/app-version-sync.js`) `forceAccount(highest)` — «다른 PC 에서 더 새 버전을 쓰고 있어요» 강제 창(이미 강제 창이면 그대로).
-- **켜 둔 동안 다시 확인 · 끌 때 설치(윈도우만 · main.js)**: main 이 4시간 + 0~1시간(사람마다 늦춤을 달리 둬 모두가 같은 때 GitHub 에 묻지 않게)마다 `startUpdateCheck` 를 조용히 부른다(`apps/desktop/update-recheck.js` — 새 창 · 물음 없음 · 확인 · 받는 중이면 그 차례는 건너뜀(같은 상태로 2차례 넘게 멈춰 있으면 다시 묻는다) · 다 받으면 멈춤 · 이 확인의 실패는 오류 파일에 한 번만). 새 판이 있으면 백그라운드로 받고 다 받으면 위 런처 띠가 뜬다. 받아 둔 판은 사용자가 앱을 끌 때(제목줄 × · Alt+F4 · 내 정보 끄기 — 모두 `app.quit` → `_quitHold` 가 렌더러 저장을 끝낸 뒤 `quit`) electron-updater 가 조용히 설치한다(`autoInstallOnAppQuit` · 다시 켜지 않음). 쓰는 도중에는 설치하지 않는다. 윈도우 세션 종료(메인 창 `query-session-end` 에서 설치를 끄고 `session-end` 에서 `_exitNow` — Electron 은 이 신호를 창 이벤트로만 준다) · 중복 실행 정리(`_exitNow`) · 계정 재시작(`relaunchApp`)은 사용자가 끈 것이 아니라 설치를 건너뛰고 다음에 끌 때 설치한다. 모든 사용자(Program Files)로 설치한 PC 는 끌 때 설치를 켜지 않는다 — 설치 폴더에 쓸 수 없어 UAC 창이 뜨기 때문(켤 때 `installDirWritable` 이 실행 파일 옆에 시험 파일을 만들어 본다 · `fs.access` 는 윈도우에서 믿을 수 없다). 그 PC 는 예전처럼 띠의 [재시작] 으로만 설치한다. [재시작] 은 예전처럼 바로 설치. 맥은 둘 다 없다(켤 때 릴리스 태그 한 번 · 검사 `sim-mac-update.js`). 검사 `checks/sim-update-recheck.js`.
-- **함정**: 켤 때 첫 확인은 main 이 혼자 하지 않고 이 모듈이 켤 때 `companion.checkUpdate()` 로 묻는다(구독을 건 뒤라 답을 놓치지 않음). 답이 `UPDATE_WAIT_MS` 안에 없으면 «없음». 실패 뒤 혼자 되풀이하지 않고 강제 창 [다시 시도] 를 누를 때만 다시 묻는다. 맥은 자동 설치가 없어 [업데이트] 가 릴리스 주소를 연다.
+- **켜 둔 동안 다시 확인 · 끌 때 설치(윈도우 · 맥 · main.js — 판단은 `apps/desktop/update-platform.js`)**: main 이 4시간 + 0~1시간(사람마다 늦춤을 달리 둬 모두가 같은 때 GitHub 에 묻지 않게)마다 `startUpdateCheck` 를 조용히 부른다(`apps/desktop/update-recheck.js` — 새 창 · 물음 없음 · 확인 · 받는 중이면 그 차례는 건너뜀(같은 상태로 2차례 넘게 멈춰 있으면 다시 묻는다) · 다 받으면 멈춤 · 이 확인의 실패는 오류 파일에 한 번만). 새 판이 있으면 백그라운드로 받고 다 받으면 위 런처 띠가 뜬다. 받아 둔 판은 사용자가 앱을 끌 때(제목줄 × · Alt+F4 · 내 정보 끄기 — 모두 `app.quit` → `_quitHold` 가 렌더러 저장을 끝낸 뒤 `quit`) electron-updater 가 조용히 설치한다(`autoInstallOnAppQuit` · 다시 켜지 않음). 쓰는 도중에는 설치하지 않는다. 윈도우 세션 종료(메인 창 `query-session-end` 에서 설치를 끄고 `session-end` 에서 `_exitNow` — Electron 은 이 신호를 창 이벤트로만 준다) · 중복 실행 정리(`_exitNow`) · 계정 재시작(`relaunchApp`)은 사용자가 끈 것이 아니라 설치를 건너뛰고 다음에 끌 때 설치한다. 모든 사용자(Program Files)로 설치한 PC 는 끌 때 설치를 켜지 않는다 — 설치 폴더에 쓸 수 없어 UAC 창이 뜨기 때문(켤 때 `installDirWritable` 이 실행 파일 옆에 시험 파일을 만들어 본다 · `fs.access` 는 윈도우에서 믿을 수 없다). 그 PC 는 예전처럼 띠의 [재시작] 으로만 설치한다. [재시작] 은 예전처럼 바로 설치. 맥(Squirrel.Mac)은 다 받는 즉시 설치 준비를 끝내 어떻게 꺼지든 설치되므로, Squirrel 이 설치 준비를 끝낸 판(electron `autoUpdater` 의 `update-downloaded`)이 있는 재시작은 relaunch 대신 «설치하고 다시 켜기» 로 간다(`_relaunchOrInstall`) · `.app` 이 든 폴더에 못 쓰면 끌 때 설치를 켜지 않는다(그 맥의 [재시작] 은 Squirrel 이 관리자 암호를 묻거나 실패할 수 있다) · 응용 프로그램 폴더 밖이면 처음 한 번 옮기기를 묻는다. 검사 `checks/sim-update-recheck.js` · `checks/sim-update-platform.js`.
+- **함정**: 켤 때 첫 확인은 main 이 혼자 하지 않고 이 모듈이 켤 때 `companion.checkUpdate()` 로 묻는다(구독을 건 뒤라 답을 놓치지 않음). 답이 `UPDATE_WAIT_MS` 안에 없으면 «없음». 실패 뒤 혼자 되풀이하지 않고 강제 창 [다시 시도] 를 누를 때만 다시 묻는다. 맥도 윈도우와 같은 길이다(0.14 부터 Developer ID 서명 · 공증 — 그 전 맥 앱은 다운로드 페이지 안내).
 - 검사: `checks/sim-update-flow.js`.
 
 ## `account-store.js` — 🗂️ 계정별 로컬 칸(`tw.u.<계정코드>.<이름>`)
@@ -645,6 +662,6 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 ## `server-features.js` — 서버가 아직 안 받는 0.14 기능 표
 - **책임**: 0.14 판에서 Firebase DB · Functions 에 직접 읽고 쓰게 만든 기능의 «서버가 받는가» 를 한 표(`FEATURES`)에 둔다. 0.13 은 Firebase DB 쓰기를 잠갔으므로 서버(API)가 받을 때까지 입구(버튼 · 탭 · 입력칸)만 닫는다 — 기능 코드는 지우지 않는다.
 - **내놓는 것**: `on(name)` → boolean(표에 없는 이름은 던진다) · `FEATURES`(바꿀 수 없는 표) · `noServer(name)`(서버 경로가 없는 provider 자리 — 어떤 메서드든 `SERVER_PATH_MISSING` 으로 거절) · `MISSING_CODE`.
-- **입구**: xmas — app.js 가 크리스마스 창을 만들지 않음(런처 버튼은 html 에서 hidden 으로 시작) · chatNotice · chatFocus — 각 모듈 `enabled` deps(탭 · 구독 없음) · 집중 올리기는 room-focus-sync `isSecretRoom` 에 같이 · playlistLike — playlist-like-ui `enabled`(줄 안 그림 · 안 읽음) · googleChange — account.js [바꾸기] 숨김 · friendReqMsg — friend-req-btn `reasonOn`(사유 칸 없이 묻기) · themeCustomSave — theme-ui `serverOn`(이 PC 저장만)· 가입은 login-flow.js).
+- **입구**: xmas — app.js 가 크리스마스 창을 만들지 않음(런처 버튼은 html 에서 hidden 으로 시작) · chatNotice · chatFocus — 각 모듈 `enabled` deps(탭 · 구독 없음) · 집중 올리기는 room-focus-sync `isSecretRoom` 에 같이 · playlistLike — playlist-like-ui `enabled`(줄 안 그림 · 안 읽음) · friendReqMsg — friend-req-btn `reasonOn`(사유 칸 없이 묻기) · themeCustomSave — theme-ui `serverOn`(이 PC 저장만)· 가입은 login-flow.js).
 - **서버가 받으면**: 표의 값을 true 로 바꾸고, 그 기능의 provider(지금은 `noServer(이름)`)를 서버 provider 로 갈아 끼운다. 서버 작업 요청은 GitHub 이슈 «서버 작업 요청: …(0.14.0)».
 - **함정**: 다른 기준(날짜 · 방 종류)과 섞지 말 것 — 이 표는 «서버 길이 있나» 하나만 본다. 검사 `checks/sim-server-features.js`.

@@ -5721,10 +5721,20 @@
       <span>머리 위 레벨/이름 표시</span>
       <button class="fs-toggle-btn fs-switch" id="fsNameplateToggle" type="button">켜짐</button>
     </div>
+    <!-- 🫧 남의 자리비움 그림 — 끄면 이 PC 화면에서 남의 그림을 세우지 않는다(그림 없는 자리비움 모양 · 내 그림은 그대로 · room/away-pic.js _awayPicFor) -->
+    <div class="fs-toggle-row">
+      <span>남의 자리비움 그림</span>
+      <button class="fs-toggle-btn fs-switch" id="fsAwayOthersToggle" type="button">켜짐</button>
+    </div>
     <!-- 💭 머리 위 상태 말풍선(«📱 앱» · 내 상태) — 끄면 이 PC 화면에서 안 뜬다 · 채팅 말풍선은 그대로(overhead.js statusBubbleGate) -->
     <div class="fs-toggle-row">
       <span>머리 위 상태 말풍선</span>
       <button class="fs-toggle-btn fs-switch" id="fsStatusBubbleToggle" type="button">켜짐</button>
+    </div>
+    <!-- 🎨 마이홈 스티커 — 끄면 이 PC 화면에서 내 홈 · 친구 홈의 스티커를 그리지 않는다(myhome/sticker-layer.js) -->
+    <div class="fs-toggle-row">
+      <span>마이홈 스티커</span>
+      <button class="fs-toggle-btn fs-switch" id="fsMhStickerToggle" type="button">켜짐</button>
     </div>
 
     <div class="fs-sep"></div>
@@ -6743,7 +6753,7 @@
     <button class="lc-btn" id="lcCreate" disabled style="display:none;">🚧 공사중</button>
     <button class="lc-btn ghost" id="lcInvite">방 만들기 / 참여하기</button>
     <button class="lc-btn ghost" id="lcLoad">내 정보</button>
-    <!-- 🎄 크리스마스(일회성) — 1월 1일 0시(서버 시각)부터 숨는다 · parts/xmas/xmas-window.js -->
+    <!-- 🎄 크리스마스(일회성) — 받은 편지 열람 끝(1월 6일 0시 · 서버 시각)부터 숨는다 · parts/xmas/xmas-window.js -->
     <button class="lc-btn ghost" id="lcXmas" hidden>🎄 크리스마스</button>
     <!-- 하단 링크 3개 — 버튼이 늘어나 폭이 빠듯해졌으므로 글자를 줄이고 줄바꿈을 막음(nowrap) -->
     <div style="display:flex;gap:2px;margin-top:8px;justify-content:center;align-items:center;">
@@ -8835,6 +8845,7 @@
 <script src="parts/shared/session.js"></script>   <!-- 🔐 로그인 세션 하나(window.TwSession — 타이머 · 구독 · 비우기 훅 · dispose) — launcher/app-boot.js 가 만든다 · app.js 보다 먼저 -->
 <script src="parts/shared/json-store.js"></script>   <!-- 💾 localStorage JSON 칸 읽기 · 쓰기 한 곳(window.TwJsonStore) — 책상 프리셋 저장 · animal.js · app.js 보다 먼저 -->
 <script src="parts/room/seat-pin.js"></script>   <!-- 🪑 방에서 내 자리 «맨 오른쪽 고정»(window.TwSeatPin) — app.js 보다 먼저 -->
+<script src="parts/shared/device-toggle.js"></script>   <!-- 이 PC 의 켜고 끄는 화면 설정 하나(window.TwDeviceToggle) — 설정 창과 그 설정을 읽는 기능이 같이 쓴다 · app.js 보다 먼저 -->
 <script src="parts/shared/nav.js"></script>   <!-- 🧭 창 열기 통로(설정 창 · 마이홈 · 방 나가기를 부탁하는 한 곳) — 쓰는 모듈 · app.js 보다 먼저 -->
 <script src="parts/room/invite-notice.js"></script>   <!-- 🙋 마지막으로 받은 방 초대 한 줄(window.TwInviteNotice) — 🔔 일정 알림 줄 · 알림콩 · app.js 보다 먼저 -->
 <script src="parts/room/friend-visit.js"></script>   <!-- 🏠 친구 방에 놀러 가기(window.TwFriendVisit) — app.js 보다 먼저 -->
@@ -8845,6 +8856,7 @@
 <script src="parts/shared/own-image.js"></script>   <!-- 🖼 내 그림을 Storage 내 폴더에 바로 올리기(window.TwOwnImage — 이름 users/{내 코드}/{머리}_{id}) — 쓰는 provider(myhome · schedule · guestbook · gift-api) · app.js 보다 먼저 -->
 <script src="parts/shared/request-id.js"></script>   <!-- 🔁 요청 번호(window.TwRequestId — 같은 일 다시 보내기는 같은 번호) — 쓰는 모듈 · app.js 보다 먼저 -->
 <script src="parts/shared/device-id.js"></script>   <!-- 🖥️ 이 기기 id(window.TwDeviceId — tw.deviceId · X-Device-Id · realtime hello) — request-id.js 다음 · api-client.js 보다 먼저 -->
+<script src="parts/shared/etag-store.js"></script>   <!-- 🏷️ ETag 기억을 껐다 켜도 남게(window.TwEtagStore — IndexedDB tw-etag-cache) — api-client.js 보다 먼저 -->
 <script src="parts/shared/api-client.js"></script>   <!-- 🌐 앱 공통 API 통로(window.TwApi — client 읽기 · authed 로그인 통로) — remote-config.js 보다 먼저 -->
 <script src="parts/shared/api-errors.js"></script>   <!-- 🧭 서버 오류 봉투 → 할 일 · 오류 번호 번역표(window.TwApiErrors) — error-codes.js · api-client.js 다음 · 쓰는 모듈 · app.js 보다 먼저 -->
 <script src="parts/realtime/rt-hub.js"></script>   <!-- 🛰 realtime 연결 하나(window.TwRtHub — pv 4 · 닫힘 번호 표 · 작별 · 알림 → 다시 받기 표) — request-id.js · device-id.js 다음 · 쓰는 모듈 · app.js 보다 먼저(연결 재료는 rt-bind.js 가 bind) -->
@@ -8891,6 +8903,7 @@
 <script src="parts/myhome/guestbook.js"></script>   <!-- 📖 방명록(새 글 배지 · 독립 팝업 창) — app.js 보다 먼저(app.js 가 원래 자리에서 TwGuestbook.createGuestbook 으로 만든다) -->
 <script src="parts/myhome/friend-manage.js"></script>   <!-- 👥 친구 관리(받은 요청 · 보낸 요청 · 선물함 서브탭) · 👋 새 친구 요청 팝업 — app.js 보다 먼저(app.js 가 원래 자리에서 TwFriendManage.createFriendManage 로 만든다) -->
 <script src="parts/focus/pomodoro.js"></script>   <!-- 🍅 뽀모도로(포커스 기록창 안쪽 서랍) — weekly-challenge.js 뒤 · app.js 보다 먼저(app.js 가 원래 자리에서 TwPomodoro.createPomodoro 로 만든다) -->
+<script src="parts/myhome/sticker-layer.js"></script>   <!-- 🎨 마이홈 스티커 보이기(이 PC 설정 · window.TwStickerLayer) — 설정 창 · 스티커 그리기 · 관리 창 · app.js 보다 먼저 -->
 <script src="parts/myhome/myhome-sticker-rules.js"></script>   <!-- 🔒 스티커 잠금 · 순서 규칙(window.TwMyHomeStickerRules) — myhome-sticker.js · myhome-edit.js · app.js 보다 먼저 -->
 <script src="parts/myhome/myhome-sticker.js"></script>   <!-- 🎨 마이홈 스티커 관리 창 · 스티커 편집모드 · 드래그 · 회전 · 크기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeSticker.createMyHomeSticker 로 만든다) -->
 <script src="parts/character/gacha-api.js"></script>   <!-- 🎰 가챠 서버 경로(window.TwGachaApi) — app.js 가 만들어 gacha.js 에 deps 로 넘긴다 -->
@@ -9004,6 +9017,7 @@
 <script src="parts/room/interaction-desk.js"></script>   <!-- 상호작용 책상 카탈로그 — app.js 보다 먼저(app.js 가 원래 자리에서 TwInteractionDesk.createInteractionDesk 로 만든다) -->
 <script src="parts/launcher/ad-banner.js"></script>   <!-- 광고 배너 · 게임 설정 — app.js 보다 먼저(app.js 가 원래 자리에서 TwAdBanner.createAdBanner 로 만든다) -->
 <script src="parts/launcher/app-boot.js"></script>   <!-- 🚀 켜는 순서 한 곳 — app.js 보다 먼저(app.js 가 INIT 에서 TwAppBoot.createAppBoot 로 만든다) -->
+<script src="parts/launcher/open-on-show.js"></script>   <!-- 🪟 창이 보이면 그 창의 기능 시작 부탁(app-boot OPEN) — app.js 보다 먼저 -->
 <script src="parts/launcher/user-local.js"></script>   <!-- 🗂️ 이 계정이 이 PC 에서 고른 것을 계정 칸에서 읽어 채우는 한 칸(window.TwUserLocal) — app.js 보다 먼저(app.js 가 만들어 app-boot 의 userLocal 칸에 건다) -->
 <script src="parts/launcher/fn-keys.js"></script>   <!-- 함수키 단축키 — app.js 보다 먼저(app.js 가 원래 자리에서 TwFnKeys.createFnKeys 로 만든다) -->
 <script src="parts/room/hidden-seats.js"></script>   <!-- 워킹룸 숨기기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwHiddenSeats.createHiddenSeats 로 만든다) -->
@@ -9061,7 +9075,7 @@
 <script src="parts/myhome/seat-friend-req.js"></script>   <!-- 🙋 좌석 우클릭 친구 신청 — app.js 보다 먼저(app.js 가 원래 자리에서 TwSeatFriendReq.createSeatFriendReq 로 만든다) -->
 <script src="parts/myhome/friend-req-btn.js"></script>   <!-- 🙋 남의 마이홈 [친구 신청] · 사유 창 — app.js 보다 먼저(app.js 가 친구 홈 구경보다 먼저 TwFriendReqBtn.createFriendReqBtn 로 만든다) -->
 <script src="parts/xmas/xmas-rules.js"></script>   <!-- 🎄 크리스마스 규칙(날짜 · 장식 자리 · 이스터에그 — window.TwXmasRules) — xmas-tree · xmas-window · app.js 보다 먼저 -->
-<script src="parts/xmas/xmas-net.js"></script>   <!-- 🎄 크리스마스 서버 읽기 · 쓰기(window.TwXmasNet) — firebase-init(모듈 · 늦게 돎)이 firebaseAPI.xmas 로 만든다 -->
+<script src="parts/xmas/xmas-api.js"></script>   <!-- 🎄 크리스마스 서버 endpoint provider(window.TwXmasApi) — app.js 가 만든다 -->
 <script src="parts/xmas/xmas-tree.js"></script>   <!-- 🎄 3D 트리(window.TwXmasTree) — xmas-window 가 만든다 -->
 <script src="parts/xmas/xmas-song.js"></script>   <!-- 🎄 편지 추천곡 뮤직바(window.TwXmasSong) — xmas-window 가 만든다 -->
 <script src="parts/xmas/xmas-letter.js"></script>   <!-- 🎄 마니또 편지 창(window.TwXmasLetter) — xmas-window 가 만든다 -->

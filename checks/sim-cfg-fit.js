@@ -151,13 +151,14 @@ else{
     const f = new Function('MhPadPos', 'W', 'D', 'log', 'zoom',
       'let uiZoom = zoom, _mhPad = { x: 0, y: 0 }, _mhPadApplied = { x: 0, y: 0 }, _isConfigMode = true, _ovSkipped = 0, _curMode = "launcher", _lastIgnoreRequested = true, _sysPromptFront = false;\n'
       + 'const MH_PAD_MAX = 400; const savedPos = {}; const UI_ZOOM_MIN = 0.2, UI_ZOOM_MAX = 2.0;\n'
+      + 'const _winDrag = { on: false, active(){ return this.on; }, cancel(){ this.on = false; } };   /* 수동 창 끌기(win-drag.js) 자리 — 3-c 가 켠다 */\n'
       + 'const MODE_SIZE = { launcher:{ w:380, h:680 }, creator:{ w:740, h:620 }, animal:{ w:860, h:440 }, myhome:{ w:800, h:580 } };\n'
       + 'const screen = { getDisplayMatching: () => D, getDisplayNearestPoint: () => D }; const getRunDisplay = () => D;\n'
       + 'const _runRectOf = (d) => ({ x: d.workArea.x, y: d.workArea.y, width: d.workArea.width, height: d.workArea.height });   /* 실행 사각형(run-rect.js) — 이 표는 작업영역 그대로로 본다 */\n'
       + 'const overlay = { runOverlayHeight: (h) => h, logGeometry(){} }; const _setRunTop = () => {}; const _noteApplied = () => {}; const _reapplyIgnoreMouse = () => {}; const _diagLog = (m) => log.push(m); const _saveLauncherPosSoon = () => {};\n'
       + 'const _winAlreadyIs = (r) => W.x === r.x && W.y === r.y && W.width === r.width && W.height === r.height;\n'
       + 'const mainWindow = { isDestroyed: () => false, getBounds: () => ({ x: W.x, y: W.y, width: W.width, height: W.height }), isResizable: () => W.res, setResizable(v){ W.res = v; }, setAlwaysOnTop(){}, setBounds(r){ Object.assign(W, r); } };\n'
-      + FNx.join('\n') + '\nreturn { apply: (c, m, e) => _applyConfigMode(c, m, e), reset: () => _resetWindowToLauncher(\'다시 불러오기 전\'), mode: () => _curMode, now: () => _configModeNow(), size: (m) => _modeSize(m), savedPos };')(MhP, W, D, log, zoom);
+      + FNx.join('\n') + '\nreturn { apply: (c, m, e) => _applyConfigMode(c, m, e), reset: () => _resetWindowToLauncher(\'다시 불러오기 전\'), mode: () => _curMode, now: () => _configModeNow(), size: (m) => _modeSize(m), savedPos, drag: _winDrag };')(MhP, W, D, log, zoom);
     return { W, f, log };
   };
   const MODES = ['launcher', 'creator', 'animal', 'myhome'];
@@ -197,6 +198,36 @@ else{
   { const wa = { x: 0, y: 0, width: 3840, height: 2160 }; const h = harness(wa, 1);
     h.f.apply(true, 'launcher'); h.f.apply(true, 'launcher');
     chk(h.f.mode() === 'launcher', '같은 요청 되풀이 뒤에도 모드 그대로'); }
+  /* 🖱 수동 창 끌기(win-drag.js) 도중 — 같은 모드의 요청은 창을 건드리지 않고, 모드가 바뀌거나 런처로 되돌릴 때는 끌기를 놓고 맞춘다(B-1122-2) */
+  { const wa = { x: 0, y: 0, width: 3840, height: 2160 };
+    const dragCase = (FNx) => {
+      const r = {};
+      let h = harness(wa, 1, FNx); h.f.apply(true, 'launcher'); const home = h.W.x;
+      h.W.x = 900; h.f.drag.on = true; h.f.apply(true, 'launcher');
+      r.sameSkip = h.W.x === 900 && h.f.drag.on === true;
+      h.f.drag.on = false; h.f.apply(true, 'launcher');
+      r.afterDrag = h.W.x === home;                       // 끌기가 없으면 예전처럼 맞춘다(위 건너뛰기가 끌기 때문임을 보인다)
+      h = harness(wa, 1, FNx); h.f.apply(true, 'launcher'); h.f.drag.on = true; h.f.apply(true, 'myhome', { x: 0, y: 0 });
+      r.modeChange = h.f.drag.on === false && h.W.width === 800 && h.W.height === 580;
+      h = harness(wa, 1, FNx); h.f.apply(true, 'launcher'); h.f.drag.on = true; h.f.apply(false, 'run');
+      r.toRun = h.f.drag.on === false && h.W.width === wa.width;
+      h = harness(wa, 1, FNx); h.f.apply(false, 'run'); h.f.drag.on = true; h.f.reset();
+      r.resetRun = h.f.drag.on === false && h.W.width === 380 && h.W.height === 680;
+      h = harness(wa, 1, FNx); h.f.apply(true, 'launcher'); h.W.x = 900; h.W.width = 2000; h.f.drag.on = true; h.f.reset();
+      r.resetSame = h.f.drag.on === false && h.W.width === 380;
+      return r;
+    };
+    const d = dragCase();
+    chk(d.sameSkip && d.afterDrag, '★ 끄는 동안 같은 모드의 setConfigMode 는 창을 건드리지 않는다(끌기가 없으면 예전처럼 맞춤)');
+    chk(d.modeChange && d.toRun, '★ 끄는 도중 모드가 바뀌면(마이홈 · 실행 화면) 끌기를 놓고 새 모드 창으로 맞춘다');
+    chk(d.resetRun && d.resetSame, '★ 끄는 도중 렌더러가 죽어 런처로 되돌릴 때 — 끌기를 놓고 런처 크기로(같은 모드였어도)');
+    const cut = (a, b) => { const m = MAIN.replace(a, b || ''); return m === MAIN ? null : dragCase(fnsOf(m)); };
+    const m1 = cut('    if(_winDrag.active()) return;\n');
+    chk(!!m1 && m1.sameSkip === false, '  mutation test — 건너뛰기를 빼면 끄는 동안 창을 되돌린다 → 빨강');
+    const m2 = cut('  if(_curMode !== prevMode) _winDrag.cancel();\n');
+    chk(!!m2 && m2.modeChange === false, '  mutation test — 모드가 바뀔 때 끌기를 안 놓으면 새 모드 창이 안 걸린다 → 빨강');
+    const m3 = cut('  _winDrag.cancel();   // 렌더러가 죽으면 뗌 신호가 안 온다 — 끌기가 남으면 아래 되돌리기가 창을 못 건드린다\n');
+    chk(!!m3 && m3.resetSame === false && m3.resetRun === true, '  mutation test — 되돌리기에서 끌기를 안 놓으면 같은 모드일 때 창이 그대로 남는다 → 빨강'); }
 }
 
 /* mutation test — 하나라도 못 잡으면 빨강 */
@@ -207,7 +238,7 @@ if(MhP && harness){
   chk(!!m1 && (() => { const h = harness({ x: 0, y: 0, width: 3840, height: 2160 }, 1, fnsOf(m1)); h.f.apply(true, 'launcher'); h.W.x = 111; h.W.y = 77; h.f.apply(true, 'creator'); return h.W.x !== 111; })(), '생성기 진입이 직전 모드를 안 보면 빨강');
   const m2 = mutate("  _isConfigMode = !!isConfig;", "  _isConfigMode = !!isConfig; _curMode = 'launcher';");
   chk(!!m2 && (() => { const h = harness({ x: 0, y: 0, width: 3840, height: 2160 }, 1, fnsOf(m2)); h.f.apply(true, 'myhome', { x: 0, y: 0 }); return h.f.mode() !== 'myhome'; })(), '받은 모드를 덮어쓰면 빨강');
-  const m3 = mutate("function _resetWindowToLauncher(why){\n  if(!mainWindow || mainWindow.isDestroyed()) return;\n  _applyConfigMode(true, 'launcher');", "function _resetWindowToLauncher(why){\n  if(!mainWindow || mainWindow.isDestroyed()) return;");
+  const m3 = mutate("  if(!mainWindow || mainWindow.isDestroyed()) return;\n  _applyConfigMode(true, 'launcher');\n  _lastIgnoreRequested = false;", "  if(!mainWindow || mainWindow.isDestroyed()) return;\n  _lastIgnoreRequested = false;");
   chk(!!m3 && (() => { const h = harness({ x: 0, y: 0, width: 1920, height: 1040 }, 1, fnsOf(m3)); h.f.apply(false, 'run'); h.f.reset(); return h.f.mode() !== 'launcher'; })(), '다시 불러오기가 런처로 안 되돌리면 빨강');
 }
 
@@ -270,7 +301,7 @@ else{
     chk(/_launcherPosSaved = savedPos\.launcher \?/.test(sv), '  saveSettings 가 성공하면 파일 자리 기록을 맞춘다(어느 저장이든)');
   }
   const exitSrc = grabFn(MAIN, '_exitNow') || '';
-  chk(exitSrc.indexOf('_flushLauncherPos()') > exitSrc.indexOf('stopGlobalHooks') && exitSrc.indexOf('_flushLauncherPos()') < exitSrc.indexOf('destroy()'),
+  chk(exitSrc.indexOf('_flushLauncherPos()') > exitSrc.indexOf('stopGlobalHooks') && exitSrc.indexOf('_flushLauncherPos()') < exitSrc.indexOf('_destroyAllWindows()'),
     '  _exitNow 는 훅 · 타이머를 내린 뒤 · 창을 닫기 전에 쓴다(종료 순서)');
   chk(/_flushLauncherPos\(\)/.test(exitSrc) && /app\.on\('before-quit', \(e\) => \{ if\(_quitHold\.beforeQuit\(e\)\) return; try \{ sysinput\.stopGlobalHooks\(\); \}[^\n]*try \{ _flushLauncherPos\(\); \} catch \(_\) \{\} \}\);/.test(MAIN), '끄는 두 길(_exitNow · before-quit) 모두 남은 런처 자리를 쓴다');
   const load = MAIN.slice(MAIN.indexOf('function loadSettings(){'), MAIN.indexOf('function saveSettings(){'));

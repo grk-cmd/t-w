@@ -7,7 +7,9 @@
      받기 실패의 오류 번호는 사용자가 연 · 누른 받기(manual)에서만 띄운다 — 켤 때 · 알림으로 자동 받다 실패하면 오류 창 없이 못 받음 상태만(화면 안 «불러오지 못했어요» 가 그린다).
      한 번 받은 뒤의 실패는 앞서 받은 목록을 그대로 두고 status 만 error 로 바꾼다 — 화면 안 «불러오지 못했어요» + 다시 시도는 한 번도 못 받았을 때만 그려진다.
    deps: api — createInboxApi 가 돌려준 것(inbox-api.js) · rt — 알림 걸기(TwRtHub.store.on('notification', fn)) ·
-         notifyError — 오류 번호로 알리는 함수(TwErrorCodes.notify)
+         notifyError — 오류 번호로 알리는 함수(TwErrorCodes.notify) ·
+         refreshDelayMs() — 새 우편 알림 뒤 다시 받기 전에 기다릴 ms(0 = 곧바로). 🎄 짝 짓기 알림이 몰리는 10분은 app.js 가 0~30초 무작위를 준다 ·
+         timers — 기다림 { setTimeout, clearTimeout }(app.js 는 window · 검사는 가짜)
    내보냄: createMailFeed(deps) → {
      onChange(fn) → 해제 함수 — fn({ addedIds })(화면 다시 그리기 · 새 우편 토스트 — 받은 뒤 · 고친 뒤 · 처음 받은 판의 우편은 새 우편이 아니다) ·
      start(uid, session) · stop() · refresh({ manual }?) → Promise<boolean>(받았나 — manual 은 «다시 시도» 를 눌렀다) · status() → 'idle'|'loading'|'ready'|'error' · items() → { id: 우편 } · unread() → 서버가 센 안 읽은 수 ·
@@ -16,6 +18,7 @@
    }
    ⚠️ items() 는 같은 객체를 돌려준다(받으면 새 객체로 바뀐다) — 고치지 말 것(읽음 · 지우기는 위 함수로).
    ⚠️ 못 받음이어도 이미 받아 둔 우편은 지우지 않는다(status 만 error) — 우편이 «없다» 와 «못 받았다» 를 화면이 가른다.
+   ⚠️ 알림 뒤 기다리는 중에 알림이 또 오면 기다리던 한 번으로 묶는다(요청을 늘리지 않는다). 계정이 바뀌거나 멈추면 기다림을 버린다.
    검사: checks/sim-mail-feed.js */
 (function(){
 'use strict';
@@ -26,7 +29,10 @@ const SECTION_MAIL = 'MAIL';
 function createMailFeed(deps){
   const api = deps.api;
   const notifyError = deps.notifyError;
+  const refreshDelayMs = deps.refreshDelayMs;
+  const timers = deps.timers;
   const subs = [];
+  let delayed = null;   // 알림 뒤 기다리는 다시 받기 하나
   let uid = null;
   let status = STATUS.IDLE, items = {}, unread = 0, complete = true, everReady = false;
   let clearing = false, flying = false, again = false, failStreak = false, manualNext = false;
@@ -34,7 +40,7 @@ function createMailFeed(deps){
   function emit(e){
     for(const fn of subs.slice()){ try{ fn(e); }catch(err){ console.warn('[우편] 받는 쪽 처리 실패', err); } }
   }
-  function reset(){ items = {}; unread = 0; complete = true; everReady = false; status = STATUS.IDLE; failStreak = false; manualNext = false; }
+  function reset(){ if(delayed){ timers.clearTimeout(delayed); delayed = null; } items = {}; unread = 0; complete = true; everReady = false; status = STATUS.IDLE; failStreak = false; manualNext = false; }
 
   async function refresh(opts){
     if(!uid) return false;
@@ -88,7 +94,12 @@ function createMailFeed(deps){
      다른 기기에서 읽거나 지운 것은 다음에 받을 때 맞는다 */
   function onNotification(n){
     if(!uid) return;
-    if(n && (n.resync || !n.section || n.section === SECTION_MAIL)) refresh();
+    if(!(n && (n.resync || !n.section || n.section === SECTION_MAIL))) return;
+    if(delayed) return;   // 기다리는 한 번으로 묶는다
+    const ms = refreshDelayMs();
+    if(!(ms > 0)){ refresh(); return; }
+    const who = uid;
+    delayed = timers.setTimeout(() => { delayed = null; if(uid === who) refresh(); }, ms);
   }
 
   /* 한 번이라도 받은 뒤에만 고친다 — 받는 중에는 «모두 읽음» 이 아직 못 본 우편까지 덮으면 안 된다.

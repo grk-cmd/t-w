@@ -1202,29 +1202,30 @@ function mhdSideOpen(id){ const w=document.getElementById(id); return !!(w && w.
 // 게임 창(시뮬·캐릭터세팅) 타이틀바 드래그 → 프로그램 창 이동 (마이홈 타이틀 드래그와 동일 방식)
 function advBindWinDrag(bar){
   if(!bar || bar._advDragBound) return; bar._advDragBound=true; bar.style.cursor='move';
-  let dragging=false, sx=0, sy=0, offX=0, offY=0, osMove=false;
+  let dragging=false, offX=0, offY=0, osMove=false;
   bar.addEventListener('pointerdown', e=>{
     if(e.target.closest && e.target.closest('.x, .adv-bgm-btn')) return;   // 닫기·BGM 버튼은 제외
     //   ★ #3 수정: BGM 버튼이 빠져 있어 스피커를 누르면 창 드래그가 시작되고 preventDefault+포인터캡처로 click이 아예 발생하지 않아 음소거가 안 됐음.
     dragging=true;
     const win=document.getElementById('myHomeWin');
     const launcherOn = !!(document.getElementById('launcher') && document.getElementById('launcher').classList.contains('on'));
-    osMove = !!(launcherOn && window.companion && companion.moveWindow);   // 런처=OS창 이동 / 그 외=마이홈 창 DOM 이동
-    if(osMove){ sx=e.screenX; sy=e.screenY; }
+    osMove = !!(launcherOn && window.companion && companion.dragWindow);   // 런처=OS창 이동 / 그 외=마이홈 창 DOM 이동
+    if(osMove){ companion.dragWindow('start'); }   // 자리는 main 이 마우스 자리로 계산한다(win-drag.js)
     else if(win){ const r=win.getBoundingClientRect(); offX=e.clientX-r.left; offY=e.clientY-r.top; win.style.transform='none'; win.style.left=r.left+'px'; win.style.top=r.top+'px'; }
     try{ bar.setPointerCapture(e.pointerId); }catch(_){}
     e.preventDefault();
   });
   bar.addEventListener('pointermove', e=>{
     if(!dragging) return;
-    if(osMove){ try{ companion.moveWindow(e.screenX-sx, e.screenY-sy); }catch(_){} sx=e.screenX; sy=e.screenY; return; }
+    if(osMove){ companion.dragWindow('move'); return; }
     const win=document.getElementById('myHomeWin'); if(!win) return;
     win.style.left=(e.clientX-offX)+'px'; win.style.top=(e.clientY-offY)+'px';
     if(mhHooks.has(mhHooks.HOOK.SYNC_BGM_BOUNDS)) try{ mhHooks.call(mhHooks.HOOK.SYNC_BGM_BOUNDS); }catch(_){}
   });
-  const end=e=>{ dragging=false; try{ bar.releasePointerCapture(e.pointerId); }catch(_){} };
+  const end=e=>{ if(!dragging) return; if(osMove) companion.dragWindow('end'); dragging=false; try{ bar.releasePointerCapture(e.pointerId); }catch(_){} };
   bar.addEventListener('pointerup', end);
   bar.addEventListener('pointercancel', end);
+  bar.addEventListener('lostpointercapture', end);   // 끄는 중에 막대가 다시 그려지면 pointerup 이 안 온다 — main 의 끌기가 남지 않게
 }
 
 /* ─────────────────────────── 이벤트 ─────────────────────────── */

@@ -1,7 +1,7 @@
 /* ═══ 🧬 sim-closet.js — 옷장(character/closet.js) · 서버 원본 ═══════════════
    가짜 서버 경로 · 가짜 slot-save 위에서 모듈을 통째로 굴린다.
    ・1절: 만들 때 — 요청 · 구독 · 타이머 · 저장소 접근 0 · startCloset 은 받기 한 번 + 서버 신호 한 번(두 번 불러도 한 번) · 주기 타이머 없음
-   ・2절: 받기 — 슬롯 앉히기 · 같은 판은 그대로 · 못 받음(혼자 다시 안 함 · 번호는 누른 받기만) · 받기 전 쓰기 0 · 다른 기기에서 바뀐 칸 · 내 고침이 있는 칸은 덮지 않음 · 생성기 중 건너뜀
+   ・2절: 받기 — 슬롯 앉히기 · 칸 그림을 한꺼번에 받고 지금 보는 칸 먼저 · 칸마다 전부 아니면 없음 · 같은 판은 그대로 · 못 받음(혼자 다시 안 함 · 번호는 누른 받기만) · 받기 전 쓰기 0 · 다른 기기에서 바뀐 칸 · 내 고침이 있는 칸은 덮지 않음 · 생성기 중 건너뜀
    ・3절: 쓰기 — 바뀐 칸만 3초 묶음(새 칸 만들기 · 있는 칸 고치기에 받은 판) · 빈 칸은 안 지움 · 이미지 복원 실패 칸 건너뜀 · 실패 번호(저장 · 크기 · 입을 수 없음) 한 번만 · 되풀이 없음 · 올리는 중 또 고침
    ・4절: 동작 — 보관함 이동(고침 먼저 올림 · 20 문턱 · 당기기) · 휴지통 · 슬롯에 올리기 · 여러 개 휴지통 · 휴지통 목록 · 되살리기 · 오류 이유
    ・5절: 계정 바뀜 — 비우면 진행 중인 받기 · 쓰기가 새 계정을 건드리지 않음
@@ -113,13 +113,13 @@ function mkEnv(opt){
     SLOT_JSON_MAX: 150000,
     _slotGlbCacheLoad: () => ({}), _slotGlbCacheSave: () => { env.caches++; },
     _slotToServerObj: async (uid, o2) => { env.uploads.push(uid); env.toEntered = true; if(env.toHold) await env.toHold; if(env.imgFail) return null; return Object.assign({}, o2, { via: 'srv' }, env.big ? { pad: 'x'.repeat(160000) } : {}); },
-    _slotFromServerObj: async (def) => { env.fromEntered = true; if(env.fromHold) await env.fromHold; if(env.fromFail || (env.failSkin && def.skin === env.failSkin)) throw new Error('그림 받기 실패'); return Object.assign({}, def); },
+    _slotFromServerObj: async (def) => { env.fromEntered = true; env.fromCalls = (env.fromCalls || 0) + 1; (env.fromOrder = env.fromOrder || []).push(def.skin); if(env.fromHold) await env.fromHold; if(env.fromFail || (env.failSkin && def.skin === env.failSkin)) throw new Error('그림 받기 실패'); return Object.assign({}, def); },
   };
   const Mod = loadMod(SRC, env);
   env.mk = () => withSession(env, Mod.createCloset({
     CHAR_SLOT_MAX: 5, closetApi: srv.api, codec: env.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots, slotSave: env.slotSave,
     getMyUserId: () => env.uid, rtOn: (k, fn) => { (env.rt[k] = env.rt[k] || []).push(fn); env.subs = (env.subs || 0) + 1; return () => { env.rt[k] = env.rt[k].filter(x => x !== fn); env.unsubs = (env.unsubs || 0) + 1; }; }, toast: (m) => env.toasts.push(m),
-    notifyError: (c, e) => env.errs.push(c), renderLauncher: () => { env.renders++; }, creatorOpen: () => env.creator,
+    notifyError: (c, e) => env.errs.push(c), renderLauncher: () => { env.renders++; }, creatorOpen: () => env.creator, curSlot: () => env.cur || 0,
     storage: { getItem: (k) => env.ls.has(k) ? env.ls.get(k) : null, setItem: (k, v) => env.ls.set(k, String(v)), removeItem: (k) => env.ls.delete(k), key: (i) => [...env.ls.keys()][i] || null, get length(){ return env.ls.size; } },
   }));
   env.runTimers = async () => { const ts = env.timers.filter(Boolean); env.timers.length = 0; for(const t of ts){ t.fn(); await flush(); await flush(); await flush(); } };
@@ -144,7 +144,7 @@ await sec('── 1. 만들 때 · 시작', async () => {
 
 await sec('── 2. 받기', async () => {
   let { e, C } = await ready({ slots: ['a', null, 'c'], box: ['x', 'y'] });
-  chk(e.slots[0].skin === 'a' && e.slots[1] === null && e.slots[2].skin === 'c' && e.renders === 1 && e.replaced === 1, '슬롯 캐릭터를 서버 def 로 앉힌다 · 런처를 다시 그린다');
+  chk(e.slots[0].skin === 'a' && e.slots[1] === null && e.slots[2].skin === 'c' && e.renders === 2 && e.replaced === 1, '슬롯 캐릭터를 서버 def 로 앉힌다 · 런처를 다시 그린다(지금 보는 칸을 앉힌 때 · 다 앉힌 때)');
   chk(e.toasts.length === 0, '  처음 받을 때는 «다른 기기에서 받아왔어요» 안내가 없다');
   chk(C.boxCount() === 2 && C.boxItems().length === 2 && C.boxItems()[0].thumbUrl && C.test.known()[0].avatarId === 'a' && C.test.known()[0].version === 1, '  보관함 머리 · 칸마다 받은 판을 기억한다');
   e.srv.calls.length = 0; e.applied = [];
@@ -217,12 +217,28 @@ await sec('── 2. 받기', async () => {
 await sec('── 2-2. 한 칸 그림만 못 받음', async () => {
   const { e, C } = await ready({ slots: ['a', 'b'] });
   ['a', 'b'].forEach(id => { e.srv.avatars.find(x => x.avatarId === id).version = 2; e.srv.defs[id] = { skin: id + '2' }; });
-  e.failSkin = 'b2'; await C.pullCloset(false);
-  chk(e.slots[0].skin === 'a' && C.test.known()[0].version === 1, '한 칸이라도 그림을 못 받으면 어느 칸도 새 판으로 적지 않는다(화면도 그대로)');
+  e.failSkin = 'b2'; const r1 = await C.pullCloset(false);
+  chk(r1 === 'failed' && e.slots[0].skin === 'a2' && C.test.known()[0].version === 2 && e.slots[1].skin === 'b' && C.test.known()[1].version === 1, '칸마다 전부 아니면 없음 — 받은 칸(0)은 새 판으로 앉고, 못 받은 칸(1)은 화면 · 판 모두 그대로');
   e.failSkin = null; await C.pullCloset(false);
-  chk(e.slots[0].skin === 'a2' && e.slots[1].skin === 'b2', '  다시 받으면 두 칸 모두 새 모습으로 앉는다');
+  chk(e.slots[0].skin === 'a2' && e.slots[1].skin === 'b2', '  다시 받으면 못 받았던 칸도 새 모습으로 앉는다');
   e.srv.calls.length = 0; e.edit(1, { skin: 'b-mine' }); await e.runTimers(); await flush();
   chk(e.srv.defs.a.skin === 'a2' && !e.srv.calls.some(c => c.startsWith('update:a')), '  다른 칸을 고쳐도 옛 모습을 새 판 번호로 올려 덮지 않는다');
+});
+
+await sec('── 2-4. 한꺼번에 받기 · 지금 보는 칸 먼저', async () => {
+  const e = mkEnv({ slots: ['a', 'b', 'c'] }); e.cur = 2; const C = e.mk();
+  let rl; e.fromHold = new Promise(r => { rl = r; });
+  const p = C.pullCloset(false); for(let n = 0; n < 20 && (e.fromCalls || 0) < 3; n++) await flush();
+  chk(e.fromCalls === 3, '★ 받을 칸 셋의 그림을 한꺼번에 받기 시작한다(앞 칸을 기다리지 않는다) — ' + e.fromCalls + '/3');
+  chk(e.fromOrder.join() === 'c,a,b', '★ 지금 보는 칸(2)의 그림을 먼저 부른다 — 받기 줄이 부른 차례대로 받는다(' + e.fromOrder.join() + ')');
+  e.fromHold = null; rl(); await p;
+  chk(e.applied && e.applied[0].join() === '2' && e.applied[1].join() === '0,1', '★ 지금 보는 칸(2)을 먼저 앉히고 나머지를 앉힌다');
+  chk(e.renders >= 2 && C.state() === 'ready', '  먼저 앉힌 칸은 바로 런처에 그린다(나머지를 기다리지 않는다)');
+  const f = mkEnv({ slots: ['a', 'b', 'c'] }); f.cur = 0; f.failSkin = 'a'; const CF = f.mk();
+  const rf = await CF.pullCloset(false);
+  chk(rf === 'failed' && CF.state() === 'failed' && f.slots[0] === null && f.slots[1].skin === 'b' && f.slots[2].skin === 'c', '지금 보는 칸을 못 받아도 다른 칸은 앉고, 받기는 «못 받음»(다시 시도로 그 칸만 다시 받는다)');
+  f.failSkin = null; f.srv.calls.length = 0; const rf2 = await CF.pullCloset(true);
+  chk(rf2 === 'ready' && f.slots[0].skin === 'a' && CF.state() === 'ready', '  다시 받으면 그 칸이 앉고 받기 끝(ready)');
 });
 
 await sec('── 2-3. SLOT_TAKEN 뒤 그림을 못 받음', async () => {
@@ -604,7 +620,7 @@ await sec('── 6. 0.13 첫 실행 올리기', async () => {
 await sec('── 7. mutation test', async () => {
   const broke = (from, to) => { const s = SRC.replace(from, to); return s === SRC ? null : s; };
   const run = async (src, fn) => { const e = mkEnv({ slots: ['a', 'b'], box: ['x'] }); const M = loadMod(src, e); e.mk = () => withSession(e, M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e.srv.api, codec: e.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e.slots, slotSave: e.slotSave,
-    getMyUserId: () => e.uid, rtOn: (k, f) => { (e.rt[k] = e.rt[k] || []).push(f); return () => {}; }, toast: (m) => e.toasts.push(m), notifyError: (c) => e.errs.push(c), renderLauncher: () => {}, creatorOpen: () => e.creator,
+    getMyUserId: () => e.uid, rtOn: (k, f) => { (e.rt[k] = e.rt[k] || []).push(f); return () => {}; }, toast: (m) => e.toasts.push(m), notifyError: (c) => e.errs.push(c), renderLauncher: () => {}, creatorOpen: () => e.creator, curSlot: () => e.cur || 0,
     storage: { getItem: (k) => e.ls.has(k) ? e.ls.get(k) : null, setItem: (k, v) => e.ls.set(k, String(v)), removeItem: (k) => e.ls.delete(k), key: (i) => [...e.ls.keys()][i] || null, get length(){ return e.ls.size; } } })); return fn(e); };
   let S = broke("async function flushNow(){\n  if(load !== 'ready') return false;", "async function flushNow(){");
   chk(S && await run(S, async (e) => { const C = e.mk(); e.edit(0, { skin: 'q' }); await C.flushSlots(); return e.srv.calls.some(c => c.startsWith('create') || c.startsWith('update')); }), '받기 전 쓰기 막이를 빼면 3절이 빨강이 된다');
@@ -614,7 +630,7 @@ await sec('── 7. mutation test', async () => {
   chk(S && await run(S, async (e) => { const C = e.mk(); await C.pullCloset(false); e.edit(0, { skin: 'mine' }); e.srv.avatars.find(a => a.avatarId === 'a').version = 3; e.srv.defs.a = { skin: 'a3' }; await C.pullCloset(false); return e.slots[0].skin === 'a3'; }), '내 고침 보호를 빼면 2절이 빨강이 된다');
   S = broke("    if(boxCount() >= BOX_MAX) return Promise.resolve({ ok: false, why: 'full' });\n  }\n  const t = validSlot(i) ? targetOf(i) : null;", "  }\n  const t = validSlot(i) ? targetOf(i) : null;");
   chk(S && await run(S, async (e) => { const box20 = []; for(let i = 0; i < 20; i++) box20.push('bx' + i); const e2 = mkEnv({ slots: ['a'], box: box20 }); const M = loadMod(S, e2);
-    const C = withSession(e2, M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e2.srv.api, codec: e2.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e2.slots, slotSave: e2.slotSave, getMyUserId: () => 'u1', rtOn: () => () => {}, toast(){}, notifyError(){}, renderLauncher(){}, creatorOpen: () => false,
+    const C = withSession(e2, M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e2.srv.api, codec: e2.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e2.slots, slotSave: e2.slotSave, getMyUserId: () => 'u1', rtOn: () => () => {}, toast(){}, notifyError(){}, renderLauncher(){}, creatorOpen: () => false, curSlot: () => 0,
       storage: { getItem: () => null, setItem(){}, removeItem(){}, key: () => null, length: 0 } }));
     await C.pullCloset(false); e2.srv.calls.length = 0; await C.moveToBox(0); return e2.srv.calls.some(c => c.startsWith('move:')); }), '20 문턱을 빼면(요청이 나가면) 4절이 빨강이 된다');
   S = SRC.split("if(g !== gen) return 'skipped';").join(""); if(S === SRC) S = null;
@@ -637,23 +653,29 @@ await sec('── 7. mutation test', async () => {
   S = broke("return inLane(() => legacyNow(uc, g, wipe, rawSlots, box, desk));", "return legacyNow(uc, g, wipe, rawSlots, box, desk);");
   chk(S && await run(S, async (e) => { e.ls.set('deskFriends.slots.v1', JSON.stringify([{ skin: 1 }])); const C = e.mk(); let rel; e.srv.loadHold = new Promise(r => { rel = r; }); C.startCloset(C.session); const p = C.legacyStep(); await flush(); e.srv.loadHold = null; rel(); const rr = await p; return rr.ok === false; }), '받기를 기다리지 않으면 첫 실행 올리기가 영영 멈춘다 — 6절이 빨강이 된다');
   const stripRun = async (src) => { const e = mkEnv({ slots: ['a'] }); e.srv.defs.a = { skin: 'a', gacha: 'g1' }; e.afterApply = () => { if(e.slots[0] && e.slots[0].gacha){ e.afterApply = null; e.edit(0, { skin: 'a' }); } };
-    const M = loadMod(src, e); const C = withSession(e, M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e.srv.api, codec: e.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e.slots, slotSave: e.slotSave, getMyUserId: () => 'u1', rtOn: () => () => {}, toast(){}, notifyError(){}, renderLauncher(){}, creatorOpen: () => false,
+    const M = loadMod(src, e); const C = withSession(e, M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e.srv.api, codec: e.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e.slots, slotSave: e.slotSave, getMyUserId: () => 'u1', rtOn: () => () => {}, toast(){}, notifyError(){}, renderLauncher(){}, creatorOpen: () => false, curSlot: () => 0,
       storage: { getItem: () => null, setItem(){}, removeItem(){}, key: () => null, length: 0 } }));
     await C.pullCloset(false); await e.runTimers(); await flush(); return !e.srv.calls.some(c => c.startsWith('update:a')); };
   S = broke("  await slotSave.applySlotObjs(objs, which);\n", "  await slotSave.applySlotObjs(objs, which);\n  for(const i of which) if(known[i]) known[i].sig = sigOf(slotSave.lastOut()[i]);\n");
   chk(S && await stripRun(S), '앉힌 뒤 모양을 서버 판으로 적으면 벗긴 것이 안 올라간다 — 3-2절이 빨강이 된다');
   S = broke("if(did && !wasReady){ for(let i = 0; i < CHAR_SLOT_MAX; i++) if(isDirty(i)){ scheduleSave(); break; } }", "");
   chk(S && await stripRun(S), '첫 받기 뒤 저장 예약을 빼면 3-2절이 빨강이 된다');
-  S = broke("    try{ objs[i] = await objOf(c.defs[id]); }", "    known[i] = { avatarId: id, version: head.version, sig: null };\n    try{ objs[i] = await objOf(c.defs[id]); }");
-  chk(S && await run(S, async (e) => { const C = e.mk(); await C.pullCloset(false); ['a', 'b'].forEach(id => { e.srv.avatars.find(x => x.avatarId === id).version = 2; e.srv.defs[id] = { skin: id + '2' }; }); e.failSkin = 'b2'; await C.pullCloset(false); e.failSkin = null; await C.pullCloset(false); return e.slots[0].skin !== 'a2'; }), '받는 도중에 판을 적으면 못 받은 뒤 그 칸을 영영 건너뛴다 — 2-2절이 빨강이 된다');
-  S = broke("  if(g !== gen) return false;                                      // 그림을 받는 사이 계정을 놓았다", "  if(false) return false; //");
+  S = broke("    plan.push({ i, id, version: head.version,", "    known[i] = { avatarId: id, version: head.version, sig: null };\n    plan.push({ i, id, version: head.version,");
+  chk(S && await run(S, async (e) => { const C = e.mk(); await C.pullCloset(false); ['a', 'b'].forEach(id => { e.srv.avatars.find(x => x.avatarId === id).version = 2; e.srv.defs[id] = { skin: id + '2' }; }); e.failSkin = 'b2'; await C.pullCloset(false); e.failSkin = null; await C.pullCloset(false); return e.slots[1].skin !== 'b2'; }), '받는 도중에 판을 적으면 못 받은 뒤 그 칸을 영영 건너뛴다 — 2-2절이 빨강이 된다');
+  S = broke("for(const p of [...plan.filter(q => q.i === cur), ...plan.filter(q => q.i !== cur)]){", "for(const p of plan){");
+  chk(S && await run(S, async (e) => { e.cur = 1; const C = e.mk(); await C.pullCloset(false); return e.fromOrder[0] !== 'b'; }), '지금 보는 칸을 먼저 부르지 않으면 2-4절이 빨강이 된다');
+  S = broke("  const first = plan.filter(p => p.i === cur);", "  const first = [];");
+  chk(S && await run(S, async (e) => { e.cur = 1; const C = e.mk(); await C.pullCloset(false); return !(e.applied && e.applied[0].join() === '1'); }), '지금 보는 칸 먼저를 빼면 2-4절이 빨강이 된다');
+  S = SRC.replace("    p.got = objOf(p.def);\n    p.got.catch(() => {});", "").replace("try{ p.obj = await p.got; ok.push(p); }", "try{ p.obj = await objOf(p.def); ok.push(p); }").replace("if(!p.got){ ok.push(p); continue; }", "if(!p.id){ ok.push(p); continue; }"); if(S === SRC) S = null;
+  chk(S && await run(S, async (e) => { const C = e.mk(); let rl; e.fromHold = new Promise(r => { rl = r; }); const p = C.pullCloset(false); for(let n = 0; n < 20; n++) await flush(); const n0 = e.fromCalls; e.fromHold = null; rl(); await p; return n0 < 2; }), '칸을 하나씩 받으면 2-4절이 빨강이 된다');
+  S = broke("    if(g !== gen || !ok.length) return false;                        // 그림을 받는 사이 계정을 놓았다", "    if(!ok.length) return false; //");
   chk(S && await (async () => { const e = mkEnv({ slots: ['a'] }); const M = loadMod(S, e);
-    const C = withSession(e, M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e.srv.api, codec: e.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e.slots, slotSave: e.slotSave, getMyUserId: () => 'u1', rtOn: () => () => {}, toast(){}, notifyError(){}, renderLauncher(){}, creatorOpen: () => false,
+    const C = withSession(e, M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e.srv.api, codec: e.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e.slots, slotSave: e.slotSave, getMyUserId: () => 'u1', rtOn: () => () => {}, toast(){}, notifyError(){}, renderLauncher(){}, creatorOpen: () => false, curSlot: () => 0,
       storage: { getItem: () => null, setItem(){}, removeItem(){}, key: () => null, length: 0 } }));
     let rel; e.fromHold = new Promise(r => { rel = r; }); const p = C.pullCloset(false); for(let n = 0; n < 20 && !e.fromEntered; n++) await flush(); C.resetCloset(); e.fromHold = null; rel(); await p; await flush(); return !!e.slots[0]; })(), '그림 받는 사이 계정 막이를 빼면 5-2절이 빨강이 된다');
-  S = broke("    try{ objs[i] = await objOf(c.defs[id]); }", "    taken.delete(i);\n    try{ objs[i] = await objOf(c.defs[id]); }");
+  S = broke("    plan.push({ i, id, version: head.version,", "    taken.delete(i);\n    plan.push({ i, id, version: head.version,");
   chk(S && await (async () => { const e = mkEnv({ slots: ['a', 'b'] }); const M = loadMod(S, e);
-    const C = withSession(e, M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e.srv.api, codec: e.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e.slots, slotSave: e.slotSave, getMyUserId: () => 'u1', rtOn: () => () => {}, toast(){}, notifyError(){}, renderLauncher(){}, creatorOpen: () => false,
+    const C = withSession(e, M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e.srv.api, codec: e.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e.slots, slotSave: e.slotSave, getMyUserId: () => 'u1', rtOn: () => () => {}, toast(){}, notifyError(){}, renderLauncher(){}, creatorOpen: () => false, curSlot: () => 0,
       storage: { getItem: () => null, setItem(){}, removeItem(){}, key: () => null, length: 0 } }));
     await C.pullCloset(false); e.edit(2, { skin: 'mine' });
     e.srv.api.create = async (slot) => { e.srv.avatars.push(HEAD('other', 'SLOT', slot, 1)); e.srv.slots[slot] = 'other'; e.srv.defs.other = { skin: 'other' }; throw apiErr('request', 'AVATAR_SLOT_TAKEN'); };
@@ -663,13 +685,13 @@ await sec('── 7. mutation test', async () => {
   chk(S && await run(S, async (e) => { const C = e.mk(); await C.pullCloset(false); e.edit(2, { skin: 'mine' }); await C.boxToSlot('x'); return !(e.slots[2] && e.slots[2].skin === 'mine'); }), '못 올린 새 캐릭터를 먼저 올리지 않으면 새 캐릭터가 덮인다 — 4-2절이 빨강이 된다');
   S = broke("  const moved = () => g !== gen || getMyUserId() !== uc;", "  const moved = () => false;");
   chk(S && await (async () => { const e = mkEnv({ slots: [], ls: [['deskFriends.slots.v1', JSON.stringify([{ skin: 1 }])]] }); const M = loadMod(S, e);
-    const C = withSession(e, M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e.srv.api, codec: e.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e.slots, slotSave: e.slotSave, getMyUserId: () => e.uid, rtOn: () => () => {}, toast(){}, notifyError(){}, renderLauncher(){}, creatorOpen: () => false,
+    const C = withSession(e, M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e.srv.api, codec: e.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e.slots, slotSave: e.slotSave, getMyUserId: () => e.uid, rtOn: () => () => {}, toast(){}, notifyError(){}, renderLauncher(){}, creatorOpen: () => false, curSlot: () => 0,
       storage: { getItem: (k) => e.ls.has(k) ? e.ls.get(k) : null, setItem: (k, v) => e.ls.set(k, String(v)), removeItem: (k) => e.ls.delete(k), key: (i) => [...e.ls.keys()][i] || null, get length(){ return e.ls.size; } } }));
     await C.pullCloset(false); let rl; e.toHold = new Promise(r => { rl = r; }); const lp = C.legacyStep(); for(let n = 0; n < 20 && !e.toEntered; n++) await flush();
     C.resetCloset(); e.uid = 'u2'; e.toHold = null; rl(); await lp; return e.srv.calls.some(c => c.startsWith('legacySync')); })(), '첫 실행 올리기의 계정 막이를 빼면 4-2절이 빨강이 된다');
   S = broke("function targetOf(i){ return known[i] ? { id: known[i].avatarId } : { obj: slots[i] }; }\nfunction findTarget(t){ return t.id ? known.findIndex(k => k && k.avatarId === t.id) : slots.indexOf(t.obj); }", "function targetOf(i){ return { i }; }\nfunction findTarget(t){ return t.i; }");
   chk(S && await (async () => { const e = mkEnv({ slots: ['a', 'b', 'c'] }); const M = loadMod(S, e);
-    const C = withSession(e, M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e.srv.api, codec: e.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e.slots, slotSave: e.slotSave, getMyUserId: () => 'u1', rtOn: () => () => {}, toast(){}, notifyError(){}, renderLauncher(){}, creatorOpen: () => false,
+    const C = withSession(e, M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e.srv.api, codec: e.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e.slots, slotSave: e.slotSave, getMyUserId: () => 'u1', rtOn: () => () => {}, toast(){}, notifyError(){}, renderLauncher(){}, creatorOpen: () => false, curSlot: () => 0,
       storage: { getItem: () => null, setItem(){}, removeItem(){}, key: () => null, length: 0 } }));
     await C.pullCloset(false); shiftA(e); let rl; e.srv.loadHold = new Promise(r => { rl = r; }); e.srv.calls.length = 0;
     const pp = C.pullCloset(false); await flush(); await flush(); const op1 = C.trashSlot(1); await flush(); e.srv.loadHold = null; rl(); await pp; await op1; await flush();

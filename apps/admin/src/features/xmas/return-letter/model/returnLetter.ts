@@ -1,32 +1,27 @@
-import { RETURN_REASONS, type ReturnReason } from '@/entities/seasonal/xmas-event';
-import { auditAfter, type Db, type Functions } from '@/shared/api';
-
-// 서버 함수 functions/index.js xmasAdminReturn — 로직은 functions/xmas.js handleAdminReturn. 모양을 바꾸면 둘을 같이 본다.
-export const RETURN_FN = 'xmasAdminReturn';
+import { ApiError, type Api } from '@/shared/api';
+import { needApi, type ReturnReason } from '@/entities/seasonal/xmas-event';
 
 export interface ReturnRequest {
-  uid: string;
+  userCode: string;
   lid: string;
-  ts: number;
+  version: number;
   reason: ReturnReason;
   note?: string;
 }
 
+/** 그새 쓴 사람이 고쳐 쓴 편지(판이 다름) — 서버 409 CONCURRENT_UPDATE */
+export const isChangedLetter = (e: unknown) => e instanceof ApiError && e.code === 'CONCURRENT_UPDATE';
+
 /**
- * 편지 반송 — 함수가 «관리자가 본 그 편지(ts 가 같을 때)» 만 지우고 반송 기록 · 쓴 사람 알림함을 쓴다(한 번만).
- * 함수가 끝난 뒤 작업 기록을 따로 남긴다(함수 쓰기와 한 묶음으로 묶을 수 없다).
+ * 편지 반송 — 서버가 «관리자가 본 그 편지(version 이 같을 때)» 만 지우고 반송 기록 · 쓴 사람 알림 · 감사 기록을 한 트랜잭션에(한 번만).
+ * 작업 기록(adminLog)은 따로 쓰지 않는다 — 서버 감사 기록 xmas.returnLetter 가 정본이다.
  */
-export async function returnLetter(
-  fns: Functions,
-  db: Db,
-  req: ReturnRequest,
-): Promise<{ notified: boolean }> {
-  const r = await fns.call<{ ok: true; notified: boolean }>(RETURN_FN, req);
-  await auditAfter(
-    db,
-    'xmas.returnLetter',
-    `${req.uid}/${req.lid}`,
-    RETURN_REASONS[req.reason] + (req.note ? ` — ${req.note}` : ''),
+export async function returnLetter(api: Api | null, req: ReturnRequest): Promise<{ notified: boolean }> {
+  const { userCode, lid, ...body } = req;
+  const r = await needApi(api).send<{ notified?: boolean }>(
+    'POST',
+    `/v2/admin/xmas/letters/${encodeURIComponent(userCode)}/${encodeURIComponent(lid)}/return`,
+    body,
   );
   return { notified: !!r?.notified };
 }

@@ -397,5 +397,5 @@ module.exports = {
   PW, PG, OUT_ROOT, LAUNCH_MARK, API, API_HOST, wait, waitUntil, within, firstLine, quietFailed,
   seedSql, query, inviteCode, seedInvite, http, emuSignIn, headlessLogin, apiUser, withToken, apiIn, uidOf,
   killDir, goneDir, gone, hardQuit, launchRetry, fillChecked, signupForm, restartAfter,
-  outDir, frame, drive,
+  outDir, outRootProblem, frame, drive,
 };

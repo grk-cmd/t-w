@@ -1053,10 +1053,10 @@ function createMallang(deps){
       /* 🎁 이미 이 친구에게 보낸 그림 — 칸 구석 «보냄» · 누르면 아래 «또 보낼까요?» */
       #mlGiftGrid .ml-gcell{position:relative;}
       #mlGiftGrid .ml-sent{position:absolute;right:2px;bottom:2px;font-style:normal;font-size:9px;padding:0 3px;color:#7a2718;background:#fbe6de;border:1px solid #d9a99a;}
-      #mlGift .ml-again{margin-top:8px;font-size:10.5px;line-height:1.5;color:#333;background:#fffbe8;padding:6px;
-        border:1px solid;border-color:#808080 #fff #fff #808080;}
+      #mlGift .ml-again{margin-top:8px;font-size:10.5px;line-height:1.5;color:var(--ink);background:#fffbe8;padding:6px;
+        border:1px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);}
       #mlGift .ml-again-btns{display:flex;gap:6px;margin-top:6px;}
-      #mlGift .ml-again-btns button{flex:1;font-family:var(--tw-font-legacy);font-size:11px;padding:2px 0;cursor:pointer;background:#c0c0c0;
+      #mlGift .ml-again-btns button{flex:1;font-family:var(--tw-font-legacy);font-size:11px;padding:2px 0;cursor:pointer;background:var(--win-face);
         border:2px solid;border-color:#fff #000 #000 #fff;}
       #mlGift .ml-msgrow{margin-top:9px;}
       #mlGift .ml-msgrow label{display:block;font-size:10.5px;color:#333;margin-bottom:3px;}

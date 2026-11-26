@@ -36,8 +36,11 @@
       "sysinput-win.js",
       "sysinput-mac.js",
       "native-peek.js",
+      "win-drag.js",
       "pad-worker.js",
       "pad-xinput.js",
+      "win-class.js",
+      "win-class-worker.js",
       "hover-poke.js",
       "devtools-gate.js",
       "google-oauth.js",
@@ -45,6 +48,7 @@
       "quit-hold.js",
       "update-diag.js",
       "update-recheck.js",
+      "update-platform.js",
       "error-log.js",
       "home-mask.js",
       "oauth-config.js",
@@ -57,6 +61,8 @@
       "node_modules/@koromix/**/*",
       "pad-worker.js",
       "pad-xinput.js",
+      "win-class.js",
+      "win-class-worker.js",
       "**/*.node"
     ],
     "directories": {

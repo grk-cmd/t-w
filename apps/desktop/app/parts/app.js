@@ -415,7 +415,6 @@ const roomSyncMod = TwRoomSync.createRoomSync({
   ITEM_LICENSE_HOLD: ()=>premiumMod.ITEM_LICENSE_HOLD,
   Presence: ()=>Presence,
   _autoAwayResetClock: (...a)=>window._autoAwayResetClock(...a),   // 🛰 Presence(room/presence.js)가 거는 시계 되감기 — 모듈끼리 window 로 서로 부르지 않게 여기서 잇는다
-  _chatIsHost: (...a)=>chatLockMod._chatIsHost(...a),
   _chatIsSecretRoom: (...a)=>chatLockMod._chatIsSecretRoom(...a),
   faceUploadCache: uploadCacheMod,
   getMyUserId: (...a)=>getMyUserId(...a),
@@ -880,14 +879,16 @@ const plLikeUi = TwPlaylistLikeUi.createPlaylistLikeUi({ likeRules: TwPlaylistLi
   getMyUserId: (...a)=>getMyUserId(...a), notifyError: (...a)=>TwErrorCodes.notify(...a),
   enabled: ()=>TwServerFeatures.on('playlistLike') });   // 서버 길이 생길 때까지 꺼짐(TODO: net 을 서버 provider 로)
 /* 🎄 크리스마스 창(일회성 · 다음 업데이트에서 걷는다) — 런처 [🎄 크리스마스] · 📩 편지 알림(NAV.XMAS)이 연다 · 창 크기는 applyDesktopRunClass · 그림 사본은 GLB 영구 캐시(IndexedDB · 45일)에 · 추천곡은 공용 배경음악 창(주인 'xmas')
-   서버 길이 아직 없다(0.13 은 Firebase DB 쓰기를 잠갔다) — 서버 기능 표(shared/server-features.js)가 켜질 때까지 만들지 않는다(런처 버튼은 html 에서 hidden 으로 시작해 그대로 숨는다 · NAV.XMAS 는 걸리지 않아 아무 일도 안 한다).
-   TODO: 서버가 받으면 net 을 서버 provider 로 바꾼다. */
-if(TwServerFeatures.on('xmas')) TwXmasWindow.createXmasWindow({ THREE, ps1Dither: TwPs1Dither, rules: TwXmasRules, treeMod: TwXmasTree, net: ()=>TwServerFeatures.noServer('xmas'), serverNow: ()=>TwRtHub.store.serverNow(),
+   서버는 xmas-api.js(/v2/xmas · /v2/me/xmas · 그림은 Storage). 서버 기능 표(shared/server-features.js)가 꺼져 있으면 만들지 않는다(런처 버튼은 html 에서 hidden 으로 시작해 그대로 숨는다 · NAV.XMAS 는 걸리지 않아 아무 일도 안 한다). */
+const xmasApiMod = TwXmasApi.createXmasApi({ authed: TwApi.authed, rules: TwXmasRules, myCode: ()=>getMyUserId(), storageBucket: ()=>firebaseAPI.storageBucket(),
+  fetch: (...a)=>window.fetch(...a), warn: (...a)=>console.warn(...a) });   // 🌐 크리스마스 서버 endpoint
+const xmasWinMod = !TwServerFeatures.on('xmas') ? null : TwXmasWindow.createXmasWindow({ THREE, ps1Dither: TwPs1Dither, rules: TwXmasRules, treeMod: TwXmasTree, net: ()=>xmasApiMod, serverNow: ()=>TwRtHub.store.serverNow(),
   onReady: (fn)=>TwNetReady.whenNetReady(fn), notifyError: (...a)=>TwErrorCodes.notify(...a), toast: (...a)=>toast(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a), onSizeChange: ()=>applyDesktopRunClass(),
   idbGet: (k)=>glbIdbMod._glbIdbGet(k), idbPut: (k, v)=>glbIdbMod._glbIdbPut(k, v), songMod: TwXmasSong, letterMod: TwXmasLetter, companion: ()=>window.companion,
   ytVideoId: (u)=>plMod.ytVideoId(u), asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a), storage: localStorage,
   twNav: twNav,
+  random: ()=>Math.random(),
 });
 const plMod = TwPlaylist.createPlaylist({
   playlistAccountStore: accountStoreMod,
@@ -962,6 +963,8 @@ const heartbeatMod = TwHeartbeat.createHeartbeat({
 /* ⚙ 설정 패널 — 포커싱 어플 슬롯 / 캐릭터 크기 / 프로그램 이동 */
 /* 본문은 settings-panel.js 로 옮겼다(앱 FSD 27번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const stickerLayerMod = TwStickerLayer.createStickerLayer({ storage: localStorage });   // 🎨 마이홈 스티커 보이기(이 PC 설정) — 설정 창 · 스티커 그리기 · 관리 창이 같이 읽는다
+const awayOthersMod = TwDeviceToggle.createDeviceToggle({ storage: localStorage, key: 'tw.awayPicOthers' });   // 🫧 남의 자리비움 그림 보기(이 PC 설정) — 설정 창 · 자리비움 그림이 같이 읽는다
 const settingsMod = TwSettingsPanel.createSettingsPanel({
   settingsAccountStore: accountStoreMod,
   GAP_MAX: GAP_MAX,
@@ -1023,6 +1026,8 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   isLauncherShown: (...a)=>isLauncherShown(...a),
   statusBubbleEnabled: ()=>overheadMod.statusBubbleEnabled(),
   setStatusBubbleEnabled: (v)=>{ overheadMod.setStatusBubbleEnabled(v); },
+  stickerLayer: stickerLayerMod,
+  awayOthers: awayOthersMod,
 });
 
 /* ═══ 🕒 포커스 기록 팝업 ═══ */
@@ -1378,8 +1383,12 @@ const mailFeed = TwMailFeed.createMailFeed({
   api: TwInboxApi.createInboxApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),   // 🌐 /v2/me/notifications
   rt: TwRtHub.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
+  /* 🎄 짝 짓기 알림이 몰리는 10분(서버 날짜)은 0~30초 무작위로 미뤄 읽는다 — 그 밖은 곧바로 */
+  refreshDelayMs: ()=>(TwServerFeatures.on('xmas') ? TwXmasRules.mailDelayMs(TwRtHub.store.serverNow(), xmasApiMod.scheduleNow(), Math.random()) : 0),   // 🎄 짝 짓기 10분엔 무작위로 흩기 — 날짜 한 벌은 xmas-api(창과 같은 것) · 창 모듈을 부르지 않는다(순환)
+  timers: window,   // 기다림(setTimeout · clearTimeout) — 검사는 가짜를 넘긴다
 });
 mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));
+if(xmasWinMod) mailFeed.onChange(()=>xmasWinMod.onMail(mailFeed.items()));   // 🎄 «받은 편지» 알림이 처음 보이면(읽음 여부 무관) → 받은 편지 한 번 읽기
 const noticeApi = TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) });   // 🌐 /v2/notices
 /* 🛠️ 앱 관리자 창의 서버 endpoint(/v2/admin/...) — 관리자 모드 · 확성기 · 업데이트 공지 · 배너 · 방 종료가 쓴다. 지금 업데이트 공지의 id 는 공지 한 판에서 받는다 */
 const adminApi = TwAdminApi.createAdminApi({ authed: TwApi.authed, pending: TwRequestId.createPending(), fetchBoard: ()=>noticeApi.fetchBoard(), errs: TwApiErrors });
@@ -1692,7 +1701,9 @@ const stickerRenderMod = TwMyHomeStickerRender.createMyHomeStickerRender({
   mhStLayoutMod: mhStLayoutMod,
   myHomeSticker: ()=>myHomeSticker,
   myhomeStore: myhomeStoreMod,
+  stickerLayer: stickerLayerMod,
 });
+stickerLayerMod.onChange(()=>stickerRenderMod.renderMyHomeStickers());   // 설정에서 켜고 끄면 바로 다시 그린다
 
 /* 🎨 스티커 관리 창 · 스티커 편집모드 · 드래그 · 회전 · 크기는 parts/myhome-sticker.js 로 옮겼다(앱 FSD 7번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(#stMgrClose · #stMgrBringAll 버튼 연결)이 예전과 같은 때 돈다.
@@ -1721,6 +1732,7 @@ const myHomeSticker = TwMyHomeSticker.createMyHomeSticker({
   stickerMax: mhStLayoutMod.STICKER_MAX,
   stickerBase: mhStLayoutMod.STICKER_BASE,
   stickerRotSnap: mhStLayoutMod.STICKER_ROT_SNAP,
+  stickerLayer: stickerLayerMod,
 });
 
 /* ═══ 🔗 마이홈 본문 링크 ═══ */
@@ -2888,9 +2900,11 @@ const loginFlowMod = TwLoginFlow.createLoginFlow({
     signInGoogle: (tok)=>firebaseAPI.authSignInWithGoogle(tok),
     signInPassword: (code, pw)=>firebaseAPI.authSignInWithFriendCode(code, pw),
     signOut: ()=>firebaseAPI.authSignOut(),
+    deleteNewLogin: (uid)=>firebaseAPI.authDeleteNewLogin(uid),
     identity: ()=>({ email: firebaseAPI.authCurrentEmail(), uid: firebaseAPI.authCurrentUid() }),
   },
   googleWindow: ()=>companion.signInWithGoogle(),
+  askGoogle: (email)=>googleConfirmMod.ask(email, 'signup'),   // 처음 보는 구글로 가입하기 전에 묻기(google-confirm.js — 아래에서 만든다 · 부를 때 찾는다)
   rt: { start: (o)=>TwRtHub.store.start(o), stop: ()=>TwRtHub.store.stop(), bye: (why)=>TwRtHub.store.bye(why), onState: (fn)=>TwRtHub.store.onState(fn), isDeviceOff: (s)=>TwRtHub.isDeviceOff(s) },
   leaveRoom: ()=>Promise.resolve(Presence.active() ? twNav.go(twNav.NAV.LEAVE_ROOM) : null),   // 로그아웃 차례 — 방 leave 가 realtime 작별보다 먼저(방 모듈은 창 열기 통로로 — 순환 없이)
   pending: TwRequestId.createPending(),
@@ -3039,16 +3053,14 @@ TwRtStatusUi.createRtStatusUi({
   maintenance: (retry, onDismiss)=>TwMaintenance.store.serverClosed(retry, onDismiss),
   setTimeout: (f, ms)=>setTimeout(f, ms), clearTimeout: (h)=>clearTimeout(h),
 });
+/* 켤 때 업데이트 · 공지 확인 — Firebase 준비를 기다리지 않고 바로, 로그인과 같이 돈다(firebase-init 이 깨진 판도 새 판 확인 · 받기로 고칠 수 있게).
+   계정 기능은 app-boot 가 이 결과(proceed)를 기다린다 — 강제 업데이트면 이 PC 등록 · 읽기 · realtime 이 모두 0 */
+const updateFlowP = updateFlowMod.runBeforeLogin();
 (function initInviteGate(){
-  // 업데이트 흐름은 Firebase 준비를 기다리지 않고 바로 시작한다 — firebase-init 이 깨진 판도 새 판 확인 · 받기로 고칠 수 있게. 로그인만 둘 다 기다린다.
-  const flowP = updateFlowMod.runBeforeLogin();
   const run = async ()=>{
     const _s = acctStateMod._rcStore();
     if(_s && _s.source() === 'default'){ try{ await _s.ready(['inviteGate'], REMOTE_FLAGS_WAIT_MS); }catch(_){} }
-    const flow = await flowP;
-    if(!flow.proceed) return;   // 강제 업데이트 — 창이 앱을 막고 있다
     licenseGateMod.checkInviteGate()   // 🔑 로그인 · 서버 가입 확인 → 게이트(필요하면) · realtime · 0.13 첫 실행
-      .then(()=>{ licenseGateMod.refreshInviteBtn(); })
       .catch(err=>{ console.warn('[invite] 게이트 확인 실패', err); });
   };
   TwNetReady.whenNetReady(run);
@@ -3256,7 +3268,6 @@ const creatorOpenMod = TwCreatorOpen.createCreatorOpen({
   histF: histF,
   launcherCtlMod: ()=>launcherCtlMod,
   launcherPrevMod: ()=>launcherPrevMod,
-  licenseGateMod: licenseGateMod,
   loadSavedItemsIntoSession: (...a)=>loadSavedItemsIntoSession(...a),
   NO_DESK_ID: NO_DESK_ID,
   redoB: redoB,
@@ -3658,6 +3669,7 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   mySecretRoom: ()=>roomLobbyProvider.mySecretRoom(),
   paintRoomInfo: ()=>roomInfoUi.paint(),
   roomSettings: TwRoomSettings,
+  roomState: TwRoomState,
   roomRt: TwRoomRt.store,
   runCost: runCost,   // 🩺 좌석 맞춤 시간(1분 [비용] 줄)
 });
@@ -4087,6 +4099,7 @@ const closetMod = TwCloset.createCloset({
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   renderLauncher: (...a)=>renderLauncher(...a),
   creatorOpen: ()=>creatorOpen,
+  curSlot: ()=>curSlot,
   storage: localStorage,
 });
 closetMod.onChange(()=>{ myInfoMod._miBoxChanged(); launcherCtlMod.renderEmptyState(); });   // 옷장이 바뀌면 [내 정보] 보관함 줄을 다시 그린다 — 내 정보가 옷장보다 먼저 만들어져 여기서 건다
@@ -4603,6 +4616,7 @@ const awayPicMod = TwAwayPic.createAwayPic({
   seats: seats,
   toast: (...a)=>toast(...a),
   userApi: ()=>userApiMod,
+  awayOthers: awayOthersMod,
 });
 
 /* ═══ 🚩 신고하기 ═══════════════════════════════════════════════════════════
@@ -5017,23 +5031,19 @@ const appBoot = TwAppBoot.createAppBoot({
   registerDevice: ()=>deviceRegisterMod.ensure(),   // 🖥️ realtime 보다 먼저 이 PC 등록(상한이 다 찼으면 확인창)
   toLogin: ()=>accountMod._loginDoLogout({ force:true }).then(()=>acctStateMod._acctRelaunchAfterDetach(null)),   // [취소] — 등록하지 않고 로그인 화면(다시 켜면 게이트가 로그인 화면)
   goOnline: ()=>loginFlowMod.goOnline(),
+  updateGate: ()=>updateFlowP.then((f)=>f.proceed === true),
+  whenPainted: ()=>new Promise((r)=>{ const done = ()=>['ready', 'failed'].includes(closetMod.state()); if(done()) r(); else closetMod.onChange(()=>{ if(done()) r(); }); }),   // 첫 화면 = 옷장 첫 받기가 끝남(캐릭터가 그려졌거나 못 받음)
+  idle: ()=>TwApi.authed.whenIdle(),
+  holdToast: (msg)=>toastMod.hold(msg),
   starts: {
     userLocal: (code, me, session)=>userLocalMod.start(session),
     catalog: (code, me, session)=>catalogSyncMod.start(session),   // 🧩 카탈로그 서버 한 벌 받기 — 로그인 뒤(서버가 이 사람의 locked 를 정한다) · 세션이 끝나면 풀고 비운다
-    focusTotal: (code, me, session)=>{ session.onReset(()=>focusTotalMod.setFocusTodaySec(0)); focusTotalMod.startFocusTotal(); },   // 오늘치 메모리는 세션이 끝나면 0 으로
-    focusShare: ()=>focusShareMod.startFocusShare(),
-    focusLevel: (code, me, session)=>{ focusProgressMod.startFocus(code, me, session); focusLevelMod.startMobile(code, me, session); },
-    weeklyChal: (code, me, session)=>weeklyChal.startChallenge(code, me, session),
-    pomodoro: (code, me, session)=>pomodoro.startPomodoro(code, me, session),
-    gacha: (code, me, session)=>gachaMod.startGacha(session),
     closet: (code, me, session)=>closetMod.startCloset(session),
     /* 🏠 마이홈 시작 — 받은 친구 요청 구독 · 우편 구독은 initMyHome 이 세션에 건다. 친구 목록 구독(friendsSub) · 내 접속 표시 구독(presenceSelf)은 시작이 다른 곳(마이홈 · 접속 고정)이라 비우기만 여기서 건다 */
-    mhInit: (code, me, session)=>{ session.onReset(()=>{ friendsSubMod.stop(); presenceSelfMod.reset(); myhomeStoreMod.reset(); bookshelfStoreMod.reset(); }); return mhInitMod.initMyHome(code, me, session); },   // 내 홈 · 책장 메모리도 세션이 끝나면 비운다(늦게 온 답은 gen 으로 버린다)
+    focusTotal: (code, me, session)=>{ session.onReset(()=>focusTotalMod.setFocusTodaySec(0)); focusTotalMod.startFocusTotal(); },   // 오늘치 메모리는 세션이 끝나면 0 으로
+    focusShare: ()=>focusShareMod.startFocusShare(),
+    pomodoro: (code, me, session)=>pomodoro.startPomodoro(code, me, session),
     gift: (code, me, session)=>{ session.on(giftBoxMod.listen()); session.onReset(()=>{ giftBoxMod.reset(); mallangStoreMod.reset(); mallangMod.reset(); }); },   // 🎁 서버 신호 `gifts` 만 건다(요청 0 — 받기는 마이홈을 열 때)
-    bugBadge: (code, me, session)=>{ session.onReset(()=>bugBoardUi.reset()); return bugBoardUi.start(); },   // 배지 · 목록 · 쓰던 글은 세션이 끝나면 비운다
-    scheduler: (code, me, session)=>mhScheduler.startSchedule(session),
-    /* 🙋 방 초대 받기 — 방 쪽 포트(대화 · 방 목록 · 스티커사진)는 사용자가 들어갈 때 시작해 STEPS 칸이 없다. 대신 계정이 바뀔 때 비우는 일(session.onReset)을 여기서 한 곳에 모은다.
-       license 알림(발급 · 연장 · 코드 바꿈 · 끝남) → 읽어 둔 내 시크릿룸을 버려 다음에 다시 읽는다(관리자가 발급한 방이 다시 실행 없이 보이게). */
     roomInvite: (code, me, session)=>{
       roomInviteUi.startReceive(session);
       session.on(TwRtHub.store.on('license', ()=>roomLobbyProvider.reset()));
@@ -5041,14 +5051,33 @@ const appBoot = TwAppBoot.createAppBoot({
     },
     awayPic: (code, me)=>awayPicMod.startAwayPic(me),   // 🫧 자리비움 그림 · 크기 — 서버(me.awayImage)가 기준
     desktopBg: (code)=>window.MYHOME_DESKTOP.startBgSync(code),
-    playlist: (code, me, session)=>plMod.start(session),
     licensePremium: (code, me, session)=>{ session.onReset(()=>licensePremiumMod.reset()); return licensePremiumMod.start(me); },   // 알림 구독 해제 함수는 모듈이 쥐고 reset 이 푼다 — 세션이 끝나면 reset 을 부른다
-    appVersion: (code, me, session)=>appVersionSyncMod.start(session),   // 🔄 이 PC 앱 판을 서버에 알림 — 더 새 판을 쓰는 기기가 있으면 업데이트 창
+    xmas: (code, me, session)=>TwXmasWindow.startXmas({ api: xmasApiMod, win: xmasWinMod }, session),   // 🎄 세션이 끝나면 창 · 판 기억 · 빨간 점 비우기(요청 0)
     adminMode: (code, me, session)=>{ session.onReset(()=>twNav.go(twNav.NAV.ADMIN_EXIT)); },   // 🔐 세션이 끝나면 관리자 모드를 조용히 끈다(요청 0 · 창 열기 통로로 — 모듈끼리 순환 없이)
+    focusLevel: (code, me, session)=>{ focusProgressMod.startFocus(code, me, session); focusLevelMod.startMobile(code, me, session); },
+    weeklyChal: (code, me, session)=>weeklyChal.startChallenge(code, me, session),
+    mhInit: (code, me, session)=>{ session.onReset(()=>{ friendsSubMod.stop(); presenceSelfMod.reset(); myhomeStoreMod.reset(); bookshelfStoreMod.reset(); }); return mhInitMod.initMyHome(code, me, session); },   // 내 홈 · 책장 메모리도 세션이 끝나면 비운다(늦게 온 답은 gen 으로 버린다)
+    bugBadge: (code, me, session)=>{ session.onReset(()=>bugBoardUi.reset()); return bugBoardUi.start(); },   // 배지 · 목록 · 쓰던 글은 세션이 끝나면 비운다
+    scheduler: (code, me, session)=>mhScheduler.startSchedule(session),
+    /* 🙋 방 초대 받기 — 방 쪽 포트(대화 · 방 목록 · 스티커사진)는 사용자가 들어갈 때 시작해 STEPS 칸이 없다. 대신 계정이 바뀔 때 비우는 일(session.onReset)을 여기서 한 곳에 모은다.
+       license 알림(발급 · 연장 · 코드 바꿈 · 끝남) → 읽어 둔 내 시크릿룸을 버려 다음에 다시 읽는다(관리자가 발급한 방이 다시 실행 없이 보이게). */
+    ddays: ()=>mhScheduler.loadBoard(),   // 📌 디데이 보드 — 첫 화면 뒤(app-boot LATER · 🔔 알림 배지도 센다)
+    gacha: (code, me, session)=>gachaMod.startGacha(session),
+    invites: ()=>licenseGateMod.refreshInviteBtn(),   // 🎟️ 런처 초대장 버튼 — 켤 때 한 번(런처를 다시 그릴 때마다 묻지 않는다) · 발급 · 관리자 모드 뒤에는 그 자리에서
+    appVersion: (code, me, session)=>appVersionSyncMod.start(session),   // 🔄 이 PC 앱 판을 서버에 알림 — 더 새 판을 쓰는 기기가 있으면 업데이트 창
+    xmasDates: ()=>TwXmasWindow.loadXmasDates({ api: xmasApiMod, win: xmasWinMod, rules: TwXmasRules, serverNow: ()=>TwRtHub.store.serverNow(), now: ()=>Date.now() }),   // 🎄 마감 앞뒤 하루만 날짜 한 벌 한 번(그 밖엔 요청 0)
     firstRun: ()=>firstRunMod.run().catch((e)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', e)),
     licenseAutoRegister: ()=>licensePremiumMod.autoRegisterAfter(firstRunMod.licenseDone()),   // 첫 실행 뒤 — 0.12 키로 첫 실행이 등록했으면 건너뜀
+    playlist: (code, me, session)=>plMod.start(session),
   },
 });
+/* 그 창을 처음 열 때 받는 기능(app-boot OPEN) — 플레이리스트 창 → 플레이리스트 */
+TwOpenOnShow.createOpenOnShow({
+  open: (name)=>appBoot.open(name),
+  targets: [
+    { name: 'playlist', el: document.getElementById('myPlaylistBox'), shown: (el)=>!el.classList.contains('hidden') },
+  ],
+}).start();
 
 /* ═══════════ 🛰 서버 모듈 감시견 — 안 붙으면 다시 붙이고, 그래도 안 되면 말해준다 ═══════════
    [무엇을 고치는가] `parts/firebase-init.js` 는 Firebase SDK 를 gstatic 에서 **실행 시점에**

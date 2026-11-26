@@ -78,16 +78,16 @@ function syncFriendsOpen(){
     const win=document.getElementById('myHomeWin');
     const title=document.getElementById('myHomeTitle');
     if(!win || !title) return;
-    let dragging=false, offX=0, offY=0, dragScreenX=0, dragScreenY=0, dragMovesOsWindow=false;
+    let dragging=false, offX=0, offY=0, dragMovesOsWindow=false;
     title.addEventListener('pointerdown', e=>{
       if(e.target.closest && e.target.closest('#myHomeClose, #mhEditHomeBtn, #mhBackHomeBtn, #mhPreviewBtn, #mhPreviewExitBtn, #mhMallangHideBtn')) return;
       dragging=true;
       // 런처(=런처 카드가 켜져 있는) 화면에선 마이홈 창이 뷰포트보다 커서 DOM 드래그로는 사실상 못 옮김 —
       //  이 경우엔 OS 창(Electron mainWindow) 자체를 이동. deskBar grip과 같은 방식.
       const launcherOn = document.getElementById('launcher')?.classList.contains('on');
-      dragMovesOsWindow = !!(launcherOn && window.companion && companion.moveWindow);
+      dragMovesOsWindow = !!(launcherOn && window.companion && companion.dragWindow);
       if(dragMovesOsWindow){
-        dragScreenX = e.screenX; dragScreenY = e.screenY;
+        companion.dragWindow('start');   // 자리는 main 이 마우스 자리로 계산한다(win-drag.js) — 여기 화면 좌표는 배율이 다른 모니터 사이에서 흔들린다
       } else {
         const r=win.getBoundingClientRect();
         offX=e.clientX-r.left; offY=e.clientY-r.top;
@@ -101,8 +101,7 @@ function syncFriendsOpen(){
     title.addEventListener('pointermove', e=>{
       if(!dragging) return;
       if(dragMovesOsWindow){
-        companion.moveWindow(e.screenX-dragScreenX, e.screenY-dragScreenY);
-        dragScreenX = e.screenX; dragScreenY = e.screenY;
+        companion.dragWindow('move');
         return;
       }
       const x=e.clientX-offX, y=e.clientY-offY;
@@ -114,11 +113,12 @@ function syncFriendsOpen(){
       win.style.top  = Math.max(0, Math.min(maxTop,  y))+'px';
       _mhSyncBgmBounds();   // 드래그 중 실시간으로 BGM 창도 따라오게
     });
-    const endDrag=e=>{ if(!dragging) return; dragging=false; dragMovesOsWindow=false; try{ title.releasePointerCapture(e.pointerId); }catch(_){}
+    const endDrag=e=>{ if(!dragging) return; if(dragMovesOsWindow) companion.dragWindow('end'); dragging=false; dragMovesOsWindow=false; try{ title.releasePointerCapture(e.pointerId); }catch(_){}
       _mhSyncBgmBounds();
     };
     title.addEventListener('pointerup', endDrag);
     title.addEventListener('pointercancel', endDrag);
+    title.addEventListener('lostpointercapture', endDrag);   // 끄는 중에 제목줄이 사라지면(창 닫기) pointerup 이 안 온다 — main 의 끌기가 남지 않게
   })();
   const open=()=>{
     // ★ 이전에 드래그로 옮겨둔 위치(inline style)가 남아있으면, 창 크기가 바뀐 뒤 재열기 시 화면 밖에 뜰 수 있음.

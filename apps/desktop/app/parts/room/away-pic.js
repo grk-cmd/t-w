@@ -24,6 +24,7 @@ const renderer = deps.renderer;
 const seats = deps.seats;
 const toast = deps.toast;
 const userApi = deps.userApi;   // 읽는 함수 — account/user-api.js(PUT · PATCH · DELETE /v2/me/away-image)
+const awayOthers = deps.awayOthers;   // 🫧 남의 자리비움 그림 보기(shared/device-toggle.js · 이 PC 설정)
 var AWAY_IMG_KEY = 'tw.awayImg';
 var AWAY_IMG_PX = 500;
 var AWAY_IMG_MAX_BYTES = 300 * 1024;
@@ -76,6 +77,9 @@ function _awayTexState(url){
 function _awayPicFor(seat, us, hidden){
   if(us !== 'away' || hidden || !seat) return null;
   if(typeof officeMode() !== 'undefined' && officeMode()) return null;
+  /* 설정 › 디스플레이 «남의 자리비움 그림» 이 꺼져 있으면 남의 그림을 세우지 않고 받지도 않는다(그림 없는 자리비움 모양 · 내 그림은 그대로) —
+     그림 크기 · 자리는 올린 사람이 정해서, 화면을 가리는 그림을 보는 쪽에서 끌 길이 없었다 */
+  if(seat.remote && !awayOthers.on()) return null;
   const url = seat.remote ? seat.remoteAwayImg : (seat.isMe ? awayImgUrl : null);
   if(!_awayUrlOk(url)) return null;
   return (_awayTexState(url) === 'ok') ? url : null;
