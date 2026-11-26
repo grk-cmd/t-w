@@ -1385,7 +1385,7 @@ const mailFeed = TwMailFeed.createMailFeed({
   timers: window,   // 기다림(setTimeout · clearTimeout) — 검사는 가짜를 넘긴다
 });
 mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));
-if(xmasWinMod) mailFeed.onChange(()=>xmasWinMod.onMail(mailFeed.items()));   // 🎄 안 읽은 «받은 편지» 알림 → 받은 편지 한 번 읽기
+if(xmasWinMod) mailFeed.onChange(()=>xmasWinMod.onMail(mailFeed.items()));   // 🎄 «받은 편지» 알림이 처음 보이면(읽음 여부 무관) → 받은 편지 한 번 읽기
 const noticeApi = TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) });   // 🌐 /v2/notices
 /* 🛠️ 앱 관리자 창의 서버 endpoint(/v2/admin/...) — 관리자 모드 · 확성기 · 업데이트 공지 · 배너 · 방 종료가 쓴다. 지금 업데이트 공지의 id 는 공지 한 판에서 받는다 */
 const adminApi = TwAdminApi.createAdminApi({ authed: TwApi.authed, pending: TwRequestId.createPending(), fetchBoard: ()=>noticeApi.fetchBoard(), errs: TwApiErrors });

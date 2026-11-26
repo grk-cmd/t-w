@@ -263,6 +263,10 @@ say('── 8절 📩 받은 편지 알림');
     chk(wr.timeouts.length === 1, '★ 이미 읽은 받은 편지 알림도 처음 보면 한 번 읽기를 건다(다른 PC 에서 알림을 읽어도 이 PC 빨간 점이 맞게)');
     wr.timeouts[0][0](); wr.api.onMail({ x: { kind: 'XMAS_LETTER', read: true } });
     chk(wr.Lt.calls.filter(c => c === 'checkGot').length === 1 && wr.timeouts.length === 1, '  ↳ 같은 알림은 다시 걸지 않는다(켤 때 한 번)');
+    const wm = world({ random: 0 }); wm.S.ready(); wm.Lt.calls.length = 0;   // 켤 때 처음 받은 목록 — 읽은 것 · 안 읽은 것 · 반송이 섞여 여럿
+    wm.api.onMail({ p: { kind: 'XMAS_LETTER', read: true }, q: { kind: 'XMAS_LETTER', read: false }, r: { kind: 'XMAS_LETTER', read: true }, s: { kind: 'XMAS_RETURNED', read: false } });
+    wm.timeouts.forEach(t => t[0]());
+    chk(wm.timeouts.length === 1 && wm.Lt.calls.filter(c => c === 'checkGot').length === 1, '  ↳ 처음 목록에 받은 편지 알림이 여럿(읽음 섞임)이어도 기다림 하나 · 읽기 한 번');
   }
   w.api.onMail(M());
   chk(w.timeouts.length === 1 && w.timeouts[0][1] === 15000 && !w.Lt.calls.includes('checkGot'), '안 읽은 XMAS_LETTER — 곧바로가 아니라 무작위(0.5 → 15초) 뒤로 건다');
