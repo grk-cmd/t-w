@@ -124,6 +124,8 @@ const inboxSec = TwInboxSections;   // myhome-inbox.js 머리(고리판 TwMyHome
 const mailFeed = TwMailFeed.createMailFeed({
   api: TwInboxApi.createInboxApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),
   rt: TwRtHub.store, notifyError: (...a)=>TwErrorCodes.notify(...a),
+  refreshDelayMs: ()=>…,   // 새 우편 알림 뒤 다시 받기 전 기다림(ms · 0 = 곧바로) — 🎄 짝 짓기 10분만 0~30초(TwXmasRules.mailDelayMs)
+  timers: window,
 });
 mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));   // 받은 뒤 화면 · 토스트(처음 받은 판은 새 우편이 아니다)
 ```
@@ -133,6 +135,7 @@ mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));   // 받은 뒤 화면 · �
 부르는 곳: `myhome-init.js`(켜기 · 받은 뒤 화면) · `myhome-inbox.js`(그리기 · 누름) · `focus-level.js`(해금 안내를 이미 받았는지 — `_myInbox` · `_myInboxReady` 는 `mailFeed.items()` · `ready()`).
 
 **오류 번호** — `E-MH-08`(받기 실패 · **사용자가 연 · 누른 받기(알림함 열기 · «다시 시도»)에서만** · 이어지는 동안 한 번 — 켤 때 · 새 우편 알림으로 자동 받다 실패하면 번호 없이 못 받음 상태만) · `E-MH-10`(읽음) · `E-MH-11`(지우기). 계정이 바뀌는 중(`stale`)은 번호 없이 버린다.
+알림 뒤 기다림(`refreshDelayMs` > 0)이 걸린 동안 온 알림은 그 한 번으로 묶고, 멈추면(계정 바뀜 · 로그아웃) 기다림을 버린다.
 못 받아도 **혼자 다시 받지 않는다**(타이머 없음) — 다시 받는 길은 새 우편 알림 · «다시 시도» · 알림함이 나타날 때다. 닫힌 동안 실패한 채 알림함이 나타날 때(탭 누르기 · 알림함 탭이 켜진 채 창 열기) `myhome-inbox.js` 의 `retryIfFailed()` 가 manual 로 한 번 다시 받는다(받는 중이면 `busy()` 로 건너뜀).
 
 **함정**

@@ -1,7 +1,7 @@
 /* sim-xmas-rules.js — 🎄 크리스마스 규칙(parts/xmas/xmas-rules.js · 일회성) 을 실제로 돌려 본다
    실행: node checks/run.js sim-xmas-rules
    ・1절 서버와 같은 숫자(마감 · 끝 · 열람 끝 · 트리 300 · 한마디 30 · 64px) — 앱 parts/xmas/README.md 의 표(서버 설계 1-1 을 옮겨 적은 것)를 읽어 견준다
-   ・2절 날짜 판정(경계 · 서버가 준 날짜 한 벌 · 열람은 1/5 까지 · 짝 짓기 10분) · 한마디 다듬기(서버 cleanWord 와 같은 결과)
+   ・2절 날짜 판정(경계 · 서버가 준 날짜 한 벌 · 열람은 1/5 까지 · 짝 짓기 10분 · 0~30초 기다림 · 새 받은 편지 알림) · 한마디 다듬기(서버 cleanWord 와 같은 결과)
    ・3절 장식 자리 — 300칸 · 같은 n 이면 늘 같은 자리 · 트리 층 안
    ・4절 다시 받을 그림 — 판이 «다른» 자리만(작아져도) · 기본 장식은 안 받음
    ・5절 바꾸기 간격 · 반짝임 10번 뒤 멈춤 · 10번 누르기 · 흔들기(빠른 왕복만 · 계속 흔들면 더 많이 · 멈추면 처음으로)
@@ -41,6 +41,11 @@ chk(!R.lettersArrived(R.LETTER_DEADLINE_MS - 1) && R.lettersArrived(R.LETTER_DEA
 chk(R.buttonOn(R.EVENT_END_MS) && R.buttonOn(R.LETTERS_VIEW_UNTIL_MS - 1) && !R.buttonOn(R.LETTERS_VIEW_UNTIL_MS) && !R.buttonOn(NaN), '런처 버튼 — 열람 끝까지 보이고 · 서버 시각 모르면 숨김');
 chk(!R.inDeliveryWindow(R.LETTER_DEADLINE_MS - 1) && R.inDeliveryWindow(R.LETTER_DEADLINE_MS) && R.inDeliveryWindow(R.LETTER_DEADLINE_MS + R.DELIVERY_WINDOW_MS - 1) && !R.inDeliveryWindow(R.LETTER_DEADLINE_MS + R.DELIVERY_WINDOW_MS) && R.DELIVERY_WINDOW_MS === 600000,
   '짝 짓기 알림 때 — 마감부터 10분');
+chk(R.jitterMs(0) === 0 && R.jitterMs(0.5) === 15000 && R.jitterMs(0.9999999) < 30000 && R.jitterMs(5) < 30000 && R.jitterMs(-1) === 0 && R.jitterMs(NaN) === 0, '무작위 기다림 — 0 ~ 30초 안(이상한 수도 그 안)');
+chk(R.mailDelayMs(R.LETTER_DEADLINE_MS + 1000, R.SCHEDULE, 0.5) === 15000 && R.mailDelayMs(R.LETTER_DEADLINE_MS - 1, R.SCHEDULE, 0.5) === 0 && R.mailDelayMs(R.LETTER_DEADLINE_MS + R.DELIVERY_WINDOW_MS, R.SCHEDULE, 0.5) === 0,
+  '알림함 다시 읽기 기다림 — 짝 짓기 10분 안에서만 무작위 · 그 밖은 곧바로(0)');
+{ const items = { a: { kind: 'XMAS_LETTER', read: false }, b: { kind: 'XMAS_LETTER', read: true }, c: { kind: 'XMAS_RETURNED', read: false }, d: { kind: 'XMAS_LETTER', read: false } };
+  chk(R.newLetterMailIds(items, new Set(['d'])).join() === 'a' && R.newLetterMailIds(null, null).length === 0, '새 받은 편지 알림 — 안 읽은 XMAS_LETTER 중 아직 안 본 것만(반송 · 읽은 것 · 본 것 빼고)'); }
 {
   const iso = (ms) => new Date(ms).toISOString();
   const T0 = Date.parse('2026-11-26T03:00:00Z');   // 리허설 — 서버가 local 프로필로 날짜를 당겨 준 경우

@@ -334,7 +334,7 @@
 | **sim-gift-box.js** | 588 | **12bd45eb8ad8** |
 | **sim-mallang-module.js** | 355 | **a8f4170b8591** |
 | **sim-mallang-store.js** | 251 | **bf162923be73** |
-| **sim-mail-feed.js** | 361 | **252e46e6cbd1** |
+| **sim-mail-feed.js** | 393 | **c86847994402** |
 | **sim-notice-api.js** | 159 | **e40a1ff0bf11** |
 | **sim-admin-api.js** | 253 | **23b9922fd8d8** |
 | **sim-catalog-admin-api.js** | 182 | **cec82847026c** |
@@ -463,7 +463,7 @@
 | **sim-launcher-state.js** | 91 | **26912637390e** |
 | **sim-account-state.js** | 108 | **413b232af0e3** |
 | **sim-nav.js** | 91 | **27ffd1e7cdaa** |
-| **sim-server-features.js** | 170 | **966b9000dd82** |
+| **sim-server-features.js** | 171 | **552919d1886b** |
 | **sim-app-boot.js** | 185 | **8ff3e45193d1** |
 | **sim-away-start.js** | 120 | **b9010d0eee8e** |
 | **sim-user-local.js** | 207 | **b34ec3227153** |
@@ -592,11 +592,11 @@
 | **sim-mallang-sent.js** | 76 | **47c8eaaf32fa** |
 | **sim-xmas-server.js** | 332 | **1a7bb7d5b608** |
 | **sim-xmas-api.js** | 255 | **06e24813829c** |
-| **sim-xmas-rules.js** | 133 | **31593c2a1867** |
+| **sim-xmas-rules.js** | 138 | **80fcd2a2cbb1** |
 | **sim-xmas-tree.js** | 51 | **0d4a04e1115d** |
-| **sim-xmas-window.js** | 255 | **bdc4889f3382** |
+| **sim-xmas-window.js** | 276 | **997896dfedf4** |
 | **sim-xmas-song.js** | 140 | **8f1589bf966d** |
-| **sim-xmas-letter.js** | 268 | **0c18af2e5ed9** |
+| **sim-xmas-letter.js** | 265 | **ad363352cf74** |
 | **sim-wardrobe-place.js** | 54 | **8c81ab2ff24e** |
 | **sim-etag-store.js** | 82 | **197e7e039a8b** |
 

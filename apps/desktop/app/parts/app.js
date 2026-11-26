@@ -883,12 +883,13 @@ const plLikeUi = TwPlaylistLikeUi.createPlaylistLikeUi({ likeRules: TwPlaylistLi
    서버는 xmas-api.js(/v2/xmas · /v2/me/xmas · 그림은 Storage). 서버 기능 표(shared/server-features.js)가 꺼져 있으면 만들지 않는다(런처 버튼은 html 에서 hidden 으로 시작해 그대로 숨는다 · NAV.XMAS 는 걸리지 않아 아무 일도 안 한다). */
 const xmasApiMod = TwXmasApi.createXmasApi({ authed: TwApi.authed, rules: TwXmasRules, myCode: ()=>getMyUserId(), storageBucket: ()=>firebaseAPI.storageBucket(),
   fetch: (...a)=>window.fetch(...a), warn: (...a)=>console.warn(...a) });   // 🌐 크리스마스 서버 endpoint
-if(TwServerFeatures.on('xmas')) TwXmasWindow.createXmasWindow({ THREE, ps1Dither: TwPs1Dither, rules: TwXmasRules, treeMod: TwXmasTree, net: ()=>xmasApiMod, serverNow: ()=>TwRtHub.store.serverNow(),
+const xmasWinMod = !TwServerFeatures.on('xmas') ? null : TwXmasWindow.createXmasWindow({ THREE, ps1Dither: TwPs1Dither, rules: TwXmasRules, treeMod: TwXmasTree, net: ()=>xmasApiMod, serverNow: ()=>TwRtHub.store.serverNow(),
   onReady: (fn)=>TwNetReady.whenNetReady(fn), notifyError: (...a)=>TwErrorCodes.notify(...a), toast: (...a)=>toast(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a), onSizeChange: ()=>applyDesktopRunClass(),
   idbGet: (k)=>glbIdbMod._glbIdbGet(k), idbPut: (k, v)=>glbIdbMod._glbIdbPut(k, v), songMod: TwXmasSong, letterMod: TwXmasLetter, companion: ()=>window.companion,
   ytVideoId: (u)=>plMod.ytVideoId(u), asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a), storage: localStorage,
   twNav: twNav,
+  random: ()=>Math.random(),
 });
 const plMod = TwPlaylist.createPlaylist({
   playlistAccountStore: accountStoreMod,
@@ -1379,8 +1380,12 @@ const mailFeed = TwMailFeed.createMailFeed({
   api: TwInboxApi.createInboxApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),   // 🌐 /v2/me/notifications
   rt: TwRtHub.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
+  /* 🎄 짝 짓기 알림이 몰리는 10분(서버 날짜)은 0~30초 무작위로 미뤄 읽는다 — 그 밖은 곧바로 */
+  refreshDelayMs: ()=>(TwServerFeatures.on('xmas') ? TwXmasRules.mailDelayMs(TwRtHub.store.serverNow(), xmasApiMod.schedule() || TwXmasRules.SCHEDULE, Math.random()) : 0),
+  timers: window,   // 기다림(setTimeout · clearTimeout) — 검사는 가짜를 넘긴다
 });
 mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));
+if(xmasWinMod) mailFeed.onChange(()=>xmasWinMod.onMail(mailFeed.items()));   // 🎄 안 읽은 «받은 편지» 알림 → 받은 편지 한 번 읽기
 const noticeApi = TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) });   // 🌐 /v2/notices
 /* 🛠️ 앱 관리자 창의 서버 endpoint(/v2/admin/...) — 관리자 모드 · 확성기 · 업데이트 공지 · 배너 · 방 종료가 쓴다. 지금 업데이트 공지의 id 는 공지 한 판에서 받는다 */
 const adminApi = TwAdminApi.createAdminApi({ authed: TwApi.authed, pending: TwRequestId.createPending(), fetchBoard: ()=>noticeApi.fetchBoard(), errs: TwApiErrors });

@@ -4,16 +4,14 @@
      📬 열람(12/25 부터 — 봉투 · 열기 · 추천곡 · 신고 · 읽음 표시) · 런처 [크리스마스] 빨간 점(안 읽은 받은 편지).
    서버는 net(xmas-api.js — 내 몫만 읽고 쓴다), 날짜 · 칸 규칙은 rules(TwXmasRules) · 날짜 한 벌은 schedule()(서버 값), 뮤직바는 song(TwXmasSong).
    ★ 받은 편지 · 추천곡 제목은 남이 쓴 값 — textContent 로만 넣는다.
-   ★ 받은 편지 확인은 25일 0시가 지난 뒤 — 짝 짓기가 0시에 돌아 조금 늦을 수 있어 한 시간 동안만 5분 간격으로 다시 본다(그 뒤엔 앱을 켤 때 한 번).
-     실패는 세지 않는다 — 앱을 켠 직후엔 로그인 복원 전이라 auth 로 돌아오므로 다음 확인(1분)에 다시 · 계정이 바뀌면 처음부터.
+   ★ 받은 편지는 다시 묻지 않는다(폴링 없음) — 편지 창을 열 때 한 번 · 알림함에 안 읽은 «받은 편지» 알림이 보이면 창(xmas-window)이 무작위로 기다렸다 checkGot 한 번.
+     마감이 지났는데 짝 짓기 전(matched=false)이면 «배달하는 중» 을 그리고 기다린다(알림이 오면 읽는다). 계정이 바뀌면 앞 계정의 점을 지운다.
    ★ 읽음 표시는 이 PC(localStorage 'tw.xmasGotRead.{uid}' — 번호 몇 개)에만.
    classic script(window.TwXmasLetter) — xmas-window.js 보다 먼저 싣는다. xmas-window.js 가 `createXmasLetter(deps)` 한 번. */
 (function(){
 'use strict';
 
 const READ_KEY = 'tw.xmasGotRead.';
-const GOT_RETRY_MS = 5 * 60000;     // 받은 편지가 아직 없을 때 다시 볼 간격
-const GOT_RETRY_UNTIL_MS = 3600000; // 마감 뒤 이 시간까지만 다시 본다
 
 /**
  * @param {{ doc?:Document, win?:Window, rules:any, net:()=>any, song:any, serverNow:()=>number, schedule:()=>any,
@@ -34,7 +32,7 @@ function createXmasLetter(deps){
   if (!lw || !btn) throw new Error('xmas-letter: #xmasLetter · #xmasLetterBtn 이 html 에 없다');
 
   let letters = [], returned = [], got = [], editing = null, draftSong = null, openedN = null, busy = false, seq = 0, refSeq = 0;
-  let gotFound = false, gotTriedAt = -Infinity, gotTrying = false, gotEmpty = false, gotUid = null;
+  let gotTrying = false, gotUid = null;
 
   /* ── 읽음 표시(이 PC) ── */
   const readKey = () => READ_KEY + (net().me() || '');
@@ -66,28 +64,16 @@ function createXmasLetter(deps){
     paintBtn();
   }
 
-  /* ── 받은 편지 확인(빨간 점) — 25일 0시 뒤 ── */
+  /* ── 받은 편지 한 번 읽기(빨간 점) — 알림을 본 뒤 창이 부른다. 다시 묻지 않는다 ── */
   async function checkGot(){
-    const now = serverNow();
-    if (!rules.lettersArrived(now, schedule()) || gotTrying) return;
+    if (gotTrying) return;
     const uid = net().me();
-    if (uid !== gotUid){   // 계정이 바뀌면 앞 계정의 받은 편지 · 점을 버리고 처음부터
-      gotUid = uid; got = []; gotFound = false; gotEmpty = false; gotTriedAt = -Infinity;
-      deps.onDot(false); paintBtn();
-    }
-    if (gotFound || now - gotTriedAt < GOT_RETRY_MS) return;
-    if (gotEmpty && now >= schedule().letterDeadline + GOT_RETRY_UNTIL_MS) return;   // 비어 있음을 본 뒤로는 한 시간까지만
-    gotTrying = true; gotTriedAt = now;
+    if (uid !== gotUid){ gotUid = uid; got = []; deps.onDot(false); }   // 계정이 바뀌면 앞 계정의 받은 편지 · 점을 버린다
+    gotTrying = true;
     const r = await net().got();
     gotTrying = false;
-    if (!r.ok){
-      // 실패는 «없음» 으로 굳히지 않는다 — 로그인 복원 전(auth)은 읽지도 않았으니 다음 확인(1분)에 바로, 그 밖은 5분 뒤에
-      if (r.code === 'auth') gotTriedAt = -Infinity;
-      return;
-    }
+    if (!r.ok || uid !== net().me()) return;   // 실패는 «없음» 으로 굳히지 않는다 — 다음 알림 · 창 열기에 다시
     got = rules.gotOf(r.got);
-    gotFound = got.length > 0;
-    gotEmpty = !gotFound;
     deps.onDot(rules.hasUnread(got, readSet()));
     paintBtn();
   }
@@ -262,7 +248,12 @@ function createXmasLetter(deps){
     }
     setState('');
     if (view === 'write'){ letters = rules.myLettersOf(r.letters); returned = rules.returnedOf(r.returned); show('write'); renderWrite(); }
-    else { got = rules.gotOf(r.got); gotFound = gotFound || got.length > 0; show('got'); renderGot(); deps.onDot(rules.hasUnread(got, readSet())); }
+    else {
+      got = rules.gotOf(r.got); gotUid = net().me();
+      deps.onDot(rules.hasUnread(got, readSet()));
+      if (!got.length && r.matched === false){ setState('편지를 배달하는 중이에요. 도착하면 알림함에 알려 드릴게요.'); paintBtn(); return; }   // 짝 짓기 전 — 다시 묻지 않는다
+      show('got'); renderGot();
+    }
   }
   function open(){
     if (isOpen()) return;

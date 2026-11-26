@@ -19,8 +19,8 @@ for (const f of ['shared/server-features.js', 'app.js', 'desk-companion-prototyp
   if (SRC[f] == null) { say('  ? 원본 못 찾음 — ' + f); process.exit(2); }
 }
 const NAMES = ['xmas', 'chatNotice', 'chatFocus', 'playlistLike', 'googleChange', 'friendReqMsg', 'themeCustomSave'];
-/* 서버가 받은 기능 — 켜 둔다 · googleChange: PUT /v2/me/google(#1101) · friendReqMsg: POST · GET /v2/me/friend-requests 의 message(t-w-server #364) · themeCustomSave: GET · PUT /v2/me/theme-custom(t-w-server #363) */
-const ON = ['googleChange', 'friendReqMsg', 'themeCustomSave'];
+/* 서버가 받은 기능 — 켜 둔다 · xmas: api xmas 컨텍스트(xmas-api.js · t-w-server #342 · #344 · #346 · #347) · googleChange: PUT /v2/me/google(#1101) · friendReqMsg: POST · GET /v2/me/friend-requests 의 message(t-w-server #364) · themeCustomSave: GET · PUT /v2/me/theme-custom(t-w-server #363) */
+const ON = ['xmas', 'googleChange', 'friendReqMsg', 'themeCustomSave'];
 const loadSF = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwServerFeatures; };
 
 function judgeTable(src) {
@@ -102,7 +102,7 @@ chk(/const gcOn = TwServerFeatures\.on\('googleChange'\);\n  show\('acctMGoogleC
 say('── 3. 배선');
 {
   const A = SRC['app.js'];
-  chk(/if\(TwServerFeatures\.on\('xmas'\)\) TwXmasWindow\.createXmasWindow\(/.test(A), '🎄 크리스마스 창은 표가 켜졌을 때만 만든다(런처 버튼은 html 에서 hidden 으로 시작)');
+  chk(/const xmasWinMod = !TwServerFeatures\.on\('xmas'\) \? null : TwXmasWindow\.createXmasWindow\(/.test(A), '🎄 크리스마스 창은 표가 켜졌을 때만 만든다(런처 버튼은 html 에서 hidden 으로 시작)');
   const H = SRC['desk-companion-prototype.html'];
   chk(/<button[^>]*id="lcXmas" hidden>/.test(H), '  런처 [🎄 크리스마스] 버튼은 hidden 으로 시작');
   for (const n of ['chatNotice', 'chatFocus', 'playlistLike', 'friendReqMsg', 'themeCustomSave'])
@@ -118,7 +118,8 @@ say('── 4. mutation test');
 {
   const src = SRC['shared/server-features.js'];
   const muts = [
-    ['하나를 켬', src.replace('xmas: false,', 'xmas: true,'), (r) => !r.allOff],
+    ['하나를 켬', src.replace('chatNotice: false,', 'chatNotice: true,'), (r) => !r.allOff],
+    ['크리스마스를 끔', src.replace('xmas: true,', 'xmas: false,'), (r) => !r.allOff],
     ['받은 기능을 끔', src.replace('googleChange: true,', 'googleChange: false,'), (r) => !r.allOff],
     ['서버가 받은 것을 끔', src.replace('friendReqMsg: true,', 'friendReqMsg: false,'), (r) => !r.allOff],
     ['내 색 저장을 끔', src.replace('themeCustomSave: true,', 'themeCustomSave: false,'), (r) => !r.allOff],

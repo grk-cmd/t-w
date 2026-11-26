@@ -7,7 +7,7 @@
 
 /* 이름 → 서버가 받는가. 서버 작업 요청은 GitHub 이슈(«서버 작업 요청: …(0.14.0)»)로 넘긴다. */
 const FEATURES = Object.freeze({
-  xmas: false,                      // 🎄 크리스마스 — 트리 · 마니또 편지(xmas/*) — 런처 버튼 · 📩 편지 알림
+  xmas: true,                       // 🎄 크리스마스 — 트리 · 마니또 편지(xmas/* · 서버 xmas-api.js) — 런처 버튼 · 📩 편지 알림
   chatNotice: false,                // 시크릿룸 #공지 탭(chat/chat-notice.js)
   chatFocus: false,                 // 시크릿룸 #집중 탭(chat/chat-focus.js · focus/room-focus-sync.js)
   playlistLike: false,              // 플레이리스트 «노래가 좋아요👍»(status/playlist-like-ui.js)
