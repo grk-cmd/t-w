@@ -81,8 +81,6 @@ async function initMyHome(code, me, session){
       presenceLock.startOnlineFor(myId, me);
       /* 🖥️ 계정마다 PC 는 서버가 정한 상한까지 — 이 PC 의 자리는 서버 등록(device-register.js)이 정하고 realtime 이 따른다(끊기면 device-lost.js). */
       /* ⚠️ 읽기(구독)는 쓰기의 성공에 기대지 않는다 — 여기에 await 쓰기를 새로 얹으면 거부될 때 아래 구독이 한 줄도 안 걸린다. 얹어야 하면 자기 try 로 감쌀 것. */
-      // 📌 D-day 보드 받기 (스케줄러 우측 목록) — 서버가 바뀌었다고 알리면 스케줄러가 알아서 다시 받는다
-      mhScheduler.loadBoard();
       // 👋 나에게 온 친구 요청 구독 — 새 요청이 오면 목록에 뜨고, 처음 도착 시 토스트로 알림.
       //   ★ 이전에는 mhReqSection이 "친구 탭" 안에 있어서 유저가 그 탭을 열지 않으면 요청이 있는지도 모름.
       //     → 요청이 있으면 친구 탭 버튼에 (N) 뱃지 표시 + 마이홈 아이콘에도 자동 뱃지 → 눈에 띄게 함.

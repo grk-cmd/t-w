@@ -130,7 +130,7 @@ say('§3 연결');
   chk(!/bugBoard\s*:|createBugBoard|support\/bug-board\.js/.test(FB) && !/firebaseAPI\.bugBoard/.test(APP + UI), 'Firebase 경로 걷음 — firebase-init 에 bugBoard 연결 없음 · 부르는 곳 0');
   chk(/const bugBoardUi = TwBugBoardUi\.createBugBoardUi\(\{/.test(APP) && /bugApi: TwBugApi\.createBugApi\(\{ authed: TwApi\.authed, errs: TwApiErrors, pending: \(\)=>TwRequestId\.createPending\(\) \}\)/.test(APP),
     'app.js 가 게시판을 만든다 — provider 는 로그인 통로 · 공통 표 · 요청 번호 기억');
-  chk(/bugBadge: \(code, me, session\)=>\{ session\.onReset\(\(\)=>bugBoardUi\.reset\(\)\); return bugBoardUi\.start\(\); \}/.test(APP) && /'mhInit',[^\n]*\n(?:\s*'gift',[^\n]*\n)?\s*'bugBadge',/.test(BOOT), '시작은 app-boot STEPS 의 bugBadge(mhInit 다음) 한 곳');
+  chk(/bugBadge: \(code, me, session\)=>\{ session\.onReset\(\(\)=>bugBoardUi\.reset\(\)\); return bugBoardUi\.start\(\); \}/.test(APP) && /\['mhInit', PHASE\.LATER\],[^\n]*\n\s*\['bugBadge', PHASE\.LATER\],/.test(BOOT), '시작은 app-boot STEPS 의 bugBadge(mhInit 다음 · 첫 화면 뒤 LATER) 한 곳');
   chk(/bugBoardReset: \(\.\.\.a\)=>bugBoardUi\.reset\(\.\.\.a\)/.test(APP), '계정을 놓을 때 reset(account.js 가 부른다)');
   chk(/m\.tag === 'bug' && m\.bugId\)\{\s*_inboxOpenId = null; window\._bugBoardOpen\(m\.bugId\)/.test(APP), '우편함에서 누르면 그 글을 연다');
   const noC = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');

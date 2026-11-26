@@ -3053,16 +3053,14 @@ TwRtStatusUi.createRtStatusUi({
   maintenance: (retry, onDismiss)=>TwMaintenance.store.serverClosed(retry, onDismiss),
   setTimeout: (f, ms)=>setTimeout(f, ms), clearTimeout: (h)=>clearTimeout(h),
 });
+/* 켤 때 업데이트 · 공지 확인 — Firebase 준비를 기다리지 않고 바로, 로그인과 같이 돈다(firebase-init 이 깨진 판도 새 판 확인 · 받기로 고칠 수 있게).
+   계정 기능은 app-boot 가 이 결과(proceed)를 기다린다 — 강제 업데이트면 이 PC 등록 · 읽기 · realtime 이 모두 0 */
+const updateFlowP = updateFlowMod.runBeforeLogin();
 (function initInviteGate(){
-  // 업데이트 흐름은 Firebase 준비를 기다리지 않고 바로 시작한다 — firebase-init 이 깨진 판도 새 판 확인 · 받기로 고칠 수 있게. 로그인만 둘 다 기다린다.
-  const flowP = updateFlowMod.runBeforeLogin();
   const run = async ()=>{
     const _s = acctStateMod._rcStore();
     if(_s && _s.source() === 'default'){ try{ await _s.ready(['inviteGate'], REMOTE_FLAGS_WAIT_MS); }catch(_){} }
-    const flow = await flowP;
-    if(!flow.proceed) return;   // 강제 업데이트 — 창이 앱을 막고 있다
     licenseGateMod.checkInviteGate()   // 🔑 로그인 · 서버 가입 확인 → 게이트(필요하면) · realtime · 0.13 첫 실행
-      .then(()=>{ licenseGateMod.refreshInviteBtn(); })
       .catch(err=>{ console.warn('[invite] 게이트 확인 실패', err); });
   };
   TwNetReady.whenNetReady(run);
@@ -3270,7 +3268,6 @@ const creatorOpenMod = TwCreatorOpen.createCreatorOpen({
   histF: histF,
   launcherCtlMod: ()=>launcherCtlMod,
   launcherPrevMod: ()=>launcherPrevMod,
-  licenseGateMod: licenseGateMod,
   loadSavedItemsIntoSession: (...a)=>loadSavedItemsIntoSession(...a),
   NO_DESK_ID: NO_DESK_ID,
   redoB: redoB,
@@ -5032,23 +5029,19 @@ const appBoot = TwAppBoot.createAppBoot({
   registerDevice: ()=>deviceRegisterMod.ensure(),   // 🖥️ realtime 보다 먼저 이 PC 등록(상한이 다 찼으면 확인창)
   toLogin: ()=>accountMod._loginDoLogout({ force:true }).then(()=>acctStateMod._acctRelaunchAfterDetach(null)),   // [취소] — 등록하지 않고 로그인 화면(다시 켜면 게이트가 로그인 화면)
   goOnline: ()=>loginFlowMod.goOnline(),
+  updateGate: ()=>updateFlowP.then((f)=>f.proceed === true),
+  whenPainted: ()=>new Promise((r)=>{ const done = ()=>['ready', 'failed'].includes(closetMod.state()); if(done()) r(); else closetMod.onChange(()=>{ if(done()) r(); }); }),   // 첫 화면 = 옷장 첫 받기가 끝남(캐릭터가 그려졌거나 못 받음)
+  idle: ()=>TwApi.authed.whenIdle(),
+  holdToast: (msg)=>toastMod.hold(msg),
   starts: {
     userLocal: (code, me, session)=>userLocalMod.start(session),
     catalog: (code, me, session)=>catalogSyncMod.start(session),   // 🧩 카탈로그 서버 한 벌 받기 — 로그인 뒤(서버가 이 사람의 locked 를 정한다) · 세션이 끝나면 풀고 비운다
-    focusTotal: (code, me, session)=>{ session.onReset(()=>focusTotalMod.setFocusTodaySec(0)); focusTotalMod.startFocusTotal(); },   // 오늘치 메모리는 세션이 끝나면 0 으로
-    focusShare: ()=>focusShareMod.startFocusShare(),
-    focusLevel: (code, me, session)=>{ focusProgressMod.startFocus(code, me, session); focusLevelMod.startMobile(code, me, session); },
-    weeklyChal: (code, me, session)=>weeklyChal.startChallenge(code, me, session),
-    pomodoro: (code, me, session)=>pomodoro.startPomodoro(code, me, session),
-    gacha: (code, me, session)=>gachaMod.startGacha(session),
     closet: (code, me, session)=>closetMod.startCloset(session),
     /* 🏠 마이홈 시작 — 받은 친구 요청 구독 · 우편 구독은 initMyHome 이 세션에 건다. 친구 목록 구독(friendsSub) · 내 접속 표시 구독(presenceSelf)은 시작이 다른 곳(마이홈 · 접속 고정)이라 비우기만 여기서 건다 */
-    mhInit: (code, me, session)=>{ session.onReset(()=>{ friendsSubMod.stop(); presenceSelfMod.reset(); myhomeStoreMod.reset(); bookshelfStoreMod.reset(); }); return mhInitMod.initMyHome(code, me, session); },   // 내 홈 · 책장 메모리도 세션이 끝나면 비운다(늦게 온 답은 gen 으로 버린다)
+    focusTotal: (code, me, session)=>{ session.onReset(()=>focusTotalMod.setFocusTodaySec(0)); focusTotalMod.startFocusTotal(); },   // 오늘치 메모리는 세션이 끝나면 0 으로
+    focusShare: ()=>focusShareMod.startFocusShare(),
+    pomodoro: (code, me, session)=>pomodoro.startPomodoro(code, me, session),
     gift: (code, me, session)=>{ session.on(giftBoxMod.listen()); session.onReset(()=>{ giftBoxMod.reset(); mallangStoreMod.reset(); mallangMod.reset(); }); },   // 🎁 서버 신호 `gifts` 만 건다(요청 0 — 받기는 마이홈을 열 때)
-    bugBadge: (code, me, session)=>{ session.onReset(()=>bugBoardUi.reset()); return bugBoardUi.start(); },   // 배지 · 목록 · 쓰던 글은 세션이 끝나면 비운다
-    scheduler: (code, me, session)=>mhScheduler.startSchedule(session),
-    /* 🙋 방 초대 받기 — 방 쪽 포트(대화 · 방 목록 · 스티커사진)는 사용자가 들어갈 때 시작해 STEPS 칸이 없다. 대신 계정이 바뀔 때 비우는 일(session.onReset)을 여기서 한 곳에 모은다.
-       license 알림(발급 · 연장 · 코드 바꿈 · 끝남) → 읽어 둔 내 시크릿룸을 버려 다음에 다시 읽는다(관리자가 발급한 방이 다시 실행 없이 보이게). */
     roomInvite: (code, me, session)=>{
       roomInviteUi.startReceive(session);
       session.on(TwRtHub.store.on('license', ()=>roomLobbyProvider.reset()));
@@ -5056,14 +5049,31 @@ const appBoot = TwAppBoot.createAppBoot({
     },
     awayPic: (code, me)=>awayPicMod.startAwayPic(me),   // 🫧 자리비움 그림 · 크기 — 서버(me.awayImage)가 기준
     desktopBg: (code)=>window.MYHOME_DESKTOP.startBgSync(code),
-    playlist: (code, me, session)=>plMod.start(session),
     licensePremium: (code, me, session)=>{ session.onReset(()=>licensePremiumMod.reset()); return licensePremiumMod.start(me); },   // 알림 구독 해제 함수는 모듈이 쥐고 reset 이 푼다 — 세션이 끝나면 reset 을 부른다
-    appVersion: (code, me, session)=>appVersionSyncMod.start(session),   // 🔄 이 PC 앱 판을 서버에 알림 — 더 새 판을 쓰는 기기가 있으면 업데이트 창
     adminMode: (code, me, session)=>{ session.onReset(()=>twNav.go(twNav.NAV.ADMIN_EXIT)); },   // 🔐 세션이 끝나면 관리자 모드를 조용히 끈다(요청 0 · 창 열기 통로로 — 모듈끼리 순환 없이)
+    focusLevel: (code, me, session)=>{ focusProgressMod.startFocus(code, me, session); focusLevelMod.startMobile(code, me, session); },
+    weeklyChal: (code, me, session)=>weeklyChal.startChallenge(code, me, session),
+    mhInit: (code, me, session)=>{ session.onReset(()=>{ friendsSubMod.stop(); presenceSelfMod.reset(); myhomeStoreMod.reset(); bookshelfStoreMod.reset(); }); return mhInitMod.initMyHome(code, me, session); },   // 내 홈 · 책장 메모리도 세션이 끝나면 비운다(늦게 온 답은 gen 으로 버린다)
+    bugBadge: (code, me, session)=>{ session.onReset(()=>bugBoardUi.reset()); return bugBoardUi.start(); },   // 배지 · 목록 · 쓰던 글은 세션이 끝나면 비운다
+    scheduler: (code, me, session)=>mhScheduler.startSchedule(session),
+    /* 🙋 방 초대 받기 — 방 쪽 포트(대화 · 방 목록 · 스티커사진)는 사용자가 들어갈 때 시작해 STEPS 칸이 없다. 대신 계정이 바뀔 때 비우는 일(session.onReset)을 여기서 한 곳에 모은다.
+       license 알림(발급 · 연장 · 코드 바꿈 · 끝남) → 읽어 둔 내 시크릿룸을 버려 다음에 다시 읽는다(관리자가 발급한 방이 다시 실행 없이 보이게). */
+    ddays: ()=>mhScheduler.loadBoard(),   // 📌 디데이 보드 — 첫 화면 뒤(app-boot LATER · 🔔 알림 배지도 센다)
+    gacha: (code, me, session)=>gachaMod.startGacha(session),
+    invites: ()=>licenseGateMod.refreshInviteBtn(),   // 🎟️ 런처 초대장 버튼 — 켤 때 한 번(런처를 다시 그릴 때마다 묻지 않는다) · 발급 · 관리자 모드 뒤에는 그 자리에서
+    appVersion: (code, me, session)=>appVersionSyncMod.start(session),   // 🔄 이 PC 앱 판을 서버에 알림 — 더 새 판을 쓰는 기기가 있으면 업데이트 창
     firstRun: ()=>firstRunMod.run().catch((e)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', e)),
     licenseAutoRegister: ()=>licensePremiumMod.autoRegisterAfter(firstRunMod.licenseDone()),   // 첫 실행 뒤 — 0.12 키로 첫 실행이 등록했으면 건너뜀
+    playlist: (code, me, session)=>plMod.start(session),
   },
 });
+/* 그 창을 처음 열 때 받는 기능(app-boot OPEN) — 플레이리스트 창 → 플레이리스트 */
+TwOpenOnShow.createOpenOnShow({
+  open: (name)=>appBoot.open(name),
+  targets: [
+    { name: 'playlist', el: document.getElementById('myPlaylistBox'), shown: (el)=>!el.classList.contains('hidden') },
+  ],
+}).start();
 
 /* ═══════════ 🛰 서버 모듈 감시견 — 안 붙으면 다시 붙이고, 그래도 안 되면 말해준다 ═══════════
    [무엇을 고치는가] `parts/firebase-init.js` 는 Firebase SDK 를 gstatic 에서 **실행 시점에**

@@ -389,8 +389,9 @@ async function suite(M, label){
     chk(i > 0 && j > i, 'app.js 가 초대 게이트 앞에서 흐름을 만든다');
     const run = app.slice(j, app.indexOf('TwNetReady.whenNetReady(run)', j));
     const runBody = run.slice(run.indexOf('const run = async'));
-    chk(/const flowP = updateFlowMod\.runBeforeLogin\(\);\s*const run = async/.test(run), '★ 흐름은 Firebase 준비(whenNetReady) 밖에서 바로 시작한다 — firebase-init 이 깨져도 새 판 확인 · 받기가 돈다');
-    chk(/const flow = await flowP;\s*if\(!flow\.proceed\) return;/.test(runBody) && runBody.indexOf('flowP') < runBody.indexOf('checkInviteGate()') && !/runBeforeLogin/.test(runBody), '★ 로그인(checkInviteGate) 앞에서 흐름을 기다리고 · 강제면 로그인하지 않는다');
+    chk(/const updateFlowP = updateFlowMod\.runBeforeLogin\(\);\s*\(function initInviteGate\(\)\{/.test(app), '★ 흐름은 Firebase 준비(whenNetReady) 밖에서 바로 시작한다 — firebase-init 이 깨져도 새 판 확인 · 받기가 돈다');
+    chk(!/runBeforeLogin|updateFlowP|flowP/.test(runBody) && /checkInviteGate\(\)/.test(runBody) && /^ {2}updateGate: \(\)=>updateFlowP\.then\(\(f\)=>f\.proceed === true\),$/m.test(app),
+      '★ 로그인(checkInviteGate)은 흐름을 기다리지 않고 같이 돈다 — 계정 기능은 app-boot 가 흐름의 결과(updateGate)를 기다린다(강제면 0)');
     const blk = app.slice(i, j);
     chk(/readMin: \(\)=> _updRc \? _updRc\.ready\(null, MIN_APP_VER_WAIT_MS\)\.then\(\(\)=>_updRc\.minAppVer\(\)\) : null/.test(blk) && /key === 'minVersion'/.test(blk) && /const _updRc = (?:acctStateMod\.)?_rcStore\(\);/.test(app), '★ 최소 버전 = 원격 설정 첫 답(API 값만) · 바뀜은 minVersion 칸 알림 · 원격 설정 한 벌은 한 번만 받는다');
     const w = +(app.match(/const MIN_APP_VER_WAIT_MS = (\d+);/) || [])[1];
