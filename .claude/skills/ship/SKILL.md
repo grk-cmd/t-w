@@ -14,7 +14,7 @@ description: 작업 끝내기 — PR 을 올리고 컨펌자(tw-confirmer) · �
 서버 저장소(`mihioon/t-w-server`) PR 도 같은 흐름이다 — 두 상태값은 그 저장소의 머리 커밋에 남기고(`gh api repos/mihioon/t-w-server/statuses/<SHA> …`), 머지는 `gh api -X PUT repos/mihioon/t-w-server/pulls/<번호>/merge …` 처럼 **경로에 저장소를 적어** 한다(가드가 그 경로를 보고 그 저장소 상태값을 본다). 판 · 승인 · 위험도 규칙은 앱 저장소 몫이라 건너뛴다. 문서 저장소(`mihioon/tw-docs`) 머지는 가드 밖.
 
 ## 0. 확인
-- 판: 이 작업이 어느 버전에 나가는지 정해져 있어야 한다(브랜치를 딸 때 사용자에게 물었다). base = `release/X.Y.Z`. 모르면 **묻고 멈춘다**. 긴급 수정 `hotfix/*` · 하네스 `harness/*` 만 base = `main`. 웹 관리자만 바꾸는 작업은 판을 묻지 않고 base = `admin`(`origin/admin` 에서 딴 브랜치 · main 에 없는 것으로 `web-admin/` 밖을 바꾸면 가드가 머지를 막는다 · 웹 관리자 작업을 main 으로 보내면 가드가 막는다).
+- 판: 이 작업이 어느 버전에 나가는지 정해져 있어야 한다(브랜치를 딸 때 사용자에게 물었다). base = `release/X.Y.Z`. 모르면 **묻고 멈춘다**. 긴급 수정 `hotfix/*` · 하네스 `harness/*` 만 base = `main`. 웹 관리자만 바꾸는 작업은 판을 묻지 않고 base = `admin`(`origin/admin` 에서 딴 브랜치 · main 에 없는 것으로 `apps/admin/` 밖을 바꾸면 가드가 머지를 막는다 · 웹 관리자 작업을 main 으로 보내면 가드가 막는다).
 - 동작이 바뀌는 작업(화면 · 문구 · 타이밍 · 요청 수)이면 사용자 확인을 받았는가 — 받은 말을 PR 본문 «왜» 에 적는다. 안 받았으면 묻고 멈춘다.
 - 커밋 안 된 변경이 없다. 바뀐 곳의 `sim-*` 를 돌려 통과(전체 `npm run check` 는 CI).
 

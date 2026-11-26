@@ -394,14 +394,15 @@ def gate_case(name, fl, approved_comment, want_deny):
 gate_case('가드 파일 안 바꿈 · 높음 · 승인 없음 → 통과', [{'filename': 'firebase/firebase-database-rules.json'}], False, False)
 gate_case('가드 파일 바꿈 · 승인 없음 → 막음', GUARD, False, True)
 gate_case('가드 파일 바꿈 · 승인 → 통과', GUARD, True, False)
-# 웹 관리자 길 — admin 으로 가는 PR · admin → main 합치기는 main 에 없는 것으로 web-admin/ 안만(main...머리 를 견준다 · base 로 본다)
-WA, APP = [{'filename': 'web-admin/src/a.tsx'}], [{'filename': 'web-admin/src/a.tsx'}, {'filename': 'app/parts/app.js'}]
+# 웹 관리자 길 — admin 으로 가는 PR · admin → main 합치기는 main 에 없는 것으로 apps/admin/ 안만(main...머리 를 견준다 · base 로 본다)
+WA, APP = [{'filename': 'apps/admin/src/a.tsx'}], [{'filename': 'apps/admin/src/a.tsx'}, {'filename': 'app/parts/app.js'}]
 for name, base, ref, own, want in (
-        ('admin 으로 · web-admin 만', 'admin', 'feat/x', WA + [{'filename': 'web-admin/tests/a.test.ts'}], []),
+        ('admin 으로 · apps/admin 만', 'admin', 'feat/x', WA + [{'filename': 'apps/admin/tests/a.test.ts'}], []),
         ('admin 으로 · 앱 파일이 섞임', 'admin', 'feat/x', APP, ['app/parts/app.js']),
-        ('admin 으로 · 밖에서 web-admin 으로 옮김', 'admin', 'feat/x', [{'filename': 'web-admin/x.js', 'previous_filename': 'app/x.js'}], ['app/x.js']),
-        ('admin 으로 main 합쳐 받기 · main 에 없는 것은 web-admin 만', 'admin', 'chore/merge-main', WA, []),
-        ('admin → main 합치기 · web-admin 만', 'main', 'admin', WA, []),
+        ('admin 으로 · 밖에서 apps/admin 으로 옮김', 'admin', 'feat/x', [{'filename': 'apps/admin/x.js', 'previous_filename': 'app/x.js'}], ['app/x.js']),
+        ('admin 으로 · 옛 자리 web-admin/ 에 더함 → 밖', 'admin', 'feat/x', [{'filename': 'web-admin/src/a.tsx'}], ['web-admin/src/a.tsx']),
+        ('admin 으로 main 합쳐 받기 · main 에 없는 것은 apps/admin 만', 'admin', 'chore/merge-main', WA, []),
+        ('admin → main 합치기 · apps/admin 만', 'main', 'admin', WA, []),
         ('admin → main 합치기 · 앱 파일이 섞임', 'main', 'admin', APP, ['app/parts/app.js']),
         ('hotfix/* → main · 앱 파일', 'main', 'hotfix/x', APP, []),
         ('harness/* → main', 'main', 'harness/x', [{'filename': '.claude/hooks/ship-gate.py'}], []),
@@ -414,7 +415,7 @@ for name, base, ref, own, want in (
     else:
         bad += 1
         print(f'  ✗ 웹 관리자 범위 {name}: {got}')
-fake(head_ref='feat/x', base='admin', cmp={H: [{'filename': f'web-admin/f{i}'} for i in range(risk.COMPARE_MAX)]})
+fake(head_ref='feat/x', base='admin', cmp={H: [{'filename': f'apps/admin/f{i}'} for i in range(risk.COMPARE_MAX)]})
 if risk.admin_outside(395) == ['(파일 목록을 다 못 봄)']:
     ok += 1
 else:
@@ -457,29 +458,29 @@ def admin_case(name, ref, fl, want_deny, approved=False, word='', base='admin', 
     else:
         bad += 1
         print(f'  ✗ 머지 가드 {name}: {"막음" if denied else "통과"}{" · 문구에 «" + word + "» 없음" if word and word not in out else ""}')
-admin_case('admin 으로 · web-admin 만 → 통과', 'feat/x', [{'filename': 'web-admin/src/a.tsx'}], False)
-admin_case('admin 으로 · 앱 파일 섞임 → 막음', 'feat/x', [{'filename': 'web-admin/src/a.tsx'}, {'filename': 'main.js'}], True, word='web-admin/ 밖을 바꾼다')
-admin_case('admin 으로 main 합쳐 받기(앱 파일은 main 에 있음) → 통과', 'chore/merge-main', [{'filename': 'web-admin/src/a.tsx'}, {'filename': 'app/parts/app.js'}], False, own=[{'filename': 'web-admin/src/a.tsx'}])
-admin_case('admin → main 합치기 · 높음 · 승인 없음 → 통과(이미 내보냄)', 'admin', [{'filename': 'web-admin/src/shared/api/db.ts', 'status': 'modified'}], False, base='main')
-admin_case('웹 관리자 작업을 main 으로 → 막음', 'feat/x', [{'filename': 'web-admin/src/a.tsx'}], True, word='main 이 받는 PR 이 아니다', base='main')
-admin_case('옛 admin/* 를 main 으로 → 막음', 'admin/x', [{'filename': 'web-admin/src/a.tsx'}], True, word='main 이 받는 PR 이 아니다', base='main')
+admin_case('admin 으로 · apps/admin 만 → 통과', 'feat/x', [{'filename': 'apps/admin/src/a.tsx'}], False)
+admin_case('admin 으로 · 앱 파일 섞임 → 막음', 'feat/x', [{'filename': 'apps/admin/src/a.tsx'}, {'filename': 'main.js'}], True, word='apps/admin/ 밖을 바꾼다')
+admin_case('admin 으로 main 합쳐 받기(앱 파일은 main 에 있음) → 통과', 'chore/merge-main', [{'filename': 'apps/admin/src/a.tsx'}, {'filename': 'app/parts/app.js'}], False, own=[{'filename': 'apps/admin/src/a.tsx'}])
+admin_case('admin → main 합치기 · 높음 · 승인 없음 → 통과(이미 내보냄)', 'admin', [{'filename': 'apps/admin/src/shared/api/db.ts', 'status': 'modified'}], False, base='main')
+admin_case('웹 관리자 작업을 main 으로 → 막음', 'feat/x', [{'filename': 'apps/admin/src/a.tsx'}], True, word='main 이 받는 PR 이 아니다', base='main')
+admin_case('옛 admin/* 를 main 으로 → 막음', 'admin/x', [{'filename': 'apps/admin/src/a.tsx'}], True, word='main 이 받는 PR 이 아니다', base='main')
 # 웹 관리자 길의 위험도 높음(데이터 접근)은 머지 전 승인 — 판을 거치지 않아 «내보내기 전 한 장» 에 안 나온다
-DB = [{'filename': 'web-admin/src/shared/api/db.ts', 'status': 'modified'}]
+DB = [{'filename': 'apps/admin/src/shared/api/db.ts', 'status': 'modified'}]
 admin_case('admin 으로 · 데이터 접근(높음) · 승인 없음 → 막음', 'feat/x', DB, True, word='웹 관리자 길')
 admin_case('admin 으로 · 데이터 접근(높음) · 승인 → 통과', 'feat/x', DB, False, approved=True)
 MAINMIX = [{'filename': 'firebase-database-rules.json', 'status': 'modified', 'patch': '+x'}, {'filename': 'functions/a.js', 'status': 'modified', 'patch': '+x'},
-           {'filename': 'web-admin/src/widgets/a/ui/A.tsx', 'status': 'modified', 'patch': '+x'}]   # main 을 합쳐 받아 PR 파일엔 규칙 · 함수가 실림
+           {'filename': 'apps/admin/src/widgets/a/ui/A.tsx', 'status': 'modified', 'patch': '+x'}]   # main 을 합쳐 받아 PR 파일엔 규칙 · 함수가 실림
 admin_case('main 합쳐 받기 · 자기 변경은 화면만 → 승인 없이 통과', 'chore/merge-main', MAINMIX, False, own=MAINMIX[2:])
 admin_case('main 합쳐 받기 · 자기 변경에 db.ts → 승인 필요', 'chore/merge-main', MAINMIX + DB, True, word='웹 관리자 길', own=MAINMIX[2:] + DB)
 admin_case('admin 에 앞 PR 의 db.ts 가 있음 · 이 PR 은 화면만 → 승인 없이 통과', 'feat/x', MAINMIX[2:], False, own=MAINMIX[2:] + DB)
-admin_case('admin 으로 · 견줄 파일 300개(못 봄) → 막음', 'feat/x', WA, True, own=[{'filename': f'web-admin/f{i}', 'patch': '+x'} for i in range(risk.COMPARE_MAX)])
-admin_case('admin 으로 · 화면만(낮음) · 승인 없음 → 통과', 'feat/x', [{'filename': 'web-admin/src/widgets/a/ui/A.tsx', 'status': 'modified'}], False)
+admin_case('admin 으로 · 견줄 파일 300개(못 봄) → 막음', 'feat/x', WA, True, own=[{'filename': f'apps/admin/f{i}', 'patch': '+x'} for i in range(risk.COMPARE_MAX)])
+admin_case('admin 으로 · 화면만(낮음) · 승인 없음 → 통과', 'feat/x', [{'filename': 'apps/admin/src/widgets/a/ui/A.tsx', 'status': 'modified'}], False)
 admin_case('하네스 · 가드 파일 · 승인 없음 → 막음(가드 문구)', 'harness/x', GUARD, True, word='가드 자리(', base='main')
 real_assess3 = risk.assess
 risk.assess = lambda pr, files=None: (_ for _ in ()).throw(RuntimeError('assess 실패(시험)'))   # 파일 · PR 은 읽히고 위험도만 못 읽음
-admin_case('admin 으로 · 위험도를 못 읽음 → 막음', 'feat/x', [{'filename': 'web-admin/src/a.tsx'}], True, word='읽지 못해')
+admin_case('admin 으로 · 위험도를 못 읽음 → 막음', 'feat/x', [{'filename': 'apps/admin/src/a.tsx'}], True, word='읽지 못해')
 risk.assess = real_assess3
-for name, ref, base, fl, want in (('admin 으로 · 높음', 'feat/x', 'admin', DB, True), ('admin 으로 · 낮음', 'feat/x', 'admin', [{'filename': 'web-admin/src/a.tsx'}], False),
+for name, ref, base, fl, want in (('admin 으로 · 높음', 'feat/x', 'admin', DB, True), ('admin 으로 · 낮음', 'feat/x', 'admin', [{'filename': 'apps/admin/src/a.tsx'}], False),
                                   ('admin → main 합치기 · 높음(이미 내보냄)', 'admin', 'main', DB, False),
                                   ('판으로 가는 PR · 높음(내보내기 전 한 장이 본다)', 'fix/x', 'release/0.12.3', DB, False),
                                   ('하네스 · 가드 파일', 'harness/x', 'main', GUARD, True)):
@@ -490,7 +491,7 @@ for name, ref, base, fl, want in (('admin 으로 · 높음', 'feat/x', 'admin', 
     else:
         bad += 1
         print(f'  ✗ 승인 필요 {name}: {got}')
-fake(files=WA, head_ref='feat/x', base='admin', cmp={H: [{'filename': f'web-admin/f{i}', 'patch': '+x'} for i in range(risk.COMPARE_MAX)]})
+fake(files=WA, head_ref='feat/x', base='admin', cmp={H: [{'filename': f'apps/admin/f{i}', 'patch': '+x'} for i in range(risk.COMPARE_MAX)]})
 if risk.must_approve(395):
     ok += 1
 else:
@@ -582,10 +583,10 @@ waiting('승인 · CI 초록', 0, '머지할 차례', commits=(O, H), comments=A
 waiting('승인이 나중에 달림', 0, '머지할 차례', commits=(O, H), steps=[dict(commits=(O, H)), dict(commits=(O, H), comments=APPR)])
 waiting('승인 없음 — 시간 끝', 1, '끝나지 않음', commits=(O, H))
 waiting('가드 파일을 안 바꾸면 승인 없이 CI 만', 0, '머지할 차례', high=False, commits=(O, H))
-ADB = [{'filename': 'web-admin/src/shared/api/db.ts', 'status': 'modified'}]   # 웹 관리자 길 · 데이터 접근(높음)
+ADB = [{'filename': 'apps/admin/src/shared/api/db.ts', 'status': 'modified'}]   # 웹 관리자 길 · 데이터 접근(높음)
 waiting('웹 관리자 길 높음 · 승인 없음 — 시간 끝', 1, '끝나지 않음', high=None, commits=(O, H), files=ADB, head_ref='feat/x', base='admin', cmp={H: ADB})
 waiting('웹 관리자 길 높음 · 승인 → 머지할 차례', 0, '머지할 차례', high=None, commits=(O, H), files=ADB, head_ref='feat/x', base='admin', comments=APPR, cmp={H: ADB})
-waiting('웹 관리자 길 낮음 · 승인 없이 CI 만', 0, '머지할 차례', high=None, commits=(O, H), files=[{'filename': 'web-admin/src/a/ui/A.tsx', 'status': 'modified'}], head_ref='feat/x', base='admin', cmp={H: [{'filename': 'web-admin/src/a/ui/A.tsx', 'status': 'modified'}]})
+waiting('웹 관리자 길 낮음 · 승인 없이 CI 만', 0, '머지할 차례', high=None, commits=(O, H), files=[{'filename': 'apps/admin/src/a/ui/A.tsx', 'status': 'modified'}], head_ref='feat/x', base='admin', cmp={H: [{'filename': 'apps/admin/src/a/ui/A.tsx', 'status': 'modified'}]})
 waiting('CI 도는 중 — 끝나면', 0, '머지할 차례', commits=(O, H), comments=APPR, runs=[{'name': 'npm run check', 'status': 'in_progress'}],
         steps=[dict(commits=(O, H), comments=APPR)])
 waiting('CI 빨강', 1, 'CI 빨강: npm run check', commits=(O, H), comments=APPR, runs=[{'name': 'npm run check', 'status': 'completed', 'conclusion': 'failure'}])
@@ -645,7 +646,7 @@ ROLES = {'_공통': '공통글', '서버담당': '서버글', '질문': '질문�
 FACTS = {'notes': [], 'releases': {'0.12.0': {'ahead': 2, 'subjects': ['feat: 가']}, '0.13.0': {'ahead': 1, 'subjects': ['fix: 나']}},
          'prs': [{'number': 7, 'title': '판 PR', 'head': 'fix/a', 'base': 'release/0.12.0', 'draft': True, 'owner': 'grk', 'files': ['app/a.js', 'checks/']},
                  {'number': 8, 'title': '하네스 PR', 'head': 'harness/b', 'base': 'main', 'draft': False, 'owner': '', 'files': ['checks/sim-x.js']},
-                 {'number': 9, 'title': '관리자 PR', 'head': 'feat/c', 'base': 'admin', 'draft': False, 'owner': '', 'files': ['web-admin/src/a.tsx']}],
+                 {'number': 9, 'title': '관리자 PR', 'head': 'feat/c', 'base': 'admin', 'draft': False, 'owner': '', 'files': ['apps/admin/src/a.tsx']}],
          'issues': [{'number': 12, 'title': '피부가 투명해짐'}],
          'overlaps': [('0.12.0', '0.13.0', ['app/parts/app.js'])]}
 def boom_gather():
