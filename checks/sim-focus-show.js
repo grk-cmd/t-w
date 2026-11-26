@@ -65,7 +65,7 @@ const T = new Function('env', `
 say('── 3. 배관');
 {
   const so = strip(grabFn('_statusOut'));
-  chk(/if\(!myUserStatus && myFocusShow\) return \{ userStatus:'custom', customStatus:myFocusShow \}/.test(so), '상태가 없을 때만 custom 칸으로 싣는다(상태 우선)');
+  chk(/if\(!myUserStatus && myFocusShow\) return \{ userStatus:'custom', customStatus:myFocusShow \}/.test(so), '상태가 없을 때만 custom field 로 싣는다(상태 우선)');
   /* 📱 폰 켜짐 갈래는 sim-mobile-focus 가 본다 — 여기선 꺼짐(앱 코드는 typeof 가드 없이 _mobileOn() 을 바로 부른다 · 개정 238) */
   const out = new Function('u', 'f', 'c', 'let myUserStatus=u, myFocusShow=f, myCustomStatus=c; const _mobileOn=()=>false;' + grabFn('_statusOut') + ' return _statusOut();');
   const F = { emo: '🕒', text: '오늘 3:20' }, C = { emo: '✨', text: '마감 중' };
@@ -75,8 +75,8 @@ say('── 3. 배관');
   r = out(null, null, C); chk(r.userStatus === null && r.customStatus === C, '꺼짐 → 예전 그대로');
   chk(/function _basePayload\(\)\{ const _st=_statusOut\(\);/.test(CODE) && /userStatus:_st0\.userStatus,customStatus:_st0\.customStatus/.test(CODE), '평소 페이로드 · 입장 페이로드 둘 다 같은 통로');
   chk(!/focusShow\s*:/.test(strip(grabFn('_basePayload') || CODE.slice(CODE.indexOf('function _basePayload'), CODE.indexOf('function _basePayload') + 400))), '새 필드 없음(focusShow 키를 싣지 않는다)');
-  const sc = strip(grabFn('statusConfFor'));
-  chk(/if\(!us\)\{[\s\S]*!seat\.remote && \(seat\.isMe \|\| seat === _mine\)[\s\S]*_focusShowMine\(\)/.test(sc), '내 화면 거울은 상태가 없을 때 · 내 좌석만(자리추가로 바뀐 판 포함)');
+  const sc = strip(grabFn('statusConfFor'));   // 상태 풀이는 status/user-status.js 로 옮김(app.js 분리 M9) — 옮기기 전 글로 되살려 읽고, 오늘 기록은 알림 focusShowMine 으로 받는다
+  chk(/if\(!us\)\{[\s\S]*!seat\.remote && \(seat\.isMe \|\| seat === _mine\)[\s\S]*focusShowMine\(\)/.test(sc), '내 화면 거울은 상태가 없을 때 · 내 좌석만(자리추가로 바뀐 판 포함)');
   /* ⚠️ [고침 · 2026-09-23] 거울에 방 조건을 걸지 않는다 — 혼자 있는 화면에서 🕒 를 눌러도 보여야 한다(제보). */
   chk(!/Presence\.active/.test(strip(grabFn('_focusShowMine'))) && /_focusShowSent \|\| _focusShowConf\(\)/.test(strip(grabFn('_focusShowMine'))), '거울은 방이 없어도 보인다(보낸 값 · 없으면 보낼 값)');
   chk(/userStatus\) toast\('🕒 켰어요/.test(CODE), '상태가 켜져 있으면 켤 때 그 사실을 알려 준다');

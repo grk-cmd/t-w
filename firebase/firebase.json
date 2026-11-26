@@ -1,0 +1,96 @@
+{
+  "database": {
+    "rules": "firebase-database-rules-cutover.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "hosting": [{
+    "target": "main",
+    "public": "hosting",
+    "predeploy": ["npm --prefix ../apps/admin ci", "npm --prefix ../apps/admin run build"],
+    "ignore": ["firebase.json", "README.md", "**/.*", "**/node_modules/**", "help/**"],
+    "cleanUrls": true,
+    "redirects": [
+      { "source": "/privacy", "destination": "https://help.together-working.com/privacy", "type": 301 },
+      { "source": "/privacy.html", "destination": "https://help.together-working.com/privacy", "type": 301 },
+      { "source": "/link", "destination": "https://help.together-working.com/link", "type": 301 },
+      { "source": "/link.html", "destination": "https://help.together-working.com/link", "type": 301 }
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          { "key": "Referrer-Policy", "value": "no-referrer" },
+          { "key": "Cache-Control", "value": "no-cache" }
+        ]
+      },
+      {
+        "source": "/admin/**",
+        "headers": [
+          {
+            "key": "Content-Security-Policy",
+            "value": "default-src 'self'; script-src 'self' https://apis.google.com https://*.firebasedatabase.app; style-src 'self'; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com https://*.cloudfunctions.net https://*.firebasedatabase.app wss://*.firebasedatabase.app https://api.github.com https://rooms.togetherworking.duckdns.org https://rooms-dev.togetherworking.duckdns.org https://api.togetherworking.duckdns.org https://api.together-working.com https://realtime.together-working.com; frame-src https://*.firebaseapp.com https://accounts.google.com; object-src 'none'; base-uri 'none'; form-action 'none'"
+          },
+          { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+        ]
+      }
+    ]
+  }, {
+    "target": "help",
+    "public": "hosting/help",
+    "predeploy": ["node scripts/help-deploy-guard.js"],
+    "ignore": ["**/.*", "**/node_modules/**"],
+    "cleanUrls": true,
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          { "key": "Referrer-Policy", "value": "no-referrer" },
+          { "key": "Cache-Control", "value": "no-cache" }
+        ]
+      },
+      {
+        "source": "/img/**",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=86400" }
+        ]
+      },
+      {
+        "source": "/fonts/*.woff2",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=86400" }
+        ]
+      }
+    ]
+  }, {
+    "target": "home",
+    "public": "web-dist",
+    "predeploy": ["npm --prefix .. ci --ignore-scripts", "npm --prefix .. run web:build", "node scripts/copy-web-dist.js"],
+    "ignore": ["**/.*", "**/node_modules/**"],
+    "cleanUrls": true,
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          { "key": "Referrer-Policy", "value": "no-referrer" },
+          { "key": "Cache-Control", "value": "no-cache" },
+          { "key": "X-Content-Type-Options", "value": "nosniff" },
+          {
+            "key": "Content-Security-Policy",
+            "value": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https://api.together-working.com https://firebasestorage.googleapis.com; font-src 'self'; connect-src 'self' https://api.together-working.com; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+          }
+        ]
+      },
+      {
+        "source": "/assets/**",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        ]
+      }
+    ]
+  }]
+}

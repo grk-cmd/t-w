@@ -1,0 +1,485 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_STATE, reduce, setRemoteParts } from '@/features/character-maker';
+import { fetchWebParts } from '@/features/character-maker/api/web-parts';
+import { drawFace, type DrawCtx } from '@/features/character-maker/lib/draw-front';
+import {
+  createPartImages,
+  tintImage,
+  type ImgLike,
+  type TintCanvas,
+} from '@/features/character-maker/lib/part-images';
+import { accItems, findItem, layerItems } from '@/features/character-maker/model/catalog';
+import { parseRemoteParts, partImageUrlOk } from '@/features/character-maker/model/remote-parts';
+import { API_ORIGIN, STORAGE_BUCKET } from '@/shared/config';
+
+const H_IMG = 'a'.repeat(64);
+const H_SHUT = 'c'.repeat(64);
+const IMG = `${API_ORIGIN}/v2/catalog/assets/${H_IMG}.png`;
+const N = { ko: '가', en: 'a', ja: 'あ' };
+const SHUT = `${API_ORIGIN}/v2/catalog/assets/${H_SHUT}.png`;
+const name = { ko: '별눈', en: 'Star', ja: 'ほし' };
+const piece = (o: Record<string, unknown> = {}) => ({
+  id: 'p1',
+  kind: 'decal',
+  target: { kind: 'baseModel' },
+  surface: 'face',
+  slot: 'pupil',
+  imageHash: H_IMG,
+  w: 20,
+  h: 22,
+  ...o,
+});
+const product = (pieces: unknown[], o: Record<string, unknown> = {}) => ({
+  productId: 'i1',
+  target: { kind: 'baseModel' },
+  names: name,
+  thumb: H_IMG,
+  locked: false,
+  pieces,
+  ...o,
+});
+/** 조각 하나짜리 상품 하나의 응답 data */
+const one = (o: Record<string, unknown> = {}) => ({ products: [product([piece(o)])] });
+
+afterEach(() => setRemoteParts([]));
+
+describe('parseRemoteParts — 서버 상품을 고르기 판 항목(조각 하나씩)으로 펼친다', () => {
+  it('상품 차례 · 상품 안 조각 차례 · 이름은 상품 이름 · 같은 조각 id 는 앞의 것만', () => {
+    const got = parseRemoteParts({
+      products: [
+        product([piece({ id: 'b', slot: 'brows' }), piece({ id: 'a' })], {
+          productId: 'cat',
+          names: { ko: '고양이', en: 'Cat', ja: 'ねこ' },
+        }),
+        product([piece({ id: 'a', slot: 'mouth' }), piece({ id: 'c', slot: 'acc' })], { productId: 'dog' }),
+      ],
+    });
+    expect(got.map((p) => `${p.id}:${p.slot}:${p.name.ko}`)).toEqual([
+      'b:brows:고양이',
+      'a:pupil:고양이',
+      'c:acc:별눈',
+    ]);
+    expect(got[1]).toEqual({
+      id: 'a',
+      slot: 'pupil',
+      name: { ko: '고양이', en: 'Cat', ja: 'ねこ' },
+      src: IMG,
+      closedSrc: null,
+      w: 20,
+      h: 22,
+    });
+  });
+
+  it('그릴 수 없는 것은 건너뛴다 — 잠긴 상품 · 다른 모델 · 3D 모양 · 다른 종류 · 다른 면 · 3D 위 그림 · 모르는 slot', () => {
+    const got = parseRemoteParts({
+      products: [
+        {
+          productId: 'lock',
+          target: { kind: 'baseModel' },
+          names: name,
+          thumb: H_IMG,
+          locked: true,
+        },
+        product([piece({ id: 'lk' })], { productId: 'lock2', locked: true }), // 잠겼는데 조각이 실려 와도 쓰지 않는다
+        product([piece({ id: 'm1' })], { productId: 'part', target: { kind: 'part', id: 'hat01' } }),
+        product(
+          [
+            piece({ id: 'p3d', kind: 'part', partId: 'part_catear' }),
+            piece({ id: 'pk', kind: 'sticker' }),
+            piece({ id: 'ear', surface: 'earL' }), // 다른 면만 다름(slot 은 얼굴 것)
+            piece({ id: 'body', surface: 'body', slot: 'pattern' }),
+            piece({ id: 'onp', target: { kind: 'part', id: 'part_catear' } }), // 3D 위 그림 — target 만 다름(면은 face)
+            piece({ id: 'dim', dimension: '2d' }), // 옛 규격의 dimension 칸이 와도 받는다
+            piece({ id: 'ok' }),
+          ],
+          { productId: 'mix' },
+        ),
+        product([piece({ id: 'x', slot: 'hair' })], { productId: 'unk' }),
+      ],
+    });
+    expect(got.map((p) => p.id)).toEqual(['dim', 'ok']);
+  });
+
+  it('그림 주소는 우리 API 서버의 /v2/catalog/assets/ 아래 https 만', () => {
+    expect(partImageUrlOk(IMG)).toBe(true);
+    for (const bad of [
+      'http://api.together-working.com/v2/catalog/assets/a.png',
+      'https://evil.example/a.png',
+      'https://together-working.com/v2/catalog/assets/a.png',
+      `${API_ORIGIN}/v2/admin/catalog/assets/a.png`, // API 서버라도 공개 파일 길이 아니면
+      `${API_ORIGIN}/v2/catalog/assetsX/a.png`,
+      `${API_ORIGIN}/v1/assets/${H_IMG}.png`, // 옛 길
+      `${API_ORIGIN}/web-creator/images/a.png`,
+      'https://api.together-working.com.evil.example/v2/catalog/assets/a.png',
+      'javascript:alert(1)',
+      'data:image/png;base64,AAAA',
+      42,
+    ])
+      expect(partImageUrlOk(bad), String(bad)).toBe(false);
+  });
+
+  it('그림은 카탈로그 files 의 우리 버킷 Storage URL 로 바로 받는다 — 틀리거나 없으면 API 파일 길', () => {
+    const st = (hash: string, o: { bucket?: string; host?: string; ext?: string; q?: string } = {}) =>
+      `https://${o.host ?? 'firebasestorage.googleapis.com'}/v0/b/${o.bucket ?? STORAGE_BUCKET}/o/assets%2F${hash}.${o.ext ?? 'png'}${o.q ?? '?alt=media&token=t1'}`;
+    const files = { [H_IMG]: st(H_IMG), [H_SHUT]: st(H_SHUT) };
+    const got = parseRemoteParts({ ...one({ variantHashes: { closed: H_SHUT } }), files })[0];
+    expect(got?.src).toBe(st(H_IMG));
+    expect(got?.closedSrc).toBe(st(H_SHUT));
+    expect(partImageUrlOk(st(H_IMG))).toBe(true);
+    for (const bad of [
+      st(H_SHUT), // 다른 해시의 파일
+      st(H_IMG, { bucket: 'together-working-dev.firebasestorage.app' }),
+      st(H_IMG, { host: 'evil.example' }),
+      st(H_IMG, { ext: 'glb' }),
+      st(H_IMG, { q: '?token=t1' }), // alt=media 없음
+      st(H_IMG).replace('https:', 'http:'),
+      `${st(H_IMG)}#x`,
+      'x'.repeat(1001),
+      42,
+    ]) {
+      expect(parseRemoteParts({ ...one(), files: { [H_IMG]: bad } })[0]?.src, String(bad)).toBe(IMG);
+    }
+    expect(partImageUrlOk(st(H_IMG, { bucket: 'other' }))).toBe(false);
+    // files 가 없는 옛 서버 · 모양이 틀린 files 도 API 파일 길
+    expect(parseRemoteParts({ ...one(), files: 'x' })[0]?.src).toBe(IMG);
+  });
+
+  it('그림 주소는 해시로 만든다 — 해시 모양(소문자 16진 64자)이 아니면 그 조각을 버린다', () => {
+    expect(parseRemoteParts(one())[0]?.src).toBe(IMG);
+    for (const bad of [
+      'A'.repeat(64), // 대문자
+      'a'.repeat(63),
+      'a'.repeat(65),
+      `../${'a'.repeat(61)}`,
+      `${'a'.repeat(60)}.png`,
+      42,
+      undefined,
+    ])
+      expect(parseRemoteParts(one({ imageHash: bad })), String(bad)).toEqual([]);
+    // 옛 모양(주소를 그대로 준 src)은 읽지 않는다
+    expect(parseRemoteParts(one({ imageHash: undefined, src: IMG }))).toEqual([]);
+  });
+
+  it('상품 이름 셋(한 · 영 · 일)이 다 있어야 · 너무 길면 안 받는다 · 크기는 0 < 크기 ≤ 200 · id 모양', () => {
+    const badItems = [
+      product([piece()], { names: { ko: '별', en: 'Star' } }),
+      product([piece()], { names: { ...name, ja: '  ' } }),
+      product([piece()], { names: { ...name, ko: '가'.repeat(21) } }),
+      product([piece()], { productId: '../x' }),
+      product([piece()], { productId: undefined, id: 'i1' }), // 옛 칸 이름
+      product([piece()], { names: undefined, name }), // 옛 칸 이름
+      product('no' as unknown as unknown[]),
+    ];
+    for (const b of badItems) expect(parseRemoteParts({ products: [b] }), JSON.stringify(b)).toEqual([]);
+    const badPieces = [
+      { w: 0 },
+      { h: 201 },
+      { w: Number.NaN },
+      { w: '20' },
+      { id: '../x' },
+      { kind: undefined },
+    ];
+    for (const o of badPieces) expect(parseRemoteParts(one(o)), JSON.stringify(o)).toEqual([]);
+    expect(parseRemoteParts(one({ w: 200, h: 0.5 }))).toHaveLength(1);
+  });
+
+  it('눈 감은 얼굴 그림(variantHashes.closed)은 모든 자리 · 모르는 표정 · 틀린 해시는 버리고 기본 그림', () => {
+    for (const slot of ['eyeline', 'mouth', 'pupil', 'acc'])
+      expect(parseRemoteParts(one({ slot, variantHashes: { closed: H_SHUT } }))[0]?.closedSrc, slot).toBe(
+        SHUT,
+      );
+    expect(parseRemoteParts(one({ variantHashes: { smile: H_SHUT } }))[0]?.closedSrc).toBeNull();
+    expect(parseRemoteParts(one({ variantHashes: { closed: 'A'.repeat(64) } }))[0]?.closedSrc).toBeNull();
+    expect(parseRemoteParts(one({ variantHashes: 'x' }))[0]?.closedSrc).toBeNull();
+    expect(parseRemoteParts(one({ variants: { closed: SHUT } }))[0]?.closedSrc).toBeNull(); // 옛 칸 이름
+  });
+
+  it('모양이 아닌 응답은 빈 목록 · 옛 모양({ parts } · { sets } · { items })도 빈 목록', () => {
+    for (const d of [
+      null,
+      undefined,
+      3,
+      'x',
+      [],
+      { products: 'no' },
+      { parts: [piece()] },
+      { sets: [product([piece()])] },
+      { items: [product([piece()])] }, // 지난 판 이름
+    ])
+      expect(parseRemoteParts(d)).toEqual([]);
+  });
+
+  it('펼친 조각은 200개까지', () => {
+    const products = Array.from({ length: 11 }, (_, i) =>
+      product(
+        Array.from({ length: 20 }, (_, j) => piece({ id: `d${j}_${i}` })),
+        { productId: `s${i}` },
+      ),
+    );
+    expect(parseRemoteParts({ products })).toHaveLength(200);
+  });
+});
+
+describe('setRemoteParts — 기본 그림 뒤에 붙는다', () => {
+  it('레이어 · 액세서리에 «w:» 를 붙여 넣고 빈 목록이면 기본만', () => {
+    const before = layerItems('pupil').length;
+    setRemoteParts(parseRemoteParts({ products: [product([piece(), piece({ id: 'acc1', slot: 'acc' })])] }));
+    expect(layerItems('pupil').length).toBe(before + 1);
+    expect(layerItems('pupil').at(-1)?.id).toBe('w:p1');
+    expect(accItems().at(-1)?.id).toBe('w:acc1');
+    setRemoteParts([]);
+    expect(layerItems('pupil').length).toBe(before);
+    expect(accItems().some((a) => a.id === 'w:acc1')).toBe(false);
+  });
+
+  it('고르기는 목록에 있는 것만 — 들어오기 전엔 안 받고 들어온 뒤엔 받는다', () => {
+    const pick = () => reduce(DEFAULT_STATE, { t: 'item', kind: 'pupil', id: 'w:p1' }).pupil;
+    expect(pick()).toBe(DEFAULT_STATE.pupil);
+    setRemoteParts(parseRemoteParts(one()));
+    expect(pick()).toBe('w:p1');
+  });
+
+  it('감은눈 그림이 없는 아이라인은 기본 감은 줄로 — 감은눈 얼굴이 비지 않게', () => {
+    setRemoteParts(parseRemoteParts(one({ slot: 'eyeline' })));
+    expect(findItem('eyeline', 'w:p1').closed).toEqual(findItem('eyeline', 'none').closed);
+  });
+});
+
+describe('그림 파츠 그리기', () => {
+  function fake() {
+    const log: string[] = [];
+    const ctx = {
+      save() {},
+      restore() {},
+      translate() {},
+      scale() {},
+      transform() {},
+      beginPath() {},
+      ellipse() {},
+      fill() {},
+      stroke() {},
+      clearRect() {},
+      drawImage: (_i: unknown, x: number, y: number, w: number, h: number) =>
+        log.push(`img ${x} ${y} ${w} ${h}`),
+      fillStyle: '',
+      strokeStyle: '',
+      lineWidth: 1,
+      lineCap: 'butt',
+      lineJoin: 'miter',
+      globalAlpha: 1,
+    };
+    return { ctx: ctx as unknown as DrawCtx, log };
+  }
+  const makePath = () => ({}) as Path2D;
+
+  it('불러온 그림은 가운데를 자리에 맞춰 w × h 로 · 아직이면 건너뛴다', () => {
+    setRemoteParts(parseRemoteParts(one()));
+    const s = reduce(DEFAULT_STATE, { t: 'item', kind: 'pupil', id: 'w:p1' });
+    const img = {} as CanvasImageSource;
+    let r = fake();
+    drawFace(r.ctx, s, 'open', { makePath, images: (src) => (src === IMG ? img : null) });
+    expect(r.log.filter((l) => l === 'img -10 -11 20 22')).toHaveLength(2); // 왼 · 오른 눈
+    r = fake();
+    drawFace(r.ctx, s, 'open', { makePath, images: () => null });
+    expect(r.log).toEqual([]);
+  });
+});
+
+describe('눈 감은 얼굴 그림(표정 closed) 그리기', () => {
+  /** 그린 그림 주소 차례 — 그림 객체를 주소로 돌려받는다 */
+  function drawn(state: ReturnType<typeof reduce>, expr: 'open' | 'closed'): string[] {
+    const out: string[] = [];
+    const noop = () => {};
+    const ctx = {
+      save: noop,
+      restore: noop,
+      translate: noop,
+      scale: noop,
+      transform: noop,
+      beginPath: noop,
+      ellipse: noop,
+      fill: noop,
+      stroke: noop,
+      clearRect: noop,
+      drawImage: (i: unknown) => out.push((i as { src: string }).src),
+      fillStyle: '',
+      strokeStyle: '',
+      lineWidth: 1,
+      lineCap: 'butt',
+      lineJoin: 'miter',
+      globalAlpha: 1,
+    } as unknown as DrawCtx;
+    drawFace(ctx, state, expr, {
+      makePath: () => ({}) as Path2D,
+      images: (src) => ({ src }) as unknown as CanvasImageSource,
+    });
+    return out;
+  }
+  const pick = (kind: 'pupil' | 'brows', o: Record<string, unknown> = {}) => {
+    setRemoteParts(parseRemoteParts(one({ slot: kind, ...o })));
+    return reduce(DEFAULT_STATE, { t: 'item', kind, id: 'w:p1' });
+  };
+
+  it('눈썹 · 입 같은 자리 — 감은 얼굴엔 감은 그림, 없으면 뜬 그림 그대로', () => {
+    expect(drawn(pick('brows', { variantHashes: { closed: H_SHUT } }), 'open')).toEqual([IMG, IMG]);
+    expect(drawn(pick('brows', { variantHashes: { closed: H_SHUT } }), 'closed')).toEqual([SHUT, SHUT]);
+    expect(drawn(pick('brows'), 'closed')).toEqual([IMG, IMG]);
+  });
+
+  it('동공 · 하이라이트 — 감은 얼굴엔 감은 그림이 있을 때만(없으면 예전처럼 안 그림)', () => {
+    expect(drawn(pick('pupil'), 'closed')).toEqual([]);
+    expect(drawn(pick('pupil', { variantHashes: { closed: H_SHUT } }), 'closed')).toEqual([SHUT, SHUT]);
+  });
+
+  it('액세서리도 감은 그림을 쓴다', () => {
+    setRemoteParts(parseRemoteParts(one({ slot: 'acc', variantHashes: { closed: H_SHUT } })));
+    const s = reduce(DEFAULT_STATE, { t: 'accAdd', id: 'w:p1' });
+    expect(drawn(s, 'open')).toEqual([IMG]);
+    expect(drawn(s, 'closed')).toEqual([SHUT]);
+  });
+});
+
+describe('createPartImages — 그림 불러오기', () => {
+  it('주소마다 한 번 · CORS 로 · 다 불러오면 알리고 그 뒤에야 그림을 준다', () => {
+    const made: ImgLike[] = [];
+    const onLoad = vi.fn();
+    const images = createPartImages(onLoad, () => {
+      const im = { crossOrigin: null, src: '', onload: null, onerror: null } as ImgLike;
+      made.push(im);
+      return im;
+    });
+    expect(images(IMG)).toBeNull();
+    expect(images(IMG)).toBeNull();
+    expect(made).toHaveLength(1);
+    expect(made[0]?.crossOrigin).toBe('anonymous');
+    expect(made[0]?.src).toBe(IMG);
+    made[0]?.onload?.(new Event('load'));
+    expect(onLoad).toHaveBeenCalledTimes(1);
+    expect(images(IMG)).toBe(made[0]);
+  });
+
+  it('못 불러온 그림은 계속 null — 다시 부르지도 않는다', () => {
+    const made: ImgLike[] = [];
+    const images = createPartImages(
+      () => {},
+      () => {
+        const im = { crossOrigin: null, src: '', onload: null, onerror: null } as ImgLike;
+        made.push(im);
+        return im;
+      },
+    );
+    images(IMG);
+    (made[0]?.onerror as (() => void) | null)?.();
+    expect(images(IMG)).toBeNull();
+    expect(made).toHaveLength(1);
+  });
+});
+
+describe('동공 그림 칠하기 — 흰 부분 = 고른 눈 색', () => {
+  /** 칠하기를 글로 적는 가짜 판 */
+  function canvas() {
+    const log: string[] = [];
+    const ctx = {
+      drawImage: () => log.push(`draw ${ctx.globalCompositeOperation}`),
+      fillRect: (x: number, y: number, w: number, h: number) =>
+        log.push(`fill ${ctx.fillStyle} ${ctx.globalCompositeOperation} ${x} ${y} ${w} ${h}`),
+      fillStyle: '',
+      globalCompositeOperation: 'source-over' as GlobalCompositeOperation,
+    };
+    const c: TintCanvas & { log: string[] } = { width: 0, height: 0, getContext: () => ctx, log };
+    return c;
+  }
+
+  it('그림 → 색 곱하기 → 그림 알파로 오리기 · 판은 그림 크기', () => {
+    const c = canvas();
+    expect(tintImage({} as CanvasImageSource, 40, 48, '#2E5E9C', c)).toBe(c);
+    expect([c.width, c.height]).toEqual([40, 48]);
+    expect(c.log).toEqual(['draw source-over', 'fill #2E5E9C multiply 0 0 40 48', 'draw destination-in']);
+    const empty = canvas();
+    expect(tintImage({} as CanvasImageSource, 0, 48, '#2E5E9C', empty)).toBeNull(); // 크기 없는 그림은 칠하지 않는다
+    expect(empty.log).toEqual([]);
+  });
+
+  it('서버 동공만 칠한다 — 아이라인 · 액세서리는 그대로', () => {
+    setRemoteParts([
+      { id: 'p', slot: 'pupil', name: N, src: IMG, closedSrc: null, w: 16, h: 18 },
+      { id: 'e', slot: 'eyeline', name: N, src: IMG, closedSrc: null, w: 16, h: 18 },
+    ]);
+    expect(findItem('pupil', 'w:p').open('#123456')).toEqual([
+      { k: 'img', src: IMG, w: 16, h: 18, tint: true },
+    ]);
+    expect(findItem('eyeline', 'w:e').open('#123456')).toEqual([{ k: 'img', src: IMG, w: 16, h: 18 }]);
+  });
+
+  it('불러온 뒤에야 · 색마다 한 번만 칠하고 기억한다(색 고르개를 끌어도 쌓이지 않게 32개까지)', () => {
+    const made: ImgLike[] = [];
+    const boards: ReturnType<typeof canvas>[] = [];
+    const images = createPartImages(
+      () => {},
+      () => {
+        const im = {
+          crossOrigin: null,
+          src: '',
+          onload: null,
+          onerror: null,
+          naturalWidth: 40,
+          naturalHeight: 48,
+        } as ImgLike;
+        made.push(im);
+        return im;
+      },
+      () => {
+        const c = canvas();
+        boards.push(c);
+        return c;
+      },
+    );
+    expect(images(IMG, '#111111')).toBeNull(); // 아직 못 불러옴
+    made[0]?.onload?.(new Event('load'));
+    const a = images(IMG, '#111111');
+    expect(a).toBe(boards[0]);
+    expect(images(IMG, '#111111')).toBe(a);
+    expect(images(IMG)).toBe(made[0]); // 칠하지 않은 원본은 그대로
+    expect(boards).toHaveLength(1);
+    for (let i = 0; i < 40; i++) images(IMG, `#0000${String(i).padStart(2, '0')}`);
+    expect(images(IMG, '#111111')).not.toBe(a); // 오래된 것은 버렸다가 다시 칠한다
+    expect(boards).toHaveLength(42);
+  });
+});
+
+describe('fetchWebParts — 공개 목록 읽기', () => {
+  const res = (status: number, body: unknown) =>
+    ({ ok: status >= 200 && status < 300, status, json: async () => body }) as Response;
+
+  it('API 서버의 /v2/catalog(상품만 · 기본 몸 모델)를 쿠키 없이 · 봉투 data 를 검사해 돌려준다', async () => {
+    const f = vi.fn(async () => res(200, { success: true, data: one() }));
+    const r = await fetchWebParts(f as unknown as typeof fetch);
+    expect(r).toEqual({ t: 'ok', parts: parseRemoteParts(one()) });
+    expect(f).toHaveBeenCalledWith(
+      `${API_ORIGIN}/v2/catalog?only=products&target=baseModel`,
+      expect.objectContaining({ credentials: 'omit' }),
+    );
+  });
+
+  it('실패는 «failed» 로 — 상태 코드 · 봉투가 아님 · 연결 안 됨 · 시간 초과', async () => {
+    const cases: (typeof fetch)[] = [
+      (async () => res(404, null)) as unknown as typeof fetch,
+      (async () => res(200, { success: false })) as unknown as typeof fetch,
+      (async () => res(200, '<html>')) as unknown as typeof fetch,
+      (async () => {
+        throw new TypeError('network');
+      }) as unknown as typeof fetch,
+    ];
+    for (const f of cases) expect((await fetchWebParts(f)).t).toBe('failed');
+    const slow = ((_u: string, init: RequestInit) =>
+      new Promise((_, rej) =>
+        init.signal?.addEventListener('abort', () => rej(new Error('abort'))),
+      )) as unknown as typeof fetch;
+    expect(await fetchWebParts(slow, API_ORIGIN, 5)).toEqual({ t: 'failed', why: '시간 초과' });
+  });
+
+  it('올린 파츠가 없으면 빈 목록(실패와 다르다)', async () => {
+    const f = (async () => res(200, { success: true, data: { products: [] } })) as unknown as typeof fetch;
+    expect(await fetchWebParts(f)).toEqual({ t: 'ok', parts: [] });
+  });
+});

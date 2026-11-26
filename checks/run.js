@@ -38,6 +38,11 @@ const { spawnSync } = require('child_process');
 
 const CHECKS = __dirname;
 const ROOT = path.resolve(__dirname, '..');
+/* 저장소 구조(#431): 앱은 apps/desktop · 웹 관리자는 apps/admin · Firebase(규칙 · 함수 · Hosting)는 firebase/.
+   검사는 옮기기 전 모양(루트 = 앱 · functions/ · hosting/ · 규칙 파일 · scripts/)을 알고 있으므로,
+   스테이징이 그 모양을 다시 조립한다 — 검사 파일은 경로를 고치지 않는다. */
+const DESKTOP = path.join(ROOT, 'apps', 'desktop');
+const FIREBASE = path.join(ROOT, 'firebase');
 const MANIFEST = path.join(CHECKS, 'CHECKS.md');
 
 /* 스테이징에 올리지 않는 것. `checks` 자신은 따로 복사하므로 여기서 뺀다. */
@@ -46,10 +51,13 @@ const MANIFEST = path.join(CHECKS, 'CHECKS.md');
      검사가 읽는 원본(렌더러·main)이 그 안에 없으니 빼도 판정은 그대로다. */
 /* '.claude' — Claude Code 워크트리(.claude/worktrees/*)가 저장소 사본을 통째로 품고 있어서,
    깊은 원본 찾기(findDeep)가 app.js 를 두 곳에서 찾고 고르지 못해 «원본 없음» 이 된다.
-   'web-admin' — 웹 관리자(Vite)는 자기 테스트(vitest)로 검사한다. node_modules 를 품고 있어 복사만 무겁다. */
+   'web-admin' — 옛 자리(지금은 apps/admin). 옮기기 전에 받아 둔 PC 에 남은 폴더(node_modules)를 복사하지 않게. */
+/* 'apps' · 'packages' · 'firebase' — 루트를 펼칠 때는 빼고, 아래 stage() 가 옛 모양 자리로 따로 펼친다
+   (apps/ · firebase/functions 는 node_modules 를 품고 있어 통째로 복사하면 무겁다). */
 const SKIP = new Set([
   'node_modules', '.git', '.github', 'dist', 'out', 'release',
   'checks', 'build', '디자인', '.vscode', '.idea', 'functions', '.claude', 'web-admin',
+  'apps', 'packages', 'firebase',
 ]);
 
 /* 검사들이 실제로 읽는 원본 — 없으면 그 검사가 통째로 헛돈다.
@@ -74,10 +82,11 @@ const say = console.log;
 const sha12 = (p) => crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex').slice(0, 12);
 
 /* ── 검사 목록 ─────────────────────────────────────────────────────────────
-   `run.js` 자신은 검사가 아니다. 빼지 않으면 자기를 돌리다 무한히 들어간다. */
+   `run.js` 자신은 검사가 아니다. 빼지 않으면 자기를 돌리다 무한히 들어간다. `manifest.js` 는 러너가 쓰는 도우미다. */
+const NOT_CHECKS = new Set(['run.js', 'manifest.js']);
 function listChecks(){
   return fs.readdirSync(CHECKS)
-    .filter(f => (f.endsWith('.js') || f.endsWith('.py')) && f !== 'run.js')
+    .filter(f => (f.endsWith('.js') || f.endsWith('.py')) && !NOT_CHECKS.has(f))
     .filter(f => !filters.length || filters.some(q => f.includes(q)))
     .sort();
 }
@@ -87,24 +96,19 @@ function listChecks(){
    (★낡음 · ← …) 이 붙어 있어도 이름과 12자리만 본다. */
 function readManifest(){
   if (!fs.existsSync(MANIFEST)) return null;
-  const m = new Map();
-  for (const line of fs.readFileSync(MANIFEST, 'utf8').split('\n')){
-    const cell = line.split('|').map(s => s.trim());
-    if (cell.length < 4) continue;
-    const name = cell[1].replace(/\*\*/g, '').trim();
-    const hash = (cell[3].match(/\b([0-9a-f]{12})\b/) || [])[1];
-    if (name && hash && /\.(js|py)$/.test(name)) m.set(name, hash);
-  }
-  return m.size ? m : null;
+  const r = require('./manifest.js').parseManifest(fs.readFileSync(MANIFEST, 'utf8'));
+  return r.map.size ? r : null;
 }
 
 function verify(files){
-  const man = readManifest();
+  const read = readManifest();
+  const man = read && read.map;
   if (!man){
     say('  ? CHECKS.md 를 못 읽었다 — 정본 대조 없이 돈다. 초록이어도 근거로 쓰지 말 것.');
     return { known: 0, bad: 0, missing: files.length };
   }
   let known = 0, bad = 0, missing = 0;
+  for (const name of read.dupes){ bad++; say(`  ✗ ${name} — 표에 두 번 있다. 옛 줄을 지울 것(뒤 줄로만 대조하면 옛 줄이 조용히 남는다)`); }
   for (const f of files){
     const want = man.get(f);
     const got = sha12(path.join(CHECKS, f));
@@ -121,15 +125,21 @@ function verify(files){
 }
 
 /* ── 스테이징 ──────────────────────────────────────────────────────────────
-   루트를 펼치고, 그다음 `app/` 을 같은 층에 펼친다. 이름이 겹치면 **루트가 이긴다**
-   (`main.js` 는 루트 것이 진짜다). 마지막에 검사를 같이 넣어 __dirname 을 맞춘다. */
+   앱 폴더(apps/desktop)를 펼치고, 저장소 루트 · `app/` 을 같은 층에 펼친다. 이름이 겹치면 **앞에 펼친 것이 이긴다**
+   (`main.js` · `package.json` 은 앱 것이 진짜다). 마지막에 검사를 같이 넣어 __dirname 을 맞춘다.
+   ★ 폴더 이름이 겹치면(`scripts/` — 앱 · 루트 · firebase 셋에 있다) 합친다. 안에서 파일 이름이 겹치면 먼저 것이 이긴다. */
 function mirror(from, into, staged){
   if (!fs.existsSync(from)) return;
   for (const name of fs.readdirSync(from)){
-    if (SKIP.has(name) || staged.has(name)) continue;
+    if (SKIP.has(name)) continue;
     const src = path.join(from, name);
     const st = fs.statSync(src);
-    if (st.isDirectory() && name === 'app' && from === ROOT) continue;  // 아래에서 내용을 펼친다
+    if (st.isDirectory() && name === 'app' && from === DESKTOP) continue;  // 아래에서 내용을 펼친다
+    if (staged.has(name)){
+      const dst = path.join(into, name);
+      if (st.isDirectory() && fs.statSync(dst).isDirectory()) fs.cpSync(src, dst, { recursive: true, force: false });
+      continue;
+    }
     fs.cpSync(src, path.join(into, name), { recursive: true });
     staged.add(name);
   }
@@ -142,7 +152,7 @@ function mirror(from, into, staged){
    ★ app/ 바로 밑(한 층)은 mirror 가 이미 폴더째 펼친다 — 여기서는 그 아래 폴더 안의 .js 만 이름으로 올린다. vendor/ 는 뺀다(외부 라이브러리).
    ★ 이름이 이미 있으면(루트가 이긴다 · 먼저 본 것) 덮지 않고 알린다 — 폴더가 달라도 파일 이름은 겹치면 안 된다(CLAUDE.md). */
 function flattenApp(dir, staged){
-  const APP = path.join(ROOT, 'app');
+  const APP = path.join(DESKTOP, 'app');
   if (!fs.existsSync(APP)) return;
   const walk = (d, depth) => {
     if (depth > 4) return;
@@ -164,11 +174,23 @@ const flatDup = [];
 function stage(){
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tw-checks-'));
   const staged = new Set();
+  mirror(DESKTOP, dir, staged);
   mirror(ROOT, dir, staged);
-  mirror(path.join(ROOT, 'app'), dir, staged);
+  mirror(path.join(DESKTOP, 'app'), dir, staged);
   flattenApp(dir, staged);
+  /* Firebase — 규칙 · firebase.json · hosting/ · scripts/ 는 옛 자리(루트)로, 새 자리(firebase/)에도 한 벌.
+     새 자리는 저장소 루트 기준 경로를 쓰는 도구(scripts/build-design-tokens.js 의 firebase/hosting/help)를 위한 것이다. */
+  mirror(FIREBASE, dir, staged);
+  if (fs.existsSync(FIREBASE)){
+    const fbCopy = path.join(dir, 'firebase');
+    fs.mkdirSync(fbCopy, { recursive: true });
+    for (const name of fs.readdirSync(FIREBASE)){
+      if (SKIP.has(name)) continue;
+      fs.cpSync(path.join(FIREBASE, name), path.join(fbCopy, name), { recursive: true });
+    }
+  }
   // functions/ 는 node_modules 때문에 SKIP 이라, 맨 위 .js 만 스테이징의 functions/ 로 따로 복사한다.
-  const FN = path.join(ROOT, 'functions');
+  const FN = path.join(FIREBASE, 'functions');
   if (fs.existsSync(FN)){
     fs.mkdirSync(path.join(dir, 'functions'), { recursive: true });
     for (const e of fs.readdirSync(FN, { withFileTypes: true }))
@@ -178,7 +200,7 @@ function stage(){
     /* ⚠️ 폴더는 건너뛴다. 재귀 옵션 없이 cpSync 에 폴더를 주면 던지고, 그러면
        **한 바퀴가 통째로 안 돈다.** 스테이징은 평면이어야 하므로 폴더는 애초에 대상이 아니다
        (`checks/tools/` 처럼 손으로 돌리는 도구를 두는 자리). */
-    if (e.isDirectory() || e.name === 'run.js') continue;
+    if (e.isDirectory()) continue;   // run.js 도 올린다 — 러너 판정 검사(sim-run-verdict.js)가 읽는다
     fs.cpSync(path.join(CHECKS, e.name), path.join(dir, e.name));
   }
   return dir;
@@ -189,11 +211,16 @@ function stage(){
    (`app/js/app.js` 같은) 하위 폴더째로 올라가 평면에는 안 보인다 — 검사는 "없다" 고 한다.
    ⚠️ 폴더 구조를 여기서 가정하지 않는다. **없다고 확인된 것만** 찾아서 올린다.
      둘 이상 나오면 고르지 않고 알려만 준다 — 어느 쪽이 진짜인지는 이 파일이 판단할 일이 아니다. */
+/* 깊은 찾기는 옮긴 자리(apps/ · firebase/ · packages/)도 들어간다 — 루트를 펼칠 때만 빼는 이름이다.
+   웹 관리자(apps/admin)는 뺀다: 자기 시험이 있고 index.html 같은 같은 이름을 품어 «두 곳» 으로 고르지 못하게 된다. */
+const DEEP_OK = new Set(['apps', 'packages', 'firebase']);
+const DEEP_SKIP_PATHS = new Set([path.join(ROOT, 'apps', 'admin')]);
 function findDeep(dir, name, out, depth){
   if (depth > 6) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })){
-    if (SKIP.has(e.name)) continue;
+    if (SKIP.has(e.name) && !DEEP_OK.has(e.name)) continue;
     const p = path.join(dir, e.name);
+    if (DEEP_SKIP_PATHS.has(p)) continue;
     if (e.isDirectory()) findDeep(p, name, out, depth + 1);
     else if (e.name === name) out.push(p);
   }
@@ -245,6 +272,44 @@ function verdict(out){
   return tail.some(l => PASS_LINE.test(l)) ? { fail: 0 } : null;
 }
 
+/* ── 끝까지 돌았는가 — 조용한 종료 막이 ────────────────────────────────────
+   async 로 도는 sim 이 끝나지 않는 await 에 걸리면 node 는 `process.exit` 없이 종료코드 0 으로
+   조용히 끝난다(할 일이 없어졌을 뿐이다). 요약 줄이 없는 sim 은 그게 초록으로 셈됐다.
+   ⇒ node sim 은 `-r` 로 아래 가드를 먼저 싣고 띄운다. `beforeExit`(= process.exit 을 안 거치고
+     할 일이 없어져 끝남)에 표식 파일만 남긴다. 정상 sim 도 끝까지 가서 요약을 찍고 자연스럽게
+     끝나는 일이 많으므로, **여기서 빨강으로 정하지 않는다** — 러너가 «표식 있음 + 요약·끝줄 없음»
+     일 때만 `끝까지 못 돎` 으로 센다(runOne). */
+const GUARD_SRC = "process.on('beforeExit', function(){ try{ require('fs').writeFileSync(process.env.TW_GUARD_MARK, '1'); }catch(_){} });\n";
+
+/* ── 요약 줄 모양 ──────────────────────────────────────────────────────────
+   sim 49개가 `통과 N · 실패 N` 이 아닌 말로 끝낸다(`74 통과 · 0 실패` · `결과: 55 통과 · 0 실패` ·
+   `결과 38 · 0` · `76 · 0` · `판정: 초록 N · 빨강 M · 검사못함 K`). 검사 파일은 해시로 묶여 있어
+   (CHECKS.md §3) 하나씩 맞추면 흩어지므로 러너가 같은 뜻으로 읽는다.
+   ⚠️ 새 모양은 **줄 전체**가 그 모양일 때만 센다(앞에 `✓`·`검사이름:`·`결과:` 만 허용) —
+     본문 속 «3 · 0» 같은 글을 요약으로 잘못 줍지 않게. */
+const SUMMARY_TAIL = 5;   // 요약은 끝에서 이만큼 줄 안에서만 찾는다(빈 줄 제외)
+function findSummary(out){
+  /* ⚠️ 끝 몇 줄만 본다. 멈춘 sim 이 앞에서 찍은 `✓ 0 · 0` · 절 요약(`1절: 통과 3 · 실패 0`)을 최종 요약으로 줍거나,
+     끝난 sim 의 본문 숫자 줄을 요약으로 줍지 않게. */
+  const lines = out.split('\n').filter(l => l.trim()).slice(-SUMMARY_TAIL);
+  const tail = lines.join('\n');
+  const old = [...tail.matchAll(/통과\s*(\d+)\s*·\s*실패\s*(\d+)(?:\s*·\s*검사못함\s*(\d+))?/g)].pop();
+  if (old) return { pass: +old[1], fail: +old[2], huh: old[3] ? +old[3] : 0 };
+  const lead = '^\\s*[✓✗]?\\s*(?:[\\w.\\-]+:\\s*)?(?:결과:?\\s*|판정:?\\s*)?';
+  const shapes = [
+    [new RegExp(lead + '(\\d+)\\s*통과\\s*·\\s*(\\d+)\\s*실패\\s*$'), 1, 2, 0],
+    [new RegExp(lead + '초록\\s*(\\d+)\\s*·\\s*빨강\\s*(\\d+)(?:\\s*·\\s*검사못함\\s*(\\d+))?\\s*$'), 1, 2, 3],
+    [new RegExp(lead + '(\\d+)\\s*·\\s*(\\d+)\\s*$'), 1, 2, 0],
+  ];
+  for (let i = lines.length - 1; i >= 0; i--){
+    for (const [re, a, b, c] of shapes){
+      const m = lines[i].match(re);
+      if (m) return { pass: +m[a], fail: +m[b], huh: c && m[c] ? +m[c] : 0 };
+    }
+  }
+  return null;
+}
+
 /* ── 한 개 돌리기 ──────────────────────────────────────────────────────────
    ⚠️ 종료 코드만 보면 안 된다. 검사들은 0=통과 · 1=실패 · 2=검사못함 을 쓰는데,
      "원본을 못 찾음" 도 그 코드로 나온다. 출력을 같이 읽어야 그 둘이 갈린다. */
@@ -257,18 +322,20 @@ function runOne(file, cwd){
        버퍼를 안 비우므로 audit.py 가 19절을 다 찍고 섰든 1절에서 섰든 **로그가 0바이트**다 —
        실제로 `(한 줄도 못 찍고 섰다)` 로 왔다. 그 한 줄이 "어디서 섰나" 의 유일한 단서다. */
   /* 검사는 저장소 밖 임시 폴더에서 돈다 — 저장소 devDependencies(jsdom 등)를 찾게 NODE_PATH 로 저장소 node_modules 를 넘긴다. */
-  const nodeEnv = Object.assign({}, process.env, { NODE_PATH: [path.join(ROOT, 'node_modules'), process.env.NODE_PATH].filter(Boolean).join(path.delimiter) });
-  const env = py ? Object.assign({}, process.env,
-    { PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1', PYTHONUNBUFFERED: '1' }) : nodeEnv;
-  const tries = py ? [['python3', [file]], ['python', [file]]] : [[process.execPath, [file]]];
+  const env = Object.assign({}, process.env,
+    py ? { PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1', PYTHONUNBUFFERED: '1' }
+       : { NODE_PATH: [path.join(ROOT, 'node_modules'), process.env.NODE_PATH].filter(Boolean).join(path.delimiter) });
+  const logs = cwd + '-logs';
+  try { fs.mkdirSync(logs, { recursive: true }); } catch (_){}
+  const guard = path.join(logs, 'tw-guard.js'), mark = path.join(logs, file + '.beforeExit');
+  if (!py){ fs.writeFileSync(guard, GUARD_SRC); try { fs.rmSync(mark, { force: true }); } catch (_){} env.TW_GUARD_MARK = mark; }
+  const tries = py ? [['python3', [file]], ['python', [file]]] : [[process.execPath, ['-r', guard, file]]];
   /* ★ 출력을 파이프가 아니라 **파일**로 받는다.
        파이프로 받으면 시간초과로 죽일 때 아직 안 비워진 버퍼가 통째로 날아간다. Windows 에서
        실측했다 — 다 돌고 안 죽은 검사 셋이 출력 한 줄 없이 `시간초과` 로 왔다. 그러면
        "다 돌고 안 죽음" 과 "진짜 멈춤" 을 가를 수가 없다(아래 lingered 판정이 죽는다).
      파일은 쓰는 즉시 디스크에 남으므로 강제 종료돼도 그때까지 찍은 것이 그대로 있다. */
   /* ⚠️ 로그는 스테이징 **밖**에 쓴다. 안에 쓰면 검사가 폴더를 훑을 때 제 로그를 원본으로 본다. */
-  const logs = cwd + '-logs';
-  try { fs.mkdirSync(logs, { recursive: true }); } catch (_){}
   const of = path.join(logs, file + '.out'), ef = path.join(logs, file + '.err');
   let r = null;
   for (const [cmd, a] of tries){
@@ -284,7 +351,7 @@ function runOne(file, cwd){
   const slurp = (f) => { try { return fs.readFileSync(f, 'utf8'); } catch (_){ return ''; } };
   const so = slurp(of), se = slurp(ef);
   const out = so + se;
-  const sum = [...out.matchAll(/통과\s*(\d+)\s*·\s*실패\s*(\d+)(?:\s*·\s*검사못함\s*(\d+))?/g)].pop();
+  const sum = findSummary(so) || findSummary(se);
   /* ★ 판정은 **stdout 과 stderr 를 따로** 읽는다. 이어붙이면 안 된다 —
        `verdict` 는 마지막 세 줄만 보는데, 이어붙이면 stderr 가 통째로 뒤에 붙어
        **검사가 제 발로 찍은 판정 줄을 밀어낸다.** stderr 세 줄이면 그것만으로 사라진다(실측).
@@ -308,14 +375,20 @@ function runOne(file, cwd){
   /* ⚠️ `killed` 를 같이 봐야 한다. 끊긴 프로세스의 `status` 는 **null** 이라, 여기서 `status === 0`
        만 보면 끝줄이 멀쩡히 찍혀 있어도 못 쓴다 — `sim-fly-replay` · `sim-gacha-prune` 이
        마지막 줄에 `✓ 전부 통과` 를 남기고도 시간초과 셋 안에 묻혀 있던 이유가 이 한 줄이었다. */
-  const allPass = !sum && !!end && end.fail === 0 && (r.status === 0 || killed);
+  /* ★ 조용한 종료: 가드 표식(beforeExit)이 있는데 요약도 끝줄도 없다 = 끝까지 못 돌고 할 일이 없어져 끝난 것.
+       종료코드가 0 이어도 빨강이다. (가드 설명은 GUARD_SRC) */
+  const quiet = !py && !killed && fs.existsSync(mark) && !sum && !end;
+  /* ★ 출력에 `✗` 로 시작하는 줄이 하나라도 있으면 종료코드가 0 이어도 빨강이다 —
+       중간에 찍힌 ✗ 를 종료코드·끝줄만 보다 놓치던 구멍. (mutation test 용 «성공해야 하는 ✗» 는 없다 — 전체 실측) */
+  const xmarks = out.split('\n').filter(l => /^\s*✗/.test(l)).length;
+  const allPass = !sum && !!end && end.fail === 0 && (r.status === 0 || killed) && !xmarks;
   return {
-    file, code: r.status, out, allPass,
+    file, code: r.status, out, allPass, quiet, xmarks,
     lingered: killed && !!(sum || end), timedOut: killed && !sum && !end,
-    pass: sum ? +sum[1] : null,
+    pass: sum ? sum.pass : null,
     /* 요약 줄이 없으면 끝줄이 센 실패 수를 쓴다. 안 그러면 **끊긴 빨강**이 집계에서 샌다. */
-    fail: sum ? +sum[2] : (end ? end.fail : null),
-    huh: sum && sum[3] ? +sum[3] : 0,
+    fail: sum ? sum.fail : (end ? end.fail : null),
+    huh: sum ? sum.huh : 0,
   };
 }
 
@@ -377,7 +450,7 @@ function classify(r, cwd){
      ④ 나머지는 종료코드로 가른다. 단 **끊긴 것(`lingered`)의 null 은 실패가 아니다.** */
 function isRed(r){
   if (r.skipped || r.blocked || r.timedOut) return false;
-  if (r.fail > 0) return true;
+  if (r.fail > 0 || r.quiet || r.xmarks > 0) return true;
   if (r.allPass) return false;
   return r.code !== 0 && !r.lingered;
 }
@@ -392,12 +465,15 @@ function render(r){
   const mark = r.blocked ? '·' : r.timedOut ? '⏱' : bad ? '✗' : '✓';
   /* 요약 줄이 없는 검사는 끝줄이 센 실패 수를 쓴다. `종료코드 1` 보다 그쪽이 훨씬 많은 말을
      하고, 끊긴 검사는 종료코드가 아예 `null` 이라 그대로 두면 `종료코드 null` 이 찍힌다. */
-  const base = r.allPass ? '전부 통과'
+  const lastLine = () => (r.out.split('\n').filter(l => l.trim()).pop() || '').trim().slice(0, 60);
+  const base = r.quiet ? `끝까지 못 돎 — 요약 없이 조용히 끝남(종료코드 ${r.code}${r.xmarks ? ` · ✗ ${r.xmarks}줄` : ''}) 마지막: ${lastLine()}`
+    : r.allPass ? '전부 통과'
     : r.pass === null ? (r.fail > 0 ? `실패 ${r.fail}건` : `종료코드 ${r.code}`)
     : `${r.pass} · ${r.fail}${r.huh ? ' · ' + r.huh : ''}`
       /* 요약 줄은 `실패 0` 인데 종료코드가 1 인 경우. 검사가 요약 밖에서 따로 실패를 세고
          나간 것이다 — 숫자만 믿으면 초록으로 둔갑한다. 위 ④ 가 빨강으로 잡고, 여기서 왜인지 적는다. */
-      + (r.fail === 0 && !r.lingered && r.code !== 0 ? `  (요약은 실패 0 인데 종료코드 ${r.code})` : '');
+      + (r.fail === 0 && !r.lingered && r.code !== 0 ? `  (요약은 실패 0 인데 종료코드 ${r.code})` : '')
+      + (r.xmarks && !r.quiet ? `  (✗ 줄 ${r.xmarks}개가 찍혔다 — 종료코드 ${r.code})` : '');
   const score = r.blocked ? `원본 없음${r.want ? ' — ' + r.want : ''}`
     : r.timedOut ? `시간초과 ${TIMEOUT / 1000}초 — 결과를 못 봤다`
     : r.lingered ? `${base}  (다 돌고 안 죽어서 끊음)`

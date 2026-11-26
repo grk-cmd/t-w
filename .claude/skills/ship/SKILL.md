@@ -72,7 +72,7 @@ gh api $R/statuses/$SHA -f state=success -f context=tw/verify  -f description='�
 
 ## 6. 끝
 - 승인을 받았으면 `gh api $R/statuses/$SHA -f state=success -f context=tw/owner -f description='mihioon 승인'`.
-- 버그 제보 수정이면 `node scripts/todo.js done <id> --release <판>`(관리자 gcloud 로그인이 있을 때만 — 없으면 건너뛰고 알린다).
+- 버그 제보 수정이면 `node scripts/todo.js done <id> --release <판>`(`node scripts/todo.js setup` 한 관리자만 — 안 했으면 건너뛰고 알린다).
 - 사용자에게 한 번만 보고: PR 링크 · 컨펌 · 검증 결과 한 줄씩 · 머지한 판 브랜치. 끝난 것을 다시 나열하지 않는다.
 
 하지 않는 것: 판 브랜치 · `admin` → main 합치기(릴리스 · 웹 관리자 내보낸 뒤 — 사용자가 정할 때만, merge commit), 운영 · 규칙 · 함수 배포, 판정 없이 머지.

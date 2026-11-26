@@ -18,8 +18,8 @@ const APP  = fs.readFileSync('app.js', 'utf8');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
-const stripCss = (s) => s.replace(/<!--[\s\S]*?-->/g, ' ').replace(/\/\*[\s\S]*?\*\//g, ' ');
-const stripJs  = (s) => stripCss(s).replace(/(^|[^:\\'"])\/\/[^\n]*/g, '$1 ');
+/* 주석 지우기(따옴표 안 건너뜀)는 검사끼리 한 벌 — sim-strip-comments.js */
+const { stripCss, stripJs } = require('./sim-strip-comments.js');
 const KOR = /Malgun Gothic|맑은 고딕|Dotum|돋움/;
 /* 글꼴 토큰 var(--tw-font-…)은 html 의 정의로 펼쳐서 본다 — 토큰 안의 목록도 같은 규칙을 받는다 */
 const TW_FONT = {};

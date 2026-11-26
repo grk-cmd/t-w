@@ -86,12 +86,12 @@ say('── 2. save');
   chk(S3.save(KEY, [2]).ok === true, '키가 없으면(처음) 쓴다');
   st2.m.set(KEY, '');
   chk(S3.save(KEY, [3]).ok === true, '빈 글이면 쓴다(읽기에서 키 없음과 같게)');
-  /* 깨 보기 — 막기를 빼면 망가진 원본이 덮인다 */
+  /* mutation test — 막기를 빼면 망가진 원본이 덮인다 */
   const brokeSrc = SRC.js.replace('if(unreadable(key)){', 'if(false){');
   const JB = load(brokeSrc).createJsonStore({ storage: () => st2 });
   st2.m.set(KEY, '[{');
   JB.save(KEY, [9]);
-  chk(brokeSrc !== SRC.js && st2.m.get(KEY) === '[9]', '  깨 보기: 막기를 빼면 망가진 원본이 덮인다 → 위 판정이 잡는다');
+  chk(brokeSrc !== SRC.js && st2.m.get(KEY) === '[9]', '  mutation test: 막기를 빼면 망가진 원본이 덮인다 → 위 판정이 잡는다');
 }
 
 say('── 3. 부르는 쪽 동작 고정');
@@ -118,7 +118,7 @@ say('── 3. 부르는 쪽 동작 고정');
   const AK = 'tw.animalPresets';
   const al = grab(SRC.animal, '_loadPresets'), as = grab(SRC.animal, '_savePresets');
   chk(!!al && !!as, 'animal.js 에 _loadPresets · _savePresets 가 있다');
-  const an = new Function('TwJsonStore', 'ANP_PRESET_KEY', 'TwErrorCodes', 'console', al + '\n' + as + '\nreturn { _loadPresets, _savePresets };')(Object.assign({}, J, S), AK, { notify: () => true }, { warn(){} });
+  const an = new Function('TwJsonStore', 'accountJsonStoreMod', 'ANP_PRESET_KEY', 'TwErrorCodes', 'console', al + '\n' + as + '\nreturn { _loadPresets, _savePresets };')(Object.assign({}, J, S), Object.assign({}, J, S), AK, { notify: () => true }, { warn(){} });   // 동물 프리셋은 계정 칸 위의 JSON 칸(accountJsonStoreMod — S-3e) · 진단 글은 TwJsonStore
   let o = an._loadPresets();
   chk(o && typeof o === 'object' && !Array.isArray(o) && Object.keys(o).length === 0, '동물: 키 없음 → {}');
   const o2 = an._loadPresets(); o.p1 = 1;
@@ -164,7 +164,7 @@ say('── 4. 실패 알림');
   const fns = ['_loadPresets', '_savePresets', '_presetSaveNotice'].map((n) => grabFn(SRC.animal, n));
   chk(fns.every(Boolean), 'animal.js 에 _loadPresets · _savePresets · _presetSaveNotice 가 있다');
   const S2 = Object.assign({}, J, J.createJsonStore({ storage: () => st }));
-  const an = new Function('TwJsonStore', 'ANP_PRESET_KEY', 'TwErrorCodes', 'console', 'toast', fns.join('\n') + '\nreturn { _loadPresets, _savePresets, _presetSaveNotice };')(S2, AK, EC, CON, (m) => toasts.push(m));
+  const an = new Function('TwJsonStore', 'accountJsonStoreMod', 'ANP_PRESET_KEY', 'TwErrorCodes', 'console', 'toast', fns.join('\n') + '\nreturn { _loadPresets, _savePresets, _presetSaveNotice };')(S2, S2, AK, EC, CON, (m) => toasts.push(m));
   st.m.set(AK, '{"p');
   an._loadPresets();
   chk(notes.length === 1 && notes[0][0] === 'E-CHAR-05', '동물: 읽기 실패 → E-CHAR-05');
@@ -182,11 +182,11 @@ say('── 4. 실패 알림');
   chk(toasts.length === 0 && notes.length === 1 && notes[0][0] === 'E-CHAR-07' && st.m.get(AK) === '{"p', '동물: 망가진 저장분 → 덮어쓰지 않고 E-CHAR-07');
   const E = load(SRC.codes);
   chk(['E-CHAR-01', 'E-CHAR-02', 'E-CHAR-03', 'E-CHAR-04', 'E-CHAR-05', 'E-CHAR-06', 'E-CHAR-07'].every((c) => E.info(c)), '번호 일곱이 에러코드 표에 있다');
-  /* 깨 보기 — 저장 결과를 안 보고 늘 성공 안내를 띄우면 */
+  /* mutation test — 저장 결과를 안 보고 늘 성공 안내를 띄우면 */
   const broke = sn.replace('if(res.ok){ toast(okMsg); return; }', 'toast(okMsg); return;');
   toasts.length = 0; notes.length = 0;
   new Function('deskPresetStoreMod', 'toast', 'notifyError', 'console', broke + '\nreturn _saveNotice;')(D, (m) => toasts.push(m), EC.notify, CON)({ ok: false, err: q }, 1, '저장했어요');
-  chk(broke !== sn && toasts.length === 1 && notes.length === 0, '  깨 보기: 실패에도 성공 안내를 띄우면 → 위 판정이 빨강(안내 1 · 번호 0)');
+  chk(broke !== sn && toasts.length === 1 && notes.length === 0, '  mutation test: 실패에도 성공 안내를 띄우면 → 위 판정이 빨강(안내 1 · 번호 0)');
 }
 
 say('── 5. 배선');
@@ -198,11 +198,11 @@ say('── 5. 배선');
   chk(!/localStorage/.test(strip(SRC.desk)), 'desk-preset-store.js 는 localStorage 를 직접 안 만진다');
   const ap = (SRC.animal.match(/function _loadPresets[^\n]*\n[^\n]*/) || [''])[0];
   chk(ap && !/localStorage/.test(ap), 'animal.js 프리셋 읽기 · 쓰기는 localStorage 를 직접 안 만진다');
-  chk(/createDeskPresetStore\(\{\n  jsonStore: TwJsonStore,\n  notifyError: \(\.\.\.a\)=>TwErrorCodes\.notify\(\.\.\.a\),\n(?:  [^\n]*\n)*?\}\);/.test(SRC.app), 'app.js — 책상 프리셋 저장에 jsonStore · notifyError 를 deps 로(다른 deps 는 sim-desk-preset.js 가 본다)');
+  chk(/createDeskPresetStore\(\{\n  jsonStore: accountJsonStoreMod,\n  notifyError: \(\.\.\.a\)=>TwErrorCodes\.notify\(\.\.\.a\),\n(?:  [^\n]*\n)*?\}\);/.test(SRC.app), 'app.js — 책상 프리셋 저장에 계정 칸 위의 jsonStore(accountJsonStoreMod) · notifyError 를 deps 로(다른 deps 는 sim-desk-preset.js 가 본다)');
   chk(/PRELOAD\.push\('json-store\.js'\);/.test(SRC.smoke), 'smoke PRELOAD 에 json-store.js');
-  /* 깨 보기 — 저장소가 직접 localStorage 를 다시 쓰면 위 판정이 잡는다 */
+  /* mutation test — 저장소가 직접 localStorage 를 다시 쓰면 위 판정이 잡는다 */
   const broke = SRC.desk.replace('jsonStore.load(PRESET_KEY, [])', "({ ok: true, list: JSON.parse(localStorage.getItem(PRESET_KEY)||'[]') })");
-  chk(broke !== SRC.desk && /localStorage/.test(strip(broke)), '  깨 보기: 책상 프리셋 저장이 localStorage 를 직접 읽으면 → 빨강');
+  chk(broke !== SRC.desk && /localStorage/.test(strip(broke)), '  mutation test: 책상 프리셋 저장이 localStorage 를 직접 읽으면 → 빨강');
 }
 
 say('\n' + (fail ? '✗ 통과 ' + pass + ' · 실패 ' + fail : '전부 통과 ✅ ' + pass));

@@ -1,11 +1,11 @@
 /* ═══ 🛠️ sim-admin-part-register.js — 파츠 · 책상 · 아이템 등록 창 모듈 (2026-10-14 신설 · 관리자 코드 admin 폴더 4번) ═══════════
    app.js «🗂️ 카탈로그 파츠 페이로드 · 파츠 삭제(관리자)» · «🛠️ 파츠 · 책상 · 아이템 등록 모달(관리자)» 를 parts/admin/admin-part-register.js 로
-   옮겼다. 동작은 그대로여야 한다. 배포 필드(buildPartPublishData)는 sim-publish-fields.js 가 본다.
-   ・1절: 만들 때 — 책상 · 아이템 등록 버튼 둘을 건다 · 내놓는 이름(다섯 + 검사용 PART_PUBLISH_FIELDS) · 서버 안 부름
-   ・2절: 파츠 삭제 — 지금 목록(다시 대입된 뒤)을 읽고 setSavedParts 로 바꿔 끼움 · 캐시 비움 · 입은 좌석에서 벗김 · 카탈로그에서 내림 · 꾸미기 다시 그림
-   ・3절: 값 열세 개는 읽는 함수로만 — 모듈 안에 이름만 쓴 자리(값으로 붙잡는 자리)가 없다
-   ・4절: app.js 연결 — 본문이 안 남음 · 빈 껍데기 · 원래 자리 · deps 42(함수 26 · 좌석 1 · 읽는 함수 13 · 쓰는 함수 1 · 꾸미기에 거는 함수 1) · 부르는 곳 14(갈고리 포함) · 🎰 gacha deps 셋 · html
-   ・5절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   옮겼다. D11-4 로 등록 · 고치기 · 삭제는 서버 카탈로그에 쓴다(catalogAdmin) — 서버 본문 칸은 sim-catalog-admin-api.js · sim-publish-fields.js 가 본다.
+   ・1절: 만들 때 — 책상 · 아이템 등록 버튼 둘을 건다 · 내놓는 이름(넷) · 서버 안 부름
+   ・2절: 파츠 삭제 — 서버 카탈로그의 파츠면 먼저 단종(못 하면 목록 그대로) · 지금 목록(다시 대입된 뒤)을 읽고 setSavedParts 로 바꿔 끼움 · 캐시 비움 · 입은 좌석에서 벗김 · 꾸미기 다시 그림
+   ・3절: 값 여덟 개는 읽는 함수로만 — 모듈 안에 이름만 쓴 자리(값으로 붙잡는 자리)가 없다
+   ・4절: app.js 연결 — 본문이 안 남음 · 빈 껍데기 · 원래 자리 · deps 34(함수 22 · 좌석 1 · 읽는 함수 8 · 쓰는 함수 1 · 꾸미기에 거는 함수 1 · 서버 경로 1) · 부르는 곳 13(갈고리 포함) · 🎰 gacha deps 셋 · html
+   ・5절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · admin-part-register.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
@@ -23,12 +23,12 @@ const WARD = ['wardrobe.js', 'parts/character/wardrobe.js', 'app/parts/character
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const noStr = (s) => s.replace(/'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|`(?:\\.|[^`\\])*`/g, '""');
 
-const VALUES = ['MAX_CUSTOM_ASSETS', 'MAX_CUSTOM_ITEMS', 'MAX_GACHA_PARTS_PER_CAT', 'MAX_GLB_BYTES', 'MAX_PARTS_PER_CAT',
+const VALUES = [
   'PART_CATS', 'gachaMod', 'partSceneCache', 'savedDesks', 'savedItems', 'savedParts', 'wdGizmo', 'wdPreviewBase'];
 const FNS = ['_b64', 'applyClothVisibility', 'catEquippedIds', 'equipPartOnSeat', 'findEntryById', 'generatePartThumbnail', 'getPartScene',
-  'getRecHides', 'parseGlbBytes', 'partCatInfo', 'partCatLimit', 'partEntryXf', 'partsInCat', 'partsInCatFor', 'persistSavedParts', 'refitSeatAfterParts', 'removeEntryFromCat',
-  'renderCrItems', 'renderWardrobe', 'resolveCatalogGlb', 'saveSlots', 'syncWdGizmoToXf', 'toHidesForSave', 'toast', 'unequipPartFromSeat', 'unequipStackablePart'];
-const EXPORTS = ['openPartRegister', 'openDeskRegister', 'deletePart', 'buildPartPublishData', 'syncPartRegGachaLock'];
+  'getRecHides', 'parseGlbBytes', 'partCatInfo', 'partEntryXf', 'persistSavedParts', 'refitSeatAfterParts', 'removeEntryFromCat',
+  'renderCrItems', 'renderWardrobe', 'resolveCatalogGlb', 'saveSlots', 'syncWdGizmoToXf', 'toast', 'unequipPartFromSeat', 'unequipStackablePart'];
+const EXPORTS = ['openPartRegister', 'openDeskRegister', 'deletePart', 'syncPartRegGachaLock'];
 
 /* 가짜 DOM · 가짜 deps 위에서 모듈을 만든다 */
 function build(src, st){
@@ -37,15 +37,19 @@ function build(src, st){
   const mk = (id) => ({ id, style: {}, value: '', checked: false, disabled: false, textContent: '', innerHTML: '', children: [], _on: {}, onclick: null, onchange: null,
     classList: { _s: new Set(), add(c){ this._s.add(c); }, remove(c){ this._s.delete(c); }, contains(c){ return this._s.has(c); }, toggle(){} },
     appendChild(c){ this.children.push(c); return c; }, addEventListener(t, f){ (this._on[t] = this._on[t] || []).push(f); }, focus(){}, querySelectorAll(){ return []; } });
-  const document = { getElementById: (id) => els[id] || (els[id] = mk(id)), createElement: () => mk(''), querySelectorAll: () => [] };
-  const fb = { unpublishPart: async (id) => { calls.push(['unpublishPart', id]); } };
+  const document = { addEventListener(t, f){ (this._h = this._h || {})[t] = ((this._h[t]) || []).concat(f); }, dispatchEvent(e){ ((this._h || {})[e.type] || []).forEach(f => f(e)); }, getElementById: (id) => els[id] || (els[id] = mk(id)), createElement: () => mk(''), querySelectorAll: () => [] };
+  const fb = {};
   const win = { firebaseAPI: fb };
+  const catalogAdmin = { archive: async (kind, id) => { calls.push(['archive', kind, id]); if(st.archiveFail) throw Object.assign(new Error('x'), { code: 'CONCURRENT_UPDATE' }); },
+    savePart: async (id, f, o) => { calls.push(['savePart', id, !!(o && o.create)]); },
+    notifyLocalOnly: () => { calls.push(['notifyLocalOnly']); },
+    reportFail: async (e, site) => { calls.push(['reportFail', site]); return 'refetch'; } };
   const fn = (name) => (...a) => { calls.push([name, ...a]); return name === 'catEquippedIds' ? (st.equipped[a[1]] || []) : undefined; };
-  const deps = { setSavedParts: (v) => { calls.push(['setSavedParts', v.map(p => p.id).join()]); st.parts = v; }, seats: st.seats,
+  const deps = { catalogAdmin, setSavedParts: (v) => { calls.push(['setSavedParts', v.map(p => p.id).join()]); st.parts = v; }, seats: st.seats,
     setAdminPartActions: (a) => { calls.push(['setAdminPartActions', Object.keys(a).sort().join()]); } };
   FNS.forEach(n => { deps[n] = fn(n); });
   VALUES.forEach(n => { deps[n] = () => st[n] !== undefined ? st[n] : (n === 'savedParts' ? st.parts : n === 'partSceneCache' ? st.cache : null); });
-  const api = new Function('window', 'document', 'firebaseAPI', 'confirm', 'module', src + '\nreturn window.TwAdminPartRegister;')(win, document, fb, () => true, undefined);
+  const api = new Function('window', 'document', 'firebaseAPI', 'confirm', 'module', 'var TwNav = { ADMIN_EXIT_EVENT: "tw-admin-exit" };\n' + src + '\nreturn window.TwAdminPartRegister;')(win, document, fb, () => true, undefined);
   const out = api.createAdminPartRegister(deps);
   return { out, calls, els, st };
 }
@@ -59,20 +63,32 @@ async function judgeAll(src, app, html, ward = WARD){
   try{ B = build(src, st); }catch(e){ t(false, '모듈을 만들 수 없다 — ' + e.message); }
   if(B){
     t(typeof B.els.deskRegBtn.onclick === 'function' && typeof B.els.itemRegBtn.onclick === 'function', '만들 때 책상 · 아이템 등록 버튼 둘을 건다');
-    t(EXPORTS.every(n => typeof B.out[n] === 'function') && Array.isArray(B.out.PART_PUBLISH_FIELDS) && Object.keys(B.out).length === 6,
-      '내놓는 이름 — 다섯(등록 창 · 책상 창 · 삭제 · 배포 데이터 · 가챠 잠금) + 검사용 PART_PUBLISH_FIELDS');
+    t(EXPORTS.every(n => typeof B.out[n] === 'function') && Object.keys(B.out).length === 4,
+      '내놓는 이름 — 넷(등록 창 · 책상 창 · 삭제 · 가챠 잠금)');
     t(B.calls.filter(c => c[0] !== 'setAdminPartActions').length === 0, '만들 때는 서버 · app.js 함수를 안 부른다(꾸미기에 거는 것만)');
+    /* 서버에 없는(이 PC 에만 있는) 파츠를 고치려 하면 서버를 부르지 않고 번호로 알린다 */
+    st.parts = [{ id: 'loc1', name: '로컬', cat: 'hat' }, { id: 'srv1', name: '서버', cat: 'hat', fromCatalog: true }]; const nLoc = B.calls.length;
+    st.PART_CATS = []; B.els.partRegFile = Object.assign(B.els.partRegFile || {}, { files: [] }); B.out.openPartRegister('hat', st.parts[0]);
+    await B.els.partRegGo.onclick();
+    t(B.calls.slice(nLoc).map(c => c[0]).filter(n => /^(notifyLocalOnly|savePart|reportFail)$/.test(n)).join() === 'notifyLocalOnly' && !B.els.partRegGo.disabled, '★ 서버 카탈로그에 없는 파츠 고치기 — 서버를 안 부르고 번호로 알린다(고치는 척하지 않는다)');
     /* 2. 파츠 삭제 — app.js 가 목록을 다시 대입한 뒤 */
     const seat = { charDef: { equippedParts: { hat: 'p9' } }, stackedPartObjs: {} };
-    st.parts = [{ id: 'p8' }, { id: 'p9' }]; st.cache = new Map([['p9', 1]]); st.seats.push(seat); st.equipped = { hat: ['p9'] };
-    B.out.deletePart('p9');
-    await new Promise(res => setImmediate(res));
+    st.parts = [{ id: 'p8' }, { id: 'p9', fromCatalog: true }]; st.cache = new Map([['p9', 1]]); st.seats.push(seat); st.equipped = { hat: ['p9'] };
+    await B.out.deletePart('p9');
     const names = B.calls.map(c => c[0]);
     t(B.calls.some(c => c[0] === 'setAdminPartActions' && c[1] === 'deletePart,openPartRegister'), '만들 때 꾸미기 창에 등록 · 삭제를 건다(setAdminPartActions — 꾸미기는 관리자 모듈을 부르지 않는다)');
     t(B.calls.some(c => c[0] === 'setSavedParts' && c[1] === 'p8'), '파츠 삭제 — 다시 대입된 뒤의 목록을 읽고 setSavedParts 로 바꿔 끼운다');
     t(!st.cache.has('p9') && names.includes('persistSavedParts'), '파츠 삭제 — 파싱 캐시를 비우고 저장한다');
     t(names.includes('removeEntryFromCat') && names.includes('applyClothVisibility'), '파츠 삭제 — 입은 좌석에서 벗긴다');
-    t(B.calls.some(c => c[0] === 'unpublishPart' && c[1] === 'p9') && names[names.length - 1] === 'renderWardrobe', '파츠 삭제 — 카탈로그에서 내리고 꾸미기를 다시 그린다');
+    t(B.calls.some(c => c[0] === 'archive' && c[1] === 'part' && c[2] === 'p9') && names.indexOf('archive') < names.indexOf('setSavedParts') && names[names.length - 1] === 'renderWardrobe', '★ 파츠 삭제 — 서버 카탈로그의 파츠는 먼저 단종하고(서버가 받은 뒤에야 목록을 바꾼다) 꾸미기를 다시 그린다');
+    /* 서버가 거절하면 이 PC 목록도 그대로 */
+    st.parts = [{ id: 'q1', fromCatalog: true }]; st.archiveFail = true; const nF = B.calls.length;
+    await B.out.deletePart('q1');
+    const after = B.calls.slice(nF).map(c => c[0]);
+    t(after.join() === 'archive,reportFail' && st.parts.length === 1, '★ 서버가 단종을 거절하면 번호로 알리고 이 PC 목록도 그대로 둔다(서버와 어긋나지 않게)');
+    st.archiveFail = false; st.parts = [{ id: 'l1' }]; const nL = B.calls.length;
+    await B.out.deletePart('l1');
+    t(!B.calls.slice(nL).some(c => c[0] === 'archive') && st.parts.length === 0, '  서버 카탈로그에 없던(로컬 전용) 파츠는 서버를 부르지 않고 이 PC 에서만 지운다');
     const n0 = B.calls.length; B.out.deletePart('없는id');
     t(B.calls.length === n0, '없는 파츠는 아무것도 안 한다');
   }
@@ -87,30 +103,31 @@ async function judgeAll(src, app, html, ward = WARD){
       bare.push(v);
     }
   }
-  t(bare.length === 0, '값 열세 개는 모듈 안에서 늘 이름() 으로 읽는다 — 값으로 붙잡는 자리 없음' + (bare.length ? ' (' + [...new Set(bare)].join(' · ') + ')' : ''));
+  t(bare.length === 0, '값 여덟 개는 모듈 안에서 늘 이름() 으로 읽는다 — 값으로 붙잡는 자리 없음' + (bare.length ? ' (' + [...new Set(bare)].join(' · ') + ')' : ''));
+  t(!/MAX_CUSTOM_(?:ASSETS|ITEMS)/.test(noStr(strip(src))), '★ 책상 · 아이템 개수 상한은 앱이 세지 않는다 — 서버가 판정한다(서버 진열 상한 #260 — CATALOG_SHELF_FULL · 개수도 서버 글로 온다)');
   t(!/[^.\w$]savedParts\s*=[^=]/.test(body.replace(/const savedParts = deps\.savedParts;/, '')), '모듈은 app.js 의 savedParts 에 직접 쓰지 않는다(setSavedParts 로)');
   /* 4. app.js 연결 */
   const A = strip(app);
-  t(!EXPORTS.some(n => new RegExp('function ' + n + '\\(').test(A)) && !/const PART_PUBLISH_FIELDS/.test(A), 'app.js 에 옮긴 본문이 남지 않았다');
+  t(!EXPORTS.some(n => new RegExp('function ' + n + '\\(').test(A)) , 'app.js 에 옮긴 본문이 남지 않았다');
   t(!/\bADMIN_PART_REG_OFF\b/.test(app), '빈 껍데기 없이 만든다(모듈은 늘 싣는다 — 가드 걷기 3차)');
   const mk = (app.match(/const adminPartReg = TwAdminPartRegister\.createAdminPartRegister\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = mk.split('\n').map(l => l.trim()).filter(Boolean);
   /* 오른쪽은 그 이름이 다른 모듈로 옮겨 가면 «mod.이름» 으로 바뀐다 — 키와 넘기는 방식만 본다 */
   const reEsc = (x) => x.replace(/[$]/g, '\\$');
-  t(deps.length === 42 && FNS.every(n => deps.some(d => new RegExp('^' + reEsc(n) + ': \\(\\.\\.\\.a\\)=>(?:[\\w$]+\\.)?' + reEsc(n) + '\\(\\.\\.\\.a\\),$').test(d)))
+  t(deps.length === 34 && FNS.every(n => deps.some(d => new RegExp('^' + reEsc(n) + ': \\(\\.\\.\\.a\\)=>(?:[\\w$]+\\.)?' + reEsc(n) + '\\(\\.\\.\\.a\\),$').test(d)))
     && VALUES.every(n => deps.some(d => new RegExp('^' + reEsc(n) + ': \\(\\)=>(?:[\\w$]+\\.)?' + reEsc(n) + '(?:\\(\\))?,$').test(d)))
-    && deps.includes('seats,') && deps.includes('setSavedParts: (v)=>{ savedParts = v; },') && deps.some(d => /^setAdminPartActions: (wardrobeMod\.)?setAdminPartActions,$/.test(d)),
-    'deps 42 — 함수 26 화살표 · 좌석 1 · 값 13 읽는 함수 · 쓰는 함수 1 · 꾸미기에 거는 함수 1 (' + deps.length + ')');
-  const h81 = app.indexOf('/* ═══ 🗂️ 카탈로그 파츠 페이로드 · 파츠 삭제(관리자) ═══ */'), h82 = app.indexOf('/* ═══ 🛠️ 파츠 · 책상 · 아이템 등록 모달(관리자) ═══ */');
-  t(h81 > 0 && h82 > h81 && app.indexOf('const adminPartReg =') > h82, '만드는 줄은 원래 자리(두 구역 머리 아래)');
+    && deps.includes('catalogAdmin: catalogAdmin,') && deps.includes('seats,') && deps.includes('setSavedParts: (v)=>{ savedParts = v; },') && deps.some(d => /^setAdminPartActions: (wardrobeMod\.)?setAdminPartActions,$/.test(d)),
+    'deps 34 — 함수 22 화살표 · 좌석 1 · 값 8 읽는 함수 · 쓰는 함수 1 · 꾸미기에 거는 함수 1 · 서버 경로 1 (' + deps.length + ')');
+  const h82 = app.indexOf('/* ═══ 🛠️ 파츠 · 책상 · 아이템 등록 모달(관리자) ═══ */');
+  t(h82 > 0 && app.indexOf('const adminPartReg =') > h82, '만드는 줄은 원래 자리(🛠️ 등록 모달 머리 아래)');
   /* app.js 를 공용 도우미로 되살려 읽으면 꾸미기 본문이 이미 app.js 글 안에 있다 — 그때는 wardrobe.js 를 따로 세지 않는다(두 번 세기 방지) */
   const W = /function renderWardrobe\(/.test(A) ? '' : strip(ward);
   /* 책상 세팅(creator/desk-setup.js)은 관리자 등록 창을 갈고리 _hooks.openDeskRegister 로 부른다(deps 로 받으면 순환) — 갈고리도 부르는 곳으로 센다 */
-  const callers = (A.match(/(?:adminPartReg|_adminPartActions|_hooks)\.(openPartRegister|openDeskRegister|deletePart|buildPartPublishData|syncPartRegGachaLock)\(/g) || []).length
-    + (W.match(/adminPartReg\(\)\.(openPartRegister|openDeskRegister|deletePart|buildPartPublishData|syncPartRegGachaLock)\(/g) || []).length;
-  const oldCalls = (A.match(/(^|[^.\w$])(openPartRegister|openDeskRegister|deletePart|buildPartPublishData|syncPartRegGachaLock)\(/g) || []).length
-    + (W.match(/(^|[^.\w$])(openPartRegister|openDeskRegister|deletePart|buildPartPublishData|syncPartRegGachaLock)\(/g) || []).length;
-  t(callers === 14 && oldCalls === 0 && /openDeskRegister: \(\.\.\.a\)=>adminPartReg\.openDeskRegister\(\.\.\.a\),/.test(app), '부르는 곳 14 — 모두 adminPartReg.이름 (꾸미기 — wardrobe.js 는 건네받은 _adminPartActions · 책상 · 아이템 카드는 갈고리 _hooks.openDeskRegister 6곳 + 잇는 줄 · 썸네일 굽기 · 🎰 gacha setPartEditor 셋)');
+  const callers = (A.match(/(?:adminPartReg|_adminPartActions|_hooks)\.(openPartRegister|openDeskRegister|deletePart|syncPartRegGachaLock)\(/g) || []).length
+    + (W.match(/adminPartReg\(\)\.(openPartRegister|openDeskRegister|deletePart|syncPartRegGachaLock)\(/g) || []).length;
+  const oldCalls = (A.match(/(^|[^.\w$])(openPartRegister|openDeskRegister|deletePart|syncPartRegGachaLock)\(/g) || []).length
+    + (W.match(/(^|[^.\w$])(openPartRegister|openDeskRegister|deletePart|syncPartRegGachaLock)\(/g) || []).length;
+  t(callers === 13 && oldCalls === 0 && /openDeskRegister: \(\.\.\.a\)=>adminPartReg\.openDeskRegister\(\.\.\.a\),/.test(app), '부르는 곳 13 — 모두 adminPartReg.이름 (꾸미기 — wardrobe.js 는 건네받은 _adminPartActions · 책상 · 아이템 카드는 갈고리 _hooks.openDeskRegister 6곳 + 잇는 줄 · 🎰 gacha setPartEditor 셋)');
   t(/openPartRegister: \(\.\.\.a\)=>adminPartReg\.openPartRegister\(\.\.\.a\),/.test(app) && /syncPartRegGachaLock: \(\.\.\.a\)=>adminPartReg\.syncPartRegGachaLock\(\.\.\.a\),/.test(app)
     && /deletePart: \(\.\.\.a\)=>adminPartReg\.deletePart\(\.\.\.a\),/.test(app), '🎰 gacha.js 에는 setPartEditor 로 — adminPartReg 을 거친다');
   t(/window\.TwAdminPartRegister = api;/.test(src) && /module\.exports = api;/.test(src), '전역 이름 TwAdminPartRegister(Tw 접두사)');
@@ -124,12 +141,15 @@ async function judgeAll(src, app, html, ward = WARD){
   const heads = { 0: '── 1 · 2. 만들 때 · 파츠 삭제', 8: '── 3. 값은 읽는 함수로만', 10: '── 4. app.js 연결' };
   rows.forEach(([ok, msg], i) => { if(heads[i]) say(heads[i]); chk(ok, msg); });
 
-  say('── 5. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+  say('── 5. mutation test — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['목록을 값으로 붙잡음', { mod: s => s.replace('const rec=savedParts().find(p=>p.id===id); if(!rec)return;', 'const rec=savedParts.find(p=>p.id===id); if(!rec)return;') }],
     ['삭제가 목록을 안 바꿔 끼움', { mod: s => s.replace('  setSavedParts(savedParts().filter(p=>p.id!==id));\n', '') }],
     ['캐시를 안 비움', { mod: s => s.replace('  partSceneCache().delete(id);\n  // 모든 좌석에서', '  // 모든 좌석에서') }],
-    ['카탈로그에서 안 내림', { mod: s => s.replace('window.firebaseAPI.unpublishPart(id).catch(()=>{});', '') }],
+    ['카탈로그에서 안 내림', { mod: s => s.replace("try{ await catalogAdmin.archive('part', id); }", 'try{ }') }],
+    ['서버에 없는 파츠도 서버로 보냄', { mod: s => s.replace('if(editing && _oldRec && !_oldRec.fromCatalog){ catalogAdmin.notifyLocalOnly(); return; }', '') }],
+    ['책상 개수를 앱이 다시 셈', { mod: s => s.replace("const btn=document.getElementById('deskRegGo');", "if(arr.length>=MAX_CUSTOM_ASSETS()) return; const btn=document.getElementById('deskRegGo');") }],
+    ['서버가 거절해도 목록을 지움', { mod: s => s.replace("catch(e){ await catalogAdmin.reportFail(e, 'item'); return; }", 'catch(e){ }') }],
     ['책상 등록 버튼 안 걺', { mod: s => s.replace("document.getElementById('deskRegBtn').onclick=", "document.getElementById('deskRegBtnX').onclick=") }],
     ['옛 이름으로 부름', { app: s => s.replace("_hooks.openDeskRegister('desk', DEFAULT_DESK_OVERRIDE_ID)", "openDeskRegister('desk', DEFAULT_DESK_OVERRIDE_ID)") }],
     /* 꾸미기 본문은 되살린 app.js 글 안에 있다(공용 도우미) — 거기서 옛 이름으로 바꿔 본다 */

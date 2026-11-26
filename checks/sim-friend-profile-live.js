@@ -3,14 +3,15 @@
      친구 포트 개편(10-16~17)이 친구별 상시 구독 넷을 없애면서 이름(users/{fid}/profile) 구독까지 빠졌다.
    [고침] 목록이 열려 있는 동안(접속 상태와 같은 조건 · 같은 수명) 친구마다 프로필도 듣는다. 소개 · 사진은 열 때 한 번 그대로.
      목록이 닫혀 있을 때 마이홈 구경은 그 친구 프로필만 한 번 새로 읽는다.
-   ・1절: firebase-init(가짜 onValue · get) → provider → 포트 → friends-sub 를 실제로 이어서 —
-         평소 1개 · 열면 1 + 2n(접속 상태 n · 프로필 n) · 닫으면 1 · 소개 · 사진은 구독 0 · 이름 바뀌면 목록 값이 바뀜 ·
-         닫았다 10분 안에 다시 열어도 옛 이름이 안 돌아옴(카드 기억에 얹힘) · 늦게 끝난 목록 받기가 들은 이름을 안 덮음
+   ・1절: 가짜 서버 provider(friends-api.js 모양) → 포트 → friends-sub 를 실제로 이어서 —
+         평소 목록 듣기 1개 · 열면 프로필 듣기 1개(친구 n명을 한 번에) · 닫으면 해제 · 이름 바뀌면 목록 값이 바뀜(소개 · 사진은 그대로) ·
+         늦게 끝난 목록 받기가 들은 이름을 안 덮음. (옛 Firebase 경로 provider · 카드 10분 기억은 걷었다 — D13 E-2)
    ・2절: refreshProfile — 닫혀 있으면 그 친구 프로필 한 번(소개 · 사진 · 다른 친구 안 읽음) · 열려 있으면 읽기 0 · 친구 아니면 false
-   ・3절: 마이홈 구경(myhome-visit.js openFriendHomeView) — 받아 둔 이름으로 먼저 그리고, 새 이름이 오면 다시 그림 · 친구 아니면 옛 길(getUserNameById)
-   ・4절: 일부러 깨 보기 — 하나라도 못 잡으면 빨강
+   ・3절: 마이홈 구경(myhome-visit.js openFriendHomeView) — 받아 둔 이름으로 먼저 그리고, 새 이름이 오면 다시 그림 · 친구 아니면 명함(서버 경로)
+   ・4절: mutation test — 하나라도 못 잡으면 빨강
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
+globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기 — 진짜 파일
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
 const say = (s) => { if(!quiet) console.log(s); };
@@ -20,12 +21,13 @@ const pick = (names) => names.map(read).find(Boolean);
 const at = (f, dir) => [f, 'parts/' + dir + '/' + f, 'app/parts/' + dir + '/' + f];
 const SRC0 = {
   PORT: pick(at('friends-port.js', 'friends')),
-  FBP: pick(at('friends-firebase.js', 'friends')),
-  SS: pick(at('source-switch.js', 'shared')),
   FS: pick(at('friends-sub.js', 'myhome')),
   MV: pick(at('myhome-visit.js', 'myhome')),
   MS: pick(at('myhome-state.js', 'myhome')),
-  FI: pick(['firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js']),
+  MST: pick(at('myhome-store.js', 'myhome')),
+  MA: pick(at('myhome-api.js', 'myhome')),
+  RU: pick(at('myhome-sticker-rules.js', 'myhome')),
+  AE: pick(at('api-errors.js', 'shared')),
   APP: pick(['app.js', 'parts/app.js', 'app/parts/app.js']),
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
@@ -38,46 +40,31 @@ const load = (src, name, extra) => {
 };
 const flush = async () => { for(let i = 0; i < 3; i++) await new Promise(r => setImmediate(r)); };   // 걸려 있는 약속을 다 끝낸다
 
-/* firebase-init 의 친구 함수(목록 한 번 · 목록 구독 ~ 접속 상태 한 번)를 떼어 가짜 SDK 위에서 돌린다 */
-function fakeFirebase(S, N){
-  const i0 = S.FI.indexOf('    watchMyFriendList(myId, onChange, onError){'), i1 = S.FI.indexOf('    async getFriendPresence(fid){', i0), i2 = i1 < 0 ? -1 : S.FI.indexOf('\n    },\n', i1);
-  const g0 = S.FI.indexOf('    async getMyFriendList(myId){'), g1 = g0 < 0 ? -1 : S.FI.indexOf('\n    },\n', g0);
-  if(!(i0 > 0 && i2 > i1 && g1 > g0)) return null;
-  const db = { list: {}, profile: {}, presence: {} };
+/* 가짜 서버 provider(friends-api.js 모양) — 친구 n명 · 프로필 · 소개 · 사진. 듣기 수 · 읽은 칸을 센다 */
+function fakeServer(N){
+  const db = { list: {}, profile: {} };
   for(let k = 0; k < N; k++){ db.list['f' + k] = { addedAt: k }; db.profile['f' + k] = { name: '옛이름' + k, level: 3, updatedAt: 1 }; }
   const live = [], gets = [];
-  const valOf = (p) => {
-    if(p === 'users/ME/friends') return db.list;
-    let m = /^users\/(\w+)\/profile$/.exec(p); if(m) return db.profile[m[1]] || null;
-    m = /^users\/(\w+)\/presence$/.exec(p); if(m) return db.presence[m[1]] || null;
-    if(/\/home\/bio$/.test(p)) return '소개';
-    if(/\/home\/avatar$/.test(p)) return 'data:image/jpeg;base64,AAAA';
-    return null;
+  const full = (fid) => Object.assign({}, db.list[fid], db.profile[fid], { bio: '소개', avatar: 'data:image/jpeg;base64,AAAA' });
+  const provider = {
+    async listFriends(myId, o){ gets.push('list'); const out = {}; for(const fid of Object.keys(db.list)) out[fid] = (o && o.idsOnly) ? Object.assign({}, db.list[fid]) : full(fid); return out; },
+    async readFriend(fid){ gets.push('one:' + fid); return db.list[fid] ? full(fid) : null; },
+    watchList(myId, onChange){ const l = { kind: 'list', on: true }; live.push(l); Promise.resolve().then(() => { if(l.on) onChange(JSON.parse(JSON.stringify(db.list))); }); return () => { l.on = false; }; },
+    watchProfile(myId, ids, onChange){ const l = { kind: 'profile', ids: ids.slice(), cb: onChange, on: true }; live.push(l); Promise.resolve().then(() => { if(l.on){ const o = {}; ids.forEach((f) => { if(db.profile[f]) o[f] = Object.assign({}, db.profile[f]); }); onChange(o); } }); return () => { l.on = false; }; },
+    async readProfile(fid){ gets.push('profile:' + fid); return Object.assign({}, db.profile[fid]); },
+    async removeFriend(){},
   };
-  const ref = (_db, p) => ({ p });
-  const onValue = (r, cb) => { const l = { p: r.p, cb, on: true }; live.push(l); cb({ val: () => valOf(r.p) }); return () => { l.on = false; }; };
-  const get = async (r) => { gets.push(r.p); return { val: () => valOf(r.p) }; };
-  let api = null;
-  try{
-    api = new Function('ref', 'onValue', 'get', 'db', 'console', 'let _myFriendsOff = null;\nconst api = {\n' + S.FI.slice(g0, g1 + 7) + '\n' + S.FI.slice(i0, i2 + 6) + '\n};\nreturn api;')(ref, onValue, get, {}, { warn(){}, log(){} });
-  }catch(_){ return null; }
-  /* 친구가 이름을 바꿈 — 그 경로를 듣는 구독에 새 값을 보낸다(Firebase 가 하는 일) */
-  const write = (fid, prof) => { db.profile[fid] = prof; live.filter(l => l.on && l.p === 'users/' + fid + '/profile').forEach(l => l.cb({ val: () => prof })); };
-  const on = (re) => live.filter(l => l.on && (!re || re.test(l.p))).length;
-  const everOn = (re) => live.filter(l => re.test(l.p)).length;
-  return { api, db, live, gets, write, on, everOn };
+  /* 친구가 이름을 바꿈 — 듣는 쪽에 새 값을 보낸다(서버가 하는 일) */
+  const write = (fid, prof) => { db.profile[fid] = prof; live.filter(l => l.on && l.kind === 'profile' && l.ids.indexOf(fid) >= 0).forEach(l => l.cb({ [fid]: Object.assign({}, prof) })); };
+  const on = (kind) => live.filter(l => l.on && (!kind || l.kind === kind)).length;
+  return { provider, db, live, gets, write, on };
 }
 
 function wire(S, F, opts){
-  const P = load(S.PORT, 'TwFriendsPort'), FB = load(S.FBP, 'TwFriendsFirebase'), SW = load(S.SS, 'TwSourceSwitch'), FSM = load(S.FS, 'TwFriendsSub');
+  const P = load(S.PORT, 'TwFriendsPort'), FSM = load(S.FS, 'TwFriendsSub');
   const T = { q: [], run(){ const q = T.q.splice(0); q.forEach(fn => fn && fn()); } };
   const clock = { t: 0 };
-  const a = F.api;
-  const fbp = FB.createFriendsFirebase({ getList: (...x) => a.getMyFriendList(...x), watchList: (...x) => a.watchMyFriendList(...x), getCard: (...x) => a.getFriendCard(...x),
-    watchPresence: (...x) => a.watchFriendPresence(...x), getPresence: (...x) => a.getFriendPresence(...x),
-    watchProfile: (...x) => a.watchFriendProfile(...x), getProfile: (...x) => a.getFriendProfile(...x),
-    setTimer: (fn) => { T.q.push(fn); return T.q.length; }, clearTimer: (id) => { T.q[id - 1] = null; }, now: () => clock.t });
-  const port = P.createFriendsPort({ firebase: fbp, api: null, source: () => 'firebase', serverFirst: SW.serverFirst, warn(){} });
+  const port = P.createFriendsPort({ presence: { watchPresence: () => () => {}, readPresence: async () => ({}) }, api: F.provider });
   const box = { cur: {}, emits: 0 };
   const listFriends = (opts && opts.listFriends) ? opts.listFriends(port) : (...x) => port.listFriends(...x);
   const sub = FSM.createFriendsSub({ subscribe: (...x) => port.watchList(...x), fetchOnce: (id) => port.listFriends(id, { idsOnly: true }), listFriends,
@@ -92,21 +79,19 @@ async function judge(S){
   const N = 5;
   say('── 1. 목록이 열려 있는 동안 프로필도 듣는다 (친구 ' + N + '명)');
   {
-    const F = fakeFirebase(S, N);
-    chk(!!F, 'firebase-init 친구 함수를 떼어 온다');
-    if(!F) return;
+    const F = fakeServer(N);
     let W = null;
     try{ W = wire(S, F); }catch(e){ chk(false, '잇다 던짐 — ' + e.message); return; }
-    const { sub, box, T, clock } = W;
+    const { sub, box, T } = W;
     await flush(); T.run(); await flush();
-    chk(F.on() === 1 && box.cur.f1 && box.cur.f1.name === '옛이름1', '★ 평소(목록 닫힘) 상시 구독 1개 · 이름은 한 번 읽어 얹음 (지금 ' + F.on() + ')');
+    chk(F.on() === 1 && F.on('list') === 1 && box.cur.f1 && box.cur.f1.name === '옛이름1', '★ 평소(목록 닫힘) 듣기 1개(목록) · 이름은 한 번 읽어 얹음 (지금 ' + F.on() + ')');
     sub.open('myhome', () => {});
     await flush(); T.run(); await flush();
-    chk(F.on() === 1 + 2 * N && F.on(/\/presence$/) === N && F.on(/\/profile$/) === N, '★ 목록을 열면 1 + 2×' + N + ' = ' + (1 + 2 * N) + '개 — 접속 상태 ' + N + ' · 프로필 ' + N + ' (지금 ' + F.on() + ')');
-    chk(F.everOn(/\/home\//) === 0, '★ 소개 · 사진(home/bio · home/avatar)은 구독 0 — 열 때 한 번 읽기만 (구독 ' + F.everOn(/\/home\//) + ')');
+    const pl = F.live.filter(l => l.on && l.kind === 'profile');
+    chk(F.on() === 2 && pl.length === 1 && pl[0].ids.length === N, '★ 목록을 열면 프로필 듣기 하나가 친구 ' + N + '명을 한 번에 건다 (지금 ' + F.on() + ')');
     sub.open('invite', () => {});
-    await flush();   // 초대 목록 첫 열기의 목록 받기까지 끝낸 뒤에 이름을 바꾼다 — 바뀐 이름은 듣기로만 와야 한다
-    chk(F.on() === 1 + 2 * N, '  초대 목록까지 열어도 겹쳐 걸지 않음 (지금 ' + F.on() + ')');
+    await flush();
+    chk(F.on() === 2, '  초대 목록까지 열어도 겹쳐 걸지 않음 (지금 ' + F.on() + ')');
     const before = box.emits;
     F.write('f2', { name: '새이름2', level: 7, cyc: 2, clv: 3, starC: '#112233', updatedAt: 2 });
     T.run(); await flush();
@@ -114,22 +99,14 @@ async function judge(S){
     chk(box.emits > before && f2.name === '새이름2' && f2.level === 7 && f2.cyc === 2 && f2.clv === 3 && f2.starC === '#112233', '★ 친구가 이름 · 레벨 · 회차를 바꾸면 목록 값이 바로 바뀐다 (이름 ' + f2.name + ')');
     chk(f2.bio === '소개' && f2.avatar === 'data:image/jpeg;base64,AAAA', '  ↳ 소개 · 사진은 그대로 남는다(프로필이 덮지 않음)');
     sub.close('myhome'); sub.close('invite');
-    chk(F.on() === 1, '★ 닫으면 다시 1개 — 프로필 구독도 같이 끊김(남는 구독 0) (지금 ' + F.on() + ')');
+    chk(F.on() === 1, '★ 닫으면 다시 1개 — 프로필 듣기도 같이 끊김 (지금 ' + F.on() + ')');
     chk(box.cur.f2 && box.cur.f2.name === '새이름2', '  닫아도 마지막 이름은 남는다');
-    clock.t += 60 * 1000;   // 10분(CARD_KEEP_MS) 안
-    const nGets = F.gets.length;
-    sub.open('myhome', () => {});
-    await flush();
-    const cardReads = F.gets.slice(nGets).filter(p => p !== 'users/ME/friends').length;   // 목록(누가 친구인가) 한 번 읽기는 원래 있다
-    chk(box.cur.f2 && box.cur.f2.name === '새이름2', '★ 10분 안에 다시 열어도 옛 이름이 안 돌아온다(들은 이름이 카드 기억에 얹힘) (이름 ' + (box.cur.f2 || {}).name + ')');
-    chk(cardReads === 0, '  ↳ 그때 카드(프로필 · 소개 · 사진)를 다시 읽지 않는다(바이트 그대로) (읽기 ' + cardReads + ')');
-    sub.close('myhome');
     sub.stop();
     chk(F.on() === 0, '  멈추면 0개');
   }
   {
     /* 목록 받기가 늦게 끝나며 옛 이름을 들고 온다(서버 사본이 늦음) — 듣는 중 받은 이름이 이겨야 한다 */
-    const F = fakeFirebase(S, 2);
+    const F = fakeServer(2);
     const gate = { hold: false, release: null };
     const W = wire(S, F, { listFriends: (port) => async (id) => { const v = await port.listFriends(id); if(gate.hold) await new Promise(r => { gate.release = r; }); return v; } });
     await flush(); W.T.run(); await flush();
@@ -146,7 +123,7 @@ async function judge(S){
 
   say('── 2. refreshProfile — 목록이 닫혀 있을 때 그 친구만 새로');
   {
-    const F = fakeFirebase(S, 3);
+    const F = fakeServer(3);
     const W = wire(S, F);
     await flush(); W.T.run(); await flush();
     F.db.profile.f1 = { name: '닫힌새이름', level: 9, updatedAt: 5 };   // 듣지 않는 동안 바뀜
@@ -155,12 +132,12 @@ async function judge(S){
     await flush();
     const read1 = F.gets.slice(g0);
     chk(ok === true && W.box.cur.f1.name === '닫힌새이름' && W.box.cur.f1.level === 9, '★ 닫혀 있으면 그 친구 프로필을 한 번 새로 읽어 목록에 얹는다 (이름 ' + W.box.cur.f1.name + ')');
-    chk(read1.join() === 'users/f1/profile' && F.on() === 1, '  ↳ 읽는 건 users/f1/profile 하나뿐(소개 · 사진 · 다른 친구 안 읽음 · 구독 안 남김) (' + read1.join(' · ') + ')');
+    chk(read1.join() === 'profile:f1' && F.on() === 1, '  ↳ 읽는 건 그 친구 프로필 하나뿐(다른 친구 안 읽음 · 듣기 안 남김) (' + read1.join(' · ') + ')');
     W.sub.open('myhome', () => {});
     await flush(); W.T.run(); await flush();
     const g1 = F.gets.length;
     chk((await W.sub.refreshProfile('f1')) === true && F.gets.length === g1, '  ↳ 목록이 열려 있으면(듣는 중) 읽지 않고 true');
-    chk((await W.sub.refreshProfile('zz')) === false && (await W.sub.refreshProfile(null)) === false && F.gets.length === g1, '  ↳ 친구가 아니면 false(읽기 0 — 부르는 쪽이 옛 길)');
+    chk((await W.sub.refreshProfile('zz')) === false && (await W.sub.refreshProfile(null)) === false && F.gets.length === g1, '  ↳ 친구가 아니면 false(읽기 0 — 부르는 쪽이 명함)');
     W.sub.stop();
   }
 
@@ -169,18 +146,22 @@ async function judge(S){
     const any = (() => { const f = function(){ return P; }; const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? undefined : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true }); return P; })();
     const run = async (friends, refresh, opts) => {
       const L = { renders: 0, titles: [], nameReads: 0 };
-      const st = load(S.MS, 'TwMyHomeState').createMyHomeState({ _myHomeFriends: () => friends.v });
+      const emptyP = { avatar: null, bio: '', postTitle: '', post: '', bgm: null, bg: null, stickers: {}, theme: null, themePresets: null, themePresetCur: null };
+      const store = load(S.MST, 'TwMyHomeStore').createMyHomeStore({   // 진짜 상태 주인 — 가짜 서버 경로 위에서(집 받기만 쓴다)
+        api: { fetchMine: async () => ({ page: emptyP, pageVersion: 1, desktop: { bg: null, hideFolders: false, folderPos: {} }, desktopVersion: 1 }),
+          fetchOf: async () => ({ page: emptyP, desktop: { bg: null, hideFolders: false, folderPos: {} } }), patchPage(){}, putDesign(){}, uploadImage(){}, reset(){} },
+        lib: load(S.MA, 'TwMyHomeApi'), errs: load(S.AE, 'TwApiErrors'), apiErrors: { notify(){} }, notifyError: () => true, toast(){}, previewOn: () => false, rules: load(S.RU, 'TwMyHomeStickerRules') });
+      const st = load(S.MS, 'TwMyHomeState').createMyHomeState({ _myHomeFriends: () => friends.v, myhomeStore: store });
       const label = { textContent: '' };
       const doc = { getElementById: (id) => id === 'mhTitleLabel' ? label : any, querySelectorAll: () => [] };
-      const fapi = { getMyHome: async () => ({}), getUserNameById: async () => { L.nameReads++; return '서버이름'; }, subscribeDdays: () => () => {} };
+      const fapi = { getMyHome: async () => ({}), getUserNameById: async () => { L.nameReads++; return '서버이름'; } };
       const w2 = {};
       new Function('window', 'document', 'firebaseAPI', 'TwMyHomeHooks', 'module', 'console', S.MV)(new Proxy(w2, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } }), doc, fapi, any, undefined, { warn(){}, log(){}, error(){} });
       const mod = w2.TwMyHomeVisit.createMyHomeVisit({
-        _myHomeFriends: () => friends.v, _schedDdaysVisitUnsub: () => null, applyDesktopRunClass(){}, getMyUserId: () => 'ME', loadMyHomePage(){}, mhScheduler: any, myHomeOpen: () => true,
+        _myHomeFriends: () => friends.v, applyDesktopRunClass(){}, getMyUserId: () => 'ME', loadMyHomePage(){}, mhScheduler: any, myHomeOpen: () => true,
         renderMyHomePage: () => { L.renders++; L.titles.push(label.textContent); }, toast(){}, setSchedDdaysVisitUnsub(){}, setMyHomeOpen(){},
-        _myHomeData: () => st._myHomeData(), _myHomeLoaded: () => true, _mhViewingUserId: () => st._mhViewingUserId(), _mhViewingName: () => st._mhViewingName(),
-        _mhHomeFromServer: (...x) => st._mhHomeFromServer(...x), _mhViewingDisplayName: (...x) => st._mhViewingDisplayName(...x),
-        setMyHomeData: (v) => st.setMyHomeData(v), setMhViewingUserId: (v) => st.setMhViewingUserId(v), setMhViewingName: (v) => st.setMhViewingName(v),
+        _mhViewingUserId: () => st._mhViewingUserId(), _mhViewingName: () => st._mhViewingName(), _mhViewingDisplayName: (...x) => st._mhViewingDisplayName(...x),
+        myhomeStore: store, fetchCards: async (codes) => { L.nameReads++; return { [codes[0]]: { name: '서버이름' } }; },
         refreshFriendProfile: refresh,
       });
       await mod.openFriendHomeView((opts && opts.fid) || 'f1', opts && opts.hint);
@@ -197,7 +178,7 @@ async function judge(S){
     const L2 = await run(friends2, () => Promise.resolve(true), { hint: '같은이름' });
     chk(L2.renders === 1, '  ↳ 이름이 그대로면 다시 그리지 않는다(그리기 한 번)');
     const L3 = await run({ v: {} }, () => Promise.resolve(false), { fid: 'x9' });
-    chk(L3.nameReads === 1 && L3.titles[L3.titles.length - 1] === '🏠 서버이름의 마이홈', '  ↳ 친구가 아니고 이름도 모르면 옛 길(getUserNameById)로 이름 한 줄');
+    chk(L3.nameReads === 1 && L3.titles[L3.titles.length - 1] === '🏠 서버이름의 마이홈', '  ↳ 친구가 아니고 이름도 모르면 명함(서버 경로)으로 이름 한 줄');
     const L4 = await run({ v: {} }, () => Promise.reject(new Error('x')), { fid: 'x9', hint: '힌트' });
     chk(L4.renders === 1 && L4.nameReads === 0, '  ↳ 새로 받기가 실패해도 던지지 않고 받아 둔 이름 그대로');
   }
@@ -206,7 +187,7 @@ async function judge(S){
 (async () => {
 await judge(SRC0);
 
-say('── 4. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 4. mutation test — 하나라도 못 잡으면 빨강');
 const BREAKS = [
   ['FS', "  try{ offs.push(watchProfile(_myId, ids, p=>{", "  try{ (()=>{})(watchProfile, (p=>{", '목록을 열어도 프로필을 안 들음(회귀 그대로)'],
   ['FS', "  _presOff = ()=>{ for(const off of offs){ if(off){ try{ off(); }catch(_){} } } };", "  _presOff = ()=>{ try{ offs[0](); }catch(_){} };", '닫아도 프로필 구독이 남음'],
@@ -214,11 +195,6 @@ const BREAKS = [
   ['FS', "    .then(v=>{ if(run === _run){ _details = _keepKnown(v || {}); _applyProfile(_live); } },", "    .then(v=>{ if(run === _run){ _details = _keepKnown(v || {}); } },", '늦은 목록 받기가 들은 이름을 덮음'],
   ['FS', "  if(_presKey && _presKey.split(',').indexOf(fid) >= 0) return Promise.resolve(true);\n", "", '듣는 중에도 다시 읽음'],
   ['FS', "  if(!fid || !_myId || !(fid in _ids)) return Promise.resolve(false);", "  if(!fid || !_myId) return Promise.resolve(false);", '친구 아닌 사람도 읽음'],
-  ['FBP', "    if(c) _cards[fid] = { at: c.at, card: Object.assign({}, c.card, prof) };", "", '들은 이름이 카드 기억에 안 얹힘(다시 열면 옛 이름)'],
-  ['FBP', "  function watchProfile(myId, ids, onChange){ return _watchEach(ids, watchProfileOne, _keepProfile, onChange); }", "  function watchProfile(myId, ids, onChange){ return _watchEach(ids, (fid, cb)=>{ watchProfileOne(fid, cb); return ()=>{}; }, _keepProfile, onChange); }", '프로필 구독 해제 함수를 버림'],
-  ['FBP', "  async function readProfile(fid){ return _keepProfile(fid, await getProfile(fid)); }", "  async function readProfile(fid){ return readFriend(fid); }", '새로 읽기가 10분 기억을 씀'],
-  ['PORT', "  function watchProfile(myId, ids, onChange){ return firebase.watchProfile(myId, ids, onChange); }", "  function watchProfile(myId, ids, onChange){ firebase.watchProfile(myId, ids, onChange); }", '포트가 해제 함수를 안 돌려줌'],
-  ['FI', "const off = onValue(ref(db, `users/${fid}/profile`), snap=>onChange(snap.val()));", "const off = onValue(ref(db, `users/${fid}/profile`), snap=>onChange(snap.val())); onValue(ref(db, `users/${fid}/home/avatar`), ()=>{});", '사진까지 구독'],
   ['MV', "    Promise.resolve(refreshFriendProfile ? refreshFriendProfile(friendId) : false)", "    Promise.resolve(false)", '마이홈 구경이 새 이름을 안 받음'],
   ['MV', "        if(_mhViewingDisplayName() !== shownName){ _mhApplyVisitUI(); renderMyHomePage(); }", "", '새 이름이 와도 다시 안 그림'],
 ];
@@ -234,7 +210,7 @@ for(const [where, from, to, what] of BREAKS){
   caught.push([what, qfail]);
 }
 const missed = caught.filter(([, n]) => n === 0).map(([w]) => w);
-chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+chk(caught.length === BREAKS.length && !missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
 console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

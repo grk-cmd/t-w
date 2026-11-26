@@ -5,7 +5,7 @@
      이제는 50ms 커서 감시가 우리 창 자리를 알 때만 끈다. 이 검사는 두 쪽(펜 보호 · 고착 방지)을 함께 지킨다.
    ・1절: main.js 의 실물 함수(_penWakeReady · _forwardFor · _reapplyIgnoreMouse · _syncCursorWatcher · _checkCursorNearChar · _applyForwardOnly)를
      가짜 창 · 화면 · 타이머 위에서 돌린다 — 펜 앱 진입 · 근처 · 멀어짐 · 자리 잃음 · 자리 찾음 · 펜 앱 이탈 · 같은 값은 다시 안 걸기
-   ・2절: 깨 보기 — 옛 한 줄 되살리기 · 깨울 길 검사 빼기 · 감시를 늦게 켜기 */
+   ・2절: mutation test — 옛 한 줄 되살리기 · 깨울 길 검사 빼기 · 감시를 늦게 켜기 */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -125,7 +125,7 @@ else {
 chk(/if\(Array\.isArray\(bounds\.others\)\)/.test(MAIN) && /\.slice\(0, OTHER_SEAT_MAX\)/.test(MAIN) && /Number\.isFinite\(c\.r\) && c\.r > 0/.test(MAIN), 'main — others 를 받을 때 상한 · 숫자 · 반경을 거르고 CSS px → DIP');
 chk(!/_ptOnOtherSeat/.test(grab(MAIN, '_ptOnOurUI') || 'x'), '  공용 판정(_ptOnOurUI — 유령 감시 · 회수 · 호버)에는 넣지 않는다(펜 근접만)');
 
-say('\n── 2절: 깨 보기');
+say('\n── 2절: mutation test');
 const old = behave(MAIN.replace('function _forwardFor(){\n', 'function _forwardFor(){\n  if(_lastIgnoreRequested) return true;\n'));
 chk(!!old && old.penFar === false, '옛 «통과 중이면 무조건 forward» 를 되살리면 1절 «펜 보호» 가 빨강');
 const noWake = behave(MAIN.replace('  return !_penWakeReady();\n', '  return false;\n'));

@@ -3,7 +3,7 @@
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(_applyChatFontSize · _applyChatOpacity · _applyChatSfxUI · _chatDelClose · _chatDelOpen · _chatDelRefreshUI · _chatDelRun · _chatNotifyIncoming · _chatOffToggleClick · _chatSfxOfficeLock · _chatSfxOn · _chatSfxPreview · _clampChatOpacity · _refreshChatMembers · _setChatFontSize · _setChatOpacity · _setChatSfxId · _setChatSfxOn)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 21줄 그대로 · 부르는 곳은 chatPrefsMod.이름 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · chat-prefs.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -17,13 +17,13 @@ const MOD = ["chat-prefs.js","parts/chat/chat-prefs.js","app/parts/chat/chat-pre
 if(!MOD){ say('  ? 원본 못 찾음 — chat-prefs.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_chatEsc","_chatIsHost","_chatIsSecretRoom","_chatOffOn","_chatOffRefreshUI","_chatRoomCode","getDisplayName","getMyUserId","toast"];
+const FN_DEPS = ["_chatEsc","_chatIsHost","_chatIsSecretRoom","_chatOffOn","_chatOffRefreshUI","_chatRoomCode","getDisplayName","myCode","toast"];
 const VAL_DEPS = ["CHAT_SFX_DEFAULT_ID","CHAT_SFX_DEFAULT_ON","CHAT_SFX_GAP_MS","CHAT_SFX_ID_KEY","CHAT_SFX_LIST","CHAT_SFX_ON_KEY","_chatSfxPools","seats"];
 const GET_DEPS = ["Presence","_chatLogCache","chatUiMod","officeMode"];
 const SET_DEPS = [];
 const EXPORTS = ["_applyChatFontSize","_applyChatOpacity","_applyChatSfxUI","_chatDelClose","_chatDelOpen","_chatDelRefreshUI","_chatDelRun","_chatNotifyIncoming","_chatOffToggleClick","_demojiNotifyIncoming","_demojiSfxOn","_chatSfxOfficeLock","_chatSfxOn","_chatSfxPreview","_clampChatOpacity","_refreshChatMembers","_setChatFontSize","_setChatOpacity","_setChatSfxId","_setChatSfxOn","_setDemojiSfxOn"];
 const MOVED = ["CHAT_OPACITY_KEY","CHAT_OPACITY_DEFAULT","CHAT_OPACITY_MIN","CHAT_OPACITY_MAX","_clampChatOpacity","_loadChatOpacity","_applyChatOpacity","_setChatOpacity","CHAT_FONT_KEY","CHAT_FONT_DEFAULT","CHAT_FONT_ALLOWED","_loadChatFontSize","_applyChatFontSize","_setChatFontSize","_chatSfxOn","_chatSfxId","_chatSfxOfficeLock","_setChatSfxOn","_setChatSfxId","_applyChatSfxUI","_chatSfxPreview","_chatWinOpen","_chatSfxLast","_chatNotifyIncoming","_chatDelRefreshUI","_chatDelClose","_chatDelOpen","_chatDelRun","_chatOffToggleClick","_refreshChatMembers"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  CHAT_SFX_DEFAULT_ID: CHAT_SFX_DEFAULT_ID,","  CHAT_SFX_DEFAULT_ON: CHAT_SFX_DEFAULT_ON,","  CHAT_SFX_GAP_MS: CHAT_SFX_GAP_MS,","  CHAT_SFX_ID_KEY: CHAT_SFX_ID_KEY,","  CHAT_SFX_LIST: CHAT_SFX_LIST,","  CHAT_SFX_ON_KEY: CHAT_SFX_ON_KEY,","  Presence: ()=>Presence,","  _chatEsc: (...a)=>_chatEsc(...a),","  _chatIsHost: (...a)=>_chatIsHost(...a),","  _chatIsSecretRoom: (...a)=>_chatIsSecretRoom(...a),","  _chatLogCache: ()=>_chatLogCache,","  _chatOffOn: (...a)=>_chatOffOn(...a),","  _chatOffRefreshUI: (...a)=>_chatOffRefreshUI(...a),","  _chatRoomCode: (...a)=>_chatRoomCode(...a),","  _chatSfxPools: _chatSfxPools,","  chatUiMod: ()=>chatUiMod,","  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  officeMode: ()=>officeMode,","  seats: seats,","  toast: (...a)=>toast(...a),"];
+const GLUE = ["  CHAT_SFX_DEFAULT_ID: CHAT_SFX_DEFAULT_ID,","  CHAT_SFX_DEFAULT_ON: CHAT_SFX_DEFAULT_ON,","  CHAT_SFX_GAP_MS: CHAT_SFX_GAP_MS,","  CHAT_SFX_ID_KEY: CHAT_SFX_ID_KEY,","  CHAT_SFX_LIST: CHAT_SFX_LIST,","  CHAT_SFX_ON_KEY: CHAT_SFX_ON_KEY,","  Presence: ()=>Presence,","  _chatEsc: (...a)=>_chatEsc(...a),","  _chatIsHost: (...a)=>_chatIsHost(...a),","  _chatIsSecretRoom: (...a)=>_chatIsSecretRoom(...a),","  _chatLogCache: ()=>_chatLogCache,","  _chatOffOn: (...a)=>_chatOffOn(...a),","  _chatOffRefreshUI: (...a)=>_chatOffRefreshUI(...a),","  _chatRoomCode: (...a)=>_chatRoomCode(...a),","  _chatSfxPools: _chatSfxPools,","  chatUiMod: ()=>chatUiMod,","  getDisplayName: (...a)=>getDisplayName(...a),","  myCode: ()=>TwRoomRt.store.myCode(),","  officeMode: ()=>officeMode,","  seats: seats,","  toast: (...a)=>toast(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -74,7 +74,7 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/chat/chat-prefs.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
@@ -83,7 +83,7 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const chatPrefsMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('chatPrefsMod.' + x)); if(n){ ls[i] = ls[i].replace('chatPrefsMod.' + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 던짐', m => m.replace('function createChatPrefs(deps){', 'function createChatPrefs(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createChatPrefs(deps){', 'function createChatPrefs(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;

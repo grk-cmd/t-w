@@ -5,7 +5,7 @@
      처음 값은 맨 아래 room-state.js 한 곳 · 읽는 모듈보다 먼저 싣는다 · 바꾸는 파일은 정해진 셋뿐.
    ・1절: 싣기만 하면 채널 1(워킹룸 — 나가기가 되돌리는 값과 같음) · meta null
    ・2절: HTML 이 읽는 · 바꾸는 파일 모두보다 먼저 싣는다 · 바꾸는 파일은 room-entry · chat-prefs · chat-ui 뿐
-   ・3절: 일부러 깨 보기 */
+   ・3절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -45,7 +45,7 @@ chk(FILES.length >= 100, 'HTML 이 싣는 parts/ 파일 ' + FILES.length + '개�
 chk(R.users >= 10 && !R.late.length, '읽는 · 바꾸는 파일 ' + R.users + '개 모두보다 room-state.js 를 먼저 싣는다' + (R.late.length ? ' — 먼저 실리는 파일: ' + R.late.join(' · ') : ''));
 chk(!R.writers.length, '값을 바꾸는 파일은 room-entry · chat-prefs · chat-ui 뿐(새로 바꾸는 곳은 여기 목록과 주석에 이유를 적는다)' + (R.writers.length ? ' — 그 밖: ' + R.writers.join(' · ') : ''));
 
-say('── 3. 일부러 깨 보기');
+say('── 3. mutation test');
 const line = '<script src="parts/room/room-state.js"></script>';
 const iLine = HTML.indexOf(line);
 const lateHtml = iLine < 0 ? HTML : HTML.replace(line, '').replace('<script src="parts/app.js"></script>', '<script src="parts/app.js"></script>\n' + line);

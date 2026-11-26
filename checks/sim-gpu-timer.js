@@ -6,7 +6,7 @@
    ・2절: createGpuTimerWith(가짜 gl) — 답 거두기 · 아직 안 끝난 답 기다림 · 끊김(disjoint) 때 버림 · 기다리는 질의 상한 ·
           오래 안 오는 답 버림 · 확장이 없으면 아무것도 안 함
    ・3절: suffix · countCasters — 꼬리 모양 · 못 잼은 «GPU 모름» · 숨은 부모 아래는 안 셈
-   ・4절: 깨 보기 — 갈래를 하나씩 지운 모듈로 1~3절을 다시 돌려 빨강이 나는지
+   ・4절: mutation test — 갈래를 하나씩 지운 모듈로 1~3절을 다시 돌려 빨강이 나는지
    ・5절: 배선 — html 이 app.js 앞에 싣는다 · smoke PRELOAD · 그리기를 begin/end 로 감쌈 · 매 장 poll · 1분 줄 꼬리 */
 'use strict';
 const fs = require('fs');
@@ -14,7 +14,8 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'parts/shared/' + f, 'app/' + f, 'app/parts/' + f, 'app/parts/shared/' + f, 'checks/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const MOD = read('gpu-timer.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html'), SMOKE = read('smoke.js');
+const FLP = (() => { for(const c of ['frame-loop.js', 'parts/launcher/frame-loop.js', 'app/parts/launcher/frame-loop.js']) { const t = read(c); if(t) return t; } return ''; })();   // frame() 은 launcher/frame-loop.js 로 옮겼다(M17)
+const MOD = read('gpu-timer.js'), APP = (read('app.js') || '') + '\n' + FLP, HTML = read('desk-companion-prototype.html'), SMOKE = read('smoke.js');
 if (!MOD || !APP || !HTML || !SMOKE) { say('  ? 원본 못 찾음 — gpu-timer.js · app.js · desk-companion-prototype.html · smoke.js'); process.exit(2); }
 const load = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwGpuTimer; };
 
@@ -137,7 +138,7 @@ chk(s3[2], '표본이 없으면 «GPU 표본 없음»');
 chk(s3[3], '그림자 드리우는 보이는 메시만 센다 — 숨은 부모 아래는 빼고');
 chk(s3[4], '빈 장면은 0');
 
-say('── 4. 깨 보기');
+say('── 4. mutation test');
 const BREAKS = [
   ['끊김 때 안 버림', "if(disjoint){ lost += pending.length; pending.forEach(drop); pending = []; return; }", '', () => !runTimer(load(brk))[2]],
   ['기다리는 질의 상한 없앰', "|| pending.length >= MAX_PENDING", '', () => !runTimer(load(brk))[3]],
@@ -148,10 +149,10 @@ const BREAKS = [
 ];
 let brk = '';
 for (const [name, from, to, red] of BREAKS){
-  if (!MOD.includes(from)){ chk(false, '깨 보기 «' + name + '» — 바꿀 글을 못 찾음'); continue; }
+  if (!MOD.includes(from)){ chk(false, 'mutation test «' + name + '» — 바꿀 글을 못 찾음'); continue; }
   brk = MOD.replace(from, to);
   let ok = false; try { ok = red(); } catch (_) { ok = true; }
-  chk(ok, '깨 보기 «' + name + '» → 빨강');
+  chk(ok, 'mutation test «' + name + '» → 빨강');
 }
 
 say('── 5. 배선');

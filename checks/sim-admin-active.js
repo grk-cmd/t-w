@@ -29,6 +29,7 @@ function loadSys(env){
     if(name === 'child_process') return { execFile: (cmd, args, opt, cb) => { env.spawns.push([cmd, args]); setTimeout(() => cb(env.tlErr || null, env.tasklist), 0); } };
     if(name === 'uiohook-napi') return { uIOhook: { on(){}, start(){}, stop(){} }, UiohookKey: {} };
     if(name === 'node-window-manager') return { windowManager: env.wm };
+    if(name === './native-peek') return { peekUnpacked: () => '(검사)' };   // 로드 실패 때 설치 파일 한 줄 — 여기선 부품을 다 준다
     throw new Error('unexpected require ' + name);
   };
   const mod = { exports: {} };

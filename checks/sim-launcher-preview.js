@@ -2,7 +2,7 @@
    app.js 의 런처 미리보기 · 슬롯 섬네일 구역 본문 을 parts/launcher/launcher-preview.js 로 옮겼다(글자 그대로 · 바뀐 줄 3 — 읽는 · 쓰는 함수로 바꾼 자리).
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(ensureLauncherPreview · lHolder · lRenderer · launcherLoop · setLauncherChar · sizeLauncherPreview)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 만드는 줄 · deps 36줄 그대로(몸 재기 measureBodyBox · 외모 지문 _quickHash 더함) · 부르는 곳은 launcherPrevMod.이름 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    ・4절: 런처 부하 — 미리보기는 FrameBudget.FPS_LAUNCHER 까지만 그린다(120Hz 에서 1초 30장) · 깜빡임은 좌석과 같은 시간표(blink-timing.js · 실제 시각 · 주사율과 무관) · 후원 반짝임은 steps(초당 20번 칠하기)
    [실행] app.js · desk-companion-prototype.html · launcher-preview.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
@@ -22,13 +22,13 @@ if(!MOD || !FB_SRC || !BT_SRC || !GATE_SRC){ say('  ? 원본 못 찾음 — laun
 const loadGate = (MO) => { const w = { MutationObserver: MO || class { observe(){} disconnect(){} } }; new Function('window', 'module', GATE_SRC)(w, undefined); return w.TwIdleGate; };
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_quickHash","_mkFrontFill","_setDeskMatColor","allDeskItems","applyDeskColorToCustom","applyDeskItemsTo","applyEquippedPartsToSeat","applyStaticHandRest","b64ToBuf","buildDesk","clampCharY","clearHolderDeskItems","defToBase","equipDeskItem","extractBonesInto","getCommissionScene","measureBodyBox","registerCustomItem","setDeskPos","setDeskScale","setFaceMap","swapDeskVisual"];
-const VAL_DEPS = ["CHAR_Z","FrameBudget","blinkTiming","RIG_TURN","_FILL_LIGHT_MUL","_KEY_LIGHT_MUL","_MAIN_LIGHT_COL","_MAIN_LIGHT_INT","commSceneCache","scene","slots"];
+const FN_DEPS = ["_quickHash","_setDeskMatColor","allDeskItems","applyDeskColorToCustom","applyDeskItemsTo","applyEquippedPartsToSeat","applyStaticHandRest","b64ToBuf","buildDesk","clampCharY","clearHolderDeskItems","defToBase","equipDeskItem","extractBonesInto","getCommissionScene","measureBodyBox","registerCustomItem","renderLauncher","setDeskPos","setDeskScale","setFaceMap","swapDeskVisual","addRunLights"];
+const VAL_DEPS = ["CHAR_Z","FrameBudget","blinkTiming","RIG_TURN","commSceneCache","scene","slots"];
 const GET_DEPS = ["assetCodeMod","customItems","slotSaveMod"];
 const SET_DEPS = [];
 const EXPORTS = ["ensureLauncherPreview","lHolder","lRenderer","launcherLoop","setLauncherChar","sizeLauncherPreview","startLauncherLoop"];
 const MOVED = ["lRenderer","lScene","lCam","lChar","lBlinkT","lBlinkOn","lHolder","lDeskMat","lScaleHint","lCharBaseY","lFrameH","lFrameZ","LAUNCHER_CHAR_Y","PS1_PIXEL_SCALE","ensureLauncherPreview","_lcBodyBox","sizeLauncherPreview","LC_THUMB_SETTLE_MS","LC_THUMB_MAX","_lcThumbJob","_lcThumbArm","_lcThumbTake","setLauncherChar","launcherLoop"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  CHAR_Z: CHAR_Z,","  FrameBudget: FrameBudget,","  blinkTiming: TwBlinkTiming,","  RIG_TURN: RIG_TURN,","  _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,","  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,","  _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,","  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,","  _quickHash: (...a)=>roomSyncMod._quickHash(...a),","  _mkFrontFill: (...a)=>_mkFrontFill(...a),","  _setDeskMatColor: (...a)=>_setDeskMatColor(...a),","  allDeskItems: (...a)=>allDeskItems(...a),","  applyDeskColorToCustom: (...a)=>applyDeskColorToCustom(...a),","  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),","  applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),","  applyStaticHandRest: (...a)=>applyStaticHandRest(...a),","  assetCodeMod: ()=>assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  buildDesk: (...a)=>buildDesk(...a),","  clampCharY: (...a)=>clampCharY(...a),","  clearHolderDeskItems: (...a)=>clearHolderDeskItems(...a),","  commSceneCache: commSceneCache,","  customItems: ()=>customItems,","  defToBase: (...a)=>defToBase(...a),","  equipDeskItem: (...a)=>equipDeskItem(...a),","  extractBonesInto: (...a)=>extractBonesInto(...a),","  getCommissionScene: (...a)=>getCommissionScene(...a),","  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),","  registerCustomItem: (...a)=>registerCustomItem(...a),","  scene: scene,","  setDeskPos: (...a)=>setDeskPos(...a),","  setDeskScale: (...a)=>setDeskScale(...a),","  setFaceMap: (...a)=>setFaceMap(...a),","  slotSaveMod: ()=>slotSaveMod,","  slots: slots,","  swapDeskVisual: (...a)=>swapDeskVisual(...a),"];
+const GLUE = ["  CHAR_Z: CHAR_Z,","  FrameBudget: FrameBudget,","  blinkTiming: TwBlinkTiming,","  RIG_TURN: RIG_TURN,","  _quickHash: (...a)=>roomSyncMod._quickHash(...a),","  _setDeskMatColor: (...a)=>_setDeskMatColor(...a),","  addRunLights: (...a)=>lightToneMod.addRunLights(...a),","  allDeskItems: (...a)=>allDeskItems(...a),","  applyDeskColorToCustom: (...a)=>applyDeskColorToCustom(...a),","  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),","  applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),","  applyStaticHandRest: (...a)=>applyStaticHandRest(...a),","  assetCodeMod: ()=>assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  buildDesk: (...a)=>buildDesk(...a),","  clampCharY: (...a)=>clampCharY(...a),","  clearHolderDeskItems: (...a)=>clearHolderDeskItems(...a),","  commSceneCache: commSceneCache,","  customItems: ()=>customItems,","  defToBase: (...a)=>defToBase(...a),","  equipDeskItem: (...a)=>equipDeskItem(...a),","  extractBonesInto: (...a)=>extractBonesInto(...a),","  getCommissionScene: (...a)=>getCommissionScene(...a),","  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),","  registerCustomItem: (...a)=>registerCustomItem(...a),","  renderLauncher: (...a)=>renderLauncher(...a),","  scene: scene,","  setDeskPos: (...a)=>setDeskPos(...a),","  setDeskScale: (...a)=>setDeskScale(...a),","  setFaceMap: (...a)=>setFaceMap(...a),","  slotSaveMod: ()=>slotSaveMod,","  slots: slots,","  swapDeskVisual: (...a)=>swapDeskVisual(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다. */
 function anything(){
@@ -49,7 +49,7 @@ function build(src, over, env){
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const E = Object.assign({ window: win, document: any, localStorage: ls, navigator: any, firebaseAPI: any, companion: any, setTimeout: () => 0, setInterval: () => 0, clearTimeout: () => {}, clearInterval: () => {},
-    requestAnimationFrame: () => 0, THREE: any, addEventListener: () => {}, removeEventListener: () => {}, module: undefined, MutationObserver: class { observe(){} disconnect(){} }, ResizeObserver: class { observe(){} disconnect(){} },
+    requestAnimationFrame: () => 0, THREE: any, TwGlContext: { make: () => any }, addEventListener: () => {}, removeEventListener: () => {}, module: undefined, MutationObserver: class { observe(){} disconnect(){} }, ResizeObserver: class { observe(){} disconnect(){} },
     performance: { now: () => 0 }, console: { log(){}, warn(){}, error(){} }, Image: any, confirm: () => true, devicePixelRatio: 1, TwIdleGate: loadGate() }, env || {});
   const keys = Object.keys(E);
   const api = new Function(...keys, src + '\nreturn window.TwLauncherPreview;')(...keys.map(k => E[k]));
@@ -82,14 +82,14 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/launcher/launcher-preview.js"></script>', '')],
   ['deps 하나 빠짐', null, GLUE.length ? (a => { const i = a.indexOf("const launcherPrevMod = TwLauncherPreview.createLauncherPreview({"); const j = a.indexOf('\n});', i); const blk = a.slice(i, j); return a.slice(0, i) + blk.replace(/\n[^\n]*$/, '') + a.slice(j); }) : (a => a.replace("const launcherPrevMod = TwLauncherPreview.createLauncherPreview({", "const launcherPrevMod = TwLauncherPreview.createLauncherPreview({" + '\n  _extra: 1,')), null],
   ['전역 이름 안 걺', m => m.replace('window.TwLauncherPreview = api;', ''), null, null],
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith("const launcherPrevMod =")) continue; const n = EXPORTS.filter(x => ![].includes(x)).find(x => ls[i].includes("launcherPrevMod." + x)); if(n){ ls[i] = ls[i].replace("launcherPrevMod." + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 던짐', m => m.replace('function createLauncherPreview(deps){', 'function createLauncherPreview(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createLauncherPreview(deps){', 'function createLauncherPreview(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [nm, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
@@ -106,7 +106,7 @@ function judgeLoad(mod, fbSrc, html){
   const FB = fbWin.FrameBudget;
   const btWin = {}; new Function('window', 'module', BT_SRC)(btWin, undefined);
   const BT = btWin.TwBlinkTiming;
-  /* 같은 씨앗이면 같은 난수 — 앱의 Math.random 자리에 꽂는다 */
+  /* 같은 seed 면 같은 난수 — 앱의 Math.random 자리에 꽂는다 */
   const seeded = (seed) => { let x = seed >>> 0 || 1; return () => { x ^= x << 13; x >>>= 0; x ^= x >>> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; }; };
   /* 미리보기 하나를 가짜로 띄운다 — render 횟수 · 얼굴 바꾸기 · 시간표 부름을 센다 */
   function rig(seed){
@@ -118,7 +118,7 @@ function judgeLoad(mod, fbSrc, html){
     const rand = seeded(seed);
     const bt = { SHUT_AT: BT.SHUT_AT, createBlink: (now) => { st.made++; return BT.createBlink(now, rand); }, scheduleBlinks: (bl, now) => { st.scheduled++; return BT.scheduleBlinks(bl, now, rand); }, eyeClose: (bl, now) => BT.eyeClose(bl, now) };
     const base = { group: any, faceMat: { id: 'face' }, fT: 'OPEN', bT: 'SHUT' };
-    const api = build(mod, { FrameBudget: FB, blinkTiming: bt, defToBase: () => base, setFaceMap: (m, tex) => st.faces.push(tex) }, { THREE: THREE3, document: doc, performance: { now: () => 0 } });
+    const api = build(mod, { FrameBudget: FB, blinkTiming: bt, defToBase: () => base, setFaceMap: (m, tex) => st.faces.push(tex) }, { THREE: THREE3, TwGlContext: { make: (cv, o) => new THREE3.WebGLRenderer(o) }, document: doc, performance: { now: () => 0 } });
     api.ensureLauncherPreview(); api.setLauncherChar({});
     st.renders = 0;
     return { st, api };
@@ -133,7 +133,7 @@ function judgeLoad(mod, fbSrc, html){
   const nShut = (x) => x.st.faces.filter(f => f === 'SHUT').length;
   t(h120.st.made === 1 && h120.st.scheduled > 0, '깜빡임은 blink-timing.js(좌석과 같은 시간표)를 부른다 — 처음 값 한 번 · 예약은 그릴 때마다');
   t(h120.st.faces.every((f, i) => f === (i % 2 ? 'OPEN' : 'SHUT')), '감은 눈 · 뜬 눈 그림이 번갈아 바뀐다(같은 그림을 두 번 안 넣음)');
-  /* 기준 — 시간표를 1ms 마다 직접 돌린 1분(같은 씨앗) */
+  /* 기준 — 시간표를 1ms 마다 직접 돌린 1분(같은 seed) */
   const ref = (() => { const rd = seeded(9); const bl = BT.createBlink(1000 / 120, rd); let n = 0, sh = false; for(let ms = 1; ms <= 60000; ms++){ BT.scheduleBlinks(bl, ms, rd); const x = BT.eyeClose(bl, ms) > BT.SHUT_AT; if(x && !sh) n++; sh = x; } return n; })();
   t(nShut(h120) > 10 && [h60, h120, h144].every(x => Math.abs(nShut(x) - ref) <= 1), '1분에 눈 감는 횟수 — 60 · 120 · 144Hz 모두 ' + nShut(h60) + ' · ' + nShut(h120) + ' · ' + nShut(h144) + ' · 실제 시각 기준 ' + ref + '(주사율 · 프레임 상한과 무관)');
   t(!/lBlinkT|LC_BLINK_|_lcBlinkStep/.test(mod), '런처만의 깜빡임 셈(lBlinkT · 따로 둔 박자)이 남지 않았다 — 좌석과 같은 시간표 하나');
@@ -152,7 +152,7 @@ for(const [nm, fm, fh] of breaks4){
   const m2 = fm ? fm(MOD) : MOD, h2 = fh ? fh(HTML) : HTML;
   const changed = m2 !== MOD || h2 !== HTML;
   let r2; try{ r2 = judgeLoad(m2, FB_SRC, h2); }catch(_){ r2 = [[false, '던짐']]; }
-  chk(changed && r2.some(([ok]) => !ok), '깨 보기: ' + nm + (changed ? '' : ' — 바꿀 글을 못 찾음'));
+  chk(changed && r2.some(([ok]) => !ok), 'mutation test: ' + nm + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
 
 say('── 5. 닫힌 런처는 rAF 를 걸지 않는다 — 열리면 다음 rAF 에 다시(가짜 rAF · 가짜 MutationObserver)');
@@ -175,7 +175,7 @@ function judgeSleep(mod){
   const step = (n) => { for(let i = 0; i < n; i++){ st.now += 1000 / 60; const q = st.q; st.q = []; q.forEach(f => f(st.now)); } };
   let api;
   try{ api = build(mod, { FrameBudget: fbWin.FrameBudget, blinkTiming: bt, defToBase: () => ({ group: any, faceMat: {}, fT: 1, bT: 2 }) },
-    { THREE: THREE3, document: doc, requestAnimationFrame: raf, TwIdleGate: loadGate(MO), performance: { now: () => st.now } }); }
+    { THREE: THREE3, TwGlContext: { make: (cv, o) => new THREE3.WebGLRenderer(o) }, document: doc, requestAnimationFrame: raf, TwIdleGate: loadGate(MO), performance: { now: () => st.now } }); }
   catch(e){ t(false, '가짜 런처 만들기 — ' + String(e.message || e).slice(0, 80)); return r; }
   api.ensureLauncherPreview(); api.setLauncherChar({});
   t(st.q.length === 0, '만들기만 해서는 rAF 를 안 건다(시작은 app.js 의 startLauncherLoop 한 줄)');
@@ -210,7 +210,18 @@ const breaks5 = [
 for(const [nm, fm] of breaks5){
   const m2 = fm(MOD);
   let r2; try{ r2 = judgeSleep(m2); }catch(_){ r2 = [[false, '던짐']]; }
-  chk(m2 !== MOD && r2.some(([ok]) => !ok), '깨 보기: ' + nm + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+  chk(m2 !== MOD && r2.some(([ok]) => !ok), 'mutation test: ' + nm + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+}
+
+
+say('── 6. 3D 를 못 만들 때(gl-context 가 null) — 던지지 않고 이어 간다');
+{
+  const nullRig = (mod) => { const any = anything(); const doc = new Proxy({}, { get: (o, k) => k === 'getElementById' ? (() => any) : any });
+    return build(mod, {}, { THREE: any, TwGlContext: { make: () => null }, document: doc, performance: { now: () => 0 } }); };
+  const run = (mod) => { try{ const api = nullRig(mod); api.ensureLauncherPreview(); api.sizeLauncherPreview(); api.setLauncherChar({}); api.setLauncherChar(null); api.launcherLoop(1); return api.lRenderer() === null; }catch(e){ return false; } };
+  chk(run(MOD), 'ensure · size · setLauncherChar · launcherLoop 가 renderer 없이도 던지지 않는다(lRenderer 는 null)');
+  chk(!run(MOD.replace('function sizeLauncherPreview(){if(!lRenderer)return;', 'function sizeLauncherPreview(){')), 'mutation test: size 의 가드를 빼면 빨강');
+  chk(!run(MOD.replace('_lcThumbJob=null;if(!lRenderer)return;', '_lcThumbJob=null;')), 'mutation test: setLauncherChar 의 가드를 빼면 빨강');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

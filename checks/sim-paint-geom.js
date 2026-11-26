@@ -5,7 +5,7 @@
    ・1절: strokeSeg — 첫 점(lx 없음)은 0.01 짧은 선 · 이어지는 점은 앞 점과 잇기
    ・2절: mirrorUVOn — 중심 cx 로 x 반전 · 거울 법선 바깥 0.6(off 있으면 그만큼)에서 표면 쪽으로 되쏘기 · castFn 이 없으면 메쉬를 직접 맞히기 ·
           법선이 없으면 카메라 쪽 · 맞은 곳 · 메쉬가 없으면 null
-   ・3절: app.js 연결 · 4절: 일부러 깨 보기 */
+   ・3절: app.js 연결 · 4절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -85,7 +85,7 @@ B.forEach(([ok, msg], i) => { const s = { 0: '── 1. strokeSeg', 4: '── 2
 say('── 3. app.js 연결');
 wire(APP, HTML).forEach(([ok, msg]) => chk(ok, msg));
 chk(!SMOKE || /PRELOAD\.push\('paint-geom\.js'\);/.test(SMOKE), 'smoke 가 paint-geom.js 를 먼저 싣는다');
-say('── 4. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 4. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['점 길이 0.01 → 0.1', (m) => m.replace('const DOT_LEN = 0.01;', 'const DOT_LEN = 0.1;'), null, null],
   ['앞 점 0 을 없음으로', (m) => m.replace('if(lx==null)', 'if(!lx)'), null, null],
@@ -93,7 +93,7 @@ const breaks = [
   ['x 반전 중심 없앰', (m) => m.replace('_mp.x = 2*(cx||0) - _mp.x;', '_mp.x = - _mp.x;'), null, null],
   ['법선 x 를 안 뒤집음', (m) => m.replace('_mn.set(-n.x,n.y,n.z)', '_mn.set(n.x,n.y,n.z)'), null, null],
   ['자식까지 맞힘', (m) => m.replace('_mray.intersectObject(mesh,false)', '_mray.intersectObject(mesh,true)'), null, null],
-  ['만들 때 던짐', (m) => m.replace('function createPaintGeom(deps){', 'function createPaintGeom(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', (m) => m.replace('function createPaintGeom(deps){', 'function createPaintGeom(deps){ throw new Error("mutation");'), null, null],
   ['app.js 에 본문이 남음', null, (a) => a + '\nfunction strokeSeg(){}', null],
   ['html 줄 빠짐', null, null, (h) => h.replace('<script src="parts/shared/paint-geom.js"></script>', '')],
 ];
