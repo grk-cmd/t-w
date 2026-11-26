@@ -45,7 +45,8 @@ chk(R.jitterMs(0) === 0 && R.jitterMs(0.5) === 15000 && R.jitterMs(0.9999999) < 
 chk(R.mailDelayMs(R.LETTER_DEADLINE_MS + 1000, R.SCHEDULE, 0.5) === 15000 && R.mailDelayMs(R.LETTER_DEADLINE_MS - 1, R.SCHEDULE, 0.5) === 0 && R.mailDelayMs(R.LETTER_DEADLINE_MS + R.DELIVERY_WINDOW_MS, R.SCHEDULE, 0.5) === 0,
   '알림함 다시 읽기 기다림 — 짝 짓기 10분 안에서만 무작위 · 그 밖은 곧바로(0)');
 { const items = { a: { kind: 'XMAS_LETTER', read: false }, b: { kind: 'XMAS_LETTER', read: true }, c: { kind: 'XMAS_RETURNED', read: false }, d: { kind: 'XMAS_LETTER', read: false } };
-  chk(R.newLetterMailIds(items, new Set(['d'])).join() === 'a' && R.newLetterMailIds(null, null).length === 0, '새 받은 편지 알림 — 안 읽은 XMAS_LETTER 중 아직 안 본 것만(반송 · 읽은 것 · 본 것 빼고)'); }
+  chk(R.letterMailIds(items, new Set(['d'])).join() === 'a,b' && R.letterMailIds(null, null).length === 0,
+    '받은 편지 알림 — XMAS_LETTER 중 아직 안 본 것(읽은 알림도 — 다른 PC 에서 읽어도 이 PC 빨간 점은 따로 · 반송 · 본 것 빼고)'); }
 {
   const iso = (ms) => new Date(ms).toISOString();
   const T0 = Date.parse('2026-11-26T03:00:00Z');   // 리허설 — 서버가 local 프로필로 날짜를 당겨 준 경우
@@ -101,6 +102,10 @@ say('── 6절 mutation test');
   chk(old(R.EVENT_END_MS) !== R.lettersArrived(R.EVENT_END_MS), 'mutation test — 열람을 이벤트 끝에 닫으면 2절 «1/5 까지» 가 잡는다'); }
 const broken = Object.assign({}, R, { changedImgSlots: (oo, have) => Object.keys(oo).filter(s => oo[s].k === 'img' && !(have && have[s] >= oo[s].v)) });
 chk(broken.changedImgSlots(o, { 1: 6 }).indexOf('1') < 0 && need.indexOf('1') >= 0, 'mutation test — «판이 클 때만» 받으면 작아진 판(동시 바꾸기)을 놓친다 — 위 4절이 잡는 모양');
+
+{ const oldIds = (items, seen) => Object.keys(items || {}).filter(id => items[id] && items[id].kind === 'XMAS_LETTER' && !items[id].read && !(seen && seen.has(id)));   // 읽은 알림을 빼던 모양
+  const it = { a: { kind: 'XMAS_LETTER', read: false }, b: { kind: 'XMAS_LETTER', read: true } };
+  chk(oldIds(it, null).join() !== R.letterMailIds(it, null).join(), 'mutation test — 읽은 알림을 빼면 위 «읽은 알림도» 가 잡는다(다른 PC 에서 알림을 읽은 PC 의 빨간 점)'); }
 
 say('── 7절 편지');
 chk(JSON.stringify(R.RETURN_REASONS) === JSON.stringify(SV.RETURN_REASONS), '반송 사유 표가 서버와 같다 — ' + Object.values(R.RETURN_REASONS).join(' · '));

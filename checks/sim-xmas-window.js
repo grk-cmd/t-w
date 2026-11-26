@@ -62,6 +62,7 @@ function world(opts){
     img: async (id) => { N.calls.push('img:' + id); const d = N.data.imgs[id]; return d ? { ok: true, d } : { ok: false, code: 'read' }; },
     hang: async (d) => { N.calls.push('hang'); N.lastHang = d; return N.hangRet || { ok: true, tree: N.data.cur, slot: 0, version: 1, moved: false, changed: false, imageId: null }; },
     schedule: () => N.sched || null,
+    scheduleNow: () => N.sched || R.SCHEDULE,
     reportOrnament: async (t, s) => { N.calls.push('report:' + t + '/' + s); return o.repRet || { ok: true }; },
   };
   const Lt = { calls: [], deps: null };
@@ -255,8 +256,19 @@ say('── 8절 📩 받은 편지 알림');
 {
   const w = world({ random: 0.5 }); w.S.ready(); w.Lt.calls.length = 0;
   const M = (o) => Object.assign({ a: { kind: 'XMAS_LETTER', read: false }, b: { kind: 'XMAS_RETURNED', read: false }, c: { kind: 'LEVEL_UNLOCK', read: false } }, o || {});
-  w.api.onMail({ b: { kind: 'XMAS_RETURNED', read: false }, x: { kind: 'XMAS_LETTER', read: true } });
-  chk(!w.timeouts.length, '반송 알림 · 이미 읽은 받은 편지 알림은 읽기를 걸지 않는다');
+  w.api.onMail({ b: { kind: 'XMAS_RETURNED', read: false }, c: { kind: 'LEVEL_UNLOCK', read: false } });
+  chk(!w.timeouts.length, '반송 알림 · 다른 알림은 읽기를 걸지 않는다');
+  { // 다른 PC 에서 알림을 읽었어도(read:true) 이 PC 는 켤 때 한 번 읽는다 — 받은 편지 읽음은 이 PC 값이라
+    const wr = world({ random: 0 }); wr.S.ready(); wr.Lt.calls.length = 0;
+    wr.api.onMail({ x: { kind: 'XMAS_LETTER', read: true } });
+    chk(wr.timeouts.length === 1, '★ 이미 읽은 받은 편지 알림도 처음 보면 한 번 읽기를 건다(다른 PC 에서 알림을 읽어도 이 PC 빨간 점이 맞게)');
+    wr.timeouts[0][0](); wr.api.onMail({ x: { kind: 'XMAS_LETTER', read: true } });
+    chk(wr.Lt.calls.filter(c => c === 'checkGot').length === 1 && wr.timeouts.length === 1, '  ↳ 같은 알림은 다시 걸지 않는다(켤 때 한 번)');
+    const wm = world({ random: 0 }); wm.S.ready(); wm.Lt.calls.length = 0;   // 켤 때 처음 받은 목록 — 읽은 것 · 안 읽은 것 · 반송이 섞여 여럿
+    wm.api.onMail({ p: { kind: 'XMAS_LETTER', read: true }, q: { kind: 'XMAS_LETTER', read: false }, r: { kind: 'XMAS_LETTER', read: true }, s: { kind: 'XMAS_RETURNED', read: false } });
+    wm.timeouts.forEach(t => t[0]());
+    chk(wm.timeouts.length === 1 && wm.Lt.calls.filter(c => c === 'checkGot').length === 1, '  ↳ 처음 목록에 받은 편지 알림이 여럿(읽음 섞임)이어도 기다림 하나 · 읽기 한 번');
+  }
   w.api.onMail(M());
   chk(w.timeouts.length === 1 && w.timeouts[0][1] === 15000 && !w.Lt.calls.includes('checkGot'), '안 읽은 XMAS_LETTER — 곧바로가 아니라 무작위(0.5 → 15초) 뒤로 건다');
   w.api.onMail(M({ d: { kind: 'XMAS_LETTER', read: false } }));

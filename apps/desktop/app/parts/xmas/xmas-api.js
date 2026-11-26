@@ -246,7 +246,8 @@ function createXmasApi(deps){
   }
 
   return { me: () => myCode(), where, tree, img, hang, reportOrnament, reportLetter, myLetters, saveLetter, removeLetter, clearReturned, got,
-    schedule: () => sched };
+    schedule: () => sched,
+    scheduleNow: () => sched || rules.SCHEDULE };   // 날짜 판정에 쓸 한 벌 — 못 읽었으면 처음 값(창 · 알림함 기다림이 같이 쓴다)
 }
 
 const api = Object.freeze({ createXmasApi, PATHS, ERROR_CODES, failOf, currentOf, ornamentsOf, mineOf, meOf, imageUrl });
