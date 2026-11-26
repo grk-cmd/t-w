@@ -131,6 +131,8 @@ let panX=0, panY=0; // 방향키 카메라 평행이동
 let scl={x:1, y:1, all:1};
 
 function myLevel(){ try{ return focusLevelMod.getFocusLevel(); }catch(_){ return 1; } }
+/* 잠금 안내 — 서버 레벨을 못 받았으면(shown null) «현재 Lv» 를 적지 않는다(받기 전 1 을 보여 주지 않게) */
+function _lockMsg(unlockLv, shown){ return '🔒 동물 캐릭터는 Lv.'+unlockLv+' 달성 보상이에요' + (shown != null ? ' (현재 Lv.'+shown+')' : ''); }
 function admin(){ try{ return !!isAdmin(); }catch(_){ return false; } }
 
 /* ── 카드 활성화: "공사중" → Lv.100 잠금 카드 ── */
@@ -183,7 +185,6 @@ function initCard(){
   card.title = _unlocked ? '동물 캐릭터 만들기' : ('동물 캐릭터 만들기 (Lv.'+UNLOCK_LEVEL+' 보상)');
   card.style.cursor='pointer';
   card.onclick=()=>{
-    const lv=myLevel();
     if(!_unlockOk()){
       // 🔓 숨김 해금 — L키를 누른 채 이 카드를 10번 연속 클릭. 중간에 L을 떼거나 2초 이상 쉬면 리셋.
       if(_lKeyDown){
@@ -201,7 +202,7 @@ function initCard(){
         toast('🔓 '+_cheatCount+' / '+CHEAT_CLICKS);
         return;
       }
-      toast('🔒 동물 캐릭터는 Lv.'+UNLOCK_LEVEL+' 달성 보상이에요 (현재 Lv.'+lv+')');
+      toast(_lockMsg(UNLOCK_LEVEL, focusLevelMod.shownFocusLevel()));
       return;
     }
     startNewAnimal();

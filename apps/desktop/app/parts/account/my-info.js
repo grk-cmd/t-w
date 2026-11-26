@@ -165,9 +165,8 @@ function _miRenderStar(){
   } else {
     if(on) on.style.display = 'none';
     if(lock) lock.style.display = 'flex';
-    const ready = progress().load === 'ready';
     let lv = 1; try{ lv = getFocusLevel(); }catch(_){}
-    if(sub) sub.textContent = ready ? 'Lv.' + lv + ' / ' + FOCUS_LEVEL_CAP_HOURS() : '';   // 못 받았으면 레벨을 비운다(D5-Q5)
+    if(sub) sub.textContent = 'Lv.' + lv + ' / ' + FOCUS_LEVEL_CAP_HOURS();
     const left = $e('miStarLeft'), meter = $e('miStarMeter');
     if(left) left.textContent = Math.max(1, Math.ceil(c.leftSec / 3600)).toLocaleString('ko-KR') + '시간 남았어요';
     if(meter) meter.style.width = Math.min(100, Math.floor(total / FOCUS_CYCLE_SEC() * 100)) + '%';
