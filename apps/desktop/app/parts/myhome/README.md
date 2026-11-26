@@ -7,6 +7,7 @@
 
 **책임** — 방에서 친구가 아닌 상대 좌석을 우클릭 → «👤 친구 신청» 을 누르면, 첫 번째는 안내만 하고 5초 안에 같은 사람을 한 번 더 누르면 친구 요청을 보낸다.
 보내기 전 앞단 검사(데이터 provider 준비 · 나 자신 · 이미 친구 · 친구 정원)는 마이홈 [친구 추가] 와 같은 순서 · 같은 문구다.
+좌석 길은 앞단 검사를 지난 뒤 «보낸 요청이 열려 있나» 를 보고(앞단에서 막히면 요청 0), 열려 있으면 보내지 않고 «이미 ○○님에게 친구 요청을 보냈어요» 만 알린다 — 좌석은 사유 칸이 없어서, 다시 보내면 서버가 마이홈 [친구 신청] 에서 적은 사유를 지운다.
 
 **만드는 법** — app.js «DRAG / PET» 안, 좌석 contextmenu 리스너 바로 앞:
 
@@ -14,7 +15,7 @@
 const seatFriendReqMod = TwSeatFriendReq.createSeatFriendReq({
   FRIEND_MAX: FRIEND_MAX,                 // 값 — 친구 정원
   _myHomeFriends: ()=>_myHomeFriends,     // 읽는 함수 — 친구 구독이 다시 대입한다
-  friendNet: ()=>window.firebaseAPI,      // 읽는 함수 — 데이터 provider 고르기 한 줄(sendFriendRequest 를 가진 것)
+  friendNet: ()=>({ sendFriendRequest: …, isFriendRequestAlive }),   // 읽는 함수 — 친구 요청 포트(send) · 마이홈 단추와 같이 쓰는 isFriendRequestAlive(포트 sentIds — GET 한 번)
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
 });
@@ -26,12 +27,12 @@ const seatFriendReqMod = TwSeatFriendReq.createSeatFriendReq({
 mk('👤 친구 신청', ()=>seatFriendReqMod._friendReqAsk(uid, seat));   // 좌석 우클릭 메뉴(room/seat-menu.js)
 ```
 
-**확장할 때 고칠 자리** — 기다리는 시간은 `FRIEND_REQ_ARM_MS`. 서버(API)로 옮길 때는 app.js 의 `friendNet:` 한 줄만 그쪽 provider(`sendFriendRequest(나, 상대)` → `{ ok, reason }`)로 바꾼다 — 모듈 안에서 `firebaseAPI` 를 직접 부르지 않는다. 앞단 검사를 늘리면 마이홈 [친구 추가](`add-friend.js` 쪽)도 같은 순서 · 문구로 같이 고친다.
+**확장할 때 고칠 자리** — 기다리는 시간은 `FRIEND_REQ_ARM_MS`. provider 를 바꿀 때는 app.js 의 `friendNet:` 한 줄만 고친다(`sendFriendRequest(나, 상대, 사유)` → `{ ok, reason }` · `isFriendRequestAlive(상대, 나)` → boolean) — 모듈 안에서 `firebaseAPI` 를 직접 부르지 않는다. 앞단 검사를 늘리면 마이홈 [친구 추가](`add-friend.js` 쪽)도 같은 순서 · 문구로 같이 고친다.
 
 **함정** — 확인창(native 다이얼로그 · 새 fixed 오버레이)으로 바꾸지 말 것: 실행 화면은 투명 전체화면이라 다이얼로그가 안 보이고, 새 오버레이는 audit 검사 여럿에 항목이 는다.
 회사원 모드에서는 부르는 쪽(app.js)이 먼저 막는다 — 토스트도 뜨면 안 된다.
 
-검사: `checks/sim-seat-friend-req.js` (두 번 눌러 보내기 · 앞단 검사 · 결과 문구 · 연결 · mutation test).
+검사: `checks/sim-seat-friend-req.js` (두 번 눌러 보내기 · 앞단 검사 · 열린 요청이면 안 보냄 · 결과 문구 · 연결 · mutation test).
 
 ## friends-sub.js — 내 친구 목록 구독 한 벌
 - 책임: 친구 목록 구독(포트 `friends/friends-port.js` 의 watchList)을 **동시에 하나만** 건다. 실패하면 **목록을 열 때만**(친구 탭 · 워킹룸 초대 목록) 다시 건다 — 타이머 재시도 · 연결 감시는 없다.
@@ -316,7 +317,7 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
   - «살아 있나» 를 묻는 동안 다른 홈으로 넘어가면 늦은 답을 버린다 — 안 버리면 다음 화면에 단추가 켜진다. 확인을 못 하면 숨긴다(이미 보낸 요청을 또 보내지 않게).
   - 관람 화면 하나를 여는 동안 `_mhApplyVisitUI` 가 여러 번 불린다 — 같은 uid 면 다시 묻지 않는다. 내 홈으로 오면(`refresh(null)`) 기억을 비운다.
   - 사유 · 이름은 `textContent` 로만 넣는다. 받는 쪽(`friend-manage.js`)도 목록은 `textContent`, 👋 팝업은 `escHtml` 이다.
-  - 사유 길이 100자는 규칙 `friendRequests/$toId/$fromId/msg` 와 같다 — 한쪽만 바꾸지 말 것.
+  - 사유 길이 100자는 서버(`POST /v2/me/friend-requests` 의 `message` · UTF-16 100자)와 규칙 `friendRequests/$toId/$fromId/msg` 와 같다 — 한쪽만 바꾸지 말 것. 사유 칸은 `TwServerFeatures.on('friendReqMsg')` 가 켠다.
   - 실패(저장 실패 · 던짐)는 `E-FR-06`, 이미 친구 · 정원 · 나 · 준비 안 됨은 안내 토스트(좌석 친구 신청과 같은 문구).
   - 검사: `checks/sim-friend-req-btn.js` · `sim-seat-friend-req.js`(보내기 한 벌).
 검사: `checks/sim-mh-pad-pos.js` (함수 · 놓는 흐름 — `'moved'` 오는 OS · 안 오는 OS · mutation test).
@@ -387,7 +388,7 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 
 ## `mallang.js` — 🧸 말랑이 · 🎁 선물 화면
 
-- **책임**: 마이홈 바탕화면의 말랑이 폴더(부르기 · 등록 창) · 떠다니는 말랑이 · 마이홈에 나온 선물 말랑이(치우기) · 선물 보내기 창 · 친구 탭 🎁 배지 · 선물 말랑이를 띄우고 빼는 화면 연출 · 선물 보내기 창. 말랑이 칸은 상태 주인(`mallang-store.js`) · 받은 선물은 선물 상태 주인(`gift-box.js`)이 서버 경로로 받고 고친다 — 이 파일은 그리기 · 누름만. 보내기도 서버 경로(`giftBox.send` · `fetchSentToday` · `fetchVisible` · `fetchSent`)다 — 창 상태(`giftPop`)는 이 파일 안. 이 친구에게 이미 보낸 그림(보낸 기록의 `recipientCode` · 원본 그림이 같음)은 칸 구석 «보냄» · 누르면 «또 보낼까요?»(막지 않음 · 기록을 못 받으면 묻지 않고 보낸다).
+- **책임**: 마이홈 바탕화면의 말랑이 폴더(부르기 · 등록 창) · 떠다니는 말랑이 · 마이홈에 나온 선물 말랑이(치우기) · 선물 보내기 창 · 친구 탭 🎁 배지 · 선물 말랑이를 띄우고 빼는 화면 연출 · 선물 보내기 창. 말랑이 칸은 상태 주인(`mallang-store.js`) · 받은 선물은 선물 상태 주인(`gift-box.js`)이 서버 경로로 받고 고친다 — 이 파일은 그리기 · 누름만. 보내기도 서버 경로(`giftBox.send` · `fetchSentToday` · `fetchVisible` · `fetchSent`)다 — 창 상태(`giftPop`)는 이 파일 안. 이 친구에게 이미 보낸 그림(보낸 기록 최근 30개 안에서 `recipientCode` · 원본 그림이 같음)은 칸 구석 «보냄» · 누르면 «또 보낼까요?»(막지 않음 · 기록을 못 받으면 묻지 않고 보낸다).
 - **만드는 법**: app.js 가 마이홈 수령함(`createMyHomeInbox`)보다 먼저 만든다 — 수령함 · 마이홈 창 · 친구 홈 구경이 값으로 받는다.
 
 ```js

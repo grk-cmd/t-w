@@ -25,9 +25,8 @@
 #   uiohook-napi(프리빌드 동봉)는 넘어가도 node-window-manager(소스 컴파일)는 모른다.
 #   한 잡에 묶으면 x64 가 죽을 때 arm64 결과까지 같이 잃는다. fail-fast 도 꺼 둔다.
 #
-# ⚠️ 서명하지 않는다(CSC_IDENTITY_AUTO_DISCOVERY=false). Apple Developer 계정이 없으니
-#   켜 두면 서명 단계에서 죽어서 ①②③ 이 멀쩡한지조차 못 본다. 서명·공증은 §8 의 일이고,
-#   여기서 나온 아티팩트는 **열면 "손상되었습니다"가 뜨는 게 정상이다.** 붙는지만 본다.
+# ⚠️ 서명하지 않는다(CSC_IDENTITY_AUTO_DISCOVERY=false). Developer ID 서명 · 공증은 release.yml(환경 release 의 secret)만 하고,
+#   probe 는 secret 없이 돈다 — 아티팩트는 afterPack ad-hoc 서명(scripts/mac-adhoc-sign.js)만 붙고 공증이 없다. 붙는지만 본다.
 #
 # ★ [2026-09-15] **⑦ `electron@31 → 44` 를 이 워크플로로 판정한다** (handoff-mac-runtime.md §8).
 #   전제가 둘 바뀌었다 — 둘 다 42 부터의 일이라 31 시절 초록으로는 못 미룬다:

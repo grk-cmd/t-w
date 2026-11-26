@@ -272,6 +272,12 @@ async function judge(S){
     chk(!!down.byId.mlGift && !mark(down, 0) && !down.log.some((l) => l.startsWith('error')), '기록을 못 받으면 «보냄» 표시 없이 창은 연다(번호 0)');
     await click(down, 0);
     chk(count(down.log, /^api send/) === 1, '  묻지 않고 보낸다(판정은 서버)');
+    const nm = mkEnv(S, { srv: { history: [hist('F1', 'https://x.example/m0.png', at)] } });
+    await nm.m.openGift('F1', '<b>친'); await flush(); await click(nm, 0);
+    chk(/&lt;b&gt;친 님에게/.test(nm.byId.mlGiftAgain.innerHTML) && !/<b>친/.test(nm.byId.mlGiftAgain.innerHTML), '  묻는 글의 친구 이름은 esc 를 지난다(<b> 가 글자로)');
+    const zero = mkEnv(S, { srv: { count: 10, history: [hist('F1', 'https://x.example/m0.png', at)] } });
+    await open(zero); await click(zero, 0);
+    chk(zero.byId.mlGiftAgain.style.display !== 'block' && zero.log.includes('toast 오늘은 더 보낼 수 없어요 (하루 10번)') && count(zero.log, /^api send/) === 0, '오늘 횟수가 0 이면 묻기 전에 «오늘은 더 보낼 수 없어요»');
     const full = mkEnv(S, { srv: { visible: 30, history: [hist('F1', 'https://x.example/m0.png', at)] } });
     await open(full); await click(full, 0);
     chk(full.byId.mlGiftAgain.style.display !== 'block' && full.log.includes('toast 🎁 상대 마이홈이 가득 찼어요 (30마리)'), '상대가 가득이면 묻기 전에 가득 안내');
@@ -362,6 +368,14 @@ process.on('unhandledRejection', () => { if(quiet) qfail++; else { fail++; conso
   await run('[또 보내기] 뒤에도 또 물으면', { ML: SRC0.ML.replace("p.again.add(item.imageUrl); sendGift(p, item);", "sendGift(p, item);") }, async (S) => {
     const e = mkEnv(S, H0(1)); await open(e); await click(e, 0); e.byId.mlAgainGo.fire('click'); await flush();
     chk(e.sendBodies.length === 1, '보냄');
+  });
+  await run('묻는 글의 친구 이름을 안 씻으면', { ML: SRC0.ML.replace("esc(TwPersonName.shown(p.name))+' 님에게 '", "TwPersonName.shown(p.name)+' 님에게 '") }, async (S) => {
+    const e = mkEnv(S, H0(1)); await e.m.openGift('F1', '<b>친'); await flush(); await click(e, 0);
+    chk(!/<b>친/.test(e.byId.mlGiftAgain.innerHTML), '씻음');
+  });
+  await run('오늘 횟수 0 인데 먼저 물으면', { ML: SRC0.ML.replace("    const why = giftBlock(p);\n    if(why){ toast(why); return; }\n    const before = sentBefore(p, item.imageUrl);\n    if(before && !p.again.has(item.imageUrl)){ askAgain(p, item, before); return; }", "    const before = sentBefore(p, item.imageUrl);\n    if(before && !p.again.has(item.imageUrl)){ askAgain(p, item, before); return; }\n    const why = giftBlock(p);\n    if(why){ toast(why); return; }") }, async (S) => {
+    const e = mkEnv(S, Object.assign(H0(1), { srv: Object.assign(H0(1).srv, { count: 10 }) })); await open(e); await click(e, 0);
+    chk(e.byId.mlGiftAgain.style.display !== 'block', '안 묻는다');
   });
   await run('기록을 못 받으면 창을 안 열면', { ML: SRC0.ML.replace("history.ok ? history.items : null)", "history.ok ? history.items : (()=>{ throw new Error('x'); })())") }, async (S) => {
     const e = mkEnv(S, { srv: { historyErr: apiErr(503, 'X') } }); await open(e);

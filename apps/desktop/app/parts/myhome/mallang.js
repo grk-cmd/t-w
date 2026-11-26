@@ -932,7 +932,8 @@ function createMallang(deps){
     buildGiftPopup(friendId, friendName, sent.ok ? { count: sent.count, dailyMax: sent.dailyMax } : null,
       theirs.ok ? { visibleCount: theirs.visibleCount, recipientCap: theirs.recipientCap } : null, history.ok ? history.items : null);
   }
-  /* 이 친구에게 이 그림을 보낸 가장 최근 기록 — 기록은 서버가 최신순으로 준다. 받는 사람이 탈퇴했으면 recipientCode 가 null 이라 맞지 않는다 */
+  /* 이 친구에게 이 그림을 보낸 가장 최근 기록 — 기록은 서버가 최신순으로 준다. 받는 사람이 탈퇴했으면 recipientCode 가 null 이라 맞지 않는다.
+     기록은 서버가 남긴 최근 30개 안에서만 본다 — 그보다 오래 전에 보낸 그림에는 «보냄» 이 없다 */
   const sentBefore = (p, url) => (p.history ? p.history.find((s) => !!s.recipientCode && s.recipientCode === p.to && s.imageUrl === url) || null : null);
 
   const giftFull = (p) => !!(p.theirs && p.theirs.visibleCount >= p.theirs.recipientCap);
