@@ -305,7 +305,7 @@ say('── 3. 고리');
       'firebase-init — 점검 읽기를 gate 에 잇는다(서버 GET /v2/config 먼저 · Firebase 칸은 한 번 읽기 · 늘 듣는 구독 없음)');
   chk(!/onValue\(ref\(db, window\.TwMaintenance\.MAINTENANCE_PATH\)/.test(FI), '  ↳ config/maintenance 를 늘 듣는 구독이 없다(P3)');
   chk(M.CONFIG_PATH === '/v2/config' && !/window\.TwApi/.test(SRC.replace(/\/\*[\s\S]*?\*\//g, '')), '  ↳ gate 는 API 통로를 직접 부르지 않는다(api-client.js 와 서로 부르는 순환이 되므로 · 읽기 함수는 firebase-init 이 잇는다)');
-  chk(/const touch = \(\) => \{ window\.TwMaintenance\.store\.touch\(\); \};/.test(AC) && /client = createApiClient\(\{ baseUrl, fetch: fetchFn, onRequest: touch \}\);/.test(AC)
+  chk(/const touch = \(\) => \{ window\.TwMaintenance\.store\.touch\(\); \};/.test(AC) && /client = createApiClient\(\{ baseUrl, fetch: fetchFn, onRequest: touch(, persist: \{ store, paths: PERSIST_PUBLIC \})? \}\);/.test(AC)
     && /authed = createApiClient\(\{ baseUrl, fetch: fetchFn, onRequest: touch,/.test(AC) && /muted: \(\)=>window\.TwMaintenance\.store\.on\(\)/.test(EC), '  ↳ API 통로 두 벌(공용 읽기 · 로그인) · 오류 번호 한 벌에도');
   const n = (RULES.config || {}).maintenance || {};
   chk(n['.read'] === true && /admins/.test(n['.write'] || '') && /auth\.uid/.test(n['.write'] || ''), '★ config/maintenance — 누구나 읽기(로그인 전 · 점검 중) · 관리자만 쓰기');

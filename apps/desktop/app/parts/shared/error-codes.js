@@ -45,7 +45,8 @@ const CODES = {
   'E-SYS-06': { msg: '3D 미리보기를 불러오지 못했어요 — 창을 닫고 다시 열어 주세요', where: 'shared/gl-context.js — 미리보기(런처 · 생성기 · 꾸미기 · 종족 고르기 · 동물 · 파츠 썸네일 · 스티커사진)의 3D 장치를 못 만듦. 그 창 안에 안내가 뜨고 앱은 계속 돈다' },
   'E-SYS-07': { msg: '3D 를 불러오지 못해 사진을 찍을 수 없어요 — 창을 닫고 다시 열어 주세요', where: 'purikura/purikura-ui.js — 스티커사진 방장의 3D 무대가 없을 때 「촬영 시작」(다른 참가자의 촬영은 막지 않음)' },
   'E-SYS-08': { msg: '캐릭터 몸 파일을 불러오지 못했어요 — 앱을 다시 설치해 주세요', where: 'launcher/run-boot.js — 켤 때 기본 몸(window.BASE_GLB_B64)을 못 읽음(대신 몸으로 계속). 설치 파일이 깨졌을 수 있다' },
-  'E-SYS-02': { msg: '내 색을 계정에 저장하지 못했어요 — 이 PC 에는 저장했어요', where: 'shared/theme-ui.js — 👑 내 색 [저장] 의 서버 쓰기(saveThemeCustom · users/{uid}/themeCustom)' },
+  'E-SYS-02': { msg: '내 색을 계정에 저장하지 못했어요 — 이 PC 에는 저장했어요', where: 'shared/theme-ui.js — 👑 내 색 [저장] 의 서버 쓰기(PUT /v2/me/theme-custom · 닿지 못함 · 403 프리미엄 아님)' },
+  'E-SYS-09': { msg: '다른 PC 에서 내 색을 먼저 바꿨어요 — 그 색으로 맞췄어요. 다시 고르면 저장돼요', where: 'shared/theme-ui.js — 👑 내 색 서버 쓰기가 409 CONCURRENT_UPDATE(다른 PC 가 먼저 저장) → 계정 것을 다시 읽어 이 PC 를 맞춤' },
   'E-SYS-03': { msg: '이 PC 의 글꼴 목록을 읽지 못했어요 — 글꼴 이름을 직접 써서 고를 수 있어요', where: 'shared/font-ui.js — 👑 내 PC 글꼴 고르기(queryLocalFonts 실패 · 막힘)' },
   'E-SYS-04': { msg: '반응을 보내지 못했어요 — 잠시 뒤 다시 눌러 주세요', where: 'status/playlist-like-ui.js — 플레이리스트 [노래가 좋아요 👍] 쓰기(playlistLikes)' },
   'E-ACC-06': { msg: '구글 계정을 바꾸지 못했어요 — 원래 구글 그대로예요. 잠시 뒤 다시 해 주세요', where: 'account/account.js — 🔁 [바꾸기] 본인 확인 · 끊기 · 새로 붙이기 실패(google-change-net.js · 되돌림 성공)' },   // E-ACC-01~03 은 0.13.0-server 가 쓴다

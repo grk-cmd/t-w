@@ -125,8 +125,8 @@ function judge(S){
       const H = S.HTML, a = H.indexOf('<script src="parts/account/app-version-sync.js"></script>'), c = H.indexOf('<script src="parts/shared/api-client.js"></script>'), ap = H.indexOf('<script src="parts/app.js"');
       chk(c > 0 && a > c && (ap < 0 || a < ap), 'html — 일반 script 로 api-client.js 다음 · app.js 앞에 싣는다');
       const boot = strip(S.BOOT);
-      const steps = boot.slice(boot.indexOf('const STEPS = ['), boot.indexOf('];', boot.indexOf('const STEPS = [')));
-      chk(/'licensePremium'[\s\S]*'appVersion'[\s\S]*'adminMode'/.test(steps), 'app-boot — 차례 표에 appVersion 한 칸(계정 확인 뒤 · 다른 계정 기능과 같은 차례)');
+      const steps = boot.slice(boot.indexOf('const STEPS = Object.freeze(['), boot.indexOf(']);', boot.indexOf('const STEPS = Object.freeze([')));
+      chk(/\['invites', PHASE\.LATER\],[\s\S]*\['appVersion', PHASE\.LATER\],[\s\S]*\['firstRun', PHASE\.LATER\]/.test(steps), 'app-boot — 차례 표에 appVersion 한 칸(계정 확인 뒤 · 첫 화면 뒤 LATER · 첫 실행 앞)');
       const code = strip(S.APP);
       const i = code.indexOf('TwAppVersionSync.createAppVersionSync({');
       const blk = i >= 0 ? code.slice(i, code.indexOf('});', i) + 3) : '';
@@ -154,7 +154,7 @@ function judge(S){
     ['SYNC', "warn('[판 맞추기] 알리지 못해 건너뜀'", "(0, function(){})('[판 맞추기] 알리지 못해 건너뜀'", '못 알린 것을 삼킨다'],
     ['SYNC', "warn('[판 맞추기] 알리지 못해 건너뜀', (e && (e.code || e.kind || e.message)) || e);", "block(my, 'x'); warn('[판 맞추기] 알리지 못해 건너뜀');", '못 닿으면 막는다'],
     ['SYNC', "    if(!session.alive()) return { state: STATE.STALE };\n    if(!isObj(data)", "    if(!isObj(data)", '끝난 세션의 답으로 막는다'],
-    ['BOOT', "  'appVersion',", "", '차례 표에서 뺀다'],
+    ['BOOT', "  ['appVersion', PHASE.LATER],", "", '차례 표에서 뺀다'],
     ['APP', "appVersion: (code, me, session)=>appVersionSyncMod.start(session),", "", 'app.js 가 시작을 안 건다'],
     ['APP', "=>updateFlowMod.forceAccount(highest),", "=>{},", '막아야 할 때 창을 안 띄운다'],
     ['APP', "window.TwAppVersion.ready", "(window.companion ? window.companion.getAppVersion() : null)", '앱 판을 IPC 로 또 읽는다'],

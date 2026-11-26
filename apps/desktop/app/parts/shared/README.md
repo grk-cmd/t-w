@@ -44,6 +44,16 @@
   - `purikura-net.js` 는 `TwPs1Dither` 를 **부를 때** 읽는다 — 그 파일만 node 로 싣는 검사가 많아서, 실을 때 읽으면 그 검사들이 죽는다.
   - 검사: `checks/sim-ps1-dither.js`(값 · 경계값 · 도트 셰이더 글 · 스티커사진 필터 결과가 묶기 전과 픽셀까지 같음 · mutation test).
 
+## etag-store.js — 🏷️ ETag 기억을 껐다 켜도 남게
+
+- **책임**: api-client 의 ETag 기억({ etag, data })을 IndexedDB `tw-etag-cache`(저장소 `etag`, keyPath `k`)에 남겨, 켤 때 첫 읽기에도 If-None-Match 를 싣는다. 값은 서버가 304 로 답할 때만 쓴다 — 서버에 묻기 전에 이 값으로 화면을 그리지 않는다.
+- **만드는 법**: api-client.js 가 앱 한 벌을 만들 때 `TwEtagStore.createEtagStore()` 한 벌을 두 통로에 `persist: { store, paths }` 로 넘긴다. 남기는 길은 api-client.js `PERSIST_PUBLIC`(설정 · 공지) · `PERSIST_AUTHED`(카탈로그 · 옷장 · 보유분 · 포커스 · 친구 · 플레이리스트).
+- **내보내는 것**: `load(key)` → `Promise<{ etag, data } | null>` · `save(key, etag, data)` · `clear()` · 상한 `MAX`(64 — 넘으면 오래된 것부터).
+- **함정**
+  - 열쇠는 api-client 의 «누구(토큰 sub) + 경로» — 다른 계정 값을 돌려주지 않는다. 계정을 놓으면(`forgetSession`) 통째로 지운다.
+  - 길을 더할 땐 서버가 그 길에 ETag 를 주는지 먼저 본다(안 주면 남길 것이 없다).
+  - 검사: `checks/sim-etag-store.js` · `checks/sim-api-client.js`(persist 절).
+
 ## glb-idb-cache.js — 💾 GLB 영구 캐시(IndexedDB)
 
 - **책임**: 받은 GLB(base64)를 부르는 쪽이 준 열쇠(카탈로그는 내용 해시 `sha256:…`)로 IndexedDB `tw-glb-cache`(저장소 `glb`, keyPath `url` — 열쇠를 이 칸에 둔다)에 넣고 꺼낸다. 꺼낼 때 쓴 때(`ts`)를 하루에 한 번 새로 적고, 45일 넘게 안 쓴 것은 실행마다 한 번 치운다. 무슨 GLB 인지는 모른다.

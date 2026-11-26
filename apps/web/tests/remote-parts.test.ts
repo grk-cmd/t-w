@@ -10,7 +10,7 @@ import {
 } from '@/features/character-maker/lib/part-images';
 import { accItems, findItem, layerItems } from '@/features/character-maker/model/catalog';
 import { parseRemoteParts, partImageUrlOk } from '@/features/character-maker/model/remote-parts';
-import { API_ORIGIN } from '@/shared/config';
+import { API_ORIGIN, STORAGE_BUCKET } from '@/shared/config';
 
 const H_IMG = 'a'.repeat(64);
 const H_SHUT = 'c'.repeat(64);
@@ -116,6 +116,32 @@ describe('parseRemoteParts — 서버 상품을 고르기 판 항목(조각 하�
       42,
     ])
       expect(partImageUrlOk(bad), String(bad)).toBe(false);
+  });
+
+  it('그림은 카탈로그 files 의 우리 버킷 Storage URL 로 바로 받는다 — 틀리거나 없으면 API 파일 길', () => {
+    const st = (hash: string, o: { bucket?: string; host?: string; ext?: string; q?: string } = {}) =>
+      `https://${o.host ?? 'firebasestorage.googleapis.com'}/v0/b/${o.bucket ?? STORAGE_BUCKET}/o/assets%2F${hash}.${o.ext ?? 'png'}${o.q ?? '?alt=media&token=t1'}`;
+    const files = { [H_IMG]: st(H_IMG), [H_SHUT]: st(H_SHUT) };
+    const got = parseRemoteParts({ ...one({ variantHashes: { closed: H_SHUT } }), files })[0];
+    expect(got?.src).toBe(st(H_IMG));
+    expect(got?.closedSrc).toBe(st(H_SHUT));
+    expect(partImageUrlOk(st(H_IMG))).toBe(true);
+    for (const bad of [
+      st(H_SHUT), // 다른 해시의 파일
+      st(H_IMG, { bucket: 'together-working-dev.firebasestorage.app' }),
+      st(H_IMG, { host: 'evil.example' }),
+      st(H_IMG, { ext: 'glb' }),
+      st(H_IMG, { q: '?token=t1' }), // alt=media 없음
+      st(H_IMG).replace('https:', 'http:'),
+      `${st(H_IMG)}#x`,
+      'x'.repeat(1001),
+      42,
+    ]) {
+      expect(parseRemoteParts({ ...one(), files: { [H_IMG]: bad } })[0]?.src, String(bad)).toBe(IMG);
+    }
+    expect(partImageUrlOk(st(H_IMG, { bucket: 'other' }))).toBe(false);
+    // files 가 없는 옛 서버 · 모양이 틀린 files 도 API 파일 길
+    expect(parseRemoteParts({ ...one(), files: 'x' })[0]?.src).toBe(IMG);
   });
 
   it('그림 주소는 해시로 만든다 — 해시 모양(소문자 16진 64자)이 아니면 그 조각을 버린다', () => {

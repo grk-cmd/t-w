@@ -293,7 +293,7 @@ const mkData = () => ({
       '  ↳ app.js 가 로그인 통로(TwApi.authed) · realtime 허브 · 오류 번호 · 파일 받기 · 이 앱의 Storage 버킷으로 만든다');
     chk(/catalog: \(code, me, session\)=>catalogSyncMod\.start\(session\),/.test(app) && /catalog: \{ current: \(\)=>catalogApiMod\.current\(\), load: \(\)=>catalogApiMod\.load\(\) \},/.test(app), '  ↳ 로그인 뒤 app-boot 차례(catalog)가 구독을 세션에 맡긴다 · 관리자 쓰기는 같은 한 벌의 version 을 읽는다');
     const st = (BOOT.match(/const STEPS = Object\.freeze\(\[([\s\S]*?)\]\);/) || [])[1] || '';
-    chk(/'userLocal'[\s\S]*'catalog'/.test(st) && st.indexOf("'catalog'") > st.indexOf("'userLocal'"), '  ↳ 차례 표에서 catalog 는 저장 목록이 읽힌 뒤(userLocal 다음)');
+    chk(/\['userLocal', PHASE\.FIRST\][\s\S]*\['catalog', PHASE\.FIRST\]/.test(st) && st.indexOf("'catalog'") > st.indexOf("'userLocal'"), '  ↳ 차례 표에서 catalog 는 저장 목록이 읽힌 뒤(userLocal 다음 · 첫 화면 읽기 FIRST)');
     const iA = HTML.indexOf('<script src="parts/character/catalog-api.js">'), iApp = HTML.indexOf('<script src="parts/app.js">');
     chk(iA > 0 && iA < iApp && !/catalog-source\.js/.test(HTML), '  ↳ html 이 catalog-api.js 를 일반 스크립트로 app.js 앞에 싣는다 · catalog-source.js 는 없다');
     chk(!/catalogSrc|TwCatalogSource|catalogSourceMod/.test(app) && !exists('catalog-source.js'), '  ↳ 옛 provider 자리(catalog-source.js · catalogSrc* · «있으면 부르기» 가드)가 없다');

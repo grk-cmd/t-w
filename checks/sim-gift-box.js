@@ -53,6 +53,7 @@ function mk(S, server){
     hide: (id, on) => { log.push('PATCH ' + id + ' hidden=' + on); return answer(() => (srv.hideErr ? srv.hideErr : undefined)); },
     remove: (id) => { log.push('DELETE ' + id); return answer(() => (srv.delErr ? srv.delErr : undefined)); },
     fetchVisible: (code) => { log.push('GET visible ' + code); return answer(() => (srv.visErr ? srv.visErr : { items: [{ id: 'v1', imageUrl: 'https://img/v1.png', message: '' }], visibleCount: 1, recipientCap: 30 })); },
+    fetchSent: () => { log.push('GET sent'); return answer(() => (srv.sentErr ? srv.sentErr : { items: [{ id: 's1', recipientName: '받은이', imageUrl: 'https://img/s1.png', message: '', sentAt: 5 }] })); },
     reset: () => { log.push('api reset'); },
   };
   const rt = { fns: [] };
@@ -263,6 +264,20 @@ async function judge(S){
     chk(!b1.ok && !b2.ok && count(bad.log, /error E-GIFT-09/) === 1, '실패는 notify 일 때만 E-GIFT-09');
   }
 
+  say('── 7-1. 보낸 말랑이');
+  {
+    const e = mk(S);
+    const r = await e.box.fetchSent();
+    chk(r.ok && r.items.length === 1 && r.items[0].id === 's1' && e.log.join() === 'GET sent', '받으면 보낸 줄(저장 안 함)');
+    chk(e.box.box().load === 'idle', '  내 선물함 상태는 건드리지 않는다');
+    const bad = mk(S, { sentErr: apiErr(503, 'X') });
+    const b = await bad.box.fetchSent();
+    chk(!b.ok && !bad.log.some((l) => l.startsWith('error') || l.startsWith('common') || l.startsWith('toast')), '못 받으면 {ok:false} — 번호 · 안내 없이(화면이 «못 불러왔어요 · 다시 시도»)');
+    const late = mk(S, { auto: false });
+    const p = late.box.fetchSent(); await flush(); late.box.reset(); await late.release(); const lr = await p;
+    chk(!lr.ok, '  계정을 놓은 뒤 온 늦은 답은 버린다');
+  }
+
   say('── 8. 화면 (onScreen)');
   {
     /* 가짜 화면 — mallang.js syncGifts 와 같은 일: 목록에 없는 것은 걷고, 빠진 것은 자리가 있는 만큼 띄운다 */
@@ -399,7 +414,7 @@ function wiring(S, loud){
   t(/giftBox: giftBoxMod,/.test(S.APP.slice(S.APP.indexOf('const mallangMod = '), S.APP.indexOf('const mallangMod = ') + 600)), '  말랑이 화면 deps 에 giftBox');
   t([inboxAt, uiAt].every((i) => /\n  giftBox: giftBoxMod,\n/.test(A.slice(i, A.indexOf('\n});', i) + 4))), '  수령함 · 마이홈 창 deps 에 giftBox');
   t(/\n  giftBox: giftBoxMod,\n/.test(A.slice(A.indexOf('const accountMod = TwAccount.createAccount('), A.indexOf('\n});', A.indexOf('const accountMod = TwAccount.createAccount(')) + 4)) && /giftBox\.reset\(\)/.test(strip(S.ACC)), '  계정 모듈이 로그아웃 때 giftBox.reset()');
-  t(/'mhInit',[^\n]*\n\s*'gift',/.test(S.BOOT), 'app-boot STEPS 에 gift(마이홈 시작 다음)');
+  t(/\['gift', PHASE\.READY\],/.test(S.BOOT), 'app-boot STEPS 에 gift(업데이트 확인 · 등록 뒤 READY — 신호만 걸어 첫 화면 전에 걸어도 요청 0)');
   t(/gift: \(code, me, session\)=>\{[^}]*session\.on\(giftBoxMod\.listen\(\)\)[^}]*session\.onReset\(/.test(S.APP), '  gift 시작은 신호만 건다(listen) + 세션 reset(요청 0)');
   const H = S.HTML.replace(/<!--[\s\S]*?-->/g, '');
   const at = (f) => H.indexOf('<script src="parts/' + f + '"');
@@ -418,6 +433,12 @@ function wiring(S, loud){
   t(/g\.starred === true\)\{\s*_mhAsk\([^)]*⭐를 먼저 풀어 주세요/.test(paint), '  ⭐ 칸 우클릭은 삭제 대신 안내');
   t(/getElementById\('myHomeWin'\)/.test(ask) && /win\.appendChild\(ov\)/.test(ask) && !/document\.body\.appendChild/.test(ask) && !/\bconfirm\(/.test(paint + ask), '  확인창은 #myHomeWin 의 자식 · confirm() 없음');
   t(/escHtml\(text\)/.test(ask) && /escHtml\(title\)/.test(ask) && /TwSafeHtml\.safeUrl\(g\.imageUrl, 'image'\)/.test(paint) && /escHtml\(tip\)/.test(paint), '  친구가 정한 값(이름 · 메시지 · 그림 주소)은 escHtml · safeUrl 을 거친다');
+  const sent = inb.slice(inb.indexOf('async function _sentPaint'), inb.indexOf('function _giftStat'));
+  t(/giftBox\.fetchSent\(\)/.test(sent) && /TwSafeHtml\.safeUrl\(s\.imageUrl, 'image'\)/.test(sent) && /escHtml\(TwPersonName\.shown\(s\.recipientName\)\)/.test(sent) && /escHtml\(s\.message\)/.test(sent),
+    '보낸 선물 — 원본은 서버(giftBox.fetchSent) · 받은 이름 · 메시지 · 그림 주소는 escHtml · safeUrl');
+  t(/my !== _sentGen \|\| !_giftShowing\('sent'\)\) return;/.test(sent) && /retryOnError\(im, \(\)=>\{[\s\S]*?gs-noimg/.test(sent), '  늦은 답은 버린다 · 원본 그림이 지워졌으면 빈 그림');
+  t(/if\(!_giftShowing\('got'\)\) return;/.test(inb) && /tab\.dataset\.tab === 'friend' && !!fm && fm\.dataset\.fm === 'gift' && _giftSub === sub/.test(inb), '  받은 선물 · 늦은 답은 친구 탭 · 선물함 서브탭 · 고른 쪽이 눈앞일 때만 그린다(_giftShowing 하나)');
+  t(/#mhFmTabs:has\(\.mh-ibx-tab\.gift\.on\) \.gift-sub\{display:flex;\}/.test(S.HTML) && /id="mhGiftSub"/.test(S.HTML), '  «받은 선물 · 보낸 선물» 단추는 선물함 탭일 때만 보인다');
   const HTML0 = S.HTML;
   t(/id="mhGiftStat"/.test((HTML0.match(/<div id="mhFmTabs">[\s\S]*?<\/div>/) || [''])[0]), '  표시 칸(#mhGiftStat)은 서브탭 줄 안');
   return ok;
@@ -451,6 +472,11 @@ function wiring(S, loud){
       old.box.pull(false); await flush(); const j3 = old.box.pull(true);
       old.waits.shift()(); await flush(); await flush();
       chk(old.box.pull(false) === j3, '합쳐짐');
+    });
+    await run('보낸 말랑이 늦은 답을 안 버리면', SRC0.BOX.replace("return g !== gen ? { ok: false } : { ok: true, items: got.items };", "return { ok: true, items: got.items };"), async (S) => {
+      const late = mk(S, { auto: false });
+      const p = late.box.fetchSent(); await flush(); late.box.reset(); await late.release(); const lr = await p;
+      chk(!lr.ok, '늦은 답 버림');
     });
     await run('줄(lane)을 빼면', SRC0.BOX.replace('const p = laneTail.then(job); laneTail = p.catch(() => {}); return p;', 'return Promise.resolve().then(job);'), body);
     await run('gen 비교(reset 뒤 늦은 답)를 빼면', SRC0.BOX.replace(/if\(g !== gen\) return 'stale';\n    st\.items = got\.items;/, 'st.items = got.items;'), async (S) => {
@@ -551,7 +577,7 @@ function wiring(S, loud){
     });
     const w = (patch) => !wiring(Object.assign({}, SRC0, patch), false);
     chk(w({ ML: SRC0.ML + "\nlet knownGifts = null;" }) && w({ INBOX: SRC0.INBOX + "\nmallangMod.dropGift('x');" }), '화면 쪽에 pendingGifts · knownGifts · placeGift · dropGift 가 다시 생기면 빨강');
-    chk(w({ BOOT: SRC0.BOOT.replace("  'gift',", '') }), 'gift STEP 이 빠지면 빨강');
+    chk(w({ BOOT: SRC0.BOOT.replace("  ['gift', PHASE.READY],", '') }), 'gift STEP 이 빠지면 빨강');
     chk(w({ INBOX: SRC0.INBOX + "\nfirebaseAPI.setMallangGiftStarred(1,2,3);" }), '옛 ⭐ 길을 다시 부르면 빨강');
     chk(w({ ML: SRC0.ML + "\nconst K = 'tw.mallangGiftHidden';" }), '이 PC «치움» 키가 다시 생기면 빨강');
     chk(w({ INBOX: SRC0.INBOX.replace("TwSafeHtml.safeUrl(g.imageUrl, 'image')", 'g.imageUrl') }), '그림 주소 safeUrl 을 빼면 빨강');
