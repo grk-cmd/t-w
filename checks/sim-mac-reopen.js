@@ -4,7 +4,7 @@
    [고침] IPC · app · screen 듣기 · 전역 훅은 _setupMainOnce 가 실행마다 한 번만 건다. createWindow 는 창과 그 창의 듣기만 건다.
    ・1절: 글 — createWindow 안에 실행마다 한 번 걸 것(ipcMain · app.on · screen.on · powerMonitor · 전역 훅 · 폴링)이 없다 · _setupMainOnce 를 부른다
    ・2절: createWindow 를 가짜 Electron 위에서 두 번 돌린다 — 두 번째가 안 던지고 · 채널마다 처리기 하나 · app · screen 듣기 하나
-   ・3절: 다시 연 창 — 처리기가 새 창을 쓴다(pickImage 부모 · flashFrame · moveWindow) · 창 모드가 런처 · 방명록 상태를 같이 본다
+   ・3절: 다시 연 창 — 처리기가 새 창을 쓴다(pickImage 부모 · flashFrame · dragWindow) · 창 모드가 런처 · 방명록 상태를 같이 본다
    ・4절: 끄기 붙잡기(진짜 quit-hold.js) — 창 닫기는 저장을 묻고 창만 닫는다 · 다시 연 창이 알린 뒤 Cmd+Q 를 또 붙잡는다 · 옛 창의 알림은 안 센다
    ・5절: mutation test — 진짜 main.js 글을 고쳐(등록을 createWindow 안으로 · 한 번 막기 빼기 · 모드 초기화 빼기 등) 빨강이 나는지
    [실행] 저장소 루트에서 node checks/run.js sim-mac-reopen */
@@ -17,8 +17,8 @@ const say = (s) => { if(!quiet) console.log(s); };
 const chk = (ok, msg) => { if(quiet){ if(!ok) qfail++; return; } ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 
 const read = (f) => { try{ return fs.readFileSync(path.join(__dirname, f), 'utf8'); }catch(_){ try{ return fs.readFileSync(f, 'utf8'); }catch(__){ return null; } } };
-const MAIN0 = read('main.js'), QH = read('quit-hold.js');
-if(!MAIN0 || !QH){ console.log('  ? 원본 못 찾음 — main.js · quit-hold.js'); process.exit(2); }
+const MAIN0 = read('main.js'), QH = read('quit-hold.js'), WD = read('win-drag.js');
+if(!MAIN0 || !QH || !WD){ console.log('  ? 원본 못 찾음 — main.js · quit-hold.js · win-drag.js'); process.exit(2); }
 
 function fnText(src, name){
   const i = src.search(new RegExp('^function ' + name + '\\(', 'm'));
@@ -116,10 +116,16 @@ function sandbox(src){
   const V = { mainWindow: null, _mainWindowCreated: false, _curMode: 'launcher', _isConfigMode: true, _lastIgnoreRequested: false };
   const quitHold = mod.exports.createQuitHold({ getWindow: () => V.mainWindow, ipcMain, quit: () => E.calls.push('quit'), platform: 'darwin',
     setTimeout: (fn) => { E.timers.push(fn); return E.timers.length; }, clearTimeout(){} });
+  /* 수동 창 끌기 — 실물 win-drag.js 를 지금 창(V.mainWindow)에 건다(main.js 와 같은 조립 · 뒤처리 고리는 빈 것) */
+  E.cursor = { x: 100, y: 100 };
+  const wdMod = { exports: {} };
+  new Function('module', 'exports', WD || '')(wdMod, wdMod.exports);
+  const _winDrag = wdMod.exports.createWinDrag({ getCursor: () => ({ x: E.cursor.x, y: E.cursor.y }), getBounds: () => V.mainWindow.getBounds(),
+    setBounds: (r) => { V.mainWindow.setBounds(r); }, onMove(){}, onEnd(){} });
   const _applyConfigMode = (isConfig, mode) => { E.calls.push('mode ' + mode); V._curMode = isConfig ? mode : 'run'; V._isConfigMode = !!isConfig; };
   const _reapplyIgnoreMouse = () => E.calls.push('ignore ' + V._lastIgnoreRequested);
   const _resetWindowToLauncher = (why) => { E.calls.push('reset ' + why); _applyConfigMode(true, 'launcher'); V._lastIgnoreRequested = false; _reapplyIgnoreMouse(); };   // 본문은 sim-cfg-fit · sim-renderer-gone-reset 이 진짜로 돌린다
-  const own = { ipcMain, app, screen, BrowserWindow, dialog, sysinput, overlay, _quitHold: quitHold, _applyConfigMode, _reapplyIgnoreMouse, _resetWindowToLauncher,
+  const own = { ipcMain, app, screen, BrowserWindow, dialog, sysinput, overlay, _winDrag, _quitHold: quitHold, _applyConfigMode, _reapplyIgnoreMouse, _resetWindowToLauncher,
     setTimeout: (fn) => { E.timers.push(fn); return E.timers.length; }, clearTimeout(){}, setInterval: () => 0, clearInterval(){}, console: { warn(){}, log(){} } };
   /* 모르는 맨 위 이름(devtoolsGate · _watchRendererHealth 등)은 빈 함수 — 창이나 그 webContents 를 받아 불리면 그 창에 이름을 적는다(창마다 한 번 걸어야 할 것) */
   const winOf = (a) => a && E.wins.find((w) => a === w || a === w.proxy || a === w.webContents);
@@ -208,8 +214,8 @@ async function judge(MAIN){
   chk(S.dialogParents[S.dialogParents.length - 1] === win2, 'pickImage — 파일 대화상자 부모가 새 창');
   S.ipcOn.emit('companion:flashFrame', {}, true);
   chk(win2.flashes.join() === 'true' && win1.flashes.length === 0, 'flashFrame — 새 창이 깜빡인다');
-  S.ipcOn.emit('companion:moveWindow', {}, 5, 6);
-  chk(win2.bounds.length === 1 && win2.bounds[0].x === 15 && win1.bounds.length === 0, 'moveWindow — 새 창이 움직인다');
+  S.ipcOn.emit('companion:dragWindow', {}, 'start'); S.cursor.x += 5; S.cursor.y += 6; S.ipcOn.emit('companion:dragWindow', {}, 'move'); S.ipcOn.emit('companion:dragWindow', {}, 'end');
+  chk(win2.bounds.length >= 1 && win2.bounds[0].x === 15 && win2.bounds[0].y === 26 && win1.bounds.length === 0, 'dragWindow — 새 창이 움직인다');
   win2.top = true;
   S.ipcOn.emit('companion:colorDialog', {}, true);
   chk(win2.top === false, '★ colorDialog — 새 창의 «항상 위» 를 내린다(옛 창에서 연 대화상자 상태가 창 닫기로 풀렸다)');
