@@ -28,7 +28,7 @@ function mkWorld(src, opt){
     fetch: async (u, fo) => { w.fetched.push(u); w.fetchOpts.push(fo);
       if(o.delay){ w.inflight++; w.maxIn = Math.max(w.maxIn, w.inflight); await new Promise(r => setTimeout(r, o.delay)); w.inflight--; }
       if(String(u).includes('BAD')) return { ok: false, status: 404 };
-      if(o.stream){   /* 느린 망 흉내 — 조각 o.stream.n 개를 o.stream.ms 마다 하나씩(signal 이 끊으면 던진다) */
+      if(o.stream && (!o.stream.only || o.stream.only.test(String(u)))){   /* 느린 망 흉내 — 조각 o.stream.n 개를 o.stream.ms 마다 하나씩(signal 이 끊으면 던진다) · only 를 주면 그 주소만 */
         let k = 0; const sig = fo && fo.signal;
         return { ok: true, headers: { get: () => 'image/png' }, body: { getReader: () => ({ read: () => new Promise((res, rej) => {
           if(sig && sig.aborted) return rej(new Error('aborted'));
@@ -144,20 +144,25 @@ async function behave(src){
       const W = mkWorld(fast, { delay: 1 });
       const bad = { faceUrl: 'https://BAD/1', blinkUrl: 'https://BAD/2', animalBodyUrl: 'https://BAD/3', animalEarPaintLUrl: 'https://BAD/4', animalBlinkUrl: 'https://BAD/5' };
       try{ await W.codec._slotFromServerObj(bad); }catch(_){}
-      const S = mkWorld(fast, { stream: { n: 2, ms: 200 } });   // 조각 사이가 상한보다 길다 — 멈춤으로 끊긴다
+      const S = mkWorld(fast, { stream: { n: 2, ms: 200, only: /\/st\/s[1-5]\.png$/ } });   // 첫 묶음(s1~s5)만 조각 사이가 상한보다 길다 — 멈춤으로 끊긴다 · 그 뒤 칸은 보통 받기
       const stall = Object.assign({}, bad, { faceUrl: 'https://st/s1.png', blinkUrl: 'https://st/s2.png', animalBodyUrl: 'https://st/s3.png', animalEarPaintLUrl: 'https://st/s4.png', animalBlinkUrl: 'https://st/s5.png' });
       try{ await S.codec._slotFromServerObj(stall); }catch(_){}
       const good = await mkWorld(src).codec._slotToServerObj('uA', OBJ(), {}, {});
-      const r = await Promise.race([Promise.all([W.codec._slotFromServerObj(good), S.codec._slotFromServerObj(Object.assign({}, good))]).then(() => 'ok', () => 'ok-err'), new Promise((x) => setTimeout(() => x('stuck'), 1500))]);
+      const all = Promise.allSettled([W.codec._slotFromServerObj(good), S.codec._slotFromServerObj(Object.assign({}, good))]);
+      const r = await Promise.race([all, new Promise((x) => setTimeout(() => x('stuck'), 1500))]);
       clearTimeout(keep);
-      return r;
+      if(r === 'stuck') return 'stuck';
+      const fine = (x) => x.status === 'fulfilled' && x.value && /^data:image\//.test(x.value.face);
+      return (fine(r[0]) && fine(r[1])) ? 'ok' : ('W ' + r[0].status + ' · S ' + r[1].status);
     };
     /* 바뀐 글(mutation)에서는 준비 단계에서 멈출 수 있다 — 통째로 상한을 둔다 */
     const leak = (s2) => { let tm; return Promise.race([leakIn(s2), new Promise((x) => { tm = setTimeout(() => x('stuck'), 4000); })]).finally(() => clearTimeout(tm)); };
     const lr = await leak(src);
-    t(lr === 'ok' || lr === 'ok-err', '★ 받기 줄이 새지 않는다 — 404 · 멈춤으로 끝난 받기 ' + 5 + '개 뒤에도 같은 세상의 다음 칸 받기가 끝난다(' + lr + ')');
+    t(lr === 'ok', '★ 받기 줄이 새지 않는다 — 404 다섯(W) · 멈춤 다섯(S)으로 끝난 뒤에도 같은 세상의 다음 칸이 둘 다 끝까지 받아 얼굴 dataURL 이 선다(' + lr + ')');
     const onlyOk = src.replace("      Promise.resolve().then(job).then(resolve, reject).finally(() => { poolActive--; const next = poolWait.shift(); if(next) next(); });", "      Promise.resolve().then(job).then((v) => { poolActive--; const next = poolWait.shift(); if(next) next(); resolve(v); }, reject);");
-    t(onlyOk !== src && (await leak(onlyOk)) === 'stuck', '  mutation test — 성공할 때만 자리를 돌려주면 실패 뒤 다음 칸이 영영 기다린다(빨강)'); }
+    t(onlyOk !== src && (await leak(onlyOk)) !== 'ok', '  mutation test — 성공할 때만 자리를 돌려주면 실패 뒤 다음 칸이 영영 기다린다(빨강)');
+    const onlyFail = src.replace("      Promise.resolve().then(job).then(resolve, reject).finally(() => { poolActive--; const next = poolWait.shift(); if(next) next(); });", "      Promise.resolve().then(job).then(resolve, (e) => { poolActive--; const next = poolWait.shift(); if(next) next(); reject(e); });");
+    t(onlyFail !== src && (await leak(onlyFail)) !== 'ok', '  mutation test — 실패할 때만 자리를 돌려주면 성공한 받기 넷 뒤 다음이 영영 기다린다(빨강)'); }
   t(w.codec.SLOT_JSON_MAX === 150000 && w.codec.SLOT_IMG_FIELDS.length === 8, '상한(150000자) · 그림 칸 여덟');
   return r;
 }

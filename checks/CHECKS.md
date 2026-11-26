@@ -223,7 +223,7 @@
 | **sim-slot-fit.js** | 246 | **d28aa326a223** |
 | **sim-closet-api.js** | 171 | **41bff8ef604e** |
 | **sim-closet.js** | 709 | **5759bec5dea8** |
-| **sim-slot-codec.js** | 190 | **70c9b3908d73** |
+| **sim-slot-codec.js** | 195 | **093c412d0800** |
 | **sim-signup.js** | 308 | **0a689e6e9d03** |
 | **sim-sysinput.js** | 397 | **c331382ae2fd** |
 | sim-town-32.js | 87 | ff7b7c796278 |
