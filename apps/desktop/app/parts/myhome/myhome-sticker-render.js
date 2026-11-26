@@ -10,7 +10,7 @@ const mhPageMod = deps.mhPageMod;
 const mhStLayoutMod = deps.mhStLayoutMod;
 const myHomeSticker = deps.myHomeSticker;   // 읽는 함수
 const myhomeStore = deps.myhomeStore;   // 🏠 마이홈 상태 주인 — 스티커 지우기 · 저장
-const stickerLayer = deps.stickerLayer;   // 🎨 스티커 보이기(sticker-layer.js) — 이 PC 설정
+const stickerLayer = deps.stickerLayer;   // 🎨 스티커 보이기(shared/device-toggle.js) — 이 PC 설정
 function renderMyHomeStickers(){
   const zone=document.getElementById('mhStickerZone'); if(!zone) return;
   // 스티커는 '마이홈' 탭에서만 표시 — 친구/스케줄러/버그제보 탭에서는 감춤

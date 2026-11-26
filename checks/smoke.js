@@ -388,8 +388,6 @@ PRELOAD.push('pomodoro.js');
 /* myhome-sticker.js — 🎨 마이홈 스티커 관리 창 · 편집모드 · 드래그 · 회전 · 크기(앱 FSD 7번). 같은 까닭 — 만들 때 하는 일(#stMgrClose · #stMgrBringAll 연결)을 같이 굴린다. */
 /* myhome-sticker-rules.js — 🔒 스티커 잠금 · 순서 규칙(순수 함수). 관리 창 · 편집 묶음이 만들 때 TwMyHomeStickerRules 를 받으므로 먼저. */
 PRELOAD.push('myhome-sticker-rules.js');
-/* sticker-layer.js — 🎨 마이홈 스티커 보이기(이 PC 설정). app.js 가 설정 창을 만들기 전에 createStickerLayer 를 부른다. */
-PRELOAD.push('sticker-layer.js');
 PRELOAD.push('myhome-sticker.js');
 /* gacha.js — 🎰 파츠 가챠 코어 · 도감(꾸미기 창 «도감» 탭) · 뽑기 창(앱 FSD 8번). 같은 까닭 — 만들 때 하는 일(뽑기 창 버튼 · ESC · 바깥 클릭 연결)을 같이 굴린다. */
 PRELOAD.push('gacha-api.js');   // 🎰 가챠 서버 경로 — app.js 가 만들 때 TwGachaApi 를 부른다

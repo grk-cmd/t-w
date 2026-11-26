@@ -57,6 +57,13 @@ say('── 3절 배선');
   chk(iMk > 0 && iSet > iMk, 'app.js — «남의 자리비움 그림» 을 설정 창보다 먼저 만든다(설정 창이 만들 때 읽어도 TDZ 가 없다)');
   chk((APP.match(/^  awayOthers: awayOthersMod,$/gm) || []).length === 2, 'app.js — 설정 창 · 자리비움 그림 둘에 넘긴다');
   chk(/id="fsAwayOthersToggle"/.test(HTML) && SET.includes("document.getElementById('fsAwayOthersToggle')") && SET.includes('awayOthers.set(!awayOthers.on()); refreshToggleBtns();'), '설정 › 디스플레이 «남의 자리비움 그림» 줄 — 누르면 뒤집고 버튼을 다시 그린다');
+  /* 🎨 마이홈 스티커 보이기 — 같은 모듈의 둘째 설정(키 tw.mhStickerLayer) */
+  const iSt = at(APP, "const stickerLayerMod = TwDeviceToggle.createDeviceToggle({ storage: localStorage, key: 'tw.mhStickerLayer' });");
+  chk(iSt > 0 && iSet > iSt, 'app.js — «마이홈 스티커» 도 설정 창보다 먼저 만든다');
+  chk(APP.includes('stickerLayerMod.onChange(()=>stickerRenderMod.renderMyHomeStickers());'), 'app.js — 스티커 설정이 바뀌면 다시 그린다(아래 모듈이 위층을 부르지 않고 알림에 건다)');
+  chk((APP.match(/^  stickerLayer: stickerLayerMod,$/gm) || []).length === 3, 'app.js — 설정 창 · 스티커 그리기 · 관리 창 셋에 넘긴다');
+  chk(/id="fsMhStickerToggle"/.test(HTML) && SET.includes("document.getElementById('fsMhStickerToggle')") && SET.includes('stickerLayer.set(!stickerLayer.on()); refreshToggleBtns();'), '설정 › 디스플레이 «마이홈 스티커» 줄 — 누르면 뒤집어 저장');
+  chk(ACC.includes("'tw.mhStickerLayer'") && !/TwStickerLayer|sticker-layer\.js/.test(APP + HTML + SMOKE), '기기 칸 목록에 tw.mhStickerLayer · 옛 전용 모듈(sticker-layer.js)은 없다');
   chk(ACC.includes("'tw.awayPicOthers'"), '기기 칸 목록(account-store.js)에 tw.awayPicOthers — 계정을 바꿔도 이 PC 설정으로 남는다');
 }
 
