@@ -464,7 +464,7 @@
 | **sim-launcher-state.js** | 91 | **26912637390e** |
 | **sim-account-state.js** | 108 | **413b232af0e3** |
 | **sim-nav.js** | 91 | **27ffd1e7cdaa** |
-| **sim-server-features.js** | 167 | **09be4d691b33** |
+| **sim-server-features.js** | 168 | **f89299512122** |
 | **sim-app-boot.js** | 185 | **8ff3e45193d1** |
 | **sim-away-start.js** | 120 | **b9010d0eee8e** |
 | **sim-user-local.js** | 207 | **b34ec3227153** |
@@ -540,7 +540,7 @@
 | **sim-rt-hub.js** | 753 | **d2c57ea4e8ae** |
 | **sim-rt-status-ui.js** | 245 | **60536e178fbf** |
 | **sim-run-verdict.js** | 67 | **76851f0d5f8e** |
-| **sim-user-api.js** | 251 | **81a044a96bd1** |
+| **sim-user-api.js** | 304 | **ce4fb62e42b6** |
 | **sim-login-flow.js** | 462 | **b46f855bf950** |
 | **sim-login-diag.js** | 263 | **e416a45edc5f** |
 | **sim-auth-barrier.js** | 165 | **1b341df947b0** |
@@ -588,7 +588,7 @@
 | **sim-chat-notice.js** | 349 | **a3e55a7ec8c1** |
 | **sim-room-focus.js** | 225 | **5aae10ce337f** |
 | **sim-chat-focus.js** | 198 | **15f464551678** |
-| **sim-theme-custom.js** | 192 | **308c1748ae85** |
+| **sim-theme-custom.js** | 226 | **78bfa8932185** |
 | **sim-font-choice.js** | 127 | **4587e729e2e7** |
 | **sim-mallang-sent.js** | 76 | **47c8eaaf32fa** |
 | **sim-xmas-server.js** | 332 | **1a7bb7d5b608** |
