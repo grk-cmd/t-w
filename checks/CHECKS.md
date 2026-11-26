@@ -334,7 +334,7 @@
 | **sim-gift-box.js** | 588 | **12bd45eb8ad8** |
 | **sim-mallang-module.js** | 355 | **a8f4170b8591** |
 | **sim-mallang-store.js** | 251 | **bf162923be73** |
-| **sim-mail-feed.js** | 393 | **c86847994402** |
+| **sim-mail-feed.js** | 400 | **c37b9fc2e48e** |
 | **sim-notice-api.js** | 159 | **e40a1ff0bf11** |
 | **sim-admin-api.js** | 253 | **23b9922fd8d8** |
 | **sim-catalog-admin-api.js** | 182 | **cec82847026c** |
@@ -592,9 +592,9 @@
 | **sim-mallang-sent.js** | 76 | **47c8eaaf32fa** |
 | **sim-xmas-server.js** | 332 | **1a7bb7d5b608** |
 | **sim-xmas-api.js** | 282 | **1037c7064724** |
-| **sim-xmas-rules.js** | 138 | **80fcd2a2cbb1** |
+| **sim-xmas-rules.js** | 143 | **1f59141bcfb3** |
 | **sim-xmas-tree.js** | 51 | **0d4a04e1115d** |
-| **sim-xmas-window.js** | 276 | **997896dfedf4** |
+| **sim-xmas-window.js** | 289 | **50e0898a4fe5** |
 | **sim-xmas-song.js** | 140 | **8f1589bf966d** |
 | **sim-xmas-letter.js** | 265 | **ad363352cf74** |
 | **sim-wardrobe-place.js** | 54 | **8c81ab2ff24e** |

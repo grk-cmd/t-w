@@ -6,7 +6,7 @@
    ★ 트리 목록은 서버가 몇 초 캐시한다 — 내 장식은 걸기 응답(자리 · 판 · 그림 id)을 목록 위에 덮어 그린다(목록이 늦어도 내 장식은 바로 보이게).
      ⚠️ localStorage 에 두지 말 것 — 트리 하나가 수 MB 라 앱 전체가 같이 쓰는 한도를 먹어 캐릭터 저장 등이 실패한다.
    ★ 남이 쓴 한마디는 textContent 로만 넣는다.
-   classic script(window.TwXmasWindow) — app.js 보다 먼저 싣는다. app.js 가 `createXmasWindow(deps)` 한 번 — 밖에서 부르는 이름은 onMail(우편이 바뀌면 app.js 가 우편 목록을 넘긴다)
+   classic script(window.TwXmasWindow) — app.js 보다 먼저 싣는다. app.js 가 `createXmasWindow(deps)` 한 번 — 밖에서 부르는 이름은 onMail(우편이 바뀌면 app.js 가 우편 목록을 넘긴다) · mailDelayMs(mail-feed 의 새 우편 뒤 기다림)
    (런처 버튼 · 알림함 «익명의 편지가 왔어요» 가 창 열기 통로 NAV.XMAS 로 연다). */
 (function(){
 'use strict';
@@ -281,23 +281,26 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     bar.addEventListener('pointerup', up); bar.addEventListener('pointercancel', up);
   })();
 
-  /* ── 📩 받은 편지 알림 — 알림함에 안 읽은 XMAS_LETTER 가 새로 보이면 0~30초 무작위로 기다렸다 받은 편지를 한 번 읽는다(폴링 없음).
+  /* ── 📩 받은 편지 알림 — 알림함에 XMAS_LETTER 가 새로 보이면(읽음 여부와 상관없이 · 켤 때 처음 받은 목록 포함) 0~30초 무작위로 기다렸다 받은 편지를 한 번 읽는다(폴링 없음).
      0시에 앱 수천 대가 같은 순간 읽지 않게 흩는다(설계 5-3). 기다리는 동안 또 보이면 그 한 번으로 묶는다 ── */
   const seenMail = new Set();
   let gotTimer = null;
   function onMail(items){
-    const ids = rules.newLetterMailIds(items, seenMail);
+    const ids = rules.letterMailIds(items, seenMail);
     if (!ids.length) return;
     ids.forEach(id => seenMail.add(id));
     if (gotTimer) return;
     gotTimer = win.setTimeout(() => { gotTimer = null; letter.checkGot(); }, rules.jitterMs(deps.random()));
   }
 
+  /** 새 우편 알림 뒤 알림함을 다시 받기 전에 기다릴 ms — 짝 짓기 10분 안이면 무작위 · 그 밖은 0(날짜 한 벌 · 무작위는 이 창의 것 한 벌) */
+  const mailDelayMs = () => rules.mailDelayMs(serverNow(), sch(), deps.random());
+
   /* 서버 시각은 붙은 뒤에 — 그 전엔 버튼을 숨겨 둔다(열람 끝이 지났는지 모르므로) */
   btn.hidden = true;
   deps.onReady(() => { refreshButton(); win.setInterval(refreshButton, 60000); });   // 열람 끝을 지나면 켜 둔 채로도 숨는다
 
-  return { open, close, refreshButton, onMail, letter };
+  return { open, close, refreshButton, onMail, mailDelayMs, letter };
 }
 
 const api = Object.freeze({ createXmasWindow });

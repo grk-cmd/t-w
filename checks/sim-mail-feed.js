@@ -336,8 +336,15 @@ async function judge(S){
   {
     const A = strip(S.APP);
     chk(/TwMailFeed\.createMailFeed\(\{[\s\S]*?rt: TwRtHub\.store[\s\S]*?\}\);/.test(A) && /TwInboxApi\.createInboxApi\(\{ authed: TwApi\.authed/.test(A), 'app.js — 서버 경로와 realtime 알림을 넘겨 만든다');
-    chk(/refreshDelayMs: \(\)=>\(TwServerFeatures\.on\('xmas'\) \? TwXmasRules\.mailDelayMs\(TwRtHub\.store\.serverNow\(\), xmasApiMod\.schedule\(\) \|\| TwXmasRules\.SCHEDULE, Math\.random\(\)\) : 0\)/.test(A),
-      'app.js — 기다림은 크리스마스 규칙(서버 날짜 · 짝 짓기 10분)이 정한다 · 크리스마스가 꺼져 있으면 0');
+    chk(/refreshDelayMs: \(\)=>\(xmasWinMod \? xmasWinMod\.mailDelayMs\(\) : 0\)/.test(A),
+      'app.js — 기다림은 크리스마스 창 한 곳(서버 날짜 · 짝 짓기 10분 · 무작위)이 정한다 · 크리스마스가 꺼져 있으면(창 없음) 0');
+    /* 받은 편지 반복 확인이 없어서 «알림 → 받은 편지 한 번 읽기» 는 이 배선 하나뿐이다 — 빠지면 편지 창을 열기 전엔 빨간 점이 안 켜진다 */
+    const xmasWired = (src) => /if\(xmasWinMod\) mailFeed\.onChange\(\(\)=>xmasWinMod\.onMail\(mailFeed\.items\(\)\)\);/.test(src) && !/(^|[^)\w])mailFeed\.onChange\(\(\)=>xmasWinMod\./m.test(src.replace(/if\(xmasWinMod\) mailFeed\.onChange/g, ''));
+    chk(xmasWired(A), 'app.js — 우편이 바뀌면 크리스마스 창 onMail 에 우편 목록(mailFeed.items())을 넘긴다 · 크리스마스가 꺼져 있으면(xmasWinMod 없음) 걸지 않는다');
+    const noLine = A.replace(/if\(xmasWinMod\) mailFeed\.onChange\(\(\)=>xmasWinMod\.onMail\(mailFeed\.items\(\)\)\);/, '');
+    const noGuard = A.replace('if(xmasWinMod) mailFeed.onChange(()=>xmasWinMod.onMail(mailFeed.items()));', 'mailFeed.onChange(()=>xmasWinMod.onMail(mailFeed.items()));');
+    const noItems = A.replace('xmasWinMod.onMail(mailFeed.items())', 'xmasWinMod.onMail({})');
+    chk(noLine !== A && noGuard !== A && noItems !== A && !xmasWired(noLine) && !xmasWired(noGuard) && !xmasWired(noItems), 'mutation test — 배선을 지우거나 · 꺼짐 가드를 빼거나 · 우편 목록을 안 넘기면 빨강');
     chk(!/isViewing|_mailboxVisible|retryDelay|TwRetryDelay/.test(A), 'app.js — 보는 중 거르기 · 다시 받기 재료를 넘기지 않는다(혼자 다시 받지 않음)');
     chk(!/let _myInbox\b|let _myInboxReady\b|let _inboxBroadcast\b/.test(A), '옛 개인 수령함 · 공용 공지 let 이 app.js 에 없다(원본은 서버)');
     const h = S.HTML;

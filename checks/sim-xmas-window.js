@@ -255,8 +255,15 @@ say('── 8절 📩 받은 편지 알림');
 {
   const w = world({ random: 0.5 }); w.S.ready(); w.Lt.calls.length = 0;
   const M = (o) => Object.assign({ a: { kind: 'XMAS_LETTER', read: false }, b: { kind: 'XMAS_RETURNED', read: false }, c: { kind: 'LEVEL_UNLOCK', read: false } }, o || {});
-  w.api.onMail({ b: { kind: 'XMAS_RETURNED', read: false }, x: { kind: 'XMAS_LETTER', read: true } });
-  chk(!w.timeouts.length, '반송 알림 · 이미 읽은 받은 편지 알림은 읽기를 걸지 않는다');
+  w.api.onMail({ b: { kind: 'XMAS_RETURNED', read: false }, c: { kind: 'LEVEL_UNLOCK', read: false } });
+  chk(!w.timeouts.length, '반송 알림 · 다른 알림은 읽기를 걸지 않는다');
+  { // 다른 PC 에서 알림을 읽었어도(read:true) 이 PC 는 켤 때 한 번 읽는다 — 받은 편지 읽음은 이 PC 값이라
+    const wr = world({ random: 0 }); wr.S.ready(); wr.Lt.calls.length = 0;
+    wr.api.onMail({ x: { kind: 'XMAS_LETTER', read: true } });
+    chk(wr.timeouts.length === 1, '★ 이미 읽은 받은 편지 알림도 처음 보면 한 번 읽기를 건다(다른 PC 에서 알림을 읽어도 이 PC 빨간 점이 맞게)');
+    wr.timeouts[0][0](); wr.api.onMail({ x: { kind: 'XMAS_LETTER', read: true } });
+    chk(wr.Lt.calls.filter(c => c === 'checkGot').length === 1 && wr.timeouts.length === 1, '  ↳ 같은 알림은 다시 걸지 않는다(켤 때 한 번)');
+  }
   w.api.onMail(M());
   chk(w.timeouts.length === 1 && w.timeouts[0][1] === 15000 && !w.Lt.calls.includes('checkGot'), '안 읽은 XMAS_LETTER — 곧바로가 아니라 무작위(0.5 → 15초) 뒤로 건다');
   w.api.onMail(M({ d: { kind: 'XMAS_LETTER', read: false } }));
@@ -269,6 +276,12 @@ say('── 8절 📩 받은 편지 알림');
   chk(w.timeouts.length === 2, '  ↳ 새 알림(다른 id)이면 다시 한 번');
   const w0 = world({ random: 0.999999 }); w0.S.ready(); w0.api.onMail(M());
   chk(w0.timeouts[0][1] < R.READ_JITTER_MS && R.READ_JITTER_MS === 30000, '기다림은 30초 안');
+  /* 알림함 다시 받기 기다림 — 날짜 한 벌 · 무작위는 이 창의 것(app.js 는 xmasWinMod.mailDelayMs() 만 부른다) */
+  const wd = world({ random: 0.5, now: R.LETTER_DEADLINE_MS + 1000 });
+  const wo = world({ random: 0.5, now: R.LETTER_DEADLINE_MS - 1000 });
+  chk(wd.api.mailDelayMs() === 15000 && wo.api.mailDelayMs() === 0, '알림함 다시 받기 기다림 — 짝 짓기 10분 안이면 무작위(0.5 → 15초) · 그 밖은 0');
+  const ws = world({ random: 0.5, now: R.LETTER_DEADLINE_MS + 1000 }); ws.N.sched = Object.assign({}, R.SCHEDULE, { letterDeadline: R.LETTER_DEADLINE_MS + 3600000 });
+  chk(ws.api.mailDelayMs() === 0, '  ↳ 서버가 준 날짜 한 벌(마감)로 판정한다');
 }
 
 say(`\n${fail ? '✗' : '✓'} ${pass} 통과 · ${fail} 실패`);

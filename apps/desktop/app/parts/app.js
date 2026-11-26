@@ -1381,7 +1381,7 @@ const mailFeed = TwMailFeed.createMailFeed({
   rt: TwRtHub.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   /* 🎄 짝 짓기 알림이 몰리는 10분(서버 날짜)은 0~30초 무작위로 미뤄 읽는다 — 그 밖은 곧바로 */
-  refreshDelayMs: ()=>(TwServerFeatures.on('xmas') ? TwXmasRules.mailDelayMs(TwRtHub.store.serverNow(), xmasApiMod.schedule() || TwXmasRules.SCHEDULE, Math.random()) : 0),
+  refreshDelayMs: ()=>(xmasWinMod ? xmasWinMod.mailDelayMs() : 0),   // 🎄 짝 짓기 10분엔 무작위로 흩기(판단은 크리스마스 창 한 곳)
   timers: window,   // 기다림(setTimeout · clearTimeout) — 검사는 가짜를 넘긴다
 });
 mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));
