@@ -170,7 +170,7 @@ function wire(app, html, visit, fm, fbi, rules){
   const iS = H.indexOf('<script src="parts/myhome/seat-friend-req.js"></script>'), iB = H.indexOf('<script src="parts/myhome/friend-req-btn.js"></script>'), iA = H.indexOf('<script src="parts/app.js"></script>');
   o.order = iB > 0 && iA > iB && iS > 0;
   const iMk = A.indexOf('const friendReqBtnMod = TwFriendReqBtn.createFriendReqBtn({'), iV = A.indexOf('const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({');
-  o.make = iMk > 0 && iV > iMk && /sendFriendReq: \(\.\.\.a\)=>seatFriendReqMod\.sendFriendReq\(\.\.\.a\),/.test(A) && /resultView: \(\.\.\.a\)=>seatFriendReqMod\.resultView\(\.\.\.a\),/.test(A) && /friendNet: \(\)=>\(\{ isFriendRequestAlive: async \(toId, me\)=>\{ const s = await friendRequestsPortMod\.listSent\(me\); return !!\(s && s\[toId\]\); \} \}\),/.test(A.slice(iMk, iV)) && /friendReqBtn: friendReqBtnMod,/.test(A.slice(iV));
+  o.make = iMk > 0 && iV > iMk && /sendFriendReq: \(\.\.\.a\)=>seatFriendReqMod\.sendFriendReq\(\.\.\.a\),/.test(A) && /resultView: \(\.\.\.a\)=>seatFriendReqMod\.resultView\(\.\.\.a\),/.test(A) && /friendNet: \(\)=>\(\{ isFriendRequestAlive \}\),/.test(A.slice(iMk, iV)) && /const isFriendRequestAlive = async \(toId, me\)=>\(await friendRequestsPortMod\.sentIds\(me\)\)\.includes\(toId\);/.test(A.slice(0, iMk)) && /friendReqBtn: friendReqBtnMod,/.test(A.slice(iV));
   o.visit = /friendReqBtn\.refresh\(realVisit \? _mhViewingUserId\(\) : null, realVisit \? _mhViewingDisplayName\(\) : null\);/.test(strip(visit));
   o.recv = /msg\.textContent = String\(req\.msg\);/.test(fm) && /escHtml\(String\(req\.msg\)\)/.test(fm);
   o.send = /reasonOn: \(\)=>TwServerFeatures\.on\('friendReqMsg'\),/.test(A.slice(iMk, iV));   // 서버가 사유를 받을 때까지 사유 칸을 닫는다(shared/server-features.js)
@@ -207,10 +207,10 @@ function wire(app, html, visit, fm, fbi, rules){
   const W = wire(APP, HTML, VISIT, FM, FBI, RULES);
   chk(W.btnHtml, 'html — 이름 줄(#mhNameRow) 끝에 [＋ 친구 신청] 단추(처음엔 숨김)');
   chk(W.order, 'html — friend-req-btn.js 를 app.js 보다 먼저 싣는다');
-  chk(W.make, 'app.js — 친구 홈 구경보다 먼저 만들고, 보내기 · 결과 문구는 seatFriendReqMod 의 한 벌 · 친구 홈 구경에 넘긴다');
+  chk(W.make, 'app.js — 친구 홈 구경보다 먼저 만들고, 보내기 · 결과 문구는 seatFriendReqMod 의 한 벌 · 살아 있나는 좌석과 같은 isFriendRequestAlive(sentIds) · 친구 홈 구경에 넘긴다');
   chk(W.visit, 'myhome-visit.js — 관람 화면을 칠할 때 refresh(관람 uid · 이름), 내 홈이면 null');
   chk(W.recv, 'friend-manage.js — 받은 요청 목록은 textContent · 👋 팝업은 escHtml 로 사유를 보인다');
-  chk(W.send, 'app.js — 사유 칸은 서버 기능 표(friendReqMsg)로 연다 · 살아 있는 요청은 서버 보낸 요청 목록(listSent)으로 본다');
+  chk(W.send, 'app.js — 사유 칸은 서버 기능 표(friendReqMsg)로 연다 · 살아 있는 요청은 서버 보낸 요청 코드(sentIds — 이름 없이)로 본다');
   chk(W.yield, 'win-stack — 사유 창(#myHomeOverlay.on .friend-req-ask-ov)이 열려 있으면 Esc 를 양보한다(마이홈을 먼저 닫지 않게)');
   chk(W.rule, '규칙 — friendRequests/$toId/$fromId/msg 는 문자열 · 100자 이하(없어도 됨)');
 
