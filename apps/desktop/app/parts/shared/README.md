@@ -44,6 +44,16 @@
   - `purikura-net.js` 는 `TwPs1Dither` 를 **부를 때** 읽는다 — 그 파일만 node 로 싣는 검사가 많아서, 실을 때 읽으면 그 검사들이 죽는다.
   - 검사: `checks/sim-ps1-dither.js`(값 · 경계값 · 도트 셰이더 글 · 스티커사진 필터 결과가 묶기 전과 픽셀까지 같음 · mutation test).
 
+## etag-store.js — 🏷️ ETag 기억을 껐다 켜도 남게
+
+- **책임**: api-client 의 ETag 기억({ etag, data })을 IndexedDB `tw-etag-cache`(저장소 `etag`, keyPath `k`)에 남겨, 켤 때 첫 읽기에도 If-None-Match 를 싣는다. 값은 서버가 304 로 답할 때만 쓴다 — 서버에 묻기 전에 이 값으로 화면을 그리지 않는다.
+- **만드는 법**: api-client.js 가 앱 한 벌을 만들 때 `TwEtagStore.createEtagStore()` 한 벌을 두 통로에 `persist: { store, paths }` 로 넘긴다. 남기는 길은 api-client.js `PERSIST_PUBLIC`(설정 · 공지) · `PERSIST_AUTHED`(카탈로그 · 옷장 · 보유분 · 포커스 · 친구 · 플레이리스트).
+- **내보내는 것**: `load(key)` → `Promise<{ etag, data } | null>` · `save(key, etag, data)` · `clear()` · 상한 `MAX`(64 — 넘으면 오래된 것부터).
+- **함정**
+  - 열쇠는 api-client 의 «누구(토큰 sub) + 경로» — 다른 계정 값을 돌려주지 않는다. 계정을 놓으면(`forgetSession`) 통째로 지운다.
+  - 길을 더할 땐 서버가 그 길에 ETag 를 주는지 먼저 본다(안 주면 남길 것이 없다).
+  - 검사: `checks/sim-etag-store.js` · `checks/sim-api-client.js`(persist 절).
+
 ## glb-idb-cache.js — 💾 GLB 영구 캐시(IndexedDB)
 
 - **책임**: 받은 GLB(base64)를 url 을 키로 IndexedDB `tw-glb-cache`(저장소 `glb`, keyPath `url`)에 넣고 꺼낸다. 45일 넘게 안 쓴 것은 실행마다 한 번 치운다. 무슨 GLB 인지는 모른다.
@@ -645,6 +655,6 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 ## `server-features.js` — 서버가 아직 안 받는 0.14 기능 표
 - **책임**: 0.14 판에서 Firebase DB · Functions 에 직접 읽고 쓰게 만든 기능의 «서버가 받는가» 를 한 표(`FEATURES`)에 둔다. 0.13 은 Firebase DB 쓰기를 잠갔으므로 서버(API)가 받을 때까지 입구(버튼 · 탭 · 입력칸)만 닫는다 — 기능 코드는 지우지 않는다.
 - **내놓는 것**: `on(name)` → boolean(표에 없는 이름은 던진다) · `FEATURES`(바꿀 수 없는 표) · `noServer(name)`(서버 경로가 없는 provider 자리 — 어떤 메서드든 `SERVER_PATH_MISSING` 으로 거절) · `MISSING_CODE`.
-- **입구**: xmas — app.js 가 크리스마스 창을 만들지 않음(런처 버튼은 html 에서 hidden 으로 시작) · chatNotice · chatFocus — 각 모듈 `enabled` deps(탭 · 구독 없음) · 집중 올리기는 room-focus-sync `isSecretRoom` 에 같이 · playlistLike — playlist-like-ui `enabled`(줄 안 그림 · 안 읽음) · googleChange — account.js [바꾸기] 숨김 · friendReqMsg — friend-req-btn `reasonOn`(사유 칸 없이 묻기) · themeCustomSave — theme-ui `serverOn`(이 PC 저장만)· 가입은 login-flow.js).
+- **입구**: xmas — app.js 가 크리스마스 창을 만들지 않음(런처 버튼은 html 에서 hidden 으로 시작) · chatNotice · chatFocus — 각 모듈 `enabled` deps(탭 · 구독 없음) · 집중 올리기는 room-focus-sync `isSecretRoom` 에 같이 · playlistLike — playlist-like-ui `enabled`(줄 안 그림 · 안 읽음) · friendReqMsg — friend-req-btn `reasonOn`(사유 칸 없이 묻기) · themeCustomSave — theme-ui `serverOn`(이 PC 저장만)· 가입은 login-flow.js).
 - **서버가 받으면**: 표의 값을 true 로 바꾸고, 그 기능의 provider(지금은 `noServer(이름)`)를 서버 provider 로 갈아 끼운다. 서버 작업 요청은 GitHub 이슈 «서버 작업 요청: …(0.14.0)».
 - **함정**: 다른 기준(날짜 · 방 종류)과 섞지 말 것 — 이 표는 «서버 길이 있나» 하나만 본다. 검사 `checks/sim-server-features.js`.
