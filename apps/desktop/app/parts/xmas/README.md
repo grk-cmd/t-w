@@ -31,7 +31,7 @@ main.js 배경음악 창의 주인 `'xmas'`(`bgmPanelMode` · `companion:openXma
 - **책임**: 트리(`GET /v2/xmas/trees/current` · `/{t}/ornaments` — 모두에게 같은 응답 · 서버가 몇 초 캐시) · 내 몫(`GET /v2/me/xmas`) · 장식(`PUT /v2/me/xmas/ornament`) · 편지(`PUT` · `DELETE /v2/me/xmas/letters/{lid}` · `DELETE /v2/me/xmas/returned/{lid}`) · 신고(`POST /v2/xmas/reports`) · 그림 바이트(Storage `xmas/{imageId}.png?alt=media` — api 를 거치지 않는다). 서버 모양 → 화면 모양(장식 `{ k, v, w, id }`) · 서버 오류 이름 → 옛 code(`ERROR_CODES` — 설계 6-4)는 여기 한 곳.
 - **만드는 법**: app.js 가 `TwXmasApi.createXmasApi({ authed: TwApi.authed, rules: TwXmasRules, myCode, storageBucket, fetch, warn })` 한 번 → 크리스마스 창의 `net`.
 - **내놓는 것(13)**: `me()`(읽음 표시 열쇠 — 내 사람 코드) · `where()` · `tree(t)` · `img(imageId)`(PNG data URL) · `hang(data)` · `reportOrnament(t, s, note)` · `reportLetter(n, note)` · `myLetters()` · `saveLetter(lid, text, song, fromReturned)` · `removeLetter(lid)` · `clearReturned(lid)` · `got()`(받은 편지 + `matched`) · `schedule()`(마지막으로 읽은 날짜 한 벌 · 못 읽었으면 null).
-- **함정**: 판(`version`)은 여기서 기억한다 — 쓰기는 마지막으로 읽은(쓴) 판을 싣고 읽은 토큰의 주인과 묶는다(`expectOwner`). 409 `CONCURRENT_UPDATE` 는 다시 보내지 않고 `conflict` — 화면이 다시 읽는다. 같은 때 겹친 내 몫 읽기(`where` · `myLetters` · `got` — 창을 열면 한꺼번에 부른다)는 `GET /v2/me/xmas` 하나를 같이 쓴다(끝나면 비움 · 쓰기가 시작된 뒤에는 그 전 읽기에 붙지 않는다). 가입 전(`USER_CODE_NOT_BOUND`)은 트리를 그리고 내 장식 없음. 그림 id 는 `^[0-9a-f]{32}$` 만 · 16KB 넘는 바이트는 버린다. 던지지 않고 `{ ok:false, code }`.
+- **함정**: 판(`version`)은 여기서 기억한다 — 쓰기는 마지막으로 읽은(쓴) 판을 싣고 읽은 토큰의 주인과 묶는다(`expectOwner`). 409 `CONCURRENT_UPDATE` 는 다시 보내지 않고 `conflict` — 화면이 다시 읽는다. 가입 전(`USER_CODE_NOT_BOUND`)은 트리를 그리고 내 장식 없음. 그림 id 는 `^[0-9a-f]{32}$` 만 · 16KB 넘는 바이트는 버린다. 던지지 않고 `{ ok:false, code }`.
 - 검사: `sim-xmas-api.js`
 
 ## xmas-tree.js — 3D 트리
