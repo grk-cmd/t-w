@@ -37,7 +37,7 @@ const getMyUserId = deps.getMyUserId;
 const getDisplayName = deps.getDisplayName;
 const asyncPrompt = deps.asyncPrompt;                // 🎵 링크 추가 · 곡 제목 묻기(window.prompt 는 Electron 에서 no-op)
 // 👤 명함 — 레벨 · 🌟 회차 배지(«🏅 레벨 티어» 구역 · 포커스 기록)
-const getFocusLevel = deps.getFocusLevel;
+const shownFocusLevel = deps.shownFocusLevel;   // 내 레벨 — 서버 진척을 못 받았으면 null(배지를 비운다)
 const myFocusShow = deps.myFocusShow;
 const starFromRemote = deps.starFromRemote;
 const lvBadgeClass = deps.lvBadgeClass;
@@ -693,7 +693,7 @@ function _plRenderHead(){
   if(nickEl){ nickEl.textContent = nick; nickEl.title = nick; }
 
   const lv = ro ? (card.level != null ? card.level : null)
-                : getFocusLevel();
+                : shownFocusLevel();
   const st = ro ? starFromRemote(card) : myFocusShow();   // 🌟 회차면 별 배지(개정 70)
   _plFillLv(document.getElementById('myPlLv'), lv, st);
 

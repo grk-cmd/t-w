@@ -52,6 +52,8 @@ function addFocusSeconds(sec){
 }
 /* ★ 레벨 · 회차 · 별 색은 서버 값이다(focus-progress.js). 해금 레벨은 서버 레벨(999 에서 멈춤) · 표시용 «이번 바퀴» 레벨과 별은 myFocusShow. */
 const getFocusLevel = () => progress.getFocusLevel();
+/* 화면에 그리는 내 레벨 — 서버 진척을 받기 전 · 못 받았으면 null(레벨 1 을 그리지 않는다 — D5-Q5 · B-1126-1). 해금 판정은 getFocusLevel */
+const shownFocusLevel = () => (progress.isReady() ? progress.getFocusLevel() : null);
 const myFocusShow = () => progress.myFocusShow();
 /* 방에 싣는 모양 — 회차가 없으면 null(= 지운다 · 옛 판은 모름) */
 function myStarOut(){
@@ -325,6 +327,7 @@ return {
   focusCycleOf,
   formatHMS,
   getFocusLevel,
+  shownFocusLevel,
   getStarColor,
   lvStarStr,
   myFocusShow,

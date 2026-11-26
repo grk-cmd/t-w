@@ -900,7 +900,7 @@ const plMod = TwPlaylist.createPlaylist({
   getDisplayName: (...a)=>getDisplayName(...a),
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   // 👤 명함 — 레벨 · 🌟 회차 배지
-  getFocusLevel: (...a)=>focusLevelMod.getFocusLevel(...a),
+  shownFocusLevel: (...a)=>focusLevelMod.shownFocusLevel(...a),
   myFocusShow: (...a)=>focusLevelMod.myFocusShow(...a),
   starFromRemote: (...a)=>focusLevelMod.starFromRemote(...a),
   lvBadgeClass: (...a)=>lvTierMod.lvBadgeClass(...a),
@@ -2083,6 +2083,7 @@ const chatWindowMod = TwChatWindow.createChatWindow({
   flySizeOk: (...a)=>chatUiMod._flySizeOk(...a),
   FLY_COLOR_LEVEL: chatUiMod.FLY_COLOR_LEVEL,
   getFocusLevel: (...a)=>focusLevelMod.getFocusLevel(...a),
+  shownFocusLevel: (...a)=>focusLevelMod.shownFocusLevel(...a),
   isAdmin: ()=>isAdmin,
   // 🔇 채팅 잠금 · 🗑 기록 삭제
   chatOffToggleClick: (...a)=>chatPrefsMod._chatOffToggleClick(...a),
@@ -4722,7 +4723,7 @@ const gachaApiMod = TwGachaApi.createGachaApi({
 const gachaMod = TwGacha.createGacha({
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
-  getFocusLevel: (...a)=>focusLevelMod.getFocusLevel(...a),
+  shownFocusLevel: (...a)=>focusLevelMod.shownFocusLevel(...a),
   levelCap: focusTotalMod.FOCUS_LEVEL_CAP_HOURS,
   catEquippedIds: (...a)=>premiumMod.catEquippedIds(...a),
   removeEntryFromCat: (...a)=>premiumMod.removeEntryFromCat(...a),

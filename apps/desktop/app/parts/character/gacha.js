@@ -17,7 +17,7 @@
 function createGacha(deps){
 const toast = deps.toast;
 const getMyUserId = deps.getMyUserId;
-const getFocusLevel = deps.getFocusLevel;                      // ⭐ 레벨 — 뽑기 수(레벨/5)
+const shownFocusLevel = deps.shownFocusLevel;                  // 화면에 적는 레벨 — 못 받았으면 null(«다음 뽑기 Lv» 를 적지 않는다)
 const levelCap = deps.levelCap;                                // ⭐ 레벨 상한 — 넘는 «다음 뽑기 레벨» 은 안 보인다
 const catEquippedIds = deps.catEquippedIds;                    // 👕 착용 목록 도우미 — app.js(꾸미기)
 const removeEntryFromCat = deps.removeEntryFromCat;
@@ -142,7 +142,7 @@ function gachaNextTicketLevel(level, cap){
   const next = (Math.floor(lv / GACHA_LEVELS_PER_TICKET) + 1) * GACHA_LEVELS_PER_TICKET;
   return next <= cap ? next : null;
 }
-const _nextLv = () => gachaNextTicketLevel(getFocusLevel(), levelCap);
+const _nextLv = () => { const lv = shownFocusLevel(); return lv == null ? null : gachaNextTicketLevel(lv, levelCap); };
 
 /* 서버 상태를 그대로 받는다(갈아 끼움) — 이 PC 에만 있는 뽑기는 없다. */
 function _adoptServerState(st){

@@ -159,7 +159,7 @@ function mkEnv(o){
     env.m = win.TwPlaylist.createPlaylist(Object.assign({
       toast: (m) => env.toasts.push(String(m)), getMyUserId: () => 'ME01', getDisplayName: () => '나나',
       asyncPrompt: async (p) => { env.calls.push('prompt ' + p.title); return env.prompts.length ? env.prompts.shift() : null; },
-      getFocusLevel: () => 42, myFocusShow: () => null, starFromRemote: (c) => (c && c.star) ? { cyc: 2, lv: 7, color: c.star } : null,
+      shownFocusLevel: () => 42, myFocusShow: () => null, starFromRemote: (c) => (c && c.star) ? { cyc: 2, lv: 7, color: c.star } : null,
       lvBadgeClass: (n) => 'lv' + n, lvStarBadgeClass: () => 'lv-star lvx', lvStarStr: (n) => '★' + n, starPaint: () => {},
       myhomeAvatar: () => (env.homeLoaded && env.homeData && env.homeData.avatar) || null, myHomeFriends: () => env.friends,
       friendsRefreshPresence: (ids) => { env.refreshed.push(ids.slice().sort().join()); return Promise.resolve().then(() => { if(env.onRefresh) env.onRefresh(); }); },
@@ -975,7 +975,7 @@ function wiring(PL, APP, HTML){
     '원래 자리 — 만드는 줄은 🎵 상태칩 플레이리스트 머리 아래 · 🏅 레벨 티어는 그 뒤 그대로(옮긴 몫의 빈 머리는 0.13 에서 걷음)');
   const call = (APP.match(/TwPlaylist\.createPlaylist\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(s => s && !s.startsWith('//'));
-  const fnNames = [['toast', 'toast'], ['getMyUserId', 'getMyUserId'], ['getDisplayName', 'getDisplayName'], ['asyncPrompt', 'asyncPrompt'], ['getFocusLevel', 'getFocusLevel'],
+  const fnNames = [['toast', 'toast'], ['getMyUserId', 'getMyUserId'], ['getDisplayName', 'getDisplayName'], ['asyncPrompt', 'asyncPrompt'], ['shownFocusLevel', 'shownFocusLevel'],
     ['myFocusShow', 'myFocusShow'], ['starFromRemote', 'starFromRemote'], ['lvBadgeClass', 'lvBadgeClass'], ['lvStarBadgeClass', 'lvStarBadgeClass'], ['lvStarStr', 'lvStarStr'],
     ['starPaint', '_starPaint'], ['openFriendHomeView', 'openFriendHomeView'], ['closeChipPopups', '_closeChipPopups'], ['repositionOpenChipPopups', '_repositionOpenChipPopups'],
     ['bringWinToFront', 'bringWinToFront'], ['escRegisterWindow', 'escRegisterWindow'], ['escEditable', '_escEditable'], ['friendsRefreshPresence', 'friendsSubMod.refreshPresence']];
