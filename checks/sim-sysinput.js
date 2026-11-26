@@ -367,9 +367,15 @@ say('\n── 7. 자동 등록은 셸 창(작업표시줄 · 바탕화면)을 �
   const fn = (mainSrc.match(/function _noteForeignWindow\(exeName, ownerPath, w\)\{[\s\S]*?\n\}/) || [''])[0];
   if(!fn) huh('_noteForeignWindow 를 못 찾음');
   else {
-    const T = new Function('sysinput', 'focusKeyOf', 'let lastForeignWindow = null, lastRegistrableWindow = null;\n' + fn
+    /* 셸 판정은 실물 sysinput-win.js 의 isShellWindow 를 떼어 와 쓴다(main 은 그것만 부른다) */
+    const shellFn = (sysSrc.match(/function isShellWindow\(name, kind\)\{[\s\S]*?\n\}/) || [''])[0];
+    const mkShell = (src) => new Function('WINLIST_SKIP', src + '\nreturn isShellWindow;')(new Set(['explorer.exe', 'searchhost.exe']));
+    if(!shellFn) huh('sysinput-win.js isShellWindow 를 못 찾음');
+    const isShell = shellFn ? mkShell(shellFn) : () => false;
+    const mk = (f, shell) => new Function('sysinput', 'focusKeyOf', 'let lastForeignWindow = null, lastRegistrableWindow = null;\n' + f
       + '\nreturn { note: _noteForeignWindow, fg: () => lastForeignWindow, reg: () => lastRegistrableWindow };')(
-      { displayNameOf: p => p, WINLIST_SKIP: new Set(['explorer.exe', 'searchhost.exe']) }, n => 'win:' + n);
+      { displayNameOf: p => p, isShellWindow: shell }, n => 'win:' + n);
+    const T = mk(fn, isShell);
     const w = (p) => ({ owner: { path: p }, title: 't' });
     T.note('hwp.exe', 'hwp.exe', w('C:/Hnc/hwp.exe'));
     T.note('explorer.exe', 'explorer.exe', w('C:/Windows/explorer.exe'));
@@ -382,10 +388,16 @@ say('\n── 7. 자동 등록은 셸 창(작업표시줄 · 바탕화면)을 �
     T.note('hwp.exe', 'hwp.exe', w('C:/Hnc/hwp.exe'));
     T.note('explorer.exe', 'explorer.exe', Object.assign(w('C:/Windows/explorer.exe'), { desktop: true }));
     chk(T.reg().key === 'win:hwp.exe', '  바탕화면 · 작업표시줄(폴더 창 아님)은 예전처럼 건너뛴다');
-    const noFolder = new Function('sysinput', 'focusKeyOf', 'let lastForeignWindow = null, lastRegistrableWindow = null;\n' + fn.replace('if(w.folder) shell = false;', '')
-      + '\nreturn { note: _noteForeignWindow, reg: () => lastRegistrableWindow };')({ displayNameOf: p => p, WINLIST_SKIP: new Set(['explorer.exe']) }, n => 'win:' + n);
-    noFolder.note('explorer.exe', 'explorer.exe', Object.assign(w('C:/Windows/explorer.exe'), { folder: true }));
-    chk(fn.includes('if(w.folder) shell = false;') && noFolder.reg() === null, '  mutation test — 폴더 창 예외를 빼면 등록 후보가 안 된다 → 빨강');
+    T.note('searchhost.exe', 'searchhost.exe', Object.assign(w('C:/Windows/searchhost.exe'), { desktop: false }));
+    chk(T.reg().key === 'win:hwp.exe' && isShell('chrome.exe', { folder: false }) === false && isShell('explorer.exe') === true, '  다른 셸 창은 그대로 건너뛴다 · 갈래가 없으면(undefined) 예전 판정');
+    chk(count(mainCode, /sysinput\.isShellWindow\(exeName, w\)/g) === 1 && !/WINLIST_SKIP/.test(mainCode), '  main 은 셸 판정을 sysinput.isShellWindow 한 곳에 묻는다(목록을 직접 읽지 않음)');
+    chk(/if\(isShellWindow\(name, await _explorerKindOf\(name, w\)\)\)\{ skip\.shell\+\+; continue; \}/.test(sysSrc), '  «목록에서 고르기» 도 같은 판정');
+    if(shellFn){
+      const cut = shellFn.replace(' && !(kind && kind.folder)', '');
+      const N = mk(fn, mkShell(cut));
+      N.note('explorer.exe', 'explorer.exe', Object.assign(w('C:/Windows/explorer.exe'), { folder: true }));
+      chk(cut !== shellFn && N.reg() === null, '  mutation test — 폴더 창 예외를 빼면 등록 후보가 안 된다 → 빨강');
+    }
   }
   /* 등록된 explorer.exe — 폴더 창에서만 집중으로 센다(바탕화면 · 작업표시줄은 같은 키) */
   {

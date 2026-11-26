@@ -106,6 +106,12 @@ const WINLIST_SKIP = new Set([
   'lockapp.exe','sihost.exe','dwm.exe','widgets.exe','widgetboard.exe',
 ]);
 
+/* 셸 창인가 — «목록에서 고르기» 와 자동 등록(main.js _noteForeignWindow)이 같이 묻는 한 곳.
+   kind: explorer.exe 창의 갈래({ folder } — 활성 창 답 · _explorerKindOf). 폴더 창만 셸에서 뺀다. */
+function isShellWindow(name, kind){
+  return WINLIST_SKIP.has(name) && !(kind && kind.folder);
+}
+
 /* ── 🛡️ [2026-09-17 · E 추가 제보] 경로를 못 읽는 창의 이름 — tasklist 보조 통로 ───────
    [제보] 「관리자 권한 게임 클라이언트를 등록했는데, 캐릭터는 포커싱 포즈인데 **타이머가 안 쌓인다.**
      창모드도 같다. 브라우저를 눌렀다가 돌아와도 그대로.」
@@ -330,7 +336,7 @@ async function listWindows(){
       const name = procNameOf(p);
       if(name === SELF_EXE){ skip.shell++; continue; }
       /* 셸 계열은 뺀다 — 다만 파일 탐색기 폴더 창은 explorer.exe 여도 고를 수 있다(바탕화면 · 작업표시줄은 그대로 뺀다) */
-      if(WINLIST_SKIP.has(name) && !(await _explorerKindOf(name, w)).folder){ skip.shell++; continue; }
+      if(isShellWindow(name, await _explorerKindOf(name, w))){ skip.shell++; continue; }
       // 크기가 0에 가까운 창은 실제 화면에 없는 보조 창(트레이·메시지 전용)이다.
       if(bounds && ((bounds.width|0) < 80 || (bounds.height|0) < 60)){ skip.small++; continue; }
       const prev = seen.get(key);
@@ -443,6 +449,6 @@ module.exports = {
   getActiveWindow, listWindows,
   selfProcName, procNameOf, displayNameOf, legacyProcNameOf,
   readPads,
-  WINLIST_SKIP,
+  WINLIST_SKIP, isShellWindow,
   nativeLoadFailed: () => _nativeFailed.slice(),
 };

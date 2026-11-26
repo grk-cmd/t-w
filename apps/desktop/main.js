@@ -1520,15 +1520,13 @@ let lastForeignWindow = null;   // { key, name, path, title } — key 가 판정
 /* 🧭 [2026-10-11 제보: 한글 · PDF · 크롬이 포커싱 등록이 안 된다] 슬롯 좌클릭 «자동 등록» 이 집는 창.
    lastForeignWindow 는 바탕화면 · 작업표시줄(explorer.exe) · 시작 메뉴 · 검색 같은 **셸 창도** 받는다 — 문서 창에서
    작업표시줄을 거쳐 투게더워킹을 누르면 그 사이 셸 창이 마지막 앞창이 되어, 한글 대신 explorer.exe 가 등록됐다.
-   ⇒ 등록용은 셸 목록(sysinput.WINLIST_SKIP — 「목록에서 직접 고르기」 가 거르는 것과 같은 목록)을 건너뛴 마지막 창.
+   ⇒ 등록용은 셸 창(sysinput.isShellWindow — 「목록에서 직접 고르기」 가 거르는 것과 같은 판정)을 건너뛴 마지막 창.
    lastForeignWindow(진단 로그 «앞창=») 는 그대로 둔다 — 로그는 실제 앞창을 보여야 한다. */
 let lastRegistrableWindow = null;
 function _noteForeignWindow(exeName, ownerPath, w){
   lastForeignWindow = { key: focusKeyOf(exeName), name: sysinput.displayNameOf(ownerPath), path: w.owner.path || '', title: w.title || '' };
-  let shell = false;
-  try{ shell = !!(sysinput.WINLIST_SKIP && sysinput.WINLIST_SKIP.has(exeName)); }catch(_){}
-  if(w.folder) shell = false;   // 파일 탐색기 폴더 창은 explorer.exe 여도 등록 후보다(sysinput-win.js explorerKind)
-  if(!shell) lastRegistrableWindow = lastForeignWindow;
+  /* 셸 판정은 sysinput 한 곳 — 파일 탐색기 폴더 창(w.folder)은 explorer.exe 여도 등록 후보다 */
+  if(!sysinput.isShellWindow(exeName, w)) lastRegistrableWindow = lastForeignWindow;
 }
 
 // uiohook 전역 클릭/키 이벤트에 실어 보낼, 매 순간의 "활성 프로세스 판정" 캐시.

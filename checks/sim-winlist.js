@@ -279,7 +279,7 @@ async function behave(src, noAddon){
     let bad = false; try { bad = await judge(src, cls); } catch (_) { bad = true; }
     chk(bad, 'mutation test — ' + name + ' → 빨강');
   };
-  await mut('폴더 창 예외를 빼면 목록에 안 오른다', " && !(await _explorerKindOf(name, w)).folder", '', async (s) => (await runList('ok', s)).ex.length === 0);
+  await mut('폴더 창 예외를 빼면 목록에 안 오른다', " && !(kind && kind.folder)", '', async (s) => (await runList('ok', s)).ex.length === 0);
   await mut('모든 셸 창에 예외를 주면 «설정» 이 오른다', "  if(name !== EXPLORER_EXE) return explorerKind('');\n", '', async (s) => (await runList('ok', s)).res.list.some(x => x.name === 'applicationframehost.exe'));
   await mut('시간 초과를 빼면 답 없는 일꾼에서 목록이 안 끝난다', "    const timer = setTimeout(() => _clsAnswer(id, ''), CLASS_WAIT_MS);\n", '    const timer = 0;\n',
     async (s) => { const r = await Promise.race([runList('silent', s).then(() => 'done'), new Promise(res => setTimeout(() => res('hang'), 800))]); return r === 'hang'; });

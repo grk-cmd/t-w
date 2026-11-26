@@ -224,13 +224,13 @@
 | **sim-closet.js** | 687 | **b3e34bdb6270** |
 | **sim-slot-codec.js** | 134 | **bbbd470a4dd5** |
 | **sim-signup.js** | 308 | **0a689e6e9d03** |
-| **sim-sysinput.js** | 422 | **d62896eaebc3** |
+| **sim-sysinput.js** | 434 | **bb4af0b85a05** |
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 132 | **3a62138fcd8e** |
 | **sim-zoom-window.js** | 73 | **af1c0f53687b** |
 | **sim-z-layers.js** | 214 | **56e0c43f0b3d** |
 | **sim-no-default-menu.js** | 95 | **75dc9981d8fb** |
-| **sim-winlist.js** | 293 | **760ae8a04df0** |
+| **sim-winlist.js** | 293 | **0a17be2c99d0** |
 | **sim-ops-hot-config.js** | 163 | **6e732dcece07** |
 | **sim-animal-cast.js** | 65 | **0e1031329e06** |
 | **sim-human-ear.js** | 239 | **b2f21075bb26** |
