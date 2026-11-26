@@ -173,10 +173,10 @@ say('── 4. 동작 — GLB 영구 캐시(IndexedDB)');
     if(!PREMOVE){
       const tc = await touchCase(MOD);
       chk(tc.ga === 'A' && tc.gb === 'B' && tc.ta === NOW && tc.tb === NOW - 3600000 && tc.puts === 1, '★ 꺼내면 쓴 때를 지금으로 — 하루 안에 적은 것은 다시 안 적는다(쓰기 1번)');
-      const nt = MOD.replace("        if(!(v.ts > now() - TOUCH_MS)){ try{ db.transaction(_GLB_IDB_STORE, 'readwrite').objectStore(_GLB_IDB_STORE).put({ url: key, b64: v.b64, ts: now() }); }catch(_){} }", "");
+      const nt = MOD.replace("        if(!(v.ts > _glbNow() - TOUCH_MS)){ try{ db.transaction(_GLB_IDB_STORE, 'readwrite').objectStore(_GLB_IDB_STORE).put({ url: key, b64: v.b64, ts: _glbNow() }); }catch(_){} }", "");
       const tn = await touchCase(nt);
       chk(nt !== MOD && tn.ta !== NOW, '  mutation test — 쓴 때를 안 적으면 위 판정이 빨강(40일 된 GLB 가 5일 뒤 지워진다)');
-      const ta = await touchCase(MOD.replace('if(!(v.ts > now() - TOUCH_MS))', 'if(true)'));
+      const ta = await touchCase(MOD.replace('if(!(v.ts > _glbNow() - TOUCH_MS))', 'if(true)'));
       chk(ta.puts === 2, '  mutation test — 하루 간격 없이 늘 적으면 쓰기가 GLB 수만큼(위 판정이 빨강)');
     }
     say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

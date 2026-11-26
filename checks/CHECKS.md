@@ -477,7 +477,7 @@
 | **sim-user-name.js** | 132 | **bb89ed9b9ecd** |
 | **sim-part-scene.js** | 215 | **ed4080b6d819** |
 | **sim-admin-thumbs.js** | 145 | **ce8e334924db** |
-| **sim-glb-idb-cache.js** | 189 | **8d112d1aa478** |
+| **sim-glb-idb-cache.js** | 189 | **03a45e5b0c3a** |
 | **sim-catalog-glb.js** | 226 | **81f273555f0b** |
 | **sim-catalog-sync.js** | 356 | **bc0413464d00** |
 | **sim-desk-items.js** | 166 | **84aeeb87dc04** |

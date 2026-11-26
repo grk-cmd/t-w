@@ -1,7 +1,7 @@
 /* glb-idb-cache.js — 💾 GLB 영구 캐시(IndexedDB) — url 별 base64 넣기 · 꺼내기 · 오래된 것 치우기
    책임: 받은 GLB(base64)를 열쇠(key — 부르는 쪽이 정한다: 내용 해시 «sha256:…» 또는 옛 판의 주소)로 IndexedDB(tw-glb-cache)에 두고 꺼낸다 ·
      꺼낼 때 쓴 때(ts)를 하루에 한 번 새로 적는다(자주 쓰는 GLB 가 45일마다 지워지지 않게) · 45일 넘게 안 쓴 것을 실행마다 한 번 치운다.
-   받는 deps: now()(검사용 — 없으면 Date.now). 내보내는 것: _glbIdbGet(key) · _glbIdbPut(key, b64) · _glbIdbPrune().
+   받는 deps: 없음(브라우저 indexedDB · Date 전역). 내보내는 것: _glbIdbGet(key) · _glbIdbPut(key, b64) · _glbIdbPrune().
    ★ 저장 모양은 { url: 열쇠, b64, ts } 그대로다(keyPath 'url' — 옛 판이 남긴 주소 열쇠 줄도 같은 store 에서 읽힌다).
    app.js «💾 카탈로그 GLB 영구 캐시(IndexedDB) · URL 해결» 구역의 앞쪽(IndexedDB 몫)을 그대로 옮겼다(구역 떼기 C · w2). 동작은 옮기기 전과 같다.
    ★ 아래 코드는 app.js 에 있던 글 그대로다(들여쓰기도 · 옛 이야기형 주석만 «왜 · 함정» 으로 줄였다). 바뀐 코드 줄은 0줄.
@@ -13,7 +13,7 @@
 (function(){
 
 function createGlbIdbCache(deps){
-const now = (deps && deps.now) || (() => Date.now());
+const _glbNow = () => Date.now();   // ⚠️ deps 를 읽지 않는다 — 검사(joinRenderer)가 이 몸통을 app.js 자리에 펼쳐 읽는다
 const TOUCH_MS = 86400000;   // 쓴 때를 새로 적는 간격 — 읽을 때마다 쓰면 켤 때마다 GLB 수만큼 쓰기가 난다
 
 /* 💾 GLB 영구 캐시 (IndexedDB) — 세션 메모리 캐시는 껐다 켜면 사라져 실행마다 Storage 에서 전량을 다시 받았다.
@@ -42,7 +42,7 @@ function _glbIdbGet(key){
       rq.onsuccess = ()=>{
         const v = rq.result;
         if(!v) return res(null);
-        if(!(v.ts > now() - TOUCH_MS)){ try{ db.transaction(_GLB_IDB_STORE, 'readwrite').objectStore(_GLB_IDB_STORE).put({ url: key, b64: v.b64, ts: now() }); }catch(_){} }   // 쓴 때 새로 적기(하루 한 번 · 따로 쓰기) — 실패해도 이번 읽기는 그대로
+        if(!(v.ts > _glbNow() - TOUCH_MS)){ try{ db.transaction(_GLB_IDB_STORE, 'readwrite').objectStore(_GLB_IDB_STORE).put({ url: key, b64: v.b64, ts: _glbNow() }); }catch(_){} }   // 쓴 때 새로 적기(하루 한 번 · 따로 쓰기) — 실패해도 이번 읽기는 그대로
         res(v.b64);
       };
       rq.onerror = ()=>res(null);
@@ -52,7 +52,7 @@ function _glbIdbGet(key){
 function _glbIdbPut(key, b64){
   return _glbIdb().then(db=>{
     if(!db) return;
-    try{ db.transaction(_GLB_IDB_STORE, 'readwrite').objectStore(_GLB_IDB_STORE).put({ url: key, b64, ts: now() }); }catch(_){}
+    try{ db.transaction(_GLB_IDB_STORE, 'readwrite').objectStore(_GLB_IDB_STORE).put({ url: key, b64, ts: _glbNow() }); }catch(_){}
   }).catch(()=>{});
 }
 /* 오래 안 쓴 항목 정리 — 세션당 1회(옛 URL 은 다시 안 쓰인다 · 지워도 필요하면 다시 받는다). */
@@ -62,7 +62,7 @@ function _glbIdbPrune(){
   _glbIdb().then(db=>{
     if(!db) return;
     try{
-      const cutoff = now() - _GLB_IDB_TTL;
+      const cutoff = _glbNow() - _GLB_IDB_TTL;
       const st = db.transaction(_GLB_IDB_STORE, 'readwrite').objectStore(_GLB_IDB_STORE);
       const rq = st.openCursor();
       rq.onsuccess = ()=>{

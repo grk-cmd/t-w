@@ -57,7 +57,7 @@
 ## glb-idb-cache.js — 💾 GLB 영구 캐시(IndexedDB)
 
 - **책임**: 받은 GLB(base64)를 부르는 쪽이 준 열쇠(카탈로그는 내용 해시 `sha256:…`)로 IndexedDB `tw-glb-cache`(저장소 `glb`, keyPath `url` — 열쇠를 이 칸에 둔다)에 넣고 꺼낸다. 꺼낼 때 쓴 때(`ts`)를 하루에 한 번 새로 적고, 45일 넘게 안 쓴 것은 실행마다 한 번 치운다. 무슨 GLB 인지는 모른다.
-- **만드는 법**: `const glbIdbMod = TwGlbIdbCache.createGlbIdbCache({});` — deps `now`(검사용 · 없으면 `Date.now`) · 브라우저 `indexedDB`.
+- **만드는 법**: `const glbIdbMod = TwGlbIdbCache.createGlbIdbCache({});` — deps 없음(브라우저 `indexedDB` · `Date`).
 - **내보내는 것**
   - `_glbIdbGet(key)` → `Promise<b64 | null>` · `_glbIdbPut(key, b64)` → `Promise<void>`(기다리지 않아도 된다) · `_glbIdbPrune()` — 한 실행에 한 번만 실제로 돈다.
   ```js

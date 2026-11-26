@@ -22,11 +22,11 @@ function _glbFailText(e, ms){
   const msg = String((e && e.message) || e || '').replace(/\s+/g, ' ').slice(0, 40);
   return (net ? 'net-fail ' : 'fail ') + msg + ' ' + ms + 'ms';
 }
-const HASH_RE = /^[0-9a-f]{64}$/;
+const MODEL_HASH_RE = /^[0-9a-f]{64}$/;
 /* 영구 캐시 열쇠 — 내용 해시(modelHash)가 있으면 «sha256:해시»(주소가 Storage ↔ 서버 endpoint 로 바뀌어도 같은 파일은 같은 열쇠),
    없으면 주소. 찾을 때는 옛 판이 남긴 주소 열쇠도 본다 — 지금 주소(glbUrl) · 0.13 판의 서버 endpoint 주소(legacyGlbUrl) */
 function keysOf(rec){
-  const h = (typeof rec.modelHash === 'string' && HASH_RE.test(rec.modelHash)) ? rec.modelHash : null;
+  const h = (typeof rec.modelHash === 'string' && MODEL_HASH_RE.test(rec.modelHash)) ? rec.modelHash : null;
   const main = h ? 'sha256:' + h : rec.glbUrl;
   const old = h ? [rec.glbUrl, catalogApiMod.legacyGlbUrl(h)].filter((u) => u && u !== main) : [];
   return { main, old: Array.from(new Set(old)) };
