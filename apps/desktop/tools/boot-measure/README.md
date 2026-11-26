@@ -17,7 +17,7 @@ dev 앱을 e2e-local 로 켜서 «계정 확인 → 런처에 캐릭터가 뜸 �
 ## 쓰는 법
 
 1. 로컬 묶음과 e2e-local 의존성을 준비한다(`../e2e-local/README.md` «준비»). Storage 에뮬레이터 규칙은 로그인한 사람에게 열어 둔다(얼굴 · 파츠 올리기).
-2. 측정 worktree 를 따로 만든다 — `prep.sh` 가 `git checkout -f` 로 덮는다(폴더 이름에 `measure` 가 없으면 멈춘다).
+2. 측정 worktree 를 따로 만든다 — `prep.sh` 가 `git checkout -f` 로 덮는다. 덮기 전에 그 폴더가 worktree 맨 위인지 · 이 도구가 든 worktree 가 아닌지 · HEAD 가 떨어져 있는지(`--detach` 로 만든 것) 보고, 하나라도 아니면 멈춘다.
    ```bash
    git worktree add --detach ../.wt/boot-measure origin/release/0.14.0   # node_modules 는 작업 worktree 것을 링크해도 된다
    ```
@@ -37,10 +37,12 @@ dev 앱을 e2e-local 로 켜서 «계정 확인 → 런처에 캐릭터가 뜸 �
    python3 $K/summ.py <이름>
    ```
 
-환경 값: `TW_BOOTM_OUT`(결과 뿌리 · 기본 `/tmp/tw-bootm-e2e`) · `TW_BOOTM_RTT`(왕복 ms · 기본 40) · `TW_BOOTM_BW`(바이트/ms · 기본 2500 = 2.5MB/s) · `TW_E2E_PG`(DB 컨테이너 · 없으면 e2e-local 기본) · `SETTLE_MS`(파츠가 붙은 뒤 더 기다릴 ms · 기본 15000) · `SHOT`(cold 화면) · `SHOT_AT_MS`(begin 뒤 그 ms 에 화면 한 장과 토스트 글 — «접속 중…» 확인).
+환경 값: `TW_BOOTM_OUT`(결과 폴더 · 기본 `/tmp/tw-bootm-e2e`) · `TW_BOOTM_RTT`(왕복 ms · 기본 40) · `TW_BOOTM_BW`(바이트/ms · 기본 2500 = 2.5MB/s) · `TW_E2E_PG`(DB 컨테이너 · 없으면 e2e-local 기본) · `SETTLE_MS`(파츠가 붙은 뒤 더 기다릴 ms · 기본 15000) · `SHOT`(cold 화면) · `SHOT_AT_MS`(begin 뒤 그 ms 에 화면 한 장과 토스트 글 — «접속 중…» 확인).
 
 ## 함정
 
 - CI 러너가 같은 맥에서 빌드 중이면(`pgrep -f gradle` · `docker ps`) 숫자가 흔들리고 빌드도 늦어진다 — 그때는 돌리지 않는다.
 - 측정 줄 · 망 흉내는 측정 worktree 에만 넣는다. 작업 브랜치에 커밋하지 않는다.
-- 결과 폴더(`TW_BOOTM_OUT`)는 저장소 밖에 둔다(앱 데이터가 통째로 쌓인다).
+- 결과 폴더(`TW_BOOTM_OUT`)는 저장소 밖에 둔다(앱 데이터가 통째로 쌓인다). `seed.js` 는 `<결과 폴더>/seed` 를 지우고 다시 만든다 — e2e-local 결과 폴더 규칙(`outRootProblem` — 이름에 e2e · 홈 · /tmp 자체 아님 · 저장소 밖)을 지키고 마지막 폴더가 `seed` 가 아니면 멈춘다.
+- `seed.js` 는 로컬 묶음 카탈로그에 파츠 `bench000`~`bench099` 를 남긴다(같은 묶음을 쓰는 다른 시험 · 꾸미기 목록에 보인다). 다 쟀으면 관리자 토큰으로 단종한다: `POST /v2/admin/catalog/listings/bulk` `{ action: 'ARCHIVE', items: [{ kind: 'part', id: 'bench000', version: <지금 판> } …] }` — 측정만을 위한 묶음(compose 프로젝트를 따로)이면 `down -v` 로 통째로 지워도 된다.
+- node_modules 가 둘 필요하다 — 저장소 맨 위 `npm install`(앱 · electron)과 `apps/desktop/tools/e2e-local` 의 `npm install`(playwright-core). 측정 worktree 는 작업 worktree 의 것을 링크해도 된다.

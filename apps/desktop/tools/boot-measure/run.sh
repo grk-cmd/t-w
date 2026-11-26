@@ -1,9 +1,10 @@
 #!/bin/bash
 # run.sh <측정 worktree> <이름> [횟수] — cold · warm · update 를 n 번 재서 <결과 폴더>/<이름>/out.txt 에 한 줄씩
-# 결과 뿌리: TW_BOOTM_OUT(기본 /tmp/tw-bootm-e2e) · 그 아래 seed/appdata 가 있어야 한다(seed.js · measure.js prep-cold — README)
+# 결과 폴더: TW_BOOTM_OUT(기본 /tmp/tw-bootm-e2e) · 그 아래 seed/appdata 가 있어야 한다(seed.js · measure.js prep-cold — README)
 set -e
 K=$(cd "$(dirname "$0")" && pwd)
-WT=$1; NAME=$2; N=${3:-3}
+[ -n "$1" ] && [ -n "$2" ] || { echo "쓰는 법: run.sh <측정 worktree> <이름> [횟수]"; exit 2; }
+WT=$(cd "$1" && pwd -P); NAME=$2; N=${3:-3}
 OUT=${TW_BOOTM_OUT:-/tmp/tw-bootm-e2e}
 export TW_BOOTM_RTT=${TW_BOOTM_RTT:-40} TW_BOOTM_BW=${TW_BOOTM_BW:-2500}
 E=$WT/apps/desktop/tools/e2e-local

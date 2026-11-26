@@ -7,6 +7,9 @@ const lib = require(E + '/lib.js');
 const S = require(E + '/scenarios/_shared.js');
 const INVITE = 'INVT-BTMS-E2E7';
 const N = Number(process.env.SEED_N || 100);
+/* 이 폴더를 지우고 다시 만든다 — e2e-local 결과 폴더 규칙(outRootProblem)을 지키고 마지막 폴더가 seed 일 때만 */
+const WHY = S.outRootProblem(path.dirname(OUT)) || (path.basename(OUT) === 'seed' ? '' : '마지막 폴더가 seed 가 아님');
+if(WHY){ console.error('결과 폴더를 지우지 않는다 — ' + OUT + ' · ' + WHY); process.exit(2); }
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
 function padGlb(seed, pad){
