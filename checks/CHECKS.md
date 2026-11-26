@@ -591,7 +591,7 @@
 | **sim-font-choice.js** | 127 | **4587e729e2e7** |
 | **sim-mallang-sent.js** | 76 | **47c8eaaf32fa** |
 | **sim-xmas-server.js** | 332 | **1a7bb7d5b608** |
-| **sim-xmas-api.js** | 255 | **06e24813829c** |
+| **sim-xmas-api.js** | 282 | **1037c7064724** |
 | **sim-xmas-rules.js** | 138 | **80fcd2a2cbb1** |
 | **sim-xmas-tree.js** | 51 | **0d4a04e1115d** |
 | **sim-xmas-window.js** | 276 | **997896dfedf4** |

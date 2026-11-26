@@ -113,6 +113,9 @@ function createXmasApi(deps){
   let sched = null;   // 마지막으로 읽은 날짜 한 벌(rules.scheduleOf) — 아직 못 읽었으면 null
   /* 판 기억 — 읽은 토큰의 주인 · 내 장식의 판(null = 아직 안 걺) · 편지 칸마다 판. 아직 안 읽었으면 null */
   let known = null;
+  /* 같은 때 겹친 «내 몫 읽기» 는 요청 하나를 같이 쓴다(창을 열면 트리 · 편지 단추가 한꺼번에 부른다). 오래 기억하지 않는다 — 끝나면 비운다.
+     쓰기가 시작되면 gen 이 올라 그 전에 나간 읽기에는 붙지 않는다(쓰기 앞의 값을 새 값으로 쓰지 않게) */
+  let meFlight = null, gen = 0;
 
   async function readCurrent(){
     const d = await authed.get(PATHS.current, { auth: true });
@@ -123,16 +126,25 @@ function createXmasApi(deps){
     return c;
   }
   /** 내 몫 한 벌 — 가입 전(USER_CODE_NOT_BOUND)은 null. 판 기억을 새로 한다 */
-  async function readMe(){
+  function readMe(){
+    if (meFlight && meFlight.gen === gen) return meFlight.p;
+    const f = { gen, p: null };
+    f.p = readMeOnce(f.gen);
+    meFlight = f;
+    const done = () => { if (meFlight === f) meFlight = null; };
+    f.p.then(done, done);
+    return f.p;
+  }
+  async function readMeOnce(g){
     let owner;
     let d;
     try { d = await authed.get(PATHS.me, { auth: true, onOwner: (who) => { owner = who; } }); }
-    catch (e) { if (e && e.code === NOT_BOUND){ known = null; return null; } throw e; }
+    catch (e) { if (e && e.code === NOT_BOUND){ if (g === gen) known = null; return null; } throw e; }
     const me = meOf(d);
     if (!me) throw shapeError();
     const letters = {};
     for (const lid of Object.keys(me.letters)){ const v = isObj(me.letters[lid]) ? intOf(me.letters[lid].version) : null; if (v != null) letters[lid] = v; }
-    known = { owner, mine: me.mine ? me.mine.v : null, letters };
+    if (g === gen || !known) known = { owner, mine: me.mine ? me.mine.v : null, letters };   // 읽는 동안 쓰기가 판을 남겼으면 그쪽이 더 새것이다
     return me;
   }
   /** 쓰기 전 — 판을 모르면 한 번 읽는다(창을 열면 이미 읽었다) */
@@ -180,6 +192,7 @@ function createXmasApi(deps){
   /** 장식 걸기 · 바꾸기 — { kind, word?, img?, preview? } → { ok, tree, slot, version, moved, changed, imageId } */
   async function hang(data){
     const d = data || {};
+    gen++;
     try {
       const k = await ensureKnown();
       const body = { kind: d.kind, word: d.word ? d.word : null, previewTree: Number.isInteger(d.preview) ? d.preview : null, version: k.mine };
@@ -211,6 +224,7 @@ function createXmasApi(deps){
   }
   /** 편지 맡기기 · 고치기 — 칸 lid 에. 반송된 편지를 다시 쓰면 fromReturned(반송 기록의 칸)를 실어 서버가 같은 트랜잭션에서 반송 기록을 지운다 */
   async function saveLetter(lid, text, song, fromReturned){
+    gen++;
     try {
       const k = await ensureKnown();
       const body = { text, song: song ? (song.title ? { id: song.id, title: song.title } : { id: song.id }) : null,
@@ -223,6 +237,7 @@ function createXmasApi(deps){
   }
   /** 편지 거두기 — 마지막으로 읽은 판으로(없는 칸이면 서버가 204) */
   async function removeLetter(lid){
+    gen++;
     try {
       const k = await ensureKnown();
       if (!(lid in k.letters)) return { ok: true };
@@ -233,6 +248,7 @@ function createXmasApi(deps){
   }
   /** 반송 표시 치우기(지우기 단추) — 본인 것만 · 없으면 그대로 204 */
   async function clearReturned(lid){
+    gen++;
     try { await authed.del(PATHS.returned(lid)); return { ok: true }; }
     catch (e) { return failOf(e, 'write'); }
   }

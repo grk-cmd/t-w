@@ -91,6 +91,30 @@ async function judge(S){
     chk(!shape.ok && shape.code === 'read', '모양이 틀린 trees/current 는 못 읽음');
   }
 
+  say('── 1-2절 같은 때 겹친 내 몫 읽기');
+  { // 창을 열면 트리(where) · 편지 단추(myLetters) · 알림함 길(myLetters) 이 한꺼번에 내 몫을 읽는다 — 요청은 하나
+    let release; const gate = new Promise((r) => { release = r; });
+    let meCalls = 0;
+    const { m, authed } = mk(LIB, base({ 'GET /v2/me/xmas': () => { meCalls++; return gate.then(() => ME({ letters: { L1: { text: 'a', version: 2 } } })); } }));
+    const ps = [m.where(), m.myLetters(), m.myLetters()];
+    release(); const rs = await Promise.all(ps);
+    chk(meCalls === 1 && rs.every(r => r.ok) && rs[1].letters.L1 && rs[2].letters.L1, '★ 창 열기 한 번 — 겹친 세 읽기가 GET /v2/me/xmas 하나를 같이 쓴다');
+    await m.myLetters();
+    chk(meCalls === 2, '  ↳ 끝난 뒤 다시 부르면 새로 읽는다(오래 기억하지 않음)');
+    /* 쓰기가 시작된 뒤에는 그 전에 나간 읽기에 붙지 않는다 — 쓰기 앞의 값을 새 값으로 쓰지 않게 */
+    let rel2; const gate2 = new Promise((r) => { rel2 = r; });
+    let n2 = 0, hold = false;
+    const t2 = mk(LIB, base({ 'GET /v2/me/xmas': () => { n2++; if (hold){ hold = false; return gate2.then(() => ME()); } return ME({ letters: { L1: { text: 'b', version: 3 } } }); },
+      'PUT /v2/me/xmas/letters/L1': { version: 3 } }));
+    await t2.m.myLetters(); n2 = 0; hold = true;
+    const early = t2.m.myLetters();
+    await t2.m.saveLetter('L1', 'b', null, null);
+    const lateP = t2.m.myLetters();
+    rel2(); await early; const late = await lateP;
+    chk(n2 === 2 && late.ok && late.letters.L1 && late.letters.L1.version === 3, '  ↳ 쓰기 뒤에 부른 읽기는 쓰기 전에 나간 읽기에 붙지 않고 새로 읽는다');
+    void authed;
+  }
+
   say('── 2절 가입 전 · 로그인 없음');
   {
     const nb = mk(LIB, base({ 'GET /v2/me/xmas': apiErr(401, 'USER_CODE_NOT_BOUND') }));
@@ -237,7 +261,10 @@ async function runAll(){
     ['409 뒤 판을 안 버림', S.API.replace("e.code === 'CONCURRENT_UPDATE')) known = null;", "false)) known = null;"), '3절 다시 읽기'],
     ['주인을 안 묶음', S.API.replace("authed.put(PATHS.ornament, body, { expectOwner: k.owner })", "authed.put(PATHS.ornament, body, {})"), '3절 OWNER_CHANGED'],
     ['fromReturned 를 안 실음', S.API.replace('fromReturned: fromReturned || null', 'fromReturned: null'), '4절 반송 다시 쓰기'],
-    ['가입 전을 실패로', S.API.replace("if (e && e.code === NOT_BOUND){ known = null; return null; } ", ''), '2절 트리는 그림'],
+    ['가입 전을 실패로', S.API.replace("if (e && e.code === NOT_BOUND){ if (g === gen) known = null; return null; } ", ''), '2절 트리는 그림'],
+    ['겹친 읽기를 안 합침', S.API.replace('    if (meFlight && meFlight.gen === gen) return meFlight.p;\n', ''), '1-2절 요청 하나'],
+    ['쓰기 뒤에도 옛 읽기에 붙음', S.API.replace('if (meFlight && meFlight.gen === gen) return meFlight.p;', 'if (meFlight) return meFlight.p;'), '1-2절 쓰기 뒤 새로'],
+    ['끝난 읽기를 계속 씀', S.API.replace('const done = () => { if (meFlight === f) meFlight = null; };', 'const done = () => {};'), '1-2절 끝난 뒤 새로'],
     ['틀린 그림 id 를 받음', S.API.replace('const IMAGE_ID_RE = /^[0-9a-f]{32}$/;', 'const IMAGE_ID_RE = /./;'), '7절 틀린 id'],
     ['날짜를 안 남김', S.API.replace('if (s) sched = s;', ''), '1절 날짜 한 벌'],
     ['conflict 를 write 로', S.API.replace("CONCURRENT_UPDATE: 'conflict',", "CONCURRENT_UPDATE: 'write',"), '6절 표'],
