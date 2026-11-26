@@ -162,6 +162,23 @@ say('── 4. 동작 — GLB 영구 캐시(IndexedDB)');
     F.seed('glb', { url: 'old2', b64: 'o', ts: NOW - 99 * DAY });
     C._glbIdbPrune(); for(let i = 0; i < 6; i++) await tick();
     chk(F.stores.glb.has('old2'), '  치우기는 한 실행(모듈)에 한 번만');
+    /* 꺼낼 때 쓴 때(ts) 새로 적기 — 하루에 한 번만(자주 쓰는 GLB 가 45일마다 지워지지 않게 · 켤 때마다 쓰기가 나지 않게) */
+    const touchCase = async (src) => {
+      const T = mkIDB(); const w = { indexedDB: T.idb }; new Function('window', 'module', 'indexedDB', 'Date', src)(w, undefined, T.idb, fakeDate);
+      const c = w.TwGlbIdbCache.createGlbIdbCache({});
+      T.seed('glb', { url: 'sha256:aa', b64: 'A', ts: NOW - 40 * DAY }); T.seed('glb', { url: 'sha256:bb', b64: 'B', ts: NOW - 3600000 });
+      const ga = await c._glbIdbGet('sha256:aa'), gb = await c._glbIdbGet('sha256:bb'); await tick();
+      return { ga, gb, ta: T.stores.glb.get('sha256:aa').ts, tb: T.stores.glb.get('sha256:bb').ts, puts: T.log.puts };
+    };
+    if(!PREMOVE){
+      const tc = await touchCase(MOD);
+      chk(tc.ga === 'A' && tc.gb === 'B' && tc.ta === NOW && tc.tb === NOW - 3600000 && tc.puts === 1, '★ 꺼내면 쓴 때를 지금으로 — 하루 안에 적은 것은 다시 안 적는다(쓰기 1번)');
+      const nt = MOD.replace("        if(!(v.ts > _glbNow() - TOUCH_MS)){ try{ db.transaction(_GLB_IDB_STORE, 'readwrite').objectStore(_GLB_IDB_STORE).put({ url: key, b64: v.b64, ts: _glbNow() }); }catch(_){} }", "");
+      const tn = await touchCase(nt);
+      chk(nt !== MOD && tn.ta !== NOW, '  mutation test — 쓴 때를 안 적으면 위 판정이 빨강(40일 된 GLB 가 5일 뒤 지워진다)');
+      const ta = await touchCase(MOD.replace('if(!(v.ts > _glbNow() - TOUCH_MS))', 'if(true)'));
+      chk(ta.puts === 2, '  mutation test — 하루 간격 없이 늘 적으면 쓰기가 GLB 수만큼(위 판정이 빨강)');
+    }
     say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
     process.exit(fail ? 1 : 0);
   })().catch(e => { chk(false, '4절 던짐 — ' + (e && e.stack || e)); say(`\n✗ 통과 ${pass} · 실패 ${fail}`); process.exit(1); });

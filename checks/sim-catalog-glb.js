@@ -22,7 +22,7 @@ const FN_DEPS = [];
 const VAL_DEPS = ["catalogApiMod","glbIdbMod"];
 const GET_DEPS = [];
 const SET_DEPS = [];
-const EXPORTS = ["resolveCatalogGlb","resolveCatalogGlbAll","glbFailWhy"];
+const EXPORTS = ["resolveCatalogGlb","resolveCatalogGlbCached","resolveCatalogGlbAll","glbFailWhy"];
 const MOVED = ["_glbUrlCache","resolveCatalogGlb","resolveCatalogGlbAll"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  catalogApiMod: catalogApiMod,","  glbIdbMod: glbIdbMod,"];
 
@@ -107,7 +107,7 @@ say('── 4. 동작 — 카탈로그 GLB 해결(메모리 → 영구 캐시 �
       _glbIdbPut: (u, b) => { log.put.push([u, b]); return o.putHangs ? new Promise(() => {}) : Promise.resolve(); },
       _glbIdbPrune: () => { log.prune++; },
     };
-    const fb = { fetchGlb: async (u) => { log.fetch.push(u); if(o.fetchErr) throw o.fetchErr; if(o.fetchFails) throw new Error('net'); return 'NET:' + u; } };   // catalog-api.js 의 fetchGlb 자리
+    const fb = { fetchGlb: async (u) => { log.fetch.push(u); if(o.fetchErr) throw o.fetchErr; if(o.fetchFails) throw new Error('net'); return 'NET:' + u; }, legacyGlbUrl: (h) => 'https://api/v2/catalog/assets/' + h + '.glb' };   // catalog-api.js 의 fetchGlb · legacyGlbUrl 자리
     const win = {};
     const cons = { warn: () => { log.warn++; }, log: () => {} };
     let api;
@@ -182,9 +182,40 @@ say('── 4. 동작 — 카탈로그 GLB 해결(메모리 → 영구 캐시 �
     chk(await api.resolveCatalogGlb({ id: 'g', glbUrl: 'u5' }) === 'NET:u5', '영구 캐시 넣기를 기다리지 않는다(넣기가 안 끝나도 바로 돌려준다)');
     ({ api, log } = load({ idb: { k1: 'D1' } }));
     const cat = { x: { glbUrl: 'k1' }, y: { glbUrl: 'k2' }, z: { glb: 'Z' } };
-    const back = await api.resolveCatalogGlbAll(cat);
-    chk(back === cat && cat.x.glb === 'D1' && cat.y.glb === 'NET:k2' && cat.z.glb === 'Z' && log.prune === 1, 'resolveCatalogGlbAll — 스냅샷 전부를 채워 같은 객체로 돌려주고, 영구 캐시 치우기를 부른다');
-    chk(await api.resolveCatalogGlbAll(null) === null && await api.resolveCatalogGlbAll({}) !== null && log.prune === 3, '  빈 스냅샷 · null 도 던지지 않는다(null 은 그대로)');
+    const n = await api.resolveCatalogGlbAll(cat);
+    chk(n === 2 && cat.x.glb === 'D1' && cat.y.glb === 'NET:k2' && cat.z.glb === 'Z' && log.prune === 1, 'resolveCatalogGlbAll — 스냅샷 전부를 채우고 새로 채운 수를 돌려주며, 영구 캐시 치우기를 부른다');
+    chk(await api.resolveCatalogGlbAll(null) === 0 && await api.resolveCatalogGlbAll({}) === 0 && await api.resolveCatalogGlbAll([cat.x]) === 0 && log.prune === 4, '  빈 스냅샷 · null · 배열도 던지지 않는다');
+    ({ api, log } = load({ idb: { k1: 'D1' } }));
+    const cat2 = { x: { glbUrl: 'k1' }, y: { glbUrl: 'k2' } };
+    chk(await api.resolveCatalogGlbAll(cat2, true) === 1 && cat2.x.glb === 'D1' && cat2.y.glb === undefined && !log.fetch.length, '★ cachedOnly — 이 PC 캐시에서만 채우고 서버로 안 나간다(첫 화면 전 합치기)');
+    /* 열쇠 — 내용 해시. 주소가 바뀌어도(Storage ↔ 서버 endpoint) 다시 받지 않는다 · 옛 판의 주소 열쇠도 찾는다 */
+    const H = 'a'.repeat(64), HK = 'sha256:' + H, LEG = 'https://api/v2/catalog/assets/' + H + '.glb';
+    ({ api, log } = load());
+    const h1 = { id: 'h1', modelHash: H, glbUrl: 'https://store/new.glb' };
+    await api.resolveCatalogGlb(h1);
+    chk(log.put.length === 1 && log.put[0][0] === HK, '★ 받은 것은 내용 해시 열쇠(sha256:…)로 넣는다');
+    ({ api, log } = load({ idb: { [HK]: 'BYHASH' } }));
+    const h2 = { id: 'h2', modelHash: H, glbUrl: 'https://other-url/x.glb' };
+    chk(await api.resolveCatalogGlb(h2) === 'BYHASH' && !log.fetch.length, '  주소가 달라도 같은 해시면 캐시에서 — 다시 받지 않는다');
+    ({ api, log } = load({ idb: { [LEG]: 'OLD013' } }));
+    const h3 = { id: 'h3', modelHash: H, glbUrl: 'https://store/new.glb' };
+    chk(await api.resolveCatalogGlb(h3) === 'OLD013' && !log.fetch.length && log.get.join() === [HK, 'https://store/new.glb', LEG].join() && log.put.length === 1 && log.put[0].join() === HK + ',OLD013',
+      '★ 0.13 판이 서버 endpoint 주소 열쇠로 남긴 줄을 찾아 쓰고(받지 않음) 해시 열쇠로 옮겨 적는다 — 찾는 차례: 해시 → 지금 주소 → 옛 endpoint');
+    ({ api, log } = load({ idb: { 'https://store/new.glb': 'BYURL' } }));
+    chk(await api.resolveCatalogGlb({ id: 'h4', modelHash: H, glbUrl: 'https://store/new.glb' }) === 'BYURL' && !log.fetch.length, '  지금 주소 열쇠(해시 열쇠 전 0.14 시험판)로 남은 줄도 찾는다');
+    ({ api, log } = load());
+    await api.resolveCatalogGlb({ id: 'h5', modelHash: 'xyz', glbUrl: 'u9' });
+    chk(log.put[0][0] === 'u9', '  해시 모양이 아니면 주소를 열쇠로(틀린 열쇠를 만들지 않는다)');
+    const noMove = MOD.replace("      if(hit){ glbIdbMod._glbIdbPut(k.main, hit); break; }", "      if(hit) break;");
+    { const w = {}; new Function('window', 'module', 'console', noMove)(w, undefined, { warn(){}, log(){} });
+      const puts = []; const a = w.TwCatalogGlb.createCatalogGlb({ glbIdbMod: { _glbIdbGet: async (k) => (k === LEG ? 'OLD' : null), _glbIdbPut: (k) => { puts.push(k); }, _glbIdbPrune(){} }, catalogApiMod: { fetchGlb: async () => 'N', legacyGlbUrl: (h) => 'https://api/v2/catalog/assets/' + h + '.glb' } });
+      await a.resolveCatalogGlb({ id: 'm', modelHash: H, glbUrl: 'x' });
+      chk(noMove !== MOD && !puts.length, '  mutation test — 옛 열쇠 줄을 옮겨 적지 않으면 위 판정이 빨강'); }
+    const noLegacy = MOD.replace("[rec.glbUrl, catalogApiMod.legacyGlbUrl(h)]", "[rec.glbUrl]");
+    { const w = {}; new Function('window', 'module', 'console', noLegacy)(w, undefined, { warn(){}, log(){} });
+      const fetched = []; const a = w.TwCatalogGlb.createCatalogGlb({ glbIdbMod: { _glbIdbGet: async (k) => (k === LEG ? 'OLD' : null), _glbIdbPut(){}, _glbIdbPrune(){} }, catalogApiMod: { fetchGlb: async (u) => { fetched.push(u); return 'N'; }, legacyGlbUrl: (h) => 'https://api/v2/catalog/assets/' + h + '.glb' } });
+      await a.resolveCatalogGlb({ id: 'm', modelHash: H, glbUrl: 'x' });
+      chk(noLegacy !== MOD && fetched.length === 1, '  mutation test — 옛 endpoint 열쇠를 안 보면 업데이트 뒤 8MB 를 다시 받는다(빨강)'); }
     say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
     process.exit(fail ? 1 : 0);
   })().catch(e => { chk(false, '4절 던짐 — ' + (e && e.stack || e)); say(`\n✗ 통과 ${pass} · 실패 ${fail}`); process.exit(1); });

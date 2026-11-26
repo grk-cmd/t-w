@@ -4304,6 +4304,7 @@ const deskVisualMod = TwDeskVisual.createDeskVisual({
   b64ToBuf: (...a)=>b64ToBuf(...a),
   commissionMod: commissionMod,
   licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),
+  resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),
   setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),
   toast: (...a)=>toast(...a),
 });
@@ -4322,6 +4323,7 @@ const deskItemsMod = TwDeskItems.createDeskItems({
 async function loadSavedItemsIntoSession(){
   const failed=[];
   for(const rec of commissionMod.savedItems()){
+    if(!rec.glb && rec.glbUrl) continue;   // 카탈로그 GLB 를 아직 안 받았다 — 첫 화면 뒤 catalogSyncMod.fillGlb 가 받고 다시 합친다(실패가 아니다)
     // ★ 이미 등록돼 있어도 건너뛰지 않고 항상 다시 불러옴 — 카탈로그에서 GLB가 교체됐을 때
     //   (관리자가 우클릭 수정 등) customItems가 옛날 것으로 캐시된 채 남아있으면 실시간 반영이 안 됨.
     try{ const buf=b64ToBuf(rec.glb); const {scene,animations}=await assetCodeMod.parseGlbFull(buf);
@@ -5019,6 +5021,8 @@ const userLocalMod = TwUserLocal.createUserLocal({ parts: [
 
 /* 🚀 켜는 순서 한 곳(launcher/app-boot.js) — 계정 확인(license-gate.js)이 nav 로 «계정에 들어감» 을 알리면 옛 PC 값 옮기기 → realtime → 아래 차례대로 계정 기능을 시작한다.
    ⚠️ 차례 표는 app-boot.js STEPS — 여기 starts 는 그 이름마다 하나씩(빠지거나 남으면 만들 때 던진다). 계정 기능을 새로 만들면 만들 때 일하지 말고 여기에 건다. */
+/* 첫 화면 = 옷장 첫 받기가 끝남(캐릭터가 그려졌거나 못 받음) — app-boot LATER 의 시작 · 카탈로그 GLB 전체 받기가 기다린다 */
+const closetSettled = ()=>new Promise((r)=>{ const done = ()=>['ready', 'failed'].includes(closetMod.state()); if(done()) r(); else closetMod.onChange(()=>{ if(done()) r(); }); });
 const appBoot = TwAppBoot.createAppBoot({
   twNav: twNav,
   migrateLegacy: (code)=>accountStoreMod.migrateLegacy(code),
@@ -5032,7 +5036,7 @@ const appBoot = TwAppBoot.createAppBoot({
   toLogin: ()=>accountMod._loginDoLogout({ force:true }).then(()=>acctStateMod._acctRelaunchAfterDetach(null)),   // [취소] — 등록하지 않고 로그인 화면(다시 켜면 게이트가 로그인 화면)
   goOnline: ()=>loginFlowMod.goOnline(),
   updateGate: ()=>updateFlowP.then((f)=>f.proceed === true),
-  whenPainted: ()=>new Promise((r)=>{ const done = ()=>['ready', 'failed'].includes(closetMod.state()); if(done()) r(); else closetMod.onChange(()=>{ if(done()) r(); }); }),   // 첫 화면 = 옷장 첫 받기가 끝남(캐릭터가 그려졌거나 못 받음)
+  whenPainted: ()=>closetSettled(),
   idle: ()=>TwApi.authed.whenIdle(),
   holdToast: (msg)=>toastMod.hold(msg),
   starts: {
@@ -5068,6 +5072,7 @@ const appBoot = TwAppBoot.createAppBoot({
     xmasDates: ()=>TwXmasWindow.loadXmasDates({ api: xmasApiMod, win: xmasWinMod, rules: TwXmasRules, serverNow: ()=>TwRtHub.store.serverNow(), now: ()=>Date.now() }),   // 🎄 마감 앞뒤 하루만 날짜 한 벌 한 번(그 밖엔 요청 0)
     firstRun: ()=>firstRunMod.run().catch((e)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', e)),
     licenseAutoRegister: ()=>licensePremiumMod.autoRegisterAfter(firstRunMod.licenseDone()),   // 첫 실행 뒤 — 0.12 키로 첫 실행이 등록했으면 건너뜀
+    catalogGlb: ()=>closetSettled().then(()=>catalogSyncMod.fillGlb()),   // 🧩 카탈로그 GLB 를 다 받아 두기 — 첫 화면 뒤 맨 끝 · 캐릭터가 3초 넘게 안 그려져도 그려질 때까지 기다린다(약 8MB 가 캐릭터 그림과 다투지 않게)
     playlist: (code, me, session)=>plMod.start(session),
   },
 });

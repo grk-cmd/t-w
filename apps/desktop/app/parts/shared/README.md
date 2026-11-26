@@ -56,10 +56,10 @@
 
 ## glb-idb-cache.js — 💾 GLB 영구 캐시(IndexedDB)
 
-- **책임**: 받은 GLB(base64)를 url 을 키로 IndexedDB `tw-glb-cache`(저장소 `glb`, keyPath `url`)에 넣고 꺼낸다. 45일 넘게 안 쓴 것은 실행마다 한 번 치운다. 무슨 GLB 인지는 모른다.
-- **만드는 법**: `const glbIdbMod = TwGlbIdbCache.createGlbIdbCache({});` — deps 없음(브라우저 `indexedDB`).
+- **책임**: 받은 GLB(base64)를 부르는 쪽이 준 열쇠(카탈로그는 내용 해시 `sha256:…`)로 IndexedDB `tw-glb-cache`(저장소 `glb`, keyPath `url` — 열쇠를 이 칸에 둔다)에 넣고 꺼낸다. 꺼낼 때 쓴 때(`ts`)를 하루에 한 번 새로 적고, 45일 넘게 안 쓴 것은 실행마다 한 번 치운다. 무슨 GLB 인지는 모른다.
+- **만드는 법**: `const glbIdbMod = TwGlbIdbCache.createGlbIdbCache({});` — deps 없음(브라우저 `indexedDB` · `Date`).
 - **내보내는 것**
-  - `_glbIdbGet(url)` → `Promise<b64 | null>` · `_glbIdbPut(url, b64)` → `Promise<void>`(기다리지 않아도 된다) · `_glbIdbPrune()` — 한 실행에 한 번만 실제로 돈다.
+  - `_glbIdbGet(key)` → `Promise<b64 | null>` · `_glbIdbPut(key, b64)` → `Promise<void>`(기다리지 않아도 된다) · `_glbIdbPrune()` — 한 실행에 한 번만 실제로 돈다.
   ```js
   const hit = await glbIdbMod._glbIdbGet(url);
   if(!hit){ const b64 = await fetchIt(url); glbIdbMod._glbIdbPut(url, b64); }
@@ -67,8 +67,8 @@
 - **확장할 때 고칠 자리**: 이름 · 저장소 · 보관 기간은 머리의 `_GLB_IDB_NAME` · `_GLB_IDB_STORE` · `_GLB_IDB_TTL`. 저장소 모양을 바꾸면 `indexedDB.open` 판(지금 1)을 올리고 `onupgradeneeded` 를 고친다.
 - **함정**
   - 실패는 전부 삼킨다(없으면 null) — 캐시는 있으면 좋은 것이지 없으면 안 되는 것이 아니다. 여기서 던지게 바꾸면 카탈로그 받기가 같이 멈춘다.
-  - 키가 url 그대로라 따로 지우지 않아도 관리자가 다시 올리면 새 url 로 받는다.
-  - 검사: `checks/sim-glb-idb-cache.js`(4절 — 가짜 IndexedDB 로 없음 · 열기 실패 · 넣기/꺼내기 · 한 번만 열기 · 치우기 45일 경계 · 한 번만 치우기).
+  - 열쇠가 내용 해시라 관리자가 파일을 바꾸면 새 해시로 받고, 주소만 바뀌면(서버 endpoint ↔ Storage) 다시 받지 않는다. 옛 판의 주소 열쇠 줄은 catalog-glb.js 가 찾아 옮기고 남은 줄은 45일 뒤 치워진다.
+  - 검사: `checks/sim-glb-idb-cache.js`(4절 — 가짜 IndexedDB 로 없음 · 열기 실패 · 넣기/꺼내기 · 한 번만 열기 · 치우기 45일 경계 · 한 번만 치우기 · 쓴 때 새로 적기 하루 한 번).
 
 ## `light-tone.js` — 💡 재질 톤(조명 예산 · emissive) · 실행 화면 조명 한 벌
 

@@ -251,7 +251,10 @@ function createCatalogApi(deps){
   /* 마지막으로 받은 서버 한 벌 그대로(아직 못 받았으면 null) — 관리자 쓰기가 고칠 물건 · 카테고리 · 진열대 · 해금의 version 을 여기서 읽는다(admin/catalog-admin-api.js) */
   const current = () => raw;
 
-  return { subscribe, load, current, fetchGlb };
+  /* 0.13 판이 GLB 를 받던 서버 endpoint 주소(해시 → 주소) — 그 판이 남긴 영구 캐시 줄의 열쇠(catalog-glb.js 가 옛 줄을 찾는다) */
+  const legacyGlbUrl = (hash) => assetUrl(hash, 'glb');
+
+  return { subscribe, load, current, fetchGlb, legacyGlbUrl };
 }
 
 const mod = { CATALOG_PATH, CATALOG_ASSET_PATH, CATALOG_TIMEOUT_MS, CATALOG_KINDS, unfoldCatalog, createCatalogApi };

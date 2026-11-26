@@ -22,7 +22,7 @@ const FN_DEPS = ["applyInteractionUnlocks","setAnimalUnlockLevel","applyClothVis
 const VAL_DEPS = ["DEFAULT_DESK_OVERRIDE_ID","adminCategory","assetCodeMod","catalogApiMod","catalogGlbMod","commissionMod","premiumMod","rideBenchMod","seats","wardrobeMod"];
 const GET_DEPS = ["activeCustomDeskId","cBase","cDesk","cDeskColor","cDeskGlbB64","cDeskScale","cDeskTemplate","creatorOpen","customItems","gachaMod"];
 const SET_DEPS = ["cDeskGlbB64","cDeskTemplate"];
-const EXPORTS = ["start"];
+const EXPORTS = ["fillGlb","start"];
 const MOVED = ["mergeCatalogIntoSavedItems","subscribeCatalogItems","mergeCatalogIntoSavedDesks","subscribeCatalogDesks","mergeCatalogIntoSavedParts","subscribeCatalogParts","subscribeCustomCats","subscribeCatOverrides"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  applyInteractionUnlocks: (...a)=>iDeskMod.applyUnlocks(...a),","  setAnimalUnlockLevel: (...a)=>window._setAnimalUnlockLevel(...a),","  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  activeCustomDeskId: ()=>crState.activeCustomDeskId,","  adminCategory: adminCategory,","  applyClothVisibility: (...a)=>applyClothVisibility(...a),","  applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),","  applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),","  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),","  assetCodeMod: assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  cBase: ()=>crState.cBase,","  cDesk: ()=>crState.cDesk,","  cDeskColor: ()=>crState.cDeskColor,","  cDeskGlbB64: ()=>crState.cDeskGlbB64,","  cDeskScale: ()=>crState.cDeskScale,","  cDeskTemplate: ()=>crState.cDeskTemplate,","  catalogApiMod: catalogApiMod,","  catalogGlbMod: catalogGlbMod,","  clearHolderDeskItems: (...a)=>creatorPrevMod.clearHolderDeskItems(...a),","  commissionMod: commissionMod,","  creatorOpen: ()=>creatorOpen,","  customItems: ()=>customItems,","  equipDeskItem: (...a)=>equipDeskItem(...a),","  equipPartOnSeat: (...a)=>equipPartOnSeat(...a),","  gachaMod: ()=>gachaMod,","  loadSavedItemsIntoSession: (...a)=>loadSavedItemsIntoSession(...a),","  premiumMod: premiumMod,","  refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),","  renderCrItems: (...a)=>renderCrItems(...a),","  renderLauncher: (...a)=>renderLauncher(...a),","  rideBenchMod: rideBenchMod,","  seats: seats,","  setCreatorDeskScale: (...a)=>setCreatorDeskScale(...a),","  swapDeskVisual: (...a)=>deskVisualMod.swapDeskVisual(...a),","  toast: (...a)=>toast(...a),","  unequipPartFromSeat: (...a)=>unequipPartFromSeat(...a),","  wardrobeMod: wardrobeMod,","  setCDeskGlbB64: (v)=>{ crState.cDeskGlbB64 = v; },","  setCDeskTemplate: (v)=>{ crState.cDeskTemplate = v; },"];
 
@@ -128,7 +128,7 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
         restoreLicenseHeldAssets: () => L('restoreHeld'),
         pruneUnownedLicenseAssets: () => { L('licPrune'); if(o.licThrows) throw new Error('lic'); },
         setCustomPartCats: (v) => L('setCats', v), rebuildPartCats: () => L('rebuildCats'), setPartCatOverrides: (v) => L('setOver', v) },
-      catalogGlbMod: { resolveCatalogGlbAll: async (x) => { L('resolveAll'); return x; } },
+      catalogGlbMod: { resolveCatalogGlbAll: async (x, cachedOnly) => { L(cachedOnly ? 'resolveCached' : 'resolveAll'); if(!cachedOnly && o.fillAdds) Object.keys(x || {}).forEach((k) => { x[k].glb = 'G'; }); return cachedOnly ? 0 : (o.fillAdds || 0); }, resolveCatalogGlb: async (r) => { L('resolve', r && r.id); if(r && !r.glb) r.glb = 'G'; return r && r.glb; } },
       assetCodeMod: { parseGlbBytes: async (b) => ({ __n: 'tpl(' + b + ')' }) },
       b64ToBuf: (b) => 'buf:' + b,
       equipDeskItem: (s, def, on) => L('equipDeskItem', s, def.id, on),
@@ -184,7 +184,7 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
     chk(W.sessionOn.length === 5 && W.sessionOn.every((u) => typeof u === 'function') && !W.offs.length, '★ 다섯 해제 함수를 모두 세션에 맡긴다(session.on) — 세션이 끝나면 풀리고 catalog-api 가 값을 비운다');
     W.sessionOn.forEach((u) => u());
     chk(W.offs.join() === 'items,desks,parts,cats,unlocks', '  ↳ 맡긴 함수가 각자 제 구독을 푼다');
-    chk(W.resets.length === 1 && typeof W.resets[0] === 'function', '★ 세션 reset 에 카탈로그 몫 비우기를 한 곳(clearCatalogShare)으로 건다');
+    chk(W.resets.length === 2 && W.resets.every((f) => typeof f === 'function'), '★ 세션 reset 에 카탈로그 몫 비우기(clearCatalogShare) · 받은 한 벌 잊기를 건다');
 
     /* 계정 A(라이선스 있음 · 전용 책상 locked:false) → 세션 끝 → 계정 B 는 받기 전 · 받기 실패에도 A 의 전용 책상을 못 쓴다 */
     const acct = (o) => load(Object.assign({ customItems: { vip: { id: 'vip' }, mine: { id: 'mine' } },
@@ -213,7 +213,7 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
     await W.subs.items({ i3: { name: 'c' }, i2: { order: 2 }, i1: { order: 1 } }); await flush();
     chk(W.st.items.map(r => r.id).join() === 'i1,i2,i3,local' && W.st.items.slice(0, 3).every(r => r.fromCatalog) && !W.st.items[0].old, '아이템 — 카탈로그 order 순(없으면 뒤) · 카탈로그 판으로 덮고 · 로컬 전용은 뒤에 남긴다');
     chk(has(W.log, 'equipDeskItem:A:gone:false') && !('gone' in W.raw.customItems) && 'i1' in W.raw.customItems, '  관리자가 지운 아이템은 올려 둔 좌석에서 내리고 customItems 에서도 지운다');
-    chk(idx(W.log, 'resolveAll') < idx(W.log, 'setItems') && idx(W.log, 'setItems') < idx(W.log, 'loadSession') && idx(W.log, 'loadSession') < idx(W.log, 'clearHolder:A') && !has(W.log, 'persistAssets'), '  GLB 해결 → 합치기 → 세션 등록을 기다린 뒤 좌석 다시 적용(크기 0.8 고정 회귀 방지) · 카탈로그 몫은 이 계정 칸에 쓰지 않는다(저장 0)');
+    chk(idx(W.log, 'resolveCached') >= 0 && !has(W.log, 'resolveAll') && idx(W.log, 'resolveCached') < idx(W.log, 'setItems') && idx(W.log, 'setItems') < idx(W.log, 'loadSession') && idx(W.log, 'loadSession') < idx(W.log, 'clearHolder:A') && !has(W.log, 'persistAssets'), '  GLB 는 이 PC 캐시에서만 채움(서버 받기는 첫 화면 뒤) → 합치기 → 세션 등록을 기다린 뒤 좌석 다시 적용(크기 0.8 고정 회귀 방지) · 카탈로그 몫은 이 계정 칸에 쓰지 않는다(저장 0)');
     chk(has(W.log, 'applyDeskItems:A') && has(W.log, 'clearHolder:B') && !has(W.log, 'applyDeskItems:B') && has(W.log, 'licPrune') && !has(W.log, 'renderCrItems'), '  def 에 아이템이 있는 좌석만 다시 올리고 · 라이선스 접기 · 생성기가 닫혀 있으면 카드 안 그림');
     W = load({ creatorOpen: true, cBase: { __n: 'cBase', deskItems: { i1: {}, nope: {}, x: null } }, customItems: { i1: { id: 'i1' } }, licThrows: true });
     await W.subs.items({ i1: {} }); await flush();
@@ -264,6 +264,49 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
     W = load({ seats: [{ __n: 'S', gltfRoot: {}, charDef: { equippedParts: { hat: 'p1' } }, equippedPartObjs: { hat: {} } }] });
     await W.subs.parts({ p1: { cat: 'hat' } }); await flush();
     chk(!W.log.some(x => x.startsWith('equipPart') || x.startsWith('fit')) && !has(W.log, 'renderLauncher') && !has(W.log, 'refreshWd'), '  다 붙어 있으면 다시 붙이지도 바닥을 다시 맞추지도 않는다 · 닫힌 화면은 안 그림');
+
+    chk(!has(W.log, 'resolveAll') && !has(W.log, 'resolveCached'), '★ 파츠는 GLB 를 기다리지 않고 바로 합친다 — 입은 파츠는 붙일 때 받는다(part-scene)');
+    /* 첫 화면 뒤 fillGlb — 다 받아 두고 새로 채운 종류만 같은 한 벌로 다시 합친다 */
+    W = load({ seats: [], fillAdds: 2 });
+    await W.subs.items({ i1: { glbUrl: 'u' } }); await W.subs.desks({ d1: { glbUrl: 'v' } }); await W.subs.parts({ p1: { cat: 'hat', glbUrl: 'w' } }); await flush();
+    const n0 = { items: W.log.filter(x => x === 'setItems').length, desks: W.log.filter(x => x === 'setDesks').length, parts: W.log.filter(x => x === 'setParts').length };
+    await W.mod.fillGlb(); await flush();
+    chk(W.log.filter(x => x === 'resolveAll').length === 3 && W.log.filter(x => x === 'setItems').length === n0.items + 1 && W.log.filter(x => x === 'setDesks').length === n0.desks + 1 && W.log.filter(x => x === 'setParts').length === n0.parts + 1 && W.st.items[0].glb === 'G',
+      '★ fillGlb — 세 종류 GLB 를 서버에서 다 받고 새로 채웠으면 같은 한 벌로 다시 합친다(아이템 등록 · 좌석 책상 · 붙지 못한 파츠)');
+    W = load({ seats: [] });
+    await W.subs.items({ i1: {} }); await flush(); const m0 = W.log.filter(x => x === 'setItems').length;
+    await W.mod.fillGlb(); await flush();
+    chk(W.log.filter(x => x === 'setItems').length === m0 && W.log.filter(x => x === 'resolveAll').length === 1, '  새로 채운 것이 없으면 다시 합치지 않는다 · 아직 안 온 종류는 건너뛴다');
+    const fz = MOD.replace("    if(!added || lastObj[kind] !== obj) continue;", "    if(lastObj[kind] !== obj) continue;");
+    W = load({ src: fz, seats: [] });
+    await W.subs.items({ i1: {} }); await flush(); const m1 = W.log.filter(x => x === 'setItems').length;
+    await W.mod.fillGlb(); await flush();
+    chk(fz !== MOD && W.log.filter(x => x === 'setItems').length !== m1, '  mutation test — 채운 것이 없어도 다시 합치면 위 판정이 빨강');
+    const pw = MOD.replace("    lastObj.parts = catalogObj;\n", "    lastObj.parts = catalogObj;\n    await catalogGlbMod.resolveCatalogGlbAll(catalogObj);\n");
+    W = load({ src: pw, seats: [] });
+    await W.subs.parts({ p1: { cat: 'hat' } }); await flush();
+    chk(pw !== MOD && has(W.log, 'resolveAll'), '  mutation test — 파츠 합치기가 GLB 를 기다리면 위 «바로 합친다» 판정이 빨강');
+
+    /* app.js loadSavedItemsIntoSession — GLB 를 아직 안 받은 카탈로그 아이템은 등록도 실패 알림도 하지 않고, fillGlb 가 채운 뒤 다시 부르면 등록한다 */
+    if(!PREMOVE){
+      const regCase = (app) => {
+        const i0 = app.indexOf('async function loadSavedItemsIntoSession(){'); let k0 = app.indexOf('{', i0), d0 = 0;
+        for(; k0 < app.length; k0++){ if(app[k0] === '{') d0++; else if(app[k0] === '}' && --d0 === 0) break; }
+        const items = [{ id: 'g', glb: 'G' }, { id: 'u', glbUrl: 'https://x/u.glb' }]; const reg = [], errs = [];
+        const fn = new Function('commissionMod', 'b64ToBuf', 'assetCodeMod', 'deskItemsMod', 'TwErrorCodes', 'console', app.slice(i0, k0 + 1) + '\nreturn loadSavedItemsIntoSession;')(
+          { savedItems: () => items }, (b) => { if(typeof b !== 'string') throw new Error('no glb'); return 'buf:' + b; }, { parseGlbFull: async () => ({ scene: {}, animations: [] }) },
+          { registerCustomItem: (id) => reg.push(id) }, { notify: (c) => errs.push(c) }, { warn(){} });
+        return { fn, items, reg, errs };
+      };
+      const rc = regCase(SRC);
+      await rc.fn();
+      const first = rc.reg.join() + '|' + rc.errs.join();
+      rc.items[1].glb = 'U'; rc.reg.length = 0; await rc.fn();
+      chk(first === 'g|' && rc.reg.join() === 'g,u', '★ 저장 아이템 등록 — GLB 주소만 있는 카탈로그 아이템은 등록도 실패 알림(E-CHAR-25)도 안 하고, 채워진 뒤 다시 부르면 등록한다');
+      const rm = regCase(SRC.replace("    if(!rec.glb && rec.glbUrl) continue;", ""));
+      await rm.fn();
+      chk(rm.errs.includes('E-CHAR-25'), '  mutation test — 건너뛰기를 빼면 받기 전 아이템이 «등록 실패» 로 알려진다(빨강)');
+    }
 
     /* 가챠 카탈로그 옮기기(관리자)는 걷었다 — 옛 가챠 표식이 보여도 아무것도 옮기지 않는다 */
     W = load({});
