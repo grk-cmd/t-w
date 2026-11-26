@@ -22,7 +22,8 @@ const HELD_MAX = 5;
 const HELD_TTL_MS = 15 * 1000;
 /* 앱 쪽 두 시간 — 원격 설정 room.timing(remote-config.js roomServerTiming)이 없거나 틀리면 이 값.
    joinWaitMs     : 연결이 아직 안 붙었을 때 입장을 기다리는 시간.
-   clientGiveUpMs : 방 안에서 끊긴 뒤 이만큼 못 돌아오면 그 방은 포기한다(onLost 'unreachable'). 서버 규약 1장 «방 안 90초». */
+   clientGiveUpMs : 방 안에서 끊긴 뒤 이만큼 못 돌아오면 그 방은 포기한다(onLost 'unreachable'). 서버 규약 1장 «방 안 90초».
+     hooks.keepOnUnreachable 이 참인 방(시크릿룸)은 포기하지 않고 다시 붙기를 기다린다. */
 const TIMING_DEFAULTS = Object.freeze({ joinWaitMs: 10 * 1000, clientGiveUpMs: 90 * 1000 });
 // 방 안에서 끊긴 채 이만큼 지나면 «다시 연결 중» 을 알린다 — 짧은 끊김은 조용히 이어 붙는다
 const RECONNECT_NOTICE_MS = 15 * 1000;
@@ -217,6 +218,9 @@ function createRoomRt(deps){
     if(downSince === null) downSince = now();
     scheduleDown(P);
   }
+  function keepsOnUnreachable(P){
+    try{ return !!(P.hooks.keepOnUnreachable && P.hooks.keepOnUnreachable(P.room)); }catch(_){ return false; }
+  }
   function scheduleDown(P){
     if(!giveUpTimer){
       const left = Math.max(0, timing().clientGiveUpMs - (now() - downSince));
@@ -224,6 +228,9 @@ function createRoomRt(deps){
         giveUpTimer = null;
         if(active !== P || !P.inRoom || ready_()) return;
         downSince = null;
+        /* 오래 끊겨도 놓지 않는 방(hooks.keepOnUnreachable — 시크릿룸) — 다시 붙을 때까지 방 안으로 둔다.
+           붙으면 resume 먼저, 서버가 자리를 이미 뺐으면(resumeFailed) 전체 입장으로 다시 들어간다. 그 입장이 거절되면(정원 · 닫힘) 그때 놓는다(onError). */
+        if(keepsOnUnreachable(P)) return;
         lost(P, 'unreachable');
       }, left);
     }
@@ -597,7 +604,7 @@ function createRoomRt(deps){
   }
 
   /** hooks: serializeDef · deserializeDef · retryDefAfter · getExp · onMeta(meta, prev) · onDisband · onReplaced · onLost(code) ·
-   *    onReconnecting(on) · onJoined(room) · onLeft(room) — 모두 선택. opts.create — 방 만들기 칸(join.create). */
+   *    onReconnecting(on) · onJoined(room) · onLeft(room) · keepOnUnreachable(room) → 참이면 오래 끊겨도 방을 놓지 않는다 — 모두 선택. opts.create — 방 만들기 칸(join.create). */
   function makeProvider(hooks, opts){
     const P = {
       hooks: hooks || {}, create: (opts && opts.create) || null,
