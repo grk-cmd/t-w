@@ -17,7 +17,6 @@ const ITEM_LICENSE_HOLD = deps.ITEM_LICENSE_HOLD;   // 읽는 함수
 const Presence = deps.Presence;   // 읽는 함수
 const faceUploadCache = deps.faceUploadCache;   // 업로드 캐시 상한 규칙(shared/upload-cache.js)
 const _autoAwayResetClock = deps._autoAwayResetClock;   // 🕒 자동 자리비움 시계 되감기(Presence 안 — app.js 가 잇는다)
-const _chatIsHost = deps._chatIsHost;
 const _chatIsSecretRoom = deps._chatIsSecretRoom;
 const getMyUserId = deps.getMyUserId;
 const loadImg = deps.loadImg;
@@ -44,7 +43,7 @@ function _pokeFresh(ts){
 
 
 /* 🚪 자리비움 자동 퇴장 — 6시간은 자동 자리비움에 들어간 때부터 잰다(손으로 고른 🫧 자리비움은 안 걸린다).
-   1분은 팝업이 뜬 순간부터 준다(틱이 5초라 남은 시각을 그대로 쓰면 «55초» 로 뜬다). 시크릿룸 방장만 뺀다. */
+   1분은 팝업이 뜬 순간부터 준다(틱이 5초라 남은 시각을 그대로 쓰면 «55초» 로 뜬다). 시크릿룸은 뺀다. */
 const AUTO_EXIT_AFTER_AWAY_MS = 6 * 60 * 60 * 1000;   // 자동 자리비움 진입 후 이만큼 지나면 퇴장
 const AUTO_EXIT_WARN_MS       = 60 * 1000;            // 퇴장 몇 ms 전에 알릴 것인가
 let _autoExitOv = null, _autoExitTimer = null, _autoExitDue = 0, _autoExitDone = false;
@@ -53,9 +52,10 @@ function _autoExitInRoom(){
   try{ return !!(typeof Presence() !== 'undefined' && Presence().active && Presence().active()); }
   catch(_){ return false; }
 }
-/* 유일한 예외 — 시크릿룸 방장. 두 판정 모두 채팅 쪽이 이미 쓰는 함수를 그대로 쓴다(근거를 둘로 만들지 않는다). */
+/* 유일한 예외 — 시크릿룸(방장 · 손님 모두). 자동 퇴장은 빈자리가 오래 남는 것을 막으려는 것인데, 시크릿룸은 방 개수 · 자리 경쟁 밖이고 방장이 내보낼 수 있다.
+   판정은 채팅 쪽이 이미 쓰는 함수를 그대로 쓴다(근거를 둘로 만들지 않는다). */
 function _autoExitExempt(){
-  try{ return _chatIsSecretRoom() && _chatIsHost(); }
+  try{ return !!_chatIsSecretRoom(); }
   catch(_){ return false; }
 }
 /* 창을 닫고 시계를 멈춘다. **몇 번 불러도 안전해야 한다** —
@@ -81,7 +81,7 @@ function _autoExitDo(){
   try{ _autoAwayResetClock(); }catch(_){}
   console.log('[자동퇴장] 자리비움 ' + (AUTO_EXIT_AFTER_AWAY_MS / 3600000) + '시간 — 방에서 나왔습니다');
 }
-/* 🔔 퇴장 1분 전 안내. 이미 떠 있거나, 방 밖이거나, 시크릿룸 방장이면 아무 일도 안 한다. */
+/* 🔔 퇴장 1분 전 안내. 이미 떠 있거나, 방 밖이거나, 시크릿룸이면 아무 일도 안 한다. */
 function _autoExitWarn(){
   if(_autoExitOv) return;
   if(!_autoExitInRoom() || _autoExitExempt()) return;
