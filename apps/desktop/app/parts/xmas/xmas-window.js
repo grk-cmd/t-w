@@ -3,7 +3,7 @@
      장식 고르기 · 내 그림 올리기(64px PNG) · 한마디 · 장식 달기 · 바꾸기(5초 간격) · «트리가 다 찼어요» · 장식 신고 · 한마디 라벨.
    3D 는 xmas-tree.js, 편지 창은 xmas-letter.js(뮤직바 xmas-song.js), 서버는 net(xmas-api.js), 규칙은 rules(TwXmasRules) · 날짜는 서버가 준 한 벌(net().scheduleNow() — 못 읽었으면 처음 값).
    ★ 그림 사본은 이 PC 의 GLB 영구 캐시(IndexedDB)에 «트리/자리@판» 키로 — 다시 열 때 판이 같은 그림은 받지 않는다. 바이트는 Storage 에서(목록에는 그림 id 만).
-   ★ 트리 목록은 서버가 몇 초 캐시한다 — 내 장식은 걸기 응답(자리 · 판 · 그림 id)을 목록 위에 덮어 그린다(목록이 늦어도 내 장식은 바로 보이게).
+   ★ 트리 목록은 서버가 몇 초 캐시한다 — 내 장식은 내 몫(GET /v2/me/xmas 의 mine · 캐시 없음)으로 목록 위에 덮어 그린다(목록이 늦어도 바로 보이게 · 지운 장식은 mine 이 없어 다시 그리지 않음).
      ⚠️ localStorage 에 두지 말 것 — 트리 하나가 수 MB 라 앱 전체가 같이 쓰는 한도를 먹어 캐릭터 저장 등이 실패한다.
    ★ 남이 쓴 한마디는 textContent 로만 넣는다.
    classic script(window.TwXmasWindow) — app.js 보다 먼저 싣는다. app.js 가 `createXmasWindow(deps)` 한 번 — 밖에서 부르는 이름은 onMail(우편이 바뀌면 app.js 가 우편 목록을 넘긴다)
@@ -48,7 +48,6 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     storage: deps.storage, onDot: (on) => btn.classList.toggle('xm-dot', on) });
 
   let treeNo = 0, mine = null, ornList = [], chosen = { kind: 'star', img: null }, lastHangAt = NaN, busy = false, seq = 0;
-  let hung = null;   // 이번에 건 내 장식 { t, s, v, k, w, id } — 목록이 그 판보다 늦으면 이것으로 덮는다
 
   /* ── 런처 버튼 — 받은 편지를 볼 수 있는 동안(장식은 이벤트 끝에 막혀도 편지는 1/5 까지) ── */
   function refreshButton(){
@@ -76,11 +75,14 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     const s = repSlot; repSlot = null;
     if (s == null) return;
     if (!rules.eventOn(serverNow(), sch())){ toast(REPORT_ENDED); return; }   // 확인창을 연 채 끝을 넘긴 때
+    const my = seq;
     const r = await net().reportOrnament(treeNo, s);
+    if (my !== seq) return;   // 그 사이 창이 닫혔거나 세션이 끝났다
     if (r.ok) toast('신고했어요. 관리자가 확인할게요.');
     else if (r.code === 'dup') toast('이미 신고한 장식이에요.');
     else if (r.code === 'auth') toast('로그인한 뒤 신고할 수 있어요.');
     else if (r.code === 'invalid-argument' || r.code === 'failed-precondition') toast(r.msg || '신고할 수 없어요.');
+    else if (r.code === 'gone') toast('이미 없는 장식이에요.');   // 그 사이 지워졌다(XMAS_ORNAMENT_NOT_FOUND)
     else notifyError('E-XMAS-03', r.err);
   };
 
@@ -164,7 +166,7 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     const tr = await n.tree(treeNo);
     if (my !== seq || !ov.classList.contains('on')) return;
     if (!tr.ok){ setState('트리를 불러오지 못했어요.'); notifyError('E-XMAS-01', tr.err); return; }
-    overlayHung(tr.o);
+    overlayMine(tr.o);
     // 지금 판의 사본이 있는 자리는 받지 않는다 — 판이 «다른» 자리만(rules.changedImgSlots)
     const cache = {}, have = {};
     const imgSlots = Object.keys(tr.o).filter(s => tr.o[s] && tr.o[s].k === 'img');
@@ -194,15 +196,16 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     $('xmasHang').textContent = mine ? '내 장식 바꾸기' : '내 장식 달기';
   }
 
-  /** 목록(서버 캐시 — 몇 초 늦을 수 있음)이 내가 방금 건 판보다 늦으면 걸기 응답으로 덮는다 */
-  function overlayHung(o){
-    if (!hung || hung.t !== treeNo) return;
-    const cur = o[hung.s];
-    if (cur && cur.v >= hung.v) return;
-    const one = { k: hung.k, v: hung.v };
-    if (hung.w) one.w = hung.w;
-    if (hung.id) one.id = hung.id;
-    o[hung.s] = one;
+  /** 목록(서버 캐시 — 몇 초 늦을 수 있음)에 내 장식이 없거나 옛 판이면 내 몫(GET /v2/me/xmas 의 mine — 캐시 없음)으로 덮는다.
+      mine 이 없으면(관리자가 지움 · 아직 안 걺) 덮지 않는다 — 지운 장식을 다시 그리지 않게 */
+  function overlayMine(o){
+    if (!mine || mine.t !== treeNo || !mine.k) return;
+    const cur = o[mine.s];
+    if (cur && cur.v >= mine.v) return;
+    const one = { k: mine.k, v: mine.v };
+    if (mine.w) one.w = mine.w;
+    if (mine.id) one.id = mine.id;
+    o[mine.s] = one;
   }
 
   /* ── 장식 달기 · 바꾸기 ── */
@@ -215,8 +218,10 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     const data = { kind: chosen.kind, word, preview: treeNo || null };
     if (chosen.kind === 'img') data.img = chosen.img;
     busy = true; $('xmasHang').disabled = true;
+    const my = seq;
     const r = await net().hang(data);
     busy = false; $('xmasHang').disabled = false;
+    if (my !== seq) return;   // 그 사이 창이 닫혔거나 세션이 끝났다 — 다시 읽지 않는다(새 계정으로 요청을 더 보내지 않게)
     if (!r.ok){
       if (r.code === 'aborted') toast('서버가 바빠요. 잠시 뒤 다시 눌러 주세요.');
       else if (r.code === 'conflict'){ toast('다른 PC 에서 먼저 바꿨어요. 트리를 다시 불러올게요.'); await load(false); }
@@ -227,7 +232,6 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
       return;
     }
     lastHangAt = Date.now();
-    hung = { t: r.tree, s: r.slot, v: r.version, k: data.kind, w: word, id: r.imageId };
     if (data.kind === 'img' && data.img) idbPut(imgKey(r.tree, r.slot, r.version), data.img);   // 내가 올린 그림 — 다시 받지 않는다
     if (r.moved){ $('xmasFull').hidden = false; $('xmasFullOk').focus(); }
     await load(true);
@@ -284,23 +288,57 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
   /* ── 📩 받은 편지 알림 — 알림함에 XMAS_LETTER 가 새로 보이면(읽음 여부와 상관없이 · 켤 때 처음 받은 목록 포함) 0~30초 무작위로 기다렸다 받은 편지를 한 번 읽는다(폴링 없음).
      0시에 앱 수천 대가 같은 순간 읽지 않게 흩는다(설계 5-3). 기다리는 동안 또 보이면 그 한 번으로 묶는다 ── */
   const seenMail = new Set();
-  let gotTimer = null;
+  let gotTimer = null, waiting = [];   // waiting — 이번 기다림에 묶인 알림 id(못 읽으면 seenMail 에서 빼 다음에 다시)
   function onMail(items){
     const ids = rules.letterMailIds(items, seenMail);
     if (!ids.length) return;
-    ids.forEach(id => seenMail.add(id));
+    ids.forEach(id => { seenMail.add(id); waiting.push(id); });
     if (gotTimer) return;
-    gotTimer = win.setTimeout(() => { gotTimer = null; letter.checkGot(); }, rules.jitterMs(deps.random()));
+    gotTimer = win.setTimeout(async () => {
+      gotTimer = null;
+      const batch = waiting; waiting = [];
+      const ok = await letter.checkGot();
+      if (!ok) batch.forEach(id => seenMail.delete(id));   // 못 읽었으면 다음 우편 변화에 다시
+    }, rules.jitterMs(deps.random()));
+  }
+
+  /** 세션이 끝나면(로그아웃 · 계정 바뀜 — app.js 가 session.onReset 에 건다) — 창을 닫고 앞 계정의 트리 · 내 장식 · 본 알림 · 기다림 · 빨간 점을 버린다 */
+  function reset(){
+    close();
+    if (gotTimer){ win.clearTimeout(gotTimer); gotTimer = null; }
+    waiting = []; seenMail.clear();
+    mine = null; treeNo = 0; ornList = []; lastHangAt = NaN; repSlot = null;
+    letter.reset();
   }
 
   /* 서버 시각은 붙은 뒤에 — 그 전엔 버튼을 숨겨 둔다(열람 끝이 지났는지 모르므로) */
   btn.hidden = true;
   deps.onReady(() => { refreshButton(); win.setInterval(refreshButton, 60000); });   // 열람 끝을 지나면 켜 둔 채로도 숨는다
 
-  return { open, close, refreshButton, onMail, letter };
+  return { open, close, refreshButton, onMail, reset, letter };
 }
 
-const api = Object.freeze({ createXmasWindow });
+/**
+ * 계정 세션마다 한 번(app-boot 차례 xmas · READY) — 세션이 끝나면 provider · 창을 비운다(onReset). 창이 없으면(기능 꺼짐) 아무것도 안 한다.
+ * @param {{ api:{ reset:()=>void }, win:{ reset:()=>void }|null }} d
+ * @param {{ onReset:(fn:()=>void)=>void }} session
+ */
+function startXmas(d, session){
+  if (!d.win) return;
+  session.onReset(() => { d.api.reset(); d.win.reset(); });
+}
+/**
+ * 첫 화면 뒤 한 번(app-boot 차례 xmasDates · LATER) — 마감 앞뒤 하루면 날짜 한 벌(trees/current)을 한 번 읽는다(0시 알림함 흩기가 서버 날짜를 쓰게).
+ * 서버 시각을 아직 모르면 이 PC 시계로 «앞뒤 하루» 만 가른다(넓은 창이라 충분). 그 밖 · 창이 없으면 요청 0.
+ * @param {{ api:{ refreshSchedule:()=>Promise<any> }, win:object|null, rules:{ nearDeadline:(now:number)=>boolean }, serverNow:()=>number, now:()=>number }} d
+ */
+function loadXmasDates(d){
+  if (!d.win) return undefined;
+  const sn = d.serverNow();
+  return d.rules.nearDeadline(Number.isFinite(sn) ? sn : d.now()) ? d.api.refreshSchedule() : undefined;
+}
+
+const api = Object.freeze({ createXmasWindow, startXmas, loadXmasDates });
 if (typeof window !== 'undefined') window.TwXmasWindow = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

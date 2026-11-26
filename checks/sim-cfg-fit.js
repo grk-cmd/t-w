@@ -301,7 +301,7 @@ else{
     chk(/_launcherPosSaved = savedPos\.launcher \?/.test(sv), '  saveSettings 가 성공하면 파일 자리 기록을 맞춘다(어느 저장이든)');
   }
   const exitSrc = grabFn(MAIN, '_exitNow') || '';
-  chk(exitSrc.indexOf('_flushLauncherPos()') > exitSrc.indexOf('stopGlobalHooks') && exitSrc.indexOf('_flushLauncherPos()') < exitSrc.indexOf('destroy()'),
+  chk(exitSrc.indexOf('_flushLauncherPos()') > exitSrc.indexOf('stopGlobalHooks') && exitSrc.indexOf('_flushLauncherPos()') < exitSrc.indexOf('_destroyAllWindows()'),
     '  _exitNow 는 훅 · 타이머를 내린 뒤 · 창을 닫기 전에 쓴다(종료 순서)');
   chk(/_flushLauncherPos\(\)/.test(exitSrc) && /app\.on\('before-quit', \(e\) => \{ if\(_quitHold\.beforeQuit\(e\)\) return; try \{ sysinput\.stopGlobalHooks\(\); \}[^\n]*try \{ _flushLauncherPos\(\); \} catch \(_\) \{\} \}\);/.test(MAIN), '끄는 두 길(_exitNow · before-quit) 모두 남은 런처 자리를 쓴다');
   const load = MAIN.slice(MAIN.indexOf('function loadSettings(){'), MAIN.indexOf('function saveSettings(){'));

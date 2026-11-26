@@ -48,6 +48,7 @@
       "quit-hold.js",
       "update-diag.js",
       "update-recheck.js",
+      "update-platform.js",
       "error-log.js",
       "home-mask.js",
       "oauth-config.js",

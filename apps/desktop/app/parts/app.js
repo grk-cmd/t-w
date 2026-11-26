@@ -4098,6 +4098,7 @@ const closetMod = TwCloset.createCloset({
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   renderLauncher: (...a)=>renderLauncher(...a),
   creatorOpen: ()=>creatorOpen,
+  curSlot: ()=>curSlot,
   storage: localStorage,
 });
 closetMod.onChange(()=>{ myInfoMod._miBoxChanged(); launcherCtlMod.renderEmptyState(); });   // 옷장이 바뀌면 [내 정보] 보관함 줄을 다시 그린다 — 내 정보가 옷장보다 먼저 만들어져 여기서 건다
@@ -5054,6 +5055,7 @@ const appBoot = TwAppBoot.createAppBoot({
     awayPic: (code, me)=>awayPicMod.startAwayPic(me),   // 🫧 자리비움 그림 · 크기 — 서버(me.awayImage)가 기준
     desktopBg: (code)=>window.MYHOME_DESKTOP.startBgSync(code),
     licensePremium: (code, me, session)=>{ session.onReset(()=>licensePremiumMod.reset()); return licensePremiumMod.start(me); },   // 알림 구독 해제 함수는 모듈이 쥐고 reset 이 푼다 — 세션이 끝나면 reset 을 부른다
+    xmas: (code, me, session)=>TwXmasWindow.startXmas({ api: xmasApiMod, win: xmasWinMod }, session),   // 🎄 세션이 끝나면 창 · 판 기억 · 빨간 점 비우기(요청 0)
     adminMode: (code, me, session)=>{ session.onReset(()=>twNav.go(twNav.NAV.ADMIN_EXIT)); },   // 🔐 세션이 끝나면 관리자 모드를 조용히 끈다(요청 0 · 창 열기 통로로 — 모듈끼리 순환 없이)
     focusLevel: (code, me, session)=>{ focusProgressMod.startFocus(code, me, session); focusLevelMod.startMobile(code, me, session); },
     weeklyChal: (code, me, session)=>weeklyChal.startChallenge(code, me, session),
@@ -5066,6 +5068,7 @@ const appBoot = TwAppBoot.createAppBoot({
     gacha: (code, me, session)=>gachaMod.startGacha(session),
     invites: ()=>licenseGateMod.refreshInviteBtn(),   // 🎟️ 런처 초대장 버튼 — 켤 때 한 번(런처를 다시 그릴 때마다 묻지 않는다) · 발급 · 관리자 모드 뒤에는 그 자리에서
     appVersion: (code, me, session)=>appVersionSyncMod.start(session),   // 🔄 이 PC 앱 판을 서버에 알림 — 더 새 판을 쓰는 기기가 있으면 업데이트 창
+    xmasDates: ()=>TwXmasWindow.loadXmasDates({ api: xmasApiMod, win: xmasWinMod, rules: TwXmasRules, serverNow: ()=>TwRtHub.store.serverNow(), now: ()=>Date.now() }),   // 🎄 마감 앞뒤 하루만 날짜 한 벌 한 번(그 밖엔 요청 0)
     firstRun: ()=>firstRunMod.run().catch((e)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', e)),
     licenseAutoRegister: ()=>licensePremiumMod.autoRegisterAfter(firstRunMod.licenseDone()),   // 첫 실행 뒤 — 0.12 키로 첫 실행이 등록했으면 건너뜀
     catalogGlb: ()=>closetSettled().then(()=>catalogSyncMod.fillGlb()),   // 🧩 카탈로그 GLB 를 다 받아 두기 — 첫 화면 뒤 맨 끝 · 캐릭터가 3초 넘게 안 그려져도 그려질 때까지 기다린다(약 8MB 가 캐릭터 그림과 다투지 않게)
