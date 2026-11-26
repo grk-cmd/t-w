@@ -137,6 +137,27 @@ async function behave(src){
     t(fast !== src && ok1 && /^data:image\/png;base64,/.test(ok1.face), '★ 조각이 상한(60ms)보다 짧은 사이로 오면 다 받는 데 180ms 가 걸려도 끊지 않는다');
     let threw2 = null; try{ await mkWorld(fast, { stream: { n: 3, ms: 120 } }).codec._slotFromServerObj({ faceUrl: 'https://st/f.png', blinkUrl: 'https://st/b.png' }); }catch(e){ threw2 = e; }
     t(threw2, '  조각 사이가 상한보다 길면(멈춤) 끊고 그 칸은 던진다'); }
+  /* 받기 줄이 새지 않는다 — 실패 · 멈춤으로 끝난 받기도 자리를 돌려줘서, 같은 세상의 다음 칸이 끝까지 받는다 */
+  { const leakIn = async (s2) => {
+      const fast = s2.replace('const FETCH_TIMEOUT_MS = 20000;', 'const FETCH_TIMEOUT_MS = 40;');
+      const keep = setTimeout(() => {}, 5000);   // AbortSignal.timeout 타이머는 Node 에서 프로세스를 붙잡지 않는다
+      const W = mkWorld(fast, { delay: 1 });
+      const bad = { faceUrl: 'https://BAD/1', blinkUrl: 'https://BAD/2', animalBodyUrl: 'https://BAD/3', animalEarPaintLUrl: 'https://BAD/4', animalBlinkUrl: 'https://BAD/5' };
+      try{ await W.codec._slotFromServerObj(bad); }catch(_){}
+      const S = mkWorld(fast, { stream: { n: 2, ms: 200 } });   // 조각 사이가 상한보다 길다 — 멈춤으로 끊긴다
+      const stall = Object.assign({}, bad, { faceUrl: 'https://st/s1.png', blinkUrl: 'https://st/s2.png', animalBodyUrl: 'https://st/s3.png', animalEarPaintLUrl: 'https://st/s4.png', animalBlinkUrl: 'https://st/s5.png' });
+      try{ await S.codec._slotFromServerObj(stall); }catch(_){}
+      const good = await mkWorld(src).codec._slotToServerObj('uA', OBJ(), {}, {});
+      const r = await Promise.race([Promise.all([W.codec._slotFromServerObj(good), S.codec._slotFromServerObj(Object.assign({}, good))]).then(() => 'ok', () => 'ok-err'), new Promise((x) => setTimeout(() => x('stuck'), 1500))]);
+      clearTimeout(keep);
+      return r;
+    };
+    /* 바뀐 글(mutation)에서는 준비 단계에서 멈출 수 있다 — 통째로 상한을 둔다 */
+    const leak = (s2) => { let tm; return Promise.race([leakIn(s2), new Promise((x) => { tm = setTimeout(() => x('stuck'), 4000); })]).finally(() => clearTimeout(tm)); };
+    const lr = await leak(src);
+    t(lr === 'ok' || lr === 'ok-err', '★ 받기 줄이 새지 않는다 — 404 · 멈춤으로 끝난 받기 ' + 5 + '개 뒤에도 같은 세상의 다음 칸 받기가 끝난다(' + lr + ')');
+    const onlyOk = src.replace("      Promise.resolve().then(job).then(resolve, reject).finally(() => { poolActive--; const next = poolWait.shift(); if(next) next(); });", "      Promise.resolve().then(job).then((v) => { poolActive--; const next = poolWait.shift(); if(next) next(); resolve(v); }, reject);");
+    t(onlyOk !== src && (await leak(onlyOk)) === 'stuck', '  mutation test — 성공할 때만 자리를 돌려주면 실패 뒤 다음 칸이 영영 기다린다(빨강)'); }
   t(w.codec.SLOT_JSON_MAX === 150000 && w.codec.SLOT_IMG_FIELDS.length === 8, '상한(150000자) · 그림 칸 여덟');
   return r;
 }
@@ -150,7 +171,7 @@ async function behave(src){
     ['GLB 원문을 안 뺌', "delete out.commGlb;\n    const url", "const url"],
     ['얼굴 없어도 통과', "if(typeof out.face !== 'string' || typeof out.blink !== 'string') throw new Error('얼굴·감은눈 URL 이 없음');", ''],
     ['그림을 하나씩 기다림', "jobs.push(_fetchImgDataUrl(u).then(v => { out[field] = v; }));", "out[field] = await _fetchImgDataUrl(u);"],
-    ['시간 상한을 받기 전체에 한 번만 검', "      const { done, value } = await step(rd.read());", "      const { done, value } = await rd.read();\n      if(Date.now() - (this.t0 = this.t0 || Date.now()) > FETCH_TIMEOUT_MS){ ctl.abort(); throw new Error('전체 시간 넘김'); }"],
+    ['시간 상한을 받기 전체에 한 번만 검', "    const rd = res.body.getReader(), parts = [];\n    let n = 0;\n    for(;;){\n      const { done, value } = await step(rd.read());", "    const rd = res.body.getReader(), parts = [];\n    let n = 0;\n    const t0 = Date.now();\n    for(;;){\n      const { done, value } = await rd.read();\n      if(Date.now() - t0 > FETCH_TIMEOUT_MS){ ctl.abort(); throw new Error('전체 시간 넘김'); }"],
     ['받기 줄 상한이 없음', "const FETCH_POOL = 4;", "const FETCH_POOL = 999;"],
     ['GLB 하나 실패를 삼킴', "await Promise.all(jobs);", "await Promise.allSettled(jobs);"],
     ['섬네일 원문을 안 뺌', "delete out.thumb; delete out._imgBroken; delete out.thumbUrl;", "delete out._imgBroken;"],

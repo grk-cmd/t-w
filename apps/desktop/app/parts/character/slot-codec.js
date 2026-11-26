@@ -4,7 +4,7 @@
      이 캐시는 «이 PC 와 서버를 맞추는 사본» 이 아니라 올리기 중복 막기용이다 — 지워져도 다시 올릴 뿐 값은 서버가 원본이다.
    어디서 왔나: slot-sync.js(0.12 의 기기 간 동기화)에서 변환 부분만 떼었다 — 맞추기 · 충돌 · 백업 · 연동 화면은 서버 원본으로 걷었다. 본문은 그대로.
    deps: glbUploadCache(shared/upload-cache.js) · _quickHash · _storageFaceUrlOne · slotToObj · uploadGlb(uid, key, b64) → { ok, url } (Storage 올리기)
-   내보냄: createSlotCodec(deps) → { SLOT_IMG_FIELDS · SLOT_JSON_MAX · SLOT_GLB_CACHE_KEY · _slotGlbCacheLoad · _slotGlbCacheSave · _slotToServerObj · _slotFromServerObj }
+   내보냄: createSlotCodec(deps) → { FETCH_POOL · SLOT_IMG_FIELDS · SLOT_JSON_MAX · SLOT_GLB_CACHE_KEY · _slotGlbCacheLoad · _slotGlbCacheSave · _slotToServerObj · _slotFromServerObj }
    ⚠️ 서버 def 크기 상한은 150000자(SLOT_JSON_MAX) — 부르는 쪽(closet.js)이 JSON 길이로 먼저 본다.
    classic script — window.TwSlotCodec. 전역 fetch · localStorage · atob/btoa 를 쓴다. */
 (function(){
