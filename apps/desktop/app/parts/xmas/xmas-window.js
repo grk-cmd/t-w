@@ -61,12 +61,18 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     say.textContent = s.word; say.style.left = s.x + 'px'; say.style.top = s.y + 'px'; say.hidden = false;
   });
   let repSlot = null;
-  tree.onReport((slot) => { repSlot = slot; $('xmasRep').hidden = false; $('xmasRepNo').focus(); });
+  /* 신고는 이벤트 끝(1/1 0시)에 막힌다 — 창은 받은 편지 때문에 1/5 까지 열리므로 여기서 안내로 끝낸다(서버도 거절 · 오류 번호 아님) */
+  const REPORT_ENDED = '크리스마스 이벤트가 끝나 신고할 수 없어요.';
+  tree.onReport((slot) => {
+    if (!rules.eventOn(serverNow())){ toast(REPORT_ENDED); return; }
+    repSlot = slot; $('xmasRep').hidden = false; $('xmasRepNo').focus();
+  });
   $('xmasRepNo').onclick = () => { $('xmasRep').hidden = true; repSlot = null; };
   $('xmasRepYes').onclick = async () => {
     $('xmasRep').hidden = true;
     const s = repSlot; repSlot = null;
     if (s == null) return;
+    if (!rules.eventOn(serverNow())){ toast(REPORT_ENDED); return; }   // 확인창을 연 채 끝을 넘긴 때
     const r = await net().reportOrnament(treeNo, s);
     if (r.ok) toast('신고했어요. 관리자가 확인할게요.');
     else if (r.code === 'dup') toast('이미 신고한 장식이에요.');
