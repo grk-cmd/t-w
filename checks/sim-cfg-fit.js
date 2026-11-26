@@ -151,6 +151,7 @@ else{
     const f = new Function('MhPadPos', 'W', 'D', 'log', 'zoom',
       'let uiZoom = zoom, _mhPad = { x: 0, y: 0 }, _mhPadApplied = { x: 0, y: 0 }, _isConfigMode = true, _ovSkipped = 0, _curMode = "launcher", _lastIgnoreRequested = true, _sysPromptFront = false;\n'
       + 'const MH_PAD_MAX = 400; const savedPos = {}; const UI_ZOOM_MIN = 0.2, UI_ZOOM_MAX = 2.0;\n'
+      + 'const _winDrag = { active: () => false };   /* 수동 창 끌기 중이 아님(끄는 동안 건너뛰기는 sim-win-drag.js) */\n'
       + 'const MODE_SIZE = { launcher:{ w:380, h:680 }, creator:{ w:740, h:620 }, animal:{ w:860, h:440 }, myhome:{ w:800, h:580 } };\n'
       + 'const screen = { getDisplayMatching: () => D, getDisplayNearestPoint: () => D }; const getRunDisplay = () => D;\n'
       + 'const _runRectOf = (d) => ({ x: d.workArea.x, y: d.workArea.y, width: d.workArea.width, height: d.workArea.height });   /* 실행 사각형(run-rect.js) — 이 표는 작업영역 그대로로 본다 */\n'
