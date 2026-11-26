@@ -65,7 +65,7 @@ function _fetchBytes(url){
     if(!res.ok) throw new Error('HTTP ' + res.status);
     let type = '';
     try{ type = (res.headers && res.headers.get && res.headers.get('content-type')) || ''; }catch(_){}
-    if(!res.body || typeof res.body.getReader !== 'function') return { buf: new Uint8Array(await step(res.arrayBuffer())), type };
+    if(!res.body) return { buf: new Uint8Array(await step(res.arrayBuffer())), type };   // 본문 흐름이 없는 답(빈 본문 · 검사용 가짜)
     const rd = res.body.getReader(), parts = [];
     let n = 0;
     for(;;){
