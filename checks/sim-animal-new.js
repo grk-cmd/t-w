@@ -100,5 +100,16 @@ else {
   chk(broken !== RESET && b.mode.edit === true && b.warns.length === 1, 'mutation test — 창이 없을 때도 단추를 고치면 던져서 표시가 남는다(위가 잡는 모양)');
 }
 
+say('── 잠금 안내 — 서버 레벨을 못 받았으면 «현재 Lv» 를 뺀다');
+const LOCK = cutFn(SRC, '_lockMsg');
+if (!LOCK){ chk(false, 'animal.js 에 _lockMsg 가 없다'); }
+else {
+  const msg = (src, s) => new Function(src + '\nreturn _lockMsg;')()(50, s);
+  chk(msg(LOCK, 206) === '🔒 동물 캐릭터는 Lv.50 달성 보상이에요 (현재 Lv.206)' && msg(LOCK, 0) === '🔒 동물 캐릭터는 Lv.50 달성 보상이에요 (현재 Lv.0)', '받았으면 «(현재 Lv.N)» 을 붙인다(0 도 숫자)');
+  chk(msg(LOCK, null) === '🔒 동물 캐릭터는 Lv.50 달성 보상이에요' && msg(LOCK, undefined) === '🔒 동물 캐릭터는 Lv.50 달성 보상이에요', '못 받았으면(null) «현재 Lv» 를 뺀다 — 레벨 1 을 그리지 않는다(B-1126-1)');
+  const brk = LOCK.replace("(shown != null ? ' (현재 Lv.'+shown+')' : '')", "' (현재 Lv.'+(shown||1)+')'");
+  chk(brk !== LOCK && msg(brk, null) !== '🔒 동물 캐릭터는 Lv.50 달성 보상이에요', 'mutation test — 못 받았을 때도 Lv 를 적으면 위가 빨강');
+}
+
 say(`\n${fail ? '✗' : '✓'} ${pass} 통과 · ${fail} 실패`);
 process.exit(fail ? 1 : 0);

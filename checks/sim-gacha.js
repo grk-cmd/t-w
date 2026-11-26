@@ -108,7 +108,7 @@ function mkEnv(opt){
   env.mk = () => { const m = ctx.TwGacha.createGacha({
     toast: (m) => env.toasts.push(m),
     getMyUserId: () => env.uid,
-    getFocusLevel: () => env.level,
+    shownFocusLevel: () => env.level,
     levelCap: 999,
     catEquippedIds: (def, cat) => { const v = def.equippedParts[cat]; return (Array.isArray(v) ? v : [v]).filter(Boolean).map(e => e.id); },
     removeEntryFromCat: (def, cat, id) => { const v = def.equippedParts[cat]; const a = (Array.isArray(v) ? v : [v]).filter(e => e && e.id !== id); if(a.length) def.equippedParts[cat] = a; else delete def.equippedParts[cat]; env.prunedDef.push(id); },
@@ -212,6 +212,8 @@ await sec('── 2. 셈 — 보유 · 색상 해금 · 풀 · 남은 뽑기', a
   chk(/다음 뽑기 <b>Lv 25<\/b>/.test(e.els.gachaInvBar.innerHTML), '  도감 아래 줄 — 레벨 23 → «다음 뽑기 Lv 25» (' + e.els.gachaInvBar.innerHTML.slice(0, 120) + ')');
   e.level = 996; M.renderGachaInv();
   chk(!/다음 뽑기/.test(e.els.gachaInvBar.innerHTML), '  상한 가까이(996)면 다음 뽑기 줄을 안 그린다');
+  e.level = null; M.renderGachaInv();
+  chk(/남은 뽑기/.test(e.els.gachaInvBar.innerHTML) && !/다음 뽑기/.test(e.els.gachaInvBar.innerHTML), '  서버 레벨을 못 받았으면(null) «다음 뽑기 Lv 5» 를 그리지 않는다 — 남은 뽑기는 그대로');
   e.level = 1;
   chk(M.sceneHasColorGroup({ traverse(f){ f({ isMesh: true, name: 'cap_col1', material: {} }); } }) === true
       && M.sceneHasColorGroup({ traverse(f){ f({ isMesh: true, name: 'cap', material: { name: 'm_col' } }); } }) === true

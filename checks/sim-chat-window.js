@@ -137,6 +137,7 @@ function mkEnv(opt){
       flySizeOk: (s) => (s === 's' || s === 'm' || s === 'l' ? s : 'l'),
       FLY_COLOR_LEVEL: 200,
       getFocusLevel: () => env.level,
+      shownFocusLevel: () => env.level,
       isAdmin: () => env.admin,
       chatOffToggleClick: L('chatOffToggleClick'),
       chatDelOpen: L('chatDelOpen'),
@@ -476,7 +477,7 @@ await sec('── 9. app.js 배선', () => {
     ['saveChatLog', '_saveChatLog'], ['chatClearNow', '_chatClearNow'], ['chatClearUndo', '_chatClearUndo'],
     ['clampChatOpacity', '_clampChatOpacity'], ['setChatOpacity', '_setChatOpacity'], ['applyChatOpacity', '_applyChatOpacity'], ['setChatFontSize', '_setChatFontSize'], ['applyChatFontSize', '_applyChatFontSize'],
     ['chatSfxOn', '_chatSfxOn'], ['setChatSfxOn', '_setChatSfxOn'], ['setChatSfxId', '_setChatSfxId'], ['chatSfxPreview', '_chatSfxPreview'], ['applyChatSfxUI', '_applyChatSfxUI'], ['chatSfxOfficeLock', '_chatSfxOfficeLock'],
-    ['chatFlyRefreshUI', '_chatFlyRefreshUI'], ['flySizeOk', '_flySizeOk'], ['getFocusLevel', 'getFocusLevel'],
+    ['chatFlyRefreshUI', '_chatFlyRefreshUI'], ['flySizeOk', '_flySizeOk'], ['getFocusLevel', 'getFocusLevel'], ['shownFocusLevel', 'shownFocusLevel'],
     ['chatOffToggleClick', '_chatOffToggleClick'], ['chatDelOpen', '_chatDelOpen'], ['chatDelClose', '_chatDelClose'], ['chatDelRun', '_chatDelRun'],
     ['toggleEmojiPanel', '_toggleEmojiPanel'], ['onEmojiSlotClick', '_onEmojiSlotClick'], ['onEmojiFilePicked', '_onEmojiFilePicked'], ['deleteEmoji', '_deleteEmoji'],
     ['rollDice', '_rollDice'], ['setFlyAiming', 'setFlyAiming'], ['purikura', '_purikura']];
@@ -487,7 +488,7 @@ await sec('── 9. app.js 배선', () => {
   ['FLY_COLOR_LEVEL', 'EMOJI_SLOTS', 'FLY_MIN_LEVEL', 'seats', 'purikuraUi'].forEach(k => { want[k] = k + ': ' + k + ','; });
   const got = {}; deps.forEach(d => { got[d.split(':')[0]] = d; });
   const bad = Object.keys(want).filter(k => got[k] !== want[k]).concat(Object.keys(got).filter(k => !(k in want)));
-  chk(deps.length === 49 && Object.keys(want).length === 49 && !bad.length, 'deps 49개 — 함수 37 은 화살표 · 세션 변수 셋은 쓰는 함수 · let 넷은 읽는 함수 · 값 다섯 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
+  chk(deps.length === 50 && Object.keys(want).length === 50 && !bad.length, 'deps 50개 — 함수 38 은 화살표 · 세션 변수 셋은 쓰는 함수 · let 넷은 읽는 함수 · 값 다섯 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
   const declAt = (re) => { const m = re.exec(APP); return m ? m.index : -1; };
   const after = ['let isAdmin = false;', 'let officeMode = '].map(s => APP.indexOf(s));
   chk(after.every(i => i > iMk), '  isAdmin · officeMode 는 만드는 줄보다 뒤에 선언 — 값이면 TDZ(그래서 읽는 함수)');

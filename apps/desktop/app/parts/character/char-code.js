@@ -101,7 +101,8 @@ async function importCloneCode(v, p, forceSlot){
     let _ok;
     if(typeof window._animalUnlocked === 'function') _ok = window._animalUnlocked();
     else _ok = (_lv >= _ulv) || isAdmin();   // animal.js 가 없으면 숨김 해금 기록(계정 칸 — animal.js 가 든다)을 알 수 없다 — 레벨 · 관리자만
-    if(!_ok){ toast('🔒 동물 캐릭터는 Lv.'+_ulv+' 달성 후 불러올 수 있어요 (현재 Lv.'+_lv+')'); return false; }
+    const _shown = focusLevelMod().shownFocusLevel();   // 못 받았으면 null — 현재 레벨을 적지 않는다
+    if(!_ok){ toast('🔒 동물 캐릭터는 Lv.'+_ulv+' 달성 후 불러올 수 있어요' + (_shown != null ? ' (현재 Lv.'+_shown+')' : '')); return false; }
   }
   // ★ 런처7: 라이선스 미발급자가 파츠 포함 캐릭터를 복제 받으면 파츠는 제거하고 저장 (파츠는 라이선스 전용).
   //   원본 파일에는 그대로 두고, 이 유저가 저장하는 슬롯에만 반영.
