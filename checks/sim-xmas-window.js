@@ -349,22 +349,26 @@ say('── 9절 세션 reset 뒤 늦은 답 · 켤 때 차례(startXmas)');
     const ev = [], hooks = [];
     const d = { api: { reset: () => ev.push('apiReset'), refreshSchedule: () => { ev.push('refresh'); return Promise.resolve({ ok: true }); } },
       win: o.noWin ? null : { reset: () => ev.push('winReset') }, rules: R, serverNow: () => o.sn, now: () => { ev.push('now'); return o.now; } };
-    (mod || W).startXmas(d, { onReset: (fn) => hooks.push(fn) });
+    const M = mod || W;
+    M.startXmas(d, { onReset: (fn) => hooks.push(fn) });
+    const afterStart = ev.join();
+    M.loadXmasDates(d);
     hooks.forEach(f => f());
-    return ev.join();
+    return { afterStart, all: ev.join() };
   };
   const D0 = R.LETTER_DEADLINE_MS;
-  chk(run({ sn: D0 - 3600000 }) === 'refresh,apiReset,winReset', 'startXmas — 세션이 끝나면 provider · 창 reset 둘 다 · 마감 앞뒤 하루 안이면 날짜 한 벌 한 번');
-  chk(run({ sn: D0 - 25 * 3600000 }) === 'apiReset,winReset' && run({ sn: D0 + 25 * 3600000 }) === 'apiReset,winReset', '  ↳ 하루 밖이면 읽지 않는다(요청 0)');
-  chk(run({ sn: NaN, now: D0 }) === 'now,refresh,apiReset,winReset' && run({ sn: NaN, now: D0 - 30 * 3600000 }) === 'now,apiReset,winReset', '  ↳ 서버 시각을 모르면(NaN) 이 PC 시계로 가른다');
-  chk(run({ sn: D0, noWin: true }) === '', '  ↳ 창이 없으면(기능 꺼짐) 아무것도 안 한다');
+  chk(run({ sn: D0 - 3600000 }).afterStart === '' && run({ sn: D0 - 3600000 }).all === 'refresh,apiReset,winReset', 'startXmas(READY) — 요청 0 · 세션이 끝나면 provider · 창 reset 둘 다 / loadXmasDates(LATER) — 마감 앞뒤 하루 안이면 날짜 한 벌 한 번');
+  chk(run({ sn: D0 - 25 * 3600000 }).all === 'apiReset,winReset' && run({ sn: D0 + 25 * 3600000 }).all === 'apiReset,winReset', '  ↳ 하루 밖이면 읽지 않는다(요청 0)');
+  chk(run({ sn: NaN, now: D0 }).all === 'now,refresh,apiReset,winReset' && run({ sn: NaN, now: D0 - 30 * 3600000 }).all === 'now,apiReset,winReset', '  ↳ 서버 시각을 모르면(NaN) 이 PC 시계로 가른다');
+  chk(run({ sn: D0, noWin: true }).all === '', '  ↳ 창이 없으면(기능 꺼짐) 아무것도 안 한다');
   const mutW = (from, to) => { const b = {}; const src = SRC.split(from).join(to); new Function('window', 'module', src)(b, undefined); return src === SRC ? null : b.TwXmasWindow; };
   const k1 = mutW('session.onReset(() => { d.api.reset(); d.win.reset(); });', 'session.onReset(() => { d.win.reset(); });');
   const k2 = mutW('d.rules.nearDeadline(Number.isFinite(sn) ? sn : d.now())', 'true');
-  chk(k1 && run({ sn: D0 }, k1) !== 'refresh,apiReset,winReset', 'mutation test — provider reset 을 빼면 위 검사가 빨강');
-  chk(k2 && run({ sn: D0 - 25 * 3600000 }, k2) !== 'apiReset,winReset', 'mutation test — 하루 창을 안 보면 위 «요청 0» 이 빨강');
-  chk(/xmas: \(code, me, session\)=>TwXmasWindow\.startXmas\(\{ api: xmasApiMod, win: xmasWinMod, rules: TwXmasRules, serverNow: \(\)=>TwRtHub\.store\.serverNow\(\), now: \(\)=>Date\.now\(\) \}, session\)/.test(APP),
-    'app.js 차례 xmas — startXmas 에 provider · 창 · 서버 시각 · 이 PC 시계를 넘긴다');
+  chk(k1 && run({ sn: D0 }, k1).all !== 'refresh,apiReset,winReset', 'mutation test — provider reset 을 빼면 위 검사가 빨강');
+  chk(k2 && run({ sn: D0 - 25 * 3600000 }, k2).all !== 'apiReset,winReset', 'mutation test — 하루 창을 안 보면 위 «요청 0» 이 빨강');
+  chk(/xmas: \(code, me, session\)=>TwXmasWindow\.startXmas\(\{ api: xmasApiMod, win: xmasWinMod \}, session\)/.test(APP)
+    && /xmasDates: \(\)=>TwXmasWindow\.loadXmasDates\(\{ api: xmasApiMod, win: xmasWinMod, rules: TwXmasRules, serverNow: \(\)=>TwRtHub\.store\.serverNow\(\), now: \(\)=>Date\.now\(\) \}\)/.test(APP),
+    'app.js 차례 xmas(READY) · xmasDates(LATER) — provider · 창 · 서버 시각 · 이 PC 시계를 넘긴다');
 }
 
 say(`\n${fail ? '✗' : '✓'} ${pass} 통과 · ${fail} 실패`);

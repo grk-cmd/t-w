@@ -319,20 +319,26 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
 }
 
 /**
- * 계정 세션마다 한 번(app-boot 차례 xmas) — 세션이 끝나면 provider · 창을 비우고(onReset), 마감 앞뒤 하루면 날짜 한 벌을 한 번 읽는다.
- * 창이 없으면(서버 기능 표가 꺼짐) 아무것도 안 한다. 서버 시각을 아직 모르면 이 PC 시계로 «앞뒤 하루» 만 가른다(넓은 창이라 충분).
- * @param {{ api:{ reset:()=>void, refreshSchedule:()=>Promise<any> }, win:{ reset:()=>void }|null, rules:{ nearDeadline:(now:number)=>boolean },
- *           serverNow:()=>number, now:()=>number }} d
+ * 계정 세션마다 한 번(app-boot 차례 xmas · READY) — 세션이 끝나면 provider · 창을 비운다(onReset). 창이 없으면(기능 꺼짐) 아무것도 안 한다.
+ * @param {{ api:{ reset:()=>void }, win:{ reset:()=>void }|null }} d
  * @param {{ onReset:(fn:()=>void)=>void }} session
  */
 function startXmas(d, session){
-  if (!d.win) return undefined;
+  if (!d.win) return;
   session.onReset(() => { d.api.reset(); d.win.reset(); });
+}
+/**
+ * 첫 화면 뒤 한 번(app-boot 차례 xmasDates · LATER) — 마감 앞뒤 하루면 날짜 한 벌(trees/current)을 한 번 읽는다(0시 알림함 흩기가 서버 날짜를 쓰게).
+ * 서버 시각을 아직 모르면 이 PC 시계로 «앞뒤 하루» 만 가른다(넓은 창이라 충분). 그 밖 · 창이 없으면 요청 0.
+ * @param {{ api:{ refreshSchedule:()=>Promise<any> }, win:object|null, rules:{ nearDeadline:(now:number)=>boolean }, serverNow:()=>number, now:()=>number }} d
+ */
+function loadXmasDates(d){
+  if (!d.win) return undefined;
   const sn = d.serverNow();
   return d.rules.nearDeadline(Number.isFinite(sn) ? sn : d.now()) ? d.api.refreshSchedule() : undefined;
 }
 
-const api = Object.freeze({ createXmasWindow, startXmas });
+const api = Object.freeze({ createXmasWindow, startXmas, loadXmasDates });
 if (typeof window !== 'undefined') window.TwXmasWindow = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

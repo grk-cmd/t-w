@@ -43,7 +43,6 @@ const histB = deps.histB;
 const histF = deps.histF;
 const launcherCtlMod = deps.launcherCtlMod;   // 읽는 함수
 const launcherPrevMod = deps.launcherPrevMod;   // 읽는 함수
-const licenseGateMod = deps.licenseGateMod;
 const loadSavedItemsIntoSession = deps.loadSavedItemsIntoSession;   // 함수
 const NO_DESK_ID = deps.NO_DESK_ID;
 const redoB = deps.redoB;
@@ -196,8 +195,6 @@ function openCreator(mode){
 /* 런처 다시 그리기 — 여러 모듈이 부르는 연결 자리라 app.js 에 둔다(launcher-preview.js 로 옮기면 슬롯 · 라이선스 모듈과 순환이 생긴다). */
 function renderLauncher(){
   launcherPrevMod().ensureLauncherPreview();
-  // 🎟️ 런처를 열 때마다 초대장 버튼 상태 갱신 (invite 노드 삭제/지급 등 외부 변화 반영)
-  licenseGateMod.refreshInviteBtn();
   const def=slots[curSlot()];
   document.getElementById('lcCount').textContent='('+(curSlot()+1)+'/'+CHAR_SLOT_MAX+')';
   document.getElementById('lcEmpty').style.display=def?'none':'flex';
