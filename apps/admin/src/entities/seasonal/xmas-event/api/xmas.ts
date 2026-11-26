@@ -1,79 +1,93 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useDb, type Db } from '@/shared/api';
+import { useApi, useEnv, type Api } from '@/shared/api';
+import { errorMessage } from '@/shared/lib';
 import {
-  gotFromOf,
+  authorsPageOf,
+  bucketOf,
+  clockOf,
   lettersOf,
-  ornamentOf,
+  reportDetailOf,
   reportsOf,
   type AdminLetter,
-  type Ornament,
+  type LetterAuthor,
+  type ReportDetail,
+  type XmasClock,
   type XmasReport,
 } from '../model/xmas';
 
 const ROOT = ['xmas'];
 const AUTHORS_KEY = [...ROOT, 'authors'];
-const lettersKey = (uid: string) => [...ROOT, 'letters', uid];
+const lettersKey = (userCode: string) => [...ROOT, 'letters', userCode];
 const REPORTS_KEY = [...ROOT, 'reports'];
+const BASE = '/v2/admin/xmas';
+const AUTHORS_PAGE = 100; // 서버 상한
+const AUTHORS_MAX_PAGES = 100; // 1만 명 — 끝없이 돌지 않게
 
-/** 편지를 맡긴 사람 — 키 이름만(값은 안 받는다 · 사람마다 편지 다섯 통이라 통째로 받으면 수 MB). */
-export async function listLetterAuthors(db: Db): Promise<string[]> {
-  return (await db.shallowKeys('xmasLetters')).sort();
+/** 이 환경에는 API 가 없다(dev · e2e) — 크리스마스는 자체 서버에만 있다(옛 RTDB · 함수는 걷었다) */
+export class NoApiError extends Error {
+  constructor() {
+    super('이 환경에는 자체 서버 API 가 없어 크리스마스를 볼 수 없어요(운영 관리자에서만)');
+    this.name = 'NoApiError';
+  }
+}
+/** 화면 실패 글 — API 가 없는 환경이면 그 까닭을, 아니면 공용 글(errorMessage) */
+export const xmasErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof NoApiError ? error.message : errorMessage(error, fallback);
+export const needApi = (api: Api | null): Api => {
+  if (!api) throw new NoApiError();
+  return api;
+};
+const enc = encodeURIComponent;
+
+/** 편지를 맡긴 사람 전부 — 키셋 쪽을 끝까지(사람 수만큼 · 편지 글은 안 받는다). */
+export async function listLetterAuthors(api: Api | null): Promise<LetterAuthor[]> {
+  const out: LetterAuthor[] = [];
+  let cursor: string | undefined;
+  for (let i = 0; i < AUTHORS_MAX_PAGES; i++) {
+    const p = authorsPageOf(
+      await needApi(api).get<unknown>(`${BASE}/letter-authors`, { cursor, limit: AUTHORS_PAGE }),
+    );
+    out.push(...p.items);
+    if (!p.next) break;
+    cursor = p.next;
+  }
+  return out;
 }
 export function useLetterAuthors() {
-  const db = useDb();
-  return useQuery({ queryKey: AUTHORS_KEY, queryFn: () => listLetterAuthors(db) });
+  const api = useApi();
+  return useQuery({ queryKey: AUTHORS_KEY, queryFn: () => listLetterAuthors(api) });
 }
 
 /** 한 사람의 편지 — 목록에 보이는 사람만 읽는다. */
-export async function getUserLetters(db: Db, uid: string): Promise<AdminLetter[]> {
-  return lettersOf(uid, await db.get<unknown>(`xmasLetters/${uid}`));
+export async function getUserLetters(api: Api | null, userCode: string): Promise<AdminLetter[]> {
+  const d = await needApi(api).get<{ letters?: unknown }>(`${BASE}/letters/${enc(userCode)}`);
+  return lettersOf(userCode, d?.letters);
 }
-export function useUserLetters(uid: string) {
-  const db = useDb();
-  return useQuery({ queryKey: lettersKey(uid), queryFn: () => getUserLetters(db, uid) });
+export function useUserLetters(userCode: string) {
+  const api = useApi();
+  return useQuery({ queryKey: lettersKey(userCode), queryFn: () => getUserLetters(api, userCode) });
 }
 
-/** 신고 — 관리자만 읽는 작은 노드(신고 한 줄 수십 바이트 · 처리하면 지운다)라 통째로. */
-export async function listXmasReports(db: Db): Promise<XmasReport[]> {
-  return reportsOf(await db.get<unknown>('xmasReports'));
+/** 신고 — 대상마다 한 줄 · 신고 수 많은 순(서버가 정렬). */
+export async function listXmasReports(api: Api | null): Promise<XmasReport[]> {
+  const d = await needApi(api).get<{ items?: unknown }>(`${BASE}/reports`);
+  return reportsOf(d?.items);
 }
 export function useXmasReports() {
-  const db = useDb();
-  return useQuery({ queryKey: REPORTS_KEY, queryFn: () => listXmasReports(db) });
+  const api = useApi();
+  return useQuery({ queryKey: REPORTS_KEY, queryFn: () => listXmasReports(api) });
 }
 
-/** 신고된 장식 한 자리 — 목록 · 그림 · 건 사람(셋 다 관리자 읽기). 이미 지워졌으면 null. */
-export async function getOrnament(db: Db, tree: number, slot: number): Promise<Ornament | null> {
-  const [o, img, owner] = await Promise.all([
-    db.get<unknown>(`xmasTrees/${tree}/o/${slot}`),
-    db.get<unknown>(`xmasImg/${tree}/${slot}`),
-    db.get<unknown>(`xmasOwners/${tree}/${slot}`),
-  ]);
-  return ornamentOf(o, img, owner);
+/** 한 대상의 신고 — 장식(그림 · 건 사람 · 판) 또는 받은 편지(쓴 사람) · 신고한 사람 · 메모. */
+export async function getReportDetail(api: Api | null, key: string, bucket: string): Promise<ReportDetail> {
+  return reportDetailOf(await needApi(api).get<unknown>(`${BASE}/reports/${enc(key)}`), bucket);
 }
-export function useOrnament(tree: number, slot: number) {
-  const db = useDb();
+export function useReportDetail(key: string) {
+  const api = useApi();
+  const bucket = bucketOf(useEnv().projectId);
   return useQuery({
-    queryKey: [...REPORTS_KEY, 'orn', tree, slot],
-    queryFn: () => getOrnament(db, tree, slot),
-  });
-}
-
-/**
- * 신고된 받은 편지 — 받은 편지 본문(xmasGot)은 받은 사람만 읽는다. 보낸 사람 칸(xmasGotFrom)으로 쓴 사람의 편지(xmasLetters)를 읽는다
- * (마감 뒤라 바뀌지 않는다). 찾지 못하면 null.
- */
-export async function getReportedLetter(db: Db, got: string, n: number): Promise<AdminLetter | null> {
-  const from = gotFromOf(await db.get<unknown>(`xmasGotFrom/${got}/${n}`));
-  if (!from) return null;
-  const box = await db.get<unknown>(`xmasLetters/${from.from}/${from.lid}`);
-  return lettersOf(from.from, { [from.lid]: box })[0] ?? null;
-}
-export function useReportedLetter(got: string, n: number) {
-  const db = useDb();
-  return useQuery({
-    queryKey: [...REPORTS_KEY, 'got', got, n],
-    queryFn: () => getReportedLetter(db, got, n),
+    queryKey: [...REPORTS_KEY, 'detail', key],
+    queryFn: () => getReportDetail(api, key, bucket),
   });
 }
 
@@ -81,7 +95,7 @@ export function useRefreshXmas() {
   const client = useQueryClient();
   return {
     authors: () => client.invalidateQueries({ queryKey: AUTHORS_KEY }),
-    letters: (uid: string) => client.invalidateQueries({ queryKey: lettersKey(uid) }),
+    letters: (userCode: string) => client.invalidateQueries({ queryKey: lettersKey(userCode) }),
     reports: () => client.invalidateQueries({ queryKey: REPORTS_KEY }),
   };
 }
@@ -93,12 +107,12 @@ export function useForgetXmasReport() {
     client.setQueryData<XmasReport[]>(REPORTS_KEY, (all) => all?.filter((r) => r.key !== key));
 }
 
-/** 서버 시각(ms) — 반송 마감을 이 기기 시계가 아니라 서버로 본다. 30초마다 다시 재서 화면을 연 채 마감을 넘겨도 단추가 닫힌다. 받기 전엔 null. */
-export function useXmasServerNow(): number | null {
-  const db = useDb();
+/** 서버 시각 · 반송 마감 — 요약(GET /v2/admin/xmas)으로. 30초마다 다시 읽어 화면을 연 채 마감을 넘겨도 단추가 닫힌다. 받기 전엔 null. */
+export function useXmasClock(): XmasClock | null {
+  const api = useApi();
   const q = useQuery({
-    queryKey: [...ROOT, 'now'],
-    queryFn: async () => Date.now() + (await db.serverTimeOffset()),
+    queryKey: [...ROOT, 'clock'],
+    queryFn: async () => clockOf(await needApi(api).get<unknown>(BASE)),
     refetchInterval: 30000,
   });
   return q.data ?? null;

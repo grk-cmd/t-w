@@ -6,8 +6,9 @@ import {
   type AdminLetter,
   type ReturnReason,
 } from '@/entities/seasonal/xmas-event';
-import { callErrorMessage } from '@/shared/api';
+import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
+import { isChangedLetter } from '../model/returnLetter';
 import { useReturnLetter } from '../model/useReturnLetter';
 import styles from './ReturnLetter.module.css';
 
@@ -15,7 +16,7 @@ const REASONS = Object.keys(RETURN_REASONS) as ReturnReason[];
 
 interface Props {
   letter: AdminLetter;
-  /** 마감 1분 전부터는 함수가 거절한다 — 단추를 막고 까닭을 보인다. */
+  /** 마감 1분 전부터는 서버가 거절한다 — 단추를 막고 까닭을 보인다. */
   closed: boolean;
 }
 
@@ -36,14 +37,12 @@ export function ReturnLetterButton({ letter, closed }: Props) {
       return;
     try {
       const r = await ret.mutateAsync(args);
-      toast(
-        r.notified
-          ? '반송했어요 — 쓴 사람에게 알림을 보냈어요'
-          : '반송했어요 (알림함이 없는 계정이라 알림은 못 보냈어요)',
-      );
+      toast(r.notified ? '반송했어요 — 쓴 사람에게 알림을 보냈어요' : '반송했어요');
       setOpen(false);
     } catch (e) {
-      toast(callErrorMessage(e, '반송하지 못했어요'));
+      toast(
+        isChangedLetter(e) ? '그새 고쳐 쓴 편지예요 — 다시 읽었어요' : errorMessage(e, '반송하지 못했어요'),
+      );
     }
   };
 
