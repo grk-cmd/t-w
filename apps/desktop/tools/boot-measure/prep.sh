@@ -15,7 +15,11 @@ if git -C "$W" symbolic-ref -q HEAD >/dev/null; then echo "브랜치를 쥔 work
 GD=$(git -C "$W" rev-parse --absolute-git-dir)
 for x in rebase-merge rebase-apply BISECT_LOG; do [ ! -e "$GD/$x" ] || { echo "진행 중인 git 일($x)이 있는 worktree 는 덮지 않는다: $W"; exit 2; }; done
 MARK="$GD/tw-boot-measure"   # 이 도구가 처음 맞춘 worktree 표시 — 표시가 없는데 고친 파일이 있으면 남의 작업이다
-if [ ! -e "$MARK" ] && [ -n "$(git -C "$W" status --porcelain --untracked-files=no)" ]; then echo "고친 파일이 있는 worktree 는 덮지 않는다(이 도구가 만든 측정 worktree 가 아님): $W"; exit 2; fi
-touch "$MARK"
-git -C "$W" checkout -q -f --detach "$2"
+if [ ! -e "$MARK" ]; then
+  if [ -n "$(git -C "$W" status --porcelain --untracked-files=no)" ]; then echo "고친 파일이 있는 worktree 는 덮지 않는다(이 도구가 만든 측정 worktree 가 아님): $W"; exit 2; fi
+  git -C "$W" checkout -q --detach "$2"   # 처음은 -f 없이 — 겹치는 추적 안 된 파일이 있으면 git 이 거절한다
+  touch "$MARK"                         # 맞추기가 된 뒤에만 표시
+else
+  git -C "$W" checkout -q -f --detach "$2"   # 이 도구가 맞춘 worktree — 지난번 측정 줄을 덮는다
+fi
 python3 "$K/instrument.py" "$W" && python3 "$K/shape.py" "$W" && git -C "$W" log --oneline -1
