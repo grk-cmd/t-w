@@ -177,14 +177,41 @@ async function judge(S){
 
   say('── 5절 신고');
   {
-    const { m, authed } = mk(LIB, base({ 'POST /v2/xmas/reports': null }));
+    const { m, authed, owner } = mk(LIB, base({ 'POST /v2/xmas/reports': null, 'DELETE /v2/me/xmas/returned/l2': null }));
+    const posts = () => authed.log.filter(x => x.method === 'POST');
     const r = await m.reportOrnament(2, 7, '  ' + '가'.repeat(60) + ' ');
-    chk(r.ok && JSON.stringify(authed.log[0].body.target) === '{"type":"ornament","tree":2,"slot":7}' && authed.log[0].body.note.length === 40, '장식 신고 — 대상 { ornament, tree, slot } · 메모 40자');
+    chk(r.ok && JSON.stringify(posts()[0].body.target) === '{"type":"ornament","tree":2,"slot":7}' && posts()[0].body.note.length === 40, '장식 신고 — 대상 { ornament, tree, slot } · 메모 40자');
     await m.reportLetter(2);
-    chk(JSON.stringify(authed.log[1].body) === '{"target":{"type":"received","n":2}}', '받은 편지 신고 — { received, n } · 메모 없으면 칸 없음(받는 사람은 서버가 토큰으로)');
+    chk(JSON.stringify(posts()[1].body) === '{"target":{"type":"received","n":2}}', '받은 편지 신고 — { received, n } · 메모 없으면 칸 없음(받는 사람은 서버가 토큰으로)');
+    chk(posts().every(x => x.opts.expectOwner === 'tokA') && authed.log[0].path === '/v2/me/xmas', '  ↳ 신고는 읽은 토큰의 주인과 묶는다(판을 모르면 내 몫을 먼저 읽어 주인을 안다)');
     chk(!authed.log.some(x => /ME01/.test(JSON.stringify(x.body) + x.path)), '  ↳ 사람 코드를 싣지 않는다');
-    chk((await mk(LIB, { 'POST /v2/xmas/reports': apiErr(409, 'XMAS_REPORT_DUPLICATE') }).m.reportOrnament(1, 1)).code === 'dup', '두 번째 신고 — dup');
-    chk((await mk(LIB, { 'POST /v2/xmas/reports': apiErr(400, 'XMAS_REPORT_SELF') }).m.reportOrnament(1, 1)).code === 'invalid-argument', '내 장식 신고(서버가 막음) — invalid-argument');
+    await m.clearReturned('l2');
+    chk(authed.log.slice(-1)[0].opts.expectOwner === 'tokA', '반송 표시 지우기도 주인과 묶는다');
+    for (const [lab, act] of [['신고', (x) => x.reportLetter(1)], ['반송 표시 지우기', (x) => x.clearReturned('l2')]]){
+      const t = mk(LIB, base({ 'POST /v2/xmas/reports': null, 'DELETE /v2/me/xmas/returned/l2': null }));
+      await t.m.myLetters(); t.owner.who = 'tokB';
+      const rr = await act(t.m);
+      chk(!rr.ok && rr.code === 'auth', '★ A 로 읽은 뒤 로그인한 사람이 바뀌면(B 토큰) ' + lab + '를 보내지 않는다 — auth(OWNER_CHANGED)');
+    }
+    chk((await mk(LIB, base({ 'POST /v2/xmas/reports': apiErr(409, 'XMAS_REPORT_DUPLICATE') })).m.reportOrnament(1, 1)).code === 'dup', '두 번째 신고 — dup');
+    chk((await mk(LIB, base({ 'POST /v2/xmas/reports': apiErr(400, 'XMAS_REPORT_SELF') })).m.reportOrnament(1, 1)).code === 'invalid-argument', '내 장식 신고(서버가 막음) — invalid-argument');
+  }
+
+  say('── 5-2절 세션 reset · 날짜 한 번 읽기');
+  {
+    const { m, authed } = mk(LIB, base());
+    await m.where();
+    chk(m.schedule() !== null, '읽은 뒤 날짜 한 벌이 있다');
+    m.reset();
+    chk(m.schedule() === null, 'reset — 날짜 한 벌을 버린다(다음 계정은 다시 읽는다)');
+    const n0 = authed.log.length;
+    const pr = mk(LIB, base({ 'PUT /v2/me/xmas/ornament': { tree: 1, slot: 0, version: 1, moved: false, changed: false, imageId: null } }));
+    await pr.m.where(); pr.m.reset(); await pr.m.hang({ kind: 'star' });
+    chk(pr.authed.log.filter(x => x.path === '/v2/me/xmas').length === 2, 'reset — 판 기억도 버린다(다음 쓰기 전에 내 몫을 다시 읽는다)');
+    const rs = await m.refreshSchedule();
+    chk(rs.ok && m.schedule() && authed.log.slice(n0).map(x => x.path).join() === '/v2/xmas/trees/current', 'refreshSchedule — trees/current 한 번만(내 몫은 읽지 않는다)');
+    const bad = await mk(LIB, { 'GET /v2/xmas/trees/current': apiErr(503, 'DB_BUSY') }).m.refreshSchedule();
+    chk(!bad.ok, '  ↳ 실패는 { ok:false } (날짜는 처음 값 그대로)');
   }
 
   say('── 6절 오류 표');
@@ -235,6 +262,8 @@ async function runAll(){
   wiring(S);
   say('── 9절 mutation test');
   const breaks = [
+    ['신고가 주인을 안 묶음', S.API.replace("{ target }, { expectOwner: k.owner })", "{ target }, {})"), '5절 바뀐 토큰'],
+    ['reset 이 판을 안 버림', S.API.replace("function reset(){ known = null; sched = null; }", "function reset(){ sched = null; }"), '5-2절 판 기억'],
     ['판을 안 실음', S.API.replace('version: k.mine };', 'version: null };'), '3절 바꾸기 판'],
     ['409 뒤 판을 안 버림', S.API.replace("e.code === 'CONCURRENT_UPDATE')) known = null;", "false)) known = null;"), '3절 다시 읽기'],
     ['주인을 안 묶음', S.API.replace("authed.put(PATHS.ornament, body, { expectOwner: k.owner })", "authed.put(PATHS.ornament, body, {})"), '3절 OWNER_CHANGED'],

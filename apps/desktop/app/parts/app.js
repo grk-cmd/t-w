@@ -5044,6 +5044,12 @@ const appBoot = TwAppBoot.createAppBoot({
     closet: (code, me, session)=>closetMod.startCloset(session),
     /* 🏠 마이홈 시작 — 받은 친구 요청 구독 · 우편 구독은 initMyHome 이 세션에 건다. 친구 목록 구독(friendsSub) · 내 접속 표시 구독(presenceSelf)은 시작이 다른 곳(마이홈 · 접속 고정)이라 비우기만 여기서 건다 */
     mhInit: (code, me, session)=>{ session.onReset(()=>{ friendsSubMod.stop(); presenceSelfMod.reset(); myhomeStoreMod.reset(); bookshelfStoreMod.reset(); }); return mhInitMod.initMyHome(code, me, session); },   // 내 홈 · 책장 메모리도 세션이 끝나면 비운다(늦게 온 답은 gen 으로 버린다)
+    xmas: (code, me, session)=>{   // 🎄 앞 계정의 창 · 판 기억 · 빨간 점 · 본 알림을 세션과 같이 비운다 · 0시 흩기는 서버 날짜로(마감 앞뒤 하루만 한 번 읽는다 — 그 밖엔 요청 0)
+      if(!xmasWinMod) return;
+      session.onReset(()=>{ xmasApiMod.reset(); xmasWinMod.reset(); });
+      const now = TwRtHub.store.serverNow();
+      if(TwXmasRules.nearDeadline(Number.isFinite(now) ? now : Date.now())) return xmasApiMod.refreshSchedule();
+    },
     gift: (code, me, session)=>{ session.on(giftBoxMod.listen()); session.onReset(()=>{ giftBoxMod.reset(); mallangStoreMod.reset(); mallangMod.reset(); }); },   // 🎁 서버 신호 `gifts` 만 건다(요청 0 — 받기는 마이홈을 열 때)
     bugBadge: (code, me, session)=>{ session.onReset(()=>bugBoardUi.reset()); return bugBoardUi.start(); },   // 배지 · 목록 · 쓰던 글은 세션이 끝나면 비운다
     scheduler: (code, me, session)=>mhScheduler.startSchedule(session),

@@ -8,7 +8,7 @@
    ・5절 실패 · 닫기 — 못 불러옴(E-XMAS-01) · 닫은 뒤 늦게 온 답은 버림 · 끝난 뒤 열기 막기
    ・6절 한마디 라벨은 textContent 로만 · mutation test
    ・7절 편지 창 잇기(편지 · 뮤직바는 가짜 — 그 모듈은 sim-xmas-letter · sim-xmas-song) — 창 열면 맡긴 수 · 1분마다 단추만(받은 편지는 안 읽음) · 닫으면 편지 창도 ·
-   ・8절 📩 받은 편지 알림 — 안 읽은 XMAS_LETTER 를 처음 볼 때만 0~30초 무작위 뒤 한 번 읽기 · 기다리는 동안 또 보이면 묶음 · 반송 · 읽은 알림은 안 읽음 ·
+   ・8절 📩 받은 편지 알림 — 못 읽으면 다시 · 세션 reset 이 기다림 · 본 알림 · 창을 비움 · 안 읽은 XMAS_LETTER 를 처음 볼 때만 0~30초 무작위 뒤 한 번 읽기 · 기다리는 동안 또 보이면 묶음 · 반송 · 읽은 알림은 안 읽음 ·
      📩 알림함이 NAV.XMAS 로 연다('letter' 면 편지 창까지) · 빨간 점 · 로그인 안 됨 안내(오류 코드 아님) */
 'use strict';
 const fs = require('fs');
@@ -47,9 +47,9 @@ function world(opts){
   ['xmasRep', 'xmasFull', 'xmasSay', 'xmasState'].forEach(i => { els[i].hidden = true; });
   const doc = { getElementById: (i) => els[i] || null, createElement: (t) => el(t) };
   const store = {}; const idbGet = async (k) => (k in store ? store[k] : null); const idbPut = (k, v) => { store[k] = v; };   // GLB 영구 캐시(IndexedDB) 흉내
-  const timers = [], timeouts = [];
+  const timers = [], timeouts = [], cleared = [];
   class Img { set src(v){ this._src = v; Promise.resolve().then(() => (this.onload && this.onload())); } get src(){ return this._src; } }
-  const win = { localStorage: { getItem(){ throw new Error('localStorage 를 쓰면 안 된다'); }, setItem(){ throw new Error('localStorage 를 쓰면 안 된다'); } }, Image: Img, setInterval: (fn, ms) => timers.push([fn, ms]), setTimeout: (fn, ms) => { timeouts.push([fn, ms]); return timeouts.length; }, innerWidth: 1000, innerHeight: 800, URL: {}, FileReader: function(){} };
+  const win = { localStorage: { getItem(){ throw new Error('localStorage 를 쓰면 안 된다'); }, setItem(){ throw new Error('localStorage 를 쓰면 안 된다'); } }, Image: Img, setInterval: (fn, ms) => timers.push([fn, ms]), setTimeout: (fn, ms) => { timeouts.push([fn, ms]); return timeouts.length; }, clearTimeout: (id) => { cleared.push(id); }, innerWidth: 1000, innerHeight: 800, URL: {}, FileReader: function(){} };
   const T = { opened: 0, closed: 0, lists: [], onSay: null, onReport: null };
   const treeMod = { baseCanvas: () => null, createXmasTree: () => ({
     open: () => { T.opened++; }, close: () => { T.closed++; }, setOrnaments: (l) => { T.lists.push(l); },
@@ -67,14 +67,14 @@ function world(opts){
   };
   const Lt = { calls: [], deps: null };
   const letterMod = { createXmasLetter: (d) => { Lt.deps = d; d.escRegisterWindow({ key: 'xmasLetter' }); const c = (n) => () => { Lt.calls.push(n); };
-    return { open: c('open'), close: c('close'), refresh: c('refresh'), checkGot: c('checkGot'), paintBtn: c('paintBtn'), isOpen: () => false }; } };
+    return { open: c('open'), close: c('close'), refresh: c('refresh'), checkGot: () => { Lt.calls.push('checkGot'); return Promise.resolve(Lt.gotOk !== false); }, paintBtn: c('paintBtn'), reset: c('reset'), isOpen: () => false }; } };
   const songMod = { createXmasSong: (d) => { Lt.songDeps = d; return { bar: () => ({}), stop: () => {} }; } };
   const nav = { NAV: { XMAS: 'xmas' }, fns: {}, on(n, f){ this.fns[n] = f; } };
   const api = (o.mod || W).createXmasWindow({ doc, win, THREE: {}, ps1Dither: {}, rules: R, treeMod, net: () => net, serverNow: () => S.now, idbGet, idbPut,
     notifyError: (c) => S.errs.push(c), toast: (m) => S.toasts.push(m), escRegisterWindow: (x) => S.escs.push(x),
     onSizeChange: () => { S.size++; }, onReady: (fn) => { S.ready = fn; },
     songMod, letterMod, companion: () => null, ytVideoId: () => null, asyncPrompt: async () => null, storage: null, twNav: nav, random: () => (o.random == null ? 0.5 : o.random) });
-  return { api, els, T, S, N, store, timers, timeouts, Lt, nav };
+  return { api, els, T, S, N, store, timers, timeouts, cleared, Lt, nav };
 }
 const tick = () => new Promise(r => setTimeout(r, 0));
 const settle = async () => { for (let i = 0; i < 6; i++) await tick(); };
@@ -142,19 +142,31 @@ say('── 3절 장식 달기');
   chk(/다른 PC 에서 먼저/.test(wc.S.toasts.join()) && !wc.S.errs.length && wc.N.calls.join() === 'hang,where,tree:1', '실패 conflict(다른 PC 가 먼저 바꿈) — 안내 · 트리 · 내 자리를 다시 읽는다(다시 보내지 않음)');
 }
 
-say('── 3-2절 내 장식 덮어 그리기(목록은 서버 캐시라 몇 초 늦을 수 있다)');
+say('── 3-2절 내 장식 덮어 그리기(목록은 서버 캐시라 몇 초 늦을 수 있다 · 내 몫 mine 은 캐시 없음)');
 {
-  const data = { cur: 2, mine: null, trees: { 2: { 0: { k: 'star', v: 1 } } }, imgs: {} };
-  const w = world({ data, hangRet: { ok: true, tree: 2, slot: 5, version: 1, moved: false, changed: false, imageId: 'idmine' } });
-  w.S.ready(); w.api.open(); await settle();
-  w.els.xmasWord.value = '안녕';
-  await w.els.xmasHang.onclick(); await settle();
-  const L = w.T.lists[w.T.lists.length - 1];
-  chk(L.length === 2 && L.find(x => x.slot === 5) && L.find(x => x.slot === 5).k === 'star' && L.find(x => x.slot === 5).word === '안녕', '늦은 목록(내 장식 없음) 위에 걸기 응답으로 내 장식을 그린다 — 자리 · 종류 · 한마디');
-  data.trees[2][5] = { k: 'bulb', v: 2 }; w.api.close(); w.api.open(); await settle();
-  chk(w.T.lists[w.T.lists.length - 1].find(x => x.slot === 5).k === 'bulb', '  ↳ 목록이 그 판 이상이면 목록을 그대로 쓴다(다른 PC 에서 또 바꾼 것)');
-  data.trees[2][5] = { k: 'gift', v: 0 }; w.api.close(); w.api.open(); await settle();
-  chk(w.T.lists[w.T.lists.length - 1].find(x => x.slot === 5).k === 'star', '  ↳ 목록이 옛 판이면 내가 건 판으로 덮는다');
+  const overlay = async (mod) => {
+    const data = { cur: 2, mine: { t: 2, s: 5, v: 1, k: 'star', w: '안녕', id: null }, trees: { 2: { 0: { k: 'star', v: 1 } } }, imgs: {} };
+    const w = world({ data, mod }); w.S.ready(); w.api.open(); await settle();
+    const last = () => w.T.lists[w.T.lists.length - 1];
+    const m5 = last().find(x => x.slot === 5);
+    const drawn = last().length === 2 && !!m5 && m5.k === 'star' && m5.word === '안녕' && m5.mine;
+    data.trees[2][5] = { k: 'bulb', v: 2 }; w.api.close(); w.api.open(); await settle();
+    const listWins = last().find(x => x.slot === 5).k === 'bulb';
+    data.trees[2][5] = { k: 'gift', v: 0 }; w.api.close(); w.api.open(); await settle();
+    const mineWins = last().find(x => x.slot === 5).k === 'star';
+    delete data.trees[2][5]; data.mine = null; w.api.close(); w.api.open(); await settle();   // 관리자가 지움 · 탈퇴 — 내 몫에도 목록에도 없다
+    const gone = !last().find(x => x.slot === 5);
+    return { drawn, listWins, mineWins, gone };
+  };
+  const r = await overlay(null);
+  chk(r.drawn, '늦은 목록(내 장식 없음) 위에 내 몫(mine)으로 내 장식을 그린다 — 자리 · 종류 · 한마디');
+  chk(r.listWins, '  ↳ 목록이 그 판 이상이면 목록을 그대로 쓴다(다른 PC 에서 또 바꾼 것)');
+  chk(r.mineWins, '  ↳ 목록이 옛 판이면 내 몫의 판으로 덮는다');
+  chk(r.gone, '★ 지워진 장식(내 몫 mine 이 null)은 다시 그리지 않는다 — 관리자 지우기 · 탈퇴 뒤');
+  chk(!/\bhung\b/.test(SRC.replace(/\/\*[\s\S]*?\*\//g, '')), '  ↳ 걸기 응답을 따로 들고 있지 않다(hung 없음 — 원본은 내 몫)');
+  const bad = {}; new Function('window', 'module', SRC.split('    overlayMine(tr.o);\n').join(''))(bad, undefined);
+  const rb = await overlay(bad.TwXmasWindow);
+  chk(!rb.drawn, 'mutation test — 덮어 그리기를 빼면 위 «내 몫으로 그린다» 가 빨강');
   chk(/idbPut\(imgKey\(r\.tree, r\.slot, r\.version\), data\.img\)/.test(SRC), '  ↳ 내 그림은 걸기 응답의 «트리/자리@판» 사본으로 넣는다(그림 올리기는 FileReader · canvas 라 실제 앱에서 본다)');
 }
 
@@ -190,9 +202,12 @@ say('── 4절 신고');
   const wa = world({ data: { cur: 4, mine: null, trees: { 4: {} }, imgs: {} }, repRet: { ok: false, code: 'auth' } }); wa.S.ready(); wa.api.open(); await settle();
   wa.T.onReport(1); await wa.els.xmasRepYes.onclick();
   chk(/로그인한 뒤 신고/.test(wa.S.toasts.pop()) && !wa.S.errs.length, '로그인 안 됨 · 가입 전 — «로그인한 뒤 신고할 수 있어요»(«이미 신고» 가 아님)');
-  const we = world({ data: { cur: 4, mine: null, trees: { 4: {} }, imgs: {} }, repRet: { ok: false, code: 'write' } }); we.S.ready(); we.api.open(); await settle();
+  const wg = world({ data: { cur: 4, mine: null, trees: { 4: {} }, imgs: {} }, repRet: { ok: false, code: 'write' } }); wg.S.ready(); wg.api.open(); await settle();
+  wg.T.onReport(1); await wg.els.xmasRepYes.onclick();
+  chk(/이미 없는 장식이에요/.test(wg.S.toasts.pop() || '') && !wg.S.errs.length, '그 사이 지워진 장식(404 · write) — «이미 없는 장식이에요» 안내(오류 번호 아님)');
+  const we = world({ data: { cur: 4, mine: null, trees: { 4: {} }, imgs: {} }, repRet: { ok: false, code: 'read' } }); we.S.ready(); we.api.open(); await settle();
   we.T.onReport(1); await we.els.xmasRepYes.onclick();
-  chk(we.S.errs.join() === 'E-XMAS-03', '신고 실패는 E-XMAS-03');
+  chk(we.S.errs.join() === 'E-XMAS-03', '그 밖 신고 실패는 E-XMAS-03');
 }
 
 say('── 5절 실패 · 닫기');
@@ -279,6 +294,32 @@ say('── 8절 📩 받은 편지 알림');
   chk(w.timeouts.length === 1, '  ↳ 이미 본 알림은 다시 읽기를 걸지 않는다(우편이 바뀔 때마다 부르지 않게)');
   w.api.onMail(M({ e: { kind: 'XMAS_LETTER', read: false } }));
   chk(w.timeouts.length === 2, '  ↳ 새 알림(다른 id)이면 다시 한 번');
+  { // 못 읽으면 그 알림을 «본 것» 에서 빼 다음 우편 변화에 다시
+    const wf = world({ random: 0 }); wf.S.ready(); wf.Lt.gotOk = false;
+    wf.api.onMail(M()); await wf.timeouts[0][0]();
+    wf.api.onMail(M());
+    chk(wf.timeouts.length === 2, '★ 받은 편지 읽기가 실패하면 그 알림을 다시 본다(다음 우편 변화에 다시 건다)');
+    wf.Lt.gotOk = true; await wf.timeouts[1][0](); wf.api.onMail(M());
+    chk(wf.timeouts.length === 2, '  ↳ 읽고 나면 같은 알림은 다시 걸지 않는다');
+  }
+  { // 세션 reset(계정 바뀜) — 기다림을 버리고 본 알림 · 창을 비운다
+    const resetCase = async (mod) => {
+      const wr = world({ random: 0.5, mod }); wr.S.ready(); wr.Lt.calls.length = 0;
+      wr.api.open(); await settle();
+      wr.api.onMail(M());
+      wr.api.reset();
+      const dropped = wr.cleared.includes(1);
+      const closed = !wr.els.xmasOverlay.classList.contains('on');
+      wr.api.onMail(M());   // B 계정에 같은 id 의 알림이 와도(본 알림을 비웠으니) 다시 건다
+      return { dropped, closed, again: wr.timeouts.length === 2, letterReset: wr.Lt.calls.includes('reset') };
+    };
+    const r = await resetCase(null);
+    chk(r.dropped && r.closed && r.letterReset, '★ reset — 기다리던 읽기를 버리고(clearTimeout) · 창을 닫고 · 편지 모듈도 비운다(점 · 받은 편지)');
+    chk(r.again, '  ↳ 본 알림을 비워 다음 계정에서 다시 읽기를 건다(A → B → A 도)');
+    const bad = {}; new Function('window', 'module', SRC.split("    if (gotTimer){ win.clearTimeout(gotTimer); gotTimer = null; }\n    waiting = []; seenMail.clear();\n").join(''))(bad, undefined);
+    const rb = await resetCase(bad.TwXmasWindow);
+    chk(!(rb.dropped && rb.again), 'mutation test — reset 이 기다림 · 본 알림을 안 비우면 위 검사가 빨강');
+  }
   const w0 = world({ random: 0.999999 }); w0.S.ready(); w0.api.onMail(M());
   chk(w0.timeouts[0][1] < R.READ_JITTER_MS && R.READ_JITTER_MS === 30000, '기다림은 30초 안');
 }

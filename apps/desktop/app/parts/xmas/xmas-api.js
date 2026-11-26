@@ -194,8 +194,11 @@ function createXmasApi(deps){
   /** 신고 한 번 — 대상은 서버가 판정(내가 볼 수 있는 트리 · 내가 받은 편지만) · 두 번째는 code 'dup' */
   async function report(target, note){
     const n = String(note == null ? '' : note).trim().slice(0, NOTE_MAX);
-    try { await authed.post(PATHS.reports, n ? { target, note: n } : { target }); return { ok: true }; }
-    catch (e) { return failOf(e, 'write'); }
+    try {
+      const k = await ensureKnown();   // 읽은 토큰의 주인과 묶는다 — 앞 계정의 열린 창이 새 계정 토큰으로 신고하지 않게
+      await authed.post(PATHS.reports, n ? { target, note: n } : { target }, { expectOwner: k.owner });
+      return { ok: true };
+    } catch (e) { forgetOn(e); return failOf(e, 'write'); }
   }
   const reportOrnament = (t, s, note) => report({ type: 'ornament', tree: t, slot: s }, note);
   const reportLetter = (n, note) => report({ type: 'received', n }, note);
@@ -233,8 +236,11 @@ function createXmasApi(deps){
   }
   /** 반송 표시 치우기(지우기 단추) — 본인 것만 · 없으면 그대로 204 */
   async function clearReturned(lid){
-    try { await authed.del(PATHS.returned(lid)); return { ok: true }; }
-    catch (e) { return failOf(e, 'write'); }
+    try {
+      const k = await ensureKnown();
+      await authed.del(PATHS.returned(lid), { expectOwner: k.owner });
+      return { ok: true };
+    } catch (e) { forgetOn(e); return failOf(e, 'write'); }
   }
   /** 받은 편지 — { ok, got, matched }(got 은 서버 맵 그대로 · matched=false 면 짝 짓기 전 — 화면은 «배달하는 중») */
   async function got(){
@@ -245,7 +251,16 @@ function createXmasApi(deps){
     } catch (e) { return failOf(e, 'read'); }
   }
 
+  /** 날짜 한 벌만 한 번 읽기(trees/current — 모두에게 같은 응답 · 캐시) — 켤 때 마감 앞뒤 하루에만(app.js) */
+  async function refreshSchedule(){
+    try { await readCurrent(); return { ok: true }; }
+    catch (e) { return failOf(e, 'read'); }
+  }
+  /** 세션이 끝나면(로그아웃 · 계정 바뀜) — 앞 계정의 판 기억 · 날짜를 버린다 */
+  function reset(){ known = null; sched = null; }
+
   return { me: () => myCode(), where, tree, img, hang, reportOrnament, reportLetter, myLetters, saveLetter, removeLetter, clearReturned, got,
+    refreshSchedule, reset,
     schedule: () => sched,
     scheduleNow: () => sched || rules.SCHEDULE };   // 날짜 판정에 쓸 한 벌 — 못 읽었으면 처음 값(창 · 알림함 기다림이 같이 쓴다)
 }
