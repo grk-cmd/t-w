@@ -47,7 +47,7 @@
 - 책임: 내 친구 목록(`GET /v2/me/friends` — 객체 배열) · 친구 한 명(`GET …/{code}`) · 끊기(`DELETE …/{code}`) · 친구 요청 목록(`GET /v2/me/friend-requests`) · 보내기 · 수락 · 거절 · 취소 · 명함 묶음(`GET /v2/myhomes/cards?codes=`)을 서버에서. 서버 모양(userCode · ISO 시각 · displayName · cycle …)을 화면 모양(친구 칸 `name · level · cyc · clv · starC · bio · avatar` · 시각 ms)으로 맞추는 곳은 여기뿐이다.
 - 만드는 법(app.js — `socialApiMod`): `TwSocialApi.createSocialApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) })`. 만들 때 요청 없음.
 - 내보내는 것: `fetchFriends()` → `[{ userCode, addedAt, lastSeenAt }]`(오래 사귄 순 · ms · 마지막 접속 기록 없음 `null`) · `fetchFriend(code)` → 한 줄 | `null`(친구가 아님) · `removeFriend(code)` ·
-  `fetchRequests()` → `{ received, sent }`(`[{ userCode, requestedAt(ms) }]`) · `sendRequest(to)` · `acceptRequest(from)` · `rejectRequest(from)` · `cancelRequest(to)` ·
+  `fetchRequests()` → `{ received, sent }`(`[{ userCode, requestedAt(ms), message? }]` — `message` 는 받은 요청의 신청 사유 · 서버가 `received` 에만 싣는다) · `sendRequest(to, message?)`(본문 `{ to, message }` — 앞뒤 공백을 떼고 비면 필드째 뺀다) · `acceptRequest(from)` · `rejectRequest(from)` · `cancelRequest(to)` ·
   `fetchCards(codes)` → `{ userCode: 명함 }`(없는 코드는 빠짐 · 100개씩 나눠 묻고 합침 · 빈 목록이면 요청 0) · `reset()`.
 - 실패: 한 번에 던진다(다시 묻지 않는다 — 다시 받기는 목록을 다시 열거나 realtime 알림 `friends` · `friendRequests` · `card` 가 올 때). «없음»(빈 목록 · 친구 아님 `null`)과 «못 받음»(던짐)을 가른다.
   `failOf(err, TwApiErrors)` → `{ kind, code, message }` — `guide`(나 · 이미 친구 · 친구 100명 — 서버 문구) · `gone`(요청 · 친구가 이미 없음) · `missing`(없는 사람) · `site`(그 자리 E-FR 번호 · 닿지 못함 · 모양 틀림) · `stale`(계정 바뀜 · 받기 전 — 조용히) · `common`(공통 code — `apiErrors.notify`).
@@ -61,7 +61,7 @@
 ## friend-requests-port.js · friend-requests-api.js — 👋 친구 요청(0.13)
 - 층: 화면(friend-manage · myhome-ui · seat-friend-req · myhome-init) → **포트**(`friend-requests-port.js`) → 서버 provider(`friend-requests-api.js`). 화면은 API 를 모른다.
 - 서버 한 길 — 쓰기(수락 · 거절 · 취소 · 보내기)도 읽기도 못 하면 던진다(옛 Firebase 경로로 물러나지 않는다).
-- 포트가 내보내는 것: `watchReceived(myId, onChange, onError)`(→ 해제 함수 · `{ 보낸이id: { name, ts } }`) · `listSent(myId)`(`{ 받는이id: { ts, toName? } }`) · `accept` · `reject`(못 하면 던짐) · `cancel` · `send(myId, toId)`(→ `{ ok, reason? }` · reason `already` · `self` · 서버 코드) · `lookupName(uid)` · `lookupFriendCode(code)`.
+- 포트가 내보내는 것: `watchReceived(myId, onChange, onError)`(→ 해제 함수 · `{ 보낸이id: { name, ts, msg? } }` — `msg` 는 신청 사유가 있을 때만) · `sentIds(myId)`(보낸 요청의 상대 코드만 · 이름 없이 GET 한 번 — «보낸 요청이 살아 있나» 용) · `listSent(myId)`(`{ 받는이id: { ts, toName? } }`) · `accept` · `reject`(못 하면 던짐) · `cancel` · `send(myId, toId, msg?)`(→ `{ ok, reason? }` · reason `already` · `self` · 서버 코드) · `lookupName(uid)` · `lookupFriendCode(code)`.
 - 서버 provider: 받은 요청은 처음 한 번 + `friendRequests` 알림(· resync)마다 다시 받고 상대 이름은 명함(`fetchCards`)으로 얹는다. 받는 중 알림이 여럿 와도 요청은 하나. 이름을 못 받아도 요청은 그린다. 보낼 때 이름 · 코드는 안 싣는다(서버가 안다).
 - 만드는 법: app.js `friendRequestsApiMod`(`social: socialApiMod`, `rt: TwRtHub.store`) · `friendRequestsPortMod`. 화면 deps 는 `()=>friendRequestsPortMod`(읽는 함수) — 만드는 줄이 화면 모듈보다 뒤다.
 - 친구코드(MATE-XXXX)로 찾기: `GET /v2/users?friendCode=`(`social-api.js findByFriendCode`) — 없으면 `null`.

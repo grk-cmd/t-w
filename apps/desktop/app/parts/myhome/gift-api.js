@@ -1,6 +1,6 @@
 /* gift-api.js — 🧸 말랑이 · 🎁 선물 api provider (검사 sim-gift-api.js)
    책임: 내 말랑이 칸 읽기 · 통째 저장(GET · PUT /v2/me/mallangs) · 그림 올리기(Storage 내 폴더에 바로 — shared/own-image.js `mallang`) · 남의 집 칸(GET /v2/mallangs/{userCode}) ·
-     내 선물함(GET /v2/me/gifts) · 봤음(POST …/seen) · ⭐ · 치움(PATCH …/{id}) · 지우기(DELETE …/{id}) · 오늘 보낸 수(GET …/sent-today) ·
+     내 선물함(GET /v2/me/gifts) · 봤음(POST …/seen) · ⭐ · 치움(PATCH …/{id}) · 지우기(DELETE …/{id}) · 오늘 보낸 수(GET …/sent-today) · 보낸 말랑이(GET …/sent) ·
      그 집에 나온 선물(GET /v2/gifts/{userCode}) · 보내기(POST /v2/gifts/{userCode}).
      서버 모양(sentAt ISO)을 화면 모양(sentAt ms)으로 맞추는 곳은 여기뿐이다.
      칸 번호: 받은 칸은 서버 slot 을 그대로 들고 있지만 보내기는 번호를 쓰지 않는다 — 칸 저장(PUT)이 배열 차례로 0부터 다시 매기므로 번호는 낡을 수 있다. 보내기는 누른 그림의 imageUrl 을 보내고 서버가 내 칸에서 찾는다.
@@ -17,14 +17,16 @@
      fetchBox() → Promise<{ items:[{ id, senderName, imageUrl, message, starred, hidden, sentAt }], unseenCount, starCount, boxKeep, starMax }>
      markSeen() · star(id, on) · hide(id, on) · remove(id) → Promise<void>
      fetchSentToday() → Promise<{ count, dailyMax }>
+     fetchSent(limit?) → Promise<{ items:[{ id, recipientName, imageUrl, message, sentAt }] }> — 내가 보낸 말랑이 최근 limit(1~30 · 기본 30)개 · 최신이 앞.
+       imageUrl 은 보낸 때 내 칸의 원본 그림(지워졌을 수 있다 — 화면이 빈 그림으로) · recipientName 은 받은 사람의 지금 이름(서버가 붙인다 · null 이면 '')
      fetchVisible(userCode) → Promise<{ items:[{ id, imageUrl, message }], visibleCount, recipientCap }>
      send(userCode, { requestId, mallang, message }) → Promise<{ giftId, sentToday, dailyMax }> — mallang 은 누른 칸({ imageUrl })(본문 imageUrl = 그 그림 주소 · 칸 번호는 보내지 않는다).
        requestId 는 부르는 쪽(TwRequestId pending)이 정한다. 메시지는 UTF-16 50자까지(이모지 짝을 깨지 않게 자른다).
      reset() — 읽은 토큰 주인 기억을 비운다(계정을 놓을 때)
    }
-     순수: slotsOf · slotsBody · giftOf · boxOf · visibleOf · sentTodayOf · sentOf · sendBody · failOf · ERRORS · PATHS · LIMITS (TwGiftApi 위)
+     순수: slotsOf · slotsBody · giftOf · boxOf · visibleOf · sentTodayOf · sentListOf · sentOf · sendBody · failOf · ERRORS · PATHS · LIMITS (TwGiftApi 위)
    ⚠️ 쓰기는 «읽은 토큰의 주인» 과 묶는다(expectOwner) — 계정이 바뀌는 틈에 앞 계정 화면의 누름이 새 계정 토큰으로 나가지 않게.
-     읽은 적이 없으면(내 것을 받기 전) NOT_RECEIVED 로 요청 0. 주인 기억은 내 것 읽기(mallangs · gifts · sent-today)만 남긴다.
+     읽은 적이 없으면(내 것을 받기 전) NOT_RECEIVED 로 요청 0. 주인 기억은 내 것 읽기(mallangs · gifts · sent-today · sent)만 남긴다.
    ⚠️ 칸 저장은 통째 PUT 하나 — 판(version)은 상태 주인(mallang-store)이 들고 넘긴다. 409 CONCURRENT_UPDATE 에 여기서 다시 받아 한 번 더 보내지 않는다.
    검사: checks/sim-gift-api.js */
 (function(){
@@ -37,11 +39,12 @@ const PATHS = Object.freeze({
   seen: '/v2/me/gifts/seen',
   one: (id) => '/v2/me/gifts/' + encodeURIComponent(id),
   sentToday: '/v2/me/gifts/sent-today',
+  sentList: (limit) => '/v2/me/gifts/sent?limit=' + limit,
   visible: (userCode) => '/v2/gifts/' + encodeURIComponent(userCode),
   send: (userCode) => '/v2/gifts/' + encodeURIComponent(userCode),
 });
 /* 서버 상한과 같은 값 — 넘기면 서버가 거절한다 */
-const LIMITS = Object.freeze({ SLOTS: 4, MESSAGE: 50, IMAGE_BYTES: 1024 * 1024 });
+const LIMITS = Object.freeze({ SLOTS: 4, MESSAGE: 50, IMAGE_BYTES: 1024 * 1024, SENT: 30 });
 const IMAGE_TYPES = Object.freeze(['image/png', 'image/webp']);   // 말랑이는 JPEG 를 받지 않는다(투명 배경)
 const NOT_RECEIVED_CODE = 'NOT_RECEIVED';
 const IMAGE_UPLOAD_CODE = 'IMAGE_UPLOAD';
@@ -127,6 +130,16 @@ function sentTodayOf(d){
   if(!isObj(d) || !cnt(d.count) || !cnt(d.dailyMax)) return undefined;
   return { count: d.count, dailyMax: d.dailyMax };
 }
+/* GET /v2/me/gifts/sent → 보낸 말랑이. 한 줄이 깨져 있으면(id · 그림 없음) 그 줄만 뺀다 · items 가 없으면 undefined */
+function sentListOf(d){
+  if(!isObj(d) || !Array.isArray(d.items)) return undefined;
+  const items = [];
+  for(const raw of d.items){
+    if(!isObj(raw) || !nonEmpty(raw.giftId) || !nonEmpty(raw.imageUrl)) continue;
+    items.push({ id: raw.giftId, recipientName: str(raw.recipientName), imageUrl: raw.imageUrl, message: str(raw.message), sentAt: msOf(raw.sentAt) });
+  }
+  return { items };
+}
 function sentOf(d){
   if(!isObj(d) || !nonEmpty(d.giftId) || !cnt(d.sentToday) || !cnt(d.dailyMax)) return undefined;
   return { giftId: d.giftId, sentToday: d.sentToday, dailyMax: d.dailyMax };
@@ -195,6 +208,10 @@ function createGiftApi(deps){
     hide: async (id, on) => { await write('치우기', (o) => authed.patch(PATHS.one(id), { hidden: !!on }, o)); },
     remove: async (id) => { await write('지우기', (o) => authed.del(PATHS.one(id), o)); },
     fetchSentToday: async () => need(sentTodayOf(await readMine(PATHS.sentToday))),
+    fetchSent: async (limit) => {
+      const n = cnt(limit) && limit >= 1 && limit <= LIMITS.SENT ? limit : LIMITS.SENT;
+      return need(sentListOf(await readMine(PATHS.sentList(n))));
+    },
     fetchVisible: async (userCode) => need(visibleOf(await authed.get(PATHS.visible(needCode(userCode)), { auth: true }))),
     send: async (userCode, o) => {
       const code = needCode(userCode);
@@ -206,7 +223,7 @@ function createGiftApi(deps){
   };
 }
 
-const api = { createGiftApi, slotsOf, slotsBody, giftOf, boxOf, visibleOf, sentTodayOf, sentOf, sendBody, failOf, ERRORS, KIND, PATHS, LIMITS };
+const api = { createGiftApi, slotsOf, slotsBody, giftOf, boxOf, visibleOf, sentTodayOf, sentListOf, sentOf, sendBody, failOf, ERRORS, KIND, PATHS, LIMITS };
 if(typeof window !== 'undefined') window.TwGiftApi = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
