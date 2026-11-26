@@ -248,6 +248,47 @@ async function judge(S){
     // 다시 붙지 못하게 — 소켓을 계속 끊는다
     for(let i = 0; i < 120; i++){ await J2.e.clock.advance(1000); const w = J2.e.last(); if(w && !w.closed) w.kill(1006); }
     chk(J2.hl.L.indexOf('lost:unreachable') >= 0 && J2.e.rt.inRoom() === false, '90초 못 돌아오면 포기(onLost unreachable) · 방 밖');
+    /* 🔒 놓지 않는 방(hooks.keepOnUnreachable — 시크릿룸): 오래 끊겨도 방 안 · 다시 붙으면 resume → 자리가 없으면 전체 입장 */
+    const keepRun = async (SS) => {
+      const e3 = mk(SS); e3.hub.start();
+      const w3 = await readyOn(e3, 'u1');
+      const h3 = hooksLog(); const metas = [];
+      h3.h.keepOnUnreachable = (meta) => { metas.push(meta); return !!(meta && meta.secret); };
+      const p3 = e3.rt.makeProvider(h3.h, { create: null });
+      const jp3 = p3.join('SCRT-AB12', Object.assign({}, ME), () => {}, () => {});
+      await tick();
+      w3.msg({ t: 'welcome', room: 'SCRT-AB12', memberId: 'm1', resume: 'R1', resumed: false, members: MEMBERS, meta: Object.assign({}, META, { secret: true }), music: null, musicSeq: -1, now: e3.clock.t });
+      await settle(jp3, e3.clock);
+      w3.kill(1006); await tick();
+      for(let i = 0; i < 200; i++){ await e3.clock.advance(1000); const w = e3.last(); if(w && !w.closed) w.kill(1006); }
+      const r = { kept: e3.rt.inRoom() === true && h3.L.indexOf('lost:unreachable') < 0, asked: metas.length >= 1 && metas.every(m => m && m.secret === true) };
+      /* 연결이 돌아온다 — resume 을 보내고, 서버가 자리를 이미 뺐으면(resumeFailed) 전체 입장 */
+      let wb = null;
+      for(let i = 0; i < 40 && !wb; i++){ await e3.clock.advance(1000); const w = e3.last(); if(w && !w.closed) wb = w; }
+      wb = await readyOn(e3);
+      const j1 = wb.all('join')[0];
+      r.resume = !!j1 && j1.resume === 'R1' && j1.room === 'SCRT-AB12';
+      wb.msg({ t: 'error', ref: 'join', code: 'resumeFailed', rid: j1 && j1.rid }); await tick();
+      const j2 = wb.all('join')[1];
+      r.full = !!j2 && j2.resume === undefined && !!j2.me;
+      wb.msg({ t: 'error', ref: 'join', code: 'full', rid: j2 && j2.rid }); await tick();
+      r.refused = h3.L.indexOf('lost:full') >= 0 && e3.rt.inRoom() === false;
+      return r;
+    };
+    const K = await keepRun(S);
+    chk(K.kept && K.asked, '★ 놓지 않는 방(시크릿룸)은 200초 끊겨도 방 안 — onLost 없음 · 판단은 hooks.keepOnUnreachable(meta)');
+    chk(K.resume && K.full, '  ↳ 돌아오면 resume → 자리가 없으면(resumeFailed) 전체 입장으로 다시 들어간다');
+    chk(K.refused, '  ↳ 그 입장이 거절되면(정원) 그때 방을 놓는다(onLost full)');
+    /* 보통 방(secret 아님)은 hook 이 있어도 놓는다 · mutation test — 예외 줄을 빼면 시크릿룸도 놓는다 */
+    const noKeep = S.RT.replace("        if(keepsOnUnreachable(P)) return;\n", '');
+    const KM = noKeep !== S.RT ? await keepRun(Object.assign({}, S, { RT: noKeep })) : null;
+    chk(!!KM && KM.kept === false, '  mutation test — 예외 줄을 빼면 시크릿룸도 90초에 놓는다 → 빨강');
+    /* room-entry.js 가 거는 판단 — 서버 meta 의 secret 만 본다(보통 방 · meta 없음은 놓는다) */
+    const ENTRY = pick(at('room-entry.js', 'room')) || '';
+    const hk = (ENTRY.match(/\n    keepOnUnreachable: (\(meta\)=>[^\n]*),\n/) || [])[1];
+    let keepFn = null; try{ keepFn = hk ? new Function('return (' + hk + ');')() : null; }catch(_){}
+    chk(!!keepFn && keepFn({ secret: true }) === true && keepFn({ secret: false }) === false && keepFn(null) === false && keepFn({}) === false,
+      '★ room-entry — 시크릿룸(meta.secret)만 놓지 않는다 · 보통 방 · meta 없음은 예전처럼 90초에 놓는다');
   }catch(err){ chk(false, '5절 던짐 — ' + err.message); }
 
   say('── 6. 서버 판정');

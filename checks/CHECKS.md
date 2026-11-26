@@ -558,7 +558,7 @@
 | **sim-bookshelf-store.js** | 258 | **331a40dfd17c** |
 | **sim-myhome-store.js** | 629 | **185aa7bcdc73** |
 | **sim-myhome-wire.js** | 122 | **4f8c855c6477** |
-| **sim-room-rt.js** | 427 | **264c774799fc** |
+| **sim-room-rt.js** | 468 | **bf4d3bff15a3** |
 | **sim-chat-rt.js** | 245 | **aa6e1dc1aad5** |
 | **sim-room-invite-rt.js** | 85 | **3b35c8873b93** |
 | **sim-purikura-rt.js** | 458 | **54dd5d4253d6** |
