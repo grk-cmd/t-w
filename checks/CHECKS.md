@@ -398,6 +398,7 @@
 | **sim-program-settings.js** | 197 | **afa41b6017b6** |
 | **sim-chat-prefs.js** | 95 | **829c0ed9a0af** |
 | **sim-chat-read-on-send.js** | 270 | **ed4d5a7d721a** |
+| **sim-chat-badge-layer.js** | 80 | **91d8fecac230** |
 | **sim-rich-text.js** | 95 | **67455734d7dd** |
 | **sim-win-stack.js** | 145 | **d324ae30a13a** |
 | **sim-sfx.js** | 96 | **063aff3e0631** |

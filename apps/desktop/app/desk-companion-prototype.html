@@ -3330,11 +3330,11 @@
     border:1px solid #000;border-radius:7px;}
   #myBellBadge.on{display:inline-block;}
 
-  /* 💬 안 읽은 채팅 개수 뱃지 — 🔔 뱃지와 같은 규격이되 '왼쪽 모서리 고정'이 다르다.
-     right로 잡으면 두 자리부터 왼쪽으로 자라 💬 아이콘을 덮으므로, left를 고정해 오른쪽으로만 늘어나게 한다.
-     (뱃지가 버튼 기준으로 앉으려면 버튼 자신이 position:relative여야 함 — 아래 규칙) */
+  /* 💬 안 읽은 채팅 개수 뱃지 — 🔔 뱃지와 같은 규격. 버튼 오른쪽 위 모서리 밖으로 걸친다(버튼이 position:relative 라 그 기준).
+     ⚠️ z-index:1 — 오른쪽에 붙은 ▾(#myStatusChipBtn)도 position 이 있고 DOM 에서 뒤라, 쌓는 순서가 없으면 ▾ 가 뱃지를 덮는다.
+       상태칩(#myStatusChip)이 z-index 로 쌓임 맥락을 만들어 이 1 은 칩 안에서만 효력 — 칩 팝업(60)보다 아래다. */
   #myChatBtn{position:relative;}
-  #myChatBadge{display:none;position:absolute;top:-4px;right:-4px;height:13px;min-width:13px;
+  #myChatBadge{display:none;position:absolute;z-index:1;top:-4px;right:-4px;height:13px;min-width:13px;
     padding:0 3px;box-sizing:border-box;background:var(--win-error);color:#fff;
     font-family:var(--tw-font-legacy);font-size:8px;font-weight:bold;line-height:11px;text-align:center;
     border:1px solid #000;border-radius:7px;white-space:nowrap;pointer-events:none;}
