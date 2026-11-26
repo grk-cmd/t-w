@@ -41,6 +41,8 @@ chk(!R.lettersArrived(R.LETTER_DEADLINE_MS - 1) && R.lettersArrived(R.LETTER_DEA
 chk(R.buttonOn(R.EVENT_END_MS) && R.buttonOn(R.LETTERS_VIEW_UNTIL_MS - 1) && !R.buttonOn(R.LETTERS_VIEW_UNTIL_MS) && !R.buttonOn(NaN), '런처 버튼 — 열람 끝까지 보이고 · 서버 시각 모르면 숨김');
 chk(!R.inDeliveryWindow(R.LETTER_DEADLINE_MS - 1) && R.inDeliveryWindow(R.LETTER_DEADLINE_MS) && R.inDeliveryWindow(R.LETTER_DEADLINE_MS + R.DELIVERY_WINDOW_MS - 1) && !R.inDeliveryWindow(R.LETTER_DEADLINE_MS + R.DELIVERY_WINDOW_MS) && R.DELIVERY_WINDOW_MS === 600000,
   '짝 짓기 알림 때 — 마감부터 10분');
+chk(R.nearDeadline(R.LETTER_DEADLINE_MS - R.NEAR_DEADLINE_MS) && R.nearDeadline(R.LETTER_DEADLINE_MS + R.NEAR_DEADLINE_MS) && !R.nearDeadline(R.LETTER_DEADLINE_MS - R.NEAR_DEADLINE_MS - 1) && !R.nearDeadline(R.LETTER_DEADLINE_MS + R.NEAR_DEADLINE_MS + 1) && !R.nearDeadline(NaN) && R.NEAR_DEADLINE_MS === 86400000,
+  '켤 때 날짜 한 벌을 읽는 때 — 마감 앞뒤 하루(1년에 이틀 · 그 밖엔 요청 0)');
 chk(R.jitterMs(0) === 0 && R.jitterMs(0.5) === 15000 && R.jitterMs(0.9999999) < 30000 && R.jitterMs(5) < 30000 && R.jitterMs(-1) === 0 && R.jitterMs(NaN) === 0, '무작위 기다림 — 0 ~ 30초 안(이상한 수도 그 안)');
 chk(R.mailDelayMs(R.LETTER_DEADLINE_MS + 1000, R.SCHEDULE, 0.5) === 15000 && R.mailDelayMs(R.LETTER_DEADLINE_MS - 1, R.SCHEDULE, 0.5) === 0 && R.mailDelayMs(R.LETTER_DEADLINE_MS + R.DELIVERY_WINDOW_MS, R.SCHEDULE, 0.5) === 0,
   '알림함 다시 읽기 기다림 — 짝 짓기 10분 안에서만 무작위 · 그 밖은 곧바로(0)');

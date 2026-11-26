@@ -177,14 +177,69 @@ async function judge(S){
 
   say('── 5절 신고');
   {
-    const { m, authed } = mk(LIB, base({ 'POST /v2/xmas/reports': null }));
+    const { m, authed, owner } = mk(LIB, base({ 'POST /v2/xmas/reports': null, 'DELETE /v2/me/xmas/returned/l2': null }));
+    const posts = () => authed.log.filter(x => x.method === 'POST');
     const r = await m.reportOrnament(2, 7, '  ' + '가'.repeat(60) + ' ');
-    chk(r.ok && JSON.stringify(authed.log[0].body.target) === '{"type":"ornament","tree":2,"slot":7}' && authed.log[0].body.note.length === 40, '장식 신고 — 대상 { ornament, tree, slot } · 메모 40자');
+    chk(r.ok && JSON.stringify(posts()[0].body.target) === '{"type":"ornament","tree":2,"slot":7}' && posts()[0].body.note.length === 40, '장식 신고 — 대상 { ornament, tree, slot } · 메모 40자');
     await m.reportLetter(2);
-    chk(JSON.stringify(authed.log[1].body) === '{"target":{"type":"received","n":2}}', '받은 편지 신고 — { received, n } · 메모 없으면 칸 없음(받는 사람은 서버가 토큰으로)');
+    chk(JSON.stringify(posts()[1].body) === '{"target":{"type":"received","n":2}}', '받은 편지 신고 — { received, n } · 메모 없으면 칸 없음(받는 사람은 서버가 토큰으로)');
+    chk(posts().every(x => x.opts.expectOwner === 'tokA') && authed.log[0].path === '/v2/me/xmas', '  ↳ 신고는 읽은 토큰의 주인과 묶는다(판을 모르면 내 몫을 먼저 읽어 주인을 안다)');
     chk(!authed.log.some(x => /ME01/.test(JSON.stringify(x.body) + x.path)), '  ↳ 사람 코드를 싣지 않는다');
-    chk((await mk(LIB, { 'POST /v2/xmas/reports': apiErr(409, 'XMAS_REPORT_DUPLICATE') }).m.reportOrnament(1, 1)).code === 'dup', '두 번째 신고 — dup');
-    chk((await mk(LIB, { 'POST /v2/xmas/reports': apiErr(400, 'XMAS_REPORT_SELF') }).m.reportOrnament(1, 1)).code === 'invalid-argument', '내 장식 신고(서버가 막음) — invalid-argument');
+    await m.clearReturned('l2');
+    chk(authed.log.slice(-1)[0].opts.expectOwner === 'tokA', '반송 표시 지우기도 주인과 묶는다');
+    for (const [lab, act] of [['신고', (x) => x.reportLetter(1)], ['반송 표시 지우기', (x) => x.clearReturned('l2')]]){
+      const t = mk(LIB, base({ 'POST /v2/xmas/reports': null, 'DELETE /v2/me/xmas/returned/l2': null }));
+      await t.m.myLetters(); t.owner.who = 'tokB';
+      const rr = await act(t.m);
+      chk(!rr.ok && rr.code === 'auth', '★ A 로 읽은 뒤 로그인한 사람이 바뀌면(B 토큰) ' + lab + '를 보내지 않는다 — auth(OWNER_CHANGED)');
+    }
+    chk((await mk(LIB, base({ 'POST /v2/xmas/reports': apiErr(409, 'XMAS_REPORT_DUPLICATE') })).m.reportOrnament(1, 1)).code === 'dup', '두 번째 신고 — dup');
+    chk((await mk(LIB, base({ 'POST /v2/xmas/reports': apiErr(400, 'XMAS_REPORT_SELF') })).m.reportOrnament(1, 1)).code === 'invalid-argument', '내 장식 신고(서버가 막음) — invalid-argument');
+  }
+
+  say('── 5-1절 신고 실패 갈래 — 대상 없음만 gone · 나머지는 오류 번호 쪽');
+  {
+    const cases = [['XMAS_ORNAMENT_NOT_FOUND', 404, 'gone'], ['XMAS_RECEIVED_NOT_FOUND', 404, 'gone'], ['DB_BUSY', 503, 'aborted'], ['NETWORK', 0, 'report'], ['INTERNAL_ERROR', 500, 'report'], ['SHAPE', 200, 'report']];
+    for (const [code, st, want] of cases){
+      const x = mk(LIB, base({ 'POST /v2/xmas/reports': apiErr(st, code) }));
+      const r = await x.m.reportOrnament(1, 1);
+      chk(!r.ok && r.code === want, '신고 실패 ' + code + '(' + st + ') → ' + want + (want === 'gone' ? '(«이미 없는 …» 안내)' : '(화면은 오류 번호)'));
+    }
+  }
+
+  say('── 5-2절 세션 reset · 날짜 한 번 읽기');
+  {
+    const { m, authed } = mk(LIB, base());
+    await m.where();
+    chk(m.schedule() !== null, '읽은 뒤 날짜 한 벌이 있다');
+    m.reset();
+    chk(m.schedule() === null, 'reset — 날짜 한 벌을 버린다(다음 계정은 다시 읽는다)');
+    const n0 = authed.log.length;
+    const pr = mk(LIB, base({ 'PUT /v2/me/xmas/ornament': { tree: 1, slot: 0, version: 1, moved: false, changed: false, imageId: null } }));
+    await pr.m.where(); pr.m.reset(); await pr.m.hang({ kind: 'star' });
+    chk(pr.authed.log.filter(x => x.path === '/v2/me/xmas').length === 2, 'reset — 판 기억도 버린다(다음 쓰기 전에 내 몫을 다시 읽는다)');
+    const rs = await m.refreshSchedule();
+    chk(rs.ok && m.schedule() && authed.log.slice(n0).map(x => x.path).join() === '/v2/xmas/trees/current', 'refreshSchedule — trees/current 한 번만(내 몫은 읽지 않는다)');
+    const bad = await mk(LIB, { 'GET /v2/xmas/trees/current': apiErr(503, 'DB_BUSY') }).m.refreshSchedule();
+    chk(!bad.ok, '  ↳ 실패는 { ok:false } (날짜는 처음 값 그대로)');
+    const lateCase = async (src) => {
+      let relMe, relCur;
+      const holdMe = new Promise((r) => { relMe = r; }), holdCur = new Promise((r) => { relCur = r; });
+      const t = mk(src, { 'GET /v2/xmas/trees/current': () => holdCur.then(() => CUR), 'GET /v2/me/xmas': () => holdMe.then(() => ME({ mine: { tree: 1, slot: 0, kind: 'star', version: 3 } })),
+        'PUT /v2/me/xmas/ornament': { tree: 1, slot: 0, version: 1, moved: false, changed: false, imageId: null } });
+      const p = t.m.where();
+      t.m.reset(); t.owner.who = 'tokB';   // A 로 읽는 사이 세션이 끝나고 B 로
+      relMe(); relCur(); const w = await p;
+      const schedNull = t.m.schedule() === null;
+      const nGet = t.authed.log.filter(x => x.path === '/v2/me/xmas').length;
+      const h = await t.m.hang({ kind: 'star' });
+      return { stale: !w.ok && w.code === 'stale', schedNull, reread: t.authed.log.filter(x => x.path === '/v2/me/xmas').length === nGet + 1, hangOk: h.ok, put: t.authed.log.find(x => x.method === 'PUT') };
+    };
+    const lc = await lateCase(LIB);
+    chk(lc.stale && lc.schedNull, '★ A 읽기가 걸린 사이 reset → A 답이 와도 판 기억 · 날짜를 채우지 않는다(stale)');
+    chk(lc.reread && lc.hangOk && lc.put && lc.put.opts.expectOwner === 'tokB' && lc.put.body.version === 3, '  ↳ B 의 첫 쓰기는 B 로 내 몫을 다시 읽고 B 토큰으로 보낸다(OWNER_CHANGED 로 실패하지 않음)');
+    const noGen = S.API.split('    if (g !== gen) throw stale();\n').join('');
+    if (noGen !== S.API){ const lb = await lateCase(noGen); chk(!(lb.stale && lb.schedNull), 'mutation test — 늦은 답의 세션을 안 보면 위 검사가 빨강'); }
   }
 
   say('── 6절 오류 표');
@@ -192,7 +247,7 @@ async function judge(S){
     const T = load(LIB, 'TwXmasApi').ERROR_CODES;
     const WANT = { XMAS_ENDED: 'failed-precondition', XMAS_KIND_INVALID: 'invalid-argument', XMAS_IMAGE_TOO_LARGE: 'invalid-argument', XMAS_IMAGE_INVALID: 'invalid-argument',
       XMAS_WORD_TOO_LONG: 'invalid-argument', XMAS_WORD_BANNED: 'invalid-argument', XMAS_TREE_FORBIDDEN: 'read', XMAS_TREE_NOT_FOUND: 'read', XMAS_LETTER_CLOSED: 'closed',
-      XMAS_LETTER_INVALID: 'write', XMAS_REPORT_DUPLICATE: 'dup', XMAS_REPORT_SELF: 'invalid-argument', XMAS_ORNAMENT_NOT_FOUND: 'write', XMAS_RECEIVED_NOT_FOUND: 'write',
+      XMAS_LETTER_INVALID: 'write', XMAS_REPORT_DUPLICATE: 'dup', XMAS_REPORT_SELF: 'invalid-argument', XMAS_ORNAMENT_NOT_FOUND: 'gone', XMAS_RECEIVED_NOT_FOUND: 'gone',
       XMAS_LETTER_NOT_FOUND: 'write', CONCURRENT_UPDATE: 'conflict', USER_CODE_NOT_BOUND: 'auth', AUTH_REQUIRED: 'auth', TOO_MANY_REQUESTS: 'aborted', DB_BUSY: 'aborted', STORAGE_UNAVAILABLE: 'aborted' };
     const miss = Object.keys(WANT).filter(k => T[k] !== WANT[k]);
     chk(!miss.length, '설계 6-4 표 ' + Object.keys(WANT).length + '개가 같은 code — 다른 것: ' + (miss.join(' · ') || '없음'));
@@ -235,6 +290,8 @@ async function runAll(){
   wiring(S);
   say('── 9절 mutation test');
   const breaks = [
+    ['신고가 주인을 안 묶음', S.API.replace("{ target }, { expectOwner: k.owner })", "{ target }, {})"), '5절 바뀐 토큰'],
+    ['reset 이 판을 안 버림', S.API.replace("function reset(){ gen++; known = null; sched = null; }", "function reset(){ gen++; sched = null; }"), '5-2절 판 기억'],
     ['판을 안 실음', S.API.replace('version: k.mine };', 'version: null };'), '3절 바꾸기 판'],
     ['409 뒤 판을 안 버림', S.API.replace("e.code === 'CONCURRENT_UPDATE')) known = null;", "false)) known = null;"), '3절 다시 읽기'],
     ['주인을 안 묶음', S.API.replace("authed.put(PATHS.ornament, body, { expectOwner: k.owner })", "authed.put(PATHS.ornament, body, {})"), '3절 OWNER_CHANGED'],

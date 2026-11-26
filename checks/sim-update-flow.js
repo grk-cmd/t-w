@@ -4,7 +4,7 @@
  * 2. 켜는 흐름을 그대로 돌린다 — 강제(로그인으로 안 넘어감) · 선택([업데이트] [나중에]) · 없음 · 읽기 실패 · 시간 초과 · 버전 모름
  * 3. 순서 — 업데이트 창이 닫힌 뒤에야 공지 · 공지가 닫힌 뒤에야 로그인(proceed) · 공지 못 받으면 넘어감
  * 4. 켜 둔 동안 — 최소 버전이 올라가면 바로 강제 창 · 내 버전 이하면 아무 일 없음 · 새 요청(폴링)을 만들지 않는다
- * 5. 단추 — 받기 끝(재시작 설치) · 받는 중 · 실패(다시 시도 = 사용자가 누를 때만 확인) · 맥(릴리스 열기) · 링크
+ * 5. 단추 — 받기 끝(재시작 설치) · 받는 중 · 실패(다시 시도 = 사용자가 누를 때만 확인) · 링크
  * 6. 화면 — 강제는 단추 하나·닫기 없음 · 선택은 둘 · textContent 만 · id 가 UI_HIT_SEL 에 있음
  * 6-2. 통신 판이 다름(realtime 4003) — forceProtocol: 최소 버전 없이 강제 창 · 한 번 묻기 · 선택 창을 강제로
  * 7. 연결 — app.js(초대 게이트 앞에서 흐름 → 강제면 로그인 안 함) · firebase-init 에 옛 게이트 없음 · main 이 타이머로 혼자 확인하지 않음 · 규칙 config/minAppVer
@@ -253,9 +253,6 @@ async function suite(M, label){
   chk(t.comp.calls.length === 1 && t.comp.calls[0][0] === 'check', '  ↳ 다시 시도는 사용자가 누를 때만 checkUpdate');
   t.comp.calls.length = 0; t.f.press('link');
   chk(t.comp.calls[0][1] === RELEASES_URL, '  ↳ 링크는 언제나 다운로드 페이지');
-  t.comp.push({ status: 'mac-available', version: '0.13.1', url: 'https://github.com/grk-cmd/t-w/releases/tag/v0.13.1' });
-  t.comp.calls.length = 0; t.f.press('open');
-  chk(/tag\/v0\.13\.1$/.test(t.comp.calls[0][1]) && t.f.current() === STAGE.FORCE, '★ 맥 강제 — main 이 보낸 릴리스 주소를 열고 창은 그대로');
 
   // 선택 창 윈도우: [업데이트] → 받는 중 → 받기 끝나면 저절로 설치
   t = make({ my: '0.13.0', min: null });
@@ -272,13 +269,13 @@ async function suite(M, label){
   t.comp.calls.length = 0; t.comp.push({ status: 'downloaded', version: '0.13.1' });
   chk(t.comp.calls.length === 0, '  ↳ [업데이트] 를 안 눌렀으면 받기가 끝나도 저절로 설치하지 않는다');
   t.f.press('later'); await p;
-  // 선택 창 맥
+  // 선택 창 [나중에] — 윈도우 · 맥 같은 길(맥도 자동 업데이트)
   t = make({ my: '0.13.0', min: null });
-  p = t.f.runBeforeLogin(); await sleep(5); t.comp.push({ status: 'mac-available', version: '0.13.1', url: 'https://github.com/x/y/releases/tag/v0.13.1' }); await sleep(5);
+  p = t.f.runBeforeLogin(); await sleep(5); t.comp.push({ status: 'available', version: '0.13.1' }); await sleep(5);
   last = t.ui.log[t.ui.log.length - 1];
-  chk(/받아 설치해 주세요/.test(last.body) && !/업데이트할까요/.test(last.body) && last.buttons[0].label === '다운로드 페이지 열기', '★ 선택(맥) — 앱이 설치하지 않으니 «받아 설치해 주세요» · [다운로드 페이지 열기]');
-  t.f.press('open'); r = await p;
-  chk(t.comp.calls.some(c => c[0] === 'open') && r.proceed, '★ 선택(맥) — [업데이트] 는 브라우저로 열고 다음 단계(공지)로');
+  chk(/업데이트할까요/.test(last.body) && last.buttons[0].action === 'update', '★ 선택 — «지금 업데이트할까요?» · [업데이트] (윈도우 · 맥 같음 — 맥 전용 «받아 설치» 문구 없음)');
+  t.f.press('later'); r = await p;
+  chk(r.proceed && !t.comp.calls.some(c => c[0] === 'open' || c[0] === 'install'), '★ 선택 — [나중에] 는 설치 · 브라우저 없이 다음 단계(공지)로');
   let called = 0; t.f.whenStageDone(() => called++);
   chk(called === 1, '  ↳ 단계가 끝난 뒤의 whenStageDone 은 바로 부른다(띠)');
   t = make({ my: '0.12.0', min: '0.13.0' });
@@ -392,8 +389,9 @@ async function suite(M, label){
     chk(i > 0 && j > i, 'app.js 가 초대 게이트 앞에서 흐름을 만든다');
     const run = app.slice(j, app.indexOf('TwNetReady.whenNetReady(run)', j));
     const runBody = run.slice(run.indexOf('const run = async'));
-    chk(/const flowP = updateFlowMod\.runBeforeLogin\(\);\s*const run = async/.test(run), '★ 흐름은 Firebase 준비(whenNetReady) 밖에서 바로 시작한다 — firebase-init 이 깨져도 새 판 확인 · 받기가 돈다');
-    chk(/const flow = await flowP;\s*if\(!flow\.proceed\) return;/.test(runBody) && runBody.indexOf('flowP') < runBody.indexOf('checkInviteGate()') && !/runBeforeLogin/.test(runBody), '★ 로그인(checkInviteGate) 앞에서 흐름을 기다리고 · 강제면 로그인하지 않는다');
+    chk(/const updateFlowP = updateFlowMod\.runBeforeLogin\(\);\s*\(function initInviteGate\(\)\{/.test(app), '★ 흐름은 Firebase 준비(whenNetReady) 밖에서 바로 시작한다 — firebase-init 이 깨져도 새 판 확인 · 받기가 돈다');
+    chk(!/runBeforeLogin|updateFlowP|flowP/.test(runBody) && /checkInviteGate\(\)/.test(runBody) && /^ {2}updateGate: \(\)=>updateFlowP\.then\(\(f\)=>f\.proceed === true\),$/m.test(app),
+      '★ 로그인(checkInviteGate)은 흐름을 기다리지 않고 같이 돈다 — 계정 기능은 app-boot 가 흐름의 결과(updateGate)를 기다린다(강제면 0)');
     const blk = app.slice(i, j);
     chk(/readMin: \(\)=> _updRc \? _updRc\.ready\(null, MIN_APP_VER_WAIT_MS\)\.then\(\(\)=>_updRc\.minAppVer\(\)\) : null/.test(blk) && /key === 'minVersion'/.test(blk) && /const _updRc = (?:acctStateMod\.)?_rcStore\(\);/.test(app), '★ 최소 버전 = 원격 설정 첫 답(API 값만) · 바뀜은 minVersion 칸 알림 · 원격 설정 한 벌은 한 번만 받는다');
     const w = +(app.match(/const MIN_APP_VER_WAIT_MS = (\d+);/) || [])[1];
@@ -406,7 +404,7 @@ async function suite(M, label){
     chk(!/setTimeout\(\s*\(\)\s*=>\s*\{\s*startUpdateCheck\(\)/.test(m), '  ↳ main 이 켜고 몇 초 뒤 혼자 확인하지 않는다(렌더러가 묻는다)');
     chk(/checkUpdate\(\) \{\s*ipcRenderer\.send\('companion:checkUpdate'\);/.test(PRE) && /installUpdate\(\) \{\s*ipcRenderer\.send\('companion:installUpdate'\);/.test(PRE), '  ↳ preload checkUpdate · installUpdate');
     const dr = strip(read('app/parts/launcher/desktop-run.js') || read('parts/launcher/desktop-run.js') || '');
-    chk(/whenUpdateStageDone\(\(\)=>showUpdateReadyBanner\(version\)\)/.test(dr) && /whenUpdateStageDone\(\(\)=>showUpdateReadyBanner\(version, info&&info\.url\)\)/.test(dr), '★ 런처 띠는 업데이트 창 단계가 끝난 뒤에 건다(유지)');
+    chk(/whenUpdateStageDone\(\(\)=>showUpdateReadyBanner\(version\)\)/.test(dr) && !/mac-available|downloadUrl/.test(dr), '★ 런처 띠는 업데이트 창 단계가 끝난 뒤에 건다 · 맥 전용 «받으러 가기» 갈래 없음(맥도 [지금 재시작])');
     const pub = [].concat(PKG.build && PKG.build.publish || []).find(p => p && p.provider === 'github') || {};
     chk(RELEASES_URL === `https://github.com/${pub.owner}/${pub.repo}/releases/latest`, '★ 다운로드 주소 = package.json build.publish 저장소');
     const n = (RULES.config || {}).minAppVer || {};
@@ -444,9 +442,6 @@ async function suite(M, label){
     // 강제 창이 checking 에서 [업데이트] 를 그린다
     await redIf('강제 창이 checking 에서 [업데이트] 를 그린다', mutate('buttons: [mainButton(u, true)],', 'buttons: [mainButton(u, false)],'),
       async (m) => { const X = load(m); return X.viewOf(X.STAGE.FORCE, '0.12.0', '0.13.0', null, { status: 'checking' }).buttons[0].action === 'wait'; });
-    // 맥 선택 창이 «업데이트할까요?» 로 묻는다
-    await redIf('맥 선택 창이 «업데이트할까요?» 로 묻는다', mutate("u.status === 'mac-available' ? '다운로드 페이지에서 받아 설치해 주세요.' :", "false ? '' :"),
-      async (m) => { const X = load(m); return !/업데이트할까요/.test(X.viewOf(X.STAGE.OPTIONAL, '0.13.0', null, '0.13.1', { status: 'mac-available', version: '0.13.1', url: 'u' }).body); });
     // 켤 때 checkUpdate 1번 (판정: 두 번 부르면 빨강)
     await redIf('checkUpdate 를 두 번 부른다', mutate('companion.checkUpdate();\n    });', 'companion.checkUpdate(); companion.checkUpdate();\n    });'),
       async (m) => { const x = flowOf(m, { my: '0.13.0', min: null }); await x.f.runBeforeLogin(); return x.comp.calls.filter(c => c[0] === 'check').length === 1; });

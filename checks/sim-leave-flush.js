@@ -121,7 +121,7 @@ function mkCloset(clock, opt){
   vm.createContext(ctx); vm.runInContext(o.closetSrc || CLOSET, ctx);
   const C = ctx.window.TwCloset.createCloset({
     CHAR_SLOT_MAX: 5, closetApi: api, codec, roomFaceCache: { load: () => ({}), save(){} }, slots, slotSave,
-    getMyUserId: () => 'u1', rtOn: () => () => {}, toast(){}, notifyError: () => {}, renderLauncher(){}, creatorOpen: () => false,
+    getMyUserId: () => 'u1', rtOn: () => () => {}, toast(){}, notifyError: () => {}, renderLauncher(){}, creatorOpen: () => false, curSlot: () => 0,
     storage: { getItem: () => null, setItem(){}, removeItem(){}, key: () => null, length: 0 },
   });
   C.useSession({ setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout, on: (u) => u, onReset(){} });

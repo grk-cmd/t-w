@@ -56,7 +56,7 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 | PC 등록(계정마다 서버가 정한 상한까지 · 다 찼으면 새 PC 는 묻고 하나 지움) | `scenarios/account/device-limit.js`(서버가 409 를 줄 때까지 API 로 등록 · 그다음 앱 → «가장 오래된 기기 … 이 기기를 지우고 이 PC를 쓸까요?» · [취소]는 아무것도 안 지우고 로그인 화면 · [지우고 사용]은 그 기기만 지움) | `device-register` `device-limit-dialog` `device-id` `license-screen` | e2e |
 | PC 연결이 끊긴 뒤 안내(다른 PC 에서 이 PC 를 지움 · 이 PC 에서 새로 연 앱에 밀림) | `scenarios/account/device-lost.js`(상대 PC · 새 세션은 API 등록으로 — 서버가 realtime 에 닫게 알림 · 두 안내 글 · 다시 등록 · 여기서 계속) | `device-lost` | e2e |
 | 서버 점검 화면 | `core/logout-maintenance.js «점검»`(관리자 PUT app.maintenance → 서버를 쓰는 단추에 점검 창 · 끄면 «다시 켜기» 안내 · 스택 잠금 안에서 · 끝에 끔) | `maintenance-gate` `remote-config` | e2e |
-| 판 확인(강제 · 선택 업데이트 · 최소 판) | `scenarios/account/version.js`(최소 판 강제 창 · 새 판 선택 창 [나중에] · 같은 계정 다른 PC 의 더 새 판으로 막힘). 최소 판은 같이 쓰는 로컬 설정을 바꿀 수 없어 이 앱의 `GET /v2/config` 응답만 고치고, «새 판 있음» 은 GitHub 릴리스 피드라 main 의 확인 IPC 자리에서 상태를 보낸다 · 실제 내려받기 · 설치는 빠짐 | `update-flow` `app-version-sync` `app-version` `remote-config` `mac-update` `update-diag` | e2e |
+| 판 확인(강제 · 선택 업데이트 · 최소 판) | `scenarios/account/version.js`(최소 판 강제 창 · 새 판 선택 창 [나중에] · 같은 계정 다른 PC 의 더 새 판으로 막힘). 최소 판은 같이 쓰는 로컬 설정을 바꿀 수 없어 이 앱의 `GET /v2/config` 응답만 고치고, «새 판 있음» 은 GitHub 릴리스 피드라 main 의 확인 IPC 자리에서 상태를 보낸다 · 실제 내려받기 · 설치는 빠짐 | `update-flow` `app-version-sync` `app-version` `remote-config` `update-platform` `update-recheck` `update-diag` | e2e |
 
 ## 캐릭터 · 책상 · 가챠
 

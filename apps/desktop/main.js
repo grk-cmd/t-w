@@ -28,7 +28,8 @@ if(FIREBASE_ENV === 'dev') console.log('[firebase-env] dev Firebase(together-wor
 const { createDevtoolsGate } = require('./devtools-gate');
 const { createHttpCacheReset } = require('./http-cache-reset');   // 🧹 버전이 바뀐 뒤 첫 실행에 웹 캐시 한 번 비우기
 const { createUpdateDiag } = require('./update-diag');   // 🩺 업데이트 진행 · 실패를 진단 기록에
-const { createUpdateRecheck, installDirWritable } = require('./update-recheck');   // 켜 둔 동안 새 판 다시 확인 · 끌 때 설치를 켜도 되나(윈도우)
+const { createUpdateRecheck, installDirWritable } = require('./update-recheck');   // 켜 둔 동안 새 판 다시 확인 · 설치 폴더에 쓸 수 있나
+const { createUpdatePlatform, RELAUNCH: UPDATE_RELAUNCH } = require('./update-platform');   // 플랫폼마다 다시 확인 · 끌 때 설치 · 재시작 · 옮기기
 const { createErrorLog } = require('./error-log');   // 🧯 오류만 모으는 파일(tw-error.log)
 const { createQuitHold } = require('./quit-hold');   // 🚪 끄기 전 렌더러의 못 올린 저장을 기다린다(상한 있음)
 /* 오류 기록 — 경로는 적을 때 찾는다(ready 전에도 userData 는 읽힌다 · 실패는 error-log 가 삼킨다) */
@@ -200,18 +201,22 @@ let mainWindow = null;
 // ---- 자동 업데이트 (electron-updater + GitHub Releases · package.json build.publish) ----
 /* 새 판은 백그라운드로 받는다(autoDownload). 설치는 두 때뿐이다 — 쓰는 도중에는 절대 하지 않는다:
    ① 사용자가 띠 · 업데이트 창의 [재시작] 을 누를 때(companion:installUpdate → quitAndInstall)
-   ② 윈도우에서 사용자가 앱을 끌 때 — 받아 둔 판을 조용히 설치한다(autoInstallOnAppQuit).
-      설치는 electron-updater 가 app 'quit' 에서 건다 — before-quit 를 _quitHold 가 붙잡아 렌더러 저장을 끝낸 뒤에야 'quit' 이 오므로
-      못 올린 저장이 먼저 끝난다. 끄는 것은 사용자가 고른 일이라 «예상치 못한 종료» 가 아니고, 다시 켜지 않는다(조용한 설치 · 묻지 않음).
-   ⚠️ 끄기가 사용자 뜻이 아닌 길(OS 세션 종료 · 중복 실행 정리 _exitNow · 재시작 relaunchApp)은 설치를 끈다(_skipInstallOnQuit) —
+   ② 사용자가 앱을 끌 때 — 받아 둔 판을 조용히 설치한다(autoInstallOnAppQuit). 끄는 것은 사용자가 고른 일이라 다시 켜지 않는다.
+      윈도우는 electron-updater 가 app 'quit' 에서 설치를 건다 — before-quit 를 _quitHold 가 붙잡아 렌더러 저장을 끝낸 뒤에야 'quit' 이 온다.
+   ⚠️ 윈도우에서 끄기가 사용자 뜻이 아닌 길(OS 세션 종료 · 중복 실행 정리 _exitNow · 재시작)은 설치를 끈다(_skipInstallOnQuit) —
       OS 가 끄는 중에 설치 파일을 띄우거나, 다시 켜는 앱과 설치가 부딪히지 않게. 받은 판은 남아 다음에 끌 때 설치된다.
-   ⚠️ 모든 사용자(Program Files)로 설치한 PC 는 끌 때 설치를 켜지 않는다 — 설치 폴더에 쓸 수 없어 UAC 창이 뜬다(새 물음을 만들지 않게).
-      그 PC 는 예전처럼 띠의 [재시작] 으로만 설치한다. 판단은 installDirWritable(실제로 파일을 만들어 본다) 한 곳.
-   맥은 autoUpdater 를 안 탄다(아래 주석) — 설치 · 다시 확인 둘 다 윈도우만. */
-const UPDATE_IN_BACKGROUND = process.platform === 'win32';
+   ⚠️ 맥(Squirrel.Mac)은 다 받는 즉시 설치 준비를 끝내 어떻게 꺼지든 설치된다 — 재시작은 _relaunchOrInstall 이 «설치하고 다시 켜기» 로 바꾼다.
+   ⚠️ 바꿔 끼울 폴더에 쓸 수 없으면(윈도우 모든 사용자 설치 · 맥 관리자 폴더) 끌 때 설치를 켜지 않는다 — 띠의 [재시작] 으로만.
+   플랫폼 판단은 update-platform.js 한 곳(다시 확인 · 설치 폴더 · 끌 때 설치 · 재시작 · 응용 프로그램 폴더로 옮기기). */
+const _updatePlatform = createUpdatePlatform({
+  platform: process.platform, execPath: process.execPath, isPackaged: app.isPackaged, path,
+  inApplications: () => app.isInApplicationsFolder(),
+  writable: (dir) => installDirWritable({ fs, path, dir, pid: process.pid }),
+});
 autoUpdater.autoDownload = true;
-autoUpdater.autoInstallOnAppQuit = UPDATE_IN_BACKGROUND && installDirWritable({ fs, path, dir: path.dirname(process.execPath), pid: process.pid });
-function _skipInstallOnQuit(){ autoUpdater.autoInstallOnAppQuit = false; }   // 'quit' 때 다시 읽는다(electron-updater BaseUpdater.addQuitHandler)
+autoUpdater.autoInstallOnAppQuit = _updatePlatform.installOnQuit();
+function _skipInstallOnQuit(){ autoUpdater.autoInstallOnAppQuit = false; }   // 윈도우: 'quit' 때 다시 읽는다(electron-updater BaseUpdater.addQuitHandler) · 맥은 받을 때 읽는다
+let _updateStaged = false;   // Squirrel 이 설치 준비를 끝냈다(맥) — 재시작 판단(_relaunchOrInstall) · 한 번 서면 그 실행 동안 내리지 않는다(뒤 확인의 오류는 준비를 되돌리지 않는다)
 const _updateDiag = createUpdateDiag({ log: (m) => _diagLog(m), home: require('os').homedir() });
 autoUpdater.logger = _updateDiag.logger;   // 조각만 받기 · 통째로 받기 · 오류를 electron-updater 가 스스로 적는다
 
@@ -226,93 +231,51 @@ autoUpdater.on('update-available', (info) => { _updateDiag.reset(); sendUpdateSt
 autoUpdater.on('update-not-available', () => sendUpdateStatus('none'));
 autoUpdater.on('download-progress', (p) => { _updateDiag.progress(p); sendUpdateStatus('downloading', { percent: Math.round(p.percent) }); });
 autoUpdater.on('update-downloaded', (info) => sendUpdateStatus('downloaded', { version: info.version }));
+if(_updatePlatform.nativeStaging) require('electron').autoUpdater.on('update-downloaded', () => { _updateStaged = true; });   // electron-updater MacUpdater 의 nativeUpdater 와 같은 것
 let _bgUpdateErrLogged = false;   // 켜 둔 동안 다시 확인의 실패(오프라인 등)는 오류 파일에 한 번만 — 진단 기록에는 updateDiag 가 매번 남긴다
 autoUpdater.on('error', (e) => { const bg = _updateRecheck.fromTick(); if(!bg || !_bgUpdateErrLogged) _errorLog.write('ERROR', '업데이트', e); if(bg) _bgUpdateErrLogged = true; sendUpdateStatus('error', { message: String(e && e.message || e) }); });
 
-/* ── 🍎 맥은 자동 업데이트를 안 한다 (0.9.7~) ───────────────────────────────
-   맥판은 **애플 서명·공증이 없다.** electron-updater 의 맥 갈래는 서명된 zip + `latest-mac.yml`
-   을 전제로 하므로, 올려 봐야 설치 단계에서 실패한다. 그래서 릴리즈에 맥용 yml 을 아예 안 올리고
-   **dmg 직접 받기**로 간다(arm64 = 애플 실리콘 · x64 = 인텔).
-   ⇒ `checkForUpdates()` 를 맥에서 부르면 켤 때마다 yml 404 로 실패해 'error' 만 쌓인다.
-     아래 `startUpdateCheck()` 가 플랫폼을 갈라 **맥에서는 부르지 않는다.**
-   대신 릴리즈의 최신 태그만 읽어서 새 버전이면 «받으러 가기» 안내를 렌더러에 보낸다 —
-   내려받기·설치는 사용자가 브라우저에서 한다(renderer 의 `#updateReadyBanner` 재활용).
-   ★ 나중에 애플 개발자 프로그램으로 서명·공증을 하면 이 갈래를 지우고 zip + `latest-mac.yml` 을
-     릴리즈에 함께 올리면 원래대로 돌아온다. 지울 곳은 여기와 `startUpdateCheck()` 두 군데뿐. */
-
-/* 릴리즈 주소는 package.json 의 build.publish 에서 읽는다 — 저장소 이름을 여기 또 적으면
-   저장소를 옮길 때 한쪽만 바뀐다(맥 안내만 옛 저장소를 가리키는 조용한 고장). */
-function githubRepoInfo(){
-  try{
-    const pub = require('./package.json').build.publish;
-    const gh = (Array.isArray(pub) ? pub : [pub]).find(p => p && p.provider === 'github');
-    if(gh && gh.owner && gh.repo) return { owner: gh.owner, repo: gh.repo };
-  }catch(_){}
-  return null;
-}
-
-/* '0.9.7' · 'v0.10.0' → 숫자 비교. 자리 수가 다르면 없는 자리를 0 으로 본다.
-   ⚠️ 문자열 비교로 하면 '0.10.0' < '0.9.7' 이 된다 — 두 자리 마이너가 나오는 순간 조용히 틀린다. */
-function isNewerVersion(tag, cur){
-  const pick = (s) => String(s || '').replace(/^v/i, '').split('-')[0].split('.').map(n => parseInt(n, 10) || 0);
-  const a = pick(tag), b = pick(cur);
-  for(let i = 0; i < Math.max(a.length, b.length); i++){
-    const x = a[i] || 0, y = b[i] || 0;
-    if(x !== y) return x > y;
-  }
-  return false;
-}
-
-/* 맥: 최신 릴리즈 태그만 한 번 읽는다. 어떻게 끝나든 렌더러에 상태를 정확히 한 번 보낸다 —
-   새 판 있음 'mac-available' · 없음 'none' · 못 읽음 'error'(켤 때 업데이트 창이 답을 기다리므로 말없이 끝내면 시간 초과까지 로그인이 늦어진다).
-   앱은 그대로 돈다(안내가 없을 뿐). ⚠️ 주기적으로 다시 읽지 않는다 — 켤 때 한 번이면 «새 버전 나왔다» 를 알리기에 충분하다. */
-function checkMacUpdate(){
-  let sent = false;
-  const done = (status, extra) => { if(sent) return; sent = true; sendUpdateStatus(status, extra); };
-  const info = githubRepoInfo();
-  if(!info){ done('error', { message: 'no repo info' }); return; }
-  const opt = {
-    host: 'api.github.com',
-    path: `/repos/${info.owner}/${info.repo}/releases/latest`,
-    headers: { 'User-Agent': 'together-working', 'Accept': 'application/vnd.github+json' },
-    timeout: 8000,
-  };
-  let req;
-  try{
-    req = require('https').get(opt, (res) => {
-      if(res.statusCode !== 200){ res.resume(); done('error', { message: 'HTTP ' + res.statusCode }); return; }
-      let body = '';
-      res.setEncoding('utf8');
-      res.on('data', (c) => { body += c; if(body.length > 262144) req.destroy(new Error('too large')); });
-      res.on('error', (e) => done('error', { message: String(e && e.message || e) }));
-      res.on('close', () => done('error', { message: 'closed' }));   // 'end' 가 먼저 오면 이미 보냈으니 무시된다
-      res.on('end', () => {
-        try{
-          const j = JSON.parse(body);
-          const tag = j && (j.tag_name || j.name);
-          if(!tag){ done('error', { message: 'no tag' }); return; }
-          if(!isNewerVersion(tag, app.getVersion())){ done('none'); return; }
-          /* 주소도 응답에서 받은 것만 쓴다(직접 조립하지 않는다). https 가 아니면 안 보낸다 —
-             렌더러는 이 값을 그대로 openBrowser 에 넘긴다. */
-          const url = (j.html_url && /^https:\/\//i.test(j.html_url)) ? j.html_url : null;
-          if(!url){ done('none'); return; }
-          done('mac-available', { version: String(tag).replace(/^v/i, ''), url });
-        }catch(e){ done('error', { message: 'parse' }); }
-      });
-    });
-  }catch(e){ done('error', { message: 'request' }); return; }
-  req.on('timeout', () => { try{ req.destroy(new Error('timeout')); }catch(_){} });
-  req.on('error', (e) => done('error', { message: String(e && e.message || e) }));
-}
-
-/* 켜 둔 동안 다시 확인(윈도우만 · 조용히) — 켤 때 첫 확인은 렌더러가 묻는다(update-flow.js). 입구는 startUpdateCheck 하나 그대로. */
+/* 켜 둔 동안 다시 확인(조용히) — 켤 때 첫 확인은 렌더러가 묻는다(update-flow.js). */
 const _updateRecheck = createUpdateRecheck({ check: () => startUpdateCheck(), setTimeout, clearTimeout, random: Math.random });
 
-/* 업데이트 확인의 **유일한 입구.** 플랫폼 갈래를 여기 한 곳에만 둔다 —
-   호출부에 `process.platform` 을 흩어 놓으면 나중에 한 군데를 빠뜨린다. */
+/* 업데이트 확인의 유일한 입구 — 켤 때(렌더러) · 다시 확인(타이머) · 강제 창 [다시 시도] 가 모두 여기로. */
 function startUpdateCheck(){
-  if(process.platform === 'darwin'){ checkMacUpdate(); return; }
   autoUpdater.checkForUpdates().catch(() => {});
+}
+
+/* 재시작(계정 정리 · 망가진 창 다시 띄우기) — 맥에서 받아 둔 판이 있으면 설치하고 다시 켠다(update-platform.js 머리말).
+   exit 는 relaunch 뒤 끄는 방법(app.quit · _exitNow), install 은 설치하고 다시 켜는 방법(저장을 기다릴지는 부르는 쪽이 정한다). */
+function _relaunchOrInstall(exit, install){
+  if(_updatePlatform.relaunchAction(_updateStaged) === UPDATE_RELAUNCH.INSTALL){
+    _diagLog('[재시작] 받아 둔 판이 있어 설치하고 다시 켠다(맥)');
+    install();
+    return;
+  }
+  _skipInstallOnQuit();   // 다시 켜는 앱과 설치가 부딪히지 않게 — 받은 판은 다음에 끌 때
+  try{ app.relaunch(); }catch(e){ _diagLog('[재시작] relaunch 실패 — 종료만 합니다 ' + (e && e.message)); }
+  exit();
+}
+
+/* 맥: 응용 프로그램 폴더 밖(다운로드 · dmg 안)에서 켰으면 처음 한 번 옮기기를 묻는다 — 밖에서는 자동 업데이트가 실패한다.
+   옮기면 Electron 이 새 자리에서 다시 켜므로 true(부르는 쪽은 창을 띄우지 않는다). 거절 · 실패면 false 로 그대로 켠다. */
+let _macMoveAsked = false;
+async function _offerMoveToApplications(){
+  if(!_updatePlatform.shouldOfferMove(_macMoveAsked)) return false;
+  _macMoveAsked = true;
+  try{ saveSettings(); }catch(_){}
+  let r = null;
+  try{
+    r = await dialog.showMessageBox({
+      type: 'question', title: 'Together Working',
+      message: '«응용 프로그램» 폴더로 옮길까요?',
+      detail: '지금은 응용 프로그램 폴더 밖에서 켜져 있어요. 응용 프로그램 폴더에 있어야 새 버전이 자동으로 설치돼요.\n\n'
+        + '[옮기기] 를 누르면 옮긴 뒤 다시 켜져요.',
+      buttons: ['옮기기', '그대로 쓰기'], defaultId: 0, cancelId: 1,
+    });
+  }catch(_){ return false; }
+  if(!r || r.response !== 0) return false;
+  try{ return app.moveToApplicationsFolder() === true; }
+  catch(e){ _errorLog.write('ERROR', '응용 프로그램 폴더로 옮기기', e); return false; }
 }
 
 // 사용자가 타이틀바를 드래그해서 옮긴 창 위치 — 모드(launcher/creator)별로 각각 기억해뒀다가
@@ -491,6 +454,7 @@ function loadSettings(){
        createWindow 의 did-finish-load 에서 applyUiZoom 이 실제로 건다. */
     if(typeof data.uiZoom === 'number' && isFinite(data.uiZoom)) uiZoom = _clampZoom(data.uiZoom);
     if(data.labVideoAsked === true) _labVideoAsked = true;
+    if(data.macMoveAsked === true) _macMoveAsked = true;
     /* 🗑️ [2026-08-26] `overlayNoActivate` 는 **읽지 않는다.** 아래 saveSettings 도 안 쓴다.
        NOACTIVATE 실험이 폐기됐기 때문이다(핸드오프5 §7). 옛 파일에 값이 남아 있어도 그냥 무시되고,
        다음 저장 때 키가 사라진다 — 실험을 켠 채로 제보한 사용자가 앱만 새로 받으면 복구된다. */
@@ -664,8 +628,12 @@ function _exitNow(){
   try{ if(_lagTimer){ clearInterval(_lagTimer); _lagTimer = null; } }catch(_){}
   try{ if(_resTimer){ clearInterval(_resTimer); _resTimer = null; } }catch(_){}
   try{ _flushLauncherPos(); }catch(_){}   // app.exit 는 before-quit 를 안 거친다 — 남은 런처 자리만
-  try{ BrowserWindow.getAllWindows().forEach(w=>{ try{ if(!w.isDestroyed()) w.destroy(); }catch(_){} }); }catch(_){}
+  _destroyAllWindows();
   try{ app.exit(0); }catch(_){}
+}
+/* 창을 닫지 않고 바로 없앤다 — 닫기(close)는 멈춘 렌더러의 beforeunload 를 기다릴 수 있다. _exitNow · 맥 «설치하고 다시 켜기»(_relaunchFresh)가 쓴다. */
+function _destroyAllWindows(){
+  try{ BrowserWindow.getAllWindows().forEach(w=>{ try{ if(!w.isDestroyed()) w.destroy(); }catch(_){} }); }catch(_){}
 }
 /* 🚪 app.quit() 으로 끄는 길(제목줄 × · 내 정보 · 다른 기기 안내 · Cmd+Q · 재시작) · 메인 창 닫기 · 업데이트 설치를 한 곳에서 붙잡아
    렌더러가 못 올린 캐릭터 고침을 끝내기를 기다린다(없으면 바로 · 상한 있음). _exitNow(OS 세션 종료 · 중복 실행 정리)는 거치지 않는다 — OS 종료를 막지 않게. */
@@ -683,6 +651,7 @@ function saveSettings(){
       overlayGapVer: overlay.GAP_VER,          // 🚚 이 값을 적어야 승격이 두 번 일어나지 않는다
       overlayLayeredAlpha: overlay.alpha(),
       labVideoAsked: _labVideoAsked,          // 🎬 초기화로 꺼진 실험을 «다시 켤까요?» 로 이미 물었는가
+      macMoveAsked: _macMoveAsked,            // 맥: 응용 프로그램 폴더로 옮기기를 이미 물었는가(_offerMoveToApplications)
       launcherPos: savedPos.launcher,         // 🪟 런처 자리 — _rememberPos 가 몰아서 저장(_saveLauncherPosSoon)
       uiZoom }));                              // 🔍 전체 화면 크기 — applyUiZoom 만 바꾼다
     _saveFailLogged = false;
@@ -2879,8 +2848,7 @@ function _setupMainOnce() {
 
   // 업데이트 확인은 렌더러가 켤 때(로그인 전 — shared/update-flow.js) companion:checkUpdate 로 묻는다 — 창이 구독을 건 뒤라 답을 놓치지 않는다.
   // 개발 중(npm start)엔 electron-updater가 "패키징 안 된 앱"이라며 에러를 내는 게 정상이라 무시해도 됨.
-  // 🍎 맥은 autoUpdater 를 안 탄다 — 갈래는 startUpdateCheck() 안에 있다(위 주석).
-  if(UPDATE_IN_BACKGROUND) _updateRecheck.start();   // 켜 둔 동안 다시 확인 — 첫 차례는 4~5시간 뒤(켤 때 확인과 겹치지 않음)
+  if(_updatePlatform.backgroundRecheck) _updateRecheck.start();   // 켜 둔 동안 다시 확인 — 첫 차례는 4~5시간 뒤(켤 때 확인과 겹치지 않음)
 
   // 렌더러가 "지금 재시작해서 설치" 버튼을 눌렀을 때 — 다운로드 완료된 업데이트를 설치하며 앱 재시작
   ipcMain.on('companion:installUpdate', () => { _quitHold.flushThen(() => autoUpdater.quitAndInstall()); });   // 설치는 창부터 닫아(맥) before-quit 로는 못 묻는다 — 먼저 묻는다
@@ -3878,9 +3846,7 @@ function _setupMainOnce() {
        있어서 한 곳만 빠뜨려도 두 계정이 섞인다. 재시작은 그 위험이 구조적으로 없다.
      ⚠️ relaunch() 는 '다음에 켤 것'을 예약할 뿐이다. quit() 을 반드시 이어 불러야 실제로 껐다 켜진다. */
   ipcMain.on('companion:relaunchApp', () => {
-    _skipInstallOnQuit();   // 다시 켜는 앱과 설치가 부딪히지 않게 — 받은 판은 다음에 끌 때
-    try{ app.relaunch(); }catch(e){ console.warn('[재시작] relaunch 실패 — 종료만 합니다', e); }
-    app.quit();
+    _relaunchOrInstall(() => app.quit(), () => _quitHold.flushThen(() => autoUpdater.quitAndInstall()));
   });
 
   /* 🔔 작업표시줄 버튼 깜빡임 (카카오톡 방식). Windows FlashWindowEx 를 Electron 이 감싼 것.
@@ -4218,8 +4184,8 @@ function _mainWindowHealth(){
    ⚠️ relaunch() 는 예약일 뿐이라 _exitNow() 를 꼭 이어 부른다. 멈춘 렌더러를 기다리지 않게 quit() 이 아니라 exit(0). */
 function _relaunchFresh(s){
   _diagLog('[중복 실행] 옛 창을 쓸 수 없어 정리하고 새로 띄움 — ' + JSON.stringify(s));
-  try{ app.relaunch(); }catch(e){ _diagLog('[중복 실행] relaunch 실패 — ' + (e && e.message)); }
-  _exitNow();
+  // 맥 quitAndInstall 은 창부터 닫는다(close) — 멈춘 렌더러를 기다리지 않게 먼저 없앤다
+  _relaunchOrInstall(_exitNow, () => { _destroyAllWindows(); autoUpdater.quitAndInstall(); });
 }
 
 // 앱 중복 실행 방지 — 이미 하나 켜져있는데 또 실행하면(바탕화면 아이콘 재클릭 등),
@@ -4253,6 +4219,7 @@ if (!gotLock) {
     FOCUS_APPS_FILE = path.join(app.getPath('userData'), 'focus-apps.json');
     focusApps = loadFocusApps();   // ★ 이전에 등록해둔 포커싱 어플 복원
     _applyAppMenu();   // 기본 메뉴 걷기 — 창보다 먼저(APP_MENU_TEMPLATE 주석)
+    if(await _offerMoveToApplications()) return;   // 맥: 옮기면 새 자리에서 다시 켜진다 — 이 실행은 창을 띄우지 않는다
     _bootDone = true;
     createWindow();
     /* 💤 절전 · 잠금에서 돌아옴 — 렌더러의 realtime 연결이 살아 있는지 한 번 확인한다(rt-hub checkAlive · 끊겼으면 다시 붙음) */
