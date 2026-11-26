@@ -19,6 +19,7 @@
      opts.expectOwner: 보내기 직전 쓸 토큰의 주인과 견줘 다르면 보내지 않고 code OWNER_CHANGED 로 끝낸다(요청 0) — 읽은 계정의 값을 다른 계정 토큰으로 쓰지 않게.
      opts.rawType: 본문(Uint8Array 등)을 JSON 으로 바꾸지 않고 이 Content-Type 으로 바이트 그대로 보낸다(그림 올리기).
      캐시 · 합치기 · 쉬기는 하지 않는다(쓰기는 매번 다르다). 다시 보내도 되는 쓰기는 본문 requestId 를 같은 값으로(request-id.js).
+   [기다리기] whenIdle() — 지금 나가 있는 요청(읽기 · 쓰기)이 다 끝나면 풀린다.
    [로그인] 토큰은 deps.getToken(force). 없으면 보내지 않고 'auth'(code NO_TOKEN). 401 AUTH_REQUIRED 면 새 토큰으로 한 번만 다시.
      로그인 요청에는 이 기기 id 머리 X-Device-Id(device-id.js — 프리미엄은 «이 기기» 판정)를 싣는다.
    [쉬기] 'unavailable' 이면 BACKOFF_MS 동안 묻지 않고 곧장 'unavailable'(code BACKOFF) — 읽기만. 로그인 통로(authed)는 쉬지 않는다.
@@ -142,6 +143,15 @@ function createApiClient(deps){
   let downUntil = 0;
   let gateUntil = 0, gateFails = 0;   // 멈춤 gate — 이 때까지 보내지 않고 기다린다 · 연속 실패 수
   const limited = new Map();          // method + ' ' + path → 429 Retry-After 가 끝나는 때
+  let active = 0;                     // 지금 나가 있는 요청 수(읽기 · 쓰기) — whenIdle
+  const idleWaiters = [];
+  /* 요청 하나를 센다 — 끝나면(성공 · 실패) 빼고, 0 이 되면 기다리던 쪽을 푼다 */
+  function counted(p){
+    active++;
+    const done = () => { active--; if(!active) idleWaiters.splice(0).forEach((f) => f()); };
+    p.then(done, done);
+    return p;
+  }
 
   /* 로그인 요청이면 토큰 · 기기 머리를 붙인다. who 는 ETag 열쇠의 «누구». */
   async function authOf(o, force){
@@ -301,7 +311,7 @@ function createApiClient(deps){
   function joined(key, path, o){
     if(inflight.has(key)) return inflight.get(key);
     onRequest();
-    const p = send(path, o.timeoutMs || timeoutMs, o).then((data) => {
+    const p = counted(send(path, o.timeoutMs || timeoutMs, o)).then((data) => {
       downUntil = 0;
       if(o.cacheMs > 0 && !o.auth) cache.set(path, { data, until: now() + o.cacheMs });
       return data;
@@ -320,7 +330,7 @@ function createApiClient(deps){
     if(!base || !fetchFn) return Promise.reject(new ApiError('unavailable', 0, 'NO_API', 'API 주소 없음'));
     return gated(method + ' ' + path, () => {
       onRequest();
-      return send(path, o.timeoutMs || writeTimeoutMs, o);
+      return counted(send(path, o.timeoutMs || writeTimeoutMs, o));
     });
   }
 
@@ -332,6 +342,8 @@ function createApiClient(deps){
     del: (path, opts) => write('DELETE', path, undefined, opts),
     baseUrl: () => base || null,
     resting: () => downUntil > now(),
+    /* 지금 나가 있는 요청이 다 끝나면 풀리는 약속(없으면 바로) — 켤 때 «접속 중…» 을 언제 내릴지(app-boot) */
+    whenIdle: () => (active ? new Promise((r) => idleWaiters.push(r)) : Promise.resolve()),
     /* 멈춤 gate 가 남은 시간(ms · 없으면 0) — 화면 · 진단용 */
     gateLeftMs: () => Math.max(0, gateUntil - now()),
     clearCache: () => { cache.clear(); etags.clear(); if(persist){ try{ persist.store.clear(); }catch(_){} } },

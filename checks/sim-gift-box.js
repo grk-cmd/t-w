@@ -414,7 +414,7 @@ function wiring(S, loud){
   t(/giftBox: giftBoxMod,/.test(S.APP.slice(S.APP.indexOf('const mallangMod = '), S.APP.indexOf('const mallangMod = ') + 600)), '  말랑이 화면 deps 에 giftBox');
   t([inboxAt, uiAt].every((i) => /\n  giftBox: giftBoxMod,\n/.test(A.slice(i, A.indexOf('\n});', i) + 4))), '  수령함 · 마이홈 창 deps 에 giftBox');
   t(/\n  giftBox: giftBoxMod,\n/.test(A.slice(A.indexOf('const accountMod = TwAccount.createAccount('), A.indexOf('\n});', A.indexOf('const accountMod = TwAccount.createAccount(')) + 4)) && /giftBox\.reset\(\)/.test(strip(S.ACC)), '  계정 모듈이 로그아웃 때 giftBox.reset()');
-  t(/'mhInit',[^\n]*\n\s*'gift',/.test(S.BOOT), 'app-boot STEPS 에 gift(마이홈 시작 다음)');
+  t(/\['gift', PHASE\.READY\],/.test(S.BOOT), 'app-boot STEPS 에 gift(업데이트 확인 · 등록 뒤 READY — 신호만 걸어 첫 화면 전에 걸어도 요청 0)');
   t(/gift: \(code, me, session\)=>\{[^}]*session\.on\(giftBoxMod\.listen\(\)\)[^}]*session\.onReset\(/.test(S.APP), '  gift 시작은 신호만 건다(listen) + 세션 reset(요청 0)');
   const H = S.HTML.replace(/<!--[\s\S]*?-->/g, '');
   const at = (f) => H.indexOf('<script src="parts/' + f + '"');
@@ -577,7 +577,7 @@ function wiring(S, loud){
     });
     const w = (patch) => !wiring(Object.assign({}, SRC0, patch), false);
     chk(w({ ML: SRC0.ML + "\nlet knownGifts = null;" }) && w({ INBOX: SRC0.INBOX + "\nmallangMod.dropGift('x');" }), '화면 쪽에 pendingGifts · knownGifts · placeGift · dropGift 가 다시 생기면 빨강');
-    chk(w({ BOOT: SRC0.BOOT.replace("  'gift',", '') }), 'gift STEP 이 빠지면 빨강');
+    chk(w({ BOOT: SRC0.BOOT.replace("  ['gift', PHASE.READY],", '') }), 'gift STEP 이 빠지면 빨강');
     chk(w({ INBOX: SRC0.INBOX + "\nfirebaseAPI.setMallangGiftStarred(1,2,3);" }), '옛 ⭐ 길을 다시 부르면 빨강');
     chk(w({ ML: SRC0.ML + "\nconst K = 'tw.mallangGiftHidden';" }), '이 PC «치움» 키가 다시 생기면 빨강');
     chk(w({ INBOX: SRC0.INBOX.replace("TwSafeHtml.safeUrl(g.imageUrl, 'image')", 'g.imageUrl') }), '그림 주소 safeUrl 을 빼면 빨강');
