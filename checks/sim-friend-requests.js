@@ -1,8 +1,8 @@
 /* ═══ 👋 sim-friend-requests.js — 친구 요청 포트 · 서버 provider (0.13 앱 묶음 D3 친구 요청) ═══
    [왜] 받은 요청 · 보낸 요청 · 수락 · 거절 · 취소 · 보내기 · 친구코드 찾기를 서버 경로(social-api.js)로 부른다. 서버 한 길이고(옛 Firebase 경로 provider · 받는 곳 고르기는 걷었다 — D13 E-2),
      못 하면 던진다. 알림(friendRequests)을 받으면 다시 받는다.
-   ・1절: 포트 — 여덟 가지 모두 서버 provider · 못 하면 던진다
-   ・2절: 서버 provider — 받은 요청 { 보낸이: { name, ts } } · 이름 못 받아도 요청은 그림 · 알림 · 한 번에 하나 · 해제 · 보낸 요청 · 수락 · 거절 · 취소/보내기 결과(already · self)
+   ・1절: 포트 — 아홉 가지 모두 서버 provider · 못 하면 던진다
+   ・2절: 서버 provider — 받은 요청 { 보낸이: { name, ts, msg? } }(신청 사유) · 이름 못 받아도 요청은 그림 · 알림 · 한 번에 하나 · 해제 · 보낸 요청 · 수락 · 거절 · 취소/보내기 결과(already · self) · 보내기에 사유
    ・3절: (옛 경로 provider 는 걷었다 — 없는지만 본다)
    ・4절: 친구코드 찾기(social-api) — 0/1명 · 모양 틀림 던짐
    ・5절: mutation test
@@ -34,7 +34,7 @@ async function judge(S){
 
   say('── 1. 포트 — 서버 provider 한 길');
   {
-    const names = ['watchReceived', 'listSent', 'accept', 'reject', 'cancel', 'send', 'lookupName', 'lookupFriendCode'];
+    const names = ['watchReceived', 'listSent', 'sentIds', 'accept', 'reject', 'cancel', 'send', 'lookupName', 'lookupFriendCode'];
     const mk = (tag, log, fail) => Object.fromEntries(names.map((n) => [n, async (...a) => { log.push(tag + ':' + n); if(fail) throw new Error('x'); return tag; }]));
     const run = async (o) => {
       const log = [];
@@ -44,7 +44,7 @@ async function judge(S){
       return { log, res };
     };
     let r = await run({});
-    chk(r.log.every((x) => x.startsWith('api:')) && r.log.length === 8, '★ 서버면 여덟 가지 모두 서버 provider');
+    chk(r.log.every((x) => x.startsWith('api:')) && r.log.length === 9, '★ 서버면 아홉 가지 모두 서버 provider');
     r = await run({ apiFail: true });
     chk(r.log.every((x) => x.startsWith('api:')) && r.res.every((x) => x === 'throw'), '★ 서버가 못 하면 던진다 — 옛 경로(Firebase)로 물러나지 않는다');
   }
@@ -55,12 +55,12 @@ async function judge(S){
     const L = { reqs: 0, cards: [], sent: [], on: {}, offs: 0 };
     const social = {
       fetchRequests: async () => { L.reqs++; if(o.reqFail) throw new Error('못 받음'); await (o.gate || Promise.resolve());
-        return { received: [{ userCode: 'a', requestedAt: 100 }, { userCode: 'b', requestedAt: 200 }], sent: [{ userCode: 'c', requestedAt: 300 }] }; },
+        return { received: [{ userCode: 'a', requestedAt: 100, message: '같이 해요' }, { userCode: 'b', requestedAt: 200 }], sent: [{ userCode: 'c', requestedAt: 300 }] }; },
       fetchCards: async (codes) => { L.cards.push(codes.join()); if(o.cardsFail) throw new Error('x'); const out = {}; for(const c of codes) if(c !== 'b') out[c] = { name: 'N-' + c }; return out; },
       acceptRequest: async (c) => { L.sent.push('accept ' + c); if(o.writeErr) throw o.writeErr; },
       rejectRequest: async (c) => { L.sent.push('reject ' + c); },
       cancelRequest: async (c) => { L.sent.push('cancel ' + c); if(o.writeErr) throw o.writeErr; },
-      sendRequest: async (c) => { L.sent.push('send ' + c); if(o.writeErr) throw o.writeErr; },
+      sendRequest: async (c, m) => { L.sent.push('send ' + c + (m === undefined ? '' : ' ' + JSON.stringify(m))); if(o.writeErr) throw o.writeErr; },
       findByFriendCode: async (c) => (c === 'MATE-AAAA' ? 'uAAA' : null),
     };
     const rt = { on: (k, fn) => { (L.on[k] = L.on[k] || []).push(fn); return () => { L.offs++; L.on[k] = L.on[k].filter((f) => f !== fn); }; } };
@@ -72,6 +72,7 @@ async function judge(S){
     const off = k.api.watchReceived('ME', (v) => got.push(v), (e) => errs.push(e));
     await flush();
     chk(got.length === 1 && got[0].a.name === 'N-a' && got[0].a.ts === 100 && got[0].b.name === '' && got[0].b.ts === 200 && k.L.cards.join() === 'a,b', '★ watchReceived — { 보낸이: { name, ts } } · 명함이 없는 사람은 이름 \'\'(화면이 «(이름 없음)»)');
+    chk(got[0].a.msg === '같이 해요' && !('msg' in got[0].b), '★ 받은 요청의 신청 사유 — 있으면 msg(friend-manage 가 이름 아래에) · 없으면 필드 없음');
     k.fire('friendRequests'); await flush();
     chk(got.length === 2 && k.L.reqs === 2, '  ↳ friendRequests 알림이 오면 다시 받는다');
     k.fire('friendRequests', { resync: true }); await flush();
@@ -92,11 +93,22 @@ async function judge(S){
     k.api.watchReceived('ME', (v) => g3.push(v), () => {}); await flush();
     chk(g3.length === 1 && g3[0].a.name === '' && g3[0].a.ts === 100 && k.warns.length === 1, '★ 이름을 못 받아도 요청은 그린다(이름 없이) · 진단 한 줄');
     k = mkSocial();
+    {
+      const j = mkSocial();
+      const ids = await j.api.sentIds('ME');
+      chk(JSON.stringify(ids) === '["c"]' && j.L.reqs === 1 && j.L.cards.length === 0, '★ sentIds — 보낸 요청의 상대 코드만 · GET 한 번 · 명함(이름)을 받지 않는다');
+      const f = mkSocial({ reqFail: true }); let thrown = false;
+      try{ await f.api.sentIds('ME'); }catch(_){ thrown = true; }
+      chk(thrown, '  ↳ 못 받으면 던진다');
+    }
     const sent = await k.api.listSent('ME');
     chk(Object.keys(sent).join() === 'c' && sent.c.ts === 300 && sent.c.toName === 'N-c', '보낸 요청 — { 받는이: { ts, toName } }');
     await k.api.accept('ME', 'a'); await k.api.reject('ME', 'a');
     chk(k.L.sent.join() === 'accept a,reject a', '수락 · 거절 — 상대 코드만 서버로(내 코드는 토큰)');
     chk((await k.api.cancel('ME', 'c')).ok === true && (await k.api.send('ME', 'z')).ok === true, '취소 · 보내기 성공 → { ok:true }');
+    k = mkSocial();
+    await k.api.send('ME', 'z', '같이 공부해요'); await k.api.send('ME', 'y', '');
+    chk(k.L.sent.join() === 'send z "같이 공부해요",send y ""', '★ 보내기 — 신청 사유를 provider 에 그대로 넘긴다(다듬기 · 빈 글 빼기는 social-api)');
     k = mkSocial({ writeErr: Object.assign(new Error('e'), { code: 'SOCIAL_ALREADY_FRIEND' }) });
     let r = await k.api.send('ME', 'z');
     chk(!r.ok && r.reason === 'already', '★ 보내기 — 이미 친구 → reason already');
@@ -141,14 +153,19 @@ async function judge(S){
 await judge(SRC0);
 say('── 6. mutation test — 하나라도 못 잡으면 빨강');
 const BREAKS = [
-  ['PORT', "const pick = () => deps.api;", "const pick = () => ({ watchReceived(){}, listSent(){}, accept(){}, reject(){}, cancel(){}, send(){}, lookupName(){}, lookupFriendCode(){} });", '서버 provider 를 안 씀'],
+  ['API', "    sentIds: async () => (await social.fetchRequests()).sent.map((x) => x.userCode),", "    sentIds: async (myId) => Object.keys(await listSent(myId)),", 'sentIds 가 이름까지 받음'],
+  ['PORT', "    sentIds: (...a) => pick().sentIds(...a),\n", "", '포트에 sentIds 없음'],
+  ['PORT', "const pick = () => deps.api;", "const pick = () => ({ watchReceived(){}, listSent(){}, sentIds(){}, accept(){}, reject(){}, cancel(){}, send(){}, lookupName(){}, lookupFriendCode(){} });", '서버 provider 를 안 씀'],
   ['PORT', "const pick = () => deps.api;", "const pick = () => deps.api || deps.firebase;", '옛 경로로 물러남'],
   ['API', "    const off = rt.on('friendRequests', () => { run(); });", "    const off = () => {};", '알림을 안 건다'],
   ['API', "      if(flying){ again = true; return; }", "      if(flying){ return; }", '받는 중 알림을 버림'],
   ['API', "    return () => { dead = true; off(); };", "    return () => { };", '풀어도 알림이 남음'],
   ['API', "catch(e){ warn('[친구 요청] 이름을 못 받음", "catch(e){ throw e; warn('[친구 요청] 이름을 못 받음", '이름 실패로 요청까지 못 그림'],
   ['API', "const REASON = { SOCIAL_ALREADY_FRIEND: 'already', SOCIAL_SELF: 'self' };", "const REASON = {};", '이미 친구 · 나 구분 없음'],
-  ['API', "ts: x.requestedAt };\n        onChange", "ts: 0 };\n        onChange", '받은 시각을 버림'],
+  ['API', "const v = { name: nameIn(cards, x.userCode), ts: x.requestedAt };", "const v = { name: nameIn(cards, x.userCode), ts: 0 };", '받은 시각을 버림'],
+  ['API', "          if(x.message) v.msg = x.message;\n", "", '받은 사유를 버림'],
+  ['API', "          if(x.message) v.msg = x.message;\n", "          v.msg = x.message;\n", '사유가 없어도 msg 필드'],
+  ['API', "social.sendRequest(toId, msg)", "social.sendRequest(toId)", '보내기가 사유를 버림'],
   ['SOC', "    if(!Array.isArray(d)) throw shapeError();\n    const u", "    const u", '친구코드 모양 틀림을 안 던짐'],
   ['SOC', "{ auth: true });\n    if(!Array.isArray(d))", "{});\n    if(!Array.isArray(d))", '친구코드 찾기가 토큰 없이'],
 ];

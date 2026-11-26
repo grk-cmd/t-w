@@ -3,7 +3,7 @@
      서버 모양(userCode · ISO 시각 · displayName · cycle …)을 화면 모양으로 맞추는 곳 · 쓰기를 토큰 주인과 묶는 곳이 provider 하나라 실제로 불러서 판정한다.
    ・1절: 친구 목록 — 객체 배열 → 같은 차례 · 시각 ms · 마지막 접속 없음 = null · 빈 목록 ≠ 못 읽음 · 깨진 줄 · 겹친 코드 뺌 · 모양 틀림 던짐
    ・2절: 친구 한 명 · 끊기 — 친구가 아니면 null(실패와 다름) · 그 밖 실패는 던짐 · 끊기 경로
-   ・3절: 친구 요청 — 목록 모양 · 보내기 본문 { to } 만(내 코드 · 이름 없음) · 수락 · 거절 · 취소 경로
+   ・3절: 친구 요청 — 목록 모양 · 받은 요청의 사유(message) · 보내기 본문 { to, message? }(내 코드 · 이름 없음 · 사유는 앞뒤 공백 떼고 비면 뺌 — 0.13 모양 { to }) · 수락 · 거절 · 취소 경로
    ・4절: 명함 — 화면 칸 이름 · 이름 없음은 '' 그대로 · 레벨 거르기 · 빈 목록 요청 0 · 겹침 하나로 · 100 · 101 · 250 나눠 묻기 · 한 조각 실패면 던짐
    ・5절: 주인 묶기 — 읽기 전 쓰기는 요청 0 · 진짜 api-client 위에서 토큰 주인이 바뀌면 요청 0 · reset 뒤 요청 0 · 명함 · 친구 한 명 읽기는 주인을 남기지 않음
    ・6절: 오류 갈래(failOf — 진짜 api-errors.js 의 translate 로)
@@ -127,9 +127,19 @@ async function judge(S){
     await w.m.cancelRequest('C');
     const writes = w.authed.log.filter((x) => x.method !== 'GET');
     chk(writes.length === 4 && writes.every((x) => x.opts && 'expectOwner' in x.opts), '쓰기 넷 모두 읽은 주인과 묶음');
-    chk(writes[0].path === '/v2/me/friend-requests' && JSON.stringify(writes[0].body) === '{"to":"A B"}', '보내기 — POST /v2/me/friend-requests { to } 만(내 코드 · 이름을 싣지 않는다)');
+    chk(writes[0].path === '/v2/me/friend-requests' && JSON.stringify(writes[0].body) === '{"to":"A B"}', '보내기 — POST /v2/me/friend-requests { to } 만(내 코드 · 이름을 싣지 않는다 · 사유가 없으면 0.13 모양 그대로)');
     chk(writes[1].path === '/v2/me/friend-requests/A%20B/accept' && writes[2].path === '/v2/me/friend-requests/A%20B/reject', '수락 · 거절 — POST …/{from}/accept · reject(경로에 인코딩)');
     chk(writes[3].method === 'DELETE' && writes[3].path === '/v2/me/friend-requests/C', '취소 — DELETE …/{to}');
+    {
+      const s = mk(LIB, { 'POST /v2/me/friend-requests': null });
+      await s.m.fetchRequests();
+      for(const m of ['  같이 공부해요 ', '   ', '', undefined, null, 7]) await s.m.sendRequest('A', m);
+      const bodies = s.authed.log.filter((x) => x.method === 'POST').map((x) => JSON.stringify(x.body));
+      chk(bodies[0] === '{"to":"A","message":"같이 공부해요"}', '★ 사유 — 앞뒤 공백을 떼고 { to, message } 로');
+      chk(bodies.length === 6 && bodies.slice(1).every((b) => b === '{"to":"A"}'), '★ 사유가 비거나(공백뿐 · 빈 글 · 없음 · 문자 아님) 필드째 뺀다 — { to }');
+      const rq = load(LIB).requestsOf({ received: [{ userCode: 'A', requestedAt: T1, message: '안녕' }, { userCode: 'B', requestedAt: T1, message: '' }, { userCode: 'C', requestedAt: T1, message: 3 }, { userCode: 'D', requestedAt: T1 }], sent: [{ userCode: 'E', requestedAt: T1 }] });
+      chk(rq.received[0].message === '안녕' && rq.received.slice(1).every((x) => !('message' in x)) && !('message' in rq.sent[0]), '★ 받은 요청 사유 — 빈 글이 아닌 문자열만 message · 없거나 빈 글 · 문자 아님은 필드 없음(0.13 서버 응답도 그대로 읽힌다)');
+    }
     const nc = mk(LIB);
     await nc.m.fetchRequests();
     for(const f of ['sendRequest', 'acceptRequest', 'rejectRequest', 'cancelRequest', 'removeFriend']){
@@ -243,7 +253,12 @@ async function runAll(){
   await judge(S);
   say('── 8. mutation test');
   const breaks = [
-    ['보내기 본문에 내 코드를 실음', S.API.replace("authed.post(PATHS.requests, { to: c }, o)", "authed.post(PATHS.requests, { to: c, from: 'ME' }, o)"), '본문'],
+    ['보내기 본문에 내 코드를 실음', S.API.replace("return m ? { to, message: m } : { to };", "return m ? { to, message: m, from: 'ME' } : { to, from: 'ME' };"), '본문'],
+    ['사유 앞뒤 공백을 안 뗌', S.API.replace("const m = str(message).trim();", "const m = str(message);"), '앞뒤 공백'],
+    ['빈 사유도 실음', S.API.replace("return m ? { to, message: m } : { to };", "return { to, message: m };"), '필드째 뺀다'],
+    ['보내기가 사유를 버림', S.API.replace("authed.post(PATHS.requests, requestBodyOf(c, message), o)", "authed.post(PATHS.requests, requestBodyOf(c), o)"), '{ to, message }'],
+    ['받은 사유를 버림', S.API.replace("if(nonEmpty(raw.message)) r.message = raw.message;", ""), '받은 요청 사유'],
+    ['빈 사유도 받음', S.API.replace("if(nonEmpty(raw.message)) r.message = raw.message;", "if(raw.message !== undefined) r.message = raw.message;"), '받은 요청 사유'],
     ['쓰기가 주인을 안 묶음', S.API.replace("try{ return await send({ expectOwner: owner }); }", "try{ return await send({}); }"), 'expectOwner'],
     ['읽기 전에도 보냄', S.API.replace("if(owner === undefined) throw codeError(NOT_RECEIVED_CODE, '받기 전에는 쓰지 않아요');", ""), '요청 0'],
     ['reset 이 늦은 읽기를 안 막음', S.API.replace("if(at === epoch) owner = who;", "owner = who;"), 'reset'],

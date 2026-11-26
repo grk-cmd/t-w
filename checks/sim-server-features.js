@@ -2,7 +2,7 @@
    실행:  node checks/run.js sim-server-features
    ★ 왜 이 검사가 있는가 — 0.14 의 몇 기능은 Firebase DB · Functions 에 직접 읽고 쓰게 만들어졌고, 0.13 은 Firebase DB 쓰기를 잠갔다.
      서버가 받을 때까지 입구만 닫아 두는데, 입구가 하나라도 열려 있으면 버튼을 눌렀을 때 조용히 실패하거나 오류 번호가 뜬다.
-   ・1절: 표 — 이름 여덟 · 모두 false · 모르는 이름은 던진다 · 바꿀 수 없다
+   ・1절: 표 — 이름 일곱 · 서버가 받은 것(ON)만 true · 모르는 이름은 던진다 · 바꿀 수 없다
    ・2절: 입구 — 모듈을 실제로 불러 «꺼져 있으면 닫힌다» 를 본다(플레이리스트 👍 · #공지 · #집중 · 친구 신청 사유 · 내 색)
    ・3절: 배선 — app.js 가 기능마다 표에 묻는다 · html · smoke 가 app.js 보다 먼저 싣는다
    ・4절: mutation test */
@@ -19,6 +19,7 @@ for (const f of ['shared/server-features.js', 'app.js', 'desk-companion-prototyp
   if (SRC[f] == null) { say('  ? 원본 못 찾음 — ' + f); process.exit(2); }
 }
 const NAMES = ['xmas', 'chatNotice', 'chatFocus', 'playlistLike', 'googleChange', 'friendReqMsg', 'themeCustomSave'];
+const ON = ['friendReqMsg', 'themeCustomSave'];   // 서버가 받는 것 — friendReqMsg: POST · GET /v2/me/friend-requests 의 message(t-w-server #364) · themeCustomSave: GET · PUT /v2/me/theme-custom(t-w-server #363)
 const loadSF = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwServerFeatures; };
 
 function judgeTable(src) {
@@ -26,7 +27,7 @@ function judgeTable(src) {
   try {
     const S = loadSF(src);
     r.names = Object.keys(S.FEATURES).sort().join() === NAMES.slice().sort().join();
-    r.allOff = NAMES.every(n => S.on(n) === false);
+    r.allOff = NAMES.every(n => S.on(n) === ON.includes(n));
     let threw = false; try { S.on('없는이름'); } catch (_) { threw = true; }
     r.throws = threw;
     r.frozen = Object.isFrozen(S.FEATURES) && Object.isFrozen(S);
@@ -37,7 +38,7 @@ function judgeTable(src) {
 say('── 1. 표');
 const T = judgeTable(SRC['shared/server-features.js']);
 chk(T.names, '이름 일곱(xmas · chatNotice · chatFocus · playlistLike · googleChange · friendReqMsg · themeCustomSave)');
-chk(T.allOff, '모두 꺼짐 — 서버가 받기 전');
+chk(T.allOff, '서버가 받은 것(' + ON.join(' · ') + ')만 켜짐 · 나머지는 꺼짐');
 chk(T.throws, '모르는 이름은 던진다(글자를 잘못 쓰면 조용히 꺼진 채 남지 않게)');
 chk(T.frozen, '표와 모듈은 바꿀 수 없다');
 
@@ -91,7 +92,7 @@ for (const [file, g, f, label] of [['chat/chat-notice.js', 'TwChatNotice', 'crea
 /* 👑 내 색 — 서버 길이 없으면 이 PC 에만(서버 쓰기 · 읽기 · 실패 알림 없음) */
 {
   const th = SRC['shared/theme-ui.js'];
-  chk(/if\(!uid \|\| !serverOn\(\)\) return;[^\n]*\n  const ok = await saveCustom\(uid, saved\);/.test(th) && /async function pullCustom\(\)\{\n  const uid = getMyUserId\(\);\n  if\(!uid \|\| !serverOn\(\)\) return;/.test(th),
+  chk(/if\(!uid \|\| !serverOn\(\)\) return;[^\n]*\n  const r = await saveCustom\(uid, saved\);/.test(th) && /async function pullCustom\(\)\{\n  const uid = getMyUserId\(\);\n  if\(!uid \|\| !serverOn\(\)\) return;/.test(th),
     '👑 내 색 — 꺼져 있으면 저장 · 받기 전에 돌아간다(이 PC 저장은 그 앞에서 이미 했다)');
 }
 /* 구글 [바꾸기] — 꺼져 있으면 단추를 숨기고 누를 수도 없다 */
@@ -117,9 +118,11 @@ say('── 4. mutation test');
   const src = SRC['shared/server-features.js'];
   const muts = [
     ['하나를 켬', src.replace('xmas: false,', 'xmas: true,'), (r) => !r.allOff],
+    ['서버가 받은 것을 끔', src.replace('friendReqMsg: true,', 'friendReqMsg: false,'), (r) => !r.allOff],
+    ['내 색 저장을 끔', src.replace('themeCustomSave: true,', 'themeCustomSave: false,'), (r) => !r.allOff],
     ['모르는 이름을 던지지 않음', src.replace("throw new Error('[server-features] 모르는 기능 이름 — ' + name);", 'return false;'), (r) => !r.throws],
     ['표를 얼리지 않음', src.replace('const FEATURES = Object.freeze({', 'const FEATURES = ({'), (r) => !r.frozen],
-    ['이름 하나 뺌', src.replace(/  themeCustomSave: false,[^\n]*\n/, ''), (r) => !r.names],
+    ['이름 하나 뺌', src.replace(/  themeCustomSave: true,[^\n]*\n/, ''), (r) => !r.names],
   ];
   for (const [label, m, red] of muts) chk(m !== src && red(judgeTable(m)), 'mutation test: ' + label + ' → 빨강');
   const like = SRC['status/playlist-like-ui.js'];
