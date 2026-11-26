@@ -490,12 +490,11 @@ const mallangMod = TwMallang.createMallang({
 - **함정**: 순서 — `app.js` → `myhome-desktop.js` → 이 파일. 사이에 다른 스크립트를 끼우지 않는다(`bookmark.js` 는 app.js 가 만들어 앞에 실린다). html 에 `myhome-desktop-boot.js` 가 있는지는 `sim-account-store.js` 가 본다.
 
 
-## `sticker-layer.js` — 🎨 마이홈 스티커 보이기(이 PC 설정)
-- **책임**: 설정 › 디스플레이 «마이홈 스티커» 의 켜짐 · 꺼짐 한 벌. 끄면 이 PC 화면에서 내 홈 · 친구 홈의 스티커를 그리지 않는다(그림도 받지 않는다). 서버 값(스티커 자체)은 그대로다.
-- **만드는 법**: app.js 가 설정 창보다 먼저 `TwStickerLayer.createStickerLayer({ storage: localStorage })` → 설정 창 · 스티커 그리기 · 관리 창에 `stickerLayer` 로 넘긴다.
-- **내놓는 것**: `on()` · `set(v)`(저장 + 알림) · `onChange(fn)`(바뀔 때만 · 돌려주는 함수로 뗀다) · 저장 키 `tw.mhStickerLayer`(`'0'` 이면 꺼짐 · 기기 칸).
-- **함정**: 맨 아래 모듈이다 — 바뀐 뒤 다시 그리기는 위층을 부르지 않고 app.js 가 `onChange` 에 건다(설정 창이 스티커 배치 모듈을 부르면 순환 — `sim-dep-cycles`). 꺼져 있을 때 관리 창을 열면 «숨겨져 있어요» 안내가 뜬다(붙여도 안 보이는 까닭).
-- 검사: `sim-sticker-layer.js` · `sim-myhome-sticker-render.js` §1b
+## 🎨 마이홈 스티커 보이기(이 PC 설정)
+- **책임**: 설정 › 디스플레이 «마이홈 스티커» 의 켜짐 · 꺼짐. 끄면 이 PC 화면에서 내 홈 · 친구 홈의 스티커를 그리지 않는다(그림도 받지 않는다). 서버 값(스티커 자체)은 그대로다.
+- **만드는 법**: 따로 파일이 없다 — app.js 가 설정 창보다 먼저 `TwDeviceToggle.createDeviceToggle({ storage: localStorage, key: 'tw.mhStickerLayer' })`(`shared/device-toggle.js`) → 설정 창 · 스티커 그리기 · 관리 창에 `stickerLayer` 로 넘긴다.
+- **함정**: 바뀐 뒤 다시 그리기는 위층을 부르지 않고 app.js 가 `onChange` 에 건다(설정 창이 스티커 배치 모듈을 부르면 순환 — `sim-dep-cycles`). 꺼져 있을 때 관리 창을 열면 «숨겨져 있어요» 안내가 뜬다.
+- 검사: `sim-device-toggle.js` · `sim-myhome-sticker-render.js` §1b
 
 ## myhome-sticker-render.js — 🎨 마이홈 스티커 그리기
 
