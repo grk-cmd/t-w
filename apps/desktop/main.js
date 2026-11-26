@@ -215,7 +215,7 @@ const _updatePlatform = createUpdatePlatform({
 autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = _updatePlatform.installOnQuit();
 function _skipInstallOnQuit(){ autoUpdater.autoInstallOnAppQuit = false; }   // 윈도우: 'quit' 때 다시 읽는다(electron-updater BaseUpdater.addQuitHandler) · 맥은 받을 때 읽는다
-let _updateStaged = false;   // 끌 때 설치가 켜진 채 새 판을 다 받았다(맥은 이때 Squirrel 이 설치를 준비한다) — 재시작 판단(_relaunchOrInstall)
+let _updateStaged = false;   // Squirrel 이 설치 준비를 끝냈다(맥) — 재시작 판단(_relaunchOrInstall) · 한 번 서면 그 실행 동안 내리지 않는다(뒤 확인의 오류는 준비를 되돌리지 않는다)
 const _updateDiag = createUpdateDiag({ log: (m) => _diagLog(m), home: require('os').homedir() });
 autoUpdater.logger = _updateDiag.logger;   // 조각만 받기 · 통째로 받기 · 오류를 electron-updater 가 스스로 적는다
 
@@ -229,7 +229,8 @@ autoUpdater.on('checking-for-update', () => sendUpdateStatus('checking'));
 autoUpdater.on('update-available', (info) => { _updateDiag.reset(); sendUpdateStatus('available', { version: info.version }); });
 autoUpdater.on('update-not-available', () => sendUpdateStatus('none'));
 autoUpdater.on('download-progress', (p) => { _updateDiag.progress(p); sendUpdateStatus('downloading', { percent: Math.round(p.percent) }); });
-autoUpdater.on('update-downloaded', (info) => { _updateStaged = autoUpdater.autoInstallOnAppQuit === true; sendUpdateStatus('downloaded', { version: info.version }); });
+autoUpdater.on('update-downloaded', (info) => sendUpdateStatus('downloaded', { version: info.version }));
+if(_updatePlatform.nativeStaging) require('electron').autoUpdater.on('update-downloaded', () => { _updateStaged = true; });   // electron-updater MacUpdater 의 nativeUpdater 와 같은 것
 let _bgUpdateErrLogged = false;   // 켜 둔 동안 다시 확인의 실패(오프라인 등)는 오류 파일에 한 번만 — 진단 기록에는 updateDiag 가 매번 남긴다
 autoUpdater.on('error', (e) => { const bg = _updateRecheck.fromTick(); if(!bg || !_bgUpdateErrLogged) _errorLog.write('ERROR', '업데이트', e); if(bg) _bgUpdateErrLogged = true; sendUpdateStatus('error', { message: String(e && e.message || e) }); });
 

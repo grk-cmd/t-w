@@ -62,7 +62,7 @@ function moveScene(o){
   say('── 1. createUpdatePlatform');
   {
     const w = mk({ platform: 'win32' });
-    chk(w.u.backgroundRecheck === true, '윈도우 — 켜 둔 동안 다시 확인');
+    chk(w.u.backgroundRecheck === true && w.u.nativeStaging === false, '윈도우 — 켜 둔 동안 다시 확인 · Squirrel 준비는 듣지 않는다(NSIS)');
     chk(w.u.installDir() === 'C:\\Users\\u\\AppData\\Local\\Programs\\tw', '  설치 폴더는 exe 가 든 폴더');
     chk(w.u.installOnQuit() === true && w.seen.join() === 'C:\\Users\\u\\AppData\\Local\\Programs\\tw', '  끌 때 설치 — 그 폴더에 쓸 수 있는지 실제로 물어 정한다');
     chk(mk({ platform: 'win32', writable: false }).u.installOnQuit() === false, '★ 윈도우 — 쓸 수 없는 폴더(모든 사용자 설치)면 끌 때 설치 없음');
@@ -70,7 +70,7 @@ function moveScene(o){
     chk(w.u.shouldOfferMove(false) === false, '  윈도우는 옮기기를 묻지 않는다');
 
     const m = mk({ platform: 'darwin' });
-    chk(m.u.backgroundRecheck === true, '맥 — 켜 둔 동안 다시 확인');
+    chk(m.u.backgroundRecheck === true && m.u.nativeStaging === true, '★ 맥 — 켜 둔 동안 다시 확인 · Squirrel(electron autoUpdater)의 «준비 끝» 을 듣는다');
     chk(m.u.installDir() === '/Applications', '★ 맥 설치 폴더는 .app 번들이 든 폴더(…/X.app/Contents/MacOS/X 의 네 단계 위) — 번들 안이 아니다');
     chk(mk({ platform: 'darwin', execPath: MAC_DL_EXE }).u.installDir() === '/Users/u/Downloads', '  다른 자리여도 .app 이 든 폴더');
     chk(m.u.installOnQuit() === true && m.seen.join() === '/Applications', '  맥 끌 때 설치 — .app 이 든 폴더에 쓸 수 있는지 물어 정한다');
@@ -84,7 +84,7 @@ function moveScene(o){
     chk(mk({ platform: 'darwin', inApps: false, packaged: false }).u.shouldOfferMove(false) === false, '  개발 실행(npm start · 설치본 아님)이면 묻지 않는다');
 
     const l = mk({ platform: 'linux' });
-    chk(l.u.backgroundRecheck === false && l.u.installOnQuit() === false && l.seen.length === 0, '리눅스 — 다시 확인 · 끌 때 설치 없음 · 폴더를 묻지도 않는다');
+    chk(l.u.backgroundRecheck === false && l.u.nativeStaging === false && l.u.installOnQuit() === false && l.seen.length === 0, '리눅스 — 다시 확인 · 끌 때 설치 · Squirrel 듣기 없음 · 폴더를 묻지도 않는다');
     chk(l.u.relaunchAction(true) === l.M.RELAUNCH.RELAUNCH && l.u.shouldOfferMove(false) === false, '  리눅스 재시작은 relaunch · 옮기기 없음');
     chk(Object.isFrozen(m.M.RELAUNCH) && Object.isFrozen(m.M.AUTO_PLATFORMS), '  상수 표는 바꿀 수 없다');
   }
@@ -134,6 +134,9 @@ function moveScene(o){
     chk(UP.includes(ASK) && mk({ platform: 'darwin', inApps: false, src: UP.replace(ASK, 'if(!isMac) return false;') }).u.shouldOfferMove(true) === true, '물은 표시 확인을 지우면 — 켤 때마다 묻는다 → 1절 «처음 한 번» 이 빨강');
     const WR = 'return deps.writable(installDir()) === true;';
     chk(UP.includes(WR) && mk({ platform: 'darwin', writable: false, src: UP.replace(WR, 'return true;') }).u.installOnQuit() === true, '폴더 확인을 지우면 — 못 쓰는 폴더에서도 끌 때 설치 → 1절 빨강');
+    const NS = 'nativeStaging: isMac,';
+    chk(UP.includes(NS) && mk({ platform: 'win32', src: UP.replace(NS, 'nativeStaging: true,') }).u.nativeStaging === true, 'Squirrel 듣기를 모든 플랫폼으로 바꾸면 — 윈도우 · 리눅스도 듣는다 → 1절 «윈도우» · «리눅스» 가 빨강');
+    chk(UP.includes(NS) && mk({ platform: 'darwin', src: UP.replace(NS, 'nativeStaging: false,') }).u.nativeStaging === false, '맥에서 끄면 — 준비 끝을 몰라 재시작이 늘 relaunch → 1절 «맥» 이 빨강');
     const SAVE = "  _macMoveAsked = true;\n  try{ saveSettings(); }catch(_){}\n";
     chk(MAIN.includes(SAVE), '  main.js _offerMoveToApplications 원문이 그대로 있다');
     const ns = moveScene({ response: 1, mainSrc: MAIN.replace(SAVE, '') });

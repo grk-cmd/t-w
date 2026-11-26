@@ -157,10 +157,10 @@ function createUpdateFlow(deps){
     if(action === ACT.INSTALL){ if(companion) companion.installUpdate(); return; }
     if(action === ACT.OPEN){
       open(b.url);
-      if(shown.kind === STAGE.OPTIONAL) closeWindow();   // 맥 — 브라우저로 보냈으니 다음 단계로
+      if(shown.kind === STAGE.OPTIONAL) closeWindow();   // 다운로드 페이지로 보냈으니 다음 단계로(강제 창은 그대로)
       return;
     }
-    if(action === ACT.UPDATE){ wantUpdate = true; redraw(); return; }   // 윈도우 — 이미 받는 중이니 끝나면 설치
+    if(action === ACT.UPDATE){ wantUpdate = true; redraw(); return; }   // 이미 받는 중이니 끝나면 설치
     if(action === ACT.RETRY){
       // 상태는 main 이 다시 보낸다(checking → downloading …) — 여기서 지어내지 않는다
       if(companion) companion.checkUpdate(); else open(RELEASES_URL);
@@ -177,7 +177,7 @@ function createUpdateFlow(deps){
     return true;
   }
 
-  /* 켜 둔 동안 강제로 바뀜 — 받기가 안 돌고 있으면(윈도우 자동 받기가 이미 끝났거나 안 시작됨) 한 번 묻는다. 켤 때 답을 기다리는 중이면 또 묻지 않는다. */
+  /* 켜 둔 동안 강제로 바뀜 — 받기가 안 돌고 있으면(자동 받기가 이미 끝났거나 안 시작됨) 한 번 묻는다. 켤 때 답을 기다리는 중이면 또 묻지 않는다. */
   function askIfIdle(){
     if(updateAnswer) return;
     const st = up && up.status;
