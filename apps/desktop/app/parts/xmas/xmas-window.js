@@ -1,12 +1,12 @@
 /* xmas-window.js — 🎄 크리스마스 창(일회성 — 다음 업데이트에서 걷는다 · 이슈 #963) (검사 sim-xmas-window.js)
    책임: 런처 [크리스마스] 버튼(받은 편지 열람 끝 — 1월 6일 0시 · 서버 시각 — 부터 숨김) · 창 열고 닫기 · 내 트리 불러오기(그림은 판이 달라진 자리만) ·
      장식 고르기 · 내 그림 올리기(64px PNG) · 한마디 · 장식 달기 · 바꾸기(5초 간격) · «트리가 다 찼어요» · 장식 신고 · 한마디 라벨.
-   3D 는 xmas-tree.js, 편지 창은 xmas-letter.js(뮤직바 xmas-song.js), 서버는 net(xmas-api.js), 규칙은 rules(TwXmasRules) · 날짜는 서버가 준 한 벌(net().schedule()).
+   3D 는 xmas-tree.js, 편지 창은 xmas-letter.js(뮤직바 xmas-song.js), 서버는 net(xmas-api.js), 규칙은 rules(TwXmasRules) · 날짜는 서버가 준 한 벌(net().scheduleNow() — 못 읽었으면 처음 값).
    ★ 그림 사본은 이 PC 의 GLB 영구 캐시(IndexedDB)에 «트리/자리@판» 키로 — 다시 열 때 판이 같은 그림은 받지 않는다. 바이트는 Storage 에서(목록에는 그림 id 만).
    ★ 트리 목록은 서버가 몇 초 캐시한다 — 내 장식은 걸기 응답(자리 · 판 · 그림 id)을 목록 위에 덮어 그린다(목록이 늦어도 내 장식은 바로 보이게).
      ⚠️ localStorage 에 두지 말 것 — 트리 하나가 수 MB 라 앱 전체가 같이 쓰는 한도를 먹어 캐릭터 저장 등이 실패한다.
    ★ 남이 쓴 한마디는 textContent 로만 넣는다.
-   classic script(window.TwXmasWindow) — app.js 보다 먼저 싣는다. app.js 가 `createXmasWindow(deps)` 한 번 — 밖에서 부르는 이름은 onMail(우편이 바뀌면 app.js 가 우편 목록을 넘긴다) · mailDelayMs(mail-feed 의 새 우편 뒤 기다림)
+   classic script(window.TwXmasWindow) — app.js 보다 먼저 싣는다. app.js 가 `createXmasWindow(deps)` 한 번 — 밖에서 부르는 이름은 onMail(우편이 바뀌면 app.js 가 우편 목록을 넘긴다)
    (런처 버튼 · 알림함 «익명의 편지가 왔어요» 가 창 열기 통로 NAV.XMAS 로 연다). */
 (function(){
 'use strict';
@@ -42,7 +42,7 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
   /* Esc 는 트리 창을 편지 창보다 먼저 등록한다 — 알림함 길은 두 창을 같은 틱에 열어서, 창 쌓기가 등록 순서로 쌓는다(편지 창이 위 → Esc 에 편지 창만 닫힘) */
   deps.escRegisterWindow({ key: 'xmas', el: ov, isOpen: () => ov.classList.contains('on'), close });
   /** 날짜 한 벌 — 서버 값을 읽었으면 그것, 아니면 처음 값 */
-  const sch = () => net().schedule() || rules.SCHEDULE;
+  const sch = () => net().scheduleNow();
   const song = deps.songMod.createXmasSong({ doc, win, companion: deps.companion, ytVideoId: deps.ytVideoId, asyncPrompt: deps.asyncPrompt, toast, songTitleMax: rules.SONG_TITLE_MAX });
   const letter = deps.letterMod.createXmasLetter({ doc, win, rules, net, song, serverNow, schedule: () => sch(), toast, notifyError, escRegisterWindow: deps.escRegisterWindow,
     storage: deps.storage, onDot: (on) => btn.classList.toggle('xm-dot', on) });
@@ -293,14 +293,11 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     gotTimer = win.setTimeout(() => { gotTimer = null; letter.checkGot(); }, rules.jitterMs(deps.random()));
   }
 
-  /** 새 우편 알림 뒤 알림함을 다시 받기 전에 기다릴 ms — 짝 짓기 10분 안이면 무작위 · 그 밖은 0(날짜 한 벌 · 무작위는 이 창의 것 한 벌) */
-  const mailDelayMs = () => rules.mailDelayMs(serverNow(), sch(), deps.random());
-
   /* 서버 시각은 붙은 뒤에 — 그 전엔 버튼을 숨겨 둔다(열람 끝이 지났는지 모르므로) */
   btn.hidden = true;
   deps.onReady(() => { refreshButton(); win.setInterval(refreshButton, 60000); });   // 열람 끝을 지나면 켜 둔 채로도 숨는다
 
-  return { open, close, refreshButton, onMail, mailDelayMs, letter };
+  return { open, close, refreshButton, onMail, letter };
 }
 
 const api = Object.freeze({ createXmasWindow });

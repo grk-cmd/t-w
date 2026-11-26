@@ -124,7 +124,7 @@ const inboxSec = TwInboxSections;   // myhome-inbox.js 머리(고리판 TwMyHome
 const mailFeed = TwMailFeed.createMailFeed({
   api: TwInboxApi.createInboxApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),
   rt: TwRtHub.store, notifyError: (...a)=>TwErrorCodes.notify(...a),
-  refreshDelayMs: ()=>…,   // 새 우편 알림 뒤 다시 받기 전 기다림(ms · 0 = 곧바로) — 🎄 짝 짓기 10분만 0~30초(크리스마스 창 xmasWinMod.mailDelayMs() · 꺼져 있으면 0)
+  refreshDelayMs: ()=>…,   // 새 우편 알림 뒤 다시 받기 전 기다림(ms · 0 = 곧바로) — 🎄 짝 짓기 10분만 0~30초(TwXmasRules.mailDelayMs · 날짜 한 벌은 xmasApiMod.scheduleNow() · 꺼져 있으면 0)
   timers: window,
 });
 mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));   // 받은 뒤 화면 · 토스트(처음 받은 판은 새 우편이 아니다)

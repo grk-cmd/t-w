@@ -70,10 +70,12 @@ async function judge(S){
     const { m, authed } = mk(LIB, base({ 'GET /v2/me/xmas': ME({ mine: { tree: 2, slot: 17, kind: 'img', version: 4, word: null, imageId: ID('a') } }),
       'GET /v2/xmas/trees/2/ornaments': { tree: 2, ornaments: { 0: { kind: 'star', version: 1, word: '메리' }, 17: { kind: 'img', version: 4, imageId: ID('a') }, 9: { kind: 'img', version: 1, imageId: '../x' }, x: { kind: 'star', version: 1 }, 5: { kind: 'bulb' } } } }));
     chk(m.schedule() === null, '읽기 전 날짜 한 벌은 null(화면은 처음 값)');
+    chk(m.scheduleNow() === R.SCHEDULE, '  ↳ scheduleNow 는 읽기 전엔 처음 값(창 · 알림함 기다림이 같이 쓴다)');
     const w = await m.where();
     chk(authed.log.map(x => x.method + ' ' + x.path).join() === 'GET /v2/xmas/trees/current,GET /v2/me/xmas' && authed.log.every(x => x.opts.auth === true && !/ME01/.test(x.path)), '지금 트리 · 내 몫 — 로그인 통로 · 경로에 내 코드 없음');
     chk(w.ok && w.cur === 3 && w.matched === false && w.mine.t === 2 && w.mine.s === 17 && w.mine.v === 4 && w.mine.id === ID('a'), '지금 트리 3 · 내 자리(트리 · 자리 · 판 · 그림 id)');
     const sc = m.schedule();
+    chk(m.scheduleNow() === sc && sc !== R.SCHEDULE, '  ↳ scheduleNow 는 읽은 뒤엔 서버 값');
     chk(sc && sc.letterDeadline === R.LETTER_DEADLINE_MS && sc.eventEnd === R.EVENT_END_MS && sc.lettersViewUntil === R.LETTERS_VIEW_UNTIL_MS, '날짜 한 벌을 trees/current 에서 남긴다');
     const t = await m.tree(2);
     chk(t.ok && JSON.stringify(t.o) === JSON.stringify({ 0: { k: 'star', v: 1, w: '메리' }, 9: { k: 'img', v: 1 }, 17: { k: 'img', v: 4, id: ID('a') } }), '장식 목록 → { k, v, w, id } · 틀린 그림 id 는 버림 · 틀린 자리 · 판 없는 자리는 뺀다 — ' + JSON.stringify(t.o));
@@ -240,6 +242,7 @@ async function runAll(){
     ['가입 전을 실패로', S.API.replace("if (e && e.code === NOT_BOUND){ known = null; return null; } ", ''), '2절 트리는 그림'],
     ['틀린 그림 id 를 받음', S.API.replace('const IMAGE_ID_RE = /^[0-9a-f]{32}$/;', 'const IMAGE_ID_RE = /./;'), '7절 틀린 id'],
     ['날짜를 안 남김', S.API.replace('if (s) sched = s;', ''), '1절 날짜 한 벌'],
+    ['scheduleNow 가 늘 처음 값', S.API.replace('scheduleNow: () => sched || rules.SCHEDULE', 'scheduleNow: () => rules.SCHEDULE'), '1절 scheduleNow 서버 값'],
     ['conflict 를 write 로', S.API.replace("CONCURRENT_UPDATE: 'conflict',", "CONCURRENT_UPDATE: 'write',"), '6절 표'],
   ];
   for (const [name, src, what] of breaks){

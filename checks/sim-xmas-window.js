@@ -62,6 +62,7 @@ function world(opts){
     img: async (id) => { N.calls.push('img:' + id); const d = N.data.imgs[id]; return d ? { ok: true, d } : { ok: false, code: 'read' }; },
     hang: async (d) => { N.calls.push('hang'); N.lastHang = d; return N.hangRet || { ok: true, tree: N.data.cur, slot: 0, version: 1, moved: false, changed: false, imageId: null }; },
     schedule: () => N.sched || null,
+    scheduleNow: () => N.sched || R.SCHEDULE,
     reportOrnament: async (t, s) => { N.calls.push('report:' + t + '/' + s); return o.repRet || { ok: true }; },
   };
   const Lt = { calls: [], deps: null };
@@ -280,12 +281,6 @@ say('── 8절 📩 받은 편지 알림');
   chk(w.timeouts.length === 2, '  ↳ 새 알림(다른 id)이면 다시 한 번');
   const w0 = world({ random: 0.999999 }); w0.S.ready(); w0.api.onMail(M());
   chk(w0.timeouts[0][1] < R.READ_JITTER_MS && R.READ_JITTER_MS === 30000, '기다림은 30초 안');
-  /* 알림함 다시 받기 기다림 — 날짜 한 벌 · 무작위는 이 창의 것(app.js 는 xmasWinMod.mailDelayMs() 만 부른다) */
-  const wd = world({ random: 0.5, now: R.LETTER_DEADLINE_MS + 1000 });
-  const wo = world({ random: 0.5, now: R.LETTER_DEADLINE_MS - 1000 });
-  chk(wd.api.mailDelayMs() === 15000 && wo.api.mailDelayMs() === 0, '알림함 다시 받기 기다림 — 짝 짓기 10분 안이면 무작위(0.5 → 15초) · 그 밖은 0');
-  const ws = world({ random: 0.5, now: R.LETTER_DEADLINE_MS + 1000 }); ws.N.sched = Object.assign({}, R.SCHEDULE, { letterDeadline: R.LETTER_DEADLINE_MS + 3600000 });
-  chk(ws.api.mailDelayMs() === 0, '  ↳ 서버가 준 날짜 한 벌(마감)로 판정한다');
 }
 
 say(`\n${fail ? '✗' : '✓'} ${pass} 통과 · ${fail} 실패`);

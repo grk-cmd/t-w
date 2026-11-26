@@ -336,8 +336,8 @@ async function judge(S){
   {
     const A = strip(S.APP);
     chk(/TwMailFeed\.createMailFeed\(\{[\s\S]*?rt: TwRtHub\.store[\s\S]*?\}\);/.test(A) && /TwInboxApi\.createInboxApi\(\{ authed: TwApi\.authed/.test(A), 'app.js — 서버 경로와 realtime 알림을 넘겨 만든다');
-    chk(/refreshDelayMs: \(\)=>\(xmasWinMod \? xmasWinMod\.mailDelayMs\(\) : 0\)/.test(A),
-      'app.js — 기다림은 크리스마스 창 한 곳(서버 날짜 · 짝 짓기 10분 · 무작위)이 정한다 · 크리스마스가 꺼져 있으면(창 없음) 0');
+    chk(/refreshDelayMs: \(\)=>\(TwServerFeatures\.on\('xmas'\) \? TwXmasRules\.mailDelayMs\(TwRtHub\.store\.serverNow\(\), xmasApiMod\.scheduleNow\(\), Math\.random\(\)\) : 0\)/.test(A) && !/refreshDelayMs:[^\n]*xmasWinMod/.test(A),
+      'app.js — 기다림은 크리스마스 규칙 · 날짜 한 벌은 xmas-api scheduleNow(창과 같은 것) · 꺼져 있으면 0 · 크리스마스 창 모듈은 부르지 않는다(순환)');
     /* 받은 편지 반복 확인이 없어서 «알림 → 받은 편지 한 번 읽기» 는 이 배선 하나뿐이다 — 빠지면 편지 창을 열기 전엔 빨간 점이 안 켜진다 */
     const xmasWired = (src) => /if\(xmasWinMod\) mailFeed\.onChange\(\(\)=>xmasWinMod\.onMail\(mailFeed\.items\(\)\)\);/.test(src) && !/(^|[^)\w])mailFeed\.onChange\(\(\)=>xmasWinMod\./m.test(src.replace(/if\(xmasWinMod\) mailFeed\.onChange/g, ''));
     chk(xmasWired(A), 'app.js — 우편이 바뀌면 크리스마스 창 onMail 에 우편 목록(mailFeed.items())을 넘긴다 · 크리스마스가 꺼져 있으면(xmasWinMod 없음) 걸지 않는다');
