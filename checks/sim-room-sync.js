@@ -21,13 +21,13 @@ if(!NET){ say('  ? 원본 못 찾음 — net-ready.js'); process.exit(2); }
 const NET_PRE = NET + '\nvar TwNetReady = window.TwNetReady;\n';
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_autoAwayResetClock","_chatIsHost","_chatIsSecretRoom","getMyUserId","loadImg","newCanvas","toast","diagNote"];
+const FN_DEPS = ["_autoAwayResetClock","_chatIsSecretRoom","getMyUserId","loadImg","newCanvas","toast","diagNote"];
 const VAL_DEPS = ["faceUploadCache","twNav"];
 const GET_DEPS = ["DESK_LICENSE_HOLD","ITEM_LICENSE_HOLD","Presence","savedDesks"];
 const SET_DEPS = [];
 const EXPORTS = ["AUTO_EXIT_AFTER_AWAY_MS","AUTO_EXIT_WARN_MS","POKE_SKEW_MS","_autoExitCancel","_autoExitWarn","_defSizeNames","_loadImgCors","_pokeFresh","_quickHash","_roomFaceCacheLoad","_roomFaceCacheSave","_srvNow","_storageFaceUrlOne","defWireForSize","deserializeDefFromNetwork","ensureRoomFaceUrls","retryDefAfter","serializeDefForNetwork"];
 const MOVED = ["POKE_FRESH_MS","POKE_SKEW_MS","_srvNow","_pokeFresh","AUTO_EXIT_AFTER_AWAY_MS","AUTO_EXIT_WARN_MS","_autoExitOv","_autoExitTimer","_autoExitDue","_autoExitDone","_autoExitInRoom","_autoExitExempt","_autoExitCancel","_autoExitDo","_autoExitWarn","ROOM_FACE_SEND_DATAURL","_quickHash","_roomFaceCacheLoad","_roomFaceCacheSave","_storageFaceUrlOne","ensureRoomFaceUrls","serializeDefForNetwork","_DEF_SIZE_URL","_DEF_SIZE_IMGS","defWireForSize","_defSizeNames","DEF_DIAG_WARN_BYTES","_defDiagLastSig","_defPayloadDiag","_loadImgCors","_roomFaceUrlToCanvas","deserializeDefFromNetwork"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,","  ITEM_LICENSE_HOLD: ()=>premiumMod.ITEM_LICENSE_HOLD,","  Presence: ()=>Presence,","  _autoAwayResetClock: (...a)=>window._autoAwayResetClock(...a),","  _chatIsHost: (...a)=>chatLockMod._chatIsHost(...a),","  _chatIsSecretRoom: (...a)=>chatLockMod._chatIsSecretRoom(...a),","  faceUploadCache: uploadCacheMod,","  getMyUserId: (...a)=>getMyUserId(...a),","  loadImg: (...a)=>loadImg(...a),","  newCanvas: (...a)=>newCanvas(...a),","  twNav: twNav,","  savedDesks: ()=>commissionMod.savedDesks(),","  toast: (...a)=>toast(...a),","  diagNote: (...a)=>diagNote(...a),"];
+const GLUE = ["  DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,","  ITEM_LICENSE_HOLD: ()=>premiumMod.ITEM_LICENSE_HOLD,","  Presence: ()=>Presence,","  _autoAwayResetClock: (...a)=>window._autoAwayResetClock(...a),","  _chatIsSecretRoom: (...a)=>chatLockMod._chatIsSecretRoom(...a),","  faceUploadCache: uploadCacheMod,","  getMyUserId: (...a)=>getMyUserId(...a),","  loadImg: (...a)=>loadImg(...a),","  newCanvas: (...a)=>newCanvas(...a),","  twNav: twNav,","  savedDesks: ()=>commissionMod.savedDesks(),","  toast: (...a)=>toast(...a),","  diagNote: (...a)=>diagNote(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -36,7 +36,7 @@ function anything(){
   const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? (() => P) : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true });
   return P;
 }
-function build(src, over){
+function build(src, over, doc){
   const any = anything();
   const deps = {};
   FN_DEPS.forEach(n => { deps[n] = () => any; });
@@ -48,7 +48,7 @@ function build(src, over){
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
-    NET_PRE + src + '\nreturn window.TwRoomSync;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
+    NET_PRE + src + '\nreturn window.TwRoomSync;')(win, doc || any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
   return api.createRoomSync(deps);
 }
 
@@ -100,6 +100,37 @@ pokeRows(MOD).forEach(([ok, msg]) => chk(ok, msg));
 {
   const broke = MOD.replace('return sp ? sp.serverNow() : null;', 'return sp ? sp.serverNow() : Date.now();');
   chk(broke !== MOD && pokeRows(broke).some(([ok]) => !ok), 'mutation test: 방 밖에서 기기 시계로 되돌리면 2-2절이 빨강');
+}
+
+say('── 2-3. 자리비움 자동 퇴장 안내 — 시크릿룸은 방장 · 손님 모두 뺀다');
+/* 가짜 화면으로 _autoExitWarn 을 실제로 부른다 — 안내창을 붙였는지(body.appendChild)로 판정 */
+const warnCase = (src, o) => {
+  let shown = 0;
+  const el = () => ({ style: {}, appendChild(){}, querySelector: () => ({}), remove(){} });
+  const doc = { createElement: el, body: { appendChild(){ shown++; } }, getElementById: () => null };
+  const m = build(src, { Presence: () => ({ active: () => o.inRoom !== false }), _chatIsSecretRoom: o.secret }, doc);
+  m._autoExitWarn();
+  return shown;
+};
+const exitRows = (src) => {
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  try{
+    t(warnCase(src, { secret: () => false }) === 1, '투게더룸 · 워킹룸 — 6시간 뒤 안내창이 뜬다(지금 동작 그대로)');
+    t(warnCase(src, { secret: () => true }) === 0, '★ 시크릿룸 — 방장이든 손님이든 안내창이 안 뜬다(자동 퇴장 없음)');
+    t(warnCase(src, { secret: () => false, inRoom: false }) === 0, '방 밖이면 안 뜬다');
+    t(warnCase(src, { secret: () => { throw new Error('x'); } }) === 1, '시크릿룸 판정이 던지면 예외로 보지 않는다(보통 방처럼 안내)');
+  }catch(e){ t(false, '던짐 — ' + String(e && e.message || e).slice(0, 100)); }
+  return r;
+};
+exitRows(MOD).forEach(([ok, msg]) => chk(ok, msg));
+{
+  const m1 = MOD.replace('try{ return !!_chatIsSecretRoom(); }', 'try{ return false; }');
+  const m2 = MOD.replace('try{ return !!_chatIsSecretRoom(); }', 'try{ return true; }');
+  const m3 = MOD.replace('if(!_autoExitInRoom() || _autoExitExempt()) return;', 'if(!_autoExitInRoom()) return;');
+  chk(m1 !== MOD && exitRows(m1).some(([ok]) => !ok), 'mutation test: 예외를 없애면(시크릿룸도 튕김) 빨강');
+  chk(m2 !== MOD && exitRows(m2).some(([ok]) => !ok), 'mutation test: 모든 방을 예외로 하면(보통 방도 안 튕김) 빨강');
+  chk(m3 !== MOD && exitRows(m3).some(([ok]) => !ok), 'mutation test: 안내에서 예외 판정을 빼면 빨강');
 }
 
 say('── 3. mutation test — 하나라도 못 잡으면 빨강');

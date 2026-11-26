@@ -389,7 +389,7 @@
 | **sim-desktop-run.js** | 94 | **2370870711eb** |
 | **sim-room-entry.js** | 401 | **37466e6f2531** |
 | **sim-overhead.js** | 216 | **864fadcfc6d0** |
-| **sim-room-sync.js** | 123 | **4b65e0692fb6** |
+| **sim-room-sync.js** | 154 | **38b0ec277090** |
 | **sim-status-chip.js** | 189 | **baf85473655b** |
 | **sim-premium-assets.js** | 157 | **3cba1cff97a4** |
 | **sim-char-code.js** | 126 | **a1385fe8ea20** |

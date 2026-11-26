@@ -415,7 +415,6 @@ const roomSyncMod = TwRoomSync.createRoomSync({
   ITEM_LICENSE_HOLD: ()=>premiumMod.ITEM_LICENSE_HOLD,
   Presence: ()=>Presence,
   _autoAwayResetClock: (...a)=>window._autoAwayResetClock(...a),   // 🛰 Presence(room/presence.js)가 거는 시계 되감기 — 모듈끼리 window 로 서로 부르지 않게 여기서 잇는다
-  _chatIsHost: (...a)=>chatLockMod._chatIsHost(...a),
   _chatIsSecretRoom: (...a)=>chatLockMod._chatIsSecretRoom(...a),
   faceUploadCache: uploadCacheMod,
   getMyUserId: (...a)=>getMyUserId(...a),
