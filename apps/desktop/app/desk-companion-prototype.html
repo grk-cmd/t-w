@@ -5721,6 +5721,11 @@
       <span>머리 위 레벨/이름 표시</span>
       <button class="fs-toggle-btn fs-switch" id="fsNameplateToggle" type="button">켜짐</button>
     </div>
+    <!-- 🫧 남의 자리비움 그림 — 끄면 이 PC 화면에서 남의 그림을 세우지 않는다(그림 없는 자리비움 모양 · 내 그림은 그대로 · room/away-pic.js _awayPicFor) -->
+    <div class="fs-toggle-row">
+      <span>남의 자리비움 그림</span>
+      <button class="fs-toggle-btn fs-switch" id="fsAwayOthersToggle" type="button">켜짐</button>
+    </div>
     <!-- 💭 머리 위 상태 말풍선(«📱 앱» · 내 상태) — 끄면 이 PC 화면에서 안 뜬다 · 채팅 말풍선은 그대로(overhead.js statusBubbleGate) -->
     <div class="fs-toggle-row">
       <span>머리 위 상태 말풍선</span>
@@ -8835,6 +8840,7 @@
 <script src="parts/shared/session.js"></script>   <!-- 🔐 로그인 세션 하나(window.TwSession — 타이머 · 구독 · 비우기 훅 · dispose) — launcher/app-boot.js 가 만든다 · app.js 보다 먼저 -->
 <script src="parts/shared/json-store.js"></script>   <!-- 💾 localStorage JSON 칸 읽기 · 쓰기 한 곳(window.TwJsonStore) — 책상 프리셋 저장 · animal.js · app.js 보다 먼저 -->
 <script src="parts/room/seat-pin.js"></script>   <!-- 🪑 방에서 내 자리 «맨 오른쪽 고정»(window.TwSeatPin) — app.js 보다 먼저 -->
+<script src="parts/shared/device-toggle.js"></script>   <!-- 이 PC 의 켜고 끄는 화면 설정 하나(window.TwDeviceToggle) — 설정 창과 그 설정을 읽는 기능이 같이 쓴다 · app.js 보다 먼저 -->
 <script src="parts/shared/nav.js"></script>   <!-- 🧭 창 열기 통로(설정 창 · 마이홈 · 방 나가기를 부탁하는 한 곳) — 쓰는 모듈 · app.js 보다 먼저 -->
 <script src="parts/room/invite-notice.js"></script>   <!-- 🙋 마지막으로 받은 방 초대 한 줄(window.TwInviteNotice) — 🔔 일정 알림 줄 · 알림콩 · app.js 보다 먼저 -->
 <script src="parts/room/friend-visit.js"></script>   <!-- 🏠 친구 방에 놀러 가기(window.TwFriendVisit) — app.js 보다 먼저 -->
