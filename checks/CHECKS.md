@@ -85,7 +85,7 @@
 | **sim-char-identity.js** | 188 | **9aa1d07d92b1** |
 | **sim-char-z.js** | 225 | **92fb9efdb2c1** |
 | **sim-checks-manifest.js** | 92 | **5a22daaa811a** |
-| **sim-cfg-fit.js** | 339 | **2a3bef568593** |
+| **sim-cfg-fit.js** | 369 | **44de3de26f58** |
 | **sim-chat-fly.js** | 360 | **b52fd913a6d7** |
 | **sim-bug-board.js** | 629 | **26d6e0d03f03** |
 | **sim-bug-api.js** | 305 | **58b375d25c93** |
@@ -528,11 +528,11 @@
 | **sim-part-ao-clean.js** | 128 | **d7d12434bbd9** |
 | **sim-img-retry.js** | 117 | **74cb4a8def40** |
 | **sim-input-diag.js** | 148 | **785498f2219b** |
-| **sim-renderer-gone-reset.js** | 141 | **57af0bb1cb76** |
+| **sim-renderer-gone-reset.js** | 142 | **a3d93547b40a** |
 | **sim-room-code-len.js** | 185 | **263d71bf5f4c** |
 | **sim-recent-rooms.js** | 267 | **5742886c8959** |
-| **sim-mh-pad-pos.js** | 165 | **6626a56c32e5** |
-| **sim-win-drag.js** | 210 | **52dfdbb3be28** |
+| **sim-mh-pad-pos.js** | 165 | **0896dea8ad25** |
+| **sim-win-drag.js** | 209 | **c4939b82536c** |
 | **sim-mh-bg-url.js** | 133 | **de01754f7292** |
 | **sim-gift-img-retry.js** | 209 | **3496e4f17f97** |
 | **sim-device-id.js** | 103 | **02388dab819d** |

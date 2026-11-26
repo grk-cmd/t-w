@@ -157,9 +157,7 @@ chk(!/companion:moveWindow/.test(mainC) && !/moveWindow/.test(code(PRE)) && /dra
   const am = grabFn(MAIN, '_applyConfigMode') || '';
   const iSkip = am.indexOf('if(_winDrag.active()) return;'), iPad = am.indexOf("if(mode==='myhome') _mhPad = _mhPadOf(extra);"), iRem = am.indexOf('let remembered = savedPos[mode];'), iMode = am.indexOf('_curMode = isConfig');
   chk(iSkip > 0 && iMode >= 0 && iMode < iSkip && iPad >= 0 && iPad < iSkip && iSkip < iRem && am.indexOf('mainWindow.setBounds(cfgRect)') > iSkip,
-    '★ 끄는 동안 setConfigMode(config)는 창을 건드리지 않는다 — 모드 · 여백은 먼저 적고, 자리 계산 · setBounds 앞에서 돌아간다');
-  const runPart = am.slice(am.indexOf('const runRect = _runRectOf(display);'));
-  chk(runPart.length > 0 && !/_winDrag/.test(runPart), '  실행 화면 진입(run)은 막지 않는다');
+    '★ 같은 모드로 끄는 동안 setConfigMode(config)는 창을 건드리지 않는다 — 모드 · 여백은 먼저 적고, 자리 계산 · setBounds 앞에서 돌아간다(실제로 돌리는 것은 sim-cfg-fit 3-c)');
 }
 chk(/mainWindow\.on\('closed', \(\) => \{\s*_winDrag\.cancel\(\);/.test(MAIN), '★ 창이 닫히면 끌기를 놓는다(새 창의 setConfigMode 가 막히지 않게)');
 chk(/mainWindow\.on\('blur', \(\) => \{\s*try\{ _winDrag\.end\(\); \}catch\(_\)\{\}/.test(MAIN), '★ 다른 창으로 넘어가면(blur) 끌기를 닫는다(뗌 신호를 못 받아도)');
@@ -169,7 +167,8 @@ for (const [name, src] of [['myhome-ui.js', MHUI], ['myhome-desktop.js', MHDT], 
     name + ' — 누름 start · 움직임 move · 뗌 end 를 보낸다(옛 moveWindow 없음)');
 }
 chk(!/screenX|screenY/.test(code(RUN).slice(code(RUN).indexOf("#deskBar .grip"), code(RUN).indexOf("getElementById('deskGear')"))), '  실행 화면 손잡이는 화면 좌표(screenX)를 쓰지 않는다');
-chk(/pointercancel', endDrag\)/.test(MHUI) && /if\(dragMovesOsWindow\) companion\.dragWindow\('end'\);/.test(MHUI) && /pointercancel', end\)/.test(MHDT) && /if\(dragging && osMove\) companion\.dragWindow\('end'\);/.test(MHDT),
+chk(/lostpointercapture', endDrag\)/.test(MHUI) && /lostpointercapture', end\)/.test(MHDT) && /const end=e=>\{ if\(!dragging\) return; if\(osMove\) companion\.dragWindow\('end'\);/.test(MHDT), '★ 마이홈 두 곳 — 포인터 잡기를 잃어도(lostpointercapture — 끄는 중 창 닫힘 · 다시 그림) end · 두 번 보내지 않는다');
+chk(/pointercancel', endDrag\)/.test(MHUI) && /if\(dragMovesOsWindow\) companion\.dragWindow\('end'\);/.test(MHUI) && /pointercancel', end\)/.test(MHDT),
   '  마이홈 두 곳 — 뗌 · 취소(pointercancel) 모두 end');
 { let pk = {}; try { pk = JSON.parse(PKG).build || {}; } catch (_) {}
   chk((pk.files || []).includes('win-drag.js'), '설치본 — win-drag.js 가 build.files 에'); }

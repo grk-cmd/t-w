@@ -94,7 +94,7 @@ function applyFlow(src, movedFires){
     + 'const WA = { x: 0, y: 0, width: 3840, height: 2160 }; const D = { workArea: WA, workAreaSize: { width: 3840, height: 2160 } };\n'
     + 'const screen = { getDisplayMatching: () => D, getDisplayNearestPoint: () => D }; const getRunDisplay = () => D; const overlay = {};\n'
     + 'let W = { x: 300, y: 200, width: 380, height: 680, res: false };\n'
-    + 'const _winDrag = { active: () => false };   /* 수동 창 끌기 중이 아님(끄는 동안 건너뛰기는 sim-win-drag.js) */\n'
+    + 'const _winDrag = { active: () => false, cancel(){} };   /* 수동 창 끌기 중이 아님(끄는 동안 건너뛰기는 sim-win-drag.js) */\n'
     + 'const _winAlreadyIs = (r) => W.x === r.x && W.y === r.y && W.width === r.width && W.height === r.height; const _noteApplied = () => {};\n'
     + 'const mainWindow = { getBounds: () => ({ x: W.x, y: W.y, width: W.width, height: W.height }), isResizable: () => W.res, setResizable(v){ W.res = v; }, setAlwaysOnTop(){},\n'
     + '  setBounds(r){ Object.assign(W, r); if(MOVED){ const m = _configModeNow(); if(m) _rememberPos(m, W); } } };\n'

@@ -118,6 +118,7 @@ function syncFriendsOpen(){
     };
     title.addEventListener('pointerup', endDrag);
     title.addEventListener('pointercancel', endDrag);
+    title.addEventListener('lostpointercapture', endDrag);   // 끄는 중에 제목줄이 사라지면(창 닫기) pointerup 이 안 온다 — main 의 끌기가 남지 않게
   })();
   const open=()=>{
     // ★ 이전에 드래그로 옮겨둔 위치(inline style)가 남아있으면, 창 크기가 바뀐 뒤 재열기 시 화면 밖에 뜰 수 있음.

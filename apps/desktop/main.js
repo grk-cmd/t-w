@@ -2046,6 +2046,8 @@ function _applyConfigMode(isConfig, mode, extra){
   const prevMode = _curMode;   // creator 로 들어올 때 «지금 config 창인가(그 자리를 잇는다) · 실행 화면인가(중앙)» 판단용
   _curMode = isConfig ? (MODE_SIZE[mode] ? mode : 'launcher') : 'run';   // 🪟 창 모드 한 값(위 _curMode 주석)
   _isConfigMode = !!isConfig;   // ★ 안전장치는 전체화면 오버레이(run)에서만 동작해야 함
+  /* 🖱 끄는 도중 모드가 바뀌면 끌기를 놓는다 — 창 사각형의 주인이 새 모드로 넘어간다(시작 크기로 계속 놓으면 새 모드 창과 서로 당긴다) */
+  if(_curMode !== prevMode) _winDrag.cancel();
   if (!mainWindow) return;
   // ★ 마이홈은 "런처가 지금 떠 있는 모니터" 기준으로 중앙 계산 — 캐릭터 실행용 모니터(getRunDisplay)와
   //   다르게 지정해둔 듀얼 모니터 환경에서, 런처와 동떨어진 엉뚱한 모니터에 뜨던 문제를 방지.
@@ -2062,7 +2064,7 @@ function _applyConfigMode(isConfig, mode, extra){
     /* 🎨 스티커 여백 — 크기(_modeSize)가 읽으니 재기 전에 바꾼다. 옛 렌더러(셋째 인자 없음)면 0 */
     if(mode==='myhome') _mhPad = _mhPadOf(extra);
     const sz = _modeSize(mode);   // 📐 MODE_SIZE × 줌 — 줌을 올려도 창이 내용을 따라 커진다(_modeSize 주석)
-    /* 🖱 끄는 동안은 창 사각형의 주인이 끌기다(win-drag.js) — 여기서 맞추면 서로 당긴다. 끌기가 끝날 때 한 번 맞춘다(_winDrag onEnd) */
+    /* 🖱 같은 모드로 끄는 동안은 창 사각형의 주인이 끌기다(win-drag.js) — 여기서 맞추면 서로 당긴다. 끌기가 끝날 때 한 번 맞춘다(_winDrag onEnd) */
     if(_winDrag.active()) return;
     /* ⚠️ setResizable(true) 는 아래 '같은 상태면 생략' 판정 **뒤로** 옮겼다.
        고정 크기 창에 setBounds 를 걸면 OS 가 크기를 깎을 수 있어 잠깐 풀어줘야 하는데,
@@ -2121,6 +2123,7 @@ function _applyConfigMode(isConfig, mode, extra){
    화면은 런처로 돌아오는데 창만 실행 화면(모니터 전체 · 클릭 통과 · 맨 위)으로 남으면 덮인 채 아무것도 못 누른다(새 렌더러가 제 모드를 다시 보낸다).
    ⚠️ 로그 «<why> 창을 런처로 되돌림» 은 e2e launcher/renderer-crash 가 글자로 찾는다(«다시 불러오기 전 창을 런처로 되돌림»). */
 function _resetWindowToLauncher(why){
+  _winDrag.cancel();   // 렌더러가 죽으면 뗌 신호가 안 온다 — 끌기가 남으면 아래 되돌리기가 창을 못 건드린다
   if(!mainWindow || mainWindow.isDestroyed()) return;
   _applyConfigMode(true, 'launcher');
   _lastIgnoreRequested = false;

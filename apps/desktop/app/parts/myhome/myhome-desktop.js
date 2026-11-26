@@ -1222,9 +1222,10 @@ function advBindWinDrag(bar){
     win.style.left=(e.clientX-offX)+'px'; win.style.top=(e.clientY-offY)+'px';
     if(mhHooks.has(mhHooks.HOOK.SYNC_BGM_BOUNDS)) try{ mhHooks.call(mhHooks.HOOK.SYNC_BGM_BOUNDS); }catch(_){}
   });
-  const end=e=>{ if(dragging && osMove) companion.dragWindow('end'); dragging=false; try{ bar.releasePointerCapture(e.pointerId); }catch(_){} };
+  const end=e=>{ if(!dragging) return; if(osMove) companion.dragWindow('end'); dragging=false; try{ bar.releasePointerCapture(e.pointerId); }catch(_){} };
   bar.addEventListener('pointerup', end);
   bar.addEventListener('pointercancel', end);
+  bar.addEventListener('lostpointercapture', end);   // 끄는 중에 막대가 다시 그려지면 pointerup 이 안 온다 — main 의 끌기가 남지 않게
 }
 
 /* ─────────────────────────── 이벤트 ─────────────────────────── */
