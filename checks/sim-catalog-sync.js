@@ -287,6 +287,27 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
     await W.subs.parts({ p1: { cat: 'hat' } }); await flush();
     chk(pw !== MOD && has(W.log, 'resolveAll'), '  mutation test — 파츠 합치기가 GLB 를 기다리면 위 «바로 합친다» 판정이 빨강');
 
+    /* app.js loadSavedItemsIntoSession — GLB 를 아직 안 받은 카탈로그 아이템은 등록도 실패 알림도 하지 않고, fillGlb 가 채운 뒤 다시 부르면 등록한다 */
+    if(!PREMOVE){
+      const regCase = (app) => {
+        const i0 = app.indexOf('async function loadSavedItemsIntoSession(){'); let k0 = app.indexOf('{', i0), d0 = 0;
+        for(; k0 < app.length; k0++){ if(app[k0] === '{') d0++; else if(app[k0] === '}' && --d0 === 0) break; }
+        const items = [{ id: 'g', glb: 'G' }, { id: 'u', glbUrl: 'https://x/u.glb' }]; const reg = [], errs = [];
+        const fn = new Function('commissionMod', 'b64ToBuf', 'assetCodeMod', 'deskItemsMod', 'TwErrorCodes', 'console', app.slice(i0, k0 + 1) + '\nreturn loadSavedItemsIntoSession;')(
+          { savedItems: () => items }, (b) => { if(typeof b !== 'string') throw new Error('no glb'); return 'buf:' + b; }, { parseGlbFull: async () => ({ scene: {}, animations: [] }) },
+          { registerCustomItem: (id) => reg.push(id) }, { notify: (c) => errs.push(c) }, { warn(){} });
+        return { fn, items, reg, errs };
+      };
+      const rc = regCase(SRC);
+      await rc.fn();
+      const first = rc.reg.join() + '|' + rc.errs.join();
+      rc.items[1].glb = 'U'; rc.reg.length = 0; await rc.fn();
+      chk(first === 'g|' && rc.reg.join() === 'g,u', '★ 저장 아이템 등록 — GLB 주소만 있는 카탈로그 아이템은 등록도 실패 알림(E-CHAR-25)도 안 하고, 채워진 뒤 다시 부르면 등록한다');
+      const rm = regCase(SRC.replace("    if(!rec.glb && rec.glbUrl) continue;", ""));
+      await rm.fn();
+      chk(rm.errs.includes('E-CHAR-25'), '  mutation test — 건너뛰기를 빼면 받기 전 아이템이 «등록 실패» 로 알려진다(빨강)');
+    }
+
     /* 가챠 카탈로그 옮기기(관리자)는 걷었다 — 옛 가챠 표식이 보여도 아무것도 옮기지 않는다 */
     W = load({});
     await W.subs.parts({ g1: { gacha: true } }); await flush();

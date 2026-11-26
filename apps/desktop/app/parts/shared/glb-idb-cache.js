@@ -38,12 +38,11 @@ function _glbIdbGet(key){
   return _glbIdb().then(db=>new Promise(res=>{
     if(!db) return res(null);
     try{
-      const st = db.transaction(_GLB_IDB_STORE, 'readwrite').objectStore(_GLB_IDB_STORE);
-      const rq = st.get(key);
+      const rq = db.transaction(_GLB_IDB_STORE, 'readonly').objectStore(_GLB_IDB_STORE).get(key);
       rq.onsuccess = ()=>{
         const v = rq.result;
         if(!v) return res(null);
-        if(!(v.ts > now() - TOUCH_MS)){ try{ st.put({ url: key, b64: v.b64, ts: now() }); }catch(_){} }   // 쓴 때 새로 적기 — 실패해도 이번 읽기는 그대로
+        if(!(v.ts > now() - TOUCH_MS)){ try{ db.transaction(_GLB_IDB_STORE, 'readwrite').objectStore(_GLB_IDB_STORE).put({ url: key, b64: v.b64, ts: now() }); }catch(_){} }   // 쓴 때 새로 적기(하루 한 번 · 따로 쓰기) — 실패해도 이번 읽기는 그대로
         res(v.b64);
       };
       rq.onerror = ()=>res(null);

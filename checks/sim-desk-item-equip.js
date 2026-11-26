@@ -215,6 +215,14 @@ say('§5-B 받기 전에 건너뛴 아이템은 저장본에서 지워지지 않
   bp.mod.applyDeskItemsTo(cbp, { vip: { adj: { x: 9 } } });   // 프리셋이 입히려던 값
   bp.mod.autoSaveDeskItemsNow();
   chk(cbp.charDef.deskItems && cbp.charDef.deskItems.vip.adj.x === 9 && !cbp.charDef.deskItems.other, '★ 프리셋을 얹은 뒤 건너뜀 → 저장본에 프리셋 값(x:9)이 남는다(옛 캐릭터 값 x:1 이 아니다)');
+  /* 카탈로그 아이템인데 GLB 를 아직 안 받아 등록 전(첫 화면 뒤에 받는다) — 생성기에서 다른 아이템을 켜고 저장해도 지워지지 않는다 */
+  const pend = (src) => { const c = mkHolder({ charDef: { deskItems: { pend: { adj: { x: 5 } } } } }); const bb = build(src, { cBase: c, defs: { plant: mkDef('plant') } });
+    bb.st.saved = [{ id: 'pend', glbUrl: 'https://x/p.glb' }]; bb.st.received = true;
+    bb.mod.applyDeskItemsTo(c, c.charDef.deskItems); bb.mod.equipDeskItem(c, bb.defs.plant, true); bb.mod.autoSaveDeskItemsNow(); return c; };
+  const pc = pend(SRC);
+  chk(pc.charDef.deskItems && pc.charDef.deskItems.pend && pc.charDef.deskItems.pend.adj.x === 5 && pc.charDef.deskItems.plant, '★ GLB 를 받기 전이라 등록 안 된 카탈로그 아이템 — 다른 아이템을 켜고 저장해도 저장본에 원본째 남는다');
+  const pm = SRC.replace("    if(!def){ if(_glbPending(id)){ _markSkipped(holder, id); holder._skippedItems.set(id, data[id]); } return; }", "    if(!def) return;");
+  chk(pm !== SRC && !(pend(pm).charDef.deskItems || {}).pend, '  mutation test — 건너뜀으로 안 적으면 저장이 그 아이템을 지운다(빨강)');
   const mm = SRC.replace("_sk.forEach((entry,id)=>{ if(entry && !d[id]){ d[id]=entry; any=true; } });", '');
   const rb = run(mm);
   const rbp = (() => { const c = mkHolder({ charDef: { deskItems: ORIG() } }); const bb = build(SRC.replace("if(holder._skippedItems && holder._skippedItems.has(id)) holder._skippedItems.set(id, e);", ''), { cBase: c, defs: { vip: mkDef('vip', { custom: true }) } }); bb.mod.applyDeskItemsTo(c, { vip: { adj: { x: 9 } } }); bb.mod.autoSaveDeskItemsNow(); return c; })();

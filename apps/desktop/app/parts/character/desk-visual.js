@@ -30,6 +30,7 @@ const toast = deps.toast;
 // 좌석의 charDef.deskCatalogId를 보고 지금 카탈로그에 있는 최신 GLB로 책상을 그려줌(없으면 기본 책상)
 async function applyDeskCatalogRefToSeat(seat, def){
   if(!seat || !seat.desk) return;
+  const req = seat.desk.userData.deskReq = {};   // 이 부름의 표 — 받는 사이 다른 책상 · «책상 없음» · 기본 책상으로 바뀌면 늦게 온 GLB 는 그리지 않는다
   if(def.deskCatalogId===NO_DESK_ID){
     hideDeskBody(seat.desk);
     setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1);   // 책상 위 아이템 자리는 크기를 따른다
@@ -51,7 +52,6 @@ async function applyDeskCatalogRefToSeat(seat, def){
   }
   try{
     seat.desk.userData.__seat = seat;   // 책상 idle 재생 판정에 좌석 상태 필요
-    const req = seat.desk.userData.deskReq = {};   // 받는 사이 다른 책상으로 바뀌면 늦게 온 이 책상은 그리지 않는다
     if(!rec.glb) await resolveCatalogGlb(rec);
     if(seat.desk.userData.deskReq !== req) return;
     if(!rec.glb){ swapDeskVisual(seat.desk,null); setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1); return; }   // 못 받음 — 기본 책상(다음 카탈로그 받기 · 그리기에서 다시)
