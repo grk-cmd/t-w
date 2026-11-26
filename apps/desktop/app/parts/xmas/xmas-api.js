@@ -35,11 +35,13 @@ const ERROR_CODES = Object.freeze({
   XMAS_WORD_TOO_LONG: 'invalid-argument', XMAS_WORD_BANNED: 'invalid-argument', XMAS_REPORT_SELF: 'invalid-argument',
   XMAS_TREE_FORBIDDEN: 'read', XMAS_TREE_NOT_FOUND: 'read',
   XMAS_LETTER_CLOSED: 'closed',
-  XMAS_LETTER_INVALID: 'write', XMAS_ORNAMENT_NOT_FOUND: 'write', XMAS_RECEIVED_NOT_FOUND: 'write', XMAS_LETTER_NOT_FOUND: 'write',
+  XMAS_LETTER_INVALID: 'write', XMAS_LETTER_NOT_FOUND: 'write',
+  XMAS_ORNAMENT_NOT_FOUND: 'gone', XMAS_RECEIVED_NOT_FOUND: 'gone',   // 신고 대상이 이미 없다(관리자가 지움 · 바뀜) — 화면은 안내만
   XMAS_REPORT_DUPLICATE: 'dup',
   CONCURRENT_UPDATE: 'conflict',
   USER_CODE_NOT_BOUND: 'auth', AUTH_REQUIRED: 'auth', NO_TOKEN: 'auth', OWNER_CHANGED: 'auth',
   TOO_MANY_REQUESTS: 'aborted', DB_BUSY: 'aborted', STORAGE_UNAVAILABLE: 'aborted',
+  STALE: 'stale',   // 앱 안 — 읽는 사이 세션이 끝났다(reset) · 화면은 아무것도 하지 않는다
 });
 const NOT_BOUND = 'USER_CODE_NOT_BOUND';
 
@@ -113,9 +115,13 @@ function createXmasApi(deps){
   let sched = null;   // 마지막으로 읽은 날짜 한 벌(rules.scheduleOf) — 아직 못 읽었으면 null
   /* 판 기억 — 읽은 토큰의 주인 · 내 장식의 판(null = 아직 안 걺) · 편지 칸마다 판. 아직 안 읽었으면 null */
   let known = null;
+  let gen = 0;   // 세션 reset 마다 올린다 — 앞 세션의 늦은 답이 판 기억 · 날짜를 다시 채우지 않게
+  const stale = () => Object.assign(new Error('세션이 바뀌었어요'), { code: 'STALE' });
 
   async function readCurrent(){
+    const g = gen;
     const d = await authed.get(PATHS.current, { auth: true });
+    if (g !== gen) throw stale();
     const c = currentOf(d);
     if (!c) throw shapeError();
     const s = rules.scheduleOf(d);
@@ -126,8 +132,10 @@ function createXmasApi(deps){
   async function readMe(){
     let owner;
     let d;
+    const g = gen;
     try { d = await authed.get(PATHS.me, { auth: true, onOwner: (who) => { owner = who; } }); }
-    catch (e) { if (e && e.code === NOT_BOUND){ known = null; return null; } throw e; }
+    catch (e) { if (g !== gen) throw stale(); if (e && e.code === NOT_BOUND){ known = null; return null; } throw e; }
+    if (g !== gen) throw stale();
     const me = meOf(d);
     if (!me) throw shapeError();
     const letters = {};
@@ -198,7 +206,7 @@ function createXmasApi(deps){
       const k = await ensureKnown();   // 읽은 토큰의 주인과 묶는다 — 앞 계정의 열린 창이 새 계정 토큰으로 신고하지 않게
       await authed.post(PATHS.reports, n ? { target, note: n } : { target }, { expectOwner: k.owner });
       return { ok: true };
-    } catch (e) { forgetOn(e); return failOf(e, 'write'); }
+    } catch (e) { forgetOn(e); return failOf(e, 'report'); }   // 기본은 'report'(화면은 오류 번호) — 대상이 없을 때만 'gone'
   }
   const reportOrnament = (t, s, note) => report({ type: 'ornament', tree: t, slot: s }, note);
   const reportLetter = (n, note) => report({ type: 'received', n }, note);
@@ -257,7 +265,7 @@ function createXmasApi(deps){
     catch (e) { return failOf(e, 'read'); }
   }
   /** 세션이 끝나면(로그아웃 · 계정 바뀜) — 앞 계정의 판 기억 · 날짜를 버린다 */
-  function reset(){ known = null; sched = null; }
+  function reset(){ gen++; known = null; sched = null; }
 
   return { me: () => myCode(), where, tree, img, hang, reportOrnament, reportLetter, myLetters, saveLetter, removeLetter, clearReturned, got,
     refreshSchedule, reset,

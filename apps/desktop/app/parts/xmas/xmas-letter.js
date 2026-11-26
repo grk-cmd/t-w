@@ -159,8 +159,10 @@ function createXmasLetter(deps){
     if (!lid){ toast('편지는 ' + rules.LETTER_MAX + '통까지 맡길 수 있어요.'); return; }
     const retLid = editing.retLid;
     busy = true; checkText();
+    const g = gen;
     const r = await net().saveLetter(lid, text, draftSong, retLid);   // 반송된 편지면 서버가 같은 트랜잭션에서 반송 기록을 지운다
     busy = false; checkText();
+    if (g !== gen) return;   // 그 사이 세션이 끝났다 — 앞 계정 답으로 그리거나 다시 읽지 않는다
     if (!r.ok){ writeFailed(r); return; }
     editing = null; songW.set(null);
     toast('편지를 맡겼어요. 25일 0시에 전달돼요.');
@@ -169,8 +171,10 @@ function createXmasLetter(deps){
   async function withdraw(lid){
     if (busy) return;
     busy = true;
+    const g = gen;
     const r = await net().removeLetter(lid);
     busy = false;
+    if (g !== gen) return;   // 그 사이 세션이 끝났다 — 앞 계정 답으로 그리거나 다시 읽지 않는다
     if (!r.ok){ writeFailed(r); return; }
     if (editing && editing.lid === lid){ editing = null; songW.set(null); }
     toast('편지를 거뒀어요. 마감 전까지 다시 쓸 수 있어요.');
@@ -179,8 +183,10 @@ function createXmasLetter(deps){
   async function dismiss(lid){
     if (busy) return;
     busy = true;
+    const g = gen;
     const r = await net().clearReturned(lid);
     busy = false;
+    if (g !== gen) return;   // 그 사이 세션이 끝났다 — 앞 계정 답으로 그리거나 다시 읽지 않는다
     if (!r.ok){ writeFailed(r); return; }
     if (editing && editing.retLid === lid) editing = null;
     await loadView();
@@ -232,12 +238,14 @@ function createXmasLetter(deps){
     $('xmasLwRep').hidden = true;
     if (openedN == null) return;
     if (!rules.eventOn(serverNow(), schedule())){ toast(REPORT_ENDED); return; }   // 확인창을 연 채 끝을 넘긴 때
+    const g = gen;
     const r = await net().reportLetter(openedN);
+    if (g !== gen) return;   // 그 사이 세션이 끝났다 — 앞 계정 답으로 그리거나 다시 읽지 않는다
     if (r.ok) toast('신고했어요. 관리자가 확인할게요.');
     else if (r.code === 'dup') toast('이미 신고한 편지예요.');
     else if (r.code === 'auth') toast('로그인한 뒤 신고할 수 있어요.');
     else if (r.code === 'failed-precondition') toast(REPORT_ENDED);   // 서버 시각으로 이벤트가 끝났다(XMAS_ENDED)
-    else if (r.code === 'write') toast('이미 없는 편지예요.');      // 관리자가 지웠다(XMAS_RECEIVED_NOT_FOUND)
+    else if (r.code === 'gone') toast('이미 없는 편지예요.');       // 관리자가 지웠다(XMAS_RECEIVED_NOT_FOUND)
     else notifyError('E-XMAS-06', r.err);
   };
 

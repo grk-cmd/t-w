@@ -49,7 +49,7 @@ function world(opts){
     me: () => N.uid,
     myLetters: async () => { N.calls.push('my'); return N.fail.my ? { ok: false, code: N.fail.my } : { ok: true, letters: D.letters, returned: D.returned }; },
     got: async () => { if (!N.uid) return { ok: false, code: 'auth' }; N.calls.push('got'); if (N.hold) await N.hold; return N.fail.got ? { ok: false, code: N.fail.got } : { ok: true, got: D.got, matched: o.matched !== false }; },
-    saveLetter: async (lid, text, song, fromReturned) => { N.calls.push('save:' + lid + (fromReturned ? '<' + fromReturned : '')); N.last = { lid, text, song, fromReturned }; if (N.ret.save) return N.ret.save;
+    saveLetter: async (lid, text, song, fromReturned) => { N.calls.push('save:' + lid + (fromReturned ? '<' + fromReturned : '')); N.last = { lid, text, song, fromReturned }; if (N.saveHold) await N.saveHold; if (N.ret.save) return N.ret.save;
       D.letters = Object.assign({}, D.letters, { [lid]: { text, version: 1, song: song || undefined } });
       if (fromReturned){ D.returned = Object.assign({}, D.returned); delete D.returned[fromReturned]; }   // 서버가 같은 트랜잭션에서 지운다
       return { ok: true, version: 1 }; },
@@ -190,7 +190,7 @@ say('── 5절 열람');
   w.els.xmasLwReport.onclick(); chk(!w.els.xmasLwRep.hidden, '🚩 신고 — 확인창');
   await w.els.xmasLwRepYes.onclick();
   chk(w.N.calls.includes('report:2') && /신고했어요/.test(w.S.toasts.pop()), '  ↳ 연 편지 번호로 신고');
-  for (const [code, re, err] of [['dup', /이미 신고한 편지/, ''], ['auth', /로그인한 뒤 신고/, ''], ['failed-precondition', /이벤트가 끝나 신고할 수 없어요/, ''], ['write', /이미 없는 편지예요/, ''], ['read', null, 'E-XMAS-06']]) {
+  for (const [code, re, err] of [['dup', /이미 신고한 편지/, ''], ['auth', /로그인한 뒤 신고/, ''], ['failed-precondition', /이벤트가 끝나 신고할 수 없어요/, ''], ['gone', /이미 없는 편지예요/, ''], ['report', null, 'E-XMAS-06'], ['aborted', null, 'E-XMAS-06']]) {
     const wx = world({ now: R.LETTER_DEADLINE_MS + 1000, got, ret: { report: { ok: false, code } } }); wx.api.open(); await settle();
     rows(wx.els.xmasLwEnvs)[0].onclick(); await wx.els.xmasLwRepYes.onclick();
     chk((re ? re.test(wx.S.toasts.pop() || '') : true) && wx.S.errs.join() === err, '신고 실패 ' + code + ' — ' + (err || '안내'));
@@ -275,6 +275,24 @@ say('── 6절 받은 편지 한 번 읽기(빨간 점) — 폴링 없음');
   const wv = world({ now: R.LETTER_DEADLINE_MS - 1000 }); wv.S.sched = Object.freeze({ letterDeadline: R.LETTER_DEADLINE_MS - 5000, eventEnd: R.EVENT_END_MS, lettersViewUntil: R.LETTERS_VIEW_UNTIL_MS });
   wv.api.paintBtn();
   chk(wv.els.xmasLetterBtn.textContent === '편지 열람', '날짜는 schedule()(서버 값)으로 — 처음 값보다 이른 마감이면 그때부터 [편지 열람]');
+}
+
+say('── 6-2절 세션 reset 뒤 늦은 쓰기 답');
+{
+  const late = async (mod) => {
+    const w = world({ mod }); w.api.open(); await settle();
+    let rel; const hold = new Promise((r) => { rel = r; });
+    w.els.xmasLwText.value = '안녕'; w.els.xmasLwText.ls.input();
+    w.N.saveHold = hold;
+    const p = w.els.xmasLwKeep.onclick(); await settle();
+    w.api.reset(); w.N.calls.length = 0; w.S.toasts.length = 0; rel(); await p; await settle();
+    return { calls: w.N.calls.join(), toasts: w.S.toasts.join() };
+  };
+  const r = await late(null);
+  chk(r.calls === '' && !/맡겼어요/.test(r.toasts), '★ 맡기기가 걸린 사이 reset — 늦은 답 뒤 편지함을 다시 읽지 않고 «맡겼어요» 도 안 띄운다(새 계정으로 요청 0)');
+  const bad = {}; new Function('window', 'module', SRC.split('    if (g !== gen) return;   // 그 사이 세션이 끝났다 — 앞 계정 답으로 그리거나 다시 읽지 않는다\n').join(''))(bad, undefined);
+  const rb = await late(bad.TwXmasLetter);
+  chk(rb.calls !== '' || /맡겼어요/.test(rb.toasts), 'mutation test — 세션 검사를 빼면 위 검사가 빨강');
 }
 
 say('── 7절 닫기 · Esc · 저장소');

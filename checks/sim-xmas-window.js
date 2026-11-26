@@ -8,6 +8,7 @@
    ・5절 실패 · 닫기 — 못 불러옴(E-XMAS-01) · 닫은 뒤 늦게 온 답은 버림 · 끝난 뒤 열기 막기
    ・6절 한마디 라벨은 textContent 로만 · mutation test
    ・7절 편지 창 잇기(편지 · 뮤직바는 가짜 — 그 모듈은 sim-xmas-letter · sim-xmas-song) — 창 열면 맡긴 수 · 1분마다 단추만(받은 편지는 안 읽음) · 닫으면 편지 창도 ·
+   ・9절 세션 reset 뒤 늦은 걸기 답은 다시 읽지 않음 · 켤 때 차례 startXmas(reset 둘 · 하루 창 · NaN · 창 없음) · app.js 배선
    ・8절 📩 받은 편지 알림 — 못 읽으면 다시 · 세션 reset 이 기다림 · 본 알림 · 창을 비움 · 안 읽은 XMAS_LETTER 를 처음 볼 때만 0~30초 무작위 뒤 한 번 읽기 · 기다리는 동안 또 보이면 묶음 · 반송 · 읽은 알림은 안 읽음 ·
      📩 알림함이 NAV.XMAS 로 연다('letter' 면 편지 창까지) · 빨간 점 · 로그인 안 됨 안내(오류 코드 아님) */
 'use strict';
@@ -25,6 +26,8 @@ global.TwSafeHtml = require(path.resolve(HP));
 const W = require(path.resolve(WP));
 const R = require(path.resolve(RP));
 const SRC = fs.readFileSync(WP, 'utf8');
+const AP = find(['app.js', 'parts/app.js', 'app/parts/app.js', 'apps/desktop/app/parts/app.js']);
+const APP = AP ? fs.readFileSync(AP, 'utf8') : '';
 
 /* ── 가짜 화면 ── */
 function el(tag, id){
@@ -60,7 +63,7 @@ function world(opts){
     where: async () => { N.calls.push('where'); return N.fail.where ? { ok: false, code: N.fail.where === 'auth' ? 'auth' : 'read' } : { ok: true, cur: N.data.cur, mine: N.data.mine }; },
     tree: async (t) => { N.calls.push('tree:' + t); if (N.hangGate) await N.hangGate; return N.fail.tree ? { ok: false, code: 'read' } : { ok: true, o: N.data.trees[t] || {} }; },
     img: async (id) => { N.calls.push('img:' + id); const d = N.data.imgs[id]; return d ? { ok: true, d } : { ok: false, code: 'read' }; },
-    hang: async (d) => { N.calls.push('hang'); N.lastHang = d; return N.hangRet || { ok: true, tree: N.data.cur, slot: 0, version: 1, moved: false, changed: false, imageId: null }; },
+    hang: async (d) => { N.calls.push('hang'); N.lastHang = d; if (N.hangHold) await N.hangHold; return N.hangRet || { ok: true, tree: N.data.cur, slot: 0, version: 1, moved: false, changed: false, imageId: null }; },
     schedule: () => N.sched || null,
     scheduleNow: () => N.sched || R.SCHEDULE,
     reportOrnament: async (t, s) => { N.calls.push('report:' + t + '/' + s); return o.repRet || { ok: true }; },
@@ -202,10 +205,15 @@ say('── 4절 신고');
   const wa = world({ data: { cur: 4, mine: null, trees: { 4: {} }, imgs: {} }, repRet: { ok: false, code: 'auth' } }); wa.S.ready(); wa.api.open(); await settle();
   wa.T.onReport(1); await wa.els.xmasRepYes.onclick();
   chk(/로그인한 뒤 신고/.test(wa.S.toasts.pop()) && !wa.S.errs.length, '로그인 안 됨 · 가입 전 — «로그인한 뒤 신고할 수 있어요»(«이미 신고» 가 아님)');
-  const wg = world({ data: { cur: 4, mine: null, trees: { 4: {} }, imgs: {} }, repRet: { ok: false, code: 'write' } }); wg.S.ready(); wg.api.open(); await settle();
+  const wg = world({ data: { cur: 4, mine: null, trees: { 4: {} }, imgs: {} }, repRet: { ok: false, code: 'gone' } }); wg.S.ready(); wg.api.open(); await settle();
   wg.T.onReport(1); await wg.els.xmasRepYes.onclick();
-  chk(/이미 없는 장식이에요/.test(wg.S.toasts.pop() || '') && !wg.S.errs.length, '그 사이 지워진 장식(404 · write) — «이미 없는 장식이에요» 안내(오류 번호 아님)');
-  const we = world({ data: { cur: 4, mine: null, trees: { 4: {} }, imgs: {} }, repRet: { ok: false, code: 'read' } }); we.S.ready(); we.api.open(); await settle();
+  chk(/이미 없는 장식이에요/.test(wg.S.toasts.pop() || '') && !wg.S.errs.length, '그 사이 지워진 장식(404 XMAS_ORNAMENT_NOT_FOUND → gone) — «이미 없는 장식이에요» 안내(오류 번호 아님)');
+  for (const code of ['report', 'aborted', 'write']){
+    const wx = world({ data: { cur: 4, mine: null, trees: { 4: {} }, imgs: {} }, repRet: { ok: false, code } }); wx.S.ready(); wx.api.open(); await settle();
+    wx.T.onReport(1); await wx.els.xmasRepYes.onclick();
+    chk(wx.S.errs.join() === 'E-XMAS-03' && !wx.S.toasts.some(t => /이미 없는/.test(t)), '  신고 실패 ' + code + '(네트워크 · 503 · 그 밖) — E-XMAS-03 · «이미 없는» 안내가 아님');
+  }
+  const we = world({ data: { cur: 4, mine: null, trees: { 4: {} }, imgs: {} }, repRet: { ok: false, code: 'report' } }); we.S.ready(); we.api.open(); await settle();
   we.T.onReport(1); await we.els.xmasRepYes.onclick();
   chk(we.S.errs.join() === 'E-XMAS-03', '그 밖 신고 실패는 E-XMAS-03');
 }
@@ -322,6 +330,41 @@ say('── 8절 📩 받은 편지 알림');
   }
   const w0 = world({ random: 0.999999 }); w0.S.ready(); w0.api.onMail(M());
   chk(w0.timeouts[0][1] < R.READ_JITTER_MS && R.READ_JITTER_MS === 30000, '기다림은 30초 안');
+}
+
+say('── 9절 세션 reset 뒤 늦은 답 · 켤 때 차례(startXmas)');
+{
+  const late = async (mod) => {
+    const w = world({ mod }); w.S.ready(); w.api.open(); await settle();
+    let rel; w.N.hangHold = new Promise((r) => { rel = r; });
+    const p = w.els.xmasHang.onclick(); await settle();
+    w.api.reset(); w.N.calls.length = 0; rel(); await p; await settle();
+    return w.N.calls.join();
+  };
+  chk((await late(null)) === '', '★ 장식 걸기가 걸린 사이 reset — 늦은 답 뒤 트리를 다시 읽지 않는다(새 계정으로 요청 0)');
+  const bad = {}; new Function('window', 'module', SRC.split('    if (my !== seq) return;   // 그 사이 창이 닫혔거나 세션이 끝났다 — 다시 읽지 않는다(새 계정으로 요청을 더 보내지 않게)').join(''))(bad, undefined);
+  chk((await late(bad.TwXmasWindow)) !== '', 'mutation test — 걸기 뒤 세션 검사를 빼면 위 검사가 빨강(where · tree 를 또 부른다)');
+
+  const run = (o, mod) => {
+    const ev = [], hooks = [];
+    const d = { api: { reset: () => ev.push('apiReset'), refreshSchedule: () => { ev.push('refresh'); return Promise.resolve({ ok: true }); } },
+      win: o.noWin ? null : { reset: () => ev.push('winReset') }, rules: R, serverNow: () => o.sn, now: () => { ev.push('now'); return o.now; } };
+    (mod || W).startXmas(d, { onReset: (fn) => hooks.push(fn) });
+    hooks.forEach(f => f());
+    return ev.join();
+  };
+  const D0 = R.LETTER_DEADLINE_MS;
+  chk(run({ sn: D0 - 3600000 }) === 'refresh,apiReset,winReset', 'startXmas — 세션이 끝나면 provider · 창 reset 둘 다 · 마감 앞뒤 하루 안이면 날짜 한 벌 한 번');
+  chk(run({ sn: D0 - 25 * 3600000 }) === 'apiReset,winReset' && run({ sn: D0 + 25 * 3600000 }) === 'apiReset,winReset', '  ↳ 하루 밖이면 읽지 않는다(요청 0)');
+  chk(run({ sn: NaN, now: D0 }) === 'now,refresh,apiReset,winReset' && run({ sn: NaN, now: D0 - 30 * 3600000 }) === 'now,apiReset,winReset', '  ↳ 서버 시각을 모르면(NaN) 이 PC 시계로 가른다');
+  chk(run({ sn: D0, noWin: true }) === '', '  ↳ 창이 없으면(기능 꺼짐) 아무것도 안 한다');
+  const mutW = (from, to) => { const b = {}; const src = SRC.split(from).join(to); new Function('window', 'module', src)(b, undefined); return src === SRC ? null : b.TwXmasWindow; };
+  const k1 = mutW('session.onReset(() => { d.api.reset(); d.win.reset(); });', 'session.onReset(() => { d.win.reset(); });');
+  const k2 = mutW('d.rules.nearDeadline(Number.isFinite(sn) ? sn : d.now())', 'true');
+  chk(k1 && run({ sn: D0 }, k1) !== 'refresh,apiReset,winReset', 'mutation test — provider reset 을 빼면 위 검사가 빨강');
+  chk(k2 && run({ sn: D0 - 25 * 3600000 }, k2) !== 'apiReset,winReset', 'mutation test — 하루 창을 안 보면 위 «요청 0» 이 빨강');
+  chk(/xmas: \(code, me, session\)=>TwXmasWindow\.startXmas\(\{ api: xmasApiMod, win: xmasWinMod, rules: TwXmasRules, serverNow: \(\)=>TwRtHub\.store\.serverNow\(\), now: \(\)=>Date\.now\(\) \}, session\)/.test(APP),
+    'app.js 차례 xmas — startXmas 에 provider · 창 · 서버 시각 · 이 PC 시계를 넘긴다');
 }
 
 say(`\n${fail ? '✗' : '✓'} ${pass} 통과 · ${fail} 실패`);

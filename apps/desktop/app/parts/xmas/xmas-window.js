@@ -75,12 +75,14 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     const s = repSlot; repSlot = null;
     if (s == null) return;
     if (!rules.eventOn(serverNow(), sch())){ toast(REPORT_ENDED); return; }   // 확인창을 연 채 끝을 넘긴 때
+    const my = seq;
     const r = await net().reportOrnament(treeNo, s);
+    if (my !== seq) return;   // 그 사이 창이 닫혔거나 세션이 끝났다
     if (r.ok) toast('신고했어요. 관리자가 확인할게요.');
     else if (r.code === 'dup') toast('이미 신고한 장식이에요.');
     else if (r.code === 'auth') toast('로그인한 뒤 신고할 수 있어요.');
     else if (r.code === 'invalid-argument' || r.code === 'failed-precondition') toast(r.msg || '신고할 수 없어요.');
-    else if (r.code === 'write') toast('이미 없는 장식이에요.');   // 그 사이 바뀌었거나 지워졌다(XMAS_ORNAMENT_NOT_FOUND)
+    else if (r.code === 'gone') toast('이미 없는 장식이에요.');   // 그 사이 지워졌다(XMAS_ORNAMENT_NOT_FOUND)
     else notifyError('E-XMAS-03', r.err);
   };
 
@@ -216,8 +218,10 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     const data = { kind: chosen.kind, word, preview: treeNo || null };
     if (chosen.kind === 'img') data.img = chosen.img;
     busy = true; $('xmasHang').disabled = true;
+    const my = seq;
     const r = await net().hang(data);
     busy = false; $('xmasHang').disabled = false;
+    if (my !== seq) return;   // 그 사이 창이 닫혔거나 세션이 끝났다 — 다시 읽지 않는다(새 계정으로 요청을 더 보내지 않게)
     if (!r.ok){
       if (r.code === 'aborted') toast('서버가 바빠요. 잠시 뒤 다시 눌러 주세요.');
       else if (r.code === 'conflict'){ toast('다른 PC 에서 먼저 바꿨어요. 트리를 다시 불러올게요.'); await load(false); }
@@ -314,7 +318,21 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
   return { open, close, refreshButton, onMail, reset, letter };
 }
 
-const api = Object.freeze({ createXmasWindow });
+/**
+ * 계정 세션마다 한 번(app-boot 차례 xmas) — 세션이 끝나면 provider · 창을 비우고(onReset), 마감 앞뒤 하루면 날짜 한 벌을 한 번 읽는다.
+ * 창이 없으면(서버 기능 표가 꺼짐) 아무것도 안 한다. 서버 시각을 아직 모르면 이 PC 시계로 «앞뒤 하루» 만 가른다(넓은 창이라 충분).
+ * @param {{ api:{ reset:()=>void, refreshSchedule:()=>Promise<any> }, win:{ reset:()=>void }|null, rules:{ nearDeadline:(now:number)=>boolean },
+ *           serverNow:()=>number, now:()=>number }} d
+ * @param {{ onReset:(fn:()=>void)=>void }} session
+ */
+function startXmas(d, session){
+  if (!d.win) return undefined;
+  session.onReset(() => { d.api.reset(); d.win.reset(); });
+  const sn = d.serverNow();
+  return d.rules.nearDeadline(Number.isFinite(sn) ? sn : d.now()) ? d.api.refreshSchedule() : undefined;
+}
+
+const api = Object.freeze({ createXmasWindow, startXmas });
 if (typeof window !== 'undefined') window.TwXmasWindow = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

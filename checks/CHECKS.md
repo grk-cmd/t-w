@@ -594,12 +594,12 @@
 | **sim-font-choice.js** | 127 | **4587e729e2e7** |
 | **sim-mallang-sent.js** | 76 | **47c8eaaf32fa** |
 | **sim-xmas-server.js** | 332 | **1a7bb7d5b608** |
-| **sim-xmas-api.js** | 287 | **a0227df60656** |
+| **sim-xmas-api.js** | 315 | **01986e4191a1** |
 | **sim-xmas-rules.js** | 145 | **7d489501975f** |
 | **sim-xmas-tree.js** | 51 | **0d4a04e1115d** |
-| **sim-xmas-window.js** | 329 | **ff8a5a32f2de** |
+| **sim-xmas-window.js** | 372 | **f185fca8ff1a** |
 | **sim-xmas-song.js** | 140 | **8f1589bf966d** |
-| **sim-xmas-letter.js** | 302 | **8ac95d5b51c1** |
+| **sim-xmas-letter.js** | 320 | **4efc8d5b88f1** |
 | **sim-wardrobe-place.js** | 54 | **8c81ab2ff24e** |
 | **sim-etag-store.js** | 82 | **197e7e039a8b** |
 
