@@ -21,8 +21,8 @@ if (!MOD || !HTML || !APP) { say('  ? 원본 못 찾음 — app-boot.js · desk-
 
 /* 정본 차례 · 때 — app-boot.js STEPS 와 같아야 한다(바꾸려면 여기와 app-boot.js · app.js starts 를 같이) */
 const FIRST = ['userLocal', 'catalog', 'closet'];
-const READY = ['focusTotal', 'focusShare', 'pomodoro', 'gift', 'roomInvite', 'awayPic', 'desktopBg', 'licensePremium', 'adminMode'];
-const LATER = ['focusLevel', 'weeklyChal', 'mhInit', 'bugBadge', 'scheduler', 'ddays', 'gacha', 'invites', 'appVersion', 'firstRun', 'licenseAutoRegister'];
+const READY = ['focusTotal', 'focusShare', 'pomodoro', 'gift', 'roomInvite', 'awayPic', 'desktopBg', 'licensePremium', 'xmas', 'adminMode'];
+const LATER = ['focusLevel', 'weeklyChal', 'mhInit', 'bugBadge', 'scheduler', 'ddays', 'gacha', 'invites', 'appVersion', 'xmasDates', 'firstRun', 'licenseAutoRegister'];
 const OPEN = ['playlist'];   // 디데이(🔔 배지가 센다) · 가챠(못 가진 가챠 파츠 벗기기)는 창을 열 때로 미루면 화면 · 동작이 바뀌어 LATER
 const ORDER = [...FIRST, ...READY, ...LATER, ...OPEN];
 const TABLE = [...FIRST.map((n) => [n, 'first']), ...READY.map((n) => [n, 'ready']), ...LATER.map((n) => [n, 'later']), ...OPEN.map((n) => [n, 'open'])];

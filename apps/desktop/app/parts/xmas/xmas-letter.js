@@ -32,7 +32,8 @@ function createXmasLetter(deps){
   if (!lw || !btn) throw new Error('xmas-letter: #xmasLetter · #xmasLetterBtn 이 html 에 없다');
 
   let letters = [], returned = [], got = [], editing = null, draftSong = null, openedN = null, busy = false, seq = 0, refSeq = 0;
-  let gotTrying = false, gotUid = null;
+  let viewing = null;   // 편지 창이 그리는 칸 'write' · 'got' · null
+  let gotTrying = false, gen = 0;   // gen — 세션 reset 마다 올린다(앞 계정의 늦은 답을 버린다)
 
   /* ── 읽음 표시(이 PC) ── */
   const readKey = () => READ_KEY + (net().me() || '');
@@ -65,17 +66,20 @@ function createXmasLetter(deps){
   }
 
   /* ── 받은 편지 한 번 읽기(빨간 점) — 알림을 본 뒤 창이 부른다. 다시 묻지 않는다 ── */
+  /** 받은 편지 한 번 읽기 → 읽었나(true) · 못 읽었나(false — 부른 쪽이 다음 알림에 다시) */
   async function checkGot(){
-    if (gotTrying) return;
-    const uid = net().me();
-    if (uid !== gotUid){ gotUid = uid; got = []; deps.onDot(false); }   // 계정이 바뀌면 앞 계정의 받은 편지 · 점을 버린다
+    if (gotTrying) return false;
+    const my = gen;
     gotTrying = true;
     const r = await net().got();
     gotTrying = false;
-    if (!r.ok || uid !== net().me()) return;   // 실패는 «없음» 으로 굳히지 않는다 — 다음 알림 · 창 열기에 다시
+    if (my !== gen) return false;   // 그 사이 세션이 끝났다(계정 바뀜) — 앞 계정의 답은 버린다
+    if (!r.ok) return false;        // 실패는 «없음» 으로 굳히지 않는다
     got = rules.gotOf(r.got);
     deps.onDot(rules.hasUnread(got, readSet()));
     paintBtn();
+    if (isOpen() && viewing === 'got' && openedN == null) drawGot(r.matched);   // 열어 둔 봉투 칸(«배달하는 중» 포함)도 새로 그린다 — 읽는 편지는 그대로
+    return true;
   }
 
   /* ── 편지 창 ── */
@@ -155,8 +159,10 @@ function createXmasLetter(deps){
     if (!lid){ toast('편지는 ' + rules.LETTER_MAX + '통까지 맡길 수 있어요.'); return; }
     const retLid = editing.retLid;
     busy = true; checkText();
+    const g = gen;
     const r = await net().saveLetter(lid, text, draftSong, retLid);   // 반송된 편지면 서버가 같은 트랜잭션에서 반송 기록을 지운다
     busy = false; checkText();
+    if (g !== gen) return;   // 그 사이 세션이 끝났다 — 앞 계정 답으로 그리거나 다시 읽지 않는다
     if (!r.ok){ writeFailed(r); return; }
     editing = null; songW.set(null);
     toast('편지를 맡겼어요. 25일 0시에 전달돼요.');
@@ -165,16 +171,23 @@ function createXmasLetter(deps){
   async function withdraw(lid){
     if (busy) return;
     busy = true;
+    const g = gen;
     const r = await net().removeLetter(lid);
     busy = false;
+    if (g !== gen) return;   // 그 사이 세션이 끝났다 — 앞 계정 답으로 그리거나 다시 읽지 않는다
     if (!r.ok){ writeFailed(r); return; }
     if (editing && editing.lid === lid){ editing = null; songW.set(null); }
     toast('편지를 거뒀어요. 마감 전까지 다시 쓸 수 있어요.');
     await loadView();
   }
   async function dismiss(lid){
+    if (busy) return;
+    busy = true;
+    const g = gen;
     const r = await net().clearReturned(lid);
-    if (!r.ok){ notifyError('E-XMAS-05', r.err); return; }
+    busy = false;
+    if (g !== gen) return;   // 그 사이 세션이 끝났다 — 앞 계정 답으로 그리거나 다시 읽지 않는다
+    if (!r.ok){ writeFailed(r); return; }
     if (editing && editing.retLid === lid) editing = null;
     await loadView();
   }
@@ -225,10 +238,14 @@ function createXmasLetter(deps){
     $('xmasLwRep').hidden = true;
     if (openedN == null) return;
     if (!rules.eventOn(serverNow(), schedule())){ toast(REPORT_ENDED); return; }   // 확인창을 연 채 끝을 넘긴 때
+    const g = gen;
     const r = await net().reportLetter(openedN);
+    if (g !== gen) return;   // 그 사이 세션이 끝났다 — 앞 계정 답으로 그리거나 다시 읽지 않는다
     if (r.ok) toast('신고했어요. 관리자가 확인할게요.');
     else if (r.code === 'dup') toast('이미 신고한 편지예요.');
     else if (r.code === 'auth') toast('로그인한 뒤 신고할 수 있어요.');
+    else if (r.code === 'failed-precondition') toast(REPORT_ENDED);   // 서버 시각으로 이벤트가 끝났다(XMAS_ENDED)
+    else if (r.code === 'gone') toast('이미 없는 편지예요.');       // 관리자가 지웠다(XMAS_RECEIVED_NOT_FOUND)
     else notifyError('E-XMAS-06', r.err);
   };
 
@@ -247,13 +264,18 @@ function createXmasLetter(deps){
       setState('편지를 불러오지 못했어요.'); notifyError('E-XMAS-04', r.err); return;
     }
     setState('');
-    if (view === 'write'){ letters = rules.myLettersOf(r.letters); returned = rules.returnedOf(r.returned); show('write'); renderWrite(); }
+    if (view === 'write'){ viewing = 'write'; letters = rules.myLettersOf(r.letters); returned = rules.returnedOf(r.returned); show('write'); renderWrite(); }
     else {
-      got = rules.gotOf(r.got); gotUid = net().me();
+      got = rules.gotOf(r.got);
       deps.onDot(rules.hasUnread(got, readSet()));
-      if (!got.length && r.matched === false){ setState('편지를 배달하는 중이에요. 도착하면 알림함에 알려 드릴게요.'); paintBtn(); return; }   // 짝 짓기 전 — 다시 묻지 않는다
-      show('got'); renderGot();
+      drawGot(r.matched);
     }
+  }
+  /** 열람 칸 그리기 — 짝 짓기 전(matched=false)이고 받은 편지가 없으면 «배달하는 중»(다시 묻지 않는다 · 알림이 오면 checkGot 이 다시 그린다) */
+  function drawGot(matched){
+    viewing = 'got';
+    if (!got.length && matched === false){ show(null); setState('편지를 배달하는 중이에요. 도착하면 알림함에 알려 드릴게요.'); paintBtn(); return; }
+    setState(''); show('got'); renderGot();
   }
   function open(){
     if (isOpen()) return;
@@ -263,7 +285,7 @@ function createXmasLetter(deps){
   }
   function close(){
     if (!isOpen()) return;
-    seq++;
+    seq++; viewing = null;
     deps.song.stop();
     songW.set(null); songG.set(null);
     $('xmasLwRep').hidden = true;
@@ -274,7 +296,16 @@ function createXmasLetter(deps){
   $('xmasLwX').onclick = close;
   deps.escRegisterWindow({ key: 'xmasLetter', el: lw, isOpen, close });
 
-  return { open, close, isOpen, refresh, checkGot, paintBtn };
+  /** 세션이 끝나면(로그아웃 · 계정 바뀜) — 창을 닫고 앞 계정의 편지 · 받은 편지 · 빨간 점을 버린다 */
+  function reset(){
+    close();
+    gen++; seq++; refSeq++;
+    letters = []; returned = []; got = []; editing = null; openedN = null; draftSong = null; gotTrying = false; busy = false;
+    deps.onDot(false);
+    paintBtn();
+  }
+
+  return { open, close, isOpen, refresh, checkGot, paintBtn, reset };
 }
 
 const api = Object.freeze({ createXmasLetter });

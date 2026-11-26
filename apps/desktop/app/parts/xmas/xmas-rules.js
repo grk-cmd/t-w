@@ -49,6 +49,9 @@ const jitterMs = (r) => Math.floor(Math.min(Math.max(Number(r) || 0, 0), 0.99999
 const mailDelayMs = (now, s, r) => (inDeliveryWindow(now, s) ? jitterMs(r) : 0);
 /** 받은 편지 알림(XMAS_LETTER) 중 아직 안 본 것의 id — 우편 { id: { kind, read } } · seen 은 이미 본 id Set.
     알림의 읽음은 보지 않는다 — 알림 읽음은 서버 값(모든 PC 가 같이 봄)이고 받은 편지 읽음은 이 PC 값이라, 다른 PC 에서 알림을 읽어도 이 PC 는 켤 때 한 번 읽어야 빨간 점이 맞는다 */
+/** 마감 앞뒤 하루 안인가 — 켤 때 날짜 한 벌(trees/current)을 미리 읽는 때(1년에 이틀만 · 그 밖엔 요청 0) */
+const NEAR_DEADLINE_MS = 24 * 3600000;
+const nearDeadline = (now, s = SCHEDULE) => Number.isFinite(now) && Math.abs(now - s.letterDeadline) <= NEAR_DEADLINE_MS;
 const letterMailIds = (items, seen) => Object.keys(items || {}).filter(id => items[id] && items[id].kind === 'XMAS_LETTER' && !(seen && seen.has(id)));
 
 /** 한마디 다듬기 — 서버 cleanWord 와 같은 규칙(제어 문자 · 줄바꿈 → 공백 · 공백 묶기 · 앞뒤 걷기) */
@@ -191,7 +194,7 @@ const hasUnread = (got, set) => (got || []).some(g => !set.has(g.n));
 const api = Object.freeze({
   TREE_MAX, KINDS, WORD_MAX, IMG_PX, LETTER_DEADLINE_MS, EVENT_END_MS, LETTERS_VIEW_UNTIL_MS, DELIVERY_WINDOW_MS, READ_JITTER_MS, SCHEDULE, HANG_COOLDOWN_MS, BLINK_COUNT, BLINK_HALF_MS,
   TAPS_TO_DROP, TAP_GAP_MS, SHAKE_PX, SHAKE_GAP_MS, SHAKE_RESET_MS, TIERS,
-  scheduleOf, eventOn, letterOpen, lettersArrived, buttonOn, inDeliveryWindow, jitterMs, mailDelayMs, letterMailIds, cleanWord, slotPositions, countOf, changedImgSlots, cooldownLeft, blinkOpacity, createTaps, createShake,
+  scheduleOf, eventOn, letterOpen, lettersArrived, buttonOn, inDeliveryWindow, nearDeadline, NEAR_DEADLINE_MS, jitterMs, mailDelayMs, letterMailIds, cleanWord, slotPositions, countOf, changedImgSlots, cooldownLeft, blinkOpacity, createTaps, createShake,
   LETTER_MAX, LETTER_TEXT_MAX, SONG_TITLE_MAX, LETTER_IDS, RETURN_REASONS,
   songOf, cleanLetter, myLettersOf, returnedOf, freeLetterId, gotOf, ddayLeft, readSetOf, readSetStr, hasUnread,
 });

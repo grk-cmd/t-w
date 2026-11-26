@@ -35,6 +35,7 @@ const STEPS = Object.freeze([
   ['awayPic', PHASE.READY],          // 🫧 자리비움 그림 · 크기를 서버(me.awayImage)에 맞추기(요청 0 — 계정 확인의 답을 쓴다)
   ['desktopBg', PHASE.READY],        // 🖥️ 마이홈 바탕화면 배경 맞추기(계정 칸)
   ['licensePremium', PHASE.READY],   // 🔑 프리미엄 판정 반영(요청 0 — 계정 확인의 답) · 라이선스 알림 받기
+  ['xmas', PHASE.READY],             // 🎄 크리스마스(일회성) — 세션이 끝나면 창 · 판 기억 · 빨간 점 비우기(요청 0 — 세션 비우기에 걸기만)
   ['adminMode', PHASE.READY],        // 🔐 세션이 끝나면 관리자 모드 끄기(요청 0 — 세션 비우기에 걸기만)
   ['focusLevel', PHASE.LATER],       // ⏱ 포커스 진척 받기 · 못 올린 집중 시간 올리기(focus-progress.js startFocus — 세션을 받아 쓴다)
   ['weeklyChal', PHASE.LATER],       // 👑 달성표 서버 맞추기
@@ -45,6 +46,7 @@ const STEPS = Object.freeze([
   ['gacha', PHASE.LATER],            // 🎰 가챠 보유분 서버 맞추기(못 가진 가챠 파츠 벗기기 pruneUnownedGachaParts 가 이 답을 쓴다)
   ['invites', PHASE.LATER],          // 🎟️ 런처 초대장 버튼의 남은 수 한 번 받기
   ['appVersion', PHASE.LATER],       // 🔄 이 PC 앱 판을 서버에 알리기 — 더 새 판을 쓰는 기기가 있으면 업데이트 창(account/app-version-sync.js)
+  ['xmasDates', PHASE.LATER],        // 🎄 마감 앞뒤 하루에만 날짜 한 벌(trees/current) 한 번 — 0시 알림함 흩기가 서버 날짜를 쓴다(그 밖엔 요청 0)
   ['firstRun', PHASE.LATER],         // 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기)
   ['licenseAutoRegister', PHASE.LATER],   // 🔑 계정 라이선스에 이 기기 자동 등록 — 첫 실행 뒤(0.12 키로 첫 실행이 등록했으면 건너뜀 · license-premium.js autoRegisterAfter)
   ['playlist', PHASE.OPEN],          // 🎵 플레이리스트 받기 — 플레이리스트 창을 처음 열 때
