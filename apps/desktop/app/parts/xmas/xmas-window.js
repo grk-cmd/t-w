@@ -1,5 +1,5 @@
 /* xmas-window.js — 🎄 크리스마스 창(일회성 — 다음 업데이트에서 걷는다 · 이슈 #963) (검사 sim-xmas-window.js)
-   책임: 런처 [크리스마스] 버튼(1월 1일 0시 — 서버 시각 — 부터 숨김) · 창 열고 닫기 · 내 트리 불러오기(그림은 판이 달라진 자리만) ·
+   책임: 런처 [크리스마스] 버튼(받은 편지 열람 끝 — 1월 6일 0시 · 서버 시각 — 부터 숨김) · 창 열고 닫기 · 내 트리 불러오기(그림은 판이 달라진 자리만) ·
      장식 고르기 · 내 그림 올리기(64px PNG) · 한마디 · 장식 달기 · 바꾸기(5초 간격) · «트리가 다 찼어요» · 장식 신고 · 한마디 라벨.
    3D 는 xmas-tree.js, 편지 창은 xmas-letter.js(뮤직바 xmas-song.js), 서버는 net(firebaseAPI.xmas — 늦게 붙으므로 부를 때 찾는다), 규칙은 rules(TwXmasRules).
    ★ 그림 사본은 이 PC 의 GLB 영구 캐시(IndexedDB)에 «트리/자리@판» 키로 — 다시 열 때 판이 같은 그림은 받지 않는다.
@@ -46,9 +46,9 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
 
   let treeNo = 0, mine = null, ornList = [], chosen = { kind: 'star', img: null }, lastHangAt = NaN, busy = false, seq = 0;
 
-  /* ── 런처 버튼 — 이벤트 기간에만 ── */
+  /* ── 런처 버튼 — 받은 편지를 볼 수 있는 동안(장식은 이벤트 끝에 막혀도 편지는 1/5 까지) ── */
   function refreshButton(){
-    btn.hidden = !rules.eventOn(serverNow());
+    btn.hidden = !rules.buttonOn(serverNow());
     if (btn.hidden){ if (ov.classList.contains('on')) close(); return; }
     letter.checkGot();   // 25일 0시가 지나면 받은 편지 → 빨간 점
     letter.paintBtn();   // 날짜가 넘어가면 [편지 쓰기] → [편지 열람]
@@ -61,12 +61,18 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     say.textContent = s.word; say.style.left = s.x + 'px'; say.style.top = s.y + 'px'; say.hidden = false;
   });
   let repSlot = null;
-  tree.onReport((slot) => { repSlot = slot; $('xmasRep').hidden = false; $('xmasRepNo').focus(); });
+  /* 신고는 이벤트 끝(1/1 0시)에 막힌다 — 창은 받은 편지 때문에 1/5 까지 열리므로 여기서 안내로 끝낸다(서버도 거절 · 오류 번호 아님) */
+  const REPORT_ENDED = '크리스마스 이벤트가 끝나 신고할 수 없어요.';
+  tree.onReport((slot) => {
+    if (!rules.eventOn(serverNow())){ toast(REPORT_ENDED); return; }
+    repSlot = slot; $('xmasRep').hidden = false; $('xmasRepNo').focus();
+  });
   $('xmasRepNo').onclick = () => { $('xmasRep').hidden = true; repSlot = null; };
   $('xmasRepYes').onclick = async () => {
     $('xmasRep').hidden = true;
     const s = repSlot; repSlot = null;
     if (s == null) return;
+    if (!rules.eventOn(serverNow())){ toast(REPORT_ENDED); return; }   // 확인창을 연 채 끝을 넘긴 때
     const r = await net().reportOrnament(treeNo, s);
     if (r.ok) toast('신고했어요. 관리자가 확인할게요.');
     else if (r.code === 'dup') toast('이미 신고한 장식이에요.');
@@ -212,7 +218,7 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
 
   /* ── 창 ── */
   function open(){
-    if (!rules.eventOn(serverNow())){ toast('크리스마스 이벤트가 끝났어요.'); return; }
+    if (!rules.buttonOn(serverNow())){ toast('크리스마스 이벤트가 끝났어요.'); return; }
     if (ov.classList.contains('on')) return;
     ov.classList.add('on');
     deps.onSizeChange();
@@ -256,9 +262,9 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     bar.addEventListener('pointerup', up); bar.addEventListener('pointercancel', up);
   })();
 
-  /* 서버 시각은 firebase 가 붙은 뒤에 — 그 전엔 버튼을 숨겨 둔다(1월 1일이 지났는지 모르므로) */
+  /* 서버 시각은 붙은 뒤에 — 그 전엔 버튼을 숨겨 둔다(열람 끝이 지났는지 모르므로) */
   btn.hidden = true;
-  deps.onReady(() => { refreshButton(); win.setInterval(refreshButton, 60000); });   // 1월 1일 0시를 지나면 켜 둔 채로도 숨는다
+  deps.onReady(() => { refreshButton(); win.setInterval(refreshButton, 60000); });   // 열람 끝을 지나면 켜 둔 채로도 숨는다
 
   return { open, close, refreshButton, letter };
 }

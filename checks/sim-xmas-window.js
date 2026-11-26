@@ -1,9 +1,9 @@
 /* sim-xmas-window.js — 🎄 크리스마스 창(parts/xmas/xmas-window.js · 일회성)을 가짜 화면 · 가짜 서버로 돌려 본다
    실행: node checks/run.js sim-xmas-window
-   ・1절 런처 버튼 — 서버 시각 전엔 숨김 · 이벤트 중 보임 · 1월 1일 0시부터 숨고 열린 창도 닫힘
+   ・1절 런처 버튼 — 서버 시각 전엔 숨김 · 이벤트 중 · 이벤트 끝 뒤(받은 편지 1/5 까지)에도 보임 · 열람 끝부터 숨고 열린 창도 닫힘
    ・2절 열기 · 불러오기 — 내 트리(없으면 지금 트리) · 그림은 판이 다른 자리만 받고 IndexedDB 에 «트리/자리@판» 사본(localStorage 는 쓰면 던진다) · 다시 열면 안 받음 · 내 장식 표시 · 걸린 수
    ・3절 장식 달기 — 고른 장식 · 한마디 다듬기 · 보던 트리 번호 · 다 찼으면 «다른 트리로 이동» · 5초 간격 · 실패 갈래
-   ・4절 신고 — 확인창 · 내 트리 · 자리 · 이미 신고 · 실패 코드
+   ・4절 신고 — 확인창 · 내 트리 · 자리 · 이미 신고 · 실패 코드 · 이벤트 끝 뒤엔 안내로 막힘
    ・5절 실패 · 닫기 — 못 불러옴(E-XMAS-01) · 닫은 뒤 늦게 온 답은 버림 · 끝난 뒤 열기 막기
    ・6절 한마디 라벨은 textContent 로만 · mutation test
    ・7절 편지 창 잇기(편지 · 뮤직바는 가짜 — 그 모듈은 sim-xmas-letter · sim-xmas-song) — 창 열면 맡긴 수 · 1분마다 받은 편지 확인 · 닫으면 편지 창도 ·
@@ -66,7 +66,7 @@ function world(opts){
     return { open: c('open'), close: c('close'), refresh: c('refresh'), checkGot: c('checkGot'), paintBtn: c('paintBtn'), isOpen: () => false }; } };
   const songMod = { createXmasSong: (d) => { Lt.songDeps = d; return { bar: () => ({}), stop: () => {} }; } };
   const nav = { NAV: { XMAS: 'xmas' }, fns: {}, on(n, f){ this.fns[n] = f; } };
-  const api = W.createXmasWindow({ doc, win, THREE: {}, ps1Dither: {}, rules: R, treeMod, net: () => net, serverNow: () => S.now, idbGet, idbPut,
+  const api = (o.mod || W).createXmasWindow({ doc, win, THREE: {}, ps1Dither: {}, rules: R, treeMod, net: () => net, serverNow: () => S.now, idbGet, idbPut,
     notifyError: (c) => S.errs.push(c), toast: (m) => S.toasts.push(m), escRegisterWindow: (x) => S.escs.push(x),
     onSizeChange: () => { S.size++; }, onReady: (fn) => { S.ready = fn; },
     songMod, letterMod, companion: () => null, ytVideoId: () => null, asyncPrompt: async () => null, storage: null, twNav: nav });
@@ -85,7 +85,9 @@ say('── 1절 런처 버튼');
   chk(w.els.lcXmas.hidden === false && w.timers.length === 1 && w.timers[0][1] === 60000, '이벤트 중엔 보임 · 1분마다 다시 본다');
   w.els.lcXmas.onclick(); await settle();
   w.S.now = R.EVENT_END_MS; w.api.refreshButton();
-  chk(w.els.lcXmas.hidden === true && !w.els.xmasOverlay.classList.contains('on') && w.T.closed === 1, '1월 1일 0시부터 숨고 · 열려 있던 창도 닫힌다');
+  chk(w.els.lcXmas.hidden === false && w.els.xmasOverlay.classList.contains('on'), '1월 1일 0시(이벤트 끝)에도 보인다 — 받은 편지는 1/5 까지');
+  w.S.now = R.LETTERS_VIEW_UNTIL_MS; w.api.refreshButton();
+  chk(w.els.lcXmas.hidden === true && !w.els.xmasOverlay.classList.contains('on') && w.T.closed === 1, '열람 끝(1/6 0시)부터 숨고 · 열려 있던 창도 닫힌다');
   chk(w.S.escs.map(x => x.key).join() === 'xmas,xmasLetter' && w.S.escs[0].el === w.els.xmasOverlay, 'Esc 로 닫기 등록 — 트리 창을 편지 창보다 먼저(알림함 길은 둘을 같은 틱에 열어 창 쌓기가 등록 순서로 쌓는다 → Esc 에 편지 창만)');
 }
 
@@ -143,6 +145,23 @@ say('── 4절 신고');
   chk(w.N.calls.includes('report:4/9') && w.els.xmasRep.hidden && /신고했어요/.test(w.S.toasts.pop()), '보던 트리 · 자리로 신고');
   w.T.onReport(9); w.els.xmasRepNo.onclick();
   chk(w.N.calls.filter(c => c.startsWith('report')).length === 1, '취소하면 보내지 않는다');
+  { // 이벤트 끝(1/1 0시) 뒤 — 창은 열리고(받은 편지 1/5 까지) 장식 신고는 안내로 막힌다(오류 번호 · 요청 없음)
+    const endCase = async (mod) => {
+      const we = world({ now: R.EVENT_END_MS, data: { cur: 4, mine: null, trees: { 4: { 9: { k: 'star', v: 1 } } }, imgs: {} }, mod }); we.S.ready(); we.api.open(); await settle();
+      const opened = we.els.xmasOverlay.classList.contains('on');
+      we.T.onReport(9);
+      const blocked = we.els.xmasRep.hidden && /이벤트가 끝나 신고할 수 없어요/.test(we.S.toasts.pop() || '');
+      const wl = world({ now: R.EVENT_END_MS - 1000, data: { cur: 4, mine: null, trees: { 4: { 9: { k: 'star', v: 1 } } }, imgs: {} }, mod }); wl.S.ready(); wl.api.open(); await settle();
+      wl.T.onReport(9); wl.S.now = R.EVENT_END_MS; await wl.els.xmasRepYes.onclick();   // 확인창을 연 채 끝을 넘김
+      const late = /이벤트가 끝나 신고할 수 없어요/.test(wl.S.toasts.pop() || '');
+      return { opened, blocked, late, calls: we.N.calls.concat(wl.N.calls).filter(c => c.startsWith('report')).length, errs: we.S.errs.length + wl.S.errs.length };
+    };
+    const r = await endCase(null);
+    chk(r.opened && r.blocked && r.late && !r.calls && !r.errs, '이벤트 끝 뒤 — 창은 열리고 · 장식 신고는 안내로 막힌다(확인창을 연 채 넘겨도) · 요청 0 · 오류 번호 없음');
+    const bad = {}; new Function('window', 'module', SRC.split('if (!rules.eventOn(serverNow())){ toast(REPORT_ENDED); return; }').join(''))(bad, undefined);
+    const rb = await endCase(bad.TwXmasWindow);
+    chk(!(rb.blocked && rb.late && !rb.calls), 'mutation test — 끝 검사를 빼면 위 검사가 빨강(신고가 서버로 나간다)');
+  }
   const wd = world({ data: { cur: 4, mine: null, trees: { 4: {} }, imgs: {} }, repRet: { ok: false, code: 'dup' } }); wd.S.ready(); wd.api.open(); await settle();
   wd.T.onReport(1); await wd.els.xmasRepYes.onclick();
   chk(/이미 신고/.test(wd.S.toasts.pop()) && !wd.S.errs.length, '이미 신고한 장식 — 안내');
@@ -164,7 +183,7 @@ say('── 5절 실패 · 닫기');
   let release; w2.N.hangGate = new Promise(r => { release = r; });
   w2.api.open(); await tick(); w2.api.close(); release(); await settle();
   chk(!w2.T.lists.length && w2.T.closed === 1 && !w2.els.xmasOverlay.classList.contains('on'), '닫은 뒤 늦게 온 답은 버린다(닫힌 창에 그리지 않음)');
-  const w3 = world({ now: R.EVENT_END_MS }); w3.S.ready(); w3.api.open(); await settle();
+  const w3 = world({ now: R.LETTERS_VIEW_UNTIL_MS }); w3.S.ready(); w3.api.open(); await settle();
   chk(!w3.T.opened && /끝났어요/.test(w3.S.toasts.pop()), '이벤트가 끝났으면 열지 않는다');
 }
 
@@ -206,7 +225,7 @@ say('── 7절 편지 창 잇기');
   chk(w.els.xmasOverlay.classList.contains('on') && w.Lt.calls.join() === 'refresh,open', '📩 알림함 → NAV.XMAS(\'letter\') — 트리 창 · 편지 창까지');
   w.api.close(); w.Lt.calls.length = 0; w.nav.fns.xmas(); await settle();
   chk(w.Lt.calls.join() === 'refresh', '  ↳ 이름 없이 부르면 트리 창만');
-  const we = world({ now: R.EVENT_END_MS }); we.S.ready(); we.Lt.calls.length = 0; we.nav.fns.xmas('letter');
+  const we = world({ now: R.LETTERS_VIEW_UNTIL_MS }); we.S.ready(); we.Lt.calls.length = 0; we.nav.fns.xmas('letter');
   chk(!we.Lt.calls.includes('open') && !we.els.xmasOverlay.classList.contains('on'), '  ↳ 끝난 뒤엔 편지 창도 안 연다');
   chk(w.Lt.songDeps.songTitleMax === R.SONG_TITLE_MAX && w.Lt.deps.rules === R, '뮤직바 · 편지 모듈은 같은 규칙 한 벌로 만든다');
 }

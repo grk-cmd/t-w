@@ -1,7 +1,7 @@
 /* sim-xmas-rules.js — 🎄 크리스마스 규칙(parts/xmas/xmas-rules.js · 일회성) 을 실제로 돌려 본다
    실행: node checks/run.js sim-xmas-rules
-   ・1절 서버와 같은 숫자(마감 · 끝 · 트리 300 · 한마디 30 · 64px) — functions/xmas.js 를 불러 견준다
-   ・2절 날짜 판정(경계) · 한마디 다듬기(서버 cleanWord 와 같은 결과)
+   ・1절 서버와 같은 숫자(마감 · 끝 · 열람 끝 · 트리 300 · 한마디 30 · 64px) — 앱 parts/xmas/README.md 의 표(서버 설계 1-1 을 옮겨 적은 것)를 읽어 견준다
+   ・2절 날짜 판정(경계 · 서버가 준 날짜 한 벌 · 열람은 1/5 까지 · 짝 짓기 10분) · 한마디 다듬기(서버 cleanWord 와 같은 결과)
    ・3절 장식 자리 — 300칸 · 같은 n 이면 늘 같은 자리 · 트리 층 안
    ・4절 다시 받을 그림 — 판이 «다른» 자리만(작아져도) · 기본 장식은 안 받음
    ・5절 바꾸기 간격 · 반짝임 10번 뒤 멈춤 · 10번 누르기 · 흔들기(빠른 왕복만 · 계속 흔들면 더 많이 · 멈추면 처음으로)
@@ -16,19 +16,43 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const find = (c) => c.find(p => fs.existsSync(p));
 const RP = find(['xmas-rules.js', 'parts/xmas/xmas-rules.js', 'app/parts/xmas/xmas-rules.js', 'apps/desktop/app/parts/xmas/xmas-rules.js']);
 const SP = find(['functions/xmas.js', 'firebase/functions/xmas.js']);
-if (!RP || !SP) { say('  ? 원본 못 찾음 — xmas-rules.js · functions/xmas.js'); process.exit(2); }
+const MP = find(['parts/xmas/README.md', 'app/parts/xmas/README.md', 'apps/desktop/app/parts/xmas/README.md']);
+if (!RP || !SP || !MP) { say('  ? 원본 못 찾음 — xmas-rules.js · functions/xmas.js · xmas/README.md'); process.exit(2); }
 const R = require(path.resolve(RP));
 const SV = require(path.resolve(SP));
 
 say('── 1절 서버와 같은 숫자');
-chk(R.LETTER_DEADLINE_MS === SV.LETTER_DEADLINE_MS && R.EVENT_END_MS === SV.EVENT_END_MS, '편지 마감 · 이벤트 끝 시각이 서버와 같다');
-chk(R.TREE_MAX === SV.TREE_MAX && R.WORD_MAX === SV.WORD_MAX && R.IMG_PX === SV.IMG_PX, '트리 300 · 한마디 30 · 그림 64px 가 서버와 같다');
+/* README 표 «| `이름` | 값 | 뜻 |» — 서버 저장소는 비공개라 설계 1-1 의 숫자를 거기 옮겨 적었다 */
+const TABLE = {};
+for (const m of fs.readFileSync(MP, 'utf8').matchAll(/^\s*\| `([A-Z_]+)` \| (\d+) \|/gm)) TABLE[m[1]] = Number(m[2]);
+const NUMS = ['LETTER_DEADLINE_MS', 'EVENT_END_MS', 'LETTERS_VIEW_UNTIL_MS', 'TREE_MAX', 'WORD_MAX', 'IMG_PX'];
+chk(NUMS.every(k => k in TABLE), 'README 표에 숫자 여섯이 다 있다 — ' + Object.keys(TABLE).join(' · '));
+for (const k of NUMS) chk(R[k] === TABLE[k], k + ' = ' + R[k] + ' (README 표 ' + TABLE[k] + ')');
+const kstMs = (s) => Date.parse(s + '+09:00');
+chk(TABLE.LETTER_DEADLINE_MS === kstMs('2026-12-25T00:00:00') && TABLE.EVENT_END_MS === kstMs('2027-01-01T00:00:00') && TABLE.LETTERS_VIEW_UNTIL_MS === kstMs('2027-01-06T00:00:00'),
+  '  ↳ 표의 날짜가 한국 시각 12/25 · 1/1 · 1/6 0시(받은 편지는 1/5 하루 끝까지 — 소유자 결정)');
 chk(R.KINDS.join() === SV.KINDS.join(), '기본 장식 종류가 서버와 같다');
 
 say('── 2절 날짜 · 한마디');
-chk(R.eventOn(R.EVENT_END_MS - 1) && !R.eventOn(R.EVENT_END_MS) && !R.eventOn(NaN), '버튼 — 1월 1일 0시 직전까지 보이고 0시부터 숨는다 · 서버 시각 모르면 숨김');
+chk(R.eventOn(R.EVENT_END_MS - 1) && !R.eventOn(R.EVENT_END_MS) && !R.eventOn(NaN), '장식 — 1월 1일 0시 직전까지 · 0시부터 막힘 · 서버 시각 모르면 막힘');
 chk(R.letterOpen(R.LETTER_DEADLINE_MS - 1) && !R.letterOpen(R.LETTER_DEADLINE_MS), '편지 쓰기 — 12/25 0시 직전까지');
-chk(!R.lettersArrived(R.LETTER_DEADLINE_MS - 1) && R.lettersArrived(R.LETTER_DEADLINE_MS) && !R.lettersArrived(R.EVENT_END_MS), '편지 열람 — 12/25 0시부터 1월 1일 0시 전까지');
+chk(!R.lettersArrived(R.LETTER_DEADLINE_MS - 1) && R.lettersArrived(R.LETTER_DEADLINE_MS) && R.lettersArrived(R.EVENT_END_MS) && R.lettersArrived(R.LETTERS_VIEW_UNTIL_MS - 1) && !R.lettersArrived(R.LETTERS_VIEW_UNTIL_MS),
+  '편지 열람 — 12/25 0시부터 1/5 하루 끝까지(이벤트 끝 뒤에도)');
+chk(R.buttonOn(R.EVENT_END_MS) && R.buttonOn(R.LETTERS_VIEW_UNTIL_MS - 1) && !R.buttonOn(R.LETTERS_VIEW_UNTIL_MS) && !R.buttonOn(NaN), '런처 버튼 — 열람 끝까지 보이고 · 서버 시각 모르면 숨김');
+chk(!R.inDeliveryWindow(R.LETTER_DEADLINE_MS - 1) && R.inDeliveryWindow(R.LETTER_DEADLINE_MS) && R.inDeliveryWindow(R.LETTER_DEADLINE_MS + R.DELIVERY_WINDOW_MS - 1) && !R.inDeliveryWindow(R.LETTER_DEADLINE_MS + R.DELIVERY_WINDOW_MS) && R.DELIVERY_WINDOW_MS === 600000,
+  '짝 짓기 알림 때 — 마감부터 10분');
+{
+  const iso = (ms) => new Date(ms).toISOString();
+  const T0 = Date.parse('2026-11-26T03:00:00Z');   // 리허설 — 서버가 local 프로필로 날짜를 당겨 준 경우
+  const S = R.scheduleOf({ letterDeadline: iso(T0 + 600000), eventEnd: iso(T0 + 1800000), lettersViewUntil: iso(T0 + 2100000), returnCutoff: 'x', matched: false });
+  chk(S && S.letterDeadline === T0 + 600000 && S.eventEnd === T0 + 1800000 && S.lettersViewUntil === T0 + 2100000 && Object.isFrozen(S), '서버 날짜 → 한 벌(ms) · 모르는 칸은 버림');
+  chk(R.letterOpen(T0, S) && R.lettersArrived(T0 + 600000, S) && !R.lettersArrived(T0 + 600000) && !R.eventOn(T0 + 1800000, S) && R.buttonOn(T0 + 1800000, S) && !R.buttonOn(T0 + 2100000, S),
+    '  ↳ 판정이 받은 한 벌을 쓴다(처음 값과 다른 때)');
+  chk(R.inDeliveryWindow(T0 + 600000, S) && R.ddayLeft(T0, S) === 0 && R.ddayLeft(T0 + 600000, S) === -1, '  ↳ 짝 짓기 10분 · D-day 도 받은 마감으로');
+  const bad = [null, {}, { letterDeadline: iso(T0), eventEnd: iso(T0), lettersViewUntil: iso(T0 + 1) }, { letterDeadline: iso(T0), eventEnd: iso(T0 + 2), lettersViewUntil: iso(T0 + 1) }, { letterDeadline: 'x', eventEnd: iso(T0 + 1), lettersViewUntil: iso(T0 + 2) }, { letterDeadline: T0, eventEnd: T0 + 1, lettersViewUntil: T0 + 2 }];
+  chk(bad.every(b => R.scheduleOf(b) === null), '  ↳ 못 읽음 · 차례가 틀림(마감 < 끝 ≤ 열람 끝) · 숫자 모양은 null — 쓰던 값을 그대로 둔다');
+  chk(R.scheduleOf({ letterDeadline: iso(T0), eventEnd: iso(T0 + 1), lettersViewUntil: iso(T0 + 1) }) !== null, '  ↳ 끝 = 열람 끝 은 받는다(서버 검사와 같은 차례)');
+}
 for (const w of ['  메리\n크리스마스  ', 'a\u0007b', '', null, '   ', 'ㅋ'.repeat(40)]) chk(R.cleanWord(w) === SV.cleanWord(w), '한마디 다듬기 서버와 같음 — ' + JSON.stringify(w).slice(0, 20));
 
 say('── 3절 장식 자리');
@@ -68,6 +92,8 @@ chk(dips === R.BLINK_COUNT, `반짝임 — 정확히 ${R.BLINK_COUNT}번 어두�
   const S4 = R.createShake(); t = 0; S4.feed(40, t); chk(S4.feed(-40, t += R.SHAKE_GAP_MS) === 0, '뒤집기가 0.35초를 넘으면 왕복이 아니다'); }
 
 say('── 6절 mutation test');
+{ const old = (now) => Number.isFinite(now) && now >= R.LETTER_DEADLINE_MS && now < R.EVENT_END_MS;   // 0.14 첫 모양 — 1월 1일에 닫힘
+  chk(old(R.EVENT_END_MS) !== R.lettersArrived(R.EVENT_END_MS), 'mutation test — 열람을 이벤트 끝에 닫으면 2절 «1/5 까지» 가 잡는다'); }
 const broken = Object.assign({}, R, { changedImgSlots: (oo, have) => Object.keys(oo).filter(s => oo[s].k === 'img' && !(have && have[s] >= oo[s].v)) });
 chk(broken.changedImgSlots(o, { 1: 6 }).indexOf('1') < 0 && need.indexOf('1') >= 0, 'mutation test — «판이 클 때만» 받으면 작아진 판(동시 바꾸기)을 놓친다 — 위 4절이 잡는 모양');
 
