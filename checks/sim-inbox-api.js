@@ -61,15 +61,16 @@ async function judge(S){
     const { m, authed } = mk(LIB, { 'GET /v2/me/notifications': page([
       item('a', 'LICENSE_ISSUED'), item('b', 'BUG_ANSWERED', { payload: { number: '1031-2' }, readAt: '2026-10-30T02:00:00Z' }),
       item('c', 'LEVEL_UNLOCK'), item('d', 'SECRET_ROOM_ISSUED'), item('e', 'LEGACY'), item('f', 'NEW_KIND_FROM_FUTURE'),
-      item('x1', 'XMAS_LETTER', { payload: { tag: 'xmas' } }), item('x2', 'XMAS_RETURNED'),
+      item('x1', 'XMAS_LETTER'), item('x2', 'XMAS_RETURNED'), item('o', undefined), item('p', 'constructor'),
     ], null, 4) });
     const r = await m.fetchMail('ME01');
     const g = authed.log[0];
     chk(g.path.startsWith('/v2/me/notifications?section=MAIL') && /limit=50/.test(g.path) && g.opts.auth === true && !/ME01/.test(g.path), '경로 — 내 알림 · section=MAIL · limit=50 · 로그인 통로로(내 코드는 경로에 안 실린다)');
-    chk(Object.keys(r.items).length === 8 && r.items.a.tag === 'reward' && r.items.b.tag === 'bug' && r.items.c.tag === 'reward' && r.items.d.tag === 'reward' && r.items.e.tag === 'reward', '종류 → 태그 — 라이선스 · 해금 · 시크릿룸 · 옛 글은 reward · 답변은 bug');
+    chk(Object.keys(r.items).length === 10 && r.items.a.tag === 'reward' && r.items.b.tag === 'bug' && r.items.c.tag === 'reward' && r.items.d.tag === 'reward' && r.items.e.tag === 'reward', '종류 → 태그 — 라이선스 · 해금 · 시크릿룸 · 옛 글은 reward · 답변은 bug');
     chk(r.items.f.tag === 'reward', '  모르는 종류도 «우편» 으로 보인다(버리지 않는다)');
     chk(r.items.x1.tag === 'xmas' && r.items.x2.tag === 'xmas', '🎄 받은 편지(XMAS_LETTER) · 반송(XMAS_RETURNED) 은 xmas — 누르면 크리스마스 편지 창');
     chk(r.items.x1.kind === 'XMAS_LETTER' && r.items.x2.kind === 'XMAS_RETURNED' && r.items.f.kind === 'NEW_KIND_FROM_FUTURE', '  종류 이름을 그대로 싣는다(같은 태그 안에서 받은 편지 알림만 고르는 쪽이 읽는다)');
+    chk(r.items.o.tag === 'reward' && r.items.o.kind === '' && r.items.p.tag === 'reward', '  종류가 없는 옛 서버 알림은 «우편» · kind \'\' · Object 원형 이름(constructor)도 «우편»');
     chk(r.items.a.title === 'ta' && r.items.a.body === 'ba' && r.items.a.ts === Date.parse('2026-10-30T01:02:03Z') && r.items.a.read === false && r.items.b.read === true, '제목 · 본문 · 시각(ms) · 읽음(readAt 이 있으면 읽음)');
     chk(r.items.b.bugId === '1031-2' && r.items.a.bugId === undefined, '버그 답변은 payload.number 를 bugId 로(누르면 그 글로 간다) · 다른 종류엔 없다');
     chk(r.unread === 4 && r.complete === true, '안 읽은 수는 서버가 센 값 · 다음 쪽이 없으면 complete');
@@ -181,7 +182,7 @@ async function runAll(){
   await judge(S);
   say('── 5. mutation test');
   const breaks = [
-    ['모르는 종류를 버림', S.API.replace("TAG_BY_KIND[kind] || 'reward'", "TAG_BY_KIND[kind]"), '모르는 종류도 «우편»'],
+    ['모르는 종류를 버림', S.API.replace("? TAG_BY_KIND[kind] : 'reward')", "? TAG_BY_KIND[kind] : undefined)"), '모르는 종류도 «우편»'],
     ['안 읽은 수를 받은 것에서 셈', S.API.replace("if(unread === undefined) unread = p.unread;", "unread = Object.keys(items).length;"), '서버가 센 값'],
     ['쪽 상한을 늘림', S.API.replace('MAX_PAGES: 4', 'MAX_PAGES: 400'), '쪽 상한'],
     ['쓰기가 주인을 안 묶음', S.API.replace("await send({ expectOwner: owners.get(uid) });", "await send({});"), '주인이 바뀌면 요청 0'],
@@ -193,6 +194,7 @@ async function runAll(){
     ['읽음 본문 틀림', S.API.replace("{ read: true }", "{ read: false }"), 'PATCH'],
     ['버그 번호 누락', S.API.replace("out.bugId = no;", ""), 'bugId'],
     ['크리스마스 종류를 뺌', S.API.replace("XMAS_LETTER: 'xmas', XMAS_RETURNED: 'xmas',", ""), 'xmas 태그'],
+    ['원형 이름을 표로 봄', S.API.replace("(typeof kind === 'string' && Object.hasOwn(TAG_BY_KIND, kind) ? TAG_BY_KIND[kind] : 'reward')", "(TAG_BY_KIND[kind] || 'reward')"), '원형 이름'],
     ['종류 이름을 안 실음', S.API.replace("kind: str(it.kind), ", ""), '종류 이름 그대로'],
   ];
   for(const [name, src, what] of breaks){

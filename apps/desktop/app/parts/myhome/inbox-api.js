@@ -38,7 +38,7 @@ const TAG_BY_KIND = Object.freeze({
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const str = (v) => (typeof v === 'string' ? v : '');
 const shapeError = () => Object.assign(new Error('응답 모양이 달라요'), { code: 'SHAPE' });
-const tagOf = (kind) => TAG_BY_KIND[kind] || 'reward';
+const tagOf = (kind) => (typeof kind === 'string' && Object.hasOwn(TAG_BY_KIND, kind) ? TAG_BY_KIND[kind] : 'reward');   // constructor 같은 이름이 Object 원형 값을 꺼내지 않게
 
 /* 서버 알림 한 통 → 화면 우편. 모양이 틀리면(id 없음) undefined */
 function mailOf(it){
