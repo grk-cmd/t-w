@@ -1531,14 +1531,13 @@ let lastForeignWindow = null;   // { key, name, path, title } — key 가 판정
 /* 🧭 [2026-10-11 제보: 한글 · PDF · 크롬이 포커싱 등록이 안 된다] 슬롯 좌클릭 «자동 등록» 이 집는 창.
    lastForeignWindow 는 바탕화면 · 작업표시줄(explorer.exe) · 시작 메뉴 · 검색 같은 **셸 창도** 받는다 — 문서 창에서
    작업표시줄을 거쳐 투게더워킹을 누르면 그 사이 셸 창이 마지막 앞창이 되어, 한글 대신 explorer.exe 가 등록됐다.
-   ⇒ 등록용은 셸 목록(sysinput.WINLIST_SKIP — 「목록에서 직접 고르기」 가 거르는 것과 같은 목록)을 건너뛴 마지막 창.
+   ⇒ 등록용은 셸 창(sysinput.isShellWindow — 「목록에서 직접 고르기」 가 거르는 것과 같은 판정)을 건너뛴 마지막 창.
    lastForeignWindow(진단 로그 «앞창=») 는 그대로 둔다 — 로그는 실제 앞창을 보여야 한다. */
 let lastRegistrableWindow = null;
 function _noteForeignWindow(exeName, ownerPath, w){
   lastForeignWindow = { key: focusKeyOf(exeName), name: sysinput.displayNameOf(ownerPath), path: w.owner.path || '', title: w.title || '' };
-  let shell = false;
-  try{ shell = !!(sysinput.WINLIST_SKIP && sysinput.WINLIST_SKIP.has(exeName)); }catch(_){}
-  if(!shell) lastRegistrableWindow = lastForeignWindow;
+  /* 셸 판정은 sysinput 한 곳 — 파일 탐색기 폴더 창(w.folder)은 explorer.exe 여도 등록 후보다 */
+  if(!sysinput.isShellWindow(exeName, w)) lastRegistrableWindow = lastForeignWindow;
 }
 
 // uiohook 전역 클릭/키 이벤트에 실어 보낼, 매 순간의 "활성 프로세스 판정" 캐시.
@@ -1590,7 +1589,8 @@ function startActiveWinPolling(){
            여기서 `f.name === exeName` 로 되돌리면 mac 에서 조용히 전부 미등록이 된다. */
       const activeKey = focusKeyOf(exeName);
       const activeKeyAlt = legacyKeyOf(ownerPath, activeKey);   // 🕰️ 옛 규칙 키(mac ≤0.10.0 저장물) — 없으면 ''
-      const isFocusedAppRegistered = !!(activeKey && focusApps.some(f => keysOf(f).includes(activeKey) || (activeKeyAlt !== '' && keysOf(f).includes(activeKeyAlt))));
+      /* 바탕화면 · 작업표시줄(w.desktop)은 파일 탐색기와 같은 explorer.exe 라 키가 같다 — explorer 를 등록해도 거기서는 집중으로 세지 않는다 */
+      const isFocusedAppRegistered = !w.desktop && !!(activeKey && focusApps.some(f => keysOf(f).includes(activeKey) || (activeKeyAlt !== '' && keysOf(f).includes(activeKeyAlt))));
       /* 🩺 [2026-09-16 제보 1 · E] 활성 창 키가 **바뀔 때마다** 진단 로그에 한 줄 — 콘솔을 못 보는 환경용.
          [왜] 게임 클라이언트를 등록했는데 카운팅이 안 되는 제보. 목록에 뜨고 등록도 되는데 안 잡히면
            «등록된 키와 활성 창 키가 서로 다른 문자열» 이 가장 유력하다(런처 exe ≠ 실제 프로세스).
@@ -1613,7 +1613,7 @@ function startActiveWinPolling(){
       /* ⚠️ 전용 채널을 파지 않는다 — 필드 하나를 얹는 방식이라 구버전 preload/렌더러와도 짝이 맞는다
          (모르는 필드는 그냥 무시된다). offOverlay 를 얹을 때와 같은 규약이다. */
       _onSysPromptFront(isSystemPrompt(activeKey));
-      lastActiveState = { exeName, key: activeKey, keyAlt: activeKeyAlt, isFocusedAppRegistered, hasAnyRegistered: focusApps.some(Boolean), isPenApp: penNow, isSelf: !!exeName && exeName === SELF_EXE };   // isSelf: 투게더워킹 창이 맨 앞 — 렌더러가 잠들지 않게(seatState)
+      lastActiveState = { exeName, key: activeKey, keyAlt: activeKeyAlt, isFocusedAppRegistered, hasAnyRegistered: focusApps.some(Boolean), isPenApp: penNow, isSelf: !!exeName && exeName === SELF_EXE, desktop: !!w.desktop };   // desktop: 바탕화면 · 작업표시줄(폴더 창과 키가 같다 — 달성표가 세지 않게) · isSelf: 투게더워킹 창이 맨 앞 — 렌더러가 잠들지 않게(seatState)
       let frontFull = null;   // null = 크기를 못 읽음(맥 · 실패) — 비율 분모에서 뺀다
       /* 우리 창이 있는 모니터와 견준다(실행 화면이면 실행 모니터) — getRunDisplay 는 저장 · 로그가 딸려 있어 0.5초마다 부르지 않는다 */
       try{ if(w.bounds && mainWindow && !mainWindow.isDestroyed()) frontFull = FrontDiag.coversDisplay(w.bounds, screen.getDisplayMatching(mainWindow.getBounds()).bounds); }catch(_){}
