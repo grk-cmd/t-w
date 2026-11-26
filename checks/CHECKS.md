@@ -595,9 +595,9 @@
 | **sim-xmas-api.js** | 255 | **06e24813829c** |
 | **sim-xmas-rules.js** | 138 | **80fcd2a2cbb1** |
 | **sim-xmas-tree.js** | 51 | **0d4a04e1115d** |
-| **sim-xmas-window.js** | 259 | **b416e9adb4cd** |
+| **sim-xmas-window.js** | 276 | **997896dfedf4** |
 | **sim-xmas-song.js** | 140 | **8f1589bf966d** |
-| **sim-xmas-letter.js** | 246 | **c1e2a6dbfb78** |
+| **sim-xmas-letter.js** | 265 | **ad363352cf74** |
 | **sim-wardrobe-place.js** | 54 | **8c81ab2ff24e** |
 
 ---
