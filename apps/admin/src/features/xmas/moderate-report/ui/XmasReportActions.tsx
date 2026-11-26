@@ -2,10 +2,19 @@ import type { XmasReport } from '@/entities/seasonal/xmas-event';
 import { ApiError } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
-import { useDismissXmasReport, useRemoveReported } from '../model/useModerateXmas';
+import { useDismissXmasReport, useRemoveReported, type RemoveTarget } from '../model/useModerateXmas';
 
-/** [지우기](장식 · 받은 편지) · [문제없음](신고만 비움). 처리한 줄은 목록에서 빠진다. version = 상세에서 본 장식의 판(없으면 null — 이미 없는 장식). */
-export function XmasReportActions({ report, version }: { report: XmasReport; version: number | null }) {
+/**
+ * [지우기](장식 · 받은 편지) · [문제없음](신고만 비움). 처리한 줄은 목록에서 빠진다.
+ * removable = 지울 대상(장식은 상세에서 본 판과 함께). 대상이 이미 없으면 null — [지우기] 없이 [문제없음] 만.
+ */
+export function XmasReportActions({
+  report,
+  removable,
+}: {
+  report: XmasReport;
+  removable: RemoveTarget | null;
+}) {
   const toast = useToast();
   const remove = useRemoveReported();
   const dismiss = useDismissXmasReport();
@@ -13,11 +22,12 @@ export function XmasReportActions({ report, version }: { report: XmasReport; ver
   const what = report.kind === 'orn' ? '장식' : '받은 편지';
 
   const onRemove = async () => {
+    if (!removable) return;
     const more =
       report.kind === 'orn' ? ' 건 사람은 다시 걸 수 있어요.' : ' 받은 사람의 편지함에서 사라져요.';
     if (!confirm(`이 ${what}을(를) 지울까요?${more} 되돌릴 수 없어요.`)) return;
     try {
-      await remove.mutateAsync({ report, version });
+      await remove.mutateAsync(removable);
       toast(`${what}을(를) 지웠어요`);
     } catch (e) {
       toast(
@@ -39,9 +49,11 @@ export function XmasReportActions({ report, version }: { report: XmasReport; ver
 
   return (
     <>
-      <button type="button" className="btn danger" disabled={busy} onClick={onRemove}>
-        {remove.isPending ? '지우는 중…' : `${what} 지우기`}
-      </button>
+      {removable && (
+        <button type="button" className="btn danger" disabled={busy} onClick={onRemove}>
+          {remove.isPending ? '지우는 중…' : `${what} 지우기`}
+        </button>
+      )}
       <button type="button" className="btn" disabled={busy} onClick={onDismiss}>
         {dismiss.isPending ? '비우는 중…' : '문제없음'}
       </button>

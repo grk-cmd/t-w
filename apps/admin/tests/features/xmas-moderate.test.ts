@@ -3,7 +3,7 @@ import { ACTION_LABEL, LOG_GROUPS } from '@/entities/admin-log';
 import { NoApiError } from '@/entities/seasonal/xmas-event';
 import { dismissXmasReport, removeGotLetter, removeOrnament } from '@/features/xmas/moderate-report';
 import { isChangedLetter, returnLetter } from '@/features/xmas/return-letter';
-import { ApiError, AUDIT_ACTIONS, type Api } from '@/shared/api';
+import { ApiError, AUDIT_ACTIONS, createApi, type Api } from '@/shared/api';
 
 /** 가짜 API — 보낸 것을 적고 정한 답을 낸다 */
 function fakeApi(reply: unknown = null, fail?: Error) {
@@ -70,6 +70,22 @@ describe('신고 처리', () => {
     const { api, calls } = fakeApi();
     await dismissXmasReport(api, 'o-3-12');
     expect(calls).toEqual([['DELETE', '/v2/admin/xmas/reports/o-3-12', undefined]]);
+  });
+  it('진짜 API 통로(createApi)로 — 서버의 204 빈 본문 지우기 셋이 성공으로 끝난다', async () => {
+    const seen: string[] = [];
+    const fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      seen.push(`${init?.method} ${new URL(String(input)).pathname}${new URL(String(input)).search}`);
+      return new Response(null, { status: 204 });
+    }) as typeof globalThis.fetch;
+    const api = createApi({ baseUrl: 'https://api.example', token: async () => 'tok', fetch });
+    await expect(removeOrnament(api, 3, 12, 4)).resolves.toBeUndefined();
+    await expect(removeGotLetter(api, 'AB12CD', 2)).resolves.toBeUndefined();
+    await expect(dismissXmasReport(api, 'o-3-12')).resolves.toBeUndefined();
+    expect(seen).toEqual([
+      'DELETE /v2/admin/xmas/trees/3/ornaments/12?version=4',
+      'DELETE /v2/admin/xmas/received/AB12CD/2',
+      'DELETE /v2/admin/xmas/reports/o-3-12',
+    ]);
   });
   it('작업 기록 화면 이름 · 묶음은 남는다(서버 감사 기록의 동작 이름과 같다)', () => {
     for (const a of [

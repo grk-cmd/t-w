@@ -7,7 +7,7 @@ import {
   type XmasReport,
   xmasErrorMessage,
 } from '@/entities/seasonal/xmas-event';
-import { XmasReportActions } from '@/features/xmas/moderate-report';
+import { XmasReportActions, type RemoveTarget } from '@/features/xmas/moderate-report';
 import { formatDate, usePaging } from '@/shared/lib';
 import { Pager } from '@/shared/ui';
 import styles from './XmasReportList.module.css';
@@ -61,6 +61,15 @@ function LetterView({
   );
 }
 
+/** 지울 대상 — 이미 없으면 null(그때는 [문제없음] 만 · 판 없는 지우기를 보내지 않는다) */
+function removableOf(report: XmasReport, d: ReportDetail): RemoveTarget | null {
+  if (report.kind === 'orn')
+    return d.ornament
+      ? { key: report.key, kind: 'orn', tree: report.tree, slot: report.slot, version: d.ornament.version }
+      : null;
+  return d.received ? { key: report.key, kind: 'got', got: report.got, n: report.n } : null;
+}
+
 function ReportRow({ report }: { report: XmasReport }) {
   const { data, error, isLoading } = useReportDetail(report.key);
   return (
@@ -93,7 +102,7 @@ function ReportRow({ report }: { report: XmasReport }) {
         )}
       </div>
       <div className={styles.actions}>
-        {data && <XmasReportActions report={report} version={data.ornament?.version ?? null} />}
+        {data && <XmasReportActions report={report} removable={removableOf(report, data)} />}
       </div>
     </div>
   );
