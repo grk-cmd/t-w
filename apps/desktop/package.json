@@ -36,6 +36,7 @@
       "sysinput-win.js",
       "sysinput-mac.js",
       "native-peek.js",
+      "win-drag.js",
       "pad-worker.js",
       "pad-xinput.js",
       "win-class.js",

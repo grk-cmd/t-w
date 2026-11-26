@@ -72,6 +72,7 @@ const setMoveMode = deps.setMoveMode;   // 쓰는 함수
 const setNameplateEnabled = deps.setNameplateEnabled;   // 쓰는 함수
 const statusBubbleEnabled = deps.statusBubbleEnabled;   // 💭 머리 위 상태 말풍선 — 읽는 함수(overhead.js)
 const setStatusBubbleEnabled = deps.setStatusBubbleEnabled;   // 쓰는 함수 — 저장도 overhead.js 가 한다
+const stickerLayer = deps.stickerLayer;   // 🎨 마이홈 스티커 보이기(myhome/sticker-layer.js) — 저장도 그쪽이 한다
 const setRoomSeatMode = deps.setRoomSeatMode;   // 쓰는 함수
 const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
 /* 🏷️ 이름표(레벨/이름) 크기 — px 범위 · 기본값 · 화면에 보일 % (기본 = 100%) */
@@ -419,6 +420,8 @@ const fsWin = (function bindFocusSettings(){
     if(npBtn){ npBtn.textContent = nameplateEnabled()?'켜짐':'꺼짐'; npBtn.classList.toggle('on', nameplateEnabled()); }
     const sbBtn=document.getElementById('fsStatusBubbleToggle');
     if(sbBtn){ sbBtn.textContent = statusBubbleEnabled()?'켜짐':'꺼짐'; sbBtn.classList.toggle('on', statusBubbleEnabled()); }
+    const stBtn=document.getElementById('fsMhStickerToggle');
+    if(stBtn){ stBtn.textContent = stickerLayer.on()?'켜짐':'꺼짐'; stBtn.classList.toggle('on', stickerLayer.on()); }
     const eqBtn=document.getElementById('fsSeatEqToggle');
     if(eqBtn){ eqBtn.textContent = seatEqualizeOn()?'켜짐':'꺼짐'; eqBtn.classList.toggle('on', seatEqualizeOn()); }
     const dpBtn=document.getElementById('fsDecoPartsToggle');
@@ -534,6 +537,8 @@ const fsWin = (function bindFocusSettings(){
   };
   const sbBtn=document.getElementById('fsStatusBubbleToggle');
   if(sbBtn) sbBtn.onclick=()=>{ setStatusBubbleEnabled(!statusBubbleEnabled()); refreshToggleBtns(); };
+  const stBtn=document.getElementById('fsMhStickerToggle');
+  if(stBtn) stBtn.onclick=()=>{ stickerLayer.set(!stickerLayer.on()); refreshToggleBtns(); };
   // 이름표(레벨/이름) 크기 — [−] 100% [+] [↺]. 한 번에 1px, 기본 크기를 100% 로 보인다. CSS 변수(--nameplate-size)로 즉시 반영 · localStorage 에 저장.
   (function bindNameplateSize(){
     const layer=document.getElementById('seatLabelsLayer');
