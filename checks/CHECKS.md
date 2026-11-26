@@ -85,7 +85,7 @@
 | **sim-char-identity.js** | 188 | **9aa1d07d92b1** |
 | **sim-char-z.js** | 225 | **92fb9efdb2c1** |
 | **sim-checks-manifest.js** | 92 | **5a22daaa811a** |
-| **sim-cfg-fit.js** | 369 | **44de3de26f58** |
+| **sim-cfg-fit.js** | 369 | **db7a5a7fae68** |
 | **sim-chat-fly.js** | 360 | **b52fd913a6d7** |
 | **sim-bug-board.js** | 629 | **724c46ce1d8b** |
 | **sim-bug-api.js** | 305 | **58b375d25c93** |
@@ -104,7 +104,7 @@
 | **sim-friends-presence-rt.js** | 361 | **d49cb7f8b0eb** |
 | **sim-social-api.js** | 290 | **e3f48223d980** |
 | **sim-friend-profile-live.js** | 218 | **d78ba96ecf5b** |
-| **sim-second-instance.js** | 226 | **b537904a2e57** |
+| **sim-second-instance.js** | 231 | **420f1674eed3** |
 | **sim-wd-parts-persist.js** | 91 | **f8dac06eecab** 
 | **sim-invite-notice.js** | 85 | **9f7bcb7ddc71** |
 | **sim-name-guard.js** | 42 | **9c89831d5c23** |
@@ -155,8 +155,9 @@
 | **sim-room-live-def.js** | 164 | **d27c99b834a7** |
 | **sim-app-version.js** | 109 | **6dee4558ad2b** |
 | **sim-app-version-sync.js** | 178 | **3ac083328aff** |
-| **sim-update-flow.js** | 500 | **14e4b2c4adaf** |
-| **sim-update-recheck.js** | 330 | **2783aaa8f44c** |
+| **sim-update-flow.js** | 494 | **f669a5c4316b** |
+| **sim-update-recheck.js** | 437 | **bbf13a25ee5a** |
+| **sim-update-platform.js** | 154 | **eea7ac769a03** |
 | **sim-firebase-left.js** | 176 | **7ccb37cbf4ef** |
 | **sim-maintenance-gate.js** | 380 | **251dd4e44400** |
 | **sim-room-invite-wait.js** | 45 | **76bc51548bda** |
@@ -356,7 +357,6 @@
 | **sim-todo-cli.js** | 286 | **1938bd361cc5** |
 | **sim-folder-free.js** | 190 | **350cfeef7412** |
 | **sim-chat-sfx.js** | 221 | **fcd6f3258d6c** |
-| **sim-mac-update.js** | 269 | **d58adcbefab2** |
 | **sim-mac-adhoc-sign.js** | 100 | **a0f1b33b5a0a** |
 | **sim-mac-update-yml.js** | 130 | **2ff151fe3e56** |
 | **sim-focus-show.js** | 86 | **40b316640169** |
@@ -1978,27 +1978,20 @@ Tahoma 에는 한글 글자가 없어서 한글은 브라우저가 고른 대체
 
 ---
 
-## 29. `sim-mac-update.js` — 🍎 맥은 autoUpdater 를 타지 않는다 (2026-09-18 · 개정 21 신규)
+## 29. `sim-update-platform.js` — 플랫폼마다 자동 업데이트를 어떻게 돌리나 · 맥 «응용 프로그램 폴더로 옮기기»
 
-**상황** 0.9.7 맥판은 **애플 서명·공증이 없다.** electron-updater 의 맥 갈래는 서명된 zip + `latest-mac.yml` 을 전제로 하므로, 올려 봐야 설치 단계에서 실패한다. 그래서 맥은 릴리즈의 **dmg 직접 받기**로 간다(arm64 = 애플 실리콘 · x64 = 인텔).
-
-**문제** `main.js` 의 `autoUpdater.checkForUpdates()` 에 플랫폼 구분이 없었다. 맥에서는 yml 이 없어 **켤 때마다 확인이 실패**하고 `sendUpdateStatus('error')` 가 돈다.
-★ 다만 **화면에 뜨지는 않았다** — 렌더러 수신부는 `error` 를 `console.warn` 으로만 남기고 배너는 `downloaded` 에서만 띄운다(`handoff-2026-09-18b.md` §2 의 「화면에 뜬다」는 과장이었다). 실제 증상은 켤 때마다의 헛된 네트워크 확인과 콘솔 경고다.
-
-**고침** 갈래를 `startUpdateCheck()` **한 자리**에 모았다 — 맥이면 `checkForUpdates()` 를 아예 안 부르고 `checkMacUpdate()` 로 간다. 맥 갈래는 GitHub releases 의 최신 태그만 **켤 때 한 번** 읽어(새 주기 없음) 새 버전이면 `'mac-available'` 을 렌더러에 보내고, 렌더러는 **기존 `#updateReadyBanner` 를 그대로 재활용**해 버튼만 «지금 재시작» → «받으러 가기»(`companion.openBrowser` = `shell.openExternal`)로 바꾼다. 새 창을 안 만들었으므로 시안이 필요 없다(규칙 3).
-저장소 이름은 `package.json` 의 `build.publish` 에서 읽는다 — 코드에 박으면 저장소를 옮길 때 맥 안내만 옛 주소를 가리킨다.
-★ 나중에 애플 개발자 프로그램(연 99달러)으로 서명·공증을 하면 되돌린다. 지울 곳은 `checkMacUpdate()` 와 `startUpdateCheck()` 두 군데뿐이고, 그때는 zip + `latest-mac.yml` 을 릴리즈에 함께 올려야 한다.
+**무엇을** 윈도우 · 맥의 다시 확인 · 끌 때 설치 · 재시작 판단을 `update-platform.js` 한 곳에 두고, `main.js` 는 부르기만 한다. 맥은 Developer ID 서명 · 공증(`release.yml`)이 붙어 electron-updater(Squirrel.Mac)를 윈도우처럼 탄다 — 맥 전용 «다운로드 페이지 열기» 갈래(`checkMacUpdate` · `'mac-available'`)는 없다.
+★ Squirrel.Mac 은 끌 때 설치를 켜면 다 받는 즉시 설치 준비를 끝내 어떻게 꺼지든 설치된다. 그래서 맥에서 Squirrel 이 준비를 끝낸 판(electron `autoUpdater` 의 `update-downloaded` — `_updateStaged`)이 있는 재시작은 `app.relaunch` 대신 «설치하고 다시 켜기»(`quitAndInstall`)로 간다(`_relaunchOrInstall`). 준비 전 · 준비 실패 · 폴더에 못 써 끌 때 설치가 꺼진 채 받았으면 relaunch 그대로(설치하러 가면 끝이 오지 않아 멈춘다). 폴더에 못 쓰는 맥의 [지금 재시작] 은 Squirrel 이 관리자 암호를 묻거나 실패할 수 있다(`update-platform.js` TODO).
+★ 응용 프로그램 폴더 밖(다운로드 · dmg 안)에서는 맥 자동 업데이트가 실패한다 — 처음 한 번 옮기기를 묻는다(`_offerMoveToApplications` · 물은 표시는 `tw-settings.json` `macMoveAsked`).
 
 | 절 | 무엇을 지키나 |
 |---|---|
-| 1 | `checkForUpdates()` 호출이 한 곳뿐 · 그 자리가 `startUpdateCheck()` 안 · 부르는 자리가 그 함수를 쓴다 · **가짜 `process` 로 실행해서** darwin 이면 안 부르고 `checkMacUpdate()` 로 가며 win32 는 예전 그대로임을 확인 |
-| 2 | 맥 갈래가 `'mac-available'` 만 보내고 `quitAndInstall` 을 안 부른다 · 새 창·새 주기 없음 · 주소는 응답의 `html_url` 에서 받고 https 확인 · 저장소 이름을 안 박았다 · `isNewerVersion` 을 **실행해서** `0.10.0 > 0.9.7` 을 확인(문자열 비교면 여기서 뒤집힌다) |
-| 3 | 렌더러가 `'mac-available'` 을 처리하고 기존 배너로 간다 · 맥 전용 오버레이 신설 없음 · **가짜 DOM 으로 버튼을 눌러** 맥은 `openBrowser`(설치 안 함) · 윈도우는 `installUpdate`(브라우저 안 엶) |
-| 4 | `companion:openBrowser` → `shell.openExternal` 통로 · `updateStatus` 통로 · `build.publish` 의 github owner·repo |
+| 1 | `createUpdatePlatform` 을 **실제로 불러** 윈도우 · 맥 · 리눅스마다 다시 확인 · 설치 폴더(맥은 `.app` 이 든 폴더) · 끌 때 설치(그 폴더에 쓸 수 있을 때만) · 재시작(맥에서 받은 판이 있을 때만 설치) · 옮기기 묻기(맥 · 설치본 · 폴더 밖 · 처음 한 번) |
+| 2 | `main.js` `_offerMoveToApplications` 를 떼어 가짜 dialog · app 위에서 — 물은 표시를 먼저 저장 · 거절이면 그대로 · 옮기면 true · 옮기기 실패는 오류 파일 · 다시 묻지 않음 |
+| 3 | 배선 — 창보다 먼저 묻고 옮기면 창을 띄우지 않는다 · 설정 파일 읽기 · 쓰기 · 설치 목록 · 맥 전용 갈래가 남지 않음 |
+| 4 | mutation test — 맥 설치 폴더 · 재시작 갈래 · 플랫폼 확인 · 물은 표시 · 폴더 확인 · 응답 확인을 지우면 빨강 |
 
-**이빨 확인(실측)** 0.9.7 판(고치기 전)에 돌리면 **21개 빨강**. 갈래 한 줄(`process.platform === 'darwin'` 분기)만 지우면 **2개 빨강** — 1절이 그 한 줄을 정확히 집는다.
-
-⚠️ 맥 안내는 **네트워크가 막히거나 GitHub 이 답을 안 주면 조용히 아무것도 안 한다.** 그게 의도다 — 켤 때마다 «확인 실패» 를 띄우면 지금 고치려는 그 잡음이 모양만 바뀌어 돌아온다.
+끌 때 설치 · 재시작의 끄기 순서(저장을 끝낸 뒤 설치 · relaunch 와 설치가 겹치지 않음)는 `sim-update-recheck.js` 2절이 가짜 app 위에서 윈도우 · 맥 둘 다 돌린다.
 
 ---
 
