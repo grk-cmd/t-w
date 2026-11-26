@@ -187,6 +187,20 @@ describe('API 통로', () => {
     expect(slow.message).toContain('늦어요');
   });
 
+  it('요청마다 대기 시간을 늘릴 수 있다 — get · send 모두(기본 50ms 를 넘겨도 끊지 않는다)', async () => {
+    // 120ms 뒤에 답하는 서버 — signal 이 먼저 끊기면 fetch 처럼 AbortError 로 끝난다
+    const late = (_url: URL, init: RequestInit) =>
+      new Promise<Response>((resolve, reject) => {
+        setTimeout(() => resolve(json(200, { success: true, data: 1 })), 120);
+        init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+      });
+    const { client } = api(late);
+    expect(await client.get('/v1/x', undefined, { timeoutMs: 1000 })).toBe(1);
+    expect(await client.send('POST', '/v1/x', { body: {}, timeoutMs: 1000 })).toBe(1);
+    const e = await failure(client.get('/v1/x'));
+    expect(e.message).toContain('늦어요');
+  });
+
   it('그 밖의 4xx(보낸 값이 틀림)는 폴백하지 않는다', async () => {
     const e = await failure(
       api(() =>

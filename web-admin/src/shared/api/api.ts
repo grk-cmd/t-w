@@ -68,12 +68,16 @@ export type ApiSendMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 export interface ApiGetOptions {
   anonymous?: boolean;
+  /** 이 요청만 기다리는 시간(ms) — 서버가 오래 일하는 관리자 요청용. 없으면 `createApi` 의 값. */
+  timeoutMs?: number;
 }
 
 export interface ApiSendOptions {
   /** JSON 본문. DELETE 는 본문을 싣지 않는다(판은 `query.version`). */
   body?: unknown;
   query?: ApiParams;
+  /** 이 요청만 기다리는 시간(ms). 없으면 `createApi` 의 값. */
+  timeoutMs?: number;
 }
 
 export interface Api {
@@ -138,6 +142,7 @@ export function createApi({
     body?: unknown,
     raw?: { bytes: Uint8Array; contentType: string },
     anonymous = false,
+    waitMs = timeoutMs,
   ): Promise<T> {
     const headers: Record<string, string> = {};
     if (!anonymous) {
@@ -156,7 +161,7 @@ export function createApi({
     }
 
     const abort = new AbortController();
-    const timer = setTimeout(() => abort.abort(), timeoutMs);
+    const timer = setTimeout(() => abort.abort(), waitMs);
     let res: Response;
     let parsed: Envelope | null = null;
     try {
@@ -223,8 +228,9 @@ export function createApi({
   return {
     baseUrl,
     get: (path, params, options) =>
-      request('GET', path, params, undefined, undefined, options?.anonymous === true),
-    send: (method, path, options = {}) => request(method, path, options.query, options.body),
+      request('GET', path, params, undefined, undefined, options?.anonymous === true, options?.timeoutMs),
+    send: (method, path, options = {}) =>
+      request(method, path, options.query, options.body, undefined, false, options.timeoutMs),
     upload: (path, bytes, contentType) => request('POST', path, undefined, undefined, { bytes, contentType }),
   };
 }

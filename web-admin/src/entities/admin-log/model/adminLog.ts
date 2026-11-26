@@ -219,6 +219,7 @@ export const SERVER_ACTION_LABEL: Record<string, string> = {
   'room.close': '방 종료',
   'user.delete': '계정 삭제',
   'user.passwordReset': '비밀번호 초기화',
+  'user.storageBackfill': 'Storage 주인 채우기',
 };
 
 export const actionLabel = (action: string): string =>
