@@ -14,9 +14,10 @@ contextBridge.exposeInMainWorld('companion', {
     ipcRenderer.send('companion:setConfigMode', !!isConfig, mode || 'launcher', extra || null);
   },
 
-  // 컨트롤 바 grip을 드래그해서 창을 옮길 때 (dx, dy = 이전 프레임 대비 이동량)
-  moveWindow(dx, dy) {
-    ipcRenderer.send('companion:moveWindow', dx, dy);
+  // 제목줄 · 컨트롤 바 grip 을 끌어 창을 옮길 때 — phase: 'start'(누름) · 'move'(움직임) · 'end'(뗌).
+  //   자리는 main 이 마우스 자리로 계산한다(win-drag.js) — 렌더러 화면 좌표는 배율이 다른 모니터 사이에서 흔들린다
+  dragWindow(phase) {
+    ipcRenderer.send('companion:dragWindow', phase);
   },
 
   // 🔔 작업표시줄 버튼 깜빡임 — 초대가 왔을 때 on(true), 처리(수락/거절/닫기)했을 때 off(false).
