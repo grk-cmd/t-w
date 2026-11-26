@@ -73,6 +73,7 @@ const setNameplateEnabled = deps.setNameplateEnabled;   // 쓰는 함수
 const statusBubbleEnabled = deps.statusBubbleEnabled;   // 💭 머리 위 상태 말풍선 — 읽는 함수(overhead.js)
 const setStatusBubbleEnabled = deps.setStatusBubbleEnabled;   // 쓰는 함수 — 저장도 overhead.js 가 한다
 const stickerLayer = deps.stickerLayer;   // 🎨 마이홈 스티커 보이기(myhome/sticker-layer.js) — 저장도 그쪽이 한다
+const awayOthers = deps.awayOthers;   // 🫧 남의 자리비움 그림 보기(shared/device-toggle.js) — 저장도 그쪽이 한다
 const setRoomSeatMode = deps.setRoomSeatMode;   // 쓰는 함수
 const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
 /* 🏷️ 이름표(레벨/이름) 크기 — px 범위 · 기본값 · 화면에 보일 % (기본 = 100%) */
@@ -418,6 +419,8 @@ const fsWin = (function bindFocusSettings(){
     if(dotBtn){ dotBtn.textContent = dotRenderEnabled()?'켜짐':'꺼짐'; dotBtn.classList.toggle('on', dotRenderEnabled()); }
     const npBtn=document.getElementById('fsNameplateToggle');
     if(npBtn){ npBtn.textContent = nameplateEnabled()?'켜짐':'꺼짐'; npBtn.classList.toggle('on', nameplateEnabled()); }
+    const awBtn=document.getElementById('fsAwayOthersToggle');
+    if(awBtn){ awBtn.textContent = awayOthers.on()?'켜짐':'꺼짐'; awBtn.classList.toggle('on', awayOthers.on()); }
     const sbBtn=document.getElementById('fsStatusBubbleToggle');
     if(sbBtn){ sbBtn.textContent = statusBubbleEnabled()?'켜짐':'꺼짐'; sbBtn.classList.toggle('on', statusBubbleEnabled()); }
     const stBtn=document.getElementById('fsMhStickerToggle');
@@ -535,6 +538,8 @@ const fsWin = (function bindFocusSettings(){
     localStorage.setItem('tw.nameplate', nameplateEnabled()?'1':'0');
     refreshToggleBtns();
   };
+  const awBtn=document.getElementById('fsAwayOthersToggle');
+  if(awBtn) awBtn.onclick=()=>{ awayOthers.set(!awayOthers.on()); refreshToggleBtns(); };
   const sbBtn=document.getElementById('fsStatusBubbleToggle');
   if(sbBtn) sbBtn.onclick=()=>{ setStatusBubbleEnabled(!statusBubbleEnabled()); refreshToggleBtns(); };
   const stBtn=document.getElementById('fsMhStickerToggle');

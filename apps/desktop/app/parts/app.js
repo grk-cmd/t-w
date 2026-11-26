@@ -964,6 +964,7 @@ const heartbeatMod = TwHeartbeat.createHeartbeat({
 /* 본문은 settings-panel.js 로 옮겼다(앱 FSD 27번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const stickerLayerMod = TwStickerLayer.createStickerLayer({ storage: localStorage });   // 🎨 마이홈 스티커 보이기(이 PC 설정) — 설정 창 · 스티커 그리기 · 관리 창이 같이 읽는다
+const awayOthersMod = TwDeviceToggle.createDeviceToggle({ storage: localStorage, key: 'tw.awayPicOthers' });   // 🫧 남의 자리비움 그림 보기(이 PC 설정) — 설정 창 · 자리비움 그림이 같이 읽는다
 const settingsMod = TwSettingsPanel.createSettingsPanel({
   settingsAccountStore: accountStoreMod,
   GAP_MAX: GAP_MAX,
@@ -1026,6 +1027,7 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   statusBubbleEnabled: ()=>overheadMod.statusBubbleEnabled(),
   setStatusBubbleEnabled: (v)=>{ overheadMod.setStatusBubbleEnabled(v); },
   stickerLayer: stickerLayerMod,
+  awayOthers: awayOthersMod,
 });
 
 /* ═══ 🕒 포커스 기록 팝업 ═══ */
@@ -4615,6 +4617,7 @@ const awayPicMod = TwAwayPic.createAwayPic({
   seats: seats,
   toast: (...a)=>toast(...a),
   userApi: ()=>userApiMod,
+  awayOthers: awayOthersMod,
 });
 
 /* ═══ 🚩 신고하기 ═══════════════════════════════════════════════════════════

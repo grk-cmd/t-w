@@ -213,6 +213,13 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **확장**: 새 업로드 캐시가 생기면 상한 상수를 여기에 더하고 같은 함수를 부른다 — 쓰는 모듈에 «넘치면 비우기» · «동시 업로드 막기» 를 다시 쓰지 않는다.
 - **함정**: 키 순서가 «오래 안 쓴 순» 이다 — 조회해서 쓰면 `touch`, 저장은 `merge` 뒤에. 옛 해시(`h2` 로 시작하지 않는) 항목은 조회에 쓰지 않는다(같은 해시가 같은 그림이라는 보장이 없다).
 - **검사**: `checks/sim-upload-cache.js`.
+## `device-toggle.js` — 이 PC 의 켜고 끄는 화면 설정 하나
+- **책임**: 설정 › 디스플레이의 켜짐 · 꺼짐 한 칸을 들고 저장한다(기본 켜짐 · `'0'` 이면 꺼짐). 지금 쓰는 곳: «남의 자리비움 그림»(`tw.awayPicOthers`).
+- **만드는 법**: app.js 가 설정 창보다 먼저 `TwDeviceToggle.createDeviceToggle({ storage: localStorage, key: 'tw.…' })` → 설정 창과 그 설정을 읽는 기능 모듈에 값으로 넘긴다.
+- **내놓는 것**: `on()` · `set(v)`(저장 + 알림) · `onChange(fn)`(바뀔 때만 · 돌려주는 함수로 뗀다).
+- **함정**: 설정 창이 기능 모듈의 값을 읽게 하면 «설정 창 → 기능 모듈» 순환이 된다(`sim-dep-cycles`) — 그래서 값은 여기 두고 둘 다 이것을 읽는다. 키는 `tw.` 로 시작해야 하고(아니면 만들 때 던진다) 기기 칸 목록(`account-store.js`)에도 넣는다.
+- 검사: `sim-device-toggle.js`
+
 ## json-store.js — 💾 localStorage JSON 칸 읽기 · 쓰기 한 곳
 
 - **책임**: 한 키의 JSON 을 읽고(해석) 쓴다. 실패를 삼키지 않고 결과 `{ ok, err, bytes }` 로 돌려준다 — 부르는 쪽이 알릴 수 있게.

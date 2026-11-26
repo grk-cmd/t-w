@@ -490,6 +490,8 @@ PRELOAD.push('chat-focus.js');   // 📊 시크릿룸 #집중 탭
 PRELOAD.push('chat-ui.js');
 /* nav.js — 🧭 창 열기 통로(모듈 순환 끊기 6). 같은 까닭 — 창 모듈이 만들 때 여는 함수를 걸고 부르는 쪽이 이름으로 부탁한다(빈 껍데기면 부탁이 아무 일도 안 한다). */
 PRELOAD.push('nav.js');
+/* device-toggle.js — 이 PC 의 켜고 끄는 화면 설정 하나. app.js 가 설정 창을 만들기 전에 createDeviceToggle 을 부른다. */
+PRELOAD.push('device-toggle.js');
 /* demoji-catalog.js — 😊 기본 이모티콘 목록(맨 아래 고정 표). chat-ui 를 만드는 줄이 TwDemojiCatalog 를 넘기므로 먼저 싣는다. */
 PRELOAD.push('demoji-catalog.js');
 /* account-state.js — 🪪 계정 핵심 상태(모듈 순환 끊기 5). 같은 까닭 — 초대 게이트 · 계정 · 내 정보 · 포커스 레벨이 만들 때 이 모듈의 알림 자리(onPremiumChanged)를 받는다. */
