@@ -4,7 +4,7 @@
      app.js 에서 모듈로 옮겼으니(C 구역 떼기 w4) «언제 보내고 언제 안 보내는가 · 무슨 말을 하는가» 를 입력 → 출력으로 고정한다.
    ・1절: 만들 때 — 던지지 않고 _friendReqAsk · resultView(결과 → 안내 문구 한 벌) · sendFriendReq(보내기 한 벌) 를 내놓는다 — 남의 마이홈 [친구 신청]도 뒤의 둘을 부른다
    ・2절: 두 번 눌러 보내기 — 첫 번째는 안내만 · 같은 사람 두 번째에 보냄 · 다른 사람이면 다시 처음부터 · 5초 지나면 처음부터
-   ・3절: 앞단 검사 · 결과 문구 — 준비 안 됨 · 나 · 이미 친구 · 정원(경계 MAX−1 / MAX) · 서버 결과 셋 · 던짐 · sendFriendReq 가 결과만 돌려줌
+   ・3절: 앞단 검사 · 결과 문구 — 준비 안 됨 · 나 · 이미 친구 · 정원(경계 MAX−1 / MAX) · 보낸 요청이 열려 있으면 안 보냄(마이홈에서 적은 사유를 지우지 않게 · 앞단 검사 뒤에만 묻는다 · 못 읽으면 보냄) · 서버 결과 셋 · 던짐 · sendFriendReq 가 결과만 돌려줌
    ・4절: app.js 연결 · 5절: mutation test */
 'use strict';
 globalThis.TwPersonName = require([__dirname, process.cwd()].flatMap(d => ['person-name.js', 'parts/shared/person-name.js', 'app/parts/shared/person-name.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🏷️ 모듈이 부르는 이름 그리기(이름 없음 → «이름 없음») — 진짜 파일
@@ -21,7 +21,10 @@ const MAX = 3;
 function world(src, o = {}) {
   const log = { toasts: [], sends: [] };
   const timers = [];
-  const api = o.noApi ? undefined : { sendFriendRequest: async (...a) => { log.sends.push(a); if (o.throws) throw new Error('x'); return o.res === undefined ? { ok: true } : o.res; } };
+  const log2 = [];
+  const api = o.noApi ? undefined : { sendFriendRequest: async (...a) => { log.sends.push(a); if (o.throws) throw new Error('x'); return o.res === undefined ? { ok: true } : o.res; },
+    isFriendRequestAlive: async (toId, me) => { log2.push([toId, me]); if (o.aliveThrows) throw new Error('x'); return (o.pending || []).includes(toId); } };
+  log.alive = log2;
   const trap = { sendFriendRequest: async () => { log.sends.push(['전역 firebaseAPI 를 불렀다']); return { ok: true }; } };   // 모듈은 friendNet 만 써야 한다
   const win = { firebaseAPI: trap };
   const T = new Function('window', 'firebaseAPI', 'setTimeout', 'clearTimeout', 'module', src + '\nreturn window.TwSeatFriendReq;')(
@@ -48,8 +51,8 @@ async function behave(src) {
   w.out._friendReqAsk('u2', seat); await flush();
   t(w.log.sends.length === 0 && /^민지님은 아직 친구가 아니에요 — 5초 안에 우클릭 › «👤 친구 신청»을 한 번 더 누르면 보내요$/.test(lastT(w)) && w.timers[0] && w.timers[0].ms === 5000, '첫 번째 — 안내만 · 5초 시계');
   w.out._friendReqAsk('u2', seat); await flush();
-  t(w.log.sends.length === 1 && JSON.stringify(w.log.sends[0]) === JSON.stringify(['me', 'u2']) && lastT(w) === '민지님에게 친구 요청을 보냈어요 — 상대가 수락하면 친구가 돼요',
-    '같은 사람 두 번째 — (나, 상대) 로 보내고 알린다(이름은 싣지 않는다)');
+  t(w.log.sends.length === 1 && JSON.stringify(w.log.sends[0]) === JSON.stringify(['me', 'u2', '']) && lastT(w) === '민지님에게 친구 요청을 보냈어요 — 상대가 수락하면 친구가 돼요',
+    '같은 사람 두 번째 — (나, 상대, 빈 사유) 로 보내고 알린다(이름은 싣지 않는다 · 좌석은 사유 칸이 없다)');
   w.out._friendReqAsk('u2', seat); await flush();
   t(w.log.sends.length === 1, '보낸 뒤엔 다시 처음부터(세 번째는 안내만)');
   w = world(src);
@@ -73,6 +76,18 @@ async function behave(src) {
   t(x.log.sends.length === 0 && lastT(x) === '친구는 최대 ' + MAX + '명까지만 추가할 수 있어요', '친구가 정원(MAX)이면 안 보낸다');
   x = await twice({ friends: { a: 1, b: 1 } });
   t(x.log.sends.length === 1, '정원 하나 전(MAX−1)이면 보낸다');
+  x = await twice({ pending: ['u2'] });
+  t(x.log.sends.length === 0 && JSON.stringify(x.log.alive[0]) === JSON.stringify(['u2', 'me']) && lastT(x) === '이미 민지님에게 친구 요청을 보냈어요 — 상대가 수락하면 친구가 돼요',
+    '보낸 요청이 열려 있으면 다시 보내지 않는다(사유 없이 다시 보내면 마이홈에서 적은 사유가 지워진다) · 안내만');
+  { const self = await twice({ pending: ['me'] }, 'me'), fr = await twice({ friends: { u2: {} }, pending: ['u2'] }), full = await twice({ friends: { a: 1, b: 1, c: 1 }, pending: ['u2'] });
+    t([self, fr, full].every((y) => y.log.sends.length === 0 && y.log.alive.length === 0) && lastT(fr) === '이미 친구예요' && /^친구는 최대/.test(lastT(full)),
+      '  앞단 검사(나 · 이미 친구 · 정원)에 막히면 열려 있나를 묻지 않는다(요청 0) · 그 검사의 문구'); }
+  x = await twice({ pending: ['u9'] });
+  t(x.log.sends.length === 1 && x.log.alive.length === 1, '  다른 사람에게 보낸 요청만 있으면 보낸다');
+  x = await twice({ aliveThrows: true });
+  t(x.log.sends.length === 1, '  열려 있나를 못 읽으면 그대로 보낸다');
+  { const y = world(src, { pending: ['u2'] }); const res = await y.out.sendFriendReq('u2', '민지', '새 사유');
+    t(res.ok === true && y.log.sends.length === 1 && y.log.alive.length === 0, '  마이홈 [친구 신청](sendFriendReq)은 열린 요청을 묻지 않는다 — 새 사유로 덮는 것이 서버 규칙'); }
   x = await twice({ res: { ok: false, reason: 'already' } });
   t(lastT(x) === '이미 친구예요', '서버 already → «이미 친구예요»');
   x = await twice({ res: { ok: false, reason: 'self' } });
@@ -81,9 +96,9 @@ async function behave(src) {
   t(lastT(x) === '요청에 실패했어요', '그 밖 → «요청에 실패했어요»');
   x = await twice({ throws: true });
   t(lastT(x) === '요청 중 오류가 발생했어요', '던지면 «요청 중 오류가 발생했어요»');
-  /* sendFriendReq — 마이홈 [친구 신청] 이 부르는 한 벌: 토스트 없이 결과만(사유는 서버 send 가 받기 전까지 싣지 않는다) */
+  /* sendFriendReq — 마이홈 [친구 신청] 이 부르는 한 벌: 토스트 없이 결과만 · 신청 사유를 provider 에 넘긴다 */
   { const y = world(src); const res = await y.out.sendFriendReq('u2', '민지', '같이 공부해요');
-    t(res.ok === true && JSON.stringify(y.log.sends[0]) === JSON.stringify(['me', 'u2']) && y.log.toasts.length === 0, 'sendFriendReq — (나, 상대) 로 보내고 토스트는 안 띄운다'); }
+    t(res.ok === true && JSON.stringify(y.log.sends[0]) === JSON.stringify(['me', 'u2', '같이 공부해요']) && y.log.toasts.length === 0, 'sendFriendReq — (나, 상대, 사유) 로 보내고 토스트는 안 띄운다'); }
   { const y = world(src, { friends: { u2: {} } }); const res = await y.out.sendFriendReq('u2', '민지', 'x');
     t(res.ok === false && res.reason === 'already' && y.log.sends.length === 0, '  같은 앞단 검사 — 이미 친구면 already · 안 보냄'); }
   { const y = world(src, { friends: { a: 1, b: 1, c: 1 } }); const res = await y.out.sendFriendReq('u2', '민지', 'x');
@@ -103,8 +118,10 @@ function wire(app, html) {
   const A = strip(app), M = strip(read('room/seat-menu.js') || '');   // 좌석 메뉴는 room/seat-menu.js(C 구역 떼기 w4)
   t(!/function _friendReqAsk\b|function _friendReqSend\b|let _friendReqArmed\b/.test(A), 'app.js 에 옮긴 선언이 안 남았다');
   const mk = (app.match(/const seatFriendReqMod = TwSeatFriendReq\.createSeatFriendReq\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
-  t(mk.split('\n').map((l) => l.trim()).join('|') === 'FRIEND_MAX: FRIEND_MAX,|_myHomeFriends: ()=>_myHomeFriends,|friendNet: ()=>({ sendFriendRequest: (...a)=>friendRequestsPortMod.send(...a) }),|getMyUserId: (...a)=>getMyUserId(...a),|toast: (...a)=>toast(...a),',
+  t(mk.split('\n').map((l) => l.trim()).join('|') === 'FRIEND_MAX: FRIEND_MAX,|_myHomeFriends: ()=>_myHomeFriends,|friendNet: ()=>({ sendFriendRequest: (...a)=>friendRequestsPortMod.send(...a), isFriendRequestAlive }),|getMyUserId: (...a)=>getMyUserId(...a),|toast: (...a)=>toast(...a),',
     '만드는 줄(가드 없이) · deps 6 — 값 FRIEND_MAX · 읽는 함수 2(_myHomeFriends · friendNet 데이터 provider 고르기 한 줄) · 함수 3');
+  t((A.match(/const isFriendRequestAlive = async \(toId, me\)=>\(await friendRequestsPortMod\.sentIds\(me\)\)\.includes\(toId\);/g) || []).length === 1 && !/isFriendRequestAlive: async/.test(A),
+    '열려 있나(isFriendRequestAlive)는 app.js 에 한 번만 — 포트 sentIds(GET 한 번 · 이름 없음) · 마이홈 단추와 좌석이 같이 쓴다');
   t(/seatFriendReqMod\._friendReqAsk\(uid, seat\)/.test(M) && !/[^.\w]_friendReqAsk\(/.test(A + M), '부르는 곳(좌석 메뉴)은 seatFriendReqMod._friendReqAsk');
   const iM = html.indexOf('<script src="parts/myhome/seat-friend-req.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iM > 0 && iA > iM, 'html — myhome/seat-friend-req.js 를 app.js 보다 먼저 싣는다');
@@ -123,6 +140,13 @@ function wire(app, html) {
     ['정원 검사 >= 를 > 로', (m) => m.replace('.length >= FRIEND_MAX', '.length > FRIEND_MAX'), null, null],
     ['이미 친구 검사 없앰', (m) => m.replace("if(_myHomeFriends() && _myHomeFriends()[uid]) return { ok:false, reason:'already' };", ''), null, null],
     ['정원 문구를 안내 아닌 실패로', (m) => m.replace("if(r === 'full') return { kind:'info',", "if(r === 'full') return { kind:'fail',"), null, null],
+    ['열린 요청에도 보냄', (m) => m.replace("const res = _blocked(uid) || ((await _sentPending(uid)) ? { ok:false, reason:'pending' } : await _send(uid, ''));", "const res = _blocked(uid) || await _send(uid, '');"), null, null],
+    ['앞단 검사보다 먼저 열려 있나를 물음', (m) => m.replace("const res = _blocked(uid) || ((await _sentPending(uid)) ? { ok:false, reason:'pending' } : await _send(uid, ''));", "const res = (await _sentPending(uid)) ? { ok:false, reason:'pending' } : (_blocked(uid) || await _send(uid, ''));"), null, null],
+    ['열려 있나를 못 읽으면 안 보냄', (m) => m.replace("try{ return !!(await net.isFriendRequestAlive(uid, getMyUserId())); }catch(_){ return false; }", "try{ return !!(await net.isFriendRequestAlive(uid, getMyUserId())); }catch(_){ return true; }"), null, null],
+    ['app.js 가 열려 있나를 안 이음', null, (a) => a.replace("friendRequestsPortMod.send(...a), isFriendRequestAlive }),", "friendRequestsPortMod.send(...a) }),"), null],
+    ['app.js 가 열려 있나를 따로 또 만듦', null, (a) => a.replace("friendRequestsPortMod.send(...a), isFriendRequestAlive }),", "friendRequestsPortMod.send(...a), isFriendRequestAlive: async (toId, me)=>{ const s = await friendRequestsPortMod.listSent(me); return !!(s && s[toId]); } }),"), null],
+    ['열려 있나가 이름까지 받음', null, (a) => a.replace("(await friendRequestsPortMod.sentIds(me)).includes(toId);", "!!(await friendRequestsPortMod.listSent(me))[toId];"), null],
+    ['사유를 버림', (m) => m.replace('await net.sendFriendRequest(getMyUserId(), uid, msg);', 'await net.sendFriendRequest(getMyUserId(), uid);'), null, null],
     ['provider 대신 전역 firebaseAPI 를 부름', (m) => m.replace('await net.sendFriendRequest(', 'await firebaseAPI.sendFriendRequest('), null, null],
     ['만들 때 던짐', (m) => m.replace('function createSeatFriendReq(deps){', 'function createSeatFriendReq(deps){ throw new Error("mutation");'), null, null],
     ['app.js 에 본문이 남음', null, (a) => a + '\nfunction _friendReqSend(){}', null],

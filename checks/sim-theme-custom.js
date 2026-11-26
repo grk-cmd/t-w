@@ -2,7 +2,7 @@
    ・1절: 규칙(theme-custom.js) — 색 씻기 · 저장 모양 씻기 · 어떤 색을 골라도 제목줄 글자가 읽히는가(기본 = 흰 글자라 어둡게 · 버블 = 어두운 글자라 밝게) · mutation test
    ・2절: 걸기(theme.js) — 'cx' 는 프리미엄 + 그 테마의 내 색이 있을 때만 · --acc-* 를 <html> 인라인으로 · 다른 칸이면 인라인을 걷는다
    ・3절: 설정 칸 · 만들기(theme-ui.js) — 여섯째 칸 · 이름 자리 «👑» · 프리미엄 아니면 잠금 안내 · 저장 → 이 PC + 서버 · 서버 실패면 E-SYS-02
-   ・4절: 계정 사본 — 로그인 뒤 서버 것을 받는다 · 서버가 비었으면 이 PC 것을 올린다 · 못 읽으면 아무것도 안 한다
+   ・4절: 계정 사본 — 로그인 뒤 서버 것을 받는다 · 서버가 비었으면 이 PC 것을 올린다 · 못 읽으면 아무것도 안 한다 · 409(다른 PC 가 먼저) → 다시 읽어 맞추고 E-SYS-09
    ・5절: 배선 — 서버 규칙(모양만 받음) · 계정 전환 지움 목록 · html 싣는 순서 · 프리미엄이 바뀌면 다시 걸기(초대 게이트 한 곳)
    [실행] node checks/run.js theme-custom */
 'use strict';
@@ -87,7 +87,7 @@ function mkEnv(opt){
     CUSTOM_ID: th.CUSTOM_ID, getCustom: th.getCustom, customUsable: th.customUsable, setCustom: th.setCustom, _premiumOn: () => env.premium,
     getMyUserId: () => opt.uid === undefined ? 'uA' : opt.uid,
     serverOn: () => opt.serverOn !== false,
-    loadCustom: async () => env.srv, saveCustom: async (uid, o) => { saved.push([uid, JSON.parse(JSON.stringify(o))]); return opt.saveOk !== false; },
+    loadCustom: async () => env.srv, saveCustom: async (uid, o) => { saved.push([uid, JSON.parse(JSON.stringify(o))]); return opt.saveResult || (opt.saveOk !== false ? 'saved' : 'failed'); },
   });
   env.th = th; env.ui = ui;
   return env;
@@ -171,6 +171,40 @@ say('── 4. 계정 사본');
   e = mkEnv({ premium: true, srv: { default: { a: '#112233', b: '#445566' } }, uid: '' });
   await e.ui.pullCustom();
   chk(!e.store['tw.accentCustom'], '내 코드가 없으면 서버를 안 본다');
+
+  /* 409 — 다른 PC 가 먼저 바꿨다: 이 PC 것으로 덮지 않고 다시 읽어 맞추고 알린다 · 409 뒤에 다시 PUT 하지 않는다(saved 1번) */
+  const other = { default: { a: '#ABCDEF', b: '#ABCDEF' } };
+  const run409 = async () => {
+    const r = [];
+    let x = mkEnv({ premium: true, saveResult: 'conflict', srv: other });
+    x.ui.bindThemeUI(); x.els.themeColorRow.children[5].onclick(); x.els.themeCxSave.fire('click'); await flush();
+    r.push([x.saved.length === 1 && JSON.parse(x.store['tw.accentCustom']).default.a === '#ABCDEF' && x.notes.join() === 'E-SYS-09' && !('tw.accentCustomDirty' in x.store),
+      '★ 저장이 409 → 다시 PUT 하지 않고 계정 것을 다시 읽어 이 PC 를 맞추고 E-SYS-09(못 올린 표시 없음 · E-SYS-02 아님)']);
+    x = mkEnv({ premium: true, saveResult: 'conflict', srv: null });
+    x.ui.bindThemeUI(); x.els.themeColorRow.children[5].onclick(); x.els.themeCxSave.fire('click'); await flush();
+    r.push([x.saved.length === 1 && x.notes.join() === 'E-SYS-02' && x.store['tw.accentCustomDirty'] === '1', '  409 뒤 다시 읽기도 못 하면 못 올림(E-SYS-02 · 표시) · 다시 PUT 하지 않는다']);
+    x = mkEnv({ premium: true, saveResult: 'conflict', srv: other, ls: { 'tw.accentCustom': mine, 'tw.accentCustomDirty': '1' } });
+    await x.ui.pullCustom();
+    r.push([x.saved.length === 1 && JSON.parse(x.store['tw.accentCustom']).default.a === '#ABCDEF' && x.notes.join() === 'E-SYS-09' && !('tw.accentCustomDirty' in x.store),
+      '  로그인 뒤 못 올린 것을 올리다 409 → 같게(계정 것으로 · E-SYS-09 · 다시 PUT 없음)']);
+    x = mkEnv({ premium: true, saveResult: 'conflict', srv: {}, ls: { 'tw.accentCustom': mine } });
+    await x.ui.pullCustom();
+    r.push([x.saved.length === 1 && x.notes.join() === 'E-SYS-09', '  서버가 비어 올리다 409 → 다시 읽어 맞춘다(다시 PUT 없음)']);
+    return r;
+  };
+  for(const [ok, msg] of await run409()) chk(ok, msg);
+  { /* mutation test — 409 뒤 saveCustom 을 한 번 더 부르면 빨강 */
+    const ui0 = SRC.ui;
+    const from = '  setCustom(TC.normCustom(srv));\n  _cxDirty(false);';
+    SRC.ui = ui0.replace(from, '  setCustom(TC.normCustom(srv));\n  await saveCustom(uid, getCustom());\n  _cxDirty(false);');
+    const changed = SRC.ui !== ui0;
+    let rows = []; try{ rows = await run409(); }catch(_){ rows = [[false, '던짐']]; }
+    SRC.ui = ui0;
+    chk(changed && rows.some(([ok]) => !ok), 'mutation test: 409 뒤 saveCustom 한 번 더 → 빨강');
+  }
+  e = mkEnv({ premium: true, saveResult: 'failed', srv: {}, ls: { 'tw.accentCustom': mine } });
+  await e.ui.pullCustom();
+  chk(e.saved.length === 1 && e.notes.length === 0 && !('tw.accentCustomDirty' in e.store), '  서버가 비어 올리다 못 올림(403 프리미엄 아님 등) → 지금처럼 조용히(표시 · 알림 없음)');
 }
 
 say('── 5. 배선');
