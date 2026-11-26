@@ -8,7 +8,7 @@
      Squirrel(electron autoUpdater)의 'update-downloaded' 로 안다(nativeStaging) — 준비 전 · 준비 실패 · 끌 때 설치가 꺼진 채 받음(폴더에 못 씀)이면
      quitAndInstall 은 그 끝을 기다리며 재시작이 멈추니 relaunch 그대로. 준비 전에 끝나면 Squirrel 은 설치하지 않아 relaunch 와 겹치지 않는다.
    ⚠️ 폴더에 못 쓰는 맥에서 [지금 재시작](quitAndInstall)을 누르면 Squirrel 이 새로 받아 설치를 시도한다 — 관리자 암호를 묻거나 실패할 수 있다.
-     베타에서 관리자가 아닌 계정으로 확인한다.
+   TODO: 관리자가 아닌 맥 계정에서 [지금 재시작] 이 설치되는지 확인하고, 안 되면 그 맥은 다운로드 페이지로 보낸다.
    ⚠️ 맥 자동 업데이트는 번들을 바꿔 끼울 폴더에 쓸 수 있어야 하고, 응용 프로그램 폴더 밖(다운로드 · dmg 안 · App Translocation)에서는
      실패한다 — 처음 한 번 옮기기를 묻는다(shouldOfferMove).
    createUpdatePlatform({ platform, execPath, isPackaged, path, inApplications, writable(dir) }) →
