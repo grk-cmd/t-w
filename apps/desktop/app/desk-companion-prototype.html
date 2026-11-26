@@ -8845,6 +8845,7 @@
 <script src="parts/shared/own-image.js"></script>   <!-- 🖼 내 그림을 Storage 내 폴더에 바로 올리기(window.TwOwnImage — 이름 users/{내 코드}/{머리}_{id}) — 쓰는 provider(myhome · schedule · guestbook · gift-api) · app.js 보다 먼저 -->
 <script src="parts/shared/request-id.js"></script>   <!-- 🔁 요청 번호(window.TwRequestId — 같은 일 다시 보내기는 같은 번호) — 쓰는 모듈 · app.js 보다 먼저 -->
 <script src="parts/shared/device-id.js"></script>   <!-- 🖥️ 이 기기 id(window.TwDeviceId — tw.deviceId · X-Device-Id · realtime hello) — request-id.js 다음 · api-client.js 보다 먼저 -->
+<script src="parts/shared/etag-store.js"></script>   <!-- 🏷️ ETag 기억을 껐다 켜도 남게(window.TwEtagStore — IndexedDB tw-etag-cache) — api-client.js 보다 먼저 -->
 <script src="parts/shared/api-client.js"></script>   <!-- 🌐 앱 공통 API 통로(window.TwApi — client 읽기 · authed 로그인 통로) — remote-config.js 보다 먼저 -->
 <script src="parts/shared/api-errors.js"></script>   <!-- 🧭 서버 오류 봉투 → 할 일 · 오류 번호 번역표(window.TwApiErrors) — error-codes.js · api-client.js 다음 · 쓰는 모듈 · app.js 보다 먼저 -->
 <script src="parts/realtime/rt-hub.js"></script>   <!-- 🛰 realtime 연결 하나(window.TwRtHub — pv 4 · 닫힘 번호 표 · 작별 · 알림 → 다시 받기 표) — request-id.js · device-id.js 다음 · 쓰는 모듈 · app.js 보다 먼저(연결 재료는 rt-bind.js 가 bind) -->

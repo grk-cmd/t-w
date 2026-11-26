@@ -2889,9 +2889,11 @@ const loginFlowMod = TwLoginFlow.createLoginFlow({
     signInGoogle: (tok)=>firebaseAPI.authSignInWithGoogle(tok),
     signInPassword: (code, pw)=>firebaseAPI.authSignInWithFriendCode(code, pw),
     signOut: ()=>firebaseAPI.authSignOut(),
+    deleteNewLogin: (uid)=>firebaseAPI.authDeleteNewLogin(uid),
     identity: ()=>({ email: firebaseAPI.authCurrentEmail(), uid: firebaseAPI.authCurrentUid() }),
   },
   googleWindow: ()=>companion.signInWithGoogle(),
+  askGoogle: (email)=>googleConfirmMod.ask(email, 'signup'),   // 처음 보는 구글로 가입하기 전에 묻기(google-confirm.js — 아래에서 만든다 · 부를 때 찾는다)
   rt: { start: (o)=>TwRtHub.store.start(o), stop: ()=>TwRtHub.store.stop(), bye: (why)=>TwRtHub.store.bye(why), onState: (fn)=>TwRtHub.store.onState(fn), isDeviceOff: (s)=>TwRtHub.isDeviceOff(s) },
   leaveRoom: ()=>Promise.resolve(Presence.active() ? twNav.go(twNav.NAV.LEAVE_ROOM) : null),   // 로그아웃 차례 — 방 leave 가 realtime 작별보다 먼저(방 모듈은 창 열기 통로로 — 순환 없이)
   pending: TwRequestId.createPending(),

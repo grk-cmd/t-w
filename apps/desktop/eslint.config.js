@@ -156,7 +156,6 @@ const ESM = [
   'app/parts/shared/app-version.js',
   'app/parts/realtime/rt-bind.js',
   'app/parts/realtime/realtime-link.js',
-  'app/parts/account/google-change-net.js',   // 0.14 구글 계정 바꾸기 — 지금은 싣지 않는다(서버 이관 #1101 · server-features googleChange)
 ];
 /* 메인 쪽 — 앱 폴더 맨 위 파일(main · preload · 플랫폼 모듈 · 진단 등) */
 const MAIN = ['*.js'];
