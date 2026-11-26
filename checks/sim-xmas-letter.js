@@ -48,7 +48,7 @@ function world(opts){
   const net = {
     me: () => N.uid,
     myLetters: async () => { N.calls.push('my'); return N.fail.my ? { ok: false, code: N.fail.my } : { ok: true, letters: D.letters, returned: D.returned }; },
-    got: async () => { if (!N.uid) return { ok: false, code: 'auth' }; N.calls.push('got'); return N.fail.got ? { ok: false, code: N.fail.got } : { ok: true, got: D.got, matched: o.matched !== false }; },
+    got: async () => { if (!N.uid) return { ok: false, code: 'auth' }; N.calls.push('got'); if (N.hold) await N.hold; return N.fail.got ? { ok: false, code: N.fail.got } : { ok: true, got: D.got, matched: o.matched !== false }; },
     saveLetter: async (lid, text, song, fromReturned) => { N.calls.push('save:' + lid + (fromReturned ? '<' + fromReturned : '')); N.last = { lid, text, song, fromReturned }; if (N.ret.save) return N.ret.save;
       D.letters = Object.assign({}, D.letters, { [lid]: { text, version: 1, song: song || undefined } });
       if (fromReturned){ D.returned = Object.assign({}, D.returned); delete D.returned[fromReturned]; }   // 서버가 같은 트랜잭션에서 지운다
@@ -228,6 +228,27 @@ say('── 6절 받은 편지 한 번 읽기(빨간 점) — 폴링 없음');
   await wu.api.checkGot(); chk(wu.S.dots.slice(-1)[0] === true, '계정 A — 점');
   wu.N.uid = 'authOther0002'; wu.D.got = null; await wu.api.checkGot();
   chk(wu.S.dots.includes(false) && wu.S.dots.slice(-1)[0] === false && !wu.els.xmasLetterBtn.classList.contains('xm-dot'), '계정이 바뀌면 앞 계정 점을 지우고 새 계정 것을 읽는다');
+  /* 계정 바뀜 두 갈래 — 새 계정 읽기가 실패해도 앞 계정 점은 지운다 · 읽는 사이 계정이 바뀌면 늦게 온 답은 버린다 */
+  const switchCases = async (mod) => {
+    const wf = world({ now: R.LETTER_DEADLINE_MS + 1000, got: { 1: { text: 'A 의 편지' } }, mod });
+    await wf.api.checkGot(); const aDot = wf.S.dots.slice(-1)[0] === true;
+    wf.N.uid = 'authOther0002'; wf.N.fail.got = 'read'; await wf.api.checkGot();
+    const failCleared = aDot && wf.S.dots.slice(-1)[0] === false;
+    const wl = world({ now: R.LETTER_DEADLINE_MS + 1000, got: { 1: { text: 'A 의 편지' } }, mod });
+    let rel; wl.N.hold = new Promise((r) => { rel = r; });
+    const p = wl.api.checkGot(); await settle();
+    wl.N.uid = 'authOther0002'; rel(); await p; wl.api.paintBtn();
+    const lateDropped = !wl.S.dots.includes(true) && !wl.els.xmasLetterBtn.classList.contains('xm-dot');
+    return { failCleared, lateDropped };
+  };
+  const sc = await switchCases(null);
+  chk(sc.failCleared, '★ 계정을 바꾼 뒤 새 계정 읽기가 실패해도 앞 계정 빨간 점은 지운다');
+  chk(sc.lateDropped, '★ 앞 계정으로 읽는 사이 계정이 바뀌면 늦게 온 답(앞 계정 편지)을 새 계정 점으로 그리지 않는다');
+  const mut = (from, to) => { const b = {}; const src = SRC.split(from).join(to); new Function('window', 'module', src)(b, undefined); return src === SRC ? null : b.TwXmasLetter; };
+  const m1 = mut('if (uid !== gotUid){ gotUid = uid; got = []; deps.onDot(false); }', 'if (uid !== gotUid){ gotUid = uid; }');
+  const m2 = mut('if (!r.ok || uid !== net().me()) return;', 'if (!r.ok) return;');
+  chk(m1 && !(await switchCases(m1)).failCleared, 'mutation test — 계정이 바뀔 때 점을 안 지우면 위 «실패해도 지운다» 가 빨강');
+  chk(m2 && !(await switchCases(m2)).lateDropped, 'mutation test — 늦게 온 답의 계정을 안 보면 위 «늦게 온 답은 버린다» 가 빨강');
   const wr = world({ now: R.LETTER_DEADLINE_MS + 1000, got: { 1: { text: 'x' } } }); wr.S.store['tw.xmasGotRead.authMe00001'] = '1';
   await wr.api.checkGot(); chk(wr.S.dots.slice(-1)[0] === false, '이미 읽은 편지뿐이면 점 없음');
   const wm = world({ now: R.LETTER_DEADLINE_MS + 1000, matched: false }); wm.api.open(); await settle();
