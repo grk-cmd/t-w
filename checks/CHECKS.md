@@ -74,7 +74,7 @@
 | 파일 | 줄 | sha256[:12] |
 |---|---|---|
 | **audit.py** | 934 | **fb61b898266a** |
-| **sim-leave-flush.js** | 373 | **155f7397fffa** |
+| **sim-leave-flush.js** | 373 | **8fd3174b9f8d** |
 | **sim-session.js** | 221 | **2c15ae27f8ba** |
 | **sim-session-baseline.js** | 190 | **74b2c6d83b60** |
 | **smoke.js** | 897 | **bad9899fcbd1** |
@@ -105,7 +105,7 @@
 | **sim-social-api.js** | 290 | **e3f48223d980** |
 | **sim-friend-profile-live.js** | 218 | **d78ba96ecf5b** |
 | **sim-second-instance.js** | 226 | **b537904a2e57** |
-| **sim-wd-parts-persist.js** | 91 | **80047cfd2375** 
+| **sim-wd-parts-persist.js** | 91 | **f8dac06eecab** 
 | **sim-invite-notice.js** | 85 | **9f7bcb7ddc71** |
 | **sim-name-guard.js** | 42 | **9c89831d5c23** |
 | **sim-chat-tabs.js** | 138 | **c0323795428f** |
@@ -221,8 +221,8 @@
 | **sim-seat-opacity.js** | 248 | **69cff8aa188b** |
 | **sim-slot-fit.js** | 246 | **d28aa326a223** |
 | **sim-closet-api.js** | 171 | **41bff8ef604e** |
-| **sim-closet.js** | 687 | **b3e34bdb6270** |
-| **sim-slot-codec.js** | 134 | **bbbd470a4dd5** |
+| **sim-closet.js** | 709 | **5759bec5dea8** |
+| **sim-slot-codec.js** | 195 | **093c412d0800** |
 | **sim-signup.js** | 308 | **0a689e6e9d03** |
 | **sim-sysinput.js** | 435 | **1db8d6e3d98f** |
 | sim-town-32.js | 87 | ff7b7c796278 |

@@ -57,7 +57,7 @@ say('── 2. 받는 곳이 칸을 갈아 끼운 뒤에 잇는다');
   const CL = noCmt(read('closet.js') || '');
   const iApply = CL.indexOf('async function applyCloset('), iCopy = CL.indexOf('const oldSlots = slots.slice();', iApply), iLoad = CL.indexOf('await slotSave.applySlotObjs(objs, which);', iCopy), iRel = CL.indexOf('slotSave._relinkSeatsToSlots(oldSlots, skipRelink);', iLoad);
   chk(iApply > 0 && iCopy > iApply && iLoad > iCopy && iRel > iLoad, '★ 옷장 받기(서버 신호 · 시작) — 갈아 끼우기 전 사본 → applySlotObjs → 비운 칸 빼고 잇기');
-  chk(/if\(!\(k && k\.avatarId === id\)\) skipRelink\.add\(i\)/.test(CL) && /skipRelink\.add\(i\);\s*\/\/ 다른 기기에서 지웠다|dropped\.push\(i\); skipRelink\.add\(i\)/.test(CL), '  다른 캐릭터가 됐거나 비운 칸은 잇지 않는다(skip)');
+  chk(/if\(!p\.same\) skipRelink\.add\(p\.i\)/.test(CL) && /same: !!\(k && k\.avatarId === id\)/.test(CL) && /plan\.push\(\{ i, id: null \}\)/.test(CL), '  다른 캐릭터가 됐거나 비운 칸은 잇지 않는다(skip)');
 }
 
 say('── 3. 저장 순서 — 파츠 받기 전에 saveSlots');
