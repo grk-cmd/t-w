@@ -376,6 +376,31 @@ say('\n── 7. 자동 등록은 셸 창(작업표시줄 · 바탕화면)을 �
     chk(T.fg().key === 'win:explorer.exe' && T.reg().key === 'win:hwp.exe', '★ 한글 → 작업표시줄을 거쳐 오면 등록 후보는 한글 그대로(앞창 로그는 explorer)');
     T.note('chrome.exe', 'chrome.exe', w('C:/G/chrome.exe'));
     chk(T.reg().key === 'win:chrome.exe' && T.fg().key === 'win:chrome.exe', '  일반 창은 둘 다 그 창');
+    /* 📁 파일 탐색기 폴더 창(w.folder — sysinput-win.js explorerKind)은 explorer.exe 여도 등록 후보다(제보 B-1125-7) */
+    T.note('explorer.exe', 'explorer.exe', Object.assign(w('C:/Windows/explorer.exe'), { folder: true }));
+    chk(T.reg().key === 'win:explorer.exe', '★ 파일 탐색기 폴더 창은 등록 후보가 된다(explorer.exe 여도)');
+    T.note('hwp.exe', 'hwp.exe', w('C:/Hnc/hwp.exe'));
+    T.note('explorer.exe', 'explorer.exe', Object.assign(w('C:/Windows/explorer.exe'), { desktop: true }));
+    chk(T.reg().key === 'win:hwp.exe', '  바탕화면 · 작업표시줄(폴더 창 아님)은 예전처럼 건너뛴다');
+    const noFolder = new Function('sysinput', 'focusKeyOf', 'let lastForeignWindow = null, lastRegistrableWindow = null;\n' + fn.replace('if(w.folder) shell = false;', '')
+      + '\nreturn { note: _noteForeignWindow, reg: () => lastRegistrableWindow };')({ displayNameOf: p => p, WINLIST_SKIP: new Set(['explorer.exe']) }, n => 'win:' + n);
+    noFolder.note('explorer.exe', 'explorer.exe', Object.assign(w('C:/Windows/explorer.exe'), { folder: true }));
+    chk(fn.includes('if(w.folder) shell = false;') && noFolder.reg() === null, '  mutation test — 폴더 창 예외를 빼면 등록 후보가 안 된다 → 빨강');
+  }
+  /* 등록된 explorer.exe — 폴더 창에서만 집중으로 센다(바탕화면 · 작업표시줄은 같은 키) */
+  {
+    const line = (mainCode.match(/const isFocusedAppRegistered = [^\n]*;/) || [''])[0];
+    if(!line) huh('isFocusedAppRegistered 판정 줄을 못 찾음');
+    else {
+      const judge = (src) => new Function('w', 'activeKey', 'activeKeyAlt', 'focusApps', 'keysOf', src + '\nreturn isFocusedAppRegistered;');
+      const apps = [{ key: 'win:explorer.exe' }, null], keysOf = (f) => (f ? [f.key] : []);
+      const J = judge(line);
+      chk(J({ folder: true }, 'win:explorer.exe', '', apps, keysOf) === true, '★ explorer 를 등록했고 앞 창이 폴더 창이면 집중으로 센다');
+      chk(J({ desktop: true }, 'win:explorer.exe', '', apps, keysOf) === false, '★ 앞 창이 바탕화면 · 작업표시줄이면 세지 않는다(같은 explorer.exe)');
+      chk(J({}, 'win:explorer.exe', '', apps, keysOf) === true && J({}, 'win:chrome.exe', '', apps, keysOf) === false, '  갈래를 모르는 창(클래스 못 읽음 · mac)은 예전 판정 그대로');
+      const cut = line.replace('!w.desktop && ', '');
+      chk(cut !== line && judge(cut)({ desktop: true }, 'win:explorer.exe', '', apps, keysOf) === true, '  mutation test — 바탕화면 예외를 빼면 바탕화면에서도 센다 → 빨강');
+    }
   }
   chk(/focusApps\[idx\] = \{ \.\.\.\(lastRegistrableWindow \|\| lastForeignWindow\) \};/.test(mainCode), '  등록은 셸이 아닌 마지막 창 — 셸 창밖에 본 적 없으면 예전처럼');
   chk(count(mainCode, /lastForeignWindow = \{ key: focusKeyOf\(exeName\)/g) === 1 && count(mainCode, /_noteForeignWindow\(exeName, ownerPath, w\);/g) === 3,

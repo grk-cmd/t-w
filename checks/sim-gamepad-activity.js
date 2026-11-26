@@ -181,6 +181,7 @@ const loadWin = (WorkerCls, logs, src) => {
     if (n === 'worker_threads') { if (!WorkerCls) throw new Error('no worker_threads'); return { Worker: WorkerCls }; }
     if (n === 'koffi') throw new Error('main 은 koffi 를 직접 부르지 않는다');
     if (n === './native-peek') return { peekUnpacked: () => '(검사)' };
+    if (n === './win-class') return require(require('path').resolve('win-class.js'));
     throw new Error('no ' + n);
   };
   new Function('require', 'module', 'exports', 'Buffer', 'process', '__dirname', src || WIN)(req, mod, mod.exports, Buffer, process, 'C:\\tw\\resources\\app.asar');
@@ -239,8 +240,8 @@ chk(padHits === 0, '  가만히 둔 패드는 신호 없음');
 w5.emit('message', { pads: [padV(1 << 13)] }); gm.poll();
 chk(padHits === 1, '★ 게임이 앞이어도 B 를 누르면 활동 — 일꾼 값으로 같은 판정');
 let pk = {}; try { pk = JSON.parse(PKG).build || {}; } catch (_) {}
-chk(['pad-worker.js', 'pad-xinput.js'].every(f => (pk.files || []).includes(f) && (pk.asarUnpack || []).includes(f)) && (pk.asarUnpack || []).includes('node_modules/koffi/**/*'),
-  '★ 설치본 — 일꾼 두 파일은 build.files · asarUnpack 에 (풀린 node_modules/koffi 를 찾게)');
+chk(['pad-worker.js', 'pad-xinput.js', 'win-class.js', 'win-class-worker.js'].every(f => (pk.files || []).includes(f) && (pk.asarUnpack || []).includes(f)) && (pk.asarUnpack || []).includes('node_modules/koffi/**/*'),
+  '★ 설치본 — 일꾼 파일(패드 · 창 클래스)은 build.files · asarUnpack 에 (풀린 node_modules/koffi 를 찾게)');
 chk(!/require\('koffi'\)/.test(WIN), '  main 쪽(sysinput-win.js)은 koffi 를 직접 싣지 않는다 — 동기 호출은 일꾼에만');
 /* 진짜 worker_threads — 임시 폴더에 가짜 koffi 를 두고 sysinput-win.js · pad-worker.js 를 그대로 띄운다.
    readPads 뒤에 프로세스가 스스로 끝나야 한다(일꾼이 앱 종료를 붙잡으면 설치본이 안 꺼진다). */
@@ -252,6 +253,7 @@ const realRun = (winSrc) => {
     fs.writeFileSync(pth.join(dir, 'pad-worker.js'), PW);
     fs.writeFileSync(pth.join(dir, 'pad-xinput.js'), XIN);
     fs.writeFileSync(pth.join(dir, 'native-peek.js'), PEEK);
+    fs.writeFileSync(pth.join(dir, 'win-class.js'), read('win-class.js'));
     fs.mkdirSync(pth.join(dir, 'node_modules', 'koffi'), { recursive: true });
     fs.writeFileSync(pth.join(dir, 'node_modules', 'koffi', 'index.js'),
       "module.exports = { load: () => ({ func: () => (slot, buf) => { if (slot !== 0) return 1167; buf.fill(0); buf.writeUInt16LE(0x1000, 4); return 0; } }) };\n");

@@ -38,6 +38,8 @@
       "native-peek.js",
       "pad-worker.js",
       "pad-xinput.js",
+      "win-class.js",
+      "win-class-worker.js",
       "hover-poke.js",
       "devtools-gate.js",
       "google-oauth.js",
@@ -57,6 +59,8 @@
       "node_modules/@koromix/**/*",
       "pad-worker.js",
       "pad-xinput.js",
+      "win-class.js",
+      "win-class-worker.js",
       "**/*.node"
     ],
     "directories": {

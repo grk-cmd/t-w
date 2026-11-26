@@ -43,6 +43,7 @@ const path = require('path');
      "개선도 고장도 아무 데도 안 남는" 상태가 된다. */
 const _bootErrors = [];
 const { peekUnpacked } = require('./native-peek');   // 못 불러온 부품의 설치 파일 상태 한 줄(진단 기록용)
+const { explorerKind } = require('./win-class');     // explorer.exe 창의 갈래(순수 규칙 — 네이티브 읽기는 일꾼)
 const _nativeFailed = [];   // 못 불러온 부품 이름 — main.js 가 «다시 설치» 안내를 고른다
 /* ⚠️ UiohookKey 는 지금 어디에서도 안 쓰인다(main.js 시절부터 그랬다). 이사는 "옮기는 것"이라
    여기서 정리하지 않고 그대로 데려왔다 — 떼는 건 별건이다. */
@@ -99,7 +100,7 @@ function legacyProcNameOf(p){ return procNameOf(p); }
 /* 📋 셸 계열 — "목록에서 직접 고르기"에서 거르는 창들.
    ⚠️ Windows 실행 파일 이름이다. mac 판은 이 목록을 통째로 다시 써야 한다. */
 const WINLIST_SKIP = new Set([
-  'explorer.exe',            // 바탕화면·작업표시줄 — 게임에서 빠져나올 때 잡히는 그 창이다
+  'explorer.exe',            // 바탕화면·작업표시줄 — 게임에서 빠져나올 때 잡히는 그 창이다(폴더 창만 예외 — _explorerKindOf)
   'applicationframehost.exe','systemsettings.exe','searchhost.exe','searchapp.exe',
   'startmenuexperiencehost.exe','shellexperiencehost.exe','textinputhost.exe',
   'lockapp.exe','sihost.exe','dwm.exe','widgets.exe','widgetboard.exe',
@@ -175,6 +176,79 @@ async function _nameByPid(pid){
   return n;
 }
 
+/* ── 📁 explorer.exe 창의 갈래 — 폴더 창인가, 바탕화면 · 작업표시줄인가 ─────────────────
+   셋 다 explorer.exe 라 이름으로는 못 가른다 — 창 클래스 이름으로 가른다(규칙은 win-class.js).
+   ⚠️ 클래스 읽기(GetClassNameW)는 일꾼(win-class-worker.js)에서 돈다 — main 은 koffi 를 직접 싣지 않는다.
+   ⚠️ explorer.exe 창일 때만 묻는다. 일꾼을 못 띄웠거나 · 죽었거나 · CLASS_WAIT_MS 안에 답이 없으면 '' → 둘 다 false(예전 판정 — 셸 창). */
+/* 일꾼 파일은 asar 밖에서 싣는다 — 일꾼이 싣는 koffi 가 풀린 node_modules 를 찾게(개발 실행에선 그대로). 게임패드 일꾼도 같이 쓴다 */
+function _unpackedFile(name){
+  return path.join(__dirname, name).replace(/app\.asar(?=[\\/])/, 'app.asar.unpacked');
+}
+const EXPLORER_EXE = 'explorer.exe';
+const CLASS_WORKER_NAME = 'win-class-worker.js';
+const CLASS_WAIT_MS = 300;         // 활성 창 폴링(500ms)보다 짧게 — 답이 없어도 다음 폴링과 겹치지 않는다
+let _clsWorker = null;
+let _clsWorkerDone = false;        // 한 번 띄웠다(살았든 죽었든) — 다시 띄우지 않는다
+let _clsSeq = 0;
+const _clsWait = new Map();        // 요청 id → { res, timer }
+
+function _clsAnswer(id, cls){
+  const q = _clsWait.get(id);
+  if(!q) return;                   // 이미 시간 초과로 답했다
+  _clsWait.delete(id);
+  clearTimeout(q.timer);
+  q.res(typeof cls === 'string' ? cls : '');
+}
+function _clsWorkerGone(why){
+  _clsWorker = null;
+  for(const id of Array.from(_clsWait.keys())) _clsAnswer(id, '');
+  if(why) _log('창 클래스 일꾼 멈춤 — explorer.exe 창은 예전처럼 셸 창으로 본다: ' + why);
+}
+function _startClsWorker(){
+  _clsWorkerDone = true;
+  let Worker;
+  try{ Worker = require('worker_threads').Worker; }
+  catch(err){ _log('창 클래스 일꾼을 못 띄움: ' + (err && err.message || err)); return; }
+  const file = _unpackedFile(CLASS_WORKER_NAME);
+  try{ _clsWorker = new Worker(file); }
+  catch(err){ _log('창 클래스 일꾼을 못 띄움: ' + (err && err.message || err)); return; }
+  _clsWorker.on('message', (m) => {
+    if(!_clsWorker) return;
+    if(m && m.id) _clsAnswer(m.id, m.cls);
+    else if(m && typeof m.log === 'string') _log(m.log);
+    else if(m && m.off) _clsWorkerGone('');   // 까닭은 log 로 왔다
+  });
+  _clsWorker.on('error', (err) => _clsWorkerGone(err && err.message || String(err)));
+  _clsWorker.on('exit', (code) => { if(_clsWorker) _clsWorkerGone('종료 코드 ' + code); });
+  /* 일꾼이 앱 종료를 붙잡지 않게 — 리스너를 다 붙인 뒤에 부른다(게임패드 일꾼과 같은 까닭) */
+  _clsWorker.unref();
+}
+function _classOf(hwnd){
+  if(!(hwnd > 0)) return Promise.resolve('');
+  if(!_clsWorkerDone) _startClsWorker();
+  const worker = _clsWorker;
+  if(!worker) return Promise.resolve('');
+  return new Promise((res) => {
+    const id = ++_clsSeq;
+    const timer = setTimeout(() => _clsAnswer(id, ''), CLASS_WAIT_MS);
+    _clsWait.set(id, { res, timer });
+    try{ worker.postMessage({ id, hwnd }); }catch(_){ _clsAnswer(id, ''); }
+  });
+}
+/** @returns {Promise<{ folder: boolean, desktop: boolean }>} explorer.exe 가 아니면 둘 다 false */
+async function _explorerKindOf(name, w){
+  if(name !== EXPLORER_EXE) return explorerKind('');
+  let hwnd = 0;
+  try{ hwnd = Number(w.id) || 0; }catch(_){}
+  return explorerKind(await _classOf(hwnd));
+}
+/* 활성 창 답에 갈래를 붙인다 — folder: 폴더 창(등록 후보) · desktop: 바탕화면 · 작업표시줄(explorer 를 등록해도 집중 아님) */
+async function _withKind(r, w){
+  const k = await _explorerKindOf(procNameOf(r.owner.path || r.owner.name), w);
+  r.folder = k.folder; r.desktop = k.desktop;
+  return r;
+}
+
 /* ── 활성 창 ─────────────────────────────────────────────────────────────── */
 async function getActiveWindow(){
   if(!windowManager) return null;   // 로드 실패 — 아래 catch 와 같은 답(null)을 낸다
@@ -187,7 +261,7 @@ async function getActiveWindow(){
     /* bounds — 앞 창이 모니터를 꽉 채웠는지(main 의 앞 창 진단 · shared/front-diag.js). 못 읽으면 null */
     let bounds = null;
     try{ bounds = w.getBounds() || null; }catch(_){}
-    if(p) return { owner: { path: p, name: path.basename(p) }, title, bounds };
+    if(p) return _withKind({ owner: { path: p, name: path.basename(p) }, title, bounds }, w);
     /* 경로가 비었다 — 관리자 권한 창이 앞에 있을 때의 모양(위 주석). 이름만 받아 온다. */
     const pid = Number(w.processId) || 0;
     const name = await _nameByPid(pid);
@@ -196,7 +270,7 @@ async function getActiveWindow(){
       _pidTold.add(pid);
       _log('[활성] 경로 못 읽음(관리자 권한 창) → tasklist 이름으로 판정: pid=' + pid + ' 이름=' + name);
     }
-    return { owner: { path: '', name }, title, bounds };
+    return _withKind({ owner: { path: '', name }, title, bounds }, w);
   }catch(_){ return null; }
 }
 
@@ -254,7 +328,9 @@ async function listWindows(){
         p = n; key = 'name:' + n.toLowerCase(); byTasklist++;
       }
       const name = procNameOf(p);
-      if(name === SELF_EXE || WINLIST_SKIP.has(name)){ skip.shell++; continue; }
+      if(name === SELF_EXE){ skip.shell++; continue; }
+      /* 셸 계열은 뺀다 — 다만 파일 탐색기 폴더 창은 explorer.exe 여도 고를 수 있다(바탕화면 · 작업표시줄은 그대로 뺀다) */
+      if(WINLIST_SKIP.has(name) && !(await _explorerKindOf(name, w)).folder){ skip.shell++; continue; }
       // 크기가 0에 가까운 창은 실제 화면에 없는 보조 창(트레이·메시지 전용)이다.
       if(bounds && ((bounds.width|0) < 80 || (bounds.height|0) < 60)){ skip.small++; continue; }
       const prev = seen.get(key);
@@ -341,8 +417,7 @@ function _startPadWorker(){
   let Worker;
   try{ Worker = require('worker_threads').Worker; }
   catch(err){ _log('게임패드 일꾼을 못 띄움: ' + (err && err.message || err)); return; }
-  /* 일꾼 파일은 asar 밖에서 싣는다 — 일꾼이 싣는 koffi 가 풀린 node_modules 를 찾게(개발 실행에선 그대로) */
-  const file = path.join(__dirname, PAD_WORKER_NAME).replace(/app\.asar(?=[\\/])/, 'app.asar.unpacked');
+  const file = _unpackedFile(PAD_WORKER_NAME);
   try{ _padWorker = new Worker(file); }
   catch(err){ _log('게임패드 일꾼을 못 띄움: ' + (err && err.message || err)); return; }
   _padWorker.on('message', (m) => {

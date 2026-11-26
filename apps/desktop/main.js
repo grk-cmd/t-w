@@ -1527,6 +1527,7 @@ function _noteForeignWindow(exeName, ownerPath, w){
   lastForeignWindow = { key: focusKeyOf(exeName), name: sysinput.displayNameOf(ownerPath), path: w.owner.path || '', title: w.title || '' };
   let shell = false;
   try{ shell = !!(sysinput.WINLIST_SKIP && sysinput.WINLIST_SKIP.has(exeName)); }catch(_){}
+  if(w.folder) shell = false;   // 파일 탐색기 폴더 창은 explorer.exe 여도 등록 후보다(sysinput-win.js explorerKind)
   if(!shell) lastRegistrableWindow = lastForeignWindow;
 }
 
@@ -1579,7 +1580,8 @@ function startActiveWinPolling(){
            여기서 `f.name === exeName` 로 되돌리면 mac 에서 조용히 전부 미등록이 된다. */
       const activeKey = focusKeyOf(exeName);
       const activeKeyAlt = legacyKeyOf(ownerPath, activeKey);   // 🕰️ 옛 규칙 키(mac ≤0.10.0 저장물) — 없으면 ''
-      const isFocusedAppRegistered = !!(activeKey && focusApps.some(f => keysOf(f).includes(activeKey) || (activeKeyAlt !== '' && keysOf(f).includes(activeKeyAlt))));
+      /* 바탕화면 · 작업표시줄(w.desktop)은 파일 탐색기와 같은 explorer.exe 라 키가 같다 — explorer 를 등록해도 거기서는 집중으로 세지 않는다 */
+      const isFocusedAppRegistered = !w.desktop && !!(activeKey && focusApps.some(f => keysOf(f).includes(activeKey) || (activeKeyAlt !== '' && keysOf(f).includes(activeKeyAlt))));
       /* 🩺 [2026-09-16 제보 1 · E] 활성 창 키가 **바뀔 때마다** 진단 로그에 한 줄 — 콘솔을 못 보는 환경용.
          [왜] 게임 클라이언트를 등록했는데 카운팅이 안 되는 제보. 목록에 뜨고 등록도 되는데 안 잡히면
            «등록된 키와 활성 창 키가 서로 다른 문자열» 이 가장 유력하다(런처 exe ≠ 실제 프로세스).

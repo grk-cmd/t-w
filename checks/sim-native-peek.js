@@ -80,6 +80,7 @@ function loadSys(src, failSet){
     if(n === 'child_process') return { execFile(){} };
     if(n === 'fs') return require('fs');   // mac 판이 번들 정보를 읽는 데 쓴다(여기선 부르지 않는다)
     if(n === './native-peek') return { peekUnpacked: (name) => 'PEEK:' + name };
+    if(n === './win-class') return require(require('path').resolve('win-class.js'));
     if(n === 'uiohook-napi'){ if(failSet.has(n)) throw new Error('Invalid package config X'); return { uIOhook: { on(){}, start(){}, stop(){} }, UiohookKey: {} }; }
     if(n === 'node-window-manager'){ if(failSet.has(n)) throw new Error('Invalid package config Y'); return { windowManager: { getActiveWindow(){ return null; }, getWindows(){ return []; } } }; }
     throw new Error('no ' + n);

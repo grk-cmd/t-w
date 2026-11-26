@@ -93,7 +93,7 @@
 | **sim-bug-cleanup.js** | 191 | **8df7087f9b22** |
 | **sim-bump-version.js** | 108 | **e0d0bbecabe9** |
 | **sim-chat-history.js** | 248 | **804f6c1b3395** |
-| **sim-gamepad-activity.js** | 305 | **53c246aa3d45** |
+| **sim-gamepad-activity.js** | 307 | **e77e1a6517be** |
 | **sim-mallang-hide.js** | 147 | **edeb8021999a** |
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
 | **sim-seat-label-drag.js** | 91 | **39cae4f0d68e** |
@@ -224,13 +224,13 @@
 | **sim-closet.js** | 687 | **b3e34bdb6270** |
 | **sim-slot-codec.js** | 134 | **bbbd470a4dd5** |
 | **sim-signup.js** | 308 | **0a689e6e9d03** |
-| **sim-sysinput.js** | 397 | **c331382ae2fd** |
+| **sim-sysinput.js** | 422 | **d62896eaebc3** |
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 132 | **3a62138fcd8e** |
 | **sim-zoom-window.js** | 73 | **af1c0f53687b** |
 | **sim-z-layers.js** | 214 | **56e0c43f0b3d** |
 | **sim-no-default-menu.js** | 95 | **75dc9981d8fb** |
-| **sim-winlist.js** | 117 | **4236da701c62** |
+| **sim-winlist.js** | 293 | **760ae8a04df0** |
 | **sim-ops-hot-config.js** | 163 | **6e732dcece07** |
 | **sim-animal-cast.js** | 65 | **0e1031329e06** |
 | **sim-human-ear.js** | 239 | **b2f21075bb26** |
@@ -293,7 +293,7 @@
 | **sim-pen-forward.js** | 140 | **35abc8b4de50** |
 | sim-village-addr.js | 53 | f72ef601abbb |
 | **sim-wheel-kick.js** | 97 | **cdd5b36aa254** |
-| **sim-admin-active.js** | 155 | **100afda315c1** |
+| **sim-admin-active.js** | 156 | **34a3b01f6df5** |
 | **sim-room-order.js** | 28 | **d6f26bfee760** |
 | **sim-deco-parts.js** | 67 | **7348b07eb585** |
 | **sim-mhd-envsub.js** | 39 | **da0fcdb35c23** |
@@ -363,7 +363,7 @@
 | **sim-win-layers.js** | 203 | **25e9c9dff07b** |
 | sim-yard-enter.js | 59 | c323aea595a5 |
 | **sim-away-follow.js** | 145 | **6f3fd7fc7064** |
-| **sim-kb-blind.js** | 180 | **7d9f3fe5e684** |
+| **sim-kb-blind.js** | 181 | **ef548fe4ff75** |
 | **sim-mhd-hidefolders.js** | 133 | **1c9a80c19fe3** |
 | **sim-pomodoro.js** | 131 | **03a73d7ae51e** |
 | **sim-admin-license.js** | 253 | **03b3c7c2703f** |
@@ -521,7 +521,7 @@
 | **sim-label-anim-paint.js** | 232 | **c43b4d62a1c5** |
 | **sim-seat-sync-diff.js** | 201 | **a1aff501daa4** |
 | **sim-release-notes.js** | 75 | **b3a2421d5c74** |
-| **sim-native-peek.js** | 168 | **c45775718d9e** |
+| **sim-native-peek.js** | 169 | **88b25905bbfc** |
 | **sim-seat-regions.js** | 170 | **0c62ac82b1b9** |
 | **sim-mallang-gift.js** | 327 | **09bf62b74b5f** |
 | **sim-room-face-load.js** | 217 | **fbd1fbbb9a13** |
