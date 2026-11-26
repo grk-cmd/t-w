@@ -1,2 +1,2 @@
-export { RETURN_FN, returnLetter, type ReturnRequest } from './model/returnLetter';
+export { isChangedLetter, returnLetter, type ReturnRequest } from './model/returnLetter';
 export { ReturnLetterButton } from './ui/ReturnLetterButton';

@@ -1,6 +1,7 @@
 /* inbox-api.js — 📩 우편(알림함 «우편» 칸) api provider (검사 sim-inbox-api.js)
    책임: 내 우편 읽기(GET /v2/me/notifications?section=MAIL) · 읽음(PATCH …/{id}) · 모두 읽음(POST …/read-all) · 지우기(DELETE …/{id}) · 읽은 우편 한꺼번에 지우기(POST …/delete-read).
-     서버 모양(kind · readAt · createdAt · payload)을 화면이 쓰던 모양({tag, title, body, ts, read, bugId})으로 맞추는 곳은 여기뿐이다.
+     서버 모양(kind · readAt · createdAt · payload)을 화면이 쓰던 모양({tag, kind, title, body, ts, read, bugId})으로 맞추는 곳은 여기뿐이다.
+     kind 는 서버 종류 이름 그대로 — 같은 태그 안에서 종류를 가르는 쪽(🎄 받은 편지 알림 XMAS_LETTER · 반송 XMAS_RETURNED)이 읽는다.
    신원: 늘 토큰의 «나» — 경로·본문에 사용자 코드를 싣지 않는다. 내 코드(uid)는 «읽은 토큰의 주인 기억 열쇠» 로만 받는다.
    deps: authed — 로그인 API 통로(TwApi.authed — get(path, { auth, onOwner }) · patch · post · del(…, { expectOwner }) → Promise<data>)
          warn(...a)(진단 로그)
@@ -28,21 +29,22 @@ const SECTION_MAIL = 'MAIL';
 const LIMITS = Object.freeze({ PAGE: 50, MAX_PAGES: 4 });
 const OWNER_CHANGED_CODE = 'OWNER_CHANGED';   // api-client.js — 쓰기 직전 토큰 주인이 읽을 때와 달라졌다
 
-/* 서버 알림 종류 → 화면 태그(아이콘 · 칸 이름 · 🛠️ 답변 이동). 모르는 종류는 «우편» 으로 보인다 */
+/* 서버 알림 종류 → 화면 태그(아이콘 · 칸 이름 · 🛠️ 답변 이동 · 🎄 크리스마스 편지 창 열기). 모르는 종류는 «우편» 으로 보인다 */
 const TAG_BY_KIND = Object.freeze({
   LEVEL_UNLOCK: 'reward', LICENSE_ISSUED: 'reward', SECRET_ROOM_ISSUED: 'reward', LEGACY: 'reward', BUG_ANSWERED: 'bug',
+  XMAS_LETTER: 'xmas', XMAS_RETURNED: 'xmas',   // 🎄 크리스마스(일회성 · 다음 업데이트에서 걷는다) — 받은 편지 · 반송
 });
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const str = (v) => (typeof v === 'string' ? v : '');
 const shapeError = () => Object.assign(new Error('응답 모양이 달라요'), { code: 'SHAPE' });
-const tagOf = (kind) => TAG_BY_KIND[kind] || 'reward';
+const tagOf = (kind) => (typeof kind === 'string' && Object.hasOwn(TAG_BY_KIND, kind) ? TAG_BY_KIND[kind] : 'reward');   // constructor 같은 이름이 Object 원형 값을 꺼내지 않게
 
 /* 서버 알림 한 통 → 화면 우편. 모양이 틀리면(id 없음) undefined */
 function mailOf(it){
   if(!isObj(it) || typeof it.id !== 'string' || !it.id) return undefined;
   const ts = Date.parse(it.createdAt);
-  const out = { tag: tagOf(it.kind), title: str(it.title), body: str(it.body), ts: isFinite(ts) ? ts : 0, read: !!it.readAt };
+  const out = { tag: tagOf(it.kind), kind: str(it.kind), title: str(it.title), body: str(it.body), ts: isFinite(ts) ? ts : 0, read: !!it.readAt };
   const no = isObj(it.payload) ? str(it.payload.number) : '';
   if(out.tag === 'bug' && no) out.bugId = no;   // 버그제보 글 번호 — 누르면 그 글로 간다
   return out;

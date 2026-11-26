@@ -6,7 +6,7 @@
   },
   "app/parts/account/account.js": {
     "tw/no-firebase-api": {
-      "count": 18
+      "count": 17
     }
   },
   "app/parts/account/google-confirm.js": {
@@ -16,7 +16,7 @@
   },
   "app/parts/account/license-gate.js": {
     "tw/no-firebase-api": {
-      "count": 3
+      "count": 1
     },
     "tw/no-timer": {
       "count": 3

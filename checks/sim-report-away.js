@@ -38,12 +38,14 @@ say('── 1. 자리비움 그림');
   chk(/s\.remoteAwayImg=_awayUrlOk\(friends\[id\]\.awayImg\)/.test(CODE), '받는 쪽도 Storage 주소만 받는다');
   chk(/awayImg:myAwayImg, ridingOn:/.test(CODE) && /noise:myNoise, awayImg:myAwayImg\}/.test(CODE), '평소 · 입장 페이로드에 awayImg');
   /* _awayPicFor 떼어 와 돌림 */
-  const env = { office: false, st: 'ok', mine: OK_URL };
-  const pic = new Function('env', `
+  const env = { office: false, st: 'ok', mine: OK_URL, others: true, loads: 0 };
+  const picSrc = (fnSrc) => new Function('env', `
     const _awayUrlOk = ${grabFn('_awayUrlOk').replace(/^function _awayUrlOk/, 'function')};
-    const _awayTexState = () => env.st;
-    ${grabFn('_awayPicFor').replace(/typeof officeMode !== 'undefined' && officeMode/, 'env.office').replace(/awayImgUrl/g, 'env.mine')}
+    const _awayTexState = () => { env.loads++; return env.st; };
+    const awayOthers = { on: () => env.others };
+    ${fnSrc.replace(/typeof officeMode !== 'undefined' && officeMode/, 'env.office').replace(/awayImgUrl/g, 'env.mine')}
     return _awayPicFor;`)(env);
+  const pic = picSrc(grabFn('_awayPicFor'));
   const R = { remote: true, remoteAwayImg: OK_URL }, M = { isMe: true };
   chk(pic(R, 'away', false) === OK_URL && pic(M, 'away', false) === OK_URL, '자리비움 + 그림 + 불러옴 → 캐릭터 자리에 그림(남 · 나)');
   chk(pic(R, null, false) === null && pic(R, 'meal', false) === null, '자리비움이 아니면 없음');
@@ -51,6 +53,15 @@ say('── 1. 자리비움 그림');
   env.office = true; chk(pic(R, 'away', false) === null, '회사원 모드는 예전 모양'); env.office = false;
   env.st = 'loading'; chk(pic(R, 'away', false) === null, '불러오는 중이면 예전 모양(🫧)'); env.st = 'fail'; chk(pic(R, 'away', false) === null, '못 불러오면 예전 모양'); env.st = 'ok';
   chk(pic({ remote: true, remoteAwayImg: 'https://evil.example/a.png' }, 'away', false) === null, 'Storage 주소가 아니면 없음');
+  /* 설정 › 디스플레이 «남의 자리비움 그림»(이 PC) — 끄면 남의 그림은 세우지도 받지도 않고, 내 그림은 그대로 */
+  env.others = false; env.loads = 0;
+  const offRemote = pic(R, 'away', false), offLoads = env.loads, offMine = pic(M, 'away', false);
+  chk(offRemote === null && offLoads === 0, '★ «남의 자리비움 그림» 을 끄면 남의 그림을 세우지 않고 받지도 않는다(그림 없는 자리비움 모양)');
+  chk(offMine === OK_URL, '  ↳ 내 그림은 꺼도 그대로 보인다');
+  env.others = true; chk(pic(R, 'away', false) === OK_URL, '  ↳ 켜면 다시 보인다');
+  { const cut = grabFn('_awayPicFor').replace("if(seat.remote && !awayOthers.on()) return null;", '');
+    env.others = false; const bad = picSrc(cut)(R, 'away', false); env.others = true;
+    chk(cut !== grabFn('_awayPicFor') && bad === OK_URL, 'mutation test — 설정을 안 보면 꺼도 남의 그림이 선다 → 빨강'); }
   chk(/const _awayPic = _awayPicFor\(seat, us, _hidden\);/.test(CODE) && /!_hidden && !_awayPic\) \? _conf\.emo : null/.test(CODE), '프레임 루프: 그림이 서면 책상 🫧 는 안 띄운다');
   const fr = strip(grabFn('_awayImgFrame'));
   chk(/setFromObject\(seat\.bodyWrap \|\| seat\.rig\)|measureBodyBox\(seat\.bodyWrap \|\| seat\.rig, null, _awayBox\)/.test(fr) && /sp\.scale\.set\(h, h, 1\)/.test(fr) && /> 500/.test(fr), '캐릭터 경계상자 높이에 맞춘 정사각형 · 0.5초에 한 번 잰다');

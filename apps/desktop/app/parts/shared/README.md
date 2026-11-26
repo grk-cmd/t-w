@@ -213,6 +213,13 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **확장**: 새 업로드 캐시가 생기면 상한 상수를 여기에 더하고 같은 함수를 부른다 — 쓰는 모듈에 «넘치면 비우기» · «동시 업로드 막기» 를 다시 쓰지 않는다.
 - **함정**: 키 순서가 «오래 안 쓴 순» 이다 — 조회해서 쓰면 `touch`, 저장은 `merge` 뒤에. 옛 해시(`h2` 로 시작하지 않는) 항목은 조회에 쓰지 않는다(같은 해시가 같은 그림이라는 보장이 없다).
 - **검사**: `checks/sim-upload-cache.js`.
+## `device-toggle.js` — 이 PC 의 켜고 끄는 화면 설정 하나
+- **책임**: 설정 › 디스플레이의 켜짐 · 꺼짐 한 칸을 들고 저장한다(기본 켜짐 · `'0'` 이면 꺼짐). 지금 쓰는 곳: «남의 자리비움 그림»(`tw.awayPicOthers`).
+- **만드는 법**: app.js 가 설정 창보다 먼저 `TwDeviceToggle.createDeviceToggle({ storage: localStorage, key: 'tw.…' })` → 설정 창과 그 설정을 읽는 기능 모듈에 값으로 넘긴다.
+- **내놓는 것**: `on()` · `set(v)`(저장 + 알림) · `onChange(fn)`(바뀔 때만 · 돌려주는 함수로 뗀다).
+- **함정**: 설정 창이 기능 모듈의 값을 읽게 하면 «설정 창 → 기능 모듈» 순환이 된다(`sim-dep-cycles`) — 그래서 값은 여기 두고 둘 다 이것을 읽는다. 키는 `tw.` 로 시작해야 하고(아니면 만들 때 던진다) 기기 칸 목록(`account-store.js`)에도 넣는다.
+- 검사: `sim-device-toggle.js`
+
 ## json-store.js — 💾 localStorage JSON 칸 읽기 · 쓰기 한 곳
 
 - **책임**: 한 키의 JSON 을 읽고(해석) 쓴다. 실패를 삼키지 않고 결과 `{ ok, err, bytes }` 로 돌려준다 — 부르는 쪽이 알릴 수 있게.
@@ -655,6 +662,6 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 ## `server-features.js` — 서버가 아직 안 받는 0.14 기능 표
 - **책임**: 0.14 판에서 Firebase DB · Functions 에 직접 읽고 쓰게 만든 기능의 «서버가 받는가» 를 한 표(`FEATURES`)에 둔다. 0.13 은 Firebase DB 쓰기를 잠갔으므로 서버(API)가 받을 때까지 입구(버튼 · 탭 · 입력칸)만 닫는다 — 기능 코드는 지우지 않는다.
 - **내놓는 것**: `on(name)` → boolean(표에 없는 이름은 던진다) · `FEATURES`(바꿀 수 없는 표) · `noServer(name)`(서버 경로가 없는 provider 자리 — 어떤 메서드든 `SERVER_PATH_MISSING` 으로 거절) · `MISSING_CODE`.
-- **입구**: xmas — app.js 가 크리스마스 창을 만들지 않음(런처 버튼은 html 에서 hidden 으로 시작) · chatNotice · chatFocus — 각 모듈 `enabled` deps(탭 · 구독 없음) · 집중 올리기는 room-focus-sync `isSecretRoom` 에 같이 · playlistLike — playlist-like-ui `enabled`(줄 안 그림 · 안 읽음) · googleChange — account.js [바꾸기] 숨김 · friendReqMsg — friend-req-btn `reasonOn`(사유 칸 없이 묻기) · themeCustomSave — theme-ui `serverOn`(이 PC 저장만)· 가입은 login-flow.js).
+- **입구**: xmas — app.js 가 크리스마스 창을 만들지 않음(런처 버튼은 html 에서 hidden 으로 시작) · chatNotice · chatFocus — 각 모듈 `enabled` deps(탭 · 구독 없음) · 집중 올리기는 room-focus-sync `isSecretRoom` 에 같이 · playlistLike — playlist-like-ui `enabled`(줄 안 그림 · 안 읽음) · friendReqMsg — friend-req-btn `reasonOn`(사유 칸 없이 묻기) · themeCustomSave — theme-ui `serverOn`(이 PC 저장만)· 가입은 login-flow.js).
 - **서버가 받으면**: 표의 값을 true 로 바꾸고, 그 기능의 provider(지금은 `noServer(이름)`)를 서버 provider 로 갈아 끼운다. 서버 작업 요청은 GitHub 이슈 «서버 작업 요청: …(0.14.0)».
 - **함정**: 다른 기준(날짜 · 방 종류)과 섞지 말 것 — 이 표는 «서버 길이 있나» 하나만 본다. 검사 `checks/sim-server-features.js`.

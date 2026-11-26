@@ -141,7 +141,8 @@ function _relaunchSoon(text){
 /* 🎉 [회원가입 설계 §7-J · §4 (가) · 개정 13] 가입 완료 — J(비밀번호) · J2(구글).
    opts: { code, google, dim, startLabel } · 돌려주는 약속은 [시작하기]를 누를 때 풀린다(부르는 쪽이 재시작 또는 닫기).
    ★ 되찾기 코드는 없다((가)) — 비밀번호를 잊으면 로그인돼 있는 PC 의 계정 탭에서 바꾼다.
-   ★ [구글도 연결하기]는 **지금 세션에 구글을 붙인다**(authLinkGoogle · 같은 authUid) — 로그인을 바꾸는 _loginDoGoogle 과 다르다. */
+   ★ [구글도 연결하기]는 **지금 세션에 구글을 붙인다**(서버 POST /v2/me/google · 같은 authUid) — 로그인을 바꾸는 _loginDoGoogle 과 다르다. */
+const LINK_REAUTH_LATER = '로그인한 지 오래됐어요 — 나중에 내 정보 › 계정 탭에서 [연결하기]로 붙여 주세요';
 function _showSignupDone(opts){
   const o = opts || {};
   return new Promise(resolve=>{
@@ -168,12 +169,17 @@ function _showSignupDone(opts){
     if(gBtn){
       gBtn.disabled = false;
       gBtn.onclick = async ()=>{
-        if(!(window.companion && companion.signInWithGoogle) || !(window.firebaseAPI && firebaseAPI.authLinkGoogle)){ say('이 버전에서는 구글을 연결할 수 없어요 — 나중에 계정 탭에서 연결해 주세요', true); return; }
+        if(!(window.companion && companion.signInWithGoogle)){ say('이 버전에서는 구글을 연결할 수 없어요 — 나중에 계정 탭에서 연결해 주세요', true); return; }
         gBtn.disabled = true; say('구글 창을 여는 중…', false);
         const g = await googleConfirmMod.pickForLink();
         if(!g.ok){ say(g.canceled ? '' : g.reason, true); gBtn.disabled = false; return; }
-        let r = null; try{ r = await firebaseAPI.authLinkGoogle(g.idToken); }catch(_){ r = { ok:false, reason:'네트워크 오류 — 인터넷 연결을 확인해 주세요' }; }
-        if(!r || !r.ok){ say((r && r.reason) || '구글을 연결하지 못했어요', true); gBtn.disabled = false; return; }
+        /* 방금 가입했으니 «5분 안 로그인» 안이다 — 넘겼으면(USER_REAUTH_REQUIRED) 계정 탭에서 다시 하게 한다(여기는 비밀번호 확인 창이 없다) */
+        try{ await userApiMod.linkGoogle(g.idToken); }
+        catch(e){
+          say(e && e.code === 'USER_REAUTH_REQUIRED' ? LINK_REAUTH_LATER : (userApiMod.reasonOf(e) || '구글을 연결하지 못했어요'), true);
+          gBtn.disabled = false; return;
+        }
+        try{ await firebaseAPI.authReload(); }catch(_){}
         if(warn) warn.style.display = 'none';
         gBtn.textContent = '✅ 구글 연결됨';
         say('구글이 연결됐어요. 이제 구글로도 로그인할 수 있어요.', false);
@@ -256,6 +262,8 @@ function _showInviteGate(){
         let r = null;
         try{ r = await loginFlowMod.joinGoogle({ inviteCode }); }catch(_){ r = { ok:false, reason:'네트워크 오류 — 인터넷 연결을 확인해 주세요' }; }
         if(r && r.ok){ done(r, 'google'); return; }
+        /* 묻기에서 [다른 계정으로 로그인] — 가입 카드를 닫고 로그인 카드로(구글 · 친구 코드로 다시 고른다) */
+        if(r && r.other){ say('', false); busy(false); aCard.style.display = 'none'; if(hCard) hCard.style.display = ''; ok.disabled = false; showLogin('다른 계정으로 로그인해 주세요', false); return; }
         say((r && !r.canceled && r.reason) || '', true);
         busy(false);
       };
