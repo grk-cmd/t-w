@@ -1,0 +1,10 @@
+rules_version = '2';
+// Firestore 는 Storage 규칙이 읽는 주인 사본(storageOwners/{코드} = { uid })만 둔다. 쓰는 쪽은 API 서버(서비스 계정 — 이 규칙을 거치지 않음) 하나.
+// 앱 · 웹은 Firestore 를 쓰지 않는다 — 전부 거부. Storage 규칙의 firestore.get 은 이 규칙이 아니라 IAM(Storage 서비스 에이전트)으로 읽는다.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

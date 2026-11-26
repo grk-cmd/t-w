@@ -5,6 +5,9 @@
   "storage": {
     "rules": "storage.rules"
   },
+  "firestore": {
+    "rules": "firestore.rules"
+  },
   "hosting": [{
     "target": "main",
     "public": "hosting",
@@ -39,6 +42,7 @@
   }, {
     "target": "help",
     "public": "hosting/help",
+    "predeploy": ["node scripts/help-deploy-guard.js"],
     "ignore": ["**/.*", "**/node_modules/**"],
     "cleanUrls": true,
     "redirects": [
@@ -89,7 +93,7 @@
           { "key": "X-Content-Type-Options", "value": "nosniff" },
           {
             "key": "Content-Security-Policy",
-            "value": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https://api.together-working.com; font-src 'self'; connect-src 'self' https://api.together-working.com; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+            "value": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https://api.together-working.com https://firebasestorage.googleapis.com; font-src 'self'; connect-src 'self' https://api.together-working.com; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
           }
         ]
       },

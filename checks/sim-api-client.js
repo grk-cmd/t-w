@@ -420,7 +420,7 @@ async function gateCases(M){
     const code = strip(SRC);
     chk(!/^\s*import\s/m.test(SRC) && !/firebase\/|firebase-|gstatic|getDatabase|require\(/.test(code), 'api-client.js 는 아무것도 import 하지 않는다(Firebase 모름)');
     const mkWin = (env, ls) => {
-      const w = { fetch: () => {}, localStorage: memStore(ls || {}), companion: env ? { firebaseEnv: env } : undefined };
+      const w = { fetch: () => {}, localStorage: memStore(ls || {}), companion: env ? { firebaseEnv: env } : undefined, TwEtagStore: { createEtagStore: () => ({ load: async () => null, save(){}, clear(){} }) } };
       w.window = w;
       vm.runInNewContext(SRC, { window: w, console, setTimeout, clearTimeout, AbortController, Promise, Map, Error, String, Date, encodeURIComponent });
       return w;
@@ -431,7 +431,7 @@ async function gateCases(M){
     {
       const calls = [];
       let down = false;
-      const w = { localStorage: memStore({}), TwMaintenance: { store: { touch(){ calls.push('touch'); } } }, TwDeviceId: { store: { get: () => 'dev-abc123' } },
+      const w = { localStorage: memStore({}), TwMaintenance: { store: { touch(){ calls.push('touch'); } } }, TwDeviceId: { store: { get: () => 'dev-abc123' } }, TwEtagStore: { createEtagStore: () => ({ load: async () => null, save(){}, clear(){} }) },
         fetch: async (url, init) => { if(down) throw new TypeError('x'); calls.push(init.headers); return res(200, { success: true, data: 1 }); } };
       w.window = w;
       vm.runInNewContext(SRC, { window: w, console, setTimeout, clearTimeout, AbortController, Promise, Map, Error, String, Date, encodeURIComponent, atob });
@@ -539,7 +539,7 @@ async function gateCases(M){
         ok(ew && ew.code === 'OWNER_CHANGED' && wf.calls.length === 0);
         ok((await cw.put('/m', {}, { expectOwner: 'B' })) === 7 && (await cw.put('/m', {})) === 7 && wf.calls.length === 2);
         const ow = []; await cw.get('/m', { auth: true, onOwner: (x) => ow.push(x) }); ok(ow.join() === 'B');
-        const w = { localStorage: memStore({}), TwMaintenance: { store: { touch(){} } }, TwDeviceId: { store: { get: () => 'dev-0001' } }, fetch: async () => { throw new TypeError('x'); } };
+        const w = { localStorage: memStore({}), TwMaintenance: { store: { touch(){} } }, TwDeviceId: { store: { get: () => 'dev-0001' } }, TwEtagStore: { createEtagStore: () => ({ load: async () => null, save(){}, clear(){} }) }, fetch: async () => { throw new TypeError('x'); } };
         w.window = w;
         vm.runInNewContext(src, { window: w, console, setTimeout, clearTimeout, AbortController, Promise, Map, Error, String, Date, encodeURIComponent, atob });
         w.TwApi.bindToken(async () => 't');
@@ -615,6 +615,105 @@ async function gateCases(M){
     const bad = SRC.replace('const p = counted(send(path, o.timeoutMs || writeTimeoutMs, o));', 'const p = send(path, o.timeoutMs || writeTimeoutMs, o);').replace('return counted(send(path, o.timeoutMs || writeTimeoutMs, o));', 'return send(path, o.timeoutMs || writeTimeoutMs, o);');
     const rb = await idleCase(bad);
     chk(bad !== SRC && rb.mid, '  mutation test — 쓰기를 안 세면 쓰기가 남았는데 풀려 빨강');
+  }
+
+  say('── persist — ETag 기억을 껐다 켜도 남긴다(etag-store.js) · 값은 304 일 때만');
+  {
+    const persistCase = async (src) => {
+      const mod = { exports: {} }; vm.runInNewContext(src, { module: mod, setTimeout, clearTimeout, AbortController, console, atob: (x) => Buffer.from(x, 'base64').toString('binary') });
+      const M = mod.exports;
+      const disk = new Map(), log = [];
+      const store = { load: async (k) => { log.push('load:' + k); return disk.get(k) || null; }, save: (k, etag, data) => { log.push('save:' + k); disk.set(k, { etag, data }); }, clear: () => { log.push('clear'); disk.clear(); } };
+      const mk = (fetch) => M.createApiClient({ baseUrl: PROD, fetch, getToken: async () => jwt('u1'), backoffMs: 0, persist: { store, paths: ['/v2/me/avatars'] } });
+      /* 1번째 실행 — 200 + ETag → 남긴다 */
+      const f1 = mkFetch(() => res(200, { success: true, data: { v: 1 } }, { ETag: '"e1"' }));
+      const a1 = await mk(f1).get('/v2/me/avatars', { auth: true });
+      /* 2번째 실행(새 통로 = 메모리 빔) — 남긴 ETag 를 싣고 304 면 남긴 값 */
+      const f2 = mkFetch(() => res(304, null));
+      const c2 = mk(f2);
+      const a2 = await c2.get('/v2/me/avatars', { auth: true }).catch(() => null);
+      const sentInm = f2.calls[0] && f2.calls[0].init.headers['If-None-Match'];
+      /* 남기지 않는 길 · 다른 계정 */
+      const f3 = mkFetch(() => res(200, { success: true, data: 1 }, { ETag: '"x"' }));
+      await mk(f3).get('/v2/me/other', { auth: true });
+      const savedOther = log.some((l) => l.endsWith('/v2/me/other'));
+      c2.forgetSession();
+      return { a1, a2, sentInm, savedOther, log, disk };
+    };
+    const r = await persistCase(SRC);
+    chk(r.a1.v === 1 && r.log.includes('save:u1 /v2/me/avatars'), '200 + ETag 를 받으면 «누구 + 경로» 열쇠로 남긴다');
+    chk(r.sentInm === '"e1"' && r.a2 && r.a2.v === 1, '★ 다시 켠 뒤 첫 읽기에 남긴 ETag 를 싣고(If-None-Match) 304 면 남긴 값을 돌려준다');
+    chk(!r.savedOther, '  persist 경로가 아닌 길은 남기지 않는다');
+    chk(r.log[r.log.length - 1] === 'clear' && r.disk.size === 0, '  계정을 놓으면(forgetSession) 남긴 기억을 지운다');
+    const noLoad = SRC.replace('        if(!memo && persistable(path)){', '        if(false){');
+    const rb = await persistCase(noLoad);
+    chk(noLoad !== SRC && !rb.sentInm, '  mutation test — 남긴 기억을 안 읽으면 켤 때 If-None-Match 가 없다(빨강)');
+    const noClear = SRC.replace("      if(persist){ try{ persist.store.clear(); }catch(_){} }   // 남긴 기억도", "      //");
+    const rc = await persistCase(noClear);
+    chk(noClear !== SRC && rc.disk.size > 0, '  mutation test — 계정을 놓아도 안 지우면 빨강');
+    /* 리뷰 지적 — 기억 읽기가 멈춤 · 실패해도 200 · 계정 섞임 · 놓은 뒤 늦게 온 답 */
+    const mkM = (src) => { const mod = { exports: {} }; vm.runInNewContext(src, { module: mod, setTimeout, clearTimeout, AbortController, console, atob: (x) => Buffer.from(x, 'base64').toString('binary') }); return mod.exports; };
+    const edge = async (src, store, opts) => {
+      const M = mkM(src); let tok = (opts && opts.tok) || jwt('u1');
+      const f = mkFetch((url, init) => (opts && opts.hold) ? opts.hold(url, init) : res(200, { success: true, data: { who: tok } }, { ETag: '"e2"' }));
+      const c = M.createApiClient({ baseUrl: PROD, fetch: f, getToken: async () => tok, backoffMs: 0, timeoutMs: 1500, persist: { store, paths: ['/v2/me/avatars'] } });
+      const t0 = Date.now(); let r = null, err = null;
+      try{ r = await Promise.race([c.get('/v2/me/avatars', { auth: true }), new Promise((_, j) => setTimeout(() => j(new Error('멈춤')), 2500))]); }catch(e){ err = e; }
+      return { r, err, ms: Date.now() - t0, f, c, setTok: (v) => { tok = v; } };
+    };
+    const hang = { load: () => new Promise(() => {}), save(){}, clear(){} };
+    const h = await edge(SRC, hang);
+    chk(h.r && h.r.who && h.f.calls.length === 1 && !h.f.calls[0].init.headers['If-None-Match'] && h.ms < 1000, '★ 기억 읽기가 끝나지 않아도(IndexedDB 멈춤) ' + A.PERSIST_LOAD_MS + 'ms 뒤 If-None-Match 없이 보내 200 (' + h.ms + 'ms)');
+    const hb = await edge(SRC.replace("    return Promise.race([p, new Promise((r) => tSet(() => r(null), PERSIST_LOAD_MS))]);", "    return p;"), hang);
+    chk(!(hb.r && hb.f.calls.length === 1), '  mutation test — 읽기 상한을 빼면 요청이 시간 초과로 0번 나간다(빨강)');
+    const rej = await edge(SRC, { load: () => Promise.reject(new Error('idb')), save(){ throw new Error('s'); }, clear(){ throw new Error('c'); } });
+    rej.c.forgetSession();
+    chk(rej.r && rej.r.who && rej.f.calls.length === 1, '  기억 읽기가 거절되고 넣기 · 지우기가 던져도 200 · 계정 놓기도 던지지 않는다');
+    const disk = new Map([['u1 /v2/me/avatars', { etag: '"e1"', data: { who: 'u1-old' } }]]);
+    const kv = { load: async (k) => disk.get(k) || null, save: (k, e, d) => disk.set(k, { etag: e, data: d }), clear: () => disk.clear() };
+    const u2 = await edge(SRC, kv, { tok: jwt('u2') });
+    chk(u2.r && u2.r.who === jwt('u2') && !u2.f.calls[0].init.headers['If-None-Match'], '★ u1 이 남긴 기억은 u2 의 읽기에 안 실린다 — If-None-Match 없음 · u2 의 값');
+    const noWho = SRC.replace("        memoKey = a.who + ' ' + path;", "        memoKey = 'u1 ' + path;");
+    const u2b = await edge(noWho, kv, { tok: jwt('u2') });
+    chk(noWho !== SRC && u2b.f.calls[0].init.headers['If-None-Match'], '  mutation test — 열쇠에서 «누구» 를 빼면 u1 의 ETag 가 u2 에 실린다(빨강)');
+    /* 놓기 전에 나간 요청이 놓은 뒤 200 + ETag 로 끝나도 디스크 · 메모리에 적지 않는다 */
+    const race = async (src) => {
+      const d2 = new Map(); const st = { load: async () => null, save: (k, e, v) => d2.set(k, v), clear: () => d2.clear() };
+      let release; const M = mkM(src);
+      let n = 0;
+      const f = mkFetch(() => (++n === 1 ? new Promise((r) => { release = () => r(res(200, { success: true, data: { who: 'u1' } }, { ETag: '"late"' })); }) : res(200, { success: true, data: 2 })));
+      const c = M.createApiClient({ baseUrl: PROD, fetch: f, getToken: async () => jwt('u1'), backoffMs: 0, timeoutMs: 3000, persist: { store: st, paths: ['/v2/me/avatars'] } });
+      const p = c.get('/v2/me/avatars', { auth: true });
+      for(let i = 0; i < 50 && !release; i++) await new Promise((r) => setTimeout(r, 10));
+      c.forgetSession(); release(); await p;
+      await c.get('/v2/me/avatars', { auth: true }).catch(() => null);
+      const inm2 = f.calls[1] && f.calls[1].init.headers['If-None-Match'];
+      return { disk: d2.size, inm2 };
+    };
+    const rr = await race(SRC);
+    chk(rr.disk === 0 && rr.inm2 !== '"late"', '★ 계정을 놓은 뒤 늦게 온 앞 계정의 200 + ETag 는 디스크에도 메모리에도 안 적는다 — 다음 읽기에 If-None-Match "late" 없음');
+    const memOnly = SRC.replace("    if(memoKey && typeof etag === 'string' && etag && gen0 === sessionGen) remember(memoKey, etag, data, path);", "    if(memoKey && typeof etag === 'string' && etag){ if(gen0 === sessionGen) remember(memoKey, etag, data, path); else etags.set(memoKey, { etag, data }); }");
+    const rm = await race(memOnly);
+    chk(memOnly !== SRC && rm.inm2 === '"late"', '  mutation test — 메모리 쓰기만 세대를 안 보면 다음 읽기에 "late" 가 실린다(빨강)');
+    /* 읽는 쪽 — 기억 읽기를 기다리는 사이 계정을 놓으면 읽어 온 ETag 를 쓰지 않는다 */
+    const readRace = async (src) => {
+      let rel; const st = { load: () => new Promise((r) => { rel = () => r({ etag: '"old"', data: { who: 'u1' } }); }), save(){}, clear(){} };
+      const M = mkM(src); const f = mkFetch(() => res(200, { success: true, data: 1 }));
+      const c = M.createApiClient({ baseUrl: PROD, fetch: f, getToken: async () => jwt('u1'), backoffMs: 0, timeoutMs: 3000, persist: { store: st, paths: ['/v2/me/avatars'] } });
+      const p = c.get('/v2/me/avatars', { auth: true });
+      for(let i = 0; i < 50 && !rel; i++) await new Promise((r) => setTimeout(r, 5));
+      c.forgetSession(); rel(); await p.catch(() => null);
+      await c.get('/v2/me/avatars', { auth: true }).catch(() => null);
+      return f.calls.map((x) => x.init.headers['If-None-Match'] || '');
+    };
+    const rd = await readRace(SRC);
+    chk(rd.length === 2 && rd.every((x) => x !== '"old"'), '★ 기억 읽기를 기다리는 사이 계정을 놓으면 읽어 온 ETag 를 싣지도 기억하지도 않는다');
+    const rdm = await readRace(SRC.replace("if(m && typeof m.etag === 'string' && m.etag && gen0 === sessionGen){", "if(m && typeof m.etag === 'string' && m.etag){"));
+    chk(rdm.includes('"old"'), '  mutation test — 읽는 쪽 세대 확인을 빼면 "old" 가 실린다(빨강)');
+    const rb2 = await race(SRC.replace("    if(memoKey && typeof etag === 'string' && etag && gen0 === sessionGen) remember", "    if(memoKey && typeof etag === 'string' && etag) remember"));
+    chk(rb2.disk === 1, '  mutation test — 세대를 안 보면 앞 계정 줄이 디스크에 되살아난다(빨강)');
+    chk(JSON.stringify(A.PERSIST_PUBLIC) === JSON.stringify(['/v2/config', '/v2/notices']) && JSON.stringify(A.PERSIST_AUTHED) === JSON.stringify(['/v2/catalog', '/v2/me/avatars', '/v2/me/collection', '/v2/me/focus', '/v2/me/friends', '/v2/me/playlist']),
+      '남기는 길 여덟 — 설정 · 공지(로그인 없음) · 카탈로그 · 옷장 · 보유분 · 포커스 · 친구 · 플레이리스트');
   }
 
   say('\n' + pass + ' · ' + fail);

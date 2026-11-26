@@ -4,8 +4,8 @@
 - 책임: 서버 user · invite 길과 탈퇴 미리보기 · 방문 기록 길(`/v2`)을 부르는 한 벌. 경로 · 본문 모양 · 오류 code 는 여기만 안다.
 - deps: `api()`(로그인 통로 `TwApi.authed` — 부를 때 찾음) · `newId()`(요청 번호 `TwRequestId.newId`).
 - 내놓는 것: `me` · `joinWithPassword` · `joinWithGoogle` · `updateMe` · `attachPasswordLogin` · `changePassword` · `withdrawalPreview` · `withdraw` ·
-  `checkInvite` · `myInvites` · `createInvite` · `findByFriendCode` · `visit`. 순수: `meFrom(서버 Me)` · `reasonOf(err)`(code → 화면 한 줄) · `inviteReasonOf`.
-  앱 한 벌은 `TwUserApi.store`.
+  `checkInvite` · `myInvites` · `createInvite` · `findByFriendCode` · `getTheme` · `putTheme`(👑 내 색 `/v2/me/theme-custom`) · `visit`. 순수: `meFrom(서버 Me)` · `themeFrom` · `reasonOf(err)`(code → 화면 한 줄) · `inviteReasonOf`.
+  앱 한 벌은 `TwUserApi.store`. 👑 내 색 provider 는 `TwUserApi.themeCustom`(`createThemeCustomSync` — theme-ui 모양 `load → obj | {} | null` · `save → saved | conflict | failed`, 읽은 판을 들고 다음 쓰기에 싣는다 · 409 면 판을 버린다).
 - 함정:
   - 실패는 ApiError 를 그대로 던진다 — «가입 전(401 `USER_CODE_NOT_BOUND`)» 과 «닿지 못함» 을 부르는 쪽이 가른다. 빈 값으로 바꾸지 않는다.
   - 토큰 없는 길은 셋뿐(초대 확인 · 비밀번호 가입 · 방문 기록). 구글 가입에 `password` · `requestId` 를 실으면 서버가 거절한다.

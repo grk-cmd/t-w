@@ -130,7 +130,7 @@ function mkEnv(opt){
 }
 const sec = async (title, fn) => { say(title); try{ await fn(); }catch(e){ chk(false, '이 절을 못 돌았다 — ' + (e && e.stack || e)); } };
 const HOOKS = ['_mhGbStartWatch', '_mhGbStopWatch', '_mhGbRefreshBadge', '_mhGbMarkAllRead', '_mhReSubscribeGuestbook', 'openMyGuestbook'];
-const ent = (id, o) => Object.assign({ id, name: '이름' + id, text: '글' + id, ts: 1.7e12, mine: false }, o || {});
+const ent = (id, o) => { const e = Object.assign({ id, name: '이름' + id, text: '글' + id, ts: 1.7e12, mine: false }, o || {}); if(e.canDelete === undefined) e.canDelete = e.mine; return e; };
 const bookOf = (o) => Object.assign({ entries: [], clap: { count: 0, img: null, emoji: '', todayLeft: 5, dailyMax: 5 }, canWrite: true, version: 1 }, o || {});
 
 let CUR_FEED = null;
@@ -196,7 +196,7 @@ async function judge(S){
     chk(list.children.length === 3 && /두번째/.test(list.children[0].innerHTML) && /&lt;b&gt;안녕/.test(list.children[1].innerHTML), '받으면 목록 — 서버가 준 순서(최신이 위) · 글은 escHtml 을 지난다');
     chk(/<b>이름 없음<\/b>/.test(list.children[2].innerHTML) && /이름 없는 글/.test(list.children[2].innerHTML), '★ 글쓴이 이름이 없으면(서버 null → \'\') 그릴 때 «이름 없음»');
     const delOf = (row) => row.querySelector('.gb-meta').children[0];
-    chk(delOf(list.children[0]) && delOf(list.children[0]).textContent === '삭제' && !delOf(list.children[1]) && !delOf(list.children[2]), '삭제 링크는 서버가 내 글이라고 한(mine) 글에만');
+    chk(delOf(list.children[0]) && delOf(list.children[0]).textContent === '삭제' && !delOf(list.children[1]) && !delOf(list.children[2]), '삭제 링크는 서버가 지울 수 있다고 한(canDelete) 글에만');
     chk(d.getElementById('gbInputRow').style.display === 'flex' && d.getElementById('gbGuestNote').style.display === 'none', '  서버가 canWrite 라 하니 입력칸이 보인다');
     chk(d.getElementById('gbClapTotal').textContent === 'TOTAL CLAP : 7' && d.getElementById('gbClapImg').style.display === 'block' && d.getElementById('gbClapEmoji').value === '🎉', '박수 — 합계 · 이미지 · 폭죽 이모지');
     e.answers.view = bookOf({ entries: [], clap: { count: 8, img: null, emoji: '', todayLeft: 5, dailyMax: 5 } }); e.notify({ subject: 'uA' }); await flush();
@@ -283,6 +283,7 @@ async function judge(S){
     chk(e.calls[0] === 'remove:uA|uA|m1', '삭제 — 홈 주인 방명록의 그 글(id)');
     e.answers.remove = { status: 'failed', err: apiErr(403, 'GUESTBOOK_NOT_AUTHOR') }; await del.onclick(); await flush();
     chk(/오류 E-GB-04/.test(msg.textContent), '  남의 글이라는 거절은 창 안에도');
+    e.answers.remove = undefined;
     /* 박수 — 셈은 서버 */
     const box = d.getElementById('gbClapBox'); e.calls.length = 0; e.toasts.length = 0;
     const hold = deferred(); e.answers.clap = () => hold.p;
@@ -379,6 +380,21 @@ async function judge(S){
     chk(/오류 E-NET-07/.test(msg.textContent), '서버에 닿지 못하면 그림 탓이 아닌 공통 번호(E-NET-07)');
     e.answers.upload = undefined;
 
+    /* 내 방명록 — 서버가 canDelete 라 한 남의 글 · 글쓴이 모르는 옛 글: 첫 클릭은 «정말 삭제?» · 두 번째에 지운다 */
+    {
+      const eo = mkEnv({ src: MOD, answers: { view: bookOf({ entries: [ent('t1', { canDelete: true }), ent('t0', { name: '', canDelete: true }), ent('t2', { mine: true })] }) } });
+      eo.mk(); eo.ctx.openMyGuestbook(); await flush();
+      const rs = eo.wins[0].document.getElementById('gbList').children;
+      const dOf = (row) => row.querySelector('.gb-meta').children[0];
+      chk(!!dOf(rs[0]) && !!dOf(rs[1]) && !!dOf(rs[2]), '내 방명록 — 남의 글 · 옛 글에도 삭제 링크(canDelete)');
+      eo.calls.length = 0; await dOf(rs[0]).onclick(); await flush();
+      chk(eo.calls.length === 0 && dOf(rs[0]).textContent === '정말 삭제?', '  남의 글은 첫 클릭에 지우지 않고 «정말 삭제?»');
+      await dOf(rs[0]).onclick(); await flush();
+      chk(eo.calls[0] === 'remove:uA|uA|t1', '  두 번째 클릭에 지운다');
+      eo.calls.length = 0; await dOf(rs[2]).onclick(); await flush();
+      chk(eo.calls[0] === 'remove:uA|uA|t2', '  내 글은 한 번에 지운다');
+    }
+
     /* 30개 — 앱이 자르지 않고 서버가 준 만큼 그린다 · 삭제는 내 글만 */
     const many = []; for(let i = 30; i >= 1; i--) many.push(ent('g' + i, { name: '이름' + i, text: '글' + i, mine: i % 3 === 0 }));
     const e30 = mkEnv({ src: MOD, answers: { view: bookOf({ entries: many }) } }); e30.mk(); e30.ctx.openMyGuestbook(); await flush();
@@ -439,7 +455,9 @@ async function judge(S){
     ['친구 목록으로 쓰기를 다시 판정', M.replace("row.style.display = (v && v.canWrite) ? 'flex' : 'none';", "row.style.display = 'flex';"), 'canWrite'],
     ['받는 중에도 입력칸을 보임', M.replace("row.style.display = (v && v.canWrite) ? 'flex' : 'none';", "row.style.display = (!v || v.canWrite) ? 'flex' : 'none';"), '받기 전에는 입력칸'],
     ['못 받음을 «글이 없다» 로 그림', M.replace("if(!v){   // 받는 중", "if(false){   // 받는 중"), '못 받음'],
-    ['내 글이 아닌 글에도 삭제', M.replace("if(en.mine){", "if(true){"), '삭제 링크'],
+    ['지울 수 없는 글에도 삭제', M.replace("if(en.canDelete){", "if(true){"), '삭제 링크'],
+    ['남의 글도 한 번에 지움', M.replace("let armed=en.mine;", "let armed=true;"), '«정말 삭제?»'],
+    ['내 글도 두 번 눌러야 지움', M.replace("let armed=en.mine;", "let armed=false;"), '내 글은 한 번에'],
     ['창이 닫혀도 방명록을 안 거둠', M.replace("thisWin.addEventListener('pagehide', ()=>{ if(_gbWin === thisWin){ _gbWin = null; feed.closeBook(); } });", ""), '창이 닫히면'],
     ['옛 창의 pagehide 가 새 방명록을 닫음', M.replace("if(_gbWin === thisWin){ _gbWin = null; feed.closeBook(); }", "{ _gbWin = null; feed.closeBook(); }"), '늦은 pagehide'],
     ['홈 주인이 바뀌어도 방명록을 안 비움', M.replace("    feed.closeBook();\n    _gbCurrentTarget = target;", "    _gbCurrentTarget = target;"), '홈 주인이 바뀌면'],
