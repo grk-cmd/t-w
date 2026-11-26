@@ -16,7 +16,7 @@ connectFirebase()
           files={fb.files}
           fns={fb.fns}
           api={fb.api}
-          env={{ isProd: fb.isProd, projectId: fb.projectId }}
+          env={{ isProd: fb.isProd, projectId: fb.projectId, storageBucket: fb.storageBucket }}
         >
           <App fb={fb} />
         </Providers>

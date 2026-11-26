@@ -63,6 +63,8 @@ async function loadConfig() {
 
 export interface Firebase {
   projectId: string;
+  /** init.json 의 storageBucket — 공개 그림 주소(Storage ?alt=media)를 만들 때 */
+  storageBucket: string;
   isProd: boolean;
   db: Db;
   files: Files;
@@ -185,6 +187,7 @@ export async function connectFirebase(): Promise<Firebase> {
 
   return {
     projectId: config.projectId,
+    storageBucket: String(config.storageBucket ?? ''),
     isProd: config.projectId === PROD_PROJECT_ID,
     db,
     files,
