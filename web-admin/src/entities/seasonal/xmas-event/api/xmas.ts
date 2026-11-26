@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useApi, useEnv, type Api } from '@/shared/api';
+import { adminPath, useApi, useEnv, type Api } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import {
   authorsPageOf,
@@ -18,11 +18,13 @@ const ROOT = ['xmas'];
 const AUTHORS_KEY = [...ROOT, 'authors'];
 const lettersKey = (userCode: string) => [...ROOT, 'letters', userCode];
 const REPORTS_KEY = [...ROOT, 'reports'];
-const BASE = '/v2/admin/xmas';
+/** 크리스마스 관리자 endpoint 의 기준 경로 — 기능(반송 · 신고 처리)도 이것을 쓴다 */
+export const XMAS_ADMIN_BASE = adminPath('/xmas');
+const BASE = XMAS_ADMIN_BASE;
 const AUTHORS_PAGE = 100; // 서버 상한
 const AUTHORS_MAX_PAGES = 100; // 1만 명 — 끝없이 돌지 않게
 
-/** 이 환경에는 API 가 없다(dev · e2e) — 크리스마스는 자체 서버에만 있다(옛 RTDB · 함수는 걷었다) */
+/** 이 환경에는 API 가 없다(dev · e2e) — 크리스마스는 자체 서버에만 있다(옛 RTDB · 함수는 지웠다) */
 export class NoApiError extends Error {
   constructor() {
     super('이 환경에는 자체 서버 API 가 없어 크리스마스를 볼 수 없어요(운영 관리자에서만)');

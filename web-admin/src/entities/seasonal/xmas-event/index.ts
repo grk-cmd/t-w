@@ -4,6 +4,7 @@ export {
   listLetterAuthors,
   listXmasReports,
   needApi,
+  XMAS_ADMIN_BASE,
   NoApiError,
   useForgetXmasReport,
   useLetterAuthors,

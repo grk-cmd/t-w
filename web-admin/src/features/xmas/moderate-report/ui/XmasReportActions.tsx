@@ -1,5 +1,5 @@
-import type { XmasReport } from '@/entities/seasonal/xmas-event';
-import { ApiError } from '@/shared/api';
+import { useForgetXmasReport, type XmasReport } from '@/entities/seasonal/xmas-event';
+import { ApiError, isApiConflict } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
 import { useDismissXmasReport, useRemoveReported, type RemoveTarget } from '../model/useModerateXmas';
@@ -18,6 +18,14 @@ export function XmasReportActions({
   const toast = useToast();
   const remove = useRemoveReported();
   const dismiss = useDismissXmasReport();
+  const forget = useForgetXmasReport();
+  /** 지울 것이 이미 없다(404 — 다른 관리자가 처리했거나 탈퇴로 지워짐) — 목록에서만 뺀다 */
+  const gone = (e: unknown) => {
+    if (!(e instanceof ApiError && e.kind === 'notFound')) return false;
+    forget(report.key);
+    toast('이미 처리된 신고예요');
+    return true;
+  };
   const busy = remove.isPending || dismiss.isPending;
   const what = report.kind === 'orn' ? '장식' : '받은 편지';
 
@@ -30,8 +38,9 @@ export function XmasReportActions({
       await remove.mutateAsync(removable);
       toast(`${what}을(를) 지웠어요`);
     } catch (e) {
+      if (gone(e)) return;
       toast(
-        e instanceof ApiError && e.code === 'CONCURRENT_UPDATE'
+        isApiConflict(e)
           ? '그새 바뀐 장식이에요 — 새로고침해서 다시 봐 주세요'
           : errorMessage(e, '지우지 못했어요'),
       );
@@ -43,6 +52,7 @@ export function XmasReportActions({
       await dismiss.mutateAsync(report.key);
       toast('신고를 비웠어요');
     } catch (e) {
+      if (gone(e)) return;
       toast(errorMessage(e, '비우지 못했어요'));
     }
   };
