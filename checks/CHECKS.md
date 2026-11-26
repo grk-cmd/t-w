@@ -157,7 +157,7 @@
 | **sim-app-version-sync.js** | 178 | **5acd89fd7806** |
 | **sim-update-flow.js** | 499 | **d037570b3c1e** |
 | **sim-update-recheck.js** | 330 | **2783aaa8f44c** |
-| **sim-firebase-left.js** | 176 | **29eee00cbbec** |
+| **sim-firebase-left.js** | 176 | **7ccb37cbf4ef** |
 | **sim-maintenance-gate.js** | 380 | **251dd4e44400** |
 | **sim-room-invite-wait.js** | 45 | **76bc51548bda** |
 | **sim-friend-manage.js** | 252 | **afd2163ad386** |
@@ -173,8 +173,7 @@
 | **sim-friend-code-keep.js** | 131 | **814fd3b9bef1** |
 | **sim-gacha-album.js** | 120 | **9b23b01a1f62** |
 | **sim-google-oauth.js** | 357 | **103900b0353b** |
-| **sim-google-confirm.js** | 248 | **66c919571c52** |
-| **sim-google-change.js** | 107 | **97ad8f6d3b36** |
+| **sim-google-confirm.js** | 336 | **ed431cfe5a3e** |
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
 | **sim-key-input.js** | 71 | **d96a4cd791fc** |
 | **sim-keysof-twin.js** | 369 | **54f473215813** |
@@ -383,7 +382,7 @@
 | **sim-part-paint.js** | 94 | **0cae749ad104** |
 | **sim-focus-level.js** | 128 | **13f5a446768a** |
 | **sim-chat-ui.js** | 126 | **eca9c00f7396** |
-| **sim-license-gate.js** | 370 | **534d87d7d23e** |
+| **sim-license-gate.js** | 441 | **521051c816cd** |
 | **sim-account.js** | 174 | **bee6deb0f7c1** |
 | **sim-wardrobe.js** | 318 | **c217649e24cf** |
 | **sim-settings-panel.js** | 205 | **c7ca3a3f8fd1** |
@@ -464,7 +463,7 @@
 | **sim-launcher-state.js** | 91 | **26912637390e** |
 | **sim-account-state.js** | 108 | **413b232af0e3** |
 | **sim-nav.js** | 91 | **27ffd1e7cdaa** |
-| **sim-server-features.js** | 168 | **f89299512122** |
+| **sim-server-features.js** | 170 | **966b9000dd82** |
 | **sim-app-boot.js** | 185 | **8ff3e45193d1** |
 | **sim-away-start.js** | 120 | **b9010d0eee8e** |
 | **sim-user-local.js** | 207 | **b34ec3227153** |
@@ -540,8 +539,8 @@
 | **sim-rt-hub.js** | 753 | **d2c57ea4e8ae** |
 | **sim-rt-status-ui.js** | 245 | **60536e178fbf** |
 | **sim-run-verdict.js** | 67 | **76851f0d5f8e** |
-| **sim-user-api.js** | 304 | **ce4fb62e42b6** |
-| **sim-login-flow.js** | 514 | **4fb199eaee75** |
+| **sim-user-api.js** | 318 | **11debe0a3a96** |
+| **sim-login-flow.js** | 532 | **25f15c96df3c** |
 | **sim-login-diag.js** | 263 | **e416a45edc5f** |
 | **sim-auth-barrier.js** | 165 | **1b341df947b0** |
 | **sim-first-run-013.js** | 439 | **89e2c4b9e692** |
@@ -2081,7 +2080,7 @@ Tahoma 에는 한글 글자가 없어서 한글은 브라우저가 고른 대체
 | 6 | A(개정 40) — 시안 글자 · ★ 아이디 고정 표시 · 오버레이 안 · 발명은 `_signupPendingEnsure` 만 · ★ 끊긴 가입 → 부팅 때 A · 임시 블록 없음 · 실행: ★ 열기만 해선 서버·uid 0 · ★ 순서 익명 → 선점 → 연결 → 결속 → 거울 → 마무리 · uid·코드·로그인 표시·도장 · ★ 뺏긴 코드 → 새 코드 · ★ ④ 끊김 → 같은 uid·코드로 이어 끝남 · Auth 중복 → 새 코드 · 익명 꺼짐 · 결속 실패 · ★ 구글 가입 · ★ 이미 가입된 구글 · 창 닫음 · firebase-init: ★ 익명 이어 쓰기 · 승격 세션 · ★ 남의 세션 놓기 · 익명 꺼짐 · ★ 승격 authUid 그대로 · 한 번만 · taken · 약한 비밀번호 · ★ 결속 · 이메일 거울 없음 · 남의 것 거절 | 정적 · 실행(떼어 오기) |
 | 7 | I(개정 41) — 시안 글자 · 고정 표시 · ★ 닫기 없음 · 반투명 · ★ UI_HIT_SEL 등록 · 게이트 뒤 판정 · 스위치 · 판정: uid 없음 · 꺼짐 · ★ 못 읽음 · ★ 이미 묶임 → 안 띄움 · ★ 묶이지 않음 → 이 기기 코드 · 거울 코드 · 새 후보 · 못 읽음 · 가입: ★ 순서(선점 없음) · ★ 이 uid 결속 · uid 그대로 · 로그인 표시 · 상태 키 없음 · 선점·뺏김 · ★ persist=false · 결속 실패 | 정적 · 실행(떼어 오기) |
 | 8 | ⑥(개정 42) — ★ ensureMyFriendCode 첫머리(발급보다 먼저) · 부르는 곳 하나 · ★ 본문에 쓰기 없음 · 실행: ★ 다르고 내 것 → 로컬만 · ★ 쓰기 0 · ★ 남의 것 → 그대로 · 비었음 · 같음(주인 안 물음) · 못 읽음 둘 · uid 없음 · ★ 로컬 코드 없는 PC 는 거울을 따르고 발급 안 함 · 세션당 한 번 · 거울도 없으면 발급 | 정적 · 실행(떼어 오기) |
-| 9 | J·J2·K(개정 43) — J 시안 글자 · 경고 두 줄(사용자 수정본) · 버튼 둘 · J2 줄 · ★ A·J 에 «되찾기 코드» 없음 · K 시안 · ★ 닫기 없음 · ★ UI_HIT_SEL · I 뒤 K · ★ A 완료 → 재시작 · 두 길 · ★ I 완료 → 닫기(재시작 없음) · ★ 구글 붙이기 = linkWithCredential · K 판정: uid 없음 · ★ 못 읽음 · 안 묶임 · ★ 이미 로그인 · ★ 묶였는데 로그인 안 됨(거울) · 다른 세션(이 기기 코드) · 완료 화면(가짜 DOM): J 표시 · J2 표시 · ★ [시작하기] 에서 풀림 · 구글 붙이기 성공·실패 | 정적 · 실행(떼어 오기 · 가짜 DOM) |
+| 9 | J·J2·K(개정 43) — J 시안 글자 · 경고 두 줄(사용자 수정본) · 버튼 둘 · J2 줄 · ★ A·J 에 «되찾기 코드» 없음 · K 시안 · ★ 닫기 없음 · ★ UI_HIT_SEL · I 뒤 K · ★ A 완료 → 재시작 · 두 길 · ★ I 완료 → 닫기(재시작 없음) · K 판정: uid 없음 · ★ 못 읽음 · 안 묶임 · ★ 이미 로그인 · ★ 묶였는데 로그인 안 됨(거울) · 다른 세션(이 기기 코드) · 완료 화면(가짜 DOM): J 표시 · J2 표시 · ★ [시작하기] 에서 풀림 | 정적 · 실행(떼어 오기 · 가짜 DOM) |
 | 10 | C3·C2(개정 44) — 구획 자리(로그인 후 얼굴 · 로그아웃 위) · 시안 글자(로그인 수단 · C3 안내 · C2 경고 · C2 안내) · ★ 비밀번호 칸 둘뿐 · ★ «되찾기 코드» 없음 · ★ CSP 함수 호스트(두 줄 · 와일드카드 아님) · 리전 · ★ 새 통로 넷은 authSignOut 뒤 · ★ 함수 SDK 동적 import · 판 일치 · C3 = 붙이기 · 재인증 = 세션 유지 · firebase-init 실행: 세션 없음 · 익명 · already · ★ 성공 이메일 · ★ needReauth · taken · user-mismatch · C2: 세션 없음 · 비밀번호 없음 · 6자 · SDK 못 받음 · ★ not-found = 배포 전 · ★ 새 비밀번호만 보냄 · ★ 다시 로그인 · relogged:false · app 실행: 모드 다섯 · 입력 검사 · 아이디(거울 · 이 기기 · ★ 남의 코드 거절 · 모양 · 못 읽음 · uid 없음) · C3 한 번 · ★ 재인증 뒤 한 번 더 · 창 닫음 · 재인증 실패 · C2 통로 · 그리기(가짜 DOM): ★ C3 · ★ C2 · ★ 경고 + [연결하기] · 세션 풀림 · 로그인 안 함 | 정적 · 실행(떼어 오기 · 가짜 DOM) |
 
 ★ **떼어 오기(개정 44).** 10절 구획은 `<div id="acctMethods"` ~ `<div id="acctMOff"` — 그 사이에 다른 덩어리를 끼우지 말 것. firebase-init 새 통로 넷(`authProviders` · `authLinkPassword` · `authReauthGoogle` · `authChangePassword`)은 이 순서로 `authSignOut` **뒤**에 — 앞에 두면 5·6·9절 떼어 오기가 그것까지 품는다. `authChangePassword` 안의 `import(FUNCTIONS_SDK_URL)` 글자는 10절이 바꿔 끼워 돌린다(이 모양 그대로 둘 것).

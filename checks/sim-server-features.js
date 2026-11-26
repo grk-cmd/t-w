@@ -19,7 +19,8 @@ for (const f of ['shared/server-features.js', 'app.js', 'desk-companion-prototyp
   if (SRC[f] == null) { say('  ? 원본 못 찾음 — ' + f); process.exit(2); }
 }
 const NAMES = ['xmas', 'chatNotice', 'chatFocus', 'playlistLike', 'googleChange', 'friendReqMsg', 'themeCustomSave'];
-const ON = ['friendReqMsg', 'themeCustomSave'];   // 서버가 받는 것 — friendReqMsg: POST · GET /v2/me/friend-requests 의 message(t-w-server #364) · themeCustomSave: GET · PUT /v2/me/theme-custom(t-w-server #363)
+/* 서버가 받은 기능 — 켜 둔다 · googleChange: PUT /v2/me/google(#1101) · friendReqMsg: POST · GET /v2/me/friend-requests 의 message(t-w-server #364) · themeCustomSave: GET · PUT /v2/me/theme-custom(t-w-server #363) */
+const ON = ['googleChange', 'friendReqMsg', 'themeCustomSave'];
 const loadSF = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwServerFeatures; };
 
 function judgeTable(src) {
@@ -118,6 +119,7 @@ say('── 4. mutation test');
   const src = SRC['shared/server-features.js'];
   const muts = [
     ['하나를 켬', src.replace('xmas: false,', 'xmas: true,'), (r) => !r.allOff],
+    ['받은 기능을 끔', src.replace('googleChange: true,', 'googleChange: false,'), (r) => !r.allOff],
     ['서버가 받은 것을 끔', src.replace('friendReqMsg: true,', 'friendReqMsg: false,'), (r) => !r.allOff],
     ['내 색 저장을 끔', src.replace('themeCustomSave: true,', 'themeCustomSave: false,'), (r) => !r.allOff],
     ['모르는 이름을 던지지 않음', src.replace("throw new Error('[server-features] 모르는 기능 이름 — ' + name);", 'return false;'), (r) => !r.throws],
@@ -161,7 +163,7 @@ say('── 5. 서버 길이 없는 provider 자리(noServer)');
   const m2 = src.replace("(k === 'then' ? undefined : ", "(false ? undefined : ");
   chk(m2 !== src && !(await judgeNo(m2)).notThenable, 'mutation test: then 을 막지 않으면 → 빨강');
   const A = SRC['app.js'] || '';
-  chk(!/firebaseAPI\.(xmas|chatNotice|roomFocus|playlistLike|loadThemeCustom|saveThemeCustom|authChangeGoogle)\b/.test(A), 'app.js 는 꺼진 기능의 옛 Firebase 통로를 부르지 않는다(noServer 자리)');
+  chk(!/firebaseAPI\.(xmas|chatNotice|roomFocus|playlistLike|loadThemeCustom|saveThemeCustom)\b/.test(A), 'app.js 는 꺼진 기능의 옛 Firebase 통로를 부르지 않는다(noServer 자리)');
   say('');
   say((fail ? '✗' : '✓') + ' 통과 ' + pass + ' · 실패 ' + fail);
   process.exit(fail ? 1 : 0);

@@ -25,7 +25,7 @@
        렌더러 CSP 와 무관하다. script-src 도 gstatic 이 이미 있다. */
   import {
     getAuth, signInWithCredential, GoogleAuthProvider, signInWithEmailAndPassword, getAdditionalUserInfo, deleteUser,
-    linkWithCredential, reauthenticateWithCredential, EmailAuthProvider,
+    reauthenticateWithCredential, EmailAuthProvider,
     signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { firebaseConfig } from "./firebase-config.js";
@@ -295,21 +295,12 @@
         return { ok:false, reason:'로그인에 실패했어요 (' + (k || '알 수 없음') + ')' };
       }
     },
-    /* 🔗 지금 로그인(비밀번호로 가입)에 구글을 **붙인다** — 같은 authUid 그대로. 그 구글이 이미 다른 계정 것이면 거절(자동 병합 없음).
-       TODO: 서버 경로가 없다(지도 6장 ⑧) — 생기면 서버 경로로 옮긴다. */
-    async authLinkGoogle(idToken){
+    /* 🔄 서버가 로그인 수단을 바꾼 뒤(구글 붙이기 · 바꾸기 — /v2/me/google) 이 세션의 providerData 를 새로 받는다 — 계정 탭이 다시 그린다.
+       붙이기 · 바꾸기는 서버가 한다(앱이 Firebase 에 직접 붙이면 서버가 «남의 계정 구글» 을 가르지 못한다). → { ok } | { ok:false, reason } */
+    async authReload(){
       if(!auth || !auth.currentUser) return { ok:false, reason:'로그인 상태가 아니에요 — 다시 시도해 주세요' };
-      try{
-        const cred = await linkWithCredential(auth.currentUser, GoogleAuthProvider.credential(idToken));
-        const g = (cred.user.providerData || []).find(p => p && p.providerId === 'google.com');
-        return { ok:true, email: (g && g.email) || null };
-      }catch(e){
-        const k = String((e && e.code) || e || '');
-        if(k.includes('credential-already-in-use') || k.includes('email-already-in-use')) return { ok:false, reason:'이 구글 계정은 이미 다른 계정에 쓰이고 있어요' };
-        if(k.includes('provider-already-linked')) return { ok:true, already:true, email:null };
-        if(k.includes('network')) return { ok:false, reason:'네트워크 오류 — 연결을 확인해주세요' };
-        return { ok:false, reason:'구글을 연결하지 못했어요 (' + (k || '알 수 없음') + ')' };
-      }
+      try{ await auth.currentUser.reload(); return { ok:true }; }
+      catch(_){ return { ok:false, reason:'로그인 정보를 새로 받지 못했어요 — 앱을 다시 시작하면 보여요' }; }
     },
     async authSignOut(){ if(auth){ try{ await fbSignOut(auth); }catch(_){} } },
     /* 방금 만든 구글 로그인(서버 계정 없음)의 Auth 사용자를 지운다 — 지금 로그인이 그 uid 일 때만. 지우면 로그인도 풀린다 → { ok } */

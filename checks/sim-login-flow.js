@@ -77,11 +77,12 @@ function mkEnv(S, o){
   /* 방 나가기 흉내 — leave 를 보내고 left 를 기다렸다 풀린다(방 밖이면 바로) */
   const leaveRoom = opt.leaveHang ? () => { rtLog.push('leave'); return new Promise(() => {}); }   // 오프라인 — 방 나가기 쓰기가 끝나지 않음
     : async () => { rtLog.push('leave'); await tick(); rtLog.push('left'); };
-  let lost = 0; const lostKinds = []; const confirmed = [];
+  let lost = 0; const lostKinds = []; const confirmed = []; const asked = [];
   const ids = RI.createPending();
   const flow = LF.createLoginFlow({
     userApi, translate: AE.translate, reasonOf: UA.reasonOf, auth,
     googleWindow: async () => (opt.gWin ? opt.gWin() : { ok: true, idToken: 'gtok' }),
+    askGoogle: async (email) => { asked.push(email); return opt.ask ? opt.ask(email) : 'yes'; },
     rt, leaveRoom, pending: ids, storage, onSessionLost: (k) => { lost++; lostKinds.push(k); }, forgetSession: () => { rtLog.push('forget'); },
     now: () => clock.t,
     onConfirmed: (r, info) => { confirmed.push([r.state, info.restore]); },
@@ -92,7 +93,7 @@ function mkEnv(S, o){
     clock.t = end; await tick();
   };
   return { LF, flow, srv, store, storage, authLog, rtLog, log, clock, advance, lost: () => lost, lostKinds, fireState: (s) => stateFn && stateFn(s),
-    setUser: (u) => { user = u; }, answer, bar, user: () => user, confirmed };
+    setUser: (u) => { user = u; }, answer, bar, user: () => user, confirmed, asked };
 }
 
 async function judge(S){
@@ -311,6 +312,19 @@ async function judge(S){
     g4.srv.joinGAns = () => { throw apiErr('request', 'USER_INVITE_REQUIRED'); };
     const x4 = await g4.flow.joinGoogle({});
     chk(!x4.ok && /초대/.test(x4.reason), '  ↳ 초대 코드가 필요하면 문구');
+    chk(g2.asked.join() === 'a@b.c' && g1.asked.length === 0, '  ↳ ★ 계정 없는 구글로 가입하기 전에만 묻는다(이미 계정이면 묻지 않음) · 그 구글 주소로');
+    for(const ans of ['other', 'cancel']){
+      const g5 = mkEnv(S, { user: null, me: () => { throw apiErr('auth', 'USER_CODE_NOT_BOUND'); }, ask: () => ans });
+      const x5 = await g5.flow.joinGoogle({ inviteCode: 'INVT-G' });
+      chk(!x5.ok && x5.canceled === true && x5.other === (ans === 'other') && g5.srv.joinG.length === 0 && g5.authLog[g5.authLog.length - 1] === 'out',
+        '  ↳ ★ 묻기에서 ' + (ans === 'other' ? '[다른 계정으로 로그인]' : '닫기') + ' — 가입하지 않고(POST 0) 로그인을 놓는다 · 조용히(canceled)');
+    }
+    const g5f = mkEnv(S, { user: null, gFresh: true, me: () => { throw apiErr('auth', 'USER_CODE_NOT_BOUND'); }, ask: () => 'other' });
+    await g5f.flow.joinGoogle({ inviteCode: 'INVT-G' });
+    chk(g5f.authLog.join() === 'g:gtok,del:authG' && g5f.srv.joinG.length === 0, '  ↳ ★ 묻기에서 [다른 계정] · 닫기 + 방금 생긴 로그인 → 지운다(그 구글을 다른 계정에 연결할 수 있게)');
+    const g6 = mkEnv(S, { user: null, me: () => { throw apiErr('auth', 'USER_CODE_NOT_BOUND'); }, ask: () => { throw new Error('창 없음'); } });
+    const x6 = await g6.flow.joinGoogle({ inviteCode: 'INVT-G' });
+    chk(!x6.ok && g6.srv.joinG.length === 0, '  ↳ 묻는 창이 던지면 가입하지 않는다(묻지 않고 만들지 않음)');
   }
 
   say('── 6. 내 계정 고치기');
@@ -450,6 +464,10 @@ const BREAKS = [
   ['LF', "    if(!online){ online = true; rtWait = true; deps.rt.start({ claim: true }); }", "", '기다리는 동안 realtime 을 안 켬(신호가 안 옴)'],
   ['LF', "    else if(rtWait){ rtWait = false; online = false; try{ deps.rt.stop(); }catch(_){} }", "", '계정이 없는데 켜 둔 연결을 안 끔'],
   ['LF', "limited: !!(e && e.status === 429)", "limited: false", '429 를 못 알림'],
+  ['LF', "    if(answer !== 'yes'){ await dropLogin(true); return", "    if(false){ await dropLogin(true); return", '묻기 답을 무시하고 가입'],
+  ['LF', "    try{ answer = await deps.askGoogle(l.email); }catch(_){}\n", "    answer = 'yes';\n", '가입 전에 묻지 않음'],
+  ['LF', "other: answer === 'other'", "other: false", '[다른 계정]을 알리지 않음(로그인 화면으로 못 감)'],
+  ['LF', "    if(answer !== 'yes'){ await dropLogin(true); return", "    if(answer !== 'yes'){ await dropLogin(false); return", '묻기에서 [다른 계정] · 닫기면 방금 생긴 로그인을 안 지움'],
   ['LF', "    if(c.state === STATE.SIGNUP && !keepOnSignup) await dropGoogleLogin(a, true);", "", '가입 전 구글 로그인을 남김'],
   ['LF', "      await dropLogin(!!e && e.kind === 'request' && e.status !== 408 && e.code !== 'USER_ALREADY_JOINED');   // 서버가 확실히 거절했을 때만 지운다 — 구글 가입은 요청 번호가 없어 시간 초과(408 포함)여도 계정이 생겼을 수 있다\n", "", '거절된 구글 가입의 로그인을 남김'],
   ['LF', "    if(canDelete && a && a.fresh && a.uid){", "    if(false){", '방금 생긴 구글 로그인을 안 지움(그 구글을 다시 연결 못 함)'],

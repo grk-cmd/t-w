@@ -12,7 +12,8 @@
    [복원 기다림] 8초 대기선(auth.ready — 쓰기용)이 풀린 뒤에도 저장된 로그인의 첫 답이 없으면 «로그인 없음» 으로 보지 않고 더 기다린다 —
      렌더러가 바쁜 PC 는 복원이 8초를 넘겨 켤 때마다 로그인 화면으로 떨어졌다. Firebase 가 «사용자 없음» 으로 답하면(저장된 로그인을 지움) 그때는 login.
    [가입] 비밀번호: POST /v2/users(토큰 없음) → 받은 친구코드 + 비밀번호로 Auth 로그인 → confirm. 답을 못 받아 다시 누르면 **같은 요청 번호**
-     (서버가 처음 계정을 돌려준다 — 두 계정이 생기지 않게). 구글: 구글 로그인 → confirm 이 'signup' 이면 POST /v2/users { inviteCode }.
+     (서버가 처음 계정을 돌려준다 — 두 계정이 생기지 않게). 구글: 구글 로그인 → confirm 이 'signup' 이면 처음 보는 구글인지 묻고(deps.askGoogle —
+     구글을 여러 개 쓰는 사람이 다른 구글로 빈 계정을 만들지 않게) → POST /v2/users { inviteCode }.
    [realtime] goOnline() — 서버가 계정을 돌려주고 이 PC 를 등록한 뒤(launcher/app-boot.js) 켠다. 예외: 서버에 닿지 못한 화면 동안은 waitForServer 가 켜 두고 ready 를 다시 묻는 계기로 쓴다(계정이 정해지면 같은 연결을 그대로). 끊기면(4004) onSessionLost(까닭)로 기기 안내 화면을 띄운다.
    classic script — user-api.js · api-errors.js · rt-hub.js 다음 · app.js 보다 먼저 싣는다(window.TwLoginFlow). Firebase 를 모른다 — Auth 원시는 deps.auth. */
 (function(){
@@ -216,12 +217,16 @@ function createLoginFlow(deps){
     deps.pending.settle(key);
     return { ok: true, me: c.me };
   }
-  /* 구글 가입 — 구글 로그인 → 이미 계정이면 그 계정(existing) · 없으면 POST /v2/users { inviteCode }. */
+  /* 구글 가입 — 구글 로그인 → 이미 계정이면 그 계정(existing) · 없으면 묻고 → POST /v2/users { inviteCode }.
+     묻기에서 [다른 계정으로 로그인] · 닫기면 가입하지 않고 로그인을 놓는다(canceled — 화면은 조용히 끝). */
   async function joinGoogle(o){
     const l = await googleSignInConfirm(true);
     if(l.ok) return { ok: true, existing: true, me: l.me };
     if(l.state !== STATE.SIGNUP) return l;
     const dropLogin = (canDelete) => dropGoogleLogin(l.login, canDelete);   // 가입이 안 됐으면 계정 없는 로그인을 남기지 않는다
+    let answer = 'cancel';
+    try{ answer = await deps.askGoogle(l.email); }catch(_){}
+    if(answer !== 'yes'){ await dropLogin(true); return { ok: false, canceled: true, other: answer === 'other', reason: '' }; }   // 서버가 «계정 없음» 이라 답했고 가입을 보내지 않았다 — 방금 생긴 로그인이면 지운다
     let me = null;
     try{ me = await userApi.joinWithGoogle({ inviteCode: (o && o.inviteCode) || null }); }
     catch(e){
