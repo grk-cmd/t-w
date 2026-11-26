@@ -19,12 +19,13 @@ const pngOf = (file: string): Uint8Array | null => {
   const data = PNGS[`../../src/features/web-creator/manage-parts/builtin/${file}`];
   return data ? bytesFromDataUrl(data) : null;
 };
-const product = (id: string, slot: string, ko: string, status = 'active') => ({
-  id,
+const product = (id: string, slot: string, ko: string, state = 'ACTIVE') => ({
+  productId: id,
   target: { kind: 'baseModel' },
-  name: { ko, en: 'x', ja: 'x' },
-  status,
-  position: 10,
+  names: { ko, en: 'x', ja: 'x' },
+  thumb: `h2${id}`,
+  listing: { state, access: { kind: 'everyone', display: 'show' } },
+  version: 1,
   pieces: [
     {
       id: `pc_${id}`,
@@ -32,14 +33,22 @@ const product = (id: string, slot: string, ko: string, status = 'active') => ({
       target: { kind: 'baseModel' },
       surface: 'face',
       slot,
-      src: `https://api.together-working.com/v1/assets/h2${id}.png`,
+      imageHash: `h2${id}`,
       w: 10,
       h: 10,
     },
   ],
 });
 
-/** 목록은 live · archived 따로 · 올리기는 h2up1 … · 만들기 본문을 모은다 · failKo 이름의 만들기는 실패 */
+const SHELF_PUT = 'PUT /v2/admin/catalog/shelves/PRODUCT%3AbaseModel';
+const CREATE = 'POST /v2/admin/catalog/products';
+/** 만들기 본문의 requestId 는 매번 새 번호라 견주기 전에 뺀다 */
+const withoutRequestId = (b: unknown) => {
+  const { requestId: _id, ...rest } = b as Record<string, unknown>;
+  return rest;
+};
+
+/** 목록은 live · archived 따로(진열대 번호 6) · 올리기는 h2up1 … · 만들기 본문을 모은다 · failKo 이름의 만들기는 실패 */
 function fakeApi(live: unknown[], archived: unknown[] = [], failKo?: string) {
   const calls: string[] = [];
   const bodies: unknown[] = [];
@@ -47,19 +56,20 @@ function fakeApi(live: unknown[], archived: unknown[] = [], failKo?: string) {
   const api: Api = {
     baseUrl: 'https://api.test',
     get: async <T>(_p: string, params?: ApiParams) =>
-      ({ products: params?.status === 'archived' ? archived : live }) as T,
+      ({
+        products: params?.state === 'ARCHIVED' ? archived : live,
+        shelves: [{ scope: 'PRODUCT:baseModel', order: [], version: 6 }],
+        files: {},
+      }) as T,
     send: async <T>(method: ApiSendMethod, path: string, options?: ApiSendOptions) => {
       const body = options?.body;
       calls.push(`${method} ${path}`);
       bodies.push(body);
       // 만든 상품은 다음 목록 읽기에 보인다(서버처럼 맨 뒤)
       if (method === 'POST') {
-        const b = body as { name: { ko: string }; pieces: { slot: string }[] };
-        if (b.name.ko === failKo) throw new Error('서버 503');
-        live.push({
-          ...product(`n${live.length}`, b.pieces[0]?.slot ?? '', b.name.ko, 'draft'),
-          position: 100 + live.length,
-        });
+        const b = body as { names: { ko: string }; pieces: { slot: string }[] };
+        if (b.names.ko === failKo) throw new Error('서버 503');
+        live.push(product(`n${live.length}`, b.pieces[0]?.slot ?? '', b.names.ko, 'DRAFT'));
       }
       return null as T;
     },
@@ -130,23 +140,25 @@ describe('기본 파츠 가져오기', () => {
   ];
 
   it('없는 것 = 같은 자리 · 같은 한국어 이름이 없는 것(다른 자리 같은 이름은 별개)', () => {
-    const existing = parseAdminParts({
-      products: [product('a', 'mouth', '오'), product('b', 'brows', '굵은')],
-    });
+    const existing = parseAdminParts(
+      { products: [product('a', 'mouth', '오'), product('b', 'brows', '굵은')] },
+      'https://api.test',
+    ).parts;
     expect(missingBuiltins(existing, two).map((b) => b.key)).toEqual(['eyeline/thick']);
   });
 
   it('단종까지 새로 읽어 없는 것만 차례로 초안으로 — 감은 그림도 올리고 진행을 알린다', async () => {
-    const { api, calls, bodies } = fakeApi([], [product('old', 'mouth', '오', 'archived')]);
+    const { api, calls, bodies } = fakeApi([], [product('old', 'mouth', '오', 'ARCHIVED')]);
     const seen: string[] = [];
     const done = await importBuiltins(api, bytes, (d, t) => seen.push(`${d}/${t}`), two);
     expect(done).toBe(1);
     expect(seen).toEqual(['0/1', '1/1']);
-    expect(calls).toEqual(['UPLOAD', 'UPLOAD', 'POST /v1/admin/products']);
-    expect(bodies[0]).toEqual({
+    expect(calls).toEqual(['UPLOAD', 'UPLOAD', CREATE]);
+    expect(typeof (bodies[0] as { requestId?: unknown }).requestId).toBe('string');
+    expect(withoutRequestId(bodies[0])).toEqual({
       target: { kind: 'baseModel' },
-      name: { ko: '굵은', en: 'Thick', ja: 'ふとい' },
-      thumbHash: 'h2up1',
+      names: { ko: '굵은', en: 'Thick', ja: 'ふとい' },
+      thumb: 'h2up1',
       pieces: [
         {
           kind: 'decal',
@@ -175,8 +187,8 @@ describe('기본 파츠 가져오기', () => {
     };
     const { api, calls, bodies } = fakeApi([product('a', 'mouth', '오'), product('b', 'eyeline', '굵은')]);
     expect(await importBuiltins(api, bytes, () => {}, [...two, lead])).toBe(1);
-    expect(calls.at(-1)).toBe('PUT /v1/admin/products/order');
-    expect(bodies.at(-1)).toEqual({ target: { kind: 'baseModel' }, ids: ['n2', 'a', 'b'] });
+    expect(calls.at(-1)).toBe(SHELF_PUT);
+    expect(bodies.at(-1)).toEqual({ version: 6, order: ['n2', 'a', 'b'] });
   });
 
   it('처음 얼굴 뒤에서 실패해도 순서는 맞춘다 · 다시 눌러도 이미 맨 앞이면 보내지 않는다', async () => {
@@ -188,37 +200,31 @@ describe('기본 파츠 가져오기', () => {
     };
     const { api, calls, bodies } = fakeApi([product('b', 'eyeline', '굵은')], [], '오');
     await expect(importBuiltins(api, bytes, () => {}, [lead, two[0] as BuiltinPart])).rejects.toThrow('503');
-    expect(calls.at(-1)).toBe('PUT /v1/admin/products/order');
-    expect(bodies.at(-1)).toEqual({ target: { kind: 'baseModel' }, ids: ['n1', 'b'] });
+    expect(calls.at(-1)).toBe(SHELF_PUT);
+    expect(bodies.at(-1)).toEqual({ version: 6, order: ['n1', 'b'] });
     calls.length = 0;
     // 서버가 순서를 바꿨다고 치고 다시 — 맨 앞이면 순서는 그대로
-    const again = fakeApi([
-      { ...product('n1', 'eyeline', '얇은'), position: 10 },
-      { ...product('b', 'eyeline', '굵은'), position: 20 },
-    ]);
+    const again = fakeApi([product('n1', 'eyeline', '얇은'), product('b', 'eyeline', '굵은')]);
     expect(await importBuiltins(again.api, bytes, () => {}, [lead, two[0] as BuiltinPart])).toBe(1);
-    expect(again.calls).not.toContain('PUT /v1/admin/products/order');
+    expect(again.calls).not.toContain(SHELF_PUT);
   });
 
   it('처음 얼굴이 이미 자리 맨 앞이면 순서를 건드리지 않는다', async () => {
     const lead = { ...two[0], lead: true } as BuiltinPart;
     const { api, calls } = fakeApi([product('a', 'mouth', '오')]);
     expect(await importBuiltins(api, bytes, () => {}, [lead, two[1] as BuiltinPart])).toBe(1);
-    expect(calls).not.toContain('PUT /v1/admin/products/order');
+    expect(calls).not.toContain(SHELF_PUT);
   });
 
   it('손으로 처음 얼굴을 뒤로 보냈으면 남은 것을 가져올 때 다시 맨 앞으로', async () => {
     const lead = { ...two[0], lead: true } as BuiltinPart;
-    const { api, bodies } = fakeApi([
-      { ...product('z', 'mouth', '다른 입'), position: 10 },
-      { ...product('a', 'mouth', '오'), position: 20 },
-    ]);
+    const { api, bodies } = fakeApi([product('z', 'mouth', '다른 입'), product('a', 'mouth', '오')]);
     expect(await importBuiltins(api, bytes, () => {}, [lead, two[1] as BuiltinPart])).toBe(1);
-    expect(bodies.at(-1)).toEqual({ target: { kind: 'baseModel' }, ids: ['a', 'z', 'n2'] });
+    expect(bodies.at(-1)).toEqual({ version: 6, order: ['a', 'z', 'n2'] });
   });
 
   it('다 있으면 아무것도 올리지 않는다(다시 눌러도 겹치지 않음)', async () => {
-    const { api, calls } = fakeApi([product('a', 'mouth', '오'), product('b', 'eyeline', '굵은', 'draft')]);
+    const { api, calls } = fakeApi([product('a', 'mouth', '오'), product('b', 'eyeline', '굵은', 'DRAFT')]);
     expect(await importBuiltins(api, bytes, () => {}, two)).toBe(0);
     expect(calls).toEqual([]);
   });

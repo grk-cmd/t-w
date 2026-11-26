@@ -17,6 +17,7 @@ import {
   updateWebPart,
   uploadPartFile,
   webPartErrorMessage,
+  SHELF_SCOPE,
   type WebPart,
   type WebPartDraft,
 } from '@/entities/web-creator/part';
@@ -37,7 +38,11 @@ const draft = (o: Partial<WebPartDraft> = {}): WebPartDraft => ({
   name: { ko: '별눈', en: 'Star', ja: 'ほし' },
   ...o,
 });
-const FILE = (h: string) => `https://api.together-working.com/v1/assets/${h}.png`;
+const BASE = 'https://api.test';
+/** files 에 없는 해시의 공개 주소 */
+const PUBLIC = (h: string) => `${BASE}/v2/catalog/assets/${h}.png`;
+/** files 에 실려 온 Storage 주소 */
+const STORED = (h: string) => `https://storage.example/${h}.png`;
 
 function fakeApi(data: unknown = null) {
   const calls: { method: string; path: string; body?: unknown; params?: unknown; type?: string }[] = [];
@@ -66,24 +71,37 @@ const piece = (o: Record<string, unknown> = {}) => ({
   target: { kind: 'baseModel' },
   surface: 'face',
   slot: 'pupil',
-  src: FILE('h2a'),
   w: 10,
   h: 12,
+  imageHash: 'h2a',
   ...o,
 });
+/** GET /v2/admin/catalog 의 products 한 줄(CatalogResponse.Product) */
 const productRow = (o: Record<string, unknown> = {}) => ({
-  id: 'i1',
+  productId: 'i1',
   target: { kind: 'baseModel' },
-  name: { ko: '가', en: 'a', ja: 'あ' },
-  thumb: FILE('h2t'),
-  status: 'active',
-  access: { kind: 'everyone', display: 'show' },
-  position: 10,
+  owner: 'admin',
+  names: { ko: '가', en: 'a', ja: 'あ' },
+  thumb: 'h2t',
   pieces: [piece()],
+  listing: { state: 'ACTIVE', access: { kind: 'everyone', display: 'show' } },
+  version: 3,
+  ...o,
+});
+const catalog = (products: unknown[], o: Record<string, unknown> = {}) => ({
+  categories: [],
+  shelves: [],
+  parts: [],
+  desks: [],
+  deskProps: [],
+  products,
+  unlocks: [],
+  season: 'none',
+  files: {},
   ...o,
 });
 const partOf = (o: Record<string, unknown> = {}): WebPart => {
-  const p = parseAdminParts({ products: [productRow(o)] })[0];
+  const p = parseAdminParts(catalog([productRow(o)]), BASE).parts[0];
   if (!p) throw new Error('시험용 상품을 읽지 못했다');
   return p;
 };
@@ -118,73 +136,74 @@ describe('웹 생성기 파츠 — 폼 값 검사', () => {
   });
 });
 
-describe('웹 생성기 파츠 — 목록 읽기(상품)', () => {
-  it('상태 · 그림(얼굴) 조각 하나짜리만 고칠 수 있다 · 모양이 틀린 줄은 뺀다', () => {
-    const got = parseAdminParts({
-      products: [
-        productRow({ id: 'b', status: 'draft', position: 10 }),
-        productRow({ id: 'a', position: 20 }),
-        productRow({ id: 'multi', position: 30, pieces: [piece(), piece({ id: 'pc2', slot: 'mouth' })] }),
-        productRow({ id: 'ear', position: 40, pieces: [piece({ surface: 'earL', slot: 'ear' })] }),
-        productRow({ id: 'p3d', position: 50, pieces: [{ id: 'pp', kind: 'part', partId: 'part_catear' }] }),
-        productRow({ id: 'other', target: { kind: 'part', id: 'hat' } }),
-        productRow({ id: 'bad', status: 'hidden' }),
-        productRow({ id: '' }),
-      ],
-    });
-    expect(got.map((p) => `${p.id}:${p.status}`)).toEqual([
-      'b:draft',
-      'a:active',
-      'multi:active',
-      'ear:active',
-      'p3d:active',
+describe('웹 생성기 파츠 — 목록 읽기(카탈로그 상품)', () => {
+  it('상태 · 그림(얼굴) 조각 하나짜리만 고칠 수 있다 · 모양이 틀린 줄은 뺀다 · 서버 배열 순서 그대로', () => {
+    const got = parseAdminParts(
+      catalog([
+        productRow({ productId: 'b', listing: { state: 'DRAFT' } }),
+        productRow({ productId: 'a' }),
+        productRow({ productId: 'multi', pieces: [piece(), piece({ id: 'pc2', slot: 'mouth' })] }),
+        productRow({ productId: 'ear', pieces: [piece({ surface: 'earL', slot: 'ear' })] }),
+        productRow({ productId: 'gone', listing: { state: 'ARCHIVED' } }),
+        productRow({ productId: 'other', target: { kind: 'part', id: 'hat' } }),
+        productRow({ productId: 'bad', listing: { state: 'HIDDEN' } }),
+        productRow({ productId: 'nover', version: undefined }),
+        productRow({ productId: '' }),
+      ]),
+      BASE,
+    ).parts;
+    expect(got.map((p) => `${p.id}:${p.status}:${p.version}`)).toEqual([
+      'b:draft:3',
+      'a:active:3',
+      'multi:active:3',
+      'ear:active:3',
+      'gone:archived:3',
     ]);
     expect(got[1]?.piece).toMatchObject({ id: 'pc1', slot: 'pupil', w: 10, h: 12, image: 'h2a' });
-    expect(got[2]).toMatchObject({ piece: null, pieceCount: 2, thumb: FILE('h2t') });
+    expect(got[2]).toMatchObject({ piece: null, pieceCount: 2, thumb: PUBLIC('h2t') });
     expect(got[3]?.piece).toBeNull(); // 다른 면은 이 화면에서 고치지 않는다
-    expect(got[4]?.piece).toBeNull(); // 3D 도
-    expect(parseAdminParts(null)).toEqual([]);
-    expect(parseAdminParts({ sets: [productRow()] })).toEqual([]); // 옛 모양
-    expect(parseAdminParts({ items: [productRow()] })).toEqual([]); // 지난 판 이름
+    expect(parseAdminParts(null, BASE)).toEqual({ parts: [], shelfVersion: 0 });
+    // 지난 판(/v1) 모양 — id · name · status 는 읽지 않는다
+    const v1 = { id: 'x', name: { ko: '가' }, status: 'active', target: { kind: 'baseModel' }, pieces: [] };
+    expect(parseAdminParts({ products: [v1] }, BASE).parts).toEqual([]);
   });
 
-  it('파일 해시 — 응답 값 · 없으면 파일 주소의 이름 · 모르면 null · 감은 그림은 주소든 해시든', () => {
-    expect(partOf({ pieces: [piece({ imageHash: 'given' })] }).piece?.image).toBe('given');
-    expect(partOf().piece?.image).toBe('h2a');
-    expect(partOf({ pieces: [piece({ src: 'https://x.example/a.png' })] }).piece?.image).toBeNull();
-    const byUrl = partOf({ pieces: [piece({ variants: { closed: FILE('h2c') } })] }).piece;
-    expect([byUrl?.closedSrc, byUrl?.closedImage]).toEqual([FILE('h2c'), 'h2c']);
-    const byHash = partOf({ pieces: [piece({ variants: { closed: 'h2c' } })] }).piece;
-    expect([byHash?.closedSrc, byHash?.closedImage]).toEqual([null, 'h2c']);
-    expect(partOf().piece?.closedImage).toBeNull();
-    // 관리자 응답의 …Hash 칸(§7-2)이 주소 이름보다 먼저
-    const given = partOf({
-      pieces: [piece({ variants: { closed: 'https://x.example/c.png' }, variantHashes: { closed: 'h2g' } })],
-    }).piece;
-    expect([given?.closedSrc, given?.closedImage]).toEqual(['https://x.example/c.png', 'h2g']);
-  });
-
-  it('썸네일은 주소일 때만 · 해시로 오면 조각 그림', () => {
-    expect(partOf({ thumb: 'h2t' }).thumb).toBe(FILE('h2a'));
-    expect(partOf().thumb).toBe(FILE('h2t'));
-  });
-
-  it('진열 순서 — position 작은 값이 앞 · 같으면 id · 없거나 틀리면 맨 뒤(서버 배열 순서는 믿지 않는다)', () => {
-    const got = parseAdminParts({
-      products: [
-        productRow({ id: 'c', position: 30 }),
-        productRow({ id: 'none', position: undefined }),
-        productRow({ id: 'b', position: 10 }),
-        productRow({ id: 'bad', position: 'x' }),
-        productRow({ id: 'a', position: 10 }),
-        productRow({ id: 'd', position: 20 }),
-      ],
+  it('그림 주소 — files 에 있으면 그 주소 · 없으면 공개 주소 · 감은 그림은 variantHashes.closed', () => {
+    const files = { h2a: STORED('h2a') };
+    const p = parseAdminParts(
+      catalog([productRow({ pieces: [piece({ variantHashes: { closed: 'h2c' } })] })], { files }),
+      BASE,
+    ).parts[0];
+    expect(p?.piece).toMatchObject({
+      src: STORED('h2a'),
+      image: 'h2a',
+      closedSrc: PUBLIC('h2c'),
+      closedImage: 'h2c',
     });
-    expect(got.map((p) => p.id)).toEqual(['a', 'b', 'd', 'c', 'bad', 'none']);
+    expect(p?.thumb).toBe(PUBLIC('h2t'));
+    expect(partOf().piece).toMatchObject({ closedSrc: null, closedImage: null });
+    expect(partOf({ pieces: [piece({ imageHash: '' })] }).piece).toBeNull(); // 그림 해시 없는 조각은 고치지 않는다
+  });
+
+  it('썸네일이 없으면 조각 그림', () => {
+    expect(partOf({ thumb: '' }).thumb).toBe(PUBLIC('h2a'));
+  });
+
+  it('진열대 번호 — PRODUCT:baseModel 줄의 version · 없으면 0', () => {
+    const shelves = [
+      { scope: 'DESK', order: [], version: 9 },
+      { scope: SHELF_SCOPE, order: ['a'], version: 4 },
+    ];
+    expect(SHELF_SCOPE).toBe('PRODUCT:baseModel');
+    expect(parseAdminParts(catalog([], { shelves }), BASE).shelfVersion).toBe(4);
+    expect(parseAdminParts(catalog([], { shelves: [shelves[0]] }), BASE).shelfVersion).toBe(0);
   });
 
   it('한 칸 옮기기 — 끝을 넘으면 null', () => {
-    const list = parseAdminParts({ products: ['a', 'b', 'c'].map((id) => productRow({ id })) });
+    const list = parseAdminParts(
+      catalog(['a', 'b', 'c'].map((productId) => productRow({ productId }))),
+      BASE,
+    ).parts;
     expect(movedIds(list, 1, -1)).toEqual(['b', 'a', 'c']);
     expect(movedIds(list, 1, 1)).toEqual(['a', 'c', 'b']);
     expect(movedIds(list, 0, 1)).toEqual(['b', 'a', 'c']); // 첫 줄도 아래로
@@ -194,52 +213,79 @@ describe('웹 생성기 파츠 — 목록 읽기(상품)', () => {
   });
 });
 
-describe('웹 생성기 파츠 — API(#517 경로 · 본문)', () => {
-  it('목록은 모델로 자르고(단종은 따로) · 파일은 바이트 그대로 올려 해시를 받는다', async () => {
-    const { api, calls } = fakeApi({ hash: 'h2new' });
-    await listWebParts(api);
-    await listWebParts(api, true);
-    await expect(uploadPartFile(api, PNG)).resolves.toBe('h2new');
+describe('웹 생성기 파츠 — API(/v2/admin/catalog 경로 · 본문)', () => {
+  it('목록은 상품만 · 이 모델로 자르고(단종은 state 로 따로 · 기본 목록에서 뺀다) · 파일은 바이트 그대로 올려 해시를 받는다', async () => {
+    const { api, calls } = fakeApi(
+      catalog([
+        productRow({ productId: 'a' }),
+        productRow({ productId: 'z', listing: { state: 'ARCHIVED' } }),
+      ]),
+    );
+    expect((await listWebParts(api)).parts.map((p) => p.id)).toEqual(['a']);
+    expect((await listWebParts(api, true)).parts.map((p) => p.id)).toEqual(['a', 'z']); // 거르기는 서버가
     expect(calls[0]).toMatchObject({
-      path: '/v1/admin/products',
-      params: { target: 'baseModel', status: undefined },
+      path: '/v2/admin/catalog',
+      params: { only: 'products', target: 'baseModel', state: undefined },
     });
     expect(calls[1]).toMatchObject({
-      path: '/v1/admin/products',
-      params: { target: 'baseModel', status: 'archived' },
+      path: '/v2/admin/catalog',
+      params: { only: 'products', target: 'baseModel', state: 'ARCHIVED' },
     });
-    expect(calls[2]).toMatchObject({
+    const up = fakeApi({ hash: 'h2new', kind: 'image', extension: 'png', bytes: 3 });
+    await expect(uploadPartFile(up.api, PNG)).resolves.toBe('h2new');
+    expect(up.calls[0]).toMatchObject({
       method: 'UPLOAD',
-      path: '/v1/admin/assets',
+      path: '/v2/admin/catalog/assets',
       body: PNG,
       type: 'image/png',
     });
     await expect(uploadPartFile(fakeApi({}).api, PNG)).rejects.toThrow('모양');
   });
 
-  it('새 파츠 = 조각 하나짜리 상품 — target · 이름 · 썸네일(그 그림) · 그림(얼굴) 조각(해시) · 상태 · 순서는 안 보냄', async () => {
+  it('새 파츠 = 조각 하나짜리 상품 — requestId · target · names · thumb(그 그림) · 조각(해시) · 상태 · 순서는 안 보냄', async () => {
     const { api, calls } = fakeApi();
     await createWebPart(api, draft(), 'h2i');
-    expect(calls[0]).toEqual({
-      method: 'POST',
-      path: '/v1/admin/products',
-      body: {
-        target: { kind: 'baseModel' },
-        name: draft().name,
-        thumbHash: 'h2i',
-        pieces: [
-          {
-            kind: 'decal',
-            target: { kind: 'baseModel' },
-            surface: 'face',
-            slot: 'pupil',
-            imageHash: 'h2i',
-            w: 24,
-            h: 24,
-          },
-        ],
-      },
+    const body = calls[0]?.body as Record<string, unknown>;
+    expect(calls[0]).toMatchObject({ method: 'POST', path: '/v2/admin/catalog/products' });
+    expect(typeof body.requestId).toBe('string');
+    expect(body).toEqual({
+      requestId: body.requestId,
+      target: { kind: 'baseModel' },
+      names: draft().name,
+      thumb: 'h2i',
+      pieces: [
+        {
+          kind: 'decal',
+          target: { kind: 'baseModel' },
+          surface: 'face',
+          slot: 'pupil',
+          imageHash: 'h2i',
+          w: 24,
+          h: 24,
+        },
+      ],
     });
+  });
+
+  it('닿지 못해 다시 만들면 같은 requestId · 서버가 답했으면 다음은 새 번호', async () => {
+    const calls: string[] = [];
+    let fail = true;
+    const api: Api = {
+      ...fakeApi().api,
+      send: async <T>(_m: ApiSendMethod, _p: string, options?: ApiSendOptions) => {
+        calls.push(String((options?.body as { requestId?: string } | undefined)?.requestId));
+        if (fail) {
+          fail = false;
+          throw new ApiError('unavailable', 0, '', 'API 에 연결하지 못했어요');
+        }
+        return null as T;
+      },
+    };
+    await expect(createWebPart(api, draft(), 'h2r')).rejects.toBeInstanceOf(ApiError);
+    await createWebPart(api, draft(), 'h2r');
+    await createWebPart(api, draft(), 'h2r');
+    expect(calls[0]).toBe(calls[1]);
+    expect(calls[2]).not.toBe(calls[1]);
   });
 
   it('눈 감은 얼굴 그림은 모든 자리 — variantHashes.closed', async () => {
@@ -250,11 +296,12 @@ describe('웹 생성기 파츠 — API(#517 경로 · 본문)', () => {
     expect(pieceBody(calls[1] as object)).not.toHaveProperty('variantHashes');
   });
 
-  it('고치기 — 본문은 규격 칸만: 조각 id 유지 · 안 바꾼 그림은 지금 해시 · 새 그림이면 썸네일도 · 감은 그림 그대로 / 바꿈 / 뺌', async () => {
+  it('고치기 — version 을 싣고 · 조각 id 유지 · 안 바꾼 그림은 지금 해시 · 새 그림이면 thumb 도 · 감은 그림 그대로 / 바꿈 / 뺌', async () => {
     const { api, calls } = fakeApi();
     const eye = partOf({
-      id: 'a/b',
-      pieces: [piece({ slot: 'eyeline', variants: { closed: FILE('h2c') } })],
+      productId: 'a/b',
+      version: 7,
+      pieces: [piece({ slot: 'eyeline', variantHashes: { closed: 'h2c' } })],
     });
     await updateWebPart(api, eye, draft({ slot: 'brows' }));
     await updateWebPart(api, eye, draft(), { image: 'h2n', closed: 'h2m' });
@@ -271,40 +318,43 @@ describe('웹 생성기 파츠 — API(#517 경로 · 본문)', () => {
       h: 24,
     });
     expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual(
-      Array(3).fill('PATCH /v1/admin/products/a%2Fb'),
+      Array(3).fill('PATCH /v2/admin/catalog/products/a%2Fb'),
     ); // id 는 경로 한 칸으로만
-    expect(calls[0]?.body).toEqual({ name: draft().name, pieces: [body('brows', 'h2a', 'h2c')] });
+    expect(calls[0]?.body).toEqual({
+      version: 7,
+      names: draft().name,
+      pieces: [body('brows', 'h2a', 'h2c')],
+    });
     expect(calls[1]?.body).toEqual({
-      name: draft().name,
-      thumbHash: 'h2n',
+      version: 7,
+      names: draft().name,
+      thumb: 'h2n',
       pieces: [body('pupil', 'h2n', 'h2m')],
     });
-    expect(calls[2]?.body).toEqual({ name: draft().name, pieces: [body('pupil', 'h2a')] });
+    expect(calls[2]?.body).toEqual({ version: 7, names: draft().name, pieces: [body('pupil', 'h2a')] });
   });
 
-  it('고칠 수 없는 경우는 보내지 않는다 — 여러 조각 · 그림 해시를 모름 · 감은 그림 해시를 모름', () => {
+  it('여러 조각 상품은 고치지 않는다', () => {
     const { api, calls } = fakeApi();
     const multi = partOf({ pieces: [piece(), piece({ id: 'pc2', slot: 'mouth' })] });
     expect(() => updateWebPart(api, multi, draft())).toThrow('여러');
-    const unknownImage = partOf({ pieces: [piece({ src: 'https://x.example/a.png' })] });
-    expect(() => updateWebPart(api, unknownImage, draft())).toThrow('다시 골라');
-    const unknownClosed = partOf({ pieces: [piece({ variants: { closed: 'https://x.example/c.png' } })] });
-    expect(() => updateWebPart(api, unknownClosed, draft())).toThrow('감은 얼굴');
     expect(calls).toEqual([]);
-    expect(() => updateWebPart(api, unknownImage, draft(), { image: 'h2n' })).not.toThrow(); // 새 그림이면 된다
-    expect(() => updateWebPart(api, unknownClosed, draft(), { closed: null })).not.toThrow(); // 빼면 된다
   });
 
-  it('상태는 status 만 · 순서는 모델과 id 전부 · 상품 DELETE 는 없다', async () => {
+  it('상태는 version 과 listing.state(대문자) 만 · 순서는 진열대 PRODUCT:baseModel 에 version 과 id 전부 · 상품 DELETE 는 없다', async () => {
     const { api, calls } = fakeApi();
-    await setWebPartStatus(api, 'p1', 'archived');
-    await reorderWebParts(api, ['b', 'a']);
+    await setWebPartStatus(api, partOf({ productId: 'p1', version: 5 }), 'archived');
+    await reorderWebParts(api, ['b', 'a'], 2);
     expect(calls).toEqual([
-      { method: 'PATCH', path: '/v1/admin/products/p1', body: { status: 'archived' } },
+      {
+        method: 'PATCH',
+        path: '/v2/admin/catalog/products/p1',
+        body: { version: 5, listing: { state: 'ARCHIVED' } },
+      },
       {
         method: 'PUT',
-        path: '/v1/admin/products/order',
-        body: { target: { kind: 'baseModel' }, ids: ['b', 'a'] },
+        path: '/v2/admin/catalog/shelves/PRODUCT%3AbaseModel',
+        body: { version: 2, order: ['b', 'a'] },
       },
     ]);
   });
