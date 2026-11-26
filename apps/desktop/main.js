@@ -1602,7 +1602,7 @@ function startActiveWinPolling(){
       /* ⚠️ 전용 채널을 파지 않는다 — 필드 하나를 얹는 방식이라 구버전 preload/렌더러와도 짝이 맞는다
          (모르는 필드는 그냥 무시된다). offOverlay 를 얹을 때와 같은 규약이다. */
       _onSysPromptFront(isSystemPrompt(activeKey));
-      lastActiveState = { exeName, key: activeKey, keyAlt: activeKeyAlt, isFocusedAppRegistered, hasAnyRegistered: focusApps.some(Boolean), isPenApp: penNow, isSelf: !!exeName && exeName === SELF_EXE };   // isSelf: 투게더워킹 창이 맨 앞 — 렌더러가 잠들지 않게(seatState)
+      lastActiveState = { exeName, key: activeKey, keyAlt: activeKeyAlt, isFocusedAppRegistered, hasAnyRegistered: focusApps.some(Boolean), isPenApp: penNow, isSelf: !!exeName && exeName === SELF_EXE, desktop: !!w.desktop };   // desktop: 바탕화면 · 작업표시줄(폴더 창과 키가 같다 — 달성표가 세지 않게) · isSelf: 투게더워킹 창이 맨 앞 — 렌더러가 잠들지 않게(seatState)
       let frontFull = null;   // null = 크기를 못 읽음(맥 · 실패) — 비율 분모에서 뺀다
       /* 우리 창이 있는 모니터와 견준다(실행 화면이면 실행 모니터) — getRunDisplay 는 저장 · 로그가 딸려 있어 0.5초마다 부르지 않는다 */
       try{ if(w.bounds && mainWindow && !mainWindow.isDestroyed()) frontFull = FrontDiag.coversDisplay(w.bounds, screen.getDisplayMatching(mainWindow.getBounds()).bounds); }catch(_){}

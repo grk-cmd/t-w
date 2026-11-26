@@ -410,6 +410,7 @@ say('\n── 7. 자동 등록은 셸 창(작업표시줄 · 바탕화면)을 �
       chk(J({ folder: true }, 'win:explorer.exe', '', apps, keysOf) === true, '★ explorer 를 등록했고 앞 창이 폴더 창이면 집중으로 센다');
       chk(J({ desktop: true }, 'win:explorer.exe', '', apps, keysOf) === false, '★ 앞 창이 바탕화면 · 작업표시줄이면 세지 않는다(같은 explorer.exe)');
       chk(J({}, 'win:explorer.exe', '', apps, keysOf) === true && J({}, 'win:chrome.exe', '', apps, keysOf) === false, '  갈래를 모르는 창(클래스 못 읽음 · mac)은 예전 판정 그대로');
+      chk(/lastActiveState = \{[^\n]*\bdesktop: !!w\.desktop \}/.test(mainCode), '  렌더러에도 desktop 을 실어 보낸다 — 달성표(키만 견줌)가 바탕화면에서 세지 않게');
       const cut = line.replace('!w.desktop && ', '');
       chk(cut !== line && judge(cut)({ desktop: true }, 'win:explorer.exe', '', apps, keysOf) === true, '  mutation test — 바탕화면 예외를 빼면 바탕화면에서도 센다 → 빨강');
     }

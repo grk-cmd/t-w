@@ -224,7 +224,7 @@
 | **sim-closet.js** | 687 | **b3e34bdb6270** |
 | **sim-slot-codec.js** | 134 | **bbbd470a4dd5** |
 | **sim-signup.js** | 308 | **0a689e6e9d03** |
-| **sim-sysinput.js** | 434 | **bb4af0b85a05** |
+| **sim-sysinput.js** | 435 | **1db8d6e3d98f** |
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 132 | **3a62138fcd8e** |
 | **sim-zoom-window.js** | 73 | **af1c0f53687b** |
@@ -303,7 +303,7 @@
 | **sim-asset-cards.js** | 151 | **d45ebe4fc7ac** |
 | **sim-scheduler.js** | 1030 | **43a9cf683d97** |
 | **sim-schedule-api.js** | 435 | **c3fd907a4236** |
-| **sim-weekly-challenge.js** | 295 | **bfdb5116f8c6** |
+| **sim-weekly-challenge.js** | 300 | **1642e2dbedc0** |
 | **sim-purikura-ui.js** | 339 | **6e7d7efb9424** |
 | **sim-image-bytes.js** | 113 | **bc4d5d43843a** |
 | **sim-own-image.js** | 140 | **b9e27eebfcc3** |
