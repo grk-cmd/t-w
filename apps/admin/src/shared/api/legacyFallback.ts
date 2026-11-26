@@ -1,6 +1,6 @@
 // Firebase 판 전용 — 지금 운영 코드가 옛 API 를 «먼저 읽고 못 닿으면 RTDB» 로 읽는 길(8곳).
 // API 판은 이 파일을 쓰지 않는다(API 하나 · 넘어가는 길 없음). 각 묶음의 a PR 이 쓰는 곳을 `firebase.ts` 로 옮기고,
-// 마지막 a 뒤 이 파일은 Firebase 판과 같이 걷는다(D12-Z). 새로 쓰는 곳을 늘리지 않는다 — 톱니 1 이 센다.
+// 마지막 a 뒤 이 파일은 Firebase 판과 같이 걷는다(D12-Z). 새로 쓰는 곳을 늘리지 않는다 — ratchet 1 이 센다.
 import { LEGACY_FALLBACK_ALLOWED } from '@/shared/config';
 import { ApiError, type Api } from './api';
 

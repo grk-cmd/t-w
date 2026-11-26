@@ -5,9 +5,6 @@
     "톱니": 1,
     "빚": 1
   },
-  "apps/admin/src/entities/invite/api/invite.ts": {
-    "빚": 2
-  },
   "apps/desktop/app/parts/app.js": {
     "톱니": 2
   },
