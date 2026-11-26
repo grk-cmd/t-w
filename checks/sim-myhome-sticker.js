@@ -106,6 +106,7 @@ function mkEnv(opt){
     setMhStickerEditSid: (v) => { env.editSid = v; },
     setMhStickerDragDist: (v) => { env.dragDist = v; },
     stickerMax: 5, stickerBase: 40, stickerRotSnap: 3,
+    stickerLayer: { on: () => env.layerOn !== false },
   });
   env.row = (i) => els.stMgrList.children[els.stMgrList.children.length - 1 - i];   // 목록은 앞(나중) → 뒤 — i 는 붙인 차례(z 없을 때)
   const walk = (el) => [el].concat(...el.children.map(walk));
@@ -140,6 +141,12 @@ await sec('── 2. 관리 창 — 열기 · 목록 · 닫기', () => {
   chk(!E.mhStickerMgrOverlay && e.toasts[0] === '친구 홈에서는 스티커를 관리할 수 없어요', '관람 중이면 안 열리고 안내');
   e.viewing = null; M.open();
   chk(E.mhStickerMgrOverlay.classList.contains('on') && E.stMgrList.children.length === 1, '내 홈이면 열리고 목록 한 줄');
+  chk(e.toasts.length === 1, '  스티커 보이기가 켜져 있으면 열 때 안내가 없다');
+  { // 설정 › 디스플레이 «마이홈 스티커» 가 꺼져 있으면 — 붙이거나 옮겨도 안 보이는 까닭을 알린다
+    const eo = mkEnv({ stickers: { a: { img: 'data:image/png;base64,YQ==' } } }); eo.layerOn = false;
+    const Mo = eo.mk(); Mo.open();
+    chk(eo.els.mhStickerMgrOverlay.classList.contains('on') && /스티커가 숨겨져 있어요/.test(eo.toasts[0] || ''), '★ 스티커 보이기가 꺼져 있으면 관리 창은 열리고 «숨겨져 있어요» 안내');
+  }
   const r = e.row(0);
   chk(r.className === 'st-mgr-row' && e.part(r, 'st-mgr-th').children[0].src === 'data:image/png;base64,YQ==', '  줄 — 그림 섬네일');
   const meta = e.part(r, 'st-mgr-meta');
@@ -343,9 +350,10 @@ await sec('── 6. app.js 배선', () => {
     /^myHomeData: \(\)=>_myHomeData\(\),$/, /^mhViewingUserId: \(\)=>_mhViewingUserId\(\),$/, /^mhStickerEditSid: \(\)=>_mhStickerEditSid,$/,
     /^setMhStickerEditSid: \(v\)=>\{ _mhStickerEditSid = v; \},$/, /^setMhStickerDragDist: \(v\)=>\{ _mhStickerDragDist = v; \},$/,
     /^stickerMax: STICKER_MAX,$/, /^stickerBase: STICKER_BASE,$/, /^stickerRotSnap: STICKER_ROT_SNAP,$/,
+    /^stickerLayer: stickerLayerMod,$/,
   ];
   const bad = want.map((re, i) => re.test(deps[i] || '') ? null : (i + ':' + (deps[i] || '없음'))).filter(Boolean);
-  chk(deps.length === want.length && !bad.length, 'deps 18개 — 함수는 화살표 · let 은 읽는 / 쓰는 함수 · const 는 값 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
+  chk(deps.length === want.length && !bad.length, 'deps 19개 — 함수는 화살표 · let 은 읽는 / 쓰는 함수 · const 는 값 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
   /* ★ renderMyHomeStickers 는 이제 편집 묶음이 감싸 다시 대입하지 않는다(삭제 저장은 × 버튼이 상태 주인 removeSticker 를 부른다) — 그래도 화살표로 받는다(app.js 함수가 뒤에서 선언) */
   chk(!/_setRenderMyHomeStickers\(/.test(strip(EDIT)) && !/setRenderMyHomeStickers/.test(APP) && /myhomeStore(Mod)?\.removeSticker\(sid\)/.test(APP), '  renderMyHomeStickers 감싸기 없음 — × 버튼이 상태 주인 removeSticker 를 부른다');
   const consts = ['STICKER_MAX', 'STICKER_BASE', 'STICKER_ROT_SNAP'].map(n => APP.indexOf('const ' + n + ' = '));

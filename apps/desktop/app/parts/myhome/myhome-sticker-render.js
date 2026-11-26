@@ -10,14 +10,17 @@ const mhPageMod = deps.mhPageMod;
 const mhStLayoutMod = deps.mhStLayoutMod;
 const myHomeSticker = deps.myHomeSticker;   // 읽는 함수
 const myhomeStore = deps.myhomeStore;   // 🏠 마이홈 상태 주인 — 스티커 지우기 · 저장
+const stickerLayer = deps.stickerLayer;   // 🎨 스티커 보이기(sticker-layer.js) — 이 PC 설정
 function renderMyHomeStickers(){
   const zone=document.getElementById('mhStickerZone'); if(!zone) return;
   // 스티커는 '마이홈' 탭에서만 표시 — 친구/스케줄러/버그제보 탭에서는 감춤
   //   (예전엔 친구 탭만 숨겼는데, 스케줄러 탭에도 스티커가 따라오던 문제 수정)
   const activeTab = document.querySelector('#myHomeTabs .mh-tab.on');
   const onHomeTab = activeTab && activeTab.dataset.tab === 'home';
-  zone.classList.toggle('hidden', !onHomeTab);
-  if(!onHomeTab){ mhStLayoutMod._mhFitWindowSafe(); myHomeSticker().editEnd(); return; }
+  const layerOn = stickerLayer.on();   // 설정 › 디스플레이 «마이홈 스티커» — 꺼져 있으면 그리지 않는다(그림도 받지 않게 비운다)
+  zone.classList.toggle('hidden', !onHomeTab || !layerOn);
+  if(!layerOn) zone.innerHTML='';
+  if(!onHomeTab || !layerOn){ mhStLayoutMod._mhFitWindowSafe(); myHomeSticker().editEnd(); return; }
 
   const data = mhStLayoutMod._mhStickersData();
   const canEdit = mhStLayoutMod._mhCanEditStickers();

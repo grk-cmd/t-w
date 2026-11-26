@@ -964,6 +964,7 @@ const heartbeatMod = TwHeartbeat.createHeartbeat({
 /* ⚙ 설정 패널 — 포커싱 어플 슬롯 / 캐릭터 크기 / 프로그램 이동 */
 /* 본문은 settings-panel.js 로 옮겼다(앱 FSD 27번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const stickerLayerMod = TwStickerLayer.createStickerLayer({ storage: localStorage });   // 🎨 마이홈 스티커 보이기(이 PC 설정) — 설정 창 · 스티커 그리기 · 관리 창이 같이 읽는다
 const settingsMod = TwSettingsPanel.createSettingsPanel({
   settingsAccountStore: accountStoreMod,
   GAP_MAX: GAP_MAX,
@@ -1025,6 +1026,7 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   isLauncherShown: (...a)=>isLauncherShown(...a),
   statusBubbleEnabled: ()=>overheadMod.statusBubbleEnabled(),
   setStatusBubbleEnabled: (v)=>{ overheadMod.setStatusBubbleEnabled(v); },
+  stickerLayer: stickerLayerMod,
 });
 
 /* ═══ 🕒 포커스 기록 팝업 ═══ */
@@ -1698,7 +1700,9 @@ const stickerRenderMod = TwMyHomeStickerRender.createMyHomeStickerRender({
   mhStLayoutMod: mhStLayoutMod,
   myHomeSticker: ()=>myHomeSticker,
   myhomeStore: myhomeStoreMod,
+  stickerLayer: stickerLayerMod,
 });
+stickerLayerMod.onChange(()=>stickerRenderMod.renderMyHomeStickers());   // 설정에서 켜고 끄면 바로 다시 그린다
 
 /* 🎨 스티커 관리 창 · 스티커 편집모드 · 드래그 · 회전 · 크기는 parts/myhome-sticker.js 로 옮겼다(앱 FSD 7번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(#stMgrClose · #stMgrBringAll 버튼 연결)이 예전과 같은 때 돈다.
@@ -1727,6 +1731,7 @@ const myHomeSticker = TwMyHomeSticker.createMyHomeSticker({
   stickerMax: mhStLayoutMod.STICKER_MAX,
   stickerBase: mhStLayoutMod.STICKER_BASE,
   stickerRotSnap: mhStLayoutMod.STICKER_ROT_SNAP,
+  stickerLayer: stickerLayerMod,
 });
 
 /* ═══ 🔗 마이홈 본문 링크 ═══ */
