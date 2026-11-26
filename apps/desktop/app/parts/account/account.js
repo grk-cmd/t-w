@@ -508,11 +508,8 @@ function refreshAccountTab(){
     if(gl) gl.onclick = async ()=>{
       if(!(window.companion && companion.signInWithGoogle)){ sayG('이 버전에서는 구글을 연결할 수 없어요', 'err'); return; }
       gl.disabled = true; say('구글 창을 여는 중…', 'info');
-      const g = await googleConfirmMod.pickForLink();
-      if(!g.ok){ if(g.canceled) say('', 'info'); else sayG(g.reason || '구글 로그인 창에서 결과를 받지 못했어요 — 다시 시도해 주세요', 'err'); gl.disabled = false; return; }
-      const r = await _withRecentLogin(() => userApiMod.linkGoogle(g.idToken));
-      if(!r.ok){ if(r.canceled) say('', 'info'); else sayG(r.reason || '구글을 연결하지 못했어요', 'err'); gl.disabled = false; return; }
-      try{ await firebaseAPI.authReload(); }catch(_){}   // 서버가 붙인 구글을 이 세션 providerData 로 받는다
+      const r = await _acctLinkGoogle();
+      if(!r.ok){ if(r.canceled) say('', 'info'); else sayG(r.reason || '구글을 연결하지 못했어요 — 다시 시도해 주세요', 'err'); gl.disabled = false; return; }
       try{ await _acctMethodsRender(true); }catch(_){}
       sayG('✅ 구글이 연결됐어요. 이제 구글로도 로그인할 수 있어요.', 'ok');
     };
@@ -539,6 +536,17 @@ function refreshAccountTab(){
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, { once:true });
   else bind();
 })();
+
+/* 🔗 [연결하기] — 구글 고르기 · 묻기 → 서버 POST /v2/me/google(USER_REAUTH_REQUIRED 면 _withRecentLogin 이 다시 확인 뒤 한 번 더) → 이 세션 providerData 새로 받기.
+   돌려주는 것: { ok } | { ok:false, canceled } | { ok:false, reason } */
+async function _acctLinkGoogle(){
+  const g = await googleConfirmMod.pickForLink();
+  if(!g.ok) return g;
+  const r = await _withRecentLogin(() => userApiMod.linkGoogle(g.idToken));
+  if(!r.ok) return r;
+  try{ await firebaseAPI.authReload(); }catch(_){}
+  return { ok:true };
+}
 
 /* 🔁 구글 계정 바꾸기 — 같은 계정(유저 코드 그대로)의 구글 연결만 새 구글로. 서버 PUT /v2/me/google 이 떼고 붙이기를 한 요청으로 한다.
    from = 지금 연결된 구글 주소 · step(글) = 단계 안내. 돌려주는 것: { ok, email } | { ok:false, canceled? , reason, err? }

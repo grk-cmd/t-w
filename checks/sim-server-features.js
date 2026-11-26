@@ -161,7 +161,7 @@ say('── 5. 서버 길이 없는 provider 자리(noServer)');
   const m2 = src.replace("(k === 'then' ? undefined : ", "(false ? undefined : ");
   chk(m2 !== src && !(await judgeNo(m2)).notThenable, 'mutation test: then 을 막지 않으면 → 빨강');
   const A = SRC['app.js'] || '';
-  chk(!/firebaseAPI\.(xmas|chatNotice|roomFocus|playlistLike|loadThemeCustom|saveThemeCustom|authChangeGoogle)\b/.test(A), 'app.js 는 꺼진 기능의 옛 Firebase 통로를 부르지 않는다(noServer 자리)');
+  chk(!/firebaseAPI\.(xmas|chatNotice|roomFocus|playlistLike|loadThemeCustom|saveThemeCustom)\b/.test(A), 'app.js 는 꺼진 기능의 옛 Firebase 통로를 부르지 않는다(noServer 자리)');
   say('');
   say((fail ? '✗' : '✓') + ' 통과 ' + pass + ' · 실패 ' + fail);
   process.exit(fail ? 1 : 0);

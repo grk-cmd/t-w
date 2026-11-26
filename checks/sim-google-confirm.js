@@ -173,6 +173,7 @@ process.on('exit', () => { if(!finished){ console.log('  ✗ 끝까지 못 돌�
   const linkSites = (MOD_ACC.match(/googleConfirmMod\.pickForLink\(\)/g) || []).length + (MOD_LG.match(/googleConfirmMod\.pickForLink\(\)/g) || []).length;
   const rawSites = (strip(MOD_ACC).match(/companion\.signInWithGoogle\(\)/g) || []).length + (strip(MOD_LG).match(/companion\.signInWithGoogle\(\)/g) || []).length;
   chk(linkSites === 2, '★ 구글 [연결하기](내 정보) · [구글도 연결하기](가입 완료) 둘 다 묻는 창을 거친다');
+  chk(/const r = await _acctLinkGoogle\(\);/.test(strip(MOD_ACC)), '  내 정보 [연결하기] 단추가 _acctLinkGoogle 을 부른다');
   chk(rawSites === 1, '  계정 · 게이트가 구글 창을 직접 여는 곳은 비밀번호 만들기 재확인 하나뿐(로그인 · 가입은 login-flow.js · 연결하기는 pickForLink 안에서) — 지금 ' + rawSites);
 
   const ACC = strip(MOD_ACC);
@@ -228,6 +229,49 @@ process.on('exit', () => { if(!finished){ console.log('  ✗ 끝까지 못 돌�
   ]){
     const a2 = MOD_ACC.replace(a, b);
     let rows; try{ rows = await judgeFlow(a2); }catch(_){ rows = [[false, '던짐']]; }
+    chk(a2 !== MOD_ACC && rows.some(([ok]) => !ok), 'mutation test — ' + name + (a2 !== MOD_ACC ? '' : ' — 바꿀 글을 못 찾음'));
+  }
+
+  say('── 5-3. 🔗 [연결하기](account.js _acctLinkGoogle)를 떼어 돌린다');
+  const takeFn = (src, head) => { const i = src.indexOf(head); if(i < 0) return ''; let k = src.indexOf('{', src.indexOf(')', i)), d = 0; for(; k < src.length; k++){ if(src[k] === '{') d++; else if(src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return ''; };
+  const judgeLink = async (accSrc) => {
+    const r = [];
+    const t = (ok, m) => r.push([!!ok, m]);
+    const fsrc = takeFn(accSrc, 'async function _acctLinkGoogle(') + '\n' + takeFn(accSrc, 'async function _withRecentLogin(');
+    if(!/_acctLinkGoogle/.test(fsrc) || !/_withRecentLogin/.test(fsrc)){ t(false, '_acctLinkGoogle · _withRecentLogin 을 못 찾음'); return r; }
+    const run = async (o) => {
+      const calls = []; let reloads = 0, reauth = 0, n = 0;
+      const uapi = { linkGoogle: async (tok) => { calls.push(tok); n++; const e = o.fail && o.fail(n); if(e) throw e; return { userCode:'u1' }; },
+        reasonOf: (e) => 'R:' + ((e && e.code) || '') };
+      const fbapi = { authReload: async () => { reloads++; return { ok:true }; }, authProviders: () => ({ google:false, password:true }) };
+      const gcm = { pickForLink: async () => (o.pick || { ok:true, idToken:'G-TOK' }) };
+      const f = new Function('googleConfirmMod', 'userApiMod', 'firebaseAPI', '_reauthByGoogle', '_reauthByPassword', 'REAUTH_NO_METHOD', fsrc + '\nreturn _acctLinkGoogle;')(
+        gcm, uapi, fbapi, async () => ({ ok:true }), async () => { reauth++; return o.reauth || { ok:true }; }, '없음');
+      const res = await f();
+      return { res, calls, reloads, reauth };
+    };
+    const reauthErr = { kind:'request', code:'USER_REAUTH_REQUIRED' };
+    let X = await run({});
+    t(X.res.ok && X.calls.join() === 'G-TOK' && X.reloads === 1, '5-3 ★ 고른 구글 토큰으로 linkGoogle 한 번 · 성공 뒤 authReload 한 번');
+    X = await run({ fail: () => ({ kind:'request', code:'USER_GOOGLE_IN_USE' }) });
+    t(!X.res.ok && X.calls.length === 1 && X.reloads === 0 && X.res.reason === 'R:USER_GOOGLE_IN_USE', '5-3   실패 — authReload 없음 · 서버 문구(화면이 띄운다)');
+    X = await run({ pick: { ok:false, canceled:true } });
+    t(!X.res.ok && X.res.canceled && X.calls.length === 0 && X.reloads === 0, '5-3   구글 창 · 묻기를 닫음 — 조용히 끝(linkGoogle 0)');
+    X = await run({ fail: (k) => (k === 1 ? reauthErr : null) });
+    t(X.res.ok && X.calls.join() === 'G-TOK,G-TOK' && X.reauth === 1 && X.reloads === 1, '5-3 ★ USER_REAUTH_REQUIRED — 비밀번호로 다시 확인 뒤 한 번 더');
+    X = await run({ fail: () => reauthErr, reauth: { ok:false, canceled:true } });
+    t(!X.res.ok && X.res.canceled && X.calls.length === 1 && X.reloads === 0, '5-3   다시 확인을 닫음 — 다시 보내지 않고 조용히 끝');
+    return r;
+  };
+  (await judgeLink(MOD_ACC)).forEach(([ok, m]) => chk(ok, m));
+  for(const [name, a, b] of [
+    ['연결 뒤 새로 받지 않음', "  try{ await firebaseAPI.authReload(); }catch(_){}\n  return { ok:true };", "  return { ok:true };"],
+    ['실패에도 새로 받음', "  const r = await _withRecentLogin(() => userApiMod.linkGoogle(g.idToken));\n  if(!r.ok) return r;", "  const r = await _withRecentLogin(() => userApiMod.linkGoogle(g.idToken));\n  if(!r.ok){ try{ await firebaseAPI.authReload(); }catch(_){} return r; }"],
+    ['다시 확인 없이 보냄', "  const r = await _withRecentLogin(() => userApiMod.linkGoogle(g.idToken));", "  const r = await userApiMod.linkGoogle(g.idToken).then(v => ({ ok:true, value:v }), e => ({ ok:false, reason:userApiMod.reasonOf(e) }));"],
+    ['창을 닫아도 보냄', "  if(!g.ok) return g;\n  const r = await _withRecentLogin(", "  const r = await _withRecentLogin("],
+  ]){
+    const a2 = MOD_ACC.replace(a, b);
+    let rows; try{ rows = await judgeLink(a2); }catch(_){ rows = [[false, '던짐']]; }
     chk(a2 !== MOD_ACC && rows.some(([ok]) => !ok), 'mutation test — ' + name + (a2 !== MOD_ACC ? '' : ' — 바꿀 글을 못 찾음'));
   }
 
