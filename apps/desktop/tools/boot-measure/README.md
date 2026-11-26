@@ -17,9 +17,9 @@ dev 앱을 e2e-local 로 켜서 «계정 확인 → 런처에 캐릭터가 뜸 �
 ## 쓰는 법
 
 1. 로컬 묶음과 e2e-local 의존성을 준비한다(`../e2e-local/README.md` «준비»). Storage 에뮬레이터 규칙은 로그인한 사람에게 열어 둔다(얼굴 · 파츠 올리기).
-2. 측정 worktree 를 따로 만든다 — `prep.sh` 가 `git checkout -f` 로 덮는다. 덮기 전에 그 폴더가 worktree 맨 위인지 · 이 도구가 든 worktree 가 아닌지 · HEAD 가 떨어져 있는지(`--detach` 로 만든 것) 보고, 하나라도 아니면 멈춘다.
+2. 측정 worktree 를 따로 만든다 — `prep.sh` 가 `git checkout -f` 로 덮는다. 덮기 전에 그 폴더가 worktree 맨 위인지 · 이 도구가 든 worktree 가 아닌지 · HEAD 가 떨어져 있는지(`--detach` 로 만든 것) · rebase · bisect 중이 아닌지 보고, 처음 맞출 때는 고친 파일이 없어야 한다(맞추면 그 worktree 의 git dir 에 `tw-boot-measure` 표시를 남긴다 — 그 뒤로는 측정 줄이 들어 있어도 덮는다). 하나라도 아니면 멈춘다.
    ```bash
-   git worktree add --detach ../.wt/boot-measure origin/release/0.14.0   # node_modules 는 작업 worktree 것을 링크해도 된다
+   git worktree add --detach .wt/boot-measure origin/release/0.14.0   # node_modules 는 작업 worktree 것을 링크해도 된다
    ```
 3. 시드 — 한 번. 먼저 측정 worktree 를 맞춘다(`prep.sh` 가 켤 때 확인을 `/actuator/health/liveness` 로 바꾼다 — 로컬 API 의 `/actuator/health` 는 DOWN 일 수 있다).
    ```bash
