@@ -419,7 +419,7 @@ roomEntryMod.onRoomChanged(()=>listenUi.sync());
 - 만드는 법: classic script(`window.TwRoomRt`) — `rt-hub.js` · `remote-config.js` 다음 · app.js 보다 먼저. 앱 한 벌은 `TwRoomRt.store`(`TwRtHub.store` 위). provider 는 `store.makeProvider(hooks, { create })` — hooks: `serializeDef` · `deserializeDef` · `retryDefAfter` · `getExp` · `onMeta` · `onDisband` · `onReplaced`(내 자리 `left{replaced}` — 같은 계정이 다른 PC 에서 이 방에 들어옴 · 연결은 그대로) · `onLost(code)`(이 PC 연결이 4004 로 끊기면 `sessionLost`) · `onReconnecting(on)` · `onJoined` · `onLeft`.
 - 내놓는 것: `makeProvider` · `random(limit, channel)` · `peek(code)`(못 물으면 `null`) · `roomCode()`(들어가 있는 방) · `myCode()`(연결의 나 — 방장 · 글쓴이 · 사진 자리 판정은 이 값) · `isReady()` · `inRoom()`.
 - 함정: 연결이 꺼져 있으면(로그인 전 · 로그아웃) 입장은 바로 `off` — 켜기(`TwRtHub.store.start`)는 로그인 흐름 몫이다. `error.ref` 가 방 요청(`join` · `meta` · `music` …)인 것만 받는다 — 대화(`chatSay`) · 사진(`photo*`) · 초대 오류는 그 포트가 받는다.
-- 오래 끊김: 방 안에서 90초 못 돌아오면 그 방을 놓는다(`onLost('unreachable')`). hooks `keepOnUnreachable(meta)` 가 참인 방(시크릿룸 — room-entry.js)은 놓지 않고 다시 붙기를 기다린다. 붙으면 resume, 서버가 자리를 뺐으면(`resumeFailed`) 전체 입장, 그 입장이 거절되면 그때 놓는다.
+- 오래 끊김: 방 안에서 90초 못 돌아오면 그 방을 놓는다(`onLost('unreachable')`). hooks `keepOnUnreachable(room)` 가 참인 방(시크릿룸 — room-entry.js)은 놓지 않고 다시 붙기를 기다린다. 붙으면 resume, 서버가 자리를 뺐으면(`resumeFailed`) 전체 입장, 그 입장이 거절되면 그때 놓는다.
 - 검사: `checks/sim-room-rt.js`(진짜 rt-hub · 연결 공통부 위에서 · mutation test).
 
 ## `room-invite-rt.js` — 🙋 방 초대 포트(realtime 연결 하나)

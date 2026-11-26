@@ -3669,6 +3669,7 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   mySecretRoom: ()=>roomLobbyProvider.mySecretRoom(),
   paintRoomInfo: ()=>roomInfoUi.paint(),
   roomSettings: TwRoomSettings,
+  roomState: TwRoomState,
   roomRt: TwRoomRt.store,
   runCost: runCost,   // 🩺 좌석 맞춤 시간(1분 [비용] 줄)
 });

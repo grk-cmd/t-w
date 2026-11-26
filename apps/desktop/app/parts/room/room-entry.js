@@ -65,6 +65,7 @@ function _roomJoined(code){ const meta = window._roomMetaCache || null; _roomJoi
 const mySecretRoom = deps.mySecretRoom;   // 내 시크릿룸 판정(room-lobby-provider.js — 로비와 같은 한 곳)
 const roomSettings = deps.roomSettings;   // 방 설정 규칙(room-settings.js — 최대 인원 · 방장 닉네임)
 const listen = deps.listen;   // 🎧 같이 듣기 스위치 한 벌(listen-model.js — ENABLED · isBlockedRoom · BLOCKED_TEXT). 여기서 다시 판단하지 않는다
+const roomState = deps.roomState;   // 🧭 방 공용 판정(room-state.js) — 시크릿룸 코드인가
 const roomRt = deps.roomRt;   // 🛰 방 포트(room-rt.js TwRoomRt.store) — 입장 · 랜덤 · 들여다보기 · 연결의 나(myCode)
 const seatSyncDiff = TwSeatSyncDiff;   // 🪑 줄 배치를 다시 할지 정하는 규칙(seat-sync-diff.js — 순수 모듈)
 let _lastSyncSnap = null;   // 지난번 맞춘 뒤의 모양 — 줄 배치가 필요 없는 변화(상태 · 경험치 …)는 값만 적고 넘어간다
@@ -108,7 +109,7 @@ function makeRoomProvider(create){
       Promise.resolve(doLeaveRoom()).catch(()=>{});
     },
     /* 🔒 시크릿룸은 오래 끊겨도(절전 · 인터넷 끊김) 방을 놓지 않는다 — 다시 붙으면 같은 방으로 들어간다. 지인끼리 쓰는 방이라 자리 선점 문제가 없다(자리비움 자동 퇴장 예외와 같은 까닭) */
-    keepOnUnreachable: (meta)=>!!(meta && meta.secret),
+    keepOnUnreachable: (room)=>roomState.isSecretCode(room),
     // 끊긴 지 15초가 넘었다(true) · 다시 붙었다(false) — room-rt.js RECONNECT_NOTICE_MS
     onReconnecting: (on)=>{ toast(on ? '📡 서버 연결이 끊겨 다시 연결하는 중이에요…' : '서버에 다시 연결됐어요'); },
   }, { create });

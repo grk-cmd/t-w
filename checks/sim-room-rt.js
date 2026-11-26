@@ -252,8 +252,8 @@ async function judge(S){
     const keepRun = async (SS) => {
       const e3 = mk(SS); e3.hub.start();
       const w3 = await readyOn(e3, 'u1');
-      const h3 = hooksLog(); const metas = [];
-      h3.h.keepOnUnreachable = (meta) => { metas.push(meta); return !!(meta && meta.secret); };
+      const h3 = hooksLog(); const asked = [];
+      h3.h.keepOnUnreachable = (room) => { asked.push(room); return room === 'SCRT-AB12'; };
       const p3 = e3.rt.makeProvider(h3.h, { create: null });
       const jp3 = p3.join('SCRT-AB12', Object.assign({}, ME), () => {}, () => {});
       await tick();
@@ -261,7 +261,7 @@ async function judge(S){
       await settle(jp3, e3.clock);
       w3.kill(1006); await tick();
       for(let i = 0; i < 200; i++){ await e3.clock.advance(1000); const w = e3.last(); if(w && !w.closed) w.kill(1006); }
-      const r = { kept: e3.rt.inRoom() === true && h3.L.indexOf('lost:unreachable') < 0, asked: metas.length >= 1 && metas.every(m => m && m.secret === true) };
+      const r = { kept: e3.rt.inRoom() === true && h3.L.indexOf('lost:unreachable') < 0, asked: asked.length >= 1 && asked.every(c => c === 'SCRT-AB12') };
       /* 연결이 돌아온다 — resume 을 보내고, 서버가 자리를 이미 뺐으면(resumeFailed) 전체 입장 */
       let wb = null;
       for(let i = 0; i < 40 && !wb; i++){ await e3.clock.advance(1000); const w = e3.last(); if(w && !w.closed) wb = w; }
@@ -276,19 +276,37 @@ async function judge(S){
       return r;
     };
     const K = await keepRun(S);
-    chk(K.kept && K.asked, '★ 놓지 않는 방(시크릿룸)은 200초 끊겨도 방 안 — onLost 없음 · 판단은 hooks.keepOnUnreachable(meta)');
+    chk(K.kept && K.asked, '★ 놓지 않는 방(시크릿룸)은 200초 끊겨도 방 안 — onLost 없음 · 판단은 hooks.keepOnUnreachable(방 코드)');
     chk(K.resume && K.full, '  ↳ 돌아오면 resume → 자리가 없으면(resumeFailed) 전체 입장으로 다시 들어간다');
     chk(K.refused, '  ↳ 그 입장이 거절되면(정원) 그때 방을 놓는다(onLost full)');
     /* 보통 방(secret 아님)은 hook 이 있어도 놓는다 · mutation test — 예외 줄을 빼면 시크릿룸도 놓는다 */
     const noKeep = S.RT.replace("        if(keepsOnUnreachable(P)) return;\n", '');
     const KM = noKeep !== S.RT ? await keepRun(Object.assign({}, S, { RT: noKeep })) : null;
     chk(!!KM && KM.kept === false, '  mutation test — 예외 줄을 빼면 시크릿룸도 90초에 놓는다 → 빨강');
-    /* room-entry.js 가 거는 판단 — 서버 meta 의 secret 만 본다(보통 방 · meta 없음은 놓는다) */
-    const ENTRY = pick(at('room-entry.js', 'room')) || '';
-    const hk = (ENTRY.match(/\n    keepOnUnreachable: (\(meta\)=>[^\n]*),\n/) || [])[1];
-    let keepFn = null; try{ keepFn = hk ? new Function('return (' + hk + ');')() : null; }catch(_){}
-    chk(!!keepFn && keepFn({ secret: true }) === true && keepFn({ secret: false }) === false && keepFn(null) === false && keepFn({}) === false,
-      '★ room-entry — 시크릿룸(meta.secret)만 놓지 않는다 · 보통 방 · meta 없음은 예전처럼 90초에 놓는다');
+    /* 연결이 멈추는 닫힘(점검 4006) · 이 PC 연결이 끊김(4004)은 시크릿룸이어도 바로 놓는다 — 예외는 «다시 붙는 중» 의 90초 포기에만 */
+    const stopRun = async (SS, code, pre) => {
+      const e4 = mk(SS); e4.hub.start();
+      const w4 = await readyOn(e4, 'u1');
+      const h4 = hooksLog(); h4.h.keepOnUnreachable = () => true;
+      const p4 = e4.rt.makeProvider(h4.h, { create: null });
+      const jp4 = p4.join('SCRT-AB12', Object.assign({}, ME), () => {}, () => {});
+      await tick();
+      w4.msg({ t: 'welcome', room: 'SCRT-AB12', memberId: 'm1', resume: 'R1', resumed: false, members: MEMBERS, meta: META, music: null, musicSeq: -1, now: e4.clock.t });
+      await settle(jp4, e4.clock);
+      if(pre) w4.msg(pre);
+      w4.kill(code); await tick();
+      return { L: h4.L, inRoom: e4.rt.inRoom() };
+    };
+    const SM = await stopRun(S, 4006), SD = await stopRun(S, 4004, { t: 'sessionLost' });
+    chk(SM.L.indexOf('lost:maintenance') >= 0 && SM.inRoom === false && SD.L.indexOf('lost:sessionLost') >= 0 && SD.inRoom === false,
+      '★ 놓지 않는 방이어도 연결이 멈추면(점검) · 이 PC 연결이 끊기면 바로 놓는다');
+    /* room-entry.js 가 거는 판단 — 앱 공용 시크릿룸 판정(room-state.js isSecretCode) 한 곳을 부른다(자리비움 자동 퇴장 예외와 같은 근거) */
+    const ENTRY = pick(at('room-entry.js', 'room')) || '', RSTATE = pick(at('room-state.js', 'room')) || '';
+    const hk = (ENTRY.match(/\n    keepOnUnreachable: (\(room\)=>[^\n]*),\n/) || [])[1];
+    let keepFn = null;
+    try{ const w = {}; new Function('window', RSTATE)(w); keepFn = hk ? new Function('roomState', 'return (' + hk + ');')(w.TwRoomState) : null; }catch(_){}
+    chk(!!keepFn && keepFn('SCRT-AB12') === true && keepFn('PLAY-AB12') === false && keepFn('WORK-AB12') === false && keepFn(null) === false && /roomState\.isSecretCode\(room\)/.test(hk || ''),
+      '★ room-entry — 시크릿룸만 놓지 않는다(공용 판정 isSecretCode) · 보통 방 · 방 코드 없음은 예전처럼 90초에 놓는다');
   }catch(err){ chk(false, '5절 던짐 — ' + err.message); }
 
   say('── 6. 서버 판정');

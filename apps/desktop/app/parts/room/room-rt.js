@@ -219,7 +219,7 @@ function createRoomRt(deps){
     scheduleDown(P);
   }
   function keepsOnUnreachable(P){
-    try{ return !!(P.hooks.keepOnUnreachable && P.hooks.keepOnUnreachable(P.meta)); }catch(_){ return false; }
+    try{ return !!(P.hooks.keepOnUnreachable && P.hooks.keepOnUnreachable(P.room)); }catch(_){ return false; }
   }
   function scheduleDown(P){
     if(!giveUpTimer){
@@ -604,7 +604,7 @@ function createRoomRt(deps){
   }
 
   /** hooks: serializeDef · deserializeDef · retryDefAfter · getExp · onMeta(meta, prev) · onDisband · onReplaced · onLost(code) ·
-   *    onReconnecting(on) · onJoined(room) · onLeft(room) · keepOnUnreachable(meta) → 참이면 오래 끊겨도 방을 놓지 않는다 — 모두 선택. opts.create — 방 만들기 칸(join.create). */
+   *    onReconnecting(on) · onJoined(room) · onLeft(room) · keepOnUnreachable(room) → 참이면 오래 끊겨도 방을 놓지 않는다 — 모두 선택. opts.create — 방 만들기 칸(join.create). */
   function makeProvider(hooks, opts){
     const P = {
       hooks: hooks || {}, create: (opts && opts.create) || null,
