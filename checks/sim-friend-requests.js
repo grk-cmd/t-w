@@ -1,7 +1,7 @@
 /* ═══ 👋 sim-friend-requests.js — 친구 요청 포트 · 서버 provider (0.13 앱 묶음 D3 친구 요청) ═══
    [왜] 받은 요청 · 보낸 요청 · 수락 · 거절 · 취소 · 보내기 · 친구코드 찾기를 서버 경로(social-api.js)로 부른다. 서버 한 길이고(옛 Firebase 경로 provider · 받는 곳 고르기는 걷었다 — D13 E-2),
      못 하면 던진다. 알림(friendRequests)을 받으면 다시 받는다.
-   ・1절: 포트 — 여덟 가지 모두 서버 provider · 못 하면 던진다
+   ・1절: 포트 — 아홉 가지 모두 서버 provider · 못 하면 던진다
    ・2절: 서버 provider — 받은 요청 { 보낸이: { name, ts, msg? } }(신청 사유) · 이름 못 받아도 요청은 그림 · 알림 · 한 번에 하나 · 해제 · 보낸 요청 · 수락 · 거절 · 취소/보내기 결과(already · self) · 보내기에 사유
    ・3절: (옛 경로 provider 는 걷었다 — 없는지만 본다)
    ・4절: 친구코드 찾기(social-api) — 0/1명 · 모양 틀림 던짐
@@ -34,7 +34,7 @@ async function judge(S){
 
   say('── 1. 포트 — 서버 provider 한 길');
   {
-    const names = ['watchReceived', 'listSent', 'accept', 'reject', 'cancel', 'send', 'lookupName', 'lookupFriendCode'];
+    const names = ['watchReceived', 'listSent', 'sentIds', 'accept', 'reject', 'cancel', 'send', 'lookupName', 'lookupFriendCode'];
     const mk = (tag, log, fail) => Object.fromEntries(names.map((n) => [n, async (...a) => { log.push(tag + ':' + n); if(fail) throw new Error('x'); return tag; }]));
     const run = async (o) => {
       const log = [];
@@ -44,7 +44,7 @@ async function judge(S){
       return { log, res };
     };
     let r = await run({});
-    chk(r.log.every((x) => x.startsWith('api:')) && r.log.length === 8, '★ 서버면 여덟 가지 모두 서버 provider');
+    chk(r.log.every((x) => x.startsWith('api:')) && r.log.length === 9, '★ 서버면 아홉 가지 모두 서버 provider');
     r = await run({ apiFail: true });
     chk(r.log.every((x) => x.startsWith('api:')) && r.res.every((x) => x === 'throw'), '★ 서버가 못 하면 던진다 — 옛 경로(Firebase)로 물러나지 않는다');
   }
@@ -93,6 +93,14 @@ async function judge(S){
     k.api.watchReceived('ME', (v) => g3.push(v), () => {}); await flush();
     chk(g3.length === 1 && g3[0].a.name === '' && g3[0].a.ts === 100 && k.warns.length === 1, '★ 이름을 못 받아도 요청은 그린다(이름 없이) · 진단 한 줄');
     k = mkSocial();
+    {
+      const j = mkSocial();
+      const ids = await j.api.sentIds('ME');
+      chk(JSON.stringify(ids) === '["c"]' && j.L.reqs === 1 && j.L.cards.length === 0, '★ sentIds — 보낸 요청의 상대 코드만 · GET 한 번 · 명함(이름)을 받지 않는다');
+      const f = mkSocial({ reqFail: true }); let thrown = false;
+      try{ await f.api.sentIds('ME'); }catch(_){ thrown = true; }
+      chk(thrown, '  ↳ 못 받으면 던진다');
+    }
     const sent = await k.api.listSent('ME');
     chk(Object.keys(sent).join() === 'c' && sent.c.ts === 300 && sent.c.toName === 'N-c', '보낸 요청 — { 받는이: { ts, toName } }');
     await k.api.accept('ME', 'a'); await k.api.reject('ME', 'a');
@@ -145,7 +153,9 @@ async function judge(S){
 await judge(SRC0);
 say('── 6. mutation test — 하나라도 못 잡으면 빨강');
 const BREAKS = [
-  ['PORT', "const pick = () => deps.api;", "const pick = () => ({ watchReceived(){}, listSent(){}, accept(){}, reject(){}, cancel(){}, send(){}, lookupName(){}, lookupFriendCode(){} });", '서버 provider 를 안 씀'],
+  ['API', "    sentIds: async () => (await social.fetchRequests()).sent.map((x) => x.userCode),", "    sentIds: async (myId) => Object.keys(await listSent(myId)),", 'sentIds 가 이름까지 받음'],
+  ['PORT', "    sentIds: (...a) => pick().sentIds(...a),\n", "", '포트에 sentIds 없음'],
+  ['PORT', "const pick = () => deps.api;", "const pick = () => ({ watchReceived(){}, listSent(){}, sentIds(){}, accept(){}, reject(){}, cancel(){}, send(){}, lookupName(){}, lookupFriendCode(){} });", '서버 provider 를 안 씀'],
   ['PORT', "const pick = () => deps.api;", "const pick = () => deps.api || deps.firebase;", '옛 경로로 물러남'],
   ['API', "    const off = rt.on('friendRequests', () => { run(); });", "    const off = () => {};", '알림을 안 건다'],
   ['API', "      if(flying){ again = true; return; }", "      if(flying){ return; }", '받는 중 알림을 버림'],

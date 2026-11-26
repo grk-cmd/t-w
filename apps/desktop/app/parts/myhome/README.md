@@ -7,6 +7,7 @@
 
 **책임** — 방에서 친구가 아닌 상대 좌석을 우클릭 → «👤 친구 신청» 을 누르면, 첫 번째는 안내만 하고 5초 안에 같은 사람을 한 번 더 누르면 친구 요청을 보낸다.
 보내기 전 앞단 검사(데이터 provider 준비 · 나 자신 · 이미 친구 · 친구 정원)는 마이홈 [친구 추가] 와 같은 순서 · 같은 문구다.
+좌석 길은 앞단 검사를 지난 뒤 «보낸 요청이 열려 있나» 를 보고(앞단에서 막히면 요청 0), 열려 있으면 보내지 않고 «이미 ○○님에게 친구 요청을 보냈어요» 만 알린다 — 좌석은 사유 칸이 없어서, 다시 보내면 서버가 마이홈 [친구 신청] 에서 적은 사유를 지운다.
 
 **만드는 법** — app.js «DRAG / PET» 안, 좌석 contextmenu 리스너 바로 앞:
 
@@ -14,7 +15,7 @@
 const seatFriendReqMod = TwSeatFriendReq.createSeatFriendReq({
   FRIEND_MAX: FRIEND_MAX,                 // 값 — 친구 정원
   _myHomeFriends: ()=>_myHomeFriends,     // 읽는 함수 — 친구 구독이 다시 대입한다
-  friendNet: ()=>window.firebaseAPI,      // 읽는 함수 — 데이터 provider 고르기 한 줄(sendFriendRequest 를 가진 것)
+  friendNet: ()=>({ sendFriendRequest: …, isFriendRequestAlive }),   // 읽는 함수 — 친구 요청 포트(send) · 마이홈 단추와 같이 쓰는 isFriendRequestAlive(포트 sentIds — GET 한 번)
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
 });
@@ -26,12 +27,12 @@ const seatFriendReqMod = TwSeatFriendReq.createSeatFriendReq({
 mk('👤 친구 신청', ()=>seatFriendReqMod._friendReqAsk(uid, seat));   // 좌석 우클릭 메뉴(room/seat-menu.js)
 ```
 
-**확장할 때 고칠 자리** — 기다리는 시간은 `FRIEND_REQ_ARM_MS`. 서버(API)로 옮길 때는 app.js 의 `friendNet:` 한 줄만 그쪽 provider(`sendFriendRequest(나, 상대)` → `{ ok, reason }`)로 바꾼다 — 모듈 안에서 `firebaseAPI` 를 직접 부르지 않는다. 앞단 검사를 늘리면 마이홈 [친구 추가](`add-friend.js` 쪽)도 같은 순서 · 문구로 같이 고친다.
+**확장할 때 고칠 자리** — 기다리는 시간은 `FRIEND_REQ_ARM_MS`. provider 를 바꿀 때는 app.js 의 `friendNet:` 한 줄만 고친다(`sendFriendRequest(나, 상대, 사유)` → `{ ok, reason }` · `isFriendRequestAlive(상대, 나)` → boolean) — 모듈 안에서 `firebaseAPI` 를 직접 부르지 않는다. 앞단 검사를 늘리면 마이홈 [친구 추가](`add-friend.js` 쪽)도 같은 순서 · 문구로 같이 고친다.
 
 **함정** — 확인창(native 다이얼로그 · 새 fixed 오버레이)으로 바꾸지 말 것: 실행 화면은 투명 전체화면이라 다이얼로그가 안 보이고, 새 오버레이는 audit 검사 여럿에 항목이 는다.
 회사원 모드에서는 부르는 쪽(app.js)이 먼저 막는다 — 토스트도 뜨면 안 된다.
 
-검사: `checks/sim-seat-friend-req.js` (두 번 눌러 보내기 · 앞단 검사 · 결과 문구 · 연결 · mutation test).
+검사: `checks/sim-seat-friend-req.js` (두 번 눌러 보내기 · 앞단 검사 · 열린 요청이면 안 보냄 · 결과 문구 · 연결 · mutation test).
 
 ## friends-sub.js — 내 친구 목록 구독 한 벌
 - 책임: 친구 목록 구독(포트 `friends/friends-port.js` 의 watchList)을 **동시에 하나만** 건다. 실패하면 **목록을 열 때만**(친구 탭 · 워킹룸 초대 목록) 다시 건다 — 타이머 재시도 · 연결 감시는 없다.

@@ -1609,15 +1609,15 @@ const mhStateMod = TwMyHomeState.createMyHomeState({
   myhomeStore: myhomeStoreMod,
 });
 /* 🙋 남의 마이홈 [친구 신청] · 사유 창 — 보내기는 좌석 친구 신청과 같은 한 벌(seat-friend-req.js · 뒤에서 만든다 — 누를 때 찾는다) */
+const isFriendRequestAlive = async (toId, me)=>(await friendRequestsPortMod.sentIds(me)).includes(toId);   // 내가 보낸 요청이 살아 있나 — 마이홈 단추 · 좌석 신청이 같이 쓴다(GET 한 번 · 이름 안 받음)
 const friendReqBtnMod = TwFriendReqBtn.createFriendReqBtn({
   sendFriendReq: (...a)=>seatFriendReqMod.sendFriendReq(...a),
   resultView: (...a)=>seatFriendReqMod.resultView(...a),
-  /* 내가 보낸 요청이 살아 있나 — 서버 보낸 요청 목록(friend-requests-port.js listSent)에서 본다 */
-  friendNet: ()=>({ isFriendRequestAlive: async (toId, me)=>{ const s = await friendRequestsPortMod.listSent(me); return !!(s && s[toId]); } }),
+  friendNet: ()=>({ isFriendRequestAlive }),
   friends: ()=>_myHomeFriends,
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
-  reasonOn: ()=>TwServerFeatures.on('friendReqMsg'),   // 서버가 신청 사유를 받을 때까지 사유 칸을 숨긴다
+  reasonOn: ()=>TwServerFeatures.on('friendReqMsg'),   // 사유 칸 — 서버 POST /v2/me/friend-requests 의 message(UTF-16 100자)
 });
 const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({
   _myHomeFriends: ()=>_myHomeFriends,
@@ -2270,7 +2270,7 @@ const seatFromObject = seatPointerMod.seatFromObject;   // 옛 전역 이름
 const seatFriendReqMod = TwSeatFriendReq.createSeatFriendReq({
   FRIEND_MAX: FRIEND_MAX,
   _myHomeFriends: ()=>_myHomeFriends,
-  friendNet: ()=>({ sendFriendRequest: (...a)=>friendRequestsPortMod.send(...a) }),
+  friendNet: ()=>({ sendFriendRequest: (...a)=>friendRequestsPortMod.send(...a), isFriendRequestAlive }),
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
 });
