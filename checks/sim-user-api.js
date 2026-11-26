@@ -4,6 +4,7 @@
    ・3절: 고치기 · 비밀번호 · 탈퇴 — PATCH /v2/me · password-login · password · withdrawal-preview(파일 수 모름 = null) · withdrawal { confirm:'탈퇴' }
    ・4절: 초대 · 찾기 — 모양이 틀린 코드는 묻지 않음 · 토큰 없이 확인 · usable · 까닭 · 내 초대 · 새 초대 requestId · 친구코드 찾기
    ・5절: 방문 기록 — 토큰이 있으면 싣고 · 토큰이 없거나 거절되면 토큰 없이 한 번 더 · 닿지 못함은 던짐
+   ・5-2절: 👑 내 색 — GET · PUT /v2/me/theme-custom · provider 가 읽은 판을 싣는다 · 409 → conflict(판을 버리고 다음엔 먼저 읽음) · 403 · 닿지 못함 → failed
    ・6절: 문구 표 — 아는 code · 닿지 못함 · 그 밖 · 초대 까닭
    ・7절: 배선 — window.TwUserApi.store · html 차례(api-client · request-id 다음 · app.js 앞)
    ・8절: mutation test */
@@ -125,6 +126,18 @@ async function judge(S){
     chk(x && x.code === 'USER_REAUTH_REQUIRED', '  ↳ 오래된 로그인은 던진다(부르는 쪽이 다시 확인 뒤 한 번 더)');
   }
 
+  say('── 3-2. 구글 붙이기 · 바꾸기 — POST · PUT /v2/me/google');
+  {
+    const e = mkEnv(S, (r) => (r.path === '/v2/me/google') ? ok(ME) : null);
+    const a = await e.ua.linkGoogle('g-new');
+    chk(e.sent[0].method === 'POST' && JSON.stringify(e.sent[0].body) === '{"googleIdToken":"g-new"}' && e.sent[0].auth && a && a.userCode === ME.userCode, '붙이기 POST { googleIdToken } → 바뀐 Me');
+    const b = await e.ua.changeGoogle('g-old', 'g-new');
+    chk(e.sent[1].method === 'PUT' && e.sent[1].body.currentGoogleIdToken === 'g-old' && e.sent[1].body.newGoogleIdToken === 'g-new' && b && b.version === ME.version, '바꾸기 PUT { currentGoogleIdToken, newGoogleIdToken } → 바뀐 Me');
+    const e2 = mkEnv(S, () => err(409, 'USER_GOOGLE_IN_USE'));
+    const x = await threw(e2.ua.linkGoogle('g'));
+    chk(x && x.code === 'USER_GOOGLE_IN_USE' && /다른 계정/.test(e2.UA.reasonOf(x)), '  ↳ 이미 다른 계정의 구글 — 던지고 문구 한 줄');
+  }
+
   say('── 4. 초대 · 찾기');
   {
     const e = mkEnv(S, (r) => {
@@ -194,12 +207,61 @@ async function judge(S){
     chk(x && x.kind === 'unavailable' && e4.sent.length === 1, '닿지 못하면 한 번만 보내고 던진다(부르는 쪽이 삼킨다)');
   }
 
+  say('── 5-2. 👑 내 색');
+  {
+    const CX = { default: { a: '#112233', b: '#445566' } };
+    let ver = 4, answer409 = false, answer403 = false;
+    const e = mkEnv(S, (r) => {
+      if(r.path !== '/v2/me/theme-custom') return null;
+      if(r.method === 'GET') return ok({ themeCustom: CX, version: ver });
+      if(answer409) return err(409, 'CONCURRENT_UPDATE');
+      if(answer403) return err(403, 'PREMIUM_REQUIRED');
+      ver = r.body.version + 1;
+      return ok({ themeCustom: r.body.themeCustom, version: ver });
+    });
+    const t = await e.ua.getTheme();
+    chk(t && t.version === 4 && t.themeCustom.default.a === '#112233' && e.sent[0].method === 'GET' && e.sent[0].auth === 'Bearer ' + TOKEN, 'GET /v2/me/theme-custom — 토큰 · { themeCustom, version }');
+    const p = await e.ua.putTheme(4, {});
+    chk(p && p.version === 5 && JSON.stringify(e.sent[1].body) === JSON.stringify({ version: 4, themeCustom: {} }) && e.sent[1].method === 'PUT', '  PUT — { version, themeCustom } 그대로 · 새 판');
+    const U = load(S.UA);
+    chk(U.themeFrom({ themeCustom: CX }) === null && JSON.stringify(U.themeFrom({ version: 0 })) === JSON.stringify({ themeCustom: {}, version: 0 }), '  판이 없으면 null(믿지 않음) · themeCustom 이 없으면 {}');
+
+    const sync = U.createThemeCustomSync(e.ua);
+    e.sent.length = 0; ver = 7;
+    const r0 = await sync.save('uA', CX);
+    chk(r0 === U.THEME_SAVED && e.sent.length === 2 && e.sent[0].method === 'GET' && e.sent[1].body.version === 7, 'provider — 판을 모르면 먼저 읽고 그 판으로 쓴다');
+    const r1 = await sync.save('uA', CX);
+    chk(r1 === U.THEME_SAVED && e.sent.length === 3 && e.sent[2].body.version === 8, '  쓴 뒤에는 받은 판으로 다음 쓰기(다시 읽지 않음)');
+    e.sent.length = 0;
+    const l = await sync.load('uA');
+    chk(l && l.default.a === '#112233' && e.sent.length === 1, '  load — 서버 사본(판은 provider 가 든다)');
+    answer409 = true;
+    const r2 = await sync.save('uA', CX);
+    chk(r2 === U.THEME_CONFLICT, '  409 CONCURRENT_UPDATE → conflict');
+    answer409 = false; e.sent.length = 0; ver = 20;
+    await sync.save('uA', CX);
+    chk(e.sent[0].method === 'GET' && e.sent[1].body.version === 20, '  409 뒤에는 판을 버리고 다시 읽은 판으로');
+    answer403 = true;
+    chk(await sync.save('uA', CX) === U.THEME_FAILED, '  403 PREMIUM_REQUIRED → failed(못 올림 — 지금처럼 E-SYS-02)');
+    answer403 = false;
+    e.sent.length = 0; ver = 30;
+    await sync.load('uA');
+    e.sent.length = 0; ver = 40;
+    await sync.save('uB', CX);
+    chk(e.sent.length === 2 && e.sent[0].method === 'GET' && e.sent[1].body.version === 40, '  계정이 바뀌면(uid 다름) 앞 사람 판을 싣지 않고 먼저 읽는다');
+    const e2 = mkEnv(S, () => ({ status: 503, body: null }));
+    const s2 = U.createThemeCustomSync(e2.ua);
+    chk(await s2.load('uA') === null && await s2.save('uA', CX) === U.THEME_FAILED, '  닿지 못하면 load null(못 읽음 ≠ 없음) · save failed');
+  }
+
   say('── 6. 문구 표');
   {
     const U = load(S.UA);
     chk(U.reasonOf({ kind: 'request', code: 'USER_WEAK_PASSWORD' }).indexOf('6자') >= 0, '아는 code — 표의 문구');
     chk(/가입을 마치지 못했어요/.test(U.reasonOf({ kind: 'request', status: 503, code: 'USER_STORAGE_OWNER_UNAVAILABLE' })), '  가입 때 Storage 주인 문서를 못 씀(503 USER_STORAGE_OWNER_UNAVAILABLE) — 가입이 안 됐다고 · 다시 해 보라고');
     chk(U.reasonOf({ kind: 'unavailable', code: 'NETWORK' }) === U.OFFLINE_REASON && U.reasonOf(null) === U.OFFLINE_REASON, '닿지 못함 · 오류 없음 — 연결 확인 문구');
+    chk(['USER_GOOGLE_IN_USE', 'USER_GOOGLE_TOKEN_INVALID', 'USER_LOGIN_DELETED', 'USER_GOOGLE_MISMATCH', 'USER_GOOGLE_SAME', 'USER_GOOGLE_NONE', 'USER_GOOGLE_ALREADY_LINKED']
+      .every(c => U.reasonOf({ kind: 'request', code: c }) !== U.UNKNOWN_REASON), '구글 연결 · 바꾸기 · 지운 로그인 code 마다 문구가 있다(#1101)');
     chk(U.reasonOf({ kind: 'request', code: 'SOMETHING_NEW' }) === U.UNKNOWN_REASON, '모르는 code — 처리 못 함 문구(서버 message 를 그대로 쓰지 않음)');
     chk(U.inviteReasonOf('EXPIRED').indexOf('기한') >= 0 && U.inviteReasonOf('???') !== '', '초대 까닭 — 기한 · 모르는 까닭도 한 줄');
   }
@@ -233,6 +295,11 @@ const BREAKS = [
   ['UA', "  if(code && Object.prototype.hasOwnProperty.call(REASONS, code)) return REASONS[code];", "  if(err && err.message) return err.message;", '서버 message 를 그대로 보여 줌'],
   ['UA', "{ password: String(password || '') })); }", "{ pw: String(password || '') })); }", '비밀번호 붙이기 칸 이름이 다름'],
   ['HTML', '<script src="parts/account/user-api.js"></script>', '', 'html 에 안 실음'],
+  ['UA', "      return e && e.code === 'CONCURRENT_UPDATE' ? THEME_CONFLICT : THEME_FAILED;", "      return THEME_FAILED;", '내 색 409 를 못 가름'],
+  ['UA', "    if(!(held && held.uid === uid) && (await load(uid)) === null) return THEME_FAILED;", "    if(!held && (await load(uid)) === null) return THEME_FAILED;", '내 색 다른 계정의 판을 실음'],
+  ['UA', "    if(!(held && held.uid === uid) && (await load(uid)) === null) return THEME_FAILED;", "", '내 색 판을 모르는 채 씀'],
+  ['UA', "    }catch(e){\n      held = null;", "    }catch(e){", '내 색 409 뒤에도 옛 판을 씀'],
+  ['UA', "      held = r ? { uid, version: r.version } : null;", "", '내 색 쓴 뒤 판을 안 바꿈'],
 ];
 const caught = [];
 for(const [where, from, to, what] of BREAKS){

@@ -156,10 +156,10 @@ if(desktopMode){
   }
   // 컨트롤 바: 드래그 이동 + 런처 + 잠깐 숨기기
   const grip=document.querySelector('#deskBar .grip');
-  if(grip&&window.companion&&companion.moveWindow){ let dragging=false,px=0,py=0;
-    grip.addEventListener('mousedown',e=>{dragging=true;px=e.screenX;py=e.screenY;e.preventDefault();});
-    window.addEventListener('mousemove',e=>{ if(!dragging)return; companion.moveWindow(e.screenX-px,e.screenY-py); px=e.screenX;py=e.screenY; });
-    window.addEventListener('mouseup',()=>dragging=false);
+  if(grip&&window.companion&&companion.dragWindow){ let dragging=false;
+    grip.addEventListener('mousedown',e=>{dragging=true;companion.dragWindow('start');e.preventDefault();});
+    window.addEventListener('mousemove',()=>{ if(dragging) companion.dragWindow('move'); });
+    window.addEventListener('mouseup',()=>{ if(dragging) companion.dragWindow('end'); dragging=false; });
   }
   const dg=document.getElementById('deskGear'); if(dg) dg.onclick=()=>backToLauncher();
   const dh=document.getElementById('deskHide'); if(dh) dh.onclick=()=>{ const c=document.getElementById('scene'); c.style.visibility=(c.style.visibility==='hidden'?'visible':'hidden'); };

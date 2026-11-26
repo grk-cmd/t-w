@@ -388,6 +388,8 @@ PRELOAD.push('pomodoro.js');
 /* myhome-sticker.js — 🎨 마이홈 스티커 관리 창 · 편집모드 · 드래그 · 회전 · 크기(앱 FSD 7번). 같은 까닭 — 만들 때 하는 일(#stMgrClose · #stMgrBringAll 연결)을 같이 굴린다. */
 /* myhome-sticker-rules.js — 🔒 스티커 잠금 · 순서 규칙(순수 함수). 관리 창 · 편집 묶음이 만들 때 TwMyHomeStickerRules 를 받으므로 먼저. */
 PRELOAD.push('myhome-sticker-rules.js');
+/* sticker-layer.js — 🎨 마이홈 스티커 보이기(이 PC 설정). app.js 가 설정 창을 만들기 전에 createStickerLayer 를 부른다. */
+PRELOAD.push('sticker-layer.js');
 PRELOAD.push('myhome-sticker.js');
 /* gacha.js — 🎰 파츠 가챠 코어 · 도감(꾸미기 창 «도감» 탭) · 뽑기 창(앱 FSD 8번). 같은 까닭 — 만들 때 하는 일(뽑기 창 버튼 · ESC · 바깥 클릭 연결)을 같이 굴린다. */
 PRELOAD.push('gacha-api.js');   // 🎰 가챠 서버 경로 — app.js 가 만들 때 TwGachaApi 를 부른다
@@ -428,6 +430,8 @@ PRELOAD.push('help-site.js');
 PRELOAD.push('help-tab.js');
 /* bgm-diag.js — 🔍 플레이리스트 소리 진단 줄. app.js 가 TwBgmDiag.createBgmDiag 로 만든다. */
 PRELOAD.push('playlist-api.js');   // 🌐 플레이리스트 서버 경로 provider — app.js 가 로그인 통로(TwApi.authed)를 넘겨 만든다
+PRELOAD.push('xmas-rules.js');   // 🎄 크리스마스 규칙(날짜 한 벌 scheduleOf) — xmas-api 가 받는다
+PRELOAD.push('xmas-api.js');     // 🎄 크리스마스 서버 endpoint provider — app.js 가 로그인 통로(TwApi.authed)를 넘겨 만든다
 PRELOAD.push('bgm-diag.js');   // 🔍 소리 진단 줄 — app.js 가 만들 때 TwBgmDiag 를 부른다
 /* playlist.js — 🎵 상태칩 플레이리스트(앱 FSD 16번). 같은 까닭 — 만들 때 하는 일(🪟 창 위치 초기화 등록 · 저장값 읽기 · 버튼 · ESC · 끌기 연결 · 미니미 ·
    300ms 폴링 · BGM 신호 구독 · 음량 한 번 · window 고리)과 app.js 가 원래 자리에서 부르는 createPlaylist 를 같이 굴린다. */
@@ -486,6 +490,8 @@ PRELOAD.push('chat-focus.js');   // 📊 시크릿룸 #집중 탭
 PRELOAD.push('chat-ui.js');
 /* nav.js — 🧭 창 열기 통로(모듈 순환 끊기 6). 같은 까닭 — 창 모듈이 만들 때 여는 함수를 걸고 부르는 쪽이 이름으로 부탁한다(빈 껍데기면 부탁이 아무 일도 안 한다). */
 PRELOAD.push('nav.js');
+/* device-toggle.js — 이 PC 의 켜고 끄는 화면 설정 하나. app.js 가 설정 창을 만들기 전에 createDeviceToggle 을 부른다. */
+PRELOAD.push('device-toggle.js');
 /* demoji-catalog.js — 😊 기본 이모티콘 목록(맨 아래 고정 표). chat-ui 를 만드는 줄이 TwDemojiCatalog 를 넘기므로 먼저 싣는다. */
 PRELOAD.push('demoji-catalog.js');
 /* account-state.js — 🪪 계정 핵심 상태(모듈 순환 끊기 5). 같은 까닭 — 초대 게이트 · 계정 · 내 정보 · 포커스 레벨이 만들 때 이 모듈의 알림 자리(onPremiumChanged)를 받는다. */

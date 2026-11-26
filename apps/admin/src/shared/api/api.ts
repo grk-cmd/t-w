@@ -168,6 +168,8 @@ export function createApi({
       throw new ApiError('unavailable', res.status, code, message || `API 오류 (${res.status})`);
     }
     if (!res.ok) throw new ApiError('request', res.status, code, message || `API 요청 오류 (${res.status})`);
+    // 204 No Content — 지우기 같은 쓰기의 성공은 본문이 없다(봉투가 없어도 성공)
+    if (res.status === 204) return undefined as T;
     // 앞단(Caddy)의 오류 페이지처럼 봉투가 아닌 2xx 도 서버 문제로 본다
     if (!body || body.success !== true) {
       throw new ApiError('unavailable', res.status, code, message || 'API 응답 모양이 달라요');

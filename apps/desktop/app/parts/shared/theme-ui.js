@@ -28,8 +28,8 @@ const _premiumOn = deps._premiumOn;   // () => bool — 이름은 app.js 와 같
 const customUsable = deps.customUsable;   // (theme) => bool — 내 색을 쓸 수 있나(theme.js 한 곳)
 const getMyUserId = deps.getMyUserId;
 const serverOn = deps.serverOn;   // 읽는 함수 — 서버가 «내 색» 을 받는가(shared/server-features.js) · 아니면 이 PC 에만 둔다(읽기 · 쓰기 · 실패 알림 없음)
-const loadCustom = deps.loadCustom; // (uid) => obj | {}(없음) | null(못 읽음) — 서버 users/$uid/themeCustom
-const saveCustom = deps.saveCustom; // (uid, obj) => bool
+const loadCustom = deps.loadCustom; // (uid) => obj | {}(없음) | null(못 읽음) — 서버 GET /v2/me/theme-custom(account/user-api.js)
+const saveCustom = deps.saveCustom; // (uid, obj) => 'saved' | 'conflict'(다른 PC 가 먼저 바꿈 · 409) | 'failed'(403 프리미엄 아님 포함)
 const TC = TwThemeCustom;
 const THEME_CHILD_TOKENS = [
   '--win-face','--win-face-2','--win-hi','--win-lo','--win-lo-2','--win-ink','--win-ink-soft','--win-title-ink',
@@ -165,9 +165,21 @@ async function _cxSave(){
   setAccent(CUSTOM_ID);
   const uid = getMyUserId();
   if(!uid || !serverOn()) return;   // 로그인 전 · 서버 길 없음 — 이 PC 에만. 로그인 뒤 pullCustom 이 서버가 비었으면 올린다
-  const ok = await saveCustom(uid, saved);
-  _cxDirty(!ok);
-  if(!ok) TwErrorCodes.notify('E-SYS-02', new Error('saveThemeCustom'));
+  const r = await saveCustom(uid, saved);
+  if(r === 'conflict' && await _cxTakeServer(uid)) return;
+  _cxDirty(r !== 'saved');
+  if(r !== 'saved') TwErrorCodes.notify('E-SYS-02', new Error('saveThemeCustom ' + r));
+}
+/* 409 — 다른 PC 가 먼저 바꿨다. 이 PC 것으로 덮지 않고 계정 것을 다시 읽어 맞춘 뒤 알린다(다시 고르면 그 판 위에 저장된다).
+   다시 못 읽으면 false — 부르는 쪽이 «못 올림» 으로 다룬다 */
+async function _cxTakeServer(uid){
+  const srv = await loadCustom(uid);
+  if(srv === null) return false;
+  setCustom(TC.normCustom(srv));
+  _cxDirty(false);
+  applyTheme(); refreshThemeUI();
+  TwErrorCodes.notify('E-SYS-09', new Error('saveThemeCustom conflict'));
+  return true;
 }
 /* 서버에 못 올린 내 색이 이 PC 에 있다 — 다음 로그인 때 서버 것으로 덮지 말고 이것을 올린다 */
 const CX_DIRTY_KEY = 'tw.accentCustomDirty';
@@ -181,9 +193,13 @@ async function pullCustom(){
   const srv = await loadCustom(uid);
   if(srv === null) return;
   const s = TC.normCustom(srv), local = getCustom();
-  if(_cxIsDirty() && Object.keys(local).length){ _cxDirty(!(await saveCustom(uid, local))); return; }
+  if(_cxIsDirty() && Object.keys(local).length){
+    const r = await saveCustom(uid, local);
+    if(r === 'conflict' && await _cxTakeServer(uid)) return;
+    _cxDirty(r !== 'saved'); return;
+  }
   if(Object.keys(s).length){ setCustom(s); applyTheme(); refreshThemeUI(); return; }
-  if(Object.keys(local).length) await saveCustom(uid, local);
+  if(Object.keys(local).length && await saveCustom(uid, local) === 'conflict') await _cxTakeServer(uid);
 }
 function _cxBind(){
   const on = (id, ev, fn) => { const e = _cxEl(id); if(e) e.addEventListener(ev, fn); };

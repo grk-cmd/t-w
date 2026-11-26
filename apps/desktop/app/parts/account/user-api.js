@@ -25,6 +25,13 @@ const REASONS = Object.freeze({
   USER_PASSWORD_LOGIN_EXISTS: '이미 비밀번호가 있는 계정이에요',
   USER_NO_PASSWORD_LOGIN: '비밀번호가 없는 계정이에요 — 먼저 비밀번호를 만들어 주세요',
   USER_REAUTH_REQUIRED: '한 번 더 로그인한 뒤 해 주세요',
+  USER_GOOGLE_IN_USE: '이 구글 계정은 이미 다른 계정에 쓰이고 있어요',
+  USER_GOOGLE_TOKEN_INVALID: '구글 확인이 맞지 않아요 — 구글 계정을 다시 골라 주세요',
+  USER_GOOGLE_ALREADY_LINKED: '이미 구글 계정이 연결되어 있어요',
+  USER_GOOGLE_NONE: '연결된 구글 계정이 없어요 — [연결하기]를 써 주세요',
+  USER_GOOGLE_MISMATCH: '지금 연결된 구글 계정으로 골라 주세요',
+  USER_GOOGLE_SAME: '지금 연결된 구글 계정과 같아요',
+  USER_LOGIN_DELETED: '이 로그인은 더 쓸 수 없어요 — 다시 로그인해 주세요',
   USER_CONFIRM_MISMATCH: '확인 글자 «' + WITHDRAW_CONFIRM + '» 를 그대로 입력해 주세요',
   USER_ADMIN_CANNOT_WITHDRAW: '관리자 계정은 탈퇴할 수 없어요',
   USER_AUTH_UNAVAILABLE: '로그인 서버에 지금 닿지 못했어요 — 잠시 뒤 다시 해 주세요',
@@ -95,7 +102,7 @@ function limitOldestOf(err){
   return deviceFrom(err.items[0]);
 }
 
-/** @param {{ api: () => { get: Function, post: Function, patch: Function }, newId: () => string }} deps
+/** @param {{ api: () => { get: Function, post: Function, put: Function, patch: Function, del: Function }, newId: () => string }} deps
  *   api 는 로그인 통로(TwApi.authed — 쉬기 없음 · 토큰 · 기기 머리). 토큰 없는 길은 opts.auth:false 로 같은 통로를 쓴다. */
 function createUserApi(deps){
   const api = deps.api;
@@ -125,6 +132,11 @@ function createUserApi(deps){
   async function clearAwayImage(){ return meFrom(await api().del('/v2/me/away-image')); }
 
   async function attachPasswordLogin(password){ return meFrom(await api().post('/v2/me/password-login', { password: String(password || '') })); }
+  /* 구글 붙이기 · 바꾸기 — 서버가 Identity Toolkit 으로(앱이 Firebase 에 직접 붙이지 않는다 — 서버가 «남의 계정 구글» 을 가른다). 답은 바뀐 Me */
+  async function linkGoogle(googleIdToken){ return meFrom(await api().post('/v2/me/google', { googleIdToken: String(googleIdToken || '') })); }
+  async function changeGoogle(currentGoogleIdToken, newGoogleIdToken){
+    return meFrom(await api().put('/v2/me/google', { currentGoogleIdToken: String(currentGoogleIdToken || ''), newGoogleIdToken: String(newGoogleIdToken || '') }));
+  }
   async function changePassword(newPassword){ await api().post('/v2/me/password', { newPassword: String(newPassword || '') }); return true; }
 
   /* 탈퇴 미리보기 → { items, files(null = 셀 수 없음), byContext } · 탈퇴(202) */
@@ -176,6 +188,11 @@ function createUserApi(deps){
     return Array.isArray(d) ? d.filter((x) => isObj(x) && str(x.userCode)).map((x) => ({ userCode: x.userCode, displayName: str(x.displayName) })) : [];
   }
 
+  /* 👑 테마 «내 색» — 통째 읽기 · 쓰기 → { themeCustom: { default?: { a, b }, bubble?: { a, b } }, version }(판이 숫자가 아니면 null).
+     쓰기는 읽은 판을 싣는다 — 판이 다르면 409 CONCURRENT_UPDATE · 프리미엄 아님 403 PREMIUM_REQUIRED · 모양 400 을 그대로 던진다. {} 면 지운다(판 +1). */
+  async function getTheme(){ return themeFrom(await api().get('/v2/me/theme-custom', { auth: true })); }
+  async function putTheme(version, themeCustom){ return themeFrom(await api().put('/v2/me/theme-custom', { version, themeCustom })); }
+
   /* 방문 기록(204) — 로그인돼 있으면 토큰을 싣고, 토큰이 없거나 거절되면 토큰 없이 한 번 더(익명 방문으로 센다). */
   async function visit(){
     try{ await api().post('/v2/metrics/visits', undefined); }
@@ -186,16 +203,51 @@ function createUserApi(deps){
     return true;
   }
 
-  return { me, joinWithPassword, joinWithGoogle, updateMe, setAwayImage, setAwaySize, clearAwayImage, attachPasswordLogin, changePassword,
-    withdrawalPreview, withdraw, checkInvite, myInvites, createInvite, registerDevice, myDevices, findByFriendCode, visit,
+  return { me, joinWithPassword, joinWithGoogle, updateMe, setAwayImage, setAwaySize, clearAwayImage, attachPasswordLogin, linkGoogle, changeGoogle, changePassword,
+    withdrawalPreview, withdraw, checkInvite, myInvites, createInvite, registerDevice, myDevices, findByFriendCode, getTheme, putTheme, visit,
     reasonOf, inviteReasonOf };   // 화면 문구 표도 같이 — 부르는 쪽이 통로 하나만 받게
 }
 
+function themeFrom(d){
+  if(!isObj(d) || typeof d.version !== 'number' || !isFinite(d.version)) return null;
+  return { themeCustom: isObj(d.themeCustom) ? d.themeCustom : {}, version: d.version };
+}
+
+/* 👑 내 색 계정 사본 provider — theme-ui.js 가 받는 모양(load → obj | {}(없음) | null(못 읽음) · save → SAVED | CONFLICT | FAILED).
+   판은 여기 한 곳에서 든다 — 읽은(쓴) 판을 다음 쓰기에 싣는다. 판을 모르면(아직 안 읽음 · 409 뒤 · 실패 뒤) 쓰기 전에 먼저 읽는다.
+   판은 읽은 사람(uid)과 같이 든다 — 계정을 바꾸면 앞 사람 판을 다음 사람 쓰기에 싣지 않게(신원 자체는 토큰뿐).
+   CONFLICT 는 다른 PC 가 먼저 바꾼 것 — 부르는 쪽이 다시 읽어 그 값을 쓴다(이 PC 것으로 덮지 않는다). */
+const THEME_SAVED = 'saved', THEME_CONFLICT = 'conflict', THEME_FAILED = 'failed';
+function createThemeCustomSync(ua){
+  let held = null;   // { uid, version } — 마지막으로 읽은 · 쓴 판
+  async function load(uid){
+    let r = null;
+    try{ r = await ua.getTheme(); }catch(_){ held = null; return null; }
+    if(!r){ held = null; return null; }
+    held = { uid, version: r.version };
+    return r.themeCustom;
+  }
+  async function save(uid, obj){
+    if(!(held && held.uid === uid) && (await load(uid)) === null) return THEME_FAILED;
+    try{
+      const r = await ua.putTheme(held.version, obj);
+      held = r ? { uid, version: r.version } : null;
+      return THEME_SAVED;
+    }catch(e){
+      held = null;
+      return e && e.code === 'CONCURRENT_UPDATE' ? THEME_CONFLICT : THEME_FAILED;
+    }
+  }
+  return { load, save };
+}
+
 const out = { WITHDRAW_CONFIRM, ME_TIMEOUT_MS, INVITE_RE, REASONS, OFFLINE_REASON, UNKNOWN_REASON, INVITE_UNUSABLE, DEVICE_LIMIT,
-  reasonOf, inviteReasonOf, meFrom, deviceFrom, limitOldestOf, createUserApi };
+  THEME_SAVED, THEME_CONFLICT, THEME_FAILED,
+  reasonOf, inviteReasonOf, meFrom, deviceFrom, themeFrom, limitOldestOf, createUserApi, createThemeCustomSync };
 if(typeof window !== 'undefined'){
   /* 앱 한 벌 — 통로 · 요청 번호는 부를 때 찾는다(싣는 차례가 바뀌어도 만들 때 던지지 않게) */
   out.store = createUserApi({ api: () => window.TwApi.authed, newId: () => window.TwRequestId.newId() });
+  out.themeCustom = createThemeCustomSync(out.store);
   window.TwUserApi = out;
 }
 if(typeof module !== 'undefined' && module.exports) module.exports = out;

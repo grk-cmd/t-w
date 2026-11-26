@@ -9,7 +9,7 @@
    전역 이름은 TwFriendReqBtn(Tw 접두사 #103). app.js 가 친구 홈 구경보다 먼저 createFriendReqBtn(deps) 로 만든다. */
 (function(){
 
-const REASON_MAX = 100;   // 규칙 friendRequests/$toId/$fromId/msg 의 길이와 같다
+const REASON_MAX = 100;   // 서버 POST /v2/me/friend-requests 의 message 길이(UTF-16 100자 — textarea maxLength · JS length 와 같은 단위)
 const BTN_ID = 'mhFriendReqBtn';
 
 /* 사유 다듬기 — 앞뒤 공백 · 줄바꿈 정리 · 길이 */

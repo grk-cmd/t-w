@@ -6,6 +6,7 @@
    내보냄: createFriendRequestsApi(deps) → {
      watchReceived(myId, onChange, onError) → 해제 함수   onChange({ 보낸이id: { name, ts, msg? } }) · msg = 신청 사유(있을 때만) · 못 받으면 onError(e)
      listSent(myId) → Promise<{ 받는이id: { ts, toName } }>   못 받으면 던진다
+     sentIds(myId) → Promise<받는이id[]>   보낸 요청의 상대 코드만(이름 · 명함을 받지 않는다 — GET 한 번) · 못 받으면 던진다
      accept(myId, fromId) · reject(myId, fromId) → Promise<void>   못 하면 던진다
      cancel(myId, toId) → Promise<{ ok, reason? }>     reason = 서버 코드
      send(myId, toId, msg?) → Promise<{ ok, reason? }>   msg = 신청 사유(빈 글이면 서버에 싣지 않는다) · reason = 'already' | 'self' | 서버 코드(이름 · 코드는 서버가 채운다)
@@ -69,6 +70,7 @@ function createFriendRequestsApi(deps){
 
   return {
     watchReceived, listSent,
+    sentIds: async () => (await social.fetchRequests()).sent.map((x) => x.userCode),
     accept: (myId, fromId) => social.acceptRequest(fromId),
     reject: (myId, fromId) => social.rejectRequest(fromId),
     cancel: (myId, toId) => outcome(() => social.cancelRequest(toId)),

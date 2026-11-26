@@ -1,12 +1,12 @@
 /* sim-xmas-letter.js — 🎄 마니또 편지 창(parts/xmas/xmas-letter.js · 일회성)을 가짜 화면 · 가짜 서버로 돌려 본다
    실행: node checks/run.js sim-xmas-letter
-   ・1절 단추 — 쓰는 기간 [편지 쓰기 (n/5)] · 25일 0시부터 [편지 열람] · 1월 1일엔 숨김 · 창은 날짜로 쓰기 / 열람을 고른다
+   ・1절 단추 — 쓰는 기간 [편지 쓰기 (n/5)] · 25일 0시부터 [편지 열람] · 1/6 0시(열람 끝)부터 숨김 · 창은 날짜로 쓰기 / 열람을 고른다
    ・2절 쓰기 — 맡긴 목록 · 마감 D-day · 운영자 확인 안내(html) · 처음이면 바로 편지지 · 새 편지(빈 칸) · 고치기(같은 칸) · 거두기 · 5통이면 더 못 씀
-   ・3절 반송 — 사유 표시 · [다시 쓰기] 는 그 글로 편지지를 펴고 맡기면 반송 표시를 치운다 · [지우기]
-   ・4절 쓰기 실패 — 마감(closed) · 로그인(auth) 은 안내 · 그 밖은 E-XMAS-05 · 불러오기 실패 E-XMAS-04 · 로그인 안 됨은 안내(오류 코드 없음)
-   ・5절 열람 — 봉투 · 열기(글은 textContent) · 추천곡 바 · 읽음(이 PC) · 빨간 점 · ← 다른 편지 · 신고(g-) · 받은 편지 없음
-   ・6절 받은 편지 확인(빨간 점) — 25일 전엔 안 읽음 · 아직 없으면 5분 간격 · 한 시간 뒤엔 멈춤 · 찾으면 더 안 읽음 · 실패는 다시 ·
-     앱을 켠 직후(로그인 복원 전 auth)는 세지 않고 다음 1분에 · 계정이 바뀌면 앞 계정 점을 지우고 처음부터
+   ・3절 반송 — 사유 표시 · [다시 쓰기] 는 그 글로 편지지를 펴고 빈 칸에 맡기며 fromReturned 로 반송 칸을 실어 보낸다(따로 지우지 않음) · [지우기]
+   ・4절 쓰기 실패 — 마감(closed) · 로그인(auth) · 다른 PC 가 먼저(conflict — 다시 읽음) · 서버 바쁨(aborted) 은 안내 · 그 밖은 E-XMAS-05 · 불러오기 실패 E-XMAS-04 · 로그인 안 됨은 안내(오류 코드 없음)
+   ・5절 열람 — 봉투 · 열기(글은 textContent) · 추천곡 바 · 읽음(이 PC) · 빨간 점 · ← 다른 편지 · 신고(g-) · 이벤트 끝 뒤 신고는 안내로 막힘 · 받은 편지 없음
+   ・6절 받은 편지 한 번 읽기(빨간 점) — 부를 때만 읽고 다시 묻지 않음(폴링 없음 · 타이머 없음) · 실패는 조용히 · 계정이 바뀌면 앞 계정 점을 지움 ·
+     짝 짓기 전(matched=false)은 «배달하는 중» · 날짜는 schedule()
    ・7절 닫기 · Esc · 저장소가 던져도 · mutation test */
 'use strict';
 const fs = require('fs');
@@ -48,9 +48,11 @@ function world(opts){
   const net = {
     me: () => N.uid,
     myLetters: async () => { N.calls.push('my'); return N.fail.my ? { ok: false, code: N.fail.my } : { ok: true, letters: D.letters, returned: D.returned }; },
-    got: async () => { if (!N.uid) return { ok: false, code: 'auth' }; N.calls.push('got'); return N.fail.got ? { ok: false, code: N.fail.got } : { ok: true, got: D.got }; },
-    saveLetter: async (lid, text, song) => { N.calls.push('save:' + lid); N.last = { lid, text, song }; if (N.ret.save) return N.ret.save;
-      D.letters = Object.assign({}, D.letters, { [lid]: { text, ts: 9, song: song || undefined } }); return { ok: true }; },
+    got: async () => { if (!N.uid) return { ok: false, code: 'auth' }; N.calls.push('got'); if (N.hold) await N.hold; return N.fail.got ? { ok: false, code: N.fail.got } : { ok: true, got: D.got, matched: o.matched !== false }; },
+    saveLetter: async (lid, text, song, fromReturned) => { N.calls.push('save:' + lid + (fromReturned ? '<' + fromReturned : '')); N.last = { lid, text, song, fromReturned }; if (N.ret.save) return N.ret.save;
+      D.letters = Object.assign({}, D.letters, { [lid]: { text, version: 1, song: song || undefined } });
+      if (fromReturned){ D.returned = Object.assign({}, D.returned); delete D.returned[fromReturned]; }   // 서버가 같은 트랜잭션에서 지운다
+      return { ok: true, version: 1 }; },
     removeLetter: async (lid) => { N.calls.push('remove:' + lid); if (N.ret.remove) return N.ret.remove; D.letters = Object.assign({}, D.letters); delete D.letters[lid]; return { ok: true }; },
     clearReturned: async (lid) => { N.calls.push('clearRet:' + lid); D.returned = Object.assign({}, D.returned); delete D.returned[lid]; return { ok: true }; },
     reportLetter: async (n) => { N.calls.push('report:' + n); return N.ret.report || { ok: true }; },
@@ -59,7 +61,7 @@ function world(opts){
   const song = { stops: 0, bar: (box, op) => { const b = { box, op, sets: [], set: (s) => b.sets.push(s), get: () => b.sets[b.sets.length - 1] || null }; bars.push(b); return b; }, stop(){ this.stops++; } };
   const storage = o.badStore ? { getItem(){ throw new Error('x'); }, setItem(){ throw new Error('x'); } }
     : { getItem: (k) => (k in S.store ? S.store[k] : null), setItem: (k, v) => { S.store[k] = String(v); } };   // 값으로 넘긴다(app.js 가 localStorage 를 그대로)
-  const api = L.createXmasLetter({ doc, rules: R, net: () => net, song, serverNow: () => S.now, toast: (m) => S.toasts.push(m), notifyError: (c) => S.errs.push(c),
+  const api = (o.mod || L).createXmasLetter({ doc, rules: R, net: () => net, song, serverNow: () => S.now, schedule: () => S.sched || R.SCHEDULE, toast: (m) => S.toasts.push(m), notifyError: (c) => S.errs.push(c),
     escRegisterWindow: (x) => S.escs.push(x), storage, onDot: (on) => S.dots.push(on) });
   return { api, els, S, D, N, song, bars };
 }
@@ -77,7 +79,9 @@ say('── 1절 단추 · 날짜');
   w.S.now = R.LETTER_DEADLINE_MS; w.N.calls.length = 0; await w.api.refresh();
   chk(w.els.xmasLetterBtn.textContent === '편지 열람' && !w.N.calls.length, '25일 0시부터 [편지 열람] — 편지함은 안 읽는다');
   w.S.now = R.EVENT_END_MS; w.api.paintBtn();
-  chk(w.els.xmasLetterBtn.hidden, '1월 1일 0시부터 숨김');
+  chk(!w.els.xmasLetterBtn.hidden && w.els.xmasLetterBtn.textContent === '편지 열람', '1월 1일 0시(이벤트 끝)에도 [편지 열람] — 1/5 까지');
+  w.S.now = R.LETTERS_VIEW_UNTIL_MS; w.api.paintBtn();
+  chk(w.els.xmasLetterBtn.hidden, '열람 끝(1/6 0시)부터 숨김');
   chk(/부적절한 내용이 없는지 운영자가 확인해요\. 받는 사람에게는 끝까지 익명이에요\./.test(HTML) && /From\. 익명의 산타/.test(HTML) && /To\. 누군가에게/.test(HTML), 'html — 운영자 확인 한 줄 안내 · 편지지 «To. 누군가에게 / From. 익명의 산타»');
 }
 
@@ -124,7 +128,7 @@ say('── 3절 반송');
   btn(rr, '다시 쓰기').onclick();
   chk(w.els.xmasLwText.value === '내 번호는 010' && w.bars[0].sets.slice(-1)[0].id === SONG.id, '[다시 쓰기] — 반송된 글 · 곡으로 편지지');
   w.els.xmasLwText.value = '번호 뺐어요'; w.els.xmasLwText.ls.input(); await w.els.xmasLwKeep.onclick(); await settle();
-  chk(w.N.calls.includes('save:l2') && w.N.calls.includes('clearRet:l2') && w.N.calls.indexOf('save:l2') < w.N.calls.indexOf('clearRet:l2'), '  ↳ 빈 칸에 맡긴 뒤 반송 표시를 치운다(맡기기가 실패하면 표시가 남는다)');
+  chk(w.N.calls.includes('save:l2<l2') && !w.N.calls.some(c => c.startsWith('clearRet')), '  ↳ 빈 칸에 맡기며 fromReturned 로 반송 칸을 싣는다 — 반송 표시를 따로 지우지 않는다(서버가 같은 트랜잭션에서)');
   chk(!rows(w.els.xmasLwRet).length && rows(w.els.xmasLwList).length === 2, '  ↳ 반송 줄이 사라지고 맡긴 목록 2통');
   const w2 = world({ returned: { l3: { reason: 'etc', note: '도배', text: 'ㅋㅋㅋ' } } });
   w2.api.open(); await settle();
@@ -135,16 +139,22 @@ say('── 3절 반송');
   w3.api.open(); await settle(); btn(rows(w3.els.xmasLwRet)[0], '다시 쓰기').onclick();
   w3.N.ret.save = { ok: false, code: 'write' };
   w3.els.xmasLwText.ls.input(); await w3.els.xmasLwKeep.onclick(); await settle();
-  chk(!w3.N.calls.some(c => c.startsWith('clearRet')) && w3.S.errs.join() === 'E-XMAS-05', '  ↳ 맡기기 실패면 반송 표시를 지우지 않는다 · E-XMAS-05');
+  chk(!w3.N.calls.some(c => c.startsWith('clearRet')) && w3.S.errs.join() === 'E-XMAS-05' && rows(w3.els.xmasLwRet).length === 1, '  ↳ 맡기기 실패면 반송 표시가 남는다 · E-XMAS-05');
 }
 
 say('── 4절 쓰기 실패 · 불러오기 실패');
 {
-  for (const [code, re, err] of [['closed', /마감이 지났어요/, ''], ['auth', /로그인한 뒤 편지/, ''], ['write', null, 'E-XMAS-05']]) {
+  for (const [code, re, err] of [['closed', /마감이 지났어요/, ''], ['auth', /로그인한 뒤 편지/, ''], ['aborted', /잠시 뒤 다시/, ''], ['write', null, 'E-XMAS-05']]) {
     const w = world({ ret: { save: { ok: false, code } } }); w.api.open(); await settle();
     w.els.xmasLwText.value = '안녕'; w.els.xmasLwText.ls.input(); await w.els.xmasLwKeep.onclick(); await settle();
     chk((re ? re.test(w.S.toasts.pop() || '') : true) && w.S.errs.join() === err && !w.els.xmasLwEdit.hidden, '맡기기 실패 ' + code + ' — ' + (err || '안내') + ' · 쓰던 편지지는 그대로');
   }
+  { const w = world({ letters: { l1: { text: '하나', version: 3 } }, ret: { save: { ok: false, code: 'conflict' } } }); w.api.open(); await settle();
+    btn(rows(w.els.xmasLwList)[0], '고치기').onclick(); w.els.xmasLwText.value = '고침'; w.els.xmasLwText.ls.input();
+    const before = w.N.calls.filter(c => c === 'my').length;
+    await w.els.xmasLwKeep.onclick(); await settle();
+    chk(/다른 PC 에서 먼저/.test(w.S.toasts.join()) && !w.S.errs.length && w.N.calls.filter(c => c === 'my').length === before + 1 && w.els.xmasLwEdit.hidden,
+      '맡기기 실패 conflict(다른 PC 가 먼저 고침) — 안내 · 편지함을 다시 읽고 편지지를 닫는다(덮어쓰지 않음)'); }
   const wr = world({ letters: { l1: { text: 'x' } }, ret: { remove: { ok: false, code: 'write' } } }); wr.api.open(); await settle();
   await btn(rows(wr.els.xmasLwList)[0], '거두기').onclick();
   chk(wr.S.errs.join() === 'E-XMAS-05', '거두기 실패 — E-XMAS-05');
@@ -177,41 +187,78 @@ say('── 5절 열람');
     rows(wx.els.xmasLwEnvs)[0].onclick(); await wx.els.xmasLwRepYes.onclick();
     chk((re ? re.test(wx.S.toasts.pop() || '') : true) && wx.S.errs.join() === err, '신고 실패 ' + code + ' — ' + (err || '안내'));
   }
+  { // 이벤트 끝(1/1 0시) 뒤 — 받은 편지는 보이고 신고는 안내로 막힌다(오류 번호 · 요청 없음)
+    const endCase = async (mod) => {
+      const we = world({ now: R.EVENT_END_MS, got, mod }); we.api.open(); await settle();
+      rows(we.els.xmasLwEnvs)[0].onclick();
+      const viewed = we.els.xmasLwGotText.textContent === got[1].text;
+      we.els.xmasLwReport.onclick();
+      const blocked = we.els.xmasLwRep.hidden && /이벤트가 끝나 신고할 수 없어요/.test(we.S.toasts.pop() || '');
+      const wl = world({ now: R.EVENT_END_MS - 1000, got, mod }); wl.api.open(); await settle();
+      rows(wl.els.xmasLwEnvs)[0].onclick(); wl.els.xmasLwReport.onclick();
+      wl.S.now = R.EVENT_END_MS; await wl.els.xmasLwRepYes.onclick();   // 확인창을 연 채 끝을 넘김
+      const late = /이벤트가 끝나 신고할 수 없어요/.test(wl.S.toasts.pop() || '');
+      return { viewed, blocked, late, calls: we.N.calls.concat(wl.N.calls).filter(c => c.startsWith('report')).length, errs: we.S.errs.length + wl.S.errs.length };
+    };
+    const r = await endCase(null);
+    chk(r.viewed && r.blocked && r.late && !r.calls && !r.errs, '이벤트 끝 뒤 — 받은 편지는 열리고 · 신고는 안내로 막힌다(확인창을 연 채 넘겨도) · 요청 0 · 오류 번호 없음');
+    const bad = {}; new Function('window', 'module', SRC.split('if (!rules.eventOn(serverNow(), schedule())){ toast(REPORT_ENDED); return; }').join(''))(bad, undefined);
+    const rb = await endCase(bad.TwXmasLetter);
+    chk(!(rb.blocked && rb.late && !rb.calls), 'mutation test — 끝 검사를 빼면 위 검사가 빨강(신고가 서버로 나간다)');
+  }
   const wn = world({ now: R.LETTER_DEADLINE_MS + 1000, got: null }); wn.api.open(); await settle();
   chk(!wn.els.xmasLwNone.hidden && wn.els.xmasLwEnvBox.hidden, '받은 편지 없음 — «올해는 받은 편지가 없어요»');
   const wg = world({ now: R.LETTER_DEADLINE_MS + 1000, fail: { got: 'read' } }); wg.api.open(); await settle();
   chk(wg.S.errs.join() === 'E-XMAS-04' && wg.els.xmasLwNone.hidden, '못 불러옴 — E-XMAS-04 · «없어요» 로 그리지 않는다');
 }
 
-say('── 6절 받은 편지 확인(빨간 점)');
+say('── 6절 받은 편지 한 번 읽기(빨간 점) — 폴링 없음');
 {
-  const w = world({ now: R.LETTER_DEADLINE_MS - 1000 });
-  await w.api.checkGot(); chk(!w.N.calls.length, '25일 전엔 읽지 않는다');
-  w.S.now = R.LETTER_DEADLINE_MS + 30000; await w.api.checkGot();
-  chk(w.N.calls.join() === 'got', '25일 0시 뒤 첫 확인');
-  w.S.now += 60000; await w.api.checkGot(); chk(w.N.calls.length === 1, '  ↳ 아직 없으면 5분 안엔 다시 안 읽는다');
-  w.D.got = { 1: { text: '도착' } }; w.S.now += 5 * 60000; await w.api.checkGot();
-  chk(w.N.calls.length === 2 && w.S.dots.slice(-1)[0] === true && w.els.xmasLetterBtn.classList.contains('xm-dot'), '  ↳ 5분 뒤 다시 · 찾으면 빨간 점([편지 열람] 에도)');
-  w.S.now += 10 * 60000; await w.api.checkGot(); chk(w.N.calls.length === 2, '  ↳ 찾은 뒤엔 더 안 읽는다');
-  const wl = world({ now: R.LETTER_DEADLINE_MS + 59 * 60000 }); await wl.api.checkGot(); wl.S.now += 6 * 60000; await wl.api.checkGot();
-  chk(wl.N.calls.length === 1, '한 시간이 지나면 다시 보지 않는다(편지를 안 쓴 사람이 계속 읽지 않게)');
-  const we = world({ now: R.LETTER_DEADLINE_MS + 1000, fail: { got: 'read' } }); await we.api.checkGot(); we.N.fail.got = null; we.D.got = { 1: { text: 'x' } }; we.S.now += 5 * 60000; await we.api.checkGot();
-  chk(we.N.calls.length === 2 && we.S.dots.slice(-1)[0] === true, '실패는 «없음» 으로 굳히지 않고 다음에 다시');
-  const wb = world({ now: R.LETTER_DEADLINE_MS + 2 * 3600000, uid: null, got: { 1: { text: '도착' } } });
-  await wb.api.checkGot(); chk(!wb.N.calls.length, '앱을 켠 직후(로그인 복원 전) — 읽지 못함(auth)');
-  wb.N.uid = 'authMe00001'; wb.S.now += 60000; await wb.api.checkGot();
-  chk(wb.N.calls.join() === 'got' && wb.S.dots.slice(-1)[0] === true, '  ↳ 실패로 세지 않아 1분 뒤 로그인되면 읽고 점이 켜진다(25일 새벽 1시 뒤에 앱을 켠 사람)');
-  const wf = world({ now: R.LETTER_DEADLINE_MS + 2 * 3600000, fail: { got: 'read' }, got: { 1: { text: 'x' } } });
-  await wf.api.checkGot(); wf.N.fail.got = null; wf.S.now += 60000; await wf.api.checkGot();
-  chk(wf.N.calls.length === 1, '  ↳ 읽기 실패는 5분 뒤에(1분마다 두드리지 않음)');
-  wf.S.now += 5 * 60000; await wf.api.checkGot();
-  chk(wf.N.calls.length === 2 && wf.S.dots.slice(-1)[0] === true, '  ↳ 한 시간이 지났어도 실패 뒤엔 다시 본다(«없음» 으로 굳히지 않음)');
+  const w = world({ now: R.LETTER_DEADLINE_MS + 30000 });
+  await w.api.checkGot();
+  chk(w.N.calls.join() === 'got', '부르면 한 번 읽는다(알림을 본 창이 부른다)');
+  w.api.paintBtn(); w.api.refresh(); await settle();
+  chk(w.N.calls.join() === 'got', '  ↳ 단추 그리기 · 창 아래 단추 새로 고침은 받은 편지를 읽지 않는다');
+  chk(!/setInterval|setTimeout|GOT_RETRY/.test(SRC.replace(/\/\*[\s\S]*?\*\//g, '')), '  ↳ 편지 모듈에 타이머 · 다시 묻기가 없다(폴링 지움)');
+  w.D.got = { 1: { text: '도착' } }; await w.api.checkGot();
+  chk(w.N.calls.length === 2 && w.S.dots.slice(-1)[0] === true && w.els.xmasLetterBtn.classList.contains('xm-dot'), '읽어서 있으면 빨간 점([편지 열람] 에도)');
+  const we = world({ now: R.LETTER_DEADLINE_MS + 1000, fail: { got: 'read' } }); await we.api.checkGot();
+  chk(we.N.calls.length === 1 && !we.S.dots.includes(true) && !we.S.errs.length, '실패는 조용히(«없음» 으로 굳히지 않음 — 다음 알림 · 창 열기에 다시)');
   const wu = world({ now: R.LETTER_DEADLINE_MS + 1000, got: { 1: { text: 'A 의 편지' } } });
   await wu.api.checkGot(); chk(wu.S.dots.slice(-1)[0] === true, '계정 A — 점');
-  wu.N.uid = 'authOther0002'; wu.D.got = null; wu.S.now += 60000; await wu.api.checkGot();
-  chk(wu.S.dots.includes(false) && wu.S.dots.slice(-1)[0] === false && wu.N.calls.length === 2 && !wu.els.xmasLetterBtn.classList.contains('xm-dot'), '계정이 바뀌면 앞 계정 점을 지우고 새 계정 것을 읽는다');
+  wu.N.uid = 'authOther0002'; wu.D.got = null; await wu.api.checkGot();
+  chk(wu.S.dots.includes(false) && wu.S.dots.slice(-1)[0] === false && !wu.els.xmasLetterBtn.classList.contains('xm-dot'), '계정이 바뀌면 앞 계정 점을 지우고 새 계정 것을 읽는다');
+  /* 계정 바뀜 두 갈래 — 새 계정 읽기가 실패해도 앞 계정 점은 지운다 · 읽는 사이 계정이 바뀌면 늦게 온 답은 버린다 */
+  const switchCases = async (mod) => {
+    const wf = world({ now: R.LETTER_DEADLINE_MS + 1000, got: { 1: { text: 'A 의 편지' } }, mod });
+    await wf.api.checkGot(); const aDot = wf.S.dots.slice(-1)[0] === true;
+    wf.N.uid = 'authOther0002'; wf.N.fail.got = 'read'; await wf.api.checkGot();
+    const failCleared = aDot && wf.S.dots.slice(-1)[0] === false;
+    const wl = world({ now: R.LETTER_DEADLINE_MS + 1000, got: { 1: { text: 'A 의 편지' } }, mod });
+    let rel; wl.N.hold = new Promise((r) => { rel = r; });
+    const p = wl.api.checkGot(); await settle();
+    wl.N.uid = 'authOther0002'; rel(); await p; wl.api.paintBtn();
+    const lateDropped = !wl.S.dots.includes(true) && !wl.els.xmasLetterBtn.classList.contains('xm-dot');
+    return { failCleared, lateDropped };
+  };
+  const sc = await switchCases(null);
+  chk(sc.failCleared, '★ 계정을 바꾼 뒤 새 계정 읽기가 실패해도 앞 계정 빨간 점은 지운다');
+  chk(sc.lateDropped, '★ 앞 계정으로 읽는 사이 계정이 바뀌면 늦게 온 답(앞 계정 편지)을 새 계정 점으로 그리지 않는다');
+  const mut = (from, to) => { const b = {}; const src = SRC.split(from).join(to); new Function('window', 'module', src)(b, undefined); return src === SRC ? null : b.TwXmasLetter; };
+  const m1 = mut('if (uid !== gotUid){ gotUid = uid; got = []; deps.onDot(false); }', 'if (uid !== gotUid){ gotUid = uid; }');
+  const m2 = mut('if (!r.ok || uid !== net().me()) return;', 'if (!r.ok) return;');
+  chk(m1 && !(await switchCases(m1)).failCleared, 'mutation test — 계정이 바뀔 때 점을 안 지우면 위 «실패해도 지운다» 가 빨강');
+  chk(m2 && !(await switchCases(m2)).lateDropped, 'mutation test — 늦게 온 답의 계정을 안 보면 위 «늦게 온 답은 버린다» 가 빨강');
   const wr = world({ now: R.LETTER_DEADLINE_MS + 1000, got: { 1: { text: 'x' } } }); wr.S.store['tw.xmasGotRead.authMe00001'] = '1';
   await wr.api.checkGot(); chk(wr.S.dots.slice(-1)[0] === false, '이미 읽은 편지뿐이면 점 없음');
+  const wm = world({ now: R.LETTER_DEADLINE_MS + 1000, matched: false }); wm.api.open(); await settle();
+  chk(/배달하는 중/.test(wm.els.xmasLwState.textContent) && wm.els.xmasLwGot.hidden && wm.N.calls.filter(c => c === 'got').length === 1, '마감 뒤 짝 짓기 전(matched=false) — «배달하는 중» · 한 번만 읽는다');
+  await settle(); chk(wm.N.calls.filter(c => c === 'got').length === 1, '  ↳ 다시 묻지 않는다');
+  const wn = world({ now: R.LETTER_DEADLINE_MS + 1000, matched: true }); wn.api.open(); await settle();
+  chk(!wn.els.xmasLwNone.hidden && !/배달하는 중/.test(wn.els.xmasLwState.textContent), '짝 지은 뒤 받은 편지가 없으면 «받은 편지 없음»');
+  const wv = world({ now: R.LETTER_DEADLINE_MS - 1000 }); wv.S.sched = Object.freeze({ letterDeadline: R.LETTER_DEADLINE_MS - 5000, eventEnd: R.EVENT_END_MS, lettersViewUntil: R.LETTERS_VIEW_UNTIL_MS });
+  wv.api.paintBtn();
+  chk(wv.els.xmasLetterBtn.textContent === '편지 열람', '날짜는 schedule()(서버 값)으로 — 처음 값보다 이른 마감이면 그때부터 [편지 열람]');
 }
 
 say('── 7절 닫기 · Esc · 저장소');
@@ -223,15 +270,15 @@ say('── 7절 닫기 · Esc · 저장소');
   const wb = world({ now: R.LETTER_DEADLINE_MS + 1000, got: { 1: { text: 'x' } }, badStore: true }); wb.api.open(); await settle();
   rows(wb.els.xmasLwEnvs)[0].onclick();
   chk(wb.els.xmasLwGotText.textContent === 'x', '저장소가 던져도 열람은 된다(읽음 표시만 못 남김)');
-  const wt = world({ now: R.EVENT_END_MS }); wt.api.open(); await settle();
-  chk(!wt.els.xmasLetter.classList.contains('on'), '1월 1일 뒤엔 열자마자 닫힌다');
+  const wt = world({ now: R.LETTERS_VIEW_UNTIL_MS }); wt.api.open(); await settle();
+  chk(!wt.els.xmasLetter.classList.contains('on'), '열람 끝 뒤엔 열자마자 닫힌다');
   let threw = false; try { L.createXmasLetter({ doc: { getElementById: () => null } }); } catch (e) { threw = /xmasLetter/.test(e.message); }
   chk(threw, '마크업이 없으면 이름을 대고 던진다');
   chk(!/innerHTML/.test(SRC.replace(/\/\*[\s\S]*?\*\//g, '')), '편지 모듈에 innerHTML 없음');
   // mutation test — 반송을 다시 쓸 때 «반송 칸 번호» 에 그대로 쓰면, 그새 그 칸에 새 편지를 맡겼을 때 덮어쓴다
   const wk = world({ letters: { l1: { text: '새로 맡긴 편지' } }, returned: { l1: { reason: 'spam', text: '옛 글' } } });
   wk.api.open(); await settle(); btn(rows(wk.els.xmasLwRet)[0], '다시 쓰기').onclick(); wk.els.xmasLwText.ls.input(); await wk.els.xmasLwKeep.onclick(); await settle();
-  chk(wk.N.calls.includes('save:l2') && !wk.N.calls.includes('save:l1'), 'mutation test — 반송 칸(l1)에 새 편지가 있으면 빈 칸(l2)에 맡긴다(덮어쓰지 않음)');
+  chk(wk.N.calls.includes('save:l2<l1') && !wk.N.calls.some(c => c.startsWith('save:l1')), 'mutation test — 반송 칸(l1)에 새 편지가 있으면 빈 칸(l2)에 맡긴다(덮어쓰지 않음)');
 }
 
 say(`\n${fail ? '✗' : '✓'} ${pass} 통과 · ${fail} 실패`);

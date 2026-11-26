@@ -70,6 +70,15 @@ describe('API 통로', () => {
     expect((calls[0].init.headers as Record<string, string>)['Content-Type']).toBeUndefined();
   });
 
+  it('204 빈 본문은 성공 — undefined 로 끝난다(지우기 · 문제없음)', async () => {
+    const { client, calls } = api(() => new Response(null, { status: 204 }));
+    await expect(client.send('DELETE', '/v2/admin/xmas/reports/o-1-2')).resolves.toBeUndefined();
+    expect(calls[0].init.method).toBe('DELETE');
+  });
+  it('200 인데 봉투가 아니면 여전히 «닿지 못함»(204 만 빈 본문을 받는다)', async () => {
+    const { client } = api(() => new Response('<html>', { status: 200 }));
+    expect((await failure(client.get('/v1/x'))).kind).toBe('unavailable');
+  });
   it('로그인 전(토큰 없음)이면 부르지 않고 401 오류', async () => {
     const { client, calls } = api(() => json(200, { success: true, data: 1 }), '');
     const e = await failure(client.get('/v1/x'));

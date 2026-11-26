@@ -38,6 +38,10 @@ const DEVICE_KEYS = Object.freeze([
   'tw.leftNotice',
   /* 0.14 — 꾸미기 창 자리 · 머리 위 상태 말풍선 켜기 · 창 글꼴(이 PC 의 화면 설정) */
   'tw.wdWinPos', 'tw.statusBubble', 'tw.uiFont',
+  /* 0.14 — 마이홈 스티커 보이기(이 PC 의 화면 설정) */
+  'tw.mhStickerLayer',
+  /* 0.14 — 남의 자리비움 그림 보기(이 PC 의 화면 설정) */
+  'tw.awayPicOthers',
 ]);
 
 /* 계정별 — 그 사람의 기록 · 고른 것 · 보관 · 캐시. 아직 옛 PC 칸을 읽는 것도 포함(표 · 옮길 묶음은 shared/README.md). */
