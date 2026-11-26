@@ -223,6 +223,26 @@ say('§5-B 받기 전에 건너뛴 아이템은 저장본에서 지워지지 않
   chk(pc.charDef.deskItems && pc.charDef.deskItems.pend && pc.charDef.deskItems.pend.adj.x === 5 && pc.charDef.deskItems.plant, '★ GLB 를 받기 전이라 등록 안 된 카탈로그 아이템 — 다른 아이템을 켜고 저장해도 저장본에 원본째 남는다');
   const pm = SRC.replace("    if(!def){ if(_glbPending(id)){ _markSkipped(holder, id); holder._skippedItems.set(id, data[id]); } return; }", "    if(!def) return;");
   chk(pm !== SRC && !(pend(pm).charDef.deskItems || {}).pend, '  mutation test — 건너뜀으로 안 적으면 저장이 그 아이템을 지운다(빨강)');
+  /* 생성기 cBase 는 창을 닫아도 살아 있다 — A 를 열 때 건너뛴 아이템(받기 전 · 라이선스 막힘)이 B 를 열어 저장할 때 B 에 섞이지 않는다(clearHolderDeskItems 가 건너뜀 표시도 비운다) */
+  const CP = ['creator-preview.js', 'parts/creator/creator-preview.js', 'app/parts/creator/creator-preview.js', 'apps/desktop/app/parts/creator/creator-preview.js'].map((f) => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean);
+  const clearOf = (cp, b) => { const i0 = cp.indexOf('function clearHolderDeskItems(holder){'); let k0 = cp.indexOf('{', i0), d0 = 0;
+    for(; k0 < cp.length; k0++){ if(cp[k0] === '{') d0++; else if(cp[k0] === '}' && --d0 === 0) break; }
+    return new Function('allDeskItems', 'equipDeskItem', cp.slice(i0, k0 + 1) + '\nreturn clearHolderDeskItems;')(() => Object.values(b.defs), (h, d, on) => b.mod.equipDeskItem(h, d, on)); };
+  const reopen = (cp, kind) => {
+    const c = mkHolder({ charDef: { deskItems: { X: { adj: { x: 7 } } } } });
+    const bb = build(SRC, { cBase: c, defs: Object.assign({ plant: mkDef('plant') }, kind === 'lic' ? { X: mkDef('X') } : {}) });
+    bb.st.saved = kind === 'lic' ? [{ id: 'X', locked: true }] : [{ id: 'X', glbUrl: 'https://x/X.glb' }]; bb.st.received = true;
+    bb.mod.applyDeskItemsTo(c, c.charDef.deskItems);                    // A — X 를 건너뜀(받기 전 · 라이선스 막힘)
+    clearOf(cp, bb)(c);                                                  // 창을 다시 열어 B 로(creator-open → clearCreatorItems)
+    c.charDef = { deskItems: { plant: { adj: {} } } };
+    bb.mod.applyDeskItemsTo(c, c.charDef.deskItems); bb.mod.equipDeskItem(c, bb.defs.plant, false); bb.mod.equipDeskItem(c, bb.defs.plant, true); bb.mod.autoSaveDeskItemsNow();
+    return c.charDef.deskItems || {};
+  };
+  if(CP){
+    chk(!reopen(CP, 'pend').X && !reopen(CP, 'lic').X, '★ A 를 열 때 건너뛴 아이템(받기 전 · 라이선스 막힘)이 B 를 열어 저장할 때 B 에 섞이지 않는다');
+    const noClear = CP.replace("  if(holder._skippedItems) holder._skippedItems.clear();\n", '');
+    chk(noClear !== CP && reopen(noClear, 'pend').X && reopen(noClear, 'lic').X, '  mutation test — 건너뜀 표시를 안 비우면 A 의 X 가 B 저장본에 섞인다(빨강)');
+  } else chk(false, 'creator-preview.js 를 못 찾음');
   const mm = SRC.replace("_sk.forEach((entry,id)=>{ if(entry && !d[id]){ d[id]=entry; any=true; } });", '');
   const rb = run(mm);
   const rbp = (() => { const c = mkHolder({ charDef: { deskItems: ORIG() } }); const bb = build(SRC.replace("if(holder._skippedItems && holder._skippedItems.has(id)) holder._skippedItems.set(id, e);", ''), { cBase: c, defs: { vip: mkDef('vip', { custom: true }) } }); bb.mod.applyDeskItemsTo(c, { vip: { adj: { x: 9 } } }); bb.mod.autoSaveDeskItemsNow(); return c; })();

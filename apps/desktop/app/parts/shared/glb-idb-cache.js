@@ -4,7 +4,7 @@
    받는 deps: 없음(브라우저 indexedDB · Date 전역). 내보내는 것: _glbIdbGet(key) · _glbIdbPut(key, b64) · _glbIdbPrune().
    ★ 저장 모양은 { url: 열쇠, b64, ts } 그대로다(keyPath 'url' — 옛 판이 남긴 주소 열쇠 줄도 같은 store 에서 읽힌다).
    app.js «💾 카탈로그 GLB 영구 캐시(IndexedDB) · URL 해결» 구역의 앞쪽(IndexedDB 몫)을 그대로 옮겼다(구역 떼기 C · w2). 동작은 옮기기 전과 같다.
-   ★ 아래 코드는 app.js 에 있던 글 그대로다(들여쓰기도 · 옛 이야기형 주석만 «왜 · 함정» 으로 줄였다). 바뀐 코드 줄은 0줄.
+   ★ 처음엔 app.js 에 있던 글 그대로 옮겼다 — 그 뒤 열쇠를 부르는 쪽이 정하게 · 쓴 때 새로 적기 · 꺼내기는 읽기 전용으로 바꿨다.
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ 밖에서 부르는 이름: _glbIdbGet · _glbIdbPrune · _glbIdbPut — app.js 는 glbIdbMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
