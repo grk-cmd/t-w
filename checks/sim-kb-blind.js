@@ -143,6 +143,7 @@ say('── 3. sysinput restartGlobalHooks — 가짜 uiohook 위에서 실제�
       if(n === 'child_process') return { execFile(){} };
       if(n === 'fs') return fs;
       if(n === './native-peek') return { peekUnpacked: () => '' };
+      if(n === './win-class') return require(require('path').resolve('win-class.js'));
       if(n === 'uiohook-napi'){ if(!hook) throw new Error('no addon'); return { uIOhook: hook, UiohookKey: {} }; }
       if(n === 'node-window-manager') return { windowManager: { getActiveWindow(){ return null; }, getWindows(){ return []; } } };
       throw new Error('no ' + n);

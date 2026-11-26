@@ -239,6 +239,9 @@ await sec('── 6. 🎯집중 쌓기', async () => {
   W.focusTick({ key: 'win:other.exe' }, 0.5); chk(add().length === 1, '  다른 앱이면 안 더한다');
   W.focusTick({ exeName: 'Chrome.EXE' }, 0.5); chk(add().length === 2, '  구버전 main(exeName)도 win: 으로 본다');
   W.focusTick({ key: 'win:zzz.exe', keyAlt: 'win:chrome.exe' }, 0.5); chk(add().length === 3, '  옛 규칙 키(keyAlt)가 맞아도 센다');
+  W.focusTick({ key: 'win:chrome.exe', desktop: true }, 0.5); chk(add().length === 3, '★ 바탕화면 · 작업표시줄(desktop — 폴더 창과 같은 키)은 세지 않는다(B-1125-7)');
+  W.focusTick({ key: 'win:chrome.exe', desktop: false }, 0); chk(add().length === 4 && add()[3][1] === 0, '  desktop 이 거짓이면 예전 판정');
+  e.calls.splice(e.calls.indexOf(add()[3]), 1);
   W.setKeyPlatform('mac'); W.focusTick({ key: 'win:chrome.exe' }, 0.5);
   chk(add().length === 3, '★ 다른 플랫폼에서 등록한 조건은 센 척하지 않는다(안 쌓는다)');
   W.setKeyPlatform('win'); W.focusTick({ key: 'win:chrome.exe' }, 0.5); chk(add().length === 4, '  플랫폼이 맞으면 센다');
@@ -271,6 +274,7 @@ await sec('── 8. mutation test', async () => {
   const probes = {
     gate: async (src) => { const e = mkEnv({ src, premium: false }); e.mk(); e.els.chalBtn.click(); return !e.els.focusLogWin.classList.contains('chal-on'); },
     foreign: async (src) => { const e = mkEnv({ src, view: runView() }); const W = e.mk(); W.setKeyPlatform('mac'); W.focusTick({ key: 'win:chrome.exe' }, 1); return !e.calls.some(c => c[0] === 'addFocusSec'); },
+    desktop: async (src) => { const e = mkEnv({ src, view: runView() }); const W = e.mk(); W.focusTick({ key: 'win:chrome.exe', desktop: true }, 1); return !e.calls.some(c => c[0] === 'addFocusSec'); },
     keep: async (src) => { const e = mkEnv({ src, view: { active: false, goal: null, cells: [] } }); e.mk().open(true); e.els.chalKindRepeat.click(); e.els.chalRepeatText.value = 'a'; e.els.chalRepeatText.fire('input'); e.results.start = { ok: false, reason: 'failed' }; e.els.chalStartBtn.click(); await flush(); return e.els.chalSetup.style.display === 'block'; },
     notReady: async (src) => { const e = mkEnv({ src, view: { load: 'failed', phase: null } }); e.mk().open(true); return e.els.chalRun.style.display === 'none' && e.els.chalState.style.display === 'block'; },
     giveup: async (src) => { const e = mkEnv({ src, view: runView() }); e.mk().open(true); e.els.chalGiveupBtn.click(); pbox(e.popups[0]).querySelectorAll('[data-a]').find(b => b.getAttribute('data-a') === 'no').click(); await flush(); return !e.calls.some(c => c[0] === 'giveUp'); },
@@ -278,6 +282,7 @@ await sec('── 8. mutation test', async () => {
   const BREAKS = [
     ['gate', "if(!_premiumOn()){ try{ toast('👑 달성표는 프리미엄 전용이에요'); }catch(_){} return; }", '', '프리미엄 게이트를 지움'],
     ['foreign', "if(_chalKeyForeign) return;", '', '다른 플랫폼 조건을 센 척함'],
+    ['desktop', "  if(state && state.desktop) return;\n", '', '바탕화면 · 작업표시줄에서도 셈'],
     ['keep', "    if(r.ok){\n      /* [수정]은", "    if(true){\n      /* [수정]은", '저장 실패에도 초안을 닫음'],
     ['notReady', "const notReady = v.load !== 'ready' || !v.phase;", "const notReady = false;", '받기 전에도 서랍을 그림'],
     ['giveup', "[{a:'ok',t:'포기하기'},{a:'no',t:'취소',ghost:true}]).then(async a=>{\n      if(a !== 'ok') return;", "[{a:'ok',t:'포기하기'},{a:'no',t:'취소',ghost:true}]).then(async a=>{", '포기를 묻지 않고 보냄'],
