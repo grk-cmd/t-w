@@ -19,8 +19,8 @@ for (const f of ['shared/server-features.js', 'app.js', 'desk-companion-prototyp
   if (SRC[f] == null) { say('  ? 원본 못 찾음 — ' + f); process.exit(2); }
 }
 const NAMES = ['xmas', 'chatNotice', 'chatFocus', 'playlistLike', 'googleChange', 'friendReqMsg', 'themeCustomSave'];
-/* 서버가 받은 기능 — 켜 둔다(googleChange — PUT /v2/me/google · #1101) */
-const ON = ['googleChange'];
+/* 서버가 받은 기능 — 켜 둔다 · googleChange: PUT /v2/me/google(#1101) · friendReqMsg: POST · GET /v2/me/friend-requests 의 message(t-w-server #364) · themeCustomSave: GET · PUT /v2/me/theme-custom(t-w-server #363) */
+const ON = ['googleChange', 'friendReqMsg', 'themeCustomSave'];
 const loadSF = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwServerFeatures; };
 
 function judgeTable(src) {
@@ -93,7 +93,7 @@ for (const [file, g, f, label] of [['chat/chat-notice.js', 'TwChatNotice', 'crea
 /* 👑 내 색 — 서버 길이 없으면 이 PC 에만(서버 쓰기 · 읽기 · 실패 알림 없음) */
 {
   const th = SRC['shared/theme-ui.js'];
-  chk(/if\(!uid \|\| !serverOn\(\)\) return;[^\n]*\n  const ok = await saveCustom\(uid, saved\);/.test(th) && /async function pullCustom\(\)\{\n  const uid = getMyUserId\(\);\n  if\(!uid \|\| !serverOn\(\)\) return;/.test(th),
+  chk(/if\(!uid \|\| !serverOn\(\)\) return;[^\n]*\n  const r = await saveCustom\(uid, saved\);/.test(th) && /async function pullCustom\(\)\{\n  const uid = getMyUserId\(\);\n  if\(!uid \|\| !serverOn\(\)\) return;/.test(th),
     '👑 내 색 — 꺼져 있으면 저장 · 받기 전에 돌아간다(이 PC 저장은 그 앞에서 이미 했다)');
 }
 /* 구글 [바꾸기] — 꺼져 있으면 단추를 숨기고 누를 수도 없다 */
@@ -120,9 +120,11 @@ say('── 4. mutation test');
   const muts = [
     ['하나를 켬', src.replace('xmas: false,', 'xmas: true,'), (r) => !r.allOff],
     ['받은 기능을 끔', src.replace('googleChange: true,', 'googleChange: false,'), (r) => !r.allOff],
+    ['서버가 받은 것을 끔', src.replace('friendReqMsg: true,', 'friendReqMsg: false,'), (r) => !r.allOff],
+    ['내 색 저장을 끔', src.replace('themeCustomSave: true,', 'themeCustomSave: false,'), (r) => !r.allOff],
     ['모르는 이름을 던지지 않음', src.replace("throw new Error('[server-features] 모르는 기능 이름 — ' + name);", 'return false;'), (r) => !r.throws],
     ['표를 얼리지 않음', src.replace('const FEATURES = Object.freeze({', 'const FEATURES = ({'), (r) => !r.frozen],
-    ['이름 하나 뺌', src.replace(/  themeCustomSave: false,[^\n]*\n/, ''), (r) => !r.names],
+    ['이름 하나 뺌', src.replace(/  themeCustomSave: true,[^\n]*\n/, ''), (r) => !r.names],
   ];
   for (const [label, m, red] of muts) chk(m !== src && red(judgeTable(m)), 'mutation test: ' + label + ' → 빨강');
   const like = SRC['status/playlist-like-ui.js'];

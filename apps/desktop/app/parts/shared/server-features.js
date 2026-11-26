@@ -12,8 +12,8 @@ const FEATURES = Object.freeze({
   chatFocus: false,                 // 시크릿룸 #집중 탭(chat/chat-focus.js · focus/room-focus-sync.js)
   playlistLike: false,              // 플레이리스트 «노래가 좋아요👍»(status/playlist-like-ui.js)
   googleChange: true,               // 내 정보 › 구글 계정 [바꾸기](account/account.js _acctChangeGoogle — 서버 PUT /v2/me/google · #1101)
-  friendReqMsg: false,              // 남의 마이홈 [친구 신청] 사유 칸(myhome/friend-req-btn.js)
-  themeCustomSave: false,           // 👑 테마 «내 색» 계정 저장(이 PC 저장은 늘 한다 — shared/theme-ui.js)
+  friendReqMsg: true,               // 남의 마이홈 [친구 신청] 사유 칸(myhome/friend-req-btn.js) — 서버 POST · GET /v2/me/friend-requests 의 message(t-w-server #364)
+  themeCustomSave: true,            // 👑 테마 «내 색» 계정 저장(이 PC 저장은 늘 한다 — shared/theme-ui.js) · 서버 GET · PUT /v2/me/theme-custom
 });
 
 function on(name){

@@ -24,7 +24,7 @@
        (identitytoolkit / securetoken 이 그 아래다). 토큰 교환은 main.js(Node)가 하므로
        렌더러 CSP 와 무관하다. script-src 도 gstatic 이 이미 있다. */
   import {
-    getAuth, signInWithCredential, GoogleAuthProvider, signInWithEmailAndPassword,
+    getAuth, signInWithCredential, GoogleAuthProvider, signInWithEmailAndPassword, getAdditionalUserInfo, deleteUser,
     reauthenticateWithCredential, EmailAuthProvider,
     signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -260,13 +260,15 @@
     /* 지금 로그인 → { uid, anonymous } | null — login-flow.js 의 판정 재료 */
     authUser(){ const u = auth && auth.currentUser; return u ? { uid: u.uid, anonymous: !!u.isAnonymous } : null; },
 
-    /* 구글 ID 토큰으로 로그인 → { ok, uid, email } | { ok:false, reason } */
+    /* 구글 ID 토큰으로 로그인 → { ok, uid, fresh, email } | { ok:false, reason } — fresh = 이 로그인으로 Auth 사용자가 새로 생김 */
     async authSignInWithGoogle(idToken){
       if(!auth) return { ok:false, reason:'로그인 기능을 쓸 수 없어요 (초기화 실패)' };
       if(!idToken) return { ok:false, reason:'구글 토큰이 없어요' };
       try{
         const cred = await signInWithCredential(auth, GoogleAuthProvider.credential(idToken));
-        return { ok:true, uid: cred.user.uid, email: cred.user.email || null };
+        let fresh = false;
+        try{ const info = getAdditionalUserInfo(cred); fresh = !!(info && info.isNewUser); }catch(_){}
+        return { ok:true, uid: cred.user.uid, fresh, email: cred.user.email || null };
       }catch(e){
         const c = String((e && e.code) || e || '');
         if(c.includes('operation-not-allowed')) return { ok:false, reason:'Firebase 콘솔에서 [Google] 로그인을 켜주세요' };
@@ -301,6 +303,12 @@
       catch(_){ return { ok:false, reason:'로그인 정보를 새로 받지 못했어요 — 앱을 다시 시작하면 보여요' }; }
     },
     async authSignOut(){ if(auth){ try{ await fbSignOut(auth); }catch(_){} } },
+    /* 방금 만든 구글 로그인(서버 계정 없음)의 Auth 사용자를 지운다 — 지금 로그인이 그 uid 일 때만. 지우면 로그인도 풀린다 → { ok } */
+    async authDeleteNewLogin(uid){
+      const cu = auth && auth.currentUser;
+      if(!cu || !uid || cu.uid !== uid) return { ok:false };
+      try{ await deleteUser(cu); return { ok:true }; }catch(_){ return { ok:false }; }
+    },
 
     /* 🔐 로그인 수단 — 계정 탭이 «구글 · 친구 코드+비밀번호» 를 보인다. authProviders() → null(세션 없음) | { authUid, anonymous, google, googleEmail, password, passwordEmail } */
     authProviders(){ return _providersOf(auth && auth.currentUser); },

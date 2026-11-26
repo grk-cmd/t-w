@@ -47,7 +47,8 @@
 | `E-SYS-08` | 캐릭터 몸 파일을 불러오지 못했어요 — 앱을 다시 설치해 주세요 | `launcher/run-boot.js` — 켤 때 기본 몸을 못 읽음(대신 몸으로 계속 · 설치 파일이 깨졌을 수 있다) |
 | `E-ACC-01` | 닉네임을 저장하지 못했어요 — 다시 해 주세요 | `account/user-name.js` — 닉네임 저장 뒤 서버 계정 이름(`PATCH /v2/me` — login-flow `patchMe`) 실패 |
 | `E-ACC-02` | 비밀번호를 확인하지 못했어요 — 잠시 뒤 다시 해 주세요 | `account/account.js` — 비밀번호 바꾸기 · 탈퇴 · 붙이기 전 «비밀번호 확인» 창에서 너무 많이 틀림(too-many-requests) · 네트워크 실패(틀린 비밀번호는 창 안에 알림) |
-| `E-SYS-02` | 내 색을 계정에 저장하지 못했어요 — 이 PC 에는 저장했어요 | `shared/theme-ui.js` — 👑 내 색 [저장] 의 서버 쓰기(`saveThemeCustom` · `users/{uid}/themeCustom`) |
+| `E-SYS-02` | 내 색을 계정에 저장하지 못했어요 — 이 PC 에는 저장했어요 | `shared/theme-ui.js` — 👑 내 색 [저장] 의 서버 쓰기(`PUT /v2/me/theme-custom` · 닿지 못함 · 403 프리미엄 아님) |
+| `E-SYS-09` | 다른 PC 에서 내 색을 먼저 바꿨어요 — 그 색으로 맞췄어요. 다시 고르면 저장돼요 | `shared/theme-ui.js` — 👑 내 색 서버 쓰기가 409 `CONCURRENT_UPDATE`(다른 PC 가 먼저 저장) → 계정 것을 다시 읽어 이 PC 를 맞춤 |
 | `E-SYS-03` | 이 PC 의 글꼴 목록을 읽지 못했어요 — 글꼴 이름을 직접 써서 고를 수 있어요 | `shared/font-ui.js` — 👑 내 PC 글꼴 고르기(`queryLocalFonts` 실패 · 막힘) |
 | `E-SYS-04` | 반응을 보내지 못했어요 — 잠시 뒤 다시 눌러 주세요 | `status/playlist-like-ui.js` — 플레이리스트 [노래가 좋아요 👍] 쓰기(`playlistLikes`) |
 | `E-ACC-06` | 구글 계정을 바꾸지 못했어요 — 원래 구글 그대로예요. 잠시 뒤 다시 해 주세요 | `account/account.js` — 🔁 [바꾸기] 서버 `PUT /v2/me/google` 실패(닿지 못함 · 사람이 고칠 수 없는 거절 — 지금 구글 그대로) |
