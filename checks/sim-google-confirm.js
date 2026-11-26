@@ -275,6 +275,43 @@ process.on('exit', () => { if(!finished){ console.log('  ✗ 끝까지 못 돌�
     chk(a2 !== MOD_ACC && rows.some(([ok]) => !ok), 'mutation test — ' + name + (a2 !== MOD_ACC ? '' : ' — 바꿀 글을 못 찾음'));
   }
 
+  say('── 5-4. 🔗 [연결하기] 단추(account.js gl.onclick 몸통)를 떼어 돌린다 — 화면에 무엇이 남나');
+  const judgeLinkBtn = async (accSrc) => {
+    const r = [];
+    const t = (ok, m) => r.push([!!ok, m]);
+    const i = accSrc.indexOf('    if(gl) gl.onclick = async ()=>{');
+    const j = i < 0 ? -1 : accSrc.indexOf('\n    };', i);
+    if(i < 0 || j < 0){ t(false, '[연결하기] onclick 을 못 찾음'); return r; }
+    const body = accSrc.slice(i, j + 7);
+    const run = async (res) => {
+      const ev = [];
+      const gl = { disabled: false };
+      const f = new Function('gl', 'say', 'sayG', '_acctLinkGoogle', '_acctMethodsRender', 'window', 'companion', body + '\nreturn gl.onclick;')(
+        gl, (txt, k) => ev.push('say:' + k + ':' + txt), (txt, k) => ev.push('sayG:' + k + ':' + txt),
+        async () => { ev.push('link'); return res; }, async () => { ev.push('render'); },
+        { companion: { signInWithGoogle(){} } }, { signInWithGoogle(){} });
+      await f();
+      return { ev, disabled: gl.disabled };
+    };
+    let X = await run({ ok:false, canceled:true });
+    t(!X.ev.some(e => e.startsWith('sayG')) && X.ev[X.ev.length - 1] === 'say:info:' && !X.disabled, '5-4   닫음 — sayG 없음 · 글 비움 · 단추 다시 켬');
+    X = await run({ ok:false, reason:'이미 다른 계정' });
+    t(X.ev.includes('sayG:err:이미 다른 계정') && !X.ev.includes('render') && !X.disabled, '5-4   실패 — sayG(까닭, err) · 다시 그리지 않음 · 단추 다시 켬');
+    X = await run({ ok:true });
+    const iR = X.ev.indexOf('render'), iOk = X.ev.findIndex(e => /^sayG:ok:✅/.test(e));
+    t(iR > 0 && iOk > iR, '5-4 ★ 성공 — 로그인 수단을 다시 그린 뒤 ✅');
+    return r;
+  };
+  (await judgeLinkBtn(MOD_ACC)).forEach(([ok, m]) => chk(ok, m));
+  for(const [name, a, b] of [
+    ['닫아도 실패 문구', "      if(!r.ok){ if(r.canceled) say('', 'info'); else sayG(", "      if(!r.ok){ sayG("],
+    ['실패에 단추를 안 켬', "구글을 연결하지 못했어요 — 다시 시도해 주세요', 'err'); gl.disabled = false; return; }", "구글을 연결하지 못했어요 — 다시 시도해 주세요', 'err'); return; }"],
+    ['성공에 다시 그리지 않음', "      try{ await _acctMethodsRender(true); }catch(_){}\n      sayG('✅ 구글이 연결됐어요.", "      sayG('✅ 구글이 연결됐어요."],
+  ]){
+    const a2 = MOD_ACC.replace(a, b);
+    let rows; try{ rows = await judgeLinkBtn(a2); }catch(_){ rows = [[false, '던짐']]; }
+    chk(a2 !== MOD_ACC && rows.some(([ok]) => !ok), 'mutation test — ' + name + (a2 !== MOD_ACC ? '' : ' — 바꿀 글을 못 찾음'));
+  }
   say('── 6. mutation test');
   for(const [name, a, b] of [
     ['주소를 안 가림', "  return local.slice(0, keep) + '***@' + domain;", "  return s;"],

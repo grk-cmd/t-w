@@ -265,7 +265,7 @@ async function signupCardRun(src, o){
       linkGoogle: async (t) => { calls.push(t); if(o.link) throw o.link; return me; } },
     loginFlowMod: {
       confirm: async () => ({ state: 'login' }), identity: () => ({}), release: async () => {},
-      joinGoogle: async () => ({ ok: false, canceled: true, other: true, reason: '' }), joinPassword: async () => ({ ok: true, me }),
+      joinGoogle: async () => (o.join || { ok: false, canceled: true, other: true, reason: '' }), joinPassword: async () => ({ ok: true, me }),
       waitForServer: () => {}, retryNow: async () => null, goOnline: () => {},
     },
   });
@@ -295,6 +295,9 @@ async function signupCardRows(src){
   let x = await signupCardRun(src, { how: 'other' });
   t(x.els.signupCard.style.display === 'none' && x.els.inviteGateCard.style.display === '' && x.els.inviteGateOk.disabled === false && /다른 계정/.test(x.els.inviteGateLoginMsg.textContent) && !x.settled,
     '★ 구글 가입 묻기에서 [다른 계정으로 로그인] — 가입 카드를 닫고 로그인 카드로(들어가지 않음)');
+  x = await signupCardRun(src, { how: 'other', join: { ok: false, canceled: true, other: false, reason: '' } });
+  t(x.els.signupCard.style.display === 'block' && x.els.inviteGateCard.style.display === 'none' && !x.els.inviteGateLoginMsg.textContent && !x.els.signupMsg.textContent && x.els.signupGoogleBtn.disabled === false && !x.settled,
+    '  묻기를 닫음(다른 계정 아님) — 가입 카드에 그대로 · 조용히 · 버튼 다시 켬');
   x = await signupCardRun(src, { how: 'link' });
   t(x.calls.join() === 'G-TOK' && x.reloads === 1 && /연결됐어요/.test(x.els.sdMsg.textContent) && x.els.sdGoogle.textContent === '✅ 구글 연결됨', '★ [구글도 연결하기] — 그 토큰으로 linkGoogle 한 번 · 성공 뒤 authReload 한 번');
   x = await signupCardRun(src, { how: 'link', link: { kind: 'request', code: 'USER_GOOGLE_IN_USE' } });

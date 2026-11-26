@@ -276,7 +276,7 @@ async function judge(S){
     for(const ans of ['other', 'cancel']){
       const g5 = mkEnv(S, { user: null, me: () => { throw apiErr('auth', 'USER_CODE_NOT_BOUND'); }, ask: () => ans });
       const x5 = await g5.flow.joinGoogle({ inviteCode: 'INVT-G' });
-      chk(!x5.ok && x5.canceled === true && g5.srv.joinG.length === 0 && g5.authLog[g5.authLog.length - 1] === 'out',
+      chk(!x5.ok && x5.canceled === true && x5.other === (ans === 'other') && g5.srv.joinG.length === 0 && g5.authLog[g5.authLog.length - 1] === 'out',
         '  ↳ ★ 묻기에서 ' + (ans === 'other' ? '[다른 계정으로 로그인]' : '닫기') + ' — 가입하지 않고(POST 0) 로그인을 놓는다 · 조용히(canceled)');
     }
     const g6 = mkEnv(S, { user: null, me: () => { throw apiErr('auth', 'USER_CODE_NOT_BOUND'); }, ask: () => { throw new Error('창 없음'); } });
@@ -423,6 +423,7 @@ const BREAKS = [
   ['LF', "limited: !!(e && e.status === 429)", "limited: false", '429 를 못 알림'],
   ['LF', "    if(answer !== 'yes'){ await dropLogin(); return", "    if(false){ await dropLogin(); return", '묻기 답을 무시하고 가입'],
   ['LF', "    try{ answer = await deps.askGoogle(l.email); }catch(_){}\n", "    answer = 'yes';\n", '가입 전에 묻지 않음'],
+  ['LF', "other: answer === 'other'", "other: false", '[다른 계정]을 알리지 않음(로그인 화면으로 못 감)'],
   ['LF', "    if(c.state === STATE.SIGNUP && !keepOnSignup){ try{ await auth.signOut(); }catch(_){} }", "", '가입 전 구글 로그인을 남김'],
   ['LF', "      await dropLogin();\n      return { ok: false, reason: deps.reasonOf(e)", "      return { ok: false, reason: deps.reasonOf(e)", '거절된 구글 가입의 로그인을 남김'],
   ['LF', "      if(e && e.kind !== 'unavailable') deps.pending.settle(key);", "      deps.pending.settle(key);", '닿지 못한 가입을 새 요청으로(두 계정)'],

@@ -173,7 +173,7 @@
 | **sim-friend-code-keep.js** | 131 | **814fd3b9bef1** |
 | **sim-gacha-album.js** | 120 | **9b23b01a1f62** |
 | **sim-google-oauth.js** | 357 | **103900b0353b** |
-| **sim-google-confirm.js** | 299 | **2edd289fd786** |
+| **sim-google-confirm.js** | 336 | **ed431cfe5a3e** |
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
 | **sim-key-input.js** | 71 | **d96a4cd791fc** |
 | **sim-keysof-twin.js** | 369 | **54f473215813** |
@@ -381,7 +381,7 @@
 | **sim-part-paint.js** | 94 | **0cae749ad104** |
 | **sim-focus-level.js** | 128 | **13f5a446768a** |
 | **sim-chat-ui.js** | 126 | **eca9c00f7396** |
-| **sim-license-gate.js** | 438 | **afb8d0ce61ca** |
+| **sim-license-gate.js** | 441 | **521051c816cd** |
 | **sim-account.js** | 174 | **bee6deb0f7c1** |
 | **sim-wardrobe.js** | 318 | **c217649e24cf** |
 | **sim-settings-panel.js** | 205 | **c7ca3a3f8fd1** |
@@ -539,7 +539,7 @@
 | **sim-rt-status-ui.js** | 245 | **60536e178fbf** |
 | **sim-run-verdict.js** | 67 | **76851f0d5f8e** |
 | **sim-user-api.js** | 265 | **2292ccfd5a09** |
-| **sim-login-flow.js** | 475 | **8186455d317e** |
+| **sim-login-flow.js** | 476 | **ceeaf67076f4** |
 | **sim-login-diag.js** | 263 | **e416a45edc5f** |
 | **sim-auth-barrier.js** | 165 | **1b341df947b0** |
 | **sim-first-run-013.js** | 439 | **89e2c4b9e692** |
