@@ -215,7 +215,7 @@ const _updatePlatform = createUpdatePlatform({
 autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = _updatePlatform.installOnQuit();
 function _skipInstallOnQuit(){ autoUpdater.autoInstallOnAppQuit = false; }   // 윈도우: 'quit' 때 다시 읽는다(electron-updater BaseUpdater.addQuitHandler) · 맥은 받을 때 읽는다
-let _updateDownloaded = false;   // 받아 둔 판이 있다 — 맥 재시작을 «설치하고 다시 켜기» 로 바꾸는 판단(_relaunchOrInstall)
+let _updateStaged = false;   // 끌 때 설치가 켜진 채 새 판을 다 받았다(맥은 이때 Squirrel 이 설치를 준비한다) — 재시작 판단(_relaunchOrInstall)
 const _updateDiag = createUpdateDiag({ log: (m) => _diagLog(m), home: require('os').homedir() });
 autoUpdater.logger = _updateDiag.logger;   // 조각만 받기 · 통째로 받기 · 오류를 electron-updater 가 스스로 적는다
 
@@ -229,7 +229,7 @@ autoUpdater.on('checking-for-update', () => sendUpdateStatus('checking'));
 autoUpdater.on('update-available', (info) => { _updateDiag.reset(); sendUpdateStatus('available', { version: info.version }); });
 autoUpdater.on('update-not-available', () => sendUpdateStatus('none'));
 autoUpdater.on('download-progress', (p) => { _updateDiag.progress(p); sendUpdateStatus('downloading', { percent: Math.round(p.percent) }); });
-autoUpdater.on('update-downloaded', (info) => { _updateDownloaded = true; sendUpdateStatus('downloaded', { version: info.version }); });
+autoUpdater.on('update-downloaded', (info) => { _updateStaged = autoUpdater.autoInstallOnAppQuit === true; sendUpdateStatus('downloaded', { version: info.version }); });
 let _bgUpdateErrLogged = false;   // 켜 둔 동안 다시 확인의 실패(오프라인 등)는 오류 파일에 한 번만 — 진단 기록에는 updateDiag 가 매번 남긴다
 autoUpdater.on('error', (e) => { const bg = _updateRecheck.fromTick(); if(!bg || !_bgUpdateErrLogged) _errorLog.write('ERROR', '업데이트', e); if(bg) _bgUpdateErrLogged = true; sendUpdateStatus('error', { message: String(e && e.message || e) }); });
 
@@ -244,7 +244,7 @@ function startUpdateCheck(){
 /* 재시작(계정 정리 · 망가진 창 다시 띄우기) — 맥에서 받아 둔 판이 있으면 설치하고 다시 켠다(update-platform.js 머리말).
    exit 는 relaunch 뒤 끄는 방법(app.quit · _exitNow), install 은 설치하고 다시 켜는 방법(저장을 기다릴지는 부르는 쪽이 정한다). */
 function _relaunchOrInstall(exit, install){
-  if(_updatePlatform.relaunchAction(_updateDownloaded) === UPDATE_RELAUNCH.INSTALL){
+  if(_updatePlatform.relaunchAction(_updateStaged) === UPDATE_RELAUNCH.INSTALL){
     _diagLog('[재시작] 받아 둔 판이 있어 설치하고 다시 켠다(맥)');
     install();
     return;
@@ -266,7 +266,7 @@ async function _offerMoveToApplications(){
     r = await dialog.showMessageBox({
       type: 'question', title: 'Together Working',
       message: '«응용 프로그램» 폴더로 옮길까요?',
-      detail: '지금은 다운로드 폴더나 디스크 이미지 안에서 켜져 있어요. 응용 프로그램 폴더에 있어야 새 버전이 자동으로 설치돼요.\n\n'
+      detail: '지금은 응용 프로그램 폴더 밖에서 켜져 있어요. 응용 프로그램 폴더에 있어야 새 버전이 자동으로 설치돼요.\n\n'
         + '[옮기기] 를 누르면 옮긴 뒤 다시 켜져요.',
       buttons: ['옮기기', '그대로 쓰기'], defaultId: 0, cancelId: 1,
     });
@@ -616,8 +616,12 @@ function _exitNow(){
   try{ if(_lagTimer){ clearInterval(_lagTimer); _lagTimer = null; } }catch(_){}
   try{ if(_resTimer){ clearInterval(_resTimer); _resTimer = null; } }catch(_){}
   try{ _flushLauncherPos(); }catch(_){}   // app.exit 는 before-quit 를 안 거친다 — 남은 런처 자리만
-  try{ BrowserWindow.getAllWindows().forEach(w=>{ try{ if(!w.isDestroyed()) w.destroy(); }catch(_){} }); }catch(_){}
+  _destroyAllWindows();
   try{ app.exit(0); }catch(_){}
+}
+/* 창을 닫지 않고 바로 없앤다 — 닫기(close)는 멈춘 렌더러의 beforeunload 를 기다릴 수 있다. _exitNow · 맥 «설치하고 다시 켜기»(_relaunchFresh)가 쓴다. */
+function _destroyAllWindows(){
+  try{ BrowserWindow.getAllWindows().forEach(w=>{ try{ if(!w.isDestroyed()) w.destroy(); }catch(_){} }); }catch(_){}
 }
 /* 🚪 app.quit() 으로 끄는 길(제목줄 × · 내 정보 · 다른 기기 안내 · Cmd+Q · 재시작) · 메인 창 닫기 · 업데이트 설치를 한 곳에서 붙잡아
    렌더러가 못 올린 캐릭터 고침을 끝내기를 기다린다(없으면 바로 · 상한 있음). _exitNow(OS 세션 종료 · 중복 실행 정리)는 거치지 않는다 — OS 종료를 막지 않게. */
@@ -4160,7 +4164,8 @@ function _mainWindowHealth(){
    ⚠️ relaunch() 는 예약일 뿐이라 _exitNow() 를 꼭 이어 부른다. 멈춘 렌더러를 기다리지 않게 quit() 이 아니라 exit(0). */
 function _relaunchFresh(s){
   _diagLog('[중복 실행] 옛 창을 쓸 수 없어 정리하고 새로 띄움 — ' + JSON.stringify(s));
-  _relaunchOrInstall(_exitNow, () => autoUpdater.quitAndInstall());   // 멈춘 렌더러를 기다리지 않는다
+  // 맥 quitAndInstall 은 창부터 닫는다(close) — 멈춘 렌더러를 기다리지 않게 먼저 없앤다
+  _relaunchOrInstall(_exitNow, () => { _destroyAllWindows(); autoUpdater.quitAndInstall(); });
 }
 
 // 앱 중복 실행 방지 — 이미 하나 켜져있는데 또 실행하면(바탕화면 아이콘 재클릭 등),

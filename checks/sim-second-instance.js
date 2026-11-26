@@ -39,7 +39,7 @@ function wireText(src){
   return lines.length === 2 ? lines.join('\n') : null;
 }
 function sandbox(src){
-  const parts = ['_secondInstanceAction', '_mainWindowHealth', '_exitNow', '_relaunchOrInstall', '_relaunchFresh'].map(n => fnText(src, n));
+  const parts = ['_secondInstanceAction', '_mainWindowHealth', '_exitNow', '_destroyAllWindows', '_relaunchOrInstall', '_relaunchFresh'].map(n => fnText(src, n));
   const h = handlerText(src);
   const hung = (src.match(/^const RELAUNCH_HUNG_MS = .*$/m) || [])[0];
   const wire = wireText(src);
@@ -59,7 +59,7 @@ function sandbox(src){
   const updater = { _updatePlatform: { relaunchAction: () => 'relaunch' }, UPDATE_RELAUNCH: { INSTALL: 'install', RELAUNCH: 'relaunch' },
     autoUpdater: { quitAndInstall: () => E.calls.push('install') }, _skipInstallOnQuit: () => {} };   // 끌 때 설치 끄기는 sim-update-recheck 가 본다 — 여기는 끄는 순서만
   const api = new Function('app', 'BrowserWindow', 'sysinput', '_diagLog', '_unresponsiveSince', 'clearInterval', 'Date', '_updatePlatform', 'UPDATE_RELAUNCH', 'autoUpdater', '_skipInstallOnQuit',
-    'let mainWindow = null, _mainWindowCreated = false, _cursorWatchTimer = null, _pollTimer = null, _updateDownloaded = false;\n' + hung + '\n' + parts.join('\n') +
+    'let mainWindow = null, _mainWindowCreated = false, _cursorWatchTimer = null, _pollTimer = null, _updateStaged = false;\n' + hung + '\n' + parts.join('\n') +
     '\nconst handler = ' + h + ';\nfunction wire(win){\n' + wire + '\n}\nreturn { act: _secondInstanceAction, health: _mainWindowHealth, handler, wire, HUNG: RELAUNCH_HUNG_MS,' +
     ' set(o){ if("mw" in o) mainWindow = o.mw; if("created" in o) _mainWindowCreated = o.created; if("cur" in o) _cursorWatchTimer = o.cur; if("poll" in o) _pollTimer = o.poll; },' +
     ' timers(){ return [_cursorWatchTimer, _pollTimer]; } };')(app, BW, sysinput, (m) => E.log.push(m), unresp, (id) => E.calls.push('clear ' + id), FakeDate, updater._updatePlatform, updater.UPDATE_RELAUNCH, updater.autoUpdater, updater._skipInstallOnQuit);
@@ -210,7 +210,8 @@ const BREAKS = [
   ["function _exitNow(){", "function _exitNow(){ return app.quit();", 'exit(0) 대신 quit'],   // 끝내기는 main.js _exitNow() 하나(session-end 와 같이 쓴다)
   ["  exit();\n}", "}", '새로 띄우기 뒤 끝내기를 안 부름'],
   ["  try{ app.relaunch(); }catch(e){ _diagLog('[재시작] relaunch", "  try{ (0); }catch(e){ _diagLog('[재시작] relaunch", 'relaunch 를 안 부름'],
-  ["  _relaunchOrInstall(_exitNow, () => autoUpdater.quitAndInstall());", "  _relaunchOrInstall(() => app.quit(), () => autoUpdater.quitAndInstall());", '정리를 _exitNow 대신 quit 으로(멈춘 렌더러를 기다림)'],
+  ["  _relaunchOrInstall(_exitNow, () => { _destroyAllWindows(); autoUpdater.quitAndInstall(); });", "  _relaunchOrInstall(() => app.quit(), () => { _destroyAllWindows(); autoUpdater.quitAndInstall(); });", '정리를 _exitNow 대신 quit 으로(멈춘 렌더러를 기다림)'],
+  ["  _destroyAllWindows();\n  try{ app.exit(0); }catch(_){}", "  try{ app.exit(0); }catch(_){}", '끝내기 전에 창을 안 없앰'],
   ["    if (act === 'relaunch') { _relaunchFresh(health); return; }\n", '', '쓸 수 없는데 앞으로만 올림'],
   ["_unresponsiveSince.delete(win);", '0;', '응답 재개를 안 지움'],
   ["  if(_unresponsiveSince.has(w)) s.hungSince = _unresponsiveSince.get(w);\n", '', '응답 없음 기록을 안 읽음'],

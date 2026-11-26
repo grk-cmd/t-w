@@ -75,9 +75,9 @@ function moveScene(o){
     chk(mk({ platform: 'darwin', execPath: MAC_DL_EXE }).u.installDir() === '/Users/u/Downloads', '  다른 자리여도 .app 이 든 폴더');
     chk(m.u.installOnQuit() === true && m.seen.join() === '/Applications', '  맥 끌 때 설치 — .app 이 든 폴더에 쓸 수 있는지 물어 정한다');
     chk(mk({ platform: 'darwin', writable: false }).u.installOnQuit() === false, '★ 맥 — .app 이 든 폴더에 못 쓰면 끌 때 설치 없음');
-    chk(m.u.relaunchAction(true) === m.M.RELAUNCH.INSTALL, '★ 맥 재시작 — 받아 둔 판이 있으면 «설치하고 다시 켜기»');
+    chk(m.u.relaunchAction(true) === m.M.RELAUNCH.INSTALL, '★ 맥 재시작 — 끌 때 설치가 켜진 채 받은 판(Squirrel 이 준비함)이 있으면 «설치하고 다시 켜기»');
     chk(m.u.relaunchAction(false) === m.M.RELAUNCH.RELAUNCH && m.u.relaunchAction('yes') === m.M.RELAUNCH.RELAUNCH && m.u.relaunchAction(undefined) === m.M.RELAUNCH.RELAUNCH,
-      '  받은 판이 없으면(또는 true 가 아닌 값) relaunch');
+      '  준비된 판이 없으면(또는 true 가 아닌 값) relaunch');
     chk(mk({ platform: 'darwin', inApps: false }).u.shouldOfferMove(false) === true, '★ 맥 — 응용 프로그램 폴더 밖 설치본 · 아직 안 물었으면 옮기기를 묻는다');
     chk(mk({ platform: 'darwin', inApps: false }).u.shouldOfferMove(true) === false, '  이미 물었으면 다시 묻지 않는다(처음 한 번)');
     chk(m.u.shouldOfferMove(false) === false, '  이미 응용 프로그램 폴더면 묻지 않는다');
@@ -127,9 +127,9 @@ function moveScene(o){
     const DIR = 'return p.dirname(p.dirname(p.dirname(p.dirname(execPath))));';
     chk(UP.includes(DIR), 'update-platform.js 원문이 그대로 있다(아래 변이의 바탕)');
     chk(mk({ platform: 'darwin', src: UP.replace(DIR, 'return p.dirname(execPath);') }).u.installDir() !== '/Applications', '맥 설치 폴더를 실행 파일 옆으로 바꾸면 — 번들 안을 본다 → 1절 «맥 설치 폴더» 가 빨강');
-    const REL = 'return isMac && downloaded === true ? RELAUNCH.INSTALL : RELAUNCH.RELAUNCH;';
-    chk(UP.includes(REL) && mk({ platform: 'darwin', src: UP.replace(REL, 'return RELAUNCH.RELAUNCH;') }).u.relaunchAction(true) === 'relaunch', '맥 재시작 갈래를 지우면 — 받은 판이 있어도 relaunch → 1절 «맥 재시작» 이 빨강');
-    chk(mk({ platform: 'win32', src: UP.replace(REL, 'return downloaded === true ? RELAUNCH.INSTALL : RELAUNCH.RELAUNCH;') }).u.relaunchAction(true) === 'install', '플랫폼 확인을 지우면 — 윈도우 재시작도 설치로 바뀐다 → 1절 «윈도우 재시작» 이 빨강');
+    const REL = 'return isMac && staged === true ? RELAUNCH.INSTALL : RELAUNCH.RELAUNCH;';
+    chk(UP.includes(REL) && mk({ platform: 'darwin', src: UP.replace(REL, 'return RELAUNCH.RELAUNCH;') }).u.relaunchAction(true) === 'relaunch', '맥 재시작 갈래를 지우면 — 준비된 판이 있어도 relaunch → 1절 «맥 재시작» 이 빨강');
+    chk(mk({ platform: 'win32', src: UP.replace(REL, 'return staged === true ? RELAUNCH.INSTALL : RELAUNCH.RELAUNCH;') }).u.relaunchAction(true) === 'install', '플랫폼 확인을 지우면 — 윈도우 재시작도 설치로 바뀐다 → 1절 «윈도우 재시작» 이 빨강');
     const ASK = 'if(!isMac || deps.isPackaged !== true || asked === true) return false;';
     chk(UP.includes(ASK) && mk({ platform: 'darwin', inApps: false, src: UP.replace(ASK, 'if(!isMac) return false;') }).u.shouldOfferMove(true) === true, '물은 표시 확인을 지우면 — 켤 때마다 묻는다 → 1절 «처음 한 번» 이 빨강');
     const WR = 'return deps.writable(installDir()) === true;';

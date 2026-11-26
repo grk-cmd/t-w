@@ -104,7 +104,7 @@
 | **sim-friends-presence-rt.js** | 361 | **d49cb7f8b0eb** |
 | **sim-social-api.js** | 290 | **e3f48223d980** |
 | **sim-friend-profile-live.js** | 218 | **d78ba96ecf5b** |
-| **sim-second-instance.js** | 230 | **7d5e4b497624** |
+| **sim-second-instance.js** | 231 | **420f1674eed3** |
 | **sim-wd-parts-persist.js** | 91 | **80047cfd2375** 
 | **sim-invite-notice.js** | 85 | **9f7bcb7ddc71** |
 | **sim-name-guard.js** | 42 | **9c89831d5c23** |
@@ -156,8 +156,8 @@
 | **sim-app-version.js** | 109 | **6dee4558ad2b** |
 | **sim-app-version-sync.js** | 178 | **5acd89fd7806** |
 | **sim-update-flow.js** | 493 | **9afe24e88f87** |
-| **sim-update-recheck.js** | 384 | **141204322754** |
-| **sim-update-platform.js** | 151 | **2d2a633ea2a3** |
+| **sim-update-recheck.js** | 403 | **106d01eb25ca** |
+| **sim-update-platform.js** | 151 | **26931490cf36** |
 | **sim-firebase-left.js** | 176 | **92a4cc4ab41c** |
 | **sim-maintenance-gate.js** | 380 | **d05ea4148930** |
 | **sim-room-invite-wait.js** | 45 | **76bc51548bda** |
@@ -1977,7 +1977,7 @@ Tahoma 에는 한글 글자가 없어서 한글은 브라우저가 고른 대체
 ## 29. `sim-update-platform.js` — 플랫폼마다 자동 업데이트를 어떻게 돌리나 · 맥 «응용 프로그램 폴더로 옮기기»
 
 **무엇을** 윈도우 · 맥의 다시 확인 · 끌 때 설치 · 재시작 판단을 `update-platform.js` 한 곳에 두고, `main.js` 는 부르기만 한다. 맥은 Developer ID 서명 · 공증(`release.yml`)이 붙어 electron-updater(Squirrel.Mac)를 윈도우처럼 탄다 — 맥 전용 «다운로드 페이지 열기» 갈래(`checkMacUpdate` · `'mac-available'`)는 없다.
-★ Squirrel.Mac 은 끌 때 설치를 켜면 다 받는 즉시 설치 준비를 끝내 어떻게 꺼지든 설치된다. 그래서 맥에서 받아 둔 판이 있는 재시작은 `app.relaunch` 대신 «설치하고 다시 켜기»(`quitAndInstall`)로 간다(`_relaunchOrInstall`).
+★ Squirrel.Mac 은 끌 때 설치를 켜면 다 받는 즉시 설치 준비를 끝내 어떻게 꺼지든 설치된다. 그래서 맥에서 그렇게 준비된 판(끌 때 설치가 켜진 채 받음 — `_updateStaged`)이 있는 재시작은 `app.relaunch` 대신 «설치하고 다시 켜기»(`quitAndInstall`)로 간다(`_relaunchOrInstall`). 폴더에 못 써 끌 때 설치가 꺼진 채 받았으면 relaunch 그대로(설치하러 가면 끝이 오지 않아 멈춘다).
 ★ 응용 프로그램 폴더 밖(다운로드 · dmg 안)에서는 맥 자동 업데이트가 실패한다 — 처음 한 번 옮기기를 묻는다(`_offerMoveToApplications` · 물은 표시는 `tw-settings.json` `macMoveAsked`).
 
 | 절 | 무엇을 지키나 |

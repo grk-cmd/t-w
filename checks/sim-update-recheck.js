@@ -89,7 +89,7 @@ function mainUpdaterLines(src){
   const a = (src.match(/const _updatePlatform = createUpdatePlatform\(\{[\s\S]*?\n\}\);\n/) || [''])[0];
   const b = (src.match(/autoUpdater\.autoInstallOnAppQuit = [^;\n]*;[^\n]*\n/) || [''])[0];
   const c = (src.match(/function _skipInstallOnQuit\(\)\{[^\n]*\n/) || [''])[0];
-  const d = (src.match(/let _updateDownloaded = false;[^\n]*\n/) || [''])[0];
+  const d = (src.match(/let _updateStaged = false;[^\n]*\n/) || [''])[0];
   const e = (src.match(/function _relaunchOrInstall\([^)]*\)\{[\s\S]*?\n\}\n/) || [''])[0];
   return { ok: !!(a && b && c && d && e), body: a + b + c + d + e };
 }
@@ -148,12 +148,16 @@ async function scene(o){
   app.isInApplicationsFolder = () => true;
   const UPm = loadMod(o.upSrc || UP);
   const cfg = new Function('process', 'autoUpdater', 'installDirWritable', 'fs', 'path', 'app', 'createUpdatePlatform', 'UPDATE_RELAUNCH', '_diagLog',
-    lines.body + '\nreturn { backgroundRecheck: _updatePlatform.backgroundRecheck, _skipInstallOnQuit, _relaunchOrInstall, setDownloaded: (v) => { _updateDownloaded = v; } };')(
+    lines.body + '\nreturn { backgroundRecheck: _updatePlatform.backgroundRecheck, _skipInstallOnQuit, _relaunchOrInstall, setStaged: (v) => { _updateStaged = v; } };')(
     proc, updater, loadMod(UR).installDirWritable, fakeInstallFs(!o.perMachine, probeFiles), isMac ? path.posix : path.win32, app, UPm.createUpdatePlatform, UPm.RELAUNCH, () => {});
   /* 맥(Squirrel.Mac): 받기가 끝날 때 끌 때 설치가 켜져 있으면 설치 준비를 끝낸다 — 그 뒤엔 어떻게 꺼지든(quit · exit) 설치된다.
-     quitAndInstall 이 이미 설치했으면 꺼질 때 또 설치하지 않는다(설치는 한 번). */
+     quitAndInstall 이 이미 설치했으면 꺼질 때 또 설치하지 않는다(설치는 한 번).
+     준비가 안 됐을 때의 quitAndInstall 은 Squirrel 에게 새로 받게 하고 그 끝을 기다린다(MacUpdater.quitAndInstall) — 폴더에 못 쓰면 끝이 오지 않아 꺼지지 않는다. */
   let macStaged = false;
-  if(isMac) app.on('quit', () => { if(macStaged && !updater.quitAndInstallCalled) log.push('install:squirrel'); });
+  if(isMac){
+    app.on('quit', () => { if(macStaged && !updater.quitAndInstallCalled) log.push('install:squirrel'); });
+    updater.quitAndInstall = function(){ if(!macStaged){ log.push('install:wait'); return; } if(this.install(false, true)) setImmediate(() => app.quit()); };
+  }
   const sess = mainSessionLines(o.mainSrc || MAIN);
   const _exitNow = () => { new Function('_skipInstallOnQuit', '_updateRecheck', sess.exitFirst)(cfg._skipInstallOnQuit, { stop(){} }); app.exit(0); };
   const wl = {};
@@ -169,7 +173,7 @@ async function scene(o){
   ipcH[CH.READY]({ sender: wc });
   app.on('before-quit', (e) => { if(o.noHold ? false : hold.beforeQuit(e)) return; log.push('cleanup'); });
   if(o.downloaded !== false){
-    cfg.setDownloaded(true);   // main.js 'update-downloaded' 처리기가 하는 일
+    cfg.setStaged(updater.autoInstallOnAppQuit === true);   // main.js 'update-downloaded' 처리기가 하는 일(3절이 그 줄을 본다)
     if(isMac) macStaged = updater.autoInstallOnAppQuit === true;   // MacUpdater.doDownloadUpdate 가 받을 때 읽는다
     else updater.addQuitHandler();   // electron-updater 는 받기가 끝날 때(executeDownload done) 건다
   }
@@ -302,6 +306,11 @@ async function scene(o){
       '★ 맥 망가진 창 다시 띄우기 — 받아 둔 판이 있으면 먼저 «설치하고 다시 켜기» 한 번 · relaunch 없음(뒤의 끄기 붙잡기는 상한이 있다) [' + MacF.log.join(' → ') + ']');
     const MacP = await scene({ platform: 'darwin', perMachine: true });
     chk(MacP.updater.autoInstallOnAppQuit === false && !MacP.log.some(x => x.startsWith('install')) && MacP.log.includes('quit'), '★ 맥 — .app 이 든 폴더에 못 쓰면 끌 때 설치하지 않는다');
+    const MacPR = await scene({ platform: 'darwin', perMachine: true, how: 'relaunch' });
+    chk(!MacPR.log.some(x => x.startsWith('install')) && MacPR.log.includes('relaunch') && MacPR.log.includes('quit'),
+      '★ 맥 · 폴더에 못 씀 · 받은 판 있음 · 계정 재시작 — Squirrel 이 준비하지 않았으니 relaunch 하고 끈다(설치하러 가면 끝이 안 와 멈춘다) [' + MacPR.log.join(' → ') + ']');
+    const MacPF = await scene({ platform: 'darwin', perMachine: true, how: 'fresh' });
+    chk(MacPF.log.join() === 'relaunch,exit', '  같은 맥의 망가진 창 다시 띄우기도 relaunch 뒤 바로 끝낸다 [' + MacPF.log.join(' → ') + ']');
     chk([...MacP.probeFiles].length === 0 && Mac.probeFiles.size === 0, '  맥도 시험 파일을 남기지 않는다');
     const Lin = await scene({ platform: 'linux' });
     chk(Lin.cfg.backgroundRecheck === false && Lin.updater.autoInstallOnAppQuit === false, '  윈도우 · 맥 밖(리눅스)은 둘 다 켜지 않는다');
@@ -322,16 +331,18 @@ async function scene(o){
     chk(/^function _exitNow\(\)\{\n  try\{ _skipInstallOnQuit\(\); _updateRecheck\.stop\(\); \}catch\(_\)\{\}/.test(exitNow), '★ _exitNow 맨 앞에서 끌 때 설치를 끈다(OS 세션 종료 · 중복 실행 정리)');
     chk(/ipcMain\.on\('companion:relaunchApp', \(\) => \{\n    _relaunchOrInstall\(\(\) => app\.quit\(\), \(\) => _quitHold\.flushThen\(\(\) => autoUpdater\.quitAndInstall\(\)\)\);\n  \}\);/.test(MAIN), '★ 계정 재시작은 _relaunchOrInstall — 끄기는 app.quit · 설치는 저장을 기다린 뒤');
     const fresh = (MAIN.match(/function _relaunchFresh\(s\)\{[\s\S]*?\n\}/) || [''])[0];
-    chk(/_relaunchOrInstall\(_exitNow, \(\) => autoUpdater\.quitAndInstall\(\)\);/.test(fresh) && !/app\.relaunch\(/.test(fresh), '★ 망가진 창 다시 띄우기도 _relaunchOrInstall — 끄기는 _exitNow · 설치는 기다리지 않고');
+    chk(/_relaunchOrInstall\(_exitNow, \(\) => \{ _destroyAllWindows\(\); autoUpdater\.quitAndInstall\(\); \}\);/.test(fresh) && !/app\.relaunch\(/.test(fresh), '★ 망가진 창 다시 띄우기도 _relaunchOrInstall — 끄기는 _exitNow · 설치는 창을 먼저 없앤 뒤(멈춘 렌더러의 닫기를 기다리지 않게)');
+    chk(/function _exitNow\(\)\{[\s\S]*?\n  _destroyAllWindows\(\);\n  try\{ app\.exit\(0\); \}catch\(_\)\{\}\n\}/.test(MAIN) && /function _destroyAllWindows\(\)\{\n  try\{ BrowserWindow\.getAllWindows\(\)\.forEach\(w=>\{ try\{ if\(!w\.isDestroyed\(\)\) w\.destroy\(\); \}catch\(_\)\{\} \}\); \}catch\(_\)\{\}\n\}/.test(MAIN),
+      '  창 없애기는 _destroyAllWindows 한 곳(_exitNow 도 쓴다 · close 가 아니라 destroy)');
     chk((MAIN.match(/app\.relaunch\(\)/g) || []).length === 1, '  app.relaunch 는 _relaunchOrInstall 한 곳에만(재시작 판단이 흩어지지 않게)');
-    chk(/autoUpdater\.on\('update-downloaded', \(info\) => \{ _updateDownloaded = true; sendUpdateStatus\('downloaded'/.test(MAIN), '  받기가 끝나면 받음 표시를 세운다(재시작 판단이 읽는다)');
+    chk(/autoUpdater\.on\('update-downloaded', \(info\) => \{ _updateStaged = autoUpdater\.autoInstallOnAppQuit === true; sendUpdateStatus\('downloaded'/.test(MAIN), '★ 받기가 끝나면 «끌 때 설치가 켜진 채 받았나» 를 적는다(재시작 판단이 읽는다 — 받았다만으로는 맥 Squirrel 이 준비하지 않았을 수 있다)');
     chk(/app\.on\('before-quit', \(e\) => \{ if\(_quitHold\.beforeQuit\(e\)\) return; [^\n]*try \{ _updateRecheck\.stop\(\); \} catch \(_\) \{\} try \{ _flushLauncherPos\(\); \} catch \(_\) \{\} \}\);/.test(MAIN), '  before-quit — 붙잡기가 끝난 진짜 끄기에서 다시 확인을 멈춘다');
     chk(/autoUpdater\.autoInstallOnAppQuit = _updatePlatform\.installOnQuit\(\);/.test(MAIN) && /writable: \(dir\) => installDirWritable\(\{ fs, path, dir, pid: process\.pid \}\),/.test(MAIN), '★ 끌 때 설치는 플랫폼 판단 · 바꿔 끼울 폴더에 쓸 수 있을 때만(update-platform.js installOnQuit)');
     chk(/\n  mainWindow\.on\('query-session-end', \(\) => \{ _skipInstallOnQuit\(\); \}\);\n  mainWindow\.on\('session-end', \(\) => \{ _exitNow\(\); \}\);/.test(MAIN) && !/app\.on\('(?:query-)?session-end'/.test(MAIN),
       '★ 윈도우 세션 종료는 메인 창 이벤트로 듣는다 — app 에는 session-end 가 없다(Electron 44 · 들어도 오지 않는다)');
     chk(/const bg = _updateRecheck\.fromTick\(\); if\(!bg \|\| !_bgUpdateErrLogged\) _errorLog\.write\('ERROR', '업데이트', e\); if\(bg\) _bgUpdateErrLogged = true;/.test(MAIN), '  켜 둔 동안 다시 확인의 실패는 오류 파일에 한 번만(오프라인이면 4시간마다 쌓이지 않게)');
     chk(/ipcMain\.on\('companion:installUpdate', \(\) => \{ _quitHold\.flushThen\(\(\) => autoUpdater\.quitAndInstall\(\)\); \}\)/.test(MAIN), '  [재시작] 은 그대로(저장을 기다린 뒤 quitAndInstall)');
-    chk(!/autoInstallOnAppQuit = false;\s*\/\/ 사용자가 명시적으로/.test(MAIN) && (MAIN.match(/autoInstallOnAppQuit\s*=/g) || []).length === 2 && !/11-25|자동업데이트는/.test(MAIN + UR), '  옛 «autoInstallOnAppQuit=false» 줄 · 주석이 없다 · 바꾸는 곳은 설정 줄 · _skipInstallOnQuit 둘뿐');
+    chk(!/autoInstallOnAppQuit = false;\s*\/\/ 사용자가 명시적으로/.test(MAIN) && (MAIN.match(/autoInstallOnAppQuit\s*=(?!=)/g) || []).length === 2 && !/11-25|자동업데이트는/.test(MAIN + UR), '  옛 «autoInstallOnAppQuit=false» 줄 · 주석이 없다 · 바꾸는 곳은 설정 줄 · _skipInstallOnQuit 둘뿐');
   }
 
   say('── 4. mutation test');
@@ -356,12 +367,20 @@ async function scene(o){
     chk(MAIN.includes(SKIP_R), 'main.js _relaunchOrInstall 원문이 그대로 있다(아래 변이의 바탕)');
     const noSkipR = await scene({ how: 'relaunch', mainSrc: MAIN.replace(SKIP_R, '') });
     chk(noSkipR.log.includes('install:silent'), '윈도우 재시작에서 안 끄면 — 다시 켜는 앱과 설치가 부딪힌다 → 2절 판정이 빨강');
-    const INST = '  if(_updatePlatform.relaunchAction(_updateDownloaded) === UPDATE_RELAUNCH.INSTALL){';
+    const INST = '  if(_updatePlatform.relaunchAction(_updateStaged) === UPDATE_RELAUNCH.INSTALL){';
     chk(MAIN.includes(INST), '  main.js 재시작 갈래 원문이 그대로 있다');
     const macRel = await scene({ platform: 'darwin', how: 'relaunch', mainSrc: MAIN.replace(INST, '  if(false){') });
     chk(macRel.log.includes('relaunch') && macRel.log.includes('install:squirrel'), '맥 재시작 갈래를 지우면 — relaunch 한 앱과 Squirrel 설치가 겹친다 → 2절 «맥 계정 재시작» 이 빨강');
-    const macUp = await scene({ platform: 'darwin', how: 'relaunch', upSrc: UP.replace("return isMac && downloaded === true ? RELAUNCH.INSTALL : RELAUNCH.RELAUNCH;", 'return RELAUNCH.RELAUNCH;') });
+    const REL = "return isMac && staged === true ? RELAUNCH.INSTALL : RELAUNCH.RELAUNCH;";
+    chk(UP.includes(REL), '  update-platform.js relaunchAction 원문이 그대로 있다');
+    const macUp = await scene({ platform: 'darwin', how: 'relaunch', upSrc: UP.replace(REL, 'return RELAUNCH.RELAUNCH;') });
     chk(macUp.log.includes('relaunch') && macUp.log.includes('install:squirrel'), 'update-platform.js relaunchAction 이 늘 relaunch 면 — 같은 겹침 → 2절 빨강');
+    const STG = "(info) => { _updateStaged = autoUpdater.autoInstallOnAppQuit === true;";
+    chk(MAIN.includes(STG), '  main.js 받음 처리 원문이 그대로 있다');
+    const staged = await scene({ platform: 'darwin', perMachine: true, how: 'relaunch', mainSrc: MAIN });
+    const always = await scene({ platform: 'darwin', perMachine: true, how: 'relaunch', upSrc: UP.replace(REL, 'return isMac ? RELAUNCH.INSTALL : RELAUNCH.RELAUNCH;') });
+    chk(!staged.log.includes('install:wait') && always.log.includes('install:wait') && !always.log.includes('quit'),
+      '«받았다» 만으로 설치하러 가면 — 폴더에 못 쓰는 맥에서 설치 끝을 기다리며 꺼지지 않는다 → 2절 «폴더에 못 씀 · 계정 재시작» 이 빨강');
     const appSess = await scene({ how: 'session', mainSrc: MAIN.replace(/\n  mainWindow\.on\('query-session-end'[^\n]*\n  mainWindow\.on\('session-end'[^\n]*\n/, '\n') });
     chk(appSess.log.includes('install:silent'), '세션 종료를 창에서 듣지 않으면(옛 app.on — 오지 않음) — OS 가 끄는 중 끄기에서 설치를 띄운다 → 2절 «세션 종료» 판정이 빨강');
     const onlyEnd = await scene({ how: 'session', electronQuits: true, mainSrc: MAIN.replace("  mainWindow.on('query-session-end', () => { _skipInstallOnQuit(); });", "  mainWindow.on('query-session-end', () => {});") });
