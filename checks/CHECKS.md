@@ -539,7 +539,7 @@
 | **sim-rt-hub.js** | 753 | **d2c57ea4e8ae** |
 | **sim-rt-status-ui.js** | 245 | **60536e178fbf** |
 | **sim-run-verdict.js** | 67 | **76851f0d5f8e** |
-| **sim-user-api.js** | 298 | **b1bf85fa4625** |
+| **sim-user-api.js** | 304 | **ce4fb62e42b6** |
 | **sim-login-flow.js** | 462 | **b46f855bf950** |
 | **sim-login-diag.js** | 263 | **e416a45edc5f** |
 | **sim-auth-barrier.js** | 165 | **1b341df947b0** |
@@ -587,7 +587,7 @@
 | **sim-chat-notice.js** | 349 | **a3e55a7ec8c1** |
 | **sim-room-focus.js** | 225 | **5aae10ce337f** |
 | **sim-chat-focus.js** | 198 | **15f464551678** |
-| **sim-theme-custom.js** | 212 | **10aa5cd2a97b** |
+| **sim-theme-custom.js** | 226 | **78bfa8932185** |
 | **sim-font-choice.js** | 127 | **4587e729e2e7** |
 | **sim-mallang-sent.js** | 76 | **47c8eaaf32fa** |
 | **sim-xmas-server.js** | 332 | **1a7bb7d5b608** |

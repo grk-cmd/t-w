@@ -232,6 +232,11 @@ async function judge(S){
     answer403 = true;
     chk(await sync.save('uA', CX) === U.THEME_FAILED, '  403 PREMIUM_REQUIRED → failed(못 올림 — 지금처럼 E-SYS-02)');
     answer403 = false;
+    e.sent.length = 0; ver = 30;
+    await sync.load('uA');
+    e.sent.length = 0; ver = 40;
+    await sync.save('uB', CX);
+    chk(e.sent.length === 2 && e.sent[0].method === 'GET' && e.sent[1].body.version === 40, '  계정이 바뀌면(uid 다름) 앞 사람 판을 싣지 않고 먼저 읽는다');
     const e2 = mkEnv(S, () => ({ status: 503, body: null }));
     const s2 = U.createThemeCustomSync(e2.ua);
     chk(await s2.load('uA') === null && await s2.save('uA', CX) === U.THEME_FAILED, '  닿지 못하면 load null(못 읽음 ≠ 없음) · save failed');
@@ -277,9 +282,10 @@ const BREAKS = [
   ['UA', "{ password: String(password || '') })); }", "{ pw: String(password || '') })); }", '비밀번호 붙이기 칸 이름이 다름'],
   ['HTML', '<script src="parts/account/user-api.js"></script>', '', 'html 에 안 실음'],
   ['UA', "      return e && e.code === 'CONCURRENT_UPDATE' ? THEME_CONFLICT : THEME_FAILED;", "      return THEME_FAILED;", '내 색 409 를 못 가름'],
-  ['UA', "    if(version === null && (await load()) === null) return THEME_FAILED;", "", '내 색 판을 모르는 채 씀'],
-  ['UA', "    }catch(e){\n      version = null;", "    }catch(e){", '내 색 409 뒤에도 옛 판을 씀'],
-  ['UA', "      version = r ? r.version : null;", "", '내 색 쓴 뒤 판을 안 바꿈'],
+  ['UA', "    if(!(held && held.uid === uid) && (await load(uid)) === null) return THEME_FAILED;", "    if(!held && (await load(uid)) === null) return THEME_FAILED;", '내 색 다른 계정의 판을 실음'],
+  ['UA', "    if(!(held && held.uid === uid) && (await load(uid)) === null) return THEME_FAILED;", "", '내 색 판을 모르는 채 씀'],
+  ['UA', "    }catch(e){\n      held = null;", "    }catch(e){", '내 색 409 뒤에도 옛 판을 씀'],
+  ['UA', "      held = r ? { uid, version: r.version } : null;", "", '내 색 쓴 뒤 판을 안 바꿈'],
 ];
 const caught = [];
 for(const [where, from, to, what] of BREAKS){

@@ -172,22 +172,36 @@ say('── 4. 계정 사본');
   await e.ui.pullCustom();
   chk(!e.store['tw.accentCustom'], '내 코드가 없으면 서버를 안 본다');
 
-  /* 409 — 다른 PC 가 먼저 바꿨다: 이 PC 것으로 덮지 않고 다시 읽어 맞추고 알린다 */
+  /* 409 — 다른 PC 가 먼저 바꿨다: 이 PC 것으로 덮지 않고 다시 읽어 맞추고 알린다 · 409 뒤에 다시 PUT 하지 않는다(saved 1번) */
   const other = { default: { a: '#ABCDEF', b: '#ABCDEF' } };
-  e = mkEnv({ premium: true, saveResult: 'conflict', srv: other });
-  e.ui.bindThemeUI(); e.els.themeColorRow.children[5].onclick(); e.els.themeCxSave.fire('click'); await flush();
-  chk(JSON.parse(e.store['tw.accentCustom']).default.a === '#ABCDEF' && e.notes.join() === 'E-SYS-09' && !('tw.accentCustomDirty' in e.store),
-    '★ 저장이 409 → 계정 것을 다시 읽어 이 PC 를 맞추고 E-SYS-09(못 올린 표시 없음 · E-SYS-02 아님)');
-  e = mkEnv({ premium: true, saveResult: 'conflict', srv: null });
-  e.ui.bindThemeUI(); e.els.themeColorRow.children[5].onclick(); e.els.themeCxSave.fire('click'); await flush();
-  chk(e.notes.join() === 'E-SYS-02' && e.store['tw.accentCustomDirty'] === '1', '  409 뒤 다시 읽기도 못 하면 못 올림(E-SYS-02 · 표시)');
-  e = mkEnv({ premium: true, saveResult: 'conflict', srv: other, ls: { 'tw.accentCustom': mine, 'tw.accentCustomDirty': '1' } });
-  await e.ui.pullCustom();
-  chk(JSON.parse(e.store['tw.accentCustom']).default.a === '#ABCDEF' && e.notes.join() === 'E-SYS-09' && !('tw.accentCustomDirty' in e.store),
-    '  로그인 뒤 못 올린 것을 올리다 409 → 같게(계정 것으로 · E-SYS-09)');
-  e = mkEnv({ premium: true, saveResult: 'conflict', srv: {}, ls: { 'tw.accentCustom': mine } });
-  e.srv = {}; await e.ui.pullCustom();
-  chk(e.saved.length === 1 && e.notes.join() === 'E-SYS-09', '  서버가 비어 올리다 409 → 다시 읽어 맞춘다');
+  const run409 = async () => {
+    const r = [];
+    let x = mkEnv({ premium: true, saveResult: 'conflict', srv: other });
+    x.ui.bindThemeUI(); x.els.themeColorRow.children[5].onclick(); x.els.themeCxSave.fire('click'); await flush();
+    r.push([x.saved.length === 1 && JSON.parse(x.store['tw.accentCustom']).default.a === '#ABCDEF' && x.notes.join() === 'E-SYS-09' && !('tw.accentCustomDirty' in x.store),
+      '★ 저장이 409 → 다시 PUT 하지 않고 계정 것을 다시 읽어 이 PC 를 맞추고 E-SYS-09(못 올린 표시 없음 · E-SYS-02 아님)']);
+    x = mkEnv({ premium: true, saveResult: 'conflict', srv: null });
+    x.ui.bindThemeUI(); x.els.themeColorRow.children[5].onclick(); x.els.themeCxSave.fire('click'); await flush();
+    r.push([x.saved.length === 1 && x.notes.join() === 'E-SYS-02' && x.store['tw.accentCustomDirty'] === '1', '  409 뒤 다시 읽기도 못 하면 못 올림(E-SYS-02 · 표시) · 다시 PUT 하지 않는다']);
+    x = mkEnv({ premium: true, saveResult: 'conflict', srv: other, ls: { 'tw.accentCustom': mine, 'tw.accentCustomDirty': '1' } });
+    await x.ui.pullCustom();
+    r.push([x.saved.length === 1 && JSON.parse(x.store['tw.accentCustom']).default.a === '#ABCDEF' && x.notes.join() === 'E-SYS-09' && !('tw.accentCustomDirty' in x.store),
+      '  로그인 뒤 못 올린 것을 올리다 409 → 같게(계정 것으로 · E-SYS-09 · 다시 PUT 없음)']);
+    x = mkEnv({ premium: true, saveResult: 'conflict', srv: {}, ls: { 'tw.accentCustom': mine } });
+    await x.ui.pullCustom();
+    r.push([x.saved.length === 1 && x.notes.join() === 'E-SYS-09', '  서버가 비어 올리다 409 → 다시 읽어 맞춘다(다시 PUT 없음)']);
+    return r;
+  };
+  for(const [ok, msg] of await run409()) chk(ok, msg);
+  { /* mutation test — 409 뒤 saveCustom 을 한 번 더 부르면 빨강 */
+    const ui0 = SRC.ui;
+    const from = '  setCustom(TC.normCustom(srv));\n  _cxDirty(false);';
+    SRC.ui = ui0.replace(from, '  setCustom(TC.normCustom(srv));\n  await saveCustom(uid, getCustom());\n  _cxDirty(false);');
+    const changed = SRC.ui !== ui0;
+    let rows = []; try{ rows = await run409(); }catch(_){ rows = [[false, '던짐']]; }
+    SRC.ui = ui0;
+    chk(changed && rows.some(([ok]) => !ok), 'mutation test: 409 뒤 saveCustom 한 번 더 → 빨강');
+  }
   e = mkEnv({ premium: true, saveResult: 'failed', srv: {}, ls: { 'tw.accentCustom': mine } });
   await e.ui.pullCustom();
   chk(e.saved.length === 1 && e.notes.length === 0 && !('tw.accentCustomDirty' in e.store), '  서버가 비어 올리다 못 올림(403 프리미엄 아님 등) → 지금처럼 조용히(표시 · 알림 없음)');
