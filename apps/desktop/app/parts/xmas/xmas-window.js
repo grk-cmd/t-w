@@ -1,8 +1,9 @@
 /* xmas-window.js — 🎄 크리스마스 창(일회성 — 다음 업데이트에서 걷는다 · 이슈 #963) (검사 sim-xmas-window.js)
    책임: 런처 [크리스마스] 버튼(받은 편지 열람 끝 — 1월 6일 0시 · 서버 시각 — 부터 숨김) · 창 열고 닫기 · 내 트리 불러오기(그림은 판이 달라진 자리만) ·
      장식 고르기 · 내 그림 올리기(64px PNG) · 한마디 · 장식 달기 · 바꾸기(5초 간격) · «트리가 다 찼어요» · 장식 신고 · 한마디 라벨.
-   3D 는 xmas-tree.js, 편지 창은 xmas-letter.js(뮤직바 xmas-song.js), 서버는 net(firebaseAPI.xmas — 늦게 붙으므로 부를 때 찾는다), 규칙은 rules(TwXmasRules).
-   ★ 그림 사본은 이 PC 의 GLB 영구 캐시(IndexedDB)에 «트리/자리@판» 키로 — 다시 열 때 판이 같은 그림은 받지 않는다.
+   3D 는 xmas-tree.js, 편지 창은 xmas-letter.js(뮤직바 xmas-song.js), 서버는 net(xmas-api.js), 규칙은 rules(TwXmasRules) · 날짜는 서버가 준 한 벌(net().schedule()).
+   ★ 그림 사본은 이 PC 의 GLB 영구 캐시(IndexedDB)에 «트리/자리@판» 키로 — 다시 열 때 판이 같은 그림은 받지 않는다. 바이트는 Storage 에서(목록에는 그림 id 만).
+   ★ 트리 목록은 서버가 몇 초 캐시한다 — 내 장식은 걸기 응답(자리 · 판 · 그림 id)을 목록 위에 덮어 그린다(목록이 늦어도 내 장식은 바로 보이게).
      ⚠️ localStorage 에 두지 말 것 — 트리 하나가 수 MB 라 앱 전체가 같이 쓰는 한도를 먹어 캐릭터 저장 등이 실패한다.
    ★ 남이 쓴 한마디는 textContent 로만 넣는다.
    classic script(window.TwXmasWindow) — app.js 보다 먼저 싣는다. app.js 가 `createXmasWindow(deps)` 한 번 — 밖에서 부르는 이름 없음
@@ -40,15 +41,18 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
 
   /* Esc 는 트리 창을 편지 창보다 먼저 등록한다 — 알림함 길은 두 창을 같은 틱에 열어서, 창 쌓기가 등록 순서로 쌓는다(편지 창이 위 → Esc 에 편지 창만 닫힘) */
   deps.escRegisterWindow({ key: 'xmas', el: ov, isOpen: () => ov.classList.contains('on'), close });
+  /** 날짜 한 벌 — 서버 값을 읽었으면 그것, 아니면 처음 값 */
+  const sch = () => net().schedule() || rules.SCHEDULE;
   const song = deps.songMod.createXmasSong({ doc, win, companion: deps.companion, ytVideoId: deps.ytVideoId, asyncPrompt: deps.asyncPrompt, toast, songTitleMax: rules.SONG_TITLE_MAX });
-  const letter = deps.letterMod.createXmasLetter({ doc, win, rules, net, song, serverNow, toast, notifyError, escRegisterWindow: deps.escRegisterWindow,
+  const letter = deps.letterMod.createXmasLetter({ doc, win, rules, net, song, serverNow, schedule: () => sch(), toast, notifyError, escRegisterWindow: deps.escRegisterWindow,
     storage: deps.storage, onDot: (on) => btn.classList.toggle('xm-dot', on) });
 
   let treeNo = 0, mine = null, ornList = [], chosen = { kind: 'star', img: null }, lastHangAt = NaN, busy = false, seq = 0;
+  let hung = null;   // 이번에 건 내 장식 { t, s, v, k, w, id } — 목록이 그 판보다 늦으면 이것으로 덮는다
 
   /* ── 런처 버튼 — 받은 편지를 볼 수 있는 동안(장식은 이벤트 끝에 막혀도 편지는 1/5 까지) ── */
   function refreshButton(){
-    btn.hidden = !rules.buttonOn(serverNow());
+    btn.hidden = !rules.buttonOn(serverNow(), sch());
     if (btn.hidden){ if (ov.classList.contains('on')) close(); return; }
     letter.checkGot();   // 25일 0시가 지나면 받은 편지 → 빨간 점
     letter.paintBtn();   // 날짜가 넘어가면 [편지 쓰기] → [편지 열람]
@@ -64,7 +68,7 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
   /* 신고는 이벤트 끝(1/1 0시)에 막힌다 — 창은 받은 편지 때문에 1/5 까지 열리므로 여기서 안내로 끝낸다(서버도 거절 · 오류 번호 아님) */
   const REPORT_ENDED = '크리스마스 이벤트가 끝나 신고할 수 없어요.';
   tree.onReport((slot) => {
-    if (!rules.eventOn(serverNow())){ toast(REPORT_ENDED); return; }
+    if (!rules.eventOn(serverNow(), sch())){ toast(REPORT_ENDED); return; }
     repSlot = slot; $('xmasRep').hidden = false; $('xmasRepNo').focus();
   });
   $('xmasRepNo').onclick = () => { $('xmasRep').hidden = true; repSlot = null; };
@@ -72,11 +76,12 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     $('xmasRep').hidden = true;
     const s = repSlot; repSlot = null;
     if (s == null) return;
-    if (!rules.eventOn(serverNow())){ toast(REPORT_ENDED); return; }   // 확인창을 연 채 끝을 넘긴 때
+    if (!rules.eventOn(serverNow(), sch())){ toast(REPORT_ENDED); return; }   // 확인창을 연 채 끝을 넘긴 때
     const r = await net().reportOrnament(treeNo, s);
     if (r.ok) toast('신고했어요. 관리자가 확인할게요.');
     else if (r.code === 'dup') toast('이미 신고한 장식이에요.');
     else if (r.code === 'auth') toast('로그인한 뒤 신고할 수 있어요.');
+    else if (r.code === 'invalid-argument' || r.code === 'failed-precondition') toast(r.msg || '신고할 수 없어요.');
     else notifyError('E-XMAS-03', r.err);
   };
 
@@ -160,17 +165,18 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     const tr = await n.tree(treeNo);
     if (my !== seq || !ov.classList.contains('on')) return;
     if (!tr.ok){ setState('트리를 불러오지 못했어요.'); notifyError('E-XMAS-01', tr.err); return; }
+    overlayHung(tr.o);
     // 지금 판의 사본이 있는 자리는 받지 않는다 — 판이 «다른» 자리만(rules.changedImgSlots)
     const cache = {}, have = {};
     const imgSlots = Object.keys(tr.o).filter(s => tr.o[s] && tr.o[s].k === 'img');
     await Promise.all(imgSlots.map(s => Promise.resolve(idbGet(imgKey(treeNo, s, tr.o[s].v))).then(d => { if (d){ cache[s] = d; have[s] = tr.o[s].v; } }, () => {})));
-    const need = rules.changedImgSlots(tr.o, have);
+    const need = rules.changedImgSlots(tr.o, have).filter(s => tr.o[s].id);
     for (let i = 0; i < need.length; i += FETCH_PAR){
-      const got = await Promise.all(need.slice(i, i + FETCH_PAR).map(s => n.img(treeNo, s).then(r => [s, r])));
+      const got = await Promise.all(need.slice(i, i + FETCH_PAR).map(s => n.img(tr.o[s].id).then(r => [s, r])));
       for (const [s, r] of got){
         if (!r.ok || !r.d) continue;
         cache[s] = r.d;
-        if (Number.isInteger(r.v)) idbPut(imgKey(treeNo, s, r.v), r.d);   // 받은 판 그대로의 키로(그새 바뀌었으면 다음에 그 판으로 다시 받는다)
+        idbPut(imgKey(treeNo, s, tr.o[s].v), r.d);   // 그림 id 는 판마다 새것이라 목록의 판 그대로의 키로
       }
     }
     const list = [];
@@ -189,12 +195,23 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     $('xmasHang').textContent = mine ? '내 장식 바꾸기' : '내 장식 달기';
   }
 
+  /** 목록(서버 캐시 — 몇 초 늦을 수 있음)이 내가 방금 건 판보다 늦으면 걸기 응답으로 덮는다 */
+  function overlayHung(o){
+    if (!hung || hung.t !== treeNo) return;
+    const cur = o[hung.s];
+    if (cur && cur.v >= hung.v) return;
+    const one = { k: hung.k, v: hung.v };
+    if (hung.w) one.w = hung.w;
+    if (hung.id) one.id = hung.id;
+    o[hung.s] = one;
+  }
+
   /* ── 장식 달기 · 바꾸기 ── */
   async function hang(){
     if (busy) return;
     const left = rules.cooldownLeft(lastHangAt, Date.now());
     if (left > 0){ toast(Math.ceil(left / 1000) + '초 뒤에 다시 바꿀 수 있어요.'); return; }
-    if (!rules.eventOn(serverNow())){ toast('크리스마스 이벤트가 끝났어요.'); return; }
+    if (!rules.eventOn(serverNow(), sch())){ toast('크리스마스 이벤트가 끝났어요.'); return; }
     const word = rules.cleanWord($('xmasWord').value).slice(0, rules.WORD_MAX);
     const data = { kind: chosen.kind, word, preview: treeNo || null };
     if (chosen.kind === 'img') data.img = chosen.img;
@@ -202,14 +219,17 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     const r = await net().hang(data);
     busy = false; $('xmasHang').disabled = false;
     if (!r.ok){
-      if (r.code === 'aborted') toast('장식을 거는 중이에요. 잠시 뒤 다시 눌러 주세요.');
+      if (r.code === 'aborted') toast('서버가 바빠요. 잠시 뒤 다시 눌러 주세요.');
+      else if (r.code === 'conflict'){ toast('다른 PC 에서 먼저 바꿨어요. 트리를 다시 불러올게요.'); await load(false); }
       else if (r.code === 'failed-precondition') toast('크리스마스 이벤트가 끝났어요.');
       else if (r.code === 'invalid-argument') toast(r.msg || '장식을 걸 수 없어요.');
-      else if (r.code === 'unauthenticated' || r.code === 'permission-denied') toast('로그인한 뒤 장식을 걸 수 있어요.');
+      else if (r.code === 'auth') toast('로그인한 뒤 장식을 걸 수 있어요.');
       else notifyError('E-XMAS-02', r.err);
       return;
     }
     lastHangAt = Date.now();
+    hung = { t: r.tree, s: r.slot, v: r.version, k: data.kind, w: word, id: r.imageId };
+    if (data.kind === 'img' && data.img) idbPut(imgKey(r.tree, r.slot, r.version), data.img);   // 내가 올린 그림 — 다시 받지 않는다
     if (r.moved){ $('xmasFull').hidden = false; $('xmasFullOk').focus(); }
     await load(true);
   }
@@ -218,7 +238,7 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
 
   /* ── 창 ── */
   function open(){
-    if (!rules.buttonOn(serverNow())){ toast('크리스마스 이벤트가 끝났어요.'); return; }
+    if (!rules.buttonOn(serverNow(), sch())){ toast('크리스마스 이벤트가 끝났어요.'); return; }
     if (ov.classList.contains('on')) return;
     ov.classList.add('on');
     deps.onSizeChange();

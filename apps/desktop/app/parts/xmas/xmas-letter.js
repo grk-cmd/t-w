@@ -2,7 +2,7 @@
    책임: 트리 창 아래 [편지 쓰기 (n/5)] · [편지 열람] 단추 · 그 위에 겹쳐 뜨는 편지 창(✕ · Esc) ·
      ✍️ 쓰기(12/24 23:59 까지 — 맡긴 편지 목록 · 고치기 · 거두기 · 새 편지 · 반송된 편지의 사유 · 다시 쓰기 · 추천곡) ·
      📬 열람(12/25 부터 — 봉투 · 열기 · 추천곡 · 신고 · 읽음 표시) · 런처 [크리스마스] 빨간 점(안 읽은 받은 편지).
-   서버는 net(firebaseAPI.xmas — 내 칸만 읽고 쓴다), 날짜 · 칸 규칙은 rules(TwXmasRules), 뮤직바는 song(TwXmasSong).
+   서버는 net(xmas-api.js — 내 몫만 읽고 쓴다), 날짜 · 칸 규칙은 rules(TwXmasRules) · 날짜 한 벌은 schedule()(서버 값), 뮤직바는 song(TwXmasSong).
    ★ 받은 편지 · 추천곡 제목은 남이 쓴 값 — textContent 로만 넣는다.
    ★ 받은 편지 확인은 25일 0시가 지난 뒤 — 짝 짓기가 0시에 돌아 조금 늦을 수 있어 한 시간 동안만 5분 간격으로 다시 본다(그 뒤엔 앱을 켤 때 한 번).
      실패는 세지 않는다 — 앱을 켠 직후엔 로그인 복원 전이라 auth 로 돌아오므로 다음 확인(1분)에 다시 · 계정이 바뀌면 처음부터.
@@ -16,7 +16,7 @@ const GOT_RETRY_MS = 5 * 60000;     // 받은 편지가 아직 없을 때 다시
 const GOT_RETRY_UNTIL_MS = 3600000; // 마감 뒤 이 시간까지만 다시 본다
 
 /**
- * @param {{ doc?:Document, win?:Window, rules:any, net:()=>any, song:any, serverNow:()=>number,
+ * @param {{ doc?:Document, win?:Window, rules:any, net:()=>any, song:any, serverNow:()=>number, schedule:()=>any,
  *           toast:(msg:string)=>void, notifyError:(code:string, err?:any)=>void, escRegisterWindow:Function,
  *           storage:Storage|null, onDot:(on:boolean)=>void }} deps
  */
@@ -25,6 +25,7 @@ function createXmasLetter(deps){
   const rules = deps.rules;
   const net = deps.net;
   const serverNow = deps.serverNow;
+  const schedule = deps.schedule;
   const toast = deps.toast;
   const notifyError = deps.notifyError;
   const $ = (id) => doc.getElementById(id);
@@ -48,16 +49,15 @@ function createXmasLetter(deps){
 
   /* ── 단추(트리 창 아래) ── */
   function paintBtn(){
-    const now = serverNow();
-    if (rules.lettersArrived(now)){ btn.textContent = '편지 열람'; btn.hidden = false; }
-    else if (rules.letterOpen(now)){ btn.textContent = '편지 쓰기 (' + letters.length + '/' + rules.LETTER_MAX + ')'; btn.hidden = false; }
+    const now = serverNow(), s = schedule();
+    if (rules.lettersArrived(now, s)){ btn.textContent = '편지 열람'; btn.hidden = false; }
+    else if (rules.letterOpen(now, s)){ btn.textContent = '편지 쓰기 (' + letters.length + '/' + rules.LETTER_MAX + ')'; btn.hidden = false; }
     else btn.hidden = true;
-    btn.classList.toggle('xm-dot', rules.lettersArrived(now) && rules.hasUnread(got, readSet()));
+    btn.classList.toggle('xm-dot', rules.lettersArrived(now, s) && rules.hasUnread(got, readSet()));
   }
   /** 트리 창을 열 때 — 쓰는 기간이면 맡긴 수(n/5)를 위해 내 편지함을 한 번 읽는다 */
   async function refresh(){
-    const now = serverNow();
-    if (rules.letterOpen(now)){
+    if (rules.letterOpen(serverNow(), schedule())){
       const my = ++refSeq;
       const r = await net().myLetters();
       if (my !== refSeq || isOpen()) return;   // 편지 창이 열렸으면 그쪽이 읽은 값이 맞다
@@ -69,14 +69,14 @@ function createXmasLetter(deps){
   /* ── 받은 편지 확인(빨간 점) — 25일 0시 뒤 ── */
   async function checkGot(){
     const now = serverNow();
-    if (!rules.lettersArrived(now) || gotTrying) return;
+    if (!rules.lettersArrived(now, schedule()) || gotTrying) return;
     const uid = net().me();
     if (uid !== gotUid){   // 계정이 바뀌면 앞 계정의 받은 편지 · 점을 버리고 처음부터
       gotUid = uid; got = []; gotFound = false; gotEmpty = false; gotTriedAt = -Infinity;
       deps.onDot(false); paintBtn();
     }
     if (gotFound || now - gotTriedAt < GOT_RETRY_MS) return;
-    if (gotEmpty && now >= rules.LETTER_DEADLINE_MS + GOT_RETRY_UNTIL_MS) return;   // 비어 있음을 본 뒤로는 한 시간까지만
+    if (gotEmpty && now >= schedule().letterDeadline + GOT_RETRY_UNTIL_MS) return;   // 비어 있음을 본 뒤로는 한 시간까지만
     gotTrying = true; gotTriedAt = now;
     const r = await net().got();
     gotTrying = false;
@@ -104,7 +104,7 @@ function createXmasLetter(deps){
 
   /* ✍️ 쓰기 */
   function ddayText(){
-    const d = rules.ddayLeft(serverNow());
+    const d = rules.ddayLeft(serverNow(), schedule());
     return (d === 0 ? '오늘 마감' : '마감까지 D-' + d) + ' · 12월 24일 23:59';
   }
   function item(text, sub, acts){
@@ -154,9 +154,11 @@ function createXmasLetter(deps){
     $('xmasLwN').textContent = String(v.length);
     $('xmasLwKeep').disabled = busy || !rules.cleanLetter(v);
   }
-  /** 쓰기 실패 — 마감 · 로그인은 안내, 그 밖은 오류 코드 */
+  /** 쓰기 실패 — 마감 · 로그인 · 다른 PC 가 먼저 고침 · 서버 바쁨은 안내, 그 밖은 오류 코드 */
   function writeFailed(r){
     if (r.code === 'closed'){ toast('편지 마감이 지났어요.'); loadView(); return; }
+    if (r.code === 'conflict'){ toast('다른 PC 에서 먼저 바꿨어요. 편지함을 다시 불러올게요.'); editing = null; songW.set(null); loadView(); return; }
+    if (r.code === 'aborted'){ toast('서버가 바빠요. 잠시 뒤 다시 눌러 주세요.'); return; }
     if (r.code === 'auth'){ toast('로그인한 뒤 편지를 쓸 수 있어요.'); return; }
     notifyError('E-XMAS-05', r.err);
   }
@@ -167,10 +169,9 @@ function createXmasLetter(deps){
     if (!lid){ toast('편지는 ' + rules.LETTER_MAX + '통까지 맡길 수 있어요.'); return; }
     const retLid = editing.retLid;
     busy = true; checkText();
-    const r = await net().saveLetter(lid, text, draftSong);
+    const r = await net().saveLetter(lid, text, draftSong, retLid);   // 반송된 편지면 서버가 같은 트랜잭션에서 반송 기록을 지운다
     busy = false; checkText();
     if (!r.ok){ writeFailed(r); return; }
-    if (retLid){ const c = await net().clearReturned(retLid); if (!c.ok) notifyError('E-XMAS-05', c.err); }
     editing = null; songW.set(null);
     toast('편지를 맡겼어요. 25일 0시에 전달돼요.');
     await loadView();
@@ -230,14 +231,14 @@ function createXmasLetter(deps){
   /* 신고는 이벤트 끝(1/1 0시)에 막힌다 — 받은 편지는 1/5 까지 보이므로 여기서 안내로 끝낸다(서버도 거절 · 오류 번호 아님) */
   const REPORT_ENDED = '크리스마스 이벤트가 끝나 신고할 수 없어요.';
   $('xmasLwReport').onclick = () => {
-    if (!rules.eventOn(serverNow())){ toast(REPORT_ENDED); return; }
+    if (!rules.eventOn(serverNow(), schedule())){ toast(REPORT_ENDED); return; }
     $('xmasLwRep').hidden = false; $('xmasLwRepNo').focus();
   };
   $('xmasLwRepNo').onclick = () => { $('xmasLwRep').hidden = true; };
   $('xmasLwRepYes').onclick = async () => {
     $('xmasLwRep').hidden = true;
     if (openedN == null) return;
-    if (!rules.eventOn(serverNow())){ toast(REPORT_ENDED); return; }   // 확인창을 연 채 끝을 넘긴 때
+    if (!rules.eventOn(serverNow(), schedule())){ toast(REPORT_ENDED); return; }   // 확인창을 연 채 끝을 넘긴 때
     const r = await net().reportLetter(openedN);
     if (r.ok) toast('신고했어요. 관리자가 확인할게요.');
     else if (r.code === 'dup') toast('이미 신고한 편지예요.');
@@ -248,8 +249,8 @@ function createXmasLetter(deps){
   /* 창 열기 · 불러오기 — 날짜로 쓰기 / 열람을 고른다 */
   async function loadView(){
     const my = ++seq;
-    const now = serverNow();
-    const view = rules.lettersArrived(now) ? 'got' : rules.letterOpen(now) ? 'write' : null;
+    const now = serverNow(), s = schedule();
+    const view = rules.lettersArrived(now, s) ? 'got' : rules.letterOpen(now, s) ? 'write' : null;
     if (!view){ close(); return; }
     $('xmasLwT').textContent = view === 'write' ? '✉️ 마니또 편지 쓰기' : '✉️ 받은 편지';
     show(null); setState('편지를 불러오는 중…');
