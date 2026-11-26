@@ -14,7 +14,7 @@
      deps 5 — toast · getMyUserId · premiumOn(프리미엄 판정 — app.js _premiumOn) · mallangStore(칸 상태 주인 — mallang-store.js) · giftBox(선물 상태 주인 — gift-box.js).
      🎁 받은 선물은 선물 상태 주인(gift-box.js)이 서버에서 받아 오고 «내 선물 중 무엇이 화면에 나와야 하나» 도 정한다(onScreen) — 이 파일은 그 목록을 그리고(syncGifts) 🎁 배지를 맡는다. 선물 id 를 따로 들지 않는다.
      화면 자리(MAX_LIVE 동시 상한)는 이 파일의 사실이라 attachScreen 으로 선물함에 알린다. 남의 집에 나온 선물(방문자)은 이 파일이 한 번 그린다.
-     🎁 보내기 창도 서버 경로다(giftBox.send · fetchSentToday — 창 상태는 이 파일 안). 보낸 사람 · 이름은 서버가 토큰에서 정한다.
+     🎁 보내기 창도 서버 경로다(giftBox.send · fetchSentToday · fetchSent — 창 상태는 이 파일 안). 보낸 사람 · 이름은 서버가 토큰에서 정한다.
    검사: checks/sim-mallang-module.js · sim-mallang-store.js · sim-gift-box.js
    ═══════════════════════════════════════════════════════════════════════ */
 (function(){
@@ -911,25 +911,30 @@ function createMallang(deps){
 
   /* ── 🎁 선물 보내기 (친구 우클릭 → myhome-inbox.js 가 호출) ──
      한도(하루 보내기 · 받는 집 정원 · 메시지 길이)는 서버 값이다 — dailyMax · recipientCap 은 응답 숫자, 메시지 상한은 giftBox.MESSAGE_MAX.
-     창 상태 pop = { to, name, sent:{count,dailyMax}|null, theirs:{visibleCount,recipientCap}|null, busy } — 창 안에서만 산다(열 때 받고 · 닫으면 버림). */
+     창 상태 pop = { to, name, sent:{count,dailyMax}|null, theirs:{visibleCount,recipientCap}|null, history:[보낸 말랑이]|null, again:Set(또 보내기로 한 그림), busy } — 창 안에서만 산다(열 때 받고 · 닫으면 버림).
+     🎁 이미 이 친구에게 보낸 그림(보낸 말랑이 기록의 recipientCode · 원본 그림이 같은 것)은 칸 구석에 «보냄» · 누르면 «또 보낼까요?» 를 묻는다(막지 않는다).
+       기록을 못 받으면(history null) 표시 없이 묻지 않고 보낸다 — 판정은 서버. */
   let giftPop = null;
   const MSG_MAX = giftBox.MESSAGE_MAX;
-  /* 열기 — 내 칸 · 오늘 보낸 수 · 상대 집 선물 수를 나란히 받는다(서로 다른 자원). 내 칸을 못 받으면 E-GIFT-07 · 창을 열지 않는다.
-     남은 수 · 상대 수를 못 받으면 «확인하지 못했어요» 만 적고 막지 않는다(판정은 서버) */
-  // TODO: 0.14 «보낸 말랑이 확인»(B-1015-1 — 보낸 그림에 «보냄» · 다시 보낼 때 묻기 · 선물함 «보낸 선물») 은 Firebase mallangSent 길이라 걷었다 — 서버에 보낸 기록 경로가 생기면 옮긴다(서버 포트 필요)
+  /* 열기 — 내 칸 · 오늘 보낸 수 · 상대 집 선물 수 · 보낸 말랑이 기록을 나란히 받는다(서로 다른 자원). 내 칸을 못 받으면 E-GIFT-07 · 창을 열지 않는다.
+     남은 수 · 상대 수 · 기록을 못 받으면 막지 않는다(판정은 서버 — 남은 수 · 상대 수는 «확인하지 못했어요», 기록은 «보냄» 표시 없이) */
   async function openGift(friendId, friendName){
     if(!hasLicense()){ toast('👑 말랑이 선물은 라이선스 보유자 전용이에요'); return; }
     const seq = houseSeq;
-    const [ok, sent, theirs] = await Promise.all([
+    const [ok, sent, theirs, history] = await Promise.all([
       mallangStore.pullMine({ site: 'sendOpen' }),
       giftBox.fetchSentToday(),
       giftBox.fetchVisible(friendId),
+      giftBox.fetchSent(),
     ]);
     if(!ok || seq !== houseSeq) return;
     if(!mallangStore.mine().slots.length){ toast('먼저 내 말랑이를 등록하세요'); return; }   // 켜고 끔과 상관없이 등록된 것 전부 선물 가능
     buildGiftPopup(friendId, friendName, sent.ok ? { count: sent.count, dailyMax: sent.dailyMax } : null,
-      theirs.ok ? { visibleCount: theirs.visibleCount, recipientCap: theirs.recipientCap } : null);
+      theirs.ok ? { visibleCount: theirs.visibleCount, recipientCap: theirs.recipientCap } : null, history.ok ? history.items : null);
   }
+  /* 이 친구에게 이 그림을 보낸 가장 최근 기록 — 기록은 서버가 최신순으로 준다. 받는 사람이 탈퇴했으면 recipientCode 가 null 이라 맞지 않는다.
+     기록은 서버가 남긴 최근 30개 안에서만 본다 — 그보다 오래 전에 보낸 그림에는 «보냄» 이 없다 */
+  const sentBefore = (p, url) => (p.history ? p.history.find((s) => !!s.recipientCode && s.recipientCode === p.to && s.imageUrl === url) || null : null);
 
   const giftFull = (p) => !!(p.theirs && p.theirs.visibleCount >= p.theirs.recipientCap);
   const giftRemain = (p) => (p.sent ? Math.max(0, p.sent.dailyMax - p.sent.count) : null);
@@ -956,6 +961,7 @@ function createMallang(deps){
       const cell = document.createElement('div'); cell.className='ml-gcell';
       const gsrc = TwSafeHtml.safeUrl(item.imageUrl, 'image');
       if(gsrc){ const gim = TwImgRetry.retryOnError(document.createElement('img')); gim.src = gsrc; gim.alt = ''; cell.appendChild(gim); }
+      if(sentBefore(p, item.imageUrl)){ const mk = document.createElement('i'); mk.className = 'ml-sent'; mk.textContent = '보냄'; cell.appendChild(mk); }
       cell.addEventListener('click', ()=>sendGift(p, item));
       grid.appendChild(cell);
     });
@@ -965,6 +971,9 @@ function createMallang(deps){
     /* 흐리게 만든 것만으로는 부족하다 — 창을 열어둔 채 시간이 지나면 값이 낡는다. 보내기 직전에 한 번 더 본다(요청 없음) */
     const why = giftBlock(p);
     if(why){ toast(why); return; }
+    const before = sentBefore(p, item.imageUrl);
+    if(before && !p.again.has(item.imageUrl)){ askAgain(p, item, before); return; }
+    hideAgain();
     p.busy = true; renderGiftGrid(p);
     const inp = document.getElementById('mlGiftMsg');
     const r = await giftBox.send(p.to, { mallang: item, message: inp ? inp.value : '' });
@@ -975,6 +984,20 @@ function createMallang(deps){
     if(r.kind === 'changed') mallangStore.pullMine();   // 누른 그림이 서버 칸에 없다(저장 전 새 칸 · 다른 기기에서 바꿈) — 칸을 다시 받으면 구독이 격자를 다시 그린다. 안내는 gift-box 가 E-GIFT-08 로 냈다
     renderGiftGrid(p);   // 격자를 다시 켠다
   }
+  /* 🎁 이미 보낸 그림 — 막지 않고 묻는다. [또 보내기] 를 누르면 이 창에서는 그 그림을 다시 묻지 않는다 */
+  function askAgain(p, item, before){
+    const box = document.getElementById('mlGiftAgain'); if(!box) return;
+    const d = new Date(before.sentAt), when = (d.getMonth()+1)+'-'+String(d.getDate()).padStart(2,'0');
+    box.innerHTML = '<b>이미 보낸 말랑이예요</b><br>'+esc(TwPersonName.shown(p.name))+' 님에게 '+esc(when)+' 에 보냈어요. 그래도 또 보낼까요?'+
+      '<div class="ml-again-btns"><button type="button" id="mlAgainNo">취소</button><button type="button" id="mlAgainGo"><b>또 보내기</b></button></div>';
+    box.style.display = 'block';
+    document.getElementById('mlAgainNo').addEventListener('click', hideAgain);
+    document.getElementById('mlAgainGo').addEventListener('click', ()=>{ if(giftPop !== p) return; p.again.add(item.imageUrl); sendGift(p, item); });
+  }
+  function hideAgain(){
+    const box = document.getElementById('mlGiftAgain'); if(!box) return;
+    box.style.display = 'none'; box.innerHTML = '';
+  }
   function closeGiftPopup(){
     giftPop = null;
     if(giftOff){ giftOff(); giftOff = null; }
@@ -982,16 +1005,17 @@ function createMallang(deps){
   }
   let giftOff = null;   // 칸 저장이 끝나면 격자를 다시 그리는 구독 해제
 
-  function buildGiftPopup(friendId, friendName, sent, theirs){
+  function buildGiftPopup(friendId, friendName, sent, theirs, history){
     const win = homeWin(); if(!win) return;
     closeGiftPopup();
-    const p = giftPop = { to: friendId, name: friendName, sent, theirs, busy: false };
+    const p = giftPop = { to: friendId, name: friendName, sent, theirs, history, again: new Set(), busy: false };
     const pop = document.createElement('div');
     pop.id = 'mlGift';
     pop.innerHTML =
       '<div class="ml-hd"><span>🎁 '+esc(TwPersonName.shown(friendName))+'에게 말랑이 선물</span><span class="x" id="mlGiftClose">×</span></div>'+
       '<div class="ml-bd">'+giftNote(p)+
       '<div id="mlGiftGrid"></div>'+
+      '<div class="ml-again" id="mlGiftAgain" style="display:none;"></div>'+
       '<div class="ml-msgrow"><label>함께 보낼 메시지 (선택)</label>'+
       '<input id="mlGiftMsg" type="text" maxlength="'+MSG_MAX+'" placeholder="비워두면 말풍선이 뜨지 않아요">'+
       '<div class="ml-msgcnt"><span id="mlGiftMsgCnt">0</span> / '+MSG_MAX+'</div></div>'+
@@ -1026,6 +1050,14 @@ function createMallang(deps){
         display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;}
       #mlGiftGrid .ml-gcell:hover{outline:2px solid #1084d0;}
       #mlGiftGrid .ml-gcell img{max-width:100%;max-height:100%;}
+      /* 🎁 이미 이 친구에게 보낸 그림 — 칸 구석 «보냄» · 누르면 아래 «또 보낼까요?» */
+      #mlGiftGrid .ml-gcell{position:relative;}
+      #mlGiftGrid .ml-sent{position:absolute;right:2px;bottom:2px;font-style:normal;font-size:9px;padding:0 3px;color:#7a2718;background:#fbe6de;border:1px solid #d9a99a;}
+      #mlGift .ml-again{margin-top:8px;font-size:10.5px;line-height:1.5;color:var(--ink);background:#fffbe8;padding:6px;
+        border:1px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);}
+      #mlGift .ml-again-btns{display:flex;gap:6px;margin-top:6px;}
+      #mlGift .ml-again-btns button{flex:1;font-family:var(--tw-font-legacy);font-size:11px;padding:2px 0;cursor:pointer;background:var(--win-face);
+        border:2px solid;border-color:#fff #000 #000 #fff;}
       #mlGift .ml-msgrow{margin-top:9px;}
       #mlGift .ml-msgrow label{display:block;font-size:10.5px;color:#333;margin-bottom:3px;}
       #mlGift .ml-msgrow input{width:100%;box-sizing:border-box;font-family:var(--tw-font-legacy);font-size:11px;padding:3px 4px;

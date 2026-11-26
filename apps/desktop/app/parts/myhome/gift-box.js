@@ -294,7 +294,8 @@ function createGiftBox(deps){
       return g !== gen ? { ok: false } : { ok: true, count: got.count, dailyMax: got.dailyMax };
     }catch(e){ return { ok: false }; }   // 막지 않는다 — 부르는 쪽이 «확인하지 못했어요» 만 적는다(판정은 서버)
   }
-  /* 보낸 말랑이 — 선물함 «보낸 선물» 을 열 때마다 받는다(이 모듈에 두지 않는다). 못 받으면 화면이 «못 불러왔어요» 만 그린다 */
+  /* 보낸 말랑이 — 선물함 «보낸 선물» 을 열 때 · 선물 보내기 창을 열 때마다 받는다(이 모듈에 두지 않는다).
+     못 받으면 {ok:false} — 선물함은 «못 불러왔어요» 만, 보내기 창은 «보냄» 표시 없이 묻지 않고 보낸다 */
   async function fetchSent(){
     const g = gen;
     try{

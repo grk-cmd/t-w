@@ -332,7 +332,7 @@
 | **sim-playlist.js** | 1146 | **5300cc8c46cd** |
 | **sim-playlist-api.js** | 308 | **d9560b3a4f8d** |
 | **sim-inbox-api.js** | 210 | **d44731ca6d83** |
-| **sim-gift-api.js** | 362 | **04ddfbf7b28b** |
+| **sim-gift-api.js** | 364 | **3312ff03bab4** |
 | **sim-gift-box.js** | 588 | **646ce92a6776** |
 | **sim-mallang-module.js** | 355 | **a8f4170b8591** |
 | **sim-mallang-store.js** | 251 | **bf162923be73** |
@@ -525,7 +525,7 @@
 | **sim-release-notes.js** | 75 | **b3a2421d5c74** |
 | **sim-native-peek.js** | 169 | **88b25905bbfc** |
 | **sim-seat-regions.js** | 170 | **0c62ac82b1b9** |
-| **sim-mallang-gift.js** | 327 | **09bf62b74b5f** |
+| **sim-mallang-gift.js** | 390 | **d8dbc16b34ff** |
 | **sim-room-face-load.js** | 217 | **fbd1fbbb9a13** |
 | **sim-part-ao-clean.js** | 128 | **d7d12434bbd9** |
 | **sim-img-retry.js** | 117 | **74cb4a8def40** |

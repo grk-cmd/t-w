@@ -7,6 +7,7 @@
    ・4절: 실패 — 안내 코드는 서버 문구(번호 0) · 503 은 E-GIFT-08 · 격자는 다시 켜짐
    ・5절: 정원 · 한도 — 상대 가득 → 격자 흐림 · 눌러도 요청 0 · 남은 0 → 요청 0
    ・6절: 칸 저장이 끝나면 격자를 다시 그림 · 저장 중(칸 번호가 서버와 어긋남)에는 보내지 않음
+   ・6-1절: 보낸 말랑이 — 이 친구에게 보낸 그림에 «보냄» · 누르면 «또 보낼까요?»(취소 · 또 보내기) · 다른 친구 · 탈퇴 · 기록 못 받음은 묻지 않음
    ・7절: 옛 경로 걷음 · mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
@@ -57,7 +58,7 @@ function mkEnv(S, o){
   const room = mk('div'); room.id = 'mhRoomPreview';
   class FakeImage { constructor(){ this.naturalWidth = 100; this.naturalHeight = 100; } set src(v){ this._src = v; } get src(){ return this._src; } }
   const srv = Object.assign({ slots: [{ slot: 0, imageUrl: 'https://x.example/m0.png', enabled: true }, { slot: 2, imageUrl: 'https://x.example/m2.png', enabled: false }],
-    count: 3, dailyMax: 10, visible: 4, cap: 30, sendErr: null, sentErr: null, visErr: null, mineErr: null, hold: false }, o.srv || {});
+    count: 3, dailyMax: 10, visible: 4, cap: 30, sendErr: null, sentErr: null, visErr: null, mineErr: null, hold: false, history: [], historyErr: null }, o.srv || {});
   const holds = [], saveHolds = [];
   const rec = (name, fn) => async (...a) => { log.push(('api ' + name + ' ' + a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')).trimEnd()); return fn(...a); };
   const GL = loadMod(S.GIFT), AE = loadMod(S.AE);
@@ -74,6 +75,7 @@ function mkEnv(S, o){
     fetchBox: rec('fetchBox', async () => ({ items: [], unseenCount: 0, starCount: 0, boxKeep: 30, starMax: 20 })),
     markSeen: async () => {}, star: async () => {}, hide: async () => {}, remove: async () => {},
     fetchSentToday: rec('fetchSentToday', async () => { if(srv.sentErr) throw srv.sentErr; return { count: srv.count, dailyMax: srv.dailyMax }; }),
+    fetchSent: rec('fetchSent', async () => { if(srv.historyErr) throw srv.historyErr; return { items: srv.history.map(x => Object.assign({}, x)) }; }),
     fetchVisible: rec('fetchVisible', async () => { if(srv.visErr) throw srv.visErr; return { items: [], visibleCount: srv.visible, recipientCap: srv.cap }; }),
     send: async (code, body) => {
       sendBodies.push({ code, requestId: body.requestId, imageUrl: body.mallang && body.mallang.imageUrl, slot: body.mallang && body.mallang.slot, message: body.message });
@@ -116,7 +118,7 @@ async function judge(S){
   {
     const e = mkEnv(S);
     await open(e);
-    chk(e.log.slice(0, 3).sort().join() === ['api fetchMine', 'api fetchSentToday', 'api fetchVisible F1'].sort().join(), '내 칸 · 오늘 보낸 수 · 상대 집 선물 수를 나란히 받는다(셋 · 지금과 같음)');
+    chk(e.log.slice(0, 4).sort().join() === ['api fetchMine', 'api fetchSent', 'api fetchSentToday', 'api fetchVisible F1'].sort().join(), '내 칸 · 오늘 보낸 수 · 상대 집 선물 수 · 보낸 말랑이 기록을 나란히 받는다(넷)');
     chk(!!e.byId.mlGift && e.cells().length === 2, '창이 열리고 내 칸 전부(꺼진 칸 포함)가 격자에 있다');
     chk(/오늘 남은 횟수: <b>7\/10<\/b>/.test(e.note()), '남은 횟수 = 서버 dailyMax − 오늘 보낸 수');
     chk(!e.grid().classList.contains('off'), '  상대 집에 자리가 있으면 격자는 켜져 있다');
@@ -245,6 +247,42 @@ async function judge(S){
     chk(!closeFirst.byId.mlGift && !closeFirst.log.some((l) => l.startsWith('toast 🎁')), '보내는 중에 창을 닫으면 늦은 답이 화면을 건드리지 않는다');
   }
 
+  say('── 6-1. 보낸 말랑이 — «보냄» · «또 보낼까요?»');
+  {
+    const hist = (code, url, t) => ({ id: 'h' + t, recipientName: '친구', recipientCode: code, imageUrl: url, message: '', sentAt: t });
+    const at = new Date(2026, 10, 8, 12).getTime();
+    const mark = (e, i) => e.cells()[i].children.some((c) => c.className === 'ml-sent' && c.textContent === '보냄');
+    const e = mkEnv(S, { srv: { history: [hist('F1', 'https://x.example/m0.png', at), hist('F2', 'https://x.example/m2.png', at - 1), hist(null, 'https://x.example/m2.png', at - 2)] } });
+    await open(e);
+    chk(mark(e, 0) && !mark(e, 1), '이 친구(F1)에게 보낸 그림에만 «보냄» — 다른 친구 · 탈퇴한 받는 사람(코드 null) 기록은 표시 없음');
+    await click(e, 0);
+    const ask = e.byId.mlGiftAgain;
+    chk(count(e.log, /^api send/) === 0 && ask.style.display === 'block' && /이미 보낸 말랑이예요/.test(ask.innerHTML) && /11-08 에 보냈어요\. 그래도 또 보낼까요\?/.test(ask.innerHTML) && /친구 님에게/.test(ask.innerHTML),
+      '«보냄» 칸을 누르면 보내지 않고 «○○ 님에게 MM-DD 에 보냈어요. 그래도 또 보낼까요?»');
+    e.byId.mlAgainNo.fire('click'); await flush();
+    chk(count(e.log, /^api send/) === 0 && ask.style.display === 'none', '  [취소] — 보내지 않고 묻는 칸을 닫는다');
+    await click(e, 0);
+    e.byId.mlAgainGo.fire('click'); await flush();
+    chk(count(e.log, /^api send/) === 1 && e.sendBodies[0].imageUrl === 'https://x.example/m0.png' && !e.byId.mlGift, '  [또 보내기] — 그 그림을 보낸다');
+    const other = mkEnv(S, { srv: { history: [hist('F1', 'https://x.example/m0.png', at)] } });
+    await open(other); await click(other, 1);
+    chk(count(other.log, /^api send/) === 1, '보낸 적 없는 그림은 묻지 않고 바로 보낸다');
+    const down = mkEnv(S, { srv: { history: [hist('F1', 'https://x.example/m0.png', at)], historyErr: apiErr(503, 'X') } });
+    await open(down);
+    chk(!!down.byId.mlGift && !mark(down, 0) && !down.log.some((l) => l.startsWith('error')), '기록을 못 받으면 «보냄» 표시 없이 창은 연다(번호 0)');
+    await click(down, 0);
+    chk(count(down.log, /^api send/) === 1, '  묻지 않고 보낸다(판정은 서버)');
+    const nm = mkEnv(S, { srv: { history: [hist('F1', 'https://x.example/m0.png', at)] } });
+    await nm.m.openGift('F1', '<b>친'); await flush(); await click(nm, 0);
+    chk(/&lt;b&gt;친 님에게/.test(nm.byId.mlGiftAgain.innerHTML) && !/<b>친/.test(nm.byId.mlGiftAgain.innerHTML), '  묻는 글의 친구 이름은 esc 를 지난다(<b> 가 글자로)');
+    const zero = mkEnv(S, { srv: { count: 10, history: [hist('F1', 'https://x.example/m0.png', at)] } });
+    await open(zero); await click(zero, 0);
+    chk(zero.byId.mlGiftAgain.style.display !== 'block' && zero.log.includes('toast 오늘은 더 보낼 수 없어요 (하루 10번)') && count(zero.log, /^api send/) === 0, '오늘 횟수가 0 이면 묻기 전에 «오늘은 더 보낼 수 없어요»');
+    const full = mkEnv(S, { srv: { visible: 30, history: [hist('F1', 'https://x.example/m0.png', at)] } });
+    await open(full); await click(full, 0);
+    chk(full.byId.mlGiftAgain.style.display !== 'block' && full.log.includes('toast 🎁 상대 마이홈이 가득 찼어요 (30마리)'), '상대가 가득이면 묻기 전에 가득 안내');
+  }
+
   say('── 7. 옛 경로 걷음');
   wiring(S, true);
 }
@@ -259,7 +297,7 @@ function wiring(S, loud){
   t(/requestIds: TwRequestId\.createPending\(\)/.test(box), 'app.js — 보내기 요청 번호는 TwRequestId.createPending() 한 벌(gift-box 가 받는다)');
   const call = (S.APP.match(/const mallangMod = TwMallang\.createMallang\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   t(!/getDisplayName/.test(call), '  말랑이 화면 deps 에 내 이름이 없다(보낸 사람은 서버가 토큰에서 정한다)');
-  t(/giftBox\.send\(/.test(ml) && /giftBox\.fetchSentToday\(\)/.test(ml) && /giftBox\.fetchVisible\(friendId\)/.test(ml), '  보내기 창은 giftBox 의 보내기 · 오늘 보낸 수 · 상대 집 선물 수를 부른다');
+  t(/giftBox\.send\(/.test(ml) && /giftBox\.fetchSentToday\(\)/.test(ml) && /giftBox\.fetchVisible\(friendId\)/.test(ml) && /giftBox\.fetchSent\(\)/.test(ml), '  보내기 창은 giftBox 의 보내기 · 오늘 보낸 수 · 상대 집 선물 수 · 보낸 말랑이 기록을 부른다');
   t(/maxlength="'\+MSG_MAX\+'"/.test(ml) && /const MSG_MAX = giftBox\.MESSAGE_MAX;/.test(ml), '  메시지 길이 상한은 서버 값 한 곳(giftBox.MESSAGE_MAX)');
   return ok;
 }
@@ -317,6 +355,31 @@ process.on('unhandledRejection', () => { if(quiet) qfail++; else { fail++; conso
   await run('내 칸 실패에도 창을 열면', { ML: SRC0.ML.replace("if(!ok || seq !== houseSeq) return;", "if(seq !== houseSeq) return;").replace("if(!mallangStore.mine().slots.length){", "if(false){") }, async (S) => {
     const e = mkEnv(S, { srv: { mineErr: apiErr(503, 'X') } }); await open(e);
     chk(!e.byId.mlGift, '창 안 엶');
+  });
+  const H0 = (at) => ({ srv: { history: [{ id: 'h', recipientName: '친구', recipientCode: 'F1', imageUrl: 'https://x.example/m0.png', message: '', sentAt: at }] } });
+  await run('이미 보낸 그림도 묻지 않고 보내면', { ML: SRC0.ML.replace("if(before && !p.again.has(item.imageUrl)){ askAgain(p, item, before); return; }", "") }, async (S) => {
+    const e = mkEnv(S, H0(1)); await open(e); await click(e, 0);
+    chk(e.sendBodies.length === 0, '묻는다');
+  });
+  await run('다른 친구에게 보낸 기록에도 «보냄» 을 붙이면', { ML: SRC0.ML.replace("s.recipientCode === p.to && s.imageUrl === url", "s.imageUrl === url") }, async (S) => {
+    const e = mkEnv(S, H0(1)); await e.m.openGift('F9', '남'); await flush(); await click(e, 0);
+    chk(e.sendBodies.length === 1, '다른 친구는 바로');
+  });
+  await run('[또 보내기] 뒤에도 또 물으면', { ML: SRC0.ML.replace("p.again.add(item.imageUrl); sendGift(p, item);", "sendGift(p, item);") }, async (S) => {
+    const e = mkEnv(S, H0(1)); await open(e); await click(e, 0); e.byId.mlAgainGo.fire('click'); await flush();
+    chk(e.sendBodies.length === 1, '보냄');
+  });
+  await run('묻는 글의 친구 이름을 안 씻으면', { ML: SRC0.ML.replace("esc(TwPersonName.shown(p.name))+' 님에게 '", "TwPersonName.shown(p.name)+' 님에게 '") }, async (S) => {
+    const e = mkEnv(S, H0(1)); await e.m.openGift('F1', '<b>친'); await flush(); await click(e, 0);
+    chk(!/<b>친/.test(e.byId.mlGiftAgain.innerHTML), '씻음');
+  });
+  await run('오늘 횟수 0 인데 먼저 물으면', { ML: SRC0.ML.replace("    const why = giftBlock(p);\n    if(why){ toast(why); return; }\n    const before = sentBefore(p, item.imageUrl);\n    if(before && !p.again.has(item.imageUrl)){ askAgain(p, item, before); return; }", "    const before = sentBefore(p, item.imageUrl);\n    if(before && !p.again.has(item.imageUrl)){ askAgain(p, item, before); return; }\n    const why = giftBlock(p);\n    if(why){ toast(why); return; }") }, async (S) => {
+    const e = mkEnv(S, Object.assign(H0(1), { srv: Object.assign(H0(1).srv, { count: 10 }) })); await open(e); await click(e, 0);
+    chk(e.byId.mlGiftAgain.style.display !== 'block', '안 묻는다');
+  });
+  await run('기록을 못 받으면 창을 안 열면', { ML: SRC0.ML.replace("history.ok ? history.items : null)", "history.ok ? history.items : (()=>{ throw new Error('x'); })())") }, async (S) => {
+    const e = mkEnv(S, { srv: { historyErr: apiErr(503, 'X') } }); await open(e);
+    chk(!!e.byId.mlGift, '창 엶');
   });
   const w = (patch) => !wiring(Object.assign({}, SRC0, patch), false);
   chk(w({ FB: SRC0.FB + "\nasync function sendMallangGift(){}" }), '옛 Firebase 보내기가 다시 생기면 빨강');
