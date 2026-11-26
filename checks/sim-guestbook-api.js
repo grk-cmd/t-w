@@ -72,6 +72,10 @@ async function judge(S){
     chk(g.path === '/v2/guestbooks/uOWN00001' && g.opts.auth === true, '경로 — 그 주인의 방명록 · 로그인 통로로');
     chk(v.entries.length === 2 && v.entries[0].id === 'e1' && v.entries[0].name === '이름e1' && v.entries[0].text === '글e1' && v.entries[0].mine === true && v.entries[1].mine === false, '글 — id · 이름(authorName) · 글 · 내 글(mine) · 서버가 준 순서(최신이 위) 그대로');
     chk(v.entries[0].ts === Date.parse('2026-11-01T01:02:03.456Z'), '시각 — createdAt 을 ms 로');
+    chk(v.entries[0].canDelete === true && v.entries[1].canDelete === false, 'canDelete 가 없는 옛 서버 — 내 글(mine)만 지울 수 있다');
+    const own = mk(LIB, { 'GET /v2/guestbooks/uOWN00001': bookOf({ entries: [ent('o1', { canDelete: true }), ent('o2', { mine: true, canDelete: false })] }) });
+    const ov = await own.m.fetchView('ME01', 'uOWN00001');
+    chk(ov.entries[0].canDelete === true && ov.entries[0].mine === false && ov.entries[1].canDelete === false, 'canDelete 가 오면 그 값 그대로 — 주인은 남의 글도 지운다(판정은 서버)');
     chk(v.clap.count === 7 && v.clap.img === 'https://img/x.jpg' && v.clap.emoji === '🎉' && v.clap.todayLeft === 0 && v.clap.dailyMax === 5, '박수 — 수 · 그림 · 폭죽 · 오늘 남은 수 · 하루 상한 (서버가 센 값)');
     chk(v.canWrite === true && v.version === 4, '쓸 수 있나(canWrite) · 판(version)');
     const none = mk(LIB, { 'GET /v2/guestbooks/uOWN00001': bookOf({ entries: [], canWrite: false }) });
@@ -221,6 +225,8 @@ async function runAll(){
   const breaks = [
     ['글 이름을 안 읽음', S.API.replace("name: typeof it.authorName === 'string' ? it.authorName : ''", "name: ''"), '이름(authorName)'],
     ['내 글 표시를 항상 참', S.API.replace("mine: it.mine === true", "mine: true"), '내 글(mine)'],
+    ['canDelete 를 안 읽음', S.API.replace("typeof it.canDelete === 'boolean' ? it.canDelete : it.mine === true", "it.mine === true"), 'canDelete 가 오면'],
+    ['canDelete 가 없을 때 mine 으로 안 감', S.API.replace("typeof it.canDelete === 'boolean' ? it.canDelete : it.mine === true", "it.canDelete === true"), '옛 서버'],
     ['canWrite 를 안 읽음', S.API.replace("canWrite: d.canWrite, version", "canWrite: true, version"), 'canWrite'],
     ['오늘 남은 수를 안 읽음', S.API.replace("todayLeft: left,", "todayLeft: 99,"), '오늘 남은 수'],
     ['모양 틀림을 빈 방명록으로 숨김', S.API.replace("if(!v) throw shapeError();\n    return v;", "return v || { entries: [], clap: { count: 0, img: null, emoji: '', todayLeft: 0, dailyMax: 0 }, canWrite: false, version: 0 };"), '모양이 틀리면'],

@@ -18,7 +18,7 @@ const TC = TwThemeCustom;
 const _onAppliedFns = [];
 function onApplied(fn){ _onAppliedFns.push(fn); }
 const THEME_KEY = 'tw.theme', ACCENT_KEY = 'tw.accent';
-const CUSTOM_KEY = 'tw.accentCustom';   // 👑 내 색 { default:{a,b}, bubble:{a,b} } — 계정 것(서버 users/$uid/themeCustom 사본)
+const CUSTOM_KEY = 'tw.accentCustom';   // 👑 내 색 { default:{a,b}, bubble:{a,b} } — 계정 것(서버 GET · PUT /v2/me/theme-custom 사본)
 const CUSTOM_ID = 'cx';                 // 내 색 칸 번호 — CSS 에 칸 규칙이 없고 applyTheme 가 --acc-* 를 직접 건다
 /* 칸 번호 → [표시 이름, 칩에 보여줄 그라데이션]. CSS의 --acc-* 값과 짝이 맞아야 한다. */
 const THEME_COLORS = {
