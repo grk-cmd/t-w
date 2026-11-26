@@ -4,7 +4,7 @@
    ・2절 열기 · 불러오기 — 내 트리(없으면 지금 트리) · 그림은 판이 다른 자리만 받고 IndexedDB 에 «트리/자리@판» 사본(localStorage 는 쓰면 던진다) · 다시 열면 안 받음 · 내 장식 표시 · 걸린 수
    ・3절 장식 달기 — 고른 장식 · 한마디 다듬기 · 보던 트리 번호 · 다 찼으면 «다른 트리로 이동» · 5초 간격 · 실패 갈래(conflict 는 다시 읽기)
    ・3-2절 내 장식 덮어 그리기 — 목록(서버 캐시)이 내가 건 판보다 늦으면 걸기 응답으로 · 목록이 같거나 새 판이면 목록대로
-   ・4절 신고 — 확인창 · 내 트리 · 자리 · 이미 신고 · 실패 코드
+   ・4절 신고 — 확인창 · 내 트리 · 자리 · 이미 신고 · 실패 코드 · 이벤트 끝 뒤엔 안내로 막힘
    ・5절 실패 · 닫기 — 못 불러옴(E-XMAS-01) · 닫은 뒤 늦게 온 답은 버림 · 끝난 뒤 열기 막기
    ・6절 한마디 라벨은 textContent 로만 · mutation test
    ・7절 편지 창 잇기(편지 · 뮤직바는 가짜 — 그 모듈은 sim-xmas-letter · sim-xmas-song) — 창 열면 맡긴 수 · 1분마다 받은 편지 확인 · 닫으면 편지 창도 ·
@@ -68,7 +68,7 @@ function world(opts){
     return { open: c('open'), close: c('close'), refresh: c('refresh'), checkGot: c('checkGot'), paintBtn: c('paintBtn'), isOpen: () => false }; } };
   const songMod = { createXmasSong: (d) => { Lt.songDeps = d; return { bar: () => ({}), stop: () => {} }; } };
   const nav = { NAV: { XMAS: 'xmas' }, fns: {}, on(n, f){ this.fns[n] = f; } };
-  const api = W.createXmasWindow({ doc, win, THREE: {}, ps1Dither: {}, rules: R, treeMod, net: () => net, serverNow: () => S.now, idbGet, idbPut,
+  const api = (o.mod || W).createXmasWindow({ doc, win, THREE: {}, ps1Dither: {}, rules: R, treeMod, net: () => net, serverNow: () => S.now, idbGet, idbPut,
     notifyError: (c) => S.errs.push(c), toast: (m) => S.toasts.push(m), escRegisterWindow: (x) => S.escs.push(x),
     onSizeChange: () => { S.size++; }, onReady: (fn) => { S.ready = fn; },
     songMod, letterMod, companion: () => null, ytVideoId: () => null, asyncPrompt: async () => null, storage: null, twNav: nav });
@@ -165,6 +165,23 @@ say('── 4절 신고');
   chk(w.N.calls.includes('report:4/9') && w.els.xmasRep.hidden && /신고했어요/.test(w.S.toasts.pop()), '보던 트리 · 자리로 신고');
   w.T.onReport(9); w.els.xmasRepNo.onclick();
   chk(w.N.calls.filter(c => c.startsWith('report')).length === 1, '취소하면 보내지 않는다');
+  { // 이벤트 끝(1/1 0시) 뒤 — 창은 열리고(받은 편지 1/5 까지) 장식 신고는 안내로 막힌다(오류 번호 · 요청 없음)
+    const endCase = async (mod) => {
+      const we = world({ now: R.EVENT_END_MS, data: { cur: 4, mine: null, trees: { 4: { 9: { k: 'star', v: 1 } } }, imgs: {} }, mod }); we.S.ready(); we.api.open(); await settle();
+      const opened = we.els.xmasOverlay.classList.contains('on');
+      we.T.onReport(9);
+      const blocked = we.els.xmasRep.hidden && /이벤트가 끝나 신고할 수 없어요/.test(we.S.toasts.pop() || '');
+      const wl = world({ now: R.EVENT_END_MS - 1000, data: { cur: 4, mine: null, trees: { 4: { 9: { k: 'star', v: 1 } } }, imgs: {} }, mod }); wl.S.ready(); wl.api.open(); await settle();
+      wl.T.onReport(9); wl.S.now = R.EVENT_END_MS; await wl.els.xmasRepYes.onclick();   // 확인창을 연 채 끝을 넘김
+      const late = /이벤트가 끝나 신고할 수 없어요/.test(wl.S.toasts.pop() || '');
+      return { opened, blocked, late, calls: we.N.calls.concat(wl.N.calls).filter(c => c.startsWith('report')).length, errs: we.S.errs.length + wl.S.errs.length };
+    };
+    const r = await endCase(null);
+    chk(r.opened && r.blocked && r.late && !r.calls && !r.errs, '이벤트 끝 뒤 — 창은 열리고 · 장식 신고는 안내로 막힌다(확인창을 연 채 넘겨도) · 요청 0 · 오류 번호 없음');
+    const bad = {}; new Function('window', 'module', SRC.split('if (!rules.eventOn(serverNow(), sch())){ toast(REPORT_ENDED); return; }').join(''))(bad, undefined);
+    const rb = await endCase(bad.TwXmasWindow);
+    chk(!(rb.blocked && rb.late && !rb.calls), 'mutation test — 끝 검사를 빼면 위 검사가 빨강(신고가 서버로 나간다)');
+  }
   const wd = world({ data: { cur: 4, mine: null, trees: { 4: {} }, imgs: {} }, repRet: { ok: false, code: 'dup' } }); wd.S.ready(); wd.api.open(); await settle();
   wd.T.onReport(1); await wd.els.xmasRepYes.onclick();
   chk(/이미 신고/.test(wd.S.toasts.pop()) && !wd.S.errs.length, '이미 신고한 장식 — 안내');

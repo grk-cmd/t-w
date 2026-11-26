@@ -4,7 +4,7 @@
    ・2절 쓰기 — 맡긴 목록 · 마감 D-day · 운영자 확인 안내(html) · 처음이면 바로 편지지 · 새 편지(빈 칸) · 고치기(같은 칸) · 거두기 · 5통이면 더 못 씀
    ・3절 반송 — 사유 표시 · [다시 쓰기] 는 그 글로 편지지를 펴고 빈 칸에 맡기며 fromReturned 로 반송 칸을 실어 보낸다(따로 지우지 않음) · [지우기]
    ・4절 쓰기 실패 — 마감(closed) · 로그인(auth) · 다른 PC 가 먼저(conflict — 다시 읽음) · 서버 바쁨(aborted) 은 안내 · 그 밖은 E-XMAS-05 · 불러오기 실패 E-XMAS-04 · 로그인 안 됨은 안내(오류 코드 없음)
-   ・5절 열람 — 봉투 · 열기(글은 textContent) · 추천곡 바 · 읽음(이 PC) · 빨간 점 · ← 다른 편지 · 신고(g-) · 받은 편지 없음
+   ・5절 열람 — 봉투 · 열기(글은 textContent) · 추천곡 바 · 읽음(이 PC) · 빨간 점 · ← 다른 편지 · 신고(g-) · 이벤트 끝 뒤 신고는 안내로 막힘 · 받은 편지 없음
    ・6절 받은 편지 확인(빨간 점) — 25일 전엔 안 읽음 · 아직 없으면 5분 간격 · 한 시간 뒤엔 멈춤 · 찾으면 더 안 읽음 · 실패는 다시 ·
      앱을 켠 직후(로그인 복원 전 auth)는 세지 않고 다음 1분에 · 계정이 바뀌면 앞 계정 점을 지우고 처음부터
    ・7절 닫기 · Esc · 저장소가 던져도 · mutation test */
@@ -61,7 +61,7 @@ function world(opts){
   const song = { stops: 0, bar: (box, op) => { const b = { box, op, sets: [], set: (s) => b.sets.push(s), get: () => b.sets[b.sets.length - 1] || null }; bars.push(b); return b; }, stop(){ this.stops++; } };
   const storage = o.badStore ? { getItem(){ throw new Error('x'); }, setItem(){ throw new Error('x'); } }
     : { getItem: (k) => (k in S.store ? S.store[k] : null), setItem: (k, v) => { S.store[k] = String(v); } };   // 값으로 넘긴다(app.js 가 localStorage 를 그대로)
-  const api = L.createXmasLetter({ doc, rules: R, net: () => net, song, serverNow: () => S.now, schedule: () => S.sched || R.SCHEDULE, toast: (m) => S.toasts.push(m), notifyError: (c) => S.errs.push(c),
+  const api = (o.mod || L).createXmasLetter({ doc, rules: R, net: () => net, song, serverNow: () => S.now, schedule: () => S.sched || R.SCHEDULE, toast: (m) => S.toasts.push(m), notifyError: (c) => S.errs.push(c),
     escRegisterWindow: (x) => S.escs.push(x), storage, onDot: (on) => S.dots.push(on) });
   return { api, els, S, D, N, song, bars };
 }
@@ -186,6 +186,25 @@ say('── 5절 열람');
     const wx = world({ now: R.LETTER_DEADLINE_MS + 1000, got, ret: { report: { ok: false, code } } }); wx.api.open(); await settle();
     rows(wx.els.xmasLwEnvs)[0].onclick(); await wx.els.xmasLwRepYes.onclick();
     chk((re ? re.test(wx.S.toasts.pop() || '') : true) && wx.S.errs.join() === err, '신고 실패 ' + code + ' — ' + (err || '안내'));
+  }
+  { // 이벤트 끝(1/1 0시) 뒤 — 받은 편지는 보이고 신고는 안내로 막힌다(오류 번호 · 요청 없음)
+    const endCase = async (mod) => {
+      const we = world({ now: R.EVENT_END_MS, got, mod }); we.api.open(); await settle();
+      rows(we.els.xmasLwEnvs)[0].onclick();
+      const viewed = we.els.xmasLwGotText.textContent === got[1].text;
+      we.els.xmasLwReport.onclick();
+      const blocked = we.els.xmasLwRep.hidden && /이벤트가 끝나 신고할 수 없어요/.test(we.S.toasts.pop() || '');
+      const wl = world({ now: R.EVENT_END_MS - 1000, got, mod }); wl.api.open(); await settle();
+      rows(wl.els.xmasLwEnvs)[0].onclick(); wl.els.xmasLwReport.onclick();
+      wl.S.now = R.EVENT_END_MS; await wl.els.xmasLwRepYes.onclick();   // 확인창을 연 채 끝을 넘김
+      const late = /이벤트가 끝나 신고할 수 없어요/.test(wl.S.toasts.pop() || '');
+      return { viewed, blocked, late, calls: we.N.calls.concat(wl.N.calls).filter(c => c.startsWith('report')).length, errs: we.S.errs.length + wl.S.errs.length };
+    };
+    const r = await endCase(null);
+    chk(r.viewed && r.blocked && r.late && !r.calls && !r.errs, '이벤트 끝 뒤 — 받은 편지는 열리고 · 신고는 안내로 막힌다(확인창을 연 채 넘겨도) · 요청 0 · 오류 번호 없음');
+    const bad = {}; new Function('window', 'module', SRC.split('if (!rules.eventOn(serverNow(), schedule())){ toast(REPORT_ENDED); return; }').join(''))(bad, undefined);
+    const rb = await endCase(bad.TwXmasLetter);
+    chk(!(rb.blocked && rb.late && !rb.calls), 'mutation test — 끝 검사를 빼면 위 검사가 빨강(신고가 서버로 나간다)');
   }
   const wn = world({ now: R.LETTER_DEADLINE_MS + 1000, got: null }); wn.api.open(); await settle();
   chk(!wn.els.xmasLwNone.hidden && wn.els.xmasLwEnvBox.hidden, '받은 편지 없음 — «올해는 받은 편지가 없어요»');

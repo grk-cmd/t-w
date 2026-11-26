@@ -228,11 +228,17 @@ function createXmasLetter(deps){
     renderGot();
   }
   $('xmasLwBack').onclick = () => { openedN = null; songG.set(null); renderGot(); };
-  $('xmasLwReport').onclick = () => { $('xmasLwRep').hidden = false; $('xmasLwRepNo').focus(); };
+  /* 신고는 이벤트 끝(1/1 0시)에 막힌다 — 받은 편지는 1/5 까지 보이므로 여기서 안내로 끝낸다(서버도 거절 · 오류 번호 아님) */
+  const REPORT_ENDED = '크리스마스 이벤트가 끝나 신고할 수 없어요.';
+  $('xmasLwReport').onclick = () => {
+    if (!rules.eventOn(serverNow(), schedule())){ toast(REPORT_ENDED); return; }
+    $('xmasLwRep').hidden = false; $('xmasLwRepNo').focus();
+  };
   $('xmasLwRepNo').onclick = () => { $('xmasLwRep').hidden = true; };
   $('xmasLwRepYes').onclick = async () => {
     $('xmasLwRep').hidden = true;
     if (openedN == null) return;
+    if (!rules.eventOn(serverNow(), schedule())){ toast(REPORT_ENDED); return; }   // 확인창을 연 채 끝을 넘긴 때
     const r = await net().reportLetter(openedN);
     if (r.ok) toast('신고했어요. 관리자가 확인할게요.');
     else if (r.code === 'dup') toast('이미 신고한 편지예요.');
