@@ -327,12 +327,12 @@
 | **sim-devtools-gate.js** | 87 | **534215c74063** |
 | **sim-remote-config.js** | 388 | **11d2fb2b9acd** |
 | **sim-drag-scroll.js** | 103 | **e48a526b314d** |
-| **sim-myhome-inbox.js** | 770 | **f06793daee46** |
+| **sim-myhome-inbox.js** | 831 | **949c35dd810e** |
 | **sim-playlist.js** | 1146 | **5300cc8c46cd** |
 | **sim-playlist-api.js** | 308 | **d9560b3a4f8d** |
 | **sim-inbox-api.js** | 208 | **f21732780751** |
-| **sim-gift-api.js** | 336 | **8a3586c69535** |
-| **sim-gift-box.js** | 562 | **843f26df0cf4** |
+| **sim-gift-api.js** | 362 | **04ddfbf7b28b** |
+| **sim-gift-box.js** | 588 | **12bd45eb8ad8** |
 | **sim-mallang-module.js** | 355 | **a8f4170b8591** |
 | **sim-mallang-store.js** | 251 | **bf162923be73** |
 | **sim-mail-feed.js** | 393 | **c86847994402** |
