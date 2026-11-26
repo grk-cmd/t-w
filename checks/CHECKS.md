@@ -388,7 +388,7 @@
 | **sim-wardrobe.js** | 318 | **c217649e24cf** |
 | **sim-settings-panel.js** | 205 | **aad58018e96e** |
 | **sim-desktop-run.js** | 94 | **2370870711eb** |
-| **sim-room-entry.js** | 401 | **37466e6f2531** |
+| **sim-room-entry.js** | 401 | **29b730f27d0b** |
 | **sim-overhead.js** | 216 | **864fadcfc6d0** |
 | **sim-room-sync.js** | 154 | **38b0ec277090** |
 | **sim-status-chip.js** | 189 | **baf85473655b** |
@@ -557,7 +557,7 @@
 | **sim-bookshelf-store.js** | 258 | **331a40dfd17c** |
 | **sim-myhome-store.js** | 629 | **185aa7bcdc73** |
 | **sim-myhome-wire.js** | 122 | **4f8c855c6477** |
-| **sim-room-rt.js** | 427 | **264c774799fc** |
+| **sim-room-rt.js** | 486 | **74e625c815b0** |
 | **sim-chat-rt.js** | 245 | **aa6e1dc1aad5** |
 | **sim-room-invite-rt.js** | 85 | **3b35c8873b93** |
 | **sim-purikura-rt.js** | 458 | **54dd5d4253d6** |
