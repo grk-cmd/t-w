@@ -415,7 +415,6 @@ const roomSyncMod = TwRoomSync.createRoomSync({
   ITEM_LICENSE_HOLD: ()=>premiumMod.ITEM_LICENSE_HOLD,
   Presence: ()=>Presence,
   _autoAwayResetClock: (...a)=>window._autoAwayResetClock(...a),   // 🛰 Presence(room/presence.js)가 거는 시계 되감기 — 모듈끼리 window 로 서로 부르지 않게 여기서 잇는다
-  _chatIsHost: (...a)=>chatLockMod._chatIsHost(...a),
   _chatIsSecretRoom: (...a)=>chatLockMod._chatIsSecretRoom(...a),
   faceUploadCache: uploadCacheMod,
   getMyUserId: (...a)=>getMyUserId(...a),
@@ -880,14 +879,16 @@ const plLikeUi = TwPlaylistLikeUi.createPlaylistLikeUi({ likeRules: TwPlaylistLi
   getMyUserId: (...a)=>getMyUserId(...a), notifyError: (...a)=>TwErrorCodes.notify(...a),
   enabled: ()=>TwServerFeatures.on('playlistLike') });   // 서버 길이 생길 때까지 꺼짐(TODO: net 을 서버 provider 로)
 /* 🎄 크리스마스 창(일회성 · 다음 업데이트에서 걷는다) — 런처 [🎄 크리스마스] · 📩 편지 알림(NAV.XMAS)이 연다 · 창 크기는 applyDesktopRunClass · 그림 사본은 GLB 영구 캐시(IndexedDB · 45일)에 · 추천곡은 공용 배경음악 창(주인 'xmas')
-   서버 길이 아직 없다(0.13 은 Firebase DB 쓰기를 잠갔다) — 서버 기능 표(shared/server-features.js)가 켜질 때까지 만들지 않는다(런처 버튼은 html 에서 hidden 으로 시작해 그대로 숨는다 · NAV.XMAS 는 걸리지 않아 아무 일도 안 한다).
-   TODO: 서버가 받으면 net 을 서버 provider 로 바꾼다. */
-if(TwServerFeatures.on('xmas')) TwXmasWindow.createXmasWindow({ THREE, ps1Dither: TwPs1Dither, rules: TwXmasRules, treeMod: TwXmasTree, net: ()=>TwServerFeatures.noServer('xmas'), serverNow: ()=>TwRtHub.store.serverNow(),
+   서버는 xmas-api.js(/v2/xmas · /v2/me/xmas · 그림은 Storage). 서버 기능 표(shared/server-features.js)가 꺼져 있으면 만들지 않는다(런처 버튼은 html 에서 hidden 으로 시작해 그대로 숨는다 · NAV.XMAS 는 걸리지 않아 아무 일도 안 한다). */
+const xmasApiMod = TwXmasApi.createXmasApi({ authed: TwApi.authed, rules: TwXmasRules, myCode: ()=>getMyUserId(), storageBucket: ()=>firebaseAPI.storageBucket(),
+  fetch: (...a)=>window.fetch(...a), warn: (...a)=>console.warn(...a) });   // 🌐 크리스마스 서버 endpoint
+const xmasWinMod = !TwServerFeatures.on('xmas') ? null : TwXmasWindow.createXmasWindow({ THREE, ps1Dither: TwPs1Dither, rules: TwXmasRules, treeMod: TwXmasTree, net: ()=>xmasApiMod, serverNow: ()=>TwRtHub.store.serverNow(),
   onReady: (fn)=>TwNetReady.whenNetReady(fn), notifyError: (...a)=>TwErrorCodes.notify(...a), toast: (...a)=>toast(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a), onSizeChange: ()=>applyDesktopRunClass(),
   idbGet: (k)=>glbIdbMod._glbIdbGet(k), idbPut: (k, v)=>glbIdbMod._glbIdbPut(k, v), songMod: TwXmasSong, letterMod: TwXmasLetter, companion: ()=>window.companion,
   ytVideoId: (u)=>plMod.ytVideoId(u), asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a), storage: localStorage,
   twNav: twNav,
+  random: ()=>Math.random(),
 });
 const plMod = TwPlaylist.createPlaylist({
   playlistAccountStore: accountStoreMod,
@@ -962,6 +963,8 @@ const heartbeatMod = TwHeartbeat.createHeartbeat({
 /* ⚙ 설정 패널 — 포커싱 어플 슬롯 / 캐릭터 크기 / 프로그램 이동 */
 /* 본문은 settings-panel.js 로 옮겼다(앱 FSD 27번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const stickerLayerMod = TwStickerLayer.createStickerLayer({ storage: localStorage });   // 🎨 마이홈 스티커 보이기(이 PC 설정) — 설정 창 · 스티커 그리기 · 관리 창이 같이 읽는다
+const awayOthersMod = TwDeviceToggle.createDeviceToggle({ storage: localStorage, key: 'tw.awayPicOthers' });   // 🫧 남의 자리비움 그림 보기(이 PC 설정) — 설정 창 · 자리비움 그림이 같이 읽는다
 const settingsMod = TwSettingsPanel.createSettingsPanel({
   settingsAccountStore: accountStoreMod,
   GAP_MAX: GAP_MAX,
@@ -1023,6 +1026,8 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   isLauncherShown: (...a)=>isLauncherShown(...a),
   statusBubbleEnabled: ()=>overheadMod.statusBubbleEnabled(),
   setStatusBubbleEnabled: (v)=>{ overheadMod.setStatusBubbleEnabled(v); },
+  stickerLayer: stickerLayerMod,
+  awayOthers: awayOthersMod,
 });
 
 /* ═══ 🕒 포커스 기록 팝업 ═══ */
@@ -1378,8 +1383,12 @@ const mailFeed = TwMailFeed.createMailFeed({
   api: TwInboxApi.createInboxApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),   // 🌐 /v2/me/notifications
   rt: TwRtHub.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
+  /* 🎄 짝 짓기 알림이 몰리는 10분(서버 날짜)은 0~30초 무작위로 미뤄 읽는다 — 그 밖은 곧바로 */
+  refreshDelayMs: ()=>(TwServerFeatures.on('xmas') ? TwXmasRules.mailDelayMs(TwRtHub.store.serverNow(), xmasApiMod.scheduleNow(), Math.random()) : 0),   // 🎄 짝 짓기 10분엔 무작위로 흩기 — 날짜 한 벌은 xmas-api(창과 같은 것) · 창 모듈을 부르지 않는다(순환)
+  timers: window,   // 기다림(setTimeout · clearTimeout) — 검사는 가짜를 넘긴다
 });
 mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));
+if(xmasWinMod) mailFeed.onChange(()=>xmasWinMod.onMail(mailFeed.items()));   // 🎄 «받은 편지» 알림이 처음 보이면(읽음 여부 무관) → 받은 편지 한 번 읽기
 const noticeApi = TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) });   // 🌐 /v2/notices
 /* 🛠️ 앱 관리자 창의 서버 endpoint(/v2/admin/...) — 관리자 모드 · 확성기 · 업데이트 공지 · 배너 · 방 종료가 쓴다. 지금 업데이트 공지의 id 는 공지 한 판에서 받는다 */
 const adminApi = TwAdminApi.createAdminApi({ authed: TwApi.authed, pending: TwRequestId.createPending(), fetchBoard: ()=>noticeApi.fetchBoard(), errs: TwApiErrors });
@@ -1692,7 +1701,9 @@ const stickerRenderMod = TwMyHomeStickerRender.createMyHomeStickerRender({
   mhStLayoutMod: mhStLayoutMod,
   myHomeSticker: ()=>myHomeSticker,
   myhomeStore: myhomeStoreMod,
+  stickerLayer: stickerLayerMod,
 });
+stickerLayerMod.onChange(()=>stickerRenderMod.renderMyHomeStickers());   // 설정에서 켜고 끄면 바로 다시 그린다
 
 /* 🎨 스티커 관리 창 · 스티커 편집모드 · 드래그 · 회전 · 크기는 parts/myhome-sticker.js 로 옮겼다(앱 FSD 7번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(#stMgrClose · #stMgrBringAll 버튼 연결)이 예전과 같은 때 돈다.
@@ -1721,6 +1732,7 @@ const myHomeSticker = TwMyHomeSticker.createMyHomeSticker({
   stickerMax: mhStLayoutMod.STICKER_MAX,
   stickerBase: mhStLayoutMod.STICKER_BASE,
   stickerRotSnap: mhStLayoutMod.STICKER_ROT_SNAP,
+  stickerLayer: stickerLayerMod,
 });
 
 /* ═══ 🔗 마이홈 본문 링크 ═══ */
@@ -2888,9 +2900,11 @@ const loginFlowMod = TwLoginFlow.createLoginFlow({
     signInGoogle: (tok)=>firebaseAPI.authSignInWithGoogle(tok),
     signInPassword: (code, pw)=>firebaseAPI.authSignInWithFriendCode(code, pw),
     signOut: ()=>firebaseAPI.authSignOut(),
+    deleteNewLogin: (uid)=>firebaseAPI.authDeleteNewLogin(uid),
     identity: ()=>({ email: firebaseAPI.authCurrentEmail(), uid: firebaseAPI.authCurrentUid() }),
   },
   googleWindow: ()=>companion.signInWithGoogle(),
+  askGoogle: (email)=>googleConfirmMod.ask(email, 'signup'),   // 처음 보는 구글로 가입하기 전에 묻기(google-confirm.js — 아래에서 만든다 · 부를 때 찾는다)
   rt: { start: (o)=>TwRtHub.store.start(o), stop: ()=>TwRtHub.store.stop(), bye: (why)=>TwRtHub.store.bye(why), onState: (fn)=>TwRtHub.store.onState(fn), isDeviceOff: (s)=>TwRtHub.isDeviceOff(s) },
   leaveRoom: ()=>Promise.resolve(Presence.active() ? twNav.go(twNav.NAV.LEAVE_ROOM) : null),   // 로그아웃 차례 — 방 leave 가 realtime 작별보다 먼저(방 모듈은 창 열기 통로로 — 순환 없이)
   pending: TwRequestId.createPending(),
@@ -4602,6 +4616,7 @@ const awayPicMod = TwAwayPic.createAwayPic({
   seats: seats,
   toast: (...a)=>toast(...a),
   userApi: ()=>userApiMod,
+  awayOthers: awayOthersMod,
 });
 
 /* ═══ 🚩 신고하기 ═══════════════════════════════════════════════════════════

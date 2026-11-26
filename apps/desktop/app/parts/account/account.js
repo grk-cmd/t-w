@@ -413,10 +413,10 @@ async function _acctMethodsRender(keepMsg){
   const text = (id, t) => { const el = $e(id); if(el) el.textContent = t; };
   show('acctMGoogleOk', m.google, 'inline');
   show('acctMGoogleLink', !m.google, 'inline-block');
-  /* 🔁 지금 구글(가린 주소) · [바꾸기] — 비밀번호가 있어야 바꾼다(google-change-net.js) */
+  /* 🔁 지금 구글(가린 주소) · [바꾸기] — 비밀번호가 있어야 바꾼다(서버 PUT /v2/me/google 도 한 번 더 막는다) */
   show('acctMGoogleRow2', m.google, 'flex');
   text('acctMGoogleMail', m.google ? '↳ ' + (googleConfirmMod.maskEmail(m.googleEmail) || '(주소 모름)') : '');
-  /* [바꾸기]는 서버가 구글 연결 바꾸기를 받을 때까지 숨긴다(shared/server-features.js — Firebase Auth 만 바꾸면 서버의 구글 연결 기록과 어긋난다) */
+  /* [바꾸기]는 서버 기능 표로 켜고 끈다(shared/server-features.js googleChange) */
   const gcOn = TwServerFeatures.on('googleChange');
   show('acctMGoogleChange', gcOn, 'inline-block');
   const gc = $e('acctMGoogleChange'); if(gc) gc.disabled = !(gcOn && m.google && !c3);
@@ -494,7 +494,8 @@ function refreshAccountTab(){
     if(btn) btn.onclick = go;
     if(p1) p1.onkeydown = e=>{ if(e.key === 'Enter'){ if(p2) p2.focus(); } };
     if(p2) p2.onkeydown = e=>{ if(e.key === 'Enter') go(); };
-    /* C2 의 구글 [연결하기] — J 의 [구글도 연결하기]와 같은 일(지금 세션에 붙이기 · authLinkGoogle). 로그인을 바꾸지 않는다. */
+    /* C2 의 구글 [연결하기] — J 의 [구글도 연결하기]와 같은 일(서버 POST /v2/me/google — 같은 계정 · 같은 로그인). 로그인을 바꾸지 않는다.
+       서버가 «5분 안 로그인» 을 요구하면(USER_REAUTH_REQUIRED) _withRecentLogin 이 비밀번호로 다시 확인하고 한 번 더 보낸다. */
     /* 🩹 [2026-10-02 제보 #5] «구글 연결하기를 누르면 창이 뜬 뒤 아무 일도 안 일어난다»
        결과 문구가 비밀번호 칸 **맨 아래** 작은 글씨(acctPwMsg)에만 나와서 화면 밖에 있으면 안 보였다.
        게다가 실패 사유가 비면(signInWithGoogle 예외 · reason 없음) say('') 가 칸을 아예 숨겼다.
@@ -505,16 +506,14 @@ function refreshAccountTab(){
       try{ const el = $e('acctPwMsg'); if(el && t) el.scrollIntoView({ block:'nearest' }); }catch(_){}
     };
     if(gl) gl.onclick = async ()=>{
-      if(!(window.companion && companion.signInWithGoogle) || !(window.firebaseAPI && firebaseAPI.authLinkGoogle)){ sayG('이 버전에서는 구글을 연결할 수 없어요', 'err'); return; }
+      if(!(window.companion && companion.signInWithGoogle)){ sayG('이 버전에서는 구글을 연결할 수 없어요', 'err'); return; }
       gl.disabled = true; say('구글 창을 여는 중…', 'info');
-      const g = await googleConfirmMod.pickForLink();
-      if(!g.ok){ if(g.canceled) say('', 'info'); else sayG(g.reason || '구글 로그인 창에서 결과를 받지 못했어요 — 다시 시도해 주세요', 'err'); gl.disabled = false; return; }
-      let r = null; try{ r = await firebaseAPI.authLinkGoogle(g.idToken); }catch(_){ r = { ok:false, reason:'네트워크 오류 — 인터넷 연결을 확인해 주세요' }; }
-      if(!r || !r.ok){ sayG((r && r.reason) || '구글을 연결하지 못했어요', 'err'); gl.disabled = false; return; }
+      const r = await _acctLinkGoogle();
+      if(!r.ok){ if(r.canceled) say('', 'info'); else sayG(r.reason || '구글을 연결하지 못했어요 — 다시 시도해 주세요', 'err'); gl.disabled = false; return; }
       try{ await _acctMethodsRender(true); }catch(_){}
       sayG('✅ 구글이 연결됐어요. 이제 구글로도 로그인할 수 있어요.', 'ok');
     };
-    /* 🔁 [바꾸기] — 지금 구글로 확인 → 새 구글 → 묻기 → 바꾸기(실패하면 지금 구글로 되돌린다) */
+    /* 🔁 [바꾸기] — 지금 구글로 확인 → 새 구글 → 묻기 → 바꾸기(서버가 떼고 붙이기를 한 요청으로 — 실패하면 지금 구글 그대로) */
     const gc = $e('acctMGoogleChange');
     if(gc) gc.onclick = async ()=>{
       const m = _acctMethodsLast;
@@ -525,9 +524,8 @@ function refreshAccountTab(){
       gc.disabled = false;
       if(r.canceled){ say('', 'info'); return; }
       if(!r.ok){
-        /* 사용자 조건(다른 구글 · 이미 쓰임 · 비밀번호)은 안내만 · 진짜 실패는 에러코드(되돌리기까지 실패하면 05) */
-        if(r.restored === false){ say(r.reason, 'err'); TwErrorCodes.notify('E-ACC-05', r.reason); try{ await _acctMethodsRender(true); }catch(_){} }
-        else if(r.err){ say(r.reason, 'err'); TwErrorCodes.notify('E-ACC-06', r.reason); }
+        /* 사용자 조건(다른 구글 · 이미 쓰임 · 비밀번호)은 안내만 · 진짜 실패는 에러코드 */
+        if(r.err){ say(r.reason, 'err'); TwErrorCodes.notify('E-ACC-06', r.reason); }
         else sayG(r.reason || '구글을 바꾸지 못했어요', 'err');
         return;
       }
@@ -539,9 +537,22 @@ function refreshAccountTab(){
   else bind();
 })();
 
-/* 🔁 구글 계정 바꾸기 — 같은 계정(유저 코드 그대로)의 구글 연결만 새 구글로. 순서 · 되돌리기는 google-change-net.js.
-   from = 지금 연결된 구글 주소 · step(글) = 단계 안내. 돌려주는 것: { ok, email } | { ok:false, canceled? , reason, restored? } */
+/* 🔗 [연결하기] — 구글 고르기 · 묻기 → 서버 POST /v2/me/google(USER_REAUTH_REQUIRED 면 _withRecentLogin 이 다시 확인 뒤 한 번 더) → 이 세션 providerData 새로 받기.
+   돌려주는 것: { ok } | { ok:false, canceled } | { ok:false, reason } */
+async function _acctLinkGoogle(){
+  const g = await googleConfirmMod.pickForLink();
+  if(!g.ok) return g;
+  const r = await _withRecentLogin(() => userApiMod.linkGoogle(g.idToken));
+  if(!r.ok) return r;
+  try{ await firebaseAPI.authReload(); }catch(_){}
+  return { ok:true };
+}
+
+/* 🔁 구글 계정 바꾸기 — 같은 계정(유저 코드 그대로)의 구글 연결만 새 구글로. 서버 PUT /v2/me/google 이 떼고 붙이기를 한 요청으로 한다.
+   from = 지금 연결된 구글 주소 · step(글) = 단계 안내. 돌려주는 것: { ok, email } | { ok:false, canceled? , reason, err? }
+   err = 사람이 고칠 수 없는 실패(에러코드로 알린다) — 아래 code 는 안내 한 줄로 끝낸다 */
 async function _acctChangeGoogle(from, step){
+  const USER_CODES = ['USER_GOOGLE_IN_USE', 'USER_GOOGLE_MISMATCH', 'USER_GOOGLE_SAME', 'USER_GOOGLE_NONE', 'USER_GOOGLE_TOKEN_INVALID', 'USER_NO_PASSWORD_LOGIN', 'USER_REAUTH_REQUIRED'];
   if(!TwServerFeatures.on('googleChange')) return { ok:false, reason:'이 버전에서는 구글을 바꿀 수 없어요' };
   step('지금 연결된 구글(' + googleConfirmMod.maskEmail(from) + ')을 한 번 골라 확인해 주세요…');
   const cur = await googleConfirmMod.pickCurrent(from);
@@ -550,13 +561,12 @@ async function _acctChangeGoogle(from, step){
   const nw = await googleConfirmMod.pickForChange(from);
   if(!nw.ok) return nw;
   step('구글 계정을 바꾸는 중…');
-  let r = null; try{ r = await TwServerFeatures.noServer('googleChange').change(cur.idToken, nw.idToken); }catch(_){ r = null; }   // 서버 경로가 생기면 그 provider 로(#1101)
-  if(!r) return { ok:false, err:true, reason:'네트워크 오류 — 인터넷 연결을 확인해 주세요' };
-  if(r.ok){
-    /* 이 PC 를 구글로 로그인했다면 표시 이메일도 새 구글로 — 친구 코드로 로그인했으면({코드}@tw.local) 그대로 */
-    try{ if(googleConfirmMod.sameEmail(localStorage.getItem(LOGIN_EMAIL_KEY), from)) localStorage.setItem(LOGIN_EMAIL_KEY, r.email || nw.email || ''); }catch(_){}
-  }
-  return r;
+  try{ await userApiMod.changeGoogle(cur.idToken, nw.idToken); }
+  catch(e){ const code = (e && e.code) || ''; return { ok:false, err: USER_CODES.indexOf(code) < 0, code, reason: userApiMod.reasonOf(e) }; }
+  /* 이 PC 를 구글로 로그인했다면 표시 이메일도 새 구글로 — 친구 코드로 로그인했으면({코드}@tw.local) 그대로 */
+  try{ if(googleConfirmMod.sameEmail(localStorage.getItem(LOGIN_EMAIL_KEY), from)) localStorage.setItem(LOGIN_EMAIL_KEY, nw.email || ''); }catch(_){}
+  try{ await firebaseAPI.authReload(); }catch(_){}   // 서버가 바꾼 구글을 이 세션 providerData 로 받는다
+  return { ok:true, email: nw.email };
 }
 
 return {

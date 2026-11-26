@@ -3,6 +3,7 @@
      같은 실패는 한 번만 알려야 한다. 이 판단이 mail-feed.js 한 곳에 있어 실제로 불러서 판정한다.
    ・1절: 받기 — 처음 받음(새 우편 아님) · 상태 loading → ready · 받는 중에 또 부르면 끝난 뒤 한 번 더(요청이 겹치지 않음) · 내 코드 없음은 요청 0
    ・2절: 알림 — 새 우편(MAIL) · 코드 없는 알림 · 오래 끊겼다 붙음(resync)이면 다시 받음 · 종(BELL)은 무시 · 로그인 전은 무시 · 새로 늘어난 id 만 addedIds
+   ・2-1절: 알림 뒤 기다림 — 0 이면 곧바로 · 있으면 뒤로 · 기다리는 동안 온 알림은 묶음 · 멈추면 버림(🎄 짝 짓기 10분 0~30초 · 설계 5-3)
    ・3절: 못 받음 — error 상태 · 자동 받기(켤 때 · 알림) 실패는 번호 없이 상태만 · 연 · 누른 받기(manual)에서만 E-MH-08(이어지는 동안 한 번) · 받으면 다시 알림 가능 · 못 받아도 앞서 받은 우편은 그대로(ready 유지)
    ・4절: 계정 바뀜 — 바뀌면 비우고 새로 받음 · 늦게 끝난 앞 계정 응답은 버림(실패도 알리지 않음) · stop 은 비움
    ・5절: 읽음 · 지우기 — 받기 전 잠금 · 서버가 됐다 한 뒤에만 고침(읽음 → 안 읽은 수 -1 · 모두 읽음 → 0 · 지우기 → 목록 · 안 읽은 수) · stale 은 조용히 버림 · 실패는 번호(E-MH-10 · 07)와 그대로 · 여러 통은 첫 실패에서 멈춤
@@ -51,7 +52,9 @@ function mkEnv(){
 }
 function mk(src){
   const e = mkEnv();
-  const feed = load(src).createMailFeed({ api: e.api, rt: e.rt, notifyError: (c, err) => e.env.errors.push(c) });
+  e.env.delayMs = 0; e.env.timers = []; e.env.cleared = [];
+  const feed = load(src).createMailFeed({ api: e.api, rt: e.rt, notifyError: (c, err) => e.env.errors.push(c),
+    refreshDelayMs: () => e.env.delayMs, timers: { setTimeout: (fn, ms) => { e.env.timers.push([fn, ms]); return e.env.timers.length; }, clearTimeout: (t) => { e.env.cleared.push(t); } } });
   feed.onChange((x) => { e.env.changes.push(x.addedIds.join(',')); e.env.snaps.push(Object.keys(feed.items()).join('+')); });
   feed.session = e.session;   // 가짜 세션 — start 의 두 번째 인자
   return Object.assign(e, { feed });
@@ -130,6 +133,30 @@ async function judge(S){
     env.server = {}; env.unread = 0;
     env.handlers.notification({ kind: 'notification', section: 'MAIL' }); await tick(); await tick();
     chk(Object.keys(feed.items()).length === 0 && feed.status() === 'ready' && env.changes.join() === '', '다른 기기에서 지워서 비면 빈 우편 — 새 우편 알림은 없다');
+  }
+
+  say('── 2-1. 알림 뒤 기다림(🎄 짝 짓기 10분 — app.js 가 0~30초를 준다)');
+  {
+    const { env, feed } = mk(LIB);
+    env.server = { a: mail(false) }; env.unread = 1;
+    feed.start('ME01', feed.session); await tick(); await tick();
+    env.handlers.notification({ kind: 'notification', section: 'MAIL' }); await tick(); await tick();
+    chk(env.fetches.length === 2 && !env.timers.length, '기다림 0 이면 곧바로 받는다(다른 때의 반응은 그대로)');
+    env.delayMs = 12000;
+    env.handlers.notification({ kind: 'notification', section: 'MAIL' }); await tick(); await tick();
+    chk(env.fetches.length === 2 && env.timers.length === 1 && env.timers[0][1] === 12000, '기다림이 있으면 곧바로 받지 않고 그만큼 뒤로 건다');
+    env.handlers.notification({ kind: 'notification', section: 'MAIL' }); env.handlers.notification({ kind: 'notification', resync: true }); await tick();
+    chk(env.timers.length === 1 && env.fetches.length === 2, '  ↳ 기다리는 동안 온 알림은 그 한 번으로 묶는다(요청을 늘리지 않음)');
+    env.handlers.notification({ kind: 'notification', section: 'BELL' }); await tick();
+    chk(env.timers.length === 1, '  ↳ 종(BELL)은 여전히 무시');
+    env.timers[0][0](); await tick(); await tick();
+    chk(env.fetches.length === 3, '  ↳ 때가 되면 한 번 받는다');
+    env.handlers.notification({ kind: 'notification', section: 'MAIL' }); await tick();
+    chk(env.timers.length === 2, '  ↳ 받은 뒤 새 알림은 다시 기다린다');
+    feed.stop();
+    chk(env.cleared.includes(2), '멈추면(로그아웃 · 계정 바뀜) 기다림을 버린다');
+    env.timers[1][0](); await tick(); await tick();
+    chk(env.fetches.length === 3, '  ↳ 버린 기다림이 늦게 불려도 받지 않는다');
   }
 
   say('── 2-2. 세션 — 알림 구독 · 비우기는 세션이 쥔다(S-2)');
@@ -309,6 +336,15 @@ async function judge(S){
   {
     const A = strip(S.APP);
     chk(/TwMailFeed\.createMailFeed\(\{[\s\S]*?rt: TwRtHub\.store[\s\S]*?\}\);/.test(A) && /TwInboxApi\.createInboxApi\(\{ authed: TwApi\.authed/.test(A), 'app.js — 서버 경로와 realtime 알림을 넘겨 만든다');
+    chk(/refreshDelayMs: \(\)=>\(TwServerFeatures\.on\('xmas'\) \? TwXmasRules\.mailDelayMs\(TwRtHub\.store\.serverNow\(\), xmasApiMod\.scheduleNow\(\), Math\.random\(\)\) : 0\)/.test(A) && !/refreshDelayMs:[^\n]*xmasWinMod/.test(A),
+      'app.js — 기다림은 크리스마스 규칙 · 날짜 한 벌은 xmas-api scheduleNow(창과 같은 것) · 꺼져 있으면 0 · 크리스마스 창 모듈은 부르지 않는다(순환)');
+    /* 받은 편지 반복 확인이 없어서 «알림 → 받은 편지 한 번 읽기» 는 이 배선 하나뿐이다 — 빠지면 편지 창을 열기 전엔 빨간 점이 안 켜진다 */
+    const xmasWired = (src) => /if\(xmasWinMod\) mailFeed\.onChange\(\(\)=>xmasWinMod\.onMail\(mailFeed\.items\(\)\)\);/.test(src) && !/(^|[^)\w])mailFeed\.onChange\(\(\)=>xmasWinMod\./m.test(src.replace(/if\(xmasWinMod\) mailFeed\.onChange/g, ''));
+    chk(xmasWired(A), 'app.js — 우편이 바뀌면 크리스마스 창 onMail 에 우편 목록(mailFeed.items())을 넘긴다 · 크리스마스가 꺼져 있으면(xmasWinMod 없음) 걸지 않는다');
+    const noLine = A.replace(/if\(xmasWinMod\) mailFeed\.onChange\(\(\)=>xmasWinMod\.onMail\(mailFeed\.items\(\)\)\);/, '');
+    const noGuard = A.replace('if(xmasWinMod) mailFeed.onChange(()=>xmasWinMod.onMail(mailFeed.items()));', 'mailFeed.onChange(()=>xmasWinMod.onMail(mailFeed.items()));');
+    const noItems = A.replace('xmasWinMod.onMail(mailFeed.items())', 'xmasWinMod.onMail({})');
+    chk(noLine !== A && noGuard !== A && noItems !== A && !xmasWired(noLine) && !xmasWired(noGuard) && !xmasWired(noItems), 'mutation test — 배선을 지우거나 · 꺼짐 가드를 빼거나 · 우편 목록을 안 넘기면 빨강');
     chk(!/isViewing|_mailboxVisible|retryDelay|TwRetryDelay/.test(A), 'app.js — 보는 중 거르기 · 다시 받기 재료를 넘기지 않는다(혼자 다시 받지 않음)');
     chk(!/let _myInbox\b|let _myInboxReady\b|let _inboxBroadcast\b/.test(A), '옛 개인 수령함 · 공용 공지 let 이 app.js 에 없다(원본은 서버)');
     const h = S.HTML;
@@ -322,6 +358,9 @@ async function runAll(){
   await judge(S);
   say('── 7. mutation test');
   const breaks = [
+    ['알림 기다림을 묶지 않음', S.FEED.replace("if(delayed) return;   // 기다리는 한 번으로 묶는다", ""), '한 번으로 묶는다'],
+    ['기다림을 무시함', S.FEED.replace("if(!(ms > 0)){ refresh(); return; }", "{ refresh(); return; }"), '뒤로 건다'],
+    ['멈춰도 기다림을 안 버림', S.FEED.replace("if(delayed){ timers.clearTimeout(delayed); delayed = null; } ", ""), '기다림을 버린다'],
     ['busy 가 늘 false', S.FEED.replace('busy: () => flying', 'busy: () => false'), 'busy()'],
     ['처음 받은 판도 새 우편으로', S.FEED.replace("everReady ? Object.keys", "true ? Object.keys"), '처음 받은 우편'],
     ['받는 중 겹쳐 요청', S.FEED.replace("if(flying){ again = true; return false; }", ""), '요청은 하나'],

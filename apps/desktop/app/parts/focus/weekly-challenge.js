@@ -56,6 +56,8 @@ function _chalFocusTick(state, dt){
     _chalKeyForeign = !want.some(k => String(k).split(':')[0] === _chalKeyPlatform);
     if(_chalKeyForeign) return;
   }
+  /* 바탕화면 · 작업표시줄은 파일 탐색기 폴더 창과 키가 같다(explorer.exe) — main 이 갈라 준 값으로 뺀다. 옛 main 은 안 보낸다(예전 판정) */
+  if(state && state.desktop) return;
   const now = state && state.key
     ? state.key
     : (state && state.exeName ? 'win:' + String(state.exeName).toLowerCase() : '');  // 구버전 main 대비

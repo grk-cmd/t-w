@@ -113,6 +113,7 @@ const { isSystemPrompt } = require('./app/parts/shared/system-prompt');   // �
 const HelpSite = require('./app/parts/shared/help-site');   // 📘 도움말 탭 틀이 옮겨 갈 수 있는 주소(렌더러와 같은 규칙)
 /* 🎮 패드 «바뀌었나» 판정 — 렌더러와 같은 파일. 읽기는 플랫폼 모듈(sysinput.readPads). */
 const GamepadActivity = require('./app/parts/focus/gamepad-activity');
+const { createWinDrag } = require('./win-drag');   // 🖱 수동 창 끌기 — 자리는 main 이 마우스 자리로 정한다(배율이 다른 모니터)
 const MhPadPos = require('./app/parts/myhome/mh-pad-pos');   // 🎨 마이홈 창 자리 — 스티커 여백을 뺀 자리로 기억
 /* 호출부 17곳의 이름·형태를 그대로 두기 위한 이음매 — 본문은 모듈에 있다.
    ⚠️ 화살표 상수가 아니라 **함수 선언**이다. 원래가 그랬고(호이스팅), 여기서 모양을 바꾸면
@@ -584,13 +585,23 @@ function _modeSize(mode){
   const p = (mode === 'myhome') ? _mhPad : { x: 0, y: 0 };
   return { w: Math.round((s.w + 2 * p.x) * z), h: Math.round((s.h + 2 * p.y) * z) };
 }
+/* 🖱 수동 창 끌기 — 끄는 동안 자리를 기억하고(끌기 도중의 setConfigMode · 다음 실행이 옛 자리로 되돌리지 않게),
+   끝나면 놓인 모니터의 작업영역 · 크기로 한 번 맞춘다(배율 · 해상도가 다른 모니터로 옮긴 경우). 실행 화면(run)은 옮기기만 한다. */
+const _winDrag = createWinDrag({
+  getCursor: () => screen.getCursorScreenPoint(),
+  getBounds: () => mainWindow.getBounds(),
+  setBounds: (r) => { mainWindow.setBounds(r); },
+  onMove: (r) => { const m = _cfgModeForZoom(); if(m) _rememberPos(m, r); },
+  onEnd: () => { const m = _cfgModeForZoom(); if(m) _refitConfigForZoom(m, '끌기 끝'); },
+});
 function _cfgModeForZoom(){
   try{
     if(!_isConfigMode || !mainWindow || mainWindow.isDestroyed()) return null;
     return _configModeNow();
   }catch(_){ return null; }
 }
-function _refitConfigForZoom(m){
+/* why — 진단 줄 머리(없으면 줌). 줌 · 창 끌기 끝이 같이 부른다 */
+function _refitConfigForZoom(m, why){
   if(!mainWindow || mainWindow.isDestroyed()) return;
   const b = mainWindow.getBounds();
   const rect = _fitConfigRect(m, _modeSize(m), screen.getDisplayMatching(b), { x: b.x, y: b.y });
@@ -601,7 +612,7 @@ function _refitConfigForZoom(m){
   mainWindow.setResizable(false);
   _noteApplied(rect, false);
   _rememberPos(m, rect);
-  _diagLog('[창] 줌 ' + Math.round(uiZoom * 100) + '% — ' + m + ' 창 크기 맞춤 ' + rect.width + 'x' + rect.height);
+  _diagLog('[창] ' + (why || '줌 ' + Math.round(uiZoom * 100) + '%') + ' — ' + m + ' 창 크기 맞춤 ' + rect.width + 'x' + rect.height);
 }
 const _zoomIn  = v => v * uiZoom;   // CSS px → DIP
 /* 🩹 [2026-10-02 제보 #10] 줌이 바뀌면 BGM(유튜브) 창도 새 배율로 다시 놓는다.
@@ -1520,14 +1531,13 @@ let lastForeignWindow = null;   // { key, name, path, title } — key 가 판정
 /* 🧭 [2026-10-11 제보: 한글 · PDF · 크롬이 포커싱 등록이 안 된다] 슬롯 좌클릭 «자동 등록» 이 집는 창.
    lastForeignWindow 는 바탕화면 · 작업표시줄(explorer.exe) · 시작 메뉴 · 검색 같은 **셸 창도** 받는다 — 문서 창에서
    작업표시줄을 거쳐 투게더워킹을 누르면 그 사이 셸 창이 마지막 앞창이 되어, 한글 대신 explorer.exe 가 등록됐다.
-   ⇒ 등록용은 셸 목록(sysinput.WINLIST_SKIP — 「목록에서 직접 고르기」 가 거르는 것과 같은 목록)을 건너뛴 마지막 창.
+   ⇒ 등록용은 셸 창(sysinput.isShellWindow — 「목록에서 직접 고르기」 가 거르는 것과 같은 판정)을 건너뛴 마지막 창.
    lastForeignWindow(진단 로그 «앞창=») 는 그대로 둔다 — 로그는 실제 앞창을 보여야 한다. */
 let lastRegistrableWindow = null;
 function _noteForeignWindow(exeName, ownerPath, w){
   lastForeignWindow = { key: focusKeyOf(exeName), name: sysinput.displayNameOf(ownerPath), path: w.owner.path || '', title: w.title || '' };
-  let shell = false;
-  try{ shell = !!(sysinput.WINLIST_SKIP && sysinput.WINLIST_SKIP.has(exeName)); }catch(_){}
-  if(!shell) lastRegistrableWindow = lastForeignWindow;
+  /* 셸 판정은 sysinput 한 곳 — 파일 탐색기 폴더 창(w.folder)은 explorer.exe 여도 등록 후보다 */
+  if(!sysinput.isShellWindow(exeName, w)) lastRegistrableWindow = lastForeignWindow;
 }
 
 // uiohook 전역 클릭/키 이벤트에 실어 보낼, 매 순간의 "활성 프로세스 판정" 캐시.
@@ -1579,7 +1589,8 @@ function startActiveWinPolling(){
            여기서 `f.name === exeName` 로 되돌리면 mac 에서 조용히 전부 미등록이 된다. */
       const activeKey = focusKeyOf(exeName);
       const activeKeyAlt = legacyKeyOf(ownerPath, activeKey);   // 🕰️ 옛 규칙 키(mac ≤0.10.0 저장물) — 없으면 ''
-      const isFocusedAppRegistered = !!(activeKey && focusApps.some(f => keysOf(f).includes(activeKey) || (activeKeyAlt !== '' && keysOf(f).includes(activeKeyAlt))));
+      /* 바탕화면 · 작업표시줄(w.desktop)은 파일 탐색기와 같은 explorer.exe 라 키가 같다 — explorer 를 등록해도 거기서는 집중으로 세지 않는다 */
+      const isFocusedAppRegistered = !w.desktop && !!(activeKey && focusApps.some(f => keysOf(f).includes(activeKey) || (activeKeyAlt !== '' && keysOf(f).includes(activeKeyAlt))));
       /* 🩺 [2026-09-16 제보 1 · E] 활성 창 키가 **바뀔 때마다** 진단 로그에 한 줄 — 콘솔을 못 보는 환경용.
          [왜] 게임 클라이언트를 등록했는데 카운팅이 안 되는 제보. 목록에 뜨고 등록도 되는데 안 잡히면
            «등록된 키와 활성 창 키가 서로 다른 문자열» 이 가장 유력하다(런처 exe ≠ 실제 프로세스).
@@ -1602,7 +1613,7 @@ function startActiveWinPolling(){
       /* ⚠️ 전용 채널을 파지 않는다 — 필드 하나를 얹는 방식이라 구버전 preload/렌더러와도 짝이 맞는다
          (모르는 필드는 그냥 무시된다). offOverlay 를 얹을 때와 같은 규약이다. */
       _onSysPromptFront(isSystemPrompt(activeKey));
-      lastActiveState = { exeName, key: activeKey, keyAlt: activeKeyAlt, isFocusedAppRegistered, hasAnyRegistered: focusApps.some(Boolean), isPenApp: penNow, isSelf: !!exeName && exeName === SELF_EXE };   // isSelf: 투게더워킹 창이 맨 앞 — 렌더러가 잠들지 않게(seatState)
+      lastActiveState = { exeName, key: activeKey, keyAlt: activeKeyAlt, isFocusedAppRegistered, hasAnyRegistered: focusApps.some(Boolean), isPenApp: penNow, isSelf: !!exeName && exeName === SELF_EXE, desktop: !!w.desktop };   // desktop: 바탕화면 · 작업표시줄(폴더 창과 키가 같다 — 달성표가 세지 않게) · isSelf: 투게더워킹 창이 맨 앞 — 렌더러가 잠들지 않게(seatState)
       let frontFull = null;   // null = 크기를 못 읽음(맥 · 실패) — 비율 분모에서 뺀다
       /* 우리 창이 있는 모니터와 견준다(실행 화면이면 실행 모니터) — getRunDisplay 는 저장 · 로그가 딸려 있어 0.5초마다 부르지 않는다 */
       try{ if(w.bounds && mainWindow && !mainWindow.isDestroyed()) frontFull = FrontDiag.coversDisplay(w.bounds, screen.getDisplayMatching(mainWindow.getBounds()).bounds); }catch(_){}
@@ -2035,6 +2046,8 @@ function _applyConfigMode(isConfig, mode, extra){
   const prevMode = _curMode;   // creator 로 들어올 때 «지금 config 창인가(그 자리를 잇는다) · 실행 화면인가(중앙)» 판단용
   _curMode = isConfig ? (MODE_SIZE[mode] ? mode : 'launcher') : 'run';   // 🪟 창 모드 한 값(위 _curMode 주석)
   _isConfigMode = !!isConfig;   // ★ 안전장치는 전체화면 오버레이(run)에서만 동작해야 함
+  /* 🖱 끄는 도중 모드가 바뀌면 끌기를 놓는다 — 창 사각형의 주인이 새 모드로 넘어간다(시작 크기로 계속 놓으면 새 모드 창과 서로 당긴다) */
+  if(_curMode !== prevMode) _winDrag.cancel();
   if (!mainWindow) return;
   // ★ 마이홈은 "런처가 지금 떠 있는 모니터" 기준으로 중앙 계산 — 캐릭터 실행용 모니터(getRunDisplay)와
   //   다르게 지정해둔 듀얼 모니터 환경에서, 런처와 동떨어진 엉뚱한 모니터에 뜨던 문제를 방지.
@@ -2051,6 +2064,8 @@ function _applyConfigMode(isConfig, mode, extra){
     /* 🎨 스티커 여백 — 크기(_modeSize)가 읽으니 재기 전에 바꾼다. 옛 렌더러(셋째 인자 없음)면 0 */
     if(mode==='myhome') _mhPad = _mhPadOf(extra);
     const sz = _modeSize(mode);   // 📐 MODE_SIZE × 줌 — 줌을 올려도 창이 내용을 따라 커진다(_modeSize 주석)
+    /* 🖱 같은 모드로 끄는 동안은 창 사각형의 주인이 끌기다(win-drag.js) — 여기서 맞추면 서로 당긴다. 끌기가 끝날 때 한 번 맞춘다(_winDrag onEnd) */
+    if(_winDrag.active()) return;
     /* ⚠️ setResizable(true) 는 아래 '같은 상태면 생략' 판정 **뒤로** 옮겼다.
        고정 크기 창에 setBounds 를 걸면 OS 가 크기를 깎을 수 있어 잠깐 풀어줘야 하는데,
        그걸 판정 전에 부르면 isResizable() 이 항상 true 가 되어 판정이 영영 성립하지 않는다.
@@ -2108,6 +2123,7 @@ function _applyConfigMode(isConfig, mode, extra){
    화면은 런처로 돌아오는데 창만 실행 화면(모니터 전체 · 클릭 통과 · 맨 위)으로 남으면 덮인 채 아무것도 못 누른다(새 렌더러가 제 모드를 다시 보낸다).
    ⚠️ 로그 «<why> 창을 런처로 되돌림» 은 e2e launcher/renderer-crash 가 글자로 찾는다(«다시 불러오기 전 창을 런처로 되돌림»). */
 function _resetWindowToLauncher(why){
+  _winDrag.cancel();   // 렌더러가 죽으면 뗌 신호가 안 온다 — 끌기가 남으면 아래 되돌리기가 창을 못 건드린다
   if(!mainWindow || mainWindow.isDestroyed()) return;
   _applyConfigMode(true, 'launcher');
   _lastIgnoreRequested = false;
@@ -2555,6 +2571,7 @@ function createWindow() {
   mainWindow.on('query-session-end', () => { _skipInstallOnQuit(); });
   mainWindow.on('session-end', () => { _exitNow(); });
   mainWindow.on('closed', () => {
+    _winDrag.cancel();   // 끄는 중에 창이 닫혔다 — 새 창의 setConfigMode 가 막히지 않게
     // BGM 자식창을 수동으로 정리 (parent를 안 쓰기 때문에 자동 소멸이 없음)
     if(bgmWin && !bgmWin.isDestroyed()){ try{ bgmWin.destroy(); }catch(e){} }
     bgmWin = null; bgmView = null; bgmMainMoveHandler = null;
@@ -2572,6 +2589,7 @@ function createWindow() {
     try{ mainWindow.flashFrame(false); }catch(_){}
   });
   mainWindow.on('blur', () => {
+    try{ _winDrag.end(); }catch(_){}   // 끄는 중에 다른 창으로 넘어갔다 — 뗌 신호를 못 받아도 여기서 닫는다
     try{ _fdOnBlur(); }catch(_){}   // 🩺 [진단] 활성 유지 시간 — "뚝뚝 끊긴다"의 리듬이 여기서 나온다
     setTimeout(async () => {
       try{
@@ -3840,11 +3858,12 @@ function _setupMainOnce() {
   // mode: 'launcher' | 'creator' | 'run'
   ipcMain.on('companion:setConfigMode', (e, isConfig, mode, extra) => { _applyConfigMode(isConfig, mode, extra); });
 
-  // 창 드래그 이동 (run 모드 deskBar grip 등, 수동 dx/dy 방식이 필요한 경우용)
-  ipcMain.on('companion:moveWindow', (e, dx, dy) => {
-    if (!mainWindow) return;
-    const b = mainWindow.getBounds();
-    mainWindow.setBounds({ x: b.x + dx, y: b.y + dy, width: b.width, height: b.height });
+  // 창 드래그 이동 (마이홈 제목줄 · run 모드 deskBar grip — 수동 끌기). phase: 'start' | 'move' | 'end' — 자리 계산은 win-drag.js
+  ipcMain.on('companion:dragWindow', (e, phase) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if(phase === 'start') _winDrag.start();
+    else if(phase === 'move') _winDrag.move();
+    else _winDrag.end();
   });
 
   // 타이틀바 X 버튼 — 앱 완전 종료
