@@ -136,8 +136,10 @@ function createShake(){
   };
 }
 
-/* ── ✉️ 마니또 편지 — 규칙 xmasLetters · 함수 runMatch · handleAdminReturn 과 같은 숫자 ── */
-const LETTER_MAX = 5, LETTER_TEXT_MAX = 500, SONG_TITLE_MAX = 40;
+/* ── ✉️ 마니또 편지 — 규칙 xmasLetters · 함수 runMatch · handleAdminReturn 과 같은 숫자 ──
+   LETTER_MAX: 앱에서 맡길 수 있는 편지 수(한 사람 한 통). 서버의 칸은 다섯(LETTER_IDS)이라 읽기는 다섯 칸을 다 본다 —
+   상한을 낮추기 전에 맡긴 편지가 다른 칸에 있어도 보이고 · 고치고 · 거둘 수 있게. 새 편지는 맡긴 수가 LETTER_MAX 보다 적을 때만. */
+const LETTER_MAX = 1, LETTER_TEXT_MAX = 500, SONG_TITLE_MAX = 40;
 const LETTER_IDS = Object.freeze(['l1', 'l2', 'l3', 'l4', 'l5']);
 const SONG_ID_RE = /^[A-Za-z0-9_-]{11}$/;
 const RETURN_REASONS = Object.freeze({ abuse: '욕설 · 비방', privacy: '개인정보', spam: '광고 · 도배', etc: '기타' });
@@ -168,8 +170,9 @@ function returnedOf(v){
       return { lid: id, reason, why: RETURN_REASONS[reason] + (note ? ' — ' + note : ''), text: r.text.slice(0, LETTER_TEXT_MAX), song: songOf(r.song) };
     });
 }
-/** 새 편지를 넣을 빈 칸 — 없으면 null(5통 다 맡김) */
+/** 새 편지를 넣을 빈 칸 — 맡긴 수가 상한(LETTER_MAX)에 찼으면 null */
 function freeLetterId(letters){
+  if ((letters || []).length >= LETTER_MAX) return null;
   const used = new Set((letters || []).map(l => l.lid));
   return LETTER_IDS.find(id => !used.has(id)) || null;
 }
