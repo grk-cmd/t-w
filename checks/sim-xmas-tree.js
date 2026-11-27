@@ -82,6 +82,27 @@ chk(/function open\(canvas\)\{\s*if \(S\) return;/.test(SRC), '이미 열려 있
   chk(X.ornScale(NaN, M) === 1 && X.ornScale(100, 60) === 0.7, '  ↳ 이상한 값 · 상한이 작을 때');
   chk(/const size = ORN_SIZE \* ornScale\(all\.length, rules\.TREE_MAX\);/.test(SRC) && /s\.scale\.setScalar\(size\);/.test(SRC), '트리가 걸린 수로 크기를 정해 모든 장식에 같은 크기');
 }
+{ // 뒤로 넘어간 남의 장식은 숨긴다 — 깊이 당김(popOut) 때문에 옆 · 뒤 장식이 잎 위로 비쳐 보였다
+  const f = X.faceZ, near = (a, b) => Math.abs(a - b) < 1e-9;
+  chk(near(f(0, 1, 0), 1) && near(f(0, -1, 0), -1) && near(f(1, 0, 0), 0), '★ 돌지 않은 트리 — 카메라 쪽(+z) 1 · 뒤 -1 · 옆 0');
+  chk(near(f(1, 0, -Math.PI / 2), 1) && near(f(1, 0, Math.PI / 2), -1), '  ↳ 트리가 돌면 같은 장식도 앞 · 뒤가 바뀐다(three rotation.y 방향)');
+  chk(f(0, 0, 1.3) === 1 && f(NaN, 1, 0) === 1, '  ↳ 축 위 · 이상한 값은 보이게(1)');
+  chk(X.BACK_HIDE < 0 && X.BACK_HIDE > -0.5, '  ↳ 숨기는 경계는 옆보다 조금 뒤(' + X.BACK_HIDE + ')');
+  /* 실제 자리 300칸 × 36방향 — 숨긴 것은 모두 트리 축 뒤편, 앞쪽 반(0.2 넘게)은 하나도 안 숨김 */
+  const P = require(path.resolve(RP)).slotPositions(300);
+  let wrong = 0, hidden = 0;
+  for (let k = 0; k < 36; k++){ const yaw = k * Math.PI / 18;
+    for (const p of P){ const z = f(p.x, p.z, yaw), hide = !(z > X.BACK_HIDE);
+      if (hide) hidden++;
+      const wz = -p.x * Math.sin(yaw) + p.z * Math.cos(yaw);
+      if ((hide && wz > 0) || (!hide && z < X.BACK_HIDE)) wrong++; } }
+  chk(wrong === 0 && hidden > 300 * 36 * 0.35 && hidden < 300 * 36 * 0.6, '★ 실제 자리 · 36방향 — 뒤편만 숨김(숨김 ' + (hidden / 36).toFixed(0) + '/300 · 틀림 ' + wrong + ')');
+  chk(/if \(s\.userData\.mine\)\{[^}]*continue; \}/.test(SRC) && /if \(s\.parent !== S\.tree\) continue;[^\n]*\n\s*s\.visible = faceZ\(s\.position\.x, s\.position\.z, S\.yaw\) > BACK_HIDE;/.test(SRC), '그리기 — 내 장식은 늘 보이고 · 떨어진 장식은 그대로 · 나머지는 faceZ 로');
+  chk(/if \(!s\.visible && s === S\.sel\) hideSay\(\);/.test(SRC), '★ 한마디를 띄운 장식이 뒤로 넘어가면 라벨도 닫는다');
+  { const d = SRC.slice(SRC.indexOf('function dropOne'), SRC.indexOf('S.scene.attach(o)'));
+    chk(/o\.visible = true;/.test(d), '★ 뒤편이라 숨겨 둔 장식도 떨어지면 보인다(장면에 붙이기 전에 되살림)'); }
+  chk(/S\.tree\.children\.filter\(o => o\.isSprite && o\.visible\)/.test(SRC), '누르기 — 숨긴 장식은 누르지 않는다');
+}
 say('── 3절 그리기 약속');
 chk(/sizeAttenuation: false/.test(SRC), '장식은 화면에서 늘 같은 크기(sizeAttenuation:false)');
 chk(/depthTest: !o\.mine, depthWrite: !o\.mine/.test(SRC) && /s\.renderOrder = o\.mine \? 999 : 0/.test(SRC), '내 장식은 깊이를 안 보고 맨 나중에 — 늘 앞');
