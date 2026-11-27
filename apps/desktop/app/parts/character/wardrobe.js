@@ -92,14 +92,14 @@ const DESK_SCALE_MIN = deps.DESK_SCALE_MIN;   // 읽는 함수
 const _humanEarMat = deps._humanEarMat;
 const _humanEarPic = deps._humanEarPic;
 const applyDeskCatalogRefToSeat = deps.applyDeskCatalogRefToSeat;
-const applyDeskColorToCustom = deps.applyDeskColorToCustom;
 const applyDeskDotThumb = deps.applyDeskDotThumb;
 const clampDeskScale = deps.clampDeskScale;
 const humanEar = deps.humanEar;
 const resolveCatalogGlb = deps.resolveCatalogGlb;
 const glbFailWhy = deps.glbFailWhy;   // 책상 받기 실패 이유 — E-CHAR-13 진단 줄(catalog-glb.js)
 const setDeskScale = deps.setDeskScale;
-const setDeskMatColor = deps.setDeskMatColor;   // 책상 재질 색(shared/light-tone.js — emissive 까지 같이 맞춘다)
+const deskColorMats = deps.deskColorMats;   // 이 좌석 책상에서 색을 받는 재질(desk-visual.js) — 없으면 «책상 색» 칸을 숨긴다
+const applyDeskColor = deps.applyDeskColor;   // 그 재질들을 칠한다(desk-visual.js)
 const swThumb = deps.swThumb;
 /* 🎨 꾸미기 미리보기 — 꾸미기 패널 옆에 뜨는 정적 3D 미리보기.
    ★ 실제 실행 화면처럼 타이핑/졸음 등 절차적 애니메이션까지는 재현하지 않고(모델이 그대로 서 있는 정적
@@ -146,21 +146,14 @@ function _wdApplyDeskChange(mutate, relayout){
   }catch(_){}
   if(relayout) Promise.resolve(drawn).catch(()=>{}).then(()=>layoutSeats());
   Promise.resolve(drawn).catch(()=>{}).then(()=>_wdSyncDeskColorRow(seat));   // 책상을 다 그려야 색 받는 재질이 정해진다
-  try{ if(seat.desk){ setDeskScale(seat.desk, def.deskScale||DESK_SCALE_DEFAULT(), def.deskLenX||1); if(def.deskColor) applyDeskColorToCustom(seat.desk, def.deskColor); } }catch(_){}
+  try{ if(seat.desk){ setDeskScale(seat.desk, def.deskScale||DESK_SCALE_DEFAULT(), def.deskLenX||1); if(def.deskColor) applyDeskColor(seat, def.deskColor); } }catch(_){}
   _wdCommitDesk(seat, def);
   refreshWdPreviewChar();
   return def;
 }
-/* 지금 책상에서 색을 받는 재질 — GLB 책상은 이름이 _col 로 끝나는 메쉬(customMats), 내장 기본 책상은 deskMat. 없으면 «책상 색» 칸을 숨긴다 */
-function _wdDeskColorMats(seat){
-  const d = seat && seat.desk;
-  if(!d || !d.userData || d.userData.noDesk) return [];
-  if(d.userData.customMats) return d.userData.customMats;
-  return seat.deskMat ? [seat.deskMat] : [];
-}
 function _wdSyncDeskColorRow(seat){
   const row = document.getElementById('wdDeskColorRow');
-  if(row) row.style.display = _wdDeskColorMats(seat).length ? 'flex' : 'none';
+  if(row) row.style.display = deskColorMats(seat).length ? 'flex' : 'none';
 }
 /* 책상 값을 초안 · 저장 · 방에 싣는다 — 책상 바꾸기(_wdApplyDeskChange)와 조절(_wdTuneDesk)이 같이 쓴다 */
 function _wdCommitDesk(seat, def){
@@ -177,7 +170,7 @@ function _wdTuneDesk(mutate){
   const def = seat.charDef;
   mutate(def);
   setDeskScale(seat.desk, def.deskScale||DESK_SCALE_DEFAULT(), def.deskLenX||1);
-  if(def.deskColor) _wdDeskColorMats(seat).forEach(m=>setDeskMatColor(m, def.deskColor));
+  if(def.deskColor) applyDeskColor(seat, def.deskColor);
   _wdCommitDesk(seat, def);
   return def;
 }
@@ -246,7 +239,7 @@ function renderWdDeskSection(wrap){
   const box=document.createElement('div');
   box.style.cssText='display:flex;flex-direction:column;gap:7px;padding:8px;background:var(--win-face-2);border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);';
 
-  const rowColor=document.createElement('div'); rowColor.id='wdDeskColorRow'; rowColor.style.cssText='display:'+(_wdDeskColorMats(seat).length?'flex':'none')+';align-items:center;gap:8px;';
+  const rowColor=document.createElement('div'); rowColor.id='wdDeskColorRow'; rowColor.style.cssText='display:'+(deskColorMats(seat).length?'flex':'none')+';align-items:center;gap:8px;';
   const labColor=document.createElement('label'); labColor.htmlFor='wdDeskColor'; labColor.textContent='책상 색';
   labColor.style.cssText='font-size:11px;width:56px;flex-shrink:0;';
   const inColor=document.createElement('input'); inColor.type='color'; inColor.id='wdDeskColor';

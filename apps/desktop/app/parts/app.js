@@ -1155,14 +1155,14 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   _humanEarMat: (...a)=>_humanEarMat(...a),
   _humanEarPic: (...a)=>_humanEarPic(...a),
   applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),
-  applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),
+  applyDeskColor: (...a)=>deskVisualMod.applyDeskColor(...a),
+  deskColorMats: (...a)=>deskVisualMod.deskColorMats(...a),
   applyDeskDotThumb: (...a)=>assetCardsMod.applyDeskDotThumb(...a),
   clampDeskScale: (...a)=>clampDeskScale(...a),
   humanEar: humanEar,
   resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),
   glbFailWhy: (...a)=>catalogGlbMod.glbFailWhy(...a),
   setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),
-  setDeskMatColor: (...a)=>lightToneMod._setDeskMatColor(...a),
   swThumb: (...a)=>assetCardsMod.swThumb(...a),
 });
 /* ══ 🖍️ 파츠에 직접 그리기 ══════════════════════════════════════════════════
