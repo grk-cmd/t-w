@@ -158,9 +158,8 @@ say('── 1절 런처 버튼');
   chk(w3.els.lcXmas.hidden === false && w3.edge() && w3.S.clockFns.length === 1, '  ↳ 다음 세션 start 가 다시 건다(이미 맞춰진 시계도 그 자리에서 본다)');
   let twice = false; try { w3.api.start(); } catch (err) { twice = /두 번/.test(err.message); }
   chk(twice, '  ↳ reset 없이 start 를 또 부르면 던진다(알림이 겹쳐 걸리지 않게 — 조용히 덮지 않는다)');
-  let noClock = false;
-  try { W.createXmasWindow({ doc: { getElementById: () => ({ classList: { contains: () => false } }) }, win: {}, rules: R, treeMod: {}, net: () => ({}), serverNow: () => 0 }); } catch (err) { noClock = /onClock/.test(err.message); }
-  chk(noClock, '★ deps.onClock 이 없으면 만들 때 던진다(배선이 빠졌으면 크게)');
+  chk(/unsubs = \[deps\.onClock\(refreshButton\), net\(\)\.onSchedule\(refreshButton\)\];/.test(SRC) && !/typeof deps\.onClock/.test(SRC),
+    '★ 시계 · 날짜 알림을 가드 없이 바로 건다 — 배선이 빠졌으면 start 가 그 자리에서 던진다(조용히 넘기지 않는다)');
   /* mutation test */
   const mutW1 = (from, to) => { const src = SRC.split(from).join(to); if (src === SRC) return null; const m = { exports: {} }; new Function('module', 'window', 'TwSafeHtml', src)(m, undefined, global.TwSafeHtml); return m.exports; };
   const noArm = mutW1('    paintButton();\n    armEdge();\n', '    paintButton();\n');
