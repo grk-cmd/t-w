@@ -1,4 +1,4 @@
-/* xmas-credit.js — 🎄 음악 출처 올라가기(일회성 — 다음 업데이트에서 걷는다 · 이슈 #963) (검사 sim-xmas-credit.js)
+/* xmas-credit.js — 🎄 음악 출처 올라가기(일회성 — 다음 업데이트에서 걷는다 · 이슈 #963) (검사 sim-xmas-bgm.js 4절)
    제목줄 [음악 출처] 를 누르면 출처 글이 트리 화면 아래에서 위로 한 번 올라가고 사라진다(영화 끝의 크레딧처럼). 올라가는 중에 다시 누르면 바로 걷는다.
    글은 textContent 로만 넣는다. 움직임은 CSS(.xm-roll.go · @keyframes xmCredit) — 여기서는 켜고 끄기만 한다.
    ⚠️ 글 상자는 pointer-events:none — 올라가는 동안에도 트리를 돌리고 장식을 누를 수 있어야 한다(html CSS).

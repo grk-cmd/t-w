@@ -370,8 +370,8 @@ PRELOAD.push('chal-store.js');
 PRELOAD.push('weekly-challenge.js');
 /* bgm-hush.js — 🔇 듣던 유튜브 BGM 재우기 · 되살리기. purikura-ui.js 가 만들 때 부르므로 그보다 먼저. */
 PRELOAD.push('bgm-hush.js');
-/* pk-bgm.js — 🎵 스티커사진 창 BGM. purikura-ui.js 가 만들 때 부르므로 그보다 먼저. */
-PRELOAD.push('pk-bgm.js');
+/* win-bgm.js — 🎵 창 배경음악(스티커사진 · 크리스마스). purikura-ui.js 가 만들 때 부르므로 그보다 먼저. */
+PRELOAD.push('win-bgm.js');
 /* purikura-ui.js — 📷 스티커사진 창(앱 FSD 3번). 같은 까닭 — 만들 때 하는 일(_pkWire: 버튼 · 창 끌기 · ⎋ 사다리 등록)을 같이 굴린다. */
 PRELOAD.push('purikura-rt.js');   // 📷 스티커사진 세션 포트 — app.js _purikura() 가 처음 부를 때 만든다
 PRELOAD.push('purikura-ui.js');
