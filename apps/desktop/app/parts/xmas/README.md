@@ -4,7 +4,7 @@
 기획 정본은 이슈 #963, 서버는 api `xmas` 컨텍스트(#1097 · 설계 tw-docs `docs/design/11-xmas.md`) — 옛 `firebase/functions/xmas.js` · 규칙 `xmas*`(#964 · #966)는 이벤트 뒤 걷는다.
 
 **걷기**: 이벤트가 끝나면 다음 업데이트에서 이 폴더 · html 의 `#xmasOverlay` · `#lcXmas` · CSS `#xmas*` · `.xm-*` · 스크립트 줄 여덟 · app.js 의 `TwXmasWindow.createXmasWindow` 줄 ·
-음악 파일 `xmas-bgm*.mp3` 일곱 · 글꼴 `vendor/galmuri`(`third-party-notices.js` VENDOR · `oss-notices.js` 다시 만들기) · 저장 키 `tw.xmasBgmMuted`(account-store 기기 칸) · firebase-init 의 `xmas:` · `applyDesktopRunClass` 의 `xmasOv` 줄 · `UI_HIT_SEL` · `OPEN_MODAL_SEL` 의 `#xmasOverlay` · 오류 코드 `E-XMAS-*`(→ `RETIRED`) · 검사 `sim-xmas-*` ·
+음악 파일 `xmas-bgm*.mp3` 여섯 · 글꼴 `vendor/galmuri`(`third-party-notices.js` VENDOR · `oss-notices.js` 다시 만들기) · 저장 키 `tw.xmasBgmMuted`(account-store 기기 칸) · firebase-init 의 `xmas:` · `applyDesktopRunClass` 의 `xmasOv` 줄 · `UI_HIT_SEL` · `OPEN_MODAL_SEL` 의 `#xmasOverlay` · 오류 코드 `E-XMAS-*`(→ `RETIRED`) · 검사 `sim-xmas-*` ·
 main.js 배경음악 창의 주인 `'xmas'`(`bgmPanelMode` · `companion:openXmasSong`) · preload `openXmasSong` · nav.js `XMAS`(sim-nav OWNER) · 알림함 태그 `xmas`(inbox-sections `tagOf` · myhome-inbox 아이콘 · 이름 · 누르기) 를 걷는다.
 (`NAV.MY_HOME_CLOSE` 는 크리스마스 전용이 아니다 — 부르는 곳이 없어지면 sim-nav 가 알려 준다.)
 버튼은 받은 편지 열람 끝(2027-01-06 0시 · 서버 시각)부터 저절로 숨는다. 장식 · 신고는 이벤트 끝(1월 1일 0시)에 막힌다.
@@ -47,7 +47,7 @@ main.js 배경음악 창의 주인 `'xmas'`(`bgmPanelMode` · `companion:openXma
 - 검사: `sim-xmas-song.js`(main.js · preload 의 `'xmas'` 주인까지)
 
 ## xmas-bgm.js — 창 배경음악 · 출처 글
-- **책임**: 크리스마스 창이 열려 있는 동안만 나오는 배경음악 — 곡 목록 `TRACKS` 일곱을 차례로 틀고 끝나면 처음으로(`xmas-bgm.mp3` «투게더트리» · 음악 제작 HADA / `xmas-bgm-noel` · `-wish` · `-jingle` · `-silent` · `-jingle2` · `-wish2` 캐롤 여섯 · 공유마당(한국저작권위원회)) · 제목줄 «음악 끄기 / 음악 켜기»(이 PC 에 기억 · `tw.xmasBgmMuted`) · 출처 글 `CREDIT`.
+- **책임**: 크리스마스 창이 열려 있는 동안만 나오는 배경음악 — 곡 목록 `TRACKS` 여섯을 차례로 틀고 끝나면 처음으로(`xmas-bgm.mp3` «투게더트리» · 음악 제작 HADA / `xmas-bgm-wish` · `-jingle` · `-silent` · `-jingle2` · `-wish2` 캐롤 다섯 · 공유마당(한국저작권위원회)) · 제목줄 «음악 끄기 / 음악 켜기»(이 PC 에 기억 · `tw.xmasBgmMuted`) · 출처 글 `CREDIT`.
 - **만드는 법**: xmas-window 가 `TwXmasBgm.createXmasBgm({ Audio, storage, save, officeMode, warn, others })` → `{ start, stop, toggle, duck(on), isMuted, label }`. `others` 는 듣던 유튜브 BGM 재우기 규칙(`shared/bgm-hush.js` — app.js 가 만들어 넘긴다).
 - **함정**: 소리를 낼 때만 듣던 BGM 을 재우고, 끄거나 닫으면 재웠던 쪽만 되살린다. 편지 추천곡이 나는 동안은 물러난다(`duck` — xmas-song 의 `onPlay`). 추천곡이 재생 창을 가져가므로 그때 재워 둔 것은 잊는다. 회사원 모드에서는 소리를 내지 않고 남의 음악도 재우지 않는다. 닫을 때는 편지 창보다 먼저 멈춘다(추천곡이 멈추는 알림에 다시 켜지지 않게).
 - 검사: `sim-xmas-bgm.js`

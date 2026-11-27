@@ -600,7 +600,7 @@
 | **sim-xmas-tree.js** | 51 | **0d4a04e1115d** |
 | **sim-xmas-window.js** | 409 | **17e3cba22f53** |
 | **sim-xmas-song.js** | 140 | **8f1589bf966d** |
-| **sim-xmas-bgm.js** | 219 | **2bacf1a40c54** |
+| **sim-xmas-bgm.js** | 219 | **c2f3847801a4** |
 | **sim-xmas-letter.js** | 328 | **b17bbc5050d3** |
 | **sim-wardrobe-place.js** | 54 | **8c81ab2ff24e** |
 | **sim-etag-store.js** | 82 | **197e7e039a8b** |
