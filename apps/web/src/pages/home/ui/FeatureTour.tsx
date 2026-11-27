@@ -13,7 +13,6 @@ export function FeatureTour() {
     <section className="section wrap" id="about" aria-labelledby="about-title">
       <div className="sec-head">
         <h2 id="about-title">{m.aboutTitle}</h2>
-        <p>{m.aboutLead}</p>
       </div>
       <Win title={m.aboutWinTitle} className="feat">
         <div className="feat-list field" role="tablist" aria-label={m.aboutListLabel}>
