@@ -1,6 +1,6 @@
 /* sim-xmas-bgm.js — 🎄 크리스마스 창 배경음악 · 음악 출처(parts/xmas/xmas-bgm.js · xmas-credit.js · xmas-song.js onPlay)를 실제로 돌려 본다
    실행: node checks/run.js sim-xmas-bgm
-   ・1절 재생 — 창을 열면 처음부터 · 되풀이 · 닫으면 멈추고 되감음 · 경로 폴백 · 회사원 모드 무음 · Audio 없음
+   ・1절 재생 — 창을 열면 첫 곡 처음부터 · 끝나면 다음 곡 · 마지막 뒤엔 첫 곡 · 닫으면 멈추고 되감음 · 폴더 폴백 · 회사원 모드 무음 · Audio 없음
    ・2절 끄기 — 이 PC 에 기억(tw.xmasBgmMuted) · 꺼 둔 PC 는 소리 없이 · 켜면 멈춘 자리부터
    ・3절 겹치지 않게 — 소리를 낼 때만 듣던 BGM 을 재우고 · 끄거나 닫으면 재웠던 쪽만 되살림 · 추천곡이 나는 동안 물러남(그때 재운 것은 잊음)
    ・4절 출처 글 — 내용 · 올리기 / 걷기 / 끝나면 숨김 · 글은 textContent
@@ -29,7 +29,7 @@ function world(src, o){
   }
   const M = load(src, 'TwXmasBgm');
   e.M = M;
-  e.B = M.createXmasBgm({ Audio: o.noAudio ? null : FakeAudio, srcs: o.srcs, storage: o.badStore ? { getItem(){ throw new Error('x'); } } : { getItem: (k) => (k in e.store ? e.store[k] : null) },
+  e.B = M.createXmasBgm({ Audio: o.noAudio ? null : FakeAudio, tracks: o.tracks, dirs: o.dirs, storage: o.badStore ? { getItem(){ throw new Error('x'); } } : { getItem: (k) => (k in e.store ? e.store[k] : null) },
     save: (k, v) => { e.saves.push([k, v]); e.store[k] = v; return true; }, officeMode: () => e.office, warn: (...a) => e.warns.push(a.join(' ')),
     others: { hush: () => { e.hush++; const p = e.playing; e.playing = null; return p; }, unhush: (h) => { e.unhush.push(h); } } });
   e.a = () => e.audios[e.audios.length - 1];
@@ -42,14 +42,26 @@ function judge(src){
   let e = world(src);
   t(e.audios.length === 0 && e.hush === 0, '만들기만 해서는 소리도 · 재우기도 없다');
   e.B.start();
-  t(e.audios.length === 1 && e.a().src === 'parts/xmas/xmas-bgm.mp3' && e.a().loop === true && e.a().paused === false && e.a().currentTime === 0 && Math.abs(e.a().volume - 0.32) < 1e-9,
-    '★ 창을 열면 처음부터 · 되풀이(loop) · 작은 소리(0.32)로 튼다');
+  t(e.audios.length === 1 && e.a().src === 'parts/xmas/xmas-bgm.mp3' && e.a().loop === false && e.a().paused === false && e.a().currentTime === 0 && Math.abs(e.a().volume - 0.32) < 1e-9,
+    '★ 창을 열면 첫 곡(투게더트리)을 처음부터 · 작은 소리(0.32)로 튼다');
   t(e.hush === 1, '★ 소리를 낼 때 듣던 유튜브 BGM 을 재운다(hush 한 번)');
   e.a().currentTime = 33;
   e.B.stop();
   t(e.a().paused === true && e.a().currentTime === 0 && J(e.unhush) === '[{"pl":true,"home":false}]', '★ 닫으면 멈추고 되감는다 · 재웠던 쪽을 되살린다');
   e.B.start();
   t(e.audios.length === 1 && e.a().plays === 2, '  ↳ 다시 열면 같은 Audio 하나를 다시 쓴다');
+  /* 곡 넘기기 */
+  e = world(src); e.B.start();
+  const seen = [e.a().src];
+  for(let i = 0; i < 4; i++){ e.a().paused = true; e.a().L.ended(); seen.push(e.a().src + (e.a().paused ? '(멈춤)' : '')); }
+  t(seen.join() === 'parts/xmas/xmas-bgm.mp3,parts/xmas/xmas-bgm-noel.mp3,parts/xmas/xmas-bgm-wish.mp3,parts/xmas/xmas-bgm-jingle.mp3,parts/xmas/xmas-bgm.mp3' && e.audios.length === 1,
+    '★ 한 곡이 끝나면 다음 곡 · 마지막 곡 뒤에는 첫 곡으로(네 곡을 차례로) — ' + seen.map(x => x.replace('parts/xmas/', '')).join(' → '));
+  e.a().L.ended(); e.B.stop(); e.B.start();
+  t(e.a().src === 'parts/xmas/xmas-bgm.mp3' && e.a().currentTime === 0 && e.a().paused === false, '  ↳ 창을 다시 열면 첫 곡부터');
+  e = world(src); e.B.start(); e.B.toggle(); e.a().L.ended();
+  t(e.a().src === 'parts/xmas/xmas-bgm-noel.mp3' && e.a().paused === true, '  ↳ 꺼 둔 사이 곡이 끝나도 소리를 내지 않는다');
+  e = world(src, { tracks: ['only.mp3'], dirs: [''] }); e.B.start();
+  t(e.a().loop === true, '  곡이 하나뿐이면 그 곡을 되풀이(loop)');
   /* 끄기 */
   e = world(src); e.B.start(); e.a().currentTime = 12;
   e.B.toggle();
@@ -72,8 +84,10 @@ function judge(src){
   e = world(src, { badStore: true }); e.B.start();
   t(e.B.isMuted() === false && e.a().paused === false, '저장소가 던지면 켜짐으로 돈다');
   /* 경로 폴백 */
-  e = world(src, { srcs: ['a.mp3', 'b.mp3'] }); e.B.start(); e.a().L.error();
-  t(e.audios.length === 2 && e.a().src === 'b.mp3' && e.a().paused === false && e.warns.length === 0, '경로 폴백 — 첫 경로가 없으면 다음 경로로 다시 튼다');
+  e = world(src, { tracks: ['x.mp3', 'y.mp3'], dirs: ['a/', 'b/'] }); e.B.start(); e.a().L.error();
+  t(e.audios.length === 1 && e.a().src === 'b/x.mp3' && e.a().paused === false && e.warns.length === 0, '폴더 폴백 — 첫 폴더에 없으면 다음 폴더에서 다시 튼다');
+  e.a().L.ended();
+  t(e.a().src === 'b/y.mp3', '  ↳ 찾은 폴더는 다음 곡에도 그대로 쓴다');
   e.a().L.error();
   t(e.warns.length === 1 && /BGM 파일을 못 찾았어요/.test(e.warns[0]), '  ↳ 다 떨어지면 경고 한 줄(창은 그대로)');
   /* 추천곡에 물러남 */
@@ -101,7 +115,9 @@ for(const [ok, msg] of res){ if(ok === 'async'){ await new Promise(r => setTimeo
 say('── 4절 출처 글');
 {
   const M = load(SRC, 'TwXmasBgm');
-  chk(Array.isArray(M.CREDIT) && M.CREDIT.includes('투게더트리') && M.CREDIT.includes('HADA') && M.CREDIT.includes('CM @hada_msc') && Object.isFrozen(M.CREDIT), '출처 — 제목 «투게더트리» · 음악 제작 HADA · CM @hada_msc');
+  chk(Array.isArray(M.CREDIT) && M.CREDIT.includes('투게더트리') && M.CREDIT.includes('음악 제작 HADA') && M.CREDIT.includes('CM @hada_msc') && Object.isFrozen(M.CREDIT), '출처 — 제목 «투게더트리» · 음악 제작 HADA · CM @hada_msc');
+  chk(['The First Noel', 'We Wish You A Merry Christmas', 'Jingle Bell', '공유마당(한국저작권위원회)'].every(x => M.CREDIT.includes(x)), '출처 — 캐롤 세 곡 · 공유마당(한국저작권위원회)');
+  chk(M.TRACKS.length === 4 && M.TRACKS[0] === 'xmas-bgm.mp3' && M.TRACKS.every(f => has('xmas/' + f)), '★ 곡 목록의 파일 넷이 모두 앱에 있다(parts/xmas/) — ' + M.TRACKS.join(' · '));
   const mkEl = () => { const cls = new Set(), L = {}, st = {}; const el = { children: [], hidden: false, textContent: '', className: '', clientHeight: 480, offsetWidth: 1,
     classList: { add: (c) => cls.add(c), remove: (c) => cls.delete(c), contains: (c) => cls.has(c) }, style: { setProperty: (k, v) => { st[k] = v; } }, st,
     addEventListener: (t, f) => { L[t] = f; }, fire: (t) => L[t] && L[t](), appendChild(c){ this.children.push(c); return c; } }; return el; };
@@ -169,7 +185,6 @@ say('── 6절 배선');
     '출처 글 — 하얀 글자 · 검은 테두리 · 도트 글꼴(Galmuri11) · 아래에서 위로 한 번');
   chk(/@font-face\{font-family:'Galmuri11';[^}]*url\('vendor\/galmuri\/Galmuri11-Bold\.woff2'\)/.test(HTML) && has('vendor/galmuri/Galmuri11-Bold.woff2') && has('vendor/galmuri/LICENSE'), '글꼴 파일 · 라이선스 원문이 앱에 있다(vendor/galmuri)');
   chk(/"name":"Galmuri"/.test(OSS) && /OFL-1\.1/.test(OSS), '★ 오픈소스 라이선스 창에 Galmuri(OFL-1.1) 가 실린다');
-  chk(has('xmas/xmas-bgm.mp3'), '음악 파일이 앱에 있다(parts/xmas/xmas-bgm.mp3)');
   chk(ACC.includes("'tw.xmasBgmMuted'"), '기기 칸 목록에 tw.xmasBgmMuted — 계정을 바꿔도 이 PC 설정으로 남는다');
   chk(/bgmMod: TwXmasBgm, creditMod: TwXmasCredit,/.test(APP) && /officeMode: \(\)=>officeModeMod\.officeMode\(\)/.test(APP) && /bgmHush: TwBgmHush\.createBgmHush\(\{/.test(APP), 'app.js — 창에 배경음악 · 출처 모듈 · 회사원 모드 · 재우기 규칙을 넘긴다');
   chk(/song\.onPlay\(\(on\) => bgm\.duck\(on\)\);/.test(WIN), '창 — 추천곡 알림에 duck 을 건다');
@@ -186,7 +201,9 @@ say('── 7절 mutation test');
     ['닫아도 안 되살림', SRC.replace('if(ducked){ hushed = null; ducked = false; } else wake(); }', 'if(ducked){ hushed = null; ducked = false; } }')],
     ['추천곡에 물러날 때 재운 것을 되살림', SRC.replace('    if(on) hushed = null;   // 추천곡이 재생 창을 가져갔다 — 재워 둔 것은 되살릴 수 없다\n', '').replace('    if(!ducked) wake();', '    wake();')],
     ['닫을 때 되감지 않음', SRC.replace('function stop(){ open = false; halt(true);', 'function stop(){ open = false; halt(false);')],
-    ['되풀이 안 함', SRC.replace('a.loop = true; ', '')],
+    ['끝나도 다음 곡으로 안 넘어감', SRC.replace('trackIdx = (trackIdx + 1) % tracks.length; load(); if(wants()) play(false);', '')],
+    ['다시 열어도 듣던 곡부터', SRC.replace('if(trackIdx !== 0){ trackIdx = 0; load(); } ', '')],
+    ['꺼 둔 사이 곡이 끝나면 소리를 냄', SRC.replace("a.addEventListener('ended', () => { trackIdx = (trackIdx + 1) % tracks.length; load(); if(wants()) play(false); });", "a.addEventListener('ended', () => { trackIdx = (trackIdx + 1) % tracks.length; load(); play(false); });")],
   ];
   for(const [name, m] of muts){
     let red = false;
