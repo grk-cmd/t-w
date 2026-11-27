@@ -577,6 +577,8 @@ PRELOAD.push('rich-text.js');
 PRELOAD.push('win-stack.js');
 /* stroke-pointer.js — 🖊 그림판 획 판정(window.TwStrokePointer). app.js 가 만들 때 deps 로 넘긴다. */
 PRELOAD.push('stroke-pointer.js');
+/* wd-desk-preview.js — 🪑 꾸미기 미리보기의 책상 몸(window.TwWdDeskPreview). app.js 가 꾸미기 창보다 먼저 만든다. */
+PRELOAD.push('wd-desk-preview.js');
 /* sfx.js — 🔊 효과음 공장(앱 FSD 42번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSfx 를 같이 굴린다. */
 PRELOAD.push('sfx.js');
 /* face-heal.js — 얼굴 자동 복구(앱 FSD 43번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createFaceHeal 를 같이 굴린다. */

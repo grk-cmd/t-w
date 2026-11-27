@@ -286,8 +286,8 @@ else{
     '  기본·무료 책상이 어디 있는지 알려 준다 (옮긴 뒤 «사라졌다» 가 되지 않게)');
   chk(/wdDeskScale/.test(deskSec) && /wdDeskLenX/.test(deskSec) && /wdDeskColor/.test(deskSec),
     '  조절 3종(색·크기·길이)이 같이 왔다');
-  chk(!/deskPosGz|기즈모로 옮기기/.test(deskSec),
-    '  위치 기즈모는 안 가져왔다 — 생성기 미리보기 카메라와 한 벌이라 5단계에 남는다');
+  chk(/wdDeskPosReset/.test(deskSec) && /_wdDeskPosReset\(\)/.test(deskSec) && !/deskPosGz/.test(deskSec),
+    '  위치는 미리보기의 손잡이로 옮긴다 — 탭에는 [위치 초기화] 만(생성기의 #deskPosGz 버튼을 가져오지 않는다)');
 }
 const applyFn = grabFn('_wdApplyDeskChange') || '', tuneFn = grabFn('_wdTuneDesk') || '';
 const commitDesk = grabFn('_wdCommitDesk') || '';

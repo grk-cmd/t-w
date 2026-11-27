@@ -98,6 +98,8 @@ const humanEar = deps.humanEar;
 const resolveCatalogGlb = deps.resolveCatalogGlb;
 const glbFailWhy = deps.glbFailWhy;   // 책상 받기 실패 이유 — E-CHAR-13 진단 줄(catalog-glb.js)
 const setDeskScale = deps.setDeskScale;
+const setDeskPos = deps.setDeskPos;
+const deskPreview = deps.deskPreview;   // 🪑 미리보기의 책상 몸 · 위치 계산(wd-desk-preview.js)
 const deskColorMats = deps.deskColorMats;   // 이 좌석 책상에서 색을 받는 재질(desk-visual.js) — 없으면 «책상 색» 칸을 숨긴다
 const applyDeskColor = deps.applyDeskColor;   // 그 재질들을 칠한다(desk-visual.js)
 const swThumb = deps.swThumb;
@@ -158,7 +160,7 @@ function _wdSyncDeskColorRow(seat){
 /* 책상 값을 초안 · 저장 · 방에 싣는다 — 책상 바꾸기(_wdApplyDeskChange)와 조절(_wdTuneDesk)이 같이 쓴다 */
 function _wdCommitDesk(seat, def){
   // 미리보기는 draft 를 본다 — 같은 값을 적어 주지 않으면 창 안에서만 옛 책상이 남는다
-  if(wdDraftDef && wdDraftDef._srcDef === def){ wdDraftDef.deskCatalogId=def.deskCatalogId; wdDraftDef.deskScale=def.deskScale; wdDraftDef.deskLenX=def.deskLenX; wdDraftDef.deskColor=def.deskColor; wdDraftDef[DESK_LICENSE_HOLD()]=def[DESK_LICENSE_HOLD()]; }
+  if(wdDraftDef && wdDraftDef._srcDef === def){ wdDraftDef.deskCatalogId=def.deskCatalogId; wdDraftDef.deskScale=def.deskScale; wdDraftDef.deskLenX=def.deskLenX; wdDraftDef.deskColor=def.deskColor; wdDraftDef.deskPos=def.deskPos; wdDraftDef[DESK_LICENSE_HOLD()]=def[DESK_LICENSE_HOLD()]; }
   saveSlots();
   if(seat.isMe && Presence().active()) Presence().updateDef(def);
 }
@@ -171,8 +173,32 @@ function _wdTuneDesk(mutate){
   mutate(def);
   setDeskScale(seat.desk, def.deskScale||DESK_SCALE_DEFAULT(), def.deskLenX||1);
   if(def.deskColor) applyDeskColor(seat, def.deskColor);
+  deskPreview.tune(def);
   _wdCommitDesk(seat, def);
   return def;
+}
+/* 🪑 책상 탭 — 미리보기의 책상을 기즈모로 옮긴다(이동만). 끄는 동안은 내 좌석 책상만 같이 옮기고, 놓을 때 저장 · 방 전파 · 좌석 줄 다시 잡기 */
+function _wdDeskTabOn(){ return currentWdTab === WD_DESK_TAB() && wdLicensed(); }   // 잠긴 탭(라이선스 없음)에서는 손잡이를 붙이지 않는다
+function _wdSetDeskPos(pos){
+  const seat = findMySeat();
+  if(!seat || !seat.charDef || !seat.desk || !pos) return null;
+  if(deskPreview.isZero(pos)) delete seat.charDef.deskPos; else seat.charDef.deskPos = pos;   // 0 이면 칸을 두지 않는다(생성기 저장과 같은 모양)
+  setDeskPos(seat.desk, seat.charDef.deskPos);
+  return seat;
+}
+function _wdDeskDragged(){ _wdSetDeskPos(deskPreview.readPos()); }
+function _wdDeskDropped(){
+  const seat = _wdSetDeskPos(deskPreview.readPos());
+  if(!seat) return;
+  _wdCommitDesk(seat, seat.charDef);
+  layoutSeats();   // 좌우로 밀었으면 좌석 간격을 다시 잡는다
+}
+function _wdDeskPosReset(){
+  const seat = _wdSetDeskPos(deskPreview.resetPos());
+  if(!seat) return;
+  _wdCommitDesk(seat, seat.charDef);
+  layoutSeats();
+  updateWdGizmoForActivePanel();   // 기즈모 손잡이도 제자리로
 }
 function renderWdDeskSection(wrap){
   const seat = findMySeat();
@@ -267,8 +293,13 @@ function renderWdDeskSection(wrap){
 
   const posHint=document.createElement('p');
   posHint.style.cssText='margin:0;font-size:10px;line-height:1.6;color:var(--ink-soft);';
-  posHint.textContent='책상 위치는 캐릭터 만들기 5단계의 기즈모에서 맞춰요.';
-  box.appendChild(posHint);
+  posHint.textContent='책상 위치는 미리보기의 화살표를 끌어 옮겨요.';
+  const rowPos=document.createElement('div'); rowPos.style.cssText='display:flex;align-items:center;gap:8px;';
+  const posReset=document.createElement('button'); posReset.type='button'; posReset.id='wdDeskPosReset'; posReset.className='wd-add-code'; posReset.textContent='위치 초기화';
+  posReset.onclick=()=>{ _wdDeskPosReset(); };
+  posHint.style.flex='1';
+  rowPos.appendChild(posHint); rowPos.appendChild(posReset);
+  box.appendChild(rowPos);
   sec.appendChild(box);
   wrap.appendChild(sec);
 }
@@ -311,9 +342,9 @@ function ensureWdGizmo(){
   }
   wdGizmo = new THREE.TransformControls(wdCam, wdRenderer.domElement);
   wdGizmo.setSize(3.2);   // 런처1-1: 기즈모 두 배(1.6 → 3.2)
-  wdGizmo.addEventListener('objectChange', ()=>{ if(wdEar.isActive()) wdEar.onGizmoChange(); else syncWdGizmoToXf(); });
+  wdGizmo.addEventListener('objectChange', ()=>{ if(wdEar.isActive()) wdEar.onGizmoChange(); else if(_wdDeskTabOn()) _wdDeskDragged(); else syncWdGizmoToXf(); });
   // 드래그가 끝나는 순간에만(매 프레임이 아니라) 상세조정 패널의 숫자 표시를 다시 그림 — 무거운 재렌더를 드래그 중엔 피함
-  wdGizmo.addEventListener('dragging-changed', e=>{ if(!e.value) renderWardrobe(); });
+  wdGizmo.addEventListener('dragging-changed', e=>{ if(e.value) return; if(_wdDeskTabOn()) _wdDeskDropped(); renderWardrobe(); });
   wdScene.add(wdGizmo);
 }
 let wdGizmoInstanceIdx = 0;   // 런처9: 다중 파츠일 때 지금 조정 중인 인스턴스 (0 = main / 1+ = extra)
@@ -428,6 +459,21 @@ function updateWdGizmoForActivePanel(){
   /* 🐾 귀 탭은 파츠가 아니라 귀에 핸들을 붙인다(wd-ear.js) — 조정할 귀 줄도 거기서 그린다 */
   if(wdEar.isActive()){ wdGizmoCat=null; wdGizmoPartId=null; wdEar.syncGizmo(); try{ partPaintMod().refreshWdPicUI(); }catch(_){} updateWdCam(); sizeWdPreview(); return; }
   if(wdEar.hideRow()){ updateWdCam(); sizeWdPreview(); }   // 귀 탭에서 막 나왔다 — 구도·캔버스 크기 되돌림
+  /* 🪑 책상 몸은 책상 묶음 탭(책상 · 책상 위)에서만 보인다 — 다른 탭에서는 옷을 가린다. 책상 탭이면 그 몸에 이동 손잡이를 붙인다 */
+  deskPreview.setShown(currentWdGroup === 'desk');
+  updateWdCam();   // 책상 묶음 탭 구도로 들어가거나 나온다
+  if(_wdDeskTabOn()){
+    if(bar) bar.style.display='none';
+    wdGizmoCat=null; wdGizmoPartId=null;
+    ensureWdGizmo();
+    const body = deskPreview.body();
+    if(wdGizmo){
+      if(body){ wdGizmo.attach(body); wdGizmo.setMode('translate'); wdGizmo.showX = wdGizmo.showY = wdGizmo.showZ = true; }   // wdGizmoMode 는 안 바꾼다 — 파츠로 돌아가면 고른 모드 그대로
+      else wdGizmo.detach();
+    }
+    try{ partPaintMod().refreshWdPicUI(); }catch(_){}
+    return;
+  }
   if(activeWdAdj && activeWdAdj.cat){
     if(bar) bar.style.display='flex';
     // 런처9: 다중 파츠의 활성 인스턴스도 복원 (renderWardrobe로 패널 재생성돼도 유지)
@@ -587,11 +633,14 @@ let wdCamCenter=new THREE.Vector3(), wdCamLookY=0, wdCamBaseDist=1;
    (사용자가 휠·방향키로 맞춘 값은 그대로 두고 그 위에 얹는다) */
 const WD_EAR_CAM_LIFT = 0.12, WD_EAR_CAM_ZOOM = 1.18;
 function _wdEarCamOn(){ try{ return wdEar.isActive(); }catch(_){ return false; } }
+const WD_DESK_CAM_ZOOM = 1.6, WD_DESK_CAM_LIFT = -0.12;   // 책상 묶음 탭 구도 — 거리 배율 · 보는 높이(기준 거리의 몫 · 음수 = 아래)
 function updateWdCam(){
   if(!wdCam) return;
   const _ear = _wdEarCamOn();
-  const dist = wdCamBaseDist * wdZoomMul * (_ear ? WD_EAR_CAM_ZOOM : 1);
-  const _lift = _ear ? wdCamBaseDist * WD_EAR_CAM_LIFT : 0;
+  /* 🪑 책상 묶음 탭 — 캐릭터 기준 구도로는 발밑의 책상이 화면 밖이다. 물러나고 조금 내려서 책상까지 담는다 */
+  const _desk = !_ear && currentWdGroup === 'desk';
+  const dist = wdCamBaseDist * wdZoomMul * (_ear ? WD_EAR_CAM_ZOOM : _desk ? WD_DESK_CAM_ZOOM : 1);
+  const _lift = _ear ? wdCamBaseDist * WD_EAR_CAM_LIFT : _desk ? wdCamBaseDist * WD_DESK_CAM_LIFT : 0;
   // ★ 위/아래 방향키 — 예전엔 카메라 "각도"(하이앵글/로우앵글)를 바꿔서 일정 범위 이상 넘어가면
   //   더 이상 안 움직이는 것처럼 보였음. 요청대로 각도는 고정하고 카메라 자체의 "높이"만 위아래로
   //   옮기는 방식으로 변경 — 카메라와 보는 지점(lookAt)을 같이 옮겨서 각도는 그대로 유지됨.
@@ -629,6 +678,7 @@ async function refreshWdPreviewChar(){
   ensureWdPreview(); if(!wdRenderer) return;
   const mySeat=findMySeat(); if(!mySeat||!mySeat.charDef) return;
   const def=ensureWdDraft(); if(!def) return;
+  deskPreview.dispose();
   if(wdPreviewBase){
     wdScene.remove(wdPreviewBase.group);
     // 🪑 미리보기용 책상 자리도 같이 치운다 — 안 치우면 미리보기를 열 때마다 빈 Group 이 쌓이고,
@@ -694,7 +744,7 @@ async function refreshWdPreviewChar(){
      이 미리보기는 그 함수를 안 타므로 여기서 직접 심는다. 없으면 핀이 ratio=1 로 떨어져
      이 화면에서만 '책상 위' 파츠가 책상 크기 슬라이더를 따라간다(= 고치려던 그 증상). */
   _wdDeskGrp.userData.deskScaleBase = _wdS;
-  _wdDeskGrp.scale.set(_wdS * _wdLx * _wdAnim, _wdS * _wdAnim, _wdS * _wdAnim);   // setDeskScale 과 같은 식
+  { const _sc = deskPreview.scaleOf(def, _wdAnim); _wdDeskGrp.scale.set(_sc.x, _sc.y, _sc.z); }   // setDeskScale 과 같은 식 — 미리보기 책상 몸과 한 곳(wd-desk-preview.js)
   /* ★ 캐릭터의 앞뒤·좌우 이동값(xf.z · xf.x)까지 셈에 넣어야 한다.
      [경위] 실행 화면에서는 캐릭터가 CHAR_Z 에 **더해** xf.z 만큼 더 움직인다(fitModel 의
        m.position.z += userZ). 그런데 이 미리보기는 캐릭터를 늘 z=0 에 세운다 — xf.z 를 안 쓴다.
@@ -728,19 +778,19 @@ async function refreshWdPreviewChar(){
        어긋나는 상대는 **생성기**였다 — 기즈모로 옮긴 양이 두 화면에서 2.5배로 들어갔다.
      ⚠️ deskPosBase 에는 곱하지 않는다 — 그건 파츠 핀이 상쇄에 쓰는 100% 단위 원본이고,
        핀 쪽 나눗셈(syncDeskPartAnchor)이 자기 배율을 따로 곱한다. 여기서 미리 곱하면 두 번 걸린다. */
-  if(def.deskPos){ _wdDeskGrp.position.x += (+def.deskPos.x||0) * _wdAnim;
-                   _wdDeskGrp.position.y += (+def.deskPos.y||0) * _wdAnim;
-                   _wdDeskGrp.position.z += (+def.deskPos.z||0) * _wdAnim;
-    /* 📌 여기는 setDeskPos 를 안 타고 position 에 직접 더한다(위 좌표에는 deskPos 말고도
-       CHAR_Z·xf 보정이 섞여 있어서 position 전체를 상쇄하면 안 된다). 그래서 '상쇄해야 할
-       몫'만 따로 적어 둔다 — 파츠 핀은 오직 이 값만 본다. */
-    _wdDeskGrp.userData.deskPosBase = { x:+def.deskPos.x||0, y:+def.deskPos.y||0, z:+def.deskPos.z||0 }; }
+  /* 📌 setDeskPos 를 안 탄다 — 위 좌표(base0)에는 CHAR_Z · xf 보정이 섞여 있어 position 전체를 상쇄하면 안 된다.
+     deskPos 를 얹는 식 · 파츠 핀이 볼 상쇄 몫(deskPosBase)은 책상 몸과 한 곳(wd-desk-preview.js placeDeskPos) */
+  const _wdBase0 = { x:_wdDeskGrp.position.x, y:_wdDeskGrp.position.y, z:_wdDeskGrp.position.z };
+  deskPreview.placeDeskPos(_wdDeskGrp, _wdBase0, def.deskPos, _wdAnim);
   const _wdDesk = new THREE.Group();
   _wdDesk.name = 'deskAnchor';
   _wdDesk.position.set(0, WD_PREVIEW_DESK_Y, WD_PREVIEW_DESK_Z);   // buildDesk 와 같은 좌표
   _wdDesk.scale.set(1/_wdLx, 1, 1);                                 // setDeskScale 과 같은 상쇄
   _wdDeskGrp.add(_wdDesk);
   wdScene.add(_wdDeskGrp);
+  /* 🪑 책상 몸(wd-desk-preview.js) — 위 빈 그룹의 자리 · 크기를 그대로 받는다. GLB 는 늦게 오니 다 그린 뒤 손잡이를 다시 붙인다 */
+  deskPreview.setShown(currentWdGroup === 'desk');
+  deskPreview.rebuild({ scene:wdScene, def, anchorGroup:_wdDeskGrp, base0:_wdBase0, anim:_wdAnim }).catch(()=>{}).then(()=>{ if(_wdDeskTabOn()) updateWdGizmoForActivePanel(); });
   wdPreviewBase = { group:g, root:base.root, bones, boneRest, equippedPartObjs:{}, charDef:def, isMe:false,
     deskAnchor:_wdDesk, deskGroup:_wdDeskGrp,
     // ★ defToBase가 이제 이 참조들을 같이 반환하므로 그대로 옮겨줌 — 이게 없으면 applyClothVisibility가
