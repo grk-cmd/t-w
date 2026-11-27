@@ -1,8 +1,9 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { prerenderAll, renderPage } from '@/app/entry-server';
 import { HELP_URL, PRIVACY_URL, SITE_ORIGIN } from '@/shared/config';
 import { LANGS, messagesFor, pathFor } from '@/shared/i18n';
+import { FEATURE_SHOTS } from '@/pages/home/model/feature-shots';
 
 const TEMPLATE = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
@@ -64,6 +65,18 @@ describe('미리 그린 페이지', () => {
       expect(body).not.toContain('id="maker"');
       expect(body).not.toContain('href="#maker"');
     }
+  });
+
+  it('소개는 기능마다 앱 화면이 하나씩 — 언어마다 기능 수와 같고 파일이 있고, 미리 그린 페이지엔 첫 기능 화면', () => {
+    for (const lang of LANGS) expect(messagesFor(lang).features).toHaveLength(FEATURE_SHOTS.length);
+    for (const s of FEATURE_SHOTS)
+      expect(existsSync(new URL(`../public${s.src}`, import.meta.url)), s.src).toBe(true);
+    const { body } = renderPage('ko');
+    const first = FEATURE_SHOTS[0];
+    expect(body).toContain(
+      `<img class="feat-shot" src="${first.src}" width="${first.w}" height="${first.h}"`,
+    );
+    expect(body.match(/class="feat-shot"/g)).toHaveLength(1);
   });
 
   it('내려받기 단추는 주소가 생기기 전까지 눌리지 않는다', () => {

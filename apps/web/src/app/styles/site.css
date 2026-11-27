@@ -855,6 +855,16 @@ h3 {
   color: var(--ink-soft);
   font-size: 14px;
 }
+/* 앱 캡처는 크기가 제각각 — 칸 너비 · 높이 안에 줄여 넣는다(늘리지 않음) */
+.feat-shot {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 360px;
+  margin-top: 6px;
+  border: 1px solid var(--bevel-dark);
+}
 
 /* 내려받기 */
 .end {
