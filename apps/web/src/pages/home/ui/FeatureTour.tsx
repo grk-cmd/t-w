@@ -1,6 +1,7 @@
 import { useId, useState } from 'react';
 import { useI18n } from '@/shared/i18n';
 import { Win } from '@/shared/ui';
+import { FEATURE_SHOTS } from '../model/feature-shots';
 
 /** 소개 — 왼쪽 기능 목록(탭) · 오른쪽 설명. 미리 그린 HTML 은 첫 기능이 열린 채로 나간다. */
 export function FeatureTour() {
@@ -9,6 +10,7 @@ export function FeatureTour() {
   const base = useId();
   const f = m.features[cur] ?? m.features[0];
   if (!f) return null;
+  const shot = FEATURE_SHOTS[cur];
   return (
     <section className="section wrap" id="about" aria-labelledby="about-title">
       <div className="sec-head">
@@ -40,6 +42,7 @@ export function FeatureTour() {
         >
           <h3>{f.sub}</h3>
           <p>{f.text}</p>
+          {shot && <img className="feat-shot" src={shot.src} width={shot.w} height={shot.h} alt={f.label} />}
         </div>
       </Win>
     </section>
