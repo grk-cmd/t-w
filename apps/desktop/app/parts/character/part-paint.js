@@ -32,7 +32,6 @@ const partEntryInstances = deps.partEntryInstances;
 const partEntryXf = deps.partEntryXf;
 const refreshWdPreviewColorSection = deps.refreshWdPreviewColorSection;
 const savedParts = deps.savedParts;   // 읽는 함수
-const sizeWdPreview = deps.sizeWdPreview;
 const strokeSeg = deps.strokeSeg;
 const toast = deps.toast;
 const updateWdCam = deps.updateWdCam;
@@ -152,7 +151,6 @@ function refreshWdPicUI(){
     const want = _wdPic.on ? 'flex' : 'none';
     if(sec.style.display !== want){
       sec.style.display = want;
-      sizeWdPreview();
       updateWdCam();
     }
   }

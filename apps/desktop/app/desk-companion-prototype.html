@@ -137,6 +137,8 @@
   html[data-theme="bubble"][data-accent="c3"]{ /* 그린 — 버블 테마의 기본값 */
     --acc-d:#6BA82F; --acc-m:#9ED44F; --acc-l:#D8EE9E; --acc-tint:#E8F4D4;
     --acc-brd:#BCCDB2; --acc-face:#EEF1EA; --acc-desk:#CBDFB2; --acc-pop:#FFC24B; --acc-sweep:none; }
+  /* 👑 내 색 — 버블 제목줄도 설정 칸 미리보기(theme-custom.js chipCss)처럼 좌 → 우. 기본 버블은 위 → 아래(같은 색 두 톤) */
+  html[data-theme="bubble"][data-accent="cx"]{ --win-title-grad:linear-gradient(90deg, var(--acc-l), var(--acc-m)); }
   html[data-theme="bubble"][data-accent="c4"]{ /* 피치 — 좌 살구 → 우 연분홍 */
     --acc-d:#F0BFA4; --acc-m:#EFBBD4; --acc-l:#FFE8DA; --acc-tint:#FBEBEF;
     --acc-brd:#E6CBCE; --acc-face:#F8F1EF; --acc-desk:#F2CFC4; --acc-pop:#8FCFC6;
@@ -5200,17 +5202,18 @@
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     z-index:var(--z-wardrobe);display:flex;flex-direction:column;overflow:hidden;border-radius:var(--win-radius-el) !important;}
   #wardrobePanel.on{visibility:visible;pointer-events:auto;}
-  /* 꾸미기 미리보기 — 꾸미기 창 왼쪽에 붙어 같이 움직이는 정적 3D 미리보기 */
+  /* 꾸미기 미리보기 — 꾸미기 창 왼쪽에 붙어 같이 움직이는 정적 3D 미리보기.
+     높이는 고정이다 — 아래 줄(기즈모 · 귀 · 색 · 그리기)이 생기면 창이 늘지 않고 캔버스가 그만큼 준다(그림판 비율은 wardrobe.js ensureWdPreview 가 맞춘다). */
   #wdPreviewPanel{
     position:fixed;left:0;top:0;
-    width:320px;min-height:420px;max-height:78vh;
+    width:320px;height:min(480px, 78vh);
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     z-index:var(--z-wardrobe);flex-direction:column;overflow:hidden;
     display:none;   /* ★ transform으로 화면 밖에 숨기던 방식은 창 폭이 좁으면(런처 등) 일부가 그대로 보이는 문제가 있어서 display로 확실히 숨김 */;border-radius:var(--win-radius-el) !important;}
   #wdPreviewPanel.on{display:flex;}
   #wdPreviewPanel .wd-top h2{font-size:11px;}
-  #wdPreviewCanvas{width:100%;flex:1 1 280px;min-height:220px;background:repeating-conic-gradient(#eee 0% 25%, #f7f7f7 0% 50%) 50%/16px 16px;}
+  #wdPreviewCanvas{width:100%;flex:1 1 0;min-height:120px;background:repeating-conic-gradient(#eee 0% 25%, #f7f7f7 0% 50%) 50%/16px 16px;}
   #wdGizmoBar{display:flex;gap:4px;padding:5px 8px;justify-content:center;
     border-top:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);background:var(--win-face);border-radius:var(--win-radius-el) !important;}
   .wd-gizmo-btn{font-size:10.5px;padding:3px 8px;cursor:pointer;flex:1;
