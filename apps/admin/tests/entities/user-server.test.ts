@@ -107,33 +107,16 @@ describe('사용자 한 사람 — API 판', () => {
     expect(u2.inviteCode).toBeNull();
   });
 
-  it('작은 읽기(이름 · 소개 · 집중 · 라이선스)는 모두 상세의 한 칸이고 같은 때의 요청은 한 번만 보낸다', async () => {
+  it('작은 읽기(이름 · 소개 · 집중)는 모두 상세의 한 칸이고 같은 때의 요청은 한 번만 보낸다', async () => {
     const s = fakeApiOf({
       'GET /v2/admin/users/u1': () => detail('u1', { license: { key: 'KEY-1', state: 'revoked' } }),
     });
     const port = createServerUserPort(s.api);
-    const [name, brief, focus, license] = await Promise.all([
-      port.name('u1'),
-      port.brief('u1'),
-      port.focusSec('u1'),
-      port.license('u1'),
-    ]);
+    const [name, brief, focus] = await Promise.all([port.name('u1'), port.brief('u1'), port.focusSec('u1')]);
     expect(name).toBe('민트');
     expect(brief).toEqual({ name: '민트', friendCode: 'MATE-AB12', awayImg: 'https://x/away.png' });
     expect(focus).toBe(7200);
-    expect(license).toBe('revoked');
     expect(s.calls).toHaveLength(1);
-  });
-
-  it('라이선스가 없으면 none, 모르는 상태 글자는 던진다', async () => {
-    const s = fakeApiOf({
-      'GET /v2/admin/users/u1': () => detail('u1', { license: null }),
-      'GET /v2/admin/users/u2': () => detail('u2', { license: { key: 'K', state: 'paused' } }),
-    });
-    const port = createServerUserPort(s.api);
-    expect(await port.license('u1')).toBe('none');
-    const e = await caught(port.license('u2'));
-    expect(isPortError(e) && e.code).toBe(WIRE_SHAPE_CODE);
   });
 
   it('칸이 약속과 다르면 짐작으로 채우지 않고 던진다', async () => {

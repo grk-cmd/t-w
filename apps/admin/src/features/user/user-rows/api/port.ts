@@ -4,7 +4,7 @@ import type { AllUsersView } from './firebase';
 interface UserRowsReads {
   /** 전체 사람 수 · 버전별 수. */
   stats(): Promise<UserStatsView>;
-  /** 사용자코드로 찾기 — 목록에 없는 사람(다른 쪽 · 초대한 사람 · 방 서버 지정)을 한 줄로. 없는 사람은 빠진다. */
+  /** 사용자코드로 찾기 — 목록에 없는 사람(다른 쪽 · 초대한 사람)을 한 줄로. 없는 사람은 빠진다. */
   byCodes(codes: readonly string[]): Promise<Map<string, UserRow>>;
 }
 

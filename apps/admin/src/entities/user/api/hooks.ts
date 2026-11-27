@@ -76,11 +76,6 @@ export function useRowName(row: UserRow): { name: string | null; loading: boolea
   return { name: row.name ?? realName(fetched.data), loading: fetched.isLoading };
 }
 
-export function useUserLicense(uid: string) {
-  const port = useUserPort();
-  return useQuery({ queryKey: ['userLicense', uid], queryFn: () => port.license(uid) });
-}
-
 export function useUserBrief(uid: string, enabled = true) {
   const port = useUserPort();
   return useQuery({ queryKey: userBriefKey(uid), queryFn: () => port.brief(uid), enabled });

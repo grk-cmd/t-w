@@ -1,11 +1,10 @@
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { kstDateKey, kstDayStart, lastDateKeys } from '@/shared/lib';
+import { kstDateKey, lastDateKeys } from '@/shared/lib';
 import { USAGE_DAYS, type DayUsage } from '../model/usage';
 import { useUsagePort } from './index';
 
 const DAY_KEY = ['usage', 'day'];
 const NOW_KEY = ['usage', 'serverNow'];
-const KEY = ['usage', 'improvements'];
 // 서버가 매시간 어제 · 오늘을 다시 적는다 — 둘만 몇 분 뒤 다시 받고, 그 전 날은 한 번 받으면 그대로 둔다.
 const RECENT_STALE_MS = 5 * 60 * 1000;
 
@@ -40,36 +39,11 @@ export function useRecentUsage(days: number = USAGE_DAYS) {
 }
 
 /** 서버 기준 «지금»(받은 시점) — 날짜 칸을 고르는 기준. */
-export function useServerNow() {
+function useServerNow() {
   const port = useUsagePort();
   return useQuery({
     queryKey: NOW_KEY,
     queryFn: async () => Date.now() + (await port.serverTimeOffset()),
-  });
-}
-
-/**
- * 고른 날짜들(서울)만 날마다 따로 받는다 — useRecentUsage 와 캐시를 같이 쓴다. 오늘보다 뒤인 날은 받지 않는다.
- * data 는 날짜 → 사용량(다 받기 전엔 undefined).
- */
-export function useUsageDates(dates: readonly string[], today: string | undefined) {
-  const port = useUsagePort();
-  const want = today === undefined ? [] : [...new Set(dates)].filter((d) => d <= today).sort();
-  const recent = new Set(today === undefined ? [] : [today, kstDateKey(kstDayStart(today) - 1)]);
-  return useQueries({
-    queries: want.map((date) => ({
-      queryKey: [...DAY_KEY, date],
-      queryFn: () => port.getDay(date),
-      staleTime: recent.has(date) ? RECENT_STALE_MS : Infinity,
-    })),
-    combine: (results) => ({
-      data:
-        today !== undefined && results.every((r) => r.data)
-          ? new Map(results.map((r) => [r.data!.date, r.data!]))
-          : undefined,
-      error: results.find((r) => r.error)?.error ?? null,
-      fetching: results.some((r) => r.isFetching),
-    }),
   });
 }
 
@@ -82,14 +56,4 @@ export function useRefreshRecentUsage() {
     if (now === undefined) return;
     for (const date of lastDateKeys(now, 2)) await client.invalidateQueries({ queryKey: [...DAY_KEY, date] });
   };
-}
-
-export function useImprovements() {
-  const port = useUsagePort();
-  return useQuery({ queryKey: KEY, queryFn: () => port.listImprovements() });
-}
-
-export function useRefreshImprovements() {
-  const client = useQueryClient();
-  return () => client.invalidateQueries({ queryKey: KEY });
 }

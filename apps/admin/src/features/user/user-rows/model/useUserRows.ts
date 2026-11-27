@@ -8,7 +8,7 @@ import type { UserRowsPort } from '../api/port';
 /** 사용자 목록 쪽 · 통계 · 한 사람 찾기 — 모두 이 이름표 아래. */
 const USERS_KEY = ['users'];
 
-// 예전 방식 · 폴백의 원본 셋. 사용자 화면 · 방 서버 화면 · 라이선스 화면이 같은 캐시를 나눠 쓴다(같은 키).
+// 예전 방식 · 폴백의 원본 셋. 사용자 화면 · 라이선스 화면이 같은 캐시를 나눠 쓴다(같은 키).
 const RTDB_KEYS = [['accountSnap'], ['friendCodes'], ['licenses']];
 
 // 버전: undefined(좁히지 않음) · null(기록 없음) · 버전 — 셋이 키에서 갈리게.
@@ -79,7 +79,7 @@ export function useAllUsers(query: UserQuery, enabled: boolean) {
   });
 }
 
-/** 사용자코드로 찾기 — 목록에 없는 사람(다른 쪽 · 초대한 사람 · 방 서버 지정)을 한 줄로. */
+/** 사용자코드로 찾기 — 목록에 없는 사람(다른 쪽 · 초대한 사람)을 한 줄로. */
 export function useUsersByCode(codes: readonly string[]) {
   const port = useUserRowsPort();
   const sorted = [...new Set(codes)].sort();

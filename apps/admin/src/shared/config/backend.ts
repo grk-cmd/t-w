@@ -1,5 +1,5 @@
 // 두 판(Firebase 판 · API 판) 가운데 어느 쪽인가 — 빌드 때 `VITE_ADMIN_BACKEND` 하나로 정한다(통째).
-// 이 값을 읽는 곳은 이 파일 · `shared/api/backend.ts` · `app/routes`(메뉴 표)뿐이다 — 화면은 판을 모른다.
+// 이 값을 읽는 곳은 이 파일 · `shared/api/backend.ts` 뿐이다 — 화면 · 메뉴는 판을 모른다.
 
 export type Backend = 'firebase' | 'api';
 

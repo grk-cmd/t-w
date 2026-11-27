@@ -1,10 +1,8 @@
 // Firebase 판 — 지금 코드 그대로: users/{uid}/… 의 작은 칸을 하나씩 읽는다.
 import type { Db } from '@/shared/api';
 import { realName } from '@/shared/lib';
-import { licenseStatus, type License } from '@/entities/license/@x/user';
 import { toIssuedInvites, type IssuedInvite } from '@/entities/invite/@x/user';
 import type { Presence, UserInvite } from '../model/live';
-import type { UserLicense } from '../model/userRow';
 import { APP_VER_UNKNOWN, cleanVer } from '../model/version';
 import type { UserBrief, UserPort } from './port';
 
@@ -88,18 +86,6 @@ export async function getUserFocusSec(db: Db, uid: string): Promise<number> {
   return typeof v === 'number' && v > 0 ? v : 0;
 }
 
-/**
- * 한 사람의 라이선스 상태 — 계정 요약의 키 한 칸 + 그 키 한 건만 읽는다(목록 통째 읽기 없음).
- * 사용자 목록(buildUserRows)과 같은 판정: 키 없음 none · 발급 목록에 없음 unknown · 그 밖은 licenseStatus.
- */
-export async function getUserLicense(db: Db, uid: string): Promise<UserLicense> {
-  const raw = await db.get<unknown>(`accountSnap/${uid}/license`);
-  const key = typeof raw === 'string' ? raw.trim().toUpperCase() : '';
-  if (!key) return 'none';
-  const license = await db.get<License>(`licenses/${key}`);
-  return license ? licenseStatus(license) : 'unknown';
-}
-
 // 규칙 users/$id/awayImg 가 받는 모양과 같다 — 그 밖의 값은 그림으로 보지 않는다.
 export function isAwayImgUrl(v: unknown): v is string {
   return typeof v === 'string' && v.length <= 500 && v.startsWith('https://firebasestorage.googleapis.com/');
@@ -157,7 +143,6 @@ export function createFirebaseUserPort(db: Db): UserPort {
     brief: (uid) => getUserBrief(db, uid),
     presence: (uid) => getUserPresence(db, uid),
     focusSec: (uid) => getUserFocusSec(db, uid),
-    license: (uid) => getUserLicense(db, uid),
     invite: (uid) => getUserInvite(db, uid),
     issuedInvites: (uid) => listIssuedInvites(db, uid),
   };

@@ -179,7 +179,6 @@ function build(api: Api | null): UserDetailPort {
     },
     presence: async (uid) => (await detail(uid)).row.live.presence,
     focusSec: async (uid) => (await detail(uid)).row.focusTotalSec,
-    license: async (uid) => (await detail(uid)).row.licenseState,
   };
 }
 
