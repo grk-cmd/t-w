@@ -9,7 +9,6 @@ export function DownloadPanel() {
     <section className="section wrap" id="download" aria-labelledby="dl-title">
       <div className="sec-head">
         <h2 id="dl-title">{m.dlTitle}</h2>
-        <p>{m.dlLead}</p>
       </div>
       <div className="end">
         <Win title={m.dlWinTitle}>

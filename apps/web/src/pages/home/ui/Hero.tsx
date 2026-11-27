@@ -1,5 +1,4 @@
 import { useI18n } from '@/shared/i18n';
-import { DownloadIcon } from '@/shared/ui';
 import { NewsSlot } from './NewsSlot';
 import { TogetherLand } from './TogetherLand';
 
@@ -24,12 +23,6 @@ export function Hero() {
             <br />
             {m.heroLead2}
           </p>
-          <div className="cta">
-            <a className="btn big default" href="#download">
-              <DownloadIcon />
-              {m.heroCtaDownload}
-            </a>
-          </div>
           <p className="ver">{m.heroNote}</p>
         </div>
         <NewsSlot />
