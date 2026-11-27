@@ -4,7 +4,7 @@
    ・2절: 바깥 것 — 나눔고딕(fonts/)을 싣고 글꼴 파일이 다 있다 · 스크립트는 /theme.js · /embed.js · /search.js 세 줄 · 시안용 글(원본 그림 · 점선 · data: 그림)이 안 남았다 · 그림은 모두 사이트 안(/img/) · GIF 없이(움직이는 그림은 mp4) · 하나 2MB 까지
    ・3절: theme.js — 앱 테마(default · bubble)를 토큰 테마(classic · light)로 바꿔 걸고, 모르는 값 · 없음은 앱 기본(classic) ·
           ?embed=1 이면 우편함 칸 모양 · 편을 옮겨도 둘이 이어진다
-   ・4절: 깨 보기
+   ・4절: mutation test
    ・5절: embed.js — 칸 안에서만 지금 편 · 목차(toc.json)를 앱에 알린다 · toc.json 은 목차 페이지와 같다(1절) */
 'use strict';
 const fs = require('fs');
@@ -106,7 +106,7 @@ chk(run(THEME, '').links.join() === '/3,/' && run(THEME, '?theme=evil').links.jo
 const HCSS = fs.readFileSync(path.join(DIR, 'help.css'), 'utf8');
 chk(/\[data-embed\] body\{background:transparent/.test(HCSS), '  우편함 칸 안에서는 바탕을 비운다(우편함 · 디자인 스튜디오 바탕이 비침)');
 
-say('── 4. 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 4. mutation test — 하나라도 못 잡으면 빨강');
 const clone = () => ({ pages: Object.assign({}, real.pages), files: new Set(real.files), sizes: Object.assign({}, real.sizes), fontCss: real.fontCss, toc: JSON.parse(JSON.stringify(real.toc)) });
 const breaks = [
   ['그림 파일 하나가 빠짐', (w) => { const f = [...w.files].find(x => x.startsWith('img/')); w.files.delete(f); }],
@@ -157,7 +157,7 @@ const embedRun = async (src, { pathname = '/3', embedded = true, inFrame = true,
   chk(nt.length === 1 && nt[0].msg.toc === null && nt[0].msg.page === '3', '  목차를 못 받아도 지금 편은 알린다(목차는 null — 앱이 «못 불러옴» 을 그린다)');
   chk((await embedRun(EMBED, { pathname: '/other/3' })).length === 0, '  / 밖 주소면 보내지 않는다');
   const E2 = EMBED.replace("if(!document.documentElement.hasAttribute('data-embed') || window.parent === window) return;", '');
-  chk((await embedRun(E2, { embedded: false })).length > 0, '  깨 보기 — 칸 밖에서도 보내면 위 검사가 잡는다');
+  chk((await embedRun(E2, { embedded: false })).length > 0, '  mutation test — 칸 밖에서도 보내면 위 검사가 잡는다');
   finish();
 })();
 function finish(){

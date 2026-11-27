@@ -5,7 +5,7 @@
    ・2절: 하트비트(heartbeat.js — app.js 에서 옮김)를 실제로 돌린다 — 가짜 companion · 타이머 · 시계로 «보임 → 숨김 → 복귀» 를 지나며 보낸 것을 본다
    ・3절: main.js 창 보임 알림을 실제로 돌린다 — 가짜 창이 minimize · restore · hide · show 를 낼 때 보낸 값
    ・4절: 연결 — preload · html(app.js 보다 먼저) · smoke PRELOAD
-   ・5절: 깨 보기 — 규칙 · 하트비트 · main 을 일부러 틀리게 고쳐 빨강이 나는지
+   ・5절: mutation test — 규칙 · 하트비트 · main 을 일부러 틀리게 고쳐 빨강이 나는지
    [실행] 스테이징(node checks/run.js) 또는 저장소 루트에서. */
 'use strict';
 const fs = require('fs');
@@ -227,8 +227,8 @@ const iPol = HTML.indexOf('parts/launcher/heartbeat-policy.js'), iApp = HTML.ind
 chk(iPol > 0 && iApp > 0 && iPol < iApp, 'html — heartbeat-policy.js 를 app.js 보다 먼저 싣는다');
 chk(!SMOKE || /PRELOAD\.push\('heartbeat-policy\.js'\)/.test(SMOKE), 'smoke PRELOAD 에 들어 있다');
 
-/* ═══ 5. 깨 보기 ═══ */
-say('\n── 5. 깨 보기');
+/* ═══ 5. mutation test ═══ */
+say('\n── 5. mutation test');
 const broken1 = load(POLSRC.replace("if(!f || f.shown !== false) return true;", 'if(!f || f.shown === true) return true;')).mod;
 chk(policyTable(broken1).some(t => !t.ok), '«모름» 을 숨김으로 읽게 고치면 1절 표가 빨강');
 const broken2 = load(POLSRC.replace('return since >= HIDDEN_FULL_EVERY_MS;', 'return since > HIDDEN_FULL_EVERY_MS;')).mod;

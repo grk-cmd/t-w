@@ -1,0 +1,87 @@
+.hint {
+  margin: 4px 0 10px;
+  font-size: 13px;
+}
+
+.form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px 12px;
+  padding: 12px;
+  margin: 8px 0;
+  background: var(--bg);
+  border-radius: 8px;
+}
+
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.check {
+  flex-direction: row;
+  align-items: center;
+}
+
+.preview {
+  display: flex;
+  grid-column: 1 / -1;
+  gap: 8px;
+}
+
+.preview img {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  background: repeating-conic-gradient(var(--line) 0 25%, var(--card) 0 50%) 0 0 / 12px 12px;
+  border-radius: 6px;
+}
+
+.actions {
+  display: flex;
+  grid-column: 1 / -1;
+  gap: 8px;
+}
+
+.thumb {
+  display: flex;
+  flex: 0 0 40px;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  overflow: hidden;
+  background: var(--bg);
+  border-radius: 6px;
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* 폼 한 줄을 다 쓰는 안내 */
+.full {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+/* 흰 그림(동공 · 하이라이트)이 보이게 */
+.onDark,
+.onDark img {
+  background: #4a4a4a;
+}
+
+/* 초안 · 단종 — 홈페이지에 안 보이는 줄 */
+.dim {
+  opacity: 0.55;
+}
+
+.builtin {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}

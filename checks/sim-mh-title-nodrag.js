@@ -3,7 +3,7 @@
    [왜] 런처 화면(body.config)에서는 마이홈 제목줄(#myHomeTitle)이 -webkit-app-region:drag 라, 안쪽 버튼은 하나씩 no-drag 로
      빼 줘야 눌린다. 빠진 버튼은 누르면 OS 가 «창 끌기» 로 가져가 클릭이 안 온다(«말랑이 숨기기» 가 그랬다).
    §1 제목줄 안의 id 요소 중 글자 칸(LABELS)이 아닌 것은 모두 no-drag 목록에 있다
-   §2 깨 보기 — 목록에서 한 줄을 빼면 그 버튼이 빠졌다고 나온다 */
+   §2 mutation test — 목록에서 한 줄을 빼면 그 버튼이 빠졌다고 나온다 */
 'use strict';
 const fs = require('fs');
 const say = console.log;
@@ -47,7 +47,7 @@ const miss = missing(HTML);
 chk(miss.length === 0, '누르는 칸은 모두 no-drag' + (miss.length ? ' — 빠짐: ' + miss.join(' · ') : ''));
 chk(noDragIds(HTML).has('mhMallangHideBtn'), '  ↳ 말랑이 숨기기(#mhMallangHideBtn)도 들어 있다');
 
-say('§2 깨 보기');
+say('§2 mutation test');
 const broken = HTML.replace('  body.config #myHomeTitle #mhMallangHideBtn,\n', '');
 chk(broken !== HTML && missing(broken).join() === 'mhMallangHideBtn', '말랑이 줄을 빼면 그 버튼이 빠졌다고 나온다');
 

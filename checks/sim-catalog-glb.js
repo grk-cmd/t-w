@@ -4,7 +4,7 @@
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(resolveCatalogGlb · resolveCatalogGlbAll)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 2줄 그대로 · 부르는 곳은 catalogGlbMod.이름 · html(app.js 앞)
    ・4절: 동작 — 순수 판정 · 가짜 객체로 입력 → 출력 · 경계값(옮기기 전 app.js 글로도 같은 판정이 돈다)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · catalog-glb.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -18,15 +18,13 @@ const MOD = ["catalog-glb.js","parts/character/catalog-glb.js","app/parts/charac
 if(!MOD){ say('  ? 원본 못 찾음 — catalog-glb.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const CSRC = ["catalog-source.js","parts/character/catalog-source.js","app/parts/character/catalog-source.js"].map(read).find(Boolean);   // 서버 provider — 4절은 진짜 Firebase 판을 가짜 window 위에 만든다
-const mkSource = (win) => { new Function('window', 'module', CSRC)(win, undefined); return win.TwCatalogSource.createCatalogSource({}); };
 const FN_DEPS = [];
-const VAL_DEPS = ["catalogSourceMod","glbIdbMod"];
+const VAL_DEPS = ["catalogApiMod","glbIdbMod"];
 const GET_DEPS = [];
 const SET_DEPS = [];
-const EXPORTS = ["resolveCatalogGlb","resolveCatalogGlbAll"];
+const EXPORTS = ["resolveCatalogGlb","resolveCatalogGlbAll","glbFailWhy"];
 const MOVED = ["_glbUrlCache","resolveCatalogGlb","resolveCatalogGlbAll"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  catalogSourceMod: catalogSourceMod,","  glbIdbMod: glbIdbMod,"];
+const GLUE = ["  catalogApiMod: catalogApiMod,","  glbIdbMod: glbIdbMod,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -77,7 +75,7 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/character/catalog-glb.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
@@ -87,7 +85,7 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const catalogGlbMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('catalogGlbMod.' + x)); if(n){ ls[i] = ls[i].replace('catalogGlbMod.' + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 던짐', m => m.replace('function createCatalogGlb(deps){', 'function createCatalogGlb(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createCatalogGlb(deps){', 'function createCatalogGlb(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
@@ -109,17 +107,17 @@ say('── 4. 동작 — 카탈로그 GLB 해결(메모리 → 영구 캐시 �
       _glbIdbPut: (u, b) => { log.put.push([u, b]); return o.putHangs ? new Promise(() => {}) : Promise.resolve(); },
       _glbIdbPrune: () => { log.prune++; },
     };
-    const fb = o.noApi ? undefined : { fetchCatalogGlb: async (u) => { log.fetch.push(u); if(o.fetchFails) throw new Error('net'); return 'NET:' + u; } };
-    const win = { firebaseAPI: fb };
+    const fb = { fetchGlb: async (u) => { log.fetch.push(u); if(o.fetchErr) throw o.fetchErr; if(o.fetchFails) throw new Error('net'); return 'NET:' + u; } };   // catalog-api.js 의 fetchGlb 자리
+    const win = {};
     const cons = { warn: () => { log.warn++; }, log: () => {} };
     let api;
     if(!PREMOVE){
       const w = Object.assign({}, win);
-      new Function('window', 'module', 'firebaseAPI', 'console', MOD)(w, undefined, fb, cons);
-      api = w.TwCatalogGlb.createCatalogGlb({ glbIdbMod: fns, catalogSourceMod: mkSource(w) });
+      new Function('window', 'module', 'console', MOD)(w, undefined, cons);
+      api = w.TwCatalogGlb.createCatalogGlb({ glbIdbMod: fns, catalogApiMod: fb });
     } else {
       const a = SRC.indexOf('const _glbUrlCache'), b = SRC.indexOf('/* ═══ 🧹 관리자 콘솔 도구', a);
-      api = new Function('window', 'firebaseAPI', 'console', '_glbIdbGet', '_glbIdbPut', '_glbIdbPrune', SRC.slice(a, b) + '\nreturn { resolveCatalogGlb, resolveCatalogGlbAll };')(win, fb, cons, fns._glbIdbGet, fns._glbIdbPut, fns._glbIdbPrune);
+      api = new Function('window', 'firebaseAPI', 'console', '_glbIdbGet', '_glbIdbPut', '_glbIdbPrune', SRC.slice(a, b) + '\nreturn { resolveCatalogGlb, resolveCatalogGlbAll };')(win, undefined, cons, fns._glbIdbGet, fns._glbIdbPut, fns._glbIdbPrune);
     }
     return { api, log };
   };
@@ -140,14 +138,46 @@ say('── 4. 동작 — 카탈로그 GLB 해결(메모리 → 영구 캐시 �
     chk(await api.resolveCatalogGlb(r3) === 'DISK' && r3.glb === 'DISK' && !log.fetch.length && !log.put.length, '영구 캐시에 있으면 서버로 안 나간다(다시 넣지도 않는다)');
     await api.resolveCatalogGlb({ id: 'd', glbUrl: 'u2' });
     chk(log.get.length === 1, '  영구 캐시에서 꺼낸 것도 메모리에 올린다');
-    ({ api, log } = load({ noApi: true }));
-    const r4 = { id: 'e', glbUrl: 'u3' };
-    chk(await api.resolveCatalogGlb(r4) === null && r4.glb === undefined, 'firebaseAPI 가 아직 없으면 null(rec 는 그대로)');
     ({ api, log } = load({ fetchFails: true }));
     const r5 = { id: 'f', glbUrl: 'u4' };
     chk(await api.resolveCatalogGlb(r5) === null && r5.glb === undefined && log.warn === 1 && !log.put.length, '서버 받기가 실패하면 null · 경고 한 줄 · 캐시에 안 넣는다');
     await api.resolveCatalogGlb(r5);
     chk(log.fetch.length === 2, '  실패는 기억하지 않는다 — 다음에 다시 받는다');
+    /* 실패 이유 — E-CHAR-14 진단 기록에 실린다(주소 · 토큰은 안 남김) */
+    if(!PREMOVE){
+      ({ api, log } = load({ fetchErr: new TypeError('Failed to fetch') }));
+      await api.resolveCatalogGlb({ id: 'h', glbUrl: 'https://x/o/desk.glb?token=SECRET' });
+      const w1 = api.glbFailWhy('https://x/o/desk.glb?token=SECRET');
+      chk(/^net-fail Failed to fetch \d+ms$/.test(w1) && !/SECRET|https/.test(w1), '실패 이유 — 응답 없이 끊김(TypeError)은 net-fail · 걸린 시간 · 주소 · 토큰은 안 남긴다 (' + w1 + ')');
+      ({ api, log } = load({ fetchErr: new Error('storage fetch failed 403') }));
+      await api.resolveCatalogGlb({ id: 'i', glbUrl: 'v1' });
+      chk(/^fail storage fetch failed 403 \d+ms$/.test(api.glbFailWhy('v1')), '  응답이 오면 상태 번호가 남는다(fail … 403)');
+      /* 주소를 41번째 글자부터 둔다 — 자르는 길이를 하나만 늘려도 아래 판정이 빨강 */
+      const P40 = 'x'.repeat(40), URLMSG = P40 + 'https://x/o/desk.glb?token=SECRET';
+      const failOf = (src) => { const w = {}; const fb = { fetchGlb: async () => { throw new TypeError(URLMSG); } };
+        new Function('window', 'module', 'console', src)(w, undefined, { warn(){}, log(){} });
+        const fns = { _glbIdbGet: async () => null, _glbIdbPut: () => Promise.resolve(), _glbIdbPrune: () => {} };
+        const a = w.TwCatalogGlb.createCatalogGlb({ glbIdbMod: fns, catalogApiMod: fb });
+        return a.resolveCatalogGlb({ id: 'i2', glbUrl: 'v5' }).then(() => a.glbFailWhy('v5')); };
+      const w5 = await failOf(MOD);
+      chk(new RegExp('^net-fail ' + P40 + ' \\d+ms$').test(w5), '  오류 메시지에 주소가 섞여 와도 이유 글엔 메시지 앞 40자만(주소 · 토큰 안 남음)');
+      const B41 = MOD.replace('.slice(0, 40)', '.slice(0, 41)');
+      chk(B41 !== MOD && !new RegExp('^net-fail ' + P40 + ' \\d+ms$').test(await failOf(B41)), 'mutation test — 자르는 길이를 41 로 늘리면 위 판정이 빨강(주소 첫 글자가 들어옴)');
+      chk(api.glbFailWhy('없는주소') === '', '  실패한 적 없는 주소는 빈 글');
+      let flip = true;
+      const fns2 = { _glbIdbGet: async () => null, _glbIdbPut: () => Promise.resolve(), _glbIdbPrune: () => {} };
+      const fb2 = { fetchGlb: async (u) => { if(flip){ flip = false; throw new TypeError('Failed to fetch'); } return 'OK'; } };
+      const w2 = {}; new Function('window', 'module', 'console', MOD)(w2, undefined, { warn(){}, log(){} });
+      const a2 = w2.TwCatalogGlb.createCatalogGlb({ glbIdbMod: fns2, catalogApiMod: fb2 });
+      await a2.resolveCatalogGlb({ id: 'k', glbUrl: 'v3' }); const before = a2.glbFailWhy('v3');
+      await a2.resolveCatalogGlb({ id: 'k2', glbUrl: 'v3' });
+      chk(before !== '' && a2.glbFailWhy('v3') === '', '  다시 받기에 성공하면 이유를 지운다');
+      const B = MOD.replace("_glbFailWhy.set(rec.glbUrl, _glbFailText(e, Date.now() - t0)); ", '');
+      ({ api, log } = (() => { const w = {}; const fb = { fetchGlb: async () => { throw new TypeError('Failed to fetch'); } }; new Function('window', 'module', 'console', B)(w, undefined, { warn(){}, log(){} });
+        return { api: w.TwCatalogGlb.createCatalogGlb({ glbIdbMod: fns2, catalogApiMod: fb }), log: null }; })());
+      await api.resolveCatalogGlb({ id: 'l', glbUrl: 'v4' });
+      chk(B !== MOD && api.glbFailWhy('v4') === '', 'mutation test — 실패 이유를 안 적으면 위 «net-fail» 판정이 빨강(빈 글)');
+    }
     ({ api, log } = load({ putHangs: true }));
     chk(await api.resolveCatalogGlb({ id: 'g', glbUrl: 'u5' }) === 'NET:u5', '영구 캐시 넣기를 기다리지 않는다(넣기가 안 끝나도 바로 돌려준다)');
     ({ api, log } = load({ idb: { k1: 'D1' } }));

@@ -4,7 +4,7 @@
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(applyDeskCatalogRefToSeat · applyDeskColorToCustom · hideDeskBody · swapDeskVisual)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 13줄 그대로 · 부르는 곳은 deskVisualMod.이름 · html(app.js 앞)
    ・4절: 동작 — 순수 판정 · 가짜 객체로 입력 → 출력 · 경계값(옮기기 전 app.js 글로도 같은 판정이 돈다)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · desk-visual.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -18,13 +18,13 @@ const MOD = ["desk-visual.js","parts/character/desk-visual.js","app/parts/charac
 if(!MOD){ say('  ? 원본 못 찾음 — desk-visual.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_applyItemMatTone","_setDeskMatColor","b64ToBuf","setDeskScale","toast"];
+const FN_DEPS = ["_applyItemMatTone","_setDeskMatColor","b64ToBuf","setDeskScale","toast","licenseAssetBlocked"];
 const VAL_DEPS = ["DEFAULT_DESK_OVERRIDE_ID","NO_DESK_ID","_idleItemPivots","activeItemMixers","assetCodeMod","commissionMod"];
-const GET_DEPS = ["isAdmin","isPremium"];
+const GET_DEPS = [];
 const SET_DEPS = [];
 const EXPORTS = ["applyDeskCatalogRefToSeat","applyDeskColorToCustom","hideDeskBody","swapDeskVisual"];
 const MOVED = ["applyDeskCatalogRefToSeat","normalizeDeskObj","swapDeskVisual","applyDeskColorToCustom"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  NO_DESK_ID: NO_DESK_ID,","  _applyItemMatTone: (...a)=>_applyItemMatTone(...a),","  _idleItemPivots: _idleItemPivots,","  _setDeskMatColor: (...a)=>_setDeskMatColor(...a),","  activeItemMixers: activeItemMixers,","  assetCodeMod: assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  commissionMod: commissionMod,","  isAdmin: ()=>isAdmin,","  isPremium: ()=>isPremium,","  setDeskScale: (...a)=>setDeskScale(...a),","  toast: (...a)=>toast(...a),"];
+const GLUE = ["  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  NO_DESK_ID: NO_DESK_ID,","  _applyItemMatTone: (...a)=>lightToneMod._applyItemMatTone(...a),","  _idleItemPivots: _idleItemPivots,","  _setDeskMatColor: (...a)=>lightToneMod._setDeskMatColor(...a),","  activeItemMixers: activeItemMixers,","  assetCodeMod: assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  commissionMod: commissionMod,","  licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),","  setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),","  toast: (...a)=>toast(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -75,7 +75,7 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/character/desk-visual.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
@@ -85,7 +85,7 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const deskVisualMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('deskVisualMod.' + x)); if(n){ ls[i] = ls[i].replace('deskVisualMod.' + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 던짐', m => m.replace('function createDeskVisual(deps){', 'function createDeskVisual(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createDeskVisual(deps){', 'function createDeskVisual(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
@@ -129,12 +129,13 @@ say('── 4. 동작 — 책상 모양');
       b64ToBuf: (b) => 'buf:' + b,
       commissionMod: { savedDesks: () => o.desks || [] },
       toast: (m) => log.toast.push(m),
-      isPremium: !!o.premium, isAdmin: !!o.admin,
+      isPremium: !!o.premium, isAdmin: !!o.admin, premiumKnown: o.known !== false,
     };
     let api;
     if(!PREMOVE){
       const w = {}; new Function('window', 'module', 'THREE', o.src || MOD)(w, undefined, THREE_);
-      api = w.TwDeskVisual.createDeskVisual(Object.assign({}, raw, { isPremium: () => raw.isPremium, isAdmin: () => raw.isAdmin }));
+      /* 판단 함수는 account-state.js(sim-premium-desk 가 진리표로 본다) — 여기서는 이 모듈이 그 함수의 결과로 움직이는지만 본다 */
+      api = w.TwDeskVisual.createDeskVisual(Object.assign({}, raw, { licenseAssetBlocked: (r) => !!(r && r.licenseOnly) && raw.premiumKnown && !raw.isPremium && !raw.isAdmin }));
     } else {
       const a1 = SRC.indexOf('// 좌석의 charDef.deskCatalogId를 보고'), b1 = SRC.indexOf('\n/* (구역 떼기 C · w2) 이 자리의 본문도 character/catalog-sync.js', a1);
       const a2 = SRC.indexOf('/* 커스텀 책상: 기본 책상 메쉬'), b2 = SRC.indexOf('// ★ 어플 3-1: 책상 길이(X축)', a2);
@@ -189,6 +190,11 @@ say('── 4. 동작 — 책상 모양');
     ({ api, log } = load({ desks: lic }));
     s = seat(); await api.applyDeskCatalogRefToSeat(s, { deskCatalogId: 'L', deskScale: 0.3 });
     chk(!s.desk.getObjectByName('customDesk') && log.toast[0] === '🔒 "금책상"은(는) 라이선스 보유자만 사용할 수 있어요' && !log.parsed, '라이선스 전용 책상 — 내 좌석 · 라이선스 없음이면 기본 책상 + 안내');
+    if(!PREMOVE){
+      ({ api, log } = load({ desks: lic, known: false })); s = seat(); await api.applyDeskCatalogRefToSeat(s, { deskCatalogId: 'L', deskScale: 0.3 });
+      chk(s.desk.getObjectByName('customDesk') && !log.toast.length, '★ 판단 함수가 «막지 않는다» 고 답하면(서버 확인 전) 기본 책상으로 바꾸지도 안내를 띄우지도 않는다 — 확인이 오면 내 좌석을 다시 적용한다');
+      ({ api, log } = load({ desks: lic })); s = seat(); await api.applyDeskCatalogRefToSeat(s, { deskCatalogId: 'L', deskScale: 0.3 });
+    }
     s = seat({ isMe: false }); await api.applyDeskCatalogRefToSeat(s, { deskCatalogId: 'L' });
     chk(log.toast.length === 1, '  내 좌석이 아니면 안내는 안 띄운다');
     s = seat({ remote: true, isMe: false }); await api.applyDeskCatalogRefToSeat(s, { deskCatalogId: 'L' });
@@ -226,11 +232,11 @@ say('── 4. 동작 — 책상 모양');
       const broken = MOD.replace('  deskGroup.userData.noDesk=true;\n', '');
       let caught = false;
       if(broken !== MOD){ ({ st } = await noDeskCase(broken)); caught = st.desk.userData.noDesk !== true; }
-      chk(caught, '  깨 보기 — noDesk 표시를 빼면 위 판정이 잡는다');
+      chk(caught, '  mutation test — noDesk 표시를 빼면 위 판정이 잡는다');
       const broken2 = MOD.replace("if(def.deskCatalogId===NO_DESK_ID){", "if(false){");
       caught = false;
       if(broken2 !== MOD){ ({ st } = await noDeskCase(broken2)); caught = st.desk.userData.noDesk !== true; }
-      chk(caught, '  깨 보기 — 책상 없음 갈래를 빼면(옛 동작: 모르는 책상 → 기본 책상) 잡는다');
+      chk(caught, '  mutation test — 책상 없음 갈래를 빼면(옛 동작: 모르는 책상 → 기본 책상) 잡는다');
     }
     say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
     process.exit(fail ? 1 : 0);

@@ -4,7 +4,7 @@
    ・2절: 공지 글 읽기 — 없음 · 빈 파일 · 공백뿐은 null(빈 공지로 공개하지 않게) · 그 밖의 읽기 오류는 던짐
    ・3절: 본문 합치기 — 공지 글이 먼저 · PR 목록은 <details> 안 · 목록이 비면 접기 없음
    ・4절: 명령 — check 는 있으면 0 · 없으면 1, compose 는 본문을 찍는다(실제 프로세스로)
-   ・5절: 깨 보기 — 빈 공지를 «있음» 으로 보거나 목록을 공지 위에 두면 빨강
+   ・5절: mutation test — 빈 공지를 «있음» 으로 보거나 목록을 공지 위에 두면 빨강
    [실행] node checks/run.js sim-release-notes */
 'use strict';
 const fs = require('fs');
@@ -63,7 +63,7 @@ r = run('compose', '0.13.0', 'gen.md');
 chk(r.status === 1 && r.stdout === '', 'compose: 공지 글이 없으면 아무것도 찍지 않고 1');
 fs.rmSync(tmp, { recursive: true, force: true });
 
-say('── 5. 깨 보기');
+say('── 5. mutation test');
 {
   const lax = (v, rf) => { try{ return String(rf(N.notesPath(v))); }catch(_){ return null; } };   // 빈 글도 «있음» 으로 보는 판
   chk(lax('0.12.0', files({ [P]: ' \n' })) !== null && N.readNotes('0.12.0', files({ [P]: ' \n' })) === null, '빈 공지를 «있음» 으로 보는 판은 2절 «빈 파일 null» 에 걸린다');

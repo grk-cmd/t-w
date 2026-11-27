@@ -3,7 +3,7 @@
    ・2절: 화면 — 가짜 창에서 돌린다: 이상하면 뜨고 풀리면 숨음 · 아이콘으로 켜고 끔 · 곡이 닫히거나 마이홈이 가져가면 비움 · textContent 로만 · companion 없으면 조용히
    ・3절: main.js 게이트 — 페이지에 넣는 글을 가짜 유튜브 페이지에서 돌려 진단 값이 오는지 · 음소거 판정은 그대로인지 · 보내기는 플레이리스트 모드에서만
    ・4절: 배선 — preload · html(줄 자리 · 아이콘 · 싣는 순서) · app.js 만드는 곳 · smoke
-   ・5절: 깨 보기 */
+   ・5절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -123,10 +123,13 @@ async function gateCheck(MAIN){
   const gate = g0 > 0 ? MAIN.slice(g0, g1) : '';
   const e0 = gate.indexOf('bgmExec(\n'), e1 = gate.indexOf('\n      ).then(');
   const v0 = MAIN.indexOf('const BGM_SET_VOL_JS ='), v1 = MAIN.indexOf("'}';", v0);
+  const a0 = MAIN.indexOf('const BGM_IS_AD_JS ='), a1 = MAIN.indexOf("}';", a0);   // 광고 판정 글(0.13.0 에서 상수로 뺐다)
+  let BGM_IS_AD_JS = '';
+  try{ BGM_IS_AD_JS = a0 > 0 ? new Function('return ' + MAIN.slice(a0 + 'const BGM_IS_AD_JS ='.length, a1 + 2).trim())() : ''; }catch(_){}
   let run = null;
   try{
     const BGM_SET_VOL_JS = new Function('return ' + MAIN.slice(v0 + 'const BGM_SET_VOL_JS ='.length, v1 + 3).trim())();
-    const js = new Function('bgmVolume', 'BGM_SET_VOL_JS', 'return ' + gate.slice(e0 + 'bgmExec('.length, e1).trim())(0.8, BGM_SET_VOL_JS);
+    const js = new Function('bgmVolume', 'BGM_SET_VOL_JS', 'BGM_IS_AD_JS', 'return ' + gate.slice(e0 + 'bgmExec('.length, e1).trim())(0.8, BGM_SET_VOL_JS, BGM_IS_AD_JS);
     run = (page) => new Function('document', 'window', 'localStorage', 'return ' + js)(page.doc, page.win, { setItem(){} });
   }catch(err){ say('  · 게이트 글을 못 꺼냄 — ' + err.message); }
   const mkPage = (o) => {
@@ -155,7 +158,7 @@ async function gateCheck(MAIN){
   r.mute = /const mute = isAd \|\| !volOk;\s*\n\s*bgmView\.webContents\.setAudioMuted\(mute\);/.test(gate) && (gate.match(/setAudioMuted\(/g) || []).length === 2;
   /* 게이트 · 보내기를 꺼내 가짜 창으로 돌린다 — 페이지가 답을 안 할 때도 1초마다 보내는가 */
   const b0 = MAIN.indexOf('  let bgmAdPoll = null;'), b1 = MAIN.indexOf('\n  }\n', MAIN.indexOf('function bgmStartAdGate(){')) + 4;
-  /* 페이지에 글을 넣는 길(bgmExec)도 main.js 실물을 쓴다 — o.exec 는 깨 보기용 바꿔 끼우기 */
+  /* 페이지에 글을 넣는 길(bgmExec)도 main.js 실물을 쓴다 — o.exec 는 mutation test 용 바꿔 끼우기 */
   const x0 = MAIN.indexOf('  function bgmExec(code){'), x1 = MAIN.indexOf('\n  }\n', x0) + 4;
   const EXEC = x0 > 0 ? MAIN.slice(x0, x1) : '';
   /* 가짜 창 — Electron 처럼 webContents.executeJavaScript 는 로딩이 안 끝나면 답이 없다(o.loading).
@@ -169,9 +172,9 @@ async function gateCheck(MAIN){
     const view = { webContents: wc };
     const win = o.noWin ? null : { isDestroyed: () => false, webContents: { isDestroyed: () => false, send: (ch, d) => t.sent.push({ ch, d }) } };
     const BGM_SET_VOL_JS = '';
-    const f = new Function('bgmView', 'mainWindow', 'bgmMode', 'bgmVolume', 'BGM_SET_VOL_JS', 'setInterval', 'clearInterval', 'Date',
+    const f = new Function('bgmView', 'mainWindow', 'bgmMode', 'bgmVolume', 'BGM_SET_VOL_JS', 'BGM_IS_AD_JS', 'setInterval', 'clearInterval', 'Date',
       (o.exec || EXEC) + MAIN.slice(b0, b1) + '\nreturn { start: bgmStartAdGate, committed: bgmGateCommitted };');
-    const g = f(view, win, o.mode || 'playlist', 0.8, BGM_SET_VOL_JS, (fn) => { t.timers.splice(0, t.timers.length, fn); return 1; }, () => {}, { now: () => t.now });
+    const g = f(view, win, o.mode || 'playlist', 0.8, BGM_SET_VOL_JS, BGM_IS_AD_JS, (fn) => { t.timers.splice(0, t.timers.length, fn); return 1; }, () => {}, { now: () => t.now });
     t.tick = async (k) => { for(let i = 0; i < k; i++){ t.now += 250; t.timers.forEach(fn => fn()); await new Promise(r => setImmediate(r)); } };
     t.g = g;
     g.start();
@@ -230,7 +233,7 @@ function gateReport(r){
   chk(r.failSend, '  확인이 실패하면 실패 수 · 음소거 지속이 오른다');
   chk(r.onlyPl, '  마이홈 BGM 일 땐 안 보낸다 · 메인 창이 없어도 안 깨진다');
   chk(r.stuckLoad, '로딩이 안 끝나는 페이지(webContents.executeJavaScript 가 답 없음)에서도 확인이 돌아 음소거가 풀린다(B-1022-6)');
-  chk(r.stuckLoadBreak, '  깨 보기 — 글 넣는 길을 webContents.executeJavaScript 로 되돌리면 한 번도 못 묻고 음소거 그대로');
+  chk(r.stuckLoadBreak, '  mutation test — 글 넣는 길을 webContents.executeJavaScript 로 되돌리면 한 번도 못 묻고 음소거 그대로');
   chk(r.preNav, '새 곡 문서가 열리기(did-navigate) 전엔 묻지 않는다 — 음소거 그대로 · 진단은 «답 없음» (기다리는 확인 0)');
   chk(r.preNavThen, '  열리면 바로 묻고 음소거가 풀린다');
   chk(r.stale, '앞 곡 때 보낸 확인의 답이 늦게 와도 새 곡의 음소거를 풀지 않는다');
@@ -263,7 +266,7 @@ gateReport(G);
 say('── 4. 배선');
 wiring();
 
-say('── 5. 깨 보기');
+say('── 5. mutation test');
 {
   const broken = (from, to) => { if(!MOD.includes(from)) return null; return behave(MOD.replace(from, to)); };
   const b1 = broken('return d.gateMuted && !d.isAd &&', 'return d.gateMuted &&');

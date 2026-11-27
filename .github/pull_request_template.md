@@ -3,7 +3,7 @@
 담당: <!-- 세션 · 사람 이름(남과 겹치지 않게) — 겹칠 때 누구와 맞출지 -->
 
 ## 건드리는 파일
-<!-- 착수 때 PR 을 먼저 열면 이 칸으로 남과 겹치는지 본다(코드가 오르면 실제 diff 도 같이). 한 줄에 하나 · 폴더는 끝에 / — 예) `app/parts/app.js` · `web-admin/src/widgets/room-list/` -->
+<!-- 착수 때 PR 을 먼저 열면 이 칸으로 남과 겹치는지 본다(코드가 오르면 실제 diff 도 같이). 한 줄에 하나 · 폴더는 끝에 / — 예) `apps/desktop/app/parts/app.js` · `apps/admin/src/widgets/room-list/` -->
 - 
 
 ## 무엇을
@@ -18,6 +18,13 @@
 ## 배포 영향
 - 앱 릴리스 필요: 예 / 아니오
 - 규칙·Functions 배포 필요: 예 / 아니오 (예면 순서 적기)
+
+## 설계 한 장 — 앱 · API 서버 · realtime 중 둘 이상을 건드리거나 데이터가 사는 곳을 새로 두거나 옮기면 필수
+<!-- 해당 없으면 이 칸을 지운다. 공개 저장소라 서버 내부(경로 · 설정 · 표 이름)는 적지 않는다. 기준은 .claude/agents/tw-confirmer.md «설계 한 장» -->
+- ① 주인: API+DB / realtime 메모리 / 파일 / 이 PC localStorage
+- ② 재시작하면:
+- ③ 서버 2대 · PC 2~3대면:
+- ④ 시간으로 지우기(TTL) · 될 때까지 다시 · 읽을 때 고치기(있으면 왜):
 
 ## 서버(AWS) 이관 — 규칙(`firebase-database-rules.json`)을 바꿨으면 필수
 - 바뀐 경로: 예) `rooms/$room/_meta/tabs`, `users/$id/bugSeen`

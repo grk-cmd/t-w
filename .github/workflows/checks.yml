@@ -31,6 +31,8 @@ jobs:
     outputs:
       app: ${{ steps.f.outputs.app }}
       admin: ${{ steps.f.outputs.admin }}
+      core: ${{ steps.f.outputs.core }}
+      web: ${{ steps.f.outputs.web }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -41,7 +43,7 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           set -euo pipefail
-          all(){ { echo app=true; echo admin=true; } >> "$GITHUB_OUTPUT"; echo "$1 — 전부 돈다"; exit 0; }
+          all(){ { echo app=true; echo admin=true; echo core=true; echo web=true; } >> "$GITHUB_OUTPUT"; echo "$1 — 전부 돈다"; exit 0; }
           # 수동 실행 · 비교 대상 없음(첫 push · 강제 push 로 사라진 커밋)은 전부
           [ "$EVENT" = workflow_dispatch ] && all '수동 실행'
           { [ -z "$BASE" ] || [ "$BASE" = 0000000000000000000000000000000000000000 ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; } && all '비교할 커밋 없음'
@@ -50,14 +52,18 @@ jobs:
           # 워크플로 · 저장소 설정이 바뀌면 전부
           grep -qE '^\.github/' <<< "$files" && all '.github 바뀜'
           # 웹 관리자 — 자기 폴더 · 규칙 파일(테스트가 읽는다)
-          if grep -qE '^(web-admin/|firebase-database-rules\.json$)' <<< "$files"; then echo admin=true >> "$GITHUB_OUTPUT"; else echo admin=false >> "$GITHUB_OUTPUT"; fi
+          if grep -qE '^(apps/admin/|firebase/firebase-database-rules\.json$)' <<< "$files"; then echo admin=true >> "$GITHUB_OUTPUT"; else echo admin=false >> "$GITHUB_OUTPUT"; fi
+          # 캐릭터 코어 — 자기 폴더 · 앱에 둔 빌드 사본 · 시험이 읽는 기본 몸 GLB · 루트 의존성(lock)
+          if grep -qE '^(packages/char-core/|apps/desktop/app/vendor/char-core/|apps/desktop/app/parts/base-glb\.js$|package(-lock)?\.json$)' <<< "$files"; then echo core=true >> "$GITHUB_OUTPUT"; else echo core=false >> "$GITHUB_OUTPUT"; fi
+          # 메인 홈페이지 — 자기 폴더 · 쓰는 캐릭터 코어 · 빌드 때 꺼내 쓰는 앱 몸 · 피부 원본 · Hosting 설정(시험이 읽는다) · 루트 의존성(lock) · 디자인 토큰 원본 · 변환기
+          if grep -qE '^(apps/web/|packages/char-core/|apps/desktop/app/parts/(base-glb|skin-data)\.js$|firebase/(firebase\.json|\.firebaserc)$|package(-lock)?\.json$|docs/design-system/project/tokens\.json$|scripts/build-design-tokens\.js$)' <<< "$files"; then echo web=true >> "$GITHUB_OUTPUT"; else echo web=false >> "$GITHUB_OUTPUT"; fi
           # 앱 검사 — 아래 «건너뛰어도 되는 파일» 만 바뀌었으면 false.
-          #   web-admin/ (run.js 가 스테이징에서 뺀다) · 문서(.md) 중 검사가 읽지 않는 것.
+          #   apps/admin/ · apps/web/ (run.js 가 스테이징에서 뺀다) · 문서(.md) 중 검사가 읽지 않는 것.
           #   검사가 읽는 문서: checks/ 안(CHECKS.md 정본) · docs/design-system/ · 검사 코드에 따옴표로 이름이 나오는 것(예: 'docs/ERROR_CODES.md')
           app=false
           while IFS= read -r f; do
             [ -z "$f" ] && continue
-            case "$f" in web-admin/*) continue ;; esac
+            case "$f" in apps/admin/*|apps/web/*) continue ;; esac
             if [[ $f == *.md && $f != checks/* && $f != docs/design-system/* ]]; then
               b=$(basename "$f")
               if ! grep -qsF -e "'$f'" -e "\"$f\"" -e "'$b'" -e "\"$b\"" checks/*.js checks/*.py; then continue; fi
@@ -84,8 +90,31 @@ jobs:
         with:
           python-version: '3.12'
 
-      # sim-global-names.js 의 파서 — package-lock 과 같은 판 · 네이티브 없음 · 저장 안 함
+      # sim-global-names.js 의 파서(typescript) · sim-lint.js 의 ESLint — package-lock 과 같은 판 · 네이티브 없음 · 저장 안 함
       # 내려받다 네트워크가 한 번 끊겨도(ECONNRESET) 검사 전체가 빨강이 되지 않게 세 번까지 다시 해 본다
+      - run: |
+          for i in 1 2 3; do
+            npm install --no-save --ignore-scripts --no-package-lock --fetch-retries=5 typescript@5.9.3 eslint@9.39.5 && exit 0
+            echo "typescript · eslint 설치 실패 — ${i}번째, 10초 뒤 다시"; sleep 10
+          done
+          exit 1
+
+      - name: 검사 실행
+        run: node checks/run.js
+
+  text:
+    # 저장소 전체 글 검사 — 문서만 바뀐 PR 에도 돈다(«바뀐 폴더» 가 앱 검사를 건너뛰어도 비밀값 · 용어는 봐야 한다).
+    name: 글 검사(비밀값 · 용어 · 바깥 주소)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          check-latest: true
+
       - run: |
           for i in 1 2 3; do
             npm install --no-save --ignore-scripts --no-package-lock --fetch-retries=5 typescript@5.9.3 && exit 0
@@ -94,7 +123,12 @@ jobs:
           exit 1
 
       - name: 검사 실행
-        run: node checks/run.js
+        run: |
+          rc=0
+          for s in sim-public-secrets sim-coined-terms sim-app-hosts; do
+            echo "── $s"; node "checks/$s.js" || rc=1
+          done
+          exit $rc
 
   web-admin:
     name: 웹 관리자 테스트 · 빌드
@@ -104,7 +138,7 @@ jobs:
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: web-admin
+        working-directory: apps/admin
     steps:
       - uses: actions/checkout@v5
 
@@ -113,13 +147,65 @@ jobs:
           node-version: 24
           check-latest: true
           cache: npm
-          cache-dependency-path: web-admin/package-lock.json
+          cache-dependency-path: apps/admin/package-lock.json
 
       - run: npm ci
       - run: npm run lint          # oxlint + steiger(FSD 층 규칙)
       - run: npm run format:check
       - run: npm test
       - run: npm run build         # tsc(strict) 포함
+
+  web:
+    name: 메인 홈페이지 시험 · 빌드
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # 루트 postinstall(앱 의존성 · 네이티브 모듈)은 웹과 상관없다 — 스크립트 없이 깐다
+      - run: npm ci --ignore-scripts
+      - run: npm -w @tw/web run lint          # oxlint + steiger(FSD 층 규칙)
+      - run: npm -w @tw/web run format:check
+      - run: npm -w @tw/web test
+      - run: npm -w @tw/web run build         # 코어 빌드(prebuild) · tsc(strict) · 화면 · 언어마다 미리 그리기
+
+  char-core:
+    name: 캐릭터 코어 시험 · 빌드
+    needs: changes
+    if: needs.changes.outputs.core == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # 루트 postinstall(앱 의존성 · 네이티브 모듈)은 코어와 상관없다 — 스크립트 없이 깐다
+      - run: npm ci --ignore-scripts
+      - run: npm -w @tw/char-core run typecheck
+      - run: npm -w @tw/char-core test
+      - run: npm -w @tw/char-core run build
+      # 앱이 싣는 사본(apps/desktop/app/vendor/char-core/)이 방금 빌드와 같아야 한다 — 다르면 코어를 고치고 빌드를 안 돌린 것
+      - name: 앱 사본이 빌드와 같은가
+        run: |
+          d=$(git status --porcelain -- apps/desktop/app/vendor/char-core)
+          if [ -n "$d" ]; then
+            echo "$d"; git --no-pager diff -- apps/desktop/app/vendor/char-core | head -40
+            echo "::error::앱 사본이 빌드와 다르다 — packages/char-core 에서 npm run build 후 사본까지 커밋"
+            exit 1
+          fi
 
   # 판끼리 DB 규칙 — 앞 판(먼저 나갈 판 · main)에서 바꾼 규칙이 이 판에도 들어갔는가(scripts/rules-drift.js · 검사 sim-rules-drift.js).
   # 어긋나도 막지 않고 경고 · 요약으로 알린다: 앞 판 규칙을 옮기는 PR 이 머지되기 전엔 늘 잠깐 어긋나서, 막으면 그 판의 상관없는 PR 이 모두 빨강이 된다.

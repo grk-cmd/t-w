@@ -4,9 +4,9 @@
 ```
 tw-electron/
  ├ package.json
- ├ main.js              ← Electron 진입점 (창 설정 + IPC 핸들러)
- ├ preload.js            ← renderer에 window.companion API 노출
- └ app/                  ← 렌더러(화면에 보이는 것) — 기존 프로토타입 그대로
+ ├ apps/desktop/main.js              ← Electron 진입점 (창 설정 + IPC 핸들러)
+ ├ apps/desktop/preload.js            ← renderer에 window.companion API 노출
+ └ apps/desktop/app/                  ← 렌더러(화면에 보이는 것) — 기존 프로토타입 그대로
     ├ desk-companion-prototype.html
     ├ parts/
     │   ├ app.js
@@ -35,7 +35,7 @@ npm start
 
 - **런처/캐릭터 생성 화면** = 작은 창(420×720)이 화면 중앙에 뜸 (배경 있는 카드처럼)
 - **캐릭터 실행 화면** = 전체화면 투명 오버레이로 자동 전환 (다른 창들이 비침)
-- 이 전환은 `preload.js`가 `window.companion.setConfigMode()`를 제공해서 기존 app.js 코드가 자동으로 처리함
+- 이 전환은 `apps/desktop/preload.js`가 `window.companion.setConfigMode()`를 제공해서 기존 app.js 코드가 자동으로 처리함
 
 ## 확인할 것
 
@@ -49,12 +49,12 @@ npm start
 - 전역 마우스 클릭 / 키보드 타이핑 감지 (클릭 애니메이션의 기반)
 - 시스템 전체 유휴시간 감지 (`onIdle` — 지금은 자리만 잡아둠, 아직 미구현)
 - 작업표시줄 숨김
-- 창 크기(CONFIG_WIDTH/HEIGHT = 420×720)가 실제 카드 크기와 안 맞으면 `main.js` 상단 값 조정 필요
+- 창 크기(CONFIG_WIDTH/HEIGHT = 420×720)가 실제 카드 크기와 안 맞으면 `apps/desktop/main.js` 상단 값 조정 필요
 
 ## 문제 생기면
 
 - 화면이 안 뜨면: 터미널 에러 메시지 전체 복사해서 알려주세요
 - 캐릭터가 안 보이면: vendor 폴더 복사 확인 + devTools로 콘솔 에러 확인
-  (`main.js`의 `openDevTools` 줄 주석 해제하면 콘솔 창 뜸)
-- 런처 화면 크기가 이상하면: `main.js`의 `CONFIG_WIDTH`/`CONFIG_HEIGHT` 값을 조정
+  (`apps/desktop/main.js`의 `openDevTools` 줄 주석 해제하면 콘솔 창 뜸)
+- 런처 화면 크기가 이상하면: `apps/desktop/main.js`의 `CONFIG_WIDTH`/`CONFIG_HEIGHT` 값을 조정
 

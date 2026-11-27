@@ -7,7 +7,7 @@
    [무엇을] 규칙의 경로 변수($이름)마다 «무슨 키인가» 를 아래 표에 적고, 그 변수의 .validate 에서 키만 보는 조건을
      꺼내 JS 로 실제로 돌린다 — 운영 키 모양은 통과, null · undefined · NaN · 앞뒤 공백 · 형식 틀림은 거절.
      표에 없는 새 경로 변수가 생기면 빨강 — 형식을 정해 규칙과 표에 같이 넣는다.
-   ⚠️ 서버가 정말 그렇게 판정하는지는 에뮬레이터로만 안다 — 규칙을 바꾸면 node scripts/rules-emu-check.js 도 돌린다. */
+   ⚠️ 서버가 정말 그렇게 판정하는지는 에뮬레이터로만 안다 — 규칙을 바꾸면 node firebase/scripts/rules-emu-check.js 도 돌린다. */
 'use strict';
 const fs = require('fs');
 
@@ -64,6 +64,7 @@ const KIND = {
   '/roomAlive/$room/$memberId': 'member',
   '/licenseRequests/$reqId': 'other',
   '/accountSnap/$userId': 'user',
+  '/presencePref/$userId': 'user',
   '/userAuth/$userId': 'user',
   '/friendCodes/$code': 'room',
   '/users/$userId': 'user',
@@ -144,7 +145,7 @@ const SKIP = {
   '/assets/$hash': 'bot',
 };
 for (const p of ['/catalog/parts/$partId', '/catalog/gachaParts/$partId', '/catalog/desks/$deskId', '/catalog/items/$itemId',
-  '/catalog/customCats/$catId', '/catalog/catOverrides/$catId', '/catalogMeta/$kind', '/config/chatKeepDays/$kind', '/config/sources/$feature', '/config/dataRoutes/$i',
+  '/catalog/customCats/$catId', '/catalog/catOverrides/$catId', '/catalogMeta/$kind', '/config/chatKeepDays/$kind', '/config/sources/$feature', '/config/dataRoutes/$i', '/config/bannedWords/$i',
   '/config/apiCors/$i', '/config/roomServer/servers/$name', '/config/roomServer/allow/$userId', '/bugBoard/seq/$day',
   '/bugBoard/ans/pub/$id', '/bugBoard/ans/pub/$id/$rid', '/bugBoard/ans/prv/$id', '/bugBoard/ans/prv/$id/$rid',
   '/inboxBroadcast/$msgId', '/adminLog/$logId', '/metrics/improvements/$id', '/metrics/improvements/$id/items/$i',
@@ -269,14 +270,8 @@ console.log('\n── 2. 사용자 id 형식이 앱과 같다(앱이 만드는 i
     chk(!diff.length, '앱이 받는 id 와 서버가 받는 id 가 같다' + (diff.length ? ' — 다름: ' + JSON.stringify(diff) : ''));
     chk(appRe.test('undefined') && !runKey(kc, '$userId', 'undefined'), '«undefined» 는 앱 모양에 맞지만 서버는 따로 거절한다(u + 영문 8자라 형식만으로는 못 막는다)');
   }
-  const gen = /function _inventMyUserId\(\)\{\s*return ([^;]+);/.exec(app);
-  chk(!!gen, '앱이 id 를 만드는 식을 찾았다');
-  if (gen) {
-    const make = new Function('return ' + gen[1]);
-    const kc = keyCheckOf(rules.users.$userId, '$userId');
-    let bad = 0; for (let i = 0; i < 2000; i++) if (!runKey(kc, '$userId', make())) bad++;
-    chk(bad === 0, `앱이 새로 만드는 id 2000개가 전부 서버 형식에 맞다 (안 맞음 ${bad})`);
-  }
+  /* 0.13 — 앱은 id 를 만들지 않는다(서버가 가입 때 만든다 · account.js _enterAccount 가 받은 값을 _setMyUserId 로 적는다) */
+  chk(!/function _inventMyUserId\(/.test(app), '앱이 id 를 만드는 식이 없다(서버가 만든다)');
 }
 
 console.log('\n── 3. 폰 연결 — 공백 낀 칸은 연결 키가 맞는 state 만 · live 는 정상 칸만');
@@ -300,7 +295,7 @@ console.log('\n── 3. 폰 연결 — 공백 낀 칸은 연결 키가 맞는 s
   chk(typeof lv === 'string' && run(lv, U, { at: 1 }) && !run(lv, ' ' + U, { at: 1 }), 'live 는 정상 칸만(PC 는 공백 칸에 쓰지 않는다)');
 }
 
-console.log('\n── 4. 깨 보기 — 형식 검사를 빼거나 느슨하게 하면 빨강');
+console.log('\n── 4. mutation test — 형식 검사를 빼거나 느슨하게 하면 빨강');
 {
   const mutate = (fn) => { const r = JSON.parse(RULES_TEXT).rules; try { fn(r); } catch (_) { return 1; }   // 고칠 자리가 없는 규칙(옛 판)은 빨강으로 친다
    const f0 = fail; check(r, true); const n = fail - f0; fail = f0; return n; };

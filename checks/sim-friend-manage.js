@@ -19,7 +19,7 @@
 
    ★ 무엇을 보는가 (두 층)
      §1 소스·마크업 대조 — 전역 `.mh-ibx-tab` 잔재 · 옛 #mhReqSection 잔재 ·
-        선물 배지 확인(_mallangSeenGifts) 호출 자리 · 팝업 호출부가 하나인가
+        선물 배지 확인(giftBox.openTab — 받기 뒤 봤음) 호출 자리 · 팝업 호출부가 하나인가
      §2 런타임 — 자리가 1칸일 때 3건을 일괄 수락하면 정말 1건만 들어가는가,
         그리고 **일부러 옛날 방식으로 망가뜨리면 이 검사가 잡는가**
 
@@ -83,13 +83,13 @@ chk(/id="mhFmList"/.test(HTML), '요청·선물함을 그리는 새 칸 #mhFmLis
 
 // (ㄹ) 🎁 선물 배지 확인 처리는 **선물함 서브탭 클릭**에만 있어야 한다.
 //     탭을 스치기만 해도 본 것으로 처리되면 안 되므로, 렌더 함수 안에 있으면 실패다.
-const seenCalls = [...SRC.matchAll(/^.*_mallangSeenGifts\(\).*$/gm)]
-  .map(m => m[0].trim()).filter(l => !l.startsWith('*') && !l.startsWith('//'));
-chk(seenCalls.length === 1, '_mallangSeenGifts() 호출부가 하나뿐이다 (' + seenCalls.length + '곳)');
+const seenCalls = [...SRC.matchAll(/^.*giftBox\.openTab\(\).*$/gm)]
+  .map(m => m[0].trim()).filter(l => !l.startsWith('*') && !l.startsWith('//') && !/gift-retry/.test(l));   // [다시 시도] 단추(수령함)는 서브탭이 이미 열린 뒤라 따로
+chk(seenCalls.length === 1, 'giftBox.openTab() (받기 → 봤음) 호출부가 하나뿐이다 (' + seenCalls.length + '곳)');
 chk(seenCalls.length === 1 && /(?:_fmTab|friendManage\.tab\(\))\s*===\s*'gift'/.test(seenCalls[0]),
     '그 한 곳이 선물함 서브탭 클릭이다');
-const giftBox = (SRC.match(/function renderGiftBox\([\s\S]*?\n\}/) || [''])[0];
-chk(!!giftBox && !giftBox.includes('_mallangSeenGifts'),
+const giftBoxFn = (SRC.match(/function renderGiftBox\([\s\S]*?\n\}/) || [''])[0];
+chk(!!giftBoxFn && !giftBoxFn.includes('openTab') && !giftBoxFn.includes('markSeen'),
     'renderGiftBox() 안에는 배지 확인 처리가 없다 (렌더만으로 본 것이 되지 않는다)');
 
 /* (ㅁ) 요청 팝업 호출부는 하나 — 관리 화면과 겹치지 않게 '새로 온 것'에만 뜬다.
@@ -140,41 +140,14 @@ if (RULES) {
       'friendRequests/$toId 가 읽기 가능하다 (존재 확인이 성립하는 근거)');
 }
 
-// 미러를 건드리는 자리를 전부 찾아, 각각이 진짜 요청과 짝지어 움직이는지 본다
-const apiFns = ['sendFriendRequest', 'acceptFriendRequest', 'rejectFriendRequest', 'cancelFriendRequest'];
-/* 함수 본문 잘라내기 — 정규식으로 중괄호를 세지 않는다(본문에 중괄호가 잔뜩이라 반드시 틀린다).
-   `async 이름(` 부터 그 뒤 처음 나오는 4칸 들여쓰기 `},` 까지가 한 메서드다. */
-function apiBody(fn){
-  const i = HTML.indexOf('async ' + fn + '(');
-  if (i < 0) return '';
-  const j = HTML.indexOf('\n    },', i);
-  return j < 0 ? '' : HTML.slice(i, j);
-}
-for (const fn of apiFns) {
-  const body = apiBody(fn);
-  chk(!!body, fn + '() 를 찾았다');
-  if (!body) continue;
-  chk(body.includes('sentFriendRequests/'), '  ' + fn + ' 가 미러를 함께 건드린다');
-  chk(body.includes('friendRequests/${'), '  ' + fn + ' 가 진짜 요청도 함께 건드린다');
-  /* ⚠️ 한 번의 update() 여야 한다. set/remove 를 두 번 나눠 부르면 사이에서 실패했을 때
-       한쪽만 남는다 — 화면에서 구분이 안 되는 반쪽 상태다. */
-  chk(/await update\(ref\(db\)/.test(body), '  ' + fn + ' 가 update() 한 번으로 둘을 함께 쓴다');
-}
-
-// 존재 확인 3종 세트가 실제로 있고, app.js 가 그걸 쓰는가
-for (const fn of ['getSentFriendRequests', 'isFriendRequestAlive', 'pruneSentFriendRequest'])
-  chk(HTML.includes('async ' + fn + '('), fn + '() 가 정의돼 있다');
+/* 미러를 쓰는 Firebase 경로(sendFriendRequest · accept · reject · cancel · 존재 확인 3종)는 firebaseAPI 에서 걷었다 —
+   요청은 서버 provider(friend-requests-api.js)가 맡는다. 규칙 쪽 확인(위)과 app.js 쪽 확인(아래)만 남긴다. */
 const sentFn = (SRC.match(/async function renderSentRequests[\s\S]*?\n\}/) || [''])[0];
 chk(!!sentFn, 'renderSentRequests() 를 찾았다');
-chk(sentFn.includes('isFriendRequestAlive'), '목록을 그릴 때 한 건씩 살아 있는지 확인한다');
-chk(sentFn.includes('pruneSentFriendRequest'), '죽은 미러는 서버에서도 치운다 (자가 치유)');
+/* 보낸 요청은 서버 provider(friend-requests-api.js)가 주는 것을 요청 포트 listSent 한 곳으로 읽는다 */
+chk(sentFn.includes('requests().listSent('), '보낸 요청 목록은 요청 포트 listSent 한 곳으로 읽는다');
 chk(!/onValue|subscribe/.test(sentFn),
     '보낸 요청은 **구독이 아니다** (상시 구독을 늘리면 친구 100명 상한의 근거가 무너진다)');
-// 확인 실패를 '죽음'으로 보면 멀쩡한 요청이 사라진다 — catch 가 true 를 돌려주는지
-const aliveFn = apiBody('isFriendRequestAlive');
-chk(/catch\s*\([^)]*\)\s*\{\s*return true/.test(aliveFn),
-    '확인이 실패하면 살아 있는 것으로 본다 (멀쩡한 요청을 지우지 않는다)');
-
 say('');
 
 /* ── §2. 런타임 ──────────────────────────────────────────────────── */
@@ -210,7 +183,10 @@ const probe = `
   setFriends: f => { _myHomeFriends = f; },
   picked:     () => friendManage.picked,
   setTab:     t => { friendManage.setTab(t); },
+  stubReqApi: o => Object.assign(friendRequestsApiMod, o),   /* 요청 포트가 쥔 서버 provider 의 쓰기를 가짜로 — 서버 경로의 끝(로그인 통로)까지는 안 간다 */
 };`;
+
+let accepted = [];
 
 const _log = console.log, _warn = console.warn;
 console.log = () => {}; console.warn = () => {};
@@ -223,12 +199,13 @@ chk(F.real, 'app.js 가 friend-manage.js 의 진짜 모듈을 만들었다 (빈 
 
 /* 서버 스텁 — ⚠ **수락해도 _myHomeFriends 를 그 자리에서 늘리지 않는다.**
    실제로도 구독 콜백이 와야 늘어난다. 이 시차가 바로 이 검사가 재현하려는 함정이다. */
-let accepted = [];
 const stubApi = {
   acceptFriendRequest: async (me, from) => { accepted.push(from); },
   rejectFriendRequest: async () => {},
 };
+F.stubReqApi({ accept: async (me, from) => { await stubApi.acceptFriendRequest(me, from); }, reject: async (me, from) => { await stubApi.rejectFriendRequest(me, from); } });
 globalThis.firebaseAPI = stubApi;
+/* 👋 요청 포트는 서버 provider 한 길 — 이 검사는 서버 provider 를 가짜(firebaseAPI 스텁 위)로 바꿔 끼운다(자리 계산은 길과 무관) */
 if (globalThis.window) globalThis.window.firebaseAPI = stubApi;
 
 // 자리 1칸만 남긴다

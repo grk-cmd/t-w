@@ -1,0 +1,47 @@
+{
+  "CLAUDE.md": {
+    "씨앗": 1,
+    "깨 보기": 1,
+    "톱니": 1,
+    "빚": 1
+  },
+  "apps/desktop/app/parts/app.js": {
+    "톱니": 2
+  },
+  "apps/desktop/app/parts/character/closet.js": {
+    "톱니": 1
+  },
+  "apps/desktop/app/parts/creator/README.md": {
+    "톱니": 1
+  },
+  "apps/desktop/app/parts/creator/creator-open.js": {
+    "톱니": 1
+  },
+  "apps/desktop/app/parts/creator/stamp.js": {
+    "톱니": 1
+  },
+  "apps/desktop/app/parts/launcher/README.md": {
+    "톱니": 5
+  },
+  "apps/desktop/app/parts/launcher/launcher-controls.js": {
+    "톱니": 2
+  },
+  "checks/sim-app-size.js": {
+    "톱니": 2
+  },
+  "checks/sim-app-wiring.js": {
+    "톱니": 1
+  },
+  "checks/sim-creator-open.js": {
+    "톱니": 1
+  },
+  "checks/sim-launcher-controls.js": {
+    "톱니": 1
+  },
+  "checks/sim-signup.js": {
+    "톱니": 2
+  },
+  "docs/APP_FSD_MAP.md": {
+    "톱니": 3
+  }
+}

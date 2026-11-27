@@ -9,7 +9,7 @@
      안 세는 것: 값 모양 검사('string' · 'number' · 'object' · 'boolean') · 환경 검사(ENV 표 — `typeof window` 그 자체 등) · 주석 안 · EXEMPT 표.
    ・기준선은 파일별 개수(줄 번호는 흔들려서 안 씀). 구역을 옮겨 파일만 바뀌고 합계가 같으면 --write-baseline 으로 다시 쓴다
      — 합계가 기준선보다 많으면 쓰기를 거절한다(늘린 가드를 기준선에 넣지 말 것).
-   ・1절: 파일을 읽었다 · 예외가 실제로 있다 · 2절: 파일마다 기준선 이하 · 줄었으면 내린다 · 3절: 가짜 입력으로 깨 보기 */
+   ・1절: 파일을 읽었다 · 예외가 실제로 있다 · 2절: 파일마다 기준선 이하 · 줄었으면 내린다 · 3절: 가짜 입력으로 mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -17,7 +17,7 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 
-const BASE = ['.', 'app'].map(d => path.resolve(d)).find(d => fs.existsSync(path.join(d, 'desk-companion-prototype.html')) && fs.existsSync(path.join(d, 'parts')));
+const BASE = ['.', 'app', path.join('apps', 'desktop', 'app')].map(d => path.resolve(d)).find(d => fs.existsSync(path.join(d, 'desk-companion-prototype.html')) && fs.existsSync(path.join(d, 'parts')));
 if (!BASE) { say('  ? 원본 못 찾음 — desk-companion-prototype.html 과 parts/ 폴더'); process.exit(2); }
 const BASE_FILE = path.join(__dirname, 'typeof-guards-baseline.json');
 
@@ -29,20 +29,16 @@ const ENV = new Set([
 
 /* 일부러 남긴 가드 — 이름(window. 은 떼고) → { files: 그 파일 안에서만(없으면 어디서든), why }. 세지 않는다 */
 const EXEMPT = {
-  buildAnimalBase: { why: 'animal.js 가 app.js 뒤에 실려 app.js 가 부를 때 아직 없을 수 있다' },
-  reopenAnimalCreator: { why: 'animal.js 가 app.js 뒤에 실린다' },
-  _animalUnlocked: { why: 'animal.js 가 거는 고리 — 부르는 쪽이 먼저 실린다' },
-  _setAnimalUnlockLevel: { why: 'animal.js 가 거는 고리 — 부르는 쪽이 먼저 실린다' },
+  buildAnimalBase: { why: 'animal.js 는 app.js 끝에서 만들어져, 그 전에 app.js 가 부르면 아직 없을 수 있다' },
+  reopenAnimalCreator: { why: 'animal.js 는 app.js 끝에서 만들어져, 그 전에 부르면 아직 없을 수 있다' },
+  _animalUnlocked: { why: 'animal.js 가 거는 고리 — app.js 끝에서 만들어져 부르는 쪽이 먼저 돈다' },
   _pomoShowText: { why: '포모도로 모듈을 만들기 전에 focus-share 가 먼저 불린다(pomodoro.js 머리 주석)' },
-  _inviteGatePass: { why: '초대 게이트 창을 열 때만 걸린다' },
   __anpSetEarSide: { why: '동물 미리보기 창을 열 때만 걸린다' },
   __anpGoTab: { why: '동물 미리보기 창을 열 때만 걸린다' },
-  closeWardrobe: { files: ['app.js'], why: '옷장을 열기 전엔 없다 — app.js 의 생성기 열기 두 곳' },
   CreatorFlatView: { why: '생성기 평면 보기 모듈 — 없으면 null 로 두고 그 기능만 끈다' },
   DeskItemOrigin: { why: '책상 아이템 원점 모듈 — 없으면 null' },
   SeatSlot: { why: '좌석 칸 모듈 — 없으면 null' },
   HumanEar: { why: '사람 귀 모듈 — 없으면 null' },
-  cb: { files: ['character/catalog-source.js'], why: 'provider 입구 가드 — 넘겨받은 구독 콜백이 함수인지(값 모양 확인 · 없는 모듈을 «있으면 부르기» 가 아님)' },
 };
 
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
@@ -113,7 +109,7 @@ if (base) {
   chk(!c.down.length, '기준선보다 준 파일 0' + (c.down.length ? ' — 줄었어요. 같은 PR 에서 기준선을 내려 주세요: node checks/sim-typeof-guards.js --write-baseline (' + c.down.join(' · ') + ')' : ''));
 }
 
-say('── 3. 가짜 입력으로 깨 보기');
+say('── 3. 가짜 입력으로 mutation test');
 {
   const fake = [['a.js', "if(typeof window.foo==='function') window.foo();\nif(typeof bar !== 'undefined') bar.x();\n"], ['b.js', "const s = typeof v === 'string';\n"]];
   const F = judge(fake);
@@ -125,9 +121,9 @@ say('── 3. 가짜 입력으로 깨 보기');
   chk(compare(judge([['a.js', "if(typeof window.foo==='function') window.foo();\n"]]).counts, { 'a.js': 2 }).down.length === 1, '줄면 기준선을 내리라고 빨강');
   const env = judge([['d.js', "if(typeof window !== 'undefined' && typeof module !== 'undefined' && typeof require === 'function'){}\n/* typeof hid==='function' */\n"]]);
   chk(!env.total, '환경 검사(window · module · require)와 주석 안은 안 센다');
-  const ex = judge([['app.js', "if(typeof window.buildAnimalBase==='function'){}\nif(typeof window.closeWardrobe==='function'){}\nif(typeof HumanEar === 'undefined'){}\n"], ['x.js', "if(typeof window.closeWardrobe==='function'){}\n"]]);
-  chk(!ex.counts['app.js'] && ex.exempt.buildAnimalBase === 1 && ex.exempt.HumanEar === 1, '예외 이름은 안 센다');
-  chk(ex.counts['x.js'] === 1, '파일이 정해진 예외(closeWardrobe → app.js)는 다른 파일에선 센다');
+  const ex = judge([['app.js', "if(typeof window.buildAnimalBase==='function'){}\nif(typeof cb==='function'){}\nif(typeof HumanEar === 'undefined'){}\n"]]);
+  chk(ex.counts['app.js'] === 1 && ex.exempt.buildAnimalBase === 1 && ex.exempt.HumanEar === 1, '예외 이름은 안 센다(예외 아닌 이름은 센다)');
+  chk(ex.counts['app.js'] === 1, '파일이 정해진 예외(cb → catalog-source.js)는 다른 파일(app.js)에선 센다');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

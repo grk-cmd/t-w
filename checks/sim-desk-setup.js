@@ -2,10 +2,10 @@
    실행:  node sim-desk-setup.js   (러너 스테이징 또는 저장소 루트에서)
    ★ 왜 이 검사가 있는가 — 책상 · 아이템 카드는 «라이선스 전용이 골라짐» · «기본 책상이 다른 모델» · «순서가 안 맞음» 제보를 고친 곳이다.
      app.js 에서 모듈로 옮겼으니(C 구역 떼기 w4) 가짜 DOM · 가짜 모듈 위에서 카드 그리기 · 고르기 · 지우기 · 순서 · 아이템 고르기를 돌려 고정한다.
-   ・1절: 책상 카드 — 기본 책상 · 저장 책상(관리자 덮어쓰기 빼고 · 전용은 관리자만) · 고르기(URL 받기 · 용량 · 적용) · 기본으로 · 지우기(회수는 확인 뒤 catalogNet)
+   ・1절: 책상 카드 — 기본 책상 · 저장 책상(관리자 덮어쓰기 빼고 · 전용은 관리자만) · 고르기(URL 받기 · 용량 · 적용) · 기본으로 · 지우기(회수는 확인 뒤 서버에서 먼저 단종 — catalogAdmin)
    ・2절: 아이템 카드 — 5개씩 쪽 넘김 · 쪽 번호 · 기본 아이템 켜고 끄기(관리자 교체분) · 커스텀(아직 안 읽힘 · 용량 · 카탈로그는 안 잼) · 한도 표시 · 안내
    ・3절: 고르기 · 순서 · 갈고리 — 우클릭(관리자는 등록 창) · 놓인 아이템 고르기 · 순서 바꾸기(카탈로그 것만 순서 저장) · 미리보기 우클릭
-   ・4절: 입구 전제 · 5절: app.js 연결 · 6절: 일부러 깨 보기 */
+   ・4절: 입구 전제 · 5절: app.js 연결 · 6절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -36,8 +36,10 @@ function world(src, o = {}) {
   const customItems = Object.assign({}, o.customItems || {});
   const st = { activeCustomDeskId: o.active || null, cDesk: { desk: 1 }, cDeskMat: { m: 1 }, cDeskColor: '#ccc', cDeskScale: o.deskScale === undefined ? 0.2 : o.deskScale, cDeskTemplate: 'T', cDeskGlbB64: 'G',
     crItemPage: o.page || 0, crStep: o.step || 5, cCam: {}, cBase: o.noBase ? null : { deskAnchor: o.noAnchor ? null : {}, deskItems: Object.assign({}, o.equipped || {}), activeDeskItem: null } };
-  const net = o.noNet ? null : { unpublishDesk: (id) => { log.net.push(['unDesk', id]); return Promise.resolve(); }, unpublishItem: (id) => { log.net.push(['unItem', id]); return Promise.resolve(); },
-    updateItemsOrder: (m) => { log.net.push(['iOrder', m]); return o.orderFail ? Promise.reject(new Error('x')) : Promise.resolve(); }, updateDesksOrder: (m) => { log.net.push(['dOrder', m]); return Promise.resolve(); } };
+  const bad = () => Promise.reject(Object.assign(new Error('x'), { code: 'CONCURRENT_UPDATE' }));
+  const net = { archive: (kind, id) => { log.net.push(['archive', kind, id]); return o.archiveFail ? bad() : Promise.resolve(); },
+    saveShelfOrReport: async (scope, ids) => { log.net.push(['shelf', scope, ids]); if(o.orderFail){ log.net.push(['fail', 'shelf']); return false; } return true; },
+    reportFail: async (e, site) => { log.net.push(['fail', site]); return 'notice'; }, reload: async () => { log.net.push(['reload']); } };
   const cards = [];
   const assetCardsMod = {
     swThumb: (label, on, icon, onDelete, active) => { const c = el('div'); c.label = label; c.on = on; c.icon = icon; c.onDelete = onDelete; c.active = active; c.children.push(el('div')); cards.push(c); return c; },
@@ -52,12 +54,12 @@ function world(src, o = {}) {
     _creatorSizeGrow: (fn) => { const d = {}; fn(d); log.calls.push(['grow', d]); return o.sizeFail ? { ok: false, message: '용량' } : { ok: true }; },
     _syncCrColorSwatches: call('sync'), applyDeskColorToCustom: call('color'), assetCardsMod,
     assetCodeMod: () => ({ parseGlbBytes: (b) => (o.parseFail ? Promise.reject(new Error('x')) : Promise.resolve({ scene: b })) }), autoSaveDeskItemsNow: call('autosave'), b64ToBuf: (s) => 'B:' + s,
-    catalogGlbMod: () => ({ resolveCatalogGlb: async (rec) => { log.calls.push(['resolve', rec.id]); if (!o.resolveFail) rec.glb = 'RGLB'; } }),
-    catalogNet: () => net, clampDeskScale: (v) => Math.max(0.05, Math.min(0.3, v)),
+    catalogGlbMod: () => ({ resolveCatalogGlb: async (rec) => { log.calls.push(['resolve', rec.id]); if (!o.resolveFail) rec.glb = 'RGLB'; }, glbFailWhy: (u) => (o.failWhy && u ? o.failWhy : '') }),
+    catalogAdmin: net, clampDeskScale: (v) => Math.max(0.05, Math.min(0.3, v)),
     commissionMod: () => ({ savedDesks: () => desks, savedItems: () => items, setSavedDesks: (a) => { desks = a; }, setSavedItems: (a) => { items = a; }, persistSavedAssets: call('persist'), MAX_CUSTOM_ASSETS: 2, MAX_CUSTOM_ITEMS: 3 }),
     crState: st, creatorOpen: () => o.open !== false, customItems: () => customItems,
     deskItemsMod: () => ({ deskItemDef: (id) => (o.override && o.override[id]) || null }), equipDeskItem: call('equip'),
-    isAdmin: () => !!o.admin, isPremium: () => !!o.premium, lightToneMod: () => ({ _setDeskMatColor: call('matColor') }),
+    isAdmin: () => !!o.admin, licenseAssetBlocked: (r) => !!(r && r.locked === true), lightToneMod: () => ({ _setDeskMatColor: call('matColor') }),
     ndc: { x: 0, y: 0 }, premiumMod: { _wdLicenseDesks: () => o.licDesks || [] }, ray,
     setCreatorDeskScale: call('scale'), swapDeskVisual: call('swap'), toast: (m, a, b) => log.toasts.push([m, a, b]),
   });
@@ -77,7 +79,7 @@ async function behave(src) {
   try { w = world(src); } catch (e) { err = e; }
   t(!err && w && Object.keys(w.out).sort().join() === 'renderCrItems,selectDeskItemForAdjust,setHooks', '만들 때 던지지 않고 셋을 내놓는다' + (err ? ' — ' + String(err.message || err).slice(0, 80) : ''));
   if (!w) return r;
-  const D = [{ id: '__default_desk__', glbUrl: 'u' }, { id: 'd1', name: '나무', glb: 'G1' }, { id: 'd2', name: '전용', glb: 'G2', licenseOnly: true, fromCatalog: true }, { id: 'd3', name: '카탈', glbUrl: 'u3', fromCatalog: true }];
+  const D = [{ id: '__default_desk__', glbUrl: 'u' }, { id: 'd1', name: '나무', glb: 'G1' }, { id: 'd2', name: '전용', glb: 'G2', licenseOnly: true, locked: true, fromCatalog: true }, { id: 'd3', name: '카탈', glbUrl: 'u3', fromCatalog: true }];
   w = world(src, { desks: D }); w.out.renderCrItems();
   let dc = deskCards(w);
   t(dc[0].label === '기본 책상' && dc[0].on === true && dc.map((c) => c.label).join() === '기본 책상,나무,카탈' && dc[1].onDelete && !dc[2].onDelete, '책상 카드 — 기본 책상(켜짐) · 저장 책상(관리자 덮어쓰기 · 전용 빼고) · 카탈로그 것은 일반 사용자가 못 지움');
@@ -95,6 +97,9 @@ async function behave(src) {
   w = world(src, { desks: D }); w.out.renderCrItems(); await deskCards(w)[2].onclick(); await flush();
   t(w.calls('resolve')[0][1] === 'd3' && w.st.activeCustomDeskId === 'd3' && !w.calls('grow').length, '카탈로그 책상 — URL 이면 받아서 · 용량은 안 잼(id 만 실림)');
   w = world(src, { desks: D, resolveFail: true }); w.out.renderCrItems(); await deskCards(w)[2].onclick(); await flush();
+  t((w.log.toasts[w.log.toasts.length - 1] || [])[1] === 'no-glb', '  못 받음 — 이유를 모르면 진단 기록에 no-glb');
+  const wf = world(src, { desks: D, resolveFail: true, failWhy: 'net-fail Failed to fetch 12ms' }); wf.out.renderCrItems(); await deskCards(wf)[2].onclick(); await flush();
+  t(JSON.stringify(wf.log.toasts[wf.log.toasts.length - 1]) === '["E-CHAR-14","net-fail Failed to fetch 12ms"]', '  못 받음 — 받기 실패 이유(glbFailWhy)를 진단 기록에 싣는다');
   const w2 = world(src, { desks: D, sizeFail: true }); w2.out.renderCrItems(); await deskCards(w2)[1].onclick(); await flush();
   const w3 = world(src, { desks: D, parseFail: true }); w3.out.renderCrItems(); await deskCards(w3)[1].onclick(); await flush();
   t(lastT(w) === 'E-CHAR-14' && w2.log.toasts[0][0] === '용량' && w2.log.toasts[0][2] === 5000 && !w2.st.activeCustomDeskId && lastT(w3) === '책상 적용 실패', '못 받음(오류 E-CHAR-14) · 용량 초과 · 못 읽음 — 알리고 그대로');
@@ -102,7 +107,7 @@ async function behave(src) {
   t(w.st.activeCustomDeskId === null && w.st.cDeskTemplate === null && w.calls('resolve')[0][1] === '__default_desk__' && w.calls('swap')[0][3] === true && w.calls('color').length >= 1, '기본 책상 — 관리자가 등록한 기본 책상(URL 받기)으로 · 덮어쓰기 표시');
   /* 잠금 안전망 — 거르기 뒤에 licenseOnly 가 서는 경우(카탈로그가 늦게 와 licenseOnly 를 아직 모르던 순간)에도 고르지 못한다 */
   w = world(src, { desks: [{ id: 'late', name: '늦게', glbUrl: 'u' }] });
-  { let n = 0; const rec = JSON.parse(JSON.stringify({ id: 'late', name: '늦게', glbUrl: 'u' })); Object.defineProperty(rec, 'licenseOnly', { get: () => (n++ > 0) }); w.getDesks().splice(0, 1, rec); }
+  { let n = 0; const rec = JSON.parse(JSON.stringify({ id: 'late', name: '늦게', glbUrl: 'u' })); Object.defineProperty(rec, 'licenseOnly', { get: () => (n++ > 0) }); rec.locked = true; w.getDesks().splice(0, 1, rec); }
   w.out.renderCrItems();
   const lateCard = deskCards(w)[1]; await lateCard.onclick(); await flush();
   t(lateCard.style.opacity === '.55' && lateCard.children[0].children.some((n) => n.textContent === '🔒') && /라이선스 보유자만/.test(lastT(w)) && !w.calls('resolve').length && !w.st.activeCustomDeskId,
@@ -112,10 +117,13 @@ async function behave(src) {
   t(!w.getDesks().find((d) => d.id === 'd1') && w.calls('persist').length === 1 && w.st.activeCustomDeskId === null && !w.log.net.length, '책상 지우기 — 저장에서 빼고 · 고른 책상이었으면 기본으로');
   const wc = world(src, { desks: D, admin: true, confirm: false }); wc.out.renderCrItems(); deskCards(wc)[3].onDelete();
   const wy = world(src, { desks: D, admin: true, confirm: true }); wy.out.renderCrItems(); deskCards(wy)[3].onDelete();
-  t(wc.getDesks().length === 4 && !wc.log.net.length && wy.log.net[0][0] === 'unDesk' && wy.log.net[0][1] === 'd3' && wy.getDesks().length === 3, '카탈로그 책상 회수 — 확인을 받아야 · catalogNet().unpublishDesk');
+  await flush();
+  t(wc.getDesks().length === 4 && !wc.log.net.length && JSON.stringify(wy.log.net[0]) === '["archive","desk","d3"]' && wy.getDesks().length === 3, '카탈로그 책상 회수 — 확인을 받아야 · 서버에서 먼저 단종(catalogAdmin.archive)한 뒤 이 PC 목록에서 뺀다');
+  const wx = world(src, { desks: D, admin: true, confirm: true, archiveFail: true }); wx.out.renderCrItems(); deskCards(wx)[3].onDelete(); await flush();
+  t(wx.getDesks().length === 4 && wx.log.net.map((n) => n[0]).join() === 'archive,fail' && wx.log.net[1][1] === 'item', '★ 서버가 단종을 거절하면 번호로 알리고 이 PC 목록도 그대로 둔다');
 
   /* 아이템 카드 */
-  const I = [{ id: 'i1' }, { id: 'i2' }, { id: 'i3', fromCatalog: true }, { id: 'i4' }, { id: 'plant', name: '교체 화분' }];
+  const I = [{ id: 'i1' }, { id: 'i2', licenseOnly: true, locked: true }, { id: 'i3', fromCatalog: true }, { id: 'i4' }, { id: 'plant', name: '교체 화분' }];
   const C = { i1: { id: 'i1', name: '하나', glb: 'g1' }, i2: { id: 'i2', name: '둘', licenseOnly: true }, i3: { id: 'i3', name: '셋' }, i4: { id: 'i4', name: '넷' } };
   w = world(src, { items: I, customItems: C }); w.out.renderCrItems();
   let ic = itemCards(w);
@@ -154,13 +162,13 @@ async function behave(src) {
   w = world(src, { items: [{ id: 'a', fromCatalog: true }, { id: 'b' }, { id: 'c', fromCatalog: true }], customItems: { a: { id: 'a', name: 'A' }, b: { id: 'b', name: 'B' }, c: { id: 'c', name: 'C' } }, admin: true });
   w.out.renderCrItems();
   const reo = itemCards(w).find((c) => c.reorder).reorder; reo.onDrop('c', 'a'); await flush();
-  t(w.getItems().map((x) => x.id).join() === 'c,a,b' && w.getItems()[0].order === 0 && JSON.stringify(w.log.net[0]) === '["iOrder",{"c":0,"a":1}]' && w.calls('gizmo').length === 1 && w.calls('persist').length === 1, '아이템 순서 — 옮기고 order 다시 · 카탈로그 것만 순서 저장(catalogNet) · 기즈모 갈고리');
+  t(w.getItems().map((x) => x.id).join() === 'c,a,b' && w.getItems()[0].order === 0 && JSON.stringify(w.log.net[0]) === '["shelf","DESK_PROP",["c","a"]]' && w.calls('gizmo').length === 1 && w.calls('persist').length === 1, '아이템 순서 — 옮기고 order 다시 · 카탈로그 것만 서버 진열대(DESK_PROP)에 순서 전체 저장 · 기즈모 갈고리');
   w = world(src, { items: [{ id: 'a', fromCatalog: true }, { id: 'b', fromCatalog: true }], customItems: { a: { id: 'a' }, b: { id: 'b' } }, admin: true, orderFail: true }); w.out.renderCrItems();
   itemCards(w).find((c) => c.reorder).reorder.onDrop('b', 'a'); await flush();
-  t(/^⚠ 순서가 온라인에는 반영 안 됐어요/.test(lastT(w)), '순서 저장 실패 — 이 화면에서만 바뀌었다고 알림');
+  t(w.log.net.map((n) => n[0]).join() === 'shelf,fail' && w.getItems().map((x) => x.id).join() === 'a,b' && !w.calls('persist').length, '★ 순서 저장 실패 — 번호로 알리고 이 PC 순서는 그대로다(저장도 안 한다)');
   w = world(src, { desks: [{ id: 'x', fromCatalog: true, name: 'X' }, { id: 'y', fromCatalog: true, name: 'Y' }], admin: true }); w.out.renderCrItems();
   deskCards(w)[1].reorder.onDrop('y', 'x'); await flush();
-  t(w.getDesks().map((d) => d.id).join() === 'y,x' && JSON.stringify(w.log.net[0]) === '["dOrder",{"y":0,"x":1}]', '책상 순서 — 옮기고 카탈로그 순서 저장');
+  t(w.getDesks().map((d) => d.id).join() === 'y,x' && JSON.stringify(w.log.net[0]) === '["shelf","DESK",["y","x"]]', '책상 순서 — 옮기고 서버 진열대(DESK)에 순서 저장');
   w = world(src, { hits: [{ object: { userData: {}, parent: { userData: { isDeskItemPivot: true }, tag: 'pivot' } } }], equipped: { a: {} } });
   let prevented = false;
   w.E.creatorPreview.fire('contextmenu', { clientX: 10, clientY: 10, preventDefault() { prevented = true; } });
@@ -199,10 +207,10 @@ function wire(app, html) {
   const A = strip(app);
   t(!/function renderCrItems\b|function reorderSavedItem\b|function selectDeskItemForAdjust\b|const DESK_ICON\b/.test(A), 'app.js 에 옮긴 선언이 안 남았다');
   const mk = (app.match(/const deskSetupMod = TwDeskSetup\.createDeskSetup\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
-  t(mk.split('\n').length === 31 && /  NO_DESK_ID: NO_DESK_ID,/.test(mk) && /  hideDeskBody: \(\.\.\.a\)=>deskVisualMod\.hideDeskBody\(\.\.\.a\),/.test(mk) && /  crState: crState,/.test(mk) && /  catalogNet: \(\)=>window\.firebaseAPI,/.test(mk) && !/adminPartReg|crXformMod/.test(mk), '만드는 줄(가드 없이) · deps 29 · 데이터 provider 한 줄 · 관리자 등록 · 기즈모 모듈은 받지 않는다(순환)');
+  t(mk.split('\n').length === 31 && /  NO_DESK_ID: NO_DESK_ID,/.test(mk) && /  hideDeskBody: \(\.\.\.a\)=>deskVisualMod\.hideDeskBody\(\.\.\.a\),/.test(mk) && /  crState: crState,/.test(mk) && /  catalogAdmin: catalogAdmin,/.test(mk) && !/adminPartReg|crXformMod/.test(mk), '만드는 줄(가드 없이) · deps 29 · 서버 쓰기 길 한 줄 · 관리자 등록 · 기즈모 모듈은 받지 않는다(순환)');
   const iX = app.indexOf('const crXformMod = TwCreatorXform.'), iH = app.indexOf('deskSetupMod.setHooks({');
   t(iH > iX && /openDeskRegister: \(\.\.\.a\)=>adminPartReg\.openDeskRegister\(\.\.\.a\),/.test(app) && /attachItemGizmo: \(\)=>crXformMod\.attachItemGizmoToActive\(\),/.test(app), 'crXformMod 를 만든 뒤 갈고리 둘을 잇는다');
-  t(/function bindHold\(el, fn\)\{/.test(app), 'bindHold 는 app.js 에 남는다(animal.js 가 전역으로 읽는다)');
+  t(/function bindHold\(el, fn\)\{/.test(app), 'bindHold 는 app.js 에 남는다(animal.js 는 deps 로 받는다)');
   const iM = html.indexOf('<script src="parts/creator/desk-setup.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iM > 0 && iA > iM, 'html — creator/desk-setup.js 를 app.js 보다 먼저 싣는다');
   return r;
@@ -214,22 +222,24 @@ function wire(app, html) {
   say('── 5. app.js 연결');
   wire(APP, HTML).forEach(([ok, msg]) => chk(ok, msg));
   chk(!SMOKE || /PRELOAD\.push\('desk-setup\.js'\);/.test(SMOKE), 'smoke 가 desk-setup.js 를 먼저 싣는다');
-  say('── 6. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+  say('── 6. mutation test — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['전용 책상을 모두에게', (m) => m.replace('(isAdmin() || !rec.licenseOnly)', 'true'), null, null],
     ['잠긴 책상도 골라짐', (m) => m.replace("if(deskLocked){ toast('🔒 ", "if(false){ toast('🔒 "), null, null],
     ['카탈로그 책상도 용량 잼', (m) => m.replace('      if(!rec.fromCatalog){\n        const _sz = _creatorSizeGrow(d=>{ d.deskGlb = rec.glb;', '      if(true){\n        const _sz = _creatorSizeGrow(d=>{ d.deskGlb = rec.glb;'), null, null],
     ['회수 확인 없앰', (m) => m.replace("if(!confirm('\"'+(rec.name||'책상')+'\"을(를) 모든 사용자에게서 회수할까요?')){ window.focus(); return; }", ''), null, null],
+    ['못 받은 이유를 안 실음', (m) => m.replace("(catalogGlbMod().glbFailWhy(rec.glbUrl) || 'no-glb')", "'no-glb'"), null, null],
     ['쪽당 5 → 6', (m) => m.replace('const CR_ITEM_PAGE_SIZE = 5;', 'const CR_ITEM_PAGE_SIZE = 6;'), null, null],
     ['쪽 번호 넘침 안 잡음', (m) => m.replace('if(crState.crItemPage >= _totalPages) crState.crItemPage = _totalPages-1;', ''), null, null],
     ['관리자 교체분 무시', (m) => m.replace('const eff=deskItemsMod().deskItemDef(def.id)||def;', 'const eff=def;'), null, null],
-    ['카탈로그 아닌 것도 순서 저장', (m) => m.replace('commissionMod().savedItems().forEach((p,i)=>{ if(p.fromCatalog) orderMap[p.id]=i; });', 'commissionMod().savedItems().forEach((p,i)=>{ orderMap[p.id]=i; });'), null, null],
+    ['순서 저장 결과를 안 보고 바꿈', (m) => m.replace("if(ids.length && !(await catalogAdmin.saveShelfOrReport('DESK_PROP', ids))) return;", ''), null, null],
+    ['카탈로그 아닌 것도 순서 저장', (m) => m.replace('return copy.filter(p=>p.fromCatalog).map(p=>p.id);', 'return copy.map(p=>p.id);'), null, null],
     ['기즈모 갈고리 안 부름', (m) => m.replace('  crState.cBase.activeDeskItem = pivot;\n  if(creatorOpen()) renderCrItems();\n  if(_hooks.attachItemGizmo) _hooks.attachItemGizmo();', '  crState.cBase.activeDeskItem = pivot;\n  if(creatorOpen()) renderCrItems();'), null, null],
     ['관리자도 미리보기 우클릭', (m) => m.replace('  if(isAdmin()) return;   // 관리자는', '  if(false) return;   // 관리자는'), null, null],
     ['입구 전제 없앰(카드)', (m) => m.replace("  if(!document.getElementById('crDeskRow') || !document.getElementById('crItemRow') || !document.getElementById('deskColor')) return;\n", ''), null, null],
     ['책상 없음 칸 빠짐', (m) => m.replace('  dr.appendChild(noThumb);\n', ''), null, null],
     ['책상 없음이 저장 id 를 안 둠', (m) => m.replace('crState.activeCustomDeskId=NO_DESK_ID;', 'crState.activeCustomDeskId=null;'), null, null],
-    ['만들 때 던짐', (m) => m.replace('function createDeskSetup(deps){', 'function createDeskSetup(deps){ throw new Error("깨 봄");'), null, null],
+    ['만들 때 던짐', (m) => m.replace('function createDeskSetup(deps){', 'function createDeskSetup(deps){ throw new Error("mutation");'), null, null],
     ['app.js 에 본문이 남음', null, (a) => a + '\nfunction renderCrItems(){}', null],
     ['갈고리 줄 빠짐', null, (a) => a.replace('deskSetupMod.setHooks({', 'void({'), null],
     ['html 줄 빠짐', null, null, (h) => h.replace('<script src="parts/creator/desk-setup.js"></script>', '')],

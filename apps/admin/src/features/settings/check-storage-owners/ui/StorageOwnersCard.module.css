@@ -1,0 +1,31 @@
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 10px;
+}
+
+.memo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.memo input {
+  width: 14em;
+  padding: 6px 8px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.result {
+  margin-top: 10px;
+}
+
+.result p {
+  margin: 4px 0;
+}
