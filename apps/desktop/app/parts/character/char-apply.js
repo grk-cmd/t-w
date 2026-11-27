@@ -331,9 +331,7 @@ function applyCharToSeat(seat,def){
   
   (async()=>{  
     if(def.customItems){ for(const id in def.customItems){ if(!customItems()[id]){ const c=def.customItems[id]; try{ const {scene:sc,animations}=await assetCodeMod().parseGlbFull(b64ToBuf(c.glb)); deskItemsMod().registerCustomItem(id,c.name,c.glb,sc,'',animations);}catch(e){} } } }
-    if(def.deskCatalogId){ deskVisualMod().applyDeskCatalogRefToSeat(seat, def); }
-    else if(def.deskGlb){ try{ const sc=await assetCodeMod().parseGlbBytes(b64ToBuf(def.deskGlb)); seat.desk.userData.deskScale=def.deskScale||1; deskVisualMod().swapDeskVisual(seat.desk,sc); deskPlaceMod().setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1); if(def.deskColor)deskVisualMod().applyDeskColorToCustom(seat.desk,def.deskColor);}catch(e){} }
-    else { deskVisualMod().applyDeskCatalogRefToSeat(seat, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:def.deskScale, deskLenX:def.deskLenX, deskColor:def.deskColor}); }   // 관리자가 기본 책상을 교체해뒀으면 그걸로, 없으면 원래 하드코딩된 기본 책상 그대로
+    deskVisualMod().applyDeskCatalogRefToSeat(seat, def);   // 고른 책상 · 옛 deskGlb · 관리자가 바꿔 둔 기본 책상 · 내장 기본 책상 — 갈래는 desk-visual.js deskBodyPlan 한 곳
     // ★ 새 아이템 목록을 적용하기 전에 기존에 붙어있던 아이템을 먼저 확실히 뗌 — 이 단계가 없어서
     //   실행 중인 캐릭터를 우클릭으로 수정할 때(특히 아이템을 끄거나 다른 걸로 바꿀 때) 예전 아이템이
     //   계속 남아있던 버그의 원인이었음(생성기 미리보기는 clearCreatorItems가 매번 먼저 비워서 문제 없었음).

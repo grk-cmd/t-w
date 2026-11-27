@@ -1,11 +1,9 @@
 /* desk-visual.js — 🪑 책상 모양 — 커스텀 · 카탈로그 책상 GLB 로 바꿔 끼기 · 색 · 좌석 책상 그리기
    책임: 책상 그룹(deskGroup)의 «모양» 만 — 기본 책상 메쉬를 숨기고 커스텀 GLB 로 바꿔 끼우며(swapDeskVisual — 톤 · _col 색 메쉬 · 애니메이션 재생 모드), 바닥 · 가운데 맞춤(normalizeDeskObj), _col 색(applyDeskColorToCustom), 좌석 def 의 카탈로그 책상을 찾아 그리기(applyDeskCatalogRefToSeat — 라이선스 전용은 내 좌석에서만 막는다).
    받는 deps: 저장 책상(commissionMod) · GLB 채우기(resolveCatalogGlb) · GLB 풀기(assetCodeMod · b64ToBuf) · 톤(_applyItemMatTone · _setDeskMatColor) · 재생 목록(activeItemMixers · _idleItemPivots) · 크기(setDeskScale) · 라이선스(licenseAssetBlocked · toast) · DEFAULT_DESK_OVERRIDE_ID.
-   내보내는 것: deskBodyPlan(def, gated) · drawDeskGlb(deskGroup, rec, isDefaultOverride, playMode, alive) · swapDeskVisual · applyDeskColorToCustom · deskColorMats(seat) · applyDeskColor(seat, color) · applyDeskCatalogRefToSeat · hideDeskBody(🚫 책상 없음 — deskCatalogId 가 NO_DESK_ID)(normalizeDeskObj 는 안에서만).
+   내보내는 것: deskBodyPlan(def, gated) · drawDeskGlb(deskGroup, rec, isDefaultOverride, playMode, alive) · drawDeskLegacyGlb(deskGroup, glb, alive) · swapDeskVisual · applyDeskColorToCustom · deskColorMats(seat) · applyDeskColor(seat, color) · applyDeskCatalogRefToSeat · hideDeskBody(🚫 책상 없음 — deskCatalogId 가 NO_DESK_ID)(normalizeDeskObj 는 안에서만).
    app.js «🔄 카탈로그 실시간 동기화» 사이의 applyDeskCatalogRefToSeat 와 «🪑 책상 · 아이템 등록 · 책상 모양 바꾸기 · 크기» 구역 가운데(모양 몫)를 그대로 옮겼다(구역 떼기 C · w2). 동작은 옮기기 전과 같다.
-   ★ 아래 코드는 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 2개를 원래 차례로 · 사이에 빈 줄 하나 · 옛 이야기형 주석만 «왜 · 함정» 으로 줄였다). 바뀐 코드 줄은 1줄 —
-     전용 자산을 막아야 하나는 account-state.js 의 한 판단(licenseAssetBlocked)을 부른다.
-     받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
+   ★ app.js 에서 옮긴 뒤 바뀐 것 — 전용 자산 판단은 account-state.js 의 licenseAssetBlocked 한 곳 · «어떤 책상 몸을 그리나» 는 deskBodyPlan · GLB 끼우기는 drawDeskGlb · drawDeskLegacyGlb 로 나눴다(좌석 · 꾸미기 미리보기 공용).
    ★ app.js 함수 5개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: applyDeskCatalogRefToSeat · applyDeskColorToCustom · swapDeskVisual — app.js 는 deskVisualMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
@@ -27,15 +25,25 @@ const licenseAssetBlocked = deps.licenseAssetBlocked;   // 🔒 전용 자산을
 const resolveCatalogGlb = deps.resolveCatalogGlb;   // 카탈로그 레코드에 GLB 채우기(catalog-glb.js — 캐시 → 서버) — 카탈로그 합치기가 GLB 를 기다리지 않아 그릴 때 받는다
 const setDeskScale = deps.setDeskScale;
 const toast = deps.toast;
-/* 이 def 로 어떤 책상 몸을 그리나 — 좌석(applyDeskCatalogRefToSeat)과 꾸미기 미리보기(wd-desk-preview.js)가 같은 판단을 쓴다.
-   kind: 'none'(🚫 책상 없음) · 'builtin'(내장 기본 책상 — blocked 가 있으면 라이선스가 없어 막힌 전용 책상) · 'glb'(rec 의 GLB)
+/* 이 def 로 어떤 책상 몸을 그리나 — 좌석(applyDeskCatalogRefToSeat)과 꾸미기 미리보기(wd-desk-preview.js)가 같은 판단을 쓴다. def 는 캐릭터 def 그대로 준다.
+   kind: 'none'(🚫 책상 없음) · 'builtin'(내장 기본 책상 — blocked 가 있으면 라이선스가 없어 막힌 전용 책상) · 'glb'(rec 의 GLB · isDefaultOverride) · 'legacyGlb'(옛 캐릭터 def 에 박힌 책상 GLB — deskGlb)
+   책상을 안 골랐으면(deskCatalogId 없음) 옛 deskGlb 가 먼저, 그것도 없으면 관리자가 바꿔 둔 기본 책상(DEFAULT_DESK_OVERRIDE_ID)을 찾는다.
    gated: 라이선스 게이트를 거나 — ⚠️ 내 좌석 · 내 미리보기에만 건다(친구 좌석에 걸면 남이 쓴 책상이 내 화면에서 기본 책상으로 보인다) */
 function deskBodyPlan(def, gated){
-  if(def.deskCatalogId===NO_DESK_ID) return { kind:'none' };
-  const rec = commissionMod.savedDesks().find(d=>d.id===def.deskCatalogId);
+  if(!def.deskCatalogId && def.deskGlb) return { kind:'legacyGlb', glb:def.deskGlb };
+  const id = def.deskCatalogId || DEFAULT_DESK_OVERRIDE_ID;
+  if(id===NO_DESK_ID) return { kind:'none' };
+  const rec = commissionMod.savedDesks().find(d=>d.id===id);
   if(!rec) return { kind:'builtin' };
   if(gated && licenseAssetBlocked(rec)) return { kind:'builtin', blocked:rec };
-  return { kind:'glb', rec };
+  return { kind:'glb', rec, isDefaultOverride: id===DEFAULT_DESK_OVERRIDE_ID };
+}
+/* 옛 캐릭터 def 에 박힌 책상 GLB 를 끼운다 — 끼웠으면 true · 그 사이 바뀌었으면 null */
+async function drawDeskLegacyGlb(deskGroup, glb, alive){
+  const sc = await assetCodeMod.parseGlbBytes(b64ToBuf(glb));
+  if(!alive()) return null;
+  swapDeskVisual(deskGroup,sc);
+  return true;
 }
 /* GLB 책상 몸을 받아 끼운다 — 끼웠으면 true · 못 받았으면 내장 기본 책상으로 두고 false · 받는 사이 다른 책상으로 바뀌었으면(alive 거짓) 아무것도 안 하고 null.
    카탈로그 합치기가 GLB 를 기다리지 않아 그릴 때 받는다(resolveCatalogGlb). playMode 를 안 주면 애니메이션 mixer 를 만들지 않는다(미리보기). */
@@ -64,10 +72,12 @@ async function applyDeskCatalogRefToSeat(seat, def){
     if(plan.blocked && seat.isMe) toast('🔒 "'+(plan.blocked.name||'이 책상')+'"은(는) 라이선스 보유자만 사용할 수 있어요');
     return;
   }
+  const alive = ()=>seat.desk.userData.deskReq === req;
   try{
     seat.desk.userData.__seat = seat;   // 책상 idle 재생 판정에 좌석 상태 필요
     seat.desk.userData.deskScale=def.deskScale||1;
-    const drawn = await drawDeskGlb(seat.desk, plan.rec, def.deskCatalogId===DEFAULT_DESK_OVERRIDE_ID, plan.rec.playMode, ()=>seat.desk.userData.deskReq === req);
+    const drawn = (plan.kind==='legacyGlb') ? await drawDeskLegacyGlb(seat.desk, plan.glb, alive)
+      : await drawDeskGlb(seat.desk, plan.rec, plan.isDefaultOverride, plan.rec.playMode, alive);
     if(drawn === null) return;
     setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1);   // 못 받았어도(false) 크기는 건다 — 다음 카탈로그 받기 · 그리기에서 다시
     if(drawn && def.deskColor) applyDeskColorToCustom(seat.desk,def.deskColor);
@@ -158,6 +168,7 @@ return {
   deskBodyPlan,
   deskColorMats,
   drawDeskGlb,
+  drawDeskLegacyGlb,
   hideDeskBody,
   swapDeskVisual,
 };

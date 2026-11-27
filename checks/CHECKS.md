@@ -106,7 +106,7 @@
 | **sim-friend-profile-live.js** | 218 | **d78ba96ecf5b** |
 | **sim-second-instance.js** | 231 | **420f1674eed3** |
 | **sim-stroke-pointer.js** | 129 | **e7d6d9703d30** |
-| **sim-wd-desk-preview.js** | 145 | **1256867d2cae** |
+| **sim-wd-desk-preview.js** | 168 | **8f22d45506fe** |
 | **sim-wd-parts-persist.js** | 91 | **f8dac06eecab** 
 | **sim-invite-notice.js** | 85 | **9f7bcb7ddc71** |
 | **sim-name-guard.js** | 42 | **9c89831d5c23** |
@@ -253,7 +253,7 @@
 | **sim-seat-opacity-mod.js** | 84 | **fb914cc8f415** |
 | **sim-seat-state.js** | 156 | **fd44c3e605da** |
 | **sim-seat-pointer.js** | 203 | **827506e52d77** |
-| **sim-char-apply.js** | 200 | **7e20d28d48a4** |
+| **sim-char-apply.js** | 200 | **892544b0b847** |
 | **sim-app-mode.js** | 147 | **35f8add1ae94** |
 | **sim-office-mode.js** | 91 | **c7afd4778d02** |
 | **sim-ls-set.js** | 52 | **322f5c6dfd7b** |
@@ -487,7 +487,7 @@
 | **sim-desk-items.js** | 166 | **84aeeb87dc04** |
 | **sim-bgm-diag.js** | 300 | **825e0d2cb561** |
 | **sim-blink-timing.js** | 112 | **f6dba2d5b8f2** |
-| **sim-desk-visual.js** | 281 | **d3cfeb9833e4** |
+| **sim-desk-visual.js** | 318 | **2d4d6ae2f800** |
 | **sim-desk-place.js** | 187 | **c9043f4d7b0d** |
 | **sim-toast.js** | 197 | **75e6ff6d2029** |
 | **sim-dot-render.js** | 235 | **4723acae1837** |

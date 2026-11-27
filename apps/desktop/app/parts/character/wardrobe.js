@@ -744,7 +744,7 @@ async function refreshWdPreviewChar(){
      이 미리보기는 그 함수를 안 타므로 여기서 직접 심는다. 없으면 핀이 ratio=1 로 떨어져
      이 화면에서만 '책상 위' 파츠가 책상 크기 슬라이더를 따라간다(= 고치려던 그 증상). */
   _wdDeskGrp.userData.deskScaleBase = _wdS;
-  _wdDeskGrp.scale.set(_wdS * _wdLx * _wdAnim, _wdS * _wdAnim, _wdS * _wdAnim);   // setDeskScale 과 같은 식
+  { const _sc = deskPreview.scaleOf(def, _wdAnim); _wdDeskGrp.scale.set(_sc.x, _sc.y, _sc.z); }   // setDeskScale 과 같은 식 — 미리보기 책상 몸과 한 곳(wd-desk-preview.js)
   /* ★ 캐릭터의 앞뒤·좌우 이동값(xf.z · xf.x)까지 셈에 넣어야 한다.
      [경위] 실행 화면에서는 캐릭터가 CHAR_Z 에 **더해** xf.z 만큼 더 움직인다(fitModel 의
        m.position.z += userZ). 그런데 이 미리보기는 캐릭터를 늘 z=0 에 세운다 — xf.z 를 안 쓴다.
@@ -778,13 +778,10 @@ async function refreshWdPreviewChar(){
        어긋나는 상대는 **생성기**였다 — 기즈모로 옮긴 양이 두 화면에서 2.5배로 들어갔다.
      ⚠️ deskPosBase 에는 곱하지 않는다 — 그건 파츠 핀이 상쇄에 쓰는 100% 단위 원본이고,
        핀 쪽 나눗셈(syncDeskPartAnchor)이 자기 배율을 따로 곱한다. 여기서 미리 곱하면 두 번 걸린다. */
-  if(def.deskPos){ _wdDeskGrp.position.x += (+def.deskPos.x||0) * _wdAnim;
-                   _wdDeskGrp.position.y += (+def.deskPos.y||0) * _wdAnim;
-                   _wdDeskGrp.position.z += (+def.deskPos.z||0) * _wdAnim;
-    /* 📌 여기는 setDeskPos 를 안 타고 position 에 직접 더한다(위 좌표에는 deskPos 말고도
-       CHAR_Z·xf 보정이 섞여 있어서 position 전체를 상쇄하면 안 된다). 그래서 '상쇄해야 할
-       몫'만 따로 적어 둔다 — 파츠 핀은 오직 이 값만 본다. */
-    _wdDeskGrp.userData.deskPosBase = { x:+def.deskPos.x||0, y:+def.deskPos.y||0, z:+def.deskPos.z||0 }; }
+  /* 📌 setDeskPos 를 안 탄다 — 위 좌표(base0)에는 CHAR_Z · xf 보정이 섞여 있어 position 전체를 상쇄하면 안 된다.
+     deskPos 를 얹는 식 · 파츠 핀이 볼 상쇄 몫(deskPosBase)은 책상 몸과 한 곳(wd-desk-preview.js placeDeskPos) */
+  const _wdBase0 = { x:_wdDeskGrp.position.x, y:_wdDeskGrp.position.y, z:_wdDeskGrp.position.z };
+  deskPreview.placeDeskPos(_wdDeskGrp, _wdBase0, def.deskPos, _wdAnim);
   const _wdDesk = new THREE.Group();
   _wdDesk.name = 'deskAnchor';
   _wdDesk.position.set(0, WD_PREVIEW_DESK_Y, WD_PREVIEW_DESK_Z);   // buildDesk 와 같은 좌표
@@ -793,7 +790,7 @@ async function refreshWdPreviewChar(){
   wdScene.add(_wdDeskGrp);
   /* 🪑 책상 몸(wd-desk-preview.js) — 위 빈 그룹의 자리 · 크기를 그대로 받는다. GLB 는 늦게 오니 다 그린 뒤 손잡이를 다시 붙인다 */
   deskPreview.setShown(currentWdGroup === 'desk');
-  deskPreview.rebuild({ scene:wdScene, def, anchorGroup:_wdDeskGrp, anim:_wdAnim }).catch(()=>{}).then(()=>{ if(_wdDeskTabOn()) updateWdGizmoForActivePanel(); });
+  deskPreview.rebuild({ scene:wdScene, def, anchorGroup:_wdDeskGrp, base0:_wdBase0, anim:_wdAnim }).catch(()=>{}).then(()=>{ if(_wdDeskTabOn()) updateWdGizmoForActivePanel(); });
   wdPreviewBase = { group:g, root:base.root, bones, boneRest, equippedPartObjs:{}, charDef:def, isMe:false,
     deskAnchor:_wdDesk, deskGroup:_wdDeskGrp,
     // ★ defToBase가 이제 이 참조들을 같이 반환하므로 그대로 옮겨줌 — 이게 없으면 applyClothVisibility가

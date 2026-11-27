@@ -1079,10 +1079,10 @@ const wdDeskPreview = TwWdDeskPreview.createWdDeskPreview({
   buildDesk: (...a)=>buildDesk(...a),
   deskBodyPlan: (...a)=>deskVisualMod.deskBodyPlan(...a),
   drawDeskGlb: (...a)=>deskVisualMod.drawDeskGlb(...a),
+  drawDeskLegacyGlb: (...a)=>deskVisualMod.drawDeskLegacyGlb(...a),
   hideDeskBody: (...a)=>deskVisualMod.hideDeskBody(...a),
   applyDeskColor: (...a)=>deskVisualMod.applyDeskColor(...a),
   syncDeskPartAnchor: (...a)=>deskPlaceMod.syncDeskPartAnchor(...a),
-  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
 });
 const wardrobeMod = TwWardrobe.createWardrobe({
   deskPreview: wdDeskPreview,
