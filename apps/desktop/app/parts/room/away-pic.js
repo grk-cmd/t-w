@@ -15,6 +15,7 @@ const Presence = deps.Presence;
 const _loadImgCors = deps._loadImgCors;
 const _premiumOn = deps._premiumOn;
 const camera = deps.camera;
+const charLiftWorld = deps.charLiftWorld;
 const findMySeat = deps.findMySeat;
 const getMyUserId = deps.getMyUserId;
 const measureBodyBox = deps.measureBodyBox;
@@ -44,7 +45,7 @@ function _awayPxFor(seat){
   return _awaySzOk(v) ? v : AWAY_PIC_SCREEN_PX;
 }
 var _awayTex = new Map();   // url → { st:'loading'|'ok'|'fail', tex }
-var _awayBox = null, _awayGW = null, _awayHostBox = null;
+var _awayGW = null, _awayHostBox = null;
 var _awayHostP = null, _awayHostS = null;   // 🫧 아래 캐릭터의 자리비움 그림 위치·크기(탑 위 그림용 · 하나를 재사용)
 /* 🩹 [2026-10-02 제보 «자리비움인 사람을 💣 로 날리면 버벅인다»] 비행은 매 프레임 seat.rig.position 만 움직이는데(_updateFlyingSeats),
    그림은 group 에 붙어 0.5초마다만 자리를 다시 잡았다 — 몸은 숨어 있고 그림만 보이니 «0.5초 멈춤 → 순간이동» 이 초당 두 번.
@@ -101,24 +102,14 @@ function _awayImgFrame(seat, url, now){
   if(!seat._awayFitAt || ((now - seat._awayFitAt) > 500 && !seat.fly) || !sp.visible){
     seat._awayFitAt = now;
     try{
-      if(!_awayBox){ _awayBox = new THREE.Box3(); _awayGW = new THREE.Vector3(); }
+      /* 자리(가로 · 앞뒤 · 발밑)는 재지 않고 rig 원점(캐릭터 발밑 피봇) + 높이 설정으로 든 만큼(charLiftWorld — 모델이 rig 안에서 들려 있다)에서 잡는다.
+         ⚠️ 몸 상자(setFromObject)로 재지 말 것 — 숨은 메시 · 리깅 파츠 · 스키닝 전 원본 상자가 섞여 캐릭터마다 가운데 · 바닥이 어긋났다
+         (그림이 옆으로 벗어남 · 캐릭터 위 허공에 뜸). 크기는 화면 px 고정(_awayPxFor)이라 상자가 필요 없다. */
+      if(!_awayGW) _awayGW = new THREE.Vector3();
       seat.rig.updateMatrixWorld(true);
-      measureBodyBox(seat.bodyWrap || seat.rig, null, _awayBox);
-      seat.group.getWorldPosition(_awayGW);
-      const bh = _awayBox.max.y - _awayBox.min.y;
-      if(!(bh > 0.05 && bh < 10)){ sp.visible = false; return; }
-      /* 🖼️ [2026-09-23 제보 «동물이면 자리비움 그림이 엄청 크게 나온다»] 예전엔 캐릭터 경계상자 높이에 맞췄다 —
-         동물은 경계상자가 몸보다 훨씬 커서 그림이 따라 커졌다. 이제 **화면에서 주인이 고른 60·80·100px(_awayPxFor) 정사각형**으로
-         고정한다(인간·동물 · 캐릭터 크기 설정과 무관). 자리(가운데 · 발밑)는 예전처럼 경계상자에서 잰다. */
-      let cx = (_awayBox.min.x + _awayBox.max.x)/2, cz = (_awayBox.min.z + _awayBox.max.z)/2, fy = _awayBox.min.y;
-      /* 🩹 [2026-10-02 제보 «가끔 그림이 자기 자리에서 옆으로 벗어나 있다»] 가로·앞뒤는 상자 가운데가 아니라 **rig 원점**
-         (= 캐릭터 발밑 피봇 · measureCharBox 주석)에서 잡는다. 이 상자(setFromObject)는 숨은 placeholder·한쪽으로 뻗은
-         파츠·바인드포즈 리깅 파츠까지 담아서 가운데가 옆으로 끌려갔다. 높이(발밑 fy)는 예전 그대로다. */
-      { const _rw = new THREE.Vector3(); seat.rig.getWorldPosition(_rw); cx = _rw.x; cz = _rw.z; }
-      /* 🗼 [2026-09-23 제보 «탑 위에서 자리비움하면 그림이 밑의 캐릭터를 가린다»] 1층으로 올라탄 캐릭터는 상대 머리에
-         팔을 걸치고 몸이 얼굴 앞으로 늘어진 자세라 **발밑이 상대 머리보다 아래**다. 그 발밑에 150px 그림을 세우면
-         상대를 통째로 덮었다. 올라탄 동안에는 그림 밑변을 **바로 아래 캐릭터의 꼭대기**에, 가로·앞뒤는 그 캐릭터 가운데에
-         맞춘다(A안 · 탑 맨 위에 얹힌 모양). 층마다 각자 자기 바로 아래 캐릭터 위에 선다. 2층 이상(묘기)도 같은 규칙이다. */
+      seat.rig.getWorldPosition(_awayGW);
+      let cx = _awayGW.x, fy = _awayGW.y + charLiftWorld(seat), cz = _awayGW.z;
+      /* 올라탄 동안에는 그림 밑변을 바로 아래 캐릭터의 꼭대기에, 가로 · 앞뒤는 그 캐릭터 가운데에 맞춘다(발밑에 세우면 아래 캐릭터를 덮는다). */
       const _host = seat.ridingOn;
       if(_host && _host.rig && seats.indexOf(_host) >= 0){
         if(!_awayHostBox) _awayHostBox = new THREE.Box3();
@@ -149,9 +140,7 @@ function _awayImgFrame(seat, url, now){
       const h = _awayWorldForPx(_awayPxFor(seat), cx, fy, cz);   // 📏 좌석마다 주인이 고른 크기(60·80·100)
       if(!(h > 0)){ sp.visible = false; return; }
       sp.scale.set(h, h, 1);
-      sp.position.set(cx - _awayGW.x, fy + h/2 - _awayGW.y, cz - _awayGW.z);
-      /* 🩹 [2026-10-02] 위 줄은 group 이 이동만 할 때의 값 — 아래에서 월드 목표점을 group 로컬로 **역변환**해 덮어쓴다. 예전엔 «group 은 이동만 한다» 고 보고 월드 위치만 뺐는데,
-         올라탄 좌석은 group 이 고개 기울기·상대 회전을 받아 돈다(mountRide) — 그 회전만큼 그림이 옆·앞뒤로 비껴났다. */
+      /* 월드 목표점을 group 로컬로 역변환한다 — 올라탄 좌석은 group 이 돌아서(mountRide) 월드 차만 빼면 그림이 비껴난다. */
       { const _t = new THREE.Vector3(cx, fy + h/2, cz); seat.group.updateMatrixWorld(true); seat.group.worldToLocal(_t); sp.position.copy(_t); }
       /* rig 기준 오프셋 — 비행·흔들기처럼 rig 만 움직이는 동안 _awayImgFollow 가 매 프레임 이 값으로 따라 옮긴다. */
       if(!seat._awayOff) seat._awayOff = new THREE.Vector3();

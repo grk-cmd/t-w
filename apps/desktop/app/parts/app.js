@@ -4616,6 +4616,7 @@ const awayPicMod = TwAwayPic.createAwayPic({
   _loadImgCors: (...a)=>roomSyncMod._loadImgCors(...a),
   _premiumOn: (...a)=>_premiumOn(...a),
   camera: camera,
+  charLiftWorld: (...a)=>seatEqMod.charLiftWorld(...a),
   findMySeat: (...a)=>findMySeat(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),

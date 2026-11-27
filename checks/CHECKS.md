@@ -184,7 +184,7 @@
 | **sim-mh-sanitize.js** | 219 | **43161e59fac7** |
 | **sim-myhome-steps.js** | 128 | **ed6b55640d6c** |
 | **sim-myhome-load.js** | 87 | **80598e5410f5** |
-| **sim-fix-0923.js** | 252 | **6e948c87f185** |
+| **sim-fix-0923.js** | 252 | **21ea45438799** |
 | **sim-noise.js** | 147 | **c7f261c4f2a1** |
 | **sim-mobile-focus.js** | 369 | **3f1f781f06ed** |
 | **sim-figure-mode.js** | 175 | **c165d08c4210** |
@@ -213,7 +213,7 @@
 | sim-purikura-net.js | 104 | 6affb64778b2 |
 | **sim-purikura-rules.js** | 241 | **38c6e66b3a3d** |
 | **sim-purikura-stage.js** | 270 | **6c68a3c0510f** |
-| **sim-report-away.js** | 122 | **093d3163b65b** |
+| **sim-report-away.js** | 122 | **f8c49326da27** |
 | **sim-friend-req-btn.js** | 252 | **9ac7b212f17b** |
 | **sim-ride-height.js** | 115 | **870e0eb2c0e7** |
 | **sim-ride-part-top.js** | 101 | **0b4bf839278c** |
@@ -363,7 +363,7 @@
 | **sim-win-front.js** | 113 | **c8fd12a3c2c5** |
 | **sim-win-layers.js** | 203 | **25e9c9dff07b** |
 | sim-yard-enter.js | 59 | c323aea595a5 |
-| **sim-away-follow.js** | 145 | **6f3fd7fc7064** |
+| **sim-away-follow.js** | 180 | **88808c7e8e22** |
 | **sim-kb-blind.js** | 181 | **ef548fe4ff75** |
 | **sim-mhd-hidefolders.js** | 133 | **1c9a80c19fe3** |
 | **sim-pomodoro.js** | 131 | **03a73d7ae51e** |
@@ -376,7 +376,7 @@
 | **sim-my-info.js** | 98 | **324dfdac86ff** |
 | **sim-my-info-box.js** | 208 | **df7cf5a078f7** |
 | **sim-renderer-src.js** | 301 | **1de6a87e1031** |
-| **sim-away-pic.js** | 94 | **3707c8d5b65c** |
+| **sim-away-pic.js** | 94 | **2abc25855bf1** |
 | **sim-device-toggle.js** | 89 | **2188f2494c28** |
 | **sim-myhome-ui.js** | 133 | **a1b3376669be** |
 | **sim-tricks.js** | 120 | **4515e3edd7c8** |
@@ -502,7 +502,7 @@
 | **sim-char-measure.js** | 195 | **14dcc38fe94b** |
 | **sim-rest-pose.js** | 126 | **a91802c7c8ed** |
 | **sim-fit-watch.js** | 135 | **2d87ae2df94b** |
-| **sim-body-measure.js** | 655 | **c9c87bf64031** |
+| **sim-body-measure.js** | 655 | **3bd2b7179a08** |
 | **sim-glow.js** | 99 | **e04d9f55145f** |
 | **sim-stage.js** | 156 | **58cf5d8e495f** |
 | **sim-floor-snap-diag.js** | 142 | **eaa354193bfa** |
