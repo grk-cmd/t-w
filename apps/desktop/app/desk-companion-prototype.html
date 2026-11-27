@@ -3219,10 +3219,11 @@
   #xmasUp{position:absolute;opacity:0;width:1px;height:1px;}
   #xmasWord{width:150px;box-sizing:border-box;height:24px;padding:0 4px;}
   /* 한마디 · 단추 · 편지 창 — 브라우저 기본 글꼴(Arial 13.3px)이 아니라 창 글꼴로 */
-  #xmasWin button:not(.win98titlebtn):not(.xm-tbtn),#xmasWin input,#xmasWin textarea{font-family:var(--tw-font-ui);font-size:12px;}
+  #xmasWin button.win98raised,#xmasWin input,#xmasWin textarea{font-family:var(--tw-font-ui);font-size:12px;}   /* 뮤직바 · 편지 봉투 단추(font:inherit)는 건드리지 않는다 */
   .xm-bar > button{height:24px;padding:0 10px;}
   /* 트리 창이 떠 있는 동안 뒤 런처 창(카드)과 스크롤 막대를 숨긴다 — 겹쳐 보이면 어느 창인지 헷갈린다. 닫으면 그대로 돌아온다 */
   body:has(#xmasOverlay.on) #launcher .lc-card{visibility:hidden;}
+  body:has(#xmasOverlay.on) #launcher .lc-bar{-webkit-app-region:no-drag;}   /* 끌기 칸은 보임과 따로 산다 — 숨긴 제목줄이 트리 위에서 앱 창을 끌지 않게(방 찾기 창과 같다) */
   body:has(#xmasOverlay.on) #launcher{scrollbar-width:none;}
   body:has(#xmasOverlay.on) #launcher::-webkit-scrollbar{display:none;width:0;height:0;}
   .xm-spacer{flex:1;}

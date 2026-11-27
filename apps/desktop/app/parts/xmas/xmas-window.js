@@ -285,14 +285,14 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
 
   /* 창이 화면 안에 다 들게 — 끌 때 · 앱 창 크기가 바뀔 때 · 열 때. 처음 자리(가운데 · transform)는 늘 화면 안이라 그대로 둔다 */
   const xmWin = $('xmasWin');
+  /* want — 사용자가 끌어 놓은 자리. 화면에 맞춘 결과(style)와 따로 기억한다 — 앱 창이 잠깐 작아졌다 커져도(런처에서 열면 창 크기 요청이 늦게 닿는다) 끈 자리로 돌아오게 */
+  let want = null;
   function placeWin(x, y){
     const p = panelFit.fitTopLeft(x, y, xmWin.offsetWidth, xmWin.offsetHeight, win.innerWidth, win.innerHeight, 0);
     xmWin.style.left = p.x + 'px'; xmWin.style.top = p.y + 'px';
+    return p;
   }
-  function fitWin(){
-    if (xmWin.style.transform !== 'none') return;
-    placeWin(parseFloat(xmWin.style.left) || 0, parseFloat(xmWin.style.top) || 0);
-  }
+  function fitWin(){ if (want) placeWin(want.x, want.y); }
   win.addEventListener('resize', () => { if (ov.classList.contains('on')) fitWin(); });
   /* 창 끌기 — 제목줄(닫기 단추 위는 빼고) */
   (function(){
@@ -307,7 +307,7 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     });
     bar.addEventListener('pointermove', (e) => {
       if (!d) return;
-      placeWin(e.clientX - d.dx, e.clientY - d.dy);   // 아래 · 옆으로 화면 밖에 걸치면 창이 잘린다 — 창 전체가 화면 안에
+      want = placeWin(e.clientX - d.dx, e.clientY - d.dy);   // 아래 · 옆으로 화면 밖에 걸치면 창이 잘린다 — 창 전체가 화면 안에(보이는 자리를 기억)
     });
     const up = () => { d = null; };
     bar.addEventListener('pointerup', up); bar.addEventListener('pointercancel', up);

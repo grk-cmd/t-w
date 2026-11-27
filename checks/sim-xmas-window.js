@@ -88,7 +88,7 @@ function world(opts){
     songMod, letterMod, companion: () => null, ytVideoId: () => null, asyncPrompt: async () => null, storage: null, twNav: nav, random: () => (o.random == null ? 0.5 : o.random),
     bgmMod, winBgmMod, creditMod, Audio: null, save: () => true, officeMode: () => false, warn: () => {}, bgmHush: { hush: () => null, unhush: () => {} } });
   Bg.data = bgmMod;
-  return { api, els, T, S, N, store, timers, timeouts, cleared, Lt, nav, Bg };
+  return { api, els, T, S, N, store, timers, timeouts, cleared, Lt, nav, Bg, win };
 }
 const bgmDataOf = (w) => w.Bg.data;
 const tick = () => new Promise(r => setTimeout(r, 0));
@@ -297,17 +297,24 @@ say('── 5-3절 창 끌기 · 앱 창 크기 — 창 전체가 화면 안(sha
   bar.fire('pointermove', { clientX: 5000, clientY: 20 });
   chk(win.style.left === '360px' && win.style.top === '0px', '  오른쪽 · 위도 화면 안');
   bar.fire('pointerup', {});
-  const before = w.S.fits;
-  w.api.open(); w.S.onResize && w.S.onResize();
-  chk(w.S.fits > before && typeof w.S.onResize === 'function', '열 때 · 앱 창 크기가 바뀔 때 다시 맞춘다');
-  const w2 = world(); w2.api.open(); const f0 = w2.S.fits || 0; w2.S.onResize();
-  chk((w2.S.fits || 0) === f0, '  끈 적 없으면(처음 가운데 자리) 손대지 않는다');
+  /* 런처에서 열면 앱 창 크기 요청이 늦게 닿는다 — 작은 창에서 먼저 맞췄다가 커지면 끈 자리로 돌아와야 한다 */
+  w.win.innerWidth = 380; w.win.innerHeight = 680;
+  w.api.open();
+  chk(win.style.left === '0px', '★ 열 때 지금 앱 창 크기에 맞춘다(작은 창 — 왼쪽 끝)');
+  w.win.innerWidth = 1000; w.win.innerHeight = 800; w.S.onResize();
+  chk(win.style.left === '360px' && win.style.top === '0px', '★ 앱 창이 커지면 끈 자리로 돌아온다(맞춘 결과에서 다시 맞추지 않는다)');
+  w.api.close(); w.win.innerWidth = 300; w.S.onResize();
+  chk(win.style.left === '360px', '  닫혀 있으면 크기가 바뀌어도 손대지 않는다');
+  const w2 = world(); w2.win.innerWidth = 300; w2.api.open(); w2.S.onResize();
+  chk(!w2.S.fits && w2.els.xmasWin.style.left === undefined, '  끈 적 없으면(처음 가운데 자리) 손대지 않는다');
 }
 {
   const H = fs.readFileSync(find(['desk-companion-prototype.html', 'app/desk-companion-prototype.html', 'apps/desktop/app/desk-companion-prototype.html']), 'utf8');
   chk(/body:has\(#xmasOverlay\.on\) #launcher \.lc-card\{visibility:hidden;\}/.test(H), '트리 창이 떠 있는 동안 뒤 런처 창(카드)은 안 보인다');
   chk(/<label id="xmasUpLab"[^>]*aria-label="내 그림 올리기"[^>]*>\+<input/.test(H), '내 그림 올리기 = [+] 칸(이름은 aria-label · title)');
-  chk(/#xmasWin button:not\(\.win98titlebtn\):not\(\.xm-tbtn\),#xmasWin input,#xmasWin textarea\{font-family:var\(--tw-font-ui\);font-size:12px;\}/.test(H), '한마디 · 단추 · 편지 창 글꼴을 창 글꼴로(브라우저 기본 Arial 아님)');
+  chk(/#xmasWin button\.win98raised,#xmasWin input,#xmasWin textarea\{font-family:var\(--tw-font-ui\);font-size:12px;\}/.test(H), '한마디 · 단추 · 편지 창 글꼴을 창 글꼴로(브라우저 기본 Arial 아님)');
+  chk(/\.xm-mplay,\.xm-mset\{[^}]*font:inherit;/.test(H) && !/#xmasWin button(:not\([^)]*\))*\{/.test(H) && !/#xmasWin button,/.test(H), '  뮤직바 · 편지 봉투 단추(font:inherit — 바 글자 크기를 따른다)는 이 규칙에 덮이지 않는다(win98raised 단추만)');
+  chk(/body:has\(#xmasOverlay\.on\) #launcher \.lc-bar\{-webkit-app-region:no-drag;\}/.test(H), '숨긴 런처 제목줄이 트리 위에서 앱 창을 끌지 않는다');
   chk(/\.xm-hint\{[^}]*background:rgba\(13,20,36,\.72\)/.test(H), '조작 안내는 어두운 띠에 흰 글자(눈 바닥 위에서도 읽힌다)');
   chk(/#xmasTitle \.xm-tbtn\{[^}]*padding:5px 6px;margin:-5px 0 -5px 2px;/.test(H), '음악 끄기 · 음악 출처 — 누르는 범위를 글자 둘레로 넓힌다(제목줄 높이는 그대로)');
 }
