@@ -307,6 +307,14 @@ say('── 5-3절 창 끌기 · 앱 창 크기 — 창 전체가 화면 안(sha
   chk(win.style.left === '360px', '  닫혀 있으면 크기가 바뀌어도 손대지 않는다');
   const w2 = world(); w2.win.innerWidth = 300; w2.api.open(); w2.S.onResize();
   chk(!w2.S.fits && w2.els.xmasWin.style.left === undefined, '  끈 적 없으면(처음 가운데 자리) 손대지 않는다');
+  /* 제목줄을 누르기만 하고 떼도 가운데 맞춤(transform)이 풀린다 — 그 자리도 기억해야 작은 창에서 잘리지 않는다 */
+  const w3 = world(); const win3 = w3.els.xmasWin, bar3 = w3.els.xmasTitle;
+  win3.offsetWidth = 640; win3.offsetHeight = 560; win3.getBoundingClientRect = () => ({ left: 180, top: 120 });
+  w3.api.open();
+  bar3.fire('pointerdown', { clientX: 300, clientY: 130, target: { closest: () => null }, pointerId: 1 });
+  bar3.fire('pointerup', {});
+  w3.win.innerWidth = 300; w3.S.onResize();
+  chk(win3.style.transform === 'none' && win3.style.left === '0px', '★ 누르기만 하고 떼도 자리를 기억 — 앱 창이 작아지면 화면 안으로');
 }
 {
   const H = fs.readFileSync(find(['desk-companion-prototype.html', 'app/desk-companion-prototype.html', 'apps/desktop/app/desk-companion-prototype.html']), 'utf8');

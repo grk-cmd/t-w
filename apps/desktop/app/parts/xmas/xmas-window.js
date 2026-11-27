@@ -302,7 +302,7 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
       if (e.target.closest('button')) return;
       const r = w.getBoundingClientRect();
       d = { dx: e.clientX - r.left, dy: e.clientY - r.top };
-      w.style.transform = 'none'; w.style.left = r.left + 'px'; w.style.top = r.top + 'px';
+      w.style.transform = 'none'; want = placeWin(r.left, r.top);   // 움직이지 않고 떼도 가운데 맞춤에서 빠지므로 자리를 기억해 둔다
       bar.setPointerCapture(e.pointerId);
     });
     bar.addEventListener('pointermove', (e) => {
