@@ -52,7 +52,7 @@ function world(opts){
   const store = {}; const idbGet = async (k) => (k in store ? store[k] : null); const idbPut = (k, v) => { store[k] = v; };   // GLB 영구 캐시(IndexedDB) 흉내
   const timers = [], timeouts = [], cleared = [];
   class Img { set src(v){ this._src = v; Promise.resolve().then(() => (this.onload && this.onload())); } get src(){ return this._src; } }
-  const win = { localStorage: { getItem(){ throw new Error('localStorage 를 쓰면 안 된다'); }, setItem(){ throw new Error('localStorage 를 쓰면 안 된다'); } }, Image: Img, setInterval: (fn, ms) => timers.push([fn, ms]), setTimeout: (fn, ms) => { timeouts.push([fn, ms]); return timeouts.length; }, clearTimeout: (id) => { cleared.push(id); }, innerWidth: 1000, innerHeight: 800, URL: {}, FileReader: function(){} };
+  const win = { localStorage: { getItem(){ throw new Error('localStorage 를 쓰면 안 된다'); }, setItem(){ throw new Error('localStorage 를 쓰면 안 된다'); } }, Image: Img, setInterval: (fn, ms) => timers.push([fn, ms]), setTimeout: (fn, ms) => { timeouts.push([fn, ms]); return timeouts.length; }, clearTimeout: (id) => { cleared.push(id); }, innerWidth: 1000, innerHeight: 800, addEventListener: (ty, fn) => { if (ty === 'resize') S.onResize = fn; }, URL: {}, FileReader: function(){} };
   const T = { opened: 0, closed: 0, lists: [], onSay: null, onReport: null };
   const treeMod = { baseCanvas: () => null, createXmasTree: () => ({
     open: () => { T.opened++; }, close: () => { T.closed++; }, setOrnaments: (l) => { T.lists.push(l); },
@@ -82,6 +82,7 @@ function world(opts){
   const creditMod = { createXmasCredit: (d) => { Bg.creditDeps = d; return { toggle: () => Bg.calls.push('credit.toggle'), stop: () => Bg.calls.push('credit.stop'), showing: () => false }; } };
   const nav = { NAV: { XMAS: 'xmas' }, fns: {}, on(n, f){ this.fns[n] = f; } };
   const api = (o.mod || W).createXmasWindow({ doc, win, THREE: {}, ps1Dither: {}, rules: R, treeMod, net: () => net, serverNow: () => S.now, idbGet, idbPut,
+    panelFit: { fitTopLeft: (x, y, w, h, vw, vh) => { S.fits = (S.fits || 0) + 1; return { x: Math.max(0, Math.min(vw - w, x)), y: Math.max(0, Math.min(vh - h, y)) }; } },
     notifyError: (c) => S.errs.push(c), toast: (m) => S.toasts.push(m), escRegisterWindow: (x) => S.escs.push(x),
     onSizeChange: () => { S.size++; }, onReady: (fn) => { S.ready = fn; },
     songMod, letterMod, companion: () => null, ytVideoId: () => null, asyncPrompt: async () => null, storage: null, twNav: nav, random: () => (o.random == null ? 0.5 : o.random),
@@ -284,6 +285,31 @@ say('── 5-2절 창 마크업이 없으면 던진다(조용히 넘어가지 �
   let threw = false;
   try { W.createXmasWindow({ doc: { getElementById: () => null }, win: {}, rules: R, treeMod: {}, net: () => ({}), serverNow: () => 0 }); } catch (e) { threw = /xmasOverlay/.test(e.message); }
   chk(threw, '#xmasOverlay · #lcXmas 가 없으면 이름을 대고 던진다');
+}
+
+say('── 5-3절 창 끌기 · 앱 창 크기 — 창 전체가 화면 안(shared/panel-fit.js fitTopLeft)');
+{
+  const w = world(); const win = w.els.xmasWin, bar = w.els.xmasTitle;
+  win.offsetWidth = 640; win.offsetHeight = 560;
+  bar.fire('pointerdown', { clientX: 300, clientY: 20, target: { closest: () => null }, pointerId: 1 });
+  bar.fire('pointermove', { clientX: 300, clientY: 2000 });
+  chk(win.style.transform === 'none' && win.style.top === '240px', '★ 아래로 끌어도 창 아래 끝이 화면 끝에서 멈춘다(800 − 560 · 잘리지 않음)');
+  bar.fire('pointermove', { clientX: 5000, clientY: 20 });
+  chk(win.style.left === '360px' && win.style.top === '0px', '  오른쪽 · 위도 화면 안');
+  bar.fire('pointerup', {});
+  const before = w.S.fits;
+  w.api.open(); w.S.onResize && w.S.onResize();
+  chk(w.S.fits > before && typeof w.S.onResize === 'function', '열 때 · 앱 창 크기가 바뀔 때 다시 맞춘다');
+  const w2 = world(); w2.api.open(); const f0 = w2.S.fits || 0; w2.S.onResize();
+  chk((w2.S.fits || 0) === f0, '  끈 적 없으면(처음 가운데 자리) 손대지 않는다');
+}
+{
+  const H = fs.readFileSync(find(['desk-companion-prototype.html', 'app/desk-companion-prototype.html', 'apps/desktop/app/desk-companion-prototype.html']), 'utf8');
+  chk(/body:has\(#xmasOverlay\.on\) #launcher \.lc-card\{visibility:hidden;\}/.test(H), '트리 창이 떠 있는 동안 뒤 런처 창(카드)은 안 보인다');
+  chk(/<label id="xmasUpLab"[^>]*aria-label="내 그림 올리기"[^>]*>\+<input/.test(H), '내 그림 올리기 = [+] 칸(이름은 aria-label · title)');
+  chk(/#xmasWin button:not\(\.win98titlebtn\):not\(\.xm-tbtn\),#xmasWin input,#xmasWin textarea\{font-family:var\(--tw-font-ui\);font-size:12px;\}/.test(H), '한마디 · 단추 · 편지 창 글꼴을 창 글꼴로(브라우저 기본 Arial 아님)');
+  chk(/\.xm-hint\{[^}]*background:rgba\(13,20,36,\.72\)/.test(H), '조작 안내는 어두운 띠에 흰 글자(눈 바닥 위에서도 읽힌다)');
+  chk(/#xmasTitle \.xm-tbtn\{[^}]*padding:5px 6px;margin:-5px 0 -5px 2px;/.test(H), '음악 끄기 · 음악 출처 — 누르는 범위를 글자 둘레로 넓힌다(제목줄 높이는 그대로)');
 }
 
 say('── 6절 한마디 라벨 · mutation test');

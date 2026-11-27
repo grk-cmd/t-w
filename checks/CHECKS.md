@@ -351,7 +351,7 @@
 | **sim-error-log.js** | 204 | **b1f9b11df721** |
 | **sim-top-level.js** | 57 | **60483e7602a5** |
 | **sim-mac-tooltip.js** | 140 | **d16b995f53a5** |
-| **sim-panel-fit.js** | 106 | **fbc8ba66b8b2** |
+| **sim-panel-fit.js** | 121 | **a5044be70c33** |
 | **sim-strip-comments.js** | 82 | **f16dd3986285** |
 | **sim-playlist-like.js** | 291 | **a375666c4310** |
 | **sim-desk-item-origin.js** | 104 | **c994d7c5152e** |
@@ -600,8 +600,8 @@
 | **sim-xmas-server.js** | 332 | **1a7bb7d5b608** |
 | **sim-xmas-api.js** | 315 | **01986e4191a1** |
 | **sim-xmas-rules.js** | 148 | **d8e3edd595fc** |
-| **sim-xmas-tree.js** | 51 | **0d4a04e1115d** |
-| **sim-xmas-window.js** | 423 | **a61d44ab7fcc** |
+| **sim-xmas-tree.js** | 58 | **be9c69b7d445** |
+| **sim-xmas-window.js** | 449 | **4ab624999322** |
 | **sim-xmas-song.js** | 140 | **8f1589bf966d** |
 | **sim-xmas-bgm.js** | 107 | **f7bc057d8525** |
 | **sim-xmas-letter.js** | 328 | **b17bbc5050d3** |

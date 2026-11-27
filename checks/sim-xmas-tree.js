@@ -28,6 +28,13 @@ for (const k of R.KINDS){
   chk(c && c.width === 16 && c.height === 16 && c.px.length > 10 && c.px.every(([x, y]) => x >= 0 && x < 16 && y >= 0 && y < 16), k + ' — 16칸 안에 점 ' + (c ? c.px.length : 0) + '개');
 }
 chk(X.baseCanvas('tree', fakeDoc()) === null, '모르는 종류는 null(창이 전구로 대신 그린다)');
+{ const off = X.dotsOffset, eq = (o, x, y) => o.x === x && o.y === y;
+  chk(eq(off(['....##..', '....##..'], 8), -1, 3) && eq(off(['##', '##'], 4), 1, 1) && eq(off(['....'], 4), 0, 0), 'dotsOffset — 한쪽에 치우친 점 그림을 가운데로(남는 칸이 홀수면 왼쪽 · 위) · 빈 그림은 그대로');
+  for (const k of R.KINDS){
+    const c = X.baseCanvas(k, fakeDoc()); const xs = c.px.map(p => p[0]), ys = c.px.map(p => p[1]);
+    const l = Math.min(...xs), r = 15 - Math.max(...xs), t = Math.min(...ys), b = 15 - Math.max(...ys);
+    chk(Math.abs(l - r) <= 1 && Math.abs(t - b) <= 1, k + ' — 16칸 가운데(좌 ' + l + ' · 우 ' + r + ' · 위 ' + t + ' · 아래 ' + b + ')');
+  } }
 
 say('── 2절 수명');
 const close = (SRC.match(/function close\(\)\{[\s\S]*?\n  \}/) || [''])[0];

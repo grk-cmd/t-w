@@ -22,7 +22,7 @@ const FETCH_PAR = 6;
  *           songMod:any, letterMod:any, companion:()=>any, ytVideoId:(url:string)=>string|null, asyncPrompt:Function,
  *           storage:()=>Storage|null, twNav:{ NAV:any, on:Function }, random:()=>number,
  *           bgmMod:any, winBgmMod:any, creditMod:any, Audio:(Function|null), save:(k:string, v:string)=>any, officeMode:()=>boolean, warn:Function,
- *           bgmHush:{ hush:()=>any, unhush:(h:any)=>void } }} deps
+ *           bgmHush:{ hush:()=>any, unhush:(h:any)=>void }, panelFit:{ fitTopLeft:Function } }} deps
  */
 function createXmasWindow(deps){
   const doc = deps.doc || document;
@@ -34,6 +34,7 @@ function createXmasWindow(deps){
   const toast = deps.toast;
   const idbGet = deps.idbGet;
   const idbPut = deps.idbPut;
+  const panelFit = deps.panelFit;   // 📐 끈 창을 화면 안으로(shared/panel-fit.js fitTopLeft)
 const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙여 쓴다(sim-nav 가 «deps 로 받는 모듈» 을 이 줄로 센다)
   const $ = (id) => doc.getElementById(id);
 
@@ -108,7 +109,7 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     pick.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
   }
   function addPick(kind, src, label, img){
-    const b = doc.createElement('button'); b.type = 'button'; b.className = 'xm-orn'; b.title = label; b.setAttribute('aria-label', label);
+    const b = doc.createElement('button'); b.type = 'button'; b.className = 'xm-orn win98raised'; b.title = label; b.setAttribute('aria-label', label);
     const im = doc.createElement('img'); im.alt = ''; im.src = src; b.appendChild(im);
     b.onclick = () => choose(b, kind, img);
     pick.insertBefore(b, $('xmasUpLab'));
@@ -145,7 +146,7 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
       img.onload = () => {
         const d = shrink(img);
         if (!d){ toast('그림이 너무 복잡해서 올릴 수 없어요. 다른 그림을 골라 주세요.'); return; }
-        const b = addPick('img', d, '내 그림', d);
+        const b = addPick('img', d, '내 그림', d);   // [＋] 바로 앞에 붙는다
         choose(b, 'img', d);
       };
       img.onerror = () => toast('그림을 읽지 못했어요.');
@@ -260,6 +261,7 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     if (ov.classList.contains('on')) return;
     ov.classList.add('on');
     deps.onSizeChange();
+    fitWin();   // 끌어 둔 자리가 지금 창 크기에서 화면 밖이면 안으로
     tree.open($('xmasCanvas'));
     load(false);
     letter.refresh();
@@ -281,9 +283,20 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
   twNav.on(twNav.NAV.XMAS, (what) => { open(); if (what === 'letter' && ov.classList.contains('on')) letter.open(); });
   $('xmasCloseBtn').onclick = close;
 
+  /* 창이 화면 안에 다 들게 — 끌 때 · 앱 창 크기가 바뀔 때 · 열 때. 처음 자리(가운데 · transform)는 늘 화면 안이라 그대로 둔다 */
+  const xmWin = $('xmasWin');
+  function placeWin(x, y){
+    const p = panelFit.fitTopLeft(x, y, xmWin.offsetWidth, xmWin.offsetHeight, win.innerWidth, win.innerHeight, 0);
+    xmWin.style.left = p.x + 'px'; xmWin.style.top = p.y + 'px';
+  }
+  function fitWin(){
+    if (xmWin.style.transform !== 'none') return;
+    placeWin(parseFloat(xmWin.style.left) || 0, parseFloat(xmWin.style.top) || 0);
+  }
+  win.addEventListener('resize', () => { if (ov.classList.contains('on')) fitWin(); });
   /* 창 끌기 — 제목줄(닫기 단추 위는 빼고) */
   (function(){
-    const w = $('xmasWin'), bar = $('xmasTitle');
+    const w = xmWin, bar = $('xmasTitle');
     let d = null;
     bar.addEventListener('pointerdown', (e) => {
       if (e.target.closest('button')) return;
@@ -294,9 +307,7 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     });
     bar.addEventListener('pointermove', (e) => {
       if (!d) return;
-      const maxX = win.innerWidth - 80, maxY = win.innerHeight - 30;
-      w.style.left = Math.min(maxX, Math.max(-w.offsetWidth + 80, e.clientX - d.dx)) + 'px';
-      w.style.top = Math.min(maxY, Math.max(0, e.clientY - d.dy)) + 'px';
+      placeWin(e.clientX - d.dx, e.clientY - d.dy);   // 아래 · 옆으로 화면 밖에 걸치면 창이 잘린다 — 창 전체가 화면 안에
     });
     const up = () => { d = null; };
     bar.addEventListener('pointerup', up); bar.addEventListener('pointercancel', up);

@@ -72,7 +72,22 @@ chk(f1.sides, '왼쪽 · 오른쪽도 안으로');
 chk(f1.tall, '화면보다 큰 창은 위(제목줄)를 살린다');
 chk(f1.wide, '화면보다 넓은 창은 가운데');
 chk(f1.edge, '경계 — 딱 맞으면 그대로 · 여유 0');
-chk(Object.isFrozen(P) && Object.keys(P).join() === 'fitBottomCenter', '내놓는 것은 fitBottomCenter 하나(얼린 객체)');
+chk(Object.isFrozen(P) && Object.keys(P).join() === 'fitBottomCenter,fitTopLeft', '내놓는 것은 fitBottomCenter · fitTopLeft(얼린 객체)');
+say('\n── 1-2절: fitTopLeft(왼쪽 위 기준 창 — 크리스마스 창 끌기)');
+function topLeftRows(P){
+  const r = [], t = (ok, m) => r.push([!!ok, m]), f = P.fitTopLeft, eq = (a, x, y) => a && a.x === x && a.y === y;
+  t(eq(f(100, 100, 640, 560, 1130, 920, 0), 100, 100), '화면 안이면 그대로');
+  t(eq(f(100, 900, 640, 560, 1130, 920, 0), 100, 360), '★ 아래로 끌면 아래 끝이 화면 끝에서 멈춘다(창 아래가 잘리지 않음)');
+  t(eq(f(900, 100, 640, 560, 1130, 920, 0), 490, 100) && eq(f(-300, -50, 640, 560, 1130, 920, 0), 0, 0), '  오른쪽 · 왼쪽 · 위도 화면 안');
+  t(eq(f(100, 100, 640, 560, 600, 500, 0), 0, 0), '화면보다 큰 창은 왼쪽 위(제목줄)를 살린다');
+  t(eq(f(490, 360, 640, 560, 1130, 920, 0), 490, 360) && eq(f(500, 400, 640, 560, 1130, 920, 8), 482, 352), '경계 · 여유(edge)');
+  return r;
+}
+topLeftRows(P).forEach(([ok, m]) => chk(ok, m));
+for (const [name, m] of [
+  ['아래로 막지 않음', MOD.replace('y: Math.max(e, Math.min(maxY, y))', 'y: Math.max(e, y)')],
+  ['큰 창에서 제목줄을 안 살림(min 이 나중)', MOD.replace('y: Math.max(e, Math.min(maxY, y))', 'y: Math.min(maxY, Math.max(e, y))')],
+]) { let red = 99; try { red = topLeftRows(load(m)).filter(([ok]) => !ok).length; } catch (_) {} chk(m !== MOD && red > 0, '  mutation test — ' + name + ' → 빨강'); }
 
 say('\n── 2절: settings-panel.js 끌기 · 다시 맞추기');
 const d1 = dragCheck(SP, P);

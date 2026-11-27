@@ -19,13 +19,21 @@ const BASE_DOTS = {
   gift: [['.....y..y.......', '......yy........', '..bbbbybbbbb....', '..bbbbybbbbb....', '..yyyyyyyyyy....', '..bbbbybbbbb....', '..bbbbybbbbb....', '..bbbbybbbbb....', '..bbbbybbbbb....', '..bbbbybbbbb....'], { y: '#f2c14e', b: '#4e7bd8' }],
 };
 /** 기본 장식 그림 캔버스(16px) — 창 아래 고르기 단추도 같은 그림을 쓴다 */
+/** 점 그림(행 글자열 · '.' 은 빈칸)을 size 칸 가운데에 놓으려면 옮길 칸 수 — 남는 칸이 홀수면 왼쪽 · 위로 반 칸 */
+function dotsOffset(rows, size){
+  let x0 = size, x1 = -1, y0 = size, y1 = -1;
+  rows.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.'){ if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } }));
+  if (x1 < 0) return { x: 0, y: 0 };
+  return { x: Math.floor((size - (x1 - x0 + 1)) / 2) - x0, y: Math.floor((size - (y1 - y0 + 1)) / 2) - y0 };
+}
 function baseCanvas(kind, doc){
   const rows = BASE_DOTS[kind];
   if (!rows) return null;
   const c = doc.createElement('canvas'); c.width = c.height = 16;
   const g = c.getContext('2d');
   if (!g) return c;
-  rows[0].forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.'){ g.fillStyle = rows[1][ch]; g.fillRect(x, y, 1, 1); } }));
+  const o = dotsOffset(rows[0], 16);   // 점 그림이 16칸 한쪽에 치우쳐 있어도 가운데에 놓는다(장식 고르기 칸 · 트리 장식)
+  rows[0].forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.'){ g.fillStyle = rows[1][ch]; g.fillRect(x + o.x, y + o.y, 1, 1); } }));
   return c;
 }
 
@@ -280,7 +288,7 @@ function createXmasTree(deps){
   };
 }
 
-const api = Object.freeze({ createXmasTree, baseCanvas, BASE_KINDS: Object.freeze(Object.keys(BASE_DOTS)) });
+const api = Object.freeze({ createXmasTree, baseCanvas, dotsOffset, BASE_KINDS: Object.freeze(Object.keys(BASE_DOTS)) });
 if (typeof window !== 'undefined') window.TwXmasTree = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
