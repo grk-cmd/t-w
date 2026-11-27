@@ -385,6 +385,7 @@
 | **sim-tricks.js** | 120 | **4515e3edd7c8** |
 | **sim-ride-bench.js** | 358 | **199de6118464** |
 | **sim-part-paint.js** | 94 | **1ecb09b09d58** |
+| **sim-wd-pic-help.js** | 101 | **d07f53e740ca** |
 | **sim-focus-level.js** | 147 | **91bde8afa958** |
 | **sim-chat-ui.js** | 126 | **eca9c00f7396** |
 | **sim-license-gate.js** | 441 | **1f9c56f0d87f** |
