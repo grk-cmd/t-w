@@ -1742,6 +1742,9 @@
      숨긴 카드 제목줄의 끌기 칸도 끈다(끌기 칸은 보임과 따로 산다) — 창은 모달 제목으로 끈다(마이홈 #myHomeTitle 과 같다). */
   body.desktop.config:has(#inviteOverlay.on) #launcher .lc-card{visibility:hidden;}
   body.desktop.config:has(#inviteOverlay.on) #launcher .lc-bar{-webkit-app-region:no-drag;}
+  /* 런처 카드를 숨기는 창(방 찾기 · 크리스마스)이 떠 있는 동안 런처 스크롤 막대도 숨긴다 — 카드는 안 보이는데 막대만 창 오른쪽에 남는다 */
+  body.desktop.config:has(#inviteOverlay.on) #launcher, body:has(#xmasOverlay.on) #launcher{scrollbar-width:none;}
+  body.desktop.config:has(#inviteOverlay.on) #launcher::-webkit-scrollbar, body:has(#xmasOverlay.on) #launcher::-webkit-scrollbar{display:none;width:0;height:0;}
   body.desktop.config #inviteModal h2{-webkit-app-region:drag;cursor:move;}
   body.desktop.config #inviteModal h2 .lb-x{-webkit-app-region:no-drag;}
   #lobbyMain{display:flex;gap:12px;align-items:stretch;}
@@ -3226,8 +3229,6 @@
   /* 트리 창이 떠 있는 동안 뒤 런처 창(카드)과 스크롤 막대를 숨긴다 — 겹쳐 보이면 어느 창인지 헷갈린다. 닫으면 그대로 돌아온다 */
   body:has(#xmasOverlay.on) #launcher .lc-card{visibility:hidden;}
   body:has(#xmasOverlay.on) #launcher .lc-bar{-webkit-app-region:no-drag;}   /* 끌기 칸은 보임과 따로 산다 — 숨긴 제목줄이 트리 위에서 앱 창을 끌지 않게(방 찾기 창과 같다) */
-  body:has(#xmasOverlay.on) #launcher{scrollbar-width:none;}
-  body:has(#xmasOverlay.on) #launcher::-webkit-scrollbar{display:none;width:0;height:0;}
   .xm-spacer{flex:1;}
   .xm-pop{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.18);}
   .xm-pop[hidden]{display:none;}
