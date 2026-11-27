@@ -2988,11 +2988,11 @@
   #focusSettingsPanel .fs-sep{border-top:1px solid var(--tw-line);margin:12px 0 10px;}
   #focusSettingsPanel .fs-note{margin:6px 0 0;font-size:10.5px;color:var(--tw-ink-soft);line-height:1.5;}
   #focusSettingsPanel .fs-seg-bar{display:flex;align-items:center;gap:6px;margin-top:4px;}
-  /* ⓘ — 누르면 aria-controls 로 가리킨 설명(.fs-desc)이 열리고 다시 누르면 닫힌다(settings-panel.js) */
-  #focusSettingsPanel .fs-info{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin-left:3px;padding:0;
+  /* ⓘ — 누르면 aria-controls 로 가리킨 설명(.fs-desc)이 열리고 다시 누르면 닫힌다(settings-panel.js) · 꾸미기 그리기 줄의 단축키 도움말(.wd-pic-info · part-paint.js)도 같은 모양 */
+  #focusSettingsPanel .fs-info, #wdPicSection .wd-pic-info{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin-left:3px;padding:0;
     vertical-align:1px;font:bold 9px/1 Georgia,serif;font-style:italic;cursor:pointer;color:var(--tw-ink-soft);
     background:var(--tw-bg-select);border:1px solid var(--tw-line);border-radius:50%;}
-  #focusSettingsPanel .fs-info[aria-expanded="true"]{color:#fff;background:var(--tw-accent);border-color:var(--tw-accent);}
+  #focusSettingsPanel .fs-info[aria-expanded="true"], #wdPicSection .wd-pic-info[aria-expanded="true"]{color:#fff;background:var(--tw-accent);border-color:var(--tw-accent);}
   #focusSettingsPanel .fs-desc{margin:-2px 0 8px;font-size:10.5px;color:var(--tw-ink-soft);line-height:1.5;}
   /* 켜짐/꺼짐 스위치 — 글자(켜짐 · 꺼짐)는 읽어 주기용으로 남기고 화면에선 손잡이로 보인다. 누르는 동작은 .fs-toggle-btn 그대로 */
   #focusSettingsPanel .fs-toggle-btn.fs-switch{position:relative;flex:none;width:34px;height:18px;padding:0;font-size:0;color:transparent;
@@ -5249,6 +5249,8 @@
   .wd-pic-lab{font-size:10px;color:var(--ink-soft);flex:0 0 auto;}
   .wd-pic-dot{flex:0 0 auto;border-radius:50%;box-shadow:0 0 0 1px var(--win-lo);}
   .wd-pic-hint{font-size:9.5px;line-height:1.5;color:var(--ink-soft);}
+  .wd-pic-help{display:flex;flex-direction:column;gap:5px;}
+  .wd-pic-help[hidden]{display:none;}
   #wdPreviewColorSection{flex-direction:column;gap:5px;padding:6px 8px;max-height:160px;overflow-y:auto;flex-shrink:0;
     border-top:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);background:var(--win-face-2);border-radius:var(--win-radius-el) !important;}
   .wd-preview-color-head{font-size:10px;font-weight:bold;color:var(--ink-soft);}
