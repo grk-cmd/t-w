@@ -487,7 +487,7 @@
 | **sim-desk-items.js** | 166 | **84aeeb87dc04** |
 | **sim-bgm-diag.js** | 300 | **825e0d2cb561** |
 | **sim-blink-timing.js** | 112 | **f6dba2d5b8f2** |
-| **sim-desk-visual.js** | 318 | **2d4d6ae2f800** |
+| **sim-desk-visual.js** | 345 | **d5838b4813ba** |
 | **sim-desk-place.js** | 187 | **c9043f4d7b0d** |
 | **sim-toast.js** | 197 | **75e6ff6d2029** |
 | **sim-dot-render.js** | 235 | **4723acae1837** |

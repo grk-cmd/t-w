@@ -125,7 +125,7 @@ say('── 4. 동작 — 책상 모양');
       _applyItemMatTone: (m) => log.tone.push(m.n),
       _setDeskMatColor: (m, c) => log.color.push(m.n + '=' + c),
       setDeskScale: (d, s, l) => log.scale.push([s, l]),
-      assetCodeMod: { parseGlbFull: async (b) => { if(o.parseThrows) throw new Error('bad'); log.parsed = b; return { scene: mkTemplate(), animations: o.anims || [] }; } },
+      assetCodeMod: { parseGlbBytes: async (b) => { if(o.parseThrows) throw new Error('bad'); log.parsedLegacy = b; return mkTemplate(); }, parseGlbFull: async (b) => { if(o.parseThrows) throw new Error('bad'); log.parsed = b; return { scene: mkTemplate(), animations: o.anims || [] }; } },
       b64ToBuf: (b) => 'buf:' + b,
       commissionMod: { savedDesks: () => o.desks || [] },
       toast: (m) => log.toast.push(m),
@@ -283,6 +283,33 @@ say('── 4. 동작 — 책상 모양');
       const lateReq = MOD.replace("  const req = seat.desk.userData.deskReq = {};   // 이 부름의 표", "  let req = null;   // 이 부름의 표").replace("  try{\n    seat.desk.userData.__seat = seat;", "  try{\n    req = seat.desk.userData.deskReq = {};\n    seat.desk.userData.__seat = seat;");
       m = await midCase(lateReq, { deskCatalogId: '__no_desk__' });
       chk(lateReq !== MOD && m.parsed === 'buf:G-U', '  mutation test — 표를 받기 직전에만 만들면 «책상 없음» 같은 일찍 끝나는 갈래가 받는 중인 책상을 못 끊는다(빨강)');
+    }
+    say('── 4-2. 옛 캐릭터 def 에 박힌 책상(deskGlb)을 좌석에 그린다 — char-apply 에서 옮겨 온 길');
+    {
+      const lazy = async (src, opt) => ({ L: load(Object.assign({ src }, opt)) });
+      const legacyRows = async (src) => { const r = [], t = (ok, msg) => r.push([!!ok, msg]);
+        const LDEF = { deskGlb: 'G', deskScale: 0.5, deskLenX: 1.2, deskColor: '#abc' };
+        let q = await lazy(src), s4 = seat();
+        await q.L.api.applyDeskCatalogRefToSeat(s4, LDEF);
+        t(q.L.log.parsedLegacy === 'buf:G' && !!s4.desk.getObjectByName('customDesk'), '★ 옛 deskGlb 를 풀어 끼운다');
+        t(q.L.log.scale.length === 1 && q.L.log.scale[0][0] === 0.5 && q.L.log.scale[0][1] === 1.2, '  크기 · 길이를 건다');
+        t(q.L.log.color.length > 0 && q.L.log.color.every((x) => /=#abc$/.test(x)), '  색 받는 재질에 색을 칠한다');
+        q = await lazy(src, { parseThrows: true }); s4 = seat(); let th = null;
+        try{ await q.L.api.applyDeskCatalogRefToSeat(s4, LDEF); }catch(e){ th = e; }
+        t(!th && !s4.desk.getObjectByName('customDesk') && q.L.log.scale.length === 0, '  못 풀면 던지지 않고 크기도 걸지 않는다(옛 동작)');
+        q = await lazy(src); s4 = seat();
+        const p1 = q.L.api.applyDeskCatalogRefToSeat(s4, LDEF);
+        await q.L.api.applyDeskCatalogRefToSeat(s4, { deskCatalogId: '__no_desk__', deskScale: 0.3 }); await p1;
+        t(s4.desk.userData.noDesk === true && !s4.desk.getObjectByName('customDesk') && q.L.log.scale[q.L.log.scale.length - 1][0] === 0.3, '★ 푸는 사이에 «책상 없음» 을 고르면 늦게 풀린 옛 책상을 끼우지 않고 크기도 다시 걸지 않는다');
+        return r; };
+      (await legacyRows(MOD)).forEach(([ok, msg]) => chk(ok, msg));
+      const lreds = async (m) => { try{ return (await legacyRows(m)).filter(([ok]) => !ok).length; }catch(_){ return 99; } };
+      for(const [name, m] of [
+        ['푼 뒤 표를 안 견줌', MOD.replace('  if(!alive()) return null;\n  swapDeskVisual(deskGroup,sc);', '  swapDeskVisual(deskGroup,sc);')],
+        ['옛 책상을 안 끼움', MOD.replace('  swapDeskVisual(deskGroup,sc);\n  return true;', '  return true;')],
+        ['끼웠다고 안 알림(색이 안 칠해짐)', MOD.replace('  swapDeskVisual(deskGroup,sc);\n  return true;', '  swapDeskVisual(deskGroup,sc);\n  return false;')],
+        ['legacyGlb 갈래가 없음', MOD.replace("(plan.kind==='legacyGlb') ? await drawDeskLegacyGlb(seat.desk, plan.glb, alive)\n      : await", 'await')],
+      ]) chk(m !== MOD && (await lreds(m)) > 0, '  mutation test — ' + name + ' → 빨강');
     }
     say('── 5. deskBodyPlan — 어떤 책상 몸을 그리나(좌석 · 꾸미기 미리보기가 같이 쓴다)');
     {
