@@ -18,21 +18,19 @@ const VALUE_MODULES = [
 ];
 const MODULES = [
   { file: 'my-info.js', mod: 'myInfoMod', glob: 'TwMyInfo', sample: 'function openMyInfo(' },   // 앱 FSD 17번
-  { file: 'chars.js', mod: 'charsMod', glob: 'TwChars', sample: 'function _charsSync(' },       // 앱 FSD 18번
-  { file: 'slot-sync.js', mod: 'slotSyncMod', glob: 'TwSlotSync', sample: 'function _slotsSeenSet(' },   // 앱 FSD 19번
   { file: 'away-pic.js', mod: 'awayPicMod', glob: 'TwAwayPic', sample: 'function _awaySzOk(' },   // 앱 FSD 22번
   { file: 'myhome-ui.js', mod: 'myHomeUiMod', glob: 'TwMyHomeUi', sample: 'function renderMhProfileRail(' },   // 앱 FSD 22번
   { file: 'tricks.js', mod: 'tricksMod', glob: 'TwTricks', sample: 'function _eggCountCmd(' },   // 앱 FSD 25번
   { file: 'ride-bench.js', mod: 'rideBenchMod', glob: 'TwRideBench', sample: 'function _checkCircusBalance(' },   // 앱 FSD 30번
   { file: 'part-paint.js', mod: 'partPaintMod', glob: 'TwPartPaint', sample: 'function _wdPicSection(' },   // 앱 FSD 21번
-  { file: 'focus-level.js', mod: 'focusLevelMod', glob: 'TwFocusLevel', sample: 'function _pushLevelIfChanged(' },   // 앱 FSD 26번
+  { file: 'focus-level.js', mod: 'focusLevelMod', glob: 'TwFocusLevel', sample: 'function addFocusSeconds(' },   // 앱 FSD 26번
   { file: 'chat-ui.js', mod: 'chatUiMod', glob: 'TwChatUi', sample: 'function _chatFlySendGate(' },   // 앱 FSD 24번
   { file: 'license-gate.js', mod: 'licenseGateMod', glob: 'TwLicenseGate', sample: 'function _rcStore(' },   // 앱 FSD 31번
   { file: 'account.js', mod: 'accountMod', glob: 'TwAccount', sample: 'function getMyLoginEmail(' },   // 앱 FSD 23번
   { file: 'wardrobe.js', mod: 'wardrobeMod', glob: 'TwWardrobe', sample: 'function ensureWdPreview(' },   // 앱 FSD 29번
   { file: 'settings-panel.js', mod: 'settingsMod', glob: 'TwSettingsPanel', sample: 'function loadAdBannerSlides(' },   // 앱 FSD 27번
   { file: 'desktop-run.js', mod: 'desktopRunMod', glob: 'TwDesktopRun', sample: 'function showUpdateReadyBanner(' },   // 앱 FSD 32번
-  { file: 'room-entry.js', mod: 'roomEntryMod', glob: 'TwRoomEntry', sample: 'function _roomServerNet(' },   // 앱 FSD 33번
+  { file: 'room-entry.js', mod: 'roomEntryMod', glob: 'TwRoomEntry', sample: 'function _onServerRoomMeta(' },   // 앱 FSD 33번
   { file: 'overhead.js', mod: 'overheadMod', glob: 'TwOverhead', sample: 'function applyChipOrientation(' },   // 앱 FSD 34번
   { file: 'room-sync.js', mod: 'roomSyncMod', glob: 'TwRoomSync', sample: 'function _srvNow(' },   // 앱 FSD 35번
   { file: 'status-chip.js', mod: 'statusChipMod', glob: 'TwStatusChip', sample: 'function hexToRgba(' },   // 앱 FSD 36번
@@ -49,14 +47,13 @@ const MODULES = [
   { file: 'slot-save.js', mod: 'slotSaveMod', glob: 'TwSlotSave', sample: 'function _slotImgToDataUrl(' },   // 앱 FSD 43번
   { file: 'interaction-desk.js', mod: 'iDeskMod', glob: 'TwInteractionDesk', sample: 'function _trickTurns(' },   // 앱 FSD 43번
   { file: 'ad-banner.js', mod: 'adBannerMod', glob: 'TwAdBanner', sample: 'function refreshAdBanner(' },   // 앱 FSD 43번
-  { file: 'license-request.js', mod: 'licReqMod', glob: 'TwLicenseRequest', sample: 'function _showLicenseReqState(' },   // 앱 FSD 43번
   { file: 'fn-keys.js', mod: 'fnKeysMod', glob: 'TwFnKeys', sample: '(function bindHotkeys(){' },   // 앱 FSD 43번
   { file: 'hidden-seats.js', mod: 'hiddenSeatsMod', glob: 'TwHiddenSeats', sample: 'function _reportHiddenSave(' },   // 앱 FSD 43번
   { file: 'theme-ui.js', mod: 'themeUiMod', glob: 'TwThemeUi', sample: 'function _themeChildCss(' },   // 앱 FSD 44번
   { file: 'myhome-sticker-layout.js', mod: 'mhStLayoutMod', glob: 'TwMyHomeStickerLayout', sample: 'function _mhOpenStickerAnim(' },   // 앱 FSD 44번
   { file: 'myhome-diag.js', mod: 'mhDiagMod', glob: 'TwMyHomeDiag', sample: 'window.__mhClickDiag = function(){' },   // 앱 FSD 44번
   { file: 'account-state.js', mod: 'acctStateMod', glob: 'TwAccountState', sample: 'function _setPremium(' },   // 모듈 순환 끊기 5 — 게이트 · 계정 · 내 정보에서 핵심 상태를
-  { file: 'myhome-state.js', mod: 'mhStateMod', glob: 'TwMyHomeState', sample: 'function _mhHomeFromServer(' },   // 모듈 순환 끊기 4 — visit 에서 공용 상태를
+  { file: 'myhome-state.js', mod: 'mhStateMod', glob: 'TwMyHomeState', sample: 'function _mhViewingDisplayName(' },   // 모듈 순환 끊기 4 — visit 에서 공용 상태를
   { file: 'myhome-visit.js', mod: 'mhVisitMod', glob: 'TwMyHomeVisit', sample: 'async function openFriendHomeView(' },   // 앱 FSD 44번
   { file: 'exp-bar.js', mod: 'expBarMod', glob: 'TwExpBar', sample: 'function expTierClass(' },   // 앱 FSD 45번
   { file: 'focus-share.js', mod: 'focusShareMod', glob: 'TwFocusShare', sample: 'function _focusShowText(' },   // 앱 FSD 45번
@@ -76,19 +73,18 @@ const MODULES = [
   { file: 'myhome-page.js', mod: 'mhPageMod', glob: 'TwMyHomePage', sample: 'function loadMyHomePage(' },   // 앱 FSD 47번
   { file: 'theme.js', mod: 'themeMod', glob: 'TwTheme', sample: 'function getTheme(' },   // 앱 FSD 48번
   { file: 'asset-code.js', mod: 'assetCodeMod', glob: 'TwAssetCode', sample: 'function encryptBytes(' },   // 앱 FSD 48번
-  { file: 'license-key.js', mod: 'licenseKeyMod', glob: 'TwLicenseKey', sample: 'document.getElementById(\'licenseSubmitBt' },   // 앱 FSD 48번
+  { file: 'license-key.js', mod: 'licenseKeyMod', glob: 'TwLicenseKey', sample: 'licKeyEl(\'licenseSubmitBtn\').onclick' },   // 앱 FSD 48번
   { file: 'license-ui.js', mod: 'licenseUiMod', glob: 'TwLicenseUi', sample: 'function refreshLicenseUI(' },   // 앱 FSD 48번
   { file: 'race-picker.js', mod: 'racePickerMod', glob: 'TwRacePicker', sample: 'function initRacePreview(' },   // 앱 FSD 48번
   { file: 'wardrobe-panel.js', mod: 'wdPanelMod', glob: 'TwWardrobePanel', sample: '(function bindWardrobe(){' },   // 앱 FSD 48번
   { file: 'lv-tier.js', mod: 'lvTierMod', glob: 'TwLvTier', sample: 'function lvTierNum(' },   // 앱 FSD 48번
-  { file: 'myhome-init.js', mod: 'mhInitMod', glob: 'TwMyHomeInit', sample: 'function _warnOwnerWriteDenied(' },   // 앱 FSD 44번 남은 몫
+  { file: 'myhome-init.js', mod: 'mhInitMod', glob: 'TwMyHomeInit', sample: 'async function initMyHome(' },   // 앱 FSD 44번 남은 몫
   { file: 'dot-render.js', mod: 'dotRenderMod', glob: 'TwDotRender', sample: 'function applyDotTextureFilter(' },   // 구역 떼기 C · w1
   { file: 'launcher-controls.js', mod: 'launcherCtlMod', glob: 'TwLauncherControls', sample: 'function closeGearMenu(' },   // C 구역 떼기 · w3
   { file: 'seat-camera.js', mod: 'seatCameraMod', glob: 'TwSeatCamera', sample: 'function updateCameraOnly(' },   // 구역 떼기 C · w1
   { file: 'presence.js', mod: 'presenceMod', glob: 'TwPresence', sample: 'const Presence=(()=>{' },   // C 구역 떼기 w4
   { file: 'launcher-preview.js', mod: 'launcherPrevMod', glob: 'TwLauncherPreview', sample: 'function ensureLauncherPreview(' },   // C 구역 떼기 · w3
   { file: 'part-scene.js', mod: 'partSceneMod', glob: 'TwPartScene', sample: 'function _forceOpaqueAlphaOutput(' },   // 구역 떼기 C · w2
-  { file: 'catalog-source.js', mod: 'catalogSourceMod', glob: 'TwCatalogSource', sample: 'function catalogSrcCan(' },   // 구역 떼기 C · w2 — 서버 이관 provider
   { file: 'admin-thumbs.js', mod: 'adminThumbs', glob: 'TwAdminThumbs', sample: 'window.generateAllPartThumbnails = async' },   // 구역 떼기 C · w2
   { file: 'mat-tone.js', mod: 'matToneMod', glob: 'TwMatTone', sample: 'function setFaceMap(' },   // C 구역 떼기 · w3
   { file: 'seat-friend-req.js', mod: 'seatFriendReqMod', glob: 'TwSeatFriendReq', sample: 'function _friendReqAsk(' },   // C 구역 떼기 w4
@@ -130,6 +126,38 @@ const MODULES = [
   { file: 'desk-place.js', mod: 'deskPlaceMod', glob: 'TwDeskPlace', sample: 'function setDeskScale(' },   // 구역 떼기 C · w2
   { file: 'heartbeat.js', mod: 'heartbeatMod', glob: 'TwHeartbeat', sample: 'let _hbWinShown = null, _hbFullAt = 0;' },   // 0.12.4 — 0.1초 하트비트
   { file: 'run-diag-minute.js', mod: 'runDiagMinuteMod', glob: 'TwRunDiagMinute', sample: 'const m = _frameBudget.takeMinute(t);' },   // 0.12.4 — 1분 진단 줄
+  { file: 'stage.js', mod: 'stageMod', glob: 'TwStage', sample: "const canvas=document.getElementById('scene');" },   // 0.12.4 app.js 분리 M1
+  { file: 'glow.js', mod: 'glowMod', glob: 'TwGlow', sample: 'function getGlowSpriteTexture(' },   // 0.12.4 app.js 분리 M1
+  { file: 'human-ear-attach.js', mod: 'humanEarAttachMod', glob: 'TwHumanEarAttach', sample: 'function _syncHumanEarRig(' },   // 0.12.4 app.js 분리 M2
+  { file: 'desk-build.js', mod: 'deskBuildMod', glob: 'TwDeskBuild', sample: 'function buildPlaceholder(' },   // 0.12.4 app.js 분리 M3
+  { file: 'part-anim.js', mod: 'partAnimMod', glob: 'TwPartAnim', sample: 'function _clipHasMotion(' },   // 0.12.4 app.js 분리 M4
+  { file: 'desk-item-equip.js', mod: 'deskItemEquipMod', glob: 'TwDeskItemEquip', sample: 'function equipDeskItem(' },   // 0.12.4 app.js 분리 M5
+  { file: 'seats.js', mod: 'seatsMod', glob: 'TwSeats', sample: 'function createSeat(' },   // 0.12.4 app.js 분리 M6
+  { file: 'char-place.js', mod: 'charPlaceMod', glob: 'TwCharPlace', sample: 'function _animalPanExtra(' },   // 0.12.4 app.js 분리 M7
+  { file: 'fit-model.js', mod: 'fitModelMod', glob: 'TwFitModel', sample: 'function fitModel(' },   // 0.12.4 app.js 분리 M8
+  { file: 'user-status.js', mod: 'userStatusMod', glob: 'TwUserStatus', sample: 'function setUserStatus(' },   // 0.12.4 app.js 분리 M9
+  { file: 'seat-opacity.js', mod: 'seatOpacityMod', glob: 'TwSeatOpacity', sample: 'function setSeatOpacity(' },   // 0.12.4 app.js 분리 M10
+  { file: 'seat-state.js', mod: 'seatStateMod', glob: 'TwSeatState', sample: 'function seatState(' },   // 0.12.4 app.js 분리 M10
+  { file: 'seat-pointer.js', mod: 'seatPointerMod', glob: 'TwSeatPointer', sample: 'function classifyHit(' },   // 0.12.4 app.js 분리 M11
+  { file: 'char-apply.js', mod: 'charApplyMod', glob: 'TwCharApply', sample: 'function applyCharToSeat(' },   // 0.12.4 app.js 분리 M12
+  { file: 'app-mode.js', mod: 'appModeMod', glob: 'TwAppMode', sample: 'function applyAppMode(' },   // 0.12.4 app.js 분리 M13
+  { file: 'office-mode.js', mod: 'officeModeMod', glob: 'TwOfficeMode', sample: 'function setOfficeHidden(' },   // 0.12.4 app.js 분리 M14
+  { file: 'ls-set.js', mod: 'lsSetMod', glob: 'TwLsSet', sample: 'function _lsSet(' },   // 0.12.4 app.js 분리 M14
+  { file: 'rig-anim.js', mod: 'rigAnimMod', glob: 'TwRigAnim', sample: 'function animateRig(' },   // 0.12.4 app.js 분리 M15
+  { file: 'frame-pace.js', mod: 'framePaceMod', glob: 'TwFramePace', sample: 'function _frameCap(' },   // 0.12.4 app.js 분리 M16
+  { file: 'frame-loop.js', mod: 'frameLoopMod', glob: 'TwFrameLoop', sample: 'function frame(' },   // 0.12.4 app.js 분리 M17
+  { file: 'flying-chair.js', mod: 'flyChairMod', glob: 'TwFlyingChair', sample: 'function startFlight(' },   // 0.12.4 app.js 분리 M18
+  { file: 'myhome-sticker-render.js', mod: 'stickerRenderMod', glob: 'TwMyHomeStickerRender', sample: 'function renderMyHomeStickers(' },   // 0.12.4 app.js 분리 M19
+  { file: 'move-mode.js', mod: 'moveModeMod', glob: 'TwMoveMode', sample: 'function _charProjSane(' },   // 0.12.4 app.js 분리 M19
+  { file: 'cloth-visibility.js', mod: 'clothVisMod', glob: 'TwClothVisibility', sample: 'function applyClothVisibility(' },   // 0.12.4 app.js 분리 T4
+  { file: 'hue-tint.js', mod: 'hueTintMod', glob: 'TwHueTint', sample: 'function applyHueTint(' },   // 0.12.4 app.js 분리 T1
+  { file: 'base-body.js', mod: 'baseBodyMod', glob: 'TwBaseBody', sample: 'function instantiateBase(' },   // 0.12.4 app.js 분리 T2
+  { file: 'part-xf.js', mod: 'partXfMod', glob: 'TwPartXf', sample: 'function applyPartXf(' },   // 0.12.4 app.js 분리 T5
+  { file: 'part-equip.js', mod: 'partEquipMod', glob: 'TwPartEquip', sample: 'async function equipPartOnSeat(' },   // 0.12.4 app.js 분리 T6
+  { file: 'window-mode.js', mod: 'windowModeMod', glob: 'TwWindowMode', sample: 'function applyDesktopRunClass(' },   // 0.12.4 app.js 분리 M22
+  { file: 'creator-open.js', mod: 'creatorOpenMod', glob: 'TwCreatorOpen', sample: 'function openCreator(' },   // 0.12.4 app.js 분리 M21
+  { file: 'creator-canvas.js', mod: 'creatorCanvasMod', glob: 'TwCreatorCanvas', sample: 'function bindPaint(' },   // 0.12.4 app.js 분리 M20
+  { file: 'creator-face.js', mod: 'creatorFaceMod', glob: 'TwCreatorFace', sample: 'function defToBase(' },   // 0.12.4 app.js 분리 T7
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
@@ -151,6 +179,9 @@ function joinRenderer(app){
   if(typeof app !== 'string') return app;
   /* 옛 전역 이름 잇기 줄(«// 옛 전역 이름» 표지)은 먼저 지운다 — «mod.» 를 떼면 자기 자신을 부르는 함수가 된다(자리 계산 전에) */
   app = app.split('\n').filter(l => !l.includes('// 옛 전역 이름')).join('\n');
+  /* app.js 끝의 «화면 모듈(M23 — 소음 · 동물)» 만드는 줄은 옛 app.js 글에 없던 것(옛엔 그 파일들이 app.js 다음 script) — 옮기기 전 글이 아니므로 뗀다 */
+  const iM23 = app.indexOf('/* 🧩 app.js 를 마친 뒤 만드는 화면 모듈'), iAn = iM23 >= 0 ? app.indexOf('TwAnimal.createAnimal({', iM23) : -1, eM23 = iAn >= 0 ? app.indexOf('\n});', iAn) : -1;
+  if(iM23 >= 0) app = app.slice(0, iM23) + (eM23 > 0 ? app.slice(eM23 + '\n});'.length) : '');   // 마지막 만드는 줄(동물) 블록 끝까지만 — 그 아래에 줄이 붙으면 남는다
   /* 다른 모듈 만드는 줄의 쓰는 함수가 옮긴 모듈의 쓰는 함수를 거치면(«setX: (v)=>{ mod.setX(v); },») 옛 모양 «x = v» 로 먼저 돌린다 —
      그래야 아래 ②에서 그 모듈 본문의 setX(…) 도 «x = …» 로 되살아난다 */
   const allSet = {};
@@ -170,6 +201,8 @@ function joinRenderer(app){
     const getters = [...glue.matchAll(/^  ([\w$]+): \(\)=>(?:[\w$]+\.)?([\w$]+)(?:\(\))?,$/gm)].map(x => x[1]);   // 키 = 모듈 안 이름(오른쪽이 다른 모듈의 읽는 함수여도)
     /* 데이터 provider 고르기 한 줄(«roomNet: ()=>window.firebaseAPI,»)은 키가 아니라 오른쪽 글로 되살린다 — 옮기기 전 글은 window.firebaseAPI 를 직접 봤다 */
     const winGet = {}; for(const x of glue.matchAll(/^  ([\w$]+): \(\)=>(window\.[\w$]+),$/gm)) winGet[x[1]] = x[2];
+    /* 캐릭터 코어 몸 상태 읽기(«BASE_SCENE: ()=>bodyCore.baseScene(),»)도 오른쪽 글로 — 옮기기 전 let 은 이제 코어 안에 있다 */
+    for(const x of glue.matchAll(/^  ([\w$]+): \(\)=>(bodyCore\.[\w$]+\(\)),$/gm)) winGet[x[1]] = x[2];
     const setters = [...glue.matchAll(/^  ([\w$]+): \(v\)=>\{ (?:crState\.)?([\w$]+) = v; \},$/gm)].map(x => [x[1], x[2]]);   // 생성기 상태는 crState.이름 에 대입한다(creator-state.js)
     for(const x of txt.matchAll(/^  ([\w$]+): \(\)=>([\w$]+),/gm)) retGet.push([m.mod, x[1]]);
     for(const x of txt.matchAll(/^  ([\w$]+): \(v\)=>\{ ([\w$]+) = v; \},/gm)) retSet.push([m.mod, x[1], x[2]]);
@@ -190,7 +223,7 @@ function joinRenderer(app){
      한 자리에 펼치면 같은 const 가 두 번이 되므로 app.js 차례로 처음 것만 남긴다(뒤 모듈은 부를 때 그 이름을 본다). */
   const aliasSeen = new Set();
   for(const p of parts.slice().sort((a, b) => (a[1] < 0) - (b[1] < 0) || a[1] - b[1])){
-    p[3] = p[3].replace(/^const [\w$]+ = Tw[\w$]+;.*\n/gm, (l) => { const k = l.split(';')[0]; if(aliasSeen.has(k)) return ''; aliasSeen.add(k); return l; });
+    p[3] = p[3].replace(/^const [\w$]+ = (?:Tw[\w$]+|[\w$]+Mod);.*\n/gm, (l) => { const k = l.split(';')[0]; if(aliasSeen.has(k)) return ''; aliasSeen.add(k); return l; });   // 여러 모듈이 같은 값 deps(상태 주인 등)를 받는 줄도 한 번만
   }
   let all = app, tail = [];
   for(const [m, i, j, body] of parts.slice().sort((a, b) => b[1] - a[1])){
@@ -200,7 +233,9 @@ function joinRenderer(app){
   if(tail.length) all += '\n' + tail.join('\n');
   /* 값만 내놓는 공용 모듈(만드는 줄이 없다)은 맨 앞에 전역 이름으로 깐다 — 되살린 본문이 그 이름을 읽는다 */
   const pre = VALUE_MODULES.map(v => { const t = readPart(v.file); return t ? 'var ' + v.glob + ' = (function(){ var module = { exports: {} }, window; ' + t + '\n; return module.exports; })();\n' : ''; }).join('');
-  all = pre + all;
+  /* 캐릭터 코어 빌드 사본 — html 이 app.js 앞에 싣는 라이브러리라(var TwCharCore) 그대로 맨 앞에 깐다. 되살린 본문이 TwCharCore 를 읽는다. */
+  const core = ['vendor/char-core/char-core.iife.js', 'app/vendor/char-core/char-core.iife.js'].map(p => { try{ return fs.readFileSync(p, 'utf8'); }catch(_){ return ''; } }).find(Boolean) || '';
+  all = (core ? core + '\n' : '') + pre + all;
   for(const [mod, n] of retGet) all = all.replace(new RegExp('\\b' + esc(mod) + '\\.' + esc(n) + '\\(\\)', 'g'), n);
   for(const [mod, set, name] of retSet) all = replaceCalls(all, mod + '.' + set, (arg) => name + ' = ' + arg);
   for(const m of MODULES) all = all.replace(new RegExp('\\b' + esc(m.mod) + '\\.', 'g'), '');

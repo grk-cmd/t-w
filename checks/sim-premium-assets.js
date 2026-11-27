@@ -3,7 +3,7 @@
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(DESK_LICENSE_HOLD · ITEM_LICENSE_HOLD · MAX_GACHA_PARTS_PER_CAT · MAX_PARTS_PER_CAT · PART_CATS · PART_GROUPS · WD_DESK_TAB · _licenseLockedDeskId · _normPartRec · _wdLicenseDesks · addEntryToCat · addPartEntryInstance · catEquippedIds · customPartCats · setCustomPartCats · defaultPartXf · entriesForCat · findEntryById · firstEntryForCat · getRecHides · groupOfCat · isDeskPartCat · loadSavedParts · partAttachTarget · partCatInfo · partCatLimit · partCatOverrides · setPartCatOverrides · partEntryId · partEntryInstanceCount · partEntryInstances · partEntryXf · partsInCat · partsInCatFor · partsInGroup · persistSavedParts · pruneUnownedLicenseAssets · rebuildPartCats · removeEntryFromCat · removePartEntryInstance · renderWdDeskSection · reorderSavedPart · restoreLicenseHeldAssets · savedParts · setSavedParts · setPartEntryInstanceXf · toHidesForSave · wdEar)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 32줄 그대로 · 부르는 곳은 premiumMod.이름 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · premium-assets.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -17,13 +17,13 @@ const MOD = ["premium-assets.js","parts/character/premium-assets.js","app/parts/
 if(!MOD){ say('  ? 원본 못 찾음 — premium-assets.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["applyDeskCatalogRefToSeat","deskItemDef","deskPartAnchorOf","equipDeskItem","findMySeat","saveSlots","toast"];
-const VAL_DEPS = ["DEFAULT_DESK_OVERRIDE_ID","seats"];
+const FN_DEPS = ["applyDeskCatalogRefToSeat","deskItemDef","deskPartAnchorOf","equipDeskItem","findMySeat","toast","notifyError"];
+const VAL_DEPS = ["catalogAdmin","DEFAULT_DESK_OVERRIDE_ID","accountStore","seats"];
 const GET_DEPS = ["Presence","cBase","isAdmin","isPremium","savedDesks","savedItems","slots"];
 const SET_DEPS = [];
-const EXPORTS = ["DESK_LICENSE_HOLD","ITEM_LICENSE_HOLD","MAX_GACHA_PARTS_PER_CAT","MAX_PARTS_PER_CAT","PART_CATS","PART_GROUPS","WD_DESK_TAB","_licenseLockedDeskId","_normPartRec","_wdLicenseDesks","addEntryToCat","addPartEntryInstance","catEquippedIds","customPartCats","setCustomPartCats","defaultPartXf","entriesForCat","findEntryById","firstEntryForCat","getRecHides","groupOfCat","isDeskPartCat","isGachaPart","loadSavedParts","partAttachTarget","partCatInfo","partCatLimit","partCatOverrides","setPartCatOverrides","partEntryId","partEntryInstanceCount","partEntryInstances","partEntryXf","partsInCat","partsInCatFor","partsInGroup","persistSavedParts","pruneUnownedLicenseAssets","rebuildPartCats","removeEntryFromCat","removePartEntryInstance","reorderSavedPart","restoreLicenseHeldAssets","savedParts","setSavedParts","setPartEntryInstanceXf","toHidesForSave"];
+const EXPORTS = ["DESK_LICENSE_HOLD","ITEM_LICENSE_HOLD","MAX_GACHA_PARTS_PER_CAT","MAX_PARTS_PER_CAT","PART_CATS","PART_GROUPS","WD_DESK_TAB","_licenseLockedDeskId","_normPartRec","_wdLicenseDesks","addEntryToCat","addPartEntryInstance","catEquippedIds","customPartCats","setCustomPartCats","defaultPartXf","entriesForCat","findEntryById","firstEntryForCat","getRecHides","groupOfCat","isDeskPartCat","isGachaPart","loadLocal","resetLocal","partAttachTarget","partCatInfo","partCatLimit","partCatOverrides","setPartCatOverrides","partEntryId","partEntryInstanceCount","partEntryInstances","partEntryXf","partsInCat","partsInCatFor","partsInGroup","persistSavedParts","pruneUnownedLicenseAssets","rebuildPartCats","removeEntryFromCat","removePartEntryInstance","reorderSavedPart","restoreLicenseHeldAssets","savedParts","setSavedParts","setPartEntryInstanceXf","withHeldAssets","toHidesForSave"];
 const MOVED = ["WD_DESK_TAB","WD_EAR_OFF","wdEar","_wdLicenseDesks","_wdApplyDeskChange","renderWdDeskSection","DESK_LICENSE_HOLD","ITEM_LICENSE_HOLD","_licenseLockedDeskId","_licenseLockedItemId","pruneUnownedLicenseAssets","restoreLicenseHeldAssets","SAVED_PARTS_KEY","MAX_PARTS_PER_CAT","MAX_GACHA_PARTS_PER_CAT","PART_GROUPS","BUILTIN_PART_CATS","GROUP_TO_BONE","customPartCats","partCatOverrides","PART_CATS","rebuildPartCats","partCatInfo","isDeskPartCat","partAttachTarget","partsInGroup","groupOfCat","defaultPartXf","partEntryId","isPartEntryContainer","partEntryXf","normalizePartEntryInstances","partEntryInstances","partEntryInstanceCount","entriesForCat","firstEntryForCat","findEntryById","catEquippedIds","HIDES_NONE_SENTINEL","toHidesForSave","getRecHides","_flattenCatContainer","addEntryToCat","removeEntryFromCat","setPartEntryInstanceXf","addPartEntryInstance","removePartEntryInstance","savedParts","loadSavedParts","_normPartRec","persistSavedParts","partsInCat","partsInCatFor","partCatLimit","reorderSavedPart"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  Presence: ()=>Presence,","  applyDeskCatalogRefToSeat: (...a)=>applyDeskCatalogRefToSeat(...a),","  cBase: ()=>cBase,","  deskItemDef: (...a)=>deskItemDef(...a),","  deskPartAnchorOf: (...a)=>deskPartAnchorOf(...a),","  equipDeskItem: (...a)=>equipDeskItem(...a),","  findMySeat: (...a)=>findMySeat(...a),","  isAdmin: ()=>isAdmin,","  isPremium: ()=>isPremium,","  saveSlots: (...a)=>slotSaveMod.saveSlots(...a),","  savedDesks: ()=>commissionMod.savedDesks(),","  savedItems: ()=>commissionMod.savedItems(),","  seats: seats,","  slots: ()=>slots,","  toast: (...a)=>toast(...a),"];
+const GLUE = ["  catalogAdmin: catalogAdmin,","  notifyError: (...a)=>TwErrorCodes.notify(...a),","  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  accountStore: accountStoreMod,","  Presence: ()=>Presence,","  applyDeskCatalogRefToSeat: (...a)=>applyDeskCatalogRefToSeat(...a),","  cBase: ()=>cBase,","  deskItemDef: (...a)=>deskItemDef(...a),","  deskPartAnchorOf: (...a)=>deskPartAnchorOf(...a),","  equipDeskItem: (...a)=>equipDeskItem(...a),","  findMySeat: (...a)=>findMySeat(...a),","  isAdmin: ()=>isAdmin,","  isPremium: ()=>isPremium,","  licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),","  savedDesks: ()=>commissionMod.savedDesks(),","  savedItems: ()=>commissionMod.savedItems(),","  seats: seats,","  slots: ()=>slots,","  toast: (...a)=>toast(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -32,7 +32,7 @@ function anything(){
   const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? (() => P) : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true });
   return P;
 }
-function build(src){
+function build(src, over){
   const any = anything();
   const deps = {};
   FN_DEPS.forEach(n => { deps[n] = () => any; });
@@ -44,7 +44,7 @@ function build(src){
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
     src + '\nreturn window.TwPremiumAssets;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
-  return api.createPremiumAssets(deps);
+  return api.createPremiumAssets(Object.assign(deps, over || {}));
 }
 
 function judgeAll(mod, app, html){
@@ -74,7 +74,41 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 2-2. 저장 파츠 — 카탈로그 몫은 서버가 원본 · 코드로 추가한 몫만 계정 칸(loadLocal · resetLocal · persist)');
+function behave(mod){
+  const cells = {}; let open = true; const toasts = [];
+  const accountStore = { get: (k) => (open && k in cells) ? cells[k] : null, set: (k, v) => { if(!open) return false; cells[k] = String(v); return true; } };
+  const m = build(mod, { accountStore, notifyError: (x) => toasts.push(x), toast: () => {} });
+  const r = {};
+  m.setSavedParts([{ id: 'P-cat', fromCatalog: true, glbUrl: 'u', cat: 'hat', name: '카탈로그' }]);   // 구독이 확인보다 먼저 왔다
+  cells['tw.savedParts'] = JSON.stringify([{ id: 'P-cat', fromCatalog: true, cat: 'hat', name: '옛 사본(덮으면 안 된다)' }, { id: 'P-gone', fromCatalog: true, cat: 'hat', name: '지워진 사본' }, { id: 'P-mine', cat: 'hat', name: '내 파츠', gacha: true }]);
+  m.loadLocal();
+  r.load = m.savedParts().map(p => p.id + ':' + p.name).join() === 'P-cat:카탈로그,P-mine:내 파츠' && m.savedParts()[1].stackable === true;   // 가챠는 겹쳐 입는다(_normPartRec)
+  m.persistSavedParts();
+  r.persist = JSON.parse(cells['tw.savedParts']).map(p => p.id).join() === 'P-mine' && !toasts.length;   // 카탈로그 몫은 쓰지 않는다
+  m.resetLocal();
+  r.reset = m.savedParts().map(p => p.id).join() === 'P-cat';
+  open = false; m.persistSavedParts();
+  r.closedLoud = toasts.length === 1;
+  open = true; cells['tw.savedParts'] = '{깨짐';
+  try{ m.loadLocal(); r.corruptThrows = false; }catch(_){ r.corruptThrows = true; }   // 깨진 칸은 던진다 — 빈 목록으로 숨기지 않는다
+  return r;
+}
+{
+  const R = behave(MOD);
+  chk(R.load, '확인 뒤 읽기 — 카탈로그 몫(구독이 먼저 와 있음)은 덮지 않고 이 계정 몫만 더한다 · 옛 칸에 섞인 카탈로그 사본은 읽지 않는다');
+  chk(R.persist, '쓰기 — 이 계정 몫만 계정 칸에 쓴다 · 카탈로그 몫은 쓰지 않는다');
+  chk(R.corruptThrows === true, '계정 칸 값이 깨져 있으면 던진다(빈 목록으로 숨기지 않는다)');
+  chk(R.reset && R.closedLoud, '세션이 끝나면 이 계정 몫만 비운다 · 계정 칸이 닫혀 있으면 쓰기를 알린다');
+  const br = (from, to) => MOD.includes(from) ? behave(MOD.replace(from, to)) : null;
+  const b1 = br("savedParts = savedParts.concat(a.filter(p=>!have.has(p.id)).map(_normPartRec));", "savedParts = a.map(_normPartRec);");
+  chk(b1 && !b1.load, 'mutation test — 로그인 때 읽은 값으로 카탈로그 몫을 덮으면 빨강');
+  const b2 = br("JSON.parse(raw).filter(p=>!p.fromCatalog)", "JSON.parse(raw)");
+  chk(b2 && !b2.load, 'mutation test — 옛 칸의 카탈로그 사본까지 읽으면 빨강');
+  const b3 = br("JSON.stringify(savedParts.filter(p=>!p.fromCatalog))", "JSON.stringify(savedParts)");
+  chk(b3 && !b3.persist, 'mutation test — 카탈로그 몫까지 계정 칸에 쓰면 빨강');
+}
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/character/premium-assets.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
@@ -83,7 +117,7 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const premiumMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('premiumMod.' + x)); if(n){ ls[i] = ls[i].replace('premiumMod.' + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 던짐', m => m.replace('function createPremiumAssets(deps){', 'function createPremiumAssets(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createPremiumAssets(deps){', 'function createPremiumAssets(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
@@ -91,5 +125,33 @@ for(const [name, fm, fa, fh] of breaks){
   let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
+say('── 4. 진열 순서 — 서버가 받은 뒤에야 이 PC 순서를 바꾼다');
+async function reorderBehave(mod){
+  const log = [], st = { ok: true };
+  const catalogAdmin = { saveShelfOrReport: async (scope, ids) => { log.push([scope, ids.join()]); return st.ok; } };
+  const api = build(mod, { catalogAdmin });
+  const seed = () => api.setSavedParts([{ id: 'a', cat: 'hat', fromCatalog: true }, { id: 'b', cat: 'hat', fromCatalog: true }, { id: 'l', cat: 'hat' }, { id: 'x', cat: 'cape', fromCatalog: true }]);
+  const order = () => api.savedParts().filter(p => p.cat === 'hat').map(p => p.id).join();
+  seed();
+  const r1 = await api.reorderSavedPart('b', 'a', 'hat');
+  const ok1 = r1 === true && log.length === 1 && log[0][0] === 'CATEGORY:hat' && log[0][1] === 'b,a' && order() === 'b,a,l' && api.savedParts().find(p => p.id === 'b').order === 0;
+  seed(); st.ok = false; log.length = 0;
+  const r2 = await api.reorderSavedPart('b', 'a', 'hat');
+  const ok2 = r2 === false && log.length === 1 && order() === 'a,b,l' && api.savedParts().find(p => p.id === 'a').order === undefined;
+  st.ok = true; api.setSavedParts([{ id: 'l1', cat: 'hat' }, { id: 'l2', cat: 'hat' }]); log.length = 0;
+  const r3 = await api.reorderSavedPart('l2', 'l1', 'hat');
+  const ok3 = r3 === true && !log.length && order() === 'l2,l1';
+  return { ok1, ok2, ok3 };
+}
+(async () => {
+{
+  const R = await reorderBehave(MOD);
+  chk(R.ok1, '★ 서버가 받으면 진열대(CATEGORY:{코드})에 서버 카탈로그 파츠의 순서 전체를 보내고 이 PC 순서도 바꾼다(로컬 전용 파츠는 서버로 안 보낸다)');
+  chk(R.ok2, '★ 서버가 못 받으면(번호로 알림) 이 PC 순서는 그대로다 — 화면이 서버와 어긋나지 않는다');
+  chk(R.ok3, '  서버 카탈로그 파츠가 없는 목록은 서버를 부르지 않고 이 PC 에서만 바꾼다');
+  const bad = await reorderBehave(MOD.replace('if(ids.length && !(await catalogAdmin.saveShelfOrReport(\'CATEGORY:\'+cat, ids))) return false;', ''));
+  chk(!bad.ok2, 'mutation test — 서버 결과를 안 보고 바로 바꾸면 빨강');
+}
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);
+})().catch((e) => { chk(false, '4절 던짐 — ' + (e && e.stack || e)); process.exit(1); });

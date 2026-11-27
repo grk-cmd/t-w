@@ -4,8 +4,8 @@
      서버 이관 때 준비 신호를 갈아 끼울 자리가 이 파일 하나뿐이려면, 이벤트에 직접 귀를 대는 곳이 다시 생기면 안 된다.
    ・1절: whenNetReady — 준비면 바로(기다리지 않음) · 아니면 once 로 한 번 · need(함수 이름)가 없으면 기다림 · 신호 뒤 부름
    ・2절: onNetReady(once 없음 — 두 번 오면 두 번) · waitNetReady(ms) — 신호면 true · 시간이 다 되면 그때 연결 유무 · 한 번만 풀림
-   ・3절: firebase-ready 에 직접 addEventListener 하는 곳 0곳(이 모듈 빼고) · 쓰는 파일 열한 곳이 TwNetReady 를 부른다 · html 순서 · smoke PRELOAD
-   ・4절: 일부러 깨 보기 */
+   ・3절: firebase-ready 에 직접 addEventListener 하는 곳 0곳(이 모듈 빼고) · 쓰는 파일(USERS)이 TwNetReady 를 부른다 · html 순서 · smoke PRELOAD
+   ・4절: mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -17,8 +17,8 @@ const MOD = read('shared/net-ready.js'), HTML = read('desk-companion-prototype.h
 if (!MOD || !HTML || !SMOKE) { say('  ? 원본 못 찾음 — net-ready.js · desk-companion-prototype.html · smoke.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 /* TwNetReady 를 부르는 파일(묶을 때의 15곳 — app.js 넷 · room-entry 둘 · 나머지 하나씩) */
-const USERS = ['app.js', 'launcher/ad-banner.js', 'room/room-entry.js', 'room/room-invite-ui.js', 'room/overhead.js', 'room/room-sync.js',
-  'character/catalog-source.js', 'myhome/scheduler.js', 'account/license-request.js', 'support/bug-board-ui.js', 'account/my-info.js'];
+const USERS = ['app.js', 'room/room-entry.js', 'room/room-sync.js',
+  'myhome/scheduler.js'];   // overhead.js · my-info.js · bug-board-ui.js · room-invite-ui.js(초대는 realtime 연결로 온다)는 0.13 에서 기다릴 일이 없어졌다
 const EVT_RE = /addEventListener\(\s*['"`]firebase-ready['"`]/;
 
 /* 가짜 window — 귀(once 표시) · 타이머는 손으로 */
@@ -94,6 +94,12 @@ async function judge(mod, html, smoke, files) {
 const SRCS = [...HTML.matchAll(/<script(?: type="module")? src="parts\/([^"]+\.js)"/g)].map(m => m[1]);
 const FILES = SRCS.map(f => [f, read(f)]).filter(([, t]) => t);
 const R = await judge(MOD, HTML, SMOKE, FILES);
+/* need 키(whenNetReady(cb, '이름') · isNetReady('이름'))로 기다리는 이름은 firebase-init 의 firebaseAPI 에 실제로 있어야 한다 — 걷은 메서드 이름을 키로 남기면 «준비됨» 이 영영 안 와서
+   그 뒤 시작이 멈춘다(E-0 에서 watchMyFriendList 가 그랬다) */
+const FI_SRC = (FILES.find(([f]) => /firebase-init\.js$/.test(f)) || [])[1] || read('firebase-init.js') || '';
+const NEEDS = [];
+for(const [f, t] of FILES) for(const m of t.matchAll(/whenNetReady\([^;\n]*?,\s*'(\w+)'\s*\)|isNetReady\('(\w+)'\)/g)) NEEDS.push([f, m[1] || m[2]]);
+const NEED_MISSING = NEEDS.filter(([, n]) => !new RegExp('(^|\\n)\\s*(async\\s+)?' + n + '\\s*\\(').test(FI_SRC));
 
 say('── 1. whenNetReady');
 chk(!R.err && R.event, '준비 신호 이름은 firebase-ready 한 곳(NET_READY_EVENT)' + (R.err ? ' — ' + R.err : ''));
@@ -111,12 +117,13 @@ chk(R.waitSignal, '  신호가 오면 true · 시간 제한은 받은 ms 그대�
 chk(R.waitTimeout && R.waitSettleOnce, '  시간이 다 되면 false · 그 뒤 신호는 아무 일도 안 함(한 번만 풀림)');
 chk(R.waitTimeoutLate, '  시간이 다 될 때 연결이 생겨 있으면 true');
 say('── 3. 쓰는 곳 · 싣는 순서');
+chk(FI_SRC.length > 0 && !NEED_MISSING.length, '★ 준비 키(need)로 기다리는 이름은 firebaseAPI 에 실제로 있다(' + NEEDS.length + '곳)' + (NEED_MISSING.length ? ' — 없음 ' + NEED_MISSING.map(([f, n]) => f + ':' + n).join(' · ') : ''));
 chk(!R.direct.length, 'firebase-ready 에 직접 addEventListener 하는 곳 0곳(이 모듈 빼고)' + (R.direct.length ? ' — ' + R.direct.join(' · ') : ''));
 chk(!R.notUsing.length, '쓰는 파일 ' + USERS.length + '곳이 TwNetReady 로 기다린다' + (R.notUsing.length ? ' — 빠짐 ' + R.notUsing.join(' · ') : ''));
 chk(!R.late.length && R.firstBeforeApp, 'html — net-ready.js 를 쓰는 모듈 · app.js 보다 먼저 싣는다' + (R.late.length ? ' — ' + R.late.join(' · ') : ''));
 chk(R.smoke, 'smoke.js PRELOAD 에 net-ready.js');
 
-say('── 4. 일부러 깨 보기');
+say('── 4. mutation test');
 const bk = async (mod, files, html, smoke) => judge(mod || MOD, html || HTML, smoke || SMOKE, files || FILES);
 let b = await bk(MOD.replace('window.addEventListener(NET_READY_EVENT, cb, { once:true });', 'window.addEventListener(NET_READY_EVENT, cb);'));
 chk(!b.waitOnce || !b.firedOnce, 'whenNetReady 에서 once 를 빼면 빨강');
@@ -128,8 +135,8 @@ b = await bk(MOD.replace('window.addEventListener(NET_READY_EVENT, cb);\n', 'win
 chk(!b.onTwice, 'onNetReady 에 once 를 붙이면 빨강(동작 무변경 — overhead 는 CONFIRM 결정 전까지 그대로)');
 b = await bk(MOD.replace('const fin = ()=>{ if(done) return; done = true; res(!!window.firebaseAPI); };', 'const fin = ()=>{ res(false); };'));
 chk(!b.waitSignal, 'waitNetReady 가 신호에도 false 면 빨강');
-b = await bk(null, FILES.map(([f, t]) => [f, f === 'room/overhead.js' ? t + "\nwindow.addEventListener('firebase-ready', ()=>{});\n" : t]));
-chk(b.direct.includes('room/overhead.js'), '다른 파일이 firebase-ready 에 직접 귀를 대면 빨강');
+b = await bk(null, FILES.map(([f, t]) => [f, f === 'room/room-sync.js' ? t + "\nwindow.addEventListener('firebase-ready', ()=>{});\n" : t]));
+chk(b.direct.includes('room/room-sync.js'), '다른 파일이 firebase-ready 에 직접 귀를 대면 빨강');
 b = await bk(null, FILES.map(([f, t]) => [f, f === 'myhome/scheduler.js' ? t.split('TwNetReady.').join('XNetReady.') : t]));
 chk(b.notUsing.includes('myhome/scheduler.js'), '쓰는 파일이 TwNetReady 를 안 부르면 빨강');
 const line = '<script src="parts/shared/net-ready.js"></script>';

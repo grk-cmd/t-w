@@ -3,7 +3,7 @@
    ・2절: 도트 모드 — dot-render.js 가 만든 셰이더 글의 Bayer 16칸 · 색 단계가 공용 값이고, 공백을 빼면 묶기 전 글과 같다
    ・3절: 스티커사진 — purikura-net.js applyFilter('ps1') 결과가 묶기 전 식(제 Bayer 표 · 16단계)과 픽셀까지 같다 · 제 값을 따로 안 든다
    ・3절 끝: 숨은 전제 — 두 쪽이 TwPs1Dither 가 «먼저 실려 있다» 고 믿는다 → html 이 ps1-dither.js 를 둘보다 먼저 · app.js 가 deps 로 넘긴다
-   ・4절: 일부러 깨 보기 */
+   ・4절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -81,7 +81,7 @@ function judge(dSrc, rSrc, nSrc, html, app){
 say('── 1~3. 값 · 도트 셰이더 · 스티커사진 필터');
 const rows = judge(D_[1], R_[1], N_[1], H_[1], A_[1]);
 rows.forEach(([ok, msg]) => chk(ok, msg));
-say('── 4. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 4. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 에서 ps1-dither.js 를 뒤로', null, null, null, h => h.replace(/<script src="parts\/shared\/ps1-dither\.js"><\/script>[^\n]*\n/, '').replace('<script src="parts/app.js"></script>', '<script src="parts/shared/ps1-dither.js"></script>\n<script src="parts/app.js"></script>')],
   ['공용 색 단계를 바꿈', d => d.replace('const PS1_LEVELS = 16;', 'const PS1_LEVELS = 8;'), null, null],

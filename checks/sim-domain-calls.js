@@ -11,7 +11,7 @@
        ③ 다른 도메인 파일이 거는 창 고리(`window.이름 =`)를 `window.이름` 으로 읽기
      도메인 → shared 는 아래로 가는 방향이라 세지 않는다. shared → 도메인은 센다(shared 는 도메인을 모른다).
    ・안 잡는 것: `window.` 없이 맨이름으로 부르는 창 고리 · deps 로 받은 함수(그건 잇는 쪽이 이은 것) · 문자열로 만든 이름.
-   ・1절: 파일 · 예외 · 기준선 · 2절: 파일마다 기준선 이하 · 줄었으면 내린다 · 3절: 가짜 입력으로 깨 보기 */
+   ・1절: 파일 · 예외 · 기준선 · 2절: 파일마다 기준선 이하 · 줄었으면 내린다 · 3절: 가짜 입력으로 mutation test */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -19,7 +19,7 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 
-const BASE = ['.', 'app'].map(d => path.resolve(d)).find(d => fs.existsSync(path.join(d, 'desk-companion-prototype.html')) && fs.existsSync(path.join(d, 'parts')));
+const BASE = ['.', 'app', path.join('apps', 'desktop', 'app')].map(d => path.resolve(d)).find(d => fs.existsSync(path.join(d, 'desk-companion-prototype.html')) && fs.existsSync(path.join(d, 'parts')));
 if (!BASE) { say('  ? 원본 못 찾음 — desk-companion-prototype.html 과 parts/ 폴더'); process.exit(2); }
 const BASE_FILE = path.join(__dirname, 'domain-calls-baseline.json');
 const SHARED = 'shared';
@@ -27,7 +27,8 @@ const SHARED = 'shared';
 /* 일부러 여러 도메인이 바로 읽게 만든 것 — 이름 → why. 세지 않는다 */
 const EXEMPT = {
   TwMyHomeHooks: { why: '마이홈 고리판 — 다른 파일이 HOOK 이름으로 부르게 만든 순환 끊기 판(CLAUDE.md 구조 표 myhome-hooks.js)' },
-  TwDemojiCatalog: { why: '기본 이모티콘 표 — 바꿀 수 없는 공용 표, 채팅에 두면 순환이라 맨 아래로 취급(demoji-catalog.js)' },
+  TwRtHub: { why: 'realtime 연결 하나 — 방 · 대화 · 사진 · 친구 접속이 같은 웹소켓 하나(서버 규약 pv 2)를 쓰도록 만든 공용 연결(realtime/rt-hub.js store)' },
+  TwRoomRt: { why: '방 포트 — 같은 연결 위의 대화 · 사진 포트가 «지금 방» · 대화 탭 이름(s1↔S1)을 같은 한 벌로 읽는다(room/room-rt.js store · tabToWire)' },
   _activeChannel: { why: '방 공용 상태 — room-state.js 가 처음 값을 두고 여러 모듈이 읽는 값(sim-room-state.js)' },
 };
 
@@ -130,7 +131,7 @@ if (base) {
   chk(!c.down.length, '기준선보다 준 파일 0' + (c.down.length ? ' — 줄었어요. 같은 PR 에서 기준선을 내려 주세요: node checks/sim-domain-calls.js --write-baseline (' + c.down.join(' · ') + ')' : ''));
 }
 
-say('── 3. 가짜 입력으로 깨 보기');
+say('── 3. 가짜 입력으로 mutation test');
 {
   const app = "const overheadMod = TwOverhead.createOverhead({});\nconst barMod = TwBar.createBar({});\nconst netMod = TwNet.createNet({});\n";
   const lib = [

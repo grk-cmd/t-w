@@ -36,7 +36,7 @@ say('── 2. 기억');
   chk(/const _hiddenSeatIds = new Set\(\);/.test(CODE), '모듈 변수 Set 하나');
   const uses = CODE.split('\n').filter(l => /_hiddenSeatIds/.test(l));
   chk(uses.length > 0 && !uses.some(l => /localStorage|_lsSet|firebaseAPI|Presence\./.test(l)), 'localStorage · 서버에 안 쓴다');
-  chk(/_clearHiddenSeats\(\);[^\n]*\n\s*await Presence\.start\(/.test(SRC), '방 입장 직전에 비운다');
+  chk(/_clearHiddenSeats\(\);[^\n]*\n[^\n]*\n\s*let r;\s*\n\s*try\{ r = await Presence\.start\(/.test(SRC), '방 입장 직전에 비운다');
   const leave = grabFn('doLeaveRoom');
   chk(/_clearHiddenSeats\(\)/.test(leave), 'doLeaveRoom 에서 비운다');
   chk(/add\(seat\.friendId\)/.test(CODE) && /delete\(seat\.friendId\)/.test(CODE), '키 = seat.friendId(방 세션 memberId)');

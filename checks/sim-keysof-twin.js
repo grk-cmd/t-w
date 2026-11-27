@@ -288,8 +288,8 @@ function run(mainSrc, appSrc){
     'main.js 에 \'win:\' 고정의 근거가 남아 있다');
   chk(/'win:'\s*(고정|리터럴)|승격이 'win:'/.test(appSrc),
     '★ app.js 에도 같은 근거가 남아 있다 — 두 벌이라는 사실을 여기서 처음 보는 사람이 있다');
-  chk(/cfg\.exe/.test(appSrc) && /판정에 안 쓴다|파생|옛 판본/.test(appSrc),
-    '★ cfg.exe 를 왜 남겼는지가 app.js 에 적혀 있다 — 없으면 "저장은 하나" 원칙 위반으로 보고 지운다');
+  /* 0.13 달성표는 판정 키(서버 goal.app) 하나만 쓴다 — 옛 cfg.exe 를 새로 쓰지 않는다. 키 없이 실행파일 이름만 남은 옛 서버 기록은 _chalKeysOf 의 exe 갈래가 승격한다 */
+  chk(!/cfg\.exe\s*=/.test(appSrc), '달성표 설정에 cfg.exe 를 새로 쓰지 않는다(판정 키 하나)');
 
   return { pass, fail, unknown };
 }

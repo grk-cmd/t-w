@@ -4,7 +4,7 @@
      제목줄이 화면 위로 나가 끌 수도 닫을 수도 없다(앱 안 화면이라 ALT+SPACE 도 안 먹는다).
    ・1절: fitBottomCenter 를 실제로 — 안에 있으면 그대로 · 위 · 아래 · 좌우 · 화면보다 큰 창 · 경계
    ・2절: settings-panel.js 의 끌기 · 다시 맞추기 글을 꺼내 가짜 창에서 — 위로 끌어도 제목줄이 화면 안 · 탭이 길어지면 다시 맞춤 · 끌지 않았으면 손대지 않음
-   ・3절: 배선(높이 상한 css · 안쪽 스크롤 · 자동 배치가 같은 함수 · 싣는 순서 · smoke) · 4절: 깨 보기 */
+   ・3절: 배선(높이 상한 css · 안쪽 스크롤 · 자동 배치가 같은 함수 · 싣는 순서 · smoke) · 4절: mutation test */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -94,7 +94,7 @@ const iF = HTML.indexOf('<script src="parts/shared/panel-fit.js"></script>'), iS
 chk(iF > 0 && iF < iS && iF < iC && iF < iA, '싣는 순서 — panel-fit.js 가 settings-panel.js · status-chip.js · app.js 보다 먼저');
 chk(SMOKE.indexOf("PRELOAD.push('panel-fit.js');") > 0 && SMOKE.indexOf("PRELOAD.push('panel-fit.js');") < SMOKE.indexOf("PRELOAD.push('settings-panel.js');"), 'smoke PRELOAD 에 panel-fit.js(settings-panel.js 앞)');
 
-say('\n── 4절: 깨 보기');
+say('\n── 4절: mutation test');
 const b1 = fitCheck(load(MOD.replace('const minY = h + e, maxY = vh - e;', 'const minY = e, maxY = vh - e;')));
 chk(!b1.top && !b1.tall, '창 높이를 안 빼면(아래 끝만 화면 안) 1절 «위로 나가면» 이 빨강');
 const b2 = dragCheck(SP.replace('fitTo(e.clientX-offX, e.clientY-offY);', "panel.style.left=(e.clientX-offX)+'px'; panel.style.top=(e.clientY-offY)+'px';"), P);

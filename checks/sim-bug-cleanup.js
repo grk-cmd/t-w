@@ -3,8 +3,8 @@
  * 1. 판정(순수) — 해결 시각 적기 · 지우기 경계(29일 · 30일) · 미해결 · 공지 · 다시 미해결 · 상한
  * 2. 한 번 돌기 — 받는 줄 · 지우는 경로 · 작업 기록 · 두 번째 날
  * 3. 지우는 경로가 웹 관리자 deleteWrite 와 같다 · 탈퇴(account-delete.js)도 같은 bugPaths
- * 4. index.js 연결 · 규칙(doneTs 칸 · 색인) · 웹 관리자(되돌리면 doneTs 지움 · 작업 기록 이름) · 처리방침
- * 5. 일부러 깨 보기
+ * 4. index.js 연결 · 규칙(doneTs field · 색인) · 웹 관리자(되돌리면 doneTs 지움 · 작업 기록 이름) · 처리방침
+ * 5. mutation test
  */
 'use strict';
 const fs = require('fs');
@@ -159,14 +159,14 @@ chk(/exports\.bugCleanup = onSchedule\(\{ schedule: '40 4 \* \* \*', timeZone: '
   'index.js — 매일 서울 04:40 · runBugCleanup');
 let list = null; try{ list = JSON.parse(RULES).rules.bugBoard.list; }catch(_){}
 chk(!!list && list['.indexOn'].includes('doneTs') && list['$id'].doneTs && list['$id'].doneTs['.validate'] === 'newData.isNumber()',
-  '규칙: 목록 줄에 doneTs 칸(숫자) · 색인 — 없으면 $other 가 막고, 색인이 없으면 함수가 목록을 통째로 받는다');
+  '규칙: 목록 줄에 doneTs field(숫자) · 색인 — 없으면 $other 가 막고, 색인이 없으면 함수가 목록을 통째로 받는다');
 if (WA_BUG) chk(/\.\.\.\(isOpen\(status\) \? \{ \[`\$\{base\}\/doneTs`\]: null \} : \{\}\)/.test(WA_BUG), '웹 관리자: 미해결로 되돌리면 doneTs 를 지운다(해결 때는 안 적음 — 함수가 적는다)');
 if (WA_AUDIT) chk(/'bug\.autoClean'/.test(WA_AUDIT), '웹 관리자 작업 기록 이름에 bug.autoClean');
 const P = PRIVACY.replace(/<[^>]*>/g, ' ');
 chk(/버그 제보/.test(P) && /해결[^.]{0,40}1달|해결[^.]{0,40}한 달/.test(P) && /탈퇴[^.]{0,80}(버그 제보|제보)/.test(P),
   '처리방침: 버그 제보 항목 · 해결 뒤 1달 · 탈퇴 때 삭제를 적었다');
 
-say('── 5. 일부러 깨 보기');
+say('── 5. mutation test');
 const breaks = [
   ['30일을 하루 줄임', (s) => s.replace('const KEEP_MS = 30 * DAY_MS;', 'const KEEP_MS = 29 * DAY_MS;')],
   ['시각 없는 해결 제보를 바로 지움', (s) => s.replace("if (!has){ stamp.push(id); continue; }", "if (!has){ remove.push(id); continue; }")],
@@ -183,7 +183,7 @@ for (const [what, mut] of breaks){
     caught = judge(b).some(([ok]) => !ok) || (await judgeRun(b)).some(([ok]) => !ok);
     if (!caught && WA_BUG){ const mm = load(b); const s2 = mm.bugPaths('X', { vis: 'pub', authUid: 'U' }); caught = !s2.includes('bugBoard/likes/X'); }
   }catch(_){ caught = true; }
-  chk(caught, '  깨 보기: ' + what + ' → 빨강');
+  chk(caught, '  mutation test: ' + what + ' → 빨강');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

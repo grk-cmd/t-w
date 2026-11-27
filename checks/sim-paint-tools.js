@@ -22,6 +22,10 @@ const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 SRC['app.js'] = _joinRenderer(SRC['app.js']);   // 앱 FSD 로 옮긴 모듈(🖍️ 파츠 그림 등)을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const win = { addEventListener(){} };
+/* uv-fill.js 는 캐릭터 코어(TwCharCore.uvFill)에 잇는 한 줄이다 — html 처럼 코어 빌드 사본을 먼저 싣는다 */
+const CORE = ['vendor/char-core/char-core.iife.js', 'app/vendor/char-core/char-core.iife.js'].map(f => { try { return fs.readFileSync(f, 'utf8'); } catch (_) { return null; } }).find(Boolean);
+if (!CORE) { say('  ? 원본 못 찾음 — vendor/char-core/char-core.iife.js'); process.exit(2); }
+global.TwCharCore = new Function(CORE + '\n;return TwCharCore;')();
 ['uv-fill.js', 'paint-tools.js', 'animal-glb.js', 'base-glb.js'].forEach(f => new Function('window', 'module', SRC[f])(win, undefined));
 const hotkeyLetter = new Function('window', SRC['key-input.js'] + '\nreturn hotkeyLetter;')(win);
 const U = win.UvFill, P = win.PaintTools;
@@ -265,7 +269,7 @@ chk(/Shift\+G<\/b> 전체 채우기/.test(SRC['animal.js']) && /<b>G<\/b> 페인
 /* html */
 const sU = HTML.indexOf('<script src="parts/creator/uv-fill.js">'), sP = HTML.indexOf('<script src="parts/creator/paint-tools.js">'),
       sA = HTML.indexOf('<script src="parts/app.js">'), sN = HTML.indexOf('<script src="parts/character/animal.js">');
-chk(sU > 0 && sU < sP && sP < sA && sA < sN, 'html — uv-fill.js → paint-tools.js → app.js → animal.js');
+chk(sU > 0 && sU < sP && sP < sN && sN < sA, 'html — uv-fill.js → paint-tools.js → animal.js → app.js(M23 — app.js 가 끝에서 createAnimal 로 만든다)');
 chk(/<span id="crToolSeg"><\/span>/.test(HTML) && /<b>G<\/b> 페인트통/.test(HTML), 'html — 사람 도구 줄 자리 · 안내 줄');
 chk(/\.pt-seg\{display:inline-flex;/.test(HTML) && /\.cr-tools \.pt-seg button\{/.test(HTML), 'html — 도구 줄 스타일(.cr-tools 버튼 모양 · 눌림 .on 을 그대로)');
 

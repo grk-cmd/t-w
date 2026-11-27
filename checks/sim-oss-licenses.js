@@ -1,8 +1,8 @@
 /* sim-oss-licenses.js — 📄 오픈소스 라이선스 안내(scripts/third-party-notices.js · app/licenses/oss-notices.js · app/parts/launcher/oss-licenses.js)
-   1절: 만든 목록이 package-lock.json 의 운영 패키지 + VENDOR 를 빠짐없이 덮는다 — 의존성 · CDN Firebase 판을 바꾸고 다시 안 만들면 빨강(깨 보기 포함).
+   1절: 만든 목록이 package-lock.json 의 운영 패키지 + VENDOR 를 빠짐없이 덮는다 — 의존성 · CDN Firebase 판을 바꾸고 다시 안 만들면 빨강(mutation test 포함).
    2절: 만드는 함수 — 직접 쓰는 패키지마다 한 줄 · 하위 패키지는 그 줄 안으로 · 같은 원문은 한 번 · 원문 없는 MIT 는 저자로 · 링크 · CDN Firebase 판 읽기.
    3절: 창 — 고정 크기 · 목록과 원문은 안쪽 스크롤 · 이름은 textContent · 링크는 openUrl · 원문 펼치기 · 못 실음 · 닫기 · ESC 스택.
-   4절: 프로그램 설정 위에서 연 이 창 안 클릭이 설정을 닫지 않는다(shared/outside-close.js 예외 · 깨 보기). */
+   4절: 프로그램 설정 위에서 연 이 창 안 클릭이 설정을 닫지 않는다(shared/outside-close.js 예외 · mutation test). */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -41,8 +41,8 @@ const missing = [...expected(lock)].filter(x => !have.has(x));
 chk(missing.length === 0, `1절 lock 운영 패키지 + VENDOR 를 빠짐없이 덮는다` + (missing.length ? ` — 빠짐 ${missing.slice(0, 5).join(', ')} → npm ci 뒤 node scripts/third-party-notices.js` : ''));
 const lock2 = JSON.parse(JSON.stringify(lock));
 lock2.packages['node_modules/zz-new-dep'] = { version: '1.0.0', license: 'MIT' };
-chk([...expected(lock2)].some(x => !have.has(x)), '1절 깨 보기 — lock 에 새 운영 패키지가 생기면 빨강');
-chk([...expected(lock, fbInitSrc.replace(/firebasejs\/\d+\.\d+\.\d+\//g, 'firebasejs/99.0.0/'))].some(x => !have.has(x)), '1절 깨 보기 — firebase-init.js 의 CDN 판이 바뀌면 빨강');
+chk([...expected(lock2)].some(x => !have.has(x)), '1절 mutation test — lock 에 새 운영 패키지가 생기면 빨강');
+chk([...expected(lock, fbInitSrc.replace(/firebasejs\/\d+\.\d+\.\d+\//g, 'firebasejs/99.0.0/'))].some(x => !have.has(x)), '1절 mutation test — firebase-init.js 의 CDN 판이 바뀌면 빨강');
 const direct = Object.keys((lock.packages[''] || {}).dependencies || {});
 chk(data.items.length === gen.VENDOR.length + direct.length, `1절 줄 수 = VENDOR ${gen.VENDOR.length} + 직접 쓰는 패키지 ${direct.length}(하위 패키지는 줄로 안 늘어난다)`);
 chk(data.items.every(it => typeof it.raw === 'string' && it.raw.length > 0), '1절 줄마다 원문이 있다');
@@ -170,7 +170,7 @@ resolveLoad({ items: [
   const real = runOutside(ocSrc);
   chk(real.afterInside === 0 && real.afterOutside === 1, '4절 설정이 열린 채 라이선스 창 안을 누르면 설정이 남고 · 진짜 바깥을 누르면 닫힌다');
   const broken = runOutside(ocSrc.replace(/if\(overlayId==='programSettingsOverlay'[^\n]*#ossLicensesOverlay[^\n]*\n/, ''));
-  chk(broken.afterInside === 1, '4절 깨 보기 — 예외 줄을 빼면 라이선스 창 안 클릭이 설정을 닫는다(빨강)');
+  chk(broken.afterInside === 1, '4절 mutation test — 예외 줄을 빼면 라이선스 창 안 클릭이 설정을 닫는다(빨강)');
   console.log(fail ? `✗ 실패 ${fail}건` : '✓ 전부 통과');
   process.exit(fail ? 1 : 0);
 })();

@@ -13,16 +13,16 @@ UI 를 고치거나 새로 만들 때는 이 폴더를 먼저 본다.
 | `project/tokens.json` | 토큰 — 색(낮 · 밤 · 클래식) · 글꼴 · 간격 · 모서리 · 그림자 · 크기 · 겹침 순서 |
 | `project/sections/` | 오버레이 원칙 · 아이콘과 글 · 해요/하지 마요 · 현재 앱과 다른 점 · 이행 순서 |
 | `project/components/` | 부품별 지침(`README.md`) · 미리보기(`preview.html`) · 공용 모양 `bundle.css`(클래스는 모두 `.tw-*`) |
-| `project/assets/Logos/` | 앱 마크 `tw-mini.png`(원본은 `app/assets/icon/tw-mini.png`) |
+| `project/assets/Logos/` | 앱 마크 `tw-mini.png`(원본은 `apps/desktop/app/assets/icon/tw-mini.png`) |
 | `project/design-system.json` | 아티팩트 메타 정보(제목 · 판 · 마지막 변경) |
 
 ## 고치는 법
 
 1. `project/` 안의 파일을 고친다(토큰은 `tokens.json`, 부품 모양은 `components/bundle.css`, 지침은 각 `README.md`).
-2. 토큰(`tokens.json`)을 고쳤으면 `npm run design:build` — `scripts/build-design-tokens.js` 가 도움말 사이트 토큰(`hosting/help/tokens.css`)을 다시 만든다.
+2. 토큰(`tokens.json`)을 고쳤으면 `npm run design:build` — `scripts/build-design-tokens.js` 가 도움말 사이트 토큰(`firebase/hosting/help/tokens.css`)을 다시 만든다.
    손으로 고치지 않는다. `npm run check` 의 `sim-design-tokens.js` 가 둘이 어긋나면 빨강을 낸다. (웹 페이지는 없다 — 이 폴더는 규칙 문서로만 쓴다.)
 3. 웹에 올리기(관리자만): `firebase deploy --only hosting --project together-working`.
-   Hosting 배포는 `hosting/` 전체(웹 관리자 `/admin` 포함)를 함께 올린다 — `firebase.json` predeploy 가 웹 관리자를 다시 빌드한다.
+   Hosting 배포는 `firebase/hosting/` 전체(웹 관리자 `/admin` 포함)를 함께 올린다 — `firebase/firebase.json` predeploy 가 웹 관리자를 다시 빌드한다.
 
 미리보기는 아티팩트 환경을 흉내 낸다 — 각 미리보기에 `tokens.css`(tokens.json 에서 만든 CSS 변수)와 `bundle.css` 를 싣고,
 `<html data-theme="light|dark|classic">` 으로 테마를 바꾼다.

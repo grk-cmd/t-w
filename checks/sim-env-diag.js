@@ -8,7 +8,7 @@
    ・2절: resourceLine — PC 전체 기준 % (코어 몫 ÷ 논리 수) · 기준 잡는 중 · 논리 수 모름
    ・3절: envLine · gpuDetailLine — 물리 해상도 · Hz · 주 · 실행 모니터 · 빈 값은 «모름» · 줄바꿈 · 길이 상한
    ・3-2절: createHeaderKeep · rotateKeep — 가짜 파일로 돌려 쓴 뒤 새 파일 첫머리에 [환경] · [GPU] · [GPU 상세] 가 다시 있는지
-   ・4절: 깨 보기 — 갈래를 하나씩 지운 모듈로 1~3-2절을 다시 돌려 빨강이 나는지
+   ・4절: mutation test — 갈래를 하나씩 지운 모듈로 1~3-2절을 다시 돌려 빨강이 나는지
    ・5절: 배선 — main 이 싣고 · GPU 줄 뒤 [환경] · 미뤄서 [GPU 상세] · 창을 만들 때 1분 [자원] 시작 · 끌 때 타이머 내림 · 진단 기록 돌려쓰기가 머리 줄을 다시 적음 */
 'use strict';
 const fs = require('fs');
@@ -130,7 +130,7 @@ runEnv(E).forEach((ok, i) => chk(ok, ENV_MSG[i]));
 say('── 3-2. createHeaderKeep · rotateKeep');
 runRotate(E).forEach((ok, i) => chk(ok, ROT_MSG[i]));
 
-say('── 4. 깨 보기');
+say('── 4. mutation test');
 const breaks = [
   ['첫 호출도 줄을 낸다', MOD.replace('return first ? null : out;', 'return out;'), runWatch],
   ['초로 안 나눔(누적 초를 그대로)', MOD.replace('b.cores += used / out.secs;', 'b.cores += used;'), runWatch],
@@ -147,7 +147,7 @@ const breaks = [
   ['false 를 모름으로', MOD.replace("if(v !== undefined && v !== null && v !== '') return v;", 'if(v) return v;'), runEnv],
 ];
 for (const [name, src, run] of breaks) {
-  if (src === MOD) { chk(false, '깨 보기 «' + name + '» — 바꿀 글을 못 찾음(모듈이 바뀌었다)'); continue; }
+  if (src === MOD) { chk(false, 'mutation test «' + name + '» — 바꿀 글을 못 찾음(모듈이 바뀌었다)'); continue; }
   let red = false;
   try { red = run(load(src)).some(ok => !ok); } catch (_) { red = true; }
   chk(red, '깨면 빨강 — ' + name);

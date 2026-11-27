@@ -1,11 +1,11 @@
 /* ═══ 🙂 sim-room-face-load.js — 방에서 받은 남의 얼굴 · 감은눈 그림 복원 ═══════════════════════
    [무엇을 지키나] deserializeDefFromNetwork 는 상대 def 의 faceUrl · blinkUrl 을 캔버스로 바꾼다. 감은눈만 못 받으면
      눈을 감을 때마다 피부만 보여 얼굴이 깜박이며 사라졌다 돌아온다 — 그때는 표정 그림을 감은눈 자리에 대신 쓴다.
-   ・동물 그림(animal.js _texFromDataURL)도 처음 실패하면 한 번 더 받는다 · 깨 보기
-   ・0절: 그림 받기 — 처음 실패하면 캐시를 비켜 한 번만 다시(dataURL 제외 · 두 번까지) · 깨 보기
+   ・동물 그림(animal.js _texFromDataURL)도 처음 실패하면 한 번 더 받는다 · mutation test
+   ・0절: 그림 받기 — 처음 실패하면 캐시를 비켜 한 번만 다시(dataURL 제외 · 두 번까지) · mutation test
    ・1절: 가짜 이미지 · 캔버스 위에서 실제로 돌린다 — 둘 다 받음 · 감은눈만 실패 · 얼굴도 실패 · 감은눈 dataURL 이 같이 옴
-   ・2절: 일부러 깨 보기 — 대신 쓰는 줄 · 주소마다 한 번 막기를 빼면 빨강
-   ・3절: 얼굴을 못 받은 def 는 «나중에 다시 풀 것» 으로 표시(retryDefAfter) · 동물 그림도 두 번 다 못 받으면 조금 뒤 몇 번 더 — 횟수 상한 · 깨 보기
+   ・2절: mutation test — 대신 쓰는 줄 · 주소마다 한 번 막기를 빼면 빨강
+   ・3절: 얼굴을 못 받은 def 는 «나중에 다시 풀 것» 으로 표시(retryDefAfter) · 동물 그림도 두 번 다 못 받으면 조금 뒤 몇 번 더 — 횟수 상한 · mutation test
    [실행] room-sync.js · animal.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -142,7 +142,7 @@ function judgeAnimalRetry(src){
     const setTimeout = (fn, ms) => { timers.push(ms); fn(); };
     const ctx = { fillRect(){}, drawImage(){}, set fillStyle(_){} };
     const document = { createElement: () => ({ getContext: () => ctx }) };
-    const THREE = { CanvasTexture: function(){ this.needsUpdate = false; }, sRGBEncoding: 1 };
+    const THREE = { CanvasTexture: function(){ this.needsUpdate = false; this.userData = {}; }, sRGBEncoding: 1 };   // 진짜 텍스처처럼 userData 가 있다(얼굴 복구가 twSrc · twFill 을 적는다)
     const console = { warn(){ warned++; }, log(){} };
     const diag = [];
     const window = { companion: { diagNote: (m) => diag.push(m) } };
@@ -176,23 +176,23 @@ function judgeAnimalRetry(src){
   {
     const a2 = ANIMAL.replace('if(again){ load(again); return; }', '');
     const rows = a2 !== ANIMAL ? judgeAnimalRetry(a2) : [[true, '']];
-    chk(a2 !== ANIMAL && rows.some(([ok]) => !ok), '깨 보기 — 동물 그림 다시 받기를 끄면 빨강' + (a2 !== ANIMAL ? '' : ' — 바꿀 글을 못 찾음'));
+    chk(a2 !== ANIMAL && rows.some(([ok]) => !ok), 'mutation test — 동물 그림 다시 받기를 끄면 빨강' + (a2 !== ANIMAL ? '' : ' — 바꿀 글을 못 찾음'));
   }
   say('── 0. 그림 받기 다시 시도');
   (await judgeRetry(SRC)).forEach(([ok, msg]) => chk(ok, msg));
   {
-    const s2 = SRC.replace('img = await _loadImgCors(again);', 'throw e;');
+    const s2 = SRC.replace('const img = await TwImgRetry.loadWithRetry(_loadImgCors, url);', 'const img = await _loadImgCors(url);');
     const rows = s2 !== SRC ? await judgeRetry(s2) : [[true, '']];
-    chk(s2 !== SRC && rows.some(([ok]) => !ok), '깨 보기 — 다시 받는 줄을 빼면 빨강' + (s2 !== SRC ? '' : ' — 바꿀 글을 못 찾음'));
+    chk(s2 !== SRC && rows.some(([ok]) => !ok), 'mutation test — 다시 받는 줄을 빼면 빨강' + (s2 !== SRC ? '' : ' — 바꿀 글을 못 찾음'));
   }
   const F = grabFn(SRC, 'async function deserializeDefFromNetwork(def){');
   say('── 1. 받아 본다');
   (await judge(F)).forEach(([ok, msg]) => chk(ok, msg));
-  say('── 2. 일부러 깨 보기');
+  say('── 2. mutation test');
   {
     SRC_FOR_ONCE = SRC.replace('if(_diagSeen.has(key)) return; ', '');
     const rows = SRC_FOR_ONCE !== SRC ? await judge(F) : [[true, '']];
-    chk(SRC_FOR_ONCE !== SRC && rows.some(([ok]) => !ok), '깨 보기 — 주소마다 한 번 막기를 빼면 빨강' + (SRC_FOR_ONCE !== SRC ? '' : ' — 바꿀 글을 못 찾음'));
+    chk(SRC_FOR_ONCE !== SRC && rows.some(([ok]) => !ok), 'mutation test — 주소마다 한 번 막기를 빼면 빨강' + (SRC_FOR_ONCE !== SRC ? '' : ' — 바꿀 글을 못 찾음'));
     SRC_FOR_ONCE = SRC;
   }
   say('── 3. 얼굴 못 받은 def — 나중에 다시 풀 것');
@@ -200,13 +200,13 @@ function judgeAnimalRetry(src){
   {
     const F2 = F.replace(/\n[^\n]*_faceMissDefs\.add\(out\);/, '');
     const rows = F2 !== F ? await judgeRetryAfter(SRC, F2) : [[true, '']];
-    chk(F2 !== F && rows.some(([ok]) => !ok), '깨 보기 — 못 받은 표시를 빼면 빨강' + (F2 !== F ? '' : ' — 바꿀 글을 못 찾음'));
+    chk(F2 !== F && rows.some(([ok]) => !ok), 'mutation test — 못 받은 표시를 빼면 빨강' + (F2 !== F ? '' : ' — 바꿀 글을 못 찾음'));
     const a3 = ANIMAL.replace("if(wait!==null){ late++; setTimeout(()=>load(u), wait); return; }", '');
     const rows3 = a3 !== ANIMAL ? judgeAnimalRetry(a3) : [[true, '']];
-    chk(a3 !== ANIMAL && rows3.some(([ok]) => !ok), '깨 보기 — 동물 그림 나중 받기를 빼면 빨강' + (a3 !== ANIMAL ? '' : ' — 바꿀 글을 못 찾음'));
+    chk(a3 !== ANIMAL && rows3.some(([ok]) => !ok), 'mutation test — 동물 그림 나중 받기를 빼면 빨강' + (a3 !== ANIMAL ? '' : ' — 바꿀 글을 못 찾음'));
     const a4 = ANIMAL.replace("const wait=TwImgRetry.laterRetryMs(u, late);", 'const wait=1000;');
     const rows4 = a4 !== ANIMAL ? (() => { try{ return judgeAnimalRetry(a4); }catch(_){ return [[false, '']]; } })() : [[true, '']];
-    chk(a4 !== ANIMAL && rows4.some(([ok]) => !ok), '깨 보기 — 나중 받기 횟수 상한을 빼면 빨강' + (a4 !== ANIMAL ? '' : ' — 바꿀 글을 못 찾음'));
+    chk(a4 !== ANIMAL && rows4.some(([ok]) => !ok), 'mutation test — 나중 받기 횟수 상한을 빼면 빨강' + (a4 !== ANIMAL ? '' : ' — 바꿀 글을 못 찾음'));
   }
   const m2 = F ? F.replace(/\n[^\n]*if\(!out\.blink && out\.face[^\n]*/, '') : F;
   const rows = m2 && m2 !== F ? await judge(m2) : [[true, '']];

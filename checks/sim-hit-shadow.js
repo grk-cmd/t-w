@@ -5,7 +5,7 @@
    ・2절: desktop-run.js 를 가짜 창에서 진짜로 만들고 mousemove 를 넣어 본다 — 새 판정이 맞음 / 못 맞음 / 던짐 / 건너뜀이어도
           클릭 통과 결과(setIgnoreMouse)는 옛 판정대로 · 받기를 보낸 뒤에 그림자 · 그림자 셈이 옛 답 · 새 답 · 만듦을 받음 · [비용] 통과 시간에 그림자 몫이 안 듦
    ・3절: app.js · html 연결 — 그린 직후 표시 한 줄(markRendered) · 빈 지도 판단은 deps · desktop-run · 1분 진단에 같은 hitShadow · 싣는 차례
-   ・4절: 일부러 깨 보기
+   ・4절: mutation test
    [실행] 러너 스테이징(node checks/run.js hit-shadow) 또는 저장소 루트에서. */
 'use strict';
 const fs = require('fs');
@@ -14,7 +14,8 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for(const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f, f.split('/').pop()]) if(fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 const MOD = read('launcher/hit-shadow.js'), DR = read('launcher/desktop-run.js'), POL = read('launcher/click-through-policy.js');
-const APP = read('app.js'), HTML = read('desk-companion-prototype.html');
+const FLH = ['frame-loop.js', 'parts/launcher/frame-loop.js', 'app/parts/launcher/frame-loop.js'].map(read).find(Boolean) || '';   // frame() 은 launcher/frame-loop.js(M17) — app 글 뒤에 이어 붙여 같이 본다
+const APP = read('app.js') + '\n' + FLH, HTML = read('desk-companion-prototype.html');
 if(!MOD || !DR || !POL || !APP || !HTML){ say('  ? 원본 못 찾음 — hit-shadow.js · desktop-run.js · click-through-policy.js · app.js · html'); process.exit(2); }
 
 const loadWin = (src, name) => { const win = {}; new Function('window', 'module', 'performance', src)(win, undefined, { now: () => 0 }); return win[name]; };
@@ -80,7 +81,7 @@ function runDesktop(drSrc, opt){
   const st = { old: [], pickArgs: [], records: [] };
   const ray = { setFromCamera: noop, intersectObjects: () => opt.oldHit ? [{ object: { parent: null } }] : [], layers: {} };
   const seatHit = {
-    pick: (r, x, y, allow) => { st.pickArgs.push({ r, x, y, allow }); log.push('pick'); clock.t += opt.pickMs || 0; if(opt.pickThrows) throw new Error('깨 봄'); return opt.pick || { hit: false, inRect: false, stale: false, skipped: false, built: false }; },
+    pick: (r, x, y, allow) => { st.pickArgs.push({ r, x, y, allow }); log.push('pick'); clock.t += opt.pickMs || 0; if(opt.pickThrows) throw new Error('mutation'); return opt.pick || { hit: false, inRect: false, stale: false, skipped: false, built: false }; },
     describe: (obj, x, y, extra) => Object.assign({ obj, x, y }, extra || {}),
   };
   const hitShadow = { allow: () => opt.allow !== false, record: (rec) => st.records.push(rec) };
@@ -138,14 +139,14 @@ function judgeWiring(drSrc, app, html){
   /* 3절 — app.js · html */
   const iMake = app.indexOf('const seatHitMod = TwSeatHitTargets.createSeatHitTargets({'), iShadow = app.indexOf('const hitShadow = TwHitShadow.createHitShadow();');
   const iDiag = app.indexOf('const runDiagMinuteMod = TwRunDiagMinute.createRunDiagMinute({'), iDR = app.indexOf('const desktopRunMod = TwDesktopRun.createDesktopRun({');
-  const iRay = app.indexOf('const ray=new THREE.Raycaster()'), iHid = app.indexOf('const hiddenSeatsMod = '), iOv = app.indexOf('const overheadMod = ');
+  const iRay = app.indexOf('const seatPointerMod = TwSeatPointer.createSeatPointer({'), iHid = app.indexOf('const hiddenSeatsMod = '), iOv = app.indexOf('const overheadMod = ');
   t(iShadow > 0 && iMake > iShadow && iDiag > iMake && iDR > iMake && iRay > 0 && iRay < iMake && iHid < iMake && iOv < iMake, '만드는 줄 — hitShadow → seatHitMod 가 1분 진단 · desktop-run 보다 먼저 · ray · 숨김 · 머리 위 모듈 뒤(TDZ 없음)');
   const blk = (k) => { const i = app.indexOf(k); return i < 0 ? '' : app.slice(i, app.indexOf('\n});', i)); };
-  t(/\n  officeHidden: \(\)=>_officeHidden,\n  configHidden: \(\)=>_configHidesScene\(\),\n  isRunmode: \(\)=>document\.body\.classList\.contains\('runmode'\),/.test(blk('const seatHitMod')) && /\n  hitShadow: hitShadow,/.test(blk('const runDiagMinuteMod')) && /\n  hitShadow: hitShadow,/.test(blk('const desktopRunMod')) && /\n  seatHit: seatHitMod,/.test(blk('const desktopRunMod')) && /\n  noteBuild: \(\.\.\.a\)=>hitShadow\.build\(\.\.\.a\),/.test(blk('const seatHitMod')),
+  t(/\n  officeHidden: \(\)=>officeModeMod\._officeHidden\(\),\n  configHidden: \(\)=>_configHidesScene\(\),\n  isRunmode: \(\)=>document\.body\.classList\.contains\('runmode'\),/.test(blk('const seatHitMod')) && /\n  hitShadow: hitShadow,/.test(blk('const runDiagMinuteMod')) && /\n  hitShadow: hitShadow,/.test(blk('const desktopRunMod')) && /\n  seatHit: seatHitMod,/.test(blk('const desktopRunMod')) && /\n  noteBuild: \(\.\.\.a\)=>hitShadow\.build\(\.\.\.a\),/.test(blk('const seatHitMod')),
     '  빈 지도 판단은 deps(회사원 숨김 · 설정 화면 · 실행 화면) · 같은 hitShadow 가 지도 만들기 · desktop-run · 1분 진단에 · desktop-run 은 seatHitMod 를');
   const fr = app.slice(app.indexOf('function frame(now, manual){'), app.indexOf('\n}\n', app.indexOf('function frame(now, manual){')));
   const iR = fr.indexOf('renderer.render(scene,camera)'), iB = fr.indexOf('  seatHitMod.markRendered();');
-  const drawIf = fr.indexOf("if(!_officeHidden && !_configHidesScene()){ _gpuTimer.begin(); renderer.render(scene,camera);");
+  const drawIf = fr.indexOf("if(!officeModeMod()._officeHidden() && !_configHidesScene()){ _gpuTimer.begin(); renderer.render(scene,camera);");
   t(iR > 0 && iB > iR && fr.indexOf('seatHitMod.') === iB + 2 && fr.lastIndexOf('seatHitMod.') === iB + 2 && fr.slice(iR, iB).indexOf('updateMatrixWorld') < 0 && drawIf >= 0 && !/seatHitMod\.rebuild|skipWhy/.test(fr),
     'frame() — 그린 직후 표시 한 줄(markRendered)뿐 · 지도를 만들거나 판단하지 않음 · 그리기 조건은 _configHidesScene 한 곳');
   const pos = (f) => html.indexOf('<script src="parts/' + f + '"></script>');
@@ -158,7 +159,7 @@ const rows = judgePure(MOD);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 셈 · 줄'); chk(ok, msg); });
 const rows2 = judgeWiring(DR, APP, HTML);
 rows2.forEach(([ok, msg], i) => { if(i === 0) say('── 2. desktop-run 나란히 돌리기'); if(i === 9) say('── 3. app.js · html 연결'); chk(ok, msg); });
-say('── 4. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 4. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['줄 길이 자르기 빠짐', 'm', m => m.replace('const cut = (s) => s.length > LINE_MAX ? s.slice(0, LINE_MAX) : s;', 'const cut = (s) => s;')],
   ['세는 칸 바뀜(지도만통과 ↔ 지도만받기)', 'm', m => m.replace("const k = r.old ? 'leak' : 'grab';", "const k = r.old ? 'grab' : 'leak';")],

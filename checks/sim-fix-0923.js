@@ -12,7 +12,7 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const SRC = _MI_JOIN(read('app.js')), ML = read('mallang.js'), AN = read('animal.js');
+const SRC = _MI_JOIN(read('app.js')), ML = read('mallang.js'), AN = read('animal.js'), PA = read('premium-assets.js');   // loadLocal 은 여러 모듈에 있어 이 모듈 글에서 따로 뽑는다
 if(!SRC || !ML){ say('  ? 원본 못 찾음 — app.js · mallang.js'); process.exit(2); }
 /* 📷 스티커사진 무대(_pkCloneChar)는 parts/purikura-ui.js 로 옮겼다(앱 FSD 3번) — 4절은 그 파일을 본다 */
 const PU = read('purikura-ui.js');
@@ -28,7 +28,7 @@ say('── 1. 🎰 가챠 = stackable · 숫자키 맵');
   chk(N({ id:'g', gacha:true, stackable:false }).stackable === true, '옛 가챠 파츠(stackable:false) → true');
   chk(N({ id:'n', stackable:false }).stackable === false, '일반 파츠는 그대로');
   /* 입구 두 곳은 글 모양이 아니라 진짜 함수를 돌려 본다 — 합치기 규칙을 옮겨도 판정이 안 깨지게 */
-  const IN = new Function('localStorage', 'document', [
+  const IN = new Function('accountStore', 'document', [
     "const SAVED_PARTS_KEY = 'tw.savedParts', CATALOG_ORDER_LAST = 9999; let savedParts = [];",
     'const log = [], seats = [];',
     'const persistSavedParts = () => {}, applyClothVisibility = () => {}, unequipPartFromSeat = () => {}, fitModel = () => {}, layoutSeats = () => {};',
@@ -37,15 +37,15 @@ say('── 1. 🎰 가챠 = stackable · 숫자키 맵');
     'const gachaMod = { pruneUnownedGachaParts: () => {} }, partEntryXf = (e) => e && e.xf;',
     "const partEntryId = (e) => typeof e === 'string' ? e : (e && e.id), entriesForCat = (def, c) => [].concat(def.equippedParts[c]);",
     'const equipPartOnSeat = (s, cat, rec, opt) => { log.push([rec.id, opt.stackableXf]); };',
-    ['_normPartRec', 'loadSavedParts', 'mergeCatalogList', 'mergeCatalogIntoSavedParts'].map(n => grab(SRC, n)).join('\n'),
-    'return { load: loadSavedParts, merge: mergeCatalogIntoSavedParts, parts: () => savedParts, seats, log };',
+    ['_normPartRec', 'mergeCatalogList', 'mergeCatalogIntoSavedParts'].map(n => grab(SRC, n)).join('\n') + '\n' + grab(PA, 'loadLocal'),
+    'return { load: loadLocal, merge: mergeCatalogIntoSavedParts, parts: () => savedParts, seats, log };',
   ].join('\n'));
   const doc = { getElementById: () => null };
   const old = [{ id:'g1', cat:'hat', gacha:true, stackable:false }, { id:'n1', cat:'hat', stackable:false }];
-  let E = IN({ getItem: () => JSON.stringify(old) }, doc);
+  let E = IN({ get: () => JSON.stringify(old) }, doc);
   E.load();
-  chk(E.parts().find(p => p.id === 'g1').stackable === true && E.parts().find(p => p.id === 'n1').stackable === false, '입구 ① 로컬 캐시(loadSavedParts) — 옛 가챠 기록을 읽으면 stackable · 일반 파츠는 그대로');
-  E = IN({ getItem: () => '[]' }, doc);
+  chk(E.parts().find(p => p.id === 'g1').stackable === true && E.parts().find(p => p.id === 'n1').stackable === false, '입구 ① 계정 칸 읽기(loadLocal) — 옛 가챠 기록을 읽으면 stackable · 일반 파츠는 그대로');
+  E = IN({ get: () => '[]' }, doc);
   E.seats.push({ charDef:{ equippedParts:{ hat:[{ id:'hat0', xf:{} }, { id:'g2', xf:{ y:1 } }] } } });
   E.merge({ g2:{ cat:'hat', gacha:true, stackable:false }, n2:{ cat:'hat', stackable:false } });
   const g2 = E.parts().find(p => p.id === 'g2');
@@ -77,7 +77,6 @@ say('── 2. 🖼️ 슬롯 섬네일 = 런처');
   chk(/if\(a < 255 \* 20\) return;/.test(tk), '빈 그림이면 덮지 않는다');
   chk(/if\(url && url !== job\.def\.thumb\)\{ job\.def\.thumb = url; saveSlots\(\); \}/.test(tk), '바뀌었을 때만 저장');
   chk(/const LC_THUMB_SETTLE_MS = 900, LC_THUMB_MAX = 160;/.test(CODE), '크기 상한 160px(칸은 52px)');
-  chk(/out\.thumb = null;/.test(CODE), '섬네일은 서버로 안 간다(로컬 전용 — 쓰기가 안 는다)');
 }
 
 say('── 3. 🎨 서식 태그의 배경색');
@@ -133,50 +132,11 @@ say('── 5. 🫨 말랑이 제자리 떨림');
 
 (async ()=>{
 
-say('── 6. 🎫 라이선스가 계정을 따라간다');
+say('── 6. 🎫 라이선스 — 등록 · 해제는 서버에(0.13 — 판정은 sim-license-premium · 계정 사본으로 옮기던 길은 걷었다)');
 {
-  const fns = ['_licenseSnapPushNow', '_licenseSnapForPush', 'activateLicense', 'deactivateLicense'].map(n => (SRC.includes('async function ' + n + '(') ? 'async ' : '') + grab(SRC, n)).join('\n');   // grab 은 async 를 떼어 온다
-  chk(fns.split('function ').length - 1 >= 4, '네 함수를 떼어 왔다');
-  const mk = (o) => {
-    const LS = new Map(Object.entries(o.ls || {}));
-    const env = { pushed:[], toasts:[], premium:null, LS };
-    const W = { firebaseAPI:{ setAccountSnapshot:(u, s)=>env.pushed.push(s), fetchAccountSnapshot: async ()=>({ license:o.acct || null }) } };
-    const f = new Function('env', 'window', 'firebaseAPI', `
-      const LICENSE_KEY_STORAGE='tw.licenseKey', LICENSE_OPTOUT_KEY='tw.licenseOptOut';
-      const localStorage = { getItem:k=>env.LS.has(k)?env.LS.get(k):null, setItem:(k,v)=>env.LS.set(k,String(v)), removeItem:k=>env.LS.delete(k) };
-      const getMyLoginEmail = ()=> ${o.login === false ? 'null' : "'a@b'"}, getMyUserId = ()=>'U1';
-      const _loginLocalSnapshot = ()=>({ license: localStorage.getItem(LICENSE_KEY_STORAGE), name:'n' });
-      const verifyLicense = async (k)=> (${JSON.stringify(o.verify || { ok:true })});
-      const _setPremium = (v)=>{ env.premium = v; };
-      const toast = (m)=>env.toasts.push(m); const refreshLicenseUI = ()=>{};
-      let userStatus = null; const setUserStatus = ()=>{};
-      ${fns}
-      return { forPush:_licenseSnapForPush, act:activateLicense, deact:deactivateLicense };`);
-    return Object.assign(env, f(env, W, W.firebaseAPI));
-  };
-  await (async ()=>{
-    let e = mk({ acct:'KEY-A' }); let s = await e.forPush();
-    chk(s.license === 'KEY-A' && e.LS.get('tw.licenseKey') === 'KEY-A' && e.premium === true && e.toasts.length === 1, '이 PC 에 없고 계정에 있음 → 검증 뒤 이 PC 에서도 켠다 · 알린다');
-    e = mk({ acct:'KEY-A', ls:{ 'tw.licenseOptOut':'KEY-A' } }); s = await e.forPush();
-    chk(s.license === 'KEY-A' && !e.LS.has('tw.licenseKey') && e.premium === null, '이 기기에서 해제한 키 → 다시 켜지 않지만 계정 것은 지우지 않는다');
-    e = mk({ acct:'KEY-B', ls:{ 'tw.licenseOptOut':'KEY-A' } }); s = await e.forPush();
-    chk(e.LS.get('tw.licenseKey') === 'KEY-B', '해제한 것과 다른 키(새로 산 것)는 켠다');
-    e = mk({ acct:'KEY-A', verify:{ ok:false } }); s = await e.forPush();
-    chk(s.license === null && !e.LS.has('tw.licenseKey'), '회수된 키 → 켜지 않고 계정에서도 빠진다');
-    e = mk({ acct:'KEY-A', verify:{ ok:false, offline:true } }); s = await e.forPush();
-    chk(s.license === 'KEY-A' && !e.LS.has('tw.licenseKey'), '오프라인 → 켜지 않지만 계정 것을 지우지 않는다');
-    e = mk({ acct:null }); s = await e.forPush();
-    chk(s.license === null, '계정에도 없음 → 예전과 같음');
-    e = mk({ acct:'KEY-X', ls:{ 'tw.licenseKey':'KEY-L' } }); s = await e.forPush();
-    chk(s.license === 'KEY-L' && e.toasts.length === 0, '이 PC 에 있으면 그게 올라간다(계정 것을 안 읽는다)');
-    e = mk({ ls:{ 'tw.licenseOptOut':'KEY-A' } }); await e.act(' key-a ');
-    chk(e.LS.get('tw.licenseKey') === 'KEY-A' && !e.LS.has('tw.licenseOptOut') && e.pushed.length === 1 && e.pushed[0].license === 'KEY-A', '등록 즉시 계정에 올린다 · 해제 표시를 지운다');
-    e = mk({ login:false }); await e.act('KEY-A'); chk(e.pushed.length === 0, '로그인 안 한 기기는 올리지 않는다');
-    e = mk({ ls:{ 'tw.licenseKey':'KEY-A' } }); e.deact();
-    chk(!e.LS.has('tw.licenseKey') && e.LS.get('tw.licenseOptOut') === 'KEY-A' && e.premium === false, '이 기기에서 해제 → 해제 표시에 그 키');
-    chk(/setTimeout\(async \(\)=>\{ try\{ firebaseAPI\.setAccountSnapshot\(getMyUserId\(\), await _licenseSnapForPush\(\)\); \}catch\(_\)\{\} \}, 6000\);/.test(CODE), '부팅 push 가 _licenseSnapForPush 를 거친다(계정 라이선스를 null 로 덮지 않음)');
-    chk(/LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY, LICENSE_OPTOUT_KEY,/.test(CODE), '로그아웃이 해제 표시도 지운다(ACCOUNT_LOCAL_KEYS)');
-  })();
+  chk(!/setAccountSnapshot|fetchAccountSnapshot|_licenseSnapForPush/.test(CODE), '계정 사본(accountSnap) 길이 남지 않았다');
+  chk(/LICENSE_REQ_ID_KEY,/.test(CODE) && !/LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY|LICENSE_REQ_ID_KEY, LICENSE_OPTOUT_KEY/.test(CODE), '로그아웃이 옛 키 · 해제 표시를 지우지 않는다(첫 실행이 올린 뒤 지움 — ACCOUNT_LOCAL_KEYS)');
+  chk(!/async function activateLicense\(|function deactivateLicense\(|function loadLicenseFromStorage\(|function verifyLicense\(/.test(CODE), '이 PC 의 키로 켜고 Firebase 로 확인하던 옛 경로(activateLicense · deactivateLicense · loadLicenseFromStorage · verifyLicense)가 없다');
 }
 
 say('── 7. 🗼 탑에서 룰렛 — 나만 빠지고 탑은 한 칸 내려앉는다(A안)');
@@ -253,21 +213,16 @@ say('── 10. 📏 자리비움 그림 크기 60·80·100 — 그림 주인이
   chk(px({ remote:true, remoteAwaySz:null }) === 80 && px({ remote:true, remoteAwaySz:999 }) === 80 && px(null) === 80, '안 보냈거나(구버전) 엉뚱한 값이면 기본 80');
   chk((/let myAwaySz=80;/.test(CODE) || (/let myAwaySz=AWAY_SZ_DEFAULT;/.test(CODE) && /const AWAY_SZ_DEFAULT = 80;/.test(CODE) && CODE.indexOf('const AWAY_SZ_DEFAULT = 80;') < CODE.indexOf('let myAwaySz=AWAY_SZ_DEFAULT;'))) && !/let myAwaySz=AWAY_PIC_SCREEN_PX/.test(CODE),   // 숫자 상수(presence.js 위 — C 구역 떼기 w4)도 같은 뜻
   'Presence 초기값은 숫자 — 아래쪽 var 를 읽으면 load 순간 undefined(방 payload 거절)');
-  chk(/\.\.\.myStarOut\(\), awaySz:myAwaySz, lic:/.test(CODE) && /\{def:myDef,name:myName,awaySz:myAwaySz,state:myState,/.test(CODE), '평소 · 입장 payload 에 awaySz(다른 검사가 붙잡은 줄 모양은 안 흔든다)');
+  chk(/\.\.\.myStarOut\(\), awaySz:myAwaySz, awayImg:/.test(CODE) && /\{def:myDef,awaySz:myAwaySz,state:myState,/.test(CODE), '평소 · 입장 payload 에 awaySz(다른 검사가 붙잡은 줄 모양은 안 흔든다)');
   chk(/s\.remoteAwaySz=_awaySzOk\(friends\[id\]\.awaySz\) \? friends\[id\]\.awaySz : null;/.test(CODE), '받는 쪽은 세 값만 받는다');
   chk(/function setAwaySz\(px\)\{[\s\S]{0,160}if\(v === myAwaySz\) return;/.test(CODE) && /setAwayImg, setAwaySz,/.test(CODE), 'Presence.setAwaySz — 같으면 안 보냄 · 내보냄');
   const ui = grab(SRC, '_awaySetSz');
-  chk(/if\(!_awaySzOk\(px\) \|\| px === awayImgSz\) return;/.test(ui) && /api\.setAwaySz\(uid, px\)/.test(ui), '버튼 → 같은 값이면 무시 · 서버 users/{uid}/awaySz');
-  chk(/api\.getAwaySz\(uid\)/.test(grab(SRC, '_awayBootSync')), '부팅 때 서버 값이 이긴다(계정을 따라감)');
+  chk(/if\(!_awaySzOk\(px\) \|\| px === awayImgSz\) return;/.test(ui) && /userApi(?:\(\))?\.setAwaySize\(px\)/.test(ui), '버튼 → 같은 값이면 무시 · 서버 PATCH /v2/me/away-image');
+  chk(/a\.size/.test(grab(SRC, 'startAwayPic')) && /awayImage/.test(grab(SRC, 'startAwayPic')), '켤 때 서버 값(me.awayImage)이 이긴다(계정을 따라감)');
   const H = read('desk-companion-prototype.html') || '';
   chk(/id="miAwaySz"[\s\S]{0,400}data-sz="60"[\s\S]{0,120}data-sz="80"[\s\S]{0,120}data-sz="100"/.test(H) && H.indexOf('id="miAwaySzRow"') > H.indexOf('id="miAwayReset"'), 'HTML — [내 정보] 그림 칸 버튼 아래 60·80·100');
-  const RJ = read('firebase-database-rules.json');
-  if(RJ){
-    const R = JSON.parse(RJ).rules.users.$userId.awaySz;
-    chk(!!R && /=== 60/.test(R['.validate']) && /=== 80/.test(R['.validate']) && /=== 100/.test(R['.validate']) && /isNumber/.test(R['.validate']) && /userAuth/.test(R['.write']), '규칙 users/$userId/awaySz — 본인만 · 세 값만');
-  } else say('  ? firebase-database-rules.json 없음 — 규칙 판정 건너뜀');
   const FI = read('firebase-init.js');
-  if(FI) chk(/async setAwaySz\(userId, px\)/.test(FI) && /async getAwaySz\(userId\)/.test(FI) && /users\/\$\{userId\}\/awaySz/.test(FI), 'firebase-init — setAwaySz · getAwaySz');
+  if(FI) chk(!/setAwaySz|getAwaySz|setAwayImg|getAwayImg|users\/\$\{userId\}\/awaySz/.test(FI), 'firebase-init — 자리비움 DB 경로 없음(서버 /v2/me/away-image)');
   else say('  ? firebase-init.js 없음 — 건너뜀');
 }
 
