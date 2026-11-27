@@ -15,6 +15,7 @@
 function createStatusChip(deps){
 const CUSTOM_STATUS_MAXLEN = deps.CUSTOM_STATUS_MAXLEN;
 const Presence = deps.Presence;   // 읽는 함수
+const settingsPanel = deps.settingsPanel;   // 읽는 함수 — ⚙ 설정 창 모듈(머리 위 자리는 그쪽 규칙 · app.js 에서 나중에 만든다)
 const _CHIP_POPUPS = deps._CHIP_POPUPS;
 const _charBadWhy = deps._charBadWhy;   // 읽는 함수
 const _charBoundsLatest = deps._charBoundsLatest;   // 읽는 함수
@@ -470,16 +471,13 @@ function updateMyStatusChipPosition(){
     }
   }
 
-  // 설정 패널 — 캐릭터 머리 위 중앙에 오도록, 상태칩과 별개로 "오프셋 없는" 캐릭터 중앙 x 사용
+  // 설정 패널 — 캐릭터 머리 위 중앙(상태칩과 별개로 «오프셋 없는» 캐릭터 중앙 x). 자리 규칙은 설정 창 주인(settings-panel.js placeAtHead)
   const panel=document.getElementById('focusSettingsPanel');
-  if(panel && panel.classList.contains('on') && !window._fsPanelDragged){   // ✥ 드래그로 옮긴 뒤엔 머리 위 자동 따라가기 중단
-    _uiAnchorWorld(me, _wpTmp2); _wpTmp2.y = 1.55; _wpTmp2.project(camera);   // 올라탄 동안엔 제자리 기준
-    let cx=rect.left+(_wpTmp2.x*0.5+0.5)*rect.width;
-    let cy=rect.top +(-_wpTmp2.y*0.5+0.5)*rect.height;
-    // 화면 밖으로 잘리지 않게 — 끌어 옮길 때 · 크기가 바뀔 때와 같은 규칙(shared/panel-fit.js)
-    const fit = TwPanelFit.fitBottomCenter(cx, cy, panel.offsetWidth || 240, panel.offsetHeight || 260, innerWidth, innerHeight, 8);
-    panel.style.left=fit.x+'px';
-    panel.style.top =fit.y+'px';
+  if(panel && panel.classList.contains('on')){   // 열리기 전엔 설정 모듈이 아직 없을 수 있다(app.js 에서 나중에 만든다)
+    settingsPanel().placeAtHead(()=>{
+      _uiAnchorWorld(me, _wpTmp2); _wpTmp2.y = 1.55; _wpTmp2.project(camera);   // 올라탄 동안엔 제자리 기준
+      return { x: rect.left+(_wpTmp2.x*0.5+0.5)*rect.width, y: rect.top+(-_wpTmp2.y*0.5+0.5)*rect.height };
+    });
   }
 }
 /* 칩 이벤트 바인딩 — 클릭하면 상태 메뉴 토글 (드래그 이동 기능은 설정 패널의 "프로그램 이동"으로 이전됨) */

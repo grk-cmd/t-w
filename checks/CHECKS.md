@@ -351,7 +351,7 @@
 | **sim-error-log.js** | 204 | **b1f9b11df721** |
 | **sim-top-level.js** | 57 | **60483e7602a5** |
 | **sim-mac-tooltip.js** | 140 | **d16b995f53a5** |
-| **sim-panel-fit.js** | 121 | **a5044be70c33** |
+| **sim-panel-fit.js** | 139 | **d67a328e6ac9** |
 | **sim-os-drag.js** | 68 | **6b142ee3f163** |
 | **sim-strip-comments.js** | 82 | **f16dd3986285** |
 | **sim-playlist-like.js** | 291 | **a375666c4310** |
@@ -390,12 +390,12 @@
 | **sim-license-gate.js** | 441 | **1f9c56f0d87f** |
 | **sim-account.js** | 174 | **bee6deb0f7c1** |
 | **sim-wardrobe.js** | 441 | **c6da5c655ca4** |
-| **sim-settings-panel.js** | 205 | **aad58018e96e** |
+| **sim-settings-panel.js** | 241 | **e740fbdb1db9** |
 | **sim-desktop-run.js** | 94 | **2370870711eb** |
 | **sim-room-entry.js** | 401 | **29b730f27d0b** |
 | **sim-overhead.js** | 216 | **864fadcfc6d0** |
 | **sim-room-sync.js** | 154 | **38b0ec277090** |
-| **sim-status-chip.js** | 189 | **baf85473655b** |
+| **sim-status-chip.js** | 189 | **dffd9aeca1b0** |
 | **sim-premium-assets.js** | 157 | **3cba1cff97a4** |
 | **sim-char-code.js** | 126 | **a1385fe8ea20** |
 | **sim-dice-games.js** | 95 | **752d783dd369** |
@@ -441,7 +441,7 @@
 | **sim-launcher-controls.js** | 238 | **75867d45288c** |
 | **sim-launcher-preview.js** | 234 | **c49fb1d8bdef** |
 | **sim-mat-tone.js** | 179 | **3d56a0ddbc8e** |
-| **sim-oss-licenses.js** | 180 | **1bb5cc5d1009** |
+| **sim-oss-licenses.js** | 181 | **c58b7ea20f41** |
 | **sim-outside-close.js** | 95 | **4e74c4ee4ab8** |
 | **sim-wardrobe-panel.js** | 140 | **a792436ce3cd** |
 | **sim-race-picker.js** | 99 | **3751c2ccabd4** |
