@@ -26,6 +26,7 @@ const ANIMAL_HAND_REST = deps.ANIMAL_HAND_REST;
 const applyDesktopRunClass = deps.applyDesktopRunClass;
 const renderLauncher = deps.renderLauncher;
 const partPaintMod = deps.partPaintMod;
+const strokePointer = deps.strokePointer;   // 🖊 획이 이어지나 · 끊겼나(shared/stroke-pointer.js)
 const slots = deps.slots;
 const applyCharToSeat = deps.applyCharToSeat;
 const slotSaveMod = deps.slotSaveMod;
@@ -264,7 +265,7 @@ function buildOverlay(){
         /* 💡 원색 보기 — 3 표정 · 4 감은눈 탭에서만 보인다(__anpGoTab). 모양은 사람 생성기 #cpFlat 과 같은 CSS. */
         +'<button id="anpFlat" type="button" aria-pressed="false" aria-label="조명 끄고 원색 보기" title="조명 끄고 원색 보기 (L)" style="display:none;">💡</button>'
         +'<div id="anpFlatBadge" style="display:none;">원색 보기 — 칠한 색 그대로</div>'
-        +'<canvas id="anpCv" style="width:360px;height:398px;background:#e9e9ec;cursor:default;"></canvas>'
+        +'<canvas id="anpCv" style="width:360px;height:398px;background:#e9e9ec;cursor:default;touch-action:none;"></canvas>'
         +'<div id="anpStampOverlay" style="display:none;">'
           +'<img id="anpStampOverlayImg" draggable="false">'
           +'<div class="stamp-handle stamp-h-tl"></div>'
@@ -602,15 +603,18 @@ function buildOverlay(){
   cv.addEventListener('pointermove',e=>{
     /* 🖌 커서 = 지금 도구(페인트 탭에서만 · 도장 중엔 기본) */
     { const cu=(paintTab && !aStampMode && aPaintTool) ? aPaintTool.cursor() : 'default'; if(cv.style.cursor!==cu) cv.style.cursor=cu; }
-    if(pPainting){ pPaintEvent(e,false); return; }
+    if(pPainting){ if(!strokePointer.isDown(e)){ pEndStroke(); return; } pPaintEvent(e,false); return; }   // 뗀 펜(떠 있는 움직임)은 그리지 않는다
     if(!dragging) return;
     if(_rcDown && !_rcDown.moved && Math.abs(e.clientX-_rcDown.x)+Math.abs(e.clientY-_rcDown.y)>4) _rcDown.moved=true;
     rotY += (e.clientX-lastX)*0.012;   // 오른쪽 드래그 = 앵글이 오른쪽으로 (사용자 확정 방향)
     rotX = Math.max(-0.55, Math.min(0.9, rotX + (e.clientY-lastY)*0.008));   // 위/아래에서 보기 (과회전 방지 클램프)
     lastX=e.clientX; lastY=e.clientY;
   });
+  const pEndStroke=()=>{ pPainting=false; pLastX=pLastY=null; pLastSX=pLastSY=null; };
+  /* 펜 끌기가 끊기면(pointercancel — pointerup 이 안 온다) 획 · 우클릭 회전을 끝낸다 */
+  strokePointer.onLost(cv, ()=>{ pEndStroke(); _rcDown=null; dragging=false; });
   cv.addEventListener('pointerup',e=>{
-    if(pPainting){ pPainting=false; pLastX=pLastY=null; pLastSX=pLastSY=null; return; }
+    if(pPainting){ pEndStroke(); return; }
     if(dragging && _rcDown && !_rcDown.moved && paintTab) pPickColor(e);   // 우클릭 콕 = 색 추출 (인간과 동일)
     _rcDown=null; dragging=false;
   });
