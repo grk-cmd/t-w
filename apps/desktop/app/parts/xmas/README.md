@@ -4,7 +4,7 @@
 기획 정본은 이슈 #963, 서버는 api `xmas` 컨텍스트(#1097 · 설계 tw-docs `docs/design/11-xmas.md`) — 옛 `firebase/functions/xmas.js` · 규칙 `xmas*`(#964 · #966)는 이벤트 뒤 걷는다.
 
 **걷기**: 이벤트가 끝나면 다음 업데이트에서 이 폴더 · html 의 `#xmasOverlay` · `#lcXmas` · CSS `#xmas*` · `.xm-*` · 스크립트 줄 여덟 · app.js 의 `TwXmasWindow.createXmasWindow` 줄 ·
-음악 파일 `xmas-bgm*.mp3` 여섯 · program-settings 의 `onOfficeModeChanged`(app.js deps 한 줄) · 글꼴 `vendor/galmuri`(`third-party-notices.js` VENDOR · `oss-notices.js` 다시 만들기) · 저장 키 `tw.xmasBgmMuted`(account-store 기기 칸) · firebase-init 의 `xmas:` · `applyDesktopRunClass` 의 `xmasOv` 줄 · `UI_HIT_SEL` · `OPEN_MODAL_SEL` 의 `#xmasOverlay` · 오류 코드 `E-XMAS-*`(→ `RETIRED`) · 검사 `sim-xmas-*` ·
+음악 파일 `xmas-bgm*.mp3` 여섯 · html css `body:has(#xmasOverlay.on)` 세 줄(트리 창이 뜨면 런처 카드 · 스크롤 막대 숨김) · `shared/panel-fit.js` `fitTopLeft`(다른 곳이 안 쓰면 — sim-panel-fit 1-2절도) · program-settings 의 `onOfficeModeChanged`(app.js deps 한 줄) · 글꼴 `vendor/galmuri`(`third-party-notices.js` VENDOR · `oss-notices.js` 다시 만들기) · 저장 키 `tw.xmasBgmMuted`(account-store 기기 칸) · firebase-init 의 `xmas:` · `applyDesktopRunClass` 의 `xmasOv` 줄 · `UI_HIT_SEL` · `OPEN_MODAL_SEL` 의 `#xmasOverlay` · 오류 코드 `E-XMAS-*`(→ `RETIRED`) · 검사 `sim-xmas-*` ·
 main.js 배경음악 창의 주인 `'xmas'`(`bgmPanelMode` · `companion:openXmasSong`) · preload `openXmasSong` · nav.js `XMAS`(sim-nav OWNER) · 알림함 태그 `xmas`(inbox-sections `tagOf` · myhome-inbox 아이콘 · 이름 · 누르기) 를 걷는다.
 (`NAV.MY_HOME_CLOSE` 는 크리스마스 전용이 아니다 — 부르는 곳이 없어지면 sim-nav 가 알려 준다.)
 버튼은 받은 편지 열람 끝(2027-01-06 0시 · 서버 시각)부터 저절로 숨는다. 장식 · 신고는 이벤트 끝(1월 1일 0시)에 막힌다.
@@ -36,7 +36,7 @@ main.js 배경음악 창의 주인 `'xmas'`(`bgmPanelMode` · `companion:openXma
 
 ## xmas-tree.js — 3D 트리
 - **책임**: 트리 · 장식 그리기(세로 300 도트 · 색 31단계 · 디더 절반) · 끌어 돌리기 · 휠 확대(1~3배 · 마우스 자리 중심 · 처음보다 작게는 안 됨) · 한마디 라벨 자리(왼클릭만) · 이스터에그(10번 누르기 · 흔들기 — 이 화면에서만 · 저장 안 함) · 내 장식 반짝임 10번 · 우클릭 신고(남의 장식만 — 내 장식이 겹쳐도 뒤의 것).
-- **내놓는 것**: `createXmasTree({ THREE, rules, ps1Dither })` → `{ open(canvas), close(), setOrnaments(list), onSay(fn), onReport(fn) }` · `baseCanvas(kind, doc)`(기본 장식 16칸 그림 — 고르기 단추도 같은 그림).
+- **내놓는 것**: `createXmasTree({ THREE, rules, ps1Dither })` → `{ open(canvas), close(), setOrnaments(list), onSay(fn), onReport(fn) }` · `baseCanvas(kind, doc, tint)`(기본 장식 16칸 그림 — 고르기 단추도 같은 그림 · 점 그림을 16칸 가운데로) · `dotsOffset(rows, size)`(그 가운데 맞춤 칸 수) · `ornScale(n, max)`(걸린 장식 수 → 크기 배율 · 60개까지 1 · 꽉 차면 0.7) · `ornLook(kind, slot)`(트리 위 기본 장식 모양 — 자리 번호로 정함: 양말 뒤집기 · ±30도, 사탕 지팡이 ±30도, 구슬 · 선물 상자 색 번호) · `ORN_TINTS`(구슬 · 상자 색표 — 0 번은 그림 그대로) · `popOut(shader)`(장식 재질 onBeforeCompile — 깊이만 판 반지름만큼 카메라 쪽으로 · three r128 스프라이트 셰이더의 `#include <logdepthbuf_vertex>` 자리에 끼운다 · three 판을 올리면 sim-xmas-tree 가 본다).
 - **함정**: 창마다 WebGL 컨텍스트를 하나 잡는다 — `close()` 에서 rAF 를 멈추고 텍스처 · 지오메트리 · 렌더러를 꼭 버린다. 장식은 `sizeAttenuation:false` · 내 장식은 `depthTest:false` + `renderOrder 999`(늘 앞).
 - 검사: `sim-xmas-tree.js`(WebGL 없이 볼 수 있는 것 — 실제 그림은 브라우저로 확인)
 
@@ -59,7 +59,7 @@ main.js 배경음악 창의 주인 `'xmas'`(`bgmPanelMode` · `companion:openXma
 - 검사: `sim-xmas-bgm.js` 4절
 
 ## xmas-letter.js — 마니또 편지 창
-- **책임**: 트리 창 아래 [편지 쓰기 (n/1)] · [편지 열람] · 그 위에 겹쳐 뜨는 편지 창(✕ · Esc). ✍️ 쓰기(12/24 23:59 까지 — 맡긴 목록 · 고치기 · 거두기 · 새 편지 · 반송된 편지의 사유 · 다시 쓰기 · 지우기 · 운영자 확인 안내 한 줄) · 📬 열람(12/25 부터 — 봉투 · 열기 · 추천곡 · 신고 · 읽음) · 빨간 점(런처 [크리스마스] · [편지 열람]).
+- **책임**: 트리 창 아래 [편지 쓰기 (n/1)] · [편지 열람] · 그 위에 겹쳐 뜨는 편지 창(✕ · Esc). ✍️ 쓰기(12/24 23:59 까지 — 맡긴 목록 · 수정 · 삭제(거두기) · 새 편지 · 반송된 편지의 사유 · 다시 쓰기 · 지우기 · 운영자 확인 안내 한 줄) · 📬 열람(12/25 부터 — 봉투 · 열기 · 추천곡 · 신고 · 읽음) · 빨간 점(런처 [크리스마스] · [편지 열람]).
 - **만드는 법**: xmas-window 가 `TwXmasLetter.createXmasLetter({ doc, rules, net, song, serverNow, schedule, toast, notifyError, escRegisterWindow, storage, onDot })` → `{ open, close, isOpen, refresh, checkGot, paintBtn }`.
 - **함정**: 반송을 다시 쓰면 **빈 칸**에 맡기며 `fromReturned`(반송 칸)를 실어 보낸다 — 서버가 같은 트랜잭션에서 반송 기록을 지운다(반송 칸에 새 편지가 있을 수 있다 · 맡기기가 실패하면 표시가 남는다). 다른 PC 가 먼저 고쳤으면(`conflict`) 편지함을 다시 읽는다. 받은 편지는 다시 묻지 않는다(폴링 없음) — 편지 창을 열 때 한 번 · 알림함에 «받은 편지»(`XMAS_LETTER`) 알림이 처음 보이면(읽음 여부와 상관없이 — 알림 읽음은 서버 값이고 받은 편지 읽음은 이 PC 값이라, 다른 PC 에서 알림을 읽어도 이 PC 는 켤 때 한 번 읽는다) 창이 0~30초 무작위로 기다렸다 `checkGot` 한 번(0시에 앱 수천 대가 한꺼번에 읽지 않게 · 설계 5-3). 마감 뒤 짝 짓기 전(`matched=false`)이면 «배달하는 중» 을 그리고 기다린다. 실패는 «없음» 으로 굳히지 않는다 · 계정이 바뀌면 앞 계정의 점을 지운다. 읽음 표시는 이 PC `tw.xmasGotRead.{uid}`(번호 몇 개). 받은 글 · 곡 제목은 `textContent` 로만.
 - 오류 코드: `E-XMAS-04`(편지 못 불러옴) · `E-XMAS-05`(맡기기 · 고치기 · 거두기 · 반송 표시 치우기 실패) · `E-XMAS-06`(편지 신고 못 보냄)
@@ -70,6 +70,7 @@ main.js 배경음악 창의 주인 `'xmas'`(`bgmPanelMode` · `companion:openXma
 - **만드는 법**: app.js `const xmasWinMod = TwXmasWindow.createXmasWindow({ THREE, ps1Dither, rules, treeMod, net: ()=>xmasApiMod, serverNow, onReady, notifyError, toast, escRegisterWindow, onSizeChange: ()=>applyDesktopRunClass(), idbGet, idbPut, songMod, letterMod, companion, ytVideoId, asyncPrompt, storage, twNav, random })`(서버 기능 표가 꺼져 있으면 null) — 편지 창 · 뮤직바를 여기서 만든다. 밖에서 부르는 이름은 `onMail(items)`(우편이 바뀌면 app.js 가 `mailFeed.items()` 를 넘긴다 — 처음 보는 받은 편지 알림이면 무작위로 기다렸다 받은 편지 한 번 읽기) — 📩 알림함은 창 열기 통로 `NAV.XMAS`(`'letter'` 면 편지 창까지)로 연다(마이홈과 같은 층이라 `NAV.MY_HOME_CLOSE` 로 마이홈을 먼저 닫는다).
 - **세션**: app-boot 차례 `xmas`(app.js)가 `session.onReset` 에 `xmasApiMod.reset()` · `xmasWinMod.reset()` 을 건다 — 계정이 바뀌면 창을 닫고 내 장식 · 트리 · 본 알림 · 기다림 · 편지 · 받은 편지 · 빨간 점을 비운다(편지 모듈 `reset` 은 늦게 온 앞 계정 답도 버린다). 내 장식 덮어 그리기는 내 몫(`GET /v2/me/xmas` 의 mine)으로만 — 지운 장식은 다시 그리지 않는다.
 - **함정**: Esc 는 트리 창을 편지 창보다 **먼저** 등록한다 — 알림함 길은 두 창을 같은 틱에 열어 창 쌓기가 등록 순서로 쌓는다(거꾸로면 Esc 에 트리 창이 통째로 닫힌다). 남이 쓴 한마디는 `textContent` 로만, 받은 그림 주소는 `TwSafeHtml.safeUrl(d, 'image')` 로 거른다. 닫은 뒤 늦게 온 답은 버린다(`seq`). 런처에서 열면 창 크기를 마이홈 크기로(`applyDesktopRunClass` 가 `#xmasOverlay.on` 을 본다).
+- 창 자리: 처음엔 가운데. 끌면 창 전체가 화면 안에 들게(`panelFit.fitTopLeft` — deps `panelFit`) · 열 때 · 앱 창 크기가 바뀔 때 다시 맞춘다. 창이 떠 있는 동안 뒤 런처 창(`.lc-card`)은 숨긴다(html css `body:has(#xmasOverlay.on)`).
 - 로그인 안 됨: 트리는 «로그인한 뒤 트리를 볼 수 있어요»(오류 코드 아님) · 신고는 «로그인한 뒤 신고할 수 있어요»(가입 전 익명은 net 이 쓰기 전에 auth 로).
 - 오류 코드: `E-XMAS-01`(못 불러옴) · `E-XMAS-02`(장식 못 걺) · `E-XMAS-03`(신고 못 보냄)
 - 검사: `sim-xmas-window.js`(가짜 화면 · 가짜 서버로 흐름을 돌린다)

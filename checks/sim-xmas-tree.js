@@ -28,6 +28,13 @@ for (const k of R.KINDS){
   chk(c && c.width === 16 && c.height === 16 && c.px.length > 10 && c.px.every(([x, y]) => x >= 0 && x < 16 && y >= 0 && y < 16), k + ' — 16칸 안에 점 ' + (c ? c.px.length : 0) + '개');
 }
 chk(X.baseCanvas('tree', fakeDoc()) === null, '모르는 종류는 null(창이 전구로 대신 그린다)');
+{ const off = X.dotsOffset, eq = (o, x, y) => o.x === x && o.y === y;
+  chk(eq(off(['....##..', '....##..'], 8), -1, 3) && eq(off(['##', '##'], 4), 1, 1) && eq(off(['....'], 4), 0, 0), 'dotsOffset — 한쪽에 치우친 점 그림을 가운데로(남는 칸이 홀수면 왼쪽 · 위) · 빈 그림은 그대로');
+  for (const k of R.KINDS){
+    const c = X.baseCanvas(k, fakeDoc()); const xs = c.px.map(p => p[0]), ys = c.px.map(p => p[1]);
+    const l = Math.min(...xs), r = 15 - Math.max(...xs), t = Math.min(...ys), b = 15 - Math.max(...ys);
+    chk(Math.abs(l - r) <= 1 && Math.abs(t - b) <= 1, k + ' — 16칸 가운데(좌 ' + l + ' · 우 ' + r + ' · 위 ' + t + ' · 아래 ' + b + ')');
+  } }
 
 say('── 2절 수명');
 const close = (SRC.match(/function close\(\)\{[\s\S]*?\n  \}/) || [''])[0];
@@ -36,6 +43,45 @@ chk(/clearOrnaments\(\)/.test(close) && /geometry\.dispose\(\)/.test(close) && /
 chk(/S = null;/.test(close) && /if \(!S\) return;/.test(SRC.match(/function frame\(t\)\{[\s\S]*?\n  \}/)[0]), '  ↳ 닫힌 뒤 늦은 프레임은 아무것도 안 한다');
 chk(/function open\(canvas\)\{\s*if \(S\) return;/.test(SRC), '이미 열려 있으면 다시 만들지 않는다(렌더러 두 개 금지)');
 
+{ // 장식 깊이 당김 — three(r128) 스프라이트 셰이더에 실제로 들어가야 한다(replace 는 못 찾으면 말없이 넘어간다)
+  const VP = find(['vendor/three/three.min.js', 'app/vendor/three/three.min.js', 'apps/desktop/app/vendor/three/three.min.js']);
+  if (!VP) { say('  ? three.min.js 못 찾음'); process.exit(2); }
+  const THREE = require(path.resolve(VP));
+  const sh = { vertexShader: THREE.ShaderLib.sprite.vertexShader };
+  X.popOut(sh);
+  const v = sh.vertexShader, at = v.indexOf('twPop'), gp = v.indexOf('gl_Position = projectionMatrix * mvPosition;');
+  chk(at > 0 && gp > 0 && at > gp && /\bscale\b/.test(v.slice(0, gp)), '★ 장식 깊이 당김이 스프라이트 셰이더 gl_Position 뒤에 들어간다(three r' + THREE.REVISION + ')');
+  chk(/mat\.onBeforeCompile = popOut;/.test(SRC), '  ↳ 장식 재질마다 같은 popOut(프로그램 하나)');
+  const m = { vertexShader: THREE.ShaderLib.sprite.vertexShader.replace(/#include <logdepthbuf_vertex>/g, '') }; X.popOut(m);
+  chk(!/twPop/.test(m.vertexShader), '  ↳ mutation — 끼울 자리가 없으면 안 들어간다(이 검사가 잡는다)');
+}
+{ // 트리 위 기본 장식 모양 — 자리 번호로 정한다(모든 사람 화면에서 같은 모양)
+  const SL = [...Array(300).keys()];
+  const same = SL.every(n => ['sock', 'bulb', 'cane', 'gift', 'star'].every(k => JSON.stringify(X.ornLook(k, n)) === JSON.stringify(X.ornLook(k, n))));
+  chk(same, '같은 자리면 늘 같은 모양');
+  const T = Math.PI / 6, rots = (k) => new Set(SL.map(n => Math.round(X.ornLook(k, n).rot / T)));
+  chk(new Set(SL.map(n => X.ornLook('sock', n).flip)).size === 2 && [...rots('sock')].sort().join() === '-1,0,1', '★ 양말 — 좌우 뒤집기 둘 다 · −30 · 0 · +30도');
+  chk([...rots('cane')].sort().join() === '-1,0,1' && SL.every(n => !X.ornLook('cane', n).flip), '★ 사탕 지팡이 — −30 · 0 · +30도(뒤집기 없음)');
+  for (const k of ['bulb', 'gift']){
+    const tints = new Set(SL.map(n => X.ornLook(k, n).tint));
+    chk(tints.size === X.ORN_TINTS[k].length, '★ ' + k + ' — 색 ' + X.ORN_TINTS[k].length + '가지가 다 나온다 (' + tints.size + ')');
+    const pics = X.ORN_TINTS[k].map((_, t) => X.baseCanvas(k, fakeDoc(), t).px.map(p => p.join(',')).join('|'));
+    chk(new Set(pics).size === pics.length, '  ↳ ' + k + ' — 색마다 그림이 다르다(덮는 글자가 그림에 있다)');
+  }
+  chk(SL.every(n => { const l = X.ornLook('star', n); return !l.flip && l.rot === 0 && l.tint === 0; }), '별 — 그대로');
+  const px = (k, t) => X.baseCanvas(k, fakeDoc(), t).px.map(p => p.join(',')).join('|');
+  chk(px('sock', 0) === px('sock', 3) && px('star', 0) === px('star', 2), '색 번호 — 색표 없는 장식은 무시');
+  chk(/map\.repeat\.x = -1; map\.offset\.x = 1;/.test(SRC) && /rotation: look\.rot/.test(SRC) && /baseCanvas\(o\.k, doc, look\.tint\)/.test(SRC), '트리 장식이 ornLook 을 쓴다(뒤집기 · 기울기 · 색)');
+}
+{ // 장식 크기 — 수가 많을 때만 작게
+  const M = 300, sc = (n) => X.ornScale(n, M);
+  chk(sc(0) === 1 && sc(1) === 1 && sc(60) === 1, '★ 60개까지는 그대로(1)');
+  chk(Math.abs(sc(M) - 0.7) < 1e-9 && sc(M + 50) === sc(M), '★ 꽉 차면(300) 0.7 · 넘어도 더 줄지 않는다');
+  let mono = true; for (let n = 1; n <= M; n++) if (sc(n) > sc(n - 1)) mono = false;
+  chk(mono && sc(180) < 1 && sc(180) > 0.7, '  ↳ 늘수록 조금씩 작아진다(커지지 않음)');
+  chk(X.ornScale(NaN, M) === 1 && X.ornScale(100, 60) === 0.7, '  ↳ 이상한 값 · 상한이 작을 때');
+  chk(/const size = ORN_SIZE \* ornScale\(all\.length, rules\.TREE_MAX\);/.test(SRC) && /s\.scale\.setScalar\(size\);/.test(SRC), '트리가 걸린 수로 크기를 정해 모든 장식에 같은 크기');
+}
 say('── 3절 그리기 약속');
 chk(/sizeAttenuation: false/.test(SRC), '장식은 화면에서 늘 같은 크기(sizeAttenuation:false)');
 chk(/depthTest: !o\.mine, depthWrite: !o\.mine/.test(SRC) && /s\.renderOrder = o\.mine \? 999 : 0/.test(SRC), '내 장식은 깊이를 안 보고 맨 나중에 — 늘 앞');

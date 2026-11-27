@@ -69,6 +69,15 @@ chk(P.length === R.TREE_MAX, '300칸');
 chk(JSON.stringify(R.slotPositions(R.TREE_MAX)) === JSON.stringify(P), '같은 n 이면 늘 같은 자리(모든 사람 화면에서 같은 곳)');
 const top = Math.max(...R.TIERS.map(t => t.y + t.h)), low = Math.min(...R.TIERS.map(t => t.y));
 chk(P.every(p => p.y > low && p.y < top && Math.hypot(p.x, p.z) < 2.2), '모든 자리가 트리 층 안');
+{ // 원뿔은 8각 — 안쪽 반지름은 r · cos(22.5°). 어느 층(위층 치마 포함) 안에도 박히면 앞에서 가려진다
+  const inside = (p) => R.TIERS.some(t => p.y >= t.y && p.y <= t.y + t.h && Math.hypot(p.x, p.z) < t.r * (1 - (p.y - t.y) / t.h) * Math.cos(Math.PI / 8));
+  const hid = P.filter(inside).length;
+  chk(hid === 0, `★ 어느 자리도 위층 잎 안에 묻히지 않는다 (${hid})`);
+  const old = []; R.TIERS.forEach((t, i) => { for (let f = 0.12; f < 0.92; f += 0.01){ const rr = t.r * (1 - f) * 1.04 + 0.05; old.push({ x: rr, y: t.y + t.h * f, z: 0 }); } });
+  chk(old.filter(inside).length > 0, '  ↳ mutation — 옛 배치(층 0.12~0.92 전부)는 위층 안에 묻힌 자리가 있다(이 검사가 잡는다)');
+}
+{ const low = Math.min(...P.map(p => p.y)), T0 = R.TIERS[0];
+  chk(low - T0.y < T0.h * 0.06, '★ 장식이 트리 밑단(맨 아래층 치마 끝)까지 내려온다 (' + (low - T0.y).toFixed(3) + ')'); }
 chk(new Set(P.map(p => p.x.toFixed(3) + ',' + p.y.toFixed(3) + ',' + p.z.toFixed(3))).size === P.length, '겹치는 자리 없음');
 chk(R.countOf({ 0: { k: 'star' }, 3: { k: 'img' }, 5: null }) === 2 && R.countOf(null) === 0, '걸린 수 — 빈 칸 · 없음');
 

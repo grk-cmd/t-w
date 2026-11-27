@@ -3180,7 +3180,8 @@
   #xmasTitle{cursor:move;-webkit-app-region:no-drag;user-select:none;}
   #xmasTitle .xm-count{font-weight:normal;margin-left:10px;margin-right:8px;font-family:var(--tw-font-legacy);}
   /* 🎵 음악 끄기 / 켜기 · 음악 출처 — 스티커사진 창 «음악 끄기»(.pk-bgm)와 같은 글자 단추. 꺼 두면 노란 글(.off) */
-  #xmasTitle .xm-tbtn{background:none;border:0;padding:0;margin-left:8px;color:inherit;font:inherit;font-weight:normal;font-size:10.5px;text-decoration:underline;cursor:pointer;opacity:.92;white-space:nowrap;}
+  /* 누르는 범위 — 글자 둘레로 넓힌다(위아래는 음수 margin 으로 제목줄 높이를 그대로) */
+  #xmasTitle .xm-tbtn{background:none;border:0;padding:5px 6px;margin:-5px 0 -5px 2px;color:inherit;font:inherit;font-weight:normal;font-size:10.5px;text-decoration:underline;cursor:pointer;opacity:.92;white-space:nowrap;}
   #xmasTitle .xm-tbtn:first-of-type{margin-left:auto;}
   #xmasTitle .xm-tbtn.off{color:#ffd54a;opacity:1;}
   /* 🎬 음악 출처 — 트리 화면 아래에서 위로 한 번 올라간다(parts/xmas/xmas-credit.js). 도트 글꼴 · 하얀 글자 · 검은 테두리.
@@ -3200,7 +3201,8 @@
   #xmasCanvas.drag{cursor:grabbing;}
   #xmasState{position:absolute;left:50%;top:12px;transform:translateX(-50%);color:#eef3fb;font-size:12px;background:rgba(13,20,36,.7);padding:2px 10px;pointer-events:none;}
   #xmasState[hidden]{display:none;}
-  .xm-hint{position:absolute;left:6px;bottom:4px;font-size:10px;color:#c9d3e6;pointer-events:none;text-shadow:0 1px 0 #000;}
+  /* 조작 안내 — 눈 바닥(밝은 회색) 위라 글자만 두면 안 보인다. 검은 글자에 8방향 흰 외곽선(띠 없음 · 밤하늘 위로 올라와도 읽힌다) */
+  .xm-hint{position:absolute;left:8px;bottom:6px;font:11px/1.5 var(--tw-font-ui);color:#000;text-shadow:-1px -1px 0 #fff,0 -1px 0 #fff,1px -1px 0 #fff,-1px 0 0 #fff,1px 0 0 #fff,-1px 1px 0 #fff,0 1px 0 #fff,1px 1px 0 #fff;pointer-events:none;}
   /* 한마디 — 회사원 모드 라벨(.seat-bubble-dom.office)과 같은 모양 */
   #xmasSay{position:absolute;transform:translate(-50%,calc(-100% - 10px));pointer-events:none;width:max-content;max-width:140px;
     font:bold 12px/1.3 var(--tw-font-classic);color:#000;word-break:break-all;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;
@@ -3209,12 +3211,21 @@
   #xmasSay[hidden]{display:none;}
   .xm-bar{display:flex;flex-wrap:wrap;gap:4px;align-items:center;}
   #xmasPick{display:flex;gap:3px;flex-wrap:wrap;}
-  .xm-orn{width:32px;height:32px;padding:0;display:grid;place-items:center;}
-  .xm-orn img{width:22px;height:22px;image-rendering:pixelated;}
+  /* 장식 고르기 칸 · [＋] — 같은 32칸 · 같은 테두리(win98raised — 테마를 따른다) · 그림은 정가운데(장식 그림 자체도 16칸 가운데로 — xmas-tree.js dotsOffset) */
+  .xm-orn,#xmasUpLab{width:32px;height:32px;padding:0;margin:0;box-sizing:border-box;display:grid;place-items:center;line-height:0;cursor:pointer;}
+  .xm-orn img{width:22px;height:22px;display:block;image-rendering:pixelated;}
   .xm-orn[aria-pressed="true"]{outline:2px solid var(--win-title-a);outline-offset:-2px;}
-  #xmasUpLab{width:32px;height:32px;display:grid;place-items:center;font-size:9px;line-height:10px;text-align:center;cursor:pointer;border:1px dashed var(--win-lo);box-sizing:border-box;}
+  #xmasUpLab{position:relative;font:bold 20px/1 var(--tw-font-ui);color:var(--ink);}
   #xmasUp{position:absolute;opacity:0;width:1px;height:1px;}
-  #xmasWord{width:150px;}
+  #xmasWord{width:150px;box-sizing:border-box;height:24px;padding:0 4px;}
+  /* 한마디 · 단추 · 편지 창 — 브라우저 기본 글꼴(Arial 13.3px)이 아니라 창 글꼴로 */
+  #xmasWin button.win98raised,#xmasWord{font-family:var(--tw-font-ui);font-size:12px;}   /* 제 글꼴을 가진 것(뮤직바 · 편지 봉투 단추 · 편지 쓰기 칸 #xmasLwText)은 건드리지 않는다 */
+  .xm-bar > button{height:24px;padding:0 10px;}
+  /* 트리 창이 떠 있는 동안 뒤 런처 창(카드)과 스크롤 막대를 숨긴다 — 겹쳐 보이면 어느 창인지 헷갈린다. 닫으면 그대로 돌아온다 */
+  body:has(#xmasOverlay.on) #launcher .lc-card{visibility:hidden;}
+  body:has(#xmasOverlay.on) #launcher .lc-bar{-webkit-app-region:no-drag;}   /* 끌기 칸은 보임과 따로 산다 — 숨긴 제목줄이 트리 위에서 앱 창을 끌지 않게(방 찾기 창과 같다) */
+  body:has(#xmasOverlay.on) #launcher{scrollbar-width:none;}
+  body:has(#xmasOverlay.on) #launcher::-webkit-scrollbar{display:none;width:0;height:0;}
   .xm-spacer{flex:1;}
   .xm-pop{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.18);}
   .xm-pop[hidden]{display:none;}
@@ -6058,7 +6069,7 @@
           <div class="xm-acts"><button type="button" class="win98raised" id="xmasRepNo">취소</button><button type="button" class="win98raised" id="xmasRepYes">신고</button></div></div></div>
       </div>
       <div class="xm-bar">
-        <div id="xmasPick" role="group" aria-label="내 장식 고르기"><label id="xmasUpLab" class="win98raised">내 그림<br>올리기<input type="file" id="xmasUp" accept="image/*"></label></div>
+        <div id="xmasPick" role="group" aria-label="내 장식 고르기"><label id="xmasUpLab" class="win98raised" title="내 그림 올리기" aria-label="내 그림 올리기">+<input type="file" id="xmasUp" accept="image/*"></label></div>
         <span class="xm-spacer"></span>
         <input type="text" id="xmasWord" class="win98sunken" maxlength="30" placeholder="한마디 (선택)" aria-label="한마디 (선택 · 30자)">
         <button type="button" class="win98raised" id="xmasHang">내 장식 달기</button>
@@ -6114,6 +6125,10 @@
           </section>
         </div>
       </div>
+      <div class="xm-pop" id="xmasLwDel" hidden><div class="win98raised" role="dialog" aria-modal="true" aria-labelledby="xmasLwDelT">
+        <div class="win98titlebar"><span id="xmasLwDelT">편지 삭제</span></div>
+        <div class="xm-msg"><b>이 편지를 삭제할까요?</b>쓴 글이 지워지고 되돌릴 수 없어요. 마감 전까지는 새로 쓸 수 있어요.</div>
+        <div class="xm-acts"><button type="button" class="win98raised" id="xmasLwDelNo">취소</button><button type="button" class="win98raised" id="xmasLwDelYes">삭제</button></div></div></div>
       <div class="xm-pop" id="xmasLwRep" hidden><div class="win98raised" role="dialog" aria-modal="true" aria-labelledby="xmasLwRepT">
         <div class="win98titlebar"><span id="xmasLwRepT">신고</span></div>
         <div class="xm-msg"><b>이 편지를 신고할까요?</b>관리자가 내용을 확인해요. 보낸 사람에게는 알려지지 않아요.</div>
@@ -8996,7 +9011,7 @@
 <script src="parts/account/account.js"></script>   <!-- 🔑 계정 — app.js 보다 먼저(app.js 가 원래 자리에서 TwAccount.createAccount 로 만든다) -->
 <script src="parts/character/wardrobe-place.js"></script>   <!-- 📐 꾸미기 · 미리보기 창 자리 규칙(순수) — wardrobe.js 보다 먼저(wardrobe.js 가 TwWardrobePlace 를 읽는다) -->
 <script src="parts/character/wardrobe.js"></script>   <!-- 🎨 꾸미기 창 — app.js 보다 먼저(app.js 가 원래 자리에서 TwWardrobe.createWardrobe 로 만든다) -->
-<script src="parts/shared/panel-fit.js"></script>   <!-- 📐 아래 기준 창을 화면 안으로 — settings-panel.js · status-chip.js 보다 먼저 -->
+<script src="parts/shared/panel-fit.js"></script>   <!-- 📐 창을 화면 안으로(아래 기준 · 왼쪽 위 기준) — settings-panel.js · status-chip.js 보다 먼저 · 크리스마스 창은 app.js 가 deps 로 -->
 <script src="parts/launcher/settings-panel.js"></script>   <!-- ⚙ 설정 패널 — app.js 보다 먼저(app.js 가 원래 자리에서 TwSettingsPanel.createSettingsPanel 로 만든다) -->
 <script src="parts/launcher/click-through-policy.js"></script>   <!-- 🖱 클릭 통과 판단 규칙(순수 함수 · main.js 도 require) — desktop-run.js 보다 먼저 -->
 <script src="parts/launcher/heartbeat-policy.js"></script>   <!-- 🩺 하트비트에 무거운 칸을 실을지(순수 함수) — app.js 보다 먼저 -->
