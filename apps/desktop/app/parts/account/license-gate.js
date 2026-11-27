@@ -11,7 +11,6 @@
 (function(){
 
 function createLicenseGate(deps){
-const DEFAULT_DESK_OVERRIDE_ID = deps.DEFAULT_DESK_OVERRIDE_ID;
 const FRIEND_CODE_LOGIN_RE = deps.FRIEND_CODE_LOGIN_RE;   // 읽는 함수
 const _loginDoFriendCode = deps._loginDoFriendCode;
 const _loginDoGoogle = deps._loginDoGoogle;
@@ -463,8 +462,7 @@ function _refreshPremiumGatedUI(){
     if(typeof seats!=='undefined' && Array.isArray(seats)){
       seats.forEach(s=>{
         if(!s || !s.isMe || s.remote || !s.charDef) return;
-        if(s.charDef.deskCatalogId){ applyDeskCatalogRefToSeat(s, s.charDef); }
-        else if(!s.charDef.deskGlb){ applyDeskCatalogRefToSeat(s, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:s.charDef.deskScale, deskLenX:s.charDef.deskLenX, deskColor:s.charDef.deskColor}); }
+        if(s.charDef.deskCatalogId || !s.charDef.deskGlb) applyDeskCatalogRefToSeat(s, s.charDef);   // 기본 책상 교체본 갈래는 deskBodyPlan(def 그대로 넘긴다)
         if(s.charDef.deskItems) applyDeskItemsTo(s, s.charDef.deskItems);
       });
     }
