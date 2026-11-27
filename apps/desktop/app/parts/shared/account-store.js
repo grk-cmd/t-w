@@ -42,6 +42,8 @@ const DEVICE_KEYS = Object.freeze([
   'tw.mhStickerLayer',
   /* 0.14 — 남의 자리비움 그림 보기(이 PC 의 화면 설정) */
   'tw.awayPicOthers',
+  /* 0.14 — 꾸미기 ✎ 그리기 줄의 단축키 안내 펼침(이 PC 의 화면 설정) */
+  'tw.wdPicHelpOpen',
 ]);
 
 /* 계정별 — 그 사람의 기록 · 고른 것 · 보관 · 캐시. 아직 옛 PC 칸을 읽는 것도 포함(표 · 옮길 묶음은 shared/README.md). */

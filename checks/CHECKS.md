@@ -385,12 +385,13 @@
 | **sim-tricks.js** | 120 | **4515e3edd7c8** |
 | **sim-ride-bench.js** | 358 | **199de6118464** |
 | **sim-part-paint.js** | 94 | **1ecb09b09d58** |
+| **sim-wd-pic-help.js** | 101 | **d07f53e740ca** |
 | **sim-focus-level.js** | 147 | **91bde8afa958** |
 | **sim-chat-ui.js** | 126 | **eca9c00f7396** |
 | **sim-license-gate.js** | 441 | **1f9c56f0d87f** |
 | **sim-account.js** | 174 | **bee6deb0f7c1** |
 | **sim-wardrobe.js** | 511 | **5452a5dd2332** |
-| **sim-settings-panel.js** | 241 | **e740fbdb1db9** |
+| **sim-settings-panel.js** | 255 | **a900a07f7321** |
 | **sim-desktop-run.js** | 94 | **2370870711eb** |
 | **sim-room-entry.js** | 401 | **29b730f27d0b** |
 | **sim-overhead.js** | 216 | **864fadcfc6d0** |
@@ -602,7 +603,7 @@
 | **sim-xmas-api.js** | 322 | **fa9d0a462767** |
 | **sim-xmas-rules.js** | 169 | **e042938e7f57** |
 | **sim-xmas-tree.js** | 118 | **39e3ea3d376e** |
-| **sim-xmas-window.js** | 554 | **dc38c6a2e04b** |
+| **sim-xmas-window.js** | 559 | **dabd039f9c57** |
 | **sim-xmas-song.js** | 140 | **8f1589bf966d** |
 | **sim-xmas-bgm.js** | 107 | **f7bc057d8525** |
 | **sim-xmas-letter.js** | 339 | **d694184a4131** |

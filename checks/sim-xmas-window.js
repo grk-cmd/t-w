@@ -399,6 +399,11 @@ say('── 5-3절 창 끌기 · 앱 창 크기 — 창 전체가 화면 안(sha
 {
   const H = fs.readFileSync(find(['desk-companion-prototype.html', 'app/desk-companion-prototype.html', 'apps/desktop/app/desk-companion-prototype.html']), 'utf8');
   chk(/body:has\(#xmasOverlay\.on\) #launcher \.lc-card\{visibility:hidden;\}/.test(H), '트리 창이 떠 있는 동안 뒤 런처 창(카드)은 안 보인다');
+  { // 런처 카드를 숨기는 창(방 찾기 · 크리스마스)이 떠 있으면 런처 스크롤 막대도 — 한 규칙(두 곳에 따로 쓰면 하나만 고쳐진다)
+    const inv = 'body.desktop.config:has(#inviteOverlay.on) #launcher', xm = 'body:has(#xmasOverlay.on) #launcher';
+    chk(H.includes(inv + ', ' + xm + '{scrollbar-width:none;}') && H.includes(inv + '::-webkit-scrollbar, ' + xm + '::-webkit-scrollbar{display:none;width:0;height:0;}')
+      && H.split(xm + '{scrollbar-width').length === 2 && !H.includes(inv + '{scrollbar-width'),   // 묶은 줄 하나뿐
+      '★ 방 찾기 · 크리스마스 창이 떠 있는 동안 런처 스크롤 막대를 숨긴다(한 규칙 · 따로 쓴 줄 없음)'); }
   chk(/<label id="xmasUpLab"[^>]*aria-label="내 그림 올리기"[^>]*>\+<input/.test(H), '내 그림 올리기 = [+] 칸(이름은 aria-label · title)');
   chk(/#xmasWin button\.win98raised,#xmasWord\{font-family:var\(--tw-font-ui\);font-size:12px;\}/.test(H), '한마디 · 단추 글꼴을 창 글꼴로(브라우저 기본 Arial 아님)');
   { /* 창 안에서 제 글꼴을 가진 것 — 이 규칙(우선순위가 더 높다)에 걸리면 크기가 바뀐다 */

@@ -114,8 +114,16 @@ function behave(src){
     t(panel.classList.contains('on') && panel.classList.contains('fs-in-launcher'), '런처에서 열면 가운데(.fs-in-launcher)로 뜬다');
     t(pageOn('fsTabDisplay') && !pageOn('fsTabInfo') && els.fsTabBtnDisplay.classList.contains('on'), '처음 탭은 디스플레이');
     t(shown[shown.length - 1] === 'display', '탭을 보이면 걸어 둔 것(onTabShown — 프로그램 칸 다시 그리기)을 부른다');
+    t(pageOn('fsSubDeco') && !pageOn('fsSubScreen') && !pageOn('fsSubShow') && els.fsSubBtnDeco.classList.contains('on'), '★ 디스플레이 탭은 처음에 «꾸미기» 묶음만');
+    els.fsSubBtnScreen.onclick();
+    t(pageOn('fsSubScreen') && !pageOn('fsSubDeco') && !pageOn('fsSubShow') && els.fsSubBtnScreen.getAttribute('aria-selected') === 'true' && !els.fsSubBtnDeco.classList.contains('on'), '★ «화면» 을 누르면 그 묶음만');
+    els.fsSubBtnShow.onclick();
+    t(pageOn('fsSubShow') && !pageOn('fsSubScreen'), '  «표시» 도');
     api.openSettings('info');
     t(pageOn('fsTabInfo') && !pageOn('fsTabDisplay'), '탭을 정해 열면 그 탭(정보)');
+    api.openSettings('display');
+    t(pageOn('fsSubShow') && !pageOn('fsSubDeco'), '  다른 탭을 다녀와도 마지막에 본 묶음(표시)');
+    api.openSettings('info');   // 아래 «마지막에 본 탭» 판정이 정보 탭을 기대한다
     api.closeSettings();
     t(!panel.classList.contains('on'), '닫기');
     launcher = false; api.openSettings();
@@ -207,6 +215,12 @@ function judgeAll(mod, app, html){
   /* 런처 ↔ 실행 화면을 오갈 때 설정 창을 닫는다 — 런처에서 연 가운데 창 · 실행 화면에서 연 머리 위 창이 다른 화면에 남지 않게 */
   const fnBody = (name) => { const i = A.indexOf('function ' + name + '('); if(i < 0) return ''; let d = 0; for(let k = A.indexOf('{', i); k < A.length; k++){ if(A[k] === '{') d++; else if(A[k] === '}' && --d === 0) return A.slice(i, k + 1); } return ''; };
   t(/settingsMod\.closeSettings\(\)/.test(fnBody('launchApp')) && /settingsMod\.closeSettings\(\)/.test(fnBody('backToLauncher')), '런처 ↔ 실행 화면 전환(launchApp · backToLauncher) 때 설정 창을 닫는다');
+  /* 디스플레이 탭 묶음 — 칸이 맞는 묶음 안에 있나(묶음 사이로 칸을 옮기면 빨강) */
+  const sub = (id) => { const i = html.indexOf('id="' + id + '"'); const j = html.indexOf('<div class="fs-subpage"', i + 1); const k = html.indexOf('<!-- ── 탭 2 · 캐릭터 ── -->', i); return i < 0 ? '' : html.slice(i, Math.min(j < 0 ? k : j, k)); };
+  const has = (box, ids) => ids.every(x => box.includes('id="' + x + '"'));
+  t(has(sub('fsSubDeco'), ['themeColorRow', 'fontPickRow', 'themeCxBox']) && has(sub('fsSubScreen'), ['fsMonitors', 'progQualityHint', 'progAutoLaunchToggle', 'fsUiZoomRow', 'fsResetWinPos', 'progLabVideoRow'])
+    && has(sub('fsSubShow'), ['progOfficeModeToggle', 'fsDotToggle', 'fsEmojiToggle', 'fsNameplateToggle', 'fsAwayOthersToggle', 'fsStatusBubbleToggle', 'fsMhStickerToggle', 'fsNameplateSizePct']),
+    'html — 꾸미기(테마 · 색상 · 글꼴) · 화면(모니터 · 화질 · 자동 실행 · 크기 · 창 위치 · 영상 겹침) · 표시(켜고 끄기 · 이름 크기) 묶음');
   for(const row of behave(mod)) r.push(row);
   return r;
 }
