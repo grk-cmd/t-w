@@ -92,7 +92,7 @@ release/0.12.1    ●──●──●── …           ← 다음 판. 앞 
 - **판 브랜치 `release/X.Y.Z`**: 사용자가 판을 정할 때 연다(작업자가 만들지 않는다). 다음 판은 앞 판 브랜치에서 딴다.
 - **내기**: 판 브랜치 → `main` PR 을 **merge commit**(squash 아님)으로 합친 뒤 `main` 에서 버전 태그(5장). 그다음 `main` 을 아직 열린 판 브랜치들에 합치고, 낸 판 브랜치는 지운다.
 - **긴급 수정**: `main` 에서 `hotfix/<설명>` → `main` PR → 패치 릴리스 → `main` 을 열린 판 브랜치들에 합친다.
-- **웹 관리자 `admin`**: 앱과 나눈다 — 웹 관리자의 정본 브랜치다(main 에서 한 번 따서 오래 둔다). `web-admin/` 만 바꾸는 작업은 `origin/admin` 에서 따서 `admin` 으로 PR(squash) → Hosting 은 `admin` 에서 내보낸다(앱 릴리스와 상관없음). 내보내기 전에 `admin` 에 `main` 을 합쳐 받고(배포는 `hosting/` 폴더 전체라 main 의 다른 파일이 뒤로 돌아가지 않게 · 2.3), 내보낸 뒤 `admin` → `main` PR 을 merge commit 으로 합친다(판 내기와 같음 · 이미 내보낸 것이라 승인 없음). `admin` 으로 가는 PR · `admin` → `main` 합치기는 main 에 없는 것으로 `web-admin/` 안만 가져올 수 있다(밖을 바꾸면 가드 `ship-gate.py` 가 머지를 막는다 — base 로 본다 · main 을 합쳐 받는 PR 은 통과). 웹 관리자 작업을 `main` 으로 바로 보내는 PR 은 가드가 막는다. 판 브랜치 PR 에서는 `web-admin/` 을 바꾸지 않는다. 관리자 기능에 규칙 · 함수가 같이 필요하면 그 몫을 판 PR 로 먼저 내보낸 뒤 `admin` 으로 낸다. 위험도 높은(데이터 읽기 · 쓰기 등) `admin` 으로 가는 PR 은 머지 전에 승인자 승인을 받는다(판을 거치지 않아 «내보내기 전 한 장» 에 안 나온다). `main` · `release/*` 처럼 직접 push 하지 않는다.
+- **웹 관리자 `admin`**: 앱과 나눈다 — 웹 관리자의 정본 브랜치다(main 에서 한 번 따서 오래 둔다). `apps/admin/` 만 바꾸는 작업은 `origin/admin` 에서 따서 `admin` 으로 PR(squash) → Hosting 은 `admin` 에서 내보낸다(앱 릴리스와 상관없음). 내보내기 전에 `admin` 에 `main` 을 합쳐 받고(배포는 `firebase/hosting/` 폴더 전체라 main 의 다른 파일이 뒤로 돌아가지 않게 · 2.3), 내보낸 뒤 `admin` → `main` PR 을 merge commit 으로 합친다(판 내기와 같음 · 이미 내보낸 것이라 승인 없음). `admin` 으로 가는 PR · `admin` → `main` 합치기는 main 에 없는 것으로 `apps/admin/` 안만 가져올 수 있다(밖을 바꾸면 가드 `ship-gate.py` 가 머지를 막는다 — base 로 본다 · main 을 합쳐 받는 PR 은 통과). 웹 관리자 작업을 `main` 으로 바로 보내는 PR 은 가드가 막는다. 판 브랜치 PR 에서는 `apps/admin/` 을 바꾸지 않는다. 관리자 기능에 규칙 · 함수가 같이 필요하면 그 몫을 판 PR 로 먼저 내보낸 뒤 `admin` 으로 낸다. 위험도 높은(데이터 읽기 · 쓰기 등) `admin` 으로 가는 PR 은 머지 전에 승인자 승인을 받는다(판을 거치지 않아 «내보내기 전 한 장» 에 안 나온다). `main` · `release/*` 처럼 직접 push 하지 않는다.
 - `main` 의 규칙 문서가 바뀌면 판 브랜치에 `main` 을 합쳐 받는다.
 
 ### 2.2 이름
@@ -133,6 +133,12 @@ release/0.12.1    ●──●──●── …           ← 다음 판. 앞 
 - **앱 · API 서버 · realtime 중 둘 이상을 건드리거나 데이터가 사는 곳을 새로 두거나 옮기면** «설계 한 장» 칸을 채운다(기준 `.claude/agents/tw-confirmer.md`).
 - **서버(API 서버 · 웹소켓 서버)가 있어야 끝나는 일**인데 서버에 손댈 수 없으면(이 계정 밖 · 다른 PC) «서버 작업 필요» 칸에 적는다(4.2). 서버는 이 저장소 주인 PC 에서만 고친다.
 - **Claude 표기(`Co-Authored-By: Claude…`, `Generated with Claude Code`, 세션 링크)를 넣지 않는다.**
+  CI(`pr-title.yml` · 판정 `checks/sim-no-attribution.js`)가 PR 본문과 이 PR 이 새로 들이는 커밋(main · admin · release/* 에 이미 있는 것은 뺌)을 보고, 걸리면 빨강이다. 도구가 꼬리말을 붙이라고 안내해도 넣지 않는다. 빨강이면:
+  - **PR 본문** — 본문을 고친다(고치면 검사가 다시 돈다).
+  - **커밋 메시지** — force push 없이는 고칠 수 없다. 같은 트리를 새 브랜치에 깨끗한 메시지로 다시 만들어 새 PR 을 열고, 옛 PR 은 닫는다(#1165 → #1167).
+    예) `git commit-tree <옛 머리>^{tree} -p origin/<base> -F msg.txt` 로 커밋을 만들고 `git push origin <새 커밋>:refs/heads/<새 브랜치>`.
+  - **squash 머지** — 머지할 때 GitHub 가 채워 주는 squash 메시지에도 꼬리말이 없어야 한다(CI 는 머지 때 고친 글을 못 본다).
+  - **검사가 못 보는 것** — head 가 main · admin · release/* 인 PR(판 내기 · 합쳐 받기)은 그 커밋이 이미 보호 브랜치에 있어 새 커밋 0개로 센다. 그 커밋 · squash 메시지는 머지하는 사람이 본다.
 - 머지는 CI(`npm run check` · 웹 관리자 테스트)가 **초록인 것을 확인한 뒤** 한다.
 
 ### 3.1 본문 템플릿

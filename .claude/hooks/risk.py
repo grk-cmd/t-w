@@ -228,7 +228,7 @@ def is_guard(path):
 
 MAIN_OK = ('hotfix/', 'harness/', 'release/')   # main 으로 무엇이든 가져갈 수 있는 PR — 긴급 수정 · 하네스 · 판 내기
 ADMIN_BRANCH = 'admin'   # 웹 관리자 정본 — 작업 PR 은 여기로 · Hosting 은 여기서 내보낸다 · 내보낸 뒤 admin → main 합치기(merge commit)
-ADMIN_DIR = 'web-admin/'   # 웹 관리자 길이 main 에 없는 것으로 가져올 수 있는 곳(0.13 은 apps/admin/ — 합칠 때 여기 하나만 바꾼다)
+ADMIN_DIR = 'apps/admin/'   # 웹 관리자 길이 main 에 없는 것으로 가져올 수 있는 곳(#442 로 web-admin/ 에서 옮김)
 
 
 def _refs(info):
@@ -277,7 +277,7 @@ def admin_needs_owner(pr):
 
 
 def admin_outside(pr):
-    """웹 관리자 길(admin 으로 가는 PR · admin → main 합치기)의 자기 변경(admin_own_files) 중 web-admin/ 밖의 파일(옮긴 옛 이름도).
+    """웹 관리자 길(admin 으로 가는 PR · admin → main 합치기)의 자기 변경(admin_own_files) 중 apps/admin/ 밖의 파일(옮긴 옛 이름도).
     앱 코드가 판을 건너뛰고 admin(→ main)으로 새는 것만 잡는다. 브랜치 이름이 아니라 base 로 본다.
     못 다 봤으면 그 사실을 돌려준다. 읽기 실패는 던진다(가드가 막는다)."""
     info = get(f'repos/{REPO}/pulls/{pr}')
