@@ -80,6 +80,11 @@ function judge(spSrc, ccSrc){
   if(w.L['creatorPreview:pointercancel']) w.fire('pointercancel', {});
   w.fire('pointermove', { clientX: 60, buttons: 0 });
   t(hadOrbit && w.crState._rcOrbit === null && !w.log.includes('cam'), '우클릭 회전 중 끊겨도 회전이 붙어 있지 않는다');
+  /* 정상 흐름 — pointerup 뒤에 lostpointercapture 가 온다(캡처 암묵 해제). 스포이드는 한 번 · 상태는 깨끗 */
+  w = canvasWorld(spSrc, ccSrc);
+  w.fire('pointerdown', { button: 2, buttons: 2 }); w.fire('pointerup', { button: 2, buttons: 0 });
+  if(w.L['creatorPreview:lostpointercapture']) w.fire('lostpointercapture', {});
+  t(w.log.filter(x => x === 'eyedrop').length === 1 && w.crState._rcOrbit === null && w.crState.painting === false, '우클릭 콕(안 움직이고 뗌) → 스포이드 한 번 · 뒤따르는 lostpointercapture 가 다시 부르거나 상태를 깨지 않는다');
   return r;
 }
 
@@ -88,7 +93,12 @@ judge(SRC, CC).forEach(([ok, msg]) => chk(ok, msg));
 
 say('── 3. 배선');
 {
-  chk(/<canvas id="anpCv" style="[^"]*touch-action:none;[^"]*">/.test(AN) && /#creatorPreview\{[^}]*touch-action:none;/.test(HTML), '그림판 캔버스 둘(동물 #anpCv · 사람 #creatorPreview) — touch-action:none(펜 끌기를 화면 밀기로 안 가져감)');
+  /* 스타일시트 규칙이어야 한다 — 같은 캔버스에 붙는 TransformControls 가 pointerup 마다 inline style.touchAction 을 '' 로 비운다(규칙은 남는다) */
+  const css = [...HTML.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n').replace(/\/\*[\s\S]*?\*\//g, '');
+  const rule = (sel) => [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].some(m => m[1].split(',').map(x => x.trim()).includes(sel) && /touch-action:\s*none/.test(m[2]));
+  chk(rule('#anpCv') && rule('#creatorPreview'), '그림판 캔버스 둘(동물 #anpCv · 사람 #creatorPreview) — 스타일시트 규칙으로 touch-action:none');
+  chk(!/id="anpCv"[^>]*touch-action/.test(AN) && !/touchAction\s*=/.test(AN) && !/touchAction\s*=/.test(CC), '  ↳ inline 으로 걸지 않는다(기즈모가 지운다)');
+  chk(/domElement\.style\.touchAction = ''/.test(read('vendor/three/TransformControls.js') || read('three/TransformControls.js') || ''), '  (전제 확인) TransformControls 가 pointerup 에서 inline touchAction 을 비운다 — 이 줄이 없어지면 위 함정 주석을 다시 본다');
   chk(/const strokePointer = deps\.strokePointer;/.test(AN) && /if\(pPainting\)\{ if\(!strokePointer\.isDown\(e\)\)\{ pEndStroke\(\); return; \} pPaintEvent\(e,false\); return; \}/.test(AN), '동물 만들기 — 뗀 펜은 그리지 않고 획을 끝낸다');
   chk(/strokePointer\.onLost\(cv, \(\)=>\{ pEndStroke\(\); _rcDown=null; dragging=false; \}\);/.test(AN) && /const pEndStroke=\(\)=>\{ pPainting=false; pLastX=pLastY=null; pLastSX=pLastSY=null; \};/.test(AN), '동물 만들기 — 끊기면 획 · 우클릭 회전을 끝낸다');
   chk((AN.match(/pPainting=false;/g) || []).length === 1 && (CC.match(/crState\.painting=false/g) || []).length === 1, '획 끝내기는 그림판마다 한 곳(pEndStroke · endStroke)');

@@ -265,7 +265,7 @@ function buildOverlay(){
         /* 💡 원색 보기 — 3 표정 · 4 감은눈 탭에서만 보인다(__anpGoTab). 모양은 사람 생성기 #cpFlat 과 같은 CSS. */
         +'<button id="anpFlat" type="button" aria-pressed="false" aria-label="조명 끄고 원색 보기" title="조명 끄고 원색 보기 (L)" style="display:none;">💡</button>'
         +'<div id="anpFlatBadge" style="display:none;">원색 보기 — 칠한 색 그대로</div>'
-        +'<canvas id="anpCv" style="width:360px;height:398px;background:#e9e9ec;cursor:default;touch-action:none;"></canvas>'
+        +'<canvas id="anpCv" style="width:360px;height:398px;background:#e9e9ec;cursor:default;"></canvas>'
         +'<div id="anpStampOverlay" style="display:none;">'
           +'<img id="anpStampOverlayImg" draggable="false">'
           +'<div class="stamp-handle stamp-h-tl"></div>'

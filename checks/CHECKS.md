@@ -105,7 +105,7 @@
 | **sim-social-api.js** | 290 | **e3f48223d980** |
 | **sim-friend-profile-live.js** | 218 | **d78ba96ecf5b** |
 | **sim-second-instance.js** | 231 | **420f1674eed3** |
-| **sim-stroke-pointer.js** | 119 | **1d3435133808** |
+| **sim-stroke-pointer.js** | 129 | **e7d6d9703d30** |
 | **sim-wd-parts-persist.js** | 91 | **f8dac06eecab** 
 | **sim-invite-notice.js** | 85 | **9f7bcb7ddc71** |
 | **sim-name-guard.js** | 42 | **9c89831d5c23** |

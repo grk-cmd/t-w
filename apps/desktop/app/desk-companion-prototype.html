@@ -1344,7 +1344,10 @@
   .decor-left{position:relative;width:250px;flex:none;background:#fff;
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:14px;
     border-right:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);border-radius:var(--win-radius-el) !important;}
-  #creatorPreview{cursor:crosshair;touch-action:none;}   /* 펜 끌기를 브라우저가 화면 밀기로 가져가지 않게(shared/stroke-pointer.js) */
+  #creatorPreview{cursor:crosshair;}
+  /* 그림판 둘(사람 · 동물 만들기) — 펜 끌기를 브라우저가 화면 밀기로 가져가지 않게(shared/stroke-pointer.js).
+     ⚠️ inline style 로 걸지 말 것 — 같은 캔버스에 붙는 TransformControls 가 pointerup 마다 style.touchAction 을 비운다 */
+  #creatorPreview,#anpCv{touch-action:none;}
   .cp-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:3;width:26px;height:40px;font-size:20px;font-weight:bold;cursor:pointer;
     background:none;border:none;box-shadow:none;color:rgba(0,0,0,.55);opacity:1;display:flex;align-items:center;justify-content:center;}
   .cp-arrow:active{color:#000;transform:translateY(-50%) scale(.9);}
