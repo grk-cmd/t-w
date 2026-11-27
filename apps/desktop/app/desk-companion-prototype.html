@@ -2954,7 +2954,7 @@
   #myCustomStatusBox #myCustomStatusEmo{flex:0 0 34px;width:34px;min-width:34px;text-align:center;padding:4px 2px;}
 
   /* 캐릭터 머리 위 설정 패널 (톱니바퀴 클릭 시) */
-  #focusSettingsPanel{position:fixed;z-index:var(--z-win-settings);transform:translate(-50%,-100%);
+  #focusSettingsPanel{position:fixed;z-index:var(--z-win-settings);transform:translate(-50%,0);
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     padding:0;width:312px;box-sizing:border-box;display:none;font-family:var(--tw-font-legacy);border-radius:var(--win-radius-el) !important;
@@ -2973,7 +2973,7 @@
   #focusSettingsPanel .fs-body::-webkit-scrollbar-thumb{background:var(--tw-line);border-radius:3px;}
   /* 🚪 런처에서 열면 가운데 · 실행 화면 전용 칸(광고 · 캐릭터 교체 칸 · 아래 버튼)은 숨기고 런처 전용 안내를 보인다.
      ⚠️ 머리 위 따라가기(status-chip.js)가 left/top 을 인라인으로 적을 수 있어 !important 로 덮는다. */
-  #focusSettingsPanel.fs-in-launcher{left:50% !important;top:50% !important;transform:translate(-50%,-50%) !important;}
+  #focusSettingsPanel.fs-in-launcher{left:50% !important;transform:translate(-50%,0) !important;}   /* 위 끝은 열 때 가운데로 맞춘 자리(settings-panel.js) — 탭을 바꾸면 아래로 자란다 */
   #focusSettingsPanel.fs-in-launcher .fs-run-only{display:none !important;}
   #focusSettingsPanel.fs-in-launcher .fs-titlebar{cursor:default !important;}
   #focusSettingsPanel:not(.fs-in-launcher) .fs-launcher-only{display:none !important;}

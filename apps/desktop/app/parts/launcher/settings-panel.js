@@ -89,38 +89,43 @@ const fsWin = (function bindFocusSettings(){
   const moveBtn=document.getElementById('fsMoveBtn');
   const moveHint=document.getElementById('fsMoveHint');
   const backBtn=document.getElementById('fsBackBtn');
-  if(!gearBtn||!panel) return { openSettings(){}, closeSettings(){}, onTabShown(){} };
+  if(!gearBtn||!panel) return { openSettings(){}, closeSettings(){}, onTabShown(){}, placeAtHead(){} };
 
-  // ✥ 설정창 자유 이동 — 타이틀바(⚙️ 설정)를 잡고 드래그. 옮긴 뒤엔 캐릭터 머리 위 자동 따라가기가
-  //   중단되고(위 렌더 루프의 _fsPanelDragged 체크), 창을 닫았다 다시 열면 머리 위 기본 위치로 복귀.
+  /* 설정창 자리 = 위 가운데(css transform:translate(-50%,0)) — 탭을 바꿔 길어지면 위는 그대로 · 아래로 자란다.
+     실행 화면: 머리 위(placeAtHead — 위 끝 = 머리 − 연 때 높이) · 끌어 옮기면 그 자리(runPos — 닫았다 열어도 · 런처를 다녀와도).
+     런처: 가운데(연 때 높이로) · 끌기 없음. 화면 안으로는 모두 같은 규칙(shared/panel-fit.js) */
+  let openH = 0;        // 연 때의 높이 — 위 끝을 정하는 데만 쓴다(탭을 바꿔 높이가 바뀌어도 위 끝 그대로)
+  let runPos = null;    // 실행 화면에서 끌어 놓은 위 가운데 { x, y } — null 이면 머리 위를 따라간다
+  function fitPanel(x, y){
+    const f = TwPanelFit.fitTopCenter(x, y, panel.offsetWidth, panel.offsetHeight, innerWidth, innerHeight, 8);
+    panel.style.left=f.x+'px';
+    panel.style.top =f.y+'px';
+    return f;
+  }
   (function bindFsPanelDrag(){
     const bar = panel.querySelector('.fs-titlebar');
     if(!bar) return;
     bar.style.cursor='move';
     let dragging=false, offX=0, offY=0;
-    /* 화면 안으로 — 머리 위 자동 배치(status-chip.js)와 같은 규칙. 끈 자리에 그대로 두면 긴 탭에서 제목줄이 화면 위로 나간다 */
-    const fitTo = (x, y)=>{
-      const f = TwPanelFit.fitBottomCenter(x, y, panel.offsetWidth, panel.offsetHeight, innerWidth, innerHeight, 8);
-      panel.style.left=f.x+'px';
-      panel.style.top =f.y+'px';
-    };
     bar.addEventListener('pointerdown', e=>{
       if(e.target.closest && e.target.closest('#fsPanelClose')) return;   // ✕ 버튼은 그대로 닫기
       if(panel.classList.contains('fs-in-launcher')) return;   // 런처에선 가운데 고정 — 옮긴 자리가 실행 화면까지 따라가지 않게
-      dragging=true; window._fsPanelDragged=true;
+      dragging=true;
       const px=parseFloat(panel.style.left)||0, py=parseFloat(panel.style.top)||0;
+      runPos = { x: px, y: py };
       offX=e.clientX-px; offY=e.clientY-py;
       e.preventDefault();
     });
     document.addEventListener('pointermove', e=>{
       if(!dragging) return;
-      fitTo(e.clientX-offX, e.clientY-offY);   // left/top 은 창의 아래 가운데(transform:translate(-50%,-100%))
+      runPos = fitPanel(e.clientX-offX, e.clientY-offY);
     });
     document.addEventListener('pointerup', ()=>{ dragging=false; });
-    /* 탭을 바꾸거나 화면 크기가 바뀌면 창이 위로 자란다 — 끌어 옮긴 뒤에는 자동 배치가 쉬므로 여기서 다시 맞춘다 */
+    /* 탭을 바꾸거나 화면 크기가 바뀌면 창이 아래로 자란다 — 끌어 옮긴 뒤 · 런처에서는 머리 위 배치가 쉬므로 여기서 화면 안으로(위 끝 그대로) */
     const refit = ()=>{
-      if(!window._fsPanelDragged || !panel.classList.contains('on')) return;
-      fitTo(parseFloat(panel.style.left)||0, parseFloat(panel.style.top)||0);
+      if(!panel.classList.contains('on')) return;
+      if(panel.classList.contains('fs-in-launcher')) fitPanel(innerWidth/2, parseFloat(panel.style.top)||0);
+      else if(runPos) runPos = fitPanel(runPos.x, runPos.y);
     };
     new ResizeObserver(refit).observe(panel);
     window.addEventListener('resize', refit);
@@ -342,13 +347,14 @@ const fsWin = (function bindFocusSettings(){
     panel.classList.toggle('fs-in-launcher', inLauncher);
     panel.classList.add('on');
     bringWinToFront('focusSettingsPanel');   // 🪟 열 때는 맨 앞으로
-    // ✥ 드래그로 옮긴 위치 기억 — 닫았다 열어도 그 자리. 단 화면 밖(해상도 변경 등)이면 머리 위 기본 위치로 복귀.
-    if(!inLauncher && window._fsPanelDragged){
-      const px=parseFloat(panel.style.left)||0, py=parseFloat(panel.style.top)||0;
-      if(px<0 || py<0 || px>innerWidth || py>innerHeight) window._fsPanelDragged=false;
-    }
+    // ✥ 끌어 둔 자리 — 닫았다 열어도 · 런처를 다녀와도 그 자리. 단 화면 밖(해상도 변경 등)이면 머리 위로 복귀.
+    if(!inLauncher && runPos && (runPos.x<0 || runPos.y<0 || runPos.x>innerWidth || runPos.y>innerHeight)) runPos = null;
     sizeSlider.value = String(focusCharScale());
     showTab(tab || _curTab);
+    /* 연 때의 높이로 자리를 정한다 — 머리 위는 «머리 − 이 높이» 를 위 끝으로(placeAtHead), 런처는 가운데. 탭을 바꿔도 위 끝이 그대로라 아래로만 자란다 */
+    openH = panel.offsetHeight;
+    if(inLauncher) fitPanel(innerWidth/2, (innerHeight - openH) / 2);
+    else if(runPos) runPos = fitPanel(runPos.x, runPos.y);   // 런처가 inline 자리를 가운데로 덮었을 수 있다
     if(!inLauncher) refreshFsAdBanner();
   }
   function closeSettings(){ panel.classList.remove('on'); }
@@ -631,10 +637,18 @@ const fsWin = (function bindFocusSettings(){
     if(moveHint) moveHint.style.display = moveMode() ? 'block' : 'none';
     if(moveMode()){ closeSettings(); }   // 이동 중엔 패널 가려서 시야 확보
   };
-  return { openSettings, closeSettings, onTabShown: (fn) => { _tabShown.push(fn); } };
+  /** 실행 화면 머리 위 자동 배치(status-chip.js 가 매 화면 부른다) — 위 끝 = 머리 − 연 때 높이. 끌어 옮긴 뒤 · 런처에서는 손대지 않는다.
+      headPoint() 는 필요할 때만 부른다(머리 위 점 { x, y } — 화면 좌표) */
+  function placeAtHead(headPoint){
+    if(!panel.classList.contains('on') || panel.classList.contains('fs-in-launcher') || runPos) return;
+    const p = headPoint();
+    fitPanel(p.x, p.y - openH);
+  }
+  return { openSettings, closeSettings, onTabShown: (fn) => { _tabShown.push(fn); }, placeAtHead };
 })();
 /* 맨 위 이름으로도 둔다 — 검사(sim-renderer-src joinRenderer)가 «옮기기 전 app.js 글» 을 되살릴 때 이 이름들이 맨 위에 있어야 한다 */
 const openSettings = fsWin.openSettings;
+const placeAtHead = fsWin.placeAtHead;
 const closeSettings = fsWin.closeSettings;
 const onTabShown = fsWin.onTabShown;   // (fn(탭)) — 탭을 보일 때마다 부른다
 
@@ -942,6 +956,7 @@ function _fsRevealSlot(stripId, idx){
 return {
   openSettings,   // (탭?) — 'display' | 'char' | 'focus' | 'room' | 'info' · 없으면 마지막에 본 탭
   closeSettings,
+  placeAtHead,    // (headPoint) — 실행 화면 머리 위 자리(status-chip.js 가 매 화면 · 위 끝 = 머리 − 연 때 높이)
   onTabShown,
   nameplateClamp,
   nameplatePct,
