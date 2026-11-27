@@ -4,7 +4,7 @@
    받는 deps: buildDesk(내장 책상 메쉬) · deskBodyPlan · drawDeskGlb · drawDeskLegacyGlb · hideDeskBody · applyDeskColor(desk-visual.js) · syncDeskPartAnchor(desk-place.js)
    내놓는 것: scaleOf(def, anim) · placeDeskPos(group, base0, pos, anim) — 미리보기 책상의 크기 · 자리 식(wardrobe.js 의 빈 그룹도 이것을 부른다)
      rebuild({ scene, def, anchorGroup, base0, anim }) · dispose() · setShown(on) · tune(def) · body() · readPos() · resetPos() · isZero(pos)
-   ★ 미리보기에는 책상 그룹이 둘이다 — anchorGroup(wardrobe.js 의 빈 그룹 · «책상 위» 파츠가 붙는 자리 · 자리 식은 그쪽에)과 이 모듈의 몸 그룹.
+   ★ 미리보기에는 책상 그룹이 둘이다 — anchorGroup(wardrobe.js 의 빈 그룹 · «책상 위» 파츠가 붙는 자리)과 이 모듈의 몸 그룹.
      둘의 크기 식(scaleOf) · deskPos 를 얹는 식(placeDeskPos)은 이 파일 한 곳이다. deskPos 를 빼고 남는 자리(base0 — −CHAR_Z · xf 보정)는 wardrobe.js 가 정해 넘긴다.
      책상 탭이 아니면 몸만 숨긴다(옷을 고를 때 몸을 가리지 않게).
    ⚠️ 몸 그룹에 setDeskScale · setDeskPos 를 부르지 말 것 — 그 둘은 좌석 규약(z 보정)으로 position.z 를 다시 써서 미리보기 자리(−CHAR_Z · xf 보정)가 깨진다.
