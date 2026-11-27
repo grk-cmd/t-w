@@ -3,7 +3,7 @@
    동작은 옮기기 전과 같다(뒤에서 만들어지거나 다시 대입되는 값을 읽는 함수로 받는 줄만 `이름()` 으로 달라지고, seats 가 deps 값이 돼 쓸모없어진 `typeof seats` 가드 하나는 걷음).
    ・책임: applyCharToSeat(좌석에 def 를 입힌다 — 라이드 정리 · 파츠 비우기 · 책상 배율 · 커미션/동물/기본 몸 조립 · 크기 주입 · 파츠 · 책상 · 아이템 · 클릭 판정) · _purgeSeatParts · refreshRiggedPartsXf ·
      _setPlaceholderPickable · _registerAnimalEarOn(동물 귀 · 사람 귀 공용 등록) · _sweepAnimalEars · window.rebuildAnimalSeats(animal.js 가 GLB 파싱 뒤에 부른다) · window.registerAnimalEar(animal.js 가 귀가 붙을 때 부른다).
-   ・받는 deps 37 — 값 19 · 함수 11 · 읽는 함수 7(BASE_ANIMS · assetCodeMod · curSlot · customItems · deskItemsMod · deskPlaceMod · deskVisualMod — 뒤에서 만들어지거나 다시 대입된다).
+   ・받는 deps 36 — 값 18 · 함수 11 · 읽는 함수 7(BASE_ANIMS · assetCodeMod · curSlot · customItems · deskItemsMod · deskPlaceMod · deskVisualMod — 뒤에서 만들어지거나 다시 대입된다).
    ・내놓는 것: applyCharToSeat · _purgeSeatParts · refreshRiggedPartsXf · _registerAnimalEarOn — app.js 는 같은 이름 const 로 받는다.
    ⚠️ window.rebuildAnimalSeats · window.registerAnimalEar 는 이 모듈을 만들 때 건다(옛 자리와 같은 때) — animal.js 가 window. 로 부른다. 지우면 동물 귀가 안 붙고 동물 캐릭터가 인간으로 남는다.
    ⚠️ 커미션 GLB 가 캐시에 없으면 파싱을 걸고 return 한다 — 그 앞에서 책상 배율 · z 를 한 번 맞춰 두는 까닭이 주석에 있다. 순서를 바꾸지 말 것.
@@ -26,7 +26,6 @@ const compositeFace = deps.compositeFace;   // 함수
 const creatorPrevMod = deps.creatorPrevMod;
 const curSlot = deps.curSlot;   // 읽는 함수
 const customItems = deps.customItems;   // 읽는 함수
-const DEFAULT_DESK_OVERRIDE_ID = deps.DEFAULT_DESK_OVERRIDE_ID;
 const defToBase = deps.defToBase;   // 함수
 const deskItemsMod = deps.deskItemsMod;   // 읽는 함수
 const deskPlaceMod = deps.deskPlaceMod;   // 읽는 함수

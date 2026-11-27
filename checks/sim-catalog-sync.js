@@ -232,13 +232,13 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
     /* 책상 */
     const sR = { __n: 'R', desk: { __n: 'dR' }, charDef: { deskCatalogId: 'gone', deskGlb: 'g' } };
     const sC = { __n: 'C', desk: { __n: 'dC' }, charDef: { deskCatalogId: 'd1' } };
-    const sD = { __n: 'D', desk: { __n: 'dD' }, charDef: { deskScale: 0.2, deskColor: '#fff' } };
+    const sD = { __n: 'D', desk: { __n: 'dD' }, charDef: { deskScale: 0.2, deskLenX: 1.5, deskColor: '#fff' } };
     const sG = { __n: 'G', charDef: { deskGlb: 'own' } };
     W = load({ seats: [sR, sC, sD, sG], desks: [{ id: 'gone', fromCatalog: true }, { id: 'mine' }] });
     await W.subs.desks({ d2: { order: 5 }, d1: { order: 0 } }); await flush();
     chk(W.st.desks.map(r => r.id).join() === 'd1,d2,mine', '책상 — 카탈로그 order 순 · 로컬 전용 남김');
     chk(sR.charDef.deskCatalogId === null && sR.charDef.deskGlb === null && has(W.log, 'swapDesk:dR:null:false'), '  지워진 책상을 쓰던 좌석은 기본 책상으로');
-    chk(has(W.log, 'deskRef:C:' + JSON.stringify(sC.charDef)) && has(W.log, 'deskRef:D:{"deskCatalogId":"__default_desk__","deskScale":0.2,"deskColor":"#fff"}') && !W.log.some(x => x.startsWith('deskRef:G')), '  카탈로그 책상 좌석은 새 GLB 로 · 기본 책상 좌석은 __default_desk__ 덮어쓰기로 다시 그린다(자기 GLB 좌석은 그대로)');
+    chk(has(W.log, 'deskRef:C:' + JSON.stringify(sC.charDef)) && has(W.log, 'deskRef:D:' + JSON.stringify(sD.charDef)) && !W.log.some(x => x.startsWith('deskRef:G')), '  카탈로그 책상 좌석 · 기본 책상 좌석 모두 def 그대로 다시 그린다(길이 deskLenX 도 빠지지 않음 · 갈래는 deskBodyPlan · 자기 GLB 좌석은 그대로)');
     chk(idx(W.log, 'licPrune') > idx(W.log, 'setDesks') && !has(W.log, 'renderCrItems'), '  합친 뒤 라이선스 접기 · 생성기 닫혀 있으면 생성기 손 안 댐');
     W = load({ creatorOpen: true, cDesk: { __n: 'cDesk' }, cDeskGlbB64: 'old', activeCustomDeskId: 'd1', cDeskColor: '#c00', cDeskScale: 0.3 });
     await W.subs.desks({ d1: { glb: 'NEW' } }); await flush();

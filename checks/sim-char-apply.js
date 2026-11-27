@@ -166,7 +166,7 @@ say('§4 연결');
   const READ = ['BASE_ANIMS', 'assetCodeMod', 'curSlot', 'customItems', 'deskItemsMod', 'deskPlaceMod', 'deskVisualMod'];
   const FN = ['applyEquippedPartsToSeat', 'applyPartXf', 'b64ToBuf', 'compositeFace', 'defToBase', 'getCommissionScene', 'instantiateBase', 'mkFaceTex', 'renderLauncher', 'unequipPartFromSeat', 'unequipStackablePart'];
   const shape = (n, v) => READ.includes(n) ? (v === '()=>' + n || (n === 'BASE_ANIMS' && v === '()=>bodyCore.baseAnims()')) : FN.includes(n) ? v === '(...a)=>' + n + '(...a)' : v === n;
-  chk(pairs.length === 37 && pairs.every(([n, v]) => shape(n, v)), '★ deps 37개 모양 — 읽는 함수 일곱은 ()=>이름 · 함수 열하나는 (...a)=>이름(...a) · 값 열아홉은 이름 그대로(값과 읽는 함수를 바꿔 넘기면 빨강)' + (pairs.length === 37 ? '' : ' — ' + pairs.length + '개'));
+  chk(pairs.length === 36 && pairs.every(([n, v]) => shape(n, v)), '★ deps 36개 모양 — 읽는 함수 일곱은 ()=>이름 · 함수 열하나는 (...a)=>이름(...a) · 값 열여덟은 이름 그대로(값과 읽는 함수를 바꿔 넘기면 빨강)' + (pairs.length === 37 ? '' : ' — ' + pairs.length + '개'));
   const mk2 = mk.replace('  curSlot: ()=>curSlot,', '  curSlot: curSlot,').replace('  seats: seats,', '  seats: ()=>seats,');
   const p2 = mk2.split('\n').map(l => /^  ([\w$]+): (.+),$/.exec(l)).filter(Boolean).map(m => [m[1], m[2]]);
   chk(!p2.every(([n, v]) => shape(n, v)), '  mutation test: 읽는 함수를 값으로 · 값을 읽는 함수로 바꿔 넘기면 빨강');

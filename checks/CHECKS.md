@@ -180,7 +180,7 @@
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
 | **sim-key-input.js** | 71 | **d96a4cd791fc** |
 | **sim-keysof-twin.js** | 369 | **54f473215813** |
-| **sim-license-leak.js** | 328 | **a3e8b5f1c279** |
+| **sim-license-leak.js** | 328 | **ee1d2ea5cd50** |
 | **sim-license-api.js** | 158 | **8f7c3c6f798d** |
 | **sim-license-premium.js** | 610 | **35fbb8270538** |
 | **sim-mh-sanitize.js** | 219 | **43161e59fac7** |
@@ -204,7 +204,7 @@
 | **sim-pl-loop.js** | 511 | **4e8851ba45ea** |
 | **sim-pl-next.js** | 171 | **9e7dea09b15f** |
 | **sim-pl-watchdog.js** | 412 | **4658ffafbd00** |
-| **sim-premium-desk.js** | 131 | **67db976beb4d** |
+| **sim-premium-desk.js** | 131 | **5f11ddd34b8a** |
 | **sim-presence.js** | 264 | **bdc6c8978cf6** |
 | **sim-light-tone.js** | 281 | **a0ce1466453e** |
 | **sim-paint-geom.js** | 107 | **3ec63690087d** |
@@ -253,7 +253,7 @@
 | **sim-seat-opacity-mod.js** | 84 | **fb914cc8f415** |
 | **sim-seat-state.js** | 156 | **fd44c3e605da** |
 | **sim-seat-pointer.js** | 203 | **827506e52d77** |
-| **sim-char-apply.js** | 200 | **892544b0b847** |
+| **sim-char-apply.js** | 200 | **33456d3e9286** |
 | **sim-app-mode.js** | 147 | **35f8add1ae94** |
 | **sim-office-mode.js** | 91 | **c7afd4778d02** |
 | **sim-ls-set.js** | 52 | **322f5c6dfd7b** |
@@ -386,9 +386,9 @@
 | **sim-part-paint.js** | 94 | **0cae749ad104** |
 | **sim-focus-level.js** | 147 | **91bde8afa958** |
 | **sim-chat-ui.js** | 126 | **eca9c00f7396** |
-| **sim-license-gate.js** | 441 | **521051c816cd** |
+| **sim-license-gate.js** | 441 | **1f9c56f0d87f** |
 | **sim-account.js** | 174 | **bee6deb0f7c1** |
-| **sim-wardrobe.js** | 399 | **5389b5b97997** |
+| **sim-wardrobe.js** | 399 | **ec19215a893c** |
 | **sim-settings-panel.js** | 205 | **aad58018e96e** |
 | **sim-desktop-run.js** | 94 | **2370870711eb** |
 | **sim-room-entry.js** | 401 | **29b730f27d0b** |
@@ -483,7 +483,7 @@
 | **sim-admin-thumbs.js** | 145 | **ce8e334924db** |
 | **sim-glb-idb-cache.js** | 189 | **03a45e5b0c3a** |
 | **sim-catalog-glb.js** | 226 | **81f273555f0b** |
-| **sim-catalog-sync.js** | 356 | **bc0413464d00** |
+| **sim-catalog-sync.js** | 356 | **e62cba3b8411** |
 | **sim-desk-items.js** | 166 | **84aeeb87dc04** |
 | **sim-bgm-diag.js** | 300 | **825e0d2cb561** |
 | **sim-blink-timing.js** | 112 | **f6dba2d5b8f2** |

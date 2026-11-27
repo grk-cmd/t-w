@@ -98,7 +98,7 @@ function pruneUnownedLicenseAssets(){
       if(!hit.desk && !hit.items.length) return;
       n += (hit.desk ? 1 : 0) + hit.items.length;
       if(hit.desk){
-        applyDeskCatalogRefToSeat(s, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:s.charDef.deskScale, deskLenX:s.charDef.deskLenX, deskColor:s.charDef.deskColor});
+        applyDeskCatalogRefToSeat(s, s.charDef);   // 접은 뒤 def 그대로 — 기본 책상(교체본)은 deskBodyPlan 이 고른다
       }
       hit.items.forEach(id => {
         const d = deskItemDef(id);

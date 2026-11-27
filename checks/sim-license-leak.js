@@ -162,8 +162,8 @@ if(!fnPrune || !fnRestore || !fnLockD || !fnLockI || !constHold || !ASSRC){
     chk(mine.charDef.deskCatalogId === null, '내 좌석은 접힌다');
     chk(other.charDef.deskCatalogId === 'desk_gaming',
       '★ 친구 좌석(remote)은 그대로다 — 남의 라이선스는 남의 기기가 판단한다 (예전 제보)');
-    chk(c._redrawn.length === 1 && c._redrawn[0] === '__default_desk__',
-      '내 좌석만 기본 책상으로 다시 그렸다');
+    chk(c._redrawn.length === 1 && c._redrawn[0] === null,
+      '내 좌석만 다시 그렸다(접은 def 그대로 — 기본 책상은 deskBodyPlan 이 고른다)');
     chk(c._unequipped.length === 1 && c._unequipped[0] === 'item_neon',
       '내 좌석의 전용 아이템만 내렸다');
     chk(c._pushed > 0, '★ 방에 있으면 즉시 다시 내보낸다 — 이 한 줄이 친구 화면에서 사라지게 한다');

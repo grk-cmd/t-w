@@ -82,7 +82,6 @@ const slots = deps.slots;   // 읽는 함수
 const tintPartMesh = deps.tintPartMesh;
 const toast = deps.toast;
 const unequipStackablePart = deps.unequipStackablePart;
-const DEFAULT_DESK_OVERRIDE_ID = deps.DEFAULT_DESK_OVERRIDE_ID;
 const NO_DESK_ID = deps.NO_DESK_ID;   // 🚫 «책상 없음» 예약 id(desk-visual.js 가 그린다)
 const layoutSeats = deps.layoutSeats;   // 책상이 생기거나 없어지면 좌석 줄 자리를 다시 잡는다
 const DESK_LICENSE_HOLD = deps.DESK_LICENSE_HOLD;   // 읽는 함수
@@ -142,10 +141,7 @@ function _wdApplyDeskChange(mutate, relayout){
   const def = seat.charDef;
   mutate(def);
   let drawn = null;
-  try{
-    if(def.deskCatalogId) drawn = applyDeskCatalogRefToSeat(seat, def);
-    else drawn = applyDeskCatalogRefToSeat(seat, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:def.deskScale, deskLenX:def.deskLenX, deskColor:def.deskColor});
-  }catch(_){}
+  try{ drawn = applyDeskCatalogRefToSeat(seat, def); }catch(_){}   // 기본 책상 교체본 갈래는 deskBodyPlan(def 그대로 넘긴다)
   if(relayout) Promise.resolve(drawn).catch(()=>{}).then(()=>layoutSeats());
   Promise.resolve(drawn).catch(()=>{}).then(()=>_wdSyncDeskColorRow(seat));   // 책상을 다 그려야 색 받는 재질이 정해진다
   try{ if(seat.desk){ setDeskScale(seat.desk, def.deskScale||DESK_SCALE_DEFAULT(), def.deskLenX||1); if(def.deskColor) applyDeskColor(seat, def.deskColor); } }catch(_){}
