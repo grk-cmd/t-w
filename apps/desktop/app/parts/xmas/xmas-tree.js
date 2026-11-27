@@ -10,13 +10,13 @@
 (function(){
 'use strict';
 
-/* 기본 장식 — 16칸 도트 그림(앱에 박힌 그림이라 서버에서 받지 않는다) */
+/* 기본 장식 — 16칸 도트 그림(앱에 박힌 그림이라 서버에서 받지 않는다 · o 는 테두리). 16칸에 다 차지 않아도 baseCanvas 가 가운데로 놓는다 */
 const BASE_DOTS = {
-  bulb: [['......yy........', '.....yyyy.......', '......rr........', '....rrrrrr......', '...rrwwrrrr.....', '..rrwwrrrrrr....', '..rrrrrrrrrr....', '..rrrrrrrrrr....', '..rrrrrrrrrr....', '...rrrrrrrr.....', '....rrrrrr......', '.....rrrr.......'], { y: '#f2c14e', r: '#d8434b', w: '#ffd9d9' }],
-  star: [['.......y........', '.......y........', '......yyy.......', '......yyy.......', 'yyyyyyyyyyyyy...', '.yyyyyyyyyyy....', '..yyyyyyyyy.....', '...yyyyyyy......', '...yyyyyyy......', '..yyyy.yyyy.....', '..yyy...yyy.....', '.yy.......yy....'], { y: '#f2c14e' }],
-  sock: [['....wwwwww......', '....wwwwww......', '....rrrrrr......', '....rrrrrr......', '....rrggrr......', '....rrrrrr......', '....rrrrrr......', '....rrrrrrr.....', '....rrrrrrrrr...', '....rrrrrrrrrr..', '....rrrrrrrrrr..', '.....rrrrrrrr...'], { w: '#eef3fb', r: '#c9343c', g: '#2f7a4a' }],
-  cane: [['....wwrr........', '...rw..ww.......', '..ww....rr......', '..rr....ww......', '........rr......', '........ww......', '........rr......', '........ww......', '........rr......', '........ww......', '........rr......', '........ww......'], { w: '#eef3fb', r: '#d8434b' }],
-  gift: [['.....y..y.......', '......yy........', '..bbbbybbbbb....', '..bbbbybbbbb....', '..yyyyyyyyyy....', '..bbbbybbbbb....', '..bbbbybbbbb....', '..bbbbybbbbb....', '..bbbbybbbbb....', '..bbbbybbbbb....'], { y: '#f2c14e', b: '#4e7bd8' }],
+  bulb: [['.......oo.......', '......oYYo......', '.....oyyyYo.....', '....orrrrrro....', '...opppprrrro...', '..opwwwprrrrro..', '..opwwwprrrrro..', '.orppwwprrrrddo.', '.orrppprrrrdddo.', '.orrrrrrrrddddo.', '..orrrrrrddddo..', '..orrrrrdddddo..', '...orrrdddddo...', '....ordddddo....', '.....oooooo.....'], { o: '#5a1a22', r: '#d8434b', d: '#a82a35', p: '#ee7a7f', w: '#fff1f1', y: '#f2c14e', Y: '#b98a1f' }],
+  star: [['.......o........', '......oyo.......', '......oyo.......', '.....oywyo......', '.....oywyo......', 'oooooowwwoooooo.', 'oyyyyyywwyyyyyo.', '.oyyyyywwyyyyo..', '..oyyyyyyYYYo...', '...oyyyyYYYo....', '...oyyyyYYYo....', '..oyyyyoYYYYo...', '..oyyyo.oYYYo...', '.oyyo....oYYYo..', '.ooo......oooo..'], { o: '#7a5310', y: '#f6c945', Y: '#d9a024', w: '#fff3c4' }],
+  sock: [['.oooooooooo.....', '.owwwwwwwwo.....', '.owwwwwwwwo.....', '.oWWWWWWWWo.....', '..orrrrrrdo.....', '..orrgGrrdo.....', '..orgGgrrdo.....', '..orrrrrrdo.....', '..orrrrrrdoooo..', '..orrrrrrrrrrdo.', '..ohhrrrrrrrttdo', '..ohhhrrrrrrttto', '...ohhrrrrrrtto.', '....ooooooooooo.'], { o: '#4a1518', w: '#f4f7fc', W: '#c8d2e2', r: '#cf3a43', d: '#a52a33', h: '#f4f7fc', t: '#f4f7fc', g: '#2f8a52', G: '#4fb26e' }],
+  cane: [['.....oooooo.....', '....owwrrwwo....', '...owwroowrro...', '...owro..orwo...', '...orro..owwo...', '....oo...owro...', '.........orro...', '.........orwo...', '.........owwo...', '.........owro...', '.........orro...', '.........orwo...', '.........owwo...', '.........owro...', '.........orro...', '..........oo....'], { o: '#5a1a22', r: '#d8434b', w: '#f6f8fc' }],
+  gift: [['....oo....oo....', '...oyyo..oyyo...', '....oYyooyYo....', '.oooooyyyyooooo.', 'ollllllyyllllllo', 'ollllllyyllllllo', 'oLLLLLLyyLLLLLLo', '.obbbbbyybbbbBo.', '.obbbbbyybbbbBo.', '.obbbbbyybbbbBo.', '.obbbbbyybbbbBo.', '.obbbbbyybbbbBo.', '.obbbbbyybbbbBo.', '.obbbbbyybbbbBo.', '..oooooooooooo..'], { o: '#1c2c5c', b: '#4e7bd8', B: '#3a5fb0', l: '#6d94e6', L: '#3a5fb0', y: '#f2c14e', Y: '#c99522' }],
 };
 /** 점 그림(행 글자열 · '.' 은 빈칸)을 size 칸 가운데에 놓으려면 옮길 칸 수 — 남는 칸이 홀수면 왼쪽 · 위로 반 칸 */
 function dotsOffset(rows, size){
