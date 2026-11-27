@@ -1,9 +1,10 @@
 /* ═══ 🎨 sim-wardrobe.js — 🎨 꾸미기 창 모듈 구조 (2026-10-14 신설 · 앱 FSD 29번) ═══════════════
    app.js 의 꾸미기 다섯 구역 본문 을 parts/character/wardrobe.js 로 옮겼다(글자 그대로 · 바뀐 줄 70 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(꾸미기 검사들).
    여기서는 모듈 모양 · app.js 연결을 본다.
-   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(ORBIT_DRAG_DIR · _clearMultiPanelRef · _wdAfterMainSwap · activeWdAdj · setActiveWdAdj · buildFreeColorPicker · commitWdDraft · createWardrobeAdjPanel · currentWdTab · detachWdGizmo · ensureWdDraft · ensureWdGizmo · placeWdWindows · refreshWdPreviewChar · refreshWdPreviewColorSection · renderWardrobe · setWdGizmoMode · sizeWdPreview · syncWdGizmoToXf · syncWdPreviewOwner · toggleEquip · updateWdCam · updateWdGizmoForActivePanel · wdCam · wdDraftDef · wdGizmo · wdGizmoMode · wdPreviewBase · wdWinSavedPos · wdScene)
+   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(ORBIT_DRAG_DIR · _clearMultiPanelRef · _wdAfterMainSwap · activeWdAdj · setActiveWdAdj · buildFreeColorPicker · commitWdDraft · createWardrobeAdjPanel · currentWdTab · detachWdGizmo · ensureWdDraft · ensureWdGizmo · placeWdWindows · refreshWdPreviewChar · refreshWdPreviewColorSection · renderWardrobe · setWdGizmoMode · syncWdGizmoToXf · syncWdPreviewOwner · toggleEquip · updateWdCam · updateWdGizmoForActivePanel · wdCam · wdDraftDef · wdGizmo · wdGizmoMode · wdPreviewBase · wdWinSavedPos · wdScene)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 71줄(LIGHT_PRESET 빼고 baseFlatOf 더함) · 부르는 곳은 wardrobeMod.이름 · html(app.js 앞)
    ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・6절: 미리보기 그림판 크기 — 캔버스 크기가 바뀌면 ResizeObserver 한 곳에서 그림판 · 카메라 비율을 맞추고 바로 그린다
    [실행] app.js · desk-companion-prototype.html · wardrobe.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -29,7 +30,7 @@ const FN_DEPS = ["setDeskPos", "layoutSeats", "_attachHumanEars", "_disposeWrapp
 const VAL_DEPS = ["deskPreview", "accountStore", "NO_DESK_ID", "ANIMAL_RUN_SCALE", "CHAR_Z", "seats",  "humanEar", "twNav", "paging"];
 const GET_DEPS = ["PART_CATS", "PART_DEFAULT_OFFSET", "PART_GROUPS", "Presence", "WD_DESK_TAB", "gachaMod", "isAdmin", "isPremium", "partPaintMod", "savedParts", "slots", "DESK_LICENSE_HOLD", "DESK_SCALE_DEFAULT", "DESK_SCALE_MAX", "DESK_SCALE_MIN"];
 const SET_DEPS = [];
-const EXPORTS = ["ORBIT_DRAG_DIR", "_clearMultiPanelRef", "_wdAfterMainSwap", "ALBUM_TAB", "selectWdTab", "isAlbumTab", "activeWdAdj", "setActiveWdAdj", "buildFreeColorPicker", "commitWdDraft", "createWardrobeAdjPanel", "currentWdTab", "detachWdGizmo", "ensureWdDraft", "ensureWdGizmo", "placeWdWindows", "refreshWdPreviewChar", "refreshWdPreviewColorSection", "renderWardrobe", "setWdGizmoMode", "sizeWdPreview", "syncWdGizmoToXf", "syncWdPreviewOwner", "toggleEquip", "updateWdCam", "updateWdGizmoForActivePanel", "wdCam", "wdDraftDef", "wdEar", "setAdminPartActions", "relinkDraftSrc", "wdGizmo", "wdGizmoMode", "wdPreviewBase", "wdWinSavedPos", "wdScene"];
+const EXPORTS = ["ORBIT_DRAG_DIR", "_clearMultiPanelRef", "_wdAfterMainSwap", "ALBUM_TAB", "selectWdTab", "isAlbumTab", "activeWdAdj", "setActiveWdAdj", "buildFreeColorPicker", "commitWdDraft", "createWardrobeAdjPanel", "currentWdTab", "detachWdGizmo", "ensureWdDraft", "ensureWdGizmo", "placeWdWindows", "refreshWdPreviewChar", "refreshWdPreviewColorSection", "renderWardrobe", "setWdGizmoMode", "syncWdGizmoToXf", "syncWdPreviewOwner", "toggleEquip", "updateWdCam", "updateWdGizmoForActivePanel", "wdCam", "wdDraftDef", "wdEar", "setAdminPartActions", "relinkDraftSrc", "wdGizmo", "wdGizmoMode", "wdPreviewBase", "wdWinSavedPos", "wdScene"];
 const MOVED = ["wdRenderer", "wdScene", "wdCam", "wdPreviewBase", "WD_PREVIEW_DESK_Y", "WD_PREVIEW_DESK_Z", "WD_PREVIEW_DESK_NUDGE", "ensureWdPreview", "wdGizmo", "wdGizmoMode", "wdGizmoCat", "ensureWdGizmo", "wdGizmoInstanceIdx", "wdGizmoPartId", "_wdGetActiveWrapperAndXf", "syncWdGizmoToXf", "attachWdGizmo", "detachWdGizmo", "setWdGizmoMode", "updateWdGizmoForActivePanel", "WD_PREVIEW_POS_KEY", "wdPreviewSavedPos", "placeWdPreview", "clampWdPreviewIntoView", "syncWdPreviewOwner", "sizeWdPreview", "wdYaw", "wdPitch", "wdHeightOffset", "wdZoomMul", "ORBIT_DRAG_DIR", "wdCamCenter", "wdCamLookY", "wdCamBaseDist", "WD_EAR_CAM_LIFT", "WD_EAR_CAM_ZOOM", "_wdEarCamOn", "updateWdCam", "wdDraftDef", "ensureWdDraft", "refreshWdPreviewChar", "wdPreviewLoop", "_wdCommitChain", "commitWdDraft", "_commitWdDraftNow", "_commitWdDraftToOwner", "_wdAfterMainSwap", "refreshWdPreviewColorSection", "activeWdAdj", "_wdMultiActiveIdx", "_wdGetSavedInstanceIdx", "_wdSetSavedInstanceIdx", "_clearMultiPanelRef", "wdAdjAxis", "_holdRepeat", "hsvToHex", "hexToHsv", "buildFreeColorPicker", "openCharColorPicker", "createWardrobeAdjPanel", "buildColorRows", "currentWdTab", "currentWdGroup", "renderWardrobe", "toggleEquip", "WD_WIN_POS_KEY", "wdWinSavedPos", "placeWdWindows"];
 const GLUE = ["  deskPreview: wdDeskPreview,", "  setDeskPos: (...a)=>setDeskPos(...a),", "  accountStore: accountStoreMod,", "  NO_DESK_ID: NO_DESK_ID,", "  layoutSeats: (...a)=>layoutSeats(...a),", "  ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,", "  CHAR_Z: CHAR_Z,", "  PART_CATS: ()=>premiumMod.PART_CATS(),", "  PART_DEFAULT_OFFSET: ()=>PART_DEFAULT_OFFSET,", "  PART_GROUPS: ()=>premiumMod.PART_GROUPS,", "  Presence: ()=>Presence,", "  WD_DESK_TAB: ()=>premiumMod.WD_DESK_TAB,", "  _attachHumanEars: (...a)=>_attachHumanEars(...a),", "  _disposeWrapperFromSeat: (...a)=>_disposeWrapperFromSeat(...a),", "  _hsvToHex: (...a)=>_hsvToHex(...a),", "  _invalidatePendingEquip: (...a)=>_invalidatePendingEquip(...a),", "  _rgbHexToHsv: (...a)=>_rgbHexToHsv(...a),", "  _sweepOrphanPartWrappers: (...a)=>_sweepOrphanPartWrappers(...a),", "  _wdLicenseDesks: (...a)=>premiumMod._wdLicenseDesks(...a),", "  addRunLights: (...a)=>lightToneMod.addRunLights(...a),", "  addEntryToCat: (...a)=>premiumMod.addEntryToCat(...a),", "  addPartEntryInstance: (...a)=>premiumMod.addPartEntryInstance(...a),", "  applyClothVisibility: (...a)=>applyClothVisibility(...a),", "  applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),", "  applyHueTint: (...a)=>applyHueTint(...a),", "  applyPartXf: (...a)=>applyPartXf(...a),", "  baseFlatOf: (...a)=>lightToneMod.baseFlatOf(...a),", "  bindReorderHandle: (...a)=>bindReorderHandle(...a),", "  boneSide: (...a)=>boneSide(...a),", "  charFootFix: (...a)=>charMeasureMod.charFootFix(...a),", "  clampCharY: (...a)=>clampCharY(...a),", "  defToBase: (...a)=>defToBase(...a),", "  defaultPartXf: (...a)=>premiumMod.defaultPartXf(...a),", "  entriesForCat: (...a)=>premiumMod.entriesForCat(...a),", "  equipPartOnSeat: (...a)=>equipPartOnSeat(...a),", "  escHtml: (...a)=>escHtml(...a),", "  findEntryById: (...a)=>premiumMod.findEntryById(...a),", "  findMySeat: (...a)=>findMySeat(...a),", "  firstEntryForCat: (...a)=>premiumMod.firstEntryForCat(...a),", "  floorClampWrapper: (...a)=>charMeasureMod.floorClampWrapper(...a),", "  gachaMod: ()=>gachaMod,", "  getCommissionScene: (...a)=>getCommissionScene(...a),", "  groupOfCat: (...a)=>premiumMod.groupOfCat(...a),", "  hueShiftHex: (...a)=>lightToneMod.toneCore.hueShiftHex(...a),", "  isAdmin: ()=>isAdmin,", "  isPremium: ()=>isPremium,", "  twNav: twNav,", "  isDeskPartCat: (...a)=>premiumMod.isDeskPartCat(...a),", "  isHueTintMesh: (...a)=>isHueTintMesh(...a),", "  measureCharBox: (...a)=>charMeasureMod.measureCharBox(...a),", "  measurePreviewBox: (...a)=>charMeasureMod.measurePreviewBox(...a),", "  openAssetImport: (...a)=>openAssetImport(...a),", "  partCatInfo: (...a)=>premiumMod.partCatInfo(...a),", "  partEntryId: (...a)=>premiumMod.partEntryId(...a),", "  partEntryInstanceCount: (...a)=>premiumMod.partEntryInstanceCount(...a),", "  partEntryInstances: (...a)=>premiumMod.partEntryInstances(...a),", "  partEntryXf: (...a)=>premiumMod.partEntryXf(...a),", "  partPaintMod: ()=>partPaintMod,", "  partsInCat: (...a)=>premiumMod.partsInCat(...a),", "  partsInCatFor: (...a)=>premiumMod.partsInCatFor(...a),", "  partsInGroup: (...a)=>premiumMod.partsInGroup(...a),", "  pruneSeatPartsAgainstDef: (...a)=>pruneSeatPartsAgainstDef(...a),", "  refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),", "  removeEntryFromCat: (...a)=>premiumMod.removeEntryFromCat(...a),", "  removePartEntryInstance: (...a)=>premiumMod.removePartEntryInstance(...a),", "  reorderSavedPart: (...a)=>premiumMod.reorderSavedPart(...a),", "  saveSlots: (...a)=>slotSaveMod.saveSlots(...a),", "  savedParts: ()=>premiumMod.savedParts(),", "  seats: seats,", "  setPartEntryInstanceXf: (...a)=>premiumMod.setPartEntryInstanceXf(...a),", "  slots: ()=>slots,", "  tintPartMesh: (...a)=>lightToneMod.toneCore.tintPartMesh(...a),", "  toast: (...a)=>toast(...a),", "  unequipStackablePart: (...a)=>unequipStackablePart(...a),",  "  DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,", "  DESK_SCALE_DEFAULT: ()=>DESK_SCALE_DEFAULT,", "  DESK_SCALE_MAX: ()=>DESK_SCALE_MAX,", "  DESK_SCALE_MIN: ()=>DESK_SCALE_MIN,", "  _humanEarMat: (...a)=>_humanEarMat(...a),", "  _humanEarPic: (...a)=>_humanEarPic(...a),", "  applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),", "  applyDeskColor: (...a)=>deskVisualMod.applyDeskColor(...a),", "  deskColorMats: (...a)=>deskVisualMod.deskColorMats(...a),", "  applyDeskDotThumb: (...a)=>applyDeskDotThumb(...a),", "  clampDeskScale: (...a)=>clampDeskScale(...a),", "  humanEar: humanEar,", "  resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),", "  glbFailWhy: (...a)=>catalogGlbMod.glbFailWhy(...a),", "  setDeskScale: (...a)=>setDeskScale(...a),", "  swThumb: (...a)=>swThumb(...a),", "  paging: TwWardrobePaging,"];
 
@@ -55,7 +56,7 @@ function build(src, env){
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module', 'TwIdleGate', 'ResizeObserver',
-    src + '\nreturn window.TwWardrobe;')(win, env.document || any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, env.requestAnimationFrame || (() => 0), any, () => {}, () => {}, undefined, env.TwIdleGate || GATE, FakeResizeObserver);
+    src + '\nreturn window.TwWardrobe;')(win, env.document || any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, env.requestAnimationFrame || (() => 0), env.THREE || any, () => {}, () => {}, undefined, env.TwIdleGate || GATE, env.ResizeObserver || FakeResizeObserver);
   return api.createWardrobe(deps);
 }
 
@@ -431,6 +432,47 @@ function deskTab(mod, dv){
     ['열려도 안 깨움', MOD.replace('TwIdleGate.onClassChange(p, ()=>loop.wake());', '')],
   ]){
     let r2; try{ r2 = sleepRows(m2); }catch(_){ r2 = [[false, '던짐']]; }
+    chk(m2 !== MOD && r2.some(([ok]) => !ok), '  mutation test: ' + nm + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+  }
+  say('── 6. 미리보기 그림판 크기 — 캔버스 크기가 바뀌면 한 곳(ResizeObserver)에서 그림판 · 카메라 비율을 맞추고 바로 그린다');
+  const sizeRows = (mod) => {
+    const r = [], t = (ok, msg) => r.push([!!ok, msg]);
+    const any = anything();
+    const canvas = new Proxy({ clientWidth: 316, clientHeight: 400 }, { get: (o, k) => k in o ? o[k] : any, set: (o, k, v) => { o[k] = v; return true; } });
+    const ros = [], log = { size: [], render: 0 };
+    class RO{ constructor(fn){ this.fn = fn; } observe(el){ ros.push({ el, fn: this.fn }); } disconnect(){} }
+    const renderer = { setPixelRatio(){}, setSize(w, h){ log.size.push(w + 'x' + h); }, render(){ log.render++; }, domElement: any };
+    let cam = null;
+    class Cam{ constructor(){ cam = this; this.aspect = 1; } updateProjectionMatrix(){ this.proj = this.aspect; } }
+    const THREE = new Proxy({ PerspectiveCamera: Cam }, { get: (o, k) => k in o ? o[k] : any });
+    const doc = new Proxy({}, { get: (o, k) => k === 'getElementById' ? ((id) => id === 'wdPreviewCanvas' ? canvas : any) : any });
+    const keep = [globalThis.TwGlContext, globalThis.devicePixelRatio];
+    globalThis.TwGlContext = { make: () => renderer }; globalThis.devicePixelRatio = 1;
+    try{
+      const m = build(mod, { document: doc, THREE, ResizeObserver: RO });
+      /* 그림판은 처음 미리보기를 그릴 때 만든다(동기 앞부분) — 뒤의 await 는 가짜 위에서 풀리지 않으니 기다리지 않는다 */
+      try{ m.refreshWdPreviewChar().catch(() => {}); }catch(_){}
+    }catch(e){ t(false, '가짜 미리보기 만들기 — ' + String(e.message || e).slice(0, 80)); return r; }
+    finally{ [globalThis.TwGlContext, globalThis.devicePixelRatio] = keep; }
+    const ro = ros.find(o => o.el === canvas);
+    t(ro, '그림판을 만들면 캔버스에 ResizeObserver 를 건다');
+    t(log.size[log.size.length - 1] === '316x400' && cam && cam.proj === 316 / 400, '만들 때 캔버스 크기로 그림판 · 카메라 비율을 맞춘다');
+    if(!ro) return r;
+    canvas.clientHeight = 300; const n = log.render; ro.fn([]);
+    t(log.size[log.size.length - 1] === '316x300' && cam.proj === 316 / 300, '★ 캔버스가 줄면(아래 줄이 생김) 그림판 · 카메라 비율을 다시 맞춘다 — 캐릭터가 늘어나 보이지 않는다');
+    t(log.render > n, '  맞춘 뒤 바로 그린다(크기를 바꾸면 그림판이 지워져 다음 장까지 비어 보인다)');
+    canvas.clientHeight = 420; ro.fn([]);
+    t(log.size[log.size.length - 1] === '316x420' && cam.proj === 316 / 420, '  캔버스가 다시 늘어도 맞춘다');
+    return r;
+  };
+  sizeRows(MOD).forEach(([ok, msg]) => chk(ok, msg));
+  chk((strip(MOD).match(/wdRenderer\.setSize\(/g) || []).length === 1, '그림판 크기를 바꾸는 곳은 sizeWdPreview 하나(줄을 켜고 끄는 곳마다 맞추지 않는다)');
+  for(const [nm, m2] of [
+    ['캔버스를 안 봄', MOD.replace('  new ResizeObserver(()=>{ sizeWdPreview(); wdPreviewLoop(); }).observe(canvas);\n', '')],
+    ['맞춘 뒤 안 그림', MOD.replace('new ResizeObserver(()=>{ sizeWdPreview(); wdPreviewLoop(); })', 'new ResizeObserver(()=>{ sizeWdPreview(); })')],
+    ['비율을 안 맞춤', MOD.replace('wdCam.aspect=w/h; wdCam.updateProjectionMatrix();', 'wdCam.updateProjectionMatrix();')],
+  ]){
+    let r2; try{ r2 = sizeRows(m2); }catch(_){ r2 = [[false, '던짐']]; }
     chk(m2 !== MOD && r2.some(([ok]) => !ok), '  mutation test: ' + nm + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
   }
   say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

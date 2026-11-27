@@ -48,6 +48,13 @@ chk(v['--acc-d'] === '#1E7A5A' && TC.VAR_NAMES.length === 9 && TC.VAR_NAMES.ever
   '이미 어두운 색은 그대로 · 변수 아홉(--acc-*) · 제목줄 그라데이션은 기본 규칙(acc-d → acc-m)');
 chk(TC.chipCss('bubble', '#1E7A5A', '#7AD1B0') === 'linear-gradient(90deg,' + TC.derive('bubble', '#1E7A5A', '#7AD1B0')['--acc-l'] + ',' + TC.derive('bubble', '#1E7A5A', '#7AD1B0')['--acc-m'] + ')',
   '설정 칸 색은 그 테마에서 실제로 보일 제목줄 색');
+{ /* 버블 테마 기본 제목줄은 위 → 아래(180deg) — 내 색(cx)만 미리보기처럼 좌 → 우로 덮어야 «칸은 가로 · 창은 세로» 가 안 된다 */
+  const m = SRC.html.match(/html\[data-theme="bubble"\]\[data-accent="cx"\]\{\s*--win-title-grad:linear-gradient\(90deg, var\(--acc-l\), var\(--acc-m\)\);\s*\}/);
+  const chip = TC.chipCss('bubble', '#1E7A5A', '#7AD1B0');
+  chk(!!m && /^linear-gradient\(90deg,/.test(chip), '★ 버블 + 👑 내 색 — 창 제목줄도 좌 → 우(acc-l → acc-m · 설정 칸 미리보기와 같은 방향)');
+  const base = SRC.html.indexOf('--win-title-grad:linear-gradient(180deg, var(--acc-l'), at = m ? SRC.html.indexOf(m[0]) : -1;
+  chk(base > 0 && at > 0, '  버블 기본 규칙(180deg)은 그대로 · 내 색 규칙은 테마+색 두 속성이라 우선(더 구체적)');
+}
 { /* mutation test — 어둡게 맞추는 줄을 빼면 흰 색이 그대로 나가 위 ★ 가 빨강 */
   const broke = TC_SRC.replace('const d = _toward(a, K, c => lum(c) <= DEFAULT_MAX_LUM);', 'const d = a;');
   const m = { exports: {} }; new Function('module', 'window', broke)(m, undefined);
