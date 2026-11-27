@@ -53,9 +53,10 @@ function judge(src){
   /* 곡 넘기기 */
   e = world(src); e.B.start();
   const seen = [e.a().src];
-  for(let i = 0; i < 4; i++){ e.a().paused = true; e.a().L.ended(); seen.push(e.a().src + (e.a().paused ? '(멈춤)' : '')); }
-  t(seen.join() === 'parts/xmas/xmas-bgm.mp3,parts/xmas/xmas-bgm-noel.mp3,parts/xmas/xmas-bgm-wish.mp3,parts/xmas/xmas-bgm-jingle.mp3,parts/xmas/xmas-bgm.mp3' && e.audios.length === 1,
-    '★ 한 곡이 끝나면 다음 곡 · 마지막 곡 뒤에는 첫 곡으로(네 곡을 차례로) — ' + seen.map(x => x.replace('parts/xmas/', '')).join(' → '));
+  const TR = e.M.TRACKS;
+  for(let i = 0; i < TR.length; i++){ e.a().paused = true; e.a().L.ended(); seen.push(e.a().src + (e.a().paused ? '(멈춤)' : '')); }
+  t(seen.join() === TR.concat(TR[0]).map(f => 'parts/xmas/' + f).join() && e.audios.length === 1,
+    '★ 한 곡이 끝나면 다음 곡 · 마지막 곡 뒤에는 첫 곡으로(목록을 차례로) — ' + seen.map(x => x.replace('parts/xmas/', '')).join(' → '));
   e.a().L.ended(); e.B.stop(); e.B.start();
   t(e.a().src === 'parts/xmas/xmas-bgm.mp3' && e.a().currentTime === 0 && e.a().paused === false, '  ↳ 창을 다시 열면 첫 곡부터');
   e = world(src); e.B.start(); e.B.toggle(); e.a().L.ended();
@@ -116,8 +117,8 @@ say('── 4절 출처 글');
 {
   const M = load(SRC, 'TwXmasBgm');
   chk(Array.isArray(M.CREDIT) && M.CREDIT.includes('투게더트리') && M.CREDIT.includes('음악 제작 HADA') && M.CREDIT.includes('CM @hada_msc') && Object.isFrozen(M.CREDIT), '출처 — 제목 «투게더트리» · 음악 제작 HADA · CM @hada_msc');
-  chk(['The First Noel', 'We Wish You A Merry Christmas', 'Jingle Bell', '공유마당(한국저작권위원회)'].every(x => M.CREDIT.includes(x)), '출처 — 캐롤 세 곡 · 공유마당(한국저작권위원회)');
-  chk(M.TRACKS.length === 4 && M.TRACKS[0] === 'xmas-bgm.mp3' && M.TRACKS.every(f => has('xmas/' + f)), '★ 곡 목록의 파일 넷이 모두 앱에 있다(parts/xmas/) — ' + M.TRACKS.join(' · '));
+  chk(['The First Noel', 'We Wish You A Merry Christmas', 'Jingle Bell', 'Silent Night', '공유마당(한국저작권위원회)'].every(x => M.CREDIT.includes(x)), '출처 — 캐롤 네 곡 이름 · 공유마당(한국저작권위원회)');
+  chk(M.TRACKS.length === 7 && new Set(M.TRACKS).size === 7 && M.TRACKS[0] === 'xmas-bgm.mp3' && M.TRACKS.every(f => has('xmas/' + f)), '★ 곡 목록의 파일 일곱이 모두 앱에 있다(parts/xmas/ · 겹치는 이름 없음) — ' + M.TRACKS.join(' · '));
   const mkEl = () => { const cls = new Set(), L = {}, st = {}; const el = { children: [], hidden: false, textContent: '', className: '', clientHeight: 480, offsetWidth: 1,
     classList: { add: (c) => cls.add(c), remove: (c) => cls.delete(c), contains: (c) => cls.has(c) }, style: { setProperty: (k, v) => { st[k] = v; } }, st,
     addEventListener: (t, f) => { L[t] = f; }, fire: (t) => L[t] && L[t](), appendChild(c){ this.children.push(c); return c; } }; return el; };

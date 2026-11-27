@@ -9,13 +9,14 @@
 
 const MUTE_KEY = 'tw.xmasBgmMuted';   // '1' 이면 꺼 둠 — 기기 칸(account-store.js DEVICE_KEYS)
 /* 곡 목록 — 이 순서로 틀고 끝나면 처음으로. 창을 열 때마다 첫 곡부터 */
-const TRACKS = Object.freeze(['xmas-bgm.mp3', 'xmas-bgm-noel.mp3', 'xmas-bgm-wish.mp3', 'xmas-bgm-jingle.mp3']);
+const TRACKS = Object.freeze(['xmas-bgm.mp3', 'xmas-bgm-noel.mp3', 'xmas-bgm-wish.mp3', 'xmas-bgm-jingle.mp3',
+  'xmas-bgm-silent.mp3', 'xmas-bgm-jingle2.mp3', 'xmas-bgm-wish2.mp3']);
 const DIRS = Object.freeze(['parts/xmas/', 'xmas/', '']);   // 파일이 있는 폴더 후보 — 있는 곳 먼저(pk-bgm 과 같은 관례)
 const VOLUME = 0.32;                  // 스티커사진 창 BGM 과 같은 크기
 const LABEL = Object.freeze({ playing: '음악 끄기', muted: '음악 켜기' });
 /* 출처 글 — 한 줄에 하나 · 빈 글은 한 줄 띄움. 첫 줄은 머리글 */
 const CREDIT = Object.freeze(['♪ MUSIC ♪', '투게더트리', '음악 제작 HADA', 'CM @hada_msc', '',
-  'The First Noel', 'We Wish You A Merry Christmas', 'Jingle Bell', '공유마당(한국저작권위원회)']);
+  'The First Noel', 'We Wish You A Merry Christmas', 'Jingle Bell', 'Silent Night', '공유마당(한국저작권위원회)']);
 
 /**
  * @param {{ Audio: (Function|null), tracks?: string[], dirs?: string[], volume?: number, storage: { getItem(k: string): (string|null) },
