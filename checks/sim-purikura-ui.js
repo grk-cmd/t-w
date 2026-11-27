@@ -20,7 +20,7 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['purikura-ui.js', 'purikura-net.js', 'purikura-rt.js', 'ps1-dither.js', 'safe-html.js', 'app.js', 'desk-companion-prototype.html', 'chat-window.js', 'myhome-hooks.js', 'pk-bgm.js'];
+const need = ['purikura-ui.js', 'purikura-net.js', 'purikura-rt.js', 'ps1-dither.js', 'safe-html.js', 'app.js', 'desk-companion-prototype.html', 'chat-window.js', 'myhome-hooks.js', 'pk-bgm.js', 'bgm-hush.js'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['purikura-ui.js'], NET = SRC['purikura-net.js'];
@@ -113,6 +113,7 @@ function mkEnv(opt){
   vm.runInContext(SRC['myhome-hooks.js'], ctx, { filename: 'myhome-hooks.js' });
   /* 🎵 마이홈 BGM 고리(myhome-edit.js 가 부팅 때 고리판에 건다) — 여기선 마이홈 BGM 이 안 도는 판 */
   ctx.TwMyHomeHooks.on(ctx.TwMyHomeHooks.HOOK.BGM_PLAYING, () => false); ctx.TwMyHomeHooks.on(ctx.TwMyHomeHooks.HOOK.BGM_SET_PLAYING, () => {});
+  vm.runInContext(SRC['bgm-hush.js'], ctx, { filename: 'bgm-hush.js' });   // 🔇 듣던 BGM 재우기 · 되살리기 규칙(TwBgmHush)
   vm.runInContext(SRC['pk-bgm.js'], ctx, { filename: 'pk-bgm.js' });   // 🎵 창 BGM(재생 · 끄기 기억) — purikura-ui.js 가 만들 때 부른다
   vm.runInContext(opt.mod || MOD, ctx, { filename: 'purikura-ui.js' });
   env.ctx = ctx; env.els = els; env.opt = opt;

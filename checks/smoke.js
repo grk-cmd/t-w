@@ -368,6 +368,8 @@ PRELOAD.push('scheduler.js');
 /* chal-store.js · weekly-challenge.js — 👑 달성표 상태(서버 한 주 한 벌) · 화면(앱 FSD 2번). 같은 까닭 — 화면이 만들 때 하는 일(버튼 연결)을 같이 굴린다. 저장소가 먼저. */
 PRELOAD.push('chal-store.js');
 PRELOAD.push('weekly-challenge.js');
+/* bgm-hush.js — 🔇 듣던 유튜브 BGM 재우기 · 되살리기. purikura-ui.js 가 만들 때 부르므로 그보다 먼저. */
+PRELOAD.push('bgm-hush.js');
 /* pk-bgm.js — 🎵 스티커사진 창 BGM. purikura-ui.js 가 만들 때 부르므로 그보다 먼저. */
 PRELOAD.push('pk-bgm.js');
 /* purikura-ui.js — 📷 스티커사진 창(앱 FSD 3번). 같은 까닭 — 만들 때 하는 일(_pkWire: 버튼 · 창 끌기 · ⎋ 사다리 등록)을 같이 굴린다. */
