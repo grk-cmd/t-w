@@ -91,6 +91,13 @@ const fsWin = (function bindFocusSettings(){
   const backBtn=document.getElementById('fsBackBtn');
   if(!gearBtn||!panel) return { openSettings(){}, closeSettings(){}, onTabShown(){} };
 
+  /* 설정창 자리 = 위 가운데(css transform:translate(-50%,0)) — 탭을 바꿔 길어지면 위는 그대로 · 아래로 자란다.
+     화면 안으로 — 머리 위 자동 배치(status-chip.js)와 같은 규칙(shared/panel-fit.js) */
+  function fitPanel(x, y){
+    const f = TwPanelFit.fitTopCenter(x, y, panel.offsetWidth, panel.offsetHeight, innerWidth, innerHeight, 8);
+    panel.style.left=f.x+'px';
+    panel.style.top =f.y+'px';
+  }
   // ✥ 설정창 자유 이동 — 타이틀바(⚙️ 설정)를 잡고 드래그. 옮긴 뒤엔 캐릭터 머리 위 자동 따라가기가
   //   중단되고(위 렌더 루프의 _fsPanelDragged 체크), 창을 닫았다 다시 열면 머리 위 기본 위치로 복귀.
   (function bindFsPanelDrag(){
@@ -98,12 +105,7 @@ const fsWin = (function bindFocusSettings(){
     if(!bar) return;
     bar.style.cursor='move';
     let dragging=false, offX=0, offY=0;
-    /* 화면 안으로 — 머리 위 자동 배치(status-chip.js)와 같은 규칙. 끈 자리에 그대로 두면 긴 탭에서 제목줄이 화면 위로 나간다 */
-    const fitTo = (x, y)=>{
-      const f = TwPanelFit.fitBottomCenter(x, y, panel.offsetWidth, panel.offsetHeight, innerWidth, innerHeight, 8);
-      panel.style.left=f.x+'px';
-      panel.style.top =f.y+'px';
-    };
+    const fitTo = fitPanel;
     bar.addEventListener('pointerdown', e=>{
       if(e.target.closest && e.target.closest('#fsPanelClose')) return;   // ✕ 버튼은 그대로 닫기
       if(panel.classList.contains('fs-in-launcher')) return;   // 런처에선 가운데 고정 — 옮긴 자리가 실행 화면까지 따라가지 않게
@@ -114,13 +116,15 @@ const fsWin = (function bindFocusSettings(){
     });
     document.addEventListener('pointermove', e=>{
       if(!dragging) return;
-      fitTo(e.clientX-offX, e.clientY-offY);   // left/top 은 창의 아래 가운데(transform:translate(-50%,-100%))
+      fitTo(e.clientX-offX, e.clientY-offY);   // left/top 은 창의 위 가운데
     });
     document.addEventListener('pointerup', ()=>{ dragging=false; });
-    /* 탭을 바꾸거나 화면 크기가 바뀌면 창이 위로 자란다 — 끌어 옮긴 뒤에는 자동 배치가 쉬므로 여기서 다시 맞춘다 */
+    /* 탭을 바꾸거나 화면 크기가 바뀌면 창이 아래로 자란다 — 끌어 옮긴 뒤 · 런처(가운데 고정)에서는 자동 배치가 쉬므로 여기서 화면 안으로 */
     const refit = ()=>{
-      if(!window._fsPanelDragged || !panel.classList.contains('on')) return;
-      fitTo(parseFloat(panel.style.left)||0, parseFloat(panel.style.top)||0);
+      if(!panel.classList.contains('on')) return;
+      const inLauncher = panel.classList.contains('fs-in-launcher');
+      if(!inLauncher && !window._fsPanelDragged) return;
+      fitTo(inLauncher ? innerWidth/2 : (parseFloat(panel.style.left)||0), parseFloat(panel.style.top)||0);
     };
     new ResizeObserver(refit).observe(panel);
     window.addEventListener('resize', refit);
@@ -349,6 +353,9 @@ const fsWin = (function bindFocusSettings(){
     }
     sizeSlider.value = String(focusCharScale());
     showTab(tab || _curTab);
+    /* 연 때의 높이로 자리를 정한다 — 머리 위(status-chip.js)는 «머리 - 이 높이» 를 위 끝으로, 런처는 가운데. 탭을 바꿔도 위 끝이 그대로라 아래로만 자란다 */
+    panel.dataset.openH = String(panel.offsetHeight);
+    if(inLauncher) fitPanel(innerWidth/2, (innerHeight - panel.offsetHeight) / 2);
     if(!inLauncher) refreshFsAdBanner();
   }
   function closeSettings(){ panel.classList.remove('on'); }

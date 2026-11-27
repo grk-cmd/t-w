@@ -87,8 +87,9 @@ function behave(src){
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   let api;
   try{
-    api = new Function('window', 'document', 'localStorage', 'companion', 'setTimeout', 'setInterval', 'clearInterval', 'requestAnimationFrame', 'TwMyHomeHooks', 'TwSafeHtml', 'innerWidth', 'innerHeight', 'module',
-      src + '\nreturn window.TwSettingsPanel;')(win, document, ls, undefined, () => 0, () => 0, () => {}, () => 0, any, { safeUrl: () => '', text: (x) => String(x) }, 1000, 800, undefined)
+    api = new Function('window', 'document', 'localStorage', 'companion', 'setTimeout', 'setInterval', 'clearInterval', 'requestAnimationFrame', 'TwMyHomeHooks', 'TwSafeHtml', 'innerWidth', 'innerHeight', 'module', 'TwPanelFit',
+      src + '\nreturn window.TwSettingsPanel;')(win, document, ls, undefined, () => 0, () => 0, () => {}, () => 0, any, { safeUrl: () => '', text: (x) => String(x) }, 1000, 800, undefined,
+      { fitTopCenter: (x, y) => ({ x, y }) })   // 📐 열 때 런처 가운데 맞추기(실행 검사는 sim-panel-fit.js)
       .createSettingsPanel(deps);
   }catch(e){ t(false, '가짜 DOM 위에서 만들기 — ' + String(e.message || e).slice(0, 80)); return r; }
   api.onTabShown((k) => shown.push(k));

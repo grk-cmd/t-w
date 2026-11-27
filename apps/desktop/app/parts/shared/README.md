@@ -350,9 +350,9 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - 검사: `checks/sim-mac-tooltip.js`.
 ## `panel-fit.js` — 📐 창을 화면 안으로(아래 기준 · 왼쪽 위 기준)
 
-- **책임**: 창 전체가 화면 안에 들도록 기준점을 옮긴다 — 아래 가운데 기준 창(`fitBottomCenter` · `transform: translate(-50%,-100%)`) · 왼쪽 위 기준 창(`fitTopLeft`). 순수 함수 · DOM 없음.
-- **쓰는 법**: `TwPanelFit.fitBottomCenter(x, y, 창너비, 창높이, 화면너비, 화면높이, 여유)` → `{ x, y }`. 화면보다 큰 창은 위(제목줄)를 살린다 — 아래는 창 안 스크롤로 보지만 제목줄이 잘리면 끌 수도 닫을 수도 없다.
-- **지금 쓰는 곳**: ⚙ 설정창 — 머리 위 자동 배치(`status-chip.js`) · 끌어 옮기기 · 끈 뒤 크기가 바뀔 때(`settings-panel.js` — 탭을 바꾸면 위로 자란다).
+- **책임**: 창 전체가 화면 안에 들도록 기준점을 옮긴다 — 위 가운데 기준 창(`fitTopCenter` · `transform: translate(-50%,0)` — 길어지면 아래로 자란다) · 왼쪽 위 기준 창(`fitTopLeft`). 순수 함수 · DOM 없음.
+- **쓰는 법**: `TwPanelFit.fitTopCenter(x, y, 창너비, 창높이, 화면너비, 화면높이, 여유)` → `{ x, y }`. 화면 안이면 그대로(창이 길어져도 위 끝은 그대로) · 아래가 나가면 그만큼만 올린다 · 화면보다 큰 창은 위(제목줄)를 살린다.
+- **지금 쓰는 곳**: ⚙ 설정창 — 머리 위 자동 배치(`status-chip.js` — 위 끝 = 머리 - 연 때 높이 `panel.dataset.openH`) · 끌어 옮기기 · 런처에서 가운데 · 끈 뒤 · 런처에서 크기가 바뀔 때(`settings-panel.js` — 탭을 바꾸면 아래로 자란다).
 - **`fitTopLeft(x, y, w, h, vw, vh, edge)`** — 왼쪽 위가 기준인 창(끌어 옮기면 `left` · `top` 을 쓰는 창). 창 전체가 화면 안에 들게 · 화면보다 크면 왼쪽 위(제목줄)를 살린다. 지금 쓰는 곳: 🎄 크리스마스 창(`xmas/xmas-window.js` — 끌 때 · 열 때 · 앱 창 크기가 바뀔 때).
 - **함정**: 함수만으로는 화면보다 긴 창을 못 넣는다 — 창 높이 상한(css `max-height: calc(100vh - 16px)`)과 안쪽 스크롤(`.fs-body{overflow-y:auto}`)이 짝이다.
 - 검사: `checks/sim-panel-fit.js`.

@@ -476,8 +476,10 @@ function updateMyStatusChipPosition(){
     _uiAnchorWorld(me, _wpTmp2); _wpTmp2.y = 1.55; _wpTmp2.project(camera);   // 올라탄 동안엔 제자리 기준
     let cx=rect.left+(_wpTmp2.x*0.5+0.5)*rect.width;
     let cy=rect.top +(-_wpTmp2.y*0.5+0.5)*rect.height;
+    // 머리 위 = 연 때의 높이만큼 위가 창의 위 끝(settings-panel.js 가 openH 를 적는다) — 탭을 바꿔도 위는 그대로 · 아래로 자란다.
     // 화면 밖으로 잘리지 않게 — 끌어 옮길 때 · 크기가 바뀔 때와 같은 규칙(shared/panel-fit.js)
-    const fit = TwPanelFit.fitBottomCenter(cx, cy, panel.offsetWidth || 240, panel.offsetHeight || 260, innerWidth, innerHeight, 8);
+    const openH = parseFloat(panel.dataset.openH) || panel.offsetHeight || 260;
+    const fit = TwPanelFit.fitTopCenter(cx, cy - openH, panel.offsetWidth || 240, panel.offsetHeight || 260, innerWidth, innerHeight, 8);
     panel.style.left=fit.x+'px';
     panel.style.top =fit.y+'px';
   }
