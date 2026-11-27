@@ -224,7 +224,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **책임**: 창이 열려 있는 동안만 배경음악을 튼다 — 곡 목록을 차례로 틀고 끝나면 처음 곡으로(한 곡이면 되풀이). 제목줄 «음악 끄기 / 음악 켜기» 는 이 PC 에 기억한다(받은 `muteKey`).
 - **만드는 법**: `TwWinBgm.createWinBgm({ Audio, tracks, dirs, volume, muteKey, tag, storage, save, officeMode, warn, others })` — 창마다 하나. `others` 는 `bgm-hush.js` 의 `{ hush, unhush }` 또는 `TwWinBgm.NO_OTHERS`.
 - **내놓는 것**: `start()` · `stop()` · `toggle()` · `duck(on)`(다른 소리가 나는 동안 물러남) · `refresh()`(회사원 모드가 바뀌었을 때 다시 맞춤) · `isMuted()` · `label()`.
-- **함정**: 소리를 낼 때만 `others.hush` 로 듣던 것을 재우고, 끄거나 닫으면 재웠던 쪽만 되살린다. `duck` 으로 물러난 것이면 재워 둔 것은 잊는다(재생 창이 그 소리로 넘어갔다). 회사원 모드에서는 소리를 내지 않는다 — 모드를 켜고 끄는 쪽이 `refresh()` 를 불러야 열려 있는 창이 따라온다. 자동재생 잠금은 삼키지 않고 경고로 남긴다.
+- **함정**: 창이 소리 자리를 쥘 때(열림 · 안 끔 · 안 물러남)만 `others.hush` 로 듣던 것을 재우고, 끄거나 닫으면 재웠던 쪽만 되살린다. `duck` 으로 물러난 것이면 재워 둔 것은 잊는다(재생 창이 그 소리로 넘어갔다). 회사원 모드에서는 소리를 내지 않고, 듣던 음악은 그때도 재워 둔다(창이 열려 있는 동안 둘 다 조용 · 꺼 두었으면 재우지 않는다) — 모드를 켜고 끄는 쪽이 `refresh()` 를 불러야 열려 있는 창이 따라온다. 자동재생 잠금은 삼키지 않고 경고로 남긴다.
 - 검사: `sim-win-bgm.js`
 
 ## `device-toggle.js` — 이 PC 의 켜고 끄는 화면 설정 하나
