@@ -12,7 +12,7 @@ main.js 배경음악 창의 주인 `'xmas'`(`bgmPanelMode` · `companion:openXma
 > 0.14.0: 서버는 api 의 `xmas` 컨텍스트(#1097 · tw-docs `docs/design/11-xmas.md`). app.js 가 `TwServerFeatures.on('xmas')` 일 때만 창을 만들고, net 은 `xmas-api.js`. 저장소(storage)는 값으로 받는다.
 
 ## xmas-rules.js — 순수 규칙
-- **책임**: 편지 칸 · 반송 사유(서버 `RETURN_REASONS` 와 같음) · 받은 편지 다듬기 · 마감 D-day(한국 날짜) · 읽음 표시 · 날짜 판정(`eventOn` · `letterOpen` · `lettersArrived` · `buttonOn` · `inDeliveryWindow` — 날짜 한 벌 `s` 를 받고, 안 주면 처음 값 `SCHEDULE` · 서버 값은 `scheduleOf`) · 한마디 다듬기(`cleanWord` — 서버와 같음) · 장식 자리(`slotPositions` — 같은 n 이면 늘 같은 자리 · 층마다 위층 밑면 아래 띠) · 별 줄 자리(`starPositions(n)` · `STAR_RING` — 층마다 두른 살짝 비스듬한 줄 위에 띄엄띄엄 · 적어도 여러 줄에 고루 · 줄이 다 차면 null) · 겉면 반지름(`treeRadiusAt`) · 다시 받을 그림(`changedImgSlots` — 판이 **다른** 자리) · 바꾸기 간격(`cooldownLeft` 5초) · 반짝임 10번(`blinkOpacity`) · 10번 누르기(`createTaps`) · 흔들기(`createShake`).
+- **책임**: 편지 칸 · 반송 사유(서버 `RETURN_REASONS` 와 같음) · 받은 편지 다듬기 · 마감 D-day(한국 날짜) · 읽음 표시 · 날짜 판정(`eventOn` · `letterOpen` · `lettersArrived` · `buttonOn` · `inDeliveryWindow` — 날짜 한 벌 `s` 를 받고, 안 주면 처음 값 `SCHEDULE` · 서버 값은 `scheduleOf`) · 한마디 다듬기(`cleanWord` — 서버와 같음) · 장식 자리(`slotPositions` — 같은 n 이면 늘 같은 자리) · 다시 받을 그림(`changedImgSlots` — 판이 **다른** 자리) · 바꾸기 간격(`cooldownLeft` 5초) · 반짝임 10번(`blinkOpacity`) · 10번 누르기(`createTaps`) · 흔들기(`createShake`).
 - **함정**: 날짜의 정본은 서버 `GET /v2/xmas/trees/current`(`letterDeadline` · `eventEnd` · `lettersViewUntil`)다. 처음 값과 상한은 아래 표와 같아야 한다 — 서버 저장소가 비공개라 표를 여기 옮겨 적고 `sim-xmas-rules` 가 이 표를 읽어 견준다(한마디 다듬기 · 사유 표는 아직 `functions/xmas.js` 와 견준다).
 
   서버와 같은 숫자(tw-docs `docs/design/11-xmas.md` 1-1 · 1-2):

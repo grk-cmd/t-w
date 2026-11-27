@@ -71,7 +71,6 @@ chk(/function open\(canvas\)\{\s*if \(S\) return;/.test(SRC), '이미 열려 있
   chk(SL.every(n => { const l = X.ornLook('star', n); return !l.flip && l.rot === 0 && l.tint === 0; }), '별 — 그대로');
   const px = (k, t) => X.baseCanvas(k, fakeDoc(), t).px.map(p => p.join(',')).join('|');
   chk(px('sock', 0) === px('sock', 3) && px('star', 0) === px('star', 2), '색 번호 — 색표 없는 장식은 무시');
-  chk(/const isStar = \(o\) => !o\.img && o\.k === 'star';/.test(SRC) && /rules\.starPositions\(stars\.length\)/.test(SRC) && /addOrnament\(o, at\.get\(o\)\)/.test(SRC), '별(기본 장식)만 층마다 두른 줄 위에 · 내 그림 · 다른 장식은 원래 자리');
   chk(/map\.repeat\.x = -1; map\.offset\.x = 1;/.test(SRC) && /rotation: look\.rot/.test(SRC) && /baseCanvas\(o\.k, doc, look\.tint\)/.test(SRC), '트리 장식이 ornLook 을 쓴다(뒤집기 · 기울기 · 색)');
 }
 say('── 3절 그리기 약속');

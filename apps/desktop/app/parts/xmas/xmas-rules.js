@@ -84,53 +84,6 @@ function slotPositions(n){
   return out;
 }
 
-/** 높이 y 에서 트리 겉면 반지름 — 그 높이를 덮는 층 중 가장 넓은 것(위층 치마가 아래층을 덮는다) */
-function treeRadiusAt(y){
-  let r = 0;
-  for (const t of TIERS) if (y >= t.y && y <= t.y + t.h) r = Math.max(r, t.r * (1 - (y - t.y) / t.h));
-  return r;
-}
-const STAR_GAP = 0.6;     // 별 줄에서 별 사이(트리 단위 · 장식 판 한 변 ≈ 0.46) — 널널하게
-const STAR_TILT = 0.1;    // 줄이 한쪽으로 살짝 처지는 높이(층 높이에 대한 비)
-/** 층마다 한 줄 — 트리를 두르는 살짝 비스듬한 고리 위 별 자리(위층부터 · 고리 안은 각도 차례) */
-function starRing(){
-  const out = [];
-  TIERS.slice().reverse().forEach((t) => {
-    const i = TIERS.indexOf(t);
-    const hy = i < TIERS.length - 1 ? 0.35 : 0.45;
-    const base = t.y + t.h * hy;
-    const rr = t.r * (1 - hy) * 1.04 + 0.05;
-    const cnt = Math.max(3, Math.floor(2 * Math.PI * rr / STAR_GAP));
-    for (let j = 0; j < cnt; j++){
-      const a = (j / cnt) * Math.PI * 2 + i * 0.7;
-      const y = base - t.h * STAR_TILT * Math.cos(a);
-      const r = treeRadiusAt(y) * 1.04 + 0.05;
-      out.push({ x: Math.cos(a) * r, y, z: Math.sin(a) * r });
-    }
-  });
-  return out;
-}
-const STAR_RING = Object.freeze(starRing().map(Object.freeze));
-/** 별 줄 자리 차례 — 앞에서부터 k 개를 고르면 모든 줄 · 모든 방향에 고루 퍼진다(황금비 · 겹치면 다음 빈 자리) */
-const STAR_ORDER = (() => {
-  const C = STAR_RING.length, taken = new Array(C).fill(false), out = [];
-  for (let i = 0; i < C; i++){
-    let k = Math.floor((((i + 0.5) * 0.6180339887) % 1) * C);
-    while (taken[k]) k = (k + 1) % C;
-    taken[k] = true; out.push(k);
-  }
-  return Object.freeze(out);
-})();
-/**
- * 별 장식 n 개의 자리 — 층마다 두른 줄 위에 띄엄띄엄(그림 «반짝이 줄»). 트리는 걸린 별 수만큼 불러 자리 번호 차례로 놓는다
- * (같은 목록이면 모든 화면에서 같다). 줄 자리(STAR_RING)보다 많으면 넘친 별은 null — 원래 장식 자리에 건다
- */
-function starPositions(n){
-  const out = [];
-  for (let i = 0; i < n; i++) out.push(i < STAR_ORDER.length ? STAR_RING[STAR_ORDER[i]] : null);
-  return out;
-}
-
 /** 장식 목록(xmas-api 의 tree(t).o) → 걸린 수 */
 const countOf = (o) => (o && typeof o === 'object') ? Object.keys(o).filter(s => o[s]).length : 0;
 
@@ -246,7 +199,7 @@ const hasUnread = (got, set) => (got || []).some(g => !set.has(g.n));
 const api = Object.freeze({
   TREE_MAX, KINDS, WORD_MAX, IMG_PX, LETTER_DEADLINE_MS, EVENT_END_MS, LETTERS_VIEW_UNTIL_MS, DELIVERY_WINDOW_MS, READ_JITTER_MS, SCHEDULE, HANG_COOLDOWN_MS, BLINK_COUNT, BLINK_HALF_MS,
   TAPS_TO_DROP, TAP_GAP_MS, SHAKE_PX, SHAKE_GAP_MS, SHAKE_RESET_MS, TIERS,
-  scheduleOf, eventOn, letterOpen, lettersArrived, buttonOn, inDeliveryWindow, nearDeadline, NEAR_DEADLINE_MS, jitterMs, mailDelayMs, letterMailIds, cleanWord, slotPositions, starPositions, STAR_RING, treeRadiusAt, countOf, changedImgSlots, cooldownLeft, blinkOpacity, createTaps, createShake,
+  scheduleOf, eventOn, letterOpen, lettersArrived, buttonOn, inDeliveryWindow, nearDeadline, NEAR_DEADLINE_MS, jitterMs, mailDelayMs, letterMailIds, cleanWord, slotPositions, countOf, changedImgSlots, cooldownLeft, blinkOpacity, createTaps, createShake,
   LETTER_MAX, LETTER_TEXT_MAX, SONG_TITLE_MAX, LETTER_IDS, RETURN_REASONS,
   songOf, cleanLetter, myLettersOf, returnedOf, freeLetterId, gotOf, ddayLeft, readSetOf, readSetStr, hasUnread,
 });
