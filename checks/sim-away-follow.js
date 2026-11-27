@@ -27,7 +27,7 @@ say('── 1. 배선');
 {
   chk(!!FR && !!FO, '_awayImgFrame · _awayImgFollow 를 찾았다');
   chk(/\(\(now - seat\._awayFitAt\) > 500 && !seat\.fly\)/.test(FR), '★ 비행 중엔 다시 재지 않는다(도는 몸을 재면 크기·가운데가 튄다)');
-  chk(/seat\.rig\.getWorldPosition\(_awayGW\);\s*let cx = _awayGW\.x, fy = _awayGW\.y, cz = _awayGW\.z;/.test(FR), '② 가로 · 앞뒤 · 발밑 = rig 원점(몸 상자 아님)');
+  chk(/seat\.rig\.getWorldPosition\(_awayGW\);\s*let cx = _awayGW\.x, fy = _awayGW\.y \+ charLiftWorld\(seat\), cz = _awayGW\.z;/.test(FR), '② 가로 · 앞뒤 · 발밑 = rig 원점(몸 상자 아님)');
   chk(/measureHeadBoxNoParts\(_host\.gltfRoot, null, _host\)/.test(FR) && /if\(_hb && !_hb\.isEmpty\(\)\) _awayHostBox\.copy\(_hb\);/.test(FR), '① 아래 캐릭터 꼭대기 = 맨 머리 측정 · 비면 예전 상자');
   const iInv = FR.indexOf('seat.group.worldToLocal(_t); sp.position.copy(_t);');
   chk(iInv > 0 && FR.indexOf('sp.position.set(') < 0, '② 그림 자리는 group 로컬 역변환 한 줄로만 놓는다');
@@ -78,6 +78,7 @@ say('── 3. _awayImgFrame — 자리 재기');
     var seats = env.seats, _awayTex = env.tex, AWAY_PIC_SCREEN_PX = 150;
     var _awayGW = null, _awayHostBox = null, _awayHostP = null, _awayHostS = null;
     function _awayWorldForPx(){ return env.h; }
+    function charLiftWorld(seat){ return seat.__lift || 0; }   // 높이 설정으로 든 만큼(seat-equalize.js — 값의 규칙은 그쪽 검사)
     function _awayPxFor(){ return 80; }   // 개정 76 — 주인이 고른 크기(60·80·100). 이 검사는 크기를 보지 않는다(env.h 가 정한다)
     function measureHeadBoxNoParts(root){ return root.__head || null; }
     function measureBodyBox(root, opts, out){ return out.setFromObject(root); }   // 옵션 없음 = setFromObject 그대로(body-measure.js)
@@ -112,10 +113,25 @@ say('── 3. _awayImgFrame — 자리 재기');
     env.seats = [T]; F = make(env, THREE); F(T, 'u', 1000);
     const tw = world(T);
     chk(near(tw.x, 2.2) && near(tw.y, 0.8 + 0.4) && near(tw.z, 1), '  rig 가 group 안에서 옮겨져 있으면 그 자리를 따른다'); }
-  { const cut = grabFn('_awayImgFrame').replace('let cx = _awayGW.x, fy = _awayGW.y, cz = _awayGW.z;', 'measureBodyBox(seat.bodyWrap || seat.rig, null, env.b = env.b || new THREE.Box3()); let cx = _awayGW.x, fy = env.b.min.y, cz = _awayGW.z;');
+  /* (a3) 높이 설정을 올린 캐릭터 — 모델이 rig 안에서 들려 있으니 그림도 그만큼 위(든 발 자리)에 선다 */
+  for(const lift of [0, 0.25, 0.6]){
+    const T = seatOf(new V3(2, 0, 0), 0, new V3(0, 0, 0), new Box()); T.__lift = lift;
+    env.seats = [T]; F = make(env, THREE); F(T, 'u', 1000);
+    chk(near(world(T).y, lift + 0.4), '★ 높이 설정 ' + lift + ' — 그림 밑변 = rig 원점 + 든 만큼');
+  }
+  { const cut = grabFn('_awayImgFrame').replace(' + charLiftWorld(seat)', '');
+    const T = seatOf(new V3(2, 0, 0), 0, new V3(0, 0, 0), new Box()); T.__lift = 0.6;
+    const F3 = new Function('env', 'THREE', `var seats = env.seats, _awayTex = env.tex; var _awayGW = null, _awayHostBox = null, _awayHostP = null, _awayHostS = null;
+      function _awayWorldForPx(){ return env.h; } function _awayPxFor(){ return 80; } function measureHeadBoxNoParts(root){ return root.__head || null; }
+      function measureBodyBox(root, opts, out){ return out.setFromObject(root); }
+      ${cut}
+      return _awayImgFrame;`)(Object.assign(env, { seats: [T] }), THREE);
+    F3(T, 'u', 1000);
+    chk(cut !== grabFn('_awayImgFrame') && near(world(T).y, 0.4), 'mutation test — 든 만큼을 빼면 높이를 올린 캐릭터의 그림이 발 아래(0.4)로 내려간다 → 빨강'); }
+  { const cut = grabFn('_awayImgFrame').replace('let cx = _awayGW.x, fy = _awayGW.y + charLiftWorld(seat), cz = _awayGW.z;', 'measureBodyBox(seat.bodyWrap || seat.rig, null, env.b = env.b || new THREE.Box3()); let cx = _awayGW.x, fy = env.b.min.y, cz = _awayGW.z;');
     const T = seatOf(new V3(2, 0, 0), 0, new V3(0, 0, 0), box(1.6, 2.2, -0.2, 2.4, 3.7, 0.2));
     const F2 = new Function('env', 'THREE', `var seats = env.seats, _awayTex = env.tex; var _awayGW = null, _awayHostBox = null, _awayHostP = null, _awayHostS = null;
-      function _awayWorldForPx(){ return env.h; } function _awayPxFor(){ return 80; } function measureHeadBoxNoParts(root){ return root.__head || null; }
+      function _awayWorldForPx(){ return env.h; } function _awayPxFor(){ return 80; } function charLiftWorld(seat){ return seat.__lift || 0; } function measureHeadBoxNoParts(root){ return root.__head || null; }
       function measureBodyBox(root, opts, out){ return out.setFromObject(root); }
       ${cut}
       return _awayImgFrame;`)(Object.assign(env, { seats: [T], b: null }), THREE);

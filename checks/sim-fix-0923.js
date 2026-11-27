@@ -188,7 +188,7 @@ say('── 8. 🖼️ 자리비움 그림 = 화면 px 고정 (개정 76 · 150 
   chk(Math.abs(run(60, 10, 34, 2000) - w / 2) < 1e-9, '화면이 두 배 크면 절반 — 화면 px 고정');
   const fr = strip(grab(SRC, '_awayImgFrame'));
   chk(/const h = _awayWorldForPx\(_awayPxFor\(seat\), cx, fy, cz\);/.test(fr) && /sp\.scale\.set\(h, h, 1\);/.test(fr) && !/sp\.scale\.set\(bh/.test(fr), '크기는 경계상자가 아니라 화면 px 에서(인간·동물 같음)');
-  chk(/seat\.rig\.getWorldPosition\(_awayGW\);\s*let cx = _awayGW\.x, fy = _awayGW\.y, cz = _awayGW\.z;/.test(fr) && !/measureBodyBox\(seat\./.test(fr), '자리는 rig 원점(발밑) — 몸 상자로 재지 않는다');
+  chk(/seat\.rig\.getWorldPosition\(_awayGW\);\s*let cx = _awayGW\.x, fy = _awayGW\.y \+ charLiftWorld\(seat\), cz = _awayGW\.z;/.test(fr) && !/measureBodyBox\(seat\./.test(fr), '자리는 rig 원점(발밑) — 몸 상자로 재지 않는다');
 }
 
 say('── 9. 🗼 탑 위 자리비움 그림 — 바로 아래 캐릭터의 꼭대기에(A안)');

@@ -15,6 +15,7 @@ const Presence = deps.Presence;
 const _loadImgCors = deps._loadImgCors;
 const _premiumOn = deps._premiumOn;
 const camera = deps.camera;
+const charLiftWorld = deps.charLiftWorld;
 const findMySeat = deps.findMySeat;
 const getMyUserId = deps.getMyUserId;
 const measureBodyBox = deps.measureBodyBox;
@@ -101,13 +102,13 @@ function _awayImgFrame(seat, url, now){
   if(!seat._awayFitAt || ((now - seat._awayFitAt) > 500 && !seat.fly) || !sp.visible){
     seat._awayFitAt = now;
     try{
-      /* 자리(가로 · 앞뒤 · 발밑)는 재지 않고 rig 원점(캐릭터 발밑 피봇)에서 잡는다.
+      /* 자리(가로 · 앞뒤 · 발밑)는 재지 않고 rig 원점(캐릭터 발밑 피봇) + 높이 설정으로 든 만큼(charLiftWorld — 모델이 rig 안에서 들려 있다)에서 잡는다.
          ⚠️ 몸 상자(setFromObject)로 재지 말 것 — 숨은 메시 · 리깅 파츠 · 스키닝 전 원본 상자가 섞여 캐릭터마다 가운데 · 바닥이 어긋났다
          (그림이 옆으로 벗어남 · 캐릭터 위 허공에 뜸). 크기는 화면 px 고정(_awayPxFor)이라 상자가 필요 없다. */
       if(!_awayGW) _awayGW = new THREE.Vector3();
       seat.rig.updateMatrixWorld(true);
       seat.rig.getWorldPosition(_awayGW);
-      let cx = _awayGW.x, fy = _awayGW.y, cz = _awayGW.z;
+      let cx = _awayGW.x, fy = _awayGW.y + charLiftWorld(seat), cz = _awayGW.z;
       /* 올라탄 동안에는 그림 밑변을 바로 아래 캐릭터의 꼭대기에, 가로 · 앞뒤는 그 캐릭터 가운데에 맞춘다(발밑에 세우면 아래 캐릭터를 덮는다). */
       const _host = seat.ridingOn;
       if(_host && _host.rig && seats.indexOf(_host) >= 0){

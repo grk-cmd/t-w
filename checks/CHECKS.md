@@ -184,7 +184,7 @@
 | **sim-mh-sanitize.js** | 219 | **43161e59fac7** |
 | **sim-myhome-steps.js** | 128 | **ed6b55640d6c** |
 | **sim-myhome-load.js** | 87 | **80598e5410f5** |
-| **sim-fix-0923.js** | 252 | **7fb82b8f0305** |
+| **sim-fix-0923.js** | 252 | **21ea45438799** |
 | **sim-noise.js** | 147 | **c7f261c4f2a1** |
 | **sim-mobile-focus.js** | 369 | **3f1f781f06ed** |
 | **sim-figure-mode.js** | 175 | **c165d08c4210** |
@@ -363,7 +363,7 @@
 | **sim-win-front.js** | 113 | **c8fd12a3c2c5** |
 | **sim-win-layers.js** | 203 | **25e9c9dff07b** |
 | sim-yard-enter.js | 59 | c323aea595a5 |
-| **sim-away-follow.js** | 164 | **53822efb7c82** |
+| **sim-away-follow.js** | 180 | **88808c7e8e22** |
 | **sim-kb-blind.js** | 181 | **ef548fe4ff75** |
 | **sim-mhd-hidefolders.js** | 133 | **1c9a80c19fe3** |
 | **sim-pomodoro.js** | 131 | **03a73d7ae51e** |
@@ -376,7 +376,7 @@
 | **sim-my-info.js** | 98 | **324dfdac86ff** |
 | **sim-my-info-box.js** | 208 | **df7cf5a078f7** |
 | **sim-renderer-src.js** | 301 | **1de6a87e1031** |
-| **sim-away-pic.js** | 94 | **3707c8d5b65c** |
+| **sim-away-pic.js** | 94 | **2abc25855bf1** |
 | **sim-device-toggle.js** | 89 | **2188f2494c28** |
 | **sim-myhome-ui.js** | 133 | **a1b3376669be** |
 | **sim-tricks.js** | 120 | **4515e3edd7c8** |
