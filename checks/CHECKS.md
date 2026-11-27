@@ -520,7 +520,7 @@
 | **sim-e2e-cutover-guard.js** | 151 | **fbe748d17b73** |
 | **sim-mobile-link-trim.js** | 133 | **ac4e21e917c7** |
 | **sim-label-measure.js** | 261 | **76dba82b7769** |
-| **sim-safe-html.js** | 734 | **994d2efa8070** |
+| **sim-safe-html.js** | 735 | **ddc5b9352ea8** |
 | **sim-label-anim-paint.js** | 232 | **c43b4d62a1c5** |
 | **sim-seat-sync-diff.js** | 201 | **a1aff501daa4** |
 | **sim-release-notes.js** | 75 | **b3a2421d5c74** |
