@@ -40,7 +40,7 @@ const WRITE_NOW = R.LETTER_DEADLINE_MS - 9.5 * DAY;   // 12/15 낮(한국)
 function world(opts){
   const o = opts || {};
   const els = {}; IDS.forEach(i => { els[i] = el('div', i); });
-  ['xmasLwState', 'xmasLwWrite', 'xmasLwGot', 'xmasLwEdit', 'xmasLwRep', 'xmasLwOpened', 'xmasLwNone', 'xmasLwNewRow', 'xmasLwCancel'].forEach(i => { els[i].hidden = true; });
+  ['xmasLwState', 'xmasLwWrite', 'xmasLwGot', 'xmasLwEdit', 'xmasLwRep', 'xmasLwDel', 'xmasLwOpened', 'xmasLwNone', 'xmasLwNewRow', 'xmasLwCancel'].forEach(i => { els[i].hidden = true; });
   const doc = { getElementById: (i) => els[i] || null, createElement: (t) => el(t) };
   const S = { now: o.now == null ? WRITE_NOW : o.now, toasts: [], errs: [], escs: [], dots: [], store: {} };
   const D = { letters: o.letters || null, returned: o.returned || null, got: o.got || null };
@@ -104,18 +104,29 @@ say('── 2절 쓰기');
   chk(/1통까지/.test(w.S.toasts.pop() || '') && w.els.xmasLwEdit.hidden && w.N.calls.length === nSave, '  ↳ 새로 쓰기를 눌러도 막고 안내 · 서버에 보내지 않는다');
   const r1 = rows(w.els.xmasLwList)[0];
   chk(/^맡긴 편지 · 올해 고마웠어요$/.test(r1.children[0].textContent), '목록 — «맡긴 편지» · 첫 줄만');
-  btn(r1, '고치기').onclick();
+  btn(r1, '수정').onclick();
   chk(w.els.xmasLwText.value === '올해 고마웠어요\n내년에도' && w.bars[0].sets.slice(-1)[0].id === SONG.id, '고치기 — 그 글 · 그 곡으로 편지지');
   w.els.xmasLwText.value = '고친 글'; w.els.xmasLwText.ls.input(); await w.els.xmasLwKeep.onclick(); await settle();
   chk(w.N.last.lid === 'l1' && w.N.last.text === '고친 글', '  ↳ 같은 칸(l1)에');
-  await btn(rows(w.els.xmasLwList)[0], '거두기').onclick(); await settle();
-  chk(w.N.calls.includes('remove:l1') && /거뒀어요/.test(w.S.toasts.pop()) && rows(w.els.xmasLwList).length === 0 && !w.els.xmasLwEdit.hidden, '거두기 — 칸을 비우면 다시 쓸 수 있다(편지지가 펴짐)');
+  btn(rows(w.els.xmasLwList)[0], '삭제').onclick(); await settle();
+  chk(!w.els.xmasLwDel.hidden && !w.N.calls.includes('remove:l1'), '★ [삭제] — 확인창만 뜨고 아직 안 지운다');
+  w.els.xmasLwDelNo.onclick(); await settle();
+  chk(w.els.xmasLwDel.hidden && !w.N.calls.includes('remove:l1') && rows(w.els.xmasLwList).length === 1, '  ↳ [취소] — 닫고 편지는 그대로');
+  /* 확인창을 띄운 채 창이 닫히거나 계정이 바뀌면 확인창 · 지울 칸을 버린다 — 남으면 다음 계정의 같은 칸(l1)을 지운다 */
+  for (const how of ['close', 'reset']){
+    btn(rows(w.els.xmasLwList)[0], '삭제').onclick(); await settle();
+    w.api[how](); w.api.open(); await settle();
+    const n0 = w.N.calls.length; await w.els.xmasLwDelYes.onclick(); await settle();
+    chk(w.els.xmasLwDel.hidden && !w.N.calls.slice(n0).some(c => /^remove:/.test(c)), '★ 확인창을 띄운 채 ' + how + ' — 확인창이 닫히고, 남은 [삭제] 를 눌러도 안 지운다');
+  }
+  btn(rows(w.els.xmasLwList)[0], '삭제').onclick(); await w.els.xmasLwDelYes.onclick(); await settle();
+  chk(w.N.calls.includes('remove:l1') && /삭제했어요/.test(w.S.toasts.pop()) && rows(w.els.xmasLwList).length === 0 && !w.els.xmasLwEdit.hidden, '거두기 — 칸을 비우면 다시 쓸 수 있다(편지지가 펴짐)');
   /* 상한을 낮추기 전에 맡긴 편지가 여럿(서버 칸은 다섯) — 다 보이고 · 고치고 · 거둘 수 있다 · 새로는 못 쓴다 */
   const wf = world({ letters: { l2: { text: '둘째 칸', ts: 2 }, l4: { text: '넷째 칸', ts: 4 } } });
   wf.api.open(); await settle();
   chk(rows(wf.els.xmasLwList).length === 2 && wf.els.xmasLwNewRow.hidden && wf.els.xmasLwCnt.textContent === '2/1' && /^1번째 편지 · 둘째 칸$/.test(rows(wf.els.xmasLwList)[0].children[0].textContent),
     '★ 상한 전에 맡긴 두 통 — 둘 다 보인다(몇 번째) · [＋ 새 편지 쓰기] 숨김');
-  await btn(rows(wf.els.xmasLwList)[1], '거두기').onclick(); await settle();
+  btn(rows(wf.els.xmasLwList)[1], '삭제').onclick(); await wf.els.xmasLwDelYes.onclick(); await settle();
   chk(wf.N.calls.includes('remove:l4') && rows(wf.els.xmasLwList).length === 1 && wf.els.xmasLwNewRow.hidden, '  ↳ 하나를 거둬도 한 통이 남아 새로는 못 쓴다');
 }
 
@@ -165,13 +176,13 @@ say('── 4절 쓰기 실패 · 불러오기 실패');
     chk((re ? re.test(w.S.toasts.pop() || '') : true) && w.S.errs.join() === err && !w.els.xmasLwEdit.hidden, '맡기기 실패 ' + code + ' — ' + (err || '안내') + ' · 쓰던 편지지는 그대로');
   }
   { const w = world({ letters: { l1: { text: '하나', version: 3 } }, ret: { save: { ok: false, code: 'conflict' } } }); w.api.open(); await settle();
-    btn(rows(w.els.xmasLwList)[0], '고치기').onclick(); w.els.xmasLwText.value = '고침'; w.els.xmasLwText.ls.input();
+    btn(rows(w.els.xmasLwList)[0], '수정').onclick(); w.els.xmasLwText.value = '고침'; w.els.xmasLwText.ls.input();
     const before = w.N.calls.filter(c => c === 'my').length;
     await w.els.xmasLwKeep.onclick(); await settle();
     chk(/다른 PC 에서 먼저/.test(w.S.toasts.join()) && !w.S.errs.length && w.N.calls.filter(c => c === 'my').length === before + 1 && w.els.xmasLwEdit.hidden,
       '맡기기 실패 conflict(다른 PC 가 먼저 고침) — 안내 · 편지함을 다시 읽고 편지지를 닫는다(덮어쓰지 않음)'); }
   const wr = world({ letters: { l1: { text: 'x' } }, ret: { remove: { ok: false, code: 'write' } } }); wr.api.open(); await settle();
-  await btn(rows(wr.els.xmasLwList)[0], '거두기').onclick();
+  btn(rows(wr.els.xmasLwList)[0], '삭제').onclick(); await wr.els.xmasLwDelYes.onclick();
   chk(wr.S.errs.join() === 'E-XMAS-05', '거두기 실패 — E-XMAS-05');
   const wl = world({ fail: { my: 'read' } }); wl.api.open(); await settle();
   chk(wl.S.errs.join() === 'E-XMAS-04' && /불러오지 못했어요/.test(wl.els.xmasLwState.textContent) && wl.els.xmasLwWrite.hidden, '불러오기 실패 — E-XMAS-04 · 빈 목록으로 그리지 않는다');

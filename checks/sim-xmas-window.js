@@ -53,7 +53,7 @@ function world(opts){
   const store = {}; const idbGet = async (k) => (k in store ? store[k] : null); const idbPut = (k, v) => { store[k] = v; };   // GLB 영구 캐시(IndexedDB) 흉내
   const timers = [], all = [], cleared = [];
   class Img { set src(v){ this._src = v; Promise.resolve().then(() => (this.onload && this.onload())); } get src(){ return this._src; } }
-  const win = { localStorage: { getItem(){ throw new Error('localStorage 를 쓰면 안 된다'); }, setItem(){ throw new Error('localStorage 를 쓰면 안 된다'); } }, Image: Img, setInterval: (fn, ms) => timers.push([fn, ms]), setTimeout: (fn, ms) => { all.push([fn, ms, all.length + 1]); return all.length; }, clearTimeout: (id) => { cleared.push(id); }, innerWidth: 1000, innerHeight: 800, URL: {}, FileReader: function(){} };
+  const win = { localStorage: { getItem(){ throw new Error('localStorage 를 쓰면 안 된다'); }, setItem(){ throw new Error('localStorage 를 쓰면 안 된다'); } }, Image: Img, setInterval: (fn, ms) => timers.push([fn, ms]), setTimeout: (fn, ms) => { all.push([fn, ms, all.length + 1]); return all.length; }, clearTimeout: (id) => { cleared.push(id); }, innerWidth: 1000, innerHeight: 800, addEventListener: (ty, fn) => { if (ty === 'resize') S.onResize = fn; }, URL: {}, FileReader: function(){} };
   const T = { opened: 0, closed: 0, lists: [], onSay: null, onReport: null };
   const treeMod = { baseCanvas: () => null, createXmasTree: () => ({
     open: () => { T.opened++; }, close: () => { T.closed++; }, setOrnaments: (l) => { T.lists.push(l); },
@@ -88,13 +88,14 @@ function world(opts){
   const creditMod = { createXmasCredit: (d) => { Bg.creditDeps = d; return { toggle: () => Bg.calls.push('credit.toggle'), stop: () => Bg.calls.push('credit.stop'), showing: () => false }; } };
   const nav = { NAV: { XMAS: 'xmas' }, fns: {}, on(n, f){ this.fns[n] = f; } };
   const api = (o.mod || W).createXmasWindow({ doc, win, THREE: {}, ps1Dither: {}, rules: R, treeMod, net: () => net, serverNow: () => S.now, idbGet, idbPut,
+    panelFit: { fitTopLeft: (x, y, w, h, vw, vh) => { S.fits = (S.fits || 0) + 1; return { x: Math.max(0, Math.min(vw - w, x)), y: Math.max(0, Math.min(vh - h, y)) }; } },
     notifyError: (c) => S.errs.push(c), toast: (m) => S.toasts.push(m), escRegisterWindow: (x) => S.escs.push(x),
     onSizeChange: () => { S.size++; }, onClock: (fn) => { S.clockFns.push(fn); return offOf(S.clockFns, fn); },
     songMod, letterMod, companion: () => null, ytVideoId: () => null, asyncPrompt: async () => null, storage: null, twNav: nav, random: () => (o.random == null ? 0.5 : o.random),
     bgmMod, winBgmMod, creditMod, Audio: null, save: () => true, officeMode: () => false, warn: () => {}, bgmHush: { hush: () => null, unhush: () => {} } });
   Bg.data = bgmMod;
   /* 타이머 둘 — 받은 편지 기다림(무작위 · 30초 안)과 다음 바뀔 때(그보다 먼 때 — 이 검사는 30초 넘게 남은 때로만 본다) */
-  return { api, els, T, S, N, store, timers, all, cleared, Lt, nav, Bg,
+  return { api, els, T, S, N, store, timers, all, cleared, Lt, nav, Bg, win,
     get timeouts(){ return all.filter(t => t[1] < R.READ_JITTER_MS); },
     edge: () => { const e = all.filter(t => t[1] >= R.READ_JITTER_MS && !cleared.includes(t[2])); return e.length ? e[e.length - 1] : null; },
     fire: (t) => { cleared.push(t[2]); t[0](); } };
@@ -347,6 +348,51 @@ say('── 5-2절 창 마크업이 없으면 던진다(조용히 넘어가지 �
   let threw = false;
   try { W.createXmasWindow({ doc: { getElementById: () => null }, win: {}, rules: R, treeMod: {}, net: () => ({}), serverNow: () => 0 }); } catch (e) { threw = /xmasOverlay/.test(e.message); }
   chk(threw, '#xmasOverlay · #lcXmas 가 없으면 이름을 대고 던진다');
+}
+
+say('── 5-3절 창 끌기 · 앱 창 크기 — 창 전체가 화면 안(shared/panel-fit.js fitTopLeft)');
+{
+  const w = world(); const win = w.els.xmasWin, bar = w.els.xmasTitle;
+  win.offsetWidth = 640; win.offsetHeight = 560;
+  bar.fire('pointerdown', { clientX: 300, clientY: 20, target: { closest: () => null }, pointerId: 1 });
+  bar.fire('pointermove', { clientX: 300, clientY: 2000 });
+  chk(win.style.transform === 'none' && win.style.top === '240px', '★ 아래로 끌어도 창 아래 끝이 화면 끝에서 멈춘다(800 − 560 · 잘리지 않음)');
+  bar.fire('pointermove', { clientX: 5000, clientY: 20 });
+  chk(win.style.left === '360px' && win.style.top === '0px', '  오른쪽 · 위도 화면 안');
+  bar.fire('pointerup', {});
+  /* 런처에서 열면 앱 창 크기 요청이 늦게 닿는다 — 작은 창에서 먼저 맞췄다가 커지면 끈 자리로 돌아와야 한다 */
+  w.win.innerWidth = 380; w.win.innerHeight = 680;
+  w.api.open();
+  chk(win.style.left === '0px', '★ 열 때 지금 앱 창 크기에 맞춘다(작은 창 — 왼쪽 끝)');
+  w.win.innerWidth = 1000; w.win.innerHeight = 800; w.S.onResize();
+  chk(win.style.left === '360px' && win.style.top === '0px', '★ 앱 창이 커지면 끈 자리로 돌아온다(맞춘 결과에서 다시 맞추지 않는다)');
+  w.api.close(); w.win.innerWidth = 300; w.S.onResize();
+  chk(win.style.left === '360px', '  닫혀 있으면 크기가 바뀌어도 손대지 않는다');
+  const w2 = world(); w2.win.innerWidth = 300; w2.api.open(); w2.S.onResize();
+  chk(!w2.S.fits && w2.els.xmasWin.style.left === undefined, '  끈 적 없으면(처음 가운데 자리) 손대지 않는다');
+  /* 제목줄을 누르기만 하고 떼도 가운데 맞춤(transform)이 풀린다 — 그 자리도 기억해야 작은 창에서 잘리지 않는다 */
+  const w3 = world(); const win3 = w3.els.xmasWin, bar3 = w3.els.xmasTitle;
+  win3.offsetWidth = 640; win3.offsetHeight = 560; win3.getBoundingClientRect = () => ({ left: 180, top: 120 });
+  w3.api.open();
+  bar3.fire('pointerdown', { clientX: 300, clientY: 130, target: { closest: () => null }, pointerId: 1 });
+  bar3.fire('pointerup', {});
+  w3.win.innerWidth = 300; w3.S.onResize();
+  chk(win3.style.transform === 'none' && win3.style.left === '0px', '★ 누르기만 하고 떼도 자리를 기억 — 앱 창이 작아지면 화면 안으로');
+}
+{
+  const H = fs.readFileSync(find(['desk-companion-prototype.html', 'app/desk-companion-prototype.html', 'apps/desktop/app/desk-companion-prototype.html']), 'utf8');
+  chk(/body:has\(#xmasOverlay\.on\) #launcher \.lc-card\{visibility:hidden;\}/.test(H), '트리 창이 떠 있는 동안 뒤 런처 창(카드)은 안 보인다');
+  chk(/<label id="xmasUpLab"[^>]*aria-label="내 그림 올리기"[^>]*>\+<input/.test(H), '내 그림 올리기 = [+] 칸(이름은 aria-label · title)');
+  chk(/#xmasWin button\.win98raised,#xmasWord\{font-family:var\(--tw-font-ui\);font-size:12px;\}/.test(H), '한마디 · 단추 글꼴을 창 글꼴로(브라우저 기본 Arial 아님)');
+  { /* 창 안에서 제 글꼴을 가진 것 — 이 규칙(우선순위가 더 높다)에 걸리면 크기가 바뀐다 */
+    const rule = (H.match(/  (#xmasWin button\.win98raised[^{]*)\{font-family:var\(--tw-font-ui\);font-size:12px;\}/) || [])[1] || '';
+    const sels = rule.split(',').map(x => x.trim());
+    chk(sels.length === 2 && !sels.some(x => /textarea|input\b|#xmasWin button(?!\.win98raised)|xm-mplay|xm-mset|xm-env|xmasLwText/.test(x))
+      && /#xmasLwText,\.xm-text\{[^}]*font:13px\/24px/.test(H) && /\.xm-mplay,\.xm-mset\{[^}]*font:inherit;/.test(H) && /\.xm-env\{[^}]*font:inherit;/.test(H),
+      '  뮤직바 · 편지 봉투 단추 · 편지 쓰기 칸(제 글꼴)은 이 규칙에 덮이지 않는다 — 선택자 ' + sels.join(' · ')); }
+  chk(/body:has\(#xmasOverlay\.on\) #launcher \.lc-bar\{-webkit-app-region:no-drag;\}/.test(H), '숨긴 런처 제목줄이 트리 위에서 앱 창을 끌지 않는다');
+  chk(/\.xm-hint\{(?![^}]*background)[^}]*color:#000;text-shadow:(?:[^,;}]+ #fff,){7}[^,;}]+ #fff;/.test(H), '조작 안내는 검은 글자에 8방향 흰 외곽선(띠 없음)');
+  chk(/#xmasTitle \.xm-tbtn\{[^}]*padding:5px 6px;margin:-5px 0 -5px 2px;/.test(H), '음악 끄기 · 음악 출처 — 누르는 범위를 글자 둘레로 넓힌다(제목줄 높이는 그대로)');
 }
 
 say('── 6절 한마디 라벨 · mutation test');

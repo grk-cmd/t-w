@@ -10,26 +10,81 @@
 (function(){
 'use strict';
 
-/* 기본 장식 — 16칸 도트 그림(앱에 박힌 그림이라 서버에서 받지 않는다) */
+/* 기본 장식 — 16칸 도트 그림(앱에 박힌 그림이라 서버에서 받지 않는다 · o 는 테두리). 16칸에 다 차지 않아도 baseCanvas 가 가운데로 놓는다 */
 const BASE_DOTS = {
-  bulb: [['......yy........', '.....yyyy.......', '......rr........', '....rrrrrr......', '...rrwwrrrr.....', '..rrwwrrrrrr....', '..rrrrrrrrrr....', '..rrrrrrrrrr....', '..rrrrrrrrrr....', '...rrrrrrrr.....', '....rrrrrr......', '.....rrrr.......'], { y: '#f2c14e', r: '#d8434b', w: '#ffd9d9' }],
-  star: [['.......y........', '.......y........', '......yyy.......', '......yyy.......', 'yyyyyyyyyyyyy...', '.yyyyyyyyyyy....', '..yyyyyyyyy.....', '...yyyyyyy......', '...yyyyyyy......', '..yyyy.yyyy.....', '..yyy...yyy.....', '.yy.......yy....'], { y: '#f2c14e' }],
-  sock: [['....wwwwww......', '....wwwwww......', '....rrrrrr......', '....rrrrrr......', '....rrggrr......', '....rrrrrr......', '....rrrrrr......', '....rrrrrrr.....', '....rrrrrrrrr...', '....rrrrrrrrrr..', '....rrrrrrrrrr..', '.....rrrrrrrr...'], { w: '#eef3fb', r: '#c9343c', g: '#2f7a4a' }],
-  cane: [['....wwrr........', '...rw..ww.......', '..ww....rr......', '..rr....ww......', '........rr......', '........ww......', '........rr......', '........ww......', '........rr......', '........ww......', '........rr......', '........ww......'], { w: '#eef3fb', r: '#d8434b' }],
-  gift: [['.....y..y.......', '......yy........', '..bbbbybbbbb....', '..bbbbybbbbb....', '..yyyyyyyyyy....', '..bbbbybbbbb....', '..bbbbybbbbb....', '..bbbbybbbbb....', '..bbbbybbbbb....', '..bbbbybbbbb....'], { y: '#f2c14e', b: '#4e7bd8' }],
+  bulb: [['.......oo.......', '......oYYo......', '.....oyyyYo.....', '....orrrrrro....', '...opppprrrro...', '..opwwwprrrrro..', '..opwwwprrrrro..', '.orppwwprrrrddo.', '.orrppprrrrdddo.', '.orrrrrrrrddddo.', '..orrrrrrddddo..', '..orrrrrdddddo..', '...orrrdddddo...', '....ordddddo....', '.....oooooo.....'], { o: '#5a1a22', r: '#d8434b', d: '#a82a35', p: '#ee7a7f', w: '#fff1f1', y: '#f2c14e', Y: '#b98a1f' }],
+  star: [['.......o........', '......oyo.......', '......oyo.......', '.....oywyo......', '.....oywyo......', 'oooooowwwoooooo.', 'oyyyyyywwyyyyyo.', '.oyyyyywwyyyyo..', '..oyyyyyyYYYo...', '...oyyyyYYYo....', '...oyyyyYYYo....', '..oyyyyoYYYYo...', '..oyyyo.oYYYo...', '.oyyo....oYYYo..', '.ooo......oooo..'], { o: '#7a5310', y: '#f6c945', Y: '#d9a024', w: '#fff3c4' }],
+  sock: [['.oooooooooo.....', '.owwwwwwwwo.....', '.owwwwwwwwo.....', '.oWWWWWWWWo.....', '..orrrrrrdo.....', '..orrgGrrdo.....', '..orgGgrrdo.....', '..orrrrrrdo.....', '..orrrrrrdoooo..', '..orrrrrrrrrrdo.', '..ohhrrrrrrrttdo', '..ohhhrrrrrrttto', '...ohhrrrrrrtto.', '....ooooooooooo.'], { o: '#4a1518', w: '#f4f7fc', W: '#c8d2e2', r: '#cf3a43', d: '#a52a33', h: '#f4f7fc', t: '#f4f7fc', g: '#2f8a52', G: '#4fb26e' }],
+  cane: [['.....oooooo.....', '....owwrrwwo....', '...owwroowrro...', '...owro..orwo...', '...orro..owwo...', '....oo...owro...', '.........orro...', '.........orwo...', '.........owwo...', '.........owro...', '.........orro...', '.........orwo...', '.........owwo...', '.........owro...', '.........orro...', '..........oo....'], { o: '#5a1a22', r: '#d8434b', w: '#f6f8fc' }],
+  gift: [['....oo....oo....', '...oyyo..oyyo...', '....oYyooyYo....', '.oooooyyyyooooo.', 'ollllllyyllllllo', 'ollllllyyllllllo', 'oLLLLLLyyLLLLLLo', '.obbbbbyybbbbBo.', '.obbbbbyybbbbBo.', '.obbbbbyybbbbBo.', '.obbbbbyybbbbBo.', '.obbbbbyybbbbBo.', '.obbbbbyybbbbBo.', '.obbbbbyybbbbBo.', '..oooooooooooo..'], { o: '#1c2c5c', b: '#4e7bd8', B: '#3a5fb0', l: '#6d94e6', L: '#3a5fb0', y: '#f2c14e', Y: '#c99522' }],
 };
-/** 기본 장식 그림 캔버스(16px) — 창 아래 고르기 단추도 같은 그림을 쓴다 */
-function baseCanvas(kind, doc){
-  const rows = BASE_DOTS[kind];
-  if (!rows) return null;
+/** 점 그림(행 글자열 · '.' 은 빈칸)을 size 칸 가운데에 놓으려면 옮길 칸 수 — 남는 칸이 홀수면 왼쪽 · 위로 반 칸 */
+function dotsOffset(rows, size){
+  let x0 = size, x1 = -1, y0 = size, y1 = -1;
+  rows.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.'){ if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } }));
+  if (x1 < 0) return { x: 0, y: 0 };
+  return { x: Math.floor((size - (x1 - x0 + 1)) / 2) - x0, y: Math.floor((size - (y1 - y0 + 1)) / 2) - y0 };
+}
+/* 장식 색 — 0 번은 그림 그대로. 덮을 글자만(빛 w · 상자 리본 y · Y 는 그대로 · 구슬 꼭지는 금색 구슬만 바꾼다) */
+const ORN_TINTS = Object.freeze({
+  bulb: Object.freeze([
+    null,
+    { o: '#16295a', r: '#4e7bd8', d: '#3a5fb0', p: '#8fb0f0' },
+    { o: '#6a4a0e', r: '#f2c14e', d: '#c99522', p: '#ffe08a', y: '#d6dde8', Y: '#8d99ad' },   // 금색 구슬은 꼭지를 은색으로(같은 색이면 묻힌다)
+    { o: '#123f26', r: '#3f9e62', d: '#2a7547', p: '#7fd19c' },
+    { o: '#3b1a5a', r: '#9a63d6', d: '#7344ad', p: '#c7a2f0' },
+    { o: '#3e4a5e', r: '#c9d3e2', d: '#97a5bb', p: '#eef3fb' },
+  ]),
+  gift: Object.freeze([
+    null,
+    { o: '#5a1a22', b: '#d8434b', B: '#a82a35', l: '#ee7a7f', L: '#a82a35' },
+    { o: '#123f26', b: '#3f9e62', B: '#2a7547', l: '#7fd19c', L: '#2a7547' },
+    { o: '#3b1a5a', b: '#9a63d6', B: '#7344ad', l: '#c7a2f0', L: '#7344ad' },
+    { o: '#5a1838', b: '#e86aa0', B: '#c04a80', l: '#f5a3c6', L: '#c04a80' },
+    { o: '#3e4a5e', b: '#e6ecf5', B: '#b7c3d6', l: '#ffffff', L: '#b7c3d6' },
+  ]),
+});
+const TILT = Math.PI / 6;   // 30도
+/**
+ * 트리에 걸린 기본 장식의 모양 — 자리 번호로 정한다(모든 사람 화면에서 같은 장식이 같은 모양 · 서버엔 종류만).
+ * 양말: 좌우 뒤집기 · −30 · 0 · +30도 · 구슬 · 선물 상자: 색(ORN_TINTS 번호) · 사탕 지팡이: −30 · 0 · +30도
+ */
+function ornLook(kind, slot){
+  const h = Math.imul((slot | 0) + 1, 2654435761) >>> 0;
+  if (kind === 'sock') return { flip: ((h >>> 7) & 1) === 1, rot: (((h >>> 10) % 3) - 1) * TILT, tint: 0 };
+  if (ORN_TINTS[kind]) return { flip: false, rot: 0, tint: (h >>> 8) % ORN_TINTS[kind].length };
+  if (kind === 'cane') return { flip: false, rot: (((h >>> 9) % 3) - 1) * TILT, tint: 0 };
+  return { flip: false, rot: 0, tint: 0 };
+}
+/** 기본 장식 그림 캔버스(16px) — 창 아래 고르기 단추도 같은 그림을 쓴다. tint 는 색 번호(ORN_TINTS · 없으면 그림 그대로) */
+function baseCanvas(kind, doc, tint){
+  const base = BASE_DOTS[kind];
+  if (!base) return null;
+  const over = ORN_TINTS[kind] ? ORN_TINTS[kind][tint | 0] : null;
+  const rows = over ? [base[0], Object.assign({}, base[1], over)] : base;
   const c = doc.createElement('canvas'); c.width = c.height = 16;
   const g = c.getContext('2d');
   if (!g) return c;
-  rows[0].forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.'){ g.fillStyle = rows[1][ch]; g.fillRect(x, y, 1, 1); } }));
+  const o = dotsOffset(rows[0], 16);   // 점 그림이 16칸 한쪽에 치우쳐 있어도 가운데에 놓는다(장식 고르기 칸 · 트리 장식)
+  rows[0].forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.'){ g.fillStyle = rows[1][ch]; g.fillRect(x + o.x, y + o.y, 1, 1); } }));
   return c;
 }
 
 const ORN_SIZE = 0.05;        // 화면 크기 고정(sizeAttenuation:false) 장식 크기
+/** 걸린 장식 수 → 크기 배율. 60개까지는 그대로, 꽉 찰수록(300) 0.7 까지 줄여 겹침을 줄인다 */
+const SHRINK_FROM = 60, SHRINK_MIN = 0.7;
+function ornScale(n, max){
+  if (!(n > SHRINK_FROM)) return 1;
+  const f = Math.min(1, (n - SHRINK_FROM) / Math.max(1, max - SHRINK_FROM));
+  return 1 - (1 - SHRINK_MIN) * f;
+}
+/* 스프라이트 셰이더 끝(gl_Position 뒤) — scale 은 이미 화면 고정 크기의 월드 길이(-z 곱한 값) */
+const ORN_DEPTH_GLSL = 'vec4 twPop = projectionMatrix * vec4(mvPosition.xy, mvPosition.z + 0.6 * max(scale.x, scale.y), 1.0); gl_Position.z = twPop.z / twPop.w * gl_Position.w;';
+/* 장식은 카메라를 보는 판이라 비스듬한 잎 면에 반쯤 박혀 가려진다 — 깊이만 판 반지름만큼 카메라 쪽으로 당긴다
+   (화면 크기 · 자리는 그대로 · 트리 뒤쪽 장식은 여전히 가려진다) */
+function popOut(sh){
+  sh.vertexShader = sh.vertexShader.replace('#include <logdepthbuf_vertex>', ORN_DEPTH_GLSL + '\n#include <logdepthbuf_vertex>');
+}
 const LOW_H = 300;            // 세로 300 도트로 그린 뒤 키운다
 const LEVELS = 31;            // 색 단계(연하게 — 장식 그림이 잘 보이게)
 const ZOOM_MAX = 3, LOOK_Y0 = 1.9, VIEW_BOTTOM = -0.3, VIEW_TOP = 6.0, CAM_DIST = 9.2;
@@ -130,14 +185,18 @@ function createXmasTree(deps){
     S.texes.push(t);
     return t;
   }
-  function addOrnament(o){
+  function addOrnament(o, size){
     const p = SLOTS[o.slot];
     if (!p) return;
-    const src = o.img || baseCanvas(o.k, doc) || baseCanvas('bulb', doc);
-    const mat = new THREE.SpriteMaterial({ map: texOf(src), transparent: true, alphaTest: 0.5, sizeAttenuation: false,
+    const look = o.img ? ornLook('', o.slot) : ornLook(o.k, o.slot);
+    const src = o.img || baseCanvas(o.k, doc, look.tint) || baseCanvas('bulb', doc);
+    const map = texOf(src);
+    if (look.flip){ map.repeat.x = -1; map.offset.x = 1; }
+    const mat = new THREE.SpriteMaterial({ map, rotation: look.rot, transparent: true, alphaTest: 0.5, sizeAttenuation: false,
       depthTest: !o.mine, depthWrite: !o.mine, fog: !o.mine });
+    mat.onBeforeCompile = popOut;
     const s = new THREE.Sprite(mat);
-    s.position.set(p.x, p.y, p.z); s.scale.setScalar(ORN_SIZE);
+    s.position.set(p.x, p.y, p.z); s.scale.setScalar(size);
     s.renderOrder = o.mine ? 999 : 0;
     s.userData = { slot: o.slot, word: o.word || '', mine: !!o.mine, blinkAt: o.mine && o.blink ? performance.now() : -Infinity };
     S.tree.add(s); S.orns.set(o.slot, s);
@@ -269,7 +328,9 @@ function createXmasTree(deps){
   function setOrnaments(list){
     if (!S) return;
     clearOrnaments();
-    for (const o of list || []) addOrnament(o);
+    const all = list || [];
+    const size = ORN_SIZE * ornScale(all.length, rules.TREE_MAX);   // 수가 많을 때만 작게(모두 같은 목록이라 모든 화면에서 같다)
+    for (const o of all) addOrnament(o, size);
   }
 
   return {
@@ -280,7 +341,7 @@ function createXmasTree(deps){
   };
 }
 
-const api = Object.freeze({ createXmasTree, baseCanvas, BASE_KINDS: Object.freeze(Object.keys(BASE_DOTS)) });
+const api = Object.freeze({ createXmasTree, baseCanvas, dotsOffset, popOut, ornLook, ornScale, ORN_TINTS, BASE_KINDS: Object.freeze(Object.keys(BASE_DOTS)) });
 if (typeof window !== 'undefined') window.TwXmasTree = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

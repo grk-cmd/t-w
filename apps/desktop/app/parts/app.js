@@ -890,6 +890,7 @@ const xmasWinMod = !TwServerFeatures.on('xmas') ? null : TwXmasWindow.createXmas
   ytVideoId: (u)=>plMod.ytVideoId(u), asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a), storage: localStorage,
   twNav: twNav,
   random: ()=>Math.random(),
+  panelFit: TwPanelFit,
   bgmMod: TwXmasBgm, winBgmMod: TwWinBgm, creditMod: TwXmasCredit, Audio: (typeof Audio === 'undefined') ? null : Audio,
   save: (k, v)=>_lsSet(k, v), officeMode: ()=>officeModeMod.officeMode(), warn: (...a)=>console.warn(...a),
   bgmHush: TwBgmHush.createBgmHush({ companion: ()=>window.companion,
