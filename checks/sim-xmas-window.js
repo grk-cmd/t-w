@@ -312,8 +312,13 @@ say('── 5-3절 창 끌기 · 앱 창 크기 — 창 전체가 화면 안(sha
   const H = fs.readFileSync(find(['desk-companion-prototype.html', 'app/desk-companion-prototype.html', 'apps/desktop/app/desk-companion-prototype.html']), 'utf8');
   chk(/body:has\(#xmasOverlay\.on\) #launcher \.lc-card\{visibility:hidden;\}/.test(H), '트리 창이 떠 있는 동안 뒤 런처 창(카드)은 안 보인다');
   chk(/<label id="xmasUpLab"[^>]*aria-label="내 그림 올리기"[^>]*>\+<input/.test(H), '내 그림 올리기 = [+] 칸(이름은 aria-label · title)');
-  chk(/#xmasWin button\.win98raised,#xmasWin input,#xmasWin textarea\{font-family:var\(--tw-font-ui\);font-size:12px;\}/.test(H), '한마디 · 단추 · 편지 창 글꼴을 창 글꼴로(브라우저 기본 Arial 아님)');
-  chk(/\.xm-mplay,\.xm-mset\{[^}]*font:inherit;/.test(H) && !/#xmasWin button(:not\([^)]*\))*\{/.test(H) && !/#xmasWin button,/.test(H), '  뮤직바 · 편지 봉투 단추(font:inherit — 바 글자 크기를 따른다)는 이 규칙에 덮이지 않는다(win98raised 단추만)');
+  chk(/#xmasWin button\.win98raised,#xmasWord\{font-family:var\(--tw-font-ui\);font-size:12px;\}/.test(H), '한마디 · 단추 글꼴을 창 글꼴로(브라우저 기본 Arial 아님)');
+  { /* 창 안에서 제 글꼴을 가진 것 — 이 규칙(우선순위가 더 높다)에 걸리면 크기가 바뀐다 */
+    const rule = (H.match(/  (#xmasWin button\.win98raised[^{]*)\{font-family:var\(--tw-font-ui\);font-size:12px;\}/) || [])[1] || '';
+    const sels = rule.split(',').map(x => x.trim());
+    chk(sels.length === 2 && !sels.some(x => /textarea|input\b|#xmasWin button(?!\.win98raised)|xm-mplay|xm-mset|xm-env|xmasLwText/.test(x))
+      && /#xmasLwText,\.xm-text\{[^}]*font:13px\/24px/.test(H) && /\.xm-mplay,\.xm-mset\{[^}]*font:inherit;/.test(H) && /\.xm-env\{[^}]*font:inherit;/.test(H),
+      '  뮤직바 · 편지 봉투 단추 · 편지 쓰기 칸(제 글꼴)은 이 규칙에 덮이지 않는다 — 선택자 ' + sels.join(' · ')); }
   chk(/body:has\(#xmasOverlay\.on\) #launcher \.lc-bar\{-webkit-app-region:no-drag;\}/.test(H), '숨긴 런처 제목줄이 트리 위에서 앱 창을 끌지 않는다');
   chk(/\.xm-hint\{[^}]*background:rgba\(13,20,36,\.72\)/.test(H), '조작 안내는 어두운 띠에 흰 글자(눈 바닥 위에서도 읽힌다)');
   chk(/#xmasTitle \.xm-tbtn\{[^}]*padding:5px 6px;margin:-5px 0 -5px 2px;/.test(H), '음악 끄기 · 음악 출처 — 누르는 범위를 글자 둘레로 넓힌다(제목줄 높이는 그대로)');
