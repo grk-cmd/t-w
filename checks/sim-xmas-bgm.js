@@ -20,9 +20,9 @@ say('── 4절 곡 목록 · 출처 글');
 {
   const M = load(SRC, 'TwXmasBgm');
   chk(Array.isArray(M.CREDIT) && M.CREDIT.includes('투게더트리') && M.CREDIT.includes('음악 제작 HADA') && M.CREDIT.includes('CM @hada_msc') && Object.isFrozen(M.CREDIT), '출처 — 제목 «투게더트리» · 음악 제작 HADA · CM @hada_msc');
-  chk(['We Wish You A Merry Christmas', 'Jingle Bell', 'Silent Night', '공유마당(한국저작권위원회)'].every(x => M.CREDIT.includes(x)) && !M.CREDIT.includes('The First Noel'), '출처 — 캐롤 세 곡 이름 · 공유마당(한국저작권위원회) · 뺀 곡은 없다');
-  chk(['Jingle Punks', "E's Jammy Jams", '유튜브 오디오 라이브러리'].every(x => M.CREDIT.includes(x)), '출처 — 유튜브 오디오 라이브러리 세 곡의 만든이 · 출처');
-  chk(M.TRACKS.length === 9 && new Set(M.TRACKS).size === 9 && M.TRACKS[0] === 'xmas-bgm.mp3' && M.TRACKS.every(f => has('xmas/' + f)), '★ 곡 목록의 파일 아홉이 모두 앱에 있다(parts/xmas/ · 겹치는 이름 없음) — ' + M.TRACKS.join(' · '));
+  chk(['We Wish You A Merry Christmas', 'Silent Night', '공유마당(한국저작권위원회)'].every(x => M.CREDIT.includes(x)) && !M.CREDIT.includes('The First Noel') && !M.CREDIT.includes('Jingle Bell') && !M.CREDIT.includes('Jingle Bells (Jazz)'), '출처 — 캐롤 두 곡 이름 · 공유마당(한국저작권위원회) · 뺀 곡은 없다');
+  chk(['Jingle Punks', "E's Jammy Jams", '유튜브 오디오 라이브러리'].every(x => M.CREDIT.includes(x)), '출처 — 유튜브 오디오 라이브러리 두 곡의 만든이 · 출처');
+  chk(M.TRACKS.length === 6 && new Set(M.TRACKS).size === 6 && M.TRACKS[0] === 'xmas-bgm.mp3' && M.TRACKS.every(f => has('xmas/' + f)), '★ 곡 목록의 파일 여섯이 모두 앱에 있다(parts/xmas/ · 겹치는 이름 없음) — ' + M.TRACKS.join(' · '));
   const mkEl = () => { const cls = new Set(), L = {}, st = {}; const el = { children: [], hidden: false, textContent: '', className: '', clientHeight: 480, offsetWidth: 1,
     classList: { add: (c) => cls.add(c), remove: (c) => cls.delete(c), contains: (c) => cls.has(c) }, style: { setProperty: (k, v) => { st[k] = v; } }, st,
     addEventListener: (t, f) => { L[t] = f; }, fire: (t) => L[t] && L[t](), appendChild(c){ this.children.push(c); return c; } }; return el; };
