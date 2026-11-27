@@ -121,6 +121,8 @@
 - **내보내는 것**
   - `swapDeskVisual(deskGroup, template, isDefaultOverride, animations, playMode)` — `template` 이 `null` 이면 기본 책상으로 되돌린다. `playMode`: `'auto'`(바로 반복) · `'idle'`(`_idleItemPivots` 에 넣어 프레임 루프가 정함 — 부르기 전에 `deskGroup.userData.__seat` 를 심는다) · 그 밖(`'click'` — 한 번 · 끝에서 멈춤).
   - `applyDeskColorToCustom(deskGroup, color)` — 모아 둔 `_col` 머티리얼만.
+  - `deskColorMats(seat)` — 그 좌석 책상에서 색을 받는 재질(GLB 책상은 `_col` 메쉬 · 내장 기본 책상은 `seat.deskMat` · «책상 없음» 은 빈 목록). 꾸미기 책상 탭이 «책상 색» 칸을 보일지 이것으로 정한다.
+  - `applyDeskColor(seat, color)` — 그 목록을 칠한다(꾸미기 책상 탭의 색 조절 · 책상 바꾸기).
   - `applyDeskCatalogRefToSeat(seat, def)` → `Promise` — `def.deskCatalogId` 레코드를 찾아 그린다. 없으면 기본 책상. `NO_DESK_ID`(`'__no_desk__'`)면 `hideDeskBody`.
   - `hideDeskBody(deskGroup)` — 🚫 책상 없음: 책상 몸(기본 · 커스텀)만 숨기고 `deskAnchor`(책상 위 아이템)는 그대로 · `userData.noDesk = true`(좌석 간격이 몸 폭으로 — `room/seat-layout.js`). `swapDeskVisual` 이 부르면 표시를 내린다.
   ```js

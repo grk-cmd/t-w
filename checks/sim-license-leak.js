@@ -289,10 +289,12 @@ else{
   chk(!/deskPosGz|기즈모로 옮기기/.test(deskSec),
     '  위치 기즈모는 안 가져왔다 — 생성기 미리보기 카메라와 한 벌이라 5단계에 남는다');
 }
-const applyFn = grabFn('_wdApplyDeskChange') || '';
-chk(/Presence\.updateDef\(def\)/.test(applyFn), '★ 꾸미기창에서 책상을 바꾸면 방에도 바로 나간다');
-chk(/saveSlots/.test(applyFn), '  바로 저장한다 (꾸미기창은 «닫는 것이 곧 저장» 이지만 책상은 draft 대상이 아니다)');
-chk(/wdDraftDef/.test(applyFn), '  미리보기가 보는 draft 에도 같은 값을 적는다');
+const applyFn = grabFn('_wdApplyDeskChange') || '', tuneFn = grabFn('_wdTuneDesk') || '';
+const commitDesk = grabFn('_wdCommitDesk') || '';
+chk(/_wdCommitDesk\(seat, def\)/.test(applyFn) && /_wdCommitDesk\(seat, def\)/.test(tuneFn), '책상 바꾸기 · 조절 둘 다 같은 «초안 · 저장 · 방» 한 벌(_wdCommitDesk)을 부른다');
+chk(/Presence(\(\))?\.updateDef\(def\)/.test(commitDesk), '★ 꾸미기창에서 책상을 바꾸면 방에도 바로 나간다');
+chk(/saveSlots/.test(commitDesk), '  바로 저장한다 (꾸미기창은 «닫는 것이 곧 저장» 이지만 책상은 draft 대상이 아니다)');
+chk(/wdDraftDef/.test(commitDesk), '  미리보기가 보는 draft 에도 같은 값을 적는다');
 const commit = grabFn('_commitWdDraftNow') || '';
 chk(!/def\.deskCatalogId\s*=/.test(commit),
   '★ 창을 닫을 때(commit)가 책상 필드를 덮지 않는다 — 덮으면 방금 고른 책상이 옛 값으로 돌아간다');

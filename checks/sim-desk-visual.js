@@ -22,7 +22,7 @@ const FN_DEPS = ["_applyItemMatTone","_setDeskMatColor","b64ToBuf","setDeskScale
 const VAL_DEPS = ["DEFAULT_DESK_OVERRIDE_ID","NO_DESK_ID","_idleItemPivots","activeItemMixers","assetCodeMod","commissionMod"];
 const GET_DEPS = [];
 const SET_DEPS = [];
-const EXPORTS = ["applyDeskCatalogRefToSeat","applyDeskColorToCustom","hideDeskBody","swapDeskVisual"];
+const EXPORTS = ["applyDeskCatalogRefToSeat","applyDeskColor","applyDeskColorToCustom","deskColorMats","hideDeskBody","swapDeskVisual"];
 const MOVED = ["applyDeskCatalogRefToSeat","normalizeDeskObj","swapDeskVisual","applyDeskColorToCustom"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  NO_DESK_ID: NO_DESK_ID,","  _applyItemMatTone: (...a)=>lightToneMod._applyItemMatTone(...a),","  _idleItemPivots: _idleItemPivots,","  _setDeskMatColor: (...a)=>lightToneMod._setDeskMatColor(...a),","  activeItemMixers: activeItemMixers,","  assetCodeMod: assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  commissionMod: commissionMod,","  licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),","  resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),","  setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),","  toast: (...a)=>toast(...a),"];
 
