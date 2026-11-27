@@ -1075,7 +1075,18 @@ const wdPanelMod = TwWardrobePanel.createWardrobePanel({
 /* ═══ 👀 꾸미기 미리보기 — 렌더러 · 기즈모 · 창 자리 · 카메라 ═══ */
 /* 본문은 wardrobe.js 로 옮겼다(앱 FSD 29번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const wdDeskPreview = TwWdDeskPreview.createWdDeskPreview({
+  buildDesk: (...a)=>buildDesk(...a),
+  deskBodyPlan: (...a)=>deskVisualMod.deskBodyPlan(...a),
+  drawDeskGlb: (...a)=>deskVisualMod.drawDeskGlb(...a),
+  hideDeskBody: (...a)=>deskVisualMod.hideDeskBody(...a),
+  applyDeskColor: (...a)=>deskVisualMod.applyDeskColor(...a),
+  syncDeskPartAnchor: (...a)=>deskPlaceMod.syncDeskPartAnchor(...a),
+  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
+});
 const wardrobeMod = TwWardrobe.createWardrobe({
+  deskPreview: wdDeskPreview,
+  setDeskPos: (...a)=>deskPlaceMod.setDeskPos(...a),
   accountStore: accountStoreMod,
   NO_DESK_ID: NO_DESK_ID,
   layoutSeats: (...a)=>layoutSeats(...a),

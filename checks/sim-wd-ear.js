@@ -215,7 +215,7 @@ chk(/wdEar\.copyIntoDraft\(wdDraftDef, def\);/.test(grab(A, 'ensureWdDraft')), '
 chk(/if\(wdEar\.commit\(def, draft\)\) _attachHumanEars\(mySeat\.modelRoot, def\);/.test(grab(APP, '_commitWdDraftNow').replace(/\/\*[\s\S]*?\*\//g, '')), '저장 — 바뀌었으면 좌석 귀를 다시 붙인다');
 const own = grab(APP, '_commitWdDraftToOwner').replace(/\/\*[\s\S]*?\*\//g, '');
 chk(/_earChanged = wdEar\.commit\(src, draft\);/.test(own) && /if\(_earChanged\) _attachHumanEars\(seat\.modelRoot, src\);/.test(own), '꾸미기를 연 채 캐릭터를 바꿔도 귀는 원래 주인에게 저장(_commitWdDraftToOwner)');
-chk(/if\(wdEar\.isActive\(\)\) wdEar\.onGizmoChange\(\); else syncWdGizmoToXf\(\);/.test(A), '기즈모 objectChange — 귀 탭이면 귀 조정값으로');
+chk(/if\(wdEar\.isActive\(\)\) wdEar\.onGizmoChange\(\); else if\(_wdDeskTabOn\(\)\) _wdDeskDragged\(\); else syncWdGizmoToXf\(\);/.test(A), '기즈모 objectChange — 귀 탭이면 귀 조정값으로');
 const ug = grab(A, 'updateWdGizmoForActivePanel');
 chk(/if\(wdEar\.isActive\(\)\)\{[^}]*wdEar\.syncGizmo\(\);/.test(ug) && /wdEar\.hideRow\(\)/.test(ug), '기즈모 바 갱신 — 귀 탭은 wd-ear 로 · 아니면 줄을 숨긴다');
 chk((A.match(/if\(wdEar\.isActive\(\)\)\{ wdEar\.scaleStep\((-1|1), isBig\); return; \}/g) || []).length === 2, '크기 －/＋ — 귀 탭이면 귀 크기');

@@ -121,6 +121,8 @@
 - **내보내는 것**
   - `swapDeskVisual(deskGroup, template, isDefaultOverride, animations, playMode)` — `template` 이 `null` 이면 기본 책상으로 되돌린다. `playMode`: `'auto'`(바로 반복) · `'idle'`(`_idleItemPivots` 에 넣어 프레임 루프가 정함 — 부르기 전에 `deskGroup.userData.__seat` 를 심는다) · 그 밖(`'click'` — 한 번 · 끝에서 멈춤).
   - `applyDeskColorToCustom(deskGroup, color)` — 모아 둔 `_col` 머티리얼만.
+  - `deskBodyPlan(def, gated)` — 그 def 로 어떤 책상 몸을 그리나(`none` · `builtin`(+ 라이선스로 막힌 `blocked`) · `glb`). 좌석과 꾸미기 미리보기가 같이 쓴다.
+  - `drawDeskGlb(deskGroup, rec, isDefaultOverride, playMode, alive)` — GLB 를 받아 끼운다(끼움 true · 못 받음 false · 그 사이 바뀜 null). `playMode` 를 안 주면 mixer 를 만들지 않는다.
   - `deskColorMats(seat)` — 그 좌석 책상에서 색을 받는 재질(GLB 책상은 `_col` 메쉬 · 내장 기본 책상은 `seat.deskMat` · «책상 없음» 은 빈 목록). 꾸미기 책상 탭이 «책상 색» 칸을 보일지 이것으로 정한다.
   - `applyDeskColor(seat, color)` — 그 목록을 칠한다(꾸미기 책상 탭의 색 조절 · 책상 바꾸기).
   - `applyDeskCatalogRefToSeat(seat, def)` → `Promise` — `def.deskCatalogId` 레코드를 찾아 그린다. 없으면 기본 책상. `NO_DESK_ID`(`'__no_desk__'`)면 `hideDeskBody`.
@@ -138,6 +140,13 @@
 
 꾸미기 창 · 파츠 · 동물 · 슬롯 · 코드 · 가챠 · 좌석 크기. app.js 가 deps 로 이어 주고, 이 폴더 모듈끼리는 서로의 속을 직접 부르지 않는다.
 절은 모듈마다 하나 — 다른 사람이 만든 절은 건드리지 않고 자기 절만 더한다.
+
+## `wd-desk-preview.js` — 🪑 꾸미기 미리보기의 책상 몸 · 책상 위치
+- **책임**: 꾸미기 미리보기 장면에 «책상 몸» 그룹 하나를 세우고(내장 기본 책상 · GLB 책상 · 책상 없음), 기즈모가 옮긴 자리를 `def.deskPos`(100% 단위)로 바꿔 준다. 저장 · 방 전파 · 실제 좌석 책상 옮기기 · 기즈모 붙이기는 `wardrobe.js`.
+- **만드는 법**: app.js 가 꾸미기 창보다 먼저 `TwWdDeskPreview.createWdDeskPreview({ buildDesk, deskBodyPlan, drawDeskGlb, hideDeskBody, applyDeskColor, syncDeskPartAnchor, DEFAULT_DESK_OVERRIDE_ID })` → wardrobe deps `deskPreview`.
+- **내놓는 것**: `rebuild({ scene, def, anchorGroup, anim })` · `dispose()` · `setShown(on)` · `tune(def)` · `body()` · `readPos()` · `resetPos()` · `isZero(pos)`.
+- **함정**: 미리보기의 책상 그룹은 둘이다 — wardrobe.js 의 빈 그룹(anchorGroup · «책상 위» 파츠 자리 · 자리 식은 그쪽)과 이 모듈의 몸 그룹. 몸은 anchorGroup 의 자리 · 크기를 그대로 받는다. 몸 그룹에 `setDeskScale` · `setDeskPos` 를 부르면 좌석 규약(z 보정)으로 자리가 깨진다. 책상 묶음 탭(책상 · 책상 위)에서만 보이고, 손잡이는 책상 탭 · 라이선스가 있을 때만 붙는다.
+- 검사: `sim-wd-desk-preview.js` · `sim-wardrobe.js` 5-2절
 
 ## desk-place.js — 📐 책상 자리 · 크기 · 책상 위 파츠 핀
 
