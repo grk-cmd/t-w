@@ -6,7 +6,7 @@
      refresh() — 회사원 모드가 바뀌었을 때 다시 맞춤 · isMuted() · label()
    ★ 소리를 내기 시작할 때 others.hush 로 듣던 것을 재우고, 끄거나 닫으면 재웠던 쪽만 되살린다. duck 으로 물러난 것이면 재워 둔 것은 잊는다(재생 창이 넘어갔다).
    ⚠️ 효과음이 아니라 배경음이라 풀(_mkSndPool)을 쓰지 않는다 — 겹칠 일이 없다. Audio 하나를 갈아 끼워 쓴다.
-   ⚠️ 회사원 모드에서는 소리를 내지 않고 남의 음악도 재우지 않는다(소리를 내는 자리는 예외 없이 이 게이트를 지난다).
+   ⚠️ 회사원 모드에서는 소리를 내지 않는다. 듣던 음악은 그때도 재워 둔다(창이 열려 있는 동안 둘 다 조용하게 — 꺼 두었으면 재우지 않는다)
    classic script(window.TwWinBgm) — 쓰는 모듈 · app.js 보다 먼저 싣는다. */
 (function(){
 'use strict';
@@ -61,7 +61,8 @@ function createWinBgm(deps){
     const a = audio; if(!a) return;
     try{ a.src = srcNow(); }catch(_){}
   }
-  const wants = () => open && !muted && !ducked && !officeMode();
+  const holds = () => open && !muted && !ducked;   // 이 창이 소리 자리를 쥔다 — 듣던 음악을 재워 둔다
+  const wants = () => holds() && !officeMode();    // 실제로 소리를 낸다
   function play(fromStart){
     const a = el(); if(!a) return;
     if(fromStart){ if(trackIdx !== 0){ trackIdx = 0; load(); } try{ a.currentTime = 0; }catch(_){} }
@@ -78,9 +79,9 @@ function createWinBgm(deps){
 
   /* 지금 상태(열림 · 끔 · 물러남 · 회사원 모드)에 맞춘다 */
   function sync(fromStart){
-    if(wants()){
+    if(holds()){
       if(!hushed) hushed = others.hush();
-      play(fromStart);
+      if(wants()) play(fromStart); else halt(false);
       return;
     }
     halt(false);

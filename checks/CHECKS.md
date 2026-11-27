@@ -310,7 +310,7 @@
 | **sim-own-image.js** | 140 | **b9e27eebfcc3** |
 | **sim-request-id.js** | 94 | **dc515c933667** |
 | **sim-bgm-hush.js** | 88 | **4afe050ca806** |
-| **sim-win-bgm.js** | 170 | **f071a1092935** |
+| **sim-win-bgm.js** | 175 | **f019f71d87cb** |
 | **sim-guestbook.js** | 500 | **8164c19639d8** |
 | **sim-friend-manage-module.js** | 274 | **ef635b529a03** |
 | **sim-pomodoro-module.js** | 251 | **c0cf84fa986c** |

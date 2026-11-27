@@ -79,11 +79,15 @@ function judge(src){
   t(e.audios.length === 0 && e.saves.length === 1 && e.hush === 0, '창이 닫혀 있을 때 끄기 — 기억만 한다(소리 · 재우기 없음)');
   /* 회사원 모드 · Audio 없음 · 저장소 예외 · 자동재생 막힘 */
   e = world(src, { office: true }); e.B.start();
-  t(e.audios.every(a => a.plays === 0) && e.hush === 0, '★ 회사원 모드 — 소리를 내지 않고 남의 음악도 재우지 않는다');
+  t(e.audios.every(a => a.plays === 0) && e.hush === 1 && e.unhush.length === 0, '★ 회사원 모드에서 열면 — 소리를 내지 않고 듣던 음악은 재워 둔다(둘 다 조용)');
+  e.B.stop();
+  t(e.unhush.length === 1 && e.unhush[0] && e.unhush[0].pl === true, '  ↳ 닫으면 재웠던 쪽을 되살린다');
+  e = world(src, { office: true }); e.B.toggle(); e.B.start();
+  t(e.hush === 0, '  ↳ 꺼 두었으면 회사원 모드에서도 듣던 음악을 재우지 않는다');
   e = world(src); e.B.start(); e.office = true; e.B.refresh();
-  t(e.a().paused === true && e.unhush.length === 1 && e.unhush[0] && e.unhush[0].pl === true, '★ 창을 연 채 회사원 모드를 켜면(refresh) 소리를 멈추고 재웠던 쪽을 되살린다');
+  t(e.a().paused === true && e.unhush.length === 0 && e.hush === 1, '★ 창을 연 채 회사원 모드를 켜면(refresh) 소리를 멈추고 재웠던 쪽은 되살리지 않는다');
   e.office = false; e.playing = null; e.B.refresh();
-  t(e.a().paused === false, '  ↳ 모드를 끄면(refresh) 다시 난다');
+  t(e.a().paused === false && e.hush === 1, '  ↳ 모드를 끄면(refresh) 다시 난다 · 두 번 재우지 않는다');
   e = world(src); e.B.refresh();
   t(e.audios.length === 0 && e.hush === 0, '  창이 닫혀 있으면 refresh 는 아무것도 안 한다');
   e = world(src, { noAudio: true }); let threw = false; try{ e.B.start(); e.B.toggle(); e.B.duck(true); e.B.stop(); }catch(_){ threw = true; }
@@ -144,9 +148,9 @@ say('── 배선');
 say('── 4절 mutation test');
 {
   const muts = [
-    ['꺼 둬도 소리를 냄', SRC.replace('const wants = () => open && !muted && !ducked && !officeMode();', 'const wants = () => open && !ducked && !officeMode();')],
-    ['회사원 모드에서도 소리', SRC.replace('const wants = () => open && !muted && !ducked && !officeMode();', 'const wants = () => open && !muted && !ducked;')],
-    ['추천곡과 겹침', SRC.replace('const wants = () => open && !muted && !ducked && !officeMode();', 'const wants = () => open && !muted && !officeMode();')],
+    ['꺼 둬도 소리를 냄', SRC.replace('const holds = () => open && !muted && !ducked;', 'const holds = () => open && !ducked;')],
+    ['회사원 모드에서도 소리', SRC.replace('const wants = () => holds() && !officeMode();', 'const wants = () => holds();')],
+    ['추천곡과 겹침', SRC.replace('const holds = () => open && !muted && !ducked;', 'const holds = () => open && !muted;')],
     ['끄기를 기억 안 함', SRC.replace("    save(muteKey, muted ? '1' : '0');\n", '')],
     ['듣던 것을 안 재움', SRC.replace('      if(!hushed) hushed = others.hush();\n', '')],
     ['닫아도 안 되살림', SRC.replace('    if(ducked){ hushed = null; ducked = false; } else wake();\n', '    if(ducked){ hushed = null; ducked = false; }\n')],
@@ -154,6 +158,7 @@ say('── 4절 mutation test');
     ['닫을 때 되감지 않음', SRC.replace('    open = false; halt(true);\n', '    open = false; halt(false);\n')],
     ['끝나도 다음 곡으로 안 넘어감', SRC.replace('trackIdx = (trackIdx + 1) % tracks.length; load(); if(wants()) play(false);', '')],
     ['다시 열어도 듣던 곡부터', SRC.replace('if(fromStart){ if(trackIdx !== 0){ trackIdx = 0; load(); } ', 'if(fromStart){ ').replace('    if(trackIdx !== 0){ trackIdx = 0; load(); }   // 다음에 열면(꺼 둔 채 열었다 켜도) 첫 곡부터\n', '')],
+    ['회사원 모드에서 듣던 음악을 안 재움', SRC.replace('if(wants()) play(fromStart); else halt(false);\n      return;', 'if(wants()) play(fromStart); else { halt(false); wake(); }\n      return;')],
     ['회사원 모드를 켜도 안 멈춤', SRC.replace('function refresh(){ if(open) sync(false); }', 'function refresh(){}')],
     ['꺼 둔 사이 곡이 끝나면 소리를 냄', SRC.replace("a.addEventListener('ended', () => { trackIdx = (trackIdx + 1) % tracks.length; load(); if(wants()) play(false); });", "a.addEventListener('ended', () => { trackIdx = (trackIdx + 1) % tracks.length; load(); play(false); });")],
   ];
