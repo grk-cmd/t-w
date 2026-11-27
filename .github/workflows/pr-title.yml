@@ -1,7 +1,9 @@
-# ═══ PR 제목 — GitHub 멘션(@글자)이 없는가 ═══════════════════════════════════
+# ═══ PR 글 — 제목에 GitHub 멘션(@글자)이 없는가 · 커밋 · 본문에 Claude 표기가 없는가 ═══════════
 # 제목은 squash 커밋 제목 · 릴리스 본문(자동 PR 목록)이 된다. «@v5» 같은 글자는 사람 멘션으로 읽혀
 # 릴리스 Contributors 에 남의 계정이 붙는다. 판정은 checks/sim-pr-title.js 한 곳.
-# checks.yml 과 나눈 까닭: 제목을 고칠 때(edited)도 돌아야 하는데, checks.yml 에 edited 를 걸면 본문만 고쳐도 검사 전체가 다시 돈다.
+# Claude 표기는 CLAUDE.md · docs/GIT_CONVENTION.md 에 금지로 적혀 있는데도 도구의 기본 안내 때문에 계속 들어왔다.
+# 판정은 checks/sim-no-attribution.js 한 곳(서버 저장소 deploy/no-attribution.sh 가 같은 규칙).
+# checks.yml 과 나눈 까닭: 제목 · 본문을 고칠 때(edited)도 돌아야 하는데, checks.yml 에 edited 를 걸면 본문만 고쳐도 검사 전체가 다시 돈다.
 name: pr-title
 
 on:
@@ -13,16 +15,31 @@ permissions:
 
 jobs:
   title:
-    name: PR 제목에 멘션 없음
+    name: PR 제목 멘션 · Claude 표기 없음
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
+      # 커밋 목록만 필요해서 트리 · 파일은 받지 않는다(filter tree:0). fetch-depth 0 이라 main · admin · release/* 가 다 온다.
       - uses: actions/checkout@v5
         with:
-          sparse-checkout: checks/sim-pr-title.js
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          filter: tree:0
+          sparse-checkout: |
+            checks/sim-pr-title.js
+            checks/sim-no-attribution.js
           sparse-checkout-cone-mode: false
 
       - name: 제목 판정
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: node checks/sim-pr-title.js --title "$TITLE"
+
+      # 커밋은 이 PR 이 새로 들이는 것만 — main · admin · release/* 에 이미 있는 것은 뺀다(합쳐 받기 PR 의 옛 커밋은 고칠 수 없다)
+      - name: 커밋 · 본문 Claude 표기 판정
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          mapfile -t merged < <(git for-each-ref --format='%(refname)' refs/remotes/origin/main refs/remotes/origin/admin 'refs/remotes/origin/release/*')
+          git log -z --format='%H%n%B' HEAD --not "${merged[@]}" > "$RUNNER_TEMP/commits.z"
+          node checks/sim-no-attribution.js --body-env PR_BODY --commits-z "$RUNNER_TEMP/commits.z"
