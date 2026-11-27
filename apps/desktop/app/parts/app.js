@@ -1218,7 +1218,6 @@ const partPaintMod = TwPartPaint.createPartPaint({
   partEntryXf: (...a)=>premiumMod.partEntryXf(...a),
   refreshWdPreviewColorSection: (...a)=>wardrobeMod.refreshWdPreviewColorSection(...a),
   savedParts: ()=>premiumMod.savedParts(),
-  sizeWdPreview: (...a)=>wardrobeMod.sizeWdPreview(...a),
   strokeSeg: (...a)=>paintGeomMod.strokeSeg(...a),
   toast: (...a)=>toast(...a),
   updateWdCam: (...a)=>wardrobeMod.updateWdCam(...a),

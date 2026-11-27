@@ -5193,17 +5193,18 @@
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     z-index:var(--z-wardrobe);display:flex;flex-direction:column;overflow:hidden;border-radius:var(--win-radius-el) !important;}
   #wardrobePanel.on{visibility:visible;pointer-events:auto;}
-  /* 꾸미기 미리보기 — 꾸미기 창 왼쪽에 붙어 같이 움직이는 정적 3D 미리보기 */
+  /* 꾸미기 미리보기 — 꾸미기 창 왼쪽에 붙어 같이 움직이는 정적 3D 미리보기.
+     높이는 고정이다 — 아래 줄(기즈모 · 귀 · 색 · 그리기)이 생기면 창이 늘지 않고 캔버스가 그만큼 준다(그림판 비율은 wardrobe.js ensureWdPreview 가 맞춘다). */
   #wdPreviewPanel{
     position:fixed;left:0;top:0;
-    width:320px;min-height:420px;max-height:78vh;
+    width:320px;height:min(480px, 78vh);
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     z-index:var(--z-wardrobe);flex-direction:column;overflow:hidden;
     display:none;   /* ★ transform으로 화면 밖에 숨기던 방식은 창 폭이 좁으면(런처 등) 일부가 그대로 보이는 문제가 있어서 display로 확실히 숨김 */;border-radius:var(--win-radius-el) !important;}
   #wdPreviewPanel.on{display:flex;}
   #wdPreviewPanel .wd-top h2{font-size:11px;}
-  #wdPreviewCanvas{width:100%;flex:1 1 280px;min-height:220px;background:repeating-conic-gradient(#eee 0% 25%, #f7f7f7 0% 50%) 50%/16px 16px;}
+  #wdPreviewCanvas{width:100%;flex:1 1 0;min-height:120px;background:repeating-conic-gradient(#eee 0% 25%, #f7f7f7 0% 50%) 50%/16px 16px;}
   #wdGizmoBar{display:flex;gap:4px;padding:5px 8px;justify-content:center;
     border-top:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);background:var(--win-face);border-radius:var(--win-radius-el) !important;}
   .wd-gizmo-btn{font-size:10.5px;padding:3px 8px;cursor:pointer;flex:1;
