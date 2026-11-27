@@ -5279,19 +5279,15 @@
   .wd-group-btn.on{color:var(--ink);background:var(--win-face);
     border-color:var(--win-hi) var(--win-lo-2) var(--win-face) var(--win-hi);
     position:relative;z-index:1;border-radius:var(--win-radius-el) !important;}
-  /* Phase 2 — 하위 카테고리 (Win98 커스텀 라디오 14px: 흰 배경 + 음각 테두리 + 검은 도트 정중앙) */
-  .wd-sub-row{display:flex;flex-wrap:wrap;gap:10px;padding:8px 4px 4px 4px;background:transparent;}
+  /* 하위 분류 — 한 줄 알약 단추(넘치면 줄바꿈). .wd-tab-btn 도 같이 받는다 — 테마(bubble)의 탭 모서리 규칙보다 이기게 #wardrobeTabs 로 건다. */
+  .wd-sub-row{display:flex;flex-wrap:wrap;gap:4px;padding:8px 2px 2px;background:transparent;}
   .wd-sub-row[hidden]{display:none;}   /* 📚 도감 · 🔒 라이선스 없는 탭 — 고를 하위 칸이 없다 */
-  /* .wd-tab-btn을 함께 상속 받으므로, 여기서 배경/테두리/그림자를 다 지워서 라디오 문구 형태로만 남김 */
-  .wd-sub-btn{font-size:11px;padding:2px 4px;background:transparent !important;border:none !important;box-shadow:none !important;color:var(--ink);cursor:pointer;
-    font-weight:normal;font-family:inherit;display:inline-flex;align-items:center;gap:5px;}
-  .wd-sub-btn::before{content:'';width:14px;height:14px;background:#fff;border:2px solid;
-    border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-    box-shadow:inset 1px 1px 0 var(--win-lo-2), inset -1px -1px 0 var(--win-face-2);
-    border-radius:50%;flex-shrink:0;box-sizing:border-box;}
-  .wd-sub-btn.on{font-weight:bold;}
-  /* 검은 도트는 원 배경 자체에 radial-gradient로 그림 — absolute 좌표 계산 오차 없이 항상 정중앙 */
-  .wd-sub-btn.on::before{background:#fff radial-gradient(circle at center, #000 0 2px, transparent 2.5px);}
+  #wardrobeTabs .wd-sub-btn{font-family:inherit;font-size:11px;font-weight:normal;line-height:1.2;padding:3px 10px;cursor:pointer;white-space:nowrap;
+    color:var(--ink);background:var(--win-face);border:1px solid var(--win-lo-2);box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
+    border-radius:999px !important;}
+  #wardrobeTabs .wd-sub-btn:hover{background:var(--win-face-2);}
+  #wardrobeTabs .wd-sub-btn.on{font-weight:bold;background:var(--win-select-bg);border-color:var(--win-title-b);
+    box-shadow:inset 1px 1px 0 var(--win-lo);}
   .wd-tab-btn{font-family:var(--tw-font-legacy);font-size:11px;padding:5px 9px;cursor:pointer;
     background:var(--win-face);color:var(--ink);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
   .wd-tab-btn.on{background:var(--win-face-2);font-weight:bold;border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
@@ -5323,7 +5319,20 @@
     color:var(--ink-soft);font-size:10px;padding:2px 7px;cursor:pointer;font-weight:bold;border-radius:var(--win-radius-el) !important;}
   .wd-add:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
     box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
-  .wd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+  /* ⚠️ 4열 × 4줄 = 한 페이지 — wardrobe-paging.js 의 PAGE_SIZE 와 같이 고친다 */
+  .wd-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;}
+  /* 🔍 이름으로 찾기 — 분류 머리줄 아래 */
+  .wd-find{display:flex;align-items:center;gap:5px;margin:0 0 8px;}
+  .wd-find-ic{font-size:11px;flex:0 0 auto;}
+  .wd-find-in{flex:1 1 auto;min-width:0;font-family:inherit;font-size:11px;padding:3px 6px;color:var(--ink);outline:none;}
+  .wd-find-none{color:var(--ink-soft);font-size:11px;text-align:center;padding:18px 8px;}
+  /* ◀ 1 2 … ▶ — 칸 아래 가운데 · 페이지가 하나뿐이면 줄이 없다(wardrobe.js) */
+  .wd-pg{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:3px;margin-top:10px;}
+  .wd-pg-btn{min-width:22px;height:20px;padding:0 5px;font-family:inherit;font-size:10px;line-height:1;color:var(--ink);cursor:pointer;}
+  .wd-pg-btn:disabled:not(.on){opacity:.4;cursor:default;}
+  .wd-pg-btn.on{font-weight:bold;cursor:default;background:var(--win-select-bg);
+    border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);box-shadow:inset 1px 1px 0 var(--win-lo);}
+  .wd-pg-gap{font-size:10px;color:var(--ink-soft);padding:0 2px;}
   .wd-desk-grid{display:flex;flex-wrap:wrap;gap:8px;}   /* 책상 섬네일(66px)은 3등분 칸에 넣으면 사이가 벌어진다 — 왼쪽부터 붙여 늘어놓는다 */
   .wd-card{position:relative;aspect-ratio:1;
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -5332,10 +5341,10 @@
   .wd-card:hover{background:var(--win-face-2);}
   .wd-card.on{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
     box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);background:var(--win-select-bg);}
-  .wd-card .nm{font-size:9px;color:var(--ink-soft);max-width:90%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.1;}
+  .wd-card .nm{font-size:8.5px;color:var(--ink-soft);max-width:90%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.1;}
   .wd-card.none-card{font-size:11px;color:var(--ink-soft);}
   /* Phase 4: 도트 썸네일 — 32×32로 렌더된 이미지를 이 크기로 pixelated 확대해서 도트 스타일 유지 */
-  .wd-card .wd-thumb{width:44px;height:44px;image-rendering:pixelated;image-rendering:-moz-crisp-edges;display:block;object-fit:contain;}
+  .wd-card .wd-thumb{width:40px;height:40px;image-rendering:pixelated;image-rendering:-moz-crisp-edges;display:block;object-fit:contain;}
   .wd-card-x{position:absolute;top:-2px;right:-2px;width:16px;height:16px;
     background:var(--win-error);color:#fff;border:1px solid #000;font-size:10px;line-height:14px;text-align:center;cursor:pointer;font-weight:bold;z-index:2;}
   /* 🔗 stackable 뱃지 — 우상단 (X 버튼과 겹칠 수 있어 관리자일 땐 X가 위에 오도록 z-index로 정리) */
@@ -8872,6 +8881,7 @@
 <!-- 📷 스티커사진 순수 계산(window.Purikura — purikura-net.js) — THREE · DOM · 통신 없음(sim-purikura-net.js). 통신은 세션 포트 purikura-rt.js · app.js 보다 먼저. -->
 <script src="parts/shared/mac-tooltip.js"></script>   <!-- 💬 맥 설명 말풍선(window.TwMacTooltip) — 싣기만 하면 맥에서 스스로 건다 · app.js 보다 먼저 -->
 <script src="parts/shared/safe-html.js"></script>   <!-- 🛡️ 남이 쓸 수 있는 값을 화면에 넣는 단 한 곳(window.TwSafeHtml — text · attr · safeUrl · cssUrl · cssColor) — 쓰는 모듈 · app.js 보다 먼저 -->
+<script src="parts/shared/paging.js"></script>   <!-- 📄 쪽 나누기 규칙(window.TwPaging — 쪽 수 · 쪽 번호 바로잡기 · 순수) — gacha-album.js · wardrobe-paging.js 보다 먼저(둘이 실릴 때 읽는다) -->
 <script src="parts/shared/server-features.js"></script>   <!-- 서버가 아직 안 받는 0.14 기능 표(window.TwServerFeatures) — 입구(버튼 · 탭 · 칸)를 닫는다 · 쓰는 모듈 · app.js 보다 먼저 -->
 <script src="parts/shared/person-name.js"></script>   <!-- 🏷️ 사람 이름을 화면 글로(window.TwPersonName — 이름이 없으면 그릴 때만 «이름 없음») — 쓰는 모듈 · app.js 보다 먼저 -->
 <script src="parts/shared/img-retry.js"></script>   <!-- 🖼 남의 그림을 한 번 더 받을 주소(window.TwImgRetry) — room-sync.js · animal.js · myhome-inbox.js · mallang.js 보다 먼저 -->
@@ -9034,6 +9044,7 @@
 <script src="parts/account/license-gate.js"></script>   <!-- 🎟️ 초대장 · 라이선스 — app.js 보다 먼저(app.js 가 원래 자리에서 TwLicenseGate.createLicenseGate 로 만든다) -->
 <script src="parts/account/account.js"></script>   <!-- 🔑 계정 — app.js 보다 먼저(app.js 가 원래 자리에서 TwAccount.createAccount 로 만든다) -->
 <script src="parts/character/wardrobe-place.js"></script>   <!-- 📐 꾸미기 · 미리보기 창 자리 규칙(순수) — wardrobe.js 보다 먼저(wardrobe.js 가 TwWardrobePlace 를 읽는다) -->
+<script src="parts/character/wardrobe-paging.js"></script>   <!-- 📄 꾸미기 창 파츠 칸 페이지 · 이름 찾기 규칙(순수) — wardrobe.js 보다 먼저(app.js 가 TwWardrobePaging 을 deps 로 넘긴다) -->
 <script src="parts/character/wardrobe.js"></script>   <!-- 🎨 꾸미기 창 — app.js 보다 먼저(app.js 가 원래 자리에서 TwWardrobe.createWardrobe 로 만든다) -->
 <script src="parts/shared/panel-fit.js"></script>   <!-- 📐 창을 화면 안으로(아래 기준 · 왼쪽 위 기준) — settings-panel.js · status-chip.js 보다 먼저 · 크리스마스 창은 app.js 가 deps 로 -->
 <script src="parts/shared/os-drag.js"></script>   <!-- 🪟 런처 화면에서 창을 앱 창째 끌기(window.TwOsDrag) — app.js 보다 먼저 · 크리스마스 창은 app.js 가 deps 로 -->

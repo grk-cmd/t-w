@@ -695,3 +695,9 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **입구**: xmas — app.js 가 크리스마스 창을 만들지 않음(런처 버튼은 html 에서 hidden 으로 시작) · chatNotice · chatFocus — 각 모듈 `enabled` deps(탭 · 구독 없음) · 집중 올리기는 room-focus-sync `isSecretRoom` 에 같이 · playlistLike — playlist-like-ui `enabled`(줄 안 그림 · 안 읽음) · friendReqMsg — friend-req-btn `reasonOn`(사유 칸 없이 묻기) · themeCustomSave — theme-ui `serverOn`(이 PC 저장만)· 가입은 login-flow.js).
 - **서버가 받으면**: 표의 값을 true 로 바꾸고, 그 기능의 provider(지금은 `noServer(이름)`)를 서버 provider 로 갈아 끼운다. 서버 작업 요청은 GitHub 이슈 «서버 작업 요청: …(0.14.0)».
 - **함정**: 다른 기준(날짜 · 방 종류)과 섞지 말 것 — 이 표는 «서버 길이 있나» 하나만 본다. 검사 `checks/sim-server-features.js`.
+
+## `paging.js` — 📄 쪽 나누기 규칙 한 벌
+- **책임**: 쪽 수(`pageCount(n, size)` — 칸이 없어도 1)와 기억한 쪽 번호 바로잡기(`clampPage(page, n, size)` — 없는 쪽이면 마지막 · NaN · undefined · null · 무한 · 음수면 0 · 소수는 내림). 순수 함수(DOM · 저장 없음) · 도메인을 모른다 — `window.TwPaging` · `module.exports`.
+- **쓰는 곳**: `character/wardrobe-paging.js`(꾸미기 창 파츠 칸) · `character/gacha-album.js`(도감) — 둘 다 실릴 때 `const paging = TwPaging;` 로 받고 `pageCount` · `clampPage` 를 그대로 다시 내놓는다(부르는 곳 `wardrobe.js` · `gacha.js` 는 그대로).
+- **만드는 법**: html · `checks/smoke.js` PRELOAD 가 두 모듈보다 먼저 싣는다. 검사가 두 모듈을 `new Function` 으로 실을 때는 이 모듈 값을 `TwPaging` 인자로 넘긴다.
+- **함정**: 쪽 번호는 0 부터(화면에 쓸 때만 +1). 합치기 전 두 벌(꾸미기 창 · 도감)과 실제로 들어오는 입력에서 같은 값을 내야 한다 — 숫자 글(`'2'`)은 두 벌이 달랐지만 들어오는 곳이 없다. 쪽 규칙을 다른 모듈에 다시 쓰지 않는다. 검사 `checks/sim-paging.js`(실제 호출 · 옛 두 벌과 같은 값 · 배선 · mutation test).

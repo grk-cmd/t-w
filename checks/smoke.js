@@ -333,6 +333,8 @@ const PRELOAD = ['human-ear.js', 'wd-ear.js'];
 /* mac-tooltip.js — 💬 맥 설명 말풍선. 싣기만 하면 맥에서 스스로 건다(smoke 무대는 맥이 아니라 안 건다). */
 PRELOAD.push('mac-tooltip.js');
 PRELOAD.push('safe-html.js');
+/* paging.js — 📄 쪽 나누기 규칙(window.TwPaging · 순수). gacha-album.js · wardrobe-paging.js 가 실릴 때 읽으므로 그 둘보다 먼저. */
+PRELOAD.push('paging.js');
 /* server-features.js — 서버가 아직 안 받는 0.14 기능 표(window.TwServerFeatures). app.js · 모듈이 입구를 닫을 때 읽는다. */
 PRELOAD.push('server-features.js');
 /* person-name.js — 🏷️ 사람 이름을 화면 글로(window.TwPersonName). 이름을 그리는 모듈 · app.js 가 부를 때 읽는다. */
@@ -511,6 +513,7 @@ PRELOAD.push('license-gate.js');
 PRELOAD.push('account.js');
 /* wardrobe.js — 🎨 꾸미기 창(앱 FSD 29번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createWardrobe 를 같이 굴린다. */
 PRELOAD.push('wardrobe-place.js');   // 📐 꾸미기 · 미리보기 창 자리 규칙(순수) — wardrobe.js 가 TwWardrobePlace 를 읽는다
+PRELOAD.push('wardrobe-paging.js');   // 📄 꾸미기 창 파츠 칸 페이지 · 찾기 규칙(순수) — app.js 가 wardrobe.js 에 deps 로 넘긴다
 PRELOAD.push('wardrobe.js');
 /* settings-panel.js — ⚙ 설정 패널(앱 FSD 27번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSettingsPanel 를 같이 굴린다. */
 /* panel-fit.js — 📐 창을 화면 안으로(아래 기준 · 왼쪽 위 기준). settings-panel.js · status-chip.js · 크리스마스 창(deps)이 부른다. */

@@ -21,7 +21,7 @@ let pass = 0, fail = 0, done = false;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['gacha.js', 'gacha-album.js', 'app.js', 'desk-companion-prototype.html'];
+const need = ['gacha.js', 'gacha-album.js', 'paging.js', 'app.js', 'desk-companion-prototype.html'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['gacha.js'];
@@ -102,6 +102,7 @@ function mkEnv(opt){
   ctx.focus = () => { env.focus++; };
   ctx.addEventListener = (t, fn) => { (env.winL[t] = env.winL[t] || []).push(fn); };
   ctx.TwSafeHtml = globalThis.TwSafeHtml; vm.createContext(ctx);
+  vm.runInContext(SRC['paging.js'], ctx, { filename: 'paging.js' });   // 📄 쪽 규칙 공용 — html 이 gacha-album.js 앞에 싣는 진짜
   vm.runInContext(SRC['gacha-album.js'], ctx, { filename: 'gacha-album.js' });   // 📚 도감 규칙 — html 이 gacha.js 앞에 싣는 진짜
   vm.runInContext(MOD, ctx, { filename: 'gacha.js' });
   env.ctx = ctx; env.els = els;

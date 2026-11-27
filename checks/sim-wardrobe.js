@@ -19,16 +19,23 @@ if(!MOD){ say('  ? 원본 못 찾음 — wardrobe.js'); process.exit(2); }
 /* 😴 닫힌 창 반복 재우기(shared/idle-gate.js) — 모듈이 만들 때 미리보기 반복을 건다. 진짜 파일을 가짜 MutationObserver 위에 싣는다. */
 const GATE_SRC = ["idle-gate.js","parts/shared/idle-gate.js","app/parts/shared/idle-gate.js"].map(read).find(Boolean);
 if(!GATE_SRC){ say('  ? 원본 못 찾음 — idle-gate.js'); process.exit(2); }
+/* 📄 파츠 칸 페이지 · 찾기 규칙(wardrobe-paging.js) — 2-2절이 진짜 규칙 위에서 칸을 그린다 */
+const PAGING_SRC = ["wardrobe-paging.js","parts/character/wardrobe-paging.js","app/parts/character/wardrobe-paging.js"].map(read).find(Boolean);
+if(!PAGING_SRC){ say('  ? 원본 못 찾음 — wardrobe-paging.js'); process.exit(2); }
+const SHARED_PAGING_SRC = ["paging.js","parts/shared/paging.js","app/parts/shared/paging.js"].map(read).find(Boolean);   // 📄 쪽 수 · 쪽 번호 바로잡기 공용(shared/paging.js) — html 처럼 먼저
+if(!SHARED_PAGING_SRC){ say('  ? 원본 못 찾음 — paging.js'); process.exit(2); }
+const _loadMod = (src, extra) => { const m = { exports: {} }; new Function('module', 'window', 'TwPaging', src)(m, undefined, extra); return m.exports; };
+const PAGING = _loadMod(PAGING_SRC, _loadMod(SHARED_PAGING_SRC));
 const GATE = (() => { const w = { MutationObserver: class { observe(){} disconnect(){} } }; new Function('window', 'module', GATE_SRC)(w, undefined); return w.TwIdleGate; })();
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["setDeskPos", "layoutSeats", "_attachHumanEars", "_disposeWrapperFromSeat", "_hsvToHex", "_invalidatePendingEquip", "_rgbHexToHsv", "_sweepOrphanPartWrappers", "_wdLicenseDesks", "addEntryToCat", "addPartEntryInstance", "applyClothVisibility", "applyEquippedPartsToSeat", "applyHueTint", "applyPartXf", "baseFlatOf", "bindReorderHandle", "boneSide", "charFootFix", "clampCharY", "defToBase", "defaultPartXf", "entriesForCat", "equipPartOnSeat", "escHtml", "findEntryById", "findMySeat", "firstEntryForCat", "floorClampWrapper", "getCommissionScene", "groupOfCat", "isDeskPartCat", "isHueTintMesh", "measureCharBox", "measurePreviewBox", "openAssetImport", "partCatInfo", "partEntryId", "partEntryInstanceCount", "partEntryInstances", "partEntryXf", "partsInCat", "partsInCatFor", "partsInGroup", "pruneSeatPartsAgainstDef", "refitSeatAfterParts", "removeEntryFromCat", "removePartEntryInstance", "reorderSavedPart", "saveSlots", "setPartEntryInstanceXf", "toast", "unequipStackablePart", "_humanEarMat", "_humanEarPic", "applyDeskCatalogRefToSeat", "applyDeskColor", "deskColorMats", "applyDeskDotThumb", "clampDeskScale", "resolveCatalogGlb", "glbFailWhy", "setDeskScale", "swThumb", "addRunLights", "hueShiftHex", "tintPartMesh"];
-const VAL_DEPS = ["deskPreview", "accountStore", "NO_DESK_ID", "ANIMAL_RUN_SCALE", "CHAR_Z", "seats",  "humanEar", "twNav"];
+const VAL_DEPS = ["deskPreview", "accountStore", "NO_DESK_ID", "ANIMAL_RUN_SCALE", "CHAR_Z", "seats",  "humanEar", "twNav", "paging"];
 const GET_DEPS = ["PART_CATS", "PART_DEFAULT_OFFSET", "PART_GROUPS", "Presence", "WD_DESK_TAB", "gachaMod", "isAdmin", "isPremium", "partPaintMod", "savedParts", "slots", "DESK_LICENSE_HOLD", "DESK_SCALE_DEFAULT", "DESK_SCALE_MAX", "DESK_SCALE_MIN"];
 const SET_DEPS = [];
 const EXPORTS = ["ORBIT_DRAG_DIR", "_clearMultiPanelRef", "_wdAfterMainSwap", "ALBUM_TAB", "selectWdTab", "isAlbumTab", "activeWdAdj", "setActiveWdAdj", "buildFreeColorPicker", "commitWdDraft", "createWardrobeAdjPanel", "currentWdTab", "detachWdGizmo", "ensureWdDraft", "ensureWdGizmo", "placeWdWindows", "refreshWdPreviewChar", "refreshWdPreviewColorSection", "renderWardrobe", "setWdGizmoMode", "syncWdGizmoToXf", "syncWdPreviewOwner", "toggleEquip", "updateWdCam", "updateWdGizmoForActivePanel", "wdCam", "wdDraftDef", "wdEar", "setAdminPartActions", "relinkDraftSrc", "wdGizmo", "wdGizmoMode", "wdPreviewBase", "wdWinSavedPos", "wdScene"];
 const MOVED = ["wdRenderer", "wdScene", "wdCam", "wdPreviewBase", "WD_PREVIEW_DESK_Y", "WD_PREVIEW_DESK_Z", "WD_PREVIEW_DESK_NUDGE", "ensureWdPreview", "wdGizmo", "wdGizmoMode", "wdGizmoCat", "ensureWdGizmo", "wdGizmoInstanceIdx", "wdGizmoPartId", "_wdGetActiveWrapperAndXf", "syncWdGizmoToXf", "attachWdGizmo", "detachWdGizmo", "setWdGizmoMode", "updateWdGizmoForActivePanel", "WD_PREVIEW_POS_KEY", "wdPreviewSavedPos", "placeWdPreview", "clampWdPreviewIntoView", "syncWdPreviewOwner", "sizeWdPreview", "wdYaw", "wdPitch", "wdHeightOffset", "wdZoomMul", "ORBIT_DRAG_DIR", "wdCamCenter", "wdCamLookY", "wdCamBaseDist", "WD_EAR_CAM_LIFT", "WD_EAR_CAM_ZOOM", "_wdEarCamOn", "updateWdCam", "wdDraftDef", "ensureWdDraft", "refreshWdPreviewChar", "wdPreviewLoop", "_wdCommitChain", "commitWdDraft", "_commitWdDraftNow", "_commitWdDraftToOwner", "_wdAfterMainSwap", "refreshWdPreviewColorSection", "activeWdAdj", "_wdMultiActiveIdx", "_wdGetSavedInstanceIdx", "_wdSetSavedInstanceIdx", "_clearMultiPanelRef", "wdAdjAxis", "_holdRepeat", "hsvToHex", "hexToHsv", "buildFreeColorPicker", "openCharColorPicker", "createWardrobeAdjPanel", "buildColorRows", "currentWdTab", "currentWdGroup", "renderWardrobe", "toggleEquip", "WD_WIN_POS_KEY", "wdWinSavedPos", "placeWdWindows"];
-const GLUE = ["  deskPreview: wdDeskPreview,", "  setDeskPos: (...a)=>setDeskPos(...a),", "  accountStore: accountStoreMod,", "  NO_DESK_ID: NO_DESK_ID,", "  layoutSeats: (...a)=>layoutSeats(...a),", "  ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,", "  CHAR_Z: CHAR_Z,", "  PART_CATS: ()=>premiumMod.PART_CATS(),", "  PART_DEFAULT_OFFSET: ()=>PART_DEFAULT_OFFSET,", "  PART_GROUPS: ()=>premiumMod.PART_GROUPS,", "  Presence: ()=>Presence,", "  WD_DESK_TAB: ()=>premiumMod.WD_DESK_TAB,", "  _attachHumanEars: (...a)=>_attachHumanEars(...a),", "  _disposeWrapperFromSeat: (...a)=>_disposeWrapperFromSeat(...a),", "  _hsvToHex: (...a)=>_hsvToHex(...a),", "  _invalidatePendingEquip: (...a)=>_invalidatePendingEquip(...a),", "  _rgbHexToHsv: (...a)=>_rgbHexToHsv(...a),", "  _sweepOrphanPartWrappers: (...a)=>_sweepOrphanPartWrappers(...a),", "  _wdLicenseDesks: (...a)=>premiumMod._wdLicenseDesks(...a),", "  addRunLights: (...a)=>lightToneMod.addRunLights(...a),", "  addEntryToCat: (...a)=>premiumMod.addEntryToCat(...a),", "  addPartEntryInstance: (...a)=>premiumMod.addPartEntryInstance(...a),", "  applyClothVisibility: (...a)=>applyClothVisibility(...a),", "  applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),", "  applyHueTint: (...a)=>applyHueTint(...a),", "  applyPartXf: (...a)=>applyPartXf(...a),", "  baseFlatOf: (...a)=>lightToneMod.baseFlatOf(...a),", "  bindReorderHandle: (...a)=>bindReorderHandle(...a),", "  boneSide: (...a)=>boneSide(...a),", "  charFootFix: (...a)=>charMeasureMod.charFootFix(...a),", "  clampCharY: (...a)=>clampCharY(...a),", "  defToBase: (...a)=>defToBase(...a),", "  defaultPartXf: (...a)=>premiumMod.defaultPartXf(...a),", "  entriesForCat: (...a)=>premiumMod.entriesForCat(...a),", "  equipPartOnSeat: (...a)=>equipPartOnSeat(...a),", "  escHtml: (...a)=>escHtml(...a),", "  findEntryById: (...a)=>premiumMod.findEntryById(...a),", "  findMySeat: (...a)=>findMySeat(...a),", "  firstEntryForCat: (...a)=>premiumMod.firstEntryForCat(...a),", "  floorClampWrapper: (...a)=>charMeasureMod.floorClampWrapper(...a),", "  gachaMod: ()=>gachaMod,", "  getCommissionScene: (...a)=>getCommissionScene(...a),", "  groupOfCat: (...a)=>premiumMod.groupOfCat(...a),", "  hueShiftHex: (...a)=>lightToneMod.toneCore.hueShiftHex(...a),", "  isAdmin: ()=>isAdmin,", "  isPremium: ()=>isPremium,", "  twNav: twNav,", "  isDeskPartCat: (...a)=>premiumMod.isDeskPartCat(...a),", "  isHueTintMesh: (...a)=>isHueTintMesh(...a),", "  measureCharBox: (...a)=>charMeasureMod.measureCharBox(...a),", "  measurePreviewBox: (...a)=>charMeasureMod.measurePreviewBox(...a),", "  openAssetImport: (...a)=>openAssetImport(...a),", "  partCatInfo: (...a)=>premiumMod.partCatInfo(...a),", "  partEntryId: (...a)=>premiumMod.partEntryId(...a),", "  partEntryInstanceCount: (...a)=>premiumMod.partEntryInstanceCount(...a),", "  partEntryInstances: (...a)=>premiumMod.partEntryInstances(...a),", "  partEntryXf: (...a)=>premiumMod.partEntryXf(...a),", "  partPaintMod: ()=>partPaintMod,", "  partsInCat: (...a)=>premiumMod.partsInCat(...a),", "  partsInCatFor: (...a)=>premiumMod.partsInCatFor(...a),", "  partsInGroup: (...a)=>premiumMod.partsInGroup(...a),", "  pruneSeatPartsAgainstDef: (...a)=>pruneSeatPartsAgainstDef(...a),", "  refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),", "  removeEntryFromCat: (...a)=>premiumMod.removeEntryFromCat(...a),", "  removePartEntryInstance: (...a)=>premiumMod.removePartEntryInstance(...a),", "  reorderSavedPart: (...a)=>premiumMod.reorderSavedPart(...a),", "  saveSlots: (...a)=>slotSaveMod.saveSlots(...a),", "  savedParts: ()=>premiumMod.savedParts(),", "  seats: seats,", "  setPartEntryInstanceXf: (...a)=>premiumMod.setPartEntryInstanceXf(...a),", "  slots: ()=>slots,", "  tintPartMesh: (...a)=>lightToneMod.toneCore.tintPartMesh(...a),", "  toast: (...a)=>toast(...a),", "  unequipStackablePart: (...a)=>unequipStackablePart(...a),",  "  DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,", "  DESK_SCALE_DEFAULT: ()=>DESK_SCALE_DEFAULT,", "  DESK_SCALE_MAX: ()=>DESK_SCALE_MAX,", "  DESK_SCALE_MIN: ()=>DESK_SCALE_MIN,", "  _humanEarMat: (...a)=>_humanEarMat(...a),", "  _humanEarPic: (...a)=>_humanEarPic(...a),", "  applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),", "  applyDeskColor: (...a)=>deskVisualMod.applyDeskColor(...a),", "  deskColorMats: (...a)=>deskVisualMod.deskColorMats(...a),", "  applyDeskDotThumb: (...a)=>applyDeskDotThumb(...a),", "  clampDeskScale: (...a)=>clampDeskScale(...a),", "  humanEar: humanEar,", "  resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),", "  glbFailWhy: (...a)=>catalogGlbMod.glbFailWhy(...a),", "  setDeskScale: (...a)=>setDeskScale(...a),", "  swThumb: (...a)=>swThumb(...a),"];
+const GLUE = ["  deskPreview: wdDeskPreview,", "  setDeskPos: (...a)=>setDeskPos(...a),", "  accountStore: accountStoreMod,", "  NO_DESK_ID: NO_DESK_ID,", "  layoutSeats: (...a)=>layoutSeats(...a),", "  ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,", "  CHAR_Z: CHAR_Z,", "  PART_CATS: ()=>premiumMod.PART_CATS(),", "  PART_DEFAULT_OFFSET: ()=>PART_DEFAULT_OFFSET,", "  PART_GROUPS: ()=>premiumMod.PART_GROUPS,", "  Presence: ()=>Presence,", "  WD_DESK_TAB: ()=>premiumMod.WD_DESK_TAB,", "  _attachHumanEars: (...a)=>_attachHumanEars(...a),", "  _disposeWrapperFromSeat: (...a)=>_disposeWrapperFromSeat(...a),", "  _hsvToHex: (...a)=>_hsvToHex(...a),", "  _invalidatePendingEquip: (...a)=>_invalidatePendingEquip(...a),", "  _rgbHexToHsv: (...a)=>_rgbHexToHsv(...a),", "  _sweepOrphanPartWrappers: (...a)=>_sweepOrphanPartWrappers(...a),", "  _wdLicenseDesks: (...a)=>premiumMod._wdLicenseDesks(...a),", "  addRunLights: (...a)=>lightToneMod.addRunLights(...a),", "  addEntryToCat: (...a)=>premiumMod.addEntryToCat(...a),", "  addPartEntryInstance: (...a)=>premiumMod.addPartEntryInstance(...a),", "  applyClothVisibility: (...a)=>applyClothVisibility(...a),", "  applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),", "  applyHueTint: (...a)=>applyHueTint(...a),", "  applyPartXf: (...a)=>applyPartXf(...a),", "  baseFlatOf: (...a)=>lightToneMod.baseFlatOf(...a),", "  bindReorderHandle: (...a)=>bindReorderHandle(...a),", "  boneSide: (...a)=>boneSide(...a),", "  charFootFix: (...a)=>charMeasureMod.charFootFix(...a),", "  clampCharY: (...a)=>clampCharY(...a),", "  defToBase: (...a)=>defToBase(...a),", "  defaultPartXf: (...a)=>premiumMod.defaultPartXf(...a),", "  entriesForCat: (...a)=>premiumMod.entriesForCat(...a),", "  equipPartOnSeat: (...a)=>equipPartOnSeat(...a),", "  escHtml: (...a)=>escHtml(...a),", "  findEntryById: (...a)=>premiumMod.findEntryById(...a),", "  findMySeat: (...a)=>findMySeat(...a),", "  firstEntryForCat: (...a)=>premiumMod.firstEntryForCat(...a),", "  floorClampWrapper: (...a)=>charMeasureMod.floorClampWrapper(...a),", "  gachaMod: ()=>gachaMod,", "  getCommissionScene: (...a)=>getCommissionScene(...a),", "  groupOfCat: (...a)=>premiumMod.groupOfCat(...a),", "  hueShiftHex: (...a)=>lightToneMod.toneCore.hueShiftHex(...a),", "  isAdmin: ()=>isAdmin,", "  isPremium: ()=>isPremium,", "  twNav: twNav,", "  isDeskPartCat: (...a)=>premiumMod.isDeskPartCat(...a),", "  isHueTintMesh: (...a)=>isHueTintMesh(...a),", "  measureCharBox: (...a)=>charMeasureMod.measureCharBox(...a),", "  measurePreviewBox: (...a)=>charMeasureMod.measurePreviewBox(...a),", "  openAssetImport: (...a)=>openAssetImport(...a),", "  partCatInfo: (...a)=>premiumMod.partCatInfo(...a),", "  partEntryId: (...a)=>premiumMod.partEntryId(...a),", "  partEntryInstanceCount: (...a)=>premiumMod.partEntryInstanceCount(...a),", "  partEntryInstances: (...a)=>premiumMod.partEntryInstances(...a),", "  partEntryXf: (...a)=>premiumMod.partEntryXf(...a),", "  partPaintMod: ()=>partPaintMod,", "  partsInCat: (...a)=>premiumMod.partsInCat(...a),", "  partsInCatFor: (...a)=>premiumMod.partsInCatFor(...a),", "  partsInGroup: (...a)=>premiumMod.partsInGroup(...a),", "  pruneSeatPartsAgainstDef: (...a)=>pruneSeatPartsAgainstDef(...a),", "  refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),", "  removeEntryFromCat: (...a)=>premiumMod.removeEntryFromCat(...a),", "  removePartEntryInstance: (...a)=>premiumMod.removePartEntryInstance(...a),", "  reorderSavedPart: (...a)=>premiumMod.reorderSavedPart(...a),", "  saveSlots: (...a)=>slotSaveMod.saveSlots(...a),", "  savedParts: ()=>premiumMod.savedParts(),", "  seats: seats,", "  setPartEntryInstanceXf: (...a)=>premiumMod.setPartEntryInstanceXf(...a),", "  slots: ()=>slots,", "  tintPartMesh: (...a)=>lightToneMod.toneCore.tintPartMesh(...a),", "  toast: (...a)=>toast(...a),", "  unequipStackablePart: (...a)=>unequipStackablePart(...a),",  "  DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,", "  DESK_SCALE_DEFAULT: ()=>DESK_SCALE_DEFAULT,", "  DESK_SCALE_MAX: ()=>DESK_SCALE_MAX,", "  DESK_SCALE_MIN: ()=>DESK_SCALE_MIN,", "  _humanEarMat: (...a)=>_humanEarMat(...a),", "  _humanEarPic: (...a)=>_humanEarPic(...a),", "  applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),", "  applyDeskColor: (...a)=>deskVisualMod.applyDeskColor(...a),", "  deskColorMats: (...a)=>deskVisualMod.deskColorMats(...a),", "  applyDeskDotThumb: (...a)=>applyDeskDotThumb(...a),", "  clampDeskScale: (...a)=>clampDeskScale(...a),", "  humanEar: humanEar,", "  resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),", "  glbFailWhy: (...a)=>catalogGlbMod.glbFailWhy(...a),", "  setDeskScale: (...a)=>setDeskScale(...a),", "  swThumb: (...a)=>swThumb(...a),", "  paging: TwWardrobePaging,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -92,25 +99,26 @@ function behave(src, opt){
     get textContent(){ return el._text + el._html.replace(/<[^>]+>/g, '') + el.children.map(c => c.textContent).join(''); }, set textContent(v){ el._text = String(v); el.children = []; },
     get className(){ return [...cls].join(' '); }, set className(v){ cls.clear(); String(v).split(/\s+/).filter(Boolean).forEach(c => cls.add(c)); },
     classList: { add: c => cls.add(c), remove: c => cls.delete(c), contains: c => cls.has(c), toggle: (c, f) => { const v = f === undefined ? !cls.has(c) : !!f; v ? cls.add(c) : cls.delete(c); return v; } },
-    appendChild(c){ el.children.push(c); return c; }, addEventListener(){}, querySelector: () => null, querySelectorAll: () => [] }; return el; };
+    appendChild(c){ el.children.push(c); return c; }, setAttribute(k, v){ el['attr:' + k] = String(v); }, addEventListener(){}, querySelector: () => mkEl('div'), querySelectorAll: () => [] }; return el; };   /* querySelector — 상세조정 패널이 innerHTML 로 만든 단추를 찾아 onclick 을 건다 */
   const els = { wardrobeContent: mkEl('div', 'wardrobeContent'), wardrobeTabs: mkEl('div', 'wardrobeTabs'), wardrobePanel: mkEl('div', 'wardrobePanel') };
   const document = { getElementById: id => els[id] || null, createElement: tag => mkEl(tag), querySelector: () => null, querySelectorAll: () => [], addEventListener(){}, body: mkEl('body') };
   const log = [];
   const parts = [{ id: 'h1', cat: 'hat', name: '밀짚' }, { id: 'g1', cat: 'hat', name: '별 모자', gacha: true, stackable: true }, { id: 'g2', cat: 'hat', name: '눈사람', gacha: true, stackable: true }];
   const owned = { g1: 1 };
-  const st = { premium: !!opt.premium, admin: false };
+  const st = { premium: !!opt.premium, admin: false, seat: null, two: false };
   const deps = {};
   FN_DEPS.forEach(n => { deps[n] = () => any; });
   VAL_DEPS.forEach(n => { deps[n] = any; });
   GET_DEPS.forEach(n => { deps[n] = () => any; });
-  const HAT = { cat: 'hat', label: '모자', icon: '🎩' };
+  const HAT = { cat: 'hat', label: '모자', icon: '🎩' }, GLS = { cat: 'glasses', label: '안경', icon: '👓' };
   Object.assign(deps, {
-    PART_CATS: () => [HAT], PART_GROUPS: () => [{ group: 'head', label: '머리', icon: '👤' }, { group: 'desk', label: '책상', icon: '🪑' }], WD_DESK_TAB: () => '__desk__',
-    partsInGroup: g => g === 'head' ? [HAT] : [], groupOfCat: () => 'head', partsInCat: c => parts.filter(p => p.cat === c), partsInCatFor: (c, g) => parts.filter(p => p.cat === c && !!p.gacha === !!g),
-    savedParts: () => parts, isAdmin: () => st.admin, isPremium: () => st.premium, _wdLicenseDesks: () => [], findMySeat: () => null,
+    PART_CATS: () => st.two ? [HAT, GLS] : [HAT], PART_GROUPS: () => [{ group: 'head', label: '머리', icon: '👤' }, { group: 'desk', label: '책상', icon: '🪑' }], WD_DESK_TAB: () => '__desk__',
+    partsInGroup: g => g === 'head' ? (st.two ? [HAT, GLS] : [HAT]) : [], groupOfCat: () => 'head', partsInCat: c => parts.filter(p => p.cat === c), partsInCatFor: (c, g) => parts.filter(p => p.cat === c && !!p.gacha === !!g),
+    savedParts: () => parts, isAdmin: () => st.admin, isPremium: () => st.premium, _wdLicenseDesks: () => [], findMySeat: () => st.seat,
     escHtml: x => String(x), entriesForCat: () => [], partEntryId: e => e && e.id, toast: m => log.push('toast:' + m),
     gachaMod: () => ({ isGachaPart: p => !!(p && p.gacha), gachaCount: id => owned[id] | 0, onAlbumShow: () => log.push('albumShow'), renderGachaInv: () => log.push('renderAlbum'), isInvOpen: () => false }),
     twNav: { NAV: { PROGRAM_SETTINGS: 'programSettings' }, go: (n, tab) => log.push('nav:' + n + ':' + tab) },
+    paging: PAGING,
   });
   let M;
   try{
@@ -119,6 +127,10 @@ function behave(src, opt){
   }catch(e){ t(false, '가짜 DOM 위에서 만들기 — ' + String(e.message || e).slice(0, 80)); return r; }
   const wrap = els.wardrobeContent, tabs = els.wardrobeTabs;
   const groupBtns = () => tabs.children[0].children;
+  /* 칸 묶음은 찾기 칸 아래 몸통(.wd-cat-body) 안에 그린다 — 머리 · 칸 · 번호 줄 */
+  const bodyOf = () => { const sec = wrap.children[0]; return (sec && sec.children.find(c => c.className === 'wd-cat-body')) || { children: [] }; };
+  const gridsOf = () => bodyOf().children.filter(c => c.className === 'wd-grid');
+  const pagerOf = () => bodyOf().children.find(c => c.className === 'wd-pg');
   try{
     /* 라이선스 없음 — 처음 열면 «도감». 부팅 때처럼 카탈로그 도착이 창이 닫힌 채 먼저 한 번 그린다(기본 탭을 채운다) */
     M.renderWardrobe(); log.length = 0;
@@ -138,23 +150,75 @@ function behave(src, opt){
     t(!log.length, '  지금 탭을 또 누르면 아무것도 안 한다(서버 읽기 늘지 않게)');
     /* 라이선스 있음 — 카테고리 칸 */
     st.premium = true; M.selectWdTab('hat'); M.renderWardrobe();
-    const grid = (wrap.children[0].children.find(c => c.className === 'wd-grid') || { children: [] }).children;
+    const grid = (gridsOf()[0] || { children: [] }).children;
     const names = grid.map(c => c.textContent);
     t(names.some(n => /밀짚/.test(n)) && names.some(n => /별 모자/.test(n)) && !names.some(n => /눈사람/.test(n)), '★ 카테고리 칸 — 꾸미기 파츠 + 뽑은 가챠 파츠(안 뽑은 것은 도감에만)');
     const g1 = grid.find(c => /별 모자/.test(c.textContent));
     t(g1 && g1.children.some(c => /wd-card-gacha/.test(c.className) && c.textContent === '🎰'), '  뽑은 가챠 칸에 🎰');
     st.admin = true; M.renderWardrobe();
-    const grid2 = wrap.children[0].children.filter(c => c.className === 'wd-grid').flatMap(g => g.children);
+    const grid2 = gridsOf().flatMap(g => g.children);
     const ga = grid2.find(c => /별 모자/.test(c.textContent)), h1 = grid2.find(c => /밀짚/.test(c.textContent));
     t(ga && h1 && !ga.children.some(c => c.className === 'wd-card-x') && h1.children.some(c => c.className === 'wd-card-x'), '  관리자 삭제 · 수정은 꾸미기 파츠만(가챠는 도감 탭에서)');
     t(/도감/.test(wrap.textContent) && /2개/.test(wrap.textContent), '  관리자 안내 — 가챠 파츠 수 · 도감 탭에서 관리');
+    /* 📄 페이지 · 🔍 찾기 — 기본 파츠 20개 더(안 함 + 밀짚 + 별 모자 + 20 = 23칸 → 2페이지) */
+    st.admin = false;
+    for(let i = 0; i < 20; i++) parts.push({ id: 'm' + i, cat: 'hat', name: (i === 7 ? 'Big Star' : '모자') + ' ' + i });
+    M.renderWardrobe();
+    const cards = () => gridsOf().flatMap(g => g.children);
+    const h3 = (wrap.children[0].children.find(c => c.className === 'wd-cat-head') || { children: [] }).children[0];
+    t(h3 && h3.textContent === '🎩 모자 · 22개', '★ 분류 머리줄 — «🎩 모자 · 22개»(뽑은 가챠 포함 · [안 함] 뺌)');
+    const pg = pagerOf();
+    t(cards().length === 16 && pg && pg.children.map(b => b.textContent).join(' ') === '◀ 1 2 ▶', '★ 한 페이지 16칸 · 칸 아래 ◀ 1 2 ▶');
+    t(pg && /\bon\b/.test(pg.children[1].className) && pg.children[0].disabled, '  지금 페이지는 켜진 표시 · 첫 페이지에서 ◀ 는 못 누름');
+    pg.children[3].onclick();
+    t(cards().length === 7 && /\bon\b/.test(pagerOf().children[2].className) && bodyOf().children.filter(c => c.className === 'wd-divider').length === 1, '  ▶ — 둘째 페이지 7칸 · 묶음 머리는 걸친 묶음만');
+    M.renderWardrobe();
+    t(cards().length === 7, '  다시 그려도 보던 페이지를 기억한다');
+    const findIn = wrap.children[0].children.find(c => c.className === 'wd-find').children[1];
+    findIn.value = '모자'; findIn.oninput();
+    t(cards().length === 16 && /\bon\b/.test(pagerOf().children[1].className), '★ 🔍 찾기 — 보던 페이지와 상관없이 1페이지부터(«모자» 20개 → 16칸 · 2페이지)');
+    findIn.value = '  big STAR '; findIn.oninput();
+    t(cards().length === 1 && /Big Star/.test(cards()[0].textContent) && !pagerOf(), '★ 🔍 찾기 — 대소문자 · 앞뒤 공백 무시 · 1페이지로 · 한 페이지면 번호 줄 없음');
+    findIn.value = '없는이름'; findIn.oninput();
+    t(!cards().length && bodyOf().children.some(c => c.className === 'wd-find-none' && c.textContent === '찾는 파츠가 없어요'), '  없으면 «찾는 파츠가 없어요» 한 줄');
+    findIn.value = ''; findIn.oninput();
+    t(cards().length === 7, '  비우면 원래대로 — 보던 둘째 페이지');
+    parts.splice(parts.length - 15, 15);   // 22개 → 7개(8칸) · 둘째 페이지가 없어진다
+    M.renderWardrobe();
+    t(cards().length === 8 && !pagerOf(), '  목록이 줄어 그 페이지가 없으면 마지막 페이지 · 한 페이지면 번호 줄 없음');
+    /* 🎛️ 상세조정 중인 칸이 안 보이게 되면 조정을 닫는다 — «모자 0»(1쪽)을 입은 채 우클릭 → ▶ / 찾기로 빠짐 */
+    st.seat = { charDef: { equippedParts: { hat: { id: 'm0' } } } };
+    for(let i = 0; i < 15; i++) parts.push({ id: 'n' + i, cat: 'hat', name: '깃털 ' + i });   // 7개 + 15 = 22개 → 23칸 · 2페이지
+    M.renderWardrobe();
+    const adjs = () => cards().filter(c => c.className === 'wd-adj');
+    const openAdj = () => { const c = cards().find(x => /\bwd-card\b/.test(x.className) && /모자 0/.test(x.textContent)); c.oncontextmenu({ preventDefault(){} }); };
+    openAdj();
+    const adjOn = !!M.activeWdAdj() && M.activeWdAdj().id === 'm0' && adjs().length === 1;
+    t(adjOn && !!pagerOf(), '  입은 파츠를 우클릭 — 상세조정(.wd-adj)이 그 칸 뒤에 · 2페이지');
+    pagerOf().children[pagerOf().children.length - 1].onclick();
+    t(adjOn && M.activeWdAdj() === null && !adjs().length && cards().length === 7, '★ 상세조정 중 ▶ 로 다른 페이지 — 조정을 닫는다(activeWdAdj 없음 · .wd-adj 없음)');
+    pagerOf().children[0].onclick(); openAdj();
+    const adjOn2 = !!M.activeWdAdj() && adjs().length === 1;
+    const findIn2 = wrap.children[0].children.find(c => c.className === 'wd-find').children[1];
+    findIn2.value = '깃털'; findIn2.oninput();
+    t(adjOn2 && M.activeWdAdj() === null && !adjs().length && cards().length === 15, '★ 상세조정 중 찾는 말로 그 파츠가 빠짐 — 조정을 닫는다');
+    /* 🔍 분류를 바꾸면 찾는 말을 비운다 — 모자에서 «깃털» 을 찾던 채 하위 분류를 안경으로 */
+    st.two = true;
+    for(let i = 0; i < 3; i++) parts.push({ id: 'e' + i, cat: 'glasses', name: '둥근 안경 ' + i });
+    M.renderWardrobe();
+    const findIn3 = wrap.children[0].children.find(c => c.className === 'wd-find').children[1];
+    const kept = findIn3.value === '깃털' && cards().length === 15;
+    const glsBtn = tabs.children[1].children.find(b => /안경/.test(b.textContent));
+    glsBtn.onclick();
+    const findIn4 = wrap.children[0].children.find(c => c.className === 'wd-find').children[1];
+    t(kept && M.currentWdTab() === 'glasses' && findIn4.value === '' && cards().length === 4, '★ 하위 분류를 바꾸면 찾는 말을 비운다(입력칸 빈칸 · 칸 전체 — 안 함 + 안경 3)');
   }catch(e){ t(false, '동작 판정 중 던짐 — ' + String(e.message || e).slice(0, 120)); }
   return r;
 }
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
-say('── 2-2. 도감 탭 · 라이선스 · 뽑은 가챠');
+say('── 2-2. 도감 탭 · 라이선스 · 뽑은 가챠 · 📄 페이지 · 🔍 찾기');
 behave(MOD).forEach(([ok, msg]) => chk(ok, msg));
 say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
@@ -175,6 +239,12 @@ const behaveBreaks = [
   ['안 뽑은 가챠도 칸에', m => m.replace("!gachaMod().isGachaPart(p) || gachaMod().gachaCount(p.id)>0", '!0')],
   ['도감 탭에서 서버를 안 맞춤', m => m.replace('if(currentWdTab === WD_ALBUM_TAB) gachaMod().onAlbumShow(opts);', '')],
   ['가챠 칸에도 관리자 ×', m => m.replace('if(isAdmin() && !isGacha){', 'if(isAdmin()){')],
+  ['보던 페이지를 기억 안 함', m => m.replace("(_wdPageByCat.get(info.cat) || 0)", "0")],
+  ['찾는 말을 안 넘김', m => m.replace("paging.buildCells({ defaultList, commissionList, withDefault, query:_wdFind.q })", "paging.buildCells({ defaultList, commissionList, withDefault, query:'' })")],
+  ['한 페이지여도 번호 줄', m => m.replace('if(view.pages > 1){', 'if(true){')],
+  ['찾아도 페이지를 1로 안 돌림', m => m.replace("_wdFind.q = findIn.value; _wdFind.page = 0;", "_wdFind.q = findIn.value; _wdFind.page = 1;")],
+  ['안 보이는 칸의 상세조정을 안 닫음', m => m.replace("if(activeWdAdj && !view.groups.some(g=>g.cells.some(c=>c.rec && c.rec.id === activeWdAdj.id))){ activeWdAdj = null; _clearMultiPanelRef(); }", '')],
+  ['분류를 바꿔도 찾는 말을 안 비움', m => m.replace("if(_wdFind.cat !== info.cat) _wdFind = { cat:info.cat, q:'', page:0 };", '')],
 ];
 for(const [name, fm] of behaveBreaks){
   const m2 = fm(MOD);

@@ -1177,6 +1177,7 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   glbFailWhy: (...a)=>catalogGlbMod.glbFailWhy(...a),
   setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),
   swThumb: (...a)=>assetCardsMod.swThumb(...a),
+  paging: TwWardrobePaging,
 });
 /* ══ 🖍️ 파츠에 직접 그리기 ══════════════════════════════════════════════════
    꾸미기창 안에서만 끝난다 — 별도 창도, 별도 단계도 없다. 미리보기가 그대로 그림판이 된다.
