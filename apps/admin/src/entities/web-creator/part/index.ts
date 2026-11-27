@@ -28,6 +28,8 @@ export {
   PIECE_SURFACE,
   PIECE_TARGET,
   pngSize,
+  SHELF_SCOPE,
+  toServerState,
   LIGHT_SLOTS,
   SLOT_LABELS,
   STATUS_LABELS,
@@ -38,6 +40,7 @@ export {
   type PartNames,
   type WebPart,
   type WebPartDraft,
+  type WebPartList,
   type WebPartSlot,
   type WebPiece,
 } from './model/webPart';

@@ -1,4 +1,4 @@
-/* 웹 생성기 파츠 — 서버 규격 grk-cmd/t-w#517(/v1 꾸미기 상품). 홈페이지 캐릭터 만들기가 기본 그림 뒤에 붙여 보여 준다.
+/* 웹 생성기 파츠 — 서버 카탈로그의 그림 상품(/v2/admin/catalog/products · 처음 규격 grk-cmd/t-w#517). 홈페이지 캐릭터 만들기가 기본 그림 뒤에 붙여 보여 준다.
    이 화면은 «그림 조각 하나짜리 상품» 을 파츠 하나로 다룬다(여러 조각 · 파일 보관함 · 권한 고르기는 다음 일).
    검사 규칙은 홈페이지(apps/web model/remote-parts.ts)와 서버가 같은 값을 쓴다 — 셋 중 하나만 바꾸지 않는다. */
 
@@ -67,8 +67,8 @@ export interface WebPart {
   /** 이 화면이 고칠 수 있는 «그림(얼굴) 조각 하나짜리» 상품이면 그 조각 · 아니면 null(상태 · 순서만) */
   piece: WebPiece | null;
   pieceCount: number;
-  /** 진열 순서(작은 값이 앞) — 서버가 매긴다 · 없거나 틀리면 맨 뒤 */
-  position: number;
+  /** 고칠 때 싣는 번호 — 그 사이 남이 고쳤으면 서버가 409 */
+  version: number;
 }
 
 /** 폼이 고치는 칸 — 그림은 따로(새로 고를 때만 올린다) */
@@ -130,71 +130,79 @@ export function toBase64(bytes: Uint8Array): string {
   return btoa(s);
 }
 
-/** 응답 값이 파일 주소인가(아니면 해시) — 주소 칸(thumb · variants)에 해시가 와도 미리보기로 쓰지 않게 */
-const isFileUrl = (v: string) => v.includes('/');
-
-/** 파일 해시 — 관리자 응답의 …Hash 칸(#517 §7-2), 없으면 파일 주소의 이름(이름이 곧 내용 해시 · §6-2) */
-function fileHash(given: unknown, src: unknown): string | null {
-  if (typeof given === 'string' && given) return given;
-  if (typeof src !== 'string') return null;
-  return /\/v1\/assets\/([A-Za-z0-9_-]+)\.png$/.exec(src)?.[1] ?? null;
+/** 상품 목록 한 벌 — 진열 순서대로 · 순서 바꾸기에 실을 진열대 번호 */
+export interface WebPartList {
+  parts: WebPart[];
+  /** 진열대 `PRODUCT:baseModel` 의 version — 진열대가 아직 없으면 0 */
+  shelfVersion: number;
 }
 
-function parsePiece(v: unknown): WebPiece | null {
+/** 이 모델 상품의 진열대 범위 — 서버 ShelfScope.OfProducts(`PRODUCT:{모델}`) */
+export const SHELF_SCOPE = `PRODUCT:${PIECE_TARGET.kind}`;
+
+/** 서버 상태(DRAFT · ACTIVE · ARCHIVED) ↔ 이 화면의 상태 */
+export const toServerState = (s: ItemStatus) => s.toUpperCase();
+const fromServerState = (v: unknown): ItemStatus | null => {
+  const s = typeof v === 'string' ? v.toLowerCase() : '';
+  return isStatus(s) ? s : null;
+};
+
+const hashOf = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
+
+/** 해시 → 그림 주소. 응답의 files 에 있으면 그것(Storage 주소), 없으면 서버가 주는 공개 주소 */
+type FileUrl = (hash: string) => string;
+
+function parsePiece(v: unknown, url: FileUrl): WebPiece | null {
   if (!isObj(v)) return null;
-  const { id, kind, target, surface, slot, src, w, h } = v;
+  const { id, kind, target, surface, slot, w, h } = v;
   if (kind !== PIECE_KIND || !isObj(target) || target.kind !== PIECE_TARGET.kind || surface !== PIECE_SURFACE)
     return null;
-  if (typeof id !== 'string' || !id || !isSlot(slot) || typeof src !== 'string' || !sizeOk(w) || !sizeOk(h))
-    return null;
-  // 요청 칸 이름 규칙(§2): 응답의 variants 는 주소 · variantHashes 는 해시
-  const closed = isObj(v.variants) && typeof v.variants.closed === 'string' ? v.variants.closed : null;
-  const closedIsUrl = closed !== null && isFileUrl(closed);
-  const closedHash = isObj(v.variantHashes) ? v.variantHashes.closed : null;
-  return {
-    id,
-    slot,
-    src,
-    closedSrc: closedIsUrl ? closed : null,
-    w,
-    h,
-    image: fileHash(v.imageHash, src),
-    // 해시를 모르면 null — 감은 그림이 있는데 null 이면 고치기가 막는다(모르고 빼지 않게)
-    closedImage: fileHash(closedHash, closedIsUrl ? closed : null) ?? (closedIsUrl ? null : closed),
-  };
+  const image = hashOf(v.imageHash);
+  if (typeof id !== 'string' || !id || !isSlot(slot) || !image || !sizeOk(w) || !sizeOk(h)) return null;
+  const closed = isObj(v.variantHashes) ? hashOf(v.variantHashes.closed) : null;
+  return { id, slot, src: url(image), closedSrc: closed && url(closed), w, h, image, closedImage: closed };
 }
 
-function parseItem(v: unknown): WebPart | null {
-  if (!isObj(v) || !isObj(v.name) || !isObj(v.target)) return null;
-  if (typeof v.id !== 'string' || !v.id || v.target.kind !== PIECE_TARGET.kind || !isStatus(v.status))
+function parseProduct(v: unknown, url: FileUrl): WebPart | null {
+  if (!isObj(v) || !isObj(v.names) || !isObj(v.target) || !isObj(v.listing)) return null;
+  const status = fromServerState(v.listing.state);
+  if (typeof v.productId !== 'string' || !v.productId || v.target.kind !== PIECE_TARGET.kind || !status)
     return null;
+  if (typeof v.version !== 'number' || !Number.isInteger(v.version)) return null;
   const pieces = Array.isArray(v.pieces) ? v.pieces : [];
   const name = {} as PartNames;
-  for (const l of PART_LANGS) name[l] = typeof v.name[l] === 'string' ? (v.name[l] as string) : '';
-  const piece = pieces.length === 1 ? parsePiece(pieces[0]) : null;
-  // 썸네일도 주소일 때만 그린다(해시로 오면 조각 그림으로)
-  const thumb = typeof v.thumb === 'string' && isFileUrl(v.thumb) ? v.thumb : null;
+  for (const l of PART_LANGS) name[l] = typeof v.names[l] === 'string' ? (v.names[l] as string) : '';
+  const piece = pieces.length === 1 ? parsePiece(pieces[0], url) : null;
+  const thumb = hashOf(v.thumb);
   return {
-    id: v.id,
+    id: v.productId,
     name,
-    status: v.status,
-    thumb: thumb ?? piece?.src ?? null,
+    status,
+    thumb: thumb ? url(thumb) : (piece?.src ?? null),
     piece,
     pieceCount: pieces.length,
-    position: typeof v.position === 'number' && Number.isFinite(v.position) ? v.position : Infinity,
+    version: v.version,
   };
 }
 
-/** 관리자 목록 응답 data({ products }) → 상품 목록 · 진열 순서(position 작은 값이 앞 · 같으면 id).
-    관리자 응답은 배열 순서를 약속하지 않는다(#517 §7-2) — ▲▼ 가 화면 순서를 통째로 보내므로 여기서 맞춘다 */
-export function parseAdminParts(data: unknown): WebPart[] {
+/**
+ * 관리자 카탈로그 응답 data({ products, shelves, files }) → 이 모델의 상품 · 진열대 번호.
+ * 서버 배열 순서가 곧 진열 순서다(GET /v2/admin/catalog). assetBase 는 API 기준 주소 — files 에 없는 해시는
+ * `{assetBase}/v2/catalog/assets/{hash}.png` 로 받는다.
+ */
+export function parseAdminParts(data: unknown, assetBase: string): WebPartList {
+  const files = isObj(data) && isObj(data.files) ? data.files : {};
+  const url: FileUrl = (hash) => {
+    const f = files[hash];
+    return typeof f === 'string' && f ? f : `${assetBase}/v2/catalog/assets/${hash}.png`;
+  };
   const list = isObj(data) && Array.isArray(data.products) ? data.products : [];
-  return list
-    .map(parseItem)
-    .filter((p): p is WebPart => p !== null)
-    .sort((a, b) =>
-      a.position === b.position ? (a.id < b.id ? -1 : a.id > b.id ? 1 : 0) : a.position < b.position ? -1 : 1,
-    );
+  const shelves = isObj(data) && Array.isArray(data.shelves) ? data.shelves : [];
+  const shelf = shelves.find((s): s is Record<string, unknown> => isObj(s) && s.scope === SHELF_SCOPE);
+  return {
+    parts: list.map((v) => parseProduct(v, url)).filter((p): p is WebPart => p !== null),
+    shelfVersion: shelf && typeof shelf.version === 'number' ? shelf.version : 0,
+  };
 }
 
 /** 목록에서 i 번째를 한 칸 옮긴 id 순서 — 끝을 넘으면 null */

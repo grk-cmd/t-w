@@ -228,6 +228,7 @@ export function WebPartEditor() {
   const env = useEnv();
   const [archived, setArchived] = useState(false);
   const parts = useWebParts(archived);
+  const rows = parts.data?.parts;
   // 기본 파츠가 남았는지는 단종까지 봐야 한다(단종한 것을 다시 올리지 않게) — 두 목록은 탭 상태와 따로 읽는다
   const live = useWebParts(false);
   const gone = useWebParts(true);
@@ -239,7 +240,7 @@ export function WebPartEditor() {
   const changeStatus = async (p: WebPart, to: ItemStatus, ask: string) => {
     if (!confirm(withProdMark(env, `«${p.name.ko}» — ${ask}`))) return;
     try {
-      await status.mutateAsync({ id: p.id, status: to });
+      await status.mutateAsync({ part: p, status: to });
       toast(`${STATUS_LABELS[to]}(으)로 바꿨어요`);
     } catch (err) {
       toast(webPartErrorMessage(err, '바꾸지 못했어요'));
@@ -258,13 +259,15 @@ export function WebPartEditor() {
   };
 
   const builtinLeft =
-    !archived && live.data && gone.data ? missingBuiltins([...live.data, ...gone.data]).length : 0;
+    !archived && live.data && gone.data
+      ? missingBuiltins([...live.data.parts, ...gone.data.parts]).length
+      : 0;
 
   const move = async (i: number, by: -1 | 1) => {
-    const ids = parts.data && movedIds(parts.data, i, by);
-    if (!ids) return;
+    const ids = parts.data && movedIds(parts.data.parts, i, by);
+    if (!ids || !parts.data) return;
     try {
-      await reorder.mutateAsync(ids);
+      await reorder.mutateAsync({ ids, shelfVersion: parts.data.shelfVersion });
     } catch (err) {
       toast(webPartErrorMessage(err, '순서를 바꾸지 못했어요'));
     }
@@ -274,7 +277,7 @@ export function WebPartEditor() {
     <section className="card">
       <div className="card-head">
         <h2>웹 생성기 파츠</h2>
-        <span className="soft">{parts.data && `${parts.data.length}개`}</span>
+        <span className="soft">{rows && `${rows.length}개`}</span>
         <label className={styles.check}>
           <input
             type="checkbox"
@@ -323,12 +326,12 @@ export function WebPartEditor() {
             : errorMessage(parts.error, '목록을 불러오지 못했어요')}
         </p>
       )}
-      {parts.data && parts.data.length === 0 && (
+      {rows && rows.length === 0 && (
         <p className="soft">{archived ? '단종한 파츠가 없어요.' : '아직 올린 파츠가 없어요.'}</p>
       )}
-      {parts.data && parts.data.length > 0 && (
+      {rows && rows.length > 0 && (
         <div className="list">
-          {parts.data.map((p, i) =>
+          {rows.map((p, i) =>
             editing === p.id && editable(p) ? (
               <PartForm key={p.id} part={p} onDone={() => setEditing(null)} />
             ) : (
@@ -371,7 +374,7 @@ export function WebPartEditor() {
                       className="btn"
                       aria-label="뒤로"
                       onClick={() => void move(i, 1)}
-                      disabled={reorder.isPending || i === parts.data.length - 1}
+                      disabled={reorder.isPending || i === rows.length - 1}
                     >
                       ▼
                     </button>

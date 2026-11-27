@@ -72,7 +72,7 @@ export async function importBuiltins(
   all: readonly BuiltinPart[] = BUILTIN_PARTS,
 ): Promise<number> {
   const [live, archived] = await Promise.all([listWebParts(api), listWebParts(api, true)]);
-  const todo = missingBuiltins([...live, ...archived], all);
+  const todo = missingBuiltins([...live.parts, ...archived.parts], all);
   let done = 0;
   onProgress(done, todo.length);
   try {
@@ -95,7 +95,7 @@ export async function importBuiltins(
 /** 처음 얼굴 파츠가 자기 자리의 맨 앞이 아니면 진열 순서 맨 앞으로(나머지 순서는 그대로).
     남은 기본 파츠를 가져올 때마다 다시 맞춘다 — 그 사이 손으로 바꾼 자리 순서도 처음 얼굴이 맨 앞으로 돌아온다 */
 async function leadFirst(api: Api | null, all: readonly BuiltinPart[]): Promise<void> {
-  const live = await listWebParts(api);
+  const { parts: live, shelfVersion } = await listWebParts(api);
   const leads = all
     .filter((b) => b.lead)
     .map((b) => live.find(sameAs(b)))
@@ -106,5 +106,6 @@ async function leadFirst(api: Api | null, all: readonly BuiltinPart[]): Promise<
   await reorderWebParts(
     api,
     [...leads, ...rest].map((p) => p.id),
+    shelfVersion,
   );
 }

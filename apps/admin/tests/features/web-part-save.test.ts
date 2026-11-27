@@ -6,7 +6,6 @@ import type { Api, ApiSendMethod, ApiSendOptions } from '@/shared/api';
 const draft: WebPartDraft = { slot: 'mouth', name: { ko: '입', en: 'Mouth', ja: 'くち' }, w: 20, h: 10 };
 const IMG = new Uint8Array([1]);
 const SHUT = new Uint8Array([2]);
-const FILE = (h: string) => `https://api.together-working.com/v1/assets/${h}.png`;
 
 /** 파일 올리기는 차례로 h2up1 · h2up2 … 를 돌려준다 · failUpload 면 올리기에서 던진다 */
 function fakeApi(failUpload = false) {
@@ -30,29 +29,34 @@ function fakeApi(failUpload = false) {
 }
 
 const existing = (): WebPart => {
-  const p = parseAdminParts({
-    products: [
-      {
-        id: 'i1',
-        target: { kind: 'baseModel' },
-        name: draft.name,
-        status: 'active',
-        pieces: [
-          {
-            id: 'pc1',
-            kind: 'decal',
-            target: { kind: 'baseModel' },
-            surface: 'face',
-            slot: 'mouth',
-            src: FILE('h2a'),
-            variants: { closed: FILE('h2c') },
-            w: 20,
-            h: 10,
-          },
-        ],
-      },
-    ],
-  })[0];
+  const p = parseAdminParts(
+    {
+      products: [
+        {
+          productId: 'i1',
+          target: { kind: 'baseModel' },
+          names: draft.name,
+          thumb: 'h2a',
+          listing: { state: 'ACTIVE' },
+          version: 2,
+          pieces: [
+            {
+              id: 'pc1',
+              kind: 'decal',
+              target: { kind: 'baseModel' },
+              surface: 'face',
+              slot: 'mouth',
+              imageHash: 'h2a',
+              variantHashes: { closed: 'h2c' },
+              w: 20,
+              h: 10,
+            },
+          ],
+        },
+      ],
+    },
+    'https://api.test',
+  ).parts[0];
   if (!p) throw new Error('시험용 상품을 읽지 못했다');
   return p;
 };
@@ -70,7 +74,7 @@ describe('웹 생성기 파츠 저장 — 파일 → 감은 그림 → 상품 �
       'UPLOAD:2',
       'POST:',
     ]);
-    expect(calls[2]?.body).toMatchObject({ thumbHash: 'h2up1' });
+    expect(calls[2]?.body).toMatchObject({ thumb: 'h2up1' });
     expect(pieceOf(calls[2])).toMatchObject({ imageHash: 'h2up1', variantHashes: { closed: 'h2up2' } });
   });
 
@@ -84,6 +88,7 @@ describe('웹 생성기 파츠 저장 — 파일 → 감은 그림 → 상품 �
     const keep = fakeApi();
     await savePart(keep.api, { part: existing(), draft });
     expect(keep.calls.map((c) => c.method)).toEqual(['PATCH']);
+    expect(keep.calls[0]?.body).toMatchObject({ version: 2 }); // 읽은 번호를 싣는다
     expect(pieceOf(keep.calls[0])).toMatchObject({ imageHash: 'h2a', variantHashes: { closed: 'h2c' } });
 
     const drop = fakeApi();
@@ -95,7 +100,7 @@ describe('웹 생성기 파츠 저장 — 파일 → 감은 그림 → 상품 �
     await savePart(change.api, { part: existing(), draft, closedImage: SHUT });
     expect(change.calls.map((c) => c.method)).toEqual(['UPLOAD', 'PATCH']);
     expect(pieceOf(change.calls[1])).toMatchObject({ imageHash: 'h2a', variantHashes: { closed: 'h2up1' } });
-    expect(change.calls[1]?.body).not.toHaveProperty('thumbHash'); // 본 그림은 그대로
+    expect(change.calls[1]?.body).not.toHaveProperty('thumb'); // 본 그림은 그대로
   });
 
   it('올리다 실패하면 상품은 쓰지 않는다', async () => {

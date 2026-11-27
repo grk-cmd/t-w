@@ -1,18 +1,23 @@
 import { useQuery } from '@tanstack/react-query';
 import { ApiError, useApi, type Api } from '@/shared/api';
-import { errorMessage } from '@/shared/lib';
+import { createPayloadRequestId, errorMessage } from '@/shared/lib';
 import {
   parseAdminParts,
   PIECE_KIND,
   PIECE_SURFACE,
   PIECE_TARGET,
+  SHELF_SCOPE,
+  toServerState,
   type ItemStatus,
   type WebPart,
   type WebPartDraft,
+  type WebPartList,
 } from '../model/webPart';
 
-const PRODUCTS = '/v1/admin/products';
-const ASSETS = '/v1/admin/assets';
+// 서버 카탈로그 관리자 길(AdminCatalogController) — 목록은 카탈로그 한 벌을 상품만 · 이 모델로 잘라 받는다.
+const CATALOG = '/v2/admin/catalog';
+const PRODUCTS = `${CATALOG}/products`;
+const ASSETS = `${CATALOG}/assets`;
 export const WEB_PARTS_KEY = ['webParts'] as const;
 
 /** 이 환경에는 API 가 없다(dev · e2e) — 웹 생성기 파츠는 자체 서버에만 있어 예전 방식(RTDB)이 없다 */
@@ -35,12 +40,17 @@ const need = (api: Api | null): Api => {
   if (!api) throw new NoApiError();
   return api;
 };
-const one = (id: string) => `${PRODUCTS}/${encodeURIComponent(id)}`;
 
-/** 이 모델의 상품 — 기본은 단종을 뺀 것(순서 바꾸기는 이 목록 전부를 보내야 한다), archived 면 단종만 */
-export async function listWebParts(api: Api | null, archived = false): Promise<WebPart[]> {
-  const params = { target: PIECE_TARGET.kind, status: archived ? 'archived' : undefined };
-  return parseAdminParts(await need(api).get<unknown>(PRODUCTS, params));
+/** 이 모델의 상품 — 기본은 단종을 뺀 것(순서 바꾸기는 이 목록 전부를 보낸다), archived 면 단종만. 서버 배열 순서가 진열 순서 */
+export async function listWebParts(api: Api | null, archived = false): Promise<WebPartList> {
+  const a = need(api);
+  const params = {
+    only: 'products',
+    target: PIECE_TARGET.kind,
+    state: archived ? toServerState('archived') : undefined,
+  };
+  const list = parseAdminParts(await a.get<unknown>(CATALOG, params), a.baseUrl);
+  return archived ? list : { ...list, parts: list.parts.filter((p) => p.status !== 'archived') };
 }
 
 /** 파일 한 장 올리기 → 해시. 상품은 이 해시만 가리킨다(같은 파일은 서버에 한 벌) */
@@ -62,16 +72,19 @@ const pieceBody = (draft: WebPartDraft, image: string, closed: string | null) =>
   h: draft.h,
 });
 
+// 새 상품은 요청 번호가 꼭 있다 — 닿지 못해 다시 보내면 같은 번호라 서버가 두 번 만들지 않는다
+const createOnce = createPayloadRequestId();
+
 /** 새 파츠 = 조각 하나짜리 상품(서버가 «초안» 으로 만든다). 썸네일은 그 그림 · 권한은 기본(모두) */
 export function createWebPart(api: Api | null, draft: WebPartDraft, image: string, closedImage?: string) {
-  return need(api).send<unknown>('POST', PRODUCTS, {
-    body: {
-      target: PIECE_TARGET,
-      name: draft.name,
-      thumbHash: image,
-      pieces: [pieceBody(draft, image, closedImage ?? null)],
-    },
-  });
+  const a = need(api);
+  const body = {
+    target: PIECE_TARGET,
+    names: draft.name,
+    thumb: image,
+    pieces: [pieceBody(draft, image, closedImage ?? null)],
+  };
+  return createOnce(body, (requestId) => a.send<unknown>('POST', PRODUCTS, { body: { requestId, ...body } }));
 }
 
 /** 고칠 때 바꾸는 파일 — image: 새 그림 해시(없으면 그대로) · closed: 새 감은 그림 해시 · null 이면 뺌 · 없으면 그대로 */
@@ -80,7 +93,9 @@ export interface PartFiles {
   closed?: string | null;
 }
 
-/** 고치기 — 조각 목록을 통째로 바꾸는 규격이라 안 바꾼 그림도 지금 해시를 다시 보낸다(조각 id 는 그대로) */
+const one = (part: WebPart) => `${PRODUCTS}/${encodeURIComponent(part.id)}`;
+
+/** 고치기 — 조각 목록을 통째로 바꾸는 규격이라 안 바꾼 그림도 지금 해시를 다시 보낸다(조각 id 는 그대로) · 읽은 version 을 싣는다 */
 export function updateWebPart(api: Api | null, part: WebPart, draft: WebPartDraft, files: PartFiles = {}) {
   const a = need(api);
   const p = part.piece;
@@ -90,28 +105,32 @@ export function updateWebPart(api: Api | null, part: WebPart, draft: WebPartDraf
   const closed = files.closed === undefined ? p.closedImage : files.closed;
   if (files.closed === undefined && p.closedSrc && !p.closedImage)
     throw new Error('지금 감은 얼굴 그림의 이름을 알 수 없어요 — 다시 고르거나 빼 주세요');
-  return a.send<unknown>('PATCH', one(part.id), {
+  return a.send<unknown>('PATCH', one(part), {
     body: {
-      name: draft.name,
-      ...(files.image ? { thumbHash: files.image } : {}),
+      version: part.version,
+      names: draft.name,
+      ...(files.image ? { thumb: files.image } : {}),
       pieces: [{ id: p.id, ...pieceBody(draft, image, closed) }],
     },
   });
 }
 
 /** 상태 바꾸기 — 초안 · 진열 · 단종(지우지 않는다 · 되돌릴 수 있다) */
-export function setWebPartStatus(api: Api | null, id: string, status: ItemStatus) {
-  return need(api).send<unknown>('PATCH', one(id), { body: { status } });
+export function setWebPartStatus(api: Api | null, part: WebPart, status: ItemStatus) {
+  return need(api).send<unknown>('PATCH', one(part), {
+    body: { version: part.version, listing: { state: toServerState(status) } },
+  });
 }
 
-/** 진열 순서 다시 매기기 — ids 는 이 모델의 단종 아닌 상품 전부(초안 포함) */
-export function reorderWebParts(api: Api | null, ids: readonly string[]) {
-  return need(api).send<unknown>('PUT', `${PRODUCTS}/order`, { body: { target: PIECE_TARGET, ids } });
+/** 진열 순서 다시 매기기 — ids 는 이 모델의 단종 아닌 상품 전부(초안 포함) · shelfVersion 은 목록과 같이 읽은 진열대 번호 */
+export function reorderWebParts(api: Api | null, ids: readonly string[], shelfVersion: number) {
+  return need(api).send<unknown>('PUT', `${CATALOG}/shelves/${encodeURIComponent(SHELF_SCOPE)}`, {
+    body: { version: shelfVersion, order: ids },
+  });
 }
 
 export function useWebParts(archived = false) {
   const api = useApi();
-  // 서버가 아직 이 길을 모르면(배포 전) 404 — 다시 해 봐도 같다
   return useQuery({
     queryKey: [...WEB_PARTS_KEY, archived ? 'archived' : 'live'],
     queryFn: () => listWebParts(api, archived),
