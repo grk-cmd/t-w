@@ -5,7 +5,7 @@
      PART_CATS · PART_DEFAULT_OFFSET · PART_GROUPS · Presence · WD_DESK_TAB · gachaMod · isAdmin · isPremium · partPaintMod · savedParts · slots 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 51개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: ORBIT_DRAG_DIR · _clearMultiPanelRef · _wdAfterMainSwap · activeWdAdj · buildFreeColorPicker · commitWdDraft · createWardrobeAdjPanel · currentWdTab · detachWdGizmo · ensureWdDraft · ensureWdGizmo · placeWdWindows · refreshWdPreviewChar · refreshWdPreviewColorSection · relinkDraftSrc · renderWardrobe · setWdGizmoMode · sizeWdPreview · syncWdGizmoToXf · syncWdPreviewOwner · toggleEquip · updateWdCam · updateWdGizmoForActivePanel · wdCam · wdDraftDef · wdGizmo · wdGizmoMode · wdPreviewBase · wdWinSavedPos · wdScene — app.js 는 wardrobeMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: ORBIT_DRAG_DIR · _clearMultiPanelRef · _wdAfterMainSwap · activeWdAdj · buildFreeColorPicker · commitWdDraft · createWardrobeAdjPanel · currentWdTab · detachWdGizmo · ensureWdDraft · ensureWdGizmo · placeWdWindows · refreshWdPreviewChar · refreshWdPreviewColorSection · relinkDraftSrc · renderWardrobe · setWdGizmoMode · syncWdGizmoToXf · syncWdPreviewOwner · toggleEquip · updateWdCam · updateWdGizmoForActivePanel · wdCam · wdDraftDef · wdGizmo · wdGizmoMode · wdPreviewBase · wdWinSavedPos · wdScene — app.js 는 wardrobeMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwWardrobe — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-wardrobe.js */
@@ -325,6 +325,10 @@ function ensureWdPreview(){
   //   → 0.85(중간값)로 실측 보정. 실행 화면과 체감 밝기가 최대한 비슷하게 맞춘 값.
   // ★ 조명 위치를 실행 화면과 동일하게 (0,5,0) 정수리 위로 — 얼굴 텍스처 조명 방향 통일(요청사항) · 뒤쪽 냉색 바운스 · 정면 필도 실행 화면과 같다
   addRunLights(wdScene, { keyPos: [0, 5, 0], backBounce: true });
+  /* 캔버스 크기는 CSS 가 정한다 — 아래 줄(기즈모 · 귀 · 색 · 그리기)이 생기고 사라지면 바뀐다. 그림판 크기 · 카메라 비율은 여기 한 곳에서만 맞춘다.
+     ⚠️ 줄을 켜고 끄는 곳마다 맞추던 예전 방식은 한 곳을 빠뜨리면 캐릭터가 늘어나 보였다. 맞춘 뒤 바로 그린다(크기를 바꾸면 그림판이 지워진다). */
+  sizeWdPreview();
+  new ResizeObserver(()=>{ sizeWdPreview(); wdPreviewLoop(); }).observe(canvas);
 }
 
 // ★ 꾸미기 미리보기 기즈모 — 상세조정 패널이 열려있는 파츠에 이동/회전/크기 핸들을 띄워서
@@ -453,8 +457,8 @@ function setWdGizmoMode(mode){
 function updateWdGizmoForActivePanel(){
   const bar=document.getElementById('wdGizmoBar');
   /* 🐾 귀 탭은 파츠가 아니라 귀에 핸들을 붙인다(wd-ear.js) — 조정할 귀 줄도 거기서 그린다 */
-  if(wdEar.isActive()){ wdGizmoCat=null; wdGizmoPartId=null; wdEar.syncGizmo(); try{ partPaintMod().refreshWdPicUI(); }catch(_){} updateWdCam(); sizeWdPreview(); return; }
-  if(wdEar.hideRow()){ updateWdCam(); sizeWdPreview(); }   // 귀 탭에서 막 나왔다 — 구도·캔버스 크기 되돌림
+  if(wdEar.isActive()){ wdGizmoCat=null; wdGizmoPartId=null; wdEar.syncGizmo(); try{ partPaintMod().refreshWdPicUI(); }catch(_){} updateWdCam(); return; }
+  if(wdEar.hideRow()) updateWdCam();   // 귀 탭에서 막 나왔다 — 구도 되돌림
   /* 🪑 책상 몸은 책상 묶음 탭(책상 · 책상 위)에서만 보인다 — 다른 탭에서는 옷을 가린다. 책상 탭이면 그 몸에 이동 손잡이를 붙인다 */
   deskPreview.setShown(currentWdGroup === 'desk');
   updateWdCam();   // 책상 묶음 탭 구도로 들어가거나 나온다
@@ -811,7 +815,6 @@ async function refreshWdPreviewChar(){
   wdCamCenter.copy(center);
   wdCamLookY = center.y+size.y*0.12;
   wdCamBaseDist = Math.max(size.y,0.5)*1.5;
-  sizeWdPreview();
   updateWdCam();
   refreshWdPreviewColorSection();
 }
@@ -1020,7 +1023,7 @@ function refreshWdPreviewColorSection(){
   partPaintMod().setWdActivePartRef(null);   // 🖍️ 아래에서 대상이 정해지면 채운다 — 조기 return 은 "대상 없음"이 맞다
   const _finish = ()=>{
     const _nowShown = container.style.display!=='none';
-    if(_nowShown!==_wasShown){ sizeWdPreview(); updateWdCam(); }
+    if(_nowShown!==_wasShown) updateWdCam();
     // 🖍️ 어느 경로로 끝나든 그림칸 UI 를 같이 맞춘다(연필 버튼·그리기 줄).
     try{ partPaintMod().refreshWdPicUI(); }catch(_){}
   };
@@ -2087,7 +2090,6 @@ return {
   refreshWdPreviewColorSection,
   renderWardrobe,
   setWdGizmoMode,
-  sizeWdPreview,
   syncWdGizmoToXf,
   syncWdPreviewOwner,
   toggleEquip,
