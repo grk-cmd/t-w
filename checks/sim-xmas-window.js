@@ -89,6 +89,7 @@ function world(opts){
   const nav = { NAV: { XMAS: 'xmas' }, fns: {}, on(n, f){ this.fns[n] = f; } };
   const api = (o.mod || W).createXmasWindow({ doc, win, THREE: {}, ps1Dither: {}, rules: R, treeMod, net: () => net, serverNow: () => S.now, idbGet, idbPut,
     panelFit: { fitTopLeft: (x, y, w, h, vw, vh) => { S.fits = (S.fits || 0) + 1; return { x: Math.max(0, Math.min(vw - w, x)), y: Math.max(0, Math.min(vh - h, y)) }; } },
+    osDrag: { begin: () => { S.os = (S.os || []); if (!o.launcherOn) return false; S.os.push('start'); return true; }, move: () => (S.os = S.os || []).push('move'), end: () => (S.os = S.os || []).push('end') },
     notifyError: (c) => S.errs.push(c), toast: (m) => S.toasts.push(m), escRegisterWindow: (x) => S.escs.push(x),
     onSizeChange: () => { S.size++; }, onClock: (fn) => { S.clockFns.push(fn); return offOf(S.clockFns, fn); },
     songMod, letterMod, companion: () => null, ytVideoId: () => null, asyncPrompt: async () => null, storage: null, twNav: nav, random: () => (o.random == null ? 0.5 : o.random),
@@ -378,6 +379,22 @@ say('── 5-3절 창 끌기 · 앱 창 크기 — 창 전체가 화면 안(sha
   bar3.fire('pointerup', {});
   w3.win.innerWidth = 300; w3.S.onResize();
   chk(win3.style.transform === 'none' && win3.style.left === '0px', '★ 누르기만 하고 떼도 자리를 기억 — 앱 창이 작아지면 화면 안으로');
+  /* 런처에서 열었으면 앱 창째 끈다(shared/os-drag.js — 마이홈 창과 같은 규칙) — 창 안 자리는 건드리지 않는다 */
+  const w4 = world({ launcherOn: true }); const win4 = w4.els.xmasWin, bar4 = w4.els.xmasTitle;
+  win4.offsetWidth = 640; win4.offsetHeight = 560;
+  bar4.fire('pointerdown', { clientX: 300, clientY: 20, target: { closest: () => null }, pointerId: 1 });
+  bar4.fire('pointermove', { clientX: 900, clientY: 2000 }); bar4.fire('pointermove', { clientX: 950, clientY: 2100 });
+  bar4.fire('pointerup', {});
+  chk((w4.S.os || []).join() === 'start,move,move,end' && win4.style.transform === undefined && win4.style.left === undefined && !w4.S.fits,
+    '★ 런처에서 연 창 — 제목줄을 끌면 앱 창째(start · move · end) · 창 안 자리는 그대로');
+  const w5 = world({ launcherOn: true }); const bar5 = w5.els.xmasTitle;
+  bar5.fire('pointerdown', { clientX: 300, clientY: 20, target: { closest: () => null }, pointerId: 1 }); bar5.fire('lostpointercapture', {});
+  chk((w5.S.os || []).join() === 'start,end', '  ↳ 끄는 중에 창이 닫혀 pointerup 없이 포인터를 놓쳐도(lostpointercapture) main 의 끌기를 끝낸다');
+  bar5.fire('pointerup', {});
+  chk((w5.S.os || []).join() === 'start,end', '  ↳ 그 뒤 pointerup 이 와도 두 번 끝내지 않는다');
+  const w6 = world({ launcherOn: true }); const bar6 = w6.els.xmasTitle;
+  bar6.fire('pointerdown', { clientX: 300, clientY: 20, target: { closest: () => ({}) }, pointerId: 1 });
+  chk(!(w6.S.os || []).length, '  ↳ 제목줄 단추(음악 끄기 · 출처 · ✕) 위에서는 끌지 않는다');
 }
 {
   const H = fs.readFileSync(find(['desk-companion-prototype.html', 'app/desk-companion-prototype.html', 'apps/desktop/app/desk-companion-prototype.html']), 'utf8');

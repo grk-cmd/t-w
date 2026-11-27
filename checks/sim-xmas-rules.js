@@ -80,6 +80,14 @@ chk(P.every(p => p.y > low && p.y < top && Math.hypot(p.x, p.z) < 2.2), '모든 
   const old = []; R.TIERS.forEach((t, i) => { for (let f = 0.12; f < 0.92; f += 0.01){ const rr = t.r * (1 - f) * 1.04 + 0.05; old.push({ x: rr, y: t.y + t.h * f, z: 0 }); } });
   chk(old.filter(inside).length > 0, '  ↳ mutation — 옛 배치(층 0.12~0.92 전부)는 위층 안에 묻힌 자리가 있다(이 검사가 잡는다)');
 }
+{ // 앞 번호 몇 개만 걸려도 트리 전체에 퍼진다 — 서버는 단 차례대로 0 · 1 · 2 … 를 준다
+  const tierOf = (p) => R.TIERS.reduce((b, t, i) => (p.y >= t.y ? i : b), 0);
+  const first = P.slice(0, 20), ys = first.map(p => p.y), span = Math.max(...ys) - Math.min(...ys);
+  const top = R.TIERS[3].y + R.TIERS[3].h, height = top - R.TIERS[0].y;
+  chk(new Set(first.map(tierOf)).size === R.TIERS.length && span > height * 0.6, '★ 장식 20개(0~19번)가 네 층 모두 · 트리 높이 60% 넘게 퍼진다 — 밑단에 몰리지 않음 (층 ' + new Set(first.map(tierOf)).size + ' · ' + (span / height * 100).toFixed(0) + '%)');
+  const first5 = P.slice(0, 5).map(tierOf);
+  chk(new Set(first5).size >= 3, '  ↳ 다섯 개만 걸려도 세 층 이상 (' + first5.join(',') + ')');
+}
 { const low = Math.min(...P.map(p => p.y)), T0 = R.TIERS[0];
   chk(low - T0.y < T0.h * 0.06, '★ 장식이 트리 밑단(맨 아래층 치마 끝)까지 내려온다 (' + (low - T0.y).toFixed(3) + ')'); }
 chk(new Set(P.map(p => p.x.toFixed(3) + ',' + p.y.toFixed(3) + ',' + p.z.toFixed(3))).size === P.length, '겹치는 자리 없음');
