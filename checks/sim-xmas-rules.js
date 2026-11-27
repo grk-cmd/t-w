@@ -76,6 +76,21 @@ chk(P.every(p => p.y > low && p.y < top && Math.hypot(p.x, p.z) < 2.2), '모든 
   const old = []; R.TIERS.forEach((t, i) => { for (let f = 0.12; f < 0.92; f += 0.01){ const rr = t.r * (1 - f) * 1.04 + 0.05; old.push({ x: rr, y: t.y + t.h * f, z: 0 }); } });
   chk(old.filter(inside).length > 0, '  ↳ mutation — 옛 배치(층 0.12~0.92 전부)는 위층 안에 묻힌 자리가 있다(이 검사가 잡는다)');
 }
+{ // 별 — 층마다 두른 줄 위에 띄엄띄엄(그림 «반짝이 줄»)
+  const RING = R.STAR_RING, C = RING.length;
+  const ins = (p) => R.TIERS.some(t => p.y >= t.y && p.y <= t.y + t.h && Math.hypot(p.x, p.z) < t.r * (1 - (p.y - t.y) / t.h) * Math.cos(Math.PI / 8));
+  chk(C >= 30 && RING.filter(ins).length === 0, '★ 별 줄 자리 ' + C + '개 — 어느 자리도 잎 안에 묻히지 않는다');
+  const rows = R.TIERS.map(t => RING.filter(p => p.y >= t.y && p.y <= t.y + t.h * 0.7));
+  chk(rows.every(r => r.length >= 3), '  ↳ 층마다 한 줄(' + rows.map(r => r.length).join(' · ') + ')');
+  let minGap = Infinity; for (let i = 0; i < C; i++) for (let j = i + 1; j < C; j++) minGap = Math.min(minGap, Math.hypot(RING[i].x - RING[j].x, RING[i].y - RING[j].y, RING[i].z - RING[j].z));
+  chk(minGap > 0.46, '★ 별 사이가 장식 판(≈0.46)보다 넓다 — 널널하게 (' + minGap.toFixed(2) + ')');
+  const S0 = R.starPositions(0), S1 = R.starPositions(C), S2 = R.starPositions(C + 3);
+  chk(S0.length === 0 && new Set(S1).size === C && S1.every(Boolean), '별 n 개 — 줄 자리를 겹치지 않고 다 쓴다');
+  chk(S2.slice(C).every(p => p === null), '  ↳ 줄이 다 차면 넘친 별은 null(원래 장식 자리에)');
+  const few = R.starPositions(8), tierOf = (p) => R.TIERS.findIndex(t => p.y >= t.y && p.y <= t.y + t.h * 0.7);
+  chk(new Set(few.map(tierOf)).size >= 3, '★ 별이 적어도 한 줄에 몰리지 않는다(8개 → ' + new Set(few.map(tierOf)).size + '줄)');
+  chk(JSON.stringify(R.starPositions(10)) === JSON.stringify(R.starPositions(10)), '같은 수면 같은 자리(모든 화면에서 같다)');
+}
 chk(new Set(P.map(p => p.x.toFixed(3) + ',' + p.y.toFixed(3) + ',' + p.z.toFixed(3))).size === P.length, '겹치는 자리 없음');
 chk(R.countOf({ 0: { k: 'star' }, 3: { k: 'img' }, 5: null }) === 2 && R.countOf(null) === 0, '걸린 수 — 빈 칸 · 없음');
 

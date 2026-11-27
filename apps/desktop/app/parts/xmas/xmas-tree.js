@@ -178,8 +178,8 @@ function createXmasTree(deps){
     S.texes.push(t);
     return t;
   }
-  function addOrnament(o){
-    const p = SLOTS[o.slot];
+  function addOrnament(o, at){
+    const p = at || SLOTS[o.slot];
     if (!p) return;
     const look = o.img ? ornLook('', o.slot) : ornLook(o.k, o.slot);
     const src = o.img || baseCanvas(o.k, doc, look.tint) || baseCanvas('bulb', doc);
@@ -318,10 +318,15 @@ function createXmasTree(deps){
     if (onSay) onSay(null);
   }
   /** 장식 목록 바꾸기 — [{ slot, k, img(Image|Canvas)|null, word, mine, blink }] */
+  const isStar = (o) => !o.img && o.k === 'star';
   function setOrnaments(list){
     if (!S) return;
     clearOrnaments();
-    for (const o of list || []) addOrnament(o);
+    const all = list || [];
+    // 별(기본 장식)은 층마다 두른 줄 위에 자리 번호 차례로 띄엄띄엄(모두 같은 목록이라 모든 화면에서 같다 · 줄이 다 차면 원래 자리)
+    const stars = all.filter(isStar).sort((a, b) => a.slot - b.slot);
+    const at = new Map(rules.starPositions(stars.length).map((p, i) => [stars[i], p]));
+    for (const o of all) addOrnament(o, at.get(o));
   }
 
   return {
