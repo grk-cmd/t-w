@@ -1162,6 +1162,7 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),
   glbFailWhy: (...a)=>catalogGlbMod.glbFailWhy(...a),
   setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),
+  setDeskMatColor: (...a)=>lightToneMod._setDeskMatColor(...a),
   swThumb: (...a)=>assetCardsMod.swThumb(...a),
 });
 /* ══ 🖍️ 파츠에 직접 그리기 ══════════════════════════════════════════════════

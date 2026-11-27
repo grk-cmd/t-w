@@ -99,6 +99,7 @@ const humanEar = deps.humanEar;
 const resolveCatalogGlb = deps.resolveCatalogGlb;
 const glbFailWhy = deps.glbFailWhy;   // 책상 받기 실패 이유 — E-CHAR-13 진단 줄(catalog-glb.js)
 const setDeskScale = deps.setDeskScale;
+const setDeskMatColor = deps.setDeskMatColor;   // 책상 재질 색(shared/light-tone.js — emissive 까지 같이 맞춘다)
 const swThumb = deps.swThumb;
 /* 🎨 꾸미기 미리보기 — 꾸미기 패널 옆에 뜨는 정적 3D 미리보기.
    ★ 실제 실행 화면처럼 타이핑/졸음 등 절차적 애니메이션까지는 재현하지 않고(모델이 그대로 서 있는 정적
@@ -130,7 +131,7 @@ const wdEar = (typeof WdEar === 'undefined' || !humanEar) ? WD_EAR_OFF : WdEar.c
 /* 🛠 관리자 파츠 등록 · 삭제 — 관리자 모듈(admin-part-register.js)이 자기를 만들 때 건다. 꾸미기는 관리자 모듈을 부르지 않는다 */
 let _adminPartActions = null;
 function setAdminPartActions(a){ _adminPartActions = a; }
-/* 책상 값을 내 캐릭터에 쓰고 화면·저장·전파까지 한 번에 — 카드와 슬라이더가 같이 쓴다.
+/* 책상을 바꿔 내 캐릭터에 쓰고 화면·저장·전파까지 한 번에 — 책상 카드가 쓴다(색 · 크기 · 길이 조절은 _wdTuneDesk).
    relayout: 책상을 바꾸는 카드(기본 · 책상 없음 · 전용)는 책상 폭이 크게 바뀐다 — 책상을 다 그린 **뒤에** 좌석 줄을 다시 잡는다
    (기본 책상 교체본 · 전용 책상은 GLB 를 풀고서야 noDesk 가 내려가서, 바로 잡으면 좁은 자리가 남는다). */
 function _wdApplyDeskChange(mutate, relayout){
@@ -144,12 +145,40 @@ function _wdApplyDeskChange(mutate, relayout){
     else drawn = applyDeskCatalogRefToSeat(seat, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:def.deskScale, deskLenX:def.deskLenX, deskColor:def.deskColor});
   }catch(_){}
   if(relayout) Promise.resolve(drawn).catch(()=>{}).then(()=>layoutSeats());
+  Promise.resolve(drawn).catch(()=>{}).then(()=>_wdSyncDeskColorRow(seat));   // 책상을 다 그려야 색 받는 재질이 정해진다
   try{ if(seat.desk){ setDeskScale(seat.desk, def.deskScale||DESK_SCALE_DEFAULT(), def.deskLenX||1); if(def.deskColor) applyDeskColorToCustom(seat.desk, def.deskColor); } }catch(_){}
+  _wdCommitDesk(seat, def);
+  refreshWdPreviewChar();
+  return def;
+}
+/* 지금 책상에서 색을 받는 재질 — GLB 책상은 이름이 _col 로 끝나는 메쉬(customMats), 내장 기본 책상은 deskMat. 없으면 «책상 색» 칸을 숨긴다 */
+function _wdDeskColorMats(seat){
+  const d = seat && seat.desk;
+  if(!d || !d.userData || d.userData.noDesk) return [];
+  if(d.userData.customMats) return d.userData.customMats;
+  return seat.deskMat ? [seat.deskMat] : [];
+}
+function _wdSyncDeskColorRow(seat){
+  const row = document.getElementById('wdDeskColorRow');
+  if(row) row.style.display = _wdDeskColorMats(seat).length ? 'flex' : 'none';
+}
+/* 책상 값을 초안 · 저장 · 방에 싣는다 — 책상 바꾸기(_wdApplyDeskChange)와 조절(_wdTuneDesk)이 같이 쓴다 */
+function _wdCommitDesk(seat, def){
   // 미리보기는 draft 를 본다 — 같은 값을 적어 주지 않으면 창 안에서만 옛 책상이 남는다
-  try{ if(wdDraftDef && wdDraftDef._srcDef === def){ wdDraftDef.deskCatalogId=def.deskCatalogId; wdDraftDef.deskScale=def.deskScale; wdDraftDef.deskLenX=def.deskLenX; wdDraftDef.deskColor=def.deskColor; wdDraftDef[DESK_LICENSE_HOLD()]=def[DESK_LICENSE_HOLD()]; } }catch(_){}
-  try{ saveSlots(); }catch(_){}
-  try{ if(seat.isMe && typeof Presence()!=='undefined' && Presence().active()) Presence().updateDef(def); }catch(_){}
-  try{ if(typeof refreshWdPreviewChar==='function') refreshWdPreviewChar(); }catch(_){}
+  if(wdDraftDef && wdDraftDef._srcDef === def){ wdDraftDef.deskCatalogId=def.deskCatalogId; wdDraftDef.deskScale=def.deskScale; wdDraftDef.deskLenX=def.deskLenX; wdDraftDef.deskColor=def.deskColor; wdDraftDef[DESK_LICENSE_HOLD()]=def[DESK_LICENSE_HOLD()]; }
+  saveSlots();
+  if(seat.isMe && Presence().active()) Presence().updateDef(def);
+}
+/* 색 · 크기 · 길이 조절 — 책상 GLB 를 다시 풀거나 미리보기 캐릭터를 다시 만들지 않고 값만 바꾼다.
+   ⚠️ 색 고르기 창 · 슬라이더는 끄는 동안 input 을 수십 번 낸다 — 그때마다 책상을 다시 그리면 책상 · 미리보기가 깜빡인다. 미리보기는 놓을 때(change) 한 번 다시 그린다. */
+function _wdTuneDesk(mutate){
+  const seat = findMySeat();
+  if(!seat || !seat.charDef || !seat.desk) return null;
+  const def = seat.charDef;
+  mutate(def);
+  setDeskScale(seat.desk, def.deskScale||DESK_SCALE_DEFAULT(), def.deskLenX||1);
+  if(def.deskColor) _wdDeskColorMats(seat).forEach(m=>setDeskMatColor(m, def.deskColor));
+  _wdCommitDesk(seat, def);
   return def;
 }
 function renderWdDeskSection(wrap){
@@ -169,7 +198,7 @@ function renderWdDeskSection(wrap){
   addCode.onclick=()=>{ openAssetImport('desk'); };
   actions.appendChild(addCode); head.appendChild(actions); sec.appendChild(head);
 
-  const grid=document.createElement('div'); grid.className='wd-grid';
+  const grid=document.createElement('div'); grid.className='wd-desk-grid';
   /* «쓰지 않음» — 전용 책상을 벗고 기본으로 돌아가는 길. 이 칸이 없으면 한 번 고른 사람이 갇힌다. */
   const none=swThumb('기본 책상', !def.deskCatalogId, '↺');
   none.classList.add('none-card');
@@ -217,13 +246,14 @@ function renderWdDeskSection(wrap){
   const box=document.createElement('div');
   box.style.cssText='display:flex;flex-direction:column;gap:7px;padding:8px;background:var(--win-face-2);border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);';
 
-  const rowColor=document.createElement('div'); rowColor.style.cssText='display:flex;align-items:center;gap:8px;';
+  const rowColor=document.createElement('div'); rowColor.id='wdDeskColorRow'; rowColor.style.cssText='display:'+(_wdDeskColorMats(seat).length?'flex':'none')+';align-items:center;gap:8px;';
   const labColor=document.createElement('label'); labColor.htmlFor='wdDeskColor'; labColor.textContent='책상 색';
   labColor.style.cssText='font-size:11px;width:56px;flex-shrink:0;';
   const inColor=document.createElement('input'); inColor.type='color'; inColor.id='wdDeskColor';
   inColor.value=def.deskColor||'#c9a36a';
   inColor.style.cssText='width:46px;height:22px;padding:0;cursor:pointer;';
-  inColor.oninput=()=>{ _wdApplyDeskChange(d=>{ d.deskColor=inColor.value; }); };
+  inColor.oninput=()=>{ _wdTuneDesk(d=>{ d.deskColor=inColor.value; }); };
+  inColor.onchange=()=>{ refreshWdPreviewChar(); };
   rowColor.appendChild(labColor); rowColor.appendChild(inColor); box.appendChild(rowColor);
 
   const mkRange=(id,label,min,max,step,val,apply)=>{
@@ -234,12 +264,13 @@ function renderWdDeskSection(wrap){
     inp.min=min; inp.max=max; inp.step=step; inp.value=val;
     inp.style.cssText='flex:1;min-width:0;';
     inp.oninput=()=>apply(parseFloat(inp.value));
+    inp.onchange=()=>{ refreshWdPreviewChar(); };
     row.appendChild(lab); row.appendChild(inp); box.appendChild(row);
   };
   mkRange('wdDeskScale','책상 크기',DESK_SCALE_MIN(),DESK_SCALE_MAX(),0.01, def.deskScale||DESK_SCALE_DEFAULT(),
-    v=>{ _wdApplyDeskChange(d=>{ d.deskScale=clampDeskScale(v); }); });
+    v=>{ _wdTuneDesk(d=>{ d.deskScale=clampDeskScale(v); }); });
   mkRange('wdDeskLenX','책상 길이',0.5,2,0.05, def.deskLenX||1,
-    v=>{ _wdApplyDeskChange(d=>{ d.deskLenX=v; }); });
+    v=>{ _wdTuneDesk(d=>{ d.deskLenX=v; }); });
 
   const posHint=document.createElement('p');
   posHint.style.cssText='margin:0;font-size:10px;line-height:1.6;color:var(--ink-soft);';
