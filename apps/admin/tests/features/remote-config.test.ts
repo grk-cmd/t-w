@@ -15,7 +15,6 @@ import {
   roomLimitsConfirmText,
   roomMaxPeopleConfirmText,
 } from '@/features/settings/edit-room-config';
-import { registerIndexConfirmText } from '@/features/room-server/switch-room-server';
 import { AUDIT_ACTIONS } from '@/shared/api';
 import { auditsOf, fakeDb, withoutAudits } from '../shared/fakeDb';
 
@@ -198,7 +197,5 @@ describe('작업 기록 이름', () => {
       expect(a).toMatch(/^[a-z][A-Za-z]{0,19}[.][a-z][A-Za-z]{0,19}$/);
       expect(ACTION_LABEL[a]).toBeTruthy();
     }
-    expect(registerIndexConfirmText(true)).toContain('합계');
-    expect(registerIndexConfirmText(false)).toContain('따로');
   });
 });

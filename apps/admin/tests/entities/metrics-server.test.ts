@@ -5,7 +5,7 @@ import { createServerMetricsPort } from '@/entities/metrics/daily-active/api/ser
 import { metricsSummary } from '@/entities/metrics/daily-active';
 import { createServerUsagePort } from '@/entities/metrics/usage/api/server';
 import { createServerUserCountPort } from '@/entities/user-count/api/server';
-import { ApiError, isPortError, type Api, type ApiParams, type ApiSendOptions } from '@/shared/api';
+import { isPortError, type Api, type ApiParams, type ApiSendOptions } from '@/shared/api';
 import { kstDateKey } from '@/shared/lib';
 
 interface Call {
@@ -116,24 +116,6 @@ describe('접속 지표 — 모양이 틀리면 던진다(기본값으로 덮지
   });
 });
 
-describe('개선 기록 — 읽은 줄의 번호로만 고친다', () => {
-  it('번호가 없는 줄(이 판이 읽지 않은 줄)로는 고치지 않고 던진다', async () => {
-    const s = fake({});
-    const port = createServerUsagePort(s.api);
-    const draft = {
-      version: '0.13.0',
-      releasedAt: Date.parse('2026-11-10T00:00:00Z'),
-      title: '제목',
-      items: ['하나'],
-      adoptDays: 3,
-    };
-    const row = { id: 'a', version: '0.13.0', releasedAt: 1, title: '제목', items: ['하나'], adoptDays: 3 };
-    const error = await port.saveImprovement(draft, row).catch((e: unknown) => e);
-    expect(isPortError(error, 'invalid')).toBe(true);
-    expect(s.calls).toHaveLength(0);
-  });
-});
-
 describe('가입자 수 — API 판', () => {
   it('users 가 숫자가 아니면 0 이 아니라 던진다', async () => {
     const s = fake({ 'GET /v2/admin/metrics/totals': () => ({ users: '321' }) });
@@ -149,7 +131,7 @@ describe('가입자 수 — API 판', () => {
   });
 });
 
-describe('사용량 · 개선 기록 — API 판', () => {
+describe('사용량 — API 판', () => {
   const usage = {
     today: TODAY,
     days: [
@@ -174,86 +156,9 @@ describe('사용량 · 개선 기록 — API 판', () => {
     expect(isPortError(await port.getDay('2026-11-02').catch((e: unknown) => e), 'notFound')).toBe(true);
     expect(port.features).toEqual({ db: false, functions: false });
   });
-
-  const wire = (id: string, over: Record<string, unknown> = {}) => ({
-    id,
-    release: '0.13.0',
-    releasedAt: '2026-11-10T00:00:00Z',
-    title: '제목',
-    items: ['하나', '둘'],
-    adoptDays: 3,
-    version: 4,
-    ...over,
-  });
-
-  it('개선 기록: 서버 칸을 화면 칸으로 바꿔 읽고, 고치기 · 지우기에 읽은 version 을 싣는다', async () => {
-    const s = fake({
-      'GET /v2/admin/metrics/improvements': () => ({
-        items: [wire('a'), wire('b', { releasedAt: '2026-11-12T00:00:00Z', version: 7 })],
-        nextCursor: null,
-      }),
-      'PUT /v2/admin/metrics/improvements/a': () => wire('a'),
-      'DELETE /v2/admin/metrics/improvements/b': () => undefined,
-    });
-    const port = createServerUsagePort(s.api);
-    const list = await port.listImprovements();
-    expect(list.map((r) => [r.id, r.version, r.revision])).toEqual([
-      ['b', '0.13.0', 7],
-      ['a', '0.13.0', 4],
-    ]);
-    const draft = {
-      version: ' 0.13.0 ',
-      releasedAt: Date.parse('2026-11-10T00:00:00Z'),
-      title: '제목',
-      items: ['하나', ' '],
-      adoptDays: 3,
-    };
-    expect(await port.saveImprovement(draft, list[1])).toBe('a');
-    expect(s.calls.at(-1)?.body).toEqual({
-      version: 4,
-      release: '0.13.0',
-      releasedAt: '2026-11-10T00:00:00.000Z',
-      title: '제목',
-      items: ['하나'],
-      adoptDays: 3,
-    });
-    await port.deleteImprovement(list[0]);
-    expect(s.calls.at(-1)?.query).toEqual({ version: 7 });
-  });
-
-  it('개선 기록 추가: 같은 내용을 다시 보내면 같은 요청 번호 · 받을 수 없는 값은 보내지 않는다', async () => {
-    let fail = true;
-    const s = fake({
-      'POST /v2/admin/metrics/improvements': () => {
-        if (fail) throw new ApiError('unavailable', 0, '', '끊김');
-        return wire('new');
-      },
-    });
-    const port = createServerUsagePort(s.api);
-    const draft = {
-      version: '0.13.1',
-      releasedAt: Date.parse('2026-11-10T00:00:00Z'),
-      title: '제목',
-      items: ['하나'],
-      adoptDays: 3,
-    };
-    await expect(port.saveImprovement(draft)).rejects.toMatchObject({ kind: 'unreachable' });
-    fail = false;
-    expect(await port.saveImprovement(draft)).toBe('new');
-    const [a, b] = s.calls.map((c) => (c.body as { requestId: string }).requestId);
-    expect(a).toBe(b);
-    await expect(port.saveImprovement({ ...draft, title: '' })).rejects.toThrow(/제목/);
-  });
-
-  it('번호 없는 줄(읽지 않은 줄)을 지우려 하면 요청 없이 던진다', async () => {
-    const error = await createServerUsagePort(fake({}).api)
-      .deleteImprovement({ id: 'x', version: 'v', releasedAt: 1, title: 't', items: [], adoptDays: 3 })
-      .catch((e: unknown) => e);
-    expect(isPortError(error, 'invalid')).toBe(true);
-  });
 });
 
-describe('사용량 · 개선 기록 — 모양이 틀리면 던진다', () => {
+describe('사용량 — 모양이 틀리면 던진다', () => {
   it('사용량 칸이 틀리면 0 으로 덮지 않는다', async () => {
     const day = {
       day: '2026-11-01',
@@ -267,44 +172,6 @@ describe('사용량 · 개선 기록 — 모양이 틀리면 던진다', () => {
         .catch((e: unknown) => e);
       expect(isPortError(error, 'invalid')).toBe(true);
     }
-  });
-
-  it('개선 기록 줄의 칸이 틀리면 줄을 버리지 않고 던진다 · 저장 응답에 id 가 없어도 던진다', async () => {
-    const s = fake({
-      'GET /v2/admin/metrics/improvements': () => ({
-        items: [{ id: 'a', release: '0.13.0' }],
-        nextCursor: null,
-      }),
-      'POST /v2/admin/metrics/improvements': () => ({}),
-    });
-    const port = createServerUsagePort(s.api);
-    expect(isPortError(await port.listImprovements().catch((e: unknown) => e), 'invalid')).toBe(true);
-    const draft = {
-      version: '0.13.0',
-      releasedAt: Date.parse('2026-11-10T00:00:00Z'),
-      title: '제목',
-      items: ['하나'],
-      adoptDays: 3,
-    };
-    expect(isPortError(await port.saveImprovement(draft).catch((e: unknown) => e), 'invalid')).toBe(true);
-  });
-});
-
-describe('개선 기록 쪽 넘김 — 모양이 틀리면 던진다', () => {
-  it('nextCursor 가 글자도 null 도 아니면 조용히 끝내지 않고 던진다', async () => {
-    const s = fake({ 'GET /v2/admin/metrics/improvements': () => ({ items: [], nextCursor: 5 }) });
-    const error = await createServerUsagePort(s.api)
-      .listImprovements()
-      .catch((e: unknown) => e);
-    expect(isPortError(error, 'invalid')).toBe(true);
-  });
-
-  it('쪽 상한에 닿았는데 다음 쪽이 남았으면 잘린 목록을 돌려주지 않고 던진다', async () => {
-    const s = fake({ 'GET /v2/admin/metrics/improvements': () => ({ items: [], nextCursor: 'more' }) });
-    const error = await createServerUsagePort(s.api)
-      .listImprovements()
-      .catch((e: unknown) => e);
-    expect(isPortError(error, 'invalid')).toBe(true);
   });
 });
 

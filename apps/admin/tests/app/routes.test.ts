@@ -7,10 +7,10 @@ describe('좌측 메뉴 묶음', () => {
   it('묶음과 항목 순서가 정한 그대로다', () => {
     expect(ROUTE_GROUPS.map((g) => [g.label, ids(g)])).toEqual([
       ['👥 사용자 · 운영', ['users', 'license', 'invites', 'reports', 'bugs', 'todos', 'notices', 'xmas']],
-      ['🏠 방 · 서버', ['rooms', 'roomServer']],
+      ['🏠 방 · 서버', ['rooms']],
       ['🗂️ 콘텐츠', ['catalog']],
-      ['📊 성능 · 비용', ['metrics', 'usage', 'improvements']],
-      ['⚙️ 시스템', ['settings', 'featureSwitch', 'log']],
+      ['📊 성능 · 비용', ['metrics', 'usage']],
+      ['⚙️ 시스템', ['settings', 'log']],
     ]);
   });
 
@@ -29,13 +29,11 @@ describe('좌측 메뉴 묶음', () => {
       'bugs',
       'notices',
       'settings',
-      'roomServer',
       'rooms',
       'catalog',
       'log',
       'metrics',
       'usage',
-      'improvements',
     ];
     expect(
       ROUTES.map((r) => r.id)

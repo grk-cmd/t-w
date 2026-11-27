@@ -1,16 +1,12 @@
 import type { ComponentType } from 'react';
-import { BACKEND, type Backend } from '@/shared/config';
 import { AdminLogPage } from '@/pages/admin-log';
 import { BugBoardPage } from '@/pages/bug-board';
 import { CatalogPage } from '@/pages/catalog';
-import { FeatureSwitchPage } from '@/pages/feature-switch';
-import { ImprovementsPage } from '@/pages/improvements';
 import { InvitesPage } from '@/pages/invites';
 import { LicensePage } from '@/pages/license';
 import { MetricsPage } from '@/pages/metrics';
 import { NoticesPage } from '@/pages/notices';
 import { ReportsPage } from '@/pages/reports';
-import { RoomServerPage } from '@/pages/room-server';
 import { RoomsPage } from '@/pages/rooms';
 import { SettingsPage } from '@/pages/settings';
 import { TodosPage } from '@/pages/todos';
@@ -22,8 +18,6 @@ export interface Route {
   id: string;
   label: string;
   Page: ComponentType;
-  /** Firebase 판에만 있는 화면 — API 판 메뉴에는 없다(포트를 만들지 않고 Firebase 판과 같이 걷는다). */
-  firebaseOnly?: true;
 }
 
 export interface RouteGroup {
@@ -33,7 +27,7 @@ export interface RouteGroup {
 
 // 좌측 메뉴 = 이 묶음 순서 그대로(위 → 아래). 관리자 기능을 웹으로 옮길 때마다 알맞은 묶음에 한 줄씩 더한다.
 // id 는 주소(#/<id>)라서 바꾸면 저장해 둔 링크가 깨진다.
-const ALL_GROUPS: RouteGroup[] = [
+export const ROUTE_GROUPS: RouteGroup[] = [
   {
     label: '👥 사용자 · 운영',
     items: [
@@ -50,10 +44,7 @@ const ALL_GROUPS: RouteGroup[] = [
   },
   {
     label: '🏠 방 · 서버',
-    items: [
-      { id: 'rooms', label: '🛑 방', Page: RoomsPage },
-      { id: 'roomServer', label: '🛰 방 서버', Page: RoomServerPage, firebaseOnly: true },
-    ],
+    items: [{ id: 'rooms', label: '🛑 방', Page: RoomsPage }],
   },
   {
     label: '🗂️ 콘텐츠',
@@ -64,28 +55,16 @@ const ALL_GROUPS: RouteGroup[] = [
     items: [
       { id: 'metrics', label: '📈 지표', Page: MetricsPage },
       { id: 'usage', label: '💰 사용량', Page: UsagePage },
-      { id: 'improvements', label: '📉 개선 기록', Page: ImprovementsPage },
     ],
   },
   {
     label: '⚙️ 시스템',
     items: [
       { id: 'settings', label: '⚙️ 설정', Page: SettingsPage },
-      { id: 'featureSwitch', label: '🎚️ 기능 스위치', Page: FeatureSwitchPage, firebaseOnly: true },
       { id: 'log', label: '🧾 기록', Page: AdminLogPage },
     ],
   },
 ];
-
-/** 이 판의 메뉴 — API 판은 Firebase 판에만 있는 화면을 뺀다(화면이 없는 묶음도 뺀다). */
-export function routeGroupsFor(backend: Backend): RouteGroup[] {
-  return ALL_GROUPS.map((g) => ({
-    ...g,
-    items: g.items.filter((r) => backend === 'firebase' || !r.firebaseOnly),
-  })).filter((g) => g.items.length > 0);
-}
-
-export const ROUTE_GROUPS: RouteGroup[] = routeGroupsFor(BACKEND);
 
 export const ROUTES: Route[] = ROUTE_GROUPS.flatMap((g) => g.items);
 

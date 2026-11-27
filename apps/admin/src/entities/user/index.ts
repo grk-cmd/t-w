@@ -7,7 +7,6 @@ export {
   getUserFriendCode,
   getUserInvite,
   getUserLastSeen,
-  getUserLicense,
   getUserName,
   getUserPresence,
   isAwayImgUrl,
@@ -27,7 +26,6 @@ export {
   useUserFocusSec,
   useUserInvite,
   userInviteQuery,
-  useUserLicense,
   useUserName,
   userPresenceQuery,
   useUserPresence,
@@ -64,7 +62,6 @@ export {
   toVersionCounts,
   verLabel,
   versionCounts,
-  type CurrentVer,
   type VersionCount,
 } from './model/version';
 export {

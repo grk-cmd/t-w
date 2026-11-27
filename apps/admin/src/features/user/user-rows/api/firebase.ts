@@ -94,7 +94,7 @@ export function fetchAllUsers(
   );
 }
 
-/** 사용자코드로 찾기(상세 창 · 방 서버 화면). 목록에 없는 사람은 빠진다 — CODES_MAX 씩 나눠 묻는다. */
+/** 사용자코드로 찾기(상세 창). 목록에 없는 사람은 빠진다 — CODES_MAX 씩 나눠 묻는다. */
 export function fetchUsersByCode(
   api: Api | null,
   loadAll: LoadAllRows,

@@ -326,7 +326,7 @@ describe('사용자 목록 — 예전 방식으로 넘어가기', () => {
     expect(loadAll).not.toHaveBeenCalled();
   });
 
-  it('통째 읽기는 세 노드를 한 번만 받아 캐시해 둔다(사용자 화면 · 방 서버 · 라이선스가 같은 키)', async () => {
+  it('통째 읽기는 세 노드를 한 번만 받아 캐시해 둔다(사용자 화면 · 라이선스가 같은 키)', async () => {
     const { db } = fakeDb({ accountSnap: accounts, friendCodes, licenses });
     const get = vi.spyOn(db, 'get');
     const client = new QueryClient();
