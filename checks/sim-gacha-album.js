@@ -13,11 +13,13 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f, 'checks/' + f, path.basename(f)]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const MOD = read('character/gacha-album.js'), GACHA = read('character/gacha.js'), HTML = read('desk-companion-prototype.html'), SMOKE = read('smoke.js');
-if (!MOD || !GACHA || !HTML || !SMOKE) { say('  ? 원본 못 찾음 — gacha-album.js · gacha.js · desk-companion-prototype.html · smoke.js'); process.exit(2); }
+const MOD = read('character/gacha-album.js'), PAGING_SRC = read('shared/paging.js'), GACHA = read('character/gacha.js'), HTML = read('desk-companion-prototype.html'), SMOKE = read('smoke.js');
+if (!MOD || !PAGING_SRC || !GACHA || !HTML || !SMOKE) { say('  ? 원본 못 찾음 — gacha-album.js · paging.js · gacha.js · desk-companion-prototype.html · smoke.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 const J = JSON.stringify;
-const load = (src) => { const win = {}; new Function('window', 'module', src)(win, undefined); return win; };
+/* 📄 쪽 규칙은 공용(shared/paging.js) — html 처럼 먼저 싣고 그 값을 TwPaging 으로 넘긴다(win 에는 TwGachaAlbum 하나만 남는지 본다) */
+const PAGING = (() => { const m = { exports: {} }; new Function('module', 'window', PAGING_SRC)(m, undefined); return m.exports; })();
+const load = (src) => { const win = {}; new Function('window', 'module', 'TwPaging', src)(win, undefined, PAGING); return win; };
 
 /* 가챠 파츠 — 상시 셋 · 가을 넷 · 겨울 하나 · 모르는 시즌 하나 · 봄 · 여름은 없음 */
 const PARTS = () => [
@@ -48,6 +50,7 @@ function judge(mod){
     r.thumbs = J(L[0].thumbs.map(p => p.id)) === J(['a1', 'a3']) && J(L[1].thumbs.map(p => p.id)) === J(['f1', 'f2', 'f3']) && L[2].thumbs.length === 0;
     r.empty = J(A.albumList([], count)) === '[]' && J(A.albumList(null, count)) === '[]';
     r.pct = A.albumPct(2, 3) === 67 && A.albumPct(4, 4) === 100 && A.albumPct(0, 1) === 0 && A.albumPct(5, 0) === 0 && A.albumPct(9, 4) === 100 && A.albumPct(-1, 4) === 0;
+    r.shared = A.pageCount === PAGING.pageCount && A.clampPage === PAGING.clampPage;   // 쪽 규칙은 공용 그대로(다시 쓰지 않음)
     r.pages = A.pageCount(0, 12) === 1 && A.pageCount(12, 12) === 1 && A.pageCount(13, 12) === 2
       && A.clampPage(5, 13, 12) === 1 && A.clampPage(-2, 13, 12) === 0 && A.clampPage(undefined, 0, 12) === 0 && A.clampPage(1, 12, 12) === 0;
     const many = Array.from({ length: 30 }, (_, i) => ({ id: 'p' + i }));
@@ -83,6 +86,7 @@ chk(R.thumbs, '★ 줄 그림은 뽑은 파츠에서만 · 셋까지 · 하나�
 chk(R.empty, '빈 값 · null 이면 줄 없음');
 chk(R.pct, '막대 — 반올림 · 0 · 100 끝에서 멈춤 · 전부 0 이면 0');
 chk(R.pages && R.pageOf, '쪽 — 쪽 수(0개도 1쪽) · 쪽 번호 바로잡기 · 그 파츠가 있는 쪽(없으면 -1)');
+chk(R.shared, '쪽 수 · 쪽 번호 바로잡기는 공용(shared/paging.js)을 그대로 내놓는다 — 여기서 다시 쓰지 않음');
 chk(R.pure, '받은 값을 고치지 않는다(정렬은 새 배열)');
 say('── 2. 연결');
 chk(W.order, 'html 이 gacha-album.js 를 gacha.js · app.js 보다 먼저 싣는다');
@@ -98,7 +102,8 @@ const BREAKS = [
   ['MOD', '.sort((a, b) => (a.order | 0) - (b.order | 0))', '', '등록 순서를 안 지킴', 'parts'],
   ['MOD', '(p.season || \'\') === key', 'p.season === key', 'season 이 없는 파츠가 상시에서 빠짐', 'parts'],
   ['MOD', 'Math.max(0, Math.min(100, Math.round((owned | 0) * 100 / total)))', 'Math.round(owned * 100 / total)', '막대가 100 을 넘음', 'pct'],
-  ['MOD', 'return Math.max(1, Math.ceil((n | 0) / size));', 'return Math.ceil(n / size);', '0개면 0쪽', 'pages'],
+  ['MOD', 'const pageCount = paging.pageCount;', 'function pageCount(n, size){ return Math.ceil(n / size); }', '쪽 수를 여기서 다시 씀(0개면 0쪽)', 'shared'],
+  ['MOD', 'const clampPage = paging.clampPage;', 'function clampPage(page, n, size){ return page | 0; }', '쪽 번호 바로잡기를 여기서 다시 씀', 'pages'],
   ['MOD', 'const ALBUM_KEYS = Object.freeze(', 'const ALBUM_KEYS = (', '도감 목록을 바꿀 수 있음', 'consts'],
   ['GACHA', 'const pages = gachaAlbum.pageCount(list.length, GACHA_PAGE_SIZE);', 'const pages = Math.max(1, Math.ceil(list.length / GACHA_PAGE_SIZE));', 'gacha.js 가 쪽 셈을 다시 씀', 'W'],
   ['GACHA', 'const GACHA_SEASON_LABEL = gachaAlbum.ALBUM_LABEL;', "const GACHA_SEASON_LABEL = { '':'상시', spring:'🌸 봄', winter:'❄ 겨울' };", 'gacha.js 가 시즌 이름표를 다시 씀', 'W'],

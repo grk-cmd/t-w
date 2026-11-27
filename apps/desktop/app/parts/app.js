@@ -801,6 +801,7 @@ const winStackMod = TwWinStack.createWinStack({
 /* 본문은 status-chip.js 로 옮겼다(앱 FSD 36번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const statusChipMod = TwStatusChip.createStatusChip({
+  settingsPanel: ()=>settingsMod,   // ⚙ 머리 위 자리(placeAtHead) — 설정 창이 열려 있을 때만 부른다
   CUSTOM_STATUS_MAXLEN: userStatusTableMod.CUSTOM_STATUS_MAXLEN,
   Presence: ()=>Presence,
   _CHIP_POPUPS: chipPopupsMod._CHIP_POPUPS,
@@ -1176,6 +1177,7 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   glbFailWhy: (...a)=>catalogGlbMod.glbFailWhy(...a),
   setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),
   swThumb: (...a)=>assetCardsMod.swThumb(...a),
+  paging: TwWardrobePaging,
 });
 /* ══ 🖍️ 파츠에 직접 그리기 ══════════════════════════════════════════════════
    꾸미기창 안에서만 끝난다 — 별도 창도, 별도 단계도 없다. 미리보기가 그대로 그림판이 된다.
@@ -1217,7 +1219,6 @@ const partPaintMod = TwPartPaint.createPartPaint({
   partEntryXf: (...a)=>premiumMod.partEntryXf(...a),
   refreshWdPreviewColorSection: (...a)=>wardrobeMod.refreshWdPreviewColorSection(...a),
   savedParts: ()=>premiumMod.savedParts(),
-  sizeWdPreview: (...a)=>wardrobeMod.sizeWdPreview(...a),
   strokeSeg: (...a)=>paintGeomMod.strokeSeg(...a),
   toast: (...a)=>toast(...a),
   updateWdCam: (...a)=>wardrobeMod.updateWdCam(...a),

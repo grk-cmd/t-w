@@ -5,7 +5,7 @@
      PART_CATS · PART_DEFAULT_OFFSET · PART_GROUPS · Presence · WD_DESK_TAB · gachaMod · isAdmin · isPremium · partPaintMod · savedParts · slots 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 51개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: ORBIT_DRAG_DIR · _clearMultiPanelRef · _wdAfterMainSwap · activeWdAdj · buildFreeColorPicker · commitWdDraft · createWardrobeAdjPanel · currentWdTab · detachWdGizmo · ensureWdDraft · ensureWdGizmo · placeWdWindows · refreshWdPreviewChar · refreshWdPreviewColorSection · relinkDraftSrc · renderWardrobe · setWdGizmoMode · sizeWdPreview · syncWdGizmoToXf · syncWdPreviewOwner · toggleEquip · updateWdCam · updateWdGizmoForActivePanel · wdCam · wdDraftDef · wdGizmo · wdGizmoMode · wdPreviewBase · wdWinSavedPos · wdScene — app.js 는 wardrobeMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: ORBIT_DRAG_DIR · _clearMultiPanelRef · _wdAfterMainSwap · activeWdAdj · buildFreeColorPicker · commitWdDraft · createWardrobeAdjPanel · currentWdTab · detachWdGizmo · ensureWdDraft · ensureWdGizmo · placeWdWindows · refreshWdPreviewChar · refreshWdPreviewColorSection · relinkDraftSrc · renderWardrobe · setWdGizmoMode · syncWdGizmoToXf · syncWdPreviewOwner · toggleEquip · updateWdCam · updateWdGizmoForActivePanel · wdCam · wdDraftDef · wdGizmo · wdGizmoMode · wdPreviewBase · wdWinSavedPos · wdScene — app.js 는 wardrobeMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwWardrobe — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-wardrobe.js */
@@ -102,6 +102,7 @@ const deskPreview = deps.deskPreview;   // 🪑 미리보기의 책상 몸 · �
 const deskColorMats = deps.deskColorMats;   // 이 좌석 책상에서 색을 받는 재질(desk-visual.js) — 없으면 «책상 색» 칸을 숨긴다
 const applyDeskColor = deps.applyDeskColor;   // 그 재질들을 칠한다(desk-visual.js)
 const swThumb = deps.swThumb;
+const paging = deps.paging;   // 📄 파츠 칸 페이지 · 이름 찾기 규칙(wardrobe-paging.js — 순수)
 /* 🎨 꾸미기 미리보기 — 꾸미기 패널 옆에 뜨는 정적 3D 미리보기.
    ★ 실제 실행 화면처럼 타이핑/졸음 등 절차적 애니메이션까지는 재현하지 않고(모델이 그대로 서 있는 정적
    미리보기), 몸통+꾸미기 파츠가 어떻게 보이는지만 확인하는 용도 — defToBase/applyEquippedPartsToSeat
@@ -325,6 +326,10 @@ function ensureWdPreview(){
   //   → 0.85(중간값)로 실측 보정. 실행 화면과 체감 밝기가 최대한 비슷하게 맞춘 값.
   // ★ 조명 위치를 실행 화면과 동일하게 (0,5,0) 정수리 위로 — 얼굴 텍스처 조명 방향 통일(요청사항) · 뒤쪽 냉색 바운스 · 정면 필도 실행 화면과 같다
   addRunLights(wdScene, { keyPos: [0, 5, 0], backBounce: true });
+  /* 캔버스 크기는 CSS 가 정한다 — 아래 줄(기즈모 · 귀 · 색 · 그리기)이 생기고 사라지면 바뀐다. 그림판 크기 · 카메라 비율은 여기 한 곳에서만 맞춘다.
+     ⚠️ 줄을 켜고 끄는 곳마다 맞추던 예전 방식은 한 곳을 빠뜨리면 캐릭터가 늘어나 보였다. 맞춘 뒤 바로 그린다(크기를 바꾸면 그림판이 지워진다). */
+  sizeWdPreview();
+  new ResizeObserver(()=>{ sizeWdPreview(); wdPreviewLoop(); }).observe(canvas);
 }
 
 // ★ 꾸미기 미리보기 기즈모 — 상세조정 패널이 열려있는 파츠에 이동/회전/크기 핸들을 띄워서
@@ -453,8 +458,8 @@ function setWdGizmoMode(mode){
 function updateWdGizmoForActivePanel(){
   const bar=document.getElementById('wdGizmoBar');
   /* 🐾 귀 탭은 파츠가 아니라 귀에 핸들을 붙인다(wd-ear.js) — 조정할 귀 줄도 거기서 그린다 */
-  if(wdEar.isActive()){ wdGizmoCat=null; wdGizmoPartId=null; wdEar.syncGizmo(); try{ partPaintMod().refreshWdPicUI(); }catch(_){} updateWdCam(); sizeWdPreview(); return; }
-  if(wdEar.hideRow()){ updateWdCam(); sizeWdPreview(); }   // 귀 탭에서 막 나왔다 — 구도·캔버스 크기 되돌림
+  if(wdEar.isActive()){ wdGizmoCat=null; wdGizmoPartId=null; wdEar.syncGizmo(); try{ partPaintMod().refreshWdPicUI(); }catch(_){} updateWdCam(); return; }
+  if(wdEar.hideRow()) updateWdCam();   // 귀 탭에서 막 나왔다 — 구도 되돌림
   /* 🪑 책상 몸은 책상 묶음 탭(책상 · 책상 위)에서만 보인다 — 다른 탭에서는 옷을 가린다. 책상 탭이면 그 몸에 이동 손잡이를 붙인다 */
   deskPreview.setShown(currentWdGroup === 'desk');
   updateWdCam();   // 책상 묶음 탭 구도로 들어가거나 나온다
@@ -811,7 +816,6 @@ async function refreshWdPreviewChar(){
   wdCamCenter.copy(center);
   wdCamLookY = center.y+size.y*0.12;
   wdCamBaseDist = Math.max(size.y,0.5)*1.5;
-  sizeWdPreview();
   updateWdCam();
   refreshWdPreviewColorSection();
 }
@@ -1020,7 +1024,7 @@ function refreshWdPreviewColorSection(){
   partPaintMod().setWdActivePartRef(null);   // 🖍️ 아래에서 대상이 정해지면 채운다 — 조기 return 은 "대상 없음"이 맞다
   const _finish = ()=>{
     const _nowShown = container.style.display!=='none';
-    if(_nowShown!==_wasShown){ sizeWdPreview(); updateWdCam(); }
+    if(_nowShown!==_wasShown) updateWdCam();
     // 🖍️ 어느 경로로 끝나든 그림칸 UI 를 같이 맞춘다(연필 버튼·그리기 줄).
     try{ partPaintMod().refreshWdPicUI(); }catch(_){}
   };
@@ -1688,6 +1692,10 @@ function buildColorRows(cat, xf, wrapper, syncFn){
 
 let currentWdTab = null;   // 현재 선택된 꾸미기 서브카테고리 탭 — null이면 첫 카테고리로 자동 지정
 let currentWdGroup = null; // ★ Phase 2: 현재 선택된 상위 그룹 (head/cloth/deco/hand)
+/* 📄 분류마다 보던 페이지(0 부터) — 이 화면에서만 기억한다(저장 안 함). 찾는 중의 페이지는 따로 — 찾기를 비우면 보던 페이지로 돌아간다.
+   찾는 말은 분류를 바꾸면 비운다. */
+const _wdPageByCat = new Map();
+let _wdFind = { cat:null, q:'', page:0 };
 /* 📚 «도감» — PART_CATS 에 없는 가상 탭(책상 · 귀와 같은 방식). 칸은 gacha.js 가 #gachaInvHost 에 그린다. */
 const WD_ALBUM_TAB = 'album';
 const WD_ALBUM_GROUP = { group:'album', icon:'📚', label:'도감' };
@@ -1831,7 +1839,9 @@ function renderWardrobe(){
   const list=partsInCat(info.cat).filter(p=>!gachaMod().isGachaPart(p) || gachaMod().gachaCount(p.id)>0);
   const sec=document.createElement('div'); sec.className='wd-cat';
   const head=document.createElement('div'); head.className='wd-cat-head';
-  head.innerHTML='<h3>'+escHtml(info.icon)+' '+escHtml(info.label)+'</h3>';  const actions=document.createElement('div'); actions.className='wd-cat-head-actions';
+  const h3=document.createElement('h3'); h3.textContent=info.icon+' '+info.label+' · '+list.length+'개';
+  head.appendChild(h3);
+  const actions=document.createElement('div'); actions.className='wd-cat-head-actions';
   const addCode=document.createElement('button'); addCode.className='wd-add-code'; addCode.textContent='+ 코드로 추가';
   addCode.title='코드+비밀번호로 받은 커미션 파츠를 이 기기에만 추가해요';
   addCode.onclick=()=>openAssetImport('part', info.cat);
@@ -1927,12 +1937,23 @@ function renderWardrobe(){
     }
   };
 
-  // 섹션 1 — 기본 캐릭터
-  if(defaultList.length || !isAdmin()){
-    const dv=document.createElement('div'); dv.className='wd-divider';
-    dv.innerHTML='<span>기본 캐릭터</span><div class="wd-divider-line"></div>';
-    sec.appendChild(dv);
-    const grid=document.createElement('div'); grid.className='wd-grid';
+  /* 🔍 이름으로 찾기 — 칸 목록만 다시 그린다(입력칸을 다시 만들면 한글 조합 · 커서가 끊긴다). */
+  if(_wdFind.cat !== info.cat) _wdFind = { cat:info.cat, q:'', page:0 };
+  const find=document.createElement('label'); find.className='wd-find';
+  const findIc=document.createElement('span'); findIc.className='wd-find-ic'; findIc.textContent='🔍'; findIc.setAttribute('aria-hidden','true');
+  const findIn=document.createElement('input'); findIn.type='search'; findIn.className='wd-find-in win98sunken';
+  findIn.placeholder='이름으로 찾기'; findIn.value=_wdFind.q; findIn.setAttribute('aria-label', info.label+' 이름으로 찾기');
+  find.appendChild(findIc); find.appendChild(findIn);
+  sec.appendChild(find);
+  const body=document.createElement('div'); body.className='wd-cat-body';
+  sec.appendChild(body);
+
+  const withDefault = !!(defaultList.length || !isAdmin());
+  const SECTION_HEAD = {
+    default:   '<span>기본 캐릭터</span><div class="wd-divider-line"></div>',
+    commission:'<span>커미션 전용</span><span class="wd-divider-badge">🔒</span><div class="wd-divider-line"></div>',
+  };
+  const renderNoneCard = (grid)=>{
     /* 🎰 [안 함] 의 선택 표시는 **꾸미기 파츠만** 본다 — [안 함] 은 가챠 파츠를 벗기지 않으므로(toggleEquip),
        가챠 파츠 하나 때문에 [안 함] 이 안 켜지면 "안 함을 눌렀는데 표시가 안 된다" 가 된다.
        (toggleEquip 의 [안 함] 처리와 판정 기준을 반드시 같이 맞춰야 한다 — 조회 실패는 '가챠로 취급'.) */
@@ -1945,19 +1966,52 @@ function renderWardrobe(){
     noneCard.textContent='안 함';
     noneCard.onclick=()=>{ activeWdAdj=null; _clearMultiPanelRef(); toggleEquip(info.cat,null); };
     grid.appendChild(noneCard);
-    defaultList.forEach(rec=>renderPartCard(rec, grid));
-    sec.appendChild(grid);
-  }
-
-  // 섹션 2 — 커미션 전용 (있을 때만 표시)
-  if(commissionList.length){
-    const dv=document.createElement('div'); dv.className='wd-divider';
-    dv.innerHTML='<span>커미션 전용</span><span class="wd-divider-badge">🔒</span><div class="wd-divider-line"></div>';
-    sec.appendChild(dv);
-    const grid=document.createElement('div'); grid.className='wd-grid';
-    commissionList.forEach(rec=>renderPartCard(rec, grid));
-    sec.appendChild(grid);
-  }
+  };
+  /* 페이지를 넘기거나 찾는 말이 바뀌면 이것만 다시 돈다. 상세조정 중인 칸이 안 보이는 페이지로 가면 조정을 닫는다
+     (안 닫으면 보이지 않는 칸의 손잡이가 미리보기에 남는다). */
+  const drawBody = ()=>{
+    body.innerHTML='';
+    const searching = !!paging.normQuery(_wdFind.q);
+    const cells = paging.buildCells({ defaultList, commissionList, withDefault, query:_wdFind.q });
+    if(searching && !cells.length){
+      const none=document.createElement('div'); none.className='wd-find-none'; none.textContent='찾는 파츠가 없어요';
+      body.appendChild(none);
+    }
+    const view = paging.pageView(cells, searching ? _wdFind.page : (_wdPageByCat.get(info.cat) || 0), paging.PAGE_SIZE);
+    if(searching) _wdFind.page = view.page; else _wdPageByCat.set(info.cat, view.page);
+    view.groups.forEach(g=>{
+      const dv=document.createElement('div'); dv.className='wd-divider';
+      dv.innerHTML=SECTION_HEAD[g.section];
+      body.appendChild(dv);
+      const grid=document.createElement('div'); grid.className='wd-grid';
+      g.cells.forEach(c=>{ if(c.kind === 'none') renderNoneCard(grid); else renderPartCard(c.rec, grid); });
+      body.appendChild(grid);
+    });
+    if(activeWdAdj && !view.groups.some(g=>g.cells.some(c=>c.rec && c.rec.id === activeWdAdj.id))){ activeWdAdj = null; _clearMultiPanelRef(); }
+    if(view.pages > 1){
+      const pg=document.createElement('div'); pg.className='wd-pg';
+      const go = (to)=>{
+        if(searching) _wdFind.page = to; else _wdPageByCat.set(info.cat, to);
+        drawBody(); updateWdGizmoForActivePanel();
+      };
+      const btn = (label, to, title, on)=>{
+        const b=document.createElement('button'); b.type='button'; b.className='wd-pg-btn win98raised'+(on?' on':'');
+        b.textContent=label; b.title=title;
+        if(on) b.setAttribute('aria-current','page');
+        if(to < 0 || to >= view.pages || on) b.disabled = true; else b.onclick=()=>go(to);
+        pg.appendChild(b);
+      };
+      btn('◀', view.page-1, '앞 페이지', false);
+      paging.pagerItems(view.page, view.pages).forEach(it=>{
+        if(it === '…'){ const gap=document.createElement('span'); gap.className='wd-pg-gap'; gap.textContent='…'; pg.appendChild(gap); }
+        else btn(String(it+1), it, (it+1)+' 페이지', it === view.page);
+      });
+      btn('▶', view.page+1, '다음 페이지', false);
+      body.appendChild(pg);
+    }
+  };
+  findIn.oninput=()=>{ _wdFind.q = findIn.value; _wdFind.page = 0; drawBody(); updateWdGizmoForActivePanel(); };
+  drawBody();
 
   wrap.appendChild(sec);
   refreshWdPreviewColorSection();
@@ -2087,7 +2141,6 @@ return {
   refreshWdPreviewColorSection,
   renderWardrobe,
   setWdGizmoMode,
-  sizeWdPreview,
   syncWdGizmoToXf,
   syncWdPreviewOwner,
   toggleEquip,

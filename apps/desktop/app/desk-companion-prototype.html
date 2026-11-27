@@ -137,6 +137,8 @@
   html[data-theme="bubble"][data-accent="c3"]{ /* 그린 — 버블 테마의 기본값 */
     --acc-d:#6BA82F; --acc-m:#9ED44F; --acc-l:#D8EE9E; --acc-tint:#E8F4D4;
     --acc-brd:#BCCDB2; --acc-face:#EEF1EA; --acc-desk:#CBDFB2; --acc-pop:#FFC24B; --acc-sweep:none; }
+  /* 👑 내 색 — 버블 제목줄도 설정 칸 미리보기(theme-custom.js chipCss)처럼 좌 → 우. 기본 버블은 위 → 아래(같은 색 두 톤) */
+  html[data-theme="bubble"][data-accent="cx"]{ --win-title-grad:linear-gradient(90deg, var(--acc-l), var(--acc-m)); }
   html[data-theme="bubble"][data-accent="c4"]{ /* 피치 — 좌 살구 → 우 연분홍 */
     --acc-d:#F0BFA4; --acc-m:#EFBBD4; --acc-l:#FFE8DA; --acc-tint:#FBEBEF;
     --acc-brd:#E6CBCE; --acc-face:#F8F1EF; --acc-desk:#F2CFC4; --acc-pop:#8FCFC6;
@@ -1740,6 +1742,9 @@
      숨긴 카드 제목줄의 끌기 칸도 끈다(끌기 칸은 보임과 따로 산다) — 창은 모달 제목으로 끈다(마이홈 #myHomeTitle 과 같다). */
   body.desktop.config:has(#inviteOverlay.on) #launcher .lc-card{visibility:hidden;}
   body.desktop.config:has(#inviteOverlay.on) #launcher .lc-bar{-webkit-app-region:no-drag;}
+  /* 런처 카드를 숨기는 창(방 찾기 · 크리스마스)이 떠 있는 동안 런처 스크롤 막대도 숨긴다 — 카드는 안 보이는데 막대만 창 오른쪽에 남는다 */
+  body.desktop.config:has(#inviteOverlay.on) #launcher, body:has(#xmasOverlay.on) #launcher{scrollbar-width:none;}
+  body.desktop.config:has(#inviteOverlay.on) #launcher::-webkit-scrollbar, body:has(#xmasOverlay.on) #launcher::-webkit-scrollbar{display:none;width:0;height:0;}
   body.desktop.config #inviteModal h2{-webkit-app-region:drag;cursor:move;}
   body.desktop.config #inviteModal h2 .lb-x{-webkit-app-region:no-drag;}
   #lobbyMain{display:flex;gap:12px;align-items:stretch;}
@@ -2952,7 +2957,7 @@
   #myCustomStatusBox #myCustomStatusEmo{flex:0 0 34px;width:34px;min-width:34px;text-align:center;padding:4px 2px;}
 
   /* 캐릭터 머리 위 설정 패널 (톱니바퀴 클릭 시) */
-  #focusSettingsPanel{position:fixed;z-index:var(--z-win-settings);transform:translate(-50%,-100%);
+  #focusSettingsPanel{position:fixed;z-index:var(--z-win-settings);transform:translate(-50%,0);
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     padding:0;width:312px;box-sizing:border-box;display:none;font-family:var(--tw-font-legacy);border-radius:var(--win-radius-el) !important;
@@ -2971,7 +2976,7 @@
   #focusSettingsPanel .fs-body::-webkit-scrollbar-thumb{background:var(--tw-line);border-radius:3px;}
   /* 🚪 런처에서 열면 가운데 · 실행 화면 전용 칸(광고 · 캐릭터 교체 칸 · 아래 버튼)은 숨기고 런처 전용 안내를 보인다.
      ⚠️ 머리 위 따라가기(status-chip.js)가 left/top 을 인라인으로 적을 수 있어 !important 로 덮는다. */
-  #focusSettingsPanel.fs-in-launcher{left:50% !important;top:50% !important;transform:translate(-50%,-50%) !important;}
+  #focusSettingsPanel.fs-in-launcher{left:50% !important;transform:translate(-50%,0) !important;}   /* 위 끝은 열 때 가운데로 맞춘 자리(settings-panel.js) — 탭을 바꾸면 아래로 자란다 */
   #focusSettingsPanel.fs-in-launcher .fs-run-only{display:none !important;}
   #focusSettingsPanel.fs-in-launcher .fs-titlebar{cursor:default !important;}
   #focusSettingsPanel:not(.fs-in-launcher) .fs-launcher-only{display:none !important;}
@@ -2983,11 +2988,11 @@
   #focusSettingsPanel .fs-sep{border-top:1px solid var(--tw-line);margin:12px 0 10px;}
   #focusSettingsPanel .fs-note{margin:6px 0 0;font-size:10.5px;color:var(--tw-ink-soft);line-height:1.5;}
   #focusSettingsPanel .fs-seg-bar{display:flex;align-items:center;gap:6px;margin-top:4px;}
-  /* ⓘ — 누르면 aria-controls 로 가리킨 설명(.fs-desc)이 열리고 다시 누르면 닫힌다(settings-panel.js) */
-  #focusSettingsPanel .fs-info{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin-left:3px;padding:0;
+  /* ⓘ — 누르면 aria-controls 로 가리킨 설명(.fs-desc)이 열리고 다시 누르면 닫힌다(settings-panel.js) · 꾸미기 그리기 줄의 단축키 도움말(.wd-pic-info · part-paint.js)도 같은 모양 */
+  #focusSettingsPanel .fs-info, #wdPicSection .wd-pic-info{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin-left:3px;padding:0;
     vertical-align:1px;font:bold 9px/1 Georgia,serif;font-style:italic;cursor:pointer;color:var(--tw-ink-soft);
     background:var(--tw-bg-select);border:1px solid var(--tw-line);border-radius:50%;}
-  #focusSettingsPanel .fs-info[aria-expanded="true"]{color:#fff;background:var(--tw-accent);border-color:var(--tw-accent);}
+  #focusSettingsPanel .fs-info[aria-expanded="true"], #wdPicSection .wd-pic-info[aria-expanded="true"]{color:#fff;background:var(--tw-accent);border-color:var(--tw-accent);}
   #focusSettingsPanel .fs-desc{margin:-2px 0 8px;font-size:10.5px;color:var(--tw-ink-soft);line-height:1.5;}
   /* 켜짐/꺼짐 스위치 — 글자(켜짐 · 꺼짐)는 읽어 주기용으로 남기고 화면에선 손잡이로 보인다. 누르는 동작은 .fs-toggle-btn 그대로 */
   #focusSettingsPanel .fs-toggle-btn.fs-switch{position:relative;flex:none;width:34px;height:18px;padding:0;font-size:0;color:transparent;
@@ -3014,6 +3019,13 @@
     position:relative;z-index:1;border-radius:var(--win-radius-el) !important;}
   .fs-tabpage{border:2px solid;border-color:var(--win-face) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     border-top:1px solid var(--win-face);margin-top:-2px;padding:10px 8px;background:var(--win-face);min-height:110px;border-radius:var(--win-radius-el) !important;}
+  /* 디스플레이 탭 안 묶음 단추(꾸미기 · 화면 · 표시) — 탭 단추보다 작은 알약 */
+  .fs-subtabs{display:flex;gap:4px;margin:0 0 10px;}
+  .fs-subtab{flex:1;padding:4px 2px;font-size:11px;font-family:inherit;color:var(--ink-soft);cursor:pointer;background:var(--win-face-2);
+    border:2px solid var(--win-lo-2);border-radius:var(--tw-radius-pill) !important;}
+  html[data-theme="bubble"] #focusSettingsPanel .fs-subtab{border-radius:var(--tw-radius-pill) !important;}   /* 버블 button 규칙(둥근 사각)보다 우선 — 알약 */
+  .fs-subtab.on{color:var(--ink);font-weight:bold;background:var(--acc-tint, var(--win-face));border-color:var(--acc-m, var(--win-lo-2));}
+  .fs-subpage > .fs-label:first-child{margin-top:0;}
   /* 하단 3버튼 한 줄 배치 */
   .fs-bottom-row{display:flex;gap:6px;margin-top:12px;}
   .fs-bottom-btn{box-sizing:border-box;width:auto !important;flex:1 1 0;margin-top:0 !important;margin-bottom:0 !important;
@@ -3224,8 +3236,6 @@
   /* 트리 창이 떠 있는 동안 뒤 런처 창(카드)과 스크롤 막대를 숨긴다 — 겹쳐 보이면 어느 창인지 헷갈린다. 닫으면 그대로 돌아온다 */
   body:has(#xmasOverlay.on) #launcher .lc-card{visibility:hidden;}
   body:has(#xmasOverlay.on) #launcher .lc-bar{-webkit-app-region:no-drag;}   /* 끌기 칸은 보임과 따로 산다 — 숨긴 제목줄이 트리 위에서 앱 창을 끌지 않게(방 찾기 창과 같다) */
-  body:has(#xmasOverlay.on) #launcher{scrollbar-width:none;}
-  body:has(#xmasOverlay.on) #launcher::-webkit-scrollbar{display:none;width:0;height:0;}
   .xm-spacer{flex:1;}
   .xm-pop{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.18);}
   .xm-pop[hidden]{display:none;}
@@ -5193,17 +5203,18 @@
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     z-index:var(--z-wardrobe);display:flex;flex-direction:column;overflow:hidden;border-radius:var(--win-radius-el) !important;}
   #wardrobePanel.on{visibility:visible;pointer-events:auto;}
-  /* 꾸미기 미리보기 — 꾸미기 창 왼쪽에 붙어 같이 움직이는 정적 3D 미리보기 */
+  /* 꾸미기 미리보기 — 꾸미기 창 왼쪽에 붙어 같이 움직이는 정적 3D 미리보기.
+     높이는 고정이다 — 아래 줄(기즈모 · 귀 · 색 · 그리기)이 생기면 창이 늘지 않고 캔버스가 그만큼 준다(그림판 비율은 wardrobe.js ensureWdPreview 가 맞춘다). */
   #wdPreviewPanel{
     position:fixed;left:0;top:0;
-    width:320px;min-height:420px;max-height:78vh;
+    width:320px;height:min(480px, 78vh);
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     z-index:var(--z-wardrobe);flex-direction:column;overflow:hidden;
     display:none;   /* ★ transform으로 화면 밖에 숨기던 방식은 창 폭이 좁으면(런처 등) 일부가 그대로 보이는 문제가 있어서 display로 확실히 숨김 */;border-radius:var(--win-radius-el) !important;}
   #wdPreviewPanel.on{display:flex;}
   #wdPreviewPanel .wd-top h2{font-size:11px;}
-  #wdPreviewCanvas{width:100%;flex:1 1 280px;min-height:220px;background:repeating-conic-gradient(#eee 0% 25%, #f7f7f7 0% 50%) 50%/16px 16px;}
+  #wdPreviewCanvas{width:100%;flex:1 1 0;min-height:120px;background:repeating-conic-gradient(#eee 0% 25%, #f7f7f7 0% 50%) 50%/16px 16px;}
   #wdGizmoBar{display:flex;gap:4px;padding:5px 8px;justify-content:center;
     border-top:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);background:var(--win-face);border-radius:var(--win-radius-el) !important;}
   .wd-gizmo-btn{font-size:10.5px;padding:3px 8px;cursor:pointer;flex:1;
@@ -5245,6 +5256,8 @@
   .wd-pic-lab{font-size:10px;color:var(--ink-soft);flex:0 0 auto;}
   .wd-pic-dot{flex:0 0 auto;border-radius:50%;box-shadow:0 0 0 1px var(--win-lo);}
   .wd-pic-hint{font-size:9.5px;line-height:1.5;color:var(--ink-soft);}
+  .wd-pic-help{display:flex;flex-direction:column;gap:5px;}
+  .wd-pic-help[hidden]{display:none;}
   #wdPreviewColorSection{flex-direction:column;gap:5px;padding:6px 8px;max-height:160px;overflow-y:auto;flex-shrink:0;
     border-top:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);background:var(--win-face-2);border-radius:var(--win-radius-el) !important;}
   .wd-preview-color-head{font-size:10px;font-weight:bold;color:var(--ink-soft);}
@@ -5266,19 +5279,15 @@
   .wd-group-btn.on{color:var(--ink);background:var(--win-face);
     border-color:var(--win-hi) var(--win-lo-2) var(--win-face) var(--win-hi);
     position:relative;z-index:1;border-radius:var(--win-radius-el) !important;}
-  /* Phase 2 — 하위 카테고리 (Win98 커스텀 라디오 14px: 흰 배경 + 음각 테두리 + 검은 도트 정중앙) */
-  .wd-sub-row{display:flex;flex-wrap:wrap;gap:10px;padding:8px 4px 4px 4px;background:transparent;}
+  /* 하위 분류 — 한 줄 알약 단추(넘치면 줄바꿈). .wd-tab-btn 도 같이 받는다 — 테마(bubble)의 탭 모서리 규칙보다 이기게 #wardrobeTabs 로 건다. */
+  .wd-sub-row{display:flex;flex-wrap:wrap;gap:4px;padding:8px 2px 2px;background:transparent;}
   .wd-sub-row[hidden]{display:none;}   /* 📚 도감 · 🔒 라이선스 없는 탭 — 고를 하위 칸이 없다 */
-  /* .wd-tab-btn을 함께 상속 받으므로, 여기서 배경/테두리/그림자를 다 지워서 라디오 문구 형태로만 남김 */
-  .wd-sub-btn{font-size:11px;padding:2px 4px;background:transparent !important;border:none !important;box-shadow:none !important;color:var(--ink);cursor:pointer;
-    font-weight:normal;font-family:inherit;display:inline-flex;align-items:center;gap:5px;}
-  .wd-sub-btn::before{content:'';width:14px;height:14px;background:#fff;border:2px solid;
-    border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-    box-shadow:inset 1px 1px 0 var(--win-lo-2), inset -1px -1px 0 var(--win-face-2);
-    border-radius:50%;flex-shrink:0;box-sizing:border-box;}
-  .wd-sub-btn.on{font-weight:bold;}
-  /* 검은 도트는 원 배경 자체에 radial-gradient로 그림 — absolute 좌표 계산 오차 없이 항상 정중앙 */
-  .wd-sub-btn.on::before{background:#fff radial-gradient(circle at center, #000 0 2px, transparent 2.5px);}
+  #wardrobeTabs .wd-sub-btn{font-family:inherit;font-size:11px;font-weight:normal;line-height:1.2;padding:3px 10px;cursor:pointer;white-space:nowrap;
+    color:var(--ink);background:var(--win-face);border:1px solid var(--win-lo-2);box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
+    border-radius:999px !important;}
+  #wardrobeTabs .wd-sub-btn:hover{background:var(--win-face-2);}
+  #wardrobeTabs .wd-sub-btn.on{font-weight:bold;background:var(--win-select-bg);border-color:var(--win-title-b);
+    box-shadow:inset 1px 1px 0 var(--win-lo);}
   .wd-tab-btn{font-family:var(--tw-font-legacy);font-size:11px;padding:5px 9px;cursor:pointer;
     background:var(--win-face);color:var(--ink);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
   .wd-tab-btn.on{background:var(--win-face-2);font-weight:bold;border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
@@ -5310,7 +5319,20 @@
     color:var(--ink-soft);font-size:10px;padding:2px 7px;cursor:pointer;font-weight:bold;border-radius:var(--win-radius-el) !important;}
   .wd-add:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
     box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
-  .wd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+  /* ⚠️ 4열 × 4줄 = 한 페이지 — wardrobe-paging.js 의 PAGE_SIZE 와 같이 고친다 */
+  .wd-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;}
+  /* 🔍 이름으로 찾기 — 분류 머리줄 아래 */
+  .wd-find{display:flex;align-items:center;gap:5px;margin:0 0 8px;}
+  .wd-find-ic{font-size:11px;flex:0 0 auto;}
+  .wd-find-in{flex:1 1 auto;min-width:0;font-family:inherit;font-size:11px;padding:3px 6px;color:var(--ink);outline:none;}
+  .wd-find-none{color:var(--ink-soft);font-size:11px;text-align:center;padding:18px 8px;}
+  /* ◀ 1 2 … ▶ — 칸 아래 가운데 · 페이지가 하나뿐이면 줄이 없다(wardrobe.js) */
+  .wd-pg{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:3px;margin-top:10px;}
+  .wd-pg-btn{min-width:22px;height:20px;padding:0 5px;font-family:inherit;font-size:10px;line-height:1;color:var(--ink);cursor:pointer;}
+  .wd-pg-btn:disabled:not(.on){opacity:.4;cursor:default;}
+  .wd-pg-btn.on{font-weight:bold;cursor:default;background:var(--win-select-bg);
+    border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);box-shadow:inset 1px 1px 0 var(--win-lo);}
+  .wd-pg-gap{font-size:10px;color:var(--ink-soft);padding:0 2px;}
   .wd-desk-grid{display:flex;flex-wrap:wrap;gap:8px;}   /* 책상 섬네일(66px)은 3등분 칸에 넣으면 사이가 벌어진다 — 왼쪽부터 붙여 늘어놓는다 */
   .wd-card{position:relative;aspect-ratio:1;
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -5319,10 +5341,10 @@
   .wd-card:hover{background:var(--win-face-2);}
   .wd-card.on{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
     box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);background:var(--win-select-bg);}
-  .wd-card .nm{font-size:9px;color:var(--ink-soft);max-width:90%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.1;}
+  .wd-card .nm{font-size:8.5px;color:var(--ink-soft);max-width:90%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.1;}
   .wd-card.none-card{font-size:11px;color:var(--ink-soft);}
   /* Phase 4: 도트 썸네일 — 32×32로 렌더된 이미지를 이 크기로 pixelated 확대해서 도트 스타일 유지 */
-  .wd-card .wd-thumb{width:44px;height:44px;image-rendering:pixelated;image-rendering:-moz-crisp-edges;display:block;object-fit:contain;}
+  .wd-card .wd-thumb{width:40px;height:40px;image-rendering:pixelated;image-rendering:-moz-crisp-edges;display:block;object-fit:contain;}
   .wd-card-x{position:absolute;top:-2px;right:-2px;width:16px;height:16px;
     background:var(--win-error);color:#fff;border:1px solid #000;font-size:10px;line-height:14px;text-align:center;cursor:pointer;font-weight:bold;z-index:2;}
   /* 🔗 stackable 뱃지 — 우상단 (X 버튼과 겹칠 수 있어 관리자일 땐 X가 위에 오도록 z-index로 정리) */
@@ -5670,144 +5692,155 @@
 
   <!-- ── 탭 1 · 디스플레이 — [테마 · 모니터 · 실행] [표시 옵션] [크기 · 위치] ── -->
   <div class="fs-tabpage" id="fsTabDisplay">
-    <!-- 🎨 디자인 테마 — 모양(2) × 색상(5). 고르면 즉시 적용되고 이 PC에 저장돼요. -->
-    <div class="fs-label" style="margin-top:0;">디자인 테마</div>
-    <div class="theme-grid">
-      <button class="theme-opt" id="themeOptDefault" type="button">
-        <span class="prev"><span class="tb" style="background:var(--win-title-grad);"></span><span class="bd" style="background:#C0C0C0;"></span></span>
-        <b>기본</b>
-      </button>
-      <button class="theme-opt" id="themeOptBubble" type="button">
-        <span class="prev" style="border-radius:5px;"><span class="tb" style="background:linear-gradient(180deg,#D8EE9E,#9ED44F);"></span><span class="bd" style="background:#EEF1EA;"></span></span>
-        <b>버블</b>
-      </button>
+    <!-- 디스플레이 탭 안을 셋으로 — 한 번에 한 묶음만(창이 길어지지 않게). 고르기는 settings-panel.js FS_SUBS -->
+    <div class="fs-subtabs" role="tablist">
+      <button class="fs-subtab on" id="fsSubBtnDeco" type="button" role="tab">🎨 꾸미기</button>
+      <button class="fs-subtab" id="fsSubBtnScreen" type="button" role="tab">🖥 화면</button>
+      <button class="fs-subtab" id="fsSubBtnShow" type="button" role="tab">👀 표시</button>
     </div>
-    <div class="fs-label">색상</div>
-    <div class="color-row" id="themeColorRow"></div>
-    <div class="color-names" id="themeColorNames"></div>
-    <div id="themeCxLock" style="display:none;">👑 <b>내 색</b>은 프리미엄 기능이에요. 라이선스를 등록하면 쓸 수 있어요.</div>
-    <div id="themeCxBox" style="display:none;">
-      <div class="cx-ttl">👑 내 색 만들기</div>
-      <div class="cx-body">
-        <div class="cx-lab">왼쪽 색 (제목줄 시작)</div>
-        <div class="cx-pick"><input type="color" id="themeCxA"><input class="cx-hex" id="themeCxAHex" type="text" maxlength="7" spellcheck="false"><span>칸을 누르면 색 고르기</span></div>
-        <div class="cx-lab">오른쪽 색 (제목줄 끝)</div>
-        <div class="cx-pick"><input type="color" id="themeCxB"><input class="cx-hex" id="themeCxBHex" type="text" maxlength="7" spellcheck="false"><label><input type="checkbox" id="themeCxOne"> 한 가지 색으로</label></div>
-        <div class="cx-lab">미리보기</div>
-        <div class="cx-prev"><div class="t" id="themeCxPrevT"></div><div class="b" id="themeCxPrevB"><span class="sel" id="themeCxPrevS">선택된 줄</span>글자가 읽히게 자동으로 맞춰요</div></div>
-        <div class="cx-btns"><button type="button" id="themeCxReset">처음 색으로</button><button type="button" id="themeCxCancel">취소</button><button type="button" id="themeCxSave"><b>저장</b></button></div>
+    <div class="fs-subpage" id="fsSubDeco">
+      <!-- 🎨 디자인 테마 — 모양(2) × 색상(5). 고르면 즉시 적용되고 이 PC에 저장돼요. -->
+      <div class="fs-label" style="margin-top:0;">디자인 테마</div>
+      <div class="theme-grid">
+        <button class="theme-opt" id="themeOptDefault" type="button">
+          <span class="prev"><span class="tb" style="background:var(--win-title-grad);"></span><span class="bd" style="background:#C0C0C0;"></span></span>
+          <b>기본</b>
+        </button>
+        <button class="theme-opt" id="themeOptBubble" type="button">
+          <span class="prev" style="border-radius:5px;"><span class="tb" style="background:linear-gradient(180deg,#D8EE9E,#9ED44F);"></span><span class="bd" style="background:#EEF1EA;"></span></span>
+          <b>버블</b>
+        </button>
+      </div>
+      <div class="fs-label">색상</div>
+      <div class="color-row" id="themeColorRow"></div>
+      <div class="color-names" id="themeColorNames"></div>
+      <div id="themeCxLock" style="display:none;">👑 <b>내 색</b>은 프리미엄 기능이에요. 라이선스를 등록하면 쓸 수 있어요.</div>
+      <div id="themeCxBox" style="display:none;">
+        <div class="cx-ttl">👑 내 색 만들기</div>
+        <div class="cx-body">
+          <div class="cx-lab">왼쪽 색 (제목줄 시작)</div>
+          <div class="cx-pick"><input type="color" id="themeCxA"><input class="cx-hex" id="themeCxAHex" type="text" maxlength="7" spellcheck="false"><span>칸을 누르면 색 고르기</span></div>
+          <div class="cx-lab">오른쪽 색 (제목줄 끝)</div>
+          <div class="cx-pick"><input type="color" id="themeCxB"><input class="cx-hex" id="themeCxBHex" type="text" maxlength="7" spellcheck="false"><label><input type="checkbox" id="themeCxOne"> 한 가지 색으로</label></div>
+          <div class="cx-lab">미리보기</div>
+          <div class="cx-prev"><div class="t" id="themeCxPrevT"></div><div class="b" id="themeCxPrevB"><span class="sel" id="themeCxPrevS">선택된 줄</span>글자가 읽히게 자동으로 맞춰요</div></div>
+          <div class="cx-btns"><button type="button" id="themeCxReset">처음 색으로</button><button type="button" id="themeCxCancel">취소</button><button type="button" id="themeCxSave"><b>저장</b></button></div>
+        </div>
+      </div>
+      <p class="fs-note">색상은 테마마다 따로예요. 캐릭터 모습은 바뀌지 않아요. 👑 내 색은 계정에 저장돼서 다른 PC 에서도 같아요.</p>
+      <!-- 🔤 창 글꼴 — 칸은 shared/font-ui.js 가 그린다(규칙 font-choice.js) -->
+      <div class="fs-label">글꼴</div>
+      <div class="font-list" id="fontPickRow"></div>
+      <button class="font-more" id="fontPcMore" type="button">＋ 내 PC 글꼴에서 고르기… 👑</button>
+      <div id="fontPcLock" style="display:none;">👑 <b>내 PC 글꼴</b>은 프리미엄 기능이에요. 라이선스를 등록하면 쓸 수 있어요.</div>
+      <div id="fontPcBox" style="display:none;">
+        <div class="fp-ttl">👑 내 PC 글꼴</div>
+        <div class="fp-body">
+          <input id="fontPcSearch" type="text" placeholder="🔍 글꼴 이름 찾기" spellcheck="false" maxlength="60">
+          <div id="fontPcList"></div>
+          <div class="fp-btns"><button type="button" id="fontPcCancel">취소</button><button type="button" id="fontPcOk"><b>이 글꼴로</b></button></div>
+        </div>
+      </div>
+      <p class="fs-note">창 안 글씨가 바뀌어요(머리 위 말풍선 · 이름표는 그대로). 고른 글꼴이 없는 PC 에서는 기본으로 보여요.</p>
+    </div>
+    <div class="fs-subpage" id="fsSubScreen" style="display:none;">
+      <div class="fs-label" id="fsMonitorLabel">모니터 선택</div>
+      <div class="fs-monitors" id="fsMonitors" style="display:none;"></div>
+      <p class="fs-note" id="fsMonitorSingleMsg" style="margin-top:0;">연결된 모니터가 1개뿐이라 선택할 필요가 없어요.</p>
+      <!-- 🎚️ 실행 화면 화질 — 고르면 이 PC 에 저장(launcher/program-settings.js · 규칙은 shared/frame-budget.js) -->
+      <div class="fs-label">실행 화면 화질</div>
+      <div class="fs-monitors" id="progQualityRow">
+        <button class="fs-mon-btn" type="button" data-q="sharp">선명하게</button>
+        <button class="fs-mon-btn" type="button" data-q="auto">자동</button>
+        <button class="fs-mon-btn" type="button" data-q="light">가볍게</button>
+        <button class="fs-mon-btn" type="button" data-q="lowest">최저</button>
+      </div>
+      <p class="fs-note" id="progQualityHint"></p>
+
+      <div class="fs-sep"></div>
+      <div class="fs-toggle-row">
+        <span>컴퓨터 켤 때 자동 실행 <button class="fs-info" type="button" aria-controls="fsDescAutoLaunch" aria-expanded="false" title="설명 보기">i</button></span>
+        <button class="fs-toggle-btn fs-switch" id="progAutoLaunchToggle" type="button">꺼짐</button>
+      </div>
+      <p class="fs-desc" id="fsDescAutoLaunch" hidden>켜면 다음 로그인부터 이 앱이 자동으로 실행돼요.<br>Windows 에서 «관리자 권한으로 실행» 을 켜 두었다면 자동 실행이 막혀요 — 그때는 직접 켜 주세요.</p>
+      <div class="fs-sep"></div>
+      <!-- 🔍 프로그램 크기 — 캐릭터와 창을 함께(렌더러 줌). 캐릭터 탭의 «캐릭터 배율»(아바타존만)과 다르다.
+           Ctrl+= / Ctrl+- / Ctrl+0 · Ctrl+휠도 같은 값이다(main.js applyUiZoom). 구버전 앱(companion.uiZoom 없음)에서는 이 행을 숨긴다.
+           ⚠️ 패널이 좁으면 버튼이 줄어들며 글자가 세로로 깨진다(제보 «화\n면\n−») — .fs-stepper 의 버튼은 nowrap · 줄지 않음. -->
+      <div class="fs-toggle-row" id="fsUiZoomRow" style="display:none;">
+        <span>프로그램 크기</span>
+        <span class="fs-stepper">
+          <button class="fs-toggle-btn" id="fsUiZoomOut" type="button" title="화면 축소 (Ctrl+-)" aria-label="화면 축소">−</button>
+          <span class="fs-stepper-val" id="fsUiZoomPct">100%</span>
+          <button class="fs-toggle-btn" id="fsUiZoomIn" type="button" title="화면 확대 (Ctrl+=)" aria-label="화면 확대">+</button>
+          <button class="fs-toggle-btn" id="fsUiZoomReset" type="button" title="처음 크기로 (Ctrl+0)" aria-label="프로그램 크기 초기화">↺</button>
+        </span>
+      </div>
+      <!-- 🪟 창이 화면 밖으로 나가 안 보일 때의 탈출구. 모니터를 바꾸거나 해상도가 줄면
+           저장된 자리가 화면 밖이 되어 "꾸미기 미리보기가 사라졌다"로 보인다. -->
+      <div class="fs-toggle-row">
+        <span>창 위치 초기화</span>
+        <button class="fs-toggle-btn" id="fsResetWinPos" type="button" style="white-space:nowrap;flex-shrink:0;">되돌리기</button>
+      </div>
+
+      <!-- 🎬 영상 겹침 실험 — 화면공유 영상이 검어지거나 깜빡일 때만 켜는 것. 통로가 있는 앱에서만 보인다(program-settings.js).
+           ⚠️ 이름을 '실험실'로 하지 않은 것은 의도적이다 — 증상 이름을 붙이면 그 증상이 없는 사람은 켤 이유가 없다.
+           ⚠️ 지우지 말 것 — 영상 · 화면공유가 검어지는 사람이 켜야 하는 해결책이다(도움말 5-1 «🎬 영상 겹침 실험»).
+           ⚠️ 폐기된 🧪 '다른 프로그램 방해 안 함'(창 활성화 차단)은 다시 만들지 말 것 — main.js 폐기 주석 · handoff-focus-steal-5.md §7. -->
+      <div class="fs-toggle-row" id="progLabVideoRow" style="display:none;margin-top:12px;border-top:1px solid var(--win-lo-2);padding-top:12px;">
+        <span>영상 겹침 실험</span>
+        <button class="fs-toggle-btn" id="progLabVideoToggle" type="button">꺼짐</button>
+      </div>
+      <p class="fs-note" id="progLabVideoHint" style="display:none;">화면공유 영상이 검어지거나 깜빡일 때만 켜세요. 그런 일이 없으면 그냥 두세요.</p>
+      <!-- 🎬 «적용 안 됨» 일 때만 보이는 안내 — 글은 program-settings.js LAB_VIDEO_BLOCKED_GUIDE -->
+      <p id="progLabVideoWarn" style="display:none;margin:8px 0 0;padding:8px 10px;font-size:10.5px;line-height:1.6;
+        color:var(--ink);background:var(--win-face);border:1px dashed var(--ink-soft);white-space:pre-line;"></p>
+    </div>
+    <div class="fs-subpage" id="fsSubShow" style="display:none;">
+      <div class="fs-toggle-row">
+        <span>회사원 모드 <button class="fs-info" type="button" aria-controls="fsDescOffice" aria-expanded="false" title="설명 보기">i</button></span>
+        <button class="fs-toggle-btn fs-switch" id="progOfficeModeToggle" type="button">꺼짐</button>
+      </div>
+      <p class="fs-desc" id="fsDescOffice" hidden>켜면 마이홈·말풍선이 잠기고, 미니 메뉴의 ▾ 버튼을 우클릭하면 화면을 즉시 숨길 수 있어요.</p>
+      <div class="fs-toggle-row">
+        <span>저해상도(도트) 렌더</span>
+        <button class="fs-toggle-btn fs-switch" id="fsDotToggle" type="button">꺼짐</button>
+      </div>
+      <div class="fs-toggle-row">
+        <span>이모지 반응 (💤♥💫)</span>
+        <button class="fs-toggle-btn fs-switch" id="fsEmojiToggle" type="button">켜짐</button>
+      </div>
+      <div class="fs-toggle-row">
+        <span>머리 위 레벨/이름 표시</span>
+        <button class="fs-toggle-btn fs-switch" id="fsNameplateToggle" type="button">켜짐</button>
+      </div>
+      <!-- 🫧 남의 자리비움 그림 — 끄면 이 PC 화면에서 남의 그림을 세우지 않는다(그림 없는 자리비움 모양 · 내 그림은 그대로 · room/away-pic.js _awayPicFor) -->
+      <div class="fs-toggle-row">
+        <span>남의 자리비움 그림</span>
+        <button class="fs-toggle-btn fs-switch" id="fsAwayOthersToggle" type="button">켜짐</button>
+      </div>
+      <!-- 💭 머리 위 상태 말풍선(«📱 앱» · 내 상태) — 끄면 이 PC 화면에서 안 뜬다 · 채팅 말풍선은 그대로(overhead.js statusBubbleGate) -->
+      <div class="fs-toggle-row">
+        <span>머리 위 상태 말풍선</span>
+        <button class="fs-toggle-btn fs-switch" id="fsStatusBubbleToggle" type="button">켜짐</button>
+      </div>
+      <!-- 🎨 마이홈 스티커 — 끄면 이 PC 화면에서 내 홈 · 친구 홈의 스티커를 그리지 않는다(shared/device-toggle.js) -->
+      <div class="fs-toggle-row">
+        <span>마이홈 스티커</span>
+        <button class="fs-toggle-btn fs-switch" id="fsMhStickerToggle" type="button">켜짐</button>
+      </div>
+
+      <div class="fs-sep"></div>
+      <div class="fs-toggle-row">
+        <span>레벨/이름 크기</span>
+        <span class="fs-stepper">
+          <button class="fs-toggle-btn" id="fsNameplateSizeOut" type="button" title="작게" aria-label="레벨/이름 작게">−</button>
+          <span class="fs-stepper-val" id="fsNameplateSizePct">100%</span>
+          <button class="fs-toggle-btn" id="fsNameplateSizeIn" type="button" title="크게" aria-label="레벨/이름 크게">+</button>
+          <button class="fs-toggle-btn" id="fsNameplateSizeReset" type="button" title="처음 크기로" aria-label="레벨/이름 크기 초기화">↺</button>
+        </span>
       </div>
     </div>
-    <p class="fs-note">색상은 테마마다 따로예요. 캐릭터 모습은 바뀌지 않아요. 👑 내 색은 계정에 저장돼서 다른 PC 에서도 같아요.</p>
-    <!-- 🔤 창 글꼴 — 칸은 shared/font-ui.js 가 그린다(규칙 font-choice.js) -->
-    <div class="fs-label">글꼴</div>
-    <div class="font-list" id="fontPickRow"></div>
-    <button class="font-more" id="fontPcMore" type="button">＋ 내 PC 글꼴에서 고르기… 👑</button>
-    <div id="fontPcLock" style="display:none;">👑 <b>내 PC 글꼴</b>은 프리미엄 기능이에요. 라이선스를 등록하면 쓸 수 있어요.</div>
-    <div id="fontPcBox" style="display:none;">
-      <div class="fp-ttl">👑 내 PC 글꼴</div>
-      <div class="fp-body">
-        <input id="fontPcSearch" type="text" placeholder="🔍 글꼴 이름 찾기" spellcheck="false" maxlength="60">
-        <div id="fontPcList"></div>
-        <div class="fp-btns"><button type="button" id="fontPcCancel">취소</button><button type="button" id="fontPcOk"><b>이 글꼴로</b></button></div>
-      </div>
-    </div>
-    <p class="fs-note">창 안 글씨가 바뀌어요(머리 위 말풍선 · 이름표는 그대로). 고른 글꼴이 없는 PC 에서는 기본으로 보여요.</p>
-
-    <div class="fs-sep"></div>
-    <div class="fs-label" id="fsMonitorLabel">모니터 선택</div>
-    <div class="fs-monitors" id="fsMonitors" style="display:none;"></div>
-    <p class="fs-note" id="fsMonitorSingleMsg" style="margin-top:0;">연결된 모니터가 1개뿐이라 선택할 필요가 없어요.</p>
-    <!-- 🎚️ 실행 화면 화질 — 고르면 이 PC 에 저장(launcher/program-settings.js · 규칙은 shared/frame-budget.js) -->
-    <div class="fs-label">실행 화면 화질</div>
-    <div class="fs-monitors" id="progQualityRow">
-      <button class="fs-mon-btn" type="button" data-q="sharp">선명하게</button>
-      <button class="fs-mon-btn" type="button" data-q="auto">자동</button>
-      <button class="fs-mon-btn" type="button" data-q="light">가볍게</button>
-      <button class="fs-mon-btn" type="button" data-q="lowest">최저</button>
-    </div>
-    <p class="fs-note" id="progQualityHint"></p>
-
-    <div class="fs-sep"></div>
-    <div class="fs-toggle-row">
-      <span>컴퓨터 켤 때 자동 실행 <button class="fs-info" type="button" aria-controls="fsDescAutoLaunch" aria-expanded="false" title="설명 보기">i</button></span>
-      <button class="fs-toggle-btn fs-switch" id="progAutoLaunchToggle" type="button">꺼짐</button>
-    </div>
-    <p class="fs-desc" id="fsDescAutoLaunch" hidden>켜면 다음 로그인부터 이 앱이 자동으로 실행돼요.<br>Windows 에서 «관리자 권한으로 실행» 을 켜 두었다면 자동 실행이 막혀요 — 그때는 직접 켜 주세요.</p>
-    <div class="fs-toggle-row">
-      <span>회사원 모드 <button class="fs-info" type="button" aria-controls="fsDescOffice" aria-expanded="false" title="설명 보기">i</button></span>
-      <button class="fs-toggle-btn fs-switch" id="progOfficeModeToggle" type="button">꺼짐</button>
-    </div>
-    <p class="fs-desc" id="fsDescOffice" hidden>켜면 마이홈·말풍선이 잠기고, 미니 메뉴의 ▾ 버튼을 우클릭하면 화면을 즉시 숨길 수 있어요.</p>
-    <div class="fs-toggle-row">
-      <span>저해상도(도트) 렌더</span>
-      <button class="fs-toggle-btn fs-switch" id="fsDotToggle" type="button">꺼짐</button>
-    </div>
-    <div class="fs-toggle-row">
-      <span>이모지 반응 (💤♥💫)</span>
-      <button class="fs-toggle-btn fs-switch" id="fsEmojiToggle" type="button">켜짐</button>
-    </div>
-    <div class="fs-toggle-row">
-      <span>머리 위 레벨/이름 표시</span>
-      <button class="fs-toggle-btn fs-switch" id="fsNameplateToggle" type="button">켜짐</button>
-    </div>
-    <!-- 🫧 남의 자리비움 그림 — 끄면 이 PC 화면에서 남의 그림을 세우지 않는다(그림 없는 자리비움 모양 · 내 그림은 그대로 · room/away-pic.js _awayPicFor) -->
-    <div class="fs-toggle-row">
-      <span>남의 자리비움 그림</span>
-      <button class="fs-toggle-btn fs-switch" id="fsAwayOthersToggle" type="button">켜짐</button>
-    </div>
-    <!-- 💭 머리 위 상태 말풍선(«📱 앱» · 내 상태) — 끄면 이 PC 화면에서 안 뜬다 · 채팅 말풍선은 그대로(overhead.js statusBubbleGate) -->
-    <div class="fs-toggle-row">
-      <span>머리 위 상태 말풍선</span>
-      <button class="fs-toggle-btn fs-switch" id="fsStatusBubbleToggle" type="button">켜짐</button>
-    </div>
-    <!-- 🎨 마이홈 스티커 — 끄면 이 PC 화면에서 내 홈 · 친구 홈의 스티커를 그리지 않는다(shared/device-toggle.js) -->
-    <div class="fs-toggle-row">
-      <span>마이홈 스티커</span>
-      <button class="fs-toggle-btn fs-switch" id="fsMhStickerToggle" type="button">켜짐</button>
-    </div>
-
-    <div class="fs-sep"></div>
-    <!-- 🔍 프로그램 크기 — 캐릭터와 창을 함께(렌더러 줌). 캐릭터 탭의 «캐릭터 배율»(아바타존만)과 다르다.
-         Ctrl+= / Ctrl+- / Ctrl+0 · Ctrl+휠도 같은 값이다(main.js applyUiZoom). 구버전 앱(companion.uiZoom 없음)에서는 이 행을 숨긴다.
-         ⚠️ 패널이 좁으면 버튼이 줄어들며 글자가 세로로 깨진다(제보 «화\n면\n−») — .fs-stepper 의 버튼은 nowrap · 줄지 않음. -->
-    <div class="fs-toggle-row" id="fsUiZoomRow" style="display:none;">
-      <span>프로그램 크기</span>
-      <span class="fs-stepper">
-        <button class="fs-toggle-btn" id="fsUiZoomOut" type="button" title="화면 축소 (Ctrl+-)" aria-label="화면 축소">−</button>
-        <span class="fs-stepper-val" id="fsUiZoomPct">100%</span>
-        <button class="fs-toggle-btn" id="fsUiZoomIn" type="button" title="화면 확대 (Ctrl+=)" aria-label="화면 확대">+</button>
-        <button class="fs-toggle-btn" id="fsUiZoomReset" type="button" title="처음 크기로 (Ctrl+0)" aria-label="프로그램 크기 초기화">↺</button>
-      </span>
-    </div>
-    <div class="fs-toggle-row">
-      <span>레벨/이름 크기</span>
-      <span class="fs-stepper">
-        <button class="fs-toggle-btn" id="fsNameplateSizeOut" type="button" title="작게" aria-label="레벨/이름 작게">−</button>
-        <span class="fs-stepper-val" id="fsNameplateSizePct">100%</span>
-        <button class="fs-toggle-btn" id="fsNameplateSizeIn" type="button" title="크게" aria-label="레벨/이름 크게">+</button>
-        <button class="fs-toggle-btn" id="fsNameplateSizeReset" type="button" title="처음 크기로" aria-label="레벨/이름 크기 초기화">↺</button>
-      </span>
-    </div>
-    <!-- 🪟 창이 화면 밖으로 나가 안 보일 때의 탈출구. 모니터를 바꾸거나 해상도가 줄면
-         저장된 자리가 화면 밖이 되어 "꾸미기 미리보기가 사라졌다"로 보인다. -->
-    <div class="fs-toggle-row">
-      <span>창 위치 초기화</span>
-      <button class="fs-toggle-btn" id="fsResetWinPos" type="button" style="white-space:nowrap;flex-shrink:0;">되돌리기</button>
-    </div>
-
-    <!-- 🎬 영상 겹침 실험 — 화면공유 영상이 검어지거나 깜빡일 때만 켜는 것. 통로가 있는 앱에서만 보인다(program-settings.js).
-         ⚠️ 이름을 '실험실'로 하지 않은 것은 의도적이다 — 증상 이름을 붙이면 그 증상이 없는 사람은 켤 이유가 없다.
-         ⚠️ 지우지 말 것 — 영상 · 화면공유가 검어지는 사람이 켜야 하는 해결책이다(도움말 5-1 «🎬 영상 겹침 실험»).
-         ⚠️ 폐기된 🧪 '다른 프로그램 방해 안 함'(창 활성화 차단)은 다시 만들지 말 것 — main.js 폐기 주석 · handoff-focus-steal-5.md §7. -->
-    <div class="fs-toggle-row" id="progLabVideoRow" style="display:none;margin-top:12px;border-top:1px solid var(--win-lo-2);padding-top:12px;">
-      <span>영상 겹침 실험</span>
-      <button class="fs-toggle-btn" id="progLabVideoToggle" type="button">꺼짐</button>
-    </div>
-    <p class="fs-note" id="progLabVideoHint" style="display:none;">화면공유 영상이 검어지거나 깜빡일 때만 켜세요. 그런 일이 없으면 그냥 두세요.</p>
-    <!-- 🎬 «적용 안 됨» 일 때만 보이는 안내 — 글은 program-settings.js LAB_VIDEO_BLOCKED_GUIDE -->
-    <p id="progLabVideoWarn" style="display:none;margin:8px 0 0;padding:8px 10px;font-size:10.5px;line-height:1.6;
-      color:var(--ink);background:var(--win-face);border:1px dashed var(--ink-soft);white-space:pre-line;"></p>
   </div>
 
   <!-- ── 탭 2 · 캐릭터 ── -->
@@ -8848,6 +8881,7 @@
 <!-- 📷 스티커사진 순수 계산(window.Purikura — purikura-net.js) — THREE · DOM · 통신 없음(sim-purikura-net.js). 통신은 세션 포트 purikura-rt.js · app.js 보다 먼저. -->
 <script src="parts/shared/mac-tooltip.js"></script>   <!-- 💬 맥 설명 말풍선(window.TwMacTooltip) — 싣기만 하면 맥에서 스스로 건다 · app.js 보다 먼저 -->
 <script src="parts/shared/safe-html.js"></script>   <!-- 🛡️ 남이 쓸 수 있는 값을 화면에 넣는 단 한 곳(window.TwSafeHtml — text · attr · safeUrl · cssUrl · cssColor) — 쓰는 모듈 · app.js 보다 먼저 -->
+<script src="parts/shared/paging.js"></script>   <!-- 📄 쪽 나누기 규칙(window.TwPaging — 쪽 수 · 쪽 번호 바로잡기 · 순수) — gacha-album.js · wardrobe-paging.js 보다 먼저(둘이 실릴 때 읽는다) -->
 <script src="parts/shared/server-features.js"></script>   <!-- 서버가 아직 안 받는 0.14 기능 표(window.TwServerFeatures) — 입구(버튼 · 탭 · 칸)를 닫는다 · 쓰는 모듈 · app.js 보다 먼저 -->
 <script src="parts/shared/person-name.js"></script>   <!-- 🏷️ 사람 이름을 화면 글로(window.TwPersonName — 이름이 없으면 그릴 때만 «이름 없음») — 쓰는 모듈 · app.js 보다 먼저 -->
 <script src="parts/shared/img-retry.js"></script>   <!-- 🖼 남의 그림을 한 번 더 받을 주소(window.TwImgRetry) — room-sync.js · animal.js · myhome-inbox.js · mallang.js 보다 먼저 -->
@@ -9010,6 +9044,7 @@
 <script src="parts/account/license-gate.js"></script>   <!-- 🎟️ 초대장 · 라이선스 — app.js 보다 먼저(app.js 가 원래 자리에서 TwLicenseGate.createLicenseGate 로 만든다) -->
 <script src="parts/account/account.js"></script>   <!-- 🔑 계정 — app.js 보다 먼저(app.js 가 원래 자리에서 TwAccount.createAccount 로 만든다) -->
 <script src="parts/character/wardrobe-place.js"></script>   <!-- 📐 꾸미기 · 미리보기 창 자리 규칙(순수) — wardrobe.js 보다 먼저(wardrobe.js 가 TwWardrobePlace 를 읽는다) -->
+<script src="parts/character/wardrobe-paging.js"></script>   <!-- 📄 꾸미기 창 파츠 칸 페이지 · 이름 찾기 규칙(순수) — wardrobe.js 보다 먼저(app.js 가 TwWardrobePaging 을 deps 로 넘긴다) -->
 <script src="parts/character/wardrobe.js"></script>   <!-- 🎨 꾸미기 창 — app.js 보다 먼저(app.js 가 원래 자리에서 TwWardrobe.createWardrobe 로 만든다) -->
 <script src="parts/shared/panel-fit.js"></script>   <!-- 📐 창을 화면 안으로(아래 기준 · 왼쪽 위 기준) — settings-panel.js · status-chip.js 보다 먼저 · 크리스마스 창은 app.js 가 deps 로 -->
 <script src="parts/shared/os-drag.js"></script>   <!-- 🪟 런처 화면에서 창을 앱 창째 끌기(window.TwOsDrag) — app.js 보다 먼저 · 크리스마스 창은 app.js 가 deps 로 -->

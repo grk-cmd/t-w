@@ -18,6 +18,7 @@ const APP_SRC = read('app.js');
 const SRC = (APP_SRC || '') + '\n' + APP_MODE, HTML = read('desk-companion-prototype.html');
 if(!APP_SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
 const MOD = ["settings-panel.js","parts/launcher/settings-panel.js","app/parts/launcher/settings-panel.js"].map(read).find(Boolean);
+const PF_SRC = ['panel-fit.js', 'parts/shared/panel-fit.js', 'app/parts/shared/panel-fit.js'].map(read).find(Boolean);   // 📐 설정창 자리 — 진짜 규칙으로 돌린다
 if(!MOD){ say('  ? 원본 못 찾음 — settings-panel.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
@@ -25,7 +26,7 @@ const FN_DEPS = ["_chatEsc","adBannerSlides","allDeskItems","applyCharToSeat","a
 const VAL_DEPS = ["settingsAccountStore","GAP_MAX","GAP_MIN","GAP_STEPS","plMod","scene","seats","stickerLayer","awayOthers"];
 const GET_DEPS = ["MULTIPLAYER_SPACING","Presence","SPACING","_moveModeJustToggled","curSlot","decoPartsVisible","dotRenderEnabled","emojiReactionsEnabled","focusCharScale","isPremium","moveMode","nameplateEnabled","roomSeatMode","seatEqualizeOn","slots","wardrobeMod","statusBubbleEnabled"];
 const SET_DEPS = ["MULTIPLAYER_SPACING","SPACING","_moveModeJustToggled","curSlot","decoPartsVisible","dotRenderEnabled","emojiReactionsEnabled","focusCharScale","moveMode","nameplateEnabled","roomSeatMode","seatEqualizeOn","statusBubbleEnabled"];
-const EXPORTS = ["EXTRA_SEAT_KEY","MY_AD_BANNER_KEY","_saveExtraSeatSlots","loadExtraSeatSlots","addExtraSeat","applyExtraSeatForMode","extraSeatSlots","setExtraSeatSlots","loadAdBannerSlides","refreshFsAdBanner","renderCharSlots","openSettings","closeSettings","onTabShown","nameplateClamp","nameplatePct"];
+const EXPORTS = ["EXTRA_SEAT_KEY","MY_AD_BANNER_KEY","_saveExtraSeatSlots","loadExtraSeatSlots","addExtraSeat","applyExtraSeatForMode","extraSeatSlots","setExtraSeatSlots","loadAdBannerSlides","refreshFsAdBanner","renderCharSlots","openSettings","closeSettings","placeAtHead","onTabShown","nameplateClamp","nameplatePct"];
 const MOVED = ["MY_AD_BANNER_KEY","loadAdBannerSlides","_fsAdSlides","_fsAdIdx","_fsAdTimer","refreshFsAdBanner","EXTRA_SEAT_KEY","extraSeatSlots","_saveExtraSeatSlots","clearSeatDeskItems","switchMainCharacter","removeExtraSeat","addExtraSeat","toggleExtraSeat","applyExtraSeatForMode","makeCharThumbEl","renderCharSlots","_fsBindSlotNav","_fsSyncSlotNav","_fsRevealSlot"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  settingsAccountStore: accountStoreMod,","  GAP_MAX: GAP_MAX,","  GAP_MIN: GAP_MIN,","  GAP_STEPS: GAP_STEPS,","  MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,","  Presence: ()=>Presence,","  SPACING: ()=>SPACING,","  _chatEsc: (...a)=>_chatEsc(...a),","  _moveModeJustToggled: ()=>_moveModeJustToggled,","  adBannerSlides: ()=>noticeFeed.banner(),","  allDeskItems: (...a)=>allDeskItems(...a),","  applyCharToSeat: (...a)=>applyCharToSeat(...a),","  applyClothVisibility: (...a)=>applyClothVisibility(...a),","  backToLauncher: (...a)=>backToLauncher(...a),","  bringWinToFront: (...a)=>bringWinToFront(...a),","  createSeat: (...a)=>createSeat(...a),","  curSlot: ()=>curSlot,","  decoPartsVisible: ()=>decoPartsVisible,","  dotRenderEnabled: ()=>dotRenderEnabled,","  drawFaceThumb: (...a)=>drawFaceThumb(...a),","  emojiReactionsEnabled: ()=>emojiReactionsEnabled,","  equipDeskItem: (...a)=>equipDeskItem(...a),","  escRegisterWindow: (...a)=>escRegisterWindow(...a),","  findMySeat: (...a)=>findMySeat(...a),","  focusCharScale: ()=>focusCharScale,","  isPremium: ()=>isPremium,","  layoutSeats: (...a)=>layoutSeats(...a),","  moveMode: ()=>moveMode,","  nameplateEnabled: ()=>nameplateEnabled,","  plMod: plMod,","  refreshCharScaleForCurrentDisplay: (...a)=>refreshCharScaleForCurrentDisplay(...a),","  refreshInviteUI: (...a)=>refreshInviteUI(...a),","  removeSeatLabels: (...a)=>removeSeatLabels(...a),","  roomSeatMode: ()=>roomSeatMode,","  saveCharScale: (...a)=>saveCharScale(...a),","  saveCurSlot: (...a)=>saveCurSlot(...a),","  saveGap: (...a)=>saveGap(...a),","  saveSlots: (...a)=>saveSlots(...a),","  scene: scene,","  seatEqualizeOn: ()=>seatEqualizeOn,","  seats: seats,","  slots: ()=>slots,","  toast: (...a)=>toast(...a),","  updateCameraOnly: (...a)=>updateCameraOnly(...a),","  wardrobeMod: ()=>wardrobeMod,","  setMULTIPLAYER_SPACING: (v)=>{ MULTIPLAYER_SPACING = v; },","  setSPACING: (v)=>{ SPACING = v; },","  setMoveModeJustToggled: (v)=>{ _moveModeJustToggled = v; },","  setCurSlot: (v)=>{ curSlot = v; },","  setDecoPartsVisible: (v)=>{ decoPartsVisible = v; },","  setDotRenderEnabled: (v)=>{ dotRenderEnabled = v; },","  setEmojiReactionsEnabled: (v)=>{ emojiReactionsEnabled = v; },","  setFocusCharScale: (v)=>{ focusCharScale = v; },","  setMoveMode: (v)=>{ moveMode = v; },","  setNameplateEnabled: (v)=>{ nameplateEnabled = v; },","  setRoomSeatMode: (v)=>{ roomSeatMode = v; },","  setSeatEqualizeOn: (v)=>{ seatEqualizeOn = v; },","  isLauncherShown: (...a)=>isLauncherShown(...a),","  statusBubbleEnabled: ()=>statusBubbleEnabled,","  setStatusBubbleEnabled: (v)=>{ statusBubbleEnabled = v; },","  stickerLayer: stickerLayerMod,","  awayOthers: awayOthersMod,"];
 
@@ -82,13 +83,21 @@ function behave(src){
   SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
   deps.isLauncherShown = () => launcher;
   deps.focusCharScale = () => 1;
-  const win = { companion: undefined, _fsPanelDragged: false, TwSeatPin: undefined };
+  const win = { companion: undefined, TwSeatPin: undefined, addEventListener: (t, fn) => { if(t === 'resize') resizeFns.push(fn); } };
+  const resizeFns = [], roFns = [];
+  function ResizeObserver(fn){ return { observe(){ roFns.push(fn); } }; }
+  const PF = (() => { const w = {}; new Function('window', 'module', PF_SRC)(w, undefined); return w.TwPanelFit; })();
+  /* 설정창 · 제목줄 — 크기와 끌기 듣기를 진짜처럼(자리 규칙을 실제로 돌린다) */
+  const pnl = document.getElementById('focusSettingsPanel'); pnl.offsetWidth = 300; pnl.offsetHeight = 400;
+  const bar = { style: {}, on: {}, addEventListener: (t, fn) => { (bar.on[t] = bar.on[t] || []).push(fn); } };
+  pnl.querySelector = (sel) => (sel === '.fs-titlebar' ? bar : null);
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   let api;
   try{
-    api = new Function('window', 'document', 'localStorage', 'companion', 'setTimeout', 'setInterval', 'clearInterval', 'requestAnimationFrame', 'TwMyHomeHooks', 'TwSafeHtml', 'innerWidth', 'innerHeight', 'module',
-      src + '\nreturn window.TwSettingsPanel;')(win, document, ls, undefined, () => 0, () => 0, () => {}, () => 0, any, { safeUrl: () => '', text: (x) => String(x) }, 1000, 800, undefined)
+    api = new Function('window', 'document', 'localStorage', 'companion', 'setTimeout', 'setInterval', 'clearInterval', 'requestAnimationFrame', 'TwMyHomeHooks', 'TwSafeHtml', 'innerWidth', 'innerHeight', 'module', 'TwPanelFit', 'ResizeObserver',
+      src + '\nreturn window.TwSettingsPanel;')(win, document, ls, undefined, () => 0, () => 0, () => {}, () => 0, any, { safeUrl: () => '', text: (x) => String(x) }, 1000, 800, undefined,
+      PF, ResizeObserver)
       .createSettingsPanel(deps);
   }catch(e){ t(false, '가짜 DOM 위에서 만들기 — ' + String(e.message || e).slice(0, 80)); return r; }
   api.onTabShown((k) => shown.push(k));
@@ -105,8 +114,16 @@ function behave(src){
     t(panel.classList.contains('on') && panel.classList.contains('fs-in-launcher'), '런처에서 열면 가운데(.fs-in-launcher)로 뜬다');
     t(pageOn('fsTabDisplay') && !pageOn('fsTabInfo') && els.fsTabBtnDisplay.classList.contains('on'), '처음 탭은 디스플레이');
     t(shown[shown.length - 1] === 'display', '탭을 보이면 걸어 둔 것(onTabShown — 프로그램 칸 다시 그리기)을 부른다');
+    t(pageOn('fsSubDeco') && !pageOn('fsSubScreen') && !pageOn('fsSubShow') && els.fsSubBtnDeco.classList.contains('on'), '★ 디스플레이 탭은 처음에 «꾸미기» 묶음만');
+    els.fsSubBtnScreen.onclick();
+    t(pageOn('fsSubScreen') && !pageOn('fsSubDeco') && !pageOn('fsSubShow') && els.fsSubBtnScreen.getAttribute('aria-selected') === 'true' && !els.fsSubBtnDeco.classList.contains('on'), '★ «화면» 을 누르면 그 묶음만');
+    els.fsSubBtnShow.onclick();
+    t(pageOn('fsSubShow') && !pageOn('fsSubScreen'), '  «표시» 도');
     api.openSettings('info');
     t(pageOn('fsTabInfo') && !pageOn('fsTabDisplay'), '탭을 정해 열면 그 탭(정보)');
+    api.openSettings('display');
+    t(pageOn('fsSubShow') && !pageOn('fsSubDeco'), '  다른 탭을 다녀와도 마지막에 본 묶음(표시)');
+    api.openSettings('info');   // 아래 «마지막에 본 탭» 판정이 정보 탭을 기대한다
     api.closeSettings();
     t(!panel.classList.contains('on'), '닫기');
     launcher = false; api.openSettings();
@@ -142,6 +159,33 @@ function behave(src){
     els.fsNameplateSizeReset.onclick();
     t(store['tw.nameplateSize'] === '15' && els.fsNameplateSizePct.textContent === '100%', '↺ — 기본 15px = 100%');
     t(api.nameplatePct(15) === 100 && api.nameplatePct(26) === 173 && api.nameplateClamp(9) === 10 && api.nameplateClamp('x') === 15, '이름표 규칙 — 경계 · 이상한 값');
+    /* 📐 자리 — 위 끝 고정 · 아래로 자란다(화면 1000×800 · 창 300×400) */
+    const pos = () => [parseFloat(pnl.style.left), parseFloat(pnl.style.top)];
+    const head = (x, y) => () => ({ x, y });
+    api.closeSettings(); launcher = true; pnl.offsetHeight = 400; api.openSettings();
+    t(pos()[0] === 500 && pos()[1] === 200, '★ 런처에서 열면 연 때 높이로 가운데(위 끝 200)');
+    pnl.offsetHeight = 500; roFns.forEach(fn => fn());
+    t(pos()[1] === 200, '★ 런처 — 탭을 바꿔 길어져도 위 끝 그대로(아래로 자람)');
+    pnl.offsetHeight = 750; roFns.forEach(fn => fn());
+    t(pos()[1] === 42, '  런처 — 아래가 화면 밖이면 그만큼만 올린다(800 − 750 − 8)');
+    api.closeSettings(); launcher = false; pnl.offsetHeight = 400; api.openSettings();
+    api.placeAtHead(head(500, 600));
+    t(pos()[0] === 500 && pos()[1] === 200, '★ 실행 화면 머리 위 — 위 끝 = 머리 − 연 때 높이');
+    pnl.offsetHeight = 500; api.placeAtHead(head(500, 600));
+    t(pos()[1] === 200, '★ 실행 화면 — 탭을 바꿔 길어져도 위 끝 그대로');
+    const pev = (x, y) => ({ clientX: x, clientY: y, target: { closest: () => null }, preventDefault(){} });
+    (bar.on.pointerdown || []).forEach(fn => fn(pev(500, 210)));
+    docOn.filter(h => h.type === 'pointermove').forEach(h => h.fn(pev(300, 110)));
+    docOn.filter(h => h.type === 'pointerup').forEach(h => h.fn(pev(300, 110)));
+    t(pos()[0] === 300 && pos()[1] === 100, '끌어 옮기면 그 자리(위 가운데 300 · 100)');
+    api.placeAtHead(head(500, 600));
+    t(pos()[1] === 100, '  끈 뒤에는 머리 위를 따라가지 않는다');
+    api.closeSettings(); launcher = true; api.openSettings();
+    t(pos()[1] !== 100, '  런처에서 열면 가운데(끈 자리 아님)');
+    api.closeSettings(); launcher = false; api.openSettings();
+    t(pos()[0] === 300 && pos()[1] === 100, '★ 실행 화면에서 끈 자리 — 런처를 다녀와도 그 자리');
+    api.closeSettings(); launcher = false; api.openSettings();
+    t(pos()[0] === 300 && pos()[1] === 100, '  닫았다 열어도 그 자리');
   }catch(e){ t(false, '동작 판정 중 던짐 — ' + String(e.message || e).slice(0, 80)); }
   return r;
 }
@@ -171,6 +215,12 @@ function judgeAll(mod, app, html){
   /* 런처 ↔ 실행 화면을 오갈 때 설정 창을 닫는다 — 런처에서 연 가운데 창 · 실행 화면에서 연 머리 위 창이 다른 화면에 남지 않게 */
   const fnBody = (name) => { const i = A.indexOf('function ' + name + '('); if(i < 0) return ''; let d = 0; for(let k = A.indexOf('{', i); k < A.length; k++){ if(A[k] === '{') d++; else if(A[k] === '}' && --d === 0) return A.slice(i, k + 1); } return ''; };
   t(/settingsMod\.closeSettings\(\)/.test(fnBody('launchApp')) && /settingsMod\.closeSettings\(\)/.test(fnBody('backToLauncher')), '런처 ↔ 실행 화면 전환(launchApp · backToLauncher) 때 설정 창을 닫는다');
+  /* 디스플레이 탭 묶음 — 칸이 맞는 묶음 안에 있나(묶음 사이로 칸을 옮기면 빨강) */
+  const sub = (id) => { const i = html.indexOf('id="' + id + '"'); const j = html.indexOf('<div class="fs-subpage"', i + 1); const k = html.indexOf('<!-- ── 탭 2 · 캐릭터 ── -->', i); return i < 0 ? '' : html.slice(i, Math.min(j < 0 ? k : j, k)); };
+  const has = (box, ids) => ids.every(x => box.includes('id="' + x + '"'));
+  t(has(sub('fsSubDeco'), ['themeColorRow', 'fontPickRow', 'themeCxBox']) && has(sub('fsSubScreen'), ['fsMonitors', 'progQualityHint', 'progAutoLaunchToggle', 'fsUiZoomRow', 'fsResetWinPos', 'progLabVideoRow'])
+    && has(sub('fsSubShow'), ['progOfficeModeToggle', 'fsDotToggle', 'fsEmojiToggle', 'fsNameplateToggle', 'fsAwayOthersToggle', 'fsStatusBubbleToggle', 'fsMhStickerToggle', 'fsNameplateSizePct']),
+    'html — 꾸미기(테마 · 색상 · 글꼴) · 화면(모니터 · 화질 · 자동 실행 · 크기 · 창 위치 · 영상 겹침) · 표시(켜고 끄기 · 이름 크기) 묶음');
   for(const row of behave(mod)) r.push(row);
   return r;
 }

@@ -1,12 +1,15 @@
 /* gacha-album.js — 🎰 도감 규칙(꾸미기 창 «도감» 탭) — 어떤 도감이 있는지 · 몇 개 모았는지 · 줄에 보일 그림 · 페이지.
    ★ 시즌 이름 · 이름표 · 돌아오는 달의 정본이다 — gacha.js(뽑기 풀 · 서버 시즌 · 뽑기 창 글)도 여기를 읽는다. 시즌을 더하면 여기 한 곳만.
    순수 함수다(DOM · firebase · 저장 없음). 화면은 gacha.js 가 그린다.
+   ★ 쪽 수 · 쪽 번호 바로잡기는 꾸미기 창 파츠 칸과 같은 한 벌(shared/paging.js — html 이 이 파일보다 먼저 싣는다) — 그대로 내놓는다.
    ★ 도감 = «⭐ 상시» 하나 + 시즌(봄 · 여름 · 가을 · 겨울) — 파츠가 하나라도 있는 것만 줄을 세운다.
      파츠의 rec.season 이 비면 상시, 아는 시즌 이름이면 그 시즌이다. 모르는 이름은 어느 도감에도 넣지 않는다
      (뽑기 풀도 아는 시즌만 돈다 — 넣으면 영영 못 모으는 칸이 생긴다).
    ★ 줄 그림 셋은 **뽑은 파츠에서만** 고른다 — 안 뽑은 파츠의 그림은 도감 안에서도 «???» 로 가린다.
    검사: checks/sim-gacha-album.js */
 (function(){
+
+const paging = TwPaging;   // 📄 쪽 수 · 쪽 번호 바로잡기(shared/paging.js — 먼저 싣는 아래층 · 순수)
 
 const ALBUM_KEYS = Object.freeze(['', 'spring', 'summer', 'autumn', 'winter']);   // 줄 순서 — '' = 상시
 const ALBUM_LABEL = Object.freeze({ '':'⭐ 상시', spring:'🌸 봄', summer:'🌊 여름', autumn:'🍂 가을', winter:'❄ 겨울' });
@@ -40,9 +43,9 @@ function albumPct(owned, total){
   return Math.max(0, Math.min(100, Math.round((owned | 0) * 100 / total)));
 }
 
-/* 📄 페이지 — 몇 쪽인지 · 쪽 번호 바로잡기 · 그 파츠가 있는 쪽 */
-function pageCount(n, size){ return Math.max(1, Math.ceil((n | 0) / size)); }
-function clampPage(page, n, size){ return Math.min(pageCount(n, size) - 1, Math.max(0, page | 0)); }
+/* 📄 페이지 — 몇 쪽인지 · 쪽 번호 바로잡기는 공용(paging) · 그 파츠가 있는 쪽 */
+const pageCount = paging.pageCount;
+const clampPage = paging.clampPage;
 function pageOf(list, id, size){
   const at = (list || []).findIndex(p => p.id === id);
   return at < 0 ? -1 : Math.floor(at / size);

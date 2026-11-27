@@ -32,7 +32,6 @@ const partEntryInstances = deps.partEntryInstances;
 const partEntryXf = deps.partEntryXf;
 const refreshWdPreviewColorSection = deps.refreshWdPreviewColorSection;
 const savedParts = deps.savedParts;   // 읽는 함수
-const sizeWdPreview = deps.sizeWdPreview;
 const strokeSeg = deps.strokeSeg;
 const toast = deps.toast;
 const updateWdCam = deps.updateWdCam;
@@ -64,6 +63,8 @@ const wdPaintTool = (typeof PaintTools==='undefined') ? null : PaintTools.create
     if(t==='bucket' && _wdPic.on) toast('🪣 페인트통 — 칠할 모델을 눌러요 (Shift+클릭 = 지우기)'); } });
 
 const WD_PIC_HIST_MAX = 30;
+/* 그리기 줄의 단축키 · 도움말 — 기본은 접어 둔다(펴 두면 미리보기 캔버스가 그만큼 준다). 펼침은 이 PC 에 기억한다 */
+const WD_PIC_HELP_KEY = 'tw.wdPicHelpOpen';
 
 function _wdPicSection(){ return document.getElementById('wdPicSection'); }
 /* id 하나로 wrapper 를 되찾는다 — 색상 줄이 쓰는 규칙과 같다(🔗 stackable 먼저, 그다음 메인). */
@@ -152,7 +153,6 @@ function refreshWdPicUI(){
     const want = _wdPic.on ? 'flex' : 'none';
     if(sec.style.display !== want){
       sec.style.display = want;
-      sizeWdPreview();
       updateWdCam();
     }
   }
@@ -324,7 +324,10 @@ function _buildWdPicSection(){
     const _trec = _tid && Array.isArray(savedParts()) ? savedParts().find(p=>p.id===_tid) : null;
     if(_trec && _trec.name) _tname = _trec.name;
   }catch(_){}
-  sec.appendChild(mk('div','wd-preview-color-head', _wdPic.ear ? '✎ 귀에 그리는 중' : '✎ '+_tname+' 에 그리는 중'));
+  const head=mk('div','wd-preview-color-head', _wdPic.ear ? '✎ 귀에 그리는 중' : '✎ '+_tname+' 에 그리는 중');
+  const info=mk('button','wd-pic-info','i'); info.type='button'; info.title='단축키 · 도움말'; info.setAttribute('aria-controls','wdPicHelp');
+  head.appendChild(info);
+  sec.appendChild(head);
 
   const tools=mk('div','wd-pic-row');
   const toolSeg=mk('span',null);   toolSeg.id='wdPicTools';   // 🖌 붓 · 페인트통 · 지우개 (paint-tools.js — 생성기와 같은 줄)
@@ -379,10 +382,20 @@ function _buildWdPicSection(){
   [uB,rB,cB].forEach(b=>hist.appendChild(b));
   sec.appendChild(hist);
 
+  const help=mk('div','wd-pic-help'); help.id='wdPicHelp';
   const hint=mk('div','wd-pic-hint');
-  if(_wdPic.ear) sec.appendChild(mk('div','wd-pic-hint','귀를 눌러 그려요. 대칭을 켜면 반대쪽 귀에 좌우를 뒤집어 같이 그려요.'));
+  if(_wdPic.ear) help.appendChild(mk('div','wd-pic-hint','귀를 눌러 그려요. 대칭을 켜면 반대쪽 귀에 좌우를 뒤집어 같이 그려요.'));
   hint.innerHTML='Ctrl+Z 되돌리기 · Ctrl+Shift+Z 다시 · Delete 전체 지우기<br>B 붓 · G 페인트통(Shift+클릭 = 지우기) · E·C 지우개<br>X 대칭 · 우클릭 스포이드';
-  sec.appendChild(hint);
+  help.appendChild(hint);
+  const setHelpOpen=(on)=>{ help.hidden=!on; info.setAttribute('aria-expanded', on ? 'true' : 'false'); };
+  let _helpOpen=false; try{ _helpOpen = localStorage.getItem(WD_PIC_HELP_KEY) === '1'; }catch(_){}
+  setHelpOpen(_helpOpen);
+  info.onclick=()=>{
+    const on = help.hidden;
+    setHelpOpen(on);
+    try{ localStorage.setItem(WD_PIC_HELP_KEY, on ? '1' : '0'); }catch(_){}
+  };
+  sec.appendChild(help);
 
   const foot=mk('div','wd-pic-row wd-pic-foot');
   const cancel=mk('button','wd-pic-btn','취소');
