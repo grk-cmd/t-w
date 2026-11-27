@@ -112,6 +112,13 @@ say('── 2절 쓰기');
   chk(!w.els.xmasLwDel.hidden && !w.N.calls.includes('remove:l1'), '★ [삭제] — 확인창만 뜨고 아직 안 지운다');
   w.els.xmasLwDelNo.onclick(); await settle();
   chk(w.els.xmasLwDel.hidden && !w.N.calls.includes('remove:l1') && rows(w.els.xmasLwList).length === 1, '  ↳ [취소] — 닫고 편지는 그대로');
+  /* 확인창을 띄운 채 창이 닫히거나 계정이 바뀌면 확인창 · 지울 칸을 버린다 — 남으면 다음 계정의 같은 칸(l1)을 지운다 */
+  for (const how of ['close', 'reset']){
+    btn(rows(w.els.xmasLwList)[0], '삭제').onclick(); await settle();
+    w.api[how](); w.api.open(); await settle();
+    const n0 = w.N.calls.length; await w.els.xmasLwDelYes.onclick(); await settle();
+    chk(w.els.xmasLwDel.hidden && !w.N.calls.slice(n0).some(c => /^remove:/.test(c)), '★ 확인창을 띄운 채 ' + how + ' — 확인창이 닫히고, 남은 [삭제] 를 눌러도 안 지운다');
+  }
   btn(rows(w.els.xmasLwList)[0], '삭제').onclick(); await w.els.xmasLwDelYes.onclick(); await settle();
   chk(w.N.calls.includes('remove:l1') && /삭제했어요/.test(w.S.toasts.pop()) && rows(w.els.xmasLwList).length === 0 && !w.els.xmasLwEdit.hidden, '거두기 — 칸을 비우면 다시 쓸 수 있다(편지지가 펴짐)');
   /* 상한을 낮추기 전에 맡긴 편지가 여럿(서버 칸은 다섯) — 다 보이고 · 고치고 · 거둘 수 있다 · 새로는 못 쓴다 */
