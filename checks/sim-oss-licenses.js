@@ -159,8 +159,9 @@ resolveLoad({ items: [
     const doc = { getElementById: (id) => els[id] || node(id, null), querySelector: () => null, querySelectorAll: () => [],
       createElement: () => node('_' + Object.keys(els).length, null), addEventListener: (type, fn, cap) => docOn.push({ type, fn, cap: !!cap }) };
     const deps = new Proxy({}, { get: (t, k) => k === 'isLauncherShown' ? () => true : () => P });
-    const api = new Function('window', 'document', 'localStorage', 'companion', 'setTimeout', 'setInterval', 'clearInterval', 'requestAnimationFrame', 'TwMyHomeHooks', 'TwSafeHtml', 'innerWidth', 'innerHeight', 'module',
-      src + '\nreturn window.TwSettingsPanel;')({ _fsPanelDragged: false }, doc, { getItem: () => null, setItem(){} }, undefined, () => 0, () => 0, () => {}, () => 0, P, { safeUrl: () => '' }, 1000, 800, undefined)
+    const api = new Function('window', 'document', 'localStorage', 'companion', 'setTimeout', 'setInterval', 'clearInterval', 'requestAnimationFrame', 'TwMyHomeHooks', 'TwSafeHtml', 'innerWidth', 'innerHeight', 'module', 'TwPanelFit',
+      src + '\nreturn window.TwSettingsPanel;')({}, doc, { getItem: () => null, setItem(){} }, undefined, () => 0, () => 0, () => {}, () => 0, P, { safeUrl: () => '' }, 1000, 800, undefined,
+      { fitTopCenter: (x, y) => ({ x, y }) })   // 📐 런처에서 열 때 가운데 맞추기(실행 검사는 sim-settings-panel.js)
       .createSettingsPanel(deps);
     const panel = els.focusSettingsPanel;
     const oss = node('ossLicensesOverlay', null), box = node('ossBox', oss), item = node('ossItem', box), desk = node('desk', null);
