@@ -15,7 +15,7 @@
   "license": "UNLICENSED",
   "devDependencies": {
     "electron": "^44.9.3",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^26.18.1"
   },
   "dependencies": {
     "electron-updater": "^6.1.7",

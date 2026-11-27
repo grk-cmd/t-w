@@ -38,6 +38,8 @@ chk(R.eventOn(R.EVENT_END_MS - 1) && !R.eventOn(R.EVENT_END_MS) && !R.eventOn(Na
 chk(R.letterOpen(R.LETTER_DEADLINE_MS - 1) && !R.letterOpen(R.LETTER_DEADLINE_MS), '편지 쓰기 — 12/25 0시 직전까지');
 chk(!R.lettersArrived(R.LETTER_DEADLINE_MS - 1) && R.lettersArrived(R.LETTER_DEADLINE_MS) && R.lettersArrived(R.EVENT_END_MS) && R.lettersArrived(R.LETTERS_VIEW_UNTIL_MS - 1) && !R.lettersArrived(R.LETTERS_VIEW_UNTIL_MS),
   '편지 열람 — 12/25 0시부터 1/5 하루 끝까지(이벤트 끝 뒤에도)');
+chk(R.nextChange(R.LETTER_DEADLINE_MS - 1) === R.LETTER_DEADLINE_MS && R.nextChange(R.LETTER_DEADLINE_MS) === R.LETTERS_VIEW_UNTIL_MS && R.nextChange(R.LETTERS_VIEW_UNTIL_MS) === null && R.nextChange(NaN) === null,
+  '다음 바뀔 때(처음 값) — 마감 전엔 마감 · 마감부터는 열람 끝 · 열람 끝부터는 없음 · 서버 시각 모르면 없음');
 chk(R.buttonOn(R.EVENT_END_MS) && R.buttonOn(R.LETTERS_VIEW_UNTIL_MS - 1) && !R.buttonOn(R.LETTERS_VIEW_UNTIL_MS) && !R.buttonOn(NaN), '런처 버튼 — 열람 끝까지 보이고 · 서버 시각 모르면 숨김');
 chk(!R.inDeliveryWindow(R.LETTER_DEADLINE_MS - 1) && R.inDeliveryWindow(R.LETTER_DEADLINE_MS) && R.inDeliveryWindow(R.LETTER_DEADLINE_MS + R.DELIVERY_WINDOW_MS - 1) && !R.inDeliveryWindow(R.LETTER_DEADLINE_MS + R.DELIVERY_WINDOW_MS) && R.DELIVERY_WINDOW_MS === 600000,
   '짝 짓기 알림 때 — 마감부터 10분');
@@ -56,6 +58,8 @@ chk(R.mailDelayMs(R.LETTER_DEADLINE_MS + 1000, R.SCHEDULE, 0.5) === 15000 && R.m
   chk(S && S.letterDeadline === T0 + 600000 && S.eventEnd === T0 + 1800000 && S.lettersViewUntil === T0 + 2100000 && Object.isFrozen(S), '서버 날짜 → 한 벌(ms) · 모르는 칸은 버림');
   chk(R.letterOpen(T0, S) && R.lettersArrived(T0 + 600000, S) && !R.lettersArrived(T0 + 600000) && !R.eventOn(T0 + 1800000, S) && R.buttonOn(T0 + 1800000, S) && !R.buttonOn(T0 + 2100000, S),
     '  ↳ 판정이 받은 한 벌을 쓴다(처음 값과 다른 때)');
+  chk(R.nextChange(T0, S) === T0 + 600000 && R.nextChange(T0 + 600000, S) === T0 + 2100000 && R.nextChange(T0 + 1800000, S) === T0 + 2100000 && R.nextChange(T0 + 2100000, S) === null && R.nextChange(null, S) === null,
+    '  ↳ 다음 바뀔 때 — 마감 · 열람 끝 중 지금 뒤 가장 이른 것(이벤트 끝은 그린 화면이 안 바뀌어 건너뜀) · 다 지났거나 서버 시각을 모르면 null');
   chk(R.inDeliveryWindow(T0 + 600000, S) && R.ddayLeft(T0, S) === 0 && R.ddayLeft(T0 + 600000, S) === -1, '  ↳ 짝 짓기 10분 · D-day 도 받은 마감으로');
   const bad = [null, {}, { letterDeadline: iso(T0), eventEnd: iso(T0), lettersViewUntil: iso(T0 + 1) }, { letterDeadline: iso(T0), eventEnd: iso(T0 + 2), lettersViewUntil: iso(T0 + 1) }, { letterDeadline: 'x', eventEnd: iso(T0 + 1), lettersViewUntil: iso(T0 + 2) }, { letterDeadline: T0, eventEnd: T0 + 1, lettersViewUntil: T0 + 2 }];
   chk(bad.every(b => R.scheduleOf(b) === null), '  ↳ 못 읽음 · 차례가 틀림(마감 < 끝 ≤ 열람 끝) · 숫자 모양은 null — 쓰던 값을 그대로 둔다');
