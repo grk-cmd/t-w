@@ -114,6 +114,7 @@ export const LOG_GROUPS = [
   { id: 'ops', label: '운영 설정' },
   { id: 'metrics', label: '개선 기록' },
   { id: 'user', label: '사용자' },
+  { id: 'xmas', label: '크리스마스' },
 ] as const;
 
 /** 판마다 보이는 필터 칩 — Firebase 판은 지금 열두 가지, 서버 판은 서버 동작 이름의 앞부분을 따른다. */
@@ -144,6 +145,7 @@ export const SERVER_LOG_GROUPS: readonly LogGroupId[] = [
   'bug',
   'metrics',
   'user',
+  'xmas',
 ];
 
 export type LogGroup = (typeof LOG_GROUPS)[number]['id'];
@@ -154,6 +156,10 @@ type LogGroupId = LogGroup;
  * 같은 이름(`notice.announce` 등)은 위 `ACTION_LABEL` 을 따른다.
  */
 export const SERVER_ACTION_LABEL: Record<string, string> = {
+  'xmas.dismiss': '🎄 신고 문제없음',
+  'xmas.removeLetter': '🎄 받은 편지 지우기',
+  'xmas.removeOrnament': '🎄 장식 지우기',
+  'xmas.returnLetter': '🎄 편지 반송',
   'bug.answer': '제보 답변',
   'bug.answerDelete': '답변 삭제',
   'bug.answerEdit': '답변 수정',

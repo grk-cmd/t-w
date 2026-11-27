@@ -4,6 +4,8 @@ import { createContext, useContext } from 'react';
 export interface Env {
   isProd: boolean;
   projectId: string;
+  /** 이 프로젝트의 Storage 버킷 — 배포된 프로젝트의 /__/firebase/init.json 이 준 값(공개 그림 주소를 만들 때) */
+  storageBucket: string;
 }
 
 export const EnvContext = createContext<Env | null>(null);
