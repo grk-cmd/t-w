@@ -389,7 +389,7 @@
 | **sim-chat-ui.js** | 126 | **eca9c00f7396** |
 | **sim-license-gate.js** | 441 | **1f9c56f0d87f** |
 | **sim-account.js** | 174 | **bee6deb0f7c1** |
-| **sim-wardrobe.js** | 483 | **9cd91aa9bb24** |
+| **sim-wardrobe.js** | 511 | **5452a5dd2332** |
 | **sim-settings-panel.js** | 241 | **e740fbdb1db9** |
 | **sim-desktop-run.js** | 94 | **2370870711eb** |
 | **sim-room-entry.js** | 401 | **29b730f27d0b** |

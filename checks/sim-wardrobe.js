@@ -99,22 +99,22 @@ function behave(src, opt){
     get textContent(){ return el._text + el._html.replace(/<[^>]+>/g, '') + el.children.map(c => c.textContent).join(''); }, set textContent(v){ el._text = String(v); el.children = []; },
     get className(){ return [...cls].join(' '); }, set className(v){ cls.clear(); String(v).split(/\s+/).filter(Boolean).forEach(c => cls.add(c)); },
     classList: { add: c => cls.add(c), remove: c => cls.delete(c), contains: c => cls.has(c), toggle: (c, f) => { const v = f === undefined ? !cls.has(c) : !!f; v ? cls.add(c) : cls.delete(c); return v; } },
-    appendChild(c){ el.children.push(c); return c; }, setAttribute(k, v){ el['attr:' + k] = String(v); }, addEventListener(){}, querySelector: () => null, querySelectorAll: () => [] }; return el; };
+    appendChild(c){ el.children.push(c); return c; }, setAttribute(k, v){ el['attr:' + k] = String(v); }, addEventListener(){}, querySelector: () => mkEl('div'), querySelectorAll: () => [] }; return el; };   /* querySelector — 상세조정 패널이 innerHTML 로 만든 단추를 찾아 onclick 을 건다 */
   const els = { wardrobeContent: mkEl('div', 'wardrobeContent'), wardrobeTabs: mkEl('div', 'wardrobeTabs'), wardrobePanel: mkEl('div', 'wardrobePanel') };
   const document = { getElementById: id => els[id] || null, createElement: tag => mkEl(tag), querySelector: () => null, querySelectorAll: () => [], addEventListener(){}, body: mkEl('body') };
   const log = [];
   const parts = [{ id: 'h1', cat: 'hat', name: '밀짚' }, { id: 'g1', cat: 'hat', name: '별 모자', gacha: true, stackable: true }, { id: 'g2', cat: 'hat', name: '눈사람', gacha: true, stackable: true }];
   const owned = { g1: 1 };
-  const st = { premium: !!opt.premium, admin: false };
+  const st = { premium: !!opt.premium, admin: false, seat: null, two: false };
   const deps = {};
   FN_DEPS.forEach(n => { deps[n] = () => any; });
   VAL_DEPS.forEach(n => { deps[n] = any; });
   GET_DEPS.forEach(n => { deps[n] = () => any; });
-  const HAT = { cat: 'hat', label: '모자', icon: '🎩' };
+  const HAT = { cat: 'hat', label: '모자', icon: '🎩' }, GLS = { cat: 'glasses', label: '안경', icon: '👓' };
   Object.assign(deps, {
-    PART_CATS: () => [HAT], PART_GROUPS: () => [{ group: 'head', label: '머리', icon: '👤' }, { group: 'desk', label: '책상', icon: '🪑' }], WD_DESK_TAB: () => '__desk__',
-    partsInGroup: g => g === 'head' ? [HAT] : [], groupOfCat: () => 'head', partsInCat: c => parts.filter(p => p.cat === c), partsInCatFor: (c, g) => parts.filter(p => p.cat === c && !!p.gacha === !!g),
-    savedParts: () => parts, isAdmin: () => st.admin, isPremium: () => st.premium, _wdLicenseDesks: () => [], findMySeat: () => null,
+    PART_CATS: () => st.two ? [HAT, GLS] : [HAT], PART_GROUPS: () => [{ group: 'head', label: '머리', icon: '👤' }, { group: 'desk', label: '책상', icon: '🪑' }], WD_DESK_TAB: () => '__desk__',
+    partsInGroup: g => g === 'head' ? (st.two ? [HAT, GLS] : [HAT]) : [], groupOfCat: () => 'head', partsInCat: c => parts.filter(p => p.cat === c), partsInCatFor: (c, g) => parts.filter(p => p.cat === c && !!p.gacha === !!g),
+    savedParts: () => parts, isAdmin: () => st.admin, isPremium: () => st.premium, _wdLicenseDesks: () => [], findMySeat: () => st.seat,
     escHtml: x => String(x), entriesForCat: () => [], partEntryId: e => e && e.id, toast: m => log.push('toast:' + m),
     gachaMod: () => ({ isGachaPart: p => !!(p && p.gacha), gachaCount: id => owned[id] | 0, onAlbumShow: () => log.push('albumShow'), renderGachaInv: () => log.push('renderAlbum'), isInvOpen: () => false }),
     twNav: { NAV: { PROGRAM_SETTINGS: 'programSettings' }, go: (n, tab) => log.push('nav:' + n + ':' + tab) },
@@ -186,6 +186,32 @@ function behave(src, opt){
     parts.splice(parts.length - 15, 15);   // 22개 → 7개(8칸) · 둘째 페이지가 없어진다
     M.renderWardrobe();
     t(cards().length === 8 && !pagerOf(), '  목록이 줄어 그 페이지가 없으면 마지막 페이지 · 한 페이지면 번호 줄 없음');
+    /* 🎛️ 상세조정 중인 칸이 안 보이게 되면 조정을 닫는다 — «모자 0»(1쪽)을 입은 채 우클릭 → ▶ / 찾기로 빠짐 */
+    st.seat = { charDef: { equippedParts: { hat: { id: 'm0' } } } };
+    for(let i = 0; i < 15; i++) parts.push({ id: 'n' + i, cat: 'hat', name: '깃털 ' + i });   // 7개 + 15 = 22개 → 23칸 · 2페이지
+    M.renderWardrobe();
+    const adjs = () => cards().filter(c => c.className === 'wd-adj');
+    const openAdj = () => { const c = cards().find(x => /\bwd-card\b/.test(x.className) && /모자 0/.test(x.textContent)); c.oncontextmenu({ preventDefault(){} }); };
+    openAdj();
+    const adjOn = !!M.activeWdAdj() && M.activeWdAdj().id === 'm0' && adjs().length === 1;
+    t(adjOn && !!pagerOf(), '  입은 파츠를 우클릭 — 상세조정(.wd-adj)이 그 칸 뒤에 · 2페이지');
+    pagerOf().children[pagerOf().children.length - 1].onclick();
+    t(adjOn && M.activeWdAdj() === null && !adjs().length && cards().length === 7, '★ 상세조정 중 ▶ 로 다른 페이지 — 조정을 닫는다(activeWdAdj 없음 · .wd-adj 없음)');
+    pagerOf().children[0].onclick(); openAdj();
+    const adjOn2 = !!M.activeWdAdj() && adjs().length === 1;
+    const findIn2 = wrap.children[0].children.find(c => c.className === 'wd-find').children[1];
+    findIn2.value = '깃털'; findIn2.oninput();
+    t(adjOn2 && M.activeWdAdj() === null && !adjs().length && cards().length === 15, '★ 상세조정 중 찾는 말로 그 파츠가 빠짐 — 조정을 닫는다');
+    /* 🔍 분류를 바꾸면 찾는 말을 비운다 — 모자에서 «깃털» 을 찾던 채 하위 분류를 안경으로 */
+    st.two = true;
+    for(let i = 0; i < 3; i++) parts.push({ id: 'e' + i, cat: 'glasses', name: '둥근 안경 ' + i });
+    M.renderWardrobe();
+    const findIn3 = wrap.children[0].children.find(c => c.className === 'wd-find').children[1];
+    const kept = findIn3.value === '깃털' && cards().length === 15;
+    const glsBtn = tabs.children[1].children.find(b => /안경/.test(b.textContent));
+    glsBtn.onclick();
+    const findIn4 = wrap.children[0].children.find(c => c.className === 'wd-find').children[1];
+    t(kept && M.currentWdTab() === 'glasses' && findIn4.value === '' && cards().length === 4, '★ 하위 분류를 바꾸면 찾는 말을 비운다(입력칸 빈칸 · 칸 전체 — 안 함 + 안경 3)');
   }catch(e){ t(false, '동작 판정 중 던짐 — ' + String(e.message || e).slice(0, 120)); }
   return r;
 }
@@ -217,6 +243,8 @@ const behaveBreaks = [
   ['찾는 말을 안 넘김', m => m.replace("paging.buildCells({ defaultList, commissionList, withDefault, query:_wdFind.q })", "paging.buildCells({ defaultList, commissionList, withDefault, query:'' })")],
   ['한 페이지여도 번호 줄', m => m.replace('if(view.pages > 1){', 'if(true){')],
   ['찾아도 페이지를 1로 안 돌림', m => m.replace("_wdFind.q = findIn.value; _wdFind.page = 0;", "_wdFind.q = findIn.value; _wdFind.page = 1;")],
+  ['안 보이는 칸의 상세조정을 안 닫음', m => m.replace("if(activeWdAdj && !view.groups.some(g=>g.cells.some(c=>c.rec && c.rec.id === activeWdAdj.id))){ activeWdAdj = null; _clearMultiPanelRef(); }", '')],
+  ['분류를 바꿔도 찾는 말을 안 비움', m => m.replace("if(_wdFind.cat !== info.cat) _wdFind = { cat:info.cat, q:'', page:0 };", '')],
 ];
 for(const [name, fm] of behaveBreaks){
   const m2 = fm(MOD);

@@ -457,8 +457,8 @@
   - 찾는 중에는 [안 함] 을 뺀다(파츠가 아니다) · 이름이 없는 파츠는 안 걸린다(화면의 «파츠» 는 대신 쓰는 글이다).
   - 기억한 페이지는 그릴 때마다 `clampPage` 로 맞춘다 — 목록이 줄어 그 페이지가 없으면 마지막 페이지.
   - 열 수(4)는 html `.wd-grid` 와 같이 고친다.
-  - 화면 쪽(`wardrobe.js` renderWardrobe): 찾는 말은 분류를 바꾸면 비운다 · 찾는 중의 페이지는 보던 페이지와 따로 둔다(비우면 보던 페이지로). 입력칸은 다시 만들지 않고 칸 목록(`.wd-cat-body`)만 다시 그린다 — 입력칸을 다시 만들면 한글 조합이 끊긴다. 상세조정 중인 칸이 안 보이는 페이지로 가면 조정을 닫는다.
-  - 검사: `checks/sim-wardrobe-paging.js`(경계값 · 배선 · mutation test) · `checks/sim-wardrobe.js` 2-2절(실제 renderWardrobe 위에서 페이지 · 찾기).
+  - 화면 쪽(`wardrobe.js` renderWardrobe): 찾는 말은 분류를 바꾸면 비운다 · 찾는 중의 페이지는 보던 페이지와 따로 둔다(비우면 보던 페이지로). 입력칸은 다시 만들지 않고 칸 목록(`.wd-cat-body`)만 다시 그린다 — 입력칸을 다시 만들면 한글 조합이 끊긴다. 상세조정 중인 칸이 안 보이는 페이지로 가거나 찾기에서 빠지면 조정을 닫는다.
+  - 검사: `checks/sim-wardrobe-paging.js`(경계값 · 배선 · mutation test) · `checks/sim-wardrobe.js` 2-2절(실제 renderWardrobe 위에서 페이지 · 찾기 · 상세조정 닫기 · 분류를 바꾸면 찾는 말 비우기).
 
 ## face-heal.js — 🛡️ 얼굴 · 좌석 그림 자동 복구
 
