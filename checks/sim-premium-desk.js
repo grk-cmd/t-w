@@ -75,7 +75,7 @@ say('── 1-2. 부르는 곳 — 복사된 조건이 없고 모두 그 함수�
   const COPY_RE = /licenseOnly[^\n]{0,80}!\s*isPremium|!\s*isPremium\(?\)?\s*&&\s*!\s*isAdmin/;
   chk(COPY_RE.test('if(rec.licenseOnly && !isPremium() && !isAdmin()){') && COPY_RE.test('if(on && x && !isPremium && !isAdmin){') && !COPY_RE.test('if(licenseAssetBlocked(rec)){'), '  ↳ mutation test: 옛 조건을 다시 쓰면 위 검사가 빨강이 된다');
   const T = Object.fromEntries(FILES);
-  chk(/!seat\.remote && licenseAssetBlocked\(rec\)/.test(strip2(T['character/desk-visual.js'] || '')), '책상 그리기 — 내 좌석(!remote)만 · 판단 함수');
+  { const dv = strip2(T['character/desk-visual.js'] || ''); chk(/deskBodyPlan\(def, !seat\.remote\)/.test(dv) && /if\(gated && licenseAssetBlocked\(rec\)\) return \{ kind:'builtin', blocked:rec \};/.test(dv), '책상 그리기 — 내 좌석(!remote)만 게이트 · 판단 함수'); }
   chk(/licenseAssetBlocked\(rec\)/.test(strip2(T['creator/desk-setup.js'] || '')) && /if\(licenseAssetBlocked\(rec\)\)\{/.test(strip2(T['creator/desk-setup.js'] || '')), '생성기 — 책상 카드 · 아이템 카드');
   chk(/licenseAssetBlocked\(\{ locked: premiumMod\._licenseLockedDeskId/.test(strip2(T['creator/desk-preset.js'] || '')), '프리셋 — 전용 책상');
   chk(/function _licenseLockedDeskId\(id\)\{[\s\S]*?return !!\(rec && rec\.locked === true\);/.test(strip2(T['character/premium-assets.js'] || '')) && !/function pruneUnownedLicenseAssets\(\)\{[\s\S]{0,60}licenseAssetBlocked\(\{ licenseOnly/.test(strip2(T['character/premium-assets.js'] || '')), '전용 자산 접기 — 레코드의 서버 locked 만 본다(입구에 «전용이면» 가드가 없다)');
@@ -103,8 +103,8 @@ say('── 3. 바뀌면 내 좌석을 다시 그린다');
 const refresh = grabFn('_refreshPremiumGatedUI') || '';
 chk(/seats\.forEach/.test(refresh), '좌석을 순회한다');
 chk(/!s\.isMe \|\| s\.remote/.test(refresh), '★ 내 좌석만 (남의 좌석은 애초에 게이트를 안 탄다 — 건드리면 남의 책상이 깜빡인다)');
-chk(/applyDeskCatalogRefToSeat\(s, s\.charDef\)/.test(refresh), '카탈로그 참조 책상을 다시 적용한다');
-chk(/DEFAULT_DESK_OVERRIDE_ID/.test(refresh), '기본 책상 오버라이드도 다시 적용한다 (mergeCatalogIntoSavedDesks 와 같은 두 갈래)');
+chk(/if\(s\.charDef\.deskCatalogId \|\| !s\.charDef\.deskGlb\) applyDeskCatalogRefToSeat\(s, s\.charDef\);/.test(refresh), '카탈로그 책상 · 기본 책상(교체본) 좌석을 def 그대로 다시 그린다(갈래는 deskBodyPlan · 옛 deskGlb 좌석은 건너뜀)');
+chk(!/DEFAULT_DESK_OVERRIDE_ID/.test(refresh), '  def 를 손으로 다시 만들지 않는다(칸이 빠진다 — deskLenX)');
 chk(/applyDeskItemsTo\(s, s\.charDef\.deskItems\)/.test(refresh), '전용 아이템도 다시 장착한다 (equipDeskItem 게이트가 같은 isPremium 을 본다)');
 chk(/creatorOpen[\s\S]{0,60}renderCrItems\(\)/.test(refresh), '생성기가 열려 있으면 🔒 카드도 다시 그린다');
 chk(/refreshCustomStatusMenuItem/.test(refresh), '원래 하던 일(커스텀 상태 메뉴)은 그대로다');

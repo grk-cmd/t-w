@@ -3,7 +3,7 @@
    동작은 옮기기 전과 같다(뒤에서 만들어지거나 다시 대입되는 값을 읽는 함수로 받는 줄만 `이름()` 으로 달라지고, seats 가 deps 값이 돼 쓸모없어진 `typeof seats` 가드 하나는 걷음).
    ・책임: applyCharToSeat(좌석에 def 를 입힌다 — 라이드 정리 · 파츠 비우기 · 책상 배율 · 커미션/동물/기본 몸 조립 · 크기 주입 · 파츠 · 책상 · 아이템 · 클릭 판정) · _purgeSeatParts · refreshRiggedPartsXf ·
      _setPlaceholderPickable · _registerAnimalEarOn(동물 귀 · 사람 귀 공용 등록) · _sweepAnimalEars · window.rebuildAnimalSeats(animal.js 가 GLB 파싱 뒤에 부른다) · window.registerAnimalEar(animal.js 가 귀가 붙을 때 부른다).
-   ・받는 deps 37 — 값 19 · 함수 11 · 읽는 함수 7(BASE_ANIMS · assetCodeMod · curSlot · customItems · deskItemsMod · deskPlaceMod · deskVisualMod — 뒤에서 만들어지거나 다시 대입된다).
+   ・받는 deps 36 — 값 18 · 함수 11 · 읽는 함수 7(BASE_ANIMS · assetCodeMod · curSlot · customItems · deskItemsMod · deskPlaceMod · deskVisualMod — 뒤에서 만들어지거나 다시 대입된다).
    ・내놓는 것: applyCharToSeat · _purgeSeatParts · refreshRiggedPartsXf · _registerAnimalEarOn — app.js 는 같은 이름 const 로 받는다.
    ⚠️ window.rebuildAnimalSeats · window.registerAnimalEar 는 이 모듈을 만들 때 건다(옛 자리와 같은 때) — animal.js 가 window. 로 부른다. 지우면 동물 귀가 안 붙고 동물 캐릭터가 인간으로 남는다.
    ⚠️ 커미션 GLB 가 캐시에 없으면 파싱을 걸고 return 한다 — 그 앞에서 책상 배율 · z 를 한 번 맞춰 두는 까닭이 주석에 있다. 순서를 바꾸지 말 것.
@@ -26,7 +26,6 @@ const compositeFace = deps.compositeFace;   // 함수
 const creatorPrevMod = deps.creatorPrevMod;
 const curSlot = deps.curSlot;   // 읽는 함수
 const customItems = deps.customItems;   // 읽는 함수
-const DEFAULT_DESK_OVERRIDE_ID = deps.DEFAULT_DESK_OVERRIDE_ID;
 const defToBase = deps.defToBase;   // 함수
 const deskItemsMod = deps.deskItemsMod;   // 읽는 함수
 const deskPlaceMod = deps.deskPlaceMod;   // 읽는 함수
@@ -331,9 +330,7 @@ function applyCharToSeat(seat,def){
   
   (async()=>{  
     if(def.customItems){ for(const id in def.customItems){ if(!customItems()[id]){ const c=def.customItems[id]; try{ const {scene:sc,animations}=await assetCodeMod().parseGlbFull(b64ToBuf(c.glb)); deskItemsMod().registerCustomItem(id,c.name,c.glb,sc,'',animations);}catch(e){} } } }
-    if(def.deskCatalogId){ deskVisualMod().applyDeskCatalogRefToSeat(seat, def); }
-    else if(def.deskGlb){ try{ const sc=await assetCodeMod().parseGlbBytes(b64ToBuf(def.deskGlb)); seat.desk.userData.deskScale=def.deskScale||1; deskVisualMod().swapDeskVisual(seat.desk,sc); deskPlaceMod().setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1); if(def.deskColor)deskVisualMod().applyDeskColorToCustom(seat.desk,def.deskColor);}catch(e){} }
-    else { deskVisualMod().applyDeskCatalogRefToSeat(seat, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:def.deskScale, deskLenX:def.deskLenX, deskColor:def.deskColor}); }   // 관리자가 기본 책상을 교체해뒀으면 그걸로, 없으면 원래 하드코딩된 기본 책상 그대로
+    deskVisualMod().applyDeskCatalogRefToSeat(seat, def);   // 고른 책상 · 옛 deskGlb · 관리자가 바꿔 둔 기본 책상 · 내장 기본 책상 — 갈래는 desk-visual.js deskBodyPlan 한 곳
     // ★ 새 아이템 목록을 적용하기 전에 기존에 붙어있던 아이템을 먼저 확실히 뗌 — 이 단계가 없어서
     //   실행 중인 캐릭터를 우클릭으로 수정할 때(특히 아이템을 끄거나 다른 걸로 바꿀 때) 예전 아이템이
     //   계속 남아있던 버그의 원인이었음(생성기 미리보기는 clearCreatorItems가 매번 먼저 비워서 문제 없었음).

@@ -408,6 +408,7 @@ const hiddenSeatsMod = TwHiddenSeats.createHiddenSeats({
 /* 🧭 창 열기 통로(nav.js) — 아래 기능이 «설정 창 · 마이홈 열어 줘 · 방에서 나가 줘» 를 부탁하는 한 곳(모듈 순환 끊기 6).
    창 모듈이 만들 때 여는 함수를 걸고, 부르는 모듈은 이름으로 부탁만 한다 */
 const twNav = TwNav;
+const strokePointer = TwStrokePointer;   // 🖊 그림판 획 판정(shared/stroke-pointer.js) — 사람 · 동물 만들기에 deps 로 넘긴다
 const demojiCatalog = TwDemojiCatalog;   // 😊 기본 이모티콘 목록(demoji-catalog.js — 채팅 · 마이홈 바탕화면이 같이 읽는 맨 아래 표)
 const uploadCacheMod = TwUploadCache.createUploadCache();   // 🗂️ 업로드 캐시 상한 규칙 — 얼굴(room-sync) · 슬롯 GLB(slot-codec)가 같이 쓴다
 const roomSyncMod = TwRoomSync.createRoomSync({
@@ -1074,7 +1075,18 @@ const wdPanelMod = TwWardrobePanel.createWardrobePanel({
 /* ═══ 👀 꾸미기 미리보기 — 렌더러 · 기즈모 · 창 자리 · 카메라 ═══ */
 /* 본문은 wardrobe.js 로 옮겼다(앱 FSD 29번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const wdDeskPreview = TwWdDeskPreview.createWdDeskPreview({
+  buildDesk: (...a)=>buildDesk(...a),
+  deskBodyPlan: (...a)=>deskVisualMod.deskBodyPlan(...a),
+  drawDeskGlb: (...a)=>deskVisualMod.drawDeskGlb(...a),
+  drawDeskLegacyGlb: (...a)=>deskVisualMod.drawDeskLegacyGlb(...a),
+  hideDeskBody: (...a)=>deskVisualMod.hideDeskBody(...a),
+  applyDeskColor: (...a)=>deskVisualMod.applyDeskColor(...a),
+  syncDeskPartAnchor: (...a)=>deskPlaceMod.syncDeskPartAnchor(...a),
+});
 const wardrobeMod = TwWardrobe.createWardrobe({
+  deskPreview: wdDeskPreview,
+  setDeskPos: (...a)=>deskPlaceMod.setDeskPos(...a),
   accountStore: accountStoreMod,
   NO_DESK_ID: NO_DESK_ID,
   layoutSeats: (...a)=>layoutSeats(...a),
@@ -1147,7 +1159,6 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   tintPartMesh: (...a)=>lightToneMod.toneCore.tintPartMesh(...a),
   toast: (...a)=>toast(...a),
   unequipStackablePart: (...a)=>unequipStackablePart(...a),
-  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
   DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,
   DESK_SCALE_DEFAULT: ()=>DESK_SCALE_DEFAULT,
   DESK_SCALE_MAX: ()=>DESK_SCALE_MAX,
@@ -1155,7 +1166,8 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   _humanEarMat: (...a)=>_humanEarMat(...a),
   _humanEarPic: (...a)=>_humanEarPic(...a),
   applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),
-  applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),
+  applyDeskColor: (...a)=>deskVisualMod.applyDeskColor(...a),
+  deskColorMats: (...a)=>deskVisualMod.deskColorMats(...a),
   applyDeskDotThumb: (...a)=>assetCardsMod.applyDeskDotThumb(...a),
   clampDeskScale: (...a)=>clampDeskScale(...a),
   humanEar: humanEar,
@@ -2686,6 +2698,7 @@ const creatorCanvasMod = TwCreatorCanvas.createCreatorCanvas({
   SKIN_COLORS: SKIN_COLORS,
   skinCanvases: skinCanvases,
   skinCanvasFor: skinCanvasFor,
+  strokePointer: strokePointer,
   toast: (...a)=>toast(...a),
   wardrobeMod: wardrobeMod,
 });
@@ -2966,7 +2979,6 @@ const licenseGateMod = TwLicenseGate.createLicenseGate({
   googleConfirmMod: googleConfirmMod,
   refreshTheme: (...a)=>themeUiMod.refreshCustom(...a),
   refreshFont: (...a)=>fontUiMod.premiumChanged(...a),
-  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
   FRIEND_CODE_LOGIN_RE: ()=>acctStateMod.FRIEND_CODE_LOGIN_RE,
   _loginDoFriendCode: (...a)=>accountMod._loginDoFriendCode(...a),
   _loginDoGoogle: (...a)=>accountMod._loginDoGoogle(...a),
@@ -3465,7 +3477,6 @@ const charApplyMod = TwCharApply.createCharApply({
   creatorPrevMod: creatorPrevMod,
   curSlot: ()=>curSlot,
   customItems: ()=>customItems,
-  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
   defToBase: (...a)=>defToBase(...a),
   deskItemsMod: ()=>deskItemsMod,
   deskPlaceMod: ()=>deskPlaceMod,
@@ -5125,6 +5136,7 @@ TwNoise.createNoise({
   Presence: Presence,
 });
 TwAnimal.createAnimal({
+  strokePointer: strokePointer,
   isAdmin: ()=>isAdmin,
   curSlot: ()=>curSlot,
   creatorMode: ()=>creatorMode,

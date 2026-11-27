@@ -124,9 +124,10 @@ function mergeCatalogIntoSavedDesks(catalogObj){
   restoreHeldLicenseAssets();   // 서버 locked 가 풀린 접어 둔 것을 되돌린 뒤 아래 좌석 순회가 다시 그린다
   // 지금 이 책상을 쓰고 있는 좌석이 있으면(수정됐을 수 있으니) 즉시 새 GLB로 다시 그림 — "교체하면 실시간 반영" 요구사항
   // 기본 책상(별도 deskCatalogId/deskGlb 없음)을 쓰는 좌석도 __default_desk__ 오버라이드가 있으면/없어졌으면 반영
+  /* 옛 deskGlb 좌석은 카탈로그와 무관해 건너뛴다. 어떤 책상을 그릴지(기본 책상 교체본 포함)는 def 그대로 넘겨 desk-visual.js deskBodyPlan 이 정한다 —
+     여기서 def 를 손으로 다시 만들면 칸이 빠진다(deskLenX 가 빠져 길이가 1 로 돌아갔다) */
   seats.forEach(s=>{
-    if(s.charDef && s.charDef.deskCatalogId){ applyDeskCatalogRefToSeat(s, s.charDef); }
-    else if(s.charDef && !s.charDef.deskGlb){ applyDeskCatalogRefToSeat(s, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:s.charDef.deskScale, deskColor:s.charDef.deskColor}); }
+    if(s.charDef && (s.charDef.deskCatalogId || !s.charDef.deskGlb)) applyDeskCatalogRefToSeat(s, s.charDef);
   });
   /* 🪑 licenseOnly 는 카탈로그 레코드에만 있어 지금이 «전용인가» 를 알 첫 순간이다(라이선스가 있거나 카탈로그가 비면 접기가 스스로 물러난다). */
   try{ premiumMod.pruneUnownedLicenseAssets(); }

@@ -90,7 +90,7 @@ function setDeskPos(deskGroup, pos){
   const p = pos || {};
   /* 🐾 위치 오프셋도 크기와 같은 배율(animCorr × eqK)을 지난다 — eqK 만 곱했을 땐 동물 좌석에서 옮긴 양이 2.5 배로 들어갔다.
      ⚠️ 배율은 base 에 굽지 않는다(deskPosBase 는 생성기의 100% 원본 — 구우면 열 때마다 누적).
-     ⚠️ 이 곱셈은 네 자리가 한 벌 — 여기 · syncSeatDeskZ · syncDeskPartAnchor · 꾸미기 미리보기(_wdDeskGrp). */
+     ⚠️ 이 곱셈은 네 자리가 한 벌 — 여기 · syncSeatDeskZ · syncDeskPartAnchor · 꾸미기 미리보기(wd-desk-preview.js placeDeskPos · readPos). */
   const base = { x:+p.x||0, y:+p.y||0, z:+p.z||0 };
   deskGroup.userData.deskPosBase = base;
   const k = seatDeskPosMul(deskGroup);

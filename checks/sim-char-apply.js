@@ -40,7 +40,7 @@ function build(src, o){
     curSlot: () => state.curSlot, customItems: () => state.customItems, defToBase: (d) => { log.push('defToBase'); return o.base || { group: {}, root: {}, faceMat: {}, fT: 'f', bT: 'b' }; },
     deskItemsMod: () => ({ registerCustomItem: (id) => { if(o.reg) o.reg.push(id); } }),
     deskPlaceMod: () => ({ syncSeatDeskZ: (d) => log.push('syncZ'), setDeskScale: (d, s, l) => log.push('scale:' + s + ',' + l), setDeskPos: (d, p) => log.push('pos') }),
-    deskVisualMod: () => ({ applyDeskCatalogRefToSeat: (s, d) => log.push('deskCatalog:' + (d.deskCatalogId || '')), swapDeskVisual(){} }),
+    deskVisualMod: () => ({ applyDeskCatalogRefToSeat: (s, d) => log.push('deskCatalog:' + (d === s.charDef ? 'def' : 'other')), swapDeskVisual(){} }),
     fitModel: (s) => log.push('fit'), getCommissionScene: (g) => { log.push('comm:' + g); return new Promise(() => {}); } /* 캐시에 안 채우는 가짜라 풀리면 applyCharToSeat 가 끝없이 다시 부른다 — 영영 안 풀리게 */,
     instantiateBase: (cs) => { log.push('inst'); return inst; }, lightToneMod: { _setDeskMatColor: (m, c) => log.push('deskColor') },
     matToneMod: { setFaceMap: (m, t) => log.push('faceMap'), applyLightPresetToInstance: (i) => log.push('tone') },
@@ -114,7 +114,7 @@ say('§3 applyCharToSeat');
   chk(b.log.includes('up:#111') && b.log.includes('lo:#222'), '  옷색을 입힌다');
   chk(s._animalBuilt === false && s.blink.closed === false, '  동물로 조립됐는지 표시(false) · 눈 뜸으로 시작');
   chk(b.state.refit.layout === true && b.state.refit.isCurrent() === true && (s.charDef = {}, b.state.refit.isCurrent() === false), '  파츠 뒤 재맞춤은 같은 def 일 때만(낡은 좌석 방어)');
-  chk(b.log.includes('scale:1.2,1.1') && b.log.includes('pos') && b.log.includes('deskCatalog:defDesk'), '책상 크기 · 위치 · 기본 책상 카탈로그 적용(비동기)');
+  chk(b.log.includes('scale:1.2,1.1') && b.log.includes('pos') && b.log.includes('deskCatalog:def'), '책상 크기 · 위치 · 책상 그리기는 def 그대로 desk-visual 에 맡긴다(갈래는 deskBodyPlan 한 곳 · 비동기)');
   // 동물
   b = build(SRC, { animalBase: { _animal: true, faceMat: {}, root: { userData: {} }, fT: 'aF', bT: 'aB' } }); s = mkSeat({ bones: undefined }); const ad = { animal: true, top: '#1', bot: '#2' };
   b.mod.applyCharToSeat(s, ad);
@@ -166,7 +166,7 @@ say('§4 연결');
   const READ = ['BASE_ANIMS', 'assetCodeMod', 'curSlot', 'customItems', 'deskItemsMod', 'deskPlaceMod', 'deskVisualMod'];
   const FN = ['applyEquippedPartsToSeat', 'applyPartXf', 'b64ToBuf', 'compositeFace', 'defToBase', 'getCommissionScene', 'instantiateBase', 'mkFaceTex', 'renderLauncher', 'unequipPartFromSeat', 'unequipStackablePart'];
   const shape = (n, v) => READ.includes(n) ? (v === '()=>' + n || (n === 'BASE_ANIMS' && v === '()=>bodyCore.baseAnims()')) : FN.includes(n) ? v === '(...a)=>' + n + '(...a)' : v === n;
-  chk(pairs.length === 37 && pairs.every(([n, v]) => shape(n, v)), '★ deps 37개 모양 — 읽는 함수 일곱은 ()=>이름 · 함수 열하나는 (...a)=>이름(...a) · 값 열아홉은 이름 그대로(값과 읽는 함수를 바꿔 넘기면 빨강)' + (pairs.length === 37 ? '' : ' — ' + pairs.length + '개'));
+  chk(pairs.length === 36 && pairs.every(([n, v]) => shape(n, v)), '★ deps 36개 모양 — 읽는 함수 일곱은 ()=>이름 · 함수 열하나는 (...a)=>이름(...a) · 값 열여덟은 이름 그대로(값과 읽는 함수를 바꿔 넘기면 빨강)' + (pairs.length === 37 ? '' : ' — ' + pairs.length + '개'));
   const mk2 = mk.replace('  curSlot: ()=>curSlot,', '  curSlot: curSlot,').replace('  seats: seats,', '  seats: ()=>seats,');
   const p2 = mk2.split('\n').map(l => /^  ([\w$]+): (.+),$/.exec(l)).filter(Boolean).map(m => [m[1], m[2]]);
   chk(!p2.every(([n, v]) => shape(n, v)), '  mutation test: 읽는 함수를 값으로 · 값을 읽는 함수로 바꿔 넘기면 빨강');

@@ -1,8 +1,21 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { prerenderAll, renderPage } from '@/app/entry-server';
 import { HELP_URL, PRIVACY_URL, SITE_ORIGIN } from '@/shared/config';
 import { LANGS, messagesFor, pathFor } from '@/shared/i18n';
+import { FEATURE_SHOTS } from '@/pages/home/model/feature-shots';
+
+/** webp 머리에서 가로 · 세로 — 손실(VP8) · 무손실(VP8L) · 확장(VP8X) 세 모양 */
+function webpSize(b: Buffer): { w: number; h: number } | null {
+  const kind = b.toString('ascii', 12, 16);
+  if (kind === 'VP8 ') return { w: b.readUInt16LE(26) & 0x3fff, h: b.readUInt16LE(28) & 0x3fff };
+  if (kind === 'VP8L') {
+    const n = b.readUInt32LE(21);
+    return { w: (n & 0x3fff) + 1, h: ((n >> 14) & 0x3fff) + 1 };
+  }
+  if (kind === 'VP8X') return { w: b.readUIntLE(24, 3) + 1, h: b.readUIntLE(27, 3) + 1 };
+  return null;
+}
 
 const TEMPLATE = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
@@ -23,7 +36,9 @@ describe('미리 그린 페이지', () => {
       expect(html).toContain(`aria-label="${m.landAria}"`); // 투게더랜드 잠긴 아이콘 — 경고창은 누를 때만
       expect(html).not.toContain(m.landLocked);
       expect(html).not.toContain('↓'); // 내려받기는 화살표 글자 대신 아이콘
-      expect(html).toMatch(/<a class="btn big default" href="#download"><svg class="ico"/);
+      expect(html).not.toContain('class="btn big default" href="#download"'); // 첫 화면 내려받기 단추는 없다(위 메뉴 · 아래 칸에 있음)
+      expect(html).toContain(`<h2 id="about-title">${m.aboutTitle}</h2></div>`); // 소개 · 내려받기 머리엔 설명 줄이 없다
+      expect(html).toContain(`<h2 id="dl-title">${m.dlTitle}</h2></div>`);
       expect(html).toContain(m.newsTitle); // 📰 소식 창 자리 — 글은 아직 빈 안내
       expect(html).toContain(m.newsEmpty);
       expect(html).toContain(`<link rel="canonical" href="${SITE_ORIGIN}${pathFor(lang)}"/>`);
@@ -62,6 +77,21 @@ describe('미리 그린 페이지', () => {
       expect(body).not.toContain('id="maker"');
       expect(body).not.toContain('href="#maker"');
     }
+  });
+
+  it('소개는 기능마다 앱 화면이 하나씩 — 언어마다 기능 수와 같고 파일이 있고, 미리 그린 페이지엔 첫 기능 화면', () => {
+    for (const lang of LANGS) expect(messagesFor(lang).features).toHaveLength(FEATURE_SHOTS.length);
+    for (const s of FEATURE_SHOTS) {
+      const file = new URL(`../public${s.src}`, import.meta.url);
+      expect(existsSync(file), s.src).toBe(true);
+      expect(webpSize(readFileSync(file)), s.src).toEqual({ w: s.w, h: s.h }); // 표의 크기 = 실제 그림 크기
+    }
+    const { body } = renderPage('ko');
+    const first = FEATURE_SHOTS[0];
+    expect(body).toContain(
+      `<img class="feat-shot" src="${first.src}" width="${first.w}" height="${first.h}"`,
+    );
+    expect(body.match(/class="feat-shot"/g)).toHaveLength(1);
   });
 
   it('내려받기 단추는 주소가 생기기 전까지 눌리지 않는다', () => {
