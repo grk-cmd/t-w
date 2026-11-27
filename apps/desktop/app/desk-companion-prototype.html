@@ -3017,7 +3017,8 @@
   /* 디스플레이 탭 안 묶음 단추(꾸미기 · 화면 · 표시) — 탭 단추보다 작은 알약 */
   .fs-subtabs{display:flex;gap:4px;margin:0 0 10px;}
   .fs-subtab{flex:1;padding:4px 2px;font-size:11px;font-family:inherit;color:var(--ink-soft);cursor:pointer;background:var(--win-face-2);
-    border:2px solid var(--win-lo-2);border-radius:999px !important;}
+    border:2px solid var(--win-lo-2);border-radius:var(--tw-radius-pill) !important;}
+  html[data-theme="bubble"] #focusSettingsPanel .fs-subtab{border-radius:var(--tw-radius-pill) !important;}   /* 버블 button 규칙(둥근 사각)보다 우선 — 알약 */
   .fs-subtab.on{color:var(--ink);font-weight:bold;background:var(--acc-tint, var(--win-face));border-color:var(--acc-m, var(--win-lo-2));}
   .fs-subpage > .fs-label:first-child{margin-top:0;}
   /* 하단 3버튼 한 줄 배치 */
