@@ -1,6 +1,6 @@
 /* xmas-letter.js — 🎄 마니또 편지 창(일회성 — 다음 업데이트에서 걷는다 · 이슈 #963) (검사 sim-xmas-letter.js)
    책임: 트리 창 아래 [편지 쓰기 (n/1)] · [편지 열람] 단추 · 그 위에 겹쳐 뜨는 편지 창(✕ · Esc) ·
-     ✍️ 쓰기(12/24 23:59 까지 — 맡긴 편지 목록 · 고치기 · 거두기 · 새 편지 · 반송된 편지의 사유 · 다시 쓰기 · 추천곡) ·
+     ✍️ 쓰기(12/24 23:59 까지 — 맡긴 편지 목록 · 수정 · 취소(거두기) · 새 편지 · 반송된 편지의 사유 · 다시 쓰기 · 추천곡) ·
      📬 열람(12/25 부터 — 봉투 · 열기 · 추천곡 · 신고 · 읽음 표시) · 런처 [크리스마스] 빨간 점(안 읽은 받은 편지).
    서버는 net(xmas-api.js — 내 몫만 읽고 쓴다), 날짜 · 칸 규칙은 rules(TwXmasRules) · 날짜 한 벌은 schedule()(서버 값), 뮤직바는 song(TwXmasSong).
    ★ 받은 편지 · 추천곡 제목은 남이 쓴 값 — textContent 로만 넣는다.
@@ -119,8 +119,8 @@ function createXmasLetter(deps){
     ])));
     const list = $('xmasLwList'); list.textContent = '';
     letters.forEach((l, i) => list.appendChild(item((letters.length > 1 ? (i + 1) + '번째 편지' : '맡긴 편지') + ' · ' + firstLine(l.text), '', [
-      ['고치기', () => edit({ lid: l.lid, retLid: null, text: l.text, song: l.song })],
-      ['거두기', () => withdraw(l.lid)],
+      ['수정', () => edit({ lid: l.lid, retLid: null, text: l.text, song: l.song })],
+      ['취소', () => withdraw(l.lid)],
     ])));
     const full = letters.length >= rules.LETTER_MAX;
     if (!editing && !letters.length && !returned.length){
@@ -177,7 +177,7 @@ function createXmasLetter(deps){
     if (g !== gen) return;   // 그 사이 세션이 끝났다 — 앞 계정 답으로 그리거나 다시 읽지 않는다
     if (!r.ok){ writeFailed(r); return; }
     if (editing && editing.lid === lid){ editing = null; songW.set(null); }
-    toast('편지를 거뒀어요. 마감 전까지 다시 쓸 수 있어요.');
+    toast('편지를 취소했어요. 마감 전까지 다시 쓸 수 있어요.');
     await loadView();
   }
   async function dismiss(lid){
