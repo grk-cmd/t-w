@@ -43,6 +43,18 @@ chk(/clearOrnaments\(\)/.test(close) && /geometry\.dispose\(\)/.test(close) && /
 chk(/S = null;/.test(close) && /if \(!S\) return;/.test(SRC.match(/function frame\(t\)\{[\s\S]*?\n  \}/)[0]), '  ↳ 닫힌 뒤 늦은 프레임은 아무것도 안 한다');
 chk(/function open\(canvas\)\{\s*if \(S\) return;/.test(SRC), '이미 열려 있으면 다시 만들지 않는다(렌더러 두 개 금지)');
 
+{ // 장식 깊이 당김 — three(r128) 스프라이트 셰이더에 실제로 들어가야 한다(replace 는 못 찾으면 말없이 넘어간다)
+  const VP = find(['vendor/three/three.min.js', 'app/vendor/three/three.min.js', 'apps/desktop/app/vendor/three/three.min.js']);
+  if (!VP) { say('  ? three.min.js 못 찾음'); process.exit(2); }
+  const THREE = require(path.resolve(VP));
+  const sh = { vertexShader: THREE.ShaderLib.sprite.vertexShader };
+  X.popOut(sh);
+  const v = sh.vertexShader, at = v.indexOf('twPop'), gp = v.indexOf('gl_Position = projectionMatrix * mvPosition;');
+  chk(at > 0 && gp > 0 && at > gp && /\bscale\b/.test(v.slice(0, gp)), '★ 장식 깊이 당김이 스프라이트 셰이더 gl_Position 뒤에 들어간다(three r' + THREE.REVISION + ')');
+  chk(/mat\.onBeforeCompile = popOut;/.test(SRC), '  ↳ 장식 재질마다 같은 popOut(프로그램 하나)');
+  const m = { vertexShader: THREE.ShaderLib.sprite.vertexShader.replace(/#include <logdepthbuf_vertex>/g, '') }; X.popOut(m);
+  chk(!/twPop/.test(m.vertexShader), '  ↳ mutation — 끼울 자리가 없으면 안 들어간다(이 검사가 잡는다)');
+}
 say('── 3절 그리기 약속');
 chk(/sizeAttenuation: false/.test(SRC), '장식은 화면에서 늘 같은 크기(sizeAttenuation:false)');
 chk(/depthTest: !o\.mine, depthWrite: !o\.mine/.test(SRC) && /s\.renderOrder = o\.mine \? 999 : 0/.test(SRC), '내 장식은 깊이를 안 보고 맨 나중에 — 늘 앞');

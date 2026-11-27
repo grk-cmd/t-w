@@ -40,6 +40,11 @@ function baseCanvas(kind, doc){
 const ORN_SIZE = 0.05;        // 화면 크기 고정(sizeAttenuation:false) 장식 크기
 /* 스프라이트 셰이더 끝(gl_Position 뒤) — scale 은 이미 화면 고정 크기의 월드 길이(-z 곱한 값) */
 const ORN_DEPTH_GLSL = 'vec4 twPop = projectionMatrix * vec4(mvPosition.xy, mvPosition.z + 0.6 * max(scale.x, scale.y), 1.0); gl_Position.z = twPop.z / twPop.w * gl_Position.w;';
+/* 장식은 카메라를 보는 판이라 비스듬한 잎 면에 반쯤 박혀 가려진다 — 깊이만 판 반지름만큼 카메라 쪽으로 당긴다
+   (화면 크기 · 자리는 그대로 · 트리 뒤쪽 장식은 여전히 가려진다) */
+function popOut(sh){
+  sh.vertexShader = sh.vertexShader.replace('#include <logdepthbuf_vertex>', ORN_DEPTH_GLSL + '\n#include <logdepthbuf_vertex>');
+}
 const LOW_H = 300;            // 세로 300 도트로 그린 뒤 키운다
 const LEVELS = 31;            // 색 단계(연하게 — 장식 그림이 잘 보이게)
 const ZOOM_MAX = 3, LOOK_Y0 = 1.9, VIEW_BOTTOM = -0.3, VIEW_TOP = 6.0, CAM_DIST = 9.2;
@@ -139,11 +144,6 @@ function createXmasTree(deps){
     t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.needsUpdate = true;
     S.texes.push(t);
     return t;
-  }
-  /* 장식은 카메라를 보는 판이라 비스듬한 잎 면에 반쯤 박혀 가려진다 — 깊이만 판 반지름만큼 카메라 쪽으로 당긴다
-     (화면 크기 · 자리는 그대로 · 트리 뒤쪽 장식은 여전히 가려진다) */
-  function popOut(sh){
-    sh.vertexShader = sh.vertexShader.replace('#include <logdepthbuf_vertex>', ORN_DEPTH_GLSL + '\n#include <logdepthbuf_vertex>');
   }
   function addOrnament(o){
     const p = SLOTS[o.slot];
@@ -296,7 +296,7 @@ function createXmasTree(deps){
   };
 }
 
-const api = Object.freeze({ createXmasTree, baseCanvas, dotsOffset, BASE_KINDS: Object.freeze(Object.keys(BASE_DOTS)) });
+const api = Object.freeze({ createXmasTree, baseCanvas, dotsOffset, popOut, BASE_KINDS: Object.freeze(Object.keys(BASE_DOTS)) });
 if (typeof window !== 'undefined') window.TwXmasTree = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
