@@ -70,6 +70,7 @@ async function judge(S){
     const { m, authed } = mk(LIB, base({ 'GET /v2/me/xmas': ME({ mine: { tree: 2, slot: 17, kind: 'img', version: 4, word: null, imageId: ID('a') } }),
       'GET /v2/xmas/trees/2/ornaments': { tree: 2, ornaments: { 0: { kind: 'star', version: 1, word: '메리' }, 17: { kind: 'img', version: 4, imageId: ID('a') }, 9: { kind: 'img', version: 1, imageId: '../x' }, x: { kind: 'star', version: 1 }, 5: { kind: 'bulb' } } } }));
     chk(m.schedule() === null, '읽기 전 날짜 한 벌은 null(화면은 처음 값)');
+    let schedHits = 0; const offSched = m.onSchedule(() => { schedHits++; });
     chk(m.scheduleNow() === R.SCHEDULE, '  ↳ scheduleNow 는 읽기 전엔 처음 값(창 · 알림함 기다림이 같이 쓴다)');
     const w = await m.where();
     chk(authed.log.map(x => x.method + ' ' + x.path).join() === 'GET /v2/xmas/trees/current,GET /v2/me/xmas' && authed.log.every(x => x.opts.auth === true && !/ME01/.test(x.path)), '지금 트리 · 내 몫 — 로그인 통로 · 경로에 내 코드 없음');
@@ -77,6 +78,11 @@ async function judge(S){
     const sc = m.schedule();
     chk(m.scheduleNow() === sc && sc !== R.SCHEDULE, '  ↳ scheduleNow 는 읽은 뒤엔 서버 값');
     chk(sc && sc.letterDeadline === R.LETTER_DEADLINE_MS && sc.eventEnd === R.EVENT_END_MS && sc.lettersViewUntil === R.LETTERS_VIEW_UNTIL_MS, '날짜 한 벌을 trees/current 에서 남긴다');
+    chk(schedHits === 1, '★ 날짜 한 벌이 바뀌면 onSchedule 을 부른다(창이 런처 버튼 · 다음 바뀔 때를 다시 본다)');
+    await m.refreshSchedule();
+    chk(schedHits === 1 && m.schedule() === sc, '  ↳ 같은 날짜를 또 읽으면 부르지 않는다');
+    offSched(); m.reset(); await m.refreshSchedule();
+    chk(schedHits === 1 && m.schedule(), '  ↳ 풀면(돌려준 함수) 더 부르지 않는다');
     const t = await m.tree(2);
     chk(t.ok && JSON.stringify(t.o) === JSON.stringify({ 0: { k: 'star', v: 1, w: '메리' }, 9: { k: 'img', v: 1 }, 17: { k: 'img', v: 4, id: ID('a') } }), '장식 목록 → { k, v, w, id } · 틀린 그림 id 는 버림 · 틀린 자리 · 판 없는 자리는 뺀다 — ' + JSON.stringify(t.o));
     const e = await mk(LIB, base({ 'GET /v2/xmas/trees/1/ornaments': { tree: 1, ornaments: {} } })).m.tree(1);
@@ -298,7 +304,8 @@ async function runAll(){
     ['fromReturned 를 안 실음', S.API.replace('fromReturned: fromReturned || null', 'fromReturned: null'), '4절 반송 다시 쓰기'],
     ['가입 전을 실패로', S.API.replace("if (e && e.code === NOT_BOUND){ known = null; return null; } ", ''), '2절 트리는 그림'],
     ['틀린 그림 id 를 받음', S.API.replace('const IMAGE_ID_RE = /^[0-9a-f]{32}$/;', 'const IMAGE_ID_RE = /./;'), '7절 틀린 id'],
-    ['날짜를 안 남김', S.API.replace('if (s) sched = s;', ''), '1절 날짜 한 벌'],
+    ['날짜를 안 남김', S.API.replace('if (s && !sameSched(s, sched)){ sched = s; schedFns.slice().forEach(fn => fn()); }', ''), '1절 날짜 한 벌'],
+    ['날짜가 바뀌어도 안 알림', S.API.replace('sched = s; schedFns.slice().forEach(fn => fn()); }', 'sched = s; }'), '1절 onSchedule'],
     ['scheduleNow 가 늘 처음 값', S.API.replace('scheduleNow: () => sched || rules.SCHEDULE', 'scheduleNow: () => rules.SCHEDULE'), '1절 scheduleNow 서버 값'],
     ['conflict 를 write 로', S.API.replace("CONCURRENT_UPDATE: 'conflict',", "CONCURRENT_UPDATE: 'write',"), '6절 표'],
   ];

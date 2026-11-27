@@ -1,5 +1,6 @@
 /* xmas-window.js — 🎄 크리스마스 창(일회성 — 다음 업데이트에서 걷는다 · 이슈 #963) (검사 sim-xmas-window.js)
-   책임: 런처 [크리스마스] 버튼(받은 편지 열람 끝 — 1월 6일 0시 · 서버 시각 — 부터 숨김) · 창 열고 닫기 · 내 트리 불러오기(그림은 판이 달라진 자리만) ·
+   책임: 런처 [크리스마스] 버튼(받은 편지 열람 끝 — 1월 6일 0시 · 서버 시각 — 부터 숨김 · 서버 시계가 맞춰지는 순간(onClock) · 날짜 한 벌이 바뀔 때(net().onSchedule) ·
+     다음 바뀔 때(rules.nextChange)에 타이머 하나로 다시 본다 — 1분마다 돌지 않는다) · 창 열고 닫기 · 내 트리 불러오기(그림은 판이 달라진 자리만) ·
      장식 고르기 · 내 그림 올리기(64px PNG) · 한마디 · 장식 달기 · 바꾸기(5초 간격) · «트리가 다 찼어요» · 장식 신고 · 한마디 라벨.
    3D 는 xmas-tree.js, 편지 창은 xmas-letter.js(뮤직바 xmas-song.js), 서버는 net(xmas-api.js), 규칙은 rules(TwXmasRules) · 날짜는 서버가 준 한 벌(net().scheduleNow() — 못 읽었으면 처음 값).
    ★ 그림 사본은 이 PC 의 GLB 영구 캐시(IndexedDB)에 «트리/자리@판» 키로 — 다시 열 때 판이 같은 그림은 받지 않는다. 바이트는 Storage 에서(목록에는 그림 id 만).
@@ -14,11 +15,12 @@
 const IMG_CACHE_KEY = 'xmasimg:';   // GLB 영구 캐시(IndexedDB) 키 머리 — 'xmasimg:{트리}/{자리}@{판}' (판이 키에 있어 옛 판은 안 쓰이고 45일 뒤 치워진다)
 const IMG_DATA_MAX = 15000;     // 서버 상한(16000)보다 조금 아래 — 넘으면 더 작게 줄인다
 const FETCH_PAR = 6;
+const TIMER_MAX_MS = 2147483647;   // setTimeout 이 받는 가장 긴 기다림(약 24.8일) — 바뀔 때가 더 멀면 여기까지 기다렸다 다시 잰다
 
 /**
- * @param {{ doc?:Document, win?:Window, THREE:any, ps1Dither:any, rules:any, treeMod:any, net:()=>any, serverNow:()=>number,
- *           notifyError:(code:string, err?:any)=>void, toast:(msg:string)=>void, escRegisterWindow:Function,
- *           onSizeChange:()=>void, onReady:(fn:()=>void)=>void, idbGet:(k:string)=>Promise<string|null>, idbPut:(k:string, v:string)=>any,
+ * @param {{ doc?:Document, win?:Window, THREE:any, ps1Dither:any, rules:any, treeMod:any, net:()=>any, serverNow:()=>number|null,
+ *           onClock:(fn:()=>void)=>(()=>void), notifyError:(code:string, err?:any)=>void, toast:(msg:string)=>void, escRegisterWindow:Function,
+ *           onSizeChange:()=>void, idbGet:(k:string)=>Promise<string|null>, idbPut:(k:string, v:string)=>any,
  *           songMod:any, letterMod:any, companion:()=>any, ytVideoId:(url:string)=>string|null, asyncPrompt:Function,
  *           storage:()=>Storage|null, twNav:{ NAV:any, on:Function }, random:()=>number,
  *           bgmMod:any, winBgmMod:any, creditMod:any, Audio:(Function|null), save:(k:string, v:string)=>any, officeMode:()=>boolean, warn:Function,
@@ -39,6 +41,7 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
 
   const ov = $('xmasOverlay'), btn = $('lcXmas');
   if (!ov || !btn) throw new Error('xmas-window: #xmasOverlay · #lcXmas 가 html 에 없다');
+  if (typeof deps.onClock !== 'function') throw new Error('xmas-window: deps.onClock(서버 시계 알림)이 없다 — app.js 배선');
   const tree = deps.treeMod.createXmasTree({ THREE: deps.THREE, rules, ps1Dither: deps.ps1Dither, doc, win });
 
   /* Esc 는 트리 창을 편지 창보다 먼저 등록한다 — 알림함 길은 두 창을 같은 틱에 열어서, 창 쌓기가 등록 순서로 쌓는다(편지 창이 위 → Esc 에 편지 창만 닫힘) */
@@ -64,11 +67,32 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
 
   let treeNo = 0, mine = null, ornList = [], chosen = { kind: 'star', img: null }, lastHangAt = NaN, busy = false, seq = 0;
 
-  /* ── 런처 버튼 — 받은 편지를 볼 수 있는 동안(장식은 이벤트 끝에 막혀도 편지는 1/5 까지) ── */
-  function refreshButton(){
+  /* ── 런처 버튼 — 받은 편지를 볼 수 있는 동안(장식은 이벤트 끝에 막혀도 편지는 1/5 까지) ──
+     세션 동안(start ~ reset) 서버 시계 알림 · 날짜 한 벌 알림 · 다음 바뀔 때 타이머 하나가 refreshButton 을 부른다 */
+  let edgeTimer = null, unsubs = null;   // 다음 바뀔 때 타이머 · 세션 동안 건 알림 풀기(null = 세션 밖)
+  function paintButton(){
     btn.hidden = !rules.buttonOn(serverNow(), sch());
     if (btn.hidden){ if (ov.classList.contains('on')) close(); return; }
     letter.paintBtn();   // 날짜가 넘어가면 [편지 쓰기] → [편지 열람]
+  }
+  /* 다음 바뀔 때(마감 · 열람 끝)에 한 번 — 걸 때마다 앞 것을 푼다. 서버 시각을 모르면 걸지 않는다(시계 알림이 다시 부른다) */
+  function armEdge(){
+    if (edgeTimer){ win.clearTimeout(edgeTimer); edgeTimer = null; }
+    if (!unsubs) return;
+    const now = serverNow();
+    const at = rules.nextChange(now, sch());
+    if (at === null) return;
+    edgeTimer = win.setTimeout(() => { edgeTimer = null; refreshButton(); }, Math.min(at - now, TIMER_MAX_MS));
+  }
+  function refreshButton(){
+    paintButton();
+    armEdge();
+  }
+  /** 세션 시작(startXmas) — 서버 시계 · 날짜 한 벌 알림을 걸고 지금 한 번 본다(이미 맞춰진 시계도 놓치지 않게) */
+  function start(){
+    if (unsubs) throw new Error('xmas-window: start 를 reset 없이 두 번 불렀다');
+    unsubs = [deps.onClock(refreshButton), net().onSchedule(refreshButton)];
+    refreshButton();
   }
 
   /* ── 한마디 라벨 · 신고 ── */
@@ -322,26 +346,30 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
   /** 세션이 끝나면(로그아웃 · 계정 바뀜 — app.js 가 session.onReset 에 건다) — 창을 닫고 앞 계정의 트리 · 내 장식 · 본 알림 · 기다림 · 빨간 점을 버린다 */
   function reset(){
     close();
+    if (unsubs){ unsubs.forEach(off => off()); unsubs = null; }
+    if (edgeTimer){ win.clearTimeout(edgeTimer); edgeTimer = null; }
+    btn.hidden = true;   // 다음 세션의 서버 시각을 받기 전까지
     if (gotTimer){ win.clearTimeout(gotTimer); gotTimer = null; }
     waiting = []; seenMail.clear();
     mine = null; treeNo = 0; ornList = []; lastHangAt = NaN; repSlot = null;
     letter.reset();
   }
 
-  /* 서버 시각은 붙은 뒤에 — 그 전엔 버튼을 숨겨 둔다(열람 끝이 지났는지 모르므로) */
+  /* 서버 시각은 붙은 뒤에 — 그 전엔 버튼을 숨겨 둔다(열람 끝이 지났는지 모르므로). 세션이 시작되면(start) 시계 알림이 그 자리에서 다시 본다 */
   btn.hidden = true;
-  deps.onReady(() => { refreshButton(); win.setInterval(refreshButton, 60000); });   // 열람 끝을 지나면 켜 둔 채로도 숨는다
 
-  return { open, close, refreshButton, onMail, reset, letter, syncBgm: () => bgm.refresh() };
+  return { open, close, refreshButton, start, onMail, reset, letter, syncBgm: () => bgm.refresh() };
 }
 
 /**
- * 계정 세션마다 한 번(app-boot 차례 xmas · READY) — 세션이 끝나면 provider · 창을 비운다(onReset). 창이 없으면(기능 꺼짐) 아무것도 안 한다.
- * @param {{ api:{ reset:()=>void }, win:{ reset:()=>void }|null }} d
+ * 계정 세션마다 한 번(app-boot 차례 xmas · READY) — 창이 서버 시계 · 날짜 알림을 건다(start) · 세션이 끝나면 provider · 창을 비운다(onReset — 알림 · 타이머도 푼다).
+ * 창이 없으면(기능 꺼짐) 아무것도 안 한다.
+ * @param {{ api:{ reset:()=>void }, win:{ start:()=>void, reset:()=>void }|null }} d
  * @param {{ onReset:(fn:()=>void)=>void }} session
  */
 function startXmas(d, session){
   if (!d.win) return;
+  d.win.start();
   session.onReset(() => { d.api.reset(); d.win.reset(); });
 }
 /**
