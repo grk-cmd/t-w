@@ -105,7 +105,6 @@ export interface Messages {
   heroTitleB: string;
   heroLead1: string;
   heroLead2: string;
-  heroCtaDownload: string;
   heroNote: string;
   landName: string;
   landAria: string;
@@ -116,12 +115,10 @@ export interface Messages {
   newsEmpty: string;
   creator: CreatorMessages;
   aboutTitle: string;
-  aboutLead: string;
   aboutWinTitle: string;
   aboutListLabel: string;
   features: readonly Feature[];
   dlTitle: string;
-  dlLead: string;
   dlWinTitle: string;
   dlWindows: string;
   dlMac: string;
@@ -152,7 +149,6 @@ export const ko: Messages = {
   heroTitleB: '투게더워킹!',
   heroLead1: '내가 만든 캐릭터와 함께 작업해요.',
   heroLead2: '집중한 시간만큼 레벨이 오르고, 새로운 보상이 열려요.',
-  heroCtaDownload: '내려받기',
   heroNote: '초대 코드가 있어야 가입할 수 있어요',
   landName: '투게더랜드',
   landAria: '투게더랜드 (잠겨 있음)',
@@ -247,8 +243,7 @@ export const ko: Messages = {
       '앱 › 캐릭터 › «코드 입력하기» 에 붙여 넣거나 «📂 파일 불러오기» 로 txt 파일을 고른 뒤 비밀번호를 넣으면 이 캐릭터가 새 칸에 들어와요.',
     close: '닫기',
   },
-  aboutTitle: '책상 위에서 하는 일',
-  aboutLead: '다른 프로그램 위에 켜 두어도 방해되지 않게 작고 조용하게.',
+  aboutTitle: '투게더워킹 소개',
   aboutWinTitle: 'ℹ️ 소개',
   aboutListLabel: '기능 고르기',
   features: [
@@ -290,7 +285,6 @@ export const ko: Messages = {
     },
   ],
   dlTitle: '내려받기',
-  dlLead: '마음에 들었다면 지금 책상에 데려가요.',
   dlWinTitle: '💾 설치',
   dlWindows: 'Windows 내려받기',
   dlMac: 'macOS 내려받기',
@@ -321,7 +315,6 @@ export const en: Messages = {
   heroTitleB: 'Together Working!',
   heroLead1: 'Work alongside a character you made yourself.',
   heroLead2: 'Focus longer to level up and unlock new rewards.',
-  heroCtaDownload: 'Download',
   heroNote: 'An invite code is required to sign up',
   landName: 'Together Land',
   landAria: 'Together Land (locked)',
@@ -417,8 +410,7 @@ export const en: Messages = {
       'In the app, go to Character › “Enter code”, paste it or pick the .txt file with “📂 Load file”, then type the password — the character arrives in a new slot.',
     close: 'Close',
   },
-  aboutTitle: 'What it does on your desk',
-  aboutLead: 'Small and quiet, so it never gets in the way of your other apps.',
+  aboutTitle: 'About Together Working',
   aboutWinTitle: 'ℹ️ About',
   aboutListLabel: 'Choose a feature',
   features: [
@@ -460,7 +452,6 @@ export const en: Messages = {
     },
   ],
   dlTitle: 'Download',
-  dlLead: 'Like it? Bring it to your desk now.',
   dlWinTitle: '💾 Install',
   dlWindows: 'Download for Windows',
   dlMac: 'Download for macOS',
@@ -491,7 +482,6 @@ export const ja: Messages = {
   heroTitleB: 'トゥゲザーワーキング!',
   heroLead1: '自分で作ったキャラクターと一緒に作業しよう。',
   heroLead2: '集中した時間だけレベルが上がり、新しいごほうびが解放されます。',
-  heroCtaDownload: 'ダウンロード',
   heroNote: '登録には招待コードが必要です',
   landName: 'トゥゲザーランド',
   landAria: 'トゥゲザーランド(ロック中)',
@@ -586,8 +576,7 @@ export const ja: Messages = {
       'アプリの キャラクター ›「コード入力」に貼り付けるか「📂 ファイルを読み込む」でtxtファイルを選び、パスワードを入れると、このキャラクターが新しい枠に入ります。',
     close: '閉じる',
   },
-  aboutTitle: 'デスクの上でできること',
-  aboutLead: 'ほかのアプリの上に置いても邪魔にならない、小さくて静かな存在。',
+  aboutTitle: 'トゥゲザーワーキング紹介',
   aboutWinTitle: 'ℹ️ 紹介',
   aboutListLabel: '機能を選ぶ',
   features: [
@@ -629,7 +618,6 @@ export const ja: Messages = {
     },
   ],
   dlTitle: 'ダウンロード',
-  dlLead: '気に入ったら、今すぐデスクに連れていこう。',
   dlWinTitle: '💾 インストール',
   dlWindows: 'Windows 版をダウンロード',
   dlMac: 'macOS 版をダウンロード',

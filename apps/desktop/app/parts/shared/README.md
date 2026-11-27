@@ -220,6 +220,12 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **함정**: 상태를 들지 않는다 — `hush()` 가 돌려준 것을 부르는 쪽이 들고 있다가 `unhush` 에 넘긴다. 유튜브 BGM 은 창 하나를 같이 쓰니 재우는 호출은 한 번이다. 그 사이 사용자가 다시 틀었으면 되살리지 않는다(두 소리가 겹친다).
 - 검사: `sim-bgm-hush.js`
 
+## `stroke-pointer.js` — 🖊 그림판 획이 이어지나 · 끊겼나
+- **책임**: 끌어서 그리는 그림판(사람 만들기 `creator-canvas.js` · 동물 만들기 `animal.js`)이 획을 이어 갈지 끝낼지 정하는 두 판단. 상태를 들지 않는다.
+- **내놓는 것**: `TwStrokePointer.isDown(e)`(주 버튼 · 펜 끝이 눌려 있나) · `onLost(el, fn)`(pointercancel · lostpointercapture 에 fn 을 건다). 쓰는 모듈은 deps `strokePointer` 로 받는다.
+- **함정**: 펜은 떼고 떠 있기만 해도 pointermove 가 온다 — «그리는 중» 깃발만 보고 그리면 뗀 펜을 따라 선이 그어진다. 펜 끌기는 브라우저가 화면 밀기로 가져가며 pointercancel 을 낸다(pointerup 없음) — 캔버스에 CSS `touch-action:none` 을 같이 건다. `lostpointercapture` 는 정상 pointerup 뒤에도 오니 fn 은 두 번 불려도 되게 쓴다.
+- 검사: `sim-stroke-pointer.js`
+
 ## `win-bgm.js` — 🎵 창 배경음악(스티커사진 창 · 크리스마스 창)
 - **책임**: 창이 열려 있는 동안만 배경음악을 튼다 — 곡 목록을 차례로 틀고 끝나면 처음 곡으로(한 곡이면 되풀이). 제목줄 «음악 끄기 / 음악 켜기» 는 이 PC 에 기억한다(받은 `muteKey`).
 - **만드는 법**: `TwWinBgm.createWinBgm({ Audio, tracks, dirs, volume, muteKey, tag, storage, save, officeMode, warn, others })` — 창마다 하나. `others` 는 `bgm-hush.js` 의 `{ hush, unhush }` 또는 `TwWinBgm.NO_OTHERS`.

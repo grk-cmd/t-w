@@ -23,7 +23,9 @@ describe('미리 그린 페이지', () => {
       expect(html).toContain(`aria-label="${m.landAria}"`); // 투게더랜드 잠긴 아이콘 — 경고창은 누를 때만
       expect(html).not.toContain(m.landLocked);
       expect(html).not.toContain('↓'); // 내려받기는 화살표 글자 대신 아이콘
-      expect(html).toMatch(/<a class="btn big default" href="#download"><svg class="ico"/);
+      expect(html).not.toContain('class="btn big default" href="#download"'); // 첫 화면 내려받기 단추는 없다(위 메뉴 · 아래 칸에 있음)
+      expect(html).toContain(`<h2 id="about-title">${m.aboutTitle}</h2></div>`); // 소개 · 내려받기 머리엔 설명 줄이 없다
+      expect(html).toContain(`<h2 id="dl-title">${m.dlTitle}</h2></div>`);
       expect(html).toContain(m.newsTitle); // 📰 소식 창 자리 — 글은 아직 빈 안내
       expect(html).toContain(m.newsEmpty);
       expect(html).toContain(`<link rel="canonical" href="${SITE_ORIGIN}${pathFor(lang)}"/>`);

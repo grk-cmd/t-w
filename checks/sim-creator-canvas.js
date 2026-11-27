@@ -109,7 +109,7 @@ say('§4 연결');
   const pairs = depPairs(APP, 'creatorCanvasMod', 'TwCreatorCanvas', 'createCreatorCanvas');
   const READ = ['camTarget', 'cBodyCenter', 'cFaceCenter', 'creatorOpen', 'creatorPrevMod'], FN = ['bindHold', 'toast'];
   const shape = (n, v) => n === 'openCharColorPicker' ? v === '(...a)=>window.openCharColorPicker(...a)' : READ.includes(n) ? v === '()=>' + n : FN.includes(n) ? v === '(...a)=>' + n + '(...a)' : v === n;
-  chk(!!pairs && pairs.length === 21 && pairs.every(([n, v]) => shape(n, v)), '★ deps 21개 모양 — 읽는 함수 다섯 · 함수 셋(window 고리 하나 포함) · 값 나머지' + (pairs ? ' (' + pairs.length + '개)' : ''));
+  chk(!!pairs && pairs.length === 22 && pairs.every(([n, v]) => shape(n, v)), '★ deps 22개 모양 — 읽는 함수 다섯 · 함수 셋(window 고리 하나 포함) · 값 나머지' + (pairs ? ' (' + pairs.length + '개)' : ''));
   const bad = pairs ? pairs.map(([n, v]) => n === 'camTarget' ? [n, 'camTarget'] : [n, v]) : [];
   chk(!bad.every(([n, v]) => shape(n, v)), '  mutation test: 읽는 함수를 값으로 넘기면 빨강');
   chk(['_crDropEraser', 'histF', 'histB', 'redoF', 'redoB', 'isDrawStep', 'actC', 'blit', 'pushHistory', 'bindPaint', 'swEl', '_syncCrColorSwatches', 'loadSkins'].every(n => new RegExp('^const ' + n + ' = creatorCanvasMod\\.' + n + ';', 'm').test(code)), '옛 이름 열셋을 const 로 받는다');
