@@ -62,7 +62,7 @@
 - 책임: 로그인(Auth) → 서버 가입 확인(`GET /v2/me`) → (이 PC 등록 뒤 app-boot 가 부르는) realtime 켜기(`TwRtHub.store.start({claim:true})`) · 서버에 닿지 못한 화면에서 기다리기(로컬 모드 없음) · 내 계정 사본(`tw.me` — 로그인 계정과 묶음).
   판정 `confirm({ onRestoreWait })` → `in`(계정 있음) · `signup`(로그인은 됐는데 계정 없음 — 가입 전 · 탈퇴) · `login`(로그인 없음 · 익명 · 토큰 끝남) · `local`(닿지 못함 · 점검 · `restoring:true` 면 저장된 로그인의 첫 답이 60초 안에 안 옴 — 로그인은 둔다).
 - deps: `userApi`(user-api.js) · `translate`(api-errors.js) · `reasonOf` · `auth`(Firebase Auth 원시 — ready · user · restoring · answered · signInGoogle(`fresh` 를 돌려줌) · signInPassword · signOut · deleteNewLogin) ·
-  `googleWindow`(main 의 구글 창) · `rt`(rt-hub — start · stop · bye · onState) · `leaveRoom`(방 안이면 나가기 — 창 열기 통로 LEAVE_ROOM) · `pending`(request-id createPending) · `storage` · `onSessionLost(kind)`(`sessionLost` · `deviceRemoved`) · `now` · `onConfirmed(r, info)`(확인 결과 진단 — login-diag.js · 던져도 결과는 그대로).
+  `googleWindow`(main 의 구글 창) · `rt`(rt-hub — start · stop · bye · onState) · `leaveRoom`(방 안이면 나가기 — 창 열기 통로 LEAVE_ROOM) · `pending`(request-id createPending) · `storage` · `onSessionLost(kind)`(`sessionLost` · `deviceRemoved` · `otherDevice`) · `now` · `onConfirmed(r, info)`(확인 결과 진단 — login-diag.js · 던져도 결과는 그대로).
 - 내놓는 것: `confirm` · `goOnline` · `waitForServer(onBack)` · `retryNow()`(서버에 닿지 못한 화면 — realtime 을 켜 두고 서버 신호(ready · 등록 전이라 4004 로 끊김) 또는 «다시 시도» 가 계정을 한 번 묻는다 · 타이머 없음 · 이 PC 기능만 쓰는 로컬 모드는 없다) · `loginGoogle` · `loginPassword` · `joinPassword` · `joinGoogle` ·
   `patchMe(fields)`(사본 version · 먼저 바뀌었으면 다시 받아 한 번 더) · `logout({ why })`(`logout` · `withdraw`) · `release(why)`(계정 바꾸기 `switch` — 로그인은 둔다) · `meCache` · `mode`.
 - 함정:
@@ -95,7 +95,7 @@
 - 책임: 한 계정은 PC 를 서버가 정한 상한까지 쓴다(앱은 대수를 모른다 — 글에 숫자를 쓰지 않는다). 자리는 서버가 정한다 — 켤 때 realtime 보다 먼저 이 PC 를 등록(`POST /v2/me/devices { deviceId, session, os }` — `device-register.js ensure()` → `ok` · `canceled` · `failed`).
   다 찬 계정에 새 PC 면 서버가 409 `USER_DEVICE_LIMIT` 와 가장 오래 안 쓴 기기(`items[0]`)를 준다 → 확인창(`device-limit-dialog.js`) «가장 오래된 기기 Windows PC (11월 3일 등록) · 마지막 사용 11월 10일 — 이 기기를 지우고 이 PC를 쓸까요?» [취소] · [지우고 사용].
   [지우고 사용]이면 보여 준 그 기기 id 를 `replaceOldest` 로 다시 — 그사이 바뀌었으면 서버가 또 409(새 기기로 다시 묻는다). [취소]면 등록하지 않고 로그인 화면(app-boot `toLogin`). 저절로 지우지 않는다.
-  realtime 이 이 연결을 4004 로 끊으면(까닭 `deviceRemoved` — 다른 PC 가 이 기기를 지움 · `sessionLost` — 이 PC 에서 앱을 새로 엶) `device-lost.js` 안내 화면 · 단추는 같은 등록 흐름 → 되면 같은 realtime 연결로 다시.
+  realtime 이 이 연결을 4004 로 끊으면(까닭 `deviceRemoved` — 다른 PC 가 이 기기를 지움 · `otherDevice` — 계정의 다른 PC 가 켜져 지금 쓰는 PC 가 됨(쓰는 PC 는 한 번에 1대 · «다른 기기에서 사용 중이에요») · `sessionLost` — 이 PC 에서 앱을 새로 엶) `device-lost.js` 안내 화면 · 단추는 같은 등록 흐름 → 되면 같은 realtime 연결로 다시.
 - 기기 이름: OS + 처음 등록한 날(`deviceLabel` — «Windows PC (11월 3일 등록)» · «Mac (…)» · 모르면 «PC»), 마지막 사용은 따로. **호스트 이름은 쓰지 않는다**(사람 이름이 든 경우가 많다).
 - deps: register — `registerDevice` · `limitOldestOf`(user-api.js) · `deviceId`(device-id.js) · `session`(rt-hub `session()` — hello.session 과 같은 값) · `os`(`osOf(navigator)`) · `ask(question)`(확인창) · `notifyError`. dialog — `document`. lost — `twNav` · `continueHere`(등록 → realtime).
 - 함정: 같은 계정이 다른 PC 에서 같은 방에 들어온 것(`left{replaced}`)은 이 화면이 아니다 — 방에서만 나오고 «다른 PC에서 이 방에 들어왔어요» 한 줄(room-entry.js). 등록 실패(E-ACC-04)는 그대로 이어 간다 — realtime 이 안 들이면 안내 화면이 [다시 등록]을 준다.

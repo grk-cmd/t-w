@@ -253,7 +253,13 @@ async function judge(S){
       chk(r2.hub.state() === 'deviceRemoved', '  ↳ 메시지 없이 닫혀도 까닭으로 가른다');
       const r3 = mk(S); r3.hub.start(); const w3 = await readyOn(r3);
       w3.msg({ t: 'sessionLost' }); w3.kill(4004, 'sessionLost'); await tick();
-      chk(r3.hub.state() === 'sessionLost', '  ↳ 까닭이 sessionLost(또는 없음)면 옛 뜻 그대로 sessionLost'); }
+      chk(r3.hub.state() === 'sessionLost', '  ↳ 까닭이 sessionLost(또는 없음)면 옛 뜻 그대로 sessionLost');
+      const r4 = mk(S); r4.hub.start(); const w4 = await readyOn(r4);
+      w4.msg({ t: 'sessionLost' }); w4.kill(4004, 'otherDevice'); await tick(); await r4.clock.advance(30000);
+      chk(r4.hub.state() === 'otherDevice' && r4.socks.length === 1, '★ 4004 + 까닭 otherDevice — 다른 PC 가 지금 쓰는 PC: 멈춤(otherDevice) · 다시 안 붙음 · sessionLost 와 다른 상태');
+      const r5 = mk(S); r5.hub.start(); const w5 = await readyOn(r5);
+      w5.kill(4004, 'otherDevice'); await tick(); await r5.clock.advance(30000);
+      chk(r5.hub.state() === 'otherDevice', '  ↳ 메시지 없이 닫혀도 까닭으로 가른다(otherDevice)'); }
     chk(c.hub.serverNow() === null, '★ 밀려 멈추면 서버 시계도 놓는다(밀려난 PC 가 폰 집중 시간을 쌓지 않게)');
     { const sid = c.hub.session();
       c.hub.start({ claim: true });
@@ -279,11 +285,11 @@ async function judge(S){
     const SERVER = { bye: 1000, restart: 1001, tooLarge: 1009, auth: 4001, protocol: 4003, sessionLost: 4004, unavailable: 4005, maintenance: 4006, accountGone: 4007, helloTimeout: 4008 };
     chk(JSON.stringify(H.CLOSE_CODES) === JSON.stringify(SERVER) && !Object.values(H.CLOSE_CODES).includes(4002), '닫힘 번호 표 — 서버 표와 같은 이름 · 값(4002 없음)');
     const want = [[null, 'reconnect'], [1000, 'end'], [1001, 'restart'], [1006, 'reconnect'], [1009, 'reconnect'], [1011, 'reconnect'], [1999, 'reconnect'],
-      [4001, 'auth'], [4002, 'unknown'], [4003, 'update'], [4004, 'sessionLost'], [4004, 'deviceRemoved', 'deviceRemoved'], [4004, 'sessionLost', 'sessionLost'], [4005, 'unavailable'], [4006, 'maintenance'], [4007, 'accountGone'], [4008, 'reconnect'],
+      [4001, 'auth'], [4002, 'unknown'], [4003, 'update'], [4004, 'sessionLost'], [4004, 'deviceRemoved', 'deviceRemoved'], [4004, 'otherDevice', 'otherDevice'], [4004, 'sessionLost', 'sessionLost'], [4005, 'unavailable'], [4006, 'maintenance'], [4007, 'accountGone'], [4008, 'reconnect'],
       [4000, 'unknown'], [4999, 'unknown'], [5000, 'reconnect']];
     const bad = want.filter(([c, act, why]) => H.closeAction(c, why) !== act).map(([c, act, why]) => c + (why ? '/' + why : '') + '→' + H.closeAction(c, why) + '(' + act + ')');
-    chk(typeof H.isDeviceOff === 'function' && H.isDeviceOff('sessionLost') && H.isDeviceOff('deviceRemoved') && !['ready', 'off', 'retrying', 'authFailed', 'closed', 'accountGone'].some(H.isDeviceOff),
-      '★ isDeviceOff — «서버가 이 PC 연결을 끝냄» 판정 한 곳(sessionLost · deviceRemoved 만)');
+    chk(typeof H.isDeviceOff === 'function' && H.isDeviceOff('sessionLost') && H.isDeviceOff('deviceRemoved') && H.isDeviceOff('otherDevice') && !['ready', 'off', 'retrying', 'authFailed', 'closed', 'accountGone'].some(H.isDeviceOff),
+      '★ isDeviceOff — «서버가 이 PC 연결을 끝냄» 판정 한 곳(sessionLost · deviceRemoved · otherDevice 만)');
     chk(!bad.length, 'closeAction — 코드마다 처리 한 곳(모르는 1000번대 · 번호 없음은 다시 · 모르는 4000번대는 멈춤)' + (bad.length ? ' — ' + bad.join(' ') : ''));
     /* 멈추는 번호 — 상태 · 더 안 붙음 */
     const stopOn = async (code, want) => {
@@ -678,10 +684,13 @@ const BREAKS = [
   ['HUB', "      if(authFails > 1){ stopWith(STATE.AUTH_FAILED); return; }", "", '4001 을 끝없이 다시'],
   ['HUB', "    if(act === ACTION.AUTH || fatal === 'auth') link.markAuthRetry();   // 다음 열기는 새 토큰", "", '4001 뒤 옛 토큰으로 다시'],
   ['HUB', "    if(act === ACTION.AUTH){", "    if(act === ACTION.AUTH || fatal === 'auth'){", '토큰 못 받음(오프라인)도 4001 처럼 세어 멈춤'],
-  ['HUB', "    if(sawSessionLost){ sawSessionLost = false; stopWith(act === ACTION.DEVICE_REMOVED ? STATE.DEVICE_REMOVED : STATE.SESSION_LOST); return; }", "", '밀려남 메시지 뒤 번호 없이 끊겨도 멈춰야 함'],
-  ['HUB', "stopWith(act === ACTION.DEVICE_REMOVED ? STATE.DEVICE_REMOVED : STATE.SESSION_LOST)", "stopWith(STATE.SESSION_LOST)", '지워진 PC 를 «다른 창» 으로 봄(까닭을 안 가름)'],
+  ['HUB', "    if(sawSessionLost){ sawSessionLost = false; stopWith(act === ACTION.DEVICE_REMOVED || act === ACTION.OTHER_DEVICE ? STOP_STATES[act] : STATE.SESSION_LOST); return; }", "", '밀려남 메시지 뒤 번호 없이 끊겨도 멈춰야 함'],
+  ['HUB', "stopWith(act === ACTION.DEVICE_REMOVED || act === ACTION.OTHER_DEVICE ? STOP_STATES[act] : STATE.SESSION_LOST)", "stopWith(STATE.SESSION_LOST)", '지워진 PC 를 «다른 창» 으로 봄(까닭을 안 가름)'],
+  ['HUB', "act === ACTION.DEVICE_REMOVED || act === ACTION.OTHER_DEVICE ? STOP_STATES[act]", "act === ACTION.DEVICE_REMOVED ? STOP_STATES[act]", '다른 PC 가 쓰는 중을 «다른 창» 으로 봄(otherDevice 를 안 가름)'],
   ['HUB', "  if(code === CLOSE_CODES.sessionLost && reason === CLOSE_REASONS.deviceRemoved) return ACTION.DEVICE_REMOVED;\n", "", 'closeAction 이 까닭을 안 봄'],
-  ['HUB', "const isDeviceOff = (s) => s === STATE.SESSION_LOST || s === STATE.DEVICE_REMOVED;", "const isDeviceOff = (s) => s === STATE.SESSION_LOST;", 'isDeviceOff 가 지워진 PC 를 빠뜨림'],
+  ['HUB', "  if(code === CLOSE_CODES.sessionLost && reason === CLOSE_REASONS.otherDevice) return ACTION.OTHER_DEVICE;\n", "", 'closeAction 이 otherDevice 를 안 봄'],
+  ['HUB', "const isDeviceOff = (s) => s === STATE.SESSION_LOST || s === STATE.DEVICE_REMOVED || s === STATE.OTHER_DEVICE;", "const isDeviceOff = (s) => s === STATE.SESSION_LOST || s === STATE.DEVICE_REMOVED;", 'isDeviceOff 가 다른 PC 가 쓰는 중을 빠뜨림'],
+  ['HUB', "const isDeviceOff = (s) => s === STATE.SESSION_LOST || s === STATE.DEVICE_REMOVED || s === STATE.OTHER_DEVICE;", "const isDeviceOff = (s) => s === STATE.SESSION_LOST || s === STATE.OTHER_DEVICE;", 'isDeviceOff 가 지워진 PC 를 빠뜨림'],
   ['HUB', "  function stopWith(s){ started = false; clockOff = null; setState(s); }", "  function stopWith(s){ started = false; setState(s); }", '밀려 멈춰도 서버 시계를 들고 있음(밀린 PC 가 폰 시간을 쌓음)'],
   ['HUB', "    session();   // 끝낸 연결 뒤 첫 start", "    sessionId = sessionIdOf(deps.newSession());   // 끝낸 연결 뒤 첫 start", 'start 가 등록한 세션 id 를 버리고 새로 뽑음'],
   ['HUB', "[CLOSE_CODES.protocol]: ACTION.UPDATE,", "  [CLOSE_CODES.protocol]: ACTION.RECONNECT,", '판이 달라도 계속 붙음'],
