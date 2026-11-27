@@ -390,7 +390,7 @@
 | **sim-license-gate.js** | 441 | **1f9c56f0d87f** |
 | **sim-account.js** | 174 | **bee6deb0f7c1** |
 | **sim-wardrobe.js** | 441 | **c6da5c655ca4** |
-| **sim-settings-panel.js** | 241 | **e740fbdb1db9** |
+| **sim-settings-panel.js** | 255 | **a900a07f7321** |
 | **sim-desktop-run.js** | 94 | **2370870711eb** |
 | **sim-room-entry.js** | 401 | **29b730f27d0b** |
 | **sim-overhead.js** | 216 | **864fadcfc6d0** |

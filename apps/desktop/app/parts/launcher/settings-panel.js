@@ -314,6 +314,26 @@ const fsWin = (function bindFocusSettings(){
     info:    { btn:'fsTabBtnInfo',    page:'fsTabInfo' },
   };
   let _curTab = 'display';
+  /* 디스플레이 탭 안 묶음 — 한 번에 하나만 보여 창이 길어지지 않게. 마지막에 본 묶음을 이 실행 동안 기억한다 */
+  const FS_SUBS = {
+    deco:   { btn:'fsSubBtnDeco',   page:'fsSubDeco' },     // 🎨 테마 · 색상 · 글꼴
+    screen: { btn:'fsSubBtnScreen', page:'fsSubScreen' },   // 🖥 모니터 · 화질 · 자동 실행 · 크기 · 창 위치 · 영상 겹침
+    show:   { btn:'fsSubBtnShow',   page:'fsSubShow' },     // 👀 회사원 · 도트 · 이모지 · 이름표 · 말풍선 · 스티커 · 이름 크기
+  };
+  let _curSub = 'deco';
+  function showSub(key){
+    if(!FS_SUBS[key]) key = 'deco';
+    _curSub = key;
+    for(const k in FS_SUBS){
+      const b=document.getElementById(FS_SUBS[k].btn), p=document.getElementById(FS_SUBS[k].page);
+      if(b){ b.classList.toggle('on', k===key); b.setAttribute('aria-selected', k===key ? 'true' : 'false'); }
+      if(p) p.style.display = (k===key) ? 'block' : 'none';
+    }
+  }
+  for(const k in FS_SUBS){
+    const b=document.getElementById(FS_SUBS[k].btn);
+    if(b) b.onclick = ()=>showSub(k);
+  }
   const _tabShown = [];   // 탭을 보일 때 부를 것 — program-settings.js 가 onTabShown 으로 건다(이 모듈은 그쪽을 모른다)
   function showTab(key){
     if(!FS_TABS[key]) key = 'display';
@@ -324,7 +344,7 @@ const fsWin = (function bindFocusSettings(){
       if(p) p.style.display = (k===key) ? 'block' : 'none';
     }
     const inLauncher = panel.classList.contains('fs-in-launcher');
-    if(key==='display'){ renderMonitors(); refreshToggleBtns(); }
+    if(key==='display'){ showSub(_curSub); renderMonitors(); refreshToggleBtns(); }
     if(key==='char'){
       renderSizeBar(); renderGapBar(); refreshToggleBtns();
       if(!inLauncher) renderCharSlots();   // 런처에선 교체 칸 대신 안내만 보인다
