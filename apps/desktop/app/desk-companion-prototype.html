@@ -3175,7 +3175,22 @@
   #xmasWin{position:absolute;left:50%;top:50%;width:640px;max-width:96vw;height:560px;max-height:94vh;transform:translate(-50%,-50%);
     pointer-events:auto;display:flex;flex-direction:column;}
   #xmasTitle{cursor:move;-webkit-app-region:no-drag;user-select:none;}
-  #xmasTitle .xm-count{font-weight:normal;margin-left:auto;margin-right:8px;font-family:var(--tw-font-legacy);}
+  #xmasTitle .xm-count{font-weight:normal;margin-left:10px;margin-right:8px;font-family:var(--tw-font-legacy);}
+  /* 🎵 음악 끄기 / 켜기 · 음악 출처 — 스티커사진 창 «음악 끄기»(.pk-bgm)와 같은 글자 단추. 꺼 두면 노란 글(.off) */
+  #xmasTitle .xm-tbtn{background:none;border:0;padding:0;margin-left:8px;color:inherit;font:inherit;font-weight:normal;font-size:10.5px;text-decoration:underline;cursor:pointer;opacity:.92;white-space:nowrap;}
+  #xmasTitle .xm-tbtn:first-of-type{margin-left:auto;}
+  #xmasTitle .xm-tbtn.off{color:#ffd54a;opacity:1;}
+  /* 🎬 음악 출처 — 트리 화면 아래에서 위로 한 번 올라간다(parts/xmas/xmas-credit.js). 도트 글꼴 · 하얀 글자 · 검은 테두리.
+     ⚠️ pointer-events:none — 올라가는 동안에도 트리를 돌리고 장식을 누를 수 있어야 한다 */
+  @font-face{font-family:'Galmuri11';font-weight:700;font-display:block;src:url('vendor/galmuri/Galmuri11-Bold.woff2') format('woff2');}
+  #xmasCredit{position:absolute;inset:0;overflow:hidden;pointer-events:none;}
+  #xmasCredit[hidden]{display:none;}
+  .xm-roll{position:absolute;left:0;right:0;top:100%;text-align:center;color:#fff;font:700 15px/2.1 'Galmuri11',var(--tw-font-classic);-webkit-font-smoothing:none;
+    text-shadow:-1px 0 #000,1px 0 #000,0 -1px #000,0 1px #000,-1px -1px #000,1px -1px #000,-1px 1px #000,1px 1px #000;}
+  .xm-roll .xm-rhead{font-size:19px;letter-spacing:.12em;margin-bottom:.6em;}
+  .xm-roll .xm-rgap{height:1.4em;}
+  .xm-roll.go{animation:xmCredit 16s linear forwards;}
+  @keyframes xmCredit{ from{ transform:translateY(0); } to{ transform:translateY(calc(-100% - var(--xmStageH, 480px))); } }
   #xmasBody{flex:1;display:flex;flex-direction:column;gap:6px;padding:6px;min-height:0;}
   #xmasStage{position:relative;flex:1;min-height:0;background:#0d1424;}
   #xmasCanvas{width:100%;height:100%;display:block;image-rendering:pixelated;cursor:grab;touch-action:none;}
@@ -6019,11 +6034,13 @@
 <!-- 🎄 크리스마스 창(일회성 — 다음 업데이트에서 걷는다) — 3D 트리 · 장식 달기 · 한마디. parts/xmas/xmas-window.js · xmas-tree.js -->
 <div id="xmasOverlay">
   <div id="xmasWin" class="win98raised">
-    <div class="win98titlebar" id="xmasTitle"><span>🎄 크리스마스 · 투게더 트리</span><span class="xm-count" id="xmasCount"></span>
+    <div class="win98titlebar" id="xmasTitle"><span>🎄 크리스마스 · 투게더 트리</span>
+      <button type="button" class="xm-tbtn" id="xmasBgmBtn" title="크리스마스 창 배경음악 — 끄면 이 PC 에 기억해요">음악 끄기</button><button type="button" class="xm-tbtn" id="xmasCreditBtn" title="배경음악 출처 보기">음악 출처</button><span class="xm-count" id="xmasCount"></span>
       <span class="win98titlebtns"><button type="button" class="win98titlebtn" id="xmasCloseBtn" title="닫기" aria-label="닫기">&times;</button></span></div>
     <div id="xmasBody">
       <div id="xmasStage" class="win98sunken">
         <canvas id="xmasCanvas" aria-label="장식이 달린 3D 크리스마스 트리. 끌어서 돌려 볼 수 있다"></canvas>
+        <div id="xmasCredit" hidden></div>
         <div id="xmasState" hidden></div>
         <div id="xmasSay" hidden></div>
         <div class="xm-hint">끌어서 돌려 보기 · 휠로 확대 · 장식을 누르면 한마디 · 우클릭으로 신고</div>
@@ -9077,6 +9094,8 @@
 <script src="parts/xmas/xmas-rules.js"></script>   <!-- 🎄 크리스마스 규칙(날짜 · 장식 자리 · 이스터에그 — window.TwXmasRules) — xmas-tree · xmas-window · app.js 보다 먼저 -->
 <script src="parts/xmas/xmas-api.js"></script>   <!-- 🎄 크리스마스 서버 endpoint provider(window.TwXmasApi) — app.js 가 만든다 -->
 <script src="parts/xmas/xmas-tree.js"></script>   <!-- 🎄 3D 트리(window.TwXmasTree) — xmas-window 가 만든다 -->
+<script src="parts/xmas/xmas-bgm.js"></script>   <!-- 🎄 크리스마스 창 배경음악 · 출처 글(window.TwXmasBgm) — xmas-window 가 만든다 -->
+<script src="parts/xmas/xmas-credit.js"></script>   <!-- 🎄 음악 출처 올라가기(window.TwXmasCredit) — xmas-window 가 만든다 -->
 <script src="parts/xmas/xmas-song.js"></script>   <!-- 🎄 편지 추천곡 뮤직바(window.TwXmasSong) — xmas-window 가 만든다 -->
 <script src="parts/xmas/xmas-letter.js"></script>   <!-- 🎄 마니또 편지 창(window.TwXmasLetter) — xmas-window 가 만든다 -->
 <script src="parts/xmas/xmas-window.js"></script>   <!-- 🎄 크리스마스 창 · 런처 버튼(window.TwXmasWindow) — app.js 가 만든다 -->

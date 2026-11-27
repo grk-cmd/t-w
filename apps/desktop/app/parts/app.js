@@ -889,6 +889,11 @@ const xmasWinMod = !TwServerFeatures.on('xmas') ? null : TwXmasWindow.createXmas
   ytVideoId: (u)=>plMod.ytVideoId(u), asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a), storage: localStorage,
   twNav: twNav,
   random: ()=>Math.random(),
+  bgmMod: TwXmasBgm, creditMod: TwXmasCredit, Audio: (typeof Audio === 'undefined') ? null : Audio,
+  save: (k, v)=>_lsSet(k, v), officeMode: ()=>officeModeMod.officeMode(), warn: (...a)=>console.warn(...a),
+  bgmHush: TwBgmHush.createBgmHush({ companion: ()=>window.companion,
+    plPlaying: ()=>plMod.st.playing, setPlPlaying: (v)=>{ plMod.st.playing = v; }, plRender: ()=>plMod.render(),
+    homePlaying: ()=>!!TwMyHomeHooks.call(TwMyHomeHooks.HOOK.BGM_PLAYING), setHomePlaying: (v)=>{ TwMyHomeHooks.call(TwMyHomeHooks.HOOK.BGM_SET_PLAYING, v); } }),
 });
 const plMod = TwPlaylist.createPlaylist({
   playlistAccountStore: accountStoreMod,

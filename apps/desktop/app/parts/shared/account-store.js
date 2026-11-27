@@ -23,7 +23,7 @@ const DEVICE_KEYS = Object.freeze([
   'tw.figureMode', 'tw.officeMode', 'tw.deskPan', 'tw.focusCharScale', 'tw.chipHorz', 'tw.chipCollapsed',
   'tw.nameplate', 'tw.nameplateSize', 'tw.theme', 'tw.accent', 'tw.mockRoom', 'tw.updateNoticeDismissedTs',
   'tw.chatFontSize', 'tw.chatOpacity', 'tw.chatSfx', 'tw.chatSfxId', 'tw.listenMute', 'tw.listenVol',
-  'tw.noise.fold', 'tw.noise.kind', 'tw.noise.others', 'tw.noise.vol', 'tw.pkBgmMuted', 'tw.gapSolo', 'tw.gapMulti',
+  'tw.noise.fold', 'tw.noise.kind', 'tw.noise.others', 'tw.noise.vol', 'tw.pkBgmMuted', 'tw.xmasBgmMuted', 'tw.gapSolo', 'tw.gapMulti',
   'tw.roomSeatMode', 'tw.focusLogMini', 'tw.annivAreaH', 'tw.adBanner', 'tw.thumbSigs',
   'tw.playlistVol', 'tw.playlistMini', 'tw.playlistLoop', 'tw.playlistLoopKind', 'tw.playlistLoopMode', 'tw.playlistLoopOn', 'tw.playlistPos',
   'tw_chat_win_pos', 'tw.bellWinPos', 'tw.gachaWinPos', 'tw.wdPreviewPos', 'tw.ideskInvPos',

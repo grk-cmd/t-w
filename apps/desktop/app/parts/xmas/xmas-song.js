@@ -21,8 +21,15 @@ function createXmasSong(deps){
   const toast = deps.toast;
   const bars = new Set();
   let playingId = null, paused = false, bound = false;
+  const playFns = [];
+  let sounding = false;
 
-  const repaint = () => bars.forEach(b => b.paint());
+  /* 바를 다시 그리고, «지금 소리가 나는가» 가 바뀌었으면 알린다(크리스마스 창 배경음악이 그동안 물러난다) */
+  const repaint = () => {
+    bars.forEach(b => b.paint());
+    const on = !!playingId && !paused;
+    if (on !== sounding){ sounding = on; playFns.slice().forEach(fn => fn(on)); }
+  };
   function lose(){ playingId = null; paused = false; repaint(); }
   /* 재생 창 알림은 처음 틀 때 건다 — 앱이 아닌 곳(웹 미리보기 · smoke)엔 companion 이 없다 */
   function bindPlayer(c){
@@ -127,7 +134,10 @@ function createXmasSong(deps){
     return api;
   }
 
-  return { bar, stop, playing: () => playingId };
+  /** 추천곡 소리가 나기 시작하면 fn(true) · 멈추면 fn(false) */
+  function onPlay(fn){ playFns.push(fn); }
+
+  return { bar, stop, playing: () => playingId, onPlay };
 }
 
 const api = Object.freeze({ createXmasSong });
