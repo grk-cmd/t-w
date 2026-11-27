@@ -408,6 +408,7 @@ const hiddenSeatsMod = TwHiddenSeats.createHiddenSeats({
 /* 🧭 창 열기 통로(nav.js) — 아래 기능이 «설정 창 · 마이홈 열어 줘 · 방에서 나가 줘» 를 부탁하는 한 곳(모듈 순환 끊기 6).
    창 모듈이 만들 때 여는 함수를 걸고, 부르는 모듈은 이름으로 부탁만 한다 */
 const twNav = TwNav;
+const strokePointer = TwStrokePointer;   // 🖊 그림판 획 판정(shared/stroke-pointer.js) — 사람 · 동물 만들기에 deps 로 넘긴다
 const demojiCatalog = TwDemojiCatalog;   // 😊 기본 이모티콘 목록(demoji-catalog.js — 채팅 · 마이홈 바탕화면이 같이 읽는 맨 아래 표)
 const uploadCacheMod = TwUploadCache.createUploadCache();   // 🗂️ 업로드 캐시 상한 규칙 — 얼굴(room-sync) · 슬롯 GLB(slot-codec)가 같이 쓴다
 const roomSyncMod = TwRoomSync.createRoomSync({
@@ -2686,6 +2687,7 @@ const creatorCanvasMod = TwCreatorCanvas.createCreatorCanvas({
   SKIN_COLORS: SKIN_COLORS,
   skinCanvases: skinCanvases,
   skinCanvasFor: skinCanvasFor,
+  strokePointer: strokePointer,
   toast: (...a)=>toast(...a),
   wardrobeMod: wardrobeMod,
 });
@@ -5125,6 +5127,7 @@ TwNoise.createNoise({
   Presence: Presence,
 });
 TwAnimal.createAnimal({
+  strokePointer: strokePointer,
   isAdmin: ()=>isAdmin,
   curSlot: ()=>curSlot,
   creatorMode: ()=>creatorMode,

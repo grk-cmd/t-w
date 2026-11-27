@@ -575,6 +575,8 @@ PRELOAD.push('chat-prefs.js');
 PRELOAD.push('rich-text.js');
 /* win-stack.js — 🪟 창 겹침 · ESC 스택(앱 FSD 42번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createWinStack 를 같이 굴린다. */
 PRELOAD.push('win-stack.js');
+/* stroke-pointer.js — 🖊 그림판 획 판정(window.TwStrokePointer). app.js 가 만들 때 deps 로 넘긴다. */
+PRELOAD.push('stroke-pointer.js');
 /* sfx.js — 🔊 효과음 공장(앱 FSD 42번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSfx 를 같이 굴린다. */
 PRELOAD.push('sfx.js');
 /* face-heal.js — 얼굴 자동 복구(앱 FSD 43번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createFaceHeal 를 같이 굴린다. */

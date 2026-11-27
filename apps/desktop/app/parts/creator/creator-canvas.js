@@ -26,6 +26,7 @@ const paintStrokeMod = deps.paintStrokeMod;
 const SKIN_COLORS = deps.SKIN_COLORS;
 const skinCanvases = deps.skinCanvases;
 const skinCanvasFor = deps.skinCanvasFor;
+const strokePointer = deps.strokePointer;   // 🖊 획이 이어지나 · 끊겼나(shared/stroke-pointer.js)
 const toast = deps.toast;   // 함수
 const wardrobeMod = deps.wardrobeMod;
 function _crDropEraser(){ if(crState.crPaintTool) crState.crPaintTool.dropEraser(); else crState.eraser=false; }
@@ -49,6 +50,7 @@ function undo(){const h=curHist();if(!h.length)return;
 function redo(){const rs=curRedo();if(!rs.length)return;
   try{const cur=actC().getContext('2d').getImageData(0,0,CANVAS_SZ,CANVAS_SZ); curHist().push(cur); if(curHist().length>30)curHist().shift();}catch(e){}
   actC().getContext('2d').putImageData(rs.pop(),0,0);blit();}
+function endStroke(){crState.painting=false;crState.lastPX=crState.lastPY=null;crState.lastSX=crState.lastSY=null;}
 function bindPaint(){const cv=document.getElementById('creatorPreview');
   cv.addEventListener('contextmenu',e=>e.preventDefault());
   cv.addEventListener('pointerdown',e=>{
@@ -78,6 +80,7 @@ function bindPaint(){const cv=document.getElementById('creatorPreview');
     /* 🖌 커서 = 지금 도구(붓 + · 페인트통 · 지우개). 단계 이동(gotoStep)이 crosshair 로 되돌려도 움직이면 다시 맞는다. */
     if(crState.crPaintTool && isDrawStep() && !crState.stampMode){ const cu=crState.crPaintTool.cursor(); if(cv.style.cursor!==cu) cv.style.cursor=cu; }
     if(!crState.painting)return;
+    if(!strokePointer.isDown(e)){ endStroke(); return; }   // 뗀 펜(떠 있는 움직임)은 그리지 않는다
     const evs=(typeof e.getCoalescedEvents==='function')?e.getCoalescedEvents():null;
     /* 🖊️ [Mac 제보 2026-09-23] "표정을 그리면 선이 위아래로 튄다."
        getCoalescedEvents 의 점들은 **마지막 것이 이 이벤트 자신**이어야 한다(규격). 그런데 환경에 따라
@@ -95,8 +98,10 @@ function bindPaint(){const cv=document.getElementById('creatorPreview');
       if(!was.moved && isDrawStep() && !crState.stampMode){ if(crState.crStep===3)crState.blinkEdited=true; paintStrokeMod.eyedropFromEvent(e); }
       return;
     }
-    crState.painting=false;crState.lastPX=crState.lastPY=null;crState.lastSX=crState.lastSY=null;
+    endStroke();
   });
+  /* 펜 끌기가 끊기면(pointercancel — pointerup 이 안 온다) 획 · 우클릭 회전을 끝낸다 */
+  strokePointer.onLost(cv, ()=>{ crState._rcOrbit=null; endStroke(); });
   cv.addEventListener('wheel',e=>{e.preventDefault();crState.camDist=Math.max(0.4,Math.min(7,crState.camDist*(e.deltaY>0?1.12:0.89)));creatorPrevMod().updateCreatorCam();},{passive:false});
   // 드래그앤드롭: 이미지 파일을 캔버스에 떨어뜨리면 도장으로 불러옴
   cv.addEventListener('dragover',e=>{e.preventDefault();});
