@@ -24,7 +24,8 @@ const TIMER_MAX_MS = 2147483647;   // setTimeout 이 받는 가장 긴 기다림
  *           songMod:any, letterMod:any, companion:()=>any, ytVideoId:(url:string)=>string|null, asyncPrompt:Function,
  *           storage:()=>Storage|null, twNav:{ NAV:any, on:Function }, random:()=>number,
  *           bgmMod:any, winBgmMod:any, creditMod:any, Audio:(Function|null), save:(k:string, v:string)=>any, officeMode:()=>boolean, warn:Function,
- *           bgmHush:{ hush:()=>any, unhush:(h:any)=>void }, panelFit:{ fitTopLeft:Function } }} deps
+ *           bgmHush:{ hush:()=>any, unhush:(h:any)=>void }, panelFit:{ fitTopLeft:Function },
+ *           osDrag:{ begin:()=>boolean, move:()=>void, end:()=>void } }} deps
  */
 function createXmasWindow(deps){
   const doc = deps.doc || document;
@@ -37,6 +38,7 @@ function createXmasWindow(deps){
   const idbGet = deps.idbGet;
   const idbPut = deps.idbPut;
   const panelFit = deps.panelFit;   // 📐 끈 창을 화면 안으로(shared/panel-fit.js fitTopLeft)
+  const osDrag = deps.osDrag;       // 🪟 런처에서 열었으면 앱 창째 끌기(shared/os-drag.js)
 const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙여 쓴다(sim-nav 가 «deps 로 받는 모듈» 을 이 줄로 센다)
   const $ = (id) => doc.getElementById(id);
 
@@ -317,23 +319,26 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
   }
   function fitWin(){ if (want) placeWin(want.x, want.y); }
   win.addEventListener('resize', () => { if (ov.classList.contains('on')) fitWin(); });
-  /* 창 끌기 — 제목줄(닫기 단추 위는 빼고) */
+  /* 창 끌기 — 제목줄(닫기 단추 위는 빼고). 런처에서 열었으면 앱 창째(osDrag — 마이홈 창과 같은 규칙), 실행 화면이면 화면 안에서 */
   (function(){
     const w = xmWin, bar = $('xmasTitle');
     let d = null;
     bar.addEventListener('pointerdown', (e) => {
       if (e.target.closest('button')) return;
+      bar.setPointerCapture(e.pointerId);
+      if (osDrag.begin()){ d = { os: true }; return; }
       const r = w.getBoundingClientRect();
       d = { dx: e.clientX - r.left, dy: e.clientY - r.top };
       w.style.transform = 'none'; want = placeWin(r.left, r.top);   // 움직이지 않고 떼도 가운데 맞춤에서 빠지므로 자리를 기억해 둔다
-      bar.setPointerCapture(e.pointerId);
     });
     bar.addEventListener('pointermove', (e) => {
       if (!d) return;
+      if (d.os){ osDrag.move(); return; }
       want = placeWin(e.clientX - d.dx, e.clientY - d.dy);   // 아래 · 옆으로 화면 밖에 걸치면 창이 잘린다 — 창 전체가 화면 안에(보이는 자리를 기억)
     });
-    const up = () => { d = null; };
+    const up = () => { if (d && d.os) osDrag.end(); d = null; };
     bar.addEventListener('pointerup', up); bar.addEventListener('pointercancel', up);
+    bar.addEventListener('lostpointercapture', up);   // 끄는 중에 창이 닫혀 pointerup 이 안 와도 main 의 끌기가 남지 않게
   })();
 
   /* ── 📩 받은 편지 알림 — 알림함에 XMAS_LETTER 가 새로 보이면(읽음 여부와 상관없이 · 켤 때 처음 받은 목록 포함) 0~30초 무작위로 기다렸다 받은 편지를 한 번 읽는다(폴링 없음).

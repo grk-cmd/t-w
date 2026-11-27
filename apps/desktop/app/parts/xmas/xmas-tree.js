@@ -87,6 +87,14 @@ function popOut(sh){
 }
 const LOW_H = 300;            // 세로 300 도트로 그린 뒤 키운다
 const LEVELS = 31;            // 색 단계(연하게 — 장식 그림이 잘 보이게)
+/* 장식이 트리 앞쪽인지 — 트리 축에서 장식 쪽 방향이 카메라(+z)를 얼마나 보나(-1 뒤 · 0 옆 · 1 앞). 트리가 yaw 만큼 돌아 있다.
+   깊이 당김(popOut) 때문에 옆 · 뒤 장식이 잎 위로 비쳐 보여서, BACK_HIDE 보다 뒤로 넘어간 남의 장식은 그리지도 누르지도 않는다 */
+const BACK_HIDE = -0.1;
+function faceZ(x, z, yaw){
+  const r = Math.hypot(x, z);
+  if (!(r > 0)) return 1;
+  return (-x * Math.sin(yaw) + z * Math.cos(yaw)) / r;
+}
 const ZOOM_MAX = 3, LOOK_Y0 = 1.9, VIEW_BOTTOM = -0.3, VIEW_TOP = 6.0, CAM_DIST = 9.2;
 const GROUND_Y = -0.1;
 
@@ -220,7 +228,7 @@ function createXmasTree(deps){
   function hitAt(cx, cy, othersOnly){
     const r = S.canvas.getBoundingClientRect();
     S.ray.setFromCamera(new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1), S.cam);
-    const hits = S.ray.intersectObjects(S.tree.children.filter(o => o.isSprite));
+    const hits = S.ray.intersectObjects(S.tree.children.filter(o => o.isSprite && o.visible));   // 뒤로 넘어가 숨긴 장식은 누르지 않는다
     const h = othersOnly ? hits.find(x => !x.object.userData.mine) : (hits.find(x => x.object.userData.mine) || hits[0]);
     return { orn: h ? h.object : null, trunk: !h && S.ray.intersectObjects(S.tree.children.filter(o => o.isMesh)).length > 0 };
   }
@@ -228,6 +236,7 @@ function createXmasTree(deps){
   /* 이스터에그 — 떨어지기(이 화면에서만) */
   function dropOne(o, wait, fling){
     if (o === S.sel) hideSay();
+    o.visible = true;   // 뒤편이라 숨겨 둔 장식도 떨어지면 보인다(장면에 붙으면 앞 · 뒤 판정을 안 한다)
     S.scene.attach(o);
     const out = new THREE.Vector3(o.position.x, 0, o.position.z).normalize();
     const v = out.clone().multiplyScalar(0.01 + Math.random() * 0.03);
@@ -292,7 +301,12 @@ function createXmasTree(deps){
     S.raf = win.requestAnimationFrame(frame);
     if (!S.drag){ S.yaw += S.vel || 0.003; S.vel *= 0.97; if (Math.abs(S.vel) < 0.003) S.vel = 0; }
     S.tree.rotation.y = S.yaw; S.top.rotation.y = -S.yaw * 2 + t * 0.001;
-    for (const s of S.orns.values()) if (s.userData.mine) s.material.opacity = rules.blinkOpacity(t - s.userData.blinkAt);
+    for (const s of S.orns.values()){
+      if (s.userData.mine){ s.material.opacity = rules.blinkOpacity(t - s.userData.blinkAt); continue; }   // 내 장식은 늘 앞(찾을 수 있게)
+      if (s.parent !== S.tree) continue;   // 떨어진 장식(장면에 붙음)은 그대로
+      s.visible = faceZ(s.position.x, s.position.z, S.yaw) > BACK_HIDE;
+      if (!s.visible && s === S.sel) hideSay();   // 한마디를 띄운 장식이 뒤로 넘어가면 라벨도 닫는다
+    }
     for (let i = 0; i < S.SN; i++){ S.sp[i * 3 + 1] -= 0.01; if (S.sp[i * 3 + 1] < 0) S.sp[i * 3 + 1] = 8; }
     S.snowGeo.attributes.position.needsUpdate = true;
     stepFall();
@@ -341,7 +355,7 @@ function createXmasTree(deps){
   };
 }
 
-const api = Object.freeze({ createXmasTree, baseCanvas, dotsOffset, popOut, ornLook, ornScale, ORN_TINTS, BASE_KINDS: Object.freeze(Object.keys(BASE_DOTS)) });
+const api = Object.freeze({ createXmasTree, baseCanvas, dotsOffset, popOut, faceZ, BACK_HIDE, ornLook, ornScale, ORN_TINTS, BASE_KINDS: Object.freeze(Object.keys(BASE_DOTS)) });
 if (typeof window !== 'undefined') window.TwXmasTree = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
