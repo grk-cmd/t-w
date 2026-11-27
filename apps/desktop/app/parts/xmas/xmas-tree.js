@@ -25,12 +25,12 @@ function dotsOffset(rows, size){
   if (x1 < 0) return { x: 0, y: 0 };
   return { x: Math.floor((size - (x1 - x0 + 1)) / 2) - x0, y: Math.floor((size - (y1 - y0 + 1)) / 2) - y0 };
 }
-/* 장식 색 — 0 번은 그림 그대로. 덮을 글자만(구슬 꼭지 y · Y · 빛 w, 상자 리본 y · Y 는 그대로) */
+/* 장식 색 — 0 번은 그림 그대로. 덮을 글자만(빛 w · 상자 리본 y · Y 는 그대로 · 구슬 꼭지는 금색 구슬만 바꾼다) */
 const ORN_TINTS = Object.freeze({
   bulb: Object.freeze([
     null,
     { o: '#16295a', r: '#4e7bd8', d: '#3a5fb0', p: '#8fb0f0' },
-    { o: '#6a4a0e', r: '#f2c14e', d: '#c99522', p: '#ffe08a' },
+    { o: '#6a4a0e', r: '#f2c14e', d: '#c99522', p: '#ffe08a', y: '#d6dde8', Y: '#8d99ad' },   // 금색 구슬은 꼭지를 은색으로(같은 색이면 묻힌다)
     { o: '#123f26', r: '#3f9e62', d: '#2a7547', p: '#7fd19c' },
     { o: '#3b1a5a', r: '#9a63d6', d: '#7344ad', p: '#c7a2f0' },
     { o: '#3e4a5e', r: '#c9d3e2', d: '#97a5bb', p: '#eef3fb' },
