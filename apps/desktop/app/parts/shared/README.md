@@ -357,6 +357,14 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **함정**: 함수만으로는 화면보다 긴 창을 못 넣는다 — 창 높이 상한(css `max-height: calc(100vh - 16px)`)과 안쪽 스크롤(`.fs-body{overflow-y:auto}`)이 짝이다.
 - 검사: `checks/sim-panel-fit.js`.
 
+## `os-drag.js` — 🪟 런처 화면에서 창을 앱 창째 끌기
+
+- **책임**: 창 제목줄을 끌 때 «앱 창(OS 창)째 옮길지» 를 정하고, 그렇다면 main 의 끌기(`companion.dragWindow` — 자리 계산은 `win-drag.js`)에 start · move · end 를 보낸다. 런처가 켜져 있으면(`#launcher.on` — 앱 창이 런처 카드 크기라 DOM 으로는 테두리 밖에 못 나간다) 앱 창째, 실행 화면이면 DOM 끌기.
+- **쓰는 법**: `const osDrag = TwOsDrag.createOsDrag({ doc, companion: () => window.companion })` → 누를 때 `osDrag.begin()`(true 면 앱 창째 — 그 끌기는 `move()` · `end()` 만) · 아니면 창 안에서 DOM 으로. `end()` 는 끌기가 아닐 때 · 두 번째부터 아무것도 안 보낸다.
+- **지금 쓰는 곳**: 🎄 크리스마스 창(`xmas/xmas-window.js` — app.js 가 deps 로). 마이홈 창(`myhome/myhome-ui.js`) · 마이홈 바탕화면(`myhome/myhome-desktop.js`)은 같은 판단을 아직 제 코드에 갖고 있다 — TODO: 이 모듈로 옮긴다.
+- **함정**: 끄는 중에 창이 닫히면 pointerup 이 안 온다 — 쓰는 쪽이 `lostpointercapture` 에서도 `end()` 를 불러야 main 의 끌기가 남지 않는다.
+- 검사: `checks/sim-os-drag.js`.
+
 ## `img-retry.js` — 🖼 남의 그림을 한 번 더 받을 주소
 
 - **책임**: crossOrigin 그림이 처음 실패했을 때 다시 받을 주소를 정하는 규칙 한 곳(순수 함수).
