@@ -22,7 +22,10 @@ if(!GATE_SRC){ say('  ? 원본 못 찾음 — idle-gate.js'); process.exit(2); }
 /* 📄 파츠 칸 페이지 · 찾기 규칙(wardrobe-paging.js) — 2-2절이 진짜 규칙 위에서 칸을 그린다 */
 const PAGING_SRC = ["wardrobe-paging.js","parts/character/wardrobe-paging.js","app/parts/character/wardrobe-paging.js"].map(read).find(Boolean);
 if(!PAGING_SRC){ say('  ? 원본 못 찾음 — wardrobe-paging.js'); process.exit(2); }
-const PAGING = (() => { const m = { exports: {} }; new Function('module', 'window', PAGING_SRC)(m, undefined); return m.exports; })();
+const SHARED_PAGING_SRC = ["paging.js","parts/shared/paging.js","app/parts/shared/paging.js"].map(read).find(Boolean);   // 📄 쪽 수 · 쪽 번호 바로잡기 공용(shared/paging.js) — html 처럼 먼저
+if(!SHARED_PAGING_SRC){ say('  ? 원본 못 찾음 — paging.js'); process.exit(2); }
+const _loadMod = (src, extra) => { const m = { exports: {} }; new Function('module', 'window', 'TwPaging', src)(m, undefined, extra); return m.exports; };
+const PAGING = _loadMod(PAGING_SRC, _loadMod(SHARED_PAGING_SRC));
 const GATE = (() => { const w = { MutationObserver: class { observe(){} disconnect(){} } }; new Function('window', 'module', GATE_SRC)(w, undefined); return w.TwIdleGate; })();
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 

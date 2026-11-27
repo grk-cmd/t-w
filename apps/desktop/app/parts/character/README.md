@@ -427,8 +427,8 @@
 ## gacha-album.js — 📚 도감 규칙
 
 - **책임**: 꾸미기 창 «📚 도감» 탭의 줄 · 쪽 규칙(순수 함수 · DOM · firebase 없음). 도감 = «⭐ 상시» + 시즌(봄 · 여름 · 가을 · 겨울) — 파츠가 하나라도 있는 것만 줄을 세운다. 그리기는 `gacha.js`.
-- **만드는 법**: classic script(`window.TwGachaAlbum`) — html 이 `gacha.js` 앞에 싣고, `gacha.js` 가 `const gachaAlbum = TwGachaAlbum;` 로 받는다.
-- **내놓는 것**: `ALBUM_KEYS` · `ALBUM_LABEL` · `ALBUM_THUMBS`(3) · `isAlbumKey` · `albumParts(parts, key)` · `albumList(parts, count)` → `[{ key, label, owned, total, thumbs }]` · `albumPct` · `pageCount` · `clampPage` · `pageOf`.
+- **만드는 법**: classic script(`window.TwGachaAlbum`) — html 이 `gacha.js` 앞에(그리고 `shared/paging.js` 뒤에) 싣고, `gacha.js` 가 `const gachaAlbum = TwGachaAlbum;` 로 받는다.
+- **내놓는 것**: `ALBUM_KEYS` · `ALBUM_LABEL` · `ALBUM_THUMBS`(3) · `isAlbumKey` · `albumParts(parts, key)` · `albumList(parts, count)` → `[{ key, label, owned, total, thumbs }]` · `albumPct` · `pageCount` · `clampPage`(둘은 `shared/paging.js` 것을 그대로 다시 내놓음) · `pageOf`.
 - **함정**:
   - 줄 그림은 **뽑은 파츠에서만** 고른다 — 안 뽑은 파츠는 도감 안에서도 «???» 다.
   - 모르는 시즌 이름(rec.season)은 어느 도감에도 넣지 않는다 — 뽑기 풀도 아는 시즌만 돈다.
@@ -449,8 +449,8 @@
 ## wardrobe-paging.js — 📄 꾸미기 창 파츠 칸 페이지 · 이름 찾기
 
 - **책임**: 꾸미기 창 파츠 칸의 줄 · 페이지 · 찾기 규칙(순수 함수 · DOM · 저장 없음). 칸 한 줄은 «기본 캐릭터» 묶음([안 함] + 기본 파츠) 다음 «커미션 전용» 묶음 — 페이지는 이 한 줄을 `PAGE_SIZE`(16 = 4열 × 4줄)씩 자른다. 그리기 · 기억한 페이지(분류마다 · 이 화면에서만)는 `wardrobe.js`.
-- **deps**: 없음. **만드는 법**: classic script(`window.TwWardrobePaging` · `module.exports`) — html · `checks/smoke.js` PRELOAD 가 `wardrobe.js` · app.js 앞에 싣고, app.js 가 `createWardrobe({ paging: TwWardrobePaging })` 로 넘긴다.
-- **내놓는 것**: `PAGE_SIZE` · `PAGER_ALL_MAX`(7) · `normQuery(q)`(앞뒤 공백 떼고 소문자) · `matchName(name, q)` · `buildCells({ defaultList, commissionList, withDefault, query })` → `[{ section:'default'|'commission', kind:'none'|'part', rec }]` · `pageCount(n, size)` · `clampPage(page, n, size)` · `pageView(cells, page, size)` → `{ page, pages, groups:[{ section, cells }] }` · `pagerItems(page, pages)` → 번호(0 부터)와 `'…'`.
+- **deps**: 없음(실릴 때 `TwPaging` 을 읽는다 — `shared/paging.js` 를 먼저 싣는다). **만드는 법**: classic script(`window.TwWardrobePaging` · `module.exports`) — html · `checks/smoke.js` PRELOAD 가 `wardrobe.js` · app.js 앞에 싣고, app.js 가 `createWardrobe({ paging: TwWardrobePaging })` 로 넘긴다.
+- **내놓는 것**: `PAGE_SIZE` · `PAGER_ALL_MAX`(7) · `normQuery(q)`(앞뒤 공백 떼고 소문자) · `matchName(name, q)` · `buildCells({ defaultList, commissionList, withDefault, query })` → `[{ section:'default'|'commission', kind:'none'|'part', rec }]` · `pageCount(n, size)` · `clampPage(page, n, size)`(둘은 `shared/paging.js` 것을 그대로 다시 내놓음 — 도감과 같은 한 벌) · `pageView(cells, page, size)` → `{ page, pages, groups:[{ section, cells }] }` · `pagerItems(page, pages)` → 번호(0 부터)와 `'…'`.
 - **함정**:
   - 페이지 번호는 0 부터 — 화면에 쓸 때만 +1.
   - 묶음 머리(«기본 캐릭터» · «커미션 전용»)는 그 페이지에 칸이 걸친 묶음에만 그린다(`groups`). 묶음마다 따로 페이지를 나누지 않는다 — 한 페이지 칸 수가 늘 16 이하라 창 높이가 정해진다.

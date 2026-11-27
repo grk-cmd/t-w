@@ -2,8 +2,13 @@
    칸 순서는 «기본 캐릭터» 묶음([안 함] + 기본 파츠) 다음 «커미션 전용» 묶음 — 페이지는 두 묶음을 이어 붙인 한 줄을 PAGE_SIZE 씩 자른다.
    묶음 머리는 그 페이지에 칸이 하나라도 걸친 묶음에만 그린다(pageView 의 groups).
    페이지 번호는 0 부터 — 화면에 쓰는 번호만 +1 한다.
+   쪽 수 · 쪽 번호 바로잡기는 도감과 같은 한 벌(shared/paging.js — html 이 이 파일보다 먼저 싣는다) — 여기서 다시 쓰지 않고 그대로 내놓는다.
    검사: checks/sim-wardrobe-paging.js */
 (function(){
+
+const paging = TwPaging;   // 📄 쪽 수 · 쪽 번호 바로잡기(shared/paging.js — 먼저 싣는 아래층 · 순수)
+const pageCount = paging.pageCount;
+const clampPage = paging.clampPage;
 
 const PAGE_SIZE = 16;   // 4열 × 4줄 — html .wd-grid 열 수와 같이 고친다
 const PAGER_ALL_MAX = 7;   // 페이지가 이보다 많으면 번호 줄을 «…» 로 줄인다
@@ -33,15 +38,6 @@ function buildCells(o){
   }
   (o.commissionList || []).forEach(rec => { if(matchName(rec && rec.name, q)) cells.push({ section: 'commission', kind: 'part', rec }); });
   return cells;
-}
-
-/** 페이지 수 — 칸이 없어도 1 */
-function pageCount(n, size){ return Math.max(1, Math.ceil(Math.max(0, n | 0) / size)); }
-
-/** 기억한 페이지를 지금 칸 수에 맞춘다 — 없는 페이지면 마지막 · 이상한 값이면 0 */
-function clampPage(page, n, size){
-  const p = Number.isFinite(page) ? Math.floor(page) : 0;
-  return Math.min(pageCount(n, size) - 1, Math.max(0, p));
 }
 
 /**

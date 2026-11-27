@@ -333,6 +333,8 @@ const PRELOAD = ['human-ear.js', 'wd-ear.js'];
 /* mac-tooltip.js — 💬 맥 설명 말풍선. 싣기만 하면 맥에서 스스로 건다(smoke 무대는 맥이 아니라 안 건다). */
 PRELOAD.push('mac-tooltip.js');
 PRELOAD.push('safe-html.js');
+/* paging.js — 📄 쪽 나누기 규칙(window.TwPaging · 순수). gacha-album.js · wardrobe-paging.js 가 실릴 때 읽으므로 그 둘보다 먼저. */
+PRELOAD.push('paging.js');
 /* server-features.js — 서버가 아직 안 받는 0.14 기능 표(window.TwServerFeatures). app.js · 모듈이 입구를 닫을 때 읽는다. */
 PRELOAD.push('server-features.js');
 /* person-name.js — 🏷️ 사람 이름을 화면 글로(window.TwPersonName). 이름을 그리는 모듈 · app.js 가 부를 때 읽는다. */
