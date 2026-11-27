@@ -561,7 +561,7 @@
 | **sim-move-verbatim.js** | 164 | **84e32579971a** |
 | **sim-lint.js** | 184 | **a12dcb8d9090** |
 | **sim-pr-title.js** | 42 | **6e06bfa2d832** |
-| **sim-no-attribution.js** | 91 | **2035edcf6dc2** |
+| **sim-no-attribution.js** | 112 | **23cb37394441** |
 | **sim-app-hosts.js** | 117 | **94ef7667d1d0** |
 | **sim-coined-terms.js** | 207 | **67a026b5735b** |
 | **sim-public-secrets.js** | 140 | **0816691ffdda** |

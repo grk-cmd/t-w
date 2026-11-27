@@ -138,6 +138,7 @@ release/0.12.1    ●──●──●── …           ← 다음 판. 앞 
   - **커밋 메시지** — force push 없이는 고칠 수 없다. 같은 트리를 새 브랜치에 깨끗한 메시지로 다시 만들어 새 PR 을 열고, 옛 PR 은 닫는다(#1165 → #1167).
     예) `git commit-tree <옛 머리>^{tree} -p origin/<base> -F msg.txt` 로 커밋을 만들고 `git push origin <새 커밋>:refs/heads/<새 브랜치>`.
   - **squash 머지** — 머지할 때 GitHub 가 채워 주는 squash 메시지에도 꼬리말이 없어야 한다(CI 는 머지 때 고친 글을 못 본다).
+  - **검사가 못 보는 것** — head 가 main · admin · release/* 인 PR(판 내기 · 합쳐 받기)은 그 커밋이 이미 보호 브랜치에 있어 새 커밋 0개로 센다. 그 커밋 · squash 메시지는 머지하는 사람이 본다.
 - 머지는 CI(`npm run check` · 웹 관리자 테스트)가 **초록인 것을 확인한 뒤** 한다.
 
 ### 3.1 본문 템플릿
