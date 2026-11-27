@@ -15,7 +15,7 @@
 3. 판 브랜치 밖에서 새 브랜치 따기 — 작업 전에 «어느 버전에 릴리스될 작업인가» 를 묻고 `release/X.Y.Z` 에서.
    예외: `hotfix/*` · `harness/*`(하네스 · 작업 규칙)는 main 에서 · 웹 관리자 작업은 이름과 상관없이 `admin` 에서.
    main 은 `hotfix/*` · `harness/*` · 판 내기(`release/*`) · 내보낸 웹 관리자 합치기(`admin` → main)만 받는다 — 그 밖은 머지를 막는다(risk.main_closed).
-   `admin` 으로 가는 PR · `admin` → main 합치기는 main 에 없는 것으로 web-admin/ 안만 가져올 수 있다 — 밖을 바꾸면 머지를 막는다
+   `admin` 으로 가는 PR · `admin` → main 합치기는 main 에 없는 것으로 apps/admin/ 안만 가져올 수 있다 — 밖을 바꾸면 머지를 막는다
    (브랜치 이름이 아니라 base 로 본다 · 앱 코드가 판을 건너뛰고 새지 않게 · risk.admin_outside).
 가드가 스스로 깨지면 막지 않고 알린다.
 """
