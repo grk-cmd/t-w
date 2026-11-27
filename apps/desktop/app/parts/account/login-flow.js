@@ -53,7 +53,7 @@ function joinKey(inviteCode, password){
  *   leaveRoom: () => Promise<void>,   // 방 안이면 나가기(leave → left 기다림) · 방 밖이면 바로 풀린다
  *   pending: { idFor: (k: string) => string, settle: (k: string) => void },
  *   storage: { getItem: Function, setItem: Function, removeItem: Function },
- *   onSessionLost: (kind: 'sessionLost' | 'deviceRemoved') => void,
+ *   onSessionLost: (kind: 'sessionLost' | 'deviceRemoved' | 'otherDevice') => void,
  *   forgetSession: () => void,   // 계정을 놓을 때 API 통로의 로그인 읽기 · 기억을 뗀다(TwApi.authed.forgetSession)
  *   now: () => number,
  *   onConfirmed: (r: { state: string }, info: { hadUser: boolean, anonymous: boolean, err: any, restore: null | { ok: boolean, ms: number } }) => void,   // 확인 결과 진단(TwLoginDiag.store.confirmed) — 결과를 바꾸지 않는다
@@ -121,7 +121,7 @@ function createLoginFlow(deps){
     return { state: STATE.IN, me };
   }
 
-  /* realtime 상태 신호 — 끊김(4004 — 이 PC 가 지워짐 · 이 PC 의 새 세션)은 기기 안내 화면(어느 쪽인지 실어서) · ready(서버가 다시 답함)는 기다리는 화면이 있을 때 계정을 한 번 다시 묻는 계기 */
+  /* realtime 상태 신호 — 끊김(4004 — 이 PC 가 지워짐 · 다른 PC 가 씀 · 이 PC 의 새 세션)은 기기 안내 화면(어느 쪽인지 실어서) · ready(서버가 다시 답함)는 기다리는 화면이 있을 때 계정을 한 번 다시 묻는 계기 */
   function hookState(){
     if(stateHooked) return;
     stateHooked = true;
