@@ -65,6 +65,7 @@ const TIERS = Object.freeze([ { y: 0.6, h: 1.9, r: 2.05 }, { y: 1.75, h: 1.6, r:
  * 장식 자리 n 개 — 층 넓이만큼 나눠 원뿔 겉면(위층에 덮이지 않는 띠)에 황금각 나선으로(빈자리 자동 배치 · 자리 번호 = 서버 slot).
  * 같은 n 이면 늘 같은 자리 → 모든 사람의 화면에서 같은 장식이 같은 곳에 걸린다.
  */
+const HY_LOW = 0.03;   // 층 밑단(치마 끝)에서 거의 바로 — 트리 맨 아래까지 장식이 내려온다
 function slotPositions(n){
   const out = [], area = TIERS.map(t => t.r * t.h), sum = area.reduce((a, b) => a + b, 0);
   let k = 0;
@@ -74,7 +75,7 @@ function slotPositions(n){
     const hiMax = i < TIERS.length - 1 ? (TIERS[i + 1].y - t.y) / t.h - 0.1 : 0.92;
     for (let j = 0; j < cnt; j++){
       const f = (j + 0.5) / cnt;
-      const hy = 0.12 + (hiMax - 0.12) * f;
+      const hy = HY_LOW + (hiMax - HY_LOW) * f;
       const rr = t.r * (1 - hy) * 1.04 + 0.05;
       const a = (k + j) * 2.39996;
       out.push({ x: Math.cos(a) * rr, y: t.y + t.h * hy, z: Math.sin(a) * rr });

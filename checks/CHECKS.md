@@ -599,7 +599,7 @@
 | **sim-mallang-sent.js** | 76 | **47c8eaaf32fa** |
 | **sim-xmas-server.js** | 332 | **1a7bb7d5b608** |
 | **sim-xmas-api.js** | 315 | **01986e4191a1** |
-| **sim-xmas-rules.js** | 155 | **9fc1f738829b** |
+| **sim-xmas-rules.js** | 157 | **bddcccb6d511** |
 | **sim-xmas-tree.js** | 97 | **eeb753fc5552** |
 | **sim-xmas-window.js** | 469 | **ac07acc22f9a** |
 | **sim-xmas-song.js** | 140 | **8f1589bf966d** |
