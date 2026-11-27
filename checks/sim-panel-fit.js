@@ -32,7 +32,7 @@ function fitCheck(P){
 /* settings-panel.js 의 끌기 묶음(bindFsPanelDrag)을 꺼내 가짜 창 · 문서에서 돌린다 */
 function dragCheck(spSrc, P){
   const r = {};
-  const a = spSrc.indexOf('  function fitPanel('), b = spSrc.indexOf('\n  })();', spSrc.indexOf('(function bindFsPanelDrag(){'));
+  const a = spSrc.indexOf('  let openH = 0;'), b = spSrc.indexOf('\n  })();', spSrc.indexOf('(function bindFsPanelDrag(){'));
   if (a < 0 || b < 0) return r;
   const body = spSrc.slice(a, b + '\n  })();'.length);
   const L = {}, docL = {}, winL = {}, obs = [];
@@ -41,7 +41,7 @@ function dragCheck(spSrc, P){
     querySelector: () => bar };
   const bar = { style: {}, addEventListener: (t, fn) => { L[t] = fn; } };
   const document = { addEventListener: (t, fn) => { docL[t] = fn; } };
-  const window = { _fsPanelDragged: false, addEventListener: (t, fn) => { winL[t] = fn; } };
+  const window = { addEventListener: (t, fn) => { winL[t] = fn; } };
   function ResizeObserver(fn){ return { observe(){ obs.push(fn); } }; }
   new Function('panel', 'document', 'window', 'innerWidth', 'innerHeight', 'ResizeObserver', 'TwPanelFit', body)(panel, document, window, 1920, 1080, ResizeObserver, P);
   const ev = (x, y) => ({ clientX: x, clientY: y, target: { closest: () => null }, preventDefault(){} });
@@ -51,19 +51,20 @@ function dragCheck(spSrc, P){
   r.untouched = pos()[1] === 100;
   panel.style.top = '300px';
   L.pointerdown(ev(960, 310)); docL.pointermove(ev(960, -200)); docL.pointerup();   // 제목줄을 잡고 화면 위로 끌어 올림
-  r.dragTop = window._fsPanelDragged === true && pos()[1] >= 8;
+  r.dragTop = pos()[1] === 8;
   docL.pointermove(ev(960, 900));
   r.afterUp = pos()[1] === 8;                                                        // 놓은 뒤엔 안 따라온다
-  panel.style.top = '200px'; panel.offsetHeight = 600; obs.forEach(fn => fn());      // 긴 탭으로 바꿈 — 아래로 자람
-  r.grow = pos()[1] === 200;                                                         // ★ 위 끝은 그대로
+  L.pointerdown(ev(960, 18)); docL.pointermove(ev(960, 310)); docL.pointerup();      // 다시 끌어 위 끝 300 에
+  panel.offsetHeight = 600; obs.forEach(fn => fn());                                // 긴 탭으로 바꿈 — 아래로 자람
+  r.grow = pos()[1] === 300;                                                         // ★ 위 끝(끈 자리)은 그대로
   panel.offsetHeight = 1000; obs.forEach(fn => fn());
-  r.refit = pos()[1] + 1000 <= 1080 - 8 && pos()[1] >= 8;                            // 아래가 화면 밖이면 그만큼만 올림
+  r.refit = pos()[1] === 72;                                                         // 아래가 화면 밖이면 그만큼만 올림(1080 − 1000 − 8)
   panel.offsetHeight = 400; panel.style.top = '200px'; panel._on = false; obs.forEach(fn => fn());
   r.closedSkip = pos()[1] === 200;                                                   // 닫힌 창은 안 맞춘다
-  panel._on = true; panel.style.top = '900px'; winL.resize && winL.resize();
-  r.resize = pos()[1] === 672;
+  panel._on = true; winL.resize && winL.resize();
+  r.resize = pos()[1] === 72 && pos()[0] === 960;                                    // 화면 크기가 바뀌면 끈 자리로 다시 맞춘다
   // 런처 — 가운데 고정(끌기 없음)이지만 탭을 바꿔도 위 끝은 그대로 · 화면 밖이면 안으로
-  window._fsPanelDragged = false; panel._launcher = true; panel.style.top = '340px'; panel.offsetHeight = 700; obs.forEach(fn => fn());
+  panel._launcher = true; panel.style.top = '340px'; panel.offsetHeight = 700; obs.forEach(fn => fn());
   r.launcherGrow = pos()[1] === 340 && pos()[0] === 960;
   panel.offsetHeight = 900; obs.forEach(fn => fn());
   r.launcherFit = pos()[1] === 172;
@@ -114,8 +115,8 @@ chk(/#focusSettingsPanel\{[^}]*max-height:calc\(100vh - 16px\);/.test(HTML) && /
   'css — 설정창 높이는 화면 안(100vh - 16px) · 열리면 세로 묶음');
 chk(/#focusSettingsPanel \.fs-titlebar\{flex:none;\}/.test(HTML) && /#focusSettingsPanel \.fs-body\{[^}]*min-height:0;overflow-y:auto;/.test(HTML),
   '  제목줄은 줄지 않고 넘치는 내용은 .fs-body 안에서 스크롤');
-chk(/TwPanelFit\.fitTopCenter\(cx, cy - openH,/.test(SC) && /const openH = parseFloat\(panel\.dataset\.openH\)/.test(SC) && !/Math\.max\(panelH \+ EDGE/.test(SC), 'status-chip.js 머리 위 자동 배치도 같은 함수 · 위 끝 = 머리 - 연 때 높이(탭을 바꿔도 위는 그대로)');
-chk(/panel\.dataset\.openH = String\(panel\.offsetHeight\);\s*if\(inLauncher\) fitPanel\(innerWidth\/2, \(innerHeight - panel\.offsetHeight\) \/ 2\);/.test(SP), 'settings-panel.js — 열 때 높이를 적고 · 런처면 가운데로');
+chk(/settingsPanel\(\)\.placeAtHead\(\(\)=>\{/.test(SC) && !/TwPanelFit|dataset\.openH|Math\.max\(panelH \+ EDGE/.test(SC), 'status-chip.js 는 머리 점만 넘기고 자리 규칙은 설정 창 주인(placeAtHead — 실행 검사는 sim-settings-panel.js)');
+chk(/openH = panel\.offsetHeight;\s*if\(inLauncher\) fitPanel\(innerWidth\/2, \(innerHeight - openH\) \/ 2\);/.test(SP), 'settings-panel.js — 열 때 높이를 적고 · 런처면 가운데로');
 chk(/#focusSettingsPanel\{position:fixed;z-index:var\(--z-win-settings\);transform:translate\(-50%,0\);/.test(HTML) && /#focusSettingsPanel\.fs-in-launcher\{left:50% !important;transform:translate\(-50%,0\) !important;\}/.test(HTML), 'css — 설정창 기준점은 위 가운데(실행 화면 · 런처 모두)');
 const iF = HTML.indexOf('<script src="parts/shared/panel-fit.js"></script>'), iS = HTML.indexOf('<script src="parts/launcher/settings-panel.js"></script>'),
   iC = HTML.indexOf('<script src="parts/status/status-chip.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
@@ -127,11 +128,11 @@ const b1 = fitCheck(load(MOD.replace('const fy = Math.max(e, Math.min(vh - h - e
 chk(!b1.bottom, '창 높이를 안 빼면(위 끝만 화면 안) 1절 «아래로 나가면» 이 빨강');
 const b1b = fitCheck(load(MOD.replace('const fy = Math.max(e, Math.min(vh - h - e, y));', 'const fy = Math.min(vh - h - e, Math.max(e, y));')));
 chk(!b1b.tall, '  min 이 나중이면(큰 창에서 제목줄을 안 살림) «화면보다 크면» 이 빨강');
-const b2 = dragCheck(SP.replace('fitTo(e.clientX-offX, e.clientY-offY);', "panel.style.left=(e.clientX-offX)+'px'; panel.style.top=(e.clientY-offY)+'px';"), P);
+const b2 = dragCheck(SP.replace('runPos = fitPanel(e.clientX-offX, e.clientY-offY);', "panel.style.left=(e.clientX-offX)+'px'; panel.style.top=(e.clientY-offY)+'px';"), P);
 chk(b2.dragTop === false, '끈 자리를 그대로 두면(옛 동작) 2절 «화면 위로 끌어도» 가 빨강');
 const b3 = dragCheck(SP.replace('new ResizeObserver(refit).observe(panel);', ''), P);
 chk(b3.refit === false, '크기 바뀜을 안 보면 2절 «아래가 화면 밖이면» 이 빨강');
-const b4 = dragCheck(SP.replace("if(!inLauncher && !window._fsPanelDragged) return;", "if(!window._fsPanelDragged) return;"), P);
+const b4 = dragCheck(SP.replace("if(panel.classList.contains('fs-in-launcher')) fitPanel(innerWidth/2, parseFloat(panel.style.top)||0);\n      else ", ''), P);
 chk(b4.launcherFit === false, '  런처를 빼면 «런처 — 화면 밖이면 안으로» 가 빨강');
 
 say(`\n결과: ${pass}·${fail}`);
